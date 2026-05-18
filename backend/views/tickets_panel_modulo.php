@@ -67,11 +67,34 @@ $mostrarModalFormBuilderLectura = !empty($tickets_panel_modal_form_builder_lectu
         display: flex;
         flex-direction: column;
     }
-    #modalFormBuilderValidacion .modal-body #iframeFormBuilderValidacion {
+#modalFormBuilderValidacion .modal-body #iframeFormBuilderValidacion {
         flex: 1 1 0;
         min-height: 0;
         width: 100%;
         border: none;
+    }
+    #modalResumenTicket.modal-resumen-ausencia .modal-dialog { max-width: min(92vw, 760px); }
+    #modalResumenTicket.modal-resumen-reclamo .modal-dialog { max-width: min(96vw, 1120px); }
+    #modalResumenTicket.modal-resumen-ausencia .modal-header { background: #fff; }
+    #modalResumenTicket.modal-resumen-ausencia .modal-body { padding-top: 1rem; }
+    #modalResumenTicket.modal-resumen-ausencia #resumenTicketMetaBar,
+    #modalResumenTicket.modal-resumen-ausencia #resumenTicketAsignarBlock,
+    #modalResumenTicket.modal-resumen-ausencia #resumenTicketCountdownCard,
+    #modalResumenTicket.modal-resumen-ausencia #resumenTicketPrioridadCard,
+    #modalResumenTicket.modal-resumen-ausencia #resumenTicketReferenciaCard,
+    #modalResumenTicket.modal-resumen-ausencia #resumenTicketAsuntoWrap,
+    #modalResumenTicket.modal-resumen-ausencia #resumenTicketDescripcionWrap { display: none !important; }
+    #modalResumenTicket.modal-resumen-ausencia .tm-resumen-main-col { width: 100%; flex: 0 0 100%; max-width: 100%; }
+    #modalResumenTicket.modal-resumen-ausencia .tm-resumen-side-col { display: none !important; }
+    #modalResumenTicket.modal-resumen-ausencia #resumenTicketModuloDetalleWrap .border {
+        background: #f8fafc !important;
+        border-color: #e7edf5 !important;
+    }
+    @media (min-width: 992px) {
+        #modalResumenTicket .col-lg-5ths {
+            flex: 0 0 auto;
+            width: 20%;
+        }
     }
     @media (max-width: 992px) {
         #modalFormBuilderValidacion .modal-dialog {
@@ -217,7 +240,7 @@ $mostrarModalFormBuilderLectura = !empty($tickets_panel_modal_form_builder_lectu
             </div>
 
             <!-- Metadatos -->
-            <div class="border-bottom bg-light px-3 py-2 px-md-4 small">
+            <div class="border-bottom bg-light px-3 py-2 px-md-4 small" id="resumenTicketMetaBar">
                 <div class="row g-2 g-md-3 row-cols-2 row-cols-md-3 row-cols-xl-6">
                     <div class="col">
                         <div class="text-uppercase text-muted small fw-semibold mb-0" style="letter-spacing: 0.04em;">De</div>
@@ -251,14 +274,14 @@ $mostrarModalFormBuilderLectura = !empty($tickets_panel_modal_form_builder_lectu
                 <div class="row g-3">
 
                     <!-- Columna principal -->
-                    <div class="col-12 col-md-8">
-                        <div class="mb-3">
+                    <div class="col-12 col-md-8 tm-resumen-main-col">
+                        <div class="mb-3" id="resumenTicketAsuntoWrap">
                             <p class="text-muted fw-semibold mb-1" style="font-size:.7rem;text-transform:uppercase;letter-spacing:.05em;">
                                 <i class="fa-solid fa-clipboard me-1"></i>Asunto
                             </p>
                             <div class="border rounded-2 bg-body-tertiary p-2 small" id="resumenTicketAsunto">—</div>
                         </div>
-                        <div class="mb-3">
+                        <div class="mb-3" id="resumenTicketDescripcionWrap">
                             <p class="text-muted fw-semibold mb-1" style="font-size:.7rem;text-transform:uppercase;letter-spacing:.05em;">
                                 <i class="fa-solid fa-file-lines me-1"></i>Descripción inicial
                             </p>
@@ -285,10 +308,22 @@ $mostrarModalFormBuilderLectura = !empty($tickets_panel_modal_form_builder_lectu
                             </p>
                             <div class="border rounded-2 bg-body-tertiary p-2 small" id="resumenTicketDs"></div>
                         </div>
+                        <div id="resumenTicketRespuestaWrap" class="mb-3 d-none">
+                            <p class="text-muted fw-semibold mb-1" style="font-size:.7rem;text-transform:uppercase;letter-spacing:.05em;">
+                                <i class="fa-solid fa-reply me-1"></i>Respuesta del ticket
+                            </p>
+                            <div class="border rounded-2 bg-body-tertiary p-3 small">
+                                <div class="d-flex align-items-center gap-2 flex-wrap mb-2">
+                                    <span id="resumenTicketRespuestaBadge" class="badge bg-label-secondary">—</span>
+                                    <span id="resumenTicketRespuestaFecha" class="text-muted"></span>
+                                </div>
+                                <div id="resumenTicketRespuestaComentario" style="white-space:pre-wrap;">—</div>
+                            </div>
+                        </div>
                     </div>
 
                     <!-- Sidebar -->
-                    <div class="col-12 col-md-4">
+                    <div class="col-12 col-md-4 tm-resumen-side-col">
                         <div class="card mb-2" id="resumenTicketAsignarBlock">
                             <div class="card-body py-2 px-3">
                                 <p class="text-muted fw-semibold mb-2" style="font-size:.7rem;text-transform:uppercase;letter-spacing:.05em;" id="resumenTicketAsignarTitulo">Asignar a</p>
@@ -311,19 +346,19 @@ $mostrarModalFormBuilderLectura = !empty($tickets_panel_modal_form_builder_lectu
                                 </div>
                             </div>
                         </div>
-                        <div class="card mb-2">
+                        <div class="card mb-2" id="resumenTicketCountdownCard">
                             <div class="card-body py-2 px-3">
                                 <p class="text-muted fw-semibold mb-1" style="font-size:.7rem;text-transform:uppercase;letter-spacing:.05em;">Tiempo restante (24h)</p>
                                 <span id="resumenTicketCountdown" class="fw-semibold">—</span>
                             </div>
                         </div>
-                        <div class="card mb-2">
+                        <div class="card mb-2" id="resumenTicketPrioridadCard">
                             <div class="card-body py-2 px-3">
                                 <p class="text-muted fw-semibold mb-1" style="font-size:.7rem;text-transform:uppercase;letter-spacing:.05em;">Prioridad</p>
                                 <span class="badge bg-label-warning" id="resumenTicketPrioridadSide">—</span>
                             </div>
                         </div>
-                        <div class="card mb-2">
+                        <div class="card mb-2" id="resumenTicketReferenciaCard">
                             <div class="card-body py-2 px-3">
                                 <p class="text-muted fw-semibold mb-1" style="font-size:.7rem;text-transform:uppercase;letter-spacing:.05em;">Referencia</p>
                                 <div class="small fw-semibold" id="resumenTicketRefSide">—</div>
@@ -355,6 +390,12 @@ $mostrarModalFormBuilderLectura = !empty($tickets_panel_modal_form_builder_lectu
             <!-- Footer -->
             <div class="modal-footer py-2">
                 <span class="text-muted small me-auto"><i class="fa-regular fa-clock me-1"></i>Creado: <span id="resumenTicketCreado">—</span></span>
+                <button type="button" class="btn btn-sm btn-success d-none" id="resumenTicketBtnAceptar">
+                    <i class="fa-solid fa-check me-1"></i>Aceptar
+                </button>
+                <button type="button" class="btn btn-sm btn-danger d-none" id="resumenTicketBtnDenegar">
+                    <i class="fa-solid fa-ban me-1"></i>Denegar
+                </button>
                 <button type="button" class="btn btn-sm btn-secondary" data-bs-dismiss="modal">
                     <i class="fa-solid fa-times me-1"></i>Cerrar
                 </button>

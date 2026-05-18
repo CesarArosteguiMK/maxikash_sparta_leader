@@ -9,6 +9,6 @@ class Aclaracioncredito extends Controller
 {
     public function paneladmin()
     {
-        TicketsPanelModuloHelper::renderModuloPanel($this, 'aclaracion_credito');
+        TicketsPanelModuloHelper::renderModuloPanel($this, 'incidencias_cartera');
     }
 }

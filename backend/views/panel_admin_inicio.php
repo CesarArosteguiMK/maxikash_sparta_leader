@@ -124,6 +124,17 @@ body.dark-mode .pai-hero-mascot-floating {
 #panelAdminInicioWrap .panel-admin-modulo-card {
     position: relative;
 }
+#panelAdminInicioWrap .panel-admin-modulo-btn {
+    width: min(100%, 17rem);
+    min-height: 2.5rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    white-space: nowrap;
+    line-height: 1.2;
+    padding-left: 1rem;
+    padding-right: 1rem;
+}
 #panelAdminInicioWrap .panel-admin-modulo-card--proximamente {
     overflow: hidden;
     opacity: 0.62;
@@ -170,23 +181,47 @@ body.dark-mode .pai-hero-mascot-floating {
             <div class="row gy-6 mb-6 gx-0 pai-hero-paneles-row">
                 <?php
                 /** Solo estos paneles están operativos; el resto muestra lazo «Próximamente» (como en Levantar ticket). */
-                $panelesActivosAhora = ['sabueso_paneladmin', 'sabueso_panel_validaciones', 'sabueso_panel_viaticos'];
+                $panelesActivosAhora = ['sabueso_paneladmin', 'sabueso_panel_validaciones', 'sabueso_panel_viaticos', 'sabueso_panel_aplicacionespago', 'sabueso_panel_creditoproblematico', 'sabueso_panel_aclaracioncredito'];
                 $descripciones = [
                     'sabueso_paneladmin' => 'Todos los tickets Sabueso, asignación, dictámenes y seguimiento.',
                     'sabueso_panel_validaciones' => 'Tickets de validación de domicilio y validaciones. Ver y gestionar solicitudes.',
                     'sabueso_panel_plantilla' => 'Tickets de plantilla. Ver y gestionar solicitudes.',
                     'sabueso_panel_atencioncliente' => 'Tickets de atención al cliente. Ver y gestionar solicitudes.',
                     'sabueso_panel_viaticos' => 'Tickets de ausencias. Ver solicitudes levantadas desde la app y su detalle.',
-                    'sabueso_panel_aplicacionespago' => 'Tickets de aplicaciones de pago. Ver y gestionar solicitudes.',
-                    'sabueso_panel_creditoproblematico' => 'Tickets de crédito problemático. Ver y gestionar solicitudes.',
-                    'sabueso_panel_aclaracioncredito' => 'Tickets de aclaración de crédito. Ver y gestionar solicitudes.',
+                    'sabueso_panel_aplicacionespago' => 'Tickets de reclamos de bonos. Ver solicitudes levantadas desde la app y su detalle.',
+                    'sabueso_panel_creditoproblematico' => 'Tickets de pagos no identificados. Ver solicitudes levantadas desde la app y su detalle.',
+                    'sabueso_panel_aclaracioncredito' => 'Tickets de incidencias en asignacion de cartera. Ver solicitudes levantadas desde la app y su detalle.',
                     'sabueso_panelsolicitudbaja' => 'Solicitudes de baja recibidas y su estado.',
                 ];
+                $textosBoton = [
+                    'sabueso_paneladmin' => 'VER PANEL SABUESO',
+                    'sabueso_panel_validaciones' => 'VER VALIDACIONES',
+                    'sabueso_panel_viaticos' => 'VER AUSENCIAS',
+                    'sabueso_panel_aplicacionespago' => 'VER RECLAMOS DE BONOS',
+                    'sabueso_panel_creditoproblematico' => 'VER PAGOS NO IDENTIFICADOS',
+                    'sabueso_panel_aclaracioncredito' => 'VER INCIDENCIAS CARTERA',
+                    'sabueso_panelsolicitudbaja' => 'VER PANEL SOLICITUD DE BAJA',
+                ];
+                $ordenPanelesInicio = [
+                    'sabueso_paneladmin' => 10,
+                    'sabueso_panel_viaticos' => 20,
+                    'sabueso_panel_aplicacionespago' => 30,
+                    'sabueso_panel_creditoproblematico' => 40,
+                    'sabueso_panel_aclaracioncredito' => 50,
+                    'sabueso_panel_validaciones' => 90,
+                ];
+                uksort($panelesVisibles, static function ($a, $b) use ($ordenPanelesInicio) {
+                    return ($ordenPanelesInicio[$a] ?? 80) <=> ($ordenPanelesInicio[$b] ?? 80);
+                });
                 foreach ($panelesVisibles as $clave => $info):
+                    if ($clave === 'sabueso_panelsolicitudbaja') {
+                        continue;
+                    }
                     $label = $info['label'] ?? $clave;
                     $icon = $info['icon'] ?? 'fa-solid fa-table-cells';
                     $url = $info['url'] ?? '#';
                     $desc = $descripciones[$clave] ?? 'Panel de administración.';
+                    $textoBoton = $textosBoton[$clave] ?? ('VER ' . strtoupper((string) $label));
                     $panelOperativo = in_array($clave, $panelesActivosAhora, true);
                     $clsModulo = 'card shadow-none bg-label-primary h-100 panel-admin-modulo-card'
                         . ($panelOperativo ? '' : ' panel-admin-modulo-card--proximamente');
@@ -204,9 +239,9 @@ body.dark-mode .pai-hero-mascot-floating {
                                 </div>
                                 <div class="mb-0">
                                     <?php if ($panelOperativo): ?>
-                                    <a href="<?= htmlspecialchars($url); ?>" class="btn btn-primary">VER <?= strtoupper(htmlspecialchars($label)); ?></a>
+                                    <a href="<?= htmlspecialchars($url); ?>" class="btn btn-primary panel-admin-modulo-btn"><?= htmlspecialchars($textoBoton, ENT_QUOTES, 'UTF-8'); ?></a>
                                     <?php else: ?>
-                                    <span class="btn btn-primary disabled" aria-disabled="true">VER <?= strtoupper(htmlspecialchars($label)); ?></span>
+                                    <span class="btn btn-primary disabled panel-admin-modulo-btn" aria-disabled="true"><?= htmlspecialchars($textoBoton, ENT_QUOTES, 'UTF-8'); ?></span>
                                     <?php endif; ?>
                                 </div>
                             </div>
@@ -219,25 +254,6 @@ body.dark-mode .pai-hero-mascot-floating {
                     </div>
                 </div>
                 <?php endforeach; ?>
-                <div class="col-md-6 col-lg-3">
-                    <div class="card shadow-none bg-label-primary h-100 panel-admin-modulo-card panel-admin-modulo-card--proximamente">
-                        <span class="panel-admin-modulo-lazo">Próximamente</span>
-                        <div class="card-body d-flex justify-content-between flex-wrap-reverse">
-                            <div class="mb-0 w-100 app-academy-sm-60 d-flex flex-column justify-content-between text-center text-sm-start">
-                                <div class="card-title">
-                                    <h5 class="text-primary mb-2">Más paneles</h5>
-                                    <p class="text-body app-academy-sm-60 app-academy-xl-100">Nuevos paneles de administración se habilitarán aquí.</p>
-                                </div>
-                                <div class="mb-0"><span class="btn btn-sm btn-primary disabled" aria-disabled="true">PRÓXIMAMENTE</span></div>
-                            </div>
-                            <div class="w-100 app-academy-sm-40 d-flex justify-content-center justify-content-sm-end h-px-150 mb-4 mb-sm-0">
-                                <div class="rounded-3 d-flex align-items-center justify-content-center h-100 text-secondary" style="min-height: 120px; min-width: 100px;">
-                                    <i class="fa-solid fa-chart-column fa-3x scaleX-n1-rtl" aria-hidden="true"></i>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
             </div>
         </div>
     </div>

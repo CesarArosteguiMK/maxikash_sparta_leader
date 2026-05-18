@@ -13,17 +13,27 @@
     "00:05"
   ],
   "lastRunBySlot": {
-    "fallback_20:40": "2026-05-13",
-    "fallback_00:05": "2026-05-14",
-    "fallback_07:40": "2026-05-14",
-    "fallback_09:40": "2026-05-14",
-    "fallback_11:40": "2026-05-14",
-    "fallback_13:40": "2026-05-14",
-    "fallback_14:40": "2026-05-14",
-    "fallback_16:40": "2026-05-14",
-    "fallback_18:40": "2026-05-13"
+    "fallback_20:40": "2026-05-17",
+    "fallback_00:05": "2026-05-18",
+    "fallback_07:40": "2026-05-18",
+    "fallback_09:40": "2026-05-18",
+    "fallback_11:40": "2026-05-18",
+    "fallback_13:40": "2026-05-18",
+    "fallback_14:40": "2026-05-17",
+    "fallback_16:40": "2026-05-17",
+    "fallback_18:40": "2026-05-17",
+    "14:48": "2026-05-15",
+    "16:40": "2026-05-15"
   },
-  "lastRunResult": null,
+  "lastRunResult": {
+    "success": true,
+    "mensaje": "Archivo copiado automáticamente",
+    "origen": "mega_rpt_20260515_16_31_35.csv.zip",
+    "destino": "mega_rpt_20260515_16_31_36.csv.zip",
+    "fecha": "2026-05-15",
+    "hora": "16:40",
+    "esPrueba": false
+  },
   "pruebaEjecutarEn": null,
   "pruebaNoAntesDe": null
 }

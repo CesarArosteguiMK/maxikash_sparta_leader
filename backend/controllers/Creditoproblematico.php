@@ -9,6 +9,6 @@ class Creditoproblematico extends Controller
 {
     public function paneladmin()
     {
-        TicketsPanelModuloHelper::renderModuloPanel($this, 'credito_problematico');
+        TicketsPanelModuloHelper::renderModuloPanel($this, 'pagos_no_identificados');
     }
 }

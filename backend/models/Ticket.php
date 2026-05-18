@@ -19,6 +19,11 @@ class Ticket extends Model
     /** Ticket levantado desde app móvil (identificación típica por numero_empleado en request). */
     public const CANAL_LEVANTAMIENTO_APP_MOVIL = 'app_movil';
 
+    /** Cache por request para evitar repetir consultas remotas a information_schema. */
+    private static $schemaColumnExistsCache = [];
+    private static $schemaColumnsLoadedTables = [];
+    private static $schemaTableExistsCache = [];
+
     /**
      * Tiempo Sabueso/tickets: toda fecha/hora que se escribe en BD en este módulo debe ser hora CDMX
      * (America/Mexico_City), no la del reloj del servidor ni NOW()/CURDATE() en SQL al insertar/actualizar.
@@ -38,83 +43,63 @@ class Ticket extends Model
     public static function getListaTickets($idUsuario, $soloDelUsuario = true, array $filtros = [])
     {
         $db = new Database();
-        $tieneCategoriaGestion = false;
-        try {
-            $col = $db->queryOne("SELECT 1 AS ok FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'ticket' AND COLUMN_NAME = 'categoria_gestion' LIMIT 1");
-            $tieneCategoriaGestion = !empty($col);
-        } catch (\Exception $e) {
-            $tieneCategoriaGestion = false;
-        }
+        $tieneCategoriaGestion = self::columnaExiste($db, 'ticket', 'categoria_gestion');
         $selCategoria = $tieneCategoriaGestion
             ? "COALESCE(NULLIF(TRIM(t.categoria_gestion),''), 'sabueso') AS categoria_gestion, "
             : "'sabueso' AS categoria_gestion, ";
         $tieneColsCategoria = false;
         if ($tieneCategoriaGestion) {
-            try {
-                $colTipo = $db->queryOne("SELECT 1 AS ok FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'ticket' AND COLUMN_NAME = 'tipo_categoria' LIMIT 1");
-                $tieneColsCategoria = !empty($colTipo);
-            } catch (\Exception $e) {
-                $tieneColsCategoria = false;
-            }
+            $tieneColsCategoria = self::columnaExiste($db, 'ticket', 'tipo_categoria');
         }
         $selColsCategoria = $tieneColsCategoria
             ? "t.tipo_categoria, t.asunto, t.prioridad_categoria, t.contacto_telefono, t.contacto_email, "
             : "";
         $tieneNotaUrl = false;
         if ($tieneCategoriaGestion) {
-            try {
-                $colNota = $db->queryOne("SELECT 1 AS ok FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'ticket' AND COLUMN_NAME = 'nota' LIMIT 1");
-                $tieneNotaUrl = !empty($colNota);
-            } catch (\Exception $e) {
-                $tieneNotaUrl = false;
-            }
+            $tieneNotaUrl = self::columnaExiste($db, 'ticket', 'nota');
         }
         $selColsNotaUrl = $tieneNotaUrl ? "t.nota, t.url_direccion, " : "";
         $tieneColsSolVac = false;
         if ($tieneCategoriaGestion) {
-            try {
-                $colSv = $db->queryOne("SELECT 1 AS ok FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'ticket' AND COLUMN_NAME = 'solicitud_vacaciones_departamento' LIMIT 1");
-                $tieneColsSolVac = !empty($colSv);
-            } catch (\Exception $e) {
-                $tieneColsSolVac = false;
-            }
+            $tieneColsSolVac = self::columnaExiste($db, 'ticket', 'solicitud_vacaciones_departamento');
         }
         $tieneColAdjNomSolVac = false;
         if ($tieneColsSolVac) {
-            try {
-                $colAn = $db->queryOne("SELECT 1 AS ok FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'ticket' AND COLUMN_NAME = 'solicitud_vacaciones_adjunto_nombre_original' LIMIT 1");
-                $tieneColAdjNomSolVac = !empty($colAn);
-            } catch (\Exception $e) {
-                $tieneColAdjNomSolVac = false;
-            }
+            $tieneColAdjNomSolVac = self::columnaExiste($db, 'ticket', 'solicitud_vacaciones_adjunto_nombre_original');
         }
         $selColsSolVac = $tieneColsSolVac
             ? 't.solicitud_vacaciones_departamento, t.solicitud_vacaciones_fecha_desde, t.solicitud_vacaciones_fecha_hasta, t.solicitud_vacaciones_quien_cubre'
                 . ($tieneColAdjNomSolVac ? ', t.solicitud_vacaciones_adjunto_nombre_original' : '')
                 . ', '
             : '';
-        $tieneCanalLevantamiento = false;
-        try {
-            $colCanal = $db->queryOne("SELECT 1 AS ok FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'ticket' AND COLUMN_NAME = 'canal_levantamiento' LIMIT 1");
-            $tieneCanalLevantamiento = !empty($colCanal);
-        } catch (\Exception $e) {
-            $tieneCanalLevantamiento = false;
+        $tieneColsAusencia = false;
+        if ($tieneCategoriaGestion) {
+            $tieneColsAusencia = self::columnaExiste($db, 'ticket', 'solicitud_ausencia_departamento');
         }
+        $tieneColAdjNomAus = false;
+        if ($tieneColsAusencia) {
+            $tieneColAdjNomAus = self::columnaExiste($db, 'ticket', 'solicitud_ausencia_adjunto_nombre_original');
+        }
+        $selColsAusencia = $tieneColsAusencia
+            ? 't.solicitud_ausencia_departamento, t.solicitud_ausencia_fecha_desde, t.solicitud_ausencia_fecha_hasta, t.solicitud_ausencia_quien_cubre'
+                . ($tieneColAdjNomAus ? ', t.solicitud_ausencia_adjunto_nombre_original' : '')
+                . ', '
+            : '';
+        $tieneColsReclamo = false;
+        if ($tieneCategoriaGestion) {
+            $tieneColsReclamo = self::columnaExiste($db, 'ticket', 'reclamo_departamento');
+        }
+        $selColsReclamo = $tieneColsReclamo
+            ? 't.reclamo_departamento, t.reclamo_bono, t.reclamo_tipo, t.reclamo_mes, t.reclamo_semana, t.reclamo_semana_rango, t.reclamo_monto_esperado, t.reclamo_monto_recibido, t.reclamo_diferencia, t.reclamo_descripcion, t.reclamo_adjunto_nombre_original, '
+            : '';
+        $tieneCanalLevantamiento = self::columnaExiste($db, 'ticket', 'canal_levantamiento');
         $selCanalLevantamiento = $tieneCanalLevantamiento ? 't.canal_levantamiento, ' : '';
-        $tieneColQuienAsigno = false;
-        try {
-            $colQ = $db->queryOne("SELECT 1 AS ok FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'asignacion_ticket' AND COLUMN_NAME = 'id_persona_quien_asigno' LIMIT 1");
-            $tieneColQuienAsigno = !empty($colQ);
-        } catch (\Exception $e) {
-            $tieneColQuienAsigno = false;
-        }
-        $tieneTablaMotivo = false;
-        try {
-            $tabM = $db->queryOne("SELECT 1 AS ok FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'asignacion_ticket_motivo' LIMIT 1");
-            $tieneTablaMotivo = !empty($tabM);
-        } catch (\Exception $e) {
-            $tieneTablaMotivo = false;
-        }
+        $tieneColsRespuesta = self::columnaExiste($db, 'ticket', 'respuesta_resultado');
+        $selColsRespuesta = $tieneColsRespuesta
+            ? 't.respuesta_resultado, t.respuesta_comentario, t.respuesta_fecha, t.respuesta_id_persona, '
+            : "NULL AS respuesta_resultado, NULL AS respuesta_comentario, NULL AS respuesta_fecha, NULL AS respuesta_id_persona, ";
+        $tieneColQuienAsigno = self::columnaExiste($db, 'asignacion_ticket', 'id_persona_quien_asigno');
+        $tieneTablaMotivo = self::tablaExiste($db, 'asignacion_ticket_motivo');
         $atSubSel = 'at1.id_ticket, at1.id_persona_asignada, at1.id_asignacion';
         if ($tieneColQuienAsigno) {
             $atSubSel .= ', at1.id_persona_quien_asigno';
@@ -137,18 +122,21 @@ class Ticket extends Model
             $selColsCategoria .
             $selColsNotaUrl .
             $selColsSolVac .
+            $selColsAusencia .
+            $selColsReclamo .
             $selCanalLevantamiento .
-            "tt.nombre AS tipo_ticket_nombre, et.nombre AS estado_ticket_nombre, pt.nombre AS prioridad_nombre, ot.nombre AS origen_nombre, " .
+            $selColsRespuesta .
+            "COALESCE(tt.nombre, 'Ticket') AS tipo_ticket_nombre, COALESCE(et.nombre, 'Pendiente') AS estado_ticket_nombre, COALESCE(pt.nombre, 'Sin Prioridad') AS prioridad_nombre, COALESCE(ot.nombre, 'App') AS origen_nombre, " .
             "CONCAT(TRIM(IFNULL(p.nombres, '')), ' ', TRIM(IFNULL(p.apellidop, ''))) AS creador_nombre, " .
             "at.id_persona_asignada, CONCAT(TRIM(IFNULL(pa.nombres, '')), ' ', TRIM(IFNULL(pa.apellidop, ''))) AS asignado_nombre, " .
             $selAsignadoPor .
             "dm.dictamen_estado, dm.dictamen_fecha_visto, dm.dictamen_fecha_envio, " .
             "dsm.ds_resultado, dsm.ds_detalle " .
             "FROM ticket t " .
-            "INNER JOIN tipo_ticket tt ON t.id_tipo_ticket = tt.id_tipo_ticket " .
-            "INNER JOIN estado_ticket et ON t.id_estado_ticket = et.id_estado_ticket " .
-            "INNER JOIN prioridad_ticket pt ON t.id_prioridad = pt.id_prioridad " .
-            "INNER JOIN origen_ticket ot ON t.id_origen_ticket = ot.id_origen_ticket " .
+            "LEFT JOIN tipo_ticket tt ON t.id_tipo_ticket = tt.id_tipo_ticket " .
+            "LEFT JOIN estado_ticket et ON t.id_estado_ticket = et.id_estado_ticket " .
+            "LEFT JOIN prioridad_ticket pt ON t.id_prioridad = pt.id_prioridad " .
+            "LEFT JOIN origen_ticket ot ON t.id_origen_ticket = ot.id_origen_ticket " .
             "INNER JOIN persona p ON t.id_persona_creador = p.id " .
             $atJoinSub .
             $joinPa .
@@ -240,9 +228,17 @@ class Ticket extends Model
             $catVal = strtolower(preg_replace('/[^a-z0-9_]/', '', str_replace([' ', '-'], '_', $filtroCategoria)));
             if ($catVal !== '') {
                 if ($catVal === 'ausencia') {
-                    $extraWhere[] = "(COALESCE(NULLIF(TRIM(t.categoria_gestion),''), 'sabueso') IN ('ausencia', 'solicitud_vacaciones'))";
+                    $extraWhere[] = "t.categoria_gestion IN ('ausencia', 'solicitud_vacaciones')";
+                } elseif ($catVal === 'aplicaciones_de_pago') {
+                    $extraWhere[] = "t.categoria_gestion IN ('aplicaciones_de_pago', 'reclamo')";
+                } elseif ($catVal === 'credito_problematico') {
+                    $extraWhere[] = "t.categoria_gestion IN ('credito_problematico', 'pagos_no_identificados')";
+                } elseif ($catVal === 'aclaracion_credito') {
+                    $extraWhere[] = "t.categoria_gestion IN ('aclaracion_credito', 'incidencias_cartera')";
+                } elseif ($catVal === 'sabueso') {
+                    $extraWhere[] = "(t.categoria_gestion = 'sabueso' OR t.categoria_gestion IS NULL OR TRIM(t.categoria_gestion) = '')";
                 } else {
-                    $extraWhere[] = "(COALESCE(NULLIF(TRIM(t.categoria_gestion),''), 'sabueso') = :filtro_categoria_gestion)";
+                    $extraWhere[] = "t.categoria_gestion = :filtro_categoria_gestion";
                     $params['filtro_categoria_gestion'] = $catVal;
                 }
             }
@@ -262,6 +258,7 @@ class Ticket extends Model
             try {
                 $rows = $db->queryAll($baseSelect . $where . $orderBy, $params);
                 $datos = is_array($rows) ? $rows : [];
+                self::enriquecerTicketsAppMovil($datos, $db);
                 foreach ($datos as &$row) {
                     $row['prorroga_otorgada'] = false;
                     $row['prorroga_activa'] = false;
@@ -360,6 +357,149 @@ class Ticket extends Model
         $errorDetalle = $lastException ? $lastException->getMessage() : 'Error desconocido';
         error_log("Error en getListaTickets: " . $errorDetalle);
         return self::resultado(false, 'Error al consultar tickets: ' . $errorDetalle, null, $errorDetalle);
+    }
+
+    private static function columnaExiste(Database $db, string $tabla, string $columna): bool
+    {
+        $tabla = preg_replace('/[^a-zA-Z0-9_]/', '', $tabla);
+        $columna = preg_replace('/[^a-zA-Z0-9_]/', '', $columna);
+        $tablaKey = strtolower($tabla);
+        $key = strtolower($tabla . '.' . $columna);
+        if (array_key_exists($key, self::$schemaColumnExistsCache)) {
+            return self::$schemaColumnExistsCache[$key];
+        }
+        if (empty(self::$schemaColumnsLoadedTables[$tablaKey])) {
+            try {
+                $rows = $db->queryAll(
+                    "SELECT COLUMN_NAME FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = :tabla",
+                    ['tabla' => $tabla]
+                );
+                foreach (is_array($rows) ? $rows : [] as $row) {
+                    $col = strtolower($tabla . '.' . ($row['COLUMN_NAME'] ?? ''));
+                    if ($col !== strtolower($tabla . '.')) {
+                        self::$schemaColumnExistsCache[$col] = true;
+                    }
+                }
+                self::$schemaColumnsLoadedTables[$tablaKey] = true;
+            } catch (\Exception $e) {
+                self::$schemaColumnsLoadedTables[$tablaKey] = true;
+            }
+            if (array_key_exists($key, self::$schemaColumnExistsCache)) {
+                return true;
+            }
+            self::$schemaColumnExistsCache[$key] = false;
+            return false;
+        }
+        try {
+            $row = $db->queryOne(
+                "SELECT 1 AS ok FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = :tabla AND COLUMN_NAME = :columna LIMIT 1",
+                ['tabla' => $tabla, 'columna' => $columna]
+            );
+            self::$schemaColumnExistsCache[$key] = !empty($row);
+        } catch (\Exception $e) {
+            self::$schemaColumnExistsCache[$key] = false;
+        }
+        return self::$schemaColumnExistsCache[$key];
+    }
+
+    private static function tablaExiste(Database $db, string $tabla): bool
+    {
+        $tabla = preg_replace('/[^a-zA-Z0-9_]/', '', $tabla);
+        $key = strtolower($tabla);
+        if (array_key_exists($key, self::$schemaTableExistsCache)) {
+            return self::$schemaTableExistsCache[$key];
+        }
+        try {
+            $row = $db->queryOne(
+                "SELECT 1 AS ok FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = :tabla LIMIT 1",
+                ['tabla' => $tabla]
+            );
+            self::$schemaTableExistsCache[$key] = !empty($row);
+        } catch (\Exception $e) {
+            self::$schemaTableExistsCache[$key] = false;
+        }
+        return self::$schemaTableExistsCache[$key];
+    }
+
+    private static function enriquecerTicketsAppMovil(array &$datos, Database $db): void
+    {
+        if (empty($datos)) {
+            return;
+        }
+
+        $idsPagos = [];
+        $idsIncidencias = [];
+        foreach ($datos as $row) {
+            $id = (int)($row['id_ticket'] ?? 0);
+            if ($id < 1) {
+                continue;
+            }
+            $cat = strtolower(trim((string)($row['categoria_gestion'] ?? '')));
+            if ($cat === 'pagos_no_identificados') {
+                $idsPagos[] = $id;
+            } elseif ($cat === 'incidencias_cartera') {
+                $idsIncidencias[] = $id;
+            }
+        }
+
+        $pagos = [];
+        if (!empty($idsPagos) && self::tablaExiste($db, 'ticket_pago_no_identificado')) {
+            $placeholders = [];
+            $params = [];
+            foreach (array_values(array_unique($idsPagos)) as $i => $id) {
+                $key = 'idp' . $i;
+                $placeholders[] = ':' . $key;
+                $params[$key] = $id;
+            }
+            $rows = $db->queryAll(
+                'SELECT id_ticket, fecha_pago, monto_pago, fecha_registro FROM ticket_pago_no_identificado WHERE id_ticket IN (' . implode(',', $placeholders) . ')',
+                $params
+            );
+            foreach (is_array($rows) ? $rows : [] as $r) {
+                $pagos[(int)$r['id_ticket']] = $r;
+            }
+        }
+
+        $incidencias = [];
+        if (!empty($idsIncidencias) && self::tablaExiste($db, 'ticket_incidencia_cartera')) {
+            $placeholders = [];
+            $params = [];
+            foreach (array_values(array_unique($idsIncidencias)) as $i => $id) {
+                $key = 'idi' . $i;
+                $placeholders[] = ':' . $key;
+                $params[$key] = $id;
+            }
+            $rows = $db->queryAll(
+                'SELECT id_ticket, id_credito, cliente, tipo_error, descripcion, adjunto_nombre_original, url_direccion, fecha_registro FROM ticket_incidencia_cartera WHERE id_ticket IN (' . implode(',', $placeholders) . ')',
+                $params
+            );
+            foreach (is_array($rows) ? $rows : [] as $r) {
+                $incidencias[(int)$r['id_ticket']] = $r;
+            }
+        }
+
+        foreach ($datos as &$row) {
+            $id = (int)($row['id_ticket'] ?? 0);
+            if (isset($pagos[$id])) {
+                $row['pago_no_identificado_fecha_pago'] = $pagos[$id]['fecha_pago'] ?? null;
+                $row['pago_no_identificado_monto_pago'] = $pagos[$id]['monto_pago'] ?? null;
+                $row['pago_no_identificado_fecha_registro'] = $pagos[$id]['fecha_registro'] ?? null;
+            }
+            if (isset($incidencias[$id])) {
+                $inc = $incidencias[$id];
+                $row['incidencia_cartera_id_credito'] = $inc['id_credito'] ?? null;
+                $row['incidencia_cartera_cliente'] = $inc['cliente'] ?? null;
+                $row['incidencia_cartera_tipo_error'] = $inc['tipo_error'] ?? null;
+                $row['incidencia_cartera_descripcion'] = $inc['descripcion'] ?? null;
+                $row['incidencia_cartera_adjunto_nombre_original'] = $inc['adjunto_nombre_original'] ?? null;
+                $row['incidencia_cartera_url_direccion'] = $inc['url_direccion'] ?? null;
+                $row['incidencia_cartera_fecha_registro'] = $inc['fecha_registro'] ?? null;
+                if (empty($row['id_credito']) && !empty($inc['id_credito'])) {
+                    $row['id_credito'] = $inc['id_credito'];
+                }
+            }
+        }
+        unset($row);
     }
 
     /**
@@ -626,16 +766,7 @@ class Ticket extends Model
 
     private static function ticketColumnaExiste(Database $db, string $columnName): bool
     {
-        try {
-            $row = $db->queryOne(
-                "SELECT 1 AS ok FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'ticket' AND COLUMN_NAME = :c LIMIT 1",
-                ['c' => $columnName]
-            );
-
-            return !empty($row);
-        } catch (\Exception $e) {
-            return false;
-        }
+        return self::columnaExiste($db, 'ticket', $columnName);
     }
 
     private static function ticketTieneColumnasSolicitudVacaciones(Database $db): bool
@@ -1588,6 +1719,139 @@ class Ticket extends Model
         }
     }
 
+    private static function getIdEstadoTicketPorNombre(Database $db, string $nombre): int
+    {
+        $row = $db->queryOne(
+            "SELECT id_estado_ticket FROM estado_ticket WHERE LOWER(TRIM(nombre)) = LOWER(TRIM(:nombre)) AND (activo = 1 OR activo IS NULL) LIMIT 1",
+            ['nombre' => $nombre]
+        );
+
+        return $row ? (int) ($row['id_estado_ticket'] ?? 0) : 0;
+    }
+
+    private static function asegurarEstadoTicket(Database $db, string $nombre, int $orden): int
+    {
+        $id = self::getIdEstadoTicketPorNombre($db, $nombre);
+        if ($id > 0) {
+            return $id;
+        }
+        $db->CRUD(
+            'INSERT INTO estado_ticket (nombre, orden, activo) VALUES (:nombre, :orden, 1)',
+            ['nombre' => $nombre, 'orden' => $orden]
+        );
+        $row = $db->queryOne('SELECT LAST_INSERT_ID() AS id');
+
+        return $row ? (int) ($row['id'] ?? 0) : 0;
+    }
+
+    private static function esCategoriaTicketAppSimple(?string $categoria): bool
+    {
+        $c = strtolower(trim((string) $categoria));
+        return in_array($c, [
+            'ausencia',
+            'solicitud_vacaciones',
+            'viaticos',
+            'reclamo',
+            'aplicaciones_de_pago',
+            'pagos_no_identificados',
+            'credito_problematico',
+            'incidencias_cartera',
+            'aclaracion_credito',
+        ], true);
+    }
+
+    public static function marcarProcesandoPrimeraVista(int $idTicket, ?int $idPersona = null): array
+    {
+        if ($idTicket < 1) {
+            return self::resultado(false, 'ID de ticket inválido.', null);
+        }
+        try {
+            $db = new Database();
+            $row = $db->queryOne(
+                "SELECT t.id_ticket, t.categoria_gestion, t.id_estado_ticket, et.nombre AS estado_nombre " .
+                "FROM ticket t LEFT JOIN estado_ticket et ON et.id_estado_ticket = t.id_estado_ticket " .
+                "WHERE t.id_ticket = :id AND (t.activo = 1 OR t.activo IS NULL) AND t.fecha_eliminacion IS NULL LIMIT 1",
+                ['id' => $idTicket]
+            );
+            if (!$row) {
+                return self::resultado(false, 'Ticket no encontrado.', null);
+            }
+            if (!self::esCategoriaTicketAppSimple($row['categoria_gestion'] ?? '')) {
+                return self::resultado(true, 'No aplica para esta categoría.', ['actualizado' => false]);
+            }
+            $estadoActual = strtolower(trim((string) ($row['estado_nombre'] ?? '')));
+            $puedeCambiar = $estadoActual === '' || $estadoActual === 'abierto' || $estadoActual === 'pendiente';
+            if (!$puedeCambiar) {
+                return self::resultado(true, 'El ticket ya está en proceso o respondido.', ['actualizado' => false]);
+            }
+            $idProcesando = self::asegurarEstadoTicket($db, 'Procesando', 3);
+            if ($idProcesando < 1) {
+                return self::resultado(false, 'No se pudo resolver el estado Procesando.', null);
+            }
+            $db->CRUD(
+                'UPDATE ticket SET id_estado_ticket = :estado WHERE id_ticket = :id',
+                ['estado' => $idProcesando, 'id' => $idTicket]
+            );
+
+            return self::resultado(true, 'Ticket marcado como procesando.', ['actualizado' => true]);
+        } catch (\Exception $e) {
+            return self::resultado(false, 'Error al marcar el ticket como procesando.', null, $e->getMessage());
+        }
+    }
+
+    public static function responderTicketApp(int $idTicket, string $accion, string $comentario, ?int $idPersona = null): array
+    {
+        if ($idTicket < 1) {
+            return self::resultado(false, 'ID de ticket inválido.', null);
+        }
+        $accionNorm = strtolower(trim($accion));
+        if (!in_array($accionNorm, ['aceptar', 'aceptado', 'denegar', 'denegado'], true)) {
+            return self::resultado(false, 'Respuesta inválida.', null);
+        }
+        $resultado = in_array($accionNorm, ['aceptar', 'aceptado'], true) ? 'aceptado' : 'denegado';
+        $comentario = trim($comentario);
+        if ($comentario === '') {
+            return self::resultado(false, 'Debe escribir un comentario para responder el ticket.', null);
+        }
+        try {
+            $db = new Database();
+            foreach (['respuesta_resultado', 'respuesta_comentario', 'respuesta_fecha', 'respuesta_id_persona'] as $col) {
+                if (!self::ticketColumnaExiste($db, $col)) {
+                    return self::resultado(false, 'Faltan columnas de respuesta. Ejecute scripts/migration_ticket_respuesta_app.sql.', null);
+                }
+            }
+            $row = $db->queryOne(
+                "SELECT id_ticket, categoria_gestion FROM ticket WHERE id_ticket = :id AND (activo = 1 OR activo IS NULL) AND fecha_eliminacion IS NULL LIMIT 1",
+                ['id' => $idTicket]
+            );
+            if (!$row) {
+                return self::resultado(false, 'Ticket no encontrado.', null);
+            }
+            if (!self::esCategoriaTicketAppSimple($row['categoria_gestion'] ?? '')) {
+                return self::resultado(false, 'Esta respuesta solo aplica para tickets levantados desde la app.', null);
+            }
+            $idEstado = self::asegurarEstadoTicket($db, $resultado === 'aceptado' ? 'Aceptado' : 'Denegado', $resultado === 'aceptado' ? 4 : 5);
+            if ($idEstado < 1) {
+                return self::resultado(false, 'No se pudo resolver el estado de respuesta.', null);
+            }
+            $db->CRUD(
+                'UPDATE ticket SET id_estado_ticket = :estado, respuesta_resultado = :resultado, respuesta_comentario = :comentario, respuesta_fecha = :fecha, respuesta_id_persona = :persona WHERE id_ticket = :id',
+                [
+                    'estado' => $idEstado,
+                    'resultado' => $resultado,
+                    'comentario' => mb_substr($comentario, 0, 5000),
+                    'fecha' => self::ahoraCdmx(),
+                    'persona' => $idPersona !== null && $idPersona > 0 ? $idPersona : null,
+                    'id' => $idTicket,
+                ]
+            );
+
+            return self::resultado(true, $resultado === 'aceptado' ? 'Ticket aceptado.' : 'Ticket denegado.', ['resultado' => $resultado]);
+        } catch (\Exception $e) {
+            return self::resultado(false, 'Error al responder el ticket.', null, $e->getMessage());
+        }
+    }
+
     /**
      * Marca el ticket como eliminado (soft delete): registra en ticket_historico y luego activo=0, fecha_eliminacion, id_persona_elimino.
      *
@@ -2342,6 +2606,12 @@ class Ticket extends Model
             if ($tieneTipo) {
                 $sel .= ', tipo_origen';
             }
+            if (self::ticketEvidenciaTieneColumna($db, 'mime_type')) {
+                $sel .= ', mime_type';
+            }
+            if (self::ticketEvidenciaTieneColumna($db, 'contenido_base64')) {
+                $sel .= ', contenido_base64';
+            }
             $sql = $sel . ' FROM ticket_evidencia WHERE id_ticket = :id_ticket';
             $params = ['id_ticket' => $id];
             if ($filtroTipoOrigen !== null && $filtroTipoOrigen !== '') {
@@ -2386,6 +2656,25 @@ class Ticket extends Model
         }
 
         return $cache;
+    }
+
+    private static function ticketEvidenciaTieneColumna(Database $db, string $columnName): bool
+    {
+        static $cache = [];
+        if (array_key_exists($columnName, $cache)) {
+            return $cache[$columnName];
+        }
+        try {
+            $c = $db->queryOne(
+                "SELECT 1 AS ok FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'ticket_evidencia' AND COLUMN_NAME = :c LIMIT 1",
+                ['c' => $columnName]
+            );
+            $cache[$columnName] = !empty($c);
+        } catch (\Exception $e) {
+            $cache[$columnName] = false;
+        }
+
+        return $cache[$columnName];
     }
 
     /**
@@ -2472,7 +2761,14 @@ class Ticket extends Model
         if ($id < 1) return null;
         try {
             $db = new Database();
-            return $db->queryOne("SELECT id, id_ticket, ruta_archivo FROM ticket_evidencia WHERE id = :id", ['id' => $id]);
+            $sel = 'SELECT id, id_ticket, ruta_archivo, nombre_original';
+            if (self::ticketEvidenciaTieneColumna($db, 'mime_type')) {
+                $sel .= ', mime_type';
+            }
+            if (self::ticketEvidenciaTieneColumna($db, 'contenido_base64')) {
+                $sel .= ', contenido_base64';
+            }
+            return $db->queryOne($sel . " FROM ticket_evidencia WHERE id = :id", ['id' => $id]);
         } catch (\Exception $e) {
             return null;
         }
