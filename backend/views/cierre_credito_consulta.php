@@ -2154,6 +2154,13 @@ window.__CC_PESTANAS_PERM__ = <?= json_encode([
                         </div>
                     </div>` : ''}
 
+                    <!-- Notificado previamente a cartera -->
+                    ${r.estatus_seguimiento === 'notificado_cartera' ? `
+                    <div style="display:flex;align-items:center;gap:.5rem;margin-top:.65rem;padding:.5rem .75rem;background:#fef3c7;border:1px solid #fde68a;border-radius:.5rem;">
+                        <i class="fa-solid fa-bell" style="color:#d97706;font-size:.85rem;flex-shrink:0;"></i>
+                        <span style="font-size:.8rem;color:#92400e;font-weight:600;">Notificado previamente a cartera</span>
+                    </div>` : ''}
+
                     <!-- Documentos adjuntos -->
                     ${(() => {
                         const pdfOk  = !!(r.pdf_adjunto && r.pdf_adjunto !== '');
