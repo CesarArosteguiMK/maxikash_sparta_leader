@@ -25,16 +25,114 @@
         return d.toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit', year: 'numeric' });
     }
 
+    function parseJsonArray(v) {
+        if (Array.isArray(v)) return v;
+        if (v == null || v === '') return [];
+        if (typeof v !== 'string') return [];
+        try {
+            var parsed = JSON.parse(v);
+            return Array.isArray(parsed) ? parsed : [];
+        } catch (e) {
+            return [];
+        }
+    }
+
+    function labelModoFechasAusencia(v) {
+        var modo = (v || '').toString().toLowerCase().trim();
+        if (modo === 'continuous') return 'Días consecutivos';
+        if (modo === 'separated') return 'Fechas separadas';
+        return '';
+    }
+
+    function limpiarComentarioAusencia(v) {
+        return (v || '').toString()
+            .split(/\r?\n/)
+            .map(function (linea) { return linea.trim(); })
+            .filter(function (linea) {
+                var x = linea.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+                return linea
+                    && x.indexOf('dias solicitados') !== 0
+                    && x.indexOf('periodos solicitados') !== 0
+                    && x.indexOf('motivo imss') !== 0;
+            })
+            .join('\n')
+            .trim();
+    }
+
+    function getInconformidadTicket(t) {
+        var nota = ((t && t.nota) || '').toString().trim();
+        var m = nota.match(/^Inconformidad del ticket\s+([^:]+):\s*([\s\S]*)$/i);
+        if (!m) return null;
+        return {
+            folio_origen: (m[1] || '').trim(),
+            comentario: (m[2] || '').trim()
+        };
+    }
+
+    function formatPeriodoAusencia(p) {
+        if (!p || typeof p !== 'object') return '';
+        var desde = p.from || p.from_ || p.desde || p.fecha_desde || '';
+        var hasta = p.to || p.hasta || p.fecha_hasta || '';
+        if (!desde && !hasta) return '';
+        if (desde && hasta && String(desde) !== String(hasta)) {
+            return formatFechaCorta(desde) + ' - ' + formatFechaCorta(hasta);
+        }
+        return formatFechaCorta(desde || hasta);
+    }
+
+    function getPeriodosAusencia(t) {
+        return parseJsonArray((t && (t.solicitud_ausencia_periodos || t.solicitud_vacaciones_periodos)) || '');
+    }
+
+    function getDiasSolicitadosAusencia(t) {
+        return parseJsonArray((t && (t.solicitud_ausencia_dias_solicitados || t.solicitud_vacaciones_dias_solicitados)) || '');
+    }
+
+    function resumenPeriodosAusencia(t, limite) {
+        var periodos = getPeriodosAusencia(t)
+            .map(formatPeriodoAusencia)
+            .filter(function (x) { return x !== ''; });
+        if (!periodos.length) return '';
+        var max = limite || periodos.length;
+        var visibles = periodos.slice(0, max);
+        var extra = periodos.length > max ? ' +' + (periodos.length - max) + ' mas' : '';
+        return visibles.join(', ') + extra;
+    }
+
+    function resumenDiasSolicitadosAusencia(t, limite) {
+        var dias = getDiasSolicitadosAusencia(t)
+            .map(function (x) { return x ? formatFechaCorta(x) : ''; })
+            .filter(function (x) { return x !== ''; });
+        if (!dias.length) return '';
+        var max = limite || dias.length;
+        var visibles = dias.slice(0, max);
+        var extra = dias.length > max ? ' +' + (dias.length - max) + ' mas' : '';
+        return visibles.join(', ') + extra;
+    }
+
     function renderCampoDetalle(label, value, icon, colClass) {
         var val = value == null || String(value).trim() === '' ? '—' : String(value).trim();
         var col = colClass || 'col-12 col-sm-6';
         return (
             '<div class="' + col + '">' +
             '<div class="border rounded-2 bg-body-tertiary p-3 h-100">' +
-            '<div class="text-uppercase text-muted fw-semibold mb-1" style="font-size:.68rem;letter-spacing:.04em;">' +
+            '<div class="text-muted fw-semibold mb-1" style="font-size:.72rem;">' +
             '<i class="fa-solid ' + icon + ' me-1"></i>' + txtEsc(label) +
             '</div>' +
             '<div class="small fw-semibold text-break">' + txtEsc(val) + '</div>' +
+            '</div>' +
+            '</div>'
+        );
+    }
+
+    function renderInconformidadDetalle(inconformidad) {
+        if (!inconformidad || !inconformidad.comentario) return '';
+        return (
+            '<div class="col-12">' +
+            '<div class="tm-inconformidad-card">' +
+            '<div class="tm-inconformidad-title"><i class="fa-solid fa-message-exclamation me-1"></i>Inconformidad</div>' +
+            (inconformidad.folio_origen ? '<div class="tm-inconformidad-origin">Ticket original: <strong>' + txtEsc(inconformidad.folio_origen) + '</strong></div>' : '') +
+            '<div class="tm-inconformidad-text">' + txtEsc(inconformidad.comentario) + '</div>' +
             '</div>' +
             '</div>'
         );
@@ -117,20 +215,36 @@
             var desdeAus = t.solicitud_vacaciones_fecha_desde || t.solicitud_ausencia_fecha_desde || '';
             var hastaAus = t.solicitud_vacaciones_fecha_hasta || t.solicitud_ausencia_fecha_hasta || '';
             var deptoAus = t.solicitud_vacaciones_departamento || t.solicitud_ausencia_departamento || '';
-            var notaAus = (t.nota || t.descripcion_inicial || '').trim();
+            var inconformidadAus = getInconformidadTicket(t);
+            var notaAus = inconformidadAus
+                ? inconformidadAus.comentario
+                : limpiarComentarioAusencia(t.nota || t.descripcion_inicial || '');
+            var modoAus = labelModoFechasAusencia(t.solicitud_ausencia_modo_fechas || t.solicitud_vacaciones_modo_fechas || '');
+            var periodosAus = resumenPeriodosAusencia(t);
+            var diasSolicitadosAus = resumenDiasSolicitadosAusencia(t, 12);
             html +=
                 renderCampoDetalle('Tipo', normalizaTipoTicketApp(t.tipo_categoria || t.asunto || 'Ausencia'), 'fa-tag', colAusencia) +
                 renderCampoDetalle('Empleado', t.creador_nombre || t.empleado_nombre, 'fa-user', colAusencia) +
                 renderCampoDetalle('Departamento', deptoAus || '—', 'fa-building', colAusencia) +
                 renderCampoDetalle('Desde', formatFechaCorta(desdeAus), 'fa-calendar-day', colAusencia) +
                 renderCampoDetalle('Hasta', formatFechaCorta(hastaAus), 'fa-calendar-check', colAusencia);
+            if (modoAus) {
+                html += renderCampoDetalle('Modo de fechas', modoAus, 'fa-calendar-week', colAusencia);
+            }
+            if (periodosAus && modoAus === 'Fechas separadas') {
+                html += renderCampoDetalle('Periodos solicitados', periodosAus, 'fa-calendar-days', 'col-12 col-lg-6');
+            }
+            if (diasSolicitadosAus && modoAus === 'Fechas separadas') {
+                html += renderCampoDetalle('Días solicitados', diasSolicitadosAus, 'fa-list-check', 'col-12 col-lg-6');
+            }
             var quienCubre = t.solicitud_vacaciones_quien_cubre || t.solicitud_ausencia_quien_cubre || '';
             if (quienCubre && String(quienCubre).trim()) {
-                html += renderCampoDetalle('Quien cubre', quienCubre, 'fa-user-shield', colAusencia);
+                html += renderCampoDetalle('Quién cubre', quienCubre, 'fa-user-shield', colAusencia);
             }
             if (notaAus) {
                 html += renderCampoDetalle('Comentario', notaAus, 'fa-comment-dots', 'col-12');
             }
+            html += renderInconformidadDetalle(inconformidadAus);
         } else if (cat === 'reclamo') {
             var colReclamo = 'col-12 col-sm-6 col-lg-5ths';
             html +=
@@ -758,6 +872,13 @@
             '" style="font-size:0.7rem;line-height:1" aria-hidden="true"></i>' +
             catLabel +
             '</span></div>';
+        var inconformidadRow = getInconformidadTicket(t);
+        if (inconformidadRow) {
+            folioTipoHtml +=
+                '<div class="mt-1"><span class="badge bg-label-warning small d-inline-flex align-items-center gap-1">' +
+                '<i class="fa-solid fa-message-exclamation" style="font-size:0.7rem;"></i>Inconformidad' +
+                '</span></div>';
+        }
         if (CAT === 'validaciones') {
             var notaV = (t.nota || '').trim();
             var urlV = (t.url_direccion || '').trim();
@@ -801,7 +922,29 @@
         if (esAusencia) {
             var fDesdeAus = t.solicitud_vacaciones_fecha_desde || t.solicitud_ausencia_fecha_desde || '';
             var fHastaAus = t.solicitud_vacaciones_fecha_hasta || t.solicitud_ausencia_fecha_hasta || '';
-            if (fDesdeAus || fHastaAus) {
+            var modoTablaAus = labelModoFechasAusencia(t.solicitud_ausencia_modo_fechas || t.solicitud_vacaciones_modo_fechas || '');
+            var diasTablaAus = getDiasSolicitadosAusencia(t);
+            var periodosTablaAus = resumenPeriodosAusencia(t, 2);
+            var diasResumenTablaAus = resumenDiasSolicitadosAusencia(t, 3);
+            if (modoTablaAus === 'Separadas' && diasTablaAus.length) {
+                fechasHtml =
+                    '<div class="small d-flex align-items-center gap-1"><i class="fa fa-calendar-days text-muted" style="width: 1rem;"></i><span>' +
+                    diasTablaAus.length +
+                    ' dia' +
+                    (diasTablaAus.length === 1 ? '' : 's') +
+                    ' separado' +
+                    (diasTablaAus.length === 1 ? '' : 's') +
+                    '</span></div><div class="small text-muted d-flex align-items-center gap-1 mt-1"><i class="fa fa-list-check" style="width: 1rem;"></i><span>' +
+                    txtEsc(diasResumenTablaAus) +
+                    '</span></div>';
+            } else if (periodosTablaAus && getPeriodosAusencia(t).length > 1) {
+                fechasHtml =
+                    '<div class="small d-flex align-items-center gap-1"><i class="fa fa-calendar-days text-muted" style="width: 1rem;"></i><span>' +
+                    txtEsc(getPeriodosAusencia(t).length + ' periodos') +
+                    '</span></div><div class="small text-muted d-flex align-items-center gap-1 mt-1"><i class="fa fa-calendar-week" style="width: 1rem;"></i><span>' +
+                    txtEsc(periodosTablaAus) +
+                    '</span></div>';
+            } else if (fDesdeAus || fHastaAus) {
                 fechasHtml =
                     '<div class="small d-flex align-items-center gap-1"><i class="fa fa-calendar-days text-muted" style="width: 1rem;"></i><span>' +
                     formatFechaCorta(fDesdeAus) +

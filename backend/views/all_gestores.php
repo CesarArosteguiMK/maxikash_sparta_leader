@@ -2847,6 +2847,14 @@ window.todosDepartamentosBackend = <?= json_encode(($departamento['datos'] ?? []
                     </select>
                 </div>
 
+                <div class="mb-2 add-persona-only d-none" id="add_vacante_wrap">
+                    <label class="form-label">Vacante disponible</label>
+                    <select id="add_vacante_existente_id" class="form-select js-select-buscador" disabled>
+                        <option value="">Sin vacante seleccionada</option>
+                    </select>
+                    <div class="form-text">Opcional. Si eliges una vacante, quedara ocupada por este usuario.</div>
+                </div>
+
                 <div class="mb-6">
                     <label class="form-label">Jefe *</label>
                     <select id="add_id_jefe" class="form-select js-select-buscador" disabled>

@@ -77,12 +77,21 @@ class Ticket extends Model
             $tieneColsAusencia = self::columnaExiste($db, 'ticket', 'solicitud_ausencia_departamento');
         }
         $tieneColAdjNomAus = false;
+        $tieneColAusPeriodos = false;
+        $tieneColAusDiasSolicitados = false;
+        $tieneColAusModoFechas = false;
         if ($tieneColsAusencia) {
             $tieneColAdjNomAus = self::columnaExiste($db, 'ticket', 'solicitud_ausencia_adjunto_nombre_original');
+            $tieneColAusPeriodos = self::columnaExiste($db, 'ticket', 'solicitud_ausencia_periodos');
+            $tieneColAusDiasSolicitados = self::columnaExiste($db, 'ticket', 'solicitud_ausencia_dias_solicitados');
+            $tieneColAusModoFechas = self::columnaExiste($db, 'ticket', 'solicitud_ausencia_modo_fechas');
         }
         $selColsAusencia = $tieneColsAusencia
             ? 't.solicitud_ausencia_departamento, t.solicitud_ausencia_fecha_desde, t.solicitud_ausencia_fecha_hasta, t.solicitud_ausencia_quien_cubre'
                 . ($tieneColAdjNomAus ? ', t.solicitud_ausencia_adjunto_nombre_original' : '')
+                . ($tieneColAusPeriodos ? ', t.solicitud_ausencia_periodos' : '')
+                . ($tieneColAusDiasSolicitados ? ', t.solicitud_ausencia_dias_solicitados' : '')
+                . ($tieneColAusModoFechas ? ', t.solicitud_ausencia_modo_fechas' : '')
                 . ', '
             : '';
         $tieneColsReclamo = false;

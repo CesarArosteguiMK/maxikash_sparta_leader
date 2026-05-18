@@ -73,7 +73,7 @@ $mostrarModalFormBuilderLectura = !empty($tickets_panel_modal_form_builder_lectu
         width: 100%;
         border: none;
     }
-    #modalResumenTicket.modal-resumen-ausencia .modal-dialog { max-width: min(92vw, 760px); }
+    #modalResumenTicket.modal-resumen-ausencia .modal-dialog { max-width: min(94vw, 900px); }
     #modalResumenTicket.modal-resumen-reclamo .modal-dialog { max-width: min(96vw, 1120px); }
     #modalResumenTicket.modal-resumen-ausencia .modal-header { background: #fff; }
     #modalResumenTicket.modal-resumen-ausencia .modal-body { padding-top: 1rem; }
@@ -89,6 +89,36 @@ $mostrarModalFormBuilderLectura = !empty($tickets_panel_modal_form_builder_lectu
     #modalResumenTicket.modal-resumen-ausencia #resumenTicketModuloDetalleWrap .border {
         background: #f8fafc !important;
         border-color: #e7edf5 !important;
+    }
+    #modalResumenTicket.modal-resumen-ausencia #resumenTicketModuloDetalleWrap .row {
+        align-items: stretch;
+    }
+    #modalResumenTicket.modal-resumen-ausencia #resumenTicketModuloDetalleWrap .border {
+        border-radius: 0.75rem !important;
+        min-height: 4.15rem;
+    }
+    #modalResumenTicket .tm-inconformidad-card {
+        border: 1px solid #f5c26b;
+        background: linear-gradient(180deg, #fff8e8, #fff);
+        border-radius: 0.75rem;
+        padding: 0.9rem 1rem;
+    }
+    #modalResumenTicket .tm-inconformidad-title {
+        color: #b7791f;
+        font-weight: 800;
+        font-size: 0.82rem;
+        margin-bottom: 0.25rem;
+    }
+    #modalResumenTicket .tm-inconformidad-origin {
+        color: #6b7280;
+        font-size: 0.76rem;
+        margin-bottom: 0.45rem;
+    }
+    #modalResumenTicket .tm-inconformidad-text {
+        color: #1f2937;
+        font-weight: 600;
+        font-size: 0.86rem;
+        white-space: pre-wrap;
     }
     @media (min-width: 992px) {
         #modalResumenTicket .col-lg-5ths {

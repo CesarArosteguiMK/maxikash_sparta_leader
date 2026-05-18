@@ -3345,6 +3345,7 @@ class CapHum extends Controller
                 selectPuesto.disabled = true;
                 selectJefe.innerHTML = '<option value="">Seleccione un jefe</option>';
                 selectJefe.disabled = true;
+                resetVacantesAsignablesAdd();
                 if (typeof window.refreshSelectBuscador === 'function') {
                     window.refreshSelectBuscador('add_id_puesto');
                     window.refreshSelectBuscador('add_id_jefe');
@@ -3381,6 +3382,86 @@ class CapHum extends Controller
                     Swal.fire("Error", "No se pudieron cargar los puestos", "error");
                 });
             }
+
+            function resetVacantesAsignablesAdd() {
+                const wrap = document.getElementById('add_vacante_wrap');
+                const select = document.getElementById('add_vacante_existente_id');
+                if (select) {
+                    select.innerHTML = '<option value="">Sin vacante seleccionada</option>';
+                    select.value = '';
+                    select.disabled = true;
+                }
+                if (wrap) wrap.classList.add('d-none');
+                if (typeof window.refreshSelectBuscador === 'function') {
+                    window.refreshSelectBuscador('add_vacante_existente_id');
+                }
+            }
+
+            function aplicarJefeDeVacanteAdd() {
+                const selectVacante = document.getElementById('add_vacante_existente_id');
+                const selectJefe = document.getElementById('add_id_jefe');
+                if (!selectVacante || !selectJefe || !selectVacante.value) return;
+                const opt = selectVacante.options[selectVacante.selectedIndex];
+                const jefeId = opt ? (opt.dataset.jefeId || '') : '';
+                const jefeNombre = opt ? (opt.dataset.jefeNombre || '') : '';
+                if (!jefeId) return;
+
+                let existe = false;
+                Array.from(selectJefe.options || []).forEach(function (op) {
+                    if (String(op.value) === String(jefeId)) existe = true;
+                });
+                if (!existe) {
+                    selectJefe.appendChild(new Option(jefeNombre || ('Jefe ID ' + jefeId), jefeId, false, false));
+                }
+                selectJefe.value = jefeId;
+                if (typeof window.refreshSelectBuscador === 'function') {
+                    window.refreshSelectBuscador('add_id_jefe');
+                }
+            }
+
+            function cargarVacantesAsignablesAdd(idDepartamento, idPuesto) {
+                resetVacantesAsignablesAdd();
+                if (getTipoRegistroAdd && getTipoRegistroAdd() === 'vacante') return;
+                if (!idDepartamento || !idPuesto) return;
+
+                fetch('/CapHum/getVacantesDisponiblesParaAsignar', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+                    body: JSON.stringify({ id_departamento: idDepartamento, id_puesto: idPuesto })
+                })
+                .then(res => res.json())
+                .then(data => {
+                    if (!data.success || !Array.isArray(data.datos) || data.datos.length === 0) {
+                        resetVacantesAsignablesAdd();
+                        return;
+                    }
+                    const wrap = document.getElementById('add_vacante_wrap');
+                    const select = document.getElementById('add_vacante_existente_id');
+                    if (!wrap || !select) return;
+                    select.innerHTML = '<option value="">Sin vacante seleccionada</option>';
+                    data.datos.forEach(v => {
+                        const subs = Number(v.subordinados || 0);
+                        const jefe = v.nombre_jefe ? (' - Jefe: ' + v.nombre_jefe) : '';
+                        const option = document.createElement('option');
+                        option.value = v.id;
+                        option.textContent = 'Vacante #' + v.id + (subs ? ' - ' + subs + ' subordinado(s)' : '') + jefe;
+                        option.dataset.jefeId = v.id_jefe || '';
+                        option.dataset.jefeNombre = v.nombre_jefe || '';
+                        select.appendChild(option);
+                    });
+                    select.disabled = false;
+                    wrap.classList.remove('d-none');
+                    if (typeof window.refreshSelectBuscador === 'function') {
+                        window.refreshSelectBuscador('add_vacante_existente_id');
+                    }
+                })
+                .catch(() => resetVacantesAsignablesAdd());
+            }
+
+            document.addEventListener('change', function (ev) {
+                if (ev.target && ev.target.id === 'add_vacante_existente_id') aplicarJefeDeVacanteAdd();
+            });
+
             if (typeof window.jQuery !== 'undefined' && window.jQuery.fn.select2) {
                 window.jQuery('#add_departamento_id').off('change.gestionAddDepto').on('change.gestionAddDepto', handleAddDepartamentoChange);
             } else {
@@ -3410,6 +3491,10 @@ class CapHum extends Controller
                         const option = document.createElement('option');
                         option.value = jefe.id;
                         option.textContent = jefe.nombre_completo || (jefe.nombre_puesto ? jefe.nombre_completo + ' - ' + jefe.nombre_puesto : jefe.nombre_completo);
+                        if (jefe.tipo_jefe === 'vacante') {
+                            option.dataset.tipoJefe = 'vacante';
+                            option.className = 'text-warning';
+                        }
                         selectJefe.appendChild(option);
                     });
                     selectJefe.disabled = false;
@@ -3429,6 +3514,7 @@ class CapHum extends Controller
                 const selectJefe = document.getElementById('add_id_jefe');
                 if (!idDepartamento) return;
                 cargarJefeComboAdd(idDepartamento, idPuesto || null, selectJefe);
+                cargarVacantesAsignablesAdd(idDepartamento, idPuesto || null);
             });
 
             // Función para mostrar/ocultar el select de legión
@@ -3618,6 +3704,9 @@ class CapHum extends Controller
                 document.querySelectorAll('#offcanvasAddUser .add-persona-only').forEach(function (el) {
                     el.style.display = esVacante ? 'none' : '';
                 });
+                if (esVacante && typeof resetVacantesAsignablesAdd === 'function') {
+                    resetVacantesAsignablesAdd();
+                }
                 const titulo = document.querySelector('#offcanvasAddUser .offcanvas-title');
                 if (titulo) titulo.textContent = esVacante ? 'Registrar Nueva Vacante' : 'Registrar Nuevo Usuario';
                 const btn = document.querySelector('#offcanvasAddUser button.btn-primary');
@@ -3642,6 +3731,7 @@ class CapHum extends Controller
                 const id_puesto = document.getElementById('add_id_puesto').value;
                 const departamento_id = document.getElementById('add_departamento_id').value;
                 const id_jefe = document.getElementById('add_id_jefe').value;
+                const vacante_existente_id = document.getElementById('add_vacante_existente_id')?.value || null;
                 const asignarLegion = document.getElementById('add_asignar_legion').checked;
                 const id_legion = document.getElementById('add_id_legion').value;
 
@@ -3662,7 +3752,7 @@ class CapHum extends Controller
                 if (esVacante) {
                     if (!departamento_id) return Swal.fire('Error', 'Debe seleccionar un departamento', 'error');
                     if (!id_puesto) return Swal.fire('Error', 'Debe seleccionar un puesto', 'error');
-                    if (id_jefe && isNaN(id_jefe)) return Swal.fire('Error', 'Jefe invalido', 'error');
+                    if (id_jefe && isNaN(id_jefe) && !String(id_jefe).startsWith('vacante:')) return Swal.fire('Error', 'Jefe invalido', 'error');
 
                     fetch('/CapHum/getInsertarGestor', {
                         method: 'POST',
@@ -3711,7 +3801,7 @@ class CapHum extends Controller
                 if (!departamento_id) return Swal.fire('Error', 'Debe seleccionar un departamento', 'error');
 
                 // ⚠️ jefe puede ser null, solo valida si viene
-                if (id_jefe && isNaN(id_jefe)) {
+                if (id_jefe && isNaN(id_jefe) && !String(id_jefe).startsWith('vacante:')) {
                     return Swal.fire('Error', 'Jefe inválido', 'error');
                 }
 
@@ -3762,6 +3852,7 @@ class CapHum extends Controller
                         id_puesto,
                         departamento_id,
                         id_jefe: id_jefe || null,
+                        vacante_existente_id: vacante_existente_id || null,
                         asignar_legion: asignarLegion,
                         id_legion: asignarLegion ? id_legion : null,
                         usuario,
@@ -3810,6 +3901,7 @@ class CapHum extends Controller
                 if (addDepartamento) addDepartamento.value = '';
                 const addPuesto = document.getElementById('add_id_puesto');
                 if (addPuesto) { addPuesto.value = ''; addPuesto.disabled = true; addPuesto.innerHTML = '<option value="">Seleccione un puesto</option>'; }
+                if (typeof resetVacantesAsignablesAdd === 'function') resetVacantesAsignablesAdd();
                 const addJefe = document.getElementById('add_id_jefe');
                 if (addJefe) { addJefe.value = ''; addJefe.disabled = true; addJefe.innerHTML = '<option value="">Seleccione un jefe</option>'; }
                 const addLegion = document.getElementById('add_id_legion');
@@ -12894,6 +12986,20 @@ public function getMunicipios()
         }
         self::respuestaJSON($resultado);
     }
+
+    public function getVacantesDisponiblesParaAsignar()
+    {
+        $input = json_decode(file_get_contents("php://input"), true) ?: [];
+        $idDepartamento = (int)($input['id_departamento'] ?? 0);
+        $idPuesto = (int)($input['id_puesto'] ?? 0);
+
+        if ($idDepartamento <= 0 || $idPuesto <= 0) {
+            self::respuestaJSON(['success' => true, 'mensaje' => 'Vacantes encontradas.', 'datos' => []]);
+            return;
+        }
+
+        self::respuestaJSON(CapHumDAO::getVacantesDisponiblesParaAsignar($idDepartamento, $idPuesto));
+    }
     public function getRazonesAusencia()
     {
         // El DAO ya regresa success, mensaje y datos
@@ -12958,6 +13064,28 @@ public function getMunicipios()
             }
             return array_values($out);
         };
+        $normalizarVacantesJefe = function ($lista) {
+            $out = [];
+            foreach ((array)$lista as $vacante) {
+                $id = (int)($vacante['id'] ?? 0);
+                if ($id <= 0) continue;
+                $puesto = trim((string)($vacante['nombre_puesto'] ?? 'Vacante'));
+                $subs = (int)($vacante['subordinados'] ?? 0);
+                $out[] = [
+                    'id' => 'vacante:' . $id,
+                    'tipo_jefe' => 'vacante',
+                    'id_vacante' => $id,
+                    'nombre_completo' => 'Vacante - ' . $puesto . ($subs > 0 ? ' (' . $subs . ' subordinado(s))' : ''),
+                    'nombre_puesto' => $puesto,
+                ];
+            }
+            return $out;
+        };
+        $agregarVacantesJefe = function ($personas) use ($idDepartamento, $idPuesto, $normalizarVacantesJefe) {
+            $vacantes = CapHumDAO::getVacantesJefeDirecto($idDepartamento, $idPuesto);
+            $datosVacantes = !empty($vacantes['success']) ? $normalizarVacantesJefe($vacantes['datos'] ?? []) : [];
+            return array_merge((array)$personas, $datosVacantes);
+        };
 
         // 1) Si hay puesto seleccionado: jefes por nivel (mismo departamento, nivel superior)
         if ($idPuesto) {
@@ -12971,6 +13099,7 @@ public function getMunicipios()
                     ];
                 }, $porPuesto['datos']);
                 $datos = $deduplicarPorPersona($datos);
+                $datos = $agregarVacantesJefe($datos);
                 self::respuestaJSON(['success' => true, 'mensaje' => 'Jefes encontrados.', 'datos' => $datos]);
                 return;
             }
@@ -12980,6 +13109,7 @@ public function getMunicipios()
         $detalles = CapHumDAO::getConsultaJefe($idDepartamento);
         if ($detalles['success'] && !empty($detalles['datos'])) {
             $datos = $deduplicarPorPersona($detalles['datos']);
+            $datos = $agregarVacantesJefe($datos);
             self::respuestaJSON(['success' => true, 'mensaje' => $detalles['mensaje'] ?? 'Jefes encontrados.', 'datos' => $datos]);
             return;
         }
@@ -12995,7 +13125,14 @@ public function getMunicipios()
                 ];
             }, $porDepto['datos']);
             $datos = $deduplicarPorPersona($datos);
+            $datos = $agregarVacantesJefe($datos);
             self::respuestaJSON(['success' => true, 'mensaje' => 'Personas del departamento.', 'datos' => $datos]);
+            return;
+        }
+
+        $soloVacantes = $agregarVacantesJefe([]);
+        if (!empty($soloVacantes)) {
+            self::respuestaJSON(['success' => true, 'mensaje' => 'Vacantes encontradas.', 'datos' => $soloVacantes]);
             return;
         }
 
