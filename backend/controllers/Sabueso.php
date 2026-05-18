@@ -127,7 +127,7 @@ class Sabueso extends Controller
             }
         }
         $columnsJson = $this->getColumnsConfig(true, $catPanelGet);
-        $catsTitulos = ['', 'sabueso', 'validaciones', 'viaticos', 'aplicaciones_de_pago', 'plantilla', 'atencion_cliente', 'credito_problematico', 'aclaracion_credito'];
+        $catsTitulos = ['', 'sabueso', 'validaciones', 'ausencia', 'solicitud_vacaciones', 'viaticos', 'reclamo', 'pagos_no_identificados', 'incidencias_cartera', 'aplicaciones_de_pago', 'plantilla', 'atencion_cliente', 'credito_problematico', 'aclaracion_credito'];
         $mapTitulosPanel = [];
         foreach ($catsTitulos as $ck) {
             $mapTitulosPanel[$ck === '' ? '_mixto' : $ck] = \Core\PanelAdminTicketTable::getTitulosColumnasPanelAdminPorCategoria($ck);
@@ -145,9 +145,9 @@ class Sabueso extends Controller
             self::set('panel_admin_url_inicio', '/sabueso/panelAdminInicio');
         }
         // Estado inicial según ?categoria= para evitar flash de interfaz Sabueso en otros módulos
-        $catLabelsPanel = ['sabueso' => 'Sabueso', 'plantilla' => 'Plantilla', 'atencion_cliente' => 'Atención al cliente', 'validaciones' => 'Validaciones', 'viaticos' => 'Viáticos', 'aplicaciones_de_pago' => 'Aplicaciones de pago', 'credito_problematico' => 'Crédito problemático', 'aclaracion_credito' => 'Aclaración de crédito'];
-        $catIconosPanel = ['sabueso' => 'fa-dog', 'plantilla' => 'fa-file-lines', 'atencion_cliente' => 'fa-headset', 'validaciones' => 'fa-clipboard-check', 'viaticos' => 'fa-receipt', 'aplicaciones_de_pago' => 'fa-credit-card', 'credito_problematico' => 'fa-triangle-exclamation', 'aclaracion_credito' => 'fa-circle-question'];
-        $categoriasSimples = ['viaticos', 'aplicaciones_de_pago', 'credito_problematico', 'aclaracion_credito', 'plantilla', 'atencion_cliente', 'validaciones'];
+        $catLabelsPanel = ['sabueso' => 'Sabueso', 'plantilla' => 'Plantilla', 'atencion_cliente' => 'Atención al cliente', 'validaciones' => 'Validaciones', 'ausencia' => 'Ausencias', 'solicitud_vacaciones' => 'Ausencias', 'viaticos' => 'Ausencias', 'reclamo' => 'Reclamos de bonos', 'pagos_no_identificados' => 'Pagos no identificados', 'incidencias_cartera' => 'Incidencias en asignacion de cartera', 'aplicaciones_de_pago' => 'Reclamos de bonos', 'credito_problematico' => 'Pagos no identificados', 'aclaracion_credito' => 'Incidencias en asignacion de cartera'];
+        $catIconosPanel = ['sabueso' => 'fa-dog', 'plantilla' => 'fa-file-lines', 'atencion_cliente' => 'fa-headset', 'validaciones' => 'fa-clipboard-check', 'ausencia' => 'fa-calendar-xmark', 'solicitud_vacaciones' => 'fa-calendar-xmark', 'viaticos' => 'fa-calendar-xmark', 'reclamo' => 'fa-gift', 'pagos_no_identificados' => 'fa-magnifying-glass-dollar', 'incidencias_cartera' => 'fa-briefcase', 'aplicaciones_de_pago' => 'fa-gift', 'credito_problematico' => 'fa-magnifying-glass-dollar', 'aclaracion_credito' => 'fa-briefcase'];
+        $categoriasSimples = ['ausencia', 'solicitud_vacaciones', 'viaticos', 'reclamo', 'pagos_no_identificados', 'incidencias_cartera', 'aplicaciones_de_pago', 'credito_problematico', 'aclaracion_credito', 'plantilla', 'atencion_cliente', 'validaciones'];
         $panel_admin_es_simple = $catPanelGet !== '' && in_array($catPanelGet, $categoriasSimples);
         // Panel Admin en /sabueso/paneladmin = solo tickets categoría sabueso (otros módulos tienen su propia URL).
         $panel_admin_titulo_label = ($catPanelGet !== '' && isset($catLabelsPanel[$catPanelGet])) ? $catLabelsPanel[$catPanelGet] : 'Sabueso';
@@ -188,7 +188,7 @@ class Sabueso extends Controller
         $usuarioNombre = $usuarioId ? TicketDAO::getNombrePersona($usuarioId) : '';
         $catPanelGet = '';
         $columnsJson = $this->getColumnsConfig(true, $catPanelGet);
-        $catsTitulos = ['', 'sabueso', 'validaciones', 'viaticos', 'aplicaciones_de_pago', 'plantilla', 'atencion_cliente', 'credito_problematico', 'aclaracion_credito'];
+        $catsTitulos = ['', 'sabueso', 'validaciones', 'ausencia', 'solicitud_vacaciones', 'viaticos', 'reclamo', 'pagos_no_identificados', 'incidencias_cartera', 'aplicaciones_de_pago', 'plantilla', 'atencion_cliente', 'credito_problematico', 'aclaracion_credito'];
         $mapTitulosPanel = [];
         foreach ($catsTitulos as $ck) {
             $mapTitulosPanel[$ck === '' ? '_mixto' : $ck] = \Core\PanelAdminTicketTable::getTitulosColumnasPanelAdminPorCategoria($ck);
@@ -4095,6 +4095,52 @@ class Sabueso extends Controller
     /**
      * API: datos completos de un crédito (persona, domicilio, referencias) para el modal de búsqueda.
      */
+    public function marcarTicketProcesando()
+    {
+        if (ob_get_length()) {
+            ob_clean();
+        }
+        header('Content-Type: application/json; charset=utf-8');
+        $raw = file_get_contents('php://input');
+        $datos = json_decode($raw, true) ?: [];
+        $idTicket = (int)($datos['id_ticket'] ?? 0);
+        if ($idTicket < 1) {
+            self::respuestaJSON(['success' => false, 'mensaje' => 'ID de ticket invalido.']);
+            return;
+        }
+        $idPersona = (int)($_SESSION['persona_id'] ?? $_SESSION['usuario_id'] ?? 0);
+        $resultado = TicketDAO::marcarProcesandoPrimeraVista($idTicket, $idPersona > 0 ? $idPersona : null);
+        self::respuestaJSON([
+            'success' => $resultado['success'] ?? false,
+            'mensaje' => $resultado['mensaje'] ?? '',
+            'datos' => $resultado['datos'] ?? null,
+        ]);
+    }
+
+    public function responderTicketApp()
+    {
+        if (ob_get_length()) {
+            ob_clean();
+        }
+        header('Content-Type: application/json; charset=utf-8');
+        $raw = file_get_contents('php://input');
+        $datos = json_decode($raw, true) ?: [];
+        $idTicket = (int)($datos['id_ticket'] ?? 0);
+        $accion = trim((string)($datos['accion'] ?? ''));
+        $comentario = trim((string)($datos['comentario'] ?? ''));
+        if ($idTicket < 1) {
+            self::respuestaJSON(['success' => false, 'mensaje' => 'ID de ticket invalido.']);
+            return;
+        }
+        $idPersona = (int)($_SESSION['persona_id'] ?? $_SESSION['usuario_id'] ?? 0);
+        $resultado = TicketDAO::responderTicketApp($idTicket, $accion, $comentario, $idPersona > 0 ? $idPersona : null);
+        self::respuestaJSON([
+            'success' => $resultado['success'] ?? false,
+            'mensaje' => $resultado['mensaje'] ?? '',
+            'datos' => $resultado['datos'] ?? null,
+        ]);
+    }
+
     public function getDatosCredito()
     {
         $raw = file_get_contents('php://input');
@@ -6677,8 +6723,25 @@ class Sabueso extends Controller
         }
         $path = sparta_uploads_resolve_relative($row['ruta_archivo']);
         if ($path === null || !is_file($path)) {
-            http_response_code(404);
-            return;
+            $contenidoBase64 = trim((string)($row['contenido_base64'] ?? ''));
+            if ($contenidoBase64 === '') {
+                http_response_code(404);
+                return;
+            }
+            if (strpos($contenidoBase64, ',') !== false) {
+                $contenidoBase64 = substr($contenidoBase64, strpos($contenidoBase64, ',') + 1);
+            }
+            $bin = base64_decode($contenidoBase64, true);
+            if ($bin === false) {
+                http_response_code(404);
+                return;
+            }
+            $mime = trim((string)($row['mime_type'] ?? '')) ?: 'application/octet-stream';
+            header('Content-Type: ' . $mime);
+            header('Content-Length: ' . strlen($bin));
+            header('Cache-Control: private, max-age=86400');
+            echo $bin;
+            exit;
         }
         $mime = (new \finfo(FILEINFO_MIME_TYPE))->file($path);
         header('Content-Type: ' . $mime);
@@ -7097,4 +7160,3 @@ class Sabueso extends Controller
         return $peor;
     }
 }
-

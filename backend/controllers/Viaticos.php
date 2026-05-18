@@ -9,6 +9,6 @@ class Viaticos extends Controller
 {
     public function paneladmin()
     {
-        TicketsPanelModuloHelper::renderModuloPanel($this, 'viaticos');
+        TicketsPanelModuloHelper::renderModuloPanel($this, 'ausencia');
     }
 }

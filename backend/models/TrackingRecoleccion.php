@@ -305,8 +305,8 @@ class TrackingRecoleccion extends Model
             return ['success' => false, 'message' => $fechaOk];
         }
 
-        // Validaciones adicionales para enviar (no borrador)
-        if ($modo !== 'borrador') {
+        // Validaciones adicionales para enviar (no borrador, no actualizar)
+        if ($modo !== 'borrador' && $modo !== 'actualizar') {
             if (empty($usuarios)) {
                 return ['success' => false, 'message' => 'Debe asignar al menos un usuario responsable para enviar la ruta.'];
             }
@@ -329,6 +329,7 @@ class TrackingRecoleccion extends Model
         }
 
         $ahora        = date('Y-m-d H:i:s');
+        // 'actualizar' preserva el estatus existente (se sobreescribe dentro del bloque UPDATE)
         $estatusRuta  = ($modo === 'borrador') ? 'borrador' : 'enviada';
 
         // Validar y normalizar hora de salida (formato HH:MM)
@@ -361,9 +362,10 @@ class TrackingRecoleccion extends Model
                     $this->db->rollback();
                     return ['success' => false, 'message' => 'Ruta no encontrada.'];
                 }
-                if (!in_array($existente['estatus_ruta'], ['borrador', 'pendiente_confirmacion', 'lista_envio'], true)) {
-                    $this->db->rollback();
-                    return ['success' => false, 'message' => 'La ruta no puede modificarse en su estado actual.'];
+                // Sin restricción por estatus: cualquier ruta puede editarse
+                // Modo 'actualizar': preservar estatus actual de la ruta
+                if ($modo === 'actualizar') {
+                    $estatusRuta = $existente['estatus_ruta'];
                 }
                 // Leer hora_inicial actual para decidir si se actualiza
                 $horaActual = $this->db->queryOne(
@@ -441,10 +443,33 @@ class TrackingRecoleccion extends Model
                 }
                 $lat = isset($det['latitud'])  && is_numeric($det['latitud'])  ? (float) $det['latitud']  : null;
                 $lng = isset($det['longitud']) && is_numeric($det['longitud']) ? (float) $det['longitud'] : null;
+
+                $fechaEta = null;
+                if (!empty($det['fecha_eta'])) {
+                    $fe = trim((string) $det['fecha_eta']);
+                    if (preg_match('/^\d{4}-\d{2}-\d{2}$/', $fe)) {
+                        $fechaEta = $fe;
+                    }
+                }
+                $horaEtaIni = null;
+                if (!empty($det['hora_eta_ini'])) {
+                    $hi = trim((string) $det['hora_eta_ini']);
+                    if (preg_match('/^\d{2}:\d{2}(:\d{2})?$/', $hi)) {
+                        $horaEtaIni = substr($hi, 0, 5);
+                    }
+                }
+                $horaEtaFin = null;
+                if (!empty($det['hora_eta_fin'])) {
+                    $hf = trim((string) $det['hora_eta_fin']);
+                    if (preg_match('/^\d{2}:\d{2}(:\d{2})?$/', $hf)) {
+                        $horaEtaFin = substr($hf, 0, 5);
+                    }
+                }
+
                 $this->db->CRUD(
                     'INSERT INTO asigna_horas_tracking_detalle
-                         (id_ruta, id_credito, modelo, bin, estado, municipio, direccion, latitud, longitud, orden_ruta, estatus_confirmacion_gestor)
-                     VALUES (:ir, :ic, :mo, :bi, :es, :mu, :di, :la, :lo, :or, :cf)',
+                         (id_ruta, id_credito, modelo, bin, estado, municipio, direccion, latitud, longitud, orden_ruta, estatus_confirmacion_gestor, fecha_eta, hora_eta_ini, hora_eta_fin)
+                     VALUES (:ir, :ic, :mo, :bi, :es, :mu, :di, :la, :lo, :or, :cf, :fe, :hi, :hf)',
                     [
                         'ir' => $idRuta,
                         'ic' => $idCredito,
@@ -457,6 +482,9 @@ class TrackingRecoleccion extends Model
                         'lo' => $lng,
                         'or' => (int) ($det['orden_ruta'] ?? ($i + 1)),
                         'cf' => $this->sanitizarEstatusConfirmacion((string) ($det['estatus_confirmacion_gestor'] ?? 'pendiente')),
+                        'fe' => $fechaEta,
+                        'hi' => $horaEtaIni,
+                        'hf' => $horaEtaFin,
                     ]
                 );
             }
@@ -522,7 +550,21 @@ class TrackingRecoleccion extends Model
             SUM(CASE WHEN atd.estatus_confirmacion_gestor = \'confirmado\'  THEN 1 ELSE 0 END) AS confirmados,
             SUM(CASE WHEN atd.estatus_confirmacion_gestor = \'rechazado\'   THEN 1 ELSE 0 END) AS rechazados,
             SUM(CASE WHEN atd.estatus_confirmacion_gestor = \'pendiente\'   THEN 1 ELSE 0 END) AS pendientes,
-            SUM(CASE WHEN atd.estatus_confirmacion_gestor = \'en_revision\' THEN 1 ELSE 0 END) AS en_revision
+            SUM(CASE WHEN atd.estatus_confirmacion_gestor = \'en_revision\' THEN 1 ELSE 0 END) AS en_revision,
+            GROUP_CONCAT(
+                CONCAT(\'#\', atd.id_credito,
+                    CASE WHEN atd.modelo IS NOT NULL AND atd.modelo != \'\' THEN CONCAT(\' - \', atd.modelo) ELSE \'\'  END
+                )
+                ORDER BY atd.orden_ruta SEPARATOR \'||\'
+            ) AS creditos_lista,
+            GROUP_CONCAT(
+                DISTINCT CONCAT(
+                    COALESCE(atd.estado, \'\'),
+                    \'|||\'  ,
+                    COALESCE(atd.municipio, \'|\')
+                )
+                ORDER BY atd.estado, atd.municipio SEPARATOR \'@@\'
+            ) AS ubicaciones_lista
         FROM asigna_horas_tracking atr
         LEFT JOIN asigna_horas_tracking_detalle atd ON atd.id_ruta = atr.id_ruta
         WHERE ' . implode(' AND ', $where) . '
@@ -564,7 +606,21 @@ class TrackingRecoleccion extends Model
             SUM(CASE WHEN atd.estatus_confirmacion_gestor = \'confirmado\'  THEN 1 ELSE 0 END) AS confirmados,
             SUM(CASE WHEN atd.estatus_confirmacion_gestor = \'rechazado\'   THEN 1 ELSE 0 END) AS rechazados,
             SUM(CASE WHEN atd.estatus_confirmacion_gestor = \'pendiente\'   THEN 1 ELSE 0 END) AS pendientes,
-            SUM(CASE WHEN atd.estatus_confirmacion_gestor = \'en_revision\' THEN 1 ELSE 0 END) AS en_revision
+            SUM(CASE WHEN atd.estatus_confirmacion_gestor = \'en_revision\' THEN 1 ELSE 0 END) AS en_revision,
+            GROUP_CONCAT(
+                CONCAT(\'#\', atd.id_credito,
+                    CASE WHEN atd.modelo IS NOT NULL AND atd.modelo != \'\'  THEN CONCAT(\' - \', atd.modelo) ELSE \'\'  END
+                )
+                ORDER BY atd.orden_ruta SEPARATOR \'||\'
+            ) AS creditos_lista,
+            GROUP_CONCAT(
+                DISTINCT CONCAT(
+                    COALESCE(atd.estado, \'\'),
+                    \'|||\'  ,
+                    COALESCE(atd.municipio, \'|\')
+                )
+                ORDER BY atd.estado, atd.municipio SEPARATOR \'@@\'
+            ) AS ubicaciones_lista
         FROM asigna_horas_tracking atr
         LEFT JOIN asigna_horas_tracking_detalle atd ON atd.id_ruta = atr.id_ruta
         WHERE atr.estatus_ruta = \'borrador\'

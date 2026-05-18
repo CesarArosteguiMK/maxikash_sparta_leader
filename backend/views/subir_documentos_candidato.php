@@ -850,6 +850,8 @@ $documentos = [
             var VERIFICACION_IDENTIFICACION_TIMEOUT_MS = 120000; // 2 min: OCR + analizadores pueden tardar
             var VERIFICACION_CALIDAD_TIMEOUT_MS = 20000; // 20 s para revisión ligera (solo calidad de imagen)
 
+            var VERIFICACION_FISCAL_TIMEOUT_MS = 70000;
+
             function crearErrorTimeout(timeoutMs) {
                 var err = new Error('Tiempo de espera agotado.');
                 err.name = 'TimeoutError';
@@ -1341,7 +1343,7 @@ $documentos = [
                     var verificandoDiv = showVerificando(msg, 'Verificando constancia fiscal...');
                     var formData = new FormData();
                     formData.append('documento', file, file.name);
-                    fetchWithTimeout(API_BASE + '/verificar-constancia-fiscal-documento', { method: 'POST', headers: { 'X-API-Key': API_KEY }, body: formData }, VERIFICACION_TIMEOUT_MS)
+                    fetchWithTimeout(API_BASE + '/verificar-constancia-fiscal-documento', { method: 'POST', headers: { 'X-API-Key': API_KEY }, body: formData }, VERIFICACION_FISCAL_TIMEOUT_MS)
                     .then(function(r) {
                         if (!r.ok) {
                             return r.json().catch(function() { return {}; }).then(function(body) {

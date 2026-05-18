@@ -9,6 +9,6 @@ class Aplicacionespago extends Controller
 {
     public function paneladmin()
     {
-        TicketsPanelModuloHelper::renderModuloPanel($this, 'aplicaciones_de_pago');
+        TicketsPanelModuloHelper::renderModuloPanel($this, 'reclamo');
     }
 }

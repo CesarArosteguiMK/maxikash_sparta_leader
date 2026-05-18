@@ -58,11 +58,46 @@
         overflow: auto;
         position: relative;
         z-index: 1;
+        cursor: grab;
+        user-select: none;
+        -webkit-user-select: none;
+    }
+    #chart-container .organigrama-chart-scroll.is-panning {
+        cursor: grabbing;
+    }
+    #chart-container .organigrama-chart-scroll.is-panning * {
+        cursor: grabbing !important;
     }
     #chart {
         width: max-content;
-        min-width: 100%;
+        min-width: 180%;
+        box-sizing: border-box;
+        padding: 0 35% 90px;
         margin: 0 auto;
+    }
+    @media (max-width: 991.98px) {
+        #chart {
+            min-width: 220%;
+            padding-left: 50%;
+            padding-right: 50%;
+        }
+    }
+    #chart:has(.organigrama-msg-glass),
+    #chart:has(.organigrama-loading-glass) {
+        width: 100%;
+        min-width: 100%;
+        min-height: 520px;
+        padding: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin: 0;
+        transform: none !important;
+    }
+    #chart-container .organigrama-chart-scroll:has(.organigrama-msg-glass),
+    #chart-container .organigrama-chart-scroll:has(.organigrama-loading-glass) {
+        overflow: hidden;
+        cursor: default;
     }
     @media (max-width: 991.98px) {
         #chart-container .organigrama-titulo-linea {
@@ -1555,7 +1590,62 @@
         }
         window.centrarOrganigrama = centrarOrganigrama;
 
+        function inicializarPanOrganigrama() {
+            const scroll = document.querySelector("#chart-container .organigrama-chart-scroll");
+            if (!scroll || scroll.dataset.panReady === "1") return;
+
+            scroll.dataset.panReady = "1";
+            let isDown = false;
+            let moved = false;
+            let startX = 0;
+            let startY = 0;
+            let scrollLeft = 0;
+            let scrollTop = 0;
+
+            scroll.addEventListener("pointerdown", function (e) {
+                if (e.button !== 0) return;
+                isDown = true;
+                moved = false;
+                startX = e.clientX;
+                startY = e.clientY;
+                scrollLeft = scroll.scrollLeft;
+                scrollTop = scroll.scrollTop;
+                scroll.classList.add("is-panning");
+                scroll.setPointerCapture(e.pointerId);
+            });
+
+            scroll.addEventListener("pointermove", function (e) {
+                if (!isDown) return;
+                const dx = e.clientX - startX;
+                const dy = e.clientY - startY;
+                if (Math.abs(dx) > 3 || Math.abs(dy) > 3) moved = true;
+                if (!moved) return;
+                e.preventDefault();
+                scroll.scrollLeft = scrollLeft - dx;
+                scroll.scrollTop = scrollTop - dy;
+            });
+
+            function terminarPan(e) {
+                if (!isDown) return;
+                isDown = false;
+                scroll.classList.remove("is-panning");
+                try { scroll.releasePointerCapture(e.pointerId); } catch (err) {}
+            }
+
+            scroll.addEventListener("pointerup", terminarPan);
+            scroll.addEventListener("pointercancel", terminarPan);
+            scroll.addEventListener("pointerleave", terminarPan);
+
+            scroll.addEventListener("click", function (e) {
+                if (!moved) return;
+                e.preventDefault();
+                e.stopPropagation();
+                moved = false;
+            }, true);
+        }
+
         depSearchSelect = new SearchableSelect(document.getElementById("depSelect"));
+        inicializarPanOrganigrama();
 
         window.addEventListener('resize', ajustarEscalaChart);
 

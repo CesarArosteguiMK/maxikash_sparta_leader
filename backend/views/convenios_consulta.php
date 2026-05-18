@@ -2163,7 +2163,7 @@ function congelarModulo(convenio) {
         '<span>' + pct + '% completado</span>' +
         '</div>' +
         '<div class="conv-progress-bar-bg">' +
-        '<div class="conv-progress-bar-fill" style="width:' + pct + '%"></div>' +
+        '<div class="conv-progress-bar-fill" style"width:' + pct + '%"></div>' +
         '</div>' +
         '<div class="conv-progress-info">' +
         '<span>Inicio: <strong>' + fmt(totalPagar) + '</strong></span>' +
@@ -2467,7 +2467,17 @@ function congelarModulo(convenio) {
                 '</button>';
 
         } else if (esPendiente) {
-            btnAccion = '<span style="color:#ccc;">—</span>';
+            btnAccion =
+                '<button class="btn btn-xs btn-outline-warning btn-subir-comprobante" ' +
+                'style="font-size:.75rem;padding:3px 8px;" ' +
+                'data-semana="' + fila.numero_semana + '" ' +
+                'data-convenio="' + convenio.id + '" ' +
+                'data-credito="' + convenio.id_credito + '" ' +
+                'data-pago-semanal="' + fila.pago_semanal + '" ' +
+                'data-fecha-pago="' + fila.fecha_pago + '" ' +
+                'title="Subir comprobante">' +
+                '<i class="fas fa-upload"></i>' +
+                '</button>';
         }
 
         var _etiquetaGlobo = '';

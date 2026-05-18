@@ -30,9 +30,9 @@ body.dark-mode {
     margin-bottom: 1.25rem;
 }
 body.dark-mode .track-header {
-    background: linear-gradient(135deg, var(--track-color) 0%, var(--track-color-dark) 100%);
-    border-color: transparent;
-    color: #fff;
+    background: var(--track-bg-card);
+    border-color: var(--track-border);
+    color: var(--track-color-dark);
 }
 .track-header h4 { margin: 0; font-weight: 700; letter-spacing: .5px; }
 .track-header .track-subtitle { opacity: .85; font-size: .85rem; margin-top: .2rem; }
@@ -138,11 +138,22 @@ body.dark-mode .track-credito-row {
     padding: .1rem .35rem;
     font-size: .75rem;
 }
+.eta-row input.form-control {
+    font-size: .72rem;
+    padding: .1rem .3rem;
+    height: auto;
+    line-height: 1.4;
+}
+body.dark-mode .eta-row input.form-control {
+    background-color: #1e2d2c;
+    color: #e2e8f0;
+    border-color: #2d4444;
+}
 
 /* ── Mapa ── */
 #trackMapContainer {
     width: 100%;
-    height: 340px;
+    height: 475px;
     border-radius: .5rem;
     border: 2px solid var(--track-border);
     overflow: hidden;
@@ -174,6 +185,39 @@ body.dark-mode .track-credito-row {
     margin: .15rem;
 }
 body.dark-mode .track-summary-chip { background: #134e4a; color: #5eead4; }
+
+/* ── Dark mode: modales + formularios ── */
+body.dark-mode .modal-content {
+    background-color: #161f1f;
+    color: #e2e8f0;
+    border-color: #334444;
+}
+body.dark-mode .modal-header { border-bottom-color: #334444; }
+body.dark-mode .modal-footer {
+    background-color: #161f1f;
+    border-top-color: #334444;
+}
+body.dark-mode .modal-body { background-color: #161f1f; }
+body.dark-mode .form-control,
+body.dark-mode .form-select {
+    background-color: #1e2d2c;
+    color: #e2e8f0;
+    border-color: #2d4444;
+}
+body.dark-mode .form-control::placeholder { color: #6b8080; }
+body.dark-mode .form-control:disabled,
+body.dark-mode .form-select:disabled {
+    background-color: #111a1a;
+    color: #52686a;
+    border-color: #1e2d2c;
+}
+body.dark-mode .form-label { color: #b0cece; }
+body.dark-mode .form-text  { color: #52686a; }
+body.dark-mode .input-group-text {
+    background-color: #1e2d2c;
+    color: #b0cece;
+    border-color: #2d4444;
+}
 
 /* ── Select2 / chosen override ── */
 .select2-container .select2-selection--multiple {
@@ -368,33 +412,17 @@ body.dark-mode .track-summary-chip { background: #134e4a; color: #5eead4; }
                         <input type="text" class="form-control form-control-sm"
                                id="rutaNombre" maxlength="100" placeholder="Ej. Ruta GDL Norte Junio">
                     </div>
-                    <div class="col-12 col-md-3">
-                        <label class="form-label small fw-semibold">
-                            Estado <span class="text-danger">*</span>
-                        </label>
-                        <select class="form-select form-select-sm" id="rutaEstado">
-                            <option value="">— Seleccionar —</option>
-                        </select>
-                    </div>
-                    <div class="col-12 col-md-3">
-                        <label class="form-label small fw-semibold">
-                            Municipio <span class="text-danger">*</span>
-                        </label>
-                        <select class="form-select form-select-sm" id="rutaMunicipio" disabled>
-                            <option value="">— Seleccionar —</option>
-                        </select>
-                    </div>
-                    <div class="col-12 col-md-2">
+                    <div class="col-12 col-md-4">
                         <label class="form-label small fw-semibold">
                             Fecha programada <span class="text-danger">*</span>
                         </label>
                         <input type="date" class="form-control form-control-sm"
                                id="rutaFecha" min="">
                         <div class="form-text text-muted" style="font-size:.72rem;">
-                            Mínimo 2 días desde hoy
+                            Mínimo 2 días desde hoy  - Deja una fecha tentativa si aún no está definida para que puedas guardar correctamente el borrador de la ruta.
                         </div>
                     </div>
-                    <div class="col-12 col-md-2">
+                    <div class="col-12 col-md-4">
                         <label class="form-label small fw-semibold">
                             Hora de salida
                         </label>
@@ -432,6 +460,19 @@ body.dark-mode .track-summary-chip { background: #134e4a; color: #5eead4; }
                     <label class="form-label small fw-semibold">
                         Agregar crédito a la ruta
                     </label>
+                    <!-- Filtros de ubicación para créditos -->
+                    <div class="row g-2 mb-2" id="crdFiltrosUbicacion">
+                        <div class="col-12 col-md-4">
+                            <select class="form-select form-select-sm" id="crdFiltroEstado">
+                                <option value="">— Todos los estados —</option>
+                            </select>
+                        </div>
+                        <div class="col-12 col-md-4">
+                            <select class="form-select form-select-sm" id="crdFiltroMunicipio" disabled>
+                                <option value="">— Todos los municipios —</option>
+                            </select>
+                        </div>
+                    </div>
                     <div class="input-group input-group-sm">
                         <select class="form-select" id="rutaCreditoSelect">
                             <option value="">— Buscar crédito (ID · Modelo · BIN) —</option>
@@ -495,6 +536,10 @@ body.dark-mode .track-summary-chip { background: #134e4a; color: #5eead4; }
                     <i class="fa-solid fa-xmark me-1"></i>Cancelar
                 </button>
                 <div class="d-flex gap-2">
+                    <button type="button" class="btn btn-sm" id="btnActualizarRuta"
+                            style="background:#0d6efd;color:#fff;display:none;">
+                        <i class="fa-solid fa-arrows-rotate me-1"></i>Actualizar ruta
+                    </button>
                     <button type="button" class="btn btn-sm" id="btnGuardarBorrador"
                             style="background:#94a3b8;color:#fff;">
                         <i class="fa-solid fa-floppy-disk me-1"></i>Guardar borrador
@@ -598,6 +643,7 @@ const _trk = {
     usuariosDisponibles:  [],   // personas activas
     usuariosSeleccionados:[],   // ids seleccionados
     idRutaEditando:       null, // null = nueva ruta
+    estatusRuta:          null, // estatus_ruta de la ruta cargada (null = nueva)
     soloLectura:          false,// modal en modo vista bloqueada
     cargando:             false, // cargando ruta existente (evita haychangios)
     haycambios:           false,
@@ -608,6 +654,8 @@ const _trk = {
     mapInstance:          null,
     mapLoaded:            false,
     geocoder:             null,
+    mapMarkers:           [],   // marcadores activos en el mapa
+    directionsRenderer:   null, // renderer de ruta activo
 };
 
 // ─── Utilidades ─────────────────────────────────────────
@@ -657,6 +705,17 @@ document.addEventListener('DOMContentLoaded', function () {
     _trkInicializarTablaRutasDT();
     _trkInicializarTablaBorradorDT();
     _trkInicializarModal();
+
+    // Observar cambios de clase en body para actualizar estilos del mapa
+    new MutationObserver(() => {
+        if (!_trk.mapInstance) return;
+        const isDark = document.body.classList.contains('dark-mode');
+        _trk.mapInstance.setOptions({ styles: isDark ? _TRK_DARK_MAP_STYLES : [] });
+        // El picker tiene su propio mapa
+        if (_trkPicker.mapInstance) {
+            _trkPicker.mapInstance.setOptions({ styles: isDark ? _TRK_DARK_MAP_STYLES : [] });
+        }
+    }).observe(document.body, { attributeFilter: ['class'] });
 
     document.getElementById('tabRutasBtn').addEventListener('click', () => _trkCargarRutas());
     document.getElementById('tabBorradorBtn').addEventListener('click', () => _trkCargarBorradores());
@@ -751,11 +810,7 @@ function _trkCargarEstados() {
         .then(r => {
             const estados = r.datos || [];
             const $selFiltro = $('#filtroEstado');
-            const $selModal  = $('#rutaEstado');
-            estados.forEach(e => {
-                $selFiltro.append(`<option value="${e}">${e}</option>`);
-                $selModal.append(`<option value="${e}">${e}</option>`);
-            });
+            estados.forEach(e => $selFiltro.append(`<option value="${e}">${e}</option>`));
         });
 }
 
@@ -828,6 +883,7 @@ function _trkCargarCreditosPaso2() {
             if (_trk.tablaCreditosDT) {
                 _trk.tablaCreditosDT.clear().rows.add(_trk.creditosDisponibles).draw();
             }
+            _trkPoblarFiltroEstadosCrd();
             _trkRefrescarSelectCreditos();
             const badge = document.getElementById('badgeCreditos');
             if (badge) badge.textContent = String(_trk.creditosDisponibles.length);
@@ -845,6 +901,26 @@ function _trkCargarCreditosPaso2() {
 // }
 
 // ─── Tabla de rutas ─────────────────────────────────────
+function _trkRenderUbicacionRuta(raw) {
+    if (!raw) return '—';
+    const map = new Map();
+    raw.split('@@').forEach(p => {
+        const sep  = p.indexOf('|||');
+        const est  = sep >= 0 ? p.slice(0, sep).trim()  : '';
+        const mun  = sep >= 0 ? p.slice(sep + 3).trim() : '';
+        if (!est) return;
+        if (!map.has(est)) map.set(est, new Set());
+        if (mun && mun !== '|') map.get(est).add(mun);
+    });
+    if (!map.size) return '—';
+    return [...map.entries()]
+        .map(([est, munis]) => {
+            const munStr = [...munis].filter(Boolean).join(', ');
+            return munStr ? `${est} / ${munStr}` : est;
+        })
+        .join('<br>');
+}
+
 function _trkInicializarTablaRutasDT() {
     _trk.tablaRutasDT = $('#tablaRutas').DataTable({
         language: {
@@ -862,7 +938,7 @@ function _trkInicializarTablaRutasDT() {
             { data: 'nombre_ruta' },
             {
                 data: null,
-                render: r => [r.estado, r.municipio].filter(Boolean).join(' / ') || '—',
+                render: r => _trkRenderUbicacionRuta(r.ubicaciones_lista),
             },
             { data: 'fecha_programada_fmt', defaultContent: '—' },
             {
@@ -892,17 +968,25 @@ function _trkInicializarTablaRutasDT() {
                     const conf  = parseInt(r.confirmados)    || 0;
                     const pend  = parseInt(r.pendientes)     || 0;
                     const rech  = parseInt(r.rechazados)     || 0;
-                    return `<div class="d-flex flex-column gap-1 align-items-start" style="min-width:90px;">
-                        <span class="badge bg-secondary">${total} crédito${total !== 1 ? 's' : ''}</span>
-                        <div class="d-flex gap-1 flex-wrap">
-                            <span class="badge badge-conf-confirmado" title="Confirmados">✓ ${conf}</span>
-                            <span class="badge badge-conf-pendiente"  title="Pendientes">⏳ ${pend}</span>
-                            <span class="badge badge-conf-rechazado"  title="Rechazados">✗ ${rech}</span>
-                        </div>
-                    </div>`;
+                    const lista = (r.creditos_lista || '').split('||').filter(Boolean).join('<br>');
+                    const ttAttr = lista ? ` data-bs-toggle="tooltip" data-bs-placement="right" data-bs-html="true" data-bs-title="${lista}"` : '';
+                    let html = `<div class="d-flex flex-column gap-1 align-items-start">`;
+                    html += `<span class="badge bg-secondary trk-cred-badge"${ttAttr} style="cursor:default;white-space:nowrap;">${total} crédito${total !== 1 ? 's' : ''}</span>`;
+                    if (conf > 0) html += `<small class="text-success fw-semibold" style="white-space:nowrap;">${conf} confirmado${conf !== 1 ? 's' : ''}</small>`;
+                    if (pend > 0) html += `<small class="text-warning fw-semibold" style="white-space:nowrap;">${pend} pendiente${pend !== 1 ? 's' : ''}</small>`;
+                    if (rech > 0) html += `<small class="text-danger  fw-semibold" style="white-space:nowrap;">${rech} rechazado${rech !== 1 ? 's' : ''}</small>`;
+                    html += '</div>';
+                    return html;
                 },
             },
-            { data: 'usuarios_responsables', defaultContent: '—' },
+            {
+                data: 'usuarios_responsables',
+                defaultContent: '—',
+                render: v => {
+                    if (!v) return '—';
+                    return v.split(',').map(n => `<span style="display:block;white-space:nowrap;">${n.trim()}</span>`).join('');
+                },
+            },
             {
                 data: null,
                 orderable: false,
@@ -917,6 +1001,11 @@ function _trkInicializarTablaRutasDT() {
                        </button>`,
             },
         ],
+        drawCallback: function () {
+            document.querySelectorAll('#tablaRutas [data-bs-toggle="tooltip"]').forEach(el => {
+                bootstrap.Tooltip.getOrCreateInstance(el, { trigger: 'hover', html: true });
+            });
+        },
     });
 
     $('#tablaRutas').on('click', '.btn-editar-ruta', function () {
@@ -958,7 +1047,7 @@ function _trkInicializarTablaBorradorDT() {
             { data: 'nombre_ruta', defaultContent: '—' },
             {
                 data: null,
-                render: r => [r.estado, r.municipio].filter(Boolean).join(' / ') || '—',
+                render: r => _trkRenderUbicacionRuta(r.ubicaciones_lista),
             },
             { data: 'fecha_programada_fmt', defaultContent: '—' },
             {
@@ -984,17 +1073,25 @@ function _trkInicializarTablaBorradorDT() {
                     const conf  = parseInt(r.confirmados)    || 0;
                     const pend  = parseInt(r.pendientes)     || 0;
                     const rech  = parseInt(r.rechazados)     || 0;
-                    return `<div class="d-flex flex-column gap-1 align-items-start" style="min-width:90px;">
-                        <span class="badge bg-secondary">${total} crédito${total !== 1 ? 's' : ''}</span>
-                        <div class="d-flex gap-1 flex-wrap">
-                            <span class="badge badge-conf-confirmado" title="Confirmados">✓ ${conf}</span>
-                            <span class="badge badge-conf-pendiente"  title="Pendientes">⏳ ${pend}</span>
-                            <span class="badge badge-conf-rechazado"  title="Rechazados">✗ ${rech}</span>
-                        </div>
-                    </div>`;
+                    const lista = (r.creditos_lista || '').split('||').filter(Boolean).join('<br>');
+                    const ttAttr = lista ? ` data-bs-toggle="tooltip" data-bs-placement="right" data-bs-html="true" data-bs-title="${lista}"` : '';
+                    let html = `<div class="d-flex flex-column gap-1 align-items-start">`;
+                    html += `<span class="badge bg-secondary trk-cred-badge"${ttAttr} style="cursor:default;white-space:nowrap;">${total} crédito${total !== 1 ? 's' : ''}</span>`;
+                    if (conf > 0) html += `<small class="text-success fw-semibold" style="white-space:nowrap;">${conf} confirmado${conf !== 1 ? 's' : ''}</small>`;
+                    if (pend > 0) html += `<small class="text-warning fw-semibold" style="white-space:nowrap;">${pend} pendiente${pend !== 1 ? 's' : ''}</small>`;
+                    if (rech > 0) html += `<small class="text-danger  fw-semibold" style="white-space:nowrap;">${rech} rechazado${rech !== 1 ? 's' : ''}</small>`;
+                    html += '</div>';
+                    return html;
                 },
             },
-            { data: 'usuarios_responsables', defaultContent: '—' },
+            {
+                data: 'usuarios_responsables',
+                defaultContent: '—',
+                render: v => {
+                    if (!v) return '—';
+                    return v.split(',').map(n => `<span style="display:block;white-space:nowrap;">${n.trim()}</span>`).join('');
+                },
+            },
             {
                 data: null,
                 orderable: false,
@@ -1004,6 +1101,11 @@ function _trkInicializarTablaBorradorDT() {
                                </button>`,
             },
         ],
+        drawCallback: function () {
+            document.querySelectorAll('#tablaBorradores [data-bs-toggle="tooltip"]').forEach(el => {
+                bootstrap.Tooltip.getOrCreateInstance(el, { trigger: 'hover', html: true });
+            });
+        },
     });
 
     $('#tablaBorradores').on('click', '.btn-editar-borrador', function () {
@@ -1059,24 +1161,6 @@ function _trkCargarTodo() {
 
 // ─── Modal — apertura ────────────────────────────────────
 function _trkInicializarModal() {
-    // Estado
-    $('#rutaEstado').on('change', function () {
-        const est = $(this).val();
-        const $mun = $('#rutaMunicipio');
-        $mun.html('<option value="">— Cargando… —</option>').prop('disabled', true);
-        if (!est) {
-            $mun.html('<option value="">— Seleccionar —</option>').prop('disabled', true);
-            return;
-        }
-        trkFetch(`/TrackingRecoleccion/obtenerMunicipios?estado=${encodeURIComponent(est)}`)
-            .then(r => {
-                $mun.html('<option value="">— Seleccionar —</option>');
-                (r.datos || []).forEach(m => $mun.append(`<option value="${m}">${m}</option>`));
-                if (!_trk.cargando) $mun.prop('disabled', false);
-            });
-        if (!_trk.cargando) _trk.haychangios = true;
-    });
-
     // Fecha mínima
     const minDate = (() => {
         const d = new Date();
@@ -1091,10 +1175,12 @@ function _trkInicializarModal() {
         placeholder: '— Buscar y seleccionar usuarios —',
         allowClear: true,
         closeOnSelect: false,
+        maximumSelectionLength: 4,
         dropdownParent: $('#modalRegistrarRuta'),
         language: {
             noResults: () => 'Sin resultados',
             searching: () => 'Buscando…',
+            maximumSelected: () => 'Máximo 4 usuarios responsables',
         },
     });
     $('#rutaUsuarios').on('change', function () {
@@ -1102,7 +1188,7 @@ function _trkInicializarModal() {
             id: Number(o.value),
             nombre: o.text,
         }));
-        _trk.haychangios = true;
+        _trkMarcarCambio();
     });
 
     // Agregar crédito
@@ -1114,8 +1200,30 @@ function _trkInicializarModal() {
         if (!cred) return;
         _trkAgregarCreditoALista(cred);
         $sel.val('');
-        _trk.haychangios = true;
+        _trkMarcarCambio();
     });
+
+    // Filtro de créditos por estado
+    $('#crdFiltroEstado').on('change', function () {
+        const est = $(this).val();
+        const $mun = $('#crdFiltroMunicipio');
+        $mun.html('<option value="">— Todos los municipios —</option>');
+        if (est) {
+            const munis = [...new Set(
+                _trk.creditosDisponibles
+                    .filter(c => c.estado === est && c.municipio)
+                    .map(c => c.municipio)
+            )].sort();
+            munis.forEach(m => $mun.append(`<option value="${m}">${m}</option>`));
+            $mun.prop('disabled', false);
+        } else {
+            $mun.prop('disabled', true);
+        }
+        _trkRefrescarSelectCreditos();
+    });
+
+    // Filtro de créditos por municipio
+    $('#crdFiltroMunicipio').on('change', _trkRefrescarSelectCreditos);
 
     // Mapa refresh
     $('#btnRefreshMap').on('click', _trkRenderizarMapa);
@@ -1123,6 +1231,18 @@ function _trkInicializarModal() {
     // Guardar
     $('#btnGuardarBorrador').on('click', () => _trkGuardarRuta('borrador'));
     $('#btnEnviarRuta').on('click', () => _trkGuardarRuta('enviar'));
+    $('#btnActualizarRuta').on('click', async () => {
+        const ok = await Swal.fire({
+            icon: 'question',
+            title: '¿Guardar cambios?',
+            text: 'Se actualizarán los datos de esta ruta.',
+            showCancelButton: true,
+            confirmButtonText: 'Sí, actualizar',
+            cancelButtonText: 'No, regresar',
+            confirmButtonColor: '#0d6efd',
+        });
+        if (ok.isConfirmed) _trkGuardarRuta('actualizar');
+    });
 
     // Cerrar con aviso
     const _closeFn = async () => {
@@ -1141,7 +1261,7 @@ function _trkInicializarModal() {
         animation: 150,
         onEnd: () => {
             _trkRecalcularOrden();
-            _trk.haychangios = true;
+            _trkMarcarCambio();
         },
     });
 }
@@ -1155,24 +1275,11 @@ function _trkAbrirModalNuevo() {
 function _trkAbrirModalConCredito(cred) {
     _trkResetModal();
     _trkAgregarCreditoALista(cred);
-    // Pre-seleccionar estado/municipio del crédito
+    // Pre-seleccionar estado/municipio del crédito en los filtros
     if (cred.estado) {
-        const $est = $('#rutaEstado');
-        if ($est.find(`option[value="${cred.estado}"]`).length) {
-            $est.val(cred.estado).trigger('change');
-            setTimeout(() => {
-                if (cred.municipio) {
-                    const $mun = $('#rutaMunicipio');
-                    // Esperar a que carguen los municipios
-                    const wait = setInterval(() => {
-                        if ($mun.find(`option[value="${cred.municipio}"]`).length) {
-                            clearInterval(wait);
-                            $mun.val(cred.municipio);
-                        }
-                    }, 200);
-                    setTimeout(() => clearInterval(wait), 3000);
-                }
-            }, 500);
+        $('#crdFiltroEstado').val(cred.estado).trigger('change');
+        if (cred.municipio) {
+            $('#crdFiltroMunicipio').val(cred.municipio).trigger('change');
         }
     }
     const modal = new bootstrap.Modal(document.getElementById('modalRegistrarRuta'));
@@ -1181,6 +1288,7 @@ function _trkAbrirModalConCredito(cred) {
 
 function _trkResetModal() {
     _trk.idRutaEditando        = null;
+    _trk.estatusRuta           = null;
     _trk.soloLectura           = false;
     _trk.cargando              = false;
     _trk.creditosEnRuta        = [];
@@ -1188,8 +1296,6 @@ function _trkResetModal() {
     _trk.haychangios           = false;
     _trkDesbloquearModal();
     $('#rutaNombre').val('');
-    $('#rutaEstado').val('');
-    $('#rutaMunicipio').html('<option value="">— Seleccionar —</option>').prop('disabled', true);
     const minDate = (() => {
         const d = new Date();
         d.setDate(d.getDate() + 2);
@@ -1201,6 +1307,10 @@ function _trkResetModal() {
     $('#rutaHoraM').val('00');
     $('#rutaHoraAmPm').val('AM');
     $('#rutaHoraActInfo').addClass('d-none').text('');
+    // Reset filtros de créditos
+    $('#crdFiltroEstado').val('');
+    $('#crdFiltroMunicipio').html('<option value="">— Todos los municipios —</option>').prop('disabled', true);
+    _trkPoblarFiltroEstadosCrd();
     if ($('#rutaUsuarios').hasClass('select2-hidden-accessible')) {
         $('#rutaUsuarios').val(null).trigger('change');
     } else {
@@ -1220,12 +1330,25 @@ function _trkResetModal() {
 }
 
 // ─── Créditos en el modal ────────────────────────────────
+function _trkPoblarFiltroEstadosCrd() {
+    const estados = [...new Set(
+        _trk.creditosDisponibles.map(c => c.estado).filter(Boolean)
+    )].sort();
+    const $est = $('#crdFiltroEstado');
+    $est.html('<option value="">— Todos los estados —</option>');
+    estados.forEach(e => $est.append(`<option value="${e}">${e}</option>`));
+}
+
 function _trkRefrescarSelectCreditos() {
+    const estFiltro = $('#crdFiltroEstado').val();
+    const munFiltro = $('#crdFiltroMunicipio').val();
     const $sel = $('#rutaCreditoSelect');
     const idsEnRuta = new Set(_trk.creditosEnRuta.map(c => String(c.id_credito)));
     $sel.html('<option value="">— Buscar crédito (ID · Modelo · BIN) —</option>');
     _trk.creditosDisponibles.forEach(c => {
         if (idsEnRuta.has(String(c.id_credito))) return;
+        if (estFiltro && c.estado !== estFiltro) return;
+        if (munFiltro && c.municipio !== munFiltro) return;
         const modelo = [c.moto_marca, c.moto_modelo].filter(Boolean).join(' ');
         const label  = `#${c.id_credito} · ${modelo || '(sin modelo)'} · ${c.bin || '—'}`;
         $sel.append(`<option value="${c.id_credito}">${label}</option>`);
@@ -1252,7 +1375,7 @@ function _trkQuitarCredito(idCred) {
     _trkRenderListaCreditos();
     _trkRefrescarSelectCreditos();
     _trkRenderizarMapa();
-    _trk.haychangios = true;
+    _trkMarcarCambio();
 }
 
 function _trkRenderListaCreditos() {
@@ -1276,9 +1399,12 @@ function _trkRenderListaCreditos() {
         const pinClass  = tienePin ? 'btn-pin-ubicacion tiene-pin' : 'btn-pin-ubicacion';
         const pinTitle  = tienePin ? 'Ubicación manual asignada (clic para cambiar)' : 'Asignar ubicación en mapa';
 
+        // Los créditos en ruta nunca se bloquean
+        const filaLectura = false;
+
         // Elementos que sólo aparecen en modo edición
-        const dragHandle  = _trk.soloLectura ? '' : '<i class="fa-solid fa-grip-vertical drag-handle"></i>';
-        const confControl = _trk.soloLectura
+        const dragHandle  = filaLectura ? '' : '<i class="fa-solid fa-grip-vertical drag-handle"></i>';
+        const confControl = filaLectura
             ? badgeConf
             : `<select class="form-select form-select-sm py-0 ms-1 select-conf-gestor"
                     style="max-width:130px;font-size:.75rem;"
@@ -1288,7 +1414,7 @@ function _trkRenderListaCreditos() {
                 <option value="rechazado"   ${c.estatus_confirmacion_gestor === 'rechazado'   ? 'selected' : ''}>Rechazado</option>
                 <option value="en_revision" ${c.estatus_confirmacion_gestor === 'en_revision' ? 'selected' : ''}>En revisión</option>
             </select>`;
-        const actionBtns = _trk.soloLectura ? '' : `
+        const actionBtns = filaLectura ? '' : `
             <button class="btn btn-sm btn-outline-secondary ${pinClass}" data-id="${c.id_credito}" title="${pinTitle}" style="font-size:.72rem;padding:.15rem .4rem;">
                 <i class="fa-solid fa-map-pin"></i>
             </button>
@@ -1306,17 +1432,22 @@ function _trkRenderListaCreditos() {
                     ${modelo} · BIN: ${c.bin || '—'}
                     &nbsp;|&nbsp;${c.estado || '—'}, ${c.municipio || '—'}
                 </span>
+                <div class="eta-row d-flex align-items-center gap-1 mt-1 flex-wrap">
+                    <span class="text-muted fw-semibold" style="font-size:.7rem;white-space:nowrap;">ETA:</span>
+                    <input type="date" class="form-control eta-fecha" data-id="${c.id_credito}" value="${c.fecha_eta || ''}" style="max-width:130px;" title="Fecha estimada de llegada">
+                    <input type="time" class="form-control eta-ini"  data-id="${c.id_credito}" value="${c.hora_eta_ini || ''}" style="max-width:105px;" title="Hora estimada de llegada (inicio)">
+                    <span class="text-muted" style="font-size:.7rem;line-height:1;">–</span>
+                    <input type="time" class="form-control eta-fin"  data-id="${c.id_credito}" value="${c.hora_eta_fin || ''}" style="max-width:105px;" title="Hora estimada de llegada (fin)">
+                </div>
             </div>
-            ${badgeConf}
             ${confControl}
             ${actionBtns}
         </div>`;
         $list.append(html);
     });
 
-    // Eventos (sólo en modo edición)
-    if (!_trk.soloLectura) {
-        $list.find('.btn-remove-cred').off('click').on('click', function () {
+    // Eventos de créditos (siempre activos, incluso en modo ver ruta)
+    $list.find('.btn-remove-cred').off('click').on('click', function () {
             _trkQuitarCredito($(this).data('id'));
         });
         $list.find('.btn-pin-ubicacion').off('click').on('click', function () {
@@ -1332,9 +1463,26 @@ function _trkRenderListaCreditos() {
                 c.estatus_confirmacion_gestor = val;
                 _trkRenderListaCreditos();
             }
-            _trk.haychangios = true;
+            _trkMarcarCambio();
         });
-    }
+        $list.find('.eta-fecha').off('change').on('change', function () {
+            const id = $(this).data('id');
+            const c  = _trk.creditosEnRuta.find(x => String(x.id_credito) === String(id));
+            if (c) c.fecha_eta = $(this).val() || null;
+            _trkMarcarCambio();
+        });
+        $list.find('.eta-ini').off('change').on('change', function () {
+            const id = $(this).data('id');
+            const c  = _trk.creditosEnRuta.find(x => String(x.id_credito) === String(id));
+            if (c) c.hora_eta_ini = $(this).val() || null;
+            _trkMarcarCambio();
+        });
+        $list.find('.eta-fin').off('change').on('change', function () {
+            const id = $(this).data('id');
+            const c  = _trk.creditosEnRuta.find(x => String(x.id_credito) === String(id));
+            if (c) c.hora_eta_fin = $(this).val() || null;
+            _trkMarcarCambio();
+        });
 }
 
 function _trkRecalcularOrden() {
@@ -1409,6 +1557,24 @@ function _trkRenderizarMapa() {
     }
 }
 
+// ─── Estilos oscuros para Google Maps ───────────────────
+const _TRK_DARK_MAP_STYLES = [
+    { elementType: 'geometry',             stylers: [{ color: '#1d2c2c' }] },
+    { elementType: 'labels.text.fill',     stylers: [{ color: '#8ec3b0' }] },
+    { elementType: 'labels.text.stroke',   stylers: [{ color: '#1a2e2c' }] },
+    { featureType: 'road',                 elementType: 'geometry',        stylers: [{ color: '#2c3e3e' }] },
+    { featureType: 'road',                 elementType: 'geometry.stroke', stylers: [{ color: '#1a2e2c' }] },
+    { featureType: 'road',                 elementType: 'labels.text.fill',stylers: [{ color: '#9ca5b3' }] },
+    { featureType: 'road.highway',         elementType: 'geometry',        stylers: [{ color: '#0f4a4a' }] },
+    { featureType: 'road.highway',         elementType: 'geometry.stroke', stylers: [{ color: '#0d3838' }] },
+    { featureType: 'water',                elementType: 'geometry',        stylers: [{ color: '#0e1d1d' }] },
+    { featureType: 'water',                elementType: 'labels.text.fill',stylers: [{ color: '#515c6d' }] },
+    { featureType: 'poi',                  elementType: 'geometry',        stylers: [{ color: '#263636' }] },
+    { featureType: 'poi.park',             elementType: 'geometry',        stylers: [{ color: '#1c3030' }] },
+    { featureType: 'transit',              elementType: 'geometry',        stylers: [{ color: '#2f3948' }] },
+    { featureType: 'administrative',       elementType: 'geometry.stroke', stylers: [{ color: '#334444' }] },
+];
+
 function _trkDibujarMapa(creditos) {
     const mapDiv = document.getElementById('trackMap');
     if (!mapDiv || typeof google === 'undefined') return;
@@ -1416,77 +1582,156 @@ function _trkDibujarMapa(creditos) {
     if (!_trk.mapInstance) {
         _trk.mapInstance = new google.maps.Map(mapDiv, {
             zoom: 10,
-            center: { lat: 20.6597, lng: -103.3496 }, // GDL por defecto
+            center: { lat: 20.6597, lng: -103.3496 },
+            styles: document.body.classList.contains('dark-mode') ? _TRK_DARK_MAP_STYLES : [],
         });
         _trk.geocoder = new google.maps.Geocoder();
     }
-    const map     = _trk.mapInstance;
-    const bounds  = new google.maps.LatLngBounds();
-    const markers = [];
 
-    const processNext = (idx) => {
-        if (idx >= creditos.length) {
-            if (markers.length > 1) {
-                // Trazar ruta con Directions si existen al menos 2 marcadores
-                const waypoints = markers.slice(1, -1).map(m => ({
-                    location: m.getPosition(),
-                    stopover: true,
-                }));
-                const directionsService  = new google.maps.DirectionsService();
-                const directionsRenderer = new google.maps.DirectionsRenderer({ map });
-                directionsService.route({
-                    origin:      markers[0].getPosition(),
-                    destination: markers[markers.length - 1].getPosition(),
-                    waypoints,
-                    travelMode: google.maps.TravelMode.DRIVING,
-                }, (result, status) => {
-                    if (status === 'OK') {
-                        directionsRenderer.setDirections(result);
-                    } else {
-                        map.fitBounds(bounds);
-                    }
-                });
-            } else if (markers.length === 1) {
-                map.setCenter(markers[0].getPosition());
+    // ── Limpiar mapa anterior ─────────────────────────────────
+    _trk.mapMarkers.forEach(m => m.setMap(null));
+    _trk.mapMarkers = [];
+    if (_trk.directionsRenderer) {
+        _trk.directionsRenderer.setMap(null);
+        _trk.directionsRenderer = null;
+    }
+
+    const map    = _trk.mapInstance;
+    const bounds = new google.maps.LatLngBounds();
+
+    // ── Separar por estatus ───────────────────────────────────
+    const paraRuta     = creditos
+        .filter(c => c.estatus_confirmacion_gestor === 'confirmado')
+        .sort((a, b) => (a.orden_ruta || 99) - (b.orden_ruta || 99));
+    const soloPin      = creditos.filter(c =>
+        c.estatus_confirmacion_gestor === 'pendiente' ||
+        c.estatus_confirmacion_gestor === 'en_revision'
+    );
+    // rechazados → completamente omitidos del mapa
+
+    // ── Icono SVG numerado (confirmados) ─────────────────────
+    const svgIcon = (num) => {
+        const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="34" height="34">
+            <circle cx="17" cy="17" r="15" fill="#e53935" stroke="#fff" stroke-width="2.5"/>
+            <text x="17" y="22" text-anchor="middle" fill="#fff"
+                  font-size="${num > 9 ? 11 : 13}" font-weight="bold" font-family="Arial,sans-serif">${num}</text>
+        </svg>`;
+        return {
+            url: 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(svg),
+            scaledSize: new google.maps.Size(34, 34),
+            anchor:     new google.maps.Point(17, 17),
+        };
+    };
+
+    // ── Icono por estatus (no confirmados) ───────────────────
+    const statusIcon = (estatus) => {
+        const color = estatus === 'en_revision' ? '#fb8c00' : '#fdd835';
+        const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="26" height="26">
+            <circle cx="13" cy="13" r="11" fill="${color}" stroke="#fff" stroke-width="2"/>
+        </svg>`;
+        return {
+            url: 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(svg),
+            scaledSize: new google.maps.Size(26, 26),
+            anchor:     new google.maps.Point(13, 13),
+        };
+    };
+
+    // ── Resolver coordenadas de un crédito ───────────────────
+    const resolverPos = (c) => new Promise(resolve => {
+        const lat = parseFloat(c.latitud_manual ?? c.latitud);
+        const lng = parseFloat(c.longitud_manual ?? c.longitud);
+        if (!isNaN(lat) && !isNaN(lng) && lat !== 0 && lng !== 0) {
+            resolve({ lat, lng });
+            return;
+        }
+        if (_trk.geocoder && (c.direccion || (c.municipio && c.estado))) {
+            const addr = [c.direccion, c.municipio, c.estado, 'M\u00e9xico'].filter(Boolean).join(', ');
+            _trk.geocoder.geocode({ address: addr }, (res, st) => {
+                if (st === 'OK' && res[0]) {
+                    resolve({ lat: res[0].geometry.location.lat(), lng: res[0].geometry.location.lng() });
+                } else {
+                    resolve(null);
+                }
+            });
+        } else {
+            resolve(null);
+        }
+    });
+
+    // ── Resolver todo en paralelo y dibujar ──────────────────
+    Promise.all([
+        ...paraRuta.map(c  => resolverPos(c).then(pos => ({ c, pos, tipo: 'ruta' }))),
+        ...soloPin.map(c   => resolverPos(c).then(pos => ({ c, pos, tipo: 'pin'  }))),
+    ]).then(results => {
+        // Marcadores sin ruta (pendiente / en_revision)
+        results.filter(r => r.tipo === 'pin' && r.pos).forEach(({ c, pos }) => {
+            const m = new google.maps.Marker({
+                map,
+                position: pos,
+                icon:  statusIcon(c.estatus_confirmacion_gestor),
+                title: `#${c.id_credito} \u2014 ${c.nombre_cliente || ''} (${c.estatus_confirmacion_gestor})`,
+                zIndex: 1,
+            });
+            _trk.mapMarkers.push(m);
+            bounds.extend(pos);
+        });
+
+        // Marcadores numerados (confirmados)
+        const rutaConPos = results
+            .filter(r => r.tipo === 'ruta' && r.pos)
+            .sort((a, b) => (a.c.orden_ruta || 99) - (b.c.orden_ruta || 99));
+
+        rutaConPos.forEach(({ c, pos }, idx) => {
+            const m = new google.maps.Marker({
+                map,
+                position: pos,
+                icon:  svgIcon(idx + 1),
+                title: `#${c.id_credito} \u2014 ${c.nombre_cliente || ''}`,
+                zIndex: 10 + idx,
+            });
+            _trk.mapMarkers.push(m);
+            bounds.extend(pos);
+        });
+
+        if (!bounds.isEmpty()) map.fitBounds(bounds);
+
+        if (rutaConPos.length < 2) {
+            if (rutaConPos.length === 1) {
+                map.setCenter(rutaConPos[0].pos);
                 map.setZoom(14);
             }
             return;
         }
-        const c = creditos[idx];
-        const lat = parseFloat(c.latitud);
-        const lng = parseFloat(c.longitud);
-        if (!isNaN(lat) && !isNaN(lng) && lat !== 0 && lng !== 0) {
-            const pos = { lat, lng };
-            const m = new google.maps.Marker({
-                map,
-                position: pos,
-                label: String(c.orden_ruta || (idx + 1)),
-                title: `#${c.id_credito} — ${c.nombre_cliente || ''}`,
-            });
-            markers.push(m);
-            bounds.extend(pos);
-            processNext(idx + 1);
-        } else if (_trk.geocoder && (c.direccion || (c.municipio && c.estado))) {
-            const address = [c.direccion, c.municipio, c.estado, 'México'].filter(Boolean).join(', ');
-            _trk.geocoder.geocode({ address }, (results, status) => {
-                if (status === 'OK' && results[0]) {
-                    const pos = results[0].geometry.location;
-                    const m = new google.maps.Marker({
-                        map,
-                        position: pos,
-                        label: String(c.orden_ruta || (idx + 1)),
-                        title: `#${c.id_credito} — ${c.nombre_cliente || ''}`,
-                    });
-                    markers.push(m);
-                    bounds.extend(pos);
-                }
-                processNext(idx + 1);
-            });
-        } else {
-            processNext(idx + 1);
-        }
-    };
-    processNext(0);
+
+        // ── Trazar polilínea de ruta (solo confirmados) ──────
+        const origin      = new google.maps.LatLng(rutaConPos[0].pos.lat, rutaConPos[0].pos.lng);
+        const destination = new google.maps.LatLng(rutaConPos[rutaConPos.length - 1].pos.lat, rutaConPos[rutaConPos.length - 1].pos.lng);
+        const waypoints   = rutaConPos.slice(1, -1).map(r => ({
+            location: new google.maps.LatLng(r.pos.lat, r.pos.lng),
+            stopover: true,
+        }));
+
+        _trk.directionsRenderer = new google.maps.DirectionsRenderer({
+            map,
+            suppressMarkers:          true,  // usamos nuestros propios marcadores
+            suppressInfoWindows:       true,
+            preserveViewport:          true,
+            polylineOptions: { strokeColor: '#1565C0', strokeWeight: 4, strokeOpacity: 0.85 },
+        });
+
+        new google.maps.DirectionsService().route({
+            origin,
+            destination,
+            waypoints,
+            travelMode:               google.maps.TravelMode.DRIVING,
+            provideRouteAlternatives: false,
+        }, (result, status) => {
+            if (status === 'OK') {
+                _trk.directionsRenderer.setDirections(result);
+            }
+            map.fitBounds(bounds);
+        });
+    });
 }
 
 // ─── Map Picker (Plan B: clic en mapa para asignar coords) ──────────────────
@@ -1659,7 +1904,7 @@ function _trkConfirmarMapPicker() {
         // Sobrescribir también las props que usa el mapa de ruta
         cred.latitud  = lat;
         cred.longitud = lng;
-        _trk.haychangios = true;
+        _trkMarcarCambio();
     }
 
     _trkPicker.modal.hide();
@@ -1694,9 +1939,12 @@ function _trkHoraToPayload() {
 
 function _trkGuardarRuta(modo) {
     const nombre    = $('#rutaNombre').val().trim();
-    const estado    = $('#rutaEstado').val();
-    const municipio = $('#rutaMunicipio').val();
     const fecha     = $('#rutaFecha').val();
+
+    // Estado/municipio: preferir el filtro seleccionado; si vacío y hay créditos, derivar del primero
+    const primerCred = _trk.creditosEnRuta[0] || {};
+    const estado    = $('#crdFiltroEstado').val()    || primerCred.estado    || '';
+    const municipio = $('#crdFiltroMunicipio').val() || primerCred.municipio || '';
 
     if (!nombre) {
         Swal.fire({ icon: 'warning', title: 'Campo requerido', text: 'El nombre de la ruta es obligatorio.', confirmButtonText: 'Aceptar' });
@@ -1707,20 +1955,12 @@ function _trkGuardarRuta(modo) {
         Swal.fire({ icon: 'warning', title: 'Campo requerido', text: 'Debe agregar al menos un crédito a la ruta.', confirmButtonText: 'Aceptar' });
         return;
     }
-    if (!estado) {
-        Swal.fire({ icon: 'warning', title: 'Campo requerido', text: 'Selecciona el estado.', confirmButtonText: 'Aceptar' });
-        return;
-    }
-    if (!municipio) {
-        Swal.fire({ icon: 'warning', title: 'Campo requerido', text: 'Selecciona el municipio.', confirmButtonText: 'Aceptar' });
-        return;
-    }
     if (!fecha) {
         Swal.fire({ icon: 'warning', title: 'Campo requerido', text: 'La fecha programada es obligatoria.', confirmButtonText: 'Aceptar' });
         return;
     }
 
-    if (modo !== 'borrador') {
+    if (modo !== 'borrador' && modo !== 'actualizar') {
         if (_trk.usuariosSeleccionados.length === 0) {
             Swal.fire({ icon: 'warning', title: 'Campo requerido', text: 'Asigna al menos un usuario responsable para enviar la ruta.', confirmButtonText: 'Aceptar' });
             return;
@@ -1752,6 +1992,9 @@ function _trkGuardarRuta(modo) {
             longitud:                    c.longitud || null,
             orden_ruta:                  c.orden_ruta,
             estatus_confirmacion_gestor: c.estatus_confirmacion_gestor || 'pendiente',
+            fecha_eta:                   c.fecha_eta    || null,
+            hora_eta_ini:                c.hora_eta_ini || null,
+            hora_eta_fin:                c.hora_eta_fin || null,
         })),
     };
 
@@ -1839,33 +2082,48 @@ function _trkVerDetalleRuta(idRuta) {
         .catch(() => $body.html('<div class="alert alert-danger">Error de conexión.</div>'));
 }
 
+// ─── Marcar cambios pendientes ────────────────────────
+function _trkMarcarCambio() {
+    if (_trk.cargando) return;
+    _trk.haychangios = true;
+    if (_trk.soloLectura) {
+        $('#btnActualizarRuta').prop('disabled', false)
+            .css({ background: '#0d6efd', cursor: 'pointer' });
+    }
+}
+
 // ─── Bloquear / Desbloquear modal ───────────────────────
 function _trkBloquearModal() {
     _trk.soloLectura = true;
-    $('#rutaNombre, #rutaFecha, #rutaEstado, #rutaMunicipio, #rutaUsuarios, #rutaCreditoSelect, #rutaHoraH, #rutaHoraM, #rutaHoraAmPm')
-        .prop('disabled', true);
-    // Select2 visual lock
+    // Solo bloquear campos de cabecera de la ruta
+    $('#rutaNombre, #rutaFecha, #rutaHoraH, #rutaHoraM, #rutaHoraAmPm').prop('disabled', true);
+    // Usuarios: bloquear también
+    $('#rutaUsuarios').prop('disabled', true);
     if ($('#rutaUsuarios').hasClass('select2-hidden-accessible')) {
         $('#rutaUsuarios').prop('disabled', true);
     }
-    $('#btnGuardarBorrador, #btnEnviarRuta').hide();
+    // Ocultar sección de agregar nuevos créditos (no añadir, solo editar existentes)
     $('#secAgregarCredito').hide();
     $('#reorderHint').hide();
-    // Badge "Solo lectura" en título si no existe ya
+    // Swap de botones: ocultar borrador/enviar, mostrar actualizar (gris hasta que haya cambios)
+    $('#btnGuardarBorrador, #btnEnviarRuta').hide();
+    $('#btnActualizarRuta').show().prop('disabled', true)
+        .css({ background: '#94a3b8', cursor: 'not-allowed' });
+    // Badge en título
     const $label = $('#modalRegistrarRutaLabel');
     if (!$label.find('.badge-solo-lectura').length) {
-        $label.append('<span class="badge bg-secondary badge-solo-lectura ms-2" style="font-size:.63rem;vertical-align:middle;">Solo lectura</span>');
+        $label.append('<span class="badge bg-secondary badge-solo-lectura ms-2" style="font-size:.63rem;vertical-align:middle;">Ver ruta</span>');
     }
 }
 
 function _trkDesbloquearModal() {
     _trk.soloLectura = false;
-    $('#rutaNombre, #rutaFecha, #rutaEstado, #rutaUsuarios, #rutaHoraH, #rutaHoraM, #rutaHoraAmPm').prop('disabled', false);
-    // rutaMunicipio lo habilita el change handler de rutaEstado después de cargar opciones
+    $('#rutaNombre, #rutaFecha, #rutaUsuarios, #rutaHoraH, #rutaHoraM, #rutaHoraAmPm, #crdFiltroEstado').prop('disabled', false);
     if ($('#rutaUsuarios').hasClass('select2-hidden-accessible')) {
         $('#rutaUsuarios').prop('disabled', false);
     }
     $('#btnGuardarBorrador, #btnEnviarRuta').show();
+    $('#btnActualizarRuta').hide();
     $('#secAgregarCredito').show();
     $('#reorderHint').show();
     $('#modalRegistrarRutaLabel .badge-solo-lectura').remove();
@@ -1916,6 +2174,9 @@ function _trkCargarRutaEnModal(idRuta, soloLectura) {
                 longitud:                    det.longitud || null,
                 orden_ruta:                  det.orden_ruta || (i + 1),
                 estatus_confirmacion_gestor: det.estatus_confirmacion_gestor || 'pendiente',
+                fecha_eta:                   det.fecha_eta    || null,
+                hora_eta_ini:                det.hora_eta_ini || null,
+                hora_eta_fin:                det.hora_eta_fin || null,
             }));
             _trkRenderListaCreditos();
             _trkRefrescarSelectCreditos();
@@ -1930,29 +2191,14 @@ function _trkCargarRutaEnModal(idRuta, soloLectura) {
                 $('#rutaUsuarios').val(ids).trigger('change');
             }
 
-            // Estado + Municipio (sin triggear el change handler que marca haychangios)
-            if (d.estado) {
-                $('#rutaEstado').val(d.estado);
-                if (d.municipio) {
-                    trkFetch(`/TrackingRecoleccion/obtenerMunicipios?estado=${encodeURIComponent(d.estado)}`)
-                        .then(res => {
-                            const $mun = $('#rutaMunicipio');
-                            $mun.html('<option value="">— Seleccionar —</option>');
-                            (res.datos || []).forEach(m => $mun.append(`<option value="${m}">${m}</option>`));
-                            $mun.val(d.municipio);
-                            // Dejar disabled si soloLectura, habilitar si edición
-                            $mun.prop('disabled', !!soloLectura);
-                            _trk.cargando    = false;
-                            _trk.haychangios = false;
-                        });
-                } else {
-                    _trk.cargando    = false;
-                    _trk.haychangios = false;
-                }
-            } else {
-                _trk.cargando    = false;
-                _trk.haychangios = false;
+            // Estado + Municipio via filtros de créditos
+            $('#crdFiltroEstado').val(d.estado || '').trigger('change');
+            if (d.municipio) {
+                $('#crdFiltroMunicipio').val(d.municipio);
             }
+            _trk.estatusRuta  = d.estatus_ruta || null;
+            _trk.cargando     = false;
+            _trk.haychangios  = false;
 
             // Aplicar bloqueo si es solo lectura
             if (soloLectura) _trkBloquearModal();
