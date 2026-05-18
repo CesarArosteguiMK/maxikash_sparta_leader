@@ -35,20 +35,29 @@ class PanelAdminTicketTable
                 'folio' => 'Folio / Ausencia',
                 'ref' => 'Tipo / empleado',
                 'fechas' => 'Periodo de ausencia',
+                'creador' => 'Quien solicita',
             ],
             'solicitud_vacaciones' => [
                 'folio' => 'Folio / Ausencia',
                 'ref' => 'Tipo / empleado',
                 'fechas' => 'Periodo de ausencia',
+                'creador' => 'Quien solicita',
             ],
             'viaticos' => [
                 'folio' => 'Folio / Ausencia',
                 'ref' => 'Tipo / empleado',
                 'fechas' => 'Periodo de ausencia',
+                'creador' => 'Quien solicita',
             ],
             'aplicaciones_de_pago' => [
-                'folio' => 'Folio / solicitud',
-                'ref' => 'Referencia de pago',
+                'folio' => 'Folio / Reclamo',
+                'ref' => 'Tipo de reclamo',
+                'fechas' => 'Registro',
+            ],
+            'reclamo' => [
+                'folio' => 'Folio / Reclamo',
+                'ref' => 'Tipo de reclamo',
+                'fechas' => 'Registro',
             ],
             'plantilla' => [
                 'folio' => 'Folio / plantilla',
@@ -59,13 +68,24 @@ class PanelAdminTicketTable
                 'ref' => 'Asunto / canal',
             ],
             'credito_problematico' => [
-                'folio' => 'Folio / reporte',
-                'ref' => 'Crédito',
-                'prioridad' => 'Severidad',
+                'folio' => 'Folio / Pago',
+                'ref' => 'Credito / cliente',
+                'fechas' => 'Datos del pago',
+            ],
+            'pagos_no_identificados' => [
+                'folio' => 'Folio / Pago',
+                'ref' => 'Credito / cliente',
+                'fechas' => 'Datos del pago',
             ],
             'aclaracion_credito' => [
-                'folio' => 'Folio / aclaración',
-                'ref' => 'Crédito',
+                'folio' => 'Folio / Incidencia',
+                'ref' => 'Credito / cliente',
+                'fechas' => 'Registro',
+            ],
+            'incidencias_cartera' => [
+                'folio' => 'Folio / Incidencia',
+                'ref' => 'Credito / cliente',
+                'fechas' => 'Registro',
             ],
         ];
         if ($c === '') {
@@ -85,6 +105,9 @@ class PanelAdminTicketTable
         $c = strtolower(preg_replace('/[^a-z0-9_]/', '', $categoria));
         if ($c === 'validaciones') {
             return [5, 9, 10, 11];
+        }
+        if (in_array($c, ['ausencia', 'solicitud_vacaciones', 'viaticos', 'reclamo', 'pagos_no_identificados', 'incidencias_cartera', 'aplicaciones_de_pago', 'credito_problematico', 'aclaracion_credito'], true)) {
+            return [4, 8, 9, 10, 11];
         }
 
         return [10, 11];

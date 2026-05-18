@@ -25,11 +25,12 @@
         return d.toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit', year: 'numeric' });
     }
 
-    function renderCampoDetalle(label, value, icon) {
+    function renderCampoDetalle(label, value, icon, colClass) {
         var val = value == null || String(value).trim() === '' ? '—' : String(value).trim();
+        var col = colClass || 'col-12 col-sm-6';
         return (
-            '<div class="col-12 col-sm-6">' +
-            '<div class="border rounded-2 bg-body-tertiary p-2 h-100">' +
+            '<div class="' + col + '">' +
+            '<div class="border rounded-2 bg-body-tertiary p-3 h-100">' +
             '<div class="text-uppercase text-muted fw-semibold mb-1" style="font-size:.68rem;letter-spacing:.04em;">' +
             '<i class="fa-solid ' + icon + ' me-1"></i>' + txtEsc(label) +
             '</div>' +
@@ -39,42 +40,161 @@
         );
     }
 
+    function normalizaTipoTicketApp(v) {
+        var x = (v == null ? '' : String(v)).trim().replace(/_/g, ' ');
+        if (!x) return '';
+        return x.charAt(0).toUpperCase() + x.slice(1);
+    }
+
+    function formatMontoMx(v) {
+        if (v == null || v === '') return '—';
+        var n = Number(v);
+        if (isNaN(n)) return String(v);
+        return '$' + n.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    }
+
+    function esTicketAppSimple(cat) {
+        cat = (cat || '').toString().toLowerCase().trim();
+        return ['ausencia', 'solicitud_vacaciones', 'viaticos', 'reclamo', 'pagos_no_identificados', 'incidencias_cartera', 'aplicaciones_de_pago', 'credito_problematico', 'aclaracion_credito'].indexOf(cat) !== -1;
+    }
+
+    function respuestaLabel(v) {
+        var x = (v || '').toString().toLowerCase().trim();
+        if (x === 'aceptado') return 'Aceptado';
+        if (x === 'denegado') return 'Denegado';
+        return '';
+    }
+
+    function pintarRespuestaTicket(t, esAppSimple) {
+        var res = respuestaLabel(t && t.respuesta_resultado);
+        var tieneRespuesta = !!res;
+        $('#resumenTicketRespuestaWrap').toggleClass('d-none', !tieneRespuesta);
+        $('#resumenTicketBtnAceptar, #resumenTicketBtnDenegar').toggleClass('d-none', !esAppSimple || tieneRespuesta);
+        if (!tieneRespuesta) {
+            $('#resumenTicketRespuestaBadge').removeClass('bg-label-success bg-label-danger').addClass('bg-label-secondary').text('—');
+            $('#resumenTicketRespuestaFecha').empty();
+            $('#resumenTicketRespuestaComentario').text('—');
+            return;
+        }
+        $('#resumenTicketRespuestaBadge')
+            .removeClass('bg-label-secondary bg-label-success bg-label-danger')
+            .addClass(res === 'Aceptado' ? 'bg-label-success' : 'bg-label-danger')
+            .text(res);
+        var fecha = t.respuesta_fecha ? new Date(t.respuesta_fecha).toLocaleString('es-MX', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '';
+        $('#resumenTicketRespuestaFecha').text(fecha ? 'Respondido: ' + fecha : '');
+        $('#resumenTicketRespuestaComentario').text((t.respuesta_comentario || '').trim() || '—');
+    }
+
     function renderResumenDetalleModulo(t) {
         var cat = ((t && t.categoria_gestion) || cfg().categoria || '').toString().toLowerCase().trim();
         var $wrap = $('#resumenTicketModuloDetalleWrap');
         $wrap.empty().addClass('d-none');
-        if (cat !== 'ausencia' && cat !== 'solicitud_vacaciones' && cat !== 'viaticos') return;
+        if (!esTicketAppSimple(cat)) return;
 
-        var desde = t.solicitud_vacaciones_fecha_desde || t.solicitud_ausencia_fecha_desde || '';
-        var hasta = t.solicitud_vacaciones_fecha_hasta || t.solicitud_ausencia_fecha_hasta || '';
-        var periodo = formatFechaCorta(desde) + ' - ' + formatFechaCorta(hasta);
-        var html =
-            '<p class="text-muted fw-semibold mb-1" style="font-size:.7rem;text-transform:uppercase;letter-spacing:.05em;">' +
-            '<i class="fa-solid fa-calendar-xmark me-1"></i>Datos de ausencia</p>' +
-            '<div class="row g-2">' +
-            renderCampoDetalle('Tipo', t.tipo_categoria || t.asunto || 'Ausencia', 'fa-tag') +
-            renderCampoDetalle('Departamento', t.solicitud_vacaciones_departamento || t.solicitud_ausencia_departamento, 'fa-building') +
-            renderCampoDetalle('Periodo', periodo, 'fa-calendar-days') +
-            renderCampoDetalle('Quien cubre', t.solicitud_vacaciones_quien_cubre || t.solicitud_ausencia_quien_cubre, 'fa-user-shield');
-        var adj = t.solicitud_vacaciones_adjunto_nombre_original || t.solicitud_ausencia_adjunto_nombre_original || '';
-        if (adj) {
-            html += renderCampoDetalle('Adjunto original', adj, 'fa-paperclip');
+        var titulo = 'Resumen de ticket';
+        var icono = 'fa-ticket';
+        if (cat === 'ausencia' || cat === 'solicitud_vacaciones' || cat === 'viaticos') {
+            titulo = 'Resumen de ausencia';
+            icono = 'fa-calendar-xmark';
+        } else if (cat === 'reclamo') {
+            titulo = 'Resumen de reclamo';
+            icono = 'fa-gift';
+        } else if (cat === 'pagos_no_identificados') {
+            titulo = 'Resumen de pago';
+            icono = 'fa-magnifying-glass-dollar';
+        } else if (cat === 'incidencias_cartera') {
+            titulo = 'Resumen de incidencia';
+            icono = 'fa-briefcase';
         }
+
+        var html =
+            '<p class="text-muted fw-semibold mb-2" style="font-size:.7rem;text-transform:uppercase;letter-spacing:.05em;">' +
+            '<i class="fa-solid ' + icono + ' me-1"></i>' + txtEsc(titulo) + '</p>' +
+            '<div class="row g-2">';
+
+        if (cat === 'ausencia' || cat === 'solicitud_vacaciones' || cat === 'viaticos') {
+            var colAusencia = 'col-12 col-sm-6 col-lg-4';
+            var desdeAus = t.solicitud_vacaciones_fecha_desde || t.solicitud_ausencia_fecha_desde || '';
+            var hastaAus = t.solicitud_vacaciones_fecha_hasta || t.solicitud_ausencia_fecha_hasta || '';
+            var deptoAus = t.solicitud_vacaciones_departamento || t.solicitud_ausencia_departamento || '';
+            var notaAus = (t.nota || t.descripcion_inicial || '').trim();
+            html +=
+                renderCampoDetalle('Tipo', normalizaTipoTicketApp(t.tipo_categoria || t.asunto || 'Ausencia'), 'fa-tag', colAusencia) +
+                renderCampoDetalle('Empleado', t.creador_nombre || t.empleado_nombre, 'fa-user', colAusencia) +
+                renderCampoDetalle('Departamento', deptoAus || '—', 'fa-building', colAusencia) +
+                renderCampoDetalle('Desde', formatFechaCorta(desdeAus), 'fa-calendar-day', colAusencia) +
+                renderCampoDetalle('Hasta', formatFechaCorta(hastaAus), 'fa-calendar-check', colAusencia);
+            var quienCubre = t.solicitud_vacaciones_quien_cubre || t.solicitud_ausencia_quien_cubre || '';
+            if (quienCubre && String(quienCubre).trim()) {
+                html += renderCampoDetalle('Quien cubre', quienCubre, 'fa-user-shield', colAusencia);
+            }
+            if (notaAus) {
+                html += renderCampoDetalle('Comentario', notaAus, 'fa-comment-dots', 'col-12');
+            }
+        } else if (cat === 'reclamo') {
+            var colReclamo = 'col-12 col-sm-6 col-lg-5ths';
+            html +=
+                renderCampoDetalle('Tipo de reclamo', normalizaTipoTicketApp(t.reclamo_tipo || t.tipo_categoria || t.asunto || 'Reclamos de bonos'), 'fa-tag', colReclamo) +
+                renderCampoDetalle('Empleado', t.creador_nombre || '—', 'fa-user', colReclamo) +
+                renderCampoDetalle('Departamento', t.reclamo_departamento || '—', 'fa-building', colReclamo) +
+                renderCampoDetalle('Bono', t.reclamo_bono || '—', 'fa-medal', colReclamo) +
+                renderCampoDetalle('Periodo de reclamo', t.reclamo_mes || '—', 'fa-calendar', colReclamo) +
+                renderCampoDetalle('Semana', ((t.reclamo_semana || '') + (t.reclamo_semana_rango ? ' · ' + t.reclamo_semana_rango : '')) || '—', 'fa-calendar-week', colReclamo) +
+                renderCampoDetalle('Monto esperado', formatMontoMx(t.reclamo_monto_esperado), 'fa-money-bill-wave', colReclamo) +
+                renderCampoDetalle('Monto recibido', formatMontoMx(t.reclamo_monto_recibido), 'fa-hand-holding-dollar', colReclamo);
+            if (t.reclamo_diferencia != null && t.reclamo_diferencia !== '') {
+                html += renderCampoDetalle('Diferencia', formatMontoMx(t.reclamo_diferencia), 'fa-scale-balanced', colReclamo);
+            }
+            var descRec = (t.reclamo_descripcion || t.descripcion_inicial || t.nota || '').trim();
+            if (descRec) {
+                html += renderCampoDetalle('Descripcion', descRec, 'fa-comment-dots', colReclamo);
+            }
+        } else if (cat === 'pagos_no_identificados') {
+            html +=
+                renderCampoDetalle('Credito', t.id_credito ? '#' + t.id_credito : '—', 'fa-id-card') +
+                renderCampoDetalle('Fecha de pago', formatFechaCorta(t.pago_no_identificado_fecha_pago), 'fa-calendar-day') +
+                renderCampoDetalle('Monto', t.pago_no_identificado_monto_pago ? '$' + Number(t.pago_no_identificado_monto_pago).toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '—', 'fa-dollar-sign');
+            if ((t.nota || '').trim()) {
+                html += renderCampoDetalle('Comentario', t.nota, 'fa-comment-dots');
+            }
+        } else if (cat === 'incidencias_cartera') {
+            html +=
+                renderCampoDetalle('Credito', (t.incidencia_cartera_id_credito || t.id_credito) ? '#' + (t.incidencia_cartera_id_credito || t.id_credito) : '—', 'fa-id-card') +
+                renderCampoDetalle('Cliente', t.incidencia_cartera_cliente || '—', 'fa-user') +
+                renderCampoDetalle('Motivo', normalizaTipoTicketApp(t.incidencia_cartera_tipo_error || t.tipo_categoria || '—'), 'fa-triangle-exclamation');
+            if ((t.incidencia_cartera_descripcion || t.descripcion_inicial || '').trim()) {
+                html += renderCampoDetalle('Detalle', t.incidencia_cartera_descripcion || t.descripcion_inicial, 'fa-message');
+            }
+        }
+
         html += '</div>';
         $wrap.html(html).removeClass('d-none');
     }
 
     function tmApiBase() {
         var p = window.location.pathname || '';
-        var i = p.indexOf('/sabueso');
-        if (i !== -1) {
-            return p.substring(0, i);
+        var m = p.match(/^(.*?)(\/(?:sabueso|validaciones|viaticos|aplicacionespago|creditoproblematico|aclaracioncredito)(?:\/|$))/i);
+        if (m && m[1]) {
+            return m[1];
         }
-        i = p.indexOf('/validaciones');
-        if (i !== -1) {
-            return p.substring(0, i);
-        }
-        return '';
+        return (typeof HTTP_CONFIG !== 'undefined' && HTTP_CONFIG && HTTP_CONFIG.baseURL) ? String(HTTP_CONFIG.baseURL).replace(/\/$/, '') : '';
+    }
+
+    function tmAppUrl(path) {
+        var p = (path == null ? '' : String(path)).trim();
+        if (!p) return '';
+        if (/^(?:https?:)?\/\//i.test(p) || /^data:/i.test(p) || /^blob:/i.test(p)) return p;
+        if (p.charAt(0) !== '/') p = '/' + p;
+        var base = tmApiBase();
+        return (base ? base.replace(/\/$/, '') : '') + p;
+    }
+
+    function tmUploadUrl(ruta) {
+        var r = (ruta == null ? '' : String(ruta)).trim().replace(/\\/g, '/');
+        if (!r) return '';
+        if (/^(?:https?:)?\/\//i.test(r) || /^data:/i.test(r) || /^blob:/i.test(r)) return r;
+        r = r.replace(/^\/+/, '').replace(/^public\/uploads\//i, 'uploads/').replace(/^uploads\//i, '');
+        return tmAppUrl('/uploads/' + r);
     }
 
     /** Abre el iframe del form builder en solo lectura (p. ej. jefe territorial desde resumen de ticket). */
@@ -125,7 +245,18 @@
         }
         tmAdjuntoLightboxIndex = i;
         var it = tmAdjuntoLightboxItems[tmAdjuntoLightboxIndex];
-        $('#tmAdjuntoLightboxImg').attr('src', it.url).attr('alt', it.nom || '');
+        $('#tmAdjuntoLightboxImg')
+            .off('error.tmAdjunto')
+            .on('error.tmAdjunto', function () {
+                var $img = $(this);
+                var fb = ($img.attr('data-tm-fallback-src') || '').trim();
+                if (fb && $img.attr('src') !== fb) {
+                    $img.attr('data-tm-fallback-src', '').attr('src', fb);
+                }
+            })
+            .attr('data-tm-fallback-src', it.fallbackUrl || '')
+            .attr('src', it.url)
+            .attr('alt', it.nom || '');
         $('#tmAdjuntoLightboxNombre').text(it.nom || '');
         $('#tmAdjuntoLightboxCounter').text(n > 1 ? '(' + (tmAdjuntoLightboxIndex + 1) + ' / ' + n + ')' : '');
         var solo = n <= 1;
@@ -200,6 +331,13 @@
                 tmAdjuntoLightboxShow(i);
             }
         });
+        $(document).on('error', '#resumenTicketEvidenciasGrid img[data-tm-fallback-src], #tmAdjuntoLightboxImg[data-tm-fallback-src]', function () {
+            var $img = $(this);
+            var fb = ($img.attr('data-tm-fallback-src') || '').trim();
+            if (fb && $img.attr('src') !== fb) {
+                $img.attr('data-tm-fallback-src', '').attr('src', fb);
+            }
+        });
         $(document).on('click', '#resumenTicketEvidenciasGrid [data-tm-adj-pdf-url]', function (e) {
             e.preventDefault();
             var u = $(this).attr('data-tm-adj-pdf-url');
@@ -242,7 +380,6 @@
         function esPdfEv(ev) {
             return /\.pdf$/i.test((ev.nombre_original || '') + (ev.ruta_archivo || ''));
         }
-        var base = tmApiBase();
         http.request({
             endpoint: '/sabueso/getEvidenciasTicket',
             metodo: 'POST',
@@ -258,13 +395,15 @@
                 $wrap.removeClass('d-none');
                 list.forEach(function (ev) {
                     var pathUrl = ev.url || '/sabueso/verEvidencia?id=' + (ev.id || '');
-                    var url = base + pathUrl;
+                    var url = tmAppUrl(pathUrl);
+                    var fallbackUrl = tmUploadUrl(ev.ruta_archivo || '');
                     var href = attrEsc(url);
+                    var fallbackAttr = fallbackUrl ? attrEsc(fallbackUrl) : '';
                     var nom = attrEsc(nombreArchivo(ev));
                     var nomPlain = nombreArchivo(ev);
                     if (esImagen(ev)) {
                         var idx = tmAdjuntoLightboxItems.length;
-                        tmAdjuntoLightboxItems.push({ url: url, nom: nomPlain });
+                        tmAdjuntoLightboxItems.push({ url: url, fallbackUrl: fallbackUrl, nom: nomPlain });
                         $grid.append(
                             '<div class="col-6 col-md-4">' +
                                 '<button type="button" class="d-block w-100 p-0 border-0 bg-transparent rounded overflow-hidden" style="cursor:pointer;" data-tm-lb="' +
@@ -274,7 +413,10 @@
                                 href +
                                 '" alt="' +
                                 attrEsc(nomPlain) +
-                                '" loading="lazy" class="tm-ev-img">' +
+                                '" loading="lazy" class="tm-ev-img" data-tm-fallback-src="' +
+                                fallbackAttr +
+                                '" onerror="if(this.dataset.tmFallbackSrc){this.onerror=null;this.src=this.dataset.tmFallbackSrc;this.dataset.tmFallbackSrc=\'\';}"' +
+                                '">' +
                                 '</button>' +
                                 '<div class="small text-muted text-truncate mt-1" title="' +
                                 nom +
@@ -576,6 +718,10 @@
         var estadoBadge = '<span class="badge bg-label-secondary">' + estadoNombre + '</span>';
         if (en.indexOf('cerrad') !== -1) {
             estadoBadge = '<span class="badge bg-secondary text-white">' + estadoNombre + '</span>';
+        } else if (en.indexOf('acept') !== -1) {
+            estadoBadge = '<span class="badge bg-success text-white">' + estadoNombre + '</span>';
+        } else if (en.indexOf('deneg') !== -1 || en.indexOf('rechaz') !== -1) {
+            estadoBadge = '<span class="badge bg-danger text-white">' + estadoNombre + '</span>';
         } else if (en.indexOf('abiert') !== -1) {
             estadoBadge = '<span class="badge bg-success text-white">' + estadoNombre + '</span>';
         } else if (en.indexOf('proceso') !== -1 || en.indexOf('curso') !== -1 || en.indexOf('pendiente') !== -1) {
@@ -594,9 +740,12 @@
             ausencia: 'fa-calendar-xmark',
             solicitud_vacaciones: 'fa-calendar-xmark',
             viaticos: 'fa-calendar-xmark',
-            aplicaciones_de_pago: 'fa-credit-card',
-            credito_problematico: 'fa-triangle-exclamation',
-            aclaracion_credito: 'fa-circle-question'
+            reclamo: 'fa-gift',
+            pagos_no_identificados: 'fa-magnifying-glass-dollar',
+            incidencias_cartera: 'fa-briefcase',
+            aplicaciones_de_pago: 'fa-gift',
+            credito_problematico: 'fa-magnifying-glass-dollar',
+            aclaracion_credito: 'fa-briefcase'
         };
         var icCat = icoM[catK] || 'fa-list';
         var folioTipoHtml =
@@ -631,8 +780,69 @@
         if (CAT === 'ausencia' || catK === 'ausencia' || catK === 'solicitud_vacaciones') {
             var deptoAus = t.solicitud_vacaciones_departamento || t.solicitud_ausencia_departamento || '';
             creditoVal = (t.tipo_categoria || t.asunto || 'Ausencia') + (deptoAus ? ' / ' + deptoAus : '');
+        } else if (catK === 'reclamo') {
+            var reclamoPartes = [];
+            reclamoPartes.push(normalizaTipoTicketApp(t.reclamo_tipo || t.tipo_categoria || t.asunto || 'Reclamos de bonos'));
+            if (t.reclamo_departamento) reclamoPartes.push(t.reclamo_departamento);
+            if (t.reclamo_bono) reclamoPartes.push(t.reclamo_bono);
+            creditoVal = reclamoPartes.join(' / ');
+        } else if (catK === 'pagos_no_identificados') {
+            var montoPagoRow = t.pago_no_identificado_monto_pago ? '$' + Number(t.pago_no_identificado_monto_pago).toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '';
+            creditoVal = (t.id_credito ? '#' + t.id_credito : 'Credito sin ID') + (montoPagoRow ? ' / ' + montoPagoRow : '');
+        } else if (catK === 'incidencias_cartera') {
+            var idCredInc = t.incidencia_cartera_id_credito || t.id_credito || '';
+            var clienteInc = t.incidencia_cartera_cliente || '';
+            creditoVal = (idCredInc ? '#' + idCredInc : 'Credito sin ID') + (clienteInc ? ' / ' + clienteInc : '');
         }
         var creditoHtml = '<small>' + String(creditoVal).replace(/&/g, '&amp;').replace(/</g, '&lt;') + '</small>';
+        var esAusencia = CAT === 'ausencia' || catK === 'ausencia' || catK === 'solicitud_vacaciones' || catK === 'viaticos';
+        var esAppSimple = esTicketAppSimple(catK);
+        var fechasHtml = '';
+        if (esAusencia) {
+            var fDesdeAus = t.solicitud_vacaciones_fecha_desde || t.solicitud_ausencia_fecha_desde || '';
+            var fHastaAus = t.solicitud_vacaciones_fecha_hasta || t.solicitud_ausencia_fecha_hasta || '';
+            if (fDesdeAus || fHastaAus) {
+                fechasHtml =
+                    '<div class="small d-flex align-items-center gap-1"><i class="fa fa-calendar-days text-muted" style="width: 1rem;"></i><span>' +
+                    formatFechaCorta(fDesdeAus) +
+                    ' - ' +
+                    formatFechaCorta(fHastaAus) +
+                    '</span></div>';
+            } else {
+                fechasHtml =
+                    '<div class="small d-flex align-items-center gap-1"><i class="fa fa-calendar-plus-o text-muted" style="width: 1rem;"></i><span>Registro: ' +
+                    fechaCreacion +
+                    '</span></div>';
+            }
+        } else if (catK === 'pagos_no_identificados') {
+            fechasHtml =
+                '<div class="small d-flex align-items-center gap-1"><i class="fa fa-calendar-day text-muted" style="width: 1rem;"></i><span>Pago: ' +
+                formatFechaCorta(t.pago_no_identificado_fecha_pago) +
+                '</span></div><div class="small text-muted d-flex align-items-center gap-1 mt-1"><i class="fa fa-calendar-plus-o" style="width: 1rem;"></i><span>Registro: ' +
+                fechaCreacion +
+                '</span></div>';
+        } else if (esAppSimple) {
+            if (catK === 'reclamo' && (t.reclamo_mes || t.reclamo_semana)) {
+                var semanaRec = t.reclamo_semana ? ('Semana: ' + t.reclamo_semana + (t.reclamo_semana_rango ? ' · ' + t.reclamo_semana_rango : '')) : '';
+                fechasHtml =
+                    '<div class="small d-flex align-items-center gap-1"><i class="fa fa-calendar text-muted" style="width: 1rem;"></i><span>Mes: ' +
+                    txtEsc(t.reclamo_mes || '—') +
+                    '</span></div>' +
+                    (semanaRec ? '<div class="small text-muted d-flex align-items-center gap-1 mt-1"><i class="fa fa-calendar-week" style="width: 1rem;"></i><span>' + txtEsc(semanaRec) + '</span></div>' : '');
+            } else {
+            fechasHtml =
+                '<div class="small d-flex align-items-center gap-1"><i class="fa fa-calendar-plus-o text-muted" style="width: 1rem;"></i><span>Registro: ' +
+                fechaCreacion +
+                '</span></div>';
+            }
+        } else {
+            fechasHtml =
+                '<div class="small d-flex align-items-center gap-1"><i class="fa fa-calendar-plus-o text-muted" style="width: 1rem;"></i><span>Creación: ' +
+                fechaCreacion +
+                '</span></div><div class="small text-muted d-flex align-items-center gap-1 mt-1"><i class="fa fa-calendar-times-o" style="width: 1rem;"></i><span>Vencimiento: ' +
+                fechaVenc +
+                '</span></div>';
+        }
         var modo = (cfg().modo || '').toString().trim();
         var soloCerrar = (CAT === 'validaciones');
         var puedeCerrar = !(modo === 'gestor' || modo === 'territorial');
@@ -659,12 +869,7 @@
             estado: estadoBadge,
             prioridad: prioridadBadge,
             credito: creditoHtml,
-            fechas:
-                '<div class="small d-flex align-items-center gap-1"><i class="fa fa-calendar-plus-o text-muted" style="width: 1rem;"></i><span>Creación: ' +
-                fechaCreacion +
-                '</span></div><div class="small text-muted d-flex align-items-center gap-1 mt-1"><i class="fa fa-calendar-times-o" style="width: 1rem;"></i><span>Vencimiento: ' +
-                fechaVenc +
-                '</span></div>',
+            fechas: fechasHtml,
             creador: '<small class="d-flex align-items-center gap-1"><i class="fa fa-user"></i>' + (t.creador_nombre || '—') + '</small>',
             asignado:
                 t.asignado_nombre && t.asignado_nombre.trim()
@@ -791,6 +996,106 @@
         });
     }
 
+    function marcarTicketProcesandoPrimeraVista(t) {
+        if (!t || !t.id_ticket || !esTicketAppSimple(t.categoria_gestion || cfg().categoria) || typeof http === 'undefined') return;
+        var estadoActual = ((t.estado_ticket_nombre || '') + '').toLowerCase().trim();
+        if (respuestaLabel(t.respuesta_resultado) || (estadoActual && estadoActual !== 'pendiente' && estadoActual !== 'abierto' && estadoActual !== '—')) return;
+        http.request({
+            endpoint: '/sabueso/marcarTicketProcesando',
+            metodo: 'POST',
+            data: JSON.stringify({ id_ticket: t.id_ticket }),
+            contentType: 'application/json',
+            processData: false,
+            showLoader: false,
+            onSuccess: function (r) {
+                if (r && r.success && r.datos && r.datos.actualizado) {
+                    t.estado_ticket_nombre = 'Procesando';
+                    $('#resumenTicketEstado').text('Procesando');
+                    $('#resumenTicketEstadoPill').text('● Procesando');
+                    if (window._ticketsModuloCache && window._ticketsModuloCache[t.id_ticket]) {
+                        window._ticketsModuloCache[t.id_ticket].estado_ticket_nombre = 'Procesando';
+                    }
+                    if (typeof getTicketsModuloPanel === 'function') getTicketsModuloPanel();
+                }
+            },
+            onError: function () {}
+        });
+    }
+
+    function responderTicketAppModal(accion) {
+        var $modal = $('#modalResumenTicket');
+        var id = parseInt($modal.attr('data-id-ticket'), 10);
+        if (!id || typeof Swal === 'undefined' || typeof http === 'undefined') return;
+        var esAceptar = accion === 'aceptar';
+        var modalEl = document.getElementById('modalResumenTicket');
+        var bsModal = modalEl && window.bootstrap && window.bootstrap.Modal ? window.bootstrap.Modal.getInstance(modalEl) : null;
+        if (bsModal && bsModal._focustrap && typeof bsModal._focustrap.deactivate === 'function') {
+            bsModal._focustrap.deactivate();
+        }
+        Swal.fire({
+            title: esAceptar ? 'Aceptar ticket' : 'Denegar ticket',
+            input: 'textarea',
+            inputLabel: 'Comentario obligatorio',
+            inputPlaceholder: esAceptar ? 'Escribe el comentario de aceptación...' : 'Escribe el motivo de denegación...',
+            inputAttributes: { 'aria-label': 'Comentario obligatorio' },
+            returnFocus: false,
+            showCancelButton: true,
+            confirmButtonText: esAceptar ? 'Aceptar' : 'Denegar',
+            cancelButtonText: 'Cancelar',
+            confirmButtonColor: esAceptar ? '#28a745' : '#dc3545',
+            didOpen: function () {
+                var input = Swal.getInput();
+                if (input && typeof input.focus === 'function') {
+                    setTimeout(function () { input.focus(); }, 50);
+                }
+            },
+            willClose: function () {
+                if (bsModal && bsModal._focustrap && typeof bsModal._focustrap.activate === 'function') {
+                    bsModal._focustrap.activate();
+                }
+            },
+            preConfirm: function (value) {
+                var comentario = (value || '').trim();
+                if (!comentario) {
+                    Swal.showValidationMessage('El comentario es obligatorio.');
+                    return false;
+                }
+                return comentario;
+            }
+        }).then(function (res) {
+            if (!res.isConfirmed) return;
+            http.request({
+                endpoint: '/sabueso/responderTicketApp',
+                metodo: 'POST',
+                data: JSON.stringify({ id_ticket: id, accion: accion, comentario: res.value }),
+                contentType: 'application/json',
+                processData: false,
+                onSuccess: function (r) {
+                    if (!r || !r.success) {
+                        Swal.fire({ icon: 'error', title: 'Error', text: (r && r.mensaje) || 'No se pudo responder el ticket.' });
+                        return;
+                    }
+                    var resultado = r.datos && r.datos.resultado ? r.datos.resultado : (esAceptar ? 'aceptado' : 'denegado');
+                    var estado = resultado === 'aceptado' ? 'Aceptado' : 'Denegado';
+                    var row = window._ticketsModuloCache && window._ticketsModuloCache[id] ? window._ticketsModuloCache[id] : {};
+                    row.respuesta_resultado = resultado;
+                    row.respuesta_comentario = res.value;
+                    row.respuesta_fecha = new Date().toISOString();
+                    row.estado_ticket_nombre = estado;
+                    if (window._ticketsModuloCache) window._ticketsModuloCache[id] = row;
+                    $('#resumenTicketEstado').text(estado);
+                    $('#resumenTicketEstadoPill').text('● ' + estado);
+                    pintarRespuestaTicket(row, true);
+                    Swal.fire({ icon: 'success', title: estado, text: r.mensaje || 'Respuesta guardada.' });
+                    if (typeof getTicketsModuloPanel === 'function') getTicketsModuloPanel();
+                },
+                onError: function (e) {
+                    Swal.fire({ icon: 'error', title: 'Error', text: (e && e.mensaje) || 'No se pudo responder el ticket.' });
+                }
+            });
+        });
+    }
+
     function runInit() {
         if (typeof window.$ === 'undefined' || typeof window.TICKETS_MODULO_COLUMNS === 'undefined' || !cfg().categoria) {
             setTimeout(runInit, 50);
@@ -814,6 +1119,12 @@
         });
         $(document).on('click', SEL_TABLA + ' [data-tm-eliminar]', function () {
             eliminarTicket(parseInt($(this).attr('data-tm-eliminar'), 10));
+        });
+        $(document).on('click', '#resumenTicketBtnAceptar', function () {
+            responderTicketAppModal('aceptar');
+        });
+        $(document).on('click', '#resumenTicketBtnDenegar', function () {
+            responderTicketAppModal('denegar');
         });
         $(document).on('click', '#resumenTicketBtnVerFormularioTerritorial', function () {
             var tid = $('#resumenTicketAsignarSelect').data('resumen-id-ticket');
@@ -894,6 +1205,11 @@
             var cache = window._ticketsModuloCache;
             var t = cache && cache[id];
             if (!t) return;
+            var catModal = ((t.categoria_gestion || cfg().categoria || '') + '').toLowerCase().trim();
+            var esModalAusencia = catModal === 'ausencia' || catModal === 'solicitud_vacaciones' || catModal === 'viaticos';
+            var esModalAppSimple = esTicketAppSimple(catModal);
+            $('#modalResumenTicket').toggleClass('modal-resumen-ausencia', esModalAppSimple);
+            $('#modalResumenTicket').toggleClass('modal-resumen-reclamo', catModal === 'reclamo');
             var fechaCreacion = t.fecha_creacion
                 ? new Date(t.fecha_creacion).toLocaleString('es-MX', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })
                 : '—';
@@ -917,7 +1233,18 @@
             $('#resumenTicketPrioridad').text(prioridadTxt);
             $('#resumenTicketPrioridadPill').text((prioridadTxt !== '—' ? '\u25CF ' : '') + prioridadTxt);
             $('#resumenTicketPrioridadSide').text((prioridadTxt !== '—' ? '\u25CF ' : '') + prioridadTxt);
+            if (esModalAppSimple) {
+                $('#resumenTicketPrioridadPill').empty();
+            }
             var refVal = t.id_credito != null && t.id_credito > 0 ? 'Crédito #' + t.id_credito : (t.asunto || t.tipo_categoria || '—');
+            if (catModal === 'reclamo') {
+                refVal = normalizaTipoTicketApp(t.tipo_categoria || t.asunto || 'Reclamos de bonos');
+            } else if (catModal === 'pagos_no_identificados') {
+                refVal = t.id_credito ? 'Credito #' + t.id_credito : 'Credito sin ID';
+            } else if (catModal === 'incidencias_cartera') {
+                var idCredModal = t.incidencia_cartera_id_credito || t.id_credito || '';
+                refVal = (idCredModal ? 'Credito #' + idCredModal : 'Credito sin ID') + (t.incidencia_cartera_cliente ? ' - ' + t.incidencia_cartera_cliente : '');
+            }
             $('#resumenTicketRef').text(refVal);
             $('#resumenTicketRefSide').text(refVal);
             $('#resumenTicketCreado').text(fechaCreacion);
@@ -927,7 +1254,7 @@
             var notaTexto = (t.nota || '').trim();
             var urlDir = (t.url_direccion || '').trim();
             $('#resumenTicketLinkWrap').empty();
-            if (notaTexto || urlDir) {
+            if (!esModalAppSimple && (notaTexto || urlDir)) {
                 $('#resumenTicketExtraWrap').removeClass('d-none');
                 if (notaTexto) {
                     $('#resumenTicketNota').text(notaTexto).removeClass('d-none');
@@ -944,13 +1271,16 @@
             } else {
                 $('#resumenTicketExtraWrap').addClass('d-none');
             }
-            if (t.ds_resultado && String(t.ds_resultado).trim()) {
+            if (!esModalAppSimple && t.ds_resultado && String(t.ds_resultado).trim()) {
                 $('#resumenTicketDs').html(t.ds_resultado_html || attrEsc(t.ds_resultado));
                 $('#resumenTicketDsWrap').removeClass('d-none');
             } else {
                 $('#resumenTicketDsWrap').addClass('d-none');
             }
             var idTicket = t.id_ticket;
+            $('#modalResumenTicket').attr('data-id-ticket', idTicket || '');
+            pintarRespuestaTicket(t, esModalAppSimple);
+            marcarTicketProcesandoPrimeraVista(t);
             renderResumenTicketEvidencias(idTicket);
             var modo = (cfg().modo || '').trim();
             var esTerritorial = modo === 'territorial';

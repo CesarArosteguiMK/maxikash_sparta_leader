@@ -40,18 +40,18 @@ class ConfigPanelUsuario extends Model
             'url' => '/viaticos/paneladmin',
         ],
         'sabueso_panel_aplicacionespago' => [
-            'label' => 'Aplicaciones de pago',
-            'icon' => 'fa-solid fa-credit-card',
+            'label' => 'Reclamos de bonos',
+            'icon' => 'fa-solid fa-gift',
             'url' => '/aplicacionespago/paneladmin',
         ],
         'sabueso_panel_creditoproblematico' => [
-            'label' => 'Crédito problemático',
-            'icon' => 'fa-solid fa-triangle-exclamation',
+            'label' => 'Pagos no identificados',
+            'icon' => 'fa-solid fa-magnifying-glass-dollar',
             'url' => '/creditoproblematico/paneladmin',
         ],
         'sabueso_panel_aclaracioncredito' => [
-            'label' => 'Aclaración de crédito',
-            'icon' => 'fa-solid fa-circle-question',
+            'label' => 'Incidencias en asignacion de cartera',
+            'icon' => 'fa-solid fa-briefcase',
             'url' => '/aclaracioncredito/paneladmin',
         ],
         'sabueso_panelsolicitudbaja' => [

@@ -15,13 +15,13 @@ class ConfigTicketPuesto extends Model
     const FUNCIONES = [
         'sabueso' => ['label' => 'Sabueso', 'icon' => 'fa-solid fa-dog'],
         'viaticos' => ['label' => 'Viáticos', 'icon' => 'fa-solid fa-money-bill-1'],
-        'aplicaciones_de_pago' => ['label' => 'Aplicaciones de pago', 'icon' => 'fa-solid fa-credit-card'],
+        'aplicaciones_de_pago' => ['label' => 'Reclamos de bonos', 'icon' => 'fa-solid fa-gift'],
         'validaciones' => ['label' => 'Validaciones', 'icon' => 'fa-solid fa-square-check'],
         'plantilla' => ['label' => 'Plantilla', 'icon' => 'fa-solid fa-file-lines'],
         'atencion_cliente' => ['label' => 'Atención al cliente', 'icon' => 'fa-regular fa-message'],
-        'credito_problematico' => ['label' => 'Crédito problemático', 'icon' => 'fa-solid fa-triangle-exclamation'],
+        'credito_problematico' => ['label' => 'Pagos no identificados', 'icon' => 'fa-solid fa-magnifying-glass-dollar'],
         'solicitud_baja' => ['label' => 'Solicitud de baja', 'icon' => 'fa-solid fa-user-xmark'],
-        'aclaracion_credito' => ['label' => 'Aclaración de crédito', 'icon' => 'fa-solid fa-dollar-sign'],
+        'aclaracion_credito' => ['label' => 'Incidencias en asignacion de cartera', 'icon' => 'fa-solid fa-briefcase'],
     ];
 
     /**
