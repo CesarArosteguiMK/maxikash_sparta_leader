@@ -736,7 +736,7 @@ body.dark-mode #migTotalFinal {
                                     <div class="input-group input-group-sm">
                                         <span class="input-group-text">$</span>
                                         <input type="number" id="amortTotalFinal" class="form-control fw-bold" step="0.01" min="0"
-                                               oninput="window.amortTotalFinalChanged()"
+                                               onblur="window.amortTotalFinalChanged()"
                                                style="color:#764ba2;font-size:1rem;"
                                                title="Edita para ajustar el total; la tabla se recalcula automáticamente">
                                     </div>
@@ -1157,9 +1157,9 @@ body.dark-mode #migTotalFinal {
                     <div class="d-flex align-items-center gap-2">
                       <label class="fw-semibold mb-0 text-nowrap small">Número de pagos:</label>
                       <input type="number" id="migLibreNumPagos" class="form-control form-control-sm"
-                             style="width:75px;-moz-appearance:textfield;appearance:textfield;" min="2" max="15" value=""
+                             style="width:75px;-moz-appearance:textfield;appearance:textfield;" min="1" max="15" value=""
                              onkeydown="(function(e){var k=e.key;if(k==='e'||k==='E'||k==='+'||k==='-'||k==='.'||k==='ArrowUp'||k==='ArrowDown'){e.preventDefault();}})(event)"
-                             oninput="(function(el){var s=el.value;if(s==='')return;var v=parseInt(s);if(isNaN(v)||v<2){el.value=2;window.migLibreGenerarFilas();}else if(v>15){el.value=15;window.migLibreGenerarFilas();}else{window.migLibreGenerarFilas();}})(this)">
+                             oninput="(function(el){var s=el.value;if(s==='')return;var v=parseInt(s);if(isNaN(v)||v<1){el.value=1;window.migLibreGenerarFilas();}else if(v>15){el.value=15;window.migLibreGenerarFilas();}else{window.migLibreGenerarFilas();}})(this)">
                       <small class="text-muted">(máx. 15)</small>
                     </div>
                     <button type="button" class="btn btn-outline-secondary btn-sm"
@@ -1223,7 +1223,7 @@ body.dark-mode #migTotalFinal {
                                  step="0.01" min="0"
                                  data-maxintdigits="7"
                                  onkeydown="if(event.key==='e'||event.key==='E')event.preventDefault()"
-                                 oninput="window.migTotalFinalChanged()"
+                                 onblur="window.migTotalFinalChanged()"
                                  style="color:#764ba2;font-size:1rem;"
                                  title="Edita este valor para ajustar el total a pagar; el % de descuento y las semanas se recalcularán automáticamente">
                         </div>
@@ -4785,8 +4785,8 @@ window.migModoGloboChange = function (modo) {
 window.migLibreGenerarFilas = function () {
     var tbody = document.getElementById('migLibreFilasBody');
     if (!tbody) return;
-    var n = parseInt((document.getElementById('migLibreNumPagos') || {}).value) || 2;
-    if (n < 2) n = 2;
+    var n = parseInt((document.getElementById('migLibreNumPagos') || {}).value) || 1;
+    if (n < 1) n = 1;
     if (n > 15) {
         n = 15;
         var elNumPagos = document.getElementById('migLibreNumPagos');
@@ -4933,8 +4933,6 @@ window.migLibreActualizarTotal = function () {
     if (asignado > 0 && typeof window.migCalcular === 'function') {
         if (!window.migLibreValidarFechas()) {
             migGenerarPreamort([]);
-            var previewElFV = document.getElementById('migPreview');
-            if (previewElFV) previewElFV.classList.add('d-none');
             var guardaBtnFV = document.querySelector('#modalMigracion .modal-footer .btn-success');
             if (guardaBtnFV) guardaBtnFV.style.display = 'none';
             if (indicador) {
@@ -5089,7 +5087,6 @@ window.migCalcular = function () {
                     'El total a cobrar mínimo es <strong>$' +
                     (adeudoL * 0.55).toLocaleString('es-MX', { minimumFractionDigits: 2 }) + '</strong>.';
                 errLibre.style.display = 'block';
-                if (previewL) previewL.classList.add('d-none');
                 var _btnLCap = getGuardarBtnL();
                 if (_btnLCap) _btnLCap.style.display = 'none';
                 migGenerarPreamort([]);
@@ -5197,7 +5194,6 @@ window.migCalcular = function () {
             errGlobo.className = 'alert alert-warning mt-2';
             errGlobo.innerHTML = '<i class="fas fa-exclamation-triangle me-2"></i>' + msg;
             errGlobo.style.display = 'block';
-            if (preview) preview.classList.add('d-none');
             var btn = getGuardarBtn();
             if (btn) btn.style.display = 'none';
             migGenerarPreamort([]);
@@ -5353,9 +5349,6 @@ migGenerarPreamort(filasGlobo);
     };
 
     var mostrarError = function (campo, mensaje) {
-        var preview = document.getElementById('migPreview');
-        if (preview) preview.classList.add('d-none');
-
         var guardarBtn = getGuardarBtn();
         if (guardarBtn) guardarBtn.style.display = 'none';
 
@@ -5501,8 +5494,7 @@ window.migRecalcularTotal = function () {
     var esModoLibreRec = !!(document.getElementById('migModoRadioLibre') && document.getElementById('migModoRadioLibre').checked);
     if (esModoLibreRec) {
         var adLibreRec = document.getElementById('migMontoAdicional');
-        var _maxLibreRec = parseFloat((document.getElementById('migAdeudo') || {}).value) || 0;
-        if (!_sanitizarMonto(adLibreRec, _maxLibreRec)) return;
+        if (!_sanitizarMonto(adLibreRec, 10000)) return;
         window.migLibreActualizarTotal();
         return;
     }
@@ -5600,7 +5592,7 @@ window.migTotalFinalChanged = function () {
 
     if (esGloboTF) {
         var elTFGlobo = document.getElementById('migTotalFinal');
-        var _maxTF = (_credito && parseFloat(_credito.Adeudo_total)) || 0;
+        var _maxTF = ((_credito && parseFloat(_credito.Adeudo_total)) || 0) + 10000;
         if (!_sanitizarMonto(elTFGlobo, _maxTF)) return;
         var totalFinalTF = parseFloat(elTFGlobo.value) || 0;
         if (totalFinalTF <= 0) return;
@@ -5679,8 +5671,6 @@ window.migTotalFinalChanged = function () {
         _flashInvalid(elTFNorm);
         var _migGBtn = document.querySelector('#modalMigracion .modal-footer .btn-success');
         if (_migGBtn) _migGBtn.style.display = 'none';
-        var _migPrev = document.getElementById('migPreview');
-        if (_migPrev) _migPrev.classList.add('d-none');
         return;
     }
     var _errTFNormOK = document.getElementById('migErrorSemanal');
