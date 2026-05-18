@@ -484,7 +484,7 @@ async def verificar_constancia_fiscal_documento(
     try:
         datos = await asyncio.wait_for(
             asyncio.to_thread(extraer_datos_constancia_fiscal, file_bytes),
-            timeout=25,
+            timeout=60,
         )
     except asyncio.TimeoutError:
         return {

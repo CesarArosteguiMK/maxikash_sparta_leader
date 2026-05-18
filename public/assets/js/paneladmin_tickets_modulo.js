@@ -14,6 +14,56 @@
         return x.split('"').join('&quot;');
     }
 
+    function txtEsc(s) {
+        return attrEsc(s).split("'").join('&#039;');
+    }
+
+    function formatFechaCorta(v) {
+        if (!v) return '—';
+        var d = new Date(v);
+        if (isNaN(d.getTime())) return String(v);
+        return d.toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit', year: 'numeric' });
+    }
+
+    function renderCampoDetalle(label, value, icon) {
+        var val = value == null || String(value).trim() === '' ? '—' : String(value).trim();
+        return (
+            '<div class="col-12 col-sm-6">' +
+            '<div class="border rounded-2 bg-body-tertiary p-2 h-100">' +
+            '<div class="text-uppercase text-muted fw-semibold mb-1" style="font-size:.68rem;letter-spacing:.04em;">' +
+            '<i class="fa-solid ' + icon + ' me-1"></i>' + txtEsc(label) +
+            '</div>' +
+            '<div class="small fw-semibold text-break">' + txtEsc(val) + '</div>' +
+            '</div>' +
+            '</div>'
+        );
+    }
+
+    function renderResumenDetalleModulo(t) {
+        var cat = ((t && t.categoria_gestion) || cfg().categoria || '').toString().toLowerCase().trim();
+        var $wrap = $('#resumenTicketModuloDetalleWrap');
+        $wrap.empty().addClass('d-none');
+        if (cat !== 'ausencia' && cat !== 'solicitud_vacaciones' && cat !== 'viaticos') return;
+
+        var desde = t.solicitud_vacaciones_fecha_desde || t.solicitud_ausencia_fecha_desde || '';
+        var hasta = t.solicitud_vacaciones_fecha_hasta || t.solicitud_ausencia_fecha_hasta || '';
+        var periodo = formatFechaCorta(desde) + ' - ' + formatFechaCorta(hasta);
+        var html =
+            '<p class="text-muted fw-semibold mb-1" style="font-size:.7rem;text-transform:uppercase;letter-spacing:.05em;">' +
+            '<i class="fa-solid fa-calendar-xmark me-1"></i>Datos de ausencia</p>' +
+            '<div class="row g-2">' +
+            renderCampoDetalle('Tipo', t.tipo_categoria || t.asunto || 'Ausencia', 'fa-tag') +
+            renderCampoDetalle('Departamento', t.solicitud_vacaciones_departamento || t.solicitud_ausencia_departamento, 'fa-building') +
+            renderCampoDetalle('Periodo', periodo, 'fa-calendar-days') +
+            renderCampoDetalle('Quien cubre', t.solicitud_vacaciones_quien_cubre || t.solicitud_ausencia_quien_cubre, 'fa-user-shield');
+        var adj = t.solicitud_vacaciones_adjunto_nombre_original || t.solicitud_ausencia_adjunto_nombre_original || '';
+        if (adj) {
+            html += renderCampoDetalle('Adjunto original', adj, 'fa-paperclip');
+        }
+        html += '</div>';
+        $wrap.html(html).removeClass('d-none');
+    }
+
     function tmApiBase() {
         var p = window.location.pathname || '';
         var i = p.indexOf('/sabueso');
@@ -541,7 +591,9 @@
             plantilla: 'fa-file-lines',
             atencion_cliente: 'fa-headset',
             validaciones: 'fa-clipboard-check',
-            viaticos: 'fa-receipt',
+            ausencia: 'fa-calendar-xmark',
+            solicitud_vacaciones: 'fa-calendar-xmark',
+            viaticos: 'fa-calendar-xmark',
             aplicaciones_de_pago: 'fa-credit-card',
             credito_problematico: 'fa-triangle-exclamation',
             aclaracion_credito: 'fa-circle-question'
@@ -576,6 +628,10 @@
         }
         var creditoVal =
             t.id_credito != null && t.id_credito > 0 ? '#' + t.id_credito : t.asunto || t.tipo_categoria || '—';
+        if (CAT === 'ausencia' || catK === 'ausencia' || catK === 'solicitud_vacaciones') {
+            var deptoAus = t.solicitud_vacaciones_departamento || t.solicitud_ausencia_departamento || '';
+            creditoVal = (t.tipo_categoria || t.asunto || 'Ausencia') + (deptoAus ? ' / ' + deptoAus : '');
+        }
         var creditoHtml = '<small>' + String(creditoVal).replace(/&/g, '&amp;').replace(/</g, '&lt;') + '</small>';
         var modo = (cfg().modo || '').toString().trim();
         var soloCerrar = (CAT === 'validaciones');
@@ -867,6 +923,7 @@
             $('#resumenTicketCreado').text(fechaCreacion);
             $('#resumenTicketAsunto').text((t.asunto || t.tipo_categoria || '—').trim() || '—');
             $('#resumenTicketDescripcion').text((t.descripcion_inicial || '').trim() || '—');
+            renderResumenDetalleModulo(t);
             var notaTexto = (t.nota || '').trim();
             var urlDir = (t.url_direccion || '').trim();
             $('#resumenTicketLinkWrap').empty();

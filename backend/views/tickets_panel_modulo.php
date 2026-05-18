@@ -264,6 +264,7 @@ $mostrarModalFormBuilderLectura = !empty($tickets_panel_modal_form_builder_lectu
                             </p>
                             <div class="border rounded-2 bg-body-tertiary p-2 small" style="white-space:pre-wrap;" id="resumenTicketDescripcion">—</div>
                         </div>
+                        <div id="resumenTicketModuloDetalleWrap" class="mb-3 d-none"></div>
                         <div id="resumenTicketExtraWrap" class="mb-3 d-none">
                             <p class="text-muted fw-semibold mb-1" style="font-size:.7rem;text-transform:uppercase;letter-spacing:.05em;">
                                 <i class="fa-solid fa-link me-1"></i>Nota / Enlace

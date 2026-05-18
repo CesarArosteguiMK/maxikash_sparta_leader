@@ -31,10 +31,20 @@ class PanelAdminTicketTable
                 'fechas' => 'Alta y vencimiento',
                 'tiempo' => 'Tiempo para validar',
             ],
+            'ausencia' => [
+                'folio' => 'Folio / Ausencia',
+                'ref' => 'Tipo / empleado',
+                'fechas' => 'Periodo de ausencia',
+            ],
+            'solicitud_vacaciones' => [
+                'folio' => 'Folio / Ausencia',
+                'ref' => 'Tipo / empleado',
+                'fechas' => 'Periodo de ausencia',
+            ],
             'viaticos' => [
-                'folio' => 'Folio / Viático',
-                'ref' => 'Concepto / tipo',
-                'fechas' => 'Fechas del trámite',
+                'folio' => 'Folio / Ausencia',
+                'ref' => 'Tipo / empleado',
+                'fechas' => 'Periodo de ausencia',
             ],
             'aplicaciones_de_pago' => [
                 'folio' => 'Folio / solicitud',

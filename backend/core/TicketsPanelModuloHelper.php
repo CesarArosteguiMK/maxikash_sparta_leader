@@ -20,10 +20,18 @@ class TicketsPanelModuloHelper
             'formularios' => true,
             'url' => '/validaciones/paneladmin',
         ],
+        'ausencia' => [
+            'titulo' => 'Ausencias',
+            'badge' => 'Ausencias',
+            'icon' => 'fa-calendar-xmark',
+            'icon_color' => 'text-primary',
+            'formularios' => false,
+            'url' => '/viaticos/paneladmin',
+        ],
         'viaticos' => [
-            'titulo' => 'Viáticos',
-            'badge' => 'Viáticos',
-            'icon' => 'fa-receipt',
+            'titulo' => 'Ausencias',
+            'badge' => 'Ausencias',
+            'icon' => 'fa-calendar-xmark',
             'icon_color' => 'text-primary',
             'formularios' => false,
             'url' => '/viaticos/paneladmin',
@@ -73,6 +81,8 @@ class TicketsPanelModuloHelper
     /** categoria_gestion en ticket => clave en config_panel_usuario */
     public const CATEGORIA_CLAVE_PANEL = [
         'validaciones' => 'sabueso_panel_validaciones',
+        'ausencia' => 'sabueso_panel_viaticos',
+        'solicitud_vacaciones' => 'sabueso_panel_viaticos',
         'viaticos' => 'sabueso_panel_viaticos',
         'aplicaciones_de_pago' => 'sabueso_panel_aplicacionespago',
         'plantilla' => 'sabueso_panel_plantilla',

@@ -127,7 +127,7 @@ class Sabueso extends Controller
             }
         }
         $columnsJson = $this->getColumnsConfig(true, $catPanelGet);
-        $catsTitulos = ['', 'sabueso', 'validaciones', 'viaticos', 'aplicaciones_de_pago', 'plantilla', 'atencion_cliente', 'credito_problematico', 'aclaracion_credito'];
+        $catsTitulos = ['', 'sabueso', 'validaciones', 'ausencia', 'solicitud_vacaciones', 'viaticos', 'aplicaciones_de_pago', 'plantilla', 'atencion_cliente', 'credito_problematico', 'aclaracion_credito'];
         $mapTitulosPanel = [];
         foreach ($catsTitulos as $ck) {
             $mapTitulosPanel[$ck === '' ? '_mixto' : $ck] = \Core\PanelAdminTicketTable::getTitulosColumnasPanelAdminPorCategoria($ck);
@@ -145,9 +145,9 @@ class Sabueso extends Controller
             self::set('panel_admin_url_inicio', '/sabueso/panelAdminInicio');
         }
         // Estado inicial según ?categoria= para evitar flash de interfaz Sabueso en otros módulos
-        $catLabelsPanel = ['sabueso' => 'Sabueso', 'plantilla' => 'Plantilla', 'atencion_cliente' => 'Atención al cliente', 'validaciones' => 'Validaciones', 'viaticos' => 'Viáticos', 'aplicaciones_de_pago' => 'Aplicaciones de pago', 'credito_problematico' => 'Crédito problemático', 'aclaracion_credito' => 'Aclaración de crédito'];
-        $catIconosPanel = ['sabueso' => 'fa-dog', 'plantilla' => 'fa-file-lines', 'atencion_cliente' => 'fa-headset', 'validaciones' => 'fa-clipboard-check', 'viaticos' => 'fa-receipt', 'aplicaciones_de_pago' => 'fa-credit-card', 'credito_problematico' => 'fa-triangle-exclamation', 'aclaracion_credito' => 'fa-circle-question'];
-        $categoriasSimples = ['viaticos', 'aplicaciones_de_pago', 'credito_problematico', 'aclaracion_credito', 'plantilla', 'atencion_cliente', 'validaciones'];
+        $catLabelsPanel = ['sabueso' => 'Sabueso', 'plantilla' => 'Plantilla', 'atencion_cliente' => 'Atención al cliente', 'validaciones' => 'Validaciones', 'ausencia' => 'Ausencias', 'solicitud_vacaciones' => 'Ausencias', 'viaticos' => 'Ausencias', 'aplicaciones_de_pago' => 'Aplicaciones de pago', 'credito_problematico' => 'Crédito problemático', 'aclaracion_credito' => 'Aclaración de crédito'];
+        $catIconosPanel = ['sabueso' => 'fa-dog', 'plantilla' => 'fa-file-lines', 'atencion_cliente' => 'fa-headset', 'validaciones' => 'fa-clipboard-check', 'ausencia' => 'fa-calendar-xmark', 'solicitud_vacaciones' => 'fa-calendar-xmark', 'viaticos' => 'fa-calendar-xmark', 'aplicaciones_de_pago' => 'fa-credit-card', 'credito_problematico' => 'fa-triangle-exclamation', 'aclaracion_credito' => 'fa-circle-question'];
+        $categoriasSimples = ['ausencia', 'solicitud_vacaciones', 'viaticos', 'aplicaciones_de_pago', 'credito_problematico', 'aclaracion_credito', 'plantilla', 'atencion_cliente', 'validaciones'];
         $panel_admin_es_simple = $catPanelGet !== '' && in_array($catPanelGet, $categoriasSimples);
         // Panel Admin en /sabueso/paneladmin = solo tickets categoría sabueso (otros módulos tienen su propia URL).
         $panel_admin_titulo_label = ($catPanelGet !== '' && isset($catLabelsPanel[$catPanelGet])) ? $catLabelsPanel[$catPanelGet] : 'Sabueso';
@@ -188,7 +188,7 @@ class Sabueso extends Controller
         $usuarioNombre = $usuarioId ? TicketDAO::getNombrePersona($usuarioId) : '';
         $catPanelGet = '';
         $columnsJson = $this->getColumnsConfig(true, $catPanelGet);
-        $catsTitulos = ['', 'sabueso', 'validaciones', 'viaticos', 'aplicaciones_de_pago', 'plantilla', 'atencion_cliente', 'credito_problematico', 'aclaracion_credito'];
+        $catsTitulos = ['', 'sabueso', 'validaciones', 'ausencia', 'solicitud_vacaciones', 'viaticos', 'aplicaciones_de_pago', 'plantilla', 'atencion_cliente', 'credito_problematico', 'aclaracion_credito'];
         $mapTitulosPanel = [];
         foreach ($catsTitulos as $ck) {
             $mapTitulosPanel[$ck === '' ? '_mixto' : $ck] = \Core\PanelAdminTicketTable::getTitulosColumnasPanelAdminPorCategoria($ck);
@@ -7097,4 +7097,3 @@ class Sabueso extends Controller
         return $peor;
     }
 }
-
