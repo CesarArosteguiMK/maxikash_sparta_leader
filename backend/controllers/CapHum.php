@@ -2778,9 +2778,21 @@ class CapHum extends Controller
                     dateFormat: "Y-m-d H:i",
                     time_24hr: true,
                     allowInput: false,
+                    clickOpens: true,
                     appendTo: document.body,
+                    disableMobile: true,
                     locale: "es",
-                    static: false
+                    static: false,
+                    onReady: function(selectedDates, dateStr, instance) {
+                        if (instance && instance.calendarContainer) {
+                            instance.calendarContainer.classList.add("ausencia-flatpickr-calendar");
+                        }
+                    },
+                    onOpen: function(selectedDates, dateStr, instance) {
+                        if (instance && instance.calendarContainer) {
+                            instance.calendarContainer.classList.add("ausencia-flatpickr-calendar");
+                        }
+                    }
                 };
                 flatpickr(inpInicio, opts);
                 flatpickr(inpFin, opts);

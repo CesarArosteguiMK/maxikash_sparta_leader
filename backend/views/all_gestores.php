@@ -524,6 +524,17 @@
         opacity: 1 !important;
     }
 
+    #modalAuscencia .flatpickr-datetime-ausencia {
+        cursor: pointer;
+    }
+
+    .flatpickr-calendar.ausencia-flatpickr-calendar {
+        position: absolute !important;
+        transform: none !important;
+        transform-origin: initial !important;
+        z-index: 100020 !important;
+    }
+
     /* Hacer más visible el círculo del día de hoy */
     .flatpickr-calendar .flatpickr-day.today {
         border-color: #696cff !important;
