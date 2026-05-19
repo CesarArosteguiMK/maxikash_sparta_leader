@@ -15,6 +15,21 @@ class CapHum extends Controller
     /** Último error de enviarCorreo para mostrarlo en la respuesta JSON */
     private $enviarCorreoUltimoError = '';
 
+    private static function tieneAccesoTotalGestionPersonal()
+    {
+        $modulos = array_map('intval', (array) ($_SESSION['modulos'] ?? []));
+        return in_array(10, $modulos, true) || in_array(43, $modulos, true);
+    }
+
+    private static function getDepartamentosGestionPersonal()
+    {
+        if (self::tieneAccesoTotalGestionPersonal()) {
+            return CapHumDAO::getTodosDepartamentosGestion();
+        }
+
+        return CapHumDAO::getConsultaDepartamentoGestor($_SESSION['usuario_id'] ?? 0);
+    }
+
     public function gestion()
     {
         $script = <<<'HTML'
@@ -3226,6 +3241,112 @@ class CapHum extends Controller
                 return (v !== null && v !== undefined && String(v).trim() !== '') ? String(v).trim() : null;
             }
 
+            function enviarUpdateGestor(payload) {
+                fetch('/CapHum/updateGestorF', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                })
+                .then(res => res.json())
+                .then(data => {
+                    if (!data.success) {
+                        if (data.datos && data.datos.requiere_resolucion_puesto_anterior) {
+                            pedirResolucionPuestoAnterior(data.datos, payload);
+                            return;
+                        }
+                        Swal.fire("Error", data.mensaje, "error");
+                        return;
+                    }
+
+                    Swal.fire("Exito", "Gestor actualizado correctamente", "success");
+
+                    bootstrap.Offcanvas.getInstance(
+                        document.getElementById('offcanvasEditUser')
+                    ).hide();
+
+                    if (typeof getUsuarios === 'function') getUsuarios();
+                })
+                .catch(() => {
+                    Swal.fire("Error", "No se pudo actualizar el gestor.", "error");
+                });
+            }
+
+            function pedirResolucionPuestoAnterior(info, payload) {
+                const puestoAnterior = info.puesto_anterior || {};
+                const puestoNuevo = info.puesto_nuevo || {};
+                const subordinados = Number(info.subordinados_count || 0);
+                const sustitutos = Array.isArray(info.sustitutos) ? info.sustitutos : [];
+                const escaparHtml = function(valor) {
+                    return String(valor || '').replace(/[&<>"']/g, function(c) {
+                        return ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' })[c];
+                    });
+                };
+                const opcionesSustituto = sustitutos.map(item => {
+                    const id = escaparHtml(item.id);
+                    const nombre = escaparHtml(item.nombre_completo);
+                    const puesto = escaparHtml(item.nombre_puesto);
+                    return `<option value="${id}">${nombre}${puesto ? ' - ' + puesto : ''}</option>`;
+                }).join('');
+
+                Swal.fire({
+                    icon: 'question',
+                    title: 'Resolver puesto anterior',
+                    html: `
+                        <div class="text-start">
+                            <p class="mb-2">
+                                Al cambiar de <b>${escaparHtml(puestoAnterior.nombre_puesto || 'puesto anterior')}</b>
+                                a <b>${escaparHtml(puestoNuevo.nombre_puesto || 'nuevo puesto')}</b>, quedan
+                                <b>${subordinados}</b> subordinado(s) ligados al puesto anterior.
+                            </p>
+                            <p class="mb-3">Elige como se debe cubrir ese puesto antes de guardar el cambio.</p>
+                            <label class="form-check border rounded p-3 mb-2">
+                                <input class="form-check-input me-2" type="radio" name="resolver_puesto_anterior" value="vacante" checked>
+                                <span class="fw-semibold">Crear una vacante</span>
+                                <small class="d-block text-muted ms-4">Los subordinados quedaran unidos a la vacante del puesto anterior.</small>
+                            </label>
+                            <label class="form-check border rounded p-3 mb-2">
+                                <input class="form-check-input me-2" type="radio" name="resolver_puesto_anterior" value="sustituto">
+                                <span class="fw-semibold">Asignar un sustituto</span>
+                                <small class="d-block text-muted ms-4">Los subordinados pasaran a la persona seleccionada.</small>
+                            </label>
+                            <select id="swal_sustituto_puesto_anterior" class="form-select mt-2" disabled>
+                                <option value="">Selecciona un sustituto</option>
+                                ${opcionesSustituto}
+                            </select>
+                        </div>
+                    `,
+                    showCancelButton: true,
+                    confirmButtonText: 'Continuar',
+                    cancelButtonText: 'Cancelar',
+                    reverseButtons: true,
+                    didOpen: () => {
+                        const radios = document.querySelectorAll('input[name="resolver_puesto_anterior"]');
+                        const select = document.getElementById('swal_sustituto_puesto_anterior');
+                        radios.forEach(radio => {
+                            radio.addEventListener('change', () => {
+                                select.disabled = radio.value !== 'sustituto' || !radio.checked;
+                            });
+                        });
+                    },
+                    preConfirm: () => {
+                        const modo = document.querySelector('input[name="resolver_puesto_anterior"]:checked')?.value || 'vacante';
+                        const sustituto = document.getElementById('swal_sustituto_puesto_anterior')?.value || '';
+                        if (modo === 'sustituto' && !sustituto) {
+                            Swal.showValidationMessage('Selecciona un sustituto para continuar.');
+                            return false;
+                        }
+                        return { modo, sustituto };
+                    }
+                }).then(result => {
+                    if (!result.isConfirmed || !result.value) return;
+                    const nuevoPayload = Object.assign({}, payload, {
+                        resolver_puesto_anterior: result.value.modo,
+                        id_sustituto_puesto_anterior: result.value.sustituto || null
+                    });
+                    enviarUpdateGestor(nuevoPayload);
+                });
+            }
+
             function UpdateGestor() {
 
                 const departamento = document.getElementById("edit_departamento_id").value;  // <---- esta es la linea 2009
@@ -3310,6 +3431,9 @@ class CapHum extends Controller
                     domicilio_num_interior: domicilio_num_interior,
                     codigo_postal: codigo_postal
                 };
+
+                enviarUpdateGestor(payload);
+                return;
 
                 fetch('/CapHum/updateGestorF', {
                     method: 'POST',
@@ -4746,10 +4870,10 @@ class CapHum extends Controller
         HTML;
         // Easter egg "300" solo en Capital Humano → Gestión (Ctrl+Shift+3)
         $script .= "\n" . '<script src="/assets/js/gestiones-300-easter.js"></script>';
-        $departamento = CapHumDAO::getConsultaDepartamentoGestor($_SESSION['usuario_id']);
         $modulos = $_SESSION['modulos'] ?? [];
         $puedeEditarTodos = in_array(10, $modulos);
         $puedeGestionarPermisos = in_array(43, $modulos);
+        $departamento = self::getDepartamentosGestionPersonal();
 
         self::set("titulo", "Gestión de Usuarios");
         self::set("script", $script);
@@ -12807,9 +12931,7 @@ class CapHum extends Controller
 
     public function getDepartamento()
     {
-        self::respuestaJSON(
-            CapHumDAO::getConsultaDepartamentoGestor($_SESSION['usuario_id'])
-        );
+        self::respuestaJSON(self::getDepartamentosGestionPersonal());
     }
 
     public function getEstados()
@@ -12937,7 +13059,7 @@ public function getMunicipios()
             return;
         }
 
-        if ($filtrarPorPrivilegios && !empty($_SESSION['usuario_id'])) {
+        if ($filtrarPorPrivilegios && !empty($_SESSION['usuario_id']) && !self::tieneAccesoTotalGestionPersonal()) {
             $resultado = CapHumDAO::getConsultaPuestosParaGestor($id, $_SESSION['usuario_id']);
         } else {
             $resultado = CapHumDAO::getConsultaPuestos($id);
@@ -12963,6 +13085,11 @@ public function getMunicipios()
         $idPersona = (int) ($_SESSION['usuario_id'] ?? 0);
         if ($idPersona <= 0) {
             self::respuestaJSON(['success' => true, 'mensaje' => 'Puestos encontrados.', 'datos' => []]);
+            return;
+        }
+
+        if (self::tieneAccesoTotalGestionPersonal()) {
+            self::respuestaJSON(CapHumDAO::getConsultaPuestos($id));
             return;
         }
 
@@ -13103,30 +13230,23 @@ public function getMunicipios()
                 self::respuestaJSON(['success' => true, 'mensaje' => 'Jefes encontrados.', 'datos' => $datos]);
                 return;
             }
+
+            $soloVacantes = $agregarVacantesJefe([]);
+            if (!empty($soloVacantes)) {
+                self::respuestaJSON(['success' => true, 'mensaje' => 'Vacantes encontradas.', 'datos' => $soloVacantes]);
+                return;
+            }
+
+            self::respuestaJSON(['success' => true, 'mensaje' => 'Sin jefes disponibles.', 'datos' => []]);
+            return;
         }
 
-        // 2) Jefes por es_jefe=1 en el departamento (o puesto id 8)
+        // 2) Jefes por es_jefe=1 en el departamento
         $detalles = CapHumDAO::getConsultaJefe($idDepartamento);
         if ($detalles['success'] && !empty($detalles['datos'])) {
             $datos = $deduplicarPorPersona($detalles['datos']);
             $datos = $agregarVacantesJefe($datos);
             self::respuestaJSON(['success' => true, 'mensaje' => $detalles['mensaje'] ?? 'Jefes encontrados.', 'datos' => $datos]);
-            return;
-        }
-
-        // 3) Fallback: todas las personas del departamento (ej. Legal/Abogado sin es_jefe ni nivel superior)
-        $porDepto = CapHumDAO::getPersonasPorDepartamento($idDepartamento);
-        if ($porDepto['success'] && !empty($porDepto['datos'])) {
-            $datos = array_map(function ($row) {
-                return [
-                    'id' => $row['id'],
-                    'nombre_completo' => $row['nombre_completo'] ?? '',
-                    'nombre_puesto' => $row['nombre_puesto'] ?? $row['puesto'] ?? ''
-                ];
-            }, $porDepto['datos']);
-            $datos = $deduplicarPorPersona($datos);
-            $datos = $agregarVacantesJefe($datos);
-            self::respuestaJSON(['success' => true, 'mensaje' => 'Personas del departamento.', 'datos' => $datos]);
             return;
         }
 
@@ -13136,21 +13256,8 @@ public function getMunicipios()
             return;
         }
 
-        // 4) Si todo devuelve vacío: mostrar siempre JONNATHAN MARLON FLORES RODRIGUEZ como opción
-        $jefeDefault = CapHumDAO::getJefeDefault();
-        if ($jefeDefault['success'] && !empty($jefeDefault['datos'])) {
-            $datos = array_map(function ($row) {
-                return [
-                    'id' => $row['id'],
-                    'nombre_completo' => $row['nombre_completo'] ?? '',
-                    'nombre_puesto' => $row['nombre_puesto'] ?? ''
-                ];
-            }, $jefeDefault['datos']);
-            self::respuestaJSON(['success' => true, 'mensaje' => 'Jefe por defecto.', 'datos' => $datos]);
-            return;
-        }
-
-        self::respuestaJSON($detalles);
+        // 4) Si no hay jefe real configurado, no inventar uno.
+        self::respuestaJSON(['success' => true, 'mensaje' => 'Sin jefes disponibles.', 'datos' => []]);
     }
     public function updateGestorF()
     {
@@ -13177,6 +13284,7 @@ public function getMunicipios()
             ]);
             exit; //  CLAVE
         }
+        $input['usuario_edita'] = $_SESSION['usuario_id'] ?? $_SESSION['id_usuario'] ?? null;
 
         $n3e = trim((string) ($input['id_div_nivel3'] ?? ''));
         $n4e = trim((string) ($input['id_div_nivel4'] ?? ''));

@@ -402,7 +402,10 @@ class Departamentos extends Controller
            DEPARTAMENTOS CON ACORDEONES POR PAÍS
            ===================================================== */
 
+        let departamentosRequestSeq = 0;
+
         const getDepartamentos = () => {
+          const requestSeq = ++departamentosRequestSeq;
           window.departamentoOrganizacionActivo = null;
           actualizarBotonAccionOrganizacion();
           http.request({
@@ -414,6 +417,7 @@ class Departamentos extends Controller
                   http.request({
                     endpoint: "/departamentos/getDepartamentosOrganizacionales",
                     onSuccess: (respOrg) => {
+                  if (requestSeq !== departamentosRequestSeq) return;
                   const container = document.getElementById('departamentosAccordion');
                   if (!container) return;
                   container.innerHTML = '';
@@ -492,7 +496,7 @@ class Departamentos extends Controller
                             <div class="row h-100 g-0">
                               <div class="col-sm-8 d-flex flex-column justify-content-center p-3">
                                 <h5 class="mb-2">${depOrg.nombre}</h5>
-                                <p class="mb-0 text-muted small">Áreas: <strong>${depOrg.areas.length}</strong></p>
+                                <p class="mb-0 text-muted small">Departamentos: <strong>${depOrg.areas.length}</strong></p>
                                 <p class="mb-3 text-muted small">Estado: <strong>${depOrg.activo ? 'Activo' : 'Inactivo'}</strong></p>
                                 <button type="button" class="btn btn-sm btn-outline-primary fw-semibold text-uppercase"
                                    onclick="abrirDepartamentoOrganizacional('${iso}', '${depOrg.id}')">
@@ -589,7 +593,7 @@ class Departamentos extends Controller
                   <div class="row h-100 g-0">
                     <div class="col-sm-8 d-flex flex-column justify-content-center p-3">
                       <h5 class="mb-2">${escapeHtml(depOrg.nombre)}</h5>
-                      <p class="mb-0 text-muted small">Áreas: <strong>${depOrg.areas.length}</strong></p>
+                      <p class="mb-0 text-muted small">Departamentos: <strong>${depOrg.areas.length}</strong></p>
                       <p class="mb-0 text-muted small">Puestos: <strong>${totalPuestos}</strong></p>
                       <p class="mb-3 text-muted small">Personal: <strong>${totalPersonas}</strong></p>
                       <button type="button" class="btn btn-sm btn-outline-primary fw-semibold text-uppercase"
@@ -646,7 +650,7 @@ class Departamentos extends Controller
           });
 
           if (!cardsHTML) {
-            cardsHTML = '<div class="col-12 text-center text-muted py-4"><i class="fa fa-inbox fa-2x mb-2 d-block"></i>No hay áreas registradas en este departamento.</div>';
+            cardsHTML = '<div class="col-12 text-center text-muted py-4"><i class="fa fa-inbox fa-2x mb-2 d-block"></i>No hay departamentos registrados en esta área.</div>';
           }
 
           body.innerHTML = `
@@ -655,11 +659,34 @@ class Departamentos extends Controller
                 <h5 class="mb-0">${escapeHtml(depOrg.nombre)}</h5>
                 <p class="text-muted mb-0">Departamentos registrados en ${escapeHtml(depOrg.nombre_pais || '')}</p>
               </div>
-              <button type="button" class="btn btn-outline-secondary" onclick="getDepartamentos()">
+              <button type="button" class="btn btn-outline-secondary" onclick="volverDepartamentosPais('${escapeJs(iso)}')">
                 <i class="fa fa-arrow-left me-2"></i>Volver
               </button>
             </div>
             <div class="row g-4">${cardsHTML}</div>`;
+        }
+
+        function volverDepartamentosPais(iso) {
+          const body = document.getElementById(`org-body-${iso}`);
+          const groupedPais = window.departamentosOrganizacionData?.[iso] || {};
+          if (!body) {
+            getDepartamentos();
+            return;
+          }
+
+          const departamentosOrg = Object.values(groupedPais);
+          const nombrePais = departamentosOrg[0]?.nombre_pais || '';
+          const imgUrl = "https://demos.themeselection.com/sneat-bootstrap-html-admin-template/assets/img/illustrations/lady-with-laptop-light.png";
+          body.innerHTML = `<div class="row g-4">${renderDepartamentosPais(iso, nombrePais, departamentosOrg, imgUrl)}</div>`;
+
+          const badge = document.getElementById(`org-count-badge-${iso}`);
+          if (badge) {
+            const total = departamentosOrg.length;
+            badge.textContent = `${total} ${total === 1 ? 'área' : 'áreas'}`;
+          }
+
+          window.departamentoOrganizacionActivo = null;
+          actualizarBotonAccionOrganizacion();
         }
 
         function cargarDepartamentosOrganizacionalesModal(idPais) {

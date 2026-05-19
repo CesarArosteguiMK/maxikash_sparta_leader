@@ -188,7 +188,8 @@ $mostrarModalFormBuilderLectura = !empty($tickets_panel_modal_form_builder_lectu
 <!-- Modal: Resumen del ticket -->
 <style>
 /* Thumbnail de imágenes adjuntas: cover crop */
-#resumenTicketEvidenciasGrid .tm-ev-img { width: 100%; height: 7rem; object-fit: cover; display: block; }
+#resumenTicketEvidenciasGrid .tm-ev-img,
+#resumenTicketInconformidadEvidenciasGrid .tm-ev-img { width: 100%; height: 7rem; object-fit: cover; display: block; }
 /* Searchable select: dropdown posicionado debajo del trigger */
 #modalResumenTicket .select-search-wrapper { position: relative; width: 100%; }
 #modalResumenTicket .select-search-wrapper .form-select { display: none !important; }

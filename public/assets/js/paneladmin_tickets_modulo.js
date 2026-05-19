@@ -192,7 +192,8 @@
     }
 
     function estadoVisibleTicket(t) {
-        if (inconformidadPendiente(t)) return 'Pendiente';
+        var estadoRaw = ((t && t.estado_ticket_nombre) || '').toString().trim();
+        if (inconformidadPendiente(t)) return parseInt(t && t.id_estado_ticket, 10) === 3 || estadoRaw.toLowerCase().indexOf('proceso') !== -1 ? 'Procesando' : 'Pendiente';
         return ((t && t.estado_ticket_nombre) || '').toString().trim() || 'â€”';
     }
 
@@ -258,9 +259,7 @@
             var hastaAus = t.solicitud_vacaciones_fecha_hasta || t.solicitud_ausencia_fecha_hasta || '';
             var deptoAus = t.solicitud_vacaciones_departamento || t.solicitud_ausencia_departamento || '';
             var inconformidadAus = getInconformidadTicket(t);
-            var notaAus = inconformidadAus
-                ? inconformidadAus.comentario
-                : limpiarComentarioAusencia(t.nota || t.descripcion_inicial || '');
+            var notaAus = limpiarComentarioAusencia(t.nota || t.descripcion_inicial || '');
             var modoAus = labelModoFechasAusencia(t.solicitud_ausencia_modo_fechas || t.solicitud_vacaciones_modo_fechas || '');
             var periodosAus = resumenPeriodosAusencia(t);
             var diasSolicitadosAus = resumenDiasSolicitadosAusencia(t, 12);
@@ -481,20 +480,20 @@
             return;
         }
         window._tmAdjuntoLightboxBound = true;
-        $(document).on('click', '#resumenTicketEvidenciasGrid [data-tm-lb]', function () {
+        $(document).on('click', '#resumenTicketEvidenciasGrid [data-tm-lb], #resumenTicketInconformidadEvidenciasGrid [data-tm-lb]', function () {
             var i = parseInt($(this).attr('data-tm-lb'), 10);
             if (!isNaN(i)) {
                 tmAdjuntoLightboxShow(i);
             }
         });
-        $(document).on('error', '#resumenTicketEvidenciasGrid img[data-tm-fallback-src], #tmAdjuntoLightboxImg[data-tm-fallback-src]', function () {
+        $(document).on('error', '#resumenTicketEvidenciasGrid img[data-tm-fallback-src], #resumenTicketInconformidadEvidenciasGrid img[data-tm-fallback-src], #tmAdjuntoLightboxImg[data-tm-fallback-src]', function () {
             var $img = $(this);
             var fb = ($img.attr('data-tm-fallback-src') || '').trim();
             if (fb && $img.attr('src') !== fb) {
                 $img.attr('data-tm-fallback-src', '').attr('src', fb);
             }
         });
-        $(document).on('click', '#resumenTicketEvidenciasGrid [data-tm-adj-pdf-url]', function (e) {
+        $(document).on('click', '#resumenTicketEvidenciasGrid [data-tm-adj-pdf-url], #resumenTicketInconformidadEvidenciasGrid [data-tm-adj-pdf-url]', function (e) {
             e.preventDefault();
             var u = $(this).attr('data-tm-adj-pdf-url');
             if (!u) return;
@@ -519,8 +518,30 @@
         tmAdjuntoLightboxItems = [];
         var $wrap = $('#resumenTicketEvidenciasWrap');
         var $grid = $('#resumenTicketEvidenciasGrid');
+        var $reviewWrap = $('#resumenTicketInconformidadEvidenciasWrap');
+        var $reviewGrid = $('#resumenTicketInconformidadEvidenciasGrid');
+        if (!$reviewWrap.length) {
+            $reviewWrap = $(
+                '<div id="resumenTicketInconformidadEvidenciasWrap" class="mb-3 d-none">' +
+                    '<p class="text-muted fw-semibold mb-1" style="font-size:.7rem;text-transform:uppercase;letter-spacing:.05em;">' +
+                        '<i class="fa-solid fa-message-exclamation me-1"></i>Evidencia de inconformidad' +
+                    '</p>' +
+                    '<p class="small text-muted mb-2">Archivos enviados para la segunda revision.</p>' +
+                    '<div id="resumenTicketInconformidadEvidenciasGrid" class="row g-2"></div>' +
+                '</div>'
+            );
+            var $detalleWrap = $('#resumenTicketModuloDetalleWrap');
+            if ($detalleWrap.length) {
+                $detalleWrap.after($reviewWrap);
+            } else {
+                $wrap.after($reviewWrap);
+            }
+            $reviewGrid = $('#resumenTicketInconformidadEvidenciasGrid');
+        }
         $grid.empty();
+        $reviewGrid.empty();
         $wrap.addClass('d-none');
+        $reviewWrap.addClass('d-none');
         tmAdjuntoLightboxEnsureBound();
         var tid = parseInt(idTicket, 10);
         if (isNaN(tid) || tid < 1 || typeof http === 'undefined') {
@@ -536,6 +557,65 @@
         function esPdfEv(ev) {
             return /\.pdf$/i.test((ev.nombre_original || '') + (ev.ruta_archivo || ''));
         }
+        function pintarLista(list, $targetWrap, $targetGrid) {
+            if (!list.length) {
+                return;
+            }
+            $targetWrap.removeClass('d-none');
+            list.forEach(function (ev) {
+                var pathUrl = ev.url || '/sabueso/verEvidencia?id=' + (ev.id || '');
+                var url = tmAppUrl(pathUrl);
+                var fallbackUrl = tmUploadUrl(ev.ruta_archivo || '');
+                var href = attrEsc(url);
+                var fallbackAttr = fallbackUrl ? attrEsc(fallbackUrl) : '';
+                var nom = attrEsc(nombreArchivo(ev));
+                var nomPlain = nombreArchivo(ev);
+                if (esImagen(ev)) {
+                    var idx = tmAdjuntoLightboxItems.length;
+                    tmAdjuntoLightboxItems.push({ url: url, fallbackUrl: fallbackUrl, nom: nomPlain });
+                    $targetGrid.append(
+                        '<div class="col-6 col-md-4">' +
+                            '<button type="button" class="d-block w-100 p-0 border-0 bg-transparent rounded overflow-hidden" style="cursor:pointer;" data-tm-lb="' +
+                            idx +
+                            '" title="Ver en grande">' +
+                            '<img src="' +
+                            href +
+                            '" alt="' +
+                            attrEsc(nomPlain) +
+                            '" loading="lazy" class="tm-ev-img" data-tm-fallback-src="' +
+                            fallbackAttr +
+                            '" onerror="if(this.dataset.tmFallbackSrc){this.onerror=null;this.src=this.dataset.tmFallbackSrc;this.dataset.tmFallbackSrc=\'\';}"' +
+                            '">' +
+                            '</button>' +
+                            '<div class="small text-muted text-truncate mt-1" title="' +
+                            nom +
+                            '">' +
+                            nom +
+                            '</div></div>'
+                    );
+                } else if (esPdfEv(ev)) {
+                    $targetGrid.append(
+                        '<div class="col-12 col-sm-6">' +
+                            '<button type="button" class="btn btn-sm btn-outline-secondary w-100 text-start text-truncate" data-tm-adj-pdf-url="' +
+                            attrEsc(url) +
+                            '" title="Ver PDF">' +
+                            '<i class="fa-solid fa-file-pdf text-danger me-2"></i>' +
+                            nom +
+                            '</button></div>'
+                    );
+                } else {
+                    $targetGrid.append(
+                        '<div class="col-12 col-sm-6">' +
+                            '<a href="' +
+                            href +
+                            '" target="_blank" rel="noopener noreferrer" class="btn btn-sm btn-outline-secondary w-100 text-start text-truncate">' +
+                            '<i class="fa-solid fa-paperclip me-2"></i>' +
+                            nom +
+                            '</a></div>'
+                    );
+                }
+            });
+        }
         http.request({
             endpoint: '/sabueso/getEvidenciasTicket',
             metodo: 'POST',
@@ -545,63 +625,19 @@
             showLoader: false,
             onSuccess: function (r) {
                 var list = (r && r.datos) || [];
-                if (!list.length) {
-                    return;
-                }
-                $wrap.removeClass('d-none');
-                list.forEach(function (ev) {
-                    var pathUrl = ev.url || '/sabueso/verEvidencia?id=' + (ev.id || '');
-                    var url = tmAppUrl(pathUrl);
-                    var fallbackUrl = tmUploadUrl(ev.ruta_archivo || '');
-                    var href = attrEsc(url);
-                    var fallbackAttr = fallbackUrl ? attrEsc(fallbackUrl) : '';
-                    var nom = attrEsc(nombreArchivo(ev));
-                    var nomPlain = nombreArchivo(ev);
-                    if (esImagen(ev)) {
-                        var idx = tmAdjuntoLightboxItems.length;
-                        tmAdjuntoLightboxItems.push({ url: url, fallbackUrl: fallbackUrl, nom: nomPlain });
-                        $grid.append(
-                            '<div class="col-6 col-md-4">' +
-                                '<button type="button" class="d-block w-100 p-0 border-0 bg-transparent rounded overflow-hidden" style="cursor:pointer;" data-tm-lb="' +
-                                idx +
-                                '" title="Ver en grande">' +
-                                '<img src="' +
-                                href +
-                                '" alt="' +
-                                attrEsc(nomPlain) +
-                                '" loading="lazy" class="tm-ev-img" data-tm-fallback-src="' +
-                                fallbackAttr +
-                                '" onerror="if(this.dataset.tmFallbackSrc){this.onerror=null;this.src=this.dataset.tmFallbackSrc;this.dataset.tmFallbackSrc=\'\';}"' +
-                                '">' +
-                                '</button>' +
-                                '<div class="small text-muted text-truncate mt-1" title="' +
-                                nom +
-                                '">' +
-                                nom +
-                                '</div></div>'
-                        );
-                    } else if (esPdfEv(ev)) {
-                        $grid.append(
-                            '<div class="col-12 col-sm-6">' +
-                                '<button type="button" class="btn btn-sm btn-outline-secondary w-100 text-start text-truncate" data-tm-adj-pdf-url="' +
-                                attrEsc(url) +
-                                '" title="Ver PDF">' +
-                                '<i class="fa-solid fa-file-pdf text-danger me-2"></i>' +
-                                nom +
-                                '</button></div>'
-                        );
-                    } else {
-                        $grid.append(
-                            '<div class="col-12 col-sm-6">' +
-                                '<a href="' +
-                                href +
-                                '" target="_blank" rel="noopener noreferrer" class="btn btn-sm btn-outline-secondary w-100 text-start text-truncate">' +
-                                '<i class="fa-solid fa-paperclip me-2"></i>' +
-                                nom +
-                                '</a></div>'
-                        );
-                    }
-                });
+                pintarLista(list, $wrap, $grid);
+            },
+            onError: function () {}
+        });
+        http.request({
+            endpoint: '/sabueso/getEvidenciasTicket',
+            metodo: 'POST',
+            data: JSON.stringify({ id_ticket: tid, tipo_origen: 'inconformidad' }),
+            contentType: 'application/json',
+            processData: false,
+            showLoader: false,
+            onSuccess: function (r) {
+                pintarLista((r && r.datos) || [], $reviewWrap, $reviewGrid);
             },
             onError: function () {}
         });
@@ -870,7 +906,7 @@
             prioridadBadge = '<span class="badge bg-secondary" style="background-color:#6c757d!important;color:#fff;">' + (t.prioridad_nombre || '—') + '</span>';
         var estadoNombreRaw = ((t.estado_ticket_nombre || '') + '').trim() || '—';
         var inconformidadRow = inconformidadPendiente(t) ? getInconformidadTicket(t) : null;
-        var estadoNombreRaw = inconformidadRow ? 'Pendiente' : estadoNombreRaw;
+        estadoNombreRaw = inconformidadRow ? estadoVisibleTicket(t) : estadoNombreRaw;
         var estadoNombre = estadoNombreRaw.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;');
         var en = estadoNombreRaw.toLowerCase();
         var estadoBadge = '<span class="badge bg-label-secondary">' + estadoNombre + '</span>';
@@ -919,7 +955,7 @@
         if (inconformidadRow) {
             folioTipoHtml +=
                 '<div class="mt-1"><span class="badge bg-label-warning small d-inline-flex align-items-center gap-1">' +
-                '<i class="fa-solid fa-message-exclamation" style="font-size:0.7rem;"></i>Segunda revisiÃ³n' +
+                '<i class="fa-solid fa-message-exclamation" style="font-size:0.7rem;"></i>Segunda revision' +
                 '</span></div>';
         }
         if (CAT === 'validaciones') {
@@ -1185,7 +1221,21 @@
     function marcarTicketProcesandoPrimeraVista(t) {
         if (!t || !t.id_ticket || !esTicketAppSimple(t.categoria_gestion || cfg().categoria) || typeof http === 'undefined') return;
         var estadoActual = ((t.estado_ticket_nombre || '') + '').toLowerCase().trim();
-        if (respuestaLabel(t.respuesta_resultado) || (estadoActual && estadoActual !== 'pendiente' && estadoActual !== 'abierto' && estadoActual !== '—')) return;
+        var esSegundaRevision = inconformidadPendiente(t);
+        if (!esSegundaRevision && respuestaLabel(t.respuesta_resultado)) return;
+        if (!esSegundaRevision && estadoActual && estadoActual !== 'pendiente' && estadoActual !== 'abierto' && estadoActual !== '—') return;
+        function pintarProcesandoLocal() {
+            t.estado_ticket_nombre = 'Procesando';
+            $('#resumenTicketEstado').text('Procesando');
+            $('#resumenTicketEstadoPill').text('● Procesando');
+            if (window._ticketsModuloCache && window._ticketsModuloCache[t.id_ticket]) {
+                window._ticketsModuloCache[t.id_ticket].estado_ticket_nombre = 'Procesando';
+            }
+        }
+        if (esSegundaRevision) {
+            pintarProcesandoLocal();
+            if (estadoActual === 'procesando') return;
+        }
         http.request({
             endpoint: '/sabueso/marcarTicketProcesando',
             metodo: 'POST',
@@ -1194,7 +1244,7 @@
             processData: false,
             showLoader: false,
             onSuccess: function (r) {
-                if (r && r.success && r.datos && r.datos.actualizado) {
+                if (r && r.success && ((r.datos && r.datos.actualizado) || esSegundaRevision)) {
                     t.estado_ticket_nombre = 'Procesando';
                     $('#resumenTicketEstado').text('Procesando');
                     $('#resumenTicketEstadoPill').text('● Procesando');
@@ -1413,6 +1463,9 @@
             $('#resumenTicketVence').text(fechaVenc);
             $('#resumenTicketFolio').text(t.folio || '—');
             var estadoTxt = (t.estado_ticket_nombre || '—').trim() || '—';
+            if (inconformidadPendiente(t)) {
+                t.estado_ticket_nombre = 'Procesando';
+            }
             estadoTxt = estadoVisibleTicket(t);
             $('#resumenTicketEstado').text(estadoTxt);
             $('#resumenTicketEstadoPill').text((estadoTxt !== '—' ? '\u25CF ' : '') + estadoTxt);
