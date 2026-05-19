@@ -17,7 +17,264 @@ class TrackingRecoleccion extends Controller
         if (defined('GOOGLE_MAPS_API_KEY')) {
             self::set('google_maps_api_key_js', GOOGLE_MAPS_API_KEY);
         }
+        // Chat Operativo — pasar URL base de WebSocket al frontend (no se expone la API key)
+        $trkCfg = $this->_trkChatConfig();
+        if ($trkCfg['base_url'] !== '') {
+            $wsBase = preg_replace('/^https:/i', 'wss:', preg_replace('/^http:/i', 'ws:', rtrim($trkCfg['base_url'], '/')));
+            self::set('tracking_chat_ws_base_url', $wsBase);
+        }
         return self::render('tracking_recoleccion');
+    }
+
+    // =========================================================================
+    // CHAT OPERATIVO — helpers privados
+    // =========================================================================
+
+    /**
+     * Carga la configuración del Chat Operativo desde la tabla config_api (o variables de entorno).
+     * Claves esperadas: TRACKING_BASE_URL, TRACKING_API_KEY, TRACKING_GESTOR_USER, TRACKING_GESTOR_PASS
+     */
+    private function _trkChatConfig(): array
+    {
+        $cfg = function_exists('config_api_load_from_db') ? config_api_load_from_db() : [];
+        return [
+            'base_url'     => trim((string)($cfg['TRACKING_BASE_URL']     ?? getenv('TRACKING_BASE_URL')     ?: '')),
+            'api_key'      => trim((string)($cfg['TRACKING_API_KEY']      ?? getenv('TRACKING_API_KEY')      ?: '')),
+            'gestor_user'  => trim((string)($cfg['TRACKING_GESTOR_USER']  ?? getenv('TRACKING_GESTOR_USER')  ?: '')),
+            'gestor_pass'  => trim((string)($cfg['TRACKING_GESTOR_PASS']  ?? getenv('TRACKING_GESTOR_PASS')  ?: '')),
+        ];
+    }
+
+    /**
+     * Realiza una petición HTTP con cURL a la API de tracking.
+     * Devuelve ['http_code' => int, 'body' => string].
+     */
+    private function _trkChatCurl(string $url, string $method, string $body, array $headers): array
+    {
+        if (!function_exists('curl_init')) {
+            return ['http_code' => 0, 'body' => ''];
+        }
+        $ch = curl_init($url);
+        curl_setopt_array($ch, [
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_TIMEOUT        => 15,
+            CURLOPT_HTTPHEADER     => $headers,
+            CURLOPT_SSL_VERIFYPEER => false, // ajustar según entorno
+        ]);
+        if ($method === 'POST') {
+            curl_setopt($ch, CURLOPT_POST, true);
+            curl_setopt($ch, CURLOPT_POSTFIELDS, $body);
+        } elseif ($method !== 'GET') {
+            curl_setopt($ch, CURLOPT_CUSTOMREQUEST, $method);
+            if ($body !== '') curl_setopt($ch, CURLOPT_POSTFIELDS, $body);
+        }
+        $raw      = curl_exec($ch);
+        $httpCode = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        curl_close($ch);
+        return ['http_code' => $httpCode, 'body' => ($raw === false ? '' : (string)$raw)];
+    }
+
+    /**
+     * Obtiene el JWT de la API de tracking y lo cachea en sesión por ~55 min.
+     * Retorna '' si no hay configuración o falla el login.
+     */
+    private function _trkChatObtenerJwt(): string
+    {
+        // Devolver token cacheado si sigue vigente (margen de 5 min)
+        if (!empty($_SESSION['_trk_chat_jwt'])
+            && !empty($_SESSION['_trk_chat_jwt_exp'])
+            && (int)$_SESSION['_trk_chat_jwt_exp'] > time() + 300
+        ) {
+            return (string)$_SESSION['_trk_chat_jwt'];
+        }
+
+        $cfg = $this->_trkChatConfig();
+        if ($cfg['base_url'] === '' || $cfg['api_key'] === '') return '';
+
+        $loginUrl = rtrim($cfg['base_url'], '/') . '/api/login';
+        // El body de login sigue el formato estándar del backend FastAPI de tracking.
+        // Si el endpoint usa un campo distinto a "username"/"password", actualiza aquí.
+        $loginBody = json_encode([
+            'username' => $cfg['gestor_user'],
+            'password' => $cfg['gestor_pass'],
+        ]);
+
+        $resp = $this->_trkChatCurl($loginUrl, 'POST', $loginBody, [
+            'Content-Type: application/json',
+            'X-API-Key: ' . $cfg['api_key'],
+        ]);
+
+        if ($resp['http_code'] !== 200) return '';
+
+        $data  = json_decode($resp['body'], true) ?: [];
+        // Soporte para "access_token" (OAuth2 estándar) o "token" (custom)
+        $token = $data['access_token'] ?? $data['token'] ?? '';
+
+        if ($token !== '') {
+            $_SESSION['_trk_chat_jwt']     = $token;
+            $_SESSION['_trk_chat_jwt_exp'] = time() + 3300; // ~55 min
+        }
+
+        return $token;
+    }
+
+    // =========================================================================
+    // CHAT OPERATIVO — endpoints proxy
+    // =========================================================================
+
+    /**
+     * GET /TrackingRecoleccion/chatObtenerToken
+     * Devuelve un JWT fresco (o cacheado) al frontend para la conexión WebSocket.
+     * La API key NUNCA se devuelve al navegador.
+     */
+    public function chatObtenerToken()
+    {
+        $token = $this->_trkChatObtenerJwt();
+        if ($token === '') {
+            self::respuestaJSON(['success' => false, 'mensaje' => 'Servicio de chat no configurado.']);
+            return;
+        }
+        // Calcular expiración aproximada para que el frontend renueve a tiempo
+        $expiryMs = (int)(($_SESSION['_trk_chat_jwt_exp'] ?? (time() + 3300)) * 1000);
+        self::respuestaJSON(['success' => true, 'token' => $token, 'expiry_ms' => $expiryMs]);
+    }
+
+    /**
+     * GET /TrackingRecoleccion/chatInfo?id_detalle=N
+     * Proxy: GET /api/tracking/chats/{id_detalle}
+     */
+    public function chatInfo()
+    {
+        $idDetalle = (int)($_GET['id_detalle'] ?? 0);
+        if ($idDetalle <= 0) {
+            self::respuestaJSON(['success' => false, 'mensaje' => 'id_detalle requerido.']);
+            return;
+        }
+
+        $cfg   = $this->_trkChatConfig();
+        $token = $this->_trkChatObtenerJwt();
+        if ($cfg['base_url'] === '' || $token === '') {
+            self::respuestaJSON(['success' => false, 'mensaje' => 'Chat no disponible (configuración incompleta).']);
+            return;
+        }
+
+        $url  = rtrim($cfg['base_url'], '/') . "/api/tracking/chats/{$idDetalle}";
+        $resp = $this->_trkChatCurl($url, 'GET', '', [
+            'X-API-Key: '     . $cfg['api_key'],
+            'Authorization: Bearer ' . $token,
+        ]);
+
+        $this->_trkChatRelayResponse($resp);
+    }
+
+    /**
+     * GET /TrackingRecoleccion/chatMensajes?id_detalle=N[&limit=50][&before_id=M]
+     * Proxy: GET /api/tracking/chats/{id_detalle}/mensajes
+     */
+    public function chatMensajes()
+    {
+        $idDetalle = (int)($_GET['id_detalle'] ?? 0);
+        if ($idDetalle <= 0) {
+            self::respuestaJSON(['success' => false, 'mensaje' => 'id_detalle requerido.']);
+            return;
+        }
+
+        $limit    = min(200, max(1, (int)($_GET['limit']     ?? 50)));
+        $beforeId = (int)($_GET['before_id'] ?? 0);
+
+        $cfg   = $this->_trkChatConfig();
+        $token = $this->_trkChatObtenerJwt();
+        if ($cfg['base_url'] === '' || $token === '') {
+            self::respuestaJSON(['success' => false, 'mensaje' => 'Chat no disponible.']);
+            return;
+        }
+
+        $qs  = "?limit={$limit}" . ($beforeId > 0 ? "&before_id={$beforeId}" : '');
+        $url = rtrim($cfg['base_url'], '/') . "/api/tracking/chats/{$idDetalle}/mensajes{$qs}";
+        $resp = $this->_trkChatCurl($url, 'GET', '', [
+            'X-API-Key: '     . $cfg['api_key'],
+            'Authorization: Bearer ' . $token,
+        ]);
+
+        $this->_trkChatRelayResponse($resp);
+    }
+
+    /**
+     * POST /TrackingRecoleccion/chatEnviarMensaje
+     * Body JSON: { id_detalle, mensaje, tipo_mensaje?, latitud?, longitud?, metadata? }
+     * Proxy: POST /api/tracking/chats/{id_detalle}/mensajes
+     */
+    public function chatEnviarMensaje()
+    {
+        $raw  = (string)file_get_contents('php://input');
+        $data = json_decode($raw, true) ?: [];
+
+        $idDetalle = (int)($data['id_detalle'] ?? 0);
+        if ($idDetalle <= 0) {
+            self::respuestaJSON(['success' => false, 'mensaje' => 'id_detalle requerido.']);
+            return;
+        }
+
+        $cfg   = $this->_trkChatConfig();
+        $token = $this->_trkChatObtenerJwt();
+        if ($cfg['base_url'] === '' || $token === '') {
+            self::respuestaJSON(['success' => false, 'mensaje' => 'Chat no disponible.']);
+            return;
+        }
+
+        // Construir body limpio para el tracking backend
+        $payload = json_encode([
+            'mensaje'      => (string)($data['mensaje']      ?? ''),
+            'tipo_mensaje' => (string)($data['tipo_mensaje'] ?? 'texto'),
+            'latitud'      => $data['latitud']  ?? null,
+            'longitud'     => $data['longitud'] ?? null,
+            'metadata'     => $data['metadata'] ?? null,
+        ]);
+
+        $url  = rtrim($cfg['base_url'], '/') . "/api/tracking/chats/{$idDetalle}/mensajes";
+        $resp = $this->_trkChatCurl($url, 'POST', $payload, [
+            'Content-Type: application/json',
+            'X-API-Key: '     . $cfg['api_key'],
+            'Authorization: Bearer ' . $token,
+        ]);
+
+        $this->_trkChatRelayResponse($resp);
+    }
+
+    /**
+     * Retransmite la respuesta del tracking backend al cliente web, normalizando
+     * los códigos de error para que el JS pueda interpretarlos.
+     */
+    private function _trkChatRelayResponse(array $resp): void
+    {
+        $httpCode = $resp['http_code'];
+        $data     = json_decode($resp['body'], true);
+
+        // Si el body no es JSON válido, construir respuesta genérica
+        if (!is_array($data)) {
+            $data = [
+                'success' => false,
+                'mensaje' => match ($httpCode) {
+                    401 => 'Sesión expirada. Recarga la página.',
+                    403 => 'Sin acceso a este chat.',
+                    404 => 'Tarea no encontrada.',
+                    409 => 'Chat bloqueado o cerrado.',
+                    500 => 'Error del servidor. Intenta más tarde.',
+                    0   => 'Sin conexión con el servidor de chat.',
+                    default => "Error inesperado (HTTP {$httpCode}).",
+                },
+            ];
+        }
+
+        // Inyectar código HTTP para que el JS pueda actuar (ej: 409 → deshabilitar input)
+        $data['codigo_http'] = $httpCode;
+
+        // Si el backend invalida el JWT, limpiar caché de sesión
+        if ($httpCode === 401) {
+            unset($_SESSION['_trk_chat_jwt'], $_SESSION['_trk_chat_jwt_exp']);
+        }
+
+        self::respuestaJSON($data);
     }
 
     // =========================================================================
