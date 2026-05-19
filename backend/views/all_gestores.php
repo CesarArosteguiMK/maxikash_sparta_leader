@@ -2833,7 +2833,7 @@ window.todosDepartamentosBackend = <?= json_encode(($departamento['datos'] ?? []
                     <select id="add_departamento_id" class="form-select js-select-buscador">
                         <option value="">Seleccione un departamento</option>
                         <?php foreach ($departamento['datos'] ?? [] as $dep): ?>
-                            <option value="<?= htmlspecialchars($dep['id']) ?>">
+                            <option value="<?= htmlspecialchars($dep['id']) ?>" data-pais="<?= htmlspecialchars($dep['id_pais'] ?? '') ?>">
                                 <?= htmlspecialchars($dep['nombre']) ?>
                             </option>
                         <?php endforeach; ?>
@@ -7369,6 +7369,76 @@ const labelsPorPais = {
  * Nota: los selects con Select2 disparan change vía jQuery; addEventListener nativo
  * no siempre recibe el evento. Usar jQuery.on para la cascada geográfica.
  */
+function resetPuestoJefeAddPorDepartamento() {
+    const puesto = document.getElementById('add_id_puesto');
+    const jefe = document.getElementById('add_id_jefe');
+    if (puesto) {
+        puesto.innerHTML = '<option value="">Seleccione un puesto</option>';
+        puesto.disabled = true;
+    }
+    if (jefe) {
+        jefe.innerHTML = '<option value="">Seleccione un jefe</option>';
+        jefe.disabled = true;
+    }
+    if (typeof resetVacantesAsignablesAdd === 'function') {
+        resetVacantesAsignablesAdd();
+    }
+    if (typeof window.refreshSelectBuscador === 'function') {
+        window.refreshSelectBuscador('add_id_puesto');
+        window.refreshSelectBuscador('add_id_jefe');
+    }
+}
+
+function renderDepartamentosAddPorPais(idPais, codigoIsoPais) {
+    const select = document.getElementById('add_departamento_id');
+    if (!select) return;
+
+    const departamentos = Array.isArray(window.todosDepartamentosBackend)
+        ? window.todosDepartamentosBackend
+        : [];
+    const paisFiltro = String(idPais || '');
+    const isoFiltro = String(codigoIsoPais || '').toLowerCase();
+
+    select.innerHTML = '<option value="">Seleccione un departamento</option>';
+
+    departamentos
+        .filter(function (dep) {
+            if (!paisFiltro && !isoFiltro) return true;
+
+            const depIso = String(dep.codigo_iso_pais || '').toLowerCase();
+            if (isoFiltro && depIso) {
+                return depIso === isoFiltro;
+            }
+
+            const depPais = String(dep.id_pais || '');
+            if (paisFiltro === '1' && depPais === '') return true;
+            return depPais === paisFiltro;
+        })
+        .forEach(function (dep) {
+            const id = dep.id || dep.departamento_id;
+            const nombre = dep.nombre || dep.departamento_nombre || '';
+            if (!id || !nombre) return;
+            const option = document.createElement('option');
+            option.value = id;
+            option.textContent = nombre;
+            option.dataset.pais = dep.id_pais || '';
+            select.appendChild(option);
+        });
+
+    if (paisFiltro && select.options.length === 1) {
+        const option = document.createElement('option');
+        option.value = '';
+        option.textContent = 'No hay departamentos disponibles para este pais';
+        select.appendChild(option);
+    }
+
+    select.value = '';
+    resetPuestoJefeAddPorDepartamento();
+    if (typeof window.refreshSelectBuscador === 'function') {
+        window.refreshSelectBuscador('add_departamento_id');
+    }
+}
+
 document.addEventListener('DOMContentLoaded', function () {
     if (typeof window.jQuery === 'undefined') {
         return;
@@ -7377,16 +7447,12 @@ document.addEventListener('DOMContentLoaded', function () {
 
     $('#add_id_pais').on('change', function () {
         var idPais = this.value;
+        var optPais = this.options[this.selectedIndex];
+        var codigoIsoPais = optPais ? (optPais.dataset.iso || '') : '';
         resetCascadaAdd();
+        renderDepartamentosAddPorPais(idPais, codigoIsoPais);
 
         if (!idPais) return;
-
-        actualizarLabels(idPais, 'add');
-
-        cargarEstados(idPais, 'add_id_div_nivel1', function () {
-            document.getElementById('div_add_estado').style.display = '';
-            document.getElementById('add_id_div_nivel1').disabled = false;
-        });
     });
 
     $('#add_id_div_nivel1').on('change', function () {

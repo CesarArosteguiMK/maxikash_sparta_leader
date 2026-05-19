@@ -1531,10 +1531,7 @@ class CapHum extends Model
         WHERE
             pu.es_jefe = 1 AND per.estatus != 'Baja'
             AND {$predPer}
-            AND (
-                pu.departamento_id = $id_departamento
-                OR pu.id IN (8)
-            )
+            AND pu.departamento_id = $id_departamento
         ORDER BY per.nombres ASC;
         SQL;
 
@@ -1937,14 +1934,19 @@ class CapHum extends Model
         $complet = $perfil_id > 0 ? 'WHERE pd.idPersona = ' . $perfil_id : '';
 
         $query = <<<SQL
-           SELECT DISTINCT d.*
+           SELECT DISTINCT
+                d.*,
+                pa.nombre AS nombre_pais,
+                COALESCE(pa.codigo_iso, 'xx') AS codigo_iso_pais
             FROM privilegios_departamento pd
             INNER JOIN puesto p
                     ON p.id = pd.idPuesto
             INNER JOIN departamento d
                     ON d.id = p.departamento_id
+            LEFT JOIN paises pa
+                    ON pa.id = d.id_pais
             $complet
-            ORDER BY d.nombre ASC
+            ORDER BY FIELD(pa.codigo_iso, 'mx', 'gt', 'co'), d.nombre ASC
         SQL;
 
         try {
@@ -1984,6 +1986,29 @@ class CapHum extends Model
             FROM departamento
             ORDER BY nombre ASC
         SQL;
+        try {
+            $db = new Database();
+            $r = $db->queryAll($query);
+            return self::resultado(true, 'Departamentos encontrados.', $r);
+        } catch (\Exception $e) {
+            return self::resultado(false, 'Error al obtener departamentos.', null, $e->getMessage());
+        }
+    }
+
+    /** Para Gestion de Personal: departamentos completos por pais, sin depender de privilegios por puesto. */
+    public static function getTodosDepartamentosGestion()
+    {
+        $query = <<<SQL
+            SELECT
+                d.*,
+                pa.nombre AS nombre_pais,
+                COALESCE(pa.codigo_iso, 'xx') AS codigo_iso_pais
+            FROM departamento d
+            LEFT JOIN paises pa
+                   ON pa.id = d.id_pais
+            ORDER BY FIELD(pa.codigo_iso, 'mx', 'gt', 'co'), d.nombre ASC
+        SQL;
+
         try {
             $db = new Database();
             $r = $db->queryAll($query);
@@ -2221,7 +2246,7 @@ class CapHum extends Model
                 $id_vacante_jefe = (int)$m[1];
                 $id_jefe = null;
             } else {
-                $id_jefe = $jefeRaw !== '' ? (int)$jefeRaw : $id_persona;
+                $id_jefe = $jefeRaw !== '' ? (int)$jefeRaw : null;
             }
             if ($vacanteSeleccionada && !empty($vacanteSeleccionada['id_jefe'])) {
                 $id_jefe = (int)$vacanteSeleccionada['id_jefe'];
@@ -2245,11 +2270,12 @@ class CapHum extends Model
                         (DEFAULT, $id_persona, NULL, $id_vacante_jefe, NOW(), NOW())
                 ");
                 } else {
+                    $idJefeSql = $id_jefe !== null ? (int)$id_jefe : 'NULL';
                     $db->queryOne("
                     INSERT INTO __SPARTA_SECRET_REDACTED__.asigna_jefe
                         (id, id_persona, id_jefe, fecha_inicio, fecha_fin)
                     VALUES
-                        (DEFAULT, $id_persona, $id_jefe, NOW(), NOW())
+                        (DEFAULT, $id_persona, $idJefeSql, NOW(), NOW())
                 ");
                 }
 

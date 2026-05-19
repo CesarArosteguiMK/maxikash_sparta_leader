@@ -15,6 +15,21 @@ class CapHum extends Controller
     /** Último error de enviarCorreo para mostrarlo en la respuesta JSON */
     private $enviarCorreoUltimoError = '';
 
+    private static function tieneAccesoTotalGestionPersonal()
+    {
+        $modulos = array_map('intval', (array) ($_SESSION['modulos'] ?? []));
+        return in_array(10, $modulos, true) || in_array(43, $modulos, true);
+    }
+
+    private static function getDepartamentosGestionPersonal()
+    {
+        if (self::tieneAccesoTotalGestionPersonal()) {
+            return CapHumDAO::getTodosDepartamentosGestion();
+        }
+
+        return CapHumDAO::getConsultaDepartamentoGestor($_SESSION['usuario_id'] ?? 0);
+    }
+
     public function gestion()
     {
         $script = <<<'HTML'
@@ -4855,10 +4870,10 @@ class CapHum extends Controller
         HTML;
         // Easter egg "300" solo en Capital Humano → Gestión (Ctrl+Shift+3)
         $script .= "\n" . '<script src="/assets/js/gestiones-300-easter.js"></script>';
-        $departamento = CapHumDAO::getConsultaDepartamentoGestor($_SESSION['usuario_id']);
         $modulos = $_SESSION['modulos'] ?? [];
         $puedeEditarTodos = in_array(10, $modulos);
         $puedeGestionarPermisos = in_array(43, $modulos);
+        $departamento = self::getDepartamentosGestionPersonal();
 
         self::set("titulo", "Gestión de Usuarios");
         self::set("script", $script);
@@ -12916,9 +12931,7 @@ class CapHum extends Controller
 
     public function getDepartamento()
     {
-        self::respuestaJSON(
-            CapHumDAO::getConsultaDepartamentoGestor($_SESSION['usuario_id'])
-        );
+        self::respuestaJSON(self::getDepartamentosGestionPersonal());
     }
 
     public function getEstados()
@@ -13046,7 +13059,7 @@ public function getMunicipios()
             return;
         }
 
-        if ($filtrarPorPrivilegios && !empty($_SESSION['usuario_id'])) {
+        if ($filtrarPorPrivilegios && !empty($_SESSION['usuario_id']) && !self::tieneAccesoTotalGestionPersonal()) {
             $resultado = CapHumDAO::getConsultaPuestosParaGestor($id, $_SESSION['usuario_id']);
         } else {
             $resultado = CapHumDAO::getConsultaPuestos($id);
@@ -13072,6 +13085,11 @@ public function getMunicipios()
         $idPersona = (int) ($_SESSION['usuario_id'] ?? 0);
         if ($idPersona <= 0) {
             self::respuestaJSON(['success' => true, 'mensaje' => 'Puestos encontrados.', 'datos' => []]);
+            return;
+        }
+
+        if (self::tieneAccesoTotalGestionPersonal()) {
+            self::respuestaJSON(CapHumDAO::getConsultaPuestos($id));
             return;
         }
 
@@ -13212,30 +13230,23 @@ public function getMunicipios()
                 self::respuestaJSON(['success' => true, 'mensaje' => 'Jefes encontrados.', 'datos' => $datos]);
                 return;
             }
+
+            $soloVacantes = $agregarVacantesJefe([]);
+            if (!empty($soloVacantes)) {
+                self::respuestaJSON(['success' => true, 'mensaje' => 'Vacantes encontradas.', 'datos' => $soloVacantes]);
+                return;
+            }
+
+            self::respuestaJSON(['success' => true, 'mensaje' => 'Sin jefes disponibles.', 'datos' => []]);
+            return;
         }
 
-        // 2) Jefes por es_jefe=1 en el departamento (o puesto id 8)
+        // 2) Jefes por es_jefe=1 en el departamento
         $detalles = CapHumDAO::getConsultaJefe($idDepartamento);
         if ($detalles['success'] && !empty($detalles['datos'])) {
             $datos = $deduplicarPorPersona($detalles['datos']);
             $datos = $agregarVacantesJefe($datos);
             self::respuestaJSON(['success' => true, 'mensaje' => $detalles['mensaje'] ?? 'Jefes encontrados.', 'datos' => $datos]);
-            return;
-        }
-
-        // 3) Fallback: todas las personas del departamento (ej. Legal/Abogado sin es_jefe ni nivel superior)
-        $porDepto = CapHumDAO::getPersonasPorDepartamento($idDepartamento);
-        if ($porDepto['success'] && !empty($porDepto['datos'])) {
-            $datos = array_map(function ($row) {
-                return [
-                    'id' => $row['id'],
-                    'nombre_completo' => $row['nombre_completo'] ?? '',
-                    'nombre_puesto' => $row['nombre_puesto'] ?? $row['puesto'] ?? ''
-                ];
-            }, $porDepto['datos']);
-            $datos = $deduplicarPorPersona($datos);
-            $datos = $agregarVacantesJefe($datos);
-            self::respuestaJSON(['success' => true, 'mensaje' => 'Personas del departamento.', 'datos' => $datos]);
             return;
         }
 
@@ -13245,21 +13256,8 @@ public function getMunicipios()
             return;
         }
 
-        // 4) Si todo devuelve vacío: mostrar siempre JONNATHAN MARLON FLORES RODRIGUEZ como opción
-        $jefeDefault = CapHumDAO::getJefeDefault();
-        if ($jefeDefault['success'] && !empty($jefeDefault['datos'])) {
-            $datos = array_map(function ($row) {
-                return [
-                    'id' => $row['id'],
-                    'nombre_completo' => $row['nombre_completo'] ?? '',
-                    'nombre_puesto' => $row['nombre_puesto'] ?? ''
-                ];
-            }, $jefeDefault['datos']);
-            self::respuestaJSON(['success' => true, 'mensaje' => 'Jefe por defecto.', 'datos' => $datos]);
-            return;
-        }
-
-        self::respuestaJSON($detalles);
+        // 4) Si no hay jefe real configurado, no inventar uno.
+        self::respuestaJSON(['success' => true, 'mensaje' => 'Sin jefes disponibles.', 'datos' => []]);
     }
     public function updateGestorF()
     {
