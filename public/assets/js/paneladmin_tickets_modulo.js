@@ -25,16 +25,122 @@
         return d.toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit', year: 'numeric' });
     }
 
+    function parseJsonArray(v) {
+        if (Array.isArray(v)) return v;
+        if (v == null || v === '') return [];
+        if (typeof v !== 'string') return [];
+        try {
+            var parsed = JSON.parse(v);
+            return Array.isArray(parsed) ? parsed : [];
+        } catch (e) {
+            return [];
+        }
+    }
+
+    function labelModoFechasAusencia(v) {
+        var modo = (v || '').toString().toLowerCase().trim();
+        if (modo === 'continuous') return 'Días consecutivos';
+        if (modo === 'separated') return 'Fechas separadas';
+        return '';
+    }
+
+    function limpiarComentarioAusencia(v) {
+        return (v || '').toString()
+            .split(/\r?\n/)
+            .map(function (linea) { return linea.trim(); })
+            .filter(function (linea) {
+                var x = linea.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+                return linea
+                    && x.indexOf('dias solicitados') !== 0
+                    && x.indexOf('periodos solicitados') !== 0
+                    && x.indexOf('motivo imss') !== 0;
+            })
+            .join('\n')
+            .trim();
+    }
+
+    function getInconformidadTicket(t) {
+        if (t && (t.inconformidad_comentario || Number(t.inconformidad_enviada || 0) > 0)) {
+            return {
+                folio_origen: t.folio || '',
+                comentario: (t.inconformidad_comentario || '').toString().trim(),
+                fecha: t.inconformidad_fecha || ''
+            };
+        }
+        var nota = ((t && t.nota) || '').toString().trim();
+        var m = nota.match(/^Inconformidad del ticket\s+([^:]+):\s*([\s\S]*)$/i);
+        if (!m) return null;
+        return {
+            folio_origen: (m[1] || '').trim(),
+            comentario: (m[2] || '').trim()
+        };
+    }
+
+    function formatPeriodoAusencia(p) {
+        if (!p || typeof p !== 'object') return '';
+        var desde = p.from || p.from_ || p.desde || p.fecha_desde || '';
+        var hasta = p.to || p.hasta || p.fecha_hasta || '';
+        if (!desde && !hasta) return '';
+        if (desde && hasta && String(desde) !== String(hasta)) {
+            return formatFechaCorta(desde) + ' - ' + formatFechaCorta(hasta);
+        }
+        return formatFechaCorta(desde || hasta);
+    }
+
+    function getPeriodosAusencia(t) {
+        return parseJsonArray((t && (t.solicitud_ausencia_periodos || t.solicitud_vacaciones_periodos)) || '');
+    }
+
+    function getDiasSolicitadosAusencia(t) {
+        return parseJsonArray((t && (t.solicitud_ausencia_dias_solicitados || t.solicitud_vacaciones_dias_solicitados)) || '');
+    }
+
+    function resumenPeriodosAusencia(t, limite) {
+        var periodos = getPeriodosAusencia(t)
+            .map(formatPeriodoAusencia)
+            .filter(function (x) { return x !== ''; });
+        if (!periodos.length) return '';
+        var max = limite || periodos.length;
+        var visibles = periodos.slice(0, max);
+        var extra = periodos.length > max ? ' +' + (periodos.length - max) + ' mas' : '';
+        return visibles.join(', ') + extra;
+    }
+
+    function resumenDiasSolicitadosAusencia(t, limite) {
+        var dias = getDiasSolicitadosAusencia(t)
+            .map(function (x) { return x ? formatFechaCorta(x) : ''; })
+            .filter(function (x) { return x !== ''; });
+        if (!dias.length) return '';
+        var max = limite || dias.length;
+        var visibles = dias.slice(0, max);
+        var extra = dias.length > max ? ' +' + (dias.length - max) + ' mas' : '';
+        return visibles.join(', ') + extra;
+    }
+
     function renderCampoDetalle(label, value, icon, colClass) {
         var val = value == null || String(value).trim() === '' ? '—' : String(value).trim();
         var col = colClass || 'col-12 col-sm-6';
         return (
             '<div class="' + col + '">' +
             '<div class="border rounded-2 bg-body-tertiary p-3 h-100">' +
-            '<div class="text-uppercase text-muted fw-semibold mb-1" style="font-size:.68rem;letter-spacing:.04em;">' +
+            '<div class="text-muted fw-semibold mb-1" style="font-size:.72rem;">' +
             '<i class="fa-solid ' + icon + ' me-1"></i>' + txtEsc(label) +
             '</div>' +
             '<div class="small fw-semibold text-break">' + txtEsc(val) + '</div>' +
+            '</div>' +
+            '</div>'
+        );
+    }
+
+    function renderInconformidadDetalle(inconformidad) {
+        if (!inconformidad || !inconformidad.comentario) return '';
+        return (
+            '<div class="col-12">' +
+            '<div class="tm-inconformidad-card">' +
+            '<div class="tm-inconformidad-title"><i class="fa-solid fa-message-exclamation me-1"></i>Inconformidad</div>' +
+            (inconformidad.folio_origen ? '<div class="tm-inconformidad-origin">Ticket original: <strong>' + txtEsc(inconformidad.folio_origen) + '</strong></div>' : '') +
+            (inconformidad.fecha ? '<div class="tm-inconformidad-origin">Enviada: <strong>' + txtEsc(formatFechaCorta(inconformidad.fecha)) + '</strong></div>' : '') +
+            '<div class="tm-inconformidad-text">' + txtEsc(inconformidad.comentario) + '</div>' +
             '</div>' +
             '</div>'
         );
@@ -65,16 +171,51 @@
         return '';
     }
 
+    function tieneInconformidad(t) {
+        return !!getInconformidadTicket(t);
+    }
+
+    function fechaMsTicket(v) {
+        if (!v) return 0;
+        var ms = new Date(v).getTime();
+        return isNaN(ms) ? 0 : ms;
+    }
+
+    function inconformidadPendiente(t) {
+        var inconformidad = getInconformidadTicket(t);
+        if (!inconformidad) return false;
+        var fechaInconformidad = fechaMsTicket(inconformidad.fecha);
+        var fechaRespuesta = fechaMsTicket(t && t.respuesta_fecha);
+        if (!fechaRespuesta) return true;
+        if (!fechaInconformidad) return true;
+        return fechaRespuesta <= fechaInconformidad;
+    }
+
+    function estadoVisibleTicket(t) {
+        var estadoRaw = ((t && t.estado_ticket_nombre) || '').toString().trim();
+        if (inconformidadPendiente(t)) return parseInt(t && t.id_estado_ticket, 10) === 3 || estadoRaw.toLowerCase().indexOf('proceso') !== -1 ? 'Procesando' : 'Pendiente';
+        return ((t && t.estado_ticket_nombre) || '').toString().trim() || 'â€”';
+    }
+
     function pintarRespuestaTicket(t, esAppSimple) {
         var res = respuestaLabel(t && t.respuesta_resultado);
         var tieneRespuesta = !!res;
+        var esSegundaRevision = inconformidadPendiente(t);
         $('#resumenTicketRespuestaWrap').toggleClass('d-none', !tieneRespuesta);
-        $('#resumenTicketBtnAceptar, #resumenTicketBtnDenegar').toggleClass('d-none', !esAppSimple || tieneRespuesta);
+        $('#resumenTicketBtnAceptar, #resumenTicketBtnDenegar').toggleClass('d-none', !esAppSimple || (tieneRespuesta && !esSegundaRevision));
         if (!tieneRespuesta) {
             $('#resumenTicketRespuestaBadge').removeClass('bg-label-success bg-label-danger').addClass('bg-label-secondary').text('—');
             $('#resumenTicketRespuestaFecha').empty();
             $('#resumenTicketRespuestaComentario').text('—');
             return;
+        }
+        $('#resumenTicketRespuestaWrap')
+            .find('.tm-respuesta-titulo')
+            .remove();
+        if (esSegundaRevision) {
+            $('#resumenTicketRespuestaWrap').prepend(
+                '<div class="tm-respuesta-titulo fw-semibold mb-2"><i class="fa-solid fa-comment-dots me-1"></i>Comentario del primer dictamen</div>'
+            );
         }
         $('#resumenTicketRespuestaBadge')
             .removeClass('bg-label-secondary bg-label-success bg-label-danger')
@@ -117,20 +258,34 @@
             var desdeAus = t.solicitud_vacaciones_fecha_desde || t.solicitud_ausencia_fecha_desde || '';
             var hastaAus = t.solicitud_vacaciones_fecha_hasta || t.solicitud_ausencia_fecha_hasta || '';
             var deptoAus = t.solicitud_vacaciones_departamento || t.solicitud_ausencia_departamento || '';
-            var notaAus = (t.nota || t.descripcion_inicial || '').trim();
+            var inconformidadAus = getInconformidadTicket(t);
+            var notaAus = limpiarComentarioAusencia(t.nota || t.descripcion_inicial || '');
+            var modoAus = labelModoFechasAusencia(t.solicitud_ausencia_modo_fechas || t.solicitud_vacaciones_modo_fechas || '');
+            var periodosAus = resumenPeriodosAusencia(t);
+            var diasSolicitadosAus = resumenDiasSolicitadosAusencia(t, 12);
             html +=
                 renderCampoDetalle('Tipo', normalizaTipoTicketApp(t.tipo_categoria || t.asunto || 'Ausencia'), 'fa-tag', colAusencia) +
                 renderCampoDetalle('Empleado', t.creador_nombre || t.empleado_nombre, 'fa-user', colAusencia) +
                 renderCampoDetalle('Departamento', deptoAus || '—', 'fa-building', colAusencia) +
                 renderCampoDetalle('Desde', formatFechaCorta(desdeAus), 'fa-calendar-day', colAusencia) +
                 renderCampoDetalle('Hasta', formatFechaCorta(hastaAus), 'fa-calendar-check', colAusencia);
+            if (modoAus) {
+                html += renderCampoDetalle('Modo de fechas', modoAus, 'fa-calendar-week', colAusencia);
+            }
+            if (periodosAus && modoAus === 'Fechas separadas') {
+                html += renderCampoDetalle('Periodos solicitados', periodosAus, 'fa-calendar-days', 'col-12 col-lg-6');
+            }
+            if (diasSolicitadosAus && modoAus === 'Fechas separadas') {
+                html += renderCampoDetalle('Días solicitados', diasSolicitadosAus, 'fa-list-check', 'col-12 col-lg-6');
+            }
             var quienCubre = t.solicitud_vacaciones_quien_cubre || t.solicitud_ausencia_quien_cubre || '';
             if (quienCubre && String(quienCubre).trim()) {
-                html += renderCampoDetalle('Quien cubre', quienCubre, 'fa-user-shield', colAusencia);
+                html += renderCampoDetalle('Quién cubre', quienCubre, 'fa-user-shield', colAusencia);
             }
             if (notaAus) {
                 html += renderCampoDetalle('Comentario', notaAus, 'fa-comment-dots', 'col-12');
             }
+            html += renderInconformidadDetalle(inconformidadAus);
         } else if (cat === 'reclamo') {
             var colReclamo = 'col-12 col-sm-6 col-lg-5ths';
             html +=
@@ -325,20 +480,20 @@
             return;
         }
         window._tmAdjuntoLightboxBound = true;
-        $(document).on('click', '#resumenTicketEvidenciasGrid [data-tm-lb]', function () {
+        $(document).on('click', '#resumenTicketEvidenciasGrid [data-tm-lb], #resumenTicketInconformidadEvidenciasGrid [data-tm-lb]', function () {
             var i = parseInt($(this).attr('data-tm-lb'), 10);
             if (!isNaN(i)) {
                 tmAdjuntoLightboxShow(i);
             }
         });
-        $(document).on('error', '#resumenTicketEvidenciasGrid img[data-tm-fallback-src], #tmAdjuntoLightboxImg[data-tm-fallback-src]', function () {
+        $(document).on('error', '#resumenTicketEvidenciasGrid img[data-tm-fallback-src], #resumenTicketInconformidadEvidenciasGrid img[data-tm-fallback-src], #tmAdjuntoLightboxImg[data-tm-fallback-src]', function () {
             var $img = $(this);
             var fb = ($img.attr('data-tm-fallback-src') || '').trim();
             if (fb && $img.attr('src') !== fb) {
                 $img.attr('data-tm-fallback-src', '').attr('src', fb);
             }
         });
-        $(document).on('click', '#resumenTicketEvidenciasGrid [data-tm-adj-pdf-url]', function (e) {
+        $(document).on('click', '#resumenTicketEvidenciasGrid [data-tm-adj-pdf-url], #resumenTicketInconformidadEvidenciasGrid [data-tm-adj-pdf-url]', function (e) {
             e.preventDefault();
             var u = $(this).attr('data-tm-adj-pdf-url');
             if (!u) return;
@@ -363,8 +518,30 @@
         tmAdjuntoLightboxItems = [];
         var $wrap = $('#resumenTicketEvidenciasWrap');
         var $grid = $('#resumenTicketEvidenciasGrid');
+        var $reviewWrap = $('#resumenTicketInconformidadEvidenciasWrap');
+        var $reviewGrid = $('#resumenTicketInconformidadEvidenciasGrid');
+        if (!$reviewWrap.length) {
+            $reviewWrap = $(
+                '<div id="resumenTicketInconformidadEvidenciasWrap" class="mb-3 d-none">' +
+                    '<p class="text-muted fw-semibold mb-1" style="font-size:.7rem;text-transform:uppercase;letter-spacing:.05em;">' +
+                        '<i class="fa-solid fa-message-exclamation me-1"></i>Evidencia de inconformidad' +
+                    '</p>' +
+                    '<p class="small text-muted mb-2">Archivos enviados para la segunda revision.</p>' +
+                    '<div id="resumenTicketInconformidadEvidenciasGrid" class="row g-2"></div>' +
+                '</div>'
+            );
+            var $detalleWrap = $('#resumenTicketModuloDetalleWrap');
+            if ($detalleWrap.length) {
+                $detalleWrap.after($reviewWrap);
+            } else {
+                $wrap.after($reviewWrap);
+            }
+            $reviewGrid = $('#resumenTicketInconformidadEvidenciasGrid');
+        }
         $grid.empty();
+        $reviewGrid.empty();
         $wrap.addClass('d-none');
+        $reviewWrap.addClass('d-none');
         tmAdjuntoLightboxEnsureBound();
         var tid = parseInt(idTicket, 10);
         if (isNaN(tid) || tid < 1 || typeof http === 'undefined') {
@@ -380,6 +557,65 @@
         function esPdfEv(ev) {
             return /\.pdf$/i.test((ev.nombre_original || '') + (ev.ruta_archivo || ''));
         }
+        function pintarLista(list, $targetWrap, $targetGrid) {
+            if (!list.length) {
+                return;
+            }
+            $targetWrap.removeClass('d-none');
+            list.forEach(function (ev) {
+                var pathUrl = ev.url || '/sabueso/verEvidencia?id=' + (ev.id || '');
+                var url = tmAppUrl(pathUrl);
+                var fallbackUrl = tmUploadUrl(ev.ruta_archivo || '');
+                var href = attrEsc(url);
+                var fallbackAttr = fallbackUrl ? attrEsc(fallbackUrl) : '';
+                var nom = attrEsc(nombreArchivo(ev));
+                var nomPlain = nombreArchivo(ev);
+                if (esImagen(ev)) {
+                    var idx = tmAdjuntoLightboxItems.length;
+                    tmAdjuntoLightboxItems.push({ url: url, fallbackUrl: fallbackUrl, nom: nomPlain });
+                    $targetGrid.append(
+                        '<div class="col-6 col-md-4">' +
+                            '<button type="button" class="d-block w-100 p-0 border-0 bg-transparent rounded overflow-hidden" style="cursor:pointer;" data-tm-lb="' +
+                            idx +
+                            '" title="Ver en grande">' +
+                            '<img src="' +
+                            href +
+                            '" alt="' +
+                            attrEsc(nomPlain) +
+                            '" loading="lazy" class="tm-ev-img" data-tm-fallback-src="' +
+                            fallbackAttr +
+                            '" onerror="if(this.dataset.tmFallbackSrc){this.onerror=null;this.src=this.dataset.tmFallbackSrc;this.dataset.tmFallbackSrc=\'\';}"' +
+                            '">' +
+                            '</button>' +
+                            '<div class="small text-muted text-truncate mt-1" title="' +
+                            nom +
+                            '">' +
+                            nom +
+                            '</div></div>'
+                    );
+                } else if (esPdfEv(ev)) {
+                    $targetGrid.append(
+                        '<div class="col-12 col-sm-6">' +
+                            '<button type="button" class="btn btn-sm btn-outline-secondary w-100 text-start text-truncate" data-tm-adj-pdf-url="' +
+                            attrEsc(url) +
+                            '" title="Ver PDF">' +
+                            '<i class="fa-solid fa-file-pdf text-danger me-2"></i>' +
+                            nom +
+                            '</button></div>'
+                    );
+                } else {
+                    $targetGrid.append(
+                        '<div class="col-12 col-sm-6">' +
+                            '<a href="' +
+                            href +
+                            '" target="_blank" rel="noopener noreferrer" class="btn btn-sm btn-outline-secondary w-100 text-start text-truncate">' +
+                            '<i class="fa-solid fa-paperclip me-2"></i>' +
+                            nom +
+                            '</a></div>'
+                    );
+                }
+            });
+        }
         http.request({
             endpoint: '/sabueso/getEvidenciasTicket',
             metodo: 'POST',
@@ -389,63 +625,19 @@
             showLoader: false,
             onSuccess: function (r) {
                 var list = (r && r.datos) || [];
-                if (!list.length) {
-                    return;
-                }
-                $wrap.removeClass('d-none');
-                list.forEach(function (ev) {
-                    var pathUrl = ev.url || '/sabueso/verEvidencia?id=' + (ev.id || '');
-                    var url = tmAppUrl(pathUrl);
-                    var fallbackUrl = tmUploadUrl(ev.ruta_archivo || '');
-                    var href = attrEsc(url);
-                    var fallbackAttr = fallbackUrl ? attrEsc(fallbackUrl) : '';
-                    var nom = attrEsc(nombreArchivo(ev));
-                    var nomPlain = nombreArchivo(ev);
-                    if (esImagen(ev)) {
-                        var idx = tmAdjuntoLightboxItems.length;
-                        tmAdjuntoLightboxItems.push({ url: url, fallbackUrl: fallbackUrl, nom: nomPlain });
-                        $grid.append(
-                            '<div class="col-6 col-md-4">' +
-                                '<button type="button" class="d-block w-100 p-0 border-0 bg-transparent rounded overflow-hidden" style="cursor:pointer;" data-tm-lb="' +
-                                idx +
-                                '" title="Ver en grande">' +
-                                '<img src="' +
-                                href +
-                                '" alt="' +
-                                attrEsc(nomPlain) +
-                                '" loading="lazy" class="tm-ev-img" data-tm-fallback-src="' +
-                                fallbackAttr +
-                                '" onerror="if(this.dataset.tmFallbackSrc){this.onerror=null;this.src=this.dataset.tmFallbackSrc;this.dataset.tmFallbackSrc=\'\';}"' +
-                                '">' +
-                                '</button>' +
-                                '<div class="small text-muted text-truncate mt-1" title="' +
-                                nom +
-                                '">' +
-                                nom +
-                                '</div></div>'
-                        );
-                    } else if (esPdfEv(ev)) {
-                        $grid.append(
-                            '<div class="col-12 col-sm-6">' +
-                                '<button type="button" class="btn btn-sm btn-outline-secondary w-100 text-start text-truncate" data-tm-adj-pdf-url="' +
-                                attrEsc(url) +
-                                '" title="Ver PDF">' +
-                                '<i class="fa-solid fa-file-pdf text-danger me-2"></i>' +
-                                nom +
-                                '</button></div>'
-                        );
-                    } else {
-                        $grid.append(
-                            '<div class="col-12 col-sm-6">' +
-                                '<a href="' +
-                                href +
-                                '" target="_blank" rel="noopener noreferrer" class="btn btn-sm btn-outline-secondary w-100 text-start text-truncate">' +
-                                '<i class="fa-solid fa-paperclip me-2"></i>' +
-                                nom +
-                                '</a></div>'
-                        );
-                    }
-                });
+                pintarLista(list, $wrap, $grid);
+            },
+            onError: function () {}
+        });
+        http.request({
+            endpoint: '/sabueso/getEvidenciasTicket',
+            metodo: 'POST',
+            data: JSON.stringify({ id_ticket: tid, tipo_origen: 'inconformidad' }),
+            contentType: 'application/json',
+            processData: false,
+            showLoader: false,
+            onSuccess: function (r) {
+                pintarLista((r && r.datos) || [], $reviewWrap, $reviewGrid);
             },
             onError: function () {}
         });
@@ -713,6 +905,8 @@
         else if (prioridadNombre.indexOf('sin prioridad') !== -1)
             prioridadBadge = '<span class="badge bg-secondary" style="background-color:#6c757d!important;color:#fff;">' + (t.prioridad_nombre || '—') + '</span>';
         var estadoNombreRaw = ((t.estado_ticket_nombre || '') + '').trim() || '—';
+        var inconformidadRow = inconformidadPendiente(t) ? getInconformidadTicket(t) : null;
+        estadoNombreRaw = inconformidadRow ? estadoVisibleTicket(t) : estadoNombreRaw;
         var estadoNombre = estadoNombreRaw.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;');
         var en = estadoNombreRaw.toLowerCase();
         var estadoBadge = '<span class="badge bg-label-secondary">' + estadoNombre + '</span>';
@@ -758,6 +952,12 @@
             '" style="font-size:0.7rem;line-height:1" aria-hidden="true"></i>' +
             catLabel +
             '</span></div>';
+        if (inconformidadRow) {
+            folioTipoHtml +=
+                '<div class="mt-1"><span class="badge bg-label-warning small d-inline-flex align-items-center gap-1">' +
+                '<i class="fa-solid fa-message-exclamation" style="font-size:0.7rem;"></i>Segunda revision' +
+                '</span></div>';
+        }
         if (CAT === 'validaciones') {
             var notaV = (t.nota || '').trim();
             var urlV = (t.url_direccion || '').trim();
@@ -801,7 +1001,29 @@
         if (esAusencia) {
             var fDesdeAus = t.solicitud_vacaciones_fecha_desde || t.solicitud_ausencia_fecha_desde || '';
             var fHastaAus = t.solicitud_vacaciones_fecha_hasta || t.solicitud_ausencia_fecha_hasta || '';
-            if (fDesdeAus || fHastaAus) {
+            var modoTablaAus = labelModoFechasAusencia(t.solicitud_ausencia_modo_fechas || t.solicitud_vacaciones_modo_fechas || '');
+            var diasTablaAus = getDiasSolicitadosAusencia(t);
+            var periodosTablaAus = resumenPeriodosAusencia(t, 2);
+            var diasResumenTablaAus = resumenDiasSolicitadosAusencia(t, 3);
+            if (modoTablaAus === 'Separadas' && diasTablaAus.length) {
+                fechasHtml =
+                    '<div class="small d-flex align-items-center gap-1"><i class="fa fa-calendar-days text-muted" style="width: 1rem;"></i><span>' +
+                    diasTablaAus.length +
+                    ' dia' +
+                    (diasTablaAus.length === 1 ? '' : 's') +
+                    ' separado' +
+                    (diasTablaAus.length === 1 ? '' : 's') +
+                    '</span></div><div class="small text-muted d-flex align-items-center gap-1 mt-1"><i class="fa fa-list-check" style="width: 1rem;"></i><span>' +
+                    txtEsc(diasResumenTablaAus) +
+                    '</span></div>';
+            } else if (periodosTablaAus && getPeriodosAusencia(t).length > 1) {
+                fechasHtml =
+                    '<div class="small d-flex align-items-center gap-1"><i class="fa fa-calendar-days text-muted" style="width: 1rem;"></i><span>' +
+                    txtEsc(getPeriodosAusencia(t).length + ' periodos') +
+                    '</span></div><div class="small text-muted d-flex align-items-center gap-1 mt-1"><i class="fa fa-calendar-week" style="width: 1rem;"></i><span>' +
+                    txtEsc(periodosTablaAus) +
+                    '</span></div>';
+            } else if (fDesdeAus || fHastaAus) {
                 fechasHtml =
                     '<div class="small d-flex align-items-center gap-1"><i class="fa fa-calendar-days text-muted" style="width: 1rem;"></i><span>' +
                     formatFechaCorta(fDesdeAus) +
@@ -999,7 +1221,21 @@
     function marcarTicketProcesandoPrimeraVista(t) {
         if (!t || !t.id_ticket || !esTicketAppSimple(t.categoria_gestion || cfg().categoria) || typeof http === 'undefined') return;
         var estadoActual = ((t.estado_ticket_nombre || '') + '').toLowerCase().trim();
-        if (respuestaLabel(t.respuesta_resultado) || (estadoActual && estadoActual !== 'pendiente' && estadoActual !== 'abierto' && estadoActual !== '—')) return;
+        var esSegundaRevision = inconformidadPendiente(t);
+        if (!esSegundaRevision && respuestaLabel(t.respuesta_resultado)) return;
+        if (!esSegundaRevision && estadoActual && estadoActual !== 'pendiente' && estadoActual !== 'abierto' && estadoActual !== '—') return;
+        function pintarProcesandoLocal() {
+            t.estado_ticket_nombre = 'Procesando';
+            $('#resumenTicketEstado').text('Procesando');
+            $('#resumenTicketEstadoPill').text('● Procesando');
+            if (window._ticketsModuloCache && window._ticketsModuloCache[t.id_ticket]) {
+                window._ticketsModuloCache[t.id_ticket].estado_ticket_nombre = 'Procesando';
+            }
+        }
+        if (esSegundaRevision) {
+            pintarProcesandoLocal();
+            if (estadoActual === 'procesando') return;
+        }
         http.request({
             endpoint: '/sabueso/marcarTicketProcesando',
             metodo: 'POST',
@@ -1008,7 +1244,7 @@
             processData: false,
             showLoader: false,
             onSuccess: function (r) {
-                if (r && r.success && r.datos && r.datos.actualizado) {
+                if (r && r.success && ((r.datos && r.datos.actualizado) || esSegundaRevision)) {
                     t.estado_ticket_nombre = 'Procesando';
                     $('#resumenTicketEstado').text('Procesando');
                     $('#resumenTicketEstadoPill').text('● Procesando');
@@ -1227,6 +1463,10 @@
             $('#resumenTicketVence').text(fechaVenc);
             $('#resumenTicketFolio').text(t.folio || '—');
             var estadoTxt = (t.estado_ticket_nombre || '—').trim() || '—';
+            if (inconformidadPendiente(t)) {
+                t.estado_ticket_nombre = 'Procesando';
+            }
+            estadoTxt = estadoVisibleTicket(t);
             $('#resumenTicketEstado').text(estadoTxt);
             $('#resumenTicketEstadoPill').text((estadoTxt !== '—' ? '\u25CF ' : '') + estadoTxt);
             var prioridadTxt = (t.prioridad_nombre || '—').trim() || '—';
