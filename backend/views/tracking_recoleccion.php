@@ -138,13 +138,15 @@ body.dark-mode .track-credito-row {
     padding: .1rem .35rem;
     font-size: .75rem;
 }
-.eta-row input.form-control {
+.eta-row .form-control,
+.eta-row .form-select {
     font-size: .72rem;
     padding: .1rem .3rem;
     height: auto;
     line-height: 1.4;
 }
-body.dark-mode .eta-row input.form-control {
+body.dark-mode .eta-row .form-control,
+body.dark-mode .eta-row .form-select {
     background-color: #1e2d2c;
     color: #e2e8f0;
     border-color: #2d4444;
@@ -1422,6 +1424,11 @@ function _trkRenderListaCreditos() {
                 <i class="fa-solid fa-trash-alt"></i>
             </button>`;
 
+        const etaIni  = _trkParseHora12(c.hora_eta_ini);
+        const etaFin  = _trkParseHora12(c.hora_eta_fin);
+        const optsIni = _trkEtaHoraOpts(etaIni.h);
+        const optsFin = _trkEtaHoraOpts(etaFin.h);
+
         const html = `
         <div class="track-credito-row" data-id="${c.id_credito}">
             ${dragHandle}
@@ -1435,9 +1442,19 @@ function _trkRenderListaCreditos() {
                 <div class="eta-row d-flex align-items-center gap-1 mt-1 flex-wrap">
                     <span class="text-muted fw-semibold" style="font-size:.7rem;white-space:nowrap;">ETA:</span>
                     <input type="date" class="form-control eta-fecha" data-id="${c.id_credito}" value="${c.fecha_eta || ''}" style="max-width:130px;" title="Fecha estimada de llegada">
-                    <input type="time" class="form-control eta-ini"  data-id="${c.id_credito}" value="${c.hora_eta_ini || ''}" style="max-width:105px;" title="Hora estimada de llegada (inicio)">
+                    <select class="form-select form-select-sm eta-h" data-id="${c.id_credito}" data-tipo="ini" style="width:62px;flex-shrink:0;" title="Hora inicio">${optsIni}</select>
+                    <input type="text" class="form-control text-center fw-semibold eta-m" data-id="${c.id_credito}" data-tipo="ini" inputmode="numeric" maxlength="2" placeholder="00" autocomplete="off" value="${etaIni.m}" style="width:48px;flex-shrink:0;letter-spacing:.05em;" title="Minutos inicio">
+                    <select class="form-select form-select-sm eta-ap" data-id="${c.id_credito}" data-tipo="ini" style="width:62px;flex-shrink:0;" title="AM/PM inicio">
+                        <option value="AM"${etaIni.ampm === 'AM' ? ' selected' : ''}>AM</option>
+                        <option value="PM"${etaIni.ampm === 'PM' ? ' selected' : ''}>PM</option>
+                    </select>
                     <span class="text-muted" style="font-size:.7rem;line-height:1;">–</span>
-                    <input type="time" class="form-control eta-fin"  data-id="${c.id_credito}" value="${c.hora_eta_fin || ''}" style="max-width:105px;" title="Hora estimada de llegada (fin)">
+                    <select class="form-select form-select-sm eta-h" data-id="${c.id_credito}" data-tipo="fin" style="width:62px;flex-shrink:0;" title="Hora fin">${optsFin}</select>
+                    <input type="text" class="form-control text-center fw-semibold eta-m" data-id="${c.id_credito}" data-tipo="fin" inputmode="numeric" maxlength="2" placeholder="00" autocomplete="off" value="${etaFin.m}" style="width:48px;flex-shrink:0;letter-spacing:.05em;" title="Minutos fin">
+                    <select class="form-select form-select-sm eta-ap" data-id="${c.id_credito}" data-tipo="fin" style="width:62px;flex-shrink:0;" title="AM/PM fin">
+                        <option value="AM"${etaFin.ampm === 'AM' ? ' selected' : ''}>AM</option>
+                        <option value="PM"${etaFin.ampm === 'PM' ? ' selected' : ''}>PM</option>
+                    </select>
                 </div>
             </div>
             ${confControl}
@@ -1471,18 +1488,52 @@ function _trkRenderListaCreditos() {
             if (c) c.fecha_eta = $(this).val() || null;
             _trkMarcarCambio();
         });
-        $list.find('.eta-ini').off('change').on('change', function () {
-            const id = $(this).data('id');
-            const c  = _trk.creditosEnRuta.find(x => String(x.id_credito) === String(id));
-            if (c) c.hora_eta_ini = $(this).val() || null;
+        $list.find('.eta-h, .eta-ap').off('change').on('change', function () {
+            const id   = $(this).data('id');
+            const tipo = $(this).data('tipo');
+            const c    = _trk.creditosEnRuta.find(x => String(x.id_credito) === String(id));
+            if (c) {
+                if (tipo === 'ini') c.hora_eta_ini = _trkLeerEtaHora(id, 'ini');
+                else                c.hora_eta_fin = _trkLeerEtaHora(id, 'fin');
+            }
             _trkMarcarCambio();
         });
-        $list.find('.eta-fin').off('change').on('change', function () {
-            const id = $(this).data('id');
-            const c  = _trk.creditosEnRuta.find(x => String(x.id_credito) === String(id));
-            if (c) c.hora_eta_fin = $(this).val() || null;
-            _trkMarcarCambio();
-        });
+        $list.find('.eta-m')
+            .off('keydown input blur')
+            .on('keydown', function (e) {
+                const allowed = ['Backspace','Delete','Tab','Escape','ArrowLeft','ArrowRight','Home','End'];
+                if (allowed.includes(e.key)) return;
+                if (!/^[0-9]$/.test(e.key)) e.preventDefault();
+            })
+            .on('input', function () {
+                this.value = this.value.replace(/[^0-9]/g, '').slice(0, 2);
+            })
+            .on('blur', function () {
+                const raw = this.value.replace(/[^0-9]/g, '');
+                if (raw === '') { this.value = '00'; }
+                const n = parseInt(raw || '0', 10);
+                if (isNaN(n) || n > 59) {
+                    this.value = '00';
+                    $(this).addClass('is-invalid');
+                    setTimeout(() => $(this).removeClass('is-invalid'), 1500);
+                    Swal.fire({
+                        icon: 'error', title: 'Minutos incorrectos',
+                        text: `"${n}" no es válido. Deben ser entre 00 y 59.`,
+                        confirmButtonText: 'Aceptar',
+                    });
+                } else {
+                    this.value = String(n).padStart(2, '0');
+                    $(this).removeClass('is-invalid');
+                }
+                const id   = $(this).data('id');
+                const tipo = $(this).data('tipo');
+                const c    = _trk.creditosEnRuta.find(x => String(x.id_credito) === String(id));
+                if (c) {
+                    if (tipo === 'ini') c.hora_eta_ini = _trkLeerEtaHora(id, 'ini');
+                    else                c.hora_eta_fin = _trkLeerEtaHora(id, 'fin');
+                }
+                _trkMarcarCambio();
+            });
 }
 
 function _trkRecalcularOrden() {
@@ -1934,6 +1985,34 @@ function _trkHoraToPayload() {
     } else {
         hh = (h === 12) ? 0 : h;
     }
+    return String(hh).padStart(2, '0') + ':' + m;
+}
+
+// Convierte un string HH:MM (24h) al objeto {h, m, ampm} en formato 12h
+function _trkParseHora12(horaStr) {
+    if (!horaStr) return { h: 8, m: '00', ampm: 'AM' };
+    const parts = horaStr.split(':');
+    const hh    = parseInt(parts[0], 10) || 0;
+    const mm    = (parts[1] || '00').slice(0, 2);
+    return { h: hh % 12 || 12, m: mm, ampm: hh >= 12 ? 'PM' : 'AM' };
+}
+
+// Genera <option> 1-12 con el seleccionado marcado
+function _trkEtaHoraOpts(sel) {
+    return Array.from({length: 12}, (_, i) => i + 1)
+        .map(h => `<option value="${h}"${h === sel ? ' selected' : ''}>${h}</option>`)
+        .join('');
+}
+
+// Lee los selects H/M/AP del DOM y devuelve HH:MM en 24h
+function _trkLeerEtaHora(idCredito, tipo) {
+    const $row = $(`#rutaCreditosList .track-credito-row[data-id="${idCredito}"]`);
+    const h    = parseInt($row.find(`.eta-h[data-tipo="${tipo}"]`).val(), 10) || 12;
+    const m    = $row.find(`.eta-m[data-tipo="${tipo}"]`).val() || '00';
+    const ampm = $row.find(`.eta-ap[data-tipo="${tipo}"]`).val() || 'AM';
+    let hh;
+    if (ampm === 'PM') { hh = (h === 12) ? 12 : h + 12; }
+    else               { hh = (h === 12) ? 0  : h; }
     return String(hh).padStart(2, '0') + ':' + m;
 }
 
