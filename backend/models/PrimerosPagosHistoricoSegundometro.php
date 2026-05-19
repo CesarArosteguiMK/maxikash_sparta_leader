@@ -87,69 +87,40 @@ final class PrimerosPagosHistoricoSegundometro
         }
         try {
             $db = new DatabaseSegundometro();
-            // Filas recientes por inserción + dedupe en PHP. Límite acotado (no 350k): suficiente para
-            // obtener N etiquetas de semana; con índice por `fecha_hora_insert` escala bien.
-            $limiteFilasRecientes = 20000;
-            $sqlTop = 'SELECT CAST(SEMANA AS CHAR CHARACTER SET utf8mb4) AS semana,
-                              fecha_hora_insert AS ultimo_insert
-                       FROM `' . self::nombreTablaHistoricoPrimerosPagos() . '`
-                       WHERE fecha_hora_insert >= DATE_SUB(CURDATE(), INTERVAL ' . (int) self::LISTA_SEMANAS_LOOKBACK_DIAS . ' DAY)
-                         AND SEMANA IS NOT NULL
-                         AND SEMANA <> \'\'
-                       ORDER BY fecha_hora_insert DESC
-                       LIMIT ' . (int) $limiteFilasRecientes;
-            $rows = $db->queryAll($sqlTop, null);
-            $candidatas = [];
-            $seen = [];
-            $semanaActualIso = self::etiquetaSemanaActualIso();
-            foreach ($rows as $r) {
-                $s = trim((string) ($r['semana'] ?? ''));
-                if ($s === '') {
-                    continue;
+            $candidatasCerradas = [];
+            $tz = new \DateTimeZone('America/Mexico_City');
+            $semanaCerrada = (new \DateTimeImmutable('now', $tz))->modify('-1 week');
+            for ($i = 0; $i < $limite; $i++) {
+                $semanaEtiqueta = 'Semana ' . (int)$semanaCerrada->format('W') . '-' . (int)$semanaCerrada->format('o');
+                $rango = self::resolverRangoMartesDomingoDesdeEtiquetaSemana($semanaEtiqueta);
+                if ($rango !== null) {
+                    $candidatasCerradas[] = [
+                        'semana' => $semanaEtiqueta,
+                        'registros' => 0,
+                        'ultimo_insert' => null,
+                        'ini' => $rango['martes'],
+                        'fin' => $rango['domingo'],
+                        'lunes_iso' => $rango['lunes_iso'],
+                    ];
                 }
-                if (isset($seen[$s])) {
-                    continue;
-                }
-                // Excluimos la semana ISO en curso: el histórico solo muestra comportamiento completo de semanas cerradas.
-                if ($semanaActualIso !== null && self::mismaEtiquetaSemanaIso($s, $semanaActualIso)) {
-                    continue;
-                }
-                $rango = self::resolverRangoMartesDomingoDesdeEtiquetaSemana($s);
-                if ($rango === null) {
-                    continue;
-                }
-                $seen[$s] = true;
-                $candidatas[] = [
-                    'semana' => $s,
-                    'registros' => 0,
-                    'ultimo_insert' => isset($r['ultimo_insert']) && $r['ultimo_insert'] !== null
-                        ? (string) $r['ultimo_insert']
-                        : null,
-                    'ini' => $rango['martes'],
-                    'fin' => $rango['domingo'],
-                    'lunes_iso' => $rango['lunes_iso'],
-                ];
-                if (count($candidatas) >= $limite) {
-                    break;
-                }
+                $semanaCerrada = $semanaCerrada->modify('-1 week');
             }
-
-            $registrosPorSemana = self::contarRegistrosPorSemana($db, $candidatas);
-            $out = [];
-            foreach ($candidatas as $c) {
-                $out[] = [
+            $registrosPorSemanaCerrada = self::contarRegistrosPorSemana($db, $candidatasCerradas);
+            $outCerradas = [];
+            foreach ($candidatasCerradas as $c) {
+                $outCerradas[] = [
                     'semana' => $c['semana'],
-                    'registros' => (int) ($registrosPorSemana[$c['semana']] ?? 0),
+                    'registros' => (int) ($registrosPorSemanaCerrada[$c['semana']] ?? 0),
                     'ultimo_insert' => $c['ultimo_insert'],
                     'ini' => $c['ini'],
                     'fin' => $c['fin'],
                 ];
-                if (count($out) >= $limite) {
+                if (count($outCerradas) >= $limite) {
                     break;
                 }
             }
 
-            return ['success' => true, 'datos' => $out];
+            return ['success' => true, 'datos' => $outCerradas];
         } catch (\Throwable $e) {
             return ['success' => false, 'mensaje' => 'No se pudo leer el histórico de primeros pagos.', 'error' => $e->getMessage()];
         }

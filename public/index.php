@@ -233,10 +233,16 @@ $esEstadoReportesAgente = isset($urlSolicitada[0], $urlSolicitada[1])
     && strtolower($urlSolicitada[0]) === 'segundometro'
     && strtolower($urlSolicitada[1]) === 'estadoreportesagente';
 
+$esTruncarAutomaticoAgente = isset($urlSolicitada[0], $urlSolicitada[1])
+    && strtolower($urlSolicitada[0]) === 'segundometro'
+    && strtolower($urlSolicitada[1]) === 'truncarautomaticoagente';
+
+$esSegundometroAgenteInterno = $esEstadoReportesAgente || $esTruncarAutomaticoAgente;
+
 // Importación Excel (XHR espera JSON; si la sesión cayó, el flujo de Login devolvía HTML y el modal mostraba "no es JSON").
 $solicitaImportExcelDespachosSinSesion = !isset($_SESSION['login'])
     && !$esCrearTicketWhatsApp && !$esSubirDocCandidato && !$esDocVerificacionProxy && !$esDescargarDocCandidato
-    && !$esLlenarSolicitudEnLinea && !$esObtenerPlantillaSolicitudPdf && !$esEstadoReportesAgente
+    && !$esLlenarSolicitudEnLinea && !$esObtenerPlantillaSolicitudPdf && !$esSegundometroAgenteInterno
     && isset($urlSolicitada[0], $urlSolicitada[1])
     && strtolower($urlSolicitada[0]) === 'despachos'
     && strtolower($urlSolicitada[1]) === 'importarexcelasignacioncreditosdespacho';
@@ -254,7 +260,7 @@ if ($solicitaImportExcelDespachosSinSesion) {
 // Tablero Asignación (fetch): sin sesión el Login devolvía HTML y response.json() fallaba con «Unexpected token '<'».
 $solicitaJsonAsignacionTableroSinSesion = !isset($_SESSION['login'])
     && !$esCrearTicketWhatsApp && !$esSubirDocCandidato && !$esDocVerificacionProxy && !$esDescargarDocCandidato
-    && !$esLlenarSolicitudEnLinea && !$esObtenerPlantillaSolicitudPdf && !$esEstadoReportesAgente
+    && !$esLlenarSolicitudEnLinea && !$esObtenerPlantillaSolicitudPdf && !$esSegundometroAgenteInterno
     && isset($urlSolicitada[0], $urlSolicitada[1])
     && (strtolower($urlSolicitada[0]) === 'reporteria' || strtolower($urlSolicitada[0]) === 'analitica')
     && strtolower($urlSolicitada[1]) === 'getasignaciontablerojson';
@@ -270,7 +276,7 @@ if ($solicitaJsonAsignacionTableroSinSesion) {
 // CierreCredito (fetch): sin sesión el Login devolvía HTML y response.json() fallaba con «JSON.parse: unexpected character at line 1 column 1».
 $solicitaCierreCreditoAjaxSinSesion = !isset($_SESSION['login'])
     && !$esCrearTicketWhatsApp && !$esSubirDocCandidato && !$esDocVerificacionProxy && !$esDescargarDocCandidato
-    && !$esLlenarSolicitudEnLinea && !$esObtenerPlantillaSolicitudPdf && !$esEstadoReportesAgente
+    && !$esLlenarSolicitudEnLinea && !$esObtenerPlantillaSolicitudPdf && !$esSegundometroAgenteInterno
     && isset($urlSolicitada[0], $urlSolicitada[1])
     && strtolower($urlSolicitada[0]) === 'cierrecredito'
     && strtolower($urlSolicitada[1]) !== 'index';
@@ -284,7 +290,7 @@ if ($solicitaCierreCreditoAjaxSinSesion) {
     exit;
 }
 
-if ((!isset($_SESSION['login']) && !$esCrearTicketWhatsApp && !$esSubirDocCandidato && !$esDocVerificacionProxy && !$esDescargarDocCandidato && !$esLlenarSolicitudEnLinea && !$esObtenerPlantillaSolicitudPdf && !$esEstadoReportesAgente) || strtolower($urlSolicitada[0]) === strtolower(LOGIN)) {
+if ((!isset($_SESSION['login']) && !$esCrearTicketWhatsApp && !$esSubirDocCandidato && !$esDocVerificacionProxy && !$esDescargarDocCandidato && !$esLlenarSolicitudEnLinea && !$esObtenerPlantillaSolicitudPdf && !$esSegundometroAgenteInterno) || strtolower($urlSolicitada[0]) === strtolower(LOGIN)) {
     $login = 'Controllers\\' . LOGIN;
     $login = new $login;
 
@@ -465,7 +471,7 @@ if (str_starts_with($path, 'analitica/')) {
     $pathParaModulos = 'reporteria/' . substr($path, strlen('analitica/'));
 }
 $modulosRequeridos = $rutasModulos[$path] ?? $rutasModulos[$pathParaModulos] ?? $controladoresModulos[strtolower(trim((string) $controladorArchivo))] ?? null;
-if (!$esEstadoReportesAgente && $modulosRequeridos !== null) {
+if (!$esSegundometroAgenteInterno && $modulosRequeridos !== null) {
     $modulosUsuario = $_SESSION['modulos'] ?? [];
     if (!is_array($modulosUsuario) || !array_intersect($modulosRequeridos, $modulosUsuario)) {
         $permitirValidacionesOperativa = false;

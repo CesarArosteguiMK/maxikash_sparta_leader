@@ -130,7 +130,7 @@ class Ticket extends Model
         } else {
             $selAsignadoPor = "'' AS asignado_por_nombre, ";
         }
-        $baseSelect = "SELECT DISTINCT t.id_ticket, t.folio, t.id_credito, t.descripcion_inicial, t.fecha_creacion, t.fecha_vencimiento, " .
+        $baseSelect = "SELECT DISTINCT t.id_ticket, t.folio, t.id_credito, t.id_estado_ticket, t.descripcion_inicial, t.fecha_creacion, t.fecha_vencimiento, " .
             $selCategoria .
             $selColsCategoria .
             $selColsNotaUrl .
@@ -1782,7 +1782,8 @@ class Ticket extends Model
         try {
             $db = new Database();
             $row = $db->queryOne(
-                "SELECT t.id_ticket, t.categoria_gestion, t.id_estado_ticket, et.nombre AS estado_nombre " .
+                "SELECT t.id_ticket, t.categoria_gestion, t.id_estado_ticket, et.nombre AS estado_nombre, " .
+                "t.inconformidad_enviada, t.inconformidad_fecha, t.respuesta_fecha " .
                 "FROM ticket t LEFT JOIN estado_ticket et ON et.id_estado_ticket = t.id_estado_ticket " .
                 "WHERE t.id_ticket = :id AND (t.activo = 1 OR t.activo IS NULL) AND t.fecha_eliminacion IS NULL LIMIT 1",
                 ['id' => $idTicket]
@@ -1794,7 +1795,11 @@ class Ticket extends Model
                 return self::resultado(true, 'No aplica para esta categoría.', ['actualizado' => false]);
             }
             $estadoActual = strtolower(trim((string) ($row['estado_nombre'] ?? '')));
-            $puedeCambiar = $estadoActual === '' || $estadoActual === 'abierto' || $estadoActual === 'pendiente';
+            $fechaInconformidad = !empty($row['inconformidad_fecha']) ? strtotime((string) $row['inconformidad_fecha']) : 0;
+            $fechaRespuesta = !empty($row['respuesta_fecha']) ? strtotime((string) $row['respuesta_fecha']) : 0;
+            $inconformidadPendiente = ((int)($row['inconformidad_enviada'] ?? 0) > 0)
+                && ($fechaRespuesta <= 0 || $fechaInconformidad <= 0 || $fechaRespuesta <= $fechaInconformidad);
+            $puedeCambiar = $estadoActual === '' || $estadoActual === 'abierto' || $estadoActual === 'pendiente' || $inconformidadPendiente;
             if (!$puedeCambiar) {
                 return self::resultado(true, 'El ticket ya está en proceso o respondido.', ['actualizado' => false]);
             }
@@ -2620,6 +2625,10 @@ class Ticket extends Model
             if ($tieneTipo) {
                 $sel .= ', tipo_origen';
             }
+            $tieneTipoEvidencia = self::ticketEvidenciaTieneColumna($db, 'tipo_evidencia');
+            if ($tieneTipoEvidencia) {
+                $sel .= ', tipo_evidencia';
+            }
             if (self::ticketEvidenciaTieneColumna($db, 'mime_type')) {
                 $sel .= ', mime_type';
             }
@@ -2628,6 +2637,16 @@ class Ticket extends Model
             }
             $sql = $sel . ' FROM ticket_evidencia WHERE id_ticket = :id_ticket';
             $params = ['id_ticket' => $id];
+            if ($filtroTipoOrigen !== null && $filtroTipoOrigen !== '') {
+                if ($filtroTipoOrigen === 'inconformidad') {
+                    $sql .= $tieneTipoEvidencia
+                        ? " AND LOWER(TRIM(COALESCE(tipo_evidencia, ''))) = 'inconformidad'"
+                        : " AND 1=0";
+                    $filtroTipoOrigen = null;
+                } elseif ($filtroTipoOrigen === self::TIPO_ORIGEN_ADJUNTO_TICKET && $tieneTipoEvidencia) {
+                    $sql .= " AND LOWER(TRIM(COALESCE(tipo_evidencia, ''))) <> 'inconformidad'";
+                }
+            }
             if ($filtroTipoOrigen !== null && $filtroTipoOrigen !== '') {
                 if ($tieneTipo) {
                     $sql .= ' AND (
