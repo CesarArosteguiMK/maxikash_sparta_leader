@@ -13388,12 +13388,24 @@ public function getMunicipios()
                 if ($idSubordinado === '' || isset($idsExistentes[$idSubordinado])) continue;
 
                 $idsExistentes[$idSubordinado] = true;
+                $this->idsYaAgregados[$idSubordinado] = true;
                 $rows[] = [
                     'id' => $idSubordinado,
                     'nombre' => $subVac['nombre'] ?? '',
                     'puesto' => $subVac['nombre_puesto'] ?? 'Sin puesto',
                     'jefe' => $vacantesAgregadas[$idVacanteJefe],
                 ];
+
+                $arbolSubordinado = CapHumDAO::getConsultaPersonasJerarquia((int)$idSubordinado, $id_departamento);
+                if (!empty($arbolSubordinado['success']) && !empty($arbolSubordinado['datos'][0])) {
+                    $jsonSubordinado = $arbolSubordinado['datos'][0]['organigrama_json'] ?? $arbolSubordinado['datos'][0]['ORGANIGRAMA_JSON'] ?? null;
+                    $orgSubordinado = $jsonSubordinado ? json_decode($jsonSubordinado, true) : null;
+                    if (is_array($orgSubordinado) && !empty($orgSubordinado['subordinados'])) {
+                        foreach ($orgSubordinado['subordinados'] as $subHijo) {
+                            $this->recorrerArbol($subHijo, $rows, $idSubordinado);
+                        }
+                    }
+                }
             }
         }
 

@@ -60,6 +60,13 @@
     }
 
     function getInconformidadTicket(t) {
+        if (t && (t.inconformidad_comentario || Number(t.inconformidad_enviada || 0) > 0)) {
+            return {
+                folio_origen: t.folio || '',
+                comentario: (t.inconformidad_comentario || '').toString().trim(),
+                fecha: t.inconformidad_fecha || ''
+            };
+        }
         var nota = ((t && t.nota) || '').toString().trim();
         var m = nota.match(/^Inconformidad del ticket\s+([^:]+):\s*([\s\S]*)$/i);
         if (!m) return null;
@@ -132,6 +139,7 @@
             '<div class="tm-inconformidad-card">' +
             '<div class="tm-inconformidad-title"><i class="fa-solid fa-message-exclamation me-1"></i>Inconformidad</div>' +
             (inconformidad.folio_origen ? '<div class="tm-inconformidad-origin">Ticket original: <strong>' + txtEsc(inconformidad.folio_origen) + '</strong></div>' : '') +
+            (inconformidad.fecha ? '<div class="tm-inconformidad-origin">Enviada: <strong>' + txtEsc(formatFechaCorta(inconformidad.fecha)) + '</strong></div>' : '') +
             '<div class="tm-inconformidad-text">' + txtEsc(inconformidad.comentario) + '</div>' +
             '</div>' +
             '</div>'
@@ -163,16 +171,50 @@
         return '';
     }
 
+    function tieneInconformidad(t) {
+        return !!getInconformidadTicket(t);
+    }
+
+    function fechaMsTicket(v) {
+        if (!v) return 0;
+        var ms = new Date(v).getTime();
+        return isNaN(ms) ? 0 : ms;
+    }
+
+    function inconformidadPendiente(t) {
+        var inconformidad = getInconformidadTicket(t);
+        if (!inconformidad) return false;
+        var fechaInconformidad = fechaMsTicket(inconformidad.fecha);
+        var fechaRespuesta = fechaMsTicket(t && t.respuesta_fecha);
+        if (!fechaRespuesta) return true;
+        if (!fechaInconformidad) return true;
+        return fechaRespuesta <= fechaInconformidad;
+    }
+
+    function estadoVisibleTicket(t) {
+        if (inconformidadPendiente(t)) return 'Pendiente';
+        return ((t && t.estado_ticket_nombre) || '').toString().trim() || 'â€”';
+    }
+
     function pintarRespuestaTicket(t, esAppSimple) {
         var res = respuestaLabel(t && t.respuesta_resultado);
         var tieneRespuesta = !!res;
+        var esSegundaRevision = inconformidadPendiente(t);
         $('#resumenTicketRespuestaWrap').toggleClass('d-none', !tieneRespuesta);
-        $('#resumenTicketBtnAceptar, #resumenTicketBtnDenegar').toggleClass('d-none', !esAppSimple || tieneRespuesta);
+        $('#resumenTicketBtnAceptar, #resumenTicketBtnDenegar').toggleClass('d-none', !esAppSimple || (tieneRespuesta && !esSegundaRevision));
         if (!tieneRespuesta) {
             $('#resumenTicketRespuestaBadge').removeClass('bg-label-success bg-label-danger').addClass('bg-label-secondary').text('—');
             $('#resumenTicketRespuestaFecha').empty();
             $('#resumenTicketRespuestaComentario').text('—');
             return;
+        }
+        $('#resumenTicketRespuestaWrap')
+            .find('.tm-respuesta-titulo')
+            .remove();
+        if (esSegundaRevision) {
+            $('#resumenTicketRespuestaWrap').prepend(
+                '<div class="tm-respuesta-titulo fw-semibold mb-2"><i class="fa-solid fa-comment-dots me-1"></i>Comentario del primer dictamen</div>'
+            );
         }
         $('#resumenTicketRespuestaBadge')
             .removeClass('bg-label-secondary bg-label-success bg-label-danger')
@@ -827,6 +869,8 @@
         else if (prioridadNombre.indexOf('sin prioridad') !== -1)
             prioridadBadge = '<span class="badge bg-secondary" style="background-color:#6c757d!important;color:#fff;">' + (t.prioridad_nombre || '—') + '</span>';
         var estadoNombreRaw = ((t.estado_ticket_nombre || '') + '').trim() || '—';
+        var inconformidadRow = inconformidadPendiente(t) ? getInconformidadTicket(t) : null;
+        var estadoNombreRaw = inconformidadRow ? 'Pendiente' : estadoNombreRaw;
         var estadoNombre = estadoNombreRaw.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;');
         var en = estadoNombreRaw.toLowerCase();
         var estadoBadge = '<span class="badge bg-label-secondary">' + estadoNombre + '</span>';
@@ -872,11 +916,10 @@
             '" style="font-size:0.7rem;line-height:1" aria-hidden="true"></i>' +
             catLabel +
             '</span></div>';
-        var inconformidadRow = getInconformidadTicket(t);
         if (inconformidadRow) {
             folioTipoHtml +=
                 '<div class="mt-1"><span class="badge bg-label-warning small d-inline-flex align-items-center gap-1">' +
-                '<i class="fa-solid fa-message-exclamation" style="font-size:0.7rem;"></i>Inconformidad' +
+                '<i class="fa-solid fa-message-exclamation" style="font-size:0.7rem;"></i>Segunda revisiÃ³n' +
                 '</span></div>';
         }
         if (CAT === 'validaciones') {
@@ -1370,6 +1413,7 @@
             $('#resumenTicketVence').text(fechaVenc);
             $('#resumenTicketFolio').text(t.folio || '—');
             var estadoTxt = (t.estado_ticket_nombre || '—').trim() || '—';
+            estadoTxt = estadoVisibleTicket(t);
             $('#resumenTicketEstado').text(estadoTxt);
             $('#resumenTicketEstadoPill').text((estadoTxt !== '—' ? '\u25CF ' : '') + estadoTxt);
             var prioridadTxt = (t.prioridad_nombre || '—').trim() || '—';
