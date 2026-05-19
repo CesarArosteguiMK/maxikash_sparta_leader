@@ -107,6 +107,10 @@ class Ticket extends Model
         $selColsRespuesta = $tieneColsRespuesta
             ? 't.respuesta_resultado, t.respuesta_comentario, t.respuesta_fecha, t.respuesta_id_persona, '
             : "NULL AS respuesta_resultado, NULL AS respuesta_comentario, NULL AS respuesta_fecha, NULL AS respuesta_id_persona, ";
+        $tieneColsInconformidad = self::columnaExiste($db, 'ticket', 'inconformidad_enviada');
+        $selColsInconformidad = $tieneColsInconformidad
+            ? 't.inconformidad_enviada, t.inconformidad_comentario, t.inconformidad_fecha, t.inconformidad_adjunto_nombre_original, '
+            : "0 AS inconformidad_enviada, NULL AS inconformidad_comentario, NULL AS inconformidad_fecha, NULL AS inconformidad_adjunto_nombre_original, ";
         $tieneColQuienAsigno = self::columnaExiste($db, 'asignacion_ticket', 'id_persona_quien_asigno');
         $tieneTablaMotivo = self::tablaExiste($db, 'asignacion_ticket_motivo');
         $atSubSel = 'at1.id_ticket, at1.id_persona_asignada, at1.id_asignacion';
@@ -135,6 +139,7 @@ class Ticket extends Model
             $selColsReclamo .
             $selCanalLevantamiento .
             $selColsRespuesta .
+            $selColsInconformidad .
             "COALESCE(tt.nombre, 'Ticket') AS tipo_ticket_nombre, COALESCE(et.nombre, 'Pendiente') AS estado_ticket_nombre, COALESCE(pt.nombre, 'Sin Prioridad') AS prioridad_nombre, COALESCE(ot.nombre, 'App') AS origen_nombre, " .
             "CONCAT(TRIM(IFNULL(p.nombres, '')), ' ', TRIM(IFNULL(p.apellidop, ''))) AS creador_nombre, " .
             "at.id_persona_asignada, CONCAT(TRIM(IFNULL(pa.nombres, '')), ' ', TRIM(IFNULL(pa.apellidop, ''))) AS asignado_nombre, " .

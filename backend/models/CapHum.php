@@ -2451,6 +2451,109 @@ class CapHum extends Model
         try {
             $db = new Database();
             self::asegurarAsignaJefeSoportaVacante($db);
+            self::asegurarTablaVacantesPersonal($db);
+
+            $puestoAnterior = $db->queryOne("
+                SELECT
+                    ap.id_puesto,
+                    pp.nombre AS nombre_puesto,
+                    pp.departamento_id,
+                    pp.nivel,
+                    aj.id_jefe AS id_jefe_anterior,
+                    aj.id_vacante_jefe AS id_vacante_jefe_anterior
+                FROM __SPARTA_SECRET_REDACTED__.asigna_puesto ap
+                INNER JOIN __SPARTA_SECRET_REDACTED__.puesto pp ON pp.id = ap.id_puesto
+                LEFT JOIN (
+                    SELECT a.id_persona, a.id_jefe, a.id_vacante_jefe
+                    FROM __SPARTA_SECRET_REDACTED__.asigna_jefe a
+                    INNER JOIN (
+                        SELECT id_persona, MAX(id) AS mid
+                        FROM __SPARTA_SECRET_REDACTED__.asigna_jefe
+                        GROUP BY id_persona
+                    ) m ON m.id_persona = a.id_persona AND m.mid = a.id
+                ) aj ON aj.id_persona = ap.id_persona
+                WHERE ap.id_persona = :id_persona
+                  AND COALESCE(ap.activo, 1) = 1
+                ORDER BY pp.nivel DESC, ap.id ASC
+                LIMIT 1
+            ", ['id_persona' => $id_persona]);
+
+            $puestoNuevo = $id_puesto > 0 ? $db->queryOne("
+                SELECT id, nombre AS nombre_puesto, departamento_id, nivel
+                FROM __SPARTA_SECRET_REDACTED__.puesto
+                WHERE id = :id_puesto
+                LIMIT 1
+            ", ['id_puesto' => $id_puesto]) : null;
+
+            $subordinadosPuestoAnterior = [];
+            $esDegradacionConHueco = false;
+            if ($puestoAnterior && $puestoNuevo && (int)$puestoAnterior['id_puesto'] !== (int)$id_puesto) {
+                $nivelAnterior = (int)($puestoAnterior['nivel'] ?? 0);
+                $nivelNuevo = (int)($puestoNuevo['nivel'] ?? 0);
+                $esDegradacionConHueco = $nivelAnterior > $nivelNuevo;
+                if ($esDegradacionConHueco) {
+                    $subordinadosPuestoAnterior = $db->queryAll("
+                        SELECT p.id, CONCAT_WS(' ', p.nombres, p.segundo_nombre, p.apellidop, p.apellidom) AS nombre_completo
+                        FROM __SPARTA_SECRET_REDACTED__.asigna_jefe aj
+                        INNER JOIN __SPARTA_SECRET_REDACTED__.persona p ON p.id = aj.id_persona
+                        WHERE aj.id_jefe = :id_persona
+                          AND p.estatus != 'Baja'
+                        ORDER BY p.nombres ASC, p.apellidop ASC
+                    ", ['id_persona' => $id_persona]);
+                }
+            }
+
+            $resolverPuestoAnterior = trim((string)($data['resolver_puesto_anterior'] ?? ''));
+            $idSustitutoPuestoAnterior = (int)($data['id_sustituto_puesto_anterior'] ?? 0);
+            if ($esDegradacionConHueco && !empty($subordinadosPuestoAnterior) && !in_array($resolverPuestoAnterior, ['vacante', 'sustituto'], true)) {
+                $sustitutos = $db->queryAll("
+                    SELECT DISTINCT
+                        p.id,
+                        CONCAT_WS(' ', p.nombres, p.segundo_nombre, p.apellidop, p.apellidom) AS nombre_completo,
+                        pp.nombre AS nombre_puesto
+                    FROM __SPARTA_SECRET_REDACTED__.persona p
+                    INNER JOIN __SPARTA_SECRET_REDACTED__.asigna_puesto ap ON ap.id_persona = p.id AND COALESCE(ap.activo, 1) = 1
+                    INNER JOIN __SPARTA_SECRET_REDACTED__.puesto pp ON pp.id = ap.id_puesto
+                    WHERE p.estatus != 'Baja'
+                      AND p.id <> :id_persona
+                      AND pp.departamento_id = :id_departamento
+                    ORDER BY pp.nivel DESC, nombre_completo ASC
+                ", [
+                    'id_persona' => $id_persona,
+                    'id_departamento' => (int)$puestoAnterior['departamento_id'],
+                ]);
+                return self::resultado(false, 'El puesto anterior tiene subordinados. Indique si desea crear una vacante o asignar un sustituto antes de continuar.', [
+                    'requiere_resolucion_puesto_anterior' => true,
+                    'puesto_anterior' => $puestoAnterior,
+                    'puesto_nuevo' => $puestoNuevo,
+                    'subordinados_count' => count($subordinadosPuestoAnterior),
+                    'sustitutos' => $sustitutos,
+                ]);
+            }
+
+            if ($esDegradacionConHueco && !empty($subordinadosPuestoAnterior) && $resolverPuestoAnterior === 'sustituto') {
+                if ($idSustitutoPuestoAnterior <= 0 || $idSustitutoPuestoAnterior === $id_persona) {
+                    return self::resultado(false, 'Seleccione una persona valida para sustituir el puesto anterior.');
+                }
+                $sustitutoValido = $db->queryOne("
+                    SELECT p.id
+                    FROM __SPARTA_SECRET_REDACTED__.persona p
+                    INNER JOIN __SPARTA_SECRET_REDACTED__.asigna_puesto ap ON ap.id_persona = p.id AND COALESCE(ap.activo, 1) = 1
+                    INNER JOIN __SPARTA_SECRET_REDACTED__.puesto pp ON pp.id = ap.id_puesto
+                    WHERE p.id = :id_sustituto
+                      AND p.estatus != 'Baja'
+                      AND pp.departamento_id = :id_departamento
+                    LIMIT 1
+                ", [
+                    'id_sustituto' => $idSustitutoPuestoAnterior,
+                    'id_departamento' => (int)$puestoAnterior['departamento_id'],
+                ]);
+                if (!$sustitutoValido) {
+                    return self::resultado(false, 'El sustituto seleccionado no pertenece al departamento del puesto anterior o no esta activo.');
+                }
+            }
+
+            $db->beginTransaction();
 
             if ($cp === '' && $id_div_nivel3 !== 'NULL') {
                 $crow = $db->queryOne(
@@ -2567,6 +2670,96 @@ class CapHum extends Model
             }
 
             // 4️⃣ ASIGNA LEGIÓN
+            if ($esDegradacionConHueco && !empty($subordinadosPuestoAnterior) && in_array($resolverPuestoAnterior, ['vacante', 'sustituto'], true)) {
+                $idsSubordinados = array_values(array_map(function ($row) {
+                    return (int)$row['id'];
+                }, $subordinadosPuestoAnterior));
+                $phSubordinados = [];
+                $paramsSubordinados = ['id_persona' => $id_persona];
+                foreach ($idsSubordinados as $idxSub => $idSubordinado) {
+                    $keySub = 'sub_' . $idxSub;
+                    $phSubordinados[] = ':' . $keySub;
+                    $paramsSubordinados[$keySub] = $idSubordinado;
+                }
+
+                if (!empty($phSubordinados)) {
+                    if ($resolverPuestoAnterior === 'vacante') {
+                        $idJefeVacanteAnterior = !empty($puestoAnterior['id_jefe_anterior'])
+                            ? (int)$puestoAnterior['id_jefe_anterior']
+                            : null;
+                        $db->CRUD("
+                            INSERT INTO __SPARTA_SECRET_REDACTED__.vacantes_personal
+                                (id_departamento, id_puesto, id_jefe, id_persona_baja, origen, estatus, creado_por)
+                            VALUES
+                                (:id_departamento, :id_puesto, :id_jefe, NULL, 'degradacion', 'Activa', :creado_por)
+                        ", [
+                            'id_departamento' => (int)$puestoAnterior['departamento_id'],
+                            'id_puesto' => (int)$puestoAnterior['id_puesto'],
+                            'id_jefe' => $idJefeVacanteAnterior,
+                            'creado_por' => !empty($data['usuario_edita']) ? (int)$data['usuario_edita'] : null,
+                        ]);
+                        $idVacantePuestoAnterior = $db->lastInsertId();
+
+                        $db->CRUD("
+                            UPDATE __SPARTA_SECRET_REDACTED__.asigna_jefe
+                            SET id_jefe = NULL,
+                                id_vacante_jefe = :id_vacante_jefe
+                            WHERE id_jefe = :id_persona
+                              AND id_persona IN (" . implode(',', $phSubordinados) . ")
+                        ", array_merge($paramsSubordinados, [
+                            'id_vacante_jefe' => $idVacantePuestoAnterior,
+                        ]));
+                    } else {
+                        if (in_array($idSustitutoPuestoAnterior, $idsSubordinados, true)) {
+                            if (!empty($puestoAnterior['id_vacante_jefe_anterior'])) {
+                                $db->CRUD("
+                                    UPDATE __SPARTA_SECRET_REDACTED__.asigna_jefe
+                                    SET id_jefe = NULL,
+                                        id_vacante_jefe = :id_vacante_jefe
+                                    WHERE id_persona = :id_sustituto
+                                ", [
+                                    'id_vacante_jefe' => (int)$puestoAnterior['id_vacante_jefe_anterior'],
+                                    'id_sustituto' => $idSustitutoPuestoAnterior,
+                                ]);
+                            } else {
+                                $db->CRUD("
+                                    UPDATE __SPARTA_SECRET_REDACTED__.asigna_jefe
+                                    SET id_jefe = :id_jefe_anterior,
+                                        id_vacante_jefe = NULL
+                                    WHERE id_persona = :id_sustituto
+                                ", [
+                                    'id_jefe_anterior' => !empty($puestoAnterior['id_jefe_anterior']) ? (int)$puestoAnterior['id_jefe_anterior'] : null,
+                                    'id_sustituto' => $idSustitutoPuestoAnterior,
+                                ]);
+                            }
+                        }
+
+                        $idsParaSustituto = array_values(array_filter($idsSubordinados, function ($idSubordinado) use ($idSustitutoPuestoAnterior) {
+                            return (int)$idSubordinado !== (int)$idSustitutoPuestoAnterior;
+                        }));
+                        if (!empty($idsParaSustituto)) {
+                            $phSustituto = [];
+                            $paramsSustituto = [
+                                'id_persona' => $id_persona,
+                                'id_sustituto' => $idSustitutoPuestoAnterior,
+                            ];
+                            foreach ($idsParaSustituto as $idxSustituto => $idSubordinado) {
+                                $keySustituto = 'sust_' . $idxSustituto;
+                                $phSustituto[] = ':' . $keySustituto;
+                                $paramsSustituto[$keySustituto] = (int)$idSubordinado;
+                            }
+                            $db->CRUD("
+                                UPDATE __SPARTA_SECRET_REDACTED__.asigna_jefe
+                                SET id_jefe = :id_sustituto,
+                                    id_vacante_jefe = NULL
+                                WHERE id_jefe = :id_persona
+                                  AND id_persona IN (" . implode(',', $phSustituto) . ")
+                            ", $paramsSustituto);
+                        }
+                    }
+                }
+            }
+
             $asignarLegion = isset($data['asignar_legion']) && $data['asignar_legion'];
             $id_legion = isset($data['id_legion']) && $data['id_legion'] !== '' && $data['id_legion'] !== null
                 ? (int)$data['id_legion']
@@ -2625,9 +2818,14 @@ class CapHum extends Model
                 );
             }
 
+            $db->commit();
+
             return self::resultado(true, 'Persona actualizada correctamente.', null);
 
         } catch (\Exception $e) {
+            if (isset($db)) {
+                try { $db->rollback(); } catch (\Exception $rollbackError) {}
+            }
             return self::resultado(false, 'Error al actualizar persona.', null, $e->getMessage());
         }
     }

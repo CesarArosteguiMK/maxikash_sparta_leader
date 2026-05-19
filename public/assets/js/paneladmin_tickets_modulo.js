@@ -870,7 +870,7 @@
             prioridadBadge = '<span class="badge bg-secondary" style="background-color:#6c757d!important;color:#fff;">' + (t.prioridad_nombre || '—') + '</span>';
         var estadoNombreRaw = ((t.estado_ticket_nombre || '') + '').trim() || '—';
         var inconformidadRow = inconformidadPendiente(t) ? getInconformidadTicket(t) : null;
-        var estadoNombreRaw = inconformidadRow ? 'Pendiente' : estadoNombreRaw;
+        estadoNombreRaw = inconformidadRow ? 'Pendiente' : estadoNombreRaw;
         var estadoNombre = estadoNombreRaw.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;');
         var en = estadoNombreRaw.toLowerCase();
         var estadoBadge = '<span class="badge bg-label-secondary">' + estadoNombre + '</span>';
@@ -919,7 +919,7 @@
         if (inconformidadRow) {
             folioTipoHtml +=
                 '<div class="mt-1"><span class="badge bg-label-warning small d-inline-flex align-items-center gap-1">' +
-                '<i class="fa-solid fa-message-exclamation" style="font-size:0.7rem;"></i>Segunda revisiÃ³n' +
+                '<i class="fa-solid fa-message-exclamation" style="font-size:0.7rem;"></i>Segunda revision' +
                 '</span></div>';
         }
         if (CAT === 'validaciones') {

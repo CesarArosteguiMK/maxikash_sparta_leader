@@ -3226,6 +3226,112 @@ class CapHum extends Controller
                 return (v !== null && v !== undefined && String(v).trim() !== '') ? String(v).trim() : null;
             }
 
+            function enviarUpdateGestor(payload) {
+                fetch('/CapHum/updateGestorF', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                })
+                .then(res => res.json())
+                .then(data => {
+                    if (!data.success) {
+                        if (data.datos && data.datos.requiere_resolucion_puesto_anterior) {
+                            pedirResolucionPuestoAnterior(data.datos, payload);
+                            return;
+                        }
+                        Swal.fire("Error", data.mensaje, "error");
+                        return;
+                    }
+
+                    Swal.fire("Exito", "Gestor actualizado correctamente", "success");
+
+                    bootstrap.Offcanvas.getInstance(
+                        document.getElementById('offcanvasEditUser')
+                    ).hide();
+
+                    if (typeof getUsuarios === 'function') getUsuarios();
+                })
+                .catch(() => {
+                    Swal.fire("Error", "No se pudo actualizar el gestor.", "error");
+                });
+            }
+
+            function pedirResolucionPuestoAnterior(info, payload) {
+                const puestoAnterior = info.puesto_anterior || {};
+                const puestoNuevo = info.puesto_nuevo || {};
+                const subordinados = Number(info.subordinados_count || 0);
+                const sustitutos = Array.isArray(info.sustitutos) ? info.sustitutos : [];
+                const escaparHtml = function(valor) {
+                    return String(valor || '').replace(/[&<>"']/g, function(c) {
+                        return ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' })[c];
+                    });
+                };
+                const opcionesSustituto = sustitutos.map(item => {
+                    const id = escaparHtml(item.id);
+                    const nombre = escaparHtml(item.nombre_completo);
+                    const puesto = escaparHtml(item.nombre_puesto);
+                    return `<option value="${id}">${nombre}${puesto ? ' - ' + puesto : ''}</option>`;
+                }).join('');
+
+                Swal.fire({
+                    icon: 'question',
+                    title: 'Resolver puesto anterior',
+                    html: `
+                        <div class="text-start">
+                            <p class="mb-2">
+                                Al cambiar de <b>${escaparHtml(puestoAnterior.nombre_puesto || 'puesto anterior')}</b>
+                                a <b>${escaparHtml(puestoNuevo.nombre_puesto || 'nuevo puesto')}</b>, quedan
+                                <b>${subordinados}</b> subordinado(s) ligados al puesto anterior.
+                            </p>
+                            <p class="mb-3">Elige como se debe cubrir ese puesto antes de guardar el cambio.</p>
+                            <label class="form-check border rounded p-3 mb-2">
+                                <input class="form-check-input me-2" type="radio" name="resolver_puesto_anterior" value="vacante" checked>
+                                <span class="fw-semibold">Crear una vacante</span>
+                                <small class="d-block text-muted ms-4">Los subordinados quedaran unidos a la vacante del puesto anterior.</small>
+                            </label>
+                            <label class="form-check border rounded p-3 mb-2">
+                                <input class="form-check-input me-2" type="radio" name="resolver_puesto_anterior" value="sustituto">
+                                <span class="fw-semibold">Asignar un sustituto</span>
+                                <small class="d-block text-muted ms-4">Los subordinados pasaran a la persona seleccionada.</small>
+                            </label>
+                            <select id="swal_sustituto_puesto_anterior" class="form-select mt-2" disabled>
+                                <option value="">Selecciona un sustituto</option>
+                                ${opcionesSustituto}
+                            </select>
+                        </div>
+                    `,
+                    showCancelButton: true,
+                    confirmButtonText: 'Continuar',
+                    cancelButtonText: 'Cancelar',
+                    reverseButtons: true,
+                    didOpen: () => {
+                        const radios = document.querySelectorAll('input[name="resolver_puesto_anterior"]');
+                        const select = document.getElementById('swal_sustituto_puesto_anterior');
+                        radios.forEach(radio => {
+                            radio.addEventListener('change', () => {
+                                select.disabled = radio.value !== 'sustituto' || !radio.checked;
+                            });
+                        });
+                    },
+                    preConfirm: () => {
+                        const modo = document.querySelector('input[name="resolver_puesto_anterior"]:checked')?.value || 'vacante';
+                        const sustituto = document.getElementById('swal_sustituto_puesto_anterior')?.value || '';
+                        if (modo === 'sustituto' && !sustituto) {
+                            Swal.showValidationMessage('Selecciona un sustituto para continuar.');
+                            return false;
+                        }
+                        return { modo, sustituto };
+                    }
+                }).then(result => {
+                    if (!result.isConfirmed || !result.value) return;
+                    const nuevoPayload = Object.assign({}, payload, {
+                        resolver_puesto_anterior: result.value.modo,
+                        id_sustituto_puesto_anterior: result.value.sustituto || null
+                    });
+                    enviarUpdateGestor(nuevoPayload);
+                });
+            }
+
             function UpdateGestor() {
 
                 const departamento = document.getElementById("edit_departamento_id").value;  // <---- esta es la linea 2009
@@ -3310,6 +3416,9 @@ class CapHum extends Controller
                     domicilio_num_interior: domicilio_num_interior,
                     codigo_postal: codigo_postal
                 };
+
+                enviarUpdateGestor(payload);
+                return;
 
                 fetch('/CapHum/updateGestorF', {
                     method: 'POST',
@@ -13177,6 +13286,7 @@ public function getMunicipios()
             ]);
             exit; //  CLAVE
         }
+        $input['usuario_edita'] = $_SESSION['usuario_id'] ?? $_SESSION['id_usuario'] ?? null;
 
         $n3e = trim((string) ($input['id_div_nivel3'] ?? ''));
         $n4e = trim((string) ($input['id_div_nivel4'] ?? ''));
