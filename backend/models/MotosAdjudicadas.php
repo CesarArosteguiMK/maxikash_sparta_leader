@@ -20,6 +20,9 @@ class MotosAdjudicadas extends Model
     /** @var null|bool columna adj_operacion.fecha_llegada_almacen (requiere esquema actualizado en BD) */
     private static $adjOperacionFechaLlegadaAlmacenCol = null;
 
+    /** @var null|array<string, bool> columnas reales de adj_operacion en este ambiente */
+    private static $adjOperacionColumnas = null;
+
     /** @var null|bool columnas recepcion_*_estado (requiere esquema actualizado en BD) */
     private static $adjOperacionRecepcionDocEstadoCol = null;
 
@@ -65,6 +68,25 @@ class MotosAdjudicadas extends Model
     public function __construct()
     {
         $this->db = new Database();
+    }
+
+    private function adjOperacionTieneColumna(string $columna): bool
+    {
+        if (self::$adjOperacionColumnas === null) {
+            self::$adjOperacionColumnas = [];
+            try {
+                foreach ($this->db->queryAll('SHOW COLUMNS FROM adj_operacion') ?: [] as $row) {
+                    $field = (string) ($row['Field'] ?? '');
+                    if ($field !== '') {
+                        self::$adjOperacionColumnas[$field] = true;
+                    }
+                }
+            } catch (\Throwable $e) {
+                self::$adjOperacionColumnas = [];
+            }
+        }
+
+        return isset(self::$adjOperacionColumnas[$columna]);
     }
 
     /**
@@ -5535,6 +5557,9 @@ EOSQL;
 
         foreach (self::CAMPOS_DATOS_MOTO as $campo) {
             if (!array_key_exists($campo, $datos)) {
+                continue;
+            }
+            if (!$this->adjOperacionTieneColumna($campo)) {
                 continue;
             }
             $valRaw = $datos[$campo];
