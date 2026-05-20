@@ -583,12 +583,16 @@ class CapHum extends Controller
                     });
                 }
 
-            function cargarComboJefeDirecto(id_departamento, seleccionado = null, id_puesto = null) {
+            function cargarComboJefeDirecto(id_departamento, seleccionado = null, id_puesto = null, id_persona = null) {
                  fetch('/CapHum/getJefeDirecto',
                     {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ id_departamento: id_departamento, id_puesto: id_puesto || undefined })
+                    body: JSON.stringify({
+                        id_departamento: id_departamento,
+                        id_puesto: id_puesto || undefined,
+                        id_persona: id_persona || document.getElementById('edit_id')?.value || undefined
+                    })
                     })
                     .then(res => res.json())
                     .then(data => {
@@ -13180,6 +13184,7 @@ public function getMunicipios()
         $input = json_decode(file_get_contents("php://input"), true);
         $idDepartamento = $input['id_departamento'] ?? null;
         $idPuesto = $input['id_puesto'] ?? null;
+        $idPersonaActual = (int)($input['id_persona'] ?? 0);
 
         if (!$idDepartamento) {
             self::respuestaJSON([
@@ -13190,12 +13195,15 @@ public function getMunicipios()
         }
 
         // Deduplicar por id de persona (quien tiene dos cargos no debe salir dos veces)
-        $deduplicarPorPersona = function ($lista) {
+        $deduplicarPorPersona = function ($lista) use ($idPersonaActual) {
             if (!is_array($lista) || empty($lista)) return $lista;
             $vistos = [];
             $out = [];
             foreach ($lista as $row) {
                 $id = isset($row['id']) ? (int) $row['id'] : 0;
+                if ($idPersonaActual > 0 && $id === $idPersonaActual) {
+                    continue;
+                }
                 if ($id && !isset($vistos[$id])) {
                     $vistos[$id] = true;
                     $out[] = $row;
@@ -13246,6 +13254,18 @@ public function getMunicipios()
             $soloVacantes = $agregarVacantesJefe([]);
             if (!empty($soloVacantes)) {
                 self::respuestaJSON(['success' => true, 'mensaje' => 'Vacantes encontradas.', 'datos' => $soloVacantes]);
+                return;
+            }
+
+            $personasEmpresa = CapHumDAO::getPersonasActivasEmpresaParaJefe();
+            if (!empty($personasEmpresa['success']) && !empty($personasEmpresa['datos'])) {
+                $datos = $deduplicarPorPersona($personasEmpresa['datos']);
+                self::respuestaJSON([
+                    'success' => true,
+                    'mensaje' => 'El puesto no tiene jefe configurado. Seleccione una persona activa de la empresa.',
+                    'datos' => $datos,
+                    'fallback_empresa' => true
+                ]);
                 return;
             }
 

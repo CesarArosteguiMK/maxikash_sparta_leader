@@ -193,7 +193,7 @@
 
     function estadoVisibleTicket(t) {
         var estadoRaw = ((t && t.estado_ticket_nombre) || '').toString().trim();
-        if (inconformidadPendiente(t)) return parseInt(t && t.id_estado_ticket, 10) === 3 || estadoRaw.toLowerCase().indexOf('proceso') !== -1 ? 'Procesando' : 'Pendiente';
+        if (inconformidadPendiente(t)) return 'Procesando';
         return ((t && t.estado_ticket_nombre) || '').toString().trim() || 'â€”';
     }
 

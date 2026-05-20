@@ -1967,7 +1967,11 @@ function calcularGruposConciliacion(amortizacion, pagosS2movil) {
 
     amortizacion.forEach(function (fila) {
         if (fila.estatus_pago !== 'pagado') return;
-        var pagos = buscarPagosS2PorFecha(pagosS2movil, fila.fecha_pago_real || fila.fecha_pago);
+        // Usar fila.pagos_s2 del mapeo waterfall del backend en lugar de búsqueda por ventana de
+        // fechas. El backend ya distribuye correctamente cada pago S2 a su semana correspondiente;
+        // la búsqueda por fecha causaba agrupaciones falsas cuando dos semanas comparten la misma
+        // fecha_pago_real pero tienen pagos S2 distintos.
+        var pagos = (fila.pagos_s2 && fila.pagos_s2.length > 0) ? fila.pagos_s2 : [];
         if (pagos.length === 0) {
             mapa[fila.numero_semana] = { esPrimeroDelGrupo: true, semanasDelGrupo: [fila.numero_semana], pagosS2: [] };
         } else {
@@ -2258,9 +2262,7 @@ function congelarModulo(convenio) {
         var surplusEntry      = surplusMap[fila.numero_semana] || null;
         var esSobranteParcial = !!(surplusEntry && surplusEntry.esSobranteParcial);
 
-        var estatusBadge = (esPagado && esSobranteParcial)
-            ? '<span class="badge bg-warning text-dark"><i class="fas fa-coins me-1"></i>Sobrante parcial</span>'
-            : esPagado
+        var estatusBadge = esPagado
             ? '<span class="badge bg-success">Pagado</span>'
             : esParcial
                 ? '<span class="badge bg-warning text-dark"><i class="fas fa-circle-half-stroke me-1"></i>Parcial</span>'
@@ -2272,9 +2274,9 @@ function congelarModulo(convenio) {
 
         // ── Celda fecha ───────────────────────────────────────
         var celdaFecha = (esPagado || esParcial) && fila.fecha_pago_real
-            ? '<span style="display:block;font-weight:600;color:' + (esParcial || esSobranteParcial ? '#f59e0b' : '#22c55e') + ';">'
+            ? '<span style="display:block;font-weight:600;color:' + (esParcial ? '#f59e0b' : '#22c55e') + ';">'
             + fmtFecha(fila.fecha_pago) + '</span>'
-            + '<span style="display:block;color:#888;font-size:0.82em;">' + (esParcial ? 'Parcial' : esSobranteParcial ? 'Sobrante' : 'Pagado') + '</span>'
+            + '<span style="display:block;color:#888;font-size:0.82em;">' + (esParcial ? 'Parcial' : 'Pagado') + '</span>'
             : fmtFechaRango(fila.fecha_pago);
 
         // ── Celda "Pago Realizado" ────────────────────────────
@@ -2371,21 +2373,9 @@ function congelarModulo(convenio) {
                     '</div>';
             }
 
-            // Sobrante parcial — override para semanas cubiertas insuficientemente con sobrante
-            if (esSobranteParcial) {
-                var fmt2ov = function (v) { return '$' + parseFloat(v).toLocaleString('es-MX', { minimumFractionDigits: 2 }); };
-                var _sobAmt  = round2(surplusEntry.aplicado);
-                var _faltAmt = round2(pagoSemanal - _sobAmt);
-                celdaMontoPagado =
-                    '<div style="border-left:3px solid #f59e0b;padding-left:5px;">' +
-                    '<span style="display:block;font-size:0.72rem;color:#92400e;font-weight:600;">' +
-                    '<i class="fas fa-coins" style="font-size:0.65rem;margin-right:3px;"></i>Sobrante aplicado</span>' +
-                    '<span style="display:block;font-size:0.78rem;font-weight:700;color:#b45309;">' + fmt2ov(_sobAmt) + '</span>' +
-                    (_faltAmt > 0.005
-                        ? '<span style="display:block;font-size:0.70rem;color:#dc2626;">Faltan: ' + fmt2ov(_faltAmt) + '</span>'
-                        : '') +
-                    '</div>';
-            }
+            // Sobrante parcial: ya no se sobreescribe el display para semanas "pagado".
+            // El estado del DB es la fuente de verdad; el sobrante informativo
+            // se muestra solo en el primer elemento del grupo (surplusEntry.sobranteSobrante).
         }
 
         // ── Botón acción ──────────────────────────────────────
@@ -5498,7 +5488,7 @@ window.migRecalcularTotal = function () {
         window.migLibreActualizarTotal();
         return;
     }
-
+                                                                                                                                                                                        
     var base = parseFloat(document.getElementById('migTotalBase').value) || 0;
     var elAdicMig = document.getElementById('migMontoAdicional');
     var _maxAdicMig = parseFloat((document.getElementById('migAdeudo') || {}).value) || base;

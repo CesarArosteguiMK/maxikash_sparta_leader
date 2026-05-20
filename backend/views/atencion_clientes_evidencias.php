@@ -188,7 +188,7 @@ body.dark-mode .aev-ev-hint { color: #94a3b8 !important; }
 }
 /* Recarga de tarjetas: mantiene contenido anterior visível (evita parpadeo en blanco) */
 .ae-lista-updating {
-    opacity: 0.5;
+    opacity: 1;
     transition: opacity 0.12s ease;
     pointer-events: none;
 }
@@ -291,6 +291,7 @@ body.dark-mode .aev-ev-hint { color: #94a3b8 !important; }
 .aev-doc-zone--acept { border-color: #4ade80 !important; }
 .aev-btn-enviar { border: 2px solid #16a34a; color: #166534; font-weight: 800; border-radius: 2rem; padding: .4rem 1.25rem; }
 .aev-btn-enviar:disabled { opacity: .5; }
+#aeTabAprobados .ac-btn-dictaminar { display: none !important; }
 body.dark-mode .aev-ev-slots-wrap { background: #0f172a; border-color: #334155; }
 body.dark-mode .aev-ev-slot, body.dark-mode .aev-doc-zone { background: #1e293b; border-color: #334155; }
 </style>
@@ -413,7 +414,7 @@ body.dark-mode .aev-ev-slot, body.dark-mode .aev-doc-zone { background: #1e293b;
                     <button type="button" class="btn btn-success" id="aev-vista-aceptar">
                         <i class="fa-solid fa-check me-1"></i>Aceptar
                     </button>
-                    <button type="button" class="btn btn-danger" id="aev-vista-rechazar">
+                    <button type="button" class="btn btn-danger d-none" id="aev-vista-rechazar">
                         <i class="fa-solid fa-xmark me-1"></i>Rechazar
                     </button>
                 </div>
@@ -1303,8 +1304,9 @@ $aevPublicPath = function_exists('sparta_public_web_base') ? sparta_public_web_b
      * Misma estructura visual que la tarjeta "Entrantes" en Retenciones
      * (encabezado azul, # crédito + nombre, filas etiqueta/valor, botón al pie).
      */
-    function aeRenderCard(item) {
-        const ev = parseInt(item.evidencias_count, 10) || 0;
+    function aeRenderCard(item, key) {
+        const evRaw = parseInt(item.evidencias_count, 10) || 0;
+        const ev = Math.min(evRaw, AE_EV_TOTAL);
         const g  = item.gestor_nombre ? aeEsc(item.gestor_nombre) : '<span class="ae-list-muted">Sin asignar</span>';
         const fa = item.fecha_asignacion
             ? aeEsc(item.fecha_asignacion)
@@ -1313,6 +1315,13 @@ $aevPublicPath = function_exists('sparta_public_web_base') ? sparta_public_web_b
             ? aeEsc(item.nombre_cliente)
             : '<span class="ae-list-muted">Sin nombre</span>';
         const folio = item.folio ? aeEsc(item.folio) : '—';
+        const accion = String(key || '').toLowerCase() === 'aprobados' ? '' : `
+                <div class="ae-list-action">
+                <button type="button" class="ac-btn-dictaminar"
+                        onclick="aevValidarAbrir(${+item.id_credito})">
+                    <i class="fa-solid fa-clipboard-check me-1"></i>Validar evidencias
+                </button>
+                </div>`;
 
         return `
         <div class="ac-card">
@@ -1329,6 +1338,7 @@ $aevPublicPath = function_exists('sparta_public_web_base') ? sparta_public_web_b
                     <div class="ae-list-cell ae-list-asig">
                         <span class="ac-lbl">Asignación realizada</span>
                         <span class="ac-val">${fa}</span>
+                        ${item.fecha_aprobacion_evidencias ? '<span class="ac-lbl mt-1">Aprobaci&oacute;n evidencias</span><span class="ac-val">' + aeEsc(item.fecha_aprobacion_evidencias) + '</span>' : ''}
                     </div>
                     <div class="ae-list-cell ae-list-nombre">
                         <span class="ac-lbl">Nombre</span>
@@ -1339,12 +1349,7 @@ $aevPublicPath = function_exists('sparta_public_web_base') ? sparta_public_web_b
                         <span class="ac-val">${ev} / ${AE_EV_TOTAL}</span>
                     </div>
                 </div>
-                <div class="ae-list-action">
-                <button type="button" class="ac-btn-dictaminar"
-                        onclick="aevValidarAbrir(${+item.id_credito})">
-                    <i class="fa-solid fa-clipboard-check me-1"></i>Validar evidencias
-                </button>
-                </div>
+                ${accion}
             </div>
         </div>`;
     }
@@ -1473,7 +1478,7 @@ $aevPublicPath = function_exists('sparta_public_web_base') ? sparta_public_web_b
                 if (n === 0) {
                     lista.innerHTML = aeSinDatos(cfg.vacio);
                 } else {
-                    lista.innerHTML = data.datos.map(d => aeRenderCard(d)).join('');
+                    lista.innerHTML = data.datos.map(d => aeRenderCard(d, key)).join('');
                 }
             })
             .catch(err => {

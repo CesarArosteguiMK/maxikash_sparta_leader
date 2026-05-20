@@ -327,7 +327,13 @@ SQL;
                     per.apellidop,
                     per.apellidom
                 )) AS gestor_nombre,
-                DATE_FORMAT(aca.fecha_alta, '%d/%m/%Y') AS fecha_asignacion
+                DATE_FORMAT(aca.fecha_alta, '%d/%m/%Y') AS fecha_asignacion,
+                (
+                    SELECT DATE_FORMAT(MAX(bv.fecha_alta), '%d/%m/%Y %H:%i')
+                    FROM adj_bitacora bv
+                    WHERE bv.id_operacion = o.id
+                      AND bv.accion LIKE :pat_validadas
+                ) AS fecha_aprobacion_evidencias
             FROM adj_operacion o
             {$joinAsig}
             WHERE TRIM(COALESCE(o.estatus, '')) <> 'Cierre Documentado'
@@ -370,7 +376,13 @@ SQL;
                 per.apellidop,
                 per.apellidom
             )) AS gestor_nombre,
-            DATE_FORMAT(aca.fecha_alta, '%d/%m/%Y') AS fecha_asignacion
+            DATE_FORMAT(aca.fecha_alta, '%d/%m/%Y') AS fecha_asignacion,
+            (
+                SELECT DATE_FORMAT(MAX(bv.fecha_alta), '%d/%m/%Y %H:%i')
+                FROM adj_bitacora bv
+                WHERE bv.id_operacion = o.id
+                  AND bv.accion LIKE :pat_validadas
+            ) AS fecha_aprobacion_evidencias
         FROM adj_operacion o
         {$joinAsig}
         WHERE TRIM(COALESCE(o.estatus, '')) <> 'Cierre Documentado'

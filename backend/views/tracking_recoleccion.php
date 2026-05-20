@@ -138,13 +138,15 @@ body.dark-mode .track-credito-row {
     padding: .1rem .35rem;
     font-size: .75rem;
 }
-.eta-row input.form-control {
+.eta-row .form-control,
+.eta-row .form-select {
     font-size: .72rem;
     padding: .1rem .3rem;
     height: auto;
     line-height: 1.4;
 }
-body.dark-mode .eta-row input.form-control {
+body.dark-mode .eta-row .form-control,
+body.dark-mode .eta-row .form-select {
     background-color: #1e2d2c;
     color: #e2e8f0;
     border-color: #2d4444;
@@ -233,6 +235,222 @@ body.dark-mode .input-group-text {
     color: var(--track-color-dark);
     border-color: var(--track-color);
     background: var(--track-color-light);
+}
+
+/* ════════════════════════════════════════════════════════
+   Chat Operativo — Offcanvas lateral
+════════════════════════════════════════════════════════ */
+#offcanvasChat { width: 480px; max-width: 100vw; }
+body.dark-mode #offcanvasChat {
+    background: #161f1f;
+    color: #e2e8f0;
+    border-left-color: var(--track-border);
+}
+
+/* Tabs de id_detalle */
+.chat-tabs-wrap {
+    border-bottom: 1px solid var(--track-border);
+    flex-shrink: 0;
+    overflow-x: auto;
+    overflow-y: hidden;
+    scrollbar-width: thin;
+}
+.chat-tabs-wrap::-webkit-scrollbar { height: 4px; }
+.chat-tabs-wrap::-webkit-scrollbar-thumb { background: var(--track-border); border-radius: 2px; }
+.chat-tabs-wrap ul { flex-wrap: nowrap; padding: .35rem .5rem 0; gap: .2rem; border-bottom: none; }
+.chat-tab-link {
+    font-size: .77rem;
+    padding: .28rem .65rem;
+    border-radius: .4rem .4rem 0 0;
+    color: var(--track-color-dark) !important;
+    border: 1px solid transparent;
+    border-bottom: none;
+    white-space: nowrap;
+    position: relative;
+    background: transparent;
+    cursor: pointer;
+}
+.chat-tab-link:hover { background: var(--track-color-light); }
+.chat-tab-link.active {
+    background: var(--track-color) !important;
+    color: #fff !important;
+    border-color: var(--track-color) !important;
+}
+body.dark-mode .chat-tab-link       { color: var(--track-color) !important; }
+body.dark-mode .chat-tab-link:hover { background: var(--track-color-light); }
+
+/* Badges de estatus del chat */
+.chat-status-badge {
+    font-size: .62rem;
+    padding: .08rem .32rem;
+    border-radius: .75rem;
+    vertical-align: middle;
+    margin-left: .22rem;
+}
+.chat-status-activo   { background: #22c55e; color: #fff; }
+.chat-status-bloqueado { background: #f59e0b; color: #000; }
+.chat-status-cerrado  { background: #64748b; color: #fff; }
+.chat-status-desconocido { background: #cbd5e1; color: #475569; }
+
+/* Badge de mensajes no leídos */
+.chat-unread-badge {
+    position: absolute;
+    top: .1rem; right: .08rem;
+    background: #ef4444;
+    color: #fff;
+    font-size: .6rem;
+    padding: .04rem .28rem;
+    border-radius: 9999px;
+    line-height: 1.4;
+    min-width: 1.1rem;
+    text-align: center;
+}
+
+/* Indicador WS en línea */
+.chat-ws-dot {
+    display: inline-block;
+    width: .52rem; height: .52rem;
+    border-radius: 50%;
+    margin-left: .35rem;
+    vertical-align: middle;
+}
+.chat-ws-on  { background: #22c55e; }
+.chat-ws-off { background: #94a3b8; }
+
+/* Pane / panel de un detalle */
+.chat-pane {
+    display: none;
+    flex-direction: column;
+    flex-grow: 1;
+    overflow: hidden;
+    position: relative;
+}
+.chat-pane.active { display: flex; }
+
+/* Aviso de estatus (bloqueado / cerrado / sin conexión) */
+.chat-status-notice {
+    text-align: center;
+    font-size: .79rem;
+    padding: .45rem .85rem;
+    flex-shrink: 0;
+}
+.chat-notice-bloqueado { background: #fefce8; color: #854d0e; border-bottom: 1px solid #fde68a; }
+.chat-notice-cerrado   { background: #f8fafc; color: #475569; border-bottom: 1px solid #e2e8f0; }
+.chat-notice-activo    { background: #f0fdf4; color: #15803d; border-bottom: 1px solid #bbf7d0; }
+body.dark-mode .chat-notice-bloqueado { background: #2c1600; color: #fbbf24; border-color: #451f00; }
+body.dark-mode .chat-notice-cerrado   { background: #161f1f; color: #64748b; border-color: #1e2d2c; }
+body.dark-mode .chat-notice-activo    { background: #092716; color: #4ade80; border-color: #14532d; }
+
+/* Área de mensajes */
+.chat-messages-wrap {
+    flex-grow: 1;
+    overflow-y: auto;
+    padding: .7rem .8rem;
+    display: flex;
+    flex-direction: column;
+    gap: .38rem;
+    scroll-behavior: smooth;
+}
+.chat-messages-wrap::-webkit-scrollbar { width: 5px; }
+.chat-messages-wrap::-webkit-scrollbar-thumb { background: var(--track-border); border-radius: 3px; }
+body.dark-mode .chat-messages-wrap::-webkit-scrollbar-thumb { background: #2d4444; }
+
+/* Burbujas de mensajes */
+.chat-bubble-wrap { display: flex; flex-direction: column; max-width: 82%; }
+.chat-bubble-wrap.dir-out { align-items: flex-end;   margin-left: auto; }
+.chat-bubble-wrap.dir-in  { align-items: flex-start; margin-right: auto; }
+.chat-bubble {
+    border-radius: .875rem;
+    padding: .38rem .72rem;
+    font-size: .82rem;
+    line-height: 1.45;
+    word-break: break-word;
+    max-width: 100%;
+}
+.dir-out.role-gestor   .chat-bubble { background: #3b82f6; color: #fff; border-bottom-right-radius: .2rem; }
+.dir-out.role-conductor .chat-bubble { background: var(--track-color); color: #fff; border-bottom-right-radius: .2rem; }
+.dir-in  .chat-bubble { background: #f1f5f9; color: #1e293b; border-bottom-left-radius: .2rem; }
+body.dark-mode .dir-in .chat-bubble { background: #1e2d2c; color: #e2e8f0; }
+.chat-bubble-meta { font-size: .67rem; color: #94a3b8; margin-top: .1rem; }
+
+/* Mensaje de sistema */
+.chat-sys-msg {
+    text-align: center;
+    font-size: .77rem;
+    color: #64748b;
+    background: #f1f5f9;
+    border-radius: 1rem;
+    padding: .22rem .7rem;
+    margin: .15rem auto;
+    max-width: 90%;
+}
+body.dark-mode .chat-sys-msg { background: #1e2d2c; color: #9db0b0; }
+
+/* Botón "Nuevo mensaje ↓" flotante */
+.chat-new-msg-btn {
+    position: absolute;
+    bottom: 68px; left: 50%;
+    transform: translateX(-50%);
+    background: var(--track-color);
+    color: #fff;
+    border: none;
+    border-radius: 9999px;
+    padding: .28rem .85rem;
+    font-size: .77rem;
+    cursor: pointer;
+    box-shadow: 0 2px 8px rgba(0,0,0,.2);
+    z-index: 5;
+    white-space: nowrap;
+}
+.chat-new-msg-btn:hover { background: var(--track-color-dark); }
+
+/* Área de input */
+.chat-input-area {
+    border-top: 1px solid var(--track-border);
+    padding: .6rem .8rem;
+    flex-shrink: 0;
+    background: #fff;
+}
+body.dark-mode .chat-input-area { background: #161f1f; border-top-color: var(--track-border); }
+.chat-textarea {
+    resize: none;
+    font-size: .82rem;
+    border-color: var(--track-border);
+    border-radius: .5rem;
+    flex-grow: 1;
+    line-height: 1.4;
+}
+body.dark-mode .chat-textarea {
+    background: #1e2d2c;
+    color: #e2e8f0;
+    border-color: #2d4444;
+}
+.chat-textarea:focus { border-color: var(--track-color); box-shadow: 0 0 0 .15rem rgba(13,148,136,.2); }
+.chat-send-btn {
+    background: var(--track-color);
+    color: #fff;
+    border: none;
+    border-radius: .5rem;
+    flex-shrink: 0;
+    width: 42px; height: 54px;
+    padding: 0;
+    font-size: .88rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background .15s;
+}
+.chat-send-btn:hover:not(:disabled) { background: var(--track-color-dark); color: #fff; }
+.chat-send-btn:disabled { background: #cbd5e1; cursor: not-allowed; }
+body.dark-mode .chat-send-btn:disabled { background: #2d4444; }
+
+/* Offcanvas body: flex column, sin overflow interno */
+#offcanvasChat .offcanvas-body {
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    height: 100%;
 }
 </style>
 
@@ -617,6 +835,44 @@ body.dark-mode .input-group-text {
 </div>
 
 <!-- ══════════════════════════════════════════════════════════
+     Offcanvas — Chat Operativo (gestor / Sparta Ledger)
+     Se abre desde el botón de chat en la tabla de rutas.
+     Una pestaña por cada id_detalle (punto de recolección).
+══════════════════════════════════════════════════════════ -->
+<div class="offcanvas offcanvas-end" tabindex="-1" id="offcanvasChat"
+     aria-labelledby="offcanvasChatLabel">
+    <div class="offcanvas-header py-2 px-3" style="background:var(--track-color-dark);color:#fff;flex-shrink:0;">
+        <div style="min-width:0;">
+            <h6 class="offcanvas-title mb-0" id="offcanvasChatLabel">
+                <i class="fa-solid fa-comments me-2"></i>Chat Operativo
+            </h6>
+            <small id="chatRutaNombre" class="opacity-75" style="font-size:.75rem;display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:320px;"></small>
+        </div>
+        <button type="button" class="btn-close ms-2" data-bs-dismiss="offcanvas"
+                aria-label="Cerrar" style="filter:invert(1);flex-shrink:0;"></button>
+    </div>
+
+    <div class="offcanvas-body">
+        <!-- Tabs: una por id_detalle -->
+        <div class="chat-tabs-wrap" id="chatTabsWrap" style="display:none;">
+            <ul class="nav d-flex" id="chatTabList" role="tablist"></ul>
+        </div>
+
+        <!-- Panes: uno por id_detalle -->
+        <div id="chatPanesContainer" class="flex-grow-1 d-flex flex-column" style="overflow:hidden;"></div>
+
+        <!-- Placeholder cuando no hay items -->
+        <div id="chatEmptyPlaceholder" class="flex-grow-1 d-flex align-items-center justify-content-center text-center p-4"
+             style="color:#94a3b8;">
+            <div>
+                <i class="fa-solid fa-comments fa-2x mb-2 opacity-25 d-block"></i>
+                <span class="small">No hay puntos de recolección disponibles</span>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════
      Google Maps API
 ══════════════════════════════════════════════════════════ -->
 <?php if (!empty($google_maps_api_key_js)) : ?>
@@ -626,6 +882,11 @@ body.dark-mode .input-group-text {
 <?php else : ?>
 <script>window._trackGoogleMapsKey = null;</script>
 <?php endif; ?>
+
+<script>
+/* Chat Operativo — URL WebSocket (sin credenciales, solo el host) */
+window._trackingChatWsBaseUrl = <?= json_encode((string)($tracking_chat_ws_base_url ?? '')) ?>;
+</script>
 
 <!-- SortableJS (drag-and-drop sin jQuery UI) -->
 <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.2/Sortable.min.js"></script>
@@ -995,10 +1256,16 @@ function _trkInicializarTablaRutasDT() {
                            data-id="${r.id_ruta}" title="Editar ruta (borrador)">
                            <i class="fa-solid fa-pen-to-square"></i>
                        </button>`
-                    : `<button class="btn btn-sm btn-outline-primary py-0 px-2 btn-ver-ruta"
-                           data-id="${r.id_ruta}" title="Ver ruta">
-                           <i class="fa-solid fa-eye"></i>
-                       </button>`,
+                    : `<div class="d-flex gap-1">
+                           <button class="btn btn-sm btn-outline-primary py-0 px-2 btn-ver-ruta"
+                               data-id="${r.id_ruta}" title="Ver detalle">
+                               <i class="fa-solid fa-eye"></i>
+                           </button>
+                           <button class="btn btn-sm btn-outline-success py-0 px-2 btn-abrir-chat"
+                               data-id="${r.id_ruta}" title="Chat operativo">
+                               <i class="fa-solid fa-comments"></i>
+                           </button>
+                       </div>`,
             },
         ],
         drawCallback: function () {
@@ -1013,6 +1280,9 @@ function _trkInicializarTablaRutasDT() {
     });
     $('#tablaRutas').on('click', '.btn-ver-ruta', function () {
         _trkCargarRutaEnModal($(this).data('id'), true);
+    });
+    $('#tablaRutas').on('click', '.btn-abrir-chat', function () {
+        _trkChatCargarYAbrir(Number($(this).data('id')));
     });
 }
 
@@ -1422,6 +1692,11 @@ function _trkRenderListaCreditos() {
                 <i class="fa-solid fa-trash-alt"></i>
             </button>`;
 
+        const etaIni  = _trkParseHora12(c.hora_eta_ini);
+        const etaFin  = _trkParseHora12(c.hora_eta_fin);
+        const optsIni = _trkEtaHoraOpts(etaIni.h);
+        const optsFin = _trkEtaHoraOpts(etaFin.h);
+
         const html = `
         <div class="track-credito-row" data-id="${c.id_credito}">
             ${dragHandle}
@@ -1435,9 +1710,19 @@ function _trkRenderListaCreditos() {
                 <div class="eta-row d-flex align-items-center gap-1 mt-1 flex-wrap">
                     <span class="text-muted fw-semibold" style="font-size:.7rem;white-space:nowrap;">ETA:</span>
                     <input type="date" class="form-control eta-fecha" data-id="${c.id_credito}" value="${c.fecha_eta || ''}" style="max-width:130px;" title="Fecha estimada de llegada">
-                    <input type="time" class="form-control eta-ini"  data-id="${c.id_credito}" value="${c.hora_eta_ini || ''}" style="max-width:105px;" title="Hora estimada de llegada (inicio)">
+                    <select class="form-select form-select-sm eta-h" data-id="${c.id_credito}" data-tipo="ini" style="width:62px;flex-shrink:0;" title="Hora inicio">${optsIni}</select>
+                    <input type="text" class="form-control text-center fw-semibold eta-m" data-id="${c.id_credito}" data-tipo="ini" inputmode="numeric" maxlength="2" placeholder="00" autocomplete="off" value="${etaIni.m}" style="width:48px;flex-shrink:0;letter-spacing:.05em;" title="Minutos inicio">
+                    <select class="form-select form-select-sm eta-ap" data-id="${c.id_credito}" data-tipo="ini" style="width:62px;flex-shrink:0;" title="AM/PM inicio">
+                        <option value="AM"${etaIni.ampm === 'AM' ? ' selected' : ''}>AM</option>
+                        <option value="PM"${etaIni.ampm === 'PM' ? ' selected' : ''}>PM</option>
+                    </select>
                     <span class="text-muted" style="font-size:.7rem;line-height:1;">–</span>
-                    <input type="time" class="form-control eta-fin"  data-id="${c.id_credito}" value="${c.hora_eta_fin || ''}" style="max-width:105px;" title="Hora estimada de llegada (fin)">
+                    <select class="form-select form-select-sm eta-h" data-id="${c.id_credito}" data-tipo="fin" style="width:62px;flex-shrink:0;" title="Hora fin">${optsFin}</select>
+                    <input type="text" class="form-control text-center fw-semibold eta-m" data-id="${c.id_credito}" data-tipo="fin" inputmode="numeric" maxlength="2" placeholder="00" autocomplete="off" value="${etaFin.m}" style="width:48px;flex-shrink:0;letter-spacing:.05em;" title="Minutos fin">
+                    <select class="form-select form-select-sm eta-ap" data-id="${c.id_credito}" data-tipo="fin" style="width:62px;flex-shrink:0;" title="AM/PM fin">
+                        <option value="AM"${etaFin.ampm === 'AM' ? ' selected' : ''}>AM</option>
+                        <option value="PM"${etaFin.ampm === 'PM' ? ' selected' : ''}>PM</option>
+                    </select>
                 </div>
             </div>
             ${confControl}
@@ -1471,18 +1756,52 @@ function _trkRenderListaCreditos() {
             if (c) c.fecha_eta = $(this).val() || null;
             _trkMarcarCambio();
         });
-        $list.find('.eta-ini').off('change').on('change', function () {
-            const id = $(this).data('id');
-            const c  = _trk.creditosEnRuta.find(x => String(x.id_credito) === String(id));
-            if (c) c.hora_eta_ini = $(this).val() || null;
+        $list.find('.eta-h, .eta-ap').off('change').on('change', function () {
+            const id   = $(this).data('id');
+            const tipo = $(this).data('tipo');
+            const c    = _trk.creditosEnRuta.find(x => String(x.id_credito) === String(id));
+            if (c) {
+                if (tipo === 'ini') c.hora_eta_ini = _trkLeerEtaHora(id, 'ini');
+                else                c.hora_eta_fin = _trkLeerEtaHora(id, 'fin');
+            }
             _trkMarcarCambio();
         });
-        $list.find('.eta-fin').off('change').on('change', function () {
-            const id = $(this).data('id');
-            const c  = _trk.creditosEnRuta.find(x => String(x.id_credito) === String(id));
-            if (c) c.hora_eta_fin = $(this).val() || null;
-            _trkMarcarCambio();
-        });
+        $list.find('.eta-m')
+            .off('keydown input blur')
+            .on('keydown', function (e) {
+                const allowed = ['Backspace','Delete','Tab','Escape','ArrowLeft','ArrowRight','Home','End'];
+                if (allowed.includes(e.key)) return;
+                if (!/^[0-9]$/.test(e.key)) e.preventDefault();
+            })
+            .on('input', function () {
+                this.value = this.value.replace(/[^0-9]/g, '').slice(0, 2);
+            })
+            .on('blur', function () {
+                const raw = this.value.replace(/[^0-9]/g, '');
+                if (raw === '') { this.value = '00'; }
+                const n = parseInt(raw || '0', 10);
+                if (isNaN(n) || n > 59) {
+                    this.value = '00';
+                    $(this).addClass('is-invalid');
+                    setTimeout(() => $(this).removeClass('is-invalid'), 1500);
+                    Swal.fire({
+                        icon: 'error', title: 'Minutos incorrectos',
+                        text: `"${n}" no es válido. Deben ser entre 00 y 59.`,
+                        confirmButtonText: 'Aceptar',
+                    });
+                } else {
+                    this.value = String(n).padStart(2, '0');
+                    $(this).removeClass('is-invalid');
+                }
+                const id   = $(this).data('id');
+                const tipo = $(this).data('tipo');
+                const c    = _trk.creditosEnRuta.find(x => String(x.id_credito) === String(id));
+                if (c) {
+                    if (tipo === 'ini') c.hora_eta_ini = _trkLeerEtaHora(id, 'ini');
+                    else                c.hora_eta_fin = _trkLeerEtaHora(id, 'fin');
+                }
+                _trkMarcarCambio();
+            });
 }
 
 function _trkRecalcularOrden() {
@@ -1937,6 +2256,34 @@ function _trkHoraToPayload() {
     return String(hh).padStart(2, '0') + ':' + m;
 }
 
+// Convierte un string HH:MM (24h) al objeto {h, m, ampm} en formato 12h
+function _trkParseHora12(horaStr) {
+    if (!horaStr) return { h: 8, m: '00', ampm: 'AM' };
+    const parts = horaStr.split(':');
+    const hh    = parseInt(parts[0], 10) || 0;
+    const mm    = (parts[1] || '00').slice(0, 2);
+    return { h: hh % 12 || 12, m: mm, ampm: hh >= 12 ? 'PM' : 'AM' };
+}
+
+// Genera <option> 1-12 con el seleccionado marcado
+function _trkEtaHoraOpts(sel) {
+    return Array.from({length: 12}, (_, i) => i + 1)
+        .map(h => `<option value="${h}"${h === sel ? ' selected' : ''}>${h}</option>`)
+        .join('');
+}
+
+// Lee los selects H/M/AP del DOM y devuelve HH:MM en 24h
+function _trkLeerEtaHora(idCredito, tipo) {
+    const $row = $(`#rutaCreditosList .track-credito-row[data-id="${idCredito}"]`);
+    const h    = parseInt($row.find(`.eta-h[data-tipo="${tipo}"]`).val(), 10) || 12;
+    const m    = $row.find(`.eta-m[data-tipo="${tipo}"]`).val() || '00';
+    const ampm = $row.find(`.eta-ap[data-tipo="${tipo}"]`).val() || 'AM';
+    let hh;
+    if (ampm === 'PM') { hh = (h === 12) ? 12 : h + 12; }
+    else               { hh = (h === 12) ? 0  : h; }
+    return String(hh).padStart(2, '0') + ':' + m;
+}
+
 function _trkGuardarRuta(modo) {
     const nombre    = $('#rutaNombre').val().trim();
     const fecha     = $('#rutaFecha').val();
@@ -2231,5 +2578,600 @@ function _trkCargarRutaEnModal(idRuta, soloLectura) {
             Swal.fire({ icon: 'error', title: 'Error', text: 'Error de conexión.', confirmButtonText: 'Aceptar' });
             modal.hide();
         });
+}
+
+/* ════════════════════════════════════════════════════════════
+   CHAT OPERATIVO — gestor (Sparta Ledger)
+   Flujo:
+     1. Usuario hace clic en btn-abrir-chat de tablaRutas.
+     2. Se obtiene el detalle de la ruta para listar id_detalle.
+     3. Se abre el offcanvas con una pestaña por id_detalle.
+     4. Al activar una pestaña, se carga info del chat por REST.
+     5. Si el chat está activo, se conecta WebSocket (solo lectura).
+     6. Mensajes se envían siempre por REST.
+════════════════════════════════════════════════════════════ */
+
+// ─── Estado global del Chat ──────────────────────────────
+const _trkChat = {
+    rutaId:    null,   // id_ruta abierto actualmente
+    activeTab: null,   // id_detalle de la pestaña activa
+    jwtToken:  null,   // JWT en memoria JS (sólo para WS)
+    jwtExpiry: 0,      // timestamp ms de expiración
+    chats:     {},     // Map<id_detalle, chatState>
+};
+/* chatState = {
+    id_chat, estatus, mensajes[], ws, wsRetries, wsRetryTimeout,
+    unread, loadingMsgs, allLoaded, oldestMsgId
+} */
+
+// ─── Abrir chat de una ruta (entry point) ────────────────
+function _trkChatCargarYAbrir(idRuta) {
+    trkFetch(`/TrackingRecoleccion/obtenerDetalleRuta?id_ruta=${idRuta}`)
+        .then(r => {
+            if (!r.success || !r.datos) {
+                Swal.fire({ icon: 'error', title: 'Error', text: 'No se pudo cargar la ruta.', confirmButtonText: 'Aceptar' });
+                return;
+            }
+            const detalle = (r.datos.detalle || []).map(d => ({
+                id_detalle:     d.id_detalle,
+                id_credito:     d.id_credito,
+                nombre_cliente: d.nombre_cliente || '',
+                orden_ruta:     d.orden_ruta,
+            }));
+            _trkChatAbrir(idRuta, r.datos.nombre_ruta || `Ruta #${idRuta}`, detalle);
+        })
+        .catch(() => Swal.fire({ icon: 'error', title: 'Error', text: 'Error de conexión.', confirmButtonText: 'Aceptar' }));
+}
+
+function _trkChatAbrir(idRuta, rutaNombre, detalleItems) {
+    _trkChatLimpiarTodo();
+    _trkChat.rutaId = idRuta;
+
+    document.getElementById('chatRutaNombre').textContent = rutaNombre;
+
+    const list        = document.getElementById('chatTabList');
+    const tabsWrap    = document.getElementById('chatTabsWrap');
+    const container   = document.getElementById('chatPanesContainer');
+    const placeholder = document.getElementById('chatEmptyPlaceholder');
+
+    list.innerHTML      = '';
+    container.innerHTML = '';
+
+    const offcanvas = bootstrap.Offcanvas.getOrCreateInstance(
+        document.getElementById('offcanvasChat')
+    );
+    offcanvas.show();
+
+    if (!detalleItems || detalleItems.length === 0) {
+        tabsWrap.style.display    = 'none';
+        placeholder.style.display = '';
+        return;
+    }
+    placeholder.style.display = 'none';
+    tabsWrap.style.display    = '';
+
+    detalleItems.forEach(det => {
+        const id = det.id_detalle;
+        _trkChat.chats[id] = {
+            id_chat: null, estatus: null, mensajes: [],
+            ws: null, wsRetries: 0, wsRetryTimeout: null,
+            unread: 0, loadingMsgs: false, allLoaded: false, oldestMsgId: null,
+        };
+
+        // Tab ─────────────────────────────────────────────
+        const li = document.createElement('li');
+        li.className = 'nav-item';
+        const credLabel = det.id_credito ? ` · ${det.id_credito}` : '';
+        li.innerHTML = `
+            <button class="chat-tab-link" id="chatTabBtn_${id}" data-detalle="${id}" type="button"
+                    title="${_trkChatEscapeHtml(det.nombre_cliente)}">
+                <span>#${id}${credLabel}</span>
+                <span class="chat-status-badge chat-status-desconocido" id="chatStatusBadge_${id}">…</span>
+                <span class="chat-unread-badge d-none" id="chatUnreadBadge_${id}"></span>
+            </button>`;
+        list.appendChild(li);
+        li.querySelector('button').addEventListener('click', () => _trkChatActivarTab(id));
+
+        // Pane ────────────────────────────────────────────
+        const pane = document.createElement('div');
+        pane.className = 'chat-pane';
+        pane.id        = `chatPane_${id}`;
+        pane.innerHTML = `
+            <div class="chat-status-notice d-none" id="chatNotice_${id}"></div>
+            <div class="chat-messages-wrap" id="chatMsgsWrap_${id}"></div>
+            <button class="chat-new-msg-btn d-none" id="chatNewMsgBtn_${id}"
+                    type="button">Nuevo mensaje ↓</button>
+            <div class="chat-input-area" id="chatInputArea_${id}">
+                <div class="d-flex gap-2 align-items-end">
+                    <textarea class="form-control chat-textarea" id="chatTextarea_${id}"
+                              placeholder="Escribe un mensaje…" rows="2"
+                              maxlength="2000" disabled></textarea>
+                    <button class="chat-send-btn" id="chatSendBtn_${id}"
+                            type="button" disabled>
+                        <i class="fa-solid fa-paper-plane"></i>
+                    </button>
+                </div>
+            </div>`;
+        container.appendChild(pane);
+
+        // Listeners ───────────────────────────────────────
+        document.getElementById(`chatNewMsgBtn_${id}`)
+            .addEventListener('click', () => _trkChatScrollFinal(id));
+
+        document.getElementById(`chatSendBtn_${id}`)
+            .addEventListener('click', () => _trkChatEnviarMensaje(id));
+
+        document.getElementById(`chatTextarea_${id}`)
+            .addEventListener('keydown', e => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    _trkChatEnviarMensaje(id);
+                }
+            });
+
+        const wrap = document.getElementById(`chatMsgsWrap_${id}`);
+        let scrollTimer = null;
+        wrap.addEventListener('scroll', () => {
+            if (wrap.scrollTop < 80) {
+                clearTimeout(scrollTimer);
+                scrollTimer = setTimeout(() => _trkChatCargarMasMensajes(id), 200);
+            }
+            const atBottom = (wrap.scrollHeight - wrap.scrollTop - wrap.clientHeight) < 80;
+            if (atBottom) {
+                const btn = document.getElementById(`chatNewMsgBtn_${id}`);
+                if (btn) btn.classList.add('d-none');
+            }
+        });
+    });
+
+    // Activar primera pestaña ──────────────────────────────
+    if (detalleItems.length > 0) {
+        _trkChatActivarTab(detalleItems[0].id_detalle);
+    }
+
+    // Limpiar WS al cerrar el offcanvas
+    document.getElementById('offcanvasChat')
+        .addEventListener('hide.bs.offcanvas', _trkChatLimpiarTodo, { once: true });
+}
+
+// ─── Gestión de pestañas ─────────────────────────────────
+function _trkChatActivarTab(idDetalle) {
+    document.querySelectorAll('.chat-tab-link').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.chat-pane').forEach(p => p.classList.remove('active'));
+
+    const btn  = document.getElementById(`chatTabBtn_${idDetalle}`);
+    const pane = document.getElementById(`chatPane_${idDetalle}`);
+    if (btn)  btn.classList.add('active');
+    if (pane) pane.classList.add('active');
+
+    _trkChat.activeTab = idDetalle;
+    _trkChatClearUnread(idDetalle);
+
+    const state = _trkChat.chats[idDetalle];
+    if (state && state.estatus === null) {
+        _trkChatCargarInfo(idDetalle);
+    }
+}
+
+// ─── Carga de info del chat ──────────────────────────────
+async function _trkChatCargarInfo(idDetalle) {
+    const state = _trkChat.chats[idDetalle];
+    if (!state) return;
+
+    const wrap = document.getElementById(`chatMsgsWrap_${idDetalle}`);
+    if (wrap) {
+        wrap.innerHTML = `<div class="text-center py-5">
+            <div class="spinner-border spinner-border-sm" style="color:var(--track-color);"></div>
+        </div>`;
+    }
+
+    try {
+        const r = await trkFetch(`/TrackingRecoleccion/chatInfo?id_detalle=${idDetalle}`);
+        if (!r.success) {
+            _trkChatMostrarError(idDetalle, r.mensaje || 'Error al cargar el chat.');
+            return;
+        }
+        const chat = r.chat;
+        state.id_chat = chat.id_chat;
+        state.estatus = chat.estatus;
+        _trkChatActualizarEstatusBadge(idDetalle, chat.estatus);
+        _trkChatActualizarUI(idDetalle);
+        await _trkChatCargarMensajes(idDetalle);
+        if (chat.estatus === 'activo' || chat.estatus === 'bloqueado') {
+            const token = await _trkChatObtenerToken();
+            if (token) _trkChatConectarWS(idDetalle, token);
+        }
+    } catch {
+        _trkChatMostrarError(idDetalle, 'Error de conexión al cargar el chat.');
+    }
+}
+
+// ─── Carga paginada de mensajes ──────────────────────────
+async function _trkChatCargarMensajes(idDetalle, beforeId = null) {
+    const state = _trkChat.chats[idDetalle];
+    if (!state || state.loadingMsgs || state.allLoaded) return;
+    state.loadingMsgs = true;
+
+    let url = `/TrackingRecoleccion/chatMensajes?id_detalle=${idDetalle}&limit=50`;
+    if (beforeId) url += `&before_id=${beforeId}`;
+
+    try {
+        const r = await trkFetch(url);
+        if (!r.success) { state.loadingMsgs = false; return; }
+
+        const nuevos = r.mensajes || [];
+        if (beforeId) {
+            state.mensajes = [...nuevos, ...state.mensajes];
+        } else {
+            state.mensajes = nuevos;
+        }
+        if (nuevos.length < 50) state.allLoaded = true;
+        if (state.mensajes.length > 0) {
+            state.oldestMsgId = state.mensajes[0].id_mensaje;
+        }
+        _trkChatRenderMensajes(idDetalle, !beforeId);
+    } catch { /* silent */ }
+    finally { state.loadingMsgs = false; }
+}
+
+async function _trkChatCargarMasMensajes(idDetalle) {
+    const state = _trkChat.chats[idDetalle];
+    if (!state || state.allLoaded || state.loadingMsgs || !state.oldestMsgId) return;
+    const wrap = document.getElementById(`chatMsgsWrap_${idDetalle}`);
+    if (!wrap) return;
+    const prevH = wrap.scrollHeight;
+    await _trkChatCargarMensajes(idDetalle, state.oldestMsgId);
+    requestAnimationFrame(() => { wrap.scrollTop = wrap.scrollHeight - prevH; });
+}
+
+// ─── Render de mensajes ──────────────────────────────────
+function _trkChatRenderMensajes(idDetalle, scrollToBottom = true) {
+    const state = _trkChat.chats[idDetalle];
+    const wrap  = document.getElementById(`chatMsgsWrap_${idDetalle}`);
+    if (!state || !wrap) return;
+
+    if (state.mensajes.length === 0) {
+        wrap.innerHTML = `<div class="text-center text-muted small py-5">
+            <i class="fa-solid fa-comment-slash opacity-25 fa-2x mb-2 d-block"></i>
+            Sin mensajes aún</div>`;
+        return;
+    }
+
+    let html = state.allLoaded
+        ? `<div class="text-center text-muted py-2" style="font-size:.7rem;">— Inicio de la conversación —</div>`
+        : `<div class="text-center py-2" id="chatLoadMore_${idDetalle}">
+               <span class="spinner-border spinner-border-sm opacity-25" style="color:var(--track-color);"></span>
+           </div>`;
+
+    state.mensajes.forEach(msg => { html += _trkChatRenderBurbuja(msg); });
+    wrap.innerHTML = html;
+    if (scrollToBottom) _trkChatScrollFinal(idDetalle);
+}
+
+function _trkChatRenderBurbuja(msg) {
+    const tipo = (msg.tipo_actor || '').toLowerCase();
+    if (tipo === 'sistema') {
+        return `<div class="chat-sys-msg">${_trkChatEscapeHtml(msg.mensaje)}</div>`;
+    }
+    const esOut     = (tipo === 'gestor');
+    const dirClass  = esOut ? 'dir-out' : 'dir-in';
+    const roleClass = tipo === 'gestor' ? 'role-gestor' : 'role-conductor';
+    const hora      = _trkChatFechaLocal(msg.fecha_alta);
+    const actor     = tipo === 'gestor' ? 'Gestor' : 'Conductor';
+    return `<div class="chat-bubble-wrap ${dirClass} ${roleClass}">
+        <div class="chat-bubble">${_trkChatEscapeHtml(msg.mensaje)}</div>
+        <span class="chat-bubble-meta">${actor} · ${hora}</span>
+    </div>`;
+}
+
+function _trkChatAgregarMensaje(idDetalle, msg) {
+    const state = _trkChat.chats[idDetalle];
+    if (!state) return;
+    if (state.mensajes.find(m => m.id_mensaje === msg.id_mensaje)) return; // deduplicar
+    state.mensajes.push(msg);
+
+    const wrap = document.getElementById(`chatMsgsWrap_${idDetalle}`);
+    if (!wrap) return;
+    const atBottom = (wrap.scrollHeight - wrap.scrollTop - wrap.clientHeight) < 80;
+    wrap.insertAdjacentHTML('beforeend', _trkChatRenderBurbuja(msg));
+
+    if (atBottom) {
+        _trkChatScrollFinal(idDetalle);
+    } else {
+        const btn = document.getElementById(`chatNewMsgBtn_${idDetalle}`);
+        if (btn) btn.classList.remove('d-none');
+    }
+
+    if (_trkChat.activeTab !== idDetalle) {
+        state.unread++;
+        _trkChatActualizarUnreadBadge(idDetalle);
+    }
+}
+
+function _trkChatScrollFinal(idDetalle) {
+    const wrap = document.getElementById(`chatMsgsWrap_${idDetalle}`);
+    if (wrap) wrap.scrollTo({ top: wrap.scrollHeight, behavior: 'smooth' });
+    const btn = document.getElementById(`chatNewMsgBtn_${idDetalle}`);
+    if (btn) btn.classList.add('d-none');
+}
+
+// ─── Enviar mensaje ──────────────────────────────────────
+async function _trkChatEnviarMensaje(idDetalle) {
+    const state    = _trkChat.chats[idDetalle];
+    const textarea = document.getElementById(`chatTextarea_${idDetalle}`);
+    const sendBtn  = document.getElementById(`chatSendBtn_${idDetalle}`);
+    if (!state || state.estatus !== 'activo' || !textarea || !sendBtn) return;
+
+    const texto = textarea.value.trim();
+    if (!texto) return;
+
+    textarea.disabled = true;
+    sendBtn.disabled  = true;
+    try {
+        const r = await trkFetch('/TrackingRecoleccion/chatEnviarMensaje', {
+            method:  'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body:    JSON.stringify({
+                id_detalle:   idDetalle,
+                mensaje:      texto,
+                tipo_mensaje: 'texto',
+                latitud:      null,
+                longitud:     null,
+                metadata:     null,
+            }),
+        });
+        if (r.success) {
+            textarea.value = '';
+            // Si WS no está activo, agregar localmente para feedback inmediato
+            if ((!state.ws || state.ws.readyState !== WebSocket.OPEN) && r.mensaje) {
+                _trkChatAgregarMensaje(idDetalle, r.mensaje);
+            }
+            // Si WS activo, el evento message.new lo agregará (evita duplicados)
+        } else if (r.codigo_http === 409) {
+            _trkChatDeshabilitarInput(idDetalle, r.mensaje || 'Chat bloqueado o cerrado.');
+        } else {
+            Swal.fire({ icon: 'error', title: 'Error', text: r.mensaje || 'Error al enviar.', confirmButtonText: 'Aceptar' });
+        }
+    } catch {
+        Swal.fire({ icon: 'error', title: 'Error', text: 'No se pudo enviar el mensaje.', confirmButtonText: 'Aceptar' });
+    } finally {
+        textarea.disabled = false;
+        sendBtn.disabled  = (state.estatus !== 'activo');
+        textarea.focus();
+    }
+}
+
+// ─── Token JWT (para WebSocket) ──────────────────────────
+async function _trkChatObtenerToken() {
+    if (_trkChat.jwtToken && _trkChat.jwtExpiry > Date.now() + 5 * 60 * 1000) {
+        return _trkChat.jwtToken;
+    }
+    try {
+        const r = await trkFetch('/TrackingRecoleccion/chatObtenerToken');
+        if (r.success && r.token) {
+            _trkChat.jwtToken  = r.token;
+            _trkChat.jwtExpiry = r.expiry_ms || (Date.now() + 55 * 60 * 1000);
+            return r.token;
+        }
+    } catch { /* ignore */ }
+    return null;
+}
+
+// ─── WebSocket ───────────────────────────────────────────
+function _trkChatConectarWS(idDetalle, token) {
+    const state = _trkChat.chats[idDetalle];
+    if (!state) return;
+    if (state.ws && state.ws.readyState === WebSocket.OPEN) return;
+    if (state.ws) { state.ws.onclose = null; state.ws.close(); state.ws = null; }
+
+    const wsBase = window._trackingChatWsBaseUrl;
+    if (!wsBase) { _trkChatActualizarWsDot(idDetalle, false); return; }
+
+    let ws;
+    try {
+        ws = new WebSocket(
+            `${wsBase}/api/tracking/chats/${idDetalle}/live?token=${encodeURIComponent(token)}`
+        );
+    } catch { _trkChatActualizarWsDot(idDetalle, false); return; }
+    state.ws = ws;
+
+    ws.onopen = () => {
+        state.wsRetries = 0;
+        _trkChatActualizarWsDot(idDetalle, true);
+    };
+
+    ws.onmessage = evt => {
+        let data;
+        try { data = JSON.parse(evt.data); } catch { return; }
+        _trkChatProcesarEventoWS(idDetalle, data);
+    };
+
+    ws.onclose = evt => {
+        state.ws = null;
+        _trkChatActualizarWsDot(idDetalle, false);
+
+        // Códigos de cierre definitivo (no reintentar)
+        if (evt.code === 4001) { // token inválido/expirado
+            _trkChat.jwtToken = null;
+            _trkChatMostrarNotice(idDetalle, 'Sesión expirada. Recarga la página.', 'cerrado');
+            return;
+        }
+        if (evt.code === 4003) { // sin acceso
+            _trkChatMostrarNotice(idDetalle, 'Sin acceso a este chat.', 'cerrado');
+            return;
+        }
+
+        // Reintento con back-off exponencial (máx. 5 intentos)
+        if (state.wsRetries < 5) {
+            const delay = Math.min(1000 * Math.pow(2, state.wsRetries), 30000);
+            state.wsRetries++;
+            state.wsRetryTimeout = setTimeout(async () => {
+                const tok = await _trkChatObtenerToken();
+                if (tok && _trkChat.chats[idDetalle]?.estatus === 'activo') {
+                    _trkChatConectarWS(idDetalle, tok);
+                }
+            }, delay);
+        } else {
+            _trkChatMostrarNotice(
+                idDetalle,
+                'Sin conexión en tiempo real — los mensajes se actualizan al enviar.',
+                'cerrado'
+            );
+        }
+    };
+    ws.onerror = () => { /* ws.onclose disparará a continuación */ };
+}
+
+function _trkChatProcesarEventoWS(idDetalle, data) {
+    const state = _trkChat.chats[idDetalle];
+    if (!state) return;
+
+    switch (data.event) {
+        case 'init':
+            state.mensajes  = data.mensajes || [];
+            state.allLoaded = state.mensajes.length < 50;
+            if (state.mensajes.length) {
+                state.oldestMsgId = state.mensajes[0].id_mensaje;
+            }
+            _trkChatRenderMensajes(idDetalle, true);
+            break;
+
+        case 'message.new':
+            if (data.mensaje) _trkChatAgregarMensaje(idDetalle, data.mensaje);
+            break;
+
+        case 'chat.unlocked':
+            state.estatus = 'activo';
+            _trkChatActualizarEstatusBadge(idDetalle, 'activo');
+            _trkChatActualizarUI(idDetalle);
+            _trkChatMostrarNotice(idDetalle, 'La ruta ha iniciado — ya puedes enviar mensajes.', 'activo', 5000);
+            break;
+
+        case 'error':
+            _trkChatMostrarError(idDetalle, data.detail || 'Error en el chat.');
+            break;
+    }
+}
+
+function _trkChatDesconectarWS(idDetalle) {
+    const state = _trkChat.chats[idDetalle];
+    if (!state) return;
+    if (state.wsRetryTimeout) { clearTimeout(state.wsRetryTimeout); state.wsRetryTimeout = null; }
+    if (state.ws) { state.ws.onclose = null; state.ws.close(); state.ws = null; }
+}
+
+function _trkChatLimpiarTodo() {
+    Object.keys(_trkChat.chats).forEach(id => _trkChatDesconectarWS(Number(id)));
+    _trkChat.chats     = {};
+    _trkChat.activeTab = null;
+    _trkChat.rutaId    = null;
+}
+
+// ─── Actualizar UI según estatus ─────────────────────────
+function _trkChatActualizarUI(idDetalle) {
+    const state    = _trkChat.chats[idDetalle];
+    const textarea = document.getElementById(`chatTextarea_${idDetalle}`);
+    const sendBtn  = document.getElementById(`chatSendBtn_${idDetalle}`);
+    const notice   = document.getElementById(`chatNotice_${idDetalle}`);
+    if (!state) return;
+
+    if (state.estatus === 'activo') {
+        if (notice)   notice.classList.add('d-none');
+        if (textarea) textarea.disabled = false;
+        if (sendBtn)  sendBtn.disabled  = false;
+    } else if (state.estatus === 'bloqueado') {
+        _trkChatMostrarNotice(idDetalle, '🔒 El chat aún no está disponible — la ruta no ha iniciado.', 'bloqueado');
+        if (textarea) textarea.disabled = true;
+        if (sendBtn)  sendBtn.disabled  = true;
+    } else if (state.estatus === 'cerrado') {
+        _trkChatMostrarNotice(idDetalle, 'Esta conversación ha sido cerrada.', 'cerrado');
+        if (textarea) textarea.disabled = true;
+        if (sendBtn)  sendBtn.disabled  = true;
+    }
+}
+
+function _trkChatActualizarEstatusBadge(idDetalle, estatus) {
+    const badge = document.getElementById(`chatStatusBadge_${idDetalle}`);
+    if (!badge) return;
+    const MAP = {
+        activo:    ['activo',    'chat-status-activo'],
+        bloqueado: ['bloqueado', 'chat-status-bloqueado'],
+        cerrado:   ['cerrado',   'chat-status-cerrado'],
+    };
+    const [label, cls] = MAP[estatus] || ['?', 'chat-status-desconocido'];
+    badge.textContent = label;
+    badge.className   = `chat-status-badge ${cls}`;
+}
+
+function _trkChatActualizarWsDot(idDetalle, online) {
+    const btn = document.getElementById(`chatTabBtn_${idDetalle}`);
+    if (!btn) return;
+    let dot = btn.querySelector('.chat-ws-dot');
+    if (!dot) { dot = document.createElement('span'); btn.appendChild(dot); }
+    dot.className = `chat-ws-dot ${online ? 'chat-ws-on' : 'chat-ws-off'}`;
+    dot.title     = online ? 'Tiempo real activo' : 'Sin tiempo real';
+}
+
+// ─── Badges no leídos ────────────────────────────────────
+function _trkChatClearUnread(idDetalle) {
+    const state = _trkChat.chats[idDetalle];
+    if (state) state.unread = 0;
+    const badge = document.getElementById(`chatUnreadBadge_${idDetalle}`);
+    if (badge) badge.classList.add('d-none');
+}
+
+function _trkChatActualizarUnreadBadge(idDetalle) {
+    const state = _trkChat.chats[idDetalle];
+    if (!state) return;
+    const badge = document.getElementById(`chatUnreadBadge_${idDetalle}`);
+    if (!badge) return;
+    if (state.unread > 0) {
+        badge.textContent = state.unread > 99 ? '99+' : String(state.unread);
+        badge.classList.remove('d-none');
+    } else {
+        badge.classList.add('d-none');
+    }
+}
+
+// ─── Helpers UI ──────────────────────────────────────────
+function _trkChatMostrarNotice(idDetalle, msg, tipo, autoHideMs = 0) {
+    const notice = document.getElementById(`chatNotice_${idDetalle}`);
+    if (!notice) return;
+    notice.textContent = msg;
+    notice.className   = `chat-status-notice chat-notice-${tipo}`;
+    notice.classList.remove('d-none');
+    if (autoHideMs > 0) setTimeout(() => notice.classList.add('d-none'), autoHideMs);
+}
+
+function _trkChatDeshabilitarInput(idDetalle, motivo) {
+    const textarea = document.getElementById(`chatTextarea_${idDetalle}`);
+    const sendBtn  = document.getElementById(`chatSendBtn_${idDetalle}`);
+    if (textarea) textarea.disabled = true;
+    if (sendBtn)  sendBtn.disabled  = true;
+    _trkChatMostrarNotice(idDetalle, motivo, 'cerrado');
+}
+
+function _trkChatMostrarError(idDetalle, msg) {
+    const wrap = document.getElementById(`chatMsgsWrap_${idDetalle}`);
+    if (wrap) {
+        wrap.innerHTML = `<div class="alert alert-warning small m-2 py-2">${_trkChatEscapeHtml(msg)}</div>`;
+    }
+}
+
+function _trkChatEscapeHtml(str) {
+    return String(str || '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+}
+
+function _trkChatFechaLocal(iso) {
+    if (!iso) return '';
+    try {
+        const s = iso.endsWith('Z') || /[+\-]\d{2}:\d{2}$/.test(iso) ? iso : iso + 'Z';
+        return new Date(s).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    } catch { return iso; }
 }
 </script>
