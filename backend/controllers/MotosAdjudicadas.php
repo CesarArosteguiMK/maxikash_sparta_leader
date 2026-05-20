@@ -631,9 +631,8 @@ class MotosAdjudicadas extends Controller
      */
     public function misAdjudicaciones()
     {
-        $emp = defined('CONFIGURACION') && isset(CONFIGURACION['EMPRESA']) ? (string) CONFIGURACION['EMPRESA'] : '';
-        self::set('titulo', 'Mis Adjudicaciones ' . $emp);
-        return self::render('mis_adjudicaciones');
+        header('Location: /AtencionClientes/evidencias', true, 302);
+        exit;
     }
 
     /**
