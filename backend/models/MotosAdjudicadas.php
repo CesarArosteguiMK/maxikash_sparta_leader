@@ -32,6 +32,9 @@ class MotosAdjudicadas extends Model
     /** Campa?a Legacy: MOTOS ADJUDICADAS AUTORIZADAS. */
     private const LEGACY_CAMPAIGN_MOTOS_ADJ_AUTORIZADAS = 432;
 
+    /** Prefijo de campanas Legacy vigentes para asignacion semanal. */
+    private const LEGACY_CAMPAIGN_ASIGNACION_PREFIX = 'ASIGNACION_W';
+
     /** Slots de evidencias fotogr?ficas (Mis adjudicaciones); debe coincidir con la vista y el resumen SQL. */
     private const MADJ_SLOTS_EVIDENCIA_MEDIA = [
         'fis_dacion_hoja_1', 'fis_dacion_hoja_2',
@@ -55,6 +58,8 @@ class MotosAdjudicadas extends Model
         'inspeccion_360_de_moto_el_video_debe_evidenciar_el' => 'fis_360_encendida',
         'video_cliente_de_acuerdo' => 'fis_video_cliente_acuerdo',
         'video_vuelta_de_prueba' => 'fis_video_vuelta_prueba',
+        'tomar_foto' => 'fis_frontal',
+        'video_de_moto_recuperada' => 'fis_360_encendida',
     ];
 
     public function __construct()
@@ -1747,9 +1752,9 @@ class MotosAdjudicadas extends Model
             $tipo = 'image';
         }
 
-        // 4. L?mite de tama?o: 20 MB
-        if (($fileInfo['size'] ?? 0) > 20 * 1024 * 1024) {
-            return ['success' => false, 'message' => 'El archivo supera el l?mite de 20 MB.'];
+        // 4. Limite de tamano: 100 MB
+        if (($fileInfo['size'] ?? 0) > 100 * 1024 * 1024) {
+            return ['success' => false, 'message' => 'El archivo supera el limite de 100 MB.'];
         }
 
         // 5. Crear directorio de destino
@@ -2650,6 +2655,8 @@ SQL;
 
     public function sincronizarDictumsAppPendientes(): void
     {
+        $this->sincronizarDictumsAsignacionVigentePendientes();
+
         try {
             $rows = $this->db->queryAll(
                 "SELECT ao.id AS id_operacion, ao.id_credito
@@ -2674,6 +2681,143 @@ SQL;
                     'APP MOVIL'
                 );
             }
+        } catch (\Throwable $e) {
+        }
+    }
+
+    private function sincronizarDictumsAsignacionVigentePendientes(): void
+    {
+        try {
+            $legacyDb = new DatabaseLegacy();
+            $rows = $legacyDb->queryAll(
+                "SELECT
+                    d.id AS dictum_id,
+                    d.task_id,
+                    d.user_id AS legacy_user_id,
+                    d.opciondictamen_id,
+                    d.form_response,
+                    d.created_at,
+                    d.lat,
+                    d.lng,
+                    t.credit_number,
+                    t.client_name,
+                    c.name AS campaign_name
+                 FROM tasks t
+                 INNER JOIN dictums d ON d.task_id = t.id
+                 INNER JOIN campaigns c ON c.id = t.campaign_id
+                 WHERE c.name LIKE :campaign_prefix
+                   AND c.deleted_at IS NULL
+                   AND t.deleted_at IS NULL
+                   AND c.start_date <= CURDATE()
+                   AND c.end_date >= CURDATE()
+                   AND d.created_at >= c.start_date
+                   AND d.form_response IS NOT NULL
+                   AND TRIM(CAST(d.form_response AS CHAR)) <> ''
+                   AND d.opciondictamen_id = 13
+                 ORDER BY d.id DESC
+                 LIMIT 500",
+                [
+                    'campaign_prefix' => self::LEGACY_CAMPAIGN_ASIGNACION_PREFIX . '%',
+                ]
+            ) ?: [];
+        } catch (\Throwable $e) {
+            return;
+        }
+
+        if ($rows === []) {
+            return;
+        }
+
+        $legacyUserIds = [];
+        foreach ($rows as $row) {
+            $uid = (int) ($row['legacy_user_id'] ?? 0);
+            if ($uid > 0) {
+                $legacyUserIds[$uid] = true;
+            }
+        }
+        $gestoresPorLegacyUser = $this->obtenerDatosGestorLegacyPorDictumUserIds(array_keys($legacyUserIds));
+
+        foreach ($rows as $row) {
+            $idCredito = (int) ($row['credit_number'] ?? 0);
+            if ($idCredito <= 0) {
+                continue;
+            }
+
+            $campos = $this->normalizarFormResponseDictumApp((string) ($row['form_response'] ?? ''));
+            if ($campos === [] || !$this->dictumAsignacionEsMotoAdjudicada($row, $campos)) {
+                continue;
+            }
+
+            $legacyUserId = (int) ($row['legacy_user_id'] ?? 0);
+            $idPersona = (int) ($gestoresPorLegacyUser[$legacyUserId]['id_persona'] ?? 0);
+            if ($idPersona <= 0) {
+                continue;
+            }
+
+            $this->asegurarAsignacionAdjudicacionDesdeDictum($idCredito, $idPersona);
+
+            $nombreCliente = trim((string) ($row['client_name'] ?? ''));
+            if ($nombreCliente === '') {
+                $nombreCliente = 'Credito #' . $idCredito;
+            }
+
+            $op = $this->obtenerOCrearOperacion($idCredito, $nombreCliente, $idPersona);
+            $idOperacion = (int) ($op['detalle']['id'] ?? 0);
+            if (empty($op['success']) || $idOperacion <= 0) {
+                continue;
+            }
+
+            $this->sincronizarCamposDictumAppOperacion(
+                $idCredito,
+                $idOperacion,
+                $campos,
+                $idPersona,
+                'APP MOVIL'
+            );
+        }
+    }
+
+    private function dictumAsignacionEsMotoAdjudicada(array $row, array $campos): bool
+    {
+        if ((int) ($row['opciondictamen_id'] ?? 0) === 13) {
+            return true;
+        }
+
+        $dictamen = strtolower(trim(
+            $this->valorCampoDictumApp($campos, 'dictamen', true)
+            . ' '
+            . $this->valorCampoDictumApp($campos, 'dictamen')
+        ));
+
+        return strpos($dictamen, 'moto adjudicada') !== false;
+    }
+
+    private function asegurarAsignacionAdjudicacionDesdeDictum(int $idCredito, int $idPersona): void
+    {
+        if ($idCredito <= 0 || $idPersona <= 0) {
+            return;
+        }
+
+        try {
+            $activa = $this->db->queryOne(
+                "SELECT aca.id, aca.id_personal_adj, pa.id_persona
+                 FROM asigna_creditos_adjudicacion aca
+                 INNER JOIN personal_adjudicacion pa ON pa.id = aca.id_personal_adj
+                 WHERE aca.id_credito = :idCredito
+                   AND aca.estatus = '1'
+                 ORDER BY aca.id DESC
+                 LIMIT 1",
+                ['idCredito' => $idCredito]
+            );
+            if ($activa && (int) ($activa['id_persona'] ?? 0) === $idPersona) {
+                return;
+            }
+
+            $adj = new AdjudicacionModel();
+            if ($activa && (int) ($activa['id'] ?? 0) > 0) {
+                $adj->desasignarCredito($idCredito, $idPersona);
+            }
+            $adj->asignarCredito($idPersona, $idCredito, $idPersona);
         } catch (\Throwable $e) {
         }
     }
@@ -2888,6 +3032,51 @@ SQL;
         return '';
     }
 
+    private function sincronizarCamposDictumAppOperacion(int $idCredito, int $idOperacion, array $campos, int $idUsuario = 0, string $nombreUsuario = 'APP MOVIL'): void
+    {
+        if ($idCredito <= 0 || $idOperacion <= 0 || $campos === []) {
+            return;
+        }
+
+        $procesado = false;
+        $datosMoto = $this->extraerDatosMotoDesdeDictumApp($campos);
+        if ($datosMoto !== []) {
+            $res = $this->guardarDatosMoto($idOperacion, $datosMoto, $idUsuario, 'REPUVE', false);
+            if (!empty($res['success'])) {
+                $procesado = true;
+            }
+        }
+
+        $ahora = $this->fechaHoraCdmx();
+        foreach (self::DICTUM_APP_EVIDENCIA_SLOTS as $nombreCampo => $slot) {
+            $url = $this->valorCampoDictumApp($campos, $nombreCampo);
+            if ($url === '' || !preg_match('#^https?://#i', $url)) {
+                continue;
+            }
+            $this->upsertEvidenciaDictumApp($idOperacion, $slot, $url, $idUsuario, $ahora);
+            $procesado = true;
+        }
+
+        if (!$procesado) {
+            return;
+        }
+
+        $this->db->CRUD(
+            "UPDATE adj_operacion
+             SET estatus = CASE
+                    WHEN estatus IN ('en_transito', 'Recibido') THEN 'Recibido'
+                    ELSE estatus
+                 END,
+                 fecha_actualizacion = :fecha
+             WHERE id = :id",
+            ['fecha' => $ahora, 'id' => $idOperacion]
+        );
+
+        if (!$this->existeBitacoraOperacion($idOperacion, '%AL PIPELINE%')) {
+            $this->registrarBitacora($idOperacion, 'ENVIO EVIDENCIAS AL PIPELINE', $idUsuario, $nombreUsuario, $ahora);
+        }
+    }
+
     private function extraerDatosMotoDesdeDictumApp(array $campos): array
     {
         $map = [
@@ -2895,10 +3084,15 @@ SQL;
             'modelo' => ['moto_modelo'],
             'ano' => ['moto_anio'],
             'color' => ['moto_color'],
-            'no_de_serie_vin' => ['moto_no_serie'],
-            'no_de_motor' => ['moto_no_motor'],
-            'placas' => ['moto_placas'],
-            'kilometraje' => ['moto_kilometraje'],
+            'no_de_serie_vin' => ['moto_no_serie', 'serie'],
+            'no_de_motor' => ['moto_no_motor', 'num_motor'],
+            'placas' => ['moto_placas', 'placas'],
+            'marca_y_modelo' => ['moto_modelo', 'modelo'],
+            'numero_de_serie' => ['moto_no_serie', 'serie'],
+            'direccion_actual' => ['log_direccion'],
+            'actualizacion_de_direccion' => ['log_direccion'],
+            'actualizacion_de_numero_telefonico' => ['log_telefono'],
+            'celular' => ['log_telefono'],
             'estado_de_lugar_de_resguardo_ejemplo_ciudad_de_mex' => ['log_estado'],
             'ciudad_municipio_de_lugar_de_resguardo' => ['log_ciudad'],
             'calle_y_numero_de_lugar_de_resguardo' => ['log_direccion'],
@@ -2920,8 +3114,16 @@ SQL;
         $lugar = strtolower($this->valorCampoDictumApp($campos, 'donde_resguardaras_la_moto'));
         $lugarLabel = $this->valorCampoDictumApp($campos, 'donde_resguardaras_la_moto', true);
         if ($lugar !== '' || $lugarLabel !== '') {
-            $datos['log_lugar_resguardo'] = ($lugar === 'cedis-__SPARTA_SECRET_REDACTED__') ? 'sucursal' : 'otro';
-            $datos['log_lugar_otro'] = $lugarLabel !== '' ? $lugarLabel : $lugar;
+            if (in_array($lugar, ['mi_domicilio', 'mi domicilio'], true)) {
+                $datos['log_lugar_resguardo'] = 'mi_domicilio';
+                $datos['log_lugar_otro'] = null;
+            } elseif (in_array($lugar, ['cedis-__SPARTA_SECRET_REDACTED__', 'sucursal'], true)) {
+                $datos['log_lugar_resguardo'] = 'sucursal';
+                $datos['log_lugar_otro'] = $lugarLabel !== '' ? $lugarLabel : $lugar;
+            } else {
+                $datos['log_lugar_resguardo'] = 'otro';
+                $datos['log_lugar_otro'] = $lugarLabel !== '' ? $lugarLabel : $lugar;
+            }
         }
 
         return $datos;
