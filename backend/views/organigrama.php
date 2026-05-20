@@ -714,6 +714,7 @@
         };
 
         let organigramaRows = [];
+        let organigramaRowsBase = [];
         var personaSearchSelect = null;
         var depSearchSelect = null;
         var puestoSearchSelect = null;
@@ -737,6 +738,92 @@
                 if (String(r.id) === String(idJefe)) return false;
                 return String(r.jefe) === String(idJefe);
             });
+        }
+
+        function esIdVacanteOrganigrama(id) {
+            return /^vacante-\d+$/.test(String(id || ''));
+        }
+
+        function construirSubarbolOrganigramaLocal(rootId) {
+            var rootKey = String(rootId || '');
+            var baseRows = Array.isArray(organigramaRowsBase) && organigramaRowsBase.length ? organigramaRowsBase : [];
+            var currentRows = Array.isArray(organigramaRows) ? organigramaRows : [];
+            var baseTieneRoot = baseRows.some(function (r) { return r && String(r.id) === rootKey; });
+            var sourceRows = baseTieneRoot ? baseRows : currentRows;
+            var byParent = {};
+            var byId = {};
+
+            sourceRows.forEach(function (r) {
+                if (!r || r.id == null) return;
+                var id = String(r.id);
+                byId[id] = r;
+                var parent = r.jefe == null ? null : String(r.jefe);
+                if (!byParent[parent]) byParent[parent] = [];
+                byParent[parent].push(r);
+            });
+
+            if (!byId[rootKey]) return [];
+
+            var result = [];
+            var visited = {};
+            function visit(id, parentForResult) {
+                var key = String(id);
+                var row = byId[key];
+                if (!row || visited[key]) return;
+                visited[key] = true;
+                result.push({
+                    id: row.id,
+                    nombre: row.nombre || '',
+                    puesto: row.puesto || row.nombre_puesto || '',
+                    jefe: parentForResult,
+                    tipo_estado: row.tipo_estado || '',
+                    estado_label: row.estado_label || ''
+                });
+                (byParent[key] || []).forEach(function (child) {
+                    visit(child.id, row.id);
+                });
+            }
+
+            visit(rootKey, null);
+            return result;
+        }
+
+        function dibujarOrganigramaLocalDesdeRoot(rootId, luegoSubordinados) {
+            var chartContainer = document.getElementById("chart");
+            var rows = construirSubarbolOrganigramaLocal(rootId);
+
+            mostrarLoadingOrganigrama(false);
+            if (rows.length === 0) {
+                chartContainer.innerHTML = getOrganigramaMsgGlassHtml("No hay datos para mostrar.");
+                document.getElementById("btnGuardarOrganigrama").disabled = true;
+                if (luegoSubordinados) luegoSubordinados([]);
+                return;
+            }
+
+            organigramaRows = rows;
+            var root = rows[0] || null;
+            var titulo = root ? ("Organigrama: " + (root.nombre || "")) : "";
+            if (root && (root.puesto || root.nombre_puesto)) {
+                titulo += " / " + (root.puesto || root.nombre_puesto);
+            }
+            document.getElementById("orgTituloSeleccion").textContent = titulo;
+            cargarOrdenPuestosYActualizarHistorial();
+            chartContainer.innerHTML = "";
+            loadGoogleCharts(function () {
+                drawOrgChart(rows, chartContainer);
+            });
+            document.getElementById("btnGuardarOrganigrama").disabled = false;
+
+            var subs = getSubordinadosDirectos(rootId);
+            var seen = {};
+            subs = subs.filter(function (r) {
+                var id = String(r.id);
+                if (seen[id]) return false;
+                seen[id] = true;
+                return true;
+            });
+            var subsConEquipo = subs.filter(function (op) { return getSubordinadosDirectos(op.id).length > 0; });
+            if (luegoSubordinados) luegoSubordinados(subsConEquipo);
         }
 
         /** HTML Liquid Glass: cargando (spinner + texto) - usado dentro de #chart para mensajes */
@@ -846,10 +933,15 @@
                 mostrarLoadingOrganigrama(false);
                 document.getElementById("chart").innerHTML = "";
                 organigramaRows = [];
+                organigramaRowsBase = [];
                 document.getElementById("btnGuardarOrganigrama").disabled = true;
                 document.getElementById("orgTituloSeleccion").textContent = "";
                 actualizarHistorialPuestos();
                 if (luegoSubordinados) luegoSubordinados([]);
+                return;
+            }
+            if (esIdVacanteOrganigrama(personaId)) {
+                dibujarOrganigramaLocalDesdeRoot(personaId, luegoSubordinados);
                 return;
             }
             var url = "/CapHum/nivelJerarquicoColaborador/" + personaId;
@@ -872,6 +964,7 @@
                     if (!res.success) {
                         mostrarLoadingOrganigrama(false);
                         organigramaRows = [];
+                        organigramaRowsBase = [];
                         document.getElementById("btnGuardarOrganigrama").disabled = true;
                         document.getElementById("orgTituloSeleccion").textContent = "";
                         actualizarHistorialPuestos();
@@ -885,6 +978,7 @@
                     }
                     var rows = Array.isArray(res.rows) ? res.rows : [];
                     organigramaRows = rows;
+                    organigramaRowsBase = rows.slice();
                     (function () {
                         var root = organigramaRows.find(function (r) { return r && (r.jefe === null || r.jefe === undefined); });
                         var titulo = "";
@@ -925,6 +1019,7 @@
                     console.error("Organigrama:", err);
                     mostrarLoadingOrganigrama(false);
                     organigramaRows = [];
+                    organigramaRowsBase = [];
                     document.getElementById("chart").innerHTML = getOrganigramaMsgGlassHtml("No se pudo cargar el organigrama. Compruebe la conexión.");
                     document.getElementById("btnGuardarOrganigrama").disabled = true;
                     document.getElementById("orgTituloSeleccion").textContent = "";
@@ -1144,6 +1239,7 @@
             document.getElementById("personaLevel1Slot").innerHTML = "";
             document.getElementById("personaLevelsContainer").innerHTML = "";
             organigramaRows = [];
+            organigramaRowsBase = [];
             mostrarLoadingOrganigrama(false);
             actualizarHistorialPuestos();
             document.getElementById("btnGuardarOrganigrama").disabled = true;
@@ -1219,6 +1315,7 @@
             if (!persona_id) {
                 document.getElementById("chart").innerHTML = "";
                 organigramaRows = [];
+                organigramaRowsBase = [];
                 document.getElementById("btnGuardarOrganigrama").disabled = true;
                 document.getElementById("orgTituloSeleccion").textContent = "";
                 actualizarHistorialPuestos();
@@ -1309,6 +1406,7 @@
             document.getElementById("orgTituloSeleccion").textContent = "";
             document.getElementById("resultado").innerHTML = "";
             organigramaRows = [];
+            organigramaRowsBase = [];
             mostrarLoadingOrganigrama(false);
             actualizarHistorialPuestos();
             document.getElementById("btnGuardarOrganigrama").disabled = true;
