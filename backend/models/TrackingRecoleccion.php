@@ -539,7 +539,7 @@ class TrackingRecoleccion extends Model
             atr.nombre_ruta,
             atr.estado,
             atr.municipio,
-            DATE_FORMAT(atr.fecha_programada, \'%d/%m/%Y\') AS fecha_programada_fmt,
+            CONCAT(DATE_FORMAT(atr.fecha_programada, \'%d/\'), ELT(MONTH(atr.fecha_programada), \'Enero\',\'Febrero\',\'Marzo\',\'Abril\',\'Mayo\',\'Junio\',\'Julio\',\'Agosto\',\'Septiembre\',\'Octubre\',\'Noviembre\',\'Diciembre\'), DATE_FORMAT(atr.fecha_programada, \'/%Y\')) AS fecha_programada_fmt,
             atr.fecha_programada,
             atr.estatus_ruta,
             atr.creado_por,
@@ -595,7 +595,7 @@ class TrackingRecoleccion extends Model
             atr.nombre_ruta,
             atr.estado,
             atr.municipio,
-            DATE_FORMAT(atr.fecha_programada, \'%d/%m/%Y\') AS fecha_programada_fmt,
+            CONCAT(DATE_FORMAT(atr.fecha_programada, \'%d/\'), ELT(MONTH(atr.fecha_programada), \'Enero\',\'Febrero\',\'Marzo\',\'Abril\',\'Mayo\',\'Junio\',\'Julio\',\'Agosto\',\'Septiembre\',\'Octubre\',\'Noviembre\',\'Diciembre\'), DATE_FORMAT(atr.fecha_programada, \'/%Y\')) AS fecha_programada_fmt,
             atr.fecha_programada,
             atr.estatus_ruta,
             atr.creado_por,
@@ -653,7 +653,7 @@ class TrackingRecoleccion extends Model
             $cabecera = $this->db->queryOne(
                 "SELECT
                     atr.*,
-                    DATE_FORMAT(atr.fecha_programada, '%d/%m/%Y') AS fecha_programada_fmt,
+                    CONCAT(DATE_FORMAT(atr.fecha_programada, '%d/'), ELT(MONTH(atr.fecha_programada), 'Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'), DATE_FORMAT(atr.fecha_programada, '/%Y')) AS fecha_programada_fmt,
                     DATE_FORMAT(atr.fecha_creacion,   '%d/%m/%Y %H:%i') AS fecha_creacion_fmt
                  FROM asigna_horas_tracking atr
                  WHERE atr.id_ruta = :id
