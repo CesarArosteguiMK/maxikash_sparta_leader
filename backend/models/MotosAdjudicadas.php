@@ -50,7 +50,9 @@ class MotosAdjudicadas extends Model
     /** Mapeo del formulario de la app (dictums.form_response) a slots de Mis adjudicaciones. */
     private const DICTUM_APP_EVIDENCIA_SLOTS = [
         'foto_dacion_hoja_1' => 'fis_dacion_hoja_1',
+        'foto_de_dacion_hoja_1' => 'fis_dacion_hoja_1',
         'foto_dacion_hoja_2' => 'fis_dacion_hoja_2',
+        'foto_de_dacion_hoja_2' => 'fis_dacion_hoja_2',
         'foto_de_tacometro_legible_y_visible_el_kilometraje' => 'fis_tacometro',
         'text-1778722329133-0' => 'fis_tacometro',
         'foto_de_numero_de_serie_foto_legible_donde_se_lea_' => 'fis_vin',
@@ -60,6 +62,7 @@ class MotosAdjudicadas extends Model
         'foto_lateral_derecha_de_la_moto_foto_legible_de_pr' => 'fis_lateral_der',
         'inspeccion_360_de_moto_el_video_debe_evidenciar_el' => 'fis_360_encendida',
         'video_cliente_de_acuerdo' => 'fis_video_cliente_acuerdo',
+        'video_del_cliente_aceptando_la_adjudicacion_de_mot' => 'fis_video_cliente_acuerdo',
         'video_vuelta_de_prueba' => 'fis_video_vuelta_prueba',
         'tomar_foto' => 'fis_frontal',
         'video_de_moto_recuperada' => 'fis_360_encendida',

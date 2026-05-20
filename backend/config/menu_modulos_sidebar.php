@@ -80,7 +80,6 @@ if (!function_exists('getMenuSidebarModulosStructure')) {
             'Motos Adjudicadas' => [
                 'icono' => 'fa-solid fa-motorcycle',
                 'subItems' => [
-                    ['label' => 'Lista Dictámenes', 'url' => '/MotosAdjudicadas/listaDictamenes', 'modulos' => [64]],
                     ['label' => 'Admin Cobranza', 'url' => '/Adjudicacion/AsignacionCreditos', 'modulos' => [62]],
                     ['label' => 'Operaciones', 'url' => '/MotosAdjudicadas/pipeline', 'modulos' => [63]],
                     ['label' => 'Consulta REPUVE', 'url' => '/MotosAdjudicadas/repuveConsulta', 'modulos' => [64]],

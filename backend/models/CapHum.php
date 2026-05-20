@@ -1570,6 +1570,35 @@ class CapHum extends Model
         }
     }
 
+    /** Personas activas de la empresa para escoger jefe cuando el puesto no tiene jefe jerarquico configurado. */
+    public static function getPersonasActivasEmpresaParaJefe()
+    {
+        $predPer = UsuarioFantasmaReporteria::sqlPredicadoExcluirPersona('per');
+        $query = <<<SQL
+          SELECT
+            per.id,
+            CONCAT_WS(' ', per.nombres, per.segundo_nombre, per.apellidop, per.apellidom) AS nombre_completo,
+            COALESCE(MIN(pu.nombre), '') AS nombre_puesto
+          FROM persona per
+          LEFT JOIN asigna_puesto ap
+            ON ap.id_persona = per.id
+           AND COALESCE(ap.activo, 1) = 1
+          LEFT JOIN puesto pu
+            ON pu.id = ap.id_puesto
+          WHERE per.estatus != 'Baja'
+            AND {$predPer}
+          GROUP BY per.id, per.nombres, per.segundo_nombre, per.apellidop, per.apellidom
+          ORDER BY nombre_completo ASC
+        SQL;
+        try {
+            $db = new Database();
+            $r = $db->queryAll($query);
+            return self::resultado(true, 'Personas activas encontradas.', $r);
+        } catch (\Exception $e) {
+            return self::resultado(false, 'Error al procesar la solicitud.', null, $e->getMessage());
+        }
+    }
+
     /** Jefe por defecto cuando no hay resultados (ej. Legal/Abogado): JONNATHAN MARLON FLORES RODRIGUEZ */
     public static function getJefeDefault()
     {
