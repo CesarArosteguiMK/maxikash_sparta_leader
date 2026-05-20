@@ -2777,7 +2777,7 @@ async function _trkChatCargarInfo(idDetalle) {
         _trkChatActualizarEstatusBadge(idDetalle, chat.estatus);
         _trkChatActualizarUI(idDetalle);
         await _trkChatCargarMensajes(idDetalle);
-        if (chat.estatus === 'activo') {
+        if (chat.estatus === 'activo' || chat.estatus === 'bloqueado') {
             const token = await _trkChatObtenerToken();
             if (token) _trkChatConectarWS(idDetalle, token);
         }
