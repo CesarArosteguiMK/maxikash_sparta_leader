@@ -2978,6 +2978,19 @@ SQL;
 
         $this->sincronizarUltimosReemplazosEvidenciaOperacion($id);
 
+        $opSincronizada = $this->db->queryOne(
+            "SELECT o.*,
+                    DATE_FORMAT(o.fecha_alta,          '%Y-%m-%d %H:%i') AS fecha_alta_fmt,
+                    DATE_FORMAT(o.fecha_actualizacion, '%Y-%m-%d %H:%i') AS fecha_actualizacion_fmt,
+                    DATEDIFF(NOW(), o.fecha_alta) AS dias_en_pipeline
+             FROM adj_operacion o
+             WHERE o.id = :id",
+            ['id' => $id]
+        );
+        if ($opSincronizada) {
+            $op = $opSincronizada;
+        }
+
         $fla = $op['fecha_llegada_almacen'] ?? null;
         if ($fla !== null && (string) $fla !== '') {
             try {
