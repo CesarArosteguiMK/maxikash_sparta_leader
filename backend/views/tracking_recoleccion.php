@@ -251,8 +251,9 @@ body.dark-mode .trk-step-nombre { color: #e2e8f0; }
 .trk-badge-pendiente  { background: #f1f5f9; color: #64748b; }
 .trk-badge-en_camino  { background: #dbeafe; color: #1d4ed8; }
 .trk-badge-en_sitio   { background: #fef3c7; color: #92400e; }
-.trk-badge-completado { background: #dcfce7; color: #15803d; }
-.trk-badge-incidencia { background: #fee2e2; color: #b91c1c; }
+.trk-badge-recolectada { background: #dcfce7; color: #15803d; }
+.trk-badge-completado  { background: #dcfce7; color: #15803d; } /* alias */
+.trk-badge-incidencia  { background: #fee2e2; color: #b91c1c; }
 .trk-location-pill {
     display: inline-flex;
     align-items: center;
@@ -2949,25 +2950,27 @@ function _trkRTRenderizar(ruta) {
     }
 
     const LABELS = {
-        pendiente:  'Pendiente',
-        en_camino:  'En camino',
-        en_sitio:   'En sitio',
-        completado: 'Completado',
-        incidencia: 'Incidencia',
+        pendiente:   'Pendiente',
+        en_camino:   'En camino',
+        en_sitio:    'En sitio',
+        recolectada: 'Recolectada',
+        completado:  'Recolectada', // alias por compatibilidad
+        incidencia:  'Incidencia',
     };
     const ICONS = {
-        pendiente:  'fa-circle-dot',
-        en_camino:  'fa-motorcycle',
-        en_sitio:   'fa-location-dot',
-        completado: 'fa-circle-check',
-        incidencia: 'fa-triangle-exclamation',
+        pendiente:   'fa-circle-dot',
+        en_camino:   'fa-motorcycle',
+        en_sitio:    'fa-location-dot',
+        recolectada: 'fa-circle-check',
+        completado:  'fa-circle-check', // alias
+        incidencia:  'fa-triangle-exclamation',
     };
 
     let html = '';
     creditos.forEach(c => {
         const est     = c.estatus_recoleccion || 'pendiente';
         const esAct   = puntoAct && puntoAct.id_detalle === c.id_detalle;
-        const esDone  = est === 'completado';
+        const esDone  = est === 'recolectada' || est === 'completado';
         const stepCls = esDone ? 'done' : (esAct ? 'activo' : (est === 'en_sitio' ? 'en_sitio' : (est === 'incidencia' ? 'incidencia' : '')));
         const icon    = ICONS[est] || ICONS.pendiente;
         const label   = LABELS[est] || est;
@@ -3006,14 +3009,15 @@ function _trkRTAplicarChanges(changes) {
     });
     // Recalcular progreso
     const total       = creditos.length;
-    const completados = creditos.filter(c => c.estatus_recoleccion === 'completado').length;
+    const esTerminado = e => e === 'recolectada' || e === 'completado';
+    const completados = creditos.filter(c => esTerminado(c.estatus_recoleccion)).length;
     if (_trkRT.estado.progreso) {
         _trkRT.estado.progreso.completados  = completados;
         _trkRT.estado.progreso.pendientes   = total - completados;
         _trkRT.estado.progreso.porcentaje   = total ? Math.round((completados / total) * 100) : 0;
     }
-    // Punto actual: primer no completado
-    const noComp = creditos.find(c => c.estatus_recoleccion !== 'completado');
+    // Punto actual: primer no recolectado
+    const noComp = creditos.find(c => !esTerminado(c.estatus_recoleccion));
     _trkRT.estado.punto_actual = noComp ? { id_detalle: noComp.id_detalle } : null;
     _trkRTRenderizar(_trkRT.estado);
 }
