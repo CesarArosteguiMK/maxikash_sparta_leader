@@ -615,6 +615,7 @@ $aevPublicPath = function_exists('sparta_public_web_base') ? sparta_public_web_b
             { key: 'fis_video_cliente_acuerdo', label: 'Video cliente de acuerdo', icon: 'fa-video' },
             { key: 'fis_360_encendida', label: 'Video moto 360 encendida', icon: 'fa-video' },
             { key: 'fis_video_vuelta_prueba', label: 'Video vuelta de prueba', icon: 'fa-road' },
+            { key: 'fis_checklist', label: 'Foto checklist', icon: 'fa-list-check' },
         ]},
     ];
     const AEV_EV_DOCS = [
@@ -631,7 +632,7 @@ $aevPublicPath = function_exists('sparta_public_web_base') ? sparta_public_web_b
     const AE_EV_TOTAL      = AEV_TOTAL_IMAGEN;
 
     /** detalle de sesión: veredictos v[slot]= acep|rec, comentarios c[slot] (persiste solo mientras dura el modal) */
-    let _aevStore  = { det: null, idCredito: 0, v: {}, c: {}, rechazosPendientes: {} };
+    let _aevStore  = { det: null, idCredito: 0, v: {}, c: {}, rechazosPendientes: {}, pendingVeredictos: {} };
     let _aevVistaCtx = { slot: '', label: '', evidId: 0, soloAceptada: false, soloRechazada: false };
     let _aevZoomTeardown = null;
 
@@ -770,6 +771,7 @@ $aevPublicPath = function_exists('sparta_public_web_base') ? sparta_public_web_b
         _aevStore.v     = {};
         _aevStore.c     = {};
         _aevStore.rechazosPendientes = {};
+        _aevStore.pendingVeredictos = {};
         if (det && Array.isArray(det.evidencias)) {
             det.evidencias.forEach(function (e) {
                 if (!e || !e.slot) return;
@@ -1153,6 +1155,11 @@ $aevPublicPath = function_exists('sparta_public_web_base') ? sparta_public_web_b
         const rep = m.doc_repuve;
         if (!rep || !rep.url) return;
         btn.classList.remove('d-none');
+        if (aevHayVeredictosPendientes()) {
+            btn.disabled = true;
+            btn.title = 'Guardando validaciones, espera un momento.';
+            return;
+        }
         btn.disabled = false;
         btn.removeAttribute('title');
     }
@@ -1181,6 +1188,24 @@ $aevPublicPath = function_exists('sparta_public_web_base') ? sparta_public_web_b
 
     function aevKeyRechazoPendiente(opId, evidId) {
         return String(parseInt(opId, 10) || 0) + ':' + String(parseInt(evidId, 10) || 0);
+    }
+
+    function aevKeyVeredictoPendiente(opId, evidId) {
+        return String(parseInt(opId, 10) || 0) + ':' + String(parseInt(evidId, 10) || 0);
+    }
+
+    function aevSetVeredictoPendiente(opId, evidId, activo) {
+        const key = aevKeyVeredictoPendiente(opId, evidId);
+        if (!_aevStore.pendingVeredictos) _aevStore.pendingVeredictos = {};
+        if (activo) {
+            _aevStore.pendingVeredictos[key] = true;
+        } else if (Object.prototype.hasOwnProperty.call(_aevStore.pendingVeredictos, key)) {
+            delete _aevStore.pendingVeredictos[key];
+        }
+    }
+
+    function aevHayVeredictosPendientes() {
+        return !!(_aevStore.pendingVeredictos && Object.keys(_aevStore.pendingVeredictos).length > 0);
     }
 
     function aevRegistrarRechazoPendiente(opId, evidId, slot, comentario) {
@@ -1610,18 +1635,16 @@ $aevPublicPath = function_exists('sparta_public_web_base') ? sparta_public_web_b
         if (hasSwal) {
             Swal.fire({
                 title: 'Cargando Evidencias…',
-                html: '<span style="font-size:.875rem;color:#64748b;">Obteniendo todas las pestañas</span>',
+                html: '<span style="font-size:.875rem;color:#64748b;">Obteniendo bandeja de entrada</span>',
                 allowOutsideClick: false,
                 allowEscapeKey: false,
                 showConfirmButton: false,
                 didOpen: function () { Swal.showLoading(); },
             });
         }
-        Promise.all([
-            aeCargarConteosPestanas(),
-            aeCargarSeccion('bandeja', true),
-        ]).finally(function () {
+        aeCargarSeccion('bandeja', true).finally(function () {
             if (hasSwal) Swal.close();
+            aeCargarConteosPestanas();
         });
     }
 

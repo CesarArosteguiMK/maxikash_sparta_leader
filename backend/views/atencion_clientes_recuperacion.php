@@ -1576,18 +1576,16 @@ $arPublicPath = function_exists('sparta_public_web_base') ? sparta_public_web_ba
         if (hasSwal) {
             Swal.fire({
                 title: 'Cargando Recuperación…',
-                html: '<span style="font-size:.875rem;color:#64748b;">Obteniendo todas las pestañas</span>',
+                html: '<span style="font-size:.875rem;color:#64748b;">Obteniendo bandeja de entrada</span>',
                 allowOutsideClick: false,
                 allowEscapeKey: false,
                 showConfirmButton: false,
                 didOpen: function () { Swal.showLoading(); },
             });
         }
-        Promise.all([
-            arCargarConteosPestanas(),
-            arCargarSeccion('bandeja', true),
-        ]).finally(function () {
+        arCargarSeccion('bandeja', true).finally(function () {
             if (hasSwal) Swal.close();
+            arCargarConteosPestanas();
         });
     }
 

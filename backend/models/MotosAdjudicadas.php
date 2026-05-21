@@ -48,6 +48,7 @@ class MotosAdjudicadas extends Model
         'fis_frontal', 'fis_lateral_der', 'fis_trasera', 'fis_lateral_izq',
         'fis_tacometro',
         'fis_video_cliente_acuerdo', 'fis_360_encendida', 'fis_video_vuelta_prueba',
+        'fis_checklist',
     ];
 
     /** Mapeo del formulario de la app (dictums.form_response) a slots de Mis adjudicaciones. */
@@ -67,6 +68,8 @@ class MotosAdjudicadas extends Model
         'video_cliente_de_acuerdo' => 'fis_video_cliente_acuerdo',
         'video_del_cliente_aceptando_la_adjudicacion_de_mot' => 'fis_video_cliente_acuerdo',
         'video_vuelta_de_prueba' => 'fis_video_vuelta_prueba',
+        'foto_de_checklist' => 'fis_checklist',
+        'foto_de_check_list' => 'fis_checklist',
         'tomar_foto' => 'fis_frontal',
         'video_de_moto_recuperada' => 'fis_360_encendida',
     ];
@@ -2112,6 +2115,7 @@ class MotosAdjudicadas extends Model
             'fis_dacion_hoja_1', 'fis_dacion_hoja_2',
             'fis_lateral_der', 'fis_trasera', 'fis_lateral_izq',
             'fis_video_cliente_acuerdo', 'fis_360_encendida', 'fis_video_vuelta_prueba',
+            'fis_checklist',
             'doc_repuve',    'doc_factura',   'doc_cierre_s2',
             'doc_dacion_rcpt', 'doc_tarjeta_rcpt', 'doc_firma_rcpt',
             'vista_trs', 'vista_front', 'lado_izq', 'lado_der',
@@ -3307,6 +3311,7 @@ SQL;
         'fis_video_cliente_acuerdo' => 'VIDEO CLIENTE DE ACUERDO (FÍSICA)',
         'fis_360_encendida' => 'VIDEO MOTO 360 ENCENDIDA (FÍSICA)',
         'fis_video_vuelta_prueba' => 'VIDEO VUELTA DE PRUEBA (FÍSICA)',
+        'fis_checklist' => 'CHECKLIST (FÍSICA)',
         'doc_repuve'    => 'REPUVE',
         'doc_factura'   => 'FACTURA',
         'doc_cierre_s2' => 'CONFIRMACIÓN CIERRE S2',
@@ -3333,6 +3338,7 @@ SQL;
         'fis_dacion_hoja_1', 'fis_dacion_hoja_2',
         'fis_vin', 'fis_frontal', 'fis_lateral_der', 'fis_trasera', 'fis_lateral_izq',
         'fis_tacometro', 'fis_video_cliente_acuerdo', 'fis_360_encendida', 'fis_video_vuelta_prueba',
+        'fis_checklist',
     ];
 
     /** Repuve: solo debe existir PDF subido; no se usa val_atn en Atenci?n. */
@@ -3350,6 +3356,7 @@ SQL;
         'fis_frontal', 'fis_lateral_der', 'fis_trasera', 'fis_lateral_izq',
         'fis_tacometro',
         'fis_video_cliente_acuerdo', 'fis_360_encendida', 'fis_video_vuelta_prueba',
+        'fis_checklist',
         'doc_repuve', 'doc_factura',
     ];
 
@@ -3412,13 +3419,31 @@ SQL;
     public function sincronizarDictumsAppPendientes(): void
     {
         $lockHandle = null;
+        $lockTomado = false;
         try {
             $lockPath = rtrim(sys_get_temp_dir(), DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR . 'sparta_madj_dictums_sync.lock';
-            $lockHandle = @fopen($lockPath, 'c');
-            if ($lockHandle && !@flock($lockHandle, LOCK_EX | LOCK_NB)) {
-                @fclose($lockHandle);
+            $stampPath = rtrim(sys_get_temp_dir(), DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR . 'sparta_madj_dictums_sync.stamp';
+            $intervaloMinimo = 300;
+
+            if (is_file($stampPath) && (time() - (int) @filemtime($stampPath)) < $intervaloMinimo) {
                 return;
             }
+
+            $lockHandle = @fopen($lockPath, 'c');
+            if (!$lockHandle) {
+                return;
+            }
+            if (!@flock($lockHandle, LOCK_EX | LOCK_NB)) {
+                @fclose($lockHandle);
+                $lockHandle = null;
+                return;
+            }
+            $lockTomado = true;
+
+            if (is_file($stampPath) && (time() - (int) @filemtime($stampPath)) < $intervaloMinimo) {
+                return;
+            }
+            @touch($stampPath);
 
             $this->sincronizarDictumsAsignacionVigentePendientes();
 
@@ -3448,8 +3473,10 @@ SQL;
         } catch (\Throwable $e) {
             error_log('[MotosAdjudicadas] sincronizarDictumsAppPendientes: ' . $e->getMessage());
         } finally {
-            if ($lockHandle) {
-                @flock($lockHandle, LOCK_UN);
+            if (is_resource($lockHandle)) {
+                if ($lockTomado) {
+                    @flock($lockHandle, LOCK_UN);
+                }
                 @fclose($lockHandle);
             }
         }
