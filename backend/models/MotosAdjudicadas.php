@@ -3419,13 +3419,31 @@ SQL;
     public function sincronizarDictumsAppPendientes(): void
     {
         $lockHandle = null;
+        $lockTomado = false;
         try {
             $lockPath = rtrim(sys_get_temp_dir(), DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR . 'sparta_madj_dictums_sync.lock';
-            $lockHandle = @fopen($lockPath, 'c');
-            if ($lockHandle && !@flock($lockHandle, LOCK_EX | LOCK_NB)) {
-                @fclose($lockHandle);
+            $stampPath = rtrim(sys_get_temp_dir(), DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR . 'sparta_madj_dictums_sync.stamp';
+            $intervaloMinimo = 300;
+
+            if (is_file($stampPath) && (time() - (int) @filemtime($stampPath)) < $intervaloMinimo) {
                 return;
             }
+
+            $lockHandle = @fopen($lockPath, 'c');
+            if (!$lockHandle) {
+                return;
+            }
+            if (!@flock($lockHandle, LOCK_EX | LOCK_NB)) {
+                @fclose($lockHandle);
+                $lockHandle = null;
+                return;
+            }
+            $lockTomado = true;
+
+            if (is_file($stampPath) && (time() - (int) @filemtime($stampPath)) < $intervaloMinimo) {
+                return;
+            }
+            @touch($stampPath);
 
             $this->sincronizarDictumsAsignacionVigentePendientes();
 
@@ -3455,8 +3473,10 @@ SQL;
         } catch (\Throwable $e) {
             error_log('[MotosAdjudicadas] sincronizarDictumsAppPendientes: ' . $e->getMessage());
         } finally {
-            if ($lockHandle) {
-                @flock($lockHandle, LOCK_UN);
+            if (is_resource($lockHandle)) {
+                if ($lockTomado) {
+                    @flock($lockHandle, LOCK_UN);
+                }
                 @fclose($lockHandle);
             }
         }
