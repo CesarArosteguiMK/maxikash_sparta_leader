@@ -3,6 +3,7 @@
 namespace Models;
 
 use Core\Database;
+use Core\DatabaseLegacy;
 use Core\Model;
 
 class Ticket extends Model
@@ -23,6 +24,230 @@ class Ticket extends Model
     private static $schemaColumnExistsCache = [];
     private static $schemaColumnsLoadedTables = [];
     private static $schemaTableExistsCache = [];
+
+    private static function pushLegacyConfig(): array
+    {
+        $cfg = function_exists('config_api_load_from_db') ? config_api_load_from_db() : [];
+        $leerValor = static function (array $keys) use ($cfg): string {
+            foreach ($keys as $key) {
+                $valor = trim((string) ($cfg[$key] ?? ''));
+                if ($valor !== '') {
+                    return $valor;
+                }
+                $env = getenv($key);
+                if ($env !== false && trim((string) $env) !== '') {
+                    return trim((string) $env);
+                }
+            }
+            return '';
+        };
+
+        $baseUrl = $leerValor(['MOTOS_ADJUDICADAS_PUSH_BASE_URL']);
+        if ($baseUrl === '') {
+            $baseUrl = 'https://motosadjudicadas-601258367060.us-central1.run.app';
+        }
+
+        return [
+            'base_url' => rtrim($baseUrl, '/'),
+            'api_key' => $leerValor(['MOTOS_ADJUDICADAS_API_KEY', 'MOTOS_ADJUDICADAS_TOKEN']),
+        ];
+    }
+
+    private static function pushLegacyPost(string $path, array $payload): array
+    {
+        $cfg = self::pushLegacyConfig();
+        if ($cfg['base_url'] === '' || $cfg['api_key'] === '') {
+            return ['success' => false, 'message' => 'Servicio de notificaciones no configurado.'];
+        }
+        if (!function_exists('curl_init')) {
+            return ['success' => false, 'message' => 'cURL no esta disponible en este servidor.'];
+        }
+
+        $ch = curl_init($cfg['base_url'] . $path);
+        curl_setopt_array($ch, [
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_POST => true,
+            CURLOPT_POSTFIELDS => json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
+            CURLOPT_TIMEOUT => 20,
+            CURLOPT_HTTPHEADER => [
+                'Content-Type: application/json',
+                'Accept: application/json',
+                'X-API-Key: ' . $cfg['api_key'],
+            ],
+            CURLOPT_SSL_VERIFYPEER => true,
+        ]);
+
+        $raw = curl_exec($ch);
+        $err = curl_error($ch);
+        $httpCode = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        curl_close($ch);
+
+        $decoded = json_decode($raw === false ? '' : (string) $raw, true);
+        if ($httpCode < 200 || $httpCode >= 300) {
+            return [
+                'success' => false,
+                'message' => is_array($decoded)
+                    ? (string) ($decoded['message'] ?? $decoded['mensaje'] ?? $decoded['detail'] ?? 'No se pudo enviar la notificacion.')
+                    : ($err ?: 'No se pudo enviar la notificacion.'),
+                'http_code' => $httpCode,
+            ];
+        }
+
+        return [
+            'success' => true,
+            'http_code' => $httpCode,
+            'response' => is_array($decoded) ? $decoded : null,
+        ];
+    }
+
+    private static function resolverDestinatarioPushLegacy(Database $db, int $idPersona): array
+    {
+        if ($idPersona <= 0) {
+            return ['user_id_legacy' => '', 'external_id' => ''];
+        }
+
+        $persona = $db->queryOne(
+            'SELECT TRIM(COALESCE(numero_empleado, \'\')) AS external_id
+             FROM persona
+             WHERE id = :id
+             LIMIT 1',
+            ['id' => $idPersona]
+        );
+        $externalId = trim((string) ($persona['external_id'] ?? ''));
+        $legacyUserId = 0;
+
+        if ($externalId !== '') {
+            try {
+                $legacyDb = new DatabaseLegacy();
+                $legacyUser = $legacyDb->queryOne(
+                    'SELECT id
+                     FROM users
+                     WHERE TRIM(COALESCE(external_id, \'\')) = :external_id
+                       AND deleted_at IS NULL
+                     ORDER BY id DESC
+                     LIMIT 1',
+                    ['external_id' => $externalId]
+                );
+                $legacyUserId = (int) ($legacyUser['id'] ?? 0);
+            } catch (\Throwable $e) {
+                $legacyUserId = 0;
+            }
+        }
+
+        return [
+            'user_id_legacy' => $legacyUserId > 0 ? (string) $legacyUserId : '',
+            'external_id' => $externalId,
+        ];
+    }
+
+    private static function datosNotificacionRespuestaTicket(array $ticket, string $resultado): ?array
+    {
+        $categoria = strtolower(trim((string) ($ticket['categoria_gestion'] ?? '')));
+        $aprobado = $resultado === 'aceptado';
+        $estadoApp = $aprobado ? 'aprobado' : 'rechazado';
+        $estadoTitulo = $aprobado ? 'aprobado' : 'rechazado';
+        $estadoTituloFem = $aprobado ? 'aprobada' : 'rechazada';
+
+        $base = null;
+        $typeBase = null;
+        $femenino = false;
+        $plural = false;
+
+        if (in_array($categoria, ['ausencia', 'solicitud_vacaciones'], true)) {
+            $tipo = strtolower(trim((string) ($ticket['tipo_categoria'] ?? '')));
+            $tipo = strtr($tipo, [
+                'á' => 'a', 'é' => 'e', 'í' => 'i', 'ó' => 'o', 'ú' => 'u', 'ñ' => 'n',
+                'Á' => 'a', 'É' => 'e', 'Í' => 'i', 'Ó' => 'o', 'Ú' => 'u', 'Ñ' => 'n',
+                'Ã¡' => 'a', 'Ã©' => 'e', 'Ã­' => 'i', 'Ã³' => 'o', 'Ãº' => 'u', 'Ã±' => 'n',
+            ]);
+            $tipo = str_replace(['_', '-'], ' ', $tipo);
+            $tipo = preg_replace('/\s+/', ' ', $tipo);
+
+            if (strpos($tipo, 'permiso') !== false && strpos($tipo, 'personal') !== false) {
+                $base = 'Permiso personal';
+                $typeBase = 'permiso_personal';
+                $femenino = false;
+            } elseif (strpos($tipo, 'medic') !== false) {
+                $base = 'Permiso medico';
+                $typeBase = 'permiso_medico';
+                $femenino = false;
+            } elseif (strpos($tipo, 'incapacidad') !== false) {
+                $base = 'Incapacidad laboral';
+                $typeBase = 'incapacidad_medica';
+                $femenino = true;
+            } else {
+                $base = 'Vacaciones';
+                $typeBase = 'vacaciones';
+                $femenino = true;
+                $plural = true;
+            }
+        } elseif (in_array($categoria, ['reclamo', 'aplicaciones_de_pago'], true)) {
+            $base = 'Reclamo de bono';
+            $typeBase = 'reclamo_bono';
+            $femenino = false;
+        } elseif (in_array($categoria, ['pagos_no_identificados', 'credito_problematico'], true)) {
+            $base = 'Pago no identificado';
+            $typeBase = 'pago_no_identificado';
+            $femenino = false;
+        } elseif (in_array($categoria, ['incidencias_cartera', 'aclaracion_credito'], true)) {
+            $base = 'Correccion de cartera';
+            $typeBase = 'correccion_cartera';
+            $femenino = true;
+        }
+
+        if ($base === null || $typeBase === null) {
+            return null;
+        }
+
+        $estadoTexto = $femenino ? $estadoTituloFem : $estadoTitulo;
+        if ($plural) {
+            $estadoTexto = $aprobado ? 'aprobadas' : 'rechazadas';
+        }
+        $titulo = $base . ' ' . $estadoTexto;
+        $mensaje = $aprobado
+            ? 'Tu solicitud de ' . lcfirst($base) . ' fue aprobada. Toca para ver el detalle.'
+            : 'Tu solicitud de ' . lcfirst($base) . ' fue rechazada. Toca para ver el detalle.';
+
+        return [
+            'titulo' => $titulo,
+            'mensaje' => $mensaje,
+            'evento' => $typeBase . '_' . $estadoTexto,
+            'type' => $typeBase . '_' . $estadoTexto,
+            'ticket_status' => $estadoApp,
+            'categoria' => $categoria,
+        ];
+    }
+
+    private static function notificarRespuestaTicketLegacy(Database $db, array $ticket, string $resultado): array
+    {
+        $datosNotificacion = self::datosNotificacionRespuestaTicket($ticket, $resultado);
+        if ($datosNotificacion === null) {
+            return ['success' => true, 'omitir' => true];
+        }
+
+        $idTicket = (int) ($ticket['id_ticket'] ?? 0);
+        $idCreador = (int) ($ticket['id_persona_creador'] ?? 0);
+        $dest = self::resolverDestinatarioPushLegacy($db, $idCreador);
+        if ($dest['user_id_legacy'] === '' && $dest['external_id'] === '') {
+            return ['success' => false, 'message' => 'No se encontro destinatario movil para la notificacion.'];
+        }
+
+        return self::pushLegacyPost('/api/push-notifications/legacy/send', [
+            'user_id_legacy' => $dest['user_id_legacy'],
+            'external_id' => $dest['external_id'],
+            'titulo' => $datosNotificacion['titulo'],
+            'mensaje' => $datosNotificacion['mensaje'],
+            'evento' => $datosNotificacion['evento'],
+            'data' => [
+                'type' => $datosNotificacion['type'],
+                'screen' => 'LevantarTicket',
+                'id_ticket' => $idTicket,
+                'ticket_status' => $datosNotificacion['ticket_status'],
+                'ticket_categoria' => $datosNotificacion['categoria'],
+                'highlight_ticket' => true,
+            ],
+        ]);
+    }
 
     /**
      * Tiempo Sabueso/tickets: toda fecha/hora que se escribe en BD en este módulo debe ser hora CDMX
@@ -1840,7 +2065,12 @@ class Ticket extends Model
                 }
             }
             $row = $db->queryOne(
-                "SELECT id_ticket, categoria_gestion FROM ticket WHERE id_ticket = :id AND (activo = 1 OR activo IS NULL) AND fecha_eliminacion IS NULL LIMIT 1",
+                "SELECT id_ticket, categoria_gestion, tipo_categoria, asunto, id_persona_creador
+                 FROM ticket
+                 WHERE id_ticket = :id
+                   AND (activo = 1 OR activo IS NULL)
+                   AND fecha_eliminacion IS NULL
+                 LIMIT 1",
                 ['id' => $idTicket]
             );
             if (!$row) {
@@ -1865,7 +2095,20 @@ class Ticket extends Model
                 ]
             );
 
-            return self::resultado(true, $resultado === 'aceptado' ? 'Ticket aceptado.' : 'Ticket denegado.', ['resultado' => $resultado]);
+            $push = self::notificarRespuestaTicketLegacy($db, $row, $resultado);
+
+            return self::resultado(
+                true,
+                $resultado === 'aceptado' ? 'Ticket aceptado.' : 'Ticket denegado.',
+                [
+                    'resultado' => $resultado,
+                    'push_notificacion' => [
+                        'success' => (bool) ($push['success'] ?? false),
+                        'omitida' => (bool) ($push['omitir'] ?? false),
+                        'message' => (string) ($push['message'] ?? ''),
+                    ],
+                ]
+            );
         } catch (\Exception $e) {
             return self::resultado(false, 'Error al responder el ticket.', null, $e->getMessage());
         }

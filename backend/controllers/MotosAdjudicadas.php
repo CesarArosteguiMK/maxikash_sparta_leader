@@ -46,6 +46,193 @@ class MotosAdjudicadas extends Controller
     }
 
     /**
+     * GET /MotosAdjudicadas/campaniaNotificacionLegacy
+     */
+    public function campaniaNotificacionLegacy()
+    {
+        $emp = defined('CONFIGURACION') && isset(CONFIGURACION['EMPRESA']) ? (string) CONFIGURACION['EMPRESA'] : '';
+        self::set('titulo', 'Campaña Notificación Legacy - Motos Adjudicadas ' . $emp);
+        self::set('campaign_id_default', 'camp_' . date('Ymd_His'));
+        return self::render('motos_adjudicadas_campania_notificacion_legacy');
+    }
+
+    /**
+     * GET /MotosAdjudicadas/monitoreoAdjudicaciones
+     */
+    public function monitoreoAdjudicaciones()
+    {
+        $emp = defined('CONFIGURACION') && isset(CONFIGURACION['EMPRESA']) ? (string) CONFIGURACION['EMPRESA'] : '';
+        self::set('titulo', 'Monitoreo de adjudicaciones - Motos Adjudicadas ' . $emp);
+        return self::render('motos_adjudicadas_monitoreo');
+    }
+
+    private function pushLegacyConfig(): array
+    {
+        $cfg = function_exists('config_api_load_from_db') ? config_api_load_from_db() : [];
+        $leerValor = static function (array $keys) use ($cfg): string {
+            foreach ($keys as $key) {
+                $valor = trim((string) ($cfg[$key] ?? ''));
+                if ($valor !== '') {
+                    return $valor;
+                }
+                $env = getenv($key);
+                if ($env !== false && trim((string) $env) !== '') {
+                    return trim((string) $env);
+                }
+            }
+            return '';
+        };
+
+        $baseUrl = $leerValor(['MOTOS_ADJUDICADAS_PUSH_BASE_URL']);
+        if ($baseUrl === '') {
+            $baseUrl = 'https://motosadjudicadas-601258367060.us-central1.run.app';
+        }
+        $apiKey = $leerValor(['MOTOS_ADJUDICADAS_API_KEY', 'MOTOS_ADJUDICADAS_TOKEN']);
+
+        return [
+            'base_url' => rtrim($baseUrl, '/'),
+            'api_key' => $apiKey,
+        ];
+    }
+
+    private function pushLegacyCurl(string $url, array $payload): array
+    {
+        if (!function_exists('curl_init')) {
+            return [
+                'http_code' => 0,
+                'body' => '',
+                'error' => 'cURL no esta disponible en este servidor.',
+            ];
+        }
+
+        $cfg = $this->pushLegacyConfig();
+        $body = json_encode($payload, JSON_UNESCAPED_SLASHES);
+        $ch = curl_init($url);
+        curl_setopt_array($ch, [
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_POST => true,
+            CURLOPT_POSTFIELDS => $body,
+            CURLOPT_TIMEOUT => 25,
+            CURLOPT_HTTPHEADER => [
+                'Content-Type: application/json; charset=utf-8',
+                'Accept: application/json',
+                'X-API-Key: ' . $cfg['api_key'],
+            ],
+            CURLOPT_SSL_VERIFYPEER => true,
+        ]);
+
+        $raw = curl_exec($ch);
+        $err = curl_error($ch);
+        $httpCode = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        curl_close($ch);
+
+        return [
+            'http_code' => $httpCode,
+            'body' => $raw === false ? '' : (string) $raw,
+            'error' => $err ?: null,
+        ];
+    }
+
+    private function normalizarListaIds($valor): array
+    {
+        if (is_array($valor)) {
+            $items = $valor;
+        } else {
+            $items = preg_split('/[\s,;]+/', (string) $valor) ?: [];
+        }
+
+        $ids = [];
+        foreach ($items as $item) {
+            $id = trim((string) $item);
+            if ($id === '') {
+                continue;
+            }
+            $ids[$id] = $id;
+        }
+
+        return array_values($ids);
+    }
+
+    /**
+     * POST /MotosAdjudicadas/enviarCampaniaNotificacionLegacy
+     */
+    public function enviarCampaniaNotificacionLegacy()
+    {
+        header('Content-Type: application/json; charset=utf-8');
+
+        $cfg = $this->pushLegacyConfig();
+        if ($cfg['base_url'] === '' || $cfg['api_key'] === '') {
+            echo json_encode([
+                'success' => false,
+                'message' => 'Servicio de notificaciones no configurado. Configure MOTOS_ADJUDICADAS_TOKEN en config_api o en el entorno.',
+            ], JSON_UNESCAPED_UNICODE);
+            return;
+        }
+
+        $body = json_decode((string) file_get_contents('php://input'), true) ?: [];
+        $titulo = trim((string) ($body['titulo'] ?? ''));
+        $mensaje = trim((string) ($body['mensaje'] ?? ''));
+
+        if ($titulo === '' || $mensaje === '') {
+            echo json_encode(['success' => false, 'message' => 'Título y mensaje son obligatorios.'], JSON_UNESCAPED_UNICODE);
+            return;
+        }
+
+        $data = $body['data'] ?? [];
+        if (!is_array($data)) {
+            echo json_encode(['success' => false, 'message' => 'El campo data debe ser un objeto JSON valido.'], JSON_UNESCAPED_UNICODE);
+            return;
+        }
+
+        if (($data['type'] ?? '') === 'aviso_especial') {
+            $data['screen'] = 'NotificacionEspecial';
+        }
+
+        $campaignId = trim((string) ($data['campaign_id'] ?? $body['campaign_id'] ?? ''));
+        if ($campaignId === '') {
+            $campaignId = 'camp_' . date('Ymd_His');
+        }
+
+        $payload = [
+            'titulo' => $titulo,
+            'mensaje' => $mensaje,
+            'segmento' => 'all',
+            'user_id_legacy' => $this->normalizarListaIds($body['user_id_legacy'] ?? []),
+            'external_id' => $this->normalizarListaIds($body['external_id'] ?? []),
+            'data' => array_merge([
+                'type' => 'campaign',
+                'screen' => 'Home',
+            ], $data, [
+                'campaign_id' => $campaignId,
+            ]),
+            'created_by' => trim((string) ($_SESSION['nombre'] ?? $_SESSION['usuario'] ?? $_SESSION['usuario_nombre'] ?? 'sparta_backend')),
+        ];
+
+        $url = $cfg['base_url'] . '/api/push-campaigns/legacy/send';
+        $resp = $this->pushLegacyCurl($url, $payload);
+        $decoded = json_decode($resp['body'], true);
+
+        if ($resp['http_code'] < 200 || $resp['http_code'] >= 300) {
+            echo json_encode([
+                'success' => false,
+                'message' => is_array($decoded)
+                    ? (string) ($decoded['message'] ?? $decoded['mensaje'] ?? $decoded['detail'] ?? 'No se pudo enviar la campaña.')
+                    : ($resp['error'] ?: 'No se pudo enviar la campaña.'),
+                'http_code' => $resp['http_code'],
+                'api_response' => $decoded ?: $resp['body'],
+            ], JSON_UNESCAPED_UNICODE);
+            return;
+        }
+
+        echo json_encode([
+            'success' => true,
+            'message' => 'Campaña enviada correctamente.',
+            'http_code' => $resp['http_code'],
+            'api_response' => is_array($decoded) ? $decoded : null,
+        ], JSON_UNESCAPED_UNICODE);
+    }
+
+    /**
      * GET /MotosAdjudicadas/obtenerListaDictamenes
      */
     public function obtenerListaDictamenes()
@@ -205,6 +392,83 @@ class MotosAdjudicadas extends Controller
         try {
             $ops = $this->model->obtenerPipeline();
             echo json_encode(['success' => true, 'operaciones' => $ops]);
+        } catch (\Exception $e) {
+            echo json_encode(['success' => false, 'message' => $e->getMessage()]);
+        }
+    }
+
+    /**
+     * POST /MotosAdjudicadas/obtenerMonitoreoAdjudicaciones
+     */
+    public function obtenerMonitoreoAdjudicaciones()
+    {
+        header('Content-Type: application/json; charset=utf-8');
+        $body = json_decode(file_get_contents('php://input'), true) ?? [];
+        $filtros = is_array($body['filtros'] ?? null) ? $body['filtros'] : $body;
+
+        try {
+            $rows = $this->model->obtenerMonitoreoAdjudicaciones($filtros);
+            echo json_encode(['success' => true, 'datos' => $rows], JSON_UNESCAPED_UNICODE);
+        } catch (\Exception $e) {
+            echo json_encode(['success' => false, 'message' => $e->getMessage()]);
+        }
+    }
+
+    /**
+     * POST /MotosAdjudicadas/buscarPersonasMonitoreo
+     */
+    public function buscarPersonasMonitoreo()
+    {
+        header('Content-Type: application/json; charset=utf-8');
+        $body = json_decode(file_get_contents('php://input'), true) ?? [];
+        $buscar = trim((string) ($body['buscar'] ?? $body['q'] ?? ''));
+
+        try {
+            $rows = $this->model->buscarPersonasParaMonitoreo($buscar);
+            echo json_encode(['success' => true, 'datos' => $rows], JSON_UNESCAPED_UNICODE);
+        } catch (\Exception $e) {
+            echo json_encode(['success' => false, 'message' => $e->getMessage()]);
+        }
+    }
+
+    /**
+     * POST /MotosAdjudicadas/buscarDestinatariosCampaniaLegacy
+     */
+    public function buscarDestinatariosCampaniaLegacy()
+    {
+        header('Content-Type: application/json; charset=utf-8');
+        $body = json_decode(file_get_contents('php://input'), true) ?? [];
+        $buscar = trim((string) ($body['buscar'] ?? $body['q'] ?? ''));
+
+        try {
+            $rows = $this->model->buscarDestinatariosCampaniaLegacy($buscar);
+            echo json_encode(['success' => true, 'datos' => $rows], JSON_UNESCAPED_UNICODE);
+        } catch (\Throwable $e) {
+            echo json_encode(['success' => false, 'message' => $e->getMessage()], JSON_UNESCAPED_UNICODE);
+        }
+    }
+
+    /**
+     * POST /MotosAdjudicadas/reasignarMonitoreoAdjudicacion
+     */
+    public function reasignarMonitoreoAdjudicacion()
+    {
+        header('Content-Type: application/json; charset=utf-8');
+        $body = json_decode(file_get_contents('php://input'), true) ?? [];
+        $idOperacion = (int) ($body['id_operacion'] ?? 0);
+        $idPersona = (int) ($body['id_persona'] ?? 0);
+
+        if ($idOperacion <= 0 || $idPersona <= 0) {
+            echo json_encode(['success' => false, 'message' => 'Parámetros inválidos.']);
+            return;
+        }
+
+        $idUsuario = (int) ($_SESSION['persona_id'] ?? $_SESSION['usuario_id'] ?? $_SESSION['id_usuario'] ?? $_SESSION['id'] ?? 0);
+        $nombreUsuario = trim($_SESSION['usuario_nombre'] ?? 'SISTEMA');
+
+        try {
+            $result = $this->model->reasignarCreditoMonitoreo($idOperacion, $idPersona, $idUsuario, $nombreUsuario);
+            echo json_encode($result, JSON_UNESCAPED_UNICODE);
         } catch (\Exception $e) {
             echo json_encode(['success' => false, 'message' => $e->getMessage()]);
         }
@@ -993,6 +1257,160 @@ class MotosAdjudicadas extends Controller
     }
 
     /**
+     * POST /MotosAdjudicadas/enviarRechazosEvidenciasBulkLegacy
+     * Registra el historial local de rechazos y envia una sola push agrupada.
+     */
+    public function enviarRechazosEvidenciasBulkLegacy()
+    {
+        header('Content-Type: application/json; charset=utf-8');
+
+        $cfg = $this->pushLegacyConfig();
+        if ($cfg['base_url'] === '' || $cfg['api_key'] === '') {
+            echo json_encode([
+                'success' => false,
+                'message' => 'Servicio de notificaciones no configurado. Configure MOTOS_ADJUDICADAS_TOKEN en config_api o en el entorno.',
+            ], JSON_UNESCAPED_UNICODE);
+            return;
+        }
+
+        $body = json_decode((string) file_get_contents('php://input'), true) ?: [];
+        $idOperacion = (int) ($body['id_operacion'] ?? 0);
+        $motivoGeneral = trim((string) ($body['motivo_general'] ?? 'Evidencias incompletas o borrosas.'));
+        $evidencias = $body['evidencias'] ?? [];
+        $idUsuario = (int) ($_SESSION['usuario_id'] ?? $_SESSION['id_usuario'] ?? $_SESSION['id'] ?? 0);
+        $nombreUsuario = trim((string) ($_SESSION['usuario_nombre'] ?? $_SESSION['nombre'] ?? $_SESSION['usuario'] ?? 'SISTEMA'));
+
+        try {
+            $prep = $this->model->prepararPayloadRechazoEvidenciasBulk(
+                $idOperacion,
+                is_array($evidencias) ? $evidencias : [],
+                $idUsuario,
+                $motivoGeneral
+            );
+            if (empty($prep['success'])) {
+                echo json_encode($prep, JSON_UNESCAPED_UNICODE);
+                return;
+            }
+
+            $payload = $prep['payload'] ?? [];
+            $destinatarios = is_array($prep['destinatarios'] ?? null) ? $prep['destinatarios'] : [];
+            if ($destinatarios === [] && is_array($payload)) {
+                $destinatarios[] = [
+                    'user_id_legacy' => (int) ($payload['user_id_legacy'] ?? 0),
+                    'external_id' => (string) ($payload['external_id'] ?? ''),
+                    'nombre' => '',
+                    'origen' => 'payload',
+                ];
+            }
+            $local = $this->model->registrarRechazosEvidenciasBulkLocal(
+                is_array($payload) ? $payload : [],
+                $idUsuario,
+                $motivoGeneral,
+                $nombreUsuario
+            );
+            if (empty($local['success'])) {
+                echo json_encode($local, JSON_UNESCAPED_UNICODE);
+                return;
+            }
+
+            $rechazos = is_array($local['rechazos'] ?? null) ? $local['rechazos'] : [];
+            $slots = is_array($local['slots'] ?? null) ? $local['slots'] : [];
+            $first = $rechazos[0] ?? [];
+            $total = count($rechazos);
+            $titulo = $total === 1 ? 'Evidencia rechazada' : 'Evidencias rechazadas';
+            $mensaje = $total === 1
+                ? 'Una evidencia fue rechazada. Toca para corregirla.'
+                : $total . ' evidencias fueron rechazadas. Toca para corregirlas.';
+
+            $pushBasePayload = [
+                'titulo' => $titulo,
+                'mensaje' => $mensaje,
+                'evento' => 'evidencias_rechazadas',
+                'data' => [
+                    'type' => 'evidencias_rechazadas',
+                    'screen' => 'MotoDetalle',
+                    'tab' => 'Recoleccion',
+                    'id_operacion' => (int) ($payload['id_operacion'] ?? 0),
+                    'id_credito' => (int) ($payload['id_credito'] ?? 0),
+                    'slots' => $slots,
+                    'rechazos' => $rechazos,
+                    'highlight_slot' => (string) ($first['slot'] ?? ''),
+                    'highlight_evidencia_id' => (int) ($first['id_evidencia'] ?? 0),
+                ],
+            ];
+
+            $url = $cfg['base_url'] . '/api/push-notifications/legacy/send';
+            $resp = ['http_code' => 0, 'body' => '', 'error' => 'No se intento enviar la notificacion.'];
+            $decoded = null;
+            $destinatarioUsado = null;
+            $erroresDestinatarios = [];
+            foreach ($destinatarios as $destinatario) {
+                $userIdLegacy = (int) ($destinatario['user_id_legacy'] ?? 0);
+                $externalId = trim((string) ($destinatario['external_id'] ?? ''));
+                if ($userIdLegacy <= 0 || $externalId === '') {
+                    continue;
+                }
+
+                $pushPayload = array_merge($pushBasePayload, [
+                    'user_id_legacy' => (string) $userIdLegacy,
+                    'external_id' => $externalId,
+                ]);
+                $resp = $this->pushLegacyCurl($url, $pushPayload);
+                $decoded = json_decode($resp['body'], true);
+                $message = is_array($decoded)
+                    ? (string) ($decoded['message'] ?? $decoded['mensaje'] ?? $decoded['detail'] ?? '')
+                    : (string) ($resp['error'] ?? '');
+                if ($resp['http_code'] >= 200 && $resp['http_code'] < 300) {
+                    $destinatarioUsado = $destinatario;
+                    break;
+                }
+
+                $erroresDestinatarios[] = [
+                    'external_id' => $externalId,
+                    'user_id_legacy' => $userIdLegacy,
+                    'nombre' => (string) ($destinatario['nombre'] ?? ''),
+                    'origen' => (string) ($destinatario['origen'] ?? ''),
+                    'http_code' => $resp['http_code'],
+                    'message' => $message,
+                ];
+
+                $sinDispositivo = stripos($message, 'No hay tokens activos') !== false
+                    || stripos($message, 'tokens activos') !== false
+                    || stripos($message, 'destinatario') !== false;
+                if (!$sinDispositivo) {
+                    break;
+                }
+            }
+
+            if ($resp['http_code'] < 200 || $resp['http_code'] >= 300) {
+                echo json_encode([
+                    'success' => false,
+                    'message' => is_array($decoded)
+                        ? (string) ($decoded['message'] ?? $decoded['mensaje'] ?? $decoded['detail'] ?? 'Los rechazos se guardaron, pero no se pudo enviar la notificacion.')
+                        : ($resp['error'] ?: 'Los rechazos se guardaron, pero no se pudo enviar la notificacion.'),
+                    'http_code' => $resp['http_code'],
+                    'api_response' => $decoded ?: $resp['body'],
+                    'rechazos' => $rechazos,
+                    'destinatarios_probados' => $erroresDestinatarios,
+                ], JSON_UNESCAPED_UNICODE);
+                return;
+            }
+
+            echo json_encode(array_merge([
+                'success' => true,
+                'message' => 'Evidencias rechazadas correctamente.',
+                'http_code' => $resp['http_code'],
+                'rechazos' => $rechazos,
+                'destinatario' => $destinatarioUsado,
+                'push_total_enviados' => is_array($decoded) ? ($decoded['push_total_enviados'] ?? $decoded['total_enviados'] ?? null) : null,
+                'push_total_fallidos' => is_array($decoded) ? ($decoded['push_total_fallidos'] ?? $decoded['total_fallidos'] ?? null) : null,
+            ], is_array($decoded) ? $decoded : []), JSON_UNESCAPED_UNICODE);
+        } catch (\Exception $e) {
+            echo json_encode(['success' => false, 'message' => $e->getMessage()], JSON_UNESCAPED_UNICODE);
+        }
+    }
+
+    /**
      * POST /MotosAdjudicadas/finalizarCierreValidacionEvidenciaAtn
      * Body JSON: { "id_operacion" } — al cerrar el modal: si hay rechazos en medios, pasa a Revisión Recuperaciones (no avanza a Procesando IA).
      */
@@ -1038,9 +1456,102 @@ class MotosAdjudicadas extends Controller
 
         try {
             $result = $this->model->enviarEvidenciasValidadasAtencion($idOperacion, $idUsuario, $nombreUsuario);
-            echo json_encode($result);
+            if (!empty($result['success'])) {
+                $cfg = $this->pushLegacyConfig();
+                if ($cfg['base_url'] === '' || $cfg['api_key'] === '') {
+                    $result['push_success'] = false;
+                    $result['push_message'] = 'Servicio de notificaciones no configurado.';
+                } else {
+                    $prep = $this->model->prepararPayloadAprobacionEvidenciasAtencion($idOperacion);
+                    if (empty($prep['success'])) {
+                        $result['push_success'] = false;
+                        $result['push_message'] = $prep['message'] ?? 'No se pudo preparar la notificacion.';
+                    } else {
+                        $payload = is_array($prep['payload'] ?? null) ? $prep['payload'] : [];
+                        $destinatarios = is_array($prep['destinatarios'] ?? null) ? $prep['destinatarios'] : [];
+                        if ($destinatarios === [] && $payload !== []) {
+                            $destinatarios[] = [
+                                'user_id_legacy' => (int) ($payload['user_id_legacy'] ?? 0),
+                                'external_id' => (string) ($payload['external_id'] ?? ''),
+                                'nombre' => '',
+                                'origen' => 'payload',
+                            ];
+                        }
+
+                        $pushBasePayload = [
+                            'titulo' => 'Evidencias aprobadas',
+                            'mensaje' => 'Sus evidencias han sido aprobadas. Toca para revisarlas.',
+                            'evento' => 'evidencias_aprobadas',
+                            'data' => [
+                                'type' => 'evidencias_aprobadas',
+                                'screen' => 'MotoDetalle',
+                                'tab' => 'Recoleccion',
+                                'id_operacion' => (int) ($payload['id_operacion'] ?? $idOperacion),
+                                'id_credito' => (int) ($payload['id_credito'] ?? 0),
+                                'approved' => true,
+                                'evidence_status' => 'aprobadas',
+                            ],
+                        ];
+
+                        $url = $cfg['base_url'] . '/api/push-notifications/legacy/send';
+                        $resp = ['http_code' => 0, 'body' => '', 'error' => 'No se intento enviar la notificacion.'];
+                        $decoded = null;
+                        $destinatarioUsado = null;
+                        $erroresDestinatarios = [];
+                        foreach ($destinatarios as $destinatario) {
+                            $userIdLegacy = (int) ($destinatario['user_id_legacy'] ?? 0);
+                            $externalId = trim((string) ($destinatario['external_id'] ?? ''));
+                            if ($userIdLegacy <= 0 || $externalId === '') {
+                                continue;
+                            }
+
+                            $pushPayload = array_merge($pushBasePayload, [
+                                'user_id_legacy' => (string) $userIdLegacy,
+                                'external_id' => $externalId,
+                            ]);
+                            $resp = $this->pushLegacyCurl($url, $pushPayload);
+                            $decoded = json_decode($resp['body'], true);
+                            $message = is_array($decoded)
+                                ? (string) ($decoded['message'] ?? $decoded['mensaje'] ?? $decoded['detail'] ?? '')
+                                : (string) ($resp['error'] ?? '');
+                            if ($resp['http_code'] >= 200 && $resp['http_code'] < 300) {
+                                $destinatarioUsado = $destinatario;
+                                break;
+                            }
+
+                            $erroresDestinatarios[] = [
+                                'external_id' => $externalId,
+                                'user_id_legacy' => $userIdLegacy,
+                                'nombre' => (string) ($destinatario['nombre'] ?? ''),
+                                'origen' => (string) ($destinatario['origen'] ?? ''),
+                                'http_code' => $resp['http_code'],
+                                'message' => $message,
+                            ];
+
+                            $sinDispositivo = stripos($message, 'No hay tokens activos') !== false
+                                || stripos($message, 'tokens activos') !== false
+                                || stripos($message, 'destinatario') !== false;
+                            if (!$sinDispositivo) {
+                                break;
+                            }
+                        }
+
+                        $result['push_success'] = $resp['http_code'] >= 200 && $resp['http_code'] < 300;
+                        $result['push_http_code'] = $resp['http_code'];
+                        $result['push_destinatario'] = $destinatarioUsado;
+                        $result['push_destinatarios_probados'] = $erroresDestinatarios;
+                        $result['push_response'] = is_array($decoded) ? $decoded : $resp['body'];
+                        if (!$result['push_success']) {
+                            $result['push_message'] = is_array($decoded)
+                                ? (string) ($decoded['message'] ?? $decoded['mensaje'] ?? $decoded['detail'] ?? 'Evidencias enviadas, pero no se pudo notificar al gestor.')
+                                : ($resp['error'] ?: 'Evidencias enviadas, pero no se pudo notificar al gestor.');
+                        }
+                    }
+                }
+            }
+            echo json_encode($result, JSON_UNESCAPED_UNICODE);
         } catch (\Exception $e) {
-            echo json_encode(['success' => false, 'message' => $e->getMessage()]);
+            echo json_encode(['success' => false, 'message' => $e->getMessage()], JSON_UNESCAPED_UNICODE);
         }
     }
 

@@ -3,6 +3,7 @@
 namespace Controllers;
 
 use Core\Controller;
+use Models\ComparativoCierreSemanal;
 use Models\EstadoCuenta as EstadoCuentaDAO;
 use Models\Empresa as EmpresasDAO;
 use Models\PrimerosPagosHistoricoSegundometro;
@@ -1243,6 +1244,49 @@ class Reporteria extends Controller
             error_log('Reporteria::getComparativasAvanceSemanalJson -> ' . $e->getMessage());
             http_response_code(500);
             self::respuestaJSON(['detail' => 'Error al consultar la base de datos.']);
+        }
+    }
+
+    /**
+     * Comparativo 9:30: cierre actual vs semana pasada por bucket, creditos y saldo capital.
+     * URL canonica: /analitica/comparativoCierreSemanal
+     */
+    public function comparativoCierreSemanal()
+    {
+        self::set('titulo', 'Comparativo 9:30');
+        $payload = null;
+        $error = null;
+
+        try {
+            $payload = ComparativoCierreSemanal::calcular();
+        } catch (\Throwable $e) {
+            error_log('Reporteria::comparativoCierreSemanal -> ' . $e->getMessage());
+            $error = 'No se pudieron cargar los datos del comparativo.';
+        }
+
+        $initialJson = json_encode($payload, JSON_UNESCAPED_UNICODE);
+        if ($initialJson === false || $payload === null) {
+            $initialJson = 'null';
+        }
+
+        self::set('comparativo_payload', $payload);
+        self::set('comparativo_error', $error);
+        self::set('comparativo_initial_json', $initialJson);
+        self::set('script', '');
+        self::render('comparativo_cierre_semanal');
+    }
+
+    /**
+     * JSON para refrescar el comparativo 9:30.
+     */
+    public function getComparativoCierreSemanalJson()
+    {
+        try {
+            self::respuestaJSON(ComparativoCierreSemanal::calcular());
+        } catch (\Throwable $e) {
+            error_log('Reporteria::getComparativoCierreSemanalJson -> ' . $e->getMessage());
+            http_response_code(500);
+            self::respuestaJSON(['success' => false, 'mensaje' => 'Error al consultar la base de datos.']);
         }
     }
 

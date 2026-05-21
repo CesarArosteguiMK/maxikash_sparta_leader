@@ -96,6 +96,7 @@ class AtencionClientes extends Controller
             $datos = $this->model->obtenerRecibidos();
             echo json_encode(['success' => true, 'datos' => $datos], JSON_UNESCAPED_UNICODE);
         } catch (\Throwable $e) {
+            error_log('[AtencionClientes/obtenerRecibidos] ' . $e->getMessage());
             http_response_code(500);
             echo json_encode(['success' => false, 'message' => 'Error al obtener los datos.'], JSON_UNESCAPED_UNICODE);
         }
