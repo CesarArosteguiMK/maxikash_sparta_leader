@@ -1248,17 +1248,20 @@ class Reporteria extends Controller
     }
 
     /**
-     * Comparativo 9:30: cierre actual vs semana pasada por bucket, creditos y saldo capital.
+     * Comparativo dinamico: cierre actual vs semana pasada por bucket, creditos y saldo capital.
      * URL canonica: /analitica/comparativoCierreSemanal
      */
     public function comparativoCierreSemanal()
     {
-        self::set('titulo', 'Comparativo 9:30');
+        self::set('titulo', 'Comparativo');
         $payload = null;
         $error = null;
 
         try {
-            $payload = ComparativoCierreSemanal::calcular();
+            $corte = isset($_GET['corte']) ? (string) $_GET['corte'] : null;
+            $payload = ComparativoCierreSemanal::calcular($corte);
+        } catch (\InvalidArgumentException $e) {
+            $error = $e->getMessage();
         } catch (\Throwable $e) {
             error_log('Reporteria::comparativoCierreSemanal -> ' . $e->getMessage());
             $error = 'No se pudieron cargar los datos del comparativo.';
@@ -1277,12 +1280,16 @@ class Reporteria extends Controller
     }
 
     /**
-     * JSON para refrescar el comparativo 9:30.
+     * JSON para refrescar el comparativo dinamico.
      */
     public function getComparativoCierreSemanalJson()
     {
         try {
-            self::respuestaJSON(ComparativoCierreSemanal::calcular());
+            $corte = isset($_GET['corte']) ? (string) $_GET['corte'] : null;
+            self::respuestaJSON(ComparativoCierreSemanal::calcular($corte));
+        } catch (\InvalidArgumentException $e) {
+            http_response_code(400);
+            self::respuestaJSON(['success' => false, 'mensaje' => $e->getMessage()]);
         } catch (\Throwable $e) {
             error_log('Reporteria::getComparativoCierreSemanalJson -> ' . $e->getMessage());
             http_response_code(500);

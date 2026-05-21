@@ -8,9 +8,13 @@ $cmpError = isset($comparativo_error) ? (string) $comparativo_error : '';
     <div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-3">
         <h4 class="mb-0 text-primary d-flex align-items-center flex-wrap">
             <i class="fa-solid fa-chart-column me-2" aria-hidden="true"></i>
-            <span>Comparativo 9:30</span>
+            <span id="cmp930-page-title">Comparativo</span>
         </h4>
         <div class="d-flex flex-wrap align-items-center gap-2">
+            <label class="cmp930-corte-control mb-0">
+                <span>Corte</span>
+                <select id="cmp930-corte" class="form-select form-select-sm"></select>
+            </label>
             <span id="cmp930-status" class="badge <?= is_array($comparativo_payload ?? null) ? 'bg-label-success' : 'bg-label-danger'; ?>">
                 <?= is_array($comparativo_payload ?? null) ? 'Servicio: activo' : 'Servicio: no disponible'; ?>
             </span>
@@ -135,6 +139,17 @@ $cmpError = isset($comparativo_error) ? (string) $comparativo_error : '';
     border-radius: 6px;
     padding: 1rem;
 }
+.cmp930-corte-control {
+    display: inline-flex;
+    align-items: center;
+    gap: .45rem;
+    color: #0b2d4a;
+    font-size: .82rem;
+    font-weight: 600;
+}
+.cmp930-corte-control .form-select {
+    min-width: 92px;
+}
 .cmp930-grid {
     display: grid;
     grid-template-columns: minmax(280px, 1.2fr) minmax(130px, .4fr) minmax(280px, 1.2fr) minmax(130px, .4fr);
@@ -231,6 +246,24 @@ $cmpError = isset($comparativo_error) ? (string) $comparativo_error : '';
 
     function el(id) { return document.getElementById(id); }
     function pct(v) { return fmtPct.format(Number(v || 0)) + '%'; }
+    function selectedCorte() {
+        const select = el('cmp930-corte');
+        return select && select.value ? select.value : '14:30';
+    }
+
+    function syncCorteOptions(data) {
+        const select = el('cmp930-corte');
+        if (!select || !data) return;
+        const options = Array.isArray(data.corte_opciones) && data.corte_opciones.length
+            ? data.corte_opciones
+            : ['07:30', '09:30', '11:30', '13:30', '14:30', '16:30', '18:30', '20:30', '23:50'];
+        const current = data.corte || select.value || '14:30';
+
+        if (!select.options.length) {
+            select.innerHTML = options.map(corte => '<option value="' + escapeHtml(corte) + '">' + escapeHtml(corte) + '</option>').join('');
+        }
+        select.value = current;
+    }
 
     function renderRows(targetId, metric, isMoney) {
         const tbody = el(targetId);
@@ -290,13 +323,15 @@ $cmpError = isset($comparativo_error) ? (string) $comparativo_error : '';
             return;
         }
 
+        syncCorteOptions(data);
         if (Array.isArray(data.advertencias) && data.advertencias.length) {
             showWarnings(data.advertencias);
         } else {
             hideError();
         }
         setStatus(true);
-        const corteLabel = (data.dia_corte ? data.dia_corte + ' ' : '') + (data.corte || '9:30');
+        const corteLabel = (data.dia_corte ? data.dia_corte + ' ' : '') + (data.corte || '14:30');
+        el('cmp930-page-title').textContent = 'Comparativo ' + (data.corte || '14:30');
         el('cmp930-title-creditos-pasada').textContent = data.semana_pasada + ' ' + corteLabel + ' Creditos';
         el('cmp930-title-creditos-actual').textContent = data.semana_actual + ' ' + corteLabel + ' Creditos';
         el('cmp930-title-capital-pasada').textContent = data.semana_pasada + ' ' + corteLabel + ' Saldo Capital';
@@ -318,7 +353,8 @@ $cmpError = isset($comparativo_error) ? (string) $comparativo_error : '';
         const btn = el('cmp930-refresh');
         if (btn) btn.disabled = true;
         try {
-            const res = await fetch(endpoint, { headers: { 'Accept': 'application/json' } });
+            const url = endpoint + '?corte=' + encodeURIComponent(selectedCorte());
+            const res = await fetch(url, { headers: { 'Accept': 'application/json' } });
             const data = await res.json();
             render(data);
         } catch (e) {
@@ -330,6 +366,7 @@ $cmpError = isset($comparativo_error) ? (string) $comparativo_error : '';
     }
 
     el('cmp930-refresh')?.addEventListener('click', refresh);
+    el('cmp930-corte')?.addEventListener('change', refresh);
     render(initialData);
 })();
 </script>
