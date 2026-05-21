@@ -76,6 +76,12 @@ body.dark-mode .track-filters { background: #1e2d2c; }
 .badge-ruta-en_proceso            { background: #0d9488; color: #fff; }
 .badge-ruta-concluida             { background: #22c55e; color: #fff; }
 .badge-ruta-cancelada             { background: #ef4444; color: #fff; }
+/* ── Badges estatus tracking API (servicio externo) ── */
+.badge-trk-pendiente  { background: #94a3b8; color: #fff; }
+.badge-trk-en_proceso { background: #0d9488; color: #fff; }
+.badge-trk-completado { background: #16a34a; color: #fff; }
+.badge-trk-confirmado { background: #0284c7; color: #fff; }
+.badge-trk-cancelado  { background: #ef4444; color: #fff; }
 
 /* ── Modal ── */
 #modalRegistrarRuta .modal-header {
@@ -627,7 +633,7 @@ body.dark-mode .chat-send-btn:disabled { background: #2d4444; }
                                     <th>BIN / NIV</th>
                                     <th>Estatus Proceso</th>
                                     <th>Confirmación Gestor</th>
-                                    <th>Acción</th>
+                                    <?php /* <th>Acción</th> */ ?>
                                 </tr>
                             </thead>
                             <tbody></tbody>
@@ -934,11 +940,27 @@ body.dark-mode .chat-send-btn:disabled { background: #2d4444; }
                     Haz clic en el mapa para colocar el pin de la ubicación del crédito
                     <strong id="mapPickerCreditoLabel"></strong>.
                 </p>
-                <div id="mapPickerContainer" style="width:100%;height:420px;border-radius:.5rem;overflow:hidden;border:1px solid var(--track-border);"></div>
-                <div class="mt-2 px-1 d-flex align-items-center gap-2 flex-wrap">
-                    <span class="small text-muted" id="mapPickerCoordsLabel">
-                        <i class="fa-solid fa-crosshairs me-1"></i>Sin selección
+                <div class="input-group input-group-sm mb-2" id="mapPickerSearchWrap">
+                    <span class="input-group-text bg-white">
+                        <i class="fa-solid fa-magnifying-glass" style="color:var(--track-color);"></i>
                     </span>
+                    <input type="text" class="form-control" id="mapPickerSearch"
+                           placeholder="Buscar dirección, colonia, municipio..." autocomplete="off">
+                    <button class="btn btn-outline-secondary" type="button" id="btnLimpiarMapSearch" title="Limpiar búsqueda">
+                        <i class="fa-solid fa-xmark"></i>
+                    </button>
+                </div>
+                <div id="mapPickerContainer" style="width:100%;height:420px;border-radius:.5rem;overflow:hidden;border:1px solid var(--track-border);"></div>
+                <div class="mt-2 px-1">
+                    <div class="d-flex align-items-center gap-2 flex-wrap">
+                        <span class="small text-muted" id="mapPickerCoordsLabel">
+                            <i class="fa-solid fa-crosshairs me-1"></i>Sin selección
+                        </span>
+                    </div>
+                    <div id="mapPickerGeoInfo" class="small text-muted mt-1 d-none">
+                        <i class="fa-solid fa-map-location-dot me-1" style="color:var(--track-color);"></i>
+                        <span id="mapPickerEstadoMun">—</span>
+                    </div>
                 </div>
             </div>
             <div class="modal-footer py-2 d-flex justify-content-between">
@@ -1228,6 +1250,7 @@ function _trkInicializarTablaCreditosDT() {
                 data: null,
                 render: r => CONF_LABEL['pendiente'],   // siempre pendiente en esta tabla
             },
+            /* columna Acción comentada
             {
                 data: null,
                 orderable: false,
@@ -1237,6 +1260,7 @@ function _trkInicializarTablaCreditosDT() {
                                   <i class="fa-solid fa-plus"></i>
                               </button>`,
             },
+            */
         ],
     });
 
@@ -1341,7 +1365,18 @@ function _trkInicializarTablaRutasDT() {
             },
             {
                 data: 'estatus_ruta',
-                render: v => RUTA_LABEL[v] || `<span class="badge bg-secondary">${v}</span>`,
+                render: (v, type, r) => {
+                    const base = RUTA_LABEL[v] || `<span class="badge bg-secondary">${v}</span>`;
+                    if (v === 'en_proceso') {
+                        return `<div class="d-flex flex-column gap-1">
+                            ${base}
+                            <div id="trkRutaTrkStatus_${r.id_ruta}" class="d-flex align-items-center gap-1">
+                                <span class="spinner-border spinner-border-sm text-secondary" style="width:.55rem;height:.55rem;border-width:1.5px;"></span>
+                            </div>
+                        </div>`;
+                    }
+                    return base;
+                },
             },
             {
                 data: null,
@@ -1393,6 +1428,12 @@ function _trkInicializarTablaRutasDT() {
             document.querySelectorAll('#tablaRutas [data-bs-toggle="tooltip"]').forEach(el => {
                 bootstrap.Tooltip.getOrCreateInstance(el, { trigger: 'hover', html: true });
             });
+            this.api().rows().every(function () {
+                const d = this.data();
+                if (d.estatus_ruta === 'en_proceso') {
+                    _trkActualizarEstadoCeldaRuta(d.id_ruta);
+                }
+            });
         },
     });
 
@@ -1405,6 +1446,36 @@ function _trkInicializarTablaRutasDT() {
     $('#tablaRutas').on('click', '.btn-abrir-chat', function () {
         _trkChatCargarYAbrir(Number($(this).data('id')));
     });
+}
+
+// ─── Estatus live (tracking API) para rutas en_proceso ─────────────────────
+const _TRK_LABEL_API = {
+    pendiente:   '<span class="badge badge-trk-pendiente">Pendiente</span>',
+    en_proceso:  '<span class="badge badge-trk-en_proceso">En proceso</span>',
+    completado:  '<span class="badge badge-trk-completado">Completado</span>',
+    confirmado:  '<span class="badge badge-trk-confirmado">Confirmado</span>',
+    cancelado:   '<span class="badge badge-trk-cancelado">Cancelado</span>',
+};
+async function _trkActualizarEstadoCeldaRuta(idRuta) {
+    const el = document.getElementById(`trkRutaTrkStatus_${idRuta}`);
+    if (!el) return;
+    try {
+        const r = await trkFetch(`/TrackingRecoleccion/trackingEstadoRuta?id_ruta=${idRuta}`);
+        if (!r.success || !r.ruta) { el.innerHTML = ''; return; }
+        const ruta    = r.ruta;
+        const estatus = ruta.estatus_ruta || ruta.estatus || null;
+        const pct     = ruta.progreso?.porcentaje ?? null;
+        let html = '';
+        if (estatus && _TRK_LABEL_API[estatus]) {
+            html = _TRK_LABEL_API[estatus];
+        } else if (estatus) {
+            html = `<span class="badge bg-secondary">${estatus}</span>`;
+        }
+        if (pct !== null) {
+            html += ` <span class="badge bg-light text-dark border" style="font-size:.68rem;">${pct}%</span>`;
+        }
+        el.innerHTML = html;
+    } catch { el.innerHTML = ''; }
 }
 
 function _trkCargarRutas() {
@@ -1978,7 +2049,7 @@ function _trkRenderizarMapa() {
     if (!_trk.mapLoaded) {
         // Cargar Google Maps API dinámicamente
         const script     = document.createElement('script');
-        script.src       = `https://maps.googleapis.com/maps/api/js?key=${window._trackGoogleMapsKey}&libraries=geometry&callback=_trkMapCallback`;
+        script.src       = `https://maps.googleapis.com/maps/api/js?key=${window._trackGoogleMapsKey}&libraries=geometry,places&callback=_trkMapCallback`;
         script.async     = true;
         script.defer     = true;
         document.head.appendChild(script);
@@ -2177,12 +2248,16 @@ function _trkDibujarMapa(creditos) {
 
 // ─── Map Picker (Plan B: clic en mapa para asignar coords) ──────────────────
 const _trkPicker = {
-    modal:        null,
-    mapInstance:  null,
-    marker:       null,
-    creditoId:    null,
-    selectedLat:  null,
-    selectedLng:  null,
+    modal:             null,
+    mapInstance:       null,
+    marker:            null,
+    creditoId:         null,
+    selectedLat:       null,
+    selectedLng:       null,
+    selectedEstado:    null,
+    selectedMunicipio: null,
+    geocoder:          null,
+    autocomplete:      null,
 };
 
 function _trkAbrirMapPicker(cred) {
@@ -2191,15 +2266,18 @@ function _trkAbrirMapPicker(cred) {
         return;
     }
 
-    _trkPicker.creditoId   = cred.id_credito;
-    _trkPicker.selectedLat = null;
-    _trkPicker.selectedLng = null;
+    _trkPicker.creditoId         = cred.id_credito;
+    _trkPicker.selectedLat        = null;
+    _trkPicker.selectedLng        = null;
+    _trkPicker.selectedEstado     = null;
+    _trkPicker.selectedMunicipio  = null;
 
     // Etiqueta en el modal
     document.getElementById('mapPickerCreditoLabel').textContent =
         ` — #${cred.id_credito} ${cred.nombre_cliente ? '(' + cred.nombre_cliente + ')' : ''}`;
     document.getElementById('mapPickerCoordsLabel').innerHTML =
         '<i class="fa-solid fa-crosshairs me-1"></i>Sin selección';
+    document.getElementById('mapPickerGeoInfo').classList.add('d-none');
     document.getElementById('btnConfirmarMapPicker').disabled = true;
 
     // Mostrar modal
@@ -2209,6 +2287,11 @@ function _trkAbrirMapPicker(cred) {
         document.getElementById('btnCancelarMapPicker').addEventListener('click', () => _trkPicker.modal.hide());
         document.getElementById('btnConfirmarMapPicker').addEventListener('click', _trkConfirmarMapPicker);
     }
+    // Oscurecer el backdrop cuando el map picker esté sobre otro modal
+    document.getElementById('modalMapPicker').addEventListener('shown.bs.modal', () => {
+        const backdrops = document.querySelectorAll('.modal-backdrop');
+        if (backdrops.length >= 2) backdrops[backdrops.length - 1].style.opacity = '0.65';
+    }, { once: true });
     _trkPicker.modal.show();
 
     // Inicializar mapa después de que el modal sea visible (necesario para que el div tenga dimensiones)
@@ -2258,15 +2341,58 @@ function _trkInicializarMapPicker() {
                     _trkPicker.marker.addListener('dragend', (ev) => {
                         _trkPicker.selectedLat = ev.latLng.lat();
                         _trkPicker.selectedLng = ev.latLng.lng();
-                        _trkActualizarLabelCoordsicker();
+                        _trkPickerReverseGeocode(ev.latLng);
                     });
                 } else {
                     _trkPicker.marker.setPosition(e.latLng);
                 }
 
-                _trkActualizarLabelCoordsicker();
+                _trkPickerReverseGeocode(e.latLng);
                 document.getElementById('btnConfirmarMapPicker').disabled = false;
             });
+
+            // ── Google Places Autocomplete ──────────────────────────
+            if (!_trkPicker.autocomplete && google.maps.places) {
+                const searchInput = document.getElementById('mapPickerSearch');
+                _trkPicker.autocomplete = new google.maps.places.Autocomplete(searchInput, {
+                    fields: ['geometry', 'address_components', 'formatted_address'],
+                    componentRestrictions: { country: 'mx' },
+                });
+                // Evitar que Enter en el input cierre el modal
+                searchInput.addEventListener('keydown', ev => { if (ev.key === 'Enter') ev.preventDefault(); });
+                _trkPicker.autocomplete.addListener('place_changed', () => {
+                    const place = _trkPicker.autocomplete.getPlace();
+                    if (!place.geometry || !place.geometry.location) return;
+                    const loc = place.geometry.location;
+                    _trkPicker.selectedLat = loc.lat();
+                    _trkPicker.selectedLng = loc.lng();
+                    _trkPicker.mapInstance.panTo(loc);
+                    _trkPicker.mapInstance.setZoom(16);
+                    if (!_trkPicker.marker) {
+                        _trkPicker.marker = new google.maps.Marker({
+                            map: _trkPicker.mapInstance,
+                            position: loc,
+                            draggable: true,
+                            animation: google.maps.Animation.DROP,
+                            title: 'Ubicación seleccionada',
+                        });
+                        _trkPicker.marker.addListener('dragend', (ev) => {
+                            _trkPicker.selectedLat = ev.latLng.lat();
+                            _trkPicker.selectedLng = ev.latLng.lng();
+                            _trkPickerReverseGeocode(ev.latLng);
+                        });
+                    } else {
+                        _trkPicker.marker.setPosition(loc);
+                    }
+                    _trkPickerExtraerGeo(place.address_components);
+                    _trkActualizarLabelCoordsicker();
+                    document.getElementById('btnConfirmarMapPicker').disabled = false;
+                });
+                document.getElementById('btnLimpiarMapSearch').addEventListener('click', () => {
+                    searchInput.value = '';
+                    searchInput.focus();
+                });
+            }
         } else {
             // Reusar mapa: re-centrar y limpiar marcador anterior
             _trkPicker.mapInstance.setCenter({ lat: centerLat, lng: centerLng });
@@ -2275,6 +2401,7 @@ function _trkInicializarMapPicker() {
                 _trkPicker.marker.setMap(null);
                 _trkPicker.marker = null;
             }
+            document.getElementById('mapPickerSearch').value = '';
         }
 
         // Si ya tenía coords manuales, mostrar marcador previo
@@ -2292,9 +2419,9 @@ function _trkInicializarMapPicker() {
             _trkPicker.marker.addListener('dragend', (ev) => {
                 _trkPicker.selectedLat = ev.latLng.lat();
                 _trkPicker.selectedLng = ev.latLng.lng();
-                _trkActualizarLabelCoordsicker();
+                _trkPickerReverseGeocode(ev.latLng);
             });
-            _trkActualizarLabelCoordsicker();
+            _trkPickerReverseGeocode(new google.maps.LatLng(prevPos.lat, prevPos.lng));
             document.getElementById('btnConfirmarMapPicker').disabled = false;
         }
 
@@ -2315,7 +2442,7 @@ function _trkInicializarMapPicker() {
     } else {
         // Cargar Maps si aún no está
         const script = document.createElement('script');
-        script.src   = `https://maps.googleapis.com/maps/api/js?key=${window._trackGoogleMapsKey}&libraries=geometry&callback=_trkMapPickerReady`;
+        script.src   = `https://maps.googleapis.com/maps/api/js?key=${window._trackGoogleMapsKey}&libraries=geometry,places&callback=_trkMapPickerReady`;
         script.async = true;
         script.defer = true;
         document.head.appendChild(script);
@@ -2333,6 +2460,38 @@ function _trkActualizarLabelCoordsicker() {
         `Lat: <strong>${lat.toFixed(6)}</strong> &nbsp; Lng: <strong>${lng.toFixed(6)}</strong>`;
 }
 
+function _trkPickerExtraerGeo(components) {
+    if (!components) return;
+    let estado = '', municipio = '';
+    components.forEach(c => {
+        if (c.types.includes('administrative_area_level_1')) estado    = c.long_name;
+        if (c.types.includes('locality'))                    municipio = c.long_name;
+        if (!municipio && c.types.includes('sublocality_level_1'))        municipio = c.long_name;
+        if (!municipio && c.types.includes('administrative_area_level_2')) municipio = c.long_name;
+    });
+    _trkPicker.selectedEstado    = estado    || null;
+    _trkPicker.selectedMunicipio = municipio || null;
+    const geoDiv  = document.getElementById('mapPickerGeoInfo');
+    const geoSpan = document.getElementById('mapPickerEstadoMun');
+    if (estado || municipio) {
+        geoSpan.textContent = [municipio, estado].filter(Boolean).join(', ');
+        geoDiv.classList.remove('d-none');
+    } else {
+        geoDiv.classList.add('d-none');
+    }
+}
+
+function _trkPickerReverseGeocode(latLng) {
+    if (!window.google || !google.maps) return;
+    if (!_trkPicker.geocoder) _trkPicker.geocoder = new google.maps.Geocoder();
+    _trkPicker.geocoder.geocode({ location: latLng }, (results, status) => {
+        if (status === 'OK' && results && results[0]) {
+            _trkPickerExtraerGeo(results[0].address_components);
+        }
+        _trkActualizarLabelCoordsicker();
+    });
+}
+
 function _trkConfirmarMapPicker() {
     const lat = _trkPicker.selectedLat;
     const lng = _trkPicker.selectedLng;
@@ -2345,6 +2504,9 @@ function _trkConfirmarMapPicker() {
         // Sobrescribir también las props que usa el mapa de ruta
         cred.latitud  = lat;
         cred.longitud = lng;
+        // Aplicar estado/municipio detectados por geocodificación
+        if (_trkPicker.selectedEstado)    cred.estado    = _trkPicker.selectedEstado;
+        if (_trkPicker.selectedMunicipio) cred.municipio = _trkPicker.selectedMunicipio;
         _trkMarcarCambio();
     }
 
@@ -2809,17 +2971,25 @@ function _trkRTRenderizar(ruta) {
         const stepCls = esDone ? 'done' : (esAct ? 'activo' : (est === 'en_sitio' ? 'en_sitio' : (est === 'incidencia' ? 'incidencia' : '')));
         const icon    = ICONS[est] || ICONS.pendiente;
         const label   = LABELS[est] || est;
-        const nombre  = _trkChatEscapeHtml(c.nombre_cliente || `Crédito #${c.id_credito}`);
-        const dir     = _trkChatEscapeHtml(c.direccion || c.municipio || '');
+
+        // Línea 1: Crédito #XXXXX · MARCA MODELO | Estado, Municipio
+        const moto    = [c.moto_marca, c.moto_modelo].filter(Boolean).join(' ');
+        const lugar   = [c.estado, c.municipio].filter(Boolean).join(', ');
+        let linea1    = `Crédito #${c.id_credito}`;
+        if (moto)  linea1 += ` · ${moto}`;
+        if (lugar) linea1 += ` | ${lugar}`;
+
+        // Línea 2: nombre del cliente
+        const cliente = _trkChatEscapeHtml(c.nombre_cliente || '');
+
         html += `<div class="trk-step ${stepCls}" data-id="${c.id_detalle}">
             <div class="trk-step-dot"><i class="fa-solid ${icon}" style="font-size:.45rem;"></i></div>
             <div class="trk-step-body">
                 <div class="d-flex align-items-center gap-1 flex-wrap">
-                    <span class="trk-step-orden">${c.orden_ruta ?? '?'}.</span>
-                    <span class="trk-step-nombre">${nombre}</span>
+                    <span class="trk-step-nombre" style="font-weight:600;">${_trkChatEscapeHtml(linea1)}</span>
                     <span class="trk-step-badge trk-badge-${est}">${label}</span>
                 </div>
-                ${dir ? `<span class="trk-step-dir">${dir}</span>` : ''}
+                ${cliente ? `<span class="trk-step-dir">${cliente}</span>` : ''}
             </div>
         </div>`;
     });
