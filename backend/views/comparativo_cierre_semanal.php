@@ -8,7 +8,7 @@ $cmpError = isset($comparativo_error) ? (string) $comparativo_error : '';
     <div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-3">
         <h4 class="mb-0 text-primary d-flex align-items-center flex-wrap">
             <i class="fa-solid fa-chart-column me-2" aria-hidden="true"></i>
-            <span id="cmp930-page-title">Comparativo</span>
+            <span id="cmp930-page-title">Comparativo Semana Actual vs Semana Pasada</span>
         </h4>
         <div class="d-flex flex-wrap align-items-center gap-2">
             <label class="cmp930-corte-control mb-0">
@@ -55,7 +55,7 @@ $cmpError = isset($comparativo_error) ? (string) $comparativo_error : '';
             <div class="cmp930-card-wrap">
                 <div class="card shadow-sm cmp930-kpi">
                     <div class="card-body text-center">
-                        <div class="cmp930-kpi-value text-danger" id="cmp930-kpi-creditos-pasada">0.00%</div>
+                        <div class="cmp930-kpi-value text-success" id="cmp930-kpi-creditos-pasada">0.00%</div>
                         <div class="cmp930-kpi-label">% Creditos<br>Semana Pasada</div>
                     </div>
                 </div>
@@ -101,7 +101,7 @@ $cmpError = isset($comparativo_error) ? (string) $comparativo_error : '';
             <div class="cmp930-card-wrap">
                 <div class="card shadow-sm cmp930-kpi">
                     <div class="card-body text-center">
-                        <div class="cmp930-kpi-value text-danger" id="cmp930-kpi-capital-pasada">0.00%</div>
+                        <div class="cmp930-kpi-value text-success" id="cmp930-kpi-capital-pasada">0.00%</div>
                         <div class="cmp930-kpi-label">% Capital Semana<br>Pasada</div>
                     </div>
                 </div>
@@ -350,7 +350,7 @@ $cmpError = isset($comparativo_error) ? (string) $comparativo_error : '';
         }
         setStatus(true);
         const corteLabel = (data.dia_corte ? data.dia_corte + ' ' : '') + (data.corte || '14:30');
-        el('cmp930-page-title').textContent = 'Comparativo ' + (data.corte || '14:30');
+        el('cmp930-page-title').textContent = 'Comparativo Semana Actual vs Semana Pasada';
         el('cmp930-title-creditos-pasada').textContent = data.semana_pasada + ' ' + corteLabel + ' Creditos';
         el('cmp930-title-creditos-actual').textContent = data.semana_actual + ' ' + corteLabel + ' Creditos';
         el('cmp930-title-capital-pasada').textContent = data.semana_pasada + ' ' + corteLabel + ' Saldo Capital';

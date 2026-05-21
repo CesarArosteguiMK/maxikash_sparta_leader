@@ -464,10 +464,10 @@ $rutasModulos = [
     'motosadjudicadas/enviarevidenciasvalidadasatencion' => [70],
     'motosadjudicadas/confirmarcierredocumentacionens2' => [72],
     'motosadjudicadas/enviarrecuperacionacartera' => [71],
-    'motosadjudicadas/repuveconsulta' => [64],
-    'motosadjudicadas/ejecutarconsultarepuve' => [64],
-    'motosadjudicadas/consultarrepuvecredito' => [64],
-    'motosadjudicadas/obtenerdatosmotofactura' => [64],
+    'motosadjudicadas/repuveconsulta' => [78],
+    'motosadjudicadas/ejecutarconsultarepuve' => [78],
+    'motosadjudicadas/consultarrepuvecredito' => [78],
+    'motosadjudicadas/obtenerdatosmotofactura' => [78],
     'motosadjudicadas/buscarcredito' => [62, 63, 64],
 ];
 $controladoresModulos = [
