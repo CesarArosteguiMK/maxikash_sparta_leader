@@ -200,6 +200,46 @@ class TrackingRecoleccion extends Controller
     }
 
     /**
+     * GET /TrackingRecoleccion/trackingEstadoRuta?id_ruta=X
+     * Proxy: GET /api/tracking/rutas/{id_ruta}/estado
+     */
+    public function trackingEstadoRuta()
+    {
+        $idRuta = (int)($_GET['id_ruta'] ?? 0);
+        if ($idRuta <= 0) {
+            self::respuestaJSON(['success' => false, 'mensaje' => 'id_ruta requerido.']);
+            return;
+        }
+
+        $cfg   = $this->_trkChatConfig();
+        $token = $this->_trkChatObtenerJwt();
+        if ($cfg['base_url'] === '' || $token === '') {
+            self::respuestaJSON(['success' => false, 'mensaje' => 'Tracking no disponible.']);
+            return;
+        }
+
+        $url  = rtrim($cfg['base_url'], '/') . "/api/tracking/rutas/{$idRuta}/estado";
+        $resp = $this->_trkChatCurl($url, 'GET', '', [
+            'X-API-Key: '     . $cfg['api_key'],
+            'Authorization: Bearer ' . $token,
+        ]);
+
+        // Enriquecer creditos con id_credito y nombre_cliente desde la BD local
+        $data = json_decode($resp['body'], true);
+        if (is_array($data) && isset($data['ruta']['creditos']) && is_array($data['ruta']['creditos'])) {
+            try {
+                $model = new TrackingModel();
+                $data['ruta']['creditos'] = $model->enriquecerCreditosConDatosLocales($data['ruta']['creditos']);
+                $resp['body'] = json_encode($data, JSON_UNESCAPED_UNICODE);
+            } catch (\Throwable $e) {
+                // Continuar sin enriquecimiento antes de propagar el error
+            }
+        }
+
+        $this->_trkChatRelayResponse($resp);
+    }
+
+    /**
      * POST /TrackingRecoleccion/chatEnviarMensaje
      * Body JSON: { id_detalle, mensaje, tipo_mensaje?, latitud?, longitud?, metadata? }
      * Proxy: POST /api/tracking/chats/{id_detalle}/mensajes
@@ -224,11 +264,13 @@ class TrackingRecoleccion extends Controller
 
         // Construir body limpio para el tracking backend
         $payload = json_encode([
-            'mensaje'      => (string)($data['mensaje']      ?? ''),
-            'tipo_mensaje' => (string)($data['tipo_mensaje'] ?? 'texto'),
-            'latitud'      => $data['latitud']  ?? null,
-            'longitud'     => $data['longitud'] ?? null,
-            'metadata'     => $data['metadata'] ?? null,
+            'mensaje'          => (string)($data['mensaje']      ?? ''),
+            'tipo_mensaje'     => (string)($data['tipo_mensaje'] ?? 'texto'),
+            'tipo_actor'       => 'gestor',
+            'nombre_remitente' => trim((string)($_SESSION['usuario_nombre'] ?? 'Gestor')),
+            'latitud'          => $data['latitud']  ?? null,
+            'longitud'         => $data['longitud'] ?? null,
+            'metadata'         => $data['metadata'] ?? null,
         ]);
 
         $url  = rtrim($cfg['base_url'], '/') . "/api/tracking/chats/{$idDetalle}/mensajes";

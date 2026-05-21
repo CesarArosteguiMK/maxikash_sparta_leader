@@ -173,6 +173,93 @@ body.dark-mode .eta-row .form-select {
     gap: .4rem;
 }
 
+/* ── Tracking timeline (Mercado Libre style) ── */
+#trkTrackingSection { font-size: .82rem; }
+.trk-timeline { position: relative; padding-left: 1.6rem; }
+.trk-timeline::before {
+    content: '';
+    position: absolute;
+    left: .65rem;
+    top: .4rem;
+    bottom: .4rem;
+    width: 2px;
+    background: #e2e8f0;
+}
+body.dark-mode .trk-timeline::before { background: #334155; }
+.trk-step {
+    position: relative;
+    display: flex;
+    align-items: flex-start;
+    gap: .6rem;
+    padding: .45rem 0;
+}
+.trk-step-dot {
+    position: absolute;
+    left: -1.6rem;
+    top: .55rem;
+    width: 1.1rem;
+    height: 1.1rem;
+    border-radius: 50%;
+    border: 2px solid #cbd5e1;
+    background: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: .5rem;
+    color: #fff;
+    z-index: 1;
+    flex-shrink: 0;
+}
+body.dark-mode .trk-step-dot { background: #1e293b; }
+.trk-step.done .trk-step-dot      { background: #16a34a; border-color: #16a34a; }
+.trk-step.activo .trk-step-dot    { background: var(--track-color); border-color: var(--track-color); animation: trkPulse 1.4s infinite; }
+.trk-step.en_sitio .trk-step-dot  { background: #f59e0b; border-color: #f59e0b; }
+.trk-step.incidencia .trk-step-dot { background: #ef4444; border-color: #ef4444; }
+@keyframes trkPulse {
+    0%,100% { box-shadow: 0 0 0 0 rgba(22,163,74,.4); }
+    50%      { box-shadow: 0 0 0 5px rgba(22,163,74,0); }
+}
+.trk-step-body { flex: 1; min-width: 0; }
+.trk-step-orden { font-weight: 700; color: #64748b; margin-right: .3rem; }
+.trk-step-nombre {
+    font-weight: 600;
+    color: #1e293b;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 100%;
+    display: block;
+}
+body.dark-mode .trk-step-nombre { color: #e2e8f0; }
+.trk-step-dir { color: #64748b; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block; }
+.trk-step-badge {
+    font-size: .65rem;
+    padding: .15rem .45rem;
+    border-radius: 999px;
+    font-weight: 600;
+    white-space: nowrap;
+    flex-shrink: 0;
+    margin-top: .15rem;
+    align-self: flex-start;
+}
+.trk-badge-pendiente  { background: #f1f5f9; color: #64748b; }
+.trk-badge-en_camino  { background: #dbeafe; color: #1d4ed8; }
+.trk-badge-en_sitio   { background: #fef3c7; color: #92400e; }
+.trk-badge-completado { background: #dcfce7; color: #15803d; }
+.trk-badge-incidencia { background: #fee2e2; color: #b91c1c; }
+.trk-location-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: .3rem;
+    background: #f1f5f9;
+    border-radius: 999px;
+    padding: .2rem .6rem;
+    font-size: .72rem;
+    color: #475569;
+    margin-top: .3rem;
+}
+body.dark-mode .trk-location-pill { background: #1e293b; color: #94a3b8; }
+
 /* ── Resumen del modal ── */
 .track-summary-chip {
     display: inline-flex;
@@ -367,7 +454,7 @@ body.dark-mode .chat-messages-wrap::-webkit-scrollbar-thumb { background: #2d444
     word-break: break-word;
     max-width: 100%;
 }
-.dir-out.role-gestor   .chat-bubble { background: #3b82f6; color: #fff; border-bottom-right-radius: .2rem; }
+.dir-out.role-gestor   .chat-bubble { background: #16a34a; color: #fff; border-bottom-right-radius: .2rem; }
 .dir-out.role-conductor .chat-bubble { background: var(--track-color); color: #fff; border-bottom-right-radius: .2rem; }
 .dir-in  .chat-bubble { background: #f1f5f9; color: #1e293b; border-bottom-left-radius: .2rem; }
 body.dark-mode .dir-in .chat-bubble { background: #1e2d2c; color: #e2e8f0; }
@@ -722,6 +809,39 @@ body.dark-mode .chat-send-btn:disabled { background: #2d4444; }
                     </div>
                 </div>
 
+                <!-- ── Sección 3.5: Tracking en tiempo real ── -->
+                <div id="trkTrackingSection" class="mb-3 d-none">
+                    <div class="d-flex align-items-center justify-content-between mb-1">
+                        <span class="small fw-semibold">
+                            <i class="fa-solid fa-route me-1" style="color:var(--track-color);"></i>
+                            Estado del recorrido
+                        </span>
+                        <span id="trkWsDot" title="Sin conexión en tiempo real"
+                              style="width:.55rem;height:.55rem;border-radius:50%;background:#cbd5e1;display:inline-block;"></span>
+                    </div>
+                    <!-- Barra de progreso -->
+                    <div class="progress mb-1" style="height:5px;border-radius:999px;">
+                        <div class="progress-bar" id="trkProgressBar"
+                             style="width:0%;background:var(--track-color);transition:width .4s;"></div>
+                    </div>
+                    <div class="d-flex justify-content-between small text-muted mb-2">
+                        <span id="trkProgressText">— / — puntos</span>
+                        <span id="trkPorcentaje">0%</span>
+                    </div>
+                    <!-- Última ubicación del conductor -->
+                    <div id="trkUltimaUbicacion" class="trk-location-pill d-none mb-2">
+                        <i class="fa-solid fa-location-arrow" style="color:var(--track-color);"></i>
+                        <span id="trkUbicacionText">—</span>
+                        <span class="text-muted" id="trkUbicacionTime"></span>
+                    </div>
+                    <!-- Timeline de paradas -->
+                    <div class="trk-timeline" id="trkTimeline">
+                        <div class="text-center text-muted py-2 small" id="trkTimelineEmpty">
+                            <span class="spinner-border spinner-border-sm opacity-25" style="color:var(--track-color);"></span>
+                        </div>
+                    </div>
+                </div>
+
                 <!-- ── Sección 4: Mapa de la ruta ── -->
                 <div class="mb-2">
                     <div class="d-flex align-items-center justify-content-between mb-1">
@@ -885,7 +1005,8 @@ body.dark-mode .chat-send-btn:disabled { background: #2d4444; }
 
 <script>
 /* Chat Operativo — URL WebSocket (sin credenciales, solo el host) */
-window._trackingChatWsBaseUrl = <?= json_encode((string)($tracking_chat_ws_base_url ?? '')) ?>;
+window._trackingChatWsBaseUrl   = <?= json_encode((string)($tracking_chat_ws_base_url ?? '')) ?>;
+window._trackingChatGestorNombre = <?= json_encode(trim((string)($_SESSION['usuario_nombre'] ?? 'Gestor'))) ?>;
 </script>
 
 <!-- SortableJS (drag-and-drop sin jQuery UI) -->
@@ -1557,6 +1678,7 @@ function _trkAbrirModalConCredito(cred) {
 }
 
 function _trkResetModal() {
+    _trkRTLimpiar();   // limpia tracking RT antes de resetear el modal
     _trk.idRutaEditando        = null;
     _trk.estatusRuta           = null;
     _trk.soloLectura           = false;
@@ -2572,12 +2694,252 @@ function _trkCargarRutaEnModal(idRuta, soloLectura) {
             }
 
             _trk.haychangios = false;
+
+            // Iniciar tracking en tiempo real si la ruta está activa o completada
+            const esActiva = ['en_proceso', 'completado'].includes(d.estatus_ruta);
+            if (esActiva) {
+                _trkRTIniciar(idRuta);
+            } else {
+                _trkRTLimpiar();
+            }
         })
         .catch(() => {
             _trk.cargando = false;
             Swal.fire({ icon: 'error', title: 'Error', text: 'Error de conexión.', confirmButtonText: 'Aceptar' });
             modal.hide();
         });
+}
+
+/* ════════════════════════════════════════════════════════════
+   TRACKING EN TIEMPO REAL — estilo Mercado Libre
+   Muestra el estado del recorrido (paradas, progreso, ubicación)
+   cuando la ruta está en_proceso o completado.
+════════════════════════════════════════════════════════════ */
+
+const _trkRT = {
+    idRuta:       null,
+    ws:           null,
+    wsRetries:    0,
+    wsRetryTO:    null,
+    wsPingIv:     null,
+    estado:       null,   // último estado recibido del API
+};
+
+// ─── Limpiar todo el tracking RT ─────────────────────────
+function _trkRTLimpiar() {
+    if (_trkRT.wsPingIv)  { clearInterval(_trkRT.wsPingIv);  _trkRT.wsPingIv  = null; }
+    if (_trkRT.wsRetryTO) { clearTimeout(_trkRT.wsRetryTO);  _trkRT.wsRetryTO = null; }
+    if (_trkRT.ws)        { _trkRT.ws.onclose = null; _trkRT.ws.close(); _trkRT.ws = null; }
+    _trkRT.idRuta    = null;
+    _trkRT.wsRetries = 0;
+    _trkRT.estado    = null;
+    document.getElementById('trkTrackingSection').classList.add('d-none');
+    document.getElementById('trkTimeline').innerHTML =
+        `<div class="text-center text-muted py-2 small" id="trkTimelineEmpty">
+            <span class="spinner-border spinner-border-sm opacity-25" style="color:var(--track-color);"></span>
+         </div>`;
+    _trkRTActualizarWsDot(false);
+}
+
+// ─── Inicializar para una ruta ────────────────────────────
+async function _trkRTIniciar(idRuta) {
+    _trkRTLimpiar();
+    _trkRT.idRuta = idRuta;
+    document.getElementById('trkTrackingSection').classList.remove('d-none');
+    await _trkRTCargarEstado();
+    const tok = await _trkChatObtenerToken();
+    if (tok) _trkRTConectarWS(tok);
+}
+
+// ─── Cargar estado vía REST ───────────────────────────────
+async function _trkRTCargarEstado() {
+    const id = _trkRT.idRuta;
+    if (!id) return;
+    try {
+        const r = await trkFetch(`/TrackingRecoleccion/trackingEstadoRuta?id_ruta=${id}`);
+        if (r.success && r.ruta) {
+            _trkRT.estado = r.ruta;
+            _trkRTRenderizar(r.ruta);
+        } else {
+            document.getElementById('trkTimeline').innerHTML =
+                `<div class="text-center text-muted py-2 small">Sin datos de tracking disponibles.</div>`;
+        }
+    } catch { /* silencioso */ }
+}
+
+// ─── Renderizar timeline ──────────────────────────────────
+function _trkRTRenderizar(ruta) {
+    // Barra de progreso
+    const prog = ruta.progreso || {};
+    const pct  = prog.porcentaje ?? 0;
+    document.getElementById('trkProgressBar').style.width = pct + '%';
+    document.getElementById('trkProgressText').textContent =
+        `${prog.completados ?? 0} / ${prog.total ?? 0} puntos completados`;
+    document.getElementById('trkPorcentaje').textContent = pct + '%';
+
+    // Timeline de créditos
+    const creditos = ruta.creditos || [];
+    const puntoAct = ruta.punto_actual;
+    if (!creditos.length) {
+        document.getElementById('trkTimeline').innerHTML =
+            `<div class="text-center text-muted py-2 small">Sin puntos de recolección registrados.</div>`;
+        return;
+    }
+
+    const LABELS = {
+        pendiente:  'Pendiente',
+        en_camino:  'En camino',
+        en_sitio:   'En sitio',
+        completado: 'Completado',
+        incidencia: 'Incidencia',
+    };
+    const ICONS = {
+        pendiente:  'fa-circle-dot',
+        en_camino:  'fa-motorcycle',
+        en_sitio:   'fa-location-dot',
+        completado: 'fa-circle-check',
+        incidencia: 'fa-triangle-exclamation',
+    };
+
+    let html = '';
+    creditos.forEach(c => {
+        const est     = c.estatus_recoleccion || 'pendiente';
+        const esAct   = puntoAct && puntoAct.id_detalle === c.id_detalle;
+        const esDone  = est === 'completado';
+        const stepCls = esDone ? 'done' : (esAct ? 'activo' : (est === 'en_sitio' ? 'en_sitio' : (est === 'incidencia' ? 'incidencia' : '')));
+        const icon    = ICONS[est] || ICONS.pendiente;
+        const label   = LABELS[est] || est;
+        const nombre  = _trkChatEscapeHtml(c.nombre_cliente || `Crédito #${c.id_credito}`);
+        const dir     = _trkChatEscapeHtml(c.direccion || c.municipio || '');
+        html += `<div class="trk-step ${stepCls}" data-id="${c.id_detalle}">
+            <div class="trk-step-dot"><i class="fa-solid ${icon}" style="font-size:.45rem;"></i></div>
+            <div class="trk-step-body">
+                <div class="d-flex align-items-center gap-1 flex-wrap">
+                    <span class="trk-step-orden">${c.orden_ruta ?? '?'}.</span>
+                    <span class="trk-step-nombre">${nombre}</span>
+                    <span class="trk-step-badge trk-badge-${est}">${label}</span>
+                </div>
+                ${dir ? `<span class="trk-step-dir">${dir}</span>` : ''}
+            </div>
+        </div>`;
+    });
+    document.getElementById('trkTimeline').innerHTML = html;
+}
+
+// ─── Aplicar cambios parciales (WS update) ───────────────
+function _trkRTAplicarChanges(changes) {
+    if (!changes || !changes.length || !_trkRT.estado) return;
+    const creditos = _trkRT.estado.creditos || [];
+    changes.forEach(ch => {
+        const c = creditos.find(x => x.id_detalle === ch.id_detalle);
+        if (c && ch.estatus_recoleccion) c.estatus_recoleccion = ch.estatus_recoleccion;
+    });
+    // Recalcular progreso
+    const total       = creditos.length;
+    const completados = creditos.filter(c => c.estatus_recoleccion === 'completado').length;
+    if (_trkRT.estado.progreso) {
+        _trkRT.estado.progreso.completados  = completados;
+        _trkRT.estado.progreso.pendientes   = total - completados;
+        _trkRT.estado.progreso.porcentaje   = total ? Math.round((completados / total) * 100) : 0;
+    }
+    // Punto actual: primer no completado
+    const noComp = creditos.find(c => c.estatus_recoleccion !== 'completado');
+    _trkRT.estado.punto_actual = noComp ? { id_detalle: noComp.id_detalle } : null;
+    _trkRTRenderizar(_trkRT.estado);
+}
+
+// ─── Actualizar última ubicación del conductor ────────────
+function _trkRTActualizarUbicacion(evt) {
+    const pill = document.getElementById('trkUltimaUbicacion');
+    const txt  = document.getElementById('trkUbicacionText');
+    const time = document.getElementById('trkUbicacionTime');
+    if (!pill) return;
+    const lat = (evt.latitud  ?? 0).toFixed(5);
+    const lng = (evt.longitud ?? 0).toFixed(5);
+    txt.textContent  = `${lat}, ${lng}`;
+    const ts = evt.timestamp ? new Date(evt.timestamp.endsWith('Z') ? evt.timestamp : evt.timestamp + 'Z') : new Date();
+    time.textContent = ts.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    pill.classList.remove('d-none');
+}
+
+// ─── WS dot ──────────────────────────────────────────────
+function _trkRTActualizarWsDot(conectado) {
+    const dot = document.getElementById('trkWsDot');
+    if (!dot) return;
+    dot.style.background = conectado ? '#16a34a' : '#cbd5e1';
+    dot.title = conectado ? 'En tiempo real' : 'Sin conexión en tiempo real';
+}
+
+// ─── Conectar WebSocket de ruta ───────────────────────────
+function _trkRTConectarWS(token) {
+    const wsBase = window._trackingChatWsBaseUrl;
+    if (!wsBase || !_trkRT.idRuta) return;
+    if (_trkRT.ws && _trkRT.ws.readyState === WebSocket.OPEN) return;
+    if (_trkRT.ws) { _trkRT.ws.onclose = null; _trkRT.ws.close(); _trkRT.ws = null; }
+
+    let ws;
+    try {
+        ws = new WebSocket(`${wsBase}/api/tracking/rutas/${_trkRT.idRuta}/live?token=${encodeURIComponent(token)}`);
+    } catch { _trkRTActualizarWsDot(false); return; }
+    _trkRT.ws = ws;
+
+    ws.onopen = () => {
+        _trkRT.wsRetries = 0;
+        _trkRTActualizarWsDot(true);
+        _trkRT.wsPingIv = setInterval(() => {
+            if (_trkRT.ws && _trkRT.ws.readyState === WebSocket.OPEN) {
+                _trkRT.ws.send(JSON.stringify({ event: 'ping' }));
+            } else {
+                clearInterval(_trkRT.wsPingIv); _trkRT.wsPingIv = null;
+            }
+        }, 30000);
+    };
+
+    ws.onmessage = evt => {
+        let data;
+        try { data = JSON.parse(evt.data); } catch { return; }
+        if (data.event === 'pong') return;
+        _trkRTProcesarEvento(data);
+    };
+
+    ws.onclose = () => {
+        clearInterval(_trkRT.wsPingIv); _trkRT.wsPingIv = null;
+        _trkRT.ws = null;
+        _trkRTActualizarWsDot(false);
+        if (_trkRT.wsRetries < 5 && _trkRT.idRuta) {
+            const delay = Math.min(1000 * Math.pow(2, _trkRT.wsRetries), 30000);
+            _trkRT.wsRetries++;
+            _trkRT.wsRetryTO = setTimeout(async () => {
+                const tok = await _trkChatObtenerToken();
+                if (tok && _trkRT.idRuta) _trkRTConectarWS(tok);
+            }, delay);
+        }
+    };
+
+    ws.onerror = () => { /* onclose disparará */ };
+}
+
+// ─── Procesar eventos WS de ruta ─────────────────────────
+function _trkRTProcesarEvento(data) {
+    switch (data.event) {
+        case 'init':
+            // El endpoint WS puede enviar estado inicial
+            if (data.creditos && _trkRT.estado) {
+                _trkRT.estado.creditos = data.creditos;
+                _trkRTRenderizar(_trkRT.estado);
+            }
+            break;
+        case 'update':
+            _trkRTAplicarChanges(data.changes || []);
+            break;
+        case 'location.update':
+            _trkRTActualizarUbicacion(data);
+            break;
+        case 'tracking.event':
+            // Recargar estado completo ante cualquier evento de tracking
+            _trkRTCargarEstado();
+            break;
+    }
 }
 
 /* ════════════════════════════════════════════════════════════
@@ -2654,7 +3016,7 @@ function _trkChatAbrir(idRuta, rutaNombre, detalleItems) {
         const id = det.id_detalle;
         _trkChat.chats[id] = {
             id_chat: null, estatus: null, mensajes: [],
-            ws: null, wsRetries: 0, wsRetryTimeout: null,
+            ws: null, wsRetries: 0, wsRetryTimeout: null, wsPingInterval: null,
             unread: 0, loadingMsgs: false, allLoaded: false, oldestMsgId: null,
         };
 
@@ -2857,7 +3219,9 @@ function _trkChatRenderBurbuja(msg) {
     const dirClass  = esOut ? 'dir-out' : 'dir-in';
     const roleClass = tipo === 'gestor' ? 'role-gestor' : 'role-conductor';
     const hora      = _trkChatFechaLocal(msg.fecha_alta);
-    const actor     = tipo === 'gestor' ? 'Gestor' : 'Conductor';
+    const actor     = tipo === 'gestor'
+        ? (window._trackingChatGestorNombre || 'Gestor')
+        : (msg.nombre_remitente || 'Conductor');
     return `<div class="chat-bubble-wrap ${dirClass} ${roleClass}">
         <div class="chat-bubble">${_trkChatEscapeHtml(msg.mensaje)}</div>
         <span class="chat-bubble-meta">${actor} · ${hora}</span>
@@ -2978,15 +3342,27 @@ function _trkChatConectarWS(idDetalle, token) {
     ws.onopen = () => {
         state.wsRetries = 0;
         _trkChatActualizarWsDot(idDetalle, true);
+        // Heartbeat cada 30s para mantener la conexión activa en Cloud Run
+        state.wsPingInterval = setInterval(() => {
+            if (state.ws && state.ws.readyState === WebSocket.OPEN) {
+                state.ws.send(JSON.stringify({ event: 'ping' }));
+            } else {
+                clearInterval(state.wsPingInterval);
+                state.wsPingInterval = null;
+            }
+        }, 30000);
     };
 
     ws.onmessage = evt => {
         let data;
         try { data = JSON.parse(evt.data); } catch { return; }
+        if (data.event === 'pong') return; // ignorar respuesta heartbeat
         _trkChatProcesarEventoWS(idDetalle, data);
     };
 
     ws.onclose = evt => {
+        clearInterval(state.wsPingInterval);
+        state.wsPingInterval = null;
         state.ws = null;
         _trkChatActualizarWsDot(idDetalle, false);
 
@@ -3007,7 +3383,8 @@ function _trkChatConectarWS(idDetalle, token) {
             state.wsRetries++;
             state.wsRetryTimeout = setTimeout(async () => {
                 const tok = await _trkChatObtenerToken();
-                if (tok && _trkChat.chats[idDetalle]?.estatus === 'activo') {
+                const est = _trkChat.chats[idDetalle]?.estatus;
+                if (tok && (est === 'activo' || est === 'bloqueado')) {
                     _trkChatConectarWS(idDetalle, tok);
                 }
             }, delay);
@@ -3056,6 +3433,7 @@ function _trkChatProcesarEventoWS(idDetalle, data) {
 function _trkChatDesconectarWS(idDetalle) {
     const state = _trkChat.chats[idDetalle];
     if (!state) return;
+    if (state.wsPingInterval) { clearInterval(state.wsPingInterval); state.wsPingInterval = null; }
     if (state.wsRetryTimeout) { clearTimeout(state.wsRetryTimeout); state.wsRetryTimeout = null; }
     if (state.ws) { state.ws.onclose = null; state.ws.close(); state.ws = null; }
 }

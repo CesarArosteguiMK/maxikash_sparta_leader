@@ -1234,41 +1234,34 @@ class CierreCredito extends Model
 
             $idCelula = (int) ($convenio['id_celula'] ?? 0) ?: null;
 
-            // Solo crear/actualizar el registro en cierre_credito_seguimiento cuando el convenio
-            // ya está completado. Si se notifica mientras el convenio aún está activo, solo se
-            // envía el correo de aviso sin bloquear el flujo de cierre futuro.
-            $convenioCompletado = ($convenio['estatus'] === 'completado');
-
-            if ($convenioCompletado) {
-                if ($existing) {
-                    $estatusActual = $existing['estatus'];
-                    // No interferir con flujo activo de cierre
-                    if (in_array($estatusActual, ['en_proceso', 'enviado_cartera', 'en_cola', 'listo_envio'], true)) {
-                        return self::resultado(false, 'Este crédito ya tiene un proceso de cierre activo. No se puede re-notificar.');
-                    }
-                    // Actualizar a notificado_cartera
-                    $db->CRUD(
-                        "UPDATE cierre_credito_seguimiento
-                         SET estatus               = 'notificado_cartera',
-                             nombre_cliente         = :nombre_cliente,
-                             usuario_actualizacion  = :usuario,
-                             fecha_actualizacion    = NOW()
-                         WHERE id = :id",
-                        ['nombre_cliente' => $nombreCliente, 'usuario' => $usuario, 'id' => (int) $existing['id']]
-                    );
-                } else {
-                    $db->CRUD(
-                        "INSERT INTO cierre_credito_seguimiento
-                            (id_credito, nombre_cliente, estatus, usuario_alta, usuario_actualizacion, id_celula)
-                         VALUES
-                            (:id_credito, :nombre_cliente, 'notificado_cartera', :usuario, :usuario, :id_celula)",
-                        ['id_credito' => $idCredito, 'nombre_cliente' => $nombreCliente,
-                         'usuario' => $usuario, 'id_celula' => $idCelula]
-                    );
+            // Crear o actualizar el registro de seguimiento siempre que se notifique,
+            // sin importar si el convenio está activo o completado.
+            if ($existing) {
+                $estatusActual = $existing['estatus'];
+                // No interferir con flujo activo de cierre
+                if (in_array($estatusActual, ['en_proceso', 'enviado_cartera', 'en_cola', 'listo_envio'], true)) {
+                    return self::resultado(false, 'Este crédito ya tiene un proceso de cierre activo. No se puede re-notificar.');
                 }
+                // Actualizar a notificado_cartera
+                $db->CRUD(
+                    "UPDATE cierre_credito_seguimiento
+                     SET estatus               = 'notificado_cartera',
+                         nombre_cliente         = :nombre_cliente,
+                         usuario_actualizacion  = :usuario,
+                         fecha_actualizacion    = NOW()
+                     WHERE id = :id",
+                    ['nombre_cliente' => $nombreCliente, 'usuario' => $usuario, 'id' => (int) $existing['id']]
+                );
+            } else {
+                $db->CRUD(
+                    "INSERT INTO cierre_credito_seguimiento
+                        (id_credito, nombre_cliente, estatus, usuario_alta, usuario_actualizacion, id_celula)
+                     VALUES
+                        (:id_credito, :nombre_cliente, 'notificado_cartera', :usuario, :usuario, :id_celula)",
+                    ['id_credito' => $idCredito, 'nombre_cliente' => $nombreCliente,
+                     'usuario' => $usuario, 'id_celula' => $idCelula]
+                );
             }
-            // Si el convenio aún no está completado, no se registra cierre_credito_seguimiento.
-            // El crédito podrá entrar al flujo de cierre normalmente cuando liquide.
 
             // 4. Enviar email
             $emailError = null;
