@@ -1,9 +1,9 @@
 {
-  "ultimo_id_tabla": 22652,
-  "ultimo_registrado_en_cdmx": "2026-05-20 10:00:07",
-  "ultimo_id_credito": 2083011,
+  "ultimo_id_tabla": 23383,
+  "ultimo_registrado_en_cdmx": "2026-05-21 09:37:35",
+  "ultimo_id_credito": 1143432,
   "tabla": "cobranza_gc_verificacion_semana",
   "orden_descargo": "registrado_en_cdmx ASC, id ASC",
-  "guia_escrita_en_cdmx": "2026-05-20 10:02:38",
+  "guia_escrita_en_cdmx": "2026-05-21 10:01:45",
   "nota": "Checkpoint incremental: la siguiente corrida pide filas con (registrado_en_cdmx > ultimo_registrado_en_cdmx) O (misma fecha y id de tabla > ultimo_id_tabla). Escrito por reporte_cobranza.py al fusionar el reporte unificado."
 }
