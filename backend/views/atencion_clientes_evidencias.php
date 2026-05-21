@@ -615,6 +615,7 @@ $aevPublicPath = function_exists('sparta_public_web_base') ? sparta_public_web_b
             { key: 'fis_video_cliente_acuerdo', label: 'Video cliente de acuerdo', icon: 'fa-video' },
             { key: 'fis_360_encendida', label: 'Video moto 360 encendida', icon: 'fa-video' },
             { key: 'fis_video_vuelta_prueba', label: 'Video vuelta de prueba', icon: 'fa-road' },
+            { key: 'fis_checklist', label: 'Foto checklist', icon: 'fa-list-check' },
         ]},
     ];
     const AEV_EV_DOCS = [
