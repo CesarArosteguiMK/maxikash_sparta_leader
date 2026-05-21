@@ -414,7 +414,7 @@ body.dark-mode .aev-ev-slot, body.dark-mode .aev-doc-zone { background: #1e293b;
                     <button type="button" class="btn btn-success" id="aev-vista-aceptar">
                         <i class="fa-solid fa-check me-1"></i>Aceptar
                     </button>
-                    <button type="button" class="btn btn-danger d-none" id="aev-vista-rechazar">
+                    <button type="button" class="btn btn-danger" id="aev-vista-rechazar">
                         <i class="fa-solid fa-xmark me-1"></i>Rechazar
                     </button>
                 </div>
@@ -631,7 +631,7 @@ $aevPublicPath = function_exists('sparta_public_web_base') ? sparta_public_web_b
     const AE_EV_TOTAL      = AEV_TOTAL_IMAGEN;
 
     /** detalle de sesión: veredictos v[slot]= acep|rec, comentarios c[slot] (persiste solo mientras dura el modal) */
-    let _aevStore  = { det: null, idCredito: 0, v: {}, c: {} };
+    let _aevStore  = { det: null, idCredito: 0, v: {}, c: {}, rechazosPendientes: {} };
     let _aevVistaCtx = { slot: '', label: '', evidId: 0, soloAceptada: false, soloRechazada: false };
     let _aevZoomTeardown = null;
 
@@ -769,6 +769,7 @@ $aevPublicPath = function_exists('sparta_public_web_base') ? sparta_public_web_b
         _aevStore.idCredito = idC;
         _aevStore.v     = {};
         _aevStore.c     = {};
+        _aevStore.rechazosPendientes = {};
         if (det && Array.isArray(det.evidencias)) {
             det.evidencias.forEach(function (e) {
                 if (!e || !e.slot) return;
@@ -1166,6 +1167,86 @@ $aevPublicPath = function_exists('sparta_public_web_base') ? sparta_public_web_b
         });
     }
 
+    function aevBuscarEvidenciaDetalle(slot, evidId) {
+        if (!_aevStore.det || !Array.isArray(_aevStore.det.evidencias)) return null;
+        const id = parseInt(evidId, 10) || 0;
+        for (let i = 0; i < _aevStore.det.evidencias.length; i++) {
+            const row = _aevStore.det.evidencias[i];
+            if (!row) continue;
+            if (id > 0 && parseInt(row.id, 10) === id) return row;
+            if (slot && row.slot === slot) return row;
+        }
+        return null;
+    }
+
+    function aevKeyRechazoPendiente(opId, evidId) {
+        return String(parseInt(opId, 10) || 0) + ':' + String(parseInt(evidId, 10) || 0);
+    }
+
+    function aevRegistrarRechazoPendiente(opId, evidId, slot, comentario) {
+        const idOp = parseInt(opId, 10) || 0;
+        const idEv = parseInt(evidId, 10) || 0;
+        if (idOp <= 0 || idEv <= 0 || !slot || slot === 'doc_repuve') return;
+        const row = aevBuscarEvidenciaDetalle(slot, idEv);
+        const motivo = (comentario || '').trim() || 'Evidencia incompleta o borrosa.';
+        _aevStore.rechazosPendientes[aevKeyRechazoPendiente(idOp, idEv)] = {
+            id_evidencia: idEv,
+            slot: slot,
+            motivo_rechazo: motivo,
+            url_vieja_rechazada: row && row.url ? String(row.url) : ''
+        };
+    }
+
+    function aevQuitarRechazoPendiente(opId, evidId) {
+        const key = aevKeyRechazoPendiente(opId, evidId);
+        if (_aevStore.rechazosPendientes && Object.prototype.hasOwnProperty.call(_aevStore.rechazosPendientes, key)) {
+            delete _aevStore.rechazosPendientes[key];
+        }
+    }
+
+    function aevRechazosPendientesOperacion(opId) {
+        const idOp = parseInt(opId, 10) || 0;
+        if (idOp <= 0 || !_aevStore.rechazosPendientes) return [];
+        return Object.keys(_aevStore.rechazosPendientes)
+            .filter(function (key) { return key.indexOf(String(idOp) + ':') === 0; })
+            .map(function (key) { return _aevStore.rechazosPendientes[key]; })
+            .filter(function (row) { return row && row.id_evidencia && row.slot; });
+    }
+
+    function aevEnviarRechazosPendientesSiAplica(opId) {
+        const pendientes = aevRechazosPendientesOperacion(opId);
+        if (!pendientes.length) {
+            return Promise.resolve({ success: true, omitido: true });
+        }
+        const evidenciasApi = pendientes.map(function (row) {
+            return {
+                id_evidencia: row.id_evidencia,
+                motivo_rechazo: row.motivo_rechazo || 'Evidencia incompleta o borrosa.',
+                url_vieja_rechazada: row.url_vieja_rechazada || ''
+            };
+        });
+
+        return fetch('/MotosAdjudicadas/enviarRechazosEvidenciasBulkLegacy', {
+            method:  'POST',
+            headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+            body:    JSON.stringify({
+                id_operacion: opId,
+                motivo_general: 'Evidencias incompletas o borrosas.',
+                evidencias: evidenciasApi
+            }),
+            credentials: 'same-origin'
+        })
+            .then(r => r.json())
+            .then(function (data) {
+                if (data && data.success) {
+                    pendientes.forEach(function (row) {
+                        aevQuitarRechazoPendiente(opId, row.id_evidencia);
+                    });
+                }
+                return data;
+            });
+    }
+
     function aevAplicarVeredictoDesdeVista(ver) {
         if (_aevVistaCtx.soloAceptada || _aevVistaCtx.soloRechazada) return;
         const s = _aevVistaCtx.slot;
@@ -1195,8 +1276,17 @@ $aevPublicPath = function_exists('sparta_public_web_base') ? sparta_public_web_b
                 .then(data => {
                     if (data.success) {
                         aevSetRowValAtnEnDetalle(s, val, coment);
-                        // Recalcula estatus tras cada veredicto para evitar carreras al cerrar rápido el modal.
-                        aevRecalcularDespuesDeVeredicto(opId);
+                        if (val === 2) {
+                            if (_aeFinalizarDebounceTimer) {
+                                clearTimeout(_aeFinalizarDebounceTimer);
+                                _aeFinalizarDebounceTimer = null;
+                            }
+                            aevRegistrarRechazoPendiente(opId, evidId, s, coment);
+                        } else {
+                            aevQuitarRechazoPendiente(opId, evidId);
+                            // Recalcula estatus tras aceptar para evitar carreras al cerrar rápido el modal.
+                            aevRecalcularDespuesDeVeredicto(opId);
+                        }
                     } else if (typeof Swal !== 'undefined') {
                         Swal.fire({ icon: 'error', title: 'No se pudo guardar', text: data.message || 'Intenta de nuevo o revisa el servidor (¿migración adj_evidencia?)' });
                     } else {
@@ -1255,14 +1345,32 @@ $aevPublicPath = function_exists('sparta_public_web_base') ? sparta_public_web_b
         if (!d || !d.id) { return; }
         const opId = parseInt(d.id, 10);
         if (opId <= 0) { return; }
-        fetch('/MotosAdjudicadas/finalizarCierreValidacionEvidenciaAtn', {
-            method:  'POST',
-            headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
-            body:    JSON.stringify({ id_operacion: opId }),
-            credentials: 'same-origin'
-        })
-            .then(r => r.json())
-            .then(data => { aevAplicarRespuestaFinalizar(data); });
+        aevEnviarRechazosPendientesSiAplica(opId)
+            .then(function (data) {
+                if (!data || !data.success) {
+                    if (typeof Swal !== 'undefined') {
+                        Swal.fire({
+                            icon: 'error',
+                            title: 'No se notificaron los rechazos',
+                            text: (data && data.message) ? String(data.message) : 'No se pudo enviar la notificacion agrupada.'
+                        });
+                    }
+                    return null;
+                }
+                return fetch('/MotosAdjudicadas/finalizarCierreValidacionEvidenciaAtn', {
+                    method:  'POST',
+                    headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+                    body:    JSON.stringify({ id_operacion: opId }),
+                    credentials: 'same-origin'
+                });
+            })
+            .then(function (r) { return r ? r.json() : null; })
+            .then(function (data) { if (data) aevAplicarRespuestaFinalizar(data); })
+            .catch(function () {
+                if (typeof Swal !== 'undefined') {
+                    Swal.fire({ icon: 'error', title: 'Error de red', text: 'No se pudo cerrar la validacion de evidencias.' });
+                }
+            });
     }
 
     function aevRecalcularDespuesDeVeredicto(opId) {

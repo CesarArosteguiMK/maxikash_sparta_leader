@@ -539,7 +539,7 @@ class TrackingRecoleccion extends Model
             atr.nombre_ruta,
             atr.estado,
             atr.municipio,
-            DATE_FORMAT(atr.fecha_programada, \'%d/%m/%Y\') AS fecha_programada_fmt,
+            CONCAT(DATE_FORMAT(atr.fecha_programada, \'%d/\'), ELT(MONTH(atr.fecha_programada), \'Enero\',\'Febrero\',\'Marzo\',\'Abril\',\'Mayo\',\'Junio\',\'Julio\',\'Agosto\',\'Septiembre\',\'Octubre\',\'Noviembre\',\'Diciembre\'), DATE_FORMAT(atr.fecha_programada, \'/%Y\')) AS fecha_programada_fmt,
             atr.fecha_programada,
             atr.estatus_ruta,
             atr.creado_por,
@@ -595,7 +595,7 @@ class TrackingRecoleccion extends Model
             atr.nombre_ruta,
             atr.estado,
             atr.municipio,
-            DATE_FORMAT(atr.fecha_programada, \'%d/%m/%Y\') AS fecha_programada_fmt,
+            CONCAT(DATE_FORMAT(atr.fecha_programada, \'%d/\'), ELT(MONTH(atr.fecha_programada), \'Enero\',\'Febrero\',\'Marzo\',\'Abril\',\'Mayo\',\'Junio\',\'Julio\',\'Agosto\',\'Septiembre\',\'Octubre\',\'Noviembre\',\'Diciembre\'), DATE_FORMAT(atr.fecha_programada, \'/%Y\')) AS fecha_programada_fmt,
             atr.fecha_programada,
             atr.estatus_ruta,
             atr.creado_por,
@@ -653,7 +653,7 @@ class TrackingRecoleccion extends Model
             $cabecera = $this->db->queryOne(
                 "SELECT
                     atr.*,
-                    DATE_FORMAT(atr.fecha_programada, '%d/%m/%Y') AS fecha_programada_fmt,
+                    CONCAT(DATE_FORMAT(atr.fecha_programada, '%d/'), ELT(MONTH(atr.fecha_programada), 'Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'), DATE_FORMAT(atr.fecha_programada, '/%Y')) AS fecha_programada_fmt,
                     DATE_FORMAT(atr.fecha_creacion,   '%d/%m/%Y %H:%i') AS fecha_creacion_fmt
                  FROM asigna_horas_tracking atr
                  WHERE atr.id_ruta = :id
@@ -771,5 +771,58 @@ class TrackingRecoleccion extends Model
         } catch (\Throwable $e) {
             return '';
         }
+    }
+
+    /**
+     * Enriquece un array de créditos recibido de la API externa con los campos
+     * id_credito y nombre_cliente obtenidos de la base de datos local,
+     * usando id_detalle como clave de unión.
+     *
+     * @param array $creditos  Items de ruta.creditos devueltos por la API externa.
+     * @return array           Los mismos items con id_credito y nombre_cliente añadidos.
+     */
+    public function enriquecerCreditosConDatosLocales(array $creditos): array
+    {
+        if (empty($creditos)) {
+            return $creditos;
+        }
+        $ids = array_values(array_filter(array_map(fn($c) => isset($c['id_detalle']) ? (int)$c['id_detalle'] : null, $creditos)));
+        if (empty($ids)) {
+            return $creditos;
+        }
+        try {
+            $params = [];
+            $placeholders = [];
+            foreach ($ids as $i => $id) {
+                $key = "id{$i}";
+                $placeholders[] = ":{$key}";
+                $params[$key]   = $id;
+            }
+            $rows = $this->db->queryAll(
+                "SELECT atd.id_detalle, atd.id_credito, ao.nombre_cliente
+                 FROM asigna_horas_tracking_detalle atd
+                 LEFT JOIN adj_operacion ao ON ao.id_credito = atd.id_credito
+                 WHERE atd.id_detalle IN (" . implode(',', $placeholders) . ")",
+                $params
+            ) ?: [];
+            $map = [];
+            foreach ($rows as $row) {
+                $map[(int)$row['id_detalle']] = [
+                    'id_credito'     => $row['id_credito'],
+                    'nombre_cliente' => $row['nombre_cliente'] ?? '',
+                ];
+            }
+            foreach ($creditos as &$c) {
+                $idDet = isset($c['id_detalle']) ? (int)$c['id_detalle'] : 0;
+                if ($idDet && isset($map[$idDet])) {
+                    $c['id_credito']     = $map[$idDet]['id_credito'];
+                    $c['nombre_cliente'] = $map[$idDet]['nombre_cliente'];
+                }
+            }
+            unset($c);
+        } catch (\Throwable $e) {
+            // Devolver sin enriquecer antes de propagar el error
+        }
+        return $creditos;
     }
 }
