@@ -453,6 +453,7 @@ $rutasModulos = [
     'motosadjudicadas/buscarpersonasmonitoreo' => [76],
     'motosadjudicadas/reasignarmonitoreoadjudicacion' => [76],
     'motosadjudicadas/campanianotificacionlegacy' => [64],
+    'motosadjudicadas/buscardestinatarioscampanialegacy' => [64],
     'motosadjudicadas/enviarcampanianotificacionlegacy' => [64],
     'motosadjudicadas/subirevidencia' => [70, 71, 72],
     'motosadjudicadas/obtenerevidenciascredito' => [70],

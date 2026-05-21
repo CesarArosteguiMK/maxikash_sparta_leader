@@ -224,18 +224,6 @@ class TrackingRecoleccion extends Controller
             'Authorization: Bearer ' . $token,
         ]);
 
-        // Enriquecer creditos con id_credito y nombre_cliente desde la BD local
-        $data = json_decode($resp['body'], true);
-        if (is_array($data) && isset($data['ruta']['creditos']) && is_array($data['ruta']['creditos'])) {
-            try {
-                $model = new TrackingModel();
-                $data['ruta']['creditos'] = $model->enriquecerCreditosConDatosLocales($data['ruta']['creditos']);
-                $resp['body'] = json_encode($data, JSON_UNESCAPED_UNICODE);
-            } catch (\Throwable $e) {
-                // Continuar sin enriquecimiento antes de propagar el error
-            }
-        }
-
         $this->_trkChatRelayResponse($resp);
     }
 

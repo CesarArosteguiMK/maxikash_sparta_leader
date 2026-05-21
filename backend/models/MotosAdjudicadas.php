@@ -70,7 +70,6 @@ class MotosAdjudicadas extends Model
         'video_vuelta_de_prueba' => 'fis_video_vuelta_prueba',
         'foto_de_checklist' => 'fis_checklist',
         'foto_de_check_list' => 'fis_checklist',
-        'tomar_foto' => 'fis_frontal',
         'video_de_moto_recuperada' => 'fis_360_encendida',
     ];
 
@@ -957,6 +956,40 @@ class MotosAdjudicadas extends Model
                 'rechazado_por' => $idUsuario,
                 'motivo_general' => $motivoGeneral,
                 'evidencias' => $evidencias,
+            ],
+            'destinatarios' => $destinatarios,
+        ];
+    }
+
+    public function prepararPayloadAprobacionEvidenciasAtencion(int $idOperacion): array
+    {
+        if ($idOperacion <= 0) {
+            return ['success' => false, 'message' => 'ID de operacion invalido.'];
+        }
+
+        $op = $this->db->queryOne(
+            'SELECT id, id_credito, nombre_cliente FROM adj_operacion WHERE id = :id LIMIT 1',
+            ['id' => $idOperacion]
+        );
+        if (!$op || (int) ($op['id_credito'] ?? 0) <= 0) {
+            return ['success' => false, 'message' => 'No se encontro la operacion para notificar aprobacion.'];
+        }
+
+        $idCredito = (int) ($op['id_credito'] ?? 0);
+        $destinatarios = $this->obtenerDestinatariosLegacyPorCredito($idCredito);
+        $principal = $destinatarios[0] ?? [];
+        if ($destinatarios === [] || trim((string) ($principal['external_id'] ?? '')) === '' || (int) ($principal['user_id_legacy'] ?? 0) <= 0) {
+            return ['success' => false, 'message' => 'No se pudo identificar al usuario Legacy que debe recibir la notificacion.'];
+        }
+
+        return [
+            'success' => true,
+            'payload' => [
+                'id_operacion' => $idOperacion,
+                'id_credito' => $idCredito,
+                'nombre_cliente' => trim((string) ($op['nombre_cliente'] ?? '')),
+                'user_id_legacy' => (string) ((int) ($principal['user_id_legacy'] ?? 0)),
+                'external_id' => (string) ($principal['external_id'] ?? ''),
             ],
             'destinatarios' => $destinatarios,
         ];
@@ -2217,14 +2250,23 @@ class MotosAdjudicadas extends Model
 
         $urlRelativa = '/uploads/operaciones/' . $idOperacion . '/' . $filename;
         $ahora       = $this->fechaHoraCdmx();
+        $limpiarVeredictoAtencion = !$this->operacionTieneEnvioAtencionMarcado($idOperacion);
 
         // 8. INSERT o UPDATE en adj_evidencia (al reemplazar archivo se limpia veredicto de Atenci?n para revalidar)
         if ($old) {
-            if ($this->adjEvidenciaTieneColumnasAtn()) {
+            if ($this->adjEvidenciaTieneColumnasAtn() && $limpiarVeredictoAtencion) {
                 $this->db->CRUD(
                     "UPDATE adj_evidencia
                         SET tipo = :tipo, url = :url, fecha_alta = :fecha, estatus = :estatus,
                             val_atn = NULL, comentario_atn = NULL
+                      WHERE id_operacion = :id AND slot = :slot",
+                    ['tipo' => $tipo, 'url' => $urlRelativa, 'fecha' => $ahora, 'estatus' => $estatusEvidencia,
+                     'id'   => $idOperacion, 'slot' => $slot]
+                );
+            } elseif ($this->adjEvidenciaTieneColumnasAtn()) {
+                $this->db->CRUD(
+                    "UPDATE adj_evidencia
+                        SET tipo = :tipo, url = :url, fecha_alta = :fecha, estatus = :estatus
                       WHERE id_operacion = :id AND slot = :slot",
                     ['tipo' => $tipo, 'url' => $urlRelativa, 'fecha' => $ahora, 'estatus' => $estatusEvidencia,
                      'id'   => $idOperacion, 'slot' => $slot]
@@ -2870,6 +2912,100 @@ SQL;
         return $this->db->queryAll($sql, $params) ?: [];
     }
 
+    public function buscarDestinatariosCampaniaLegacy(string $buscar = ''): array
+    {
+        $buscar = trim($buscar);
+        if ($buscar === '' || strlen($buscar) < 2) {
+            return [];
+        }
+
+        $params = [
+            'idExacto' => ctype_digit($buscar) ? (int) $buscar : 0,
+            'q' => '%' . $buscar . '%',
+        ];
+
+        $rows = $this->db->queryAll(
+            "SELECT
+                p.id,
+                TRIM(COALESCE(p.numero_empleado, '')) AS numero_empleado,
+                TRIM(CONCAT_WS(' ', p.nombres, p.segundo_nombre, p.apellidop, p.apellidom)) AS nombre_completo,
+                GROUP_CONCAT(DISTINCT pu.nombre ORDER BY pu.nombre SEPARATOR ' - ') AS puesto
+             FROM persona p
+             LEFT JOIN asigna_puesto ap ON ap.id_persona = p.id AND COALESCE(ap.activo, 1) = 1
+             LEFT JOIN puesto pu ON pu.id = ap.id_puesto
+             WHERE COALESCE(p.estatus, 'Activo') <> 'Baja'
+               AND TRIM(COALESCE(p.numero_empleado, '')) <> ''
+               AND (
+                    p.id = :idExacto
+                    OR p.numero_empleado LIKE :q
+                    OR p.user_name LIKE :q
+                    OR TRIM(CONCAT_WS(' ', p.nombres, p.segundo_nombre, p.apellidop, p.apellidom)) LIKE :q
+               )
+             GROUP BY p.id, p.numero_empleado, p.nombres, p.segundo_nombre, p.apellidop, p.apellidom
+             ORDER BY nombre_completo ASC
+             LIMIT 30",
+            $params
+        ) ?: [];
+
+        if ($rows === []) {
+            return [];
+        }
+
+        $externalIds = [];
+        foreach ($rows as $row) {
+            $external = trim((string) ($row['numero_empleado'] ?? ''));
+            if ($external !== '') {
+                $externalIds[$external] = true;
+            }
+        }
+
+        $legacyPorExternal = [];
+        if ($externalIds !== []) {
+            try {
+                $legacyDb = new DatabaseLegacy();
+                $placeholders = [];
+                $legacyParams = [];
+                foreach (array_keys($externalIds) as $idx => $external) {
+                    $key = 'ext' . $idx;
+                    $placeholders[] = ':' . $key;
+                    $legacyParams[$key] = $external;
+                }
+                $legacyRows = $legacyDb->queryAll(
+                    "SELECT id, TRIM(COALESCE(external_id, '')) AS external_id
+                     FROM users
+                     WHERE deleted_at IS NULL
+                       AND TRIM(COALESCE(external_id, '')) IN (" . implode(',', $placeholders) . ")",
+                    $legacyParams
+                ) ?: [];
+                foreach ($legacyRows as $legacyRow) {
+                    $external = trim((string) ($legacyRow['external_id'] ?? ''));
+                    if ($external !== '') {
+                        $legacyPorExternal[$external] = (int) ($legacyRow['id'] ?? 0);
+                    }
+                }
+            } catch (\Throwable $e) {
+                $legacyPorExternal = [];
+            }
+        }
+
+        $salida = [];
+        foreach ($rows as $row) {
+            $external = trim((string) ($row['numero_empleado'] ?? ''));
+            if ($external === '') {
+                continue;
+            }
+            $salida[] = [
+                'id_persona' => (int) ($row['id'] ?? 0),
+                'nombre' => trim((string) ($row['nombre_completo'] ?? '')),
+                'numero_empleado' => $external,
+                'puesto' => trim((string) ($row['puesto'] ?? '')),
+                'user_id_legacy' => $legacyPorExternal[$external] ?? null,
+            ];
+        }
+
+        return $salida;
+    }
+
     public function reasignarCreditoMonitoreo(int $idOperacion, int $idPersonaDestino, int $idUsuario, string $nombreUsuario = ''): array
     {
         if ($idOperacion <= 0 || $idPersonaDestino <= 0) {
@@ -3100,12 +3236,16 @@ SQL;
         if ($idOperacion <= 0 || !$this->adjEvidenciaTieneColumnasAtn()) {
             return;
         }
+        if ($this->operacionTieneEnvioAtencionMarcado($idOperacion)) {
+            return;
+        }
 
         try {
             $rows = $this->db->queryAll(
                 "SELECT h.id_evidencia,
                         h.url_vieja_rechazada,
-                        h.url_nueva
+                        h.url_nueva,
+                        e.url AS url_actual
                  FROM adj_evidencia_rechazo_historial h
                  INNER JOIN (
                      SELECT id_evidencia, MAX(id) AS id_historial
@@ -3131,22 +3271,43 @@ SQL;
 
                 $urlNueva = trim((string) ($row['url_nueva'] ?? ''));
                 if ($urlNueva !== '') {
-                    $this->db->CRUD(
-                        "UPDATE adj_evidencia
-                         SET tipo = :tipo,
-                             url = :url,
-                             val_atn = NULL,
-                             comentario_atn = NULL,
-                             estatus = 'recibido'
-                         WHERE id = :id_evidencia
-                           AND id_operacion = :id_operacion",
-                        [
-                            'tipo' => $this->tipoEvidenciaPorUrl($urlNueva),
-                            'url' => $urlNueva,
-                            'id_evidencia' => $idEvidencia,
-                            'id_operacion' => $idOperacion,
-                        ]
-                    );
+                    $urlActual = trim((string) ($row['url_actual'] ?? ''));
+                    if ($urlActual === $urlNueva) {
+                        continue;
+                    }
+                    if ($this->operacionTieneEnvioAtencionMarcado($idOperacion)) {
+                        $this->db->CRUD(
+                            "UPDATE adj_evidencia
+                             SET tipo = :tipo,
+                                 url = :url,
+                                 estatus = 'recibido'
+                             WHERE id = :id_evidencia
+                               AND id_operacion = :id_operacion",
+                            [
+                                'tipo' => $this->tipoEvidenciaPorUrl($urlNueva),
+                                'url' => $urlNueva,
+                                'id_evidencia' => $idEvidencia,
+                                'id_operacion' => $idOperacion,
+                            ]
+                        );
+                    } else {
+                        $this->db->CRUD(
+                            "UPDATE adj_evidencia
+                             SET tipo = :tipo,
+                                 url = :url,
+                                 val_atn = NULL,
+                                 comentario_atn = NULL,
+                                 estatus = 'recibido'
+                             WHERE id = :id_evidencia
+                               AND id_operacion = :id_operacion",
+                            [
+                                'tipo' => $this->tipoEvidenciaPorUrl($urlNueva),
+                                'url' => $urlNueva,
+                                'id_evidencia' => $idEvidencia,
+                                'id_operacion' => $idOperacion,
+                            ]
+                        );
+                    }
                     $tocadas = true;
                     continue;
                 }
@@ -3932,6 +4093,9 @@ SQL;
         );
 
         if ($old) {
+            if ($this->operacionTieneEnvioAtencionMarcado($idOperacion)) {
+                return;
+            }
             $historialRechazo = $this->db->queryOne(
                 'SELECT 1 AS ok
                  FROM adj_evidencia_rechazo_historial
@@ -3958,11 +4122,18 @@ SQL;
                 return;
             }
 
-            if ($this->adjEvidenciaTieneColumnasAtn()) {
+            if ($this->adjEvidenciaTieneColumnasAtn() && !$this->operacionTieneEnvioAtencionMarcado($idOperacion)) {
                 $this->db->CRUD(
                     "UPDATE adj_evidencia
                      SET tipo = :tipo, url = :url, fecha_alta = :fecha, estatus = 'recibido',
                          val_atn = NULL, comentario_atn = NULL
+                     WHERE id_operacion = :id AND slot = :slot",
+                    ['tipo' => $tipo, 'url' => $url, 'fecha' => $fecha, 'id' => $idOperacion, 'slot' => $slot]
+                );
+            } elseif ($this->adjEvidenciaTieneColumnasAtn()) {
+                $this->db->CRUD(
+                    "UPDATE adj_evidencia
+                     SET tipo = :tipo, url = :url, fecha_alta = :fecha, estatus = 'recibido'
                      WHERE id_operacion = :id AND slot = :slot",
                     ['tipo' => $tipo, 'url' => $url, 'fecha' => $fecha, 'id' => $idOperacion, 'slot' => $slot]
                 );
@@ -6493,13 +6664,14 @@ EOSQL;
         return ['success' => true];
     }
 
-    /**
-     * Listo para enviar a Procesando IA: evidencia f?sica (momento 1) completa con val_atn = 1 y PDF Repuve en expediente.
-     */
-    public function operacionTieneValidacionAtencionCompleta(int $idOperacion): bool
+    private function diagnosticarValidacionAtencion(int $idOperacion): array
     {
+        $faltantes = [];
         if (!$this->adjEvidenciaTieneColumnasAtn()) {
-            return false;
+            return [
+                'completa' => false,
+                'faltantes' => ['Falta migración de base de datos: val_atn/comentario_atn.'],
+            ];
         }
         $rows = $this->db->queryAll(
             'SELECT slot, val_atn, url FROM adj_evidencia WHERE id_operacion = :id',
@@ -6513,24 +6685,42 @@ EOSQL;
             }
         }
         foreach (self::SLOTS_VALIDACION_ATENCION_MEDIA as $slot) {
+            $label = self::SLOT_LABELS[$slot] ?? $slot;
             if (!isset($bySlot[$slot])) {
-                return false;
+                $faltantes[] = $label . ' (sin evidencia)';
+                continue;
             }
             $url = trim((string) ($bySlot[$slot]['url'] ?? ''));
             if ($url === '') {
-                return false;
+                $faltantes[] = $label . ' (sin archivo)';
+                continue;
             }
             $va = (int) ($bySlot[$slot]['val_atn'] ?? 0);
             if ($va !== 1) {
-                return false;
+                $faltantes[] = $label . ($va === 2 ? ' (rechazada)' : ' (pendiente de aceptar)');
             }
         }
         if (!isset($bySlot[self::SLOT_REPVE_ATENCION])) {
-            return false;
+            $faltantes[] = 'REPUVE (sin PDF)';
+        } else {
+            $urlRep = trim((string) ($bySlot[self::SLOT_REPVE_ATENCION]['url'] ?? ''));
+            if ($urlRep === '') {
+                $faltantes[] = 'REPUVE (sin PDF)';
+            }
         }
-        $urlRep = trim((string) ($bySlot[self::SLOT_REPVE_ATENCION]['url'] ?? ''));
 
-        return $urlRep !== '';
+        return [
+            'completa' => $faltantes === [],
+            'faltantes' => $faltantes,
+        ];
+    }
+
+    /**
+     * Listo para enviar a Procesando IA: evidencia f?sica (momento 1) completa con val_atn = 1 y PDF Repuve en expediente.
+     */
+    public function operacionTieneValidacionAtencionCompleta(int $idOperacion): bool
+    {
+        return (bool) ($this->diagnosticarValidacionAtencion($idOperacion)['completa'] ?? false);
     }
 
     /**
@@ -6544,8 +6734,11 @@ EOSQL;
         if ($idOperacion <= 0) {
             return ['success' => false, 'message' => 'ID de operaci?n inv?lido.'];
         }
-        if (!$this->operacionTieneValidacionAtencionCompleta($idOperacion)) {
-            return ['success' => false, 'message' => 'Faltan fotos/video por validar o el PDF de Repuve en expediente.'];
+        $diag = $this->diagnosticarValidacionAtencion($idOperacion);
+        if (empty($diag['completa'])) {
+            $faltantes = $diag['faltantes'] ?? [];
+            $detalle = $faltantes ? ' Faltan: ' . implode(', ', array_slice($faltantes, 0, 6)) . (count($faltantes) > 6 ? '...' : '') : '';
+            return ['success' => false, 'message' => 'Faltan fotos/video por validar o el PDF de Repuve en expediente.' . $detalle];
         }
         $op = $this->db->queryOne('SELECT id, estatus FROM adj_operacion WHERE id = :id', ['id' => $idOperacion]);
         if (!$op) {
