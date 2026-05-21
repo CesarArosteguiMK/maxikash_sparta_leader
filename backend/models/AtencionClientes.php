@@ -105,6 +105,21 @@ WHERE (
 SQL;
     }
 
+    private function contarQuery(string $sql, array $params = []): int
+    {
+        $row = $this->db->queryOne($sql, $params);
+
+        return (int) ($row['total'] ?? 0);
+    }
+
+    private function contarOperacionesPorEstatus(string $estatus): int
+    {
+        return $this->contarQuery(
+            'SELECT COUNT(*) AS total FROM adj_operacion WHERE estatus = :estatus',
+            ['estatus' => $estatus]
+        );
+    }
+
     /**
      * Dictamen registrado desde 1.- Retenciones (modal de llamada), no el de Cierre S2 ni otros módulos.
      *
@@ -212,10 +227,12 @@ SQL;
      * «Enviar evidencias» en Mis adjudicaciones (bitácora ENVIÓ EVIDENCIAS AL PIPELINE).
      * Hasta entonces no deben aparecer aquí aunque estén en Recibido / en tránsito / etc.
      */
-    public function obtenerRecibidos(): array
+    public function obtenerRecibidos(bool $sincronizarDictums = true): array
     {
         $ma = new MotosAdjudicadas();
-        $ma->sincronizarDictumsAppPendientes();
+        if ($sincronizarDictums) {
+            $ma->sincronizarDictumsAppPendientes();
+        }
         $tieneEnvio = $ma->adjOperacionTieneColumnaEnvioAtencion();
 
         $where = $tieneEnvio
@@ -415,6 +432,207 @@ SQL;
      * Pestaña Aprobados — solo operaciones enviadas con «Enviar evidencias validadas».
      * Si la columna atencion_envio_validado no existe, usa bitácora como respaldo.
      */
+    private function sqlExclusionDictaminadoRecuperacion(): string
+    {
+        return <<<'SQL'
+
+            AND NOT (
+                (
+                    o.estatus = 'Cierre Documentado'
+                    OR EXISTS (
+                        SELECT 1
+                        FROM adj_historial_estatus h_cierre
+                        WHERE h_cierre.id_operacion = o.id
+                          AND h_cierre.estatus_nuevo = 'Cierre Documentado'
+                    )
+                )
+                AND EXISTS (
+                    SELECT 1 FROM adj_dictamen ddr WHERE ddr.id_operacion = o.id
+                )
+            )
+SQL;
+    }
+
+    private function contarRecibidosEvidencias(): int
+    {
+        $ma = new MotosAdjudicadas();
+        $tieneEnvio = $ma->adjOperacionTieneColumnaEnvioAtencion();
+
+        $where = $tieneEnvio
+            ? "(o.estatus IN ('Recibido', 'en_transito') OR (o.estatus = 'Procesando IA' AND IFNULL(o.atencion_envio_validado, 0) = 0))"
+            : "(o.estatus IN ('Recibido', 'en_transito') OR (o.estatus = 'Procesando IA' AND NOT EXISTS (
+                    SELECT 1
+                    FROM adj_bitacora b
+                    WHERE b.id_operacion = o.id
+                      AND b.accion LIKE '%EVIDENCIAS VALIDADAS (PROCESANDO IA)%'
+                )))";
+
+        $exclAprobados = $tieneEnvio
+            ? '(
+            IFNULL(o.atencion_envio_validado, 0) = 0
+            AND NOT EXISTS (
+                SELECT 1
+                FROM adj_bitacora bv
+                WHERE bv.id_operacion = o.id
+                  AND bv.accion LIKE :pat_validadas
+            )
+        )'
+            : 'NOT EXISTS (
+            SELECT 1
+            FROM adj_bitacora bv
+            WHERE bv.id_operacion = o.id
+              AND bv.accion LIKE :pat_validadas
+        )';
+
+        $sql = <<<SQL
+        SELECT COUNT(*) AS total
+        FROM adj_operacion o
+        WHERE {$where}
+          AND {$exclAprobados}
+          AND EXISTS (
+              SELECT 1
+              FROM adj_bitacora b
+              WHERE b.id_operacion = o.id
+                AND b.accion LIKE '%AL PIPELINE%'
+          )
+        SQL;
+
+        return $this->contarQuery($sql, ['pat_validadas' => '%EVIDENCIAS VALIDADAS (PROCESANDO IA)%']);
+    }
+
+    private function contarOperacionesAprobadasEvidenciasAtencion(bool $excluirDictaminadoRecuperacion = false): int
+    {
+        $ma = new MotosAdjudicadas();
+        $exclDictRec = $excluirDictaminadoRecuperacion ? $this->sqlExclusionDictaminadoRecuperacion() : '';
+
+        if (!$ma->adjOperacionTieneColumnaEnvioAtencion()) {
+            $sql = <<<SQL
+            SELECT COUNT(*) AS total
+            FROM adj_operacion o
+            WHERE TRIM(COALESCE(o.estatus, '')) <> 'Cierre Documentado'
+              AND (
+                o.estatus = 'Procesando IA'
+                OR EXISTS (
+                    SELECT 1
+                    FROM adj_historial_estatus h
+                    WHERE h.id_operacion = o.id
+                      AND h.estatus_nuevo = 'Procesando IA'
+                )
+            )
+              AND EXISTS (
+                    SELECT 1
+                    FROM adj_bitacora b
+                    WHERE b.id_operacion = o.id
+                      AND b.accion LIKE :pat_validadas
+              )
+              {$exclDictRec}
+            SQL;
+
+            return $this->contarQuery($sql, ['pat_validadas' => '%EVIDENCIAS VALIDADAS (PROCESANDO IA)%']);
+        }
+
+        $sql = <<<SQL
+        SELECT COUNT(*) AS total
+        FROM adj_operacion o
+        WHERE TRIM(COALESCE(o.estatus, '')) <> 'Cierre Documentado'
+          AND (
+            o.estatus = 'Procesando IA'
+            OR EXISTS (
+                SELECT 1
+                FROM adj_historial_estatus h
+                WHERE h.id_operacion = o.id
+                  AND h.estatus_nuevo = 'Procesando IA'
+            )
+        )
+          AND (
+            IFNULL(o.atencion_envio_validado, 0) = 1
+            OR EXISTS (
+                SELECT 1
+                FROM adj_bitacora b
+                WHERE b.id_operacion = o.id
+                  AND b.accion LIKE :pat_validadas
+            )
+          )
+          {$exclDictRec}
+        SQL;
+
+        return $this->contarQuery($sql, ['pat_validadas' => '%EVIDENCIAS VALIDADAS (PROCESANDO IA)%']);
+    }
+
+    private function contarDictaminadosRecuperacion(): int
+    {
+        $sql = <<<'SQL'
+        SELECT COUNT(*) AS total
+        FROM adj_operacion o
+        WHERE (
+            o.estatus = 'Cierre Documentado'
+            OR EXISTS (
+                SELECT 1
+                FROM adj_historial_estatus h
+                WHERE h.id_operacion = o.id
+                  AND h.estatus_nuevo = 'Cierre Documentado'
+            )
+        )
+        SQL;
+
+        return $this->contarQuery($sql);
+    }
+
+    private function contarDictaminadosCierreDocumentacion(): int
+    {
+        $joinUltimo = $this->sqlJoinUltimoDictamenPorOperacion('d');
+        $whereDict  = $this->sqlWhereComoDictaminadoCierreDocumentacion();
+        $sql        = <<<SQL
+        SELECT COUNT(*) AS total
+        FROM adj_operacion o
+        {$joinUltimo}
+        {$whereDict}
+        SQL;
+
+        return $this->contarQuery($sql);
+    }
+
+    private function contarOperacionesDictamenPorEstatusPipeline(string $estatus, bool $excluirRecepcionSinConfirmarAlmacen = false): int
+    {
+        $extraRecepcion = '';
+        if ($excluirRecepcionSinConfirmarAlmacen && trim($estatus) === 'Recepción') {
+            $ma = new MotosAdjudicadas();
+            if ($ma->adjOperacionTieneColumnasRecepcionConfirmacion()) {
+                $extraRecepcion = <<<'SQL'
+ AND NOT (
+    o.estatus = 'Recepción'
+    AND o.recepcion_confirmada_at IS NULL
+)
+SQL;
+            }
+        }
+
+        $sql = <<<SQL
+        SELECT COUNT(*) AS total
+        FROM adj_operacion o
+        WHERE (
+            o.estatus = :estatus_actual
+            OR EXISTS (
+                SELECT 1
+                FROM adj_historial_estatus h
+                WHERE h.id_operacion = o.id
+                  AND h.estatus_nuevo = :estatus_hist
+            )
+        )
+          AND EXISTS (
+              SELECT 1
+              FROM adj_dictamen d
+              WHERE d.id_operacion = o.id
+          )
+        {$extraRecepcion}
+        SQL;
+
+        return $this->contarQuery($sql, [
+            'estatus_actual' => $estatus,
+            'estatus_hist'   => $estatus,
+        ]);
+    }
+
     public function obtenerEvidenciasAprobadas(): array
     {
         return $this->listarOperacionesAprobadasEvidenciasAtencion();
@@ -436,9 +654,9 @@ SQL;
     public function obtenerConteosPestanasEvidencias(): array
     {
         return [
-            'bandeja'      => \count($this->obtenerRecibidos()),
-            'aprobados'    => \count($this->obtenerEvidenciasAprobadas()),
-            'correcciones' => \count($this->obtenerEvidenciasCorrecciones()),
+            'bandeja'      => $this->contarRecibidosEvidencias(),
+            'aprobados'    => $this->contarOperacionesAprobadasEvidenciasAtencion(),
+            'correcciones' => $this->contarOperacionesPorEstatus('Revisión Recuperaciones'),
         ];
     }
 
@@ -448,8 +666,8 @@ SQL;
     public function obtenerConteosPestanasRecuperacion(): array
     {
         return [
-            'bandeja'      => \count($this->obtenerRecuperacionEnTransito()),
-            'dictaminado'  => \count($this->obtenerDictaminadosRecuperacionLista()),
+            'bandeja'      => $this->contarOperacionesAprobadasEvidenciasAtencion(true),
+            'dictaminado'  => $this->contarDictaminadosRecuperacion(),
         ];
     }
 
@@ -459,8 +677,8 @@ SQL;
     public function obtenerConteosPestanasCierreDocumentacion(): array
     {
         return [
-            'bandeja'      => \count($this->obtenerRecuperacionCierreDocumentado()),
-            'dictaminado'  => \count($this->obtenerDictaminadosCierreDocumentacionLista()),
+            'bandeja'      => $this->contarOperacionesPorEstatus('Cierre Documentado'),
+            'dictaminado'  => $this->contarDictaminadosCierreDocumentacion(),
         ];
     }
 
@@ -470,8 +688,8 @@ SQL;
     public function obtenerConteosPestanasRecepcion(): array
     {
         return [
-            'bandeja'      => \count($this->obtenerRecuperacionRecepcion()),
-            'dictaminado'  => \count($this->obtenerOperacionesDictamenPorEstatusPipeline('Recepción', true)),
+            'bandeja'      => $this->contarDictaminadosCierreDocumentacion(),
+            'dictaminado'  => $this->contarOperacionesDictamenPorEstatusPipeline('Recepción', true),
         ];
     }
 

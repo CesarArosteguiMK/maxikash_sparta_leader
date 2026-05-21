@@ -967,19 +967,17 @@ body.dark-mode #acdEvidenciaTitulo.acd-ev-ok { color: #86efac; }
         const hasSwal = typeof Swal !== 'undefined';
         if (hasSwal) {
             Swal.fire({
-                title: 'Cargando Cierre documentación…',
-                html: '<span style="font-size:.875rem;color:#64748b;">Obteniendo todas las pestañas</span>',
+                title: 'Cargando Cartera…',
+                html: '<span style="font-size:.875rem;color:#64748b;">Obteniendo bandeja de entrada</span>',
                 allowOutsideClick: false,
                 allowEscapeKey: false,
                 showConfirmButton: false,
                 didOpen: function () { Swal.showLoading(); },
             });
         }
-        Promise.all([
-            acdCargarConteosPestanas(),
-            acdCargarSeccion('bandeja', true),
-        ]).finally(function () {
+        acdCargarSeccion('bandeja', true).finally(function () {
             if (hasSwal) Swal.close();
+            acdCargarConteosPestanas();
         });
     }
 

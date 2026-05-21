@@ -1078,18 +1078,16 @@ body.dark-mode .acr-rcpt-doc-h { background: #1e293b; }
         if (hasSwal) {
             Swal.fire({
                 title: 'Cargando Recepción…',
-                html: '<span style="font-size:.875rem;color:#64748b;">Obteniendo todas las pestañas</span>',
+                html: '<span style="font-size:.875rem;color:#64748b;">Obteniendo bandeja de entrada</span>',
                 allowOutsideClick: false,
                 allowEscapeKey: false,
                 showConfirmButton: false,
                 didOpen: function () { Swal.showLoading(); },
             });
         }
-        Promise.all([
-            acrCargarConteosPestanas(),
-            acrCargarSeccion('bandeja', true),
-        ]).finally(function () {
+        acrCargarSeccion('bandeja', true).finally(function () {
             if (hasSwal) Swal.close();
+            acrCargarConteosPestanas();
         });
     }
 
