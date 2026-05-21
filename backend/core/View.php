@@ -153,7 +153,9 @@ function getMenu(): string
             'subItems' => [
                 ['label' => 'Admin Cobranza', 'url' => '/Adjudicacion/AsignacionCreditos',          'modulos' => [62]],
                 ['label' => 'Operaciones',            'url' => '/MotosAdjudicadas/pipeline',                'modulos' => [63]],
+                ['label' => 'Monitoreo de adjudicaciones', 'url' => '/MotosAdjudicadas/monitoreoAdjudicaciones', 'modulos' => [76]],
                 ['label' => 'Consulta REPUVE',         'url' => '/MotosAdjudicadas/repuveConsulta',         'modulos' => [64]],
+                ['label' => 'Campaña Notificación Legacy', 'url' => '/MotosAdjudicadas/campaniaNotificacionLegacy', 'modulos' => [64]],
                 ['label' => '1.- Evidencias',     'url' => '/AtencionClientes/evidencias',             'modulos' => [70]],
                 ['label' => '2.- Recuperación',   'url' => '/AtencionClientes/recuperacion',           'modulos' => [71]],
                 ['label' => '3.-Cartera', 'url' => '/AtencionClientes/cierreDocumentacion', 'modulos' => [72]],

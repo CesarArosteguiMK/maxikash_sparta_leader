@@ -1322,7 +1322,16 @@
                     $('#resumenTicketEstado').text(estado);
                     $('#resumenTicketEstadoPill').text('● ' + estado);
                     pintarRespuestaTicket(row, true);
-                    Swal.fire({ icon: 'success', title: estado, text: r.mensaje || 'Respuesta guardada.' });
+                    var pushInfo = r.datos && r.datos.push_notificacion ? r.datos.push_notificacion : null;
+                    if (pushInfo && !pushInfo.omitida && pushInfo.success === false) {
+                        Swal.fire({
+                            icon: 'warning',
+                            title: estado,
+                            text: (r.mensaje || 'Respuesta guardada.') + ' No se pudo enviar la notificacion movil.'
+                        });
+                    } else {
+                        Swal.fire({ icon: 'success', title: estado, text: r.mensaje || 'Respuesta guardada.' });
+                    }
                     if (typeof getTicketsModuloPanel === 'function') getTicketsModuloPanel();
                 },
                 onError: function (e) {
