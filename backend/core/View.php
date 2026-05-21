@@ -63,6 +63,7 @@ function getMenu(): string
             '/analitica/comparativas' => [
                 '/analitica/comparativas',
                 '/analitica/comparativasavancesemanal',
+                '/analitica/comparativocierressemanal',
             ],
             '/analitica/asignacion' => [
                 '/analitica/asignacion',
