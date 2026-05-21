@@ -24,7 +24,7 @@ class DatabaseLegacy
                 $usuario,
                 $password,
                 [
-                    PDO::ATTR_PERSISTENT => true,
+                    PDO::ATTR_PERSISTENT => false,
                     PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
                     PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
                     PDO::ATTR_TIMEOUT => 5,
@@ -32,6 +32,13 @@ class DatabaseLegacy
                 ]
             );
         } catch (\PDOException $e) {
+            error_log(sprintf(
+                '[DatabaseLegacy] Connection error schema=%s host=%s uri=%s :: %s',
+                $esquema,
+                $servidor,
+                $_SERVER['REQUEST_URI'] ?? 'CLI',
+                $e->getMessage()
+            ));
             if (DatabaseCliSupport::isCli()
                 || DatabaseCliSupport::esGestionesSeguimientoRequest()
                 || DatabaseCliSupport::esReporteriaGetAsignacionTableroJsonRequest()) {

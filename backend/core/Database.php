@@ -37,6 +37,13 @@ class Database
                 ]
             );
         } catch (\PDOException $e) {
+            error_log(sprintf(
+                '[Database] Connection error schema=%s host=%s uri=%s :: %s',
+                $esquema,
+                $servidor,
+                $_SERVER['REQUEST_URI'] ?? 'CLI',
+                $e->getMessage()
+            ));
             if (DatabaseCliSupport::isCli()
                 || DatabaseCliSupport::esGestionesSeguimientoRequest()
                 || DatabaseCliSupport::esReporteriaGetAsignacionTableroJsonRequest()) {
