@@ -55,7 +55,7 @@ $cmpError = isset($comparativo_error) ? (string) $comparativo_error : '';
             <div class="cmp930-card-wrap">
                 <div class="card shadow-sm cmp930-kpi">
                     <div class="card-body text-center">
-                        <div class="cmp930-kpi-value text-danger" id="cmp930-kpi-creditos-pasada">0.00%</div>
+                        <div class="cmp930-kpi-value text-success" id="cmp930-kpi-creditos-pasada">0.00%</div>
                         <div class="cmp930-kpi-label">% Creditos<br>Semana Pasada</div>
                     </div>
                 </div>
@@ -101,7 +101,7 @@ $cmpError = isset($comparativo_error) ? (string) $comparativo_error : '';
             <div class="cmp930-card-wrap">
                 <div class="card shadow-sm cmp930-kpi">
                     <div class="card-body text-center">
-                        <div class="cmp930-kpi-value text-danger" id="cmp930-kpi-capital-pasada">0.00%</div>
+                        <div class="cmp930-kpi-value text-success" id="cmp930-kpi-capital-pasada">0.00%</div>
                         <div class="cmp930-kpi-label">% Capital Semana<br>Pasada</div>
                     </div>
                 </div>
