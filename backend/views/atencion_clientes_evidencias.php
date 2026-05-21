@@ -1276,14 +1276,30 @@ $aevPublicPath = function_exists('sparta_public_web_base') ? sparta_public_web_b
         if (_aevVistaCtx.soloAceptada || _aevVistaCtx.soloRechazada) return;
         const s = _aevVistaCtx.slot;
         if (!s || s === 'doc_repuve') return;
+        const opId  = _aevStore.det && _aevStore.det.id ? parseInt(_aevStore.det.id, 10) : 0;
+        const evidId = _aevVistaCtx.evidId;
+        const rowPrev = aevBuscarEvidenciaDetalle(s, evidId);
+        const prevV = _aevStore.v[s] || null;
+        const prevC = _aevStore.c[s] || '';
+        const prevValAtn = rowPrev ? rowPrev.val_atn : null;
+        const prevComentario = rowPrev ? rowPrev.comentario_atn : '';
+        function revertirVeredictoLocal() {
+            if (prevV) _aevStore.v[s] = prevV; else delete _aevStore.v[s];
+            _aevStore.c[s] = prevC;
+            aevSetRowValAtnEnDetalle(s, prevValAtn, prevComentario);
+        }
         if (ver === 'acep') { _aevStore.v[s] = 'acep'; }
         else if (ver === 'rec') { _aevStore.v[s] = 'rec'; }
         const cmt = document.getElementById('aev-vista-comentario');
         const coment = cmt ? (cmt.value || '').trim() : '';
         if (cmt) _aevStore.c[s] = coment;
-        const opId  = _aevStore.det && _aevStore.det.id ? parseInt(_aevStore.det.id, 10) : 0;
-        const evidId = _aevVistaCtx.evidId;
         aevCerrarVistaOverlay();
+        if (opId <= 0 || evidId <= 0) {
+            revertirVeredictoLocal();
+            aevRefrescarCuerpoModal();
+            return;
+        }
+        aevSetVeredictoPendiente(opId, evidId, true);
         aevRefrescarCuerpoModal();
         if (opId > 0 && evidId > 0) {
             const val = ver === 'acep' ? 1 : 2;
@@ -1295,7 +1311,8 @@ $aevPublicPath = function_exists('sparta_public_web_base') ? sparta_public_web_b
                     id_evidencia:  evidId,
                     val_atn:       val,
                     comentario:    coment
-                })
+                }),
+                credentials: 'same-origin'
             })
                 .then(r => r.json())
                 .then(data => {
@@ -1312,16 +1329,24 @@ $aevPublicPath = function_exists('sparta_public_web_base') ? sparta_public_web_b
                             // Recalcula estatus tras aceptar para evitar carreras al cerrar rápido el modal.
                             aevRecalcularDespuesDeVeredicto(opId);
                         }
-                    } else if (typeof Swal !== 'undefined') {
-                        Swal.fire({ icon: 'error', title: 'No se pudo guardar', text: data.message || 'Intenta de nuevo o revisa el servidor (¿migración adj_evidencia?)' });
                     } else {
+                        revertirVeredictoLocal();
+                        if (typeof Swal !== 'undefined') {
+                        Swal.fire({ icon: 'error', title: 'No se pudo guardar', text: data.message || 'Intenta de nuevo o revisa el servidor (¿migración adj_evidencia?)' });
+                        } else {
                         window.alert((data && data.message) || 'No se pudo guardar el veredicto.');
+                        }
                     }
                 })
                 .catch(function () {
+                    revertirVeredictoLocal();
                     if (typeof Swal !== 'undefined') {
                         Swal.fire({ icon: 'error', title: 'Error de red', text: 'No se pudo guardar el veredicto.' });
                     }
+                })
+                .finally(function () {
+                    aevSetVeredictoPendiente(opId, evidId, false);
+                    aevRefrescarCuerpoModal();
                 });
         }
     }
@@ -1768,6 +1793,13 @@ $aevPublicPath = function_exists('sparta_public_web_base') ? sparta_public_web_b
         if (btnEnviar) {
             btnEnviar.addEventListener('click', function () {
                 if (!_aevStore.det || !_aevStore.det.id) return;
+                if (aevHayVeredictosPendientes()) {
+                    if (typeof Swal !== 'undefined') {
+                        Swal.fire({ icon: 'info', title: 'Guardando validaciones', text: 'Espera un momento y vuelve a enviar.' });
+                    }
+                    aevSincroBtnEnviar();
+                    return;
+                }
                 const opId = parseInt(_aevStore.det.id, 10);
                 if (opId <= 0) return;
                 btnEnviar.disabled = true;

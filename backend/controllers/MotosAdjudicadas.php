@@ -432,6 +432,23 @@ class MotosAdjudicadas extends Controller
     }
 
     /**
+     * POST /MotosAdjudicadas/buscarDestinatariosCampaniaLegacy
+     */
+    public function buscarDestinatariosCampaniaLegacy()
+    {
+        header('Content-Type: application/json; charset=utf-8');
+        $body = json_decode(file_get_contents('php://input'), true) ?? [];
+        $buscar = trim((string) ($body['buscar'] ?? $body['q'] ?? ''));
+
+        try {
+            $rows = $this->model->buscarDestinatariosCampaniaLegacy($buscar);
+            echo json_encode(['success' => true, 'datos' => $rows], JSON_UNESCAPED_UNICODE);
+        } catch (\Throwable $e) {
+            echo json_encode(['success' => false, 'message' => $e->getMessage()], JSON_UNESCAPED_UNICODE);
+        }
+    }
+
+    /**
      * POST /MotosAdjudicadas/reasignarMonitoreoAdjudicacion
      */
     public function reasignarMonitoreoAdjudicacion()
@@ -1439,9 +1456,102 @@ class MotosAdjudicadas extends Controller
 
         try {
             $result = $this->model->enviarEvidenciasValidadasAtencion($idOperacion, $idUsuario, $nombreUsuario);
-            echo json_encode($result);
+            if (!empty($result['success'])) {
+                $cfg = $this->pushLegacyConfig();
+                if ($cfg['base_url'] === '' || $cfg['api_key'] === '') {
+                    $result['push_success'] = false;
+                    $result['push_message'] = 'Servicio de notificaciones no configurado.';
+                } else {
+                    $prep = $this->model->prepararPayloadAprobacionEvidenciasAtencion($idOperacion);
+                    if (empty($prep['success'])) {
+                        $result['push_success'] = false;
+                        $result['push_message'] = $prep['message'] ?? 'No se pudo preparar la notificacion.';
+                    } else {
+                        $payload = is_array($prep['payload'] ?? null) ? $prep['payload'] : [];
+                        $destinatarios = is_array($prep['destinatarios'] ?? null) ? $prep['destinatarios'] : [];
+                        if ($destinatarios === [] && $payload !== []) {
+                            $destinatarios[] = [
+                                'user_id_legacy' => (int) ($payload['user_id_legacy'] ?? 0),
+                                'external_id' => (string) ($payload['external_id'] ?? ''),
+                                'nombre' => '',
+                                'origen' => 'payload',
+                            ];
+                        }
+
+                        $pushBasePayload = [
+                            'titulo' => 'Evidencias aprobadas',
+                            'mensaje' => 'Sus evidencias han sido aprobadas. Toca para revisarlas.',
+                            'evento' => 'evidencias_aprobadas',
+                            'data' => [
+                                'type' => 'evidencias_aprobadas',
+                                'screen' => 'MotoDetalle',
+                                'tab' => 'Recoleccion',
+                                'id_operacion' => (int) ($payload['id_operacion'] ?? $idOperacion),
+                                'id_credito' => (int) ($payload['id_credito'] ?? 0),
+                                'approved' => true,
+                                'evidence_status' => 'aprobadas',
+                            ],
+                        ];
+
+                        $url = $cfg['base_url'] . '/api/push-notifications/legacy/send';
+                        $resp = ['http_code' => 0, 'body' => '', 'error' => 'No se intento enviar la notificacion.'];
+                        $decoded = null;
+                        $destinatarioUsado = null;
+                        $erroresDestinatarios = [];
+                        foreach ($destinatarios as $destinatario) {
+                            $userIdLegacy = (int) ($destinatario['user_id_legacy'] ?? 0);
+                            $externalId = trim((string) ($destinatario['external_id'] ?? ''));
+                            if ($userIdLegacy <= 0 || $externalId === '') {
+                                continue;
+                            }
+
+                            $pushPayload = array_merge($pushBasePayload, [
+                                'user_id_legacy' => (string) $userIdLegacy,
+                                'external_id' => $externalId,
+                            ]);
+                            $resp = $this->pushLegacyCurl($url, $pushPayload);
+                            $decoded = json_decode($resp['body'], true);
+                            $message = is_array($decoded)
+                                ? (string) ($decoded['message'] ?? $decoded['mensaje'] ?? $decoded['detail'] ?? '')
+                                : (string) ($resp['error'] ?? '');
+                            if ($resp['http_code'] >= 200 && $resp['http_code'] < 300) {
+                                $destinatarioUsado = $destinatario;
+                                break;
+                            }
+
+                            $erroresDestinatarios[] = [
+                                'external_id' => $externalId,
+                                'user_id_legacy' => $userIdLegacy,
+                                'nombre' => (string) ($destinatario['nombre'] ?? ''),
+                                'origen' => (string) ($destinatario['origen'] ?? ''),
+                                'http_code' => $resp['http_code'],
+                                'message' => $message,
+                            ];
+
+                            $sinDispositivo = stripos($message, 'No hay tokens activos') !== false
+                                || stripos($message, 'tokens activos') !== false
+                                || stripos($message, 'destinatario') !== false;
+                            if (!$sinDispositivo) {
+                                break;
+                            }
+                        }
+
+                        $result['push_success'] = $resp['http_code'] >= 200 && $resp['http_code'] < 300;
+                        $result['push_http_code'] = $resp['http_code'];
+                        $result['push_destinatario'] = $destinatarioUsado;
+                        $result['push_destinatarios_probados'] = $erroresDestinatarios;
+                        $result['push_response'] = is_array($decoded) ? $decoded : $resp['body'];
+                        if (!$result['push_success']) {
+                            $result['push_message'] = is_array($decoded)
+                                ? (string) ($decoded['message'] ?? $decoded['mensaje'] ?? $decoded['detail'] ?? 'Evidencias enviadas, pero no se pudo notificar al gestor.')
+                                : ($resp['error'] ?: 'Evidencias enviadas, pero no se pudo notificar al gestor.');
+                        }
+                    }
+                }
+            }
+            echo json_encode($result, JSON_UNESCAPED_UNICODE);
         } catch (\Exception $e) {
-            echo json_encode(['success' => false, 'message' => $e->getMessage()]);
+            echo json_encode(['success' => false, 'message' => $e->getMessage()], JSON_UNESCAPED_UNICODE);
         }
     }
 
