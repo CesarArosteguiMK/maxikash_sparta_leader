@@ -47,17 +47,17 @@
                             <div class="card-body d-flex justify-content-between flex-wrap-reverse">
                                 <div class="mb-0 w-100 app-academy-sm-60 d-flex flex-column justify-content-between text-center text-sm-start">
                                     <div class="card-title">
-                                        <h5 class="text-info mb-2">Comparativo 9:30</h5>
-                                        <p class="text-body w-sm-80 app-academy-xl-100">Revisa <strong>creditos</strong> y <strong>Saldo_total_capital</strong> por bucket al corte fijo de las 9:30, comparando la semana actual contra la semana pasada historica del segundometro.</p>
+                                        <h5 class="text-info mb-2">Comparativo Semana Actual vs Semana Pasada</h5>
+                                        <p class="text-body w-sm-80 app-academy-xl-100">Revisa <strong>creditos</strong> y <strong>Saldo_total_capital</strong> por bucket con corte dinamico, comparando la semana actual contra la semana pasada historica del segundometro.</p>
                                     </div>
                                     <div class="mb-0 mt-3">
                                         <a href="/analitica/comparativoCierreSemanal" class="btn btn-info w-100">
-                                            <i class="fa-solid fa-chart-simple me-1"></i>Ver comparativo 9:30
+                                            <i class="fa-solid fa-chart-simple me-1"></i>Ver comparativo
                                         </a>
                                     </div>
                                 </div>
                                 <div class="w-100 app-academy-sm-40 d-flex justify-content-center justify-content-sm-end h-px-150 mb-4 mb-sm-0">
-                                    <img class="img-fluid scaleX-n1-rtl" src="https://cdn-icons-png.freepik.com/512/4545/4545742.png?ga=GA1.1.191732613.1764875703" alt="Comparativo 9:30 illustration">
+                                    <img class="img-fluid scaleX-n1-rtl" src="https://cdn-icons-png.freepik.com/512/4545/4545742.png?ga=GA1.1.191732613.1764875703" alt="Comparativo semanal illustration">
                                 </div>
                             </div>
                         </div>

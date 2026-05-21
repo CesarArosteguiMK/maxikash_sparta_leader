@@ -551,7 +551,7 @@ body.dark-mode .ar-ev-notas-panel { background: #0f172a; border-color: #334155; 
                     </h5>
                     <div class="ar-ev-subtitle text-white">
                         Progreso de evidencias <strong>validadas</strong>
-                        <span class="ar-ev-prog-lbl ms-1" id="ar-ev-prog-inline">0 / 9</span>
+                        <span class="ar-ev-prog-lbl ms-1" id="ar-ev-prog-inline">0 / 14</span>
                     </div>
                 </div>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
@@ -617,12 +617,15 @@ $arPublicPath = function_exists('sparta_public_web_base') ? sparta_public_web_ba
             { key: 'fis_video_cliente_acuerdo', label: 'Video cliente de acuerdo', icon: 'fa-user-check' },
             { key: 'fis_360_encendida', label: 'Video moto 360 encendida', icon: 'fa-video' },
             { key: 'fis_video_vuelta_prueba', label: 'Video vuelta de prueba', icon: 'fa-road' },
+            { key: 'fis_checklist', label: 'Foto checklist', icon: 'fa-list-check' },
         ],
     };
 
     const AR_IMG_KEYS = [];
     AR_SEC_FIS.slots.forEach(function (sl) { AR_IMG_KEYS.push(sl.key); });
     const AR_TOTAL_VALIDABLE_IMG = AR_IMG_KEYS.length;
+    const AR_DOC_KEYS = ['doc_repuve', 'doc_factura'];
+    const AR_TOTAL_VALIDABLE_EXPEDIENTE = AR_TOTAL_VALIDABLE_IMG + AR_DOC_KEYS.length;
 
     const AR_SLOT_LABEL = {};
     AR_SEC_FIS.slots.forEach(function (sl) { AR_SLOT_LABEL[sl.key] = sl.label; });
@@ -885,6 +888,17 @@ $arPublicPath = function_exists('sparta_public_web_base') ? sparta_public_web_ba
         return n;
     }
 
+    function arCuentaDocumentosCargados(map) {
+        let n = 0;
+        AR_DOC_KEYS.forEach(function (k) {
+            const row = map[k];
+            if (row && row.url && String(row.url).trim() !== '') {
+                n++;
+            }
+        });
+        return n;
+    }
+
     function arRenderSlotHtml(sl, map) {
         const row = map[sl.key];
         const st = arEstadoSlot(row);
@@ -1127,7 +1141,8 @@ $arPublicPath = function_exists('sparta_public_web_base') ? sparta_public_web_ba
 
         const map = arMapaPorSlot(det.evidencias || []);
         const validadas = arCuentaValidadasImg(map);
-        const pct = AR_TOTAL_VALIDABLE_IMG ? Math.round((validadas / AR_TOTAL_VALIDABLE_IMG) * 100) : 0;
+        const totalExpedienteValidadas = validadas + arCuentaDocumentosCargados(map);
+        const pctExpediente = AR_TOTAL_VALIDABLE_EXPEDIENTE ? Math.round((totalExpedienteValidadas / AR_TOTAL_VALIDABLE_EXPEDIENTE) * 100) : 0;
 
         const titulo = document.getElementById('ar-ev-titulo-cliente');
         const progIn = document.getElementById('ar-ev-prog-inline');
@@ -1137,17 +1152,20 @@ $arPublicPath = function_exists('sparta_public_web_base') ? sparta_public_web_ba
                 : ('Operación #' + (det.id || ''));
         }
         if (progIn) {
-            progIn.textContent = validadas + ' / ' + AR_TOTAL_VALIDABLE_IMG;
+            progIn.textContent = totalExpedienteValidadas + ' / ' + AR_TOTAL_VALIDABLE_EXPEDIENTE;
         }
 
         inner.innerHTML =
             '<div class="row g-3">' +
             '<div class="col-lg-8">' +
             '<div class="d-flex justify-content-between align-items-end mb-1 flex-wrap gap-1">' +
-            '<span style="font-size:.75rem;font-weight:700;color:#0f172a;">Progreso de evidencias <span class="text-success">validadas</span> (fotos / video etapas 1–2)</span>' +
-            '<span class="ar-ev-prog-lbl">' + validadas + ' / ' + AR_TOTAL_VALIDABLE_IMG + '</span>' +
+            '<span style="font-size:.75rem;font-weight:700;color:#0f172a;">Progreso de expediente <span class="text-success">validado</span> (fotos / video + documentos)</span>' +
+            '<span class="ar-ev-prog-lbl">' + totalExpedienteValidadas + ' / ' + AR_TOTAL_VALIDABLE_EXPEDIENTE + '</span>' +
             '</div>' +
-            '<div class="ar-ev-prog-bg mb-3"><div class="ar-ev-prog-fill" style="width:' + pct + '%;"></div></div>' +
+            '<div class="ar-ev-prog-bg mb-1"><div class="ar-ev-prog-fill" style="width:' + pctExpediente + '%;"></div></div>' +
+            '<div class="d-flex justify-content-end mb-3">' +
+            '<span class="text-muted" style="font-size:.68rem;font-weight:700;">Fotos/video: ' + validadas + ' / ' + AR_TOTAL_VALIDABLE_IMG + '</span>' +
+            '</div>' +
             arRenderSeccion(AR_SEC_FIS, map) +
             '<div class="row g-2 mt-1">' +
             '<div class="col-md-4">' +

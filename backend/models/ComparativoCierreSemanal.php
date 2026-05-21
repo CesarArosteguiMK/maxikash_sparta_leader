@@ -18,28 +18,53 @@ final class ComparativoCierreSemanal
         ['orden' => 8, 'bucket' => 'h) 91 a 120 dias'],
     ];
 
+    /** @var list<string> */
+    private const CORTES = [
+        '07:30',
+        '09:30',
+        '11:30',
+        '13:30',
+        '14:30',
+        '16:30',
+        '18:30',
+        '20:30',
+        '23:50',
+    ];
+
     /**
-     * @return array{success:bool,corte:string,dia_corte:string,columna_dias_mora:string,semana_actual:string,semana_pasada:string,advertencias:list<string>,creditos:array<string,mixed>,capital:array<string,mixed>,tarjetas:array<string,mixed>}
+     * @return array{success:bool,corte:string,corte_opciones:list<string>,dia_corte:string,semana_actual:string,semana_pasada:string,origen_semana_pasada:string,advertencias:list<string>,creditos:array<string,mixed>,capital:array<string,mixed>,tarjetas:array<string,mixed>}
      */
-    public static function calcular(): array
+    public static function calcular(?string $corte = null): array
     {
         $db = new DatabaseSegundometro();
+        $corteNormalizado = self::normalizarCorte($corte);
         $semanaActual = self::resolverSemanaActual($db);
         $semanaPasada = self::semanaAnterior($semanaActual);
-        $columnaDiasMora = self::columnaDiasMoraCorte();
+        $columnaDiasMora = self::columnaDiasMoraCorte($corteNormalizado);
         $diaCorte = self::diaCorteNombre();
 
-        $actual = self::agregadoPorBucket($db, 'tbl_segundometro_semana', null, $columnaDiasMora);
-        $pasada = self::agregadoPorBucket($db, 'tbl_segundometro_histo', $semanaPasada, $columnaDiasMora);
-        $advertencias = self::advertenciasFuenteCapital($db, $semanaPasada);
+        $advertencias = [];
+        $actual = self::agregadoPorBucket($db, 'tbl_segundometro_semana', null, 'historico', $columnaDiasMora);
+        try {
+            self::prepararConexionVistaUltimasSemanas($db);
+            $pasada = self::agregadoPorBucket($db, 'vista_ultimas_semanas', $semanaPasada, 'historico', $columnaDiasMora);
+            $origenSemanaPasada = 'vista_ultimas_semanas';
+        } catch (\Throwable $e) {
+            $pasada = self::agregadoPorBucket($db, 'tbl_segundometro_histo', $semanaPasada, 'historico', $columnaDiasMora);
+            $origenSemanaPasada = 'tbl_segundometro_histo';
+            $advertencias[] = 'vista_ultimas_semanas no respondio; se uso tbl_segundometro_histo para ' . $semanaPasada . '.';
+            error_log('ComparativoCierreSemanal::vista_ultimas_semanas -> ' . $e->getMessage());
+        }
+        $advertencias = array_merge($advertencias, self::advertenciasFuenteCapital($db, $semanaPasada));
 
         return [
             'success' => true,
-            'corte' => '9:30',
+            'corte' => $corteNormalizado,
+            'corte_opciones' => self::CORTES,
             'dia_corte' => $diaCorte,
-            'columna_dias_mora' => $columnaDiasMora,
             'semana_actual' => $semanaActual,
             'semana_pasada' => $semanaPasada,
+            'origen_semana_pasada' => $origenSemanaPasada,
             'advertencias' => $advertencias,
             'creditos' => [
                 'semana_actual' => self::filasMetricas($actual, 'creditos'),
@@ -97,13 +122,15 @@ final class ComparativoCierreSemanal
     /**
      * @return array<string,array{orden:int,bucket:string,creditos:int,saldo_capital:float}>
      */
-    private static function agregadoPorBucket(DatabaseSegundometro $db, string $tabla, ?string $semana, string $columnaDiasMora): array
+    private static function agregadoPorBucket(DatabaseSegundometro $db, string $tabla, ?string $semana, string $modoBucket, ?string $columnaDiasMora = null): array
     {
-        if (!in_array($tabla, ['tbl_segundometro_semana', 'tbl_segundometro_histo'], true)) {
+        if (!in_array($tabla, ['tbl_segundometro_semana', 'tbl_segundometro_histo', 'vista_ultimas_semanas'], true)) {
             throw new \InvalidArgumentException('Tabla no permitida.');
         }
 
-        $bucketSql = self::bucketDesdeDiasMoraSql($columnaDiasMora);
+        $bucketSql = $modoBucket === 'historico'
+            ? self::bucketHistoricoSql((string) $columnaDiasMora)
+            : self::bucketAjustadoSql();
         $saldoSql = "COALESCE(CAST(REPLACE(REPLACE(NULLIF(TRIM(CAST(Saldo_total_capital AS CHAR)), ''), '$', ''), ',', '') AS DECIMAL(18,2)), 0)";
         $where = $semana === null ? '' : 'WHERE SEMANA = :semana';
 
@@ -154,9 +181,37 @@ final class ComparativoCierreSemanal
         return $out;
     }
 
+    private static function prepararConexionVistaUltimasSemanas(DatabaseSegundometro $db): void
+    {
+        $db->CRUD('SET collation_connection = utf8mb4_0900_ai_ci');
+    }
+
+    private static function bucketHistoricoSql(string $columnaDiasMora): string
+    {
+        $columnasPermitidas = self::columnasDiasMoraPermitidas();
+        if (!in_array($columnaDiasMora, $columnasPermitidas, true)) {
+            throw new \InvalidArgumentException('Columna de dias mora no permitida.');
+        }
+
+        $bucketDia = self::bucketDesdeDiasMoraSql($columnaDiasMora);
+        $ordenDia = self::ordenBucketCaseSql("({$bucketDia})");
+        $ordenReal = self::ordenBucketSql('Bucket_Morosidad_Real');
+
+        return "
+            CASE
+                WHEN ({$ordenReal}) IS NOT NULL
+                     AND ({$ordenDia}) IS NOT NULL
+                     AND ({$ordenReal}) <= 5
+                     AND ({$ordenReal}) < ({$ordenDia})
+                THEN Bucket_Morosidad_Real
+                ELSE ({$bucketDia})
+            END
+        ";
+    }
+
     private static function bucketDesdeDiasMoraSql(string $columnaDiasMora): string
     {
-        $columnasPermitidas = array_values(self::columnasDiasMoraPorDia());
+        $columnasPermitidas = self::columnasDiasMoraPermitidas();
         if (!in_array($columnaDiasMora, $columnasPermitidas, true)) {
             throw new \InvalidArgumentException('Columna de dias mora no permitida.');
         }
@@ -179,29 +234,108 @@ final class ComparativoCierreSemanal
         ";
     }
 
+    private static function bucketAjustadoSql(): string
+    {
+        $ordenReal = self::ordenBucketSql('Bucket_Morosidad_Real');
+        $ordenCierre = self::ordenBucketSql('Cierre_Actual');
+
+        return "
+            CASE
+                WHEN Variable_8 IS NOT NULL AND TRIM(CAST(Variable_8 AS CHAR)) <> '' THEN 'a) Current'
+                WHEN Ghost IS NOT NULL AND TRIM(CAST(Ghost AS CHAR)) <> '' AND TRIM(CAST(Ghost AS CHAR)) <> '-' THEN 'a) Current'
+                WHEN ({$ordenReal}) IS NULL OR ({$ordenCierre}) IS NULL THEN NULL
+                WHEN ({$ordenReal}) <= 5 AND ({$ordenCierre}) > ({$ordenReal}) THEN Bucket_Morosidad_Real
+                ELSE Cierre_Actual
+            END
+        ";
+    }
+
+    private static function ordenBucketSql(string $columna): string
+    {
+        if (!in_array($columna, ['Bucket_Morosidad_Real', 'Cierre_Actual'], true)) {
+            throw new \InvalidArgumentException('Columna no permitida.');
+        }
+
+        return self::ordenBucketCaseSql($columna);
+    }
+
+    private static function ordenBucketCaseSql(string $expresion): string
+    {
+        return "
+            CASE {$expresion}
+                WHEN 'a) Current' THEN 1
+                WHEN 'b) 1 a 7 dias' THEN 2
+                WHEN 'c) 8 a 14 dias' THEN 3
+                WHEN 'd) 15 a 21 dias' THEN 4
+                WHEN 'e) 22 a 30 dias' THEN 5
+                WHEN 'f) 31 a 60 dias' THEN 6
+                WHEN 'g) 61 a 90 dias' THEN 7
+                WHEN 'h) 91 a 120 dias' THEN 8
+                WHEN 'i) 121+ dias' THEN 9
+                ELSE NULL
+            END
+        ";
+    }
+
     /**
      * @return array<int,string>
      */
-    private static function columnasDiasMoraPorDia(): array
+    private static function columnasDiasMoraPorDia(string $corte = '14:30'): array
     {
+        $slot = str_replace(':', '_', self::normalizarCorte($corte));
+
         return [
-            1 => 'Dias_mora_Lunes_09_30',
-            2 => 'Dias_mora_Martes_09_30',
-            3 => 'Dias_mora_Miercoles_09_30',
-            4 => 'Dias_mora_Jueves_09_30',
-            5 => 'Dias_mora_Viernes_09_30',
-            6 => 'Dias_mora_Sabado_09_30',
-            7 => 'Dias_mora_Domingo_09_30',
+            1 => 'Dias_mora_Lunes_' . $slot,
+            2 => 'Dias_mora_Martes_' . $slot,
+            3 => 'Dias_mora_Miercoles_' . $slot,
+            4 => 'Dias_mora_Jueves_' . $slot,
+            5 => 'Dias_mora_Viernes_' . $slot,
+            6 => 'Dias_mora_Sabado_' . $slot,
+            7 => 'Dias_mora_Domingo_' . $slot,
         ];
     }
 
-    private static function columnaDiasMoraCorte(): string
+    private static function columnaDiasMoraCorte(string $corte): string
     {
         $hoy = new \DateTimeImmutable('today', new \DateTimeZone('America/Mexico_City'));
         $dia = (int) $hoy->format('N');
-        $columnas = self::columnasDiasMoraPorDia();
+        $columnas = self::columnasDiasMoraPorDia($corte);
 
         return $columnas[$dia];
+    }
+
+    /**
+     * @return list<string>
+     */
+    private static function columnasDiasMoraPermitidas(): array
+    {
+        $permitidas = [];
+        foreach (self::CORTES as $corte) {
+            foreach (self::columnasDiasMoraPorDia($corte) as $columna) {
+                $permitidas[] = $columna;
+            }
+        }
+
+        return $permitidas;
+    }
+
+    private static function normalizarCorte(?string $corte): string
+    {
+        $valor = trim((string) ($corte ?? ''));
+        if ($valor === '') {
+            return '14:30';
+        }
+
+        $valor = str_replace('_', ':', $valor);
+        if (preg_match('/^(\d{1,2}):(\d{2})$/', $valor, $m)) {
+            $valor = sprintf('%02d:%02d', (int) $m[1], (int) $m[2]);
+        }
+
+        if (!in_array($valor, self::CORTES, true)) {
+            throw new \InvalidArgumentException('Corte no permitido: ' . $corte);
+        }
+
+        return $valor;
     }
 
     private static function diaCorteNombre(): string
