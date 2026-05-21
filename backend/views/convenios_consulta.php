@@ -2439,13 +2439,22 @@ function congelarModulo(convenio) {
                 '</button>'
                 : '<span style="color:#7c3aed;font-size:.7rem;">⏳</span>';
 
-            console.log('Evaluando botón para semana', fila.numero_semana,
-                'esVencido:', esVencido,
-                'esParcial:', esParcial);
-
         } else if (esVencido || esParcial) {  // Vencidos y Parciales pueden subir comprobante
-            btnAccion =
-                '<button class="btn btn-xs btn-outline-warning btn-subir-comprobante" ' +
+            btnAccion = fila.comprobante_path
+                ? '<button class="btn btn-xs btn-outline-info btn-ver-comprobante" ' +
+                'style="font-size:.75rem;padding:3px 8px;" ' +
+                'data-path="' + fila.comprobante_path + '" ' +
+                'data-semana="' + fila.numero_semana + '" ' +
+                'data-fecha-pago="' + fila.fecha_pago + '" ' +
+                'data-pago-semanal="' + fila.pago_semanal + '" ' +
+                'data-fecha-pago-real="' + (fila.fecha_pago_real || '') + '" ' +
+                'data-comentario="' + (fila.comentario_gestor || '') + '" ' +
+                'data-convenio="' + convenio.id + '" ' +
+                'data-credito="' + convenio.id_credito + '" ' +
+                'title="Ver comprobante">' +
+                '<i class="fas fa-eye"></i>' +
+                '</button>'
+                : '<button class="btn btn-xs btn-outline-warning btn-subir-comprobante" ' +
                 'style="font-size:.75rem;padding:3px 8px;" ' +
                 'data-semana="' + fila.numero_semana + '" ' +
                 'data-convenio="' + convenio.id + '" ' +
@@ -2457,8 +2466,21 @@ function congelarModulo(convenio) {
                 '</button>';
 
         } else if (esPendiente) {
-            btnAccion =
-                '<button class="btn btn-xs btn-outline-warning btn-subir-comprobante" ' +
+            btnAccion = fila.comprobante_path
+                ? '<button class="btn btn-xs btn-outline-info btn-ver-comprobante" ' +
+                'style="font-size:.75rem;padding:3px 8px;" ' +
+                'data-path="' + fila.comprobante_path + '" ' +
+                'data-semana="' + fila.numero_semana + '" ' +
+                'data-fecha-pago="' + fila.fecha_pago + '" ' +
+                'data-pago-semanal="' + fila.pago_semanal + '" ' +
+                'data-fecha-pago-real="' + (fila.fecha_pago_real || '') + '" ' +
+                'data-comentario="' + (fila.comentario_gestor || '') + '" ' +
+                'data-convenio="' + convenio.id + '" ' +
+                'data-credito="' + convenio.id_credito + '" ' +
+                'title="Ver comprobante">' +
+                '<i class="fas fa-eye"></i>' +
+                '</button>'
+                : '<button class="btn btn-xs btn-outline-warning btn-subir-comprobante" ' +
                 'style="font-size:.75rem;padding:3px 8px;" ' +
                 'data-semana="' + fila.numero_semana + '" ' +
                 'data-convenio="' + convenio.id + '" ' +
