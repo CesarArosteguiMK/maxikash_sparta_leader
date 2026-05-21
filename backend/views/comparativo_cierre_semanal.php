@@ -301,6 +301,25 @@ $cmpError = isset($comparativo_error) ? (string) $comparativo_error : '';
         box.innerHTML = '<i class="fa-solid fa-triangle-exclamation me-2"></i>' + escapeHtml(message);
     }
 
+    function showLoading() {
+        if (typeof Swal === 'undefined') return;
+        Swal.fire({
+            title: 'Cargando datos',
+            text: 'Consultando comparativo del corte seleccionado...',
+            allowOutsideClick: false,
+            allowEscapeKey: false,
+            showConfirmButton: false,
+            didOpen: () => {
+                Swal.showLoading();
+            }
+        });
+    }
+
+    function closeLoading() {
+        if (typeof Swal === 'undefined' || !Swal.isVisible()) return;
+        Swal.close();
+    }
+
     function showWarnings(messages) {
         const box = el('cmp930-alert');
         if (!box) return;
@@ -351,7 +370,10 @@ $cmpError = isset($comparativo_error) ? (string) $comparativo_error : '';
 
     async function refresh() {
         const btn = el('cmp930-refresh');
+        const select = el('cmp930-corte');
         if (btn) btn.disabled = true;
+        if (select) select.disabled = true;
+        showLoading();
         try {
             const url = endpoint + '?corte=' + encodeURIComponent(selectedCorte());
             const res = await fetch(url, { headers: { 'Accept': 'application/json' } });
@@ -362,6 +384,8 @@ $cmpError = isset($comparativo_error) ? (string) $comparativo_error : '';
             showError('Error de red al consultar el comparativo.');
         } finally {
             if (btn) btn.disabled = false;
+            if (select) select.disabled = false;
+            closeLoading();
         }
     }
 
