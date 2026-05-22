@@ -2517,7 +2517,7 @@ public static function subirComprobante($datos, $archivo)
             return self::resultado(false, 'Semana no encontrada.');
         }
 
-        if (!in_array($fila['estatus_pago'], ['vencido', 'parcial', 'pendiente', 'pagado'])) {
+        if (!in_array($fila['estatus_pago'], ['vencido', 'parcial', 'pendiente', 'pagado', 'pendiente_conciliar'])) {
             return self::resultado(false, 'Solo se pueden subir comprobantes de semanas vencidas, parciales, pendientes o pagadas.');
        }
 
