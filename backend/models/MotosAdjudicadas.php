@@ -2311,6 +2311,76 @@ class MotosAdjudicadas extends Model
     }
 
     /**
+     * Reemplazo especial desde AtenciÃ³n: solo para evidencias fÃ­sicas validables.
+     * Limpia el veredicto y neutraliza historial de rechazo pendiente para que no se regenere.
+     */
+    public function reemplazarEvidenciaGestor(int $idOperacion, string $slot, array $fileInfo, int $idUsuario, string $nombreUsuario = ''): array
+    {
+        if (!in_array($slot, self::SLOTS_VALIDACION_ATENCION_MEDIA, true)) {
+            return ['success' => false, 'message' => 'Este slot no se puede reemplazar desde esta herramienta.'];
+        }
+
+        $res = $this->subirEvidencia($idOperacion, $slot, $fileInfo, $idUsuario, $nombreUsuario);
+        if (empty($res['success'])) {
+            return $res;
+        }
+
+        if ($this->adjEvidenciaTieneColumnasAtn()) {
+            $row = $this->db->queryOne(
+                'SELECT id, url FROM adj_evidencia WHERE id_operacion = :id AND slot = :slot LIMIT 1',
+                ['id' => $idOperacion, 'slot' => $slot]
+            );
+            $idEvidencia = (int) ($row['id'] ?? 0);
+            $urlNueva = trim((string) ($row['url'] ?? ''));
+            $ahora = $this->fechaHoraCdmx();
+
+            if ($idEvidencia > 0) {
+                $this->db->CRUD(
+                    "UPDATE adj_evidencia
+                     SET val_atn = NULL,
+                         comentario_atn = NULL,
+                         estatus = 'recibido'
+                     WHERE id = :id_evidencia
+                       AND id_operacion = :id_operacion",
+                    ['id_evidencia' => $idEvidencia, 'id_operacion' => $idOperacion]
+                );
+
+                try {
+                    $this->db->CRUD(
+                        "UPDATE adj_evidencia_rechazo_historial h
+                         INNER JOIN (
+                             SELECT id
+                             FROM adj_evidencia_rechazo_historial
+                             WHERE id_operacion = :id_operacion_sel
+                               AND id_evidencia = :id_evidencia_sel
+                             ORDER BY id DESC
+                             LIMIT 1
+                         ) ult ON ult.id = h.id
+                         SET h.url_nueva = :url_nueva,
+                             h.fecha_url_nueva = :fecha,
+                             h.updated_at = :fecha2",
+                        [
+                            'id_operacion_sel' => $idOperacion,
+                            'id_evidencia_sel' => $idEvidencia,
+                            'url_nueva' => $urlNueva,
+                            'fecha' => $ahora,
+                            'fecha2' => $ahora,
+                        ]
+                    );
+                } catch (\Throwable $e) {
+                    error_log('[MotosAdjudicadas] reemplazarEvidenciaGestor historial: ' . $e->getMessage());
+                }
+            }
+        }
+
+        $slotLabel = self::SLOT_LABELS[$slot] ?? strtoupper($slot);
+        $this->registrarBitacora($idOperacion, 'REEMPLAZO ESPECIAL DE EVIDENCIA: ' . $slotLabel, $idUsuario, $nombreUsuario);
+        $this->finalizarCierreValidacionEvidenciaAtn($idOperacion, $idUsuario, $nombreUsuario);
+
+        return $res;
+    }
+
+    /**
      * Marca recepcion_*_estado = received cuando existe migraci?n de columnas.
      */
     private function marcarRecepcionDocumentoRecibidoEnOperacion(int $idOperacion, string $slot): void

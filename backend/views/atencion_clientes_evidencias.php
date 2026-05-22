@@ -225,6 +225,26 @@ body.dark-mode .aev-ev-hint { color: #94a3b8 !important; }
 .aev-ev-slot--click { cursor: pointer; }
 .aev-ev-slot--click:focus { outline: 2px solid #2563eb; outline-offset: 2px; }
 .aev-ev-slot .aev-txt-lbl { position: absolute; bottom: 0; left: 0; right: 0; background: rgba(15,23,42,.75); color: #fff; font-size: .55rem; font-weight: 700; text-transform: uppercase; padding: .2rem; text-align: center; }
+.aev-btn-reemplazo-gestor {
+    position: absolute;
+    top: .32rem;
+    right: .32rem;
+    z-index: 4;
+    width: 1.75rem;
+    height: 1.75rem;
+    border: 0;
+    border-radius: 999px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: linear-gradient(135deg, #111827, #334155);
+    color: #fff;
+    box-shadow: 0 6px 16px rgba(15, 23, 42, .28);
+    cursor: pointer;
+    transition: transform .15s ease, box-shadow .15s ease, opacity .15s ease;
+}
+.aev-btn-reemplazo-gestor:hover { transform: translateY(-1px); box-shadow: 0 8px 20px rgba(15, 23, 42, .35); }
+.aev-btn-reemplazo-gestor:disabled { opacity: .65; cursor: progress; transform: none; }
 .aev-badge-ok { position: absolute; bottom: 1.35rem; left: 50%; transform: translateX(-50%); background: #22c55e; color: #fff; font-size: .58rem; font-weight: 800; padding: 2px 6px; border-radius: 4px; }
 .aev-badge-na { position: absolute; bottom: 1.35rem; left: 50%; transform: translateX(-50%); background: #dc2626; color: #fff; font-size: .58rem; font-weight: 800; padding: 2px 6px; border-radius: 4px; }
 /* Visor: dentro de #modalAevValidarEvidencias (trap de foco) — sigue a pantalla con fixed; sin overflow se recorta en .modal */
@@ -371,6 +391,7 @@ body.dark-mode .aev-ev-slot, body.dark-mode .aev-doc-zone { background: #1e293b;
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
             </div>
             <input type="file" id="aev-inp-repuve" class="d-none" accept="application/pdf,.pdf" aria-hidden="true" tabindex="-1">
+            <input type="file" id="aev-inp-reemplazo-gestor" class="d-none" aria-hidden="true" tabindex="-1">
             <div class="modal-body p-3" id="aev-body" style="position:relative;">
                 <div class="text-center py-5 text-muted">
                     <div class="spinner-border spinner-border-sm" style="color:#22c55e;"></div>
@@ -428,6 +449,7 @@ if (!function_exists('sparta_public_web_base')) {
     require_once dirname(__DIR__) . '/core/UploadsPaths.php';
 }
 $aevPublicPath = function_exists('sparta_public_web_base') ? sparta_public_web_base() : '';
+$aevPuedeReemplazarEvidencia = in_array(79, array_map('intval', (array) ($_SESSION['modulos'] ?? [])), true);
 ?>
 <script>
 (function () {
@@ -435,6 +457,7 @@ $aevPublicPath = function_exists('sparta_public_web_base') ? sparta_public_web_b
 
     /** Ruta al directorio público, ej. /sparta___SPARTA_SECRET_REDACTED__/public (definida por el servidor, no adivinada) */
     var AEV_SERVER_PUBLIC_BASE = <?php echo json_encode($aevPublicPath, JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?>;
+    const AEV_PUEDE_REEMPLAZAR_EVIDENCIA = <?php echo $aevPuedeReemplazarEvidencia ? 'true' : 'false'; ?>;
 
     function aevInferBaseDesdePathname() {
         const p = (window.location && window.location.pathname) || '';
@@ -634,6 +657,7 @@ $aevPublicPath = function_exists('sparta_public_web_base') ? sparta_public_web_b
     /** detalle de sesión: veredictos v[slot]= acep|rec, comentarios c[slot] (persiste solo mientras dura el modal) */
     let _aevStore  = { det: null, idCredito: 0, v: {}, c: {}, rechazosPendientes: {}, pendingVeredictos: {} };
     let _aevVistaCtx = { slot: '', label: '', evidId: 0, soloAceptada: false, soloRechazada: false };
+    let _aevReemplazoGestorCtx = { slot: '', label: '' };
     let _aevZoomTeardown = null;
 
     function aevZoomTeardown() {
@@ -1040,6 +1064,166 @@ $aevPublicPath = function_exists('sparta_public_web_base') ? sparta_public_web_b
         </div>`;
     }
 
+    function aevEsVideoSlot(slot) {
+        return slot === 'fis_360'
+            || slot === 'fis_360_encendida'
+            || slot === 'fis_video_cliente_acuerdo'
+            || slot === 'fis_video_vuelta_prueba';
+    }
+
+    function aevAcceptReemplazoSlot(slot) {
+        if (aevEsVideoSlot(slot)) return 'video/mp4,.mp4';
+        if (slot === 'fis_dacion_hoja_1' || slot === 'fis_dacion_hoja_2') return 'image/jpeg,image/png,application/pdf,.jpg,.jpeg,.png,.pdf';
+        return 'image/jpeg,image/png,.jpg,.jpeg,.png';
+    }
+
+    function aevBotonReemplazoGestor(sl) {
+        if (!AEV_PUEDE_REEMPLAZAR_EVIDENCIA) return '';
+        return '<button type="button" class="aev-btn-reemplazo-gestor"'
+            + ' data-aev-reemplazar-gestor="' + aeEsc(sl.key) + '"'
+            + ' data-aev-reemplazar-lbl="' + aeEsc(sl.label) + '"'
+            + ' title="Reemplazar evidencia por el gestor"'
+            + ' aria-label="Reemplazar ' + aeEsc(sl.label) + '">'
+            + '<i class="fa-solid fa-lock"></i></button>';
+    }
+
+    function aevMostrarOverlaySubida(texto) {
+        const body = document.getElementById('aev-body');
+        if (!body) return;
+        const prev = document.getElementById('aev-subida-overlay');
+        if (prev) prev.remove();
+        body.insertAdjacentHTML(
+            'afterbegin',
+            '<div class="aev-load-overlay" id="aev-subida-overlay" style="position:absolute;inset:0;background:rgba(255,255,255,.68);z-index:6;display:flex;align-items:center;justify-content:center;font-size:.9rem;font-weight:700;color:#334155;">'
+            + aeEsc(texto || 'Subiendo...') +
+            '</div>'
+        );
+    }
+
+    function aevQuitarOverlaySubida() {
+        const o = document.getElementById('aev-subida-overlay');
+        if (o) o.remove();
+    }
+
+    function aevRefrescarDetalleActual() {
+        if (!_aevStore.det || !_aevStore.det.id) return Promise.resolve(null);
+        return fetch('/MotosAdjudicadas/obtenerDetalle/' + parseInt(_aevStore.det.id, 10) + '?incluir_todas=1', {
+            headers: { 'Accept': 'application/json' },
+            credentials: 'same-origin'
+        })
+            .then(function (r) { return r.json(); })
+            .then(function (j) {
+                if (!j || !j.success || !j.detalle) return j;
+                aevNormalizarUrlsDetalle(j.detalle);
+                aevReiniciarStore(j.detalle, _aevStore.idCredito);
+                const body = document.getElementById('aev-body');
+                if (body) {
+                    body.innerHTML = aevRenderCuerpoModalValidar(_aevStore.det);
+                    aevSanearDomUrls(body);
+                }
+                aevSincroBtnEnviar();
+                return j;
+            });
+    }
+
+    function aevArchivoValidoReemplazo(slot, f) {
+        if (!f) return false;
+        const name = String(f.name || '');
+        const type = String(f.type || '').toLowerCase();
+        if (aevEsVideoSlot(slot)) return type === 'video/mp4' || /\.mp4$/i.test(name);
+        if (slot === 'fis_dacion_hoja_1' || slot === 'fis_dacion_hoja_2') {
+            return type === 'image/jpeg'
+                || type === 'image/png'
+                || type === 'application/pdf'
+                || /\.(jpe?g|png|pdf)$/i.test(name);
+        }
+        return type === 'image/jpeg' || type === 'image/png' || /\.(jpe?g|png)$/i.test(name);
+    }
+
+    function aevAbrirReemplazoGestor(slot, label) {
+        if (!AEV_PUEDE_REEMPLAZAR_EVIDENCIA || !_aevStore.det || !_aevStore.det.id || !slot) return;
+        _aevReemplazoGestorCtx = { slot: slot, label: label || slot };
+        const abrirInput = function () {
+            const inp = document.getElementById('aev-inp-reemplazo-gestor');
+            if (!inp) return;
+            inp.accept = aevAcceptReemplazoSlot(slot);
+            inp.value = '';
+            inp.click();
+        };
+        if (typeof Swal !== 'undefined') {
+            Swal.fire({
+                icon: 'question',
+                title: 'Reemplazar evidencia',
+                html: '¿Quieres reemplazar <strong>' + aeEsc(label || slot) + '</strong> por el gestor?',
+                showCancelButton: true,
+                confirmButtonText: 'Sí, reemplazar',
+                cancelButtonText: 'Cancelar',
+                reverseButtons: true
+            }).then(function (res) {
+                if (res && res.isConfirmed) abrirInput();
+            });
+            return;
+        }
+        if (window.confirm('¿Quieres reemplazar ' + (label || slot) + ' por el gestor?')) abrirInput();
+    }
+
+    function aevSubirReemplazoGestor(f) {
+        const slot = _aevReemplazoGestorCtx.slot;
+        const label = _aevReemplazoGestorCtx.label || slot;
+        if (!_aevStore.det || !_aevStore.det.id || !slot || !f) return;
+        if (!aevArchivoValidoReemplazo(slot, f)) {
+            const msg = aevEsVideoSlot(slot)
+                ? 'Este campo solo acepta video MP4.'
+                : (slot === 'fis_dacion_hoja_1' || slot === 'fis_dacion_hoja_2'
+                    ? 'Este campo acepta imagen JPG/PNG o PDF.'
+                    : 'Este campo solo acepta imagen JPG/PNG.');
+            if (typeof Swal !== 'undefined') Swal.fire({ icon: 'warning', title: 'Archivo no permitido', text: msg });
+            else window.alert(msg);
+            return;
+        }
+        const fd = new FormData();
+        fd.append('id_operacion', String(_aevStore.det.id));
+        fd.append('slot', slot);
+        fd.append('archivo', f, f.name);
+        aevMostrarOverlaySubida('Reemplazando evidencia...');
+        fetch('/MotosAdjudicadas/reemplazarEvidenciaGestor', {
+            method: 'POST',
+            body: fd,
+            credentials: 'same-origin'
+        })
+            .then(function (r) { return r.json(); })
+            .then(function (data) {
+                if (!data || !data.success) {
+                    throw new Error((data && data.message) || 'No se pudo reemplazar la evidencia.');
+                }
+                return aevRefrescarDetalleActual().then(function () { return data; });
+            })
+            .then(function () {
+                aeCargarConteosPestanas();
+                aevRecargarPestanaEvidenciasActiva();
+                if (typeof Swal !== 'undefined') {
+                    Swal.fire({
+                        icon: 'success',
+                        title: 'Evidencia reemplazada',
+                        text: label + ' quedó pendiente de validación.',
+                        timer: 1800,
+                        showConfirmButton: false
+                    });
+                }
+            })
+            .catch(function (err) {
+                if (typeof Swal !== 'undefined') {
+                    Swal.fire({ icon: 'error', title: 'No se pudo reemplazar', text: err.message || 'Intenta de nuevo.' });
+                } else {
+                    window.alert((err && err.message) || 'No se pudo reemplazar.');
+                }
+            })
+            .finally(function () {
+                aevQuitarOverlaySubida();
+                _aevReemplazoGestorCtx = { slot: '', label: '' };
+            });
+    }
+
     function aevRenderCelda(sl, row) {
         const st  = aevEstadoEvidencia(row, sl.key);
         const has = row && row.url;
@@ -1051,11 +1235,9 @@ $aevPublicPath = function_exists('sparta_public_web_base') ? sparta_public_web_b
             </div>`;
         }
         const uEsc = aeEsc(aevUrlForDisplay(row.url));
-        const esVideoSlot = sl.key === 'fis_360'
-            || sl.key === 'fis_360_encendida'
-            || sl.key === 'fis_video_cliente_acuerdo'
-            || sl.key === 'fis_video_vuelta_prueba';
+        const esVideoSlot = aevEsVideoSlot(sl.key);
         const esVideo = (row.tipo && String(row.tipo).toLowerCase().indexOf('video') !== -1) || esVideoSlot;
+        const botonReemplazo = aevBotonReemplazoGestor(sl);
         const media = esVideo
             ? '<video class="aev-thumb" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;" data-aev-src="' + uEsc + '" muted playsinline></video><div class="aev-aev-mute-play" style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.2);pointer-events:none;"><i class="fa-solid fa-play" style="color:#fff;font-size:1.4rem;"></i></div>'
             : '<img class="aev-thumb" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;" data-aev-src="' + uEsc + '" alt="">';
@@ -1065,6 +1247,7 @@ $aevPublicPath = function_exists('sparta_public_web_base') ? sparta_public_web_b
             return `
             <div class="aev-ev-slot aev-ev-slot--acept aev-ev-slot--click" style="position:relative;"` + dataAttr + titleAttr + `>
                 ${media}
+                ${botonReemplazo}
                 <span class="aev-txt-lbl">${aeEsc(sl.label)}</span>
                 <span class="aev-badge-ok">ACEPTADA</span>
             </div>`;
@@ -1073,6 +1256,7 @@ $aevPublicPath = function_exists('sparta_public_web_base') ? sparta_public_web_b
             return `
             <div class="aev-ev-slot aev-ev-slot--rech aev-ev-slot--click" style="position:relative;"` + dataAttr + titleAttr + `>
                 ${media}
+                ${botonReemplazo}
                 <span class="aev-txt-lbl">${aeEsc(sl.label)}</span>
                 <span class="aev-badge-na">RECHAZADA</span>
             </div>`;
@@ -1080,6 +1264,7 @@ $aevPublicPath = function_exists('sparta_public_web_base') ? sparta_public_web_b
         return `
         <div class="aev-ev-slot aev-ev-slot--pend aev-ev-slot--click" style="position:relative;"` + dataAttr + titleAttr + `>
             ${media}
+            ${botonReemplazo}
             <span class="aev-txt-lbl">${aeEsc(sl.label)}</span>
         </div>`;
     }
@@ -1690,6 +1875,16 @@ $aevPublicPath = function_exists('sparta_public_web_base') ? sparta_public_web_b
         const aevBody = document.getElementById('aev-body');
         if (aevBody) {
             aevBody.addEventListener('click', function (ev) {
+                const replGestor = ev.target.closest('[data-aev-reemplazar-gestor]');
+                if (replGestor) {
+                    ev.preventDefault();
+                    ev.stopPropagation();
+                    aevAbrirReemplazoGestor(
+                        replGestor.getAttribute('data-aev-reemplazar-gestor'),
+                        replGestor.getAttribute('data-aev-reemplazar-lbl') || ''
+                    );
+                    return;
+                }
                 const verRep = ev.target.closest('[data-aev-ver-repuve]');
                 if (verRep) {
                     ev.preventDefault();
@@ -1712,6 +1907,15 @@ $aevPublicPath = function_exists('sparta_public_web_base') ? sparta_public_web_b
                         if (inp) { inp.value = ''; inp.click(); }
                     }
                 }
+            });
+        }
+        const aevInpReemplazo = document.getElementById('aev-inp-reemplazo-gestor');
+        if (aevInpReemplazo) {
+            aevInpReemplazo.addEventListener('change', function (ev) {
+                const f = ev.target && ev.target.files && ev.target.files[0];
+                if (ev.target) { ev.target.value = ''; }
+                if (!f) return;
+                aevSubirReemplazoGestor(f);
             });
         }
         const aevInpRepuve = document.getElementById('aev-inp-repuve');

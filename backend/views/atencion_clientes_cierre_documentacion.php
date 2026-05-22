@@ -772,7 +772,8 @@ body.dark-mode #acdEvidenciaTitulo.acd-ev-ok { color: #86efac; }
     }
 
     function acdRenderCardBandeja(item) {
-        const ev = parseInt(item.evidencias_count, 10) || 0;
+        const evRaw = parseInt(item.evidencias_count, 10) || 0;
+        const ev = Math.min(evRaw, ACD_EV_TOTAL);
         const g  = item.gestor_nombre
             ? acdEsc(item.gestor_nombre)
             : '<span class="ae-list-muted">Sin asignar</span>';
