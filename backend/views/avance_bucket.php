@@ -144,7 +144,7 @@ $avanceError = isset($avance_bucket_error) ? (string) $avance_bucket_error : '';
     border-bottom: 1px solid #b7a7ff;
     color: #0b2d4a;
     font-weight: 600;
-    white-space: normal;
+    white-space: nowrap;
     line-height: 1.15;
 }
 .ab-table td,
@@ -166,6 +166,7 @@ $avanceError = isset($avance_bucket_error) ? (string) $avance_bucket_error : '';
 .ab-table th:first-child {
     z-index: 3;
     background: #e7e3fb;
+    white-space: normal;
 }
 .ab-table-wrap {
     border: 1px solid #d8deea;
@@ -269,13 +270,19 @@ $avanceError = isset($avance_bucket_error) ? (string) $avance_bucket_error : '';
         -webkit-overflow-scrolling: touch;
     }
     .ab-table {
-        min-width: 760px;
+        min-width: 920px;
         font-size: .64rem;
+        table-layout: auto;
+    }
+    .ab-table th:not(:first-child),
+    .ab-table td:not(:first-child) {
+        min-width: 74px;
+        white-space: nowrap;
     }
     .ab-table td:first-child,
     .ab-table th:first-child {
-        min-width: 96px;
-        width: 96px;
+        min-width: 104px;
+        width: 104px;
     }
 }
 </style>
