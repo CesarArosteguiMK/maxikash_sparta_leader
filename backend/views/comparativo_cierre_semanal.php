@@ -223,14 +223,79 @@ $cmpError = isset($comparativo_error) ? (string) $comparativo_error : '';
     }
 }
 @media (max-width: 767.98px) {
+    .cmp930 {
+        padding-left: .35rem !important;
+        padding-right: .35rem !important;
+    }
+    .cmp930 > .d-flex:first-child {
+        align-items: stretch !important;
+    }
+    .cmp930 h4 {
+        width: 100%;
+        font-size: 1.05rem;
+        line-height: 1.25;
+    }
+    .cmp930 > .d-flex:first-child > .d-flex {
+        width: 100%;
+        display: grid !important;
+        grid-template-columns: 1fr 1fr;
+        gap: .45rem !important;
+    }
+    .cmp930-corte-control {
+        grid-column: 1 / -1;
+        width: 100%;
+        justify-content: space-between;
+    }
+    .cmp930-corte-control .form-select {
+        flex: 1;
+        min-width: 0;
+    }
+    #cmp930-status {
+        grid-column: 1 / -1;
+        justify-self: stretch;
+        text-align: center;
+    }
+    #cmp930-refresh,
+    .cmp930 a.btn {
+        width: 100%;
+    }
     .cmp930-board {
-        padding: .75rem;
+        padding: .5rem;
     }
     .cmp930-grid {
         grid-template-columns: 1fr;
+        gap: .55rem;
+    }
+    .cmp930-panel .card-body {
+        padding: .55rem;
+    }
+    .cmp930-title {
+        font-size: .9rem;
+        line-height: 1.2;
+    }
+    .cmp930-table {
+        font-size: .72rem;
+    }
+    .cmp930-table td,
+    .cmp930-table th {
+        padding: .2rem .25rem;
+    }
+    .cmp930-card-wrap {
+        justify-content: stretch;
     }
     .cmp930-kpi {
         max-width: none;
+        min-width: 0;
+    }
+    .cmp930-kpi .card-body {
+        padding: .55rem;
+    }
+    .cmp930-kpi-value {
+        font-size: 1.2rem;
+        margin-bottom: .18rem;
+    }
+    .cmp930-kpi-label {
+        font-size: .72rem;
     }
 }
 </style>
