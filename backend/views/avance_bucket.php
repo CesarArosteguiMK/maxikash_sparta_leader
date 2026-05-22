@@ -38,27 +38,6 @@ $avanceError = isset($avance_bucket_error) ? (string) $avance_bucket_error : '';
     <?php endif; ?>
 
     <div class="card shadow-sm border ab-card-main overflow-hidden">
-        <div class="card-body border-bottom py-3 ab-toolbar">
-            <div class="ab-summary-grid">
-                <div class="ab-kpi">
-                    <div class="ab-kpi-label">Total creditos</div>
-                    <div class="ab-kpi-value" id="ab-total">0</div>
-                </div>
-                <div class="ab-kpi">
-                    <div class="ab-kpi-label">Mejoran bucket</div>
-                    <div class="ab-kpi-value text-success" id="ab-mejoran">0</div>
-                </div>
-                <div class="ab-kpi">
-                    <div class="ab-kpi-label">Sin cambio</div>
-                    <div class="ab-kpi-value text-primary" id="ab-igual">0</div>
-                </div>
-                <div class="ab-kpi">
-                    <div class="ab-kpi-label">Empeoran bucket</div>
-                    <div class="ab-kpi-value text-danger" id="ab-empeoran">0</div>
-                </div>
-            </div>
-        </div>
-
         <div class="ab-content">
             <div class="ab-resumen-grid">
                 <section class="ab-panel">
@@ -100,9 +79,6 @@ $avanceError = isset($avance_bucket_error) ? (string) $avance_bucket_error : '';
     align-items: start;
     padding: .75rem;
 }
-.ab-toolbar {
-    background: #fff;
-}
 .ab-corte-control {
     display: inline-flex;
     align-items: center;
@@ -113,29 +89,6 @@ $avanceError = isset($avance_bucket_error) ? (string) $avance_bucket_error : '';
 }
 .ab-corte-control .form-select {
     min-width: 92px;
-}
-.ab-summary-grid {
-    display: grid;
-    grid-template-columns: repeat(4, minmax(160px, 1fr));
-    gap: .6rem;
-}
-.ab-kpi {
-    background: #fff;
-    border: 1px solid #e5e8ef;
-    border-radius: 6px;
-    padding: .6rem .75rem;
-}
-.ab-kpi-label {
-    color: #516074;
-    font-size: .78rem;
-    font-weight: 700;
-    text-transform: uppercase;
-}
-.ab-kpi-value {
-    color: #0b2d4a;
-    font-size: 1.35rem;
-    font-weight: 700;
-    line-height: 1.15;
 }
 .ab-card-title {
     color: #0b2d4a;
@@ -239,9 +192,6 @@ $avanceError = isset($avance_bucket_error) ? (string) $avance_bucket_error : '';
     .ab-content {
         grid-template-columns: 1fr;
     }
-    .ab-summary-grid {
-        grid-template-columns: repeat(2, minmax(140px, 1fr));
-    }
     .ab-resumen-grid {
         grid-column: auto;
         grid-row: auto;
@@ -254,8 +204,78 @@ $avanceError = isset($avance_bucket_error) ? (string) $avance_bucket_error : '';
     }
 }
 @media (max-width: 575.98px) {
-    .ab-summary-grid {
-        grid-template-columns: 1fr;
+    .avance-bucket {
+        padding-left: .35rem !important;
+        padding-right: .35rem !important;
+    }
+    .avance-bucket > .d-flex:first-child {
+        align-items: stretch !important;
+    }
+    .avance-bucket h4 {
+        width: 100%;
+        font-size: 1.05rem;
+        line-height: 1.25;
+    }
+    .avance-bucket h4 .badge {
+        margin-left: 0 !important;
+        margin-top: .35rem;
+        width: max-content;
+    }
+    .avance-bucket > .d-flex:first-child > .d-flex {
+        width: 100%;
+        display: grid !important;
+        grid-template-columns: 1fr 1fr;
+        gap: .45rem !important;
+    }
+    .ab-corte-control {
+        grid-column: 1 / -1;
+        width: 100%;
+        justify-content: space-between;
+    }
+    .ab-corte-control .form-select {
+        flex: 1;
+        min-width: 0;
+    }
+    #ab-status {
+        grid-column: 1 / -1;
+        justify-self: stretch;
+        text-align: center;
+    }
+    #ab-refresh,
+    .avance-bucket a.btn {
+        width: 100%;
+    }
+    .ab-content {
+        padding: .5rem;
+        gap: .55rem;
+    }
+    .ab-resumen-grid {
+        gap: .55rem;
+    }
+    .ab-panel {
+        padding: .5rem;
+    }
+    .ab-matrix-panel + .ab-matrix-panel {
+        margin-top: .55rem;
+    }
+    .ab-card-title {
+        font-size: .86rem;
+    }
+    .ab-res-row {
+        font-size: .68rem;
+        grid-template-columns: minmax(120px, 1fr) 76px;
+    }
+    .ab-table-wrap {
+        -webkit-overflow-scrolling: touch;
+    }
+    .ab-table {
+        min-width: 760px;
+        font-size: .64rem;
+    }
+    .ab-table td:first-child,
+    .ab-table th:first-child {
+        min-width: 96px;
+        width: 96px;
     }
 }
 </style>
@@ -383,11 +403,6 @@ $avanceError = isset($avance_bucket_error) ? (string) $avance_bucket_error : '';
         if (corteBadge) {
             corteBadge.textContent = (data.dia_corte ? data.dia_corte + ' ' : '') + (data.corte || '');
         }
-        el('ab-total').textContent = fmtInt.format(Number(data.total || 0));
-        const ind = data.indicadores || {};
-        el('ab-mejoran').textContent = fmtInt.format(Number(ind.mejoran || 0));
-        el('ab-igual').textContent = fmtInt.format(Number(ind.igual || 0));
-        el('ab-empeoran').textContent = fmtInt.format(Number(ind.empeoran || 0));
         renderResumen('ab-resumen-inicio', data.resumen_inicio, data.total, 'count');
         renderResumen('ab-resumen-inicio-pct', data.resumen_inicio, data.total, 'pct');
         renderMatriz('ab-matriz-creditos', data.matriz_creditos, data.buckets, false);
