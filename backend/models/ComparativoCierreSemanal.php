@@ -323,7 +323,7 @@ final class ComparativoCierreSemanal
     {
         $valor = trim((string) ($corte ?? ''));
         if ($valor === '') {
-            return '14:30';
+            return self::corteAutomatico();
         }
 
         $valor = str_replace('_', ':', $valor);
@@ -336,6 +336,24 @@ final class ComparativoCierreSemanal
         }
 
         return $valor;
+    }
+
+    private static function corteAutomatico(): string
+    {
+        $ahora = new \DateTimeImmutable('now', new \DateTimeZone('America/Mexico_City'));
+        $horaActual = ((int) $ahora->format('H') * 60) + (int) $ahora->format('i');
+        $seleccionado = self::CORTES[0];
+
+        foreach (self::CORTES as $corte) {
+            [$hora, $minuto] = array_map('intval', explode(':', $corte));
+            $minutosCorte = ($hora * 60) + $minuto;
+            if ($minutosCorte > $horaActual) {
+                break;
+            }
+            $seleccionado = $corte;
+        }
+
+        return $seleccionado;
     }
 
     private static function diaCorteNombre(): string

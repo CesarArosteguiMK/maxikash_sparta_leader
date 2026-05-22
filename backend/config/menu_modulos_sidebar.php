@@ -44,6 +44,7 @@ if (!function_exists('getMenuSidebarModulosStructure')) {
                     ['label' => 'Layout Legacy', 'url' => '/analitica/layoutlegacy', 'modulos' => [7]],
                     ['label' => 'Analítica sabueso', 'url' => '/sabueso/estadisticas', 'modulos' => [47]],
                     ['label' => 'Comparativas', 'url' => '/analitica/comparativas', 'modulos' => [60]],
+                    ['label' => 'Avance Bucket', 'url' => '/analitica/avanceBucket', 'modulos' => [77]],
                     ['label' => 'Asignación', 'url' => '/analitica/asignacion', 'modulos' => [61]],
                 ],
             ],
