@@ -3077,7 +3077,7 @@ window.todosDepartamentosBackend = <?= json_encode(($departamento['datos'] ?? []
 
                     <div class="mb-3">
                         <label for="motivoReingreso" class="form-label"><strong>Motivo del reingreso:</strong></label>
-                        <select class="form-select" id="motivoReingreso">
+                        <select class="form-select" id="motivoReingreso" data-motivos-rh-actualizados="1">
                             <option value="">-- Selecciona un motivo --</option>
                             <option value="ILOCALIZABLE">ILOCALIZABLE</option>
                             <option value="LOCALIZABLE EN DOMICILIO PRINCIPAL">LOCALIZABLE EN DOMICILIO PRINCIPAL</option>
@@ -3108,6 +3108,28 @@ window.todosDepartamentosBackend = <?= json_encode(($departamento['datos'] ?? []
                         <small class="text-muted">Puedes subir múltiples archivos PDF.</small>
                     </div>
                     <div id="listaArchivosReingreso" class="mt-2" style="display: none;"></div>
+                    <script>
+                        (function () {
+                            var sel = document.getElementById('motivoReingreso');
+                            if (!sel || sel.getAttribute('data-motivos-rh-renderizados') === '1') return;
+                            var motivos = [
+                                '',
+                                'Reingreso por solicitud del Subdirector - Director',
+                                'Motivos personales/familiares',
+                                'Recontratación por reestructura / recorte previo',
+                                'Reingreso por buen desempeño previo',
+                                'No procedio la baja'
+                            ];
+                            sel.innerHTML = '';
+                            motivos.forEach(function (motivo, index) {
+                                var option = document.createElement('option');
+                                option.value = motivo;
+                                option.textContent = index === 0 ? '-- Selecciona un motivo --' : motivo;
+                                sel.appendChild(option);
+                            });
+                            sel.setAttribute('data-motivos-rh-renderizados', '1');
+                        })();
+                    </script>
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
