@@ -85,13 +85,18 @@ if (!function_exists('getMenuSidebarModulosStructure')) {
                     ['label' => 'Operaciones', 'url' => '/MotosAdjudicadas/pipeline', 'modulos' => [63]],
                     ['label' => 'Monitoreo de adjudicaciones', 'url' => '/MotosAdjudicadas/monitoreoAdjudicaciones', 'modulos' => [76]],
                     ['label' => 'Consulta REPUVE', 'url' => '/MotosAdjudicadas/repuveConsulta', 'modulos' => [78]],
-                    ['label' => 'Campaña Notificación Legacy', 'url' => '/MotosAdjudicadas/campaniaNotificacionLegacy', 'modulos' => [64]],
                     ['label' => '1.- Evidencias', 'url' => '/AtencionClientes/evidencias', 'modulos' => [70]],
                     ['label' => '2.- Recuperación', 'url' => '/AtencionClientes/recuperacion', 'modulos' => [71]],
                     ['label' => '3.-Cartera', 'url' => '/AtencionClientes/cierreDocumentacion', 'modulos' => [72]],
                     ['label' => '4.- Recepción', 'url' => '/AtencionClientes/recepcion', 'modulos' => [73]],
                     ['label' => 'Retenciones', 'url' => '/AtencionClientes/consulta', 'modulos' => [69]],
                     ['label' => 'Tracking Recolección', 'url' => '/TrackingRecoleccion/index', 'modulos' => [74]],
+                ],
+            ],
+            'Legacy Notificaciones' => [
+                'icono' => 'fa-solid fa-bullhorn',
+                'subItems' => [
+                    ['label' => 'Campañas', 'url' => '/MotosAdjudicadas/campaniaNotificacionLegacy', 'modulos' => [64]],
                 ],
             ],
             'Gastos Cobranza' => [
