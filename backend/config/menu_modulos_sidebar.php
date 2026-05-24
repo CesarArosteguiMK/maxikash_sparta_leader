@@ -43,7 +43,7 @@ if (!function_exists('getMenuSidebarModulosStructure')) {
                     // ❌ Se eliminó Sabuesos para evitar conflicto con Tickets
                     ['label' => 'Layout Legacy', 'url' => '/analitica/layoutlegacy', 'modulos' => [7]],
                     ['label' => 'Analítica sabueso', 'url' => '/sabueso/estadisticas', 'modulos' => [47]],
-                    ['label' => 'Comparativas', 'url' => '/analitica/comparativas', 'modulos' => [60]],
+                    ['label' => 'Comparativas', 'url' => '/analitica/comparativas', 'modulos' => [60, 81]],
                     ['label' => 'Avance Bucket', 'url' => '/analitica/avanceBucket', 'modulos' => [77]],
                     ['label' => 'Asignación', 'url' => '/analitica/asignacion', 'modulos' => [61]],
                 ],
@@ -81,7 +81,7 @@ if (!function_exists('getMenuSidebarModulosStructure')) {
             'Motos Adjudicadas' => [
                 'icono' => 'fa-solid fa-motorcycle',
                 'subItems' => [
-                    ['label' => 'Administracion', 'url' => '/Adjudicacion/administracion', 'modulos' => [62]],
+                    ['label' => 'Administracion', 'url' => '/Adjudicacion/administracion', 'modulos' => [62, 80]],
                     ['label' => 'Operaciones', 'url' => '/MotosAdjudicadas/pipeline', 'modulos' => [63]],
                     ['label' => 'Monitoreo de adjudicaciones', 'url' => '/MotosAdjudicadas/monitoreoAdjudicaciones', 'modulos' => [76]],
                     ['label' => 'Consulta REPUVE', 'url' => '/MotosAdjudicadas/repuveConsulta', 'modulos' => [78]],
@@ -334,6 +334,15 @@ if (!function_exists('enriquecerPerfilesModulosConMenuSidebar')) {
 
             // Permisos especiales: resolver primero por id/nombre (p. ej. «Convenio» → Cierre de crédito), no por mapa genérico de módulo
             $meta = null;
+            if ($mid === 60) {
+                $meta = mapMetaDesdeAnclaModuloMenu(60, $nombreRaw !== '' ? $nombreRaw : 'Avance semanal vs semanas pasadas', 600, false);
+            } elseif ($mid === 81) {
+                $meta = mapMetaDesdeAnclaModuloMenu(60, $nombreRaw !== '' ? $nombreRaw : 'Semana actual vs semana pasada', 610, false);
+            } elseif ($mid === 62) {
+                $meta = mapMetaDesdeAnclaModuloMenu(62, $nombreRaw !== '' ? $nombreRaw : 'Admin Cobranza', 620, false);
+            } elseif ($mid === 80) {
+                $meta = mapMetaDesdeAnclaModuloMenu(62, $nombreRaw !== '' ? $nombreRaw : 'Dictaminar creditos', 630, false);
+            }
             // Cierre de crédito — células / cartera (ids 56–59 y/o nombre «Cierre: Despachos»…): tarjeta «Convenios»; pestaña Permisos especiales en CapHum
             $nbCierreCel = mb_strtolower(preg_replace('/\s+/u', ' ', trim($nombreRaw)), 'UTF-8');
             $pareceCierreCelulaPorNombre = $nbCierreCel !== ''

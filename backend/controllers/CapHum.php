@@ -2042,10 +2042,22 @@ class CapHum extends Controller
                 nombreDiv.appendChild(iconoModulo);
                 nombreDiv.appendChild(nombre);
 
+                const descRaw = String(mod.descripcion || '');
+                const descParts = descRaw.split('>').map(s => s.trim()).filter(Boolean);
+                if (descParts.length >= 3) {
+                    const badgeGrupoInterno = document.createElement('span');
+                    badgeGrupoInterno.className = 'badge bg-label-info rounded-pill px-2 py-1';
+                    badgeGrupoInterno.style.fontSize = '0.65rem';
+                    badgeGrupoInterno.style.fontWeight = '700';
+                    badgeGrupoInterno.style.whiteSpace = 'nowrap';
+                    badgeGrupoInterno.textContent = 'Dentro de: ' + descParts[1];
+                    nombreDiv.appendChild(badgeGrupoInterno);
+                }
+
                 const desc = document.createElement('small');
                 desc.className = 'text-muted d-block mt-1';
                 desc.style.fontSize = '0.75rem';
-                desc.innerText = mod.descripcion ?? '';
+                desc.innerText = descRaw;
 
                 tdName.append(nombreDiv, desc);
 

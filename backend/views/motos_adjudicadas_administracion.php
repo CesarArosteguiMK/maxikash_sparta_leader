@@ -1,3 +1,8 @@
+<?php
+$motosAdminModulos = array_map('intval', (array) ($_SESSION['modulos'] ?? []));
+$puedeAdminCobranza = in_array(62, $motosAdminModulos, true);
+$puedeDictaminarCreditos = in_array(80, $motosAdminModulos, true);
+?>
 <div id="motos-admin-landing" class="cc-call-center-page motos-admin-root">
 <div class="card">
     <div class="card">
@@ -22,6 +27,7 @@
                 </div>
 
                 <div class="row gy-6 mb-6 gx-0 justify-content-start">
+                    <?php if ($puedeAdminCobranza): ?>
                     <div class="col-12 col-lg-4">
                         <div class="card shadow-none bg-label-primary h-100">
                             <div class="card-body d-flex justify-content-between flex-wrap-reverse">
@@ -42,6 +48,8 @@
                             </div>
                         </div>
                     </div>
+                    <?php endif; ?>
+                    <?php if ($puedeDictaminarCreditos): ?>
                     <div class="col-12 col-lg-4">
                         <div class="card shadow-none bg-label-info h-100">
                             <div class="card-body d-flex justify-content-between flex-wrap-reverse">
@@ -62,6 +70,14 @@
                             </div>
                         </div>
                     </div>
+                    <?php endif; ?>
+                    <?php if (!$puedeAdminCobranza && !$puedeDictaminarCreditos): ?>
+                    <div class="col-12">
+                        <div class="alert alert-warning mb-0">
+                            No tienes permisos activos para las herramientas administrativas de Motos Adjudicadas.
+                        </div>
+                    </div>
+                    <?php endif; ?>
                 </div>
 
             </div>

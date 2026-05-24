@@ -167,7 +167,7 @@ function getMenu(): string
         'Motos Adjudicadas' => [
             'icono'    => 'fa-solid fa-motorcycle',
             'subItems' => [
-                ['label' => 'Administracion', 'url' => '/Adjudicacion/administracion',          'modulos' => [62]],
+                ['label' => 'Administracion', 'url' => '/Adjudicacion/administracion',          'modulos' => [62, 80]],
                 ['label' => 'Operaciones',            'url' => '/MotosAdjudicadas/pipeline',                'modulos' => [63]],
                 ['label' => 'Monitoreo de adjudicaciones', 'url' => '/MotosAdjudicadas/monitoreoAdjudicaciones', 'modulos' => [76]],
                 ['label' => 'Consulta REPUVE',         'url' => '/MotosAdjudicadas/repuveConsulta',         'modulos' => [78]],
@@ -204,7 +204,7 @@ function getMenu(): string
                 ['label' => 'Call Center',    'url' => '/analitica/callcenter',    'modulos' => [6]],
                 ['label' => 'Layout Legacy',  'url' => '/analitica/layoutlegacy',  'modulos' => [7]],
                 ['label' => 'Sabuesos', 'url' => '/sabueso/estadisticas',   'modulos' => [47]],
-                ['label' => 'Comparativas', 'url' => '/analitica/comparativas', 'modulos' => [60]],
+                ['label' => 'Comparativas', 'url' => '/analitica/comparativas', 'modulos' => [60, 81]],
                 ['label' => 'Avance Bucket', 'url' => '/analitica/avanceBucket', 'modulos' => [77]],
                 ['label' => 'Asignación', 'url' => '/analitica/asignacion', 'modulos' => [61]],
             ],
