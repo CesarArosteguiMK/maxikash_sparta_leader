@@ -77,6 +77,11 @@ function getMenu(): string
                 '/analitica/callcenter',
                 '/analitica/resumencallcenter',
             ],
+            '/adjudicacion/administracion' => [
+                '/adjudicacion/administracion',
+                '/adjudicacion/asignacioncreditos',
+                '/adjudicacion/dictaminarcreditos',
+            ],
             /**
              * Panel Admin (entrada /sabueso/panelAdminInicio) y cada panel por módulo comparten contexto;
              * si no se enlazan, el lateral no marca activo en /validaciones/paneladmin, etc.
@@ -162,7 +167,7 @@ function getMenu(): string
         'Motos Adjudicadas' => [
             'icono'    => 'fa-solid fa-motorcycle',
             'subItems' => [
-                ['label' => 'Admin Cobranza', 'url' => '/Adjudicacion/AsignacionCreditos',          'modulos' => [62]],
+                ['label' => 'Administracion', 'url' => '/Adjudicacion/administracion',          'modulos' => [62]],
                 ['label' => 'Operaciones',            'url' => '/MotosAdjudicadas/pipeline',                'modulos' => [63]],
                 ['label' => 'Monitoreo de adjudicaciones', 'url' => '/MotosAdjudicadas/monitoreoAdjudicaciones', 'modulos' => [76]],
                 ['label' => 'Consulta REPUVE',         'url' => '/MotosAdjudicadas/repuveConsulta',         'modulos' => [78]],

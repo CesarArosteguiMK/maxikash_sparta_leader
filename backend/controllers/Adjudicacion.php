@@ -19,11 +19,156 @@ class Adjudicacion extends Controller
     // VISTA PRINCIPAL
     // =========================================================================
 
+    public function administracion()
+    {
+        $emp = defined('CONFIGURACION') && isset(CONFIGURACION['EMPRESA']) ? (string) CONFIGURACION['EMPRESA'] : '';
+        self::set('titulo', 'Administracion Motos Adjudicadas ' . $emp);
+        return self::render('motos_adjudicadas_administracion');
+    }
+
     public function AsignacionCreditos()
     {
         $emp = defined('CONFIGURACION') && isset(CONFIGURACION['EMPRESA']) ? (string) CONFIGURACION['EMPRESA'] : '';
         self::set('titulo', 'Admin Cobranza ' . $emp);
         return self::render('asignacion_creditosAdjudicacion');
+    }
+
+    public function dictaminarCreditos()
+    {
+        $emp = defined('CONFIGURACION') && isset(CONFIGURACION['EMPRESA']) ? (string) CONFIGURACION['EMPRESA'] : '';
+        self::set('titulo', 'Dictaminar Creditos ' . $emp);
+        return self::render('motos_adjudicadas_dictaminar_creditos');
+    }
+
+    public function diagnosticarDictamenMoto()
+    {
+        header('Content-Type: application/json; charset=utf-8');
+        $body = json_decode(file_get_contents('php://input'), true) ?? [];
+        $idCredito = (int) ($body['id_credito'] ?? $body['valor'] ?? 0);
+
+        try {
+            echo json_encode($this->model->diagnosticarDictamenWebMoto($idCredito), JSON_UNESCAPED_UNICODE);
+        } catch (\Throwable $e) {
+            echo json_encode(['success' => false, 'message' => $e->getMessage()], JSON_UNESCAPED_UNICODE);
+        }
+    }
+
+    public function simularDictamenMoto()
+    {
+        header('Content-Type: application/json; charset=utf-8');
+        $body = json_decode(file_get_contents('php://input'), true) ?? [];
+        $idUsuario = (int) ($_SESSION['persona_id'] ?? $_SESSION['usuario_id'] ?? 0);
+
+        try {
+            echo json_encode($this->model->simularDictamenWebMoto($body, $idUsuario), JSON_UNESCAPED_UNICODE);
+        } catch (\Throwable $e) {
+            echo json_encode(['success' => false, 'message' => $e->getMessage()], JSON_UNESCAPED_UNICODE);
+        }
+    }
+
+    public function estadoDesbloqueoDictamenMoto()
+    {
+        header('Content-Type: application/json; charset=utf-8');
+        $idUsuario = (int) ($_SESSION['persona_id'] ?? $_SESSION['usuario_id'] ?? 0);
+
+        try {
+            echo json_encode($this->model->usuarioPuedeDesbloquearComponentes($idUsuario), JSON_UNESCAPED_UNICODE);
+        } catch (\Throwable $e) {
+            echo json_encode(['success' => false, 'authorized' => false, 'message' => $e->getMessage()], JSON_UNESCAPED_UNICODE);
+        }
+    }
+
+    public function desbloquearDictamenMoto()
+    {
+        header('Content-Type: application/json; charset=utf-8');
+        $body = json_decode(file_get_contents('php://input'), true) ?? [];
+        $idUsuario = (int) ($_SESSION['persona_id'] ?? $_SESSION['usuario_id'] ?? 0);
+        $idCredito = (int) ($body['id_credito'] ?? 0);
+        $nip = trim((string) ($body['nip'] ?? ''));
+        $ip = (string) ($_SERVER['REMOTE_ADDR'] ?? '');
+
+        try {
+            echo json_encode(
+                $this->model->desbloquearComponentesDictamenWebMoto($idCredito, $nip, $idUsuario, $ip),
+                JSON_UNESCAPED_UNICODE
+            );
+        } catch (\Throwable $e) {
+            echo json_encode(['success' => false, 'message' => $e->getMessage()], JSON_UNESCAPED_UNICODE);
+        }
+    }
+
+    public function subirArchivoDictamenMoto()
+    {
+        header('Content-Type: application/json; charset=utf-8');
+        try {
+            $idCredito = (int) ($_POST['id_credito'] ?? 0);
+            $campo = preg_replace('/[^a-zA-Z0-9_\-]/', '', (string) ($_POST['campo'] ?? 'archivo'));
+            if ($idCredito <= 0) {
+                echo json_encode(['success' => false, 'message' => 'Primero indica el ID de credito.'], JSON_UNESCAPED_UNICODE);
+                return;
+            }
+            if (empty($_FILES['archivo']) || !is_array($_FILES['archivo'])) {
+                echo json_encode(['success' => false, 'message' => 'No se recibio archivo.'], JSON_UNESCAPED_UNICODE);
+                return;
+            }
+
+            $file = $_FILES['archivo'];
+            if (($file['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_OK) {
+                echo json_encode(['success' => false, 'message' => 'No se pudo subir el archivo.'], JSON_UNESCAPED_UNICODE);
+                return;
+            }
+
+            $tmp = (string) ($file['tmp_name'] ?? '');
+            $original = (string) ($file['name'] ?? 'archivo');
+            $ext = strtolower(pathinfo($original, PATHINFO_EXTENSION));
+            $permitidas = ['jpg', 'jpeg', 'png', 'webp', 'gif', 'mp4', 'mov', 'webm', 'pdf', 'heic', 'heif'];
+            if (!in_array($ext, $permitidas, true)) {
+                echo json_encode(['success' => false, 'message' => 'Tipo de archivo no permitido.'], JSON_UNESCAPED_UNICODE);
+                return;
+            }
+
+            $size = (int) ($file['size'] ?? 0);
+            if ($size <= 0 || $size > 80 * 1024 * 1024) {
+                echo json_encode(['success' => false, 'message' => 'Archivo invalido o mayor a 80 MB.'], JSON_UNESCAPED_UNICODE);
+                return;
+            }
+
+            $tipoDir = in_array($ext, ['mp4', 'mov', 'webm'], true)
+                ? 'videos'
+                : (in_array($ext, ['pdf'], true) ? 'files' : 'images');
+            $dir = sparta_uploads_join('motos_dictamen', (string) $idCredito, $tipoDir);
+            if (!is_dir($dir) && !mkdir($dir, 0775, true) && !is_dir($dir)) {
+                echo json_encode(['success' => false, 'message' => 'No se pudo crear carpeta de uploads.'], JSON_UNESCAPED_UNICODE);
+                return;
+            }
+
+            $safeBase = preg_replace('/[^a-zA-Z0-9_\-]/', '_', pathinfo($original, PATHINFO_FILENAME));
+            $nombre = $campo . '_' . date('Ymd_His') . '_' . bin2hex(random_bytes(4)) . '_' . substr($safeBase ?: 'archivo', 0, 40) . '.' . $ext;
+            $destino = $dir . DIRECTORY_SEPARATOR . $nombre;
+            if (!move_uploaded_file($tmp, $destino)) {
+                echo json_encode(['success' => false, 'message' => 'No se pudo guardar el archivo.'], JSON_UNESCAPED_UNICODE);
+                return;
+            }
+
+            $rel = 'motos_dictamen/' . $idCredito . '/' . $tipoDir . '/' . $nombre;
+            $pathPublico = '/uploads/' . $rel;
+            $urlPath = sparta_url_publica_desde_repositorio($pathPublico);
+            $scheme = (!empty($_SERVER['HTTPS']) && strtolower((string) $_SERVER['HTTPS']) !== 'off') ? 'https' : 'http';
+            $host = (string) ($_SERVER['HTTP_HOST'] ?? 'localhost');
+            $url = preg_match('#^https?://#i', $urlPath) ? $urlPath : $scheme . '://' . $host . $urlPath;
+
+            echo json_encode([
+                'success' => true,
+                'url' => $url,
+                'firebasePath' => '/' . $rel,
+                'localFile' => $pathPublico,
+                'fileName' => $nombre,
+                'typeApp' => $tipoDir === 'videos' ? 'video' : ($tipoDir === 'files' ? 'file' : 'photo'),
+                'status' => 'uploaded',
+            ], JSON_UNESCAPED_UNICODE);
+        } catch (\Throwable $e) {
+            echo json_encode(['success' => false, 'message' => $e->getMessage()], JSON_UNESCAPED_UNICODE);
+        }
     }
 
     // =========================================================================

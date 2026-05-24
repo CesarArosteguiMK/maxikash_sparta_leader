@@ -2756,9 +2756,21 @@ SQL;
      * Devuelve todas las operaciones activas (no cerradas-archivadas),
      * ordenadas por estatus y fecha_alta.
      */
-    public function obtenerPipeline(): array
+    public function obtenerPipeline(string $filtro = '', int $limit = 500): array
     {
         $predD2 = $this->sqlEsDictamenLlamadaRetenciones('d2');
+        $limit = max(50, min(500, $limit));
+        $filtro = trim($filtro);
+        $where = [
+            "o.estatus NOT IN ('Retenciones', 'cancelado')",
+        ];
+        $params = [];
+        if ($filtro !== '') {
+            $where[] = "(CAST(o.id_credito AS CHAR) LIKE :q OR o.nombre_cliente LIKE :q OR o.folio LIKE :q)";
+            $params['q'] = '%' . $filtro . '%';
+        }
+        $whereSql = 'WHERE ' . implode(' AND ', $where);
+        $totalSql = "SELECT COUNT(*) AS total FROM adj_operacion o {$whereSql}";
         $sql = <<<SQL
         SELECT
             o.id,
@@ -2782,9 +2794,30 @@ SQL;
             o.saldo_capital,
             o.adeudo_total,
             o.id_usuario_alta,
-            DATE_FORMAT(o.fecha_alta,          '%Y-%m-%d %H:%i') AS fecha_alta,
-            DATE_FORMAT(o.fecha_actualizacion, '%Y-%m-%d %H:%i') AS fecha_actualizacion,
-            DATEDIFF(NOW(), o.fecha_alta) AS dias_en_pipeline,
+            DATE_FORMAT(o.fecha_alta,          '%d/%m/%Y %H:%i') AS fecha_alta,
+            DATE_FORMAT(o.fecha_actualizacion, '%d/%m/%Y %H:%i') AS fecha_actualizacion,
+            DATE_FORMAT(
+                COALESCE(
+                    (SELECT MAX(h.fecha)
+                     FROM adj_historial_estatus h
+                     WHERE h.id_operacion = o.id
+                       AND h.estatus_nuevo = o.estatus),
+                    o.fecha_actualizacion,
+                    o.fecha_alta
+                ),
+                '%d/%m/%Y %H:%i'
+            ) AS fecha_estatus_actual,
+            DATEDIFF(
+                NOW(),
+                COALESCE(
+                    (SELECT MAX(h.fecha)
+                     FROM adj_historial_estatus h
+                     WHERE h.id_operacion = o.id
+                       AND h.estatus_nuevo = o.estatus),
+                    o.fecha_actualizacion,
+                    o.fecha_alta
+                )
+            ) AS dias_en_pipeline,
             (SELECT COUNT(*) FROM adj_evidencia e WHERE e.id_operacion = o.id) AS evidencias_count,
             (SELECT TRIM(CONCAT_WS(' ', per2.nombres, per2.segundo_nombre, per2.apellidop, per2.apellidom))
                FROM asigna_creditos_adjudicacion aca2
@@ -2817,6 +2850,7 @@ SQL;
                 d2.id DESC
             LIMIT 1
         )
+        {$whereSql}
         ORDER BY
             FIELD(o.estatus,
                 'Recibido',
@@ -2829,10 +2863,16 @@ SQL;
                 'cancelado'
             ),
             o.fecha_alta ASC
+        LIMIT {$limit}
         SQL;
 
         try {
-            return $this->db->queryAll($sql) ?: [];
+            $totalRow = $this->db->queryOne($totalSql, $params) ?: [];
+            return [
+                'rows' => $this->db->queryAll($sql, $params) ?: [],
+                'total' => (int) ($totalRow['total'] ?? 0),
+                'limit' => $limit,
+            ];
         } catch (\Throwable $e) {
             // Compatibilidad: en algunos entornos legacy adj_operacion aún no tiene columna `placas`.
             if (stripos((string) $e->getMessage(), "Unknown column 'o.placas'") !== false) {
@@ -2842,7 +2882,12 @@ SQL;
                     $sql
                 );
 
-                return $this->db->queryAll($sqlFallback) ?: [];
+                $totalRow = $this->db->queryOne($totalSql, $params) ?: [];
+                return [
+                    'rows' => $this->db->queryAll($sqlFallback, $params) ?: [],
+                    'total' => (int) ($totalRow['total'] ?? 0),
+                    'limit' => $limit,
+                ];
             }
             throw $e;
         }
@@ -3958,23 +4003,26 @@ SQL;
             return;
         }
 
+        $procesado = false;
         $datosMoto = $this->extraerDatosMotoDesdeDictumApp($campos);
         if ($datosMoto !== []) {
-            $this->guardarDatosMoto($idOperacion, $datosMoto, $idUsuario, 'REPUVE', false);
+            $resDatos = $this->guardarDatosMoto($idOperacion, $datosMoto, $idUsuario, 'REPUVE', false);
+            if (!empty($resDatos['success'])) {
+                $procesado = true;
+            }
         }
 
         $ahora = $this->fechaHoraCdmx();
-        $evidenciasGuardadas = 0;
         foreach (self::DICTUM_APP_EVIDENCIA_SLOTS as $nombreCampo => $slot) {
             $url = $this->valorCampoDictumApp($campos, $nombreCampo);
             if ($url === '' || !preg_match('#^https?://#i', $url)) {
                 continue;
             }
             $this->upsertEvidenciaDictumApp($idOperacion, $slot, $url, $idUsuario, $ahora);
-            $evidenciasGuardadas++;
+            $procesado = true;
         }
 
-        if ($evidenciasGuardadas <= 0) {
+        if (!$procesado) {
             return;
         }
 

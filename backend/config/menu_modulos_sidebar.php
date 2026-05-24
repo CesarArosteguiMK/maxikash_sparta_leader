@@ -81,7 +81,7 @@ if (!function_exists('getMenuSidebarModulosStructure')) {
             'Motos Adjudicadas' => [
                 'icono' => 'fa-solid fa-motorcycle',
                 'subItems' => [
-                    ['label' => 'Admin Cobranza', 'url' => '/Adjudicacion/AsignacionCreditos', 'modulos' => [62]],
+                    ['label' => 'Administracion', 'url' => '/Adjudicacion/administracion', 'modulos' => [62]],
                     ['label' => 'Operaciones', 'url' => '/MotosAdjudicadas/pipeline', 'modulos' => [63]],
                     ['label' => 'Monitoreo de adjudicaciones', 'url' => '/MotosAdjudicadas/monitoreoAdjudicaciones', 'modulos' => [76]],
                     ['label' => 'Consulta REPUVE', 'url' => '/MotosAdjudicadas/repuveConsulta', 'modulos' => [78]],

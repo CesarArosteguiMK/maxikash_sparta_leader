@@ -434,15 +434,23 @@ class MotosAdjudicadas extends Controller
     // =========================================================================
 
     /**
-     * GET /MotosAdjudicadas/obtenerOperaciones
-     * Devuelve todas las tarjetas del kanban como JSON.
+     * GET /MotosAdjudicadas/obtenerOperaciones?q=texto&limit=500
+     * Devuelve tarjetas del kanban con limite defensivo y busqueda server-side.
      */
     public function obtenerOperaciones()
     {
         header('Content-Type: application/json; charset=utf-8');
         try {
-            $ops = $this->model->obtenerPipeline();
-            echo json_encode(['success' => true, 'operaciones' => $ops]);
+            $q = trim((string) ($_GET['q'] ?? ''));
+            $limit = isset($_GET['limit']) ? (int) $_GET['limit'] : 500;
+            $result = $this->model->obtenerPipeline($q, $limit);
+            echo json_encode([
+                'success' => true,
+                'operaciones' => $result['rows'] ?? [],
+                'total' => (int) ($result['total'] ?? 0),
+                'limit' => (int) ($result['limit'] ?? $limit),
+                'q' => $q,
+            ], JSON_UNESCAPED_UNICODE);
         } catch (\Exception $e) {
             echo json_encode(['success' => false, 'message' => $e->getMessage()]);
         }
