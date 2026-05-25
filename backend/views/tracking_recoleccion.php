@@ -2086,8 +2086,7 @@ function _trkInicializarTablasCatalogosDT() {
         columns: [
             {
                 data: null,
-                render: a => `<div class="fw-semibold">${_trkChatEscapeHtml(a.nombre_agencia || '')}</div>
-                    <small class="text-muted">${_trkChatEscapeHtml(a.clave_agencia || '')}</small>`,
+                render: a => `<div class="fw-semibold">${_trkChatEscapeHtml(a.nombre_agencia || '')}</div>`,
             },
             {
                 data: null,
@@ -2124,7 +2123,7 @@ function _trkInicializarTablasCatalogosDT() {
             {
                 data: null,
                 render: t => `<div>${_trkChatEscapeHtml(t.nombre_agencia || t.empresa_origen || '-')}</div>
-                    <small class="text-muted">${_trkChatEscapeHtml(t.clave_agencia || '')}</small>`,
+                    <small class="text-muted">${_trkChatEscapeHtml(t.empresa_origen && t.nombre_agencia ? t.empresa_origen : '')}</small>`,
             },
             {
                 data: null,
@@ -2155,7 +2154,7 @@ function _trkPoblarAgenciasTrackingSelect() {
     _trk.agenciasTracking
         .filter(a => (a.tipo_ubicacion || 'agencia') === 'agencia')
         .forEach(a => {
-            const label = [a.nombre_agencia, a.municipio].filter(Boolean).join(' - ');
+            const label = a.nombre_agencia || '';
             $sel.append(`<option value="${a.id_agencia}">${_trkChatEscapeHtml(label)}</option>`);
         });
     if (selected) $sel.val(selected);
