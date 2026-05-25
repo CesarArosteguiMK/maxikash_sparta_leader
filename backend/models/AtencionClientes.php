@@ -120,6 +120,46 @@ SQL;
         );
     }
 
+    private function sqlWhereBandejaEvidencias(): string
+    {
+        return <<<'SQL'
+o.estatus IN ('Recibido', 'en_transito', 'Procesando IA')
+  AND NOT EXISTS (
+      SELECT 1
+      FROM adj_bitacora bv
+      WHERE bv.id_operacion = o.id
+        AND bv.accion LIKE :pat_validadas
+  )
+  AND EXISTS (
+      SELECT 1
+      FROM adj_bitacora b
+      WHERE b.id_operacion = o.id
+        AND b.accion LIKE '%AL PIPELINE%'
+  )
+SQL;
+    }
+
+    private function sqlWhereAprobadosEvidenciasAtencion(): string
+    {
+        return <<<'SQL'
+(
+      o.estatus = 'Procesando IA'
+      OR EXISTS (
+          SELECT 1
+          FROM adj_historial_estatus h
+          WHERE h.id_operacion = o.id
+            AND h.estatus_nuevo = 'Procesando IA'
+      )
+)
+AND EXISTS (
+      SELECT 1
+      FROM adj_bitacora b
+      WHERE b.id_operacion = o.id
+        AND b.accion LIKE :pat_validadas
+  )
+SQL;
+    }
+
     /**
      * Dictamen registrado desde 1.- Retenciones (modal de llamada), no el de Cierre S2 ni otros módulos.
      *
@@ -227,40 +267,15 @@ SQL;
      * «Enviar evidencias» en Mis adjudicaciones (bitácora ENVIÓ EVIDENCIAS AL PIPELINE).
      * Hasta entonces no deben aparecer aquí aunque estén en Recibido / en tránsito / etc.
      */
-    public function obtenerRecibidos(bool $sincronizarDictums = true): array
+    public function obtenerRecibidos(bool $sincronizarDictums = false): array
     {
-        $ma = new MotosAdjudicadas();
         if ($sincronizarDictums) {
+            $ma = new MotosAdjudicadas();
             $ma->sincronizarDictumsAppPendientes();
         }
-        $tieneEnvio = $ma->adjOperacionTieneColumnaEnvioAtencion();
-
-        $where = $tieneEnvio
-            ? "(o.estatus IN ('Recibido', 'en_transito') OR (o.estatus = 'Procesando IA' AND IFNULL(o.atencion_envio_validado, 0) = 0))"
-            : "(o.estatus IN ('Recibido', 'en_transito') OR (o.estatus = 'Procesando IA' AND NOT EXISTS (
-                    SELECT 1
-                    FROM adj_bitacora b
-                    WHERE b.id_operacion = o.id
-                      AND b.accion LIKE '%EVIDENCIAS VALIDADAS (PROCESANDO IA)%'
-                )))";
 
         $joinAsig = $this->sqlJoinUnaAsignacionActivaPorCredito();
-        $exclAprobados = $tieneEnvio
-            ? '(
-            IFNULL(o.atencion_envio_validado, 0) = 0
-            AND NOT EXISTS (
-                SELECT 1
-                FROM adj_bitacora bv
-                WHERE bv.id_operacion = o.id
-                  AND bv.accion LIKE :pat_validadas
-            )
-        )'
-            : 'NOT EXISTS (
-            SELECT 1
-            FROM adj_bitacora bv
-            WHERE bv.id_operacion = o.id
-              AND bv.accion LIKE :pat_validadas
-        )';
+        $where = $this->sqlWhereBandejaEvidencias();
         $sql = <<<SQL
         SELECT
             o.id,
@@ -283,13 +298,6 @@ SQL;
         FROM adj_operacion o
         {$joinAsig}
         WHERE {$where}
-          AND {$exclAprobados}
-          AND EXISTS (
-              SELECT 1
-              FROM adj_bitacora b
-              WHERE b.id_operacion = o.id
-                AND b.accion LIKE '%AL PIPELINE%'
-          )
         ORDER BY o.fecha_alta ASC
         SQL;
 
@@ -303,7 +311,6 @@ SQL;
      */
     private function listarOperacionesAprobadasEvidenciasAtencion(bool $excluirDictaminadoRecuperacion = false): array
     {
-        $ma = new MotosAdjudicadas();
         $joinAsig = $this->sqlJoinUnaAsignacionActivaPorCredito();
         $exclDictRec = '';
         if ($excluirDictaminadoRecuperacion) {
@@ -325,56 +332,7 @@ SQL;
             )
 SQL;
         }
-        if (!$ma->adjOperacionTieneColumnaEnvioAtencion()) {
-            $sql = <<<SQL
-            SELECT
-                o.id,
-                o.folio,
-                o.id_credito,
-                o.nombre_cliente,
-                o.telefono_contacto,
-                o.estatus,
-                o.saldo_capital,
-                o.adeudo_total,
-                DATEDIFF(NOW(), o.fecha_alta) AS dias_en_pipeline,
-                (SELECT COUNT(*) FROM adj_evidencia e WHERE e.id_operacion = o.id) AS evidencias_count,
-                TRIM(CONCAT_WS(' ',
-                    per.nombres,
-                    per.segundo_nombre,
-                    per.apellidop,
-                    per.apellidom
-                )) AS gestor_nombre,
-                DATE_FORMAT(aca.fecha_alta, '%d/%m/%Y') AS fecha_asignacion,
-                (
-                    SELECT DATE_FORMAT(MAX(bv.fecha_alta), '%d/%m/%Y %H:%i')
-                    FROM adj_bitacora bv
-                    WHERE bv.id_operacion = o.id
-                      AND bv.accion LIKE :pat_validadas
-                ) AS fecha_aprobacion_evidencias
-            FROM adj_operacion o
-            {$joinAsig}
-            WHERE TRIM(COALESCE(o.estatus, '')) <> 'Cierre Documentado'
-              AND (
-                o.estatus = 'Procesando IA'
-                OR EXISTS (
-                    SELECT 1
-                    FROM adj_historial_estatus h
-                    WHERE h.id_operacion = o.id
-                      AND h.estatus_nuevo = 'Procesando IA'
-                )
-            )
-              AND EXISTS (
-                    SELECT 1
-                    FROM adj_bitacora b
-                    WHERE b.id_operacion = o.id
-                      AND b.accion LIKE :pat_validadas
-              )
-              {$exclDictRec}
-            ORDER BY o.fecha_alta ASC
-            SQL;
 
-            return $this->db->queryAll($sql, ['pat_validadas' => '%EVIDENCIAS VALIDADAS (PROCESANDO IA)%']) ?: [];
-        }
         $sql = <<<SQL
         SELECT
             o.id,
@@ -402,25 +360,7 @@ SQL;
             ) AS fecha_aprobacion_evidencias
         FROM adj_operacion o
         {$joinAsig}
-        WHERE TRIM(COALESCE(o.estatus, '')) <> 'Cierre Documentado'
-          AND (
-            o.estatus = 'Procesando IA'
-            OR EXISTS (
-                SELECT 1
-                FROM adj_historial_estatus h
-                WHERE h.id_operacion = o.id
-                  AND h.estatus_nuevo = 'Procesando IA'
-            )
-        )
-          AND (
-            IFNULL(o.atencion_envio_validado, 0) = 1
-            OR EXISTS (
-                SELECT 1
-                FROM adj_bitacora b
-                WHERE b.id_operacion = o.id
-                  AND b.accion LIKE :pat_validadas
-            )
-          )
+        WHERE {$this->sqlWhereAprobadosEvidenciasAtencion()}
           {$exclDictRec}
         ORDER BY o.fecha_alta ASC
         SQL;
@@ -430,7 +370,7 @@ SQL;
 
     /**
      * Pestaña Aprobados — solo operaciones enviadas con «Enviar evidencias validadas».
-     * Si la columna atencion_envio_validado no existe, usa bitácora como respaldo.
+     * La bitácora es la fuente estable del envío validado.
      */
     private function sqlExclusionDictaminadoRecuperacion(): string
     {
@@ -455,46 +395,10 @@ SQL;
 
     private function contarRecibidosEvidencias(): int
     {
-        $ma = new MotosAdjudicadas();
-        $tieneEnvio = $ma->adjOperacionTieneColumnaEnvioAtencion();
-
-        $where = $tieneEnvio
-            ? "(o.estatus IN ('Recibido', 'en_transito') OR (o.estatus = 'Procesando IA' AND IFNULL(o.atencion_envio_validado, 0) = 0))"
-            : "(o.estatus IN ('Recibido', 'en_transito') OR (o.estatus = 'Procesando IA' AND NOT EXISTS (
-                    SELECT 1
-                    FROM adj_bitacora b
-                    WHERE b.id_operacion = o.id
-                      AND b.accion LIKE '%EVIDENCIAS VALIDADAS (PROCESANDO IA)%'
-                )))";
-
-        $exclAprobados = $tieneEnvio
-            ? '(
-            IFNULL(o.atencion_envio_validado, 0) = 0
-            AND NOT EXISTS (
-                SELECT 1
-                FROM adj_bitacora bv
-                WHERE bv.id_operacion = o.id
-                  AND bv.accion LIKE :pat_validadas
-            )
-        )'
-            : 'NOT EXISTS (
-            SELECT 1
-            FROM adj_bitacora bv
-            WHERE bv.id_operacion = o.id
-              AND bv.accion LIKE :pat_validadas
-        )';
-
         $sql = <<<SQL
         SELECT COUNT(*) AS total
         FROM adj_operacion o
-        WHERE {$where}
-          AND {$exclAprobados}
-          AND EXISTS (
-              SELECT 1
-              FROM adj_bitacora b
-              WHERE b.id_operacion = o.id
-                AND b.accion LIKE '%AL PIPELINE%'
-          )
+        WHERE {$this->sqlWhereBandejaEvidencias()}
         SQL;
 
         return $this->contarQuery($sql, ['pat_validadas' => '%EVIDENCIAS VALIDADAS (PROCESANDO IA)%']);
@@ -502,57 +406,12 @@ SQL;
 
     private function contarOperacionesAprobadasEvidenciasAtencion(bool $excluirDictaminadoRecuperacion = false): int
     {
-        $ma = new MotosAdjudicadas();
         $exclDictRec = $excluirDictaminadoRecuperacion ? $this->sqlExclusionDictaminadoRecuperacion() : '';
-
-        if (!$ma->adjOperacionTieneColumnaEnvioAtencion()) {
-            $sql = <<<SQL
-            SELECT COUNT(*) AS total
-            FROM adj_operacion o
-            WHERE TRIM(COALESCE(o.estatus, '')) <> 'Cierre Documentado'
-              AND (
-                o.estatus = 'Procesando IA'
-                OR EXISTS (
-                    SELECT 1
-                    FROM adj_historial_estatus h
-                    WHERE h.id_operacion = o.id
-                      AND h.estatus_nuevo = 'Procesando IA'
-                )
-            )
-              AND EXISTS (
-                    SELECT 1
-                    FROM adj_bitacora b
-                    WHERE b.id_operacion = o.id
-                      AND b.accion LIKE :pat_validadas
-              )
-              {$exclDictRec}
-            SQL;
-
-            return $this->contarQuery($sql, ['pat_validadas' => '%EVIDENCIAS VALIDADAS (PROCESANDO IA)%']);
-        }
 
         $sql = <<<SQL
         SELECT COUNT(*) AS total
         FROM adj_operacion o
-        WHERE TRIM(COALESCE(o.estatus, '')) <> 'Cierre Documentado'
-          AND (
-            o.estatus = 'Procesando IA'
-            OR EXISTS (
-                SELECT 1
-                FROM adj_historial_estatus h
-                WHERE h.id_operacion = o.id
-                  AND h.estatus_nuevo = 'Procesando IA'
-            )
-        )
-          AND (
-            IFNULL(o.atencion_envio_validado, 0) = 1
-            OR EXISTS (
-                SELECT 1
-                FROM adj_bitacora b
-                WHERE b.id_operacion = o.id
-                  AND b.accion LIKE :pat_validadas
-            )
-          )
+        WHERE {$this->sqlWhereAprobadosEvidenciasAtencion()}
           {$exclDictRec}
         SQL;
 
@@ -653,10 +512,34 @@ SQL;
      */
     public function obtenerConteosPestanasEvidencias(): array
     {
+        $sql = <<<SQL
+        SELECT
+            (
+                SELECT COUNT(*)
+                FROM adj_operacion o
+                WHERE {$this->sqlWhereBandejaEvidencias()}
+            ) AS bandeja,
+            (
+                SELECT COUNT(*)
+                FROM adj_operacion o
+                WHERE {$this->sqlWhereAprobadosEvidenciasAtencion()}
+            ) AS aprobados,
+            (
+                SELECT COUNT(*)
+                FROM adj_operacion o
+                WHERE o.estatus = :estatus_correcciones
+            ) AS correcciones
+        SQL;
+
+        $row = $this->db->queryOne($sql, [
+            'pat_validadas'        => '%EVIDENCIAS VALIDADAS (PROCESANDO IA)%',
+            'estatus_correcciones' => 'Revisión Recuperaciones',
+        ]) ?: [];
+
         return [
-            'bandeja'      => $this->contarRecibidosEvidencias(),
-            'aprobados'    => $this->contarOperacionesAprobadasEvidenciasAtencion(),
-            'correcciones' => $this->contarOperacionesPorEstatus('Revisión Recuperaciones'),
+            'bandeja'      => (int) ($row['bandeja'] ?? 0),
+            'aprobados'    => (int) ($row['aprobados'] ?? 0),
+            'correcciones' => (int) ($row['correcciones'] ?? 0),
         ];
     }
 

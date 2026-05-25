@@ -8,12 +8,20 @@ use Models\MotosAdjudicadas as MotosAdjudicadasDAO;
 
 class MotosAdjudicadas extends Controller
 {
+    private const MODULO_REEMPLAZAR_EVIDENCIA_GESTOR = 79;
+
     private $model;
 
     public function __construct()
     {
         parent::__construct();
         $this->model = new MotosAdjudicadasDAO();
+    }
+
+    private function tieneModuloSesion(int $moduloId): bool
+    {
+        $mods = array_map('intval', (array) ($_SESSION['modulos'] ?? []));
+        return in_array($moduloId, $mods, true);
     }
 
     // =========================================================================
@@ -378,20 +386,71 @@ class MotosAdjudicadas extends Controller
         }
     }
 
+    /**
+     * POST /MotosAdjudicadas/reemplazarEvidenciaGestor  (multipart/form-data)
+     * Permiso especial modulos_web 79. Reemplaza una evidencia fÃ­sica desde AtenciÃ³n.
+     */
+    public function reemplazarEvidenciaGestor()
+    {
+        header('Content-Type: application/json; charset=utf-8');
+
+        if (!$this->tieneModuloSesion(self::MODULO_REEMPLAZAR_EVIDENCIA_GESTOR)) {
+            http_response_code(403);
+            echo json_encode(['success' => false, 'message' => 'No tienes permiso para reemplazar evidencias.']);
+            return;
+        }
+
+        $idOperacion = (int) ($_POST['id_operacion'] ?? 0);
+        $slot        = trim($_POST['slot'] ?? '');
+
+        if ($idOperacion <= 0 || $slot === '') {
+            echo json_encode(['success' => false, 'message' => 'ParÃ¡metros invÃ¡lidos.']);
+            return;
+        }
+
+        if (empty($_FILES['archivo']) || $_FILES['archivo']['error'] !== UPLOAD_ERR_OK) {
+            $code = $_FILES['archivo']['error'] ?? -1;
+            echo json_encode(['success' => false, 'message' => "Error de subida (cÃ³digo {$code})."]);
+            return;
+        }
+
+        $idUsuario     = (int) ($_SESSION['usuario_id'] ?? $_SESSION['id_usuario'] ?? $_SESSION['id'] ?? 0);
+        $nombreUsuario = trim($_SESSION['usuario_nombre'] ?? 'SISTEMA');
+
+        try {
+            $result = $this->model->reemplazarEvidenciaGestor($idOperacion, $slot, $_FILES['archivo'], $idUsuario, $nombreUsuario);
+            if ($result['success']) {
+                $bit = $this->model->obtenerBitacora($idOperacion);
+                $result['bitacora_entry'] = $bit[0] ?? null;
+            }
+            echo json_encode($result, JSON_UNESCAPED_UNICODE);
+        } catch (\Exception $e) {
+            echo json_encode(['success' => false, 'message' => $e->getMessage()], JSON_UNESCAPED_UNICODE);
+        }
+    }
+
     // =========================================================================
     // API — PIPELINE
     // =========================================================================
 
     /**
-     * GET /MotosAdjudicadas/obtenerOperaciones
-     * Devuelve todas las tarjetas del kanban como JSON.
+     * GET /MotosAdjudicadas/obtenerOperaciones?q=texto&limit=500
+     * Devuelve tarjetas del kanban con limite defensivo y busqueda server-side.
      */
     public function obtenerOperaciones()
     {
         header('Content-Type: application/json; charset=utf-8');
         try {
-            $ops = $this->model->obtenerPipeline();
-            echo json_encode(['success' => true, 'operaciones' => $ops]);
+            $q = trim((string) ($_GET['q'] ?? ''));
+            $limit = isset($_GET['limit']) ? (int) $_GET['limit'] : 500;
+            $result = $this->model->obtenerPipeline($q, $limit);
+            echo json_encode([
+                'success' => true,
+                'operaciones' => $result['rows'] ?? [],
+                'total' => (int) ($result['total'] ?? 0),
+                'limit' => (int) ($result['limit'] ?? $limit),
+                'q' => $q,
+            ], JSON_UNESCAPED_UNICODE);
         } catch (\Exception $e) {
             echo json_encode(['success' => false, 'message' => $e->getMessage()]);
         }

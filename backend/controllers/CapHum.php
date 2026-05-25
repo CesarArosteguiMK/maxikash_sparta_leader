@@ -6,6 +6,7 @@ use Core\Controller;
 use Core\SecureUpload;
 use Core\OcrIdentidad;
 use Models\CapHum as CapHumDAO;
+use Models\CapHumRrhh;
 use Models\Candidatos as CandidatosDAO;
 use Models\Login as LoginDao;
 use Models\Notificacion;
@@ -90,6 +91,16 @@ class CapHum extends Controller
                     const datos = usuariosConsolidados.map(p => {
                         const nombreCompleto = [p.nombres, p.segundo_nombre, p.apellidop, p.apellidom].filter(x => x).join(' ');
                         const tienePuestos = p.puestos && p.puestos.length > 1;
+                        const escaparAttr = value => String(value || '')
+                            .replace(/&/g, '&amp;')
+                            .replace(/"/g, '&quot;')
+                            .replace(/</g, '&lt;')
+                            .replace(/>/g, '&gt;');
+                        const iniciales = String(nombreCompleto || 'US').trim().split(/\s+/).filter(Boolean).slice(0, 2).map(parte => parte.charAt(0)).join('').toUpperCase() || 'US';
+                        const fotoPerfil = String(p.foto_perfil || '').trim();
+                        const avatarHTML = fotoPerfil
+                            ? `<img class="gestion-personal-avatar" src="${escaparAttr(fotoPerfil)}" alt="Foto de ${escaparAttr(nombreCompleto)}" loading="lazy" decoding="async" onerror="this.outerHTML='<span class=&quot;gestion-personal-avatar-fallback&quot;>${iniciales}</span>'">`
+                            : `<span class="gestion-personal-avatar-fallback">${iniciales}</span>`;
 
                         // Generar badges para múltiples puestos con departamentos
                         let puestosHTML = '';
@@ -137,6 +148,9 @@ class CapHum extends Controller
 
                         return {
                             nombre: `
+                                <div class="gestion-personal-name-cell">
+                                    ${avatarHTML}
+                                    <div class="gestion-personal-name-info">
                                 <div class="fw-semibold">
                                    # ${p.numero_empleado}
                                 </div>
@@ -148,6 +162,8 @@ class CapHum extends Controller
                                     ${p.usuario}
                                 </small>
                                 ${tienePuestos ? '<span class="badge bg-info mt-1" style="font-size: 0.65rem;"><i class="fa fa-layer-group me-1"></i>Múltiples puestos</span>' : ''}
+                                    </div>
+                                </div>
                             `.trim(),
                             departamento: `
                                 ${sedeHTML}
@@ -161,8 +177,10 @@ class CapHum extends Controller
                             acciones: (() => {
                                 const puedeEditar = window.puedeEditarTodos;
                                 const puedePermisos = window.puedeGestionarPermisos;
+                                const puedeEditarRrhh = Number(window.miUsuarioId || 0) === 1;
                                 return `
-                                <div class="d-flex flex-wrap gap-1" style="min-width: fit-content;">
+                                <div class="d-flex flex-column align-items-start gap-1" style="min-width: fit-content;">
+                                    <div class="d-flex flex-wrap gap-1">
                                     ${puedeEditar
                                         ? `<button class="btn btn-sm btn-primary ${tienePuestos ? 'btn-with-indicator' : ''}" onclick="editar(${p.id})" title="${tienePuestos ? 'Editar (Múltiples puestos)' : 'Editar'}">
                                         ${tienePuestos ? '<span class="indicator-multiples-puestos">' + p.puestos.length + '</span>' : ''}
@@ -184,14 +202,23 @@ class CapHum extends Controller
                                     ${puedePermisos ? `<button class="btn btn-sm" style="background-color: #D2D755; color: white;" onclick="edit_perfil(${p.id})" title="${tienePuestos ? 'Permisos (Gestionar múltiples puestos)' : 'Permisos'}">
                                         <i class="fa fa-lock" style="color: #007bff;"></i>
                                     </button>` : ''}
+                                    </div>
+                                    ${puedeEditarRrhh ? `<button class="btn btn-sm btn-info text-white d-inline-flex align-items-center justify-content-center gap-1 px-3" onclick="abrirEditarRrhh(${p.id})" title="Editar RR.HH.">
+                                        <i class="fa fa-user-pen"></i><span>Editar RR.HH.</span>
+                                    </button>` : ''}
                                 </div>`;
                             })()
                         };
                     });
 
-                    // Actualizar DataTable
-                    const tabla = $('#historialUsuarios').DataTable();
-                    tabla.clear().rows.add(datos).draw();
+                    // Usar el renderer compacto de la vista si ya está disponible.
+                    // Evita filas gigantes cuando una persona tiene muchos puestos.
+                    if (typeof actualizarTabla === 'function') {
+                        actualizarTabla(usuariosConsolidados);
+                    } else {
+                        const tabla = $('#historialUsuarios').DataTable();
+                        tabla.clear().rows.add(datos).draw();
+                    }
                 }
             });
         };
@@ -1217,6 +1244,8 @@ class CapHum extends Controller
                 '57': 'fa-solid fa-headset',
                 60: 'fa-solid fa-chart-column',
                 '60': 'fa-solid fa-chart-column',
+                79: 'fa-solid fa-file-pen',
+                '79': 'fa-solid fa-file-pen',
             };
 
             /** Mapa base de íconos (pestaña Módulos del sistema y filas agrupadas de permisos especiales). */
@@ -1249,7 +1278,8 @@ class CapHum extends Controller
                 50: 'fa fa-chart-line',
                 51: 'fa-solid fa-file-circle-check',
                 48: 'fa fa-archive',
-                60: 'fa-solid fa-chart-column'
+                60: 'fa-solid fa-chart-column',
+                79: 'fa-solid fa-file-pen'
             };
 
             /* =========================
@@ -2042,10 +2072,22 @@ class CapHum extends Controller
                 nombreDiv.appendChild(iconoModulo);
                 nombreDiv.appendChild(nombre);
 
+                const descRaw = String(mod.descripcion || '');
+                const descParts = descRaw.split('>').map(s => s.trim()).filter(Boolean);
+                if (descParts.length >= 3) {
+                    const badgeGrupoInterno = document.createElement('span');
+                    badgeGrupoInterno.className = 'badge bg-label-info rounded-pill px-2 py-1';
+                    badgeGrupoInterno.style.fontSize = '0.65rem';
+                    badgeGrupoInterno.style.fontWeight = '700';
+                    badgeGrupoInterno.style.whiteSpace = 'nowrap';
+                    badgeGrupoInterno.textContent = 'Dentro de: ' + descParts[1];
+                    nombreDiv.appendChild(badgeGrupoInterno);
+                }
+
                 const desc = document.createElement('small');
                 desc.className = 'text-muted d-block mt-1';
                 desc.style.fontSize = '0.75rem';
-                desc.innerText = mod.descripcion ?? '';
+                desc.innerText = descRaw;
 
                 tdName.append(nombreDiv, desc);
 
@@ -12606,6 +12648,7 @@ class CapHum extends Controller
                 'segundo_nombre' => $p['segundo_nombre'] ?? '',
                 'apellidop' => $p['apellidop'] ?? '',
                 'apellidom' => $p['apellidom'] ?? '',
+                'foto_perfil' => $p['foto_perfil'] ?? '',
                 'nombre_departamento' => $p['nombre_departamento'] ?? '',
                 'nombre_puesto' => $p['nombre_puesto'] ?? '',
                 'id_puesto' => $p['id_puesto'] ?? null,
@@ -12857,6 +12900,67 @@ class CapHum extends Controller
 
         $resultado = CapHumDAO::getAusenciaById($idAusencia);
 
+        self::respuestaJSON($resultado);
+    }
+
+    public function registrarUsuarioRrhh()
+    {
+        header('Content-Type: application/json; charset=utf-8');
+
+        $idSesion = (int) ($_SESSION['usuario_id'] ?? 0);
+        if ($idSesion !== 1) {
+            self::respuestaJSON(['success' => false, 'mensaje' => 'No tienes permiso para registrar usuarios RR.HH.']);
+            return;
+        }
+
+        $input = json_decode(file_get_contents('php://input'), true);
+        if (!is_array($input)) {
+            self::respuestaJSON(['success' => false, 'mensaje' => 'La solicitud no tiene un formato valido.']);
+            return;
+        }
+
+        $resultado = CapHumRrhh::registrarUsuario($input, $idSesion);
+        self::respuestaJSON($resultado);
+    }
+
+    public function obtenerUsuarioRrhh()
+    {
+        header('Content-Type: application/json; charset=utf-8');
+
+        $idSesion = (int) ($_SESSION['usuario_id'] ?? 0);
+        if ($idSesion !== 1) {
+            self::respuestaJSON(['success' => false, 'mensaje' => 'No tienes permiso para editar usuarios RR.HH.']);
+            return;
+        }
+
+        $input = json_decode(file_get_contents('php://input'), true);
+        if (!is_array($input)) {
+            self::respuestaJSON(['success' => false, 'mensaje' => 'La solicitud no tiene un formato valido.']);
+            return;
+        }
+
+        $idPersona = (int) ($input['id_persona'] ?? 0);
+        $resultado = CapHumRrhh::obtenerUsuario($idPersona, $idSesion);
+        self::respuestaJSON($resultado);
+    }
+
+    public function actualizarUsuarioRrhh()
+    {
+        header('Content-Type: application/json; charset=utf-8');
+
+        $idSesion = (int) ($_SESSION['usuario_id'] ?? 0);
+        if ($idSesion !== 1) {
+            self::respuestaJSON(['success' => false, 'mensaje' => 'No tienes permiso para editar usuarios RR.HH.']);
+            return;
+        }
+
+        $input = json_decode(file_get_contents('php://input'), true);
+        if (!is_array($input)) {
+            self::respuestaJSON(['success' => false, 'mensaje' => 'La solicitud no tiene un formato valido.']);
+            return;
+        }
+
+        $resultado = CapHumRrhh::actualizarUsuario($input, $idSesion);
         self::respuestaJSON($resultado);
     }
 

@@ -3,6 +3,7 @@
 namespace Controllers;
 
 use Core\Controller;
+use Models\AvanceBucket;
 use Models\ComparativoCierreSemanal;
 use Models\EstadoCuenta as EstadoCuentaDAO;
 use Models\Empresa as EmpresasDAO;
@@ -1300,6 +1301,53 @@ class Reporteria extends Controller
     /**
      * Alias antiguo → redirige a callcenter (conserva query string).
      */
+    /**
+     * Avance Bucket: matriz Bucket_Morosidad_Real vs Cierre_Ajustado2.
+     * URL canonica: /analitica/avanceBucket
+     */
+    public function avanceBucket()
+    {
+        self::set('titulo', 'Avance Bucket');
+        $payload = null;
+        $error = null;
+
+        try {
+            $corte = isset($_GET['corte']) ? (string) $_GET['corte'] : null;
+            $payload = AvanceBucket::calcular($corte);
+        } catch (\InvalidArgumentException $e) {
+            $error = $e->getMessage();
+        } catch (\Throwable $e) {
+            error_log('Reporteria::avanceBucket -> ' . $e->getMessage());
+            $error = 'No se pudieron cargar los datos de Avance Bucket.';
+        }
+
+        $initialJson = json_encode($payload, JSON_UNESCAPED_UNICODE);
+        if ($initialJson === false || $payload === null) {
+            $initialJson = 'null';
+        }
+
+        self::set('avance_bucket_payload', $payload);
+        self::set('avance_bucket_error', $error);
+        self::set('avance_bucket_initial_json', $initialJson);
+        self::set('script', '');
+        self::render('avance_bucket');
+    }
+
+    public function getAvanceBucketJson()
+    {
+        try {
+            $corte = isset($_GET['corte']) ? (string) $_GET['corte'] : null;
+            self::respuestaJSON(AvanceBucket::calcular($corte));
+        } catch (\InvalidArgumentException $e) {
+            http_response_code(400);
+            self::respuestaJSON(['success' => false, 'mensaje' => $e->getMessage()]);
+        } catch (\Throwable $e) {
+            error_log('Reporteria::getAvanceBucketJson -> ' . $e->getMessage());
+            http_response_code(500);
+            self::respuestaJSON(['success' => false, 'mensaje' => 'Error al consultar la base de datos.']);
+        }
+    }
+
     public function resumencallcenter()
     {
         $q = isset($_SERVER['QUERY_STRING']) && (string)$_SERVER['QUERY_STRING'] !== ''

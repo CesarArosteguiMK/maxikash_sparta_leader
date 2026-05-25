@@ -171,7 +171,7 @@ class MotosAdjudicadas extends Model
 
     /**
      * true si existe adj_operacion.atencion_envio_validado (requiere esquema actualizado en BD).
-     * Se prueba con SELECT directo: information_schema a veces no est? permitido para el usuario MySQL.
+     * Se prueba con SHOW COLUMNS puntual para evitar un SELECT fallido cuando la columna no existe.
      */
     public function adjOperacionTieneColumnaEnvioAtencion(): bool
     {
@@ -179,8 +179,9 @@ class MotosAdjudicadas extends Model
             return self::$adjOperacionEnvioAtencionCol;
         }
         try {
-            $this->db->queryOne('SELECT atencion_envio_validado FROM adj_operacion LIMIT 1');
-            self::$adjOperacionEnvioAtencionCol = true;
+            self::$adjOperacionEnvioAtencionCol = (bool) $this->db->queryOne(
+                "SHOW COLUMNS FROM adj_operacion LIKE 'atencion_envio_validado'"
+            );
         } catch (\Throwable $e) {
             self::$adjOperacionEnvioAtencionCol = false;
         }
@@ -2046,6 +2047,22 @@ class MotosAdjudicadas extends Model
         return $dt->format('Y-m-d H:i:s');
     }
 
+    private function normalizarFechaHoraOperacion(?string $fecha = null): string
+    {
+        $valor = trim((string) $fecha);
+        if ($valor === '' || $valor === '0000-00-00 00:00:00') {
+            return $this->fechaHoraCdmx();
+        }
+
+        $valor = str_replace('T', ' ', $valor);
+        try {
+            $dt = new \DateTime($valor, new \DateTimeZone('America/Mexico_City'));
+            return $dt->format('Y-m-d H:i:s');
+        } catch (\Throwable $e) {
+            return $this->fechaHoraCdmx();
+        }
+    }
+
     /**
      * Genera el siguiente folio: ADJ-YYYY-NNNN
      */
@@ -2308,6 +2325,76 @@ class MotosAdjudicadas extends Model
         }
 
         return ['success' => true, 'url' => $urlClient];
+    }
+
+    /**
+     * Reemplazo especial desde AtenciÃ³n: solo para evidencias fÃ­sicas validables.
+     * Limpia el veredicto y neutraliza historial de rechazo pendiente para que no se regenere.
+     */
+    public function reemplazarEvidenciaGestor(int $idOperacion, string $slot, array $fileInfo, int $idUsuario, string $nombreUsuario = ''): array
+    {
+        if (!in_array($slot, self::SLOTS_VALIDACION_ATENCION_MEDIA, true)) {
+            return ['success' => false, 'message' => 'Este slot no se puede reemplazar desde esta herramienta.'];
+        }
+
+        $res = $this->subirEvidencia($idOperacion, $slot, $fileInfo, $idUsuario, $nombreUsuario);
+        if (empty($res['success'])) {
+            return $res;
+        }
+
+        if ($this->adjEvidenciaTieneColumnasAtn()) {
+            $row = $this->db->queryOne(
+                'SELECT id, url FROM adj_evidencia WHERE id_operacion = :id AND slot = :slot LIMIT 1',
+                ['id' => $idOperacion, 'slot' => $slot]
+            );
+            $idEvidencia = (int) ($row['id'] ?? 0);
+            $urlNueva = trim((string) ($row['url'] ?? ''));
+            $ahora = $this->fechaHoraCdmx();
+
+            if ($idEvidencia > 0) {
+                $this->db->CRUD(
+                    "UPDATE adj_evidencia
+                     SET val_atn = NULL,
+                         comentario_atn = NULL,
+                         estatus = 'recibido'
+                     WHERE id = :id_evidencia
+                       AND id_operacion = :id_operacion",
+                    ['id_evidencia' => $idEvidencia, 'id_operacion' => $idOperacion]
+                );
+
+                try {
+                    $this->db->CRUD(
+                        "UPDATE adj_evidencia_rechazo_historial h
+                         INNER JOIN (
+                             SELECT id
+                             FROM adj_evidencia_rechazo_historial
+                             WHERE id_operacion = :id_operacion_sel
+                               AND id_evidencia = :id_evidencia_sel
+                             ORDER BY id DESC
+                             LIMIT 1
+                         ) ult ON ult.id = h.id
+                         SET h.url_nueva = :url_nueva,
+                             h.fecha_url_nueva = :fecha,
+                             h.updated_at = :fecha2",
+                        [
+                            'id_operacion_sel' => $idOperacion,
+                            'id_evidencia_sel' => $idEvidencia,
+                            'url_nueva' => $urlNueva,
+                            'fecha' => $ahora,
+                            'fecha2' => $ahora,
+                        ]
+                    );
+                } catch (\Throwable $e) {
+                    error_log('[MotosAdjudicadas] reemplazarEvidenciaGestor historial: ' . $e->getMessage());
+                }
+            }
+        }
+
+        $slotLabel = self::SLOT_LABELS[$slot] ?? strtoupper($slot);
+        $this->registrarBitacora($idOperacion, 'REEMPLAZO ESPECIAL DE EVIDENCIA: ' . $slotLabel, $idUsuario, $nombreUsuario);
+        $this->finalizarCierreValidacionEvidenciaAtn($idOperacion, $idUsuario, $nombreUsuario);
+
+        return $res;
     }
 
     /**
@@ -2686,9 +2773,21 @@ SQL;
      * Devuelve todas las operaciones activas (no cerradas-archivadas),
      * ordenadas por estatus y fecha_alta.
      */
-    public function obtenerPipeline(): array
+    public function obtenerPipeline(string $filtro = '', int $limit = 500): array
     {
         $predD2 = $this->sqlEsDictamenLlamadaRetenciones('d2');
+        $limit = max(50, min(500, $limit));
+        $filtro = trim($filtro);
+        $where = [
+            "o.estatus NOT IN ('Retenciones', 'cancelado')",
+        ];
+        $params = [];
+        if ($filtro !== '') {
+            $where[] = "(CAST(o.id_credito AS CHAR) LIKE :q OR o.nombre_cliente LIKE :q OR o.folio LIKE :q)";
+            $params['q'] = '%' . $filtro . '%';
+        }
+        $whereSql = 'WHERE ' . implode(' AND ', $where);
+        $totalSql = "SELECT COUNT(*) AS total FROM adj_operacion o {$whereSql}";
         $sql = <<<SQL
         SELECT
             o.id,
@@ -2712,9 +2811,30 @@ SQL;
             o.saldo_capital,
             o.adeudo_total,
             o.id_usuario_alta,
-            DATE_FORMAT(o.fecha_alta,          '%Y-%m-%d %H:%i') AS fecha_alta,
-            DATE_FORMAT(o.fecha_actualizacion, '%Y-%m-%d %H:%i') AS fecha_actualizacion,
-            DATEDIFF(NOW(), o.fecha_alta) AS dias_en_pipeline,
+            DATE_FORMAT(o.fecha_alta,          '%d/%m/%Y %H:%i') AS fecha_alta,
+            DATE_FORMAT(o.fecha_actualizacion, '%d/%m/%Y %H:%i') AS fecha_actualizacion,
+            DATE_FORMAT(
+                COALESCE(
+                    (SELECT MAX(h.fecha)
+                     FROM adj_historial_estatus h
+                     WHERE h.id_operacion = o.id
+                       AND h.estatus_nuevo = o.estatus),
+                    o.fecha_actualizacion,
+                    o.fecha_alta
+                ),
+                '%d/%m/%Y %H:%i'
+            ) AS fecha_estatus_actual,
+            DATEDIFF(
+                NOW(),
+                COALESCE(
+                    (SELECT MAX(h.fecha)
+                     FROM adj_historial_estatus h
+                     WHERE h.id_operacion = o.id
+                       AND h.estatus_nuevo = o.estatus),
+                    o.fecha_actualizacion,
+                    o.fecha_alta
+                )
+            ) AS dias_en_pipeline,
             (SELECT COUNT(*) FROM adj_evidencia e WHERE e.id_operacion = o.id) AS evidencias_count,
             (SELECT TRIM(CONCAT_WS(' ', per2.nombres, per2.segundo_nombre, per2.apellidop, per2.apellidom))
                FROM asigna_creditos_adjudicacion aca2
@@ -2747,6 +2867,7 @@ SQL;
                 d2.id DESC
             LIMIT 1
         )
+        {$whereSql}
         ORDER BY
             FIELD(o.estatus,
                 'Recibido',
@@ -2759,10 +2880,16 @@ SQL;
                 'cancelado'
             ),
             o.fecha_alta ASC
+        LIMIT {$limit}
         SQL;
 
         try {
-            return $this->db->queryAll($sql) ?: [];
+            $totalRow = $this->db->queryOne($totalSql, $params) ?: [];
+            return [
+                'rows' => $this->db->queryAll($sql, $params) ?: [],
+                'total' => (int) ($totalRow['total'] ?? 0),
+                'limit' => $limit,
+            ];
         } catch (\Throwable $e) {
             // Compatibilidad: en algunos entornos legacy adj_operacion aún no tiene columna `placas`.
             if (stripos((string) $e->getMessage(), "Unknown column 'o.placas'") !== false) {
@@ -2772,7 +2899,12 @@ SQL;
                     $sql
                 );
 
-                return $this->db->queryAll($sqlFallback) ?: [];
+                $totalRow = $this->db->queryOne($totalSql, $params) ?: [];
+                return [
+                    'rows' => $this->db->queryAll($sqlFallback, $params) ?: [],
+                    'total' => (int) ($totalRow['total'] ?? 0),
+                    'limit' => $limit,
+                ];
             }
             throw $e;
         }
@@ -3852,7 +3984,7 @@ SQL;
         }
     }
 
-    private function sincronizarDictumAppCreditoOperacion(int $idCredito, int $idOperacion, int $idUsuario = 0, string $nombreUsuario = 'APP MOVIL'): void
+    private function sincronizarDictumAppCreditoOperacion(int $idCredito, int $idOperacion, int $idUsuario = 0, string $nombreUsuario = 'APP MOVIL', ?string $fechaOperacion = null): void
     {
         if ($idCredito <= 0 || $idOperacion <= 0) {
             return;
@@ -3888,23 +4020,26 @@ SQL;
             return;
         }
 
+        $ahora = $this->normalizarFechaHoraOperacion($fechaOperacion ?: (string) ($dictum['created_at'] ?? ''));
+        $procesado = false;
         $datosMoto = $this->extraerDatosMotoDesdeDictumApp($campos);
         if ($datosMoto !== []) {
-            $this->guardarDatosMoto($idOperacion, $datosMoto, $idUsuario, 'REPUVE', false);
+            $resDatos = $this->guardarDatosMoto($idOperacion, $datosMoto, $idUsuario, 'REPUVE', false, $ahora);
+            if (!empty($resDatos['success'])) {
+                $procesado = true;
+            }
         }
 
-        $ahora = $this->fechaHoraCdmx();
-        $evidenciasGuardadas = 0;
         foreach (self::DICTUM_APP_EVIDENCIA_SLOTS as $nombreCampo => $slot) {
             $url = $this->valorCampoDictumApp($campos, $nombreCampo);
             if ($url === '' || !preg_match('#^https?://#i', $url)) {
                 continue;
             }
             $this->upsertEvidenciaDictumApp($idOperacion, $slot, $url, $idUsuario, $ahora);
-            $evidenciasGuardadas++;
+            $procesado = true;
         }
 
-        if ($evidenciasGuardadas <= 0) {
+        if (!$procesado) {
             return;
         }
 
@@ -6465,7 +6600,7 @@ EOSQL;
         return $out;
     }
 
-    public function guardarDatosMoto(int $idOperacion, array $datos, int $idUsuario = 0, string $nombreUsuario = '', bool $registrarBitacora = true): array
+    public function guardarDatosMoto(int $idOperacion, array $datos, int $idUsuario = 0, string $nombreUsuario = '', bool $registrarBitacora = true, ?string $fechaOperacion = null): array
     {
         if ($idOperacion <= 0) {
             return ['success' => false, 'message' => 'Operaci?n inv?lida.'];
@@ -6542,7 +6677,7 @@ EOSQL;
             return ['success' => false, 'message' => 'No se recibieron campos v?lidos.'];
         }
 
-        $ahora             = $this->fechaHoraCdmx();
+        $ahora             = $this->normalizarFechaHoraOperacion($fechaOperacion);
         $setClauses[]      = '`datos_moto_at` = :datos_moto_at';
         $setClauses[]      = '`datos_moto_by` = :datos_moto_by';
         $setClauses[]      = '`fecha_actualizacion` = :fecha_actualizacion';
@@ -6574,21 +6709,21 @@ EOSQL;
      *
      * @return array{success:bool, detalle?:array, creado?:bool, message?:string}
      */
-    public function obtenerOCrearOperacion(int $idCredito, string $nombreCliente, int $idUsuario = 0): array
+    public function obtenerOCrearOperacion(int $idCredito, string $nombreCliente, int $idUsuario = 0, ?string $fechaOperacion = null): array
     {
+        $fecha = $this->normalizarFechaHoraOperacion($fechaOperacion);
         $op = $this->db->queryOne(
             'SELECT id FROM adj_operacion WHERE id_credito = :id ORDER BY id DESC LIMIT 1',
             ['id' => $idCredito]
         );
 
         if ($op) {
-            $this->sincronizarDictumAppCreditoOperacion($idCredito, (int) $op['id'], $idUsuario, 'APP MOVIL');
+            $this->sincronizarDictumAppCreditoOperacion($idCredito, (int) $op['id'], $idUsuario, 'APP MOVIL', $fecha);
             $detalle = $this->obtenerDetalle((int) $op['id']);
             return ['success' => true, 'detalle' => $detalle];
         }
 
         // No existe ??? crear con datos m?nimos
-        $ahora = $this->fechaHoraCdmx();
         $folio = $this->generarFolio();
 
         $campos = [
@@ -6597,8 +6732,8 @@ EOSQL;
             'nombre_cliente'      => $nombreCliente !== '' ? $nombreCliente : "Cr?dito #{$idCredito}",
             'estatus'             => 'en_transito',
             'id_usuario_alta'     => $idUsuario ?: null,
-            'fecha_alta'          => $ahora,
-            'fecha_actualizacion' => $ahora,
+            'fecha_alta'          => $fecha,
+            'fecha_actualizacion' => $fecha,
         ];
 
         $cols = implode(', ', array_map(fn($k) => "`{$k}`", array_keys($campos)));
@@ -6606,7 +6741,7 @@ EOSQL;
         $this->db->CRUD("INSERT INTO adj_operacion ({$cols}) VALUES ({$ph})", $campos);
 
         $newId   = (int) $this->db->lastInsertId();
-        $this->sincronizarDictumAppCreditoOperacion($idCredito, $newId, $idUsuario, 'APP MOVIL');
+        $this->sincronizarDictumAppCreditoOperacion($idCredito, $newId, $idUsuario, 'APP MOVIL', $fecha);
         $detalle = $this->obtenerDetalle($newId);
 
         return ['success' => true, 'detalle' => $detalle, 'creado' => true];

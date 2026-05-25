@@ -845,8 +845,8 @@ body.dark-mode .acr-rcpt-doc-h { background: #1e293b; }
 (function () {
     'use strict';
 
-    /** Expediente operación: física M1 + Repuve + Factura (13). */
-    const ACR_EV_TOTAL = 13;
+    /** Expediente operación: física M1 + Repuve + Factura (14). */
+    const ACR_EV_TOTAL = 14;
 
     const ACR_CONFIG = {
         bandeja: {
@@ -880,7 +880,8 @@ body.dark-mode .acr-rcpt-doc-h { background: #1e293b; }
     }
 
     function acrRenderCardBandeja(item) {
-        const ev = parseInt(item.evidencias_count, 10) || 0;
+        const evRaw = parseInt(item.evidencias_count, 10) || 0;
+        const ev = Math.min(evRaw, ACR_EV_TOTAL);
         const g  = item.gestor_nombre
             ? acrEsc(item.gestor_nombre)
             : '<span class="ae-list-muted">Sin asignar</span>';

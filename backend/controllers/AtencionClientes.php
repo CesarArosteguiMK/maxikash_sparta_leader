@@ -93,7 +93,9 @@ class AtencionClientes extends Controller
     {
         header('Content-Type: application/json; charset=utf-8');
         try {
-            $datos = $this->model->obtenerRecibidos();
+            // La sincronización legacy puede tomar varios segundos y no debe bloquear
+            // la apertura del menú 1.- Evidencias.
+            $datos = $this->model->obtenerRecibidos(false);
             echo json_encode(['success' => true, 'datos' => $datos], JSON_UNESCAPED_UNICODE);
         } catch (\Throwable $e) {
             error_log('[AtencionClientes/obtenerRecibidos] ' . $e->getMessage());

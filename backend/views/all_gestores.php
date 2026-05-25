@@ -432,6 +432,1269 @@
       gap: 0.375rem;
     }
 
+    .gestion-personal-name-cell {
+      display: flex;
+      align-items: flex-start;
+      gap: 0.85rem;
+      min-width: 280px;
+    }
+
+    .gestion-personal-avatar {
+      width: 46px;
+      height: 46px;
+      min-width: 46px;
+      border-radius: 50%;
+      object-fit: cover;
+      border: 2px solid #fff;
+      box-shadow: 0 5px 16px rgba(30, 41, 59, 0.16);
+      background: #f1f5f9;
+    }
+
+    .gestion-personal-avatar-fallback {
+      width: 46px;
+      height: 46px;
+      min-width: 46px;
+      border-radius: 50%;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      color: #fff;
+      font-size: 0.82rem;
+      font-weight: 700;
+      letter-spacing: 0;
+      border: 2px solid #fff;
+      box-shadow: 0 5px 16px rgba(30, 41, 59, 0.16);
+      background: linear-gradient(135deg, #24324d 0%, #0d6efd 100%);
+    }
+
+    .gestion-personal-name-info {
+      min-width: 0;
+      line-height: 1.18;
+    }
+
+    #modalAgregarUsuarioRrhh .modal-dialog {
+      max-width: min(1180px, calc(100vw - 2rem));
+      margin: 1rem auto;
+    }
+
+    #modalAgregarUsuarioRrhh.modal.show {
+      z-index: 99999 !important;
+      background: transparent !important;
+    }
+
+    #modalAgregarUsuarioRrhh .modal-content {
+      height: min(860px, calc(100vh - 2rem));
+      max-height: calc(100vh - 2rem);
+      border-radius: 10px;
+      overflow: hidden;
+    }
+
+    #modalAgregarUsuarioRrhh .modal-header,
+    #modalAgregarUsuarioRrhh .modal-footer {
+      flex-shrink: 0;
+      background: #fff;
+      z-index: 2;
+    }
+
+    #modalAgregarUsuarioRrhh .modal-body {
+      overflow-y: auto;
+      padding: 1rem 1.25rem;
+      min-height: 0;
+    }
+
+    #modalAgregarUsuarioRrhh .nav-tabs .nav-link {
+      color: #5d6978;
+      font-weight: 600;
+      border: 0;
+      border-bottom: 3px solid transparent;
+      padding: .65rem 1rem;
+    }
+
+    #modalAgregarUsuarioRrhh .nav-tabs .nav-link.active {
+      color: #24324d;
+      border-bottom-color: #0d6efd;
+      background: transparent;
+    }
+
+    #modalAgregarUsuarioRrhh .rrhh-section {
+      border: 1px solid #e3e8ef;
+      border-radius: 8px;
+      padding: .85rem;
+      background: #fff;
+    }
+
+    #modalAgregarUsuarioRrhh .rrhh-section-title {
+      font-size: .9rem;
+      font-weight: 700;
+      color: #24324d;
+      margin-bottom: .85rem;
+    }
+
+    #modalAgregarUsuarioRrhh .rrhh-repeat-row {
+      border: 1px solid #edf1f6;
+      border-radius: 8px;
+      padding: .75rem;
+      background: #f8fafc;
+      margin-bottom: .65rem;
+    }
+
+    #modalAgregarUsuarioRrhh .rrhh-remove-row {
+      min-width: 38px;
+    }
+
+    #modalAgregarUsuarioRrhh .form-label {
+      margin-bottom: .25rem;
+      font-size: .82rem;
+      font-weight: 600;
+    }
+
+    #modalAgregarUsuarioRrhh .form-control,
+    #modalAgregarUsuarioRrhh .form-select {
+      min-height: 38px;
+    }
+
+    #modalAgregarUsuarioRrhh .row.g-3 {
+      --bs-gutter-y: .75rem;
+    }
+
+    @media (max-width: 767.98px) {
+      #modalAgregarUsuarioRrhh .modal-dialog {
+        max-width: calc(100vw - .75rem);
+        margin: .375rem auto;
+      }
+
+      #modalAgregarUsuarioRrhh .modal-content {
+        height: calc(100vh - .75rem);
+        max-height: calc(100vh - .75rem);
+      }
+
+      #modalAgregarUsuarioRrhh .nav-tabs {
+        flex-wrap: nowrap;
+        overflow-x: auto;
+      }
+    }
+
+    #rrhhModalScrim {
+      position: fixed;
+      inset: 0;
+      z-index: 99998;
+      background: rgba(5, 10, 20, 0.78);
+      backdrop-filter: blur(2px);
+      pointer-events: none;
+    }
+
+    .flatpickr-calendar.rrhh-flatpickr-calendar {
+      z-index: 100020 !important;
+      width: 335px !important;
+      transform: none !important;
+      transform-origin: initial !important;
+    }
+
+    .flatpickr-calendar.rrhh-flatpickr-calendar .flatpickr-months {
+      height: 48px;
+      padding: 6px 44px;
+      align-items: center;
+      box-sizing: border-box;
+    }
+
+    .flatpickr-calendar.rrhh-flatpickr-calendar .flatpickr-prev-month,
+    .flatpickr-calendar.rrhh-flatpickr-calendar .flatpickr-next-month {
+      top: 7px;
+      width: 34px;
+      height: 34px;
+      padding: 8px;
+      border-radius: 10px;
+      background: #f3f6fb;
+      color: #334155;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .flatpickr-calendar.rrhh-flatpickr-calendar .flatpickr-prev-month {
+      left: 8px;
+    }
+
+    .flatpickr-calendar.rrhh-flatpickr-calendar .flatpickr-next-month {
+      right: 8px;
+    }
+
+    .flatpickr-calendar.rrhh-flatpickr-calendar .flatpickr-current-month {
+      left: 44px;
+      width: calc(100% - 88px);
+      height: 36px;
+      padding: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      font-size: 1rem;
+    }
+
+    .flatpickr-calendar.rrhh-flatpickr-calendar .flatpickr-monthDropdown-months {
+      width: 128px;
+      min-width: 128px;
+      height: 34px;
+      padding: 0 .5rem;
+      border: 0;
+      border-radius: 10px;
+      background-color: #f3f6fb;
+      color: #334155;
+      font-weight: 600;
+      appearance: auto !important;
+      -webkit-appearance: auto !important;
+      -moz-appearance: auto !important;
+    }
+
+    .flatpickr-calendar.rrhh-flatpickr-calendar .numInputWrapper {
+      display: none;
+    }
+
+    .rrhh-year-select {
+      min-width: 86px;
+      max-width: 96px;
+      height: 34px;
+      border: 0;
+      border-radius: 8px;
+      padding: 0 .55rem;
+      margin-left: 0;
+      background: #f3f6fb;
+      color: #334155;
+      font-weight: 600;
+      outline: none;
+    }
+
+    #modalCredencialRrhh .modal-dialog {
+      max-width: min(1040px, calc(100vw - 2rem));
+    }
+
+    #modalCredencialRrhh.modal.show {
+      z-index: 100040 !important;
+      background: transparent !important;
+    }
+
+    #modalCredencialRrhh .modal-content {
+      border-radius: 12px;
+      overflow: hidden;
+    }
+
+    #modalCredencialRrhh .modal-header {
+      align-items: center;
+      min-height: 64px;
+      padding: 1rem 3.25rem 1rem 1.5rem;
+      position: relative;
+    }
+
+    #modalCredencialRrhh .btn-close {
+      background-color: #fff;
+      border-radius: 8px;
+      box-shadow: 0 4px 12px rgba(15, 23, 42, .08);
+      height: 1.05rem;
+      margin: 0;
+      opacity: .72;
+      position: absolute;
+      right: 1.15rem;
+      top: 1.15rem;
+      width: 1.05rem;
+      z-index: 4;
+    }
+
+    #modalCredencialRrhh .btn-close:hover {
+      opacity: 1;
+    }
+
+    .rrhh-credential-toolbar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: .75rem;
+      align-items: center;
+      justify-content: space-between;
+      border: 1px solid #e3e8ef;
+      border-radius: 10px;
+      padding: .75rem;
+      margin-bottom: 1rem;
+      background: #fff;
+    }
+
+    .rrhh-credential-toolbar .btn-check:checked + .btn {
+      color: #fff;
+      background: #0054a6;
+      border-color: #0054a6;
+      box-shadow: 0 8px 18px rgba(0, 84, 166, .18);
+    }
+
+    .rrhh-credential-notice {
+      border: 1px solid rgba(0, 84, 166, .16);
+      border-radius: 10px;
+      padding: .75rem .9rem;
+      margin-bottom: 1rem;
+      background: #f3f9ff;
+      color: #0d2f5f;
+      font-size: .9rem;
+    }
+
+    .rrhh-credential-stage {
+      background: linear-gradient(135deg, #f8fbff 0%, #eef5fb 100%);
+      border-radius: 12px;
+      padding: 1.25rem;
+    }
+
+    .rrhh-credential-stage .row > [class*="col-"] {
+      display: flex;
+      flex-direction: column;
+      justify-content: flex-start;
+    }
+
+    .rrhh-photo-dropzone {
+      border: 1px dashed #b8c6d8;
+      border-radius: 10px;
+      padding: .55rem .75rem;
+      color: #506176;
+      background: #f8fafc;
+      font-size: .82rem;
+      min-width: 220px;
+    }
+
+    .rrhh-photo-dropzone.is-dragover,
+    .rrhh-id-photo-wrap.is-dragover {
+      border-color: #0054a6;
+      background: #eef6ff;
+    }
+
+    .rrhh-id-card {
+      width: min(100%, 340px);
+      height: 520px;
+      margin: 0 auto;
+      border-radius: 18px;
+      overflow: hidden;
+      background: #fff;
+      border: 1px solid rgba(15, 23, 42, 0.1);
+      box-shadow: 0 18px 40px rgba(30, 41, 59, 0.18);
+      position: relative;
+      color: #0d2f5f;
+    }
+
+    .rrhh-id-card::before,
+    .rrhh-id-card::after {
+      content: "";
+      position: absolute;
+      pointer-events: none;
+    }
+
+    .rrhh-id-front::before {
+      inset: 0 0 auto 0;
+      height: 185px;
+      background: linear-gradient(135deg, #003d82 0%, #0054a6 72%);
+      clip-path: polygon(0 0, 100% 0, 100% 62%, 55% 100%, 0 72%);
+    }
+
+    .rrhh-id-front::after {
+      right: -52px;
+      bottom: -38px;
+      width: 170px;
+      height: 170px;
+      border-radius: 999px;
+      border: 28px solid rgba(199, 213, 43, 0.24);
+    }
+
+    .rrhh-id-back {
+      background:
+        radial-gradient(circle at 92% 10%, rgba(199, 213, 43, 0.22), transparent 34%),
+        linear-gradient(165deg, #fff 0%, #fff 58%, #f2f7fb 58%, #f2f7fb 100%);
+    }
+
+    .rrhh-id-back::before {
+      inset: 0 0 auto 0;
+      height: 118px;
+      background: linear-gradient(135deg, #003d82 0%, #0054a6 72%);
+      clip-path: polygon(0 0, 100% 0, 100% 62%, 0 100%);
+    }
+
+    .rrhh-id-card-inner {
+      position: relative;
+      z-index: 1;
+      height: 100%;
+      padding: 1.2rem;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    .rrhh-id-logo {
+      width: 54px;
+      height: 54px;
+      object-fit: contain;
+      filter: drop-shadow(0 5px 12px rgba(0, 0, 0, 0.14));
+    }
+
+    .rrhh-id-photo-wrap {
+      width: 128px;
+      height: 148px;
+      border-radius: 12px;
+      border: 5px solid #fff;
+      box-shadow: 0 14px 26px rgba(15, 23, 42, 0.25);
+      background: #f8fafc;
+      overflow: hidden;
+      position: relative;
+      cursor: grab;
+    }
+
+    .rrhh-id-photo-wrap::after {
+      content: "Arrastra para ajustar";
+      position: absolute;
+      left: 8px;
+      right: 8px;
+      bottom: 8px;
+      padding: .18rem .35rem;
+      border-radius: 999px;
+      color: #fff;
+      background: rgba(13, 47, 95, .72);
+      font-size: .66rem;
+      font-weight: 700;
+      text-align: center;
+      opacity: 0;
+      transition: opacity .15s ease;
+      pointer-events: none;
+    }
+
+    .rrhh-id-photo-wrap:hover::after {
+      opacity: 1;
+    }
+
+    .rrhh-id-photo-wrap:active {
+      cursor: grabbing;
+    }
+
+    .rrhh-id-photo-wrap.is-contain {
+      cursor: default;
+      background: #fff;
+    }
+
+    .rrhh-id-photo-wrap.is-contain::after {
+      display: none;
+    }
+
+    .rrhh-id-photo {
+      width: 100%;
+      height: 100%;
+      display: block;
+      object-fit: cover;
+      user-select: none;
+      -webkit-user-drag: none;
+      border-radius: 0 !important;
+      clip-path: none !important;
+    }
+
+    .rrhh-id-photo-wrap.is-contain .rrhh-id-photo {
+      object-fit: contain !important;
+      object-position: center center !important;
+      transform: none !important;
+      background: #fff;
+    }
+
+    .rrhh-id-photo-fallback {
+      width: 100%;
+      height: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: linear-gradient(135deg, #003d82, #0054a6);
+      color: #fff;
+      font-size: 2.2rem;
+      font-weight: 800;
+    }
+
+    .rrhh-photo-editor-frame {
+      width: min(100%, 420px);
+      height: 486px;
+      margin: 0 auto;
+      border-radius: 18px;
+      border: 1px solid #b8d3ff;
+      background:
+        linear-gradient(90deg, rgba(255,255,255,.55) 1px, transparent 1px),
+        linear-gradient(rgba(255,255,255,.55) 1px, transparent 1px),
+        #eef3f8;
+      background-size: 50% 33.333%;
+      overflow: hidden;
+      position: relative;
+      cursor: grab;
+      box-shadow: inset 0 0 0 999px rgba(0, 84, 166, .04);
+    }
+
+    .rrhh-photo-editor-frame:active {
+      cursor: grabbing;
+    }
+
+    .rrhh-photo-editor-frame::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      border: 2px solid rgba(13, 110, 253, .65);
+      pointer-events: none;
+    }
+
+    .rrhh-photo-editor-img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      object-position: 50% 50%;
+      display: block;
+      user-select: none;
+      -webkit-user-drag: none;
+    }
+
+    .rrhh-photo-editor-empty {
+      width: 100%;
+      height: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #64748b;
+      font-weight: 700;
+    }
+
+    .rrhh-id-name {
+      max-width: 100%;
+      margin-top: 1rem;
+      font-size: 1.35rem;
+      line-height: 1.08;
+      font-weight: 800;
+      text-align: center;
+      text-transform: uppercase;
+      color: #0d2f5f;
+      word-break: break-word;
+    }
+
+    .rrhh-id-position {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 30px;
+      margin-top: .65rem;
+      padding: .35rem 1.15rem;
+      border-radius: 999px;
+      background: #c7d52b;
+      color: #fff;
+      font-weight: 800;
+      text-transform: uppercase;
+      font-size: .78rem;
+      box-shadow: 0 8px 18px rgba(199, 213, 43, 0.28);
+    }
+
+    .rrhh-id-meta {
+      width: 100%;
+      margin-top: auto;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: .65rem;
+      font-size: .82rem;
+    }
+
+    .rrhh-id-meta:has(.rrhh-id-meta-item:nth-child(3):last-child) .rrhh-id-meta-item:nth-child(3) {
+      grid-column: 1 / -1;
+      width: calc(50% - .325rem);
+      justify-self: center;
+    }
+
+    .rrhh-id-meta-item {
+      border-radius: 10px;
+      background: #f8fafc;
+      border: 1px solid #e7edf4;
+      padding: .55rem .65rem;
+    }
+
+    .rrhh-id-meta-label {
+      display: block;
+      color: #6c7786;
+      font-size: .68rem;
+      font-weight: 700;
+      text-transform: uppercase;
+    }
+
+    .rrhh-id-meta-value {
+      display: block;
+      color: #0d2f5f;
+      font-weight: 800;
+      line-height: 1.2;
+      word-break: break-word;
+    }
+
+    .rrhh-id-qr {
+      width: 138px;
+      height: 138px;
+      padding: 8px;
+      background: #fff;
+      border: 1px solid #dbe4ef;
+      border-radius: 10px;
+      box-shadow: 0 10px 24px rgba(15, 23, 42, 0.14);
+    }
+
+    .rrhh-id-qr-img {
+      width: 100%;
+      height: 100%;
+      display: block;
+      object-fit: contain;
+    }
+
+    .rrhh-id-back-list {
+      width: 100%;
+      margin-top: 1.15rem;
+      display: grid;
+      gap: .55rem;
+    }
+
+    .rrhh-id-back-row {
+      display: grid;
+      grid-template-columns: 30px 1fr;
+      gap: .65rem;
+      align-items: center;
+      text-align: left;
+      color: #0d2f5f;
+      font-size: .9rem;
+    }
+
+    .rrhh-id-back-row i {
+      width: 30px;
+      height: 30px;
+      border-radius: 999px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      background: rgba(0, 84, 166, 0.12);
+      color: #0054a6;
+    }
+
+    .rrhh-id-card.is-horizontal {
+      width: min(100%, 560px);
+      height: 353px;
+      border-radius: 16px;
+    }
+
+    .rrhh-id-card.is-horizontal .rrhh-id-card-inner {
+      height: 353px;
+      align-items: stretch;
+    }
+
+    .rrhh-id-front.is-horizontal::before {
+      inset: 0 0 auto 0;
+      width: 100%;
+      height: 88px;
+      clip-path: polygon(0 0, 100% 0, 100% 72%, 0 100%);
+    }
+
+    .rrhh-id-front.is-horizontal::after {
+      right: -36px;
+      bottom: -46px;
+      width: 136px;
+      height: 136px;
+      border-width: 22px;
+    }
+
+    .rrhh-id-front.is-horizontal .rrhh-id-logo {
+      position: absolute;
+      top: .9rem;
+      right: 1.1rem;
+      z-index: 3;
+      width: 48px;
+      height: 48px;
+    }
+
+    .rrhh-id-front.is-horizontal .rrhh-id-card-inner {
+      display: grid;
+      grid-template-columns: 146px minmax(0, 1fr);
+      grid-template-rows: 84px auto auto 1fr;
+      column-gap: 1.35rem;
+      padding: 1.15rem 1.35rem;
+    }
+
+    .rrhh-id-front.is-horizontal .rrhh-id-photo,
+    .rrhh-id-front.is-horizontal .rrhh-id-photo-wrap {
+      width: 124px;
+      height: 148px;
+    }
+
+    .rrhh-id-front.is-horizontal .rrhh-id-photo-wrap {
+      grid-column: 1;
+      grid-row: 2 / 5;
+      align-self: start;
+      justify-self: center;
+      margin-top: .35rem !important;
+      border-radius: 14px;
+    }
+
+    .rrhh-id-front.is-horizontal .rrhh-id-name {
+      grid-column: 2;
+      grid-row: 2;
+      margin-top: .45rem;
+      text-align: left;
+      font-size: 1.26rem;
+      word-break: normal;
+      overflow-wrap: anywhere;
+      padding-left: 0;
+    }
+
+    .rrhh-id-front.is-horizontal .rrhh-id-position {
+      grid-column: 2;
+      grid-row: 3;
+      justify-self: start;
+      margin-left: 0;
+      margin-top: .35rem;
+    }
+
+    .rrhh-id-front.is-horizontal .rrhh-id-meta {
+      grid-column: 2;
+      grid-row: 4;
+      margin-top: .75rem !important;
+      align-self: end;
+      padding-left: 0;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: .55rem;
+      font-size: .78rem;
+    }
+
+    .rrhh-id-front.is-horizontal .rrhh-id-meta-item {
+      padding: .48rem .58rem;
+      border-radius: 9px;
+    }
+
+    .rrhh-id-back.is-horizontal::before {
+      height: 86px;
+      clip-path: polygon(0 0, 100% 0, 100% 70%, 0 100%);
+    }
+
+    .rrhh-id-back.is-horizontal .rrhh-id-card-inner {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 128px;
+      grid-template-rows: 78px auto 1fr;
+      gap: .5rem 1rem;
+      padding: 1rem 1.05rem;
+    }
+
+    .rrhh-id-back.is-horizontal .rrhh-id-logo {
+      grid-column: 1;
+      justify-self: start;
+      width: 48px;
+      height: 48px;
+      max-width: 48px;
+      align-self: start;
+    }
+
+    .rrhh-id-back.is-horizontal .rrhh-id-qr {
+      grid-column: 2;
+      grid-row: 1 / 3;
+      align-self: center;
+      justify-self: end;
+      width: 116px;
+      height: 116px;
+    }
+
+    .rrhh-id-back.is-horizontal .rrhh-id-back-title {
+      grid-column: 1;
+      grid-row: 2;
+      margin-top: .15rem !important;
+      text-align: left !important;
+    }
+
+    .rrhh-id-back.is-horizontal .rrhh-id-back-list {
+      grid-column: 1;
+      grid-row: 3;
+      margin-top: 0;
+      gap: .33rem;
+      align-self: start;
+    }
+
+    .rrhh-id-back.is-horizontal .rrhh-id-back-row {
+      grid-template-columns: 26px minmax(0, 1fr);
+      gap: .45rem;
+      font-size: .82rem;
+      line-height: 1.15;
+    }
+
+    .rrhh-id-back.is-horizontal .rrhh-id-back-row i {
+      width: 26px;
+      height: 26px;
+      font-size: .78rem;
+    }
+
+    .rrhh-id-back.is-horizontal .rrhh-id-back-row div {
+      min-width: 0;
+      overflow-wrap: anywhere;
+    }
+
+    #modalExpedienteRrhh .modal-dialog {
+      max-width: min(1080px, calc(100vw - 5rem));
+      margin: 1rem auto;
+    }
+
+    #modalExpedienteRrhh.modal.show {
+      z-index: 100040 !important;
+      background: transparent !important;
+    }
+
+    #modalExpedienteRrhh .modal-content {
+      border-radius: 12px;
+      overflow: hidden;
+    }
+
+    #modalExpedienteRrhh .modal-header {
+      align-items: center;
+      min-height: 64px;
+      padding: 1rem 3.25rem 1rem 1.5rem;
+      position: relative;
+    }
+
+    #modalExpedienteRrhh .btn-close {
+      background-color: #fff;
+      border-radius: 8px;
+      box-shadow: 0 4px 12px rgba(15, 23, 42, .08);
+      height: 1.05rem;
+      margin: 0;
+      opacity: .72;
+      position: absolute;
+      right: 1.15rem;
+      top: 1.15rem;
+      width: 1.05rem;
+      z-index: 4;
+    }
+
+    #modalExpedienteRrhh .btn-close:hover {
+      opacity: 1;
+    }
+
+    @media (max-width: 767.98px) {
+      #modalExpedienteRrhh .modal-dialog {
+        max-width: calc(100vw - .75rem);
+        margin: .375rem auto;
+      }
+    }
+
+    .rrhh-expediente {
+      background: #fff;
+      color: #1f2937;
+      border: 1px solid #e3e8ef;
+      border-radius: 12px;
+      overflow: hidden;
+    }
+
+    .rrhh-expediente-cover {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 1.25rem;
+      padding: 1.35rem;
+      color: #fff;
+      background:
+        radial-gradient(circle at 92% 8%, rgba(199, 213, 43, .45), transparent 24%),
+        linear-gradient(135deg, #003d82 0%, #0054a6 74%);
+    }
+
+    .rrhh-expediente-logo {
+      width: 58px;
+      height: 58px;
+      object-fit: contain;
+      filter: drop-shadow(0 6px 12px rgba(0, 0, 0, .18));
+    }
+
+    .rrhh-expediente-title {
+      font-size: 1.7rem;
+      line-height: 1.1;
+      font-weight: 800;
+      margin: .45rem 0 .25rem;
+    }
+
+    .rrhh-expediente-subtitle {
+      color: rgba(255, 255, 255, .86);
+      font-size: .95rem;
+    }
+
+    .rrhh-expediente-person {
+      display: grid;
+      grid-template-columns: 96px minmax(0, 1fr);
+      gap: 1rem;
+      align-items: center;
+      min-width: 330px;
+      border-radius: 14px;
+      padding: .9rem;
+      background: rgba(255, 255, 255, .13);
+      backdrop-filter: blur(2px);
+    }
+
+    .rrhh-expediente-person.no-photo {
+      grid-template-columns: 1fr;
+      min-width: 280px;
+    }
+
+    .rrhh-expediente-photo {
+      width: 86px;
+      height: 100px;
+      border-radius: 8px;
+      overflow: hidden;
+      border: 3px solid rgba(255, 255, 255, .85);
+      background: rgba(255, 255, 255, .2);
+    }
+
+    .rrhh-expediente-photo.is-contain {
+      background: rgba(255, 255, 255, .96);
+      cursor: default;
+    }
+
+    .rrhh-expediente-photo img {
+      width: 100%;
+      height: 100%;
+      display: block;
+      user-select: none;
+      -webkit-user-drag: none;
+      border-radius: 0 !important;
+      clip-path: none !important;
+    }
+
+    .rrhh-expediente-photo.is-contain img {
+      object-fit: contain !important;
+      object-position: center center !important;
+      transform: none !important;
+      background: #fff;
+    }
+
+    .rrhh-expediente-photo span {
+      width: 100%;
+      height: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 800;
+      font-size: 1.35rem;
+      color: #fff;
+    }
+
+    .rrhh-expediente-photo.is-movable {
+      cursor: grab;
+    }
+
+    .rrhh-expediente-photo.is-movable:active {
+      cursor: grabbing;
+    }
+
+    .rrhh-expediente-toolbar {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: .75rem;
+      border: 1px solid #e3e8ef;
+      border-radius: 10px;
+      padding: .75rem;
+      margin-bottom: 1rem;
+      background: #f8fafc;
+    }
+
+    .rrhh-expediente-photo-dropzone {
+      border: 1px dashed #b8c6d8;
+      border-radius: 10px;
+      padding: .5rem .75rem;
+      color: #506176;
+      background: #fff;
+      font-size: .82rem;
+      min-width: 220px;
+    }
+
+    .rrhh-expediente-photo-dropzone.is-dragover,
+    .rrhh-expediente-photo.is-dragover {
+      border-color: #0054a6;
+      background: #eef6ff;
+    }
+
+    .rrhh-expediente-toolbar .btn-check:checked + .btn,
+    .rrhh-expediente-body {
+      padding: 1.1rem;
+      background: #fff;
+    }
+
+    .rrhh-expediente-section {
+      border: 1px solid #e3e8ef;
+      border-radius: 10px;
+      overflow: hidden;
+      margin-bottom: 1rem;
+      break-inside: avoid;
+    }
+
+    .rrhh-expediente-section-title {
+      display: flex;
+      align-items: center;
+      gap: .5rem;
+      padding: .7rem .85rem;
+      font-weight: 800;
+      color: #0d2f5f;
+      background: #f6f9fc;
+      border-bottom: 1px solid #e3e8ef;
+    }
+
+    .rrhh-expediente-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: .75rem;
+      padding: .9rem;
+    }
+
+    .rrhh-expediente-field {
+      min-height: 56px;
+      border-radius: 9px;
+      padding: .55rem .65rem;
+      background: #fbfdff;
+      border: 1px solid #edf2f7;
+    }
+
+    .rrhh-expediente-label {
+      display: block;
+      color: #6b7280;
+      font-size: .72rem;
+      font-weight: 800;
+      text-transform: uppercase;
+      margin-bottom: .18rem;
+    }
+
+    .rrhh-expediente-value {
+      color: #1f2937;
+      font-size: .94rem;
+      font-weight: 700;
+      line-height: 1.25;
+      word-break: break-word;
+    }
+
+    .rrhh-expediente-table {
+      width: 100%;
+      margin: 0;
+      font-size: .86rem;
+    }
+
+    .rrhh-expediente-table th {
+      color: #0d2f5f;
+      background: #f8fafc;
+      font-size: .72rem;
+      text-transform: uppercase;
+    }
+
+    .rrhh-expediente-checkbox {
+      width: 18px;
+      height: 18px;
+      accent-color: #0054a6;
+      cursor: pointer;
+    }
+
+    .rrhh-expediente-signatures {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 1.25rem;
+      padding: .9rem;
+    }
+
+    .rrhh-expediente-signature {
+      min-height: 112px;
+      border: 1px dashed #b8c6d8;
+      border-radius: 10px;
+      background: #fbfdff;
+      text-align: center;
+      color: #64748b;
+      font-size: .82rem;
+      padding: .65rem;
+      cursor: pointer;
+      display: flex;
+      flex-direction: column;
+      justify-content: flex-end;
+      transition: border-color .18s ease, box-shadow .18s ease;
+    }
+
+    .rrhh-expediente-signature:hover {
+      border-color: #0054a6;
+      box-shadow: 0 8px 18px rgba(0, 84, 166, .12);
+    }
+
+    .rrhh-expediente-signature-img {
+      max-width: 100%;
+      max-height: 58px;
+      object-fit: contain;
+      margin: 0 auto .35rem;
+      display: block;
+    }
+
+    .rrhh-expediente-signature-clear {
+      align-self: center;
+      margin-bottom: .35rem;
+      padding: .15rem .55rem;
+      border-radius: 999px;
+      font-size: .72rem;
+      line-height: 1.2;
+    }
+
+    .rrhh-expediente-signature-line {
+      width: 100%;
+      border-top: 1px solid #94a3b8;
+      padding-top: .45rem;
+    }
+
+    .rrhh-expediente-signature-date {
+      border: 0;
+      border-bottom: 1px solid #94a3b8;
+      border-radius: 0;
+      background: transparent;
+      text-align: center;
+      font-size: .9rem;
+      color: #1f2937;
+      box-shadow: none;
+      margin-bottom: .45rem;
+    }
+
+    .rrhh-expediente-signature-date:focus {
+      outline: 0;
+      box-shadow: none;
+      border-bottom-color: #0054a6;
+    }
+
+    .rrhh-signature-pad {
+      width: 100%;
+      height: 260px;
+      border: 1px dashed #b8c6d8;
+      border-radius: 12px;
+      background: #fff;
+      touch-action: none;
+      cursor: crosshair;
+      display: block;
+    }
+
+    .rrhh-signature-hint {
+      color: #64748b;
+      font-size: .88rem;
+    }
+    }
+
+    @media (max-width: 991.98px) {
+      .rrhh-expediente-cover {
+        grid-template-columns: 1fr;
+      }
+
+      .rrhh-expediente-person {
+        min-width: 0;
+      }
+
+      .rrhh-expediente-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    @media print {
+      @page {
+        size: letter landscape;
+        margin: 10mm;
+      }
+      body.print-rrhh-credencial *,
+      body.print-rrhh-expediente * {
+        visibility: hidden !important;
+      }
+      body.print-rrhh-credencial #modalCredencialRrhh,
+      body.print-rrhh-credencial #modalCredencialRrhh *,
+      body.print-rrhh-expediente #modalExpedienteRrhh,
+      body.print-rrhh-expediente #modalExpedienteRrhh * {
+        visibility: visible !important;
+      }
+      body.print-rrhh-credencial #modalCredencialRrhh,
+      body.print-rrhh-expediente #modalExpedienteRrhh {
+        position: absolute !important;
+        inset: 0 auto auto 0 !important;
+        width: 100% !important;
+        height: auto !important;
+      }
+      body.print-rrhh-credencial #modalCredencialRrhh .modal-dialog,
+      body.print-rrhh-expediente #modalExpedienteRrhh .modal-dialog {
+        max-width: 100% !important;
+        margin: 0 !important;
+      }
+      body.print-rrhh-credencial #modalCredencialRrhh .modal-content,
+      body.print-rrhh-expediente #modalExpedienteRrhh .modal-content {
+        border: 0 !important;
+        box-shadow: none !important;
+        overflow: visible !important;
+      }
+      body.print-rrhh-credencial #modalCredencialRrhh .modal-header,
+      body.print-rrhh-credencial #modalCredencialRrhh .modal-footer,
+      body.print-rrhh-expediente #modalExpedienteRrhh .modal-header,
+      body.print-rrhh-expediente #modalExpedienteRrhh .modal-footer {
+        display: none !important;
+      }
+      .rrhh-credential-stage {
+        background: #fff !important;
+        padding: 0 !important;
+      }
+      body.print-rrhh-credencial #modalCredencialRrhh .modal-body {
+        padding: 0 !important;
+        overflow: visible !important;
+      }
+      body.print-rrhh-credencial .rrhh-credential-stage .row {
+        display: flex !important;
+        flex-wrap: nowrap !important;
+        justify-content: center !important;
+        align-items: flex-start !important;
+        gap: 14mm !important;
+        margin: 0 !important;
+      }
+      body.print-rrhh-credencial .rrhh-credential-stage .row > [class*="col-"] {
+        flex: 0 0 auto !important;
+        width: auto !important;
+        max-width: none !important;
+        padding: 0 !important;
+      }
+      .rrhh-credential-toolbar,
+      #modalCredencialRrhh .text-muted.mb-2,
+      .rrhh-expediente-toolbar {
+        display: none !important;
+      }
+      #modalCredencialRrhh .rrhh-id-card,
+      #modalExpedienteRrhh .rrhh-expediente-section {
+        break-inside: avoid;
+        box-shadow: none !important;
+      }
+      body.print-rrhh-credencial #modalCredencialRrhh .rrhh-id-card {
+        width: 85.6mm !important;
+        height: 54mm !important;
+        min-width: 85.6mm !important;
+        min-height: 54mm !important;
+        border-radius: 4mm !important;
+        box-shadow: none !important;
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+      }
+      body.print-rrhh-credencial #modalCredencialRrhh .rrhh-id-card *,
+      body.print-rrhh-credencial #modalCredencialRrhh .rrhh-id-card::before,
+      body.print-rrhh-credencial #modalCredencialRrhh .rrhh-id-card::after {
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+      }
+      body.print-rrhh-credencial #modalCredencialRrhh .rrhh-id-card.is-horizontal .rrhh-id-card-inner {
+        height: 54mm !important;
+      }
+      body.print-rrhh-credencial #modalCredencialRrhh .rrhh-id-card:not(.is-horizontal) {
+        width: 54mm !important;
+        height: 85.6mm !important;
+        min-width: 54mm !important;
+        min-height: 85.6mm !important;
+      }
+      body.print-rrhh-credencial #modalCredencialRrhh .rrhh-id-card:not(.is-horizontal) .rrhh-id-card-inner {
+        height: 85.6mm !important;
+      }
+      #modalExpedienteRrhh .modal-body {
+        padding: 0 !important;
+        overflow: visible !important;
+        height: auto !important;
+        max-height: none !important;
+      }
+      #modalExpedienteRrhh .rrhh-expediente {
+        border: 0 !important;
+        border-radius: 0 !important;
+      }
+      #modalExpedienteRrhh .rrhh-expediente-cover,
+      #modalExpedienteRrhh .rrhh-expediente-section-title {
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+      }
+    }
+
     /* Contador en filtros */
     .filter-counter {
         display: inline-block;
@@ -2117,6 +3380,7 @@ window.miUsuarioId = <?= json_encode((int)($miUsuarioId ?? 0)) ?>;
 window.puedeEditarTodos = <?= json_encode(!empty($puedeEditarTodos ?? false)) ?>;
 window.puedeGestionarPermisos = <?= json_encode(!empty($puedeGestionarPermisos ?? false)) ?>;
 window.todosDepartamentosBackend = <?= json_encode(($departamento['datos'] ?? [])) ?>;
+window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
 </script>
 <div class="content-wrapper">
 
@@ -2371,10 +3635,8 @@ window.todosDepartamentosBackend = <?= json_encode(($departamento['datos'] ?? []
         <!-- =======================
              BOTONES DE ACCIÓN
         ======================== -->
-        <div class="row justify-content-between m-4">
-            <div class="col-8"></div>
-
-            <div class="col-4 d-flex align-items-end justify-content-end gap-2">
+        <div class="row justify-content-end m-4">
+            <div class="col-12 d-flex align-items-end justify-content-end gap-2 flex-wrap">
                 <!-- Botón Descargar Plantilla -->
                 <button
                   type="button"
@@ -2397,8 +3659,432 @@ window.todosDepartamentosBackend = <?= json_encode(($departamento['datos'] ?? []
                     <i class="fa fa-user-plus icon-sm me-sm-2"></i>
                     <span class="d-inline-block">Agregar Usuario</span>
                 </button>
+
+                <?php if ((int)($_SESSION['usuario_id'] ?? 0) === 1): ?>
+                <button
+                  type="button"
+                  class="btn btn-info text-white btn-action-size"
+                  data-bs-toggle="modal"
+                  data-bs-target="#modalAgregarUsuarioRrhh"
+                  title="Agregar usuario desde RR.HH."
+                >
+                    <i class="fa fa-user-tie icon-sm me-sm-2"></i>
+                    <span class="d-inline-block">Agregar usuario RR.HH.</span>
+                </button>
+                <?php endif; ?>
             </div>
         </div>
+
+        <?php if ((int)($_SESSION['usuario_id'] ?? 0) === 1): ?>
+        <div class="modal fade" id="modalAgregarUsuarioRrhh" tabindex="-1" aria-labelledby="modalAgregarUsuarioRrhhLabel" aria-hidden="true" data-bs-backdrop="false" data-bs-keyboard="true">
+          <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
+            <form class="modal-content" id="formAgregarUsuarioRrhh" autocomplete="off">
+              <input type="hidden" id="rrhh_edit_id_persona" name="id_persona">
+              <div class="modal-header">
+                <h5 class="modal-title fw-bold" id="modalAgregarUsuarioRrhhLabel">
+                  <i class="fa fa-user-tie me-2"></i>Agregar usuario RR.HH.
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+              </div>
+              <div class="modal-body">
+                <ul class="nav nav-tabs mb-3" role="tablist">
+                  <li class="nav-item" role="presentation"><button class="nav-link active" data-bs-toggle="tab" data-bs-target="#rrhhTabPersona" type="button" role="tab">Datos personales</button></li>
+                  <li class="nav-item" role="presentation"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#rrhhTabLaboral" type="button" role="tab">Laboral</button></li>
+                  <li class="nav-item" role="presentation"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#rrhhTabNomina" type="button" role="tab">Banco y créditos</button></li>
+                  <li class="nav-item" role="presentation"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#rrhhTabContactos" type="button" role="tab">Contactos</button></li>
+                  <li class="nav-item" role="presentation"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#rrhhTabBeneficiarios" type="button" role="tab">Beneficiarios</button></li>
+                  <li class="nav-item" role="presentation"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#rrhhTabSalud" type="button" role="tab">Salud</button></li>
+                  <li class="nav-item" role="presentation"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#rrhhTabObservaciones" type="button" role="tab">Observaciones</button></li>
+                </ul>
+
+                <div class="tab-content">
+                  <div class="tab-pane fade show active" id="rrhhTabPersona" role="tabpanel">
+                    <div class="rrhh-section shadow-sm mb-3">
+                      <div class="rrhh-section-title"><i class="fa fa-id-card me-1"></i>Identificación</div>
+                      <div class="row g-3">
+                        <div class="col-md-3"><label class="form-label">Nombre(s) *</label><input type="text" class="form-control text-uppercase" name="persona.nombres" required></div>
+                        <div class="col-md-3"><label class="form-label">Segundo nombre</label><input type="text" class="form-control text-uppercase" name="persona.segundo_nombre"></div>
+                        <div class="col-md-3"><label class="form-label">Apellido paterno *</label><input type="text" class="form-control text-uppercase" name="persona.apellidop" required></div>
+                        <div class="col-md-3"><label class="form-label">Apellido materno</label><input type="text" class="form-control text-uppercase" name="persona.apellidom"></div>
+                        <div class="col-md-3"><label class="form-label">CURP</label><input type="text" class="form-control text-uppercase" name="persona.curp" maxlength="18"></div>
+                        <div class="col-md-3"><label class="form-label">RFC</label><input type="text" class="form-control text-uppercase" name="persona.rfc" maxlength="20"></div>
+                        <div class="col-md-3"><label class="form-label">NSS</label><input type="text" class="form-control" name="persona.nss" maxlength="20"></div>
+                        <div class="col-md-3"><label class="form-label">Fecha de nacimiento</label><input type="text" class="form-control rrhh-date" name="persona.fecha_nacimiento" placeholder="YYYY-MM-DD" readonly></div>
+                        <div class="col-md-3">
+                          <label class="form-label">Sexo</label>
+                          <select class="form-select" name="persona.sexo">
+                            <option value="">Selecciona</option>
+                            <option value="Femenino">Femenino</option>
+                            <option value="Masculino">Masculino</option>
+                            <option value="Otro">Otro</option>
+                          </select>
+                        </div>
+                        <div class="col-md-3"><label class="form-label">Entidad federativa</label><input type="text" class="form-control text-uppercase" name="persona.entidad_federativa_rfc"></div>
+                        <div class="col-md-3"><label class="form-label">Usuario</label><input type="text" class="form-control" name="persona.usuario"></div>
+                        <div class="col-md-3"><label class="form-label">Contraseña</label><input type="text" class="form-control" name="persona.contrasena"></div>
+                      </div>
+                    </div>
+
+                    <div class="rrhh-section shadow-sm mb-3">
+                      <div class="d-flex justify-content-between align-items-center mb-2">
+                        <div class="rrhh-section-title mb-0">Teléfonos</div>
+                        <button type="button" class="btn btn-outline-primary btn-sm" data-rrhh-add="telefonos"><i class="fa fa-plus me-1"></i>Agregar</button>
+                      </div>
+                      <div data-rrhh-list="telefonos"></div>
+                    </div>
+                    <div class="rrhh-section shadow-sm mb-3">
+                      <div class="d-flex justify-content-between align-items-center mb-2">
+                        <div class="rrhh-section-title mb-0">Correos</div>
+                        <button type="button" class="btn btn-outline-primary btn-sm" data-rrhh-add="correos"><i class="fa fa-plus me-1"></i>Agregar</button>
+                      </div>
+                      <div data-rrhh-list="correos"></div>
+                    </div>
+                    <div class="rrhh-section shadow-sm">
+                      <div class="d-flex justify-content-between align-items-center mb-2">
+                        <div class="rrhh-section-title mb-0">Domicilios</div>
+                        <button type="button" class="btn btn-outline-primary btn-sm" data-rrhh-add="domicilios"><i class="fa fa-plus me-1"></i>Agregar</button>
+                      </div>
+                      <div data-rrhh-list="domicilios"></div>
+                    </div>
+                  </div>
+
+                  <div class="tab-pane fade" id="rrhhTabLaboral" role="tabpanel">
+                    <div class="rrhh-section shadow-sm">
+                      <div class="rrhh-section-title"><i class="fa fa-briefcase me-1"></i>Datos laborales</div>
+                      <div class="row g-3">
+                        <div class="col-md-3"><label class="form-label">Registro patronal</label><input type="text" class="form-control" name="rrhh.registro_patronal"></div>
+                        <div class="col-md-3"><label class="form-label">Código CONTPAC</label><input type="text" class="form-control" name="rrhh.codigo_contpaq"></div>
+                        <div class="col-md-3"><label class="form-label">Fecha de ingreso</label><input type="text" class="form-control rrhh-date" name="rrhh.fecha_ingreso" placeholder="YYYY-MM-DD" readonly></div>
+                        <div class="col-md-3"><label class="form-label">Fecha CONTPAC</label><input type="text" class="form-control rrhh-date" name="rrhh.fecha_contpaq" placeholder="YYYY-MM-DD" readonly></div>
+                        <div class="col-md-3"><label class="form-label">Fecha IMSS alta</label><input type="text" class="form-control rrhh-date" name="rrhh.fecha_imss_alta" placeholder="YYYY-MM-DD" readonly></div>
+                        <div class="col-md-3">
+                          <label class="form-label">Pa&iacute;s</label>
+                          <select id="rrhh_pais_id" class="form-select js-select-buscador" name="persona.id_pais">
+                            <option value="">Seleccione un pa&iacute;s</option>
+                          </select>
+                        </div>
+                        <div class="col-md-3">
+                          <label class="form-label">&Aacute;rea</label>
+                          <select id="rrhh_area_id" class="form-select js-select-buscador" name="rrhh.area_id" disabled>
+                            <option value="">Seleccione un &aacute;rea</option>
+                          </select>
+                          <input type="hidden" id="rrhh_area_texto" name="rrhh.area_texto">
+                        </div>
+                        <div class="col-md-3">
+                          <label class="form-label">Departamento</label>
+                          <select id="rrhh_departamento_id" class="form-select js-select-buscador" name="rrhh.departamento_id" disabled>
+                            <option value="">Seleccione un departamento</option>
+                          </select>
+                          <input type="hidden" id="rrhh_departamento_texto" name="rrhh.departamento_texto">
+                        </div>
+                        <div class="col-md-3">
+                          <label class="form-label">Puesto</label>
+                          <select id="rrhh_puesto_id" class="form-select js-select-buscador" name="rrhh.puesto_id" disabled>
+                            <option value="">Seleccione un puesto</option>
+                          </select>
+                          <input type="hidden" id="rrhh_puesto_texto" name="rrhh.puesto_texto">
+                        </div>
+                        <div class="col-md-6">
+                          <label class="form-label">Jefe directo</label>
+                          <select id="rrhh_jefe_id" class="form-select js-select-buscador" name="rrhh.jefe_id" disabled>
+                            <option value="">Seleccione un jefe</option>
+                          </select>
+                          <input type="hidden" id="rrhh_jefe_directo_texto" name="rrhh.jefe_directo_texto">
+                        </div>
+                        <div class="col-md-4"><label class="form-label">Dirección organizacional</label><input type="text" class="form-control" name="rrhh.direccion_organizacional"></div>
+                        <div class="col-md-4"><label class="form-label">Ubicación laboral</label><input type="text" class="form-control" name="rrhh.ubicacion_laboral"></div>
+                        <div class="col-md-4"><label class="form-label">Municipio</label><input type="text" class="form-control" name="rrhh.municipio_laboral"></div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div class="tab-pane fade" id="rrhhTabNomina" role="tabpanel">
+                    <div class="rrhh-section shadow-sm mb-3">
+                      <div class="rrhh-section-title"><i class="fa fa-money-bill-wave me-1"></i>Banco y créditos laborales</div>
+                      <div class="row g-3">
+                        <div class="col-md-3"><label class="form-label">Crédito Infonavit/Fonacot</label><input type="text" class="form-control" name="nomina.credito_infonavit_fonacot"></div>
+                        <div class="col-md-3"><label class="form-label">Número de crédito</label><input type="text" class="form-control" name="nomina.no_credito"></div>
+                        <div class="col-md-3"><label class="form-label">Monto a descontar</label><input type="number" step="0.01" class="form-control" name="nomina.monto_descontar"></div>
+                        <div class="col-md-3">
+                          <label class="form-label">Carta de no crédito</label>
+                          <select class="form-select" name="rrhh.carta_no_credito">
+                            <option value="">Selecciona</option>
+                            <option value="Si">Sí</option>
+                            <option value="No">No</option>
+                          </select>
+                        </div>
+                        <div class="col-md-3">
+                          <label class="form-label">Carta no nómina BBVA</label>
+                          <select class="form-select" name="rrhh.carta_no_nomina_bbva">
+                            <option value="">Selecciona</option>
+                            <option value="Si">Sí</option>
+                            <option value="No">No</option>
+                          </select>
+                        </div>
+                      </div>
+                    </div>
+                    <div class="rrhh-section shadow-sm">
+                      <div class="d-flex justify-content-between align-items-center mb-2">
+                        <div class="rrhh-section-title mb-0">Cuentas bancarias</div>
+                        <button type="button" class="btn btn-outline-primary btn-sm" data-rrhh-add="cuentas_bancarias"><i class="fa fa-plus me-1"></i>Agregar</button>
+                      </div>
+                      <div data-rrhh-list="cuentas_bancarias"></div>
+                    </div>
+                  </div>
+
+                  <div class="tab-pane fade" id="rrhhTabContactos" role="tabpanel">
+                    <div class="rrhh-section shadow-sm">
+                      <div class="d-flex justify-content-between align-items-center mb-2">
+                        <div class="rrhh-section-title mb-0">Contactos de emergencia</div>
+                        <button type="button" class="btn btn-outline-primary btn-sm" data-rrhh-add="contactos_emergencia"><i class="fa fa-plus me-1"></i>Agregar</button>
+                      </div>
+                      <div data-rrhh-list="contactos_emergencia"></div>
+                    </div>
+                  </div>
+
+                  <div class="tab-pane fade" id="rrhhTabBeneficiarios" role="tabpanel">
+                    <div class="rrhh-section shadow-sm">
+                      <div class="d-flex justify-content-between align-items-center mb-2">
+                        <div class="rrhh-section-title mb-0">Beneficiarios por fallecimiento</div>
+                        <button type="button" class="btn btn-outline-primary btn-sm" data-rrhh-add="beneficiarios"><i class="fa fa-plus me-1"></i>Agregar</button>
+                      </div>
+                      <div data-rrhh-list="beneficiarios"></div>
+                    </div>
+                  </div>
+
+                  <div class="tab-pane fade" id="rrhhTabSalud" role="tabpanel">
+                    <div class="rrhh-section shadow-sm mb-3">
+                      <div class="rrhh-section-title"><i class="fa fa-notes-medical me-1"></i>Informaci&oacute;n m&eacute;dica</div>
+                      <div class="row g-3">
+                        <div class="col-md-3">
+                          <label class="form-label">Tipo de sangre</label>
+                          <select class="form-select" name="rrhh.tipo_sangre">
+                            <option value="">Selecciona</option>
+                            <option value="A+">A+</option>
+                            <option value="A-">A-</option>
+                            <option value="B+">B+</option>
+                            <option value="B-">B-</option>
+                            <option value="AB+">AB+</option>
+                            <option value="AB-">AB-</option>
+                            <option value="O+">O+</option>
+                            <option value="O-">O-</option>
+                            <option value="Desconocido">Desconocido</option>
+                          </select>
+                        </div>
+                        <div class="col-md-9">
+                          <label class="form-label">Alergias</label>
+                          <textarea class="form-control" name="rrhh.alergias" rows="2" placeholder="Medicamentos, alimentos u otras alergias relevantes"></textarea>
+                        </div>
+                        <div class="col-md-6">
+                          <label class="form-label">Enfermedades cr&oacute;nicas</label>
+                          <textarea class="form-control" name="rrhh.enfermedades_cronicas" rows="3" placeholder="Diabetes, hipertensi&oacute;n, asma u otros padecimientos"></textarea>
+                        </div>
+                        <div class="col-md-6">
+                          <label class="form-label">Enfermedades hereditarias</label>
+                          <textarea class="form-control" name="rrhh.enfermedades_hereditarias" rows="3" placeholder="Antecedentes familiares relevantes"></textarea>
+                        </div>
+                        <div class="col-md-6">
+                          <label class="form-label">Medicamentos actuales</label>
+                          <textarea class="form-control" name="rrhh.medicamentos_actuales" rows="3" placeholder="Tratamientos o medicamentos de uso continuo"></textarea>
+                        </div>
+                        <div class="col-md-6">
+                          <label class="form-label">Discapacidad o condici&oacute;n m&eacute;dica</label>
+                          <textarea class="form-control" name="rrhh.discapacidad_condicion" rows="3" placeholder="Condiciones que RR.HH. deba considerar"></textarea>
+                        </div>
+                        <div class="col-md-12">
+                          <label class="form-label">Observaciones m&eacute;dicas</label>
+                          <textarea class="form-control" name="rrhh.observaciones_medicas" rows="3" placeholder="Indicaciones, restricciones o notas adicionales"></textarea>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div class="tab-pane fade" id="rrhhTabObservaciones" role="tabpanel">
+                    <div class="rrhh-section shadow-sm">
+                      <div class="rrhh-section-title"><i class="fa fa-clipboard-list me-1"></i>Observaciones</div>
+                      <textarea class="form-control" name="observaciones" rows="6" placeholder="Notas internas de RR.HH."></textarea>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div class="modal-footer">
+                <button type="button" class="btn btn-outline-primary d-none" id="btnGenerarExpedienteRrhh"><i class="fa fa-folder-open me-1"></i>Generar expediente</button>
+                <button type="button" class="btn btn-outline-primary d-none" id="btnGenerarCredencialRrhh"><i class="fa fa-id-card me-1"></i>Generar credencial</button>
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cerrar</button>
+                <button type="submit" class="btn btn-primary" id="btnGuardarUsuarioRrhh"><i class="fa fa-save me-1"></i>Guardar usuario RR.HH.</button>
+              </div>
+            </form>
+          </div>
+        </div>
+        <?php endif; ?>
+
+        <?php if ((int)($_SESSION['usuario_id'] ?? 0) === 1): ?>
+        <div class="modal fade" id="modalExpedienteRrhh" tabindex="-1" aria-labelledby="modalExpedienteRrhhLabel" aria-hidden="true">
+          <div class="modal-dialog modal-dialog-centered modal-xl">
+            <div class="modal-content">
+              <div class="modal-header">
+                <h5 class="modal-title fw-bold" id="modalExpedienteRrhhLabel">
+                  <i class="fa fa-folder-open me-2"></i>Expediente RR.HH.
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+              </div>
+              <div class="modal-body">
+                <div class="rrhh-expediente-toolbar">
+                  <div class="form-check form-switch mb-0">
+                    <input class="form-check-input" type="checkbox" role="switch" id="rrhhExpedienteIncluirFoto" checked>
+                    <label class="form-check-label fw-semibold" for="rrhhExpedienteIncluirFoto">Incluir foto en expediente</label>
+                  </div>
+                  <div class="d-flex flex-wrap align-items-center gap-2">
+                    <input type="file" class="d-none" id="rrhhExpedienteFotoInput" accept="image/*">
+                    <div class="rrhh-expediente-photo-dropzone" id="rrhhExpedienteFotoDropzone">
+                      Arrastra una foto aqu&iacute; o usa el bot&oacute;n.
+                    </div>
+                    <button type="button" class="btn btn-outline-primary btn-sm" id="btnCambiarFotoExpedienteRrhh">
+                      <i class="fa fa-camera me-1"></i>Cambiar foto
+                    </button>
+                    <button type="button" class="btn btn-outline-primary btn-sm" id="btnAjustarFotoExpedienteRrhh">
+                      <i class="fa fa-crop-alt me-1"></i>Ajustar foto
+                    </button>
+                    <button type="button" class="btn btn-outline-danger btn-sm" id="btnLimpiarTodoExpedienteRrhh">
+                      <i class="fa fa-trash me-1"></i>Limpiar todo
+                    </button>
+                  </div>
+                </div>
+                <div id="rrhhExpedienteContenido"></div>
+              </div>
+              <div class="modal-footer">
+                <button type="button" class="btn btn-outline-primary" id="btnVolverRrhhDesdeExpediente">
+                  <i class="fa fa-arrow-left me-1"></i>Volver a RR.HH.
+                </button>
+                <button type="button" class="btn btn-primary" id="btnImprimirExpedienteRrhh">
+                  <i class="fa fa-print me-1"></i>Imprimir expediente
+                </button>
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cerrar</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="modal fade" id="modalFirmaExpedienteRrhh" tabindex="-1" aria-labelledby="modalFirmaExpedienteRrhhLabel" aria-hidden="true">
+          <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+              <div class="modal-header">
+                <h5 class="modal-title fw-bold" id="modalFirmaExpedienteRrhhLabel">
+                  <i class="fa fa-pen me-2"></i>Capturar firma
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+              </div>
+              <div class="modal-body">
+                <div class="rrhh-signature-hint mb-2">Firma dentro del recuadro. Puedes repetirla antes de aceptarla.</div>
+                <canvas id="rrhhFirmaExpedienteCanvas" class="rrhh-signature-pad"></canvas>
+              </div>
+              <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" id="btnRepetirFirmaExpedienteRrhh">
+                  <i class="fa fa-undo me-1"></i>Repetir
+                </button>
+                <button type="button" class="btn btn-primary" id="btnAceptarFirmaExpedienteRrhh">
+                  <i class="fa fa-check me-1"></i>Aceptar firma
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="modal fade" id="modalCredencialRrhh" tabindex="-1" aria-labelledby="modalCredencialRrhhLabel" aria-hidden="true">
+          <div class="modal-dialog modal-dialog-centered modal-xl">
+            <div class="modal-content">
+              <div class="modal-header">
+                <h5 class="modal-title fw-bold" id="modalCredencialRrhhLabel">
+                  <i class="fa fa-id-card me-2"></i>Credencial RR.HH.
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+              </div>
+              <div class="modal-body">
+                <div class="rrhh-credential-toolbar">
+                  <div>
+                    <div class="fw-bold text-dark mb-1">Formato de credencial</div>
+                    <div class="small text-muted mb-2">Impresi&oacute;n preparada en tama&ntilde;o CR80.</div>
+                    <div class="btn-group" role="group" aria-label="Orientaci&oacute;n de la credencial">
+                      <input type="radio" class="btn-check" name="rrhhCredencialOrientacion" id="rrhhCredencialVertical" value="vertical" checked>
+                      <label class="btn btn-outline-primary btn-sm" for="rrhhCredencialVertical"><i class="fa fa-id-card me-1"></i>Vertical</label>
+                      <input type="radio" class="btn-check" name="rrhhCredencialOrientacion" id="rrhhCredencialHorizontal" value="horizontal">
+                      <label class="btn btn-outline-primary btn-sm" for="rrhhCredencialHorizontal"><i class="fa fa-address-card me-1"></i>Horizontal</label>
+                    </div>
+                  </div>
+                  <div class="d-flex flex-wrap align-items-end gap-2">
+                    <input type="file" class="d-none" id="rrhhCredencialFotoInput" accept="image/*">
+                    <div class="rrhh-photo-dropzone" id="rrhhCredencialFotoDropzone">
+                      Arrastra una foto aqu&iacute; o usa el bot&oacute;n.
+                    </div>
+                    <button type="button" class="btn btn-outline-primary btn-sm" id="btnCambiarFotoCredencialRrhh">
+                      <i class="fa fa-camera me-1"></i>Cambiar foto
+                    </button>
+                    <button type="button" class="btn btn-outline-primary btn-sm" id="btnAjustarFotoCredencialRrhh">
+                      <i class="fa fa-crop-alt me-1"></i>Ajustar foto
+                    </button>
+                    <button type="button" class="btn btn-outline-secondary btn-sm" id="btnFotoCompletaCredencialRrhh">
+                      <i class="fa fa-expand me-1"></i>Foto completa
+                    </button>
+                  </div>
+                </div>
+                <div class="rrhh-credential-notice">
+                  <i class="fa fa-info-circle me-1"></i>
+                  Esta credencial es personal e intransferible. En caso de extrav&iacute;o, favor de reportarlo a Capital Humano.
+                </div>
+                <div class="rrhh-credential-stage">
+                  <div class="row g-4 align-items-stretch">
+                    <div class="col-lg-6">
+                      <div class="text-center fw-bold text-muted mb-2">Frente</div>
+                      <div id="rrhhCredencialFrente"></div>
+                    </div>
+                    <div class="col-lg-6">
+                      <div class="text-center fw-bold text-muted mb-2">Reverso</div>
+                      <div id="rrhhCredencialReverso"></div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div class="modal-footer">
+                <button type="button" class="btn btn-outline-primary" id="btnVolverRrhhDesdeCredencial">
+                  <i class="fa fa-arrow-left me-1"></i>Volver a RR.HH.
+                </button>
+                <button type="button" class="btn btn-primary" id="btnImprimirCredencialRrhh">
+                  <i class="fa fa-print me-1"></i>Imprimir credencial
+                </button>
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cerrar</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="modal fade" id="modalAjustarFotoCredencialRrhh" tabindex="-1" aria-labelledby="modalAjustarFotoCredencialRrhhLabel" aria-hidden="true">
+          <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+              <div class="modal-header">
+                <h5 class="modal-title fw-bold" id="modalAjustarFotoCredencialRrhhLabel">
+                  <i class="fa fa-crop-alt me-2"></i>Ajustar foto
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+              </div>
+              <div class="modal-body">
+                <div class="text-muted mb-3">Mueve la imagen dentro del marco. Usa la rueda del mouse para acercar o alejar.</div>
+                <div class="rrhh-photo-editor-frame" id="rrhhCredencialFotoEditorFrame">
+                  <div class="rrhh-photo-editor-empty">Selecciona una foto</div>
+                </div>
+              </div>
+              <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-outline-primary" id="btnEditorFotoCompletaCredencialRrhh">
+                  <i class="fa fa-expand me-1"></i>Foto completa
+                </button>
+                <button type="button" class="btn btn-primary" id="btnAplicarAjusteFotoCredencialRrhh">
+                  <i class="fa fa-crop-alt me-1"></i>Aplicar recorte
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+        <?php endif; ?>
 
         <!-- =======================
              FILTRO DE FECHAS PARA BAJAS (oculto por defecto)
@@ -3077,7 +4763,7 @@ window.todosDepartamentosBackend = <?= json_encode(($departamento['datos'] ?? []
 
                     <div class="mb-3">
                         <label for="motivoReingreso" class="form-label"><strong>Motivo del reingreso:</strong></label>
-                        <select class="form-select" id="motivoReingreso">
+                        <select class="form-select" id="motivoReingreso" data-motivos-rh-actualizados="1">
                             <option value="">-- Selecciona un motivo --</option>
                             <option value="ILOCALIZABLE">ILOCALIZABLE</option>
                             <option value="LOCALIZABLE EN DOMICILIO PRINCIPAL">LOCALIZABLE EN DOMICILIO PRINCIPAL</option>
@@ -3108,6 +4794,28 @@ window.todosDepartamentosBackend = <?= json_encode(($departamento['datos'] ?? []
                         <small class="text-muted">Puedes subir múltiples archivos PDF.</small>
                     </div>
                     <div id="listaArchivosReingreso" class="mt-2" style="display: none;"></div>
+                    <script>
+                        (function () {
+                            var sel = document.getElementById('motivoReingreso');
+                            if (!sel || sel.getAttribute('data-motivos-rh-renderizados') === '1') return;
+                            var motivos = [
+                                '',
+                                'Reingreso por solicitud del Subdirector - Director',
+                                'Motivos personales/familiares',
+                                'Recontratación por reestructura / recorte previo',
+                                'Reingreso por buen desempeño previo',
+                                'No procedio la baja'
+                            ];
+                            sel.innerHTML = '';
+                            motivos.forEach(function (motivo, index) {
+                                var option = document.createElement('option');
+                                option.value = motivo;
+                                option.textContent = index === 0 ? '-- Selecciona un motivo --' : motivo;
+                                sel.appendChild(option);
+                            });
+                            sel.setAttribute('data-motivos-rh-renderizados', '1');
+                        })();
+                    </script>
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
@@ -5758,6 +7466,9 @@ window.todosDepartamentosBackend = <?= json_encode(($departamento['datos'] ?? []
         // Guardar los datos consolidados globalmente
         usuariosData = usuariosConsolidados;
 
+        // Pintar la primera carga con el mismo renderer compacto que usan los filtros.
+        actualizarTabla(usuariosConsolidados);
+
         // ==========================================
         // ACTUALIZAR INDICADORES (KPIs)
         // ==========================================
@@ -6096,6 +7807,28 @@ window.todosDepartamentosBackend = <?= json_encode(($departamento['datos'] ?? []
    * ACTUALIZAR TABLA CON DATOS FILTRADOS
    * ==========================================
    */
+  function escapeAttr(value) {
+    return String(value || '')
+      .replace(/&/g, '&amp;')
+      .replace(/"/g, '&quot;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;');
+  }
+
+  function inicialesPersona(nombre) {
+    const partes = String(nombre || '').trim().split(/\s+/).filter(Boolean);
+    if (!partes.length) return 'US';
+    return partes.slice(0, 2).map(parte => parte.charAt(0)).join('').toUpperCase();
+  }
+
+  function avatarPersonaHtml(persona, nombreCompleto) {
+    const foto = String(persona.foto_perfil || '').trim();
+    if (foto) {
+      return `<img class="gestion-personal-avatar" src="${escapeAttr(foto)}" alt="Foto de ${escapeAttr(nombreCompleto)}" loading="lazy" decoding="async" onerror="this.outerHTML='<span class=&quot;gestion-personal-avatar-fallback&quot;>${inicialesPersona(nombreCompleto)}</span>'">`;
+    }
+    return `<span class="gestion-personal-avatar-fallback">${inicialesPersona(nombreCompleto)}</span>`;
+  }
+
   function actualizarTabla(datos) {
     // Si estamos usando DataTables
     const tabla = $('#historialUsuarios').DataTable();
@@ -6200,17 +7933,22 @@ window.todosDepartamentosBackend = <?= json_encode(($departamento['datos'] ?? []
 
       return {
         nombre: `
-          <div class="fw-semibold">
-             # ${p.numero_empleado}
+          <div class="gestion-personal-name-cell">
+            ${avatarPersonaHtml(p, nombreCompleto)}
+            <div class="gestion-personal-name-info">
+              <div class="fw-semibold text-muted">
+                 # ${p.numero_empleado}
+              </div>
+              <div class="fw-semibold text-uppercase">
+                  ${nombreCompleto}
+              </div>
+              <small class="text-muted d-flex align-items-center gap-1">
+                  <i class="fa fa-key"></i>
+                  ${p.usuario}
+              </small>
+              ${tienePuestos ? `<span class="badge bg-success badge-multipuesto-indicator mt-1"><i class="fa fa-layer-group me-1"></i>${p.puestos.length} Puestos Asignados</span>` : ''}
+            </div>
           </div>
-          <div class="fw-semibold">
-              ${nombreCompleto}
-          </div>
-          <small class="text-muted d-flex align-items-center gap-1">
-              <i class="fa fa-key"></i>
-              ${p.usuario}
-          </small>
-          ${tienePuestos ? `<span class="badge bg-success badge-multipuesto-indicator mt-1"><i class="fa fa-layer-group me-1"></i>${p.puestos.length} Puestos Asignados</span>` : ''}
         `.trim(),
         departamento: `
           ${sedeHTML}
@@ -6223,8 +7961,10 @@ window.todosDepartamentosBackend = <?= json_encode(($departamento['datos'] ?? []
         estatus: p.estatus,
         acciones: (() => {
           const puedeEditar = window.puedeEditarTodos;
+          const puedeEditarRrhh = Number(window.miUsuarioId || 0) === 1;
           return `
-         <div class="d-flex flex-wrap gap-1" style="min-width: fit-content;">
+         <div class="d-flex flex-column align-items-start gap-1" style="min-width: fit-content;">
+           <div class="d-flex flex-wrap gap-1">
              ${puedeEditar
                ? `<button class="btn btn-sm btn-primary ${tienePuestos ? 'btn-with-indicator' : ''}" onclick="editar(${p.id})" title="${tienePuestos ? 'Editar usuario con ' + p.puestos.length + ' puestos asignados' : 'Editar usuario'}">
                  ${tienePuestos ? '<span class="indicator-multiples-puestos" title="' + p.puestos.length + ' puestos">' + p.puestos.length + '</span>' : ''}
@@ -6234,18 +7974,22 @@ window.todosDepartamentosBackend = <?= json_encode(($departamento['datos'] ?? []
                  <i class="fa fa-eye"></i>
              </button>`
              }
-             <button class="btn btn-sm btn-info" onclick="cargarDocumentoPersona(this)" data-id-persona="${p.id}" data-nombre="${nombreCompleto.replace(/"/g, '&quot;')}" title="Cargar documento">
-                 <i class="fa fa-file"></i>
-             </button>
-             <button class="btn btn-sm btn-warning" onclick="registra_ausencia(${p.id})" title="Ausencias">
-                 <i class="fa fa-person-circle-minus"></i>
-             </button>
+              <button class="btn btn-sm btn-info" onclick="cargarDocumentoPersona(this)" data-id-persona="${p.id}" data-nombre="${nombreCompleto.replace(/"/g, '&quot;')}" title="Cargar documento">
+                  <i class="fa fa-file"></i>
+              </button>
+              <button class="btn btn-sm btn-warning" onclick="registra_ausencia(${p.id})" title="Ausencias">
+                  <i class="fa fa-person-circle-minus"></i>
+              </button>
              <button class="btn btn-sm btn-danger" onclick="baja_gestor(${p.id})" title="Dar de baja">
                  <i class="fa fa-user-slash"></i>
              </button>
              <button class="btn btn-sm" style="background-color: #D2D755; color: white;" onclick="edit_perfil(${p.id})" title="${tienePuestos ? 'Permisos (Gestionar múltiples puestos)' : 'Permisos'}">
                  <i class="fa fa-lock" style="color: #007bff;"></i>
              </button>
+           </div>
+              ${puedeEditarRrhh ? `<button class="btn btn-sm btn-info text-white d-inline-flex align-items-center justify-content-center gap-1 px-3" onclick="abrirEditarRrhh(${p.id})" title="Editar RR.HH.">
+                  <i class="fa fa-user-pen"></i><span>Editar RR.HH.</span>
+              </button>` : ''}
          </div>`;
         })()
       };
@@ -6253,6 +7997,12 @@ window.todosDepartamentosBackend = <?= json_encode(($departamento['datos'] ?? []
 
     // Limpiar y recargar tabla
     tabla.clear().rows.add(datosFormateados).draw();
+    if (tabla.columns && typeof tabla.columns.adjust === 'function') {
+      tabla.columns.adjust();
+    }
+    if (tabla.responsive && typeof tabla.responsive.recalc === 'function') {
+      tabla.responsive.recalc();
+    }
   }
 
   /**
@@ -7582,6 +9332,7 @@ function ocultarBloquesDomicilio(prefix) {
     window.getDropdownParentSelectorForSelectId = function (selectId) {
         if (!selectId) return '#offcanvasEditUser';
         if (selectId.indexOf('add_') === 0) return '#offcanvasAddUser';
+        if (selectId.indexOf('rrhh_') === 0) return '#modalAgregarUsuarioRrhh';
         if (selectId === 'bajaSustitutoId') return '#modalBajas';
         if (selectId === 'UserRole' || selectId === 'UserPlan' || selectId === 'FilterMultiplePuestos') {
             return null;
@@ -8582,5 +10333,2022 @@ function precargarCascadaEdit(idPais, idEstado, idMunicipio, idColonia, idCalle,
     });
 
 })(); /* fin KPI panel Bajas v3 */
+
+(function () {
+  const modal = document.getElementById('modalAgregarUsuarioRrhh');
+  const form = document.getElementById('formAgregarUsuarioRrhh');
+  if (!modal || !form) return;
+
+  const tituloModalRrhh = document.getElementById('modalAgregarUsuarioRrhhLabel');
+  const inputEditIdRrhh = document.getElementById('rrhh_edit_id_persona');
+  const btnGuardarRrhh = document.getElementById('btnGuardarUsuarioRrhh');
+  const btnGenerarExpedienteRrhh = document.getElementById('btnGenerarExpedienteRrhh');
+  const btnGenerarCredencialRrhh = document.getElementById('btnGenerarCredencialRrhh');
+  const modalExpedienteRrhh = document.getElementById('modalExpedienteRrhh');
+  const contenedorExpedienteRrhh = document.getElementById('rrhhExpedienteContenido');
+  const btnVolverRrhhDesdeExpediente = document.getElementById('btnVolverRrhhDesdeExpediente');
+  const btnImprimirExpedienteRrhh = document.getElementById('btnImprimirExpedienteRrhh');
+  const modalFirmaExpedienteRrhh = document.getElementById('modalFirmaExpedienteRrhh');
+  const canvasFirmaExpedienteRrhh = document.getElementById('rrhhFirmaExpedienteCanvas');
+  const btnRepetirFirmaExpedienteRrhh = document.getElementById('btnRepetirFirmaExpedienteRrhh');
+  const btnAceptarFirmaExpedienteRrhh = document.getElementById('btnAceptarFirmaExpedienteRrhh');
+  const btnLimpiarTodoExpedienteRrhh = document.getElementById('btnLimpiarTodoExpedienteRrhh');
+  const inputIncluirFotoExpedienteRrhh = document.getElementById('rrhhExpedienteIncluirFoto');
+  const inputFotoExpedienteRrhh = document.getElementById('rrhhExpedienteFotoInput');
+  const dropzoneFotoExpedienteRrhh = document.getElementById('rrhhExpedienteFotoDropzone');
+  const btnCambiarFotoExpedienteRrhh = document.getElementById('btnCambiarFotoExpedienteRrhh');
+  const btnAjustarFotoExpedienteRrhh = document.getElementById('btnAjustarFotoExpedienteRrhh');
+  const modalCredencialRrhh = document.getElementById('modalCredencialRrhh');
+  const contenedorCredencialFrente = document.getElementById('rrhhCredencialFrente');
+  const contenedorCredencialReverso = document.getElementById('rrhhCredencialReverso');
+  const btnVolverRrhhDesdeCredencial = document.getElementById('btnVolverRrhhDesdeCredencial');
+  const btnImprimirCredencialRrhh = document.getElementById('btnImprimirCredencialRrhh');
+  const btnCambiarFotoCredencialRrhh = document.getElementById('btnCambiarFotoCredencialRrhh');
+  const btnAjustarFotoCredencialRrhh = document.getElementById('btnAjustarFotoCredencialRrhh');
+  const btnFotoCompletaCredencialRrhh = document.getElementById('btnFotoCompletaCredencialRrhh');
+  const inputFotoCredencialRrhh = document.getElementById('rrhhCredencialFotoInput');
+  const dropzoneFotoCredencialRrhh = document.getElementById('rrhhCredencialFotoDropzone');
+  const modalAjustarFotoCredencialRrhh = document.getElementById('modalAjustarFotoCredencialRrhh');
+  const frameEditorFotoCredencialRrhh = document.getElementById('rrhhCredencialFotoEditorFrame');
+  const btnEditorFotoCompletaCredencialRrhh = document.getElementById('btnEditorFotoCompletaCredencialRrhh');
+  const btnAplicarAjusteFotoCredencialRrhh = document.getElementById('btnAplicarAjusteFotoCredencialRrhh');
+  const logoCredencialRrhh = '/assets/img/logo_correo.png';
+  const logoExpedienteRrhh = '/assets/img/logo_correo.png';
+  const firmasExpedienteRrhh = {};
+  let abriendoExpedienteRrhh = false;
+  let volverDesdeExpedienteRrhh = false;
+  let firmaActivaExpedienteRrhh = '';
+  let firmaDibujandoRrhh = false;
+  let firmaTieneTrazosRrhh = false;
+  let incluirFotoExpedienteRrhh = true;
+  let fotoTemporalExpedienteRrhh = '';
+  let fotoFitExpedienteRrhh = 'cover';
+  let fotoPosXExpedienteRrhh = 50;
+  let fotoPosYExpedienteRrhh = 50;
+  let fotoScaleExpedienteRrhh = 1;
+  let fotoDragExpedienteRrhh = null;
+  let fechaRecepcionExpedienteRrhh = '';
+  let abriendoCredencialRrhh = false;
+  let volverDesdeCredencialRrhh = false;
+  let orientacionCredencialRrhh = 'vertical';
+  let fotoTemporalCredencialRrhh = '';
+  let fotoFitCredencialRrhh = 'cover';
+  let fotoPosXCredencialRrhh = 50;
+  let fotoPosYCredencialRrhh = 50;
+  let fotoScaleCredencialRrhh = 1;
+  let posicionFotoCredencialRrhh = 'center center';
+  let fotoDragCredencialRrhh = null;
+  let fotoEditorDragCredencialRrhh = null;
+  let fotoEditorContextoRrhh = 'credencial';
+
+  const templates = {
+    telefonos: [
+      { key: 'numero', label: 'Número', type: 'text', col: 'col-md-5' },
+      { key: 'tipo', label: 'Tipo', type: 'select', col: 'col-md-5', options: ['Personal', 'Laboral', 'Casa', 'WhatsApp', 'Emergencia', 'Otro'] }
+    ],
+    correos: [
+      { key: 'correo', label: 'Correo', type: 'email', col: 'col-md-5' },
+      { key: 'tipo', label: 'Tipo', type: 'select', col: 'col-md-5', options: ['Personal', 'Laboral', 'Institucional', 'Nómina', 'Otro'] }
+    ],
+    domicilios: [
+      { key: 'domicilio_texto', label: 'Domicilio', type: 'text', col: 'col-md-6' },
+      { key: 'codigo_postal', label: 'Código postal', type: 'text', col: 'col-md-2' },
+      { key: 'tipo', label: 'Tipo', type: 'select', col: 'col-md-3', options: ['Actual', 'Particular', 'Rentado', 'Familiar', 'Fiscal', 'Laboral'] }
+    ],
+    cuentas_bancarias: [
+      { key: 'id_banco', label: 'ID banco', type: 'number', col: 'col-md-2' },
+      { key: 'nombre_banco', label: 'Banco', type: 'text', col: 'col-md-3' },
+      { key: 'numero_cuenta', label: 'Número de cuenta', type: 'text', col: 'col-md-3' },
+      { key: 'clabe', label: 'CLABE interbancaria', type: 'text', col: 'col-md-3' }
+    ],
+    contactos_emergencia: [
+      { key: 'nombre_contacto', label: 'Nombre', type: 'text', col: 'col-md-5' },
+      { key: 'parentesco', label: 'Parentesco', type: 'text', col: 'col-md-3' },
+      { key: 'numero', label: 'Teléfono', type: 'text', col: 'col-md-3' }
+    ],
+    beneficiarios: [
+      { key: 'nombre_beneficiario', label: 'Nombre', type: 'text', col: 'col-md-4' },
+      { key: 'parentesco', label: 'Parentesco', type: 'text', col: 'col-md-2' },
+      { key: 'numero', label: 'Teléfono', type: 'text', col: 'col-md-2' },
+      { key: 'porcentaje', label: 'Porcentaje', type: 'number', col: 'col-md-2', step: '0.01' }
+    ]
+  };
+
+  function setModoRrhh(modo, idPersona) {
+    const esEdicion = modo === 'editar';
+    form.dataset.mode = esEdicion ? 'editar' : 'crear';
+    if (inputEditIdRrhh) inputEditIdRrhh.value = esEdicion ? String(idPersona || '') : '';
+    if (tituloModalRrhh) {
+      tituloModalRrhh.innerHTML = esEdicion
+        ? '<i class="fa fa-user-pen me-2"></i>Editar usuario RR.HH.'
+        : '<i class="fa fa-user-tie me-2"></i>Agregar usuario RR.HH.';
+    }
+    if (btnGuardarRrhh) {
+      btnGuardarRrhh.innerHTML = esEdicion
+        ? '<i class="fa fa-save me-1"></i>Guardar cambios RR.HH.'
+        : '<i class="fa fa-save me-1"></i>Guardar usuario RR.HH.';
+    }
+    [btnGenerarExpedienteRrhh, document.getElementById('btnGenerarCredencialRrhh')].forEach(btn => {
+      if (btn) btn.classList.toggle('d-none', !esEdicion);
+    });
+  }
+
+  function escapeRrhhAttr(value) {
+    return String(value ?? '')
+      .replace(/&/g, '&amp;')
+      .replace(/"/g, '&quot;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;');
+  }
+
+  function inputHtml(field, values) {
+    const value = values && values[field.key] != null ? String(values[field.key]) : '';
+    if (field.type === 'select') {
+      const opts = (field.options || []).map(opt => {
+        const selected = String(opt) === value ? ' selected' : '';
+        return `<option value="${escapeRrhhAttr(opt)}"${selected}>${escapeRrhhHtml(opt)}</option>`;
+      }).join('');
+      return `<select class="form-select" data-field="${field.key}">${opts}</select>`;
+    }
+    const step = field.step ? ` step="${field.step}"` : '';
+    const attrValue = value ? ` value="${escapeRrhhAttr(value)}"` : '';
+    return `<input type="${field.type}" class="form-control" data-field="${field.key}"${step}${attrValue}>`;
+  }
+
+  function addRow(type, values = {}) {
+    const list = form.querySelector(`[data-rrhh-list="${type}"]`);
+    if (!list || !templates[type]) return;
+    const row = document.createElement('div');
+    row.className = 'rrhh-repeat-row';
+    row.innerHTML = `<div class="row g-2 align-items-end">
+      ${templates[type].map(field => `<div class="${field.col}"><label class="form-label">${field.label}</label>${inputHtml(field, values)}</div>`).join('')}
+      <div class="col-md-1 d-grid"><button type="button" class="btn btn-outline-danger rrhh-remove-row" title="Quitar"><i class="fa fa-trash"></i></button></div>
+    </div>`;
+    list.appendChild(row);
+  }
+
+  function resetRepeats() {
+    Object.keys(templates).forEach(type => {
+      const list = form.querySelector(`[data-rrhh-list="${type}"]`);
+      if (list) list.innerHTML = '';
+      addRow(type);
+    });
+  }
+
+  function setNested(target, path, value) {
+    const parts = path.split('.');
+    let cursor = target;
+    while (parts.length > 1) {
+      const part = parts.shift();
+      cursor[part] = cursor[part] || {};
+      cursor = cursor[part];
+    }
+    cursor[parts[0]] = value;
+  }
+
+  function collectRepeats(type) {
+    return Array.from(form.querySelectorAll(`[data-rrhh-list="${type}"] .rrhh-repeat-row`))
+      .map(row => {
+        const item = {};
+        row.querySelectorAll('[data-field]').forEach(input => item[input.dataset.field] = input.value.trim());
+        return item;
+      })
+      .filter(item => Object.values(item).some(value => String(value || '').trim() !== ''));
+  }
+
+  function collectPayload() {
+    const payload = {
+      persona: {},
+      rrhh: {},
+      nomina: {},
+      telefonos: collectRepeats('telefonos'),
+      correos: collectRepeats('correos'),
+      domicilios: collectRepeats('domicilios'),
+      cuentas_bancarias: collectRepeats('cuentas_bancarias'),
+      contactos_emergencia: collectRepeats('contactos_emergencia'),
+      beneficiarios: collectRepeats('beneficiarios'),
+      observaciones: ''
+    };
+
+    form.querySelectorAll('[name]').forEach(input => {
+      if (!input.name) return;
+      const value = input.value.trim();
+      if (input.name === 'observaciones') {
+        payload.observaciones = value;
+      } else {
+        setNested(payload, input.name, value);
+      }
+    });
+
+    return payload;
+  }
+
+  function initRrhhDatepickers() {
+    if (typeof flatpickr === 'undefined') return;
+    const hoy = new Date();
+    const anioActual = hoy.getFullYear();
+    const fechaReferenciaNacimiento = `${anioActual - 30}-01-01`;
+    const anioMinLaboral = anioActual - 20;
+    const anioMaxLaboral = anioActual + 5;
+
+    function prepararSelectorAnioNacimiento(instance, minYear = anioActual - 100, maxYear = anioActual) {
+      const calendar = instance?.calendarContainer;
+      if (!calendar || calendar.querySelector('.rrhh-year-select')) return;
+      calendar.classList.add('rrhh-flatpickr-calendar');
+      const currentMonth = calendar.querySelector('.flatpickr-current-month');
+      if (!currentMonth) return;
+      const select = document.createElement('select');
+      select.className = 'rrhh-year-select';
+      select.setAttribute('aria-label', 'Año de nacimiento');
+      const selectedYear = instance.currentYear || maxYear;
+      for (let year = maxYear; year >= minYear; year--) {
+        const option = document.createElement('option');
+        option.value = String(year);
+        option.textContent = String(year);
+        if (year === selectedYear) option.selected = true;
+        select.appendChild(option);
+      }
+      select.addEventListener('change', function () {
+        const year = Number(this.value);
+        if (!Number.isFinite(year)) return;
+        instance.changeYear(Math.max(minYear, Math.min(maxYear, year)));
+      });
+      currentMonth.appendChild(select);
+    }
+
+    function sincronizarSelectorAnioNacimiento(instance) {
+      const select = instance?.calendarContainer?.querySelector('.rrhh-year-select');
+      if (select && String(select.value) !== String(instance.currentYear)) {
+        select.value = String(instance.currentYear);
+      }
+    }
+
+    form.querySelectorAll('.rrhh-date').forEach(input => {
+      if (input._flatpickr) return;
+      const esNacimiento = input.name === 'persona.fecha_nacimiento';
+      const opciones = {
+        dateFormat: 'Y-m-d',
+        allowInput: false,
+        clickOpens: true,
+        appendTo: document.body,
+        monthSelectorType: 'dropdown',
+        locale: (flatpickr.l10ns && flatpickr.l10ns.es) ? flatpickr.l10ns.es : undefined,
+        onOpen: function (_, __, instance) {
+          instance.calendarContainer.classList.add('rrhh-flatpickr-calendar');
+          if (esNacimiento) {
+            if (!input.value && !instance.selectedDates.length) {
+              instance.jumpToDate(fechaReferenciaNacimiento, false);
+            }
+            prepararSelectorAnioNacimiento(instance, anioActual - 100, anioActual);
+          } else {
+            prepararSelectorAnioNacimiento(instance, anioMinLaboral, anioMaxLaboral);
+          }
+          sincronizarSelectorAnioNacimiento(instance);
+        },
+        onMonthChange: function (_, __, instance) {
+          sincronizarSelectorAnioNacimiento(instance);
+        },
+        onYearChange: function (_, __, instance) {
+          sincronizarSelectorAnioNacimiento(instance);
+        }
+      };
+      if (esNacimiento) {
+        opciones.maxDate = 'today';
+        opciones.minDate = `${anioActual - 100}-01-01`;
+      }
+      flatpickr(input, opciones);
+    });
+  }
+
+  function pintarRepeats(data) {
+    Object.keys(templates).forEach(type => {
+      const list = form.querySelector(`[data-rrhh-list="${type}"]`);
+      if (list) list.innerHTML = '';
+      const rows = Array.isArray(data?.[type]) ? data[type] : [];
+      if (!rows.length) {
+        addRow(type);
+        return;
+      }
+      rows.forEach(row => addRow(type, row));
+    });
+  }
+
+  function rrhhSelectText(selectId) {
+    const select = document.getElementById(selectId);
+    if (!select || !select.value) return '';
+    const option = select.options[select.selectedIndex];
+    return (option?.dataset.nombre || option?.textContent || '').trim();
+  }
+
+  function setRrhhHiddenText(selectId, inputId) {
+    const input = document.getElementById(inputId);
+    if (input) input.value = rrhhSelectText(selectId);
+  }
+
+  function setFormValueByName(name, value) {
+    const input = form.querySelector(`[name="${name}"]`);
+    if (!input) return;
+    input.value = value == null ? '' : String(value);
+  }
+
+  function setSelectValue(selectId, value) {
+    const select = document.getElementById(selectId);
+    if (!select) return;
+    select.value = value == null ? '' : String(value);
+    refreshRrhhSelect(selectId);
+  }
+
+  function resolverAreaIdRrhh(data) {
+    const areaGuardada = data?.rrhh?.area_id || '';
+    const departamentoGuardado = data?.rrhh?.departamento_id || '';
+    const deps = rrhhDepartamentosBackend();
+
+    if (areaGuardada && deps.some(dep => String(dep.id_departamento_organizacional || dep.departamento_organizacional_id || '') === String(areaGuardada))) {
+      return areaGuardada;
+    }
+
+    const depDesdeDepartamento = deps.find(dep => String(dep.id || dep.departamento_id || '') === String(departamentoGuardado));
+    if (depDesdeDepartamento) {
+      return depDesdeDepartamento.id_departamento_organizacional || depDesdeDepartamento.departamento_organizacional_id || '';
+    }
+
+    const depDesdeAreaVieja = deps.find(dep => String(dep.id || dep.departamento_id || '') === String(areaGuardada));
+    if (depDesdeAreaVieja) {
+      return depDesdeAreaVieja.id_departamento_organizacional || depDesdeAreaVieja.departamento_organizacional_id || '';
+    }
+
+    return areaGuardada;
+  }
+
+  function resolverDepartamentoIdRrhh(data) {
+    const departamentoGuardado = data?.rrhh?.departamento_id || '';
+    const areaGuardada = data?.rrhh?.area_id || '';
+    const deps = rrhhDepartamentosBackend();
+
+    if (departamentoGuardado && deps.some(dep => String(dep.id || dep.departamento_id || '') === String(departamentoGuardado))) {
+      return departamentoGuardado;
+    }
+
+    const depDesdeAreaVieja = deps.find(dep => String(dep.id || dep.departamento_id || '') === String(areaGuardada));
+    return depDesdeAreaVieja ? (depDesdeAreaVieja.id || depDesdeAreaVieja.departamento_id || '') : departamentoGuardado;
+  }
+
+  async function precargarSelectsLaboralesRrhh(data) {
+    fillRrhhPaises();
+    setSelectValue('rrhh_pais_id', data?.persona?.id_pais || '');
+    fillRrhhAreas();
+    setSelectValue('rrhh_area_id', resolverAreaIdRrhh(data));
+    fillRrhhDepartamentos();
+    setSelectValue('rrhh_departamento_id', resolverDepartamentoIdRrhh(data));
+    await fillRrhhPuestos();
+    setSelectValue('rrhh_puesto_id', data?.rrhh?.puesto_id || '');
+    await fillRrhhJefes();
+    setSelectValue('rrhh_jefe_id', data?.rrhh?.jefe_id || '');
+    setRrhhHiddenText('rrhh_area_id', 'rrhh_area_texto');
+    setRrhhHiddenText('rrhh_departamento_id', 'rrhh_departamento_texto');
+    setRrhhHiddenText('rrhh_puesto_id', 'rrhh_puesto_texto');
+    setRrhhHiddenText('rrhh_jefe_id', 'rrhh_jefe_directo_texto');
+  }
+
+  async function cargarDatosEnModalRrhh(data) {
+    form.reset();
+    pintarRepeats(data || {});
+
+    Object.entries(data?.persona || {}).forEach(([key, value]) => setFormValueByName(`persona.${key}`, value));
+    Object.entries(data?.rrhh || {}).forEach(([key, value]) => setFormValueByName(`rrhh.${key}`, value));
+    Object.entries(data?.nomina || {}).forEach(([key, value]) => setFormValueByName(`nomina.${key}`, value));
+    setFormValueByName('observaciones', data?.observaciones || '');
+
+    initRrhhDatepickers();
+    await precargarSelectsLaboralesRrhh(data || {});
+  }
+
+  window.abrirEditarRrhh = async function (idPersona) {
+    if (!idPersona) return;
+    setModoRrhh('editar', idPersona);
+    const modalInstance = bootstrap.Modal.getOrCreateInstance(modal);
+    modalInstance.show();
+
+    try {
+      const response = await fetch('/CapHum/obtenerUsuarioRrhh', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+        body: JSON.stringify({ id_persona: idPersona })
+      });
+      const data = await response.json();
+      if (!data.success) {
+        throw new Error(data.mensaje || 'No se pudo cargar la informacion RR.HH.');
+      }
+      await cargarDatosEnModalRrhh(data.datos || {});
+    } catch (error) {
+      Swal.fire('Error', error.message || 'No se pudo cargar la informacion RR.HH.', 'error');
+    }
+  };
+
+  function refreshRrhhSelect(selectId) {
+    if (typeof window.refreshSelectBuscador === 'function') {
+      window.refreshSelectBuscador(selectId);
+    }
+  }
+
+  function ordenarCamposLaboralesRrhh() {
+    const puesto = document.getElementById('rrhh_puesto_id')?.closest('[class*="col-md-"]');
+    const jefe = document.getElementById('rrhh_jefe_id')?.closest('[class*="col-md-"]');
+    if (puesto && jefe && jefe.previousElementSibling !== puesto) {
+      puesto.after(jefe);
+    }
+  }
+
+  function escapeRrhhHtml(value) {
+    const div = document.createElement('div');
+    div.textContent = String(value ?? '');
+    return div.innerHTML;
+  }
+
+  function optionHtml(value, label, extraAttrs) {
+    const attrs = extraAttrs ? ` ${extraAttrs}` : '';
+    const safeValue = escapeRrhhHtml(value);
+    const safeLabel = escapeRrhhHtml(label);
+    return `<option value="${safeValue}" data-nombre="${safeLabel}"${attrs}>${safeLabel}</option>`;
+  }
+
+  function rrhhDepartamentosBackend() {
+    return Array.isArray(window.todosDepartamentosBackend) ? window.todosDepartamentosBackend : [];
+  }
+
+  function rrhhPaisesBackend() {
+    return Array.isArray(window.paisesActivosBackend) ? window.paisesActivosBackend : [];
+  }
+
+  function fillRrhhPaises() {
+    const select = document.getElementById('rrhh_pais_id');
+    if (!select) return;
+    const current = select.value || '';
+    select.innerHTML = '<option value="">Seleccione un pa&iacute;s</option>' +
+      rrhhPaisesBackend()
+        .map(pais => ({
+          id: pais.id,
+          nombre: pais.nombre || '',
+          iso: String(pais.codigo_iso || '').toLowerCase()
+        }))
+        .filter(pais => pais.id && pais.nombre)
+        .map(pais => optionHtml(pais.id, pais.nombre, ` data-iso="${escapeRrhhHtml(pais.iso)}"`))
+        .join('');
+    if (current && Array.from(select.options).some(option => String(option.value) === String(current))) {
+      select.value = current;
+    }
+    refreshRrhhSelect('rrhh_pais_id');
+  }
+
+  function depPertenecePais(dep, idPais) {
+    if (!idPais) return false;
+    const selectPais = document.getElementById('rrhh_pais_id');
+    const optionPais = selectPais?.selectedOptions?.[0] || null;
+    const nombrePais = normalizarValorFiltro(optionPais?.textContent || '');
+    const isoPais = String(optionPais?.dataset?.iso || '').toLowerCase();
+    const depPais = String(dep.id_pais || dep.pais_id || '');
+    const depNombrePais = normalizarValorFiltro(dep.nombre_pais || dep.pais || '');
+    const depIsoPais = String(dep.codigo_iso_pais || dep.codigo_iso || '').toLowerCase();
+
+    if (depPais && depPais === String(idPais)) return true;
+    if (isoPais && depIsoPais && depIsoPais === isoPais) return true;
+    if (nombrePais && depNombrePais && depNombrePais === nombrePais) return true;
+    return false;
+  }
+
+  function fillRrhhDepartamentos() {
+    const selectArea = document.getElementById('rrhh_area_id');
+    const select = document.getElementById('rrhh_departamento_id');
+    if (!select) return;
+    const current = select.value;
+    const idArea = selectArea?.value || '';
+    const departamentos = new Map();
+
+    rrhhDepartamentosBackend()
+      .filter(dep => depPertenecePais(dep, document.getElementById('rrhh_pais_id')?.value || ''))
+      .filter(dep => String(dep.id_departamento_organizacional || dep.departamento_organizacional_id || '') === String(idArea))
+      .forEach(dep => {
+        const idDepartamento = dep.id || dep.departamento_id || '';
+        const nombreDepartamento = dep.nombre || dep.departamento_nombre || '';
+        if (idDepartamento && nombreDepartamento && nombreDepartamento !== 'Sin departamento') {
+          departamentos.set(String(idDepartamento), nombreDepartamento);
+        }
+      });
+
+    select.innerHTML = '<option value="">Seleccione un departamento</option>' +
+      Array.from(departamentos.entries())
+        .sort((a, b) => a[1].localeCompare(b[1], 'es', { sensitivity: 'base' }))
+        .map(([id, nombre]) => optionHtml(id, nombre))
+        .join('');
+
+    select.disabled = !idArea || departamentos.size === 0;
+    if (current && departamentos.has(String(current))) {
+      select.value = current;
+    } else if (departamentos.size === 1) {
+      select.value = Array.from(departamentos.keys())[0];
+    } else {
+      select.value = '';
+    }
+    setRrhhHiddenText('rrhh_departamento_id', 'rrhh_departamento_texto');
+    refreshRrhhSelect('rrhh_departamento_id');
+    fillRrhhPuestos();
+    fillRrhhJefes();
+  }
+
+  function fillRrhhAreas() {
+    const selectArea = document.getElementById('rrhh_area_id');
+    if (!selectArea) return;
+
+    const idPais = document.getElementById('rrhh_pais_id')?.value || '';
+    const areas = new Map();
+
+    rrhhDepartamentosBackend()
+      .filter(dep => depPertenecePais(dep, idPais))
+      .forEach(dep => {
+        const idArea = dep.id_departamento_organizacional || dep.departamento_organizacional_id || '';
+        const nombreArea = dep.departamento_organizacional_nombre || dep.nombre_departamento_organizacional || '';
+        if (idArea && nombreArea && nombreArea !== 'Sin departamento') {
+          areas.set(String(idArea), nombreArea);
+        }
+      });
+
+    const current = selectArea.value;
+    selectArea.disabled = !idPais || areas.size === 0;
+    selectArea.innerHTML = '<option value="">Seleccione un &aacute;rea</option>' +
+      Array.from(areas.entries())
+        .sort((a, b) => a[1].localeCompare(b[1], 'es', { sensitivity: 'base' }))
+        .map(([id, nombre]) => optionHtml(id, nombre))
+        .join('');
+    if (current && areas.has(String(current))) {
+      selectArea.value = current;
+    } else {
+      selectArea.value = '';
+    }
+    setRrhhHiddenText('rrhh_area_id', 'rrhh_area_texto');
+    refreshRrhhSelect('rrhh_area_id');
+    fillRrhhDepartamentos();
+  }
+
+  function fillRrhhPuestosFallback(idDepartamento) {
+    const select = document.getElementById('rrhh_puesto_id');
+    if (!select) return;
+    const puestos = new Map();
+    usuariosData.forEach(usuario => {
+      const lista = Array.isArray(usuario.puestos) ? usuario.puestos : [];
+      lista.forEach(puesto => {
+        if (String(puesto.id_departamento || '') === String(idDepartamento || '') && puesto.id_puesto && puesto.nombre_puesto && puesto.nombre_puesto !== 'Sin puesto') {
+          puestos.set(String(puesto.id_puesto), puesto.nombre_puesto);
+        }
+      });
+      if (String(usuario.id_departamento || '') === String(idDepartamento || '') && usuario.id_puesto && usuario.nombre_puesto && usuario.nombre_puesto !== 'Sin puesto') {
+        puestos.set(String(usuario.id_puesto), usuario.nombre_puesto);
+      }
+    });
+    select.innerHTML = '<option value="">Seleccione un puesto</option>' +
+      Array.from(puestos.entries())
+        .sort((a, b) => a[1].localeCompare(b[1], 'es', { sensitivity: 'base' }))
+        .map(([id, nombre]) => optionHtml(id, nombre))
+        .join('');
+    select.disabled = !idDepartamento || puestos.size === 0;
+    refreshRrhhSelect('rrhh_puesto_id');
+  }
+
+  async function fillRrhhPuestos() {
+    const selectDepartamento = document.getElementById('rrhh_departamento_id');
+    const selectPuesto = document.getElementById('rrhh_puesto_id');
+    if (!selectDepartamento || !selectPuesto) return;
+    const idDepartamento = selectDepartamento.value;
+
+    selectPuesto.innerHTML = '<option value="">Seleccione un puesto</option>';
+    selectPuesto.disabled = true;
+    setRrhhHiddenText('rrhh_puesto_id', 'rrhh_puesto_texto');
+    refreshRrhhSelect('rrhh_puesto_id');
+    if (!idDepartamento) return;
+
+    try {
+      const response = await fetch('/CapHum/getPuestosParaGestor', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+        body: JSON.stringify({ id_departamento: idDepartamento })
+      });
+      const data = await response.json();
+      if (!data.success || !Array.isArray(data.datos)) {
+        fillRrhhPuestosFallback(idDepartamento);
+        return;
+      }
+      selectPuesto.innerHTML = '<option value="">Seleccione un puesto</option>' +
+        data.datos
+          .map(puesto => ({ id: puesto.id, nombre: puesto.nombre || puesto.puesto_nombre || '' }))
+          .filter(puesto => puesto.id && puesto.nombre)
+          .sort((a, b) => a.nombre.localeCompare(b.nombre, 'es', { sensitivity: 'base' }))
+          .map(puesto => optionHtml(puesto.id, puesto.nombre))
+          .join('');
+      selectPuesto.disabled = selectPuesto.options.length <= 1;
+      refreshRrhhSelect('rrhh_puesto_id');
+    } catch (error) {
+      fillRrhhPuestosFallback(idDepartamento);
+    }
+  }
+
+  function usuarioNombreCompleto(usuario) {
+    return [usuario.nombres, usuario.segundo_nombre, usuario.apellidop, usuario.apellidom]
+      .filter(Boolean)
+      .join(' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+  }
+
+  function usuarioEnDepartamento(usuario, idDepartamento) {
+    if (!idDepartamento) return true;
+    if (String(usuario.id_departamento || '') === String(idDepartamento)) return true;
+    return Array.isArray(usuario.puestos) && usuario.puestos.some(puesto => String(puesto.id_departamento || '') === String(idDepartamento));
+  }
+
+  function fillRrhhJefesFallback(idDepartamento, idPuesto) {
+    const selectJefe = document.getElementById('rrhh_jefe_id');
+    if (!selectJefe) return;
+    const opciones = [];
+    const vistos = new Set();
+
+    usuariosData
+      .filter(usuario => String(usuario.estatus || '').toLowerCase() !== 'baja')
+      .filter(usuario => usuarioEnDepartamento(usuario, idDepartamento))
+      .filter(usuario => {
+        if (!idPuesto) return true;
+        if (String(usuario.id_puesto || '') === String(idPuesto)) return true;
+        return Array.isArray(usuario.puestos) && usuario.puestos.some(puesto => String(puesto.id_puesto || '') === String(idPuesto));
+      })
+      .forEach(usuario => {
+        const id = usuario.id;
+        const nombre = usuarioNombreCompleto(usuario);
+        if (!id || !nombre || vistos.has(String(id))) return;
+        vistos.add(String(id));
+        const puesto = usuario.nombre_puesto && usuario.nombre_puesto !== 'Sin puesto' ? ` - ${usuario.nombre_puesto}` : '';
+        opciones.push({ id, nombre, label: `${nombre}${puesto}` });
+      });
+
+    selectJefe.innerHTML = '<option value="">Seleccione un jefe</option>' +
+      opciones.sort((a, b) => a.nombre.localeCompare(b.nombre))
+        .map(jefe => optionHtml(jefe.id, jefe.label))
+        .join('');
+    selectJefe.disabled = !idDepartamento || !idPuesto || opciones.length === 0;
+    setRrhhHiddenText('rrhh_jefe_id', 'rrhh_jefe_directo_texto');
+    refreshRrhhSelect('rrhh_jefe_id');
+  }
+
+  async function fillRrhhJefes() {
+    const selectDepartamento = document.getElementById('rrhh_departamento_id');
+    const selectPuesto = document.getElementById('rrhh_puesto_id');
+    const selectJefe = document.getElementById('rrhh_jefe_id');
+    if (!selectJefe) return;
+    const idDepartamento = selectDepartamento?.value || '';
+    const idPuesto = selectPuesto?.value || '';
+
+    selectJefe.innerHTML = '<option value="">Seleccione un jefe</option>';
+    selectJefe.disabled = true;
+    setRrhhHiddenText('rrhh_jefe_id', 'rrhh_jefe_directo_texto');
+    refreshRrhhSelect('rrhh_jefe_id');
+    if (!idDepartamento || !idPuesto) return;
+
+    try {
+      const response = await fetch('/CapHum/getJefeDirecto', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+        body: JSON.stringify({ id_departamento: idDepartamento, id_puesto: idPuesto })
+      });
+      const data = await response.json();
+      if (!data.success || !Array.isArray(data.datos)) {
+        fillRrhhJefesFallback(idDepartamento, idPuesto);
+        return;
+      }
+      const opciones = data.datos
+        .map(jefe => ({
+          id: jefe.id,
+          nombre: jefe.nombre_completo || jefe.nombre || '',
+          puesto: jefe.nombre_puesto || jefe.puesto || ''
+        }))
+        .filter(jefe => jefe.id && jefe.nombre);
+
+      selectJefe.innerHTML = '<option value="">Seleccione un jefe</option>' +
+        opciones
+          .sort((a, b) => a.nombre.localeCompare(b.nombre))
+          .map(jefe => optionHtml(jefe.id, `${jefe.nombre}${jefe.puesto ? ' - ' + jefe.puesto : ''}`))
+          .join('');
+      selectJefe.disabled = opciones.length === 0;
+      refreshRrhhSelect('rrhh_jefe_id');
+    } catch (error) {
+      fillRrhhJefesFallback(idDepartamento, idPuesto);
+    }
+  }
+
+  function initRrhhLaboralSelects() {
+    ordenarCamposLaboralesRrhh();
+    fillRrhhPaises();
+    fillRrhhAreas();
+    fillRrhhJefes();
+    vincularEventosSelect2Rrhh();
+  }
+
+  function vincularEventosSelect2Rrhh() {
+    if (typeof window.jQuery === 'undefined') return;
+    const $ = window.jQuery;
+    $('#rrhh_pais_id').off('change.rrhhLaboral').on('change.rrhhLaboral', function () {
+      fillRrhhAreas();
+    });
+    $('#rrhh_area_id').off('change.rrhhLaboral').on('change.rrhhLaboral', function () {
+      setRrhhHiddenText('rrhh_area_id', 'rrhh_area_texto');
+      fillRrhhDepartamentos();
+      fillRrhhPuestos();
+      fillRrhhJefes();
+    });
+    $('#rrhh_departamento_id').off('change.rrhhLaboral').on('change.rrhhLaboral', function () {
+      setRrhhHiddenText('rrhh_departamento_id', 'rrhh_departamento_texto');
+      fillRrhhPuestos();
+      fillRrhhJefes();
+    });
+    $('#rrhh_puesto_id').off('change.rrhhLaboral').on('change.rrhhLaboral', function () {
+      setRrhhHiddenText('rrhh_puesto_id', 'rrhh_puesto_texto');
+      fillRrhhJefes();
+    });
+    $('#rrhh_jefe_id').off('change.rrhhLaboral').on('change.rrhhLaboral', function () {
+      setRrhhHiddenText('rrhh_jefe_id', 'rrhh_jefe_directo_texto');
+    });
+  }
+
+  function showRrhhScrim() {
+    let scrim = document.getElementById('rrhhModalScrim');
+    if (!scrim) {
+      scrim = document.createElement('div');
+      scrim.id = 'rrhhModalScrim';
+      scrim.setAttribute('aria-hidden', 'true');
+      document.body.appendChild(scrim);
+    }
+    scrim.style.display = 'block';
+  }
+
+  function hideRrhhScrim() {
+    const scrim = document.getElementById('rrhhModalScrim');
+    if (scrim) scrim.style.display = 'none';
+  }
+
+  function resetRrhhFormCompleto() {
+    limpiarPruebasExpedienteRrhh(false);
+    form.querySelectorAll('.rrhh-date').forEach(input => {
+      if (input._flatpickr) input._flatpickr.clear();
+    });
+    form.reset();
+    resetRepeats();
+    setModoRrhh('crear');
+    initRrhhLaboralSelects();
+    form.querySelector('[data-bs-target="#rrhhTabPersona"]')?.click();
+  }
+
+  function obtenerUsuarioActualRrhh() {
+    const idPersona = inputEditIdRrhh?.value || '';
+    if (!idPersona || !Array.isArray(usuariosData)) return null;
+    return usuariosData.find(usuario => String(usuario.id) === String(idPersona)) || null;
+  }
+
+  function valorRrhh(name, fallback = '') {
+    const input = form.querySelector(`[name="${name}"]`);
+    const value = input ? String(input.value || '').trim() : '';
+    return value || fallback || '';
+  }
+
+  function nombreCompletoCredencial(payload, usuario) {
+    const desdePayload = [
+      payload?.persona?.nombres,
+      payload?.persona?.segundo_nombre,
+      payload?.persona?.apellidop,
+      payload?.persona?.apellidom
+    ].filter(Boolean).join(' ').replace(/\s+/g, ' ').trim();
+    if (desdePayload) return desdePayload;
+    return usuarioNombreCompleto(usuario || {}) || 'Colaborador Maxikash';
+  }
+
+  function inicialesCredencial(nombre) {
+    const partes = String(nombre || '').trim().split(/\s+/).filter(Boolean);
+    if (!partes.length) return 'MX';
+    return partes.slice(0, 2).map(parte => parte.charAt(0)).join('').toUpperCase();
+  }
+
+  function puestoGeneralCredencial(puesto) {
+    let texto = String(puesto || '').replace(/\s+/g, ' ').trim();
+    if (!texto || texto === 'Sin puesto') return 'Colaborador';
+    texto = texto
+      .replace(/\b(jr|sr|junior|senior)\b/ig, '')
+      .replace(/\b(prueba|temporal)\b/ig, '')
+      .replace(/\b\d+\s*-\s*\d+\b/g, '')
+      .replace(/\b\d+\+\b/g, '')
+      .replace(/\s{2,}/g, ' ')
+      .replace(/\s+-\s+$/g, '')
+      .trim();
+    return texto || 'Colaborador';
+  }
+
+  function fotoCredencialHtml(usuario, nombre) {
+    const foto = String(fotoTemporalCredencialRrhh || usuario?.foto_perfil || '').trim();
+    const fallback = `<span class="rrhh-id-photo-fallback"${foto ? ' style="display:none;"' : ''}>${escapeRrhhHtml(inicialesCredencial(nombre))}</span>`;
+    const fitSeguro = fotoFitCredencialRrhh === 'cover' ? 'cover' : 'contain';
+    const posX = fitSeguro === 'contain' ? 50 : fotoPosXCredencialRrhh;
+    const posY = fitSeguro === 'contain' ? 50 : fotoPosYCredencialRrhh;
+    const scale = fitSeguro === 'contain' ? 1 : fotoScaleCredencialRrhh;
+    const img = foto
+      ? `<img class="rrhh-id-photo" src="${escapeRrhhAttr(foto)}" alt="Foto de ${escapeRrhhAttr(nombre)}" style="object-fit:${escapeRrhhAttr(fitSeguro)}; object-position:${posX}% ${posY}%; transform:scale(${scale});" draggable="false" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">`
+      : '';
+    return `${img}${fallback}`;
+  }
+
+  function claseFotoCredencialWrap() {
+    return fotoFitCredencialRrhh === 'cover' ? 'is-cover' : 'is-contain';
+  }
+
+  function fotoCredencialSrcActual(usuario = obtenerUsuarioActualRrhh()) {
+    return String(fotoTemporalCredencialRrhh || usuario?.foto_perfil || '').trim();
+  }
+
+  function textoValidoCredencial(value) {
+    const texto = String(value || '').replace(/\s+/g, ' ').trim();
+    if (!texto || texto === '-') return '';
+    const normalizado = texto
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .toLowerCase();
+    if (normalizado.startsWith('seleccione') || normalizado.startsWith('--selecciona') || normalizado.startsWith('no hay')) return '';
+    return texto;
+  }
+
+  function nombrePaisPorIdRrhh(idPais) {
+    const id = String(idPais || '').trim();
+    if (!id) return '';
+    const pais = rrhhPaisesBackend().find(item => String(item.id || '') === id);
+    return pais ? textoValidoCredencial(pais.nombre) : '';
+  }
+
+  function resolverPaisCredencial(usuario, payload) {
+    return textoValidoCredencial(rrhhSelectText('rrhh_pais_id'))
+      || textoValidoCredencial(usuario?.nombre_pais || usuario?.pais)
+      || nombrePaisPorIdRrhh(payload?.persona?.id_pais || usuario?.id_pais || usuario?.pais_id)
+      || '';
+  }
+
+  function qrCredencialHtml(seed) {
+    const data = encodeURIComponent(String(seed || 'MAXIKASH'));
+    const src = `https://api.qrserver.com/v1/create-qr-code/?size=180x180&margin=8&color=0054a6&bgcolor=ffffff&data=${data}`;
+    return `<div class="rrhh-id-qr" aria-label="C&oacute;digo QR de validaci&oacute;n interna">
+      <img class="rrhh-id-qr-img" src="${src}" alt="QR de validaci&oacute;n interna">
+    </div>`;
+  }
+
+  function datoCredencial(label, value) {
+    if (!String(value || '').trim() || String(value || '').trim() === '-') return '';
+    return `<div class="rrhh-id-meta-item">
+      <span class="rrhh-id-meta-label">${escapeRrhhHtml(label)}</span>
+      <span class="rrhh-id-meta-value">${escapeRrhhHtml(value)}</span>
+    </div>`;
+  }
+
+  function datoReversoCredencial(icono, label, value) {
+    const limpio = String(value || '').trim();
+    if (!limpio || limpio === '-') return '';
+    return `<div class="rrhh-id-back-row"><i class="fa ${icono}"></i><div><strong>${escapeRrhhHtml(label)}</strong><br>${escapeRrhhHtml(limpio)}</div></div>`;
+  }
+
+  function limpiarDatoExpediente(value) {
+    const limpio = String(value ?? '').replace(/\s+/g, ' ').trim();
+    return limpio && limpio !== '-' ? limpio : '';
+  }
+
+  function campoExpediente(label, value) {
+    const limpio = limpiarDatoExpediente(value);
+    if (!limpio) return '';
+    return `<div class="rrhh-expediente-field">
+      <span class="rrhh-expediente-label">${escapeRrhhHtml(label)}</span>
+      <span class="rrhh-expediente-value">${escapeRrhhHtml(limpio)}</span>
+    </div>`;
+  }
+
+  function campoExpedienteConDefault(label, value, fallback = 'N/A') {
+    return campoExpediente(label, limpiarDatoExpediente(value) || fallback);
+  }
+
+  function seccionExpediente(icono, titulo, campos) {
+    const html = campos.filter(Boolean).join('');
+    if (!html) return '';
+    return `<section class="rrhh-expediente-section">
+      <div class="rrhh-expediente-section-title"><i class="fa ${icono}"></i>${escapeRrhhHtml(titulo)}</div>
+      <div class="rrhh-expediente-grid">${html}</div>
+    </section>`;
+  }
+
+  function tablaExpediente(icono, titulo, columnas, filas) {
+    const limpias = (filas || []).filter(fila => Object.values(fila || {}).some(limpiarDatoExpediente));
+    if (!limpias.length) return '';
+    return `<section class="rrhh-expediente-section">
+      <div class="rrhh-expediente-section-title"><i class="fa ${icono}"></i>${escapeRrhhHtml(titulo)}</div>
+      <div class="table-responsive">
+        <table class="table rrhh-expediente-table">
+          <thead><tr>${columnas.map(col => `<th>${escapeRrhhHtml(col.label)}</th>`).join('')}</tr></thead>
+          <tbody>
+            ${limpias.map(fila => `<tr>${columnas.map(col => `<td>${escapeRrhhHtml(limpiarDatoExpediente(fila[col.key]) || '-')}</td>`).join('')}</tr>`).join('')}
+          </tbody>
+        </table>
+      </div>
+    </section>`;
+  }
+
+  function fotoExpedienteHtml(usuario, nombre) {
+    if (!incluirFotoExpedienteRrhh) return '';
+    const foto = String(fotoTemporalExpedienteRrhh || usuario?.foto_perfil || '').trim();
+    if (foto) {
+      const fitSeguro = fotoFitExpedienteRrhh === 'contain' ? 'contain' : 'cover';
+      const posX = fitSeguro === 'contain' ? 50 : fotoPosXExpedienteRrhh;
+      const posY = fitSeguro === 'contain' ? 50 : fotoPosYExpedienteRrhh;
+      const scale = fitSeguro === 'contain' ? 1 : fotoScaleExpedienteRrhh;
+      return `<img class="rrhh-expediente-photo-img" src="${escapeRrhhAttr(foto)}" alt="Foto de ${escapeRrhhAttr(nombre)}" style="object-fit:${escapeRrhhAttr(fitSeguro)}; object-position:${posX}% ${posY}%; transform:scale(${scale});" draggable="false" onerror="this.outerHTML='<span>${escapeRrhhHtml(inicialesCredencial(nombre))}</span>'">`;
+    }
+    return `<span>${escapeRrhhHtml(inicialesCredencial(nombre))}</span>`;
+  }
+
+  function fotoExpedienteSrcActual(usuario = obtenerUsuarioActualRrhh()) {
+    return String(fotoTemporalExpedienteRrhh || usuario?.foto_perfil || '').trim();
+  }
+
+  function claseFotoExpedienteWrap() {
+    return fotoFitExpedienteRrhh === 'contain' ? 'is-contain' : 'is-movable';
+  }
+
+  function valorSelectLaboralExpediente(selectId, fallback) {
+    return rrhhSelectText(selectId) || fallback || '';
+  }
+
+  function firmaExpedienteHtml(clave, etiqueta) {
+    const firma = firmasExpedienteRrhh[clave] || '';
+    return `<div class="rrhh-expediente-signature" data-rrhh-signature="${escapeRrhhAttr(clave)}" role="button" tabindex="0" title="Haz clic para capturar la firma">
+      ${firma ? `<img class="rrhh-expediente-signature-img" src="${escapeRrhhAttr(firma)}" alt="Firma ${escapeRrhhAttr(etiqueta)}"><button type="button" class="btn btn-outline-danger btn-sm rrhh-expediente-signature-clear" data-rrhh-clear-signature="${escapeRrhhAttr(clave)}"><i class="fa fa-times me-1"></i>Quitar firma</button>` : '<div class="text-muted small mb-2"><i class="fa fa-pen me-1"></i>Firmar aqu&iacute;</div>'}
+      <div class="rrhh-expediente-signature-line">${escapeRrhhHtml(etiqueta)}</div>
+    </div>`;
+  }
+
+  function fechaRecepcionExpedienteHtml() {
+    return `<div class="rrhh-expediente-signature">
+      <input type="text" class="form-control rrhh-expediente-signature-date" value="${escapeRrhhAttr(fechaRecepcionExpedienteRrhh)}" placeholder="dd/mm/aaaa" aria-label="Fecha de recepci&oacute;n" readonly>
+      <div class="rrhh-expediente-signature-line">Fecha de recepci&oacute;n</div>
+    </div>`;
+  }
+
+  function initFechaRecepcionExpediente() {
+    const input = contenedorExpedienteRrhh?.querySelector('.rrhh-expediente-signature-date');
+    if (!input) return;
+    if (typeof flatpickr === 'undefined') {
+      input.readOnly = false;
+      input.addEventListener('input', function () {
+        fechaRecepcionExpedienteRrhh = this.value.trim();
+      });
+      return;
+    }
+    if (input._flatpickr) return;
+    const anioActual = new Date().getFullYear();
+    const prepararAnioRecepcion = function (instance) {
+      const calendar = instance?.calendarContainer;
+      if (!calendar || calendar.querySelector('.rrhh-year-select')) return;
+      const currentMonth = calendar.querySelector('.flatpickr-current-month');
+      if (!currentMonth) return;
+      const select = document.createElement('select');
+      select.className = 'rrhh-year-select';
+      select.setAttribute('aria-label', 'Año');
+      for (let year = anioActual + 5; year >= anioActual - 5; year--) {
+        const option = document.createElement('option');
+        option.value = String(year);
+        option.textContent = String(year);
+        if (year === instance.currentYear) option.selected = true;
+        select.appendChild(option);
+      }
+      select.addEventListener('change', function () {
+        const year = Number(this.value);
+        if (Number.isFinite(year)) instance.changeYear(year);
+      });
+      currentMonth.appendChild(select);
+    };
+    const sincronizarAnioRecepcion = function (instance) {
+      const select = instance?.calendarContainer?.querySelector('.rrhh-year-select');
+      if (select && String(select.value) !== String(instance.currentYear)) {
+        select.value = String(instance.currentYear);
+      }
+    };
+    flatpickr(input, {
+      dateFormat: 'd/m/Y',
+      allowInput: false,
+      clickOpens: true,
+      appendTo: document.body,
+      monthSelectorType: 'dropdown',
+      locale: (flatpickr.l10ns && flatpickr.l10ns.es) ? flatpickr.l10ns.es : undefined,
+      onOpen: function (_, __, instance) {
+        instance.calendarContainer.classList.add('rrhh-flatpickr-calendar');
+        prepararAnioRecepcion(instance);
+        sincronizarAnioRecepcion(instance);
+      },
+      onMonthChange: function (_, __, instance) {
+        sincronizarAnioRecepcion(instance);
+      },
+      onYearChange: function (_, __, instance) {
+        sincronizarAnioRecepcion(instance);
+      },
+      onChange: function (_, dateStr) {
+        fechaRecepcionExpedienteRrhh = dateStr || '';
+      }
+    });
+  }
+
+  function ajustarCanvasFirmaExpediente() {
+    if (!canvasFirmaExpedienteRrhh) return;
+    const rect = canvasFirmaExpedienteRrhh.getBoundingClientRect();
+    const ratio = window.devicePixelRatio || 1;
+    canvasFirmaExpedienteRrhh.width = Math.max(1, Math.floor(rect.width * ratio));
+    canvasFirmaExpedienteRrhh.height = Math.max(1, Math.floor(rect.height * ratio));
+    const ctx = canvasFirmaExpedienteRrhh.getContext('2d');
+    ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
+    ctx.lineWidth = 2.4;
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    ctx.strokeStyle = '#0d2f5f';
+    ctx.clearRect(0, 0, rect.width, rect.height);
+  }
+
+  function limpiarCanvasFirmaExpediente() {
+    if (!canvasFirmaExpedienteRrhh) return;
+    const ctx = canvasFirmaExpedienteRrhh.getContext('2d');
+    const rect = canvasFirmaExpedienteRrhh.getBoundingClientRect();
+    ctx.clearRect(0, 0, rect.width, rect.height);
+    firmaTieneTrazosRrhh = false;
+  }
+
+  function puntoCanvasFirma(event) {
+    const rect = canvasFirmaExpedienteRrhh.getBoundingClientRect();
+    return {
+      x: event.clientX - rect.left,
+      y: event.clientY - rect.top
+    };
+  }
+
+  function cargarFotoExpedienteDesdeArchivo(file) {
+    if (!file) return;
+    if (!file.type || !file.type.startsWith('image/')) {
+      Swal.fire('Foto no v&aacute;lida', 'Selecciona una imagen para el expediente.', 'warning');
+      return;
+    }
+    if (fotoTemporalExpedienteRrhh && fotoTemporalExpedienteRrhh.startsWith('blob:')) {
+      URL.revokeObjectURL(fotoTemporalExpedienteRrhh);
+    }
+    fotoTemporalExpedienteRrhh = URL.createObjectURL(file);
+    incluirFotoExpedienteRrhh = true;
+    fotoFitExpedienteRrhh = 'cover';
+    fotoPosXExpedienteRrhh = 50;
+    fotoPosYExpedienteRrhh = 50;
+    fotoScaleExpedienteRrhh = 1;
+    if (inputIncluirFotoExpedienteRrhh) inputIncluirFotoExpedienteRrhh.checked = true;
+    pintarExpedienteRrhh();
+    abrirEditorFotoRrhh('expediente');
+  }
+
+  function limpiarPruebasExpedienteRrhh(repaint = true) {
+    if (fotoTemporalExpedienteRrhh && fotoTemporalExpedienteRrhh.startsWith('blob:')) {
+      URL.revokeObjectURL(fotoTemporalExpedienteRrhh);
+    }
+    if (fotoTemporalCredencialRrhh && fotoTemporalCredencialRrhh.startsWith('blob:')) {
+      URL.revokeObjectURL(fotoTemporalCredencialRrhh);
+    }
+    fotoTemporalExpedienteRrhh = '';
+    fotoTemporalCredencialRrhh = '';
+    incluirFotoExpedienteRrhh = true;
+    fotoFitExpedienteRrhh = 'cover';
+    fotoPosXExpedienteRrhh = 50;
+    fotoPosYExpedienteRrhh = 50;
+    fotoScaleExpedienteRrhh = 1;
+    fotoDragExpedienteRrhh = null;
+    fotoFitCredencialRrhh = 'cover';
+    fotoPosXCredencialRrhh = 50;
+    fotoPosYCredencialRrhh = 50;
+    fotoScaleCredencialRrhh = 1;
+    posicionFotoCredencialRrhh = 'center center';
+    fotoDragCredencialRrhh = null;
+    fotoEditorDragCredencialRrhh = null;
+    Object.keys(firmasExpedienteRrhh).forEach(clave => delete firmasExpedienteRrhh[clave]);
+    if (inputIncluirFotoExpedienteRrhh) inputIncluirFotoExpedienteRrhh.checked = true;
+    if (inputFotoExpedienteRrhh) inputFotoExpedienteRrhh.value = '';
+    if (inputFotoCredencialRrhh) inputFotoCredencialRrhh.value = '';
+    fechaRecepcionExpedienteRrhh = '';
+    limpiarCanvasFirmaExpediente();
+    if (repaint) {
+      pintarExpedienteRrhh();
+      pintarCredencialRrhh();
+    }
+  }
+
+  function aplicarPosicionFotoExpediente() {
+    contenedorExpedienteRrhh?.querySelectorAll('.rrhh-expediente-photo-img').forEach(img => {
+      img.style.objectFit = fotoFitExpedienteRrhh;
+      img.style.objectPosition = `${fotoPosXExpedienteRrhh}% ${fotoPosYExpedienteRrhh}%`;
+      img.style.transform = `scale(${fotoScaleExpedienteRrhh})`;
+    });
+    actualizarPreviewEditorFotoCredencial();
+  }
+
+  function pintarExpedienteRrhh() {
+    if (!contenedorExpedienteRrhh) return false;
+    const payload = collectPayload();
+    const usuario = obtenerUsuarioActualRrhh();
+    const idPersona = inputEditIdRrhh?.value || usuario?.id || '';
+    const nombre = nombreCompletoCredencial(payload, usuario);
+    const numeroEmpleado = usuario?.numero_empleado || payload?.persona?.numero_empleado || idPersona || '';
+    const puesto = valorRrhh('rrhh.puesto_texto', usuario?.nombre_puesto || usuario?.nombre_puesto_principal || '');
+    const puestoGeneral = puestoGeneralCredencial(puesto);
+    const area = valorSelectLaboralExpediente('rrhh_area_id', usuario?.nombre_departamento_organizacional || '');
+    const departamento = valorSelectLaboralExpediente('rrhh_departamento_id', usuario?.nombre_departamento || usuario?.nombre_departamento_principal || '');
+    const pais = valorSelectLaboralExpediente('rrhh_pais_id', usuario?.nombre_pais || '');
+    const jefe = valorSelectLaboralExpediente('rrhh_jefe_id', valorRrhh('rrhh.jefe_directo_texto', usuario?.jefe_nombre || ''));
+    const telefonoPrincipal = collectRepeats('telefonos')[0]?.numero || usuario?.telefono || usuario?.celular || '';
+    const correoPrincipal = collectRepeats('correos')[0]?.correo || usuario?.correo || usuario?.email || '';
+    const fechaGeneracion = new Date().toLocaleDateString('es-MX', { year: 'numeric', month: 'long', day: '2-digit' });
+    const checklist = [
+      'Identificación oficial',
+      'CURP',
+      'RFC / Constancia fiscal',
+      'NSS',
+      'Comprobante de domicilio',
+      'Contrato laboral',
+      'Cuenta bancaria / CLABE',
+      'Alta IMSS',
+      'Políticas y acuse interno',
+      'Credencial de empleado'
+    ];
+
+    contenedorExpedienteRrhh.innerHTML = `
+      <article class="rrhh-expediente">
+        <header class="rrhh-expediente-cover">
+          <div>
+            <img class="rrhh-expediente-logo" src="${logoExpedienteRrhh}" alt="Maxikash">
+            <div class="rrhh-expediente-title">Expediente de colaborador</div>
+            <div class="rrhh-expediente-subtitle">Capital Humano · Generado el ${escapeRrhhHtml(fechaGeneracion)}</div>
+          </div>
+          <div class="rrhh-expediente-person${incluirFotoExpedienteRrhh ? '' : ' no-photo'}">
+            ${incluirFotoExpedienteRrhh ? `<div class="rrhh-expediente-photo ${claseFotoExpedienteWrap()}">${fotoExpedienteHtml(usuario, nombre)}</div>` : ''}
+            <div>
+              <div class="fw-bold text-uppercase" style="font-size:1.05rem;line-height:1.15;">${escapeRrhhHtml(nombre)}</div>
+              <div class="mt-1">${escapeRrhhHtml(puestoGeneral)}</div>
+              ${numeroEmpleado ? `<div class="small mt-2">No. empleado: <strong>${escapeRrhhHtml(numeroEmpleado)}</strong></div>` : ''}
+            </div>
+          </div>
+        </header>
+        <div class="rrhh-expediente-body">
+          ${seccionExpediente('fa-id-card', 'Identificación', [
+            campoExpediente('ID interno', idPersona),
+            campoExpediente('No. empleado', numeroEmpleado),
+            campoExpediente('Nombre completo', nombre),
+            campoExpediente('CURP', payload?.persona?.curp || usuario?.curp),
+            campoExpediente('RFC', payload?.persona?.rfc || usuario?.rfc),
+            campoExpediente('NSS', payload?.persona?.nss || usuario?.nss),
+            campoExpediente('Fecha de nacimiento', payload?.persona?.fecha_nacimiento || usuario?.fecha_nacimiento),
+            campoExpediente('Sexo', payload?.persona?.sexo || usuario?.sexo),
+            campoExpediente('Entidad federativa', payload?.persona?.entidad_federativa || usuario?.entidad_federativa)
+          ])}
+          ${seccionExpediente('fa-briefcase', 'Datos laborales', [
+            campoExpediente('País', pais),
+            campoExpediente('Área', area),
+            campoExpediente('Departamento', departamento),
+            campoExpediente('Puesto', puesto),
+            campoExpediente('Jefe directo', jefe),
+            campoExpediente('Fecha de ingreso', payload?.rrhh?.fecha_ingreso || usuario?.fecha_ingreso),
+            campoExpediente('Fecha CONTPAC', payload?.rrhh?.fecha_contpac),
+            campoExpediente('Fecha IMSS alta', payload?.rrhh?.fecha_imss_alta),
+            campoExpediente('Registro patronal', payload?.rrhh?.registro_patronal),
+            campoExpediente('Código CONTPAC', payload?.rrhh?.codigo_contpac),
+            campoExpediente('Dirección organizacional', payload?.rrhh?.direccion_organizacional),
+            campoExpediente('Ubicación laboral', payload?.rrhh?.ubicacion_laboral),
+            campoExpediente('Municipio', payload?.rrhh?.municipio)
+          ])}
+          ${seccionExpediente('fa-address-book', 'Contacto principal', [
+            campoExpediente('Teléfono', telefonoPrincipal),
+            campoExpediente('Correo electrónico', correoPrincipal)
+          ])}
+          ${seccionExpediente('fa-notes-medical', 'Información médica', [
+            campoExpedienteConDefault('Tipo de sangre', payload?.rrhh?.tipo_sangre),
+            campoExpedienteConDefault('Alergias', payload?.rrhh?.alergias),
+            campoExpedienteConDefault('Enfermedades crónicas', payload?.rrhh?.enfermedades_cronicas),
+            campoExpedienteConDefault('Enfermedades hereditarias', payload?.rrhh?.enfermedades_hereditarias),
+            campoExpedienteConDefault('Medicamentos actuales', payload?.rrhh?.medicamentos_actuales),
+            campoExpedienteConDefault('Discapacidad o condición médica', payload?.rrhh?.discapacidad_condicion),
+            campoExpedienteConDefault('Observaciones médicas', payload?.rrhh?.observaciones_medicas)
+          ])}
+          ${tablaExpediente('fa-phone', 'Teléfonos', [
+            { key: 'numero', label: 'Número' },
+            { key: 'tipo', label: 'Tipo' }
+          ], payload.telefonos)}
+          ${tablaExpediente('fa-envelope', 'Correos', [
+            { key: 'correo', label: 'Correo' },
+            { key: 'tipo', label: 'Tipo' }
+          ], payload.correos)}
+          ${tablaExpediente('fa-home', 'Domicilios', [
+            { key: 'domicilio_texto', label: 'Domicilio' },
+            { key: 'codigo_postal', label: 'C.P.' },
+            { key: 'tipo', label: 'Tipo' }
+          ], payload.domicilios)}
+          ${tablaExpediente('fa-university', 'Banco y cuentas', [
+            { key: 'nombre_banco', label: 'Banco' },
+            { key: 'numero_cuenta', label: 'Cuenta' },
+            { key: 'clabe', label: 'CLABE' }
+          ], payload.cuentas_bancarias)}
+          ${tablaExpediente('fa-exclamation-triangle', 'Contactos de emergencia', [
+            { key: 'nombre_contacto', label: 'Nombre' },
+            { key: 'parentesco', label: 'Parentesco' },
+            { key: 'numero', label: 'Teléfono' }
+          ], payload.contactos_emergencia)}
+          ${tablaExpediente('fa-users', 'Beneficiarios', [
+            { key: 'nombre_beneficiario', label: 'Nombre' },
+            { key: 'parentesco', label: 'Parentesco' },
+            { key: 'numero', label: 'Teléfono' },
+            { key: 'porcentaje', label: 'Porcentaje' }
+          ], payload.beneficiarios)}
+          ${payload.observaciones ? seccionExpediente('fa-clipboard-list', 'Observaciones internas', [
+            campoExpediente('Notas', payload.observaciones)
+          ]) : ''}
+          <section class="rrhh-expediente-section">
+            <div class="rrhh-expediente-section-title"><i class="fa fa-tasks"></i>Checklist documental</div>
+            <div class="table-responsive">
+              <table class="table rrhh-expediente-table">
+                <thead><tr><th>Documento</th><th>Recibido</th><th>Observaciones</th></tr></thead>
+                <tbody>
+                  ${checklist.map((doc, index) => `<tr><td>${escapeRrhhHtml(doc)}</td><td><input type="checkbox" class="rrhh-expediente-checkbox" id="rrhhChecklistExpediente${index}"></td><td></td></tr>`).join('')}
+                </tbody>
+              </table>
+            </div>
+          </section>
+          <section class="rrhh-expediente-section">
+            <div class="rrhh-expediente-section-title"><i class="fa fa-pencil-alt"></i>Firmas y validaci&oacute;n</div>
+            <div class="rrhh-expediente-signatures">
+              ${firmaExpedienteHtml('colaborador', 'Colaborador')}
+              ${firmaExpedienteHtml('capital_humano', 'Capital Humano')}
+              ${fechaRecepcionExpedienteHtml()}
+            </div>
+          </section>
+        </div>
+      </article>`;
+    initFechaRecepcionExpediente();
+    return true;
+  }
+
+  function pintarCredencialRrhh() {
+    if (!contenedorCredencialFrente || !contenedorCredencialReverso) return false;
+    const payload = collectPayload();
+    const usuario = obtenerUsuarioActualRrhh();
+    const claseOrientacion = orientacionCredencialRrhh === 'horizontal' ? ' is-horizontal' : '';
+    const idPersona = inputEditIdRrhh?.value || usuario?.id || '';
+    const nombre = nombreCompletoCredencial(payload, usuario);
+    const puestoBase = valorRrhh('rrhh.puesto_texto', usuario?.nombre_puesto || usuario?.nombre_puesto_principal || '');
+    const puestoGeneral = puestoGeneralCredencial(puestoBase);
+    const numeroEmpleado = usuario?.numero_empleado || payload?.persona?.numero_empleado || idPersona || '-';
+    const area = valorRrhh('rrhh.area_texto', usuario?.nombre_departamento_organizacional || '');
+    const departamento = valorRrhh('rrhh.departamento_texto', usuario?.nombre_departamento || usuario?.nombre_departamento_principal || '');
+    const pais = resolverPaisCredencial(usuario, payload);
+    const rfc = payload?.persona?.rfc || usuario?.rfc || '';
+    const curp = payload?.persona?.curp || usuario?.curp || '';
+    const nss = payload?.persona?.nss || usuario?.nss || '';
+    const qrSeed = `MAXIKASH|RRHH|ID:${idPersona || ''}|EMP:${numeroEmpleado || ''}|NOMBRE:${nombre}`;
+
+    contenedorCredencialFrente.innerHTML = `
+      <div class="rrhh-id-card rrhh-id-front${claseOrientacion}">
+        <div class="rrhh-id-card-inner">
+          <img class="rrhh-id-logo mt-1 mb-4" src="${logoCredencialRrhh}" alt="Maxikash">
+          <div class="rrhh-id-photo-wrap ${claseFotoCredencialWrap()} mt-4">${fotoCredencialHtml(usuario, nombre)}</div>
+          <div class="rrhh-id-name">${escapeRrhhHtml(nombre)}</div>
+          <div class="rrhh-id-position">${escapeRrhhHtml(puestoGeneral)}</div>
+          <div class="rrhh-id-meta mt-4">
+            ${datoCredencial('RFC', rfc)}
+            ${datoCredencial('Puesto', puestoGeneral)}
+            ${datoCredencial('Departamento', departamento)}
+            ${datoCredencial('Sede', pais)}
+          </div>
+        </div>
+      </div>`;
+
+    contenedorCredencialReverso.innerHTML = `
+      <div class="rrhh-id-card rrhh-id-back${claseOrientacion}">
+        <div class="rrhh-id-card-inner">
+          <img class="rrhh-id-logo mt-1 mb-5" src="${logoCredencialRrhh}" alt="Maxikash">
+          ${qrCredencialHtml(qrSeed)}
+          <div class="rrhh-id-back-title fw-bold text-uppercase text-center mt-3">Validaci&oacute;n interna</div>
+          <div class="rrhh-id-back-list">
+            ${datoReversoCredencial('fa-id-badge', 'ID interno', idPersona)}
+            ${datoReversoCredencial('fa-user', 'No. empleado', numeroEmpleado)}
+            ${datoReversoCredencial('fa-sitemap', 'Departamento', departamento)}
+            ${datoReversoCredencial('fa-map-marker-alt', 'Sede', pais)}
+            ${datoReversoCredencial('fa-address-card', 'RFC', rfc)}
+          </div>
+        </div>
+      </div>`;
+    actualizarBotonesFotoCredencialRrhh();
+    return true;
+  }
+
+  form.addEventListener('click', function (event) {
+    const addBtn = event.target.closest('[data-rrhh-add]');
+    if (addBtn) addRow(addBtn.dataset.rrhhAdd);
+
+    const removeBtn = event.target.closest('.rrhh-remove-row');
+    if (removeBtn) {
+      const row = removeBtn.closest('.rrhh-repeat-row');
+      const list = row?.parentElement;
+      if (list && list.children.length > 1) row.remove();
+      else row?.querySelectorAll('input, select').forEach(input => {
+        if (input.tagName === 'SELECT') input.selectedIndex = 0;
+        else input.value = '';
+      });
+    }
+  });
+
+  form.addEventListener('change', function (event) {
+    const target = event.target;
+    if (!target) return;
+    if (target.id === 'rrhh_pais_id') {
+      fillRrhhAreas();
+    } else if (target.id === 'rrhh_departamento_id') {
+      setRrhhHiddenText('rrhh_departamento_id', 'rrhh_departamento_texto');
+      fillRrhhPuestos();
+      fillRrhhJefes();
+    } else if (target.id === 'rrhh_area_id') {
+      setRrhhHiddenText('rrhh_area_id', 'rrhh_area_texto');
+      fillRrhhDepartamentos();
+    } else if (target.id === 'rrhh_puesto_id') {
+      setRrhhHiddenText('rrhh_puesto_id', 'rrhh_puesto_texto');
+      fillRrhhJefes();
+    } else if (target.id === 'rrhh_jefe_id') {
+      setRrhhHiddenText('rrhh_jefe_id', 'rrhh_jefe_directo_texto');
+    }
+  });
+
+  modal.addEventListener('shown.bs.modal', function () {
+    if (modal.parentNode !== document.body) {
+      document.body.appendChild(modal);
+    }
+    modal.style.setProperty('z-index', '99999', 'important');
+    showRrhhScrim();
+    document.querySelectorAll('.modal-backdrop').forEach(function (backdrop) {
+      backdrop.remove();
+    });
+    if (!form.dataset.initialized) {
+      resetRepeats();
+      form.dataset.initialized = '1';
+    }
+    initRrhhDatepickers();
+    initRrhhLaboralSelects();
+  });
+
+  modal.addEventListener('show.bs.modal', function () {
+    if (modal.parentNode !== document.body) {
+      document.body.appendChild(modal);
+    }
+    if (!inputEditIdRrhh?.value) {
+      setModoRrhh('crear');
+    }
+    showRrhhScrim();
+  });
+
+  modal.addEventListener('hidden.bs.modal', function () {
+    modal.style.removeProperty('z-index');
+    hideRrhhScrim();
+    if (abriendoExpedienteRrhh) {
+      abriendoExpedienteRrhh = false;
+      bootstrap.Modal.getOrCreateInstance(modalExpedienteRrhh, { backdrop: false })?.show();
+      return;
+    }
+    if (abriendoCredencialRrhh) {
+      abriendoCredencialRrhh = false;
+      bootstrap.Modal.getOrCreateInstance(modalCredencialRrhh, { backdrop: false })?.show();
+      return;
+    }
+    resetRrhhFormCompleto();
+  });
+
+  btnGenerarExpedienteRrhh?.addEventListener('click', function () {
+    if (!inputEditIdRrhh?.value) {
+      Swal.fire('Expediente RR.HH.', 'Primero guarda o selecciona un usuario para generar su expediente.', 'info');
+      return;
+    }
+    if (!pintarExpedienteRrhh()) {
+      Swal.fire('Expediente RR.HH.', 'No se pudo preparar la vista del expediente.', 'error');
+      return;
+    }
+    abriendoExpedienteRrhh = true;
+    bootstrap.Modal.getInstance(modal)?.hide();
+  });
+
+  btnVolverRrhhDesdeExpediente?.addEventListener('click', function () {
+    volverDesdeExpedienteRrhh = true;
+    bootstrap.Modal.getInstance(modalExpedienteRrhh)?.hide();
+  });
+
+  btnImprimirExpedienteRrhh?.addEventListener('click', function () {
+    const modalBody = modalExpedienteRrhh?.querySelector('.modal-body');
+    if (modalBody) modalBody.scrollTop = 0;
+    window.scrollTo(0, 0);
+    document.body.classList.add('print-rrhh-expediente');
+    window.print();
+    setTimeout(() => document.body.classList.remove('print-rrhh-expediente'), 300);
+  });
+
+  contenedorExpedienteRrhh?.addEventListener('click', function (event) {
+    const clearBtn = event.target.closest('[data-rrhh-clear-signature]');
+    if (clearBtn) {
+      event.preventDefault();
+      event.stopPropagation();
+      const clave = clearBtn.dataset.rrhhClearSignature || '';
+      if (clave) {
+        delete firmasExpedienteRrhh[clave];
+        pintarExpedienteRrhh();
+      }
+      return;
+    }
+    const firma = event.target.closest('[data-rrhh-signature]');
+    if (!firma) return;
+    firmaActivaExpedienteRrhh = firma.dataset.rrhhSignature || '';
+    bootstrap.Modal.getOrCreateInstance(modalFirmaExpedienteRrhh, { backdrop: false })?.show();
+  });
+
+  contenedorExpedienteRrhh?.addEventListener('keydown', function (event) {
+    if (event.key !== 'Enter' && event.key !== ' ') return;
+    const firma = event.target.closest('[data-rrhh-signature]');
+    if (!firma) return;
+    event.preventDefault();
+    firmaActivaExpedienteRrhh = firma.dataset.rrhhSignature || '';
+    bootstrap.Modal.getOrCreateInstance(modalFirmaExpedienteRrhh, { backdrop: false })?.show();
+  });
+
+  modalFirmaExpedienteRrhh?.addEventListener('shown.bs.modal', function () {
+    if (modalFirmaExpedienteRrhh.parentNode !== document.body) {
+      document.body.appendChild(modalFirmaExpedienteRrhh);
+    }
+    modalFirmaExpedienteRrhh.style.setProperty('z-index', '100060', 'important');
+    document.querySelectorAll('.modal-backdrop').forEach(function (backdrop) {
+      backdrop.remove();
+    });
+    setTimeout(() => {
+      ajustarCanvasFirmaExpediente();
+      limpiarCanvasFirmaExpediente();
+    }, 40);
+  });
+
+  modalFirmaExpedienteRrhh?.addEventListener('hidden.bs.modal', function () {
+    modalFirmaExpedienteRrhh.style.removeProperty('z-index');
+    firmaActivaExpedienteRrhh = '';
+    firmaDibujandoRrhh = false;
+  });
+
+  canvasFirmaExpedienteRrhh?.addEventListener('pointerdown', function (event) {
+    event.preventDefault();
+    firmaDibujandoRrhh = true;
+    const ctx = canvasFirmaExpedienteRrhh.getContext('2d');
+    const punto = puntoCanvasFirma(event);
+    ctx.beginPath();
+    ctx.moveTo(punto.x, punto.y);
+    canvasFirmaExpedienteRrhh.setPointerCapture?.(event.pointerId);
+  });
+
+  canvasFirmaExpedienteRrhh?.addEventListener('pointermove', function (event) {
+    if (!firmaDibujandoRrhh) return;
+    event.preventDefault();
+    const ctx = canvasFirmaExpedienteRrhh.getContext('2d');
+    const punto = puntoCanvasFirma(event);
+    ctx.lineTo(punto.x, punto.y);
+    ctx.stroke();
+    firmaTieneTrazosRrhh = true;
+  });
+
+  ['pointerup', 'pointercancel', 'pointerleave'].forEach(nombreEvento => {
+    canvasFirmaExpedienteRrhh?.addEventListener(nombreEvento, function () {
+      firmaDibujandoRrhh = false;
+    });
+  });
+
+  btnRepetirFirmaExpedienteRrhh?.addEventListener('click', limpiarCanvasFirmaExpediente);
+
+  btnAceptarFirmaExpedienteRrhh?.addEventListener('click', function () {
+    if (!firmaActivaExpedienteRrhh || !canvasFirmaExpedienteRrhh) return;
+    if (!firmaTieneTrazosRrhh) {
+      Swal.fire('Firma vac&iacute;a', 'Dibuja la firma antes de aceptarla.', 'info');
+      return;
+    }
+    firmasExpedienteRrhh[firmaActivaExpedienteRrhh] = canvasFirmaExpedienteRrhh.toDataURL('image/png');
+    const target = contenedorExpedienteRrhh?.querySelector(`[data-rrhh-signature="${firmaActivaExpedienteRrhh}"]`);
+    const etiqueta = target?.querySelector('.rrhh-expediente-signature-line')?.textContent?.trim() || 'Firma';
+    if (target) {
+      target.innerHTML = `<img class="rrhh-expediente-signature-img" src="${firmasExpedienteRrhh[firmaActivaExpedienteRrhh]}" alt="Firma ${escapeRrhhAttr(etiqueta)}"><div class="rrhh-expediente-signature-line">${escapeRrhhHtml(etiqueta)}</div>`;
+    }
+    bootstrap.Modal.getInstance(modalFirmaExpedienteRrhh)?.hide();
+  });
+
+  btnLimpiarTodoExpedienteRrhh?.addEventListener('click', function () {
+    limpiarPruebasExpedienteRrhh(true);
+  });
+
+  inputIncluirFotoExpedienteRrhh?.addEventListener('change', function () {
+    incluirFotoExpedienteRrhh = this.checked;
+    pintarExpedienteRrhh();
+  });
+
+  btnCambiarFotoExpedienteRrhh?.addEventListener('click', function () {
+    inputFotoExpedienteRrhh?.click();
+  });
+
+  btnAjustarFotoExpedienteRrhh?.addEventListener('click', function () {
+    fotoFitExpedienteRrhh = 'cover';
+    abrirEditorFotoRrhh('expediente');
+  });
+
+  inputFotoExpedienteRrhh?.addEventListener('change', function () {
+    cargarFotoExpedienteDesdeArchivo(this.files && this.files[0] ? this.files[0] : null);
+    this.value = '';
+  });
+
+  [dropzoneFotoExpedienteRrhh, contenedorExpedienteRrhh].forEach(target => {
+    target?.addEventListener('dragover', function (event) {
+      const destino = event.target.closest('.rrhh-expediente-photo-dropzone, .rrhh-expediente-photo');
+      if (!destino) return;
+      event.preventDefault();
+      destino.classList.add('is-dragover');
+    });
+    target?.addEventListener('dragleave', function (event) {
+      event.target.closest('.rrhh-expediente-photo-dropzone, .rrhh-expediente-photo')?.classList.remove('is-dragover');
+    });
+    target?.addEventListener('drop', function (event) {
+      const destino = event.target.closest('.rrhh-expediente-photo-dropzone, .rrhh-expediente-photo');
+      if (!destino) return;
+      event.preventDefault();
+      destino.classList.remove('is-dragover');
+      cargarFotoExpedienteDesdeArchivo(event.dataTransfer?.files?.[0] || null);
+    });
+  });
+
+  contenedorExpedienteRrhh?.addEventListener('pointerdown', function (event) {
+    const img = event.target.closest('.rrhh-expediente-photo-img');
+    if (!img || fotoFitExpedienteRrhh !== 'cover') return;
+    const wrap = img.closest('.rrhh-expediente-photo');
+    if (!wrap) return;
+    event.preventDefault();
+    fotoDragExpedienteRrhh = {
+      pointerId: event.pointerId,
+      startX: event.clientX,
+      startY: event.clientY,
+      baseX: fotoPosXExpedienteRrhh,
+      baseY: fotoPosYExpedienteRrhh,
+      width: Math.max(1, wrap.clientWidth),
+      height: Math.max(1, wrap.clientHeight)
+    };
+    img.setPointerCapture?.(event.pointerId);
+  });
+
+  contenedorExpedienteRrhh?.addEventListener('pointermove', function (event) {
+    if (!fotoDragExpedienteRrhh || fotoDragExpedienteRrhh.pointerId !== event.pointerId) return;
+    const dx = ((event.clientX - fotoDragExpedienteRrhh.startX) / fotoDragExpedienteRrhh.width) * 80;
+    const dy = ((event.clientY - fotoDragExpedienteRrhh.startY) / fotoDragExpedienteRrhh.height) * 80;
+    fotoPosXExpedienteRrhh = Math.max(0, Math.min(100, fotoDragExpedienteRrhh.baseX + dx));
+    fotoPosYExpedienteRrhh = Math.max(0, Math.min(100, fotoDragExpedienteRrhh.baseY + dy));
+    aplicarPosicionFotoExpediente();
+  });
+
+  ['pointerup', 'pointercancel'].forEach(nombreEvento => {
+    contenedorExpedienteRrhh?.addEventListener(nombreEvento, function () {
+      fotoDragExpedienteRrhh = null;
+    });
+  });
+
+  const btnCredencialRrhhActivo = btnGenerarCredencialRrhh ? btnGenerarCredencialRrhh.cloneNode(true) : null;
+  if (btnGenerarCredencialRrhh && btnCredencialRrhhActivo) {
+    btnGenerarCredencialRrhh.replaceWith(btnCredencialRrhhActivo);
+    btnCredencialRrhhActivo.addEventListener('click', function () {
+      if (!inputEditIdRrhh?.value) {
+        Swal.fire('Credencial RR.HH.', 'Primero guarda o selecciona un usuario para generar su credencial.', 'info');
+        return;
+      }
+      if (!pintarCredencialRrhh()) {
+        Swal.fire('Credencial RR.HH.', 'No se pudo preparar la vista de credencial.', 'error');
+        return;
+      }
+      abriendoCredencialRrhh = true;
+      bootstrap.Modal.getInstance(modal)?.hide();
+    });
+  }
+
+  btnVolverRrhhDesdeCredencial?.addEventListener('click', function () {
+    volverDesdeCredencialRrhh = true;
+    bootstrap.Modal.getInstance(modalCredencialRrhh)?.hide();
+  });
+
+  btnImprimirCredencialRrhh?.addEventListener('click', function () {
+    const modalBody = modalCredencialRrhh?.querySelector('.modal-body');
+    if (modalBody) modalBody.scrollTop = 0;
+    window.scrollTo(0, 0);
+    document.body.classList.add('print-rrhh-credencial');
+    window.print();
+    setTimeout(() => document.body.classList.remove('print-rrhh-credencial'), 300);
+  });
+
+  modalExpedienteRrhh?.addEventListener('show.bs.modal', function () {
+    if (modalExpedienteRrhh.parentNode !== document.body) {
+      document.body.appendChild(modalExpedienteRrhh);
+    }
+    showRrhhScrim();
+    document.querySelectorAll('.modal-backdrop').forEach(function (backdrop) {
+      backdrop.remove();
+    });
+    modalExpedienteRrhh.style.setProperty('z-index', '100040', 'important');
+  });
+
+  modalExpedienteRrhh?.addEventListener('shown.bs.modal', function () {
+    showRrhhScrim();
+    document.querySelectorAll('.modal-backdrop').forEach(function (backdrop) {
+      backdrop.remove();
+    });
+  });
+
+  modalExpedienteRrhh?.addEventListener('hidden.bs.modal', function () {
+    modalExpedienteRrhh.style.removeProperty('z-index');
+    document.body.classList.remove('print-rrhh-expediente');
+    hideRrhhScrim();
+    if (volverDesdeExpedienteRrhh) {
+      volverDesdeExpedienteRrhh = false;
+      bootstrap.Modal.getOrCreateInstance(modal)?.show();
+      return;
+    }
+    resetRrhhFormCompleto();
+  });
+
+  document.querySelectorAll('input[name="rrhhCredencialOrientacion"]').forEach(input => {
+    input.addEventListener('change', function () {
+      orientacionCredencialRrhh = this.value === 'horizontal' ? 'horizontal' : 'vertical';
+      pintarCredencialRrhh();
+    });
+  });
+
+  btnCambiarFotoCredencialRrhh?.addEventListener('click', function () {
+    inputFotoCredencialRrhh?.click();
+  });
+
+  inputFotoCredencialRrhh?.addEventListener('change', function () {
+    const file = this.files && this.files[0] ? this.files[0] : null;
+    if (!file) return;
+    if (!file.type || !file.type.startsWith('image/')) {
+      Swal.fire('Foto no válida', 'Selecciona una imagen para la credencial.', 'warning');
+      this.value = '';
+      return;
+    }
+    if (fotoTemporalCredencialRrhh && fotoTemporalCredencialRrhh.startsWith('blob:')) {
+      URL.revokeObjectURL(fotoTemporalCredencialRrhh);
+    }
+    fotoTemporalCredencialRrhh = URL.createObjectURL(file);
+    fotoFitCredencialRrhh = 'cover';
+    fotoPosXCredencialRrhh = 50;
+    fotoPosYCredencialRrhh = 50;
+    fotoScaleCredencialRrhh = 1;
+    posicionFotoCredencialRrhh = 'center center';
+    pintarCredencialRrhh();
+    abrirEditorFotoRrhh('credencial');
+  });
+
+  modalCredencialRrhh?.addEventListener('click', function (event) {
+    const btnPos = event.target.closest('[data-rrhh-photo-pos]');
+    if (!btnPos) return;
+    const pos = btnPos.dataset.rrhhPhotoPos;
+    posicionFotoCredencialRrhh = pos === 'top' ? 'center top' : (pos === 'bottom' ? 'center bottom' : 'center center');
+    pintarCredencialRrhh();
+  });
+
+  function cargarFotoCredencialDesdeDrop(file) {
+    if (!file) return;
+    if (!file.type || !file.type.startsWith('image/')) {
+      Swal.fire('Foto no válida', 'Selecciona una imagen para la credencial.', 'warning');
+      return;
+    }
+    if (fotoTemporalCredencialRrhh && fotoTemporalCredencialRrhh.startsWith('blob:')) {
+      URL.revokeObjectURL(fotoTemporalCredencialRrhh);
+    }
+    fotoTemporalCredencialRrhh = URL.createObjectURL(file);
+    fotoFitCredencialRrhh = 'cover';
+    fotoPosXCredencialRrhh = 50;
+    fotoPosYCredencialRrhh = 50;
+    fotoScaleCredencialRrhh = 1;
+    posicionFotoCredencialRrhh = 'center center';
+    pintarCredencialRrhh();
+    abrirEditorFotoRrhh('credencial');
+  }
+
+  function aplicarPosicionFotoCredencial() {
+    modalCredencialRrhh?.querySelectorAll('.rrhh-id-photo').forEach(img => {
+      img.style.objectFit = fotoFitCredencialRrhh;
+      img.style.objectPosition = `${fotoPosXCredencialRrhh}% ${fotoPosYCredencialRrhh}%`;
+      img.style.transform = `scale(${fotoScaleCredencialRrhh})`;
+    });
+    actualizarPreviewEditorFotoCredencial();
+  }
+
+  function actualizarBotonesFotoCredencialRrhh() {
+    btnFotoCompletaCredencialRrhh?.classList.toggle('active', fotoFitCredencialRrhh !== 'cover');
+    btnAjustarFotoCredencialRrhh?.classList.toggle('active', fotoFitCredencialRrhh === 'cover');
+  }
+
+  function fotoEditorSrcActual() {
+    return fotoEditorContextoRrhh === 'expediente' ? fotoExpedienteSrcActual() : fotoCredencialSrcActual();
+  }
+
+  function estadoFotoEditorActual() {
+    if (fotoEditorContextoRrhh === 'expediente') {
+      return {
+        fit: fotoFitExpedienteRrhh,
+        x: fotoPosXExpedienteRrhh,
+        y: fotoPosYExpedienteRrhh,
+        scale: fotoScaleExpedienteRrhh
+      };
+    }
+    return {
+      fit: fotoFitCredencialRrhh,
+      x: fotoPosXCredencialRrhh,
+      y: fotoPosYCredencialRrhh,
+      scale: fotoScaleCredencialRrhh
+    };
+  }
+
+  function abrirEditorFotoRrhh(contexto = 'credencial') {
+    fotoEditorContextoRrhh = contexto === 'expediente' ? 'expediente' : 'credencial';
+    const src = fotoEditorSrcActual();
+    if (!src) {
+      if (fotoEditorContextoRrhh === 'expediente') inputFotoExpedienteRrhh?.click();
+      else inputFotoCredencialRrhh?.click();
+      return;
+    }
+    actualizarPreviewEditorFotoCredencial();
+    bootstrap.Modal.getOrCreateInstance(modalAjustarFotoCredencialRrhh, { backdrop: false })?.show();
+  }
+
+  function actualizarPreviewEditorFotoCredencial() {
+    if (!frameEditorFotoCredencialRrhh) return;
+    const src = fotoEditorSrcActual();
+    if (!src) {
+      frameEditorFotoCredencialRrhh.innerHTML = '<div class="rrhh-photo-editor-empty">Selecciona una foto</div>';
+      return;
+    }
+    const estado = estadoFotoEditorActual();
+    const fitSeguro = estado.fit === 'contain' ? 'contain' : 'cover';
+    const posX = fitSeguro === 'contain' ? 50 : estado.x;
+    const posY = fitSeguro === 'contain' ? 50 : estado.y;
+    const scale = fitSeguro === 'contain' ? 1 : estado.scale;
+    frameEditorFotoCredencialRrhh.innerHTML = `<img class="rrhh-photo-editor-img" src="${escapeRrhhAttr(src)}" alt="Ajuste de foto" style="object-fit:${fitSeguro}; object-position:${posX}% ${posY}%; transform:scale(${scale});" draggable="false">`;
+  }
+
+  function ponerFotoCompletaCredencial() {
+    ponerFotoCompletaContextoRrhh('credencial');
+  }
+
+  function ponerFotoCompletaContextoRrhh(contexto = fotoEditorContextoRrhh) {
+    if (contexto === 'expediente') {
+      fotoFitExpedienteRrhh = 'contain';
+      fotoPosXExpedienteRrhh = 50;
+      fotoPosYExpedienteRrhh = 50;
+      fotoScaleExpedienteRrhh = 1;
+      pintarExpedienteRrhh();
+      actualizarPreviewEditorFotoCredencial();
+      return;
+    }
+    fotoFitCredencialRrhh = 'contain';
+    fotoPosXCredencialRrhh = 50;
+    fotoPosYCredencialRrhh = 50;
+    fotoScaleCredencialRrhh = 1;
+    posicionFotoCredencialRrhh = 'center center';
+    actualizarBotonesFotoCredencialRrhh();
+    pintarCredencialRrhh();
+  }
+
+  function aplicarRecorteFotoContextoRrhh() {
+    if (fotoEditorContextoRrhh === 'expediente') {
+      fotoFitExpedienteRrhh = 'cover';
+      pintarExpedienteRrhh();
+      return;
+    }
+    fotoFitCredencialRrhh = 'cover';
+    actualizarBotonesFotoCredencialRrhh();
+    pintarCredencialRrhh();
+  }
+
+  [dropzoneFotoCredencialRrhh, modalCredencialRrhh].forEach(target => {
+    target?.addEventListener('dragover', function (event) {
+      const destino = event.target.closest('.rrhh-photo-dropzone, .rrhh-id-photo-wrap');
+      if (!destino) return;
+      event.preventDefault();
+      destino.classList.add('is-dragover');
+    });
+    target?.addEventListener('dragleave', function (event) {
+      event.target.closest('.rrhh-photo-dropzone, .rrhh-id-photo-wrap')?.classList.remove('is-dragover');
+    });
+    target?.addEventListener('drop', function (event) {
+      const destino = event.target.closest('.rrhh-photo-dropzone, .rrhh-id-photo-wrap');
+      if (!destino) return;
+      event.preventDefault();
+      destino.classList.remove('is-dragover');
+      cargarFotoCredencialDesdeDrop(event.dataTransfer?.files?.[0] || null);
+    });
+  });
+
+  modalCredencialRrhh?.addEventListener('pointerdown', function (event) {
+    const img = event.target.closest('.rrhh-id-photo');
+    if (!img || fotoFitCredencialRrhh !== 'cover') return;
+    const wrap = img.closest('.rrhh-id-photo-wrap');
+    if (!wrap) return;
+    event.preventDefault();
+    fotoDragCredencialRrhh = {
+      pointerId: event.pointerId,
+      startX: event.clientX,
+      startY: event.clientY,
+      baseX: fotoPosXCredencialRrhh,
+      baseY: fotoPosYCredencialRrhh,
+      width: Math.max(1, wrap.clientWidth),
+      height: Math.max(1, wrap.clientHeight)
+    };
+    img.setPointerCapture?.(event.pointerId);
+  });
+
+  modalCredencialRrhh?.addEventListener('pointermove', function (event) {
+    if (!fotoDragCredencialRrhh || fotoDragCredencialRrhh.pointerId !== event.pointerId) return;
+    const dx = ((event.clientX - fotoDragCredencialRrhh.startX) / fotoDragCredencialRrhh.width) * 80;
+    const dy = ((event.clientY - fotoDragCredencialRrhh.startY) / fotoDragCredencialRrhh.height) * 80;
+    fotoPosXCredencialRrhh = Math.max(0, Math.min(100, fotoDragCredencialRrhh.baseX + dx));
+    fotoPosYCredencialRrhh = Math.max(0, Math.min(100, fotoDragCredencialRrhh.baseY + dy));
+    aplicarPosicionFotoCredencial();
+  });
+
+  ['pointerup', 'pointercancel'].forEach(nombreEvento => {
+    modalCredencialRrhh?.addEventListener(nombreEvento, function () {
+      fotoDragCredencialRrhh = null;
+    });
+  });
+
+  modalCredencialRrhh?.addEventListener('click', function (event) {
+    const btnFit = event.target.closest('[data-rrhh-photo-fit]');
+    if (!btnFit) return;
+  });
+
+  btnAjustarFotoCredencialRrhh?.addEventListener('click', function () {
+    fotoFitCredencialRrhh = 'cover';
+    actualizarBotonesFotoCredencialRrhh();
+    abrirEditorFotoRrhh('credencial');
+  });
+
+  btnFotoCompletaCredencialRrhh?.addEventListener('click', ponerFotoCompletaCredencial);
+
+  btnEditorFotoCompletaCredencialRrhh?.addEventListener('click', function () {
+    ponerFotoCompletaContextoRrhh(fotoEditorContextoRrhh);
+    bootstrap.Modal.getInstance(modalAjustarFotoCredencialRrhh)?.hide();
+  });
+
+  btnAplicarAjusteFotoCredencialRrhh?.addEventListener('click', function () {
+    aplicarRecorteFotoContextoRrhh();
+    bootstrap.Modal.getInstance(modalAjustarFotoCredencialRrhh)?.hide();
+  });
+
+  modalAjustarFotoCredencialRrhh?.addEventListener('show.bs.modal', function () {
+    if (modalAjustarFotoCredencialRrhh.parentNode !== document.body) {
+      document.body.appendChild(modalAjustarFotoCredencialRrhh);
+    }
+    showRrhhScrim();
+    document.querySelectorAll('.modal-backdrop').forEach(backdrop => backdrop.remove());
+    modalAjustarFotoCredencialRrhh.style.setProperty('z-index', '100060', 'important');
+    actualizarPreviewEditorFotoCredencial();
+  });
+
+  modalAjustarFotoCredencialRrhh?.addEventListener('hidden.bs.modal', function () {
+    modalAjustarFotoCredencialRrhh.style.removeProperty('z-index');
+    fotoEditorDragCredencialRrhh = null;
+    if (modalCredencialRrhh?.classList.contains('show')) {
+      showRrhhScrim();
+    }
+  });
+
+  frameEditorFotoCredencialRrhh?.addEventListener('pointerdown', function (event) {
+    const img = event.target.closest('.rrhh-photo-editor-img');
+    if (!img || estadoFotoEditorActual().fit === 'contain') return;
+    event.preventDefault();
+    const estado = estadoFotoEditorActual();
+    fotoEditorDragCredencialRrhh = {
+      pointerId: event.pointerId,
+      startX: event.clientX,
+      startY: event.clientY,
+      baseX: estado.x,
+      baseY: estado.y,
+      width: Math.max(1, frameEditorFotoCredencialRrhh.clientWidth),
+      height: Math.max(1, frameEditorFotoCredencialRrhh.clientHeight)
+    };
+    img.setPointerCapture?.(event.pointerId);
+  });
+
+  frameEditorFotoCredencialRrhh?.addEventListener('pointermove', function (event) {
+    if (!fotoEditorDragCredencialRrhh || fotoEditorDragCredencialRrhh.pointerId !== event.pointerId) return;
+    const dx = ((event.clientX - fotoEditorDragCredencialRrhh.startX) / fotoEditorDragCredencialRrhh.width) * 85;
+    const dy = ((event.clientY - fotoEditorDragCredencialRrhh.startY) / fotoEditorDragCredencialRrhh.height) * 85;
+    if (fotoEditorContextoRrhh === 'expediente') {
+      fotoPosXExpedienteRrhh = Math.max(0, Math.min(100, fotoEditorDragCredencialRrhh.baseX + dx));
+      fotoPosYExpedienteRrhh = Math.max(0, Math.min(100, fotoEditorDragCredencialRrhh.baseY + dy));
+    } else {
+      fotoPosXCredencialRrhh = Math.max(0, Math.min(100, fotoEditorDragCredencialRrhh.baseX + dx));
+      fotoPosYCredencialRrhh = Math.max(0, Math.min(100, fotoEditorDragCredencialRrhh.baseY + dy));
+    }
+    actualizarPreviewEditorFotoCredencial();
+  });
+
+  ['pointerup', 'pointercancel', 'pointerleave'].forEach(nombreEvento => {
+    frameEditorFotoCredencialRrhh?.addEventListener(nombreEvento, function () {
+      fotoEditorDragCredencialRrhh = null;
+    });
+  });
+
+  frameEditorFotoCredencialRrhh?.addEventListener('wheel', function (event) {
+    if (!fotoEditorSrcActual() || estadoFotoEditorActual().fit === 'contain') return;
+    event.preventDefault();
+    const delta = event.deltaY < 0 ? 0.08 : -0.08;
+    if (fotoEditorContextoRrhh === 'expediente') {
+      fotoScaleExpedienteRrhh = Math.max(1, Math.min(2.5, fotoScaleExpedienteRrhh + delta));
+    } else {
+      fotoScaleCredencialRrhh = Math.max(1, Math.min(2.5, fotoScaleCredencialRrhh + delta));
+    }
+    actualizarPreviewEditorFotoCredencial();
+  }, { passive: false });
+
+  modalCredencialRrhh?.addEventListener('show.bs.modal', function () {
+    if (modalCredencialRrhh.parentNode !== document.body) {
+      document.body.appendChild(modalCredencialRrhh);
+    }
+    showRrhhScrim();
+    document.querySelectorAll('.modal-backdrop').forEach(function (backdrop) {
+      backdrop.remove();
+    });
+    modalCredencialRrhh.style.setProperty('z-index', '100040', 'important');
+  });
+
+  modalCredencialRrhh?.addEventListener('shown.bs.modal', function () {
+    showRrhhScrim();
+    document.querySelectorAll('.modal-backdrop').forEach(function (backdrop) {
+      backdrop.remove();
+    });
+  });
+
+  modalCredencialRrhh?.addEventListener('hidden.bs.modal', function () {
+    modalCredencialRrhh.style.removeProperty('z-index');
+    document.body.classList.remove('print-rrhh-credencial');
+    hideRrhhScrim();
+    if (volverDesdeCredencialRrhh) {
+      volverDesdeCredencialRrhh = false;
+      bootstrap.Modal.getOrCreateInstance(modal)?.show();
+      return;
+    }
+    if (fotoTemporalCredencialRrhh && fotoTemporalCredencialRrhh.startsWith('blob:')) {
+      URL.revokeObjectURL(fotoTemporalCredencialRrhh);
+    }
+    fotoTemporalCredencialRrhh = '';
+    fotoFitCredencialRrhh = 'cover';
+    fotoPosXCredencialRrhh = 50;
+    fotoPosYCredencialRrhh = 50;
+    fotoScaleCredencialRrhh = 1;
+    posicionFotoCredencialRrhh = 'center center';
+    fotoDragCredencialRrhh = null;
+    fotoEditorDragCredencialRrhh = null;
+    resetRrhhFormCompleto();
+  });
+
+  form.addEventListener('submit', async function (event) {
+    event.preventDefault();
+    const submitBtn = form.querySelector('button[type="submit"]');
+    submitBtn.disabled = true;
+
+    try {
+      const endpoint = form.dataset.mode === 'editar'
+        ? '/CapHum/actualizarUsuarioRrhh'
+        : '/CapHum/registrarUsuarioRrhh';
+      const response = await fetch(endpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+        body: JSON.stringify(collectPayload())
+      });
+      const data = await response.json();
+
+      if (!data.success) {
+        throw new Error(data.mensaje || data.error || 'No se pudo registrar el usuario.');
+      }
+
+      await Swal.fire('Listo', data.mensaje || 'Usuario RR.HH. guardado correctamente.', 'success');
+      bootstrap.Modal.getInstance(modal)?.hide();
+      if (typeof llenarFiltros === 'function') llenarFiltros();
+    } catch (error) {
+      Swal.fire('Error', error.message || 'Error al registrar usuario RR.HH.', 'error');
+    } finally {
+      submitBtn.disabled = false;
+    }
+  });
+})();
 
 </script>

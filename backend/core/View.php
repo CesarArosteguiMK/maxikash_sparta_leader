@@ -64,6 +64,9 @@ function getMenu(): string
                 '/analitica/comparativas',
                 '/analitica/comparativasavancesemanal',
                 '/analitica/comparativocierressemanal',
+                '/reporteria/comparativas',
+                '/reporteria/comparativasavancesemanal',
+                '/reporteria/comparativocierressemanal',
             ],
             '/analitica/asignacion' => [
                 '/analitica/asignacion',
@@ -73,6 +76,11 @@ function getMenu(): string
             '/analitica/callcenter' => [
                 '/analitica/callcenter',
                 '/analitica/resumencallcenter',
+            ],
+            '/adjudicacion/administracion' => [
+                '/adjudicacion/administracion',
+                '/adjudicacion/asignacioncreditos',
+                '/adjudicacion/dictaminarcreditos',
             ],
             /**
              * Panel Admin (entrada /sabueso/panelAdminInicio) y cada panel por módulo comparten contexto;
@@ -105,7 +113,14 @@ function getMenu(): string
                 continue;
             }
 
-            return in_array($currentPath, $paths, true);
+            if (in_array($currentPath, $paths, true)) {
+                return true;
+            }
+        }
+
+        if ($menuPath === '/analitica/comparativas') {
+            return str_starts_with($currentPath, '/analitica/comparativo')
+                || str_starts_with($currentPath, '/reporteria/comparativo');
         }
 
         return false;
@@ -152,17 +167,22 @@ function getMenu(): string
         'Motos Adjudicadas' => [
             'icono'    => 'fa-solid fa-motorcycle',
             'subItems' => [
-                ['label' => 'Admin Cobranza', 'url' => '/Adjudicacion/AsignacionCreditos',          'modulos' => [62]],
+                ['label' => 'Administracion', 'url' => '/Adjudicacion/administracion',          'modulos' => [62, 80]],
                 ['label' => 'Operaciones',            'url' => '/MotosAdjudicadas/pipeline',                'modulos' => [63]],
                 ['label' => 'Monitoreo de adjudicaciones', 'url' => '/MotosAdjudicadas/monitoreoAdjudicaciones', 'modulos' => [76]],
                 ['label' => 'Consulta REPUVE',         'url' => '/MotosAdjudicadas/repuveConsulta',         'modulos' => [78]],
-                ['label' => 'Campaña Notificación Legacy', 'url' => '/MotosAdjudicadas/campaniaNotificacionLegacy', 'modulos' => [64]],
                 ['label' => '1.- Evidencias',     'url' => '/AtencionClientes/evidencias',             'modulos' => [70]],
                 ['label' => '2.- Recuperación',   'url' => '/AtencionClientes/recuperacion',           'modulos' => [71]],
                 ['label' => '3.-Cartera', 'url' => '/AtencionClientes/cierreDocumentacion', 'modulos' => [72]],
                 ['label' => '4.- Recepción',      'url' => '/AtencionClientes/recepcion',             'modulos' => [73]],
                 ['label' => 'Retenciones',    'url' => '/AtencionClientes/consulta',                'modulos' => [69]],
                 ['label' => 'Tracking Recolección', 'url' => '/TrackingRecoleccion/index',          'modulos' => [74]],
+            ],
+        ],
+        'Legacy Notificaciones' => [
+            'icono'    => 'fa-solid fa-bullhorn',
+            'subItems' => [
+                ['label' => 'Campañas', 'url' => '/MotosAdjudicadas/campaniaNotificacionLegacy', 'modulos' => [64]],
             ],
         ],
         'Tickets' => [
@@ -184,7 +204,8 @@ function getMenu(): string
                 ['label' => 'Call Center',    'url' => '/analitica/callcenter',    'modulos' => [6]],
                 ['label' => 'Layout Legacy',  'url' => '/analitica/layoutlegacy',  'modulos' => [7]],
                 ['label' => 'Sabuesos', 'url' => '/sabueso/estadisticas',   'modulos' => [47]],
-                ['label' => 'Comparativas', 'url' => '/analitica/comparativas', 'modulos' => [60]],
+                ['label' => 'Comparativas', 'url' => '/analitica/comparativas', 'modulos' => [60, 81]],
+                ['label' => 'Avance Bucket', 'url' => '/analitica/avanceBucket', 'modulos' => [77]],
                 ['label' => 'Asignación', 'url' => '/analitica/asignacion', 'modulos' => [61]],
             ],
         ],
@@ -225,10 +246,11 @@ function getMenu(): string
             }
 
             $activo = $menuItemIsActive((string) ($subItem['url'] ?? ''), $requestMenuPath) ? 'active' : '';
+            $linkActivo = $activo === 'active' ? ' active' : '';
 
             $submenu .= <<<HTML
                 <li class="menu-item $activo">
-                    <a href="{$subItem['url']}" class="menu-link">
+                    <a href="{$subItem['url']}" class="menu-link$linkActivo">
                         <div>{$subItem['label']}</div>
                     </a>
                 </li>
@@ -405,7 +427,23 @@ html.dark-mode #statsJerarquia .bg-light{background-color:#334155!important;}
     <style>
     .layout-menu .menu-inner > .menu-item .menu-link .menu-icon { color: var(--bs-body-color, #697a8d) !important; font-size: 1.05rem !important; block-size: 1.05rem !important; inline-size: 1.05rem !important; }
     .layout-menu .menu-inner > .menu-item .menu-link > div { font-size: 0.875rem !important; font-weight: 700 !important; }
+    .layout-menu .menu-sub .menu-item.active > .menu-link,
+    .layout-menu .menu-sub .menu-link.active {
+        color: #d9a23a !important;
+        font-weight: 800 !important;
+        background: rgba(217, 162, 58, 0.10) !important;
+    }
+    .layout-menu .menu-sub .menu-item.active > .menu-link::before,
+    .layout-menu .menu-sub .menu-link.active::before {
+        background-color: #d9a23a !important;
+        border-color: #d9a23a !important;
+    }
     body.dark-mode .layout-menu .menu-inner > .menu-item .menu-link .menu-icon { color: rgba(255,255,255,.87) !important; }
+    body.dark-mode .layout-menu .menu-sub .menu-item.active > .menu-link,
+    body.dark-mode .layout-menu .menu-sub .menu-link.active {
+        color: #facc6b !important;
+        background: rgba(250, 204, 107, 0.12) !important;
+    }
     </style>
 
     <!-- Dropdown usuario: iconos con color -->

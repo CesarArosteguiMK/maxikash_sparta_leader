@@ -1,3 +1,8 @@
+<?php
+$comparativasModulos = array_map('intval', (array) ($_SESSION['modulos'] ?? []));
+$puedeComparativasAvance = in_array(60, $comparativasModulos, true);
+$puedeComparativoSemanal = in_array(81, $comparativasModulos, true);
+?>
 <div id="comp-landing" class="cc-call-center-page reporteria-landing-root">
 <div class="card">
     <div class="card">
@@ -22,6 +27,7 @@
                 </div>
 
                 <div class="row gy-6 mb-6 gx-0 justify-content-start">
+                    <?php if ($puedeComparativasAvance): ?>
                     <div class="col-12 col-lg-4">
                         <div class="card shadow-none bg-label-primary h-100">
                             <div class="card-body d-flex justify-content-between flex-wrap-reverse">
@@ -42,6 +48,8 @@
                             </div>
                         </div>
                     </div>
+                    <?php endif; ?>
+                    <?php if ($puedeComparativoSemanal): ?>
                     <div class="col-12 col-lg-4">
                         <div class="card shadow-none bg-label-info h-100">
                             <div class="card-body d-flex justify-content-between flex-wrap-reverse">
@@ -62,6 +70,14 @@
                             </div>
                         </div>
                     </div>
+                    <?php endif; ?>
+                    <?php if (!$puedeComparativasAvance && !$puedeComparativoSemanal): ?>
+                    <div class="col-12">
+                        <div class="alert alert-warning mb-0">
+                            No tienes permisos activos para las opciones de Comparativas.
+                        </div>
+                    </div>
+                    <?php endif; ?>
                 </div>
 
             </div>
