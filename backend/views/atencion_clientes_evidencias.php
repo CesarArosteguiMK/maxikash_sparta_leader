@@ -1077,13 +1077,16 @@ $aevPuedeReemplazarEvidencia = in_array(79, array_map('intval', (array) ($_SESSI
         return 'image/jpeg,image/png,.jpg,.jpeg,.png';
     }
 
-    function aevBotonReemplazoGestor(sl) {
+    function aevBotonReemplazoGestor(sl, modo) {
         if (!AEV_PUEDE_REEMPLAZAR_EVIDENCIA) return '';
+        const esCarga = modo === 'cargar';
+        const titulo = esCarga ? 'Cargar evidencia por el gestor' : 'Reemplazar evidencia por el gestor';
+        const aria = esCarga ? 'Cargar ' : 'Reemplazar ';
         return '<button type="button" class="aev-btn-reemplazo-gestor"'
             + ' data-aev-reemplazar-gestor="' + aeEsc(sl.key) + '"'
             + ' data-aev-reemplazar-lbl="' + aeEsc(sl.label) + '"'
-            + ' title="Reemplazar evidencia por el gestor"'
-            + ' aria-label="Reemplazar ' + aeEsc(sl.label) + '">'
+            + ' title="' + aeEsc(titulo) + '"'
+            + ' aria-label="' + aria + aeEsc(sl.label) + '">'
             + '<i class="fa-solid fa-lock"></i></button>';
     }
 
@@ -1142,7 +1145,9 @@ $aevPuedeReemplazarEvidencia = in_array(79, array_map('intval', (array) ($_SESSI
 
     function aevAbrirReemplazoGestor(slot, label) {
         if (!AEV_PUEDE_REEMPLAZAR_EVIDENCIA || !_aevStore.det || !_aevStore.det.id || !slot) return;
-        _aevReemplazoGestorCtx = { slot: slot, label: label || slot };
+        const evMap = aevMapaPorSlot((_aevStore.det && _aevStore.det.evidencias) || []);
+        const esCarga = !evMap[slot] || !evMap[slot].url;
+        _aevReemplazoGestorCtx = { slot: slot, label: label || slot, modo: esCarga ? 'cargar' : 'reemplazar' };
         const abrirInput = function () {
             const inp = document.getElementById('aev-inp-reemplazo-gestor');
             if (!inp) return;
@@ -1153,10 +1158,10 @@ $aevPuedeReemplazarEvidencia = in_array(79, array_map('intval', (array) ($_SESSI
         if (typeof Swal !== 'undefined') {
             Swal.fire({
                 icon: 'question',
-                title: 'Reemplazar evidencia',
-                html: '¿Quieres reemplazar <strong>' + aeEsc(label || slot) + '</strong> por el gestor?',
+                title: esCarga ? 'Cargar evidencia' : 'Reemplazar evidencia',
+                html: (esCarga ? 'Quieres cargar <strong>' : 'Quieres reemplazar <strong>') + aeEsc(label || slot) + '</strong> por el gestor?',
                 showCancelButton: true,
-                confirmButtonText: 'Sí, reemplazar',
+                confirmButtonText: esCarga ? 'Si, cargar' : 'Si, reemplazar',
                 cancelButtonText: 'Cancelar',
                 reverseButtons: true
             }).then(function (res) {
@@ -1170,6 +1175,7 @@ $aevPuedeReemplazarEvidencia = in_array(79, array_map('intval', (array) ($_SESSI
     function aevSubirReemplazoGestor(f) {
         const slot = _aevReemplazoGestorCtx.slot;
         const label = _aevReemplazoGestorCtx.label || slot;
+        const esCarga = _aevReemplazoGestorCtx.modo === 'cargar';
         if (!_aevStore.det || !_aevStore.det.id || !slot || !f) return;
         if (!aevArchivoValidoReemplazo(slot, f)) {
             const msg = aevEsVideoSlot(slot)
@@ -1185,7 +1191,7 @@ $aevPuedeReemplazarEvidencia = in_array(79, array_map('intval', (array) ($_SESSI
         fd.append('id_operacion', String(_aevStore.det.id));
         fd.append('slot', slot);
         fd.append('archivo', f, f.name);
-        aevMostrarOverlaySubida('Reemplazando evidencia...');
+        aevMostrarOverlaySubida(esCarga ? 'Cargando evidencia...' : 'Reemplazando evidencia...');
         fetch('/MotosAdjudicadas/reemplazarEvidenciaGestor', {
             method: 'POST',
             body: fd,
@@ -1204,7 +1210,7 @@ $aevPuedeReemplazarEvidencia = in_array(79, array_map('intval', (array) ($_SESSI
                 if (typeof Swal !== 'undefined') {
                     Swal.fire({
                         icon: 'success',
-                        title: 'Evidencia reemplazada',
+                        title: esCarga ? 'Evidencia cargada' : 'Evidencia reemplazada',
                         text: label + ' quedó pendiente de validación.',
                         timer: 1800,
                         showConfirmButton: false
@@ -1220,7 +1226,7 @@ $aevPuedeReemplazarEvidencia = in_array(79, array_map('intval', (array) ($_SESSI
             })
             .finally(function () {
                 aevQuitarOverlaySubida();
-                _aevReemplazoGestorCtx = { slot: '', label: '' };
+                _aevReemplazoGestorCtx = { slot: '', label: '', modo: '' };
             });
     }
 
@@ -1228,8 +1234,10 @@ $aevPuedeReemplazarEvidencia = in_array(79, array_map('intval', (array) ($_SESSI
         const st  = aevEstadoEvidencia(row, sl.key);
         const has = row && row.url;
         if (!has) {
+            const botonCarga = aevBotonReemplazoGestor(sl, 'cargar');
             return `
-            <div class="aev-ev-slot aev-ev-slot--vacio">
+            <div class="aev-ev-slot aev-ev-slot--vacio" style="position:relative;">
+                ${botonCarga}
                 <i class="fa-solid ${sl.icon} mb-1 opacity-50" style="font-size:1.1rem;"></i>
                 <span style="line-height:1.15;">${aeEsc(sl.label)}</span>
             </div>`;
@@ -1237,7 +1245,7 @@ $aevPuedeReemplazarEvidencia = in_array(79, array_map('intval', (array) ($_SESSI
         const uEsc = aeEsc(aevUrlForDisplay(row.url));
         const esVideoSlot = aevEsVideoSlot(sl.key);
         const esVideo = (row.tipo && String(row.tipo).toLowerCase().indexOf('video') !== -1) || esVideoSlot;
-        const botonReemplazo = aevBotonReemplazoGestor(sl);
+        const botonReemplazo = aevBotonReemplazoGestor(sl, 'reemplazar');
         const media = esVideo
             ? '<video class="aev-thumb" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;" data-aev-src="' + uEsc + '" muted playsinline></video><div class="aev-aev-mute-play" style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.2);pointer-events:none;"><i class="fa-solid fa-play" style="color:#fff;font-size:1.4rem;"></i></div>'
             : '<img class="aev-thumb" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;" data-aev-src="' + uEsc + '" alt="">';

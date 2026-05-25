@@ -1,9 +1,9 @@
 <?php
-$comparativasModulos = array_map('intval', (array) ($_SESSION['modulos'] ?? []));
-$puedeComparativasAvance = in_array(60, $comparativasModulos, true);
-$puedeComparativoSemanal = in_array(81, $comparativasModulos, true);
+$motosAdminModulos = array_map('intval', (array) ($_SESSION['modulos'] ?? []));
+$puedeAdminCobranza = in_array(62, $motosAdminModulos, true);
+$puedeDictaminarCreditos = in_array(80, $motosAdminModulos, true);
 ?>
-<div id="comp-landing" class="cc-call-center-page reporteria-landing-root">
+<div id="motos-admin-landing" class="cc-call-center-page motos-admin-root">
 <div class="card">
     <div class="card">
         <div class="card">
@@ -11,9 +11,9 @@ $puedeComparativoSemanal = in_array(81, $comparativasModulos, true);
 
                 <div class="col-12 col-md-8 cc-hero-text">
                     <div class="card-body">
-                        <h5 class="card-title text-primary mb-3">HOLA, <?= isset($_SESSION['usuario_nombre']) ? htmlspecialchars(strtoupper((string) $_SESSION['usuario_nombre']), ENT_QUOTES, 'UTF-8') : 'USUARIO'; ?> <i class="fa-solid fa-chart-column ms-2 text-primary" aria-hidden="true"></i></h5>
+                        <h5 class="card-title text-primary mb-3">Administracion de Motos Adjudicadas <i class="fa-solid fa-motorcycle ms-2 text-primary" aria-hidden="true"></i></h5>
                         <p class="mb-6 mb-md-0">
-                            Aquí entras al <strong>comparativo del segundómetro</strong>: mora de <strong>1 a 7 días</strong> por cada corte del día (mañana, tarde y noche), confrontando la <strong>semana en curso</strong> con las <strong>dos semanas históricas</strong> inmediatas anteriores. Puedes elegir <strong>qué día de la semana</strong> analizar (siempre dentro de la semana en curso) para revisar los mismos horarios en distintos días.
+                            Aqui se concentran las herramientas administrativas de <strong>Motos Adjudicadas</strong>. Entra al flujo que necesites y conserva el menu lateral mas limpio para operar sin tantas pestañas sueltas.
                         </p>
                     </div>
                 </div>
@@ -23,58 +23,58 @@ $puedeComparativoSemanal = in_array(81, $comparativasModulos, true);
                          class="cc-hero-mascot-floating img-fluid"
                          width="400"
                          height="400"
-                         alt="Comparativas avance semanal — ilustración">
+                         alt="Administracion de motos adjudicadas">
                 </div>
 
                 <div class="row gy-6 mb-6 gx-0 justify-content-start">
-                    <?php if ($puedeComparativasAvance): ?>
+                    <?php if ($puedeAdminCobranza): ?>
                     <div class="col-12 col-lg-4">
                         <div class="card shadow-none bg-label-primary h-100">
                             <div class="card-body d-flex justify-content-between flex-wrap-reverse">
                                 <div class="mb-0 w-100 app-academy-sm-60 d-flex flex-column justify-content-between text-center text-sm-start">
                                     <div class="card-title">
-                                        <h5 class="text-primary mb-2">Comparativas avance semanal</h5>
-                                        <p class="text-body w-sm-80 app-academy-xl-100">En el tablero verás <strong>créditos</strong> y <strong>cobrado</strong> por cada corte, las columnas de las dos semanas pasadas, la semana actual y las <strong>variaciones</strong> en cantidad y porcentaje. Los datos salen de la base de reporte del segundómetro.</p>
+                                        <h5 class="text-primary mb-2">Admin Cobranza</h5>
+                                        <p class="text-body w-sm-80 app-academy-xl-100">Administra responsables, asignacion de creditos adjudicados, comentarios e historial operativo de la cartera.</p>
                                     </div>
                                     <div class="mb-0 mt-3">
-                                        <a href="/analitica/comparativasAvanceSemanal" class="btn btn-primary w-100">
-                                            <i class="fa-solid fa-table-columns me-1"></i>Ver tablero de avance
+                                        <a href="/Adjudicacion/AsignacionCreditos" class="btn btn-primary w-100">
+                                            <i class="fa-solid fa-arrow-right-to-bracket me-1"></i>Entrar a Admin Cobranza
                                         </a>
                                     </div>
                                 </div>
                                 <div class="w-100 app-academy-sm-40 d-flex justify-content-center justify-content-sm-end h-px-150 mb-4 mb-sm-0">
-                                    <img class="img-fluid scaleX-n1-rtl" src="https://cdn-icons-png.freepik.com/512/11053/11053297.png?ga=GA1.1.191732613.1764875703" alt="Comparativas avance semanal illustration">
+                                    <img class="img-fluid scaleX-n1-rtl" src="https://cdn-icons-png.freepik.com/512/9496/9496443.png" alt="Admin cobranza illustration">
                                 </div>
                             </div>
                         </div>
                     </div>
                     <?php endif; ?>
-                    <?php if ($puedeComparativoSemanal): ?>
+                    <?php if ($puedeDictaminarCreditos): ?>
                     <div class="col-12 col-lg-4">
                         <div class="card shadow-none bg-label-info h-100">
                             <div class="card-body d-flex justify-content-between flex-wrap-reverse">
                                 <div class="mb-0 w-100 app-academy-sm-60 d-flex flex-column justify-content-between text-center text-sm-start">
                                     <div class="card-title">
-                                        <h5 class="text-info mb-2">Comparativo Semana Actual vs Semana Pasada</h5>
-                                        <p class="text-body w-sm-80 app-academy-xl-100">Revisa <strong>creditos</strong> y <strong>Saldo_total_capital</strong> por bucket con corte dinamico, comparando la semana actual contra la semana pasada historica del segundometro.</p>
+                                        <h5 class="text-info mb-2">Dictaminar creditos</h5>
+                                        <p class="text-body w-sm-80 app-academy-xl-100">Interfaz web para simular el dictamen operativo de creditos adjudicados. Aqui prepararemos la busqueda, decision, evidencias y observaciones.</p>
                                     </div>
                                     <div class="mb-0 mt-3">
-                                        <a href="/analitica/comparativoCierreSemanal" class="btn btn-info w-100">
-                                            <i class="fa-solid fa-chart-simple me-1"></i>Ver comparativo
+                                        <a href="/Adjudicacion/dictaminarCreditos" class="btn btn-info w-100">
+                                            <i class="fa-solid fa-clipboard-check me-1"></i>Entrar a dictamen
                                         </a>
                                     </div>
                                 </div>
                                 <div class="w-100 app-academy-sm-40 d-flex justify-content-center justify-content-sm-end h-px-150 mb-4 mb-sm-0">
-                                    <img class="img-fluid scaleX-n1-rtl" src="https://cdn-icons-png.freepik.com/512/4545/4545742.png?ga=GA1.1.191732613.1764875703" alt="Comparativo semanal illustration">
+                                    <img class="img-fluid scaleX-n1-rtl" src="https://cdn-icons-png.freepik.com/512/4545/4545742.png" alt="Dictaminar creditos illustration">
                                 </div>
                             </div>
                         </div>
                     </div>
                     <?php endif; ?>
-                    <?php if (!$puedeComparativasAvance && !$puedeComparativoSemanal): ?>
+                    <?php if (!$puedeAdminCobranza && !$puedeDictaminarCreditos): ?>
                     <div class="col-12">
                         <div class="alert alert-warning mb-0">
-                            No tienes permisos activos para las opciones de Comparativas.
+                            No tienes permisos activos para las herramientas administrativas de Motos Adjudicadas.
                         </div>
                     </div>
                     <?php endif; ?>
@@ -85,9 +85,8 @@ $puedeComparativoSemanal = in_array(81, $comparativasModulos, true);
     </div>
 </div>
 <style>
-/* Mismo layout hero que Call Center */
 .cc-call-center-page,
-#comp-landing.cc-call-center-page {
+#motos-admin-landing.cc-call-center-page {
     overflow: visible;
 }
 .cc-call-center-page .cc-hero-row {
@@ -188,4 +187,4 @@ body.dark-mode .cc-hero-mascot-floating {
     filter: drop-shadow(0 12px 32px rgba(0, 0, 0, 0.35));
 }
 </style>
-</div><!-- /#comp-landing -->
+</div>

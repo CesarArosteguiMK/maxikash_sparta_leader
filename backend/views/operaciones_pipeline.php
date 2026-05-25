@@ -13,15 +13,83 @@
 </div>
 
 <!-- Toolbar -->
-<div class="d-flex align-items-center justify-content-between gap-2 mb-3">
-    <button type="button" class="btn btn-outline-secondary btn-sm" id="ops-btn-refresh" onclick="opsCargarPipeline()">
-        <i class="fa-solid fa-rotate-right me-1"></i>Actualizar
-    </button>
+<div class="d-flex align-items-center justify-content-between gap-2 mb-3 flex-wrap">
+    <div class="d-flex align-items-center gap-2 flex-wrap">
+        <button type="button" class="btn btn-outline-secondary btn-sm" id="ops-btn-refresh" onclick="opsCargarPipeline()">
+            <i class="fa-solid fa-rotate-right me-1"></i>Actualizar
+        </button>
+        <div class="ops-search-wrap">
+            <i class="fa-solid fa-magnifying-glass ops-search-icon"></i>
+            <input type="text" autocomplete="off" class="ops-search-input" id="ops-search-id" placeholder="Buscar ID o cliente">
+            <button class="ops-search-clear" type="button" id="ops-search-clear" title="Limpiar busqueda">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+        </div>
+    </div>
     <div id="ops-pipeline-stats" class="d-flex gap-2 flex-wrap align-items-center"></div>
 </div>
 
+<style>
+    .ops-search-wrap {
+        position: relative;
+        width: min(360px, calc(100vw - 2rem));
+    }
+    .ops-search-icon {
+        position: absolute;
+        left: .85rem;
+        top: 50%;
+        transform: translateY(-50%);
+        color: #6c7a89;
+        font-size: .9rem;
+        pointer-events: none;
+    }
+    .ops-search-input {
+        width: 100%;
+        height: 2.35rem;
+        border: 1px solid #d6dfeb;
+        border-radius: 999px;
+        background: #fff;
+        color: #26364d;
+        font-size: .92rem;
+        padding: .45rem 2.65rem .45rem 2.35rem;
+        outline: none;
+        box-shadow: 0 2px 8px rgba(23, 36, 58, .06);
+        transition: border-color .15s ease, box-shadow .15s ease;
+    }
+    .ops-search-input:focus {
+        border-color: #f0a329;
+        box-shadow: 0 0 0 .18rem rgba(240, 163, 41, .16), 0 2px 8px rgba(23, 36, 58, .08);
+    }
+    .ops-search-clear {
+        position: absolute;
+        right: .35rem;
+        top: 50%;
+        transform: translateY(-50%);
+        width: 1.7rem;
+        height: 1.7rem;
+        border: 0;
+        border-radius: 50%;
+        background: #fff3df;
+        color: #d58a12;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        font-size: .8rem;
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity .15s ease, background .15s ease;
+    }
+    .ops-search-wrap.has-value .ops-search-clear {
+        opacity: 1;
+        pointer-events: auto;
+    }
+    .ops-search-clear:hover {
+        background: #ffe7bd;
+    }
+</style>
+
 <!-- Kanban Board -->
-<div id="ops-pipeline-board" style="display:none; grid-template-columns:repeat(5,minmax(0,1fr)); gap:.75rem; min-height:calc(100vh - 260px);"></div>
+<div id="ops-pipeline-board" style="display:none; grid-template-columns:repeat(4,minmax(260px,1fr)); gap:1rem; min-height:calc(100vh - 260px);"></div>
 
 <!-- Spinner de carga inicial -->
 <div id="ops-loading" class="text-center py-5">
@@ -70,13 +138,11 @@
             'Revisión Recuperaciones',
             'Cierre Documentado',
             'Recepción',
-            'Retenciones',
         ];
 
         const STAGE_ICONS = {
             'Recibido':                  'fa-inbox',
             'Revisión Recuperaciones':   'fa-magnifying-glass',
-            'Retenciones':               'fa-hand',
             'Cierre Documentado':        'fa-file-circle-check',
             'Recepción':                 'fa-flag-checkered',
         };
@@ -102,6 +168,10 @@
         let _detalleActual = null;
         let _evState       = {};
         let _activeOpId    = null;
+        let _opsFiltroId   = '';
+        let _opsSearchTimer = null;
+        let _opsTotal       = 0;
+        let _opsLimit       = 500;
 
         // ──────────────────────────────────────────────────────────────────
         // EVIDENCE DEFINITIONS
@@ -146,7 +216,37 @@
         // ──────────────────────────────────────────────────────────────────
         // INIT
         // ──────────────────────────────────────────────────────────────────
-        function opsPipelineInit() { opsCargarPipeline(); }
+        function opsPipelineInit() {
+            opsInitBuscador();
+            opsCargarPipeline();
+        }
+
+        function opsInitBuscador() {
+            const input = document.getElementById('ops-search-id');
+            const clear = document.getElementById('ops-search-clear');
+            if (!input || input.dataset.ready === '1') return;
+            const wrap = input.closest('.ops-search-wrap');
+            const syncState = () => wrap?.classList.toggle('has-value', input.value.trim() !== '');
+            input.dataset.ready = '1';
+            input.addEventListener('input', () => {
+                _opsFiltroId = input.value.trim().toLowerCase();
+                syncState();
+                window.clearTimeout(_opsSearchTimer);
+                _opsSearchTimer = window.setTimeout(() => opsCargarPipeline(), 320);
+            });
+            clear?.addEventListener('click', () => {
+                input.value = '';
+                _opsFiltroId = '';
+                syncState();
+                opsCargarPipeline();
+                input.focus();
+            });
+            syncState();
+        }
+
+        function opsFiltrarOperaciones() {
+            return _operaciones;
+        }
 
         // ──────────────────────────────────────────────────────────────────
         // CARGAR PIPELINE
@@ -155,11 +255,16 @@
             document.getElementById('ops-loading').style.display = 'block';
             document.getElementById('ops-pipeline-board').style.display = 'none';
 
-            fetch('/MotosAdjudicadas/obtenerOperaciones', { method: 'GET', headers: { 'Accept': 'application/json' } })
+            const params = new URLSearchParams({ limit: String(_opsLimit) });
+            if (_opsFiltroId) params.set('q', _opsFiltroId);
+
+            fetch('/MotosAdjudicadas/obtenerOperaciones?' + params.toString(), { method: 'GET', headers: { 'Accept': 'application/json' } })
                 .then(r => r.json())
                 .then(data => {
                     if (!data.success) throw new Error(data.message || 'Error al cargar el flujo.');
                     _operaciones = data.operaciones || [];
+                    _opsTotal = parseInt(data.total || _operaciones.length || 0);
+                    _opsLimit = parseInt(data.limit || _opsLimit || 500);
                     opsRenderPipeline(_operaciones);
                 })
                 .catch(err => {
@@ -177,13 +282,14 @@
         function opsRenderPipeline(ops) {
             const board = document.getElementById('ops-pipeline-board');
             board.innerHTML = '';
+            ops = ops.filter(op => op.estatus !== 'cancelado' && op.estatus !== 'Retenciones');
 
             const groups = {};
             STAGES.forEach(s => groups[s] = []);
             ops.forEach(op => {
                 let stage = op.estatus;
                 if (stage === 'en_transito') stage = 'Recibido';
-                else if (stage === 'cancelado') stage = 'Retenciones';
+                else if (stage === 'cancelado' || stage === 'Retenciones') return;
                 /* Misma bandeja que 2.- Recuperación (Evidencias → Aprobados): sigue en BD como Procesando IA */
                 else if (stage === 'Procesando IA') stage = 'Revisión Recuperaciones';
                 if (groups[stage]) groups[stage].push(op);
@@ -191,7 +297,17 @@
 
             // Stats
             const statsEl = document.getElementById('ops-pipeline-stats');
-            statsEl.innerHTML = `<span class="badge bg-label-secondary">Total: <strong>${ops.length}</strong></span>`;
+            const total = _opsTotal || ops.length;
+            const mostrandoTxt = total > ops.length
+                ? `Mostrando <strong>${ops.length}</strong> de <strong>${total}</strong>`
+                : `Total: <strong>${ops.length}</strong>`;
+            statsEl.innerHTML = `<span class="badge bg-label-secondary">${mostrandoTxt}</span>`;
+            if (_opsFiltroId) {
+                statsEl.innerHTML += `<span class="badge bg-label-info"><i class="fa-solid fa-filter me-1"></i>${opsEsc(_opsFiltroId)}</span>`;
+            }
+            if (!_opsFiltroId && total > ops.length) {
+                statsEl.innerHTML += `<span class="badge bg-label-warning"><i class="fa-solid fa-shield-halved me-1"></i>Vista limitada; usa el buscador</span>`;
+            }
             const atrasadas = ops.filter(o => (o.dias_en_pipeline || 0) > 5).length;
             if (atrasadas > 0) {
                 statsEl.innerHTML += `<span class="badge bg-label-danger"><i class="fa-solid fa-triangle-exclamation me-1"></i>${atrasadas} atrasada${atrasadas > 1 ? 's' : ''}</span>`;
@@ -248,6 +364,9 @@
         // ──────────────────────────────────────────────────────────────────
         function opsRenderCard(op) {
             const dias = parseInt(op.dias_en_pipeline || 0);
+            const fechaEstatus = String(op.fecha_estatus_actual || op.fecha_actualizacion || op.fecha_alta || '').trim();
+            const fechaRegistro = String(op.fecha_alta || '').trim();
+            const antiguedadTitle = `Tiempo en estatus ${op.estatus || ''}${fechaEstatus ? ' desde ' + fechaEstatus : ''}`;
             let agingBadge = 'bg-label-primary';
             if (dias > 5)      agingBadge = 'bg-label-danger';
             else if (dias > 2) agingBadge = 'bg-label-warning';
@@ -304,34 +423,40 @@
             if (esCompacto) {
                 // Card minimalista de una fila: folio | nombre | crédito | días
                 return `
-            <div class="card mb-1 border-start border-3 ${borderColor}" style="cursor:pointer;border-radius:.5rem;" onclick="opsAbrirDetalle(${op.id})">
-                <div class="px-2 py-1">
-                    <div class="d-flex align-items-center justify-content-between gap-1">
-                        <span class="badge bg-label-primary" style="font-size:.65rem;">${opsEsc(op.folio)}</span>
-                        <span class="badge ${agingBadge}" style="font-size:.65rem;">${dias}d</span>
+            <div class="card mb-2 border-start border-3 ${borderColor}" style="cursor:pointer;border-radius:.7rem;box-shadow:0 2px 8px rgba(23,36,58,.06);" onclick="opsAbrirDetalle(${op.id})">
+                <div class="px-3 py-3">
+                    <div class="d-flex align-items-center justify-content-between gap-2 mb-2">
+                        <span class="text-muted text-truncate" style="font-size:.72rem;">#${opsEsc(String(op.id_credito))}</span>
+                        <span class="text-danger text-truncate" title="Fecha de registro / adjudicacion" style="font-size:.62rem;">Registro: ${opsEsc(fechaRegistro || 'sin fecha')}</span>
                     </div>
-                    <div class="fw-semibold text-truncate" style="font-size:.78rem;">${opsEsc(op.nombre_cliente)}</div>
-                    <div class="text-muted text-truncate" style="font-size:.7rem;">#${opsEsc(String(op.id_credito))}${op.area_actual ? '&nbsp;<span class="badge bg-label-secondary" style="font-size:.6rem;">' + opsEsc(op.area_actual) + '</span>' : ''}</div>
+                    <div class="fw-medium" style="font-size:.7rem;line-height:1.14;">${opsEsc(op.nombre_cliente)}</div>
+                    <div class="d-flex justify-content-end mt-1">
+                        <span class="badge ${agingBadge}" title="${opsEsc(antiguedadTitle)}" style="font-size:.58rem;padding:.2rem .42rem;">${dias} dias en esta etapa</span>
+                    </div>
+                    ${op.area_actual ? '<div class="text-muted text-truncate mt-1"><span class="badge bg-label-secondary" style="font-size:.68rem;">' + opsEsc(op.area_actual) + '</span></div>' : ''}
                 </div>
             </div>`;
             }
 
             // Card completo (Cartera / Cierre Documentado en BD, Recepción)
             return `
-        <div class="card card-body p-2 mb-2 border-start border-3 ${borderColor}" style="cursor:pointer;" onclick="opsAbrirDetalle(${op.id})">
-            <div class="d-flex align-items-center justify-content-between mb-1 gap-1">
-                <span class="badge bg-label-primary">${opsEsc(op.folio)}</span>
-                <span class="badge ${agingBadge}">${dias}d</span>
+        <div class="card card-body p-3 mb-3 border-start border-3 ${borderColor}" style="cursor:pointer;border-radius:.7rem;box-shadow:0 2px 8px rgba(23,36,58,.06);" onclick="opsAbrirDetalle(${op.id})">
+            <div class="d-flex align-items-center justify-content-between mb-2 gap-2">
+                <span class="text-muted text-truncate" style="font-size:.72rem;">#${opsEsc(String(op.id_credito))}</span>
+                <span class="text-danger text-truncate" title="Fecha de registro / adjudicacion" style="font-size:.62rem;">Registro: ${opsEsc(fechaRegistro || 'sin fecha')}</span>
             </div>
-            <div class="fw-semibold small text-truncate">${opsEsc(op.nombre_cliente)}</div>
-            <small class="text-muted">#${opsEsc(String(op.id_credito))}${op.area_actual ? ' &nbsp;<span class="badge bg-label-secondary">' + opsEsc(op.area_actual) + '</span>' : ''}</small>
-            <div class="mt-2">
+            <div class="fw-medium" style="font-size:.71rem;line-height:1.14;">${opsEsc(op.nombre_cliente)}</div>
+            <div class="d-flex justify-content-end mt-1">
+                <span class="badge ${agingBadge}" title="${opsEsc(antiguedadTitle)}" style="font-size:.58rem;padding:.2rem .42rem;">${dias} dias en esta etapa</span>
+            </div>
+            ${op.area_actual ? '<small class="text-muted"><span class="badge bg-label-secondary">' + opsEsc(op.area_actual) + '</span></small>' : ''}
+            <div class="mt-3">
                 <div class="progress mb-1" style="height:5px;">
                     <div class="progress-bar bg-primary" role="progressbar" style="width:${evPct}%;"></div>
                 </div>
-                <small class="${evComplete ? 'text-success' : 'text-muted'}">
+                <small class="${evComplete ? 'text-muted' : 'text-muted'}" style="font-size:.72rem;">
                     ${evComplete
-                ? '<i class="fa-solid fa-circle-check me-1"></i>Evidencias completas'
+                ? '<i class="fa-solid fa-circle-check me-1" style="color:#7bbf5b;"></i>Evidencias completas'
                 : `<i class="fa-solid fa-image me-1"></i>${evCount}/${EV_TOTAL_SLOTS} evidencias`}
                 </small>
             </div>
