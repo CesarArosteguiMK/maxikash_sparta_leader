@@ -35,6 +35,36 @@ class Adjudicacion extends Model
         return $dt->format('Y-m-d H:i:s');
     }
 
+    private function normalizarFechaHoraCdmx($raw): string
+    {
+        $valor = trim((string) $raw);
+        if ($valor === '') {
+            return $this->fechaHoraCdmx();
+        }
+
+        $valor = str_replace('T', ' ', $valor);
+        if (preg_match('/^(\d{2})[\/\-](\d{2})[\/\-](\d{4})(?:\s+(\d{1,2}):(\d{2})(?::(\d{2}))?)?$/', $valor, $m)) {
+            $valor = sprintf(
+                '%04d-%02d-%02d %02d:%02d:%02d',
+                (int) $m[3],
+                (int) $m[2],
+                (int) $m[1],
+                (int) ($m[4] ?? 0),
+                (int) ($m[5] ?? 0),
+                (int) ($m[6] ?? 0)
+            );
+        } elseif (preg_match('/^(\d{4}-\d{2}-\d{2}\s+\d{1,2}:\d{2})(?::\d{2})?$/', $valor, $m)) {
+            $valor = strlen($valor) === 16 ? $valor . ':00' : $valor;
+        }
+
+        try {
+            $dt = new \DateTime($valor, new \DateTimeZone('America/Mexico_City'));
+            return $dt->format('Y-m-d H:i:s');
+        } catch (\Throwable $e) {
+            throw new \InvalidArgumentException('Fecha y hora de gestion invalida.');
+        }
+    }
+
     /**
      * Indica si una fila de asignación está cerrada (estatus 0 + fecha_baja registrada).
      */
@@ -977,12 +1007,22 @@ class Adjudicacion extends Model
     {
         $idCredito = (int) ($data['id_credito'] ?? 0);
         $idUsuarioLegacy = (int) ($data['id_usuario_legacy'] ?? 0);
+        $fechaGestion = $this->normalizarFechaHoraCdmx($data['fecha_gestion'] ?? '');
 
         if ($idCredito <= 0) {
             return ['success' => false, 'message' => 'ID de credito invalido.'];
         }
         if ($idUsuarioLegacy <= 0) {
             return ['success' => false, 'message' => 'Indica el id_usuario Legacy que recibira/dictaminara la tarea.'];
+        }
+
+        $faltantes = $this->validarCamposObligatoriosDictamenWeb($data);
+        if ($faltantes !== []) {
+            return [
+                'success' => false,
+                'message' => 'Faltan campos obligatorios: ' . implode(', ', $faltantes) . '.',
+                'faltantes' => $faltantes,
+            ];
         }
 
         $diag = $this->diagnosticarDictamenWebMoto($idCredito);
@@ -1012,7 +1052,7 @@ class Adjudicacion extends Model
             }
 
             $datos = $this->datosBaseTaskDictamenWeb($idCredito, $data, $diag);
-            $ahora = $this->fechaHoraCdmx();
+            $ahora = $fechaGestion;
 
             $legacyDb->beginTransaction();
             $taskId = $this->asegurarTaskLegacyDictamenWeb($legacyDb, $idCredito, $idUsuarioLegacy, $datos, $ahora);
@@ -1078,7 +1118,7 @@ class Adjudicacion extends Model
             $pipelineWarning = '';
             try {
                 $motosPipeline = new MotosAdjudicadas();
-                $opRes = $motosPipeline->obtenerOCrearOperacion($idCredito, (string) ($datos['client_name'] ?? ''), $idUsuarioSesion);
+                $opRes = $motosPipeline->obtenerOCrearOperacion($idCredito, (string) ($datos['client_name'] ?? ''), $idUsuarioSesion, $ahora);
                 if (!empty($opRes['success'])) {
                     $operacionPipeline = $opRes['detalle'] ?? null;
                 } else {
@@ -1101,6 +1141,7 @@ class Adjudicacion extends Model
                 'opciondictamen_id' => self::LEGACY_DICTAMEN_MOTO_ADJUDICADA,
                 'id_usuario_legacy' => $idUsuarioLegacy,
                 'id_usuario_sesion' => $idUsuarioSesion,
+                'fecha_gestion' => $ahora,
             ];
         } catch (\Throwable $e) {
             try {
@@ -1112,6 +1153,43 @@ class Adjudicacion extends Model
 
             return ['success' => false, 'message' => 'No se pudo guardar el dictamen: ' . $e->getMessage()];
         }
+    }
+
+    private function validarCamposObligatoriosDictamenWeb(array $data): array
+    {
+        $campos = [
+            'fecha_gestion' => 'Fecha y hora real de gestion',
+            'marca' => 'Marca',
+            'modelo' => 'Modelo',
+            'ano' => 'Ano',
+            'color' => 'Color',
+            'no_de_serie_vin' => 'VIN / Serie',
+            'no_de_motor' => 'No. motor',
+            'placas' => 'Placas',
+            'kilometraje' => 'Kilometraje',
+            'tiene_llave_fisica' => 'Llave fisica',
+            'tiene_tarjeta_de_circulacion_en_fisico' => 'Tarjeta circulacion',
+            'la_moto_tiene_placa_fisica' => 'Placa fisica',
+            'donde_resguardaras_la_moto' => 'Lugar de resguardo',
+            'estado_resguardo' => 'Estado resguardo',
+            'ciudad_resguardo' => 'Ciudad / Municipio',
+            'direccion_resguardo' => 'Direccion resguardo',
+            'responsable_resguardo' => 'Responsable',
+            'telefono_contacto' => 'Telefono contacto',
+            'lat' => 'Latitud',
+            'lng' => 'Longitud',
+            'direccion' => 'Direccion task',
+        ];
+
+        $faltantes = [];
+        foreach ($campos as $key => $label) {
+            $valor = trim((string) ($data[$key] ?? ''));
+            if ($valor === '') {
+                $faltantes[] = $label;
+            }
+        }
+
+        return $faltantes;
     }
 
     private function buscarCreditoSegundometroLocal(int $idCredito): ?array

@@ -80,61 +80,65 @@
 
                 <div class="row g-3">
                     <div class="col-12 col-md-4">
+                        <label for="mad-fecha-gestion" class="form-label">Fecha y hora real de gestion</label>
+                        <input type="datetime-local" id="mad-fecha-gestion" class="form-control" required>
+                    </div>
+                    <div class="col-12 col-md-4">
                         <label class="form-label">Marca</label>
-                        <input class="form-control mad-field" data-key="marca">
+                        <input class="form-control mad-field" data-key="marca" required>
                     </div>
                     <div class="col-12 col-md-4">
                         <label class="form-label">Modelo</label>
-                        <input class="form-control mad-field" data-key="modelo">
+                        <input class="form-control mad-field" data-key="modelo" required>
                     </div>
                     <div class="col-6 col-md-2">
                         <label class="form-label">Ano</label>
-                        <input class="form-control mad-field" data-key="ano">
+                        <input class="form-control mad-field" data-key="ano" required>
                     </div>
                     <div class="col-6 col-md-2">
                         <label class="form-label">Color</label>
-                        <input class="form-control mad-field" data-key="color">
+                        <input class="form-control mad-field" data-key="color" required>
                     </div>
                     <div class="col-12 col-md-4">
                         <label class="form-label">VIN / Serie</label>
-                        <input class="form-control mad-field" data-key="no_de_serie_vin">
+                        <input class="form-control mad-field" data-key="no_de_serie_vin" required>
                     </div>
                     <div class="col-12 col-md-4">
                         <label class="form-label">No. motor</label>
-                        <input class="form-control mad-field" data-key="no_de_motor">
+                        <input class="form-control mad-field" data-key="no_de_motor" required>
                     </div>
                     <div class="col-12 col-md-4">
                         <label class="form-label">Placas</label>
-                        <input class="form-control mad-field" data-key="placas">
+                        <input class="form-control mad-field" data-key="placas" required>
                     </div>
                     <div class="col-12 col-md-3">
                         <label class="form-label">Kilometraje</label>
-                        <input class="form-control mad-field" data-key="kilometraje">
+                        <input class="form-control mad-field" data-key="kilometraje" required>
                     </div>
                     <div class="col-12 col-md-3">
                         <label class="form-label">Llave fisica</label>
-                        <select class="form-select mad-field" data-key="tiene_llave_fisica">
+                        <select class="form-select mad-field" data-key="tiene_llave_fisica" required>
                             <option value="si">Si</option>
                             <option value="no">No</option>
                         </select>
                     </div>
                     <div class="col-12 col-md-3">
                         <label class="form-label">Tarjeta circulacion</label>
-                        <select class="form-select mad-field" data-key="tiene_tarjeta_de_circulacion_en_fisico">
+                        <select class="form-select mad-field" data-key="tiene_tarjeta_de_circulacion_en_fisico" required>
                             <option value="si">Si</option>
                             <option value="no">No</option>
                         </select>
                     </div>
                     <div class="col-12 col-md-3">
                         <label class="form-label">Placa fisica</label>
-                        <select class="form-select mad-field" data-key="la_moto_tiene_placa_fisica">
+                        <select class="form-select mad-field" data-key="la_moto_tiene_placa_fisica" required>
                             <option value="si">Si</option>
                             <option value="no">No</option>
                         </select>
                     </div>
                     <div class="col-12 col-md-4">
                         <label class="form-label">Lugar de resguardo</label>
-                        <select class="form-select mad-field" data-key="donde_resguardaras_la_moto">
+                        <select class="form-select mad-field" data-key="donde_resguardaras_la_moto" required>
                             <option value="cedis-__SPARTA_SECRET_REDACTED__">CEDIS Maxikash</option>
                             <option value="centro-de-acopio">Centro de acopio</option>
                             <option value="agencia">Agencia</option>
@@ -143,35 +147,35 @@
                     </div>
                     <div class="col-12 col-md-4">
                         <label class="form-label">Estado resguardo</label>
-                        <input class="form-control mad-field" data-key="estado_resguardo">
+                        <input class="form-control mad-field" data-key="estado_resguardo" required>
                     </div>
                     <div class="col-12 col-md-4">
                         <label class="form-label">Ciudad / Municipio</label>
-                        <input class="form-control mad-field" data-key="ciudad_resguardo">
+                        <input class="form-control mad-field" data-key="ciudad_resguardo" required>
                     </div>
                     <div class="col-12 col-md-6">
                         <label class="form-label">Direccion resguardo</label>
-                        <input class="form-control mad-field" data-key="direccion_resguardo">
+                        <input class="form-control mad-field" data-key="direccion_resguardo" required>
                     </div>
                     <div class="col-12 col-md-3">
                         <label class="form-label">Responsable</label>
-                        <input class="form-control mad-field" data-key="responsable_resguardo">
+                        <input class="form-control mad-field" data-key="responsable_resguardo" required>
                     </div>
                     <div class="col-12 col-md-3">
                         <label class="form-label">Telefono contacto</label>
-                        <input class="form-control mad-field" data-key="telefono_contacto">
+                        <input class="form-control mad-field" data-key="telefono_contacto" required>
                     </div>
                     <div class="col-12 col-md-6">
                         <label class="form-label">Latitud</label>
-                        <input class="form-control mad-field" data-key="lat">
+                        <input class="form-control mad-field" data-key="lat" required>
                     </div>
                     <div class="col-12 col-md-6">
                         <label class="form-label">Longitud</label>
-                        <input class="form-control mad-field" data-key="lng">
+                        <input class="form-control mad-field" data-key="lng" required>
                     </div>
                     <div class="col-12">
                         <label class="form-label">Direccion task</label>
-                        <input class="form-control mad-field" data-key="direccion">
+                        <input class="form-control mad-field" data-key="direccion" required>
                     </div>
                 </div>
             </section>
@@ -668,6 +672,7 @@
 (function () {
     const idInput = document.getElementById('mad-id-credito');
     const userInput = document.getElementById('mad-id-usuario-legacy');
+    const fechaGestionInput = document.getElementById('mad-fecha-gestion');
     const btnDiag = document.getElementById('mad-btn-diagnosticar');
     const btnSim = document.getElementById('mad-btn-simular');
     const btnUnlock = document.getElementById('mad-btn-desbloquear');
@@ -675,6 +680,13 @@
     let diagnosticoActual = null;
     let puedeDesbloquearComponentes = false;
     const uploadedFiles = {};
+
+    function setFechaGestionDefault() {
+        if (!fechaGestionInput || fechaGestionInput.value) return;
+        const now = new Date();
+        now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
+        fechaGestionInput.value = now.toISOString().slice(0, 16);
+    }
 
     function money(v) {
         const n = Number(v || 0);
@@ -832,6 +844,28 @@
         if (badge) badge.textContent = 'Pendiente';
     }
 
+    function validarFormularioDictamen() {
+        const faltantes = [];
+        const campos = [
+            { el: fechaGestionInput, label: 'Fecha y hora real de gestion' },
+            ...Array.from(document.querySelectorAll('.mad-field')).map(el => ({
+                el,
+                label: el.closest('[class*="col-"]')?.querySelector('.form-label')?.textContent?.trim() || el.dataset.key || 'Campo'
+            }))
+        ];
+
+        campos.forEach(({ el, label }) => {
+            if (!el) return;
+            el.classList.remove('is-invalid');
+            if ((el.value || '').trim() === '') {
+                el.classList.add('is-invalid');
+                faltantes.push(label);
+            }
+        });
+
+        return faltantes;
+    }
+
     btnDiag?.addEventListener('click', async function () {
         const id = (idInput.value || '').trim();
         resetDiagView();
@@ -855,7 +889,11 @@
 
     btnSim?.addEventListener('click', async function () {
         if (!diagnosticoActual?.puede_simular) return;
-        const payload = { id_credito: idInput.value, id_usuario_legacy: userInput.value };
+        const payload = {
+            id_credito: idInput.value,
+            id_usuario_legacy: userInput.value,
+            fecha_gestion: fechaGestionInput?.value || ''
+        };
         document.querySelectorAll('.mad-field').forEach(el => { payload[el.dataset.key] = el.value || ''; });
         Object.keys(uploadedFiles).forEach(key => {
             const info = uploadedFiles[key] || {};
@@ -868,10 +906,19 @@
             Swal?.fire?.('Falta usuario', 'Indica el id_usuario Legacy.', 'warning');
             return;
         }
+        const faltantes = validarFormularioDictamen();
+        if (faltantes.length) {
+            Swal?.fire?.(
+                'Campos obligatorios',
+                'Completa estos campos antes de guardar: ' + faltantes.slice(0, 8).join(', ') + (faltantes.length > 8 ? '...' : ''),
+                'warning'
+            );
+            return;
+        }
         const confirm = await Swal.fire({
             icon: 'question',
             title: 'Guardar dictamen Legacy',
-            text: 'Se insertara en Legacy y se sincronizara con adj_operacion para el pipeline.',
+            text: `Se insertara en Legacy y adj_operacion con fecha operativa ${payload.fecha_gestion.replace('T', ' ')}.`,
             showCancelButton: true,
             confirmButtonText: 'Si, guardar',
             cancelButtonText: 'Cancelar'
@@ -974,5 +1021,6 @@
         });
     });
     cargarPermisoDesbloqueo();
+    setFechaGestionDefault();
 })();
 </script>
