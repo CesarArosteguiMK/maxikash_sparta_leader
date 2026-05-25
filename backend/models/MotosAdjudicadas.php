@@ -171,7 +171,7 @@ class MotosAdjudicadas extends Model
 
     /**
      * true si existe adj_operacion.atencion_envio_validado (requiere esquema actualizado en BD).
-     * Se prueba con SELECT directo: information_schema a veces no est? permitido para el usuario MySQL.
+     * Se prueba con SHOW COLUMNS puntual para evitar un SELECT fallido cuando la columna no existe.
      */
     public function adjOperacionTieneColumnaEnvioAtencion(): bool
     {
@@ -179,8 +179,9 @@ class MotosAdjudicadas extends Model
             return self::$adjOperacionEnvioAtencionCol;
         }
         try {
-            $this->db->queryOne('SELECT atencion_envio_validado FROM adj_operacion LIMIT 1');
-            self::$adjOperacionEnvioAtencionCol = true;
+            self::$adjOperacionEnvioAtencionCol = (bool) $this->db->queryOne(
+                "SHOW COLUMNS FROM adj_operacion LIKE 'atencion_envio_validado'"
+            );
         } catch (\Throwable $e) {
             self::$adjOperacionEnvioAtencionCol = false;
         }
