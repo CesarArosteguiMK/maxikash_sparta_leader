@@ -585,19 +585,79 @@
 
     .flatpickr-calendar.rrhh-flatpickr-calendar {
       z-index: 100020 !important;
+      width: 335px !important;
+      transform: none !important;
+      transform-origin: initial !important;
     }
 
-    .flatpickr-calendar.rrhh-flatpickr-calendar.rrhh-birth-calendar .numInputWrapper {
+    .flatpickr-calendar.rrhh-flatpickr-calendar .flatpickr-months {
+      height: 48px;
+      padding: 6px 44px;
+      align-items: center;
+      box-sizing: border-box;
+    }
+
+    .flatpickr-calendar.rrhh-flatpickr-calendar .flatpickr-prev-month,
+    .flatpickr-calendar.rrhh-flatpickr-calendar .flatpickr-next-month {
+      top: 7px;
+      width: 34px;
+      height: 34px;
+      padding: 8px;
+      border-radius: 10px;
+      background: #f3f6fb;
+      color: #334155;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .flatpickr-calendar.rrhh-flatpickr-calendar .flatpickr-prev-month {
+      left: 8px;
+    }
+
+    .flatpickr-calendar.rrhh-flatpickr-calendar .flatpickr-next-month {
+      right: 8px;
+    }
+
+    .flatpickr-calendar.rrhh-flatpickr-calendar .flatpickr-current-month {
+      left: 44px;
+      width: calc(100% - 88px);
+      height: 36px;
+      padding: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      font-size: 1rem;
+    }
+
+    .flatpickr-calendar.rrhh-flatpickr-calendar .flatpickr-monthDropdown-months {
+      width: 128px;
+      min-width: 128px;
+      height: 34px;
+      padding: 0 .5rem;
+      border: 0;
+      border-radius: 10px;
+      background-color: #f3f6fb;
+      color: #334155;
+      font-weight: 600;
+      appearance: auto !important;
+      -webkit-appearance: auto !important;
+      -moz-appearance: auto !important;
+    }
+
+    .flatpickr-calendar.rrhh-flatpickr-calendar .numInputWrapper {
       display: none;
     }
 
-    .rrhh-birth-year-select {
+    .rrhh-year-select {
       min-width: 86px;
+      max-width: 96px;
       height: 34px;
       border: 0;
       border-radius: 8px;
       padding: 0 .55rem;
-      margin-left: .35rem;
+      margin-left: 0;
       background: #f3f6fb;
       color: #334155;
       font-weight: 600;
@@ -3633,6 +3693,7 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
                   <li class="nav-item" role="presentation"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#rrhhTabNomina" type="button" role="tab">Banco y créditos</button></li>
                   <li class="nav-item" role="presentation"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#rrhhTabContactos" type="button" role="tab">Contactos</button></li>
                   <li class="nav-item" role="presentation"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#rrhhTabBeneficiarios" type="button" role="tab">Beneficiarios</button></li>
+                  <li class="nav-item" role="presentation"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#rrhhTabSalud" type="button" role="tab">Salud</button></li>
                   <li class="nav-item" role="presentation"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#rrhhTabObservaciones" type="button" role="tab">Observaciones</button></li>
                 </ul>
 
@@ -3788,6 +3849,53 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
                         <button type="button" class="btn btn-outline-primary btn-sm" data-rrhh-add="beneficiarios"><i class="fa fa-plus me-1"></i>Agregar</button>
                       </div>
                       <div data-rrhh-list="beneficiarios"></div>
+                    </div>
+                  </div>
+
+                  <div class="tab-pane fade" id="rrhhTabSalud" role="tabpanel">
+                    <div class="rrhh-section shadow-sm mb-3">
+                      <div class="rrhh-section-title"><i class="fa fa-notes-medical me-1"></i>Informaci&oacute;n m&eacute;dica</div>
+                      <div class="row g-3">
+                        <div class="col-md-3">
+                          <label class="form-label">Tipo de sangre</label>
+                          <select class="form-select" name="rrhh.tipo_sangre">
+                            <option value="">Selecciona</option>
+                            <option value="A+">A+</option>
+                            <option value="A-">A-</option>
+                            <option value="B+">B+</option>
+                            <option value="B-">B-</option>
+                            <option value="AB+">AB+</option>
+                            <option value="AB-">AB-</option>
+                            <option value="O+">O+</option>
+                            <option value="O-">O-</option>
+                            <option value="Desconocido">Desconocido</option>
+                          </select>
+                        </div>
+                        <div class="col-md-9">
+                          <label class="form-label">Alergias</label>
+                          <textarea class="form-control" name="rrhh.alergias" rows="2" placeholder="Medicamentos, alimentos u otras alergias relevantes"></textarea>
+                        </div>
+                        <div class="col-md-6">
+                          <label class="form-label">Enfermedades cr&oacute;nicas</label>
+                          <textarea class="form-control" name="rrhh.enfermedades_cronicas" rows="3" placeholder="Diabetes, hipertensi&oacute;n, asma u otros padecimientos"></textarea>
+                        </div>
+                        <div class="col-md-6">
+                          <label class="form-label">Enfermedades hereditarias</label>
+                          <textarea class="form-control" name="rrhh.enfermedades_hereditarias" rows="3" placeholder="Antecedentes familiares relevantes"></textarea>
+                        </div>
+                        <div class="col-md-6">
+                          <label class="form-label">Medicamentos actuales</label>
+                          <textarea class="form-control" name="rrhh.medicamentos_actuales" rows="3" placeholder="Tratamientos o medicamentos de uso continuo"></textarea>
+                        </div>
+                        <div class="col-md-6">
+                          <label class="form-label">Discapacidad o condici&oacute;n m&eacute;dica</label>
+                          <textarea class="form-control" name="rrhh.discapacidad_condicion" rows="3" placeholder="Condiciones que RR.HH. deba considerar"></textarea>
+                        </div>
+                        <div class="col-md-12">
+                          <label class="form-label">Observaciones m&eacute;dicas</label>
+                          <textarea class="form-control" name="rrhh.observaciones_medicas" rows="3" placeholder="Indicaciones, restricciones o notas adicionales"></textarea>
+                        </div>
+                      </div>
                     </div>
                   </div>
 
@@ -7358,6 +7466,9 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
         // Guardar los datos consolidados globalmente
         usuariosData = usuariosConsolidados;
 
+        // Pintar la primera carga con el mismo renderer compacto que usan los filtros.
+        actualizarTabla(usuariosConsolidados);
+
         // ==========================================
         // ACTUALIZAR INDICADORES (KPIs)
         // ==========================================
@@ -7886,6 +7997,12 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
 
     // Limpiar y recargar tabla
     tabla.clear().rows.add(datosFormateados).draw();
+    if (tabla.columns && typeof tabla.columns.adjust === 'function') {
+      tabla.columns.adjust();
+    }
+    if (tabla.responsive && typeof tabla.responsive.recalc === 'function') {
+      tabla.responsive.recalc();
+    }
   }
 
   /**
@@ -10270,6 +10387,7 @@ function precargarCascadaEdit(idPais, idEstado, idMunicipio, idColonia, idCalle,
   let fotoPosYExpedienteRrhh = 50;
   let fotoScaleExpedienteRrhh = 1;
   let fotoDragExpedienteRrhh = null;
+  let fechaRecepcionExpedienteRrhh = '';
   let abriendoCredencialRrhh = false;
   let volverDesdeCredencialRrhh = false;
   let orientacionCredencialRrhh = 'vertical';
@@ -10430,18 +10548,20 @@ function precargarCascadaEdit(idPais, idEstado, idMunicipio, idColonia, idCalle,
     const hoy = new Date();
     const anioActual = hoy.getFullYear();
     const fechaReferenciaNacimiento = `${anioActual - 30}-01-01`;
+    const anioMinLaboral = anioActual - 20;
+    const anioMaxLaboral = anioActual + 5;
 
-    function prepararSelectorAnioNacimiento(instance) {
+    function prepararSelectorAnioNacimiento(instance, minYear = anioActual - 100, maxYear = anioActual) {
       const calendar = instance?.calendarContainer;
-      if (!calendar || calendar.querySelector('.rrhh-birth-year-select')) return;
-      calendar.classList.add('rrhh-birth-calendar');
+      if (!calendar || calendar.querySelector('.rrhh-year-select')) return;
+      calendar.classList.add('rrhh-flatpickr-calendar');
       const currentMonth = calendar.querySelector('.flatpickr-current-month');
       if (!currentMonth) return;
       const select = document.createElement('select');
-      select.className = 'rrhh-birth-year-select';
+      select.className = 'rrhh-year-select';
       select.setAttribute('aria-label', 'Año de nacimiento');
-      const selectedYear = instance.currentYear || anioActual;
-      for (let year = anioActual; year >= anioActual - 100; year--) {
+      const selectedYear = instance.currentYear || maxYear;
+      for (let year = maxYear; year >= minYear; year--) {
         const option = document.createElement('option');
         option.value = String(year);
         option.textContent = String(year);
@@ -10451,13 +10571,13 @@ function precargarCascadaEdit(idPais, idEstado, idMunicipio, idColonia, idCalle,
       select.addEventListener('change', function () {
         const year = Number(this.value);
         if (!Number.isFinite(year)) return;
-        instance.changeYear(Math.min(anioActual, year));
+        instance.changeYear(Math.max(minYear, Math.min(maxYear, year)));
       });
       currentMonth.appendChild(select);
     }
 
     function sincronizarSelectorAnioNacimiento(instance) {
-      const select = instance?.calendarContainer?.querySelector('.rrhh-birth-year-select');
+      const select = instance?.calendarContainer?.querySelector('.rrhh-year-select');
       if (select && String(select.value) !== String(instance.currentYear)) {
         select.value = String(instance.currentYear);
       }
@@ -10471,6 +10591,7 @@ function precargarCascadaEdit(idPais, idEstado, idMunicipio, idColonia, idCalle,
         allowInput: false,
         clickOpens: true,
         appendTo: document.body,
+        monthSelectorType: 'dropdown',
         locale: (flatpickr.l10ns && flatpickr.l10ns.es) ? flatpickr.l10ns.es : undefined,
         onOpen: function (_, __, instance) {
           instance.calendarContainer.classList.add('rrhh-flatpickr-calendar');
@@ -10478,15 +10599,17 @@ function precargarCascadaEdit(idPais, idEstado, idMunicipio, idColonia, idCalle,
             if (!input.value && !instance.selectedDates.length) {
               instance.jumpToDate(fechaReferenciaNacimiento, false);
             }
-            prepararSelectorAnioNacimiento(instance);
-            sincronizarSelectorAnioNacimiento(instance);
+            prepararSelectorAnioNacimiento(instance, anioActual - 100, anioActual);
+          } else {
+            prepararSelectorAnioNacimiento(instance, anioMinLaboral, anioMaxLaboral);
           }
+          sincronizarSelectorAnioNacimiento(instance);
         },
         onMonthChange: function (_, __, instance) {
-          if (esNacimiento) sincronizarSelectorAnioNacimiento(instance);
+          sincronizarSelectorAnioNacimiento(instance);
         },
         onYearChange: function (_, __, instance) {
-          if (esNacimiento) sincronizarSelectorAnioNacimiento(instance);
+          sincronizarSelectorAnioNacimiento(instance);
         }
       };
       if (esNacimiento) {
@@ -11105,6 +11228,10 @@ function precargarCascadaEdit(idPais, idEstado, idMunicipio, idColonia, idCalle,
     </div>`;
   }
 
+  function campoExpedienteConDefault(label, value, fallback = 'N/A') {
+    return campoExpediente(label, limpiarDatoExpediente(value) || fallback);
+  }
+
   function seccionExpediente(icono, titulo, campos) {
     const html = campos.filter(Boolean).join('');
     if (!html) return '';
@@ -11165,9 +11292,72 @@ function precargarCascadaEdit(idPais, idEstado, idMunicipio, idColonia, idCalle,
 
   function fechaRecepcionExpedienteHtml() {
     return `<div class="rrhh-expediente-signature">
-      <input type="date" class="form-control rrhh-expediente-signature-date" aria-label="Fecha de recepci&oacute;n">
+      <input type="text" class="form-control rrhh-expediente-signature-date" value="${escapeRrhhAttr(fechaRecepcionExpedienteRrhh)}" placeholder="dd/mm/aaaa" aria-label="Fecha de recepci&oacute;n" readonly>
       <div class="rrhh-expediente-signature-line">Fecha de recepci&oacute;n</div>
     </div>`;
+  }
+
+  function initFechaRecepcionExpediente() {
+    const input = contenedorExpedienteRrhh?.querySelector('.rrhh-expediente-signature-date');
+    if (!input) return;
+    if (typeof flatpickr === 'undefined') {
+      input.readOnly = false;
+      input.addEventListener('input', function () {
+        fechaRecepcionExpedienteRrhh = this.value.trim();
+      });
+      return;
+    }
+    if (input._flatpickr) return;
+    const anioActual = new Date().getFullYear();
+    const prepararAnioRecepcion = function (instance) {
+      const calendar = instance?.calendarContainer;
+      if (!calendar || calendar.querySelector('.rrhh-year-select')) return;
+      const currentMonth = calendar.querySelector('.flatpickr-current-month');
+      if (!currentMonth) return;
+      const select = document.createElement('select');
+      select.className = 'rrhh-year-select';
+      select.setAttribute('aria-label', 'Año');
+      for (let year = anioActual + 5; year >= anioActual - 5; year--) {
+        const option = document.createElement('option');
+        option.value = String(year);
+        option.textContent = String(year);
+        if (year === instance.currentYear) option.selected = true;
+        select.appendChild(option);
+      }
+      select.addEventListener('change', function () {
+        const year = Number(this.value);
+        if (Number.isFinite(year)) instance.changeYear(year);
+      });
+      currentMonth.appendChild(select);
+    };
+    const sincronizarAnioRecepcion = function (instance) {
+      const select = instance?.calendarContainer?.querySelector('.rrhh-year-select');
+      if (select && String(select.value) !== String(instance.currentYear)) {
+        select.value = String(instance.currentYear);
+      }
+    };
+    flatpickr(input, {
+      dateFormat: 'd/m/Y',
+      allowInput: false,
+      clickOpens: true,
+      appendTo: document.body,
+      monthSelectorType: 'dropdown',
+      locale: (flatpickr.l10ns && flatpickr.l10ns.es) ? flatpickr.l10ns.es : undefined,
+      onOpen: function (_, __, instance) {
+        instance.calendarContainer.classList.add('rrhh-flatpickr-calendar');
+        prepararAnioRecepcion(instance);
+        sincronizarAnioRecepcion(instance);
+      },
+      onMonthChange: function (_, __, instance) {
+        sincronizarAnioRecepcion(instance);
+      },
+      onYearChange: function (_, __, instance) {
+        sincronizarAnioRecepcion(instance);
+      },
+      onChange: function (_, dateStr) {
+        fechaRecepcionExpedienteRrhh = dateStr || '';
+      }
+    });
   }
 
   function ajustarCanvasFirmaExpediente() {
@@ -11247,6 +11437,7 @@ function precargarCascadaEdit(idPais, idEstado, idMunicipio, idColonia, idCalle,
     if (inputIncluirFotoExpedienteRrhh) inputIncluirFotoExpedienteRrhh.checked = true;
     if (inputFotoExpedienteRrhh) inputFotoExpedienteRrhh.value = '';
     if (inputFotoCredencialRrhh) inputFotoCredencialRrhh.value = '';
+    fechaRecepcionExpedienteRrhh = '';
     limpiarCanvasFirmaExpediente();
     if (repaint) {
       pintarExpedienteRrhh();
@@ -11340,6 +11531,15 @@ function precargarCascadaEdit(idPais, idEstado, idMunicipio, idColonia, idCalle,
             campoExpediente('Teléfono', telefonoPrincipal),
             campoExpediente('Correo electrónico', correoPrincipal)
           ])}
+          ${seccionExpediente('fa-notes-medical', 'Información médica', [
+            campoExpedienteConDefault('Tipo de sangre', payload?.rrhh?.tipo_sangre),
+            campoExpedienteConDefault('Alergias', payload?.rrhh?.alergias),
+            campoExpedienteConDefault('Enfermedades crónicas', payload?.rrhh?.enfermedades_cronicas),
+            campoExpedienteConDefault('Enfermedades hereditarias', payload?.rrhh?.enfermedades_hereditarias),
+            campoExpedienteConDefault('Medicamentos actuales', payload?.rrhh?.medicamentos_actuales),
+            campoExpedienteConDefault('Discapacidad o condición médica', payload?.rrhh?.discapacidad_condicion),
+            campoExpedienteConDefault('Observaciones médicas', payload?.rrhh?.observaciones_medicas)
+          ])}
           ${tablaExpediente('fa-phone', 'Teléfonos', [
             { key: 'numero', label: 'Número' },
             { key: 'tipo', label: 'Tipo' }
@@ -11393,6 +11593,7 @@ function precargarCascadaEdit(idPais, idEstado, idMunicipio, idColonia, idCalle,
           </section>
         </div>
       </article>`;
+    initFechaRecepcionExpediente();
     return true;
   }
 

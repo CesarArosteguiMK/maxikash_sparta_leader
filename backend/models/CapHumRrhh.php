@@ -40,6 +40,13 @@ class CapHumRrhh extends Model
             dia TINYINT NULL,
             fecha_nacimiento DATE NULL,
             sexo VARCHAR(20) NULL,
+            tipo_sangre VARCHAR(20) NULL,
+            alergias TEXT NULL,
+            enfermedades_cronicas TEXT NULL,
+            enfermedades_hereditarias TEXT NULL,
+            medicamentos_actuales TEXT NULL,
+            discapacidad_condicion TEXT NULL,
+            observaciones_medicas TEXT NULL,
             carta_no_credito VARCHAR(120) NULL,
             carta_no_nomina_bbva VARCHAR(120) NULL,
             sueldo_bruto_letra VARCHAR(255) NULL,
@@ -167,6 +174,13 @@ class CapHumRrhh extends Model
             'anio' => 'INT NULL AFTER entidad_federativa_rfc',
             'mes' => 'TINYINT NULL AFTER anio',
             'dia' => 'TINYINT NULL AFTER mes',
+            'tipo_sangre' => 'VARCHAR(20) NULL AFTER sexo',
+            'alergias' => 'TEXT NULL AFTER tipo_sangre',
+            'enfermedades_cronicas' => 'TEXT NULL AFTER alergias',
+            'enfermedades_hereditarias' => 'TEXT NULL AFTER enfermedades_cronicas',
+            'medicamentos_actuales' => 'TEXT NULL AFTER enfermedades_hereditarias',
+            'discapacidad_condicion' => 'TEXT NULL AFTER medicamentos_actuales',
+            'observaciones_medicas' => 'TEXT NULL AFTER discapacidad_condicion',
         ];
 
         foreach ($columnas as $nombre => $definicion) {
@@ -336,6 +350,13 @@ class CapHumRrhh extends Model
             'dia' => $diaNacimiento,
             'fecha_nacimiento' => $fechaNacimiento,
             'sexo' => self::texto($persona['sexo'] ?? '', 20),
+            'tipo_sangre' => self::texto($rrhh['tipo_sangre'] ?? '', 20),
+            'alergias' => self::texto($rrhh['alergias'] ?? '', 5000),
+            'enfermedades_cronicas' => self::texto($rrhh['enfermedades_cronicas'] ?? '', 5000),
+            'enfermedades_hereditarias' => self::texto($rrhh['enfermedades_hereditarias'] ?? '', 5000),
+            'medicamentos_actuales' => self::texto($rrhh['medicamentos_actuales'] ?? '', 5000),
+            'discapacidad_condicion' => self::texto($rrhh['discapacidad_condicion'] ?? '', 5000),
+            'observaciones_medicas' => self::texto($rrhh['observaciones_medicas'] ?? '', 5000),
             'carta_no_credito' => self::texto($rrhh['carta_no_credito'] ?? '', 120),
             'carta_no_nomina_bbva' => self::texto($rrhh['carta_no_nomina_bbva'] ?? '', 120),
             'sueldo_bruto_letra' => self::texto($nomina['sueldo_bruto_letra'] ?? '', 255),
@@ -347,13 +368,17 @@ class CapHumRrhh extends Model
              id_puesto, id_jefe, puesto_texto, departamento_texto, area_texto, direccion_organizacional,
              ubicacion_laboral, municipio_laboral, jefe_directo_texto, sueldo_neto, sueldo_quincenal, sueldo_bruto,
              salario_diario, sbc, rfc, nss, entidad_federativa_rfc, anio, mes, dia, fecha_nacimiento, sexo,
-             carta_no_credito, carta_no_nomina_bbva, sueldo_bruto_letra, observaciones)
+             tipo_sangre, alergias, enfermedades_cronicas, enfermedades_hereditarias, medicamentos_actuales,
+             discapacidad_condicion, observaciones_medicas, carta_no_credito, carta_no_nomina_bbva,
+             sueldo_bruto_letra, observaciones)
             VALUES
             (:id_persona, :registro_patronal, :codigo_contpaq, :fecha_contpaq, :fecha_imss_alta, :id_departamento, :id_area,
              :id_puesto, :id_jefe, :puesto_texto, :departamento_texto, :area_texto, :direccion_organizacional,
              :ubicacion_laboral, :municipio_laboral, :jefe_directo_texto, :sueldo_neto, :sueldo_quincenal, :sueldo_bruto,
              :salario_diario, :sbc, :rfc, :nss, :entidad_federativa_rfc, :anio, :mes, :dia, :fecha_nacimiento, :sexo,
-             :carta_no_credito, :carta_no_nomina_bbva, :sueldo_bruto_letra, :observaciones)
+             :tipo_sangre, :alergias, :enfermedades_cronicas, :enfermedades_hereditarias, :medicamentos_actuales,
+             :discapacidad_condicion, :observaciones_medicas, :carta_no_credito, :carta_no_nomina_bbva,
+             :sueldo_bruto_letra, :observaciones)
             ON DUPLICATE KEY UPDATE
              registro_patronal = VALUES(registro_patronal), codigo_contpaq = VALUES(codigo_contpaq),
              fecha_contpaq = VALUES(fecha_contpaq), fecha_imss_alta = VALUES(fecha_imss_alta),
@@ -366,6 +391,12 @@ class CapHumRrhh extends Model
              salario_diario = VALUES(salario_diario), sbc = VALUES(sbc), rfc = VALUES(rfc), nss = VALUES(nss),
              entidad_federativa_rfc = VALUES(entidad_federativa_rfc), anio = VALUES(anio), mes = VALUES(mes),
              dia = VALUES(dia), fecha_nacimiento = VALUES(fecha_nacimiento), sexo = VALUES(sexo),
+             tipo_sangre = VALUES(tipo_sangre), alergias = VALUES(alergias),
+             enfermedades_cronicas = VALUES(enfermedades_cronicas),
+             enfermedades_hereditarias = VALUES(enfermedades_hereditarias),
+             medicamentos_actuales = VALUES(medicamentos_actuales),
+             discapacidad_condicion = VALUES(discapacidad_condicion),
+             observaciones_medicas = VALUES(observaciones_medicas),
              carta_no_credito = VALUES(carta_no_credito), carta_no_nomina_bbva = VALUES(carta_no_nomina_bbva),
              sueldo_bruto_letra = VALUES(sueldo_bruto_letra), observaciones = VALUES(observaciones)", $params);
     }
@@ -611,15 +642,19 @@ class CapHumRrhh extends Model
                  id_puesto, id_jefe, puesto_texto, departamento_texto,
                  area_texto, direccion_organizacional,
                  ubicacion_laboral, municipio_laboral, jefe_directo_texto, sueldo_neto, sueldo_quincenal, sueldo_bruto,
-                 salario_diario, sbc, rfc, nss, entidad_federativa_rfc, anio, mes, dia, fecha_nacimiento, sexo, carta_no_credito,
-                 carta_no_nomina_bbva, sueldo_bruto_letra, observaciones)
+                 salario_diario, sbc, rfc, nss, entidad_federativa_rfc, anio, mes, dia, fecha_nacimiento, sexo,
+                 tipo_sangre, alergias, enfermedades_cronicas, enfermedades_hereditarias, medicamentos_actuales,
+                 discapacidad_condicion, observaciones_medicas, carta_no_credito, carta_no_nomina_bbva,
+                 sueldo_bruto_letra, observaciones)
                 VALUES
                 (:id_persona, :registro_patronal, :codigo_contpaq, :fecha_contpaq, :fecha_imss_alta, :id_departamento, :id_area,
                  :id_puesto, :id_jefe, :puesto_texto, :departamento_texto,
                  :area_texto, :direccion_organizacional,
                  :ubicacion_laboral, :municipio_laboral, :jefe_directo_texto, :sueldo_neto, :sueldo_quincenal, :sueldo_bruto,
-                 :salario_diario, :sbc, :rfc, :nss, :entidad_federativa_rfc, :anio, :mes, :dia, :fecha_nacimiento, :sexo, :carta_no_credito,
-                 :carta_no_nomina_bbva, :sueldo_bruto_letra, :observaciones)", [
+                 :salario_diario, :sbc, :rfc, :nss, :entidad_federativa_rfc, :anio, :mes, :dia, :fecha_nacimiento, :sexo,
+                 :tipo_sangre, :alergias, :enfermedades_cronicas, :enfermedades_hereditarias, :medicamentos_actuales,
+                 :discapacidad_condicion, :observaciones_medicas, :carta_no_credito, :carta_no_nomina_bbva,
+                 :sueldo_bruto_letra, :observaciones)", [
                 'id_persona' => $idPersona,
                 'registro_patronal' => self::texto($rrhh['registro_patronal'] ?? '', 120),
                 'codigo_contpaq' => self::texto($rrhh['codigo_contpaq'] ?? '', 80),
@@ -649,6 +684,13 @@ class CapHumRrhh extends Model
                 'dia' => $diaNacimiento,
                 'fecha_nacimiento' => $fechaNacimiento,
                 'sexo' => self::texto($persona['sexo'] ?? '', 20),
+                'tipo_sangre' => self::texto($rrhh['tipo_sangre'] ?? '', 20),
+                'alergias' => self::texto($rrhh['alergias'] ?? '', 5000),
+                'enfermedades_cronicas' => self::texto($rrhh['enfermedades_cronicas'] ?? '', 5000),
+                'enfermedades_hereditarias' => self::texto($rrhh['enfermedades_hereditarias'] ?? '', 5000),
+                'medicamentos_actuales' => self::texto($rrhh['medicamentos_actuales'] ?? '', 5000),
+                'discapacidad_condicion' => self::texto($rrhh['discapacidad_condicion'] ?? '', 5000),
+                'observaciones_medicas' => self::texto($rrhh['observaciones_medicas'] ?? '', 5000),
                 'carta_no_credito' => self::texto($rrhh['carta_no_credito'] ?? '', 120),
                 'carta_no_nomina_bbva' => self::texto($rrhh['carta_no_nomina_bbva'] ?? '', 120),
                 'sueldo_bruto_letra' => self::texto($nomina['sueldo_bruto_letra'] ?? '', 255),
@@ -814,7 +856,9 @@ class CapHumRrhh extends Model
                        id_departamento AS departamento_id, id_area AS area_id, id_puesto AS puesto_id,
                        id_jefe AS jefe_id, puesto_texto, departamento_texto, area_texto,
                        direccion_organizacional, ubicacion_laboral, municipio_laboral,
-                       jefe_directo_texto, carta_no_credito, carta_no_nomina_bbva, observaciones
+                       jefe_directo_texto, tipo_sangre, alergias, enfermedades_cronicas,
+                       enfermedades_hereditarias, medicamentos_actuales, discapacidad_condicion,
+                       observaciones_medicas, carta_no_credito, carta_no_nomina_bbva, observaciones
                 FROM __SPARTA_SECRET_REDACTED__.persona_datos_rrhh
                 WHERE id_persona = :id_persona
                 LIMIT 1

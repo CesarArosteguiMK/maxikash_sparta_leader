@@ -211,9 +211,14 @@ class CapHum extends Controller
                         };
                     });
 
-                    // Actualizar DataTable
-                    const tabla = $('#historialUsuarios').DataTable();
-                    tabla.clear().rows.add(datos).draw();
+                    // Usar el renderer compacto de la vista si ya está disponible.
+                    // Evita filas gigantes cuando una persona tiene muchos puestos.
+                    if (typeof actualizarTabla === 'function') {
+                        actualizarTabla(usuariosConsolidados);
+                    } else {
+                        const tabla = $('#historialUsuarios').DataTable();
+                        tabla.clear().rows.add(datos).draw();
+                    }
                 }
             });
         };
@@ -1239,6 +1244,8 @@ class CapHum extends Controller
                 '57': 'fa-solid fa-headset',
                 60: 'fa-solid fa-chart-column',
                 '60': 'fa-solid fa-chart-column',
+                79: 'fa-solid fa-file-pen',
+                '79': 'fa-solid fa-file-pen',
             };
 
             /** Mapa base de íconos (pestaña Módulos del sistema y filas agrupadas de permisos especiales). */
@@ -1271,7 +1278,8 @@ class CapHum extends Controller
                 50: 'fa fa-chart-line',
                 51: 'fa-solid fa-file-circle-check',
                 48: 'fa fa-archive',
-                60: 'fa-solid fa-chart-column'
+                60: 'fa-solid fa-chart-column',
+                79: 'fa-solid fa-file-pen'
             };
 
             /* =========================
