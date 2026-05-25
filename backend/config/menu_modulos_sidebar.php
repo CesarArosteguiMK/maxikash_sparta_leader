@@ -265,6 +265,8 @@ if (!function_exists('mapPermisoEspecialToMenuMeta')) {
             32 => [46, 110],
             // Capital Humano — Gestión
             43 => [4, 110],
+            // Motos Adjudicadas - 1.- Evidencias
+            79 => [70, 710],
             // Cierre de crédito (ancla 51 vía nombre): tarjeta «Convenios»
         ];
         if (isset($anclas[$mid])) {
