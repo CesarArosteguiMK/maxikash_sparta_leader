@@ -1,0 +1,996 @@
+<?php
+
+namespace Models;
+
+use Core\Database;
+use Core\Model;
+
+class CapHumRrhh extends Model
+{
+    public static function asegurarTablas(Database $db): void
+    {
+        $db->CRUD("CREATE TABLE IF NOT EXISTS __SPARTA_SECRET_REDACTED__.persona_datos_rrhh (
+            id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+            id_persona INT NOT NULL,
+            registro_patronal VARCHAR(120) NULL,
+            codigo_contpaq VARCHAR(80) NULL,
+            fecha_contpaq DATE NULL,
+            fecha_imss_alta DATE NULL,
+            id_departamento INT NULL,
+            id_area INT NULL,
+            id_puesto INT NULL,
+            id_jefe INT NULL,
+            puesto_texto VARCHAR(180) NULL,
+            departamento_texto VARCHAR(180) NULL,
+            area_texto VARCHAR(180) NULL,
+            direccion_organizacional VARCHAR(180) NULL,
+            ubicacion_laboral VARCHAR(180) NULL,
+            municipio_laboral VARCHAR(180) NULL,
+            jefe_directo_texto VARCHAR(220) NULL,
+            sueldo_neto DECIMAL(12,2) NULL,
+            sueldo_quincenal DECIMAL(12,2) NULL,
+            sueldo_bruto DECIMAL(12,2) NULL,
+            salario_diario DECIMAL(12,2) NULL,
+            sbc DECIMAL(12,2) NULL,
+            rfc VARCHAR(20) NULL,
+            nss VARCHAR(20) NULL,
+            entidad_federativa_rfc VARCHAR(120) NULL,
+            anio INT NULL,
+            mes TINYINT NULL,
+            dia TINYINT NULL,
+            fecha_nacimiento DATE NULL,
+            sexo VARCHAR(20) NULL,
+            carta_no_credito VARCHAR(120) NULL,
+            carta_no_nomina_bbva VARCHAR(120) NULL,
+            sueldo_bruto_letra VARCHAR(255) NULL,
+            observaciones TEXT NULL,
+            created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            updated_at DATETIME NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
+            UNIQUE KEY uq_persona_datos_rrhh_persona (id_persona),
+            KEY idx_persona_datos_rrhh_rfc (rfc),
+            KEY idx_persona_datos_rrhh_nss (nss)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+        self::asegurarColumnasDatosRrhh($db);
+
+        $db->CRUD("CREATE TABLE IF NOT EXISTS __SPARTA_SECRET_REDACTED__.telefonos_persona (
+            id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+            id_persona INT NOT NULL,
+            numero VARCHAR(30) NOT NULL,
+            tipo VARCHAR(40) NULL,
+            estatus ENUM('Activo','Inactivo') NOT NULL DEFAULT 'Activo',
+            created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            KEY idx_telefonos_persona_persona (id_persona),
+            KEY idx_telefonos_persona_numero (numero)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+
+        $db->CRUD("CREATE TABLE IF NOT EXISTS __SPARTA_SECRET_REDACTED__.correos_persona (
+            id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+            id_persona INT NOT NULL,
+            correo VARCHAR(160) NOT NULL,
+            tipo VARCHAR(40) NULL,
+            estatus ENUM('Activo','Inactivo') NOT NULL DEFAULT 'Activo',
+            created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            KEY idx_correos_persona_persona (id_persona),
+            KEY idx_correos_persona_correo (correo)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+
+        $db->CRUD("CREATE TABLE IF NOT EXISTS __SPARTA_SECRET_REDACTED__.domicilio_persona (
+            id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+            id_persona INT NOT NULL,
+            domicilio_texto VARCHAR(500) NOT NULL,
+            codigo_postal VARCHAR(12) NULL,
+            tipo VARCHAR(40) NULL,
+            estatus ENUM('Activo','Inactivo') NOT NULL DEFAULT 'Activo',
+            created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            KEY idx_domicilio_persona_persona (id_persona),
+            KEY idx_domicilio_persona_estatus (estatus)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+
+        $db->CRUD("CREATE TABLE IF NOT EXISTS __SPARTA_SECRET_REDACTED__.persona_cuenta_bancaria (
+            id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+            id_persona INT NOT NULL,
+            clabe VARCHAR(30) NULL,
+            numero_cuenta VARCHAR(40) NULL,
+            id_banco INT NULL,
+            nombre_banco VARCHAR(120) NULL,
+            estatus ENUM('Activo','Inactivo') NOT NULL DEFAULT 'Activo',
+            created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            KEY idx_cuenta_bancaria_persona (id_persona),
+            KEY idx_cuenta_bancaria_clabe (clabe),
+            KEY idx_cuenta_bancaria_cuenta (numero_cuenta)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+
+        $db->CRUD("CREATE TABLE IF NOT EXISTS __SPARTA_SECRET_REDACTED__.persona_credito_laboral (
+            id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+            id_persona INT NOT NULL,
+            tipo_credito VARCHAR(80) NULL,
+            numero_credito VARCHAR(80) NULL,
+            monto_descontar DECIMAL(12,2) NULL,
+            estatus ENUM('Activo','Inactivo') NOT NULL DEFAULT 'Activo',
+            created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            KEY idx_credito_laboral_persona (id_persona)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+
+        $db->CRUD("CREATE TABLE IF NOT EXISTS __SPARTA_SECRET_REDACTED__.contacto_persona_emergencia (
+            id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+            id_persona INT NOT NULL,
+            nombre_contacto VARCHAR(220) NOT NULL,
+            parentesco VARCHAR(80) NULL,
+            numero VARCHAR(30) NULL,
+            estatus ENUM('Activo','Inactivo') NOT NULL DEFAULT 'Activo',
+            created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            KEY idx_contacto_emergencia_persona (id_persona)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+
+        $db->CRUD("CREATE TABLE IF NOT EXISTS __SPARTA_SECRET_REDACTED__.persona_beneficiario_fallecimiento (
+            id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+            id_persona INT NOT NULL,
+            nombre_beneficiario VARCHAR(220) NOT NULL,
+            parentesco VARCHAR(80) NULL,
+            numero VARCHAR(30) NULL,
+            porcentaje DECIMAL(5,2) NULL,
+            estatus ENUM('Activo','Inactivo') NOT NULL DEFAULT 'Activo',
+            created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            KEY idx_beneficiario_persona (id_persona)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+
+        $db->CRUD("CREATE TABLE IF NOT EXISTS __SPARTA_SECRET_REDACTED__.catalogo_observacion_persona (
+            id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+            nombre VARCHAR(160) NOT NULL,
+            activo TINYINT(1) NOT NULL DEFAULT 1,
+            created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            UNIQUE KEY uq_catalogo_observacion_nombre (nombre)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+
+        $db->CRUD("CREATE TABLE IF NOT EXISTS __SPARTA_SECRET_REDACTED__.persona_observacion (
+            id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+            id_persona INT NOT NULL,
+            id_catalogo_observacion INT NULL,
+            observacion TEXT NOT NULL,
+            estatus ENUM('Activo','Inactivo') NOT NULL DEFAULT 'Activo',
+            created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            KEY idx_persona_observacion_persona (id_persona),
+            KEY idx_persona_observacion_catalogo (id_catalogo_observacion)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+    }
+
+    private static function asegurarColumnasDatosRrhh(Database $db): void
+    {
+        $columnas = [
+            'id_departamento' => 'INT NULL AFTER fecha_imss_alta',
+            'id_area' => 'INT NULL AFTER id_departamento',
+            'id_puesto' => 'INT NULL AFTER id_area',
+            'id_jefe' => 'INT NULL AFTER id_puesto',
+            'puesto_texto' => 'VARCHAR(180) NULL AFTER id_jefe',
+            'departamento_texto' => 'VARCHAR(180) NULL AFTER puesto_texto',
+            'area_texto' => 'VARCHAR(180) NULL AFTER departamento_texto',
+            'anio' => 'INT NULL AFTER entidad_federativa_rfc',
+            'mes' => 'TINYINT NULL AFTER anio',
+            'dia' => 'TINYINT NULL AFTER mes',
+        ];
+
+        foreach ($columnas as $nombre => $definicion) {
+            $existe = $db->queryOne("SHOW COLUMNS FROM __SPARTA_SECRET_REDACTED__.persona_datos_rrhh LIKE :columna", [
+                'columna' => $nombre,
+            ]);
+            if (!$existe) {
+                $db->CRUD("ALTER TABLE __SPARTA_SECRET_REDACTED__.persona_datos_rrhh ADD COLUMN {$nombre} {$definicion}");
+            }
+        }
+    }
+
+    private static function texto($value, int $max = 255): ?string
+    {
+        $value = trim((string) ($value ?? ''));
+        if ($value === '') return null;
+        return function_exists('mb_substr') ? mb_substr($value, 0, $max) : substr($value, 0, $max);
+    }
+
+    private static function decimal($value): ?float
+    {
+        $value = trim(str_replace([',', '$'], ['', ''], (string) ($value ?? '')));
+        return ($value !== '' && is_numeric($value)) ? (float) $value : null;
+    }
+
+    private static function fecha($value): ?string
+    {
+        $value = trim((string) ($value ?? ''));
+        if ($value === '') return null;
+        $ts = strtotime($value);
+        return $ts ? date('Y-m-d', $ts) : null;
+    }
+
+    private static function partesFechaNacimiento(?string $fecha): array
+    {
+        if (!$fecha) {
+            return [null, null, null];
+        }
+        $ts = strtotime($fecha);
+        if (!$ts) {
+            return [null, null, null];
+        }
+        return [(int) date('Y', $ts), (int) date('n', $ts), (int) date('j', $ts)];
+    }
+
+    private static function lista($items): array
+    {
+        if (!is_array($items)) return [];
+        return array_values(array_filter($items, function ($item) {
+            if (!is_array($item)) return false;
+            foreach ($item as $value) {
+                if (trim((string) $value) !== '') return true;
+            }
+            return false;
+        }));
+    }
+
+    private static function estatus($value): string
+    {
+        return ((string) $value === 'Inactivo') ? 'Inactivo' : 'Activo';
+    }
+
+    private static function siguienteNumeroEmpleadoLibre(Database $db): string
+    {
+        $row = $db->queryOne(
+            "SELECT COALESCE(MAX(CAST(numero_empleado AS UNSIGNED)), 0) AS mx
+             FROM __SPARTA_SECRET_REDACTED__.persona
+             WHERE TRIM(numero_empleado) <> ''
+               AND TRIM(numero_empleado) REGEXP '^[0-9]+$'"
+        );
+
+        $next = isset($row['mx']) ? (int) $row['mx'] + 1 : 1;
+        for ($i = 0; $i < 100000; $i++) {
+            $candidate = (string) $next;
+            $existe = $db->queryOne(
+                'SELECT 1 AS ok FROM __SPARTA_SECRET_REDACTED__.persona WHERE numero_empleado = :numero LIMIT 1',
+                ['numero' => $candidate]
+            );
+            if (!$existe) {
+                return $candidate;
+            }
+            $next++;
+        }
+
+        return 'RRHH' . strtoupper(bin2hex(random_bytes(4)));
+    }
+
+    private static function datosBase(array $data): array
+    {
+        return [
+            'persona' => is_array($data['persona'] ?? null) ? $data['persona'] : [],
+            'rrhh' => is_array($data['rrhh'] ?? null) ? $data['rrhh'] : [],
+            'nomina' => is_array($data['nomina'] ?? null) ? $data['nomina'] : [],
+            'telefonos' => self::lista($data['telefonos'] ?? []),
+            'correos' => self::lista($data['correos'] ?? []),
+            'domicilios' => self::lista($data['domicilios'] ?? []),
+            'cuentas' => self::lista($data['cuentas_bancarias'] ?? []),
+            'contactos' => self::lista($data['contactos_emergencia'] ?? []),
+            'beneficiarios' => self::lista($data['beneficiarios'] ?? []),
+        ];
+    }
+
+    private static function validarPersonaBasica(array $persona): array
+    {
+        $nombres = self::texto($persona['nombres'] ?? '', 120);
+        $apellidop = self::texto($persona['apellidop'] ?? '', 120);
+        if (!$nombres || !$apellidop) {
+            return [false, 'Nombre y apellido paterno son obligatorios.'];
+        }
+
+        $idPais = (int) ($persona['id_pais'] ?? 0);
+        if ($idPais <= 0) {
+            return [false, 'Debe seleccionar el pais de la persona.'];
+        }
+
+        return [true, null];
+    }
+
+    private static function jefeSeleccionado(array $rrhh): array
+    {
+        $jefeRaw = trim((string) ($rrhh['jefe_id'] ?? ''));
+        $idJefe = null;
+        $idVacanteJefe = null;
+        if (preg_match('/^vacante:(\d+)$/', $jefeRaw, $m)) {
+            $idVacanteJefe = (int) $m[1];
+        } elseif ($jefeRaw !== '') {
+            $idJefe = (int) $jefeRaw;
+        }
+        return [$idJefe, $idVacanteJefe];
+    }
+
+    private static function guardarDatosRrhh(Database $db, int $idPersona, array $persona, array $rrhh, array $nomina): void
+    {
+        [$idJefe] = self::jefeSeleccionado($rrhh);
+        $idArea = !empty($rrhh['area_id']) ? (int) $rrhh['area_id'] : null;
+        $idPuesto = !empty($rrhh['puesto_id']) ? (int) $rrhh['puesto_id'] : null;
+        $fechaNacimiento = self::fecha($persona['fecha_nacimiento'] ?? '');
+        [$anioNacimiento, $mesNacimiento, $diaNacimiento] = self::partesFechaNacimiento($fechaNacimiento);
+
+        $params = [
+            'id_persona' => $idPersona,
+            'registro_patronal' => self::texto($rrhh['registro_patronal'] ?? '', 120),
+            'codigo_contpaq' => self::texto($rrhh['codigo_contpaq'] ?? '', 80),
+            'fecha_contpaq' => self::fecha($rrhh['fecha_contpaq'] ?? ''),
+            'fecha_imss_alta' => self::fecha($rrhh['fecha_imss_alta'] ?? ''),
+            'id_departamento' => !empty($rrhh['departamento_id']) ? (int) $rrhh['departamento_id'] : null,
+            'id_area' => $idArea,
+            'id_puesto' => $idPuesto,
+            'id_jefe' => $idJefe,
+            'puesto_texto' => self::texto($rrhh['puesto_texto'] ?? '', 180),
+            'departamento_texto' => self::texto($rrhh['departamento_texto'] ?? '', 180),
+            'area_texto' => self::texto($rrhh['area_texto'] ?? '', 180),
+            'direccion_organizacional' => self::texto($rrhh['direccion_organizacional'] ?? '', 180),
+            'ubicacion_laboral' => self::texto($rrhh['ubicacion_laboral'] ?? '', 180),
+            'municipio_laboral' => self::texto($rrhh['municipio_laboral'] ?? '', 180),
+            'jefe_directo_texto' => self::texto($rrhh['jefe_directo_texto'] ?? '', 220),
+            'sueldo_neto' => self::decimal($nomina['sueldo_neto'] ?? null),
+            'sueldo_quincenal' => self::decimal($nomina['sueldo_quincenal'] ?? null),
+            'sueldo_bruto' => self::decimal($nomina['sueldo_bruto'] ?? null),
+            'salario_diario' => self::decimal($nomina['salario_diario'] ?? null),
+            'sbc' => self::decimal($nomina['sbc'] ?? null),
+            'rfc' => self::texto($persona['rfc'] ?? '', 20),
+            'nss' => self::texto($persona['nss'] ?? '', 20),
+            'entidad_federativa_rfc' => self::texto($persona['entidad_federativa_rfc'] ?? '', 120),
+            'anio' => $anioNacimiento,
+            'mes' => $mesNacimiento,
+            'dia' => $diaNacimiento,
+            'fecha_nacimiento' => $fechaNacimiento,
+            'sexo' => self::texto($persona['sexo'] ?? '', 20),
+            'carta_no_credito' => self::texto($rrhh['carta_no_credito'] ?? '', 120),
+            'carta_no_nomina_bbva' => self::texto($rrhh['carta_no_nomina_bbva'] ?? '', 120),
+            'sueldo_bruto_letra' => self::texto($nomina['sueldo_bruto_letra'] ?? '', 255),
+            'observaciones' => self::texto($GLOBALS['rrhh_observaciones_actual'] ?? '', 5000),
+        ];
+
+        $db->CRUD("INSERT INTO __SPARTA_SECRET_REDACTED__.persona_datos_rrhh
+            (id_persona, registro_patronal, codigo_contpaq, fecha_contpaq, fecha_imss_alta, id_departamento, id_area,
+             id_puesto, id_jefe, puesto_texto, departamento_texto, area_texto, direccion_organizacional,
+             ubicacion_laboral, municipio_laboral, jefe_directo_texto, sueldo_neto, sueldo_quincenal, sueldo_bruto,
+             salario_diario, sbc, rfc, nss, entidad_federativa_rfc, anio, mes, dia, fecha_nacimiento, sexo,
+             carta_no_credito, carta_no_nomina_bbva, sueldo_bruto_letra, observaciones)
+            VALUES
+            (:id_persona, :registro_patronal, :codigo_contpaq, :fecha_contpaq, :fecha_imss_alta, :id_departamento, :id_area,
+             :id_puesto, :id_jefe, :puesto_texto, :departamento_texto, :area_texto, :direccion_organizacional,
+             :ubicacion_laboral, :municipio_laboral, :jefe_directo_texto, :sueldo_neto, :sueldo_quincenal, :sueldo_bruto,
+             :salario_diario, :sbc, :rfc, :nss, :entidad_federativa_rfc, :anio, :mes, :dia, :fecha_nacimiento, :sexo,
+             :carta_no_credito, :carta_no_nomina_bbva, :sueldo_bruto_letra, :observaciones)
+            ON DUPLICATE KEY UPDATE
+             registro_patronal = VALUES(registro_patronal), codigo_contpaq = VALUES(codigo_contpaq),
+             fecha_contpaq = VALUES(fecha_contpaq), fecha_imss_alta = VALUES(fecha_imss_alta),
+             id_departamento = VALUES(id_departamento), id_area = VALUES(id_area), id_puesto = VALUES(id_puesto),
+             id_jefe = VALUES(id_jefe), puesto_texto = VALUES(puesto_texto), departamento_texto = VALUES(departamento_texto),
+             area_texto = VALUES(area_texto), direccion_organizacional = VALUES(direccion_organizacional),
+             ubicacion_laboral = VALUES(ubicacion_laboral), municipio_laboral = VALUES(municipio_laboral),
+             jefe_directo_texto = VALUES(jefe_directo_texto), sueldo_neto = VALUES(sueldo_neto),
+             sueldo_quincenal = VALUES(sueldo_quincenal), sueldo_bruto = VALUES(sueldo_bruto),
+             salario_diario = VALUES(salario_diario), sbc = VALUES(sbc), rfc = VALUES(rfc), nss = VALUES(nss),
+             entidad_federativa_rfc = VALUES(entidad_federativa_rfc), anio = VALUES(anio), mes = VALUES(mes),
+             dia = VALUES(dia), fecha_nacimiento = VALUES(fecha_nacimiento), sexo = VALUES(sexo),
+             carta_no_credito = VALUES(carta_no_credito), carta_no_nomina_bbva = VALUES(carta_no_nomina_bbva),
+             sueldo_bruto_letra = VALUES(sueldo_bruto_letra), observaciones = VALUES(observaciones)", $params);
+    }
+
+    private static function reemplazarListas(Database $db, int $idPersona, array $datos): void
+    {
+        foreach ([
+            'telefonos_persona',
+            'correos_persona',
+            'domicilio_persona',
+            'persona_cuenta_bancaria',
+            'persona_credito_laboral',
+            'contacto_persona_emergencia',
+            'persona_beneficiario_fallecimiento',
+            'persona_observacion',
+        ] as $tabla) {
+            $db->CRUD("DELETE FROM __SPARTA_SECRET_REDACTED__.{$tabla} WHERE id_persona = :id_persona", ['id_persona' => $idPersona]);
+        }
+
+        foreach ($datos['telefonos'] as $tel) {
+            $numero = self::texto($tel['numero'] ?? '', 30);
+            if (!$numero) continue;
+            $db->CRUD("INSERT INTO __SPARTA_SECRET_REDACTED__.telefonos_persona (id_persona, numero, tipo, estatus) VALUES (:id_persona, :numero, :tipo, :estatus)", [
+                'id_persona' => $idPersona,
+                'numero' => $numero,
+                'tipo' => self::texto($tel['tipo'] ?? 'Personal', 40),
+                'estatus' => self::estatus($tel['estatus'] ?? 'Activo'),
+            ]);
+        }
+
+        foreach ($datos['correos'] as $mail) {
+            $correo = self::texto($mail['correo'] ?? '', 160);
+            if (!$correo) continue;
+            $db->CRUD("INSERT INTO __SPARTA_SECRET_REDACTED__.correos_persona (id_persona, correo, tipo, estatus) VALUES (:id_persona, :correo, :tipo, :estatus)", [
+                'id_persona' => $idPersona,
+                'correo' => $correo,
+                'tipo' => self::texto($mail['tipo'] ?? 'Personal', 40),
+                'estatus' => self::estatus($mail['estatus'] ?? 'Activo'),
+            ]);
+        }
+
+        foreach ($datos['domicilios'] as $dom) {
+            $domicilio = self::texto($dom['domicilio_texto'] ?? '', 500);
+            if (!$domicilio) continue;
+            $db->CRUD("INSERT INTO __SPARTA_SECRET_REDACTED__.domicilio_persona (id_persona, domicilio_texto, codigo_postal, tipo, estatus) VALUES (:id_persona, :domicilio_texto, :codigo_postal, :tipo, :estatus)", [
+                'id_persona' => $idPersona,
+                'domicilio_texto' => $domicilio,
+                'codigo_postal' => self::texto($dom['codigo_postal'] ?? '', 12),
+                'tipo' => self::texto($dom['tipo'] ?? 'Particular', 40),
+                'estatus' => self::estatus($dom['estatus'] ?? 'Activo'),
+            ]);
+        }
+
+        foreach ($datos['cuentas'] as $cuenta) {
+            if (!self::texto($cuenta['clabe'] ?? '') && !self::texto($cuenta['numero_cuenta'] ?? '') && !self::texto($cuenta['nombre_banco'] ?? '')) continue;
+            $db->CRUD("INSERT INTO __SPARTA_SECRET_REDACTED__.persona_cuenta_bancaria (id_persona, clabe, numero_cuenta, id_banco, nombre_banco, estatus) VALUES (:id_persona, :clabe, :numero_cuenta, :id_banco, :nombre_banco, :estatus)", [
+                'id_persona' => $idPersona,
+                'clabe' => self::texto($cuenta['clabe'] ?? '', 30),
+                'numero_cuenta' => self::texto($cuenta['numero_cuenta'] ?? '', 40),
+                'id_banco' => !empty($cuenta['id_banco']) ? (int) $cuenta['id_banco'] : null,
+                'nombre_banco' => self::texto($cuenta['nombre_banco'] ?? '', 120),
+                'estatus' => self::estatus($cuenta['estatus'] ?? 'Activo'),
+            ]);
+        }
+
+        $tipoCredito = self::texto($datos['nomina']['credito_infonavit_fonacot'] ?? '', 80);
+        $numeroCredito = self::texto($datos['nomina']['no_credito'] ?? '', 80);
+        $montoDescontar = self::decimal($datos['nomina']['monto_descontar'] ?? null);
+        if ($tipoCredito || $numeroCredito || $montoDescontar !== null) {
+            $db->CRUD("INSERT INTO __SPARTA_SECRET_REDACTED__.persona_credito_laboral (id_persona, tipo_credito, numero_credito, monto_descontar, estatus) VALUES (:id_persona, :tipo_credito, :numero_credito, :monto_descontar, 'Activo')", [
+                'id_persona' => $idPersona,
+                'tipo_credito' => $tipoCredito,
+                'numero_credito' => $numeroCredito,
+                'monto_descontar' => $montoDescontar,
+            ]);
+        }
+
+        foreach ($datos['contactos'] as $contacto) {
+            $nombre = self::texto($contacto['nombre_contacto'] ?? '', 220);
+            if (!$nombre) continue;
+            $db->CRUD("INSERT INTO __SPARTA_SECRET_REDACTED__.contacto_persona_emergencia (id_persona, nombre_contacto, parentesco, numero, estatus) VALUES (:id_persona, :nombre_contacto, :parentesco, :numero, :estatus)", [
+                'id_persona' => $idPersona,
+                'nombre_contacto' => $nombre,
+                'parentesco' => self::texto($contacto['parentesco'] ?? '', 80),
+                'numero' => self::texto($contacto['numero'] ?? '', 30),
+                'estatus' => self::estatus($contacto['estatus'] ?? 'Activo'),
+            ]);
+        }
+
+        foreach ($datos['beneficiarios'] as $beneficiario) {
+            $nombre = self::texto($beneficiario['nombre_beneficiario'] ?? '', 220);
+            if (!$nombre) continue;
+            $db->CRUD("INSERT INTO __SPARTA_SECRET_REDACTED__.persona_beneficiario_fallecimiento (id_persona, nombre_beneficiario, parentesco, numero, porcentaje, estatus) VALUES (:id_persona, :nombre_beneficiario, :parentesco, :numero, :porcentaje, :estatus)", [
+                'id_persona' => $idPersona,
+                'nombre_beneficiario' => $nombre,
+                'parentesco' => self::texto($beneficiario['parentesco'] ?? '', 80),
+                'numero' => self::texto($beneficiario['numero'] ?? '', 30),
+                'porcentaje' => self::decimal($beneficiario['porcentaje'] ?? null),
+                'estatus' => self::estatus($beneficiario['estatus'] ?? 'Activo'),
+            ]);
+        }
+
+        $observacion = self::texto($GLOBALS['rrhh_observaciones_actual'] ?? '', 5000);
+        if ($observacion) {
+            $db->CRUD("INSERT INTO __SPARTA_SECRET_REDACTED__.catalogo_observacion_persona (nombre, activo) VALUES ('Observacion general', 1) ON DUPLICATE KEY UPDATE activo = 1");
+            $cat = $db->queryOne("SELECT id FROM __SPARTA_SECRET_REDACTED__.catalogo_observacion_persona WHERE nombre = 'Observacion general' LIMIT 1");
+            $db->CRUD("INSERT INTO __SPARTA_SECRET_REDACTED__.persona_observacion (id_persona, id_catalogo_observacion, observacion, estatus) VALUES (:id_persona, :id_catalogo_observacion, :observacion, 'Activo')", [
+                'id_persona' => $idPersona,
+                'id_catalogo_observacion' => $cat['id'] ?? null,
+                'observacion' => $observacion,
+            ]);
+        }
+    }
+
+    private static function sincronizarAsignaciones(Database $db, int $idPersona, array $rrhh): void
+    {
+        $idPuesto = !empty($rrhh['puesto_id']) ? (int) $rrhh['puesto_id'] : null;
+        [$idJefe, $idVacanteJefe] = self::jefeSeleccionado($rrhh);
+
+        if ($idPuesto) {
+            $existe = $db->queryOne("SELECT id FROM __SPARTA_SECRET_REDACTED__.asigna_puesto WHERE id_persona = :id_persona AND id_puesto = :id_puesto AND activo = 1 LIMIT 1", [
+                'id_persona' => $idPersona,
+                'id_puesto' => $idPuesto,
+            ]);
+            if (!$existe) {
+                $db->CRUD("UPDATE __SPARTA_SECRET_REDACTED__.asigna_puesto SET activo = 0 WHERE id_persona = :id_persona AND activo = 1", ['id_persona' => $idPersona]);
+                $db->CRUD("INSERT INTO __SPARTA_SECRET_REDACTED__.asigna_puesto (id, id_persona, id_puesto, fecha_asignacion, activo) VALUES (DEFAULT, :id_persona, :id_puesto, NOW(), 1)", [
+                    'id_persona' => $idPersona,
+                    'id_puesto' => $idPuesto,
+                ]);
+            }
+        }
+
+        if ($idJefe || $idVacanteJefe) {
+            $actual = $db->queryOne("SELECT id_jefe, id_vacante_jefe FROM __SPARTA_SECRET_REDACTED__.asigna_jefe WHERE id_persona = :id_persona ORDER BY id DESC LIMIT 1", ['id_persona' => $idPersona]);
+            $mismo = $actual
+                && (int)($actual['id_jefe'] ?? 0) === (int)($idJefe ?? 0)
+                && (int)($actual['id_vacante_jefe'] ?? 0) === (int)($idVacanteJefe ?? 0);
+            if (!$mismo) {
+                $db->CRUD("INSERT INTO __SPARTA_SECRET_REDACTED__.asigna_jefe (id, id_persona, id_jefe, id_vacante_jefe, fecha_inicio, fecha_fin) VALUES (DEFAULT, :id_persona, :id_jefe, :id_vacante_jefe, NOW(), NOW())", [
+                    'id_persona' => $idPersona,
+                    'id_jefe' => $idJefe,
+                    'id_vacante_jefe' => $idVacanteJefe,
+                ]);
+            }
+        }
+    }
+
+    public static function registrarUsuario(array $data, int $idSesion)
+    {
+        if ($idSesion !== 1) {
+            return self::resultado(false, 'No tienes permiso para registrar usuarios RR.HH.');
+        }
+
+        $persona = is_array($data['persona'] ?? null) ? $data['persona'] : [];
+        $rrhh = is_array($data['rrhh'] ?? null) ? $data['rrhh'] : [];
+        $nomina = is_array($data['nomina'] ?? null) ? $data['nomina'] : [];
+        $telefonos = self::lista($data['telefonos'] ?? []);
+        $correos = self::lista($data['correos'] ?? []);
+        $domicilios = self::lista($data['domicilios'] ?? []);
+        $cuentas = self::lista($data['cuentas_bancarias'] ?? []);
+        $contactos = self::lista($data['contactos_emergencia'] ?? []);
+        $beneficiarios = self::lista($data['beneficiarios'] ?? []);
+
+        $nombres = self::texto($persona['nombres'] ?? '', 120);
+        $apellidop = self::texto($persona['apellidop'] ?? '', 120);
+        $apellidom = self::texto($persona['apellidom'] ?? '', 120);
+
+        if (!$nombres || !$apellidop) {
+            return self::resultado(false, 'Nombre y apellido paterno son obligatorios.');
+        }
+
+        $idPais = (int) ($persona['id_pais'] ?? 0);
+        if ($idPais <= 0) {
+            return self::resultado(false, 'Debe seleccionar el pais de la persona.');
+        }
+
+        try {
+            $db = new Database();
+            self::asegurarTablas($db);
+
+            $numeroEmpleado = self::texto($persona['numero_empleado'] ?? '', 40);
+            if (!$numeroEmpleado) {
+                $numeroEmpleado = self::siguienteNumeroEmpleadoLibre($db);
+            } elseif ($db->queryOne('SELECT id FROM __SPARTA_SECRET_REDACTED__.persona WHERE numero_empleado = :numero LIMIT 1', ['numero' => $numeroEmpleado])) {
+                return self::resultado(false, 'Ya existe una persona con ese numero de empleado.');
+            }
+
+            $usuario = self::texto($persona['usuario'] ?? '', 40);
+            if ($usuario && $db->queryOne('SELECT id FROM __SPARTA_SECRET_REDACTED__.persona WHERE user_name = :usuario LIMIT 1', ['usuario' => $usuario])) {
+                return self::resultado(false, 'Ya existe una persona con ese usuario.');
+            }
+
+            $telefonoPrincipal = self::texto($telefonos[0]['numero'] ?? $persona['telefono_uno'] ?? '', 30);
+            $correoPrincipal = self::texto($correos[0]['correo'] ?? $persona['correo'] ?? '', 160);
+            $domicilioPrincipal = self::texto($domicilios[0]['domicilio_texto'] ?? $persona['domicilio'] ?? '', 500);
+            $cpPrincipal = self::texto($domicilios[0]['codigo_postal'] ?? $persona['codigo_postal'] ?? '', 12);
+
+            $db->beginTransaction();
+            $db->CRUD("INSERT INTO __SPARTA_SECRET_REDACTED__.persona
+                (nombres, segundo_nombre, apellidop, apellidom, numero_empleado, correo, telefono_uno, telefono_dos,
+                 estatus, user_name, password, fecha_ingreso, fecha_registro, id_pais, domicilio_calle_texto, codigo_postal, curp)
+                VALUES
+                (:nombres, :segundo_nombre, :apellidop, :apellidom, :numero_empleado, :correo, :telefono_uno, :telefono_dos,
+                 'Activo', :user_name, :password, :fecha_ingreso, NOW(), :id_pais, :domicilio_calle_texto, :codigo_postal, :curp)", [
+                'nombres' => $nombres,
+                'segundo_nombre' => self::texto($persona['segundo_nombre'] ?? '', 120),
+                'apellidop' => $apellidop,
+                'apellidom' => $apellidom,
+                'numero_empleado' => $numeroEmpleado,
+                'correo' => $correoPrincipal,
+                'telefono_uno' => $telefonoPrincipal,
+                'telefono_dos' => self::texto($persona['telefono_dos'] ?? '', 30),
+                'user_name' => $usuario,
+                'password' => self::texto($persona['contrasena'] ?? '', 120),
+                'fecha_ingreso' => self::fecha($rrhh['fecha_ingreso'] ?? $persona['fecha_ingreso'] ?? ''),
+                'id_pais' => $idPais,
+                'domicilio_calle_texto' => $domicilioPrincipal,
+                'codigo_postal' => $cpPrincipal,
+                'curp' => self::texto($persona['curp'] ?? '', 18),
+            ]);
+
+            $idPersona = $db->lastInsertId();
+            if ($idPersona <= 0) {
+                throw new \RuntimeException('No se pudo obtener el ID de la persona registrada.');
+            }
+
+            $idArea = !empty($rrhh['area_id']) ? (int) $rrhh['area_id'] : null;
+            $idPuesto = !empty($rrhh['puesto_id']) ? (int) $rrhh['puesto_id'] : null;
+            $jefeRaw = trim((string) ($rrhh['jefe_id'] ?? ''));
+            $idJefe = null;
+            $idVacanteJefe = null;
+            if (preg_match('/^vacante:(\d+)$/', $jefeRaw, $m)) {
+                $idVacanteJefe = (int) $m[1];
+            } elseif ($jefeRaw !== '') {
+                $idJefe = (int) $jefeRaw;
+            }
+            $fechaNacimiento = self::fecha($persona['fecha_nacimiento'] ?? '');
+            [$anioNacimiento, $mesNacimiento, $diaNacimiento] = self::partesFechaNacimiento($fechaNacimiento);
+
+            $db->CRUD("INSERT INTO __SPARTA_SECRET_REDACTED__.persona_datos_rrhh
+                (id_persona, registro_patronal, codigo_contpaq, fecha_contpaq, fecha_imss_alta, id_departamento, id_area,
+                 id_puesto, id_jefe, puesto_texto, departamento_texto,
+                 area_texto, direccion_organizacional,
+                 ubicacion_laboral, municipio_laboral, jefe_directo_texto, sueldo_neto, sueldo_quincenal, sueldo_bruto,
+                 salario_diario, sbc, rfc, nss, entidad_federativa_rfc, anio, mes, dia, fecha_nacimiento, sexo, carta_no_credito,
+                 carta_no_nomina_bbva, sueldo_bruto_letra, observaciones)
+                VALUES
+                (:id_persona, :registro_patronal, :codigo_contpaq, :fecha_contpaq, :fecha_imss_alta, :id_departamento, :id_area,
+                 :id_puesto, :id_jefe, :puesto_texto, :departamento_texto,
+                 :area_texto, :direccion_organizacional,
+                 :ubicacion_laboral, :municipio_laboral, :jefe_directo_texto, :sueldo_neto, :sueldo_quincenal, :sueldo_bruto,
+                 :salario_diario, :sbc, :rfc, :nss, :entidad_federativa_rfc, :anio, :mes, :dia, :fecha_nacimiento, :sexo, :carta_no_credito,
+                 :carta_no_nomina_bbva, :sueldo_bruto_letra, :observaciones)", [
+                'id_persona' => $idPersona,
+                'registro_patronal' => self::texto($rrhh['registro_patronal'] ?? '', 120),
+                'codigo_contpaq' => self::texto($rrhh['codigo_contpaq'] ?? '', 80),
+                'fecha_contpaq' => self::fecha($rrhh['fecha_contpaq'] ?? ''),
+                'fecha_imss_alta' => self::fecha($rrhh['fecha_imss_alta'] ?? ''),
+                'id_departamento' => !empty($rrhh['departamento_id']) ? (int) $rrhh['departamento_id'] : null,
+                'id_area' => $idArea,
+                'id_puesto' => $idPuesto,
+                'id_jefe' => $idJefe,
+                'puesto_texto' => self::texto($rrhh['puesto_texto'] ?? '', 180),
+                'departamento_texto' => self::texto($rrhh['departamento_texto'] ?? '', 180),
+                'area_texto' => self::texto($rrhh['area_texto'] ?? '', 180),
+                'direccion_organizacional' => self::texto($rrhh['direccion_organizacional'] ?? '', 180),
+                'ubicacion_laboral' => self::texto($rrhh['ubicacion_laboral'] ?? '', 180),
+                'municipio_laboral' => self::texto($rrhh['municipio_laboral'] ?? '', 180),
+                'jefe_directo_texto' => self::texto($rrhh['jefe_directo_texto'] ?? '', 220),
+                'sueldo_neto' => self::decimal($nomina['sueldo_neto'] ?? null),
+                'sueldo_quincenal' => self::decimal($nomina['sueldo_quincenal'] ?? null),
+                'sueldo_bruto' => self::decimal($nomina['sueldo_bruto'] ?? null),
+                'salario_diario' => self::decimal($nomina['salario_diario'] ?? null),
+                'sbc' => self::decimal($nomina['sbc'] ?? null),
+                'rfc' => self::texto($persona['rfc'] ?? '', 20),
+                'nss' => self::texto($persona['nss'] ?? '', 20),
+                'entidad_federativa_rfc' => self::texto($persona['entidad_federativa_rfc'] ?? '', 120),
+                'anio' => $anioNacimiento,
+                'mes' => $mesNacimiento,
+                'dia' => $diaNacimiento,
+                'fecha_nacimiento' => $fechaNacimiento,
+                'sexo' => self::texto($persona['sexo'] ?? '', 20),
+                'carta_no_credito' => self::texto($rrhh['carta_no_credito'] ?? '', 120),
+                'carta_no_nomina_bbva' => self::texto($rrhh['carta_no_nomina_bbva'] ?? '', 120),
+                'sueldo_bruto_letra' => self::texto($nomina['sueldo_bruto_letra'] ?? '', 255),
+                'observaciones' => self::texto($data['observaciones'] ?? '', 5000),
+            ]);
+
+            if ($idPuesto) {
+                $db->CRUD("INSERT INTO __SPARTA_SECRET_REDACTED__.asigna_puesto
+                    (id, id_persona, id_puesto, fecha_asignacion, activo)
+                    VALUES (DEFAULT, :id_persona, :id_puesto, NOW(), 1)", [
+                    'id_persona' => $idPersona,
+                    'id_puesto' => $idPuesto,
+                ]);
+            }
+
+            if ($idJefe || $idVacanteJefe) {
+                $db->CRUD("INSERT INTO __SPARTA_SECRET_REDACTED__.asigna_jefe
+                    (id, id_persona, id_jefe, id_vacante_jefe, fecha_inicio, fecha_fin)
+                    VALUES (DEFAULT, :id_persona, :id_jefe, :id_vacante_jefe, NOW(), NOW())", [
+                    'id_persona' => $idPersona,
+                    'id_jefe' => $idJefe,
+                    'id_vacante_jefe' => $idVacanteJefe,
+                ]);
+            }
+
+            foreach ($telefonos as $tel) {
+                $numero = self::texto($tel['numero'] ?? '', 30);
+                if (!$numero) continue;
+                $db->CRUD("INSERT INTO __SPARTA_SECRET_REDACTED__.telefonos_persona (id_persona, numero, tipo, estatus) VALUES (:id_persona, :numero, :tipo, :estatus)", [
+                    'id_persona' => $idPersona,
+                    'numero' => $numero,
+                    'tipo' => self::texto($tel['tipo'] ?? 'Personal', 40),
+                    'estatus' => self::estatus($tel['estatus'] ?? 'Activo'),
+                ]);
+            }
+
+            foreach ($correos as $mail) {
+                $correo = self::texto($mail['correo'] ?? '', 160);
+                if (!$correo) continue;
+                $db->CRUD("INSERT INTO __SPARTA_SECRET_REDACTED__.correos_persona (id_persona, correo, tipo, estatus) VALUES (:id_persona, :correo, :tipo, :estatus)", [
+                    'id_persona' => $idPersona,
+                    'correo' => $correo,
+                    'tipo' => self::texto($mail['tipo'] ?? 'Personal', 40),
+                    'estatus' => self::estatus($mail['estatus'] ?? 'Activo'),
+                ]);
+            }
+
+            foreach ($domicilios as $dom) {
+                $domicilio = self::texto($dom['domicilio_texto'] ?? '', 500);
+                if (!$domicilio) continue;
+                $db->CRUD("INSERT INTO __SPARTA_SECRET_REDACTED__.domicilio_persona (id_persona, domicilio_texto, codigo_postal, tipo, estatus) VALUES (:id_persona, :domicilio_texto, :codigo_postal, :tipo, :estatus)", [
+                    'id_persona' => $idPersona,
+                    'domicilio_texto' => $domicilio,
+                    'codigo_postal' => self::texto($dom['codigo_postal'] ?? '', 12),
+                    'tipo' => self::texto($dom['tipo'] ?? 'Particular', 40),
+                    'estatus' => self::estatus($dom['estatus'] ?? 'Activo'),
+                ]);
+            }
+
+            foreach ($cuentas as $cuenta) {
+                $db->CRUD("INSERT INTO __SPARTA_SECRET_REDACTED__.persona_cuenta_bancaria (id_persona, clabe, numero_cuenta, id_banco, nombre_banco, estatus) VALUES (:id_persona, :clabe, :numero_cuenta, :id_banco, :nombre_banco, :estatus)", [
+                    'id_persona' => $idPersona,
+                    'clabe' => self::texto($cuenta['clabe'] ?? '', 30),
+                    'numero_cuenta' => self::texto($cuenta['numero_cuenta'] ?? '', 40),
+                    'id_banco' => !empty($cuenta['id_banco']) ? (int) $cuenta['id_banco'] : null,
+                    'nombre_banco' => self::texto($cuenta['nombre_banco'] ?? '', 120),
+                    'estatus' => self::estatus($cuenta['estatus'] ?? 'Activo'),
+                ]);
+            }
+
+            $tipoCredito = self::texto($nomina['credito_infonavit_fonacot'] ?? '', 80);
+            $numeroCredito = self::texto($nomina['no_credito'] ?? '', 80);
+            $montoDescontar = self::decimal($nomina['monto_descontar'] ?? null);
+            if ($tipoCredito || $numeroCredito || $montoDescontar !== null) {
+                $db->CRUD("INSERT INTO __SPARTA_SECRET_REDACTED__.persona_credito_laboral (id_persona, tipo_credito, numero_credito, monto_descontar, estatus) VALUES (:id_persona, :tipo_credito, :numero_credito, :monto_descontar, 'Activo')", [
+                    'id_persona' => $idPersona,
+                    'tipo_credito' => $tipoCredito,
+                    'numero_credito' => $numeroCredito,
+                    'monto_descontar' => $montoDescontar,
+                ]);
+            }
+
+            foreach ($contactos as $contacto) {
+                $nombre = self::texto($contacto['nombre_contacto'] ?? '', 220);
+                if (!$nombre) continue;
+                $db->CRUD("INSERT INTO __SPARTA_SECRET_REDACTED__.contacto_persona_emergencia (id_persona, nombre_contacto, parentesco, numero, estatus) VALUES (:id_persona, :nombre_contacto, :parentesco, :numero, :estatus)", [
+                    'id_persona' => $idPersona,
+                    'nombre_contacto' => $nombre,
+                    'parentesco' => self::texto($contacto['parentesco'] ?? '', 80),
+                    'numero' => self::texto($contacto['numero'] ?? '', 30),
+                    'estatus' => self::estatus($contacto['estatus'] ?? 'Activo'),
+                ]);
+            }
+
+            foreach ($beneficiarios as $beneficiario) {
+                $nombre = self::texto($beneficiario['nombre_beneficiario'] ?? '', 220);
+                if (!$nombre) continue;
+                $db->CRUD("INSERT INTO __SPARTA_SECRET_REDACTED__.persona_beneficiario_fallecimiento (id_persona, nombre_beneficiario, parentesco, numero, porcentaje, estatus) VALUES (:id_persona, :nombre_beneficiario, :parentesco, :numero, :porcentaje, :estatus)", [
+                    'id_persona' => $idPersona,
+                    'nombre_beneficiario' => $nombre,
+                    'parentesco' => self::texto($beneficiario['parentesco'] ?? '', 80),
+                    'numero' => self::texto($beneficiario['numero'] ?? '', 30),
+                    'porcentaje' => self::decimal($beneficiario['porcentaje'] ?? null),
+                    'estatus' => self::estatus($beneficiario['estatus'] ?? 'Activo'),
+                ]);
+            }
+
+            $observacion = self::texto($data['observaciones'] ?? '', 5000);
+            if ($observacion) {
+                $db->CRUD("INSERT INTO __SPARTA_SECRET_REDACTED__.catalogo_observacion_persona (nombre, activo) VALUES ('Observación general', 1) ON DUPLICATE KEY UPDATE activo = 1");
+                $cat = $db->queryOne("SELECT id FROM __SPARTA_SECRET_REDACTED__.catalogo_observacion_persona WHERE nombre = 'Observación general' LIMIT 1");
+                $db->CRUD("INSERT INTO __SPARTA_SECRET_REDACTED__.persona_observacion (id_persona, id_catalogo_observacion, observacion, estatus) VALUES (:id_persona, :id_catalogo_observacion, :observacion, 'Activo')", [
+                    'id_persona' => $idPersona,
+                    'id_catalogo_observacion' => $cat['id'] ?? null,
+                    'observacion' => $observacion,
+                ]);
+            }
+
+            $db->commit();
+            return self::resultado(true, 'Usuario RR.HH. registrado correctamente.', [
+                'id_persona' => $idPersona,
+                'numero_empleado' => $numeroEmpleado,
+            ]);
+        } catch (\Exception $e) {
+            if (isset($db)) {
+                try { $db->rollback(); } catch (\Exception $rollbackError) {}
+            }
+            return self::resultado(false, 'Error al registrar usuario RR.HH.', null, $e->getMessage());
+        }
+    }
+
+    public static function obtenerUsuario(int $idPersona, int $idSesion): array
+    {
+        if ($idSesion !== 1) {
+            return self::resultado(false, 'No tienes permiso para editar usuarios RR.HH.');
+        }
+        if ($idPersona <= 0) {
+            return self::resultado(false, 'ID de persona invalido.');
+        }
+
+        try {
+            $db = new Database();
+            self::asegurarTablas($db);
+
+            $persona = $db->queryOne("
+                SELECT p.id, p.nombres, p.segundo_nombre, p.apellidop, p.apellidom, p.numero_empleado,
+                       p.correo, p.telefono_uno, p.telefono_dos, p.user_name, p.fecha_ingreso, p.id_pais,
+                       p.domicilio_calle_texto, p.codigo_postal, p.curp,
+                       r.rfc, r.nss, r.entidad_federativa_rfc, r.anio, r.mes, r.dia,
+                       r.fecha_nacimiento, r.sexo
+                FROM __SPARTA_SECRET_REDACTED__.persona p
+                LEFT JOIN __SPARTA_SECRET_REDACTED__.persona_datos_rrhh r ON r.id_persona = p.id
+                WHERE p.id = :id_persona
+                LIMIT 1
+            ", ['id_persona' => $idPersona]);
+
+            if (!$persona) {
+                return self::resultado(false, 'No se encontro la persona solicitada.');
+            }
+
+            $rrhh = $db->queryOne("
+                SELECT registro_patronal, codigo_contpaq, fecha_contpaq, fecha_imss_alta,
+                       id_departamento AS departamento_id, id_area AS area_id, id_puesto AS puesto_id,
+                       id_jefe AS jefe_id, puesto_texto, departamento_texto, area_texto,
+                       direccion_organizacional, ubicacion_laboral, municipio_laboral,
+                       jefe_directo_texto, carta_no_credito, carta_no_nomina_bbva, observaciones
+                FROM __SPARTA_SECRET_REDACTED__.persona_datos_rrhh
+                WHERE id_persona = :id_persona
+                LIMIT 1
+            ", ['id_persona' => $idPersona]) ?: [];
+
+            $jefe = $db->queryOne("
+                SELECT id_jefe, id_vacante_jefe
+                FROM __SPARTA_SECRET_REDACTED__.asigna_jefe
+                WHERE id_persona = :id_persona
+                ORDER BY id DESC
+                LIMIT 1
+            ", ['id_persona' => $idPersona]);
+            if ($jefe) {
+                if (!empty($jefe['id_vacante_jefe'])) {
+                    $rrhh['jefe_id'] = 'vacante:' . (int)$jefe['id_vacante_jefe'];
+                } elseif (!empty($jefe['id_jefe'])) {
+                    $rrhh['jefe_id'] = (int)$jefe['id_jefe'];
+                }
+            }
+
+            $credito = $db->queryOne("
+                SELECT tipo_credito AS credito_infonavit_fonacot, numero_credito AS no_credito, monto_descontar
+                FROM __SPARTA_SECRET_REDACTED__.persona_credito_laboral
+                WHERE id_persona = :id_persona
+                ORDER BY id DESC
+                LIMIT 1
+            ", ['id_persona' => $idPersona]) ?: [];
+
+            $observacion = $db->queryOne("
+                SELECT observacion
+                FROM __SPARTA_SECRET_REDACTED__.persona_observacion
+                WHERE id_persona = :id_persona
+                ORDER BY id DESC
+                LIMIT 1
+            ", ['id_persona' => $idPersona]);
+
+            $datos = [
+                'persona' => [
+                    'id_persona' => $idPersona,
+                    'nombres' => $persona['nombres'] ?? '',
+                    'segundo_nombre' => $persona['segundo_nombre'] ?? '',
+                    'apellidop' => $persona['apellidop'] ?? '',
+                    'apellidom' => $persona['apellidom'] ?? '',
+                    'numero_empleado' => $persona['numero_empleado'] ?? '',
+                    'correo' => $persona['correo'] ?? '',
+                    'telefono_uno' => $persona['telefono_uno'] ?? '',
+                    'telefono_dos' => $persona['telefono_dos'] ?? '',
+                    'usuario' => $persona['user_name'] ?? '',
+                    'fecha_ingreso' => $persona['fecha_ingreso'] ?? '',
+                    'id_pais' => $persona['id_pais'] ?? '',
+                    'domicilio' => $persona['domicilio_calle_texto'] ?? '',
+                    'codigo_postal' => $persona['codigo_postal'] ?? '',
+                    'curp' => $persona['curp'] ?? '',
+                    'rfc' => $persona['rfc'] ?? '',
+                    'nss' => $persona['nss'] ?? '',
+                    'entidad_federativa_rfc' => $persona['entidad_federativa_rfc'] ?? '',
+                    'fecha_nacimiento' => $persona['fecha_nacimiento'] ?? '',
+                    'sexo' => $persona['sexo'] ?? '',
+                ],
+                'rrhh' => $rrhh,
+                'nomina' => $credito,
+                'telefonos' => $db->queryAll("SELECT numero, tipo, estatus FROM __SPARTA_SECRET_REDACTED__.telefonos_persona WHERE id_persona = :id_persona ORDER BY id ASC", ['id_persona' => $idPersona]),
+                'correos' => $db->queryAll("SELECT correo, tipo, estatus FROM __SPARTA_SECRET_REDACTED__.correos_persona WHERE id_persona = :id_persona ORDER BY id ASC", ['id_persona' => $idPersona]),
+                'domicilios' => $db->queryAll("SELECT domicilio_texto, codigo_postal, tipo, estatus FROM __SPARTA_SECRET_REDACTED__.domicilio_persona WHERE id_persona = :id_persona ORDER BY id ASC", ['id_persona' => $idPersona]),
+                'cuentas_bancarias' => $db->queryAll("SELECT id_banco, nombre_banco, numero_cuenta, clabe, estatus FROM __SPARTA_SECRET_REDACTED__.persona_cuenta_bancaria WHERE id_persona = :id_persona ORDER BY id ASC", ['id_persona' => $idPersona]),
+                'contactos_emergencia' => $db->queryAll("SELECT nombre_contacto, parentesco, numero, estatus FROM __SPARTA_SECRET_REDACTED__.contacto_persona_emergencia WHERE id_persona = :id_persona ORDER BY id ASC", ['id_persona' => $idPersona]),
+                'beneficiarios' => $db->queryAll("SELECT nombre_beneficiario, parentesco, numero, porcentaje, estatus FROM __SPARTA_SECRET_REDACTED__.persona_beneficiario_fallecimiento WHERE id_persona = :id_persona ORDER BY id ASC", ['id_persona' => $idPersona]),
+                'observaciones' => $observacion['observacion'] ?? ($rrhh['observaciones'] ?? ''),
+            ];
+
+            if (empty($datos['telefonos']) && !empty($persona['telefono_uno'])) {
+                $datos['telefonos'][] = ['numero' => $persona['telefono_uno'], 'tipo' => 'Personal', 'estatus' => 'Activo'];
+            }
+            if (empty($datos['correos']) && !empty($persona['correo'])) {
+                $datos['correos'][] = ['correo' => $persona['correo'], 'tipo' => 'Personal', 'estatus' => 'Activo'];
+            }
+            if (empty($datos['domicilios']) && !empty($persona['domicilio_calle_texto'])) {
+                $datos['domicilios'][] = [
+                    'domicilio_texto' => $persona['domicilio_calle_texto'],
+                    'codigo_postal' => $persona['codigo_postal'] ?? '',
+                    'tipo' => 'Actual',
+                    'estatus' => 'Activo',
+                ];
+            }
+
+            return self::resultado(true, 'Datos RR.HH. encontrados.', $datos);
+        } catch (\Exception $e) {
+            return self::resultado(false, 'Error al cargar datos RR.HH.', null, $e->getMessage());
+        }
+    }
+
+    public static function actualizarUsuario(array $data, int $idSesion): array
+    {
+        if ($idSesion !== 1) {
+            return self::resultado(false, 'No tienes permiso para editar usuarios RR.HH.');
+        }
+
+        $idPersona = (int)($data['id_persona'] ?? 0);
+        if ($idPersona <= 0) {
+            return self::resultado(false, 'ID de persona invalido.');
+        }
+
+        $datos = self::datosBase($data);
+        $persona = $datos['persona'];
+        $rrhh = $datos['rrhh'];
+        $nomina = $datos['nomina'];
+        [$ok, $mensaje] = self::validarPersonaBasica($persona);
+        if (!$ok) {
+            return self::resultado(false, $mensaje);
+        }
+
+        try {
+            $db = new Database();
+            self::asegurarTablas($db);
+
+            $existePersona = $db->queryOne("SELECT id FROM __SPARTA_SECRET_REDACTED__.persona WHERE id = :id_persona LIMIT 1", ['id_persona' => $idPersona]);
+            if (!$existePersona) {
+                return self::resultado(false, 'No se encontro la persona solicitada.');
+            }
+
+            $usuario = self::texto($persona['usuario'] ?? '', 40);
+            if ($usuario && $db->queryOne('SELECT id FROM __SPARTA_SECRET_REDACTED__.persona WHERE user_name = :usuario AND id <> :id_persona LIMIT 1', ['usuario' => $usuario, 'id_persona' => $idPersona])) {
+                return self::resultado(false, 'Ya existe otra persona con ese usuario.');
+            }
+
+            $telefonoPrincipal = self::texto($datos['telefonos'][0]['numero'] ?? $persona['telefono_uno'] ?? '', 30);
+            $correoPrincipal = self::texto($datos['correos'][0]['correo'] ?? $persona['correo'] ?? '', 160);
+            $domicilioPrincipal = self::texto($datos['domicilios'][0]['domicilio_texto'] ?? $persona['domicilio'] ?? '', 500);
+            $cpPrincipal = self::texto($datos['domicilios'][0]['codigo_postal'] ?? $persona['codigo_postal'] ?? '', 12);
+
+            $params = [
+                'id_persona' => $idPersona,
+                'nombres' => self::texto($persona['nombres'] ?? '', 120),
+                'segundo_nombre' => self::texto($persona['segundo_nombre'] ?? '', 120),
+                'apellidop' => self::texto($persona['apellidop'] ?? '', 120),
+                'apellidom' => self::texto($persona['apellidom'] ?? '', 120),
+                'correo' => $correoPrincipal,
+                'telefono_uno' => $telefonoPrincipal,
+                'telefono_dos' => self::texto($persona['telefono_dos'] ?? '', 30),
+                'user_name' => $usuario,
+                'fecha_ingreso' => self::fecha($rrhh['fecha_ingreso'] ?? $persona['fecha_ingreso'] ?? ''),
+                'id_pais' => (int)$persona['id_pais'],
+                'domicilio_calle_texto' => $domicilioPrincipal,
+                'codigo_postal' => $cpPrincipal,
+                'curp' => self::texto($persona['curp'] ?? '', 18),
+            ];
+            $setPassword = self::texto($persona['contrasena'] ?? '', 120);
+            $passwordSql = '';
+            if ($setPassword) {
+                $passwordSql = ', password = :password';
+                $params['password'] = $setPassword;
+            }
+
+            $db->beginTransaction();
+            $db->CRUD("UPDATE __SPARTA_SECRET_REDACTED__.persona
+                SET nombres = :nombres, segundo_nombre = :segundo_nombre, apellidop = :apellidop,
+                    apellidom = :apellidom, correo = :correo, telefono_uno = :telefono_uno,
+                    telefono_dos = :telefono_dos, user_name = :user_name, fecha_ingreso = :fecha_ingreso,
+                    id_pais = :id_pais, domicilio_calle_texto = :domicilio_calle_texto,
+                    codigo_postal = :codigo_postal, curp = :curp {$passwordSql}
+                WHERE id = :id_persona", $params);
+
+            $GLOBALS['rrhh_observaciones_actual'] = self::texto($data['observaciones'] ?? '', 5000);
+            self::guardarDatosRrhh($db, $idPersona, $persona, $rrhh, $nomina);
+            self::reemplazarListas($db, $idPersona, $datos);
+            self::sincronizarAsignaciones($db, $idPersona, $rrhh);
+            unset($GLOBALS['rrhh_observaciones_actual']);
+
+            $db->commit();
+            return self::resultado(true, 'Datos RR.HH. actualizados correctamente.', ['id_persona' => $idPersona]);
+        } catch (\Exception $e) {
+            if (isset($db)) {
+                try { $db->rollback(); } catch (\Exception $rollbackError) {}
+            }
+            unset($GLOBALS['rrhh_observaciones_actual']);
+            return self::resultado(false, 'Error al actualizar datos RR.HH.', null, $e->getMessage());
+        }
+    }
+}

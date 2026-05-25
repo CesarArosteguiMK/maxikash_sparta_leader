@@ -41,6 +41,7 @@ class CapHum extends Model
             p.segundo_nombre,
             p.apellidop,
             p.apellidom,
+            pf.foto AS foto_perfil,
 
             pp.id AS id_puesto,
             CASE
@@ -82,6 +83,9 @@ class CapHum extends Model
             p.fecha_registro
 
         FROM persona p
+
+        LEFT JOIN perfil pf
+               ON pf.id_persona = p.id
 
         LEFT JOIN asigna_puesto ap
                ON p.id = ap.id_persona
@@ -136,8 +140,10 @@ class CapHum extends Model
             SELECT
                 p.id,
                 p.nombres,
+                p.segundo_nombre,
                 p.apellidop,
                 p.apellidom,
+                pf.foto AS foto_perfil,
                 pp.id AS id_puesto,
                 pp.nombre AS nombre_puesto,
                 pp.nivel AS nivel_puesto,
@@ -157,6 +163,7 @@ class CapHum extends Model
                 p.fecha_registro,
                 1 AS nivel
             FROM persona p
+            LEFT JOIN perfil pf ON pf.id_persona = p.id
             LEFT JOIN asigna_puesto ap ON p.id = ap.id_persona
             LEFT JOIN puesto pp ON pp.id = ap.id_puesto
             LEFT JOIN departamento d ON d.id = pp.departamento_id
@@ -188,8 +195,10 @@ class CapHum extends Model
             SELECT
                 p2.id,
                 p2.nombres,
+                p2.segundo_nombre,
                 p2.apellidop,
                 p2.apellidom,
+                pf2.foto AS foto_perfil,
                 pp2.id AS id_puesto,
                 pp2.nombre AS nombre_puesto,
                 pp2.nivel AS nivel_puesto,
@@ -209,6 +218,7 @@ class CapHum extends Model
                 p2.fecha_registro,
                 j.nivel + 1 AS nivel
             FROM persona p2
+            LEFT JOIN perfil pf2 ON pf2.id_persona = p2.id
             LEFT JOIN asigna_puesto ap2 ON p2.id = ap2.id_persona
             LEFT JOIN puesto pp2 ON pp2.id = ap2.id_puesto
             LEFT JOIN departamento d2 ON d2.id = pp2.departamento_id
@@ -1965,6 +1975,9 @@ class CapHum extends Model
         $query = <<<SQL
            SELECT DISTINCT
                 d.*,
+                d.id_departamento_organizacional,
+                COALESCE(dorg.nombre, 'Sin departamento') AS departamento_organizacional_nombre,
+                COALESCE(dorg.activo, 1) AS departamento_organizacional_activo,
                 pa.nombre AS nombre_pais,
                 COALESCE(pa.codigo_iso, 'xx') AS codigo_iso_pais
             FROM privilegios_departamento pd
@@ -1972,6 +1985,8 @@ class CapHum extends Model
                     ON p.id = pd.idPuesto
             INNER JOIN departamento d
                     ON d.id = p.departamento_id
+            LEFT JOIN departamento_organizacional dorg
+                    ON dorg.id = d.id_departamento_organizacional
             LEFT JOIN paises pa
                     ON pa.id = d.id_pais
             $complet
@@ -2030,12 +2045,17 @@ class CapHum extends Model
         $query = <<<SQL
             SELECT
                 d.*,
+                d.id_departamento_organizacional,
+                COALESCE(dorg.nombre, 'Sin departamento') AS departamento_organizacional_nombre,
+                COALESCE(dorg.activo, 1) AS departamento_organizacional_activo,
                 pa.nombre AS nombre_pais,
                 COALESCE(pa.codigo_iso, 'xx') AS codigo_iso_pais
             FROM departamento d
+            LEFT JOIN departamento_organizacional dorg
+                   ON dorg.id = d.id_departamento_organizacional
             LEFT JOIN paises pa
                    ON pa.id = d.id_pais
-            ORDER BY FIELD(pa.codigo_iso, 'mx', 'gt', 'co'), d.nombre ASC
+            ORDER BY FIELD(pa.codigo_iso, 'mx', 'gt', 'co'), departamento_organizacional_nombre, d.nombre ASC
         SQL;
 
         try {

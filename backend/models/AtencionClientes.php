@@ -227,7 +227,7 @@ SQL;
      * «Enviar evidencias» en Mis adjudicaciones (bitácora ENVIÓ EVIDENCIAS AL PIPELINE).
      * Hasta entonces no deben aparecer aquí aunque estén en Recibido / en tránsito / etc.
      */
-    public function obtenerRecibidos(bool $sincronizarDictums = true): array
+    public function obtenerRecibidos(bool $sincronizarDictums = false): array
     {
         $ma = new MotosAdjudicadas();
         if ($sincronizarDictums) {
