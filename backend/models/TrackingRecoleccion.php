@@ -37,6 +37,9 @@ class TrackingRecoleccion extends Model
                     `fecha_programada`    DATE          NOT NULL,
                     `estatus_ruta`        ENUM('borrador','pendiente_confirmacion','lista_envio','enviada','en_proceso','concluida','cancelada')
                                           NOT NULL DEFAULT 'borrador',
+                    `motivo_cancelacion`  VARCHAR(200)  NULL,
+                    `fecha_cancelacion`   DATETIME      NULL,
+                    `cancelado_por`       INT           NULL,
                     `creado_por`          INT           NULL,
                     `fecha_creacion`      DATETIME      NULL,
                     `fecha_actualizacion` DATETIME      NULL,
@@ -97,10 +100,116 @@ class TrackingRecoleccion extends Model
             } catch (\Throwable $e) {
                 // Ya existe
             }
+            $this->asegurarCatalogosTracking();
+            $this->asegurarColumnasTransportistaRuta();
+            $this->asegurarColumnasCancelacionRuta();
             self::$tablasOk = true;
         } catch (\Throwable $e) {
             // No bloquear la carga del módulo; la BD podría no tener permisos DDL
             self::$tablasOk = true;
+        }
+    }
+
+    private function asegurarCatalogosTracking(): void
+    {
+        try {
+            $this->db->CRUD(
+                "CREATE TABLE IF NOT EXISTS `agencias_tracking` (
+                    `id_agencia` INT NOT NULL AUTO_INCREMENT,
+                    `clave_agencia` VARCHAR(80) NOT NULL,
+                    `nombre_agencia` VARCHAR(150) NOT NULL,
+                    `tipo_ubicacion` ENUM('agencia','almacen_llegada') NOT NULL DEFAULT 'agencia',
+                    `direccion` VARCHAR(255) NULL,
+                    `estado` VARCHAR(100) NULL,
+                    `municipio` VARCHAR(120) NULL,
+                    `codigo_postal` VARCHAR(10) NULL,
+                    `latitud` DECIMAL(11,8) NULL,
+                    `longitud` DECIMAL(11,8) NULL,
+                    `link_ubicacion` TEXT NULL,
+                    `telefono` VARCHAR(30) NULL,
+                    `extension` VARCHAR(20) NULL,
+                    `encargado` VARCHAR(150) NULL,
+                    `email` VARCHAR(150) NULL,
+                    `horario` TEXT NULL,
+                    `activo` TINYINT(1) NOT NULL DEFAULT 1,
+                    `fecha_alta` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                    `fecha_actualizacion` DATETIME NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
+                    PRIMARY KEY (`id_agencia`),
+                    UNIQUE KEY `ux_agencias_tracking_clave` (`clave_agencia`),
+                    KEY `idx_agencias_tracking_estado_municipio` (`estado`, `municipio`),
+                    KEY `idx_agencias_tracking_tipo_activo` (`tipo_ubicacion`, `activo`)
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci"
+            );
+            $this->db->CRUD(
+                "CREATE TABLE IF NOT EXISTS `transportistas_tracking` (
+                    `id_transportista` INT NOT NULL AUTO_INCREMENT,
+                    `id_agencia` INT NULL,
+                    `tipo_transportista` ENUM('interno','externo') NOT NULL,
+                    `nombre_transportista` VARCHAR(180) NOT NULL,
+                    `curp_rfc` VARCHAR(25) NULL,
+                    `email` VARCHAR(150) NULL,
+                    `telefono` VARCHAR(30) NULL,
+                    `empresa_origen` VARCHAR(180) NULL,
+                    `puesto` VARCHAR(120) NULL,
+                    `activo` TINYINT(1) NOT NULL DEFAULT 1,
+                    `fecha_alta` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                    `fecha_actualizacion` DATETIME NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
+                    PRIMARY KEY (`id_transportista`),
+                    UNIQUE KEY `ux_transportistas_tracking_curp_rfc` (`curp_rfc`),
+                    KEY `idx_transportistas_tracking_agencia` (`id_agencia`),
+                    KEY `idx_transportistas_tracking_tipo` (`tipo_transportista`, `activo`)
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci"
+            );
+        } catch (\Throwable $e) {
+            // El catÃ¡logo puede ser creado manualmente por migraciÃ³n.
+        }
+    }
+
+    private function asegurarColumnasTransportistaRuta(): void
+    {
+        $cols = [
+            'tipo_transportista'  => "ALTER TABLE `asigna_horas_tracking` ADD COLUMN `tipo_transportista` ENUM('interno','externo') NULL AFTER `act_hora_1`",
+            'id_transportista'    => "ALTER TABLE `asigna_horas_tracking` ADD COLUMN `id_transportista` INT NULL AFTER `tipo_transportista`",
+            'id_agencia_tracking' => "ALTER TABLE `asigna_horas_tracking` ADD COLUMN `id_agencia_tracking` INT NULL AFTER `id_transportista`",
+        ];
+        foreach ($cols as $col => $sql) {
+            if (!$this->columnaExiste('asigna_horas_tracking', $col)) {
+                try { $this->db->CRUD($sql); } catch (\Throwable $e) {}
+            }
+        }
+        try { $this->db->CRUD("ALTER TABLE `asigna_horas_tracking` ADD KEY `idx_tracking_transportista` (`tipo_transportista`, `id_transportista`)"); } catch (\Throwable $e) {}
+        try { $this->db->CRUD("ALTER TABLE `asigna_horas_tracking` ADD KEY `idx_tracking_agencia_tracking` (`id_agencia_tracking`)"); } catch (\Throwable $e) {}
+    }
+
+    private function asegurarColumnasCancelacionRuta(): void
+    {
+        $cols = [
+            'motivo_cancelacion' => "ALTER TABLE `asigna_horas_tracking` ADD COLUMN `motivo_cancelacion` VARCHAR(200) NULL AFTER `estatus_ruta`",
+            'fecha_cancelacion'  => "ALTER TABLE `asigna_horas_tracking` ADD COLUMN `fecha_cancelacion` DATETIME NULL AFTER `motivo_cancelacion`",
+            'cancelado_por'      => "ALTER TABLE `asigna_horas_tracking` ADD COLUMN `cancelado_por` INT NULL AFTER `fecha_cancelacion`",
+        ];
+        foreach ($cols as $col => $sql) {
+            if (!$this->columnaExiste('asigna_horas_tracking', $col)) {
+                try { $this->db->CRUD($sql); } catch (\Throwable $e) {}
+            }
+        }
+    }
+
+    private function columnaExiste(string $tabla, string $columna): bool
+    {
+        try {
+            $row = $this->db->queryOne(
+                "SELECT 1 AS existe
+                 FROM INFORMATION_SCHEMA.COLUMNS
+                 WHERE TABLE_SCHEMA = DATABASE()
+                   AND TABLE_NAME = :tabla
+                   AND COLUMN_NAME = :columna
+                 LIMIT 1",
+                ['tabla' => $tabla, 'columna' => $columna]
+            );
+            return (bool) $row;
+        } catch (\Throwable $e) {
+            return true;
         }
     }
 
@@ -127,7 +236,7 @@ class TrackingRecoleccion extends Model
             SELECT COALESCE(atd.id_credito, 0)
             FROM asigna_horas_tracking_detalle atd
             INNER JOIN asigna_horas_tracking atr ON atr.id_ruta = atd.id_ruta
-            WHERE atr.estatus_ruta IN ('borrador','enviada','en_proceso')
+            WHERE atr.estatus_ruta IN ('borrador','pendiente_confirmacion','lista_envio','enviada','en_proceso')
               AND atd.id_credito IS NOT NULL
         )";
 
@@ -253,6 +362,74 @@ class TrackingRecoleccion extends Model
     }
 
     // =========================================================================
+    // CATÃLOGOS TRACKING: AGENCIAS / TRANSPORTISTAS
+    // =========================================================================
+
+    public function obtenerAgenciasTracking(): array
+    {
+        try {
+            return $this->db->queryAll(
+                "SELECT id_agencia, clave_agencia, nombre_agencia, tipo_ubicacion,
+                        direccion, estado, municipio, codigo_postal,
+                        latitud, longitud, link_ubicacion, telefono, extension,
+                        encargado, email, horario, activo
+                 FROM agencias_tracking
+                 WHERE activo = 1
+                 ORDER BY tipo_ubicacion, nombre_agencia"
+            ) ?: [];
+        } catch (\Throwable $e) {
+            return [];
+        }
+    }
+
+    public function obtenerTransportistasTracking(?string $tipo = null, ?int $idAgencia = null): array
+    {
+        $where = ['t.activo = 1'];
+        $params = [];
+        if ($tipo !== null && in_array($tipo, ['interno', 'externo'], true)) {
+            $where[] = 't.tipo_transportista = :tipo';
+            $params['tipo'] = $tipo;
+        }
+        if ($idAgencia !== null && $idAgencia > 0) {
+            // Externos histÃ³ricos pueden estar sin agencia asignada; se muestran junto con los ligados a la agencia.
+            $where[] = '(t.id_agencia = :id_agencia OR (t.tipo_transportista = \'externo\' AND t.id_agencia IS NULL))';
+            $params['id_agencia'] = $idAgencia;
+        }
+
+        try {
+            return $this->db->queryAll(
+                "SELECT
+                    t.id_transportista,
+                    t.id_agencia,
+                    t.tipo_transportista,
+                    t.nombre_transportista,
+                    t.curp_rfc,
+                    t.email,
+                    t.telefono,
+                    t.empresa_origen,
+                    t.puesto,
+                    a.nombre_agencia,
+                    a.clave_agencia
+                 FROM transportistas_tracking t
+                 LEFT JOIN agencias_tracking a ON a.id_agencia = t.id_agencia
+                 WHERE " . implode(' AND ', $where) . "
+                 ORDER BY t.tipo_transportista, COALESCE(a.nombre_agencia, t.empresa_origen), t.nombre_transportista",
+                $params
+            ) ?: [];
+        } catch (\Throwable $e) {
+            return [];
+        }
+    }
+
+    public function obtenerCatalogoAgenciasTransportistas(): array
+    {
+        return [
+            'agencias'       => $this->obtenerAgenciasTracking(),
+            'transportistas' => $this->obtenerTransportistasTracking(),
+        ];
+    }
+
+    // =========================================================================
     // RUTAS — GUARDAR (crear o actualizar)
     // =========================================================================
 
@@ -265,7 +442,6 @@ class TrackingRecoleccion extends Model
      *   estado:string,
      *   municipio:string,
      *   fecha_programada:string,
-     *   usuarios:int[],
      *   creditos:array<int,array{id_credito:int,modelo:string,bin:string,estado:string,municipio:string,direccion:string,latitud?:float,longitud?:float,orden_ruta:int}>,
      *   modo:string
      * } $data
@@ -279,8 +455,13 @@ class TrackingRecoleccion extends Model
         $estado    = trim((string) ($data['estado'] ?? ''));
         $municipio = trim((string) ($data['municipio'] ?? ''));
         $fechaStr  = trim((string) ($data['fecha_programada'] ?? ''));
-        $usuarios  = is_array($data['usuarios'] ?? null) ? $data['usuarios'] : [];
         $creditos  = is_array($data['creditos'] ?? null) ? $data['creditos'] : [];
+        $tipoTransportista = strtolower(trim((string) ($data['tipo_transportista'] ?? '')));
+        $idTransportista   = (int) ($data['id_transportista'] ?? 0);
+        $idAgenciaTracking = (int) ($data['id_agencia_tracking'] ?? 0);
+        if (!in_array($tipoTransportista, ['interno', 'externo'], true)) {
+            $tipoTransportista = '';
+        }
 
         // Validaciones comunes
         if ($nombre === '') {
@@ -298,6 +479,12 @@ class TrackingRecoleccion extends Model
         if ($municipio === '') {
             return ['success' => false, 'message' => 'El municipio es obligatorio.'];
         }
+        if ($tipoTransportista !== '' && $idTransportista <= 0) {
+            return ['success' => false, 'message' => 'Selecciona un transportista vÃ¡lido.'];
+        }
+        if ($tipoTransportista === 'externo' && $idAgenciaTracking <= 0) {
+            return ['success' => false, 'message' => 'Selecciona la agencia relacionada para el transportista externo.'];
+        }
 
         // Validar fecha
         $fechaOk = $this->validarFechaProgramada($fechaStr);
@@ -307,8 +494,8 @@ class TrackingRecoleccion extends Model
 
         // Validaciones adicionales para enviar (no borrador, no actualizar)
         if ($modo !== 'borrador' && $modo !== 'actualizar') {
-            if (empty($usuarios)) {
-                return ['success' => false, 'message' => 'Debe asignar al menos un usuario responsable para enviar la ruta.'];
+            if ($tipoTransportista === '' || $idTransportista <= 0) {
+                return ['success' => false, 'message' => 'Debe seleccionar tipo y transportista para enviar la ruta.'];
             }
             // RN-06: todos los créditos deben estar confirmados
             foreach ($creditos as $det) {
@@ -346,6 +533,31 @@ class TrackingRecoleccion extends Model
             }
             if ($horaFmt === null) {
                 return ['success' => false, 'message' => 'El formato de hora no es válido.'];
+            }
+        }
+
+        if ($idTransportista > 0) {
+            $transportista = $this->db->queryOne(
+                "SELECT id_transportista, id_agencia, tipo_transportista
+                 FROM transportistas_tracking
+                 WHERE id_transportista = :id AND activo = 1
+                 LIMIT 1",
+                ['id' => $idTransportista]
+            );
+            if (!$transportista) {
+                return ['success' => false, 'message' => 'El transportista seleccionado no existe o estÃ¡ inactivo.'];
+            }
+            if ($tipoTransportista === '') {
+                $tipoTransportista = (string) $transportista['tipo_transportista'];
+            }
+            if ($tipoTransportista !== (string) $transportista['tipo_transportista']) {
+                return ['success' => false, 'message' => 'El tipo de transportista no coincide con el transportista seleccionado.'];
+            }
+            if ($tipoTransportista === 'interno' && $idAgenciaTracking <= 0 && !empty($transportista['id_agencia'])) {
+                $idAgenciaTracking = (int) $transportista['id_agencia'];
+            }
+            if ($tipoTransportista === 'externo' && !empty($transportista['id_agencia']) && $idAgenciaTracking !== (int) $transportista['id_agencia']) {
+                return ['success' => false, 'message' => 'La agencia seleccionada no coincide con el transportista externo.'];
             }
         }
 
@@ -393,6 +605,7 @@ class TrackingRecoleccion extends Model
                     "UPDATE asigna_horas_tracking
                      SET nombre_ruta = :n, estado = :e, municipio = :m,
                          fecha_programada = :f, estatus_ruta = :er,
+                         tipo_transportista = :tt, id_transportista = :it, id_agencia_tracking = :iat,
                          fecha_actualizacion = :fa{$setHora}
                      WHERE id_ruta = :id",
                     array_merge(
@@ -402,26 +615,32 @@ class TrackingRecoleccion extends Model
                             'm'  => $municipio,
                             'f'  => $fechaStr,
                             'er' => $estatusRuta,
+                            'tt' => $tipoTransportista !== '' ? $tipoTransportista : null,
+                            'it' => $idTransportista > 0 ? $idTransportista : null,
+                            'iat'=> $idAgenciaTracking > 0 ? $idAgenciaTracking : null,
                             'fa' => $ahora,
                             'id' => $idRuta,
                         ],
                         $horaParams
                     )
                 );
-                // Limpiar y reinsertar detalle y usuarios
+                // Limpiar y reinsertar detalle; se purgan asignaciones legacy de usuarios.
                 $this->db->CRUD('DELETE FROM asigna_horas_tracking_detalle WHERE id_ruta = :id', ['id' => $idRuta]);
                 $this->db->CRUD('DELETE FROM asigna_horas_tracking_usuarios WHERE id_ruta = :id', ['id' => $idRuta]);
             } else {
                 $this->db->CRUD(
                     'INSERT INTO asigna_horas_tracking
-                         (nombre_ruta, estado, municipio, fecha_programada, hora_inicial, estatus_ruta, creado_por, fecha_creacion, fecha_actualizacion)
-                     VALUES (:n, :e, :m, :f, :hi, :er, :cp, :fc, :fa)',
+                         (nombre_ruta, estado, municipio, fecha_programada, hora_inicial, tipo_transportista, id_transportista, id_agencia_tracking, estatus_ruta, creado_por, fecha_creacion, fecha_actualizacion)
+                     VALUES (:n, :e, :m, :f, :hi, :tt, :it, :iat, :er, :cp, :fc, :fa)',
                     [
                         'n'  => $nombre,
                         'e'  => $estado,
                         'm'  => $municipio,
                         'f'  => $fechaStr,
                         'hi' => $horaFmt,
+                        'tt' => $tipoTransportista !== '' ? $tipoTransportista : null,
+                        'it' => $idTransportista > 0 ? $idTransportista : null,
+                        'iat'=> $idAgenciaTracking > 0 ? $idAgenciaTracking : null,
                         'er' => $estatusRuta,
                         'cp' => $idUsuario ?: null,
                         'fc' => $ahora,
@@ -489,18 +708,6 @@ class TrackingRecoleccion extends Model
                 );
             }
 
-            // Insertar usuarios responsables
-            foreach ($usuarios as $uid) {
-                $uid = (int) $uid;
-                if ($uid <= 0) {
-                    continue;
-                }
-                $this->db->CRUD(
-                    'INSERT IGNORE INTO asigna_horas_tracking_usuarios (id_ruta, id_usuario) VALUES (:ir, :iu)',
-                    ['ir' => $idRuta, 'iu' => $uid]
-                );
-            }
-
             $this->db->commit();
             return ['success' => true, 'id_ruta' => $idRuta];
         } catch (\Throwable $e) {
@@ -546,6 +753,15 @@ class TrackingRecoleccion extends Model
             DATE_FORMAT(atr.fecha_creacion, \'%d/%m/%Y %H:%i\') AS fecha_creacion_fmt,
             TIME_FORMAT(atr.hora_inicial, \'%H:%i\') AS hora_inicial,
             TIME_FORMAT(atr.act_hora_1,   \'%H:%i\') AS act_hora_1,
+            atr.tipo_transportista,
+            atr.id_transportista,
+            atr.id_agencia_tracking,
+            tt.nombre_transportista,
+            tt.empresa_origen AS transportista_empresa,
+            tt.telefono AS transportista_telefono,
+            tt.email AS transportista_email,
+            ag.nombre_agencia,
+            ag.clave_agencia,
             COUNT(atd.id_detalle) AS total_creditos,
             SUM(CASE WHEN atd.estatus_confirmacion_gestor = \'confirmado\'  THEN 1 ELSE 0 END) AS confirmados,
             SUM(CASE WHEN atd.estatus_confirmacion_gestor = \'rechazado\'   THEN 1 ELSE 0 END) AS rechazados,
@@ -567,17 +783,14 @@ class TrackingRecoleccion extends Model
             ) AS ubicaciones_lista
         FROM asigna_horas_tracking atr
         LEFT JOIN asigna_horas_tracking_detalle atd ON atd.id_ruta = atr.id_ruta
+        LEFT JOIN transportistas_tracking tt ON tt.id_transportista = atr.id_transportista
+        LEFT JOIN agencias_tracking ag ON ag.id_agencia = atr.id_agencia_tracking
         WHERE ' . implode(' AND ', $where) . '
         GROUP BY atr.id_ruta
         ORDER BY atr.fecha_creacion DESC';
 
         try {
             $rutas = $this->db->queryAll($sql, $params) ?: [];
-            // Enriquecer con usuarios responsables (compacto: nombres concatenados)
-            foreach ($rutas as &$r) {
-                $r['usuarios_responsables'] = $this->obtenerNombresUsuariosRuta((int) $r['id_ruta']);
-            }
-            unset($r);
             return $rutas;
         } catch (\Throwable $e) {
             return [];
@@ -602,6 +815,15 @@ class TrackingRecoleccion extends Model
             DATE_FORMAT(atr.fecha_creacion, \'%d/%m/%Y %H:%i\') AS fecha_creacion_fmt,
             TIME_FORMAT(atr.hora_inicial, \'%H:%i\') AS hora_inicial,
             TIME_FORMAT(atr.act_hora_1,   \'%H:%i\') AS act_hora_1,
+            atr.tipo_transportista,
+            atr.id_transportista,
+            atr.id_agencia_tracking,
+            tt.nombre_transportista,
+            tt.empresa_origen AS transportista_empresa,
+            tt.telefono AS transportista_telefono,
+            tt.email AS transportista_email,
+            ag.nombre_agencia,
+            ag.clave_agencia,
             COUNT(atd.id_detalle) AS total_creditos,
             SUM(CASE WHEN atd.estatus_confirmacion_gestor = \'confirmado\'  THEN 1 ELSE 0 END) AS confirmados,
             SUM(CASE WHEN atd.estatus_confirmacion_gestor = \'rechazado\'   THEN 1 ELSE 0 END) AS rechazados,
@@ -623,16 +845,14 @@ class TrackingRecoleccion extends Model
             ) AS ubicaciones_lista
         FROM asigna_horas_tracking atr
         LEFT JOIN asigna_horas_tracking_detalle atd ON atd.id_ruta = atr.id_ruta
+        LEFT JOIN transportistas_tracking tt ON tt.id_transportista = atr.id_transportista
+        LEFT JOIN agencias_tracking ag ON ag.id_agencia = atr.id_agencia_tracking
         WHERE atr.estatus_ruta = \'borrador\'
         GROUP BY atr.id_ruta
         ORDER BY atr.fecha_creacion DESC';
 
         try {
             $rutas = $this->db->queryAll($sql) ?: [];
-            foreach ($rutas as &$r) {
-                $r['usuarios_responsables'] = $this->obtenerNombresUsuariosRuta((int) $r['id_ruta']);
-            }
-            unset($r);
             return $rutas;
         } catch (\Throwable $e) {
             return [];
@@ -640,7 +860,7 @@ class TrackingRecoleccion extends Model
     }
 
     /**
-     * Detalle completo de una ruta (cabecera + créditos + usuarios).
+     * Detalle completo de una ruta (cabecera + créditos).
      *
      * @return array<string, mixed>|null
      */
@@ -653,9 +873,24 @@ class TrackingRecoleccion extends Model
             $cabecera = $this->db->queryOne(
                 "SELECT
                     atr.*,
+                    tt.nombre_transportista,
+                    tt.empresa_origen AS transportista_empresa,
+                    tt.telefono AS transportista_telefono,
+                    tt.email AS transportista_email,
+                    tt.curp_rfc AS transportista_curp_rfc,
+                    tt.puesto AS transportista_puesto,
+                    ag.nombre_agencia,
+                    ag.clave_agencia,
+                    ag.direccion AS agencia_direccion,
+                    ag.telefono AS agencia_telefono,
+                    ag.encargado AS agencia_encargado,
+                    ag.email AS agencia_email,
                     CONCAT(DATE_FORMAT(atr.fecha_programada, '%d/'), ELT(MONTH(atr.fecha_programada), 'Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'), DATE_FORMAT(atr.fecha_programada, '/%Y')) AS fecha_programada_fmt,
-                    DATE_FORMAT(atr.fecha_creacion,   '%d/%m/%Y %H:%i') AS fecha_creacion_fmt
+                    DATE_FORMAT(atr.fecha_creacion,   '%d/%m/%Y %H:%i') AS fecha_creacion_fmt,
+                    DATE_FORMAT(atr.fecha_cancelacion, '%d/%m/%Y %H:%i') AS fecha_cancelacion_fmt
                  FROM asigna_horas_tracking atr
+                 LEFT JOIN transportistas_tracking tt ON tt.id_transportista = atr.id_transportista
+                 LEFT JOIN agencias_tracking ag ON ag.id_agencia = atr.id_agencia_tracking
                  WHERE atr.id_ruta = :id
                  LIMIT 1",
                 ['id' => $idRuta]
@@ -679,16 +914,7 @@ class TrackingRecoleccion extends Model
                  ORDER BY atd.orden_ruta ASC, atd.id_detalle ASC",
                 ['id' => $idRuta]
             ) ?: [];
-            $usuarios = $this->db->queryAll(
-                "SELECT atu.id_usuario,
-                        TRIM(CONCAT_WS(' ', per.nombres, per.apellidop)) AS nombre_usuario
-                 FROM asigna_horas_tracking_usuarios atu
-                 LEFT JOIN persona per ON per.id = atu.id_usuario
-                 WHERE atu.id_ruta = :id",
-                ['id' => $idRuta]
-            ) ?: [];
             $cabecera['detalle']  = $detalles;
-            $cabecera['usuarios'] = $usuarios;
             return $cabecera;
         } catch (\Throwable $e) {
             return null;
@@ -726,6 +952,61 @@ class TrackingRecoleccion extends Model
         }
     }
 
+    /**
+     * Cancela una ruta registrada o iniciada.
+     *
+     * @return array{success:bool, message?:string}
+     */
+    public function cancelarRuta(int $idRuta, string $motivo, int $idUsuario): array
+    {
+        $motivo = trim(preg_replace('/\s+/', ' ', $motivo));
+        if ($idRuta <= 0) {
+            return ['success' => false, 'message' => 'Ruta requerida.'];
+        }
+        if ($motivo === '') {
+            return ['success' => false, 'message' => 'El motivo de cancelación es obligatorio.'];
+        }
+        if (mb_strlen($motivo, 'UTF-8') > 200) {
+            return ['success' => false, 'message' => 'El motivo de cancelación no puede exceder 200 caracteres.'];
+        }
+
+        try {
+            $ruta = $this->db->queryOne(
+                "SELECT id_ruta, estatus_ruta
+                 FROM asigna_horas_tracking
+                 WHERE id_ruta = :id
+                 LIMIT 1",
+                ['id' => $idRuta]
+            );
+            if (!$ruta) {
+                return ['success' => false, 'message' => 'Ruta no encontrada.'];
+            }
+            if (in_array((string) $ruta['estatus_ruta'], ['borrador', 'concluida', 'cancelada'], true)) {
+                return ['success' => false, 'message' => 'Esta ruta no se puede cancelar por su estatus actual.'];
+            }
+
+            $this->db->CRUD(
+                "UPDATE asigna_horas_tracking
+                 SET estatus_ruta = 'cancelada',
+                     motivo_cancelacion = :motivo,
+                     fecha_cancelacion = :fecha,
+                     cancelado_por = :usuario,
+                     fecha_actualizacion = :fecha
+                 WHERE id_ruta = :id",
+                [
+                    'motivo'  => $motivo,
+                    'fecha'   => date('Y-m-d H:i:s'),
+                    'usuario' => $idUsuario > 0 ? $idUsuario : null,
+                    'id'      => $idRuta,
+                ]
+            );
+
+            return ['success' => true, 'message' => 'Ruta cancelada correctamente.'];
+        } catch (\Throwable $e) {
+            return ['success' => false, 'message' => 'Error al cancelar la ruta.'];
+        }
+    }
+
     // =========================================================================
     // HELPERS PRIVADOS
     // =========================================================================
@@ -752,25 +1033,6 @@ class TrackingRecoleccion extends Model
         $permitidos = ['pendiente', 'confirmado', 'rechazado', 'en_revision'];
         $v = strtolower(trim($v));
         return in_array($v, $permitidos, true) ? $v : '';
-    }
-
-    /**
-     * @return string Nombres concatenados de usuarios responsables de una ruta
-     */
-    private function obtenerNombresUsuariosRuta(int $idRuta): string
-    {
-        try {
-            $rows = $this->db->queryAll(
-                "SELECT TRIM(CONCAT_WS(' ', per.nombres, per.apellidop)) AS nombre
-                 FROM asigna_horas_tracking_usuarios atu
-                 LEFT JOIN persona per ON per.id = atu.id_usuario
-                 WHERE atu.id_ruta = :id",
-                ['id' => $idRuta]
-            ) ?: [];
-            return implode(', ', array_column($rows, 'nombre'));
-        } catch (\Throwable $e) {
-            return '';
-        }
     }
 
     /**
