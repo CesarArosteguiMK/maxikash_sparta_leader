@@ -266,7 +266,16 @@ class CapHumEstadisticas extends Model
     /**
      * @return array{success: bool, datos?: array<string, mixed>, error?: string}
      */
-    public static function getDatosPanel(int $anio, int $mes, int $semana, ?string $fechaIniCal = null, ?string $fechaFinCal = null): array
+    public static function getDatosPanel(
+        int $anio,
+        int $mes,
+        int $semana,
+        ?string $fechaIniCal = null,
+        ?string $fechaFinCal = null,
+        ?int $idArea = null,
+        ?int $idDepartamento = null,
+        ?int $idPuesto = null
+    ): array
     {
         try {
             $db = new Database();
@@ -299,6 +308,7 @@ class CapHumEstadisticas extends Model
             $tap = self::tblBd('asigna_puesto');
             $tpu = self::tblBd('puesto');
             $td = self::tblBd('departamento');
+            $tdo = self::tblBd('departamento_organizacional');
             $tbp = self::tblBd('baja_persona');
             $tcnd = self::tblBd('candidatos');
             $tmw = self::tblBd('asigna_modulo_web');
@@ -313,7 +323,40 @@ class CapHumEstadisticas extends Model
             $sqlIngEnRango = '(p.fecha_ingreso IS NOT NULL
                 AND p.fecha_ingreso NOT IN (\'0000-00-00\',\'0000-00-00 00:00:00\')
                 AND DATE(p.fecha_ingreso) BETWEEN :fi AND :ff)';
-            $sqlExFantasma = UsuarioFantasmaReporteria::sqlExcluirPersona('p');
+            $idArea = ($idArea !== null && $idArea > 0) ? (int) $idArea : null;
+            $idDepartamento = ($idDepartamento !== null && $idDepartamento > 0) ? (int) $idDepartamento : null;
+            $idPuesto = ($idPuesto !== null && $idPuesto > 0) ? (int) $idPuesto : null;
+            $sqlFiltroPersona = '';
+            if ($idArea !== null || $idDepartamento !== null || $idPuesto !== null) {
+                $sqlFiltroPersona = '
+                  AND EXISTS (
+                      SELECT 1
+                      FROM ' . $tap . ' apf
+                      INNER JOIN (
+                          SELECT id_persona, MAX(id) AS mid
+                          FROM ' . $tap . '
+                          GROUP BY id_persona
+                      ) apm2 ON apm2.id_persona = apf.id_persona AND apm2.mid = apf.id
+                      INNER JOIN ' . $tpu . ' puf ON puf.id = apf.id_puesto
+                      LEFT JOIN ' . $td . ' df ON df.id = puf.departamento_id
+                      LEFT JOIN ' . $tdo . ' af ON af.id = df.id_departamento_organizacional
+                      WHERE apf.id_persona = p.id';
+                if ($idArea !== null) {
+                    $sqlFiltroPersona .= ' AND af.id = :f_id_area';
+                    $paramsRango['f_id_area'] = $idArea;
+                }
+                if ($idDepartamento !== null) {
+                    $sqlFiltroPersona .= ' AND df.id = :f_id_departamento';
+                    $paramsRango['f_id_departamento'] = $idDepartamento;
+                }
+                if ($idPuesto !== null) {
+                    $sqlFiltroPersona .= ' AND puf.id = :f_id_puesto';
+                    $paramsRango['f_id_puesto'] = $idPuesto;
+                }
+                $sqlFiltroPersona .= '
+                  )';
+            }
+            $sqlExFantasma = UsuarioFantasmaReporteria::sqlExcluirPersona('p') . $sqlFiltroPersona;
 
             $sqlHeadcountBase = '
                 FROM ' . $tp . ' p
@@ -330,24 +373,53 @@ class CapHumEstadisticas extends Model
                 'SELECT COUNT(*) AS c ' . $sqlHeadcountBase . ' AND ' . $sqlActivo,
                 $paramsRango
             );
+            $sqlApActivoUltimo = '
+                 INNER JOIN (
+                     SELECT apx.id_persona, apx.id_puesto
+                     FROM ' . $tap . ' apx
+                     INNER JOIN (
+                         SELECT id_persona, MAX(id) AS mid
+                         FROM ' . $tap . '
+                         GROUP BY id_persona
+                     ) apm ON apm.id_persona = apx.id_persona AND apm.mid = apx.id
+                 ) ap ON ap.id_persona = p.id
+                 INNER JOIN ' . $tpu . ' pu ON pu.id = ap.id_puesto
+                 LEFT JOIN ' . $td . ' d ON d.id = pu.departamento_id
+                 LEFT JOIN ' . $tdo . ' a ON a.id = d.id_departamento_organizacional';
+            $sqlFiltroEstructuraJoin = '';
+            if ($idArea !== null) {
+                $sqlFiltroEstructuraJoin .= ' AND a.id = :f_id_area';
+            }
+            if ($idDepartamento !== null) {
+                $sqlFiltroEstructuraJoin .= ' AND d.id = :f_id_departamento';
+            }
+            if ($idPuesto !== null) {
+                $sqlFiltroEstructuraJoin .= ' AND pu.id = :f_id_puesto';
+            }
+
+            $totalAreas = self::scalarInt(
+                $db,
+                'SELECT COUNT(DISTINCT a.id) AS c
+                 FROM ' . $tp . ' p' . $sqlApActivoUltimo . '
+                 WHERE ' . $sqlActivo . '
+                   AND ' . $sqlIngHastaFfHi . $sqlExFantasma . $sqlFiltroEstructuraJoin . '
+                   AND a.id IS NOT NULL',
+                $paramsRango
+            );
             $totalDepartamentos = self::scalarInt(
                 $db,
                 'SELECT COUNT(DISTINCT pu.departamento_id) AS c
-                 FROM ' . $tp . ' p
-                 INNER JOIN ' . $tap . ' ap ON ap.id_persona = p.id
-                 INNER JOIN ' . $tpu . ' pu ON pu.id = ap.id_puesto
+                 FROM ' . $tp . ' p' . $sqlApActivoUltimo . '
                  WHERE ' . $sqlActivo . '
-                   AND ' . $sqlIngEnRango . $sqlExFantasma,
+                   AND ' . $sqlIngHastaFfHi . $sqlExFantasma . $sqlFiltroEstructuraJoin,
                 $paramsRango
             );
             $puestosUnicos = self::scalarInt(
                 $db,
                 'SELECT COUNT(DISTINCT pu.id) AS c
-                 FROM ' . $tp . ' p
-                 INNER JOIN ' . $tap . ' ap ON ap.id_persona = p.id
-                 INNER JOIN ' . $tpu . ' pu ON pu.id = ap.id_puesto
+                 FROM ' . $tp . ' p' . $sqlApActivoUltimo . '
                  WHERE ' . $sqlActivo . '
-                   AND ' . $sqlIngEnRango . $sqlExFantasma,
+                   AND ' . $sqlIngHastaFfHi . $sqlExFantasma . $sqlFiltroEstructuraJoin,
                 $paramsRango
             );
 
@@ -365,15 +437,19 @@ class CapHumEstadisticas extends Model
 
             $bajas = self::scalarInt(
                 $db,
-                'SELECT COUNT(*) AS c FROM ' . $tbp . ' bp
-                 WHERE DATE(bp.fecha_baja) BETWEEN :fi AND :ff',
+                'SELECT COUNT(*) AS c
+                 FROM ' . $tbp . ' bp
+                 INNER JOIN ' . $tp . ' p ON p.id = bp.id_persona
+                 WHERE DATE(bp.fecha_baja) BETWEEN :fi AND :ff' . $sqlExFantasma,
                 $paramsRango
             );
 
             $reingresos = self::scalarInt(
                 $db,
-                'SELECT COUNT(*) AS c FROM ' . $trg . ' r
-                 WHERE DATE(r.fecha_reingreso) BETWEEN :fi AND :ff',
+                'SELECT COUNT(*) AS c
+                 FROM ' . $trg . ' r
+                 INNER JOIN ' . $tp . ' p ON p.id = r.id_persona
+                 WHERE DATE(r.fecha_reingreso) BETWEEN :fi AND :ff' . $sqlExFantasma,
                 $paramsRango
             );
 
@@ -683,17 +759,6 @@ class CapHumEstadisticas extends Model
             // Agente Call Center real: nombre de puesto alineado a CapHum (celula 2), sin el LIKE genérico «%agente%».
             // Una fila de asignación activa por persona (MAX id) para no duplicar ni mezclar puestos viejos.
             // Última fila de asigna_puesto por persona (como en listados); sin filtro «activo» por si la columna no existe.
-            $sqlApActivoUltimo = '
-                 INNER JOIN (
-                     SELECT apx.id_persona, apx.id_puesto
-                     FROM ' . $tap . ' apx
-                     INNER JOIN (
-                         SELECT id_persona, MAX(id) AS mid
-                         FROM ' . $tap . '
-                         GROUP BY id_persona
-                     ) apm ON apm.id_persona = apx.id_persona AND apm.mid = apx.id
-                 ) ap ON ap.id_persona = p.id
-                 INNER JOIN ' . $tpu . ' pu ON pu.id = ap.id_puesto';
             $opAgentesCall = self::scalarInt(
                 $db,
                 'SELECT COUNT(*) AS c
@@ -705,15 +770,15 @@ class CapHumEstadisticas extends Model
                        LOWER(pu.nombre) LIKE \'%call center%\'
                        AND LOWER(pu.nombre) LIKE \'%agente%\'
                        AND LOWER(pu.nombre) NOT LIKE \'%supervis%\'
-                     )
-                   )' . $hcActivoCierre,
+                    )
+                  )' . $hcActivoCierre . $sqlFiltroEstructuraJoin,
                 $paramsRango
             );
             $opSupervisores = self::scalarInt(
                 $db,
                 'SELECT COUNT(*) AS c
                  FROM ' . $tp . ' p' . $sqlApActivoUltimo . '
-                 WHERE ' . $sqlActivo . $sqlExFantasma . ' AND IFNULL(pu.es_jefe, 0) = 1' . $hcActivoCierre,
+                 WHERE ' . $sqlActivo . $sqlExFantasma . ' AND IFNULL(pu.es_jefe, 0) = 1' . $hcActivoCierre . $sqlFiltroEstructuraJoin,
                 $paramsRango
             );
             $opRatioX = ($opSupervisores > 0 && $opAgentesCall > 0)
@@ -729,8 +794,7 @@ class CapHumEstadisticas extends Model
                 $db,
                 'SELECT d.nombre AS nombre_depto, COUNT(*) AS cnt
                  FROM ' . $tp . ' p' . $sqlApActivoUltimo . '
-                 INNER JOIN ' . $td . ' d ON d.id = pu.departamento_id
-                 WHERE ' . $sqlActivo . $sqlExFantasma . $hcActivoCierre . '
+                 WHERE ' . $sqlActivo . $sqlExFantasma . $hcActivoCierre . $sqlFiltroEstructuraJoin . '
                  GROUP BY d.id, d.nombre
                  ORDER BY cnt DESC
                  LIMIT 1',
@@ -745,8 +809,7 @@ class CapHumEstadisticas extends Model
                 $db,
                 'SELECT COALESCE(NULLIF(TRIM(d.nombre), \'\'), \'Sin departamento\') AS nombre, COUNT(*) AS cnt
                  FROM ' . $tp . ' p' . $sqlApActivoUltimo . '
-                 LEFT JOIN ' . $td . ' d ON d.id = pu.departamento_id
-                 WHERE ' . $sqlActivo . $sqlExFantasma . $hcActivoCierre . '
+                 WHERE ' . $sqlActivo . $sqlExFantasma . $hcActivoCierre . $sqlFiltroEstructuraJoin . '
                  GROUP BY d.id, d.nombre
                  ORDER BY cnt DESC',
                 $paramsRango
@@ -790,6 +853,7 @@ class CapHumEstadisticas extends Model
                 'empleados_activos' => $empleadosActivosCierre,
                 'empleados_baja' => $bajas,
                 'total_departamentos' => $totalDepartamentos,
+                'total_areas' => $totalAreas,
                 'puestos_unicos' => $puestosUnicos,
                 'ingresos' => $ingresos,
                 'bajas' => $bajas,
@@ -890,12 +954,81 @@ class CapHumEstadisticas extends Model
     }
 
     /**
+     * Catálogo para filtros encadenados: Área -> Departamento -> Puesto.
+     *
+     * @return array{success: bool, datos?: array<string, mixed>, error?: string}
+     */
+    public static function getFiltrosEstructura(?int $idArea = null, ?int $idDepartamento = null): array
+    {
+        try {
+            $db = new Database();
+            $tdo = self::tblBd('departamento_organizacional');
+            $td = self::tblBd('departamento');
+            $tpu = self::tblBd('puesto');
+
+            $idArea = ($idArea !== null && $idArea > 0) ? (int) $idArea : null;
+            $idDepartamento = ($idDepartamento !== null && $idDepartamento > 0) ? (int) $idDepartamento : null;
+
+            $areas = self::queryAllSafe(
+                $db,
+                'SELECT a.id, TRIM(a.nombre) AS nombre
+                 FROM ' . $tdo . ' a
+                 WHERE IFNULL(a.activo, 1) = 1
+                 ORDER BY a.nombre ASC',
+                []
+            );
+
+            $departamentos = [];
+            if ($idArea !== null) {
+                $departamentos = self::queryAllSafe(
+                    $db,
+                    'SELECT d.id, TRIM(d.nombre) AS nombre
+                     FROM ' . $td . ' d
+                     WHERE d.id_departamento_organizacional = :id_area
+                     ORDER BY d.nombre ASC',
+                    ['id_area' => $idArea]
+                );
+            }
+
+            $puestos = [];
+            if ($idDepartamento !== null) {
+                $puestos = self::queryAllSafe(
+                    $db,
+                    'SELECT pu.id, TRIM(pu.nombre) AS nombre
+                     FROM ' . $tpu . ' pu
+                     WHERE pu.departamento_id = :id_departamento
+                     ORDER BY pu.nombre ASC',
+                    ['id_departamento' => $idDepartamento]
+                );
+            }
+
+            return self::resultado(true, 'OK', [
+                'areas' => $areas,
+                'departamentos' => $departamentos,
+                'puestos' => $puestos,
+            ]);
+        } catch (\Throwable $e) {
+            return self::resultado(false, 'Error al obtener filtros de estructura.', null, $e->getMessage());
+        }
+    }
+
+    /**
      * Desglose por departamento de ingresos, bajas o reingresos en el mismo rango que el panel.
      * Departamento = del puesto de la última fila de asigna_puesto por persona (MAX id).
      *
      * @return array{success: bool, datos?: array<string, mixed>, error?: string}
      */
-    public static function getMovimientoPorDepartamento(string $tipo, int $anio, int $mes, int $semana, ?string $fechaIniCal = null, ?string $fechaFinCal = null): array
+    public static function getMovimientoPorDepartamento(
+        string $tipo,
+        int $anio,
+        int $mes,
+        int $semana,
+        ?string $fechaIniCal = null,
+        ?string $fechaFinCal = null,
+        ?int $idArea = null,
+        ?int $idDepartamento = null,
+        ?int $idPuesto = null
+    ): array
     {
         $tipo = strtolower(trim($tipo));
         if (!in_array($tipo, ['ingresos', 'bajas', 'reingresos'], true)) {
@@ -908,6 +1041,9 @@ class CapHumEstadisticas extends Model
             $fi = $rango['fecha_ini'];
             $ff = $rango['fecha_fin'];
             $params = ['fi' => $fi, 'ff' => $ff];
+            $idArea = ($idArea !== null && $idArea > 0) ? (int) $idArea : null;
+            $idDepartamento = ($idDepartamento !== null && $idDepartamento > 0) ? (int) $idDepartamento : null;
+            $idPuesto = ($idPuesto !== null && $idPuesto > 0) ? (int) $idPuesto : null;
 
             $tp = self::tblBd('persona');
             $tap = self::tblBd('asigna_puesto');
@@ -916,6 +1052,19 @@ class CapHumEstadisticas extends Model
             $tbp = self::tblBd('baja_persona');
             $trg = self::tblBd('reingresos');
             $sqlExFantasma = UsuarioFantasmaReporteria::sqlExcluirPersona('p');
+            $sqlFiltroEstructura = '';
+            if ($idArea !== null) {
+                $sqlFiltroEstructura .= ' AND d.id_departamento_organizacional = :f_id_area';
+                $params['f_id_area'] = $idArea;
+            }
+            if ($idDepartamento !== null) {
+                $sqlFiltroEstructura .= ' AND d.id = :f_id_departamento';
+                $params['f_id_departamento'] = $idDepartamento;
+            }
+            if ($idPuesto !== null) {
+                $sqlFiltroEstructura .= ' AND pu.id = :f_id_puesto';
+                $params['f_id_puesto'] = $idPuesto;
+            }
 
             $sqlJoinUltPuestoDepto = '
                  LEFT JOIN (
@@ -935,21 +1084,21 @@ class CapHumEstadisticas extends Model
                     FROM ' . $tp . ' p' . $sqlJoinUltPuestoDepto . '
                     WHERE p.fecha_ingreso IS NOT NULL
                       AND p.fecha_ingreso NOT IN (\'0000-00-00\',\'0000-00-00 00:00:00\')
-                      AND DATE(p.fecha_ingreso) BETWEEN :fi AND :ff' . $sqlExFantasma . '
+                      AND DATE(p.fecha_ingreso) BETWEEN :fi AND :ff' . $sqlExFantasma . $sqlFiltroEstructura . '
                     GROUP BY d.id, d.nombre
                     ORDER BY cnt DESC';
             } elseif ($tipo === 'bajas') {
                 $sql = 'SELECT COALESCE(NULLIF(TRIM(d.nombre), \'\'), \'Sin departamento\') AS nombre, COUNT(*) AS cnt
                     FROM ' . $tbp . ' bp
                     INNER JOIN ' . $tp . ' p ON p.id = bp.id_persona' . $sqlJoinUltPuestoDepto . '
-                    WHERE DATE(bp.fecha_baja) BETWEEN :fi AND :ff' . $sqlExFantasma . '
+                    WHERE DATE(bp.fecha_baja) BETWEEN :fi AND :ff' . $sqlExFantasma . $sqlFiltroEstructura . '
                     GROUP BY d.id, d.nombre
                     ORDER BY cnt DESC';
             } else {
                 $sql = 'SELECT COALESCE(NULLIF(TRIM(d.nombre), \'\'), \'Sin departamento\') AS nombre, COUNT(*) AS cnt
                     FROM ' . $trg . ' r
                     INNER JOIN ' . $tp . ' p ON p.id = r.id_persona' . $sqlJoinUltPuestoDepto . '
-                    WHERE DATE(r.fecha_reingreso) BETWEEN :fi AND :ff' . $sqlExFantasma . '
+                    WHERE DATE(r.fecha_reingreso) BETWEEN :fi AND :ff' . $sqlExFantasma . $sqlFiltroEstructura . '
                     GROUP BY d.id, d.nombre
                     ORDER BY cnt DESC';
             }

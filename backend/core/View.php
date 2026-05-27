@@ -226,7 +226,7 @@ function getMenu(): string
         'Organización' => [
             'icono'    => 'fa-solid fa-cog',
             'subItems' => [
-                ['label' => 'Departamentos',          'url' => '/departamentos/consulta/',     'modulos' => [10]],
+                ['label' => 'Áreas',                  'url' => '/departamentos/consulta/',     'modulos' => [10]],
                 ['label' => 'Países',                 'url' => '/paises/consulta',             'modulos' => [41]],
                 ['label' => 'Equivalencia puestos',   'url' => '/equivalencias/consulta',      'modulos' => [17]],
                 ['label' => 'Asignación por puestos', 'url' => '/configticketpuesto/consulta', 'modulos' => [26]],

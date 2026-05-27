@@ -258,10 +258,10 @@ $pp_row_aviso_bajo_btn = ($pp_perm_cobranza && $ppDow === 1)
     }
 }
 #pp-landing .pp-landing-icon-frame {
-    width: 7.5rem;
-    height: 7.5rem;
-    min-width: 7.5rem;
-    min-height: 7.5rem;
+    width: 150px;
+    height: 150px;
+    min-width: 150px;
+    min-height: 150px;
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -275,7 +275,7 @@ $pp_row_aviso_bajo_btn = ($pp_perm_cobranza && $ppDow === 1)
     max-height: 100%;
     display: block;
     box-sizing: border-box;
-    transform: scale(1.1);
+    transform: scale(1.16);
     transform-origin: center center;
 }
 .pp-primeros-pagos-page,
@@ -298,21 +298,23 @@ $pp_row_aviso_bajo_btn = ($pp_perm_cobranza && $ppDow === 1)
     flex-direction: column-reverse;
     flex-wrap: nowrap !important;
     align-items: stretch !important;
+    justify-content: flex-end !important;
     min-height: 0;
 }
 #pp-landing .pp-landing-card-text {
-    flex: 1 1 auto;
+    flex: 0 0 auto;
+    justify-content: flex-start !important;
     min-height: 0;
     min-width: 0;
     width: 100% !important;
 }
 #pp-landing .pp-landing-icon-slot {
     width: 100% !important;
-    height: 7.5rem;
-    flex: 0 0 7.5rem;
+    height: auto;
+    flex: 0 0 auto;
     align-self: stretch !important;
     justify-content: center !important;
-    margin-bottom: 1rem !important;
+    margin-bottom: .85rem !important;
 }
 #pp-landing .pp-landing-card-filler {
     flex: 1 1 auto;

@@ -777,7 +777,7 @@
 <!-- ============================================================ -->
 <div class="modal fade" id="adj-modalRegistrarGestor" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered" style="max-width:480px;">
-        <div class="modal-content" style="border:none; border-radius:0.5rem; overflow:hidden;">
+        <div class="modal-content" style="border:none; border-radius:0.5rem; overflow:visible;">
 
             <div class="modal-header" style="background:#f59e0b; border:none; padding:1.25rem 1.5rem;">
                 <div class="d-flex align-items-center gap-2">
@@ -790,7 +790,9 @@
                         <div style="color:rgba(26,26,26,0.65);font-size:12px;">Agregar al personal de adjudicación</div>
                     </div>
                 </div>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" style="filter:brightness(0);"></button>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"
+                    style="filter:brightness(0); margin:0;"
+                    aria-label="Cerrar"></button>
             </div>
 
             <div class="modal-body" style="padding:1.5rem;">

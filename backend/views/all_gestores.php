@@ -3655,19 +3655,25 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
             <h5 class="card-title mb-0">Filtros de búsqueda</h5>
 
             <div class="row pt-4 g-6">
-                <div class="col-md-4">
+                <div class="col-md-3">
+                    <select id="UserArea" class="form-select text-capitalize js-select-buscador">
+                        <option value="">Selecciona Área</option>
+                    </select>
+                </div>
+
+                <div class="col-md-3">
                     <select id="UserRole" class="form-select text-capitalize js-select-buscador">
                         <option value="">Selecciona Departamento</option>
                     </select>
                 </div>
 
-                <div class="col-md-4">
+                <div class="col-md-3">
                     <select id="UserPlan" class="form-select text-capitalize js-select-buscador">
                         <option value="">Selecciona Puesto</option>
                     </select>
                 </div>
 
-                <div class="col-md-4">
+                <div class="col-md-3">
                     <select id="FilterMultiplePuestos" class="form-select text-capitalize js-select-buscador">
                         <option value="">Todos los usuarios</option>
                         <option value="multiples">Múltiples puestos</option>
@@ -5666,19 +5672,17 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
       MODAL - GESTIÓN DE PERMISOS Y PUESTOS
  ======================== -->
     <div class="modal fade" id="modalEditPerfil" tabindex="-1" aria-labelledby="modalEditPerfilLabel" aria-hidden="true" data-bs-backdrop="false" data-bs-keyboard="true">
-        <div class="modal-dialog modal-xl modal-dialog-centered modal-perfil-gestor-dialog">
+        <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable modal-perfil-gestor-dialog">
             <div class="modal-content" style="border: none; box-shadow: 0 10px 40px rgba(0,0,0,0.12);">
-                <div class="modal-header" style="background: #f8f9fa; border-bottom: 2px solid #e9ecef; padding: 1.5rem;">
+                <div class="modal-header" style="background:#0f2747;border-bottom:1px solid rgba(255,255,255,.2);padding:1rem 1.25rem;">
                     <div class="d-flex align-items-center w-100">
                         <div class="flex-grow-1">
-                            <h5 class="modal-title fw-bold mb-1" id="modalEditPerfilLabel" style="color: #2c3e50;">
-                                <i class="fa fa-user-shield me-2" style="color: #495057;"></i>Gestión de Permisos y Accesos
+                            <h5 class="modal-title fw-bold mb-1 text-white" id="modalEditPerfilLabel">
+                                <i class="fa fa-user-shield me-2 text-white"></i>Administrar puestos y módulos del usuario
                             </h5>
-                            <p class="text-muted mb-0 small" id="modalEditPerfil_subtitle">Administrar puestos y módulos del usuario</p>
+                            <p class="mb-0 small text-white-50" id="modalEditPerfil_subtitle">Nombre completo / Área / Empresa</p>
                         </div>
-                        <button type="button" class="btn btn-sm btn-outline-secondary rounded-circle p-2" data-bs-dismiss="modal" aria-label="Cerrar" style="width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; border: 2px solid #6c757d; transition: all 0.3s ease; box-shadow: 0 2px 4px rgba(108, 117, 125, 0.15);" onmouseover="this.style.backgroundColor='#6c757d'; this.querySelector('i').style.color='#fff';" onmouseout="this.style.backgroundColor='transparent'; this.querySelector('i').style.color='#6c757d';">
-                            <i class="fa fa-times" style="font-size: 1.1rem; color: #6c757d; transition: color 0.3s ease;"></i>
-                        </button>
+                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Cerrar"></button>
                     </div>
                 </div>
 
@@ -5728,19 +5732,34 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
                         <!-- TAB PUESTOS -->
                         <div class="tab-pane fade" id="tabPuestos" role="tabpanel">
                             <input type="hidden" id="edit_perfil_id">
-
-                            <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
-                                <div>
-                                    <h6 class="mb-1 fw-bold">Puestos Disponibles</h6>
-                                    <small class="text-muted">Selecciona los puestos a los que tendrá acceso este usuario</small>
+                            <div id="puestos-container" class="d-flex flex-column gap-3">
+                                <div class="d-flex gap-3 flex-wrap flex-lg-nowrap">
+                                    <aside class="border rounded bg-white p-2 flex-shrink-0" style="width:270px;max-width:100%;">
+                                        <div class="small text-muted fw-semibold mb-2">Países</div>
+                                        <div id="perfilPuestosPaisList" class="d-flex flex-column gap-1"></div>
+                                    </aside>
+                                    <section class="flex-grow-1 border rounded bg-white p-2">
+                                        <div class="d-flex flex-wrap align-items-center gap-2 mb-2">
+                                            <div class="input-group input-group-sm flex-grow-1" style="min-width:220px;">
+                                                <span class="input-group-text"><i class="fa fa-search"></i></span>
+                                                <input type="text" id="perfilPuestosBuscar" class="form-control" placeholder="Buscar puesto...">
+                                            </div>
+                                            <button type="button" class="btn btn-sm btn-outline-secondary" id="btn-puestos-expandir-todos" onclick="expandirTodosPuestos()">
+                                                <i class="fa fa-expand me-1"></i>Expandir todo
+                                            </button>
+                                            <button type="button" class="btn btn-sm btn-outline-secondary" id="btn-puestos-contraer-todos" onclick="contraerTodosPuestos()">
+                                                <i class="fa fa-compress me-1"></i>Contraer todo
+                                            </button>
+                                        </div>
+                                        <div id="perfilAccesoDirectoPaisRow" class="d-flex align-items-center justify-content-between bg-light rounded px-3 py-2 mb-2 border">
+                                            <div class="small fw-semibold text-secondary">Acceso directo al país</div>
+                                            <div class="form-check form-switch m-0">
+                                                <input class="form-check-input" type="checkbox" id="perfilAccesoDirectoPaisSwitch">
+                                            </div>
+                                        </div>
+                                        <div id="modal-edit-perfil-puestos-form" class="d-flex flex-column gap-2"></div>
+                                    </section>
                                 </div>
-                                <button type="button" class="btn btn-sm btn-outline-primary flex-shrink-0" id="btn-puestos-expandir-todos" onclick="expandirTodosPuestos()">
-                                    <i class="fa fa-expand me-1"></i>Expandir todos
-                                </button>
-                            </div>
-
-                            <div id="puestos-container" style="overflow-y: visible;">
-                                <div id="modal-edit-perfil-puestos-form"></div>
                             </div>
                         </div>
 
@@ -5807,6 +5826,16 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
                                 </div>
                             </div>
                         </div>
+                    </div>
+                </div>
+                <div class="modal-footer d-flex justify-content-between align-items-center border-top">
+                    <div class="small text-muted">
+                        Total de puestos seleccionados:
+                        <span class="fw-bold text-dark" id="perfilPuestosSeleccionadosTotal">0</span>
+                    </div>
+                    <div class="d-flex gap-2">
+                        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+                        <button type="button" class="btn text-white" onclick="guardarPermisos()" style="background:#0f2747;">Guardar cambios</button>
                     </div>
                 </div>
 
@@ -6006,6 +6035,7 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
     }).length;
 
     // Obtener filtros actuales
+    const areaSeleccionada = document.getElementById('UserArea')?.value || '';
     const departamentoSeleccionado = document.getElementById('UserRole').value;
     const puestoSeleccionado = document.getElementById('UserPlan').value;
 
@@ -6014,20 +6044,24 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
     // ==========================================
 
     // CASO 1: Sin filtros seleccionados
-    if (!departamentoSeleccionado && !puestoSeleccionado) {
+    if (!areaSeleccionada && !departamentoSeleccionado && !puestoSeleccionado) {
       // Mostrar: Departamentos, Puestos, Total de Empleados (global)
       ocultarIndicadoresRoles();
       ocultarIndicadorEmpleados();
       mostrarIndicadorTotalEmpleados(datos.length, 'Total Empleados');
     }
     // CASO 2: Solo departamento seleccionado (sin puesto)
-    else if (departamentoSeleccionado && !puestoSeleccionado) {
+    else if ((areaSeleccionada || departamentoSeleccionado) && !puestoSeleccionado) {
       // Mostrar: Departamentos, Puestos, Roles Dinámicos, Total Empleados del Departamento
       actualizarIndicadoresRoles(datos, departamentoSeleccionado);
       ocultarIndicadorEmpleados();
 
-      const empleadosDepartamento = datos.filter(p => p.nombre_departamento === departamentoSeleccionado).length;
-      mostrarIndicadorTotalEmpleados(empleadosDepartamento, 'Empleados en ' + departamentoSeleccionado);
+      if (departamentoSeleccionado) {
+        const empleadosDepartamento = datos.filter(p => p.nombre_departamento === departamentoSeleccionado).length;
+        mostrarIndicadorTotalEmpleados(empleadosDepartamento, 'Empleados en ' + departamentoSeleccionado);
+      } else {
+        mostrarIndicadorTotalEmpleados(datos.length, 'Empleados en ' + areaSeleccionada);
+      }
     }
     // CASO 3: Puesto seleccionado (con o sin departamento)
     else if (puestoSeleccionado) {
@@ -7453,6 +7487,7 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
    * ==========================================
    * LLENAR FILTROS DINÁMICAMENTE
    * ==========================================
+   * UserArea = Área
    * UserRole = Departamento
    * UserPlan = Puesto
    * Datos provenientes de: /CapHum/getUsuarios
@@ -7461,6 +7496,7 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
   // Variable global para almacenar todos los usuarios
   let usuariosData = [];
   let actualizandoFiltrosGestion = false;
+  const mapaDepartamentoAreaGestion = new Map();
 
   function normalizarValorFiltro(valor) {
     return String(valor || '')
@@ -7479,8 +7515,39 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
       id_puesto: persona.id_puesto,
       nombre_puesto: persona.nombre_puesto,
       nombre_departamento: persona.nombre_departamento,
-      id_departamento: persona.id_departamento
+      id_departamento: persona.id_departamento,
+      id_area: persona.id_area,
+      nombre_area: persona.nombre_area
     }];
+  }
+
+  function obtenerNombreAreaPorPuesto(puesto) {
+    if (!puesto) return '';
+    const nombreAreaPuesto = String(puesto.nombre_area || '').trim();
+    if (nombreAreaPuesto) return nombreAreaPuesto;
+    const idDepto = puesto.id_departamento != null ? String(puesto.id_departamento) : '';
+    if (idDepto && mapaDepartamentoAreaGestion.has(idDepto)) {
+      return mapaDepartamentoAreaGestion.get(idDepto) || '';
+    }
+    return '';
+  }
+
+  function inicializarMapaAreasGestion() {
+    mapaDepartamentoAreaGestion.clear();
+    const rows = Array.isArray(window.todosDepartamentosBackend) ? window.todosDepartamentosBackend : [];
+    rows.forEach(row => {
+      if (!row) return;
+      const idDepto = row.id != null ? String(row.id) : '';
+      const nombreArea = String(row.departamento_organizacional_nombre || '').trim();
+      if (!idDepto || !nombreArea || nombreArea.toLowerCase() === 'sin departamento') return;
+      mapaDepartamentoAreaGestion.set(idDepto, nombreArea);
+    });
+  }
+
+  function usuarioTieneArea(persona, area) {
+    const a = normalizarValorFiltro(area);
+    if (!a) return true;
+    return obtenerPuestosUsuario(persona).some(p => normalizarValorFiltro(obtenerNombreAreaPorPuesto(p)) === a);
   }
 
   function usuarioTieneDepartamento(persona, departamento) {
@@ -7500,7 +7567,11 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
     });
   }
 
-  function usuarioCumpleFiltrosBase(persona, departamento, puesto) {
+  function usuarioCumpleFiltrosBase(persona, area, departamento, puesto) {
+    if (!usuarioTieneArea(persona, area)) {
+      return false;
+    }
+
     if (!usuarioTieneDepartamento(persona, departamento)) {
       return false;
     }
@@ -7552,11 +7623,12 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
     return select.value;
   }
 
-  function obtenerDepartamentosDisponibles(tipoPuesto, puestoSeleccionado) {
+  function obtenerDepartamentosDisponibles(tipoPuesto, puestoSeleccionado, areaSeleccionada) {
     const departamentos = new Set();
 
     usuariosData.forEach(persona => {
       if (!usuarioCumpleTipoPuesto(persona, tipoPuesto)) return;
+      if (areaSeleccionada && !usuarioTieneArea(persona, areaSeleccionada)) return;
       if (puestoSeleccionado && !usuarioTienePuesto(persona, puestoSeleccionado, '')) return;
 
       obtenerPuestosUsuario(persona).forEach(puesto => {
@@ -7569,11 +7641,39 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
     return departamentos;
   }
 
-  function obtenerPuestosDisponibles(tipoPuesto, departamentoSeleccionado) {
+  function obtenerAreasDisponibles(tipoPuesto, departamentoSeleccionado, puestoSeleccionado) {
+    const areas = new Set();
+
+    usuariosData.forEach(persona => {
+      if (!usuarioCumpleTipoPuesto(persona, tipoPuesto)) return;
+      if (departamentoSeleccionado && !usuarioTieneDepartamento(persona, departamentoSeleccionado)) return;
+      if (puestoSeleccionado && !usuarioTienePuesto(persona, puestoSeleccionado, departamentoSeleccionado || '')) return;
+
+      obtenerPuestosUsuario(persona).forEach(puesto => {
+        const nombreArea = obtenerNombreAreaPorPuesto(puesto);
+        if (nombreArea && nombreArea !== 'Sin área') {
+          areas.add(nombreArea);
+        }
+      });
+    });
+
+    // Fallback: si por data de usuarios no salió nada, usar catálogo de departamentos.
+    if (areas.size === 0 && mapaDepartamentoAreaGestion.size > 0) {
+      mapaDepartamentoAreaGestion.forEach((nombreArea) => {
+        const n = String(nombreArea || '').trim();
+        if (n) areas.add(n);
+      });
+    }
+
+    return areas;
+  }
+
+  function obtenerPuestosDisponibles(tipoPuesto, departamentoSeleccionado, areaSeleccionada) {
     const puestos = new Set();
 
     usuariosData.forEach(persona => {
       if (!usuarioCumpleTipoPuesto(persona, tipoPuesto)) return;
+      if (areaSeleccionada && !usuarioTieneArea(persona, areaSeleccionada)) return;
       if (departamentoSeleccionado && !usuarioTieneDepartamento(persona, departamentoSeleccionado)) return;
 
       obtenerPuestosUsuario(persona).forEach(puesto => {
@@ -7637,47 +7737,61 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
     if (actualizandoFiltrosGestion) return;
     actualizandoFiltrosGestion = true;
 
+    const selectArea = document.getElementById('UserArea');
     const selectDepartamento = document.getElementById('UserRole');
     const selectPuesto = document.getElementById('UserPlan');
     const selectMultiple = document.getElementById('FilterMultiplePuestos');
 
     const autoTipo = origen !== 'FilterMultiplePuestos';
     let tipoPuesto = selectMultiple?.value || '';
+    let area = selectArea?.value || '';
     let departamento = selectDepartamento?.value || '';
     let puesto = selectPuesto?.value || '';
 
+    area = actualizarOpcionesSelectFiltro(
+      'UserArea',
+      obtenerAreasDisponibles(tipoPuesto, departamento, puesto),
+      'Selecciona Área'
+    );
+
     departamento = actualizarOpcionesSelectFiltro(
       'UserRole',
-      obtenerDepartamentosDisponibles(tipoPuesto, puesto),
+      obtenerDepartamentosDisponibles(tipoPuesto, puesto, area),
       'Selecciona Departamento'
     );
 
     puesto = actualizarOpcionesSelectFiltro(
       'UserPlan',
-      obtenerPuestosDisponibles(tipoPuesto, departamento),
+      obtenerPuestosDisponibles(tipoPuesto, departamento, area),
       'Selecciona Puesto'
     );
 
     const datosBase = usuariosData.filter(persona =>
-      usuarioCumpleFiltrosBase(persona, departamento, puesto)
+      usuarioCumpleFiltrosBase(persona, area, departamento, puesto)
     );
     tipoPuesto = actualizarFiltroMultiplePuestos(datosBase, autoTipo);
 
     if (autoTipo) {
+      area = actualizarOpcionesSelectFiltro(
+        'UserArea',
+        obtenerAreasDisponibles(tipoPuesto, departamento, puesto),
+        'Selecciona Área'
+      );
+
       departamento = actualizarOpcionesSelectFiltro(
         'UserRole',
-        obtenerDepartamentosDisponibles(tipoPuesto, puesto),
+        obtenerDepartamentosDisponibles(tipoPuesto, puesto, area),
         'Selecciona Departamento'
       );
 
       actualizarOpcionesSelectFiltro(
         'UserPlan',
-        obtenerPuestosDisponibles(tipoPuesto, departamento),
+        obtenerPuestosDisponibles(tipoPuesto, departamento, area),
         'Selecciona Puesto'
       );
     }
 
-    ['UserRole', 'UserPlan', 'FilterMultiplePuestos'].forEach(id => {
+    ['UserArea', 'UserRole', 'UserPlan', 'FilterMultiplePuestos'].forEach(id => {
       const filtro = document.getElementById(id);
       if (filtro) aplicarFeedbackVisualFiltro(filtro);
     });
@@ -7695,7 +7809,7 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
   }
 
   function vincularEventosFiltrosGestion() {
-    const filtros = ['UserRole', 'UserPlan', 'FilterMultiplePuestos'];
+    const filtros = ['UserArea', 'UserRole', 'UserPlan', 'FilterMultiplePuestos'];
 
     filtros.forEach(id => {
       const filtro = document.getElementById(id);
@@ -7732,7 +7846,9 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
             id_puesto: usuario.id_puesto,
             nombre_puesto: usuario.nombre_puesto,
             nombre_departamento: usuario.nombre_departamento,
-            id_departamento: usuario.id_departamento
+            id_departamento: usuario.id_departamento,
+            id_area: usuario.id_area,
+            nombre_area: usuario.nombre_area
           }],
           // Guardar el nombre del puesto y departamento originales para compatibilidad
           nombre_puesto_principal: usuario.nombre_puesto,
@@ -7751,7 +7867,9 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
             id_puesto: usuario.id_puesto,
             nombre_puesto: usuario.nombre_puesto,
             nombre_departamento: usuario.nombre_departamento,
-            id_departamento: usuario.id_departamento
+            id_departamento: usuario.id_departamento,
+            id_area: usuario.id_area,
+            nombre_area: usuario.nombre_area
           });
         }
       }
@@ -7777,6 +7895,7 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
         // Guardar los datos consolidados globalmente
         usuariosData = usuariosConsolidados;
         window.usuariosData = usuariosConsolidados;
+        inicializarMapaAreasGestion();
 
         // Pintar la primera carga con el mismo renderer compacto que usan los filtros.
         actualizarTabla(usuariosConsolidados);
@@ -7785,6 +7904,7 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
         // ACTUALIZAR INDICADORES (KPIs)
         // ==========================================
         actualizarIndicadores(usuariosConsolidados);
+        const areas = obtenerAreasDisponibles('', '', '');
         const departamentos = new Set();
         const puestos = new Set();
         const estatus = new Set();
@@ -7792,7 +7912,7 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
         // CONJUNTOS para almacenar valores únicos (evita duplicados)
 
         // Iterar los datos y extraer valores únicos
-        resp.datos.forEach(persona => {
+        usuariosConsolidados.forEach(persona => {
           // DEPARTAMENTO
           if (persona.nombre_departamento && persona.nombre_departamento !== 'Sin departamento') {
             departamentos.add(persona.nombre_departamento);
@@ -7812,6 +7932,23 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
         //  FORZAR "Inactivo" en los estatus
 
         estatus.add('Activo');
+
+        // ==========================================
+        // LLENAR SELECT ÁREA (UserArea)
+        // ==========================================
+        const selectArea = document.getElementById('UserArea');
+        if (selectArea) {
+          const opciones = selectArea.querySelectorAll('option');
+          opciones.forEach((opt, index) => {
+            if (index > 0) opt.remove();
+          });
+          areas.forEach(area => {
+            const option = document.createElement('option');
+            option.value = area;
+            option.textContent = area;
+            selectArea.appendChild(option);
+          });
+        }
 
         // ==========================================
         // LLENAR SELECT DEPARTAMENTO (UserRole)
@@ -7904,6 +8041,7 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
         actualizarOpcionesFiltrosGestion('init');
 
         if (typeof window.refreshSelectBuscador === 'function') {
+          window.refreshSelectBuscador('UserArea');
           window.refreshSelectBuscador('UserRole');
           window.refreshSelectBuscador('UserPlan');
           window.refreshSelectBuscador('FilterMultiplePuestos');
@@ -8083,12 +8221,13 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
    */
   function aplicarFiltros() {
     // Obtener valores seleccionados
+    const areaSeleccionada = document.getElementById('UserArea')?.value || '';
     const departamentoSeleccionado = document.getElementById('UserRole')?.value || '';
     const puestoSeleccionado = document.getElementById('UserPlan')?.value || '';
     let multiplePuestosSeleccionado = document.getElementById('FilterMultiplePuestos')?.value || '';
 
       const datosBase = usuariosData.filter(persona =>
-        usuarioCumpleFiltrosBase(persona, departamentoSeleccionado, puestoSeleccionado)
+        usuarioCumpleFiltrosBase(persona, areaSeleccionada, departamentoSeleccionado, puestoSeleccionado)
       );
 
     // Filtrar datos
@@ -8397,7 +8536,7 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
    * ==========================================
    */
   function inicializarFeedbackFiltros() {
-    const filtros = ['UserRole', 'UserPlan', 'FilterMultiplePuestos'];
+    const filtros = ['UserArea', 'UserRole', 'UserPlan', 'FilterMultiplePuestos'];
     filtros.forEach(id => {
       const filtro = document.getElementById(id);
       if (filtro && filtro.value) {
@@ -8642,7 +8781,9 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
         id_puesto: usuario.id_puesto,
         nombre_puesto: usuario.nombre_puesto || 'Sin puesto',
         nombre_departamento: usuario.nombre_departamento || 'Sin departamento',
-        id_departamento: usuario.id_departamento
+        id_departamento: usuario.id_departamento,
+        id_area: usuario.id_area,
+        nombre_area: usuario.nombre_area
       }] : [];
     }
     mostrarAlertaMultiplesPuestos(puestosUsuarioActual.length > 1);
@@ -9333,6 +9474,7 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
    */
   function descargarPlantillaGestores() {
     // Obtener filtros activos
+    const area = document.getElementById('UserArea').value || '';
     const departamento = document.getElementById('UserRole').value || '';
     const puesto = document.getElementById('UserPlan').value || '';
 
@@ -9340,6 +9482,7 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
     let mensajeFiltros = 'Se descargará un archivo Excel con ';
     let detallesFiltros = [];
 
+    if (area) detallesFiltros.push(`Área: <strong>${area}</strong>`);
     if (departamento) detallesFiltros.push(`Departamento: <strong>${departamento}</strong>`);
     if (puesto) detallesFiltros.push(`Puesto: <strong>${puesto}</strong>`);
 

@@ -3195,27 +3195,37 @@ SQL;
                  LIMIT 1",
                 ['idCredito' => $idCredito]
             );
-            if (!$asignacion) {
-                $this->db->rollback();
-                return ['success' => false, 'message' => 'No se encontró una asignación activa para este crédito.'];
-            }
-
             $idPersonalAdj = (int) $persona['id_personal_adj'];
-            if ((int) $asignacion['id_personal_adj'] === $idPersonalAdj) {
-                $yaAsignado = true;
-            } else {
+            if (!$asignacion) {
+                $this->db->CRUD(
+                    "INSERT INTO asigna_creditos_adjudicacion
+                        (id_personal_adj, id_credito, fecha_alta, alta, estatus)
+                     VALUES (:idPersonalAdj, :idCredito, :fechaAlta, :alta, '1')",
+                    [
+                        'idPersonalAdj' => $idPersonalAdj,
+                        'idCredito' => $idCredito,
+                        'fechaAlta' => $ahora,
+                        'alta' => $idUsuario,
+                    ]
+                );
                 $yaAsignado = false;
-            }
+            } else {
+                if ((int) $asignacion['id_personal_adj'] === $idPersonalAdj) {
+                    $yaAsignado = true;
+                } else {
+                    $yaAsignado = false;
+                }
 
-            $this->db->CRUD(
-                "UPDATE asigna_creditos_adjudicacion
-                 SET id_personal_adj = :idPersonalAdj
-                 WHERE id_credito = :idCredito AND estatus = '1'",
-                [
-                    'idPersonalAdj' => $idPersonalAdj,
-                    'idCredito' => $idCredito,
-                ]
-            );
+                $this->db->CRUD(
+                    "UPDATE asigna_creditos_adjudicacion
+                     SET id_personal_adj = :idPersonalAdj
+                     WHERE id_credito = :idCredito AND estatus = '1'",
+                    [
+                        'idPersonalAdj' => $idPersonalAdj,
+                        'idCredito' => $idCredito,
+                    ]
+                );
+            }
 
             if (!$yaAsignado) {
                 $this->registrarBitacora(
@@ -3720,7 +3730,7 @@ SQL;
         return ['success' => true];
     }
 
-    public function sincronizarDictumsAppPendientes(): void
+    public function sincronizarDictumsAppPendientes(bool $forzar = false): void
     {
         $lockHandle = null;
         $lockTomado = false;
@@ -3729,7 +3739,7 @@ SQL;
             $stampPath = rtrim(sys_get_temp_dir(), DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR . 'sparta_madj_dictums_sync.stamp';
             $intervaloMinimo = 300;
 
-            if (is_file($stampPath) && (time() - (int) @filemtime($stampPath)) < $intervaloMinimo) {
+            if (!$forzar && is_file($stampPath) && (time() - (int) @filemtime($stampPath)) < $intervaloMinimo) {
                 return;
             }
 
@@ -3744,7 +3754,7 @@ SQL;
             }
             $lockTomado = true;
 
-            if (is_file($stampPath) && (time() - (int) @filemtime($stampPath)) < $intervaloMinimo) {
+            if (!$forzar && is_file($stampPath) && (time() - (int) @filemtime($stampPath)) < $intervaloMinimo) {
                 return;
             }
             @touch($stampPath);
