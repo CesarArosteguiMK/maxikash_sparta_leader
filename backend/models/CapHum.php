@@ -442,6 +442,93 @@ class CapHum extends Model
         }
     }
 
+    private static function divisionesAdministrativasApiConfig(): array
+    {
+        $cfg = function_exists('config_api_load_from_db') ? config_api_load_from_db() : [];
+        $leerValor = static function (array $keys) use ($cfg): string {
+            foreach ($keys as $key) {
+                $valor = trim((string)($cfg[$key] ?? ''));
+                if ($valor !== '') {
+                    return $valor;
+                }
+                $env = getenv($key);
+                if ($env !== false && trim((string)$env) !== '') {
+                    return trim((string)$env);
+                }
+            }
+            return '';
+        };
+
+        $baseUrl = $leerValor(['DIVISIONES_ADMINISTRATIVAS_API_BASE_URL', 'MOTOS_ADJUDICADAS_PUSH_BASE_URL']);
+        if ($baseUrl === '') {
+            $baseUrl = 'https://motosadjudicadas-601258367060.us-central1.run.app/api/divisiones-administrativas';
+        }
+        $baseUrl = rtrim($baseUrl, '/');
+        if (!preg_match('#/api/divisiones-administrativas$#', $baseUrl)) {
+            $baseUrl .= '/api/divisiones-administrativas';
+        }
+
+        $apiKey = $leerValor(['DIVISIONES_ADMINISTRATIVAS_API_KEY', 'MOTOS_ADJUDICADAS_API_KEY', 'MOTOS_ADJUDICADAS_TOKEN']);
+        if ($apiKey === '') {
+            $apiKey = 'ARt4a6Atn0VhiPJ_0bgXeprr9DUuSAQ7b3oKzICSTy0';
+        }
+
+        return [
+            'base_url' => $baseUrl,
+            'api_key' => $apiKey,
+        ];
+    }
+
+    private static function divisionesAdministrativasApiGet(string $path, array $query = []): array
+    {
+        $cfg = self::divisionesAdministrativasApiConfig();
+        if ($cfg['base_url'] === '' || $cfg['api_key'] === '' || !function_exists('curl_init')) {
+            return ['success' => false, 'datos' => []];
+        }
+
+        $url = $cfg['base_url'] . '/' . ltrim($path, '/');
+        if (!empty($query)) {
+            $url .= '?' . http_build_query($query);
+        }
+
+        $ch = curl_init($url);
+        curl_setopt_array($ch, [
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_TIMEOUT => 10,
+            CURLOPT_CONNECTTIMEOUT => 4,
+            CURLOPT_HTTPHEADER => [
+                'Accept: application/json',
+                'X-API-Key: ' . $cfg['api_key'],
+            ],
+            CURLOPT_SSL_VERIFYPEER => true,
+        ]);
+
+        $raw = curl_exec($ch);
+        $httpCode = (int)curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        curl_close($ch);
+
+        $json = json_decode($raw === false ? '' : (string)$raw, true);
+        if ($httpCode < 200 || $httpCode >= 300 || !is_array($json) || empty($json['success'])) {
+            return ['success' => false, 'datos' => []];
+        }
+
+        $datos = is_array($json['data'] ?? null) ? $json['data'] : [];
+        return ['success' => true, 'datos' => $datos];
+    }
+
+    private static function normalizarDivisionAdministrativaApi(array $row): array
+    {
+        return [
+            'id' => $row['id'] ?? null,
+            'nombre' => $row['nombre'] ?? '',
+            'codigo_interno' => $row['codigo_interno'] ?? null,
+            'codigo_iso' => $row['codigo_iso'] ?? null,
+            'id_padre' => $row['id_padre'] ?? null,
+            'tipo_label' => $row['tipo_nombre'] ?? $row['tipo_label'] ?? '',
+            'tipo_codigo' => $row['tipo_codigo'] ?? '',
+        ];
+    }
+
     public static function crearVacantePersonal($data)
     {
         try {
@@ -575,6 +662,61 @@ class CapHum extends Model
             return self::resultado(true, 'Vacantes encontradas.', $rows);
         } catch (\Exception $e) {
             return self::resultado(false, 'Error al consultar vacantes para jefe directo.', null, $e->getMessage());
+        }
+    }
+
+    public static function actualizarJefeVacantePersonal($idVacante, $idJefe)
+    {
+        try {
+            $db = new Database();
+            self::asegurarTablaVacantesPersonal($db);
+
+            $idVacante = (int)$idVacante;
+            $idJefe = (int)$idJefe;
+
+            if ($idVacante <= 0 || $idJefe <= 0) {
+                return self::resultado(false, 'Seleccione la vacante y el jefe destino.');
+            }
+
+            $vacante = $db->queryOne("
+                SELECT id, id_departamento, id_puesto, id_jefe, estatus
+                FROM __SPARTA_SECRET_REDACTED__.vacantes_personal
+                WHERE id = :id
+                LIMIT 1
+            ", ['id' => $idVacante]);
+
+            if (!$vacante || strtoupper(trim((string)($vacante['estatus'] ?? ''))) !== 'ACTIVA') {
+                return self::resultado(false, 'La vacante ya no esta activa.');
+            }
+
+            $jefe = $db->queryOne("
+                SELECT p.id
+                FROM __SPARTA_SECRET_REDACTED__.persona p
+                WHERE p.id = :id_jefe
+                  AND p.estatus != 'Baja'
+                LIMIT 1
+            ", ['id_jefe' => $idJefe]);
+
+            if (!$jefe) {
+                return self::resultado(false, 'El jefe seleccionado no esta activo.');
+            }
+
+            $db->CRUD("
+                UPDATE __SPARTA_SECRET_REDACTED__.vacantes_personal
+                SET id_jefe = :id_jefe
+                WHERE id = :id_vacante
+                LIMIT 1
+            ", [
+                'id_jefe' => $idJefe,
+                'id_vacante' => $idVacante,
+            ]);
+
+            return self::resultado(true, 'Jefe de vacante actualizado correctamente.', [
+                'id_vacante' => $idVacante,
+                'id_jefe' => $idJefe,
+            ]);
+        } catch (\Exception $e) {
+            return self::resultado(false, 'Error al actualizar el jefe de la vacante.', null, $e->getMessage());
         }
     }
 
@@ -744,6 +886,10 @@ class CapHum extends Model
             p.apellidom,
             CONCAT_WS(' ', p.nombres, p.segundo_nombre, p.apellidop, p.apellidom) AS nombre_completo,
             COALESCE(p.telefono_uno, '') AS telefono,
+            COALESCE(p.telefono_dos, '') AS telefono_dos,
+            COALESCE(p.correo, '') AS correo,
+            COALESCE(p.domicilio_calle_texto, '') AS domicilio_calle_texto,
+            COALESCE(p.codigo_postal, '') AS codigo_postal,
 
             pp.id AS id_puesto,
             COALESCE(pp.nombre, 'Sin puesto') AS nombre_puesto,
@@ -3739,7 +3885,6 @@ class CapHum extends Model
 public static function getEstadosPorPais($id_pais)
 {
     $id_pais = (int) $id_pais;
-
     $query = <<<SQL
     SELECT
         da.id,
@@ -3758,10 +3903,25 @@ public static function getEstadosPorPais($id_pais)
     try {
         $db = new Database();
         $r  = $db->queryAll($query);
-        return self::resultado(true, 'Estados encontrados.', $r);
+        if (!empty($r) || $id_pais !== 1) {
+            return self::resultado(true, 'Estados encontrados.', $r);
+        }
     } catch (\Exception $e) {
-        return self::resultado(false, 'Error al obtener estados.', null, $e->getMessage());
+        $localError = $e->getMessage();
     }
+
+    if ($id_pais === 1) {
+        $api = self::divisionesAdministrativasApiGet('estados');
+        if (!empty($api['success']) && !empty($api['datos'])) {
+            $datos = array_map([self::class, 'normalizarDivisionAdministrativaApi'], $api['datos']);
+            usort($datos, static function ($a, $b) {
+                return strcasecmp((string)($a['nombre'] ?? ''), (string)($b['nombre'] ?? ''));
+            });
+            return self::resultado(true, 'Estados encontrados.', $datos);
+        }
+    }
+
+    return self::resultado(false, 'Error al obtener estados.', null, $localError ?? 'Catalogo local y remoto sin datos.');
 }
 
 /**
@@ -3770,7 +3930,6 @@ public static function getEstadosPorPais($id_pais)
 public static function getMunicipiosPorEstado($id_estado)
 {
     $id_estado = (int) $id_estado;
-
     $query = <<<SQL
     SELECT
         da.id,
@@ -3789,9 +3948,77 @@ public static function getMunicipiosPorEstado($id_estado)
     try {
         $db = new Database();
         $r  = $db->queryAll($query);
-        return self::resultado(true, 'Municipios encontrados.', $r);
+        if (!empty($r)) {
+            return self::resultado(true, 'Municipios encontrados.', $r);
+        }
     } catch (\Exception $e) {
-        return self::resultado(false, 'Error al obtener municipios.', null, $e->getMessage());
+        $localError = $e->getMessage();
+    }
+
+    if ($id_estado > 0 && $id_estado <= 32) {
+        $api = self::divisionesAdministrativasApiGet('municipios', ['id_padre' => $id_estado]);
+        if (!empty($api['success']) && !empty($api['datos'])) {
+            $datos = array_map([self::class, 'normalizarDivisionAdministrativaApi'], $api['datos']);
+            usort($datos, static function ($a, $b) {
+                return strcasecmp((string)($a['nombre'] ?? ''), (string)($b['nombre'] ?? ''));
+            });
+            return self::resultado(true, 'Municipios encontrados.', $datos);
+        }
+    }
+
+    return self::resultado(true, 'Municipios encontrados.', []);
+}
+
+public static function getEstadosMunicipiosMexico()
+{
+    $query = <<<SQL
+    SELECT
+        da.id,
+        da.id_padre,
+        da.nivel,
+        da.nombre,
+        da.codigo_interno,
+        dat.nombre AS tipo_label,
+        dat.codigo AS tipo_codigo
+    FROM divisiones_administrativas da
+    INNER JOIN division_administrativa_tipos dat ON dat.id = da.id_tipo
+    WHERE da.id_pais = 1
+      AND da.nivel IN (1, 2)
+      AND da.activo = 1
+    ORDER BY da.nivel ASC, da.id_padre ASC, da.nombre ASC
+    SQL;
+
+    try {
+        $db = new Database();
+        $rows = $db->queryAll($query);
+        $estados = [];
+        $municipiosPorEstado = [];
+
+        foreach ($rows as $row) {
+            $nivel = (int)($row['nivel'] ?? 0);
+            if ($nivel === 1) {
+                $estados[] = $row;
+                continue;
+            }
+
+            if ($nivel === 2) {
+                $idPadre = (string)($row['id_padre'] ?? '');
+                if ($idPadre === '') {
+                    continue;
+                }
+                if (!isset($municipiosPorEstado[$idPadre])) {
+                    $municipiosPorEstado[$idPadre] = [];
+                }
+                $municipiosPorEstado[$idPadre][] = $row;
+            }
+        }
+
+        return self::resultado(true, 'Catalogo de Mexico encontrado.', [
+            'estados' => $estados,
+            'municipios_por_estado' => $municipiosPorEstado,
+        ]);
+    } catch (\Exception $e) {
+        return self::resultado(false, 'Error al obtener catalogo de Mexico.', null, $e->getMessage());
     }
 }
 

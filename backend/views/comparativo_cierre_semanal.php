@@ -15,6 +15,16 @@ $cmpError = isset($comparativo_error) ? (string) $comparativo_error : '';
                 <span>Corte</span>
                 <select id="cmp930-corte" class="form-select form-select-sm"></select>
             </label>
+            <label class="cmp930-corte-control mb-0">
+                <span>Modo</span>
+                <select id="cmp930-modo-conciliacion" class="form-select form-select-sm">
+                    <option value="sin">Sin conciliación</option>
+                    <option value="con">Con conciliación</option>
+                </select>
+            </label>
+            <span id="cmp930-conciliacion-label" class="badge bg-label-secondary">
+                Corte calculado sin conciliación
+            </span>
             <span id="cmp930-status" class="badge <?= is_array($comparativo_payload ?? null) ? 'bg-label-success' : 'bg-label-danger'; ?>">
                 <?= is_array($comparativo_payload ?? null) ? 'Servicio: activo' : 'Servicio: no disponible'; ?>
             </span>
@@ -150,6 +160,12 @@ $cmpError = isset($comparativo_error) ? (string) $comparativo_error : '';
 .cmp930-corte-control .form-select {
     min-width: 92px;
 }
+#cmp930-modo-conciliacion {
+    min-width: 150px;
+}
+#cmp930-conciliacion-label {
+    font-weight: 700;
+}
 .cmp930-grid {
     display: grid;
     grid-template-columns: minmax(280px, 1.2fr) minmax(130px, .4fr) minmax(280px, 1.2fr) minmax(130px, .4fr);
@@ -250,7 +266,8 @@ $cmpError = isset($comparativo_error) ? (string) $comparativo_error : '';
         flex: 1;
         min-width: 0;
     }
-    #cmp930-status {
+    #cmp930-status,
+    #cmp930-conciliacion-label {
         grid-column: 1 / -1;
         justify-self: stretch;
         text-align: center;
@@ -316,6 +333,11 @@ $cmpError = isset($comparativo_error) ? (string) $comparativo_error : '';
         return select && select.value ? select.value : '14:30';
     }
 
+    function selectedModoConciliacion() {
+        const select = el('cmp930-modo-conciliacion');
+        return select && select.value ? select.value : 'sin';
+    }
+
     function syncCorteOptions(data) {
         const select = el('cmp930-corte');
         if (!select || !data) return;
@@ -328,6 +350,17 @@ $cmpError = isset($comparativo_error) ? (string) $comparativo_error : '';
             select.innerHTML = options.map(corte => '<option value="' + escapeHtml(corte) + '">' + escapeHtml(corte) + '</option>').join('');
         }
         select.value = current;
+    }
+
+    function syncModoConciliacion(data) {
+        const select = el('cmp930-modo-conciliacion');
+        if (!select || !data) return;
+        const optionCon = select.querySelector('option[value="con"]');
+        if (optionCon) {
+            optionCon.disabled = !data.conciliacion_disponible;
+            optionCon.textContent = data.conciliacion_disponible ? 'Con conciliación' : 'Con conciliación (pendiente)';
+        }
+        select.value = data.modo_conciliacion || 'sin';
     }
 
     function renderRows(targetId, metric, isMoney) {
@@ -408,12 +441,18 @@ $cmpError = isset($comparativo_error) ? (string) $comparativo_error : '';
         }
 
         syncCorteOptions(data);
+        syncModoConciliacion(data);
         if (Array.isArray(data.advertencias) && data.advertencias.length) {
             showWarnings(data.advertencias);
         } else {
             hideError();
         }
         setStatus(true);
+        const label = el('cmp930-conciliacion-label');
+        if (label) {
+            label.className = 'badge ' + (data.conciliacion_activa ? 'bg-label-success' : 'bg-label-secondary');
+            label.textContent = data.etiqueta_conciliacion || (data.conciliacion_activa ? 'Corte calculado con conciliación' : 'Corte calculado sin conciliación');
+        }
         const corteLabel = (data.dia_corte ? data.dia_corte + ' ' : '') + (data.corte || '14:30');
         el('cmp930-page-title').textContent = 'Comparativo Semana Actual vs Semana Pasada';
         el('cmp930-title-creditos-pasada').textContent = data.semana_pasada + ' ' + corteLabel + ' Creditos';
@@ -436,11 +475,15 @@ $cmpError = isset($comparativo_error) ? (string) $comparativo_error : '';
     async function refresh() {
         const btn = el('cmp930-refresh');
         const select = el('cmp930-corte');
+        const modoSelect = el('cmp930-modo-conciliacion');
         if (btn) btn.disabled = true;
         if (select) select.disabled = true;
+        if (modoSelect) modoSelect.disabled = true;
         showLoading();
         try {
-            const url = endpoint + '?corte=' + encodeURIComponent(selectedCorte());
+            const url = endpoint
+                + '?corte=' + encodeURIComponent(selectedCorte())
+                + '&modo_conciliacion=' + encodeURIComponent(selectedModoConciliacion());
             const res = await fetch(url, { headers: { 'Accept': 'application/json' } });
             const data = await res.json();
             render(data);
@@ -450,12 +493,14 @@ $cmpError = isset($comparativo_error) ? (string) $comparativo_error : '';
         } finally {
             if (btn) btn.disabled = false;
             if (select) select.disabled = false;
+            if (modoSelect) modoSelect.disabled = false;
             closeLoading();
         }
     }
 
     el('cmp930-refresh')?.addEventListener('click', refresh);
     el('cmp930-corte')?.addEventListener('change', refresh);
+    el('cmp930-modo-conciliacion')?.addEventListener('change', refresh);
     render(initialData);
 })();
 </script>

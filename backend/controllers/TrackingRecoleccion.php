@@ -22,6 +22,7 @@ class TrackingRecoleccion extends Controller
         if ($trkCfg['base_url'] !== '') {
             $wsBase = preg_replace('/^https:/i', 'wss:', preg_replace('/^http:/i', 'ws:', rtrim($trkCfg['base_url'], '/')));
             self::set('tracking_chat_ws_base_url', $wsBase);
+            self::set('tracking_api_base_url', rtrim($trkCfg['base_url'], '/'));
         }
         return self::render('tracking_recoleccion');
     }
@@ -52,7 +53,7 @@ class TrackingRecoleccion extends Controller
     private function _trkChatCurl(string $url, string $method, string $body, array $headers): array
     {
         if (!function_exists('curl_init')) {
-            return ['http_code' => 0, 'body' => ''];
+            return ['http_code' => 0, 'body' => '', 'error' => 'cURL no disponible.'];
         }
         $ch = curl_init($url);
         curl_setopt_array($ch, [
@@ -69,9 +70,10 @@ class TrackingRecoleccion extends Controller
             if ($body !== '') curl_setopt($ch, CURLOPT_POSTFIELDS, $body);
         }
         $raw      = curl_exec($ch);
+        $curlErr  = $raw === false ? curl_error($ch) : '';
         $httpCode = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
         curl_close($ch);
-        return ['http_code' => $httpCode, 'body' => ($raw === false ? '' : (string)$raw)];
+        return ['http_code' => $httpCode, 'body' => ($raw === false ? '' : (string)$raw), 'error' => $curlErr];
     }
 
     /**
@@ -228,6 +230,90 @@ class TrackingRecoleccion extends Controller
     }
 
     /**
+     * GET /TrackingRecoleccion/trackingLiveConfig
+     * Devuelve datos necesarios para abrir el WebSocket live desde navegador.
+     */
+    public function trackingLiveConfig()
+    {
+        $cfg   = $this->_trkChatConfig();
+        $token = $this->_trkChatObtenerJwt();
+        if ($cfg['base_url'] === '' || $cfg['api_key'] === '' || $token === '') {
+            self::respuestaJSON(['success' => false, 'mensaje' => 'Tracking live no disponible.']);
+            return;
+        }
+
+        $wsBase = preg_replace('/^https:/i', 'wss:', preg_replace('/^http:/i', 'ws:', rtrim($cfg['base_url'], '/')));
+        $expiryMs = (int)(($_SESSION['_trk_chat_jwt_exp'] ?? (time() + 3300)) * 1000);
+        self::respuestaJSON([
+            'success'   => true,
+            'ws_base'   => $wsBase,
+            'token'     => $token,
+            'api_key'   => $cfg['api_key'],
+            'expiry_ms' => $expiryMs,
+        ]);
+    }
+
+    /**
+     * GET /TrackingRecoleccion/trackingUbicacionActual?id_ruta=X
+     * Proxy: GET /api/tracking/rutas/{id_ruta}/ubicacion/actual
+     */
+    public function trackingUbicacionActual()
+    {
+        $idRuta = (int)($_GET['id_ruta'] ?? 0);
+        if ($idRuta <= 0) {
+            self::respuestaJSON(['success' => false, 'mensaje' => 'id_ruta requerido.']);
+            return;
+        }
+
+        $cfg   = $this->_trkChatConfig();
+        $token = $this->_trkChatObtenerJwt();
+        if ($cfg['base_url'] === '' || $token === '') {
+            self::respuestaJSON(['success' => false, 'mensaje' => 'Tracking no disponible.']);
+            return;
+        }
+
+        $url  = rtrim($cfg['base_url'], '/') . "/api/tracking/rutas/{$idRuta}/ubicacion/actual";
+        $resp = $this->_trkChatCurl($url, 'GET', '', [
+            'X-API-Key: '     . $cfg['api_key'],
+            'Authorization: Bearer ' . $token,
+        ]);
+
+        $this->_trkChatRelayResponse($resp);
+    }
+
+    /**
+     * GET /TrackingRecoleccion/trackingUbicacionHistorial?id_ruta=X[&limit=300][&since=ISO]
+     * Proxy: GET /api/tracking/rutas/{id_ruta}/ubicacion/historial
+     */
+    public function trackingUbicacionHistorial()
+    {
+        $idRuta = (int)($_GET['id_ruta'] ?? 0);
+        if ($idRuta <= 0) {
+            self::respuestaJSON(['success' => false, 'mensaje' => 'id_ruta requerido.']);
+            return;
+        }
+
+        $limit = min(1000, max(1, (int)($_GET['limit'] ?? 300)));
+        $since = trim((string)($_GET['since'] ?? ''));
+
+        $cfg   = $this->_trkChatConfig();
+        $token = $this->_trkChatObtenerJwt();
+        if ($cfg['base_url'] === '' || $token === '') {
+            self::respuestaJSON(['success' => false, 'mensaje' => 'Tracking no disponible.']);
+            return;
+        }
+
+        $qs = '?limit=' . $limit . ($since !== '' ? '&since=' . rawurlencode($since) : '');
+        $url  = rtrim($cfg['base_url'], '/') . "/api/tracking/rutas/{$idRuta}/ubicacion/historial{$qs}";
+        $resp = $this->_trkChatCurl($url, 'GET', '', [
+            'X-API-Key: '     . $cfg['api_key'],
+            'Authorization: Bearer ' . $token,
+        ]);
+
+        $this->_trkChatRelayResponse($resp);
+    }
+
+    /**
      * POST /TrackingRecoleccion/chatEnviarMensaje
      * Body JSON: { id_detalle, mensaje, tipo_mensaje?, latitud?, longitud?, metadata? }
      * Proxy: POST /api/tracking/chats/{id_detalle}/mensajes
@@ -272,6 +358,78 @@ class TrackingRecoleccion extends Controller
     }
 
     /**
+     * POST /TrackingRecoleccion/chatSubirArchivo
+     * Multipart: id_detalle, archivo, mensaje?, latitud?, longitud?
+     * Proxy: POST /api/tracking/chats/{id_detalle}/archivos
+     */
+    public function chatSubirArchivo()
+    {
+        $idDetalle = (int)($_POST['id_detalle'] ?? 0);
+        if ($idDetalle <= 0) {
+            self::respuestaJSON(['success' => false, 'mensaje' => 'id_detalle requerido.']);
+            return;
+        }
+        if (empty($_FILES['archivo']) || !is_uploaded_file($_FILES['archivo']['tmp_name'])) {
+            self::respuestaJSON(['success' => false, 'mensaje' => 'Archivo requerido.']);
+            return;
+        }
+        if ((int)($_FILES['archivo']['size'] ?? 0) > 100 * 1024 * 1024) {
+            self::respuestaJSON(['success' => false, 'mensaje' => 'El archivo supera el lÃ­mite de 100 MB.', 'codigo_http' => 413]);
+            return;
+        }
+
+        $cfg   = $this->_trkChatConfig();
+        $token = $this->_trkChatObtenerJwt();
+        if ($cfg['base_url'] === '' || $token === '') {
+            self::respuestaJSON(['success' => false, 'mensaje' => 'Chat no disponible.']);
+            return;
+        }
+
+        $url = rtrim($cfg['base_url'], '/') . "/api/tracking/chats/{$idDetalle}/archivos";
+        if (!function_exists('curl_init') || !class_exists('\CURLFile')) {
+            self::respuestaJSON(['success' => false, 'mensaje' => 'Carga de archivos no disponible en este servidor.']);
+            return;
+        }
+
+        $file = $_FILES['archivo'];
+        $post = [
+            'archivo' => new \CURLFile(
+                $file['tmp_name'],
+                (string)($file['type'] ?? 'application/octet-stream'),
+                (string)($file['name'] ?? 'archivo')
+            ),
+        ];
+        foreach (['mensaje', 'latitud', 'longitud'] as $k) {
+            if (isset($_POST[$k]) && trim((string)$_POST[$k]) !== '') {
+                $post[$k] = (string)$_POST[$k];
+            }
+        }
+
+        $ch = curl_init($url);
+        curl_setopt_array($ch, [
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_TIMEOUT        => 120,
+            CURLOPT_POST           => true,
+            CURLOPT_POSTFIELDS     => $post,
+            CURLOPT_HTTPHEADER     => [
+                'X-API-Key: ' . $cfg['api_key'],
+                'Authorization: Bearer ' . $token,
+            ],
+            CURLOPT_SSL_VERIFYPEER => false,
+        ]);
+        $raw      = curl_exec($ch);
+        $curlErr  = $raw === false ? curl_error($ch) : '';
+        $httpCode = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        curl_close($ch);
+
+        $this->_trkChatRelayResponse([
+            'http_code' => $httpCode,
+            'body'      => ($raw === false ? '' : (string)$raw),
+            'error'     => $curlErr,
+        ]);
+    }
+
+    /**
      * Retransmite la respuesta del tracking backend al cliente web, normalizando
      * los códigos de error para que el JS pueda interpretarlos.
      */
@@ -279,6 +437,17 @@ class TrackingRecoleccion extends Controller
     {
         $httpCode = $resp['http_code'];
         $data     = json_decode($resp['body'], true);
+        http_response_code(200);
+
+        if ($httpCode === 0 || $httpCode >= 500) {
+            self::respuestaJSON([
+                'success' => false,
+                'mensaje' => 'Servicio de tracking no disponible. Intenta de nuevo en unos minutos.',
+                'codigo_http' => $httpCode,
+                'servicio_no_disponible' => true,
+                'error' => $resp['error'] ?? null,
+            ]);
+        }
 
         // Si el body no es JSON válido, construir respuesta genérica
         if (!is_array($data)) {
@@ -382,6 +551,41 @@ class TrackingRecoleccion extends Controller
         }
     }
 
+    /**
+     * GET /TrackingRecoleccion/obtenerCatalogoAgenciasTransportistas
+     */
+    public function obtenerCatalogoAgenciasTransportistas()
+    {
+        try {
+            $model = new TrackingModel();
+            self::respuestaJSON(self::respuesta(true, null, $model->obtenerCatalogoAgenciasTransportistas()));
+        } catch (\Throwable $e) {
+            self::respuestaJSON(self::respuesta(false, 'Error al obtener agencias y transportistas.', null, $e->getMessage()));
+        }
+    }
+
+    /**
+     * GET /TrackingRecoleccion/obtenerTransportistasTracking?tipo=interno|externo&id_agencia=N
+     */
+    public function obtenerTransportistasTracking()
+    {
+        $tipo      = strtolower(trim((string) ($_GET['tipo'] ?? $_POST['tipo'] ?? '')));
+        $idAgencia = (int) ($_GET['id_agencia'] ?? $_POST['id_agencia'] ?? 0);
+        try {
+            $model = new TrackingModel();
+            self::respuestaJSON(self::respuesta(
+                true,
+                null,
+                $model->obtenerTransportistasTracking(
+                    in_array($tipo, ['interno', 'externo'], true) ? $tipo : null,
+                    $idAgencia > 0 ? $idAgencia : null
+                )
+            ));
+        } catch (\Throwable $e) {
+            self::respuestaJSON(self::respuesta(false, 'Error al obtener transportistas.', null, $e->getMessage()));
+        }
+    }
+
     // =========================================================================
     // API — RUTAS
     // =========================================================================
@@ -389,7 +593,7 @@ class TrackingRecoleccion extends Controller
     /**
      * POST /TrackingRecoleccion/guardarRuta
      * Body JSON: { nombre_ruta, estado, municipio, fecha_programada, modo,
-     *              usuarios:[], creditos:[], id_ruta? }
+     *              tipo_transportista, id_transportista, id_agencia_tracking, creditos:[], id_ruta? }
      */
     public function guardarRuta()
     {
@@ -403,9 +607,6 @@ class TrackingRecoleccion extends Controller
         // Fallback a POST fields
         if (empty($data)) {
             $data = $_POST;
-            if (isset($_POST['usuarios']) && is_string($_POST['usuarios'])) {
-                $data['usuarios'] = json_decode($_POST['usuarios'], true) ?: [];
-            }
             if (isset($_POST['creditos']) && is_string($_POST['creditos'])) {
                 $data['creditos'] = json_decode($_POST['creditos'], true) ?: [];
             }
@@ -505,6 +706,41 @@ class TrackingRecoleccion extends Controller
             self::respuestaJSON($result);
         } catch (\Throwable $e) {
             self::respuestaJSON(self::respuesta(false, 'Error al actualizar confirmación.', null, $e->getMessage()));
+        }
+    }
+
+    /**
+     * POST /TrackingRecoleccion/cancelarRuta
+     * Body: { id_ruta, motivo_cancelacion }
+     */
+    public function cancelarRuta()
+    {
+        $rawBody = file_get_contents('php://input');
+        $data    = [];
+        if ($rawBody !== '' && $rawBody !== false) {
+            $data = json_decode($rawBody, true) ?: [];
+        }
+        if (empty($data)) {
+            $data = $_POST;
+        }
+
+        $idRuta = (int) ($data['id_ruta'] ?? 0);
+        $motivo = trim((string) ($data['motivo_cancelacion'] ?? ''));
+        if ($idRuta <= 0 || $motivo === '') {
+            self::respuestaJSON(self::respuesta(false, 'Ruta y motivo de cancelación son obligatorios.'));
+            return;
+        }
+        if (mb_strlen($motivo, 'UTF-8') > 200) {
+            self::respuestaJSON(self::respuesta(false, 'El motivo de cancelación no puede exceder 200 caracteres.'));
+            return;
+        }
+
+        try {
+            $idUsuario = (int) ($_SESSION['persona_id'] ?? $_SESSION['usuario_id'] ?? 0);
+            $model     = new TrackingModel();
+            self::respuestaJSON($model->cancelarRuta($idRuta, $motivo, $idUsuario));
+        } catch (\Throwable $e) {
+            self::respuestaJSON(self::respuesta(false, 'Error al cancelar la ruta.', null, $e->getMessage()));
         }
     }
 }

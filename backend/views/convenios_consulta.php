@@ -4087,6 +4087,64 @@ function descargarPdfConvenio(idConvenio) {
 var _migCredito = null;
 var _migDetalle = null;
 var _migSemanas = 0;
+var _migBloqueadoPorBucket = false;
+
+function _bucketMinimoDiasConvenio(bucket) {
+    var txt = String(bucket || '').toLowerCase();
+    if (!txt || txt.indexOf('current') !== -1) return 0;
+
+    var nums = txt.match(/\d+/g);
+    if (!nums || !nums.length) return 0;
+
+    return nums
+        .map(function (n) { return parseInt(n, 10); })
+        .filter(function (n) { return !isNaN(n); })
+        .reduce(function (min, n) { return Math.min(min, n); }, Infinity);
+}
+
+function _creditoCumpleBucketConvenio(credito) {
+    return _bucketMinimoDiasConvenio(credito && credito.Bucket_Morosidad_Real) >= 22;
+}
+
+function _migBloquearPorBucket(credito, info) {
+    var bucket = (credito && credito.Bucket_Morosidad_Real) || 'sin bucket';
+    var diasBucket = _bucketMinimoDiasConvenio(bucket);
+    var motivo = diasBucket > 0
+        ? 'su bucket inicia en ' + diasBucket + ' dias'
+        : 'no tiene un bucket de morosidad valido';
+
+    _migBloqueadoPorBucket = true;
+    _migCredito = null;
+    _migDetalle = null;
+    _migOfertas = [];
+
+    var migStep2 = document.getElementById('migStep2');
+    if (migStep2) migStep2.classList.add('d-none');
+
+    var migPreview = document.getElementById('migPreview');
+    if (migPreview) migPreview.classList.add('d-none');
+
+    var migBtnGuardar = document.getElementById('migBtnGuardar');
+    if (migBtnGuardar) migBtnGuardar.style.display = 'none';
+
+    var migBuscadorWrap = document.getElementById('migBuscadorWrap');
+    if (migBuscadorWrap) migBuscadorWrap.style.display = 'none';
+
+    if (info) {
+        info.classList.remove('d-none');
+        info.className = 'alert alert-warning';
+        info.innerHTML =
+            '<div class="d-flex align-items-start gap-2">' +
+            '<i class="fas fa-ban fa-lg mt-1 text-warning"></i>' +
+            '<div>' +
+            '<strong>No cumple condicion para convenio</strong><br>' +
+            '<span>' + ((credito && credito.Nombre_cliente) || 'Cliente') + ' &mdash; Credito #' + ((credito && credito.Id_credito) || '') + '</span><br>' +
+            '<small class="d-block mt-1"><strong>Condicion:</strong> solo creditos en bucket 22 dias o mas pueden registrar un convenio existente.</small>' +
+            '<small class="d-block text-muted">Bucket actual: <strong>' + bucket + '</strong>; no cumple porque ' + motivo + ', por debajo del minimo requerido.</small>' +
+            '</div>' +
+            '</div>';
+    }
+}
 var _migOfertas = [];  // ofertas del crédito activo en el modal
 
 // ── Selector de base de cálculo (Capital / Interés / Total) ──
@@ -4226,6 +4284,7 @@ window.abrirModalMigracion = function () {
     _migCredito = null;
     _migDetalle = null;
     _globoCredito = null;
+    _migBloqueadoPorBucket = false;
 
     // ── LIMPIAR PESTAÑA "CONVENIO NORMAL" ──────────────────────────
     var migIdCredito = document.getElementById('migIdCredito');
@@ -4406,6 +4465,7 @@ window.migBuscarCredito = function () {
     _migDetalle = null;
     _migSemanas = 0;
     _migOfertas = [];
+    _migBloqueadoPorBucket = false;
 
     // Limpiar todos los campos del formulario (paso 2)
     window.migResetearFormulario();
@@ -4447,6 +4507,11 @@ window.migBuscarCredito = function () {
             }
 
             var credito = respOfertas.datos.credito;
+
+            if (!_creditoCumpleBucketConvenio(credito)) {
+                _migBloquearPorBucket(credito, info);
+                return;
+            }
 
             // ── Guardar ofertas para uso en migProductoChange ─────────────
             _migOfertas = (respOfertas.datos.ofertas || []).filter(function (o) {
@@ -5790,6 +5855,15 @@ window.validarPdfAdjuntoConv = function (input) {
 window.migGuardar = function () {
     if (!_migCredito || !_migDetalle) {
         Swal.fire('Error', 'Completa todos los campos.', 'warning');
+        return;
+    }
+
+    if (_migBloqueadoPorBucket || !_creditoCumpleBucketConvenio(_migCredito)) {
+        Swal.fire(
+            'No cumple condicion',
+            'Solo creditos en bucket 22 dias o mas pueden registrar un convenio existente.',
+            'warning'
+        );
         return;
     }
 

@@ -13,8 +13,17 @@ use Models\Notificacion;
 
 class CapHum extends Controller
 {
+    private const MODULO_ACTUALIZAR_DATOS_RRHH = 82;
+    private const MODULO_REVISION_ACTUALIZACIONES_RRHH = 83;
+
     /** Último error de enviarCorreo para mostrarlo en la respuesta JSON */
     private $enviarCorreoUltimoError = '';
+
+    private static function tieneModuloWeb(int $moduloId): bool
+    {
+        $modulos = array_map('intval', (array) ($_SESSION['modulos'] ?? []));
+        return in_array($moduloId, $modulos, true);
+    }
 
     private static function tieneAccesoTotalGestionPersonal()
     {
@@ -178,6 +187,7 @@ class CapHum extends Controller
                                 const puedeEditar = window.puedeEditarTodos;
                                 const puedePermisos = window.puedeGestionarPermisos;
                                 const puedeEditarRrhh = Number(window.miUsuarioId || 0) === 1;
+                                const puedeActualizarInfo = !!window.puedeActualizarInfo;
                                 return `
                                 <div class="d-flex flex-column align-items-start gap-1" style="min-width: fit-content;">
                                     <div class="d-flex flex-wrap gap-1">
@@ -193,6 +203,9 @@ class CapHum extends Controller
                                     <button class="btn btn-sm btn-info" onclick="cargarDocumentoPersona(this)" data-id-persona="${p.id}" data-nombre="${nombreCompleto.replace(/"/g, '&quot;')}" title="Cargar documento">
                                         <i class="fa fa-file"></i>
                                     </button>
+                                    ${puedeActualizarInfo ? `<button class="btn btn-sm btn-success" onclick="abrirActualizacionInfoPersona(${p.id})" title="Actualizar informaci&oacute;n" aria-label="Actualizar informaci&oacute;n">
+                                        <i class="fa fa-arrows-rotate"></i>
+                                    </button>` : ''}
                                     <button class="btn btn-sm btn-warning" onclick="registra_ausencia(${p.id})" title="Ausencias">
                                         <i class="fa fa-person-circle-minus"></i>
                                     </button>
@@ -4931,6 +4944,7 @@ class CapHum extends Controller
         $modulos = $_SESSION['modulos'] ?? [];
         $puedeEditarTodos = in_array(10, $modulos);
         $puedeGestionarPermisos = in_array(43, $modulos);
+        $puedeActualizarInfo = in_array(self::MODULO_ACTUALIZAR_DATOS_RRHH, $modulos);
         $departamento = self::getDepartamentosGestionPersonal();
 
         self::set("titulo", "Gestión de Usuarios");
@@ -4940,6 +4954,7 @@ class CapHum extends Controller
         self::set("miUsuarioId", (int) $_SESSION['usuario_id']);
         self::set("puedeEditarTodos", $puedeEditarTodos);
         self::set("puedeGestionarPermisos", $puedeGestionarPermisos);
+        self::set("puedeActualizarInfo", $puedeActualizarInfo);
         self::render("all_gestores");
     }
 
@@ -12624,6 +12639,7 @@ class CapHum extends Controller
         self::set("departamento", ['datos' => []]); // Array vacío para no romper la vista
         self::set("puedeEditarTodos", in_array(10, $modulos));
         self::set("puedeGestionarPermisos", in_array(43, $modulos));
+        self::set("puedeActualizarInfo", in_array(self::MODULO_ACTUALIZAR_DATOS_RRHH, $modulos));
         self::set("miUsuarioId", (int) ($_SESSION['usuario_id'] ?? 0));
         self::render("all_gestores");
     }
@@ -12655,6 +12671,11 @@ class CapHum extends Controller
                 'id_departamento' => $p['id_departamento'] ?? null,
                 'estatus' => $p['estatus'] ?? '',
                 'usuario' => $p['usuario'] ?? '',
+                'telefono' => $p['telefono'] ?? '',
+                'telefono_dos' => $p['telefono_dos'] ?? '',
+                'correo' => $p['correo'] ?? '',
+                'domicilio_calle_texto' => $p['domicilio_calle_texto'] ?? '',
+                'codigo_postal' => $p['codigo_postal'] ?? '',
                 'id_pais' => $p['id_pais'] ?? 0,
                 'nombre_pais' => $p['nombre_pais'] ?? 'Sin país',
                 'codigo_iso_pais' => $p['codigo_iso_pais'] ?? 'xx',
@@ -12964,6 +12985,83 @@ class CapHum extends Controller
         self::respuestaJSON($resultado);
     }
 
+    public function obtenerDatosActualizacionInfoPersona()
+    {
+        header('Content-Type: application/json; charset=utf-8');
+
+        $idSesion = (int) ($_SESSION['usuario_id'] ?? 0);
+        if (!self::tieneModuloWeb(self::MODULO_ACTUALIZAR_DATOS_RRHH)) {
+            self::respuestaJSON(['success' => false, 'mensaje' => 'No tienes permiso para actualizar informacion.']);
+            return;
+        }
+
+        $input = json_decode(file_get_contents('php://input'), true);
+        if (!is_array($input)) {
+            self::respuestaJSON(['success' => false, 'mensaje' => 'La solicitud no tiene un formato valido.']);
+            return;
+        }
+
+        $idPersona = (int) ($input['id_persona'] ?? 0);
+        $resultado = CapHumRrhh::obtenerDatosActualizacionInfo($idPersona, $idSesion);
+        self::respuestaJSON($resultado);
+    }
+
+    public function obtenerDatosActualizacionInfoPersonas()
+    {
+        header('Content-Type: application/json; charset=utf-8');
+
+        $idSesion = (int) ($_SESSION['usuario_id'] ?? 0);
+        if (!self::tieneModuloWeb(self::MODULO_ACTUALIZAR_DATOS_RRHH)) {
+            self::respuestaJSON(['success' => false, 'mensaje' => 'No tienes permiso para actualizar informacion.']);
+            return;
+        }
+
+        $input = json_decode(file_get_contents('php://input'), true);
+        if (!is_array($input)) {
+            self::respuestaJSON(['success' => false, 'mensaje' => 'La solicitud no tiene un formato valido.']);
+            return;
+        }
+
+        $idsPersona = is_array($input['ids_persona'] ?? null) ? $input['ids_persona'] : [];
+        $resultado = CapHumRrhh::obtenerDatosActualizacionInfoLote($idsPersona, $idSesion);
+        self::respuestaJSON($resultado);
+    }
+
+    public function guardarActualizacionInfoPersona()
+    {
+        header('Content-Type: application/json; charset=utf-8');
+
+        $idSesion = (int) ($_SESSION['usuario_id'] ?? 0);
+        if (!self::tieneModuloWeb(self::MODULO_ACTUALIZAR_DATOS_RRHH)) {
+            self::respuestaJSON(['success' => false, 'mensaje' => 'No tienes permiso para actualizar informacion.']);
+            return;
+        }
+
+        $input = json_decode(file_get_contents('php://input'), true);
+        if (!is_array($input)) {
+            self::respuestaJSON(['success' => false, 'mensaje' => 'La solicitud no tiene un formato valido.']);
+            return;
+        }
+
+        $resultado = CapHumRrhh::guardarSolicitudActualizacionInfo($input, $idSesion);
+        self::respuestaJSON($resultado);
+    }
+
+    public function actualizacionesInfo()
+    {
+        if (!self::tieneModuloWeb(self::MODULO_REVISION_ACTUALIZACIONES_RRHH)) {
+            header('Location: /' . VISTA_DEFECTO);
+            return;
+        }
+
+        $idSesion = (int) ($_SESSION['usuario_id'] ?? 0);
+        $resultado = CapHumRrhh::listarRespuestasActualizacionInfo($idSesion);
+        self::set("titulo", "Revisión de actualizaciones RR.HH. | " . CONFIGURACION['EMPRESA']);
+        self::set("solicitudesActualizacionInfo", $resultado['datos'] ?? []);
+        self::set("errorActualizacionInfo", $resultado['success'] ? '' : ($resultado['mensaje'] ?? 'No se pudo cargar la informacion.'));
+        self::render("actualizaciones_info_rrhh");
+    }
+
     public function getDetalles()
     {
         $input = json_decode(file_get_contents("php://input"), true);
@@ -13087,6 +13185,13 @@ public function getMunicipios()
 
     self::respuestaJSON(
         \Models\CapHum::getMunicipiosPorEstado($id_estado)
+    );
+}
+
+public function getEstadosMunicipiosMexico()
+{
+    self::respuestaJSON(
+        \Models\CapHum::getEstadosMunicipiosMexico()
     );
 }
 
@@ -13247,6 +13352,25 @@ public function getMunicipios()
 
         self::respuestaJSON(CapHumDAO::getVacantesDisponiblesParaAsignar($idDepartamento, $idPuesto));
     }
+
+    public function actualizarJefeVacante()
+    {
+        $input = json_decode(file_get_contents("php://input"), true) ?: [];
+
+        if (!self::tieneAccesoTotalGestionPersonal()) {
+            self::respuestaJSON([
+                'success' => false,
+                'mensaje' => 'No tiene permiso para modificar vacantes.'
+            ]);
+            return;
+        }
+
+        $idVacante = (int)($input['id_vacante'] ?? 0);
+        $idJefe = (int)($input['id_jefe'] ?? 0);
+
+        self::respuestaJSON(CapHumDAO::actualizarJefeVacantePersonal($idVacante, $idJefe));
+    }
+
     public function getRazonesAusencia()
     {
         // El DAO ya regresa success, mensaje y datos
@@ -13617,6 +13741,10 @@ public function getMunicipios()
                 $vacantesAgregadas[$idVacanteReal] = $idVacante;
                 $rows[] = [
                     'id' => $idVacante,
+                    'id_vacante' => $idVacanteReal,
+                    'id_departamento' => isset($vac['id_departamento']) ? (int)$vac['id_departamento'] : null,
+                    'id_puesto' => isset($vac['id_puesto']) ? (int)$vac['id_puesto'] : null,
+                    'id_jefe' => !empty($vac['id_jefe']) ? (int)$vac['id_jefe'] : null,
                     'nombre' => 'Vacante',
                     'puesto' => $vac['nombre_puesto'] ?? 'Sin puesto',
                     'jefe' => $jefeVac,
