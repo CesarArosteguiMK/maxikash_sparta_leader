@@ -34,23 +34,31 @@ final class ComparativoCierreSemanal
     /**
      * @return array{success:bool,corte:string,corte_opciones:list<string>,dia_corte:string,semana_actual:string,semana_pasada:string,origen_semana_pasada:string,advertencias:list<string>,creditos:array<string,mixed>,capital:array<string,mixed>,tarjetas:array<string,mixed>}
      */
-    public static function calcular(?string $corte = null): array
+    public static function calcular(?string $corte = null, ?string $modoConciliacion = null): array
     {
         $db = new DatabaseSegundometro();
         $corteNormalizado = self::normalizarCorte($corte);
+        $modoSolicitado = self::normalizarModoConciliacion($modoConciliacion);
         $semanaActual = self::resolverSemanaActual($db);
         $semanaPasada = self::semanaAnterior($semanaActual);
         $columnaDiasMora = self::columnaDiasMoraCorte($corteNormalizado);
         $diaCorte = self::diaCorteNombre();
+        $conciliacionDisponible = self::semanaActualTieneConciliacion($db);
+        $usarConciliacion = $modoSolicitado === 'con' && $conciliacionDisponible;
 
         $advertencias = [];
-        $actual = self::agregadoPorBucket($db, 'tbl_segundometro_semana', null, 'historico', $columnaDiasMora);
+        if ($modoSolicitado === 'con' && !$conciliacionDisponible) {
+            $advertencias[] = 'La semana actual aun no tiene datos en Ghost o Variable_8; se muestra sin conciliacion.';
+        }
+
+        $modoBucket = $usarConciliacion ? 'conciliado' : 'historico';
+        $actual = self::agregadoPorBucket($db, 'tbl_segundometro_semana', null, $modoBucket, $columnaDiasMora);
         try {
             self::prepararConexionVistaUltimasSemanas($db);
-            $pasada = self::agregadoPorBucket($db, 'vista_ultimas_semanas', $semanaPasada, 'historico', $columnaDiasMora);
+            $pasada = self::agregadoPorBucket($db, 'vista_ultimas_semanas', $semanaPasada, $modoBucket, $columnaDiasMora);
             $origenSemanaPasada = 'vista_ultimas_semanas';
         } catch (\Throwable $e) {
-            $pasada = self::agregadoPorBucket($db, 'tbl_segundometro_histo', $semanaPasada, 'historico', $columnaDiasMora);
+            $pasada = self::agregadoPorBucket($db, 'tbl_segundometro_histo', $semanaPasada, $modoBucket, $columnaDiasMora);
             $origenSemanaPasada = 'tbl_segundometro_histo';
             $advertencias[] = 'vista_ultimas_semanas no respondio; se uso tbl_segundometro_histo para ' . $semanaPasada . '.';
             error_log('ComparativoCierreSemanal::vista_ultimas_semanas -> ' . $e->getMessage());
@@ -66,6 +74,13 @@ final class ComparativoCierreSemanal
             'semana_pasada' => $semanaPasada,
             'origen_semana_pasada' => $origenSemanaPasada,
             'advertencias' => $advertencias,
+            'modo_conciliacion' => $usarConciliacion ? 'con' : 'sin',
+            'modo_conciliacion_solicitado' => $modoSolicitado,
+            'conciliacion_disponible' => $conciliacionDisponible,
+            'conciliacion_activa' => $usarConciliacion,
+            'etiqueta_conciliacion' => $usarConciliacion
+                ? 'Corte calculado con conciliación'
+                : 'Corte calculado sin conciliación',
             'creditos' => [
                 'semana_actual' => self::filasMetricas($actual, 'creditos'),
                 'semana_pasada' => self::filasMetricas($pasada, 'creditos'),
@@ -81,6 +96,28 @@ final class ComparativoCierreSemanal
                 'capital_semana_pasada' => self::porcentajeCurrentMasUnoSiete($pasada, 'saldo_capital'),
             ],
         ];
+    }
+
+    private static function normalizarModoConciliacion(?string $modo): string
+    {
+        $valor = strtolower(trim((string) $modo));
+        if (in_array($valor, ['con', 'conciliacion', 'conciliado', 'con_conciliacion'], true)) {
+            return 'con';
+        }
+
+        return 'sin';
+    }
+
+    private static function semanaActualTieneConciliacion(DatabaseSegundometro $db): bool
+    {
+        $row = $db->queryOne(
+            "SELECT COUNT(*) AS total
+             FROM `tbl_segundometro_semana`
+             WHERE (Variable_8 IS NOT NULL AND TRIM(CAST(Variable_8 AS CHAR)) <> '')
+                OR (Ghost IS NOT NULL AND TRIM(CAST(Ghost AS CHAR)) <> '' AND TRIM(CAST(Ghost AS CHAR)) <> '-')"
+        );
+
+        return (int) ($row['total'] ?? 0) > 0;
     }
 
     private static function resolverSemanaActual(DatabaseSegundometro $db): string
@@ -128,9 +165,9 @@ final class ComparativoCierreSemanal
             throw new \InvalidArgumentException('Tabla no permitida.');
         }
 
-        $bucketSql = $modoBucket === 'historico'
-            ? self::bucketHistoricoSql((string) $columnaDiasMora)
-            : self::bucketAjustadoSql();
+        $bucketSql = $modoBucket === 'conciliado'
+            ? self::bucketConciliadoSql((string) $columnaDiasMora)
+            : self::bucketHistoricoSql((string) $columnaDiasMora);
         $saldoSql = "COALESCE(CAST(REPLACE(REPLACE(NULLIF(TRIM(CAST(Saldo_total_capital AS CHAR)), ''), '$', ''), ',', '') AS DECIMAL(18,2)), 0)";
         $where = $semana === null ? '' : 'WHERE SEMANA = :semana';
 
@@ -230,6 +267,19 @@ final class ComparativoCierreSemanal
                 WHEN ({$diasMoraSql}) BETWEEN 61 AND 90 THEN 'g) 61 a 90 dias'
                 WHEN ({$diasMoraSql}) BETWEEN 91 AND 120 THEN 'h) 91 a 120 dias'
                 ELSE 'i) 121+ dias'
+            END
+        ";
+    }
+
+    private static function bucketConciliadoSql(string $columnaDiasMora): string
+    {
+        $bucketBase = self::bucketHistoricoSql($columnaDiasMora);
+
+        return "
+            CASE
+                WHEN Variable_8 IS NOT NULL AND TRIM(CAST(Variable_8 AS CHAR)) <> '' THEN 'a) Current'
+                WHEN Ghost IS NOT NULL AND TRIM(CAST(Ghost AS CHAR)) <> '' AND TRIM(CAST(Ghost AS CHAR)) <> '-' THEN 'a) Current'
+                ELSE ({$bucketBase})
             END
         ";
     }

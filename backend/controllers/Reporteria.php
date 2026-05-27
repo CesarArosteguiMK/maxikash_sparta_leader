@@ -1260,7 +1260,8 @@ class Reporteria extends Controller
 
         try {
             $corte = isset($_GET['corte']) ? (string) $_GET['corte'] : null;
-            $payload = ComparativoCierreSemanal::calcular($corte);
+            $modoConciliacion = isset($_GET['modo_conciliacion']) ? (string) $_GET['modo_conciliacion'] : null;
+            $payload = ComparativoCierreSemanal::calcular($corte, $modoConciliacion);
         } catch (\InvalidArgumentException $e) {
             $error = $e->getMessage();
         } catch (\Throwable $e) {
@@ -1287,7 +1288,8 @@ class Reporteria extends Controller
     {
         try {
             $corte = isset($_GET['corte']) ? (string) $_GET['corte'] : null;
-            self::respuestaJSON(ComparativoCierreSemanal::calcular($corte));
+            $modoConciliacion = isset($_GET['modo_conciliacion']) ? (string) $_GET['modo_conciliacion'] : null;
+            self::respuestaJSON(ComparativoCierreSemanal::calcular($corte, $modoConciliacion));
         } catch (\InvalidArgumentException $e) {
             http_response_code(400);
             self::respuestaJSON(['success' => false, 'mensaje' => $e->getMessage()]);
