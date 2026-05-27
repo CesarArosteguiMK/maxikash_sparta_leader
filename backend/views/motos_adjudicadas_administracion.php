@@ -5,6 +5,14 @@ $puedeDictaminarCreditos = in_array(80, $motosAdminModulos, true);
 ?>
 <div id="motos-admin-landing" class="cc-call-center-page motos-admin-root">
 <div class="card">
+    <svg xmlns="http://www.w3.org/2000/svg" class="motos-admin-svg-defs" aria-hidden="true" focusable="false">
+        <defs>
+            <linearGradient id="motos-admin-icon-gradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" style="stop-color:#00B4DB"/>
+                <stop offset="100%" style="stop-color:#6E48AA"/>
+            </linearGradient>
+        </defs>
+    </svg>
     <div class="card">
         <div class="card">
             <div class="row g-0 align-items-center overflow-visible cc-hero-row cc-hero-row--con-mascota cc-hero-block">
@@ -42,8 +50,16 @@ $puedeDictaminarCreditos = in_array(80, $motosAdminModulos, true);
                                         </a>
                                     </div>
                                 </div>
-                                <div class="w-100 app-academy-sm-40 d-flex justify-content-center justify-content-sm-end h-px-150 mb-4 mb-sm-0">
-                                    <img class="img-fluid scaleX-n1-rtl" src="https://cdn-icons-png.freepik.com/512/9496/9496443.png" alt="Admin cobranza illustration">
+                                <div class="w-100 app-academy-sm-40 d-flex justify-content-center justify-content-sm-end align-items-start align-self-start h-px-150 mb-4 mb-sm-0 flex-shrink-0 motos-admin-icon-slot">
+                                    <span class="scaleX-n1-rtl motos-admin-icon-frame" aria-hidden="true">
+                                        <svg class="motos-admin-icon-svg" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
+                                            <rect x="10" y="18" width="44" height="34" rx="4" ry="4"/>
+                                            <path d="M22 18v-6h20v6"/>
+                                            <path d="M10 30h44"/>
+                                            <path d="M24 40h16"/>
+                                            <path d="M20 30v5M44 30v5"/>
+                                        </svg>
+                                    </span>
                                 </div>
                             </div>
                         </div>
@@ -64,8 +80,15 @@ $puedeDictaminarCreditos = in_array(80, $motosAdminModulos, true);
                                         </a>
                                     </div>
                                 </div>
-                                <div class="w-100 app-academy-sm-40 d-flex justify-content-center justify-content-sm-end h-px-150 mb-4 mb-sm-0">
-                                    <img class="img-fluid scaleX-n1-rtl" src="https://cdn-icons-png.freepik.com/512/4545/4545742.png" alt="Dictaminar creditos illustration">
+                                <div class="w-100 app-academy-sm-40 d-flex justify-content-center justify-content-sm-end align-items-start align-self-start h-px-150 mb-4 mb-sm-0 flex-shrink-0 motos-admin-icon-slot">
+                                    <span class="scaleX-n1-rtl motos-admin-icon-frame" aria-hidden="true">
+                                        <svg class="motos-admin-icon-svg" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
+                                            <rect x="12" y="12" width="40" height="44" rx="4" ry="4"/>
+                                            <path d="M24 12v-4h16v4"/>
+                                            <path d="M22 34l7 7 14-16"/>
+                                            <path d="M22 24h20"/>
+                                        </svg>
+                                    </span>
                                 </div>
                             </div>
                         </div>
@@ -85,6 +108,60 @@ $puedeDictaminarCreditos = in_array(80, $motosAdminModulos, true);
     </div>
 </div>
 <style>
+.motos-admin-svg-defs {
+    position: absolute;
+    width: 0;
+    height: 0;
+    overflow: hidden;
+}
+.motos-admin-icon-svg {
+    stroke: url(#motos-admin-icon-gradient);
+    fill: none;
+    stroke-width: 1.8;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+#motos-admin-landing .motos-admin-icon-slot {
+    width: 100% !important;
+    height: auto;
+    flex: 0 0 auto;
+    align-self: stretch !important;
+    justify-content: center !important;
+    margin-bottom: .85rem !important;
+}
+#motos-admin-landing .motos-admin-icon-frame {
+    width: 150px;
+    height: 150px;
+    min-width: 150px;
+    min-height: 150px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    overflow: hidden;
+}
+#motos-admin-landing .motos-admin-icon-frame .motos-admin-icon-svg {
+    width: 100%;
+    height: 100%;
+    display: block;
+    box-sizing: border-box;
+    transform: scale(1.16);
+    transform-origin: center center;
+}
+#motos-admin-landing .row.gy-6 > [class*="col-"] > .card > .card-body {
+    flex-direction: column-reverse;
+    flex-wrap: nowrap !important;
+    align-items: stretch !important;
+    justify-content: flex-end !important;
+}
+#motos-admin-landing .row.gy-6 > [class*="col-"] .app-academy-sm-60 {
+    width: 100% !important;
+    flex: 0 0 auto !important;
+    justify-content: flex-start !important;
+}
+#motos-admin-landing .row.gy-6 > [class*="col-"] .card-title {
+    margin-bottom: 0;
+}
 .cc-call-center-page,
 #motos-admin-landing.cc-call-center-page {
     overflow: visible;

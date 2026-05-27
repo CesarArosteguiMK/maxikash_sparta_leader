@@ -5,6 +5,7 @@ namespace Controllers;
 use Core\Controller;
 use Models\AvanceBucket;
 use Models\ComparativoCierreSemanal;
+use Models\Direcciones;
 use Models\EstadoCuenta as EstadoCuentaDAO;
 use Models\Empresa as EmpresasDAO;
 use Models\PrimerosPagosHistoricoSegundometro;
@@ -710,11 +711,11 @@ class Reporteria extends Controller
     /**
      * Landing Asignación (Analítica), mismo estilo que Comparativas.
      * URL canónica: /analitica/asignacion
-     * Permiso: modulos_web id 61 (Analítica → Asignación).
+     * Permiso: modulos_web id 84 (Direcciones).
      */
     public function asignacion()
     {
-        self::set('titulo', 'Asignación');
+        self::set('titulo', 'Actualización de dirección');
         self::set('script', '');
         $cssPath = realpath(__DIR__ . '/../../public/assets/css/reporteria-asignacion-landing.css');
         $cssV = $cssPath ? (int) filemtime($cssPath) : time();
@@ -722,10 +723,77 @@ class Reporteria extends Controller
         self::render('asignacion');
     }
 
+    public function asignacionDirecciones()
+    {
+        self::set('titulo', 'Actualización de dirección');
+        self::set('script', '');
+        self::render('asignacion_direcciones');
+    }
+
+    private function responderJsonAsignacionDirecciones(array $payload): void
+    {
+        while (ob_get_level()) {
+            ob_end_clean();
+        }
+        header('Content-Type: application/json; charset=utf-8');
+        echo json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+        exit;
+    }
+
+    private function inputJsonAsignacionDirecciones(): array
+    {
+        $raw = file_get_contents('php://input');
+        $json = json_decode($raw ?: '[]', true);
+        return is_array($json) ? $json : ($_POST ?: []);
+    }
+
+    public function getAsignacionDireccionesCredito()
+    {
+        $input = $this->inputJsonAsignacionDirecciones();
+        $idCredito = (int)($input['id_credito'] ?? $_GET['id_credito'] ?? 0);
+        try {
+            $dao = new Direcciones();
+            $this->responderJsonAsignacionDirecciones($dao->buscarPorCredito($idCredito));
+        } catch (\Exception $e) {
+            $this->responderJsonAsignacionDirecciones(['success' => false, 'mensaje' => 'No se pudo consultar direcciones.', 'error' => $e->getMessage()]);
+        }
+    }
+
+    public function postAsignacionDireccion()
+    {
+        try {
+            $dao = new Direcciones();
+            $this->responderJsonAsignacionDirecciones($dao->guardarDireccion($this->inputJsonAsignacionDirecciones()));
+        } catch (\Exception $e) {
+            $this->responderJsonAsignacionDirecciones(['success' => false, 'mensaje' => 'No se pudo guardar la direccion.', 'error' => $e->getMessage()]);
+        }
+    }
+
+    public function postAsignacionDireccionesOrden()
+    {
+        $input = $this->inputJsonAsignacionDirecciones();
+        try {
+            $dao = new Direcciones();
+            $this->responderJsonAsignacionDirecciones($dao->reordenarDirecciones((int)($input['id_credito'] ?? 0), $input['ids'] ?? []));
+        } catch (\Exception $e) {
+            $this->responderJsonAsignacionDirecciones(['success' => false, 'mensaje' => 'No se pudo actualizar el orden.', 'error' => $e->getMessage()]);
+        }
+    }
+
+    public function postAsignacionDireccionesSync()
+    {
+        try {
+            $dao = new Direcciones();
+            $this->responderJsonAsignacionDirecciones($dao->sincronizarDesdeSegundometro());
+        } catch (\Exception $e) {
+            $this->responderJsonAsignacionDirecciones(['success' => false, 'mensaje' => 'No se pudo sincronizar con Segundometro.', 'error' => $e->getMessage()]);
+        }
+    }
+
     /**
      * Tablero Asignación — Proyección: semana pasada, actual y próxima (martes–lunes).
      * URL canónica: /analitica/asignacionTablero
-     * Permiso: modulos_web id 61.
+     * Permiso: modulos_web id 84.
      */
     public function asignacionTablero()
     {
@@ -749,7 +817,7 @@ class Reporteria extends Controller
     /**
      * Tablero Asignación — dos ventanas: mismas columnas 1 y 2 que el tablero de tres (semana pasada real + semana actual; sin columna «próxima»).
      * URL canónica: /analitica/asignacionTableroDos
-     * Permiso: modulos_web id 61.
+     * Permiso: modulos_web id 84.
      */
     public function asignacionTableroDos()
     {
@@ -1141,7 +1209,7 @@ class Reporteria extends Controller
 
     /**
      * Excel del tablero Asignación: encabezados con colores (semana pasada / actual / próxima) como en pantalla.
-     * URL: /analitica/descargarAsignacionTableroExcel · Módulo 61.
+     * URL: /analitica/descargarAsignacionTableroExcel · Módulo 84.
      * Siempre exporta el portafolio completo (independiente del «Mostrar» de la vista).
      */
     public function descargarAsignacionTableroExcel()
@@ -1156,7 +1224,7 @@ class Reporteria extends Controller
 
     /**
      * Excel del tablero en dos ventanas (semana pasada + semana actual, sin proyección próxima).
-     * URL: /analitica/descargarAsignacionTableroDosExcel · Módulo 61.
+     * URL: /analitica/descargarAsignacionTableroDosExcel · Módulo 84.
      */
     public function descargarAsignacionTableroDosExcel()
     {

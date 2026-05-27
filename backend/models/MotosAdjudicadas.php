@@ -2180,6 +2180,17 @@ class MotosAdjudicadas extends Model
         if (!$op) {
             return ['success' => false, 'message' => 'Operaci?n no encontrada.'];
         }
+        if ($slot === self::SLOT_REPVE_ATENCION && $this->adjEvidenciaTieneColumnasAtn()) {
+            $faltantesMedia = $this->faltantesMediaAceptadaAtencion($idOperacion);
+            if ($faltantesMedia !== []) {
+                return [
+                    'success' => false,
+                    'message' => 'Antes de subir REPUVE deben estar aceptadas las 12 evidencias fisicas. Faltan: '
+                        . implode(', ', array_slice($faltantesMedia, 0, 4))
+                        . (count($faltantesMedia) > 4 ? '...' : ''),
+                ];
+            }
+        }
 
         // 3. Validar tipo MIME seg?n slot
         $mime      = $fileInfo['type'] ?? '';
@@ -3184,27 +3195,37 @@ SQL;
                  LIMIT 1",
                 ['idCredito' => $idCredito]
             );
-            if (!$asignacion) {
-                $this->db->rollback();
-                return ['success' => false, 'message' => 'No se encontró una asignación activa para este crédito.'];
-            }
-
             $idPersonalAdj = (int) $persona['id_personal_adj'];
-            if ((int) $asignacion['id_personal_adj'] === $idPersonalAdj) {
-                $yaAsignado = true;
-            } else {
+            if (!$asignacion) {
+                $this->db->CRUD(
+                    "INSERT INTO asigna_creditos_adjudicacion
+                        (id_personal_adj, id_credito, fecha_alta, alta, estatus)
+                     VALUES (:idPersonalAdj, :idCredito, :fechaAlta, :alta, '1')",
+                    [
+                        'idPersonalAdj' => $idPersonalAdj,
+                        'idCredito' => $idCredito,
+                        'fechaAlta' => $ahora,
+                        'alta' => $idUsuario,
+                    ]
+                );
                 $yaAsignado = false;
-            }
+            } else {
+                if ((int) $asignacion['id_personal_adj'] === $idPersonalAdj) {
+                    $yaAsignado = true;
+                } else {
+                    $yaAsignado = false;
+                }
 
-            $this->db->CRUD(
-                "UPDATE asigna_creditos_adjudicacion
-                 SET id_personal_adj = :idPersonalAdj
-                 WHERE id_credito = :idCredito AND estatus = '1'",
-                [
-                    'idPersonalAdj' => $idPersonalAdj,
-                    'idCredito' => $idCredito,
-                ]
-            );
+                $this->db->CRUD(
+                    "UPDATE asigna_creditos_adjudicacion
+                     SET id_personal_adj = :idPersonalAdj
+                     WHERE id_credito = :idCredito AND estatus = '1'",
+                    [
+                        'idPersonalAdj' => $idPersonalAdj,
+                        'idCredito' => $idCredito,
+                    ]
+                );
+            }
 
             if (!$yaAsignado) {
                 $this->registrarBitacora(
@@ -3709,7 +3730,7 @@ SQL;
         return ['success' => true];
     }
 
-    public function sincronizarDictumsAppPendientes(): void
+    public function sincronizarDictumsAppPendientes(bool $forzar = false): void
     {
         $lockHandle = null;
         $lockTomado = false;
@@ -3718,7 +3739,7 @@ SQL;
             $stampPath = rtrim(sys_get_temp_dir(), DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR . 'sparta_madj_dictums_sync.stamp';
             $intervaloMinimo = 300;
 
-            if (is_file($stampPath) && (time() - (int) @filemtime($stampPath)) < $intervaloMinimo) {
+            if (!$forzar && is_file($stampPath) && (time() - (int) @filemtime($stampPath)) < $intervaloMinimo) {
                 return;
             }
 
@@ -3733,7 +3754,7 @@ SQL;
             }
             $lockTomado = true;
 
-            if (is_file($stampPath) && (time() - (int) @filemtime($stampPath)) < $intervaloMinimo) {
+            if (!$forzar && is_file($stampPath) && (time() - (int) @filemtime($stampPath)) < $intervaloMinimo) {
                 return;
             }
             @touch($stampPath);
@@ -6747,6 +6768,166 @@ EOSQL;
         return ['success' => true, 'detalle' => $detalle, 'creado' => true];
     }
 
+    /**
+     * Detalle liviano para vistas que ya listaron la operacion.
+     * Evita consultar/sincronizar Legacy en cada apertura del modal.
+     */
+    public function obtenerDetalleRapidoPorCredito(int $idCredito): array
+    {
+        if ($idCredito <= 0) {
+            return ['success' => false, 'message' => 'ID de credito invalido.'];
+        }
+
+        $op = $this->db->queryOne(
+            "SELECT id, folio, id_credito, nombre_cliente, estatus,
+                    DATE_FORMAT(fecha_alta, '%Y-%m-%d %H:%i') AS fecha_alta_fmt,
+                    DATE_FORMAT(fecha_actualizacion, '%Y-%m-%d %H:%i') AS fecha_actualizacion_fmt
+             FROM adj_operacion
+             WHERE id_credito = :id
+             ORDER BY id DESC
+             LIMIT 1",
+            ['id' => $idCredito]
+        );
+
+        if (!$op || empty($op['id'])) {
+            return ['success' => false, 'message' => 'Operacion no encontrada.'];
+        }
+
+        if ($this->adjEvidenciaTieneColumnasAtn()) {
+            $evs = $this->db->queryAll(
+                "SELECT id, tipo, slot, url, estatus, val_atn, comentario_atn,
+                        DATE_FORMAT(fecha_alta, '%Y-%m-%d %H:%i') AS fecha_alta
+                 FROM adj_evidencia
+                 WHERE id_operacion = :id
+                 ORDER BY id ASC",
+                ['id' => (int) $op['id']]
+            ) ?: [];
+        } else {
+            $evs = $this->db->queryAll(
+                "SELECT id, tipo, slot, url, estatus,
+                        DATE_FORMAT(fecha_alta, '%Y-%m-%d %H:%i') AS fecha_alta
+                 FROM adj_evidencia
+                 WHERE id_operacion = :id
+                 ORDER BY id ASC",
+                ['id' => (int) $op['id']]
+            ) ?: [];
+        }
+
+        foreach ($evs as &$ev) {
+            $ev['aprobada'] = 0;
+            $ev['val_atn'] = isset($ev['val_atn']) && $ev['val_atn'] !== null && $ev['val_atn'] !== ''
+                ? (int) $ev['val_atn']
+                : 0;
+            $ev['comentario_atn'] = isset($ev['comentario_atn']) ? (string) $ev['comentario_atn'] : '';
+        }
+        unset($ev);
+
+        $op['evidencias'] = $evs;
+        $op['historial'] = [];
+        $op['observaciones'] = [];
+
+        return ['success' => true, 'detalle' => $op];
+    }
+
+    public function obtenerDetallesRapidosPorCreditos(array $idsCredito): array
+    {
+        $ids = [];
+        foreach ($idsCredito as $id) {
+            $n = (int) $id;
+            if ($n > 0) $ids[$n] = $n;
+        }
+        $ids = array_values($ids);
+        if ($ids === []) {
+            return [];
+        }
+
+        $params = [];
+        $ph = [];
+        foreach ($ids as $i => $id) {
+            $k = 'c' . $i;
+            $ph[] = ':' . $k;
+            $params[$k] = $id;
+        }
+
+        $ops = $this->db->queryAll(
+            "SELECT ao.id, ao.folio, ao.id_credito, ao.nombre_cliente, ao.estatus,
+                    DATE_FORMAT(ao.fecha_alta, '%Y-%m-%d %H:%i') AS fecha_alta_fmt,
+                    DATE_FORMAT(ao.fecha_actualizacion, '%Y-%m-%d %H:%i') AS fecha_actualizacion_fmt
+             FROM adj_operacion ao
+             INNER JOIN (
+                 SELECT id_credito, MAX(id) AS id_max
+                 FROM adj_operacion
+                 WHERE id_credito IN (" . implode(',', $ph) . ")
+                 GROUP BY id_credito
+             ) ult ON ult.id_max = ao.id AND ult.id_credito = ao.id_credito",
+            $params
+        ) ?: [];
+
+        if ($ops === []) {
+            return [];
+        }
+
+        $out = [];
+        $opIds = [];
+        foreach ($ops as $op) {
+            $idOp = (int) ($op['id'] ?? 0);
+            $idCredito = (int) ($op['id_credito'] ?? 0);
+            if ($idOp <= 0 || $idCredito <= 0) continue;
+            $op['evidencias'] = [];
+            $op['historial'] = [];
+            $op['observaciones'] = [];
+            $out[$idCredito] = ['success' => true, 'detalle' => $op];
+            $opIds[$idOp] = $idCredito;
+        }
+
+        if ($opIds === []) {
+            return $out;
+        }
+
+        $paramsEv = [];
+        $phEv = [];
+        foreach (array_keys($opIds) as $i => $idOp) {
+            $k = 'op' . $i;
+            $phEv[] = ':' . $k;
+            $paramsEv[$k] = (int) $idOp;
+        }
+
+        if ($this->adjEvidenciaTieneColumnasAtn()) {
+            $evs = $this->db->queryAll(
+                "SELECT id_operacion, id, tipo, slot, url, estatus, val_atn, comentario_atn,
+                        DATE_FORMAT(fecha_alta, '%Y-%m-%d %H:%i') AS fecha_alta
+                 FROM adj_evidencia
+                 WHERE id_operacion IN (" . implode(',', $phEv) . ")
+                 ORDER BY id_operacion ASC, id ASC",
+                $paramsEv
+            ) ?: [];
+        } else {
+            $evs = $this->db->queryAll(
+                "SELECT id_operacion, id, tipo, slot, url, estatus,
+                        DATE_FORMAT(fecha_alta, '%Y-%m-%d %H:%i') AS fecha_alta
+                 FROM adj_evidencia
+                 WHERE id_operacion IN (" . implode(',', $phEv) . ")
+                 ORDER BY id_operacion ASC, id ASC",
+                $paramsEv
+            ) ?: [];
+        }
+
+        foreach ($evs as $ev) {
+            $idOp = (int) ($ev['id_operacion'] ?? 0);
+            $idCredito = $opIds[$idOp] ?? 0;
+            if ($idCredito <= 0 || empty($out[$idCredito])) continue;
+            unset($ev['id_operacion']);
+            $ev['aprobada'] = 0;
+            $ev['val_atn'] = isset($ev['val_atn']) && $ev['val_atn'] !== null && $ev['val_atn'] !== ''
+                ? (int) $ev['val_atn']
+                : 0;
+            $ev['comentario_atn'] = isset($ev['comentario_atn']) ? (string) $ev['comentario_atn'] : '';
+            $out[$idCredito]['detalle']['evidencias'][] = $ev;
+        }
+
+        return $out;
+    }
+
     // =========================================================================
     // VALIDACI??N EVIDENCIAS (ATENCI??N A CLIENTES ??? requiere columnas val_atn / comentario_atn)
     // =========================================================================
@@ -6848,6 +7029,38 @@ EOSQL;
             'completa' => $faltantes === [],
             'faltantes' => $faltantes,
         ];
+    }
+
+    private function faltantesMediaAceptadaAtencion(int $idOperacion): array
+    {
+        if ($idOperacion <= 0 || !$this->adjEvidenciaTieneColumnasAtn()) {
+            return ['Evidencias fisicas'];
+        }
+
+        $rows = $this->db->queryAll(
+            'SELECT slot, val_atn, url FROM adj_evidencia WHERE id_operacion = :id',
+            ['id' => $idOperacion]
+        ) ?: [];
+        $bySlot = [];
+        foreach ($rows as $r) {
+            $sk = (string) ($r['slot'] ?? '');
+            if ($sk !== '') $bySlot[$sk] = $r;
+        }
+
+        $faltantes = [];
+        foreach (self::SLOTS_VALIDACION_ATENCION_MEDIA as $slotReq) {
+            $label = self::SLOT_LABELS[$slotReq] ?? $slotReq;
+            $row = $bySlot[$slotReq] ?? null;
+            $url = trim((string) ($row['url'] ?? ''));
+            $va = (int) ($row['val_atn'] ?? 0);
+            if (!$row || $url === '') {
+                $faltantes[] = $label . ' (sin evidencia)';
+            } elseif ($va !== 1) {
+                $faltantes[] = $label . ($va === 2 ? ' (rechazada)' : ' (pendiente)');
+            }
+        }
+
+        return $faltantes;
     }
 
     /**

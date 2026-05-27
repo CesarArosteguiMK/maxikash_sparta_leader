@@ -12,6 +12,7 @@ if (!function_exists('getMenuItemsConfig')) {
             ['url' => '/estadocuenta/documentacion', 'label' => 'Documentación', 'icon' => 'fa-solid fa-sack-dollar', 'bg' => 'bg-yellow', 'modulos' => [2]],
             ['url' => '/gestiones/seguimiento', 'label' => 'Histórico Gestiones', 'icon' => 'fa-solid fa-screwdriver-wrench', 'bg' => 'bg-green', 'modulos' => [3]],
             ['url' => '/caphum/gestion', 'label' => 'Capital Humano - Gestión', 'icon' => 'fa-solid fa-users', 'bg' => 'bg-purple', 'modulos' => [4]],
+            ['url' => '/caphum/actualizacionesInfo', 'label' => 'Revisión RR.HH.', 'icon' => 'fa-solid fa-user-check', 'bg' => 'bg-purple', 'modulos' => [83]],
             ['url' => '/caphum/candidatos', 'label' => 'Selección de Personal', 'icon' => 'fa-solid fa-users', 'bg' => 'bg-purple', 'modulos' => [42]],
             ['url' => '/caphum/bajas', 'label' => 'Control de Bajas', 'icon' => 'fa-solid fa-users', 'bg' => 'bg-purple', 'modulos' => [13]],
             ['url' => '/caphum/organigrama', 'label' => 'Organigrama Cobranza', 'icon' => 'fa-solid fa-users', 'bg' => 'bg-purple', 'modulos' => [5]],
@@ -28,14 +29,15 @@ if (!function_exists('getMenuItemsConfig')) {
             ['url' => '/sabueso/cerradoEliminado', 'label' => 'Cerrado/Eliminado', 'icon' => 'fa-solid fa-dog', 'bg' => 'bg-teal', 'modulos' => [48]],
             ['url' => '/sabueso/estadisticas', 'label' => 'Analítica sabueso', 'icon' => 'fa-solid fa-chart-line', 'bg' => 'bg-orange', 'modulos' => [47]],
             ['url' => '/analitica/comparativas', 'label' => 'Comparativas', 'icon' => 'fa-solid fa-chart-column', 'bg' => 'bg-orange', 'modulos' => [60, 81]],
-            ['url' => '/analitica/asignacion', 'label' => 'Asignación', 'icon' => 'fa-solid fa-user-check', 'bg' => 'bg-orange', 'modulos' => [61]],
+            ['url' => '/analitica/asignacion', 'label' => 'Direcciones', 'icon' => 'fa-solid fa-user-check', 'bg' => 'bg-orange', 'modulos' => [84]],
+            ['url' => '/analitica/asignacionDirecciones', 'label' => 'Direcciones', 'icon' => 'fa-solid fa-map-location-dot', 'bg' => 'bg-orange', 'modulos' => [84]],
             ['url' => '/Despachos/AsignacionCreditosDespacho', 'label' => 'Despachos', 'icon' => 'fa-solid fa-building-columns', 'bg' => 'bg-yellow', 'modulos' => [20]],
             ['url' => '/Despachos/MiGestion', 'label' => 'Mi Gestión', 'icon' => 'fa-solid fa-chart-gantt', 'bg' => 'bg-yellow', 'modulos' => [20]],
             ['url' => '/convenios/consulta', 'label' => 'Convenios', 'icon' => 'fa-solid fa-handshake', 'bg' => 'bg-purple', 'modulos' => [46]],
             ['url' => '/CierreCredito/consulta', 'label' => 'Cierre de Crédito', 'icon' => 'fa-solid fa-file-circle-check', 'bg' => 'bg-blue', 'modulos' => [51]],
             ['url' => '/paises/consulta', 'label' => 'Países', 'icon' => 'fa-solid fa-globe', 'bg' => 'bg-blue', 'modulos' => [41]],
             ['url' => '/onboarding/index', 'label' => 'Curso Onboarding', 'icon' => 'fa-solid fa-graduation-cap', 'bg' => 'bg-blue', 'modulos' => [44]],
-            ['url' => '/departamentos/consulta/', 'label' => 'Departamentos', 'icon' => 'fa-solid fa-cog', 'bg' => 'bg-blue', 'modulos' => [10]],
+            ['url' => '/departamentos/consulta/', 'label' => 'Áreas', 'icon' => 'fa-solid fa-cog', 'bg' => 'bg-blue', 'modulos' => [10]],
             ['url' => '/equivalencias/consulta', 'label' => 'Equivalencia puestos', 'icon' => 'fa-solid fa-cog', 'bg' => 'bg-blue', 'modulos' => [17]],
             ['url' => '/configticketpuesto/consulta', 'label' => 'Asignación por puestos', 'icon' => 'fa-solid fa-ticket', 'bg' => 'bg-blue', 'modulos' => [26]],
             ['url' => '/segundometro/shell', 'label' => 'Segundometro', 'icon' => 'fa-solid fa-laptop', 'bg' => 'bg-secondary', 'modulos' => [16]],
@@ -82,6 +84,17 @@ if (!function_exists('getRutasModulos')) {
         $rutas['reporteria/consultacreditorastreo'] = $modsRastreoSinTicket;
         $rutas['analitica/consultaidcredito'] = $modsRastreoSinTicket;
         $rutas['analitica/consultacreditorastreo'] = $modsRastreoSinTicket;
+        $rutas['caphum/obtenerdatosactualizacioninfopersona'] = [82];
+        $rutas['caphum/obtenerdatosactualizacioninfopersonas'] = [82];
+        $rutas['caphum/guardaractualizacioninfopersona'] = [82];
+        $rutas['reporteria/getasignaciondireccionescredito'] = [84];
+        $rutas['reporteria/postasignaciondireccion'] = [84];
+        $rutas['reporteria/postasignaciondireccionesorden'] = [84];
+        $rutas['reporteria/postasignaciondireccionessync'] = [84];
+        $rutas['analitica/getasignaciondireccionescredito'] = [84];
+        $rutas['analitica/postasignaciondireccion'] = [84];
+        $rutas['analitica/postasignaciondireccionesorden'] = [84];
+        $rutas['analitica/postasignaciondireccionessync'] = [84];
         $rutas['gastoscobranza/getdashboardestadistica'] = [40];
         return $rutas;
     }

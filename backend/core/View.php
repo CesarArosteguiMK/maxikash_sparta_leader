@@ -70,6 +70,7 @@ function getMenu(): string
             ],
             '/analitica/asignacion' => [
                 '/analitica/asignacion',
+                '/analitica/asignaciondirecciones',
                 '/analitica/asignaciontablero',
                 '/analitica/asignaciontablerodos',
             ],
@@ -146,6 +147,7 @@ function getMenu(): string
             'icono'    => 'fa-solid fa-users',
             'subItems' => [
                 ['label' => 'Gestión de Personal',          'url' => '/caphum/gestion',                  'modulos' => [4]],
+                ['label' => 'Revisión RR.HH.',              'url' => '/caphum/actualizacionesInfo',      'modulos' => [83]],
                 ['label' => 'Organigrama Cobranza',      'url' => '/caphum/organigrama',              'modulos' => [5]],
                 ['label' => 'EST Organizacional',        'url' => '/caphum/estructuraOrganizacional', 'modulos' => [86]],
                 ['label' => 'Control de Bajas',            'url' => '/caphum/bajas',                    'modulos' => [13]],
@@ -180,6 +182,12 @@ function getMenu(): string
                 ['label' => 'Tracking Recolección', 'url' => '/TrackingRecoleccion/index',          'modulos' => [74]],
             ],
         ],
+        'Direcciones' => [
+            'icono'    => 'fa-solid fa-route',
+            'subItems' => [
+                ['label' => 'Direcciones', 'url' => '/analitica/asignacion', 'modulos' => [84]],
+            ],
+        ],
         'Legacy Notificaciones' => [
             'icono'    => 'fa-solid fa-bullhorn',
             'subItems' => [
@@ -207,7 +215,6 @@ function getMenu(): string
                 ['label' => 'Sabuesos', 'url' => '/sabueso/estadisticas',   'modulos' => [47]],
                 ['label' => 'Comparativas', 'url' => '/analitica/comparativas', 'modulos' => [60, 81]],
                 ['label' => 'Avance Bucket', 'url' => '/analitica/avanceBucket', 'modulos' => [77]],
-                ['label' => 'Asignación', 'url' => '/analitica/asignacion', 'modulos' => [61]],
             ],
         ],
         'Gastos Cobranza' => [
@@ -220,7 +227,7 @@ function getMenu(): string
         'Organización' => [
             'icono'    => 'fa-solid fa-cog',
             'subItems' => [
-                ['label' => 'Departamentos',          'url' => '/departamentos/consulta/',     'modulos' => [10]],
+                ['label' => 'Áreas',                  'url' => '/departamentos/consulta/',     'modulos' => [10]],
                 ['label' => 'Países',                 'url' => '/paises/consulta',             'modulos' => [41]],
                 ['label' => 'Equivalencia puestos',   'url' => '/equivalencias/consulta',      'modulos' => [17]],
                 ['label' => 'Asignación por puestos', 'url' => '/configticketpuesto/consulta', 'modulos' => [26]],

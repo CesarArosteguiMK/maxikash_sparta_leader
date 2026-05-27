@@ -26,6 +26,7 @@ if (!function_exists('getMenuSidebarModulosStructure')) {
                 'icono' => 'fa-solid fa-users',
                 'subItems' => [
                     ['label' => 'Gestión', 'url' => '/caphum/gestion', 'modulos' => [4]],
+                    ['label' => 'Revisión RR.HH.', 'url' => '/caphum/actualizacionesInfo', 'modulos' => [83]],
                     ['label' => 'Organigrama Cobranza', 'url' => '/caphum/organigrama', 'modulos' => [5]],
                     ['label' => 'EST Organizacional', 'url' => '/caphum/estructuraOrganizacional', 'modulos' => [86]],
                     ['label' => 'Control de Bajas', 'url' => '/caphum/bajas', 'modulos' => [13]],
@@ -46,7 +47,6 @@ if (!function_exists('getMenuSidebarModulosStructure')) {
                     ['label' => 'Analítica sabueso', 'url' => '/sabueso/estadisticas', 'modulos' => [47]],
                     ['label' => 'Comparativas', 'url' => '/analitica/comparativas', 'modulos' => [60, 81]],
                     ['label' => 'Avance Bucket', 'url' => '/analitica/avanceBucket', 'modulos' => [77]],
-                    ['label' => 'Asignación', 'url' => '/analitica/asignacion', 'modulos' => [61]],
                 ],
             ],
             'Tickets' => [
@@ -94,6 +94,12 @@ if (!function_exists('getMenuSidebarModulosStructure')) {
                     ['label' => 'Tracking Recolección', 'url' => '/TrackingRecoleccion/index', 'modulos' => [74]],
                 ],
             ],
+            'Direcciones' => [
+                'icono' => 'fa-solid fa-route',
+                'subItems' => [
+                    ['label' => 'Direcciones', 'url' => '/analitica/asignacion', 'modulos' => [84]],
+                ],
+            ],
             'Legacy Notificaciones' => [
                 'icono' => 'fa-solid fa-bullhorn',
                 'subItems' => [
@@ -110,7 +116,7 @@ if (!function_exists('getMenuSidebarModulosStructure')) {
             'Organización' => [
                 'icono' => 'fa-solid fa-cog',
                 'subItems' => [
-                    ['label' => 'Departamentos', 'url' => '/departamentos/consulta/', 'modulos' => [10]],
+                    ['label' => 'Áreas', 'url' => '/departamentos/consulta/', 'modulos' => [10]],
                     ['label' => 'Países', 'url' => '/paises/consulta', 'modulos' => [41]],
                     ['label' => 'Equivalencia puestos', 'url' => '/equivalencias/consulta', 'modulos' => [17]],
                     ['label' => 'Asignación por puestos', 'url' => '/configticketpuesto/consulta', 'modulos' => [26]],
@@ -266,6 +272,7 @@ if (!function_exists('mapPermisoEspecialToMenuMeta')) {
             32 => [46, 110],
             // Capital Humano — Gestión
             43 => [4, 110],
+            82 => [4, 115],
             // Motos Adjudicadas - 1.- Evidencias
             79 => [70, 710],
             // Cierre de crédito (ancla 51 vía nombre): tarjeta «Convenios»
