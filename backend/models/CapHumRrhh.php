@@ -7,6 +7,115 @@ use Core\Model;
 
 class CapHumRrhh extends Model
 {
+    private const MODULO_ACTUALIZAR_DATOS_RRHH = 82;
+    private const MODULO_REVISION_ACTUALIZACIONES_RRHH = 83;
+
+    private static function usuarioTieneModuloWeb(int $moduloId): bool
+    {
+        $modulos = array_map('intval', (array) ($_SESSION['modulos'] ?? []));
+        return in_array($moduloId, $modulos, true);
+    }
+
+    private static function pushLegacyConfig(): array
+    {
+        $cfg = function_exists('config_api_load_from_db') ? config_api_load_from_db() : [];
+        $leerValor = static function (array $keys) use ($cfg): string {
+            foreach ($keys as $key) {
+                $valor = trim((string) ($cfg[$key] ?? ''));
+                if ($valor !== '') {
+                    return $valor;
+                }
+                $env = getenv($key);
+                if ($env !== false && trim((string) $env) !== '') {
+                    return trim((string) $env);
+                }
+            }
+            return '';
+        };
+
+        $baseUrl = $leerValor(['MOTOS_ADJUDICADAS_PUSH_BASE_URL']);
+        if ($baseUrl === '') {
+            $baseUrl = 'https://motosadjudicadas-601258367060.us-central1.run.app';
+        }
+
+        return [
+            'base_url' => rtrim($baseUrl, '/'),
+            'api_key' => $leerValor(['MOTOS_ADJUDICADAS_API_KEY', 'MOTOS_ADJUDICADAS_TOKEN']),
+        ];
+    }
+
+    private static function pushLegacyPost(string $path, array $payload): array
+    {
+        $cfg = self::pushLegacyConfig();
+        if ($cfg['base_url'] === '' || $cfg['api_key'] === '') {
+            return ['success' => false, 'message' => 'Servicio de notificaciones no configurado.'];
+        }
+        if (!function_exists('curl_init')) {
+            return ['success' => false, 'message' => 'cURL no esta disponible en este servidor.'];
+        }
+
+        $ch = curl_init($cfg['base_url'] . $path);
+        curl_setopt_array($ch, [
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_POST => true,
+            CURLOPT_POSTFIELDS => json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
+            CURLOPT_TIMEOUT => 12,
+            CURLOPT_CONNECTTIMEOUT => 4,
+            CURLOPT_HTTPHEADER => [
+                'Content-Type: application/json',
+                'Accept: application/json',
+                'X-API-Key: ' . $cfg['api_key'],
+            ],
+            CURLOPT_SSL_VERIFYPEER => true,
+        ]);
+
+        $raw = curl_exec($ch);
+        $err = curl_error($ch);
+        $httpCode = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        curl_close($ch);
+
+        $decoded = json_decode($raw === false ? '' : (string) $raw, true);
+        if ($httpCode < 200 || $httpCode >= 300) {
+            return [
+                'success' => false,
+                'message' => is_array($decoded)
+                    ? (string) ($decoded['message'] ?? $decoded['mensaje'] ?? $decoded['detail'] ?? 'No se pudo enviar la notificacion.')
+                    : ($err ?: 'No se pudo enviar la notificacion.'),
+                'http_code' => $httpCode,
+            ];
+        }
+
+        return [
+            'success' => true,
+            'http_code' => $httpCode,
+            'response' => is_array($decoded) ? $decoded : null,
+        ];
+    }
+
+    private static function notificarSolicitudActualizacionInfo(array $persona, int $idSolicitud, int $totalCampos): array
+    {
+        $externalId = trim((string) ($persona['numero_empleado'] ?? ''));
+        if ($externalId === '') {
+            return ['success' => false, 'omitir' => true, 'message' => 'La persona no tiene numero de empleado para notificar.'];
+        }
+
+        return self::pushLegacyPost('/api/push-notifications/legacy/send', [
+            'external_id' => $externalId,
+            'titulo' => 'Actualización de información requerida',
+            'mensaje' => 'Es necesario actualizar tu información. Entra a la app para completar los datos solicitados.',
+            'evento' => 'rrhh_actualizacion_info',
+            'data' => [
+                'type' => 'rrhh_actualizacion_info',
+                'notification_type' => 'rrhh_actualizacion_info',
+                'screen' => 'ActualizacionInformacionScreen',
+                'id_solicitud' => $idSolicitud,
+                'id_persona' => (int) ($persona['id'] ?? 0),
+                'numero_empleado' => $externalId,
+                'campos' => $totalCampos,
+            ],
+        ]);
+    }
+
     public static function asegurarTablas(Database $db): void
     {
         $db->CRUD("CREATE TABLE IF NOT EXISTS __SPARTA_SECRET_REDACTED__.persona_datos_rrhh (
@@ -159,6 +268,88 @@ class CapHumRrhh extends Model
             KEY idx_persona_observacion_persona (id_persona),
             KEY idx_persona_observacion_catalogo (id_catalogo_observacion)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+
+        $db->CRUD("CREATE TABLE IF NOT EXISTS __SPARTA_SECRET_REDACTED__.persona_actualizacion_info (
+            id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+            id_persona INT NOT NULL,
+            id_solicita INT NULL,
+            origen VARCHAR(80) NOT NULL DEFAULT 'gestion_personal',
+            estatus ENUM('Pendiente','Enviada','Respondida','EnRevision','Aprobada','Rechazada','Procesada','Cancelada','Error') NOT NULL DEFAULT 'Pendiente',
+            observaciones TEXT NULL,
+            enviado_app TINYINT(1) NOT NULL DEFAULT 0,
+            enviado_app_at DATETIME NULL,
+            respuesta_app TEXT NULL,
+            ultimo_error_app TEXT NULL,
+            created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            updated_at DATETIME NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
+            KEY idx_actualizacion_info_persona (id_persona),
+            KEY idx_actualizacion_info_estatus (estatus),
+            KEY idx_actualizacion_info_enviado_app (enviado_app)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+
+        $db->CRUD("CREATE TABLE IF NOT EXISTS __SPARTA_SECRET_REDACTED__.persona_actualizacion_info_detalle (
+            id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+            id_solicitud INT NOT NULL,
+            campo VARCHAR(80) NOT NULL,
+            etiqueta VARCHAR(160) NOT NULL,
+            tipo_campo VARCHAR(40) NULL,
+            grupo VARCHAR(80) NULL,
+            servicio_catalogo VARCHAR(120) NULL,
+            valor_anterior TEXT NULL,
+            valor_nuevo TEXT NULL,
+            created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            KEY idx_actualizacion_info_detalle_solicitud (id_solicitud),
+            KEY idx_actualizacion_info_detalle_campo (campo)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+        self::asegurarColumnasActualizacionInfoDetalle($db);
+
+        $db->CRUD("CREATE TABLE IF NOT EXISTS __SPARTA_SECRET_REDACTED__.persona_actualizacion_info_respuesta (
+            id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+            id_solicitud INT NOT NULL,
+            id_detalle INT NOT NULL,
+            campo VARCHAR(120) NOT NULL,
+            valor_anterior TEXT NULL,
+            valor_nuevo TEXT NULL,
+            comentario TEXT NULL,
+            estatus ENUM('Pendiente','EnRevision','Aprobada','Rechazada') NOT NULL DEFAULT 'EnRevision',
+            recibido_app TINYINT(1) NOT NULL DEFAULT 1,
+            recibido_app_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            UNIQUE KEY uq_actualizacion_info_respuesta_detalle (id_detalle),
+            KEY idx_actualizacion_info_respuesta_solicitud (id_solicitud)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+
+        self::asegurarEstatusActualizacionInfo($db);
+    }
+
+    private static function asegurarEstatusActualizacionInfo(Database $db): void
+    {
+        $columna = $db->queryOne("SHOW COLUMNS FROM __SPARTA_SECRET_REDACTED__.persona_actualizacion_info LIKE 'estatus'");
+        $tipo = strtolower((string)($columna['Type'] ?? $columna['type'] ?? ''));
+        if ($tipo && strpos($tipo, 'respondida') === false) {
+            $db->CRUD("ALTER TABLE __SPARTA_SECRET_REDACTED__.persona_actualizacion_info
+                MODIFY estatus ENUM('Pendiente','Enviada','Respondida','EnRevision','Aprobada','Rechazada','Procesada','Cancelada','Error')
+                NOT NULL DEFAULT 'Pendiente'");
+        }
+    }
+
+    private static function asegurarColumnasActualizacionInfoDetalle(Database $db): void
+    {
+        $columnas = [
+            'tipo_campo' => 'VARCHAR(40) NULL AFTER etiqueta',
+            'grupo' => 'VARCHAR(80) NULL AFTER tipo_campo',
+            'servicio_catalogo' => 'VARCHAR(120) NULL AFTER grupo',
+        ];
+
+        foreach ($columnas as $nombre => $definicion) {
+            $existe = $db->queryOne("SHOW COLUMNS FROM __SPARTA_SECRET_REDACTED__.persona_actualizacion_info_detalle LIKE :columna", [
+                'columna' => $nombre,
+            ]);
+            if (!$existe) {
+                $db->CRUD("ALTER TABLE __SPARTA_SECRET_REDACTED__.persona_actualizacion_info_detalle ADD COLUMN {$nombre} {$definicion}");
+            }
+        }
     }
 
     private static function asegurarColumnasDatosRrhh(Database $db): void
@@ -947,6 +1138,408 @@ class CapHumRrhh extends Model
             return self::resultado(true, 'Datos RR.HH. encontrados.', $datos);
         } catch (\Exception $e) {
             return self::resultado(false, 'Error al cargar datos RR.HH.', null, $e->getMessage());
+        }
+    }
+
+    public static function obtenerDatosActualizacionInfo(int $idPersona, int $idSesion): array
+    {
+        if (!self::usuarioTieneModuloWeb(self::MODULO_ACTUALIZAR_DATOS_RRHH)) {
+            return self::resultado(false, 'No tienes permiso para actualizar informacion.');
+        }
+        if ($idPersona <= 0) {
+            return self::resultado(false, 'ID de persona invalido.');
+        }
+
+        try {
+            $db = new Database();
+
+            $persona = $db->queryOne("
+                SELECT p.id, p.nombres, p.segundo_nombre, p.apellidop, p.apellidom, p.numero_empleado,
+                       p.correo, p.telefono_uno, p.telefono_dos, p.domicilio_calle_texto,
+                       p.codigo_postal, p.curp, p.user_name,
+                       r.tipo_sangre, r.alergias, r.enfermedades_cronicas, r.enfermedades_hereditarias,
+                       r.medicamentos_actuales, r.discapacidad_condicion, r.observaciones_medicas,
+                       (
+                           SELECT t.numero
+                           FROM __SPARTA_SECRET_REDACTED__.telefonos_persona t
+                           WHERE t.id_persona = p.id AND t.estatus = 'Activo'
+                           ORDER BY t.id ASC
+                           LIMIT 1
+                       ) AS telefono_lista,
+                       (
+                           SELECT d.domicilio_texto
+                           FROM __SPARTA_SECRET_REDACTED__.domicilio_persona d
+                           WHERE d.id_persona = p.id AND d.estatus = 'Activo'
+                           ORDER BY CASE d.tipo
+                               WHEN 'Actual' THEN 1
+                               WHEN 'Particular' THEN 2
+                               WHEN 'Rentado' THEN 3
+                               WHEN 'Familiar' THEN 4
+                               WHEN 'Fiscal' THEN 5
+                               WHEN 'Laboral' THEN 6
+                               ELSE 7
+                           END, d.id ASC
+                           LIMIT 1
+                       ) AS domicilio_lista,
+                       (
+                           SELECT d.codigo_postal
+                           FROM __SPARTA_SECRET_REDACTED__.domicilio_persona d
+                           WHERE d.id_persona = p.id AND d.estatus = 'Activo'
+                           ORDER BY CASE d.tipo
+                               WHEN 'Actual' THEN 1
+                               WHEN 'Particular' THEN 2
+                               WHEN 'Rentado' THEN 3
+                               WHEN 'Familiar' THEN 4
+                               WHEN 'Fiscal' THEN 5
+                               WHEN 'Laboral' THEN 6
+                               ELSE 7
+                           END, d.id ASC
+                           LIMIT 1
+                       ) AS codigo_postal_lista,
+                       (
+                           SELECT CONCAT_WS(' / ', c.nombre_contacto, c.parentesco, c.numero)
+                           FROM __SPARTA_SECRET_REDACTED__.contacto_persona_emergencia c
+                           WHERE c.id_persona = p.id AND c.estatus = 'Activo'
+                           ORDER BY c.id ASC
+                           LIMIT 1
+                       ) AS contacto_emergencia_texto
+                FROM __SPARTA_SECRET_REDACTED__.persona p
+                LEFT JOIN __SPARTA_SECRET_REDACTED__.persona_datos_rrhh r ON r.id_persona = p.id
+                WHERE p.id = :id_persona
+                LIMIT 1
+            ", ['id_persona' => $idPersona]);
+
+            if (!$persona) {
+                return self::resultado(false, 'No se encontro la persona solicitada.');
+            }
+
+            $nombreCompleto = trim(implode(' ', array_filter([
+                $persona['nombres'] ?? '',
+                $persona['segundo_nombre'] ?? '',
+                $persona['apellidop'] ?? '',
+                $persona['apellidom'] ?? '',
+            ])));
+
+            $actuales = [
+                'telefono_principal' => $persona['telefono_uno'] ?: ($persona['telefono_lista'] ?? ''),
+                'telefono_secundario' => $persona['telefono_dos'] ?? '',
+                'correo' => $persona['correo'] ?? '',
+                'codigo_postal' => $persona['codigo_postal'] ?: ($persona['codigo_postal_lista'] ?? ''),
+                'domicilio' => $persona['domicilio_calle_texto'] ?: ($persona['domicilio_lista'] ?? ''),
+                'calle_avenida' => $persona['domicilio_calle_texto'] ?: ($persona['domicilio_lista'] ?? ''),
+                'numero_exterior' => '',
+                'numero_interior' => '',
+                'colonia' => '',
+                'municipio' => '',
+                'estado' => '',
+                'contacto_emergencia' => trim((string)($persona['contacto_emergencia_texto'] ?? ''), " /"),
+                'tipo_sangre' => $persona['tipo_sangre'] ?? '',
+                'alergias' => $persona['alergias'] ?? '',
+                'enfermedades_cronicas' => $persona['enfermedades_cronicas'] ?? '',
+                'enfermedades_hereditarias' => $persona['enfermedades_hereditarias'] ?? '',
+                'medicamentos_actuales' => $persona['medicamentos_actuales'] ?? '',
+                'observaciones_medicas' => $persona['observaciones_medicas'] ?? '',
+            ];
+
+            return self::resultado(true, 'Datos actuales encontrados.', [
+                'persona' => [
+                    'id_persona' => $idPersona,
+                    'nombre' => $nombreCompleto,
+                    'numero_empleado' => $persona['numero_empleado'] ?? '',
+                    'usuario' => $persona['user_name'] ?? '',
+                ],
+                'actuales' => $actuales,
+            ]);
+        } catch (\Exception $e) {
+            return self::resultado(false, 'Error al cargar datos actuales.', null, $e->getMessage());
+        }
+    }
+
+    public static function obtenerDatosActualizacionInfoLote(array $idsPersona, int $idSesion): array
+    {
+        if (!self::usuarioTieneModuloWeb(self::MODULO_ACTUALIZAR_DATOS_RRHH)) {
+            return self::resultado(false, 'No tienes permiso para actualizar informacion.');
+        }
+
+        $ids = array_values(array_unique(array_filter(array_map('intval', $idsPersona), function ($id) {
+            return $id > 0;
+        })));
+        $ids = array_slice($ids, 0, 20);
+
+        if (!$ids) {
+            return self::resultado(true, 'Sin personas para cargar.', ['personas' => []]);
+        }
+
+        $params = [];
+        $placeholders = [];
+        foreach ($ids as $index => $id) {
+            $key = 'id' . $index;
+            $placeholders[] = ':' . $key;
+            $params[$key] = $id;
+        }
+
+        try {
+            $db = new Database();
+            $rows = $db->queryAll("
+                SELECT p.id, p.nombres, p.segundo_nombre, p.apellidop, p.apellidom, p.numero_empleado,
+                       p.correo, p.telefono_uno, p.telefono_dos, p.domicilio_calle_texto,
+                       p.codigo_postal, p.curp, p.user_name,
+                       r.tipo_sangre, r.alergias, r.enfermedades_cronicas, r.enfermedades_hereditarias,
+                       r.medicamentos_actuales, r.discapacidad_condicion, r.observaciones_medicas,
+                       (
+                           SELECT t.numero
+                           FROM __SPARTA_SECRET_REDACTED__.telefonos_persona t
+                           WHERE t.id_persona = p.id AND t.estatus = 'Activo'
+                           ORDER BY t.id ASC
+                           LIMIT 1
+                       ) AS telefono_lista,
+                       (
+                           SELECT d.domicilio_texto
+                           FROM __SPARTA_SECRET_REDACTED__.domicilio_persona d
+                           WHERE d.id_persona = p.id AND d.estatus = 'Activo'
+                           ORDER BY CASE d.tipo
+                               WHEN 'Actual' THEN 1
+                               WHEN 'Particular' THEN 2
+                               WHEN 'Rentado' THEN 3
+                               WHEN 'Familiar' THEN 4
+                               WHEN 'Fiscal' THEN 5
+                               WHEN 'Laboral' THEN 6
+                               ELSE 7
+                           END, d.id ASC
+                           LIMIT 1
+                       ) AS domicilio_lista,
+                       (
+                           SELECT d.codigo_postal
+                           FROM __SPARTA_SECRET_REDACTED__.domicilio_persona d
+                           WHERE d.id_persona = p.id AND d.estatus = 'Activo'
+                           ORDER BY CASE d.tipo
+                               WHEN 'Actual' THEN 1
+                               WHEN 'Particular' THEN 2
+                               WHEN 'Rentado' THEN 3
+                               WHEN 'Familiar' THEN 4
+                               WHEN 'Fiscal' THEN 5
+                               WHEN 'Laboral' THEN 6
+                               ELSE 7
+                           END, d.id ASC
+                           LIMIT 1
+                       ) AS codigo_postal_lista,
+                       (
+                           SELECT CONCAT_WS(' / ', c.nombre_contacto, c.parentesco, c.numero)
+                           FROM __SPARTA_SECRET_REDACTED__.contacto_persona_emergencia c
+                           WHERE c.id_persona = p.id AND c.estatus = 'Activo'
+                           ORDER BY c.id ASC
+                           LIMIT 1
+                       ) AS contacto_emergencia_texto
+                FROM __SPARTA_SECRET_REDACTED__.persona p
+                LEFT JOIN __SPARTA_SECRET_REDACTED__.persona_datos_rrhh r ON r.id_persona = p.id
+                WHERE p.id IN (" . implode(',', $placeholders) . ")
+            ", $params);
+
+            $personas = [];
+            foreach ($rows as $persona) {
+                $nombreCompleto = trim(implode(' ', array_filter([
+                    $persona['nombres'] ?? '',
+                    $persona['segundo_nombre'] ?? '',
+                    $persona['apellidop'] ?? '',
+                    $persona['apellidom'] ?? '',
+                ])));
+
+                $personas[(string)($persona['id'] ?? '')] = [
+                    'persona' => [
+                        'id_persona' => (int)($persona['id'] ?? 0),
+                        'nombre' => $nombreCompleto,
+                        'numero_empleado' => $persona['numero_empleado'] ?? '',
+                        'usuario' => $persona['user_name'] ?? '',
+                    ],
+                    'actuales' => [
+                        'telefono_principal' => $persona['telefono_uno'] ?: ($persona['telefono_lista'] ?? ''),
+                        'telefono_secundario' => $persona['telefono_dos'] ?? '',
+                        'correo' => $persona['correo'] ?? '',
+                        'codigo_postal' => $persona['codigo_postal'] ?: ($persona['codigo_postal_lista'] ?? ''),
+                        'domicilio' => $persona['domicilio_calle_texto'] ?: ($persona['domicilio_lista'] ?? ''),
+                        'calle_avenida' => $persona['domicilio_calle_texto'] ?: ($persona['domicilio_lista'] ?? ''),
+                        'numero_exterior' => '',
+                        'numero_interior' => '',
+                        'colonia' => '',
+                        'municipio' => '',
+                        'estado' => '',
+                        'contacto_emergencia' => trim((string)($persona['contacto_emergencia_texto'] ?? ''), " /"),
+                        'tipo_sangre' => $persona['tipo_sangre'] ?? '',
+                        'alergias' => $persona['alergias'] ?? '',
+                        'enfermedades_cronicas' => $persona['enfermedades_cronicas'] ?? '',
+                        'enfermedades_hereditarias' => $persona['enfermedades_hereditarias'] ?? '',
+                        'medicamentos_actuales' => $persona['medicamentos_actuales'] ?? '',
+                        'observaciones_medicas' => $persona['observaciones_medicas'] ?? '',
+                    ],
+                ];
+            }
+
+            return self::resultado(true, 'Datos actuales encontrados.', ['personas' => $personas]);
+        } catch (\Exception $e) {
+            return self::resultado(false, 'Error al cargar datos actuales.', null, $e->getMessage());
+        }
+    }
+
+    public static function guardarSolicitudActualizacionInfo(array $data, int $idSesion): array
+    {
+        if (!self::usuarioTieneModuloWeb(self::MODULO_ACTUALIZAR_DATOS_RRHH)) {
+            return self::resultado(false, 'No tienes permiso para actualizar informacion.');
+        }
+
+        $idPersona = (int)($data['id_persona'] ?? 0);
+        if ($idPersona <= 0) {
+            return self::resultado(false, 'ID de persona invalido.');
+        }
+
+        $campos = is_array($data['campos'] ?? null) ? $data['campos'] : [];
+        $campos = array_values(array_filter(array_map(function ($campo) {
+            if (!is_array($campo)) return null;
+            $nombreCampo = self::texto($campo['campo'] ?? '', 80);
+            $etiqueta = self::texto($campo['etiqueta'] ?? '', 160);
+            $valorNuevo = self::texto($campo['valor_nuevo'] ?? '', 5000);
+            if (!$nombreCampo || !$etiqueta) {
+                return null;
+            }
+            return [
+                'campo' => $nombreCampo,
+                'etiqueta' => $etiqueta,
+                'tipo_campo' => self::texto($campo['tipo'] ?? $campo['tipo_campo'] ?? 'text', 40) ?: 'text',
+                'grupo' => self::texto($campo['grupo'] ?? 'General', 80) ?: 'General',
+                'servicio_catalogo' => self::texto($campo['servicio_catalogo'] ?? '', 120),
+                'valor_anterior' => self::texto($campo['valor_anterior'] ?? '', 5000),
+                'valor_nuevo' => $valorNuevo,
+            ];
+        }, $campos)));
+
+        if (!$campos) {
+            return self::resultado(false, 'Selecciona al menos un campo para enviar a la app.');
+        }
+
+        try {
+            $db = new Database();
+            self::asegurarTablas($db);
+
+            $existePersona = $db->queryOne("SELECT
+                    id,
+                    TRIM(COALESCE(numero_empleado, '')) AS numero_empleado,
+                    CONCAT_WS(' ', nombres, segundo_nombre, apellidop, apellidom) AS nombre_persona
+                FROM __SPARTA_SECRET_REDACTED__.persona
+                WHERE id = :id_persona
+                LIMIT 1", [
+                'id_persona' => $idPersona,
+            ]);
+            if (!$existePersona) {
+                return self::resultado(false, 'No se encontro la persona solicitada.');
+            }
+
+            $db->beginTransaction();
+            $db->CRUD("INSERT INTO __SPARTA_SECRET_REDACTED__.persona_actualizacion_info
+                (id_persona, id_solicita, origen, estatus, observaciones, enviado_app)
+                VALUES (:id_persona, :id_solicita, 'gestion_personal', 'Pendiente', :observaciones, 0)", [
+                'id_persona' => $idPersona,
+                'id_solicita' => $idSesion,
+                'observaciones' => self::texto($data['observaciones'] ?? '', 5000),
+            ]);
+            $idSolicitud = $db->lastInsertId();
+
+            foreach ($campos as $campo) {
+                $db->CRUD("INSERT INTO __SPARTA_SECRET_REDACTED__.persona_actualizacion_info_detalle
+                    (id_solicitud, campo, etiqueta, tipo_campo, grupo, servicio_catalogo, valor_anterior, valor_nuevo)
+                    VALUES (:id_solicitud, :campo, :etiqueta, :tipo_campo, :grupo, :servicio_catalogo, :valor_anterior, :valor_nuevo)", [
+                    'id_solicitud' => $idSolicitud,
+                    'campo' => $campo['campo'],
+                    'etiqueta' => $campo['etiqueta'],
+                    'tipo_campo' => $campo['tipo_campo'],
+                    'grupo' => $campo['grupo'],
+                    'servicio_catalogo' => $campo['servicio_catalogo'],
+                    'valor_anterior' => $campo['valor_anterior'],
+                    'valor_nuevo' => $campo['valor_nuevo'],
+                ]);
+            }
+
+            $db->commit();
+            $push = self::notificarSolicitudActualizacionInfo($existePersona, (int) $idSolicitud, count($campos));
+            return self::resultado(true, 'Solicitud de actualizacion guardada para enviar a la app.', [
+                'id_solicitud' => $idSolicitud,
+                'campos' => count($campos),
+                'push_notificacion' => [
+                    'success' => (bool) ($push['success'] ?? false),
+                    'omitida' => (bool) ($push['omitir'] ?? false),
+                    'message' => (string) ($push['message'] ?? ''),
+                ],
+            ]);
+        } catch (\Exception $e) {
+            if (isset($db)) {
+                try { $db->rollback(); } catch (\Exception $rollbackError) {}
+            }
+            return self::resultado(false, 'Error al guardar la solicitud de actualizacion.', null, $e->getMessage());
+        }
+    }
+
+    public static function listarRespuestasActualizacionInfo(int $idSesion): array
+    {
+        if (!self::usuarioTieneModuloWeb(self::MODULO_REVISION_ACTUALIZACIONES_RRHH)) {
+            return self::resultado(false, 'No tienes permiso para revisar actualizaciones.');
+        }
+
+        try {
+            $db = new Database();
+            self::asegurarTablas($db);
+
+            $rows = $db->queryAll("SELECT
+                    s.id AS id_solicitud,
+                    s.id_persona,
+                    s.estatus AS estatus_solicitud,
+                    s.observaciones,
+                    s.created_at AS solicitud_creada,
+                    p.numero_empleado,
+                    CONCAT_WS(' ', p.nombres, p.segundo_nombre, p.apellidop, p.apellidom) AS nombre_persona,
+                    d.id AS id_detalle,
+                    d.campo,
+                    d.etiqueta,
+                    d.valor_anterior,
+                    r.valor_nuevo,
+                    r.comentario,
+                    r.estatus AS estatus_respuesta,
+                    r.recibido_app_at
+                FROM __SPARTA_SECRET_REDACTED__.persona_actualizacion_info_respuesta r
+                INNER JOIN __SPARTA_SECRET_REDACTED__.persona_actualizacion_info s ON s.id = r.id_solicitud
+                INNER JOIN __SPARTA_SECRET_REDACTED__.persona_actualizacion_info_detalle d ON d.id = r.id_detalle
+                LEFT JOIN __SPARTA_SECRET_REDACTED__.persona p ON p.id = s.id_persona
+                WHERE r.estatus = 'EnRevision'
+                ORDER BY r.recibido_app_at DESC, s.id DESC, d.id ASC");
+
+            $solicitudes = [];
+            foreach ($rows as $row) {
+                $idSolicitud = (int)($row['id_solicitud'] ?? 0);
+                if (!isset($solicitudes[$idSolicitud])) {
+                    $solicitudes[$idSolicitud] = [
+                        'id_solicitud' => $idSolicitud,
+                        'id_persona' => (int)($row['id_persona'] ?? 0),
+                        'numero_empleado' => $row['numero_empleado'] ?? '',
+                        'nombre_persona' => trim((string)($row['nombre_persona'] ?? 'Trabajador')),
+                        'estatus_solicitud' => $row['estatus_solicitud'] ?? '',
+                        'observaciones' => $row['observaciones'] ?? '',
+                        'solicitud_creada' => $row['solicitud_creada'] ?? '',
+                        'recibido_app_at' => $row['recibido_app_at'] ?? '',
+                        'comentario' => $row['comentario'] ?? '',
+                        'campos' => [],
+                    ];
+                }
+
+                $solicitudes[$idSolicitud]['campos'][] = [
+                    'id_detalle' => (int)($row['id_detalle'] ?? 0),
+                    'campo' => $row['campo'] ?? '',
+                    'etiqueta' => $row['etiqueta'] ?? '',
+                    'valor_anterior' => $row['valor_anterior'] ?? '',
+                    'valor_nuevo' => $row['valor_nuevo'] ?? '',
+                    'estatus_respuesta' => $row['estatus_respuesta'] ?? '',
+                ];
+            }
+
+            return self::resultado(true, 'Actualizaciones recibidas.', array_values($solicitudes));
+        } catch (\Exception $e) {
+            return self::resultado(false, 'Error al consultar actualizaciones recibidas.', [], $e->getMessage());
         }
     }
 

@@ -971,6 +971,7 @@ class MotosAdjudicadas extends Controller
         $body          = json_decode(file_get_contents('php://input'), true) ?? [];
         $idCredito     = (int)  ($body['id_credito']     ?? 0);
         $nombreCliente = trim(  ($body['nombre_cliente'] ?? ''));
+        $rapido        = !empty($body['rapido']);
 
         if ($idCredito <= 0) {
             echo json_encode(['success' => false, 'message' => 'ID de crédito inválido.']);
@@ -980,7 +981,13 @@ class MotosAdjudicadas extends Controller
         $idUsuario = (int) ($_SESSION['usuario_id'] ?? $_SESSION['id_usuario'] ?? $_SESSION['id'] ?? 0);
 
         try {
-            $result = $this->model->obtenerOCrearOperacion($idCredito, $nombreCliente, $idUsuario);
+            $result = $rapido
+                ? $this->model->obtenerDetalleRapidoPorCredito($idCredito)
+                : $this->model->obtenerOCrearOperacion($idCredito, $nombreCliente, $idUsuario);
+
+            if ($rapido && (empty($result['success']) || empty($result['detalle']))) {
+                $result = $this->model->obtenerOCrearOperacion($idCredito, $nombreCliente, $idUsuario);
+            }
             if (empty($result['success']) || empty($result['detalle']) || !is_array($result['detalle'])) {
                 echo json_encode($result);
                 return;
@@ -1067,6 +1074,48 @@ class MotosAdjudicadas extends Controller
             echo json_encode(['success' => true, 'detalle' => $detalleCompacto]);
         } catch (\Exception $e) {
             echo json_encode(['success' => false, 'message' => $e->getMessage()]);
+        }
+    }
+
+    public function obtenerEvidenciasCreditosRapido()
+    {
+        header('Content-Type: application/json; charset=utf-8');
+
+        $body = json_decode(file_get_contents('php://input'), true) ?? [];
+        $ids = $body['ids_credito'] ?? [];
+        if (!is_array($ids)) {
+            echo json_encode(['success' => false, 'message' => 'Lista de creditos invalida.']);
+            return;
+        }
+
+        try {
+            $detalles = $this->model->obtenerDetallesRapidosPorCreditos($ids);
+            foreach ($detalles as &$wrap) {
+                if (empty($wrap['detalle']['evidencias']) || !is_array($wrap['detalle']['evidencias'])) {
+                    continue;
+                }
+                foreach ($wrap['detalle']['evidencias'] as &$ev) {
+                    if (!is_array($ev) || empty($ev['url'])) {
+                        continue;
+                    }
+                    $u = str_replace('\\', '/', trim((string) $ev['url']));
+                    $u = preg_replace('#^https?://uploads(?=/|$)#i', '/uploads', $u);
+                    $u = preg_replace('#^/{2,}uploads(?=/|$)#i', '/uploads', $u);
+                    $u = preg_replace('#^/uploads/uploads/#i', '/uploads/', $u);
+                    if (function_exists('sparta_url_publica_desde_repositorio')) {
+                        $u = sparta_url_publica_desde_repositorio($u);
+                    }
+                    $ev['url'] = $u;
+                }
+                unset($ev);
+            }
+            unset($wrap);
+
+            echo json_encode(['success' => true, 'detalles' => $detalles], JSON_UNESCAPED_UNICODE);
+        } catch (\Throwable $e) {
+            error_log('[MotosAdjudicadas/obtenerEvidenciasCreditosRapido] ' . $e->getMessage());
+            http_response_code(500);
+            echo json_encode(['success' => false, 'message' => 'Error al obtener evidencias.']);
         }
     }
 

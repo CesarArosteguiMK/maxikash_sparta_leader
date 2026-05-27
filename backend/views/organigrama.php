@@ -514,6 +514,36 @@
         </div>
     </div>
 
+<div class="modal fade" id="modalCambiarJefeVacante" tabindex="-1" aria-labelledby="modalCambiarJefeVacanteLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="modalCambiarJefeVacanteLabel">
+                    <i class="fa fa-user-tie me-2"></i>Cambiar jefe de vacante
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="vacante_jefe_id_vacante">
+                <div class="alert alert-warning bg-warning-subtle border border-warning-subtle text-warning-emphasis small mb-3">
+                    <div class="fw-semibold" id="vacante_jefe_resumen">Vacante</div>
+                    <div>Selecciona el jefe al que quedara ligada esta vacante.</div>
+                </div>
+                <label class="form-label">Jefe destino *</label>
+                <select id="vacante_jefe_id_jefe" class="form-select">
+                    <option value="">Seleccione un jefe</option>
+                </select>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-label-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-primary" onclick="guardarJefeVacanteOrganigrama()">
+                    <i class="fa fa-save me-1"></i>Guardar
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <script>
     window.puedeEditarTodosOrganigrama = <?= json_encode(!empty($puedeEditarTodos ?? false)) ?>;
@@ -1218,6 +1248,108 @@
                 });
         }
 
+        function buscarVacanteOrganigrama(rawId) {
+            var id = String(rawId || '');
+            return (organigramaRows || []).find(function (r) {
+                if (!r) return false;
+                return String(r.id) === id
+                    || String(r.id) === ('vacante-' + id)
+                    || String(r.id_vacante || '') === id;
+            }) || null;
+        }
+
+        function abrirModalVacanteOrganigrama(rawId) {
+            if (!window.puedeEditarTodosOrganigrama) {
+                Swal.fire('Sin permiso', 'No tienes permiso para modificar vacantes.', 'warning');
+                return;
+            }
+
+            var vacante = buscarVacanteOrganigrama(rawId);
+            if (!vacante) {
+                Swal.fire('Atencion', 'No se encontro la vacante seleccionada.', 'warning');
+                return;
+            }
+
+            var idVacante = parseInt(vacante.id_vacante || String(vacante.id || '').replace('vacante-', ''), 10);
+            var idDepartamento = vacante.id_departamento || document.getElementById('depSelect')?.value || '';
+            var idPuesto = vacante.id_puesto || '';
+            var select = document.getElementById('vacante_jefe_id_jefe');
+            var input = document.getElementById('vacante_jefe_id_vacante');
+            var resumen = document.getElementById('vacante_jefe_resumen');
+
+            if (!idVacante || !idDepartamento) {
+                Swal.fire('Atencion', 'La vacante no tiene informacion suficiente para cambiar el jefe.', 'warning');
+                return;
+            }
+
+            input.value = idVacante;
+            resumen.textContent = 'Vacante #' + idVacante + ' - ' + (vacante.puesto || 'Sin puesto');
+            select.innerHTML = '<option value="">Cargando jefes...</option>';
+            select.disabled = true;
+
+            bootstrap.Modal.getOrCreateInstance(document.getElementById('modalCambiarJefeVacante')).show();
+
+            fetch('/CapHum/getJefeDirecto', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ id_departamento: idDepartamento, id_puesto: idPuesto })
+            })
+                .then(function (res) { return res.json(); })
+                .then(function (data) {
+                    select.innerHTML = '<option value="">Seleccione un jefe</option>';
+                    if (!data.success) {
+                        select.innerHTML = '<option value="">No se pudieron cargar jefes</option>';
+                        return;
+                    }
+                    (data.datos || []).forEach(function (jefe) {
+                        if (jefe.tipo_jefe === 'vacante') return;
+                        var opt = document.createElement('option');
+                        opt.value = jefe.id;
+                        opt.textContent = jefe.nombre_completo || ('Jefe #' + jefe.id);
+                        if (String(jefe.id) === String(vacante.id_jefe || '')) {
+                            opt.selected = true;
+                        }
+                        select.appendChild(opt);
+                    });
+                    select.disabled = false;
+                })
+                .catch(function () {
+                    select.innerHTML = '<option value="">Error al cargar jefes</option>';
+                });
+        }
+
+        function guardarJefeVacanteOrganigrama() {
+            var idVacante = document.getElementById('vacante_jefe_id_vacante')?.value || '';
+            var idJefe = document.getElementById('vacante_jefe_id_jefe')?.value || '';
+
+            if (!idVacante || !idJefe) {
+                Swal.fire('Falta informacion', 'Selecciona el jefe destino.', 'warning');
+                return;
+            }
+
+            fetch('/CapHum/actualizarJefeVacante', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ id_vacante: idVacante, id_jefe: idJefe })
+            })
+                .then(function (res) { return res.json(); })
+                .then(function (data) {
+                    if (!data.success) {
+                        Swal.fire('Error', data.mensaje || 'No se pudo actualizar la vacante.', 'error');
+                        return;
+                    }
+                    bootstrap.Modal.getOrCreateInstance(document.getElementById('modalCambiarJefeVacante')).hide();
+                    Swal.fire('Listo', data.mensaje || 'Jefe actualizado.', 'success');
+                    var rootId = obtenerIdRootActual();
+                    if (rootId) {
+                        cargarOrganigramaDesdeRoot(rootId);
+                    }
+                })
+                .catch(function () {
+                    Swal.fire('Error', 'No se pudo actualizar la vacante.', 'error');
+                });
+        }
+
         /* ============================= */
         /*   SELECT DEPARTAMENTO          */
         /* ============================= */
@@ -1595,11 +1727,13 @@
                     wrapperClass += ' org-estado-ausencia text-dark';
                     badgeHtml = '<div class="badge bg-white text-danger rounded-1 mt-1">' + (estadoLabel || 'Ausencia') + '</div>';
                 }
-                var puedeAbrir = tipoEstado !== 'vacante';
+                var clickHandler = tipoEstado === 'vacante'
+                    ? 'onclick="abrirModalVacanteOrganigrama(\'' + idSafe + '\')"'
+                    : 'onclick="abrirModal(\'' + idSafe + '\')"';
                 data.addRow([
                     {
                         v: String(r.id),
-                        f: '<div class="' + wrapperClass + '"' + estadoAttr + ' style="font-weight:bold;cursor:pointer;color:#2a6ebb" ' + (puedeAbrir ? 'onclick="abrirModal(\'' + idSafe + '\')"' : '') + '>' +
+                        f: '<div class="' + wrapperClass + '"' + estadoAttr + ' style="font-weight:bold;cursor:pointer;color:#2a6ebb" ' + clickHandler + '>' +
                             nombreSafe +
                             (puestoSafe ? '<div class="org-puesto">' + puestoSafe + '</div>' : '') +
                             badgeHtml +
