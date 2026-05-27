@@ -3946,8 +3946,16 @@ public static function getConstructorEstructuraOrganizacional($idPais = 0): arra
             ORDER BY nombre ASC
         ");
 
-        if ($idPais <= 0 && !empty($paises[0]['id'])) {
-            $idPais = (int) $paises[0]['id'];
+        if ($idPais <= 0) {
+            $paisMexico = null;
+            foreach ($paises as $pais) {
+                $nombrePais = mb_strtolower((string) ($pais['nombre'] ?? ''), 'UTF-8');
+                if ($nombrePais === 'méxico' || $nombrePais === 'mexico') {
+                    $paisMexico = $pais;
+                    break;
+                }
+            }
+            $idPais = (int) (($paisMexico['id'] ?? null) ?: ($paises[0]['id'] ?? 0));
         }
 
         $niveles = $db->queryAll("
@@ -4096,6 +4104,21 @@ public static function guardarConstructorEstructuraOrganizacional($idPais, array
         }
     }
     unset($nodo);
+
+    $padres = [];
+    foreach ($limpios as $nodo) {
+        $padres[$nodo['id_puesto']] = $nodo['id_puesto_padre'];
+    }
+    foreach ($padres as $idPuesto => $idPadre) {
+        $visitados = [];
+        while ($idPadre !== null) {
+            if (isset($visitados[$idPadre]) || (int) $idPadre === (int) $idPuesto) {
+                return self::resultado(false, 'La jerarquia no puede guardarse porque contiene un ciclo.');
+            }
+            $visitados[$idPadre] = true;
+            $idPadre = $padres[$idPadre] ?? null;
+        }
+    }
 
     try {
         $db = new Database();
