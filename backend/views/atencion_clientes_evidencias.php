@@ -25,6 +25,9 @@
     transition: background-color .15s ease, border-color .15s ease;
 }
 .ac-card:hover { background: #fcfcfd; border-color: #dbe2ea; }
+.ac-card.ae-row-clickable { cursor: pointer; }
+.ac-card.ae-row-clickable:focus { outline: 2px solid #2563eb; outline-offset: 2px; }
+.ac-card.ae-row-clickable:hover { border-color: #bfdbfe; }
 
 .ac-card-body {
     padding: .62rem .9rem;
@@ -186,6 +189,25 @@ body.dark-mode .aev-ev-hint { color: #94a3b8 !important; }
     margin: 0 0 .45rem;
     line-height: 1.35;
 }
+.aev-detalle-loading {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: .65rem;
+}
+.aev-detalle-loading-card {
+    min-height: 118px;
+    border: 1px solid #e2e8f0;
+    border-radius: .6rem;
+    background: linear-gradient(90deg, #f8fafc 0%, #eef2f7 45%, #f8fafc 90%);
+    background-size: 220% 100%;
+    animation: aevLoadShimmer 1.05s linear infinite;
+}
+@keyframes aevLoadShimmer {
+    0% { background-position: 220% 0; }
+    100% { background-position: -220% 0; }
+}
+@media (max-width: 991.98px) { .aev-detalle-loading { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+@media (max-width: 575.98px) { .aev-detalle-loading { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 /* Recarga de tarjetas: mantiene contenido anterior visível (evita parpadeo en blanco) */
 .ae-lista-updating {
     opacity: 1;
@@ -312,8 +334,18 @@ body.dark-mode .aev-ev-hint { color: #94a3b8 !important; }
 .aev-btn-enviar { border: 2px solid #16a34a; color: #166534; font-weight: 800; border-radius: 2rem; padding: .4rem 1.25rem; }
 .aev-btn-enviar:disabled { opacity: .5; }
 #aeTabAprobados .ac-btn-dictaminar { display: none !important; }
+#modalAevValidarEvidencias.aev-modo-lectura #aev-btn-enviar,
+#modalAevValidarEvidencias.aev-modo-lectura #aev-vista-panel-dictamen,
+#modalAevValidarEvidencias.aev-modo-lectura .aev-btn-reemplazo-gestor {
+    display: none !important;
+}
 body.dark-mode .aev-ev-slots-wrap { background: #0f172a; border-color: #334155; }
 body.dark-mode .aev-ev-slot, body.dark-mode .aev-doc-zone { background: #1e293b; border-color: #334155; }
+body.dark-mode .aev-detalle-loading-card {
+    border-color: #334155;
+    background: linear-gradient(90deg, #111827 0%, #1e293b 45%, #111827 90%);
+    background-size: 220% 100%;
+}
 </style>
 
 <div class="container-fluid py-4">
@@ -599,6 +631,99 @@ $aevPuedeReemplazarEvidencia = in_array(79, array_map('intval', (array) ($_SESSI
         }
     }
 
+    function aevSetModoLectura(activo) {
+        _aevStore.soloLectura = !!activo;
+        const modal = document.getElementById('modalAevValidarEvidencias');
+        if (modal) modal.classList.toggle('aev-modo-lectura', !!activo);
+        const btnEnviar = document.getElementById('aev-btn-enviar');
+        if (btnEnviar && activo) btnEnviar.classList.add('d-none');
+    }
+
+    function aevRenderCargaRapidaDetalle(id) {
+        let cards = '';
+        for (let i = 0; i < 12; i++) {
+            cards += '<div class="aev-detalle-loading-card" aria-hidden="true"></div>';
+        }
+        return '<p class="aev-ev-hint mb-3"><i class="fa-solid fa-bolt me-1"></i>Cargando evidencias del cr&eacute;dito #' + aeEsc(String(id)) + '...</p>'
+            + '<div class="aev-detalle-loading">' + cards + '</div>';
+    }
+
+    function aevObtenerDetalleCredito(idCredito, forzar) {
+        const id = parseInt(idCredito, 10);
+        const key = String(id);
+        if (!id) return Promise.reject(new Error('Cr&eacute;dito inv&aacute;lido'));
+        if (!forzar && _aevDetalleCache.has(key)) {
+            return Promise.resolve(_aevDetalleCache.get(key));
+        }
+        if (!forzar && _aevDetallePendientes.has(key)) {
+            return _aevDetallePendientes.get(key);
+        }
+        if (forzar) _aevDetallePendientes.delete(key);
+        const promesa = fetch('/MotosAdjudicadas/obtenerEvidenciasCredito', {
+            method:  'POST',
+            headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+            body:    JSON.stringify({ id_credito: id, nombre_cliente: '', rapido: true }),
+            credentials: 'same-origin'
+        })
+            .then(function (r) { return r.json(); })
+            .then(function (data) {
+                if (data && data.success) _aevDetalleCache.set(key, data);
+                return data;
+            })
+            .finally(function () { _aevDetallePendientes.delete(key); });
+        _aevDetallePendientes.set(key, promesa);
+        return promesa;
+    }
+
+    function aevPrecargarDetalleCredito(idCredito) {
+        const id = parseInt(idCredito, 10);
+        if (!id || _aevDetalleCache.has(String(id))) return;
+        aevObtenerDetalleCredito(id, false).catch(function () {});
+    }
+
+    function aevPrecargarDetallesCreditos(idsCredito) {
+        const ids = (idsCredito || [])
+            .map(function (id) { return parseInt(id, 10); })
+            .filter(function (id, idx, arr) {
+                return id > 0
+                    && arr.indexOf(id) === idx
+                    && !_aevDetalleCache.has(String(id))
+                    && !_aevDetallePendientes.has(String(id));
+            });
+        if (!ids.length) return;
+
+        const batch = fetch('/MotosAdjudicadas/obtenerEvidenciasCreditosRapido', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+            body: JSON.stringify({ ids_credito: ids }),
+            credentials: 'same-origin'
+        })
+            .then(function (r) { return r.json(); })
+            .then(function (data) {
+                const detalles = data && data.success && data.detalles ? data.detalles : {};
+                ids.forEach(function (id) {
+                    const det = detalles[String(id)] || detalles[id];
+                    if (det && det.success) _aevDetalleCache.set(String(id), det);
+                });
+                return detalles;
+            })
+            .catch(function () { return {}; });
+
+        ids.forEach(function (id) {
+            const key = String(id);
+            _aevDetallePendientes.set(key, batch.then(function () {
+                return _aevDetalleCache.get(key) || aevObtenerDetalleCredito(id, true);
+            }).finally(function () {
+                _aevDetallePendientes.delete(key);
+            }));
+        });
+    }
+
+    function aevPrecargarBandejaVisible(rows) {
+        if (!Array.isArray(rows) || !rows.length) return;
+        aevPrecargarDetallesCreditos(rows.slice(0, 20).map(function (row) { return row && row.id_credito; }));
+    }
+
     const AE_CONFIG = {
         bandeja: {
             url:   '/AtencionClientes/obtenerRecibidos',
@@ -655,10 +780,12 @@ $aevPuedeReemplazarEvidencia = in_array(79, array_map('intval', (array) ($_SESSI
     const AE_EV_TOTAL      = AEV_TOTAL_IMAGEN;
 
     /** detalle de sesión: veredictos v[slot]= acep|rec, comentarios c[slot] (persiste solo mientras dura el modal) */
-    let _aevStore  = { det: null, idCredito: 0, v: {}, c: {}, rechazosPendientes: {}, pendingVeredictos: {} };
+    let _aevStore  = { det: null, idCredito: 0, v: {}, c: {}, rechazosPendientes: {}, pendingVeredictos: {}, soloLectura: false };
     let _aevVistaCtx = { slot: '', label: '', evidId: 0, soloAceptada: false, soloRechazada: false };
     let _aevReemplazoGestorCtx = { slot: '', label: '' };
     let _aevZoomTeardown = null;
+    const _aevDetalleCache = new Map();
+    const _aevDetallePendientes = new Map();
 
     function aevZoomTeardown() {
         if (typeof _aevZoomTeardown === 'function') {
@@ -910,7 +1037,7 @@ $aevPuedeReemplazarEvidencia = in_array(79, array_map('intval', (array) ($_SESSI
         const st = aevEstadoEvidencia(row, slot);
         const soloAceptada = (st === 'acep');
         const soloRechazada = (st === 'rec');
-        const modoSoloLectura = soloAceptada || soloRechazada;
+        const modoSoloLectura = soloAceptada || soloRechazada || !!_aevStore.soloLectura;
         _aevVistaCtx.soloAceptada = soloAceptada;
         _aevVistaCtx.soloRechazada = soloRechazada;
         aevAsegurarOverlayDentroModal();
@@ -953,6 +1080,10 @@ $aevPuedeReemplazarEvidencia = in_array(79, array_map('intval', (array) ($_SESSI
                 cleRech.classList.toggle('text-muted', !txtRech);
             }
             if (cmt) cmt.value = '';
+        } else if (_aevStore.soloLectura) {
+            if (cmt) cmt.value = '';
+            if (cleido) { cleido.textContent = ''; cleido.style.display = ''; }
+            if (cleRech) { cleRech.textContent = ''; cleRech.style.display = ''; }
         } else {
             if (cmt) cmt.value = _aevStore.c[slot] || '';
             if (cleido) { cleido.textContent = ''; cleido.style.display = ''; }
@@ -1307,7 +1438,7 @@ $aevPuedeReemplazarEvidencia = in_array(79, array_map('intval', (array) ($_SESSI
         const vpdf = aevCuentaValidadosPdf(evl);
         const vall = aevCuentaValidadosTot(evl);
         const pct9 = AEV_TOTAL_IMAGEN ? Math.round((vi / AEV_TOTAL_IMAGEN) * 100) : 0;
-        const mostrarDoc = aevImagenesTodasAceptadas(evl);
+        const mostrarDoc = vpdf > 0 || aevImagenesTodasAceptadas(evl);
 
         let html = '';
         html += '<p class="aev-ev-hint" role="note"><i class="fa-solid fa-hand-pointer me-1" style="opacity:.65;" aria-hidden="true"></i>Clic en cada evidencia para aceptar o rechazar.</p>';
@@ -1584,6 +1715,13 @@ $aevPuedeReemplazarEvidencia = in_array(79, array_map('intval', (array) ($_SESSI
             clearTimeout(_aeFinalizarDebounceTimer);
             _aeFinalizarDebounceTimer = null;
         }
+        const idCreditoActual = parseInt(_aevStore.idCredito, 10) || 0;
+        if (idCreditoActual > 0) _aevDetalleCache.delete(String(idCreditoActual));
+        if (idCreditoActual > 0) _aevDetallePendientes.delete(String(idCreditoActual));
+        if (_aevStore.soloLectura) {
+            aevSetModoLectura(false);
+            return;
+        }
         const d = _aevStore.det;
         if (!d || !d.id) { return; }
         const opId = parseInt(d.id, 10);
@@ -1668,14 +1806,14 @@ $aevPuedeReemplazarEvidencia = in_array(79, array_map('intval', (array) ($_SESSI
         const folio = item.folio ? aeEsc(item.folio) : '—';
         const accion = String(key || '').toLowerCase() === 'aprobados' ? '' : `
                 <div class="ae-list-action">
-                <button type="button" class="ac-btn-dictaminar"
-                        onclick="aevValidarAbrir(${+item.id_credito})">
+                <button type="button" class="ac-btn-dictaminar" data-aev-no-row="1"
+                        onclick="event.stopPropagation(); aevValidarAbrir(${+item.id_credito})">
                     <i class="fa-solid fa-clipboard-check me-1"></i>Validar evidencias
                 </button>
                 </div>`;
 
         return `
-        <div class="ac-card">
+        <div class="ac-card ae-row-clickable" data-aev-row-id="${aeEsc(String(item.id_credito))}" role="button" tabindex="0" title="Ver evidencias">
             <div class="ac-card-body">
                 <div class="ae-list-grid">
                     <div class="ae-list-cell ae-main-meta">
@@ -1705,29 +1843,26 @@ $aevPuedeReemplazarEvidencia = in_array(79, array_map('intval', (array) ($_SESSI
         </div>`;
     }
 
-    window.aevValidarAbrir = function (idCredito) {
+    window.aevValidarAbrir = function (idCredito, opciones) {
         const id = parseInt(idCredito, 10);
         if (!id) return;
+        const soloLectura = !!(opciones && opciones.soloLectura);
         aevCerrarVistaOverlay();
+        aevSetModoLectura(soloLectura);
         aevReiniciarStore(null, id);
         aevSincroBtnEnviar();
         const tit = document.getElementById('aev-titulo-cliente');
         const body = document.getElementById('aev-body');
         if (tit) tit.textContent = 'Crédito #' + id;
         if (body) {
-            body.innerHTML = '<div class="text-center py-5 text-muted"><div class="spinner-border spinner-border-sm" style="color:#22c55e;"></div></div>';
+            body.innerHTML = aevRenderCargaRapidaDetalle(id);
         }
         const mEl = document.getElementById('modalAevValidarEvidencias');
         if (mEl && window.bootstrap) {
             (new bootstrap.Modal(mEl)).show();
         }
 
-        fetch('/MotosAdjudicadas/obtenerEvidenciasCredito', {
-            method:  'POST',
-            headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
-            body:    JSON.stringify({ id_credito: id, nombre_cliente: '' }),
-        })
-            .then(r => r.json())
+        aevObtenerDetalleCredito(id, false)
             .then(data => {
                 if (!data.success) {
                     body.innerHTML = '<div class="alert alert-warning"><i class="fa-solid fa-triangle-exclamation me-2"></i>' + aeEsc(data.message || 'Error al cargar') + '</div>';
@@ -1830,6 +1965,7 @@ $aevPuedeReemplazarEvidencia = in_array(79, array_map('intval', (array) ($_SESSI
                     lista.innerHTML = aeSinDatos(cfg.vacio);
                 } else {
                     lista.innerHTML = data.datos.map(d => aeRenderCard(d, key)).join('');
+                    aevPrecargarBandejaVisible(data.datos);
                 }
             })
             .catch(err => {
@@ -1880,6 +2016,28 @@ $aevPuedeReemplazarEvidencia = in_array(79, array_map('intval', (array) ($_SESSI
             aeCargarSeccion('correcciones', false);
         });
 
+        document.addEventListener('click', function (ev) {
+            if (ev.target.closest('[data-aev-no-row], button, a, input, textarea, select, label')) return;
+            const card = ev.target.closest('.ae-row-clickable[data-aev-row-id]');
+            if (!card) return;
+            const id = parseInt(card.getAttribute('data-aev-row-id'), 10);
+            if (id > 0) aevValidarAbrir(id, { soloLectura: true });
+        });
+        document.addEventListener('keydown', function (ev) {
+            if (ev.key !== 'Enter' && ev.key !== ' ') return;
+            const card = ev.target.closest && ev.target.closest('.ae-row-clickable[data-aev-row-id]');
+            if (!card) return;
+            ev.preventDefault();
+            const id = parseInt(card.getAttribute('data-aev-row-id'), 10);
+            if (id > 0) aevValidarAbrir(id, { soloLectura: true });
+        });
+        document.addEventListener('mouseover', function (ev) {
+            const card = ev.target.closest && ev.target.closest('.ae-row-clickable[data-aev-row-id]');
+            if (!card) return;
+            const id = parseInt(card.getAttribute('data-aev-row-id'), 10);
+            if (id > 0) aevPrecargarDetalleCredito(id);
+        });
+
         const aevBody = document.getElementById('aev-body');
         if (aevBody) {
             aevBody.addEventListener('click', function (ev) {
@@ -1887,6 +2045,7 @@ $aevPuedeReemplazarEvidencia = in_array(79, array_map('intval', (array) ($_SESSI
                 if (replGestor) {
                     ev.preventDefault();
                     ev.stopPropagation();
+                    if (_aevStore.soloLectura) return;
                     aevAbrirReemplazoGestor(
                         replGestor.getAttribute('data-aev-reemplazar-gestor'),
                         replGestor.getAttribute('data-aev-reemplazar-lbl') || ''
@@ -1909,6 +2068,7 @@ $aevPuedeReemplazarEvidencia = in_array(79, array_map('intval', (array) ($_SESSI
                 }
                 const sub = ev.target.closest('[data-aev-subir]');
                 if (sub) {
+                    if (_aevStore.soloLectura) return;
                     const sk = sub.getAttribute('data-aev-subir');
                     if (sk === 'doc_repuve' && _aevStore.det && aevImagenesTodasAceptadas(_aevStore.det.evidencias)) {
                         const inp = document.getElementById('aev-inp-repuve');

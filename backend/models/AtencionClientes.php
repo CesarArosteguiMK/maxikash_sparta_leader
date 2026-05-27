@@ -40,6 +40,19 @@ class AtencionClientes
         return $dt->format('Y-m-d H:i:s');
     }
 
+    private function sqlConteoEvidenciasFisicas(string $aliasOperacion = 'o'): string
+    {
+        return "(SELECT COUNT(DISTINCT e.slot)
+                  FROM adj_evidencia e
+                 WHERE e.id_operacion = {$aliasOperacion}.id
+                   AND e.slot IN (
+                        'fis_dacion_hoja_1', 'fis_dacion_hoja_2',
+                        'fis_vin', 'fis_frontal', 'fis_lateral_der', 'fis_trasera', 'fis_lateral_izq',
+                        'fis_tacometro', 'fis_video_cliente_acuerdo', 'fis_360_encendida',
+                        'fis_video_vuelta_prueba', 'fis_checklist'
+                   ))";
+    }
+
     /**
      * Evita duplicar filas si hay más de un registro activo en asigna_creditos_adjudicacion por crédito.
      */
@@ -234,6 +247,7 @@ SQL;
     private function listarOperacionesAdjPorEstatus(string $estatus): array
     {
         $joinAsig = $this->sqlJoinUnaAsignacionActivaPorCredito();
+        $evidenciasCount = $this->sqlConteoEvidenciasFisicas('o');
         $sql = <<<SQL
         SELECT
             o.id,
@@ -245,7 +259,7 @@ SQL;
             o.saldo_capital,
             o.adeudo_total,
             DATEDIFF(NOW(), o.fecha_alta) AS dias_en_pipeline,
-            (SELECT COUNT(*) FROM adj_evidencia e WHERE e.id_operacion = o.id) AS evidencias_count,
+            {$evidenciasCount} AS evidencias_count,
             TRIM(CONCAT_WS(' ',
                 per.nombres,
                 per.segundo_nombre,
@@ -276,6 +290,7 @@ SQL;
 
         $joinAsig = $this->sqlJoinUnaAsignacionActivaPorCredito();
         $where = $this->sqlWhereBandejaEvidencias();
+        $evidenciasCount = $this->sqlConteoEvidenciasFisicas('o');
         $sql = <<<SQL
         SELECT
             o.id,
@@ -287,7 +302,7 @@ SQL;
             o.saldo_capital,
             o.adeudo_total,
             DATEDIFF(NOW(), o.fecha_alta) AS dias_en_pipeline,
-            (SELECT COUNT(*) FROM adj_evidencia e WHERE e.id_operacion = o.id) AS evidencias_count,
+            {$evidenciasCount} AS evidencias_count,
             TRIM(CONCAT_WS(' ',
                 per.nombres,
                 per.segundo_nombre,
@@ -312,6 +327,7 @@ SQL;
     private function listarOperacionesAprobadasEvidenciasAtencion(bool $excluirDictaminadoRecuperacion = false): array
     {
         $joinAsig = $this->sqlJoinUnaAsignacionActivaPorCredito();
+        $evidenciasCount = $this->sqlConteoEvidenciasFisicas('o');
         $exclDictRec = '';
         if ($excluirDictaminadoRecuperacion) {
             $exclDictRec = <<<'SQL'
@@ -344,7 +360,7 @@ SQL;
             o.saldo_capital,
             o.adeudo_total,
             DATEDIFF(NOW(), o.fecha_alta) AS dias_en_pipeline,
-            (SELECT COUNT(*) FROM adj_evidencia e WHERE e.id_operacion = o.id) AS evidencias_count,
+            {$evidenciasCount} AS evidencias_count,
             TRIM(CONCAT_WS(' ',
                 per.nombres,
                 per.segundo_nombre,
@@ -586,6 +602,7 @@ SQL;
     public function obtenerRecuperacionCierreDocumentado(): array
     {
         $joinAsig = $this->sqlJoinUnaAsignacionActivaPorCredito();
+        $evidenciasCount = $this->sqlConteoEvidenciasFisicas('o');
         $sql = <<<SQL
         SELECT
             o.id,
@@ -597,7 +614,7 @@ SQL;
             o.saldo_capital,
             o.adeudo_total,
             DATEDIFF(NOW(), o.fecha_alta) AS dias_en_pipeline,
-            (SELECT COUNT(*) FROM adj_evidencia e WHERE e.id_operacion = o.id) AS evidencias_count,
+            {$evidenciasCount} AS evidencias_count,
             TRIM(CONCAT_WS(' ',
                 per.nombres,
                 per.segundo_nombre,
@@ -623,6 +640,7 @@ SQL;
         $joinAsig   = $this->sqlJoinUnaAsignacionActivaPorCredito();
         $joinUltimo = $this->sqlJoinUltimoDictamenPorOperacion('d');
         $whereDict  = $this->sqlWhereComoDictaminadoCierreDocumentacion();
+        $evidenciasCount = $this->sqlConteoEvidenciasFisicas('o');
         $sql        = <<<SQL
         SELECT
             o.id,
@@ -634,7 +652,7 @@ SQL;
             o.saldo_capital,
             o.adeudo_total,
             DATEDIFF(NOW(), o.fecha_alta) AS dias_en_pipeline,
-            (SELECT COUNT(*) FROM adj_evidencia e WHERE e.id_operacion = o.id) AS evidencias_count,
+            {$evidenciasCount} AS evidencias_count,
             TRIM(CONCAT_WS(' ',
                 per.nombres,
                 per.segundo_nombre,

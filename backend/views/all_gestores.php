@@ -557,6 +557,228 @@
       --bs-gutter-y: .75rem;
     }
 
+    #modalActualizacionInfoPersona {
+      padding: 0 !important;
+    }
+
+    #modalActualizacionInfoPersona.modal.show {
+      z-index: 100030 !important;
+      background: transparent;
+    }
+
+    #modalActualizacionInfoPersona .modal-dialog {
+      max-width: min(960px, calc(100vw - 2rem));
+      margin: 5.25rem auto 1rem;
+    }
+
+    #modalActualizacionInfoPersona .modal-content {
+      height: min(650px, calc(100vh - 6.5rem));
+      max-height: calc(100vh - 6.5rem);
+      border: 1px solid #d7e0ec;
+      border-radius: 10px;
+      overflow: hidden;
+      box-shadow: 0 18px 46px rgba(15, 23, 42, .20);
+    }
+
+    #modalActualizacionInfoPersona .modal-header,
+    #modalActualizacionInfoPersona .modal-footer {
+      flex-shrink: 0;
+      background: #fff;
+    }
+
+    #modalActualizacionInfoPersona .modal-header {
+      min-height: 56px;
+      padding: .85rem 1rem;
+      border-bottom-color: #edf1f6;
+    }
+
+    #modalActualizacionInfoPersona .modal-footer {
+      min-height: 58px;
+      padding: .75rem 1rem;
+      border-top-color: #edf1f6;
+    }
+
+    #modalActualizacionInfoPersona .modal-body {
+      display: flex;
+      flex-direction: column;
+      min-height: 0;
+      overflow: hidden;
+      padding: 0;
+      background: #f6f8fb;
+    }
+
+    #modalActualizacionInfoPersona .actualizacion-info-summary {
+      display: flex;
+      align-items: flex-start;
+      gap: .65rem;
+      padding: .85rem 1rem;
+      border-bottom: 1px solid #edf1f6;
+      background: #fff;
+      flex-shrink: 0;
+    }
+
+    #modalActualizacionInfoPersona .actualizacion-info-layout {
+      display: grid;
+      grid-template-columns: 310px minmax(0, 1fr);
+      gap: 0;
+      min-height: 0;
+      flex: 1;
+    }
+
+    #modalActualizacionInfoPersona .actualizacion-info-panel {
+      min-height: 0;
+      background: #fff;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    #modalActualizacionInfoPersona .actualizacion-info-panel:first-child {
+      border-right: 1px solid #edf1f6;
+    }
+
+    #modalActualizacionInfoPersona .actualizacion-info-panel-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: .75rem;
+      min-height: 46px;
+      padding: .75rem .9rem;
+      border-bottom: 1px solid #edf1f6;
+      font-weight: 700;
+      color: #24324d;
+      flex-shrink: 0;
+    }
+
+    #modalActualizacionInfoPersona .actualizacion-info-panel-body {
+      flex: 1;
+      min-height: 0;
+      overflow-y: auto;
+      padding: .75rem;
+    }
+
+    #modalActualizacionInfoPersona .actualizacion-info-group {
+      margin: .45rem .15rem .4rem;
+      color: #64748b;
+      font-size: .72rem;
+      font-weight: 800;
+      letter-spacing: .04em;
+      text-transform: uppercase;
+    }
+
+    #modalActualizacionInfoPersona .actualizacion-info-check {
+      display: flex;
+      align-items: flex-start;
+      gap: .65rem;
+      border: 1px solid #e3e8ef;
+      border-radius: 8px;
+      padding: .62rem .7rem;
+      background: #fff;
+      cursor: pointer;
+      transition: border-color .15s ease, box-shadow .15s ease, background .15s ease;
+    }
+
+    #modalActualizacionInfoPersona .actualizacion-info-check:hover {
+      border-color: #bdd0ea;
+      background: #fbfdff;
+    }
+
+    #modalActualizacionInfoPersona .actualizacion-info-check:has(input:checked) {
+      border-color: #0d6efd;
+      background: #f2f7ff;
+      box-shadow: 0 4px 14px rgba(13, 110, 253, .12);
+    }
+
+    #modalActualizacionInfoPersona .actualizacion-info-check .form-check-input {
+      margin: .12rem 0 0;
+      width: 18px;
+      height: 18px;
+      flex: 0 0 18px;
+    }
+
+    #modalActualizacionInfoPersona .actualizacion-info-field {
+      border: 1px solid #e3e8ef;
+      border-radius: 8px;
+      background: #fff;
+      padding: .85rem;
+    }
+
+    #modalActualizacionInfoPersona .actualizacion-info-field + .actualizacion-info-field {
+      margin-top: .65rem;
+    }
+
+    #modalActualizacionInfoPersona .actualizacion-info-request-card {
+      display: flex;
+      align-items: flex-start;
+      gap: .75rem;
+      border: 1px solid #dbe5f2;
+      border-radius: 8px;
+      background: #fff;
+      padding: .85rem;
+      box-shadow: 0 4px 14px rgba(15, 23, 42, .04);
+    }
+
+    #modalActualizacionInfoPersona .actualizacion-info-request-card + .actualizacion-info-request-card {
+      margin-top: .65rem;
+    }
+
+    #modalActualizacionInfoPersona .actualizacion-info-request-icon {
+      width: 34px;
+      height: 34px;
+      border-radius: 8px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      color: #1f2f4f;
+      background: #eef5ff;
+      flex: 0 0 34px;
+    }
+
+    #modalActualizacionInfoPersona .actualizacion-info-request-meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: .35rem;
+      margin-top: .45rem;
+    }
+
+    #modalActualizacionInfoPersona .actualizacion-info-empty,
+    #modalActualizacionInfoPersona .actualizacion-info-loading {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 170px;
+      border: 1px dashed #c8d5e7;
+      border-radius: 8px;
+      color: #64748b;
+      text-align: center;
+      background: #f8fafc;
+      padding: 1rem;
+    }
+
+    #modalActualizacionInfoPersona .actualizacion-info-skeleton {
+      height: 64px;
+      border-radius: 8px;
+      background: linear-gradient(90deg, #f1f5f9 0%, #e8eef6 50%, #f1f5f9 100%);
+      background-size: 180% 100%;
+      animation: actualizacionInfoPulse 1.1s ease-in-out infinite;
+    }
+
+    @keyframes actualizacionInfoPulse {
+      0% { background-position: 100% 0; }
+      100% { background-position: 0 0; }
+    }
+
+    @media (max-width: 991.98px) {
+      #modalActualizacionInfoPersona .modal-content {
+        height: calc(100vh - 1.5rem);
+        max-height: calc(100vh - 1.5rem);
+      }
+
+      #modalActualizacionInfoPersona .actualizacion-info-layout {
+        grid-template-columns: 1fr;
+      }
+    }
+
     @media (max-width: 767.98px) {
       #modalAgregarUsuarioRrhh .modal-dialog {
         max-width: calc(100vw - .75rem);
@@ -2094,6 +2316,42 @@
         gap: 0.25rem;
     }
 
+    body:not(.dark-mode) #historialUsuarios .departamento-label {
+        color: #5d6978 !important;
+    }
+
+    body:not(.dark-mode) #historialUsuarios .badge-puesto-principal,
+    body:not(.dark-mode) #historialUsuarios .badge-puesto-secundario {
+        width: fit-content;
+        max-width: min(100%, 360px);
+        border-radius: 7px !important;
+        box-shadow: none !important;
+        backdrop-filter: none !important;
+        -webkit-backdrop-filter: none !important;
+        text-align: left;
+    }
+
+    body:not(.dark-mode) #historialUsuarios .badge-puesto-principal {
+        background: #eff6ff !important;
+        color: #1e3a8a !important;
+        border: 1px solid #bfdbfe !important;
+    }
+
+    body:not(.dark-mode) #historialUsuarios .badge-puesto-secundario {
+        background: #ecfdf5 !important;
+        color: #065f46 !important;
+        border: 1px solid #a7f3d0 !important;
+    }
+
+    body:not(.dark-mode) #historialUsuarios .sede-glass-badge {
+        background: #f8fafc !important;
+        color: #334155 !important;
+        border: 1px solid #e2e8f0 !important;
+        box-shadow: none !important;
+        backdrop-filter: none !important;
+        -webkit-backdrop-filter: none !important;
+    }
+
     /* Mejorar el botón con indicador */
     .btn-with-indicator {
         position: relative;
@@ -3379,6 +3637,7 @@ body.dark-mode .sede-glass-badge {
 window.miUsuarioId = <?= json_encode((int)($miUsuarioId ?? 0)) ?>;
 window.puedeEditarTodos = <?= json_encode(!empty($puedeEditarTodos ?? false)) ?>;
 window.puedeGestionarPermisos = <?= json_encode(!empty($puedeGestionarPermisos ?? false)) ?>;
+window.puedeActualizarInfo = <?= json_encode(!empty($puedeActualizarInfo ?? false)) ?>;
 window.todosDepartamentosBackend = <?= json_encode(($departamento['datos'] ?? [])) ?>;
 window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
 </script>
@@ -3912,6 +4171,58 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
                 <button type="button" class="btn btn-outline-primary d-none" id="btnGenerarCredencialRrhh"><i class="fa fa-id-card me-1"></i>Generar credencial</button>
                 <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cerrar</button>
                 <button type="submit" class="btn btn-primary" id="btnGuardarUsuarioRrhh"><i class="fa fa-save me-1"></i>Guardar usuario RR.HH.</button>
+              </div>
+            </form>
+          </div>
+        </div>
+        <?php endif; ?>
+
+        <?php if ((int)($_SESSION['usuario_id'] ?? 0) === 1): ?>
+        <div class="modal fade" id="modalActualizacionInfoPersona" tabindex="-1" aria-labelledby="modalActualizacionInfoPersonaLabel" aria-hidden="true" data-bs-backdrop="false" data-bs-keyboard="true">
+          <div class="modal-dialog modal-dialog-scrollable">
+            <form class="modal-content" id="formActualizacionInfoPersona" autocomplete="off">
+              <input type="hidden" id="actualizacion_info_id_persona" name="id_persona">
+              <div class="modal-header">
+                <h5 class="modal-title fw-bold" id="modalActualizacionInfoPersonaLabel">
+                  <i class="fa fa-arrows-rotate me-2"></i>Actualizar informaci&oacute;n
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+              </div>
+              <div class="modal-body">
+                <div class="actualizacion-info-summary">
+                  <i class="fa fa-circle-info text-primary mt-1"></i>
+                  <div class="min-w-0">
+                    <div class="fw-bold text-dark" id="actualizacionInfoPersonaNombre">Cargando informaci&oacute;n actual...</div>
+                    <small class="text-muted">Selecciona los campos que el gestor debe actualizar en MaxikashApp.</small>
+                  </div>
+                </div>
+                <div class="actualizacion-info-layout">
+                  <section class="actualizacion-info-panel">
+                    <div class="actualizacion-info-panel-head">
+                      <span><i class="fa fa-list-check me-1"></i>Campos</span>
+                      <small class="text-muted" id="actualizacionInfoContador">0 seleccionados</small>
+                    </div>
+                    <div class="actualizacion-info-panel-body">
+                      <div id="actualizacionInfoChecklist" class="d-grid gap-2"></div>
+                    </div>
+                  </section>
+                  <section class="actualizacion-info-panel">
+                    <div class="actualizacion-info-panel-head">
+                      <span><i class="fa fa-paper-plane me-1"></i>Solicitud a enviar</span>
+                    </div>
+                    <div class="actualizacion-info-panel-body">
+                      <div id="actualizacionInfoCampos">
+                        <div class="actualizacion-info-empty">Selecciona campos para crear la solicitud.</div>
+                      </div>
+                    </div>
+                  </section>
+                </div>
+              </div>
+              <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cerrar</button>
+                <button type="submit" class="btn btn-primary" id="btnGuardarActualizacionInfo">
+                  <i class="fa fa-paper-plane me-1"></i>Guardar solicitud
+                </button>
               </div>
             </form>
           </div>
@@ -7465,6 +7776,7 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
 
         // Guardar los datos consolidados globalmente
         usuariosData = usuariosConsolidados;
+        window.usuariosData = usuariosConsolidados;
 
         // Pintar la primera carga con el mismo renderer compacto que usan los filtros.
         actualizarTabla(usuariosConsolidados);
@@ -7962,6 +8274,7 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
         acciones: (() => {
           const puedeEditar = window.puedeEditarTodos;
           const puedeEditarRrhh = Number(window.miUsuarioId || 0) === 1;
+          const puedeActualizarInfo = !!window.puedeActualizarInfo;
           return `
          <div class="d-flex flex-column align-items-start gap-1" style="min-width: fit-content;">
            <div class="d-flex flex-wrap gap-1">
@@ -7977,6 +8290,9 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
               <button class="btn btn-sm btn-info" onclick="cargarDocumentoPersona(this)" data-id-persona="${p.id}" data-nombre="${nombreCompleto.replace(/"/g, '&quot;')}" title="Cargar documento">
                   <i class="fa fa-file"></i>
               </button>
+              ${puedeActualizarInfo ? `<button class="btn btn-sm btn-success" onclick="abrirActualizacionInfoPersona(${p.id})" title="Actualizar informaci&oacute;n" aria-label="Actualizar informaci&oacute;n">
+                  <i class="fa fa-arrows-rotate"></i>
+              </button>` : ''}
               <button class="btn btn-sm btn-warning" onclick="registra_ausencia(${p.id})" title="Ausencias">
                   <i class="fa fa-person-circle-minus"></i>
               </button>
@@ -8002,6 +8318,9 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
     }
     if (tabla.responsive && typeof tabla.responsive.recalc === 'function') {
       tabla.responsive.recalc();
+    }
+    if (typeof window.precargarActualizacionInfoVisible === 'function') {
+      window.precargarActualizacionInfoVisible(datos);
     }
   }
 
@@ -9212,8 +9531,14 @@ document.addEventListener('DOMContentLoaded', function () {
         var codigoIsoPais = optPais ? (optPais.dataset.iso || '') : '';
         resetCascadaAdd();
         renderDepartamentosAddPorPais(idPais, codigoIsoPais);
+        actualizarLabels(idPais, 'add');
 
         if (!idPais) return;
+
+        cargarEstados(idPais, 'add_id_div_nivel1', function () {
+            document.getElementById('div_add_estado').style.display = '';
+            document.getElementById('add_id_div_nivel1').disabled = false;
+        });
     });
 
     $('#add_id_div_nivel1').on('change', function () {
@@ -9315,6 +9640,11 @@ function resetCascadaAdd() {
     document.getElementById('div_add_estado').style.display    = 'none';
     document.getElementById('div_add_municipio').style.display = 'none';
     resetDomicilioNivel3EnAdelante('add');
+
+    if (window.refreshSelectBuscador) {
+        window.refreshSelectBuscador('add_id_div_nivel1');
+        window.refreshSelectBuscador('add_id_div_nivel2');
+    }
 }
 
 function ocultarBloquesDomicilio(prefix) {
@@ -9588,8 +9918,33 @@ function actualizarLabels(idPais, prefix) {
 /**
  * Cargar estados via fetch
  */
+const cacheEstadosPorPais = window.cacheEstadosPorPais || (window.cacheEstadosPorPais = {});
+const cacheMunicipiosPorEstado = window.cacheMunicipiosPorEstado || (window.cacheMunicipiosPorEstado = {});
+
+function llenarSelectDivision(select, items, emptyLabel) {
+    select.innerHTML = '<option value="">Seleccione...</option>';
+    if (!items || !items.length) {
+        select.innerHTML = `<option value="">${emptyLabel}</option>`;
+        return;
+    }
+
+    items.forEach(item => {
+        const opt = document.createElement('option');
+        opt.value = item.id;
+        opt.textContent = item.nombre;
+        select.appendChild(opt);
+    });
+}
+
 function cargarEstados(idPais, selectId, onSuccess) {
     const select = document.getElementById(selectId);
+    if (cacheEstadosPorPais[idPais]) {
+        llenarSelectDivision(select, cacheEstadosPorPais[idPais], 'Sin estados');
+        if (onSuccess) onSuccess();
+        if (window.refreshSelectBuscador) window.refreshSelectBuscador(selectId);
+        return;
+    }
+
     select.innerHTML = '<option value="">Cargando...</option>';
 
     fetch('/CapHum/getEstados', {
@@ -9599,15 +9954,9 @@ function cargarEstados(idPais, selectId, onSuccess) {
     })
     .then(r => r.json())
     .then(data => {
-        select.innerHTML = '<option value="">Seleccione...</option>';
-        if (data.success && data.datos) {
-            data.datos.forEach(e => {
-                const opt = document.createElement('option');
-                opt.value       = e.id;
-                opt.textContent = e.nombre;
-                select.appendChild(opt);
-            });
-        }
+        const items = data.success && data.datos ? data.datos : [];
+        cacheEstadosPorPais[idPais] = items;
+        llenarSelectDivision(select, items, 'Sin estados');
         if (onSuccess) onSuccess();
         if (window.refreshSelectBuscador) {
             window.refreshSelectBuscador(selectId);
@@ -9623,6 +9972,13 @@ function cargarEstados(idPais, selectId, onSuccess) {
  */
 function cargarMunicipios(idEstado, selectId, onSuccess) {
     const select = document.getElementById(selectId);
+    if (cacheMunicipiosPorEstado[idEstado]) {
+        llenarSelectDivision(select, cacheMunicipiosPorEstado[idEstado], 'Sin alcaldias / municipios');
+        if (onSuccess) onSuccess();
+        if (window.refreshSelectBuscador) window.refreshSelectBuscador(selectId);
+        return;
+    }
+
     select.innerHTML = '<option value="">Cargando...</option>';
 
     fetch('/CapHum/getMunicipios', {
@@ -9632,15 +9988,9 @@ function cargarMunicipios(idEstado, selectId, onSuccess) {
     })
     .then(r => r.json())
     .then(data => {
-        select.innerHTML = '<option value="">Seleccione...</option>';
-        if (data.success && data.datos) {
-            data.datos.forEach(m => {
-                const opt = document.createElement('option');
-                opt.value       = m.id;
-                opt.textContent = m.nombre;
-                select.appendChild(opt);
-            });
-        }
+        const items = data.success && data.datos ? data.datos : [];
+        cacheMunicipiosPorEstado[idEstado] = items;
+        llenarSelectDivision(select, items, 'Sin alcaldias / municipios');
         if (onSuccess) onSuccess();
         if (window.refreshSelectBuscador) {
             window.refreshSelectBuscador(selectId);
@@ -12347,6 +12697,388 @@ function precargarCascadaEdit(idPais, idEstado, idMunicipio, idColonia, idCalle,
       Swal.fire('Error', error.message || 'Error al registrar usuario RR.HH.', 'error');
     } finally {
       submitBtn.disabled = false;
+    }
+  });
+})();
+
+(function () {
+  const modal = document.getElementById('modalActualizacionInfoPersona');
+  const form = document.getElementById('formActualizacionInfoPersona');
+  if (!modal || !form) return;
+
+  const inputIdPersona = document.getElementById('actualizacion_info_id_persona');
+  const nombrePersona = document.getElementById('actualizacionInfoPersonaNombre');
+  const checklist = document.getElementById('actualizacionInfoChecklist');
+  const camposWrap = document.getElementById('actualizacionInfoCampos');
+  const btnGuardar = document.getElementById('btnGuardarActualizacionInfo');
+  const contador = document.getElementById('actualizacionInfoContador');
+  let actuales = {};
+  let actualizacionInfoCargando = false;
+  const actualizacionInfoCache = new Map();
+  let actualizacionInfoPrefetchTimer = null;
+
+  const camposActualizacion = [
+    { campo: 'telefono_principal', etiqueta: 'Teléfono principal', tipo: 'text', grupo: 'Contacto' },
+    { campo: 'telefono_secundario', etiqueta: 'Teléfono secundario', tipo: 'text', grupo: 'Contacto' },
+    { campo: 'correo', etiqueta: 'Correo electrónico', tipo: 'email', grupo: 'Contacto' },
+    { campo: 'contacto_emergencia', etiqueta: 'Contacto de emergencia', tipo: 'textarea', grupo: 'Contacto' },
+    { campo: 'codigo_postal', etiqueta: 'Código postal', tipo: 'text', grupo: 'Dirección', servicio: 'sepomex_cp' },
+    { campo: 'domicilio', etiqueta: 'Domicilio completo', tipo: 'textarea', grupo: 'Dirección' },
+    { campo: 'calle_avenida', etiqueta: 'Calle o avenida', tipo: 'text', grupo: 'Dirección', servicio: 'catalogo_calles' },
+    { campo: 'numero_exterior', etiqueta: 'Número exterior', tipo: 'text', grupo: 'Dirección' },
+    { campo: 'numero_interior', etiqueta: 'Número interior', tipo: 'text', grupo: 'Dirección' },
+    { campo: 'colonia', etiqueta: 'Colonia', tipo: 'select', grupo: 'Dirección', servicio: 'catalogo_colonias' },
+    { campo: 'municipio', etiqueta: 'Municipio', tipo: 'select', grupo: 'Dirección', servicio: 'catalogo_municipios' },
+    { campo: 'estado', etiqueta: 'Estado', tipo: 'select', grupo: 'Dirección', servicio: 'catalogo_estados' },
+  ];
+
+  function escapeActualizacion(value) {
+    const div = document.createElement('div');
+    div.textContent = String(value ?? '');
+    return div.innerHTML;
+  }
+
+  function valorActual(campo) {
+    const value = actuales && actuales[campo] != null ? String(actuales[campo]).trim() : '';
+    if (!value && actualizacionInfoCargando) return 'Cargando...';
+    return value || 'N/A';
+  }
+
+  function personaListaActualizacion(idPersona) {
+    const id = String(idPersona || '');
+    const lista = Array.isArray(window.usuariosData)
+      ? window.usuariosData
+      : (typeof usuariosData !== 'undefined' && Array.isArray(usuariosData) ? usuariosData : []);
+    return lista.find(item => String(item.id || '') === id) || null;
+  }
+
+  function nombreListaActualizacion(idPersona) {
+    const persona = personaListaActualizacion(idPersona);
+    if (!persona) return 'Cargando información actual...';
+    const nombre = [persona.nombres, persona.segundo_nombre, persona.apellidop, persona.apellidom]
+      .filter(Boolean)
+      .join(' ')
+      .trim();
+    const numero = persona.numero_empleado ? `# ${persona.numero_empleado} · ` : '';
+    return `${numero}${nombre || persona.nombre_completo || 'Trabajador'}`;
+  }
+
+  function textoActualizacion(value) {
+    return String(value ?? '').trim();
+  }
+
+  function actualesDesdeLista(idPersona) {
+    const persona = personaListaActualizacion(idPersona);
+    if (!persona) return {};
+
+    const domicilio = textoActualizacion(persona.domicilio_calle_texto || persona.domicilio || '');
+    return {
+      telefono_principal: textoActualizacion(persona.telefono_uno || persona.telefono || ''),
+      telefono_secundario: textoActualizacion(persona.telefono_dos || ''),
+      correo: textoActualizacion(persona.correo || ''),
+      codigo_postal: textoActualizacion(persona.codigo_postal || ''),
+      domicilio,
+      calle_avenida: domicilio,
+      numero_exterior: textoActualizacion(persona.domicilio_num_exterior || ''),
+      numero_interior: textoActualizacion(persona.domicilio_num_interior || ''),
+      colonia: textoActualizacion(persona.colonia || ''),
+      municipio: textoActualizacion(persona.municipio || ''),
+      estado: textoActualizacion(persona.estado || '')
+    };
+  }
+
+  function resetActualizacionScroll() {
+    modal.querySelectorAll('.actualizacion-info-panel-body').forEach(panel => {
+      panel.scrollTop = 0;
+    });
+  }
+
+  function showActualizacionInfoScrim() {
+    let scrim = document.getElementById('rrhhModalScrim');
+    if (!scrim) {
+      scrim = document.createElement('div');
+      scrim.id = 'rrhhModalScrim';
+      scrim.setAttribute('aria-hidden', 'true');
+      document.body.appendChild(scrim);
+    }
+    scrim.style.display = 'block';
+  }
+
+  function hideActualizacionInfoScrim() {
+    const scrim = document.getElementById('rrhhModalScrim');
+    if (scrim) scrim.style.display = 'none';
+  }
+
+  function pintarChecklist() {
+    let grupoActual = '';
+    checklist.innerHTML = camposActualizacion.map((item) => {
+      const grupo = item.grupo || 'General';
+      const header = grupo !== grupoActual
+        ? `<div class="actualizacion-info-group">${escapeActualizacion(grupo)}</div>`
+        : '';
+      grupoActual = grupo;
+      return `${header}<label class="actualizacion-info-check">
+        <input class="form-check-input actualizacion-info-check-input" type="checkbox" value="${escapeActualizacion(item.campo)}" id="actInfo_${escapeActualizacion(item.campo)}">
+        <div class="min-w-0">
+          <span class="fw-semibold d-block text-truncate">${escapeActualizacion(item.etiqueta)}</span>
+          <small class="text-muted">${escapeActualizacion(grupo)}</small>
+        </div>
+      </label>`;
+    }).join('');
+    resetActualizacionScroll();
+  }
+
+  function pintarCamposSeleccionados() {
+    const seleccionados = Array.from(form.querySelectorAll('.actualizacion-info-check-input:checked'))
+      .map(input => camposActualizacion.find(item => item.campo === input.value))
+      .filter(Boolean);
+
+    if (contador) {
+      contador.textContent = `${seleccionados.length} seleccionado${seleccionados.length === 1 ? '' : 's'}`;
+    }
+
+    if (!seleccionados.length) {
+      camposWrap.innerHTML = '<div class="actualizacion-info-empty">Selecciona campos para crear la solicitud.</div>';
+      return;
+    }
+
+    camposWrap.innerHTML = seleccionados.map(item => `
+      <div class="actualizacion-info-request-card">
+        <input type="hidden" class="actualizacion-info-new" data-campo="${escapeActualizacion(item.campo)}" value="">
+        <div class="actualizacion-info-request-icon">
+          <i class="fa ${item.grupo === 'Dirección' ? 'fa-map-location-dot' : (item.grupo === 'Salud' ? 'fa-heart-pulse' : 'fa-address-card')}"></i>
+        </div>
+        <div class="min-w-0 flex-grow-1">
+          <div class="d-flex align-items-start justify-content-between gap-2">
+            <div class="fw-bold text-dark">${escapeActualizacion(item.etiqueta)}</div>
+            <span class="badge bg-light text-muted border">${escapeActualizacion(item.grupo)}</span>
+          </div>
+          <div class="text-muted small mt-1">
+            Se enviará este campo al gestor para que capture el valor actualizado en MaxikashApp.
+          </div>
+          <div class="actualizacion-info-request-meta">
+            <span class="badge bg-primary-subtle text-primary border">Tipo: ${escapeActualizacion(item.tipo || 'text')}</span>
+            ${item.servicio ? `<span class="badge bg-success-subtle text-success border">Catálogo: ${escapeActualizacion(item.servicio)}</span>` : ''}
+          </div>
+        </div>
+      </div>
+    `).join('');
+  }
+
+  async function fetchDatosActualizacion(idPersona) {
+    const cacheKey = String(idPersona);
+    let data = actualizacionInfoCache.get(cacheKey);
+    if (!data) {
+      data = fetch('/CapHum/obtenerDatosActualizacionInfoPersona', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+        body: JSON.stringify({ id_persona: idPersona })
+      }).then(response => response.json());
+      actualizacionInfoCache.set(cacheKey, data);
+    }
+    data = await data;
+    if (!data.success) {
+      actualizacionInfoCache.delete(cacheKey);
+      throw new Error(data.mensaje || 'No se pudo cargar la información actual.');
+    }
+    actualizacionInfoCache.set(cacheKey, data);
+
+    return data;
+  }
+
+  function aplicarDatosActualizacion(data) {
+    actualizacionInfoCargando = false;
+    actuales = data.datos?.actuales || actuales || {};
+    const persona = data.datos?.persona || {};
+    const numeroEmpleado = persona.numero_empleado ? `# ${persona.numero_empleado} · ` : '';
+    nombrePersona.textContent = `${numeroEmpleado}${persona.nombre || 'Trabajador'}`;
+    pintarCamposSeleccionados();
+    resetActualizacionScroll();
+  }
+
+  async function cargarDatosActualizacion(idPersona) {
+    aplicarDatosActualizacion(await fetchDatosActualizacion(idPersona));
+  }
+
+  window.precargarActualizacionInfoVisible = function (datos) {
+    if (!window.puedeActualizarInfo) return;
+
+    const lista = Array.isArray(datos) && datos.length
+      ? datos
+      : (Array.isArray(window.usuariosData) ? window.usuariosData : []);
+
+    const ids = [];
+    lista.forEach(item => {
+      const id = String(item?.id || '');
+      if (id && !actualizacionInfoCache.has(id) && !ids.includes(id)) {
+        ids.push(id);
+      }
+    });
+
+    if (!ids.length) return;
+
+    clearTimeout(actualizacionInfoPrefetchTimer);
+    actualizacionInfoPrefetchTimer = setTimeout(() => {
+      const primeros = ids.slice(0, 12);
+      const lote = fetch('/CapHum/obtenerDatosActualizacionInfoPersonas', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+        body: JSON.stringify({ ids_persona: primeros })
+      }).then(response => response.json());
+
+      primeros.forEach(id => {
+        const key = String(id);
+        const itemPromise = lote.then(data => {
+          if (!data.success) {
+            throw new Error(data.mensaje || 'No se pudo precargar la informacion.');
+          }
+          const item = data.datos?.personas?.[key];
+          if (!item) {
+            throw new Error('No se encontro la persona precargada.');
+          }
+          return { success: true, datos: item };
+        });
+
+        actualizacionInfoCache.set(key, itemPromise);
+        itemPromise
+          .then(data => {
+            if (actualizacionInfoCache.get(key) === itemPromise) {
+              actualizacionInfoCache.set(key, data);
+            }
+          })
+          .catch(() => {
+            if (actualizacionInfoCache.get(key) === itemPromise) {
+              actualizacionInfoCache.delete(key);
+            }
+          });
+      });
+    }, 250);
+  };
+
+  window.abrirActualizacionInfoPersona = async function (idPersona) {
+    if (!idPersona) return;
+    if (modal.parentNode !== document.body) {
+      document.body.appendChild(modal);
+    }
+    showActualizacionInfoScrim();
+    const cacheKey = String(idPersona);
+    const cacheHit = actualizacionInfoCache.get(cacheKey);
+    const cacheListo = cacheHit && typeof cacheHit.then !== 'function' && cacheHit.success;
+    actualizacionInfoCargando = !cacheListo;
+    actuales = actualesDesdeLista(idPersona);
+    inputIdPersona.value = String(idPersona);
+    if (nombrePersona) nombrePersona.textContent = nombreListaActualizacion(idPersona);
+    if (contador) contador.textContent = '0 seleccionados';
+    pintarChecklist();
+    pintarCamposSeleccionados();
+
+    bootstrap.Modal.getOrCreateInstance(modal).show();
+    resetActualizacionScroll();
+
+    try {
+      if (cacheListo) {
+        aplicarDatosActualizacion(cacheHit);
+      } else {
+        await cargarDatosActualizacion(idPersona);
+      }
+    } catch (error) {
+      actualizacionInfoCargando = false;
+      pintarCamposSeleccionados();
+      Swal.fire('Error', error.message || 'No se pudo cargar la información actual.', 'error');
+    }
+  };
+
+  modal.addEventListener('show.bs.modal', showActualizacionInfoScrim);
+  modal.addEventListener('shown.bs.modal', showActualizacionInfoScrim);
+  modal.addEventListener('hidden.bs.modal', hideActualizacionInfoScrim);
+
+  function cerrarModalActualizacionInfo() {
+    return new Promise((resolve) => {
+      const instance = bootstrap.Modal.getInstance(modal);
+      if (!instance || !modal.classList.contains('show')) {
+        hideActualizacionInfoScrim();
+        resolve();
+        return;
+      }
+
+      modal.addEventListener('hidden.bs.modal', function onHidden() {
+        resolve();
+      }, { once: true });
+      instance.hide();
+    });
+  }
+
+  checklist?.addEventListener('change', function (event) {
+    if (event.target && event.target.classList.contains('actualizacion-info-check-input')) {
+      pintarCamposSeleccionados();
+    }
+  });
+
+  form.addEventListener('submit', async function (event) {
+    event.preventDefault();
+    const idPersona = parseInt(inputIdPersona.value || '0', 10);
+    const seleccionados = Array.from(form.querySelectorAll('.actualizacion-info-check-input:checked'))
+      .map(input => camposActualizacion.find(item => item.campo === input.value))
+      .filter(Boolean);
+
+    if (!idPersona || !seleccionados.length) {
+      Swal.fire('Atención', 'Selecciona al menos un campo para actualizar.', 'warning');
+      return;
+    }
+
+    const campos = [];
+    for (const item of seleccionados) {
+      const input = form.querySelector(`.actualizacion-info-new[data-campo="${item.campo}"]`);
+      const valorNuevo = input ? input.value.trim() : '';
+      campos.push({
+        campo: item.campo,
+        etiqueta: item.etiqueta,
+        tipo: item.tipo || 'text',
+        grupo: item.grupo || 'General',
+        servicio_catalogo: item.servicio || '',
+        valor_anterior: valorActual(item.campo),
+        valor_nuevo: valorNuevo
+      });
+    }
+
+    btnGuardar.disabled = true;
+    const htmlOriginal = btnGuardar.innerHTML;
+    btnGuardar.innerHTML = '<i class="fa fa-spinner fa-spin me-1"></i>Guardando...';
+
+    try {
+      const response = await fetch('/CapHum/guardarActualizacionInfoPersona', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+        body: JSON.stringify({
+          id_persona: idPersona,
+          campos,
+          observaciones: ''
+        })
+      });
+      const data = await response.json();
+      if (!data.success) {
+        throw new Error(data.mensaje || 'No se pudo guardar la solicitud.');
+      }
+
+      const pushInfo = data.datos && data.datos.push_notificacion ? data.datos.push_notificacion : null;
+      actualizacionInfoCache.delete(String(idPersona));
+      btnGuardar.disabled = false;
+      btnGuardar.innerHTML = htmlOriginal;
+      await cerrarModalActualizacionInfo();
+      if (pushInfo && !pushInfo.omitida && pushInfo.success === false) {
+        await Swal.fire({
+          icon: 'warning',
+          title: 'Solicitud guardada',
+          text: (data.mensaje || 'Solicitud guardada correctamente.') + ' No se pudo enviar la notificación móvil.'
+        });
+      } else {
+        await Swal.fire('Listo', data.mensaje || 'Solicitud guardada correctamente.', 'success');
+      }
+    } catch (error) {
+      Swal.fire('Error', error.message || 'Error al guardar la solicitud.', 'error');
+    } finally {
+      btnGuardar.disabled = false;
+      btnGuardar.innerHTML = htmlOriginal;
     }
   });
 })();
