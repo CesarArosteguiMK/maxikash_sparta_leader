@@ -52,7 +52,7 @@ class TrackingRecoleccion extends Controller
     private function _trkChatCurl(string $url, string $method, string $body, array $headers): array
     {
         if (!function_exists('curl_init')) {
-            return ['http_code' => 0, 'body' => ''];
+            return ['http_code' => 0, 'body' => '', 'error' => 'cURL no disponible.'];
         }
         $ch = curl_init($url);
         curl_setopt_array($ch, [
@@ -69,9 +69,10 @@ class TrackingRecoleccion extends Controller
             if ($body !== '') curl_setopt($ch, CURLOPT_POSTFIELDS, $body);
         }
         $raw      = curl_exec($ch);
+        $curlErr  = $raw === false ? curl_error($ch) : '';
         $httpCode = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
         curl_close($ch);
-        return ['http_code' => $httpCode, 'body' => ($raw === false ? '' : (string)$raw)];
+        return ['http_code' => $httpCode, 'body' => ($raw === false ? '' : (string)$raw), 'error' => $curlErr];
     }
 
     /**
@@ -279,6 +280,17 @@ class TrackingRecoleccion extends Controller
     {
         $httpCode = $resp['http_code'];
         $data     = json_decode($resp['body'], true);
+        http_response_code(200);
+
+        if ($httpCode === 0 || $httpCode >= 500) {
+            self::respuestaJSON([
+                'success' => false,
+                'mensaje' => 'Servicio de tracking no disponible. Intenta de nuevo en unos minutos.',
+                'codigo_http' => $httpCode,
+                'servicio_no_disponible' => true,
+                'error' => $resp['error'] ?? null,
+            ]);
+        }
 
         // Si el body no es JSON válido, construir respuesta genérica
         if (!is_array($data)) {
@@ -382,6 +394,41 @@ class TrackingRecoleccion extends Controller
         }
     }
 
+    /**
+     * GET /TrackingRecoleccion/obtenerCatalogoAgenciasTransportistas
+     */
+    public function obtenerCatalogoAgenciasTransportistas()
+    {
+        try {
+            $model = new TrackingModel();
+            self::respuestaJSON(self::respuesta(true, null, $model->obtenerCatalogoAgenciasTransportistas()));
+        } catch (\Throwable $e) {
+            self::respuestaJSON(self::respuesta(false, 'Error al obtener agencias y transportistas.', null, $e->getMessage()));
+        }
+    }
+
+    /**
+     * GET /TrackingRecoleccion/obtenerTransportistasTracking?tipo=interno|externo&id_agencia=N
+     */
+    public function obtenerTransportistasTracking()
+    {
+        $tipo      = strtolower(trim((string) ($_GET['tipo'] ?? $_POST['tipo'] ?? '')));
+        $idAgencia = (int) ($_GET['id_agencia'] ?? $_POST['id_agencia'] ?? 0);
+        try {
+            $model = new TrackingModel();
+            self::respuestaJSON(self::respuesta(
+                true,
+                null,
+                $model->obtenerTransportistasTracking(
+                    in_array($tipo, ['interno', 'externo'], true) ? $tipo : null,
+                    $idAgencia > 0 ? $idAgencia : null
+                )
+            ));
+        } catch (\Throwable $e) {
+            self::respuestaJSON(self::respuesta(false, 'Error al obtener transportistas.', null, $e->getMessage()));
+        }
+    }
+
     // =========================================================================
     // API — RUTAS
     // =========================================================================
@@ -389,7 +436,7 @@ class TrackingRecoleccion extends Controller
     /**
      * POST /TrackingRecoleccion/guardarRuta
      * Body JSON: { nombre_ruta, estado, municipio, fecha_programada, modo,
-     *              usuarios:[], creditos:[], id_ruta? }
+     *              tipo_transportista, id_transportista, id_agencia_tracking, creditos:[], id_ruta? }
      */
     public function guardarRuta()
     {
@@ -403,9 +450,6 @@ class TrackingRecoleccion extends Controller
         // Fallback a POST fields
         if (empty($data)) {
             $data = $_POST;
-            if (isset($_POST['usuarios']) && is_string($_POST['usuarios'])) {
-                $data['usuarios'] = json_decode($_POST['usuarios'], true) ?: [];
-            }
             if (isset($_POST['creditos']) && is_string($_POST['creditos'])) {
                 $data['creditos'] = json_decode($_POST['creditos'], true) ?: [];
             }
@@ -505,6 +549,41 @@ class TrackingRecoleccion extends Controller
             self::respuestaJSON($result);
         } catch (\Throwable $e) {
             self::respuestaJSON(self::respuesta(false, 'Error al actualizar confirmación.', null, $e->getMessage()));
+        }
+    }
+
+    /**
+     * POST /TrackingRecoleccion/cancelarRuta
+     * Body: { id_ruta, motivo_cancelacion }
+     */
+    public function cancelarRuta()
+    {
+        $rawBody = file_get_contents('php://input');
+        $data    = [];
+        if ($rawBody !== '' && $rawBody !== false) {
+            $data = json_decode($rawBody, true) ?: [];
+        }
+        if (empty($data)) {
+            $data = $_POST;
+        }
+
+        $idRuta = (int) ($data['id_ruta'] ?? 0);
+        $motivo = trim((string) ($data['motivo_cancelacion'] ?? ''));
+        if ($idRuta <= 0 || $motivo === '') {
+            self::respuestaJSON(self::respuesta(false, 'Ruta y motivo de cancelación son obligatorios.'));
+            return;
+        }
+        if (mb_strlen($motivo, 'UTF-8') > 200) {
+            self::respuestaJSON(self::respuesta(false, 'El motivo de cancelación no puede exceder 200 caracteres.'));
+            return;
+        }
+
+        try {
+            $idUsuario = (int) ($_SESSION['persona_id'] ?? $_SESSION['usuario_id'] ?? 0);
+            $model     = new TrackingModel();
+            self::respuestaJSON($model->cancelarRuta($idRuta, $motivo, $idUsuario));
+        } catch (\Throwable $e) {
+            self::respuestaJSON(self::respuesta(false, 'Error al cancelar la ruta.', null, $e->getMessage()));
         }
     }
 }
