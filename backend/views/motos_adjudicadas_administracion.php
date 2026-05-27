@@ -123,17 +123,17 @@ $puedeDictaminarCreditos = in_array(80, $motosAdminModulos, true);
 }
 #motos-admin-landing .motos-admin-icon-slot {
     width: 100% !important;
-    height: 7.5rem;
-    flex: 0 0 7.5rem;
+    height: auto;
+    flex: 0 0 auto;
     align-self: stretch !important;
     justify-content: center !important;
-    margin-bottom: 1rem !important;
+    margin-bottom: .85rem !important;
 }
 #motos-admin-landing .motos-admin-icon-frame {
-    width: 7.5rem;
-    height: 7.5rem;
-    min-width: 7.5rem;
-    min-height: 7.5rem;
+    width: 150px;
+    height: 150px;
+    min-width: 150px;
+    min-height: 150px;
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -145,8 +145,22 @@ $puedeDictaminarCreditos = in_array(80, $motosAdminModulos, true);
     height: 100%;
     display: block;
     box-sizing: border-box;
-    transform: scale(1.1);
+    transform: scale(1.16);
     transform-origin: center center;
+}
+#motos-admin-landing .row.gy-6 > [class*="col-"] > .card > .card-body {
+    flex-direction: column-reverse;
+    flex-wrap: nowrap !important;
+    align-items: stretch !important;
+    justify-content: flex-end !important;
+}
+#motos-admin-landing .row.gy-6 > [class*="col-"] .app-academy-sm-60 {
+    width: 100% !important;
+    flex: 0 0 auto !important;
+    justify-content: flex-start !important;
+}
+#motos-admin-landing .row.gy-6 > [class*="col-"] .card-title {
+    margin-bottom: 0;
 }
 .cc-call-center-page,
 #motos-admin-landing.cc-call-center-page {

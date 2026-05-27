@@ -1718,7 +1718,8 @@
                 var tipoEstado = r.tipo_estado || '';
                 var estadoLabel = r.estado_label ? escapeHtml(r.estado_label) : '';
                 var wrapperClass = 'org-nombre';
-                var estadoAttr = tipoEstado ? ' data-org-estado="' + escapeHtml(tipoEstado) + '"' : '';
+                var estadoAttr = ' data-org-id="' + escapeHtml(String(r.id)) + '"'
+                    + (tipoEstado ? ' data-org-estado="' + escapeHtml(tipoEstado) + '"' : '');
                 var badgeHtml = '';
                 if (tipoEstado === 'vacante') {
                     wrapperClass += ' org-estado-vacante text-dark';
@@ -1752,6 +1753,9 @@
                     if (!node) return;
                     var esVacante = el.classList.contains('org-estado-vacante');
                     var esAusencia = el.classList.contains('org-estado-ausencia');
+                    node.dataset.orgId = el.dataset.orgId || '';
+                    node.dataset.orgEstado = el.dataset.orgEstado || '';
+                    node.style.cursor = 'pointer';
                     node.style.setProperty('background-image', 'none', 'important');
                     node.style.setProperty('background', 'transparent', 'important');
                     node.querySelectorAll('div, table, tbody, tr, td').forEach(function (child) {
@@ -1775,10 +1779,35 @@
                 ajustarEscalaChart();
             });
 
+            google.visualization.events.addListener(chart, 'select', function () {
+                var selection = chart.getSelection();
+                if (!selection.length || selection[0].row == null) return;
+                var idSeleccionado = data.getValue(selection[0].row, 0);
+                var fila = rows.find(function (r) {
+                    return String(r.id) === String(idSeleccionado);
+                });
+                if (fila && fila.tipo_estado === 'vacante') {
+                    chart.setSelection([]);
+                    abrirModalVacanteOrganigrama(idSeleccionado);
+                }
+            });
+
             chart.draw(data, {
                 allowHtml: true,
                 allowCollapse: true
             });
+
+            if (container.__organigramaVacanteClickHandler) {
+                container.removeEventListener('click', container.__organigramaVacanteClickHandler, true);
+            }
+            container.__organigramaVacanteClickHandler = function (event) {
+                var node = event.target.closest('.google-visualization-orgchart-node');
+                if (!node || node.dataset.orgEstado !== 'vacante' || !node.dataset.orgId) return;
+                event.preventDefault();
+                event.stopPropagation();
+                abrirModalVacanteOrganigrama(node.dataset.orgId);
+            };
+            container.addEventListener('click', container.__organigramaVacanteClickHandler, true);
 
             setTimeout(aplicarColorEstadoNodos, 50);
             setTimeout(aplicarColorEstadoNodos, 250);
