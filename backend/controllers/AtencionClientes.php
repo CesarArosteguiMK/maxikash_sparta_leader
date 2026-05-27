@@ -93,9 +93,9 @@ class AtencionClientes extends Controller
     {
         header('Content-Type: application/json; charset=utf-8');
         try {
-            // La sincronización legacy puede tomar varios segundos y no debe bloquear
-            // la apertura del menú 1.- Evidencias.
-            $datos = $this->model->obtenerRecibidos(false);
+            // Sincroniza dictamenes 13 de MaxikashApp antes de listar Evidencias.
+            // La bandeja fuerza la revision para no dejar envios recientes esperando el intervalo.
+            $datos = $this->model->obtenerRecibidos(true);
             echo json_encode(['success' => true, 'datos' => $datos], JSON_UNESCAPED_UNICODE);
         } catch (\Throwable $e) {
             error_log('[AtencionClientes/obtenerRecibidos] ' . $e->getMessage());

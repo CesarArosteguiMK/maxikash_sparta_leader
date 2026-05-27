@@ -751,6 +751,7 @@ class CapHum extends Controller
 
                     const perfiles = data.datos.perfiles || [];
                     const puestos  = data.datos.puestos  || [];
+                    const permisosJerarquia = data.datos.permisos_jerarquia || null;
                     const asignacionActual = data.datos.asignacion_actual || {};
 
                     const nombreCompleto = [
@@ -763,6 +764,8 @@ class CapHum extends Controller
                     document.getElementById("edit_perfil_nombres").value = nombreCompleto;
 
                     // Subtítulo: usar asignación real (asigna_puesto) si existe; si no, fallback a puestos del perfil
+                    let nombreArea = 'Sin área';
+                    let nombreEmpresa = persona.nombre_empresa || persona.empresa || persona.nombre_pais || 'Sin empresa';
                     let nombreDepartamento = asignacionActual.nombre_departamento || 'Sin departamento';
                     let nombrePuesto = asignacionActual.nombre_puesto || 'Sin puesto';
                     if (nombreDepartamento === 'Sin departamento' && nombrePuesto === 'Sin puesto') {
@@ -778,10 +781,19 @@ class CapHum extends Controller
 
                     // Actualizar título del modal (solo ícono + texto fijo). Subtítulo con datos escapados para evitar HTML/script visible
                     var esc = function(s) { if (s == null || s === undefined) return ''; return ('' + s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); };
-                    document.getElementById("modalEditPerfilLabel").innerHTML = '<i class="fa fa-user-shield me-2" style="color: #495057;"></i>Administrar puestos y módulos del usuario';
-                    document.getElementById("modalEditPerfil_subtitle").innerHTML = 'Gestión de Permisos y Accesos para <strong>' + esc(nombreCompleto) + ' / ' + esc(nombreDepartamento) + ' / ' + esc(nombrePuesto) + '</strong>';
+                    if (Array.isArray(window.todosDepartamentosBackend)) {
+                        const depRef = window.todosDepartamentosBackend.find(function (d) {
+                            return String(d.id || '') === String((puestos.find(function (p) { return Number(p.asignado_flag) === 1; }) || {}).id_departamento || '');
+                        });
+                        if (depRef && depRef.departamento_organizacional_nombre) {
+                            nombreArea = depRef.departamento_organizacional_nombre;
+                        }
+                    }
 
-                    renderPuestos(puestos);
+                    document.getElementById("modalEditPerfilLabel").innerHTML = '<i class="fa fa-user-shield me-2 text-white"></i>Administrar puestos y módulos del usuario';
+                    document.getElementById("modalEditPerfil_subtitle").innerHTML = esc(nombreCompleto) + ' / ' + esc(nombreArea) + ' / ' + esc(nombreEmpresa);
+
+                    renderPuestos(puestos, permisosJerarquia);
                     // Cierre células / Cartera (ids 56–59 y/o nombre «Cierre: Despachos»…): pestaña Permisos especiales, tarjeta Convenios (menu_* vía PHP)
                     const MODULOS_WEB_CIERRE_CELULA_CARTERA_EC = new Set([56, 57, 59]);
                     function esNombreModuloCierreCelulaCarteraEc(m) {
@@ -1075,7 +1087,9 @@ class CapHum extends Controller
                 const payload = {
                     idPersona: currentPersonaId,
                     idPuesto: checkbox.value,
-                    asignado: checkbox.checked ? 1 : 0
+                    asignado: checkbox.checked ? 1 : 0,
+                    nivel: checkbox.dataset.permNivel || 'puesto',
+                    idNodo: checkbox.dataset.permNodo || checkbox.value
                 };
 
                 fetch('/caphum/actualizarPuestoPerfil', {
@@ -1420,197 +1434,378 @@ class CapHum extends Controller
                 return tr;
             }
 
-            function renderPuestos(puestos) {
-                const container = document.getElementById('modal-edit-perfil-puestos-form') || document.getElementById('puestos-form');
-                if (!container) return;
-                container.innerHTML = '';
-                container.classList.add('modal-perfil-modulos-agrupados');
+            let perfilPuestosState = null;
 
-                if (!puestos || puestos.length === 0) {
-                    container.innerHTML = '<div class="text-muted small text-center py-4">No hay puestos disponibles</div>';
+            function renderPuestos(puestos, permisosJerarquia) {
+                const rightTree = document.getElementById('modal-edit-perfil-puestos-form');
+                const leftPaises = document.getElementById('perfilPuestosPaisList');
+                const inputBuscar = document.getElementById('perfilPuestosBuscar');
+                const switchPais = document.getElementById('perfilAccesoDirectoPaisSwitch');
+                const totalLbl = document.getElementById('perfilPuestosSeleccionadosTotal');
+                if (!rightTree || !leftPaises || !inputBuscar || !switchPais || !totalLbl) return;
+
+                if (!permisosJerarquia || !Array.isArray(permisosJerarquia.paises)) {
+                    rightTree.innerHTML = '<div class="text-muted small text-center py-4">No se pudo cargar la información de acceso.</div>';
+                    leftPaises.innerHTML = '';
                     return;
                 }
 
-                const puestosPorDepto = {};
-                puestos.forEach(puesto => {
-                    const deptoId = puesto.id_departamento ?? 0;
-                    if (!puestosPorDepto[deptoId]) {
-                        puestosPorDepto[deptoId] = {
-                            nombre: puesto.nombre_departamento ?? `Departamento ${deptoId}`,
-                            puestos: []
-                        };
-                    }
-                    puestosPorDepto[deptoId].puestos.push(puesto);
+                const sortByName = (a, b) => String(a.nombre || '').localeCompare(String(b.nombre || ''), 'es', { sensitivity: 'base' });
+                const byPais = {};
+                (permisosJerarquia.areas || []).forEach(a => {
+                    const k = String(a.id_pais || 0);
+                    if (!byPais[k]) byPais[k] = [];
+                    byPais[k].push(a);
+                });
+                const byArea = {};
+                (permisosJerarquia.departamentos || []).forEach(d => {
+                    const k = String(d.id_area || 0);
+                    if (!byArea[k]) byArea[k] = [];
+                    byArea[k].push(d);
+                });
+                const byDepto = {};
+                (permisosJerarquia.puestos || []).forEach(p => {
+                    const k = String(p.id_departamento || 0);
+                    if (!byDepto[k]) byDepto[k] = [];
+                    byDepto[k].push(p);
                 });
 
-                Object.keys(puestosPorDepto).forEach(deptoId => {
-                    puestosPorDepto[deptoId].puestos.sort((a, b) => {
-                        const nivelA = a.nivel ?? 0;
-                        const nivelB = b.nivel ?? 0;
-                        return nivelB - nivelA;
-                    });
-                });
+                const sel = permisosJerarquia.seleccion || {};
+                const selected = {
+                    pais: new Set((sel.pais || []).map(v => String(v))),
+                    area: new Set((sel.area || []).map(v => String(v))),
+                    departamento: new Set((sel.departamento || []).map(v => String(v))),
+                    puesto: new Set((sel.puesto || []).map(v => String(v)))
+                };
 
-                const deptosOrdenados = Object.keys(puestosPorDepto).sort((a, b) => {
-                    const nombreA = puestosPorDepto[a].nombre.toLowerCase();
-                    const nombreB = puestosPorDepto[b].nombre.toLowerCase();
-                    return nombreA.localeCompare(nombreB);
-                });
-
-                deptosOrdenados.forEach((deptoId, grupoIdx) => {
-                    const deptoData = puestosPorDepto[deptoId];
-                    const puestosDepto = deptoData.puestos;
-                    const deptoNombre = deptoData.nombre;
-                    const collapseId = 'puesto-card-collapse-' + grupoIdx;
-
-                    const section = document.createElement('section');
-                    section.className = 'modal-perfil-modulo-grupo modal-perfil-puesto-grupo card mb-0 shadow-sm';
-                    section.style.border = '2px solid #000';
-                    section.style.borderRadius = '0.5rem';
-                    section.style.overflow = 'hidden';
-
-                    const header = document.createElement('div');
-                    header.className = 'modal-perfil-modulo-grupo-header modal-perfil-puesto-card-toggle px-3 py-2 d-flex align-items-center flex-wrap gap-2 fw-semibold';
-                    header.style.background = 'rgba(26, 82, 168, 0.08)';
-                    header.style.borderBottom = '2px solid #000';
-                    header.style.cursor = 'pointer';
-                    header.setAttribute('role', 'button');
-                    header.setAttribute('tabindex', '0');
-                    header.setAttribute('aria-expanded', 'false');
-                    header.setAttribute('aria-controls', collapseId);
-                    header.setAttribute('data-bs-toggle', 'collapse');
-                    header.setAttribute('data-bs-target', '#' + collapseId);
-
-                    const chevron = document.createElement('i');
-                    chevron.className = 'fa fa-chevron-down modal-perfil-puesto-chevron text-primary';
-                    chevron.style.flexShrink = '0';
-                    chevron.style.fontSize = '0.75rem';
-                    chevron.style.transition = 'transform 0.2s ease';
-                    chevron.style.transform = 'rotate(-90deg)';
-                    chevron.setAttribute('aria-hidden', 'true');
-
-                    const masterWrap = document.createElement('div');
-                    masterWrap.className = 'd-flex align-items-center gap-2 ms-auto flex-shrink-0 modal-perfil-modulo-master-wrap';
-                    const stopToggle = (e) => { e.stopPropagation(); };
-                    masterWrap.addEventListener('click', stopToggle);
-                    masterWrap.addEventListener('mousedown', stopToggle);
-
-                    const masterCb = document.createElement('input');
-                    masterCb.type = 'checkbox';
-                    masterCb.className = 'form-check-input modal-perfil-modulo-master-cb';
-                    masterCb.id = 'modal-perfil-puesto-master-' + grupoIdx;
-                    masterCb.setAttribute('data-grupo-nombre', deptoNombre);
-                    masterCb.setAttribute('data-grupo-tipo', 'puestos');
-                    masterCb.style.cursor = 'pointer';
-                    const masterLbl = document.createElement('label');
-                    masterLbl.className = 'form-check-label small text-secondary mb-0 modal-perfil-modulo-master-label';
-                    masterLbl.setAttribute('for', masterCb.id);
-                    masterLbl.style.cursor = 'pointer';
-                    masterWrap.appendChild(masterLbl);
-                    masterWrap.appendChild(masterCb);
-
-                    const hi = document.createElement('i');
-                    hi.className = 'fa fa-building me-2 text-primary';
-                    hi.style.flexShrink = '0';
-                    const ht = document.createElement('span');
-                    ht.className = 'flex-grow-1 min-w-0';
-                    ht.style.color = '#1e293b';
-                    ht.textContent = deptoNombre + ' (' + puestosDepto.length + ')';
-
-                    header.appendChild(chevron);
-                    header.appendChild(hi);
-                    header.appendChild(ht);
-                    header.appendChild(masterWrap);
-
-                    header.addEventListener('keydown', function(ev) {
-                        if (ev.key === 'Enter' || ev.key === ' ') {
-                            ev.preventDefault();
-                            const el = document.getElementById(collapseId);
-                            if (!el) return;
-                            if (typeof bootstrap !== 'undefined' && bootstrap.Collapse) {
-                                const inst = bootstrap.Collapse.getOrCreateInstance(el);
-                                inst.toggle();
-                            } else {
-                                el.classList.toggle('show');
-                                syncChevron(el.classList.contains('show'));
-                                actualizarBotonExpandirPuestos();
-                            }
-                        }
-                    });
-
-                    const table = document.createElement('table');
-                    table.className = 'table table-hover mb-0';
-                    table.style.fontSize = '0.9rem';
-
-                    const tbody = document.createElement('tbody');
-                    puestosDepto.forEach(p => tbody.appendChild(buildFilaPuestoSistema(p)));
-                    table.appendChild(tbody);
-
-                    const collapse = document.createElement('div');
-                    collapse.id = collapseId;
-                    collapse.className = 'collapse modal-perfil-puesto-card-collapse';
-
-                    const syncChevron = (open) => {
-                        header.setAttribute('aria-expanded', open ? 'true' : 'false');
-                        chevron.style.transform = open ? 'rotate(0deg)' : 'rotate(-90deg)';
-                    };
-                    collapse.addEventListener('shown.bs.collapse', () => {
-                        syncChevron(true);
-                        actualizarBotonExpandirPuestos();
-                    });
-                    collapse.addEventListener('hidden.bs.collapse', () => {
-                        syncChevron(false);
-                        actualizarBotonExpandirPuestos();
-                    });
-
-                    masterCb.addEventListener('change', function() {
-                        const want = this.checked;
-                        this.indeterminate = false;
-                        const cbs = [...tbody.querySelectorAll('.modal-perfil-modulo-item-cb')];
-                        const toToggle = cbs.filter(cb => cb.checked !== want);
-                        if (toToggle.length === 0) {
-                            syncGrupoModuloMaster(masterCb, tbody);
-                            return;
-                        }
-                        masterCb.disabled = true;
-                        let chain = Promise.resolve(true);
-                        toToggle.forEach(cb => {
-                            chain = chain.then((ok) => {
-                                if (!ok) return false;
-                                cb.checked = want;
-                                updateModuloCheckboxLabel(cb);
-                                return onPuestoChange(cb, { silent: true });
-                            });
+                const banderas = { mx: '🇲🇽', gt: '🇬🇹', co: '🇨🇴', sv: '🇸🇻', hn: '🇭🇳', ni: '🇳🇮', cr: '🇨🇷', pa: '🇵🇦' };
+                const paises = (permisosJerarquia.paises || []).slice().sort(sortByName).map(p => {
+                    const pid = String(p.id || 0);
+                    const areas = (byPais[pid] || []).slice().sort(sortByName).map(a => {
+                        const aid = String(a.id || 0);
+                        const departamentos = (byArea[aid] || []).slice().sort(sortByName).map(d => {
+                            const did = String(d.id || 0);
+                            const puestosDepto = (byDepto[did] || []).slice().sort((x, y) => Number(y.nivel || 0) - Number(x.nivel || 0));
+                            return { id: did, nombre: d.nombre || ('Departamento ' + did), puestos: puestosDepto };
                         });
-                        chain
-                            .then((ok) => {
-                                if (ok) {
-                                    Swal.fire({
-                                        icon: 'success',
-                                        title: 'Departamento actualizado',
-                                        text: 'Los puestos del departamento se guardaron correctamente.',
-                                        timer: 1600,
-                                        showConfirmButton: false,
-                                        customClass: { container: 'swal-sobre-modal-perfil' }
-                                    });
-                                }
-                                if (typeof getUsuarios === 'function') getUsuarios({ showLoader: false });
-                            })
-                            .finally(() => {
-                                masterCb.disabled = false;
-                                syncGrupoModuloMaster(masterCb, tbody);
-                            });
+                        return { id: aid, nombre: a.nombre || ('Área ' + aid), departamentos: departamentos };
                     });
-
-                    syncGrupoModuloMaster(masterCb, tbody);
-
-                    collapse.appendChild(table);
-                    section.appendChild(header);
-                    section.appendChild(collapse);
-                    container.appendChild(section);
+                    return {
+                        id: pid,
+                        nombre: p.nombre || ('País ' + pid),
+                        bandera: banderas[String((p.codigo_iso || '')).toLowerCase()] || '🏳️',
+                        areas: areas
+                    };
                 });
 
-                actualizarBotonExpandirPuestos();
+                perfilPuestosState = {
+                    paises: paises,
+                    selected: selected,
+                    activePais: paises.length ? String(paises[0].id) : '',
+                    search: '',
+                    expandedAreas: new Set(),
+                    expandedDeptos: new Set()
+                };
+
+                function puestosDePais(paisObj) {
+                    const ids = [];
+                    (paisObj.areas || []).forEach(a => {
+                        (a.departamentos || []).forEach(d => {
+                            (d.puestos || []).forEach(p => ids.push(String(p.id)));
+                        });
+                    });
+                    return ids;
+                }
+
+                function puestosDeArea(areaObj) {
+                    const ids = [];
+                    (areaObj.departamentos || []).forEach(d => {
+                        (d.puestos || []).forEach(p => ids.push(String(p.id)));
+                    });
+                    return ids;
+                }
+
+                function puestosDeDepartamento(depObj) {
+                    return (depObj.puestos || []).map(p => String(p.id));
+                }
+
+                function estadoMaster(ids) {
+                    if (!ids.length) return { checked: false, indeterminate: false, selected: 0, total: 0 };
+                    let c = 0;
+                    ids.forEach(id => { if (perfilPuestosState.selected.puesto.has(String(id))) c += 1; });
+                    return { checked: c === ids.length, indeterminate: c > 0 && c < ids.length, selected: c, total: ids.length };
+                }
+
+                function aplicarSeleccionPuestos(ids, checked) {
+                    ids.forEach(id => {
+                        if (checked) perfilPuestosState.selected.puesto.add(String(id));
+                        else perfilPuestosState.selected.puesto.delete(String(id));
+                    });
+                }
+
+                function actualizarTotalesFooter(paisObj) {
+                    const ids = puestosDePais(paisObj);
+                    const st = estadoMaster(ids);
+                    totalLbl.textContent = String(st.selected);
+                }
+
+                function renderSidebar() {
+                    leftPaises.innerHTML = '';
+                    perfilPuestosState.paises.forEach(pais => {
+                        const idsPais = puestosDePais(pais);
+                        const st = estadoMaster(idsPais);
+                        const item = document.createElement('button');
+                        item.type = 'button';
+                        item.className = 'btn btn-sm w-100 text-start d-flex align-items-center justify-content-between border';
+                        item.style.background = (String(perfilPuestosState.activePais) === String(pais.id)) ? '#e9f2ff' : '#fff';
+                        item.style.borderLeft = (String(perfilPuestosState.activePais) === String(pais.id)) ? '4px solid #0f2747' : '1px solid #dee2e6';
+                        item.style.borderRadius = '.5rem';
+                        item.style.padding = '.5rem .6rem';
+
+                        const left = document.createElement('div');
+                        left.className = 'd-flex align-items-center gap-2';
+                        left.innerHTML = '<span>' + pais.bandera + '</span><span class="small fw-semibold">' + pais.nombre + '</span><span class="badge text-bg-light border">' + st.selected + '</span>';
+
+                        const cb = document.createElement('input');
+                        cb.type = 'checkbox';
+                        cb.className = 'form-check-input ms-2';
+                        cb.checked = st.checked;
+                        cb.indeterminate = st.indeterminate;
+                        cb.addEventListener('click', e => e.stopPropagation());
+                        cb.addEventListener('change', function () {
+                            aplicarSeleccionPuestos(idsPais, cb.checked);
+                            renderSidebar();
+                            renderPaisActivo();
+                        });
+
+                        item.append(left, cb);
+                        item.addEventListener('click', function () {
+                            perfilPuestosState.activePais = String(pais.id);
+                            renderSidebar();
+                            renderPaisActivo();
+                        });
+                        leftPaises.appendChild(item);
+                    });
+                }
+
+                function crearCollapseHeader(titulo, icono, badgeText, collapseId) {
+                    const h = document.createElement('div');
+                    h.className = 'd-flex align-items-center gap-2 px-3 py-2 bg-light border rounded-top';
+                    h.style.cursor = 'pointer';
+                    h.setAttribute('role', 'button');
+                    h.setAttribute('data-bs-toggle', 'collapse');
+                    h.setAttribute('data-bs-target', '#' + collapseId);
+                    h.setAttribute('aria-controls', collapseId);
+                    h.setAttribute('aria-expanded', 'false');
+                    const ch = document.createElement('i');
+                    ch.className = 'fa fa-chevron-down text-secondary';
+                    ch.style.fontSize = '.75rem';
+                    ch.style.transform = 'rotate(-90deg)';
+                    ch.style.transition = 'transform .2s';
+                    const ic = document.createElement('i');
+                    ic.className = 'fa ' + icono + ' text-primary';
+                    const tx = document.createElement('span');
+                    tx.className = 'small fw-semibold flex-grow-1';
+                    tx.textContent = titulo;
+                    const bd = document.createElement('span');
+                    bd.className = 'badge text-bg-light border';
+                    bd.textContent = badgeText;
+                    h.append(ch, ic, tx, bd);
+                    return { header: h, chevron: ch };
+                }
+
+                function renderPaisActivo() {
+                    const pais = perfilPuestosState.paises.find(p => String(p.id) === String(perfilPuestosState.activePais));
+                    rightTree.innerHTML = '';
+                    if (!pais) {
+                        switchPais.checked = false;
+                        switchPais.indeterminate = false;
+                        totalLbl.textContent = '0';
+                        return;
+                    }
+
+                    switchPais.dataset.permNivel = 'pais';
+                    switchPais.dataset.permNodo = String(pais.id);
+                    switchPais.classList.add('modal-perfil-modulo-item-cb');
+                    switchPais.checked = perfilPuestosState.selected.pais.has(String(pais.id));
+                    switchPais.onchange = function () {
+                        if (switchPais.checked) perfilPuestosState.selected.pais.add(String(pais.id));
+                        else perfilPuestosState.selected.pais.delete(String(pais.id));
+                    };
+
+                    const q = String(inputBuscar.value || '').trim().toLowerCase();
+                    perfilPuestosState.search = q;
+
+                    pais.areas.forEach(area => {
+                        const areaId = String(area.id);
+                        const visibleDepartamentos = [];
+                        (area.departamentos || []).forEach(dep => {
+                            const puestosVisibles = (dep.puestos || []).filter(pu => !q || String(pu.nombre || '').toLowerCase().includes(q));
+                            if (puestosVisibles.length) {
+                                visibleDepartamentos.push({ id: String(dep.id), nombre: dep.nombre, puestos: puestosVisibles });
+                            }
+                        });
+                        if (!visibleDepartamentos.length) return;
+
+                        const idsArea = visibleDepartamentos.flatMap(d => d.puestos.map(p => String(p.id)));
+                        const stArea = estadoMaster(idsArea);
+                        const areaCollapseId = 'area-collapse-' + areaId;
+                        const areaCard = document.createElement('section');
+                        areaCard.className = 'border rounded bg-white';
+
+                        const hObj = crearCollapseHeader(area.nombre, 'fa-sitemap', stArea.selected + '/' + stArea.total, areaCollapseId);
+                        const areaHeader = hObj.header;
+                        const areaChevron = hObj.chevron;
+
+                        const rightActions = document.createElement('div');
+                        rightActions.className = 'd-flex align-items-center gap-2 ms-auto';
+                        const btnMarkAll = document.createElement('button');
+                        btnMarkAll.type = 'button';
+                        btnMarkAll.className = 'btn btn-link btn-sm p-0 text-decoration-none';
+                        btnMarkAll.textContent = 'Marcar todo';
+                        btnMarkAll.addEventListener('click', function (e) {
+                            e.stopPropagation();
+                            aplicarSeleccionPuestos(idsArea, true);
+                            renderSidebar();
+                            renderPaisActivo();
+                        });
+                        const areaMaster = document.createElement('input');
+                        areaMaster.type = 'checkbox';
+                        areaMaster.className = 'form-check-input modal-perfil-modulo-item-cb';
+                        areaMaster.checked = stArea.checked;
+                        areaMaster.indeterminate = stArea.indeterminate;
+                        areaMaster.dataset.permNivel = 'area';
+                        areaMaster.dataset.permNodo = areaId;
+                        areaMaster.addEventListener('click', e => e.stopPropagation());
+                        areaMaster.addEventListener('change', function () {
+                            aplicarSeleccionPuestos(idsArea, areaMaster.checked);
+                            if (areaMaster.checked) perfilPuestosState.selected.area.add(areaId); else perfilPuestosState.selected.area.delete(areaId);
+                            renderSidebar();
+                            renderPaisActivo();
+                        });
+                        rightActions.append(btnMarkAll, areaMaster);
+                        areaHeader.appendChild(rightActions);
+
+                        const areaBody = document.createElement('div');
+                        areaBody.id = areaCollapseId;
+                        areaBody.className = 'collapse' + (perfilPuestosState.expandedAreas.has(areaId) ? ' show' : '');
+                        areaBody.addEventListener('shown.bs.collapse', function () { perfilPuestosState.expandedAreas.add(areaId); areaChevron.style.transform = 'rotate(0deg)'; });
+                        areaBody.addEventListener('hidden.bs.collapse', function () { perfilPuestosState.expandedAreas.delete(areaId); areaChevron.style.transform = 'rotate(-90deg)'; });
+                        if (perfilPuestosState.expandedAreas.has(areaId)) areaChevron.style.transform = 'rotate(0deg)';
+
+                        const directArea = document.createElement('div');
+                        directArea.className = 'd-flex align-items-center justify-content-between bg-light rounded px-3 py-2 m-2 border';
+                        directArea.innerHTML = '<div class="small fw-semibold text-secondary">Acceso directo al área</div>';
+                        const swWrap = document.createElement('div');
+                        swWrap.className = 'form-check form-switch m-0';
+                        const swArea = document.createElement('input');
+                        swArea.type = 'checkbox';
+                        swArea.className = 'form-check-input modal-perfil-modulo-item-cb';
+                        swArea.dataset.permNivel = 'area';
+                        swArea.dataset.permNodo = areaId;
+                        swArea.checked = perfilPuestosState.selected.area.has(areaId);
+                        swArea.addEventListener('change', function () {
+                            if (swArea.checked) perfilPuestosState.selected.area.add(areaId);
+                            else perfilPuestosState.selected.area.delete(areaId);
+                        });
+                        swWrap.appendChild(swArea);
+                        directArea.appendChild(swWrap);
+                        areaBody.appendChild(directArea);
+
+                        visibleDepartamentos.forEach(dep => {
+                            const depId = String(dep.id);
+                            const depIds = dep.puestos.map(p => String(p.id));
+                            const stDep = estadoMaster(depIds);
+                            const depCollapseId = 'dep-collapse-' + depId + '-' + areaId;
+                            const depBox = document.createElement('div');
+                            depBox.className = 'border rounded m-2';
+
+                            const depHeaderObj = crearCollapseHeader(dep.nombre, 'fa-building', stDep.selected + '/' + stDep.total, depCollapseId);
+                            const depHeader = depHeaderObj.header;
+                            const depChevron = depHeaderObj.chevron;
+
+                            const depActions = document.createElement('div');
+                            depActions.className = 'd-flex align-items-center gap-2 ms-auto';
+                            const depMark = document.createElement('button');
+                            depMark.type = 'button';
+                            depMark.className = 'btn btn-link btn-sm p-0 text-decoration-none';
+                            depMark.textContent = 'Marcar todo';
+                            depMark.addEventListener('click', function (e) {
+                                e.stopPropagation();
+                                aplicarSeleccionPuestos(depIds, true);
+                                renderSidebar();
+                                renderPaisActivo();
+                            });
+                            const depMaster = document.createElement('input');
+                            depMaster.type = 'checkbox';
+                            depMaster.className = 'form-check-input modal-perfil-modulo-item-cb';
+                            depMaster.checked = stDep.checked;
+                            depMaster.indeterminate = stDep.indeterminate;
+                            depMaster.dataset.permNivel = 'departamento';
+                            depMaster.dataset.permNodo = depId;
+                            depMaster.addEventListener('click', e => e.stopPropagation());
+                            depMaster.addEventListener('change', function () {
+                                aplicarSeleccionPuestos(depIds, depMaster.checked);
+                                if (depMaster.checked) perfilPuestosState.selected.departamento.add(depId); else perfilPuestosState.selected.departamento.delete(depId);
+                                renderSidebar();
+                                renderPaisActivo();
+                            });
+                            depActions.append(depMark, depMaster);
+                            depHeader.appendChild(depActions);
+
+                            const depBody = document.createElement('div');
+                            depBody.id = depCollapseId;
+                            depBody.className = 'collapse' + (perfilPuestosState.expandedDeptos.has(depCollapseId) ? ' show' : '');
+                            depBody.addEventListener('shown.bs.collapse', function () { perfilPuestosState.expandedDeptos.add(depCollapseId); depChevron.style.transform = 'rotate(0deg)'; });
+                            depBody.addEventListener('hidden.bs.collapse', function () { perfilPuestosState.expandedDeptos.delete(depCollapseId); depChevron.style.transform = 'rotate(-90deg)'; });
+                            if (perfilPuestosState.expandedDeptos.has(depCollapseId)) depChevron.style.transform = 'rotate(0deg)';
+
+                            const puestosWrap = document.createElement('div');
+                            puestosWrap.className = 'border-start ms-3 ps-3 py-2';
+                            dep.puestos.forEach(pu => {
+                                const row = document.createElement('div');
+                                row.className = 'd-flex align-items-center justify-content-between py-1';
+                                const lbl = document.createElement('label');
+                                lbl.className = 'small mb-0 flex-grow-1 pe-2';
+                                lbl.textContent = pu.nombre || ('Puesto #' + pu.id);
+                                const cb = document.createElement('input');
+                                cb.type = 'checkbox';
+                                cb.className = 'form-check-input modal-perfil-modulo-item-cb ms-2';
+                                cb.dataset.permNivel = 'puesto';
+                                cb.dataset.permNodo = String(pu.id);
+                                cb.checked = perfilPuestosState.selected.puesto.has(String(pu.id));
+                                cb.addEventListener('change', function () {
+                                    if (cb.checked) perfilPuestosState.selected.puesto.add(String(pu.id));
+                                    else perfilPuestosState.selected.puesto.delete(String(pu.id));
+                                    renderSidebar();
+                                    renderPaisActivo();
+                                });
+                                row.append(lbl, cb);
+                                puestosWrap.appendChild(row);
+                            });
+                            depBody.appendChild(puestosWrap);
+                            depBox.append(depHeader, depBody);
+                            areaBody.appendChild(depBox);
+                        });
+
+                        areaCard.append(areaHeader, areaBody);
+                        rightTree.appendChild(areaCard);
+                    });
+
+                    if (!rightTree.children.length) {
+                        rightTree.innerHTML = '<div class="text-muted small text-center py-4">No hay resultados para la búsqueda actual.</div>';
+                    }
+                    actualizarTotalesFooter(pais);
+                }
+
+                inputBuscar.value = '';
+                inputBuscar.off && inputBuscar.off();
+                inputBuscar.oninput = function () {
+                    renderPaisActivo();
+                };
+
+                renderSidebar();
+                renderPaisActivo();
             }
 
             function actualizarBotonExpandirPermisosEspeciales() {
@@ -1748,7 +1943,9 @@ class CapHum extends Controller
                 const payload = {
                     idPersona: currentPersonaId,
                     idPuesto: checkbox.value,
-                    asignado: checkbox.checked ? 1 : 0
+                    asignado: checkbox.checked ? 1 : 0,
+                    nivel: checkbox.dataset.permNivel || 'puesto',
+                    idNodo: checkbox.dataset.permNodo || checkbox.value
                 };
 
                 return fetch('/caphum/actualizarPuestoPerfil', {
@@ -1763,8 +1960,6 @@ class CapHum extends Controller
                 .then(data => {
                     if (!data.success) {
                         checkbox.checked = !checkbox.checked;
-                        updateModuloCheckboxLabel(checkbox);
-                        syncGrupoModuloMasterFromChild(checkbox);
                         Swal.fire({ icon: 'error', title: 'Error', text: data.mensaje || 'No se pudo actualizar', customClass: { container: 'swal-sobre-modal-perfil' } });
                         return false;
                     }
@@ -1776,22 +1971,19 @@ class CapHum extends Controller
                                 ? 'Asignación correcta'
                                 : 'Asignación eliminada',
                             text: checkbox.checked
-                                ? 'El puesto fue asignado correctamente'
-                                : 'El puesto fue deseleccionado correctamente',
+                                ? 'El acceso se asignó correctamente'
+                                : 'El acceso se deseleccionó correctamente',
                             timer: 1600,
                             showConfirmButton: false,
                             customClass: { container: 'swal-sobre-modal-perfil' }
                         });
                         if (typeof getUsuarios === 'function') getUsuarios({ showLoader: false });
                     }
-                    syncGrupoModuloMasterFromChild(checkbox);
                     return true;
                 })
                 .catch(err => {
                     console.error(err);
                     checkbox.checked = !checkbox.checked;
-                    updateModuloCheckboxLabel(checkbox);
-                    syncGrupoModuloMasterFromChild(checkbox);
                     Swal.fire({ icon: 'error', title: 'Error', text: 'No se pudo actualizar el puesto', customClass: { container: 'swal-sobre-modal-perfil' } });
                     return false;
                 });
@@ -1803,31 +1995,49 @@ class CapHum extends Controller
                 const collapses = form.querySelectorAll('.modal-perfil-puesto-card-collapse');
                 if (collapses.length === 0) return;
 
-                const allCollapsed = Array.from(collapses).every(c => !c.classList.contains('show'));
-                const doExpand = allCollapsed;
-
                 collapses.forEach(collapseEl => {
                     if (typeof bootstrap !== 'undefined' && bootstrap.Collapse) {
                         const inst = bootstrap.Collapse.getOrCreateInstance(collapseEl, { toggle: false });
-                        if (doExpand) {
-                            inst.show();
-                        } else {
-                            inst.hide();
-                        }
+                        inst.show();
                     } else {
-                        collapseEl.classList.toggle('show', doExpand);
+                        collapseEl.classList.add('show');
                         const cid = collapseEl.id;
                         const hdr = form.querySelector('[aria-controls="' + cid + '"]');
                         if (hdr) {
-                            hdr.setAttribute('aria-expanded', doExpand ? 'true' : 'false');
+                            hdr.setAttribute('aria-expanded', 'true');
                             const ch = hdr.querySelector('.modal-perfil-puesto-chevron');
                             if (ch) {
-                                ch.style.transform = doExpand ? 'rotate(0deg)' : 'rotate(-90deg)';
+                                ch.style.transform = 'rotate(0deg)';
                             }
                         }
                     }
                 });
 
+                actualizarBotonExpandirPuestos();
+            }
+
+            function contraerTodosPuestos() {
+                const form = document.getElementById('modal-edit-perfil-puestos-form') || document.getElementById('puestos-form');
+                if (!form) return;
+                const collapses = form.querySelectorAll('.modal-perfil-puesto-card-collapse');
+                if (collapses.length === 0) return;
+                collapses.forEach(collapseEl => {
+                    if (typeof bootstrap !== 'undefined' && bootstrap.Collapse) {
+                        const inst = bootstrap.Collapse.getOrCreateInstance(collapseEl, { toggle: false });
+                        inst.hide();
+                    } else {
+                        collapseEl.classList.remove('show');
+                        const cid = collapseEl.id;
+                        const hdr = form.querySelector('[aria-controls="' + cid + '"]');
+                        if (hdr) {
+                            hdr.setAttribute('aria-expanded', 'false');
+                            const ch = hdr.querySelector('.modal-perfil-puesto-chevron');
+                            if (ch) {
+                                ch.style.transform = 'rotate(-90deg)';
+                            }
+                        }
+                    }
+                });
                 actualizarBotonExpandirPuestos();
             }
 
@@ -1844,19 +2054,33 @@ class CapHum extends Controller
                     return;
                 }
 
-                // Recopilar puestos seleccionados
+                // Recopilar selección jerárquica
+                const seleccionJerarquia = { pais: [], area: [], departamento: [], puesto: [] };
                 const puestosSeleccionados = [];
                 const modulosAsignar = [];
                 const modulosEliminar = [];
                 const puestosForm = document.getElementById('modal-edit-perfil-puestos-form') || document.getElementById('puestos-form');
                 const modulosForm = document.getElementById('modal-edit-perfil-modulos-form') || document.getElementById('modulos-form');
-                const checkboxesPuestos = puestosForm ? puestosForm.querySelectorAll('input[type="checkbox"]:checked') : [];
+                const checkboxesPuestos = puestosForm ? puestosForm.querySelectorAll('.modal-perfil-modulo-item-cb:checked') : [];
                 const checkboxesModulos = modulosForm ? modulosForm.querySelectorAll('input[type="checkbox"]') : [];
                 checkboxesPuestos.forEach(cb => {
-                    if (cb.value) {
-                        puestosSeleccionados.push(parseInt(cb.value));
+                    const nivel = (cb.dataset.permNivel || 'puesto').toLowerCase();
+                    const idNodo = parseInt(cb.dataset.permNodo || cb.value || '0', 10);
+                    if (!idNodo) return;
+                    if (seleccionJerarquia[nivel]) {
+                        seleccionJerarquia[nivel].push(idNodo);
+                    }
+                    if (nivel === 'puesto') {
+                        puestosSeleccionados.push(idNodo);
                     }
                 });
+                const switchPais = document.getElementById('perfilAccesoDirectoPaisSwitch');
+                if (switchPais && switchPais.checked) {
+                    const idNodoPais = parseInt(switchPais.dataset.permNodo || '0', 10);
+                    if (idNodoPais > 0) {
+                        seleccionJerarquia.pais.push(idNodoPais);
+                    }
+                }
                 checkboxesModulos.forEach(cb => {
                     if (cb.value) {
                         if (cb.checked) {
@@ -1885,7 +2109,8 @@ class CapHum extends Controller
                     },
                     body: JSON.stringify({
                         idPersona: parseInt(personaId),
-                        puestos: puestosSeleccionados
+                        puestos: puestosSeleccionados,
+                        jerarquia: seleccionJerarquia
                     })
                 })
                 .then(res => res.json())
@@ -12636,7 +12861,11 @@ class CapHum extends Controller
         $modulos = $_SESSION['modulos'] ?? [];
         self::set("titulo", "Control de Bajas");
         self::set("script", $scriptGestion);
-        self::set("departamento", ['datos' => []]); // Array vacío para no romper la vista
+        $departamentosGestion = CapHumDAO::getTodosDepartamentosGestion();
+        $departamentosView = (is_array($departamentosGestion) && !empty($departamentosGestion['success']) && is_array($departamentosGestion['datos'] ?? null))
+            ? $departamentosGestion
+            : ['datos' => []];
+        self::set("departamento", $departamentosView);
         self::set("puedeEditarTodos", in_array(10, $modulos));
         self::set("puedeGestionarPermisos", in_array(43, $modulos));
         self::set("puedeActualizarInfo", in_array(self::MODULO_ACTUALIZAR_DATOS_RRHH, $modulos));
@@ -12650,10 +12879,27 @@ class CapHum extends Controller
         $puedeVerGestionPersonal = in_array(4, $modulos);
         $resultado = CapHumDAO::getConsultaGestoresAll($_SESSION['usuario_id'], !$puedeVerGestionPersonal);
         $usuarios = $resultado['datos'] ?? [];
+        $catalogoDepartamentos = CapHumDAO::getTodosDepartamentosGestion();
+        $rowsDepartamentos = (is_array($catalogoDepartamentos) && !empty($catalogoDepartamentos['success']) && !empty($catalogoDepartamentos['datos']))
+            ? (array) $catalogoDepartamentos['datos']
+            : [];
+        $areaPorDepartamento = [];
+        foreach ($rowsDepartamentos as $rowDepto) {
+            $idDepto = (int) ($rowDepto['id'] ?? 0);
+            if ($idDepto <= 0) {
+                continue;
+            }
+            $areaPorDepartamento[$idDepto] = [
+                'id_area' => (int) ($rowDepto['id_departamento_organizacional'] ?? 0),
+                'nombre_area' => (string) ($rowDepto['departamento_organizacional_nombre'] ?? ''),
+            ];
+        }
 
 
         // Preparar array compatible con frontend
-        $datos = array_map(function($p) {
+        $datos = array_map(function($p) use ($areaPorDepartamento) {
+            $idDepto = (int) ($p['id_departamento'] ?? 0);
+            $metaArea = $areaPorDepartamento[$idDepto] ?? ['id_area' => 0, 'nombre_area' => ''];
             return [
                 'id' => $p['id'] ?? '',
                 'numero_empleado' => $p['numero_empleado'] ?? '',
@@ -12669,6 +12915,8 @@ class CapHum extends Controller
                 'nombre_puesto' => $p['nombre_puesto'] ?? '',
                 'id_puesto' => $p['id_puesto'] ?? null,
                 'id_departamento' => $p['id_departamento'] ?? null,
+                'id_area' => $metaArea['id_area'] > 0 ? $metaArea['id_area'] : null,
+                'nombre_area' => $metaArea['nombre_area'] ?? '',
                 'estatus' => $p['estatus'] ?? '',
                 'usuario' => $p['usuario'] ?? '',
                 'telefono' => $p['telefono'] ?? '',
@@ -13371,6 +13619,24 @@ public function getEstadosMunicipiosMexico()
         self::respuestaJSON(CapHumDAO::actualizarJefeVacantePersonal($idVacante, $idJefe));
     }
 
+    public function actualizarJefePersonaOrganigrama()
+    {
+        $input = json_decode(file_get_contents("php://input"), true) ?: [];
+
+        if (!self::tieneAccesoTotalGestionPersonal()) {
+            self::respuestaJSON([
+                'success' => false,
+                'mensaje' => 'No tiene permiso para modificar jefes.'
+            ]);
+            return;
+        }
+
+        $idPersona = (int)($input['id_persona'] ?? 0);
+        $idJefe = $input['id_jefe'] ?? '';
+
+        self::respuestaJSON(CapHumDAO::actualizarJefePersonaOrganigrama($idPersona, $idJefe));
+    }
+
     public function getRazonesAusencia()
     {
         // El DAO ya regresa success, mensaje y datos
@@ -13586,8 +13852,7 @@ public function getEstadosMunicipiosMexico()
             }
         }
 
-        $modulos = $_SESSION['modulos'] ?? [];
-        $puedeEditarTodos = in_array(10, $modulos); // Organización - Departamentos (igual que en Gestiones)
+        $puedeEditarTodos = self::tieneAccesoTotalGestionPersonal();
 
         self::set("titulo", "Organigrama Cobranza");
         self::set("script", $script);
@@ -14609,12 +14874,28 @@ public function getEstadosMunicipiosMexico()
 
             $idPersona = $input['idPersona'] ?? null;
             $puestos = $input['puestos'] ?? [];
+            $jerarquia = $input['jerarquia'] ?? null;
 
             if (!$idPersona) {
                 self::respuestaJSON([
                     'success' => false,
                     'mensaje' => 'ID de persona requerido'
                 ]);
+                return;
+            }
+
+            // Nueva modalidad jerárquica: pais -> area -> departamento -> puesto.
+            if (is_array($jerarquia)) {
+                $resultadoJerarquia = CapHumDAO::guardarPermisosJerarquicosPerfil(
+                    (int) $idPersona,
+                    [
+                        'pais' => $jerarquia['pais'] ?? [],
+                        'area' => $jerarquia['area'] ?? [],
+                        'departamento' => $jerarquia['departamento'] ?? [],
+                        'puesto' => $jerarquia['puesto'] ?? [],
+                    ]
+                );
+                self::respuestaJSON($resultadoJerarquia);
                 return;
             }
 
@@ -14672,8 +14953,30 @@ public function getEstadosMunicipiosMexico()
             $idPersona = $input['idPersona'] ?? null;
             $idPuesto = $input['idPuesto'] ?? null;
             $asignado = $input['asignado'] ?? 0;
+            $nivel = isset($input['nivel']) ? trim((string) $input['nivel']) : 'puesto';
+            $idNodo = (int) ($input['idNodo'] ?? 0);
 
-            if (!$idPersona || !$idPuesto) {
+            if (!$idPersona) {
+                self::respuestaJSON([
+                    'success' => false,
+                    'mensaje' => 'Datos incompletos'
+                ]);
+                return;
+            }
+
+            // Nueva modalidad jerárquica: actualiza selección de nodo y sincroniza legado.
+            if ($idNodo > 0 && in_array($nivel, ['pais', 'area', 'departamento', 'puesto'], true)) {
+                $resultadoJerarquia = CapHumDAO::actualizarPermisoJerarquicoPerfil(
+                    (int) $idPersona,
+                    $nivel,
+                    $idNodo,
+                    (int) $asignado
+                );
+                self::respuestaJSON($resultadoJerarquia);
+                return;
+            }
+
+            if (!$idPuesto) {
                 self::respuestaJSON([
                     'success' => false,
                     'mensaje' => 'Datos incompletos'
@@ -14781,6 +15084,12 @@ public function getEstadosMunicipiosMexico()
             }
             $fiCal = trim((string) ($body['fecha_inicio'] ?? ''));
             $ffCal = trim((string) ($body['fecha_fin'] ?? ''));
+            $idArea = (int) ($body['id_area'] ?? 0);
+            $idDepartamento = (int) ($body['id_departamento'] ?? 0);
+            $idPuesto = (int) ($body['id_puesto'] ?? 0);
+            $idArea = $idArea > 0 ? $idArea : null;
+            $idDepartamento = $idDepartamento > 0 ? $idDepartamento : null;
+            $idPuesto = $idPuesto > 0 ? $idPuesto : null;
             $usaCal = ($fiCal !== '' && $ffCal !== ''
                 && preg_match('/^\d{4}-\d{2}-\d{2}$/', $fiCal)
                 && preg_match('/^\d{4}-\d{2}-\d{2}$/', $ffCal));
@@ -14788,14 +15097,44 @@ public function getEstadosMunicipiosMexico()
                 [$fiCal, $ffCal] = self::capFechasEstadisticasChHastaHoy($fiCal, $ffCal);
             }
             $res = $usaCal
-                ? \Models\CapHumEstadisticas::getDatosPanel($anio, $mes, $semana, $fiCal, $ffCal)
-                : \Models\CapHumEstadisticas::getDatosPanel($anio, $mes, $semana);
+                ? \Models\CapHumEstadisticas::getDatosPanel($anio, $mes, $semana, $fiCal, $ffCal, $idArea, $idDepartamento, $idPuesto)
+                : \Models\CapHumEstadisticas::getDatosPanel($anio, $mes, $semana, null, null, $idArea, $idDepartamento, $idPuesto);
             echo json_encode($res, JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE);
         } catch (\Throwable $e) {
             http_response_code(500);
             echo json_encode([
                 'success' => false,
                 'mensaje' => 'Error al generar el panel de estadísticas.',
+                'error' => $e->getMessage(),
+            ], JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE);
+        }
+        exit;
+    }
+
+    /**
+     * POST /caphum/getEstadisticasFiltrosEstructura
+     */
+    public function getEstadisticasFiltrosEstructura()
+    {
+        header('Content-Type: application/json; charset=utf-8');
+        try {
+            $raw = file_get_contents('php://input');
+            $body = json_decode($raw ?: '[]', true);
+            if (!is_array($body)) {
+                $body = [];
+            }
+            $idArea = (int) ($body['id_area'] ?? 0);
+            $idDepartamento = (int) ($body['id_departamento'] ?? 0);
+            $idArea = $idArea > 0 ? $idArea : null;
+            $idDepartamento = $idDepartamento > 0 ? $idDepartamento : null;
+
+            $res = \Models\CapHumEstadisticas::getFiltrosEstructura($idArea, $idDepartamento);
+            echo json_encode($res, JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE);
+        } catch (\Throwable $e) {
+            http_response_code(500);
+            echo json_encode([
+                'success' => false,
+                'mensaje' => 'Error al cargar los filtros de estructura.',
                 'error' => $e->getMessage(),
             ], JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE);
         }
@@ -14827,6 +15166,12 @@ public function getEstadosMunicipiosMexico()
             }
             $fiCal = trim((string) ($body['fecha_inicio'] ?? ''));
             $ffCal = trim((string) ($body['fecha_fin'] ?? ''));
+            $idArea = (int) ($body['id_area'] ?? 0);
+            $idDepartamento = (int) ($body['id_departamento'] ?? 0);
+            $idPuesto = (int) ($body['id_puesto'] ?? 0);
+            $idArea = $idArea > 0 ? $idArea : null;
+            $idDepartamento = $idDepartamento > 0 ? $idDepartamento : null;
+            $idPuesto = $idPuesto > 0 ? $idPuesto : null;
             $usaCal = ($fiCal !== '' && $ffCal !== ''
                 && preg_match('/^\d{4}-\d{2}-\d{2}$/', $fiCal)
                 && preg_match('/^\d{4}-\d{2}-\d{2}$/', $ffCal));
@@ -14834,8 +15179,8 @@ public function getEstadosMunicipiosMexico()
                 [$fiCal, $ffCal] = self::capFechasEstadisticasChHastaHoy($fiCal, $ffCal);
             }
             $res = $usaCal
-                ? \Models\CapHumEstadisticas::getMovimientoPorDepartamento($tipo, $anio, $mes, $semana, $fiCal, $ffCal)
-                : \Models\CapHumEstadisticas::getMovimientoPorDepartamento($tipo, $anio, $mes, $semana);
+                ? \Models\CapHumEstadisticas::getMovimientoPorDepartamento($tipo, $anio, $mes, $semana, $fiCal, $ffCal, $idArea, $idDepartamento, $idPuesto)
+                : \Models\CapHumEstadisticas::getMovimientoPorDepartamento($tipo, $anio, $mes, $semana, null, null, $idArea, $idDepartamento, $idPuesto);
             echo json_encode($res, JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE);
         } catch (\Throwable $e) {
             http_response_code(500);
