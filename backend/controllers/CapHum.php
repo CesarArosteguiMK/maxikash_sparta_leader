@@ -14606,6 +14606,41 @@ public function getMunicipios()
         }
     }
 
+    public function estructuraOrganizacional()
+    {
+        self::set('titulo', 'Constructor de Estructura Organizacional');
+        self::render('caphum_estructura_organizacional');
+    }
+
+    public function getEstructuraOrganizacionalJson()
+    {
+        header('Content-Type: application/json; charset=utf-8');
+        $idPais = (int) ($_GET['id_pais'] ?? $_POST['id_pais'] ?? 0);
+        $res = CapHumDAO::getConstructorEstructuraOrganizacional($idPais);
+        echo json_encode($res, JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE);
+        exit;
+    }
+
+    public function guardarEstructuraOrganizacionalJson()
+    {
+        header('Content-Type: application/json; charset=utf-8');
+        $raw = file_get_contents('php://input');
+        $body = json_decode($raw ?: '[]', true);
+        if (!is_array($body)) {
+            $body = [];
+        }
+
+        $idPais = (int) ($body['id_pais'] ?? 0);
+        $nodos = $body['nodos'] ?? [];
+        if (!is_array($nodos)) {
+            $nodos = [];
+        }
+
+        $res = CapHumDAO::guardarConstructorEstructuraOrganizacional($idPais, $nodos);
+        echo json_encode($res, JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE);
+        exit;
+    }
+
     public function estadisticas()
     {
         $anio = (int) date('Y');
