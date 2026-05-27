@@ -3969,6 +3969,59 @@ public static function getMunicipiosPorEstado($id_estado)
     return self::resultado(true, 'Municipios encontrados.', []);
 }
 
+public static function getEstadosMunicipiosMexico()
+{
+    $query = <<<SQL
+    SELECT
+        da.id,
+        da.id_padre,
+        da.nivel,
+        da.nombre,
+        da.codigo_interno,
+        dat.nombre AS tipo_label,
+        dat.codigo AS tipo_codigo
+    FROM divisiones_administrativas da
+    INNER JOIN division_administrativa_tipos dat ON dat.id = da.id_tipo
+    WHERE da.id_pais = 1
+      AND da.nivel IN (1, 2)
+      AND da.activo = 1
+    ORDER BY da.nivel ASC, da.id_padre ASC, da.nombre ASC
+    SQL;
+
+    try {
+        $db = new Database();
+        $rows = $db->queryAll($query);
+        $estados = [];
+        $municipiosPorEstado = [];
+
+        foreach ($rows as $row) {
+            $nivel = (int)($row['nivel'] ?? 0);
+            if ($nivel === 1) {
+                $estados[] = $row;
+                continue;
+            }
+
+            if ($nivel === 2) {
+                $idPadre = (string)($row['id_padre'] ?? '');
+                if ($idPadre === '') {
+                    continue;
+                }
+                if (!isset($municipiosPorEstado[$idPadre])) {
+                    $municipiosPorEstado[$idPadre] = [];
+                }
+                $municipiosPorEstado[$idPadre][] = $row;
+            }
+        }
+
+        return self::resultado(true, 'Catalogo de Mexico encontrado.', [
+            'estados' => $estados,
+            'municipios_por_estado' => $municipiosPorEstado,
+        ]);
+    } catch (\Exception $e) {
+        return self::resultado(false, 'Error al obtener catalogo de Mexico.', null, $e->getMessage());
+    }
+}
+
 /**
  * Colonias (nivel 3) bajo un municipio/alcaldía (nivel 2).
  * codigo_postal devuelto desde codigo_interno del catálogo cuando aplica.

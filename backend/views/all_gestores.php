@@ -9524,6 +9524,7 @@ document.addEventListener('DOMContentLoaded', function () {
         return;
     }
     var $ = window.jQuery;
+    precargarCatalogoMexicoGestion();
 
     $('#add_id_pais').on('change', function () {
         var idPais = this.value;
@@ -9535,6 +9536,8 @@ document.addEventListener('DOMContentLoaded', function () {
 
         if (!idPais) return;
 
+        document.getElementById('div_add_estado').style.display = '';
+        document.getElementById('add_id_div_nivel1').disabled = true;
         cargarEstados(idPais, 'add_id_div_nivel1', function () {
             document.getElementById('div_add_estado').style.display = '';
             document.getElementById('add_id_div_nivel1').disabled = false;
@@ -9552,6 +9555,8 @@ document.addEventListener('DOMContentLoaded', function () {
 
         if (!idEstado) return;
 
+        document.getElementById('div_add_municipio').style.display = '';
+        selMun.disabled = true;
         cargarMunicipios(idEstado, 'add_id_div_nivel2', function () {
             document.getElementById('div_add_municipio').style.display = '';
             document.getElementById('add_id_div_nivel2').disabled = false;
@@ -9920,6 +9925,43 @@ function actualizarLabels(idPais, prefix) {
  */
 const cacheEstadosPorPais = window.cacheEstadosPorPais || (window.cacheEstadosPorPais = {});
 const cacheMunicipiosPorEstado = window.cacheMunicipiosPorEstado || (window.cacheMunicipiosPorEstado = {});
+window.catalogoMexicoGestion = window.catalogoMexicoGestion || null;
+window.catalogoMexicoGestionPromise = window.catalogoMexicoGestionPromise || null;
+
+function precargarCatalogoMexicoGestion() {
+    if (window.catalogoMexicoGestion) {
+        return Promise.resolve(window.catalogoMexicoGestion);
+    }
+    if (window.catalogoMexicoGestionPromise) {
+        return window.catalogoMexicoGestionPromise;
+    }
+
+    window.catalogoMexicoGestionPromise = fetch('/CapHum/getEstadosMunicipiosMexico', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({})
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (!data.success || !data.datos) {
+            throw new Error(data.mensaje || 'No se pudo precargar el catalogo de Mexico');
+        }
+
+        window.catalogoMexicoGestion = data.datos;
+        cacheEstadosPorPais[1] = data.datos.estados || [];
+        Object.entries(data.datos.municipios_por_estado || {}).forEach(([idEstado, municipios]) => {
+            cacheMunicipiosPorEstado[idEstado] = municipios || [];
+        });
+        return window.catalogoMexicoGestion;
+    })
+    .catch(error => {
+        console.warn('No se pudo precargar el catalogo de Mexico', error);
+        window.catalogoMexicoGestionPromise = null;
+        return null;
+    });
+
+    return window.catalogoMexicoGestionPromise;
+}
 
 function llenarSelectDivision(select, items, emptyLabel) {
     select.innerHTML = '<option value="">Seleccione...</option>';
@@ -9938,6 +9980,12 @@ function llenarSelectDivision(select, items, emptyLabel) {
 
 function cargarEstados(idPais, selectId, onSuccess) {
     const select = document.getElementById(selectId);
+    if (String(idPais) === '1' && !cacheEstadosPorPais[idPais]) {
+        select.innerHTML = '<option value="">Cargando...</option>';
+        precargarCatalogoMexicoGestion().then(() => cargarEstados(idPais, selectId, onSuccess));
+        return;
+    }
+
     if (cacheEstadosPorPais[idPais]) {
         llenarSelectDivision(select, cacheEstadosPorPais[idPais], 'Sin estados');
         if (onSuccess) onSuccess();
@@ -9972,6 +10020,12 @@ function cargarEstados(idPais, selectId, onSuccess) {
  */
 function cargarMunicipios(idEstado, selectId, onSuccess) {
     const select = document.getElementById(selectId);
+    if (!cacheMunicipiosPorEstado[idEstado] && window.catalogoMexicoGestionPromise) {
+        select.innerHTML = '<option value="">Cargando...</option>';
+        window.catalogoMexicoGestionPromise.then(() => cargarMunicipios(idEstado, selectId, onSuccess));
+        return;
+    }
+
     if (cacheMunicipiosPorEstado[idEstado]) {
         llenarSelectDivision(select, cacheMunicipiosPorEstado[idEstado], 'Sin alcaldias / municipios');
         if (onSuccess) onSuccess();

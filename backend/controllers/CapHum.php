@@ -13188,6 +13188,13 @@ public function getMunicipios()
     );
 }
 
+public function getEstadosMunicipiosMexico()
+{
+    self::respuestaJSON(
+        \Models\CapHum::getEstadosMunicipiosMexico()
+    );
+}
+
     public function getColonias()
     {
         $input = json_decode(file_get_contents('php://input'), true);
