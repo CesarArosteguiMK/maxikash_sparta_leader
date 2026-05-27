@@ -22,6 +22,7 @@ class TrackingRecoleccion extends Controller
         if ($trkCfg['base_url'] !== '') {
             $wsBase = preg_replace('/^https:/i', 'wss:', preg_replace('/^http:/i', 'ws:', rtrim($trkCfg['base_url'], '/')));
             self::set('tracking_chat_ws_base_url', $wsBase);
+            self::set('tracking_api_base_url', rtrim($trkCfg['base_url'], '/'));
         }
         return self::render('tracking_recoleccion');
     }
@@ -229,6 +230,90 @@ class TrackingRecoleccion extends Controller
     }
 
     /**
+     * GET /TrackingRecoleccion/trackingLiveConfig
+     * Devuelve datos necesarios para abrir el WebSocket live desde navegador.
+     */
+    public function trackingLiveConfig()
+    {
+        $cfg   = $this->_trkChatConfig();
+        $token = $this->_trkChatObtenerJwt();
+        if ($cfg['base_url'] === '' || $cfg['api_key'] === '' || $token === '') {
+            self::respuestaJSON(['success' => false, 'mensaje' => 'Tracking live no disponible.']);
+            return;
+        }
+
+        $wsBase = preg_replace('/^https:/i', 'wss:', preg_replace('/^http:/i', 'ws:', rtrim($cfg['base_url'], '/')));
+        $expiryMs = (int)(($_SESSION['_trk_chat_jwt_exp'] ?? (time() + 3300)) * 1000);
+        self::respuestaJSON([
+            'success'   => true,
+            'ws_base'   => $wsBase,
+            'token'     => $token,
+            'api_key'   => $cfg['api_key'],
+            'expiry_ms' => $expiryMs,
+        ]);
+    }
+
+    /**
+     * GET /TrackingRecoleccion/trackingUbicacionActual?id_ruta=X
+     * Proxy: GET /api/tracking/rutas/{id_ruta}/ubicacion/actual
+     */
+    public function trackingUbicacionActual()
+    {
+        $idRuta = (int)($_GET['id_ruta'] ?? 0);
+        if ($idRuta <= 0) {
+            self::respuestaJSON(['success' => false, 'mensaje' => 'id_ruta requerido.']);
+            return;
+        }
+
+        $cfg   = $this->_trkChatConfig();
+        $token = $this->_trkChatObtenerJwt();
+        if ($cfg['base_url'] === '' || $token === '') {
+            self::respuestaJSON(['success' => false, 'mensaje' => 'Tracking no disponible.']);
+            return;
+        }
+
+        $url  = rtrim($cfg['base_url'], '/') . "/api/tracking/rutas/{$idRuta}/ubicacion/actual";
+        $resp = $this->_trkChatCurl($url, 'GET', '', [
+            'X-API-Key: '     . $cfg['api_key'],
+            'Authorization: Bearer ' . $token,
+        ]);
+
+        $this->_trkChatRelayResponse($resp);
+    }
+
+    /**
+     * GET /TrackingRecoleccion/trackingUbicacionHistorial?id_ruta=X[&limit=300][&since=ISO]
+     * Proxy: GET /api/tracking/rutas/{id_ruta}/ubicacion/historial
+     */
+    public function trackingUbicacionHistorial()
+    {
+        $idRuta = (int)($_GET['id_ruta'] ?? 0);
+        if ($idRuta <= 0) {
+            self::respuestaJSON(['success' => false, 'mensaje' => 'id_ruta requerido.']);
+            return;
+        }
+
+        $limit = min(1000, max(1, (int)($_GET['limit'] ?? 300)));
+        $since = trim((string)($_GET['since'] ?? ''));
+
+        $cfg   = $this->_trkChatConfig();
+        $token = $this->_trkChatObtenerJwt();
+        if ($cfg['base_url'] === '' || $token === '') {
+            self::respuestaJSON(['success' => false, 'mensaje' => 'Tracking no disponible.']);
+            return;
+        }
+
+        $qs = '?limit=' . $limit . ($since !== '' ? '&since=' . rawurlencode($since) : '');
+        $url  = rtrim($cfg['base_url'], '/') . "/api/tracking/rutas/{$idRuta}/ubicacion/historial{$qs}";
+        $resp = $this->_trkChatCurl($url, 'GET', '', [
+            'X-API-Key: '     . $cfg['api_key'],
+            'Authorization: Bearer ' . $token,
+        ]);
+
+        $this->_trkChatRelayResponse($resp);
+    }
+
+    /**
      * POST /TrackingRecoleccion/chatEnviarMensaje
      * Body JSON: { id_detalle, mensaje, tipo_mensaje?, latitud?, longitud?, metadata? }
      * Proxy: POST /api/tracking/chats/{id_detalle}/mensajes
@@ -270,6 +355,78 @@ class TrackingRecoleccion extends Controller
         ]);
 
         $this->_trkChatRelayResponse($resp);
+    }
+
+    /**
+     * POST /TrackingRecoleccion/chatSubirArchivo
+     * Multipart: id_detalle, archivo, mensaje?, latitud?, longitud?
+     * Proxy: POST /api/tracking/chats/{id_detalle}/archivos
+     */
+    public function chatSubirArchivo()
+    {
+        $idDetalle = (int)($_POST['id_detalle'] ?? 0);
+        if ($idDetalle <= 0) {
+            self::respuestaJSON(['success' => false, 'mensaje' => 'id_detalle requerido.']);
+            return;
+        }
+        if (empty($_FILES['archivo']) || !is_uploaded_file($_FILES['archivo']['tmp_name'])) {
+            self::respuestaJSON(['success' => false, 'mensaje' => 'Archivo requerido.']);
+            return;
+        }
+        if ((int)($_FILES['archivo']['size'] ?? 0) > 100 * 1024 * 1024) {
+            self::respuestaJSON(['success' => false, 'mensaje' => 'El archivo supera el lÃ­mite de 100 MB.', 'codigo_http' => 413]);
+            return;
+        }
+
+        $cfg   = $this->_trkChatConfig();
+        $token = $this->_trkChatObtenerJwt();
+        if ($cfg['base_url'] === '' || $token === '') {
+            self::respuestaJSON(['success' => false, 'mensaje' => 'Chat no disponible.']);
+            return;
+        }
+
+        $url = rtrim($cfg['base_url'], '/') . "/api/tracking/chats/{$idDetalle}/archivos";
+        if (!function_exists('curl_init') || !class_exists('\CURLFile')) {
+            self::respuestaJSON(['success' => false, 'mensaje' => 'Carga de archivos no disponible en este servidor.']);
+            return;
+        }
+
+        $file = $_FILES['archivo'];
+        $post = [
+            'archivo' => new \CURLFile(
+                $file['tmp_name'],
+                (string)($file['type'] ?? 'application/octet-stream'),
+                (string)($file['name'] ?? 'archivo')
+            ),
+        ];
+        foreach (['mensaje', 'latitud', 'longitud'] as $k) {
+            if (isset($_POST[$k]) && trim((string)$_POST[$k]) !== '') {
+                $post[$k] = (string)$_POST[$k];
+            }
+        }
+
+        $ch = curl_init($url);
+        curl_setopt_array($ch, [
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_TIMEOUT        => 120,
+            CURLOPT_POST           => true,
+            CURLOPT_POSTFIELDS     => $post,
+            CURLOPT_HTTPHEADER     => [
+                'X-API-Key: ' . $cfg['api_key'],
+                'Authorization: Bearer ' . $token,
+            ],
+            CURLOPT_SSL_VERIFYPEER => false,
+        ]);
+        $raw      = curl_exec($ch);
+        $curlErr  = $raw === false ? curl_error($ch) : '';
+        $httpCode = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        curl_close($ch);
+
+        $this->_trkChatRelayResponse([
+            'http_code' => $httpCode,
+            'body'      => ($raw === false ? '' : (string)$raw),
+            'error'     => $curlErr,
+        ]);
     }
 
     /**
