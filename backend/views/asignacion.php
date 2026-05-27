@@ -112,18 +112,18 @@
 
   #asg-landing .asg-icon-slot {
     width: 100% !important;
-    height: 7.5rem;
-    flex: 0 0 7.5rem;
+    height: auto;
+    flex: 0 0 auto;
     align-self: stretch !important;
     justify-content: center !important;
-    margin-bottom: 1rem !important;
+    margin-bottom: .85rem !important;
   }
 
   #asg-landing .asg-icon-frame {
-    width: 7.5rem;
-    height: 7.5rem;
-    min-width: 7.5rem;
-    min-height: 7.5rem;
+    width: 150px;
+    height: 150px;
+    min-width: 150px;
+    min-height: 150px;
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -140,9 +140,28 @@
     stroke-width: 2.6;
     stroke-linecap: round;
     stroke-linejoin: round;
+    transform: scale(1.16);
+    transform-origin: center center;
   }
 
   #asg-landing .asg-icon-frame-muted {
     opacity: .5;
+  }
+
+  #asg-landing .row.gy-6 > [class*="col-"] > .card > .card-body {
+    flex-direction: column-reverse;
+    flex-wrap: nowrap !important;
+    align-items: stretch !important;
+    justify-content: flex-end !important;
+  }
+
+  #asg-landing .row.gy-6 > [class*="col-"] .app-academy-sm-60 {
+    width: 100% !important;
+    flex: 0 0 auto !important;
+    justify-content: flex-start !important;
+  }
+
+  #asg-landing .row.gy-6 > [class*="col-"] .card-title {
+    margin-bottom: 0;
   }
 </style>
