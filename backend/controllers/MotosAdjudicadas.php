@@ -70,7 +70,7 @@ class MotosAdjudicadas extends Controller
     public function monitoreoAdjudicaciones()
     {
         $emp = defined('CONFIGURACION') && isset(CONFIGURACION['EMPRESA']) ? (string) CONFIGURACION['EMPRESA'] : '';
-        self::set('titulo', 'Monitoreo de adjudicaciones - Motos Adjudicadas ' . $emp);
+        self::set('titulo', 'Monitoreo - Motos Adjudicadas ' . $emp);
         return self::render('motos_adjudicadas_monitoreo');
     }
 
