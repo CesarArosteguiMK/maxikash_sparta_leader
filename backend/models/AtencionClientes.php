@@ -285,7 +285,7 @@ SQL;
     {
         if ($sincronizarDictums) {
             $ma = new MotosAdjudicadas();
-            $ma->sincronizarDictumsAppPendientes(true);
+            $ma->sincronizarDictumsAppPendientes(true, true);
         }
 
         $joinAsig = $this->sqlJoinUnaAsignacionActivaPorCredito();

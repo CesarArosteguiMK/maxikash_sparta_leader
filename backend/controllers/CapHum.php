@@ -28,7 +28,8 @@ class CapHum extends Controller
     private static function tieneAccesoTotalGestionPersonal()
     {
         $modulos = array_map('intval', (array) ($_SESSION['modulos'] ?? []));
-        return in_array(10, $modulos, true) || in_array(43, $modulos, true);
+        // Módulo 4 ya habilita vista global en getUsuarios; mantener coherencia para catálogo de áreas/departamentos.
+        return in_array(4, $modulos, true) || in_array(10, $modulos, true) || in_array(43, $modulos, true);
     }
 
     private static function getDepartamentosGestionPersonal()
@@ -60,18 +61,18 @@ class CapHum extends Controller
                         const id = usuario.id;
 
                         if (!usuariosMap.has(id)) {
-                            // Primera vez que vemos este usuario
                             usuariosMap.set(id, {
                                 ...usuario,
                                 puestos: [{
                                     id_puesto: usuario.id_puesto,
                                     nombre_puesto: usuario.nombre_puesto,
                                     nombre_departamento: usuario.nombre_departamento,
-                                    id_departamento: usuario.id_departamento
+                                    id_departamento: usuario.id_departamento,
+                                    id_area: usuario.id_area,
+                                    nombre_area: usuario.nombre_area
                                 }]
                             });
                         } else {
-                            // Ya existe, agregar nuevo puesto
                             const usuarioExistente = usuariosMap.get(id);
                             const puestoExiste = usuarioExistente.puestos.some(p =>
                                 p.id_puesto === usuario.id_puesto &&
@@ -83,7 +84,9 @@ class CapHum extends Controller
                                     id_puesto: usuario.id_puesto,
                                     nombre_puesto: usuario.nombre_puesto,
                                     nombre_departamento: usuario.nombre_departamento,
-                                    id_departamento: usuario.id_departamento
+                                    id_departamento: usuario.id_departamento,
+                                    id_area: usuario.id_area,
+                                    nombre_area: usuario.nombre_area
                                 });
                             }
                         }
@@ -91,8 +94,10 @@ class CapHum extends Controller
 
                     const usuariosConsolidados = Array.from(usuariosMap.values());
 
-                    // Guardar en variable global para otros usos
                     window.usuariosData = usuariosConsolidados;
+                    if (typeof usuariosData !== 'undefined') {
+                        usuariosData = usuariosConsolidados;
+                    }
 
                     // ==========================================
                     // MAPEAR DATOS CON SOPORTE PARA MÚLTIPLES PUESTOS
@@ -236,7 +241,30 @@ class CapHum extends Controller
             });
         };
 
-            const getBajas = () => {
+            const getBajas = (opts = {}) => {
+                const showLoader = opts.showLoader !== false;
+                if (showLoader) {
+                    if (typeof showWait === 'function') {
+                        showWait('Espere un momento...');
+                    } else {
+                        Swal.fire({
+                            title: 'Procesando su petición',
+                            text: 'Espere un momento...',
+                            imageUrl: '/assets/img/wait.svg',
+                            allowOutsideClick: false,
+                            allowEscapeKey: false,
+                            showConfirmButton: false
+                        });
+                    }
+                }
+
+                const cerrarLoaderBajas = () => {
+                    if (!showLoader) return;
+                    if (Swal.isVisible()) {
+                        Swal.close();
+                    }
+                };
+
                 // Preparar parámetros con filtro de fecha si existe
                 const params = {};
                 if (rangoFechasBajas) {
@@ -5171,10 +5199,12 @@ class CapHum extends Controller
         $puedeGestionarPermisos = in_array(43, $modulos);
         $puedeActualizarInfo = in_array(self::MODULO_ACTUALIZAR_DATOS_RRHH, $modulos);
         $departamento = self::getDepartamentosGestionPersonal();
+        $catalogoCompletoDeptos = CapHumDAO::getTodosDepartamentosGestion();
 
         self::set("titulo", "Gestión de Usuarios");
         self::set("script", $script);
         self::set("departamento", $departamento);
+        self::set("catalogoCompletoDeptos", $catalogoCompletoDeptos);
         self::set("paisesActivos", \Models\Paises::getPaisesActivos());
         self::set("miUsuarioId", (int) $_SESSION['usuario_id']);
         self::set("puedeEditarTodos", $puedeEditarTodos);
@@ -11343,83 +11373,41 @@ class CapHum extends Controller
             }
             // ----- Fin reingreso -----
 
-            const getUsuarios = (opts) => {
-            opts = opts || {};
-            http.request({
-                endpoint: "/caphum/getUsuarios",
-                showLoader: opts.showLoader !== false,
-                onSuccess: (resp) => {
-                    const datos = resp.datos.map(p => {
-                        const codisoP = p.codigo_iso_pais || 'xx';
-                        const nomPaisP = p.nombre_pais || 'Sin país';
-                        const sedeBadge = `
-                            <small class="d-inline-flex align-items-center gap-1 mt-1 px-2 py-1 sede-glass-badge" title="${nomPaisP}"
-                                   style="background: rgba(255,255,255,0.7); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); border: 1px solid rgba(0,0,0,0.06); border-radius: 6px;">
-                              <span class="text-muted fw-semibold" style="font-size: 0.75rem;">Sede:</span>
-                              <span class="fi fi-${codisoP} fis" style="font-size: 1.1rem; border-radius: 2px; box-shadow: 0 1px 3px rgba(0,0,0,0.15);"></span>
-                            </small>
-                        `;
-                        return {
-                        nombre: `
-                            <div class="fw-semibold">
-                               # ${p.numero_empleado}
-                            </div>
-                            <div class="fw-semibold">
-                                ${[p.nombres, p.segundo_nombre, p.apellidop, p.apellidom].filter(x => x).join(' ')}
-                            </div>
-                            <small class="text-muted d-flex align-items-center gap-1">
-                                <i class="fa fa-key"></i>
-                                ${p.usuario}
-                            </small>
-                        `.trim(),
-                        departamento:`
-                            ${sedeBadge}
-                            <small class="text-muted d-flex align-items-center gap-1">
-                                <i class="fa fa-building"></i>
-                                ${p.nombre_departamento}
-                            </small>
-                            <small class="text-muted d-flex align-items-center gap-1">
-                                <i class="fa fa-briefcase"></i>
-                                ${p.nombre_puesto}
-                            </small>
-                            <hr class="my-2">
-                            <small class="text-muted d-flex align-items-center gap-1">
-                                <i class="fa fa-user"></i>Jefe: <strong class="ms-1">${p.nombre_jefe && p.nombre_jefe !== 'Sin jefe' ? p.nombre_jefe : (p.nombre_vacante_jefe || 'Sin jefe')}</strong>
-                            </small>
-                        `.trim(),
-                        estatus: p.estatus,
-                       acciones: `
-                        <div class="d-flex flex-wrap gap-1" style="min-width: fit-content;">
-                            <button class="btn btn-sm btn-primary" onclick="editar(${p.id})" title="Editar">
-                                <i class="fa fa-edit"></i>
-                            </button>
-                            <button class="btn btn-sm btn-info" onclick="verArchivo(${p.id})" title="Ver archivo">
-                                <i class="fa fa-file"></i>
-                            </button>
-                            <button class="btn btn-sm btn-warning" onclick="registra_ausencia(${p.id})" title="Ausencias">
-                                <i class="fa fa-person-circle-minus"></i>
-                            </button>
-                            <button class="btn btn-sm btn-danger" onclick="baja_gestor(${p.id})" title="Dar de baja">
-                                <i class="fa fa-user-slash"></i>
-                            </button>
-                            ${(typeof window.puedeGestionarPermisos !== 'undefined' && window.puedeGestionarPermisos) ? `<button class="btn btn-sm" style="background-color: #D2D755; color: white;" onclick="edit_perfil(${p.id})" title="Permisos">
-                                <i class="fa fa-lock" style="color: #007bff;"></i>
-                            </button>` : ''}
-                        </div>`
-                    };
-                    });
-
-                    // Actualizar DataTable
-                    const tabla = $('#historialUsuarios').DataTable();
-                    tabla.clear().rows.add(datos).draw();
+            const getUsuarios = () => {
+                // En Control de Bajas no debe pintarse la grilla de Gestión.
+                // Si algún flujo legado llama getUsuarios(), redirigimos al dataset de bajas.
+                if (typeof getBajas === 'function') {
+                    getBajas();
                 }
-            });
-        };
+            };
 
             // Variable global para almacenar el rango de fechas seleccionado
             let rangoFechasBajas = null;
 
-            const getBajas = () => {
+            const getBajas = (opts = {}) => {
+                const showLoader = opts.showLoader !== false;
+                if (showLoader) {
+                    if (typeof showWait === 'function') {
+                        showWait('Espere un momento...');
+                    } else {
+                        Swal.fire({
+                            title: 'Procesando su petición',
+                            text: 'Espere un momento...',
+                            imageUrl: '/assets/img/wait.svg',
+                            allowOutsideClick: false,
+                            allowEscapeKey: false,
+                            showConfirmButton: false
+                        });
+                    }
+                }
+
+                const cerrarLoaderBajas = () => {
+                    if (!showLoader) return;
+                    if (Swal.isVisible()) {
+                        Swal.close();
+                    }
+                };
+
                 // Preparar parámetros con filtro de fecha si existe
                 const params = {};
                 if (rangoFechasBajas) {
@@ -11448,6 +11436,7 @@ class CapHum extends Controller
                 .then(resp => {
                     // Si la respuesta no tiene success o es false, mostrar error
                     if (!resp || resp.success === false) {
+                        cerrarLoaderBajas();
                         const mensajeError = resp?.mensaje || resp?.error || "No se pudieron cargar las bajas";
                         console.error('Error en respuesta:', mensajeError);
                         Swal.fire({
@@ -11461,6 +11450,7 @@ class CapHum extends Controller
 
                     // Verificar que resp.datos existe y es un array
                     if (!resp.datos || !Array.isArray(resp.datos)) {
+                        cerrarLoaderBajas();
                         console.error('resp.datos no es un array:', resp.datos);
                         Swal.fire({
                             icon: 'error',
@@ -11561,8 +11551,11 @@ class CapHum extends Controller
                             });
                         }
                     }
+
+                    cerrarLoaderBajas();
                 })
                 .catch(err => {
+                    cerrarLoaderBajas();
                     console.error('Error al cargar bajas:', err);
                     Swal.fire("Error", "No se pudieron cargar las bajas: " + err.message, "error");
                 });
@@ -11634,7 +11627,7 @@ class CapHum extends Controller
             function inicializarBajas() {
                 // Ocultar filtros y botón agregar
                 $('.card-header.border-bottom').hide();
-                $('.row.justify-content-between.m-4').hide();
+                $('.row.justify-content-end.m-4').hide();
 
                 // Ocultar panel de indicadores de Gestión y mostrar panel de Bajas
                 $('#panelIndicadoresGestion').hide();
@@ -15035,6 +15028,41 @@ public function getEstadosMunicipiosMexico()
                 'mensaje' => 'Error al actualizar puesto: ' . $e->getMessage()
             ]);
         }
+    }
+
+    public function estructuraOrganizacional()
+    {
+        self::set('titulo', 'Constructor de Estructura Organizacional');
+        self::render('caphum_estructura_organizacional');
+    }
+
+    public function getEstructuraOrganizacionalJson()
+    {
+        header('Content-Type: application/json; charset=utf-8');
+        $idPais = (int) ($_GET['id_pais'] ?? $_POST['id_pais'] ?? 0);
+        $res = CapHumDAO::getConstructorEstructuraOrganizacional($idPais);
+        echo json_encode($res, JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE);
+        exit;
+    }
+
+    public function guardarEstructuraOrganizacionalJson()
+    {
+        header('Content-Type: application/json; charset=utf-8');
+        $raw = file_get_contents('php://input');
+        $body = json_decode($raw ?: '[]', true);
+        if (!is_array($body)) {
+            $body = [];
+        }
+
+        $idPais = (int) ($body['id_pais'] ?? 0);
+        $nodos = $body['nodos'] ?? [];
+        if (!is_array($nodos)) {
+            $nodos = [];
+        }
+
+        $res = CapHumDAO::guardarConstructorEstructuraOrganizacional($idPais, $nodos);
+        echo json_encode($res, JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE);
+        exit;
     }
 
     public function estadisticas()

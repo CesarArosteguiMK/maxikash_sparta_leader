@@ -13,6 +13,94 @@ use Models\Gestiones;
 
 class EstadoCuenta extends Model
 {
+    public static function asegurarNivelOrganizacionalPuesto(): array
+    {
+        try {
+            $db = new Database();
+
+            $db->CRUD(
+                "CREATE TABLE IF NOT EXISTS `nivel_organizacional` (
+                    `id` int NOT NULL AUTO_INCREMENT,
+                    `clave` varchar(50) COLLATE utf8mb4_unicode_ci NOT NULL COMMENT 'Clave unica del nivel organizacional',
+                    `nombre` varchar(100) COLLATE utf8mb4_unicode_ci NOT NULL COMMENT 'Nombre del nivel organizacional',
+                    `descripcion` varchar(255) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT 'Descripcion funcional del nivel',
+                    `orden` smallint NOT NULL COMMENT 'Orden jerarquico para visualizacion',
+                    `activo` tinyint(1) NOT NULL DEFAULT '1' COMMENT '1 = Activo, 0 = Inactivo',
+                    `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                    `updated_at` timestamp NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
+                    PRIMARY KEY (`id`),
+                    UNIQUE KEY `uq_nivel_organizacional_clave` (`clave`),
+                    KEY `idx_nivel_organizacional_activo` (`activo`),
+                    KEY `idx_nivel_organizacional_orden` (`orden`)
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+                COMMENT='Catalogo de niveles organizacionales'"
+            );
+
+            $db->CRUD(
+                "CREATE TABLE IF NOT EXISTS `asigna_nivel_organizacional_puesto` (
+                    `id` int NOT NULL AUTO_INCREMENT,
+                    `id_puesto` int NOT NULL COMMENT 'FK -> puesto.id',
+                    `id_nivel_organizacional` int NOT NULL COMMENT 'FK -> nivel_organizacional.id',
+                    `estatus` tinyint(1) NOT NULL DEFAULT '1' COMMENT '1 = Activo, 0 = Inactivo',
+                    `puesto_activo_key` int DEFAULT NULL COMMENT 'id_puesto cuando estatus = 1; NULL para historicos inactivos',
+                    `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                    `updated_at` timestamp NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
+                    PRIMARY KEY (`id`),
+                    UNIQUE KEY `uq_puesto_nivel_activo` (`puesto_activo_key`),
+                    KEY `idx_asigna_nivel_puesto` (`id_puesto`),
+                    KEY `idx_asigna_nivel_organizacional` (`id_nivel_organizacional`),
+                    KEY `idx_asigna_nivel_estatus` (`estatus`),
+                    CONSTRAINT `fk_asigna_nivel_puesto`
+                        FOREIGN KEY (`id_puesto`)
+                        REFERENCES `puesto` (`id`)
+                        ON DELETE RESTRICT
+                        ON UPDATE CASCADE,
+                    CONSTRAINT `fk_asigna_nivel_organizacional`
+                        FOREIGN KEY (`id_nivel_organizacional`)
+                        REFERENCES `nivel_organizacional` (`id`)
+                        ON DELETE RESTRICT
+                        ON UPDATE CASCADE
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+                COMMENT='Asignacion de nivel organizacional por puesto'"
+            );
+
+            $db->CRUD("DROP TRIGGER IF EXISTS `bi_asigna_nivel_org_puesto_activo_key`");
+            $db->CRUD(
+                "CREATE TRIGGER `bi_asigna_nivel_org_puesto_activo_key`
+                 BEFORE INSERT ON `asigna_nivel_organizacional_puesto`
+                 FOR EACH ROW
+                 SET NEW.`puesto_activo_key` = CASE WHEN NEW.`estatus` = 1 THEN NEW.`id_puesto` ELSE NULL END"
+            );
+
+            $db->CRUD("DROP TRIGGER IF EXISTS `bu_asigna_nivel_org_puesto_activo_key`");
+            $db->CRUD(
+                "CREATE TRIGGER `bu_asigna_nivel_org_puesto_activo_key`
+                 BEFORE UPDATE ON `asigna_nivel_organizacional_puesto`
+                 FOR EACH ROW
+                 SET NEW.`puesto_activo_key` = CASE WHEN NEW.`estatus` = 1 THEN NEW.`id_puesto` ELSE NULL END"
+            );
+
+            $db->CRUD(
+                "INSERT INTO `nivel_organizacional`
+                    (`clave`, `nombre`, `descripcion`, `orden`, `activo`)
+                 VALUES
+                    ('OPERATIVO', 'Operativo', 'Ejecuta actividades diarias y procesos definidos.', 1, 1),
+                    ('TACTICO', 'Táctico', 'Coordina equipos, supervisa operación y convierte la estrategia en ejecución.', 2, 1),
+                    ('ESTRATEGICO', 'Estratégico', 'Define planes, analiza indicadores y toma decisiones de impacto organizacional.', 3, 1),
+                    ('DIRECTIVO', 'Directivo', 'Toma decisiones institucionales, define rumbo corporativo y aprueba lineamientos generales.', 4, 1)
+                 ON DUPLICATE KEY UPDATE
+                    `nombre` = VALUES(`nombre`),
+                    `descripcion` = VALUES(`descripcion`),
+                    `orden` = VALUES(`orden`),
+                    `activo` = VALUES(`activo`)"
+            );
+
+            return self::resultado(true, 'Catalogo y asignacion de nivel organizacional listos.');
+        } catch (\Throwable $e) {
+            return self::resultado(false, 'No se pudo preparar nivel organizacional por puesto.', null, $e->getMessage());
+        }
+    }
+
     public static function buscarCreditoPorNombre($nombre)
     {
         $qry = "
