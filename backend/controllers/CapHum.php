@@ -13672,6 +13672,7 @@ public function getEstadosMunicipiosMexico()
         $idDepartamento = $input['id_departamento'] ?? null;
         $idPuesto = $input['id_puesto'] ?? null;
         $idPersonaActual = (int)($input['id_persona'] ?? 0);
+        $soloPersonas = !empty($input['solo_personas']);
 
         if (!$idDepartamento) {
             self::respuestaJSON([
@@ -13715,10 +13716,26 @@ public function getEstadosMunicipiosMexico()
             }
             return $out;
         };
-        $agregarVacantesJefe = function ($personas) use ($idDepartamento, $idPuesto, $normalizarVacantesJefe) {
+        $agregarVacantesJefe = function ($personas) use ($idDepartamento, $idPuesto, $normalizarVacantesJefe, $soloPersonas) {
+            if ($soloPersonas) {
+                return (array)$personas;
+            }
             $vacantes = CapHumDAO::getVacantesJefeDirecto($idDepartamento, $idPuesto);
             $datosVacantes = !empty($vacantes['success']) ? $normalizarVacantesJefe($vacantes['datos'] ?? []) : [];
             return array_merge((array)$personas, $datosVacantes);
+        };
+        $responderPersonasEmpresa = function ($mensaje) use ($deduplicarPorPersona) {
+            $personasEmpresa = CapHumDAO::getPersonasActivasEmpresaParaJefe();
+            if (!empty($personasEmpresa['success']) && !empty($personasEmpresa['datos'])) {
+                self::respuestaJSON([
+                    'success' => true,
+                    'mensaje' => $mensaje,
+                    'datos' => $deduplicarPorPersona($personasEmpresa['datos']),
+                    'fallback_empresa' => true
+                ]);
+                return true;
+            }
+            return false;
         };
 
         // 1) Si hay puesto seleccionado: jefes por nivel (mismo departamento, nivel superior)
@@ -13744,15 +13761,7 @@ public function getEstadosMunicipiosMexico()
                 return;
             }
 
-            $personasEmpresa = CapHumDAO::getPersonasActivasEmpresaParaJefe();
-            if (!empty($personasEmpresa['success']) && !empty($personasEmpresa['datos'])) {
-                $datos = $deduplicarPorPersona($personasEmpresa['datos']);
-                self::respuestaJSON([
-                    'success' => true,
-                    'mensaje' => 'El puesto no tiene jefe configurado. Seleccione una persona activa de la empresa.',
-                    'datos' => $datos,
-                    'fallback_empresa' => true
-                ]);
+            if ($responderPersonasEmpresa('El puesto no tiene jefe configurado. Seleccione una persona activa de la empresa.')) {
                 return;
             }
 
@@ -13772,6 +13781,10 @@ public function getEstadosMunicipiosMexico()
         $soloVacantes = $agregarVacantesJefe([]);
         if (!empty($soloVacantes)) {
             self::respuestaJSON(['success' => true, 'mensaje' => 'Vacantes encontradas.', 'datos' => $soloVacantes]);
+            return;
+        }
+
+        if ($soloPersonas && $responderPersonasEmpresa('No hay jefes persona configurados en el departamento. Seleccione una persona activa de la empresa.')) {
             return;
         }
 

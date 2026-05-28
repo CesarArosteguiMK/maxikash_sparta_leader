@@ -275,6 +275,7 @@ class EstadoCuenta extends Controller
 
         $montoPorIdCargo = [];
         $esAnticipoPorIdCargo = [];
+        $aliasIdCargo = $this->construirAliasIdCargoPorConcepto($cargos);
         foreach ($cargos as $cRep) {
             $idcM = $this->safe_int($cRep["idCargo"] ?? 0);
             if ($idcM <= 0) {
@@ -291,6 +292,12 @@ class EstadoCuenta extends Controller
             $monto_real = max($montoPago - $extemporaneos, 0);
 
             $idsCuotaApi = $this->parse_cuotas_field($p["numeroCuotaSemanal"] ?? null);
+            foreach ($idsCuotaApi as $iCuota => $idCuotaApi) {
+                $idCuotaApi = (int) $idCuotaApi;
+                if ($idCuotaApi > 0 && isset($aliasIdCargo[$idCuotaApi])) {
+                    $idsCuotaApi[$iCuota] = (int) $aliasIdCargo[$idCuotaApi];
+                }
+            }
             if (!$isV2) {
                 $idsCuotaApi = (count($idsCuotaApi) > 1) ? [$idsCuotaApi[0]] : $idsCuotaApi;
             }
@@ -464,6 +471,7 @@ class EstadoCuenta extends Controller
             return;
         }
         $idxPorCargo = [];
+        $aliasIdCargo = $this->construirAliasIdCargoPorConcepto($tabla);
         foreach ($tabla as $i => $fila) {
             $idC = (int) ($fila['idCargo'] ?? 0);
             if ($idC > 0) {
@@ -472,6 +480,9 @@ class EstadoCuenta extends Controller
         }
         foreach ($notasCreditos as $nota) {
             $idCargo = (int) ($nota['idCargo'] ?? 0);
+            if ($idCargo > 0 && isset($aliasIdCargo[$idCargo])) {
+                $idCargo = (int) $aliasIdCargo[$idCargo];
+            }
             if ($idCargo <= 0 || !isset($idxPorCargo[$idCargo])) {
                 continue;
             }
@@ -505,6 +516,35 @@ class EstadoCuenta extends Controller
 
     private function esCargoAnticipoCapital(array $cargo): bool {
         return mb_strtoupper(trim((string) ($cargo["concepto"] ?? ""))) === 'ANTICIPO A CAPITAL';
+    }
+
+    /**
+     * S2 puede mandar pagos/notas con numeroCuotaSemanal = cuota visible, aunque el cargo real sea
+     * un VENCIMIENTO ANTICIPADO con otro idCargo. Ej.: pago a cuota 82, cargo idCargo 108.
+     *
+     * @return array<int,int> cuota visible dentro del rango anticipado => idCargo real
+     */
+    private function construirAliasIdCargoPorConcepto(array $cargos): array {
+        $alias = [];
+        foreach ($cargos as $cargo) {
+            $idCargo = $this->safe_int($cargo["idCargo"] ?? 0);
+            if ($idCargo <= 0) {
+                continue;
+            }
+            $concepto = mb_strtoupper((string) ($cargo["concepto"] ?? ""));
+            if (preg_match('/VENCIMIENTO\s+ANTICIPADO\s+DE\s+LA\s+CUOTA\s+(\d+)(?:\s+A\s+LA\s+(\d+))?/u', $concepto, $m)) {
+                $cuotaInicio = (int) $m[1];
+                $cuotaFin = isset($m[2]) && $m[2] !== '' ? (int) $m[2] : $cuotaInicio;
+                if ($cuotaInicio <= 0 || $cuotaFin < $cuotaInicio) {
+                    continue;
+                }
+                for ($cuotaVisible = $cuotaInicio; $cuotaVisible <= $cuotaFin; $cuotaVisible++) {
+                    $alias[$cuotaVisible] = $idCargo;
+                }
+            }
+        }
+
+        return $alias;
     }
 
     /**
@@ -1522,6 +1562,26 @@ class EstadoCuenta extends Controller
         foreach ($tabla as $fila) {
             $sum += (float) ($fila['total_pagado'] ?? 0);
         }
+        return round($sum, 2);
+    }
+
+    /**
+     * Sobrante real de pagos que ya no pudo aplicarse a ningun cargo del estado de cuenta.
+     */
+    private function calcularSaldoFavorEstadoCuenta(array $pagosList, string $statusCredito, float $saldoGcPendiente): float {
+        $sum = 0.0;
+        foreach ($pagosList as $pago) {
+            if (!empty($pago['es_pago_solo_gasto_cobranza']) || !empty($pago['es_pago_solo_extemporaneo_inyectar'])) {
+                continue;
+            }
+            $sum += max(0.0, (float) ($pago['remaining'] ?? 0));
+        }
+
+        $statusNormalizado = mb_strtoupper(trim($statusCredito));
+        if ($statusNormalizado === 'SALDADO' && $saldoGcPendiente > $sum) {
+            $sum = $saldoGcPendiente;
+        }
+
         return round($sum, 2);
     }
 
@@ -2988,7 +3048,13 @@ JS;
             $this->ordenarAplicadosExtemporaneosAntesDeLegitimos($tabla);
             $this->recalcularTotalesTablaEstadoCuenta($tabla);
             $saldoTotalPagadoDesdeTabla = $this->calcularSaldoTotalPagadoDesdeTabla($tabla);
+            $saldoFavorEstadoCuenta = $this->calcularSaldoFavorEstadoCuenta(
+                $pagos_list,
+                (string) ($estadoCuenta['statusCredito'] ?? ''),
+                (float) ($otrosDatos['saldoTotalPendienteGastoCobranza'] ?? 0)
+            );
             self::set('saldoTotalPagadoDesdeTabla', $saldoTotalPagadoDesdeTabla);
+            self::set('saldoFavorEstadoCuenta', $saldoFavorEstadoCuenta);
             EstadoCuentaTimingLog::mark('tabla_post_procesos');
 
             if (
