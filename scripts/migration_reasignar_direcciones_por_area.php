@@ -26,7 +26,7 @@ foreach ($areas as $area) {
     }
 
     $contadorPorPais[$idPais]++;
-    $nombreDireccion = 'Dirección ' . $contadorPorPais[$idPais];
+    $nombreDirección = 'Dirección ' . $contadorPorPais[$idPais];
 
     $db->CRUD(
         "INSERT IGNORE INTO __SPARTA_SECRET_REDACTED__.direcciones_organizacion (nombre, id_pais, activo)
@@ -34,7 +34,7 @@ foreach ($areas as $area) {
         ['nombre' => $nombreDireccion, 'id_pais' => $idPais]
     );
 
-    $direccion = $db->queryOne(
+    $Dirección = $db->queryOne(
         "SELECT id
          FROM __SPARTA_SECRET_REDACTED__.direcciones_organizacion
          WHERE id_pais = :id_pais AND nombre = :nombre
@@ -42,15 +42,15 @@ foreach ($areas as $area) {
         ['id_pais' => $idPais, 'nombre' => $nombreDireccion]
     );
 
-    $idDireccion = (int)($direccion['id'] ?? 0);
-    if ($idDireccion <= 0) {
+    $idDirección = (int)($direccion['id'] ?? 0);
+    if ($idDirección <= 0) {
         continue;
     }
 
     $db->CRUD(
         "INSERT INTO __SPARTA_SECRET_REDACTED__.asigna_direcciones (id_direccion, id_departamento_organizacional, activo)
          VALUES (:id_direccion, :id_area, 1)
-         ON DUPLICATE KEY UPDATE id_direccion = VALUES(id_direccion), activo = 1, fecha_actualizacion = NOW()",
+         ON DUPLICATE KEY UPDATE id_Dirección = VALUES(id_direccion), activo = 1, fecha_actualizacion = NOW()",
         ['id_direccion' => $idDireccion, 'id_area' => $idArea]
     );
 }
@@ -58,11 +58,11 @@ foreach ($areas as $area) {
 $db->CRUD(
     "UPDATE __SPARTA_SECRET_REDACTED__.direcciones_organizacion dir
      LEFT JOIN __SPARTA_SECRET_REDACTED__.asigna_direcciones ad
-       ON ad.id_direccion = dir.id
+       ON ad.id_Dirección = dir.id
       AND COALESCE(ad.activo, 1) = 1
      SET dir.activo = 0
      WHERE ad.id IS NULL
-       AND LOWER(TRIM(dir.nombre)) IN ('direccion general', 'dirección general', 'direcciÃ³n general')"
+       AND LOWER(TRIM(dir.nombre)) IN ('Dirección general', 'direcciÃƒÂ³n general', 'direcciÃƒÆ’Ã‚Â³n general')"
 );
 
-echo "Direcciones reasignadas: una direccion por area.\n";
+echo "Direcciones reasignadas: una Dirección por area.\n";

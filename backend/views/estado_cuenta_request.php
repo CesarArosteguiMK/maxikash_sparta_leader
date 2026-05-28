@@ -2688,7 +2688,10 @@ body.dark-mode .cuotas-table .icono-semana-cuota { color: #5eead4 !important; }
                                         <!-- Sin pagos -->
                                     <?php endif; ?>
                                     <?php if ($creditoSaldado && $esUltimaCuota && !empty($aplicados)): ?>
+                                        <?php $saldoFavorLinea = round((float)($saldoFavorEstadoCuenta ?? 0), 2); ?>
                                         <p class="mb-0 mt-2 text-success small fw-semibold">Crédito saldado — Pago total</p>
+                                        <hr class="my-1" style="border-top:1px solid rgba(108,117,125,.45); opacity:1;">
+                                        <p class="mb-0 text-primary small fw-semibold">Saldo a favor: <?= format_currency($saldoFavorLinea) ?></p>
                                     <?php endif; ?>
                                 </ul>
                             </td>
