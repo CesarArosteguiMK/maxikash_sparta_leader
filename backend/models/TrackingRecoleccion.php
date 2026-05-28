@@ -4,6 +4,7 @@ namespace Models;
 
 use Core\Model;
 use Core\Database;
+use Models\ConfigMotosAdj;
 
 class TrackingRecoleccion extends Model
 {
@@ -171,6 +172,7 @@ class TrackingRecoleccion extends Model
             'tipo_transportista'  => "ALTER TABLE `asigna_horas_tracking` ADD COLUMN `tipo_transportista` ENUM('interno','externo') NULL AFTER `act_hora_1`",
             'id_transportista'    => "ALTER TABLE `asigna_horas_tracking` ADD COLUMN `id_transportista` INT NULL AFTER `tipo_transportista`",
             'id_agencia_tracking' => "ALTER TABLE `asigna_horas_tracking` ADD COLUMN `id_agencia_tracking` INT NULL AFTER `id_transportista`",
+            'id_cedis_destino'    => "ALTER TABLE `asigna_horas_tracking` ADD COLUMN `id_cedis_destino` INT NULL AFTER `id_agencia_tracking`",
         ];
         foreach ($cols as $col => $sql) {
             if (!$this->columnaExiste('asigna_horas_tracking', $col)) {
@@ -179,6 +181,7 @@ class TrackingRecoleccion extends Model
         }
         try { $this->db->CRUD("ALTER TABLE `asigna_horas_tracking` ADD KEY `idx_tracking_transportista` (`tipo_transportista`, `id_transportista`)"); } catch (\Throwable $e) {}
         try { $this->db->CRUD("ALTER TABLE `asigna_horas_tracking` ADD KEY `idx_tracking_agencia_tracking` (`id_agencia_tracking`)"); } catch (\Throwable $e) {}
+        try { $this->db->CRUD("ALTER TABLE `asigna_horas_tracking` ADD KEY `idx_tracking_cedis_destino` (`id_cedis_destino`)"); } catch (\Throwable $e) {}
     }
 
     private function asegurarColumnasCancelacionRuta(): void
@@ -447,6 +450,46 @@ class TrackingRecoleccion extends Model
      * } $data
      * @return array{success:bool, id_ruta?:int, message?:string}
      */
+    private function normalizarTextoZona(?string $valor): string
+    {
+        $txt = mb_strtoupper(trim((string) $valor), 'UTF-8');
+        $map = [
+            'Á' => 'A', 'É' => 'E', 'Í' => 'I', 'Ó' => 'O', 'Ú' => 'U', 'Ü' => 'U', 'Ñ' => 'N',
+            'á' => 'A', 'é' => 'E', 'í' => 'I', 'ó' => 'O', 'ú' => 'U', 'ü' => 'U', 'ñ' => 'N',
+        ];
+        return strtr($txt, $map);
+    }
+
+    private function esZonaTransportistaInterno(?string $estado, ?string $municipio): bool
+    {
+        $est = $this->normalizarTextoZona($estado);
+        $mun = $this->normalizarTextoZona($municipio);
+        if (in_array($est, ['CDMX', 'CIUDAD DE MEXICO', 'DISTRITO FEDERAL'], true)) {
+            return true;
+        }
+        if (!in_array($est, ['ESTADO DE MEXICO', 'EDOMEX', 'MEXICO'], true)) {
+            return false;
+        }
+        $municipiosOk = [
+            'MIGUEL HIDALGO', 'CUAUHTEMOC', 'BENITO JUAREZ', 'ALVARO OBREGON', 'AZCAPOTZALCO',
+            'COYOACAN', 'IZTAPALAPA', 'IZTACALCO', 'GUSTAVO A MADERO', 'VENUSTIANO CARRANZA',
+            'TLALNEPANTLA', 'TLALNEPANTLA DE BAZ', 'CUAUTITLAN IZCALLI', 'CUAUTITLAN',
+            'TULTITLAN', 'NAUCALPAN', 'NAUCALPAN DE JUAREZ', 'ATIZAPAN DE ZARAGOZA',
+            'NEZAHUALCOYOTL', 'NEZA', 'ECATEPEC', 'ECATEPEC DE MORELOS', 'COACALCO',
+            'COACALCO DE BERRIOZABAL', 'NICOLAS ROMERO', 'CHIMALHUACAN', 'LOS REYES',
+            'LA PAZ', 'TECAMAC', 'HUIXQUILUCAN', 'CHALCO', 'VALLE DE CHALCO',
+        ];
+        return in_array($mun, $municipiosOk, true);
+    }
+
+    private function esCedisDestinoInternoPermitido(array $cedis): bool
+    {
+        $id = (int) ($cedis['id_agencia'] ?? 0);
+        $clave = $this->normalizarTextoZona((string) ($cedis['clave_agencia'] ?? ''));
+        return in_array($id, [1, 2], true)
+            || in_array($clave, ['LOMAS_PLAZA_MAXIKASH', 'TLALNEPANTLA_MAXIKASH'], true);
+    }
+
     public function guardarRuta(array $data, int $idUsuario): array
     {
         $modo      = trim((string) ($data['modo'] ?? 'borrador'));
@@ -459,6 +502,7 @@ class TrackingRecoleccion extends Model
         $tipoTransportista = strtolower(trim((string) ($data['tipo_transportista'] ?? '')));
         $idTransportista   = (int) ($data['id_transportista'] ?? 0);
         $idAgenciaTracking = (int) ($data['id_agencia_tracking'] ?? 0);
+        $idCedisDestino    = (int) ($data['id_cedis_destino'] ?? 0);
         if (!in_array($tipoTransportista, ['interno', 'externo'], true)) {
             $tipoTransportista = '';
         }
@@ -483,7 +527,10 @@ class TrackingRecoleccion extends Model
             return ['success' => false, 'message' => 'Selecciona un transportista vÃ¡lido.'];
         }
         if ($tipoTransportista === 'externo' && $idAgenciaTracking <= 0) {
-            return ['success' => false, 'message' => 'Selecciona la agencia relacionada para el transportista externo.'];
+            return ['success' => false, 'message' => 'Selecciona el CEDIS relacionado para el transportista externo.'];
+        }
+        if ($tipoTransportista !== '' && $idCedisDestino <= 0) {
+            return ['success' => false, 'message' => 'Selecciona el CEDIS destino del transportista.'];
         }
 
         // Validar fecha
@@ -557,7 +604,37 @@ class TrackingRecoleccion extends Model
                 $idAgenciaTracking = (int) $transportista['id_agencia'];
             }
             if ($tipoTransportista === 'externo' && !empty($transportista['id_agencia']) && $idAgenciaTracking !== (int) $transportista['id_agencia']) {
-                return ['success' => false, 'message' => 'La agencia seleccionada no coincide con el transportista externo.'];
+                return ['success' => false, 'message' => 'El CEDIS seleccionado no coincide con el transportista externo.'];
+            }
+        }
+        $cedisDestino = null;
+        if ($idCedisDestino > 0) {
+            $cedisDestino = $this->db->queryOne(
+                "SELECT id_agencia, clave_agencia, nombre_agencia, estado, municipio
+                 FROM agencias_tracking
+                 WHERE id_agencia = :id AND activo = 1
+                 LIMIT 1",
+                ['id' => $idCedisDestino]
+            );
+            if (!$cedisDestino) {
+                return ['success' => false, 'message' => 'El CEDIS destino no existe o esta inactivo.'];
+            }
+        }
+        if ($tipoTransportista === 'interno') {
+            if ($cedisDestino && !$this->esCedisDestinoInternoPermitido($cedisDestino)) {
+                return ['success' => false, 'message' => 'Para transportistas internos solo puedes seleccionar LOMAS PLAZA MAXIKASH o TLALNEPANTLA MAXIKASH como destino.'];
+            }
+            if ($cedisDestino && !$this->esZonaTransportistaInterno($cedisDestino['estado'] ?? null, $cedisDestino['municipio'] ?? null)) {
+                return ['success' => false, 'message' => 'Los transportistas internos solo pueden tener destino en CDMX o zona metropolitana.'];
+            }
+            foreach ($creditos as $det) {
+                if (!$this->esZonaTransportistaInterno((string) ($det['estado'] ?? ''), (string) ($det['municipio'] ?? ''))) {
+                    $idCreditoZona = (int) ($det['id_credito'] ?? 0);
+                    return [
+                        'success' => false,
+                        'message' => 'El credito #' . $idCreditoZona . ' esta fuera de CDMX/zona metropolitana. Asigna un transportista externo para esta ruta.',
+                    ];
+                }
             }
         }
 
@@ -605,7 +682,7 @@ class TrackingRecoleccion extends Model
                     "UPDATE asigna_horas_tracking
                      SET nombre_ruta = :n, estado = :e, municipio = :m,
                          fecha_programada = :f, estatus_ruta = :er,
-                         tipo_transportista = :tt, id_transportista = :it, id_agencia_tracking = :iat,
+                         tipo_transportista = :tt, id_transportista = :it, id_agencia_tracking = :iat, id_cedis_destino = :icd,
                          fecha_actualizacion = :fa{$setHora}
                      WHERE id_ruta = :id",
                     array_merge(
@@ -618,6 +695,7 @@ class TrackingRecoleccion extends Model
                             'tt' => $tipoTransportista !== '' ? $tipoTransportista : null,
                             'it' => $idTransportista > 0 ? $idTransportista : null,
                             'iat'=> $idAgenciaTracking > 0 ? $idAgenciaTracking : null,
+                            'icd'=> $idCedisDestino > 0 ? $idCedisDestino : null,
                             'fa' => $ahora,
                             'id' => $idRuta,
                         ],
@@ -630,8 +708,8 @@ class TrackingRecoleccion extends Model
             } else {
                 $this->db->CRUD(
                     'INSERT INTO asigna_horas_tracking
-                         (nombre_ruta, estado, municipio, fecha_programada, hora_inicial, tipo_transportista, id_transportista, id_agencia_tracking, estatus_ruta, creado_por, fecha_creacion, fecha_actualizacion)
-                     VALUES (:n, :e, :m, :f, :hi, :tt, :it, :iat, :er, :cp, :fc, :fa)',
+                         (nombre_ruta, estado, municipio, fecha_programada, hora_inicial, tipo_transportista, id_transportista, id_agencia_tracking, id_cedis_destino, estatus_ruta, creado_por, fecha_creacion, fecha_actualizacion)
+                     VALUES (:n, :e, :m, :f, :hi, :tt, :it, :iat, :icd, :er, :cp, :fc, :fa)',
                     [
                         'n'  => $nombre,
                         'e'  => $estado,
@@ -641,6 +719,7 @@ class TrackingRecoleccion extends Model
                         'tt' => $tipoTransportista !== '' ? $tipoTransportista : null,
                         'it' => $idTransportista > 0 ? $idTransportista : null,
                         'iat'=> $idAgenciaTracking > 0 ? $idAgenciaTracking : null,
+                        'icd'=> $idCedisDestino > 0 ? $idCedisDestino : null,
                         'er' => $estatusRuta,
                         'cp' => $idUsuario ?: null,
                         'fc' => $ahora,
@@ -756,12 +835,15 @@ class TrackingRecoleccion extends Model
             atr.tipo_transportista,
             atr.id_transportista,
             atr.id_agencia_tracking,
+            atr.id_cedis_destino,
             tt.nombre_transportista,
             tt.empresa_origen AS transportista_empresa,
             tt.telefono AS transportista_telefono,
             tt.email AS transportista_email,
             ag.nombre_agencia,
             ag.clave_agencia,
+            cedis_dest.nombre_agencia AS cedis_destino_nombre,
+            cedis_dest.direccion AS cedis_destino_direccion,
             COUNT(atd.id_detalle) AS total_creditos,
             SUM(CASE WHEN atd.estatus_confirmacion_gestor = \'confirmado\'  THEN 1 ELSE 0 END) AS confirmados,
             SUM(CASE WHEN atd.estatus_confirmacion_gestor = \'rechazado\'   THEN 1 ELSE 0 END) AS rechazados,
@@ -785,6 +867,7 @@ class TrackingRecoleccion extends Model
         LEFT JOIN asigna_horas_tracking_detalle atd ON atd.id_ruta = atr.id_ruta
         LEFT JOIN transportistas_tracking tt ON tt.id_transportista = atr.id_transportista
         LEFT JOIN agencias_tracking ag ON ag.id_agencia = atr.id_agencia_tracking
+        LEFT JOIN agencias_tracking cedis_dest ON cedis_dest.id_agencia = atr.id_cedis_destino
         WHERE ' . implode(' AND ', $where) . '
         GROUP BY atr.id_ruta
         ORDER BY atr.fecha_creacion DESC';
@@ -818,12 +901,15 @@ class TrackingRecoleccion extends Model
             atr.tipo_transportista,
             atr.id_transportista,
             atr.id_agencia_tracking,
+            atr.id_cedis_destino,
             tt.nombre_transportista,
             tt.empresa_origen AS transportista_empresa,
             tt.telefono AS transportista_telefono,
             tt.email AS transportista_email,
             ag.nombre_agencia,
             ag.clave_agencia,
+            cedis_dest.nombre_agencia AS cedis_destino_nombre,
+            cedis_dest.direccion AS cedis_destino_direccion,
             COUNT(atd.id_detalle) AS total_creditos,
             SUM(CASE WHEN atd.estatus_confirmacion_gestor = \'confirmado\'  THEN 1 ELSE 0 END) AS confirmados,
             SUM(CASE WHEN atd.estatus_confirmacion_gestor = \'rechazado\'   THEN 1 ELSE 0 END) AS rechazados,
@@ -847,6 +933,7 @@ class TrackingRecoleccion extends Model
         LEFT JOIN asigna_horas_tracking_detalle atd ON atd.id_ruta = atr.id_ruta
         LEFT JOIN transportistas_tracking tt ON tt.id_transportista = atr.id_transportista
         LEFT JOIN agencias_tracking ag ON ag.id_agencia = atr.id_agencia_tracking
+        LEFT JOIN agencias_tracking cedis_dest ON cedis_dest.id_agencia = atr.id_cedis_destino
         WHERE atr.estatus_ruta = \'borrador\'
         GROUP BY atr.id_ruta
         ORDER BY atr.fecha_creacion DESC';
@@ -885,12 +972,17 @@ class TrackingRecoleccion extends Model
                     ag.telefono AS agencia_telefono,
                     ag.encargado AS agencia_encargado,
                     ag.email AS agencia_email,
+                    cedis_dest.nombre_agencia AS cedis_destino_nombre,
+                    cedis_dest.direccion AS cedis_destino_direccion,
+                    cedis_dest.estado AS cedis_destino_estado,
+                    cedis_dest.municipio AS cedis_destino_municipio,
                     CONCAT(DATE_FORMAT(atr.fecha_programada, '%d/'), ELT(MONTH(atr.fecha_programada), 'Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'), DATE_FORMAT(atr.fecha_programada, '/%Y')) AS fecha_programada_fmt,
                     DATE_FORMAT(atr.fecha_creacion,   '%d/%m/%Y %H:%i') AS fecha_creacion_fmt,
                     DATE_FORMAT(atr.fecha_cancelacion, '%d/%m/%Y %H:%i') AS fecha_cancelacion_fmt
                  FROM asigna_horas_tracking atr
                  LEFT JOIN transportistas_tracking tt ON tt.id_transportista = atr.id_transportista
                  LEFT JOIN agencias_tracking ag ON ag.id_agencia = atr.id_agencia_tracking
+                 LEFT JOIN agencias_tracking cedis_dest ON cedis_dest.id_agencia = atr.id_cedis_destino
                  WHERE atr.id_ruta = :id
                  LIMIT 1",
                 ['id' => $idRuta]
@@ -1020,10 +1112,11 @@ class TrackingRecoleccion extends Model
         if ($fecha === false) {
             return 'Formato de fecha no válido. Use YYYY-MM-DD.';
         }
+        $diasMinimos = ConfigMotosAdj::obtenerDiasMinimosRuta();
         $hoy      = new \DateTime('today');
-        $minFecha = (clone $hoy)->modify('+2 days');
+        $minFecha = (clone $hoy)->modify('+' . $diasMinimos . ' days');
         if ($fecha < $minFecha) {
-            return 'La fecha programada debe ser al menos 2 días después de hoy.';
+            return 'La fecha programada debe ser al menos ' . $diasMinimos . ' dia(s) despues de hoy.';
         }
         return null;
     }

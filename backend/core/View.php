@@ -178,7 +178,7 @@ function getMenu(): string
                 ['label' => '3.-Cartera', 'url' => '/AtencionClientes/cierreDocumentacion', 'modulos' => [72]],
                 ['label' => '4.- Recepción',      'url' => '/AtencionClientes/recepcion',             'modulos' => [73]],
                 ['label' => 'Retenciones',    'url' => '/AtencionClientes/consulta',                'modulos' => [69]],
-                ['label' => 'Tracking Recolección', 'url' => '/TrackingRecoleccion/index',          'modulos' => [74]],
+                ['label' => 'Tracking Recolección', 'url' => '/TrackingRecoleccion',          'modulos' => [74]],
             ],
         ],
         'Direcciones' => [
@@ -230,6 +230,7 @@ function getMenu(): string
                 ['label' => 'Países',                 'url' => '/paises/consulta',             'modulos' => [41]],
                 ['label' => 'Equivalencia puestos',   'url' => '/equivalencias/consulta',      'modulos' => [17]],
                 ['label' => 'Asignación por puestos', 'url' => '/configticketpuesto/consulta', 'modulos' => [26]],
+                ['label' => 'Config Motos Adj',        'url' => '/ConfigMotosAdj/consulta',     'modulos' => [85]],
             ],
         ],
         'Servicios' => [
