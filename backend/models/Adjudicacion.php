@@ -996,10 +996,6 @@ class Adjudicacion extends Model
             return true;
         }
 
-        if ($saldo !== null && $saldo !== '' && is_numeric($saldo) && (float) $saldo <= 0.0) {
-            return true;
-        }
-
         return false;
     }
 
