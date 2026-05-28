@@ -3730,7 +3730,7 @@ SQL;
         return ['success' => true];
     }
 
-    public function sincronizarDictumsAppPendientes(bool $forzar = false): void
+    public function sincronizarDictumsAppPendientes(bool $forzar = false, bool $soloAsignacionVigente = false): void
     {
         $lockHandle = null;
         $lockTomado = false;
@@ -3760,6 +3760,10 @@ SQL;
             @touch($stampPath);
 
             $this->sincronizarDictumsAsignacionVigentePendientes();
+
+            if ($soloAsignacionVigente) {
+                return;
+            }
 
             $rows = $this->db->queryAll(
                 "SELECT ao.id AS id_operacion, ao.id_credito
@@ -3837,6 +3841,55 @@ SQL;
 
         if ($rows === []) {
             return;
+        }
+
+        $creditosRows = [];
+        foreach ($rows as $row) {
+            $idCredito = (int) ($row['credit_number'] ?? 0);
+            if ($idCredito > 0) {
+                $creditosRows[$idCredito] = true;
+            }
+        }
+
+        if ($creditosRows !== []) {
+            $ph = [];
+            $params = [];
+            foreach (array_keys($creditosRows) as $i => $idCredito) {
+                $k = 'sync_credito_' . $i;
+                $ph[] = ':' . $k;
+                $params[$k] = $idCredito;
+            }
+
+            $yaEnPipeline = [];
+            try {
+                $localRows = $this->db->queryAll(
+                    "SELECT DISTINCT ao.id_credito
+                     FROM adj_operacion ao
+                     INNER JOIN adj_bitacora b
+                        ON b.id_operacion = ao.id
+                       AND b.accion LIKE '%AL PIPELINE%'
+                     WHERE ao.id_credito IN (" . implode(',', $ph) . ")",
+                    $params
+                ) ?: [];
+                foreach ($localRows as $localRow) {
+                    $cid = (int) ($localRow['id_credito'] ?? 0);
+                    if ($cid > 0) {
+                        $yaEnPipeline[$cid] = true;
+                    }
+                }
+            } catch (\Throwable $e) {
+                $yaEnPipeline = [];
+            }
+
+            if ($yaEnPipeline !== []) {
+                $rows = array_values(array_filter($rows, static function ($row) use ($yaEnPipeline): bool {
+                    $cid = (int) ($row['credit_number'] ?? 0);
+                    return $cid > 0 && !isset($yaEnPipeline[$cid]);
+                }));
+                if ($rows === []) {
+                    return;
+                }
+            }
         }
 
         $legacyUserIds = [];

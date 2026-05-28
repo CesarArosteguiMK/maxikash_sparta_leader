@@ -28,7 +28,8 @@ class CapHum extends Controller
     private static function tieneAccesoTotalGestionPersonal()
     {
         $modulos = array_map('intval', (array) ($_SESSION['modulos'] ?? []));
-        return in_array(10, $modulos, true) || in_array(43, $modulos, true);
+        // Módulo 4 ya habilita vista global en getUsuarios; mantener coherencia para catálogo de áreas/departamentos.
+        return in_array(4, $modulos, true) || in_array(10, $modulos, true) || in_array(43, $modulos, true);
     }
 
     private static function getDepartamentosGestionPersonal()
@@ -60,18 +61,18 @@ class CapHum extends Controller
                         const id = usuario.id;
 
                         if (!usuariosMap.has(id)) {
-                            // Primera vez que vemos este usuario
                             usuariosMap.set(id, {
                                 ...usuario,
                                 puestos: [{
                                     id_puesto: usuario.id_puesto,
                                     nombre_puesto: usuario.nombre_puesto,
                                     nombre_departamento: usuario.nombre_departamento,
-                                    id_departamento: usuario.id_departamento
+                                    id_departamento: usuario.id_departamento,
+                                    id_area: usuario.id_area,
+                                    nombre_area: usuario.nombre_area
                                 }]
                             });
                         } else {
-                            // Ya existe, agregar nuevo puesto
                             const usuarioExistente = usuariosMap.get(id);
                             const puestoExiste = usuarioExistente.puestos.some(p =>
                                 p.id_puesto === usuario.id_puesto &&
@@ -83,7 +84,9 @@ class CapHum extends Controller
                                     id_puesto: usuario.id_puesto,
                                     nombre_puesto: usuario.nombre_puesto,
                                     nombre_departamento: usuario.nombre_departamento,
-                                    id_departamento: usuario.id_departamento
+                                    id_departamento: usuario.id_departamento,
+                                    id_area: usuario.id_area,
+                                    nombre_area: usuario.nombre_area
                                 });
                             }
                         }
@@ -91,8 +94,10 @@ class CapHum extends Controller
 
                     const usuariosConsolidados = Array.from(usuariosMap.values());
 
-                    // Guardar en variable global para otros usos
                     window.usuariosData = usuariosConsolidados;
+                    if (typeof usuariosData !== 'undefined') {
+                        usuariosData = usuariosConsolidados;
+                    }
 
                     // ==========================================
                     // MAPEAR DATOS CON SOPORTE PARA MÚLTIPLES PUESTOS
@@ -5171,10 +5176,12 @@ class CapHum extends Controller
         $puedeGestionarPermisos = in_array(43, $modulos);
         $puedeActualizarInfo = in_array(self::MODULO_ACTUALIZAR_DATOS_RRHH, $modulos);
         $departamento = self::getDepartamentosGestionPersonal();
+        $catalogoCompletoDeptos = CapHumDAO::getTodosDepartamentosGestion();
 
         self::set("titulo", "Gestión de Usuarios");
         self::set("script", $script);
         self::set("departamento", $departamento);
+        self::set("catalogoCompletoDeptos", $catalogoCompletoDeptos);
         self::set("paisesActivos", \Models\Paises::getPaisesActivos());
         self::set("miUsuarioId", (int) $_SESSION['usuario_id']);
         self::set("puedeEditarTodos", $puedeEditarTodos);
