@@ -1796,13 +1796,14 @@
     }
 
     #modalCredencialRrhh .rrhh-id-photo-wrap {
-      top: 121px !important;
-      width: 156px !important;
-      height: 182px !important;
+      top: 113px !important;
+      width: 160px !important;
+      height: 188px !important;
       border: 0 !important;
       border-radius: 0 !important;
       box-shadow: none !important;
       background: transparent !important;
+      overflow: hidden !important;
     }
 
     #modalCredencialRrhh .rrhh-id-photo-wrap::after {
@@ -1817,6 +1818,9 @@
 
     #modalCredencialRrhh .rrhh-id-photo-wrap.is-contain .rrhh-id-photo {
       background: transparent !important;
+      object-fit: contain !important;
+      object-position: 50% 50% !important;
+      transform: none !important;
     }
 
     #modalCredencialRrhh .rrhh-id-photo-fallback {
@@ -1831,12 +1835,6 @@
       object-fit: cover !important;
       background: transparent !important;
       display: block !important;
-    }
-
-    #modalCredencialRrhh .rrhh-id-photo-wrap.is-contain .rrhh-id-photo {
-      object-fit: cover !important;
-      object-position: 50% 50% !important;
-      transform: scale(1) !important;
     }
 
     #modalCredencialRrhh .rrhh-id-name {
@@ -8326,7 +8324,18 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
     return Array.from(usuariosMap.values());
   }
 
+  function esVistaBajasActual() {
+    const path = (window.location && window.location.pathname ? window.location.pathname : '').toLowerCase();
+    return path.includes('/caphum/bajas');
+  }
+
   function llenarFiltros() {
+    // En Control de Bajas la tabla usa otro esquema de columnas/datos.
+    // Evita inyectar dataset de Gestión para no romper DataTables.
+    if (esVistaBajasActual()) {
+      return;
+    }
+
     // Llamar a la API para obtener los usuarios/gestores
     http.request({
       endpoint: "/CapHum/getUsuarios",
@@ -8982,6 +8991,8 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
   // EJECUTAR AL CARGAR LA PÁGINA
   // ==========================================
   document.addEventListener('DOMContentLoaded', () => {
+    if (esVistaBajasActual()) return;
+
     // Esperar a que DataTable esté listo
     setTimeout(() => {
       llenarFiltros();
@@ -12129,10 +12140,10 @@ function precargarCascadaEdit(idPais, idEstado, idMunicipio, idColonia, idCalle,
   function fotoCredencialHtml(usuario, nombre) {
     const foto = String(fotoTemporalCredencialRrhh || usuario?.foto_perfil || '').trim();
     const fallback = `<span class="rrhh-id-photo-fallback"${foto ? ' style="display:none;"' : ''}>${escapeRrhhHtml(inicialesCredencial(nombre))}</span>`;
-    const fitSeguro = 'cover';
-    const posX = fotoPosXCredencialRrhh;
-    const posY = fotoPosYCredencialRrhh;
-    const scale = fotoScaleCredencialRrhh;
+    const fitSeguro = fotoFitCredencialRrhh === 'cover' ? 'cover' : 'contain';
+    const posX = fitSeguro === 'contain' ? 50 : fotoPosXCredencialRrhh;
+    const posY = fitSeguro === 'contain' ? 50 : fotoPosYCredencialRrhh;
+    const scale = fitSeguro === 'contain' ? 1 : fotoScaleCredencialRrhh;
     const img = foto
       ? `<img class="rrhh-id-photo" src="${escapeRrhhAttr(foto)}" alt="Foto de ${escapeRrhhAttr(nombre)}" style="object-fit:${escapeRrhhAttr(fitSeguro)}; object-position:${posX}% ${posY}%; transform:scale(${scale});" draggable="false" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">`
       : '';
@@ -12140,7 +12151,7 @@ function precargarCascadaEdit(idPais, idEstado, idMunicipio, idColonia, idCalle,
   }
 
   function claseFotoCredencialWrap() {
-    return 'is-cover';
+    return fotoFitCredencialRrhh === 'cover' ? 'is-cover' : 'is-contain';
   }
 
   function fotoCredencialSrcActual(usuario = obtenerUsuarioActualRrhh()) {
@@ -13026,9 +13037,10 @@ function precargarCascadaEdit(idPais, idEstado, idMunicipio, idColonia, idCalle,
 
   function aplicarPosicionFotoCredencial() {
     modalCredencialRrhh?.querySelectorAll('.rrhh-id-photo').forEach(img => {
-      img.style.objectFit = 'cover';
-      img.style.objectPosition = `${fotoPosXCredencialRrhh}% ${fotoPosYCredencialRrhh}%`;
-      img.style.transform = `scale(${fotoScaleCredencialRrhh})`;
+      const fitSeguro = fotoFitCredencialRrhh === 'cover' ? 'cover' : 'contain';
+      img.style.objectFit = fitSeguro;
+      img.style.objectPosition = fitSeguro === 'contain' ? '50% 50%' : `${fotoPosXCredencialRrhh}% ${fotoPosYCredencialRrhh}%`;
+      img.style.transform = fitSeguro === 'contain' ? 'none' : `scale(${fotoScaleCredencialRrhh})`;
     });
     actualizarPreviewEditorFotoCredencial();
   }

@@ -7,12 +7,66 @@ use Core\Database;
 
 class Departamentos extends Model
 {
+    private static function ensureDireccionesOrganizacionSchema(Database $db): void
+    {
+        try {
+            $db->CRUD("
+                CREATE TABLE IF NOT EXISTS __SPARTA_SECRET_REDACTED__.direcciones_organizacion (
+                  id INT NOT NULL AUTO_INCREMENT,
+                  nombre VARCHAR(120) NOT NULL,
+                  id_pais INT NOT NULL DEFAULT 1,
+                  activo TINYINT(1) NOT NULL DEFAULT 1,
+                  fecha_creacion DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                  fecha_actualizacion DATETIME NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
+                  PRIMARY KEY (id),
+                  UNIQUE KEY ux_direcciones_pais_nombre (id_pais, nombre),
+                  KEY idx_direcciones_pais_activo (id_pais, activo)
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+            ");
+            $db->CRUD("
+                CREATE TABLE IF NOT EXISTS __SPARTA_SECRET_REDACTED__.asigna_direcciones (
+                  id INT NOT NULL AUTO_INCREMENT,
+                  id_direccion INT NOT NULL,
+                  id_departamento_organizacional INT NOT NULL,
+                  activo TINYINT(1) NOT NULL DEFAULT 1,
+                  fecha_asignacion DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                  fecha_actualizacion DATETIME NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
+                  PRIMARY KEY (id),
+                  UNIQUE KEY ux_asigna_direccion_area (id_departamento_organizacional),
+                  KEY idx_asigna_direcciones_direccion (id_direccion),
+                  KEY idx_asigna_direcciones_area_activo (id_departamento_organizacional, activo)
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+            ");
+            $db->CRUD("
+                INSERT IGNORE INTO __SPARTA_SECRET_REDACTED__.direcciones_organizacion (nombre, id_pais, activo)
+                SELECT 'Dirección General', p.id, 1
+                FROM __SPARTA_SECRET_REDACTED__.paises p
+                WHERE COALESCE(p.activo, 1) = 1
+            ");
+            $db->CRUD("
+                INSERT IGNORE INTO __SPARTA_SECRET_REDACTED__.asigna_direcciones (id_direccion, id_departamento_organizacional, activo)
+                SELECT dir.id, dorg.id, 1
+                FROM __SPARTA_SECRET_REDACTED__.departamento_organizacional dorg
+                INNER JOIN __SPARTA_SECRET_REDACTED__.direcciones_organizacion dir
+                  ON dir.id_pais = dorg.id_pais
+                 AND dir.nombre = 'Dirección General'
+                WHERE NOT EXISTS (
+                  SELECT 1
+                  FROM __SPARTA_SECRET_REDACTED__.asigna_direcciones ad
+                  WHERE ad.id_departamento_organizacional = dorg.id
+                )
+            ");
+        } catch (\Throwable $e) {
+        }
+    }
+
     public static function getConsultaDepartamentos()
     {
         header('Content-Type: application/json; charset=utf-8');
 
         try {
             $db = new Database();
+            self::ensureDireccionesOrganizacionSchema($db);
             $r = $db->queryAll(
                 "
                 SELECT 
@@ -21,6 +75,9 @@ class Departamentos extends Model
                     d.id_departamento_organizacional,
                     COALESCE(dorg.nombre, 'Sin departamento') AS departamento_organizacional_nombre,
                     COALESCE(dorg.activo, 1) AS departamento_organizacional_activo,
+                    COALESCE(dir.id, 0) AS id_direccion,
+                    COALESCE(dir.nombre, 'Sin dirección') AS direccion_nombre,
+                    COALESCE(dir.activo, 1) AS direccion_activo,
                     COUNT(DISTINCT p.id) AS total_puestos,
                     COUNT(DISTINCT a.id_persona) AS total_personas,
                     d.activo, d.img_url,
@@ -29,11 +86,13 @@ class Departamentos extends Model
                     COALESCE(pa.codigo_iso, 'xx') AS codigo_iso_pais
                 FROM departamento d
                 LEFT JOIN departamento_organizacional dorg ON dorg.id = d.id_departamento_organizacional
+                LEFT JOIN asigna_direcciones ad ON ad.id_departamento_organizacional = dorg.id AND COALESCE(ad.activo, 1) = 1
+                LEFT JOIN direcciones_organizacion dir ON dir.id = ad.id_direccion
                 LEFT JOIN puesto p ON p.departamento_id = d.id
                 LEFT JOIN asigna_puesto a ON a.id_puesto = p.id
                 LEFT JOIN paises pa ON pa.id = d.id_pais
-                GROUP BY d.id, d.nombre, d.id_departamento_organizacional, dorg.nombre, dorg.activo, d.id_pais, pa.nombre, pa.codigo_iso
-                ORDER BY FIELD(pa.codigo_iso, 'mx', 'gt', 'co'), departamento_organizacional_nombre, d.nombre;
+                GROUP BY d.id, d.nombre, d.id_departamento_organizacional, dorg.nombre, dorg.activo, dir.id, dir.nombre, dir.activo, d.id_pais, pa.nombre, pa.codigo_iso
+                ORDER BY FIELD(pa.codigo_iso, 'mx', 'gt', 'co'), direccion_nombre, departamento_organizacional_nombre, d.nombre;
             ");
             $datos = is_array($r) ? $r : [];
 
@@ -61,6 +120,7 @@ class Departamentos extends Model
 
         try {
             $db = new Database();
+            self::ensureDireccionesOrganizacionSchema($db);
             $r = $db->queryAll(
                 "
                 SELECT
@@ -68,14 +128,19 @@ class Departamentos extends Model
                     dorg.nombre,
                     dorg.activo,
                     dorg.id_pais,
+                    COALESCE(dir.id, 0) AS id_direccion,
+                    COALESCE(dir.nombre, 'Sin dirección') AS direccion_nombre,
+                    COALESCE(dir.activo, 1) AS direccion_activo,
                     COALESCE(pa.nombre, 'Sin país') AS nombre_pais,
                     COALESCE(pa.codigo_iso, 'xx') AS codigo_iso_pais,
                     COUNT(DISTINCT d.id) AS total_areas
                 FROM __SPARTA_SECRET_REDACTED__.departamento_organizacional dorg
+                LEFT JOIN __SPARTA_SECRET_REDACTED__.asigna_direcciones ad ON ad.id_departamento_organizacional = dorg.id AND COALESCE(ad.activo, 1) = 1
+                LEFT JOIN __SPARTA_SECRET_REDACTED__.direcciones_organizacion dir ON dir.id = ad.id_direccion
                 LEFT JOIN __SPARTA_SECRET_REDACTED__.paises pa ON pa.id = dorg.id_pais
                 LEFT JOIN __SPARTA_SECRET_REDACTED__.departamento d ON d.id_departamento_organizacional = dorg.id
-                GROUP BY dorg.id, dorg.nombre, dorg.activo, dorg.id_pais, pa.nombre, pa.codigo_iso
-                ORDER BY FIELD(pa.codigo_iso, 'mx', 'gt', 'co'), dorg.nombre
+                GROUP BY dorg.id, dorg.nombre, dorg.activo, dorg.id_pais, dir.id, dir.nombre, dir.activo, pa.nombre, pa.codigo_iso
+                ORDER BY FIELD(pa.codigo_iso, 'mx', 'gt', 'co'), direccion_nombre, dorg.nombre
                 "
             );
 
@@ -96,14 +161,115 @@ class Departamentos extends Model
         exit;
     }
 
-    public static function InsertDepartamentoOrganizacional($nombre, $id_pais = 1)
+    public static function getConsultaDirecciones()
     {
         header('Content-Type: application/json; charset=utf-8');
 
         try {
             $db = new Database();
+            self::ensureDireccionesOrganizacionSchema($db);
+            $r = $db->queryAll(
+                "
+                SELECT
+                    dir.id,
+                    dir.nombre,
+                    dir.activo,
+                    dir.id_pais,
+                    COALESCE(pa.nombre, 'Sin paÃ­s') AS nombre_pais,
+                    COALESCE(pa.codigo_iso, 'xx') AS codigo_iso_pais,
+                    COUNT(DISTINCT ad.id_departamento_organizacional) AS total_areas
+                FROM __SPARTA_SECRET_REDACTED__.direcciones_organizacion dir
+                LEFT JOIN __SPARTA_SECRET_REDACTED__.paises pa ON pa.id = dir.id_pais
+                LEFT JOIN __SPARTA_SECRET_REDACTED__.asigna_direcciones ad ON ad.id_direccion = dir.id AND COALESCE(ad.activo, 1) = 1
+                GROUP BY dir.id, dir.nombre, dir.activo, dir.id_pais, pa.nombre, pa.codigo_iso
+                ORDER BY FIELD(pa.codigo_iso, 'mx', 'gt', 'co'), dir.nombre
+                "
+            );
+
+            echo json_encode([
+                "success" => true,
+                "mensaje" => "Direcciones encontradas.",
+                "datos" => is_array($r) ? $r : []
+            ]);
+        } catch (\Exception $e) {
+            echo json_encode([
+                "success" => false,
+                "mensaje" => "Error al procesar la solicitud.",
+                "datos" => [],
+                "error" => $e->getMessage()
+            ]);
+        }
+
+        exit;
+    }
+
+    public static function InsertDireccion($nombre, $id_pais = 1)
+    {
+        header('Content-Type: application/json; charset=utf-8');
+
+        try {
+            $db = new Database();
+            self::ensureDireccionesOrganizacionSchema($db);
             $id_pais = (int) $id_pais;
             if ($id_pais < 1) $id_pais = 1;
+
+            $nombre = trim((string) $nombre);
+            if ($nombre === '') {
+                echo json_encode([
+                    "success" => false,
+                    "mensaje" => "El nombre de la dirección es requerido.",
+                    "datos" => []
+                ]);
+                exit;
+            }
+
+            $existe = $db->queryOne(
+                "SELECT id FROM __SPARTA_SECRET_REDACTED__.direcciones_organizacion
+                 WHERE LOWER(TRIM(nombre)) = LOWER(:nombre) AND id_pais = :id_pais",
+                ['nombre' => $nombre, 'id_pais' => $id_pais]
+            );
+
+            if ($existe) {
+                echo json_encode([
+                    "success" => false,
+                    "mensaje" => "Ya existe una dirección llamada \"{$nombre}\" en el país seleccionado.",
+                    "datos" => []
+                ]);
+                exit;
+            }
+
+            $db->CRUD(
+                "INSERT INTO __SPARTA_SECRET_REDACTED__.direcciones_organizacion (nombre, activo, id_pais) VALUES (:nombre, 1, :id_pais)",
+                ['nombre' => $nombre, 'id_pais' => $id_pais]
+            );
+
+            echo json_encode([
+                "success" => true,
+                "mensaje" => "Dirección creada correctamente.",
+                "datos" => []
+            ]);
+        } catch (\Exception $e) {
+            echo json_encode([
+                "success" => false,
+                "mensaje" => "Error al procesar la solicitud.",
+                "datos" => [],
+                "error" => $e->getMessage()
+            ]);
+        }
+
+        exit;
+    }
+
+    public static function InsertDepartamentoOrganizacional($nombre, $id_pais = 1, $id_direccion = null)
+    {
+        header('Content-Type: application/json; charset=utf-8');
+
+        try {
+            $db = new Database();
+            self::ensureDireccionesOrganizacionSchema($db);
+            $id_pais = (int) $id_pais;
+            if ($id_pais < 1) $id_pais = 1;
+            $id_direccion = $id_direccion !== null && $id_direccion !== '' ? (int) $id_direccion : 0;
 
             $nombre = trim((string) $nombre);
             if ($nombre === '') {
@@ -134,6 +300,26 @@ class Departamentos extends Model
                 "INSERT INTO __SPARTA_SECRET_REDACTED__.departamento_organizacional (nombre, activo, id_pais) VALUES (:nombre, 1, :id_pais)",
                 ['nombre' => $nombre, 'id_pais' => $id_pais]
             );
+            $idDepartamentoOrganizacional = $db->lastInsertId();
+
+            if ($id_direccion <= 0) {
+                $dir = $db->queryOne(
+                    "SELECT id FROM __SPARTA_SECRET_REDACTED__.direcciones_organizacion
+                     WHERE id_pais = :id_pais AND nombre = 'Dirección General'
+                     LIMIT 1",
+                    ['id_pais' => $id_pais]
+                );
+                $id_direccion = (int)($dir['id'] ?? 0);
+            }
+
+            if ($idDepartamentoOrganizacional > 0 && $id_direccion > 0) {
+                $db->CRUD(
+                    "INSERT INTO __SPARTA_SECRET_REDACTED__.asigna_direcciones (id_direccion, id_departamento_organizacional, activo)
+                     VALUES (:id_direccion, :id_area, 1)
+                     ON DUPLICATE KEY UPDATE id_direccion = VALUES(id_direccion), activo = 1, fecha_actualizacion = NOW()",
+                    ['id_direccion' => $id_direccion, 'id_area' => $idDepartamentoOrganizacional]
+                );
+            }
 
             echo json_encode([
                 "success" => true,

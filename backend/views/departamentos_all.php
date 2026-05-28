@@ -323,6 +323,7 @@
                 <form id="addDepartamentoForm" class="row g-4" onsubmit="return false" novalidate="novalidate">
                     <input type="hidden" id="addDepartamentoModo" value="departamento">
                     <input type="hidden" id="addDepartamentoContextPaisId" value="">
+                    <input type="hidden" id="addDepartamentoContextDireccionId" value="">
                     <input type="hidden" id="addDepartamentoContextOrgId" value="">
                     <div class="col-12">
                         <label class="form-label w-100" for="addDepartamentoPaisId">País *</label>
