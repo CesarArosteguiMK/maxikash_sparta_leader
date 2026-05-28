@@ -12,13 +12,14 @@ class TrackingRecoleccion extends Controller
     // VISTA PRINCIPAL
     // =========================================================================
 
-    public function index()
+    private function prepararVistaTracking(string $titulo = 'Tracking Recoleccion - Motos Adjudicadas'): void
     {
         self::set('titulo', 'Tracking Recolección — Motos Adjudicadas');
         if (defined('GOOGLE_MAPS_API_KEY')) {
             self::set('google_maps_api_key_js', GOOGLE_MAPS_API_KEY);
         }
         self::set('tracking_dias_minimos_programacion', ConfigMotosAdj::obtenerDiasMinimosRuta());
+        self::set('titulo', $titulo);
         // Chat Operativo — pasar URL base de WebSocket al frontend (no se expone la API key)
         $trkCfg = $this->_trkChatConfig();
         if ($trkCfg['base_url'] !== '') {
@@ -26,12 +27,41 @@ class TrackingRecoleccion extends Controller
             self::set('tracking_chat_ws_base_url', $wsBase);
             self::set('tracking_api_base_url', rtrim($trkCfg['base_url'], '/'));
         }
+        return;
+    }
+
+    public function index()
+    {
+        self::set('titulo', 'Tracking Recoleccion');
         return self::render('tracking_recoleccion');
     }
 
     public function rutas()
     {
-        return $this->index();
+        $this->prepararVistaTracking('Tracking Recoleccion - Rutas registradas');
+        self::set('tracking_initial_section', 'rutas');
+        return self::render('tracking_rutas');
+    }
+
+    public function creditos()
+    {
+        $this->prepararVistaTracking('Tracking Recoleccion - Creditos disponibles');
+        self::set('tracking_initial_section', 'creditos');
+        return self::render('tracking_creditos');
+    }
+
+    public function borradores()
+    {
+        $this->prepararVistaTracking('Tracking Recoleccion - Borradores');
+        self::set('tracking_initial_section', 'borradores');
+        return self::render('tracking_borradores');
+    }
+
+    public function cedisTransportistas()
+    {
+        $this->prepararVistaTracking('Tracking Recoleccion - CEDIS y Transportistas');
+        self::set('tracking_initial_section', 'catalogos');
+        return self::render('tracking_CEDIS_transportistas');
     }
 
     // =========================================================================
