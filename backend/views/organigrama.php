@@ -1301,7 +1301,8 @@
                 body: JSON.stringify({
                     id_departamento: opciones.id_departamento || '',
                     id_puesto: opciones.id_puesto || '',
-                    id_persona: opciones.id_persona || 0
+                    id_persona: opciones.id_persona || 0,
+                    solo_personas: !!opciones.soloPersonas
                 })
             })
                 .then(function (res) { return res.json(); })
@@ -1324,6 +1325,10 @@
                         }
                         select.appendChild(opt);
                     });
+                    if (select.options.length <= 1) {
+                        select.innerHTML = '<option value="">No hay jefes persona disponibles</option>';
+                        return;
+                    }
                     select.disabled = false;
                 })
                 .catch(function () {
@@ -1373,18 +1378,46 @@
         function guardarJefeVacanteOrganigrama() {
             var idVacante = document.getElementById('vacante_jefe_id_vacante')?.value || '';
             var idJefe = document.getElementById('vacante_jefe_id_jefe')?.value || '';
+            var btnGuardar = document.querySelector('#modalCambiarJefeVacante .btn.btn-primary');
 
             if (!idVacante || !idJefe) {
                 Swal.fire('Falta informacion', 'Selecciona el jefe destino.', 'warning');
                 return;
             }
 
+            if (btnGuardar) {
+                btnGuardar.disabled = true;
+                btnGuardar.dataset.originalText = btnGuardar.innerHTML;
+                btnGuardar.innerHTML = '<span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>Guardando...';
+            }
+
             fetch('/CapHum/actualizarJefeVacante', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                credentials: 'same-origin',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'Front-Request': 'true'
+                },
                 body: JSON.stringify({ id_vacante: idVacante, id_jefe: idJefe })
             })
-                .then(function (res) { return res.json(); })
+                .then(function (res) {
+                    return res.text().then(function (txt) {
+                        var data = null;
+                        try {
+                            data = txt ? JSON.parse(txt) : null;
+                        } catch (e) {
+                            throw new Error(res.status === 401 || res.redirected
+                                ? 'Sesion expirada. Vuelve a iniciar sesion.'
+                                : 'Respuesta no valida del servidor al actualizar la vacante.');
+                        }
+                        if (!res.ok) {
+                            throw new Error((data && (data.mensaje || data.message || data.error)) || 'No se pudo actualizar la vacante.');
+                        }
+                        return data || {};
+                    });
+                })
                 .then(function (data) {
                     if (!data.success) {
                         Swal.fire('Error', data.mensaje || 'No se pudo actualizar la vacante.', 'error');
@@ -1397,8 +1430,15 @@
                         cargarOrganigramaDesdeRoot(rootId);
                     }
                 })
-                .catch(function () {
-                    Swal.fire('Error', 'No se pudo actualizar la vacante.', 'error');
+                .catch(function (err) {
+                    console.error('actualizarJefeVacante:', err);
+                    Swal.fire('Error', err && err.message ? err.message : 'No se pudo actualizar la vacante.', 'error');
+                })
+                .finally(function () {
+                    if (btnGuardar) {
+                        btnGuardar.disabled = false;
+                        btnGuardar.innerHTML = btnGuardar.dataset.originalText || '<i class="fa fa-save me-1"></i>Guardar';
+                    }
                 });
         }
 
@@ -1501,6 +1541,9 @@
                     Swal.fire('Error', 'No se pudo actualizar el jefe.', 'error');
                 });
         }
+
+        window.guardarJefeVacanteOrganigrama = guardarJefeVacanteOrganigrama;
+        window.guardarJefePersonaOrganigrama = guardarJefePersonaOrganigrama;
 
         /* ============================= */
         /*   SELECT DEPARTAMENTO          */
