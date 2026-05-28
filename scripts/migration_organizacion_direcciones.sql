@@ -22,20 +22,3 @@ CREATE TABLE IF NOT EXISTS __SPARTA_SECRET_REDACTED__.asigna_direcciones (
   KEY idx_asigna_direcciones_direccion (id_direccion),
   KEY idx_asigna_direcciones_area_activo (id_departamento_organizacional, activo)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
-INSERT IGNORE INTO __SPARTA_SECRET_REDACTED__.direcciones_organizacion (nombre, id_pais, activo)
-SELECT 'Dirección General', p.id, 1
-FROM __SPARTA_SECRET_REDACTED__.paises p
-WHERE COALESCE(p.activo, 1) = 1;
-
-INSERT IGNORE INTO __SPARTA_SECRET_REDACTED__.asigna_direcciones (id_direccion, id_departamento_organizacional, activo)
-SELECT dir.id, dorg.id, 1
-FROM __SPARTA_SECRET_REDACTED__.departamento_organizacional dorg
-INNER JOIN __SPARTA_SECRET_REDACTED__.direcciones_organizacion dir
-  ON dir.id_pais = dorg.id_pais
- AND dir.nombre = 'Dirección General'
-WHERE NOT EXISTS (
-  SELECT 1
-  FROM __SPARTA_SECRET_REDACTED__.asigna_direcciones ad
-  WHERE ad.id_departamento_organizacional = dorg.id
-);

@@ -244,19 +244,23 @@ class CapHum extends Controller
             const getBajas = (opts = {}) => {
                 const showLoader = opts.showLoader !== false;
                 if (showLoader) {
-                    Swal.fire({
-                        title: 'Procesando su petición',
-                        text: 'Espere un momento...',
-                        allowOutsideClick: false,
-                        didOpen: () => {
-                            Swal.showLoading();
-                        }
-                    });
+                    if (typeof showWait === 'function') {
+                        showWait('Espere un momento...');
+                    } else {
+                        Swal.fire({
+                            title: 'Procesando su petición',
+                            text: 'Espere un momento...',
+                            imageUrl: '/assets/img/wait.svg',
+                            allowOutsideClick: false,
+                            allowEscapeKey: false,
+                            showConfirmButton: false
+                        });
+                    }
                 }
 
                 const cerrarLoaderBajas = () => {
                     if (!showLoader) return;
-                    if (Swal.isVisible() && Swal.isLoading()) {
+                    if (Swal.isVisible()) {
                         Swal.close();
                     }
                 };
@@ -11380,7 +11384,30 @@ class CapHum extends Controller
             // Variable global para almacenar el rango de fechas seleccionado
             let rangoFechasBajas = null;
 
-            const getBajas = () => {
+            const getBajas = (opts = {}) => {
+                const showLoader = opts.showLoader !== false;
+                if (showLoader) {
+                    if (typeof showWait === 'function') {
+                        showWait('Espere un momento...');
+                    } else {
+                        Swal.fire({
+                            title: 'Procesando su petición',
+                            text: 'Espere un momento...',
+                            imageUrl: '/assets/img/wait.svg',
+                            allowOutsideClick: false,
+                            allowEscapeKey: false,
+                            showConfirmButton: false
+                        });
+                    }
+                }
+
+                const cerrarLoaderBajas = () => {
+                    if (!showLoader) return;
+                    if (Swal.isVisible()) {
+                        Swal.close();
+                    }
+                };
+
                 // Preparar parámetros con filtro de fecha si existe
                 const params = {};
                 if (rangoFechasBajas) {

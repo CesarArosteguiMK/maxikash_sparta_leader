@@ -37,25 +37,58 @@ class Departamentos extends Model
                   KEY idx_asigna_direcciones_area_activo (id_departamento_organizacional, activo)
                 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
             ");
-            $db->CRUD("
-                INSERT IGNORE INTO __SPARTA_SECRET_REDACTED__.direcciones_organizacion (nombre, id_pais, activo)
-                SELECT 'Dirección General', p.id, 1
-                FROM __SPARTA_SECRET_REDACTED__.paises p
-                WHERE COALESCE(p.activo, 1) = 1
-            ");
-            $db->CRUD("
-                INSERT IGNORE INTO __SPARTA_SECRET_REDACTED__.asigna_direcciones (id_direccion, id_departamento_organizacional, activo)
-                SELECT dir.id, dorg.id, 1
-                FROM __SPARTA_SECRET_REDACTED__.departamento_organizacional dorg
-                INNER JOIN __SPARTA_SECRET_REDACTED__.direcciones_organizacion dir
-                  ON dir.id_pais = dorg.id_pais
-                 AND dir.nombre = 'Dirección General'
-                WHERE NOT EXISTS (
-                  SELECT 1
-                  FROM __SPARTA_SECRET_REDACTED__.asigna_direcciones ad
-                  WHERE ad.id_departamento_organizacional = dorg.id
-                )
-            ");
+            $areasSinDireccionPropia = $db->queryAll(
+                "SELECT dorg.id, dorg.id_pais
+                 FROM __SPARTA_SECRET_REDACTED__.departamento_organizacional dorg
+                 LEFT JOIN __SPARTA_SECRET_REDACTED__.asigna_direcciones ad
+                   ON ad.id_departamento_organizacional = dorg.id
+                  AND COALESCE(ad.activo, 1) = 1
+                 LEFT JOIN __SPARTA_SECRET_REDACTED__.direcciones_organizacion dir
+                   ON dir.id = ad.id_direccion
+                 WHERE ad.id IS NULL
+                    OR LOWER(TRIM(COALESCE(dir.nombre, ''))) IN ('direccion general', 'direcciÃ³n general', 'direcciÃƒÂ³n general')
+                 ORDER BY dorg.id_pais, dorg.id"
+            );
+
+            $contadorPorPais = [];
+            foreach ($areasSinDireccionPropia as $area) {
+                $idPais = (int)($area['id_pais'] ?? 1);
+                if (!isset($contadorPorPais[$idPais])) {
+                    $ultimaDireccion = $db->queryOne(
+                        "SELECT MAX(CAST(REPLACE(nombre, 'DirecciÃ³n ', '') AS UNSIGNED)) AS total
+                         FROM __SPARTA_SECRET_REDACTED__.direcciones_organizacion
+                         WHERE id_pais = :id_pais AND nombre REGEXP '^DirecciÃ³n [0-9]+$'",
+                        ['id_pais' => $idPais]
+                    );
+                    $contadorPorPais[$idPais] = (int)($ultimaDireccion['total'] ?? 0);
+                }
+
+                $contadorPorPais[$idPais]++;
+                $nombreDireccion = 'DirecciÃ³n ' . $contadorPorPais[$idPais];
+                $db->CRUD(
+                    "INSERT IGNORE INTO __SPARTA_SECRET_REDACTED__.direcciones_organizacion (nombre, id_pais, activo)
+                     VALUES (:nombre, :id_pais, 1)",
+                    ['nombre' => $nombreDireccion, 'id_pais' => $idPais]
+                );
+
+                $direccion = $db->queryOne(
+                    "SELECT id FROM __SPARTA_SECRET_REDACTED__.direcciones_organizacion
+                     WHERE id_pais = :id_pais AND nombre = :nombre
+                     LIMIT 1",
+                    ['id_pais' => $idPais, 'nombre' => $nombreDireccion]
+                );
+
+                $idDireccion = (int)($direccion['id'] ?? 0);
+                $idArea = (int)($area['id'] ?? 0);
+                if ($idDireccion > 0 && $idArea > 0) {
+                    $db->CRUD(
+                        "INSERT INTO __SPARTA_SECRET_REDACTED__.asigna_direcciones (id_direccion, id_departamento_organizacional, activo)
+                         VALUES (:id_direccion, :id_area, 1)
+                         ON DUPLICATE KEY UPDATE id_direccion = VALUES(id_direccion), activo = 1, fecha_actualizacion = NOW()",
+                        ['id_direccion' => $idDireccion, 'id_area' => $idArea]
+                    );
+                }
+            }
         } catch (\Throwable $e) {
         }
     }
@@ -76,13 +109,13 @@ class Departamentos extends Model
                     COALESCE(dorg.nombre, 'Sin departamento') AS departamento_organizacional_nombre,
                     COALESCE(dorg.activo, 1) AS departamento_organizacional_activo,
                     COALESCE(dir.id, 0) AS id_direccion,
-                    COALESCE(dir.nombre, 'Sin dirección') AS direccion_nombre,
+                    COALESCE(dir.nombre, 'Sin direcciÃƒÂ³n') AS direccion_nombre,
                     COALESCE(dir.activo, 1) AS direccion_activo,
                     COUNT(DISTINCT p.id) AS total_puestos,
                     COUNT(DISTINCT a.id_persona) AS total_personas,
                     d.activo, d.img_url,
                     d.id_pais,
-                    COALESCE(pa.nombre, 'Sin país') AS nombre_pais,
+                    COALESCE(pa.nombre, 'Sin paÃƒÂ­s') AS nombre_pais,
                     COALESCE(pa.codigo_iso, 'xx') AS codigo_iso_pais
                 FROM departamento d
                 LEFT JOIN departamento_organizacional dorg ON dorg.id = d.id_departamento_organizacional
@@ -129,9 +162,9 @@ class Departamentos extends Model
                     dorg.activo,
                     dorg.id_pais,
                     COALESCE(dir.id, 0) AS id_direccion,
-                    COALESCE(dir.nombre, 'Sin dirección') AS direccion_nombre,
+                    COALESCE(dir.nombre, 'Sin direcciÃƒÂ³n') AS direccion_nombre,
                     COALESCE(dir.activo, 1) AS direccion_activo,
-                    COALESCE(pa.nombre, 'Sin país') AS nombre_pais,
+                    COALESCE(pa.nombre, 'Sin paÃƒÂ­s') AS nombre_pais,
                     COALESCE(pa.codigo_iso, 'xx') AS codigo_iso_pais,
                     COUNT(DISTINCT d.id) AS total_areas
                 FROM __SPARTA_SECRET_REDACTED__.departamento_organizacional dorg
@@ -175,7 +208,7 @@ class Departamentos extends Model
                     dir.nombre,
                     dir.activo,
                     dir.id_pais,
-                    COALESCE(pa.nombre, 'Sin paÃ­s') AS nombre_pais,
+                    COALESCE(pa.nombre, 'Sin paÃƒÆ’Ã‚Â­s') AS nombre_pais,
                     COALESCE(pa.codigo_iso, 'xx') AS codigo_iso_pais,
                     COUNT(DISTINCT ad.id_departamento_organizacional) AS total_areas
                 FROM __SPARTA_SECRET_REDACTED__.direcciones_organizacion dir
@@ -217,7 +250,7 @@ class Departamentos extends Model
             if ($nombre === '') {
                 echo json_encode([
                     "success" => false,
-                    "mensaje" => "El nombre de la dirección es requerido.",
+                    "mensaje" => "El nombre de la direcciÃƒÂ³n es requerido.",
                     "datos" => []
                 ]);
                 exit;
@@ -232,7 +265,7 @@ class Departamentos extends Model
             if ($existe) {
                 echo json_encode([
                     "success" => false,
-                    "mensaje" => "Ya existe una dirección llamada \"{$nombre}\" en el país seleccionado.",
+                    "mensaje" => "Ya existe una direcciÃƒÂ³n llamada \"{$nombre}\" en el paÃƒÂ­s seleccionado.",
                     "datos" => []
                 ]);
                 exit;
@@ -245,7 +278,7 @@ class Departamentos extends Model
 
             echo json_encode([
                 "success" => true,
-                "mensaje" => "Dirección creada correctamente.",
+                "mensaje" => "DirecciÃƒÂ³n creada correctamente.",
                 "datos" => []
             ]);
         } catch (\Exception $e) {
@@ -290,7 +323,7 @@ class Departamentos extends Model
             if ($existe) {
                 echo json_encode([
                     "success" => false,
-                    "mensaje" => "Ya existe un departamento llamado \"{$nombre}\" en el país seleccionado.",
+                    "mensaje" => "Ya existe un departamento llamado \"{$nombre}\" en el paÃƒÂ­s seleccionado.",
                     "datos" => []
                 ]);
                 exit;
@@ -303,11 +336,23 @@ class Departamentos extends Model
             $idDepartamentoOrganizacional = $db->lastInsertId();
 
             if ($id_direccion <= 0) {
+                $ultimaDireccion = $db->queryOne(
+                    "SELECT MAX(CAST(REPLACE(nombre, 'Dirección ', '') AS UNSIGNED)) AS total
+                     FROM __SPARTA_SECRET_REDACTED__.direcciones_organizacion
+                     WHERE id_pais = :id_pais AND nombre REGEXP '^Dirección [0-9]+$'",
+                    ['id_pais' => $id_pais]
+                );
+                $nombreDireccion = 'Dirección ' . (((int)($ultimaDireccion['total'] ?? 0)) + 1);
+                $db->CRUD(
+                    "INSERT IGNORE INTO __SPARTA_SECRET_REDACTED__.direcciones_organizacion (nombre, id_pais, activo)
+                     VALUES (:nombre, :id_pais, 1)",
+                    ['nombre' => $nombreDireccion, 'id_pais' => $id_pais]
+                );
                 $dir = $db->queryOne(
                     "SELECT id FROM __SPARTA_SECRET_REDACTED__.direcciones_organizacion
-                     WHERE id_pais = :id_pais AND nombre = 'Dirección General'
+                     WHERE id_pais = :id_pais AND nombre = :nombre
                      LIMIT 1",
-                    ['id_pais' => $id_pais]
+                    ['id_pais' => $id_pais, 'nombre' => $nombreDireccion]
                 );
                 $id_direccion = (int)($dir['id'] ?? 0);
             }
@@ -398,7 +443,7 @@ class Departamentos extends Model
             $r = true;
             $datos = is_array($r) ? $r : [];
 
-            // echo JSON puro y nada más
+            // echo JSON puro y nada mÃƒÂ¡s
             echo json_encode([
                 "success" => true,
                 "mensaje" => "Puesto actualizado.",
@@ -419,9 +464,9 @@ class Departamentos extends Model
 
     /**
      * Actualiza el orden de los puestos reasignando la columna nivel.
-     * Primer puesto de la lista = mayor nivel (dept*1000+999), último = dept*1000+1.
+     * Primer puesto de la lista = mayor nivel (dept*1000+999), ÃƒÂºltimo = dept*1000+1.
      * @param int $id_departamento
-     * @param array $ordenes Array de id_puesto en el orden deseado (índice 0 = primero)
+     * @param array $ordenes Array de id_puesto en el orden deseado (ÃƒÂ­ndice 0 = primero)
      */
     public static function UpdateOrdenPuestos($id_departamento, $ordenes)
     {
@@ -432,7 +477,7 @@ class Departamentos extends Model
             if (!$id_departamento || !is_array($ordenes)) {
                 echo json_encode([
                     'success' => false,
-                    'mensaje' => 'Datos inválidos.',
+                    'mensaje' => 'Datos invÃƒÂ¡lidos.',
                     'datos' => []
                 ]);
                 exit;
@@ -501,7 +546,7 @@ class Departamentos extends Model
             }
 
             // Rebalancear niveles: todos los puestos del departamento en rango dept*1000+1 .. dept*1000+999
-            // Orden actual: nivel DESC (el nuevo tiene 0, queda último). Asignar 11999, 11998, ... 11001
+            // Orden actual: nivel DESC (el nuevo tiene 0, queda ÃƒÂºltimo). Asignar 11999, 11998, ... 11001
             $rows = $db->queryAll(
                 "SELECT id FROM __SPARTA_SECRET_REDACTED__.puesto WHERE departamento_id = :id_departamento ORDER BY nivel DESC, id ASC",
                 ['id_departamento' => $id_departamento]
@@ -552,7 +597,7 @@ class Departamentos extends Model
             if (empty($nombre)) {
                 echo json_encode([
                     "success" => false,
-                    "mensaje" => "El nombre del área es requerido.",
+                    "mensaje" => "El nombre del ÃƒÂ¡rea es requerido.",
                     "datos" => []
                 ]);
                 exit;
@@ -575,10 +620,10 @@ class Departamentos extends Model
 
             if ($existe) {
                 $pais = $db->queryOne("SELECT nombre FROM paises WHERE id = :id", ['id' => $id_pais]);
-                $paisNombre = $pais['nombre'] ?? 'el país seleccionado';
+                $paisNombre = $pais['nombre'] ?? 'el paÃƒÂ­s seleccionado';
                 echo json_encode([
                     "success" => false,
-                    "mensaje" => "Ya existe un área llamada \"{$nombre}\" en {$paisNombre}.",
+                    "mensaje" => "Ya existe un ÃƒÂ¡rea llamada \"{$nombre}\" en {$paisNombre}.",
                     "datos" => []
                 ]);
                 exit;
@@ -591,7 +636,7 @@ class Departamentos extends Model
 
             echo json_encode([
                 "success" => true,
-                "mensaje" => "Área insertada correctamente.",
+                "mensaje" => "ÃƒÂrea insertada correctamente.",
                 "datos" => []
             ]);
 
@@ -622,7 +667,7 @@ class Departamentos extends Model
             $r = true;
             $datos = is_array($r) ? $r : [];
 
-            // echo JSON puro y nada más
+            // echo JSON puro y nada mÃƒÂ¡s
             echo json_encode([
                 "success" => true,
                 "mensaje" => "Departamento actualizado.",
@@ -649,7 +694,7 @@ class Departamentos extends Model
         header('Content-Type: application/json; charset=utf-8');
         $id = (int) $id_departamento;
         if ($id < 1) {
-            echo json_encode(['success' => false, 'mensaje' => 'ID de departamento inválido.', 'datos' => []]);
+            echo json_encode(['success' => false, 'mensaje' => 'ID de departamento invÃƒÂ¡lido.', 'datos' => []]);
             exit;
         }
         try {
@@ -666,7 +711,7 @@ class Departamentos extends Model
             if ($totalPersonas > 0) {
                 echo json_encode([
                     'success' => false,
-                    'mensaje' => 'No se puede eliminar: el departamento tiene personal asignado. Reasigne o dé de baja al personal primero.',
+                    'mensaje' => 'No se puede eliminar: el departamento tiene personal asignado. Reasigne o dÃƒÂ© de baja al personal primero.',
                     'datos' => []
                 ]);
                 exit;
