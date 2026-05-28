@@ -3195,27 +3195,37 @@ SQL;
                  LIMIT 1",
                 ['idCredito' => $idCredito]
             );
-            if (!$asignacion) {
-                $this->db->rollback();
-                return ['success' => false, 'message' => 'No se encontró una asignación activa para este crédito.'];
-            }
-
             $idPersonalAdj = (int) $persona['id_personal_adj'];
-            if ((int) $asignacion['id_personal_adj'] === $idPersonalAdj) {
-                $yaAsignado = true;
-            } else {
+            if (!$asignacion) {
+                $this->db->CRUD(
+                    "INSERT INTO asigna_creditos_adjudicacion
+                        (id_personal_adj, id_credito, fecha_alta, alta, estatus)
+                     VALUES (:idPersonalAdj, :idCredito, :fechaAlta, :alta, '1')",
+                    [
+                        'idPersonalAdj' => $idPersonalAdj,
+                        'idCredito' => $idCredito,
+                        'fechaAlta' => $ahora,
+                        'alta' => $idUsuario,
+                    ]
+                );
                 $yaAsignado = false;
-            }
+            } else {
+                if ((int) $asignacion['id_personal_adj'] === $idPersonalAdj) {
+                    $yaAsignado = true;
+                } else {
+                    $yaAsignado = false;
+                }
 
-            $this->db->CRUD(
-                "UPDATE asigna_creditos_adjudicacion
-                 SET id_personal_adj = :idPersonalAdj
-                 WHERE id_credito = :idCredito AND estatus = '1'",
-                [
-                    'idPersonalAdj' => $idPersonalAdj,
-                    'idCredito' => $idCredito,
-                ]
-            );
+                $this->db->CRUD(
+                    "UPDATE asigna_creditos_adjudicacion
+                     SET id_personal_adj = :idPersonalAdj
+                     WHERE id_credito = :idCredito AND estatus = '1'",
+                    [
+                        'idPersonalAdj' => $idPersonalAdj,
+                        'idCredito' => $idCredito,
+                    ]
+                );
+            }
 
             if (!$yaAsignado) {
                 $this->registrarBitacora(
@@ -3720,7 +3730,7 @@ SQL;
         return ['success' => true];
     }
 
-    public function sincronizarDictumsAppPendientes(): void
+    public function sincronizarDictumsAppPendientes(bool $forzar = false, bool $soloAsignacionVigente = false): void
     {
         $lockHandle = null;
         $lockTomado = false;
@@ -3729,7 +3739,7 @@ SQL;
             $stampPath = rtrim(sys_get_temp_dir(), DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR . 'sparta_madj_dictums_sync.stamp';
             $intervaloMinimo = 300;
 
-            if (is_file($stampPath) && (time() - (int) @filemtime($stampPath)) < $intervaloMinimo) {
+            if (!$forzar && is_file($stampPath) && (time() - (int) @filemtime($stampPath)) < $intervaloMinimo) {
                 return;
             }
 
@@ -3744,12 +3754,16 @@ SQL;
             }
             $lockTomado = true;
 
-            if (is_file($stampPath) && (time() - (int) @filemtime($stampPath)) < $intervaloMinimo) {
+            if (!$forzar && is_file($stampPath) && (time() - (int) @filemtime($stampPath)) < $intervaloMinimo) {
                 return;
             }
             @touch($stampPath);
 
             $this->sincronizarDictumsAsignacionVigentePendientes();
+
+            if ($soloAsignacionVigente) {
+                return;
+            }
 
             $rows = $this->db->queryAll(
                 "SELECT ao.id AS id_operacion, ao.id_credito
@@ -3827,6 +3841,55 @@ SQL;
 
         if ($rows === []) {
             return;
+        }
+
+        $creditosRows = [];
+        foreach ($rows as $row) {
+            $idCredito = (int) ($row['credit_number'] ?? 0);
+            if ($idCredito > 0) {
+                $creditosRows[$idCredito] = true;
+            }
+        }
+
+        if ($creditosRows !== []) {
+            $ph = [];
+            $params = [];
+            foreach (array_keys($creditosRows) as $i => $idCredito) {
+                $k = 'sync_credito_' . $i;
+                $ph[] = ':' . $k;
+                $params[$k] = $idCredito;
+            }
+
+            $yaEnPipeline = [];
+            try {
+                $localRows = $this->db->queryAll(
+                    "SELECT DISTINCT ao.id_credito
+                     FROM adj_operacion ao
+                     INNER JOIN adj_bitacora b
+                        ON b.id_operacion = ao.id
+                       AND b.accion LIKE '%AL PIPELINE%'
+                     WHERE ao.id_credito IN (" . implode(',', $ph) . ")",
+                    $params
+                ) ?: [];
+                foreach ($localRows as $localRow) {
+                    $cid = (int) ($localRow['id_credito'] ?? 0);
+                    if ($cid > 0) {
+                        $yaEnPipeline[$cid] = true;
+                    }
+                }
+            } catch (\Throwable $e) {
+                $yaEnPipeline = [];
+            }
+
+            if ($yaEnPipeline !== []) {
+                $rows = array_values(array_filter($rows, static function ($row) use ($yaEnPipeline): bool {
+                    $cid = (int) ($row['credit_number'] ?? 0);
+                    return $cid > 0 && !isset($yaEnPipeline[$cid]);
+                }));
+                if ($rows === []) {
+                    return;
+                }
+            }
         }
 
         $legacyUserIds = [];

@@ -231,7 +231,7 @@ SQL;
               WHERE dr.id_operacion = o.id
                 AND {$esRet}
           )
-        ORDER BY o.fecha_alta ASC
+        ORDER BY o.fecha_alta DESC
         SQL;
 
         return $this->db->queryAll($sql) ?: [];
@@ -270,7 +270,7 @@ SQL;
         FROM adj_operacion o
         {$joinAsig}
         WHERE o.estatus = :estatus
-        ORDER BY o.fecha_alta ASC
+        ORDER BY o.fecha_alta DESC
         SQL;
 
         return $this->db->queryAll($sql, ['estatus' => $estatus]) ?: [];
@@ -285,7 +285,7 @@ SQL;
     {
         if ($sincronizarDictums) {
             $ma = new MotosAdjudicadas();
-            $ma->sincronizarDictumsAppPendientes();
+            $ma->sincronizarDictumsAppPendientes(true, true);
         }
 
         $joinAsig = $this->sqlJoinUnaAsignacionActivaPorCredito();
@@ -313,7 +313,7 @@ SQL;
         FROM adj_operacion o
         {$joinAsig}
         WHERE {$where}
-        ORDER BY o.fecha_alta ASC
+        ORDER BY o.fecha_alta DESC
         SQL;
 
         return $this->db->queryAll($sql, ['pat_validadas' => '%EVIDENCIAS VALIDADAS (PROCESANDO IA)%']) ?: [];
@@ -373,12 +373,18 @@ SQL;
                 FROM adj_bitacora bv
                 WHERE bv.id_operacion = o.id
                   AND bv.accion LIKE :pat_validadas
-            ) AS fecha_aprobacion_evidencias
+            ) AS fecha_aprobacion_evidencias,
+            (
+                SELECT MAX(bv.fecha_alta)
+                FROM adj_bitacora bv
+                WHERE bv.id_operacion = o.id
+                  AND bv.accion LIKE :pat_validadas
+            ) AS fecha_aprobacion_evidencias_orden
         FROM adj_operacion o
         {$joinAsig}
         WHERE {$this->sqlWhereAprobadosEvidenciasAtencion()}
           {$exclDictRec}
-        ORDER BY o.fecha_alta ASC
+        ORDER BY fecha_aprobacion_evidencias_orden DESC, o.fecha_alta DESC
         SQL;
 
         return $this->db->queryAll($sql, ['pat_validadas' => '%EVIDENCIAS VALIDADAS (PROCESANDO IA)%']) ?: [];
@@ -625,7 +631,7 @@ SQL;
         FROM adj_operacion o
         {$joinAsig}
         WHERE o.estatus = 'Cierre Documentado'
-        ORDER BY o.fecha_alta ASC
+        ORDER BY o.fecha_alta DESC
         SQL;
 
         return $this->db->queryAll($sql) ?: [];
@@ -664,7 +670,7 @@ SQL;
         {$joinUltimo}
         {$joinAsig}
         {$whereDict}
-        ORDER BY o.fecha_alta ASC
+        ORDER BY o.fecha_alta DESC
         SQL;
 
         return $this->db->queryAll($sql) ?: [];
@@ -975,7 +981,7 @@ SQL;
               ORDER BY dp4.id DESC
               LIMIT 1
           ) LIKE 'Pendiente%'
-        ORDER BY o.fecha_alta ASC
+        ORDER BY o.fecha_alta DESC
         SQL;
 
         return $this->db->queryAll($sql) ?: [];

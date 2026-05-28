@@ -90,7 +90,7 @@ if (!function_exists('getMenuSidebarModulosStructure')) {
                     ['label' => '3.-Cartera', 'url' => '/AtencionClientes/cierreDocumentacion', 'modulos' => [72]],
                     ['label' => '4.- Recepción', 'url' => '/AtencionClientes/recepcion', 'modulos' => [73]],
                     ['label' => 'Retenciones', 'url' => '/AtencionClientes/consulta', 'modulos' => [69]],
-                    ['label' => 'Tracking Recolección', 'url' => '/TrackingRecoleccion/index', 'modulos' => [74]],
+                    ['label' => 'Tracking Recolección', 'url' => '/TrackingRecoleccion/rutas', 'modulos' => [74]],
                 ],
             ],
             'Direcciones' => [
@@ -115,10 +115,11 @@ if (!function_exists('getMenuSidebarModulosStructure')) {
             'Organización' => [
                 'icono' => 'fa-solid fa-cog',
                 'subItems' => [
-                    ['label' => 'Departamentos', 'url' => '/departamentos/consulta/', 'modulos' => [10]],
+                    ['label' => 'Áreas', 'url' => '/departamentos/consulta/', 'modulos' => [10]],
                     ['label' => 'Países', 'url' => '/paises/consulta', 'modulos' => [41]],
                     ['label' => 'Equivalencia puestos', 'url' => '/equivalencias/consulta', 'modulos' => [17]],
                     ['label' => 'Asignación por puestos', 'url' => '/configticketpuesto/consulta', 'modulos' => [26]],
+                    ['label' => 'Config Motos Adj', 'url' => '/ConfigMotosAdj/consulta', 'modulos' => [85]],
                 ],
             ],
             'Servicios' => [

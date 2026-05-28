@@ -693,7 +693,7 @@ class CapHum extends Model
                 SELECT p.id
                 FROM __SPARTA_SECRET_REDACTED__.persona p
                 WHERE p.id = :id_jefe
-                  AND p.estatus != 'Baja'
+                  AND COALESCE(p.estatus, '') != 'Baja'
                 LIMIT 1
             ", ['id_jefe' => $idJefe]);
 
@@ -717,6 +717,145 @@ class CapHum extends Model
             ]);
         } catch (\Exception $e) {
             return self::resultado(false, 'Error al actualizar el jefe de la vacante.', null, $e->getMessage());
+        }
+    }
+
+    public static function actualizarJefePersonaOrganigrama($idPersona, $jefeRaw)
+    {
+        try {
+            $db = new Database();
+            self::asegurarAsignaJefeSoportaVacante($db);
+
+            $idPersona = (int)$idPersona;
+            $jefeRaw = trim((string)$jefeRaw);
+            $idJefe = 0;
+            $idVacanteJefe = 0;
+
+            if (preg_match('/^vacante:(\d+)$/', $jefeRaw, $m)) {
+                $idVacanteJefe = (int)$m[1];
+            } else {
+                $idJefe = (int)$jefeRaw;
+            }
+
+            if ($idPersona <= 0 || ($idJefe <= 0 && $idVacanteJefe <= 0)) {
+                return self::resultado(false, 'Seleccione la persona y el jefe destino.');
+            }
+
+            if ($idJefe > 0 && $idPersona === $idJefe) {
+                return self::resultado(false, 'Una persona no puede ser su propio jefe.');
+            }
+
+            $persona = $db->queryOne("
+                SELECT id
+                FROM __SPARTA_SECRET_REDACTED__.persona
+                WHERE id = :id_persona
+                  AND COALESCE(estatus, '') != 'Baja'
+                LIMIT 1
+            ", ['id_persona' => $idPersona]);
+
+            if (!$persona) {
+                return self::resultado(false, 'La persona seleccionada no esta activa.');
+            }
+
+            if ($idJefe > 0) {
+                $jefe = $db->queryOne("
+                    SELECT id
+                    FROM __SPARTA_SECRET_REDACTED__.persona
+                    WHERE id = :id_jefe
+                      AND COALESCE(estatus, '') != 'Baja'
+                    LIMIT 1
+                ", ['id_jefe' => $idJefe]);
+
+                if (!$jefe) {
+                    return self::resultado(false, 'El jefe seleccionado no esta activo.');
+                }
+
+                $actual = $idJefe;
+                $vistos = [];
+                for ($i = 0; $i < 80 && $actual > 0; $i++) {
+                    if ($actual === $idPersona) {
+                        return self::resultado(false, 'No se puede asignar ese jefe porque generaria un ciclo en el organigrama.');
+                    }
+                    if (isset($vistos[$actual])) break;
+                    $vistos[$actual] = true;
+
+                    $rel = $db->queryOne("
+                        SELECT id_jefe, id_vacante_jefe
+                        FROM __SPARTA_SECRET_REDACTED__.asigna_jefe
+                        WHERE id_persona = :id_persona
+                        ORDER BY id DESC
+                        LIMIT 1
+                    ", ['id_persona' => $actual]);
+
+                    if (!$rel) break;
+                    if (!empty($rel['id_jefe'])) {
+                        $actual = (int)$rel['id_jefe'];
+                        continue;
+                    }
+                    if (!empty($rel['id_vacante_jefe'])) {
+                        $vacJefe = $db->queryOne("
+                            SELECT id_jefe
+                            FROM __SPARTA_SECRET_REDACTED__.vacantes_personal
+                            WHERE id = :id_vacante
+                            LIMIT 1
+                        ", ['id_vacante' => (int)$rel['id_vacante_jefe']]);
+                        $actual = !empty($vacJefe['id_jefe']) ? (int)$vacJefe['id_jefe'] : 0;
+                        continue;
+                    }
+                    break;
+                }
+            } else {
+                $vacante = $db->queryOne("
+                    SELECT id
+                    FROM __SPARTA_SECRET_REDACTED__.vacantes_personal
+                    WHERE id = :id_vacante
+                      AND UPPER(TRIM(COALESCE(estatus, ''))) = 'ACTIVA'
+                    LIMIT 1
+                ", ['id_vacante' => $idVacanteJefe]);
+
+                if (!$vacante) {
+                    return self::resultado(false, 'La vacante seleccionada ya no esta activa.');
+                }
+            }
+
+            $asignacion = $db->queryOne("
+                SELECT id
+                FROM __SPARTA_SECRET_REDACTED__.asigna_jefe
+                WHERE id_persona = :id_persona
+                ORDER BY id DESC
+                LIMIT 1
+            ", ['id_persona' => $idPersona]);
+
+            if ($asignacion) {
+                $db->CRUD("
+                    UPDATE __SPARTA_SECRET_REDACTED__.asigna_jefe
+                    SET id_jefe = :id_jefe,
+                        id_vacante_jefe = :id_vacante_jefe
+                    WHERE id = :id
+                    LIMIT 1
+                ", [
+                    'id_jefe' => $idJefe > 0 ? $idJefe : null,
+                    'id_vacante_jefe' => $idVacanteJefe > 0 ? $idVacanteJefe : null,
+                    'id' => (int)$asignacion['id'],
+                ]);
+            } else {
+                $db->CRUD("
+                    INSERT INTO __SPARTA_SECRET_REDACTED__.asigna_jefe (id_persona, id_jefe, id_vacante_jefe)
+                    VALUES (:id_persona, :id_jefe, :id_vacante_jefe)
+                ", [
+                    'id_persona' => $idPersona,
+                    'id_jefe' => $idJefe > 0 ? $idJefe : null,
+                    'id_vacante_jefe' => $idVacanteJefe > 0 ? $idVacanteJefe : null,
+                ]);
+            }
+
+            return self::resultado(true, 'Jefe actualizado correctamente.', [
+                'id_persona' => $idPersona,
+                'id_jefe' => $idJefe > 0 ? $idJefe : null,
+                'id_vacante_jefe' => $idVacanteJefe > 0 ? $idVacanteJefe : null,
+            ]);
+        } catch (\Exception $e) {
+            return self::resultado(false, 'Error al actualizar el jefe.', null, $e->getMessage());
         }
     }
 
@@ -1465,16 +1604,297 @@ class CapHum extends Model
             $perfiles = enriquecerPerfilesModulosConMenuSidebar($perfiles);
             $puestos = $db->queryAll($query_puestos);
             $asignacionActual = $db->queryOne($query_asignacion_actual);
+            $permisosJerarquia = self::getPermisosJerarquicosPerfil($idPersona);
 
             return self::resultado(true, 'Persona encontrada.', [
                 'persona' => $persona,
                 'perfiles' => $perfiles,
                 'puestos' => $puestos,
-                'asignacion_actual' => $asignacionActual
+                'asignacion_actual' => $asignacionActual,
+                'permisos_jerarquia' => ($permisosJerarquia['success'] ?? false) ? ($permisosJerarquia['datos'] ?? []) : null
             ]);
 
         } catch (\Exception $e) {
             return self::resultado(false, 'Error al procesar la solicitud.', null, $e->getMessage());
+        }
+    }
+
+    private static function existeTablaPermisosJerarquicos(Database $db): bool
+    {
+        try {
+            $row = $db->queryOne("SHOW TABLES LIKE 'privilegios_jerarquia'");
+            return !empty($row);
+        } catch (\Throwable $e) {
+            return false;
+        }
+    }
+
+    private static function placeholdersIn(string $prefijo, array $valores, array &$params): string
+    {
+        $keys = [];
+        foreach (array_values($valores) as $i => $valor) {
+            $k = $prefijo . '_' . $i;
+            $keys[] = ':' . $k;
+            $params[$k] = (int) $valor;
+        }
+        return implode(', ', $keys);
+    }
+
+    private static function obtenerSeleccionesJerarquicas(Database $db, int $idPersona): array
+    {
+        $sel = ['pais' => [], 'area' => [], 'departamento' => [], 'puesto' => []];
+        if (!self::existeTablaPermisosJerarquicos($db)) {
+            return $sel;
+        }
+        $rows = $db->queryAll(
+            "SELECT nivel, id_nodo
+             FROM privilegios_jerarquia
+             WHERE id_persona = :id_persona",
+            ['id_persona' => $idPersona]
+        ) ?: [];
+        foreach ($rows as $r) {
+            $nivel = (string) ($r['nivel'] ?? '');
+            if (!isset($sel[$nivel])) {
+                continue;
+            }
+            $sel[$nivel][] = (int) ($r['id_nodo'] ?? 0);
+        }
+        foreach ($sel as $k => $ids) {
+            $sel[$k] = array_values(array_unique(array_filter(array_map('intval', $ids))));
+        }
+        return $sel;
+    }
+
+    private static function sincronizarLegacyDesdeJerarquia(Database $db, int $idPersona, array $seleccion): void
+    {
+        $idsPais = array_values(array_unique(array_filter(array_map('intval', $seleccion['pais'] ?? []))));
+        $idsArea = array_values(array_unique(array_filter(array_map('intval', $seleccion['area'] ?? []))));
+        $idsDepartamento = array_values(array_unique(array_filter(array_map('intval', $seleccion['departamento'] ?? []))));
+        $idsPuesto = array_values(array_unique(array_filter(array_map('intval', $seleccion['puesto'] ?? []))));
+
+        $puestosFinales = [];
+        foreach ($idsPuesto as $idp) {
+            $puestosFinales[$idp] = true;
+        }
+
+        if (!empty($idsDepartamento)) {
+            $params = [];
+            $in = self::placeholdersIn('dep', $idsDepartamento, $params);
+            $rows = $db->queryAll(
+                "SELECT p.id
+                 FROM puesto p
+                 WHERE p.departamento_id IN ($in)",
+                $params
+            ) ?: [];
+            foreach ($rows as $r) {
+                $puestosFinales[(int) ($r['id'] ?? 0)] = true;
+            }
+        }
+
+        if (!empty($idsArea)) {
+            $params = [];
+            $in = self::placeholdersIn('area', $idsArea, $params);
+            $rows = $db->queryAll(
+                "SELECT p.id
+                 FROM puesto p
+                 INNER JOIN departamento d ON d.id = p.departamento_id
+                 WHERE d.id_departamento_organizacional IN ($in)",
+                $params
+            ) ?: [];
+            foreach ($rows as $r) {
+                $puestosFinales[(int) ($r['id'] ?? 0)] = true;
+            }
+        }
+
+        if (!empty($idsPais)) {
+            $params = [];
+            $in = self::placeholdersIn('pais', $idsPais, $params);
+            $rows = $db->queryAll(
+                "SELECT p.id
+                 FROM puesto p
+                 INNER JOIN departamento d ON d.id = p.departamento_id
+                 INNER JOIN departamento_organizacional a ON a.id = d.id_departamento_organizacional
+                 WHERE a.id_pais IN ($in)",
+                $params
+            ) ?: [];
+            foreach ($rows as $r) {
+                $puestosFinales[(int) ($r['id'] ?? 0)] = true;
+            }
+        }
+
+        $db->CRUD(
+            "DELETE FROM privilegios_departamento WHERE idPersona = :id_persona",
+            ['id_persona' => $idPersona]
+        );
+
+        foreach (array_keys($puestosFinales) as $idPuestoInsert) {
+            if ($idPuestoInsert <= 0) {
+                continue;
+            }
+            $db->CRUD(
+                "INSERT INTO privilegios_departamento (idPersona, idPuesto)
+                 VALUES (:id_persona, :id_puesto)",
+                ['id_persona' => $idPersona, 'id_puesto' => (int) $idPuestoInsert]
+            );
+        }
+    }
+
+    public static function getPermisosJerarquicosPerfil(int $idPersona): array
+    {
+        $idPersona = (int) $idPersona;
+        if ($idPersona <= 0) {
+            return self::resultado(false, 'ID de persona inválido.', null);
+        }
+
+        try {
+            $db = new Database();
+            $seleccion = self::obtenerSeleccionesJerarquicas($db, $idPersona);
+
+            // Fallback de compatibilidad: si aún no existe selección jerárquica,
+            // preseleccionar puestos desde la tabla legacy.
+            $totalSel = count($seleccion['pais']) + count($seleccion['area']) + count($seleccion['departamento']) + count($seleccion['puesto']);
+            if ($totalSel === 0) {
+                $rowsLegacy = $db->queryAll(
+                    "SELECT idPuesto FROM privilegios_departamento WHERE idPersona = :id_persona",
+                    ['id_persona' => $idPersona]
+                ) ?: [];
+                foreach ($rowsLegacy as $r) {
+                    $idP = (int) ($r['idPuesto'] ?? 0);
+                    if ($idP > 0) {
+                        $seleccion['puesto'][] = $idP;
+                    }
+                }
+                $seleccion['puesto'] = array_values(array_unique($seleccion['puesto']));
+            }
+
+            $paises = $db->queryAll(
+                "SELECT id, nombre, COALESCE(codigo_iso, 'xx') AS codigo_iso
+                 FROM paises
+                 ORDER BY nombre ASC"
+            ) ?: [];
+            $areas = $db->queryAll(
+                "SELECT
+                    a.id,
+                    a.nombre,
+                    a.id_pais,
+                    COALESCE(pa.nombre, 'Sin país') AS nombre_pais
+                 FROM departamento_organizacional a
+                 LEFT JOIN paises pa ON pa.id = a.id_pais
+                 WHERE COALESCE(a.activo, 1) = 1
+                 ORDER BY pa.nombre ASC, a.nombre ASC"
+            ) ?: [];
+            $departamentos = $db->queryAll(
+                "SELECT
+                    d.id,
+                    d.nombre,
+                    d.id_departamento_organizacional AS id_area
+                 FROM departamento d
+                 ORDER BY d.nombre ASC"
+            ) ?: [];
+            $puestos = $db->queryAll(
+                "SELECT
+                    p.id,
+                    p.nombre,
+                    p.nivel,
+                    p.departamento_id AS id_departamento
+                 FROM puesto p
+                 ORDER BY p.nivel DESC, p.nombre ASC"
+            ) ?: [];
+
+            return self::resultado(true, 'Permisos jerárquicos cargados.', [
+                'paises' => $paises,
+                'areas' => $areas,
+                'departamentos' => $departamentos,
+                'puestos' => $puestos,
+                'seleccion' => [
+                    'pais' => array_values($seleccion['pais']),
+                    'area' => array_values($seleccion['area']),
+                    'departamento' => array_values($seleccion['departamento']),
+                    'puesto' => array_values($seleccion['puesto']),
+                ],
+            ]);
+        } catch (\Throwable $e) {
+            return self::resultado(false, 'Error al obtener permisos jerárquicos.', null, $e->getMessage());
+        }
+    }
+
+    public static function guardarPermisosJerarquicosPerfil(int $idPersona, array $seleccion): array
+    {
+        $idPersona = (int) $idPersona;
+        if ($idPersona <= 0) {
+            return self::resultado(false, 'ID de persona inválido.', null);
+        }
+        $permitidos = ['pais', 'area', 'departamento', 'puesto'];
+        $limpia = ['pais' => [], 'area' => [], 'departamento' => [], 'puesto' => []];
+        foreach ($permitidos as $nivel) {
+            $vals = $seleccion[$nivel] ?? [];
+            if (!is_array($vals)) {
+                $vals = [];
+            }
+            $limpia[$nivel] = array_values(array_unique(array_filter(array_map('intval', $vals))));
+        }
+
+        $db = new Database();
+        try {
+            $db->beginTransaction();
+
+            if (self::existeTablaPermisosJerarquicos($db)) {
+                $db->CRUD(
+                    "DELETE FROM privilegios_jerarquia WHERE id_persona = :id_persona",
+                    ['id_persona' => $idPersona]
+                );
+                foreach ($permitidos as $nivel) {
+                    foreach ($limpia[$nivel] as $idNodo) {
+                        $db->CRUD(
+                            "INSERT INTO privilegios_jerarquia (id_persona, nivel, id_nodo)
+                             VALUES (:id_persona, :nivel, :id_nodo)",
+                            ['id_persona' => $idPersona, 'nivel' => $nivel, 'id_nodo' => (int) $idNodo]
+                        );
+                    }
+                }
+            }
+
+            self::sincronizarLegacyDesdeJerarquia($db, $idPersona, $limpia);
+            $db->commit();
+
+            return self::resultado(true, 'Permisos jerárquicos guardados correctamente.', [
+                'seleccion' => $limpia
+            ]);
+        } catch (\Throwable $e) {
+            $db->rollback();
+            return self::resultado(false, 'Error al guardar permisos jerárquicos.', null, $e->getMessage());
+        }
+    }
+
+    public static function actualizarPermisoJerarquicoPerfil(int $idPersona, string $nivel, int $idNodo, int $asignado): array
+    {
+        $idPersona = (int) $idPersona;
+        $idNodo = (int) $idNodo;
+        $asignado = ((int) $asignado) === 1 ? 1 : 0;
+        $nivel = trim(strtolower($nivel));
+        if ($idPersona <= 0 || $idNodo <= 0 || !in_array($nivel, ['pais', 'area', 'departamento', 'puesto'], true)) {
+            return self::resultado(false, 'Parámetros inválidos.', null);
+        }
+
+        try {
+            $db = new Database();
+            $seleccion = self::obtenerSeleccionesJerarquicas($db, $idPersona);
+            $ids = array_values(array_unique(array_filter(array_map('intval', $seleccion[$nivel] ?? []))));
+
+            if ($asignado === 1) {
+                if (!in_array($idNodo, $ids, true)) {
+                    $ids[] = $idNodo;
+                }
+            } else {
+                $ids = array_values(array_filter($ids, function ($v) use ($idNodo) {
+                    return (int) $v !== (int) $idNodo;
+                }));
+            }
+            $seleccion[$nivel] = $ids;
+
+            return self::guardarPermisosJerarquicosPerfil($idPersona, $seleccion);
+        } catch (\Throwable $e) {
+            return self::resultado(false, 'Error al actualizar permiso jerárquico.', null, $e->getMessage());
         }
     }
 

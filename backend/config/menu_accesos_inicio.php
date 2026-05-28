@@ -37,7 +37,7 @@ if (!function_exists('getMenuItemsConfig')) {
             ['url' => '/CierreCredito/consulta', 'label' => 'Cierre de Crédito', 'icon' => 'fa-solid fa-file-circle-check', 'bg' => 'bg-blue', 'modulos' => [51]],
             ['url' => '/paises/consulta', 'label' => 'Países', 'icon' => 'fa-solid fa-globe', 'bg' => 'bg-blue', 'modulos' => [41]],
             ['url' => '/onboarding/index', 'label' => 'Curso Onboarding', 'icon' => 'fa-solid fa-graduation-cap', 'bg' => 'bg-blue', 'modulos' => [44]],
-            ['url' => '/departamentos/consulta/', 'label' => 'Departamentos', 'icon' => 'fa-solid fa-cog', 'bg' => 'bg-blue', 'modulos' => [10]],
+            ['url' => '/departamentos/consulta/', 'label' => 'Áreas', 'icon' => 'fa-solid fa-cog', 'bg' => 'bg-blue', 'modulos' => [10]],
             ['url' => '/equivalencias/consulta', 'label' => 'Equivalencia puestos', 'icon' => 'fa-solid fa-cog', 'bg' => 'bg-blue', 'modulos' => [17]],
             ['url' => '/configticketpuesto/consulta', 'label' => 'Asignación por puestos', 'icon' => 'fa-solid fa-ticket', 'bg' => 'bg-blue', 'modulos' => [26]],
             ['url' => '/segundometro/shell', 'label' => 'Segundometro', 'icon' => 'fa-solid fa-laptop', 'bg' => 'bg-secondary', 'modulos' => [16]],

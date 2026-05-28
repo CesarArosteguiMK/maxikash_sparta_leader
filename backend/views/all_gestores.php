@@ -985,15 +985,17 @@
 
     .rrhh-id-card {
       width: min(100%, 340px);
-      height: 520px;
+      height: 542px;
       margin: 0 auto;
       border-radius: 18px;
       overflow: hidden;
-      background: #fff;
-      border: 1px solid rgba(15, 23, 42, 0.1);
+      background-size: 100% 100%;
+      background-position: center;
+      background-repeat: no-repeat;
+      border: 1px solid rgba(0, 84, 166, .14);
       box-shadow: 0 18px 40px rgba(30, 41, 59, 0.18);
       position: relative;
-      color: #0d2f5f;
+      color: #fff;
     }
 
     .rrhh-id-card::before,
@@ -1003,61 +1005,83 @@
       pointer-events: none;
     }
 
-    .rrhh-id-front::before {
-      inset: 0 0 auto 0;
-      height: 185px;
-      background: linear-gradient(135deg, #003d82 0%, #0054a6 72%);
-      clip-path: polygon(0 0, 100% 0, 100% 62%, 55% 100%, 0 72%);
-    }
-
-    .rrhh-id-front::after {
-      right: -52px;
-      bottom: -38px;
-      width: 170px;
-      height: 170px;
-      border-radius: 999px;
-      border: 28px solid rgba(199, 213, 43, 0.24);
+    .rrhh-id-front {
+      background:
+        radial-gradient(circle at 88% 16%, rgba(199, 213, 43, .38) 0 8%, transparent 9%),
+        linear-gradient(142deg, transparent 0 58%, rgba(199, 213, 43, .92) 58.2% 66%, transparent 66.2%),
+        linear-gradient(168deg, #ffffff 0 50%, #0054a6 50.2% 100%);
     }
 
     .rrhh-id-back {
       background:
-        radial-gradient(circle at 92% 10%, rgba(199, 213, 43, 0.22), transparent 34%),
-        linear-gradient(165deg, #fff 0%, #fff 58%, #f2f7fb 58%, #f2f7fb 100%);
+        radial-gradient(circle at 82% 18%, rgba(199, 213, 43, .34) 0 10%, transparent 11%),
+        linear-gradient(144deg, transparent 0 48%, rgba(199, 213, 43, .9) 48.2% 56%, transparent 56.2%),
+        linear-gradient(168deg, #0054a6 0 100%);
+    }
+
+    .rrhh-id-front::before,
+    .rrhh-id-front::after,
+    .rrhh-id-back::before {
+      display: block;
+      content: "";
+      position: absolute;
+      pointer-events: none;
+    }
+
+    .rrhh-id-front::before {
+      inset: 0 0 auto 0;
+      height: 112px;
+      background: linear-gradient(135deg, #fff 0%, #f8fbff 100%);
+    }
+
+    .rrhh-id-front::after {
+      left: -46px;
+      bottom: -58px;
+      width: 180px;
+      height: 180px;
+      border-radius: 999px;
+      border: 24px solid rgba(255, 255, 255, .16);
     }
 
     .rrhh-id-back::before {
       inset: 0 0 auto 0;
       height: 118px;
-      background: linear-gradient(135deg, #003d82 0%, #0054a6 72%);
-      clip-path: polygon(0 0, 100% 0, 100% 62%, 0 100%);
+      background: linear-gradient(135deg, #fff 0%, #eef6ff 100%);
+      clip-path: polygon(0 0, 100% 0, 100% 72%, 0 100%);
     }
 
     .rrhh-id-card-inner {
       position: relative;
       z-index: 1;
       height: 100%;
-      padding: 1.2rem;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
+      padding: 0;
+      display: block;
     }
 
     .rrhh-id-logo {
-      width: 54px;
-      height: 54px;
+      position: absolute;
+      left: 50%;
+      top: 28px;
+      width: 148px;
+      height: auto;
+      display: block;
+      transform: translateX(-50%);
       object-fit: contain;
-      filter: drop-shadow(0 5px 12px rgba(0, 0, 0, 0.14));
+      filter: none;
     }
 
     .rrhh-id-photo-wrap {
-      width: 128px;
-      height: 148px;
+      position: absolute;
+      left: 50%;
+      top: 142px;
+      width: 146px;
+      height: 176px;
+      transform: translateX(-50%);
       border-radius: 12px;
-      border: 5px solid #fff;
-      box-shadow: 0 14px 26px rgba(15, 23, 42, 0.25);
+      border: 6px solid #fff;
+      box-shadow: 0 16px 28px rgba(13, 47, 95, .22);
       background: #f8fafc;
       overflow: hidden;
-      position: relative;
       cursor: grab;
     }
 
@@ -1176,40 +1200,47 @@
     }
 
     .rrhh-id-name {
-      max-width: 100%;
-      margin-top: 1rem;
-      font-size: 1.35rem;
+      position: absolute;
+      left: 3.5%;
+      right: 3.5%;
+      top: 354px;
+      max-width: none;
+      margin: 0;
+      font-size: 1.14rem;
       line-height: 1.08;
       font-weight: 800;
       text-align: center;
       text-transform: uppercase;
-      color: #0d2f5f;
+      color: #fff;
       word-break: break-word;
+      text-shadow: 0 2px 4px rgba(0, 55, 120, .3);
     }
 
     .rrhh-id-position {
-      display: inline-flex;
+      position: absolute;
+      left: 14.1%;
+      right: 14.1%;
+      top: 417px;
+      display: flex;
       align-items: center;
       justify-content: center;
       min-height: 30px;
-      margin-top: .65rem;
-      padding: .35rem 1.15rem;
-      border-radius: 999px;
-      background: #c7d52b;
+      margin: 0;
+      padding: 0;
+      border-radius: 0;
+      background: transparent;
       color: #fff;
       font-weight: 800;
       text-transform: uppercase;
-      font-size: .78rem;
-      box-shadow: 0 8px 18px rgba(199, 213, 43, 0.28);
+      font-size: .88rem;
+      line-height: 1.1;
+      box-shadow: none;
+      text-align: center;
+      text-shadow: 0 2px 4px rgba(0, 55, 120, .3);
     }
 
     .rrhh-id-meta {
-      width: 100%;
-      margin-top: auto;
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: .65rem;
-      font-size: .82rem;
+      display: none;
     }
 
     .rrhh-id-meta:has(.rrhh-id-meta-item:nth-child(3):last-child) .rrhh-id-meta-item:nth-child(3) {
@@ -1242,13 +1273,30 @@
     }
 
     .rrhh-id-qr {
-      width: 138px;
-      height: 138px;
-      padding: 8px;
+      position: absolute;
+      left: 50%;
+      top: 188px;
+      width: 184px;
+      height: 184px;
+      padding: 13px;
+      transform: translateX(-50%);
       background: #fff;
-      border: 1px solid #dbe4ef;
-      border-radius: 10px;
-      box-shadow: 0 10px 24px rgba(15, 23, 42, 0.14);
+      border: 0;
+      border-radius: 18px;
+      box-shadow: 0 16px 30px rgba(15, 23, 42, 0.25);
+    }
+
+    .rrhh-id-qr::after {
+      content: "";
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      width: 54px;
+      height: 54px;
+      transform: translate(-50%, -50%);
+      border-radius: 12px;
+      background: #fff url('/assets/img/logo_correo.png') center / 42px 42px no-repeat;
+      box-shadow: 0 2px 8px rgba(15, 23, 42, .12);
     }
 
     .rrhh-id-qr-img {
@@ -1259,10 +1307,7 @@
     }
 
     .rrhh-id-back-list {
-      width: 100%;
-      margin-top: 1.15rem;
-      display: grid;
-      gap: .55rem;
+      display: none;
     }
 
     .rrhh-id-back-row {
@@ -1441,6 +1486,375 @@
     .rrhh-id-back.is-horizontal .rrhh-id-back-row div {
       min-width: 0;
       overflow-wrap: anywhere;
+    }
+
+    .rrhh-id-back-title {
+      display: none;
+    }
+
+    .rrhh-id-card.is-horizontal {
+      width: min(100%, 340px);
+      height: 542px;
+    }
+
+    .rrhh-id-card.is-horizontal .rrhh-id-card-inner {
+      height: 542px;
+      display: block;
+      padding: 0;
+    }
+
+    .rrhh-id-front.is-horizontal .rrhh-id-photo-wrap,
+    .rrhh-id-front.is-horizontal .rrhh-id-name,
+    .rrhh-id-front.is-horizontal .rrhh-id-position,
+    .rrhh-id-back.is-horizontal .rrhh-id-qr {
+      grid-column: auto;
+      grid-row: auto;
+      justify-self: auto;
+      align-self: auto;
+      margin: 0 !important;
+    }
+
+    .rrhh-id-front.is-horizontal .rrhh-id-photo-wrap {
+      position: absolute;
+      left: 26.75%;
+      top: 21.05%;
+      width: 46.5%;
+      height: 34.7%;
+      border-radius: 0;
+    }
+
+    .rrhh-id-front.is-horizontal .rrhh-id-name {
+      position: absolute;
+      left: 3.5%;
+      right: 3.5%;
+      top: 66.4%;
+      text-align: center;
+      font-size: 1.05rem;
+      padding-left: 0;
+    }
+
+    .rrhh-id-front.is-horizontal .rrhh-id-position {
+      position: absolute;
+      left: 14.1%;
+      right: 14.1%;
+      top: 75.1%;
+      justify-self: auto;
+    }
+
+    .rrhh-id-back.is-horizontal .rrhh-id-qr {
+      position: absolute;
+      left: 22.05%;
+      top: 38.55%;
+      width: 55.9%;
+      height: 35.05%;
+    }
+
+    /* Gafete Maxikash v2: replica visual del frente/reverso de referencia. */
+    #modalCredencialRrhh .rrhh-id-card {
+      width: min(100%, 340px) !important;
+      height: 542px !important;
+      border-radius: 0 !important;
+      overflow: hidden !important;
+      border: 0 !important;
+      box-shadow: 0 20px 42px rgba(15, 23, 42, .18) !important;
+      color: #fff !important;
+      isolation: isolate;
+    }
+
+    #modalCredencialRrhh .rrhh-id-front {
+      background:
+        radial-gradient(circle at 3px 3px, rgba(34, 193, 224, .55) 0 2.6px, transparent 3px) left -7px bottom -10px / 18px 18px repeat,
+        radial-gradient(circle at 3px 3px, rgba(20, 121, 192, .45) 0 2.6px, transparent 3px) right -8px bottom 70px / 18px 18px repeat,
+        radial-gradient(circle at 50% 0, rgba(255, 255, 255, .86) 0 78px, rgba(218, 215, 212, .9) 126px, transparent 152px),
+        linear-gradient(180deg, rgba(203, 200, 197, .95) 0 146px, transparent 147px),
+        linear-gradient(145deg, #225aa4 0%, #00abd5 100%) !important;
+    }
+
+    #modalCredencialRrhh .rrhh-id-front::before {
+      display: block !important;
+      content: "" !important;
+      position: absolute !important;
+      left: -9% !important;
+      right: -9% !important;
+      top: 132px !important;
+      height: 178px !important;
+      background: linear-gradient(145deg, #1d6db2 0%, #138fc8 100%) !important;
+      clip-path: polygon(0 0, 100% 16%, 100% 100%, 0 86%) !important;
+      transform: none !important;
+      z-index: 0 !important;
+      opacity: 1 !important;
+    }
+
+    #modalCredencialRrhh .rrhh-id-front::after {
+      display: block !important;
+      content: "" !important;
+      position: absolute !important;
+      left: -12% !important;
+      right: -12% !important;
+      top: 188px !important;
+      height: 96px !important;
+      background: #dfe84d !important;
+      clip-path: polygon(0 0, 100% 20%, 100% 78%, 0 100%) !important;
+      transform: none !important;
+      z-index: 1 !important;
+      border: 0 !important;
+      border-radius: 0 !important;
+    }
+
+    #modalCredencialRrhh .rrhh-id-back {
+      background:
+        radial-gradient(circle at 3px 3px, rgba(33, 181, 217, .55) 0 2.7px, transparent 3.2px) left -8px top -4px / 18px 18px repeat,
+        radial-gradient(circle at 3px 3px, rgba(18, 70, 160, .55) 0 2.7px, transparent 3.2px) right -8px top -4px / 18px 18px repeat,
+        linear-gradient(145deg, #16a5d6 0%, #0054a6 62%, #0d3e83 100%) !important;
+    }
+
+    #modalCredencialRrhh .rrhh-id-back::before {
+      display: block !important;
+      content: "" !important;
+      position: absolute !important;
+      left: -18% !important;
+      right: -18% !important;
+      bottom: 112px !important;
+      height: 132px !important;
+      background: #dfe84d !important;
+      transform: rotate(-8deg) !important;
+      z-index: 0 !important;
+      opacity: 1 !important;
+      clip-path: none !important;
+    }
+
+    #modalCredencialRrhh .rrhh-id-back::after {
+      display: none !important;
+    }
+
+    #modalCredencialRrhh .rrhh-id-card-inner {
+      position: relative !important;
+      z-index: 2 !important;
+      height: 100% !important;
+      display: block !important;
+      padding: 0 !important;
+    }
+
+    #modalCredencialRrhh .rrhh-id-logo {
+      display: block !important;
+      position: absolute !important;
+      left: 50% !important;
+      top: 28px !important;
+      width: 248px !important;
+      max-width: 248px !important;
+      height: auto !important;
+      transform: translateX(-50%) !important;
+      object-fit: contain !important;
+      filter:
+        drop-shadow(0 0 0 #fff)
+        drop-shadow(2px 0 0 #fff)
+        drop-shadow(-2px 0 0 #fff)
+        drop-shadow(0 2px 0 #fff)
+        drop-shadow(0 -2px 0 #fff)
+        drop-shadow(0 8px 16px rgba(15, 23, 42, .22)) !important;
+      z-index: 5 !important;
+    }
+
+    #modalCredencialRrhh .rrhh-id-back .rrhh-id-logo {
+      top: 108px !important;
+      width: 282px !important;
+      max-width: 282px !important;
+      filter:
+        drop-shadow(0 0 0 #fff)
+        drop-shadow(2px 0 0 #fff)
+        drop-shadow(-2px 0 0 #fff)
+        drop-shadow(0 2px 0 #fff)
+        drop-shadow(0 -2px 0 #fff)
+        drop-shadow(0 8px 15px rgba(0, 49, 105, .28)) !important;
+    }
+
+    #modalCredencialRrhh .rrhh-id-photo-wrap {
+      position: absolute !important;
+      left: 50% !important;
+      top: 104px !important;
+      width: 182px !important;
+      height: 212px !important;
+      transform: translateX(-50%) !important;
+      border-radius: 16px !important;
+      border: 12px solid #fff !important;
+      background: #fff !important;
+      box-shadow: 0 12px 24px rgba(15, 23, 42, .24) !important;
+      z-index: 4 !important;
+      overflow: hidden !important;
+    }
+
+    #modalCredencialRrhh .rrhh-id-photo-fallback {
+      background: #fff !important;
+      color: transparent !important;
+    }
+
+    #modalCredencialRrhh .rrhh-id-greeting {
+      position: absolute !important;
+      left: 18px !important;
+      right: 18px !important;
+      top: 336px !important;
+      color: #fff !important;
+      font-size: 1.05rem !important;
+      line-height: 1 !important;
+      font-weight: 900 !important;
+      text-align: center !important;
+      text-shadow: 0 2px 7px rgba(0, 44, 93, .35) !important;
+      z-index: 4 !important;
+    }
+
+    #modalCredencialRrhh .rrhh-id-name {
+      position: absolute !important;
+      left: 18px !important;
+      right: 18px !important;
+      top: 366px !important;
+      color: #fff !important;
+      font-size: .9rem !important;
+      line-height: 1.08 !important;
+      font-weight: 900 !important;
+      text-align: center !important;
+      text-transform: uppercase !important;
+      text-shadow: 0 2px 8px rgba(0, 44, 93, .45) !important;
+      z-index: 4 !important;
+    }
+
+    #modalCredencialRrhh .rrhh-id-position {
+      position: absolute !important;
+      left: 50px !important;
+      right: 50px !important;
+      top: 422px !important;
+      min-height: 24px !important;
+      display: flex !important;
+      align-items: center !important;
+      justify-content: center !important;
+      color: #eaf8ff !important;
+      font-size: .68rem !important;
+      line-height: 1.1 !important;
+      font-weight: 800 !important;
+      text-align: center !important;
+      text-transform: uppercase !important;
+      text-shadow: 0 2px 8px rgba(0, 44, 93, .45) !important;
+      z-index: 4 !important;
+    }
+
+    #modalCredencialRrhh .rrhh-id-footer {
+      position: absolute !important;
+      left: 0 !important;
+      right: 0 !important;
+      bottom: 38px !important;
+      color: #fff !important;
+      font-size: 1.02rem !important;
+      line-height: 1.18 !important;
+      font-weight: 800 !important;
+      text-align: center !important;
+      text-shadow: 0 2px 8px rgba(0, 44, 93, .34) !important;
+      z-index: 4 !important;
+    }
+
+    #modalCredencialRrhh .rrhh-id-back .rrhh-id-footer {
+      bottom: 38px !important;
+      font-size: 1.02rem !important;
+      z-index: 4 !important;
+    }
+
+    #modalCredencialRrhh .rrhh-id-meta,
+    #modalCredencialRrhh .rrhh-id-back-title,
+    #modalCredencialRrhh .rrhh-id-back-list {
+      display: none !important;
+    }
+
+    #modalCredencialRrhh .rrhh-id-qr {
+      position: absolute !important;
+      left: 50% !important;
+      top: 214px !important;
+      width: 190px !important;
+      height: 190px !important;
+      transform: translateX(-50%) !important;
+      padding: 14px !important;
+      background: #fff !important;
+      border-radius: 20px !important;
+      border: 0 !important;
+      box-shadow: 0 18px 32px rgba(15, 23, 42, .24) !important;
+      z-index: 3 !important;
+    }
+
+    #modalCredencialRrhh .rrhh-id-front {
+      background: url('/assets/img/rrhh/gafete_v2_frente.png') center / 100% 100% no-repeat !important;
+    }
+
+    #modalCredencialRrhh .rrhh-id-back {
+      background: url('/assets/img/rrhh/gafete_v2_reverso.png') center / 100% 100% no-repeat !important;
+    }
+
+    #modalCredencialRrhh .rrhh-id-front::before,
+    #modalCredencialRrhh .rrhh-id-front::after,
+    #modalCredencialRrhh .rrhh-id-back::before,
+    #modalCredencialRrhh .rrhh-id-back::after,
+    #modalCredencialRrhh .rrhh-id-logo,
+    #modalCredencialRrhh .rrhh-id-greeting,
+    #modalCredencialRrhh .rrhh-id-footer {
+      display: none !important;
+    }
+
+    #modalCredencialRrhh .rrhh-id-photo-wrap {
+      top: 121px !important;
+      width: 156px !important;
+      height: 182px !important;
+      border: 0 !important;
+      border-radius: 0 !important;
+      box-shadow: none !important;
+      background: transparent !important;
+    }
+
+    #modalCredencialRrhh .rrhh-id-photo-wrap::after {
+      display: none !important;
+    }
+
+    #modalCredencialRrhh .rrhh-id-photo-wrap.is-contain,
+    #modalCredencialRrhh .rrhh-id-photo-wrap.is-dragover {
+      background: transparent !important;
+      border-color: transparent !important;
+    }
+
+    #modalCredencialRrhh .rrhh-id-photo-wrap.is-contain .rrhh-id-photo {
+      background: transparent !important;
+    }
+
+    #modalCredencialRrhh .rrhh-id-photo-fallback {
+      display: none !important;
+    }
+
+    #modalCredencialRrhh .rrhh-id-photo {
+      width: 100% !important;
+      height: 100% !important;
+      border-radius: 0 !important;
+      clip-path: none !important;
+      object-fit: cover !important;
+      background: transparent !important;
+      display: block !important;
+    }
+
+    #modalCredencialRrhh .rrhh-id-photo-wrap.is-contain .rrhh-id-photo {
+      object-fit: cover !important;
+      object-position: 50% 50% !important;
+      transform: scale(1) !important;
+    }
+
+    #modalCredencialRrhh .rrhh-id-name {
+      top: 370px !important;
+      font-size: .95rem !important;
+      color: #fff !important;
+    }
+
+    #modalCredencialRrhh .rrhh-id-position {
+      top: 420px !important;
+      font-size: .68rem !important;
+      color: #fff !important;
+    }
+
+    #modalCredencialRrhh .rrhh-id-qr {
+      top: 208px !important;
+      width: 190px !important;
+      height: 190px !important;
     }
 
     #modalExpedienteRrhh .modal-dialog {
@@ -3639,6 +4053,7 @@ window.puedeEditarTodos = <?= json_encode(!empty($puedeEditarTodos ?? false)) ?>
 window.puedeGestionarPermisos = <?= json_encode(!empty($puedeGestionarPermisos ?? false)) ?>;
 window.puedeActualizarInfo = <?= json_encode(!empty($puedeActualizarInfo ?? false)) ?>;
 window.todosDepartamentosBackend = <?= json_encode(($departamento['datos'] ?? [])) ?>;
+window.catalogoCompletoDeptosBackend = <?= json_encode(($catalogoCompletoDeptos['datos'] ?? [])) ?>;
 window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
 </script>
 <div class="content-wrapper">
@@ -3655,19 +4070,45 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
             <h5 class="card-title mb-0">Filtros de búsqueda</h5>
 
             <div class="row pt-4 g-6">
-                <div class="col-md-4">
+                <div class="col-md-3">
+                    <?php
+                        $areasIniciales = [];
+                        $fuenteAreas = $catalogoCompletoDeptos['datos'] ?? ($departamento['datos'] ?? []);
+                        if (is_array($fuenteAreas)) {
+                            foreach ($fuenteAreas as $rowArea) {
+                                $nombreArea = trim((string)($rowArea['departamento_organizacional_nombre'] ?? ''));
+                                if ($nombreArea === '' || strtolower($nombreArea) === 'sin departamento') {
+                                    continue;
+                                }
+                                $areasIniciales[$nombreArea] = true;
+                            }
+                        }
+                        $areasIniciales = array_keys($areasIniciales);
+                        sort($areasIniciales, SORT_NATURAL | SORT_FLAG_CASE);
+                    ?>
+                    <select id="UserArea" class="form-select text-capitalize js-select-buscador">
+                        <option value="">Selecciona Área</option>
+                        <?php foreach ($areasIniciales as $nombreArea): ?>
+                            <option value="<?= htmlspecialchars($nombreArea, ENT_QUOTES, 'UTF-8') ?>">
+                                <?= htmlspecialchars($nombreArea, ENT_QUOTES, 'UTF-8') ?>
+                            </option>
+                        <?php endforeach; ?>
+                    </select>
+                </div>
+
+                <div class="col-md-3">
                     <select id="UserRole" class="form-select text-capitalize js-select-buscador">
                         <option value="">Selecciona Departamento</option>
                     </select>
                 </div>
 
-                <div class="col-md-4">
+                <div class="col-md-3">
                     <select id="UserPlan" class="form-select text-capitalize js-select-buscador">
                         <option value="">Selecciona Puesto</option>
                     </select>
                 </div>
 
-                <div class="col-md-4">
+                <div class="col-md-3">
                     <select id="FilterMultiplePuestos" class="form-select text-capitalize js-select-buscador">
                         <option value="">Todos los usuarios</option>
                         <option value="multiples">Múltiples puestos</option>
@@ -4313,14 +4754,8 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
               <div class="modal-body">
                 <div class="rrhh-credential-toolbar">
                   <div>
-                    <div class="fw-bold text-dark mb-1">Formato de credencial</div>
-                    <div class="small text-muted mb-2">Impresi&oacute;n preparada en tama&ntilde;o CR80.</div>
-                    <div class="btn-group" role="group" aria-label="Orientaci&oacute;n de la credencial">
-                      <input type="radio" class="btn-check" name="rrhhCredencialOrientacion" id="rrhhCredencialVertical" value="vertical" checked>
-                      <label class="btn btn-outline-primary btn-sm" for="rrhhCredencialVertical"><i class="fa fa-id-card me-1"></i>Vertical</label>
-                      <input type="radio" class="btn-check" name="rrhhCredencialOrientacion" id="rrhhCredencialHorizontal" value="horizontal">
-                      <label class="btn btn-outline-primary btn-sm" for="rrhhCredencialHorizontal"><i class="fa fa-address-card me-1"></i>Horizontal</label>
-                    </div>
+                    <div class="fw-bold text-dark mb-1">Dise&ntilde;o de credencial</div>
+                    <div class="small text-muted">Gafete Maxikash v2 vertical, preparado en tama&ntilde;o CR80.</div>
                   </div>
                   <div class="d-flex flex-wrap align-items-end gap-2">
                     <input type="file" class="d-none" id="rrhhCredencialFotoInput" accept="image/*">
@@ -5666,19 +6101,17 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
       MODAL - GESTIÓN DE PERMISOS Y PUESTOS
  ======================== -->
     <div class="modal fade" id="modalEditPerfil" tabindex="-1" aria-labelledby="modalEditPerfilLabel" aria-hidden="true" data-bs-backdrop="false" data-bs-keyboard="true">
-        <div class="modal-dialog modal-xl modal-dialog-centered modal-perfil-gestor-dialog">
+        <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable modal-perfil-gestor-dialog">
             <div class="modal-content" style="border: none; box-shadow: 0 10px 40px rgba(0,0,0,0.12);">
-                <div class="modal-header" style="background: #f8f9fa; border-bottom: 2px solid #e9ecef; padding: 1.5rem;">
+                <div class="modal-header" style="background:#0f2747;border-bottom:1px solid rgba(255,255,255,.2);padding:1rem 1.25rem;">
                     <div class="d-flex align-items-center w-100">
                         <div class="flex-grow-1">
-                            <h5 class="modal-title fw-bold mb-1" id="modalEditPerfilLabel" style="color: #2c3e50;">
-                                <i class="fa fa-user-shield me-2" style="color: #495057;"></i>Gestión de Permisos y Accesos
+                            <h5 class="modal-title fw-bold mb-1 text-white" id="modalEditPerfilLabel">
+                                <i class="fa fa-user-shield me-2 text-white"></i>Administrar puestos y módulos del usuario
                             </h5>
-                            <p class="text-muted mb-0 small" id="modalEditPerfil_subtitle">Administrar puestos y módulos del usuario</p>
+                            <p class="mb-0 small text-white-50" id="modalEditPerfil_subtitle">Nombre completo / Área / Empresa</p>
                         </div>
-                        <button type="button" class="btn btn-sm btn-outline-secondary rounded-circle p-2" data-bs-dismiss="modal" aria-label="Cerrar" style="width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; border: 2px solid #6c757d; transition: all 0.3s ease; box-shadow: 0 2px 4px rgba(108, 117, 125, 0.15);" onmouseover="this.style.backgroundColor='#6c757d'; this.querySelector('i').style.color='#fff';" onmouseout="this.style.backgroundColor='transparent'; this.querySelector('i').style.color='#6c757d';">
-                            <i class="fa fa-times" style="font-size: 1.1rem; color: #6c757d; transition: color 0.3s ease;"></i>
-                        </button>
+                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Cerrar"></button>
                     </div>
                 </div>
 
@@ -5728,19 +6161,34 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
                         <!-- TAB PUESTOS -->
                         <div class="tab-pane fade" id="tabPuestos" role="tabpanel">
                             <input type="hidden" id="edit_perfil_id">
-
-                            <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
-                                <div>
-                                    <h6 class="mb-1 fw-bold">Puestos Disponibles</h6>
-                                    <small class="text-muted">Selecciona los puestos a los que tendrá acceso este usuario</small>
+                            <div id="puestos-container" class="d-flex flex-column gap-3">
+                                <div class="d-flex gap-3 flex-wrap flex-lg-nowrap">
+                                    <aside class="border rounded bg-white p-2 flex-shrink-0" style="width:270px;max-width:100%;">
+                                        <div class="small text-muted fw-semibold mb-2">Países</div>
+                                        <div id="perfilPuestosPaisList" class="d-flex flex-column gap-1"></div>
+                                    </aside>
+                                    <section class="flex-grow-1 border rounded bg-white p-2">
+                                        <div class="d-flex flex-wrap align-items-center gap-2 mb-2">
+                                            <div class="input-group input-group-sm flex-grow-1" style="min-width:220px;">
+                                                <span class="input-group-text"><i class="fa fa-search"></i></span>
+                                                <input type="text" id="perfilPuestosBuscar" class="form-control" placeholder="Buscar puesto...">
+                                            </div>
+                                            <button type="button" class="btn btn-sm btn-outline-secondary" id="btn-puestos-expandir-todos" onclick="expandirTodosPuestos()">
+                                                <i class="fa fa-expand me-1"></i>Expandir todo
+                                            </button>
+                                            <button type="button" class="btn btn-sm btn-outline-secondary" id="btn-puestos-contraer-todos" onclick="contraerTodosPuestos()">
+                                                <i class="fa fa-compress me-1"></i>Contraer todo
+                                            </button>
+                                        </div>
+                                        <div id="perfilAccesoDirectoPaisRow" class="d-flex align-items-center justify-content-between bg-light rounded px-3 py-2 mb-2 border">
+                                            <div class="small fw-semibold text-secondary">Acceso directo al país</div>
+                                            <div class="form-check form-switch m-0">
+                                                <input class="form-check-input" type="checkbox" id="perfilAccesoDirectoPaisSwitch">
+                                            </div>
+                                        </div>
+                                        <div id="modal-edit-perfil-puestos-form" class="d-flex flex-column gap-2"></div>
+                                    </section>
                                 </div>
-                                <button type="button" class="btn btn-sm btn-outline-primary flex-shrink-0" id="btn-puestos-expandir-todos" onclick="expandirTodosPuestos()">
-                                    <i class="fa fa-expand me-1"></i>Expandir todos
-                                </button>
-                            </div>
-
-                            <div id="puestos-container" style="overflow-y: visible;">
-                                <div id="modal-edit-perfil-puestos-form"></div>
                             </div>
                         </div>
 
@@ -5807,6 +6255,16 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
                                 </div>
                             </div>
                         </div>
+                    </div>
+                </div>
+                <div class="modal-footer d-flex justify-content-between align-items-center border-top">
+                    <div class="small text-muted">
+                        Total de puestos seleccionados:
+                        <span class="fw-bold text-dark" id="perfilPuestosSeleccionadosTotal">0</span>
+                    </div>
+                    <div class="d-flex gap-2">
+                        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+                        <button type="button" class="btn text-white" onclick="guardarPermisos()" style="background:#0f2747;">Guardar cambios</button>
                     </div>
                 </div>
 
@@ -6006,6 +6464,7 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
     }).length;
 
     // Obtener filtros actuales
+    const areaSeleccionada = document.getElementById('UserArea')?.value || '';
     const departamentoSeleccionado = document.getElementById('UserRole').value;
     const puestoSeleccionado = document.getElementById('UserPlan').value;
 
@@ -6014,20 +6473,24 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
     // ==========================================
 
     // CASO 1: Sin filtros seleccionados
-    if (!departamentoSeleccionado && !puestoSeleccionado) {
+    if (!areaSeleccionada && !departamentoSeleccionado && !puestoSeleccionado) {
       // Mostrar: Departamentos, Puestos, Total de Empleados (global)
       ocultarIndicadoresRoles();
       ocultarIndicadorEmpleados();
       mostrarIndicadorTotalEmpleados(datos.length, 'Total Empleados');
     }
     // CASO 2: Solo departamento seleccionado (sin puesto)
-    else if (departamentoSeleccionado && !puestoSeleccionado) {
+    else if ((areaSeleccionada || departamentoSeleccionado) && !puestoSeleccionado) {
       // Mostrar: Departamentos, Puestos, Roles Dinámicos, Total Empleados del Departamento
       actualizarIndicadoresRoles(datos, departamentoSeleccionado);
       ocultarIndicadorEmpleados();
 
-      const empleadosDepartamento = datos.filter(p => p.nombre_departamento === departamentoSeleccionado).length;
-      mostrarIndicadorTotalEmpleados(empleadosDepartamento, 'Empleados en ' + departamentoSeleccionado);
+      if (departamentoSeleccionado) {
+        const empleadosDepartamento = datos.filter(p => p.nombre_departamento === departamentoSeleccionado).length;
+        mostrarIndicadorTotalEmpleados(empleadosDepartamento, 'Empleados en ' + departamentoSeleccionado);
+      } else {
+        mostrarIndicadorTotalEmpleados(datos.length, 'Empleados en ' + areaSeleccionada);
+      }
     }
     // CASO 3: Puesto seleccionado (con o sin departamento)
     else if (puestoSeleccionado) {
@@ -7453,6 +7916,7 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
    * ==========================================
    * LLENAR FILTROS DINÁMICAMENTE
    * ==========================================
+   * UserArea = Área
    * UserRole = Departamento
    * UserPlan = Puesto
    * Datos provenientes de: /CapHum/getUsuarios
@@ -7461,6 +7925,7 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
   // Variable global para almacenar todos los usuarios
   let usuariosData = [];
   let actualizandoFiltrosGestion = false;
+  const mapaDepartamentoAreaGestion = new Map();
 
   function normalizarValorFiltro(valor) {
     return String(valor || '')
@@ -7479,8 +7944,40 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
       id_puesto: persona.id_puesto,
       nombre_puesto: persona.nombre_puesto,
       nombre_departamento: persona.nombre_departamento,
-      id_departamento: persona.id_departamento
+      id_departamento: persona.id_departamento,
+      id_area: persona.id_area,
+      nombre_area: persona.nombre_area
     }];
+  }
+
+  function obtenerNombreAreaPorPuesto(puesto) {
+    if (!puesto) return '';
+    const nombreAreaPuesto = String(puesto.nombre_area || '').trim();
+    if (nombreAreaPuesto) return nombreAreaPuesto;
+    const idDepto = puesto.id_departamento != null ? String(puesto.id_departamento) : '';
+    if (idDepto && mapaDepartamentoAreaGestion.has(idDepto)) {
+      return mapaDepartamentoAreaGestion.get(idDepto) || '';
+    }
+    return '';
+  }
+
+  function inicializarMapaAreasGestion() {
+    mapaDepartamentoAreaGestion.clear();
+    const catalogo = Array.isArray(window.catalogoCompletoDeptosBackend) ? window.catalogoCompletoDeptosBackend : [];
+    const rows = catalogo.length > 0 ? catalogo : (Array.isArray(window.todosDepartamentosBackend) ? window.todosDepartamentosBackend : []);
+    rows.forEach(row => {
+      if (!row) return;
+      const idDepto = row.id != null ? String(row.id) : '';
+      const nombreArea = String(row.departamento_organizacional_nombre || '').trim();
+      if (!idDepto || !nombreArea || nombreArea.toLowerCase() === 'sin departamento') return;
+      mapaDepartamentoAreaGestion.set(idDepto, nombreArea);
+    });
+  }
+
+  function usuarioTieneArea(persona, area) {
+    const a = normalizarValorFiltro(area);
+    if (!a) return true;
+    return obtenerPuestosUsuario(persona).some(p => normalizarValorFiltro(obtenerNombreAreaPorPuesto(p)) === a);
   }
 
   function usuarioTieneDepartamento(persona, departamento) {
@@ -7500,7 +7997,11 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
     });
   }
 
-  function usuarioCumpleFiltrosBase(persona, departamento, puesto) {
+  function usuarioCumpleFiltrosBase(persona, area, departamento, puesto) {
+    if (!usuarioTieneArea(persona, area)) {
+      return false;
+    }
+
     if (!usuarioTieneDepartamento(persona, departamento)) {
       return false;
     }
@@ -7545,18 +8046,21 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
 
     select.value = valoresOrdenados.includes(valorActual) ? valorActual : '';
 
-    if (typeof window.jQuery !== 'undefined' && window.jQuery.fn.select2) {
+    if (typeof window.refreshSelectBuscador === 'function') {
+      window.refreshSelectBuscador(selectId);
+    } else if (typeof window.jQuery !== 'undefined' && window.jQuery.fn.select2) {
       window.jQuery(select).trigger('change.select2');
     }
 
     return select.value;
   }
 
-  function obtenerDepartamentosDisponibles(tipoPuesto, puestoSeleccionado) {
+  function obtenerDepartamentosDisponibles(tipoPuesto, puestoSeleccionado, areaSeleccionada) {
     const departamentos = new Set();
 
     usuariosData.forEach(persona => {
       if (!usuarioCumpleTipoPuesto(persona, tipoPuesto)) return;
+      if (areaSeleccionada && !usuarioTieneArea(persona, areaSeleccionada)) return;
       if (puestoSeleccionado && !usuarioTienePuesto(persona, puestoSeleccionado, '')) return;
 
       obtenerPuestosUsuario(persona).forEach(puesto => {
@@ -7569,11 +8073,64 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
     return departamentos;
   }
 
-  function obtenerPuestosDisponibles(tipoPuesto, departamentoSeleccionado) {
+  function obtenerAreasDisponibles(tipoPuesto, departamentoSeleccionado, puestoSeleccionado) {
+    const areas = new Set();
+
+    usuariosData.forEach(persona => {
+      if (!usuarioCumpleTipoPuesto(persona, tipoPuesto)) return;
+      if (departamentoSeleccionado && !usuarioTieneDepartamento(persona, departamentoSeleccionado)) return;
+      if (puestoSeleccionado && !usuarioTienePuesto(persona, puestoSeleccionado, departamentoSeleccionado || '')) return;
+
+      obtenerPuestosUsuario(persona).forEach(puesto => {
+        const nombreArea = obtenerNombreAreaPorPuesto(puesto);
+        if (nombreArea && nombreArea !== 'Sin área') {
+          areas.add(nombreArea);
+        }
+      });
+    });
+
+    return areas;
+  }
+
+  function obtenerTodasAreasDeUsuarios() {
+    const areas = new Set();
+    usuariosData.forEach(persona => {
+      obtenerPuestosUsuario(persona).forEach(puesto => {
+        const nombreArea = obtenerNombreAreaPorPuesto(puesto);
+        if (nombreArea && nombreArea !== 'Sin área') {
+          areas.add(nombreArea);
+        }
+      });
+    });
+    return areas;
+  }
+
+  function obtenerTodasAreasGlobales() {
+    const areas = new Set();
+    const rows = Array.isArray(window.catalogoCompletoDeptosBackend)
+      ? window.catalogoCompletoDeptosBackend
+      : (Array.isArray(window.todosDepartamentosBackend) ? window.todosDepartamentosBackend : []);
+
+    rows.forEach(row => {
+      if (!row) return;
+      const nombreArea = String(row.departamento_organizacional_nombre || '').trim();
+      if (nombreArea && nombreArea.toLowerCase() !== 'sin departamento') {
+        areas.add(nombreArea);
+      }
+    });
+
+    if (areas.size === 0) {
+      return obtenerTodasAreasDeUsuarios();
+    }
+    return areas;
+  }
+
+  function obtenerPuestosDisponibles(tipoPuesto, departamentoSeleccionado, areaSeleccionada) {
     const puestos = new Set();
 
     usuariosData.forEach(persona => {
       if (!usuarioCumpleTipoPuesto(persona, tipoPuesto)) return;
+      if (areaSeleccionada && !usuarioTieneArea(persona, areaSeleccionada)) return;
       if (departamentoSeleccionado && !usuarioTieneDepartamento(persona, departamentoSeleccionado)) return;
 
       obtenerPuestosUsuario(persona).forEach(puesto => {
@@ -7637,47 +8194,52 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
     if (actualizandoFiltrosGestion) return;
     actualizandoFiltrosGestion = true;
 
+    const selectArea = document.getElementById('UserArea');
     const selectDepartamento = document.getElementById('UserRole');
     const selectPuesto = document.getElementById('UserPlan');
     const selectMultiple = document.getElementById('FilterMultiplePuestos');
 
     const autoTipo = origen !== 'FilterMultiplePuestos';
     let tipoPuesto = selectMultiple?.value || '';
+    let area = selectArea?.value || '';
     let departamento = selectDepartamento?.value || '';
     let puesto = selectPuesto?.value || '';
 
+    // Área queda fija desde el HTML (backend) para evitar conflictos con Select2.
+    area = selectArea?.value || '';
+
     departamento = actualizarOpcionesSelectFiltro(
       'UserRole',
-      obtenerDepartamentosDisponibles(tipoPuesto, puesto),
+      obtenerDepartamentosDisponibles(tipoPuesto, puesto, area),
       'Selecciona Departamento'
     );
 
     puesto = actualizarOpcionesSelectFiltro(
       'UserPlan',
-      obtenerPuestosDisponibles(tipoPuesto, departamento),
+      obtenerPuestosDisponibles(tipoPuesto, departamento, area),
       'Selecciona Puesto'
     );
 
     const datosBase = usuariosData.filter(persona =>
-      usuarioCumpleFiltrosBase(persona, departamento, puesto)
+      usuarioCumpleFiltrosBase(persona, area, departamento, puesto)
     );
     tipoPuesto = actualizarFiltroMultiplePuestos(datosBase, autoTipo);
 
     if (autoTipo) {
       departamento = actualizarOpcionesSelectFiltro(
         'UserRole',
-        obtenerDepartamentosDisponibles(tipoPuesto, puesto),
+        obtenerDepartamentosDisponibles(tipoPuesto, puesto, area),
         'Selecciona Departamento'
       );
 
       actualizarOpcionesSelectFiltro(
         'UserPlan',
-        obtenerPuestosDisponibles(tipoPuesto, departamento),
+        obtenerPuestosDisponibles(tipoPuesto, departamento, area),
         'Selecciona Puesto'
       );
     }
 
-    ['UserRole', 'UserPlan', 'FilterMultiplePuestos'].forEach(id => {
+    ['UserArea', 'UserRole', 'UserPlan', 'FilterMultiplePuestos'].forEach(id => {
       const filtro = document.getElementById(id);
       if (filtro) aplicarFeedbackVisualFiltro(filtro);
     });
@@ -7695,7 +8257,7 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
   }
 
   function vincularEventosFiltrosGestion() {
-    const filtros = ['UserRole', 'UserPlan', 'FilterMultiplePuestos'];
+    const filtros = ['UserArea', 'UserRole', 'UserPlan', 'FilterMultiplePuestos'];
 
     filtros.forEach(id => {
       const filtro = document.getElementById(id);
@@ -7732,7 +8294,9 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
             id_puesto: usuario.id_puesto,
             nombre_puesto: usuario.nombre_puesto,
             nombre_departamento: usuario.nombre_departamento,
-            id_departamento: usuario.id_departamento
+            id_departamento: usuario.id_departamento,
+            id_area: usuario.id_area,
+            nombre_area: usuario.nombre_area
           }],
           // Guardar el nombre del puesto y departamento originales para compatibilidad
           nombre_puesto_principal: usuario.nombre_puesto,
@@ -7751,7 +8315,9 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
             id_puesto: usuario.id_puesto,
             nombre_puesto: usuario.nombre_puesto,
             nombre_departamento: usuario.nombre_departamento,
-            id_departamento: usuario.id_departamento
+            id_departamento: usuario.id_departamento,
+            id_area: usuario.id_area,
+            nombre_area: usuario.nombre_area
           });
         }
       }
@@ -7777,6 +8343,7 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
         // Guardar los datos consolidados globalmente
         usuariosData = usuariosConsolidados;
         window.usuariosData = usuariosConsolidados;
+        inicializarMapaAreasGestion();
 
         // Pintar la primera carga con el mismo renderer compacto que usan los filtros.
         actualizarTabla(usuariosConsolidados);
@@ -7785,6 +8352,7 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
         // ACTUALIZAR INDICADORES (KPIs)
         // ==========================================
         actualizarIndicadores(usuariosConsolidados);
+        const areas = obtenerTodasAreasGlobales();
         const departamentos = new Set();
         const puestos = new Set();
         const estatus = new Set();
@@ -7792,7 +8360,7 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
         // CONJUNTOS para almacenar valores únicos (evita duplicados)
 
         // Iterar los datos y extraer valores únicos
-        resp.datos.forEach(persona => {
+        usuariosConsolidados.forEach(persona => {
           // DEPARTAMENTO
           if (persona.nombre_departamento && persona.nombre_departamento !== 'Sin departamento') {
             departamentos.add(persona.nombre_departamento);
@@ -7812,6 +8380,8 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
         //  FORZAR "Inactivo" en los estatus
 
         estatus.add('Activo');
+
+        // Área se mantiene desde backend (HTML inicial) para no romper Select2.
 
         // ==========================================
         // LLENAR SELECT DEPARTAMENTO (UserRole)
@@ -7904,6 +8474,7 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
         actualizarOpcionesFiltrosGestion('init');
 
         if (typeof window.refreshSelectBuscador === 'function') {
+          window.refreshSelectBuscador('UserArea');
           window.refreshSelectBuscador('UserRole');
           window.refreshSelectBuscador('UserPlan');
           window.refreshSelectBuscador('FilterMultiplePuestos');
@@ -8083,12 +8654,13 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
    */
   function aplicarFiltros() {
     // Obtener valores seleccionados
+    const areaSeleccionada = document.getElementById('UserArea')?.value || '';
     const departamentoSeleccionado = document.getElementById('UserRole')?.value || '';
     const puestoSeleccionado = document.getElementById('UserPlan')?.value || '';
     let multiplePuestosSeleccionado = document.getElementById('FilterMultiplePuestos')?.value || '';
 
       const datosBase = usuariosData.filter(persona =>
-        usuarioCumpleFiltrosBase(persona, departamentoSeleccionado, puestoSeleccionado)
+        usuarioCumpleFiltrosBase(persona, areaSeleccionada, departamentoSeleccionado, puestoSeleccionado)
       );
 
     // Filtrar datos
@@ -8397,7 +8969,7 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
    * ==========================================
    */
   function inicializarFeedbackFiltros() {
-    const filtros = ['UserRole', 'UserPlan', 'FilterMultiplePuestos'];
+    const filtros = ['UserArea', 'UserRole', 'UserPlan', 'FilterMultiplePuestos'];
     filtros.forEach(id => {
       const filtro = document.getElementById(id);
       if (filtro && filtro.value) {
@@ -8642,7 +9214,9 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
         id_puesto: usuario.id_puesto,
         nombre_puesto: usuario.nombre_puesto || 'Sin puesto',
         nombre_departamento: usuario.nombre_departamento || 'Sin departamento',
-        id_departamento: usuario.id_departamento
+        id_departamento: usuario.id_departamento,
+        id_area: usuario.id_area,
+        nombre_area: usuario.nombre_area
       }] : [];
     }
     mostrarAlertaMultiplesPuestos(puestosUsuarioActual.length > 1);
@@ -9333,6 +9907,7 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
    */
   function descargarPlantillaGestores() {
     // Obtener filtros activos
+    const area = document.getElementById('UserArea').value || '';
     const departamento = document.getElementById('UserRole').value || '';
     const puesto = document.getElementById('UserPlan').value || '';
 
@@ -9340,6 +9915,7 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
     let mensajeFiltros = 'Se descargará un archivo Excel con ';
     let detallesFiltros = [];
 
+    if (area) detallesFiltros.push(`Área: <strong>${area}</strong>`);
     if (departamento) detallesFiltros.push(`Departamento: <strong>${departamento}</strong>`);
     if (puesto) detallesFiltros.push(`Puesto: <strong>${puesto}</strong>`);
 
@@ -9669,7 +10245,7 @@ function ocultarBloquesDomicilio(prefix) {
         if (selectId.indexOf('add_') === 0) return '#offcanvasAddUser';
         if (selectId.indexOf('rrhh_') === 0) return '#modalAgregarUsuarioRrhh';
         if (selectId === 'bajaSustitutoId') return '#modalBajas';
-        if (selectId === 'UserRole' || selectId === 'UserPlan' || selectId === 'FilterMultiplePuestos') {
+        if (selectId === 'UserArea' || selectId === 'UserRole' || selectId === 'UserPlan' || selectId === 'FilterMultiplePuestos') {
             return null;
         }
         return '#offcanvasEditUser';
@@ -10776,7 +11352,7 @@ function precargarCascadaEdit(idPais, idEstado, idMunicipio, idColonia, idCalle,
   const frameEditorFotoCredencialRrhh = document.getElementById('rrhhCredencialFotoEditorFrame');
   const btnEditorFotoCompletaCredencialRrhh = document.getElementById('btnEditorFotoCompletaCredencialRrhh');
   const btnAplicarAjusteFotoCredencialRrhh = document.getElementById('btnAplicarAjusteFotoCredencialRrhh');
-  const logoCredencialRrhh = '/assets/img/logo_correo.png';
+  const logoCredencialRrhh = '/assets/img/logo_nombre.svg';
   const logoExpedienteRrhh = '/assets/img/logo_correo.png';
   const firmasExpedienteRrhh = {};
   let abriendoExpedienteRrhh = false;
@@ -11553,10 +12129,10 @@ function precargarCascadaEdit(idPais, idEstado, idMunicipio, idColonia, idCalle,
   function fotoCredencialHtml(usuario, nombre) {
     const foto = String(fotoTemporalCredencialRrhh || usuario?.foto_perfil || '').trim();
     const fallback = `<span class="rrhh-id-photo-fallback"${foto ? ' style="display:none;"' : ''}>${escapeRrhhHtml(inicialesCredencial(nombre))}</span>`;
-    const fitSeguro = fotoFitCredencialRrhh === 'cover' ? 'cover' : 'contain';
-    const posX = fitSeguro === 'contain' ? 50 : fotoPosXCredencialRrhh;
-    const posY = fitSeguro === 'contain' ? 50 : fotoPosYCredencialRrhh;
-    const scale = fitSeguro === 'contain' ? 1 : fotoScaleCredencialRrhh;
+    const fitSeguro = 'cover';
+    const posX = fotoPosXCredencialRrhh;
+    const posY = fotoPosYCredencialRrhh;
+    const scale = fotoScaleCredencialRrhh;
     const img = foto
       ? `<img class="rrhh-id-photo" src="${escapeRrhhAttr(foto)}" alt="Foto de ${escapeRrhhAttr(nombre)}" style="object-fit:${escapeRrhhAttr(fitSeguro)}; object-position:${posX}% ${posY}%; transform:scale(${scale});" draggable="false" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">`
       : '';
@@ -11564,7 +12140,7 @@ function precargarCascadaEdit(idPais, idEstado, idMunicipio, idColonia, idCalle,
   }
 
   function claseFotoCredencialWrap() {
-    return fotoFitCredencialRrhh === 'cover' ? 'is-cover' : 'is-contain';
+    return 'is-cover';
   }
 
   function fotoCredencialSrcActual(usuario = obtenerUsuarioActualRrhh()) {
@@ -12024,8 +12600,10 @@ function precargarCascadaEdit(idPais, idEstado, idMunicipio, idColonia, idCalle,
         <div class="rrhh-id-card-inner">
           <img class="rrhh-id-logo mt-1 mb-4" src="${logoCredencialRrhh}" alt="Maxikash">
           <div class="rrhh-id-photo-wrap ${claseFotoCredencialWrap()} mt-4">${fotoCredencialHtml(usuario, nombre)}</div>
+          <div class="rrhh-id-greeting">&iexcl;Hola! yo soy:</div>
           <div class="rrhh-id-name">${escapeRrhhHtml(nombre)}</div>
           <div class="rrhh-id-position">${escapeRrhhHtml(puestoGeneral)}</div>
+          <div class="rrhh-id-footer">@__SPARTA_SECRET_REDACTED__<br>www.__SPARTA_SECRET_REDACTED__.mx</div>
           <div class="rrhh-id-meta mt-4">
             ${datoCredencial('RFC', rfc)}
             ${datoCredencial('Puesto', puestoGeneral)}
@@ -12040,6 +12618,7 @@ function precargarCascadaEdit(idPais, idEstado, idMunicipio, idColonia, idCalle,
         <div class="rrhh-id-card-inner">
           <img class="rrhh-id-logo mt-1 mb-5" src="${logoCredencialRrhh}" alt="Maxikash">
           ${qrCredencialHtml(qrSeed)}
+          <div class="rrhh-id-footer">@__SPARTA_SECRET_REDACTED__<br>www.__SPARTA_SECRET_REDACTED__.mx</div>
           <div class="rrhh-id-back-title fw-bold text-uppercase text-center mt-3">Validaci&oacute;n interna</div>
           <div class="rrhh-id-back-list">
             ${datoReversoCredencial('fa-id-badge', 'ID interno', idPersona)}
@@ -12447,7 +13026,7 @@ function precargarCascadaEdit(idPais, idEstado, idMunicipio, idColonia, idCalle,
 
   function aplicarPosicionFotoCredencial() {
     modalCredencialRrhh?.querySelectorAll('.rrhh-id-photo').forEach(img => {
-      img.style.objectFit = fotoFitCredencialRrhh;
+      img.style.objectFit = 'cover';
       img.style.objectPosition = `${fotoPosXCredencialRrhh}% ${fotoPosYCredencialRrhh}%`;
       img.style.transform = `scale(${fotoScaleCredencialRrhh})`;
     });

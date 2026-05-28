@@ -1957,15 +1957,24 @@ $aevPuedeReemplazarEvidencia = in_array(79, array_map('intval', (array) ($_SESSI
                     throw new Error(data.message || 'Error al cargar');
                 }
 
-                const n = data.datos.length;
+                const datos = Array.isArray(data.datos) ? data.datos.slice() : [];
+                if (key === 'aprobados') {
+                    datos.sort(function (a, b) {
+                        const fa = Date.parse(String(a.fecha_aprobacion_evidencias_orden || '').replace(' ', 'T')) || 0;
+                        const fb = Date.parse(String(b.fecha_aprobacion_evidencias_orden || '').replace(' ', 'T')) || 0;
+                        return fb - fa;
+                    });
+                }
+
+                const n = datos.length;
                 aeSetBadgeTab(key, n);
                 _aeCargada[key] = true;
 
                 if (n === 0) {
                     lista.innerHTML = aeSinDatos(cfg.vacio);
                 } else {
-                    lista.innerHTML = data.datos.map(d => aeRenderCard(d, key)).join('');
-                    aevPrecargarBandejaVisible(data.datos);
+                    lista.innerHTML = datos.map(d => aeRenderCard(d, key)).join('');
+                    aevPrecargarBandejaVisible(datos);
                 }
             })
             .catch(err => {

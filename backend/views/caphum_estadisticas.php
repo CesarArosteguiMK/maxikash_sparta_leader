@@ -40,20 +40,41 @@ if (isset($chEstRangoIni, $chEstRangoFin) && is_string($chEstRangoIni) && is_str
                 </h4>
                 <p id="chEstRangoFechas" class="text-muted mb-0 small">—</p>
             </div>
-            <div class="ch-est-fp-rango" style="max-width: 28rem; width: 100%;">
-                <label for="flatpickr-range-ch-est" class="form-label small text-muted mb-0">
+            <div class="ch-est-fp-rango p-1 p-md-0" style="max-width: 34rem; width: 100%;">
+                <label for="flatpickr-range-ch-est" class="form-label text-muted mb-1 fw-semibold" style="font-size:.82rem;">
                     <i class="fa fa-calendar-alt me-1" aria-hidden="true"></i>Periodo (rango de fechas)
                 </label>
                 <div class="d-flex flex-wrap align-items-center gap-2">
                     <input type="text" id="flatpickr-range-ch-est" readonly
-                        class="form-control form-control-sm flex-grow-1 ch-est-fp-input"
-                        style="min-width: 12rem; max-width: 19.5rem; cursor: pointer; user-select: none;"
+                        class="form-control flex-grow-1 ch-est-fp-input shadow-none"
+                        style="min-width: 13rem; max-width: 22rem; cursor: pointer; user-select: none; min-height: 2.35rem;"
                         placeholder="Selecciona inicio y fin" autocomplete="off"
                         title="No se pueden elegir fechas posteriores a hoy." />
-                    <button type="button" class="btn btn-outline-secondary btn-sm flex-shrink-0" id="btnChEstRestablecerPeriodo"
+                    <button type="button" class="btn btn-outline-secondary flex-shrink-0 px-3" id="btnChEstRestablecerPeriodo"
+                        style="min-height: 2.35rem;"
                         title="Volver al periodo por defecto: lunes de esta semana hasta hoy">
                         Restablecer
                     </button>
+                </div>
+                <div class="row g-2 mt-2">
+                    <div class="col-12 col-md-4">
+                        <label for="chEstFiltroArea" class="form-label text-muted mb-1 fw-semibold" style="font-size:.8rem;">Área</label>
+                        <select id="chEstFiltroArea" class="form-select shadow-none" style="min-height: 2.35rem;">
+                            <option value="">Todas las áreas</option>
+                        </select>
+                    </div>
+                    <div class="col-12 col-md-4 d-none" id="chEstWrapFiltroDepto">
+                        <label for="chEstFiltroDepartamento" class="form-label text-muted mb-1 fw-semibold" style="font-size:.8rem;">Departamento</label>
+                        <select id="chEstFiltroDepartamento" class="form-select shadow-none" style="min-height: 2.35rem;">
+                            <option value="">Todos los departamentos</option>
+                        </select>
+                    </div>
+                    <div class="col-12 col-md-4 d-none" id="chEstWrapFiltroPuesto">
+                        <label for="chEstFiltroPuesto" class="form-label text-muted mb-1 fw-semibold" style="font-size:.8rem;">Puesto</label>
+                        <select id="chEstFiltroPuesto" class="form-select shadow-none" style="min-height: 2.35rem;">
+                            <option value="">Todos los puestos</option>
+                        </select>
+                    </div>
                 </div>
             </div>
         </div>
@@ -97,29 +118,36 @@ if (isset($chEstRangoIni, $chEstRangoFin) && is_string($chEstRangoIni) && is_str
                 <div class="card h-100 shadow-sm">
                     <div class="card-body py-2 d-flex flex-column">
                         <div class="d-flex align-items-start gap-1 mb-2">
-                            <span class="badge rounded-pill bg-label-warning text-warning fw-bold py-2 px-2 flex-grow-1 text-center lh-sm min-w-0" style="font-size:.88rem;letter-spacing:.06em;line-height:1.25;white-space:normal">Deptos · Puestos</span>
+                            <span class="badge rounded-pill bg-label-warning text-warning fw-bold py-2 px-2 flex-grow-1 text-center lh-sm min-w-0" style="font-size:.82rem;letter-spacing:.04em;line-height:1.2;white-space:normal">Estructura</span>
                             <button type="button" class="btn btn-link btn-sm text-muted p-0 lh-1 flex-shrink-0 align-self-center text-decoration-none" data-bs-toggle="tooltip" data-bs-placement="left" data-ch-est-tip="1"
-                                title="Conteos influenciados por el rango: se toman empleados activos con fecha de ingreso dentro del período seleccionado. Índice deptos: total departamentos ÷ empleados activos (×100). Índice puestos: total puestos únicos ÷ empleados activos (×100)."
-                                aria-label="Ayuda: índices departamentos y puestos">
+                                title="Conteos influenciados por el rango: se toman empleados activos al cierre del período seleccionado. Índice áreas: total áreas ÷ empleados activos (×100). Índice departamentos: total departamentos ÷ empleados activos (×100). Índice puestos: total puestos únicos ÷ empleados activos (×100)."
+                                aria-label="Ayuda: índices áreas, departamentos y puestos">
                                 <i class="fa fa-info-circle" aria-hidden="true"></i>
                             </button>
                         </div>
                         <div class="ch-kpi-period-badge mb-2 text-start align-self-start w-100" style="font-size:.62rem;font-weight:700;letter-spacing:.04em;color:var(--bs-secondary-color);line-height:1.25">—</div>
                         <div class="row g-1 flex-grow-1 align-items-center">
-                            <div class="col-6 text-center border-end">
-                                <div class="small text-muted mb-1">Total departamentos</div>
-                                <div id="chKpiDeptos" class="fs-4 fw-bold text-body">0</div>
+                            <div class="col-4 text-center border-end">
+                                <div class="small text-muted mb-1 fw-semibold" style="font-size:.72rem;">Áreas</div>
+                                <div id="chKpiAreas" class="fw-bold text-body" style="font-size:1.8rem;line-height:1;">0</div>
                             </div>
-                            <div class="col-6 text-center">
-                                <div class="small text-muted mb-1">Total puestos</div>
-                                <div id="chKpiPuestos" class="fs-4 fw-bold text-body">0</div>
+                            <div class="col-4 text-center border-end">
+                                <div class="small text-muted mb-1 fw-semibold" style="font-size:.72rem;">Deptos</div>
+                                <div id="chKpiDeptos" class="fw-bold text-body" style="font-size:1.8rem;line-height:1;">0</div>
+                            </div>
+                            <div class="col-4 text-center">
+                                <div class="small text-muted mb-1 fw-semibold" style="font-size:.72rem;">Puestos</div>
+                                <div id="chKpiPuestos" class="fw-bold text-body" style="font-size:1.8rem;line-height:1;">0</div>
                             </div>
                         </div>
                         <div class="row gx-1 mt-auto pt-2">
-                            <div class="col-6 text-center">
+                            <div class="col-4 text-center">
+                                <span class="badge rounded-pill bg-label-secondary text-secondary" id="chKpiAreasPctBadge">—</span>
+                            </div>
+                            <div class="col-4 text-center">
                                 <span class="badge rounded-pill bg-label-secondary text-secondary" id="chKpiDeptosPctBadge">—</span>
                             </div>
-                            <div class="col-6 text-center">
+                            <div class="col-4 text-center">
                                 <span class="badge rounded-pill bg-label-secondary text-secondary" id="chKpiPuestosPctBadge">—</span>
                             </div>
                         </div>
@@ -334,6 +362,7 @@ if (isset($chEstRangoIni, $chEstRangoFin) && is_string($chEstRangoIni) && is_str
     var chEstRangoIniDefault = <?php echo json_encode($chEstRangoIni, JSON_UNESCAPED_UNICODE); ?>;
     var chEstRangoFinDefault = <?php echo json_encode($chEstRangoFin, JSON_UNESCAPED_UNICODE); ?>;
     var chEstRango = { inicio: chEstRangoIniDefault, fin: chEstRangoFinDefault };
+    var chEstFiltroEstructura = { id_area: '', id_departamento: '', id_puesto: '' };
     var datosIni = <?php echo $datosInicialesJson; ?>;
 
     var ST_BADGE_VERDE = 'background: #d4f5e7; color: #0d5c3a; font-size: 11px; font-weight: 700; padding: 3px 10px; border-radius: 10px; display: inline-block;';
@@ -383,7 +412,10 @@ if (isset($chEstRangoIni, $chEstRangoFin) && is_string($chEstRangoIni) && is_str
             fecha_fin: chEstRango.fin,
             anio: y,
             mes: m,
-            semana: 0
+            semana: 0,
+            id_area: chEstFiltroEstructura.id_area ? parseInt(chEstFiltroEstructura.id_area, 10) : null,
+            id_departamento: chEstFiltroEstructura.id_departamento ? parseInt(chEstFiltroEstructura.id_departamento, 10) : null,
+            id_puesto: chEstFiltroEstructura.id_puesto ? parseInt(chEstFiltroEstructura.id_puesto, 10) : null
         };
     }
 
@@ -513,6 +545,68 @@ if (isset($chEstRangoIni, $chEstRangoFin) && is_string($chEstRangoIni) && is_str
     function setText(id, txt) {
         var el = document.getElementById(id);
         if (el) el.textContent = txt;
+    }
+
+    function chEstSetSelectOptions(selectId, rows, placeholder) {
+        var el = document.getElementById(selectId);
+        if (!el) return;
+        var html = '<option value="">' + (placeholder || 'Todos') + '</option>';
+        (rows || []).forEach(function (r) {
+            var id = (r && r.id != null) ? String(r.id) : '';
+            var nombre = (r && r.nombre != null) ? String(r.nombre) : '';
+            if (!id) return;
+            html += '<option value="' + chEscHtml(id) + '">' + chEscHtml(nombre || ('#' + id)) + '</option>';
+        });
+        el.innerHTML = html;
+    }
+
+    function chEstToggleFiltroWrap(id, show) {
+        var el = document.getElementById(id);
+        if (!el) return;
+        if (show) el.classList.remove('d-none');
+        else el.classList.add('d-none');
+    }
+
+    function chEstCargarFiltrosEstructura(opts) {
+        opts = opts || {};
+        var payload = {
+            id_area: opts.id_area != null && opts.id_area !== '' ? parseInt(String(opts.id_area), 10) : null,
+            id_departamento: opts.id_departamento != null && opts.id_departamento !== '' ? parseInt(String(opts.id_departamento), 10) : null
+        };
+        return fetch('/caphum/getEstadisticasFiltrosEstructura', {
+            method: 'POST',
+            credentials: 'same-origin',
+            headers: { 'Content-Type': 'application/json', 'Front-Request': 'true' },
+            body: JSON.stringify(payload)
+        })
+            .then(function (r) { return r.json(); })
+            .then(function (resp) {
+                if (!resp || !resp.success || !resp.datos) return;
+                var data = resp.datos;
+                chEstSetSelectOptions('chEstFiltroArea', data.areas || [], 'Todas las áreas');
+                if (payload.id_area) {
+                    chEstSetSelectOptions('chEstFiltroDepartamento', data.departamentos || [], 'Todos los departamentos');
+                    chEstToggleFiltroWrap('chEstWrapFiltroDepto', true);
+                } else {
+                    chEstSetSelectOptions('chEstFiltroDepartamento', [], 'Todos los departamentos');
+                    chEstToggleFiltroWrap('chEstWrapFiltroDepto', false);
+                }
+                if (payload.id_departamento) {
+                    chEstSetSelectOptions('chEstFiltroPuesto', data.puestos || [], 'Todos los puestos');
+                    chEstToggleFiltroWrap('chEstWrapFiltroPuesto', true);
+                } else {
+                    chEstSetSelectOptions('chEstFiltroPuesto', [], 'Todos los puestos');
+                    chEstToggleFiltroWrap('chEstWrapFiltroPuesto', false);
+                }
+
+                var selArea = document.getElementById('chEstFiltroArea');
+                var selDep = document.getElementById('chEstFiltroDepartamento');
+                var selPue = document.getElementById('chEstFiltroPuesto');
+                if (selArea) selArea.value = chEstFiltroEstructura.id_area || '';
+                if (selDep) selDep.value = chEstFiltroEstructura.id_departamento || '';
+                if (selPue) selPue.value = chEstFiltroEstructura.id_puesto || '';
+            })
+            .catch(function () { /* ignorar errores de carga de filtros */ });
     }
 
     /** Evita mostrar fechas/cifras de un filtro anterior mientras llega la respuesta o si falla la petición. */
@@ -1242,12 +1336,16 @@ if (isset($chEstRangoIni, $chEstRangoFin) && is_string($chEstRangoIni) && is_str
         var elBjPct = document.getElementById('chKpiBajasPctBadge');
         if (elBjPct) elBjPct.textContent = totEmp > 0 ? (Math.round((bjEmp / totEmp) * 100) + '%') : '—';
 
+        setText('chKpiAreas', String(d.total_areas ?? 0));
         setText('chKpiDeptos', String(d.total_departamentos ?? 0));
         setText('chKpiPuestos', String(d.puestos_unicos ?? 0));
         var nd = n(d.total_departamentos);
+        var na = n(d.total_areas);
         var np = n(d.puestos_unicos);
         var elDpb = document.getElementById('chKpiDeptosPctBadge');
+        var elApb = document.getElementById('chKpiAreasPctBadge');
         var elPpb = document.getElementById('chKpiPuestosPctBadge');
+        if (elApb) elApb.textContent = actEmp > 0 ? (Math.round((na / actEmp) * 1000) / 10).toFixed(1).replace(/\.0$/, '') + '%' : '—';
         if (elDpb) elDpb.textContent = actEmp > 0 ? (Math.round((nd / actEmp) * 1000) / 10).toFixed(1).replace(/\.0$/, '') + '%' : '—';
         if (elPpb) elPpb.textContent = actEmp > 0 ? (Math.round((np / actEmp) * 1000) / 10).toFixed(1).replace(/\.0$/, '') + '%' : '—';
         var rangoCorto = (d.fecha_ini && d.fecha_fin) ? (String(d.fecha_ini) + ' → ' + String(d.fecha_fin)) : '—';
@@ -1410,6 +1508,35 @@ if (isset($chEstRangoIni, $chEstRangoFin) && is_string($chEstRangoIni) && is_str
             chEstRestaurarPeriodoPorDefecto();
         });
     }
+
+    var selArea = document.getElementById('chEstFiltroArea');
+    var selDepartamento = document.getElementById('chEstFiltroDepartamento');
+    var selPuesto = document.getElementById('chEstFiltroPuesto');
+    if (selArea) {
+        selArea.addEventListener('change', function () {
+            chEstFiltroEstructura.id_area = this.value || '';
+            chEstFiltroEstructura.id_departamento = '';
+            chEstFiltroEstructura.id_puesto = '';
+            chEstCargarFiltrosEstructura({ id_area: chEstFiltroEstructura.id_area, id_departamento: null }).then(refrescar);
+        });
+    }
+    if (selDepartamento) {
+        selDepartamento.addEventListener('change', function () {
+            chEstFiltroEstructura.id_departamento = this.value || '';
+            chEstFiltroEstructura.id_puesto = '';
+            chEstCargarFiltrosEstructura({
+                id_area: chEstFiltroEstructura.id_area,
+                id_departamento: chEstFiltroEstructura.id_departamento
+            }).then(refrescar);
+        });
+    }
+    if (selPuesto) {
+        selPuesto.addEventListener('change', function () {
+            chEstFiltroEstructura.id_puesto = this.value || '';
+            refrescar();
+        });
+    }
+    chEstCargarFiltrosEstructura({ id_area: null, id_departamento: null });
 
     document.querySelectorAll('input[name="chMovDetChartTipo"]').forEach(function (radio) {
         radio.addEventListener('change', function () {

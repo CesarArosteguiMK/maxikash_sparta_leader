@@ -4,6 +4,7 @@ namespace Controllers;
 
 use Core\Controller;
 use Models\TrackingRecoleccion as TrackingModel;
+use Models\ConfigMotosAdj;
 
 class TrackingRecoleccion extends Controller
 {
@@ -17,6 +18,7 @@ class TrackingRecoleccion extends Controller
         if (defined('GOOGLE_MAPS_API_KEY')) {
             self::set('google_maps_api_key_js', GOOGLE_MAPS_API_KEY);
         }
+        self::set('tracking_dias_minimos_programacion', ConfigMotosAdj::obtenerDiasMinimosRuta());
         // Chat Operativo — pasar URL base de WebSocket al frontend (no se expone la API key)
         $trkCfg = $this->_trkChatConfig();
         if ($trkCfg['base_url'] !== '') {
@@ -25,6 +27,11 @@ class TrackingRecoleccion extends Controller
             self::set('tracking_api_base_url', rtrim($trkCfg['base_url'], '/'));
         }
         return self::render('tracking_recoleccion');
+    }
+
+    public function rutas()
+    {
+        return $this->index();
     }
 
     // =========================================================================
@@ -560,7 +567,7 @@ class TrackingRecoleccion extends Controller
             $model = new TrackingModel();
             self::respuestaJSON(self::respuesta(true, null, $model->obtenerCatalogoAgenciasTransportistas()));
         } catch (\Throwable $e) {
-            self::respuestaJSON(self::respuesta(false, 'Error al obtener agencias y transportistas.', null, $e->getMessage()));
+            self::respuestaJSON(self::respuesta(false, 'Error al obtener CEDIS y transportistas.', null, $e->getMessage()));
         }
     }
 
@@ -593,7 +600,7 @@ class TrackingRecoleccion extends Controller
     /**
      * POST /TrackingRecoleccion/guardarRuta
      * Body JSON: { nombre_ruta, estado, municipio, fecha_programada, modo,
-     *              tipo_transportista, id_transportista, id_agencia_tracking, creditos:[], id_ruta? }
+     *              tipo_transportista, id_transportista, id_agencia_tracking, id_cedis_destino, creditos:[], id_ruta? }
      */
     public function guardarRuta()
     {
