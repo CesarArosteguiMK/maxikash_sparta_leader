@@ -76,6 +76,11 @@ body.dark-mode .track-filters { background: #1e2d2c; }
     gap: .5rem;
     flex-wrap: wrap;
 }
+.trk-rutas-search {
+    flex: 1 1 260px;
+    max-width: 360px;
+    min-width: 220px;
+}
 .trk-rutas-filter {
     display: inline-flex;
     align-items: center;
@@ -246,8 +251,13 @@ body.dark-mode .trk-rutas-filter {
     border-color: #334155;
     color: #cbd5e1;
 }
+body.dark-mode #tabBorradores .card-header {
+    background: #1f2933 !important;
+    border-color: #334155;
+}
 @media (max-width: 767.98px) {
     .trk-rutas-toolbar { align-items: stretch; flex-direction: column; }
+    .trk-rutas-search { max-width: none; min-width: 0; }
     .trk-rutas-summary { gap: .4rem; }
     .trk-rutas-filter { flex: 1 1 auto; justify-content: center; }
     .trk-rutas-grid { grid-template-columns: 1fr; }
@@ -1353,6 +1363,17 @@ body.dark-mode .chat-send-btn:disabled { background: #2d4444; }
         <!-- ══ Tab: Borradores ══ -->
         <div class="tab-pane fade" id="tabBorradores">
             <div class="card border-0 shadow-sm">
+                <div class="card-header bg-white py-2">
+                    <div class="row g-2 align-items-center">
+                        <div class="col-12 col-md-5 col-lg-4 ms-auto">
+                            <div class="input-group input-group-sm">
+                                <span class="input-group-text"><i class="fa-solid fa-search"></i></span>
+                                <input type="search" class="form-control" id="trkBuscarBorradores"
+                                       placeholder="Buscar borrador..." autocomplete="off">
+                            </div>
+                        </div>
+                    </div>
+                </div>
                 <div class="card-body p-0">
                     <div class="table-responsive">
                         <table id="tablaBorradores" class="table table-hover table-bordered mb-0 w-100" style="font-size:.82rem;">
@@ -1382,6 +1403,13 @@ body.dark-mode .chat-send-btn:disabled { background: #2d4444; }
                     <div>
                         <div class="fw-semibold" style="font-size:.92rem;">Rutas registradas</div>
                         <div class="text-muted small">Seguimiento operativo por estatus, transportista y avance.</div>
+                    </div>
+                    <div class="trk-rutas-search">
+                        <div class="input-group input-group-sm">
+                            <span class="input-group-text"><i class="fa-solid fa-search"></i></span>
+                            <input type="search" class="form-control" id="trkBuscarRutas"
+                                   placeholder="Buscar ruta..." autocomplete="off">
+                        </div>
                     </div>
                     <div class="trk-rutas-summary" id="trkRutasFiltros">
                         <button type="button" class="trk-rutas-filter active" data-estatus="todas">
@@ -1901,6 +1929,8 @@ const _trk = {
     rutasRegistradas:     [],
     rutasFiltro:          'todas',
     rutasVista:           'cards',
+    rutasBusqueda:        '',
+    borradoresBusqueda:   '',
     chatUnreadPorRuta:    {},
     trackingApiDisponible:true,
     trackingApiRetryAt:   0,
@@ -2026,6 +2056,7 @@ document.addEventListener('DOMContentLoaded', function () {
     _trkInicializarTablaBorradorDT();
     _trkInicializarTablasCatalogosDT();
     _trkInicializarRutasVista();
+    _trkInicializarBusquedasRutas();
     _trkInicializarModal();
 
     // Observar cambios de clase en body para refrescar controles del mapa
@@ -2362,6 +2393,23 @@ function _trkInicializarRutasVista() {
     });
 }
 
+function _trkInicializarBusquedasRutas() {
+    $('#trkBuscarBorradores').on('input', function () {
+        _trk.borradoresBusqueda = this.value || '';
+        if (_trk.tablaRutasBorradorDT) {
+            _trk.tablaRutasBorradorDT.search(_trk.borradoresBusqueda).draw();
+        }
+    });
+
+    $('#trkBuscarRutas').on('input', function () {
+        _trk.rutasBusqueda = this.value || '';
+        if (_trk.tablaRutasDT) {
+            _trk.tablaRutasDT.search(_trk.rutasBusqueda).draw();
+        }
+        _trkRenderRutasCards();
+    });
+}
+
 function _trkSetRutasVista(vista) {
     _trk.rutasVista = vista === 'tabla' ? 'tabla' : 'cards';
     const cardsWrap = document.getElementById('trkRutasCardsWrap');
@@ -2405,10 +2453,37 @@ function _trkActualizarResumenRutas(rutas) {
     setText('trkRutaCountCancelada', counts.cancelada);
 }
 
+function _trkRutaTextoBusqueda(r) {
+    const transportista = _trkTransportistaRutaData(r);
+    return [
+        r.id_ruta,
+        r.nombre_ruta,
+        r.estatus_ruta,
+        r.fecha_programada_fmt,
+        r.fecha_programada,
+        r.hora_inicial,
+        r.act_hora_1,
+        r.ubicaciones_lista,
+        r.creditos_lista,
+        r.total_creditos,
+        transportista.nombre,
+        transportista.tipo,
+        transportista.agencia,
+        transportista.direccion,
+    ].filter(v => v !== null && v !== undefined).join(' ');
+}
+
 function _trkRutasFiltradas() {
     const filtro = _trk.rutasFiltro || 'todas';
-    if (filtro === 'todas') return _trk.rutasRegistradas || [];
-    return (_trk.rutasRegistradas || []).filter(r => String(r.estatus_ruta || '') === filtro);
+    const q = _trkNormTxt(_trk.rutasBusqueda || '');
+    let rutas = _trk.rutasRegistradas || [];
+    if (filtro !== 'todas') {
+        rutas = rutas.filter(r => String(r.estatus_ruta || '') === filtro);
+    }
+    if (q) {
+        rutas = rutas.filter(r => _trkNormTxt(_trkRutaTextoBusqueda(r)).includes(q));
+    }
+    return rutas;
 }
 
 function _trkRutaPorcentaje(r) {
@@ -2431,10 +2506,11 @@ function _trkRenderRutasCards() {
     if (!wrap) return;
     const rutas = _trkRutasFiltradas();
     if (!rutas.length) {
+        const buscando = String(_trk.rutasBusqueda || '').trim() !== '';
         wrap.innerHTML = `<div class="trk-rutas-empty" style="grid-column:1/-1;">
             <i class="fa-solid fa-route mb-2" style="font-size:1.35rem;color:var(--track-color);"></i>
-            <div class="fw-semibold">No hay rutas para este filtro</div>
-            <div class="small mt-1">Cambia el estatus o registra una nueva ruta.</div>
+            <div class="fw-semibold">${buscando ? 'No hay coincidencias' : 'No hay rutas para este filtro'}</div>
+            <div class="small mt-1">${buscando ? 'Prueba con otra palabra o limpia la busqueda.' : 'Cambia el estatus o registra una nueva ruta.'}</div>
         </div>`;
         return;
     }
@@ -2530,6 +2606,7 @@ function _trkInicializarTablaRutasDT() {
             lengthMenu:  'Mostrar _MENU_ registros',
             search:      'Buscar:',
         },
+        dom: 'lrtip',
         pageLength: 20,
         responsive: true,
         columns: [
@@ -2710,7 +2787,7 @@ function _trkCargarRutas() {
             const rutas = r.datos || [];
             _trk.rutasRegistradas = rutas;
             if (_trk.tablaRutasDT) {
-                _trk.tablaRutasDT.clear().rows.add(rutas).draw();
+                _trk.tablaRutasDT.clear().rows.add(rutas).search(_trk.rutasBusqueda || '').draw();
             }
             _trkActualizarResumenRutas(rutas);
             _trkRenderRutasCards();
@@ -2799,6 +2876,7 @@ function _trkInicializarTablaBorradorDT() {
             lengthMenu:  'Mostrar _MENU_ registros',
             search:      'Buscar:',
         },
+        dom: 'lrtip',
         pageLength: 20,
         responsive: true,
         columns: [
@@ -2874,7 +2952,7 @@ function _trkCargarBorradores() {
         .then(r => {
             const borradores = r.datos || [];
             if (_trk.tablaRutasBorradorDT) {
-                _trk.tablaRutasBorradorDT.clear().rows.add(borradores).draw();
+                _trk.tablaRutasBorradorDT.clear().rows.add(borradores).search(_trk.borradoresBusqueda || '').draw();
             }
             // Actualizar contador en la pestaña
             const $badge = document.getElementById('badgeBorradores');
