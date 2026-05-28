@@ -40,37 +40,38 @@ if (isset($chEstRangoIni, $chEstRangoFin) && is_string($chEstRangoIni) && is_str
                 </h4>
                 <p id="chEstRangoFechas" class="text-muted mb-0 small">—</p>
             </div>
-            <div class="ch-est-fp-rango" style="max-width: 28rem; width: 100%;">
-                <label for="flatpickr-range-ch-est" class="form-label small text-muted mb-0">
+            <div class="ch-est-fp-rango p-1 p-md-0" style="max-width: 34rem; width: 100%;">
+                <label for="flatpickr-range-ch-est" class="form-label text-muted mb-1 fw-semibold" style="font-size:.82rem;">
                     <i class="fa fa-calendar-alt me-1" aria-hidden="true"></i>Periodo (rango de fechas)
                 </label>
                 <div class="d-flex flex-wrap align-items-center gap-2">
                     <input type="text" id="flatpickr-range-ch-est" readonly
-                        class="form-control form-control-sm flex-grow-1 ch-est-fp-input"
-                        style="min-width: 12rem; max-width: 19.5rem; cursor: pointer; user-select: none;"
+                        class="form-control flex-grow-1 ch-est-fp-input shadow-none"
+                        style="min-width: 13rem; max-width: 22rem; cursor: pointer; user-select: none; min-height: 2.35rem;"
                         placeholder="Selecciona inicio y fin" autocomplete="off"
                         title="No se pueden elegir fechas posteriores a hoy." />
-                    <button type="button" class="btn btn-outline-secondary btn-sm flex-shrink-0" id="btnChEstRestablecerPeriodo"
+                    <button type="button" class="btn btn-outline-secondary flex-shrink-0 px-3" id="btnChEstRestablecerPeriodo"
+                        style="min-height: 2.35rem;"
                         title="Volver al periodo por defecto: lunes de esta semana hasta hoy">
                         Restablecer
                     </button>
                 </div>
-                <div class="row g-2 mt-1">
+                <div class="row g-2 mt-2">
                     <div class="col-12 col-md-4">
-                        <label for="chEstFiltroArea" class="form-label small text-muted mb-0">Área</label>
-                        <select id="chEstFiltroArea" class="form-select form-select-sm">
+                        <label for="chEstFiltroArea" class="form-label text-muted mb-1 fw-semibold" style="font-size:.8rem;">Área</label>
+                        <select id="chEstFiltroArea" class="form-select shadow-none" style="min-height: 2.35rem;">
                             <option value="">Todas las áreas</option>
                         </select>
                     </div>
                     <div class="col-12 col-md-4 d-none" id="chEstWrapFiltroDepto">
-                        <label for="chEstFiltroDepartamento" class="form-label small text-muted mb-0">Departamento</label>
-                        <select id="chEstFiltroDepartamento" class="form-select form-select-sm">
+                        <label for="chEstFiltroDepartamento" class="form-label text-muted mb-1 fw-semibold" style="font-size:.8rem;">Departamento</label>
+                        <select id="chEstFiltroDepartamento" class="form-select shadow-none" style="min-height: 2.35rem;">
                             <option value="">Todos los departamentos</option>
                         </select>
                     </div>
                     <div class="col-12 col-md-4 d-none" id="chEstWrapFiltroPuesto">
-                        <label for="chEstFiltroPuesto" class="form-label small text-muted mb-0">Puesto</label>
-                        <select id="chEstFiltroPuesto" class="form-select form-select-sm">
+                        <label for="chEstFiltroPuesto" class="form-label text-muted mb-1 fw-semibold" style="font-size:.8rem;">Puesto</label>
+                        <select id="chEstFiltroPuesto" class="form-select shadow-none" style="min-height: 2.35rem;">
                             <option value="">Todos los puestos</option>
                         </select>
                     </div>
@@ -117,7 +118,7 @@ if (isset($chEstRangoIni, $chEstRangoFin) && is_string($chEstRangoIni) && is_str
                 <div class="card h-100 shadow-sm">
                     <div class="card-body py-2 d-flex flex-column">
                         <div class="d-flex align-items-start gap-1 mb-2">
-                            <span class="badge rounded-pill bg-label-warning text-warning fw-bold py-2 px-2 flex-grow-1 text-center lh-sm min-w-0" style="font-size:.88rem;letter-spacing:.06em;line-height:1.25;white-space:normal">Áreas · Departamentos · Puestos</span>
+                            <span class="badge rounded-pill bg-label-warning text-warning fw-bold py-2 px-2 flex-grow-1 text-center lh-sm min-w-0" style="font-size:.82rem;letter-spacing:.04em;line-height:1.2;white-space:normal">Estructura</span>
                             <button type="button" class="btn btn-link btn-sm text-muted p-0 lh-1 flex-shrink-0 align-self-center text-decoration-none" data-bs-toggle="tooltip" data-bs-placement="left" data-ch-est-tip="1"
                                 title="Conteos influenciados por el rango: se toman empleados activos al cierre del período seleccionado. Índice áreas: total áreas ÷ empleados activos (×100). Índice departamentos: total departamentos ÷ empleados activos (×100). Índice puestos: total puestos únicos ÷ empleados activos (×100)."
                                 aria-label="Ayuda: índices áreas, departamentos y puestos">
@@ -127,16 +128,16 @@ if (isset($chEstRangoIni, $chEstRangoFin) && is_string($chEstRangoIni) && is_str
                         <div class="ch-kpi-period-badge mb-2 text-start align-self-start w-100" style="font-size:.62rem;font-weight:700;letter-spacing:.04em;color:var(--bs-secondary-color);line-height:1.25">—</div>
                         <div class="row g-1 flex-grow-1 align-items-center">
                             <div class="col-4 text-center border-end">
-                                <div class="small text-muted mb-1">Total áreas</div>
-                                <div id="chKpiAreas" class="fs-4 fw-bold text-body">0</div>
+                                <div class="small text-muted mb-1 fw-semibold" style="font-size:.72rem;">Áreas</div>
+                                <div id="chKpiAreas" class="fw-bold text-body" style="font-size:1.8rem;line-height:1;">0</div>
                             </div>
                             <div class="col-4 text-center border-end">
-                                <div class="small text-muted mb-1">Total departamentos</div>
-                                <div id="chKpiDeptos" class="fs-4 fw-bold text-body">0</div>
+                                <div class="small text-muted mb-1 fw-semibold" style="font-size:.72rem;">Deptos</div>
+                                <div id="chKpiDeptos" class="fw-bold text-body" style="font-size:1.8rem;line-height:1;">0</div>
                             </div>
                             <div class="col-4 text-center">
-                                <div class="small text-muted mb-1">Total puestos</div>
-                                <div id="chKpiPuestos" class="fs-4 fw-bold text-body">0</div>
+                                <div class="small text-muted mb-1 fw-semibold" style="font-size:.72rem;">Puestos</div>
+                                <div id="chKpiPuestos" class="fw-bold text-body" style="font-size:1.8rem;line-height:1;">0</div>
                             </div>
                         </div>
                         <div class="row gx-1 mt-auto pt-2">
