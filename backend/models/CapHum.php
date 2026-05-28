@@ -4512,4 +4512,298 @@ public static function getCallesPorColonia($id_colonia)
     }
 }
 
+public static function asegurarMapaOrganizacionalPuesto(?Database $db = null): void
+{
+    $db = $db ?: new Database();
+
+    $db->CRUD("
+        CREATE TABLE IF NOT EXISTS `mapa_organizacional_puesto` (
+          `id` int NOT NULL AUTO_INCREMENT,
+          `id_pais` int NOT NULL COMMENT 'FK a paises.id',
+          `id_puesto` int NOT NULL COMMENT 'FK a puesto.id',
+          `id_puesto_padre` int DEFAULT NULL COMMENT 'Puesto superior jerarquico dentro del mapa',
+          `posicion_x` int DEFAULT NULL COMMENT 'Coordenada X en el canvas',
+          `posicion_y` int DEFAULT NULL COMMENT 'Coordenada Y en el canvas',
+          `estatus` tinyint(1) NOT NULL DEFAULT '1' COMMENT '1 = Activo, 0 = Inactivo',
+          `id_pais_activo_key` int DEFAULT NULL,
+          `id_puesto_activo_key` int DEFAULT NULL,
+          `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          `updated_at` timestamp NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
+          PRIMARY KEY (`id`),
+          UNIQUE KEY `uq_mapa_pais_puesto_activo` (`id_pais_activo_key`, `id_puesto_activo_key`),
+          KEY `idx_mapa_pais` (`id_pais`),
+          KEY `idx_mapa_puesto` (`id_puesto`),
+          KEY `idx_mapa_puesto_padre` (`id_puesto_padre`),
+          KEY `idx_mapa_estatus` (`estatus`),
+          CONSTRAINT `fk_mapa_pais`
+            FOREIGN KEY (`id_pais`)
+            REFERENCES `paises` (`id`)
+            ON DELETE RESTRICT
+            ON UPDATE CASCADE,
+          CONSTRAINT `fk_mapa_puesto`
+            FOREIGN KEY (`id_puesto`)
+            REFERENCES `puesto` (`id`)
+            ON DELETE RESTRICT
+            ON UPDATE CASCADE,
+          CONSTRAINT `fk_mapa_puesto_padre`
+            FOREIGN KEY (`id_puesto_padre`)
+            REFERENCES `puesto` (`id`)
+            ON DELETE SET NULL
+            ON UPDATE CASCADE
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+        COMMENT='Mapa jerarquico manual de puestos por pais'
+    ");
+
+    $db->CRUD("DROP TRIGGER IF EXISTS `bi_mapa_org_puesto_activo_key`");
+    $db->CRUD("DROP TRIGGER IF EXISTS `bu_mapa_org_puesto_activo_key`");
+    $db->CRUD("
+        CREATE TRIGGER `bi_mapa_org_puesto_activo_key`
+        BEFORE INSERT ON `mapa_organizacional_puesto`
+        FOR EACH ROW
+        BEGIN
+            SET NEW.id_pais_activo_key = IF(NEW.estatus = 1, NEW.id_pais, NULL);
+            SET NEW.id_puesto_activo_key = IF(NEW.estatus = 1, NEW.id_puesto, NULL);
+        END
+    ");
+    $db->CRUD("
+        CREATE TRIGGER `bu_mapa_org_puesto_activo_key`
+        BEFORE UPDATE ON `mapa_organizacional_puesto`
+        FOR EACH ROW
+        BEGIN
+            SET NEW.id_pais_activo_key = IF(NEW.estatus = 1, NEW.id_pais, NULL);
+            SET NEW.id_puesto_activo_key = IF(NEW.estatus = 1, NEW.id_puesto, NULL);
+        END
+    ");
+}
+
+public static function getConstructorEstructuraOrganizacional($idPais = 0): array
+{
+    try {
+        $db = new Database();
+        if (class_exists('\\Models\\EstadoCuenta') && method_exists('\\Models\\EstadoCuenta', 'asegurarNivelOrganizacionalPuesto')) {
+            \Models\EstadoCuenta::asegurarNivelOrganizacionalPuesto($db);
+        }
+        self::asegurarMapaOrganizacionalPuesto($db);
+
+        $idPais = (int) $idPais;
+        $paises = $db->queryAll("
+            SELECT id, nombre, codigo_iso
+            FROM paises
+            WHERE activo = 1
+            ORDER BY nombre ASC
+        ");
+
+        if ($idPais <= 0) {
+            $paisMexico = null;
+            foreach ($paises as $pais) {
+                $nombrePais = mb_strtolower((string) ($pais['nombre'] ?? ''), 'UTF-8');
+                if ($nombrePais === 'méxico' || $nombrePais === 'mexico') {
+                    $paisMexico = $pais;
+                    break;
+                }
+            }
+            $idPais = (int) (($paisMexico['id'] ?? null) ?: ($paises[0]['id'] ?? 0));
+        }
+
+        $niveles = $db->queryAll("
+            SELECT id, clave, nombre, orden
+            FROM nivel_organizacional
+            WHERE activo = 1
+            ORDER BY orden ASC, nombre ASC
+        ");
+
+        $areas = [];
+        $departamentos = [];
+        $puestos = [];
+        $mapa = [];
+
+        if ($idPais > 0) {
+            $areas = $db->queryAll("
+                SELECT id, nombre
+                FROM departamento_organizacional
+                WHERE activo = 1
+                  AND id_pais = :id_pais
+                ORDER BY nombre ASC
+            ", ['id_pais' => $idPais]);
+
+            $departamentos = $db->queryAll("
+                SELECT
+                    d.id,
+                    d.nombre,
+                    d.id_departamento_organizacional
+                FROM departamento d
+                LEFT JOIN departamento_organizacional dor
+                    ON dor.id = d.id_departamento_organizacional
+                WHERE d.activo = 1
+                  AND COALESCE(dor.id_pais, d.id_pais) = :id_pais
+                ORDER BY d.nombre ASC
+            ", ['id_pais' => $idPais]);
+
+            $puestos = $db->queryAll("
+                SELECT
+                    p.id AS id_puesto,
+                    p.clave,
+                    p.nombre AS puesto,
+                    d.id AS id_departamento,
+                    d.nombre AS departamento,
+                    dor.id AS id_area_organizacional,
+                    dor.nombre AS area_organizacional,
+                    no.id AS id_nivel_organizacional,
+                    no.nombre AS nivel_organizacional,
+                    CASE WHEN mop.id IS NULL THEN 0 ELSE 1 END AS en_mapa
+                FROM puesto p
+                INNER JOIN departamento d
+                    ON d.id = p.departamento_id
+                LEFT JOIN departamento_organizacional dor
+                    ON dor.id = d.id_departamento_organizacional
+                LEFT JOIN asigna_nivel_organizacional_puesto anop
+                    ON anop.id_puesto = p.id
+                   AND anop.estatus = 1
+                LEFT JOIN nivel_organizacional no
+                    ON no.id = anop.id_nivel_organizacional
+                LEFT JOIN mapa_organizacional_puesto mop
+                    ON mop.id_pais = :id_pais
+                   AND mop.id_puesto = p.id
+                   AND mop.estatus = 1
+                WHERE p.activo = 1
+                  AND COALESCE(dor.id_pais, d.id_pais) = :id_pais
+                ORDER BY COALESCE(no.orden, 999), dor.nombre ASC, d.nombre ASC, p.nombre ASC
+            ", ['id_pais' => $idPais]);
+
+            $mapa = $db->queryAll("
+                SELECT
+                    mop.id,
+                    mop.id_pais,
+                    mop.id_puesto,
+                    p.clave,
+                    p.nombre AS puesto,
+                    d.id AS id_departamento,
+                    d.nombre AS departamento,
+                    dor.id AS id_area_organizacional,
+                    dor.nombre AS area_organizacional,
+                    no.id AS id_nivel_organizacional,
+                    no.nombre AS nivel_organizacional,
+                    mop.id_puesto_padre,
+                    COALESCE(mop.posicion_x, 120) AS posicion_x,
+                    COALESCE(mop.posicion_y, 120) AS posicion_y
+                FROM mapa_organizacional_puesto mop
+                INNER JOIN puesto p
+                    ON p.id = mop.id_puesto
+                LEFT JOIN departamento d
+                    ON d.id = p.departamento_id
+                LEFT JOIN departamento_organizacional dor
+                    ON dor.id = d.id_departamento_organizacional
+                LEFT JOIN asigna_nivel_organizacional_puesto anop
+                    ON anop.id_puesto = p.id
+                   AND anop.estatus = 1
+                LEFT JOIN nivel_organizacional no
+                    ON no.id = anop.id_nivel_organizacional
+                WHERE mop.id_pais = :id_pais
+                  AND mop.estatus = 1
+                ORDER BY COALESCE(no.orden, 999), mop.posicion_y ASC, mop.posicion_x ASC
+            ", ['id_pais' => $idPais]);
+        }
+
+        return self::resultado(true, 'Estructura organizacional cargada.', [
+            'id_pais' => $idPais,
+            'paises' => $paises,
+            'niveles' => $niveles,
+            'areas' => $areas,
+            'departamentos' => $departamentos,
+            'puestos' => $puestos,
+            'mapa' => $mapa,
+        ]);
+    } catch (\Throwable $e) {
+        return self::resultado(false, 'Error al cargar estructura organizacional.', null, $e->getMessage());
+    }
+}
+
+public static function guardarConstructorEstructuraOrganizacional($idPais, array $nodos): array
+{
+    $idPais = (int) $idPais;
+    if ($idPais <= 0) {
+        return self::resultado(false, 'Selecciona un pais para guardar el mapa.');
+    }
+
+    $limpios = [];
+    $vistos = [];
+    foreach ($nodos as $nodo) {
+        $idPuesto = (int) ($nodo['id_puesto'] ?? 0);
+        if ($idPuesto <= 0 || isset($vistos[$idPuesto])) {
+            continue;
+        }
+        $vistos[$idPuesto] = true;
+        $padre = (int) ($nodo['id_puesto_padre'] ?? 0);
+        $limpios[] = [
+            'id_puesto' => $idPuesto,
+            'id_puesto_padre' => $padre > 0 ? $padre : null,
+            'posicion_x' => max(0, (int) ($nodo['posicion_x'] ?? 120)),
+            'posicion_y' => max(0, (int) ($nodo['posicion_y'] ?? 120)),
+        ];
+    }
+
+    foreach ($limpios as &$nodo) {
+        if ($nodo['id_puesto_padre'] !== null && !isset($vistos[$nodo['id_puesto_padre']])) {
+            $nodo['id_puesto_padre'] = null;
+        }
+        if ($nodo['id_puesto_padre'] === $nodo['id_puesto']) {
+            $nodo['id_puesto_padre'] = null;
+        }
+    }
+    unset($nodo);
+
+    $padres = [];
+    foreach ($limpios as $nodo) {
+        $padres[$nodo['id_puesto']] = $nodo['id_puesto_padre'];
+    }
+    foreach ($padres as $idPuesto => $idPadre) {
+        $visitados = [];
+        while ($idPadre !== null) {
+            if (isset($visitados[$idPadre]) || (int) $idPadre === (int) $idPuesto) {
+                return self::resultado(false, 'La jerarquia no puede guardarse porque contiene un ciclo.');
+            }
+            $visitados[$idPadre] = true;
+            $idPadre = $padres[$idPadre] ?? null;
+        }
+    }
+
+    try {
+        $db = new Database();
+        self::asegurarMapaOrganizacionalPuesto($db);
+        $db->beginTransaction();
+
+        $db->CRUD("
+            UPDATE mapa_organizacional_puesto
+            SET estatus = 0
+            WHERE id_pais = :id_pais
+              AND estatus = 1
+        ", ['id_pais' => $idPais]);
+
+        foreach ($limpios as $nodo) {
+            $db->CRUD("
+                INSERT INTO mapa_organizacional_puesto
+                    (id_pais, id_puesto, id_puesto_padre, posicion_x, posicion_y, estatus)
+                VALUES
+                    (:id_pais, :id_puesto, :id_puesto_padre, :posicion_x, :posicion_y, 1)
+            ", [
+                'id_pais' => $idPais,
+                'id_puesto' => $nodo['id_puesto'],
+                'id_puesto_padre' => $nodo['id_puesto_padre'],
+                'posicion_x' => $nodo['posicion_x'],
+                'posicion_y' => $nodo['posicion_y'],
+            ]);
+        }
+
+        $db->commit();
+        return self::resultado(true, 'Mapa organizacional guardado.', [
+            'total_nodos' => count($limpios),
+        ]);
+    } catch (\Throwable $e) {
+        if (isset($db)) {
+            $db->rollback();
+        }
+        return self::resultado(false, 'Error al guardar el mapa organizacional.', null, $e->getMessage());
+    }
+}
+
 }

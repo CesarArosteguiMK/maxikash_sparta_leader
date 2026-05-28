@@ -28,6 +28,7 @@ if (!function_exists('getMenuSidebarModulosStructure')) {
                     ['label' => 'Gestión', 'url' => '/caphum/gestion', 'modulos' => [4]],
                     ['label' => 'Revisión RR.HH.', 'url' => '/caphum/actualizacionesInfo', 'modulos' => [83]],
                     ['label' => 'Organigrama Cobranza', 'url' => '/caphum/organigrama', 'modulos' => [5]],
+                    ['label' => 'EST Organizacional', 'url' => '/caphum/estructuraOrganizacional', 'modulos' => [86]],
                     ['label' => 'Control de Bajas', 'url' => '/caphum/bajas', 'modulos' => [13]],
                     ['label' => 'Selección de Personal', 'url' => '/caphum/candidatos', 'modulos' => [42]],
                     ['label' => 'Curso Onboarding', 'url' => '/onboarding/index', 'modulos' => [44]],
@@ -83,7 +84,7 @@ if (!function_exists('getMenuSidebarModulosStructure')) {
                 'subItems' => [
                     ['label' => 'Administracion', 'url' => '/Adjudicacion/administracion', 'modulos' => [62, 80]],
                     ['label' => 'Operaciones', 'url' => '/MotosAdjudicadas/pipeline', 'modulos' => [63]],
-                    ['label' => 'Monitoreo de adjudicaciones', 'url' => '/MotosAdjudicadas/monitoreoAdjudicaciones', 'modulos' => [76]],
+                    ['label' => 'Monitoreo', 'url' => '/MotosAdjudicadas/monitoreoAdjudicaciones', 'modulos' => [76]],
                     ['label' => 'Consulta REPUVE', 'url' => '/MotosAdjudicadas/repuveConsulta', 'modulos' => [78]],
                     ['label' => '1.- Evidencias', 'url' => '/AtencionClientes/evidencias', 'modulos' => [70]],
                     ['label' => '2.- Recuperación', 'url' => '/AtencionClientes/recuperacion', 'modulos' => [71]],

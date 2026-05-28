@@ -143,7 +143,7 @@
     <div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-3">
         <div>
             <h4 class="mb-1">
-                <i class="fa-solid fa-magnifying-glass-chart me-2 text-primary"></i>Monitoreo de adjudicaciones
+                <i class="fa-solid fa-magnifying-glass-chart me-2 text-primary"></i>Monitoreo
             </h4>
             <p class="text-muted mb-0">Consulta operaciones, responsables y reasigna créditos sin entrar directo a la base de datos.</p>
         </div>
