@@ -388,7 +388,7 @@ class MotosAdjudicadas extends Controller
 
     /**
      * POST /MotosAdjudicadas/reemplazarEvidenciaGestor  (multipart/form-data)
-     * Permiso especial modulos_web 79. Reemplaza una evidencia fÃ­sica desde AtenciÃ³n.
+     * Permiso especial modulos_web 79. Reemplaza una evidencia física desde Atención.
      */
     public function reemplazarEvidenciaGestor()
     {
@@ -404,13 +404,13 @@ class MotosAdjudicadas extends Controller
         $slot        = trim($_POST['slot'] ?? '');
 
         if ($idOperacion <= 0 || $slot === '') {
-            echo json_encode(['success' => false, 'message' => 'ParÃ¡metros invÃ¡lidos.']);
+            echo json_encode(['success' => false, 'message' => 'Parámetros inválidos.']);
             return;
         }
 
         if (empty($_FILES['archivo']) || $_FILES['archivo']['error'] !== UPLOAD_ERR_OK) {
             $code = $_FILES['archivo']['error'] ?? -1;
-            echo json_encode(['success' => false, 'message' => "Error de subida (cÃ³digo {$code})."]);
+            echo json_encode(['success' => false, 'message' => "Error de subida (código {$code})."]);
             return;
         }
 

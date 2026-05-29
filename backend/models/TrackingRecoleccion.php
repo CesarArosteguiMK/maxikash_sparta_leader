@@ -162,7 +162,7 @@ class TrackingRecoleccion extends Model
                 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci"
             );
         } catch (\Throwable $e) {
-            // El catÃ¡logo puede ser creado manualmente por migraciÃ³n.
+            // El catálogo puede ser creado manualmente por migración.
         }
     }
 
@@ -365,7 +365,7 @@ class TrackingRecoleccion extends Model
     }
 
     // =========================================================================
-    // CATÃLOGOS TRACKING: AGENCIAS / TRANSPORTISTAS
+    // CATÁLOGOS TRACKING: AGENCIAS / TRANSPORTISTAS
     // =========================================================================
 
     public function obtenerAgenciasTracking(): array
@@ -394,7 +394,7 @@ class TrackingRecoleccion extends Model
             $params['tipo'] = $tipo;
         }
         if ($idAgencia !== null && $idAgencia > 0) {
-            // Externos histÃ³ricos pueden estar sin agencia asignada; se muestran junto con los ligados a la agencia.
+            // Externos históricos pueden estar sin agencia asignada; se muestran junto con los ligados a la agencia.
             $where[] = '(t.id_agencia = :id_agencia OR (t.tipo_transportista = \'externo\' AND t.id_agencia IS NULL))';
             $params['id_agencia'] = $idAgencia;
         }
@@ -524,7 +524,7 @@ class TrackingRecoleccion extends Model
             return ['success' => false, 'message' => 'El municipio es obligatorio.'];
         }
         if ($tipoTransportista !== '' && $idTransportista <= 0) {
-            return ['success' => false, 'message' => 'Selecciona un transportista vÃ¡lido.'];
+            return ['success' => false, 'message' => 'Selecciona un transportista válido.'];
         }
         if ($tipoTransportista === 'externo' && $idAgenciaTracking <= 0) {
             return ['success' => false, 'message' => 'Selecciona el CEDIS relacionado para el transportista externo.'];
@@ -592,7 +592,7 @@ class TrackingRecoleccion extends Model
                 ['id' => $idTransportista]
             );
             if (!$transportista) {
-                return ['success' => false, 'message' => 'El transportista seleccionado no existe o estÃ¡ inactivo.'];
+                return ['success' => false, 'message' => 'El transportista seleccionado no existe o está inactivo.'];
             }
             if ($tipoTransportista === '') {
                 $tipoTransportista = (string) $transportista['tipo_transportista'];

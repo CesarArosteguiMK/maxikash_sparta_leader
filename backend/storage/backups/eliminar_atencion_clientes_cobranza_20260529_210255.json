@@ -1,0 +1,32 @@
+{
+    "departamento": {
+        "id": 9,
+        "departamento": "Atención a Clientes",
+        "activo": 1,
+        "area": "Cobranza",
+        "direccion": "Cobranza"
+    },
+    "puestos": [
+        {
+            "id": 51,
+            "nombre": "Gerente de ATC",
+            "activo": 1
+        },
+        {
+            "id": 52,
+            "nombre": "Supervisor ATC",
+            "activo": 1
+        },
+        {
+            "id": 53,
+            "nombre": "Team Lider ATC",
+            "activo": 1
+        },
+        {
+            "id": 54,
+            "nombre": "Asesor ATC",
+            "activo": 1
+        }
+    ],
+    "personal_activo": 0
+}
