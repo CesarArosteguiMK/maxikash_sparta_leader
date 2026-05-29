@@ -540,6 +540,38 @@ body.dark-mode #aeTabContent .dataTables_length select { background: #111827; bo
 #modalAevValidarEvidencias .aev-vista-panel { width: 100%; max-width: min(52rem, 96vw); max-height: 92vh; overflow: auto; background: #fff; border-radius: 0.75rem; box-shadow: 0 20px 50px rgba(0,0,0,.35); padding: 1rem 1.1rem; position: relative; z-index: 1; }
 .aev-vista-mediabox { min-height: 12rem; max-height: 60vh; background: #0f172a; border-radius: 0.5rem; display: flex; align-items: center; justify-content: center; margin-bottom: 0.75rem; }
 .aev-vista-mediabox video, .aev-vista-mediabox img { max-width: 100%; max-height: 50vh; object-fit: contain; }
+.aev-vista-nav {
+    display: inline-flex;
+    align-items: center;
+    gap: .35rem;
+}
+.aev-vista-nav-btn {
+    width: 2rem;
+    height: 2rem;
+    border-radius: 999px;
+    border: 1px solid #dbeafe;
+    background: #f8fafc;
+    color: #173756;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+.aev-vista-nav-btn:hover:not(:disabled),
+.aev-vista-nav-btn:focus:not(:disabled) {
+    background: #e0f2fe;
+    border-color: #7dd3fc;
+}
+.aev-vista-nav-btn:disabled {
+    opacity: .45;
+    cursor: not-allowed;
+}
+.aev-vista-counter {
+    color: #64748b;
+    font-size: .72rem;
+    font-weight: 800;
+    min-width: 3.6rem;
+    text-align: center;
+}
 .aev-vista-mediabox.aev-vista-mediabox--zoomable {
     flex-direction: column; align-items: stretch; justify-content: flex-start; padding: 0; overflow: hidden;
 }
@@ -709,8 +741,17 @@ body.dark-mode .aev-detalle-loading-card {
     <!-- Dentro de .modal para que el foco del trap de Bootstrap incluya comentario + botones (si está en body, no deja escribir) -->
     <div id="aev-vista-overlay" class="aev-vista-overlay d-none" role="dialog" aria-modal="true" aria-labelledby="aev-vista-titulo">
         <div class="aev-vista-panel" tabindex="-1">
-            <div class="d-flex justify-content-between align-items-center mb-2">
-                <h6 class="mb-0" id="aev-vista-titulo" style="font-size:1rem;font-weight:700;">Evidencia</h6>
+            <div class="d-flex justify-content-between align-items-center mb-2 gap-2 flex-wrap">
+                <h6 class="mb-0 me-auto" id="aev-vista-titulo" style="font-size:1rem;font-weight:700;">Evidencia</h6>
+                <div class="aev-vista-nav" id="aev-vista-nav" aria-label="Navegacion de evidencias">
+                    <button type="button" class="aev-vista-nav-btn" id="aev-vista-prev" aria-label="Evidencia anterior">
+                        <i class="fa-solid fa-chevron-left"></i>
+                    </button>
+                    <span class="aev-vista-counter" id="aev-vista-counter">1 / 1</span>
+                    <button type="button" class="aev-vista-nav-btn" id="aev-vista-next" aria-label="Evidencia siguiente">
+                        <i class="fa-solid fa-chevron-right"></i>
+                    </button>
+                </div>
                 <button type="button" class="btn btn-sm btn-light border" id="aev-vista-btn-cerrar" aria-label="Cerrar">
                     <i class="fa-solid fa-xmark"></i>
                 </button>
@@ -1055,7 +1096,7 @@ $aevPuedeReemplazarEvidencia = in_array(79, array_map('intval', (array) ($_SESSI
 
     /** detalle de sesión: veredictos v[slot]= acep|rec, comentarios c[slot] (persiste solo mientras dura el modal) */
     let _aevStore  = { det: null, idCredito: 0, v: {}, c: {}, rechazosPendientes: {}, pendingVeredictos: {}, soloLectura: false };
-    let _aevVistaCtx = { slot: '', label: '', evidId: 0, soloAceptada: false, soloRechazada: false };
+    let _aevVistaCtx = { slot: '', label: '', evidId: 0, soloAceptada: false, soloRechazada: false, galeria: [], indice: -1 };
     let _aevReemplazoGestorCtx = { slot: '', label: '' };
     let _aevZoomTeardown = null;
     const _aevDetalleCache = new Map();
@@ -1076,7 +1117,9 @@ $aevPuedeReemplazarEvidencia = in_array(79, array_map('intval', (array) ($_SESSI
             '<button type="button" class="btn btn-sm btn-outline-light aev-zoom-btn-minus" title="Alejar" aria-label="Alejar"><i class="fa-solid fa-magnifying-glass-minus"></i></button>' +
             '<span class="small text-white aev-zoom-pct fw-semibold" style="min-width:3.25rem;text-align:center;">100%</span>' +
             '<button type="button" class="btn btn-sm btn-outline-light aev-zoom-btn-plus" title="Acercar" aria-label="Acercar"><i class="fa-solid fa-magnifying-glass-plus"></i></button>' +
-            '<button type="button" class="btn btn-sm btn-outline-secondary aev-zoom-btn-reset">Restablecer</button>' +
+            '<button type="button" class="btn btn-sm btn-outline-light aev-rotate-btn-left" title="Rotar izquierda" aria-label="Rotar izquierda"><i class="fa-solid fa-rotate-left"></i></button>' +
+            '<button type="button" class="btn btn-sm btn-outline-light aev-rotate-btn-right" title="Rotar derecha" aria-label="Rotar derecha"><i class="fa-solid fa-rotate-right"></i></button>' +
+            '<button type="button" class="btn btn-sm btn-outline-secondary aev-zoom-btn-reset d-none">Restablecer</button>' +
             '</div>'
         );
     }
@@ -1090,11 +1133,14 @@ $aevPuedeReemplazarEvidencia = in_array(79, array_map('intval', (array) ($_SESSI
         const btnMinus = box.querySelector('.aev-zoom-btn-minus');
         const btnPlus = box.querySelector('.aev-zoom-btn-plus');
         const btnReset = box.querySelector('.aev-zoom-btn-reset');
+        const btnRotateLeft = box.querySelector('.aev-rotate-btn-left');
+        const btnRotateRight = box.querySelector('.aev-rotate-btn-right');
         if (!wrap || !media) return;
 
         let scale = 1;
         let panX = 0;
         let panY = 0;
+        let rotate = 0;
         const wheelOpts = { passive: false };
         let dragPan = false;
         let dragClientX0 = 0;
@@ -1112,9 +1158,13 @@ $aevPuedeReemplazarEvidencia = in_array(79, array_map('intval', (array) ($_SESSI
                 panY = 0;
             }
             media.style.transformOrigin = 'center center';
-            media.style.transform = 'translate(' + panX + 'px,' + panY + 'px) scale(' + scale + ')';
+            media.style.transform = 'translate(' + panX + 'px,' + panY + 'px) rotate(' + rotate + 'deg) scale(' + scale + ')';
             if (pctEl) pctEl.textContent = Math.round(scale * 100) + '%';
             wrap.classList.toggle('aev-zoom-wrap--scaled', scale > 1.02);
+            if (btnReset) {
+                const changed = scale > 1.02 || Math.abs(panX) > 1 || Math.abs(panY) > 1 || rotate !== 0;
+                btnReset.classList.toggle('d-none', !changed);
+            }
         }
 
         function onWheel(e) {
@@ -1135,6 +1185,12 @@ $aevPuedeReemplazarEvidencia = in_array(79, array_map('intval', (array) ($_SESSI
             scale = 1;
             panX = 0;
             panY = 0;
+            rotate = 0;
+            commitTransform();
+        }
+
+        function rotar(step) {
+            rotate = ((rotate + step) % 360 + 360) % 360;
             commitTransform();
         }
 
@@ -1179,6 +1235,8 @@ $aevPuedeReemplazarEvidencia = in_array(79, array_map('intval', (array) ($_SESSI
         wrap.addEventListener('mousedown', onWrapMouseDown);
         if (btnMinus) btnMinus.addEventListener('click', function () { delta(-0.22); });
         if (btnPlus) btnPlus.addEventListener('click', function () { delta(0.22); });
+        if (btnRotateLeft) btnRotateLeft.addEventListener('click', function () { rotar(-90); });
+        if (btnRotateRight) btnRotateRight.addEventListener('click', function () { rotar(90); });
         if (btnReset) btnReset.addEventListener('click', resetZoom);
         media.addEventListener('dblclick', resetZoom);
 
@@ -1258,6 +1316,63 @@ $aevPuedeReemplazarEvidencia = in_array(79, array_map('intval', (array) ($_SESSI
         });
     }
 
+    function aevLabelSlotFisico(slot) {
+        for (let i = 0; i < AEV_EV_SECTIONS.length; i++) {
+            const slots = AEV_EV_SECTIONS[i].slots || [];
+            for (let j = 0; j < slots.length; j++) {
+                if (slots[j].key === slot) {
+                    return slots[j].label;
+                }
+            }
+        }
+        return slot || '';
+    }
+
+    function aevListaGaleriaFisica() {
+        const evMap = aevMapaPorSlot((_aevStore.det && _aevStore.det.evidencias) || []);
+        return AEV_IMAGEN_KEYS
+            .filter(function (slot) { return evMap[slot] && evMap[slot].url; })
+            .map(function (slot) {
+                return { slot: slot, label: aevLabelSlotFisico(slot) };
+            });
+    }
+
+    function aevGuardarComentarioVistaActual() {
+        if (!_aevVistaCtx.slot || _aevVistaCtx.soloAceptada || _aevVistaCtx.soloRechazada || _aevStore.soloLectura) {
+            return;
+        }
+        const cmt = document.getElementById('aev-vista-comentario');
+        if (cmt) {
+            _aevStore.c[_aevVistaCtx.slot] = (cmt.value || '').trim();
+        }
+    }
+
+    function aevActualizarNavVista() {
+        const nav = document.getElementById('aev-vista-nav');
+        const prev = document.getElementById('aev-vista-prev');
+        const next = document.getElementById('aev-vista-next');
+        const counter = document.getElementById('aev-vista-counter');
+        const total = Array.isArray(_aevVistaCtx.galeria) ? _aevVistaCtx.galeria.length : 0;
+        const idx = parseInt(_aevVistaCtx.indice, 10);
+        const visible = total > 1 && _aevVistaCtx.slot !== 'doc_repuve';
+        if (nav) nav.classList.toggle('d-none', !visible);
+        if (counter) counter.textContent = total ? ((idx + 1) + ' / ' + total) : '0 / 0';
+        if (prev) prev.disabled = !visible;
+        if (next) next.disabled = !visible;
+    }
+
+    function aevNavegarVista(delta) {
+        const total = Array.isArray(_aevVistaCtx.galeria) ? _aevVistaCtx.galeria.length : 0;
+        if (total <= 1) return;
+        const idx = parseInt(_aevVistaCtx.indice, 10);
+        const nextIdx = ((idx + delta) % total + total) % total;
+        aevGuardarComentarioVistaActual();
+        const item = _aevVistaCtx.galeria[nextIdx];
+        if (item) {
+            aevAbrirVistaEvidencia(item.slot, item.label, { desdeGaleria: true });
+        }
+    }
+
     function aevCerrarVistaOverlay() {
         const ovl = document.getElementById('aev-vista-overlay');
         const m   = document.getElementById('modalAevValidarEvidencias');
@@ -1292,11 +1407,17 @@ $aevPuedeReemplazarEvidencia = in_array(79, array_map('intval', (array) ($_SESSI
         _aevVistaCtx.evidId = 0;
         _aevVistaCtx.soloAceptada = false;
         _aevVistaCtx.soloRechazada = false;
+        _aevVistaCtx.galeria = [];
+        _aevVistaCtx.indice = -1;
+        aevActualizarNavVista();
     }
 
-    function aevAbrirVistaEvidencia(slot, label) {
+    function aevAbrirVistaEvidencia(slot, label, opciones) {
         if (!_aevStore.det) return;
         if (slot === 'doc_repuve') return;
+        if (!(opciones && opciones.desdeGaleria)) {
+            aevGuardarComentarioVistaActual();
+        }
         const ovlPre = document.getElementById('aev-vista-overlay');
         const panPre = ovlPre ? ovlPre.querySelector('.aev-vista-panel') : null;
         const boxPre = document.getElementById('aev-vista-mediabox');
@@ -1308,12 +1429,16 @@ $aevPuedeReemplazarEvidencia = in_array(79, array_map('intval', (array) ($_SESSI
         const evMap = aevMapaPorSlot(_aevStore.det.evidencias);
         const row   = evMap[slot];
         if (!row || !row.url) return;
+        const galeria = aevListaGaleriaFisica();
+        const indice = galeria.findIndex(function (item) { return item.slot === slot; });
         const st = aevEstadoEvidencia(row, slot);
         const soloAceptada = (st === 'acep');
         const soloRechazada = (st === 'rec');
         const modoSoloLectura = soloAceptada || soloRechazada || !!_aevStore.soloLectura;
         _aevVistaCtx.soloAceptada = soloAceptada;
         _aevVistaCtx.soloRechazada = soloRechazada;
+        _aevVistaCtx.galeria = galeria;
+        _aevVistaCtx.indice = indice;
         aevAsegurarOverlayDentroModal();
         const modalAev = document.getElementById('modalAevValidarEvidencias');
         if (modalAev) modalAev.classList.add('aev-ev-vista-abierta');
@@ -1395,6 +1520,7 @@ $aevPuedeReemplazarEvidencia = in_array(79, array_map('intval', (array) ($_SESSI
         _aevVistaCtx.label = label || '';
         ovl.classList.remove('d-none');
         _aevVistaCtx.evidId = row && row.id ? parseInt(row.id, 10) : 0;
+        aevActualizarNavVista();
         if (!modoSoloLectura) {
             setTimeout(function () {
                 const tx = document.getElementById('aev-vista-comentario');
@@ -1440,6 +1566,9 @@ $aevPuedeReemplazarEvidencia = in_array(79, array_map('intval', (array) ($_SESSI
         _aevVistaCtx.evidId = row && row.id ? parseInt(row.id, 10) : 0;
         _aevVistaCtx.soloAceptada = false;
         _aevVistaCtx.soloRechazada = false;
+        _aevVistaCtx.galeria = [];
+        _aevVistaCtx.indice = -1;
+        aevActualizarNavVista();
         ovl.classList.remove('d-none');
     }
 
@@ -1720,9 +1849,6 @@ $aevPuedeReemplazarEvidencia = in_array(79, array_map('intval', (array) ($_SESSI
 
         let html = '';
         html += aeRenderFormularioOperacion(det);
-        if (!_aevStore.soloLectura) {
-            html += '<p class="aev-ev-hint" role="note"><i class="fa-solid fa-hand-pointer me-1" style="opacity:.65;" aria-hidden="true"></i>Clic en cada evidencia para aceptar o rechazar.</p>';
-        }
 
         html += '<div class="aev-ev-progress-wrap">';
         html += '<div class="d-flex justify-content-between align-items-end mb-1 flex-wrap gap-1">';
@@ -1733,6 +1859,9 @@ $aevPuedeReemplazarEvidencia = in_array(79, array_map('intval', (array) ($_SESSI
         html += '</div>';
 
         AEV_EV_SECTIONS.forEach(function (sec) { html += aevRenderSeccionValidar(sec, m); });
+        if (!_aevStore.soloLectura) {
+            html += '<p class="aev-ev-hint mt-1 mb-2" role="note"><i class="fa-solid fa-hand-pointer me-1" style="opacity:.65;" aria-hidden="true"></i>Clic en cada evidencia para aceptar o rechazar.</p>';
+        }
 
         if (mostrarDoc) {
             AEV_EV_DOCS.forEach(function (doc) {
@@ -2589,14 +2718,32 @@ $aevPuedeReemplazarEvidencia = in_array(79, array_map('intval', (array) ($_SESSI
         }
         const btnC = document.getElementById('aev-vista-btn-cerrar');
         if (btnC) btnC.addEventListener('click', function () { aevCerrarVistaOverlay(); });
+        const btnPrev = document.getElementById('aev-vista-prev');
+        if (btnPrev) btnPrev.addEventListener('click', function () { aevNavegarVista(-1); });
+        const btnNext = document.getElementById('aev-vista-next');
+        if (btnNext) btnNext.addEventListener('click', function () { aevNavegarVista(1); });
         const btnA = document.getElementById('aev-vista-aceptar');
         if (btnA) btnA.addEventListener('click', function () { aevAplicarVeredictoDesdeVista('acep'); });
         const btnR = document.getElementById('aev-vista-rechazar');
         if (btnR) btnR.addEventListener('click', function () { aevAplicarVeredictoDesdeVista('rec'); });
         document.addEventListener('keydown', function (ev) {
-            if (ev.key !== 'Escape') return;
             const o = document.getElementById('aev-vista-overlay');
-            if (o && !o.classList.contains('d-none')) aevCerrarVistaOverlay();
+            if (!o || o.classList.contains('d-none')) return;
+            const tag = ev.target && ev.target.tagName ? String(ev.target.tagName).toLowerCase() : '';
+            const typing = tag === 'textarea' || tag === 'input' || tag === 'select';
+            if (ev.key === 'Escape') {
+                aevCerrarVistaOverlay();
+                return;
+            }
+            if (!typing && ev.key === 'ArrowLeft') {
+                ev.preventDefault();
+                aevNavegarVista(-1);
+                return;
+            }
+            if (!typing && ev.key === 'ArrowRight') {
+                ev.preventDefault();
+                aevNavegarVista(1);
+            }
         });
 
         const mAev = document.getElementById('modalAevValidarEvidencias');

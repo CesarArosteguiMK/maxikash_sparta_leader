@@ -24,6 +24,128 @@ class MotosAdjudicadas extends Controller
         return in_array($moduloId, $mods, true);
     }
 
+    private function etiquetaEvidenciaPorSlot(string $slot): string
+    {
+        $labels = [
+            'fis_dacion_hoja_1' => 'Foto dacion hoja 1',
+            'fis_dacion_hoja_2' => 'Foto dacion hoja 2',
+            'fis_vin' => 'Foto NIV VIN',
+            'fis_frontal' => 'Foto frontal',
+            'fis_lateral_der' => 'Foto lateral derecha',
+            'fis_trasera' => 'Foto trasera',
+            'fis_lateral_izq' => 'Foto lateral izquierda',
+            'fis_tacometro' => 'Foto tacometro',
+            'fis_video_cliente_acuerdo' => 'Video cliente de acuerdo',
+            'fis_360_encendida' => 'Video moto 360 encendida',
+            'fis_video_vuelta_prueba' => 'Video vuelta de prueba',
+            'fis_checklist' => 'Foto checklist',
+            'doc_repuve' => 'Repuve',
+            'doc_factura' => 'Factura',
+        ];
+
+        return $labels[$slot] ?? $slot;
+    }
+
+    private function slugArchivoEvidencia(string $texto): string
+    {
+        $texto = iconv('UTF-8', 'ASCII//TRANSLIT//IGNORE', $texto) ?: $texto;
+        $texto = preg_replace('/[^A-Za-z0-9]+/', '_', $texto);
+        $texto = trim((string) $texto, '_');
+
+        return $texto !== '' ? strtolower($texto) : 'evidencia';
+    }
+
+    private function extensionDesdeUrl(string $url, string $fallback = 'bin'): string
+    {
+        $path = (string) (parse_url($url, PHP_URL_PATH) ?: $url);
+        $ext = strtolower((string) pathinfo($path, PATHINFO_EXTENSION));
+        $ext = preg_replace('/[^a-z0-9]/', '', $ext);
+        if ($ext === '' || strlen($ext) > 8) {
+            return $fallback;
+        }
+
+        return $ext;
+    }
+
+    private function resolverArchivoEvidencia(string $url): ?array
+    {
+        if (!function_exists('sparta_uploads_resolve_relative')) {
+            require_once dirname(__DIR__) . '/core/UploadsPaths.php';
+        }
+
+        $raw = trim(str_replace('\\', '/', $url));
+        if ($raw === '') {
+            return null;
+        }
+
+        $path = (string) (parse_url($raw, PHP_URL_PATH) ?: $raw);
+        $uploadsPos = stripos($path, '/uploads/');
+        if ($uploadsPos !== false) {
+            $relative = substr($path, $uploadsPos + strlen('/uploads/'));
+            $local = sparta_uploads_resolve_relative($relative);
+            if ($local && is_file($local)) {
+                return [
+                    'path' => $local,
+                    'temp' => false,
+                    'ext' => $this->extensionDesdeUrl($raw, strtolower((string) pathinfo($local, PATHINFO_EXTENSION)) ?: 'bin'),
+                ];
+            }
+        }
+
+        if (!preg_match('#^https?://#i', $raw) && is_file($raw)) {
+            return [
+                'path' => $raw,
+                'temp' => false,
+                'ext' => $this->extensionDesdeUrl($raw, strtolower((string) pathinfo($raw, PATHINFO_EXTENSION)) ?: 'bin'),
+            ];
+        }
+
+        if (!preg_match('#^https?://#i', $raw)) {
+            return null;
+        }
+
+        $tmp = tempnam(sys_get_temp_dir(), 'sp_ev_');
+        if (!$tmp) {
+            return null;
+        }
+
+        $ok = false;
+        if (function_exists('curl_init')) {
+            $fh = fopen($tmp, 'wb');
+            if ($fh) {
+                $ch = curl_init($raw);
+                curl_setopt_array($ch, [
+                    CURLOPT_FILE => $fh,
+                    CURLOPT_FOLLOWLOCATION => true,
+                    CURLOPT_CONNECTTIMEOUT => 10,
+                    CURLOPT_TIMEOUT => 90,
+                    CURLOPT_FAILONERROR => true,
+                    CURLOPT_USERAGENT => 'sparta-__SPARTA_SECRET_REDACTED__-evidencias/1.0',
+                ]);
+                $ok = curl_exec($ch) === true;
+                curl_close($ch);
+                fclose($fh);
+            }
+        } else {
+            $ctx = stream_context_create(['http' => ['timeout' => 90]]);
+            $data = @file_get_contents($raw, false, $ctx);
+            if ($data !== false) {
+                $ok = @file_put_contents($tmp, $data) !== false;
+            }
+        }
+
+        if (!$ok || !is_file($tmp) || filesize($tmp) <= 0) {
+            @unlink($tmp);
+            return null;
+        }
+
+        return [
+            'path' => $tmp,
+            'temp' => true,
+            'ext' => $this->extensionDesdeUrl($raw),
+        ];
+    }
+
     // =========================================================================
     // VISTA PRINCIPAL
     // =========================================================================
@@ -566,6 +688,130 @@ class MotosAdjudicadas extends Controller
     }
 
     /**
+     * POST /MotosAdjudicadas/descargarEvidenciasSeleccionadas
+     * Body JSON: { "id_operacion": 5, "slots": ["fis_frontal", "doc_repuve"] }
+     */
+    public function descargarEvidenciasSeleccionadas()
+    {
+        if (!class_exists('\ZipArchive')) {
+            header('Content-Type: application/json; charset=utf-8');
+            http_response_code(500);
+            echo json_encode(['success' => false, 'message' => 'El servidor no tiene habilitada la extension ZipArchive.']);
+            return;
+        }
+
+        $body = json_decode((string) file_get_contents('php://input'), true) ?: [];
+        $idOperacion = (int) ($body['id_operacion'] ?? 0);
+        $slots = $body['slots'] ?? [];
+        $slots = is_array($slots)
+            ? array_values(array_unique(array_filter(array_map('strval', $slots))))
+            : [];
+
+        if ($idOperacion <= 0 || empty($slots)) {
+            header('Content-Type: application/json; charset=utf-8');
+            http_response_code(400);
+            echo json_encode(['success' => false, 'message' => 'Selecciona al menos una evidencia valida.']);
+            return;
+        }
+
+        $tmpZip = tempnam(sys_get_temp_dir(), 'sp_zip_');
+        $temporales = [];
+        if (!$tmpZip) {
+            header('Content-Type: application/json; charset=utf-8');
+            http_response_code(500);
+            echo json_encode(['success' => false, 'message' => 'No se pudo crear el archivo temporal.']);
+            return;
+        }
+        @unlink($tmpZip);
+        $tmpZip .= '.zip';
+
+        try {
+            $detalle = $this->model->obtenerDetalle($idOperacion);
+            if (!$detalle) {
+                throw new \RuntimeException('Operacion no encontrada.');
+            }
+
+            $porSlot = [];
+            foreach (($detalle['evidencias'] ?? []) as $ev) {
+                if (!is_array($ev) || empty($ev['slot']) || empty($ev['url'])) {
+                    continue;
+                }
+                $porSlot[(string) $ev['slot']] = $ev;
+            }
+
+            $zip = new \ZipArchive();
+            if ($zip->open($tmpZip, \ZipArchive::CREATE | \ZipArchive::OVERWRITE) !== true) {
+                throw new \RuntimeException('No se pudo generar el ZIP.');
+            }
+
+            $agregadas = 0;
+            foreach ($slots as $slot) {
+                if (empty($porSlot[$slot]['url'])) {
+                    continue;
+                }
+                $archivo = $this->resolverArchivoEvidencia((string) $porSlot[$slot]['url']);
+                if (!$archivo || empty($archivo['path']) || !is_file($archivo['path'])) {
+                    continue;
+                }
+
+                if (!empty($archivo['temp'])) {
+                    $temporales[] = $archivo['path'];
+                }
+
+                $agregadas++;
+                $label = $this->slugArchivoEvidencia($this->etiquetaEvidenciaPorSlot($slot));
+                $ext = (string) ($archivo['ext'] ?? 'bin');
+                $nombre = sprintf('%02d_%s.%s', $agregadas, $label, $ext);
+                $zip->addFile($archivo['path'], $nombre);
+            }
+
+            $zip->close();
+
+            if ($agregadas <= 0 || !is_file($tmpZip) || filesize($tmpZip) <= 0) {
+                throw new \RuntimeException('No se pudo leer ningun archivo seleccionado.');
+            }
+
+            $idCredito = preg_replace('/[^A-Za-z0-9_-]/', '', (string) ($detalle['id_credito'] ?? $idOperacion));
+            $downloadName = 'evidencias_' . ($idCredito !== '' ? $idCredito : $idOperacion) . '_' . date('Ymd_His') . '.zip';
+
+            while (ob_get_level() > 0) {
+                ob_end_clean();
+            }
+
+            header('Content-Type: application/zip');
+            header('Content-Disposition: attachment; filename="' . $downloadName . '"');
+            header('Content-Length: ' . filesize($tmpZip));
+            header('Cache-Control: no-store, no-cache, must-revalidate');
+            readfile($tmpZip);
+        } catch (\Throwable $e) {
+            if (is_file($tmpZip)) {
+                @unlink($tmpZip);
+            }
+            foreach ($temporales as $tmp) {
+                if (is_file($tmp)) {
+                    @unlink($tmp);
+                }
+            }
+            if (!headers_sent()) {
+                header('Content-Type: application/json; charset=utf-8');
+                http_response_code(500);
+            }
+            echo json_encode(['success' => false, 'message' => $e->getMessage()]);
+            return;
+        }
+
+        if (is_file($tmpZip)) {
+            @unlink($tmpZip);
+        }
+        foreach ($temporales as $tmp) {
+            if (is_file($tmp)) {
+                @unlink($tmp);
+            }
+        }
+        exit;
+    }
+
+    /**
      * GET /MotosAdjudicadas/recepcionResumenFinanciero?id_credito=N
      * Saldo capital y adeudo total desde API S2 (estado de cuenta).
      */
@@ -1055,6 +1301,9 @@ class MotosAdjudicadas extends Controller
                 'folio'                  => (string) ($detalle['folio'] ?? ''),
                 'id_credito'             => isset($detalle['id_credito']) ? (int) $detalle['id_credito'] : $idCredito,
                 'nombre_cliente'         => (string) ($detalle['nombre_cliente'] ?? $nombreCliente),
+                'estatus'                => (string) ($detalle['estatus'] ?? ''),
+                'saldo_capital'          => $detalle['saldo_capital'] ?? null,
+                'adeudo_total'           => $detalle['adeudo_total'] ?? null,
                 'id_usuario_alta'        => isset($detalle['id_usuario_alta']) ? (int) $detalle['id_usuario_alta'] : null,
                 'fecha_alta'             => $detalle['fecha_alta'] ?? null,
                 'fecha_actualizacion'    => $detalle['fecha_actualizacion'] ?? null,
@@ -1064,6 +1313,7 @@ class MotosAdjudicadas extends Controller
                 'recepcion_confirmada_at'=> $detalle['recepcion_confirmada_at'] ?? null,
                 'fecha_alta_fmt'         => (string) ($detalle['fecha_alta_fmt'] ?? ''),
                 'fecha_actualizacion_fmt'=> (string) ($detalle['fecha_actualizacion_fmt'] ?? ''),
+                'datos_moto_fecha'       => (string) ($detalle['datos_moto_fecha'] ?? ''),
                 'dias_en_pipeline'       => isset($detalle['dias_en_pipeline']) ? (int) $detalle['dias_en_pipeline'] : 0,
                 'datos_moto'             => $datosMoto,
                 'evidencias'             => is_array($detalle['evidencias'] ?? null) ? $detalle['evidencias'] : [],
