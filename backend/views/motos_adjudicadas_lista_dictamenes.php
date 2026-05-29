@@ -1026,8 +1026,8 @@ if (!isset($google_maps_api_key_js)) {
         var lugarAproxEl = document.getElementById('madjDetalleRevGeo');
         var lugarAprox = lugarAproxEl ? String(lugarAproxEl.value || '').trim() : '';
         if (
-            lugarAprox === 'Obteniendo denominaciÃ³n del lugarâ€¦' ||
-            lugarAprox === 'No se pudo obtener el nombre del lugar automÃ¡ticamente.'
+            lugarAprox === 'Obteniendo denominación del lugar…' ||
+            lugarAprox === 'No se pudo obtener el nombre del lugar automáticamente.'
         ) {
             lugarAprox = '';
         }

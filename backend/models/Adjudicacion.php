@@ -103,7 +103,7 @@ class Adjudicacion extends Model
 
     private function resolverNombreClienteOperacion(int $idCredito): string
     {
-        $fallback = "CrÃ©dito #{$idCredito}";
+        $fallback = "Crédito #{$idCredito}";
 
         try {
             $sky = $this->db->queryOne(

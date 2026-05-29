@@ -2052,7 +2052,7 @@ body.dark-mode .chat-send-btn:disabled { background: #2d4444; }
                                 <span>Unidad en vivo</span>
                             </div>
                             <div class="live-meta">
-                                <span id="trkLiveUpdated">Sin seÃ±al</span>
+                                <span id="trkLiveUpdated">Sin señal</span>
                                 <span id="trkLiveSpeed">Vel. —</span>
                                 <span id="trkLiveAccuracy">Prec. —</span>
                                 <span id="trkLiveBattery">Bat. —</span>
@@ -4284,7 +4284,7 @@ function _trkRenderListaCreditos() {
                     val = base;
                     Swal.fire({
                         icon: 'warning',
-                        title: 'Fecha ETA invÃ¡lida',
+                        title: 'Fecha ETA inválida',
                         text: 'La ETA no puede ser anterior a la fecha de salida de la ruta.',
                         confirmButtonText: 'Aceptar',
                     });
@@ -4943,7 +4943,7 @@ function _trkInicializarMapPicker() {
     }
 }
 
-function _trkPickerCrearMarker(latLng, title = 'UbicaciÃ³n seleccionada') {
+function _trkPickerCrearMarker(latLng, title = 'Ubicación seleccionada') {
     if (!_trkPicker.marker) {
         _trkPicker.marker = new google.maps.Marker({
             map: _trkPicker.mapInstance,
@@ -4969,7 +4969,7 @@ function _trkPickerAplicarLugar(latLng, components = null, addressText = '') {
     _trkPicker.selectedLng = typeof latLng.lng === 'function' ? latLng.lng() : latLng.lng;
     _trkPicker.mapInstance.panTo(latLng);
     _trkPicker.mapInstance.setZoom(16);
-    _trkPickerCrearMarker(latLng, addressText || 'UbicaciÃ³n seleccionada');
+    _trkPickerCrearMarker(latLng, addressText || 'Ubicación seleccionada');
     if (components) _trkPickerExtraerGeo(components);
     else _trkPickerReverseGeocode(latLng);
     _trkActualizarLabelCoordsicker();
@@ -4983,7 +4983,7 @@ function _trkPickerBuscarTextoLibre() {
     if (!_trkPicker.geocoder) _trkPicker.geocoder = new google.maps.Geocoder();
     const sesgo = _trkPicker.mapInstance.getCenter();
     _trkPicker.geocoder.geocode({
-        address: `${query}, MÃ©xico`,
+        address: `${query}, México`,
         componentRestrictions: { country: 'MX' },
         location: sesgo,
     }, (results, status) => {
@@ -5045,7 +5045,7 @@ function _trkPickerInicializarBusqueda() {
             _trkPicker.selectedMunicipio = null;
             document.getElementById('mapPickerGeoInfo').classList.add('d-none');
             document.getElementById('mapPickerCoordsLabel').innerHTML =
-                '<i class="fa-solid fa-crosshairs me-1"></i>Sin selecciÃ³n';
+                '<i class="fa-solid fa-crosshairs me-1"></i>Sin selección';
             document.getElementById('btnConfirmarMapPicker').disabled = true;
         });
         _trkPicker.listenersBound = true;
@@ -5429,8 +5429,8 @@ async function _trkGuardarRuta(modo) {
     if (etaInvalida) {
         Swal.fire({
             icon: 'warning',
-            title: 'ETA invÃ¡lida',
-            text: `La ETA del crÃ©dito #${etaInvalida.id_credito} no puede ser anterior a la fecha de salida de la ruta.`,
+            title: 'ETA inválida',
+            text: `La ETA del crédito #${etaInvalida.id_credito} no puede ser anterior a la fecha de salida de la ruta.`,
             confirmButtonText: 'Aceptar',
         });
         return;
@@ -6372,8 +6372,8 @@ function _trkRTConectarWS(cfg) {
             _trkRT.wsRetries = 5;
             Swal.fire({
                 icon: 'warning',
-                title: ev.code === 4001 ? 'SesiÃ³n expirada' : 'Sin acceso',
-                text: ev.reason || (ev.code === 4001 ? 'Recarga la pÃ¡gina para renovar el tracking en vivo.' : 'No tienes permiso para visualizar esta ruta en vivo.'),
+                title: ev.code === 4001 ? 'Sesión expirada' : 'Sin acceso',
+                text: ev.reason || (ev.code === 4001 ? 'Recarga la página para renovar el tracking en vivo.' : 'No tienes permiso para visualizar esta ruta en vivo.'),
                 confirmButtonText: 'Aceptar',
             });
             return;
@@ -6422,7 +6422,7 @@ function _trkRTProcesarEvento(data) {
                 _trkRT.liveCfg = null;
                 _trkRT.wsRetries = 5;
                 _trkRTActualizarWsDot(false);
-                Swal.fire({ icon: 'warning', title: 'SesiÃ³n expirada', text: 'Recarga la pÃ¡gina para renovar el tracking en vivo.', confirmButtonText: 'Aceptar' });
+                Swal.fire({ icon: 'warning', title: 'Sesión expirada', text: 'Recarga la página para renovar el tracking en vivo.', confirmButtonText: 'Aceptar' });
             } else if (code === '4003') {
                 _trkRT.wsRetries = 5;
                 _trkRTActualizarWsDot(false);
@@ -6801,7 +6801,7 @@ function _trkChatRenderContenidoMensaje(msg) {
         <i class="fa-solid fa-file-arrow-down"></i>
         <span>
             <span>${_trkChatEscapeHtml(nombre)}</span>
-            <small>${_trkChatEscapeHtml([ext, size].filter(Boolean).join(' / '))}</small>
+            <small>${_trkChatEscapeHtml([ext, size].filter(Boolean).join(' · '))}</small>
         </span>
     </a>${caption}`;
 }
@@ -7229,7 +7229,7 @@ function _trkChatPreviewArchivo(file, tipo) {
             const reader = new FileReader();
             reader.onload = () => resolve(`<div class="text-center">
                 <img src="${reader.result}" style="max-width:260px;max-height:180px;border-radius:8px;object-fit:contain;">
-                <div class="small text-muted mt-2">${safeName} ${size ? '/ ' + size : ''}</div>
+                <div class="small text-muted mt-2">${safeName} ${size ? '· ' + size : ''}</div>
             </div>`);
             reader.onerror = () => resolve(`<div class="text-center small">${safeName}</div>`);
             reader.readAsDataURL(file);
@@ -7275,7 +7275,7 @@ async function _trkChatSubirArchivo(idDetalle, file, mensaje = '') {
         }
         _trkChatAgregarMensaje(idDetalle, r.mensaje);
     } catch {
-        Swal.fire({ icon: 'error', title: 'Error', text: 'Error de conexiÃ³n al subir el archivo.', confirmButtonText: 'Aceptar' });
+        Swal.fire({ icon: 'error', title: 'Error', text: 'Error de conexión al subir el archivo.', confirmButtonText: 'Aceptar' });
     } finally {
         if (sendBtn) sendBtn.innerHTML = oldHtml || '<i class="fa-solid fa-paper-plane"></i>';
         _trkChatActualizarUI(idDetalle);
@@ -7287,7 +7287,7 @@ function _trkChatAdjuntoPendiente(idDetalle, tipo) {
     Swal.fire({
         icon: 'info',
         title: 'Adjuntos listos para conectar',
-        text: `El botÃ³n de ${labels[tipo] || 'archivo'} ya estÃ¡ preparado para id_detalle ${idDetalle}. Falta enlazar el endpoint de adjuntos del servicio de tracking.`,
+        text: `El botón de ${labels[tipo] || 'archivo'} ya está preparado para id_detalle ${idDetalle}. Falta enlazar el endpoint de adjuntos del servicio de tracking.`,
         confirmButtonText: 'Entendido',
     });
 }

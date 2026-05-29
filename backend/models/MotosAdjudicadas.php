@@ -2339,7 +2339,7 @@ class MotosAdjudicadas extends Model
     }
 
     /**
-     * Reemplazo especial desde AtenciÃ³n: solo para evidencias fÃ­sicas validables.
+     * Reemplazo especial desde Atención: solo para evidencias físicas validables.
      * Limpia el veredicto y neutraliza historial de rechazo pendiente para que no se regenere.
      */
     public function reemplazarEvidenciaGestor(int $idOperacion, string $slot, array $fileInfo, int $idUsuario, string $nombreUsuario = ''): array

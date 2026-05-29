@@ -529,8 +529,15 @@
  */
 function toTitleCase(str) {
     if (!str) return '';
-    return str.toLowerCase().replace(/\b\w/g, function(char) {
-        return char.toUpperCase();
-    });
+    return str
+        .split(/\s+/)
+        .filter(Boolean)
+        .map(function(word) {
+            if (/^[A-ZÁÉÍÓÚÑ]{2,4}$/.test(word)) return word;
+            return word.toLowerCase().replace(/^\w/, function(char) {
+                return char.toUpperCase();
+            });
+        })
+        .join(' ');
 }
 </script>

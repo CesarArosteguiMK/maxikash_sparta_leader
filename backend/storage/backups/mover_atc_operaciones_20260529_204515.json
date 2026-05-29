@@ -1,0 +1,68 @@
+[
+    {
+        "id_asigna_puesto": 1076,
+        "id_persona": 861,
+        "numero_empleado": "999999447",
+        "persona": "JENIFER ITZEL PEINADO ALCALA",
+        "estatus": "Activo",
+        "id_puesto_origen": 51,
+        "puesto_origen": "Gerente de ATC",
+        "puesto_destino": "Gerente",
+        "id_puesto_destino": 305
+    },
+    {
+        "id_asigna_puesto": 1077,
+        "id_persona": 862,
+        "numero_empleado": "999999448",
+        "persona": "MICHELLE DARAN MARTINEZ",
+        "estatus": "Activo",
+        "id_puesto_origen": 52,
+        "puesto_origen": "Supervisor ATC",
+        "puesto_destino": "Supervisor",
+        "id_puesto_destino": 306
+    },
+    {
+        "id_asigna_puesto": 1078,
+        "id_persona": 863,
+        "numero_empleado": "999999449",
+        "persona": "LUIS ENRIQUE ROSARIO DOMINGUEZ",
+        "estatus": "Activo",
+        "id_puesto_origen": 53,
+        "puesto_origen": "Team Lider ATC",
+        "puesto_destino": "Supervisor",
+        "id_puesto_destino": 306
+    },
+    {
+        "id_asigna_puesto": 1079,
+        "id_persona": 864,
+        "numero_empleado": "999999450",
+        "persona": "ITZEL JOBANA HERRERA SIERRA",
+        "estatus": "Activo",
+        "id_puesto_origen": 54,
+        "puesto_origen": "Asesor ATC",
+        "puesto_destino": "Ejecutivo",
+        "id_puesto_destino": 304
+    },
+    {
+        "id_asigna_puesto": 1080,
+        "id_persona": 865,
+        "numero_empleado": "999999451",
+        "persona": "ALAN RAMSES REYES ESTRADA",
+        "estatus": "Activo",
+        "id_puesto_origen": 54,
+        "puesto_origen": "Asesor ATC",
+        "puesto_destino": "Ejecutivo",
+        "id_puesto_destino": 304
+    },
+    {
+        "id_asigna_puesto": 1081,
+        "id_persona": 866,
+        "numero_empleado": "999999452",
+        "persona": "ELOY ESTEBAN CRUZ HERRERA",
+        "estatus": "Activo",
+        "id_puesto_origen": 54,
+        "puesto_origen": "Asesor ATC",
+        "puesto_destino": "Ejecutivo",
+        "id_puesto_destino": 304
+    }
+]
