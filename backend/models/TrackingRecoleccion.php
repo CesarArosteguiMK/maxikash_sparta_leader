@@ -506,6 +506,22 @@ class TrackingRecoleccion extends Model
         if (!in_array($tipoTransportista, ['interno', 'externo'], true)) {
             $tipoTransportista = '';
         }
+        if (($estado === '' || $municipio === '') && !empty($creditos)) {
+            $estadosRuta = [];
+            $municipiosRuta = [];
+            foreach ($creditos as $det) {
+                $e = trim((string)($det['estado'] ?? ''));
+                $m = trim((string)($det['municipio'] ?? ''));
+                if ($e !== '') $estadosRuta[$e] = true;
+                if ($m !== '') $municipiosRuta[$m] = true;
+            }
+            if ($estado === '' && !empty($estadosRuta)) {
+                $estado = count($estadosRuta) > 1 ? 'MULTIPLES ESTADOS' : array_key_first($estadosRuta);
+            }
+            if ($municipio === '' && !empty($municipiosRuta)) {
+                $municipio = count($municipiosRuta) > 1 ? 'MULTIPLES MUNICIPIOS' : array_key_first($municipiosRuta);
+            }
+        }
 
         // Validaciones comunes
         if ($nombre === '') {

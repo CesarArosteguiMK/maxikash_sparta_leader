@@ -9,7 +9,7 @@ $opcionesTracking = [
         'url'    => '/TrackingRecoleccion/creditos',
         'btn'    => 'Ver creditos',
         'icon'   => 'fa-motorcycle',
-        'img'    => 'https://cdn-icons-png.freepik.com/512/11053/11053297.png',
+        'visual' => 'moto',
         'class'  => 'primary',
     ],
     [
@@ -18,7 +18,7 @@ $opcionesTracking = [
         'url'    => '/TrackingRecoleccion/borradores',
         'btn'    => 'Ver borradores',
         'icon'   => 'fa-file-pen',
-        'img'    => 'https://cdn-icons-png.freepik.com/512/4545/4545742.png',
+        'visual' => 'draft',
         'class'  => 'primary',
     ],
     [
@@ -27,7 +27,7 @@ $opcionesTracking = [
         'url'    => '/TrackingRecoleccion/rutas',
         'btn'    => 'Ver rutas',
         'icon'   => 'fa-map-marked-alt',
-        'img'    => 'https://cdn-icons-png.freepik.com/512/854/854878.png',
+        'visual' => 'route',
         'class'  => 'primary',
     ],
     [
@@ -36,10 +36,84 @@ $opcionesTracking = [
         'url'    => '/TrackingRecoleccion/cedisTransportistas',
         'btn'    => 'Ver catalogos',
         'icon'   => 'fa-building-user',
-        'img'    => 'https://cdn-icons-png.freepik.com/512/3135/3135715.png',
+        'visual' => 'cedis',
         'class'  => 'primary',
     ],
 ];
+
+if (!function_exists('trackingMenuSvg')) {
+function trackingMenuSvg(string $type): string
+{
+    $icons = [
+        'moto' => <<<'SVG'
+<svg viewBox="0 0 160 140" role="img" focusable="false">
+    <defs>
+        <linearGradient id="trkMotoG" x1="20" y1="18" x2="138" y2="118" gradientUnits="userSpaceOnUse">
+            <stop offset="0" stop-color="#38bdf8"/>
+            <stop offset=".55" stop-color="#2563eb"/>
+            <stop offset="1" stop-color="#172554"/>
+        </linearGradient>
+    </defs>
+    <path d="M28 94c0-15 12-27 27-27s27 12 27 27-12 27-27 27-27-12-27-27Zm82 0c0-15 12-27 27-27s27 12 27 27-12 27-27 27-27-12-27-27Z" class="trk-svg-soft"/>
+    <path d="M47 94a8 8 0 1 0 16 0 8 8 0 0 0-16 0Zm82 0a8 8 0 1 0 16 0 8 8 0 0 0-16 0Z" fill="#fff"/>
+    <path d="M55 94h24l20-31h21l17 31M80 94 66 57h24l17 37M91 57l16-17h18M79 94h31M58 57h24" class="trk-svg-line"/>
+    <path d="M104 39h20l8 12h-27" class="trk-svg-fill"/>
+    <path d="M49 74h17m63 0h17" class="trk-svg-line-thin"/>
+</svg>
+SVG,
+        'draft' => <<<'SVG'
+<svg viewBox="0 0 160 140" role="img" focusable="false">
+    <defs>
+        <linearGradient id="trkDraftG" x1="38" y1="14" x2="124" y2="124" gradientUnits="userSpaceOnUse">
+            <stop offset="0" stop-color="#38bdf8"/>
+            <stop offset=".52" stop-color="#2563eb"/>
+            <stop offset="1" stop-color="#172554"/>
+        </linearGradient>
+    </defs>
+    <path d="M42 18h58l28 28v73a9 9 0 0 1-9 9H42a9 9 0 0 1-9-9V27a9 9 0 0 1 9-9Z" class="trk-svg-soft"/>
+    <path d="M100 18v29h28" class="trk-svg-line"/>
+    <path d="M56 59h49M56 77h58M56 95h34" class="trk-svg-line-thin"/>
+    <path d="m103 101 27-27a8 8 0 0 1 11 11l-27 27-17 6 6-17Z" class="trk-svg-fill"/>
+    <path d="m124 80 11 11" class="trk-svg-line-thin is-white"/>
+</svg>
+SVG,
+        'route' => <<<'SVG'
+<svg viewBox="0 0 160 140" role="img" focusable="false">
+    <defs>
+        <linearGradient id="trkRouteG" x1="22" y1="18" x2="136" y2="120" gradientUnits="userSpaceOnUse">
+            <stop offset="0" stop-color="#38bdf8"/>
+            <stop offset=".5" stop-color="#2563eb"/>
+            <stop offset="1" stop-color="#172554"/>
+        </linearGradient>
+    </defs>
+    <path d="M26 41 62 26l38 16 34-16v83l-34 16-38-16-36 15V41Z" class="trk-svg-soft"/>
+    <path d="M62 26v83M100 42v83" class="trk-svg-line-thin"/>
+    <path d="M47 94c27-36 50 18 71-26" class="trk-svg-line"/>
+    <path d="M118 25c-14 0-25 11-25 25 0 20 25 44 25 44s25-24 25-44c0-14-11-25-25-25Z" class="trk-svg-fill"/>
+    <circle cx="118" cy="50" r="9" fill="#fff"/>
+</svg>
+SVG,
+        'cedis' => <<<'SVG'
+<svg viewBox="0 0 160 140" role="img" focusable="false">
+    <defs>
+        <linearGradient id="trkCedisG" x1="28" y1="15" x2="132" y2="125" gradientUnits="userSpaceOnUse">
+            <stop offset="0" stop-color="#38bdf8"/>
+            <stop offset=".52" stop-color="#2563eb"/>
+            <stop offset="1" stop-color="#172554"/>
+        </linearGradient>
+    </defs>
+    <path d="M28 60 80 30l52 30v61H28V60Z" class="trk-svg-soft"/>
+    <path d="M20 62 80 27l60 35M43 121V73h74v48" class="trk-svg-line"/>
+    <path d="M56 85h48v36H56V85Z" class="trk-svg-fill"/>
+    <path d="M56 97h48M80 85v36" class="trk-svg-line-thin is-white"/>
+    <path d="M43 73h74M43 121h74" class="trk-svg-line-thin"/>
+</svg>
+SVG,
+    ];
+
+    return $icons[$type] ?? $icons['moto'];
+}
+}
 ?>
 
 <div id="trk-landing" class="cc-call-center-page reporteria-landing-root">
@@ -92,9 +166,9 @@ $opcionesTracking = [
                                             </div>
                                         </div>
                                         <div class="w-100 app-academy-sm-40 d-flex justify-content-center justify-content-sm-end h-px-150 mb-4 mb-sm-0">
-                                            <img class="img-fluid scaleX-n1-rtl trk-menu-img"
-                                                 src="<?= htmlspecialchars($op['img'], ENT_QUOTES, 'UTF-8'); ?>"
-                                                 alt="<?= htmlspecialchars($op['titulo'], ENT_QUOTES, 'UTF-8'); ?>">
+                                            <div class="trk-menu-visual" aria-hidden="true">
+                                                <?= trackingMenuSvg((string) ($op['visual'] ?? 'moto')); ?>
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
@@ -127,9 +201,43 @@ $opcionesTracking = [
 #trk-landing .trk-menu-card {
     border-radius: .65rem;
 }
-#trk-landing .trk-menu-img {
-    max-height: 135px;
-    object-fit: contain;
+#trk-landing .trk-menu-visual {
+    width: 132px;
+    height: 132px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+#trk-landing .trk-menu-visual svg {
+    width: 132px;
+    height: 132px;
+    overflow: visible;
+    filter: drop-shadow(0 16px 22px rgba(37, 54, 83, .12));
+}
+#trk-landing .trk-menu-visual .trk-svg-soft {
+    fill: #eff6ff;
+    stroke: url(#trkMotoG);
+    stroke-width: 3;
+}
+#trk-landing .trk-menu-visual .trk-svg-line {
+    fill: none;
+    stroke: url(#trkMotoG);
+    stroke-width: 8;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+#trk-landing .trk-menu-visual .trk-svg-line-thin {
+    fill: none;
+    stroke: url(#trkMotoG);
+    stroke-width: 4;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+#trk-landing .trk-menu-visual .trk-svg-fill {
+    fill: url(#trkMotoG);
+}
+#trk-landing .trk-menu-visual .is-white {
+    stroke: rgba(255, 255, 255, .82);
 }
 @media (max-width: 767.98px) {
     #trk-landing .cc-hero-mascot-floating {
