@@ -53,6 +53,29 @@ class AtencionClientes
                    ))";
     }
 
+    private function sqlSelectFormularioEvidencias(string $aliasOperacion = 'o'): string
+    {
+        $a = $aliasOperacion;
+
+        return <<<SQL
+            {$a}.moto_marca,
+            {$a}.moto_modelo,
+            {$a}.moto_anio,
+            {$a}.moto_color,
+            {$a}.moto_no_serie,
+            {$a}.moto_no_motor,
+            {$a}.moto_placas,
+            {$a}.log_direccion,
+            {$a}.log_ciudad,
+            {$a}.log_estado,
+            {$a}.log_lugar_resguardo,
+            {$a}.log_lugar_otro,
+            {$a}.log_telefono,
+            {$a}.responsable_entrega,
+            DATE_FORMAT({$a}.datos_moto_at, '%d/%m/%Y %H:%i') AS datos_moto_fecha
+SQL;
+    }
+
     /**
      * Evita duplicar filas si hay más de un registro activo en asigna_creditos_adjudicacion por crédito.
      */
@@ -248,6 +271,7 @@ SQL;
     {
         $joinAsig = $this->sqlJoinUnaAsignacionActivaPorCredito();
         $evidenciasCount = $this->sqlConteoEvidenciasFisicas('o');
+        $formulario = $this->sqlSelectFormularioEvidencias('o');
         $sql = <<<SQL
         SELECT
             o.id,
@@ -260,6 +284,7 @@ SQL;
             o.adeudo_total,
             DATEDIFF(NOW(), o.fecha_alta) AS dias_en_pipeline,
             {$evidenciasCount} AS evidencias_count,
+            {$formulario},
             TRIM(CONCAT_WS(' ',
                 per.nombres,
                 per.segundo_nombre,
@@ -291,6 +316,7 @@ SQL;
         $joinAsig = $this->sqlJoinUnaAsignacionActivaPorCredito();
         $where = $this->sqlWhereBandejaEvidencias();
         $evidenciasCount = $this->sqlConteoEvidenciasFisicas('o');
+        $formulario = $this->sqlSelectFormularioEvidencias('o');
         $sql = <<<SQL
         SELECT
             o.id,
@@ -303,6 +329,7 @@ SQL;
             o.adeudo_total,
             DATEDIFF(NOW(), o.fecha_alta) AS dias_en_pipeline,
             {$evidenciasCount} AS evidencias_count,
+            {$formulario},
             TRIM(CONCAT_WS(' ',
                 per.nombres,
                 per.segundo_nombre,
@@ -328,6 +355,7 @@ SQL;
     {
         $joinAsig = $this->sqlJoinUnaAsignacionActivaPorCredito();
         $evidenciasCount = $this->sqlConteoEvidenciasFisicas('o');
+        $formulario = $this->sqlSelectFormularioEvidencias('o');
         $exclDictRec = '';
         if ($excluirDictaminadoRecuperacion) {
             $exclDictRec = <<<'SQL'
@@ -361,6 +389,7 @@ SQL;
             o.adeudo_total,
             DATEDIFF(NOW(), o.fecha_alta) AS dias_en_pipeline,
             {$evidenciasCount} AS evidencias_count,
+            {$formulario},
             TRIM(CONCAT_WS(' ',
                 per.nombres,
                 per.segundo_nombre,
