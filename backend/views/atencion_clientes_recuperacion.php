@@ -241,6 +241,20 @@
 .ar-table-status-line {
     line-height: 1.25;
 }
+.ar-table-status-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: .3rem;
+    border: 1px solid #bbf7d0;
+    border-radius: 999px;
+    background: #f0fdf4;
+    color: #15803d;
+    font-size: .7rem;
+    font-weight: 800;
+    line-height: 1;
+    padding: .28rem .55rem;
+    white-space: nowrap;
+}
 .ar-table-status-label {
     color: #94a3b8;
     font-size: .68rem;
@@ -2275,14 +2289,15 @@ $arPublicPath = function_exists('sparta_public_web_base') ? sparta_public_web_ba
         const fechaAsignacion = item.fecha_asignacion
             ? '<div><span class="text-muted">Asig.</span> ' + arEsc(item.fecha_asignacion) + '</div>'
             : '<div><span class="ar-table-muted">Sin asignacion</span></div>';
-        const estatus = item.estatus ? arEsc(item.estatus) : '<span class="ar-table-muted">-</span>';
+        const estatusRaw = item.estatus ? String(item.estatus).trim() : '';
+        const estatus = estatusRaw ? arEsc(estatusRaw) : '<span class="ar-table-muted">-</span>';
+        const estatusCartera = /cierre\s+documentado/i.test(estatusRaw) ? 'Enviado a cartera' : (estatusRaw || '-');
         const dias = item.dias_en_pipeline != null && item.dias_en_pipeline !== ''
             ? arEsc(String(item.dias_en_pipeline)) + ' dias'
             : '<span class="ar-table-muted">-</span>';
         const fechaDictamen = item.fecha_dictamen
-            ? '<div><span class="text-muted">Dict.</span> ' + arEsc(item.fecha_dictamen) + '</div>'
+            ? '<div><span class="text-muted">Envio</span> ' + arEsc(item.fecha_dictamen) + '</div>'
             : '';
-        const dictamen = item.dictamen ? arEsc(item.dictamen) : '<span class="ar-table-muted">-</span>';
         const accion = esBandeja ? `
             <button type="button" class="btn btn-sm ar-btn-evidencias" data-ar-no-row="1"
                     onclick="event.stopPropagation(); arEvModalAbrir(${idOp}, false)" ${idOp ? '' : 'disabled'}
@@ -2321,10 +2336,7 @@ $arPublicPath = function_exists('sparta_public_web_base') ? sparta_public_web_ba
             <td>${gestor}</td>
             <td>${fechaDictamen || '<span class="ar-table-muted">-</span>'}</td>
             <td class="ar-table-status">
-                <div class="ar-table-status-stack">
-                    <div class="ar-table-status-line"><span class="ar-table-status-label">Estatus:</span>${estatus}</div>
-                    <div class="ar-table-status-line"><span class="ar-table-status-label">Dictamen:</span>${dictamen}</div>
-                </div>
+                <span class="ar-table-status-pill"><i class="fa-solid fa-paper-plane"></i>${arEsc(estatusCartera)}</span>
             </td>
             <td class="ar-table-action"><div class="ar-table-actions">${accion}</div></td>
         </tr>`;
@@ -2336,7 +2348,7 @@ $arPublicPath = function_exists('sparta_public_web_base') ? sparta_public_web_ba
         const filas = datos.map(function (item) { return arRenderFilaTabla(item, key); }).join('');
         const headers = esBandeja
             ? '<th>Operacion</th><th>Cliente</th><th>Gestor</th><th>Fechas</th><th>Evidencias</th><th>Estatus</th><th class="ar-table-action">Acciones</th>'
-            : '<th>Operacion</th><th>Cliente</th><th>Gestor</th><th>Fechas</th><th>Estatus / Dictamen</th><th class="ar-table-action">Acciones</th>';
+            : '<th>Operacion</th><th>Cliente</th><th>Gestor</th><th>Fecha envio</th><th>Destino</th><th class="ar-table-action">Acciones</th>';
 
         return `
         <div class="card-datatable ar-table-wrap">
