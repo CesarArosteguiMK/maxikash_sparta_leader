@@ -602,6 +602,69 @@ class TrackingRecoleccion extends Controller
     }
 
     /**
+     * GET /TrackingRecoleccion/obtenerCedisTracking
+     * Proxy seguro: GET /api/tracking/cedis
+     */
+    public function obtenerCedisTracking()
+    {
+        $cfg   = $this->_trkChatConfig();
+        $token = $this->_trkChatObtenerJwt();
+
+        if ($cfg['base_url'] !== '' && $cfg['api_key'] !== '' && $token !== '') {
+            $url  = rtrim($cfg['base_url'], '/') . '/api/tracking/cedis';
+            $resp = $this->_trkChatCurl($url, 'GET', '', [
+                'X-API-Key: ' . $cfg['api_key'],
+                'Authorization: Bearer ' . $token,
+            ]);
+
+            $httpCode = (int)($resp['http_code'] ?? 0);
+            $data     = json_decode((string)($resp['body'] ?? ''), true);
+
+            if ($httpCode === 401) {
+                unset($_SESSION['_trk_chat_jwt'], $_SESSION['_trk_chat_jwt_exp']);
+            }
+
+            if ($httpCode > 0 && $httpCode < 500 && is_array($data)) {
+                $cedis = $data['cedis']
+                    ?? $data['datos']['cedis']
+                    ?? $data['datos']
+                    ?? $data['data']['cedis']
+                    ?? $data['data']
+                    ?? [];
+
+                if (is_array($cedis)) {
+                    $cedis = array_values(array_filter($cedis, static function ($item) {
+                        if (!is_array($item)) return false;
+                        return !isset($item['activo']) || (int)$item['activo'] === 1;
+                    }));
+
+                    self::respuestaJSON(self::respuesta(true, null, [
+                        'cedis'      => $cedis,
+                        'origen'     => 'api',
+                        'codigo_http'=> $httpCode,
+                    ]));
+                    return;
+                }
+            }
+        }
+
+        try {
+            $model = new TrackingModel();
+            $catalogo = $model->obtenerCatalogoAgenciasTransportistas();
+            $cedis = array_values(array_filter($catalogo['agencias'] ?? [], static function ($item) {
+                if (!is_array($item)) return false;
+                return !isset($item['activo']) || (int)$item['activo'] === 1;
+            }));
+            self::respuestaJSON(self::respuesta(true, 'CEDIS cargados desde respaldo local.', [
+                'cedis'  => $cedis,
+                'origen' => 'local_fallback',
+            ]));
+        } catch (\Throwable $e) {
+            self::respuestaJSON(self::respuesta(false, 'Error al obtener CEDIS.', null, $e->getMessage()));
+        }
+    }
+
+    /**
      * GET /TrackingRecoleccion/obtenerTransportistasTracking?tipo=interno|externo&id_agencia=N
      */
     public function obtenerTransportistasTracking()
