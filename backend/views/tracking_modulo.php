@@ -3756,9 +3756,9 @@ function _trkRenderCedisDestinoInfo() {
     const nombre = cedis.nombre_agencia || 'Sin destino asignado';
     const encargado = cedis.encargado || 'No disponible';
     const ubicacion = [cedis.municipio, cedis.estado, cedis.codigo_postal ? `CP ${cedis.codigo_postal}` : '']
-        .filter(Boolean).join(' Â· ') || 'Ubicacion no disponible';
+        .filter(Boolean).join(' / ') || 'Ubicacion no disponible';
     const direccion = cedis.direccion || 'No disponible';
-    const contacto = [cedis.telefono, cedis.email].filter(Boolean).join(' Â· ') || 'Sin contacto';
+    const contacto = [cedis.telefono, cedis.email].filter(Boolean).join(' / ') || 'Sin contacto';
     const horario = cedis.horario || 'No disponible';
     $box.removeClass('d-none').html(`
         <div class="d-flex flex-column gap-1">
@@ -6801,7 +6801,7 @@ function _trkChatRenderContenidoMensaje(msg) {
         <i class="fa-solid fa-file-arrow-down"></i>
         <span>
             <span>${_trkChatEscapeHtml(nombre)}</span>
-            <small>${_trkChatEscapeHtml([ext, size].filter(Boolean).join(' Â· '))}</small>
+            <small>${_trkChatEscapeHtml([ext, size].filter(Boolean).join(' / '))}</small>
         </span>
     </a>${caption}`;
 }
@@ -7229,7 +7229,7 @@ function _trkChatPreviewArchivo(file, tipo) {
             const reader = new FileReader();
             reader.onload = () => resolve(`<div class="text-center">
                 <img src="${reader.result}" style="max-width:260px;max-height:180px;border-radius:8px;object-fit:contain;">
-                <div class="small text-muted mt-2">${safeName} ${size ? 'Â· ' + size : ''}</div>
+                <div class="small text-muted mt-2">${safeName} ${size ? '/ ' + size : ''}</div>
             </div>`);
             reader.onerror = () => resolve(`<div class="text-center small">${safeName}</div>`);
             reader.readAsDataURL(file);

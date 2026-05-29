@@ -4,12 +4,12 @@ $nombreUsuario = isset($_SESSION['usuario_nombre'])
     : 'USUARIO';
 $opcionesTracking = [
     [
-        'titulo' => 'Creditos disponibles',
+        'titulo' => 'Pendientes de Recolección',
         'texto'  => 'Consulta las motos adjudicadas listas para planeacion, filtra por estado y municipio, y prepara nuevas rutas.',
         'url'    => '/TrackingRecoleccion/creditos',
-        'btn'    => 'Ver creditos',
+        'btn'    => 'Ver pendientes',
         'icon'   => 'fa-motorcycle',
-        'visual' => 'moto',
+        'visual' => 'checklist',
         'class'  => 'primary',
     ],
     [
@@ -18,7 +18,7 @@ $opcionesTracking = [
         'url'    => '/TrackingRecoleccion/borradores',
         'btn'    => 'Ver borradores',
         'icon'   => 'fa-file-pen',
-        'visual' => 'draft',
+        'visual' => 'rocket',
         'class'  => 'primary',
     ],
     [
@@ -27,7 +27,7 @@ $opcionesTracking = [
         'url'    => '/TrackingRecoleccion/rutas',
         'btn'    => 'Ver rutas',
         'icon'   => 'fa-map-marked-alt',
-        'visual' => 'route',
+        'visual' => 'map',
         'class'  => 'primary',
     ],
     [
@@ -36,7 +36,7 @@ $opcionesTracking = [
         'url'    => '/TrackingRecoleccion/cedisTransportistas',
         'btn'    => 'Ver catalogos',
         'icon'   => 'fa-building-user',
-        'visual' => 'cedis',
+        'visual' => 'avatar',
         'class'  => 'primary',
     ],
 ];
@@ -45,73 +45,54 @@ if (!function_exists('trackingMenuSvg')) {
 function trackingMenuSvg(string $type): string
 {
     $icons = [
-        'moto' => <<<'SVG'
+        'checklist' => <<<'SVG'
 <svg viewBox="0 0 160 140" role="img" focusable="false">
-    <defs>
-        <linearGradient id="trkMotoG" x1="20" y1="18" x2="138" y2="118" gradientUnits="userSpaceOnUse">
-            <stop offset="0" stop-color="#38bdf8"/>
-            <stop offset=".55" stop-color="#2563eb"/>
-            <stop offset="1" stop-color="#172554"/>
-        </linearGradient>
-    </defs>
-    <path d="M28 94c0-15 12-27 27-27s27 12 27 27-12 27-27 27-27-12-27-27Zm82 0c0-15 12-27 27-27s27 12 27 27-12 27-27 27-27-12-27-27Z" class="trk-svg-soft"/>
-    <path d="M47 94a8 8 0 1 0 16 0 8 8 0 0 0-16 0Zm82 0a8 8 0 1 0 16 0 8 8 0 0 0-16 0Z" fill="#fff"/>
-    <path d="M55 94h24l20-31h21l17 31M80 94 66 57h24l17 37M91 57l16-17h18M79 94h31M58 57h24" class="trk-svg-line"/>
-    <path d="M104 39h20l8 12h-27" class="trk-svg-fill"/>
-    <path d="M49 74h17m63 0h17" class="trk-svg-line-thin"/>
+    <path d="M45 20h51l24 24v70c0 9-7 16-16 16H45c-9 0-16-7-16-16V36c0-9 7-16 16-16Z" fill="#f8fbff"/>
+    <path d="M45 20h51l24 24v70c0 9-7 16-16 16H45c-9 0-16-7-16-16V36c0-9 7-16 16-16Z" fill="none" stroke="#18b8f2" stroke-width="5" stroke-linejoin="round"/>
+    <path d="M96 20v25h24" fill="none" stroke="#4968ff" stroke-width="5" stroke-linejoin="round"/>
+    <path d="M48 62h37M48 82h48M48 102h34" fill="none" stroke="#18b8f2" stroke-width="5" stroke-linecap="round"/>
+    <circle cx="110" cy="55" r="27" fill="#eef5ff" stroke="#5971ff" stroke-width="6"/>
+    <path d="m98 55 9 9 18-18" fill="none" stroke="#4968ff" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
 </svg>
 SVG,
-        'draft' => <<<'SVG'
+        'rocket' => <<<'SVG'
 <svg viewBox="0 0 160 140" role="img" focusable="false">
-    <defs>
-        <linearGradient id="trkDraftG" x1="38" y1="14" x2="124" y2="124" gradientUnits="userSpaceOnUse">
-            <stop offset="0" stop-color="#38bdf8"/>
-            <stop offset=".52" stop-color="#2563eb"/>
-            <stop offset="1" stop-color="#172554"/>
-        </linearGradient>
-    </defs>
-    <path d="M42 18h58l28 28v73a9 9 0 0 1-9 9H42a9 9 0 0 1-9-9V27a9 9 0 0 1 9-9Z" class="trk-svg-soft"/>
-    <path d="M100 18v29h28" class="trk-svg-line"/>
-    <path d="M56 59h49M56 77h58M56 95h34" class="trk-svg-line-thin"/>
-    <path d="m103 101 27-27a8 8 0 0 1 11 11l-27 27-17 6 6-17Z" class="trk-svg-fill"/>
-    <path d="m124 80 11 11" class="trk-svg-line-thin is-white"/>
+    <path d="M35 107c8-31 25-44 49-39l8 29c-18 3-33 8-47 22-4-1-8-5-10-12Z" fill="#ded8d6"/>
+    <path d="M125 107c-8-31-25-44-49-39l-8 29c18 3 33 8 47 22 4-1 8-5 10-12Z" fill="#ded8d6"/>
+    <path d="M68 118h24c-2-16-3-34 0-54H68c3 20 2 38 0 54Z" fill="#0da8d8"/>
+    <path d="M80 20c21 18 29 41 24 72H56c-5-31 3-54 24-72Z" fill="#18c2df"/>
+    <path d="M80 20c9 8 15 17 19 28H61c4-11 10-20 19-28Z" fill="#ff4051"/>
+    <circle cx="80" cy="60" r="9" fill="#70818f"/>
+    <path d="M74 84h12v16H74z" fill="#ffbd5b"/>
+    <path d="M61 102v20M99 102v20" fill="none" stroke="#f5f2f0" stroke-width="8" stroke-linecap="round"/>
 </svg>
 SVG,
-        'route' => <<<'SVG'
+        'map' => <<<'SVG'
 <svg viewBox="0 0 160 140" role="img" focusable="false">
-    <defs>
-        <linearGradient id="trkRouteG" x1="22" y1="18" x2="136" y2="120" gradientUnits="userSpaceOnUse">
-            <stop offset="0" stop-color="#38bdf8"/>
-            <stop offset=".5" stop-color="#2563eb"/>
-            <stop offset="1" stop-color="#172554"/>
-        </linearGradient>
-    </defs>
-    <path d="M26 41 62 26l38 16 34-16v83l-34 16-38-16-36 15V41Z" class="trk-svg-soft"/>
-    <path d="M62 26v83M100 42v83" class="trk-svg-line-thin"/>
-    <path d="M47 94c27-36 50 18 71-26" class="trk-svg-line"/>
-    <path d="M118 25c-14 0-25 11-25 25 0 20 25 44 25 44s25-24 25-44c0-14-11-25-25-25Z" class="trk-svg-fill"/>
-    <circle cx="118" cy="50" r="9" fill="#fff"/>
+    <path d="M24 105 47 44l33-13 34 14 22 60-34 13-33-14-45 1Z" fill="#8ce3f1"/>
+    <path d="m47 44 22 60 33 14-22-87-33 13Z" fill="#f7d34a"/>
+    <path d="m80 31 22 87 34-13-22-60-34-14Z" fill="#11b7ec"/>
+    <path d="m34 79 30-13 20 18 29-12" fill="none" stroke="#20d45b" stroke-width="16" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M102 23c-19 0-34 15-34 34 0 27 34 60 34 60s34-33 34-60c0-19-15-34-34-34Z" fill="#ff4051"/>
+    <circle cx="102" cy="56" r="11" fill="#fff"/>
 </svg>
 SVG,
-        'cedis' => <<<'SVG'
+        'avatar' => <<<'SVG'
 <svg viewBox="0 0 160 140" role="img" focusable="false">
-    <defs>
-        <linearGradient id="trkCedisG" x1="28" y1="15" x2="132" y2="125" gradientUnits="userSpaceOnUse">
-            <stop offset="0" stop-color="#38bdf8"/>
-            <stop offset=".52" stop-color="#2563eb"/>
-            <stop offset="1" stop-color="#172554"/>
-        </linearGradient>
-    </defs>
-    <path d="M28 60 80 30l52 30v61H28V60Z" class="trk-svg-soft"/>
-    <path d="M20 62 80 27l60 35M43 121V73h74v48" class="trk-svg-line"/>
-    <path d="M56 85h48v36H56V85Z" class="trk-svg-fill"/>
-    <path d="M56 97h48M80 85v36" class="trk-svg-line-thin is-white"/>
-    <path d="M43 73h74M43 121h74" class="trk-svg-line-thin"/>
+    <circle cx="80" cy="70" r="60" fill="#cfe5ff"/>
+    <circle cx="80" cy="70" r="46" fill="#b9d9ff"/>
+    <path d="M42 117c7-24 25-37 38-37s31 13 38 37c-10 8-23 13-38 13s-28-5-38-13Z" fill="#2f79b8"/>
+    <path d="m68 87 12 12 12-12v-16H68v16Z" fill="#ffd0c2"/>
+    <path d="M56 54c0-18 10-31 24-31s24 13 24 31c0 21-10 34-24 34S56 75 56 54Z" fill="#ffd9cc"/>
+    <path d="M57 49c3-18 15-25 31-22 12 2 18 11 17 25-11-7-28-6-48-3Z" fill="#244d73"/>
+    <path d="M64 93h32l-10 34H74L64 93Z" fill="#fff"/>
+    <path d="m80 99 9 28H71l9-28Z" fill="#f14b4b"/>
+    <path d="m64 91 16 8-13 11-9-13 6-6Zm32 0-16 8 13 11 9-13-6-6Z" fill="#e9f3ff"/>
 </svg>
 SVG,
     ];
 
-    return $icons[$type] ?? $icons['moto'];
+    return $icons[$type] ?? $icons['checklist'];
 }
 }
 ?>
@@ -167,7 +148,7 @@ SVG,
                                         </div>
                                         <div class="w-100 app-academy-sm-40 d-flex justify-content-center justify-content-sm-end h-px-150 mb-4 mb-sm-0">
                                             <div class="trk-menu-visual" aria-hidden="true">
-                                                <?= trackingMenuSvg((string) ($op['visual'] ?? 'moto')); ?>
+                                                <?= trackingMenuSvg((string) ($op['visual'] ?? 'checklist')); ?>
                                             </div>
                                         </div>
                                     </div>
