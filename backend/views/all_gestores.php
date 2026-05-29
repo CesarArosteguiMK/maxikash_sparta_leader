@@ -895,9 +895,13 @@
       background: transparent !important;
     }
 
+    #modalCredencialRrhh.rrhh-hidden-for-photo-editor {
+      display: none !important;
+    }
+
     #modalCredencialRrhh .modal-content {
       border-radius: 12px;
-      overflow: hidden;
+      overflow: visible;
     }
 
     #modalCredencialRrhh .modal-header {
@@ -908,16 +912,20 @@
     }
 
     #modalCredencialRrhh .btn-close {
+      align-items: center;
       background-color: #fff;
       border-radius: 8px;
       box-shadow: 0 4px 12px rgba(15, 23, 42, .08);
-      height: 1.05rem;
+      display: flex;
+      height: 1.55rem;
+      justify-content: center;
       margin: 0;
-      opacity: .72;
+      opacity: 1;
+      padding: .38rem;
       position: absolute;
-      right: 1.15rem;
-      top: 1.15rem;
-      width: 1.05rem;
+      right: .7rem;
+      top: .7rem;
+      width: 1.55rem;
       z-index: 4;
     }
 
@@ -1124,7 +1132,10 @@
       width: 100%;
       height: 100%;
       display: block;
-      object-fit: cover;
+      object-fit: var(--rrhh-photo-fit, cover);
+      object-position: var(--rrhh-photo-position, 50% 50%);
+      transform: var(--rrhh-photo-transform, none);
+      transform-origin: center center;
       user-select: none;
       -webkit-user-drag: none;
       border-radius: 0 !important;
@@ -1167,6 +1178,12 @@
       box-shadow: inset 0 0 0 999px rgba(0, 84, 166, .04);
     }
 
+    .rrhh-photo-editor-frame.is-credential {
+      width: min(100%, 360px);
+      height: auto;
+      aspect-ratio: 182 / 224;
+    }
+
     .rrhh-photo-editor-frame:active {
       cursor: grabbing;
     }
@@ -1197,6 +1214,48 @@
       justify-content: center;
       color: #64748b;
       font-weight: 700;
+    }
+
+    #modalAjustarFotoCredencialRrhh .modal-dialog {
+      max-width: min(980px, calc(100vw - 2rem));
+    }
+
+    .rrhh-photo-editor-layout {
+      display: grid;
+      grid-template-columns: minmax(280px, 340px) minmax(300px, 1fr);
+      gap: 1.25rem;
+      align-items: start;
+    }
+
+    .rrhh-photo-editor-panel-title {
+      color: #24324d;
+      font-size: .88rem;
+      font-weight: 800;
+      margin-bottom: .5rem;
+      text-align: center;
+    }
+
+    .rrhh-photo-live-preview {
+      min-height: 542px;
+      display: flex;
+      justify-content: center;
+    }
+
+    .rrhh-photo-editor-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: .5rem;
+      justify-content: flex-end;
+    }
+
+    @media (max-width: 900px) {
+      .rrhh-photo-editor-layout {
+        grid-template-columns: 1fr;
+      }
+
+      .rrhh-photo-live-preview {
+        min-height: 0;
+      }
     }
 
     .rrhh-id-name {
@@ -1796,11 +1855,11 @@
     }
 
     #modalCredencialRrhh .rrhh-id-photo-wrap {
-      top: 113px !important;
-      width: 160px !important;
-      height: 188px !important;
+      top: 84px !important;
+      width: 182px !important;
+      height: 224px !important;
       border: 0 !important;
-      border-radius: 0 !important;
+      border-radius: 10px !important;
       box-shadow: none !important;
       background: transparent !important;
       overflow: hidden !important;
@@ -1819,8 +1878,12 @@
     #modalCredencialRrhh .rrhh-id-photo-wrap.is-contain .rrhh-id-photo {
       background: transparent !important;
       object-fit: contain !important;
-      object-position: 50% 50% !important;
+      object-position: center center !important;
       transform: none !important;
+    }
+
+    #modalCredencialRrhh .rrhh-id-photo-wrap.is-cover .rrhh-id-photo {
+      object-fit: cover !important;
     }
 
     #modalCredencialRrhh .rrhh-id-photo-fallback {
@@ -1832,7 +1895,10 @@
       height: 100% !important;
       border-radius: 0 !important;
       clip-path: none !important;
-      object-fit: cover !important;
+      object-fit: var(--rrhh-photo-fit, cover) !important;
+      object-position: var(--rrhh-photo-position, 50% 50%) !important;
+      transform: var(--rrhh-photo-transform, none) !important;
+      transform-origin: center center;
       background: transparent !important;
       display: block !important;
     }
@@ -1853,6 +1919,102 @@
       top: 208px !important;
       width: 190px !important;
       height: 190px !important;
+    }
+
+    #modalAjustarFotoCredencialRrhh .rrhh-id-card {
+      width: min(100%, 340px) !important;
+      height: 542px !important;
+      border: 0 !important;
+      border-radius: 0 !important;
+      overflow: hidden !important;
+      box-shadow: 0 18px 32px rgba(15, 23, 42, .16) !important;
+      position: relative !important;
+      color: #fff !important;
+    }
+
+    #modalAjustarFotoCredencialRrhh .rrhh-id-front {
+      background: url('/assets/img/rrhh/gafete_v2_frente.png') center / 100% 100% no-repeat !important;
+    }
+
+    #modalAjustarFotoCredencialRrhh .rrhh-id-front::before,
+    #modalAjustarFotoCredencialRrhh .rrhh-id-front::after,
+    #modalAjustarFotoCredencialRrhh .rrhh-id-logo,
+    #modalAjustarFotoCredencialRrhh .rrhh-id-greeting,
+    #modalAjustarFotoCredencialRrhh .rrhh-id-footer,
+    #modalAjustarFotoCredencialRrhh .rrhh-id-meta {
+      display: none !important;
+    }
+
+    #modalAjustarFotoCredencialRrhh .rrhh-id-photo-wrap {
+      position: absolute !important;
+      left: 50% !important;
+      top: 84px !important;
+      width: 182px !important;
+      height: 224px !important;
+      transform: translateX(-50%) !important;
+      border: 0 !important;
+      border-radius: 10px !important;
+      box-shadow: none !important;
+      background: transparent !important;
+      overflow: hidden !important;
+      z-index: 4 !important;
+    }
+
+    #modalAjustarFotoCredencialRrhh .rrhh-id-photo-wrap::after,
+    #modalAjustarFotoCredencialRrhh .rrhh-id-photo-fallback {
+      display: none !important;
+    }
+
+    #modalAjustarFotoCredencialRrhh .rrhh-id-photo {
+      width: 100% !important;
+      height: 100% !important;
+      object-fit: var(--rrhh-photo-fit, cover) !important;
+      object-position: var(--rrhh-photo-position, 50% 50%) !important;
+      transform: var(--rrhh-photo-transform, none) !important;
+      transform-origin: center center !important;
+      border-radius: 0 !important;
+      clip-path: none !important;
+      display: block !important;
+    }
+
+    #modalAjustarFotoCredencialRrhh .rrhh-id-photo-wrap.is-contain .rrhh-id-photo {
+      object-fit: contain !important;
+      object-position: center center !important;
+      transform: none !important;
+    }
+
+    #modalAjustarFotoCredencialRrhh .rrhh-id-name {
+      position: absolute !important;
+      left: 18px !important;
+      right: 18px !important;
+      top: 370px !important;
+      color: #fff !important;
+      font-size: .95rem !important;
+      line-height: 1.08 !important;
+      font-weight: 900 !important;
+      text-align: center !important;
+      text-transform: uppercase !important;
+      text-shadow: 0 2px 8px rgba(0, 44, 93, .45) !important;
+      z-index: 4 !important;
+    }
+
+    #modalAjustarFotoCredencialRrhh .rrhh-id-position {
+      position: absolute !important;
+      left: 50px !important;
+      right: 50px !important;
+      top: 420px !important;
+      min-height: 24px !important;
+      display: flex !important;
+      align-items: center !important;
+      justify-content: center !important;
+      color: #fff !important;
+      font-size: .68rem !important;
+      line-height: 1.1 !important;
+      font-weight: 800 !important;
+      text-align: center !important;
+      text-transform: uppercase !important;
+      text-shadow: 0 2px 8px rgba(0, 44, 93, .45) !important;
+      z-index: 4 !important;
     }
 
     #modalExpedienteRrhh .modal-dialog {
@@ -4812,18 +4974,32 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
               </div>
               <div class="modal-body">
                 <div class="text-muted mb-3">Mueve la imagen dentro del marco. Usa la rueda del mouse para acercar o alejar.</div>
-                <div class="rrhh-photo-editor-frame" id="rrhhCredencialFotoEditorFrame">
-                  <div class="rrhh-photo-editor-empty">Selecciona una foto</div>
+                <div class="rrhh-photo-editor-layout">
+                  <div>
+                    <div class="rrhh-photo-editor-panel-title">Vista en credencial</div>
+                    <div class="rrhh-photo-live-preview" id="rrhhCredencialFotoLivePreview"></div>
+                  </div>
+                  <div>
+                    <div class="rrhh-photo-editor-panel-title">Ajuste de imagen</div>
+                    <div class="rrhh-photo-editor-frame" id="rrhhCredencialFotoEditorFrame">
+                      <div class="rrhh-photo-editor-empty">Selecciona una foto</div>
+                    </div>
+                  </div>
                 </div>
               </div>
               <div class="modal-footer">
-                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
-                <button type="button" class="btn btn-outline-primary" id="btnEditorFotoCompletaCredencialRrhh">
-                  <i class="fa fa-expand me-1"></i>Foto completa
-                </button>
-                <button type="button" class="btn btn-primary" id="btnAplicarAjusteFotoCredencialRrhh">
-                  <i class="fa fa-crop-alt me-1"></i>Aplicar recorte
-                </button>
+                <div class="rrhh-photo-editor-actions w-100">
+                  <button type="button" class="btn btn-outline-secondary me-auto" data-bs-dismiss="modal">Cerrar</button>
+                  <button type="button" class="btn btn-outline-warning" id="btnRestaurarAjusteFotoCredencialRrhh">
+                    <i class="fa fa-undo me-1"></i>Restaurar
+                  </button>
+                  <button type="button" class="btn btn-outline-primary" id="btnEditorFotoCompletaCredencialRrhh">
+                    <i class="fa fa-expand me-1"></i>Foto completa
+                  </button>
+                  <button type="button" class="btn btn-primary" id="btnAplicarAjusteFotoCredencialRrhh">
+                    <i class="fa fa-crop-alt me-1"></i>Aplicar recorte
+                  </button>
+                </div>
               </div>
             </div>
           </div>
@@ -11361,8 +11537,10 @@ function precargarCascadaEdit(idPais, idEstado, idMunicipio, idColonia, idCalle,
   const dropzoneFotoCredencialRrhh = document.getElementById('rrhhCredencialFotoDropzone');
   const modalAjustarFotoCredencialRrhh = document.getElementById('modalAjustarFotoCredencialRrhh');
   const frameEditorFotoCredencialRrhh = document.getElementById('rrhhCredencialFotoEditorFrame');
+  const livePreviewFotoCredencialRrhh = document.getElementById('rrhhCredencialFotoLivePreview');
   const btnEditorFotoCompletaCredencialRrhh = document.getElementById('btnEditorFotoCompletaCredencialRrhh');
   const btnAplicarAjusteFotoCredencialRrhh = document.getElementById('btnAplicarAjusteFotoCredencialRrhh');
+  const btnRestaurarAjusteFotoCredencialRrhh = document.getElementById('btnRestaurarAjusteFotoCredencialRrhh');
   const logoCredencialRrhh = '/assets/img/logo_nombre.svg';
   const logoExpedienteRrhh = '/assets/img/logo_correo.png';
   const firmasExpedienteRrhh = {};
@@ -11391,6 +11569,7 @@ function precargarCascadaEdit(idPais, idEstado, idMunicipio, idColonia, idCalle,
   let fotoDragCredencialRrhh = null;
   let fotoEditorDragCredencialRrhh = null;
   let fotoEditorContextoRrhh = 'credencial';
+  let fotoEditorEstadoInicialRrhh = null;
 
   const templates = {
     telefonos: [
@@ -12140,18 +12319,20 @@ function precargarCascadaEdit(idPais, idEstado, idMunicipio, idColonia, idCalle,
   function fotoCredencialHtml(usuario, nombre) {
     const foto = String(fotoTemporalCredencialRrhh || usuario?.foto_perfil || '').trim();
     const fallback = `<span class="rrhh-id-photo-fallback"${foto ? ' style="display:none;"' : ''}>${escapeRrhhHtml(inicialesCredencial(nombre))}</span>`;
-    const fitSeguro = fotoFitCredencialRrhh === 'cover' ? 'cover' : 'contain';
+    const fitSeguro = fotoFitCredencialRrhh === 'contain' ? 'contain' : 'cover';
     const posX = fitSeguro === 'contain' ? 50 : fotoPosXCredencialRrhh;
     const posY = fitSeguro === 'contain' ? 50 : fotoPosYCredencialRrhh;
     const scale = fitSeguro === 'contain' ? 1 : fotoScaleCredencialRrhh;
+    const posicion = `${posX}% ${posY}%`;
+    const transformacion = fitSeguro === 'contain' ? 'none' : `translate(${50 - posX}%, ${50 - posY}%) scale(${scale})`;
     const img = foto
-      ? `<img class="rrhh-id-photo" src="${escapeRrhhAttr(foto)}" alt="Foto de ${escapeRrhhAttr(nombre)}" style="object-fit:${escapeRrhhAttr(fitSeguro)}; object-position:${posX}% ${posY}%; transform:scale(${scale});" draggable="false" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">`
+      ? `<img class="rrhh-id-photo" src="${escapeRrhhAttr(foto)}" alt="Foto de ${escapeRrhhAttr(nombre)}" style="--rrhh-photo-fit:${escapeRrhhAttr(fitSeguro)}; --rrhh-photo-position:${escapeRrhhAttr(posicion)}; --rrhh-photo-transform:${escapeRrhhAttr(transformacion)};" draggable="false" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">`
       : '';
     return `${img}${fallback}`;
   }
 
   function claseFotoCredencialWrap() {
-    return fotoFitCredencialRrhh === 'cover' ? 'is-cover' : 'is-contain';
+    return fotoFitCredencialRrhh === 'contain' ? 'is-contain' : 'is-cover';
   }
 
   function fotoCredencialSrcActual(usuario = obtenerUsuarioActualRrhh()) {
@@ -12189,6 +12370,14 @@ function precargarCascadaEdit(idPais, idEstado, idMunicipio, idColonia, idCalle,
     return `<div class="rrhh-id-qr" aria-label="C&oacute;digo QR de validaci&oacute;n interna">
       <img class="rrhh-id-qr-img" src="${src}" alt="QR de validaci&oacute;n interna">
     </div>`;
+  }
+
+  function textoQrCredencial(value, max = 90) {
+    const texto = String(value || '')
+      .replace(/[|\r\n\t]+/g, ' ')
+      .replace(/\s{2,}/g, ' ')
+      .trim();
+    return max > 0 && texto.length > max ? `${texto.slice(0, max - 1)}...` : texto;
   }
 
   function datoCredencial(label, value) {
@@ -12604,7 +12793,37 @@ function precargarCascadaEdit(idPais, idEstado, idMunicipio, idColonia, idCalle,
     const rfc = payload?.persona?.rfc || usuario?.rfc || '';
     const curp = payload?.persona?.curp || usuario?.curp || '';
     const nss = payload?.persona?.nss || usuario?.nss || '';
-    const qrSeed = `MAXIKASH|RRHH|ID:${idPersona || ''}|EMP:${numeroEmpleado || ''}|NOMBRE:${nombre}`;
+    const estatusCredencial = textoValidoCredencial(usuario?.estatus) || 'Activo';
+    const contactoEmergencia = Array.isArray(payload?.contactos_emergencia)
+      ? payload.contactos_emergencia.find(item => textoValidoCredencial(item?.nombre_contacto) || textoValidoCredencial(item?.numero))
+      : null;
+    const contactoQr = contactoEmergencia
+      ? [
+          textoQrCredencial(contactoEmergencia.nombre_contacto, 45),
+          textoQrCredencial(contactoEmergencia.parentesco, 25),
+          textoQrCredencial(contactoEmergencia.numero, 25)
+        ].filter(Boolean).join(' / ')
+      : '';
+    const qrDatos = [
+      ['MAXIKASH', 'RRHH'],
+      ['ID', idPersona],
+      ['EMP', numeroEmpleado],
+      ['NOMBRE', nombre],
+      ['ESTATUS', estatusCredencial],
+      ['PUESTO', puestoGeneral],
+      ['DEPTO', departamento],
+      ['SANGRE', payload?.rrhh?.tipo_sangre],
+      ['ALERGIAS', payload?.rrhh?.alergias],
+      ['ENF_CRONICAS', payload?.rrhh?.enfermedades_cronicas],
+      ['MEDICAMENTOS', payload?.rrhh?.medicamentos_actuales],
+      ['CONTACTO_EMERG', contactoQr]
+    ];
+    const qrSeed = qrDatos
+      .map(([label, value]) => Array.isArray(value)
+        ? value.map(item => textoQrCredencial(item, 60)).filter(Boolean).join('|')
+        : `${label}:${textoQrCredencial(value)}`)
+      .filter(item => item && !item.endsWith(':'))
+      .join('|');
 
     contenedorCredencialFrente.innerHTML = `
       <div class="rrhh-id-card rrhh-id-front${claseOrientacion}">
@@ -13037,17 +13256,25 @@ function precargarCascadaEdit(idPais, idEstado, idMunicipio, idColonia, idCalle,
 
   function aplicarPosicionFotoCredencial() {
     modalCredencialRrhh?.querySelectorAll('.rrhh-id-photo').forEach(img => {
-      const fitSeguro = fotoFitCredencialRrhh === 'cover' ? 'cover' : 'contain';
-      img.style.objectFit = fitSeguro;
-      img.style.objectPosition = fitSeguro === 'contain' ? '50% 50%' : `${fotoPosXCredencialRrhh}% ${fotoPosYCredencialRrhh}%`;
-      img.style.transform = fitSeguro === 'contain' ? 'none' : `scale(${fotoScaleCredencialRrhh})`;
+      const fitSeguro = fotoFitCredencialRrhh === 'contain' ? 'contain' : 'cover';
+      const posicion = fitSeguro === 'contain' ? '50% 50%' : `${fotoPosXCredencialRrhh}% ${fotoPosYCredencialRrhh}%`;
+      const transformacion = fitSeguro === 'contain' ? 'none' : `translate(${50 - fotoPosXCredencialRrhh}%, ${50 - fotoPosYCredencialRrhh}%) scale(${fotoScaleCredencialRrhh})`;
+      img.style.setProperty('--rrhh-photo-fit', fitSeguro);
+      img.style.setProperty('--rrhh-photo-position', posicion);
+      img.style.setProperty('--rrhh-photo-transform', transformacion);
+      img.style.setProperty('object-fit', fitSeguro, 'important');
+      img.style.setProperty('object-position', posicion, 'important');
+      img.style.setProperty('transform', transformacion, 'important');
+      const wrap = img.closest('.rrhh-id-photo-wrap');
+      wrap?.classList.toggle('is-cover', fitSeguro === 'cover');
+      wrap?.classList.toggle('is-contain', fitSeguro !== 'cover');
     });
     actualizarPreviewEditorFotoCredencial();
   }
 
   function actualizarBotonesFotoCredencialRrhh() {
-    btnFotoCompletaCredencialRrhh?.classList.toggle('active', fotoFitCredencialRrhh !== 'cover');
-    btnAjustarFotoCredencialRrhh?.classList.toggle('active', fotoFitCredencialRrhh === 'cover');
+    btnFotoCompletaCredencialRrhh?.classList.toggle('active', fotoFitCredencialRrhh === 'contain');
+    btnAjustarFotoCredencialRrhh?.classList.toggle('active', fotoFitCredencialRrhh !== 'contain');
   }
 
   function fotoEditorSrcActual() {
@@ -13071,15 +13298,54 @@ function precargarCascadaEdit(idPais, idEstado, idMunicipio, idColonia, idCalle,
     };
   }
 
+  function guardarEstadoInicialEditorFotoRrhh() {
+    fotoEditorEstadoInicialRrhh = { ...estadoFotoEditorActual() };
+  }
+
+  function aplicarEstadoEditorFotoRrhh(estado) {
+    if (!estado) return;
+    if (fotoEditorContextoRrhh === 'expediente') {
+      fotoFitExpedienteRrhh = estado.fit === 'contain' ? 'contain' : 'cover';
+      fotoPosXExpedienteRrhh = Number.isFinite(Number(estado.x)) ? Number(estado.x) : 50;
+      fotoPosYExpedienteRrhh = Number.isFinite(Number(estado.y)) ? Number(estado.y) : 50;
+      fotoScaleExpedienteRrhh = Number.isFinite(Number(estado.scale)) ? Number(estado.scale) : 1;
+      pintarExpedienteRrhh();
+      actualizarPreviewEditorFotoCredencial();
+      return;
+    }
+    fotoFitCredencialRrhh = estado.fit === 'contain' ? 'contain' : 'cover';
+    fotoPosXCredencialRrhh = Number.isFinite(Number(estado.x)) ? Number(estado.x) : 50;
+    fotoPosYCredencialRrhh = Number.isFinite(Number(estado.y)) ? Number(estado.y) : 50;
+    fotoScaleCredencialRrhh = Number.isFinite(Number(estado.scale)) ? Number(estado.scale) : 1;
+    actualizarEditorFotoEnVivo();
+  }
+
+  function actualizarVistaVivaEditorCredencial() {
+    if (!livePreviewFotoCredencialRrhh) return;
+    if (fotoEditorContextoRrhh !== 'credencial') {
+      livePreviewFotoCredencialRrhh.innerHTML = '<div class="rrhh-photo-editor-empty">Vista disponible para credencial</div>';
+      return;
+    }
+    pintarCredencialRrhh();
+    livePreviewFotoCredencialRrhh.innerHTML = contenedorCredencialFrente?.innerHTML || '';
+  }
+
+  function actualizarEditorFotoEnVivo() {
+    actualizarPreviewEditorFotoCredencial();
+    actualizarVistaVivaEditorCredencial();
+  }
+
   function abrirEditorFotoRrhh(contexto = 'credencial') {
     fotoEditorContextoRrhh = contexto === 'expediente' ? 'expediente' : 'credencial';
+    frameEditorFotoCredencialRrhh?.classList.toggle('is-credential', fotoEditorContextoRrhh === 'credencial');
+    guardarEstadoInicialEditorFotoRrhh();
     const src = fotoEditorSrcActual();
     if (!src) {
       if (fotoEditorContextoRrhh === 'expediente') inputFotoExpedienteRrhh?.click();
       else inputFotoCredencialRrhh?.click();
       return;
     }
-    actualizarPreviewEditorFotoCredencial();
+    actualizarEditorFotoEnVivo();
     bootstrap.Modal.getOrCreateInstance(modalAjustarFotoCredencialRrhh, { backdrop: false })?.show();
   }
 
@@ -13095,7 +13361,15 @@ function precargarCascadaEdit(idPais, idEstado, idMunicipio, idColonia, idCalle,
     const posX = fitSeguro === 'contain' ? 50 : estado.x;
     const posY = fitSeguro === 'contain' ? 50 : estado.y;
     const scale = fitSeguro === 'contain' ? 1 : estado.scale;
-    frameEditorFotoCredencialRrhh.innerHTML = `<img class="rrhh-photo-editor-img" src="${escapeRrhhAttr(src)}" alt="Ajuste de foto" style="object-fit:${fitSeguro}; object-position:${posX}% ${posY}%; transform:scale(${scale});" draggable="false">`;
+    const transformacion = fitSeguro === 'contain' ? 'none' : `translate(${50 - posX}%, ${50 - posY}%) scale(${scale})`;
+    const imgActual = frameEditorFotoCredencialRrhh.querySelector('.rrhh-photo-editor-img');
+    if (imgActual && imgActual.getAttribute('src') === src) {
+      imgActual.style.objectFit = fitSeguro;
+      imgActual.style.objectPosition = `${posX}% ${posY}%`;
+      imgActual.style.transform = transformacion;
+      return;
+    }
+    frameEditorFotoCredencialRrhh.innerHTML = `<img class="rrhh-photo-editor-img" src="${escapeRrhhAttr(src)}" alt="Ajuste de foto" style="object-fit:${fitSeguro}; object-position:${posX}% ${posY}%; transform:${transformacion};" draggable="false">`;
   }
 
   function ponerFotoCompletaCredencial() {
@@ -13173,8 +13447,8 @@ function precargarCascadaEdit(idPais, idEstado, idMunicipio, idColonia, idCalle,
     if (!fotoDragCredencialRrhh || fotoDragCredencialRrhh.pointerId !== event.pointerId) return;
     const dx = ((event.clientX - fotoDragCredencialRrhh.startX) / fotoDragCredencialRrhh.width) * 80;
     const dy = ((event.clientY - fotoDragCredencialRrhh.startY) / fotoDragCredencialRrhh.height) * 80;
-    fotoPosXCredencialRrhh = Math.max(0, Math.min(100, fotoDragCredencialRrhh.baseX + dx));
-    fotoPosYCredencialRrhh = Math.max(0, Math.min(100, fotoDragCredencialRrhh.baseY + dy));
+    fotoPosXCredencialRrhh = Math.max(0, Math.min(100, fotoDragCredencialRrhh.baseX - dx));
+    fotoPosYCredencialRrhh = Math.max(0, Math.min(100, fotoDragCredencialRrhh.baseY - dy));
     aplicarPosicionFotoCredencial();
   });
 
@@ -13189,9 +13463,21 @@ function precargarCascadaEdit(idPais, idEstado, idMunicipio, idColonia, idCalle,
     if (!btnFit) return;
   });
 
+  modalCredencialRrhh?.addEventListener('click', function (event) {
+    const foto = event.target.closest('.rrhh-id-photo-wrap');
+    if (!foto || !modalCredencialRrhh.contains(foto)) return;
+    if (event.target.closest('button, a, input, select, textarea')) return;
+    event.preventDefault();
+    fotoFitCredencialRrhh = 'cover';
+    actualizarBotonesFotoCredencialRrhh();
+    pintarCredencialRrhh();
+    abrirEditorFotoRrhh('credencial');
+  });
+
   btnAjustarFotoCredencialRrhh?.addEventListener('click', function () {
     fotoFitCredencialRrhh = 'cover';
     actualizarBotonesFotoCredencialRrhh();
+    pintarCredencialRrhh();
     abrirEditorFotoRrhh('credencial');
   });
 
@@ -13199,7 +13485,7 @@ function precargarCascadaEdit(idPais, idEstado, idMunicipio, idColonia, idCalle,
 
   btnEditorFotoCompletaCredencialRrhh?.addEventListener('click', function () {
     ponerFotoCompletaContextoRrhh(fotoEditorContextoRrhh);
-    bootstrap.Modal.getInstance(modalAjustarFotoCredencialRrhh)?.hide();
+    actualizarEditorFotoEnVivo();
   });
 
   btnAplicarAjusteFotoCredencialRrhh?.addEventListener('click', function () {
@@ -13207,18 +13493,24 @@ function precargarCascadaEdit(idPais, idEstado, idMunicipio, idColonia, idCalle,
     bootstrap.Modal.getInstance(modalAjustarFotoCredencialRrhh)?.hide();
   });
 
+  btnRestaurarAjusteFotoCredencialRrhh?.addEventListener('click', function () {
+    aplicarEstadoEditorFotoRrhh(fotoEditorEstadoInicialRrhh);
+  });
+
   modalAjustarFotoCredencialRrhh?.addEventListener('show.bs.modal', function () {
     if (modalAjustarFotoCredencialRrhh.parentNode !== document.body) {
       document.body.appendChild(modalAjustarFotoCredencialRrhh);
     }
+    modalCredencialRrhh?.classList.add('rrhh-hidden-for-photo-editor');
     showRrhhScrim();
     document.querySelectorAll('.modal-backdrop').forEach(backdrop => backdrop.remove());
     modalAjustarFotoCredencialRrhh.style.setProperty('z-index', '100060', 'important');
-    actualizarPreviewEditorFotoCredencial();
+    actualizarEditorFotoEnVivo();
   });
 
   modalAjustarFotoCredencialRrhh?.addEventListener('hidden.bs.modal', function () {
     modalAjustarFotoCredencialRrhh.style.removeProperty('z-index');
+    modalCredencialRrhh?.classList.remove('rrhh-hidden-for-photo-editor');
     fotoEditorDragCredencialRrhh = null;
     if (modalCredencialRrhh?.classList.contains('show')) {
       showRrhhScrim();
@@ -13247,13 +13539,13 @@ function precargarCascadaEdit(idPais, idEstado, idMunicipio, idColonia, idCalle,
     const dx = ((event.clientX - fotoEditorDragCredencialRrhh.startX) / fotoEditorDragCredencialRrhh.width) * 85;
     const dy = ((event.clientY - fotoEditorDragCredencialRrhh.startY) / fotoEditorDragCredencialRrhh.height) * 85;
     if (fotoEditorContextoRrhh === 'expediente') {
-      fotoPosXExpedienteRrhh = Math.max(0, Math.min(100, fotoEditorDragCredencialRrhh.baseX + dx));
-      fotoPosYExpedienteRrhh = Math.max(0, Math.min(100, fotoEditorDragCredencialRrhh.baseY + dy));
+      fotoPosXExpedienteRrhh = Math.max(0, Math.min(100, fotoEditorDragCredencialRrhh.baseX - dx));
+      fotoPosYExpedienteRrhh = Math.max(0, Math.min(100, fotoEditorDragCredencialRrhh.baseY - dy));
     } else {
-      fotoPosXCredencialRrhh = Math.max(0, Math.min(100, fotoEditorDragCredencialRrhh.baseX + dx));
-      fotoPosYCredencialRrhh = Math.max(0, Math.min(100, fotoEditorDragCredencialRrhh.baseY + dy));
+      fotoPosXCredencialRrhh = Math.max(0, Math.min(100, fotoEditorDragCredencialRrhh.baseX - dx));
+      fotoPosYCredencialRrhh = Math.max(0, Math.min(100, fotoEditorDragCredencialRrhh.baseY - dy));
     }
-    actualizarPreviewEditorFotoCredencial();
+    actualizarEditorFotoEnVivo();
   });
 
   ['pointerup', 'pointercancel', 'pointerleave'].forEach(nombreEvento => {
@@ -13271,7 +13563,7 @@ function precargarCascadaEdit(idPais, idEstado, idMunicipio, idColonia, idCalle,
     } else {
       fotoScaleCredencialRrhh = Math.max(1, Math.min(2.5, fotoScaleCredencialRrhh + delta));
     }
-    actualizarPreviewEditorFotoCredencial();
+    actualizarEditorFotoEnVivo();
   }, { passive: false });
 
   modalCredencialRrhh?.addEventListener('show.bs.modal', function () {

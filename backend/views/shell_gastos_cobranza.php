@@ -1553,8 +1553,9 @@ $gc_shell_ec_salida_label = isset($gc_shell_ec_salida_label) ? (string) $gc_shel
     /** Último % leído del log del worker (Conciliar pagos); se resetea al terminar la operación. */
     var gcCarteraWorkerUltimoPct = -1;
 
-    function gcCarteraSincronizarProgresoWorkerDesdeLog() {
-        if (!gcShellModoCartera || !logPanel || gcShellOperacionEnCurso !== 'worker') return;
+    function gcCarteraSincronizarProgresoWorkerDesdeLog(forzarLectura) {
+        if (!gcShellModoCartera || !logPanel) return false;
+        if (!forzarLectura && gcShellOperacionEnCurso !== 'worker') return false;
         var t = logPanel.value || '';
         var re = /\[ec-webhook-worker\] Avance:\s*(\d+)\/(\d+)\s*\((\d+)%\)/g;
         var m;
@@ -1562,14 +1563,19 @@ $gc_shell_ec_salida_label = isset($gc_shell_ec_salida_label) ? (string) $gc_shel
         while ((m = re.exec(t)) !== null) {
             last = m;
         }
-        if (!last) return;
+        if (!last) return false;
         var n = parseInt(last[1], 10);
         var tot = parseInt(last[2], 10);
         var pct = parseInt(last[3], 10);
-        if (isNaN(pct) || isNaN(tot) || tot <= 0) return;
+        if (isNaN(pct) || isNaN(tot) || tot <= 0) return false;
+        var pctAnterior = gcCarteraWorkerUltimoPct;
         gcCarteraWorkerUltimoPct = pct;
         var sub = pct + '% · ' + n + '/' + tot;
         gcCarteraActividadEstadoSet('En curso · ' + sub, 'bg-label-warning');
+        if (pct !== pctAnterior && (pctAnterior < 0 || pct % 5 === 0 || pct === 100)) {
+            gcCarteraActividadPush('Conciliacion en curso: ' + sub, 'gc-cartera-act-line--run');
+        }
+        return true;
     }
 
     function gcCarteraEsc(s) {
@@ -2885,10 +2891,16 @@ $gc_shell_ec_salida_label = isset($gc_shell_ec_salida_label) ? (string) $gc_shel
                             gcCarteraActividadEstadoSet('En curso', 'bg-label-warning');
                         }
                     } else if (gcAgenteReportaEcOcupado) {
-                        gcCarteraActividadEstadoSet('Ocupado', 'bg-label-warning');
-                        if (gcCarteraUltimoAvisoRemoto !== 'remoto_ec') {
-                            gcCarteraActividadPush('Hay conciliación o carga a lista negra en curso (otra ventana o usuario). Espere un momento.', 'gc-cartera-act-line--warn');
-                            gcCarteraUltimoAvisoRemoto = 'remoto_ec';
+                        await traerLog(380, { scrollBottom: 'auto' });
+                        var progresoRemoto = gcCarteraSincronizarProgresoWorkerDesdeLog(true);
+                        if (progresoRemoto) {
+                            gcCarteraUltimoAvisoRemoto = 'remoto_ec_progreso';
+                        } else {
+                            gcCarteraActividadEstadoSet('Ocupado', 'bg-label-warning');
+                            if (gcCarteraUltimoAvisoRemoto !== 'remoto_ec') {
+                                gcCarteraActividadPush('Hay conciliación o carga a lista negra en curso (otra ventana o usuario). Espere un momento.', 'gc-cartera-act-line--warn');
+                                gcCarteraUltimoAvisoRemoto = 'remoto_ec';
+                            }
                         }
                     } else {
                         gcCarteraUltimoAvisoRemoto = '';
