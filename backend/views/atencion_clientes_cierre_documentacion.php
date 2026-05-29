@@ -106,7 +106,7 @@
     color: #1f2937;
 }
 .ae-list-nombre .ac-val { text-transform: uppercase; }
-.ae-list-ev .ac-val { font-weight: 700; }
+.ae-list-status .ac-val { font-weight: 700; }
 .ae-list-muted {
     color: #9ca3af;
     font-style: italic;
@@ -223,11 +223,6 @@
     color: #94a3b8;
     font-style: italic;
 }
-.acd-table-evidence {
-    white-space: nowrap;
-    font-weight: 700;
-    color: #566a7f;
-}
 .acd-table-action {
     min-width: 124px;
     text-align: center !important;
@@ -313,30 +308,6 @@
     text-overflow: ellipsis;
     white-space: nowrap;
 }
-.acd-dict-evidence-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
-    gap: .75rem;
-}
-.acd-dict-evidence-card {
-    border: 1px solid #e5e7eb;
-    border-radius: .65rem;
-    padding: .75rem;
-    background: #fff;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: .75rem;
-}
-.acd-dict-evidence-card .acd-dict-ev-label {
-    min-width: 0;
-    color: #334155;
-    font-size: .78rem;
-    font-weight: 700;
-    line-height: 1.18;
-    overflow: hidden;
-    text-overflow: ellipsis;
-}
 .acd-dict-observacion {
     border-left: 4px solid #ea580c;
     background: #fff7ed;
@@ -344,56 +315,6 @@
     padding: .75rem .9rem;
     color: #475569;
     white-space: pre-line;
-}
-.acd-evidence-preview {
-    border: 1px solid #e5e7eb;
-    border-radius: .75rem;
-    background: #f8fafc;
-    padding: .85rem;
-}
-.acd-evidence-preview-head {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: .75rem;
-    margin-bottom: .75rem;
-}
-.acd-evidence-preview-title {
-    color: #0f172a;
-    font-size: .9rem;
-    font-weight: 800;
-    min-width: 0;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-}
-.acd-evidence-preview-body {
-    min-height: 260px;
-    border-radius: .65rem;
-    background: #fff;
-    border: 1px solid #e2e8f0;
-    overflow: hidden;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-}
-.acd-evidence-preview-body img,
-.acd-evidence-preview-body video {
-    width: 100%;
-    max-height: 70vh;
-    object-fit: contain;
-    background: #0f172a;
-}
-.acd-evidence-preview-body iframe {
-    width: 100%;
-    height: 70vh;
-    border: 0;
-    background: #fff;
-}
-.acd-evidence-preview-hint {
-    color: #64748b;
-    font-size: .75rem;
-    margin-top: .5rem;
 }
 
 /* Forzar tono de tabs al color propio de Cartera (paso 3) */
@@ -428,16 +349,10 @@ body.dark-mode .acd-table thead th { background: #0f172a; color: #e2e8f0; border
 body.dark-mode .acd-table tbody tr:hover { background: #172033; }
 body.dark-mode .acd-table td { color: #cbd5e1; border-color: #1f2937; }
 body.dark-mode .acd-table-credit,
-body.dark-mode .acd-table-name,
-body.dark-mode .acd-table-evidence { color: #e2e8f0; }
-body.dark-mode .acd-dict-chip,
-body.dark-mode .acd-dict-evidence-card { background: #111827; border-color: #1f2937; }
-body.dark-mode .acd-dict-chip strong,
-body.dark-mode .acd-dict-evidence-card .acd-dict-ev-label { color: #e2e8f0; }
+body.dark-mode .acd-table-name { color: #e2e8f0; }
+body.dark-mode .acd-dict-chip { background: #111827; border-color: #1f2937; }
+body.dark-mode .acd-dict-chip strong { color: #e2e8f0; }
 body.dark-mode .acd-dict-observacion { background: #292524; color: #fed7aa; }
-body.dark-mode .acd-evidence-preview { background: #111827; border-color: #1f2937; }
-body.dark-mode .acd-evidence-preview-title { color: #e2e8f0; }
-body.dark-mode .acd-evidence-preview-body { background: #020617; border-color: #1f2937; }
 
 @media (max-width: 991.98px) {
     .ae-list-grid {
@@ -646,7 +561,7 @@ body.dark-mode #modalAcdCierreVerBitacoraEtapa .acd-bit-tl-title { color: #f1f5f
 body.dark-mode #modalAcdCierreVerBitacoraEtapa .acd-bit-tl-time,
 body.dark-mode #modalAcdCierreVerBitacoraEtapa .acd-bit-tl-user { color: #94a3b8; }
 
-/* Bloque evidencia S2 (modal vista 4) */
+/* Bloque documento S2 (modal vista 4) */
 #acdEvidenciaCard {
     border: 2px solid #fed7aa;
     border-radius: 0.75rem;
@@ -748,7 +663,7 @@ body.dark-mode #acdEvidenciaTitulo.acd-ev-ok { color: #86efac; }
                     </div>
                     <div class="col-lg-7">
                         <div id="acdEvidenciaCard">
-                            <h2 class="h6" id="acdEvidenciaTitulo">Evidencia de cierre en S2</h2>
+                            <h2 class="h6" id="acdEvidenciaTitulo">Documento de cierre en S2</h2>
                             <div id="acdEvidenciaFormulario">
                                 <p class="small text-muted mb-2">Adjunta una imagen (o PDF) y comentarios opcionales antes de confirmar el registro en S2.</p>
                                 <div class="mb-2">
@@ -761,7 +676,7 @@ body.dark-mode #acdEvidenciaTitulo.acd-ev-ok { color: #86efac; }
                                               placeholder="Detalle relevante para expediente…"></textarea>
                                 </div>
                                 <button type="button" class="btn btn-warning btn-sm rounded-pill fw-bold" id="acdBtnSubirEvidenciaCierre">
-                                    <i class="fa-solid fa-cloud-arrow-up me-1"></i>Subir evidencia
+                                    <i class="fa-solid fa-cloud-arrow-up me-1"></i>Subir documento
                                 </button>
                             </div>
                             <div id="acdEvidenciaExito" style="display:none;" class="text-center py-2">
@@ -835,19 +750,9 @@ body.dark-mode #acdEvidenciaTitulo.acd-ev-ok { color: #86efac; }
     </div>
 </div>
 
-<?php
-if (!function_exists('sparta_public_web_base')) {
-    require_once dirname(__DIR__) . '/core/UploadsPaths.php';
-}
-$acdPublicPath = function_exists('sparta_public_web_base') ? sparta_public_web_base() : '';
-?>
 <script>
 (function () {
     'use strict';
-
-    /** Expediente (13) + doc_cierre_s2 en esta etapa. */
-    const ACD_EV_TOTAL = 14;
-    const ACD_SERVER_PUBLIC_BASE = <?php echo json_encode($acdPublicPath, JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?>;
 
     const ACD_CONFIG = {
         bandeja: {
@@ -977,7 +882,7 @@ $acdPublicPath = function_exists('sparta_public_web_base') ? sparta_public_web_b
         if (filas) filas.innerHTML = '';
         if (sub) sub.textContent = '';
         if (titEv) {
-            titEv.textContent = 'Evidencia de cierre en S2';
+            titEv.textContent = 'Documento de cierre en S2';
             titEv.classList.remove('acd-ev-ok');
         }
         if (formEv) formEv.style.display = '';
@@ -1049,8 +954,6 @@ $acdPublicPath = function_exists('sparta_public_web_base') ? sparta_public_web_b
     }
 
     function acdRenderCardBandeja(item) {
-        const evRaw = parseInt(item.evidencias_count, 10) || 0;
-        const ev = Math.min(evRaw, ACD_EV_TOTAL);
         const g  = item.gestor_nombre
             ? acdEsc(item.gestor_nombre)
             : '<span class="ae-list-muted">—</span>';
@@ -1085,10 +988,6 @@ $acdPublicPath = function_exists('sparta_public_web_base') ? sparta_public_web_b
                     <div class="ae-list-cell ae-list-nombre">
                         <span class="ac-lbl">Nombre</span>
                         <span class="ac-val">${nombreCliente}</span>
-                    </div>
-                    <div class="ae-list-cell ae-list-ev">
-                        <span class="ac-lbl">Evidencias en expediente</span>
-                        <span class="ac-val">${ev} / ${ACD_EV_TOTAL}</span>
                     </div>
                     <div class="ae-list-cell">
                         <span class="ac-lbl">Estatus flujo</span>
@@ -1147,7 +1046,7 @@ $acdPublicPath = function_exists('sparta_public_web_base') ? sparta_public_web_b
                         <span class="ac-lbl">Nombre</span>
                         <span class="ac-val">${nombreCliente}</span>
                     </div>
-                    <div class="ae-list-cell ae-list-ev">
+                    <div class="ae-list-cell ae-list-status">
                         <span class="ac-lbl">Estatus flujo</span>
                         <span class="ac-val">${estPipeline}</span>
                     </div>
@@ -1171,14 +1070,11 @@ $acdPublicPath = function_exists('sparta_public_web_base') ? sparta_public_web_b
     }
 
     function acdRenderFilaTablaBandeja(item) {
-        const evRaw = parseInt(item.evidencias_count, 10) || 0;
-        const ev = Math.min(evRaw, ACD_EV_TOTAL);
         const gestor = acdGestorTablaHtml(item);
         const cliente = item.nombre_cliente ? acdEsc(item.nombre_cliente) : '<span class="acd-table-muted">Sin nombre</span>';
         const folio = item.folio ? acdEsc(item.folio) : '-';
         const fechaLegacy = item.fecha_gestion_legacy ? acdEsc(item.fecha_gestion_legacy) : '<span class="acd-table-muted">-</span>';
         const fechaAsignacion = item.fecha_asignacion ? acdEsc(item.fecha_asignacion) : '<span class="acd-table-muted">-</span>';
-        const estatus = item.estatus ? acdEsc(item.estatus) : '<span class="acd-table-muted">-</span>';
 
         return `
         <tr>
@@ -1191,9 +1087,7 @@ $acdPublicPath = function_exists('sparta_public_web_base') ? sparta_public_web_b
             <td>
                 <div class="acd-table-date"><span class="text-muted">Legacy</span> ${fechaLegacy}</div>
                 <div class="acd-table-date"><span class="text-muted">Asig.</span> ${fechaAsignacion}</div>
-                <div class="acd-table-date"><span class="text-muted">Flujo</span> ${estatus}</div>
             </td>
-            <td class="acd-table-evidence">${ev} / ${ACD_EV_TOTAL}</td>
             <td class="acd-table-action">
                 <div class="acd-action-buttons">
                     <button type="button" class="btn btn-sm btn-warning acd-abrir-modal-cierre-doc"
@@ -1209,15 +1103,11 @@ $acdPublicPath = function_exists('sparta_public_web_base') ? sparta_public_web_b
     }
 
     function acdRenderFilaTablaDictaminado(item) {
-        const evRaw = parseInt(item.evidencias_count, 10) || 0;
-        const ev = Math.min(evRaw, ACD_EV_TOTAL);
         const gestor = acdGestorTablaHtml(item);
         const cliente = item.nombre_cliente ? acdEsc(item.nombre_cliente) : '<span class="acd-table-muted">Sin nombre</span>';
         const folio = item.folio ? acdEsc(item.folio) : '-';
         const fechaLegacy = item.fecha_gestion_legacy ? acdEsc(item.fecha_gestion_legacy) : '<span class="acd-table-muted">-</span>';
         const fechaDictamen = item.fecha_dictamen ? acdEsc(item.fecha_dictamen) : '<span class="acd-table-muted">-</span>';
-        const estatus = item.estatus ? acdEsc(item.estatus) : '<span class="acd-table-muted">-</span>';
-        const dictamen = item.dictamen ? acdEsc(item.dictamen) : '<span class="acd-table-muted">Sin dictamen</span>';
 
         return `
         <tr>
@@ -1230,11 +1120,6 @@ $acdPublicPath = function_exists('sparta_public_web_base') ? sparta_public_web_b
             <td>
                 <div class="acd-table-date"><span class="text-muted">Legacy</span> ${fechaLegacy}</div>
                 <div class="acd-table-date"><span class="text-muted">Dict.</span> ${fechaDictamen}</div>
-                <div class="acd-table-date"><span class="text-muted">Flujo</span> ${estatus}</div>
-            </td>
-            <td class="acd-table-evidence">
-                <div>${ev} / ${ACD_EV_TOTAL}</div>
-                <small class="text-muted">${dictamen}</small>
             </td>
             <td class="acd-table-action">
                 <div class="acd-action-buttons">
@@ -1264,7 +1149,6 @@ $acdPublicPath = function_exists('sparta_public_web_base') ? sparta_public_web_b
                         <th>Cliente</th>
                         <th>Gestor</th>
                         <th>Fechas</th>
-                        <th>Evidencias</th>
                         <th class="acd-table-action">Acciones</th>
                     </tr>
                 </thead>
@@ -1323,144 +1207,8 @@ $acdPublicPath = function_exists('sparta_public_web_base') ? sparta_public_web_b
         }) || null;
     }
 
-    function acdInferBaseDesdePathname() {
-        const p = (window.location && window.location.pathname) || '';
-        const segs = p.split('/').filter(function (x) { return x.length; });
-        const k = segs.indexOf('public');
-        if (k >= 0) {
-            return '/' + segs.slice(0, k + 1).join('/');
-        }
-        return '';
-    }
-
-    function acdBasePublic() {
-        if (typeof ACD_SERVER_PUBLIC_BASE === 'string' && ACD_SERVER_PUBLIC_BASE.length > 0) {
-            return ACD_SERVER_PUBLIC_BASE;
-        }
-        if (window._acdBaseCache !== undefined) {
-            return window._acdBaseCache;
-        }
-        const path = (window.location && window.location.pathname) || '';
-        let base = '';
-        const i = path.indexOf('/public/');
-        if (i !== -1) {
-            base = path.substring(0, i + '/public'.length);
-        } else {
-            base = acdInferBaseDesdePathname();
-        }
-        window._acdBaseCache = base;
-        return base;
-    }
-
-    function acdUrlEvidencia(url) {
-        if (url == null || url === '') return '';
-        let s = String(url).trim().replace(/\\/g, '/');
-        if (!s) return '';
-        s = s.replace(/^https?:\/\/uploads(?=\/|$)/i, '/uploads');
-        s = s.replace(/^\/{2,}uploads(?=\/|$)/i, '/uploads');
-        s = s.replace(/^\/uploads\/uploads\//i, '/uploads/');
-        if (/^https?:\/\//i.test(s)) return s;
-        const b = acdBasePublic();
-        if (b !== '' && (s.indexOf(b + '/') === 0 || s === b)) return s;
-        if (/^\/public\/uploads\//i.test(s)) {
-            s = s.substring('/public'.length);
-        } else if (/^public\/uploads\//i.test(s)) {
-            s = '/' + s.substring('public/'.length);
-        }
-        if (s.indexOf('/uploads/') === 0) {
-            return b ? b + s : s;
-        }
-        if (/^uploads\//i.test(s)) {
-            s = '/' + s;
-            return b ? b + s : s;
-        }
-        return s.charAt(0) === '/' ? s : '/' + s.replace(/^\/+/, '');
-    }
-
-    function acdSanearDomUrls(root) {
-        if (!root || !root.querySelectorAll) return;
-        root.querySelectorAll('[data-acd-src]').forEach(function (el) {
-            const fixed = acdUrlEvidencia(el.getAttribute('data-acd-src') || '');
-            if (fixed) el.setAttribute('src', fixed);
-        });
-        root.querySelectorAll('[src],[href]').forEach(function (el) {
-            const src = el.getAttribute('src');
-            if (src) {
-                const nsrc = acdUrlEvidencia(src);
-                if (nsrc && nsrc !== src) el.setAttribute('src', nsrc);
-            }
-            const href = el.getAttribute('href');
-            if (href) {
-                const nhref = acdUrlEvidencia(href);
-                if (nhref && nhref !== href) el.setAttribute('href', nhref);
-            }
-        });
-    }
-
-    function acdTipoPreviewEvidencia(url, tipo) {
-        const t = String(tipo || '').toLowerCase();
-        const u = String(url || '').split('?')[0].toLowerCase();
-        if (t.indexOf('video') !== -1 || /\.(mp4|webm|mov)$/i.test(u)) return 'video';
-        if (t.indexOf('pdf') !== -1 || /\.pdf$/i.test(u)) return 'pdf';
-        return 'imagen';
-    }
-
-    function acdLabelEvidencia(slot, tipo) {
-        const mapa = {
-            doc_cierre_s2: 'Cierre S2',
-            doc_repuve: 'Repuve',
-            fis_360: '360',
-            fis_360_encendida: '360 encendida',
-            fis_video_cliente_acuerdo: 'Video acuerdo',
-            fis_video_vuelta_prueba: 'Vuelta prueba',
-            fis_dacion_hoja_1: 'Dación hoja 1',
-            fis_dacion_hoja_2: 'Dación hoja 2'
-        };
-        const key = String(slot || '').trim();
-        if (mapa[key]) return mapa[key];
-        if (key) return key.replace(/^fis_/, '').replace(/^doc_/, '').replace(/_/g, ' ');
-        return tipo || 'Evidencia';
-    }
-
-    function acdRenderPreviewEvidencia(url, label, tipo) {
-        const u = acdEsc(url);
-        const lbl = acdEsc(label || 'Evidencia');
-        const clase = acdTipoPreviewEvidencia(url, tipo);
-        let media = '';
-        if (clase === 'video') {
-            media = `<video data-acd-src="${u}" controls playsinline></video>`;
-        } else if (clase === 'pdf') {
-            media = `<iframe data-acd-src="${u}" title="${lbl}"></iframe>`;
-        } else {
-            media = `<img data-acd-src="${u}" alt="${lbl}" onerror="this.closest('.acd-evidence-preview-body').innerHTML='<div class=&quot;text-center text-muted small p-4&quot;><i class=&quot;fa-solid fa-triangle-exclamation d-block mb-2&quot;></i>No se pudo cargar esta evidencia. Revisa que el archivo exista o que la ruta guardada sea correcta.</div>';">`;
-        }
-        return `
-        <div class="acd-evidence-preview-head">
-            <span class="acd-evidence-preview-title"><i class="fa-regular fa-eye me-1 text-warning"></i>${lbl}</span>
-            <button type="button" class="btn btn-sm btn-outline-secondary rounded-pill" data-acd-cerrar-preview-evidencia="1">
-                <i class="fa-solid fa-xmark me-1"></i>Cerrar vista
-            </button>
-        </div>
-        <div class="acd-evidence-preview-body">${media}</div>
-        <div class="acd-evidence-preview-hint">
-            Vista previa en el mismo expediente, usando la misma ruta pública de evidencias.
-        </div>`;
-    }
-
-    function acdMostrarPreviewEvidencia(url, label, tipo) {
-        const box = document.getElementById('acdEvidencePreview');
-        if (!box || !url) return;
-        box.innerHTML = acdRenderPreviewEvidencia(url, label, tipo);
-        acdSanearDomUrls(box);
-        box.classList.remove('d-none');
-        box.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-    }
-
     function acdRenderDetalleDictaminado(det, row) {
         const base = Object.assign({}, row || {}, det || {});
-        const evidencias = Array.isArray(det && det.evidencias) ? det.evidencias.filter(function (ev) {
-            return ev && ev.url;
-        }) : [];
         const comentarios = base.comentarios || '';
         const dictamen = base.dictamen || '';
         const chips = [
@@ -1472,24 +1220,6 @@ $acdPublicPath = function_exists('sparta_public_web_base') ? sparta_public_web_b
             ['Estatus', base.estatus || '-'],
             ['Fecha dictamen', base.fecha_dictamen || base.fecha_actualizacion_fmt || '-']
         ];
-
-        const evHtml = evidencias.length
-            ? evidencias.map(function (ev) {
-                const url = acdUrlEvidencia(ev.url);
-                const label = acdLabelEvidencia(ev.slot, ev.tipo);
-                const tipoPreview = acdTipoPreviewEvidencia(url, ev.tipo);
-                return `<div class="acd-dict-evidence-card">
-                    <span class="acd-dict-ev-label">${acdEsc(label)}</span>
-                    <button type="button" class="btn btn-sm btn-outline-secondary acd-ver-evidencia-inline"
-                       data-acd-evidencia-url="${acdEsc(url)}"
-                       data-acd-evidencia-label="${acdEsc(label)}"
-                       data-acd-evidencia-tipo="${acdEsc(tipoPreview)}"
-                       title="Ver evidencia" aria-label="Ver evidencia">
-                        <i class="fa fa-eye"></i>
-                    </button>
-                </div>`;
-            }).join('')
-            : '<div class="alert alert-light border mb-0 text-muted small">No hay evidencias físicas cargadas para mostrar.</div>';
 
         return `
         <div class="d-flex flex-column gap-3">
@@ -1506,11 +1236,6 @@ $acdPublicPath = function_exists('sparta_public_web_base') ? sparta_public_web_b
                 <h6 class="fw-bold mb-2">Comentarios</h6>
                 <div class="acd-dict-observacion">${acdEsc(comentarios)}</div>
             </div>` : ''}
-            <div>
-                <h6 class="fw-bold mb-2">Evidencias</h6>
-                <div id="acdEvidencePreview" class="acd-evidence-preview d-none mb-3"></div>
-                <div class="acd-dict-evidence-grid">${evHtml}</div>
-            </div>
         </div>`;
     }
 
@@ -1683,7 +1408,7 @@ $acdPublicPath = function_exists('sparta_public_web_base') ? sparta_public_web_b
                     .then(function (r) { return r.json(); })
                     .then(function (data) {
                         if (!data.success || !data.url) {
-                            throw new Error(data.message || 'No se pudo subir la evidencia.');
+                            throw new Error(data.message || 'No se pudo subir el documento.');
                         }
                         _acdEvidenciaUrl = String(data.url);
                         const com = (document.getElementById('acdEvidenciaComentarios') || {}).value || '';
@@ -1691,7 +1416,7 @@ $acdPublicPath = function_exists('sparta_public_web_base') ? sparta_public_web_b
                         const formEv = document.getElementById('acdEvidenciaFormulario');
                         const okEv = document.getElementById('acdEvidenciaExito');
                         if (titEv) {
-                            titEv.textContent = 'EVIDENCIA CARGADA CON EXITO';
+                            titEv.textContent = 'DOCUMENTO CARGADO CON EXITO';
                             titEv.classList.add('acd-ev-ok');
                         }
                         if (formEv) formEv.style.display = 'none';
@@ -1706,7 +1431,7 @@ $acdPublicPath = function_exists('sparta_public_web_base') ? sparta_public_web_b
                                     id_operacion: idOp,
                                     etapa: 'Cierre Documentado',
                                     area: 'Cierre documentación',
-                                    texto: 'Comentarios evidencia cierre S2: ' + String(com).trim(),
+                                    texto: 'Comentarios documento cierre S2: ' + String(com).trim(),
                                 }),
                             }).then(function (r) { return r.json(); });
                         }
@@ -1835,30 +1560,6 @@ $acdPublicPath = function_exists('sparta_public_web_base') ? sparta_public_web_b
                 e.preventDefault();
                 e.stopPropagation();
                 acdAbrirVistaDictaminado(btn.getAttribute('data-acd-id-operacion'));
-            });
-        }
-
-        const dictDetalleBody = document.getElementById('acdDictaminadoDetalleBody');
-        if (dictDetalleBody) {
-            dictDetalleBody.addEventListener('click', function (e) {
-                const cerrar = e.target.closest('[data-acd-cerrar-preview-evidencia]');
-                if (cerrar) {
-                    const box = document.getElementById('acdEvidencePreview');
-                    if (box) {
-                        box.classList.add('d-none');
-                        box.innerHTML = '';
-                    }
-                    return;
-                }
-                const btn = e.target.closest('.acd-ver-evidencia-inline');
-                if (!btn) return;
-                e.preventDefault();
-                e.stopPropagation();
-                acdMostrarPreviewEvidencia(
-                    btn.getAttribute('data-acd-evidencia-url') || '',
-                    btn.getAttribute('data-acd-evidencia-label') || 'Evidencia',
-                    btn.getAttribute('data-acd-evidencia-tipo') || ''
-                );
             });
         }
     });
