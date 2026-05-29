@@ -25,12 +25,11 @@
     transition: background-color .15s ease, border-color .15s ease;
 }
 .ac-card:hover { background: #fcfcfd; border-color: #dbe2ea; }
-.ac-card.ae-row-clickable { cursor: pointer; }
-.ac-card.ae-row-clickable:focus { outline: 2px solid #2563eb; outline-offset: 2px; }
-.ac-card.ae-row-clickable:hover { border-color: #bfdbfe; }
 
 .ac-card-body {
     padding: .62rem .9rem;
+}
+.ae-card-top {
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -124,6 +123,218 @@
     align-items: center;
     justify-content: center;
 }
+.ae-form-trace {
+    margin-top: .58rem;
+    padding: .58rem .65rem;
+    border: 1px solid #e2e8f0;
+    border-radius: .55rem;
+    background: #f8fafc;
+}
+.ae-form-trace-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: .75rem;
+    margin-bottom: .42rem;
+}
+.ae-form-trace-title {
+    color: #123150;
+    font-size: .76rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: .035em;
+}
+.ae-form-trace-date {
+    color: #64748b;
+    font-size: .72rem;
+    font-weight: 700;
+    white-space: nowrap;
+}
+.ae-form-trace-grid {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: .42rem .55rem;
+}
+.ae-form-chip {
+    min-width: 0;
+    padding: .36rem .48rem;
+    border: 1px solid #dbe4ef;
+    border-radius: .45rem;
+    background: #fff;
+}
+.ae-form-chip-wide { grid-column: span 2; }
+.ae-form-chip-label {
+    display: block;
+    color: #64748b;
+    font-size: .62rem;
+    font-weight: 800;
+    line-height: 1.1;
+    text-transform: uppercase;
+    letter-spacing: .035em;
+    margin-bottom: .12rem;
+}
+.ae-form-chip-value {
+    display: block;
+    color: #1e293b;
+    font-size: .75rem;
+    font-weight: 700;
+    line-height: 1.18;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.ae-table-wrap {
+    border: 1px solid #e5e7eb;
+    border-radius: .75rem;
+    overflow: visible;
+    background: #fff;
+}
+.ae-table {
+    margin: 0;
+    font-size: .875rem;
+    vertical-align: middle;
+}
+.ae-table thead th {
+    background: #f8fafc;
+    color: #566a7f;
+    border-bottom: 1px solid #dbe4ef;
+    font-size: .75rem;
+    font-weight: 700;
+    letter-spacing: .02em;
+    text-transform: uppercase;
+    white-space: nowrap;
+}
+.ae-table tbody tr:hover {
+    background: #f8fbff;
+}
+.ae-table td {
+    color: #697a8d;
+    border-color: #e8eef5;
+}
+.ae-table-main {
+    min-width: 150px;
+}
+.ae-table-folio {
+    display: inline-flex;
+    align-items: center;
+    max-width: 100%;
+    padding: .12rem .42rem;
+    border-radius: 999px;
+    background: #fff7ed;
+    color: #b45309;
+    font-size: .68rem;
+    font-weight: 800;
+}
+.ae-table-credit {
+    display: block;
+    margin-top: .22rem;
+    color: #566a7f;
+    font-weight: 700;
+}
+.ae-table-name {
+    min-width: 210px;
+    color: #697a8d;
+    font-weight: 700;
+    text-transform: uppercase;
+    line-height: 1.2;
+}
+.ae-table-muted {
+    color: #94a3b8;
+    font-style: italic;
+}
+.ae-table-evidence {
+    white-space: nowrap;
+    font-weight: 700;
+    color: #566a7f;
+}
+.ae-table-action {
+    min-width: 164px;
+    text-align: center !important;
+}
+.ae-table-date {
+    white-space: nowrap;
+    line-height: 1.35;
+}
+.ae-action-buttons {
+    display: flex;
+    width: 100%;
+    align-items: center;
+    justify-content: center !important;
+    gap: .5rem;
+    flex-wrap: wrap;
+}
+#aeTabContent .card-datatable {
+    padding: 1.5rem;
+}
+#aeTabContent .dataTables_length {
+    margin-bottom: 1rem;
+}
+#aeTabContent .dataTables_filter {
+    margin-bottom: 1rem;
+    text-align: right;
+}
+#aeTabContent .dataTables_filter input {
+    margin-left: .5rem;
+    padding: .375rem .75rem;
+    border: 1px solid #d9dee3;
+    border-radius: .375rem;
+}
+#aeTabContent .dataTables_filter input:focus {
+    border-color: #0d6efd;
+    outline: none;
+    box-shadow: 0 0 0 .2rem rgba(13, 110, 253, .15);
+}
+#aeTabContent .dataTables_length select {
+    margin: 0 .5rem;
+    padding: .375rem 1.75rem .375rem .75rem;
+}
+#aeTabContent .dataTables_info {
+    margin: 0;
+    color: #6c757d;
+    font-size: .85rem;
+}
+#aeTabContent .ae-dt-footer {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    gap: 1rem;
+    flex-wrap: wrap;
+    width: 100%;
+    margin-left: 0;
+    margin-right: 0;
+    padding-top: 1rem;
+}
+#aeTabContent .ae-dt-footer > [class*="col-"] {
+    padding-left: 0;
+    padding-right: 0;
+}
+#aeTabContent .ae-dt-info {
+    flex: 1 1 auto !important;
+    width: auto !important;
+    max-width: none !important;
+}
+#aeTabContent .ae-dt-pages {
+    flex: 0 0 auto !important;
+    width: auto !important;
+    max-width: none !important;
+    margin-left: auto;
+    display: flex !important;
+    justify-content: flex-end !important;
+}
+#aeTabContent .ae-dt-footer .dataTables_paginate {
+    display: flex;
+    justify-content: flex-end;
+    width: auto;
+    margin: 0 !important;
+}
+#aeTabContent .ae-dt-footer .dataTables_paginate .pagination {
+    justify-content: flex-end !important;
+    margin: 0 !important;
+    margin-left: auto !important;
+}
+#aeTabContent .ae-dt-footer .dataTables_paginate .page-item {
+    margin: 0 .18rem;
+}
 
 /* Mismo botón en píldora que «Dictaminar» en Retenciones */
 .ac-btn-dictaminar {
@@ -153,14 +364,51 @@ body.dark-mode .ae-list-muted { color: #64748b; }
 body.dark-mode .ae-main-folio { color: #fcd34d; }
 body.dark-mode .ae-main-credito { color: #e2e8f0; }
 body.dark-mode .aev-ev-hint { color: #94a3b8 !important; }
+body.dark-mode .ae-form-trace { background: #0f172a; border-color: #1f2937; }
+body.dark-mode .ae-form-trace-title { color: #e2e8f0; }
+body.dark-mode .ae-form-trace-date { color: #94a3b8; }
+body.dark-mode .ae-form-chip { background: #111827; border-color: #1f2937; }
+body.dark-mode .ae-form-chip-label { color: #94a3b8; }
+body.dark-mode .ae-form-chip-value { color: #e2e8f0; }
+body.dark-mode .ae-table-wrap { background: #111827; border-color: #1f2937; }
+body.dark-mode .ae-table thead th { background: #0f172a; color: #e2e8f0; border-color: #1f2937; }
+body.dark-mode .ae-table tbody tr:hover { background: #172033; }
+body.dark-mode .ae-table td { color: #cbd5e1; border-color: #1f2937; }
+body.dark-mode .ae-table-credit,
+body.dark-mode .ae-table-name,
+body.dark-mode .ae-table-evidence { color: #e2e8f0; }
+body.dark-mode #aeTabContent .dataTables_filter input,
+body.dark-mode #aeTabContent .dataTables_length select { background: #111827; border-color: #1f2937; color: #e2e8f0; }
 
 @media (max-width: 991.98px) {
     .ae-list-grid {
         grid-template-columns: repeat(2, minmax(220px, 1fr));
     }
+    .ae-form-trace-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
 }
 @media (max-width: 767.98px) {
-    .ac-card-body {
+    #aeTabContent .ae-dt-footer {
+        justify-content: center !important;
+        text-align: center;
+    }
+    #aeTabContent .ae-dt-info,
+    #aeTabContent .ae-dt-pages {
+        flex: 0 0 100% !important;
+        width: 100% !important;
+        margin-left: 0;
+        justify-content: center !important;
+    }
+    #aeTabContent .ae-dt-footer .dataTables_paginate {
+        justify-content: center;
+        width: 100%;
+    }
+    #aeTabContent .ae-dt-footer .dataTables_paginate .pagination {
+        justify-content: center !important;
+        margin-left: 0 !important;
+    }
+    .ae-card-top {
         flex-direction: column;
         align-items: stretch;
     }
@@ -170,6 +418,12 @@ body.dark-mode .aev-ev-hint { color: #94a3b8 !important; }
     .ae-list-action {
         justify-content: flex-end;
         margin-top: .2rem;
+    }
+    .ae-form-trace-grid {
+        grid-template-columns: 1fr;
+    }
+    .ae-form-chip-wide {
+        grid-column: span 1;
     }
 }
 
@@ -219,6 +473,7 @@ body.dark-mode .aev-ev-hint { color: #94a3b8 !important; }
 .aev-ev-progress-bg   { height: 8px; background: #e2e8f0; border-radius: 6px; overflow: hidden; }
 .aev-ev-progress-fill { height: 100%; background: linear-gradient(90deg, #16a34a, #4ade80); border-radius: 6px; transition: width .25s; }
 .aev-ev-section { margin-bottom: 1rem; }
+.aev-ev-section--doc { margin-bottom: .35rem; }
 .aev-ev-hdr {
     display: flex; align-items: center; gap: .5rem;
     padding: .4rem .75rem; border-radius: .5rem .5rem 0 0;
@@ -227,6 +482,11 @@ body.dark-mode .aev-ev-hint { color: #94a3b8 !important; }
 .aev-ev-hdr-orange { background: #fff7ed; border: 1px solid #fed7aa; border-bottom: 0; color: #9a3412; }
 .aev-ev-hdr-blue   { background: #eff6ff; border: 1px solid #bfdbfe; border-bottom: 0; color: #1e40af; }
 .aev-ev-hdr-green  { background: #f0fdf4; border: 1px solid #bbf7d0; border-bottom: 0; color: #14532d; }
+.aev-ev-section--doc .aev-ev-hdr {
+    padding: .18rem .55rem;
+    font-size: .62rem;
+    border-radius: .4rem .4rem 0 0;
+}
 .aev-ev-hdr-purple { background: #faf5ff; border: 1px solid #e9d5ff; border-bottom: 0; color: #6b21a8; }
 .aev-ev-slots-wrap {
     padding: .65rem; background: #f8fafc; border: 1px solid #e2e8f0; border-top: 0; border-radius: 0 0 .5rem .5rem;
@@ -319,14 +579,20 @@ body.dark-mode .aev-ev-hint { color: #94a3b8 !important; }
 #modalAevValidarEvidencias .aev-vista-panel.aev-vista-panel--repuve #aev-vista-titulo { color: #14532d; }
 .aev-btn-ver-repuve {
     border: 2px solid #22c55a; color: #14532d; background: #fff; border-radius: 2rem;
-    font-weight: 800; font-size: .78rem; padding: .4rem 1.1rem; line-height: 1.2;
+    font-weight: 800; font-size: .66rem; padding: .18rem .65rem; line-height: 1.1;
 }
 .aev-btn-ver-repuve:hover, .aev-btn-ver-repuve:focus {
     background: #dcfce7; border-color: #16a34a; color: #14532d;
 }
 .aev-doc-zone {
-    min-height: 88px; border: 2px dashed #86efac; border-radius: .5rem; background: #f0fdf4; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 1rem; text-align: center; gap: .4rem; margin-top: -1px;
+    min-height: 34px; border: 1px dashed #86efac; border-radius: .4rem; background: #f0fdf4; display: flex; align-items: center; justify-content: center; padding: .22rem .45rem; text-align: left; gap: .42rem; margin-top: -1px; flex-wrap: nowrap;
 }
+.aev-doc-zone .fa-2x { font-size: .95rem; }
+.aev-doc-main { display: flex; align-items: center; gap: .35rem; min-width: 0; flex: 1 1 auto; }
+.aev-doc-title { color: #14532d; font-size: .68rem; font-weight: 800; line-height: 1.1; white-space: nowrap; }
+.aev-doc-sub { color: #64748b; font-size: .64rem; line-height: 1.1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.aev-doc-actions { display: inline-flex; align-items: center; gap: .3rem; flex-wrap: nowrap; margin-left: auto; }
+.aev-doc-actions .aev-badge-ok { font-size: .52rem; padding: 1px 5px; }
 .aev-doc-hidden { display: none !important; }
 .aev-doc-zone--click { cursor: pointer; }
 .aev-doc-zone--rech  { border-color: #f87171 !important; background: #fef2f2 !important; }
@@ -417,7 +683,7 @@ body.dark-mode .aev-detalle-loading-card {
         <div class="modal-content">
             <div class="modal-header">
                 <h5 class="modal-title mb-0">
-                    <i class="fa-solid fa-clipboard-check me-2"></i>Validar evidencias &mdash;
+                    <i id="aev-modal-icon" class="fa-solid fa-clipboard-check me-2"></i><span id="aev-modal-titulo-modo">Validar evidencias</span> &mdash;
                     <span id="aev-titulo-cliente" class="fw-normal" style="font-size:.9em;"></span>
                 </h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
@@ -637,6 +903,13 @@ $aevPuedeReemplazarEvidencia = in_array(79, array_map('intval', (array) ($_SESSI
         if (modal) modal.classList.toggle('aev-modo-lectura', !!activo);
         const btnEnviar = document.getElementById('aev-btn-enviar');
         if (btnEnviar && activo) btnEnviar.classList.add('d-none');
+        if (btnEnviar && !activo) btnEnviar.classList.remove('d-none');
+        const tituloModo = document.getElementById('aev-modal-titulo-modo');
+        if (tituloModo) tituloModo.textContent = activo ? 'Detalle de evidencias' : 'Validar evidencias';
+        const iconoModo = document.getElementById('aev-modal-icon');
+        if (iconoModo) {
+            iconoModo.className = activo ? 'fa-solid fa-eye me-2' : 'fa-solid fa-clipboard-check me-2';
+        }
     }
 
     function aevRenderCargaRapidaDetalle(id) {
@@ -745,6 +1018,7 @@ $aevPuedeReemplazarEvidencia = in_array(79, array_map('intval', (array) ($_SESSI
     const AEV_TITLE_DICTAMEN_SLOT = 'Clic para abrir y dictaminar';
 
     let _aeCargada = { bandeja: false, aprobados: false, correcciones: false };
+    let _aeDatos = { bandeja: [], aprobados: [], correcciones: [] };
 
     /** Evita varios POST finalizar + recargas seguidas al guardar veredictos rápido */
     let _aeFinalizarDebounceTimer = null;
@@ -1422,12 +1696,16 @@ $aevPuedeReemplazarEvidencia = in_array(79, array_map('intval', (array) ($_SESSI
         return `
         <div class="aev-doc-zone aev-doc-zone--acept" data-aev-subir="doc_repuve" role="button" tabindex="0" style="border-style:solid;border-color:#22c55a;background:#f0fdf4;cursor:pointer;">
             <i class="fa-solid fa-file-pdf fa-2x text-success"></i>
-            <div class="fw-bold small mt-1" style="color:#14532d;">${aeEsc(tit)}</div>
-            <div class="small text-muted">PDF en expediente. Toca la zona (no el botón) para reemplazar.</div>
-            <button type="button" class="aev-btn-ver-repuve mt-2" data-aev-ver-repuve="1">
-                <i class="fa-solid fa-eye me-1" aria-hidden="true"></i>Ver PDF aquí
-            </button>
-            <span class="aev-badge-ok mt-1" style="position:static;transform:none;display:inline-block;background:#15803d;">En expediente</span>
+            <div class="aev-doc-main">
+                <span class="aev-doc-title">${aeEsc(tit)}</span>
+                <span class="aev-doc-sub">PDF en expediente. Toca la zona para reemplazar.</span>
+            </div>
+            <div class="aev-doc-actions">
+                <button type="button" class="aev-btn-ver-repuve" data-aev-ver-repuve="1">
+                    <i class="fa-solid fa-eye me-1" aria-hidden="true"></i>Ver PDF
+                </button>
+                <span class="aev-badge-ok" style="position:static;transform:none;display:inline-block;background:#15803d;">En expediente</span>
+            </div>
         </div>`;
     }
 
@@ -1441,7 +1719,10 @@ $aevPuedeReemplazarEvidencia = in_array(79, array_map('intval', (array) ($_SESSI
         const mostrarDoc = vpdf > 0 || aevImagenesTodasAceptadas(evl);
 
         let html = '';
-        html += '<p class="aev-ev-hint" role="note"><i class="fa-solid fa-hand-pointer me-1" style="opacity:.65;" aria-hidden="true"></i>Clic en cada evidencia para aceptar o rechazar.</p>';
+        html += aeRenderFormularioOperacion(det);
+        if (!_aevStore.soloLectura) {
+            html += '<p class="aev-ev-hint" role="note"><i class="fa-solid fa-hand-pointer me-1" style="opacity:.65;" aria-hidden="true"></i>Clic en cada evidencia para aceptar o rechazar.</p>';
+        }
 
         html += '<div class="aev-ev-progress-wrap">';
         html += '<div class="d-flex justify-content-between align-items-end mb-1 flex-wrap gap-1">';
@@ -1455,7 +1736,7 @@ $aevPuedeReemplazarEvidencia = in_array(79, array_map('intval', (array) ($_SESSI
 
         if (mostrarDoc) {
             AEV_EV_DOCS.forEach(function (doc) {
-                html += '<div class="aev-ev-section">';
+                html += '<div class="aev-ev-section aev-ev-section--doc">';
                 html += '<div class="aev-ev-hdr ' + doc.headerClass + '"><i class="fa-solid ' + doc.icon + '"></i> ' + aeEsc(doc.label) + '</div>';
                 html += aevRenderBloqueDoc(doc, m);
                 html += '</div>';
@@ -1789,6 +2070,65 @@ $aevPuedeReemplazarEvidencia = in_array(79, array_map('intval', (array) ($_SESSI
         </div>`;
     }
 
+    function aeValorLimpio(v) {
+        if (v == null) return '';
+        const s = String(v).trim();
+        if (!s || s === '-' || s.toLowerCase() === 'null') return '';
+        return s;
+    }
+
+    function aeResguardoTexto(item) {
+        const base = aeValorLimpio(item.log_lugar_resguardo);
+        const otro = aeValorLimpio(item.log_lugar_otro);
+        const mapa = {
+            'cedis-__SPARTA_SECRET_REDACTED__': 'CEDIS Maxikash',
+            'centro-de-acopio': 'Centro de acopio',
+            'mi_domicilio': 'Mi domicilio',
+            'sucursal': 'Sucursal',
+            'agencia': 'Agencia',
+            'otro': otro || 'Otro'
+        };
+        return mapa[base] || base || otro;
+    }
+
+    function aeRenderFormularioOperacion(item) {
+        const src = Object.assign({}, (item && item.datos_moto) ? item.datos_moto : {}, item || {});
+        const moto = [aeValorLimpio(src.moto_marca), aeValorLimpio(src.moto_modelo), aeValorLimpio(src.moto_anio)]
+            .filter(Boolean).join(' ');
+        const ubicacion = [aeResguardoTexto(src), aeValorLimpio(src.log_ciudad), aeValorLimpio(src.log_estado)]
+            .filter(Boolean).join(' / ');
+        const campos = [
+            ['Moto', moto],
+            ['Color', aeValorLimpio(src.moto_color)],
+            ['VIN / Serie', aeValorLimpio(src.moto_no_serie)],
+            ['No. motor', aeValorLimpio(src.moto_no_motor)],
+            ['Placas', aeValorLimpio(src.moto_placas)],
+            ['Resguardo', ubicacion, true],
+            ['Responsable', aeValorLimpio(src.responsable_entrega)],
+            ['Telefono', aeValorLimpio(src.log_telefono)],
+            ['Direccion', aeValorLimpio(src.log_direccion), true]
+        ].filter(function (row) { return !!row[1]; });
+
+        if (!campos.length) return '';
+
+        const fecha = aeValorLimpio(src.datos_moto_fecha);
+        return `
+            <div class="ae-form-trace">
+                <div class="ae-form-trace-head">
+                    <span class="ae-form-trace-title"><i class="fa-solid fa-list-check me-1"></i>Formulario capturado</span>
+                    ${fecha ? `<span class="ae-form-trace-date">Capturado ${aeEsc(fecha)}</span>` : ''}
+                </div>
+                <div class="ae-form-trace-grid">
+                    ${campos.map(function (row) {
+                        return `<div class="ae-form-chip ${row[2] ? 'ae-form-chip-wide' : ''}" title="${aeEsc(row[1])}">
+                            <span class="ae-form-chip-label">${aeEsc(row[0])}</span>
+                            <span class="ae-form-chip-value">${aeEsc(row[1])}</span>
+                        </div>`;
+                    }).join('')}
+                </div>
+            </div>`;
+    }
+
     /**
      * Misma estructura visual que la tarjeta "Entrantes" en Retenciones
      * (encabezado azul, # crédito + nombre, filas etiqueta/valor, botón al pie).
@@ -1813,8 +2153,9 @@ $aevPuedeReemplazarEvidencia = in_array(79, array_map('intval', (array) ($_SESSI
                 </div>`;
 
         return `
-        <div class="ac-card ae-row-clickable" data-aev-row-id="${aeEsc(String(item.id_credito))}" role="button" tabindex="0" title="Ver evidencias">
+        <div class="ac-card">
             <div class="ac-card-body">
+                <div class="ae-card-top">
                 <div class="ae-list-grid">
                     <div class="ae-list-cell ae-main-meta">
                         <span class="ae-main-folio">${folio}</span>
@@ -1839,8 +2180,125 @@ $aevPuedeReemplazarEvidencia = in_array(79, array_map('intval', (array) ($_SESSI
                     </div>
                 </div>
                 ${accion}
+                </div>
             </div>
         </div>`;
+    }
+
+    function aeRenderFilaTabla(item, key) {
+        const evRaw = parseInt(item.evidencias_count, 10) || 0;
+        const ev = Math.min(evRaw, AE_EV_TOTAL);
+        const gestor = item.gestor_nombre ? aeEsc(item.gestor_nombre) : '<span class="ae-table-muted">Sin asignar</span>';
+        const fechaAsignacion = item.fecha_asignacion ? aeEsc(item.fecha_asignacion) : '<span class="ae-table-muted">-</span>';
+        const cliente = item.nombre_cliente ? aeEsc(item.nombre_cliente) : '<span class="ae-table-muted">Sin nombre</span>';
+        const folio = item.folio ? aeEsc(item.folio) : '-';
+        const fechaAprobacion = item.fecha_aprobacion_evidencias
+            ? '<div class="ae-table-date"><span class="text-muted">Aprob.</span> ' + aeEsc(item.fecha_aprobacion_evidencias) + '</div>'
+            : '';
+        const accionValidar = String(key || '').toLowerCase() === 'aprobados' ? '' : `
+            <button type="button" class="btn btn-sm btn-primary" data-aev-no-row="1"
+                    onclick="event.stopPropagation(); aevValidarAbrir(${+item.id_credito})"
+                    title="Validar evidencias" aria-label="Validar evidencias">
+                <i class="fa fa-clipboard-check"></i>
+            </button>`;
+
+        return `
+        <tr>
+            <td class="ae-table-main">
+                <span class="ae-table-folio">${folio}</span>
+                <span class="ae-table-credit"># ${aeEsc(String(item.id_credito))}</span>
+            </td>
+            <td class="ae-table-name">${cliente}</td>
+            <td>${gestor}</td>
+            <td>
+                <div class="ae-table-date"><span class="text-muted">Asig.</span> ${fechaAsignacion}</div>
+                ${fechaAprobacion}
+            </td>
+            <td class="ae-table-evidence">${ev} / ${AE_EV_TOTAL}</td>
+            <td class="ae-table-action">
+                <div class="ae-action-buttons">
+                    <button type="button" class="btn btn-sm btn-outline-secondary" data-aev-no-row="1"
+                            title="Ver evidencias" aria-label="Ver evidencias"
+                            onclick="event.stopPropagation(); aevValidarAbrir(${+item.id_credito}, { soloLectura: true })">
+                        <i class="fa fa-eye"></i>
+                    </button>
+                    ${accionValidar}
+                </div>
+            </td>
+        </tr>`;
+    }
+
+    function aeRenderTabla(datos, key) {
+        const tableId = 'ae-tabla-' + key;
+        const filas = datos.map(function (item) { return aeRenderFilaTabla(item, key); }).join('');
+        return `
+        <div class="card-datatable ae-table-wrap">
+            <table id="${aeEsc(tableId)}" class="dt-responsive table border-top ae-table">
+                <thead>
+                    <tr>
+                        <th>Operacion</th>
+                        <th>Cliente</th>
+                        <th>Gestor</th>
+                        <th>Fechas</th>
+                        <th>Evidencias</th>
+                        <th class="ae-table-action">Acciones</th>
+                    </tr>
+                </thead>
+                <tbody>${filas}</tbody>
+            </table>
+        </div>`;
+    }
+
+    function aeInicializarDataTable(key) {
+        const tableId = '#ae-tabla-' + key;
+        if (!window.jQuery || !jQuery.fn || !jQuery.fn.DataTable || !document.querySelector(tableId)) return;
+        if (jQuery.fn.DataTable.isDataTable(tableId)) {
+            jQuery(tableId).DataTable().destroy();
+        }
+
+        jQuery(tableId).DataTable({
+            pageLength: 5,
+            lengthMenu: [5, 10, 25, 50, 100],
+            order: [],
+            responsive: true,
+            autoWidth: false,
+            language: {
+                decimal: "",
+                emptyTable: "No hay operaciones registradas",
+                info: "Mostrando _START_ a _END_ de _TOTAL_ registros",
+                infoEmpty: "Mostrando 0 a 0 de 0 registros",
+                infoFiltered: "(filtrado de _MAX_ registros totales)",
+                thousands: ",",
+                lengthMenu: "Mostrar _MENU_ registros",
+                loadingRecords: "Cargando...",
+                processing: "Procesando...",
+                search: "Buscar:",
+                zeroRecords: "No se encontraron resultados",
+                paginate: {
+                    first: "&laquo;",
+                    last: "&raquo;",
+                    next: "&rsaquo;",
+                    previous: "&lsaquo;"
+                }
+            },
+            dom: '<"row align-items-center mb-3"<"col-sm-12 col-md-6"l><"col-sm-12 col-md-6"f>>' +
+                 '<"row"<"col-sm-12"tr>>' +
+                 '<"row align-items-center mt-3 ae-dt-footer"<"col-sm-12 col-md-5 ae-dt-info"i><"col-sm-12 col-md-7 ae-dt-pages"p>>',
+            drawCallback: function() {
+                jQuery(tableId + '_paginate > .pagination').addClass('pagination-sm justify-content-end');
+                jQuery(tableId + '_length select').addClass('form-select form-select-sm');
+                jQuery(tableId + '_filter input').addClass('form-control form-control-sm');
+            }
+        });
+    }
+
+    function aeRefrescarTabla(key) {
+        const listaId = 'ae-lista-' + (key === 'bandeja' ? 'bandeja' : key);
+        const lista = document.getElementById(listaId);
+        if (!lista) return;
+        const datos = Array.isArray(_aeDatos[key]) ? _aeDatos[key] : [];
+        lista.innerHTML = aeRenderTabla(datos, key);
+        aeInicializarDataTable(key);
     }
 
     window.aevValidarAbrir = function (idCredito, opciones) {
@@ -1949,7 +2407,8 @@ $aevPuedeReemplazarEvidencia = in_array(79, array_map('intval', (array) ($_SESSI
             .then(data => {
                 if (!data.success) {
                     if (key === 'correcciones') {
-                        lista.innerHTML    = aeSinDatos(AE_CONFIG.correcciones.vacio);
+                        _aeDatos[key] = [];
+                        aeRefrescarTabla(key);
                         aeSetBadgeTab(key, 0);
                         _aeCargada[key]   = true;
                         return;
@@ -1967,19 +2426,19 @@ $aevPuedeReemplazarEvidencia = in_array(79, array_map('intval', (array) ($_SESSI
                 }
 
                 const n = datos.length;
+                _aeDatos[key] = datos;
                 aeSetBadgeTab(key, n);
                 _aeCargada[key] = true;
 
-                if (n === 0) {
-                    lista.innerHTML = aeSinDatos(cfg.vacio);
-                } else {
-                    lista.innerHTML = datos.map(d => aeRenderCard(d, key)).join('');
+                aeRefrescarTabla(key);
+                if (n > 0) {
                     aevPrecargarBandejaVisible(datos);
                 }
             })
             .catch(err => {
                 if (key === 'correcciones') {
-                    lista.innerHTML  = aeSinDatos(AE_CONFIG.correcciones.vacio);
+                    _aeDatos[key] = [];
+                    aeRefrescarTabla(key);
                     _aeCargada[key]  = true;
                 } else {
                     lista.innerHTML = `<div class="alert alert-danger">${aeEsc(err.message)}</div>`;
@@ -2023,28 +2482,6 @@ $aevPuedeReemplazarEvidencia = in_array(79, array_map('intval', (array) ($_SESSI
         });
         document.getElementById('ae-tab-correcciones-btn').addEventListener('shown.bs.tab', function () {
             aeCargarSeccion('correcciones', false);
-        });
-
-        document.addEventListener('click', function (ev) {
-            if (ev.target.closest('[data-aev-no-row], button, a, input, textarea, select, label')) return;
-            const card = ev.target.closest('.ae-row-clickable[data-aev-row-id]');
-            if (!card) return;
-            const id = parseInt(card.getAttribute('data-aev-row-id'), 10);
-            if (id > 0) aevValidarAbrir(id, { soloLectura: true });
-        });
-        document.addEventListener('keydown', function (ev) {
-            if (ev.key !== 'Enter' && ev.key !== ' ') return;
-            const card = ev.target.closest && ev.target.closest('.ae-row-clickable[data-aev-row-id]');
-            if (!card) return;
-            ev.preventDefault();
-            const id = parseInt(card.getAttribute('data-aev-row-id'), 10);
-            if (id > 0) aevValidarAbrir(id, { soloLectura: true });
-        });
-        document.addEventListener('mouseover', function (ev) {
-            const card = ev.target.closest && ev.target.closest('.ae-row-clickable[data-aev-row-id]');
-            if (!card) return;
-            const id = parseInt(card.getAttribute('data-aev-row-id'), 10);
-            if (id > 0) aevPrecargarDetalleCredito(id);
         });
 
         const aevBody = document.getElementById('aev-body');
