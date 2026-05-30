@@ -106,7 +106,7 @@
     color: #1f2937;
 }
 .ae-list-nombre .ac-val { text-transform: uppercase; }
-.ae-list-ev .ac-val { font-weight: 700; }
+.ae-list-status .ac-val { font-weight: 700; }
 .ae-list-muted {
     color: #9ca3af;
     font-style: italic;
@@ -167,6 +167,156 @@
 .acd-btn-pipeline:hover  { opacity: .9; transform: translateY(-1px); color: #fff; }
 .acd-btn-pipeline:active { transform: translateY(0); }
 
+.acd-table-wrap {
+    border: 1px solid #e5e7eb;
+    border-radius: .75rem;
+    overflow: visible;
+    background: #fff;
+    padding: 1.5rem;
+}
+.acd-table {
+    margin: 0;
+    font-size: .875rem;
+    vertical-align: middle;
+}
+.acd-table thead th {
+    background: #f8fafc;
+    color: #566a7f;
+    border-bottom: 1px solid #dbe4ef;
+    font-size: .75rem;
+    font-weight: 700;
+    letter-spacing: .02em;
+    text-transform: uppercase;
+    white-space: nowrap;
+}
+.acd-table tbody tr:hover { background: #f8fbff; }
+.acd-table td {
+    color: #697a8d;
+    border-color: #e8eef5;
+}
+.acd-table-main { min-width: 150px; }
+.acd-table-folio {
+    display: inline-flex;
+    align-items: center;
+    max-width: 100%;
+    padding: .12rem .42rem;
+    border-radius: 999px;
+    background: #fff7ed;
+    color: #b45309;
+    font-size: .68rem;
+    font-weight: 800;
+}
+.acd-table-credit {
+    display: block;
+    margin-top: .22rem;
+    color: #566a7f;
+    font-weight: 700;
+}
+.acd-table-name {
+    min-width: 210px;
+    color: #697a8d;
+    font-weight: 700;
+    text-transform: uppercase;
+    line-height: 1.2;
+}
+.acd-table-muted {
+    color: #94a3b8;
+    font-style: italic;
+}
+.acd-table-action {
+    min-width: 124px;
+    text-align: center !important;
+}
+.acd-table-date {
+    white-space: nowrap;
+    line-height: 1.35;
+}
+.acd-action-buttons {
+    display: flex;
+    width: 100%;
+    align-items: center;
+    justify-content: center !important;
+    gap: .5rem;
+    flex-wrap: wrap;
+}
+#acdTabContent .dataTables_length { margin-bottom: 1rem; }
+#acdTabContent .dataTables_filter {
+    margin-bottom: 1rem;
+    text-align: right;
+}
+#acdTabContent .dataTables_filter input {
+    margin-left: .5rem;
+    padding: .375rem .75rem;
+    border: 1px solid #d9dee3;
+    border-radius: .375rem;
+}
+#acdTabContent .dataTables_filter input:focus {
+    border-color: #ea580c;
+    outline: none;
+    box-shadow: 0 0 0 .2rem rgba(234, 88, 12, .15);
+}
+#acdTabContent .dataTables_length select {
+    margin: 0 .5rem;
+    padding: .375rem 1.75rem .375rem .75rem;
+}
+#acdTabContent .dataTables_info {
+    color: #a1acb8;
+    font-weight: 600;
+}
+#acdTabContent .pagination {
+    gap: .5rem;
+    margin: 0;
+}
+#acdTabContent .page-link {
+    border-radius: .375rem;
+    border-color: #e5e7eb;
+    color: #6b7280;
+    min-width: 2.35rem;
+    text-align: center;
+}
+#acdTabContent .page-item.active .page-link {
+    background: #ea580c;
+    border-color: #ea580c;
+    color: #fff;
+}
+.acd-dict-detail-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: .75rem;
+}
+.acd-dict-chip {
+    border: 1px solid #e5e7eb;
+    border-radius: .65rem;
+    padding: .7rem .85rem;
+    background: #f8fafc;
+    min-width: 0;
+}
+.acd-dict-chip span {
+    display: block;
+    color: #64748b;
+    font-size: .7rem;
+    font-weight: 800;
+    letter-spacing: .04em;
+    text-transform: uppercase;
+}
+.acd-dict-chip strong {
+    display: block;
+    color: #0f172a;
+    font-size: .86rem;
+    margin-top: .18rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.acd-dict-observacion {
+    border-left: 4px solid #ea580c;
+    background: #fff7ed;
+    border-radius: .65rem;
+    padding: .75rem .9rem;
+    color: #475569;
+    white-space: pre-line;
+}
+
 /* Forzar tono de tabs al color propio de Cartera (paso 3) */
 #acdTabNav .nav-link {
     color: #0f172a;
@@ -194,6 +344,15 @@ body.dark-mode .ae-list-cell .ac-val { color: #e2e8f0; }
 body.dark-mode .ae-list-muted { color: #64748b; }
 body.dark-mode .ae-main-folio { color: #fcd34d; }
 body.dark-mode .ae-main-credito { color: #e2e8f0; }
+body.dark-mode .acd-table-wrap { background: #111827; border-color: #1f2937; }
+body.dark-mode .acd-table thead th { background: #0f172a; color: #e2e8f0; border-color: #1f2937; }
+body.dark-mode .acd-table tbody tr:hover { background: #172033; }
+body.dark-mode .acd-table td { color: #cbd5e1; border-color: #1f2937; }
+body.dark-mode .acd-table-credit,
+body.dark-mode .acd-table-name { color: #e2e8f0; }
+body.dark-mode .acd-dict-chip { background: #111827; border-color: #1f2937; }
+body.dark-mode .acd-dict-chip strong { color: #e2e8f0; }
+body.dark-mode .acd-dict-observacion { background: #292524; color: #fed7aa; }
 
 @media (max-width: 991.98px) {
     .ae-list-grid {
@@ -211,6 +370,9 @@ body.dark-mode .ae-main-credito { color: #e2e8f0; }
     .ae-list-action {
         justify-content: flex-end;
         margin-top: .2rem;
+    }
+    .acd-dict-detail-grid {
+        grid-template-columns: 1fr;
     }
 }
 
@@ -399,7 +561,7 @@ body.dark-mode #modalAcdCierreVerBitacoraEtapa .acd-bit-tl-title { color: #f1f5f
 body.dark-mode #modalAcdCierreVerBitacoraEtapa .acd-bit-tl-time,
 body.dark-mode #modalAcdCierreVerBitacoraEtapa .acd-bit-tl-user { color: #94a3b8; }
 
-/* Bloque evidencia S2 (modal vista 4) */
+/* Bloque documento S2 (modal vista 4) */
 #acdEvidenciaCard {
     border: 2px solid #fed7aa;
     border-radius: 0.75rem;
@@ -501,7 +663,7 @@ body.dark-mode #acdEvidenciaTitulo.acd-ev-ok { color: #86efac; }
                     </div>
                     <div class="col-lg-7">
                         <div id="acdEvidenciaCard">
-                            <h2 class="h6" id="acdEvidenciaTitulo">Evidencia de cierre en S2</h2>
+                            <h2 class="h6" id="acdEvidenciaTitulo">Documento de cierre en S2</h2>
                             <div id="acdEvidenciaFormulario">
                                 <p class="small text-muted mb-2">Adjunta una imagen (o PDF) y comentarios opcionales antes de confirmar el registro en S2.</p>
                                 <div class="mb-2">
@@ -514,7 +676,7 @@ body.dark-mode #acdEvidenciaTitulo.acd-ev-ok { color: #86efac; }
                                               placeholder="Detalle relevante para expediente…"></textarea>
                                 </div>
                                 <button type="button" class="btn btn-warning btn-sm rounded-pill fw-bold" id="acdBtnSubirEvidenciaCierre">
-                                    <i class="fa-solid fa-cloud-arrow-up me-1"></i>Subir evidencia
+                                    <i class="fa-solid fa-cloud-arrow-up me-1"></i>Subir documento
                                 </button>
                             </div>
                             <div id="acdEvidenciaExito" style="display:none;" class="text-center py-2">
@@ -566,12 +728,31 @@ body.dark-mode #acdEvidenciaTitulo.acd-ev-ok { color: #86efac; }
     </div>
 </div>
 
+<!-- Modal: vista de expediente dictaminado -->
+<div class="modal fade" id="modalAcdDictaminadoDetalle" tabindex="-1" aria-labelledby="modalAcdDictaminadoDetalleLabel" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-dialog-scrollable modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header py-2 border-bottom">
+                <h5 class="modal-title mb-0" id="modalAcdDictaminadoDetalleLabel">
+                    <i class="fa-regular fa-eye me-2 text-warning"></i>Expediente dictaminado
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <div class="modal-body" id="acdDictaminadoDetalleBody">
+                <div class="text-center py-5 text-muted">
+                    <div class="spinner-border spinner-border-sm me-2"></div>Cargando expediente...
+                </div>
+            </div>
+            <div class="modal-footer py-2 border-top">
+                <button type="button" class="btn btn-secondary btn-sm rounded-pill" data-bs-dismiss="modal">Cerrar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <script>
 (function () {
     'use strict';
-
-    /** Expediente (13) + doc_cierre_s2 en esta etapa. */
-    const ACD_EV_TOTAL = 14;
 
     const ACD_CONFIG = {
         bandeja: {
@@ -587,6 +768,7 @@ body.dark-mode #acdEvidenciaTitulo.acd-ev-ok { color: #86efac; }
     const ACD_BADGE = { bandeja: 'acd-badge-bandeja', dictaminado: 'acd-badge-dictaminado' };
 
     let _acdCargada = { bandeja: false, dictaminado: false };
+    let _acdDatos = { bandeja: [], dictaminado: [] };
 
     let _acdCierreIdOp = 0;
     let _acdCierreBuckets = { atencion: [], validacion: [], recuperacion: [] };
@@ -700,7 +882,7 @@ body.dark-mode #acdEvidenciaTitulo.acd-ev-ok { color: #86efac; }
         if (filas) filas.innerHTML = '';
         if (sub) sub.textContent = '';
         if (titEv) {
-            titEv.textContent = 'Evidencia de cierre en S2';
+            titEv.textContent = 'Documento de cierre en S2';
             titEv.classList.remove('acd-ev-ok');
         }
         if (formEv) formEv.style.display = '';
@@ -772,11 +954,9 @@ body.dark-mode #acdEvidenciaTitulo.acd-ev-ok { color: #86efac; }
     }
 
     function acdRenderCardBandeja(item) {
-        const evRaw = parseInt(item.evidencias_count, 10) || 0;
-        const ev = Math.min(evRaw, ACD_EV_TOTAL);
         const g  = item.gestor_nombre
             ? acdEsc(item.gestor_nombre)
-            : '<span class="ae-list-muted">Sin asignar</span>';
+            : '<span class="ae-list-muted">—</span>';
         const fa = item.fecha_asignacion
             ? acdEsc(item.fecha_asignacion)
             : '<span class="ae-list-muted">—</span>';
@@ -809,10 +989,6 @@ body.dark-mode #acdEvidenciaTitulo.acd-ev-ok { color: #86efac; }
                         <span class="ac-lbl">Nombre</span>
                         <span class="ac-val">${nombreCliente}</span>
                     </div>
-                    <div class="ae-list-cell ae-list-ev">
-                        <span class="ac-lbl">Evidencias en expediente</span>
-                        <span class="ac-val">${ev} / ${ACD_EV_TOTAL}</span>
-                    </div>
                     <div class="ae-list-cell">
                         <span class="ac-lbl">Estatus flujo</span>
                         <span class="ac-val">${est}</span>
@@ -844,7 +1020,7 @@ body.dark-mode #acdEvidenciaTitulo.acd-ev-ok { color: #86efac; }
             : '<span class="ae-list-muted">—</span>';
         const g = item.gestor_nombre
             ? acdEsc(item.gestor_nombre)
-            : '<span class="ae-list-muted">Sin asignar</span>';
+            : '<span class="ae-list-muted">—</span>';
         const nombreCliente = item.nombre_cliente
             ? acdEsc(item.nombre_cliente)
             : '<span class="ae-list-muted">Sin nombre</span>';
@@ -870,7 +1046,7 @@ body.dark-mode #acdEvidenciaTitulo.acd-ev-ok { color: #86efac; }
                         <span class="ac-lbl">Nombre</span>
                         <span class="ac-val">${nombreCliente}</span>
                     </div>
-                    <div class="ae-list-cell ae-list-ev">
+                    <div class="ae-list-cell ae-list-status">
                         <span class="ac-lbl">Estatus flujo</span>
                         <span class="ac-val">${estPipeline}</span>
                     </div>
@@ -886,6 +1062,217 @@ body.dark-mode #acdEvidenciaTitulo.acd-ev-ok { color: #86efac; }
                 </div>
             </div>
         </div>`;
+    }
+
+    function acdGestorTablaHtml(item) {
+        const nombre = item && item.gestor_nombre ? String(item.gestor_nombre).trim() : '';
+        return nombre ? acdEsc(nombre) : '<span class="acd-table-muted">—</span>';
+    }
+
+    function acdRenderFilaTablaBandeja(item) {
+        const gestor = acdGestorTablaHtml(item);
+        const cliente = item.nombre_cliente ? acdEsc(item.nombre_cliente) : '<span class="acd-table-muted">Sin nombre</span>';
+        const folio = item.folio ? acdEsc(item.folio) : '-';
+        const fechaLegacy = item.fecha_gestion_legacy ? acdEsc(item.fecha_gestion_legacy) : '<span class="acd-table-muted">-</span>';
+        const fechaAsignacion = item.fecha_asignacion ? acdEsc(item.fecha_asignacion) : '<span class="acd-table-muted">-</span>';
+
+        return `
+        <tr>
+            <td class="acd-table-main">
+                <span class="acd-table-folio">${folio}</span>
+                <span class="acd-table-credit"># ${acdEsc(String(item.id_credito || ''))}</span>
+            </td>
+            <td class="acd-table-name">${cliente}</td>
+            <td>${gestor}</td>
+            <td>
+                <div class="acd-table-date"><span class="text-muted">Legacy</span> ${fechaLegacy}</div>
+                <div class="acd-table-date"><span class="text-muted">Asig.</span> ${fechaAsignacion}</div>
+            </td>
+            <td class="acd-table-action">
+                <div class="acd-action-buttons">
+                    <button type="button" class="btn btn-sm btn-warning acd-abrir-modal-cierre-doc"
+                            data-acd-id-operacion="${Number(item.id)}"
+                            data-acd-id-credito="${Number(item.id_credito)}"
+                            data-acd-nombre="${encodeURIComponent(String(item.nombre_cliente || ''))}"
+                            title="Cierre documentado" aria-label="Cierre documentado">
+                        <i class="fa-solid fa-file-circle-check"></i>
+                    </button>
+                </div>
+            </td>
+        </tr>`;
+    }
+
+    function acdRenderFilaTablaDictaminado(item) {
+        const gestor = acdGestorTablaHtml(item);
+        const cliente = item.nombre_cliente ? acdEsc(item.nombre_cliente) : '<span class="acd-table-muted">Sin nombre</span>';
+        const folio = item.folio ? acdEsc(item.folio) : '-';
+        const fechaLegacy = item.fecha_gestion_legacy ? acdEsc(item.fecha_gestion_legacy) : '<span class="acd-table-muted">-</span>';
+        const fechaDictamen = item.fecha_dictamen ? acdEsc(item.fecha_dictamen) : '<span class="acd-table-muted">-</span>';
+
+        return `
+        <tr>
+            <td class="acd-table-main">
+                <span class="acd-table-folio">${folio}</span>
+                <span class="acd-table-credit"># ${acdEsc(String(item.id_credito || ''))}</span>
+            </td>
+            <td class="acd-table-name">${cliente}</td>
+            <td>${gestor}</td>
+            <td>
+                <div class="acd-table-date"><span class="text-muted">Legacy</span> ${fechaLegacy}</div>
+                <div class="acd-table-date"><span class="text-muted">Dict.</span> ${fechaDictamen}</div>
+            </td>
+            <td class="acd-table-action">
+                <div class="acd-action-buttons">
+                    <button type="button" class="btn btn-sm btn-outline-secondary acd-ver-dictaminado"
+                            data-acd-id-operacion="${Number(item.id)}"
+                            data-acd-id-credito="${Number(item.id_credito)}"
+                            title="Ver expediente" aria-label="Ver expediente">
+                        <i class="fa fa-eye"></i>
+                    </button>
+                </div>
+            </td>
+        </tr>`;
+    }
+
+    function acdRenderTabla(key, datos) {
+        const esBandeja = key === 'bandeja';
+        const tableId = 'acd-tabla-' + key;
+        const filas = (datos || []).map(function (item) {
+            return esBandeja ? acdRenderFilaTablaBandeja(item) : acdRenderFilaTablaDictaminado(item);
+        }).join('');
+        return `
+        <div class="card-datatable acd-table-wrap">
+            <table id="${acdEsc(tableId)}" class="dt-responsive table border-top acd-table">
+                <thead>
+                    <tr>
+                        <th>Operacion</th>
+                        <th>Cliente</th>
+                        <th>Gestor</th>
+                        <th>Fechas</th>
+                        <th class="acd-table-action">Acciones</th>
+                    </tr>
+                </thead>
+                <tbody>${filas}</tbody>
+            </table>
+        </div>`;
+    }
+
+    function acdInicializarTabla(key) {
+        const tableId = '#acd-tabla-' + key;
+        if (!window.jQuery || !jQuery.fn || !jQuery.fn.DataTable || !document.querySelector(tableId)) return;
+        if (jQuery.fn.DataTable.isDataTable(tableId)) {
+            jQuery(tableId).DataTable().destroy();
+        }
+
+        jQuery(tableId).DataTable({
+            pageLength: 5,
+            lengthMenu: [5, 10, 25, 50, 100],
+            order: [],
+            responsive: true,
+            autoWidth: false,
+            language: {
+                decimal: "",
+                emptyTable: "No hay operaciones registradas",
+                info: "Mostrando _START_ a _END_ de _TOTAL_ registros",
+                infoEmpty: "Mostrando 0 a 0 de 0 registros",
+                infoFiltered: "(filtrado de _MAX_ registros totales)",
+                thousands: ",",
+                lengthMenu: "Mostrar _MENU_ registros",
+                loadingRecords: "Cargando...",
+                processing: "Procesando...",
+                search: "Buscar:",
+                zeroRecords: "No se encontraron resultados",
+                paginate: {
+                    first: "&laquo;",
+                    last: "&raquo;",
+                    next: "&rsaquo;",
+                    previous: "&lsaquo;"
+                }
+            },
+            dom: '<"row align-items-center mb-3"<"col-sm-12 col-md-6"l><"col-sm-12 col-md-6"f>>' +
+                 '<"row"<"col-sm-12"tr>>' +
+                 '<"row align-items-center mt-3 acd-dt-footer"<"col-sm-12 col-md-5 acd-dt-info"i><"col-sm-12 col-md-7 acd-dt-pages"p>>',
+            drawCallback: function () {
+                jQuery(tableId + '_paginate > .pagination').addClass('pagination-sm justify-content-end');
+                jQuery(tableId + '_length select').addClass('form-select form-select-sm');
+                jQuery(tableId + '_filter input').addClass('form-control form-control-sm');
+            }
+        });
+    }
+
+    function acdBuscarDictaminadoPorOperacion(idOperacion) {
+        const id = parseInt(idOperacion, 10) || 0;
+        return (_acdDatos.dictaminado || []).find(function (row) {
+            return parseInt(row.id, 10) === id;
+        }) || null;
+    }
+
+    function acdRenderDetalleDictaminado(det, row) {
+        const base = Object.assign({}, row || {}, det || {});
+        const comentarios = base.comentarios || '';
+        const dictamen = base.dictamen || '';
+        const chips = [
+            ['Operación', base.folio || ('#' + (base.id || ''))],
+            ['Crédito', base.id_credito || '-'],
+            ['Cliente', base.nombre_cliente || 'Sin nombre'],
+            ['Gestor', base.gestor_nombre || '-'],
+            ['Gestión Legacy', base.fecha_gestion_legacy || base.fecha_alta_fmt || '-'],
+            ['Estatus', base.estatus || '-'],
+            ['Fecha dictamen', base.fecha_dictamen || base.fecha_actualizacion_fmt || '-']
+        ];
+
+        return `
+        <div class="d-flex flex-column gap-3">
+            <div class="acd-dict-detail-grid">
+                ${chips.map(function (chip) {
+                    return `<div class="acd-dict-chip"><span>${acdEsc(chip[0])}</span><strong>${acdEsc(String(chip[1] || '-'))}</strong></div>`;
+                }).join('')}
+            </div>
+            <div>
+                <h6 class="fw-bold mb-2">Dictamen</h6>
+                <div class="acd-dict-observacion">${acdEsc(dictamen || 'Sin dictamen registrado.')}</div>
+            </div>
+            ${comentarios ? `<div>
+                <h6 class="fw-bold mb-2">Comentarios</h6>
+                <div class="acd-dict-observacion">${acdEsc(comentarios)}</div>
+            </div>` : ''}
+        </div>`;
+    }
+
+    function acdAbrirVistaDictaminado(idOperacion) {
+        const id = parseInt(idOperacion, 10) || 0;
+        if (id <= 0) return;
+        const row = acdBuscarDictaminadoPorOperacion(id);
+        const body = document.getElementById('acdDictaminadoDetalleBody');
+        const title = document.getElementById('modalAcdDictaminadoDetalleLabel');
+        if (title) {
+            title.innerHTML = '<i class="fa-regular fa-eye me-2 text-warning"></i>' +
+                acdEsc(row && row.nombre_cliente ? row.nombre_cliente : 'Expediente dictaminado');
+        }
+        if (body) {
+            body.innerHTML = '<div class="text-center py-5 text-muted"><div class="spinner-border spinner-border-sm me-2"></div>Cargando expediente...</div>';
+        }
+        const modal = document.getElementById('modalAcdDictaminadoDetalle');
+        if (modal && typeof bootstrap !== 'undefined' && bootstrap.Modal) {
+            bootstrap.Modal.getOrCreateInstance(modal).show();
+        }
+
+        fetch('/MotosAdjudicadas/obtenerDetalle/' + id + '?incluir_todas=1', {
+            headers: { 'Accept': 'application/json' },
+            credentials: 'same-origin',
+        })
+            .then(function (r) { return r.json(); })
+            .then(function (data) {
+                if (!data.success || !data.detalle) {
+                    throw new Error(data.message || 'No se pudo cargar el expediente.');
+                }
+                if (body) body.innerHTML = acdRenderDetalleDictaminado(data.detalle, row);
+            })
+            .catch(function (err) {
+                if (body) {
+                    body.innerHTML = '<div class="alert alert-warning mb-0">' + acdEsc(err.message || 'No se pudo cargar el expediente.') + '</div>';
+                }
+            });
     }
 
     function acdSetBadge(key, n) {
@@ -943,16 +1330,14 @@ body.dark-mode #acdEvidenciaTitulo.acd-ev-ok { color: #86efac; }
                 if (!data.success) {
                     throw new Error(data.message || 'Error al cargar');
                 }
-                const n = data.datos.length;
+                const datos = Array.isArray(data.datos) ? data.datos.slice() : [];
+                const n = datos.length;
+                _acdDatos[key] = datos;
                 acdSetBadge(key, n);
                 _acdCargada[key] = true;
 
-                const render = key === 'bandeja' ? acdRenderCardBandeja : acdRenderCardDictaminado;
-                if (n === 0) {
-                    lista.innerHTML = acdSinDatos(cfg.vacio);
-                } else {
-                    lista.innerHTML = data.datos.map(function (d) { return render(d); }).join('');
-                }
+                lista.innerHTML = acdRenderTabla(key, datos);
+                acdInicializarTabla(key);
             })
             .catch(function (err) {
                 lista.innerHTML = `<div class="alert alert-danger">${acdEsc(err.message || 'Error')}</div>`;
@@ -1023,7 +1408,7 @@ body.dark-mode #acdEvidenciaTitulo.acd-ev-ok { color: #86efac; }
                     .then(function (r) { return r.json(); })
                     .then(function (data) {
                         if (!data.success || !data.url) {
-                            throw new Error(data.message || 'No se pudo subir la evidencia.');
+                            throw new Error(data.message || 'No se pudo subir el documento.');
                         }
                         _acdEvidenciaUrl = String(data.url);
                         const com = (document.getElementById('acdEvidenciaComentarios') || {}).value || '';
@@ -1031,7 +1416,7 @@ body.dark-mode #acdEvidenciaTitulo.acd-ev-ok { color: #86efac; }
                         const formEv = document.getElementById('acdEvidenciaFormulario');
                         const okEv = document.getElementById('acdEvidenciaExito');
                         if (titEv) {
-                            titEv.textContent = 'EVIDENCIA CARGADA CON EXITO';
+                            titEv.textContent = 'DOCUMENTO CARGADO CON EXITO';
                             titEv.classList.add('acd-ev-ok');
                         }
                         if (formEv) formEv.style.display = 'none';
@@ -1046,7 +1431,7 @@ body.dark-mode #acdEvidenciaTitulo.acd-ev-ok { color: #86efac; }
                                     id_operacion: idOp,
                                     etapa: 'Cierre Documentado',
                                     area: 'Cierre documentación',
-                                    texto: 'Comentarios evidencia cierre S2: ' + String(com).trim(),
+                                    texto: 'Comentarios documento cierre S2: ' + String(com).trim(),
                                 }),
                             }).then(function (r) { return r.json(); });
                         }
@@ -1164,6 +1549,17 @@ body.dark-mode #acdEvidenciaTitulo.acd-ev-ok { color: #86efac; }
                 if (typeof window.acdModalCierreDocAbrir === 'function') {
                     window.acdModalCierreDocAbrir(idOp, idCred, nombre);
                 }
+            });
+        }
+
+        const listaDictaminado = document.getElementById('acd-lista-dictaminado');
+        if (listaDictaminado) {
+            listaDictaminado.addEventListener('click', function (e) {
+                const btn = e.target.closest('.acd-ver-dictaminado');
+                if (!btn) return;
+                e.preventDefault();
+                e.stopPropagation();
+                acdAbrirVistaDictaminado(btn.getAttribute('data-acd-id-operacion'));
             });
         }
     });

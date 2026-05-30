@@ -9,6 +9,8 @@ class CapHumRrhh extends Model
 {
     private const MODULO_ACTUALIZAR_DATOS_RRHH = 82;
     private const MODULO_REVISION_ACTUALIZACIONES_RRHH = 83;
+    private const MODULO_AGREGAR_USUARIO_RRHH = 87;
+    private const MODULO_EDITAR_USUARIO_RRHH = 88;
 
     private static function usuarioTieneModuloWeb(int $moduloId): bool
     {
@@ -738,7 +740,7 @@ class CapHumRrhh extends Model
 
     public static function registrarUsuario(array $data, int $idSesion)
     {
-        if ($idSesion !== 1) {
+        if (!self::usuarioTieneModuloWeb(self::MODULO_AGREGAR_USUARIO_RRHH)) {
             return self::resultado(false, 'No tienes permiso para registrar usuarios RR.HH.');
         }
 
@@ -1015,7 +1017,7 @@ class CapHumRrhh extends Model
 
     public static function obtenerUsuario(int $idPersona, int $idSesion): array
     {
-        if ($idSesion !== 1) {
+        if (!self::usuarioTieneModuloWeb(self::MODULO_EDITAR_USUARIO_RRHH)) {
             return self::resultado(false, 'No tienes permiso para editar usuarios RR.HH.');
         }
         if ($idPersona <= 0) {
@@ -1545,7 +1547,7 @@ class CapHumRrhh extends Model
 
     public static function actualizarUsuario(array $data, int $idSesion): array
     {
-        if ($idSesion !== 1) {
+        if (!self::usuarioTieneModuloWeb(self::MODULO_EDITAR_USUARIO_RRHH)) {
             return self::resultado(false, 'No tienes permiso para editar usuarios RR.HH.');
         }
 

@@ -15,6 +15,8 @@ class CapHum extends Controller
 {
     private const MODULO_ACTUALIZAR_DATOS_RRHH = 82;
     private const MODULO_REVISION_ACTUALIZACIONES_RRHH = 83;
+    private const MODULO_AGREGAR_USUARIO_RRHH = 87;
+    private const MODULO_EDITAR_USUARIO_RRHH = 88;
 
     /** Último error de enviarCorreo para mostrarlo en la respuesta JSON */
     private $enviarCorreoUltimoError = '';
@@ -63,17 +65,22 @@ class CapHum extends Controller
                         if (!usuariosMap.has(id)) {
                             usuariosMap.set(id, {
                                 ...usuario,
-                                puestos: [{
+                                puestos: usuario.id_puesto ? [{
                                     id_puesto: usuario.id_puesto,
                                     nombre_puesto: usuario.nombre_puesto,
                                     nombre_departamento: usuario.nombre_departamento,
                                     id_departamento: usuario.id_departamento,
                                     id_area: usuario.id_area,
-                                    nombre_area: usuario.nombre_area
-                                }]
+                                    nombre_area: usuario.nombre_area,
+                                    id_direccion: usuario.id_direccion,
+                                    nombre_direccion: usuario.nombre_direccion
+                                }] : []
                             });
                         } else {
                             const usuarioExistente = usuariosMap.get(id);
+                            if (!usuario.id_puesto) {
+                                return;
+                            }
                             const puestoExiste = usuarioExistente.puestos.some(p =>
                                 p.id_puesto === usuario.id_puesto &&
                                 p.nombre_departamento === usuario.nombre_departamento
@@ -86,7 +93,9 @@ class CapHum extends Controller
                                     nombre_departamento: usuario.nombre_departamento,
                                     id_departamento: usuario.id_departamento,
                                     id_area: usuario.id_area,
-                                    nombre_area: usuario.nombre_area
+                                    nombre_area: usuario.nombre_area,
+                                    id_direccion: usuario.id_direccion,
+                                    nombre_direccion: usuario.nombre_direccion
                                 });
                             }
                         }
@@ -191,7 +200,7 @@ class CapHum extends Controller
                             acciones: (() => {
                                 const puedeEditar = window.puedeEditarTodos;
                                 const puedePermisos = window.puedeGestionarPermisos;
-                                const puedeEditarRrhh = Number(window.miUsuarioId || 0) === 1;
+                                const puedeEditarRrhh = !!window.puedeEditarUsuarioRrhh;
                                 const puedeActualizarInfo = !!window.puedeActualizarInfo;
                                 return `
                                 <div class="d-flex flex-column align-items-start gap-1" style="min-width: fit-content;">
@@ -400,7 +409,12 @@ class CapHum extends Controller
                 .then(data => {
 
                     if (!data.success) {
-                        Swal.fire("Error", data.mensaje, "error");
+                        const detalleError = data.error ? `<div class="text-start mt-2 small text-muted">${String(data.error).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c]))}</div>` : '';
+                        Swal.fire({
+                            icon: "error",
+                            title: "Error",
+                            html: `${data.mensaje || 'Error al actualizar persona.'}${detalleError}`
+                        });
                         return;
                     }
 
@@ -491,7 +505,12 @@ class CapHum extends Controller
                 .then(res => res.json())
                 .then(data => {
                     if (!data.success) {
-                        Swal.fire("Error", data.mensaje, "error");
+                        const detalleError = data.error ? `<div class="text-start mt-2 small text-muted">${String(data.error).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c]))}</div>` : '';
+                        Swal.fire({
+                            icon: "error",
+                            title: "Error",
+                            html: `${data.mensaje || 'Error al actualizar persona.'}${detalleError}`
+                        });
                         return;
                     }
                     const persona = data.datos;
@@ -765,7 +784,12 @@ class CapHum extends Controller
                     if (perfilAbortController !== null && signal.aborted) return;
 
                     if (!data.success) {
-                        Swal.fire("Error", data.mensaje, "error");
+                        const detalleErrorUpdate = data.error ? `<div class="text-start mt-2 small text-muted">${String(data.error).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c]))}</div>` : '';
+                        Swal.fire({
+                            icon: "error",
+                            title: "Error",
+                            html: `${data.mensaje || 'Error al actualizar persona.'}${detalleErrorUpdate}`
+                        });
                         return;
                     }
 
@@ -924,6 +948,10 @@ class CapHum extends Controller
                     buttonsStyling: false,
                     customClass: {
                         container: 'swal-sobre-modal-perfil',
+                        popup: 'swal-force-logout-popup',
+                        icon: 'swal-force-logout-icon',
+                        title: 'swal-force-logout-title',
+                        htmlContainer: 'swal-force-logout-html',
                         actions: 'd-flex gap-2 justify-content-center',
                         confirmButton: 'btn btn-danger px-4',
                         cancelButton: 'btn btn-outline-secondary px-4'
@@ -3578,7 +3606,12 @@ class CapHum extends Controller
                             pedirResolucionPuestoAnterior(data.datos, payload);
                             return;
                         }
-                        Swal.fire("Error", data.mensaje, "error");
+                        const detalleErrorUpdate = data.error ? `<div class="text-start mt-2 small text-muted">${String(data.error).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c]))}</div>` : '';
+                        Swal.fire({
+                            icon: "error",
+                            title: "Error",
+                            html: `${data.mensaje || 'Error al actualizar persona.'}${detalleErrorUpdate}`
+                        });
                         return;
                     }
 
@@ -3673,8 +3706,8 @@ class CapHum extends Controller
 
             function UpdateGestor() {
 
-                const departamento = document.getElementById("edit_departamento_id").value;  // <---- esta es la linea 2009
-                const puesto       = document.getElementById("edit_id_puesto").value;
+                let departamento = document.getElementById("edit_departamento_id").value;  // <---- esta es la linea 2009
+                let puesto       = document.getElementById("edit_id_puesto").value;
                 const jefe         = document.getElementById("edit_id_jefe").value;
                 const asignarLegion = document.getElementById("edit_asignar_legion") && document.getElementById("edit_asignar_legion").checked;
                 const idLegion     = document.getElementById("edit_id_legion") ? document.getElementById("edit_id_legion").value : '';
@@ -3687,13 +3720,30 @@ class CapHum extends Controller
                 const domicilio_num_interior = document.getElementById('edit_domicilio_num_interior')?.value?.trim() || null;
                 const codigo_postal = document.getElementById('edit_codigo_postal')?.value?.trim() || null;
 
+                let puestosAdicionales = [];
+                if (typeof obtenerPuestosParaGuardar === 'function') {
+                    puestosAdicionales = obtenerPuestosParaGuardar();
+                }
+                const puestosModificados = window.puestosUsuarioModificados === true;
+                const puestosEliminados = Array.isArray(window.puestosEliminadosUsuario) ? window.puestosEliminadosUsuario : [];
+                const puestoPrincipalOriginal = window.puestoPrincipalOriginalUsuario || null;
+
+                if (Array.isArray(puestosAdicionales) && puestosAdicionales.length > 0) {
+                    const puestoPrincipalFinal = puestosAdicionales[0] || {};
+                    puesto = puestoPrincipalFinal.id_puesto || puesto;
+                    departamento = puestoPrincipalFinal.id_departamento || departamento;
+                } else if (puestosModificados) {
+                    puesto = '';
+                    departamento = '';
+                }
+
                 //  VALIDACIONES OBLIGATORIAS
-                if (!departamento) {
+                if (!puestosModificados && !departamento) {
                     Swal.fire("Falta información", "Debes seleccionar un departamento", "warning");
                     return;
                 }
 
-                if (!puesto) {
+                if (!puestosModificados && !puesto) {
                     Swal.fire("Falta información", "Debes seleccionar un puesto", "warning");
                     return;
                 }
@@ -3723,12 +3773,6 @@ class CapHum extends Controller
                     return;
                 }
 
-                // 🔹 Obtener puestos adicionales si hay panel de múltiples puestos
-                let puestosAdicionales = [];
-                if (typeof obtenerPuestosParaGuardar === 'function') {
-                    puestosAdicionales = obtenerPuestosParaGuardar();
-                }
-
                 // 🔹 Payload
                 const payload = {
                     id: document.getElementById("edit_id").value,
@@ -3746,6 +3790,8 @@ class CapHum extends Controller
                     usuario: document.getElementById("edit_usuario").value,
                     contrasena: document.getElementById("edit_contrasena").value,
                     puestos_adicionales: puestosAdicionales,
+                    puestos_eliminados: puestosEliminados,
+                    puesto_principal_original: puestoPrincipalOriginal,
                     id_div_nivel1: id_div_nivel1 || null,
                     id_div_nivel2: id_div_nivel2 || null,
                     id_div_nivel3: id_div_nivel3 || null,
@@ -4428,7 +4474,7 @@ class CapHum extends Controller
                 icon: 'warning',
                 title: '¡Espera!',
                 html: `
-                    <p style="font-size: 18px;">No me toques por favor 😅</p>
+                    <p style="font-size: 18px;">No me toques por favor �˜…</p>
                     <p style="font-size: 16px; margin-top: 10px;">Soy mucho botón para tu click, jejej</p>
                     <p style="font-size: 14px; margin-top: 10px; color: #666;">Por ahora solo soy decorativo</p>
                 `,
@@ -4798,6 +4844,128 @@ class CapHum extends Controller
             }
 
             // Función para renderizar archivos
+            function idsDocumentosPersonaSeleccionados() {
+                return documentosPersonaSeleccionados().map(doc => doc.id);
+            }
+
+            function documentosPersonaSeleccionados() {
+                return Array.from(document.querySelectorAll('.doc-persona-check:checked'))
+                    .map(input => {
+                        const id = input.value;
+                        const formato = document.querySelector(`.doc-persona-formato[data-doc-id="${id}"]`)?.value || 'pdf';
+                        return { id, formato };
+                    })
+                    .filter(doc => doc.id);
+            }
+
+            function actualizarAccionesDescargaPersona() {
+                const ids = idsDocumentosPersonaSeleccionados();
+                const btnDescargar = document.getElementById('btnDescargarDocsPersona');
+                if (btnDescargar) btnDescargar.disabled = ids.length === 0;
+                const checkTodos = document.getElementById('checkTodosDocsPersona');
+                if (checkTodos) {
+                    const checks = Array.from(document.querySelectorAll('.doc-persona-check'));
+                    checkTodos.checked = checks.length > 0 && checks.every(input => input.checked);
+                    checkTodos.indeterminate = checks.some(input => input.checked) && !checkTodos.checked;
+                }
+            }
+
+            function toggleSeleccionDocumentosPersona(seleccionado) {
+                document.querySelectorAll('.doc-persona-check').forEach(input => {
+                    input.checked = seleccionado;
+                });
+                actualizarAccionesDescargaPersona();
+            }
+
+            function abrirDescargaDocumentoPersona(ids, zip, formato = 'pdf', merge = false, formatos = '') {
+                const listaIds = Array.isArray(ids) ? ids : [ids];
+                if (!listaIds.length) return;
+                const url = '/caphum/descargarDocumentosPersona?ids=' + encodeURIComponent(listaIds.join(',')) + '&formato=' + encodeURIComponent(formato || 'pdf') + (zip ? '&zip=1' : '') + (merge ? '&merge=1' : '') + (formatos ? '&formatos=' + encodeURIComponent(formatos) : '');
+                const iframe = document.createElement('iframe');
+                iframe.style.display = 'none';
+                iframe.src = url;
+                document.body.appendChild(iframe);
+                setTimeout(() => iframe.remove(), 60000);
+            }
+
+            function descargarDocumentoPersonaId(idDocumento, formato, zip) {
+                abrirDescargaDocumentoPersona([idDocumento], !!zip, formato || 'pdf');
+            }
+
+            function abrirMenuDescargaDocumentosPersona() {
+                const documentos = documentosPersonaSeleccionados();
+                if (documentos.length === 0) {
+                    Swal.fire('Selecciona documentos', 'Marca al menos un documento para descargar.', 'warning');
+                    return;
+                }
+
+                Swal.fire({
+                    title: 'Descargar documentos',
+                    html: `
+                        <div class="d-grid gap-2 text-start">
+                            <button type="button" class="btn btn-outline-primary text-start" id="descDocsTodos">
+                                <i class="fa fa-download me-2"></i>1 a todos
+                            </button>
+                            <button type="button" class="btn btn-outline-primary text-start" id="descDocsUno">
+                                <i class="fa fa-list me-2"></i>1 a 1
+                            </button>
+                            <button type="button" class="btn btn-outline-primary text-start" id="descDocsTodosZip">
+                                <i class="fa fa-file-archive me-2"></i>1 a todos .zip
+                            </button>
+                            <button type="button" class="btn btn-outline-primary text-start" id="descDocsUnoZip">
+                                <i class="fa fa-file-archive me-2"></i>1 a 1 .zip
+                            </button>
+                        </div>
+                    `,
+                    showConfirmButton: false,
+                    showCloseButton: true,
+                    didOpen: () => {
+                        document.getElementById('descDocsTodos')?.addEventListener('click', () => {
+                            Swal.close();
+                            descargarDocumentosPersonaSeleccionados('todos');
+                        });
+                        document.getElementById('descDocsUno')?.addEventListener('click', () => {
+                            Swal.close();
+                            descargarDocumentosPersonaSeleccionados('uno');
+                        });
+                        document.getElementById('descDocsTodosZip')?.addEventListener('click', () => {
+                            Swal.close();
+                            descargarDocumentosPersonaSeleccionados('todos_zip');
+                        });
+                        document.getElementById('descDocsUnoZip')?.addEventListener('click', () => {
+                            Swal.close();
+                            descargarDocumentosPersonaSeleccionados('uno_zip');
+                        });
+                    }
+                });
+            }
+
+            function descargarDocumentosPersonaSeleccionados(modo) {
+                const documentos = documentosPersonaSeleccionados();
+                if (documentos.length === 0) {
+                    Swal.fire('Selecciona documentos', 'Marca al menos un documento para descargar.', 'warning');
+                    return;
+                }
+
+                const ids = documentos.map(doc => doc.id);
+                const formatos = documentos.map(doc => doc.id + ':' + (doc.formato || 'pdf')).join(',');
+                const mismoFormato = documentos.every(doc => (doc.formato || 'pdf') === (documentos[0].formato || 'pdf'));
+                const formatoBase = documentos[0].formato || 'pdf';
+                if (modo === 'todos_zip') {
+                    abrirDescargaDocumentoPersona(ids, true, formatoBase, false, formatos);
+                    return;
+                }
+                if (modo === 'uno_zip') {
+                    documentos.forEach((doc, index) => setTimeout(() => abrirDescargaDocumentoPersona([doc.id], true, doc.formato || 'pdf'), index * 350));
+                    return;
+                }
+                if (modo === 'todos') {
+                    abrirDescargaDocumentoPersona(ids, false, formatoBase, mismoFormato && formatoBase === 'pdf' && ids.length > 1, formatos);
+                    return;
+                }
+                documentos.forEach((doc, index) => setTimeout(() => abrirDescargaDocumentoPersona([doc.id], false, doc.formato || 'pdf'), index * 450));
+            }
+
             function renderArchivosSubidosPersona() {
                 const listaArchivos = document.getElementById('cargarDocPersona_listaArchivos');
                 const tablaArchivos = document.getElementById('cargarDocPersona_tablaArchivos');
@@ -4812,6 +4980,16 @@ class CapHum extends Controller
                         var contexto = obtenerContextoDocumento(doc.id_documento);
                         htmlTabla += `
                             <tr>
+                                <td class="text-center">
+                                    <input type="checkbox" class="form-check-input doc-persona-check" value="${doc.id}" onchange="actualizarAccionesDescargaPersona()">
+                                </td>
+                                <td>
+                                    <select class="form-select form-select-sm doc-persona-formato" data-doc-id="${doc.id}" onchange="actualizarAccionesDescargaPersona()">
+                                        <option value="pdf" selected>PDF</option>
+                                        <option value="jpg">JPG</option>
+                                        <option value="word">Word</option>
+                                    </select>
+                                </td>
                                 <td>${obtenerNombreDocumento(doc.id_documento)}</td>
                                 <td>${contexto}</td>
                                 <td>${doc.archivo || 'N/A'}</td>
@@ -4819,31 +4997,36 @@ class CapHum extends Controller
                                 <td>
                                     <span class="badge bg-success">Sí</span>
                                 </td>
-                                <td>
+                                <td class="text-center">
+                                    <div class="d-inline-flex flex-column gap-2 align-items-center">
                                     <button
                                         type="button"
-                                        class="btn btn-sm btn-info me-1"
+                                        class="btn btn-sm btn-info text-white d-inline-flex align-items-center justify-content-center"
                                         onclick="verArchivoSubidoPersona('${archivoEscapado}')"
                                         title="Ver archivo"
+                                        style="width: 44px; height: 32px;"
                                     >
-                                        Ver
+                                        <i class="fa fa-eye"></i>
                                     </button>
                                     <button
                                         type="button"
-                                        class="btn btn-sm btn-danger"
+                                        class="btn btn-sm btn-danger d-inline-flex align-items-center justify-content-center"
                                         onclick="eliminarArchivoSubidoPersona(${doc.id}, '${archivoEscapado}')"
                                         title="Eliminar archivo"
+                                        style="width: 44px; height: 32px;"
                                     >
                                         <i class="fa fa-trash"></i>
                                     </button>
+                                    </div>
                                 </td>
                             </tr>
                         `;
                     });
                     tablaArchivos.innerHTML = htmlTabla;
                 } else {
-                    tablaArchivos.innerHTML = '<tr><td colspan="6" class="text-center text-muted">No hay archivos subidos</td></tr>';
+                    tablaArchivos.innerHTML = '<tr><td colspan="8" class="text-center text-muted">No hay archivos subidos</td></tr>';
                 }
+                actualizarAccionesDescargaPersona();
 
                 // Renderizar lista de archivos nuevos seleccionados (antes de subir)
                 if (archivosSeleccionadosPersona.length > 0) {
@@ -5198,6 +5381,8 @@ class CapHum extends Controller
         $puedeEditarTodos = in_array(10, $modulos);
         $puedeGestionarPermisos = in_array(43, $modulos);
         $puedeActualizarInfo = in_array(self::MODULO_ACTUALIZAR_DATOS_RRHH, $modulos);
+        $puedeAgregarUsuarioRrhh = in_array(self::MODULO_AGREGAR_USUARIO_RRHH, $modulos);
+        $puedeEditarUsuarioRrhh = in_array(self::MODULO_EDITAR_USUARIO_RRHH, $modulos);
         $departamento = self::getDepartamentosGestionPersonal();
         $catalogoCompletoDeptos = CapHumDAO::getTodosDepartamentosGestion();
 
@@ -5210,6 +5395,8 @@ class CapHum extends Controller
         self::set("puedeEditarTodos", $puedeEditarTodos);
         self::set("puedeGestionarPermisos", $puedeGestionarPermisos);
         self::set("puedeActualizarInfo", $puedeActualizarInfo);
+        self::set("puedeAgregarUsuarioRrhh", $puedeAgregarUsuarioRrhh);
+        self::set("puedeEditarUsuarioRrhh", $puedeEditarUsuarioRrhh);
         self::render("all_gestores");
     }
 
@@ -8896,7 +9083,7 @@ class CapHum extends Controller
         $payloadCache = $this->expedientePayloadDesdeCacheDocumentos($docsCache['documentos'] ?? [], $nombreCandidatoRegistro, $soloIdentificacion);
         if (is_array($payloadCache)) {
             CandidatosDAO::updateVerificacionExpediente($id_candidato, json_encode($payloadCache));
-            echo json_encode(self::respuesta(true, 'VerificaciÃ³n ejecutada con datos ya procesados. Ya puedes ver coincidencias.', ['verificacion_expediente' => $payloadCache]));
+            echo json_encode(self::respuesta(true, 'Verificación ejecutada con datos ya procesados. Ya puedes ver coincidencias.', ['verificacion_expediente' => $payloadCache]));
             return;
         }
         $resultadoApi = $this->validarExpedienteApi($rutasParaValidar, $nombreCandidatoRegistro);
@@ -12243,6 +12430,128 @@ class CapHum extends Controller
             let archivosSeleccionadosPersona = [];
             let archivosSubidosPersona = [];
 
+            function idsDocumentosPersonaSeleccionados() {
+                return documentosPersonaSeleccionados().map(doc => doc.id);
+            }
+
+            function documentosPersonaSeleccionados() {
+                return Array.from(document.querySelectorAll('.doc-persona-check:checked'))
+                    .map(input => {
+                        const id = input.value;
+                        const formato = document.querySelector(`.doc-persona-formato[data-doc-id="${id}"]`)?.value || 'pdf';
+                        return { id, formato };
+                    })
+                    .filter(doc => doc.id);
+            }
+
+            function actualizarAccionesDescargaPersona() {
+                const ids = idsDocumentosPersonaSeleccionados();
+                const btnDescargar = document.getElementById('btnDescargarDocsPersona');
+                if (btnDescargar) btnDescargar.disabled = ids.length === 0;
+                const checkTodos = document.getElementById('checkTodosDocsPersona');
+                if (checkTodos) {
+                    const checks = Array.from(document.querySelectorAll('.doc-persona-check'));
+                    checkTodos.checked = checks.length > 0 && checks.every(input => input.checked);
+                    checkTodos.indeterminate = checks.some(input => input.checked) && !checkTodos.checked;
+                }
+            }
+
+            function toggleSeleccionDocumentosPersona(seleccionado) {
+                document.querySelectorAll('.doc-persona-check').forEach(input => {
+                    input.checked = seleccionado;
+                });
+                actualizarAccionesDescargaPersona();
+            }
+
+            function abrirDescargaDocumentoPersona(ids, zip, formato = 'pdf', merge = false, formatos = '') {
+                const listaIds = Array.isArray(ids) ? ids : [ids];
+                if (!listaIds.length) return;
+                const url = '/caphum/descargarDocumentosPersona?ids=' + encodeURIComponent(listaIds.join(',')) + '&formato=' + encodeURIComponent(formato || 'pdf') + (zip ? '&zip=1' : '') + (merge ? '&merge=1' : '') + (formatos ? '&formatos=' + encodeURIComponent(formatos) : '');
+                const iframe = document.createElement('iframe');
+                iframe.style.display = 'none';
+                iframe.src = url;
+                document.body.appendChild(iframe);
+                setTimeout(() => iframe.remove(), 60000);
+            }
+
+            function descargarDocumentoPersonaId(idDocumento, formato, zip) {
+                abrirDescargaDocumentoPersona([idDocumento], !!zip, formato || 'pdf');
+            }
+
+            function abrirMenuDescargaDocumentosPersona() {
+                const documentos = documentosPersonaSeleccionados();
+                if (documentos.length === 0) {
+                    Swal.fire('Selecciona documentos', 'Marca al menos un documento para descargar.', 'warning');
+                    return;
+                }
+
+                Swal.fire({
+                    title: 'Descargar documentos',
+                    html: `
+                        <div class="d-grid gap-2 text-start">
+                            <button type="button" class="btn btn-outline-primary text-start" id="descDocsTodos">
+                                <i class="fa fa-download me-2"></i>1 a todos
+                            </button>
+                            <button type="button" class="btn btn-outline-primary text-start" id="descDocsUno">
+                                <i class="fa fa-list me-2"></i>1 a 1
+                            </button>
+                            <button type="button" class="btn btn-outline-primary text-start" id="descDocsTodosZip">
+                                <i class="fa fa-file-archive me-2"></i>1 a todos .zip
+                            </button>
+                            <button type="button" class="btn btn-outline-primary text-start" id="descDocsUnoZip">
+                                <i class="fa fa-file-archive me-2"></i>1 a 1 .zip
+                            </button>
+                        </div>
+                    `,
+                    showConfirmButton: false,
+                    showCloseButton: true,
+                    didOpen: () => {
+                        document.getElementById('descDocsTodos')?.addEventListener('click', () => {
+                            Swal.close();
+                            descargarDocumentosPersonaSeleccionados('todos');
+                        });
+                        document.getElementById('descDocsUno')?.addEventListener('click', () => {
+                            Swal.close();
+                            descargarDocumentosPersonaSeleccionados('uno');
+                        });
+                        document.getElementById('descDocsTodosZip')?.addEventListener('click', () => {
+                            Swal.close();
+                            descargarDocumentosPersonaSeleccionados('todos_zip');
+                        });
+                        document.getElementById('descDocsUnoZip')?.addEventListener('click', () => {
+                            Swal.close();
+                            descargarDocumentosPersonaSeleccionados('uno_zip');
+                        });
+                    }
+                });
+            }
+
+            function descargarDocumentosPersonaSeleccionados(modo) {
+                const documentos = documentosPersonaSeleccionados();
+                if (documentos.length === 0) {
+                    Swal.fire('Selecciona documentos', 'Marca al menos un documento para descargar.', 'warning');
+                    return;
+                }
+
+                const ids = documentos.map(doc => doc.id);
+                const formatos = documentos.map(doc => doc.id + ':' + (doc.formato || 'pdf')).join(',');
+                const mismoFormato = documentos.every(doc => (doc.formato || 'pdf') === (documentos[0].formato || 'pdf'));
+                const formatoBase = documentos[0].formato || 'pdf';
+                if (modo === 'todos_zip') {
+                    abrirDescargaDocumentoPersona(ids, true, formatoBase, false, formatos);
+                    return;
+                }
+                if (modo === 'uno_zip') {
+                    documentos.forEach((doc, index) => setTimeout(() => abrirDescargaDocumentoPersona([doc.id], true, doc.formato || 'pdf'), index * 350));
+                    return;
+                }
+                if (modo === 'todos') {
+                    abrirDescargaDocumentoPersona(ids, false, formatoBase, mismoFormato && formatoBase === 'pdf' && ids.length > 1, formatos);
+                    return;
+                }
+                documentos.forEach((doc, index) => setTimeout(() => abrirDescargaDocumentoPersona([doc.id], false, doc.formato || 'pdf'), index * 450));
+            }
+
             // Alias para el botón "Ver archivo" de la tabla (recibe id de persona)
             function verArchivo(idPersona) {
                 cargarDocumentoPersona(idPersona);
@@ -12465,6 +12774,16 @@ class CapHum extends Controller
                         var contexto = obtenerContextoDocumento(doc.id_documento);
                         htmlTabla += `
                             <tr>
+                                <td class="text-center">
+                                    <input type="checkbox" class="form-check-input doc-persona-check" value="${doc.id}" onchange="actualizarAccionesDescargaPersona()">
+                                </td>
+                                <td>
+                                    <select class="form-select form-select-sm doc-persona-formato" data-doc-id="${doc.id}" onchange="actualizarAccionesDescargaPersona()">
+                                        <option value="pdf" selected>PDF</option>
+                                        <option value="jpg">JPG</option>
+                                        <option value="word">Word</option>
+                                    </select>
+                                </td>
                                 <td>${obtenerNombreDocumento(doc.id_documento)}</td>
                                 <td>${contexto}</td>
                                 <td>${doc.archivo || 'N/A'}</td>
@@ -12472,31 +12791,36 @@ class CapHum extends Controller
                                 <td>
                                     <span class="badge bg-success">Sí</span>
                                 </td>
-                                <td>
+                                <td class="text-center">
+                                    <div class="d-inline-flex flex-column gap-2 align-items-center">
                                     <button
                                         type="button"
-                                        class="btn btn-sm btn-info me-1"
+                                        class="btn btn-sm btn-info text-white d-inline-flex align-items-center justify-content-center"
                                         onclick="verArchivoSubidoPersona('${archivoEscapado}')"
                                         title="Ver archivo"
+                                        style="width: 44px; height: 32px;"
                                     >
-                                        Ver
+                                        <i class="fa fa-eye"></i>
                                     </button>
                                     <button
                                         type="button"
-                                        class="btn btn-sm btn-danger"
+                                        class="btn btn-sm btn-danger d-inline-flex align-items-center justify-content-center"
                                         onclick="eliminarArchivoSubidoPersona(${doc.id}, '${archivoEscapado}')"
                                         title="Eliminar archivo"
+                                        style="width: 44px; height: 32px;"
                                     >
                                         <i class="fa fa-trash"></i>
                                     </button>
+                                    </div>
                                 </td>
                             </tr>
                         `;
                     });
                     tablaArchivos.innerHTML = htmlTabla;
                 } else {
-                    tablaArchivos.innerHTML = '<tr><td colspan="6" class="text-center text-muted">No hay archivos subidos</td></tr>';
+                    tablaArchivos.innerHTML = '<tr><td colspan="8" class="text-center text-muted">No hay archivos subidos</td></tr>';
                 }
+                actualizarAccionesDescargaPersona();
 
                 // Renderizar lista de archivos nuevos seleccionados (antes de subir)
                 if (archivosSeleccionadosPersona.length > 0) {
@@ -12862,6 +13186,8 @@ class CapHum extends Controller
         self::set("puedeEditarTodos", in_array(10, $modulos));
         self::set("puedeGestionarPermisos", in_array(43, $modulos));
         self::set("puedeActualizarInfo", in_array(self::MODULO_ACTUALIZAR_DATOS_RRHH, $modulos));
+        self::set("puedeAgregarUsuarioRrhh", in_array(self::MODULO_AGREGAR_USUARIO_RRHH, $modulos));
+        self::set("puedeEditarUsuarioRrhh", in_array(self::MODULO_EDITAR_USUARIO_RRHH, $modulos));
         self::set("miUsuarioId", (int) ($_SESSION['usuario_id'] ?? 0));
         self::render("all_gestores");
     }
@@ -12885,6 +13211,8 @@ class CapHum extends Controller
             $areaPorDepartamento[$idDepto] = [
                 'id_area' => (int) ($rowDepto['id_departamento_organizacional'] ?? 0),
                 'nombre_area' => (string) ($rowDepto['departamento_organizacional_nombre'] ?? ''),
+                'id_direccion' => (int) ($rowDepto['id_direccion'] ?? 0),
+                'nombre_direccion' => (string) ($rowDepto['direccion_nombre'] ?? ''),
             ];
         }
 
@@ -12892,7 +13220,7 @@ class CapHum extends Controller
         // Preparar array compatible con frontend
         $datos = array_map(function($p) use ($areaPorDepartamento) {
             $idDepto = (int) ($p['id_departamento'] ?? 0);
-            $metaArea = $areaPorDepartamento[$idDepto] ?? ['id_area' => 0, 'nombre_area' => ''];
+            $metaArea = $areaPorDepartamento[$idDepto] ?? ['id_area' => 0, 'nombre_area' => '', 'id_direccion' => 0, 'nombre_direccion' => ''];
             return [
                 'id' => $p['id'] ?? '',
                 'numero_empleado' => $p['numero_empleado'] ?? '',
@@ -12910,6 +13238,8 @@ class CapHum extends Controller
                 'id_departamento' => $p['id_departamento'] ?? null,
                 'id_area' => $metaArea['id_area'] > 0 ? $metaArea['id_area'] : null,
                 'nombre_area' => $metaArea['nombre_area'] ?? '',
+                'id_direccion' => $metaArea['id_direccion'] > 0 ? $metaArea['id_direccion'] : null,
+                'nombre_direccion' => $metaArea['nombre_direccion'] ?? '',
                 'estatus' => $p['estatus'] ?? '',
                 'usuario' => $p['usuario'] ?? '',
                 'telefono' => $p['telefono'] ?? '',
@@ -13170,7 +13500,7 @@ class CapHum extends Controller
         header('Content-Type: application/json; charset=utf-8');
 
         $idSesion = (int) ($_SESSION['usuario_id'] ?? 0);
-        if ($idSesion !== 1) {
+        if (!self::tieneModuloWeb(self::MODULO_AGREGAR_USUARIO_RRHH)) {
             self::respuestaJSON(['success' => false, 'mensaje' => 'No tienes permiso para registrar usuarios RR.HH.']);
             return;
         }
@@ -13190,7 +13520,7 @@ class CapHum extends Controller
         header('Content-Type: application/json; charset=utf-8');
 
         $idSesion = (int) ($_SESSION['usuario_id'] ?? 0);
-        if ($idSesion !== 1) {
+        if (!self::tieneModuloWeb(self::MODULO_EDITAR_USUARIO_RRHH)) {
             self::respuestaJSON(['success' => false, 'mensaje' => 'No tienes permiso para editar usuarios RR.HH.']);
             return;
         }
@@ -13211,7 +13541,7 @@ class CapHum extends Controller
         header('Content-Type: application/json; charset=utf-8');
 
         $idSesion = (int) ($_SESSION['usuario_id'] ?? 0);
-        if ($idSesion !== 1) {
+        if (!self::tieneModuloWeb(self::MODULO_EDITAR_USUARIO_RRHH)) {
             self::respuestaJSON(['success' => false, 'mensaje' => 'No tienes permiso para editar usuarios RR.HH.']);
             return;
         }
@@ -14334,7 +14664,7 @@ public function getEstadosMunicipiosMexico()
             'id_gestor'   => $idGestor,
             'motivo'      => $motivo,
             'descripcion' => $descripcion,
-            'archivos'    => $rutasPDF, // 👈 ahora es un arreglo
+            'archivos'    => $rutasPDF, // �ˆ ahora es un arreglo
             'fecha_baja'  => date('Y-m-d H:i:s'),
             'usuario_baja' => $_SESSION['usuario_id'],
             'modo_reasignacion' => $modoReasignacion,
@@ -14870,6 +15200,405 @@ public function getEstadosMunicipiosMexico()
         }
     }
 
+    private function resolverArchivoDocumentoPersona(string $nombreArchivo, int $idDocumento = 0, int $idPersona = 0): ?string
+    {
+        $nombreArchivo = basename($nombreArchivo);
+        if ($nombreArchivo === '' || strpos($nombreArchivo, '..') !== false || strpos($nombreArchivo, '/') !== false || strpos($nombreArchivo, '\\') !== false) {
+            return null;
+        }
+
+        $carpetas = [];
+        if ($idDocumento === 15) {
+            $carpetas[] = sparta_uploads_join('bajas') . DIRECTORY_SEPARATOR;
+        } elseif ($idDocumento === 16) {
+            $carpetas[] = sparta_uploads_join('reingresos') . DIRECTORY_SEPARATOR;
+        } else {
+            $carpetas[] = sparta_uploads_join('documentos') . DIRECTORY_SEPARATOR;
+        }
+
+        $carpetas[] = sparta_uploads_join('documentos') . DIRECTORY_SEPARATOR;
+        $carpetas[] = sparta_uploads_join('bajas') . DIRECTORY_SEPARATOR;
+        $carpetas[] = sparta_uploads_join('reingresos') . DIRECTORY_SEPARATOR;
+
+        foreach (array_unique($carpetas) as $dir) {
+            $ruta = $dir . $nombreArchivo;
+            if (is_file($ruta)) {
+                return $ruta;
+            }
+        }
+
+        if ($idPersona > 0 && $idDocumento > 0) {
+            $prefijos = [
+                'doc_' . $idPersona . '_' . $idDocumento . '_*.pdf',
+                'doc_' . $idPersona . '_' . $idDocumento . '_*.*',
+            ];
+            foreach (array_unique($carpetas) as $dir) {
+                foreach ($prefijos as $patron) {
+                    $coincidencias = glob($dir . $patron) ?: [];
+                    usort($coincidencias, static function ($a, $b) {
+                        return filemtime($b) <=> filemtime($a);
+                    });
+                    foreach ($coincidencias as $ruta) {
+                        if (is_file($ruta)) {
+                            return $ruta;
+                        }
+                    }
+                }
+            }
+        }
+
+        return null;
+    }
+
+    private function nombreDocumentoPersona(int $idDocumento): string
+    {
+        $nombres = [
+            8 => 'CURP',
+            9 => 'INE',
+            10 => 'RFC',
+            11 => 'Comprobante_Domicilio',
+            12 => 'Acta_Nacimiento',
+            13 => 'Certificado_Estudios',
+            14 => 'Referencias_Laborales',
+            15 => 'Documento_Baja',
+            16 => 'Documento_Reingreso',
+        ];
+
+        return $nombres[$idDocumento] ?? 'Documento';
+    }
+
+    private function nombreSeguroDescarga(string $nombre): string
+    {
+        $nombre = preg_replace('/[^\pL\pN._-]+/u', '_', trim($nombre));
+        $nombre = trim((string) $nombre, '._-');
+        return $nombre !== '' ? $nombre : 'documento';
+    }
+
+    private function cargarComposerParaDocumentos(): void
+    {
+        if (class_exists('\Mpdf\Mpdf')) {
+            return;
+        }
+
+        $autoload = dirname(__DIR__, 2) . '/vendor/autoload.php';
+        if (is_file($autoload)) {
+            require_once $autoload;
+        }
+    }
+
+    private function unirPdfDocumentosPersona(array $archivos): string
+    {
+        $this->cargarComposerParaDocumentos();
+        if (!class_exists('\Mpdf\Mpdf')) {
+            throw new \RuntimeException('No esta disponible el generador PDF para combinar documentos.');
+        }
+
+        $tmpPdf = tempnam(sys_get_temp_dir(), 'docs_persona_pdf_');
+        if ($tmpPdf === false) {
+            throw new \RuntimeException('No se pudo preparar el PDF combinado.');
+        }
+
+        $mpdf = new \Mpdf\Mpdf(['tempDir' => sys_get_temp_dir()]);
+        foreach ($archivos as $archivo) {
+            $pageCount = $mpdf->setSourceFile($archivo['ruta']);
+            for ($page = 1; $page <= $pageCount; $page++) {
+                $templateId = $mpdf->importPage($page);
+                $mpdf->AddPage();
+                $mpdf->useTemplate($templateId, 0, 0, null, null, true);
+            }
+        }
+        $mpdf->Output($tmpPdf, \Mpdf\Output\Destination::FILE);
+
+        return $tmpPdf;
+    }
+
+    private function borrarRutaTemporalDocumentos(string $ruta): void
+    {
+        if ($ruta === '' || !file_exists($ruta)) {
+            return;
+        }
+        if (is_file($ruta)) {
+            @unlink($ruta);
+            return;
+        }
+        $items = new \RecursiveIteratorIterator(
+            new \RecursiveDirectoryIterator($ruta, \FilesystemIterator::SKIP_DOTS),
+            \RecursiveIteratorIterator::CHILD_FIRST
+        );
+        foreach ($items as $item) {
+            $item->isDir() ? @rmdir($item->getPathname()) : @unlink($item->getPathname());
+        }
+        @rmdir($ruta);
+    }
+
+    private function convertirDocumentoPersona(array $archivos, string $formato, string $salida): array
+    {
+        $python = dirname(__DIR__) . '/API/tools/PythonPortable/python.exe';
+        $script = dirname(__DIR__) . '/tools/convertir_documento_persona.py';
+        if (!is_file($python)) {
+            throw new \RuntimeException('No se encontro PythonPortable para convertir documentos.');
+        }
+        if (!is_file($script)) {
+            throw new \RuntimeException('No se encontro el convertidor de documentos.');
+        }
+
+        $cmd = escapeshellarg($python)
+            . ' ' . escapeshellarg($script)
+            . ' --format ' . escapeshellarg($formato)
+            . ' --out ' . escapeshellarg($salida);
+        foreach ($archivos as $archivo) {
+            $cmd .= ' --input ' . escapeshellarg($archivo['ruta']);
+        }
+
+        $lineas = [];
+        $code = 0;
+        exec($cmd . ' 2>&1', $lineas, $code);
+        $raw = trim(implode("\n", $lineas));
+        $json = json_decode($raw, true);
+        if ($code !== 0 || !is_array($json) || empty($json['ok'])) {
+            $error = is_array($json) ? ($json['error'] ?? $raw) : $raw;
+            throw new \RuntimeException('No se pudo convertir el documento: ' . $error);
+        }
+
+        return array_values(array_filter($json['files'] ?? [], 'is_file'));
+    }
+
+    private function enviarArchivoDescarga(string $ruta, string $nombre, string $contentType, array $limpiar = []): void
+    {
+        while (ob_get_level()) {
+            ob_end_clean();
+        }
+        header('Content-Type: ' . $contentType);
+        header('Content-Disposition: attachment; filename="' . $this->nombreSeguroDescarga($nombre) . '"');
+        header('Content-Length: ' . filesize($ruta));
+        header('Cache-Control: private, max-age=0, must-revalidate');
+        header('Pragma: public');
+        readfile($ruta);
+        foreach ($limpiar as $tmp) {
+            $this->borrarRutaTemporalDocumentos((string)$tmp);
+        }
+        exit;
+    }
+
+    private function agregarArchivosZip(\ZipArchive $zipFile, array $archivos): void
+    {
+        $usados = [];
+        foreach ($archivos as $archivo) {
+            $nombre = $archivo['nombre'];
+            if (isset($usados[$nombre])) {
+                $info = pathinfo($nombre);
+                $nombre = ($info['filename'] ?? 'documento') . '_' . (++$usados[$archivo['nombre']]) . '.' . ($info['extension'] ?? 'pdf');
+            } else {
+                $usados[$nombre] = 1;
+            }
+            $zipFile->addFile($archivo['ruta'], $nombre);
+        }
+    }
+
+    private function crearZipTemporalDocumentos(array $archivos): string
+    {
+        if (!class_exists('\ZipArchive')) {
+            throw new \RuntimeException('La extension ZIP no esta disponible en el servidor.');
+        }
+        $tmpZip = tempnam(sys_get_temp_dir(), 'docs_persona_');
+        if ($tmpZip === false) {
+            throw new \RuntimeException('No se pudo preparar el ZIP.');
+        }
+        $zipFile = new \ZipArchive();
+        if ($zipFile->open($tmpZip, \ZipArchive::OVERWRITE) !== true) {
+            @unlink($tmpZip);
+            throw new \RuntimeException('No se pudo crear el ZIP.');
+        }
+        $this->agregarArchivosZip($zipFile, $archivos);
+        $zipFile->close();
+
+        return $tmpZip;
+    }
+
+    private function rutaTemporalDocumentoPersona(string $prefijo, string $extension): string
+    {
+        $tmp = tempnam(sys_get_temp_dir(), $prefijo);
+        if ($tmp === false) {
+            throw new \RuntimeException('No se pudo preparar el archivo temporal.');
+        }
+        @unlink($tmp);
+        return $tmp . $extension;
+    }
+
+    private function descargarArchivosPersonaConvertidos(array $archivos, string $formato, bool $zip, bool $merge): void
+    {
+        $formatosSolicitados = array_values(array_unique(array_map(static function ($archivo) {
+            return $archivo['formato'] ?? 'pdf';
+        }, $archivos)));
+        if (count($formatosSolicitados) > 1) {
+            $zip = true;
+        }
+        $formato = $formatosSolicitados[0] ?? $formato;
+
+        if (count($formatosSolicitados) > 1) {
+            $zipItems = [];
+            $limpiar = [];
+            foreach ($archivos as $archivo) {
+                $base = pathinfo($archivo['nombre'], PATHINFO_FILENAME) ?: 'documento';
+                if ($archivo['formato'] === 'pdf') {
+                    $zipItems[] = ['ruta' => $archivo['ruta'], 'nombre' => $base . '.pdf'];
+                } elseif ($archivo['formato'] === 'jpg') {
+                    $tmpDir = sys_get_temp_dir() . DIRECTORY_SEPARATOR . 'docs_persona_jpg_' . uniqid('', true);
+                    $limpiar[] = $tmpDir;
+                    $jpgs = $this->convertirDocumentoPersona([$archivo], 'jpg', $tmpDir);
+                    foreach ($jpgs as $idx => $jpg) {
+                        $sufijo = count($jpgs) > 1 ? '_p' . str_pad((string)($idx + 1), 2, '0', STR_PAD_LEFT) : '';
+                        $zipItems[] = ['ruta' => $jpg, 'nombre' => $base . $sufijo . '.jpg'];
+                    }
+                } else {
+                    $tmpDocx = $this->rutaTemporalDocumentoPersona('docs_persona_word_', '.docx');
+                    $limpiar[] = $tmpDocx;
+                    $docx = $this->convertirDocumentoPersona([$archivo], 'word', $tmpDocx)[0] ?? null;
+                    if ($docx) {
+                        $zipItems[] = ['ruta' => $docx, 'nombre' => $base . '.docx'];
+                    }
+                }
+            }
+            $tmpZip = $this->crearZipTemporalDocumentos($zipItems);
+            $limpiar[] = $tmpZip;
+            $this->enviarArchivoDescarga($tmpZip, 'documentos_seleccionados.zip', 'application/zip', $limpiar);
+        }
+
+        if ($formato === 'pdf' && !$zip && count($archivos) === 1) {
+            $archivo = $archivos[0];
+            $this->enviarArchivoDescarga($archivo['ruta'], $archivo['nombre'], 'application/pdf');
+        }
+
+        if ($formato === 'pdf' && !$zip && $merge && count($archivos) > 1) {
+            $tmpPdf = $this->unirPdfDocumentosPersona($archivos);
+            $this->enviarArchivoDescarga($tmpPdf, 'documentos_seleccionados.pdf', 'application/pdf', [$tmpPdf]);
+        }
+
+        if ($formato === 'jpg') {
+            $tmpDir = sys_get_temp_dir() . DIRECTORY_SEPARATOR . 'docs_persona_jpg_' . uniqid('', true);
+            $jpgs = $this->convertirDocumentoPersona($archivos, 'jpg', $tmpDir);
+            if (!$zip && count($jpgs) === 1) {
+                $nombre = (pathinfo($archivos[0]['nombre'], PATHINFO_FILENAME) ?: 'documento') . '.jpg';
+                $this->enviarArchivoDescarga($jpgs[0], $nombre, 'image/jpeg', [$tmpDir]);
+            }
+            $zipItems = [];
+            foreach ($jpgs as $jpg) {
+                $zipItems[] = ['ruta' => $jpg, 'nombre' => basename($jpg)];
+            }
+            $tmpZip = $this->crearZipTemporalDocumentos($zipItems);
+            $this->enviarArchivoDescarga($tmpZip, 'documentos_jpg.zip', 'application/zip', [$tmpZip, $tmpDir]);
+        }
+
+        if ($formato === 'word') {
+            if (!$zip) {
+                $tmpDocx = $this->rutaTemporalDocumentoPersona('docs_persona_word_', '.docx');
+                $docx = $this->convertirDocumentoPersona($archivos, 'word', $tmpDocx)[0] ?? null;
+                if (!$docx) {
+                    throw new \RuntimeException('No se pudo generar el documento Word.');
+                }
+                $nombre = count($archivos) === 1
+                    ? ((pathinfo($archivos[0]['nombre'], PATHINFO_FILENAME) ?: 'documento') . '.docx')
+                    : 'documentos_seleccionados.docx';
+                $this->enviarArchivoDescarga($docx, $nombre, 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', [$docx]);
+            }
+            $zipItems = [];
+            $limpiar = [];
+            foreach ($archivos as $archivo) {
+                $tmpDocx = $this->rutaTemporalDocumentoPersona('docs_persona_word_', '.docx');
+                $limpiar[] = $tmpDocx;
+                $docx = $this->convertirDocumentoPersona([$archivo], 'word', $tmpDocx)[0] ?? null;
+                if ($docx) {
+                    $zipItems[] = [
+                        'ruta' => $docx,
+                        'nombre' => (pathinfo($archivo['nombre'], PATHINFO_FILENAME) ?: 'documento') . '.docx',
+                    ];
+                }
+            }
+            $tmpZip = $this->crearZipTemporalDocumentos($zipItems);
+            $limpiar[] = $tmpZip;
+            $this->enviarArchivoDescarga($tmpZip, 'documentos_word.zip', 'application/zip', $limpiar);
+        }
+
+        $zipItems = array_map(static function ($archivo) {
+            return ['ruta' => $archivo['ruta'], 'nombre' => $archivo['nombre']];
+        }, $archivos);
+        $tmpZip = $this->crearZipTemporalDocumentos($zipItems);
+        $nombreZip = count($archivos) === 1 ? 'documento_seleccionado.zip' : 'documentos_seleccionados.zip';
+        $this->enviarArchivoDescarga($tmpZip, $nombreZip, 'application/zip', [$tmpZip]);
+    }
+
+    public function descargarDocumentosPersona()
+    {
+        try {
+            $idsRaw = $_GET['ids'] ?? $_GET['id'] ?? '';
+            $ids = is_array($idsRaw)
+                ? $idsRaw
+                : preg_split('/,/', (string) $idsRaw, -1, PREG_SPLIT_NO_EMPTY);
+            $ids = array_values(array_unique(array_filter(array_map('intval', $ids))));
+            $formato = strtolower(trim((string)($_GET['formato'] ?? 'pdf')));
+            $formato = $formato === 'docx' ? 'word' : $formato;
+            if (!in_array($formato, ['pdf', 'jpg', 'word'], true)) {
+                $formato = 'pdf';
+            }
+            $zip = (string)($_GET['zip'] ?? '0') === '1';
+            $merge = (string)($_GET['merge'] ?? '0') === '1';
+            $formatosPorId = [];
+            $formatosRaw = (string)($_GET['formatos'] ?? '');
+            foreach (preg_split('/,/', $formatosRaw, -1, PREG_SPLIT_NO_EMPTY) as $par) {
+                [$idFmt, $fmt] = array_pad(explode(':', $par, 2), 2, '');
+                $fmt = strtolower(trim($fmt));
+                $fmt = $fmt === 'docx' ? 'word' : $fmt;
+                if ((int)$idFmt > 0 && in_array($fmt, ['pdf', 'jpg', 'word'], true)) {
+                    $formatosPorId[(int)$idFmt] = $fmt;
+                }
+            }
+
+            if (empty($ids)) {
+                http_response_code(400);
+                echo 'No se seleccionaron documentos.';
+                exit;
+            }
+
+            $resultado = CapHumDAO::getDocumentosPersonaPorIds($ids);
+            $documentos = ($resultado['success'] ?? false) ? ($resultado['datos'] ?? []) : [];
+            if (empty($documentos)) {
+                http_response_code(404);
+                echo 'No se encontraron documentos.';
+                exit;
+            }
+
+            $archivos = [];
+            foreach ($documentos as $doc) {
+                $idCarga = (int)($doc['id'] ?? 0);
+                $idDocumento = (int)($doc['id_documento'] ?? 0);
+                $idPersona = (int)($doc['id_persona'] ?? 0);
+                $ruta = $this->resolverArchivoDocumentoPersona((string)($doc['archivo'] ?? ''), $idDocumento, $idPersona);
+                if (!$ruta) {
+                    continue;
+                }
+                $formatoDoc = $formatosPorId[$idCarga] ?? $formato;
+                $base = $this->nombreDocumentoPersona($idDocumento) . '_' . basename((string)$doc['archivo']);
+                $archivos[] = [
+                    'id' => $idCarga,
+                    'ruta' => $ruta,
+                    'nombre' => $this->nombreSeguroDescarga($base),
+                    'formato' => $formatoDoc,
+                ];
+            }
+
+            if (empty($archivos)) {
+                http_response_code(404);
+                echo 'No se encontraron archivos físicos para descargar.';
+                exit;
+            }
+
+            $this->descargarArchivosPersonaConvertidos($archivos, $formato, $zip, $merge);
+        } catch (\Exception $e) {
+            http_response_code(500);
+            echo 'Error al descargar documentos: ' . $e->getMessage();
+            exit;
+        }
+    }
     /**
      * Guardar permisos de puestos
      */

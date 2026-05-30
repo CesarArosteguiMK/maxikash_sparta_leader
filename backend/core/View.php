@@ -149,7 +149,7 @@ function getMenu(): string
                 ['label' => 'Gestión de Personal',          'url' => '/caphum/gestion',                  'modulos' => [4]],
                 ['label' => 'Revisión RR.HH.',              'url' => '/caphum/actualizacionesInfo',      'modulos' => [83]],
                 ['label' => 'Organigrama Cobranza',      'url' => '/caphum/organigrama',              'modulos' => [5]],
-                ['label' => 'EST Organizacional',        'url' => '/caphum/estructuraOrganizacional', 'modulos' => [86]],
+                ['label' => 'Organización',              'url' => '/caphum/estructuraOrganizacional', 'modulos' => [86]],
                 ['label' => 'Control de Bajas',            'url' => '/caphum/bajas',                    'modulos' => [13]],
                 ['label' => 'Selección de Personal',       'url' => '/caphum/candidatos',               'modulos' => [42]],
                 ['label' => 'Curso de Inducción', 'url' => '/onboarding/index',                'modulos' => [44]],

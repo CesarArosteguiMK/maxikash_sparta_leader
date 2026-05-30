@@ -25,12 +25,11 @@
     transition: background-color .15s ease, border-color .15s ease;
 }
 .ac-card:hover { background: #fcfcfd; border-color: #dbe2ea; }
-.ac-card.ae-row-clickable { cursor: pointer; }
-.ac-card.ae-row-clickable:focus { outline: 2px solid #2563eb; outline-offset: 2px; }
-.ac-card.ae-row-clickable:hover { border-color: #bfdbfe; }
 
 .ac-card-body {
     padding: .62rem .9rem;
+}
+.ae-card-top {
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -124,6 +123,218 @@
     align-items: center;
     justify-content: center;
 }
+.ae-form-trace {
+    margin-top: .58rem;
+    padding: .58rem .65rem;
+    border: 1px solid #e2e8f0;
+    border-radius: .55rem;
+    background: #f8fafc;
+}
+.ae-form-trace-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: .75rem;
+    margin-bottom: .42rem;
+}
+.ae-form-trace-title {
+    color: #123150;
+    font-size: .76rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: .035em;
+}
+.ae-form-trace-date {
+    color: #64748b;
+    font-size: .72rem;
+    font-weight: 700;
+    white-space: nowrap;
+}
+.ae-form-trace-grid {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: .42rem .55rem;
+}
+.ae-form-chip {
+    min-width: 0;
+    padding: .36rem .48rem;
+    border: 1px solid #dbe4ef;
+    border-radius: .45rem;
+    background: #fff;
+}
+.ae-form-chip-wide { grid-column: span 2; }
+.ae-form-chip-label {
+    display: block;
+    color: #64748b;
+    font-size: .62rem;
+    font-weight: 800;
+    line-height: 1.1;
+    text-transform: uppercase;
+    letter-spacing: .035em;
+    margin-bottom: .12rem;
+}
+.ae-form-chip-value {
+    display: block;
+    color: #1e293b;
+    font-size: .75rem;
+    font-weight: 700;
+    line-height: 1.18;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.ae-table-wrap {
+    border: 1px solid #e5e7eb;
+    border-radius: .75rem;
+    overflow: visible;
+    background: #fff;
+}
+.ae-table {
+    margin: 0;
+    font-size: .875rem;
+    vertical-align: middle;
+}
+.ae-table thead th {
+    background: #f8fafc;
+    color: #566a7f;
+    border-bottom: 1px solid #dbe4ef;
+    font-size: .75rem;
+    font-weight: 700;
+    letter-spacing: .02em;
+    text-transform: uppercase;
+    white-space: nowrap;
+}
+.ae-table tbody tr:hover {
+    background: #f8fbff;
+}
+.ae-table td {
+    color: #697a8d;
+    border-color: #e8eef5;
+}
+.ae-table-main {
+    min-width: 150px;
+}
+.ae-table-folio {
+    display: inline-flex;
+    align-items: center;
+    max-width: 100%;
+    padding: .12rem .42rem;
+    border-radius: 999px;
+    background: #fff7ed;
+    color: #b45309;
+    font-size: .68rem;
+    font-weight: 800;
+}
+.ae-table-credit {
+    display: block;
+    margin-top: .22rem;
+    color: #566a7f;
+    font-weight: 700;
+}
+.ae-table-name {
+    min-width: 210px;
+    color: #697a8d;
+    font-weight: 700;
+    text-transform: uppercase;
+    line-height: 1.2;
+}
+.ae-table-muted {
+    color: #94a3b8;
+    font-style: italic;
+}
+.ae-table-evidence {
+    white-space: nowrap;
+    font-weight: 700;
+    color: #566a7f;
+}
+.ae-table-action {
+    min-width: 164px;
+    text-align: center !important;
+}
+.ae-table-date {
+    white-space: nowrap;
+    line-height: 1.35;
+}
+.ae-action-buttons {
+    display: flex;
+    width: 100%;
+    align-items: center;
+    justify-content: center !important;
+    gap: .5rem;
+    flex-wrap: wrap;
+}
+#aeTabContent .card-datatable {
+    padding: 1.5rem;
+}
+#aeTabContent .dataTables_length {
+    margin-bottom: 1rem;
+}
+#aeTabContent .dataTables_filter {
+    margin-bottom: 1rem;
+    text-align: right;
+}
+#aeTabContent .dataTables_filter input {
+    margin-left: .5rem;
+    padding: .375rem .75rem;
+    border: 1px solid #d9dee3;
+    border-radius: .375rem;
+}
+#aeTabContent .dataTables_filter input:focus {
+    border-color: #0d6efd;
+    outline: none;
+    box-shadow: 0 0 0 .2rem rgba(13, 110, 253, .15);
+}
+#aeTabContent .dataTables_length select {
+    margin: 0 .5rem;
+    padding: .375rem 1.75rem .375rem .75rem;
+}
+#aeTabContent .dataTables_info {
+    margin: 0;
+    color: #6c757d;
+    font-size: .85rem;
+}
+#aeTabContent .ae-dt-footer {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    gap: 1rem;
+    flex-wrap: wrap;
+    width: 100%;
+    margin-left: 0;
+    margin-right: 0;
+    padding-top: 1rem;
+}
+#aeTabContent .ae-dt-footer > [class*="col-"] {
+    padding-left: 0;
+    padding-right: 0;
+}
+#aeTabContent .ae-dt-info {
+    flex: 1 1 auto !important;
+    width: auto !important;
+    max-width: none !important;
+}
+#aeTabContent .ae-dt-pages {
+    flex: 0 0 auto !important;
+    width: auto !important;
+    max-width: none !important;
+    margin-left: auto;
+    display: flex !important;
+    justify-content: flex-end !important;
+}
+#aeTabContent .ae-dt-footer .dataTables_paginate {
+    display: flex;
+    justify-content: flex-end;
+    width: auto;
+    margin: 0 !important;
+}
+#aeTabContent .ae-dt-footer .dataTables_paginate .pagination {
+    justify-content: flex-end !important;
+    margin: 0 !important;
+    margin-left: auto !important;
+}
+#aeTabContent .ae-dt-footer .dataTables_paginate .page-item {
+    margin: 0 .18rem;
+}
 
 /* Mismo botón en píldora que «Dictaminar» en Retenciones */
 .ac-btn-dictaminar {
@@ -153,14 +364,51 @@ body.dark-mode .ae-list-muted { color: #64748b; }
 body.dark-mode .ae-main-folio { color: #fcd34d; }
 body.dark-mode .ae-main-credito { color: #e2e8f0; }
 body.dark-mode .aev-ev-hint { color: #94a3b8 !important; }
+body.dark-mode .ae-form-trace { background: #0f172a; border-color: #1f2937; }
+body.dark-mode .ae-form-trace-title { color: #e2e8f0; }
+body.dark-mode .ae-form-trace-date { color: #94a3b8; }
+body.dark-mode .ae-form-chip { background: #111827; border-color: #1f2937; }
+body.dark-mode .ae-form-chip-label { color: #94a3b8; }
+body.dark-mode .ae-form-chip-value { color: #e2e8f0; }
+body.dark-mode .ae-table-wrap { background: #111827; border-color: #1f2937; }
+body.dark-mode .ae-table thead th { background: #0f172a; color: #e2e8f0; border-color: #1f2937; }
+body.dark-mode .ae-table tbody tr:hover { background: #172033; }
+body.dark-mode .ae-table td { color: #cbd5e1; border-color: #1f2937; }
+body.dark-mode .ae-table-credit,
+body.dark-mode .ae-table-name,
+body.dark-mode .ae-table-evidence { color: #e2e8f0; }
+body.dark-mode #aeTabContent .dataTables_filter input,
+body.dark-mode #aeTabContent .dataTables_length select { background: #111827; border-color: #1f2937; color: #e2e8f0; }
 
 @media (max-width: 991.98px) {
     .ae-list-grid {
         grid-template-columns: repeat(2, minmax(220px, 1fr));
     }
+    .ae-form-trace-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
 }
 @media (max-width: 767.98px) {
-    .ac-card-body {
+    #aeTabContent .ae-dt-footer {
+        justify-content: center !important;
+        text-align: center;
+    }
+    #aeTabContent .ae-dt-info,
+    #aeTabContent .ae-dt-pages {
+        flex: 0 0 100% !important;
+        width: 100% !important;
+        margin-left: 0;
+        justify-content: center !important;
+    }
+    #aeTabContent .ae-dt-footer .dataTables_paginate {
+        justify-content: center;
+        width: 100%;
+    }
+    #aeTabContent .ae-dt-footer .dataTables_paginate .pagination {
+        justify-content: center !important;
+        margin-left: 0 !important;
+    }
+    .ae-card-top {
         flex-direction: column;
         align-items: stretch;
     }
@@ -170,6 +418,12 @@ body.dark-mode .aev-ev-hint { color: #94a3b8 !important; }
     .ae-list-action {
         justify-content: flex-end;
         margin-top: .2rem;
+    }
+    .ae-form-trace-grid {
+        grid-template-columns: 1fr;
+    }
+    .ae-form-chip-wide {
+        grid-column: span 1;
     }
 }
 
@@ -219,6 +473,7 @@ body.dark-mode .aev-ev-hint { color: #94a3b8 !important; }
 .aev-ev-progress-bg   { height: 8px; background: #e2e8f0; border-radius: 6px; overflow: hidden; }
 .aev-ev-progress-fill { height: 100%; background: linear-gradient(90deg, #16a34a, #4ade80); border-radius: 6px; transition: width .25s; }
 .aev-ev-section { margin-bottom: 1rem; }
+.aev-ev-section--doc { margin-bottom: .35rem; }
 .aev-ev-hdr {
     display: flex; align-items: center; gap: .5rem;
     padding: .4rem .75rem; border-radius: .5rem .5rem 0 0;
@@ -227,6 +482,11 @@ body.dark-mode .aev-ev-hint { color: #94a3b8 !important; }
 .aev-ev-hdr-orange { background: #fff7ed; border: 1px solid #fed7aa; border-bottom: 0; color: #9a3412; }
 .aev-ev-hdr-blue   { background: #eff6ff; border: 1px solid #bfdbfe; border-bottom: 0; color: #1e40af; }
 .aev-ev-hdr-green  { background: #f0fdf4; border: 1px solid #bbf7d0; border-bottom: 0; color: #14532d; }
+.aev-ev-section--doc .aev-ev-hdr {
+    padding: .18rem .55rem;
+    font-size: .62rem;
+    border-radius: .4rem .4rem 0 0;
+}
 .aev-ev-hdr-purple { background: #faf5ff; border: 1px solid #e9d5ff; border-bottom: 0; color: #6b21a8; }
 .aev-ev-slots-wrap {
     padding: .65rem; background: #f8fafc; border: 1px solid #e2e8f0; border-top: 0; border-radius: 0 0 .5rem .5rem;
@@ -280,6 +540,38 @@ body.dark-mode .aev-ev-hint { color: #94a3b8 !important; }
 #modalAevValidarEvidencias .aev-vista-panel { width: 100%; max-width: min(52rem, 96vw); max-height: 92vh; overflow: auto; background: #fff; border-radius: 0.75rem; box-shadow: 0 20px 50px rgba(0,0,0,.35); padding: 1rem 1.1rem; position: relative; z-index: 1; }
 .aev-vista-mediabox { min-height: 12rem; max-height: 60vh; background: #0f172a; border-radius: 0.5rem; display: flex; align-items: center; justify-content: center; margin-bottom: 0.75rem; }
 .aev-vista-mediabox video, .aev-vista-mediabox img { max-width: 100%; max-height: 50vh; object-fit: contain; }
+.aev-vista-nav {
+    display: inline-flex;
+    align-items: center;
+    gap: .35rem;
+}
+.aev-vista-nav-btn {
+    width: 2rem;
+    height: 2rem;
+    border-radius: 999px;
+    border: 1px solid #dbeafe;
+    background: #f8fafc;
+    color: #173756;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+.aev-vista-nav-btn:hover:not(:disabled),
+.aev-vista-nav-btn:focus:not(:disabled) {
+    background: #e0f2fe;
+    border-color: #7dd3fc;
+}
+.aev-vista-nav-btn:disabled {
+    opacity: .45;
+    cursor: not-allowed;
+}
+.aev-vista-counter {
+    color: #64748b;
+    font-size: .72rem;
+    font-weight: 800;
+    min-width: 3.6rem;
+    text-align: center;
+}
 .aev-vista-mediabox.aev-vista-mediabox--zoomable {
     flex-direction: column; align-items: stretch; justify-content: flex-start; padding: 0; overflow: hidden;
 }
@@ -319,14 +611,20 @@ body.dark-mode .aev-ev-hint { color: #94a3b8 !important; }
 #modalAevValidarEvidencias .aev-vista-panel.aev-vista-panel--repuve #aev-vista-titulo { color: #14532d; }
 .aev-btn-ver-repuve {
     border: 2px solid #22c55a; color: #14532d; background: #fff; border-radius: 2rem;
-    font-weight: 800; font-size: .78rem; padding: .4rem 1.1rem; line-height: 1.2;
+    font-weight: 800; font-size: .66rem; padding: .18rem .65rem; line-height: 1.1;
 }
 .aev-btn-ver-repuve:hover, .aev-btn-ver-repuve:focus {
     background: #dcfce7; border-color: #16a34a; color: #14532d;
 }
 .aev-doc-zone {
-    min-height: 88px; border: 2px dashed #86efac; border-radius: .5rem; background: #f0fdf4; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 1rem; text-align: center; gap: .4rem; margin-top: -1px;
+    min-height: 34px; border: 1px dashed #86efac; border-radius: .4rem; background: #f0fdf4; display: flex; align-items: center; justify-content: center; padding: .22rem .45rem; text-align: left; gap: .42rem; margin-top: -1px; flex-wrap: nowrap;
 }
+.aev-doc-zone .fa-2x { font-size: .95rem; }
+.aev-doc-main { display: flex; align-items: center; gap: .35rem; min-width: 0; flex: 1 1 auto; }
+.aev-doc-title { color: #14532d; font-size: .68rem; font-weight: 800; line-height: 1.1; white-space: nowrap; }
+.aev-doc-sub { color: #64748b; font-size: .64rem; line-height: 1.1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.aev-doc-actions { display: inline-flex; align-items: center; gap: .3rem; flex-wrap: nowrap; margin-left: auto; }
+.aev-doc-actions .aev-badge-ok { font-size: .52rem; padding: 1px 5px; }
 .aev-doc-hidden { display: none !important; }
 .aev-doc-zone--click { cursor: pointer; }
 .aev-doc-zone--rech  { border-color: #f87171 !important; background: #fef2f2 !important; }
@@ -417,7 +715,7 @@ body.dark-mode .aev-detalle-loading-card {
         <div class="modal-content">
             <div class="modal-header">
                 <h5 class="modal-title mb-0">
-                    <i class="fa-solid fa-clipboard-check me-2"></i>Validar evidencias &mdash;
+                    <i id="aev-modal-icon" class="fa-solid fa-clipboard-check me-2"></i><span id="aev-modal-titulo-modo">Validar evidencias</span> &mdash;
                     <span id="aev-titulo-cliente" class="fw-normal" style="font-size:.9em;"></span>
                 </h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
@@ -443,8 +741,17 @@ body.dark-mode .aev-detalle-loading-card {
     <!-- Dentro de .modal para que el foco del trap de Bootstrap incluya comentario + botones (si está en body, no deja escribir) -->
     <div id="aev-vista-overlay" class="aev-vista-overlay d-none" role="dialog" aria-modal="true" aria-labelledby="aev-vista-titulo">
         <div class="aev-vista-panel" tabindex="-1">
-            <div class="d-flex justify-content-between align-items-center mb-2">
-                <h6 class="mb-0" id="aev-vista-titulo" style="font-size:1rem;font-weight:700;">Evidencia</h6>
+            <div class="d-flex justify-content-between align-items-center mb-2 gap-2 flex-wrap">
+                <h6 class="mb-0 me-auto" id="aev-vista-titulo" style="font-size:1rem;font-weight:700;">Evidencia</h6>
+                <div class="aev-vista-nav" id="aev-vista-nav" aria-label="Navegacion de evidencias">
+                    <button type="button" class="aev-vista-nav-btn" id="aev-vista-prev" aria-label="Evidencia anterior">
+                        <i class="fa-solid fa-chevron-left"></i>
+                    </button>
+                    <span class="aev-vista-counter" id="aev-vista-counter">1 / 1</span>
+                    <button type="button" class="aev-vista-nav-btn" id="aev-vista-next" aria-label="Evidencia siguiente">
+                        <i class="fa-solid fa-chevron-right"></i>
+                    </button>
+                </div>
                 <button type="button" class="btn btn-sm btn-light border" id="aev-vista-btn-cerrar" aria-label="Cerrar">
                     <i class="fa-solid fa-xmark"></i>
                 </button>
@@ -637,6 +944,13 @@ $aevPuedeReemplazarEvidencia = in_array(79, array_map('intval', (array) ($_SESSI
         if (modal) modal.classList.toggle('aev-modo-lectura', !!activo);
         const btnEnviar = document.getElementById('aev-btn-enviar');
         if (btnEnviar && activo) btnEnviar.classList.add('d-none');
+        if (btnEnviar && !activo) btnEnviar.classList.remove('d-none');
+        const tituloModo = document.getElementById('aev-modal-titulo-modo');
+        if (tituloModo) tituloModo.textContent = activo ? 'Detalle de evidencias' : 'Validar evidencias';
+        const iconoModo = document.getElementById('aev-modal-icon');
+        if (iconoModo) {
+            iconoModo.className = activo ? 'fa-solid fa-eye me-2' : 'fa-solid fa-clipboard-check me-2';
+        }
     }
 
     function aevRenderCargaRapidaDetalle(id) {
@@ -745,6 +1059,7 @@ $aevPuedeReemplazarEvidencia = in_array(79, array_map('intval', (array) ($_SESSI
     const AEV_TITLE_DICTAMEN_SLOT = 'Clic para abrir y dictaminar';
 
     let _aeCargada = { bandeja: false, aprobados: false, correcciones: false };
+    let _aeDatos = { bandeja: [], aprobados: [], correcciones: [] };
 
     /** Evita varios POST finalizar + recargas seguidas al guardar veredictos rápido */
     let _aeFinalizarDebounceTimer = null;
@@ -781,7 +1096,7 @@ $aevPuedeReemplazarEvidencia = in_array(79, array_map('intval', (array) ($_SESSI
 
     /** detalle de sesión: veredictos v[slot]= acep|rec, comentarios c[slot] (persiste solo mientras dura el modal) */
     let _aevStore  = { det: null, idCredito: 0, v: {}, c: {}, rechazosPendientes: {}, pendingVeredictos: {}, soloLectura: false };
-    let _aevVistaCtx = { slot: '', label: '', evidId: 0, soloAceptada: false, soloRechazada: false };
+    let _aevVistaCtx = { slot: '', label: '', evidId: 0, soloAceptada: false, soloRechazada: false, galeria: [], indice: -1 };
     let _aevReemplazoGestorCtx = { slot: '', label: '' };
     let _aevZoomTeardown = null;
     const _aevDetalleCache = new Map();
@@ -802,7 +1117,9 @@ $aevPuedeReemplazarEvidencia = in_array(79, array_map('intval', (array) ($_SESSI
             '<button type="button" class="btn btn-sm btn-outline-light aev-zoom-btn-minus" title="Alejar" aria-label="Alejar"><i class="fa-solid fa-magnifying-glass-minus"></i></button>' +
             '<span class="small text-white aev-zoom-pct fw-semibold" style="min-width:3.25rem;text-align:center;">100%</span>' +
             '<button type="button" class="btn btn-sm btn-outline-light aev-zoom-btn-plus" title="Acercar" aria-label="Acercar"><i class="fa-solid fa-magnifying-glass-plus"></i></button>' +
-            '<button type="button" class="btn btn-sm btn-outline-secondary aev-zoom-btn-reset">Restablecer</button>' +
+            '<button type="button" class="btn btn-sm btn-outline-light aev-rotate-btn-left" title="Rotar izquierda" aria-label="Rotar izquierda"><i class="fa-solid fa-rotate-left"></i></button>' +
+            '<button type="button" class="btn btn-sm btn-outline-light aev-rotate-btn-right" title="Rotar derecha" aria-label="Rotar derecha"><i class="fa-solid fa-rotate-right"></i></button>' +
+            '<button type="button" class="btn btn-sm btn-outline-secondary aev-zoom-btn-reset d-none">Restablecer</button>' +
             '</div>'
         );
     }
@@ -816,11 +1133,14 @@ $aevPuedeReemplazarEvidencia = in_array(79, array_map('intval', (array) ($_SESSI
         const btnMinus = box.querySelector('.aev-zoom-btn-minus');
         const btnPlus = box.querySelector('.aev-zoom-btn-plus');
         const btnReset = box.querySelector('.aev-zoom-btn-reset');
+        const btnRotateLeft = box.querySelector('.aev-rotate-btn-left');
+        const btnRotateRight = box.querySelector('.aev-rotate-btn-right');
         if (!wrap || !media) return;
 
         let scale = 1;
         let panX = 0;
         let panY = 0;
+        let rotate = 0;
         const wheelOpts = { passive: false };
         let dragPan = false;
         let dragClientX0 = 0;
@@ -838,9 +1158,13 @@ $aevPuedeReemplazarEvidencia = in_array(79, array_map('intval', (array) ($_SESSI
                 panY = 0;
             }
             media.style.transformOrigin = 'center center';
-            media.style.transform = 'translate(' + panX + 'px,' + panY + 'px) scale(' + scale + ')';
+            media.style.transform = 'translate(' + panX + 'px,' + panY + 'px) rotate(' + rotate + 'deg) scale(' + scale + ')';
             if (pctEl) pctEl.textContent = Math.round(scale * 100) + '%';
             wrap.classList.toggle('aev-zoom-wrap--scaled', scale > 1.02);
+            if (btnReset) {
+                const changed = scale > 1.02 || Math.abs(panX) > 1 || Math.abs(panY) > 1 || rotate !== 0;
+                btnReset.classList.toggle('d-none', !changed);
+            }
         }
 
         function onWheel(e) {
@@ -861,6 +1185,12 @@ $aevPuedeReemplazarEvidencia = in_array(79, array_map('intval', (array) ($_SESSI
             scale = 1;
             panX = 0;
             panY = 0;
+            rotate = 0;
+            commitTransform();
+        }
+
+        function rotar(step) {
+            rotate = ((rotate + step) % 360 + 360) % 360;
             commitTransform();
         }
 
@@ -905,6 +1235,8 @@ $aevPuedeReemplazarEvidencia = in_array(79, array_map('intval', (array) ($_SESSI
         wrap.addEventListener('mousedown', onWrapMouseDown);
         if (btnMinus) btnMinus.addEventListener('click', function () { delta(-0.22); });
         if (btnPlus) btnPlus.addEventListener('click', function () { delta(0.22); });
+        if (btnRotateLeft) btnRotateLeft.addEventListener('click', function () { rotar(-90); });
+        if (btnRotateRight) btnRotateRight.addEventListener('click', function () { rotar(90); });
         if (btnReset) btnReset.addEventListener('click', resetZoom);
         media.addEventListener('dblclick', resetZoom);
 
@@ -984,6 +1316,63 @@ $aevPuedeReemplazarEvidencia = in_array(79, array_map('intval', (array) ($_SESSI
         });
     }
 
+    function aevLabelSlotFisico(slot) {
+        for (let i = 0; i < AEV_EV_SECTIONS.length; i++) {
+            const slots = AEV_EV_SECTIONS[i].slots || [];
+            for (let j = 0; j < slots.length; j++) {
+                if (slots[j].key === slot) {
+                    return slots[j].label;
+                }
+            }
+        }
+        return slot || '';
+    }
+
+    function aevListaGaleriaFisica() {
+        const evMap = aevMapaPorSlot((_aevStore.det && _aevStore.det.evidencias) || []);
+        return AEV_IMAGEN_KEYS
+            .filter(function (slot) { return evMap[slot] && evMap[slot].url; })
+            .map(function (slot) {
+                return { slot: slot, label: aevLabelSlotFisico(slot) };
+            });
+    }
+
+    function aevGuardarComentarioVistaActual() {
+        if (!_aevVistaCtx.slot || _aevVistaCtx.soloAceptada || _aevVistaCtx.soloRechazada || _aevStore.soloLectura) {
+            return;
+        }
+        const cmt = document.getElementById('aev-vista-comentario');
+        if (cmt) {
+            _aevStore.c[_aevVistaCtx.slot] = (cmt.value || '').trim();
+        }
+    }
+
+    function aevActualizarNavVista() {
+        const nav = document.getElementById('aev-vista-nav');
+        const prev = document.getElementById('aev-vista-prev');
+        const next = document.getElementById('aev-vista-next');
+        const counter = document.getElementById('aev-vista-counter');
+        const total = Array.isArray(_aevVistaCtx.galeria) ? _aevVistaCtx.galeria.length : 0;
+        const idx = parseInt(_aevVistaCtx.indice, 10);
+        const visible = total > 1 && _aevVistaCtx.slot !== 'doc_repuve';
+        if (nav) nav.classList.toggle('d-none', !visible);
+        if (counter) counter.textContent = total ? ((idx + 1) + ' / ' + total) : '0 / 0';
+        if (prev) prev.disabled = !visible;
+        if (next) next.disabled = !visible;
+    }
+
+    function aevNavegarVista(delta) {
+        const total = Array.isArray(_aevVistaCtx.galeria) ? _aevVistaCtx.galeria.length : 0;
+        if (total <= 1) return;
+        const idx = parseInt(_aevVistaCtx.indice, 10);
+        const nextIdx = ((idx + delta) % total + total) % total;
+        aevGuardarComentarioVistaActual();
+        const item = _aevVistaCtx.galeria[nextIdx];
+        if (item) {
+            aevAbrirVistaEvidencia(item.slot, item.label, { desdeGaleria: true });
+        }
+    }
+
     function aevCerrarVistaOverlay() {
         const ovl = document.getElementById('aev-vista-overlay');
         const m   = document.getElementById('modalAevValidarEvidencias');
@@ -1018,11 +1407,17 @@ $aevPuedeReemplazarEvidencia = in_array(79, array_map('intval', (array) ($_SESSI
         _aevVistaCtx.evidId = 0;
         _aevVistaCtx.soloAceptada = false;
         _aevVistaCtx.soloRechazada = false;
+        _aevVistaCtx.galeria = [];
+        _aevVistaCtx.indice = -1;
+        aevActualizarNavVista();
     }
 
-    function aevAbrirVistaEvidencia(slot, label) {
+    function aevAbrirVistaEvidencia(slot, label, opciones) {
         if (!_aevStore.det) return;
         if (slot === 'doc_repuve') return;
+        if (!(opciones && opciones.desdeGaleria)) {
+            aevGuardarComentarioVistaActual();
+        }
         const ovlPre = document.getElementById('aev-vista-overlay');
         const panPre = ovlPre ? ovlPre.querySelector('.aev-vista-panel') : null;
         const boxPre = document.getElementById('aev-vista-mediabox');
@@ -1034,12 +1429,16 @@ $aevPuedeReemplazarEvidencia = in_array(79, array_map('intval', (array) ($_SESSI
         const evMap = aevMapaPorSlot(_aevStore.det.evidencias);
         const row   = evMap[slot];
         if (!row || !row.url) return;
+        const galeria = aevListaGaleriaFisica();
+        const indice = galeria.findIndex(function (item) { return item.slot === slot; });
         const st = aevEstadoEvidencia(row, slot);
         const soloAceptada = (st === 'acep');
         const soloRechazada = (st === 'rec');
         const modoSoloLectura = soloAceptada || soloRechazada || !!_aevStore.soloLectura;
         _aevVistaCtx.soloAceptada = soloAceptada;
         _aevVistaCtx.soloRechazada = soloRechazada;
+        _aevVistaCtx.galeria = galeria;
+        _aevVistaCtx.indice = indice;
         aevAsegurarOverlayDentroModal();
         const modalAev = document.getElementById('modalAevValidarEvidencias');
         if (modalAev) modalAev.classList.add('aev-ev-vista-abierta');
@@ -1121,6 +1520,7 @@ $aevPuedeReemplazarEvidencia = in_array(79, array_map('intval', (array) ($_SESSI
         _aevVistaCtx.label = label || '';
         ovl.classList.remove('d-none');
         _aevVistaCtx.evidId = row && row.id ? parseInt(row.id, 10) : 0;
+        aevActualizarNavVista();
         if (!modoSoloLectura) {
             setTimeout(function () {
                 const tx = document.getElementById('aev-vista-comentario');
@@ -1166,6 +1566,9 @@ $aevPuedeReemplazarEvidencia = in_array(79, array_map('intval', (array) ($_SESSI
         _aevVistaCtx.evidId = row && row.id ? parseInt(row.id, 10) : 0;
         _aevVistaCtx.soloAceptada = false;
         _aevVistaCtx.soloRechazada = false;
+        _aevVistaCtx.galeria = [];
+        _aevVistaCtx.indice = -1;
+        aevActualizarNavVista();
         ovl.classList.remove('d-none');
     }
 
@@ -1422,12 +1825,16 @@ $aevPuedeReemplazarEvidencia = in_array(79, array_map('intval', (array) ($_SESSI
         return `
         <div class="aev-doc-zone aev-doc-zone--acept" data-aev-subir="doc_repuve" role="button" tabindex="0" style="border-style:solid;border-color:#22c55a;background:#f0fdf4;cursor:pointer;">
             <i class="fa-solid fa-file-pdf fa-2x text-success"></i>
-            <div class="fw-bold small mt-1" style="color:#14532d;">${aeEsc(tit)}</div>
-            <div class="small text-muted">PDF en expediente. Toca la zona (no el botón) para reemplazar.</div>
-            <button type="button" class="aev-btn-ver-repuve mt-2" data-aev-ver-repuve="1">
-                <i class="fa-solid fa-eye me-1" aria-hidden="true"></i>Ver PDF aquí
-            </button>
-            <span class="aev-badge-ok mt-1" style="position:static;transform:none;display:inline-block;background:#15803d;">En expediente</span>
+            <div class="aev-doc-main">
+                <span class="aev-doc-title">${aeEsc(tit)}</span>
+                <span class="aev-doc-sub">PDF en expediente. Toca la zona para reemplazar.</span>
+            </div>
+            <div class="aev-doc-actions">
+                <button type="button" class="aev-btn-ver-repuve" data-aev-ver-repuve="1">
+                    <i class="fa-solid fa-eye me-1" aria-hidden="true"></i>Ver PDF
+                </button>
+                <span class="aev-badge-ok" style="position:static;transform:none;display:inline-block;background:#15803d;">En expediente</span>
+            </div>
         </div>`;
     }
 
@@ -1441,7 +1848,7 @@ $aevPuedeReemplazarEvidencia = in_array(79, array_map('intval', (array) ($_SESSI
         const mostrarDoc = vpdf > 0 || aevImagenesTodasAceptadas(evl);
 
         let html = '';
-        html += '<p class="aev-ev-hint" role="note"><i class="fa-solid fa-hand-pointer me-1" style="opacity:.65;" aria-hidden="true"></i>Clic en cada evidencia para aceptar o rechazar.</p>';
+        html += aeRenderFormularioOperacion(det);
 
         html += '<div class="aev-ev-progress-wrap">';
         html += '<div class="d-flex justify-content-between align-items-end mb-1 flex-wrap gap-1">';
@@ -1452,10 +1859,13 @@ $aevPuedeReemplazarEvidencia = in_array(79, array_map('intval', (array) ($_SESSI
         html += '</div>';
 
         AEV_EV_SECTIONS.forEach(function (sec) { html += aevRenderSeccionValidar(sec, m); });
+        if (!_aevStore.soloLectura) {
+            html += '<p class="aev-ev-hint mt-1 mb-2" role="note"><i class="fa-solid fa-hand-pointer me-1" style="opacity:.65;" aria-hidden="true"></i>Clic en cada evidencia para aceptar o rechazar.</p>';
+        }
 
         if (mostrarDoc) {
             AEV_EV_DOCS.forEach(function (doc) {
-                html += '<div class="aev-ev-section">';
+                html += '<div class="aev-ev-section aev-ev-section--doc">';
                 html += '<div class="aev-ev-hdr ' + doc.headerClass + '"><i class="fa-solid ' + doc.icon + '"></i> ' + aeEsc(doc.label) + '</div>';
                 html += aevRenderBloqueDoc(doc, m);
                 html += '</div>';
@@ -1789,6 +2199,65 @@ $aevPuedeReemplazarEvidencia = in_array(79, array_map('intval', (array) ($_SESSI
         </div>`;
     }
 
+    function aeValorLimpio(v) {
+        if (v == null) return '';
+        const s = String(v).trim();
+        if (!s || s === '-' || s.toLowerCase() === 'null') return '';
+        return s;
+    }
+
+    function aeResguardoTexto(item) {
+        const base = aeValorLimpio(item.log_lugar_resguardo);
+        const otro = aeValorLimpio(item.log_lugar_otro);
+        const mapa = {
+            'cedis-__SPARTA_SECRET_REDACTED__': 'CEDIS Maxikash',
+            'centro-de-acopio': 'Centro de acopio',
+            'mi_domicilio': 'Mi domicilio',
+            'sucursal': 'Sucursal',
+            'agencia': 'Agencia',
+            'otro': otro || 'Otro'
+        };
+        return mapa[base] || base || otro;
+    }
+
+    function aeRenderFormularioOperacion(item) {
+        const src = Object.assign({}, (item && item.datos_moto) ? item.datos_moto : {}, item || {});
+        const moto = [aeValorLimpio(src.moto_marca), aeValorLimpio(src.moto_modelo), aeValorLimpio(src.moto_anio)]
+            .filter(Boolean).join(' ');
+        const ubicacion = [aeResguardoTexto(src), aeValorLimpio(src.log_ciudad), aeValorLimpio(src.log_estado)]
+            .filter(Boolean).join(' / ');
+        const campos = [
+            ['Moto', moto],
+            ['Color', aeValorLimpio(src.moto_color)],
+            ['VIN / Serie', aeValorLimpio(src.moto_no_serie)],
+            ['No. motor', aeValorLimpio(src.moto_no_motor)],
+            ['Placas', aeValorLimpio(src.moto_placas)],
+            ['Resguardo', ubicacion, true],
+            ['Responsable', aeValorLimpio(src.responsable_entrega)],
+            ['Telefono', aeValorLimpio(src.log_telefono)],
+            ['Direccion', aeValorLimpio(src.log_direccion), true]
+        ].filter(function (row) { return !!row[1]; });
+
+        if (!campos.length) return '';
+
+        const fecha = aeValorLimpio(src.datos_moto_fecha);
+        return `
+            <div class="ae-form-trace">
+                <div class="ae-form-trace-head">
+                    <span class="ae-form-trace-title"><i class="fa-solid fa-list-check me-1"></i>Formulario capturado</span>
+                    ${fecha ? `<span class="ae-form-trace-date">Capturado ${aeEsc(fecha)}</span>` : ''}
+                </div>
+                <div class="ae-form-trace-grid">
+                    ${campos.map(function (row) {
+                        return `<div class="ae-form-chip ${row[2] ? 'ae-form-chip-wide' : ''}" title="${aeEsc(row[1])}">
+                            <span class="ae-form-chip-label">${aeEsc(row[0])}</span>
+                            <span class="ae-form-chip-value">${aeEsc(row[1])}</span>
+                        </div>`;
+                    }).join('')}
+                </div>
+            </div>`;
+    }
+
     /**
      * Misma estructura visual que la tarjeta "Entrantes" en Retenciones
      * (encabezado azul, # crédito + nombre, filas etiqueta/valor, botón al pie).
@@ -1813,8 +2282,9 @@ $aevPuedeReemplazarEvidencia = in_array(79, array_map('intval', (array) ($_SESSI
                 </div>`;
 
         return `
-        <div class="ac-card ae-row-clickable" data-aev-row-id="${aeEsc(String(item.id_credito))}" role="button" tabindex="0" title="Ver evidencias">
+        <div class="ac-card">
             <div class="ac-card-body">
+                <div class="ae-card-top">
                 <div class="ae-list-grid">
                     <div class="ae-list-cell ae-main-meta">
                         <span class="ae-main-folio">${folio}</span>
@@ -1839,8 +2309,125 @@ $aevPuedeReemplazarEvidencia = in_array(79, array_map('intval', (array) ($_SESSI
                     </div>
                 </div>
                 ${accion}
+                </div>
             </div>
         </div>`;
+    }
+
+    function aeRenderFilaTabla(item, key) {
+        const evRaw = parseInt(item.evidencias_count, 10) || 0;
+        const ev = Math.min(evRaw, AE_EV_TOTAL);
+        const gestor = item.gestor_nombre ? aeEsc(item.gestor_nombre) : '<span class="ae-table-muted">Sin asignar</span>';
+        const fechaAsignacion = item.fecha_asignacion ? aeEsc(item.fecha_asignacion) : '<span class="ae-table-muted">-</span>';
+        const cliente = item.nombre_cliente ? aeEsc(item.nombre_cliente) : '<span class="ae-table-muted">Sin nombre</span>';
+        const folio = item.folio ? aeEsc(item.folio) : '-';
+        const fechaAprobacion = item.fecha_aprobacion_evidencias
+            ? '<div class="ae-table-date"><span class="text-muted">Aprob.</span> ' + aeEsc(item.fecha_aprobacion_evidencias) + '</div>'
+            : '';
+        const accionValidar = String(key || '').toLowerCase() === 'aprobados' ? '' : `
+            <button type="button" class="btn btn-sm btn-primary" data-aev-no-row="1"
+                    onclick="event.stopPropagation(); aevValidarAbrir(${+item.id_credito})"
+                    title="Validar evidencias" aria-label="Validar evidencias">
+                <i class="fa fa-clipboard-check"></i>
+            </button>`;
+
+        return `
+        <tr>
+            <td class="ae-table-main">
+                <span class="ae-table-folio">${folio}</span>
+                <span class="ae-table-credit"># ${aeEsc(String(item.id_credito))}</span>
+            </td>
+            <td class="ae-table-name">${cliente}</td>
+            <td>${gestor}</td>
+            <td>
+                <div class="ae-table-date"><span class="text-muted">Asig.</span> ${fechaAsignacion}</div>
+                ${fechaAprobacion}
+            </td>
+            <td class="ae-table-evidence">${ev} / ${AE_EV_TOTAL}</td>
+            <td class="ae-table-action">
+                <div class="ae-action-buttons">
+                    <button type="button" class="btn btn-sm btn-outline-secondary" data-aev-no-row="1"
+                            title="Ver evidencias" aria-label="Ver evidencias"
+                            onclick="event.stopPropagation(); aevValidarAbrir(${+item.id_credito}, { soloLectura: true })">
+                        <i class="fa fa-eye"></i>
+                    </button>
+                    ${accionValidar}
+                </div>
+            </td>
+        </tr>`;
+    }
+
+    function aeRenderTabla(datos, key) {
+        const tableId = 'ae-tabla-' + key;
+        const filas = datos.map(function (item) { return aeRenderFilaTabla(item, key); }).join('');
+        return `
+        <div class="card-datatable ae-table-wrap">
+            <table id="${aeEsc(tableId)}" class="dt-responsive table border-top ae-table">
+                <thead>
+                    <tr>
+                        <th>Operacion</th>
+                        <th>Cliente</th>
+                        <th>Gestor</th>
+                        <th>Fechas</th>
+                        <th>Evidencias</th>
+                        <th class="ae-table-action">Acciones</th>
+                    </tr>
+                </thead>
+                <tbody>${filas}</tbody>
+            </table>
+        </div>`;
+    }
+
+    function aeInicializarDataTable(key) {
+        const tableId = '#ae-tabla-' + key;
+        if (!window.jQuery || !jQuery.fn || !jQuery.fn.DataTable || !document.querySelector(tableId)) return;
+        if (jQuery.fn.DataTable.isDataTable(tableId)) {
+            jQuery(tableId).DataTable().destroy();
+        }
+
+        jQuery(tableId).DataTable({
+            pageLength: 5,
+            lengthMenu: [5, 10, 25, 50, 100],
+            order: [],
+            responsive: true,
+            autoWidth: false,
+            language: {
+                decimal: "",
+                emptyTable: "No hay operaciones registradas",
+                info: "Mostrando _START_ a _END_ de _TOTAL_ registros",
+                infoEmpty: "Mostrando 0 a 0 de 0 registros",
+                infoFiltered: "(filtrado de _MAX_ registros totales)",
+                thousands: ",",
+                lengthMenu: "Mostrar _MENU_ registros",
+                loadingRecords: "Cargando...",
+                processing: "Procesando...",
+                search: "Buscar:",
+                zeroRecords: "No se encontraron resultados",
+                paginate: {
+                    first: "&laquo;",
+                    last: "&raquo;",
+                    next: "&rsaquo;",
+                    previous: "&lsaquo;"
+                }
+            },
+            dom: '<"row align-items-center mb-3"<"col-sm-12 col-md-6"l><"col-sm-12 col-md-6"f>>' +
+                 '<"row"<"col-sm-12"tr>>' +
+                 '<"row align-items-center mt-3 ae-dt-footer"<"col-sm-12 col-md-5 ae-dt-info"i><"col-sm-12 col-md-7 ae-dt-pages"p>>',
+            drawCallback: function() {
+                jQuery(tableId + '_paginate > .pagination').addClass('pagination-sm justify-content-end');
+                jQuery(tableId + '_length select').addClass('form-select form-select-sm');
+                jQuery(tableId + '_filter input').addClass('form-control form-control-sm');
+            }
+        });
+    }
+
+    function aeRefrescarTabla(key) {
+        const listaId = 'ae-lista-' + (key === 'bandeja' ? 'bandeja' : key);
+        const lista = document.getElementById(listaId);
+        if (!lista) return;
+        const datos = Array.isArray(_aeDatos[key]) ? _aeDatos[key] : [];
+        lista.innerHTML = aeRenderTabla(datos, key);
+        aeInicializarDataTable(key);
     }
 
     window.aevValidarAbrir = function (idCredito, opciones) {
@@ -1949,7 +2536,8 @@ $aevPuedeReemplazarEvidencia = in_array(79, array_map('intval', (array) ($_SESSI
             .then(data => {
                 if (!data.success) {
                     if (key === 'correcciones') {
-                        lista.innerHTML    = aeSinDatos(AE_CONFIG.correcciones.vacio);
+                        _aeDatos[key] = [];
+                        aeRefrescarTabla(key);
                         aeSetBadgeTab(key, 0);
                         _aeCargada[key]   = true;
                         return;
@@ -1967,19 +2555,19 @@ $aevPuedeReemplazarEvidencia = in_array(79, array_map('intval', (array) ($_SESSI
                 }
 
                 const n = datos.length;
+                _aeDatos[key] = datos;
                 aeSetBadgeTab(key, n);
                 _aeCargada[key] = true;
 
-                if (n === 0) {
-                    lista.innerHTML = aeSinDatos(cfg.vacio);
-                } else {
-                    lista.innerHTML = datos.map(d => aeRenderCard(d, key)).join('');
+                aeRefrescarTabla(key);
+                if (n > 0) {
                     aevPrecargarBandejaVisible(datos);
                 }
             })
             .catch(err => {
                 if (key === 'correcciones') {
-                    lista.innerHTML  = aeSinDatos(AE_CONFIG.correcciones.vacio);
+                    _aeDatos[key] = [];
+                    aeRefrescarTabla(key);
                     _aeCargada[key]  = true;
                 } else {
                     lista.innerHTML = `<div class="alert alert-danger">${aeEsc(err.message)}</div>`;
@@ -2023,28 +2611,6 @@ $aevPuedeReemplazarEvidencia = in_array(79, array_map('intval', (array) ($_SESSI
         });
         document.getElementById('ae-tab-correcciones-btn').addEventListener('shown.bs.tab', function () {
             aeCargarSeccion('correcciones', false);
-        });
-
-        document.addEventListener('click', function (ev) {
-            if (ev.target.closest('[data-aev-no-row], button, a, input, textarea, select, label')) return;
-            const card = ev.target.closest('.ae-row-clickable[data-aev-row-id]');
-            if (!card) return;
-            const id = parseInt(card.getAttribute('data-aev-row-id'), 10);
-            if (id > 0) aevValidarAbrir(id, { soloLectura: true });
-        });
-        document.addEventListener('keydown', function (ev) {
-            if (ev.key !== 'Enter' && ev.key !== ' ') return;
-            const card = ev.target.closest && ev.target.closest('.ae-row-clickable[data-aev-row-id]');
-            if (!card) return;
-            ev.preventDefault();
-            const id = parseInt(card.getAttribute('data-aev-row-id'), 10);
-            if (id > 0) aevValidarAbrir(id, { soloLectura: true });
-        });
-        document.addEventListener('mouseover', function (ev) {
-            const card = ev.target.closest && ev.target.closest('.ae-row-clickable[data-aev-row-id]');
-            if (!card) return;
-            const id = parseInt(card.getAttribute('data-aev-row-id'), 10);
-            if (id > 0) aevPrecargarDetalleCredito(id);
         });
 
         const aevBody = document.getElementById('aev-body');
@@ -2152,14 +2718,32 @@ $aevPuedeReemplazarEvidencia = in_array(79, array_map('intval', (array) ($_SESSI
         }
         const btnC = document.getElementById('aev-vista-btn-cerrar');
         if (btnC) btnC.addEventListener('click', function () { aevCerrarVistaOverlay(); });
+        const btnPrev = document.getElementById('aev-vista-prev');
+        if (btnPrev) btnPrev.addEventListener('click', function () { aevNavegarVista(-1); });
+        const btnNext = document.getElementById('aev-vista-next');
+        if (btnNext) btnNext.addEventListener('click', function () { aevNavegarVista(1); });
         const btnA = document.getElementById('aev-vista-aceptar');
         if (btnA) btnA.addEventListener('click', function () { aevAplicarVeredictoDesdeVista('acep'); });
         const btnR = document.getElementById('aev-vista-rechazar');
         if (btnR) btnR.addEventListener('click', function () { aevAplicarVeredictoDesdeVista('rec'); });
         document.addEventListener('keydown', function (ev) {
-            if (ev.key !== 'Escape') return;
             const o = document.getElementById('aev-vista-overlay');
-            if (o && !o.classList.contains('d-none')) aevCerrarVistaOverlay();
+            if (!o || o.classList.contains('d-none')) return;
+            const tag = ev.target && ev.target.tagName ? String(ev.target.tagName).toLowerCase() : '';
+            const typing = tag === 'textarea' || tag === 'input' || tag === 'select';
+            if (ev.key === 'Escape') {
+                aevCerrarVistaOverlay();
+                return;
+            }
+            if (!typing && ev.key === 'ArrowLeft') {
+                ev.preventDefault();
+                aevNavegarVista(-1);
+                return;
+            }
+            if (!typing && ev.key === 'ArrowRight') {
+                ev.preventDefault();
+                aevNavegarVista(1);
+            }
         });
 
         const mAev = document.getElementById('modalAevValidarEvidencias');

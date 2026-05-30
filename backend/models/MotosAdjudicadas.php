@@ -2339,7 +2339,7 @@ class MotosAdjudicadas extends Model
     }
 
     /**
-     * Reemplazo especial desde AtenciÃ³n: solo para evidencias fÃ­sicas validables.
+     * Reemplazo especial desde Atención: solo para evidencias físicas validables.
      * Limpia el veredicto y neutraliza historial de rechazo pendiente para que no se regenere.
      */
     public function reemplazarEvidenciaGestor(int $idOperacion, string $slot, array $fileInfo, int $idUsuario, string $nombreUsuario = ''): array
@@ -3259,6 +3259,7 @@ SQL;
             "SELECT o.*,
                     DATE_FORMAT(o.fecha_alta,          '%Y-%m-%d %H:%i') AS fecha_alta_fmt,
                     DATE_FORMAT(o.fecha_actualizacion, '%Y-%m-%d %H:%i') AS fecha_actualizacion_fmt,
+                    DATE_FORMAT(o.datos_moto_at,       '%d/%m/%Y %H:%i') AS datos_moto_fecha,
                     DATEDIFF(NOW(), o.fecha_alta) AS dias_en_pipeline
              FROM adj_operacion o
              WHERE o.id = :id",
@@ -3275,6 +3276,7 @@ SQL;
             "SELECT o.*,
                     DATE_FORMAT(o.fecha_alta,          '%Y-%m-%d %H:%i') AS fecha_alta_fmt,
                     DATE_FORMAT(o.fecha_actualizacion, '%Y-%m-%d %H:%i') AS fecha_actualizacion_fmt,
+                    DATE_FORMAT(o.datos_moto_at,       '%d/%m/%Y %H:%i') AS datos_moto_fecha,
                     DATEDIFF(NOW(), o.fecha_alta) AS dias_en_pipeline
              FROM adj_operacion o
              WHERE o.id = :id",
@@ -6833,8 +6835,13 @@ EOSQL;
 
         $op = $this->db->queryOne(
             "SELECT id, folio, id_credito, nombre_cliente, estatus,
+                    moto_marca, moto_modelo, moto_anio, moto_color,
+                    moto_no_serie, moto_no_motor, moto_placas,
+                    log_direccion, log_ciudad, log_estado, log_lugar_resguardo,
+                    log_lugar_otro, log_telefono, responsable_entrega,
                     DATE_FORMAT(fecha_alta, '%Y-%m-%d %H:%i') AS fecha_alta_fmt,
-                    DATE_FORMAT(fecha_actualizacion, '%Y-%m-%d %H:%i') AS fecha_actualizacion_fmt
+                    DATE_FORMAT(fecha_actualizacion, '%Y-%m-%d %H:%i') AS fecha_actualizacion_fmt,
+                    DATE_FORMAT(datos_moto_at, '%d/%m/%Y %H:%i') AS datos_moto_fecha
              FROM adj_operacion
              WHERE id_credito = :id
              ORDER BY id DESC
@@ -6904,8 +6911,13 @@ EOSQL;
 
         $ops = $this->db->queryAll(
             "SELECT ao.id, ao.folio, ao.id_credito, ao.nombre_cliente, ao.estatus,
+                    ao.moto_marca, ao.moto_modelo, ao.moto_anio, ao.moto_color,
+                    ao.moto_no_serie, ao.moto_no_motor, ao.moto_placas,
+                    ao.log_direccion, ao.log_ciudad, ao.log_estado, ao.log_lugar_resguardo,
+                    ao.log_lugar_otro, ao.log_telefono, ao.responsable_entrega,
                     DATE_FORMAT(ao.fecha_alta, '%Y-%m-%d %H:%i') AS fecha_alta_fmt,
-                    DATE_FORMAT(ao.fecha_actualizacion, '%Y-%m-%d %H:%i') AS fecha_actualizacion_fmt
+                    DATE_FORMAT(ao.fecha_actualizacion, '%Y-%m-%d %H:%i') AS fecha_actualizacion_fmt,
+                    DATE_FORMAT(ao.datos_moto_at, '%d/%m/%Y %H:%i') AS datos_moto_fecha
              FROM adj_operacion ao
              INNER JOIN (
                  SELECT id_credito, MAX(id) AS id_max
