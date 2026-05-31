@@ -3183,9 +3183,11 @@ $aevPuedeReemplazarEvidencia = in_array(79, array_map('intval', (array) ($_SESSI
                 didOpen: function () { Swal.showLoading(); },
             });
         }
-        aeCargarSeccion('bandeja', true).finally(function () {
+        Promise.allSettled([
+            aeCargarSeccion('bandeja', true),
+            aeCargarConteosPestanas()
+        ]).finally(function () {
             if (hasSwal) Swal.close();
-            aeCargarConteosPestanas();
         });
     }
 
