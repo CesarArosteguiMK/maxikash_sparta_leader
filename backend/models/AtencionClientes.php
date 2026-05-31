@@ -28,6 +28,7 @@ use Core\Database;
 class AtencionClientes
 {
     private $db;
+    private $adjEvidenciaAtnColumnas = null;
 
     public function __construct()
     {
@@ -51,6 +52,151 @@ class AtencionClientes
                         'fis_tacometro', 'fis_video_cliente_acuerdo', 'fis_360_encendida',
                         'fis_video_vuelta_prueba', 'fis_checklist'
                    ))";
+    }
+
+    private function adjEvidenciaTieneColumnasAtn(): bool
+    {
+        if ($this->adjEvidenciaAtnColumnas !== null) {
+            return (bool) $this->adjEvidenciaAtnColumnas;
+        }
+
+        try {
+            $this->db->queryOne('SELECT val_atn FROM adj_evidencia LIMIT 1');
+            $this->adjEvidenciaAtnColumnas = true;
+        } catch (\Throwable $e) {
+            $this->adjEvidenciaAtnColumnas = false;
+        }
+
+        return (bool) $this->adjEvidenciaAtnColumnas;
+    }
+
+    private function sqlConteosValidacionAtn(string $aliasOperacion = 'o'): string
+    {
+        if (!$this->adjEvidenciaTieneColumnasAtn()) {
+            return <<<SQL
+            0 AS evidencias_aceptadas_count,
+            0 AS evidencias_rechazadas_count,
+            0 AS evidencias_pendientes_count
+SQL;
+        }
+
+        $slots = "(
+            'fis_dacion_hoja_1', 'fis_dacion_hoja_2',
+            'fis_vin', 'fis_frontal', 'fis_lateral_der', 'fis_trasera', 'fis_lateral_izq',
+            'fis_tacometro', 'fis_video_cliente_acuerdo', 'fis_360_encendida',
+            'fis_video_vuelta_prueba', 'fis_checklist'
+        )";
+
+        return <<<SQL
+            (SELECT COUNT(DISTINCT CASE WHEN e.val_atn = 1 THEN e.slot ELSE NULL END)
+               FROM adj_evidencia e
+              WHERE e.id_operacion = {$aliasOperacion}.id
+                AND e.slot IN {$slots}) AS evidencias_aceptadas_count,
+            (SELECT COUNT(DISTINCT CASE WHEN e.val_atn = 2 THEN e.slot ELSE NULL END)
+               FROM adj_evidencia e
+              WHERE e.id_operacion = {$aliasOperacion}.id
+                AND e.slot IN {$slots}) AS evidencias_rechazadas_count,
+            (SELECT COUNT(DISTINCT CASE WHEN IFNULL(e.val_atn, 0) NOT IN (1, 2) THEN e.slot ELSE NULL END)
+               FROM adj_evidencia e
+              WHERE e.id_operacion = {$aliasOperacion}.id
+                AND e.slot IN {$slots}) AS evidencias_pendientes_count
+SQL;
+    }
+
+    private function sqlUltimoMovimientoEvidencias(string $aliasOperacion = 'o'): string
+    {
+        $whereAcciones = "(
+            bu.accion LIKE '%VALIDACIÓN EVIDENCIA%'
+            OR bu.accion LIKE '%VALIDACION EVIDENCIA%'
+            OR bu.accion LIKE '%ENVIÓ EVIDENCIAS%'
+            OR bu.accion LIKE '%ENVIO EVIDENCIAS%'
+            OR bu.accion LIKE '%REGISTRO RECHAZOS EVIDENCIAS%'
+            OR bu.accion LIKE '%REEMPLAZO ESPECIAL DE EVIDENCIA%'
+            OR bu.accion LIKE '%SUBIÓ EVIDENCIA%'
+            OR bu.accion LIKE '%SUBIO EVIDENCIA%'
+        )";
+
+        return <<<SQL
+            (
+                SELECT DATE_FORMAT(bu.fecha_alta, '%d/%m/%Y %H:%i')
+                FROM adj_bitacora bu
+                WHERE bu.id_operacion = {$aliasOperacion}.id
+                  AND {$whereAcciones}
+                ORDER BY bu.fecha_alta DESC, bu.id DESC
+                LIMIT 1
+            ) AS fecha_ultimo_movimiento_evidencias,
+            (
+                SELECT bu.accion
+                FROM adj_bitacora bu
+                WHERE bu.id_operacion = {$aliasOperacion}.id
+                  AND {$whereAcciones}
+                ORDER BY bu.fecha_alta DESC, bu.id DESC
+                LIMIT 1
+            ) AS accion_ultimo_movimiento_evidencias
+SQL;
+    }
+
+    private function sqlTiempoEnBandejaEvidencias(string $aliasOperacion = 'o'): string
+    {
+        return <<<SQL
+            (
+                SELECT DATE_FORMAT(MIN(bt.fecha_alta), '%d/%m/%Y %H:%i')
+                FROM adj_bitacora bt
+                WHERE bt.id_operacion = {$aliasOperacion}.id
+                  AND bt.accion LIKE '%AL PIPELINE%'
+            ) AS fecha_entrada_bandeja_evidencias,
+            (
+                SELECT TIMESTAMPDIFF(MINUTE, MIN(bt.fecha_alta), NOW())
+                FROM adj_bitacora bt
+                WHERE bt.id_operacion = {$aliasOperacion}.id
+                  AND bt.accion LIKE '%AL PIPELINE%'
+            ) AS minutos_en_bandeja_evidencias
+SQL;
+    }
+
+    private function sqlTiempoEnCorrecciones(string $aliasOperacion = 'o'): string
+    {
+        return <<<SQL
+            (
+                SELECT DATE_FORMAT(MAX(ht.fecha), '%d/%m/%Y %H:%i')
+                FROM adj_historial_estatus ht
+                WHERE ht.id_operacion = {$aliasOperacion}.id
+                  AND ht.estatus_nuevo = 'Revisión Recuperaciones'
+            ) AS fecha_entrada_bandeja_evidencias,
+            (
+                SELECT TIMESTAMPDIFF(MINUTE, MAX(ht.fecha), NOW())
+                FROM adj_historial_estatus ht
+                WHERE ht.id_operacion = {$aliasOperacion}.id
+                  AND ht.estatus_nuevo = 'Revisión Recuperaciones'
+            ) AS minutos_en_bandeja_evidencias
+SQL;
+    }
+
+    private function sqlTiempoTotalValidacionEvidencias(string $aliasOperacion = 'o'): string
+    {
+        return <<<SQL
+            (
+                SELECT DATE_FORMAT(MIN(bt.fecha_alta), '%d/%m/%Y %H:%i')
+                FROM adj_bitacora bt
+                WHERE bt.id_operacion = {$aliasOperacion}.id
+                  AND bt.accion LIKE '%AL PIPELINE%'
+            ) AS fecha_inicio_validacion_evidencias,
+            (
+                SELECT DATE_FORMAT(MAX(bv.fecha_alta), '%d/%m/%Y %H:%i')
+                FROM adj_bitacora bv
+                WHERE bv.id_operacion = {$aliasOperacion}.id
+                  AND bv.accion LIKE '%EVIDENCIAS VALIDADAS (PROCESANDO IA)%'
+            ) AS fecha_fin_validacion_evidencias,
+            (
+                SELECT TIMESTAMPDIFF(MINUTE, MIN(bt.fecha_alta), MAX(bv.fecha_alta))
+                FROM adj_bitacora bt
+                INNER JOIN adj_bitacora bv
+                        ON bv.id_operacion = bt.id_operacion
+                       AND bv.accion LIKE '%EVIDENCIAS VALIDADAS (PROCESANDO IA)%'
+                WHERE bt.id_operacion = {$aliasOperacion}.id
+                  AND bt.accion LIKE '%AL PIPELINE%'
+            ) AS minutos_total_validacion_evidencias
+SQL;
     }
 
     private function sqlConteoEvidenciasCartera(string $aliasOperacion = 'o'): string
@@ -301,6 +447,9 @@ SQL;
     {
         $joinAsig = $this->sqlJoinUnaAsignacionActivaPorCredito();
         $evidenciasCount = $this->sqlConteoEvidenciasFisicas('o');
+        $evidenciasValidacion = $this->sqlConteosValidacionAtn('o');
+        $ultimoMovimientoEvidencias = $this->sqlUltimoMovimientoEvidencias('o');
+        $tiempoEnBandeja = $this->sqlTiempoEnCorrecciones('o');
         $formulario = $this->sqlSelectFormularioEvidencias('o');
         $sql = <<<SQL
         SELECT
@@ -314,6 +463,9 @@ SQL;
             o.adeudo_total,
             DATEDIFF(NOW(), o.fecha_alta) AS dias_en_pipeline,
             {$evidenciasCount} AS evidencias_count,
+            {$evidenciasValidacion},
+            {$ultimoMovimientoEvidencias},
+            {$tiempoEnBandeja},
             {$formulario},
             TRIM(CONCAT_WS(' ',
                 per.nombres,
@@ -321,6 +473,7 @@ SQL;
                 per.apellidop,
                 per.apellidom
             )) AS gestor_nombre,
+            DATE_FORMAT(o.fecha_alta, '%d/%m/%Y %H:%i') AS fecha_dictamen_legacy,
             DATE_FORMAT(aca.fecha_alta, '%d/%m/%Y') AS fecha_asignacion
         FROM adj_operacion o
         {$joinAsig}
@@ -346,6 +499,9 @@ SQL;
         $joinAsig = $this->sqlJoinUnaAsignacionActivaPorCredito();
         $where = $this->sqlWhereBandejaEvidencias();
         $evidenciasCount = $this->sqlConteoEvidenciasFisicas('o');
+        $evidenciasValidacion = $this->sqlConteosValidacionAtn('o');
+        $ultimoMovimientoEvidencias = $this->sqlUltimoMovimientoEvidencias('o');
+        $tiempoEnBandeja = $this->sqlTiempoEnBandejaEvidencias('o');
         $formulario = $this->sqlSelectFormularioEvidencias('o');
         $sql = <<<SQL
         SELECT
@@ -359,6 +515,9 @@ SQL;
             o.adeudo_total,
             DATEDIFF(NOW(), o.fecha_alta) AS dias_en_pipeline,
             {$evidenciasCount} AS evidencias_count,
+            {$evidenciasValidacion},
+            {$ultimoMovimientoEvidencias},
+            {$tiempoEnBandeja},
             {$formulario},
             TRIM(CONCAT_WS(' ',
                 per.nombres,
@@ -366,6 +525,7 @@ SQL;
                 per.apellidop,
                 per.apellidom
             )) AS gestor_nombre,
+            DATE_FORMAT(o.fecha_alta, '%d/%m/%Y %H:%i') AS fecha_dictamen_legacy,
             DATE_FORMAT(aca.fecha_alta, '%d/%m/%Y') AS fecha_asignacion
         FROM adj_operacion o
         {$joinAsig}
@@ -385,6 +545,9 @@ SQL;
     {
         $joinAsig = $this->sqlJoinUnaAsignacionActivaPorCredito();
         $evidenciasCount = $this->sqlConteoEvidenciasFisicas('o');
+        $evidenciasValidacion = $this->sqlConteosValidacionAtn('o');
+        $ultimoMovimientoEvidencias = $this->sqlUltimoMovimientoEvidencias('o');
+        $tiempoTotalValidacion = $this->sqlTiempoTotalValidacionEvidencias('o');
         $formulario = $this->sqlSelectFormularioEvidencias('o');
         $exclDictRec = '';
         if ($excluirDictaminadoRecuperacion) {
@@ -419,6 +582,9 @@ SQL;
             o.adeudo_total,
             DATEDIFF(NOW(), o.fecha_alta) AS dias_en_pipeline,
             {$evidenciasCount} AS evidencias_count,
+            {$evidenciasValidacion},
+            {$ultimoMovimientoEvidencias},
+            {$tiempoTotalValidacion},
             {$formulario},
             TRIM(CONCAT_WS(' ',
                 per.nombres,
@@ -426,6 +592,7 @@ SQL;
                 per.apellidop,
                 per.apellidom
             )) AS gestor_nombre,
+            DATE_FORMAT(o.fecha_alta, '%d/%m/%Y %H:%i') AS fecha_dictamen_legacy,
             DATE_FORMAT(aca.fecha_alta, '%d/%m/%Y') AS fecha_asignacion,
             (
                 SELECT DATE_FORMAT(MAX(bv.fecha_alta), '%d/%m/%Y %H:%i')
