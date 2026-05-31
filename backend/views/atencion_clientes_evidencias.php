@@ -326,6 +326,8 @@
     font-style: italic;
 }
 .ae-table-evidence {
+    width: 250px;
+    max-width: 250px;
     white-space: nowrap;
     font-weight: 700;
     color: #566a7f;
@@ -437,7 +439,8 @@ body.dark-mode .ae-evidence-detail-pending { color: #94a3b8; }
     white-space: normal;
 }
 .ae-table-action {
-    min-width: 164px;
+    width: 74px;
+    min-width: 74px;
     text-align: center !important;
 }
 .ae-table-date {
@@ -445,7 +448,7 @@ body.dark-mode .ae-evidence-detail-pending { color: #94a3b8; }
     line-height: 1.35;
 }
 .ae-table-gestor {
-    min-width: 190px;
+    min-width: 270px;
 }
 .ae-table-gestor-name {
     display: flex;
@@ -2803,7 +2806,7 @@ $aevPuedeReemplazarEvidencia = in_array(79, array_map('intval', (array) ($_SESSI
             ? '<span class="ae-evidence-approved-date"><span class="ae-evidence-approved-date-label"><i class="fa-solid fa-hourglass-half"></i>' + (pestana === 'correcciones' ? 'Tiempo en correcciones' : 'Tiempo en evidencias') + '</span><strong>' + aeEsc(tiempoBandeja) + '</strong>' + (fechaEntradaBandeja ? '<small>Desde ' + aeEsc(fechaEntradaBandeja) + '</small>' : '') + '</span>'
             : '';
         const bloqueTiempoTotalValidacion = (tiempoTotalValidacion && pestana === 'aprobados')
-            ? '<span class="ae-evidence-approved-date"><span class="ae-evidence-approved-date-label"><i class="fa-solid fa-stopwatch"></i>Tiempo total de validacion</span><strong>' + aeEsc(tiempoTotalValidacion) + '</strong>' + (fechaInicioValidacion || fechaFinValidacion ? '<small>' + (fechaInicioValidacion ? 'Desde ' + aeEsc(fechaInicioValidacion) : '') + (fechaInicioValidacion && fechaFinValidacion ? ' · ' : '') + (fechaFinValidacion ? 'Lista ' + aeEsc(fechaFinValidacion) : '') + '</small>' : '') + '</span>'
+            ? '<span class="ae-evidence-approved-date"><span class="ae-evidence-approved-date-label"><i class="fa-solid fa-stopwatch"></i>Tiempo validacion</span><strong>' + aeEsc(tiempoTotalValidacion) + '</strong>' + (fechaInicioValidacion || fechaFinValidacion ? '<small>' + (fechaInicioValidacion ? 'Desde ' + aeEsc(fechaInicioValidacion) : '') + (fechaInicioValidacion && fechaFinValidacion ? '<br>' : '') + (fechaFinValidacion ? 'Lista ' + aeEsc(fechaFinValidacion) : '') + '</small>' : '') + '</span>'
             : '';
         const fechaUltimoMovimiento = item && item.fecha_ultimo_movimiento_evidencias
             ? String(item.fecha_ultimo_movimiento_evidencias)
@@ -2814,16 +2817,10 @@ $aevPuedeReemplazarEvidencia = in_array(79, array_map('intval', (array) ($_SESSI
         const ultimoMovimiento = (fechaUltimoMovimiento && pestana !== 'aprobados')
             ? '<span class="ae-evidence-approved-date"><span class="ae-evidence-approved-date-label"><i class="fa-solid fa-clock-rotate-left"></i>Último movimiento de evidencias</span><strong>' + aeEsc(fechaUltimoMovimiento) + '</strong>' + (accionUltimoMovimiento ? '<small>' + aeEsc(accionUltimoMovimiento) + '</small>' : '') + '</span>'
             : '';
-        const fechaAprobacion = item && item.fecha_aprobacion_evidencias
-            ? '<span class="ae-evidence-approved-date"><span class="ae-evidence-approved-date-label"><i class="fa-solid fa-calendar-check"></i>Fecha pase a siguiente fase</span><strong>' + aeEsc(item.fecha_aprobacion_evidencias) + '</strong></span>'
-            : '';
-
         if (pestana === 'aprobados') {
             const aceptadas = r.aceptadas || r.cargadas;
             return '<span class="ae-evidence-pill ae-evidence-pill--ok"><i class="fa-solid fa-circle-check"></i>Aceptadas ' + aceptadas + '/' + AE_EV_TOTAL + '</span>'
-                + '<span class="ae-evidence-detail ae-evidence-detail--single">' + cargadasTxt + '</span>'
                 + bloqueTiempoTotalValidacion
-                + fechaAprobacion
                 + ultimoMovimiento;
         }
 
