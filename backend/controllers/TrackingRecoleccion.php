@@ -411,7 +411,7 @@ class TrackingRecoleccion extends Controller
             return;
         }
         if ((int)($_FILES['archivo']['size'] ?? 0) > 100 * 1024 * 1024) {
-            self::respuestaJSON(['success' => false, 'mensaje' => 'El archivo supera el lÃ­mite de 100 MB.', 'codigo_http' => 413]);
+            self::respuestaJSON(['success' => false, 'mensaje' => 'El archivo supera el límite de 100 MB.', 'codigo_http' => 413]);
             return;
         }
 

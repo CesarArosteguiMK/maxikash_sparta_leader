@@ -184,6 +184,147 @@
 .ar-btn-evidencias:active { transform: translateY(0); }
 
 /* Forzar tono de tabs al color propio de Recuperación */
+.ar-table-wrap {
+    border: 1px solid #e5e7eb;
+    border-radius: .75rem;
+    overflow: visible;
+    background: #fff;
+    padding: 1.5rem;
+}
+.ar-table { margin: 0; font-size: .875rem; vertical-align: middle; }
+.ar-table thead th {
+    background: #f8fafc;
+    color: #566a7f;
+    border-bottom: 1px solid #dbe4ef;
+    font-size: .75rem;
+    font-weight: 700;
+    letter-spacing: .02em;
+    text-transform: uppercase;
+    white-space: nowrap;
+}
+.ar-table tbody tr:hover { background: #f8fbff; }
+.ar-table td { color: #697a8d; border-color: #e8eef5; }
+.ar-table-main { min-width: 150px; }
+.ar-table-folio {
+    display: inline-flex;
+    align-items: center;
+    max-width: 100%;
+    padding: .12rem .42rem;
+    border-radius: 999px;
+    background: #f0fdfa;
+    color: #0f766e;
+    font-size: .68rem;
+    font-weight: 800;
+}
+.ar-table-credit {
+    display: block;
+    margin-top: .22rem;
+    color: #566a7f;
+    font-weight: 700;
+}
+.ar-table-name {
+    min-width: 210px;
+    color: #697a8d;
+    font-weight: 700;
+    text-transform: uppercase;
+    line-height: 1.2;
+}
+.ar-table-muted { color: #94a3b8; font-style: italic; }
+.ar-table-evidence,
+.ar-table-status { white-space: nowrap; font-weight: 700; color: #566a7f; }
+.ar-table-status-stack {
+    display: flex;
+    flex-direction: column;
+    gap: .18rem;
+    min-width: 190px;
+}
+.ar-table-status-line {
+    line-height: 1.25;
+}
+.ar-table-status-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: .3rem;
+    border: 1px solid #bbf7d0;
+    border-radius: 999px;
+    background: #f0fdf4;
+    color: #15803d;
+    font-size: .7rem;
+    font-weight: 800;
+    line-height: 1;
+    padding: .28rem .55rem;
+    white-space: nowrap;
+}
+.ar-table-status-label {
+    color: #94a3b8;
+    font-size: .68rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: .02em;
+    margin-right: .25rem;
+}
+.ar-table-action { min-width: 130px; text-align: center !important; }
+.ar-table-actions {
+    display: flex;
+    width: 100%;
+    align-items: center;
+    justify-content: center;
+    gap: .5rem;
+    flex-wrap: wrap;
+}
+#arTabContent .dataTables_length,
+#arTabContent .dataTables_filter { margin-bottom: 1rem; }
+#arTabContent .dataTables_filter { text-align: right; }
+#arTabContent .dataTables_filter input {
+    margin-left: .5rem;
+    padding: .375rem .75rem;
+    border: 1px solid #d9dee3;
+    border-radius: .375rem;
+}
+#arTabContent .dataTables_filter input:focus {
+    border-color: #0d9488;
+    outline: none;
+    box-shadow: 0 0 0 .2rem rgba(13, 148, 136, .15);
+}
+#arTabContent .dataTables_length select {
+    margin: 0 .5rem;
+    padding: .375rem 1.75rem .375rem .75rem;
+}
+#arTabContent .dataTables_info { margin: 0; color: #6c757d; font-size: .85rem; }
+#arTabContent .ar-dt-footer {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    gap: 1rem;
+    flex-wrap: wrap;
+    width: 100%;
+    margin-left: 0;
+    margin-right: 0;
+    padding-top: 1rem;
+}
+#arTabContent .ar-dt-footer > [class*="col-"] { padding-left: 0; padding-right: 0; }
+#arTabContent .ar-dt-info { flex: 1 1 auto !important; width: auto !important; max-width: none !important; }
+#arTabContent .ar-dt-pages {
+    flex: 0 0 auto !important;
+    width: auto !important;
+    max-width: none !important;
+    margin-left: auto;
+    display: flex !important;
+    justify-content: flex-end !important;
+}
+#arTabContent .ar-dt-footer .dataTables_paginate {
+    display: flex;
+    justify-content: flex-end;
+    width: auto;
+    margin: 0 !important;
+}
+#arTabContent .ar-dt-footer .dataTables_paginate .pagination {
+    justify-content: flex-end !important;
+    margin: 0 !important;
+    margin-left: auto !important;
+}
+#arTabContent .ar-dt-footer .dataTables_paginate .page-item { margin: 0 .18rem; }
+
 #arTabNav .nav-link {
     color: #0f172a;
 }
@@ -200,28 +341,28 @@
 /* ── Modal evidencias (Recuperación) ── */
 /* dark-mode.css fuerza .modal-header a fondo blanco (!important); sin esto el título text-white no se ve */
 #modalArRecuperacionEvidencias .modal-header.ar-ev-modal-header {
-    background: linear-gradient(135deg, #0f766e 0%, #14b8a6 100%) !important;
+    background: #fff !important;
     border: none !important;
-    border-bottom: none !important;
-    color: #fff !important;
+    border-bottom: 1px solid #e2e8f0 !important;
+    color: #0f172a !important;
     padding: .85rem 1.15rem;
 }
 #modalArRecuperacionEvidencias .modal-header.ar-ev-modal-header .modal-title,
 #modalArRecuperacionEvidencias .modal-header.ar-ev-modal-header .modal-title span,
 #modalArRecuperacionEvidencias .modal-header.ar-ev-modal-header .ar-ev-subtitle,
 #modalArRecuperacionEvidencias .modal-header.ar-ev-modal-header .ar-ev-subtitle strong {
-    color: #fff !important;
+    color: #0f172a !important;
 }
 /* En cabecera el progreso inline no debe usar el verde oscuro del cuerpo del modal */
 #modalArRecuperacionEvidencias .modal-header.ar-ev-modal-header .ar-ev-prog-lbl {
-    color: rgba(255, 255, 255, 0.95) !important;
+    color: #0f766e !important;
 }
 #modalArRecuperacionEvidencias .modal-header .ar-ev-subtitle {
     font-size: .78rem;
     opacity: .95;
     margin-top: .2rem;
 }
-#modalArRecuperacionEvidencias .modal-header .btn-close { filter: brightness(0) invert(1); }
+#modalArRecuperacionEvidencias .modal-header .btn-close { filter: none; }
 #modalArRecuperacionEvidencias .ar-ev-prog-bg {
     height: 8px;
     background: #e2e8f0;
@@ -300,22 +441,92 @@
 .ar-ev-badge-mini.no { background: #dc2626; }
 
 .ar-ev-doc-zone {
-    min-height: 88px;
-    border: 2px dashed #cbd5e1;
-    border-radius: .5rem;
+    min-height: 34px;
+    border: 1px dashed #cbd5e1;
+    border-radius: .4rem;
     display: flex;
-    flex-direction: column;
     align-items: center;
     justify-content: center;
-    padding: .75rem;
-    text-align: center;
-    gap: .35rem;
+    padding: .22rem .45rem;
+    text-align: left;
+    gap: .42rem;
     background: #fff;
     cursor: pointer;
+    flex-wrap: nowrap;
 }
 .ar-ev-doc-zone--green { border-color: #86efac; background: #f0fdf4; }
 .ar-ev-doc-zone--purple { border-color: #d8b4fe; background: #faf5ff; }
 .ar-ev-doc-zone a { font-size: .8rem; font-weight: 700; }
+.ar-ev-doc-zone .fa-2x { font-size: .95rem; }
+.ar-ev-doc-main {
+    display: flex;
+    align-items: center;
+    gap: .35rem;
+    min-width: 0;
+    flex: 1 1 auto;
+}
+.ar-ev-doc-title {
+    color: #14532d;
+    font-size: .68rem;
+    font-weight: 800;
+    line-height: 1.1;
+    white-space: nowrap;
+}
+.ar-ev-doc-sub {
+    color: #64748b;
+    font-size: .64rem;
+    line-height: 1.1;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.ar-ev-doc-zone--purple .ar-ev-doc-sub { color: #6b7280; }
+.ar-ev-doc-title--purple { color: #5b21b6; }
+.ar-ev-doc-actions {
+    display: inline-flex;
+    align-items: center;
+    gap: .3rem;
+    flex-wrap: nowrap;
+    margin-left: auto;
+}
+.ar-ev-btn-ver-doc {
+    border: 2px solid #22c55a;
+    color: #14532d;
+    background: #fff;
+    border-radius: 2rem;
+    font-weight: 800;
+    font-size: .66rem;
+    padding: .18rem .65rem;
+    line-height: 1.1;
+    white-space: nowrap;
+}
+.ar-ev-btn-ver-doc:hover,
+.ar-ev-btn-ver-doc:focus {
+    background: #dcfce7;
+    border-color: #16a34a;
+    color: #14532d;
+}
+.ar-ev-btn-ver-doc--purple {
+    border-color: #a78bfa;
+    color: #5b21b6;
+}
+.ar-ev-btn-ver-doc--purple:hover,
+.ar-ev-btn-ver-doc--purple:focus {
+    background: #f3e8ff;
+    border-color: #7c3aed;
+    color: #5b21b6;
+}
+.ar-ev-doc-badge {
+    border-radius: 999px;
+    color: #fff;
+    display: inline-block;
+    font-size: .52rem;
+    font-weight: 800;
+    padding: 1px 5px;
+    white-space: nowrap;
+}
+.ar-ev-doc-badge--green { background: #15803d; }
+.ar-ev-doc-badge--purple { background: #6d28d9; }
 
 .ar-ev-cartera-panel {
     border-color: #e2e8f0 !important;
@@ -334,6 +545,119 @@ body.dark-mode .ar-ev-cartera-panel textarea.form-control {
 body.dark-mode #modalArRecuperacionEvidencias #ar-ev-btn-enviar-cartera {
     color: #fff;
 }
+.ar-ev-info-panel {
+    border: 1px solid #dbeafe;
+    background: linear-gradient(180deg, #f8fbff 0%, #ffffff 100%);
+    border-radius: .75rem;
+    padding: .9rem;
+    margin-bottom: 1rem;
+}
+.ar-ev-info-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: .75rem;
+    padding-bottom: .65rem;
+    margin-bottom: .75rem;
+    border-bottom: 1px solid #e2e8f0;
+}
+.ar-ev-info-title {
+    color: #0f172a;
+    font-size: .9rem;
+    font-weight: 800;
+    margin: 0;
+}
+.ar-ev-info-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: .32rem;
+    border-radius: 999px;
+    background: #ccfbf1;
+    color: #0f766e;
+    font-size: .68rem;
+    font-weight: 800;
+    padding: .2rem .55rem;
+    white-space: nowrap;
+}
+.ar-ev-info-grid {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: .55rem;
+}
+.ar-ev-info-line {
+    display: flex;
+    align-items: center;
+    gap: .45rem;
+    flex-wrap: nowrap;
+    min-width: 0;
+    overflow-x: auto;
+    padding-bottom: .1rem;
+}
+.ar-ev-info-line::-webkit-scrollbar { height: 4px; }
+.ar-ev-info-line::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 999px; }
+.ar-ev-info-block {
+    border: 1px solid #e2e8f0;
+    background: #fff;
+    border-radius: .55rem;
+    padding: .55rem .65rem;
+    min-width: 0;
+}
+.ar-ev-info-title-cell {
+    align-self: end;
+    color: #0f766e;
+    font-size: .7rem;
+    font-weight: 900;
+    letter-spacing: .04em;
+    line-height: 1.15;
+    padding: 0 .15rem .12rem;
+    text-transform: uppercase;
+}
+.ar-ev-info-block--wide {
+    grid-column: span 2;
+}
+.ar-ev-info-line .ar-ev-info-block {
+    flex: 0 0 auto;
+    min-width: 128px;
+    padding: .42rem .55rem;
+}
+.ar-ev-info-line .ar-ev-info-block--wide {
+    min-width: 220px;
+}
+.ar-ev-info-line .ar-ev-info-label,
+.ar-ev-info-line .ar-ev-info-value {
+    white-space: nowrap;
+}
+.ar-ev-info-label {
+    display: block;
+    color: #64748b;
+    font-size: .64rem;
+    font-weight: 800;
+    letter-spacing: .03em;
+    line-height: 1.15;
+    margin-bottom: .18rem;
+    text-transform: uppercase;
+}
+.ar-ev-info-value {
+    color: #0f172a;
+    font-size: .78rem;
+    font-weight: 800;
+    line-height: 1.2;
+    word-break: break-word;
+}
+.ar-ev-info-section {
+    color: #0f766e;
+    font-size: .7rem;
+    font-weight: 900;
+    letter-spacing: .04em;
+    text-transform: uppercase;
+    margin: .85rem 0 .45rem;
+}
+body.dark-mode .ar-ev-info-panel { background: #0f172a; border-color: #334155; }
+body.dark-mode .ar-ev-info-head { border-color: #334155; }
+body.dark-mode .ar-ev-info-title,
+body.dark-mode .ar-ev-info-value { color: #e2e8f0; }
+body.dark-mode .ar-ev-info-block { background: #111827; border-color: #334155; }
+body.dark-mode .ar-ev-info-label { color: #94a3b8; }
 
 /* Visor in-page (fotos, video, PDF) — dentro del modal para z-index / foco */
 #modalArRecuperacionEvidencias.ar-ev-ar-vista-abierta { overflow: visible !important; }
@@ -431,6 +755,75 @@ body.dark-mode #modalArRecuperacionEvidencias #ar-ev-btn-enviar-cartera {
 #modalArRecuperacionEvidencias .ar-ev-vista-panel--factura #ar-ev-vista-titulo { color: #5b21b6; }
 body.dark-mode #modalArRecuperacionEvidencias .ar-ev-vista-panel { background: #1e293b; }
 
+.ar-descarga-grid {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: .75rem;
+}
+@media (max-width: 1199.98px) { .ar-descarga-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+@media (max-width: 767.98px) { .ar-descarga-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 480px) { .ar-descarga-grid { grid-template-columns: 1fr; } }
+.ar-descarga-card {
+    position: relative;
+    border: 1px solid #dbeafe;
+    border-radius: .75rem;
+    background: #fff;
+    padding: .55rem;
+    min-height: 10.6rem;
+    display: flex;
+    flex-direction: column;
+    gap: .45rem;
+    box-shadow: 0 8px 18px rgba(15, 23, 42, .05);
+}
+.ar-descarga-card.is-checked {
+    border-color: #14b8a6;
+    box-shadow: 0 10px 22px rgba(20, 184, 166, .13);
+}
+.ar-descarga-check {
+    position: absolute;
+    top: .45rem;
+    right: .45rem;
+    width: 1.2rem;
+    height: 1.2rem;
+    z-index: 2;
+}
+.ar-descarga-prev {
+    height: 6.4rem;
+    border: 1px solid #e2e8f0;
+    border-radius: .55rem;
+    background: #f8fafc;
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.ar-descarga-prev img,
+.ar-descarga-prev video {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+.ar-descarga-prev i {
+    font-size: 1.75rem;
+    color: #1d4ed8;
+}
+.ar-descarga-title {
+    color: #173756;
+    font-weight: 800;
+    font-size: .78rem;
+    line-height: 1.15;
+    min-height: 1.8rem;
+    padding-right: 1.35rem;
+}
+.ar-descarga-url {
+    color: #64748b;
+    font-size: .68rem;
+    line-height: 1.15;
+    word-break: break-all;
+    max-height: 1.55rem;
+    overflow: hidden;
+}
+
 .ar-ev-notas-panel {
     border: 1px solid #e2e8f0;
     border-radius: .65rem;
@@ -461,18 +854,53 @@ body.dark-mode .ae-main-credito { color: #e2e8f0; }
 body.dark-mode .ar-ev-slots-wrap { background: #0f172a; border-color: #334155; }
 body.dark-mode .ar-ev-slot { background: #1e293b; border-color: #475569; }
 body.dark-mode .ar-ev-notas-panel { background: #0f172a; border-color: #334155; }
+body.dark-mode .ar-table-wrap { background: #111827; border-color: #1f2937; }
+body.dark-mode .ar-table thead th { background: #0f172a; color: #e2e8f0; border-color: #1f2937; }
+body.dark-mode .ar-table tbody tr:hover { background: #172033; }
+body.dark-mode .ar-table td { color: #cbd5e1; border-color: #1f2937; }
+body.dark-mode .ar-table-credit,
+body.dark-mode .ar-table-name,
+body.dark-mode .ar-table-evidence,
+body.dark-mode .ar-table-status { color: #e2e8f0; }
+body.dark-mode #arTabContent .dataTables_filter input,
+body.dark-mode #arTabContent .dataTables_length select { background: #111827; border-color: #1f2937; color: #e2e8f0; }
 
 @media (max-width: 991.98px) {
     .ae-list-grid {
         grid-template-columns: repeat(2, minmax(220px, 1fr));
     }
+    .ar-ev-info-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
 }
 @media (max-width: 767.98px) {
+    #arTabContent .ar-dt-footer {
+        justify-content: center !important;
+        text-align: center;
+    }
+    #arTabContent .ar-dt-info,
+    #arTabContent .ar-dt-pages {
+        flex: 0 0 100% !important;
+        width: 100% !important;
+        margin-left: 0;
+        justify-content: center !important;
+    }
+    #arTabContent .ar-dt-footer .dataTables_paginate {
+        justify-content: center;
+        width: 100%;
+    }
+    #arTabContent .ar-dt-footer .dataTables_paginate .pagination {
+        justify-content: center !important;
+        margin-left: 0 !important;
+    }
     .ac-card-body {
         flex-direction: column;
         align-items: stretch;
     }
     .ae-list-grid {
+        grid-template-columns: 1fr;
+    }
+    .ar-ev-info-grid {
         grid-template-columns: 1fr;
     }
     .ae-list-action {
@@ -564,6 +992,10 @@ body.dark-mode .ar-ev-notas-panel { background: #0f172a; border-color: #334155; 
                 </div>
             </div>
             <div class="modal-footer bg-light border-top py-2 d-flex justify-content-end align-items-center gap-2 flex-wrap">
+                <button type="button" id="ar-ev-btn-descargar-evidencias" class="btn btn-outline-primary btn-sm rounded-pill fw-semibold"
+                        style="display:none;">
+                    <i class="fa-solid fa-download me-1"></i>Descargar evidencias
+                </button>
                 <button type="button" id="ar-ev-btn-enviar-cartera" class="btn btn-primary btn-sm rounded-pill fw-semibold"
                         style="display:none;">
                     <i class="fa-solid fa-paper-plane me-1"></i>Enviar a cartera
@@ -581,6 +1013,38 @@ body.dark-mode .ar-ev-notas-panel { background: #0f172a; border-color: #334155; 
                 </button>
             </div>
             <div class="ar-ev-vista-mediabox" id="ar-ev-vista-mediabox"></div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="modalArDescargarEvidencias" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable modal-fullscreen-md-down">
+        <div class="modal-content">
+            <div class="modal-header bg-white">
+                <div>
+                    <h5 class="modal-title mb-0 fw-bold" style="color:#173756;">
+                        <i class="fa-solid fa-download me-2"></i>Descargar evidencias
+                    </h5>
+                    <div class="text-muted small">Selecciona las evidencias que quieres descargar.</div>
+                </div>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <div class="modal-body">
+                <div class="d-flex justify-content-between align-items-center gap-2 flex-wrap mb-3">
+                    <label class="d-inline-flex align-items-center gap-2 fw-semibold mb-0" style="color:#173756;">
+                        <input type="checkbox" id="ar-descarga-check-all" class="form-check-input mt-0" checked>
+                        Seleccionar todas
+                    </label>
+                    <span class="badge rounded-pill bg-light text-primary border" id="ar-descarga-contador">0 seleccionadas</span>
+                </div>
+                <div id="ar-descarga-grid" class="ar-descarga-grid"></div>
+            </div>
+            <div class="modal-footer bg-light">
+                <button type="button" class="btn btn-secondary btn-sm rounded-pill" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" id="ar-descarga-btn-confirmar" class="btn btn-primary btn-sm rounded-pill fw-semibold">
+                    <i class="fa-solid fa-file-zipper me-1"></i>Descargar seleccionadas
+                </button>
+            </div>
         </div>
     </div>
 </div>
@@ -658,6 +1122,7 @@ $arPublicPath = function_exists('sparta_public_web_base') ? sparta_public_web_ba
 
     let _arCargada = { bandeja: false, dictaminado: false };
     let _arEvDetalle = null;
+    let _arEvSoloLectura = false;
     let _arZoomTeardown = null;
 
     function arZoomTeardown() {
@@ -966,18 +1431,28 @@ $arPublicPath = function_exists('sparta_public_web_base') ? sparta_public_web_ba
         const url = has ? arUrlForDisplay(row.url) : '';
         if (has) {
             return `
-            <div class="ar-ev-doc-zone ar-ev-doc-zone--green" role="button" tabindex="0"
-                 data-ar-ev-doc-open="${arEsc(url)}" data-ar-ev-doc-kind="repuve">
+            <div class="ar-ev-doc-zone ar-ev-doc-zone--green">
                 <i class="fa-solid fa-file-pdf fa-2x text-success"></i>
-                <span class="fw-bold text-success small">VER REPUVE</span>
-                <span class="text-muted" style="font-size:.65rem;">PDF en expediente</span>
+                <div class="ar-ev-doc-main">
+                    <span class="ar-ev-doc-title">Repuve</span>
+                    <span class="ar-ev-doc-sub">${_arEvSoloLectura ? 'PDF en expediente.' : 'PDF en expediente. Toca la zona para reemplazar.'}</span>
+                </div>
+                <div class="ar-ev-doc-actions">
+                    <button type="button" class="ar-ev-btn-ver-doc"
+                            data-ar-ev-doc-open="${arEsc(url)}" data-ar-ev-doc-kind="repuve">
+                        <i class="fa-solid fa-eye me-1" aria-hidden="true"></i>Ver PDF
+                    </button>
+                    <span class="ar-ev-doc-badge ar-ev-doc-badge--green">En expediente</span>
+                </div>
             </div>`;
         }
         return `
         <div class="ar-ev-doc-zone ar-ev-doc-zone--green" id="ar-ev-zone-repuve" role="button" tabindex="0">
-            <i class="fa-solid fa-eye fa-lg text-success opacity-75"></i>
-            <span class="fw-bold text-success small">SUBIR REPUVE</span>
-            <span class="text-muted" style="font-size:.65rem;">Solo PDF</span>
+            <i class="fa-solid fa-file-pdf fa-2x text-success opacity-50"></i>
+            <div class="ar-ev-doc-main">
+                <span class="ar-ev-doc-title">Subir Repuve</span>
+                <span class="ar-ev-doc-sub">Solo PDF</span>
+            </div>
         </div>`;
     }
 
@@ -987,23 +1462,36 @@ $arPublicPath = function_exists('sparta_public_web_base') ? sparta_public_web_ba
         const url = has ? arUrlForDisplay(row.url) : '';
         if (has) {
             return `
-            <div class="ar-ev-doc-zone ar-ev-doc-zone--purple" role="button" tabindex="0"
-                 data-ar-ev-doc-open="${arEsc(url)}" data-ar-ev-doc-kind="factura">
+            <div class="ar-ev-doc-zone ar-ev-doc-zone--purple">
                 <i class="fa-solid fa-file-invoice fa-2x" style="color:#7c3aed;"></i>
-                <span class="fw-bold small" style="color:#5b21b6;">VER FACTURA</span>
-                <span class="text-muted" style="font-size:.65rem;">Documento cargado</span>
+                <div class="ar-ev-doc-main">
+                    <span class="ar-ev-doc-title ar-ev-doc-title--purple">Factura</span>
+                    <span class="ar-ev-doc-sub">${_arEvSoloLectura ? 'Documento cargado.' : 'Documento cargado. Toca la zona para reemplazar.'}</span>
+                </div>
+                <div class="ar-ev-doc-actions">
+                    <button type="button" class="ar-ev-btn-ver-doc ar-ev-btn-ver-doc--purple"
+                            data-ar-ev-doc-open="${arEsc(url)}" data-ar-ev-doc-kind="factura">
+                        <i class="fa-solid fa-eye me-1" aria-hidden="true"></i>Ver factura
+                    </button>
+                    <span class="ar-ev-doc-badge ar-ev-doc-badge--purple">Cargada</span>
+                </div>
             </div>`;
         }
         return `
         <div class="ar-ev-doc-zone ar-ev-doc-zone--purple" id="ar-ev-zone-factura" role="button" tabindex="0">
-            <i class="fa-solid fa-file-circle-plus fa-lg" style="color:#7c3aed;"></i>
-            <span class="fw-bold small" style="color:#5b21b6;">SUBIR FACTURA</span>
-            <span class="text-muted" style="font-size:.65rem;">Momento 3 · PDF o imagen</span>
+            <i class="fa-solid fa-file-circle-plus fa-2x" style="color:#7c3aed;opacity:.5;"></i>
+            <div class="ar-ev-doc-main">
+                <span class="ar-ev-doc-title ar-ev-doc-title--purple">Subir Factura</span>
+                <span class="ar-ev-doc-sub">PDF o imagen</span>
+            </div>
         </div>`;
     }
 
     /** Tras subir factura (momento 3): comentarios a ancho completo (debajo de Repuve y Factura) */
     function arRenderFacturaCarteraComentarios(map) {
+        if (_arEvSoloLectura) {
+            return '';
+        }
         const row = map.doc_factura;
         const has = row && row.url && String(row.url).trim() !== '';
         if (!has) {
@@ -1023,9 +1511,173 @@ $arPublicPath = function_exists('sparta_public_web_base') ? sparta_public_web_ba
         if (!btn) {
             return;
         }
+        if (_arEvSoloLectura) {
+            btn.style.display = 'none';
+            btn.disabled = true;
+            return;
+        }
         const has = map && map.doc_factura && map.doc_factura.url && String(map.doc_factura.url).trim() !== '';
         btn.style.display = has ? '' : 'none';
         btn.disabled = false;
+    }
+
+    function arEvidenciasDescargables(map) {
+        const items = [];
+        const keys = AR_IMG_KEYS.concat(AR_DOC_KEYS);
+        keys.forEach(function (slot) {
+            const row = map && map[slot] ? map[slot] : null;
+            const url = row && row.url ? arUrlForDisplay(row.url) : '';
+            if (!url) {
+                return;
+            }
+            items.push({
+                slot: slot,
+                label: AR_SLOT_LABEL[slot] || slot,
+                url: url,
+                isVideo: /video|360|vuelta/i.test(slot) || /\.(mp4|mov|webm|m4v)(\?|#|$)/i.test(url),
+                isPdf: arEsPdfPorUrl(url),
+            });
+        });
+        return items;
+    }
+
+    function arEvToggleFooterDescarga(map) {
+        const btn = document.getElementById('ar-ev-btn-descargar-evidencias');
+        if (!btn) {
+            return;
+        }
+        btn.style.display = arEvidenciasDescargables(map).length ? '' : 'none';
+        btn.disabled = false;
+    }
+
+    function arActualizarContadorDescarga() {
+        const grid = document.getElementById('ar-descarga-grid');
+        const contador = document.getElementById('ar-descarga-contador');
+        const all = document.getElementById('ar-descarga-check-all');
+        if (!grid || !contador) {
+            return;
+        }
+        const checks = Array.prototype.slice.call(grid.querySelectorAll('[data-ar-descarga-slot]'));
+        const sel = checks.filter(function (x) { return x.checked; }).length;
+        contador.textContent = sel + ' seleccionada' + (sel === 1 ? '' : 's');
+        checks.forEach(function (chk) {
+            const card = chk.closest('.ar-descarga-card');
+            if (card) {
+                card.classList.toggle('is-checked', chk.checked);
+            }
+        });
+        if (all) {
+            all.checked = checks.length > 0 && sel === checks.length;
+            all.indeterminate = sel > 0 && sel < checks.length;
+        }
+    }
+
+    function arRenderPreviewDescarga(item) {
+        const url = arEsc(item.url);
+        if (item.isVideo) {
+            return '<video src="' + url + '" muted playsinline preload="metadata"></video>';
+        }
+        if (item.isPdf) {
+            return '<i class="fa-solid fa-file-pdf"></i>';
+        }
+        return '<img src="' + url + '" alt="' + arEsc(item.label) + '" loading="lazy">';
+    }
+
+    function arAbrirDescargaEvidencias() {
+        if (!_arEvDetalle) {
+            return;
+        }
+        const map = arMapaPorSlot(_arEvDetalle.evidencias || []);
+        const items = arEvidenciasDescargables(map);
+        const grid = document.getElementById('ar-descarga-grid');
+        if (!items.length) {
+            if (window.Swal) {
+                Swal.fire('Sin evidencias', 'No hay archivos disponibles para descargar.', 'info');
+            }
+            return;
+        }
+        if (!grid) {
+            return;
+        }
+        grid.innerHTML = items.map(function (item) {
+            return '' +
+                '<label class="ar-descarga-card is-checked">' +
+                    '<input type="checkbox" class="form-check-input ar-descarga-check" data-ar-descarga-slot="' + arEsc(item.slot) + '" checked>' +
+                    '<div class="ar-descarga-prev">' + arRenderPreviewDescarga(item) + '</div>' +
+                    '<div class="ar-descarga-title">' + arEsc(item.label) + '</div>' +
+                    '<div class="ar-descarga-url">' + arEsc(item.url) + '</div>' +
+                '</label>';
+        }).join('');
+        arActualizarContadorDescarga();
+        if (window.bootstrap) {
+            (new bootstrap.Modal(document.getElementById('modalArDescargarEvidencias'))).show();
+        }
+    }
+
+    function arDescargarEvidenciasSeleccionadas() {
+        if (!_arEvDetalle || !_arEvDetalle.id) {
+            return;
+        }
+        const grid = document.getElementById('ar-descarga-grid');
+        const btn = document.getElementById('ar-descarga-btn-confirmar');
+        if (!grid) {
+            return;
+        }
+        const slots = Array.prototype.slice.call(grid.querySelectorAll('[data-ar-descarga-slot]:checked'))
+            .map(function (chk) { return chk.getAttribute('data-ar-descarga-slot'); })
+            .filter(Boolean);
+        if (!slots.length) {
+            if (window.Swal) {
+                Swal.fire('Selecciona evidencias', 'Marca al menos una evidencia para descargar.', 'warning');
+            }
+            return;
+        }
+        if (btn) {
+            btn.disabled = true;
+            btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Preparando ZIP';
+        }
+        fetch('/MotosAdjudicadas/descargarEvidenciasSeleccionadas', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Accept': 'application/zip, application/json' },
+            credentials: 'same-origin',
+            body: JSON.stringify({ id_operacion: _arEvDetalle.id, slots: slots }),
+        })
+            .then(function (res) {
+                const ct = res.headers.get('content-type') || '';
+                if (!res.ok || ct.indexOf('application/json') !== -1) {
+                    return res.json().catch(function () { return {}; }).then(function (data) {
+                        throw new Error(data.message || 'No se pudo preparar la descarga.');
+                    });
+                }
+                return res.blob();
+            })
+            .then(function (blob) {
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = 'evidencias_' + (_arEvDetalle.id_credito || _arEvDetalle.id || 'operacion') + '.zip';
+                document.body.appendChild(a);
+                a.click();
+                a.remove();
+                window.URL.revokeObjectURL(url);
+                const modalEl = document.getElementById('modalArDescargarEvidencias');
+                if (modalEl && window.bootstrap && bootstrap.Modal.getInstance(modalEl)) {
+                    bootstrap.Modal.getInstance(modalEl).hide();
+                }
+            })
+            .catch(function (err) {
+                if (window.Swal) {
+                    Swal.fire('No se pudo descargar', err.message || 'Intenta de nuevo.', 'error');
+                } else {
+                    alert(err.message || 'No se pudo descargar.');
+                }
+            })
+            .finally(function () {
+                if (btn) {
+                    btn.disabled = false;
+                    btn.innerHTML = '<i class="fa-solid fa-file-zipper me-1"></i>Descargar seleccionadas';
+                }
+            });
     }
 
     function arEsPdfPorUrl(u) {
@@ -1133,6 +1785,99 @@ $arPublicPath = function_exists('sparta_public_web_base') ? sparta_public_web_ba
         });
     }
 
+    function arDatoVisible(v) {
+        if (v === null || v === undefined) return '';
+        const s = String(v).trim();
+        return s === '' || s === 'null' || s === 'undefined' ? '' : s;
+    }
+
+    function arInfoItem(label, value, extraClass) {
+        const v = arDatoVisible(value);
+        if (!v) return '';
+        const cls = extraClass ? ' ' + extraClass : '';
+        return '<div class="ar-ev-info-block' + cls + '">' +
+            '<span class="ar-ev-info-label">' + arEsc(label) + '</span>' +
+            '<div class="ar-ev-info-value">' + arEsc(v) + '</div>' +
+            '</div>';
+    }
+
+    function arInfoSection(titulo, items) {
+        const html = items.filter(Boolean).join('');
+        if (!html) return '';
+        return '<div class="ar-ev-info-section">' + arEsc(titulo) + '</div>' +
+            '<div class="ar-ev-info-grid">' + html + '</div>';
+    }
+
+    function arInfoTitleCell(titulo) {
+        return '<div class="ar-ev-info-title-cell">' + arEsc(titulo) + '</div>';
+    }
+
+    function arInfoLine(titulo, items) {
+        const html = items.filter(Boolean).join('');
+        if (!html) return '';
+        return '<div class="ar-ev-info-section">' + arEsc(titulo) + '</div>' +
+            '<div class="ar-ev-info-line">' + html + '</div>';
+    }
+
+    function arRenderInfoOperacion(det) {
+        const moto = det && det.datos_moto && typeof det.datos_moto === 'object' ? det.datos_moto : {};
+        const fechaAdjudicacion = arDatoVisible(det.fecha_alta_fmt || det.fecha_alta);
+        const fechaActualizacion = arDatoVisible(det.fecha_actualizacion_fmt || det.fecha_actualizacion);
+        const dias = det.dias_en_pipeline !== null && det.dias_en_pipeline !== undefined && det.dias_en_pipeline !== ''
+            ? String(det.dias_en_pipeline) + ' dias en etapa'
+            : '';
+        const estado = arDatoVisible(det.estatus) || 'Sin estatus';
+        const motoNombre = [moto.moto_marca, moto.moto_modelo, moto.moto_anio]
+            .map(arDatoVisible)
+            .filter(Boolean)
+            .join(' ');
+
+        const motoItems = [
+            arInfoTitleCell('Datos de la moto'),
+            arInfoItem('Capturado', det.datos_moto_fecha),
+            arInfoItem('Moto', motoNombre, 'ar-ev-info-block--wide'),
+            arInfoItem('Color', moto.moto_color),
+            arInfoItem('VIN / Serie', moto.moto_no_serie, 'ar-ev-info-block--wide'),
+            arInfoItem('No. motor', moto.moto_no_motor, 'ar-ev-info-block--wide'),
+            arInfoItem('Placas', moto.moto_placas),
+            arInfoItem('Marca', moto.moto_marca),
+            arInfoItem('Modelo', moto.moto_modelo, 'ar-ev-info-block--wide'),
+            arInfoItem('Ano', moto.moto_anio)
+        ];
+        const datosMotoHtml = motoItems.filter(Boolean).join('');
+
+        const operacion = arInfoSection('Operacion y fechas', [
+            arInfoItem('Folio', det.folio),
+            arInfoItem('Credito', det.id_credito),
+            arInfoItem('Fecha adjudicacion', fechaAdjudicacion),
+            arInfoItem('Ultima actualizacion', fechaActualizacion),
+            arInfoItem('Tiempo en etapa', dias),
+            arInfoItem('Cliente', det.nombre_cliente),
+            datosMotoHtml,
+            arInfoItem('Saldo capital', det.saldo_capital),
+            arInfoItem('Adeudo total', det.adeudo_total)
+        ]);
+
+        const resguardo = arInfoSection('Resguardo y entrega', [
+            arInfoItem('Lugar resguardo', moto.log_lugar_resguardo),
+            arInfoItem('Otro lugar', moto.log_lugar_otro),
+            arInfoItem('Direccion', moto.log_direccion),
+            arInfoItem('Ciudad', moto.log_ciudad),
+            arInfoItem('Estado', moto.log_estado),
+            arInfoItem('Responsable', moto.responsable_entrega),
+            arInfoItem('Telefono', moto.log_telefono)
+        ]);
+
+        return '<div class="ar-ev-info-panel">' +
+            '<div class="ar-ev-info-head">' +
+            '<h6 class="ar-ev-info-title"><i class="fa-solid fa-motorcycle me-1"></i> Datos de adjudicacion y moto</h6>' +
+            '<span class="ar-ev-info-pill"><i class="fa-solid fa-circle-info"></i>' + arEsc(estado) + '</span>' +
+            '</div>' +
+            operacion +
+            resguardo +
+            '</div>';
+    }
+
     function arEvRenderDetalle(det) {
         const inner = document.getElementById('ar-ev-modal-inner');
         if (!inner || !det) {
@@ -1156,6 +1901,7 @@ $arPublicPath = function_exists('sparta_public_web_base') ? sparta_public_web_ba
         }
 
         inner.innerHTML =
+            arRenderInfoOperacion(det) +
             '<div class="row g-3">' +
             '<div class="col-lg-8">' +
             '<div class="d-flex justify-content-between align-items-end mb-1 flex-wrap gap-1">' +
@@ -1168,10 +1914,10 @@ $arPublicPath = function_exists('sparta_public_web_base') ? sparta_public_web_ba
             '</div>' +
             arRenderSeccion(AR_SEC_FIS, map) +
             '<div class="row g-2 mt-1">' +
-            '<div class="col-md-4">' +
-            '<div class="ar-ev-hdr ar-ev-hdr-green mb-0"><i class="fa-solid fa-file-pdf"></i> Repuve</div>' +
+            '<div class="col-12">' +
+            '<div class="ar-ev-hdr ar-ev-hdr-green mb-0"><i class="fa-solid fa-file-pdf"></i> Momento 2: Repuve</div>' +
             '<div class="pt-2">' + arRenderDocRepuve(map) + '</div></div>' +
-            '<div class="col-md-8">' +
+            '<div class="col-12">' +
             '<div class="ar-ev-hdr ar-ev-hdr-purple mb-0"><i class="fa-solid fa-file-invoice"></i> Momento 3: Factura</div>' +
             '<div class="pt-2">' + arRenderDocFactura(map) + '</div></div>' +
             '</div>' +
@@ -1186,7 +1932,7 @@ $arPublicPath = function_exists('sparta_public_web_base') ? sparta_public_web_ba
         arBindSlotClicks(inner);
 
         const zr = inner.querySelector('#ar-ev-zone-repuve');
-        if (zr) {
+        if (zr && !_arEvSoloLectura) {
             zr.addEventListener('click', function () {
                 const inp = document.getElementById('ar-ev-inp-repuve');
                 if (inp) {
@@ -1196,7 +1942,7 @@ $arPublicPath = function_exists('sparta_public_web_base') ? sparta_public_web_ba
             });
         }
         const zf = inner.querySelector('#ar-ev-zone-factura');
-        if (zf) {
+        if (zf && !_arEvSoloLectura) {
             zf.addEventListener('click', function () {
                 const inp = document.getElementById('ar-ev-inp-factura');
                 if (inp) {
@@ -1218,9 +1964,13 @@ $arPublicPath = function_exists('sparta_public_web_base') ? sparta_public_web_ba
         });
 
         arEvToggleFooterEnviarCartera(map);
+        arEvToggleFooterDescarga(map);
     }
 
     function arEvEnviarACartera() {
+        if (_arEvSoloLectura) {
+            return;
+        }
         if (!_arEvDetalle || !_arEvDetalle.id) {
             return;
         }
@@ -1292,12 +2042,13 @@ $arPublicPath = function_exists('sparta_public_web_base') ? sparta_public_web_ba
             });
     }
 
-    window.arEvModalAbrir = function (idOperacion) {
+    window.arEvModalAbrir = function (idOperacion, soloLectura) {
         const id = parseInt(idOperacion, 10);
         if (!id) {
             return;
         }
         _arEvDetalle = null;
+        _arEvSoloLectura = !!soloLectura;
         arCerrarVistaOverlay();
 
         const inner = document.getElementById('ar-ev-modal-inner');
@@ -1317,6 +2068,12 @@ $arPublicPath = function_exists('sparta_public_web_base') ? sparta_public_web_ba
         const btnFoot = document.getElementById('ar-ev-btn-enviar-cartera');
         if (btnFoot) {
             btnFoot.style.display = 'none';
+            btnFoot.disabled = !!soloLectura;
+        }
+        const btnDesc = document.getElementById('ar-ev-btn-descargar-evidencias');
+        if (btnDesc) {
+            btnDesc.style.display = 'none';
+            btnDesc.disabled = false;
         }
 
         const mEl = document.getElementById('modalArRecuperacionEvidencias');
@@ -1344,6 +2101,9 @@ $arPublicPath = function_exists('sparta_public_web_base') ? sparta_public_web_ba
     };
 
     function arEvSubirArchivo(slot, input) {
+        if (_arEvSoloLectura) {
+            return;
+        }
         const f = input.files && input.files[0];
         if (input) {
             input.value = '';
@@ -1513,6 +2273,130 @@ $arPublicPath = function_exists('sparta_public_web_base') ? sparta_public_web_ba
         </div>`;
     }
 
+    function arRenderFilaTabla(item, key) {
+        const esBandeja = key === 'bandeja';
+        const evRaw = parseInt(item.evidencias_count, 10) || 0;
+        const ev = Math.min(evRaw, AR_EV_TOTAL_LISTA);
+        const gestor = item.gestor_nombre
+            ? arEsc(item.gestor_nombre)
+            : '<span class="ar-table-muted">Sin asignar</span>';
+        const nombreCliente = item.nombre_cliente
+            ? arEsc(item.nombre_cliente)
+            : '<span class="ar-table-muted">Sin nombre</span>';
+        const folio = item.folio ? arEsc(item.folio) : '-';
+        const credito = item.id_credito ? arEsc(String(item.id_credito)) : '-';
+        const idOp = parseInt(item.id, 10) || 0;
+        const fechaAsignacion = item.fecha_asignacion
+            ? '<div><span class="text-muted">Asig.</span> ' + arEsc(item.fecha_asignacion) + '</div>'
+            : '<div><span class="ar-table-muted">Sin asignacion</span></div>';
+        const estatusRaw = item.estatus ? String(item.estatus).trim() : '';
+        const estatus = estatusRaw ? arEsc(estatusRaw) : '<span class="ar-table-muted">-</span>';
+        const estatusCartera = /cierre\s+documentado/i.test(estatusRaw) ? 'Enviado a cartera' : (estatusRaw || '-');
+        const dias = item.dias_en_pipeline != null && item.dias_en_pipeline !== ''
+            ? arEsc(String(item.dias_en_pipeline)) + ' dias'
+            : '<span class="ar-table-muted">-</span>';
+        const fechaDictamen = item.fecha_dictamen
+            ? '<div><span class="text-muted">Envio</span> ' + arEsc(item.fecha_dictamen) + '</div>'
+            : '';
+        const accion = esBandeja ? `
+            <button type="button" class="btn btn-sm ar-btn-evidencias" data-ar-no-row="1"
+                    onclick="event.stopPropagation(); arEvModalAbrir(${idOp}, false)" ${idOp ? '' : 'disabled'}
+                    title="Ver evidencias" aria-label="Ver evidencias">
+                <i class="fa-solid fa-images"></i>
+            </button>` : `
+            <button type="button" class="btn btn-sm btn-outline-secondary" data-ar-no-row="1"
+                    onclick="event.stopPropagation(); arEvModalAbrir(${idOp}, true)" ${idOp ? '' : 'disabled'}
+                    title="Ver evidencias" aria-label="Ver evidencias">
+                <i class="fa fa-eye"></i>
+            </button>`;
+
+        if (esBandeja) {
+            return `
+            <tr>
+                <td class="ar-table-main">
+                    <span class="ar-table-folio">${folio}</span>
+                    <span class="ar-table-credit"># ${credito}</span>
+                </td>
+                <td class="ar-table-name">${nombreCliente}</td>
+                <td>${gestor}</td>
+                <td>${fechaAsignacion}</td>
+                <td class="ar-table-evidence">${ev} / ${AR_EV_TOTAL_LISTA}</td>
+                <td class="ar-table-status">${estatus}<br><span class="text-muted fw-normal">${dias}</span></td>
+                <td class="ar-table-action"><div class="ar-table-actions">${accion}</div></td>
+            </tr>`;
+        }
+
+        return `
+        <tr>
+            <td class="ar-table-main">
+                <span class="ar-table-folio">${folio}</span>
+                <span class="ar-table-credit"># ${credito}</span>
+            </td>
+            <td class="ar-table-name">${nombreCliente}</td>
+            <td>${gestor}</td>
+            <td>${fechaDictamen || '<span class="ar-table-muted">-</span>'}</td>
+            <td class="ar-table-status">
+                <span class="ar-table-status-pill"><i class="fa-solid fa-paper-plane"></i>${arEsc(estatusCartera)}</span>
+            </td>
+            <td class="ar-table-action"><div class="ar-table-actions">${accion}</div></td>
+        </tr>`;
+    }
+
+    function arRenderTabla(datos, key) {
+        const tableId = 'ar-tabla-' + key;
+        const esBandeja = key === 'bandeja';
+        const filas = datos.map(function (item) { return arRenderFilaTabla(item, key); }).join('');
+        const headers = esBandeja
+            ? '<th>Operacion</th><th>Cliente</th><th>Gestor</th><th>Fechas</th><th>Evidencias</th><th>Estatus</th><th class="ar-table-action">Acciones</th>'
+            : '<th>Operacion</th><th>Cliente</th><th>Gestor</th><th>Fecha envio</th><th>Destino</th><th class="ar-table-action">Acciones</th>';
+
+        return `
+        <div class="card-datatable ar-table-wrap">
+            <table id="${arEsc(tableId)}" class="dt-responsive table border-top ar-table">
+                <thead><tr>${headers}</tr></thead>
+                <tbody>${filas}</tbody>
+            </table>
+        </div>`;
+    }
+
+    function arInicializarDataTable(key) {
+        const tableId = '#ar-tabla-' + key;
+        if (!window.jQuery || !jQuery.fn || !jQuery.fn.DataTable || !document.querySelector(tableId)) return;
+        if (jQuery.fn.DataTable.isDataTable(tableId)) {
+            jQuery(tableId).DataTable().destroy();
+        }
+
+        jQuery(tableId).DataTable({
+            pageLength: 5,
+            lengthMenu: [5, 10, 25, 50, 100],
+            order: [],
+            responsive: true,
+            autoWidth: false,
+            language: {
+                decimal: "",
+                emptyTable: "No hay operaciones registradas",
+                info: "Mostrando _START_ a _END_ de _TOTAL_ registros",
+                infoEmpty: "Mostrando 0 a 0 de 0 registros",
+                infoFiltered: "(filtrado de _MAX_ registros totales)",
+                thousands: ",",
+                lengthMenu: "Mostrar _MENU_ registros",
+                loadingRecords: "Cargando...",
+                processing: "Procesando...",
+                search: "Buscar:",
+                zeroRecords: "No se encontraron resultados",
+                paginate: { first: "&laquo;", last: "&raquo;", next: "&rsaquo;", previous: "&lsaquo;" }
+            },
+            dom: '<"row align-items-center mb-3"<"col-sm-12 col-md-6"l><"col-sm-12 col-md-6"f>>' +
+                 '<"row"<"col-sm-12"tr>>' +
+                 '<"row align-items-center mt-3 ar-dt-footer"<"col-sm-12 col-md-5 ar-dt-info"i><"col-sm-12 col-md-7 ar-dt-pages"p>>',
+            drawCallback: function() {
+                jQuery(tableId + '_paginate > .pagination').addClass('pagination-sm justify-content-end');
+                jQuery(tableId + '_length select').addClass('form-select form-select-sm');
+                jQuery(tableId + '_filter input').addClass('form-control form-control-sm');
+            }
+        });
+    }
+
     function arSetBadge(key, n) {
         const el = document.getElementById(AR_BADGE[key]);
         if (!el) return;
@@ -1572,11 +2456,15 @@ $arPublicPath = function_exists('sparta_public_web_base') ? sparta_public_web_ba
                 arSetBadge(key, n);
                 _arCargada[key] = true;
 
-                const render = key === 'bandeja' ? arRenderCardBandeja : arRenderCardDictaminado;
+                const tableId = '#ar-tabla-' + key;
+                if (window.jQuery && jQuery.fn && jQuery.fn.DataTable && document.querySelector(tableId) && jQuery.fn.DataTable.isDataTable(tableId)) {
+                    jQuery(tableId).DataTable().destroy();
+                }
                 if (n === 0) {
                     lista.innerHTML = arSinDatos(cfg.vacio);
                 } else {
-                    lista.innerHTML = data.datos.map(function (d) { return render(d); }).join('');
+                    lista.innerHTML = arRenderTabla(data.datos, key);
+                    arInicializarDataTable(key);
                 }
             })
             .catch(function (err) {
@@ -1627,6 +2515,37 @@ $arPublicPath = function_exists('sparta_public_web_base') ? sparta_public_web_ba
         if (btnEnviarCartera) {
             btnEnviarCartera.addEventListener('click', function () {
                 arEvEnviarACartera();
+            });
+        }
+        const btnDescargar = document.getElementById('ar-ev-btn-descargar-evidencias');
+        if (btnDescargar) {
+            btnDescargar.addEventListener('click', function () {
+                arAbrirDescargaEvidencias();
+            });
+        }
+        const allDesc = document.getElementById('ar-descarga-check-all');
+        if (allDesc) {
+            allDesc.addEventListener('change', function () {
+                const grid = document.getElementById('ar-descarga-grid');
+                if (!grid) return;
+                grid.querySelectorAll('[data-ar-descarga-slot]').forEach(function (chk) {
+                    chk.checked = allDesc.checked;
+                });
+                arActualizarContadorDescarga();
+            });
+        }
+        const gridDesc = document.getElementById('ar-descarga-grid');
+        if (gridDesc) {
+            gridDesc.addEventListener('change', function (ev) {
+                if (ev.target && ev.target.matches('[data-ar-descarga-slot]')) {
+                    arActualizarContadorDescarga();
+                }
+            });
+        }
+        const btnConfirmarDesc = document.getElementById('ar-descarga-btn-confirmar');
+        if (btnConfirmarDesc) {
+            btnConfirmarDesc.addEventListener('click', function () {
+                arDescargarEvidenciasSeleccionadas();
             });
         }
 

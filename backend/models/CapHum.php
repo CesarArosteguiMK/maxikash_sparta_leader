@@ -89,6 +89,7 @@ class CapHum extends Model
 
         LEFT JOIN asigna_puesto ap
                ON p.id = ap.id_persona
+              AND COALESCE(ap.activo, 1) = 1
 
         LEFT JOIN puesto pp
                ON pp.id = ap.id_puesto
@@ -164,7 +165,7 @@ class CapHum extends Model
                 1 AS nivel
             FROM persona p
             LEFT JOIN perfil pf ON pf.id_persona = p.id
-            LEFT JOIN asigna_puesto ap ON p.id = ap.id_persona
+            LEFT JOIN asigna_puesto ap ON p.id = ap.id_persona AND COALESCE(ap.activo, 1) = 1
             LEFT JOIN puesto pp ON pp.id = ap.id_puesto
             LEFT JOIN departamento d ON d.id = pp.departamento_id
             LEFT JOIN paises pais ON pais.id = p.id_pais
@@ -219,7 +220,7 @@ class CapHum extends Model
                 j.nivel + 1 AS nivel
             FROM persona p2
             LEFT JOIN perfil pf2 ON pf2.id_persona = p2.id
-            LEFT JOIN asigna_puesto ap2 ON p2.id = ap2.id_persona
+            LEFT JOIN asigna_puesto ap2 ON p2.id = ap2.id_persona AND COALESCE(ap2.activo, 1) = 1
             LEFT JOIN puesto pp2 ON pp2.id = ap2.id_puesto
             LEFT JOIN departamento d2 ON d2.id = pp2.departamento_id
             LEFT JOIN paises pais2 ON pais2.id = p2.id_pais
@@ -289,7 +290,7 @@ class CapHum extends Model
                     COALESCE(d.nombre, 'Sin departamento') AS nombre_departamento
                 FROM __SPARTA_SECRET_REDACTED__.asigna_jefe aj
                 INNER JOIN __SPARTA_SECRET_REDACTED__.persona p ON p.id = aj.id_persona
-                LEFT JOIN __SPARTA_SECRET_REDACTED__.asigna_puesto ap ON ap.id_persona = p.id
+                LEFT JOIN __SPARTA_SECRET_REDACTED__.asigna_puesto ap ON ap.id_persona = p.id AND COALESCE(ap.activo, 1) = 1
                 LEFT JOIN __SPARTA_SECRET_REDACTED__.puesto pp ON pp.id = ap.id_puesto
                 LEFT JOIN __SPARTA_SECRET_REDACTED__.departamento d ON d.id = pp.departamento_id
                 WHERE aj.id_jefe = :id
@@ -305,7 +306,7 @@ class CapHum extends Model
                     COALESCE(pp.nombre, 'Sin puesto') AS nombre_puesto,
                     COALESCE(d.nombre, 'Sin departamento') AS nombre_departamento
                 FROM __SPARTA_SECRET_REDACTED__.persona p
-                LEFT JOIN __SPARTA_SECRET_REDACTED__.asigna_puesto ap ON ap.id_persona = p.id
+                LEFT JOIN __SPARTA_SECRET_REDACTED__.asigna_puesto ap ON ap.id_persona = p.id AND COALESCE(ap.activo, 1) = 1
                 LEFT JOIN __SPARTA_SECRET_REDACTED__.puesto pp ON pp.id = ap.id_puesto
                 LEFT JOIN __SPARTA_SECRET_REDACTED__.departamento d ON d.id = pp.departamento_id
                 WHERE p.estatus != 'Baja'
@@ -1008,9 +1009,9 @@ class CapHum extends Model
         // Filtro por multipuesto (subquery optimizada)
         $multipuestoJoin = "";
         if ($multipuesto === 'multiples') {
-            $whereConditions[] = "(SELECT COUNT(*) FROM asigna_puesto ap2 WHERE ap2.id_persona = p.id) > 1";
+            $whereConditions[] = "(SELECT COUNT(*) FROM asigna_puesto ap2 WHERE ap2.id_persona = p.id AND COALESCE(ap2.activo, 1) = 1) > 1";
         } elseif ($multipuesto === 'unico') {
-            $whereConditions[] = "(SELECT COUNT(*) FROM asigna_puesto ap2 WHERE ap2.id_persona = p.id) = 1";
+            $whereConditions[] = "(SELECT COUNT(*) FROM asigna_puesto ap2 WHERE ap2.id_persona = p.id AND COALESCE(ap2.activo, 1) = 1) = 1";
         }
 
         $whereSQL = implode(" AND ", $whereConditions);
@@ -1050,7 +1051,7 @@ class CapHum extends Model
 
         FROM persona p
 
-        LEFT JOIN asigna_puesto ap ON p.id = ap.id_persona
+        LEFT JOIN asigna_puesto ap ON p.id = ap.id_persona AND COALESCE(ap.activo, 1) = 1
         LEFT JOIN puesto pp ON pp.id = ap.id_puesto
         LEFT JOIN departamento d ON d.id = pp.departamento_id
 
@@ -1114,7 +1115,7 @@ class CapHum extends Model
                 p.password,
                 al.id_legion
             FROM persona p
-            LEFT JOIN asigna_puesto ap ON ap.id_persona = p.id
+            LEFT JOIN asigna_puesto ap ON ap.id_persona = p.id AND COALESCE(ap.activo, 1) = 1
             LEFT JOIN puesto pu ON pu.id = ap.id_puesto
             LEFT JOIN departamento dd ON dd.id = pu.departamento_id
             LEFT JOIN asigna_jefe aj ON aj.id_persona = p.id
@@ -1437,6 +1438,41 @@ class CapHum extends Model
         }
     }
 
+    public static function getDocumentosPersonaPorIds(array $ids)
+    {
+        try {
+            $ids = array_values(array_unique(array_filter(array_map('intval', $ids))));
+            if (empty($ids)) {
+                return self::resultado(false, 'No se seleccionaron documentos.', []);
+            }
+
+            $params = [];
+            $placeholders = [];
+            foreach ($ids as $i => $id) {
+                $key = 'id_' . $i;
+                $params[$key] = $id;
+                $placeholders[] = ':' . $key;
+            }
+
+            $db = new Database();
+            $documentos = $db->queryAll("
+                SELECT
+                    cdp.id,
+                    cdp.id_persona,
+                    cdp.archivo,
+                    cdp.id_documento,
+                    DATE_FORMAT(cdp.fecha_carga, '%Y-%m-%d %H:%i') AS fecha_carga
+                FROM __SPARTA_SECRET_REDACTED__.carga_documento_persona cdp
+                WHERE cdp.id IN (" . implode(',', $placeholders) . ")
+                ORDER BY cdp.fecha_carga DESC, cdp.id DESC
+            ", $params);
+
+            return self::resultado(true, 'Documentos encontrados.', $documentos ?? []);
+        } catch (\Exception $e) {
+            return self::resultado(false, 'Error al obtener documentos.', [], $e->getMessage());
+        }
+    }
+
     /**
      * Guardar documentos de una persona
      */
@@ -1593,6 +1629,7 @@ class CapHum extends Model
             INNER JOIN puesto pp ON pp.id = ap.id_puesto
             LEFT JOIN departamento d ON d.id = pp.departamento_id
             WHERE ap.id_persona = $idPersona
+              AND COALESCE(ap.activo, 1) = 1
             ORDER BY pp.nivel ASC
             LIMIT 1
         SQL;
@@ -2105,7 +2142,8 @@ class CapHum extends Model
         INNER JOIN puesto pu
             ON pu.id = ap.id_puesto
         WHERE
-            pu.es_jefe = 1 AND per.estatus != 'Baja'
+            COALESCE(ap.activo, 1) = 1
+            AND pu.es_jefe = 1 AND per.estatus != 'Baja'
             AND {$predPer}
             AND pu.departamento_id = $id_departamento
         ORDER BY per.nombres ASC;
@@ -2132,7 +2170,8 @@ class CapHum extends Model
           FROM asigna_puesto ap
           INNER JOIN persona per ON per.id = ap.id_persona
           INNER JOIN puesto pu ON pu.id = ap.id_puesto
-          WHERE per.estatus != 'Baja'
+          WHERE COALESCE(ap.activo, 1) = 1
+            AND per.estatus != 'Baja'
             AND {$predPer}
             AND pu.departamento_id = $id_departamento
           ORDER BY per.nombres ASC
@@ -2185,7 +2224,7 @@ class CapHum extends Model
             CONCAT_WS(' ', per.nombres, per.segundo_nombre, per.apellidop, per.apellidom) AS nombre_completo,
             COALESCE(pu.nombre, '') AS nombre_puesto
           FROM persona per
-          LEFT JOIN asigna_puesto ap ON ap.id_persona = per.id
+          LEFT JOIN asigna_puesto ap ON ap.id_persona = per.id AND COALESCE(ap.activo, 1) = 1
           LEFT JOIN puesto pu ON pu.id = ap.id_puesto
           WHERE per.estatus != 'Baja'
             AND {$predPer}
@@ -2256,7 +2295,7 @@ class CapHum extends Model
             pp.nombre AS puesto,
             pp.nivel
         FROM persona p
-        INNER JOIN asigna_puesto ap ON ap.id_persona = p.id
+        INNER JOIN asigna_puesto ap ON ap.id_persona = p.id AND COALESCE(ap.activo, 1) = 1
         INNER JOIN puesto pp ON pp.id = ap.id_puesto
         WHERE p.estatus != 'Baja'
           AND {$predP}
@@ -2614,14 +2653,22 @@ class CapHum extends Model
                 d.id_departamento_organizacional,
                 COALESCE(dorg.nombre, 'Sin departamento') AS departamento_organizacional_nombre,
                 COALESCE(dorg.activo, 1) AS departamento_organizacional_activo,
+                COALESCE(dir.id, 0) AS id_direccion,
+                COALESCE(dir.nombre, 'Sin dirección') AS direccion_nombre,
+                COALESCE(dir.activo, 1) AS direccion_activo,
                 pa.nombre AS nombre_pais,
                 COALESCE(pa.codigo_iso, 'xx') AS codigo_iso_pais
             FROM departamento d
             LEFT JOIN departamento_organizacional dorg
                    ON dorg.id = d.id_departamento_organizacional
+            LEFT JOIN asigna_direcciones ad
+                   ON ad.id_departamento_organizacional = d.id_departamento_organizacional
+                  AND COALESCE(ad.activo, 1) = 1
+            LEFT JOIN direcciones_organizacion dir
+                   ON dir.id = ad.id_direccion
             LEFT JOIN paises pa
                    ON pa.id = d.id_pais
-            ORDER BY FIELD(pa.codigo_iso, 'mx', 'gt', 'co'), departamento_organizacional_nombre, d.nombre ASC
+            ORDER BY FIELD(pa.codigo_iso, 'mx', 'gt', 'co'), direccion_nombre, departamento_organizacional_nombre, d.nombre ASC
         SQL;
 
         try {
@@ -3074,6 +3121,30 @@ class CapHum extends Model
             $id_jefe = (int)$jefeRaw;
         }
         $id_puesto       = (int)$data['puesto_id'];
+        $puestosAdicionalesEntrada = $data['puestos_adicionales'] ?? null;
+        $sincronizarPuestosDesdeLista = is_array($puestosAdicionalesEntrada);
+        $puestosEliminadosEntrada = is_array($data['puestos_eliminados'] ?? null) ? $data['puestos_eliminados'] : [];
+        $idPuestoPrincipalOriginal = (int)($data['puesto_principal_original'] ?? 0);
+        $idPuestoPrincipalEliminado = 0;
+        foreach ($puestosEliminadosEntrada as $puestoEliminadoEntrada) {
+            if (!empty($puestoEliminadoEntrada['era_principal'])) {
+                $idPuestoPrincipalEliminado = (int)($puestoEliminadoEntrada['id_puesto'] ?? 0);
+                break;
+            }
+        }
+        $idsPuestosEntrada = [];
+        if (is_array($puestosAdicionalesEntrada)) {
+            foreach ($puestosAdicionalesEntrada as $puestoEntrada) {
+                $puestoEntradaId = (int)($puestoEntrada['id_puesto'] ?? 0);
+                if ($puestoEntradaId > 0) {
+                    $idsPuestosEntrada[$puestoEntradaId] = true;
+                }
+            }
+        }
+        $idsPuestosEntrada = array_keys($idsPuestosEntrada);
+        if (!empty($idsPuestosEntrada)) {
+            $id_puesto = (int)$idsPuestosEntrada[0];
+        }
         $user_name       = addslashes($data['usuario']);
         $password        = addslashes($data['contrasena']);
         $id_div_nivel1 = self::sqlIdDivisionAdministrativaFk($data['id_div_nivel1'] ?? null);
@@ -3126,39 +3197,85 @@ class CapHum extends Model
                 LIMIT 1
             ", ['id_puesto' => $id_puesto]) : null;
 
+            $principalFueEliminado = $idPuestoPrincipalEliminado > 0
+                && !in_array($idPuestoPrincipalEliminado, array_map('intval', $idsPuestosEntrada), true);
+            $principalCambio = $idPuestoPrincipalOriginal > 0
+                && $id_puesto > 0
+                && $idPuestoPrincipalOriginal !== (int)$id_puesto;
+            $idPuestoPrincipalAnterior = $principalFueEliminado
+                ? $idPuestoPrincipalEliminado
+                : ($principalCambio ? $idPuestoPrincipalOriginal : 0);
+            if ($idPuestoPrincipalAnterior > 0) {
+                $puestoPrincipalEliminado = $db->queryOne("
+                    SELECT
+                        ap.id_puesto,
+                        pp.nombre AS nombre_puesto,
+                        pp.departamento_id,
+                        pp.nivel,
+                        aj.id_jefe AS id_jefe_anterior,
+                        aj.id_vacante_jefe AS id_vacante_jefe_anterior
+                    FROM __SPARTA_SECRET_REDACTED__.asigna_puesto ap
+                    INNER JOIN __SPARTA_SECRET_REDACTED__.puesto pp ON pp.id = ap.id_puesto
+                    LEFT JOIN (
+                        SELECT a.id_persona, a.id_jefe, a.id_vacante_jefe
+                        FROM __SPARTA_SECRET_REDACTED__.asigna_jefe a
+                        INNER JOIN (
+                            SELECT id_persona, MAX(id) AS mid
+                            FROM __SPARTA_SECRET_REDACTED__.asigna_jefe
+                            GROUP BY id_persona
+                        ) m ON m.id_persona = a.id_persona AND m.mid = a.id
+                    ) aj ON aj.id_persona = ap.id_persona
+                    WHERE ap.id_persona = :id_persona
+                      AND ap.id_puesto = :id_puesto
+                      AND COALESCE(ap.activo, 1) = 1
+                    ORDER BY ap.id DESC
+                    LIMIT 1
+                ", [
+                    'id_persona' => $id_persona,
+                    'id_puesto' => $idPuestoPrincipalAnterior,
+                ]);
+                if ($puestoPrincipalEliminado) {
+                    $puestoAnterior = $puestoPrincipalEliminado;
+                }
+            }
+
             $subordinadosPuestoAnterior = [];
             $esDegradacionConHueco = false;
-            if ($puestoAnterior && $puestoNuevo && (int)$puestoAnterior['id_puesto'] !== (int)$id_puesto) {
+            if ($puestoAnterior && $principalFueEliminado) {
+                $esDegradacionConHueco = true;
+            } elseif ((!$sincronizarPuestosDesdeLista || $principalCambio) && $puestoAnterior && $puestoNuevo && (int)$puestoAnterior['id_puesto'] !== (int)$id_puesto) {
                 $nivelAnterior = (int)($puestoAnterior['nivel'] ?? 0);
                 $nivelNuevo = (int)($puestoNuevo['nivel'] ?? 0);
                 $esDegradacionConHueco = $nivelAnterior > $nivelNuevo;
-                if ($esDegradacionConHueco) {
-                    $subordinadosPuestoAnterior = $db->queryAll("
-                        SELECT p.id, CONCAT_WS(' ', p.nombres, p.segundo_nombre, p.apellidop, p.apellidom) AS nombre_completo
-                        FROM __SPARTA_SECRET_REDACTED__.asigna_jefe aj
-                        INNER JOIN __SPARTA_SECRET_REDACTED__.persona p ON p.id = aj.id_persona
-                        WHERE aj.id_jefe = :id_persona
-                          AND p.estatus != 'Baja'
-                        ORDER BY p.nombres ASC, p.apellidop ASC
-                    ", ['id_persona' => $id_persona]);
-                }
+            }
+            if ($esDegradacionConHueco) {
+                $subordinadosPuestoAnterior = $db->queryAll("
+                    SELECT p.id, CONCAT_WS(' ', p.nombres, p.segundo_nombre, p.apellidop, p.apellidom) AS nombre_completo
+                    FROM __SPARTA_SECRET_REDACTED__.asigna_jefe aj
+                    INNER JOIN __SPARTA_SECRET_REDACTED__.persona p ON p.id = aj.id_persona
+                    WHERE aj.id_jefe = :id_persona
+                      AND p.estatus != 'Baja'
+                    ORDER BY p.nombres ASC, p.apellidop ASC
+                ", ['id_persona' => $id_persona]);
             }
 
             $resolverPuestoAnterior = trim((string)($data['resolver_puesto_anterior'] ?? ''));
             $idSustitutoPuestoAnterior = (int)($data['id_sustituto_puesto_anterior'] ?? 0);
             if ($esDegradacionConHueco && !empty($subordinadosPuestoAnterior) && !in_array($resolverPuestoAnterior, ['vacante', 'sustituto'], true)) {
                 $sustitutos = $db->queryAll("
-                    SELECT DISTINCT
+                    SELECT
                         p.id,
                         CONCAT_WS(' ', p.nombres, p.segundo_nombre, p.apellidop, p.apellidom) AS nombre_completo,
-                        pp.nombre AS nombre_puesto
+                        pp.nombre AS nombre_puesto,
+                        MAX(pp.nivel) AS nivel_orden
                     FROM __SPARTA_SECRET_REDACTED__.persona p
                     INNER JOIN __SPARTA_SECRET_REDACTED__.asigna_puesto ap ON ap.id_persona = p.id AND COALESCE(ap.activo, 1) = 1
                     INNER JOIN __SPARTA_SECRET_REDACTED__.puesto pp ON pp.id = ap.id_puesto
                     WHERE p.estatus != 'Baja'
                       AND p.id <> :id_persona
                       AND pp.departamento_id = :id_departamento
-                    ORDER BY pp.nivel DESC, nombre_completo ASC
+                    GROUP BY p.id, nombre_completo, pp.nombre
+                    ORDER BY nivel_orden DESC, nombre_completo ASC
                 ", [
                     'id_persona' => $id_persona,
                     'id_departamento' => (int)$puestoAnterior['departamento_id'],
@@ -3234,6 +3351,8 @@ class CapHum extends Model
         ");
 
             // 2️⃣ ASIGNA JEFE (si existe UPDATE, si no INSERT)
+            $idJefeSql = ($id_jefe !== null && (int)$id_jefe > 0) ? (string)(int)$id_jefe : 'NULL';
+
             $existeJefe = $db->queryOne("
             SELECT id
             FROM asigna_jefe
@@ -3252,7 +3371,7 @@ class CapHum extends Model
                 } else {
                     $db->queryOne("
                     UPDATE asigna_jefe
-                    SET id_jefe = $id_jefe,
+                    SET id_jefe = $idJefeSql,
                         id_vacante_jefe = NULL
                     WHERE id_persona = $id_persona
                 ");
@@ -3266,47 +3385,59 @@ class CapHum extends Model
                 } else {
                     $db->queryOne("
                     INSERT INTO asigna_jefe (id_persona, id_jefe, id_vacante_jefe)
-                    VALUES ($id_persona, $id_jefe, NULL)
+                    VALUES ($id_persona, $idJefeSql, NULL)
                 ");
                 }
             }
 
             // 3️⃣ ASIGNA PUESTO(S) - Manejo de múltiples puestos
             // Si viene el array puestos_adicionales, usamos ese; si no, usamos el puesto_id tradicional
-            $puestosAdicionales = $data['puestos_adicionales'] ?? null;
+            $idsPuestosGuardar = [];
 
-            if ($puestosAdicionales && is_array($puestosAdicionales) && count($puestosAdicionales) > 0) {
-                // Eliminar todos los puestos actuales
-                $db->queryOne("DELETE FROM asigna_puesto WHERE id_persona = $id_persona");
-
-                // Insertar cada puesto del array
-                foreach ($puestosAdicionales as $puesto) {
-                    $puestoId = (int)$puesto['id_puesto'];
-                    $db->queryOne("
-                        INSERT INTO asigna_puesto (id_persona, id_puesto)
-                        VALUES ($id_persona, $puestoId)
-                    ");
+            if ($sincronizarPuestosDesdeLista) {
+                foreach ($idsPuestosEntrada as $puestoId) {
+                    $idsPuestosGuardar[(int)$puestoId] = true;
                 }
-            } else {
-                // Comportamiento tradicional (un solo puesto)
-                $existePuesto = $db->queryOne("
-                    SELECT id
-                    FROM asigna_puesto
-                    WHERE id_persona = $id_persona
-                    LIMIT 1
-                ");
+            } elseif ($id_puesto > 0) {
+                $idsPuestosGuardar[$id_puesto] = true;
+            }
 
-                if ($existePuesto) {
-                    $db->queryOne("
-                        UPDATE asigna_puesto
-                        SET id_puesto = $id_puesto
-                        WHERE id_persona = $id_persona
-                    ");
+            $idsPuestosGuardar = array_keys($idsPuestosGuardar);
+            if (!$sincronizarPuestosDesdeLista && empty($idsPuestosGuardar)) {
+                throw new \Exception('Debe quedar al menos un puesto asignado.');
+            }
+
+            $db->CRUD(
+                "UPDATE __SPARTA_SECRET_REDACTED__.asigna_puesto
+                 SET activo = 0
+                 WHERE id_persona = :id_persona",
+                ['id_persona' => $id_persona]
+            );
+
+            foreach ($idsPuestosGuardar as $puestoId) {
+                $asignacionExistente = $db->queryOne(
+                    "SELECT id
+                     FROM __SPARTA_SECRET_REDACTED__.asigna_puesto
+                     WHERE id_persona = :id_persona
+                       AND id_puesto = :id_puesto
+                     ORDER BY id DESC
+                     LIMIT 1",
+                    ['id_persona' => $id_persona, 'id_puesto' => $puestoId]
+                );
+
+                if ($asignacionExistente) {
+                    $db->CRUD(
+                        "UPDATE __SPARTA_SECRET_REDACTED__.asigna_puesto
+                         SET activo = 1
+                         WHERE id = :id",
+                        ['id' => (int)$asignacionExistente['id']]
+                    );
                 } else {
-                    $db->queryOne("
-                        INSERT INTO asigna_puesto (id_persona, id_puesto)
-                        VALUES ($id_persona, $id_puesto)
-                    ");
+                    $db->CRUD(
+                        "INSERT INTO __SPARTA_SECRET_REDACTED__.asigna_puesto (id_persona, id_puesto, activo)
+                         VALUES (:id_persona, :id_puesto, 1)",
+                        ['id_persona' => $id_persona, 'id_puesto' => $puestoId]
+                    );
                 }
             }
 
@@ -3423,16 +3554,14 @@ class CapHum extends Model
 
             // Auto-sincronizar despachos según los puestos actualizados
             $idCelulaDespacho = null;
-            if ($puestosAdicionales && is_array($puestosAdicionales) && count($puestosAdicionales) > 0) {
-                foreach ($puestosAdicionales as $pObj) {
-                    $cel = self::resolverCelulaDespacho($db, (int)($pObj['id_puesto'] ?? 0));
+            if (!empty($idsPuestosGuardar)) {
+                foreach ($idsPuestosGuardar as $puestoIdDespacho) {
+                    $cel = self::resolverCelulaDespacho($db, (int)$puestoIdDespacho);
                     if ($cel !== null) {
                         $idCelulaDespacho = $cel;
                         break;
                     }
                 }
-            } else {
-                $idCelulaDespacho = self::resolverCelulaDespacho($db, $id_puesto);
             }
 
             $existeDespachoActivo = $db->queryOne(

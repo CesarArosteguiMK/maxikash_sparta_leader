@@ -194,7 +194,7 @@
     function estadoVisibleTicket(t) {
         var estadoRaw = ((t && t.estado_ticket_nombre) || '').toString().trim();
         if (inconformidadPendiente(t)) return 'Procesando';
-        return ((t && t.estado_ticket_nombre) || '').toString().trim() || 'â€”';
+        return ((t && t.estado_ticket_nombre) || '').toString().trim() || '—';
     }
 
     function pintarRespuestaTicket(t, esAppSimple) {

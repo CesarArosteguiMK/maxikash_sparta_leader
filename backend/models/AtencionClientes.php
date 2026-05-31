@@ -53,6 +53,33 @@ class AtencionClientes
                    ))";
     }
 
+    private function sqlConteoEvidenciasCartera(string $aliasOperacion = 'o'): string
+    {
+        return "(SELECT COUNT(DISTINCT e.slot)
+                  FROM adj_evidencia e
+                 WHERE e.id_operacion = {$aliasOperacion}.id
+                   AND e.slot IN (
+                        'fis_dacion_hoja_1', 'fis_dacion_hoja_2',
+                        'fis_vin', 'fis_frontal', 'fis_lateral_der', 'fis_trasera', 'fis_lateral_izq',
+                        'fis_tacometro', 'fis_video_cliente_acuerdo', 'fis_360_encendida',
+                        'fis_video_vuelta_prueba', 'fis_checklist',
+                        'doc_repuve', 'doc_cierre_s2'
+                   ))";
+    }
+
+    private function sqlNombreGestorConFallback(string $aliasOperacion = 'o'): string
+    {
+        return "COALESCE(
+                    NULLIF(TRIM(CONCAT_WS(' ',
+                        per.nombres,
+                        per.segundo_nombre,
+                        per.apellidop,
+                        per.apellidom
+                    )), ''),
+                    NULLIF(TRIM({$aliasOperacion}.responsable_entrega), '')
+                )";
+    }
+
     private function sqlSelectFormularioEvidencias(string $aliasOperacion = 'o'): string
     {
         $a = $aliasOperacion;
@@ -77,7 +104,8 @@ SQL;
     }
 
     /**
-     * Evita duplicar filas si hay más de un registro activo en asigna_creditos_adjudicacion por crédito.
+     * Evita duplicar filas si hay más de una asignación por crédito.
+     * Prioriza la activa; si ya no existe una activa, conserva la última histórica para no perder el gestor en etapas posteriores.
      */
     private function sqlJoinUnaAsignacionActivaPorCredito(): string
     {
@@ -87,8 +115,10 @@ LEFT JOIN asigna_creditos_adjudicacion aca
             SELECT a2.id
             FROM asigna_creditos_adjudicacion a2
             WHERE a2.id_credito = o.id_credito
-              AND a2.estatus = '1'
-            ORDER BY a2.id DESC
+            ORDER BY
+                CASE WHEN a2.estatus = '1' THEN 0 ELSE 1 END,
+                a2.fecha_alta DESC,
+                a2.id DESC
             LIMIT 1
         )
 LEFT JOIN personal_adjudicacion pa ON pa.id = aca.id_personal_adj
@@ -637,7 +667,8 @@ SQL;
     public function obtenerRecuperacionCierreDocumentado(): array
     {
         $joinAsig = $this->sqlJoinUnaAsignacionActivaPorCredito();
-        $evidenciasCount = $this->sqlConteoEvidenciasFisicas('o');
+        $evidenciasCount = $this->sqlConteoEvidenciasCartera('o');
+        $gestorNombre = $this->sqlNombreGestorConFallback('o');
         $sql = <<<SQL
         SELECT
             o.id,
@@ -650,12 +681,8 @@ SQL;
             o.adeudo_total,
             DATEDIFF(NOW(), o.fecha_alta) AS dias_en_pipeline,
             {$evidenciasCount} AS evidencias_count,
-            TRIM(CONCAT_WS(' ',
-                per.nombres,
-                per.segundo_nombre,
-                per.apellidop,
-                per.apellidom
-            )) AS gestor_nombre,
+            {$gestorNombre} AS gestor_nombre,
+            DATE_FORMAT(o.fecha_alta, '%d/%m/%Y %H:%i') AS fecha_gestion_legacy,
             DATE_FORMAT(aca.fecha_alta, '%d/%m/%Y') AS fecha_asignacion
         FROM adj_operacion o
         {$joinAsig}
@@ -675,7 +702,8 @@ SQL;
         $joinAsig   = $this->sqlJoinUnaAsignacionActivaPorCredito();
         $joinUltimo = $this->sqlJoinUltimoDictamenPorOperacion('d');
         $whereDict  = $this->sqlWhereComoDictaminadoCierreDocumentacion();
-        $evidenciasCount = $this->sqlConteoEvidenciasFisicas('o');
+        $evidenciasCount = $this->sqlConteoEvidenciasCartera('o');
+        $gestorNombre = $this->sqlNombreGestorConFallback('o');
         $sql        = <<<SQL
         SELECT
             o.id,
@@ -688,12 +716,7 @@ SQL;
             o.adeudo_total,
             DATEDIFF(NOW(), o.fecha_alta) AS dias_en_pipeline,
             {$evidenciasCount} AS evidencias_count,
-            TRIM(CONCAT_WS(' ',
-                per.nombres,
-                per.segundo_nombre,
-                per.apellidop,
-                per.apellidom
-            )) AS gestor_nombre,
+            {$gestorNombre} AS gestor_nombre,
             DATE_FORMAT(aca.fecha_alta, '%d/%m/%Y') AS fecha_asignacion
         FROM adj_operacion o
         {$joinUltimo}
@@ -725,6 +748,8 @@ SQL;
     public function obtenerOperacionesDictamenPorEstatusPipeline(string $estatus, bool $excluirRecepcionSinConfirmarAlmacen = false): array
     {
         $joinAsig = $this->sqlJoinUnaAsignacionActivaPorCredito();
+        $evidenciasCount = $this->sqlConteoEvidenciasCartera('o');
+        $gestorNombre = $this->sqlNombreGestorConFallback('o');
 
         $extraRecepcion = '';
         if ($excluirRecepcionSinConfirmarAlmacen && trim($estatus) === 'Recepción') {
@@ -756,13 +781,10 @@ SQL;
             d.dictamen,
             d.plataforma,
             d.comentarios,
+            {$evidenciasCount} AS evidencias_count,
+            DATE_FORMAT(o.fecha_alta, '%d/%m/%Y %H:%i') AS fecha_gestion_legacy,
             DATE_FORMAT(d.fecha_alta, '%d/%m/%Y %H:%i') AS fecha_dictamen,
-            TRIM(CONCAT_WS(' ',
-                per.nombres,
-                per.segundo_nombre,
-                per.apellidop,
-                per.apellidom
-            )) AS gestor_nombre
+            {$gestorNombre} AS gestor_nombre
         FROM adj_operacion o
         INNER JOIN adj_dictamen d ON d.id = (
             SELECT d2.id
@@ -807,6 +829,8 @@ SQL;
         $joinAsig   = $this->sqlJoinUnaAsignacionActivaPorCredito();
         $joinUltimo = $this->sqlJoinUltimoDictamenPorOperacion('d');
         $whereDict  = $this->sqlWhereComoDictaminadoCierreDocumentacion();
+        $evidenciasCount = $this->sqlConteoEvidenciasCartera('o');
+        $gestorNombre = $this->sqlNombreGestorConFallback('o');
         $sql        = <<<SQL
         SELECT
             o.id,
@@ -824,13 +848,10 @@ SQL;
             d.dictamen,
             d.plataforma,
             d.comentarios,
+            {$evidenciasCount} AS evidencias_count,
+            DATE_FORMAT(o.fecha_alta, '%d/%m/%Y %H:%i') AS fecha_gestion_legacy,
             DATE_FORMAT(d.fecha_alta, '%d/%m/%Y %H:%i') AS fecha_dictamen,
-            TRIM(CONCAT_WS(' ',
-                per.nombres,
-                per.segundo_nombre,
-                per.apellidop,
-                per.apellidom
-            )) AS gestor_nombre
+            {$gestorNombre} AS gestor_nombre
         FROM adj_operacion o
         {$joinUltimo}
         {$joinAsig}

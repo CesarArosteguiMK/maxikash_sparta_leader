@@ -1,8 +1,8 @@
-<?php /** @var string $google_maps_api_key_js */ ?>
+﻿<?php /** @var string $google_maps_api_key_js */ ?>
 <style>
-/* ═══════════════════════════════════════════════════════
+/* =======================================================
    Tracking Recolección — variables de color (teal/cyan)
-═══════════════════════════════════════════════════════ */
+======================================================= */
 :root {
     --track-color:        #0d9488;
     --track-color-light:  #ccfbf1;
@@ -20,7 +20,7 @@ body.dark-mode {
     --track-border:       #0d4040;
 }
 
-/* ── Cabecera del módulo ── */
+/* -- Cabecera del módulo -- */
 .track-header {
     background: var(--track-bg-card);
     border: 1px solid var(--track-border);
@@ -37,7 +37,7 @@ body.dark-mode .track-header {
 .track-header h4 { margin: 0; font-weight: 700; letter-spacing: .5px; }
 .track-header .track-subtitle { opacity: .85; font-size: .85rem; margin-top: .2rem; }
 
-/* ── Filtros ── */
+/* -- Filtros -- */
 .trk-section-grid {
     display: grid;
     grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -132,7 +132,7 @@ body.dark-mode .trk-section-desc {
 }
 body.dark-mode .track-filters { background: #1e2d2c; }
 
-/* ── Tabla créditos ── */
+/* -- Tabla créditos -- */
 #tablaCreditos thead th {
     font-size: .8rem;
     vertical-align: middle;
@@ -140,7 +140,7 @@ body.dark-mode .track-filters { background: #1e2d2c; }
 }
 #tablaCreditos tbody tr { vertical-align: middle; }
 
-/* ── Tabla rutas ── */
+/* -- Tabla rutas -- */
 #tablaRutas thead th {
     font-size: .8rem;
     vertical-align: middle;
@@ -209,8 +209,14 @@ body.dark-mode .track-filters { background: #1e2d2c; }
 }
 .trk-rutas-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(310px, 1fr));
+    grid-template-columns: minmax(0, 1fr);
     gap: .85rem;
+    max-width: 820px;
+    margin: 0 auto;
+}
+.trk-rutas-board-grid .trk-rutas-grid {
+    grid-template-columns: repeat(3, minmax(260px, 1fr));
+    max-width: none;
 }
 .trk-ruta-card {
     border: 1px solid #e2e8f0;
@@ -218,6 +224,28 @@ body.dark-mode .track-filters { background: #1e2d2c; }
     background: #fff;
     box-shadow: 0 .1rem .55rem rgba(15,23,42,.05);
     overflow: hidden;
+}
+.trk-rutas-pagination {
+    max-width: 820px;
+    margin: .85rem auto 0;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: .75rem;
+    flex-wrap: wrap;
+}
+.trk-rutas-board-grid .trk-rutas-pagination {
+    max-width: none;
+}
+.trk-rutas-page-info {
+    color: #697a8d;
+    font-size: .78rem;
+    font-weight: 600;
+}
+.trk-rutas-page-actions {
+    display: inline-flex;
+    align-items: center;
+    gap: .45rem;
 }
 .trk-ruta-card-header {
     padding: .85rem .9rem .65rem;
@@ -346,6 +374,12 @@ body.dark-mode #tabBorradores .card-header {
     .trk-rutas-summary { gap: .4rem; }
     .trk-rutas-filter { flex: 1 1 auto; justify-content: center; }
     .trk-rutas-grid { grid-template-columns: 1fr; }
+}
+@media (min-width: 768px) and (max-width: 1199.98px) {
+    .trk-rutas-board-grid .trk-rutas-grid { grid-template-columns: repeat(2, minmax(260px, 1fr)); }
+}
+@media (max-width: 767.98px) {
+    .trk-rutas-board-grid .trk-rutas-grid { grid-template-columns: 1fr; }
 }
 #tablaAgenciasTracking thead th,
 #tablaTransportistasTracking thead th {
@@ -543,13 +577,13 @@ body.dark-mode #tabCatalogosTracking .card-header {
     .trk-catalog-grid { grid-template-columns: 1fr; }
 }
 
-/* ── Badges de estatus de confirmación gestor ── */
+/* -- Badges de estatus de confirmación gestor -- */
 .badge-conf-pendiente   { background: #fbbf24; color: #000; }
 .badge-conf-confirmado  { background: #22c55e; color: #fff; }
 .badge-conf-rechazado   { background: #ef4444; color: #fff; }
 .badge-conf-en_revision { background: #60a5fa; color: #fff; }
 
-/* ── Badges estatus ruta ── */
+/* -- Badges estatus ruta -- */
 .badge-ruta-borrador              { background: #94a3b8; color: #fff; }
 .badge-ruta-pendiente_confirmacion{ background: #f59e0b; color: #000; }
 .badge-ruta-lista_envio           { background: #3b82f6; color: #fff; }
@@ -557,14 +591,14 @@ body.dark-mode #tabCatalogosTracking .card-header {
 .badge-ruta-en_proceso            { background: #0d9488; color: #fff; }
 .badge-ruta-concluida             { background: #22c55e; color: #fff; }
 .badge-ruta-cancelada             { background: #ef4444; color: #fff; }
-/* ── Badges estatus tracking API (servicio externo) ── */
+/* -- Badges estatus tracking API (servicio externo) -- */
 .badge-trk-pendiente  { background: #94a3b8; color: #fff; }
 .badge-trk-en_proceso { background: #0d9488; color: #fff; }
 .badge-trk-completado { background: #16a34a; color: #fff; }
 .badge-trk-confirmado { background: #0284c7; color: #fff; }
 .badge-trk-cancelado  { background: #ef4444; color: #fff; }
 
-/* ── Modal ── */
+/* -- Modal -- */
 #modalRegistrarRuta .modal-header {
     background: var(--track-color);
     color: #fff;
@@ -572,7 +606,7 @@ body.dark-mode #tabCatalogosTracking .card-header {
 }
 #modalRegistrarRuta .modal-header .btn-close { filter: invert(1); }
 
-/* ── Tabs del modal ── */
+/* -- Tabs del modal -- */
 .track-tabs .nav-link,
 .track-tabs .nav-link:link,
 .track-tabs .nav-link:visited,
@@ -594,7 +628,7 @@ body.dark-mode .track-tabs .nav-link:focus {
     color: var(--track-color) !important;
 }
 
-/* ── Lista de créditos en modal (sortable) ── */
+/* -- Lista de créditos en modal (sortable) -- */
 .track-credito-row {
     background: #fff;
     border: 1px solid #e2e8f0;
@@ -801,7 +835,7 @@ body.dark-mode .eta-row .form-select {
     border-color: #2d4444;
 }
 
-/* ── Mapa ── */
+/* -- Mapa -- */
 #trackMapContainer {
     width: 100%;
     height: 475px;
@@ -881,7 +915,7 @@ body.dark-mode .trk-live-map-card {
 }
 body.dark-mode .trk-live-map-card .live-meta { color: #b0cece; }
 
-/* ── Tracking timeline (Mercado Libre style) ── */
+/* -- Tracking timeline (Mercado Libre style) -- */
 #trkTrackingSection { font-size: .82rem; }
 .trk-timeline { position: relative; padding-left: 1.6rem; }
 .trk-timeline::before {
@@ -969,7 +1003,7 @@ body.dark-mode .trk-step-nombre { color: #e2e8f0; }
 }
 body.dark-mode .trk-location-pill { background: #1e293b; color: #94a3b8; }
 
-/* ── Resumen del modal ── */
+/* -- Resumen del modal -- */
 .track-summary-chip {
     display: inline-flex;
     align-items: center;
@@ -984,7 +1018,7 @@ body.dark-mode .trk-location-pill { background: #1e293b; color: #94a3b8; }
 }
 body.dark-mode .track-summary-chip { background: #134e4a; color: #5eead4; }
 
-/* ── Dark mode: modales + formularios ── */
+/* -- Dark mode: modales + formularios -- */
 body.dark-mode .modal-content {
     background-color: #161f1f;
     color: #e2e8f0;
@@ -1017,7 +1051,7 @@ body.dark-mode .input-group-text {
     border-color: #2d4444;
 }
 
-/* ── Select2 / chosen override ── */
+/* -- Select2 / chosen override -- */
 .select2-container {
     width: 100% !important;
 }
@@ -1103,7 +1137,7 @@ body.dark-mode .select2-results__option--highlighted {
     color: #06201d !important;
 }
 
-/* ── Botón pin ubicación en fila de crédito ── */
+/* -- Botón pin ubicación en fila de crédito -- */
 .select2-results__option[aria-disabled="true"] {
     color: #94a3b8 !important;
 }
@@ -1121,14 +1155,14 @@ body.dark-mode .select2-results__option[aria-disabled="true"] {
     background: var(--track-color-light);
 }
 
-/* ════════════════════════════════════════════════════════
+/* ========================================================
    Chat Operativo — Offcanvas lateral
-════════════════════════════════════════════════════════ */
+======================================================== */
 #modalChatOperativo .modal-dialog {
-    max-width: 920px;
+    max-width: min(1540px, calc(100vw - 1.5rem));
 }
 #modalChatOperativo .modal-content {
-    height: min(760px, calc(100vh - 2rem));
+    height: min(860px, calc(100vh - 1.5rem));
     overflow: hidden;
     border: 0;
     border-radius: .65rem;
@@ -1159,7 +1193,7 @@ body.dark-mode #modalChatOperativo .modal-content {
     display: block;
     white-space: normal;
     overflow-wrap: anywhere;
-    max-width: 390px;
+    max-width: min(620px, 70vw);
     opacity: .82;
     line-height: 1.25;
     color: #697a8d;
@@ -1171,6 +1205,114 @@ body.dark-mode .chat-modal-header {
 }
 body.dark-mode .chat-route-name {
     color: #b0cece;
+}
+.chat-operativo-layout {
+    display: grid;
+    grid-template-columns: minmax(420px, 1fr) minmax(420px, 1fr);
+    min-height: 0;
+    height: 100%;
+}
+.chat-conversation-panel {
+    min-width: 0;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    border-right: 1px solid var(--track-border);
+}
+.chat-live-panel {
+    min-width: 0;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    background: #f8fafc;
+}
+body.dark-mode .chat-conversation-panel { border-right-color: #2d4444; }
+body.dark-mode .chat-live-panel { background: #101818; }
+.chat-live-header {
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: .75rem;
+    padding: .75rem .9rem;
+    border-bottom: 1px solid var(--track-border);
+    background: #fff;
+}
+body.dark-mode .chat-live-header {
+    background: #1e2d2c;
+    border-bottom-color: #2d4444;
+}
+.chat-live-title {
+    font-size: .85rem;
+    font-weight: 700;
+    color: #1f2937;
+}
+.chat-live-subtitle {
+    display: block;
+    color: #697a8d;
+    font-size: .72rem;
+    line-height: 1.2;
+}
+body.dark-mode .chat-live-title { color: #e2e8f0; }
+body.dark-mode .chat-live-subtitle { color: #b0cece; }
+.chat-live-map-wrap {
+    position: relative;
+    min-height: 0;
+    flex: 1 1 auto;
+    overflow: hidden;
+}
+#chatLiveMap {
+    width: 100%;
+    height: 100%;
+    min-height: 520px;
+    background: #e5e7eb;
+}
+body.dark-mode #chatLiveMap { background: #101818; }
+.chat-live-placeholder {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: .45rem;
+    color: #94a3b8;
+    text-align: center;
+    padding: 1rem;
+    background: #f8fafc;
+    z-index: 2;
+}
+body.dark-mode .chat-live-placeholder { background: #101818; color: #b0cece; }
+.chat-live-info-card {
+    position: absolute;
+    left: .85rem;
+    right: .85rem;
+    bottom: .85rem;
+    z-index: 3;
+    background: rgba(255,255,255,.94);
+    border: 1px solid rgba(148,163,184,.35);
+    border-radius: .65rem;
+    padding: .65rem .75rem;
+    box-shadow: 0 .4rem 1rem rgba(15,23,42,.14);
+    backdrop-filter: blur(8px);
+}
+body.dark-mode .chat-live-info-card {
+    background: rgba(30,45,44,.94);
+    border-color: #2d4444;
+}
+.chat-live-info-grid {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: .45rem;
+    font-size: .72rem;
+    color: #526070;
+}
+body.dark-mode .chat-live-info-grid { color: #b0cece; }
+.chat-live-info-grid span {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
 /* Tabs de id_detalle */
@@ -1488,10 +1630,31 @@ body.dark-mode .chat-send-btn:disabled { background: #2d4444; }
 /* Modal body: flex column, sin overflow interno */
 #modalChatOperativo .modal-body {
     padding: 0;
-    display: flex;
-    flex-direction: column;
     overflow: hidden;
     height: 100%;
+}
+@media (max-width: 991.98px) {
+    #modalChatOperativo .modal-dialog {
+        max-width: calc(100vw - .75rem);
+        margin: .375rem auto;
+    }
+    #modalChatOperativo .modal-content {
+        height: calc(100vh - .75rem);
+    }
+    .chat-operativo-layout {
+        grid-template-columns: 1fr;
+        grid-template-rows: minmax(420px, 1fr) minmax(340px, 46vh);
+    }
+    .chat-conversation-panel {
+        border-right: 0;
+        border-bottom: 1px solid var(--track-border);
+    }
+    #chatLiveMap {
+        min-height: 340px;
+    }
+    .chat-live-info-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
 }
 
 /* Google Places suggestions must float above Bootstrap modals */
@@ -1510,7 +1673,7 @@ body.dark-mode .chat-send-btn:disabled { background: #2d4444; }
 
 <div class="container-fluid py-3 px-3 px-md-4">
 
-    <!-- ── Cabecera ── -->
+    <!-- -- Cabecera -- -->
     <div class="track-header d-flex align-items-center justify-content-between flex-wrap gap-2">
         <div>
             <h4><i class="fa-solid fa-route me-2"></i>Tracking Recolección — Motos Adjudicadas</h4>
@@ -1521,7 +1684,7 @@ body.dark-mode .chat-send-btn:disabled { background: #2d4444; }
         </button>
     </div>
 
-    <!-- ── Pestañas principales ── -->
+    <!-- -- Pestañas principales -- -->
     <div class="trk-section-grid" id="trkSectionGrid">
         <button type="button" class="trk-section-card active" data-section-target="#tabCreditos" data-section-load="creditos">
             <div>
@@ -1601,7 +1764,7 @@ body.dark-mode .chat-send-btn:disabled { background: #2d4444; }
     </ul>
 
     <div class="tab-content">
-        <!-- ══ Tab: Créditos disponibles ══ -->
+        <!-- == Tab: Créditos disponibles == -->
         <div class="tab-pane fade show active" id="tabCreditos">
 
             <!-- Filtros -->
@@ -1658,7 +1821,7 @@ body.dark-mode .chat-send-btn:disabled { background: #2d4444; }
             </div>
         </div>
 
-        <!-- ══ Tab: Borradores ══ -->
+        <!-- == Tab: Borradores == -->
         <div class="tab-pane fade" id="tabBorradores">
             <div class="card border-0 shadow-sm">
                 <div class="card-header bg-white py-2">
@@ -1694,7 +1857,7 @@ body.dark-mode .chat-send-btn:disabled { background: #2d4444; }
             </div>
         </div>
 
-        <!-- ══ Tab: Rutas registradas ══ -->
+        <!-- == Tab: Rutas registradas == -->
         <div class="tab-pane fade" id="tabRutas">
             <div class="card border-0 shadow-sm">
                 <div class="trk-rutas-toolbar">
@@ -1724,8 +1887,11 @@ body.dark-mode .chat-send-btn:disabled { background: #2d4444; }
                         </button>
                     </div>
                     <div class="btn-group trk-rutas-view-toggle" role="group" aria-label="Vista de rutas">
-                        <button type="button" class="btn btn-sm btn-label-primary active" id="trkVistaCards" title="Vista tarjetas">
-                            <i class="fa-solid fa-grip"></i>
+                        <button type="button" class="btn btn-sm btn-label-secondary" id="trkVistaCards" title="Vista lista">
+                            <i class="fa-solid fa-list"></i>
+                        </button>
+                        <button type="button" class="btn btn-sm btn-label-primary active" id="trkVistaGrid" title="Vista celdas 3 x 6">
+                            <i class="fa-solid fa-border-all"></i>
                         </button>
                         <button type="button" class="btn btn-sm btn-label-secondary" id="trkVistaTabla" title="Vista tabla">
                             <i class="fa-solid fa-table-list"></i>
@@ -1735,6 +1901,7 @@ body.dark-mode .chat-send-btn:disabled { background: #2d4444; }
                 <div class="card-body p-0">
                     <div id="trkRutasCardsWrap" class="trk-rutas-board">
                         <div id="trkRutasCards" class="trk-rutas-grid"></div>
+                        <div id="trkRutasPagination" class="trk-rutas-pagination"></div>
                     </div>
                     <div class="table-responsive" id="trkRutasTablaWrap" style="display:none;">
                         <table id="tablaRutas" class="table table-hover table-bordered mb-0 w-100" style="font-size:.82rem;">
@@ -1831,9 +1998,9 @@ body.dark-mode .chat-send-btn:disabled { background: #2d4444; }
 
 </div><!-- /container-fluid -->
 
-<!-- ══════════════════════════════════════════════════════════
+<!-- ==========================================================
      Modal — Registrar / editar ruta
-══════════════════════════════════════════════════════════ -->
+========================================================== -->
 <div class="modal fade" id="modalRegistrarRuta" tabindex="-1" aria-labelledby="modalRegistrarRutaLabel"
      data-bs-backdrop="static" data-bs-keyboard="false">
     <div class="modal-dialog modal-xl modal-dialog-scrollable">
@@ -1849,7 +2016,7 @@ body.dark-mode .chat-send-btn:disabled { background: #2d4444; }
             <div class="modal-body">
                 <div class="alert alert-danger d-none py-2 px-3 mb-3" id="rutaCancelacionInfo"></div>
 
-                <!-- ── Sección 1: Datos de la ruta ── -->
+                <!-- -- Sección 1: Datos de la ruta -- -->
                 <div class="row g-3 mb-3" id="trkRouteHeaderSection">
                     <div class="col-12 col-md-4">
                         <label class="form-label small fw-semibold">
@@ -1946,7 +2113,7 @@ body.dark-mode .chat-send-btn:disabled { background: #2d4444; }
                     </div>
                 </div>
 
-                <!-- ── Lista de créditos en la ruta (sortable) ── -->
+                <!-- -- Lista de créditos en la ruta (sortable) -- -->
                 <div class="trk-planner-panel mb-3 d-none" id="trkPlannerPanel">
                     <div class="d-flex align-items-center justify-content-between mb-2">
                         <span class="small fw-semibold">
@@ -1991,7 +2158,7 @@ body.dark-mode .chat-send-btn:disabled { background: #2d4444; }
                     </div>
                 </div>
 
-                <!-- ── Sección 3.5: Tracking en tiempo real ── -->
+                <!-- -- Sección 3.5: Tracking en tiempo real -- -->
                 <div id="trkTrackingSection" class="mb-3 d-none">
                     <div class="d-flex align-items-center justify-content-between mb-1">
                         <span class="small fw-semibold">
@@ -2024,7 +2191,7 @@ body.dark-mode .chat-send-btn:disabled { background: #2d4444; }
                     </div>
                 </div>
 
-                <!-- ── Sección 4: Mapa de la ruta ── -->
+                <!-- -- Sección 4: Mapa de la ruta -- -->
                 <div class="mb-2" id="trkMapSection">
                     <div class="d-flex align-items-center justify-content-between mb-1">
                         <span class="small fw-semibold">
@@ -2052,7 +2219,7 @@ body.dark-mode .chat-send-btn:disabled { background: #2d4444; }
                                 <span>Unidad en vivo</span>
                             </div>
                             <div class="live-meta">
-                                <span id="trkLiveUpdated">Sin seÃ±al</span>
+                                <span id="trkLiveUpdated">Sin señal</span>
                                 <span id="trkLiveSpeed">Vel. —</span>
                                 <span id="trkLiveAccuracy">Prec. —</span>
                                 <span id="trkLiveBattery">Bat. —</span>
@@ -2088,17 +2255,11 @@ body.dark-mode .chat-send-btn:disabled { background: #2d4444; }
 
         </div>
     </div>
-        </div>
-    </div>
-        </div>
-    </div>
-        </div>
-    </div>
 </div>
 
-<!-- ══════════════════════════════════════════════════════════
+<!-- ==========================================================
      Modal — Detalle de ruta (solo lectura)
-══════════════════════════════════════════════════════════ -->
+========================================================== -->
 <div class="modal fade" id="modalDetalleRuta" tabindex="-1">
     <div class="modal-dialog modal-lg modal-dialog-scrollable">
         <div class="modal-content">
@@ -2118,9 +2279,9 @@ body.dark-mode .chat-send-btn:disabled { background: #2d4444; }
     </div>
 </div>
 
-<!-- ══════════════════════════════════════════════════════════
+<!-- ==========================================================
      Modal — Seleccionar ubicación en mapa (map picker)
-══════════════════════════════════════════════════════════ -->
+========================================================== -->
 <div class="modal fade" id="modalMapPicker" tabindex="-1" data-bs-backdrop="static" data-bs-keyboard="false">
     <div class="modal-dialog modal-lg">
         <div class="modal-content">
@@ -2173,51 +2334,80 @@ body.dark-mode .chat-send-btn:disabled { background: #2d4444; }
     </div>
 </div>
 
-<!-- ══════════════════════════════════════════════════════════
+<!-- ==========================================================
      Offcanvas — Chat Operativo (gestor / Sparta Ledger)
      Se abre desde el botón de chat en la tabla de rutas.
      Una pestaña por cada id_detalle (punto de recolección).
-══════════════════════════════════════════════════════════ -->
+========================================================== -->
 <div class="modal fade" id="modalChatOperativo" tabindex="-1" aria-labelledby="modalChatOperativoLabel">
     <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
         <div class="modal-content">
-    <div class="modal-header chat-modal-header py-3 px-3">
-        <div class="d-flex align-items-center gap-2" style="min-width:0;">
-            <span class="chat-header-icon"><i class="fa-solid fa-comments"></i></span>
-            <div style="min-width:0;">
-                <h6 class="modal-title mb-0" id="modalChatOperativoLabel">Chat Operativo</h6>
-                <small id="chatRutaNombre" class="chat-route-name"></small>
+            <div class="modal-header chat-modal-header py-3 px-3">
+                <div class="d-flex align-items-center gap-2" style="min-width:0;">
+                    <span class="chat-header-icon"><i class="fa-solid fa-comments"></i></span>
+                    <div style="min-width:0;">
+                        <h6 class="modal-title mb-0" id="modalChatOperativoLabel">Chat Operativo</h6>
+                        <small id="chatRutaNombre" class="chat-route-name"></small>
+                    </div>
+                </div>
+                <button type="button" class="btn-close ms-2" data-bs-dismiss="modal"
+                        aria-label="Cerrar" style="flex-shrink:0;"></button>
             </div>
-        </div>
-        <button type="button" class="btn-close ms-2" data-bs-dismiss="modal"
-                aria-label="Cerrar" style="flex-shrink:0;"></button>
-    </div>
 
-    <div class="modal-body">
-        <!-- Tabs: una por id_detalle -->
-        <div class="chat-tabs-wrap" id="chatTabsWrap" style="display:none;">
-            <ul class="nav d-flex" id="chatTabList" role="tablist"></ul>
-        </div>
+            <div class="modal-body">
+                <div class="chat-operativo-layout">
+                    <section class="chat-conversation-panel">
+                        <div class="chat-tabs-wrap" id="chatTabsWrap" style="display:none;">
+                            <ul class="nav d-flex" id="chatTabList" role="tablist"></ul>
+                        </div>
 
-        <!-- Panes: uno por id_detalle -->
-        <div id="chatPanesContainer" class="flex-grow-1 d-flex flex-column" style="overflow:hidden;"></div>
+                        <div id="chatPanesContainer" class="flex-grow-1 d-flex flex-column" style="overflow:hidden;"></div>
 
-        <!-- Placeholder cuando no hay items -->
-        <div id="chatEmptyPlaceholder" class="flex-grow-1 d-none align-items-center justify-content-center text-center p-4"
-             style="color:#94a3b8;">
-            <div>
-                <i class="fa-solid fa-comments fa-2x mb-2 opacity-25 d-block"></i>
-                <span class="small">No hay puntos de recolección disponibles</span>
+                        <div id="chatEmptyPlaceholder" class="flex-grow-1 d-none align-items-center justify-content-center text-center p-4"
+                             style="color:#94a3b8;">
+                            <div>
+                                <i class="fa-solid fa-comments fa-2x mb-2 opacity-25 d-block"></i>
+                                <span class="small">No hay puntos de recoleccion disponibles</span>
+                            </div>
+                        </div>
+                    </section>
+
+                    <section class="chat-live-panel">
+                        <div class="chat-live-header">
+                            <div style="min-width:0;">
+                                <div class="chat-live-title">
+                                    <i class="fa-solid fa-truck-fast me-1" style="color:var(--track-color);"></i>
+                                    Ubicacion en tiempo real
+                                </div>
+                                <span class="chat-live-subtitle" id="chatLiveRutaNombre">Esperando ubicacion del transportista</span>
+                            </div>
+                            <span class="d-inline-flex align-items-center gap-1 small text-muted">
+                                <span id="chatLiveWsDot" class="chat-ws-dot chat-ws-off"></span>
+                                Live
+                            </span>
+                        </div>
+                        <div class="chat-live-map-wrap">
+                            <div id="chatLiveMap"></div>
+                            <div id="chatLivePlaceholder" class="chat-live-placeholder">
+                                <i class="fa-solid fa-location-dot fa-2x opacity-25"></i>
+                                <span class="small">Esperando primera ubicacion GPS</span>
+                            </div>
+                            <div id="chatLiveMapInfo" class="chat-live-info-card d-none">
+                                <div class="fw-semibold mb-1" id="chatLiveUpdated">Sin ubicacion</div>
+                                <div class="chat-live-info-grid">
+                                    <span id="chatLiveSpeed">Vel. -</span>
+                                    <span id="chatLiveAccuracy">Prec. -</span>
+                                    <span id="chatLiveBattery">Bat. -</span>
+                                    <span id="chatLiveCoords">Coord. -</span>
+                                </div>
+                            </div>
+                        </div>
+                    </section>
+                </div>
             </div>
         </div>
     </div>
 </div>
-
-<!-- ══════════════════════════════════════════════════════════
-     Google Maps API
-══════════════════════════════════════════════════════════ -->
-        </div>
-    </div>
 <?php if (!empty($google_maps_api_key_js)) : ?>
 <script>
     window._trackGoogleMapsKey = <?= json_encode((string) $google_maps_api_key_js) ?>;
@@ -2234,17 +2424,16 @@ window._trackingChatGestorNombre = <?= json_encode(trim((string)($_SESSION['usua
 window._trackingDiasMinimosProgramacion = <?= json_encode((int)($tracking_dias_minimos_programacion ?? 2)) ?>;
 window._trackingInitialSection = <?= json_encode((string)($tracking_initial_section ?? 'creditos')) ?>;
 </script>
-
 <!-- SortableJS (drag-and-drop sin jQuery UI) -->
 <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.2/Sortable.min.js"></script>
 
 <script>
-/* ═══════════════════════════════════════════════════════
+/* =======================================================
    tracking_recoleccion.js — lógica del módulo
-═══════════════════════════════════════════════════════ */
+======================================================= */
 'use strict';
 
-// ─── Estado local ───────────────────────────────────────
+// --- Estado local ---------------------------------------
 const _trk = {
     creditosDisponibles:  [],   // todos los créditos disponibles del servidor
     creditosEnRuta:       [],   // créditos actualmente en el modal
@@ -2253,8 +2442,12 @@ const _trk = {
     rutasRegistradas:     [],
     rutasFiltro:          'todas',
     rutasVista:           'cards',
+    rutasLayout:          'grid',
     rutasBusqueda:        '',
+    rutasPagina:          1,
+    rutasPorPagina:       18,
     borradoresBusqueda:   '',
+    cargadoEstados:       false,
     cargadoCreditos:      false,
     cargadoCatalogos:     false,
     cargadoBorradores:    false,
@@ -2284,10 +2477,13 @@ const _trk = {
     liveVehicleMarker:    null,
     liveVehiclePolyline:  null,
     liveVehiclePath:      [],
+    chatMapInstance:      null,
+    chatLiveVehicleMarker:null,
+    chatLiveVehiclePolyline:null,
     routeLegDurations:    [],   // duraciones Google Maps entre puntos confirmados
 };
 
-// ─── Utilidades ─────────────────────────────────────────
+// --- Utilidades -----------------------------------------
 const trkFetch = (url, opts = {}) =>
     fetch(url, { credentials: 'same-origin', ...opts })
         .then(r => r.json());
@@ -2327,7 +2523,7 @@ const RUTA_LABEL = {
     cancelada:              '<span class="badge badge-ruta-cancelada">Cancelada</span>',
 };
 
-// ─── Inicialización ─────────────────────────────────────
+// --- Inicialización -------------------------------------
 function _trkSelect2Disponible() {
     return typeof window.jQuery !== 'undefined' && !!window.jQuery.fn.select2;
 }
@@ -2414,10 +2610,14 @@ document.addEventListener('DOMContentLoaded', function () {
             _trkPicker.mapInstance.setOptions({ styles: [] });
             google.maps.event.trigger(_trkPicker.mapInstance, 'resize');
         }
+        if (_trk.chatMapInstance) {
+            _trk.chatMapInstance.setOptions({ styles: document.body.classList.contains('dark-mode') ? _TRK_DARK_MAP_STYLES : [] });
+            google.maps.event.trigger(_trk.chatMapInstance, 'resize');
+        }
     }).observe(document.body, { attributeFilter: ['class'] });
 
-    document.getElementById('tabRutasBtn').addEventListener('click', () => _trkCargarRutas());
-    document.getElementById('tabBorradorBtn').addEventListener('click', () => _trkCargarBorradores());
+    document.getElementById('tabRutasBtn').addEventListener('click', () => _trkCargarRutasSiHaceFalta());
+    document.getElementById('tabBorradorBtn').addEventListener('click', () => _trkCargarBorradoresSiHaceFalta());
     document.getElementById('tabCatalogosBtn').addEventListener('click', () => _trkCargarCatalogosSiHaceFalta().then(() => _trkRenderCatalogosTracking()));
     document.getElementById('trkSectionGrid')?.addEventListener('click', ev => {
         const btn = ev.target.closest('.trk-section-card');
@@ -2492,11 +2692,10 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     });
 
-    // Carga inicial de todas las pestañas en paralelo
-    _trkCargarTodo();
+    // La seccion activa carga sus datos bajo demanda.
 });
 
-// ─── Filtros ─────────────────────────────────────────────
+// --- Filtros ---------------------------------------------
 function _trkInicializarFiltros() {
     $('#filtroEstado').on('change', function () {
         const est = $(this).val();
@@ -2537,16 +2736,19 @@ function _trkInicializarFiltros() {
 }
 
 function _trkCargarEstados() {
+    if (_trk.cargadoEstados) return Promise.resolve();
     return trkFetch('/TrackingRecoleccion/obtenerEstados')
         .then(r => {
             const estados = r.datos || [];
             const $selFiltro = $('#filtroEstado');
+            $selFiltro.find('option:not(:first)').remove();
             estados.forEach(e => $selFiltro.append(`<option value="${e}">${e}</option>`));
             _trkRefrescarSelectBuscable('#filtroEstado');
+            _trk.cargadoEstados = true;
         });
 }
 
-// ─── Tabla de créditos ──────────────────────────────────
+// --- Tabla de créditos ----------------------------------
 function _trkRenderLocationBadges(estado, municipio) {
     const est = String(estado || '').trim();
     const mun = String(municipio || '').trim();
@@ -2568,6 +2770,7 @@ function _trkInicializarTablaCreditosDT() {
             search:      'Buscar:',
         },
         pageLength: 25,
+        deferRender: true,
         responsive: true,
         columns: [
             { data: 'id_credito' },
@@ -2635,7 +2838,7 @@ function _trkCargarCreditosPaso2() {
         .catch(() => Swal.fire({ icon: 'error', title: 'Error', text: 'Error al cargar créditos.', confirmButtonText: 'Aceptar' }));
 }
 
-// ─── Filtro: solo créditos con estatus "Cierre Documentados" ─────────────
+// --- Filtro: solo créditos con estatus "Cierre Documentados" -------------
 // Pendiente de autorización — para activar: descomentar la línea en _trkCargarCreditosPaso2
 // Una vez activo, el estatus se mostrará en tabla como "Listo para ruta" en lugar de "Cierre Documentados"
 // function _trkFiltrarListosParaRuta(creditos) {
@@ -2644,7 +2847,7 @@ function _trkCargarCreditosPaso2() {
 //         .map(c => ({ ...c, estatus_proceso: 'Listo para ruta' }));
 // }
 
-// ─── Tabla de rutas ─────────────────────────────────────
+// --- Tabla de rutas -------------------------------------
 function _trkRenderUbicacionRuta(raw) {
     if (!raw) return '—';
     const map = new Map();
@@ -2703,6 +2906,10 @@ function _trkRenderTransportistaRuta(r) {
     </div>`;
 }
 
+function _trkCargarCreditosSiHaceFalta() {
+    return _trk.cargadoCreditos ? Promise.resolve() : _trkCargarCreditosPaso2();
+}
+
 function _trkRutaCancelable(estatus) {
     return !['borrador', 'concluida', 'cancelada'].includes(String(estatus || ''));
 }
@@ -2734,11 +2941,13 @@ function _trkInicializarRutasVista() {
         const btn = ev.target.closest('.trk-rutas-filter');
         if (!btn) return;
         _trk.rutasFiltro = btn.dataset.estatus || 'todas';
+        _trk.rutasPagina = 1;
         document.querySelectorAll('#trkRutasFiltros .trk-rutas-filter').forEach(b => b.classList.toggle('active', b === btn));
-        _trkRenderRutasCards();
+        _trkRenderRutasVistaActual();
     });
 
-    document.getElementById('trkVistaCards')?.addEventListener('click', () => _trkSetRutasVista('cards'));
+    document.getElementById('trkVistaCards')?.addEventListener('click', () => _trkSetRutasVista('lista'));
+    document.getElementById('trkVistaGrid')?.addEventListener('click', () => _trkSetRutasVista('grid'));
     document.getElementById('trkVistaTabla')?.addEventListener('click', () => _trkSetRutasVista('tabla'));
 
     document.getElementById('trkRutasCards')?.addEventListener('click', ev => {
@@ -2749,6 +2958,13 @@ function _trkInicializarRutasVista() {
         if (btn.classList.contains('btn-ver-ruta')) _trkCargarRutaEnModal(idRuta, true);
         if (btn.classList.contains('btn-abrir-chat')) _trkChatCargarYAbrir(idRuta);
         if (btn.classList.contains('btn-cancelar-ruta')) _trkCancelarRuta(idRuta, String(btn.dataset.nombre || ''));
+    });
+
+    document.getElementById('trkRutasPagination')?.addEventListener('click', ev => {
+        const btn = ev.target.closest('button[data-page]');
+        if (!btn || btn.disabled) return;
+        _trk.rutasPagina = Math.max(1, parseInt(btn.dataset.page, 10) || 1);
+        _trkRenderRutasCards();
     });
 }
 
@@ -2762,10 +2978,8 @@ function _trkInicializarBusquedasRutas() {
 
     $('#trkBuscarRutas').on('input', function () {
         _trk.rutasBusqueda = this.value || '';
-        if (_trk.tablaRutasDT) {
-            _trk.tablaRutasDT.search(_trk.rutasBusqueda).draw();
-        }
-        _trkRenderRutasCards();
+        _trk.rutasPagina = 1;
+        _trkRenderRutasVistaActual();
     });
 }
 
@@ -2783,31 +2997,63 @@ function _trkActivarSeccion(target, loadKey = '') {
             pane.classList.toggle('active', `#${pane.id}` === target);
         });
     }
+    if (loadKey === 'creditos') _trkCargarCreditosInicialSiHaceFalta();
     if (loadKey === 'borradores') _trkCargarBorradoresSiHaceFalta();
     if (loadKey === 'rutas') _trkCargarRutasSiHaceFalta();
     if (loadKey === 'catalogos') _trkCargarCatalogosSiHaceFalta().then(() => _trkRenderCatalogosTracking());
 }
 
 function _trkSetRutasVista(vista) {
+    const vistaAnterior = _trk.rutasVista;
+    const layoutAnterior = _trk.rutasLayout;
     _trk.rutasVista = vista === 'tabla' ? 'tabla' : 'cards';
+    if (vista === 'grid') {
+        _trk.rutasLayout = 'grid';
+        _trk.rutasPorPagina = 18;
+    } else if (vista === 'lista' || vista === 'cards') {
+        _trk.rutasLayout = 'lista';
+        _trk.rutasPorPagina = 6;
+    }
+    if (vistaAnterior !== _trk.rutasVista || layoutAnterior !== _trk.rutasLayout) {
+        _trk.rutasPagina = 1;
+    }
     const cardsWrap = document.getElementById('trkRutasCardsWrap');
     const tablaWrap = document.getElementById('trkRutasTablaWrap');
     const btnCards  = document.getElementById('trkVistaCards');
+    const btnGrid   = document.getElementById('trkVistaGrid');
     const btnTabla  = document.getElementById('trkVistaTabla');
     if (cardsWrap) cardsWrap.style.display = _trk.rutasVista === 'cards' ? '' : 'none';
+    cardsWrap?.classList.toggle('trk-rutas-board-grid', _trk.rutasVista === 'cards' && _trk.rutasLayout === 'grid');
     if (tablaWrap) tablaWrap.style.display = _trk.rutasVista === 'tabla' ? '' : 'none';
-    btnCards?.classList.toggle('active', _trk.rutasVista === 'cards');
-    btnCards?.classList.toggle('btn-label-primary', _trk.rutasVista === 'cards');
-    btnCards?.classList.toggle('btn-label-secondary', _trk.rutasVista !== 'cards');
+    btnCards?.classList.toggle('active', _trk.rutasVista === 'cards' && _trk.rutasLayout === 'lista');
+    btnCards?.classList.toggle('btn-label-primary', _trk.rutasVista === 'cards' && _trk.rutasLayout === 'lista');
+    btnCards?.classList.toggle('btn-label-secondary', !(_trk.rutasVista === 'cards' && _trk.rutasLayout === 'lista'));
+    btnGrid?.classList.toggle('active', _trk.rutasVista === 'cards' && _trk.rutasLayout === 'grid');
+    btnGrid?.classList.toggle('btn-label-primary', _trk.rutasVista === 'cards' && _trk.rutasLayout === 'grid');
+    btnGrid?.classList.toggle('btn-label-secondary', !(_trk.rutasVista === 'cards' && _trk.rutasLayout === 'grid'));
     btnTabla?.classList.toggle('active', _trk.rutasVista === 'tabla');
     btnTabla?.classList.toggle('btn-label-primary', _trk.rutasVista === 'tabla');
     btnTabla?.classList.toggle('btn-label-secondary', _trk.rutasVista !== 'tabla');
+    _trkRenderRutasVistaActual();
     if (_trk.rutasVista === 'tabla' && _trk.tablaRutasDT) {
         setTimeout(() => {
             _trk.tablaRutasDT.columns.adjust();
             if (_trk.tablaRutasDT.responsive) _trk.tablaRutasDT.responsive.recalc();
         }, 50);
     }
+}
+
+function _trkRenderRutasVistaActual() {
+    if (_trk.rutasVista === 'tabla') {
+        _trkRenderRutasTabla();
+        return;
+    }
+    _trkRenderRutasCards();
+}
+
+function _trkRenderRutasTabla() {
+    if (!_trk.tablaRutasDT) return;
+    _trk.tablaRutasDT.clear().rows.add(_trkRutasFiltradas()).search('').draw();
 }
 
 function _trkActualizarResumenRutas(rutas) {
@@ -2861,7 +3107,11 @@ function _trkRutasFiltradas() {
     if (q) {
         rutas = rutas.filter(r => _trkNormTxt(_trkRutaTextoBusqueda(r)).includes(q));
     }
-    return rutas;
+    return rutas.slice().sort((a, b) => {
+        const aId = parseInt(a.id_ruta, 10) || 0;
+        const bId = parseInt(b.id_ruta, 10) || 0;
+        return bId - aId;
+    });
 }
 
 function _trkRutaPorcentaje(r) {
@@ -2883,6 +3133,7 @@ function _trkRenderRutasCards() {
     const wrap = document.getElementById('trkRutasCards');
     if (!wrap) return;
     const rutas = _trkRutasFiltradas();
+    const pager = document.getElementById('trkRutasPagination');
     if (!rutas.length) {
         const buscando = String(_trk.rutasBusqueda || '').trim() !== '';
         wrap.innerHTML = `<div class="trk-rutas-empty" style="grid-column:1/-1;">
@@ -2890,15 +3141,48 @@ function _trkRenderRutasCards() {
             <div class="fw-semibold">${buscando ? 'No hay coincidencias' : 'No hay rutas para este filtro'}</div>
             <div class="small mt-1">${buscando ? 'Prueba con otra palabra o limpia la busqueda.' : 'Cambia el estatus o registra una nueva ruta.'}</div>
         </div>`;
+        if (pager) pager.innerHTML = '';
         return;
     }
-    wrap.innerHTML = rutas.map(r => _trkRenderRutaCard(r)).join('');
+    const porPagina = Math.max(1, parseInt(_trk.rutasPorPagina, 10) || 1);
+    const totalPaginas = Math.max(1, Math.ceil(rutas.length / porPagina));
+    _trk.rutasPagina = Math.min(Math.max(1, parseInt(_trk.rutasPagina, 10) || 1), totalPaginas);
+    const inicio = (_trk.rutasPagina - 1) * porPagina;
+    const visibles = rutas.slice(inicio, inicio + porPagina);
+    wrap.innerHTML = visibles.map(r => _trkRenderRutaCard(r)).join('');
+    _trkRenderRutasPagination(rutas.length, inicio + 1, Math.min(inicio + visibles.length, rutas.length), totalPaginas);
     wrap.querySelectorAll('[data-bs-toggle="tooltip"]').forEach(el => {
         bootstrap.Tooltip.getOrCreateInstance(el, { trigger: 'hover', html: true });
     });
-    rutas.forEach(r => {
-        if (_trkRutaDebeConsultarEstadoLive(r.estatus_ruta)) _trkActualizarEstadoCeldaRuta(r.id_ruta);
-    });
+}
+
+function _trkRenderRutasPagination(total, desde, hasta, totalPaginas) {
+    const pager = document.getElementById('trkRutasPagination');
+    if (!pager) return;
+    const page = _trk.rutasPagina;
+    const start = Math.max(1, page - 2);
+    const end = Math.min(totalPaginas, start + 4);
+    const first = Math.max(1, Math.min(start, Math.max(1, totalPaginas - 4)));
+    let pagesHtml = '';
+    for (let p = first; p <= end; p++) {
+        pagesHtml += `<button type="button" class="btn btn-sm ${p === page ? 'btn-primary' : 'btn-label-secondary'}" data-page="${p}" ${p === page ? 'disabled' : ''}>${p}</button>`;
+    }
+    pager.innerHTML = `
+        <div class="trk-rutas-page-info">
+            Rutas ${desde}-${hasta} de ${total} · Página ${page} de ${totalPaginas}
+        </div>
+        <div class="trk-rutas-page-actions">
+            <button type="button" class="btn btn-sm btn-label-secondary" data-page="1" ${page <= 1 ? 'disabled' : ''} title="Primera">
+                <i class="fa-solid fa-angles-left"></i>
+            </button>
+            <button type="button" class="btn btn-sm btn-label-secondary" data-page="${page - 1}" ${page <= 1 ? 'disabled' : ''}>
+                <i class="fa-solid fa-chevron-left me-1"></i>Anterior
+            </button>
+            ${pagesHtml}
+            <button type="button" class="btn btn-sm btn-label-secondary" data-page="${page + 1}" ${page >= totalPaginas ? 'disabled' : ''}>
+                Siguiente<i class="fa-solid fa-chevron-right ms-1"></i>
+            </button>
+        </div>`;
 }
 
 function _trkRenderRutaCard(r) {
@@ -2910,12 +3194,9 @@ function _trkRenderRutaCard(r) {
     const rech = parseInt(r.rechazados, 10) || 0;
     const pct = _trkRutaPorcentaje(r);
     const ubicacion = _trkRenderUbicacionRuta(r.ubicaciones_lista);
-    const consultarLive = _trkRutaDebeConsultarEstadoLive(estatus);
     const estatusBadge = RUTA_LABEL[estatus] || `<span class="badge bg-secondary">${_trkChatEscapeHtml(estatus || 'Sin estatus')}</span>`;
-    const statusLive = consultarLive
-        ? `<div id="trkRutaTrkStatusCard_${id}" class="d-flex align-items-center gap-1 mt-1">
-            <span class="spinner-border spinner-border-sm text-secondary" style="width:.55rem;height:.55rem;border-width:1.5px;"></span>
-        </div>`
+    const statusLive = pct > 0
+        ? `<span class="badge bg-light text-dark border" style="font-size:.68rem;">${pct}%</span>`
         : '';
     const btnCancelar = _trkRutaCancelable(estatus)
         ? `<button class="btn btn-icon btn-sm rounded-pill btn-label-danger trk-action-btn btn-cancelar-ruta"
@@ -2937,7 +3218,7 @@ function _trkRenderRutaCard(r) {
             <div class="trk-ruta-title">#${id} ${_trkChatEscapeHtml(r.nombre_ruta || 'Ruta sin nombre')}</div>
             <div class="trk-ruta-subtitle">${ubicacion || 'Sin ubicacion'}</div>
             <div class="trk-ruta-status">
-                ${consultarLive ? '' : estatusBadge}
+                ${estatusBadge}
                 ${statusLive}
             </div>
         </div>
@@ -2986,7 +3267,9 @@ function _trkInicializarTablaRutasDT() {
         },
         dom: 'lrtip',
         pageLength: 20,
+        deferRender: true,
         responsive: true,
+        order: [[0, 'desc']],
         columns: [
             { data: 'id_ruta' },
             { data: 'nombre_ruta' },
@@ -3015,14 +3298,10 @@ function _trkInicializarTablaRutasDT() {
                 data: 'estatus_ruta',
                 render: (v, type, r) => {
                     const base = RUTA_LABEL[v] || `<span class="badge bg-secondary">${v}</span>`;
-                    if (_trkRutaDebeConsultarEstadoLive(v)) {
-                        return `<div class="d-flex flex-column gap-1">
-                            <div id="trkRutaTrkStatus_${r.id_ruta}" class="d-flex align-items-center gap-1">
-                                <span class="spinner-border spinner-border-sm text-secondary" style="width:.55rem;height:.55rem;border-width:1.5px;"></span>
-                            </div>
-                        </div>`;
-                    }
-                    return base;
+                    const pct = _trkRutaPorcentaje(r);
+                    return pct > 0
+                        ? `${base} <span class="badge bg-light text-dark border" style="font-size:.68rem;">${pct}%</span>`
+                        : base;
                 },
             },
             {
@@ -3083,12 +3362,6 @@ function _trkInicializarTablaRutasDT() {
             document.querySelectorAll('#tablaRutas [data-bs-toggle="tooltip"]').forEach(el => {
                 bootstrap.Tooltip.getOrCreateInstance(el, { trigger: 'hover', html: true });
             });
-            this.api().rows().every(function () {
-                const d = this.data();
-                if (_trkRutaDebeConsultarEstadoLive(d.estatus_ruta)) {
-                    _trkActualizarEstadoCeldaRuta(d.id_ruta);
-                }
-            });
         },
     });
 
@@ -3106,7 +3379,7 @@ function _trkInicializarTablaRutasDT() {
     });
 }
 
-// ─── Estatus live (tracking API) para rutas en_proceso ─────────────────────
+// --- Estatus live (tracking API) para rutas en_proceso ---------------------
 const _TRK_LABEL_API = {
     pendiente:   '<span class="badge badge-trk-pendiente">Pendiente</span>',
     en_proceso:  '<span class="badge badge-trk-en_proceso">En proceso</span>',
@@ -3160,18 +3433,17 @@ async function _trkActualizarEstadoCeldaRuta(idRuta) {
 }
 
 function _trkCargarRutas() {
+    const t0 = performance.now();
     return trkFetch('/TrackingRecoleccion/obtenerRutas', { method: 'POST' })
         .then(r => {
             const rutas = r.datos || [];
             _trk.rutasRegistradas = rutas;
-            if (_trk.tablaRutasDT) {
-                _trk.tablaRutasDT.clear().rows.add(rutas).search(_trk.rutasBusqueda || '').draw();
-            }
+            _trk.rutasPagina = 1;
             _trkActualizarResumenRutas(rutas);
-            _trkRenderRutasCards();
             _trkSetRutasVista(_trk.rutasVista || 'cards');
             _trk.cargadoRutas = true;
             _trkSetBadge('badgeRutas', rutas.length);
+            console.info(`[Tracking Recoleccion] Rutas cargadas: ${rutas.length} en ${Math.round(performance.now() - t0)} ms`);
         })
         .catch(() => Swal.fire({ icon: 'error', title: 'Error', text: 'Error al cargar rutas.', confirmButtonText: 'Aceptar' }));
 }
@@ -3247,7 +3519,7 @@ async function _trkCancelarRuta(idRuta, nombreRuta = '') {
     }
 }
 
-// ─── Tabla de borradores ─────────────────────────────────────
+// --- Tabla de borradores -------------------------------------
 function _trkInicializarTablaBorradorDT() {
     _trk.tablaRutasBorradorDT = $('#tablaBorradores').DataTable({
         language: {
@@ -3260,6 +3532,7 @@ function _trkInicializarTablaBorradorDT() {
         },
         dom: 'lrtip',
         pageLength: 20,
+        deferRender: true,
         responsive: true,
         columns: [
             { data: 'id_ruta' },
@@ -3343,7 +3616,7 @@ function _trkCargarBorradores() {
         .catch(() => {});
 }
 
-// ─── Carga inicial de todos los datos en paralelo ─────────
+// --- Carga inicial de todos los datos en paralelo ---------
 function _trkCargarBorradoresSiHaceFalta() {
     return _trk.cargadoBorradores ? Promise.resolve() : _trkCargarBorradores();
 }
@@ -3375,6 +3648,7 @@ function _trkInicializarTablasCatalogosDT() {
             search:      'Buscar:',
         },
         pageLength: 10,
+        deferRender: true,
         responsive: true,
         columns: [
             {
@@ -3405,6 +3679,7 @@ function _trkInicializarTablasCatalogosDT() {
             search:      'Buscar:',
         },
         pageLength: 10,
+        deferRender: true,
         responsive: true,
         columns: [
             {
@@ -3439,7 +3714,6 @@ function _trkCargarCatalogoAgenciasTransportistas() {
             _trk.agenciasTracking = cedisApi.length ? cedisApi : cedisLocal;
             _trk.transportistasTracking = datos.transportistas || [];
             _trkPoblarAgenciasTrackingSelect();
-            _trkRenderCatalogosTracking();
             _trkRefrescarSelectTransportistas();
             _trk.cargadoCatalogos = true;
         });
@@ -3781,6 +4055,27 @@ function _trkRenderCedisDestinoInfo() {
     `);
 }
 
+function _trkCargarCreditosInicialSiHaceFalta() {
+    return Promise.all([
+        _trkCargarEstados().catch(() => {}),
+        _trkCargarCreditosSiHaceFalta().catch(() => {}),
+    ]);
+}
+
+function _trkPrepararModalRuta() {
+    return Promise.all([
+        _trkCargarCatalogosSiHaceFalta(),
+        _trkCargarCreditosInicialSiHaceFalta(),
+    ]);
+}
+
+function _trkPrepararModalRutaDetalle(soloLectura = false) {
+    return Promise.all([
+        _trkCargarCatalogosSiHaceFalta(),
+        soloLectura ? Promise.resolve() : _trkCargarCreditosInicialSiHaceFalta(),
+    ]);
+}
+
 function _trkCargarTodo() {
     const t0 = performance.now();
     Swal.fire({
@@ -3792,21 +4087,13 @@ function _trkCargarTodo() {
         didOpen: () => Swal.showLoading(),
     });
 
-    Promise.all([
-        _trkCargarEstados().catch(() => {}),
-        _trkCargarCatalogoAgenciasTransportistas().catch(() => {}),
-        _trkCargarCreditosPaso2().catch(() => {}),
-    ]).then(() => {
+    _trkCargarCreditosInicialSiHaceFalta().then(() => {
         Swal.close();
         console.info(`[Tracking Recoleccion] Carga inicial esencial: ${Math.round(performance.now() - t0)} ms`);
-        setTimeout(() => {
-            _trkCargarBorradoresSiHaceFalta();
-            _trkCargarRutasSiHaceFalta();
-        }, 350);
     });
 }
 
-// ─── Modal — apertura ────────────────────────────────────
+// --- Modal — apertura ------------------------------------
 function _trkDiasMinimosProgramacion() {
     const dias = parseInt(window._trackingDiasMinimosProgramacion, 10);
     if (Number.isNaN(dias)) return 2;
@@ -3937,13 +4224,33 @@ function _trkInicializarModal() {
     });
 }
 
-function _trkAbrirModalNuevo() {
+async function _trkAbrirModalNuevo() {
+    Swal.fire({
+        title: 'Preparando ruta...',
+        html: '<span style="font-size:.875rem;color:#64748b;">Cargando catalogos necesarios</span>',
+        allowOutsideClick: false,
+        allowEscapeKey: false,
+        showConfirmButton: false,
+        didOpen: () => Swal.showLoading(),
+    });
+    await _trkPrepararModalRuta();
+    Swal.close();
     _trkResetModal();
     const modal = new bootstrap.Modal(document.getElementById('modalRegistrarRuta'));
     modal.show();
 }
 
-function _trkAbrirModalConCredito(cred) {
+async function _trkAbrirModalConCredito(cred) {
+    Swal.fire({
+        title: 'Preparando ruta...',
+        html: '<span style="font-size:.875rem;color:#64748b;">Cargando catalogos necesarios</span>',
+        allowOutsideClick: false,
+        allowEscapeKey: false,
+        showConfirmButton: false,
+        didOpen: () => Swal.showLoading(),
+    });
+    await _trkPrepararModalRuta();
+    Swal.close();
     _trkResetModal();
     _trkAgregarCreditoALista(cred);
     // Pre-seleccionar estado/municipio del crédito en los filtros
@@ -4012,7 +4319,7 @@ function _trkResetModal() {
         '<i class="fa-solid fa-route me-2"></i>Registrar ruta de recolección';
 }
 
-// ─── Créditos en el modal ────────────────────────────────
+// --- Créditos en el modal --------------------------------
 function _trkPoblarFiltroEstadosCrd() {
     const estadoActual = $('#crdFiltroEstado').val();
     const estados = [...new Set(
@@ -4284,7 +4591,7 @@ function _trkRenderListaCreditos() {
                     val = base;
                     Swal.fire({
                         icon: 'warning',
-                        title: 'Fecha ETA invÃ¡lida',
+                        title: 'Fecha ETA inválida',
                         text: 'La ETA no puede ser anterior a la fecha de salida de la ruta.',
                         confirmButtonText: 'Aceptar',
                     });
@@ -4367,7 +4674,7 @@ function _trkRecalcularOrden() {
 
 
 
-// ─── Mapa ────────────────────────────────────────────────
+// --- Mapa ------------------------------------------------
 function _trkOcultarMapa() {
     document.getElementById('trackMap').style.display      = 'none';
     document.getElementById('mapPlaceholder').style.display = 'flex';
@@ -4426,7 +4733,7 @@ function _trkRenderizarMapa() {
     }
 }
 
-// ─── Estilos oscuros para Google Maps ───────────────────
+// --- Estilos oscuros para Google Maps -------------------
 const _TRK_DARK_MAP_STYLES = [
     { elementType: 'geometry',             stylers: [{ color: '#1d2c2c' }] },
     { elementType: 'labels.text.fill',     stylers: [{ color: '#8ec3b0' }] },
@@ -4460,7 +4767,7 @@ function _trkDibujarMapa(creditos) {
         _trk.geocoder = new google.maps.Geocoder();
     }
 
-    // ── Limpiar mapa anterior ─────────────────────────────────
+    // -- Limpiar mapa anterior ---------------------------------
     _trk.mapMarkers.forEach(m => m.setMap(null));
     _trk.mapMarkers = [];
     _trk.mapMarkersByCredito = {};
@@ -4474,7 +4781,7 @@ function _trkDibujarMapa(creditos) {
     const map    = _trk.mapInstance;
     const bounds = new google.maps.LatLngBounds();
 
-    // ── Separar por estatus ───────────────────────────────────
+    // -- Separar por estatus -----------------------------------
     const paraRuta     = creditos
         .filter(c => c.estatus_confirmacion_gestor === 'confirmado')
         .sort((a, b) => (a.orden_ruta || 99) - (b.orden_ruta || 99));
@@ -4482,9 +4789,9 @@ function _trkDibujarMapa(creditos) {
         c.estatus_confirmacion_gestor === 'pendiente' ||
         c.estatus_confirmacion_gestor === 'en_revision'
     );
-    // rechazados → completamente omitidos del mapa
+    // rechazados -> completamente omitidos del mapa
 
-    // ── Icono SVG numerado (confirmados) ─────────────────────
+    // -- Icono SVG numerado (confirmados) ---------------------
     const svgIcon = (num) => {
         const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="34" height="34">
             <circle cx="17" cy="17" r="15" fill="#e53935" stroke="#fff" stroke-width="2.5"/>
@@ -4498,7 +4805,7 @@ function _trkDibujarMapa(creditos) {
         };
     };
 
-    // ── Icono por estatus (no confirmados) ───────────────────
+    // -- Icono por estatus (no confirmados) -------------------
     const statusIcon = (estatus) => {
         const color = estatus === 'en_revision' ? '#fb8c00' : '#fdd835';
         const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="26" height="26">
@@ -4524,7 +4831,7 @@ function _trkDibujarMapa(creditos) {
         };
     };
 
-    // ── Resolver coordenadas de un crédito ───────────────────
+    // -- Resolver coordenadas de un crédito -------------------
     const resolverPos = (c) => new Promise(resolve => {
         const lat = parseFloat(c.latitud_manual ?? c.latitud);
         const lng = parseFloat(c.longitud_manual ?? c.longitud);
@@ -4546,7 +4853,7 @@ function _trkDibujarMapa(creditos) {
         }
     });
 
-    // ── Resolver todo en paralelo y dibujar ──────────────────
+    // -- Resolver todo en paralelo y dibujar ------------------
     Promise.all([
         ...paraRuta.map(c  => resolverPos(c).then(pos => ({ c, pos, tipo: 'ruta' }))),
         ...soloPin.map(c   => resolverPos(c).then(pos => ({ c, pos, tipo: 'pin'  }))),
@@ -4618,7 +4925,7 @@ function _trkDibujarMapa(creditos) {
             return;
         }
 
-        // ── Trazar polilínea de ruta (solo confirmados) ──────
+        // -- Trazar polilínea de ruta (solo confirmados) ------
         const origin      = new google.maps.LatLng(rutaConDestino[0].pos.lat, rutaConDestino[0].pos.lng);
         const destination = new google.maps.LatLng(rutaConDestino[rutaConDestino.length - 1].pos.lat, rutaConDestino[rutaConDestino.length - 1].pos.lng);
         const waypoints   = rutaConDestino.slice(1, -1).map(r => ({
@@ -4733,7 +5040,7 @@ function _trkEnfocarCreditoEnMapa(idCredito, opts = {}) {
     });
 }
 
-// ─── Map Picker (Plan B: clic en mapa para asignar coords) ──────────────────
+// --- Map Picker (Plan B: clic en mapa para asignar coords) ------------------
 const _trkPicker = {
     modal:             null,
     mapInstance:       null,
@@ -4841,7 +5148,7 @@ function _trkInicializarMapPicker() {
                 document.getElementById('btnConfirmarMapPicker').disabled = false;
             });
 
-            // ── Google Places Autocomplete ──────────────────────────
+            // -- Google Places Autocomplete --------------------------
             if (false && !_trkPicker.autocomplete && google.maps.places) {
                 const searchInput = document.getElementById('mapPickerSearch');
                 _trkPicker.autocomplete = new google.maps.places.Autocomplete(searchInput, {
@@ -4943,7 +5250,7 @@ function _trkInicializarMapPicker() {
     }
 }
 
-function _trkPickerCrearMarker(latLng, title = 'UbicaciÃ³n seleccionada') {
+function _trkPickerCrearMarker(latLng, title = 'Ubicación seleccionada') {
     if (!_trkPicker.marker) {
         _trkPicker.marker = new google.maps.Marker({
             map: _trkPicker.mapInstance,
@@ -4969,7 +5276,7 @@ function _trkPickerAplicarLugar(latLng, components = null, addressText = '') {
     _trkPicker.selectedLng = typeof latLng.lng === 'function' ? latLng.lng() : latLng.lng;
     _trkPicker.mapInstance.panTo(latLng);
     _trkPicker.mapInstance.setZoom(16);
-    _trkPickerCrearMarker(latLng, addressText || 'UbicaciÃ³n seleccionada');
+    _trkPickerCrearMarker(latLng, addressText || 'Ubicación seleccionada');
     if (components) _trkPickerExtraerGeo(components);
     else _trkPickerReverseGeocode(latLng);
     _trkActualizarLabelCoordsicker();
@@ -4983,7 +5290,7 @@ function _trkPickerBuscarTextoLibre() {
     if (!_trkPicker.geocoder) _trkPicker.geocoder = new google.maps.Geocoder();
     const sesgo = _trkPicker.mapInstance.getCenter();
     _trkPicker.geocoder.geocode({
-        address: `${query}, MÃ©xico`,
+        address: `${query}, México`,
         componentRestrictions: { country: 'MX' },
         location: sesgo,
     }, (results, status) => {
@@ -5045,7 +5352,7 @@ function _trkPickerInicializarBusqueda() {
             _trkPicker.selectedMunicipio = null;
             document.getElementById('mapPickerGeoInfo').classList.add('d-none');
             document.getElementById('mapPickerCoordsLabel').innerHTML =
-                '<i class="fa-solid fa-crosshairs me-1"></i>Sin selecciÃ³n';
+                '<i class="fa-solid fa-crosshairs me-1"></i>Sin selección';
             document.getElementById('btnConfirmarMapPicker').disabled = true;
         });
         _trkPicker.listenersBound = true;
@@ -5116,8 +5423,8 @@ function _trkConfirmarMapPicker() {
     _trkRenderizarMapa();
 }
 
-// ─── Guardar ruta ────────────────────────────────────────
-// ─── Helpers de hora AM/PM ──────────────────────────────
+// --- Guardar ruta ----------------------------------------
+// --- Helpers de hora AM/PM ------------------------------
 function _trkFormatHora(horaStr) {
     if (!horaStr) return '—';
     const parts = horaStr.split(':');
@@ -5429,8 +5736,8 @@ async function _trkGuardarRuta(modo) {
     if (etaInvalida) {
         Swal.fire({
             icon: 'warning',
-            title: 'ETA invÃ¡lida',
-            text: `La ETA del crÃ©dito #${etaInvalida.id_credito} no puede ser anterior a la fecha de salida de la ruta.`,
+            title: 'ETA inválida',
+            text: `La ETA del crédito #${etaInvalida.id_credito} no puede ser anterior a la fecha de salida de la ruta.`,
             confirmButtonText: 'Aceptar',
         });
         return;
@@ -5514,7 +5821,7 @@ async function _trkGuardarRuta(modo) {
     .finally(() => $btnGuardar.prop('disabled', false));
 }
 
-// ─── Ver detalle de ruta ─────────────────────────────────
+// --- Ver detalle de ruta ---------------------------------
 function _trkVerDetalleRuta(idRuta) {
     const $body = $('#detalleRutaBody');
     $body.html('<div class="text-center py-4"><div class="spinner-border" style="color:var(--track-color);"></div></div>');
@@ -5590,7 +5897,7 @@ function _trkVerDetalleRuta(idRuta) {
         .catch(() => $body.html('<div class="alert alert-danger">Error de conexión.</div>'));
 }
 
-// ─── Marcar cambios pendientes ────────────────────────
+// --- Marcar cambios pendientes ------------------------
 function _trkMarcarCambio() {
     if (_trk.cargando) return;
     if (_trkRutaEstaCancelada()) return;
@@ -5603,7 +5910,7 @@ function _trkMarcarCambio() {
     }
 }
 
-// ─── Bloquear / Desbloquear modal ───────────────────────
+// --- Bloquear / Desbloquear modal -----------------------
 function _trkMostrarCancelacionRuta(d) {
     const fecha = d.fecha_cancelacion_fmt || _trkFormatFechaHora(d.fecha_cancelacion) || 'No disponible';
     const motivo = d.motivo_cancelacion || 'No disponible';
@@ -5663,7 +5970,7 @@ function _trkDesbloquearModal() {
     $('#modalRegistrarRutaLabel .badge-solo-lectura, #modalRegistrarRutaLabel .badge-ruta-cancelada-modal').remove();
 }
 
-// ─── Abrir ruta existente en el modal ───────────────────
+// --- Abrir ruta existente en el modal -------------------
 function _trkCargarRutaEnModal(idRuta, soloLectura) {
     _trkResetModal();
     _trk.idRutaEditando = idRuta;
@@ -5686,8 +5993,11 @@ function _trkCargarRutaEnModal(idRuta, soloLectura) {
         didOpen: () => Swal.showLoading(),
     });
 
-    trkFetch(`/TrackingRecoleccion/obtenerDetalleRuta?id_ruta=${idRuta}`)
-        .then(r => {
+    Promise.all([
+        _trkPrepararModalRutaDetalle(soloLectura),
+        trkFetch(`/TrackingRecoleccion/obtenerDetalleRuta?id_ruta=${idRuta}`),
+    ])
+        .then(([, r]) => {
             if (!r.success || !r.datos) {
                 Swal.fire({ icon: 'error', title: 'Error', text: 'No se pudo cargar la ruta.', confirmButtonText: 'Aceptar' });
                 modal.hide();
@@ -5965,6 +6275,40 @@ function _trkPlannerEnfocarGrupo(estado, municipio = '') {
     }
 }
 
+function _trkAsegurarGoogleMaps(callback) {
+    if (typeof callback !== 'function') return;
+    if (typeof google !== 'undefined' && google.maps) {
+        callback();
+        return;
+    }
+    if (!window._trackGoogleMapsKey) return;
+    window._trkMapsReadyCallbacks = window._trkMapsReadyCallbacks || [];
+    window._trkMapsReadyCallbacks.push(callback);
+    window._trkMapCallback = () => {
+        const callbacks = window._trkMapsReadyCallbacks || [];
+        window._trkMapsReadyCallbacks = [];
+        callbacks.forEach(fn => {
+            try { fn(); } catch {}
+        });
+    };
+    if (!_trk.mapLoaded) {
+        const script = document.createElement('script');
+        script.src = `https://maps.googleapis.com/maps/api/js?key=${window._trackGoogleMapsKey}&libraries=geometry,places&callback=_trkMapCallback`;
+        script.async = true;
+        script.defer = true;
+        document.head.appendChild(script);
+        _trk.mapLoaded = true;
+        return;
+    }
+    const waitForMaps = setInterval(() => {
+        if (typeof google !== 'undefined' && google.maps) {
+            clearInterval(waitForMaps);
+            window._trkMapCallback();
+        }
+    }, 150);
+    setTimeout(() => clearInterval(waitForMaps), 10000);
+}
+
 function _trkGeoResumenRuta() {
     const estados = [...new Set((_trk.creditosEnRuta || [])
         .map(c => String(c.estado || '').trim())
@@ -5978,11 +6322,11 @@ function _trkGeoResumenRuta() {
     };
 }
 
-/* ════════════════════════════════════════════════════════════
+/* ============================================================
    TRACKING EN TIEMPO REAL — estilo Mercado Libre
    Muestra el estado del recorrido (paradas, progreso, ubicación)
    cuando la ruta está en_proceso o completado.
-════════════════════════════════════════════════════════════ */
+============================================================ */
 
 const _trkRT = {
     idRuta:       null,
@@ -5997,7 +6341,7 @@ const _trkRT = {
     estado:       null,   // último estado recibido del API
 };
 
-// ─── Limpiar todo el tracking RT ─────────────────────────
+// --- Limpiar todo el tracking RT -------------------------
 function _trkRTLimpiar() {
     if (_trkRT.wsPingIv)  { clearInterval(_trkRT.wsPingIv);  _trkRT.wsPingIv  = null; }
     if (_trkRT.wsRetryTO) { clearTimeout(_trkRT.wsRetryTO);  _trkRT.wsRetryTO = null; }
@@ -6016,7 +6360,7 @@ function _trkRTLimpiar() {
     _trkRTActualizarWsDot(false);
 }
 
-// ─── Inicializar para una ruta ────────────────────────────
+// --- Inicializar para una ruta ----------------------------
 async function _trkRTIniciar(idRuta) {
     _trkRTLimpiar();
     _trkRT.idRuta = idRuta;
@@ -6027,7 +6371,7 @@ async function _trkRTIniciar(idRuta) {
     if (cfg) _trkRTConectarWS(cfg);
 }
 
-// ─── Cargar estado vía REST ───────────────────────────────
+// --- Cargar estado vía REST -------------------------------
 async function _trkRTCargarEstado() {
     const id = _trkRT.idRuta;
     if (!id) return;
@@ -6059,7 +6403,7 @@ async function _trkRTCargarEstado() {
     }
 }
 
-// ─── Renderizar timeline ──────────────────────────────────
+// --- Renderizar timeline ----------------------------------
 function _trkRTRenderizar(ruta) {
     // Barra de progreso
     const prog = ruta.progreso || {};
@@ -6139,7 +6483,7 @@ function _trkRTRenderizar(ruta) {
     document.getElementById('trkTimeline').innerHTML = html;
 }
 
-// ─── Aplicar cambios parciales (WS update) ───────────────
+// --- Aplicar cambios parciales (WS update) ---------------
 function _trkRTAplicarChanges(changes) {
     if (!changes || !changes.length || !_trkRT.estado) return;
     const creditos = _trkRT.estado.creditos || [];
@@ -6165,7 +6509,7 @@ function _trkRTAplicarChanges(changes) {
     _trkRenderListaCreditos();
 }
 
-// ─── Actualizar última ubicación del conductor ────────────
+// --- Actualizar última ubicación del conductor ------------
 function _trkRTActualizarUbicacion(evt) {
     const pill = document.getElementById('trkUltimaUbicacion');
     const txt  = document.getElementById('trkUbicacionText');
@@ -6180,7 +6524,7 @@ function _trkRTActualizarUbicacion(evt) {
     pill.classList.remove('d-none');
 }
 
-// ─── WS dot ──────────────────────────────────────────────
+// --- WS dot ----------------------------------------------
 function _trkRTNormalizarUbicacion(raw) {
     if (!raw) return null;
     const lat = parseFloat(raw.lat ?? raw.latitud);
@@ -6232,8 +6576,12 @@ async function _trkRTCargarMapaLive() {
 function _trkRTLimpiarMapaLive() {
     if (_trk.liveVehicleMarker) { _trk.liveVehicleMarker.setMap(null); _trk.liveVehicleMarker = null; }
     if (_trk.liveVehiclePolyline) { _trk.liveVehiclePolyline.setMap(null); _trk.liveVehiclePolyline = null; }
+    if (_trk.chatLiveVehicleMarker) { _trk.chatLiveVehicleMarker.setMap(null); _trk.chatLiveVehicleMarker = null; }
+    if (_trk.chatLiveVehiclePolyline) { _trk.chatLiveVehiclePolyline.setMap(null); _trk.chatLiveVehiclePolyline = null; }
     _trk.liveVehiclePath = [];
     document.getElementById('trkLiveMapInfo')?.classList.add('d-none');
+    document.getElementById('chatLiveMapInfo')?.classList.add('d-none');
+    document.getElementById('chatLivePlaceholder')?.classList.remove('d-none');
 }
 
 function _trkRTIconoVehiculo(heading = 0) {
@@ -6249,6 +6597,79 @@ function _trkRTIconoVehiculo(heading = 0) {
         scaledSize: new google.maps.Size(42, 42),
         anchor: new google.maps.Point(21, 21),
     };
+}
+
+function _trkChatPrepararMapaLive(idRuta, rutaNombre = '') {
+    const subtitle = document.getElementById('chatLiveRutaNombre');
+    if (subtitle) subtitle.textContent = rutaNombre ? `Ruta #${idRuta} - ${rutaNombre}` : `Ruta #${idRuta}`;
+    const placeholder = document.getElementById('chatLivePlaceholder');
+    const mapDiv = document.getElementById('chatLiveMap');
+    if (!mapDiv) return;
+    if (!window._trackGoogleMapsKey) {
+        if (placeholder) {
+            placeholder.innerHTML = '<i class="fa-solid fa-triangle-exclamation fa-2x opacity-25"></i><span class="small">Google Maps no disponible</span>';
+            placeholder.classList.remove('d-none');
+        }
+        return;
+    }
+    _trkAsegurarGoogleMaps(() => {
+        if (!_trk.chatMapInstance) {
+            _trk.chatMapInstance = new google.maps.Map(mapDiv, {
+                center: { lat: 19.4326, lng: -99.1332 },
+                zoom: 6,
+                mapTypeControl: false,
+                streetViewControl: false,
+                fullscreenControl: true,
+                styles: document.body.classList.contains('dark-mode') ? _TRK_DARK_MAP_STYLES : [],
+            });
+        }
+        google.maps.event.trigger(_trk.chatMapInstance, 'resize');
+        _trkChatRepaintLiveMap({ center: true });
+    });
+}
+
+function _trkChatRepaintLiveMap(opts = {}) {
+    if (!_trk.chatMapInstance || typeof google === 'undefined' || !google.maps) return;
+    const map = _trk.chatMapInstance;
+    const path = (_trkRT.historial || []).map(p => ({ lat: p.lat, lng: p.lng }));
+    if (path.length) {
+        if (!_trk.chatLiveVehiclePolyline) {
+            _trk.chatLiveVehiclePolyline = new google.maps.Polyline({
+                map,
+                path,
+                strokeColor: '#0d9488',
+                strokeOpacity: 0.9,
+                strokeWeight: 4,
+                zIndex: 20,
+            });
+        } else {
+            _trk.chatLiveVehiclePolyline.setMap(map);
+            _trk.chatLiveVehiclePolyline.setPath(path);
+        }
+    }
+    const ubi = _trkRT.ubicacion || _trkRT.historial[_trkRT.historial.length - 1] || null;
+    if (!ubi) return;
+    const pos = { lat: ubi.lat, lng: ubi.lng };
+    const heading = Number.isFinite(ubi.heading) ? ubi.heading : 0;
+    if (!_trk.chatLiveVehicleMarker) {
+        _trk.chatLiveVehicleMarker = new google.maps.Marker({
+            map,
+            position: pos,
+            icon: _trkRTIconoVehiculo(heading),
+            title: 'Unidad en vivo',
+            zIndex: 1000,
+        });
+    } else {
+        _trk.chatLiveVehicleMarker.setMap(map);
+        _trk.chatLiveVehicleMarker.setPosition(pos);
+        _trk.chatLiveVehicleMarker.setIcon(_trkRTIconoVehiculo(heading));
+    }
+    if (opts.center) {
+        map.panTo(pos);
+        map.setZoom(Math.max(map.getZoom() || 0, 13));
+    }
+    document.getElementById('chatLivePlaceholder')?.classList.add('d-none');
+    _trkRTActualizarInfoLive(ubi);
 }
 
 function _trkRTActualizarVehiculo(raw, opts = {}) {
@@ -6267,6 +6688,7 @@ function _trkRTActualizarVehiculo(raw, opts = {}) {
 }
 
 function _trkRTRepaintLiveMap(opts = {}) {
+    _trkChatRepaintLiveMap(opts);
     if (!_trk.mapInstance || typeof google === 'undefined' || !google.maps) return;
     const map = _trk.mapInstance;
     const path = (_trkRT.historial || []).map(p => ({ lat: p.lat, lng: p.lng }));
@@ -6320,16 +6742,32 @@ function _trkRTActualizarInfoLive(ubi) {
     document.getElementById('trkLiveAccuracy').textContent = ubi.accuracy !== null && !isNaN(ubi.accuracy) ? `Prec. ${Math.round(ubi.accuracy)} m` : 'Prec. —';
     document.getElementById('trkLiveBattery').textContent = ubi.battery !== null && !isNaN(ubi.battery) ? `Bat. ${ubi.battery}%` : 'Bat. —';
     card.classList.remove('d-none');
+    const chatCard = document.getElementById('chatLiveMapInfo');
+    if (chatCard) {
+        document.getElementById('chatLiveUpdated').textContent = `Actualizado ${timeTxt}`;
+        document.getElementById('chatLiveSpeed').textContent = ubi.speed !== null && !isNaN(ubi.speed) ? `Vel. ${Math.round(ubi.speed)} km/h` : 'Vel. -';
+        document.getElementById('chatLiveAccuracy').textContent = ubi.accuracy !== null && !isNaN(ubi.accuracy) ? `Prec. ${Math.round(ubi.accuracy)} m` : 'Prec. -';
+        document.getElementById('chatLiveBattery').textContent = ubi.battery !== null && !isNaN(ubi.battery) ? `Bat. ${ubi.battery}%` : 'Bat. -';
+        document.getElementById('chatLiveCoords').textContent = `Coord. ${ubi.lat.toFixed(5)}, ${ubi.lng.toFixed(5)}`;
+        chatCard.classList.remove('d-none');
+    }
 }
 
 function _trkRTActualizarWsDot(conectado) {
     const dot = document.getElementById('trkWsDot');
-    if (!dot) return;
-    dot.style.background = conectado ? '#16a34a' : '#cbd5e1';
-    dot.title = conectado ? 'En tiempo real' : 'Sin conexión en tiempo real';
+    if (dot) {
+        dot.style.background = conectado ? '#16a34a' : '#cbd5e1';
+        dot.title = conectado ? 'En tiempo real' : 'Sin conexión en tiempo real';
+    }
+    const chatDot = document.getElementById('chatLiveWsDot');
+    if (chatDot) {
+        chatDot.classList.toggle('chat-ws-on', conectado);
+        chatDot.classList.toggle('chat-ws-off', !conectado);
+        chatDot.title = conectado ? 'En tiempo real' : 'Sin conexion en tiempo real';
+    }
 }
 
-// ─── Conectar WebSocket de ruta ───────────────────────────
+// --- Conectar WebSocket de ruta ---------------------------
 function _trkRTConectarWS(cfg) {
     const wsBase = cfg?.ws_base || window._trackingChatWsBaseUrl;
     const token = cfg?.token || '';
@@ -6372,8 +6810,8 @@ function _trkRTConectarWS(cfg) {
             _trkRT.wsRetries = 5;
             Swal.fire({
                 icon: 'warning',
-                title: ev.code === 4001 ? 'SesiÃ³n expirada' : 'Sin acceso',
-                text: ev.reason || (ev.code === 4001 ? 'Recarga la pÃ¡gina para renovar el tracking en vivo.' : 'No tienes permiso para visualizar esta ruta en vivo.'),
+                title: ev.code === 4001 ? 'Sesión expirada' : 'Sin acceso',
+                text: ev.reason || (ev.code === 4001 ? 'Recarga la página para renovar el tracking en vivo.' : 'No tienes permiso para visualizar esta ruta en vivo.'),
                 confirmButtonText: 'Aceptar',
             });
             return;
@@ -6391,7 +6829,7 @@ function _trkRTConectarWS(cfg) {
     ws.onerror = () => { /* onclose disparará */ };
 }
 
-// ─── Procesar eventos WS de ruta ─────────────────────────
+// --- Procesar eventos WS de ruta -------------------------
 function _trkRTProcesarEvento(data) {
     switch (data.event) {
         case 'init':
@@ -6422,7 +6860,7 @@ function _trkRTProcesarEvento(data) {
                 _trkRT.liveCfg = null;
                 _trkRT.wsRetries = 5;
                 _trkRTActualizarWsDot(false);
-                Swal.fire({ icon: 'warning', title: 'SesiÃ³n expirada', text: 'Recarga la pÃ¡gina para renovar el tracking en vivo.', confirmButtonText: 'Aceptar' });
+                Swal.fire({ icon: 'warning', title: 'Sesión expirada', text: 'Recarga la página para renovar el tracking en vivo.', confirmButtonText: 'Aceptar' });
             } else if (code === '4003') {
                 _trkRT.wsRetries = 5;
                 _trkRTActualizarWsDot(false);
@@ -6433,7 +6871,7 @@ function _trkRTProcesarEvento(data) {
     }
 }
 
-/* ════════════════════════════════════════════════════════════
+/* ============================================================
    CHAT OPERATIVO — gestor (Sparta Ledger)
    Flujo:
      1. Usuario hace clic en btn-abrir-chat de tablaRutas.
@@ -6442,9 +6880,9 @@ function _trkRTProcesarEvento(data) {
      4. Al activar una pestaña, se carga info del chat por REST.
      5. Si el chat está activo, se conecta WebSocket (solo lectura).
      6. Mensajes se envían siempre por REST.
-════════════════════════════════════════════════════════════ */
+============================================================ */
 
-// ─── Estado global del Chat ──────────────────────────────
+// --- Estado global del Chat ------------------------------
 const _trkChat = {
     rutaId:    null,   // id_ruta abierto actualmente
     activeTab: null,   // id_detalle de la pestaña activa
@@ -6457,7 +6895,7 @@ const _trkChat = {
     unread, loadingMsgs, allLoaded, oldestMsgId
 } */
 
-// ─── Abrir chat de una ruta (entry point) ────────────────
+// --- Abrir chat de una ruta (entry point) ----------------
 function _trkChatCargarYAbrir(idRuta) {
     trkFetch(`/TrackingRecoleccion/obtenerDetalleRuta?id_ruta=${idRuta}`)
         .then(r => {
@@ -6495,6 +6933,10 @@ function _trkChatAbrir(idRuta, rutaNombre, detalleItems) {
     const modalChat = bootstrap.Modal.getOrCreateInstance(
         document.getElementById('modalChatOperativo')
     );
+    document.getElementById('modalChatOperativo').addEventListener('shown.bs.modal', () => {
+        _trkChatPrepararMapaLive(idRuta, rutaNombre);
+        _trkRTIniciar(idRuta);
+    }, { once: true });
     modalChat.show();
 
     if (!detalleItems || detalleItems.length === 0) {
@@ -6516,7 +6958,7 @@ function _trkChatAbrir(idRuta, rutaNombre, detalleItems) {
             typingTimeout: null, typingStopTimeout: null, lastTypingSent: 0,
         };
 
-        // Tab ─────────────────────────────────────────────
+        // Tab ---------------------------------------------
         const li = document.createElement('li');
         li.className = 'nav-item';
         const credLabel = det.id_credito ? ` · ${det.id_credito}` : '';
@@ -6530,7 +6972,7 @@ function _trkChatAbrir(idRuta, rutaNombre, detalleItems) {
         list.appendChild(li);
         li.querySelector('button').addEventListener('click', () => _trkChatActivarTab(id));
 
-        // Pane ────────────────────────────────────────────
+        // Pane --------------------------------------------
         const pane = document.createElement('div');
         pane.className = 'chat-pane';
         pane.id        = `chatPane_${id}`;
@@ -6571,7 +7013,7 @@ function _trkChatAbrir(idRuta, rutaNombre, detalleItems) {
             </div>`;
         container.appendChild(pane);
 
-        // Listeners ───────────────────────────────────────
+        // Listeners ---------------------------------------
         document.getElementById(`chatNewMsgBtn_${id}`)
             .addEventListener('click', () => _trkChatScrollFinal(id));
 
@@ -6611,17 +7053,20 @@ function _trkChatAbrir(idRuta, rutaNombre, detalleItems) {
         });
     });
 
-    // Activar primera pestaña ──────────────────────────────
+    // Activar primera pestaña ------------------------------
     if (detalleItems.length > 0) {
         _trkChatActivarTab(detalleItems[0].id_detalle);
     }
 
     // Limpiar WS al cerrar el modal
     document.getElementById('modalChatOperativo')
-        .addEventListener('hidden.bs.modal', _trkChatLimpiarTodo, { once: true });
+        .addEventListener('hidden.bs.modal', () => {
+            _trkChatLimpiarTodo();
+            _trkRTLimpiar();
+        }, { once: true });
 }
 
-// ─── Gestión de pestañas ─────────────────────────────────
+// --- Gestión de pestañas ---------------------------------
 function _trkChatActivarTab(idDetalle) {
     document.querySelectorAll('.chat-tab-link').forEach(b => b.classList.remove('active'));
     document.querySelectorAll('.chat-pane').forEach(p => p.classList.remove('active'));
@@ -6640,7 +7085,7 @@ function _trkChatActivarTab(idDetalle) {
     }
 }
 
-// ─── Carga de info del chat ──────────────────────────────
+// --- Carga de info del chat ------------------------------
 async function _trkChatCargarInfo(idDetalle) {
     const state = _trkChat.chats[idDetalle];
     if (!state) return;
@@ -6677,7 +7122,7 @@ async function _trkChatCargarInfo(idDetalle) {
     }
 }
 
-// ─── Carga paginada de mensajes ──────────────────────────
+// --- Carga paginada de mensajes --------------------------
 async function _trkChatCargarMensajes(idDetalle, beforeId = null) {
     const state = _trkChat.chats[idDetalle];
     if (!state || state.loadingMsgs || state.allLoaded) return;
@@ -6715,7 +7160,7 @@ async function _trkChatCargarMasMensajes(idDetalle) {
     requestAnimationFrame(() => { wrap.scrollTop = wrap.scrollHeight - prevH; });
 }
 
-// ─── Render de mensajes ──────────────────────────────────
+// --- Render de mensajes ----------------------------------
 function _trkChatRenderMensajes(idDetalle, scrollToBottom = true) {
     const state = _trkChat.chats[idDetalle];
     const wrap  = document.getElementById(`chatMsgsWrap_${idDetalle}`);
@@ -6801,7 +7246,7 @@ function _trkChatRenderContenidoMensaje(msg) {
         <i class="fa-solid fa-file-arrow-down"></i>
         <span>
             <span>${_trkChatEscapeHtml(nombre)}</span>
-            <small>${_trkChatEscapeHtml([ext, size].filter(Boolean).join(' / '))}</small>
+            <small>${_trkChatEscapeHtml([ext, size].filter(Boolean).join(' · '))}</small>
         </span>
     </a>${caption}`;
 }
@@ -6876,7 +7321,7 @@ function _trkChatScrollFinal(idDetalle) {
     if (btn) btn.classList.add('d-none');
 }
 
-// ─── Enviar mensaje ──────────────────────────────────────
+// --- Enviar mensaje --------------------------------------
 async function _trkChatEnviarMensaje(idDetalle) {
     const state    = _trkChat.chats[idDetalle];
     const textarea = document.getElementById(`chatTextarea_${idDetalle}`);
@@ -6923,7 +7368,7 @@ async function _trkChatEnviarMensaje(idDetalle) {
     }
 }
 
-// ─── Token JWT (para WebSocket) ──────────────────────────
+// --- Token JWT (para WebSocket) --------------------------
 async function _trkChatObtenerToken() {
     if (_trkChat.jwtToken && _trkChat.jwtExpiry > Date.now() + 5 * 60 * 1000) {
         return _trkChat.jwtToken;
@@ -6939,7 +7384,7 @@ async function _trkChatObtenerToken() {
     return null;
 }
 
-// ─── WebSocket ───────────────────────────────────────────
+// --- WebSocket -------------------------------------------
 function _trkChatConectarWS(idDetalle, token) {
     const state = _trkChat.chats[idDetalle];
     if (!state) return;
@@ -7080,7 +7525,7 @@ function _trkChatLimpiarTodo() {
     _trkChat.rutaId    = null;
 }
 
-// ─── Actualizar UI según estatus ─────────────────────────
+// --- Actualizar UI según estatus -------------------------
 function _trkChatActualizarUI(idDetalle) {
     const state    = _trkChat.chats[idDetalle];
     const textarea = document.getElementById(`chatTextarea_${idDetalle}`);
@@ -7095,7 +7540,7 @@ function _trkChatActualizarUI(idDetalle) {
         if (sendBtn)  sendBtn.disabled  = false;
         attachBtns.forEach(btn => { btn.disabled = false; });
     } else if (state.estatus === 'bloqueado') {
-        _trkChatMostrarNotice(idDetalle, '🔒 El chat aún no está disponible — la ruta no ha iniciado.', 'bloqueado');
+        _trkChatMostrarNotice(idDetalle, ' El chat aún no está disponible — la ruta no ha iniciado.', 'bloqueado');
         if (textarea) textarea.disabled = true;
         if (sendBtn)  sendBtn.disabled  = true;
         attachBtns.forEach(btn => { btn.disabled = true; });
@@ -7129,7 +7574,7 @@ function _trkChatActualizarWsDot(idDetalle, online) {
     dot.title     = online ? 'Tiempo real activo' : 'Sin tiempo real';
 }
 
-// ─── Badges no leídos ────────────────────────────────────
+// --- Badges no leídos ------------------------------------
 function _trkChatClearUnread(idDetalle) {
     const state = _trkChat.chats[idDetalle];
     if (state) state.unread = 0;
@@ -7160,7 +7605,7 @@ function _trkChatActualizarRutaUnreadBadge() {
     _trkActualizarRutaChatBadge(idRuta);
 }
 
-// ─── Helpers UI ──────────────────────────────────────────
+// --- Helpers UI ------------------------------------------
 function _trkChatMostrarNotice(idDetalle, msg, tipo, autoHideMs = 0) {
     const notice = document.getElementById(`chatNotice_${idDetalle}`);
     if (!notice) return;
@@ -7229,7 +7674,7 @@ function _trkChatPreviewArchivo(file, tipo) {
             const reader = new FileReader();
             reader.onload = () => resolve(`<div class="text-center">
                 <img src="${reader.result}" style="max-width:260px;max-height:180px;border-radius:8px;object-fit:contain;">
-                <div class="small text-muted mt-2">${safeName} ${size ? '/ ' + size : ''}</div>
+                <div class="small text-muted mt-2">${safeName} ${size ? '· ' + size : ''}</div>
             </div>`);
             reader.onerror = () => resolve(`<div class="text-center small">${safeName}</div>`);
             reader.readAsDataURL(file);
@@ -7275,7 +7720,7 @@ async function _trkChatSubirArchivo(idDetalle, file, mensaje = '') {
         }
         _trkChatAgregarMensaje(idDetalle, r.mensaje);
     } catch {
-        Swal.fire({ icon: 'error', title: 'Error', text: 'Error de conexiÃ³n al subir el archivo.', confirmButtonText: 'Aceptar' });
+        Swal.fire({ icon: 'error', title: 'Error', text: 'Error de conexión al subir el archivo.', confirmButtonText: 'Aceptar' });
     } finally {
         if (sendBtn) sendBtn.innerHTML = oldHtml || '<i class="fa-solid fa-paper-plane"></i>';
         _trkChatActualizarUI(idDetalle);
@@ -7287,7 +7732,7 @@ function _trkChatAdjuntoPendiente(idDetalle, tipo) {
     Swal.fire({
         icon: 'info',
         title: 'Adjuntos listos para conectar',
-        text: `El botÃ³n de ${labels[tipo] || 'archivo'} ya estÃ¡ preparado para id_detalle ${idDetalle}. Falta enlazar el endpoint de adjuntos del servicio de tracking.`,
+        text: `El botón de ${labels[tipo] || 'archivo'} ya está preparado para id_detalle ${idDetalle}. Falta enlazar el endpoint de adjuntos del servicio de tracking.`,
         confirmButtonText: 'Entendido',
     });
 }
