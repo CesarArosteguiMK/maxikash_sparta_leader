@@ -204,7 +204,7 @@
 }
 .ar-table tbody tr:hover { background: #f8fbff; }
 .ar-table td { color: #697a8d; border-color: #e8eef5; }
-.ar-table-main { min-width: 150px; }
+.ar-table-main { min-width: 260px; }
 .ar-table-folio {
     display: inline-flex;
     align-items: center;
@@ -222,6 +222,26 @@
     color: #566a7f;
     font-weight: 700;
 }
+.ar-table-main-client {
+    display: flex;
+    align-items: flex-start;
+    gap: .34rem;
+    margin-top: .28rem;
+    color: #697a8d;
+    font-weight: 800;
+    line-height: 1.18;
+    text-transform: uppercase;
+    white-space: normal;
+}
+.ar-table-main-client i,
+.ar-table-seguimiento-label i,
+.ar-rec-time i {
+    color: #64748b;
+    font-size: .72rem;
+    line-height: 1;
+    margin-top: .08rem;
+    flex: 0 0 auto;
+}
 .ar-table-name {
     min-width: 210px;
     color: #697a8d;
@@ -230,8 +250,91 @@
     line-height: 1.2;
 }
 .ar-table-muted { color: #94a3b8; font-style: italic; }
-.ar-table-evidence,
+.ar-table-evidence {
+    width: 260px;
+    max-width: 260px;
+    white-space: nowrap;
+    font-weight: 700;
+    color: #566a7f;
+}
 .ar-table-status { white-space: nowrap; font-weight: 700; color: #566a7f; }
+.ar-rec-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: .32rem;
+    padding: .18rem .52rem;
+    border-radius: 999px;
+    font-size: .68rem;
+    font-weight: 800;
+    line-height: 1.1;
+    white-space: nowrap;
+}
+.ar-rec-pill--ok { background: #dcfce7; color: #15803d; }
+.ar-rec-pill--work { background: #ccfbf1; color: #0f766e; }
+.ar-rec-pill--sent { background: #dbeafe; color: #1d4ed8; }
+.ar-rec-detail {
+    display: flex;
+    flex-direction: column;
+    gap: .08rem;
+    margin-top: .22rem;
+    color: #64748b;
+    font-size: .68rem;
+    font-weight: 700;
+    line-height: 1.2;
+    white-space: normal;
+}
+.ar-rec-detail span {
+    display: flex;
+    align-items: center;
+    gap: .28rem;
+}
+.ar-rec-detail i {
+    width: .78rem;
+    flex: 0 0 .78rem;
+    font-size: .66rem;
+    text-align: center;
+}
+.ar-rec-detail-ok i { color: #22c55e; }
+.ar-rec-detail-doc i { color: #0d9488; }
+.ar-rec-time {
+    display: block;
+    margin-top: .42rem;
+    padding-top: .36rem;
+    border-top: 1px solid #e2e8f0;
+    color: #64748b;
+    font-size: .68rem;
+    font-weight: 800;
+    line-height: 1.25;
+    white-space: normal;
+    text-transform: uppercase;
+    letter-spacing: .02em;
+}
+.ar-rec-time-label {
+    display: inline-flex;
+    align-items: flex-start;
+    gap: .34rem;
+}
+.ar-rec-time strong {
+    display: inline;
+    margin-top: 0;
+    margin-left: .35rem;
+    color: #566a7f;
+    font-size: .76rem;
+    font-weight: 800;
+    text-transform: none;
+    letter-spacing: 0;
+}
+.ar-rec-time small {
+    display: block;
+    margin-top: .1rem;
+    color: #94a3b8;
+    font-size: .62rem;
+    font-weight: 700;
+    line-height: 1.18;
+    text-transform: none;
+    letter-spacing: 0;
+    white-space: normal;
+}
 .ar-table-status-stack {
     display: flex;
     flex-direction: column;
@@ -263,7 +366,41 @@
     letter-spacing: .02em;
     margin-right: .25rem;
 }
-.ar-table-action { min-width: 130px; text-align: center !important; }
+.ar-table-seguimiento {
+    min-width: 270px;
+}
+.ar-table-seguimiento-row {
+    display: block;
+}
+.ar-table-seguimiento-label {
+    display: flex;
+    align-items: flex-start;
+    gap: .34rem;
+    color: #64748b;
+    font-size: .66rem;
+    font-weight: 800;
+    line-height: 1.1;
+    text-transform: uppercase;
+    letter-spacing: .025em;
+}
+.ar-table-seguimiento-date {
+    display: block;
+    margin-top: .12rem;
+    color: #566a7f;
+    font-size: .78rem;
+    font-weight: 700;
+    line-height: 1.15;
+}
+.ar-table-seguimiento-row + .ar-table-seguimiento-row {
+    margin-top: .42rem;
+    padding-top: .36rem;
+    border-top: 1px solid #e2e8f0;
+}
+.ar-table-action {
+    width: 74px;
+    min-width: 74px;
+    text-align: center !important;
+}
 .ar-table-actions {
     display: flex;
     width: 100%;
@@ -347,20 +484,61 @@
     color: #0f172a !important;
     padding: .85rem 1.15rem;
 }
+#modalArRecuperacionEvidencias .ar-ev-modal-title-wrap {
+    min-width: 0;
+}
+#modalArRecuperacionEvidencias .ar-ev-modal-title-line {
+    display: flex;
+    align-items: center;
+    gap: .55rem;
+    flex-wrap: wrap;
+    font-weight: 900;
+}
+#modalArRecuperacionEvidencias .ar-ev-modal-title-main {
+    font-weight: 900;
+    color: #111827 !important;
+}
+#modalArRecuperacionEvidencias #ar-ev-titulo-cliente {
+    font-weight: 400;
+}
+#modalArRecuperacionEvidencias .ar-ev-context-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: .3rem;
+    padding: .22rem .58rem;
+    border-radius: 999px;
+    color: #fff !important;
+    font-size: .62rem;
+    font-weight: 900;
+    line-height: 1;
+    letter-spacing: .03em;
+    text-transform: uppercase;
+    border: 1px solid rgba(255, 255, 255, .28);
+}
+#modalArRecuperacionEvidencias .ar-ev-context-badge--bandeja { background: rgba(13, 148, 136, .95); }
+#modalArRecuperacionEvidencias .ar-ev-context-badge--dictaminado { background: rgba(22, 163, 74, .95); }
+#modalArRecuperacionEvidencias .ar-ev-modal-subtitle {
+    display: block;
+    margin-top: .22rem;
+    color: #111827 !important;
+    font-size: .75rem;
+    font-weight: 700;
+    line-height: 1.25;
+}
 #modalArRecuperacionEvidencias .modal-header.ar-ev-modal-header .modal-title,
 #modalArRecuperacionEvidencias .modal-header.ar-ev-modal-header .modal-title span,
 #modalArRecuperacionEvidencias .modal-header.ar-ev-modal-header .ar-ev-subtitle,
 #modalArRecuperacionEvidencias .modal-header.ar-ev-modal-header .ar-ev-subtitle strong {
     color: #0f172a !important;
 }
+#modalArRecuperacionEvidencias .modal-header.ar-ev-modal-header .ar-ev-context-badge,
+#modalArRecuperacionEvidencias .modal-header.ar-ev-modal-header .ar-ev-context-badge span,
+#modalArRecuperacionEvidencias .modal-header.ar-ev-modal-header .ar-ev-context-badge i {
+    color: #fff !important;
+}
 /* En cabecera el progreso inline no debe usar el verde oscuro del cuerpo del modal */
 #modalArRecuperacionEvidencias .modal-header.ar-ev-modal-header .ar-ev-prog-lbl {
     color: #0f766e !important;
-}
-#modalArRecuperacionEvidencias .modal-header .ar-ev-subtitle {
-    font-size: .78rem;
-    opacity: .95;
-    margin-top: .2rem;
 }
 #modalArRecuperacionEvidencias .modal-header .btn-close { filter: none; }
 #modalArRecuperacionEvidencias .modal-dialog.modal-xl {
@@ -389,6 +567,15 @@
     font-size: .62rem; font-weight: 800; text-transform: uppercase; letter-spacing: .06em;
 }
 .ar-ev-hdr-title { display: inline-flex; align-items: center; gap: .45rem; min-width: 0; }
+.ar-ev-hdr-status {
+    margin-left: auto;
+    font-size: .66rem;
+    font-weight: 900;
+    letter-spacing: .02em;
+    color: #15803d;
+    text-transform: uppercase;
+    white-space: nowrap;
+}
 .ar-ev-hdr-left { justify-content: flex-start; }
 .ar-ev-hdr-download {
     display: inline-flex;
@@ -574,38 +761,10 @@ body.dark-mode #modalArRecuperacionEvidencias #ar-ev-btn-enviar-cartera {
     color: #fff;
 }
 .ar-ev-info-panel {
-    border: 1px solid #dbeafe;
-    background: linear-gradient(180deg, #f8fbff 0%, #ffffff 100%);
-    border-radius: .75rem;
-    padding: .9rem;
-    margin-bottom: 1rem;
-}
-.ar-ev-info-head {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: .75rem;
-    padding-bottom: .65rem;
-    margin-bottom: .75rem;
-    border-bottom: 1px solid #e2e8f0;
-}
-.ar-ev-info-title {
-    color: #0f172a;
-    font-size: .9rem;
-    font-weight: 800;
-    margin: 0;
-}
-.ar-ev-info-pill {
-    display: inline-flex;
-    align-items: center;
-    gap: .32rem;
-    border-radius: 999px;
-    background: #ccfbf1;
-    color: #0f766e;
-    font-size: .68rem;
-    font-weight: 800;
-    padding: .2rem .55rem;
-    white-space: nowrap;
+    display: grid;
+    grid-template-columns: minmax(0, 1.15fr) minmax(0, .85fr);
+    gap: .85rem;
+    margin-bottom: .9rem;
 }
 .ar-ev-title-pill {
     margin-left: .5rem;
@@ -615,85 +774,112 @@ body.dark-mode #modalArRecuperacionEvidencias #ar-ev-btn-enviar-cartera {
     font-size: .68rem;
     padding: .24rem .55rem;
 }
+.ar-ev-info-card {
+    min-width: 0;
+    border: 1px solid #e2e8f0;
+    background: #f8fafc;
+    border-radius: .6rem;
+    padding: .65rem .75rem;
+}
+.ar-ev-info-card-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: .75rem;
+    margin-bottom: .5rem;
+}
+.ar-ev-info-title {
+    color: #123150;
+    font-size: .72rem;
+    font-weight: 900;
+    line-height: 1;
+    text-transform: uppercase;
+    letter-spacing: .045em;
+    margin: 0;
+}
+.ar-ev-info-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: .32rem;
+    border-radius: 999px;
+    background: #ccfbf1;
+    color: #0f766e;
+    font-size: .66rem;
+    font-weight: 800;
+    padding: .18rem .5rem;
+    white-space: nowrap;
+}
 .ar-ev-info-grid {
     display: grid;
     grid-template-columns: repeat(4, minmax(0, 1fr));
-    gap: .55rem;
+    gap: .42rem .6rem;
 }
-.ar-ev-info-line {
-    display: flex;
-    align-items: center;
-    gap: .45rem;
-    flex-wrap: nowrap;
-    min-width: 0;
-    overflow-x: auto;
-    padding-bottom: .1rem;
+.ar-ev-info-list {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: .34rem;
 }
-.ar-ev-info-line::-webkit-scrollbar { height: 4px; }
-.ar-ev-info-line::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 999px; }
 .ar-ev-info-block {
-    border: 1px solid #e2e8f0;
-    background: #fff;
-    border-radius: .55rem;
-    padding: .55rem .65rem;
     min-width: 0;
-}
-.ar-ev-info-title-cell {
-    align-self: end;
-    color: #0f766e;
-    font-size: .7rem;
-    font-weight: 900;
-    letter-spacing: .04em;
-    line-height: 1.15;
-    padding: 0 .15rem .12rem;
-    text-transform: uppercase;
+    padding: .08rem .15rem .18rem;
+    border-bottom: 1px solid #e2e8f0;
 }
 .ar-ev-info-block--wide {
     grid-column: span 2;
 }
-.ar-ev-info-line .ar-ev-info-block {
-    flex: 0 0 auto;
-    min-width: 128px;
-    padding: .42rem .55rem;
+.ar-ev-info-field-head {
+    display: flex;
+    align-items: center;
+    gap: .28rem;
+    min-width: 0;
+    margin-bottom: .12rem;
 }
-.ar-ev-info-line .ar-ev-info-block--wide {
-    min-width: 220px;
-}
-.ar-ev-info-line .ar-ev-info-label,
-.ar-ev-info-line .ar-ev-info-value {
-    white-space: nowrap;
+.ar-ev-info-icon {
+    color: #64748b;
+    font-size: .68rem;
+    width: .85rem;
+    flex: 0 0 .85rem;
+    text-align: center;
 }
 .ar-ev-info-label {
     display: block;
     color: #64748b;
-    font-size: .64rem;
+    font-size: .62rem;
     font-weight: 800;
-    letter-spacing: .03em;
-    line-height: 1.15;
-    margin-bottom: .18rem;
+    letter-spacing: .035em;
+    line-height: 1.1;
+    margin-bottom: 0;
     text-transform: uppercase;
+    white-space: nowrap;
 }
 .ar-ev-info-value {
+    display: flex;
+    align-items: center;
+    gap: .34rem;
     color: #0f172a;
-    font-size: .78rem;
+    font-size: .76rem;
     font-weight: 800;
-    line-height: 1.2;
-    word-break: break-word;
+    line-height: 1.18;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
-.ar-ev-info-section {
-    color: #0f766e;
-    font-size: .7rem;
-    font-weight: 900;
-    letter-spacing: .04em;
-    text-transform: uppercase;
-    margin: .85rem 0 .45rem;
+.ar-ev-info-color-dot {
+    display: inline-block;
+    width: .68rem;
+    height: .68rem;
+    min-width: .68rem;
+    border-radius: 999px;
+    border: 1px solid rgba(15, 23, 42, .16);
+    box-shadow: 0 0 0 2px rgba(255,255,255,.9);
+    flex: 0 0 .68rem;
 }
-body.dark-mode .ar-ev-info-panel { background: #0f172a; border-color: #334155; }
-body.dark-mode .ar-ev-info-head { border-color: #334155; }
+body.dark-mode .ar-ev-info-card { background: #0f172a; border-color: #334155; }
 body.dark-mode .ar-ev-info-title,
 body.dark-mode .ar-ev-info-value { color: #e2e8f0; }
-body.dark-mode .ar-ev-info-block { background: #111827; border-color: #334155; }
+body.dark-mode .ar-ev-info-block { border-color: #334155; }
 body.dark-mode .ar-ev-info-label { color: #94a3b8; }
+body.dark-mode .ar-ev-info-icon { color: #94a3b8; }
 
 /* Visor in-page (fotos, video, PDF) — dentro del modal para z-index / foco */
 #modalArRecuperacionEvidencias.ar-ev-ar-vista-abierta { overflow: visible !important; }
@@ -704,10 +890,14 @@ body.dark-mode .ar-ev-info-label { color: #94a3b8; }
     padding: 1rem; pointer-events: auto;
 }
 #modalArRecuperacionEvidencias .ar-ev-vista-panel {
-    width: 100%; max-width: min(52rem, 96vw); max-height: 92vh; overflow: auto;
+    width: min(52rem, 96vw);
+    height: min(42rem, 92vh);
+    overflow: hidden;
     background: #fff; border-radius: 0.75rem;
     box-shadow: 0 20px 50px rgba(0, 0, 0, 0.35);
     padding: 1rem 1.15rem; position: relative; z-index: 1;
+    display: flex;
+    flex-direction: column;
 }
 .ar-ev-vista-nav {
     display: inline-flex;
@@ -742,24 +932,31 @@ body.dark-mode .ar-ev-info-label { color: #94a3b8; }
     text-align: center;
 }
 #modalArRecuperacionEvidencias .ar-ev-vista-panel.ar-ev-vista-panel--wide {
-    max-width: min(78rem, 98vw);
+    width: min(56rem, 96vw);
 }
 #modalArRecuperacionEvidencias .ar-ev-vista-mediabox {
-    min-height: 12rem; max-height: 60vh;
+    flex: 1 1 auto;
+    min-height: 0;
+    height: 28rem;
+    max-height: none;
     background: #0f172a; border-radius: 0.5rem;
     display: flex; align-items: center; justify-content: center;
     margin-bottom: 0;
+    overflow: hidden;
 }
 #modalArRecuperacionEvidencias .ar-ev-vista-mediabox.ar-ev-vista-mediabox--pdf {
-    min-height: 64vh; max-height: 82vh;
+    flex: 1 1 auto;
+    min-height: 0;
+    height: auto;
+    max-height: none;
     background: #fff;
 }
 #modalArRecuperacionEvidencias .ar-ev-vista-mediabox .ar-ev-vista-img,
 #modalArRecuperacionEvidencias .ar-ev-vista-mediabox .ar-ev-vista-video {
-    max-width: 100%; max-height: 50vh; object-fit: contain;
+    max-width: 100%; max-height: 100%; object-fit: contain;
 }
 #modalArRecuperacionEvidencias .ar-ev-vista-mediabox iframe {
-    width: 100%; min-height: min(72vh, 640px); border: 0; border-radius: 0.35rem; background: #fff;
+    width: 100%; height: 100%; min-height: 0; border: 0; border-radius: 0.35rem; background: #fff;
 }
 /* Zoom fotos/video (igual criterio que menú Evidencias) */
 #modalArRecuperacionEvidencias .ar-ev-vista-mediabox.ar-ev-vista-mediabox--zoomable {
@@ -778,8 +975,8 @@ body.dark-mode .ar-ev-info-label { color: #94a3b8; }
 #modalArRecuperacionEvidencias .ar-ev-vista-mediabox.ar-ev-vista-mediabox--zoomable .ar-zoom-wrap {
     flex: 1;
     overflow: hidden;
-    min-height: 11rem;
-    max-height: 54vh;
+    min-height: 0;
+    max-height: none;
     border-radius: 0.5rem 0.5rem 0 0;
     display: flex;
     align-items: center;
@@ -801,7 +998,7 @@ body.dark-mode .ar-ev-info-label { color: #94a3b8; }
 }
 #modalArRecuperacionEvidencias .ar-ev-vista-mediabox.ar-ev-vista-mediabox--zoomable .ar-zoom-media {
     max-width: 100%;
-    max-height: 52vh;
+    max-height: 100%;
     width: auto;
     height: auto;
     object-fit: contain;
@@ -811,6 +1008,19 @@ body.dark-mode .ar-ev-info-label { color: #94a3b8; }
     will-change: transform;
 }
 #modalArRecuperacionEvidencias .ar-ev-vista-panel--slot #ar-ev-vista-titulo { color: #0f766e; }
+.ar-ev-vista-status {
+    display: inline-flex;
+    align-items: center;
+    margin-left: .45rem;
+    padding: .16rem .52rem;
+    border-radius: 999px;
+    font-size: .64rem;
+    font-weight: 900;
+    line-height: 1;
+    vertical-align: middle;
+}
+.ar-ev-vista-status--ok { background: #dcfce7; color: #15803d; }
+.ar-ev-vista-status--bad { background: #fee2e2; color: #dc2626; }
 #modalArRecuperacionEvidencias .ar-ev-vista-panel--repuve {
     border: 1px solid #bbf7d0;
     box-shadow: 0 22px 55px rgba(22, 163, 74, 0.14);
@@ -928,8 +1138,11 @@ body.dark-mode #arTabContent .dataTables_length select { background: #111827; bo
     .ae-list-grid {
         grid-template-columns: repeat(2, minmax(220px, 1fr));
     }
+    .ar-ev-info-panel {
+        grid-template-columns: 1fr;
+    }
     .ar-ev-info-grid {
-        grid-template-columns: repeat(2, minmax(0, 1fr));
+        grid-template-columns: repeat(3, minmax(0, 1fr));
     }
 }
 @media (max-width: 767.98px) {
@@ -961,6 +1174,9 @@ body.dark-mode #arTabContent .dataTables_length select { background: #111827; bo
     }
     .ar-ev-info-grid {
         grid-template-columns: 1fr;
+    }
+    .ar-ev-info-block--wide {
+        grid-column: span 1;
     }
     .ae-list-action {
         justify-content: flex-end;
@@ -1032,10 +1248,20 @@ body.dark-mode #arTabContent .dataTables_length select { background: #111827; bo
         <div class="modal-content">
             <div class="modal-header ar-ev-modal-header">
                 <div class="flex-grow-1 min-w-0">
-                    <h5 class="modal-title mb-0 text-white fw-bold text-truncate">
-                        <i class="fa-solid fa-motorcycle me-2"></i>Recuperacion —
-                        <span id="ar-ev-titulo-cliente">—</span>
-                        <span id="ar-ev-estatus-cliente" class="ar-table-status-pill ar-ev-title-pill d-none"></span>
+                    <h5 class="modal-title mb-0">
+                        <span class="ar-ev-modal-title-wrap">
+                            <span class="ar-ev-modal-title-line">
+                                <span class="ar-ev-modal-title-main">
+                                    <i class="fa-solid fa-motorcycle me-2"></i>Recuperacion &mdash;
+                                    <span id="ar-ev-titulo-cliente">&mdash;</span>
+                                    <span id="ar-ev-estatus-cliente" class="ar-table-status-pill ar-ev-title-pill d-none"></span>
+                                </span>
+                                <span id="ar-ev-context-badge" class="ar-ev-context-badge ar-ev-context-badge--bandeja d-none">
+                                    <i class="fa-solid fa-inbox"></i><span>Bandeja de entrada</span>
+                                </span>
+                            </span>
+                            <span class="ar-ev-modal-subtitle" id="ar-ev-context-subtitle"></span>
+                        </span>
                     </h5>
                     <span class="d-none" id="ar-ev-prog-inline">0 / 14</span>
                 </div>
@@ -1124,7 +1350,7 @@ $arPublicPath = function_exists('sparta_public_web_base') ? sparta_public_web_ba
     var AR_SERVER_PUBLIC_BASE = <?php echo json_encode($arPublicPath, JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?>;
 
     /** Lista: física M1 + Repuve + Factura (sin recolección). */
-    const AR_EV_TOTAL_LISTA = 13;
+    const AR_EV_TOTAL_LISTA = 14;
 
     const AR_SEC_FIS = {
         key: 'fis',
@@ -1343,6 +1569,83 @@ $arPublicPath = function_exists('sparta_public_web_base') ? sparta_public_web_ba
             .replace(/"/g, '&quot;');
     }
 
+    function arMinutosTexto(minutos) {
+        const n = parseInt(minutos, 10);
+        if (!Number.isFinite(n) || n < 0) return '';
+        const dias = Math.floor(n / 1440);
+        const horas = Math.floor((n % 1440) / 60);
+        const mins = n % 60;
+        const out = [];
+        if (dias > 0) out.push(dias + ' dia' + (dias === 1 ? '' : 's'));
+        if (horas > 0) out.push(horas + ' hora' + (horas === 1 ? '' : 's'));
+        if (!out.length && mins > 0) out.push(mins + ' min');
+        return out.length ? out.join(' ') : '0 min';
+    }
+
+    function arConteosFila(item) {
+        const aceptadas = parseInt(item.evidencias_aceptadas_count, 10) || 0;
+        const rechazadas = parseInt(item.evidencias_rechazadas_count, 10) || 0;
+        const pendientes = parseInt(item.evidencias_pendientes_count, 10) || 0;
+        const fisicas = parseInt(item.evidencias_count, 10) || 0;
+        const expediente = parseInt(item.recuperacion_expediente_count, 10) || fisicas;
+        return {
+            aceptadas: aceptadas,
+            rechazadas: rechazadas,
+            pendientes: pendientes,
+            fisicas: Math.min(fisicas, AR_TOTAL_VALIDABLE_IMG),
+            expediente: Math.min(expediente, AR_TOTAL_VALIDABLE_EXPEDIENTE)
+        };
+    }
+
+    function arRenderResumenExpediente(item, key) {
+        const r = arConteosFila(item || {});
+        const esDictaminado = key === 'dictaminado';
+        const minRec = esDictaminado ? item.minutos_total_recuperacion : item.minutos_en_recuperacion;
+        const tiempo = arMinutosTexto(minRec);
+        const desde = esDictaminado ? (item.fecha_inicio_recuperacion || '') : (item.fecha_entrada_recuperacion || item.fecha_aprobacion_evidencias || '');
+        const lista = esDictaminado ? (item.fecha_fin_recuperacion || item.fecha_dictamen || '') : '';
+        const pill = esDictaminado
+            ? '<span class="ar-rec-pill ar-rec-pill--sent"><i class="fa-solid fa-paper-plane"></i>Enviado a cartera</span>'
+            : '';
+        const detalle = esDictaminado
+            ? ''
+            : '<span class="ar-rec-detail">'
+                + '<span class="ar-rec-detail-doc"><i class="fa-solid fa-file-circle-check"></i>Expediente ' + r.expediente + '/' + AR_TOTAL_VALIDABLE_EXPEDIENTE + '</span>'
+                + '</span>';
+        const labelTiempo = 'Tiempo en esta etapa';
+        const desdeTexto = desde
+            ? (esDictaminado ? 'Desde ' + arEsc(desde) : 'Desde validacion en cobranza<br>' + arEsc(desde))
+            : '';
+        const listaTexto = lista ? 'Lista ' + arEsc(lista) : '';
+        const bloqueTiempo = tiempo
+            ? '<span class="ar-rec-time"><span class="ar-rec-time-label"><i class="fa-solid fa-stopwatch"></i>' + labelTiempo + '</span><strong>' + arEsc(tiempo) + '</strong>' + (desdeTexto || listaTexto ? '<small>' + desdeTexto + (desdeTexto && listaTexto ? '<br>' : '') + listaTexto + '</small>' : '') + '</span>'
+            : '';
+        return pill + detalle + bloqueTiempo;
+    }
+
+    function arSetContextoModal(key) {
+        const sub = document.getElementById('ar-ev-context-subtitle');
+        const badge = document.getElementById('ar-ev-context-badge');
+        const cfg = key === 'dictaminado'
+            ? {
+                icon: 'fa-clipboard-check',
+                label: 'Dictaminado',
+                cls: 'ar-ev-context-badge--dictaminado',
+                subtitle: 'Recuperacion documentada y enviada a cartera.'
+            }
+            : {
+                icon: 'fa-inbox',
+                label: 'Bandeja de entrada',
+                cls: 'ar-ev-context-badge--bandeja',
+                subtitle: 'Expediente en recuperacion pendiente de factura o envio a cartera.'
+            };
+        if (sub) sub.textContent = cfg.subtitle;
+        if (badge) {
+            badge.className = 'ar-ev-context-badge ' + cfg.cls + ' d-none';
+            badge.innerHTML = '';
+        }
+    }
+
     function arInferBaseDesdePathname() {
         const p = (window.location && window.location.pathname) || '';
         const segs = p.split('/').filter(function (x) { return x.length; });
@@ -1430,7 +1733,8 @@ $arPublicPath = function_exists('sparta_public_web_base') ? sparta_public_web_ba
                     slot: slot,
                     label: AR_SLOT_LABEL[slot] || slot,
                     url: arUrlForDisplay(row.url),
-                    isVideo: arEsVideoSlot(slot, row)
+                    isVideo: arEsVideoSlot(slot, row),
+                    estado: arEstadoSlot(row)
                 };
             });
     }
@@ -1458,7 +1762,7 @@ $arPublicPath = function_exists('sparta_public_web_base') ? sparta_public_web_ba
         const nextIdx = ((idx + delta) % total + total) % total;
         const item = _arVistaCtx.galeria[nextIdx];
         if (item) {
-            arAbrirVistaSlotMedia(item.url, item.label, item.isVideo, item.slot);
+            arAbrirVistaSlotMedia(item.url, item.label, item.isVideo, item.slot, item.estado);
         }
     }
 
@@ -1548,6 +1852,11 @@ $arPublicPath = function_exists('sparta_public_web_base') ? sparta_public_web_ba
         sec.slots.forEach(function (sl) {
             inner += arRenderSlotHtml(sl, map);
         });
+        const validadas = sec.key === 'fis' ? arCuentaValidadasImg(map) : 0;
+        const estatusTxt = validadas >= AR_TOTAL_VALIDABLE_IMG ? 'Evidencias completas ' : 'Evidencias validadas ';
+        const estatus = sec.key === 'fis'
+            ? '<span class="ar-ev-hdr-status">' + estatusTxt + validadas + '/' + AR_TOTAL_VALIDABLE_IMG + '</span>'
+            : '';
         const acciones = sec.key === 'fis'
             ? '<button type="button" id="ar-ev-btn-descargar-evidencias" class="btn btn-sm ar-ev-hdr-download" style="display:none;"><i class="fa-solid fa-cloud-arrow-down"></i>Descargar evidencias</button>'
             : '';
@@ -1555,6 +1864,7 @@ $arPublicPath = function_exists('sparta_public_web_base') ? sparta_public_web_ba
         <div class="ar-ev-sec">
             <div class="ar-ev-hdr ${sec.hdr}">
                 <span class="ar-ev-hdr-title"><i class="fa-solid ${sec.icon}"></i> ${arEsc(sec.label)}</span>
+                ${estatus}
                 ${acciones}
             </div>
             <div class="ar-ev-slots-wrap">${inner}</div>
@@ -1837,10 +2147,10 @@ $arPublicPath = function_exists('sparta_public_web_base') ? sparta_public_web_ba
         return /\.pdf(\?|#|$)/i.test(String(u || ''));
     }
 
-    function arCerrarVistaOverlay() {
+    function arLimpiarVistaOverlay(ocultar) {
         arZoomTeardown();
         const modal = document.getElementById('modalArRecuperacionEvidencias');
-        if (modal) modal.classList.remove('ar-ev-ar-vista-abierta');
+        if (modal && ocultar) modal.classList.remove('ar-ev-ar-vista-abierta');
         const ovl = document.getElementById('ar-ev-vista-overlay');
         const box = document.getElementById('ar-ev-vista-mediabox');
         const pan = ovl ? ovl.querySelector('.ar-ev-vista-panel') : null;
@@ -1856,13 +2166,19 @@ $arPublicPath = function_exists('sparta_public_web_base') ? sparta_public_web_ba
             box.classList.remove('ar-ev-vista-mediabox--pdf', 'ar-ev-vista-mediabox--zoomable');
             box.innerHTML = '';
         }
-        if (ovl) ovl.classList.add('d-none');
-        _arVistaCtx = { slot: '', label: '', galeria: [], indice: -1 };
-        arActualizarNavVista();
+        if (ocultar) {
+            if (ovl) ovl.classList.add('d-none');
+            _arVistaCtx = { slot: '', label: '', galeria: [], indice: -1 };
+            arActualizarNavVista();
+        }
     }
 
-    function arAbrirVistaSlotMedia(url, label, isVideo, slot) {
-        arCerrarVistaOverlay();
+    function arCerrarVistaOverlay() {
+        arLimpiarVistaOverlay(true);
+    }
+
+    function arAbrirVistaSlotMedia(url, label, isVideo, slot, estado) {
+        arLimpiarVistaOverlay(false);
         const modal = document.getElementById('modalArRecuperacionEvidencias');
         const ovl = document.getElementById('ar-ev-vista-overlay');
         const tEl = document.getElementById('ar-ev-vista-titulo');
@@ -1879,6 +2195,13 @@ $arPublicPath = function_exists('sparta_public_web_base') ? sparta_public_web_ba
         };
         const title = (label || 'Archivo de recuperacion') + (isVideo ? ' — video' : '');
         if (tEl) tEl.textContent = title;
+        if (tEl) {
+            const st = estado || (slot && _arEvDetalle ? arEstadoSlot(arMapaPorSlot(_arEvDetalle.evidencias || [])[slot]) : '');
+            const badge = st === 'acep'
+                ? ' <span class="ar-ev-vista-status ar-ev-vista-status--ok">ACEPTADA</span>'
+                : (st === 'rec' ? ' <span class="ar-ev-vista-status ar-ev-vista-status--bad">RECHAZADA</span>' : '');
+            tEl.innerHTML = arEsc(tEl.textContent || label || 'Archivo de recuperacion') + badge;
+        }
         pan.classList.add('ar-ev-vista-panel--slot');
         box.classList.add('ar-ev-vista-mediabox--zoomable');
         const urlE = arEsc(url);
@@ -1951,7 +2274,8 @@ $arPublicPath = function_exists('sparta_public_web_base') ? sparta_public_web_ba
                 const isVid = el.getAttribute('data-ar-ev-video') === '1';
                 const slot = el.getAttribute('data-ar-ev-slot') || '';
                 if (u) {
-                    arAbrirVistaSlotMedia(u, lbl, isVid, slot);
+                    const row = slot && _arEvDetalle ? arMapaPorSlot(_arEvDetalle.evidencias || [])[slot] : null;
+                    arAbrirVistaSlotMedia(u, lbl, isVid, slot, arEstadoSlot(row));
                 }
             });
         });
@@ -1963,32 +2287,114 @@ $arPublicPath = function_exists('sparta_public_web_base') ? sparta_public_web_ba
         return s === '' || s === 'null' || s === 'undefined' ? '' : s;
     }
 
+    function arInfoIcono(label) {
+        const k = String(label || '')
+            .toLowerCase()
+            .normalize('NFD')
+            .replace(/[\u0300-\u036f]/g, '');
+        if (k.indexOf('folio') !== -1) return 'fa-hashtag';
+        if (k.indexOf('credito') !== -1 || k.indexOf('credito') !== -1) return 'fa-credit-card';
+        if (k.indexOf('cliente') !== -1 || k.indexOf('responsable') !== -1) return 'fa-user';
+        if (k.indexOf('fecha') !== -1 || k.indexOf('capturado') !== -1 || k.indexOf('tiempo') !== -1 || k.indexOf('ano') !== -1) return 'fa-calendar-days';
+        if (k.indexOf('marca') !== -1) return 'fa-tag';
+        if (k.indexOf('modelo') !== -1 || k.indexOf('moto') !== -1) return 'fa-motorcycle';
+        if (k.indexOf('color') !== -1) return 'fa-palette';
+        if (k.indexOf('vin') !== -1 || k.indexOf('serie') !== -1) return 'fa-barcode';
+        if (k.indexOf('motor') !== -1) return 'fa-gears';
+        if (k.indexOf('placa') !== -1) return 'fa-id-card';
+        if (k.indexOf('kilometraje') !== -1) return 'fa-gauge-high';
+        if (k.indexOf('llave') !== -1) return 'fa-key';
+        if (k.indexOf('tarjeta') !== -1) return 'fa-address-card';
+        if (k.indexOf('lugar') !== -1 || k.indexOf('resguardo') !== -1) return 'fa-warehouse';
+        if (k.indexOf('ciudad') !== -1 || k.indexOf('estado') !== -1) return 'fa-location-dot';
+        if (k.indexOf('telefono') !== -1 || k.indexOf('tel') !== -1) return 'fa-phone';
+        if (k.indexOf('direccion') !== -1 || k.indexOf('task') !== -1) return 'fa-route';
+        return 'fa-circle-info';
+    }
+
+    function arInfoColorCss(valor) {
+        const s = String(valor || '')
+            .toLowerCase()
+            .normalize('NFD')
+            .replace(/[\u0300-\u036f]/g, '')
+            .replace(/[^a-z0-9\s]/g, ' ')
+            .replace(/\s+/g, ' ')
+            .trim();
+        const colores = [
+            ['morado', '#7c3aed'], ['morada', '#7c3aed'], ['purpura', '#7c3aed'], ['violeta', '#8b5cf6'], ['lila', '#a78bfa'],
+            ['verde', '#22c55e'], ['rojo', '#ef4444'], ['azul', '#2563eb'], ['amarillo', '#facc15'],
+            ['negro', '#111827'], ['blanco', '#f8fafc'], ['gris', '#64748b'], ['plata', '#94a3b8'],
+            ['naranja', '#f97316'], ['rosa', '#ec4899'], ['cafe', '#92400e'], ['marron', '#92400e'],
+            ['dorado', '#d97706'], ['beige', '#d6b98c'], ['crema', '#f5e6c8']
+        ];
+        for (let i = 0; i < colores.length; i++) {
+            if (s === colores[i][0] || s.indexOf(colores[i][0]) !== -1) return colores[i][1];
+        }
+        return '#cbd5e1';
+    }
+
+    function arInfoTelefono(valor) {
+        const limpio = String(valor || '').replace(/\D/g, '');
+        if (limpio.length === 10) {
+            return limpio.replace(/(\d{3})(\d{3})(\d{4})/, '$1 $2 $3');
+        }
+        if (limpio.length === 12 && limpio.indexOf('52') === 0) {
+            return '+52 ' + limpio.slice(2).replace(/(\d{3})(\d{3})(\d{4})/, '$1 $2 $3');
+        }
+        return arDatoVisible(valor);
+    }
+
+    function arInfoSiNo(valor) {
+        const raw = arDatoVisible(valor);
+        const s = raw.toLowerCase()
+            .normalize('NFD')
+            .replace(/[\u0300-\u036f]/g, '');
+        if (s === 'si' || s === '1' || s === 'true') return 'Si';
+        if (s === 'no' || s === '0' || s === 'false') return 'No';
+        return raw;
+    }
+
+    function arInfoResguardoTexto(moto) {
+        const base = arDatoVisible(moto.log_lugar_resguardo);
+        const otro = arDatoVisible(moto.log_lugar_otro);
+        const mapa = {
+            'cedis-__SPARTA_SECRET_REDACTED__': 'CEDIS Maxikash',
+            'centro-de-acopio': 'Centro de acopio',
+            'mi_domicilio': 'Mi domicilio',
+            'sucursal': 'Sucursal',
+            'agencia': 'Agencia',
+            'otro': otro || 'Otro'
+        };
+        return mapa[base] || base || otro;
+    }
+
     function arInfoItem(label, value, extraClass) {
         const v = arDatoVisible(value);
         if (!v) return '';
         const cls = extraClass ? ' ' + extraClass : '';
+        const esColor = String(label || '').toLowerCase() === 'color';
+        const colorDot = esColor
+            ? '<span class="ar-ev-info-color-dot" style="background-color:' + arEsc(arInfoColorCss(v)) + ';"></span>'
+            : '';
         return '<div class="ar-ev-info-block' + cls + '">' +
+            '<span class="ar-ev-info-field-head">' +
+            '<i class="fa-solid ' + arEsc(arInfoIcono(label)) + ' ar-ev-info-icon"></i>' +
             '<span class="ar-ev-info-label">' + arEsc(label) + '</span>' +
-            '<div class="ar-ev-info-value">' + arEsc(v) + '</div>' +
+            '</span>' +
+            '<div class="ar-ev-info-value">' + colorDot + '<span>' + arEsc(v) + '</span></div>' +
             '</div>';
     }
 
-    function arInfoSection(titulo, items) {
+    function arInfoCard(titulo, items, modoLista, pill) {
         const html = items.filter(Boolean).join('');
         if (!html) return '';
-        return '<div class="ar-ev-info-section">' + arEsc(titulo) + '</div>' +
-            '<div class="ar-ev-info-grid">' + html + '</div>';
-    }
-
-    function arInfoTitleCell(titulo) {
-        return '<div class="ar-ev-info-title-cell">' + arEsc(titulo) + '</div>';
-    }
-
-    function arInfoLine(titulo, items) {
-        const html = items.filter(Boolean).join('');
-        if (!html) return '';
-        return '<div class="ar-ev-info-section">' + arEsc(titulo) + '</div>' +
-            '<div class="ar-ev-info-line">' + html + '</div>';
+        return '<div class="ar-ev-info-card">' +
+            '<div class="ar-ev-info-card-head">' +
+            '<h6 class="ar-ev-info-title"><i class="fa-solid fa-list-check me-1"></i>' + arEsc(titulo) + '</h6>' +
+            (pill ? '<span class="ar-ev-info-pill">' + arEsc(pill) + '</span>' : '') +
+            '</div>' +
+            '<div class="' + (modoLista ? 'ar-ev-info-list' : 'ar-ev-info-grid') + '">' + html + '</div>' +
+            '</div>';
     }
 
     function arRenderInfoOperacion(det) {
@@ -2002,42 +2408,40 @@ $arPublicPath = function_exists('sparta_public_web_base') ? sparta_public_web_ba
             .map(arDatoVisible)
             .filter(Boolean)
             .join(' ');
+        const lugarResguardo = arInfoResguardoTexto(moto);
 
-        const motoItems = [
-            arInfoTitleCell('Datos de la moto'),
-            arInfoItem('Capturado', det.datos_moto_fecha),
+        const operacion = arInfoCard('Operacion y fechas', [
+            arInfoItem('Folio', det.folio),
+            arInfoItem('Credito', det.id_credito),
+            arInfoItem('Cliente', det.nombre_cliente, 'ar-ev-info-block--wide'),
+            arInfoItem('Fecha adjudicacion', fechaAdjudicacion),
+            arInfoItem('Ultima actualizacion', fechaActualizacion),
+            arInfoItem('Tiempo en etapa', dias),
             arInfoItem('Moto', motoNombre, 'ar-ev-info-block--wide'),
+            arInfoItem('Marca', moto.moto_marca),
+            arInfoItem('Modelo', moto.moto_modelo),
+            arInfoItem('A\u00f1o', moto.moto_anio),
             arInfoItem('Color', moto.moto_color),
             arInfoItem('VIN / Serie', moto.moto_no_serie, 'ar-ev-info-block--wide'),
             arInfoItem('No. motor', moto.moto_no_motor, 'ar-ev-info-block--wide'),
             arInfoItem('Placas', moto.moto_placas),
-            arInfoItem('Marca', moto.moto_marca),
-            arInfoItem('Modelo', moto.moto_modelo, 'ar-ev-info-block--wide'),
-            arInfoItem('Ano', moto.moto_anio)
-        ];
-        const datosMotoHtml = motoItems.filter(Boolean).join('');
-
-        const operacion = arInfoSection('Operacion y fechas', [
-            arInfoItem('Folio', det.folio),
-            arInfoItem('Credito', det.id_credito),
-            arInfoItem('Fecha adjudicacion', fechaAdjudicacion),
-            arInfoItem('Ultima actualizacion', fechaActualizacion),
-            arInfoItem('Tiempo en etapa', dias),
-            arInfoItem('Cliente', det.nombre_cliente),
-            datosMotoHtml,
+            arInfoItem('Kilometraje', moto.kilometraje),
+            arInfoItem('Llave fisica', arInfoSiNo(moto.llave_fisica || moto.tiene_llave_fisica)),
+            arInfoItem('Tarjeta circulacion', arInfoSiNo(moto.tarjeta_circulacion || moto.tiene_tarjeta_de_circulacion_en_fisico)),
+            arInfoItem('Placa fisica', arInfoSiNo(moto.placa_fisica || moto.la_moto_tiene_placa_fisica)),
             arInfoItem('Saldo capital', det.saldo_capital),
             arInfoItem('Adeudo total', det.adeudo_total)
-        ]);
+        ], false, det.datos_moto_fecha ? 'Capturado ' + arDatoVisible(det.datos_moto_fecha) : '');
 
-        const resguardo = arInfoSection('Resguardo y entrega', [
-            arInfoItem('Lugar resguardo', moto.log_lugar_resguardo),
-            arInfoItem('Otro lugar', moto.log_lugar_otro),
-            arInfoItem('Direccion', moto.log_direccion),
-            arInfoItem('Ciudad', moto.log_ciudad),
+        const resguardo = arInfoCard('Direccion / resguardo', [
+            arInfoItem('Lugar de resguardo', lugarResguardo, 'ar-ev-info-block--wide'),
+            arInfoItem('Direccion', moto.log_direccion, 'ar-ev-info-block--wide'),
+            arInfoItem('Ciudad / Municipio', moto.log_ciudad),
             arInfoItem('Estado', moto.log_estado),
             arInfoItem('Responsable', moto.responsable_entrega),
-            arInfoItem('Telefono', moto.log_telefono)
-        ]);
+            arInfoItem('Telefono', arInfoTelefono(moto.log_telefono)),
+            arInfoItem('Direccion task', moto.direccion_task, 'ar-ev-info-block--wide')
+        ], true);
 
         return '<div class="ar-ev-info-panel">' +
             operacion +
@@ -2065,11 +2469,12 @@ $arPublicPath = function_exists('sparta_public_web_base') ? sparta_public_web_ba
                 ? String(det.nombre_cliente).trim()
                 : ('Operación #' + (det.id || ''));
         }
+        if (titulo && det.id_credito && titulo.textContent.indexOf('(') === -1) {
+            titulo.textContent += ' (' + det.id_credito + ')';
+        }
         if (estatusTitulo) {
-            const estado = arDatoVisible(det.estatus);
-            const estadoTitulo = /cierre\s+documentado/i.test(estado || '') ? 'Enviado a cartera' : estado;
-            estatusTitulo.innerHTML = estadoTitulo ? '<i class="fa-solid fa-paper-plane"></i>' + arEsc(estadoTitulo) : '';
-            estatusTitulo.classList.toggle('d-none', !estado);
+            estatusTitulo.innerHTML = '';
+            estatusTitulo.classList.add('d-none');
         }
         if (progIn) {
             progIn.textContent = totalExpedienteValidadas + ' / ' + AR_TOTAL_VALIDABLE_EXPEDIENTE;
@@ -2079,20 +2484,18 @@ $arPublicPath = function_exists('sparta_public_web_base') ? sparta_public_web_ba
             arRenderInfoOperacion(det) +
             '<div class="row g-3">' +
             '<div class="col-lg-8">' +
-            '<div class="d-flex justify-content-between align-items-start mb-1 gap-2">' +
-            '<span style="font-size:.75rem;font-weight:700;color:#0f172a;">Progreso de expediente <span class="text-success">validado</span> (fotos / video + documentos)</span>' +
-            '<span class="ar-ev-prog-lbl">' + totalExpedienteValidadas + ' / ' + AR_TOTAL_VALIDABLE_EXPEDIENTE + '</span>' +
-            '</div>' +
-            '<div class="ar-ev-prog-bg mb-1"><div class="ar-ev-prog-fill" style="width:' + pctExpediente + '%;"></div></div>' +
-            '<div class="mb-3"></div>' +
             arRenderSeccion(AR_SEC_FIS, map) +
-            '<div class="row g-2 mt-1">' +
-            '<div class="col-12">' +
+            '<div class="row g-3 ar-ev-moment-row mt-1">' +
+            '<div class="col-lg-6">' +
+            '<div class="ar-ev-moment-doc">' +
             '<div class="ar-ev-hdr ar-ev-hdr-green ar-ev-hdr-left mb-0"><i class="fa-solid fa-file-pdf"></i> Momento 2: Repuve</div>' +
-            '<div class="pt-2">' + arRenderDocRepuve(map) + '</div></div>' +
-            '<div class="col-12">' +
+            '<div class="ar-ev-moment-doc-body">' + arRenderDocRepuve(map) + '</div>' +
+            '</div></div>' +
+            '<div class="col-lg-6">' +
+            '<div class="ar-ev-moment-doc">' +
             '<div class="ar-ev-hdr ar-ev-hdr-purple ar-ev-hdr-left mb-0"><i class="fa-solid fa-file-invoice"></i> Momento 3: Factura</div>' +
-            '<div class="pt-2">' + arRenderDocFactura(map) + '</div></div>' +
+            '<div class="ar-ev-moment-doc-body">' + arRenderDocFactura(map) + '</div>' +
+            '</div></div>' +
             '</div>' +
             '<div class="row mt-2 g-2"><div class="col-12">' + arRenderFacturaCarteraComentarios(map) + '</div></div>' +
             '</div>' +
@@ -2215,13 +2618,14 @@ $arPublicPath = function_exists('sparta_public_web_base') ? sparta_public_web_ba
             });
     }
 
-    window.arEvModalAbrir = function (idOperacion, soloLectura) {
+    window.arEvModalAbrir = function (idOperacion, soloLectura, contexto) {
         const id = parseInt(idOperacion, 10);
         if (!id) {
             return;
         }
         _arEvDetalle = null;
         _arEvSoloLectura = !!soloLectura;
+        arSetContextoModal(contexto || (_arEvSoloLectura ? 'dictaminado' : 'bandeja'));
         arCerrarVistaOverlay();
 
         const inner = document.getElementById('ar-ev-modal-inner');
@@ -2454,80 +2858,53 @@ $arPublicPath = function_exists('sparta_public_web_base') ? sparta_public_web_ba
 
     function arRenderFilaTabla(item, key) {
         const esBandeja = key === 'bandeja';
-        const evRaw = parseInt(item.evidencias_count, 10) || 0;
-        const ev = Math.min(evRaw, AR_EV_TOTAL_LISTA);
-        const gestor = item.gestor_nombre
-            ? arEsc(item.gestor_nombre)
-            : '<span class="ar-table-muted">Sin asignar</span>';
         const nombreCliente = item.nombre_cliente
             ? arEsc(item.nombre_cliente)
             : '<span class="ar-table-muted">Sin nombre</span>';
         const folio = item.folio ? arEsc(item.folio) : '-';
         const credito = item.id_credito ? arEsc(String(item.id_credito)) : '-';
         const idOp = parseInt(item.id, 10) || 0;
-        const fechaAsignacion = item.fecha_asignacion
-            ? '<div><span class="text-muted">Asig.</span> ' + arEsc(item.fecha_asignacion) + '</div>'
-            : '<div><span class="ar-table-muted">Sin asignacion</span></div>';
-        const estatusRaw = item.estatus ? String(item.estatus).trim() : '';
-        const estatus = estatusRaw ? arEsc(estatusRaw) : '<span class="ar-table-muted">-</span>';
-        const estatusCartera = /cierre\s+documentado/i.test(estatusRaw) ? 'Enviado a cartera' : (estatusRaw || '-');
-        const dias = item.dias_en_pipeline != null && item.dias_en_pipeline !== ''
-            ? arEsc(String(item.dias_en_pipeline)) + ' dias'
-            : '<span class="ar-table-muted">-</span>';
-        const fechaDictamen = item.fecha_dictamen
-            ? '<div><span class="text-muted">Envio</span> ' + arEsc(item.fecha_dictamen) + '</div>'
-            : '';
-        const accion = esBandeja ? `
+        const fechaMaxikash = item.fecha_dictamen_legacy
+            ? arEsc(item.fecha_dictamen_legacy)
+            : (item.fecha_gestion_legacy ? arEsc(item.fecha_gestion_legacy) : '<span class="ar-table-muted">-</span>');
+        const fechaEntrada = item.fecha_entrada_recuperacion
+            ? arEsc(item.fecha_entrada_recuperacion)
+            : (item.fecha_inicio_recuperacion
+                ? arEsc(item.fecha_inicio_recuperacion)
+                : (item.fecha_aprobacion_evidencias ? arEsc(item.fecha_aprobacion_evidencias) : '<span class="ar-table-muted">-</span>'));
+        const accion = `
             <button type="button" class="btn btn-sm btn-outline-secondary" data-ar-no-row="1"
-                    onclick="event.stopPropagation(); arEvModalAbrir(${idOp}, false)" ${idOp ? '' : 'disabled'}
-                    title="Ver evidencias" aria-label="Ver evidencias">
-                <i class="fa fa-eye"></i>
-            </button>` : `
-            <button type="button" class="btn btn-sm btn-outline-secondary" data-ar-no-row="1"
-                    onclick="event.stopPropagation(); arEvModalAbrir(${idOp}, true)" ${idOp ? '' : 'disabled'}
-                    title="Ver evidencias" aria-label="Ver evidencias">
+                    onclick="event.stopPropagation(); arEvModalAbrir(${idOp}, ${esBandeja ? 'false' : 'true'}, '${key}')" ${idOp ? '' : 'disabled'}
+                    title="Ver recuperacion" aria-label="Ver recuperacion">
                 <i class="fa fa-eye"></i>
             </button>`;
-
-        if (esBandeja) {
-            return `
-            <tr>
-                <td class="ar-table-main">
-                    <span class="ar-table-folio">${folio}</span>
-                    <span class="ar-table-credit"># ${credito}</span>
-                </td>
-                <td class="ar-table-name">${nombreCliente}</td>
-                <td>${gestor}</td>
-                <td>${fechaAsignacion}</td>
-                <td class="ar-table-evidence">${ev} / ${AR_EV_TOTAL_LISTA}</td>
-                <td class="ar-table-status">${estatus}<br><span class="text-muted fw-normal">${dias}</span></td>
-                <td class="ar-table-action"><div class="ar-table-actions">${accion}</div></td>
-            </tr>`;
-        }
 
         return `
         <tr>
             <td class="ar-table-main">
                 <span class="ar-table-folio">${folio}</span>
                 <span class="ar-table-credit"># ${credito}</span>
+                <span class="ar-table-main-client"><i class="fa-solid fa-user"></i>${nombreCliente}</span>
             </td>
-            <td class="ar-table-name">${nombreCliente}</td>
-            <td>${gestor}</td>
-            <td>${fechaDictamen || '<span class="ar-table-muted">-</span>'}</td>
-            <td class="ar-table-status">
-                <span class="ar-table-status-pill"><i class="fa-solid fa-paper-plane"></i>${arEsc(estatusCartera)}</span>
+            <td class="ar-table-seguimiento">
+                <span class="ar-table-seguimiento-row">
+                    <span class="ar-table-seguimiento-label"><i class="fa-solid fa-house-circle-check"></i>FECHA DE ADJUDICACION</span>
+                    <span class="ar-table-seguimiento-date">${fechaMaxikash}</span>
+                </span>
+                <span class="ar-table-seguimiento-row">
+                    <span class="ar-table-seguimiento-label"><i class="fa-solid fa-inbox"></i>VALIDADO EN COBRANZA</span>
+                    <span class="ar-table-seguimiento-date">${fechaEntrada}</span>
+                </span>
             </td>
+            <td class="ar-table-evidence">${arRenderResumenExpediente(item, key)}</td>
             <td class="ar-table-action"><div class="ar-table-actions">${accion}</div></td>
         </tr>`;
     }
 
     function arRenderTabla(datos, key) {
         const tableId = 'ar-tabla-' + key;
-        const esBandeja = key === 'bandeja';
         const filas = datos.map(function (item) { return arRenderFilaTabla(item, key); }).join('');
-        const headers = esBandeja
-            ? '<th>Operacion</th><th>Cliente</th><th>Gestor</th><th>Fechas</th><th>Archivos</th><th>Estatus</th><th class="ar-table-action">Acciones</th>'
-            : '<th>Operacion</th><th>Cliente</th><th>Gestor</th><th>Fecha envio</th><th>Destino</th><th class="ar-table-action">Acciones</th>';
+        const headers = '<th>Operacion</th><th>Seguimiento</th><th>Expediente</th><th class="ar-table-action">Acciones</th>';
 
         return `
         <div class="card-datatable ar-table-wrap">
@@ -2669,9 +3046,11 @@ $arPublicPath = function_exists('sparta_public_web_base') ? sparta_public_web_ba
                 didOpen: function () { Swal.showLoading(); },
             });
         }
-        arCargarSeccion('bandeja', true).finally(function () {
+        Promise.allSettled([
+            arCargarSeccion('bandeja', true),
+            arCargarConteosPestanas()
+        ]).finally(function () {
             if (hasSwal) Swal.close();
-            arCargarConteosPestanas();
         });
     }
 

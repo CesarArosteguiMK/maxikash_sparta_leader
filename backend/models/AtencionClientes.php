@@ -41,6 +41,11 @@ class AtencionClientes
         return $dt->format('Y-m-d H:i:s');
     }
 
+    private function sqlAhoraCdmxLiteral(): string
+    {
+        return "'" . addslashes($this->fechaHoraCdmx()) . "'";
+    }
+
     private function sqlConteoEvidenciasFisicas(string $aliasOperacion = 'o'): string
     {
         return "(SELECT COUNT(DISTINCT e.slot)
@@ -138,6 +143,8 @@ SQL;
 
     private function sqlTiempoEnBandejaEvidencias(string $aliasOperacion = 'o'): string
     {
+        $ahoraCdmx = $this->sqlAhoraCdmxLiteral();
+
         return <<<SQL
             (
                 SELECT DATE_FORMAT(MIN(bt.fecha_alta), '%d/%m/%Y %H:%i')
@@ -146,7 +153,7 @@ SQL;
                   AND bt.accion LIKE '%AL PIPELINE%'
             ) AS fecha_entrada_bandeja_evidencias,
             (
-                SELECT TIMESTAMPDIFF(MINUTE, MIN(bt.fecha_alta), NOW())
+                SELECT GREATEST(0, TIMESTAMPDIFF(MINUTE, MIN(bt.fecha_alta), {$ahoraCdmx}))
                 FROM adj_bitacora bt
                 WHERE bt.id_operacion = {$aliasOperacion}.id
                   AND bt.accion LIKE '%AL PIPELINE%'
@@ -156,6 +163,8 @@ SQL;
 
     private function sqlTiempoEnCorrecciones(string $aliasOperacion = 'o'): string
     {
+        $ahoraCdmx = $this->sqlAhoraCdmxLiteral();
+
         return <<<SQL
             (
                 SELECT DATE_FORMAT(MAX(ht.fecha), '%d/%m/%Y %H:%i')
@@ -164,7 +173,7 @@ SQL;
                   AND ht.estatus_nuevo = 'Revisión Recuperaciones'
             ) AS fecha_entrada_bandeja_evidencias,
             (
-                SELECT TIMESTAMPDIFF(MINUTE, MAX(ht.fecha), NOW())
+                SELECT GREATEST(0, TIMESTAMPDIFF(MINUTE, MAX(ht.fecha), {$ahoraCdmx}))
                 FROM adj_historial_estatus ht
                 WHERE ht.id_operacion = {$aliasOperacion}.id
                   AND ht.estatus_nuevo = 'Revisión Recuperaciones'
@@ -199,6 +208,68 @@ SQL;
 SQL;
     }
 
+    private function sqlTiempoEnBandejaRecuperacion(string $aliasOperacion = 'o'): string
+    {
+        $ahoraCdmx = $this->sqlAhoraCdmxLiteral();
+
+        return <<<SQL
+            (
+                SELECT DATE_FORMAT(MAX(br.fecha_alta), '%d/%m/%Y %H:%i')
+                FROM adj_bitacora br
+                WHERE br.id_operacion = {$aliasOperacion}.id
+                  AND br.accion LIKE '%EVIDENCIAS VALIDADAS (PROCESANDO IA)%'
+            ) AS fecha_entrada_recuperacion,
+            (
+                SELECT GREATEST(0, TIMESTAMPDIFF(MINUTE, MAX(br.fecha_alta), {$ahoraCdmx}))
+                FROM adj_bitacora br
+                WHERE br.id_operacion = {$aliasOperacion}.id
+                  AND br.accion LIKE '%EVIDENCIAS VALIDADAS (PROCESANDO IA)%'
+            ) AS minutos_en_recuperacion
+SQL;
+    }
+
+    private function sqlTiempoTotalRecuperacion(string $aliasOperacion = 'o', string $aliasDictamen = 'd'): string
+    {
+        return <<<SQL
+            (
+                SELECT DATE_FORMAT(MAX(br.fecha_alta), '%d/%m/%Y %H:%i')
+                FROM adj_bitacora br
+                WHERE br.id_operacion = {$aliasOperacion}.id
+                  AND br.accion LIKE '%EVIDENCIAS VALIDADAS (PROCESANDO IA)%'
+            ) AS fecha_inicio_recuperacion,
+            DATE_FORMAT(
+                COALESCE(
+                    {$aliasDictamen}.fecha_alta,
+                    (
+                        SELECT MAX(hr.fecha)
+                        FROM adj_historial_estatus hr
+                        WHERE hr.id_operacion = {$aliasOperacion}.id
+                          AND hr.estatus_nuevo = 'Cierre Documentado'
+                    )
+                ),
+                '%d/%m/%Y %H:%i'
+            ) AS fecha_fin_recuperacion,
+            TIMESTAMPDIFF(
+                MINUTE,
+                (
+                    SELECT MAX(br.fecha_alta)
+                    FROM adj_bitacora br
+                    WHERE br.id_operacion = {$aliasOperacion}.id
+                      AND br.accion LIKE '%EVIDENCIAS VALIDADAS (PROCESANDO IA)%'
+                ),
+                COALESCE(
+                    {$aliasDictamen}.fecha_alta,
+                    (
+                        SELECT MAX(hr.fecha)
+                        FROM adj_historial_estatus hr
+                        WHERE hr.id_operacion = {$aliasOperacion}.id
+                          AND hr.estatus_nuevo = 'Cierre Documentado'
+                    )
+                )
+            ) AS minutos_total_recuperacion
+SQL;
+    }
+
     private function sqlConteoEvidenciasCartera(string $aliasOperacion = 'o'): string
     {
         return "(SELECT COUNT(DISTINCT e.slot)
@@ -210,6 +281,20 @@ SQL;
                         'fis_tacometro', 'fis_video_cliente_acuerdo', 'fis_360_encendida',
                         'fis_video_vuelta_prueba', 'fis_checklist',
                         'doc_repuve', 'doc_cierre_s2'
+                   ))";
+    }
+
+    private function sqlConteoExpedienteRecuperacion(string $aliasOperacion = 'o'): string
+    {
+        return "(SELECT COUNT(DISTINCT e.slot)
+                  FROM adj_evidencia e
+                 WHERE e.id_operacion = {$aliasOperacion}.id
+                   AND e.slot IN (
+                        'fis_dacion_hoja_1', 'fis_dacion_hoja_2',
+                        'fis_vin', 'fis_frontal', 'fis_lateral_der', 'fis_trasera', 'fis_lateral_izq',
+                        'fis_tacometro', 'fis_video_cliente_acuerdo', 'fis_360_encendida',
+                        'fis_video_vuelta_prueba', 'fis_checklist',
+                        'doc_repuve', 'doc_factura'
                    ))";
     }
 
@@ -545,9 +630,11 @@ SQL;
     {
         $joinAsig = $this->sqlJoinUnaAsignacionActivaPorCredito();
         $evidenciasCount = $this->sqlConteoEvidenciasFisicas('o');
+        $recuperacionExpedienteCount = $this->sqlConteoExpedienteRecuperacion('o');
         $evidenciasValidacion = $this->sqlConteosValidacionAtn('o');
         $ultimoMovimientoEvidencias = $this->sqlUltimoMovimientoEvidencias('o');
         $tiempoTotalValidacion = $this->sqlTiempoTotalValidacionEvidencias('o');
+        $tiempoEnRecuperacion = $this->sqlTiempoEnBandejaRecuperacion('o');
         $formulario = $this->sqlSelectFormularioEvidencias('o');
         $exclDictRec = '';
         if ($excluirDictaminadoRecuperacion) {
@@ -582,9 +669,11 @@ SQL;
             o.adeudo_total,
             DATEDIFF(NOW(), o.fecha_alta) AS dias_en_pipeline,
             {$evidenciasCount} AS evidencias_count,
+            {$recuperacionExpedienteCount} AS recuperacion_expediente_count,
             {$evidenciasValidacion},
             {$ultimoMovimientoEvidencias},
             {$tiempoTotalValidacion},
+            {$tiempoEnRecuperacion},
             {$formulario},
             TRIM(CONCAT_WS(' ',
                 per.nombres,
@@ -1036,6 +1125,9 @@ SQL;
     public function obtenerDictaminadosRecuperacionLista(): array
     {
         $joinAsig = $this->sqlJoinUnaAsignacionActivaPorCredito();
+        $evidenciasCount = $this->sqlConteoExpedienteRecuperacion('o');
+        $evidenciasValidacion = $this->sqlConteosValidacionAtn('o');
+        $tiempoTotalRecuperacion = $this->sqlTiempoTotalRecuperacion('o', 'd');
         $sql = <<<SQL
         SELECT
             o.id,
@@ -1053,6 +1145,10 @@ SQL;
             d.dictamen,
             d.plataforma,
             d.comentarios,
+            {$evidenciasCount} AS evidencias_count,
+            {$evidenciasValidacion},
+            {$tiempoTotalRecuperacion},
+            DATE_FORMAT(o.fecha_alta, '%d/%m/%Y %H:%i') AS fecha_dictamen_legacy,
             DATE_FORMAT(d.fecha_alta, '%d/%m/%Y %H:%i') AS fecha_dictamen,
             TRIM(CONCAT_WS(' ',
                 per.nombres,

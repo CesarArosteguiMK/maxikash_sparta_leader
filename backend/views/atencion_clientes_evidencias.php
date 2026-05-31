@@ -145,10 +145,22 @@
     letter-spacing: .035em;
 }
 .ae-form-trace-date {
-    color: #64748b;
-    font-size: .72rem;
-    font-weight: 700;
+    display: inline-flex;
+    align-items: center;
+    gap: .32rem;
+    padding: .2rem .58rem;
+    border: 1px solid #fed7aa;
+    border-radius: 999px;
+    background: #fff7ed;
+    color: #b45309;
+    font-size: .68rem;
+    font-weight: 900;
+    line-height: 1.05;
     white-space: nowrap;
+    box-shadow: 0 .08rem .22rem rgba(180, 83, 9, .08);
+}
+.ae-form-trace-date i {
+    font-size: .68rem;
 }
 .ae-form-trace-grid {
     display: grid;
@@ -332,6 +344,10 @@
     font-weight: 700;
     color: #566a7f;
 }
+#ae-tabla-correcciones .ae-table-evidence {
+    width: 285px;
+    max-width: 285px;
+}
 .ae-evidence-pill {
     display: inline-flex;
     align-items: center;
@@ -414,18 +430,20 @@ body.dark-mode .ae-evidence-detail-pending { color: #94a3b8; }
     letter-spacing: .02em;
 }
 .ae-evidence-approved-date-label {
-    display: flex;
+    display: inline-flex;
     align-items: flex-start;
     gap: .34rem;
 }
 .ae-evidence-approved-date strong {
-    display: block;
-    margin-top: .08rem;
+    display: inline;
+    margin-top: 0;
+    margin-left: .35rem;
     color: #566a7f;
     font-size: .76rem;
     font-weight: 800;
     text-transform: none;
     letter-spacing: 0;
+    white-space: nowrap;
 }
 .ae-evidence-approved-date small {
     display: block;
@@ -591,7 +609,7 @@ body.dark-mode .ae-main-credito { color: #e2e8f0; }
 body.dark-mode .aev-ev-hint { color: #94a3b8 !important; }
 body.dark-mode .ae-form-trace { background: #0f172a; border-color: #1f2937; }
 body.dark-mode .ae-form-trace-title { color: #e2e8f0; }
-body.dark-mode .ae-form-trace-date { color: #94a3b8; }
+body.dark-mode .ae-form-trace-date { background: #422006; border-color: #78350f; color: #fcd34d; box-shadow: none; }
 body.dark-mode .ae-form-field-label { color: #94a3b8; }
 body.dark-mode .ae-form-field-value { color: #e2e8f0; }
 body.dark-mode .ae-form-field-icon { color: #94a3b8; }
@@ -672,10 +690,13 @@ body.dark-mode #aeTabContent .dataTables_length select { background: #111827; bo
 
 /* ── Modal validar evidencias (patrón Mis adjudicaciones + mock validación) ── */
 #modalAevValidarEvidencias .modal-header {
-    background: linear-gradient(135deg, #15803d, #22c55e);
-    color: #fff; padding: .75rem 1.15rem; border: none;
+    background: #fff !important;
+    color: #0f172a !important;
+    padding: .85rem 1.15rem;
+    border: none !important;
+    border-bottom: 1px solid #e2e8f0 !important;
 }
-#modalAevValidarEvidencias .btn-close { filter: brightness(0) invert(1); }
+#modalAevValidarEvidencias .btn-close { filter: none; }
 #modalAevValidarEvidencias .modal-dialog.modal-xl {
     max-width: min(72rem, 98vw);
 }
@@ -687,6 +708,11 @@ body.dark-mode #aeTabContent .dataTables_length select { background: #111827; bo
     align-items: center;
     gap: .55rem;
     flex-wrap: wrap;
+    font-weight: 900;
+}
+.aev-modal-title-main {
+    font-weight: 900;
+    color: #111827;
 }
 .aev-context-badge {
     display: inline-flex;
@@ -709,9 +735,9 @@ body.dark-mode #aeTabContent .dataTables_length select { background: #111827; bo
 .aev-modal-subtitle {
     display: block;
     margin-top: .22rem;
-    color: rgba(255, 255, 255, .86);
+    color: #111827;
     font-size: .75rem;
-    font-weight: 600;
+    font-weight: 700;
     line-height: 1.25;
 }
 /* Una línea de ayuda; sin cajas ni párrafos largos */
@@ -777,6 +803,10 @@ body.dark-mode #aeTabContent .dataTables_length select { background: #111827; bo
     padding: .18rem .55rem;
     font-size: .62rem;
     border-radius: .4rem .4rem 0 0;
+}
+.aev-ev-section--doc .aev-ev-hdr-green {
+    justify-content: flex-start;
+    text-align: left;
 }
 .aev-ev-hdr-purple { background: #faf5ff; border: 1px solid #e9d5ff; border-bottom: 0; color: #6b21a8; }
 .aev-ev-slots-wrap {
@@ -1055,11 +1085,11 @@ body.dark-mode .aev-detalle-loading-card {
                 <h5 class="modal-title mb-0">
                     <span class="aev-modal-title-wrap">
                         <span class="aev-modal-title-line">
-                            <span>
+                            <span class="aev-modal-title-main">
                                 <i id="aev-modal-icon" class="fa-solid fa-images me-2"></i><span id="aev-modal-titulo-modo">Evidencias</span> &mdash;
                                 <span id="aev-titulo-cliente" class="fw-normal" style="font-size:.9em;"></span>
                             </span>
-                            <span id="aev-context-badge" class="aev-context-badge aev-context-badge--bandeja">
+                            <span id="aev-context-badge" class="aev-context-badge aev-context-badge--bandeja d-none">
                                 <i class="fa-solid fa-inbox"></i><span>Bandeja de entrada</span>
                             </span>
                         </span>
@@ -1326,8 +1356,8 @@ $aevPuedeReemplazarEvidencia = in_array(79, array_map('intval', (array) ($_SESSI
         const badge = document.getElementById('aev-context-badge');
         const sub = document.getElementById('aev-context-subtitle');
         if (badge) {
-            badge.className = 'aev-context-badge ' + cfg.cls;
-            badge.innerHTML = '<i class="fa-solid ' + cfg.icon + '"></i><span>' + aeEsc(cfg.label) + '</span>';
+            badge.className = 'aev-context-badge ' + cfg.cls + ' d-none';
+            badge.innerHTML = '';
         }
         if (sub) sub.textContent = cfg.subtitle;
     }
@@ -2717,7 +2747,7 @@ $aevPuedeReemplazarEvidencia = in_array(79, array_map('intval', (array) ($_SESSI
             <div class="ae-form-trace">
                 <div class="ae-form-trace-head">
                     <span class="ae-form-trace-title"><i class="fa-solid fa-list-check me-1"></i>Formulario capturado</span>
-                    ${fecha ? `<span class="ae-form-trace-date">Capturado ${aeEsc(fecha)}</span>` : ''}
+                    ${fecha ? `<span class="ae-form-trace-date"><i class="fa-solid fa-calendar-check"></i>Capturado ${aeEsc(fecha)}</span>` : ''}
                 </div>
                 <div class="ae-form-trace-columns">
                     <div class="ae-form-trace-panel">
@@ -2806,7 +2836,7 @@ $aevPuedeReemplazarEvidencia = in_array(79, array_map('intval', (array) ($_SESSI
             ? '<span class="ae-evidence-approved-date"><span class="ae-evidence-approved-date-label"><i class="fa-solid fa-hourglass-half"></i>' + (pestana === 'correcciones' ? 'Tiempo en correcciones' : 'Tiempo en evidencias') + '</span><strong>' + aeEsc(tiempoBandeja) + '</strong>' + (fechaEntradaBandeja ? '<small>Desde ' + aeEsc(fechaEntradaBandeja) + '</small>' : '') + '</span>'
             : '';
         const bloqueTiempoTotalValidacion = (tiempoTotalValidacion && pestana === 'aprobados')
-            ? '<span class="ae-evidence-approved-date"><span class="ae-evidence-approved-date-label"><i class="fa-solid fa-stopwatch"></i>Tiempo validacion</span><strong>' + aeEsc(tiempoTotalValidacion) + '</strong>' + (fechaInicioValidacion || fechaFinValidacion ? '<small>' + (fechaInicioValidacion ? 'Desde ' + aeEsc(fechaInicioValidacion) : '') + (fechaInicioValidacion && fechaFinValidacion ? '<br>' : '') + (fechaFinValidacion ? 'Lista ' + aeEsc(fechaFinValidacion) : '') + '</small>' : '') + '</span>'
+            ? '<span class="ae-evidence-approved-date"><span class="ae-evidence-approved-date-label"><i class="fa-solid fa-stopwatch"></i>Tiempo en esta etapa</span><strong>' + aeEsc(tiempoTotalValidacion) + '</strong>' + (fechaInicioValidacion || fechaFinValidacion ? '<small>' + (fechaInicioValidacion ? 'Desde ' + aeEsc(fechaInicioValidacion) : '') + (fechaInicioValidacion && fechaFinValidacion ? '<br>' : '') + (fechaFinValidacion ? 'Lista ' + aeEsc(fechaFinValidacion) : '') + '</small>' : '') + '</span>'
             : '';
         const fechaUltimoMovimiento = item && item.fecha_ultimo_movimiento_evidencias
             ? String(item.fecha_ultimo_movimiento_evidencias)
@@ -2815,11 +2845,10 @@ $aevPuedeReemplazarEvidencia = in_array(79, array_map('intval', (array) ($_SESSI
             ? aeTextoMovimientoEvidencias(item.accion_ultimo_movimiento_evidencias)
             : '';
         const ultimoMovimiento = (fechaUltimoMovimiento && pestana !== 'aprobados')
-            ? '<span class="ae-evidence-approved-date"><span class="ae-evidence-approved-date-label"><i class="fa-solid fa-clock-rotate-left"></i>Último movimiento de evidencias</span><strong>' + aeEsc(fechaUltimoMovimiento) + '</strong>' + (accionUltimoMovimiento ? '<small>' + aeEsc(accionUltimoMovimiento) + '</small>' : '') + '</span>'
+            ? '<span class="ae-evidence-approved-date"><span class="ae-evidence-approved-date-label"><i class="fa-solid fa-clock-rotate-left"></i>Último movimiento</span><small>Desde ' + aeEsc(fechaUltimoMovimiento) + '</small>' + (accionUltimoMovimiento ? '<small>' + aeEsc(accionUltimoMovimiento) + '</small>' : '') + '</span>'
             : '';
         if (pestana === 'aprobados') {
-            const aceptadas = r.aceptadas || r.cargadas;
-            return '<span class="ae-evidence-pill ae-evidence-pill--ok"><i class="fa-solid fa-circle-check"></i>Aceptadas ' + aceptadas + '/' + AE_EV_TOTAL + '</span>'
+            return '<span class="ae-evidence-pill ae-evidence-pill--ok"><i class="fa-solid fa-paper-plane"></i>Enviado a recuperacion</span>'
                 + bloqueTiempoTotalValidacion
                 + ultimoMovimiento;
         }
@@ -2948,7 +2977,7 @@ $aevPuedeReemplazarEvidencia = in_array(79, array_map('intval', (array) ($_SESSI
         const filas = datos.map(function (item) { return aeRenderFilaTabla(item, key); }).join('');
         return `
         <div class="card-datatable ae-table-wrap">
-            <table id="${aeEsc(tableId)}" class="dt-responsive table border-top ae-table">
+            <table id="${aeEsc(tableId)}" class="dt-responsive table border-top ae-table ae-table-${aeEsc(key)}">
                 <thead>
                     <tr>
                         <th>Operacion</th>
