@@ -152,18 +152,48 @@
 }
 .ae-form-trace-grid {
     display: grid;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
+    grid-template-columns: repeat(5, minmax(0, 1fr));
     gap: .42rem .55rem;
 }
-.ae-form-chip {
-    min-width: 0;
-    padding: .36rem .48rem;
-    border: 1px solid #dbe4ef;
-    border-radius: .45rem;
-    background: #fff;
+.ae-form-trace-columns {
+    display: grid;
+    grid-template-columns: minmax(0, 1.15fr) minmax(0, .85fr);
+    gap: .85rem;
+    align-items: start;
 }
-.ae-form-chip-wide { grid-column: span 2; }
-.ae-form-chip-label {
+.ae-form-trace-panel {
+    min-width: 0;
+}
+.ae-form-trace-panel-title {
+    color: #123150;
+    font-size: .68rem;
+    font-weight: 900;
+    line-height: 1;
+    text-transform: uppercase;
+    letter-spacing: .045em;
+    margin: 0 0 .42rem;
+}
+.ae-form-field {
+    min-width: 0;
+    padding: .08rem .15rem .18rem;
+    border-bottom: 1px solid #e2e8f0;
+}
+.ae-form-field-wide { grid-column: span 2; }
+.ae-form-field-head {
+    display: flex;
+    align-items: center;
+    gap: .28rem;
+    min-width: 0;
+    margin-bottom: .12rem;
+}
+.ae-form-field-icon {
+    color: #64748b;
+    font-size: .68rem;
+    width: .85rem;
+    flex: 0 0 .85rem;
+    text-align: center;
+}
+.ae-form-field-label {
     display: block;
     color: #64748b;
     font-size: .62rem;
@@ -171,10 +201,13 @@
     line-height: 1.1;
     text-transform: uppercase;
     letter-spacing: .035em;
-    margin-bottom: .12rem;
+    white-space: nowrap;
+    margin-bottom: 0;
 }
-.ae-form-chip-value {
-    display: block;
+.ae-form-field-value {
+    display: flex;
+    align-items: center;
+    gap: .34rem;
     color: #1e293b;
     font-size: .75rem;
     font-weight: 700;
@@ -182,6 +215,35 @@
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+}
+.ae-form-color-dot {
+    display: inline-block;
+    width: .68rem;
+    height: .68rem;
+    min-width: .68rem;
+    border-radius: 999px;
+    border: 1px solid rgba(15, 23, 42, .16);
+    box-shadow: 0 0 0 2px rgba(255,255,255,.9);
+    flex: 0 0 .68rem;
+}
+.ae-form-trace-subtitle {
+    color: #123150;
+    font-size: .68rem;
+    font-weight: 900;
+    line-height: 1;
+    text-transform: uppercase;
+    letter-spacing: .045em;
+    margin: .58rem 0 .34rem;
+    padding-top: .48rem;
+    border-top: 1px solid #dbe4ef;
+}
+.ae-form-resguardo-list {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: .34rem;
+}
+.ae-form-resguardo-list .ae-form-field-wide {
+    grid-column: span 1;
 }
 .ae-table-wrap {
     border: 1px solid #e5e7eb;
@@ -212,7 +274,7 @@
     border-color: #e8eef5;
 }
 .ae-table-main {
-    min-width: 150px;
+    min-width: 230px;
 }
 .ae-table-folio {
     display: inline-flex;
@@ -231,6 +293,27 @@
     color: #566a7f;
     font-weight: 700;
 }
+.ae-table-main-client {
+    display: flex;
+    align-items: flex-start;
+    gap: .34rem;
+    margin-top: .28rem;
+    color: #697a8d;
+    font-weight: 800;
+    line-height: 1.18;
+    text-transform: uppercase;
+    white-space: normal;
+}
+.ae-table-main-client i,
+.ae-table-gestor-name i,
+.ae-table-legacy-label i,
+.ae-evidence-approved-date i {
+    color: #64748b;
+    font-size: .72rem;
+    line-height: 1;
+    margin-top: .08rem;
+    flex: 0 0 auto;
+}
 .ae-table-name {
     min-width: 210px;
     color: #697a8d;
@@ -247,6 +330,112 @@
     font-weight: 700;
     color: #566a7f;
 }
+.ae-evidence-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: .32rem;
+    padding: .18rem .52rem;
+    border-radius: 999px;
+    font-size: .68rem;
+    font-weight: 800;
+    line-height: 1.1;
+    white-space: nowrap;
+}
+.ae-evidence-pill i {
+    font-size: .64rem;
+}
+.ae-evidence-pill--ok {
+    background: #dcfce7;
+    color: #15803d;
+}
+.ae-evidence-pill--warn {
+    background: #fff7ed;
+    color: #b45309;
+}
+.ae-evidence-pill--correction {
+    background: #fef3c7;
+    color: #b45309;
+}
+.ae-evidence-pill--bad {
+    background: #fee2e2;
+    color: #dc2626;
+}
+.ae-evidence-pill--neutral {
+    background: #eef2f7;
+    color: #475569;
+}
+.ae-evidence-detail {
+    display: flex;
+    flex-direction: column;
+    gap: .08rem;
+    margin-top: .22rem;
+    color: #64748b;
+    font-size: .68rem;
+    font-weight: 700;
+    line-height: 1.2;
+    white-space: normal;
+}
+.ae-evidence-detail--single {
+    display: block;
+}
+.ae-evidence-detail span {
+    display: flex;
+    align-items: center;
+    gap: .28rem;
+}
+.ae-evidence-detail i {
+    width: .78rem;
+    flex: 0 0 .78rem;
+    font-size: .66rem;
+    text-align: center;
+}
+.ae-evidence-detail-ok i { color: #22c55e; }
+.ae-evidence-detail-bad i { color: #ef4444; }
+.ae-evidence-detail-pending i { color: #94a3b8; }
+.ae-evidence-detail-ok { color: #15803d; }
+.ae-evidence-detail-bad { color: #dc2626; }
+.ae-evidence-detail-pending { color: #64748b; }
+body.dark-mode .ae-evidence-detail-ok { color: #86efac; }
+body.dark-mode .ae-evidence-detail-bad { color: #fca5a5; }
+body.dark-mode .ae-evidence-detail-pending { color: #94a3b8; }
+.ae-evidence-approved-date {
+    display: block;
+    margin-top: .42rem;
+    padding-top: .36rem;
+    border-top: 1px solid #e2e8f0;
+    color: #64748b;
+    font-size: .68rem;
+    font-weight: 800;
+    line-height: 1.25;
+    white-space: normal;
+    text-transform: uppercase;
+    letter-spacing: .02em;
+}
+.ae-evidence-approved-date-label {
+    display: flex;
+    align-items: flex-start;
+    gap: .34rem;
+}
+.ae-evidence-approved-date strong {
+    display: block;
+    margin-top: .08rem;
+    color: #566a7f;
+    font-size: .76rem;
+    font-weight: 800;
+    text-transform: none;
+    letter-spacing: 0;
+}
+.ae-evidence-approved-date small {
+    display: block;
+    margin-top: .1rem;
+    color: #94a3b8;
+    font-size: .62rem;
+    font-weight: 700;
+    line-height: 1.18;
+    text-transform: none;
+    letter-spacing: 0;
+    white-space: normal;
+}
 .ae-table-action {
     min-width: 164px;
     text-align: center !important;
@@ -254,6 +443,39 @@
 .ae-table-date {
     white-space: nowrap;
     line-height: 1.35;
+}
+.ae-table-gestor {
+    min-width: 190px;
+}
+.ae-table-gestor-name {
+    display: flex;
+    align-items: flex-start;
+    gap: .34rem;
+    color: #697a8d;
+    font-weight: 700;
+    line-height: 1.18;
+}
+.ae-table-legacy-label {
+    display: flex;
+    align-items: flex-start;
+    gap: .34rem;
+    margin-top: .42rem;
+    padding-top: .36rem;
+    border-top: 1px solid #e2e8f0;
+    color: #64748b;
+    font-size: .66rem;
+    font-weight: 800;
+    line-height: 1.1;
+    text-transform: uppercase;
+    letter-spacing: .025em;
+}
+.ae-table-legacy-date {
+    display: block;
+    margin-top: .12rem;
+    color: #566a7f;
+    font-size: .78rem;
+    font-weight: 700;
+    line-height: 1.15;
 }
 .ae-action-buttons {
     display: flex;
@@ -367,16 +589,31 @@ body.dark-mode .aev-ev-hint { color: #94a3b8 !important; }
 body.dark-mode .ae-form-trace { background: #0f172a; border-color: #1f2937; }
 body.dark-mode .ae-form-trace-title { color: #e2e8f0; }
 body.dark-mode .ae-form-trace-date { color: #94a3b8; }
-body.dark-mode .ae-form-chip { background: #111827; border-color: #1f2937; }
-body.dark-mode .ae-form-chip-label { color: #94a3b8; }
-body.dark-mode .ae-form-chip-value { color: #e2e8f0; }
+body.dark-mode .ae-form-field-label { color: #94a3b8; }
+body.dark-mode .ae-form-field-value { color: #e2e8f0; }
+body.dark-mode .ae-form-field-icon { color: #94a3b8; }
+body.dark-mode .ae-form-trace-panel-title { color: #e2e8f0; }
+body.dark-mode .ae-form-trace-subtitle { color: #e2e8f0; border-color: #1f2937; }
 body.dark-mode .ae-table-wrap { background: #111827; border-color: #1f2937; }
 body.dark-mode .ae-table thead th { background: #0f172a; color: #e2e8f0; border-color: #1f2937; }
 body.dark-mode .ae-table tbody tr:hover { background: #172033; }
 body.dark-mode .ae-table td { color: #cbd5e1; border-color: #1f2937; }
 body.dark-mode .ae-table-credit,
+body.dark-mode .ae-table-main-client,
 body.dark-mode .ae-table-name,
 body.dark-mode .ae-table-evidence { color: #e2e8f0; }
+body.dark-mode .ae-table-legacy-label { color: #94a3b8; }
+body.dark-mode .ae-table-legacy-label { border-color: #1f2937; }
+body.dark-mode .ae-table-legacy-date { color: #e2e8f0; }
+body.dark-mode .ae-table-main-client i,
+body.dark-mode .ae-table-gestor-name i,
+body.dark-mode .ae-table-legacy-label i,
+body.dark-mode .ae-evidence-approved-date i { color: #94a3b8; }
+body.dark-mode .ae-evidence-detail { color: #94a3b8; }
+body.dark-mode .ae-evidence-approved-date { color: #94a3b8; border-color: #1f2937; }
+body.dark-mode .ae-evidence-approved-date strong { color: #e2e8f0; }
+body.dark-mode .ae-evidence-approved-date small { color: #64748b; }
+body.dark-mode .ae-evidence-pill--neutral { background: #1f2937; color: #cbd5e1; }
 body.dark-mode #aeTabContent .dataTables_filter input,
 body.dark-mode #aeTabContent .dataTables_length select { background: #111827; border-color: #1f2937; color: #e2e8f0; }
 
@@ -385,7 +622,10 @@ body.dark-mode #aeTabContent .dataTables_length select { background: #111827; bo
         grid-template-columns: repeat(2, minmax(220px, 1fr));
     }
     .ae-form-trace-grid {
-        grid-template-columns: repeat(2, minmax(0, 1fr));
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+    .ae-form-trace-columns {
+        grid-template-columns: 1fr;
     }
 }
 @media (max-width: 767.98px) {
@@ -422,7 +662,7 @@ body.dark-mode #aeTabContent .dataTables_length select { background: #111827; bo
     .ae-form-trace-grid {
         grid-template-columns: 1fr;
     }
-    .ae-form-chip-wide {
+    .ae-form-field-wide {
         grid-column: span 1;
     }
 }
@@ -435,6 +675,41 @@ body.dark-mode #aeTabContent .dataTables_length select { background: #111827; bo
 #modalAevValidarEvidencias .btn-close { filter: brightness(0) invert(1); }
 #modalAevValidarEvidencias .modal-dialog.modal-xl {
     max-width: min(72rem, 98vw);
+}
+.aev-modal-title-wrap {
+    min-width: 0;
+}
+.aev-modal-title-line {
+    display: flex;
+    align-items: center;
+    gap: .55rem;
+    flex-wrap: wrap;
+}
+.aev-context-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: .3rem;
+    padding: .22rem .58rem;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, .2);
+    color: #fff;
+    font-size: .62rem;
+    font-weight: 900;
+    line-height: 1;
+    letter-spacing: .03em;
+    text-transform: uppercase;
+    border: 1px solid rgba(255, 255, 255, .28);
+}
+.aev-context-badge--bandeja { background: rgba(37, 99, 235, .95); }
+.aev-context-badge--aprobados { background: rgba(22, 163, 74, .95); }
+.aev-context-badge--correcciones { background: rgba(220, 38, 38, .95); }
+.aev-modal-subtitle {
+    display: block;
+    margin-top: .22rem;
+    color: rgba(255, 255, 255, .86);
+    font-size: .75rem;
+    font-weight: 600;
+    line-height: 1.25;
 }
 /* Una línea de ayuda; sin cajas ni párrafos largos */
 .aev-ev-hint {
@@ -475,9 +750,22 @@ body.dark-mode #aeTabContent .dataTables_length select { background: #111827; bo
 .aev-ev-section { margin-bottom: 1rem; }
 .aev-ev-section--doc { margin-bottom: .35rem; }
 .aev-ev-hdr {
-    display: flex; align-items: center; gap: .5rem;
+    display: flex; align-items: center; justify-content: space-between; gap: .5rem;
     padding: .4rem .75rem; border-radius: .5rem .5rem 0 0;
     font-size: .68rem; font-weight: 800; text-transform: uppercase; letter-spacing: .45px;
+}
+.aev-ev-hdr-title { display: inline-flex; align-items: center; gap: .5rem; min-width: 0; }
+.aev-ev-hdr-status {
+    border-radius: 999px;
+    background: rgba(34, 197, 94, .14);
+    color: #15803d;
+    font-size: .68rem;
+    font-weight: 800;
+    letter-spacing: .03em;
+    line-height: 1;
+    padding: .24rem .55rem;
+    text-transform: uppercase;
+    white-space: nowrap;
 }
 .aev-ev-hdr-orange { background: #fff7ed; border: 1px solid #fed7aa; border-bottom: 0; color: #9a3412; }
 .aev-ev-hdr-blue   { background: #eff6ff; border: 1px solid #bfdbfe; border-bottom: 0; color: #1e40af; }
@@ -537,9 +825,33 @@ body.dark-mode #aeTabContent .dataTables_length select { background: #111827; bo
     display: flex; align-items: center; justify-content: center; padding: 1rem;
     pointer-events: auto;
 }
-#modalAevValidarEvidencias .aev-vista-panel { width: 100%; max-width: min(52rem, 96vw); max-height: 92vh; overflow: auto; background: #fff; border-radius: 0.75rem; box-shadow: 0 20px 50px rgba(0,0,0,.35); padding: 1rem 1.1rem; position: relative; z-index: 1; }
-.aev-vista-mediabox { min-height: 12rem; max-height: 60vh; background: #0f172a; border-radius: 0.5rem; display: flex; align-items: center; justify-content: center; margin-bottom: 0.75rem; }
-.aev-vista-mediabox video, .aev-vista-mediabox img { max-width: 100%; max-height: 50vh; object-fit: contain; }
+#modalAevValidarEvidencias .aev-vista-panel {
+    width: min(52rem, 96vw);
+    height: min(42rem, 92vh);
+    overflow: hidden;
+    background: #fff;
+    border-radius: 0.75rem;
+    box-shadow: 0 20px 50px rgba(0,0,0,.35);
+    padding: 1rem 1.1rem;
+    position: relative;
+    z-index: 1;
+    display: flex;
+    flex-direction: column;
+}
+.aev-vista-mediabox {
+    flex: 1 1 auto;
+    min-height: 0;
+    height: 28rem;
+    max-height: none;
+    background: #0f172a;
+    border-radius: 0.5rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 0.75rem;
+    overflow: hidden;
+}
+.aev-vista-mediabox video, .aev-vista-mediabox img { max-width: 100%; max-height: 100%; object-fit: contain; }
 .aev-vista-nav {
     display: inline-flex;
     align-items: center;
@@ -572,6 +884,29 @@ body.dark-mode #aeTabContent .dataTables_length select { background: #111827; bo
     min-width: 3.6rem;
     text-align: center;
 }
+.aev-vista-status-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: .28rem;
+    margin-left: .45rem;
+    padding: .28rem .62rem;
+    border-radius: 999px;
+    background: #22c55e;
+    color: #fff;
+    font-size: .64rem;
+    font-weight: 900;
+    line-height: 1;
+    vertical-align: middle;
+    letter-spacing: .02em;
+    box-shadow: 0 6px 14px rgba(34, 197, 94, .24);
+}
+.aev-vista-status-badge i {
+    font-size: .58rem;
+}
+.aev-vista-status-badge--rechazada {
+    background: #ef4444;
+    box-shadow: 0 6px 14px rgba(239, 68, 68, .24);
+}
 .aev-vista-mediabox.aev-vista-mediabox--zoomable {
     flex-direction: column; align-items: stretch; justify-content: flex-start; padding: 0; overflow: hidden;
 }
@@ -580,7 +915,7 @@ body.dark-mode #aeTabContent .dataTables_length select { background: #111827; bo
     border-radius: 0 0 0.5rem 0.5rem;
 }
 .aev-vista-mediabox.aev-vista-mediabox--zoomable .aev-zoom-wrap {
-    flex: 1; overflow: hidden; min-height: 11rem; max-height: 54vh; border-radius: 0.5rem 0.5rem 0 0;
+    flex: 1; overflow: hidden; min-height: 0; max-height: none; border-radius: 0.5rem 0.5rem 0 0;
     display: flex; align-items: center; justify-content: center;
     touch-action: none;
 }
@@ -598,7 +933,7 @@ body.dark-mode #aeTabContent .dataTables_length select { background: #111827; bo
     user-select: none; pointer-events: none; transition: none;
 }
 .aev-vista-mediabox.aev-vista-mediabox--zoomable .aev-zoom-media {
-    max-width: 100%; max-height: 52vh; width: auto; height: auto; object-fit: contain;
+    max-width: 100%; max-height: 100%; width: auto; height: auto; object-fit: contain;
     transform-origin: center center; transition: transform 0.1s ease-out; display: block; will-change: transform;
 }
 .aev-vista-mediabox iframe { width: 100%; min-height: 50vh; border: 0; background: #fff; border-radius: 0.35rem; }
@@ -715,8 +1050,18 @@ body.dark-mode .aev-detalle-loading-card {
         <div class="modal-content">
             <div class="modal-header">
                 <h5 class="modal-title mb-0">
-                    <i id="aev-modal-icon" class="fa-solid fa-clipboard-check me-2"></i><span id="aev-modal-titulo-modo">Validar evidencias</span> &mdash;
-                    <span id="aev-titulo-cliente" class="fw-normal" style="font-size:.9em;"></span>
+                    <span class="aev-modal-title-wrap">
+                        <span class="aev-modal-title-line">
+                            <span>
+                                <i id="aev-modal-icon" class="fa-solid fa-images me-2"></i><span id="aev-modal-titulo-modo">Evidencias</span> &mdash;
+                                <span id="aev-titulo-cliente" class="fw-normal" style="font-size:.9em;"></span>
+                            </span>
+                            <span id="aev-context-badge" class="aev-context-badge aev-context-badge--bandeja">
+                                <i class="fa-solid fa-inbox"></i><span>Bandeja de entrada</span>
+                            </span>
+                        </span>
+                        <span id="aev-context-subtitle" class="aev-modal-subtitle">Evidencias pendientes de revisión por Administración de Cobranza.</span>
+                    </span>
                 </h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
             </div>
@@ -758,11 +1103,9 @@ body.dark-mode .aev-detalle-loading-card {
             </div>
             <div class="aev-vista-mediabox" id="aev-vista-mediabox"></div>
             <div id="aev-vista-solo-aceptada" class="alert alert-success py-2 px-3 mb-3 d-none" role="status">
-                <p class="mb-1 fw-bold"><i class="fa-solid fa-circle-check me-1"></i>Evidencia aceptada</p>
                 <p class="small mb-0 text-dark" id="aev-vista-comentario-leido"></p>
             </div>
             <div id="aev-vista-solo-rechazada" class="alert alert-danger py-2 px-3 mb-3 d-none" role="status">
-                <p class="mb-1 fw-bold"><i class="fa-solid fa-circle-xmark me-1"></i>Evidencia rechazada</p>
                 <p class="small mb-0 text-dark" id="aev-vista-comentario-rechazo"></p>
             </div>
             <div id="aev-vista-panel-dictamen" class="mb-0">
@@ -946,11 +1289,44 @@ $aevPuedeReemplazarEvidencia = in_array(79, array_map('intval', (array) ($_SESSI
         if (btnEnviar && activo) btnEnviar.classList.add('d-none');
         if (btnEnviar && !activo) btnEnviar.classList.remove('d-none');
         const tituloModo = document.getElementById('aev-modal-titulo-modo');
-        if (tituloModo) tituloModo.textContent = activo ? 'Detalle de evidencias' : 'Validar evidencias';
+        if (tituloModo) tituloModo.textContent = 'Evidencias';
         const iconoModo = document.getElementById('aev-modal-icon');
         if (iconoModo) {
-            iconoModo.className = activo ? 'fa-solid fa-eye me-2' : 'fa-solid fa-clipboard-check me-2';
+            iconoModo.className = 'fa-solid fa-images me-2';
         }
+    }
+
+    function aevSetContextoModal(origen) {
+        const key = String(origen || 'bandeja').toLowerCase();
+        const cfg = {
+            bandeja: {
+                icon: 'fa-inbox',
+                label: 'Bandeja de entrada',
+                cls: 'aev-context-badge--bandeja',
+                subtitle: 'Evidencias pendientes de revisión por Administración de Cobranza.'
+            },
+            aprobados: {
+                icon: 'fa-clipboard-check',
+                label: 'Aprobados',
+                cls: 'aev-context-badge--aprobados',
+                subtitle: 'Evidencias aceptadas y enviadas a la siguiente fase.'
+            },
+            correcciones: {
+                icon: 'fa-rotate',
+                label: 'Correcciones',
+                cls: 'aev-context-badge--correcciones',
+                subtitle: 'Evidencias con rechazo; el gestor debe corregirlas o reemplazarlas.'
+            }
+        }[key] || null;
+        if (!cfg) return;
+
+        const badge = document.getElementById('aev-context-badge');
+        const sub = document.getElementById('aev-context-subtitle');
+        if (badge) {
+            badge.className = 'aev-context-badge ' + cfg.cls;
+            badge.innerHTML = '<i class="fa-solid ' + cfg.icon + '"></i><span>' + aeEsc(cfg.label) + '</span>';
+        }
+        if (sub) sub.textContent = cfg.subtitle;
     }
 
     function aevRenderCargaRapidaDetalle(id) {
@@ -1455,27 +1831,30 @@ $aevPuedeReemplazarEvidencia = in_array(79, array_map('intval', (array) ($_SESSI
         if (!ovl || !box) return;
         if (tEl) {
             if (soloAceptada) {
-                tEl.textContent = (label || slot) + ' — validada';
+                tEl.innerHTML = aeEsc(label || slot)
+                    + '<span class="aev-vista-status-badge"><i class="fa-solid fa-circle-check"></i>ACEPTADA</span>';
             } else if (soloRechazada) {
-                tEl.textContent = (label || slot) + ' — rechazada';
+                tEl.innerHTML = aeEsc(label || slot)
+                    + '<span class="aev-vista-status-badge aev-vista-status-badge--rechazada"><i class="fa-solid fa-circle-xmark"></i>RECHAZADA</span>';
             } else {
                 tEl.textContent = label || slot;
             }
         }
-        if (soloEl) soloEl.classList.toggle('d-none', !soloAceptada);
+        if (soloEl) soloEl.classList.add('d-none');
         if (rechEl) rechEl.classList.toggle('d-none', !soloRechazada);
         if (panelDict) panelDict.classList.toggle('d-none', modoSoloLectura);
         if (soloAceptada) {
             const txtCom = (row.comentario_atn || _aevStore.c[slot] || '').trim();
             if (cleido) {
-                cleido.textContent = txtCom ? ('Comentario: ' + txtCom) : '';
+                cleido.textContent = txtCom ? ('Comentario de aceptacion: ' + txtCom) : '';
                 cleido.style.display = txtCom ? '' : 'none';
             }
+            if (soloEl && txtCom) soloEl.classList.remove('d-none');
             if (cmt) cmt.value = '';
         } else if (soloRechazada) {
             const txtRech = (row.comentario_atn || _aevStore.c[slot] || '').trim();
             if (cleRech) {
-                cleRech.textContent = txtRech ? ('Comentario: ' + txtRech) : 'Sin comentario registrado.';
+                cleRech.textContent = txtRech ? ('Motivo de rechazo: ' + txtRech) : 'Sin motivo registrado.';
                 cleRech.classList.toggle('text-muted', !txtRech);
             }
             if (cmt) cmt.value = '';
@@ -1586,14 +1965,20 @@ $aevPuedeReemplazarEvidencia = in_array(79, array_map('intval', (array) ($_SESSI
         aevSincroBtnEnviar();
     }
 
-    function aevRenderSeccionValidar(sec, map) {
+    function aevRenderSeccionValidar(sec, map, statusText) {
         let inner = '';
         sec.slots.forEach(function (sl) {
             inner += aevRenderCelda(sl, map[sl.key]);
         });
+        const status = statusText
+            ? '<span class="aev-ev-hdr-status">' + aeEsc(statusText) + '</span>'
+            : '';
         return `
         <div class="aev-ev-section">
-            <div class="aev-ev-hdr ${sec.headerClass}"><i class="fa-solid ${sec.icon}"></i> ${aeEsc(sec.label)}</div>
+            <div class="aev-ev-hdr ${sec.headerClass}">
+                <span class="aev-ev-hdr-title"><i class="fa-solid ${sec.icon}"></i> ${aeEsc(sec.label)}</span>
+                ${status}
+            </div>
             <div class="aev-ev-slots-wrap">${inner}</div>
         </div>`;
     }
@@ -1843,22 +2228,15 @@ $aevPuedeReemplazarEvidencia = in_array(79, array_map('intval', (array) ($_SESSI
         const m   = aevMapaPorSlot(evl);
         const vi   = aevCuentaValidadosImagen(evl);
         const vpdf = aevCuentaValidadosPdf(evl);
-        const vall = aevCuentaValidadosTot(evl);
-        const pct9 = AEV_TOTAL_IMAGEN ? Math.round((vi / AEV_TOTAL_IMAGEN) * 100) : 0;
         const mostrarDoc = vpdf > 0 || aevImagenesTodasAceptadas(evl);
 
         let html = '';
         html += aeRenderFormularioOperacion(det);
 
-        html += '<div class="aev-ev-progress-wrap">';
-        html += '<div class="d-flex justify-content-between align-items-end mb-1 flex-wrap gap-1">';
-        html += '<span style="font-size:.75rem;font-weight:700;color:#0f172a;">Progreso de evidencias <span class="text-success">validadas</span> (fotos / video etapas 1–2)</span>';
-        html += '<span class="aev-ev-progress-lbl" id="aev-lbl-9">' + vi + ' / ' + AEV_TOTAL_IMAGEN + '</span>';
-        html += '</div><div class="aev-ev-progress-bg"><div class="aev-ev-progress-fill" id="aev-fill-9" style="width:' + pct9 + '%;"></div></div>';
-        html += '<p class="small text-muted mt-1 mb-0">PDF Repuve en expediente: <strong>' + vpdf + ' / 1</strong> · <strong>Avance en pantalla: ' + vall + ' / ' + AEV_MODAL_TOTAL + '</strong></p>';
-        html += '</div>';
-
-        AEV_EV_SECTIONS.forEach(function (sec) { html += aevRenderSeccionValidar(sec, m); });
+        AEV_EV_SECTIONS.forEach(function (sec) {
+            const completa = vi >= AEV_TOTAL_IMAGEN;
+            html += aevRenderSeccionValidar(sec, m, (completa ? 'Evidencias completas ' : 'Evidencias pendientes ') + vi + '/' + AEV_TOTAL_IMAGEN);
+        });
         if (!_aevStore.soloLectura) {
             html += '<p class="aev-ev-hint mt-1 mb-2" role="note"><i class="fa-solid fa-hand-pointer me-1" style="opacity:.65;" aria-hidden="true"></i>Clic en cada evidencia para aceptar o rechazar.</p>';
         }
@@ -2220,40 +2598,137 @@ $aevPuedeReemplazarEvidencia = in_array(79, array_map('intval', (array) ($_SESSI
         return mapa[base] || base || otro;
     }
 
+    function aeIconoFormulario(label) {
+        const k = String(label || '').toLowerCase();
+        if (k.indexOf('marca') !== -1) return 'fa-tag';
+        if (k.indexOf('modelo') !== -1 || k.indexOf('moto') !== -1) return 'fa-motorcycle';
+        if (k.indexOf('ano') !== -1 || k.indexOf('año') !== -1) return 'fa-calendar';
+        if (k.indexOf('color') !== -1) return 'fa-palette';
+        if (k.indexOf('vin') !== -1 || k.indexOf('serie') !== -1) return 'fa-barcode';
+        if (k.indexOf('motor') !== -1) return 'fa-gears';
+        if (k.indexOf('placa') !== -1) return 'fa-id-card';
+        if (k.indexOf('kilometraje') !== -1) return 'fa-gauge-high';
+        if (k.indexOf('llave') !== -1) return 'fa-key';
+        if (k.indexOf('tarjeta') !== -1) return 'fa-address-card';
+        if (k.indexOf('resguardo') !== -1) return 'fa-warehouse';
+        if (k.indexOf('ciudad') !== -1 || k.indexOf('estado') !== -1) return 'fa-location-dot';
+        if (k.indexOf('responsable') !== -1) return 'fa-user-check';
+        if (k.indexOf('telefono') !== -1 || k.indexOf('teléfono') !== -1) return 'fa-phone';
+        if (k.indexOf('latitud') !== -1 || k.indexOf('longitud') !== -1) return 'fa-map-location-dot';
+        if (k.indexOf('direccion') !== -1 || k.indexOf('dirección') !== -1) return 'fa-route';
+        return 'fa-circle-info';
+    }
+
+    function aeColorCss(valor) {
+        const s = String(valor || '')
+            .toLowerCase()
+            .normalize('NFD')
+            .replace(/[\u0300-\u036f]/g, '')
+            .replace(/[^a-z0-9\s]/g, ' ')
+            .replace(/\s+/g, ' ')
+            .trim();
+        const colores = [
+            ['morado', '#7c3aed'], ['morada', '#7c3aed'], ['purpura', '#7c3aed'], ['violeta', '#8b5cf6'], ['lila', '#a78bfa'],
+            ['verde', '#22c55e'], ['rojo', '#ef4444'], ['azul', '#2563eb'], ['amarillo', '#facc15'],
+            ['negro', '#111827'], ['blanco', '#f8fafc'], ['gris', '#64748b'], ['plata', '#94a3b8'],
+            ['naranja', '#f97316'], ['rosa', '#ec4899'], ['cafe', '#92400e'], ['marron', '#92400e'],
+            ['dorado', '#d97706'], ['beige', '#d6b98c'], ['crema', '#f5e6c8']
+        ];
+        for (let i = 0; i < colores.length; i++) {
+            if (s === colores[i][0] || s.indexOf(colores[i][0]) !== -1) return colores[i][1];
+        }
+        return '#cbd5e1';
+    }
+
+    function aeFormatoTelefono(valor) {
+        const limpio = String(valor || '').replace(/\D/g, '');
+        if (limpio.length === 10) {
+            return limpio.replace(/(\d{3})(\d{3})(\d{4})/, '$1 $2 $3');
+        }
+        if (limpio.length === 12 && limpio.indexOf('52') === 0) {
+            return '+52 ' + limpio.slice(2).replace(/(\d{3})(\d{3})(\d{4})/, '$1 $2 $3');
+        }
+        return aeValorLimpio(valor);
+    }
+
+    function aeFormatoSiNo(valor) {
+        const raw = aeValorLimpio(valor);
+        const s = raw.toLowerCase()
+            .normalize('NFD')
+            .replace(/[\u0300-\u036f]/g, '');
+        if (s === 'si' || s === 'sí' || s === '1' || s === 'true') return 'Si';
+        if (s === 'no' || s === '0' || s === 'false') return 'No';
+        return raw;
+    }
+
     function aeRenderFormularioOperacion(item) {
         const src = Object.assign({}, (item && item.datos_moto) ? item.datos_moto : {}, item || {});
         const moto = [aeValorLimpio(src.moto_marca), aeValorLimpio(src.moto_modelo), aeValorLimpio(src.moto_anio)]
             .filter(Boolean).join(' ');
         const ubicacion = [aeResguardoTexto(src), aeValorLimpio(src.log_ciudad), aeValorLimpio(src.log_estado)]
             .filter(Boolean).join(' / ');
-        const campos = [
-            ['Moto', moto],
+        const camposMoto = [
+            ['Marca', aeValorLimpio(src.moto_marca)],
+            ['Modelo', aeValorLimpio(src.moto_modelo)],
+            ['Año', aeValorLimpio(src.moto_anio)],
+            ['Moto', moto, true],
             ['Color', aeValorLimpio(src.moto_color)],
             ['VIN / Serie', aeValorLimpio(src.moto_no_serie)],
             ['No. motor', aeValorLimpio(src.moto_no_motor)],
             ['Placas', aeValorLimpio(src.moto_placas)],
-            ['Resguardo', ubicacion, true],
-            ['Responsable', aeValorLimpio(src.responsable_entrega)],
-            ['Telefono', aeValorLimpio(src.log_telefono)],
-            ['Direccion', aeValorLimpio(src.log_direccion), true]
+            ['Kilometraje', aeValorLimpio(src.kilometraje)],
+            ['Llave fisica', aeFormatoSiNo(src.llave_fisica || src.tiene_llave_fisica)],
+            ['Tarjeta circulacion', aeFormatoSiNo(src.tarjeta_circulacion || src.tiene_tarjeta_de_circulacion_en_fisico)],
+            ['Placa fisica', aeFormatoSiNo(src.placa_fisica || src.la_moto_tiene_placa_fisica)]
         ].filter(function (row) { return !!row[1]; });
 
-        if (!campos.length) return '';
+        const camposResguardo = [
+            ['Lugar de resguardo', ubicacion.replace(/\s\/\s/g, ' · '), true],
+            ['Responsable', aeValorLimpio(src.responsable_entrega)],
+            ['Telefono', aeFormatoTelefono(src.log_telefono)],
+            ['Latitud', aeValorLimpio(src.latitud)],
+            ['Longitud', aeValorLimpio(src.longitud)],
+            ['Direccion resguardo', aeValorLimpio(src.log_direccion), true],
+            ['Direccion task', aeValorLimpio(src.direccion_task), true]
+        ].filter(function (row) { return !!row[1]; });
+
+        if (!camposMoto.length && !camposResguardo.length) return '';
 
         const fecha = aeValorLimpio(src.datos_moto_fecha);
+        function renderCampo(row) {
+            const label = row[0];
+            const value = row[1];
+            const isColor = String(label || '').toLowerCase() === 'color';
+            const colorDot = isColor
+                ? '<span class="ae-form-color-dot" style="background-color:' + aeEsc(aeColorCss(value)) + ';"></span>'
+                : '';
+            return `<div class="ae-form-field ${row[2] ? 'ae-form-field-wide' : ''}" title="${aeEsc(value)}">
+                <span class="ae-form-field-head">
+                    <i class="fa-solid ${aeEsc(aeIconoFormulario(label))} ae-form-field-icon"></i>
+                    <span class="ae-form-field-label">${aeEsc(label)}</span>
+                </span>
+                <span class="ae-form-field-value">${colorDot}<span>${aeEsc(value)}</span></span>
+            </div>`;
+        }
         return `
             <div class="ae-form-trace">
                 <div class="ae-form-trace-head">
                     <span class="ae-form-trace-title"><i class="fa-solid fa-list-check me-1"></i>Formulario capturado</span>
                     ${fecha ? `<span class="ae-form-trace-date">Capturado ${aeEsc(fecha)}</span>` : ''}
                 </div>
-                <div class="ae-form-trace-grid">
-                    ${campos.map(function (row) {
-                        return `<div class="ae-form-chip ${row[2] ? 'ae-form-chip-wide' : ''}" title="${aeEsc(row[1])}">
-                            <span class="ae-form-chip-label">${aeEsc(row[0])}</span>
-                            <span class="ae-form-chip-value">${aeEsc(row[1])}</span>
-                        </div>`;
-                    }).join('')}
+                <div class="ae-form-trace-columns">
+                    <div class="ae-form-trace-panel">
+                        <div class="ae-form-trace-grid">
+                            ${camposMoto.map(renderCampo).join('')}
+                        </div>
+                    </div>
+                    ${camposResguardo.length ? `
+                        <div class="ae-form-trace-panel">
+                            <div class="ae-form-resguardo-list">
+                                ${camposResguardo.map(renderCampo).join('')}
+                            </div>
+                        </div>
+                    ` : ''}
                 </div>
             </div>`;
     }
@@ -2262,9 +2737,123 @@ $aevPuedeReemplazarEvidencia = in_array(79, array_map('intval', (array) ($_SESSI
      * Misma estructura visual que la tarjeta "Entrantes" en Retenciones
      * (encabezado azul, # crédito + nombre, filas etiqueta/valor, botón al pie).
      */
+    function aeNum(item, keys) {
+        for (let i = 0; i < keys.length; i++) {
+            const v = item ? item[keys[i]] : null;
+            if (v !== undefined && v !== null && v !== '') {
+                const n = parseInt(v, 10);
+                return Number.isFinite(n) ? n : 0;
+            }
+        }
+        return 0;
+    }
+
+    function aeResumenEvidencias(item) {
+        const cargadas = Math.min(aeNum(item, ['evidencias_count']), AE_EV_TOTAL);
+        const aceptadas = Math.min(aeNum(item, ['evidencias_aceptadas_count', 'evidencias_aceptadas']), AE_EV_TOTAL);
+        const rechazadas = Math.min(aeNum(item, ['evidencias_rechazadas_count', 'evidencias_rechazadas']), AE_EV_TOTAL);
+        const pendientesServer = aeNum(item, ['evidencias_pendientes_count', 'evidencias_pendientes']);
+        const pendientes = Math.max(0, Math.min(
+            pendientesServer || (cargadas - aceptadas - rechazadas),
+            AE_EV_TOTAL
+        ));
+        return { cargadas, aceptadas, rechazadas, pendientes };
+    }
+
+    function aeTextoMovimientoEvidencias(accion) {
+        const txt = String(accion || '').trim();
+        if (!txt) return '';
+        return txt
+            .replace(/\s*\(id evidencia\s+\d+\)\s*/i, '')
+            .replace(/^VALIDACI[ÓO]N EVIDENCIA\s+/i, 'Evidencia ')
+            .replace(/^ENVI[ÓO] EVIDENCIAS VALIDADAS\s*/i, 'Enviado a siguiente fase ')
+            .replace(/^REGISTRO RECHAZOS EVIDENCIAS APP\s*/i, 'Registro de rechazos ')
+            .replace(/^REEMPLAZO ESPECIAL DE EVIDENCIA:\s*/i, 'Reemplazo: ')
+            .replace(/^SUBI[ÓO] EVIDENCIA EN\s*/i, 'Subida: ');
+    }
+
+    function aeFormatoTiempoBandeja(minutos) {
+        const n = parseInt(minutos, 10);
+        if (!Number.isFinite(n) || n < 0) return '';
+        if (n < 60) return n + ' min';
+        const horas = Math.floor(n / 60);
+        if (horas < 24) return horas + (horas === 1 ? ' hora' : ' horas');
+        const dias = Math.floor(horas / 24);
+        const horasRestantes = horas % 24;
+        if (horasRestantes <= 0) return dias + (dias === 1 ? ' dia' : ' dias');
+        return dias + (dias === 1 ? ' dia ' : ' dias ') + horasRestantes + ' h';
+    }
+
+    function aeRenderEstadoEvidencias(item, key) {
+        const r = aeResumenEvidencias(item);
+        const pestana = String(key || '').toLowerCase();
+        const cargadasTxt = 'Cargadas ' + r.cargadas + '/' + AE_EV_TOTAL;
+        const tiempoBandeja = aeFormatoTiempoBandeja(item && item.minutos_en_bandeja_evidencias);
+        const tiempoTotalValidacion = aeFormatoTiempoBandeja(item && item.minutos_total_validacion_evidencias);
+        const fechaInicioValidacion = item && item.fecha_inicio_validacion_evidencias
+            ? String(item.fecha_inicio_validacion_evidencias)
+            : '';
+        const fechaFinValidacion = item && item.fecha_fin_validacion_evidencias
+            ? String(item.fecha_fin_validacion_evidencias)
+            : '';
+        const fechaEntradaBandeja = item && item.fecha_entrada_bandeja_evidencias
+            ? String(item.fecha_entrada_bandeja_evidencias)
+            : '';
+        const bloqueTiempoBandeja = (tiempoBandeja && (pestana === 'bandeja' || pestana === 'correcciones'))
+            ? '<span class="ae-evidence-approved-date"><span class="ae-evidence-approved-date-label"><i class="fa-solid fa-hourglass-half"></i>' + (pestana === 'correcciones' ? 'Tiempo en correcciones' : 'Tiempo en evidencias') + '</span><strong>' + aeEsc(tiempoBandeja) + '</strong>' + (fechaEntradaBandeja ? '<small>Desde ' + aeEsc(fechaEntradaBandeja) + '</small>' : '') + '</span>'
+            : '';
+        const bloqueTiempoTotalValidacion = (tiempoTotalValidacion && pestana === 'aprobados')
+            ? '<span class="ae-evidence-approved-date"><span class="ae-evidence-approved-date-label"><i class="fa-solid fa-stopwatch"></i>Tiempo total de validacion</span><strong>' + aeEsc(tiempoTotalValidacion) + '</strong>' + (fechaInicioValidacion || fechaFinValidacion ? '<small>' + (fechaInicioValidacion ? 'Desde ' + aeEsc(fechaInicioValidacion) : '') + (fechaInicioValidacion && fechaFinValidacion ? ' · ' : '') + (fechaFinValidacion ? 'Lista ' + aeEsc(fechaFinValidacion) : '') + '</small>' : '') + '</span>'
+            : '';
+        const fechaUltimoMovimiento = item && item.fecha_ultimo_movimiento_evidencias
+            ? String(item.fecha_ultimo_movimiento_evidencias)
+            : '';
+        const accionUltimoMovimiento = item && item.accion_ultimo_movimiento_evidencias
+            ? aeTextoMovimientoEvidencias(item.accion_ultimo_movimiento_evidencias)
+            : '';
+        const ultimoMovimiento = (fechaUltimoMovimiento && pestana !== 'aprobados')
+            ? '<span class="ae-evidence-approved-date"><span class="ae-evidence-approved-date-label"><i class="fa-solid fa-clock-rotate-left"></i>Último movimiento de evidencias</span><strong>' + aeEsc(fechaUltimoMovimiento) + '</strong>' + (accionUltimoMovimiento ? '<small>' + aeEsc(accionUltimoMovimiento) + '</small>' : '') + '</span>'
+            : '';
+        const fechaAprobacion = item && item.fecha_aprobacion_evidencias
+            ? '<span class="ae-evidence-approved-date"><span class="ae-evidence-approved-date-label"><i class="fa-solid fa-calendar-check"></i>Fecha pase a siguiente fase</span><strong>' + aeEsc(item.fecha_aprobacion_evidencias) + '</strong></span>'
+            : '';
+
+        if (pestana === 'aprobados') {
+            const aceptadas = r.aceptadas || r.cargadas;
+            return '<span class="ae-evidence-pill ae-evidence-pill--ok"><i class="fa-solid fa-circle-check"></i>Aceptadas ' + aceptadas + '/' + AE_EV_TOTAL + '</span>'
+                + '<span class="ae-evidence-detail ae-evidence-detail--single">' + cargadasTxt + '</span>'
+                + bloqueTiempoTotalValidacion
+                + fechaAprobacion
+                + ultimoMovimiento;
+        }
+
+        if (r.rechazadas > 0 || pestana === 'correcciones') {
+            return '<span class="ae-evidence-pill ae-evidence-pill--correction"><i class="fa-solid fa-triangle-exclamation"></i>En correccion</span>'
+                + '<span class="ae-evidence-detail">'
+                + '<span class="ae-evidence-detail-ok"><i class="fa-solid fa-circle-check"></i>' + r.aceptadas + ' aceptadas</span>'
+                + '<span class="ae-evidence-detail-bad"><i class="fa-solid fa-circle-xmark"></i>' + r.rechazadas + ' rechazadas</span>'
+                + '<span class="ae-evidence-detail-pending"><i class="fa-solid fa-clock"></i>' + r.pendientes + ' pendientes</span>'
+                + '</span>'
+                + bloqueTiempoBandeja
+                + ultimoMovimiento;
+        }
+
+        if (r.aceptadas > 0 || r.pendientes > 0) {
+            return '<span class="ae-evidence-pill ae-evidence-pill--warn"><i class="fa-solid fa-clock"></i>En validacion</span>'
+                + '<span class="ae-evidence-detail">'
+                + '<span class="ae-evidence-detail-ok"><i class="fa-solid fa-circle-check"></i>' + r.aceptadas + ' aceptadas</span>'
+                + '<span class="ae-evidence-detail-pending"><i class="fa-solid fa-clock"></i>' + r.pendientes + ' pendientes</span>'
+                + '</span>'
+                + bloqueTiempoBandeja
+                + ultimoMovimiento;
+        }
+
+        return '<span class="ae-evidence-pill ae-evidence-pill--neutral"><i class="fa-solid fa-file-circle-check"></i>' + aeEsc(cargadasTxt) + '</span>'
+            + bloqueTiempoBandeja
+            + ultimoMovimiento;
+    }
+
     function aeRenderCard(item, key) {
-        const evRaw = parseInt(item.evidencias_count, 10) || 0;
-        const ev = Math.min(evRaw, AE_EV_TOTAL);
         const g  = item.gestor_nombre ? aeEsc(item.gestor_nombre) : '<span class="ae-list-muted">Sin asignar</span>';
         const fa = item.fecha_asignacion
             ? aeEsc(item.fecha_asignacion)
@@ -2304,8 +2893,8 @@ $aevPuedeReemplazarEvidencia = in_array(79, array_map('intval', (array) ($_SESSI
                         <span class="ac-val">${nombreCliente}</span>
                     </div>
                     <div class="ae-list-cell ae-list-ev">
-                        <span class="ac-lbl">Evidencias cargadas</span>
-                        <span class="ac-val">${ev} / ${AE_EV_TOTAL}</span>
+                        <span class="ac-lbl">Estado evidencias</span>
+                        <span class="ac-val">${aeRenderEstadoEvidencias(item, key)}</span>
                     </div>
                 </div>
                 ${accion}
@@ -2315,18 +2904,22 @@ $aevPuedeReemplazarEvidencia = in_array(79, array_map('intval', (array) ($_SESSI
     }
 
     function aeRenderFilaTabla(item, key) {
-        const evRaw = parseInt(item.evidencias_count, 10) || 0;
-        const ev = Math.min(evRaw, AE_EV_TOTAL);
         const gestor = item.gestor_nombre ? aeEsc(item.gestor_nombre) : '<span class="ae-table-muted">Sin asignar</span>';
-        const fechaAsignacion = item.fecha_asignacion ? aeEsc(item.fecha_asignacion) : '<span class="ae-table-muted">-</span>';
+        const fechaDictamenLegacy = item.fecha_dictamen_legacy
+            ? aeEsc(item.fecha_dictamen_legacy)
+            : (item.fecha_gestion_legacy ? aeEsc(item.fecha_gestion_legacy) : '<span class="ae-table-muted">-</span>');
         const cliente = item.nombre_cliente ? aeEsc(item.nombre_cliente) : '<span class="ae-table-muted">Sin nombre</span>';
         const folio = item.folio ? aeEsc(item.folio) : '-';
-        const fechaAprobacion = item.fecha_aprobacion_evidencias
-            ? '<div class="ae-table-date"><span class="text-muted">Aprob.</span> ' + aeEsc(item.fecha_aprobacion_evidencias) + '</div>'
-            : '';
+        const esAprobados = String(key || '').toLowerCase() === 'aprobados';
+        const accionVer = esAprobados ? `
+                    <button type="button" class="btn btn-sm btn-outline-secondary" data-aev-no-row="1"
+                            title="Ver evidencias" aria-label="Ver evidencias"
+                            onclick="event.stopPropagation(); aevValidarAbrir(${+item.id_credito}, { soloLectura: true, origen: '${aeEsc(String(key || 'bandeja'))}' })">
+                        <i class="fa fa-eye"></i>
+                    </button>` : '';
         const accionValidar = String(key || '').toLowerCase() === 'aprobados' ? '' : `
             <button type="button" class="btn btn-sm btn-primary" data-aev-no-row="1"
-                    onclick="event.stopPropagation(); aevValidarAbrir(${+item.id_credito})"
+                    onclick="event.stopPropagation(); aevValidarAbrir(${+item.id_credito}, { origen: '${aeEsc(String(key || 'bandeja'))}' })"
                     title="Validar evidencias" aria-label="Validar evidencias">
                 <i class="fa fa-clipboard-check"></i>
             </button>`;
@@ -2336,21 +2929,17 @@ $aevPuedeReemplazarEvidencia = in_array(79, array_map('intval', (array) ($_SESSI
             <td class="ae-table-main">
                 <span class="ae-table-folio">${folio}</span>
                 <span class="ae-table-credit"># ${aeEsc(String(item.id_credito))}</span>
+                <span class="ae-table-main-client"><i class="fa-solid fa-user"></i>${cliente}</span>
             </td>
-            <td class="ae-table-name">${cliente}</td>
-            <td>${gestor}</td>
-            <td>
-                <div class="ae-table-date"><span class="text-muted">Asig.</span> ${fechaAsignacion}</div>
-                ${fechaAprobacion}
+            <td class="ae-table-gestor">
+                <span class="ae-table-gestor-name"><i class="fa-solid fa-user-tie"></i>${gestor}</span>
+                <span class="ae-table-legacy-label"><i class="fa-solid fa-calendar-days"></i>DICTAMINADO EN LEGACY</span>
+                <span class="ae-table-legacy-date">${fechaDictamenLegacy}</span>
             </td>
-            <td class="ae-table-evidence">${ev} / ${AE_EV_TOTAL}</td>
+            <td class="ae-table-evidence">${aeRenderEstadoEvidencias(item, key)}</td>
             <td class="ae-table-action">
                 <div class="ae-action-buttons">
-                    <button type="button" class="btn btn-sm btn-outline-secondary" data-aev-no-row="1"
-                            title="Ver evidencias" aria-label="Ver evidencias"
-                            onclick="event.stopPropagation(); aevValidarAbrir(${+item.id_credito}, { soloLectura: true })">
-                        <i class="fa fa-eye"></i>
-                    </button>
+                    ${accionVer}
                     ${accionValidar}
                 </div>
             </td>
@@ -2366,9 +2955,7 @@ $aevPuedeReemplazarEvidencia = in_array(79, array_map('intval', (array) ($_SESSI
                 <thead>
                     <tr>
                         <th>Operacion</th>
-                        <th>Cliente</th>
                         <th>Gestor</th>
-                        <th>Fechas</th>
                         <th>Evidencias</th>
                         <th class="ae-table-action">Acciones</th>
                     </tr>
@@ -2434,8 +3021,10 @@ $aevPuedeReemplazarEvidencia = in_array(79, array_map('intval', (array) ($_SESSI
         const id = parseInt(idCredito, 10);
         if (!id) return;
         const soloLectura = !!(opciones && opciones.soloLectura);
+        const origen = opciones && opciones.origen ? String(opciones.origen) : 'bandeja';
         aevCerrarVistaOverlay();
         aevSetModoLectura(soloLectura);
+        aevSetContextoModal(origen);
         aevReiniciarStore(null, id);
         aevSincroBtnEnviar();
         const tit = document.getElementById('aev-titulo-cliente');
@@ -2462,7 +3051,8 @@ $aevPuedeReemplazarEvidencia = in_array(79, array_map('intval', (array) ($_SESSI
                 aevReiniciarStore(det, id);
                 const nom = (det && det.nombre_cliente) ? String(det.nombre_cliente).trim() : '';
                 if (tit) {
-                    tit.textContent = nom || (det && det.folio ? 'Folio ' + det.folio : 'Crédito');
+                    const cred = det && det.id_credito ? String(det.id_credito).trim() : String(id);
+                    tit.textContent = (nom || (det && det.folio ? 'Folio ' + det.folio : 'Crédito')) + ' (' + cred + ')';
                 }
                 if (body) {
                     body.innerHTML = aevRenderCuerpoModalValidar(det);
