@@ -43,6 +43,13 @@ class TrackingRecoleccion extends Controller
         return self::render('tracking_rutas');
     }
 
+    public function planeacion()
+    {
+        $this->prepararVistaTracking('Tracking Recoleccion - Planeacion de rutas');
+        self::set('tracking_initial_section', 'creditos');
+        return self::render('tracking_planeacion');
+    }
+
     public function creditos()
     {
         $this->prepararVistaTracking('Tracking Recoleccion - Creditos disponibles');

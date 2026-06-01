@@ -2,6 +2,9 @@
 
 $titulo = $titulo ?? "Inicio | "  . CONFIGURACION['EMPRESA'];
 $usuario = $_SESSION['nombre'] ?? 'Usuario';
+$__spartaUsuarioId = (int)($_SESSION['usuario_id'] ?? 0);
+$__spartaSandraSenderId = 878;
+$__spartaSandraTargetId = 797;
 /** Si la vista lo define (p. ej. estado de cuenta), se omiten CSS/JS vendor masivos para acelerar carga */
 $layoutVendorLite = isset($layoutVendorLite) && $layoutVendorLite;
 /** Rastreo embebido desde Estado de cuenta: ocultar menú/navbar (solo con ?chromeless=1 en consulta Analítica) */
@@ -192,6 +195,7 @@ function getMenu(): string
             'icono'    => 'fa-solid fa-bullhorn',
             'subItems' => [
                 ['label' => 'Campañas', 'url' => '/MotosAdjudicadas/campaniaNotificacionLegacy', 'modulos' => [64]],
+                ['label' => 'Comentarios', 'url' => '/MotosAdjudicadas/comentariosLegacy', 'modulos' => [64]],
             ],
         ],
         'Tickets' => [
@@ -508,6 +512,42 @@ html.dark-mode #statsJerarquia .bg-light{background-color:#334155!important;}
     body.dark-mode .dropdown-menu-notif-glass .notif-empty { color: #94a3b8; }
     body.dark-mode .nav-notif-bell { color: #e2e8f0; }
     body.dark-mode .nav-notif-wrap:hover .nav-notif-bell { color: #818cf8; }
+    .sandra-heart-nav-btn { width: 2.35rem; height: 2.35rem; border: 0; border-radius: 999px; display: inline-flex; align-items: center; justify-content: center; color: #be123c; background: linear-gradient(135deg, #fff1f2, #ffe4e6); box-shadow: 0 7px 18px rgba(190,18,60,.16); transition: transform .18s ease, box-shadow .18s ease; }
+    .sandra-heart-nav-btn:hover { transform: translateY(-1px) scale(1.04); box-shadow: 0 10px 24px rgba(190,18,60,.22); }
+    .sandra-heart-nav-btn:disabled { opacity: .65; transform: none; cursor: wait; }
+    .sandra-heart-nav-btn.is-pending { color: #be123c; box-shadow: 0 0 0 3px rgba(251,113,133,.16), 0 9px 22px rgba(190,18,60,.2); }
+    .sandra-heart-nav-btn.is-seen { color: #047857; background: linear-gradient(135deg, #ecfdf5, #d1fae5); box-shadow: 0 0 0 3px rgba(16,185,129,.15), 0 9px 22px rgba(4,120,87,.17); }
+    .sandra-recover-overlay { position: fixed; inset: 0; z-index: 10980; display: flex; align-items: center; justify-content: center; padding: 1.5rem; background: radial-gradient(circle at 18% 15%, rgba(255,255,255,.92), transparent 26%), radial-gradient(circle at 80% 10%, rgba(253,164,175,.78), transparent 28%), linear-gradient(135deg, rgba(159,18,57,.52), rgba(15,23,42,.62)); backdrop-filter: blur(11px); -webkit-backdrop-filter: blur(11px); overflow: hidden; }
+    .sandra-recover-overlay::before { content: ""; position: absolute; inset: 0; background-image: radial-gradient(circle, rgba(255,255,255,.48) 0 1px, transparent 1.5px); background-size: 34px 34px; mask-image: linear-gradient(to bottom, rgba(0,0,0,.85), transparent); pointer-events: none; }
+    .sandra-envelope-card { position: relative; z-index: 2; width: min(480px, 92vw); border: 0; border-radius: 30px; padding: clamp(2rem, 5vw, 3.1rem); color: #1f2937; text-align: center; background: linear-gradient(180deg, rgba(255,255,255,.98), rgba(255,241,242,.96)); box-shadow: 0 34px 90px rgba(15,23,42,.34), inset 0 0 0 1px rgba(255,255,255,.82); cursor: pointer; animation: sandraRecoverPop .55s cubic-bezier(.2, .9, .2, 1), sandraEnvelopeFloat 2.6s ease-in-out infinite .55s; overflow: hidden; }
+    .sandra-envelope-card::before { content: ""; position: absolute; inset: -35% -20% auto -20%; height: 70%; background: radial-gradient(circle, rgba(251,113,133,.2), transparent 62%); pointer-events: none; }
+    .sandra-envelope-card:focus-visible { outline: 4px solid rgba(244,63,94,.28); outline-offset: 4px; }
+    .sandra-envelope-card.is-nudged { animation: sandraEnvelopeNudge .35s ease, sandraEnvelopeFloat 2.6s ease-in-out infinite .4s; }
+    .sandra-envelope-kicker { position: relative; z-index: 1; margin: 0 0 .8rem; font-size: .82rem; font-weight: 950; letter-spacing: .14em; text-transform: uppercase; color: #be123c; }
+    .sandra-envelope-title { position: relative; z-index: 1; margin: 0; font-size: clamp(2.1rem, 7vw, 3.4rem); line-height: 1.02; font-weight: 950; color: #7f1d1d; }
+    .sandra-envelope-copy { position: relative; z-index: 1; margin: .9rem auto 0; max-width: 340px; font-size: 1.02rem; line-height: 1.45; font-weight: 800; color: #475569; }
+    .sandra-envelope-icon { position: relative; z-index: 1; width: min(210px, 58vw); height: 138px; margin: 1.55rem auto 1.35rem; border-radius: 22px; background: linear-gradient(145deg, #fff7f7, #fecdd3); box-shadow: 0 22px 38px rgba(190,18,60,.2), inset 0 0 0 2px rgba(255,255,255,.78); overflow: hidden; }
+    .sandra-envelope-icon::before { content: ""; position: absolute; inset: 0; background: linear-gradient(135deg, transparent 49%, rgba(190,18,60,.16) 50%), linear-gradient(225deg, transparent 49%, rgba(190,18,60,.16) 50%); }
+    .sandra-envelope-icon::after { content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 75%; background: linear-gradient(135deg, transparent 49.4%, rgba(255,255,255,.82) 50%), linear-gradient(225deg, transparent 49.4%, rgba(255,255,255,.82) 50%); }
+    .sandra-envelope-heart-badge { position: absolute; z-index: 3; left: 50%; top: 50%; transform: translate(-50%, -38%); width: 4.7rem; height: 4.7rem; border-radius: 999px; display: grid; place-items: center; color: #fff; background: linear-gradient(135deg, #fb7185, #be123c); box-shadow: 0 18px 34px rgba(190,18,60,.3); }
+    .sandra-envelope-heart-badge i { font-size: 2.15rem; animation: sandraHeartBeat 1.05s ease-in-out infinite; }
+    .sandra-envelope-cta { position: relative; z-index: 1; display: inline-flex; align-items: center; justify-content: center; gap: .6rem; margin-top: 1.15rem; padding: .86rem 1.45rem; border-radius: 999px; color: #fff; background: #1f2d4d; font-weight: 950; box-shadow: 0 14px 26px rgba(31,45,77,.24); }
+    .sandra-recover-card { position: relative; z-index: 2; width: min(650px, 92vw); padding: clamp(2rem, 4vw, 3rem); border-radius: 28px; text-align: center; color: #1f2937; background: linear-gradient(180deg, rgba(255,255,255,.97), rgba(255,241,242,.95)); box-shadow: 0 34px 90px rgba(15,23,42,.30), inset 0 0 0 1px rgba(255,255,255,.72); animation: sandraRecoverPop .55s cubic-bezier(.2, .9, .2, 1); overflow: hidden; }
+    .sandra-recover-card::before { content: ""; position: absolute; inset: auto -18% -34% -18%; height: 58%; background: radial-gradient(circle, rgba(251,113,133,.22), transparent 65%); pointer-events: none; }
+    .sandra-recover-kicker { margin: 0 0 .45rem; font-size: .82rem; font-weight: 900; letter-spacing: .14em; text-transform: uppercase; color: #be123c; }
+    .sandra-recover-card h2 { margin: 0; font-size: clamp(2.2rem, 6.4vw, 4rem); font-weight: 950; letter-spacing: 0; color: #be123c; line-height: 1.02; }
+    .sandra-recover-heart { margin: 1rem auto .85rem; width: 5.2rem; height: 5.2rem; border-radius: 999px; display: grid; place-items: center; color: #fff; background: linear-gradient(135deg, #fb7185, #be123c); box-shadow: 0 20px 42px rgba(190,18,60,.33); animation: sandraHeartBeat 1.05s ease-in-out infinite; }
+    .sandra-recover-heart i { font-size: 2.55rem; }
+    .sandra-recover-main { margin: 0; font-size: clamp(1.55rem, 4.5vw, 2.55rem); font-weight: 950; color: #7f1d1d; line-height: 1.12; }
+    .sandra-recover-lines { position: relative; z-index: 1; display: grid; gap: .62rem; margin: 1.25rem auto 0; max-width: 520px; }
+    .sandra-recover-line { margin: 0; padding: .78rem 1rem; border-radius: 16px; font-size: clamp(.95rem, 2.3vw, 1.08rem); font-weight: 800; color: #374151; background: rgba(255,255,255,.68); box-shadow: inset 0 0 0 1px rgba(251,113,133,.17); }
+    .sandra-recover-close { position: relative; z-index: 1; margin-top: 1.45rem; border: 0; border-radius: 999px; padding: .72rem 1.4rem; font-weight: 900; color: #fff; background: #1f2d4d; box-shadow: 0 10px 24px rgba(31,45,77,.2); }
+    .sandra-raining-heart { position: fixed; top: -3rem; z-index: 10981; color: var(--sandra-heart-color, #fb7185); font-size: var(--sandra-heart-size, 1.5rem); pointer-events: none; animation: sandraHeartFall var(--sandra-heart-duration, 4.8s) linear forwards; filter: drop-shadow(0 7px 10px rgba(190,18,60,.2)); }
+    @keyframes sandraRecoverPop { from { opacity: 0; transform: translateY(18px) scale(.96); } to { opacity: 1; transform: translateY(0) scale(1); } }
+    @keyframes sandraEnvelopeFloat { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-8px); } }
+    @keyframes sandraEnvelopeNudge { 0%, 100% { transform: translateX(0); } 20% { transform: translateX(-8px); } 40% { transform: translateX(8px); } 60% { transform: translateX(-5px); } 80% { transform: translateX(5px); } }
+    @keyframes sandraHeartBeat { 0%, 100% { transform: scale(1); } 35% { transform: scale(1.14); } 55% { transform: scale(.97); } }
+    @keyframes sandraHeartFall { 0% { transform: translate3d(0,-4rem,0) rotate(0deg); opacity: 0; } 8% { opacity: 1; } 100% { transform: translate3d(var(--sandra-heart-drift, 2rem), calc(100vh + 5rem), 0) rotate(var(--sandra-heart-rotate, 220deg)); opacity: 0; } }
     </style>
 
     <!-- Helpers -->
@@ -582,6 +622,13 @@ html.dark-mode #statsJerarquia .bg-light{background-color:#334155!important;}
 
                     <div class="navbar-nav-right d-flex align-items-center" id="navbar-collapse">
                         <ul class="navbar-nav flex-row align-items-center ms-auto">
+                            <?php if ($__spartaUsuarioId === $__spartaSandraSenderId): ?>
+                            <li class="nav-item me-2">
+                                <button type="button" class="sandra-heart-nav-btn" id="sandraRecoverSendBtn" title="Enviar mensaje para Sandra" aria-label="Enviar mensaje para Sandra">
+                                    <i class="fa-solid fa-heart"></i>
+                                </button>
+                            </li>
+                            <?php endif; ?>
                             <!-- Notificaciones (campana) -->
                             <li class="nav-item nav-notif-wrap dropdown me-2">
                                 <a class="nav-link dropdown-toggle hide-arrow p-0" href="javascript:void(0);" data-bs-toggle="dropdown" id="navbarNotifToggle" aria-expanded="false">
@@ -1074,6 +1121,621 @@ html.dark-mode #statsJerarquia .bg-light{background-color:#334155!important;}
         document.addEventListener('DOMContentLoaded', function(){
             actualizarSoloBadge();
             setInterval(actualizarSoloBadge, 60000);
+        });
+    })();
+    </script>
+
+    <!-- Mensaje personal Sandra: boton para 878, experiencia solo para 797 -->
+    <script>
+    (function(){
+        var currentUserId = <?= (int) $__spartaUsuarioId ?>;
+        var senderId = <?= (int) $__spartaSandraSenderId ?>;
+        var targetId = <?= (int) $__spartaSandraTargetId ?>;
+        var specialType = 'recuperate_pronto_sandra';
+        var shownKey = 'sparta_sandra_recover_seen_ids';
+        var checking = false;
+        var recoverAudio = null;
+        var heartRainTimer = null;
+        var heartRainInitialTimers = [];
+        var recoverAutoplayPending = false;
+        var recoverUnlockArmed = false;
+        var recoverAudioPrimed = false;
+        var recoverAudioPrimeArmed = false;
+        var recoverAudioContext = null;
+        var recoverAudioBuffer = null;
+        var recoverAudioBufferPromise = null;
+        var recoverAudioSource = null;
+        var recoverAudioGain = null;
+        var songUrl = '/assets/audio/perfect.mp3';
+        var senderLastSeenState = null;
+
+        function appUrl(path) {
+            var p = (path || '').replace(/^\//, '').replace(/\/$/, '');
+            return location.origin + '/' + p;
+        }
+
+        function getShownIds() {
+            try {
+                var raw = localStorage.getItem(shownKey);
+                var arr = raw ? JSON.parse(raw) : [];
+                return Array.isArray(arr) ? arr.map(Number).filter(function(id){ return id > 0; }) : [];
+            } catch (e) { return []; }
+        }
+
+        function setShownId(id) {
+            if (!id) return;
+            try {
+                var ids = getShownIds();
+                if (ids.indexOf(id) === -1) ids.push(id);
+                if (ids.length > 30) ids = ids.slice(-30);
+                localStorage.setItem(shownKey, JSON.stringify(ids));
+            } catch (e) {}
+        }
+
+        function markSpecialRead(id) {
+            if (!id) return;
+            fetch(appUrl('/notificaciones/registrarVistaRecuperateSandra'), {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'same-origin',
+                body: JSON.stringify({ id_notificacion: id })
+            }).catch(function(){});
+        }
+
+        function formatSandraStatusDate(dateStr) {
+            if (!dateStr) return '';
+            try {
+                var s = String(dateStr).trim();
+                var m = s.match(/^(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2})/);
+                if (!m) return s + ' CDMX';
+                return m[3] + '/' + m[2] + '/' + m[1] + ' ' + m[4] + ':' + m[5] + ' CDMX';
+            } catch (e) {
+                return String(dateStr) + ' CDMX';
+            }
+        }
+
+        function showSandraSeenToast(fecha) {
+            if (!window.Swal) return;
+            Swal.fire({
+                toast: true,
+                position: 'top-end',
+                icon: 'success',
+                title: 'Sandra ya vio tu mensaje',
+                text: fecha ? ('Lo vio: ' + fecha) : '',
+                showConfirmButton: false,
+                timer: 5200,
+                timerProgressBar: true
+            });
+        }
+
+        function applySenderStatus(estado) {
+            var btn = document.getElementById('sandraRecoverSendBtn');
+            if (!btn) return;
+            btn.classList.remove('is-pending', 'is-seen');
+            if (!estado || !estado.existe) {
+                btn.title = 'Enviar mensaje para Sandra';
+                btn.setAttribute('aria-label', btn.title);
+                btn.innerHTML = '<i class="fa-solid fa-heart"></i>';
+                return;
+            }
+            if (estado.visto) {
+                var fechaVisto = formatSandraStatusDate(estado.fecha_visto);
+                btn.classList.add('is-seen');
+                btn.title = fechaVisto ? ('Sandra ya vio el mensaje: ' + fechaVisto) : 'Sandra ya vio el mensaje';
+                btn.setAttribute('aria-label', btn.title);
+                btn.innerHTML = '<i class="fa-solid fa-circle-check"></i>';
+                return;
+            }
+            btn.classList.add('is-pending');
+            btn.title = 'Mensaje enviado. Pendiente de que Sandra lo vea.';
+            btn.setAttribute('aria-label', btn.title);
+            btn.innerHTML = '<i class="fa-solid fa-heart"></i>';
+        }
+
+        function updateSenderStatus(showToastOnTransition) {
+            if (currentUserId !== senderId) return;
+            fetch(appUrl('/notificaciones/estadoRecuperateSandra'), { method: 'GET', credentials: 'same-origin' })
+                .then(function(r){ return r.ok ? r.json() : null; })
+                .then(function(res){
+                    var estado = res && res.success ? res.estado : null;
+                    var seenNow = !!(estado && estado.visto);
+                    applySenderStatus(estado);
+                    if (showToastOnTransition && senderLastSeenState === false && seenNow) {
+                        showSandraSeenToast(formatSandraStatusDate(estado.fecha_visto));
+                    }
+                    senderLastSeenState = (estado && estado.existe) ? seenNow : null;
+                })
+                .catch(function(){});
+        }
+
+        function ensureRecoverAudio() {
+            var overlay = document.getElementById('sandraRecoverOverlay');
+            var host = overlay ? (overlay.querySelector('.sandra-recover-card') || overlay) : document.body;
+            var audio = document.getElementById('sandraRecoverAudio');
+            if (!audio) {
+                audio = document.createElement('audio');
+                audio.id = 'sandraRecoverAudio';
+                audio.src = songUrl;
+                audio.preload = 'auto';
+                audio.autoplay = true;
+                audio.playsInline = true;
+                audio.controls = false;
+                audio.style.position = 'absolute';
+                audio.style.width = '1px';
+                audio.style.height = '1px';
+                audio.style.opacity = '0';
+                audio.style.pointerEvents = 'none';
+                audio.addEventListener('ended', function(){
+                    stopHeartRain();
+                });
+                host.appendChild(audio);
+            }
+            recoverAudio = audio;
+            return audio;
+        }
+
+        function markRecoverAudioPending() {
+            recoverAutoplayPending = true;
+            armRecoverAutoplayUnlock();
+        }
+
+        function getRecoverAudioContext() {
+            var AudioCtx = window.AudioContext || window.webkitAudioContext;
+            if (!AudioCtx) return null;
+            if (!recoverAudioContext) {
+                recoverAudioContext = new AudioCtx();
+            }
+            return recoverAudioContext;
+        }
+
+        function loadRecoverAudioBuffer() {
+            if (recoverAudioBuffer) return Promise.resolve(recoverAudioBuffer);
+            if (recoverAudioBufferPromise) return recoverAudioBufferPromise;
+            var ctx = getRecoverAudioContext();
+            if (!ctx || !window.fetch) return null;
+
+            recoverAudioBufferPromise = fetch(songUrl, { credentials: 'same-origin' })
+                .then(function(response){
+                    if (!response.ok) throw new Error('No se pudo cargar la cancion.');
+                    return response.arrayBuffer();
+                })
+                .then(function(arrayBuffer){
+                    return new Promise(function(resolve, reject){
+                        try {
+                            var decoded = ctx.decodeAudioData(arrayBuffer, resolve, reject);
+                            if (decoded && typeof decoded.then === 'function') {
+                                decoded.then(resolve).catch(reject);
+                            }
+                        } catch (err) {
+                            reject(err);
+                        }
+                    });
+                })
+                .then(function(buffer){
+                    recoverAudioBuffer = buffer;
+                    return buffer;
+                })
+                .catch(function(err){
+                    recoverAudioBufferPromise = null;
+                    throw err;
+                });
+
+            return recoverAudioBufferPromise;
+        }
+
+        function stopRecoverWebAudio() {
+            try {
+                if (recoverAudioSource) recoverAudioSource.stop(0);
+            } catch (e) {}
+            try {
+                if (recoverAudioSource) recoverAudioSource.disconnect();
+            } catch (e) {}
+            try {
+                if (recoverAudioGain) recoverAudioGain.disconnect();
+            } catch (e) {}
+            recoverAudioSource = null;
+            recoverAudioGain = null;
+        }
+
+        function playRecoverSongWithWebAudio() {
+            var ctx = getRecoverAudioContext();
+            if (!ctx || !recoverAudioBuffer || ctx.state !== 'running') return false;
+
+            try {
+                stopRecoverWebAudio();
+                if (recoverAudio) {
+                    try { recoverAudio.pause(); } catch (e) {}
+                    try { recoverAudio.currentTime = 0; } catch (e) {}
+                }
+
+                var source = ctx.createBufferSource();
+                var gain = ctx.createGain();
+                gain.gain.value = 0.82;
+                source.buffer = recoverAudioBuffer;
+                source.connect(gain);
+                gain.connect(ctx.destination);
+                source.addEventListener('ended', function(){
+                    recoverAudioSource = null;
+                    recoverAudioGain = null;
+                    stopHeartRain();
+                });
+                recoverAudioSource = source;
+                recoverAudioGain = gain;
+                source.start(0);
+                recoverAutoplayPending = false;
+                return true;
+            } catch (e) {
+                stopRecoverWebAudio();
+                return false;
+            }
+        }
+
+        function primeRecoverAudioFromGesture() {
+            if (currentUserId !== targetId || recoverAudioPrimed) return;
+            try {
+                var ctx = getRecoverAudioContext();
+                if (ctx) {
+                    loadRecoverAudioBuffer();
+                    var resumePromise = ctx.state === 'suspended' ? ctx.resume() : Promise.resolve();
+                    resumePromise.then(function(){
+                        recoverAudioPrimed = true;
+                        if (recoverAutoplayPending && document.getElementById('sandraRecoverOverlay')) {
+                            playRecoverSong();
+                        }
+                    }).catch(function(){});
+                }
+
+                var audio = ensureRecoverAudio();
+                audio.muted = true;
+                audio.volume = 0;
+                try { audio.currentTime = 0; } catch (e) {}
+                var promise = audio.play();
+                if (promise && typeof promise.then === 'function') {
+                    promise.then(function(){
+                        try {
+                            if (document.getElementById('sandraRecoverOverlay') || !audio.muted || audio.volume > 0) {
+                                recoverAudioPrimed = true;
+                                return;
+                            }
+                            audio.pause();
+                            audio.currentTime = 0;
+                            audio.muted = false;
+                            audio.volume = 0.82;
+                            recoverAudioPrimed = true;
+                        } catch (e) {}
+                    }).catch(function(){});
+                } else {
+                    try {
+                        if (document.getElementById('sandraRecoverOverlay') || !audio.muted || audio.volume > 0) {
+                            recoverAudioPrimed = true;
+                            return;
+                        }
+                        audio.pause();
+                        audio.currentTime = 0;
+                        audio.muted = false;
+                        audio.volume = 0.82;
+                        recoverAudioPrimed = true;
+                    } catch (e) {}
+                }
+            } catch (e) {}
+        }
+
+        function armRecoverAudioPrimer() {
+            if (currentUserId !== targetId || recoverAudioPrimeArmed) return;
+            recoverAudioPrimeArmed = true;
+            var events = ['pointerdown', 'click', 'keydown', 'touchstart'];
+            function prime() {
+                primeRecoverAudioFromGesture();
+                cleanup();
+            }
+            function cleanup() {
+                recoverAudioPrimeArmed = false;
+                events.forEach(function(evt){
+                    document.removeEventListener(evt, prime, true);
+                });
+            }
+            events.forEach(function(evt){
+                document.addEventListener(evt, prime, true);
+            });
+        }
+
+        function playRecoverSong() {
+            try {
+                if (playRecoverSongWithWebAudio()) {
+                    return;
+                }
+
+                var ctx = getRecoverAudioContext();
+                var bufferPromise = loadRecoverAudioBuffer();
+                if (ctx && bufferPromise && ctx.state === 'running') {
+                    bufferPromise.then(function(){
+                        if (document.getElementById('sandraRecoverOverlay') && !recoverAudioSource) {
+                            playRecoverSongWithWebAudio();
+                        }
+                    }).catch(function(){});
+                }
+
+                var audio = ensureRecoverAudio();
+                audio.muted = false;
+                audio.volume = 0.82;
+                try { audio.currentTime = 0; } catch (e) {}
+                try { audio.load(); } catch (e) {}
+                var promise = audio.play();
+                if (promise && typeof promise.then === 'function') {
+                    promise.then(function(){
+                        recoverAutoplayPending = false;
+                    }).catch(function(){
+                        markRecoverAudioPending();
+                    });
+                } else {
+                    recoverAutoplayPending = false;
+                }
+                setTimeout(function(){
+                    if (!audio || audio.paused) {
+                        markRecoverAudioPending();
+                    }
+                }, 650);
+            } catch (e) {
+                markRecoverAudioPending();
+            }
+        }
+
+        function openRecoverModalWhenGestureAllows(notifId) {
+            notifId = Number(notifId) || 0;
+            if (!notifId || document.getElementById('sandraRecoverOverlay')) return;
+            showRecoverEnvelope(notifId);
+        }
+
+        function armRecoverAutoplayUnlock() {
+            if (recoverUnlockArmed) return;
+            recoverUnlockArmed = true;
+            var events = ['pointerdown', 'pointerup', 'click', 'keydown', 'touchstart'];
+            function unlock(ev) {
+                if (!recoverAutoplayPending || !document.getElementById('sandraRecoverOverlay')) {
+                    cleanup();
+                    return;
+                }
+                if (ev && typeof ev.preventDefault === 'function') ev.preventDefault();
+                if (ev && typeof ev.stopImmediatePropagation === 'function') ev.stopImmediatePropagation();
+                if (ev && typeof ev.stopPropagation === 'function') ev.stopPropagation();
+                primeRecoverAudioFromGesture();
+                recoverAutoplayPending = false;
+                playRecoverSong();
+                cleanup();
+            }
+            function cleanup() {
+                recoverUnlockArmed = false;
+                events.forEach(function(evt){
+                    document.removeEventListener(evt, unlock, true);
+                });
+            }
+            events.forEach(function(evt){
+                document.addEventListener(evt, unlock, true);
+            });
+        }
+
+        function stopRecoverSong() {
+            try {
+                stopRecoverWebAudio();
+                if (recoverAudio) {
+                    recoverAudio.pause();
+                    recoverAudio.currentTime = 0;
+                    if (recoverAudio.parentNode) recoverAudio.parentNode.removeChild(recoverAudio);
+                    recoverAudio = null;
+                }
+            } catch (e) {}
+        }
+
+        function spawnHeart() {
+            var heart = document.createElement('div');
+            var colors = ['#fb7185', '#f43f5e', '#e11d48', '#be123c', '#fda4af'];
+            heart.className = 'sandra-raining-heart';
+            heart.innerHTML = '<i class="fa-solid fa-heart"></i>';
+            heart.style.left = (Math.random() * 100) + 'vw';
+            heart.style.setProperty('--sandra-heart-size', (1 + Math.random() * 1.5) + 'rem');
+            heart.style.setProperty('--sandra-heart-duration', (3.7 + Math.random() * 2.4) + 's');
+            heart.style.setProperty('--sandra-heart-drift', ((Math.random() * 12) - 6) + 'rem');
+            heart.style.setProperty('--sandra-heart-rotate', ((Math.random() * 520) - 260) + 'deg');
+            heart.style.setProperty('--sandra-heart-color', colors[Math.floor(Math.random() * colors.length)]);
+            document.body.appendChild(heart);
+            setTimeout(function(){ heart.remove(); }, 6500);
+        }
+
+        function stopHeartRain() {
+            if (heartRainTimer) {
+                clearInterval(heartRainTimer);
+                heartRainTimer = null;
+            }
+            heartRainInitialTimers.forEach(function(timer){ clearTimeout(timer); });
+            heartRainInitialTimers = [];
+        }
+
+        function startHeartRain() {
+            stopHeartRain();
+            for (var i = 0; i < 36; i++) {
+                heartRainInitialTimers.push(setTimeout(spawnHeart, i * 34));
+            }
+            heartRainTimer = setInterval(function(){
+                spawnHeart();
+                if (Math.random() > 0.48) {
+                    setTimeout(spawnHeart, 42);
+                }
+            }, 115);
+        }
+
+        function cleanupRecoverExperience() {
+            recoverAutoplayPending = false;
+            stopRecoverSong();
+            stopHeartRain();
+            var overlay = document.getElementById('sandraRecoverOverlay');
+            if (overlay) overlay.remove();
+        }
+
+        function renderRecoverLines() {
+            var lines = [
+                'Respira con calma: hoy todo puede esperar un poquito.',
+                'Hay personas que te quieren y te estan mandando mucha fuerza.',
+                'Que esta cancion te abrace bonito mientras te recuperas.',
+                'Vuelve despacio, sin prisa. Aqui se te espera con mucho carino.'
+            ];
+            return lines.map(function(line){
+                return '<p class="sandra-recover-line">' + line.replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</p>';
+            }).join('');
+        }
+
+        function bindRecoverClose(overlay) {
+            overlay.addEventListener('click', function(ev){
+                if (ev.target === overlay) cleanupRecoverExperience();
+            });
+            var card = overlay.querySelector('.sandra-recover-card');
+            if (card) {
+                card.addEventListener('click', function(){
+                    if (recoverAutoplayPending || (!recoverAudioSource && (!recoverAudio || recoverAudio.paused))) {
+                        recoverAutoplayPending = false;
+                        playRecoverSong();
+                    }
+                });
+            }
+            var closeBtn = overlay.querySelector('.sandra-recover-close');
+            if (closeBtn) {
+                closeBtn.addEventListener('click', function(ev){
+                    ev.stopPropagation();
+                    cleanupRecoverExperience();
+                });
+            }
+            document.addEventListener('keydown', function escClose(ev){
+                if (ev.key !== 'Escape') return;
+                document.removeEventListener('keydown', escClose);
+                cleanupRecoverExperience();
+            });
+        }
+
+        function showRecoverEnvelope(notifId) {
+            notifId = Number(notifId) || 0;
+            if (!notifId || document.getElementById('sandraRecoverOverlay') || document.getElementById('sandraRecoverEnvelopeOverlay')) return;
+
+            var overlay = document.createElement('div');
+            overlay.className = 'sandra-recover-overlay sandra-envelope-overlay';
+            overlay.id = 'sandraRecoverEnvelopeOverlay';
+            overlay.innerHTML =
+                '<button type="button" class="sandra-envelope-card" aria-label="Abrir mensaje especial">' +
+                    '<p class="sandra-envelope-kicker">Tienes un mensaje especial</p>' +
+                    '<h2 class="sandra-envelope-title">Para ti</h2>' +
+                    '<p class="sandra-envelope-copy">Hay algo bonito esperandote.</p>' +
+                    '<div class="sandra-envelope-icon" aria-hidden="true">' +
+                        '<span class="sandra-envelope-heart-badge"><i class="fa-solid fa-heart"></i></span>' +
+                    '</div>' +
+                    '<span class="sandra-envelope-cta"><i class="fa-solid fa-envelope-open-text"></i> Abrir mensaje</span>' +
+                '</button>';
+
+            document.body.appendChild(overlay);
+            var card = overlay.querySelector('.sandra-envelope-card');
+            var opened = false;
+
+            function openMessage(ev) {
+                if (opened) return;
+                opened = true;
+                if (ev && typeof ev.preventDefault === 'function') ev.preventDefault();
+                if (ev && typeof ev.stopImmediatePropagation === 'function') ev.stopImmediatePropagation();
+                if (ev && typeof ev.stopPropagation === 'function') ev.stopPropagation();
+                overlay.remove();
+                showRecoverModal(notifId);
+            }
+
+            if (card) {
+                card.addEventListener('click', openMessage);
+                setTimeout(function(){
+                    try { card.focus(); } catch (e) {}
+                }, 80);
+            }
+
+            overlay.addEventListener('click', function(ev){
+                if (ev.target !== overlay || !card) return;
+                card.classList.remove('is-nudged');
+                void card.offsetWidth;
+                card.classList.add('is-nudged');
+            });
+        }
+
+        function showRecoverModal(notifId) {
+            if (document.getElementById('sandraRecoverOverlay')) return;
+            var envelope = document.getElementById('sandraRecoverEnvelopeOverlay');
+            if (envelope) envelope.remove();
+            setShownId(notifId);
+
+            var overlay = document.createElement('div');
+            overlay.className = 'sandra-recover-overlay';
+            overlay.id = 'sandraRecoverOverlay';
+            overlay.innerHTML =
+                '<div class="sandra-recover-card" role="dialog" aria-modal="true" aria-label="Mensaje especial">' +
+                    '<p class="sandra-recover-kicker">Un mensajito para ti</p>' +
+                    '<h2>Recuperate pronto</h2>' +
+                    '<div class="sandra-recover-heart"><i class="fa-solid fa-heart"></i></div>' +
+                    '<p class="sandra-recover-main">Te quiero mucho!!!!!!!!!!</p>' +
+                    '<div class="sandra-recover-lines">' + renderRecoverLines() + '</div>' +
+                    '<button type="button" class="sandra-recover-close">Cerrar</button>' +
+                '</div>';
+            document.body.appendChild(overlay);
+            bindRecoverClose(overlay);
+            markSpecialRead(notifId);
+            startHeartRain();
+            playRecoverSong();
+        }
+
+        function checkSandraRecover() {
+            if (currentUserId !== targetId || checking) return;
+            checking = true;
+            fetch(appUrl('/notificaciones/listar'), { method: 'GET', credentials: 'same-origin' })
+                .then(function(r){ return r.ok ? r.json() : null; })
+                .then(function(res){
+                    var list = (res && res.success && Array.isArray(res.datos)) ? res.datos : [];
+                    var shown = getShownIds();
+                    var special = list.find(function(n){
+                        var id = Number(n.id) || 0;
+                        return n && n.tipo === specialType && id > 0 && shown.indexOf(id) === -1 && (Number(n.leida) || 0) === 0;
+                    });
+                    if (special) openRecoverModalWhenGestureAllows(Number(special.id) || 0);
+                })
+                .catch(function(){})
+                .finally(function(){ checking = false; });
+        }
+
+        function initSenderButton() {
+            if (currentUserId !== senderId) return;
+            var btn = document.getElementById('sandraRecoverSendBtn');
+            if (!btn) return;
+            btn.addEventListener('click', function(){
+                btn.disabled = true;
+                fetch(appUrl('/notificaciones/enviarRecuperateSandra'), {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'same-origin',
+                    body: '{}'
+                })
+                    .then(function(r){ return r.json(); })
+                    .then(function(res){
+                        if (window.Swal) {
+                            Swal.fire(res && res.success ? 'Listo' : 'Error', (res && res.mensaje) || 'No se pudo enviar.', res && res.success ? 'success' : 'error');
+                        }
+                        if (res && res.success) {
+                            senderLastSeenState = false;
+                            updateSenderStatus(false);
+                        }
+                    })
+                    .catch(function(){
+                        if (window.Swal) Swal.fire('Error', 'No se pudo enviar el mensaje.', 'error');
+                    })
+                    .finally(function(){ btn.disabled = false; });
+            });
+        }
+
+        document.addEventListener('DOMContentLoaded', function(){
+            initSenderButton();
+            armRecoverAudioPrimer();
+            checkSandraRecover();
+            updateSenderStatus(false);
+            if (currentUserId === targetId) setInterval(checkSandraRecover, 20000);
+            if (currentUserId === senderId) setInterval(function(){ updateSenderStatus(true); }, 20000);
         });
     })();
     </script>

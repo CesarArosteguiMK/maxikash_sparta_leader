@@ -187,6 +187,17 @@ class MotosAdjudicadas extends Controller
     }
 
     /**
+     * GET /MotosAdjudicadas/comentariosLegacy
+     */
+    public function comentariosLegacy()
+    {
+        $emp = defined('CONFIGURACION') && isset(CONFIGURACION['EMPRESA']) ? (string) CONFIGURACION['EMPRESA'] : '';
+        self::set('titulo', 'Comentarios Legacy - Motos Adjudicadas ' . $emp);
+        self::set('campaign_id_default', 'feedback_' . date('Ymd_His'));
+        return self::render('motos_adjudicadas_comentarios_legacy');
+    }
+
+    /**
      * GET /MotosAdjudicadas/monitoreoAdjudicaciones
      */
     public function monitoreoAdjudicaciones()
@@ -357,6 +368,85 @@ class MotosAdjudicadas extends Controller
         echo json_encode([
             'success' => true,
             'message' => 'Campaña enviada correctamente.',
+            'http_code' => $resp['http_code'],
+            'api_response' => is_array($decoded) ? $decoded : null,
+        ], JSON_UNESCAPED_UNICODE);
+    }
+
+    /**
+     * POST /MotosAdjudicadas/enviarComentariosLegacy
+     */
+    public function enviarComentariosLegacy()
+    {
+        header('Content-Type: application/json; charset=utf-8');
+
+        $cfg = $this->pushLegacyConfig();
+        if ($cfg['base_url'] === '' || $cfg['api_key'] === '') {
+            echo json_encode([
+                'success' => false,
+                'message' => 'Servicio de notificaciones no configurado. Configure MOTOS_ADJUDICADAS_TOKEN en config_api o en el entorno.',
+            ], JSON_UNESCAPED_UNICODE);
+            return;
+        }
+
+        $body = json_decode((string) file_get_contents('php://input'), true) ?: [];
+        $appVersion = trim((string) ($body['app_version'] ?? ''));
+        $campaignId = trim((string) ($body['campaign_id'] ?? ''));
+        if ($campaignId === '') {
+            $campaignId = 'feedback_' . date('Ymd_His');
+        }
+
+        $payload = [
+            'titulo' => trim((string) ($body['titulo'] ?? 'Ayudanos a mejorar')),
+            'mensaje' => trim((string) ($body['mensaje'] ?? 'Queremos conocer tu opinion sobre Legacy.')),
+            'segmento' => 'all',
+            'user_id_legacy' => $this->normalizarListaIds($body['user_id_legacy'] ?? []),
+            'external_id' => $this->normalizarListaIds($body['external_id'] ?? []),
+            'platform' => trim((string) ($body['platform'] ?? '')),
+            'app_version' => $appVersion !== '' ? $appVersion : null,
+            'data' => [
+                'type' => 'legacy_feedback_request',
+                'notification_type' => 'legacy_feedback_request',
+                'screen' => 'LegacyFeedback',
+                'campaign_id' => $campaignId,
+                'feedback_campaign' => '1',
+                'target_app_version' => $appVersion,
+                'force_feedback' => '1',
+            ],
+            'created_by' => trim((string) ($_SESSION['nombre'] ?? $_SESSION['usuario'] ?? $_SESSION['usuario_nombre'] ?? 'sparta_backend')),
+        ];
+
+        if ($appVersion === '') {
+            unset($payload['app_version'], $payload['data']['target_app_version']);
+        }
+
+        if ($payload['titulo'] === '' || $payload['mensaje'] === '') {
+            echo json_encode(['success' => false, 'message' => 'Titulo y mensaje son obligatorios.'], JSON_UNESCAPED_UNICODE);
+            return;
+        }
+
+        if ($payload['platform'] === '') {
+            unset($payload['platform']);
+        }
+        $url = $cfg['base_url'] . '/api/push-campaigns/legacy/send';
+        $resp = $this->pushLegacyCurl($url, $payload);
+        $decoded = json_decode($resp['body'], true);
+
+        if ($resp['http_code'] < 200 || $resp['http_code'] >= 300) {
+            echo json_encode([
+                'success' => false,
+                'message' => is_array($decoded)
+                    ? (string) ($decoded['message'] ?? $decoded['mensaje'] ?? $decoded['detail'] ?? 'No se pudo enviar la campania de comentarios.')
+                    : ($resp['error'] ?: 'No se pudo enviar la campania de comentarios.'),
+                'http_code' => $resp['http_code'],
+                'api_response' => $decoded ?: $resp['body'],
+            ], JSON_UNESCAPED_UNICODE);
+            return;
+        }
+
+        echo json_encode([
+            'success' => true,
+            'message' => 'Campania de comentarios enviada correctamente.',
             'http_code' => $resp['http_code'],
             'api_response' => is_array($decoded) ? $decoded : null,
         ], JSON_UNESCAPED_UNICODE);
