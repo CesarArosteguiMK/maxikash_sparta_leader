@@ -1160,6 +1160,10 @@ body.dark-mode .select2-results__option[aria-disabled="true"] {
 ======================================================== */
 #modalChatOperativo .modal-dialog {
     max-width: min(1540px, calc(100vw - 1.5rem));
+    transition: max-width .28s ease, width .28s ease;
+}
+#modalChatOperativo.chat-map-collapsed-modal .modal-dialog {
+    max-width: min(790px, calc(100vw - 1.5rem));
 }
 #modalChatOperativo .modal-content {
     height: min(860px, calc(100vh - 1.5rem));
@@ -1211,6 +1215,42 @@ body.dark-mode .chat-route-name {
     grid-template-columns: minmax(420px, 1fr) minmax(420px, 1fr);
     min-height: 0;
     height: 100%;
+    position: relative;
+    transition: grid-template-columns .28s ease;
+}
+.chat-operativo-layout.chat-map-collapsed {
+    grid-template-columns: minmax(0, 1fr) 0;
+}
+.chat-operativo-layout.chat-map-collapsed .chat-conversation-panel {
+    border-right: 0;
+}
+.chat-operativo-layout.chat-map-collapsed .chat-live-panel {
+    overflow: hidden;
+    min-width: 0;
+    width: 0;
+    opacity: 0;
+    pointer-events: none;
+}
+.chat-map-toggle {
+    width: 2rem;
+    height: 2rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 999px;
+    flex-shrink: 0;
+    box-shadow: 0 .2rem .6rem rgba(15,23,42,.18);
+}
+.chat-map-toggle-edge {
+    position: absolute;
+    top: .85rem;
+    left: calc(50% - 1rem);
+    z-index: 10;
+    transition: left .28s ease, right .28s ease, transform .28s ease;
+}
+.chat-operativo-layout.chat-map-collapsed .chat-map-toggle-edge {
+    left: auto;
+    right: .85rem;
 }
 .chat-conversation-panel {
     min-width: 0;
@@ -1319,13 +1359,35 @@ body.dark-mode .chat-live-info-grid { color: #b0cece; }
 .chat-tabs-wrap {
     border-bottom: 1px solid var(--track-border);
     flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    gap: .75rem;
     overflow-x: auto;
     overflow-y: hidden;
     scrollbar-width: thin;
 }
 .chat-tabs-wrap::-webkit-scrollbar { height: 4px; }
 .chat-tabs-wrap::-webkit-scrollbar-thumb { background: var(--track-border); border-radius: 2px; }
-.chat-tabs-wrap ul { flex-wrap: nowrap; padding: .55rem .65rem; gap: .35rem; border-bottom: none; }
+.chat-tabs-wrap ul { flex: 0 0 auto; flex-wrap: nowrap; padding: .55rem 0 .55rem .65rem; gap: .35rem; border-bottom: none; }
+.chat-connection-status {
+    flex: 1 1 auto;
+    min-width: 160px;
+    color: #697a8d;
+    font-size: .76rem;
+    font-weight: 700;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.chat-connection-status.is-active {
+    color: #16a34a;
+}
+body.dark-mode .chat-connection-status {
+    color: #b0cece;
+}
+body.dark-mode .chat-connection-status.is-active {
+    color: #4ade80;
+}
 .chat-tab-link {
     font-size: .77rem;
     padding: .38rem .68rem;
@@ -2350,15 +2412,22 @@ body.dark-mode .chat-send-btn:disabled { background: #2d4444; }
                         <small id="chatRutaNombre" class="chat-route-name"></small>
                     </div>
                 </div>
-                <button type="button" class="btn-close ms-2" data-bs-dismiss="modal"
-                        aria-label="Cerrar" style="flex-shrink:0;"></button>
+                <div class="d-inline-flex align-items-center gap-2 ms-2">
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"
+                            aria-label="Cerrar" style="flex-shrink:0;"></button>
+                </div>
             </div>
 
             <div class="modal-body">
-                <div class="chat-operativo-layout">
+                <div class="chat-operativo-layout" id="chatOperativoLayout">
+                    <button type="button" class="btn btn-sm btn-label-primary chat-map-toggle chat-map-toggle-edge"
+                            id="btnToggleChatMap" title="Ocultar mapa">
+                        <i class="fa-solid fa-angles-right"></i>
+                    </button>
                     <section class="chat-conversation-panel">
                         <div class="chat-tabs-wrap" id="chatTabsWrap" style="display:none;">
                             <ul class="nav d-flex" id="chatTabList" role="tablist"></ul>
+                            <span class="chat-connection-status" id="chatConnectionStatus">Sin conexión registrada</span>
                         </div>
 
                         <div id="chatPanesContainer" class="flex-grow-1 d-flex flex-column" style="overflow:hidden;"></div>
@@ -2480,6 +2549,9 @@ const _trk = {
     chatMapInstance:      null,
     chatLiveVehicleMarker:null,
     chatLiveVehiclePolyline:null,
+    chatLiveConectado:    false,
+    chatUltimaConexionAt: null,
+    chatConnectionTimer:  null,
     routeLegDurations:    [],   // duraciones Google Maps entre puntos confirmados
 };
 
@@ -2619,6 +2691,7 @@ document.addEventListener('DOMContentLoaded', function () {
     document.getElementById('tabRutasBtn').addEventListener('click', () => _trkCargarRutasSiHaceFalta());
     document.getElementById('tabBorradorBtn').addEventListener('click', () => _trkCargarBorradoresSiHaceFalta());
     document.getElementById('tabCatalogosBtn').addEventListener('click', () => _trkCargarCatalogosSiHaceFalta().then(() => _trkRenderCatalogosTracking()));
+    document.getElementById('btnToggleChatMap')?.addEventListener('click', () => _trkToggleChatMapPanel());
     document.getElementById('trkSectionGrid')?.addEventListener('click', ev => {
         const btn = ev.target.closest('.trk-section-card');
         if (!btn) return;
@@ -6589,7 +6662,14 @@ function _trkRTIconoVehiculo(heading = 0) {
     const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="42" height="42" viewBox="0 0 42 42">
         <g transform="rotate(${rot} 21 21)">
             <circle cx="21" cy="21" r="19" fill="#0d9488" stroke="#fff" stroke-width="3"/>
-            <path d="M21 7l8 22-8-4-8 4 8-22z" fill="#fff"/>
+            <g transform="translate(7 10)">
+                <path d="M3 8h15v10H3z" fill="#fff" rx="2"/>
+                <path d="M18 10h5.5l4.5 4.8V18H18z" fill="#fff"/>
+                <path d="M21.3 12.2h2.1l2.2 2.4h-4.3z" fill="#0d9488"/>
+                <circle cx="8" cy="20" r="2.6" fill="#0d9488" stroke="#fff" stroke-width="1.4"/>
+                <circle cx="23" cy="20" r="2.6" fill="#0d9488" stroke="#fff" stroke-width="1.4"/>
+                <path d="M3 18h25" stroke="#0d9488" stroke-width="1.2" opacity=".55"/>
+            </g>
         </g>
     </svg>`;
     return {
@@ -6597,6 +6677,62 @@ function _trkRTIconoVehiculo(heading = 0) {
         scaledSize: new google.maps.Size(42, 42),
         anchor: new google.maps.Point(21, 21),
     };
+}
+
+function _trkChatFormatearConexion(ts) {
+    if (!ts || isNaN(ts.getTime())) return 'Sin conexión registrada';
+    const diffMs = Math.max(0, Date.now() - ts.getTime());
+    const min = Math.floor(diffMs / 60000);
+    if (min < 1) return 'Última conexión hace menos de 1 min';
+    if (min < 60) return `Última conexión hace ${min} min`;
+    const horas = Math.floor(min / 60);
+    if (horas < 24) return `Última conexión hace ${horas} hora${horas === 1 ? '' : 's'}`;
+    return `Última conexión ${ts.toLocaleDateString('es-MX', {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric',
+    })} ${ts.toLocaleTimeString('es-MX', {
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: false,
+    })}`;
+}
+
+function _trkChatActualizarConexion() {
+    const el = document.getElementById('chatConnectionStatus');
+    if (!el) return;
+    if (_trk.chatLiveConectado) {
+        el.textContent = 'Activo ahora';
+        el.classList.add('is-active');
+        return;
+    }
+    el.classList.remove('is-active');
+    el.textContent = _trkChatFormatearConexion(_trk.chatUltimaConexionAt);
+}
+
+function _trkToggleChatMapPanel(forceCollapsed = null) {
+    if (forceCollapsed && typeof forceCollapsed === 'object') forceCollapsed = null;
+    const layout = document.getElementById('chatOperativoLayout');
+    const modal = document.getElementById('modalChatOperativo');
+    const btn = document.getElementById('btnToggleChatMap');
+    if (!layout) return;
+    const collapsed = forceCollapsed === null
+        ? !layout.classList.contains('chat-map-collapsed')
+        : !!forceCollapsed;
+    layout.classList.toggle('chat-map-collapsed', collapsed);
+    modal?.classList.toggle('chat-map-collapsed-modal', collapsed);
+    if (btn) {
+        btn.title = collapsed ? 'Mostrar mapa' : 'Ocultar mapa';
+        btn.innerHTML = collapsed
+            ? '<i class="fa-solid fa-angles-left"></i>'
+            : '<i class="fa-solid fa-angles-right"></i>';
+    }
+    if (!collapsed && _trk.chatMapInstance && window.google?.maps) {
+        setTimeout(() => {
+            google.maps.event.trigger(_trk.chatMapInstance, 'resize');
+            _trkChatRepaintLiveMap({ center: true });
+        }, 180);
+    }
 }
 
 function _trkChatPrepararMapaLive(idRuta, rutaNombre = '') {
@@ -6736,6 +6872,10 @@ function _trkRTActualizarInfoLive(ubi) {
     const card = document.getElementById('trkLiveMapInfo');
     if (!card || !ubi) return;
     const ts = ubi.updated_at ? new Date(String(ubi.updated_at).endsWith('Z') ? ubi.updated_at : ubi.updated_at + 'Z') : new Date();
+    if (!isNaN(ts.getTime())) {
+        _trk.chatUltimaConexionAt = ts;
+        _trkChatActualizarConexion();
+    }
     const timeTxt = isNaN(ts.getTime()) ? 'Sin fecha' : ts.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     document.getElementById('trkLiveUpdated').textContent = `Actualizado ${timeTxt}`;
     document.getElementById('trkLiveSpeed').textContent = ubi.speed !== null && !isNaN(ubi.speed) ? `Vel. ${Math.round(ubi.speed)} km/h` : 'Vel. —';
@@ -6754,6 +6894,9 @@ function _trkRTActualizarInfoLive(ubi) {
 }
 
 function _trkRTActualizarWsDot(conectado) {
+    _trk.chatLiveConectado = !!conectado;
+    if (conectado) _trk.chatUltimaConexionAt = new Date();
+    _trkChatActualizarConexion();
     const dot = document.getElementById('trkWsDot');
     if (dot) {
         dot.style.background = conectado ? '#16a34a' : '#cbd5e1';
@@ -6916,6 +7059,9 @@ function _trkChatCargarYAbrir(idRuta) {
 
 function _trkChatAbrir(idRuta, rutaNombre, detalleItems) {
     _trkChatLimpiarTodo();
+    _trkToggleChatMapPanel(false);
+    _trk.chatConnectionTimer = setInterval(_trkChatActualizarConexion, 60000);
+    _trkChatActualizarConexion();
     _trkChat.rutaId = idRuta;
     _trk.chatUnreadPorRuta[String(idRuta)] = 0;
     _trkActualizarRutaChatBadge(idRuta);
@@ -7523,6 +7669,13 @@ function _trkChatLimpiarTodo() {
     _trkChat.chats     = {};
     _trkChat.activeTab = null;
     _trkChat.rutaId    = null;
+    if (_trk.chatConnectionTimer) {
+        clearInterval(_trk.chatConnectionTimer);
+        _trk.chatConnectionTimer = null;
+    }
+    _trk.chatLiveConectado = false;
+    _trk.chatUltimaConexionAt = null;
+    _trkChatActualizarConexion();
 }
 
 // --- Actualizar UI según estatus -------------------------
