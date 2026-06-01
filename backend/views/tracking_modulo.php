@@ -1,4 +1,4 @@
-﻿<?php /** @var string $google_maps_api_key_js */ ?>
+<?php /** @var string $google_maps_api_key_js */ ?>
 <style>
 /* =======================================================
    Tracking Recolección — variables de color (teal/cyan)

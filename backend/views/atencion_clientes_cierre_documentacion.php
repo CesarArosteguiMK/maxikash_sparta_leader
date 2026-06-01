@@ -194,7 +194,7 @@
     color: #697a8d;
     border-color: #e8eef5;
 }
-.acd-table-main { min-width: 150px; }
+.acd-table-main { min-width: 260px; }
 .acd-table-folio {
     display: inline-flex;
     align-items: center;
@@ -211,6 +211,24 @@
     margin-top: .22rem;
     color: #566a7f;
     font-weight: 700;
+}
+.acd-table-main-client {
+    display: flex;
+    align-items: flex-start;
+    gap: .34rem;
+    margin-top: .28rem;
+    color: #697a8d;
+    font-weight: 800;
+    text-transform: uppercase;
+    line-height: 1.18;
+    white-space: normal;
+}
+.acd-table-main-client i {
+    width: .85rem;
+    flex: 0 0 .85rem;
+    margin-top: .08rem;
+    color: #697a8d;
+    font-size: .72rem;
 }
 .acd-table-name {
     min-width: 210px;
@@ -231,6 +249,75 @@
     white-space: nowrap;
     line-height: 1.35;
 }
+.acd-table-gestor {
+    min-width: 270px;
+}
+.acd-table-gestor-name {
+    display: flex;
+    align-items: flex-start;
+    gap: .34rem;
+    color: #697a8d;
+    font-weight: 700;
+    line-height: 1.18;
+}
+.acd-table-legacy-label {
+    display: flex;
+    align-items: flex-start;
+    gap: .34rem;
+    margin-top: .42rem;
+    padding-top: .36rem;
+    border-top: 1px solid #e2e8f0;
+    color: #64748b;
+    font-size: .66rem;
+    font-weight: 800;
+    line-height: 1.1;
+    text-transform: uppercase;
+    letter-spacing: .025em;
+}
+.acd-table-legacy-date {
+    display: block;
+    margin-top: .12rem;
+    color: #566a7f;
+    font-size: .78rem;
+    font-weight: 700;
+    line-height: 1.15;
+}
+.acd-table-operacion {
+    min-width: 245px;
+}
+.acd-op-time {
+    display: block;
+    color: #64748b;
+    line-height: 1.18;
+}
+.acd-op-time-label {
+    display: inline-flex;
+    align-items: center;
+    gap: .34rem;
+    color: #64748b;
+    font-size: .68rem;
+    font-weight: 800;
+    line-height: 1.1;
+    text-transform: uppercase;
+    letter-spacing: .025em;
+}
+.acd-op-time strong {
+    display: inline-block;
+    margin-top: 0;
+    margin-left: .42rem;
+    color: #566a7f;
+    font-size: .86rem;
+    font-weight: 800;
+    white-space: nowrap;
+}
+.acd-op-time small {
+    display: block;
+    margin-top: .12rem;
+    color: #94a3b8;
+    font-size: .72rem;
+    font-weight: 700;
+    line-height: 1.2;
+}
 .acd-action-buttons {
     display: flex;
     width: 100%;
@@ -239,33 +326,88 @@
     gap: .5rem;
     flex-wrap: wrap;
 }
-#acdTabContent .dataTables_length { margin-bottom: 1rem; }
+#acdTabContent .card-datatable {
+    padding: 1.5rem;
+}
+#acdTabContent .dataTables_length,
+#acdTabContent .dt-length { margin-bottom: 1rem; }
 #acdTabContent .dataTables_filter {
     margin-bottom: 1rem;
     text-align: right;
 }
-#acdTabContent .dataTables_filter input {
+#acdTabContent .dt-search {
+    margin-bottom: 1rem;
+    text-align: right;
+}
+#acdTabContent .dataTables_filter input,
+#acdTabContent .dt-search input {
     margin-left: .5rem;
     padding: .375rem .75rem;
     border: 1px solid #d9dee3;
     border-radius: .375rem;
 }
-#acdTabContent .dataTables_filter input:focus {
+#acdTabContent .dataTables_filter input:focus,
+#acdTabContent .dt-search input:focus {
     border-color: #ea580c;
     outline: none;
     box-shadow: 0 0 0 .2rem rgba(234, 88, 12, .15);
 }
-#acdTabContent .dataTables_length select {
+#acdTabContent .dataTables_length select,
+#acdTabContent .dt-length select {
     margin: 0 .5rem;
     padding: .375rem 1.75rem .375rem .75rem;
 }
-#acdTabContent .dataTables_info {
-    color: #a1acb8;
-    font-weight: 600;
-}
-#acdTabContent .pagination {
-    gap: .5rem;
+#acdTabContent .dataTables_info,
+#acdTabContent .dt-info {
     margin: 0;
+    color: #6c757d;
+    font-size: .85rem;
+}
+#acdTabContent .acd-dt-footer {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    gap: 1rem;
+    flex-wrap: wrap;
+    width: 100%;
+    margin-left: 0;
+    margin-right: 0;
+    padding-top: 1rem;
+}
+#acdTabContent .acd-dt-footer > [class*="col-"] {
+    padding-left: 0;
+    padding-right: 0;
+}
+#acdTabContent .acd-dt-info {
+    flex: 1 1 auto !important;
+    width: auto !important;
+    max-width: none !important;
+}
+#acdTabContent .acd-dt-pages {
+    flex: 0 0 auto !important;
+    width: auto !important;
+    max-width: none !important;
+    margin-left: auto;
+    display: flex !important;
+    justify-content: flex-end !important;
+}
+#acdTabContent .acd-dt-footer .dataTables_paginate,
+#acdTabContent .acd-dt-footer .dt-paging {
+    display: flex;
+    justify-content: flex-end;
+    width: auto;
+    margin: 0 !important;
+}
+#acdTabContent .acd-dt-footer .dataTables_paginate .pagination,
+#acdTabContent .acd-dt-footer .dt-paging .pagination {
+    justify-content: flex-end !important;
+    margin: 0 !important;
+    margin-left: auto !important;
+    gap: 0;
+}
+#acdTabContent .acd-dt-footer .dataTables_paginate .page-item,
+#acdTabContent .acd-dt-footer .dt-paging .page-item {
+    margin: 0 .18rem;
 }
 #acdTabContent .page-link {
     border-radius: .375rem;
@@ -349,7 +491,17 @@ body.dark-mode .acd-table thead th { background: #0f172a; color: #e2e8f0; border
 body.dark-mode .acd-table tbody tr:hover { background: #172033; }
 body.dark-mode .acd-table td { color: #cbd5e1; border-color: #1f2937; }
 body.dark-mode .acd-table-credit,
+body.dark-mode .acd-table-main-client,
 body.dark-mode .acd-table-name { color: #e2e8f0; }
+body.dark-mode .acd-table-main-client i { color: #94a3b8; }
+body.dark-mode .acd-table-gestor-name,
+body.dark-mode .acd-table-legacy-date { color: #e2e8f0; }
+body.dark-mode .acd-table-legacy-label { color: #94a3b8; border-color: #1f2937; }
+body.dark-mode .acd-table-gestor-name i,
+body.dark-mode .acd-table-legacy-label i { color: #94a3b8; }
+body.dark-mode .acd-op-time-label,
+body.dark-mode .acd-op-time small { color: #94a3b8; }
+body.dark-mode .acd-op-time strong { color: #e2e8f0; }
 body.dark-mode .acd-dict-chip { background: #111827; border-color: #1f2937; }
 body.dark-mode .acd-dict-chip strong { color: #e2e8f0; }
 body.dark-mode .acd-dict-observacion { background: #292524; color: #fed7aa; }
@@ -374,6 +526,33 @@ body.dark-mode .acd-dict-observacion { background: #292524; color: #fed7aa; }
     .acd-dict-detail-grid {
         grid-template-columns: 1fr;
     }
+    .acd-form-cols {
+        grid-template-columns: 1fr;
+    }
+    .acd-form-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+    #acdTabContent .acd-dt-footer {
+        justify-content: center !important;
+        text-align: center;
+    }
+    #acdTabContent .acd-dt-info,
+    #acdTabContent .acd-dt-pages {
+        flex: 0 0 100% !important;
+        width: 100% !important;
+        margin-left: 0;
+        justify-content: center !important;
+    }
+    #acdTabContent .acd-dt-footer .dataTables_paginate,
+    #acdTabContent .acd-dt-footer .dt-paging {
+        justify-content: center;
+        width: 100%;
+    }
+    #acdTabContent .acd-dt-footer .dataTables_paginate .pagination,
+    #acdTabContent .acd-dt-footer .dt-paging .pagination {
+        justify-content: center !important;
+        margin-left: 0 !important;
+    }
 }
 
 .acd-lista-updating {
@@ -396,6 +575,120 @@ body.dark-mode .acd-dict-observacion { background: #292524; color: #fed7aa; }
     font-size: 0.95rem;
 }
 #modalAcdCierreDocumentacion .acd-cierre-banner i { font-size: 1.25rem; opacity: 0.9; }
+.acd-modal-context-title {
+    color: #1f2937;
+    font-weight: 800;
+}
+.acd-modal-context-title .acd-modal-context-client {
+    font-weight: 500;
+}
+.acd-modal-context-subtitle {
+    color: #1f2937;
+    font-size: .78rem;
+    font-weight: 700;
+    line-height: 1.25;
+}
+.acd-form-wrap {
+    border: 1px solid #dbe4ef;
+    border-radius: .65rem;
+    background: #f8fafc;
+    padding: .65rem .8rem;
+    margin-bottom: .85rem;
+}
+.acd-form-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: .75rem;
+    margin-bottom: .5rem;
+}
+.acd-form-title {
+    color: #123150;
+    font-size: .78rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: .035em;
+}
+.acd-form-date {
+    display: inline-flex;
+    align-items: center;
+    gap: .35rem;
+    padding: .18rem .65rem;
+    border: 1px solid #fed7aa;
+    border-radius: 999px;
+    background: #fff7ed;
+    color: #c2410c;
+    font-size: .72rem;
+    font-weight: 800;
+    white-space: nowrap;
+}
+.acd-form-cols {
+    display: grid;
+    grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr);
+    gap: .7rem 1rem;
+}
+.acd-form-grid {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: .38rem .55rem;
+}
+.acd-form-list {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: .38rem;
+}
+.acd-form-field {
+    min-width: 0;
+    border-bottom: 1px solid #dbe4ef;
+    padding-bottom: .25rem;
+}
+.acd-form-field-wide,
+.acd-form-field-series {
+    grid-column: span 2;
+}
+.acd-form-field-head {
+    display: flex;
+    align-items: center;
+    gap: .28rem;
+    color: #64748b;
+    font-size: .67rem;
+    font-weight: 800;
+    letter-spacing: .04em;
+    line-height: 1.1;
+    text-transform: uppercase;
+}
+.acd-form-value {
+    display: flex;
+    align-items: center;
+    gap: .28rem;
+    color: #1f2937;
+    font-size: .82rem;
+    font-weight: 800;
+    line-height: 1.18;
+    margin-top: .08rem;
+    overflow: hidden;
+}
+.acd-form-value span:last-child {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.acd-form-color-dot {
+    width: .72rem;
+    height: .72rem;
+    border-radius: 999px;
+    border: 1px solid rgba(15,23,42,.18);
+    flex: 0 0 auto;
+}
+@media (max-width: 767.98px) {
+    .acd-form-cols {
+        grid-template-columns: 1fr;
+    }
+    .acd-form-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
 #acdCierreContenido {
     align-items: stretch;
 }
@@ -466,6 +759,14 @@ body.dark-mode .acd-dict-observacion { background: #292524; color: #fed7aa; }
 }
 body.dark-mode .acd-cierre-etapas-box,
 body.dark-mode #modalAcdCierreDocumentacion .modal-content { background: #1e293b; color: #e2e8f0; }
+body.dark-mode .acd-modal-context-title,
+body.dark-mode .acd-modal-context-subtitle { color: #e2e8f0; }
+body.dark-mode .acd-form-wrap { background: #0f172a; border-color: #1f2937; }
+body.dark-mode .acd-form-title,
+body.dark-mode .acd-form-value { color: #e2e8f0; }
+body.dark-mode .acd-form-field,
+body.dark-mode .acd-form-date { border-color: #334155; }
+body.dark-mode .acd-form-field-head { color: #94a3b8; }
 body.dark-mode .acd-cierre-etapa-fila { background: #0f172a; color: #bbf7d0; border-color: #22c55e; }
 body.dark-mode .acd-cierre-s2-box { background: #052e16; border-color: #4ade80; }
 body.dark-mode .acd-cierre-s2-text { color: #bbf7d0; }
@@ -589,6 +890,117 @@ body.dark-mode #acdEvidenciaCard {
 }
 body.dark-mode #acdEvidenciaTitulo { color: #fdba74; }
 body.dark-mode #acdEvidenciaTitulo.acd-ev-ok { color: #86efac; }
+.acd-dict-evidencia-card {
+    border: 1px solid #bbf7d0;
+    border-radius: .65rem;
+    background: #f0fdf4;
+    padding: .75rem .85rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: .75rem;
+}
+.acd-dict-evidencia-main {
+    display: flex;
+    align-items: center;
+    gap: .55rem;
+    min-width: 0;
+}
+.acd-dict-evidencia-main i {
+    color: #16a34a;
+    font-size: 1.2rem;
+}
+.acd-dict-evidencia-main strong {
+    display: block;
+    color: #14532d;
+    font-size: .8rem;
+    font-weight: 800;
+    line-height: 1.15;
+}
+.acd-dict-evidencia-main small {
+    display: block;
+    color: #64748b;
+    font-size: .7rem;
+    font-weight: 700;
+    line-height: 1.15;
+}
+body.dark-mode .acd-dict-evidencia-card { background: #052e16; border-color: #22c55e; }
+body.dark-mode .acd-dict-evidencia-main strong { color: #bbf7d0; }
+body.dark-mode .acd-dict-evidencia-main small { color: #94a3b8; }
+.acd-doc-viewer-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 10050;
+    background: rgba(15, 23, 42, 0.78);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 1rem;
+}
+.acd-doc-viewer-overlay.d-none { display: none !important; }
+.acd-doc-viewer-panel {
+    width: min(52rem, 96vw);
+    height: min(42rem, 92vh);
+    overflow: hidden;
+    background: #fff;
+    border-radius: .75rem;
+    box-shadow: 0 20px 50px rgba(0,0,0,.35);
+    padding: 1rem 1.1rem;
+    display: flex;
+    flex-direction: column;
+}
+.acd-doc-viewer-title {
+    color: #14532d;
+    font-size: 1rem;
+    font-weight: 800;
+    line-height: 1.2;
+}
+.acd-doc-viewer-box {
+    flex: 1 1 auto;
+    min-height: 0;
+    height: 28rem;
+    background: #0f172a;
+    border-radius: .5rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: .75rem;
+    overflow: hidden;
+}
+.acd-doc-viewer-box iframe {
+    width: 100%;
+    height: 100%;
+    border: 0;
+    background: #fff;
+    border-radius: .35rem;
+}
+.acd-doc-viewer-box img {
+    max-width: 100%;
+    max-height: 100%;
+    object-fit: contain;
+    transform-origin: center center;
+    transition: transform .1s ease-out;
+    will-change: transform;
+}
+.acd-doc-viewer-box--image {
+    flex-direction: column;
+    align-items: stretch;
+    justify-content: flex-start;
+}
+.acd-doc-viewer-image-wrap {
+    flex: 1 1 auto;
+    min-height: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+}
+.acd-doc-viewer-toolbar {
+    flex-shrink: 0;
+    background: rgba(15, 23, 42, .96);
+    border-top: 1px solid rgba(148, 163, 184, .22);
+    border-radius: 0 0 .5rem .5rem;
+}
 </style>
 
 <div class="container-fluid py-4">
@@ -644,16 +1056,17 @@ body.dark-mode #acdEvidenciaTitulo.acd-ev-ok { color: #86efac; }
     <div class="modal-dialog modal-xl modal-dialog-scrollable modal-dialog-centered">
         <div class="modal-content">
             <div class="modal-header py-2 border-bottom">
-                <h5 class="modal-title mb-0" id="modalAcdCierreDocumentacionLabel">
-                    <i class="fa-solid fa-file-circle-check me-2 text-warning"></i>Cierre documentación
+                <h5 class="modal-title mb-0 acd-modal-context-title" id="modalAcdCierreDocumentacionLabel">
+                    <i class="fa-solid fa-file-circle-check me-2 text-warning"></i>CIERRE DOCUMENTADO
                 </h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
             </div>
             <div class="modal-body pt-4 pb-3">
-                <p class="text-muted small mb-3" id="acdCierreSubtitulo"></p>
+                <p class="acd-modal-context-subtitle mb-3" id="acdCierreSubtitulo"></p>
                 <div id="acdCierreLoader" class="text-center py-4 text-muted" style="display:none;">
                     <div class="spinner-border spinner-border-sm me-2"></div>Cargando expediente…
                 </div>
+                <div id="acdCierreFormularioCapturado"></div>
                 <div id="acdCierreContenido" class="row g-3 mt-1">
                     <div class="col-lg-5">
                         <div class="acd-cierre-etapas-box">
@@ -733,10 +1146,13 @@ body.dark-mode #acdEvidenciaTitulo.acd-ev-ok { color: #86efac; }
     <div class="modal-dialog modal-xl modal-dialog-scrollable modal-dialog-centered">
         <div class="modal-content">
             <div class="modal-header py-2 border-bottom">
-                <h5 class="modal-title mb-0" id="modalAcdDictaminadoDetalleLabel">
+                <h5 class="modal-title mb-0 acd-modal-context-title" id="modalAcdDictaminadoDetalleLabel">
                     <i class="fa-regular fa-eye me-2 text-warning"></i>Expediente dictaminado
                 </h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <div class="px-3 pt-3">
+                <p class="acd-modal-context-subtitle mb-0" id="acdDictaminadoDetalleSubtitulo"></p>
             </div>
             <div class="modal-body" id="acdDictaminadoDetalleBody">
                 <div class="text-center py-5 text-muted">
@@ -747,6 +1163,19 @@ body.dark-mode #acdEvidenciaTitulo.acd-ev-ok { color: #86efac; }
                 <button type="button" class="btn btn-secondary btn-sm rounded-pill" data-bs-dismiss="modal">Cerrar</button>
             </div>
         </div>
+    </div>
+</div>
+
+<!-- Visor interno: evidencia de cierre documentado -->
+<div id="acdDocViewerOverlay" class="acd-doc-viewer-overlay d-none" role="dialog" aria-modal="true" aria-labelledby="acdDocViewerTitle">
+    <div class="acd-doc-viewer-panel" tabindex="-1">
+        <div class="d-flex align-items-center justify-content-between gap-2 mb-2">
+            <h6 class="acd-doc-viewer-title mb-0" id="acdDocViewerTitle">Evidencia de cierre documentado</h6>
+            <button type="button" class="btn btn-sm btn-light border" id="acdDocViewerClose" aria-label="Cerrar">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+        </div>
+        <div class="acd-doc-viewer-box" id="acdDocViewerBox"></div>
     </div>
 </div>
 
@@ -773,6 +1202,8 @@ body.dark-mode #acdEvidenciaTitulo.acd-ev-ok { color: #86efac; }
     let _acdCierreIdOp = 0;
     let _acdCierreBuckets = { atencion: [], validacion: [], recuperacion: [] };
     let _acdEvidenciaUrl = '';
+    let _acdDictaminadoEvidenciaUrl = '';
+    let _acdDocViewerState = { scale: 1, rotate: 0 };
     /** Si true: el modal principal se ocultó solo para ver bitácora; al cerrarla se vuelve a mostrar (no limpiar formulario). */
     let _acdCierreDebeReaparecerTrasBitacora = false;
 
@@ -869,9 +1300,11 @@ body.dark-mode #acdEvidenciaTitulo.acd-ev-ok { color: #86efac; }
         const btn = document.getElementById('acdBtnRegistrarConfirmacionS2');
         const filas = document.getElementById('acdCierreEtapasFilas');
         const sub = document.getElementById('acdCierreSubtitulo');
+        const title = document.getElementById('modalAcdCierreDocumentacionLabel');
         const titEv = document.getElementById('acdEvidenciaTitulo');
         const formEv = document.getElementById('acdEvidenciaFormulario');
         const okEv = document.getElementById('acdEvidenciaExito');
+        const formCap = document.getElementById('acdCierreFormularioCapturado');
         const inpF = document.getElementById('acdEvidenciaArchivo');
         const txC = document.getElementById('acdEvidenciaComentarios');
         if (chk) {
@@ -881,12 +1314,16 @@ body.dark-mode #acdEvidenciaTitulo.acd-ev-ok { color: #86efac; }
         if (btn) btn.disabled = true;
         if (filas) filas.innerHTML = '';
         if (sub) sub.textContent = '';
+        if (title) {
+            title.innerHTML = '<i class="fa-solid fa-file-circle-check me-2 text-warning"></i>CIERRE DOCUMENTADO';
+        }
         if (titEv) {
             titEv.textContent = 'Documento de cierre en S2';
             titEv.classList.remove('acd-ev-ok');
         }
         if (formEv) formEv.style.display = '';
         if (okEv) okEv.style.display = 'none';
+        if (formCap) formCap.innerHTML = '';
         if (inpF) inpF.value = '';
         if (txC) txC.value = '';
     }
@@ -900,6 +1337,13 @@ body.dark-mode #acdEvidenciaTitulo.acd-ev-ok { color: #86efac; }
         const sub = document.getElementById('acdCierreSubtitulo');
         if (sub) {
             sub.textContent = 'Crédito ' + String(idCredito || '') + (nombreCliente ? ' · ' + String(nombreCliente) : '');
+        }
+        const title = document.getElementById('modalAcdCierreDocumentacionLabel');
+        if (title) {
+            title.innerHTML = acdTituloContextualModal(nombreCliente, idCredito);
+        }
+        if (sub) {
+            sub.innerHTML = 'Bandeja de entrada: pendiente de cerrar el cr&eacute;dito en S2.';
         }
         const loader = document.getElementById('acdCierreLoader');
         const contenido = document.getElementById('acdCierreContenido');
@@ -923,7 +1367,9 @@ body.dark-mode #acdEvidenciaTitulo.acd-ev-ok { color: #86efac; }
                 const bit = data.detalle.bitacora || [];
                 _acdCierreBuckets = acdPartirBitacoraPorEtapa(bit);
                 const filas = document.getElementById('acdCierreEtapasFilas');
+                const formCap = document.getElementById('acdCierreFormularioCapturado');
                 if (filas) filas.innerHTML = acdRenderFilasEtapasCierre(_acdCierreBuckets);
+                if (formCap) formCap.innerHTML = acdRenderFormularioOperacion(data.detalle);
             })
             .catch(function (err) {
                 const filas = document.getElementById('acdCierreEtapasFilas');
@@ -944,6 +1390,237 @@ body.dark-mode #acdEvidenciaTitulo.acd-ev-ok { color: #86efac; }
             .replace(/</g, '&lt;')
             .replace(/>/g, '&gt;')
             .replace(/"/g, '&quot;');
+    }
+
+    function acdDatoVisible(v) {
+        if (v === null || v === undefined) return '';
+        const s = String(v).trim();
+        return s === '' || s === 'null' || s === 'undefined' ? '' : s;
+    }
+
+    function acdFormatoTelefono(valor) {
+        const limpio = String(valor || '').replace(/\D/g, '');
+        if (limpio.length === 10) {
+            return limpio.replace(/(\d{3})(\d{3})(\d{4})/, '$1 $2 $3');
+        }
+        if (limpio.length === 12 && limpio.indexOf('52') === 0) {
+            return '+52 ' + limpio.slice(2).replace(/(\d{3})(\d{3})(\d{4})/, '$1 $2 $3');
+        }
+        return acdDatoVisible(valor);
+    }
+
+    function acdFormatoSiNo(valor) {
+        const raw = acdDatoVisible(valor);
+        const s = raw.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+        if (s === 'si' || s === '1' || s === 'true') return 'Si';
+        if (s === 'no' || s === '0' || s === 'false') return 'No';
+        return raw;
+    }
+
+    function acdResguardoTexto(src) {
+        const base = acdDatoVisible(src && src.log_lugar_resguardo);
+        const otro = acdDatoVisible(src && src.log_lugar_otro);
+        const mapa = {
+            'cedis-__SPARTA_SECRET_REDACTED__': 'CEDIS Maxikash',
+            'centro-de-acopio': 'Centro de acopio',
+            'mi_domicilio': 'Mi domicilio',
+            'sucursal': 'Sucursal',
+            'agencia': 'Agencia',
+            'otro': otro || 'Otro'
+        };
+        return mapa[base] || base || otro;
+    }
+
+    function acdIconoFormulario(label) {
+        const k = String(label || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+        if (k.indexOf('marca') !== -1) return 'fa-tag';
+        if (k.indexOf('serie') !== -1 || k.indexOf('vin') !== -1) return 'fa-barcode';
+        if (k.indexOf('modelo') !== -1) return 'fa-motorcycle';
+        if (k.indexOf('ano') !== -1) return 'fa-calendar-days';
+        if (k.indexOf('color') !== -1) return 'fa-palette';
+        if (k.indexOf('motor') !== -1) return 'fa-gears';
+        if (k.indexOf('placa') !== -1) return 'fa-id-card';
+        if (k.indexOf('kilometraje') !== -1) return 'fa-gauge-high';
+        if (k.indexOf('llave') !== -1) return 'fa-key';
+        if (k.indexOf('tarjeta') !== -1) return 'fa-address-card';
+        if (k.indexOf('resguardo') !== -1 || k.indexOf('lugar') !== -1) return 'fa-warehouse';
+        if (k.indexOf('latitud') !== -1 || k.indexOf('longitud') !== -1) return 'fa-location-dot';
+        if (k.indexOf('responsable') !== -1) return 'fa-user-check';
+        if (k.indexOf('telefono') !== -1) return 'fa-phone';
+        if (k.indexOf('direccion') !== -1 || k.indexOf('task') !== -1) return 'fa-route';
+        return 'fa-circle-info';
+    }
+
+    function acdColorCss(valor) {
+        const s = String(valor || '').toLowerCase()
+            .normalize('NFD')
+            .replace(/[\u0300-\u036f]/g, '')
+            .replace(/[^a-z0-9\s]/g, ' ')
+            .replace(/\s+/g, ' ')
+            .trim();
+        const colores = [
+            ['morado', '#7c3aed'], ['morada', '#7c3aed'], ['purpura', '#7c3aed'], ['violeta', '#8b5cf6'], ['lila', '#a78bfa'],
+            ['verde', '#22c55e'], ['rojo', '#ef4444'], ['azul', '#2563eb'], ['amarillo', '#facc15'],
+            ['negro', '#111827'], ['blanco', '#f8fafc'], ['gris', '#64748b'], ['plata', '#94a3b8'],
+            ['naranja', '#f97316'], ['rosa', '#ec4899'], ['cafe', '#92400e'], ['marron', '#92400e'],
+            ['dorado', '#d97706'], ['beige', '#d6b98c'], ['crema', '#f5e6c8']
+        ];
+        for (let i = 0; i < colores.length; i++) {
+            if (s === colores[i][0] || s.indexOf(colores[i][0]) !== -1) return colores[i][1];
+        }
+        return '#cbd5e1';
+    }
+
+    function acdRenderFormularioOperacion(det) {
+        const src = Object.assign({}, det && det.datos_moto && typeof det.datos_moto === 'object' ? det.datos_moto : {}, det || {});
+        const pick = function () {
+            for (let i = 0; i < arguments.length; i++) {
+                if (acdDatoVisible(arguments[i])) return arguments[i];
+            }
+            return '';
+        };
+        const ubicacion = [
+            acdResguardoTexto(src),
+            acdDatoVisible(src.log_ciudad),
+            acdDatoVisible(src.log_estado)
+        ].filter(Boolean).join(' · ');
+        const camposMoto = [
+            ['Marca', src.moto_marca || src.marca],
+            ['Serie', src.moto_no_serie || src.serie],
+            ['Modelo', src.moto_modelo || src.modelo],
+            ['A\u00f1o', src.moto_anio || src.anio || src.ano],
+            ['Color', src.moto_color || src.color],
+            ['No. motor', src.moto_no_motor || src.num_motor || src.no_motor],
+            ['Placas', src.moto_placas || src.placas],
+            ['Kilometraje', src.kilometraje],
+            ['Llave fisica', acdFormatoSiNo(pick(src.llave_fisica, src.tiene_llave_fisica))],
+            ['Placa fisica', acdFormatoSiNo(pick(src.placa_fisica, src.la_moto_tiene_placa_fisica))],
+            ['Tarjeta circulacion', acdFormatoSiNo(pick(src.tarjeta_circulacion, src.tiene_tarjeta_de_circulacion_en_fisico)), true]
+        ];
+        const camposResguardo = [
+            ['Lugar de resguardo', ubicacion, true],
+            ['Responsable', src.responsable_entrega || src.log_responsable || src.nombre_responsable],
+            ['Telefono', acdFormatoTelefono(src.log_telefono || src.telefono_contacto || src.telefono)],
+            ['Direccion resguardo', src.log_direccion || src.direccion, true]
+        ];
+        const fecha = acdDatoVisible(src.datos_moto_fecha);
+
+        function renderCampo(row) {
+            const label = row[0];
+            const rawValue = acdDatoVisible(row[1]);
+            const value = rawValue || 'No capturado';
+            const lower = String(label || '').toLowerCase();
+            const cls = [
+                'acd-form-field',
+                row[2] ? 'acd-form-field-wide' : '',
+                lower === 'serie' ? 'acd-form-field-series' : ''
+            ].filter(Boolean).join(' ');
+            const dot = lower === 'color' && rawValue
+                ? '<span class="acd-form-color-dot" style="background-color:' + acdEsc(acdColorCss(value)) + ';"></span>'
+                : '';
+            return '<div class="' + cls + '" title="' + acdEsc(value) + '">'
+                + '<span class="acd-form-field-head"><i class="fa-solid ' + acdEsc(acdIconoFormulario(label)) + '"></i><span>' + acdEsc(label) + '</span></span>'
+                + '<span class="acd-form-value">' + dot + '<span>' + acdEsc(value) + '</span></span>'
+                + '</div>';
+        }
+
+        return '<div class="acd-form-wrap">'
+            + '<div class="acd-form-head">'
+            + '<span class="acd-form-title"><i class="fa-solid fa-list-check me-1"></i>Formulario capturado</span>'
+            + '<span class="acd-form-date"><i class="fa-solid fa-calendar-check"></i>Capturado ' + acdEsc(fecha || 'No capturado') + '</span>'
+            + '</div>'
+            + '<div class="acd-form-cols">'
+            + '<div class="acd-form-grid">' + camposMoto.map(renderCampo).join('') + '</div>'
+            + '<div class="acd-form-list">' + camposResguardo.map(renderCampo).join('') + '</div>'
+            + '</div>'
+            + '</div>';
+    }
+
+    function acdEsPdfUrl(url) {
+        const clean = String(url || '').split('?')[0].split('#')[0].toLowerCase();
+        return clean.endsWith('.pdf');
+    }
+
+    function acdCerrarVisorDocumento() {
+        const overlay = document.getElementById('acdDocViewerOverlay');
+        const box = document.getElementById('acdDocViewerBox');
+        if (box) {
+            box.classList.remove('acd-doc-viewer-box--image');
+            box.innerHTML = '';
+        }
+        if (overlay) overlay.classList.add('d-none');
+        _acdDocViewerState = { scale: 1, rotate: 0 };
+    }
+
+    function acdCommitVisorImagen() {
+        const box = document.getElementById('acdDocViewerBox');
+        const img = box ? box.querySelector('.acd-doc-viewer-img') : null;
+        const pct = box ? box.querySelector('.acd-doc-viewer-pct') : null;
+        const reset = box ? box.querySelector('.acd-doc-viewer-reset') : null;
+        if (!img) return;
+        img.style.transform = 'rotate(' + _acdDocViewerState.rotate + 'deg) scale(' + _acdDocViewerState.scale + ')';
+        if (pct) pct.textContent = Math.round(_acdDocViewerState.scale * 100) + '%';
+        if (reset) {
+            const changed = _acdDocViewerState.scale !== 1 || _acdDocViewerState.rotate !== 0;
+            reset.classList.toggle('d-none', !changed);
+        }
+    }
+
+    function acdAbrirVisorDocumento(url, titulo) {
+        const rawUrl = String(url || '').trim();
+        if (!rawUrl) return;
+        const overlay = document.getElementById('acdDocViewerOverlay');
+        const box = document.getElementById('acdDocViewerBox');
+        const title = document.getElementById('acdDocViewerTitle');
+        if (!overlay || !box) return;
+        if (title) title.textContent = titulo || 'Evidencia de cierre documentado';
+        _acdDocViewerState = { scale: 1, rotate: 0 };
+        box.classList.remove('acd-doc-viewer-box--image');
+        const urlSafe = acdEsc(rawUrl);
+        if (acdEsPdfUrl(rawUrl)) {
+            box.innerHTML = '<iframe src="' + urlSafe + '" title="Evidencia de cierre documentado"></iframe>';
+        } else {
+            box.classList.add('acd-doc-viewer-box--image');
+            box.innerHTML = ''
+                + '<div class="acd-doc-viewer-image-wrap">'
+                + '<img class="acd-doc-viewer-img" src="' + urlSafe + '" alt="Evidencia de cierre documentado" draggable="false">'
+                + '</div>'
+                + '<div class="acd-doc-viewer-toolbar d-flex align-items-center justify-content-center gap-2 flex-wrap py-1 px-2">'
+                + '<button type="button" class="btn btn-sm btn-outline-light acd-doc-viewer-minus" title="Alejar" aria-label="Alejar"><i class="fa-solid fa-magnifying-glass-minus"></i></button>'
+                + '<span class="small text-white acd-doc-viewer-pct fw-semibold" style="min-width:3.25rem;text-align:center;">100%</span>'
+                + '<button type="button" class="btn btn-sm btn-outline-light acd-doc-viewer-plus" title="Acercar" aria-label="Acercar"><i class="fa-solid fa-magnifying-glass-plus"></i></button>'
+                + '<button type="button" class="btn btn-sm btn-outline-light acd-doc-viewer-rotate-left" title="Rotar izquierda" aria-label="Rotar izquierda"><i class="fa-solid fa-rotate-left"></i></button>'
+                + '<button type="button" class="btn btn-sm btn-outline-light acd-doc-viewer-rotate-right" title="Rotar derecha" aria-label="Rotar derecha"><i class="fa-solid fa-rotate-right"></i></button>'
+                + '<button type="button" class="btn btn-sm btn-outline-secondary acd-doc-viewer-reset d-none">Restablecer</button>'
+                + '</div>';
+            const minus = box.querySelector('.acd-doc-viewer-minus');
+            const plus = box.querySelector('.acd-doc-viewer-plus');
+            const left = box.querySelector('.acd-doc-viewer-rotate-left');
+            const right = box.querySelector('.acd-doc-viewer-rotate-right');
+            const reset = box.querySelector('.acd-doc-viewer-reset');
+            if (minus) minus.addEventListener('click', function () {
+                _acdDocViewerState.scale = Math.max(1, _acdDocViewerState.scale - 0.22);
+                acdCommitVisorImagen();
+            });
+            if (plus) plus.addEventListener('click', function () {
+                _acdDocViewerState.scale = Math.min(4, _acdDocViewerState.scale + 0.22);
+                acdCommitVisorImagen();
+            });
+            if (left) left.addEventListener('click', function () {
+                _acdDocViewerState.rotate = ((_acdDocViewerState.rotate - 90) % 360 + 360) % 360;
+                acdCommitVisorImagen();
+            });
+            if (right) right.addEventListener('click', function () {
+                _acdDocViewerState.rotate = ((_acdDocViewerState.rotate + 90) % 360 + 360) % 360;
+                acdCommitVisorImagen();
+            });
+            if (reset) reset.addEventListener('click', function () {
+                _acdDocViewerState = { scale: 1, rotate: 0 };
+                acdCommitVisorImagen();
+            });
+            acdCommitVisorImagen();
+        }
+        overlay.classList.remove('d-none');
     }
 
     function acdSinDatos(msg) {
@@ -1069,24 +1746,94 @@ body.dark-mode #acdEvidenciaTitulo.acd-ev-ok { color: #86efac; }
         return nombre ? acdEsc(nombre) : '<span class="acd-table-muted">—</span>';
     }
 
+    function acdMinutosTexto(minutos) {
+        const n = parseInt(minutos, 10);
+        if (!Number.isFinite(n) || n < 0) return '';
+        const dias = Math.floor(n / 1440);
+        if (dias > 0) return dias + ' dÃ­a' + (dias === 1 ? '' : 's');
+        const horas = Math.floor((n % 1440) / 60);
+        const mins = n % 60;
+        if (horas > 0) return horas + ' hora' + (horas === 1 ? '' : 's');
+        if (mins > 0) return mins + ' min';
+        return '0 min';
+    }
+
+    function acdParseFechaEtapa(fecha) {
+        const txt = String(fecha || '').trim();
+        if (!txt || txt === '-') return null;
+        const m = txt.match(/^(\d{2})\/(\d{2})\/(\d{4})(?:\s+(\d{2}):(\d{2}))?$/);
+        if (m) {
+            return new Date(
+                parseInt(m[3], 10),
+                parseInt(m[2], 10) - 1,
+                parseInt(m[1], 10),
+                parseInt(m[4] || '0', 10),
+                parseInt(m[5] || '0', 10),
+                0
+            );
+        }
+        const iso = Date.parse(txt.replace(' ', 'T'));
+        return Number.isFinite(iso) ? new Date(iso) : null;
+    }
+
+    function acdMinutosEntreFechas(desde, hasta) {
+        const ini = acdParseFechaEtapa(desde);
+        const fin = hasta ? acdParseFechaEtapa(hasta) : new Date();
+        if (!ini || !fin) return '';
+        return Math.max(0, Math.floor((fin.getTime() - ini.getTime()) / 60000));
+    }
+
+    function acdRenderTiempoEtapa(minutos, desde, lista) {
+        const desdeTxt = desde ? String(desde) : '';
+        const listaTxt = lista ? String(lista) : '';
+        const minutosNum = parseInt(minutos, 10);
+        const minutosCalculados = acdMinutosEntreFechas(desdeTxt, listaTxt);
+        const minutosFinal = (!Number.isFinite(minutosNum) || minutosNum < 0 || (listaTxt && minutosNum === 0 && minutosCalculados > 0))
+            ? minutosCalculados
+            : minutosNum;
+        const tiempo = acdMinutosTexto(minutosFinal);
+        if (!tiempo && !desdeTxt && !listaTxt) {
+            return '<span class="acd-table-muted">-</span>';
+        }
+        return '<span class="acd-op-time">'
+            + '<span class="acd-op-time-label"><i class="fa-solid fa-stopwatch"></i>Tiempo en esta etapa</span>'
+            + (tiempo ? '<strong>' + acdEsc(tiempo) + '</strong>' : '')
+            + (desdeTxt || listaTxt
+                ? '<small>' + (desdeTxt ? 'Desde ' + acdEsc(desdeTxt) : '') + (desdeTxt && listaTxt ? '<br>' : '') + (listaTxt ? 'Lista ' + acdEsc(listaTxt) : '') + '</small>'
+                : '')
+            + '</span>';
+    }
+
     function acdRenderFilaTablaBandeja(item) {
         const gestor = acdGestorTablaHtml(item);
         const cliente = item.nombre_cliente ? acdEsc(item.nombre_cliente) : '<span class="acd-table-muted">Sin nombre</span>';
         const folio = item.folio ? acdEsc(item.folio) : '-';
         const fechaLegacy = item.fecha_gestion_legacy ? acdEsc(item.fecha_gestion_legacy) : '<span class="acd-table-muted">-</span>';
-        const fechaAsignacion = item.fecha_asignacion ? acdEsc(item.fecha_asignacion) : '<span class="acd-table-muted">-</span>';
+        const fechaValidadoRecuperacion = item.fecha_entrada_cierre_documentacion
+            ? acdEsc(item.fecha_entrada_cierre_documentacion)
+            : '<span class="acd-table-muted">-</span>';
+        const tiempoEtapa = acdRenderTiempoEtapa(
+            item.minutos_en_cierre_documentacion,
+            item.fecha_entrada_cierre_documentacion || item.fecha_asignacion || '',
+            ''
+        );
 
         return `
         <tr>
             <td class="acd-table-main">
                 <span class="acd-table-folio">${folio}</span>
                 <span class="acd-table-credit"># ${acdEsc(String(item.id_credito || ''))}</span>
+                <span class="acd-table-main-client"><i class="fa-solid fa-user"></i>${cliente}</span>
             </td>
-            <td class="acd-table-name">${cliente}</td>
-            <td>${gestor}</td>
-            <td>
-                <div class="acd-table-date"><span class="text-muted">Legacy</span> ${fechaLegacy}</div>
-                <div class="acd-table-date"><span class="text-muted">Asig.</span> ${fechaAsignacion}</div>
+            <td class="acd-table-gestor">
+                <span class="acd-table-gestor-name"><i class="fa-solid fa-user-tie"></i>${gestor}</span>
+                <span class="acd-table-legacy-label"><i class="fa-solid fa-calendar-days"></i>FECHA DE ADJUDICACION</span>
+                <span class="acd-table-legacy-date">${fechaLegacy}</span>
+                <span class="acd-table-legacy-label"><i class="fa-solid fa-file-circle-check"></i>VALIDADO EN RECUPERACION</span>
+                <span class="acd-table-legacy-date">${fechaValidadoRecuperacion}</span>
+            </td>
+            <td class="acd-table-operacion">
+                ${tiempoEtapa}
             </td>
             <td class="acd-table-action">
                 <div class="acd-action-buttons">
@@ -1107,19 +1854,31 @@ body.dark-mode #acdEvidenciaTitulo.acd-ev-ok { color: #86efac; }
         const cliente = item.nombre_cliente ? acdEsc(item.nombre_cliente) : '<span class="acd-table-muted">Sin nombre</span>';
         const folio = item.folio ? acdEsc(item.folio) : '-';
         const fechaLegacy = item.fecha_gestion_legacy ? acdEsc(item.fecha_gestion_legacy) : '<span class="acd-table-muted">-</span>';
-        const fechaDictamen = item.fecha_dictamen ? acdEsc(item.fecha_dictamen) : '<span class="acd-table-muted">-</span>';
+        const fechaValidadoRecuperacion = item.fecha_inicio_cierre_documentacion
+            ? acdEsc(item.fecha_inicio_cierre_documentacion)
+            : '<span class="acd-table-muted">-</span>';
+        const tiempoEtapa = acdRenderTiempoEtapa(
+            item.minutos_total_cierre_documentacion,
+            item.fecha_inicio_cierre_documentacion || '',
+            item.fecha_fin_cierre_documentacion || item.fecha_dictamen || ''
+        );
 
         return `
         <tr>
             <td class="acd-table-main">
                 <span class="acd-table-folio">${folio}</span>
                 <span class="acd-table-credit"># ${acdEsc(String(item.id_credito || ''))}</span>
+                <span class="acd-table-main-client"><i class="fa-solid fa-user"></i>${cliente}</span>
             </td>
-            <td class="acd-table-name">${cliente}</td>
-            <td>${gestor}</td>
-            <td>
-                <div class="acd-table-date"><span class="text-muted">Legacy</span> ${fechaLegacy}</div>
-                <div class="acd-table-date"><span class="text-muted">Dict.</span> ${fechaDictamen}</div>
+            <td class="acd-table-gestor">
+                <span class="acd-table-gestor-name"><i class="fa-solid fa-user-tie"></i>${gestor}</span>
+                <span class="acd-table-legacy-label"><i class="fa-solid fa-calendar-days"></i>FECHA DE ADJUDICACION</span>
+                <span class="acd-table-legacy-date">${fechaLegacy}</span>
+                <span class="acd-table-legacy-label"><i class="fa-solid fa-file-circle-check"></i>VALIDADO EN RECUPERACION</span>
+                <span class="acd-table-legacy-date">${fechaValidadoRecuperacion}</span>
+            </td>
+            <td class="acd-table-operacion">
+                ${tiempoEtapa}
             </td>
             <td class="acd-table-action">
                 <div class="acd-action-buttons">
@@ -1146,9 +1905,8 @@ body.dark-mode #acdEvidenciaTitulo.acd-ev-ok { color: #86efac; }
                 <thead>
                     <tr>
                         <th>Operacion</th>
-                        <th>Cliente</th>
                         <th>Gestor</th>
-                        <th>Fechas</th>
+                        <th>Operacion</th>
                         <th class="acd-table-action">Acciones</th>
                     </tr>
                 </thead>
@@ -1194,6 +1952,7 @@ body.dark-mode #acdEvidenciaTitulo.acd-ev-ok { color: #86efac; }
                  '<"row align-items-center mt-3 acd-dt-footer"<"col-sm-12 col-md-5 acd-dt-info"i><"col-sm-12 col-md-7 acd-dt-pages"p>>',
             drawCallback: function () {
                 jQuery(tableId + '_paginate > .pagination').addClass('pagination-sm justify-content-end');
+                jQuery(tableId).closest('.dt-container').find('.dt-paging .pagination').addClass('pagination-sm justify-content-end');
                 jQuery(tableId + '_length select').addClass('form-select form-select-sm');
                 jQuery(tableId + '_filter input').addClass('form-control form-control-sm');
             }
@@ -1211,22 +1970,51 @@ body.dark-mode #acdEvidenciaTitulo.acd-ev-ok { color: #86efac; }
         const base = Object.assign({}, row || {}, det || {});
         const comentarios = base.comentarios || '';
         const dictamen = base.dictamen || '';
+        const evidencias = Array.isArray(base.evidencias) ? base.evidencias : [];
+        const evidenciaCierre = evidencias.find(function (ev) {
+            return ev && ev.slot === 'doc_cierre_s2' && ev.url;
+        }) || null;
+        _acdDictaminadoEvidenciaUrl = evidenciaCierre && evidenciaCierre.url ? String(evidenciaCierre.url) : '';
+        const fechaFinEtapa = base.fecha_fin_cierre_documentacion || base.fecha_dictamen || base.fecha_actualizacion_fmt || '';
+        const fechaInicioEtapa = base.fecha_inicio_cierre_documentacion
+            || base.fecha_entrada_cierre_documentacion
+            || base.fecha_gestion_legacy
+            || base.fecha_alta_fmt
+            || '';
+        const minutosRaw = base.minutos_total_cierre_documentacion != null
+            ? base.minutos_total_cierre_documentacion
+            : base.minutos_en_cierre_documentacion;
+        const minutosNum = parseInt(minutosRaw, 10);
+        const minutosCalc = acdMinutosEntreFechas(fechaInicioEtapa, fechaFinEtapa);
+        const tiempoEtapa = acdMinutosTexto(Number.isFinite(minutosNum) && minutosNum >= 0 ? minutosNum : minutosCalc);
+        const tiempoEtapaDetalle = tiempoEtapa
+            ? tiempoEtapa + (fechaFinEtapa ? ' · Lista ' + fechaFinEtapa : '')
+            : (fechaFinEtapa || '-');
         const chips = [
-            ['Operación', base.folio || ('#' + (base.id || ''))],
-            ['Crédito', base.id_credito || '-'],
-            ['Cliente', base.nombre_cliente || 'Sin nombre'],
             ['Gestor', base.gestor_nombre || '-'],
-            ['Gestión Legacy', base.fecha_gestion_legacy || base.fecha_alta_fmt || '-'],
-            ['Estatus', base.estatus || '-'],
-            ['Fecha dictamen', base.fecha_dictamen || base.fecha_actualizacion_fmt || '-']
+            ['FECHA DE ADJUDICACION', base.fecha_gestion_legacy || base.fecha_alta_fmt || '-'],
+            ['TIEMPO EN ESTA ETAPA', tiempoEtapaDetalle]
         ];
 
         return `
         <div class="d-flex flex-column gap-3">
+            ${acdRenderFormularioOperacion(base)}
             <div class="acd-dict-detail-grid">
                 ${chips.map(function (chip) {
                     return `<div class="acd-dict-chip"><span>${acdEsc(chip[0])}</span><strong>${acdEsc(String(chip[1] || '-'))}</strong></div>`;
                 }).join('')}
+            </div>
+            <div class="acd-dict-evidencia-card">
+                <div class="acd-dict-evidencia-main">
+                    <i class="fa-solid fa-file-circle-check"></i>
+                    <div>
+                        <strong>Evidencia de cierre documentado</strong>
+                        <small>${_acdDictaminadoEvidenciaUrl ? 'Documento cargado en expediente.' : 'Sin documento cargado en expediente.'}</small>
+                    </div>
+                </div>
+                <button type="button" class="btn btn-outline-success btn-sm rounded-pill fw-bold" data-acd-ver-evidencia-dict="1"${_acdDictaminadoEvidenciaUrl ? '' : ' disabled'}>
+                    <i class="fa-regular fa-eye me-1"></i>Ver evidencia
+                </button>
             </div>
             <div>
                 <h6 class="fw-bold mb-2">Dictamen</h6>
@@ -1245,9 +2033,15 @@ body.dark-mode #acdEvidenciaTitulo.acd-ev-ok { color: #86efac; }
         const row = acdBuscarDictaminadoPorOperacion(id);
         const body = document.getElementById('acdDictaminadoDetalleBody');
         const title = document.getElementById('modalAcdDictaminadoDetalleLabel');
+        const subtitle = document.getElementById('acdDictaminadoDetalleSubtitulo');
         if (title) {
-            title.innerHTML = '<i class="fa-regular fa-eye me-2 text-warning"></i>' +
-                acdEsc(row && row.nombre_cliente ? row.nombre_cliente : 'Expediente dictaminado');
+            title.innerHTML = acdTituloContextualModal(
+                row && row.nombre_cliente ? row.nombre_cliente : 'Cliente',
+                row && row.id_credito ? row.id_credito : ''
+            );
+        }
+        if (subtitle) {
+            subtitle.innerHTML = 'Dictaminado: el cr&eacute;dito se cerr&oacute; en S2 y se document&oacute; correctamente.';
         }
         if (body) {
             body.innerHTML = '<div class="text-center py-5 text-muted"><div class="spinner-border spinner-border-sm me-2"></div>Cargando expediente...</div>';
@@ -1284,6 +2078,14 @@ body.dark-mode #acdEvidenciaTitulo.acd-ev-ok { color: #86efac; }
         } else {
             el.style.display = 'none';
         }
+    }
+
+    function acdTituloContextualModal(nombreCliente, idCredito) {
+        const nombre = String(nombreCliente || '').trim() || 'Cliente';
+        const credito = String(idCredito || '').trim();
+        return '<i class="fa-solid fa-file-circle-check me-2 text-warning"></i>'
+            + 'CIERRE DOCUMENTADO &mdash; '
+            + '<span class="acd-modal-context-client">' + acdEsc(nombre) + (credito ? ' (' + acdEsc(credito) + ')' : '') + '</span>';
     }
 
     function acdCargarConteosPestanas() {
@@ -1361,9 +2163,11 @@ body.dark-mode #acdEvidenciaTitulo.acd-ev-ok { color: #86efac; }
                 didOpen: function () { Swal.showLoading(); },
             });
         }
-        acdCargarSeccion('bandeja', true).finally(function () {
+        Promise.all([
+            acdCargarSeccion('bandeja', true),
+            acdCargarConteosPestanas()
+        ]).finally(function () {
             if (hasSwal) Swal.close();
-            acdCargarConteosPestanas();
         });
     }
 
@@ -1389,6 +2193,7 @@ body.dark-mode #acdEvidenciaTitulo.acd-ev-ok { color: #86efac; }
 
         const btnSubEv = document.getElementById('acdBtnSubirEvidenciaCierre');
         const btnVerEv = document.getElementById('acdBtnVerEvidenciaCierre');
+        const dictBody = document.getElementById('acdDictaminadoDetalleBody');
         if (btnSubEv) {
             btnSubEv.addEventListener('click', function () {
                 const idOp = _acdCierreIdOp;
@@ -1449,10 +2254,33 @@ body.dark-mode #acdEvidenciaTitulo.acd-ev-ok { color: #86efac; }
         if (btnVerEv) {
             btnVerEv.addEventListener('click', function () {
                 if (_acdEvidenciaUrl) {
-                    window.open(_acdEvidenciaUrl, '_blank', 'noopener,noreferrer');
+                    acdAbrirVisorDocumento(_acdEvidenciaUrl, 'Evidencia de cierre documentado');
                 }
             });
         }
+        if (dictBody) {
+            dictBody.addEventListener('click', function (e) {
+                const btn = e.target.closest('[data-acd-ver-evidencia-dict]');
+                if (!btn || !_acdDictaminadoEvidenciaUrl) return;
+                acdAbrirVisorDocumento(_acdDictaminadoEvidenciaUrl, 'Evidencia de cierre documentado');
+            });
+        }
+
+        const docViewer = document.getElementById('acdDocViewerOverlay');
+        const docViewerClose = document.getElementById('acdDocViewerClose');
+        if (docViewer) {
+            docViewer.addEventListener('click', function (e) {
+                if (e.target === docViewer) acdCerrarVisorDocumento();
+            });
+        }
+        if (docViewerClose) {
+            docViewerClose.addEventListener('click', acdCerrarVisorDocumento);
+        }
+        document.addEventListener('keydown', function (e) {
+            const overlay = document.getElementById('acdDocViewerOverlay');
+            if (!overlay || overlay.classList.contains('d-none')) return;
+            if (e.key === 'Escape') acdCerrarVisorDocumento();
+        });
 
         const filasEtapas = document.getElementById('acdCierreEtapasFilas');
         if (filasEtapas) {
@@ -1494,8 +2322,10 @@ body.dark-mode #acdEvidenciaTitulo.acd-ev-ok { color: #86efac; }
                             const inst = bootstrap.Modal.getInstance(mEl);
                             if (inst) inst.hide();
                         }
-                        acdCargarConteosPestanas();
-                        acdCargarSeccion('bandeja', true);
+                        Promise.all([
+                            acdCargarSeccion('bandeja', true),
+                            acdCargarConteosPestanas()
+                        ]);
                     })
                     .catch(function (err) {
                         if (typeof Swal !== 'undefined') {

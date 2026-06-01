@@ -97,6 +97,16 @@ class MotosAdjudicadas extends Model
         return isset(self::$adjOperacionColumnas[$columna]);
     }
 
+    private function adjOperacionSelectColumnaONull(string $columna, string $prefijo = ''): string
+    {
+        $alias = str_replace('`', '', $columna);
+        if ($this->adjOperacionTieneColumna($columna)) {
+            $col = '`' . str_replace('`', '``', $columna) . '`';
+            return ($prefijo !== '' ? $prefijo . '.' : '') . $col;
+        }
+        return 'NULL AS `' . str_replace('`', '``', $alias) . '`';
+    }
+
     /**
      * true si en adj_evidencia existen val_atn y comentario_atn (migración aplicada).
      * Prueba con SELECT directo: information_schema a veces no est? permitido para el usuario MySQL.
@@ -4253,6 +4263,10 @@ SQL;
             'no_de_serie_vin' => ['moto_no_serie', 'serie'],
             'no_de_motor' => ['moto_no_motor', 'num_motor'],
             'placas' => ['moto_placas', 'placas'],
+            'kilometraje' => ['kilometraje'],
+            'tiene_llave_fisica' => ['tiene_llave_fisica', 'llave_fisica'],
+            'tiene_tarjeta_de_circulacion_en_fisico' => ['tiene_tarjeta_de_circulacion_en_fisico', 'tarjeta_circulacion'],
+            'la_moto_tiene_placa_fisica' => ['la_moto_tiene_placa_fisica', 'placa_fisica'],
             'marca_y_modelo' => ['moto_modelo', 'modelo'],
             'numero_de_serie' => ['moto_no_serie', 'serie'],
             'direccion_actual' => ['log_direccion'],
@@ -5355,6 +5369,8 @@ EOSQL;
         'moto_marca', 'moto_modelo', 'moto_anio', 'moto_color',
         'moto_no_serie', 'moto_no_motor', 'moto_placas',
         'marca', 'modelo', 'serie', 'num_motor', 'placas',
+        'kilometraje', 'tiene_llave_fisica', 'tiene_tarjeta_de_circulacion_en_fisico',
+        'la_moto_tiene_placa_fisica', 'llave_fisica', 'tarjeta_circulacion', 'placa_fisica',
         'log_direccion', 'log_ciudad',
         'log_estado', 'log_lugar_resguardo', 'log_lugar_otro', 'log_telefono',
         'responsable_entrega',
@@ -6833,10 +6849,21 @@ EOSQL;
             return ['success' => false, 'message' => 'ID de credito invalido.'];
         }
 
+        $colsFormularioCapturado = implode(",\n                    ", [
+            $this->adjOperacionSelectColumnaONull('kilometraje'),
+            $this->adjOperacionSelectColumnaONull('tiene_llave_fisica'),
+            $this->adjOperacionSelectColumnaONull('tiene_tarjeta_de_circulacion_en_fisico'),
+            $this->adjOperacionSelectColumnaONull('la_moto_tiene_placa_fisica'),
+            $this->adjOperacionSelectColumnaONull('llave_fisica'),
+            $this->adjOperacionSelectColumnaONull('tarjeta_circulacion'),
+            $this->adjOperacionSelectColumnaONull('placa_fisica'),
+        ]);
+
         $op = $this->db->queryOne(
             "SELECT id, folio, id_credito, nombre_cliente, estatus,
                     moto_marca, moto_modelo, moto_anio, moto_color,
                     moto_no_serie, moto_no_motor, moto_placas,
+                    {$colsFormularioCapturado},
                     log_direccion, log_ciudad, log_estado, log_lugar_resguardo,
                     log_lugar_otro, log_telefono, responsable_entrega,
                     DATE_FORMAT(fecha_alta, '%Y-%m-%d %H:%i') AS fecha_alta_fmt,
@@ -6909,10 +6936,21 @@ EOSQL;
             $params[$k] = $id;
         }
 
+        $colsFormularioCapturado = implode(",\n                    ", [
+            $this->adjOperacionSelectColumnaONull('kilometraje', 'ao'),
+            $this->adjOperacionSelectColumnaONull('tiene_llave_fisica', 'ao'),
+            $this->adjOperacionSelectColumnaONull('tiene_tarjeta_de_circulacion_en_fisico', 'ao'),
+            $this->adjOperacionSelectColumnaONull('la_moto_tiene_placa_fisica', 'ao'),
+            $this->adjOperacionSelectColumnaONull('llave_fisica', 'ao'),
+            $this->adjOperacionSelectColumnaONull('tarjeta_circulacion', 'ao'),
+            $this->adjOperacionSelectColumnaONull('placa_fisica', 'ao'),
+        ]);
+
         $ops = $this->db->queryAll(
             "SELECT ao.id, ao.folio, ao.id_credito, ao.nombre_cliente, ao.estatus,
                     ao.moto_marca, ao.moto_modelo, ao.moto_anio, ao.moto_color,
                     ao.moto_no_serie, ao.moto_no_motor, ao.moto_placas,
+                    {$colsFormularioCapturado},
                     ao.log_direccion, ao.log_ciudad, ao.log_estado, ao.log_lugar_resguardo,
                     ao.log_lugar_otro, ao.log_telefono, ao.responsable_entrega,
                     DATE_FORMAT(ao.fecha_alta, '%Y-%m-%d %H:%i') AS fecha_alta_fmt,

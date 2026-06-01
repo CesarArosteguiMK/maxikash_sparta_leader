@@ -13,27 +13,29 @@
     "00:05"
   ],
   "lastRunBySlot": {
-    "fallback_20:40": "2026-05-25",
-    "fallback_00:05": "2026-05-26",
-    "fallback_07:40": "2026-05-26",
-    "fallback_09:40": "2026-05-26",
-    "fallback_11:40": "2026-05-26",
-    "fallback_13:40": "2026-05-26",
-    "fallback_14:40": "2026-05-26",
-    "fallback_16:40": "2026-05-26",
-    "fallback_18:40": "2026-05-26",
+    "fallback_20:40": "2026-05-30",
+    "fallback_00:05": "2026-05-31",
+    "fallback_07:40": "2026-05-31",
+    "fallback_09:40": "2026-05-31",
+    "fallback_11:40": "2026-05-31",
+    "fallback_13:40": "2026-05-31",
+    "fallback_14:40": "2026-05-31",
+    "fallback_16:40": "2026-05-31",
+    "fallback_18:40": "2026-05-31",
     "14:48": "2026-05-15",
     "16:40": "2026-05-15",
-    "fallback_23:52": "2026-05-25",
-    "truncar_auto_07_00": "2026-05-26"
+    "fallback_23:52": "2026-05-30",
+    "truncar_auto_07_00": "2026-05-26",
+    "13:58": "2026-05-30"
   },
   "lastRunResult": {
     "success": true,
-    "mensaje": "Proceso completado: 72640 registros copiados y tabla truncada.",
-    "tipo": "truncar_auto",
-    "fecha": "2026-05-26",
-    "hora": "07:00",
-    "registros_copiados": 72640
+    "mensaje": "Archivo copiado automáticamente",
+    "origen": "mega_rpt_20260530_13_31_39.csv.zip",
+    "destino": "mega_rpt_20260530_13_31_40.csv.zip",
+    "fecha": "2026-05-30",
+    "hora": "13:58",
+    "esPrueba": false
   },
   "pruebaEjecutarEn": null,
   "pruebaNoAntesDe": null

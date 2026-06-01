@@ -1278,6 +1278,9 @@ class MotosAdjudicadas extends Controller
             $camposMoto = [
                 'moto_marca','moto_modelo','moto_anio','moto_color',
                 'moto_no_serie','moto_no_motor','moto_placas',
+                'kilometraje',
+                'tiene_llave_fisica','tiene_tarjeta_de_circulacion_en_fisico','la_moto_tiene_placa_fisica',
+                'llave_fisica','tarjeta_circulacion','placa_fisica',
                 'log_direccion','log_ciudad',
                 'log_estado','log_lugar_resguardo','log_lugar_otro','log_telefono',
                 'responsable_entrega',
@@ -1294,6 +1297,9 @@ class MotosAdjudicadas extends Controller
                 foreach ($camposMoto as $c) {
                     $datosMoto[$c] = $detalle[$c] ?? null;
                 }
+                $datosMoto['llave_fisica'] = $datosMoto['llave_fisica'] ?? ($detalle['tiene_llave_fisica'] ?? null);
+                $datosMoto['tarjeta_circulacion'] = $datosMoto['tarjeta_circulacion'] ?? ($detalle['tiene_tarjeta_de_circulacion_en_fisico'] ?? null);
+                $datosMoto['placa_fisica'] = $datosMoto['placa_fisica'] ?? ($detalle['la_moto_tiene_placa_fisica'] ?? null);
             }
 
             $detalleCompacto = [
