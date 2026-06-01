@@ -498,6 +498,142 @@
       background: linear-gradient(135deg, #24324d 0%, #0d6efd 100%);
     }
 
+    .gestion-avatar-btn {
+      border: 0;
+      background: transparent;
+      padding: 0;
+      border-radius: 999px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      line-height: 1;
+      width: 46px;
+      height: 46px;
+      min-width: 46px;
+      flex: 0 0 auto;
+    }
+
+    .gestion-avatar-btn:hover .gestion-personal-avatar,
+    .gestion-avatar-btn:hover .gestion-personal-avatar-fallback {
+      transform: translateY(-1px) scale(1.03);
+      box-shadow: 0 8px 22px rgba(30, 41, 59, 0.22);
+    }
+
+    .gestion-avatar-btn:focus-visible {
+      outline: 3px solid rgba(37, 99, 235, 0.35);
+      outline-offset: 3px;
+    }
+
+    .gestion-personal-avatar,
+    .gestion-personal-avatar-fallback {
+      transition: transform .15s ease, box-shadow .15s ease;
+    }
+
+    #modalGestionFotoUsuario .modal-dialog {
+      max-width: min(34rem, calc(100vw - 2rem));
+      margin: 1.75rem auto;
+    }
+
+    #modalGestionFotoUsuario.modal.show {
+      background: rgba(15, 23, 42, 0.68);
+      z-index: 100080 !important;
+    }
+
+    #modalGestionFotoUsuario .modal-content {
+      border: 0;
+      border-radius: 1rem;
+      overflow: hidden;
+      box-shadow: 0 22px 55px rgba(15, 23, 42, 0.22);
+    }
+
+    #modalGestionFotoUsuario .modal-header {
+      padding: 1rem 1.2rem;
+      border-bottom: 1px solid #e5e7eb;
+      background: #fff;
+    }
+
+    #modalGestionFotoUsuario .modal-title {
+      color: #172033;
+      font-size: 1rem;
+      font-weight: 800;
+      line-height: 1.25;
+    }
+
+    .gestion-foto-subtitle {
+      color: #64748b;
+      font-size: .76rem;
+      font-weight: 700;
+      margin-top: .15rem;
+    }
+
+    .gestion-foto-body {
+      padding: 1.15rem;
+      background: #f8fafc;
+    }
+
+    .gestion-foto-stage {
+      height: min(58vh, 28rem);
+      min-height: 18rem;
+      border-radius: .85rem;
+      background: #0f172a;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+    }
+
+    .gestion-foto-img {
+      max-width: 100%;
+      max-height: 100%;
+      width: auto;
+      height: auto;
+      object-fit: contain;
+      display: block;
+    }
+
+    .gestion-foto-fallback {
+      width: 10rem;
+      height: 10rem;
+      border-radius: 999px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      color: #fff;
+      font-size: 3rem;
+      font-weight: 900;
+      letter-spacing: 0;
+      background: linear-gradient(135deg, #24324d 0%, #0d6efd 100%);
+      border: 4px solid rgba(255, 255, 255, .92);
+      box-shadow: 0 20px 40px rgba(0, 0, 0, .22);
+    }
+
+    .gestion-foto-footer {
+      padding: .75rem 1.15rem;
+      border-top: 1px solid #e5e7eb;
+      background: #fff;
+      display: flex;
+      justify-content: flex-end;
+    }
+
+    body.dark-mode #modalGestionFotoUsuario .modal-header {
+      background: #111827;
+      border-color: #1f2937;
+    }
+
+    body.dark-mode #modalGestionFotoUsuario .modal-title {
+      color: #e2e8f0;
+    }
+
+    body.dark-mode .gestion-foto-body {
+      background: #0f172a;
+    }
+
+    body.dark-mode .gestion-foto-footer {
+      background: #111827;
+      border-color: #1f2937;
+    }
+
     .gestion-personal-name-info {
       min-width: 0;
       line-height: 1.18;
@@ -5057,6 +5193,33 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
         </div>
         <?php endif; ?>
 
+        <div class="modal fade" id="modalGestionFotoUsuario" tabindex="-1" aria-labelledby="modalGestionFotoUsuarioLabel" aria-hidden="true" data-bs-backdrop="false" data-bs-keyboard="true">
+          <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+              <div class="modal-header">
+                <div>
+                  <h5 class="modal-title mb-0" id="modalGestionFotoUsuarioLabel">
+                    <i class="fa fa-image me-2"></i><span id="gestionFotoVisorNombre">Foto de usuario</span>
+                  </h5>
+                  <div class="gestion-foto-subtitle" id="gestionFotoVisorSubtitulo">Foto de perfil</div>
+                </div>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+              </div>
+              <div class="modal-body gestion-foto-body">
+                <div class="gestion-foto-stage">
+                  <img id="gestionFotoVisorImg" class="gestion-foto-img d-none" src="" alt="">
+                  <div id="gestionFotoVisorFallback" class="gestion-foto-fallback d-none">US</div>
+                </div>
+              </div>
+              <div class="gestion-foto-footer">
+                <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">
+                  <i class="fa fa-xmark me-1"></i>Cerrar
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
         <!-- =======================
              FILTRO DE FECHAS PARA BAJAS (oculto por defecto)
         ======================== -->
@@ -9082,11 +9245,88 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
 
   function avatarPersonaHtml(persona, nombreCompleto) {
     const foto = String(persona.foto_perfil || '').trim();
+    const iniciales = inicialesPersona(nombreCompleto);
+    const nombreEsc = escapeAttr(nombreCompleto || 'Usuario');
+    const fotoEsc = escapeAttr(foto);
+    const inicialesEsc = escapeAttr(iniciales);
+    const title = foto ? 'Ver foto de ' : 'Ver avatar de ';
     if (foto) {
-      return `<img class="gestion-personal-avatar" src="${escapeAttr(foto)}" alt="Foto de ${escapeAttr(nombreCompleto)}" loading="lazy" decoding="async" onerror="this.outerHTML='<span class=&quot;gestion-personal-avatar-fallback&quot;>${inicialesPersona(nombreCompleto)}</span>'">`;
+      return `<button type="button" class="gestion-avatar-btn" data-gestion-foto="${fotoEsc}" data-gestion-nombre="${nombreEsc}" data-gestion-iniciales="${inicialesEsc}" title="${escapeAttr(title + (nombreCompleto || 'usuario'))}" aria-label="${escapeAttr(title + (nombreCompleto || 'usuario'))}" onclick="abrirVisorFotoGestion(this, event)">
+        <img class="gestion-personal-avatar" src="${fotoEsc}" alt="Foto de ${nombreEsc}" loading="lazy" decoding="async" onerror="this.style.display='none';this.nextElementSibling.style.display='inline-flex';">
+        <span class="gestion-personal-avatar-fallback" style="display:none;">${inicialesEsc}</span>
+      </button>`;
     }
-    return `<span class="gestion-personal-avatar-fallback">${inicialesPersona(nombreCompleto)}</span>`;
+    return `<button type="button" class="gestion-avatar-btn" data-gestion-foto="" data-gestion-nombre="${nombreEsc}" data-gestion-iniciales="${inicialesEsc}" title="${escapeAttr(title + (nombreCompleto || 'usuario'))}" aria-label="${escapeAttr(title + (nombreCompleto || 'usuario'))}" onclick="abrirVisorFotoGestion(this, event)">
+      <span class="gestion-personal-avatar-fallback">${inicialesEsc}</span>
+    </button>`;
   }
+
+  window.abrirVisorFotoGestion = function (el, event) {
+    if (event) {
+      event.preventDefault();
+      event.stopPropagation();
+    }
+    const modalEl = document.getElementById('modalGestionFotoUsuario');
+    const nombreEl = document.getElementById('gestionFotoVisorNombre');
+    const subtituloEl = document.getElementById('gestionFotoVisorSubtitulo');
+    const imgEl = document.getElementById('gestionFotoVisorImg');
+    const fallbackEl = document.getElementById('gestionFotoVisorFallback');
+    if (!modalEl || !imgEl || !fallbackEl) return;
+
+    if (modalEl.parentNode !== document.body) {
+      document.body.appendChild(modalEl);
+    }
+
+    const nombre = (el && el.getAttribute('data-gestion-nombre')) || 'Usuario';
+    const foto = (el && el.getAttribute('data-gestion-foto')) || '';
+    const iniciales = (el && el.getAttribute('data-gestion-iniciales')) || inicialesPersona(nombre);
+
+    if (nombreEl) nombreEl.textContent = nombre;
+    fallbackEl.textContent = iniciales;
+    imgEl.onerror = function () {
+      imgEl.classList.add('d-none');
+      imgEl.removeAttribute('src');
+      if (subtituloEl) subtituloEl.textContent = 'Avatar generado con iniciales';
+      fallbackEl.classList.remove('d-none');
+    };
+
+    if (foto) {
+      fallbackEl.classList.add('d-none');
+      if (subtituloEl) subtituloEl.textContent = 'Foto de perfil';
+      imgEl.alt = 'Foto de ' + nombre;
+      imgEl.src = foto;
+      imgEl.classList.remove('d-none');
+    } else {
+      if (subtituloEl) subtituloEl.textContent = 'Avatar generado con iniciales';
+      imgEl.classList.add('d-none');
+      imgEl.removeAttribute('src');
+      fallbackEl.classList.remove('d-none');
+    }
+
+    document.querySelectorAll('.modal-backdrop').forEach(function (backdrop) {
+      backdrop.remove();
+    });
+    modalEl.style.setProperty('z-index', '100080', 'important');
+    bootstrap.Modal.getOrCreateInstance(modalEl, { backdrop: false, keyboard: true }).show();
+  };
+
+  document.addEventListener('click', function (event) {
+    const modalEl = document.getElementById('modalGestionFotoUsuario');
+    if (modalEl && event.target === modalEl) {
+      bootstrap.Modal.getInstance(modalEl)?.hide();
+    }
+  });
+
+  document.addEventListener('hidden.bs.modal', function (event) {
+    if (event.target && event.target.id === 'modalGestionFotoUsuario') {
+      event.target.style.removeProperty('z-index');
+      const imgEl = document.getElementById('gestionFotoVisorImg');
+      if (imgEl) {
+        imgEl.classList.add('d-none');
+        imgEl.removeAttribute('src');
+      }
+    }
+  });
 
   function actualizarTabla(datos) {
     // Si estamos usando DataTables
@@ -13872,6 +14112,99 @@ function precargarCascadaEdit(idPais, idEstado, idMunicipio, idColonia, idCalle,
     resetRrhhFormCompleto();
   });
 
+  function htmlEscapeRrhhLegacy(value) {
+    const div = document.createElement('div');
+    div.textContent = String(value ?? '');
+    return div.innerHTML;
+  }
+
+  function swalUsuarioGuardadoRrhh(data, esEdicion) {
+    const legacy = data && data.datos && data.datos.legacy_sync ? data.datos.legacy_sync : null;
+    if (!legacy) {
+      return Swal.fire({
+        icon: 'warning',
+        title: esEdicion ? 'Usuario actualizado' : 'Usuario registrado',
+        html:
+          '<div class="text-start">' +
+            '<div class="mb-2">' + htmlEscapeRrhhLegacy(data.mensaje || 'Usuario RR.HH. guardado correctamente.') + '</div>' +
+            '<div class="border rounded-3 p-3 bg-label-warning text-dark">' +
+              '<div class="fw-bold mb-1"><i class="fa fa-triangle-exclamation me-1"></i>Sincronizaci&oacute;n Legacy sin confirmar</div>' +
+              '<div class="small">La respuesta no incluy&oacute; el resultado de Legacy. Revisa bit&aacute;cora o ejecuta reproceso de pendientes.</div>' +
+            '</div>' +
+          '</div>',
+        confirmButtonText: 'Aceptar'
+      });
+    }
+
+    const resultado = String(legacy.resultado || '').toLowerCase();
+    const mensaje = legacy.mensaje || '';
+    const numeroEmpleadoLegacy = (data.datos && data.datos.numero_empleado) || legacy.external_id || '';
+    const creadoLegacy = !!(legacy.detalle && legacy.detalle.usuario_legacy_creado);
+    const reactivadoLegacy = !!(legacy.detalle && legacy.detalle.usuario_legacy_reactivado);
+    let icon = 'success';
+    let title = esEdicion ? 'Usuario actualizado' : 'Usuario registrado';
+    let estado = 'Sincronizado en Legacy';
+    let estadoDetalle = 'Los cambios ya quedaron aplicados en Legacy.';
+    let badgeClass = 'bg-success';
+    let panelClass = 'border-success bg-label-success';
+    let iconClass = 'fa-circle-check text-success';
+
+    if (resultado === 'sin_cambios') {
+      estado = 'Legacy ya estaba sincronizado';
+      estadoDetalle = 'No hubo diferencias que actualizar en Legacy.';
+      badgeClass = 'bg-info';
+      panelClass = 'border-info bg-label-info';
+      iconClass = 'fa-circle-info text-info';
+    } else if (resultado === 'omitido') {
+      estado = 'No aplica sincronizaci&oacute;n Legacy';
+      estadoDetalle = 'El usuario no entra en alcance o no tiene un n&uacute;mero de empleado v&aacute;lido.';
+      badgeClass = 'bg-secondary';
+      panelClass = 'border-secondary bg-label-secondary';
+      iconClass = 'fa-circle-minus text-secondary';
+    } else if (resultado === 'error') {
+      icon = 'warning';
+      title = 'Usuario guardado, Legacy pendiente';
+      estado = 'Legacy no se pudo actualizar';
+      estadoDetalle = 'El usuario se guard&oacute; en Spartan, pero Legacy requiere revisi&oacute;n o reproceso.';
+      badgeClass = 'bg-warning text-dark';
+      panelClass = 'border-warning bg-label-warning';
+      iconClass = 'fa-triangle-exclamation text-warning';
+    } else if (resultado === 'actualizado') {
+      if (creadoLegacy) {
+        estado = 'Creado y sincronizado en Legacy';
+        estadoDetalle = 'El usuario ya existe en Legacy con rol y jerarqu&iacute;a actualizados.';
+      } else if (reactivadoLegacy) {
+        estado = 'Reactivado y sincronizado en Legacy';
+        estadoDetalle = 'El usuario estaba dado de baja en Legacy y fue reactivado.';
+      } else {
+        estado = 'Actualizado en Legacy';
+        estadoDetalle = 'Rol y jerarqu&iacute;a fueron sincronizados con Legacy.';
+      }
+    }
+
+    return Swal.fire({
+      icon,
+      title,
+      html:
+        '<div class="text-start">' +
+          '<div class="mb-2">' + htmlEscapeRrhhLegacy(data.mensaje || 'Datos RR.HH. actualizados correctamente.') + '</div>' +
+          '<div class="border rounded-3 p-3 ' + panelClass + '">' +
+            '<div class="d-flex align-items-center justify-content-between gap-2 flex-wrap mb-1">' +
+              '<div class="fw-bold"><i class="fa ' + iconClass + ' me-1"></i>Sincronizaci&oacute;n Legacy</div>' +
+              '<span class="badge ' + badgeClass + '">' + htmlEscapeRrhhLegacy(estado) + '</span>' +
+            '</div>' +
+            '<div class="small mb-2">' + estadoDetalle + '</div>' +
+            '<div class="small text-muted">' +
+              (resultado ? '<span class="me-2">Resultado: <strong>' + htmlEscapeRrhhLegacy(resultado) + '</strong></span>' : '') +
+              (numeroEmpleadoLegacy ? '<span>No. empleado: <strong>' + htmlEscapeRrhhLegacy(numeroEmpleadoLegacy) + '</strong></span>' : '') +
+            '</div>' +
+          '</div>' +
+          (mensaje ? '<div class="small text-muted mt-2">' + htmlEscapeRrhhLegacy(mensaje) + '</div>' : '') +
+        '</div>',
+      confirmButtonText: 'Aceptar'
+    });
+  }
+
   form.addEventListener('submit', async function (event) {
     event.preventDefault();
     const submitBtn = form.querySelector('button[type="submit"]');
@@ -13881,6 +14214,16 @@ function precargarCascadaEdit(idPais, idEstado, idMunicipio, idColonia, idCalle,
       const endpoint = form.dataset.mode === 'editar'
         ? '/CapHum/actualizarUsuarioRrhh'
         : '/CapHum/registrarUsuarioRrhh';
+
+      Swal.fire({
+        title: form.dataset.mode === 'editar' ? 'Actualizando usuario...' : 'Guardando usuario...',
+        html: '<div class="spinner-border text-primary" role="status"><span class="visually-hidden">Cargando...</span></div><p style="margin-top: 1rem;">Guardando en Spartan y sincronizando con Legacy...</p>',
+        allowOutsideClick: false,
+        allowEscapeKey: false,
+        showConfirmButton: false,
+        didOpen: () => Swal.showLoading()
+      });
+
       const response = await fetch(endpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
@@ -13892,7 +14235,7 @@ function precargarCascadaEdit(idPais, idEstado, idMunicipio, idColonia, idCalle,
         throw new Error(data.mensaje || data.error || 'No se pudo registrar el usuario.');
       }
 
-      await Swal.fire('Listo', data.mensaje || 'Usuario RR.HH. guardado correctamente.', 'success');
+      await swalUsuarioGuardadoRrhh(data, form.dataset.mode === 'editar');
       bootstrap.Modal.getInstance(modal)?.hide();
       if (typeof llenarFiltros === 'function') llenarFiltros();
     } catch (error) {

@@ -152,6 +152,16 @@ class DatabaseLegacy
         return $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
     }
 
+    /** Ultimo AUTO_INCREMENT generado en esta conexion (tras INSERT). */
+    public function lastInsertId(): int
+    {
+        if (!$this->db) {
+            return 0;
+        }
+
+        return (int) $this->db->lastInsertId();
+    }
+
     public function CRUD($sql, $valores = null, &$retorno = null)
     {
         $stmt = $this->runQuery($sql, $valores, $retorno);
