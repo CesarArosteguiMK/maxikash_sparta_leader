@@ -2270,27 +2270,25 @@ $aevPuedeReemplazarEvidencia = in_array(79, array_map('intval', (array) ($_SESSI
         const m   = aevMapaPorSlot(evl);
         const vi   = aevCuentaValidadosImagen(evl);
         const vpdf = aevCuentaValidadosPdf(evl);
+        const vall = aevCuentaValidadosTot(evl);
+        const pctAll = AEV_MODAL_TOTAL ? Math.round((vall / AEV_MODAL_TOTAL) * 100) : 0;
         const mostrarDoc = vpdf > 0 || aevImagenesTodasAceptadas(evl);
 
         let html = '';
         html += aeRenderFormularioOperacion(det);
 
-<<<<<<< HEAD
         html += '<div class="aev-ev-progress-wrap">';
         html += '<div class="d-flex justify-content-between align-items-end mb-1 flex-wrap gap-1">';
         html += '<span style="font-size:.75rem;font-weight:700;color:#0f172a;">Progreso de evidencias <span class="text-success">validadas</span> (fotos / video + documento)</span>';
         html += '<span class="aev-ev-progress-lbl" id="aev-lbl-9">' + vall + ' / ' + AEV_MODAL_TOTAL + '</span>';
-        html += '</div><div class="aev-ev-progress-bg"><div class="aev-ev-progress-fill" id="aev-fill-9" style="width:' + pct9 + '%;"></div></div>';
+        html += '</div><div class="aev-ev-progress-bg"><div class="aev-ev-progress-fill" id="aev-fill-9" style="width:' + pctAll + '%;"></div></div>';
         html += '<div class="aev-ev-progress-sub">Fotos/video: ' + vi + ' / ' + AEV_TOTAL_IMAGEN + '</div>';
         html += '</div>';
 
-        AEV_EV_SECTIONS.forEach(function (sec) { html += aevRenderSeccionValidar(sec, m); });
-=======
         AEV_EV_SECTIONS.forEach(function (sec) {
             const completa = vi >= AEV_TOTAL_IMAGEN;
             html += aevRenderSeccionValidar(sec, m, (completa ? 'Evidencias completas ' : 'Evidencias pendientes ') + vi + '/' + AEV_TOTAL_IMAGEN);
         });
->>>>>>> 56df8a893cbe71ed1419e8adcdf641b1a047e567
         if (!_aevStore.soloLectura) {
             html += '<p class="aev-ev-hint mt-1 mb-2" role="note"><i class="fa-solid fa-hand-pointer me-1" style="opacity:.65;" aria-hidden="true"></i>Clic en cada evidencia para aceptar o rechazar.</p>';
         }
@@ -2982,18 +2980,10 @@ $aevPuedeReemplazarEvidencia = in_array(79, array_map('intval', (array) ($_SESSI
                 <span class="ae-table-credit"># ${aeEsc(String(item.id_credito))}</span>
                 <span class="ae-table-main-client"><i class="fa-solid fa-user"></i>${cliente}</span>
             </td>
-<<<<<<< HEAD
-            <td class="ae-table-name">${cliente}</td>
-            <td>${gestor}</td>
-            <td>
-                <div class="ae-table-date"><span class="text-muted">Dict.</span> ${fechaAsignacion}</div>
-                ${fechaAprobacion}
-=======
             <td class="ae-table-gestor">
                 <span class="ae-table-gestor-name"><i class="fa-solid fa-user-tie"></i>${gestor}</span>
                 <span class="ae-table-legacy-label"><i class="fa-solid fa-calendar-days"></i>DICTAMINADO EN LEGACY</span>
                 <span class="ae-table-legacy-date">${fechaDictamenLegacy}</span>
->>>>>>> 56df8a893cbe71ed1419e8adcdf641b1a047e567
             </td>
             <td class="ae-table-evidence">${aeRenderEstadoEvidencias(item, key)}</td>
             <td class="ae-table-action">
