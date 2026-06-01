@@ -3076,6 +3076,27 @@ SQL;
             'idExacto' => ctype_digit($buscar) ? (int) $buscar : 0,
             'q' => '%' . $buscar . '%',
         ];
+        $tokens = preg_split('/\s+/', $buscar) ?: [];
+        $tokenConditions = [];
+        foreach ($tokens as $idx => $token) {
+            $token = trim((string) $token);
+            if ($token === '' || mb_strlen($token) < 2) {
+                continue;
+            }
+            $key = 'qtok' . $idx;
+            $params[$key] = '%' . $token . '%';
+            $tokenConditions[] = "(
+                p.numero_empleado LIKE :{$key}
+                OR p.user_name LIKE :{$key}
+                OR p.nombres LIKE :{$key}
+                OR p.segundo_nombre LIKE :{$key}
+                OR p.apellidop LIKE :{$key}
+                OR p.apellidom LIKE :{$key}
+                OR TRIM(CONCAT_WS(' ', p.nombres, p.segundo_nombre, p.apellidop, p.apellidom)) LIKE :{$key}
+                OR TRIM(CONCAT_WS(' ', p.apellidop, p.apellidom, p.nombres, p.segundo_nombre)) LIKE :{$key}
+            )";
+        }
+        $tokenSql = $tokenConditions !== [] ? ' OR (' . implode(' AND ', $tokenConditions) . ')' : '';
 
         $rows = $this->db->queryAll(
             "SELECT
@@ -3093,6 +3114,8 @@ SQL;
                     OR p.numero_empleado LIKE :q
                     OR p.user_name LIKE :q
                     OR TRIM(CONCAT_WS(' ', p.nombres, p.segundo_nombre, p.apellidop, p.apellidom)) LIKE :q
+                    OR TRIM(CONCAT_WS(' ', p.apellidop, p.apellidom, p.nombres, p.segundo_nombre)) LIKE :q
+                    {$tokenSql}
                )
              GROUP BY p.id, p.numero_empleado, p.nombres, p.segundo_nombre, p.apellidop, p.apellidom
              ORDER BY nombre_completo ASC
