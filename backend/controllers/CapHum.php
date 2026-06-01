@@ -4433,6 +4433,14 @@ class CapHum extends Controller
                 if (id_div_nivel3 && selCalleAdd && !selCalleAdd.disabled && selCalleAdd.options && selCalleAdd.options.length > 1 && !id_div_nivel4 && !calleTxtAdd) {
                     return Swal.fire('Error', 'Indique la calle: elija una del catálogo o escríbala en el campo de texto (nombre o número, p. ej. Calle 10A).', 'error');
                 }
+                Swal.fire({
+                    title: 'Guardando usuario...',
+                    html: '<div class="spinner-border text-primary" role="status"><span class="visually-hidden">Cargando...</span></div><p style="margin-top: 1rem;">Guardando en Spartan y sincronizando con Legacy...</p>',
+                    allowOutsideClick: false,
+                    allowEscapeKey: false,
+                    showConfirmButton: false,
+                    didOpen: () => Swal.showLoading()
+                });
 
                 fetch('/CapHum/getInsertarGestor', {
                     method: 'POST',

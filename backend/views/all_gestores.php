@@ -14214,6 +14214,16 @@ function precargarCascadaEdit(idPais, idEstado, idMunicipio, idColonia, idCalle,
       const endpoint = form.dataset.mode === 'editar'
         ? '/CapHum/actualizarUsuarioRrhh'
         : '/CapHum/registrarUsuarioRrhh';
+
+      Swal.fire({
+        title: form.dataset.mode === 'editar' ? 'Actualizando usuario...' : 'Guardando usuario...',
+        html: '<div class="spinner-border text-primary" role="status"><span class="visually-hidden">Cargando...</span></div><p style="margin-top: 1rem;">Guardando en Spartan y sincronizando con Legacy...</p>',
+        allowOutsideClick: false,
+        allowEscapeKey: false,
+        showConfirmButton: false,
+        didOpen: () => Swal.showLoading()
+      });
+
       const response = await fetch(endpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
