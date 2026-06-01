@@ -19,6 +19,7 @@ $opcionesTracking = [
         'btn'    => 'Ver borradores',
         'icon'   => 'fa-file-pen',
         'visual' => 'rocket',
+        'imgUrl' => 'https://cdn-icons-png.flaticon.com/512/13821/13821559.png',
         'class'  => 'primary',
     ],
     [
@@ -28,6 +29,7 @@ $opcionesTracking = [
         'btn'    => 'Ver rutas',
         'icon'   => 'fa-map-marked-alt',
         'visual' => 'map',
+        'imgUrl' => 'https://cdn-icons-png.flaticon.com/512/18251/18251605.png',
         'class'  => 'primary',
     ],
     [
@@ -148,7 +150,11 @@ SVG,
                                         </div>
                                         <div class="w-100 app-academy-sm-40 d-flex justify-content-center justify-content-sm-end h-px-150 mb-4 mb-sm-0">
                                             <div class="trk-menu-visual" aria-hidden="true">
-                                                <?= trackingMenuSvg((string) ($op['visual'] ?? 'checklist')); ?>
+                                                <?php if (!empty($op['imgUrl'])): ?>
+                                                    <img src="<?= htmlspecialchars($op['imgUrl'], ENT_QUOTES, 'UTF-8'); ?>" alt="" style="width:132px;height:132px;object-fit:contain;">
+                                                <?php else: ?>
+                                                    <?= trackingMenuSvg((string) ($op['visual'] ?? 'checklist')); ?>
+                                                <?php endif; ?>
                                             </div>
                                         </div>
                                     </div>

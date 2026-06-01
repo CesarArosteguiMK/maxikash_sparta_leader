@@ -3474,8 +3474,28 @@ class CapHum extends Controller
                         .then(response => response.json())
                         .then(data => {
                             if (data.success) {
+                                const legacyBaja = data.datos && data.datos.legacy_sync ? data.datos.legacy_sync : null;
+                                const legacyResultado = legacyBaja ? String(legacyBaja.resultado || '').toLowerCase() : '';
+                                const legacyMensaje = legacyBaja && legacyBaja.mensaje ? String(legacyBaja.mensaje) : '';
+                                let legacyHtml = '';
+                                if (legacyBaja) {
+                                    const legacyOk = legacyResultado !== 'error';
+                                    const legacyBadge = legacyResultado === 'sin_cambios'
+                                        ? 'bg-info'
+                                        : (legacyResultado === 'omitido' ? 'bg-secondary' : (legacyOk ? 'bg-success' : 'bg-warning text-dark'));
+                                    const legacyEstado = legacyResultado === 'sin_cambios'
+                                        ? 'Legacy ya estaba dado de baja'
+                                        : (legacyResultado === 'omitido' ? 'Legacy sin registro activo' : (legacyOk ? 'Legacy dado de baja' : 'Legacy pendiente'));
+                                    legacyHtml =
+                                        '<div class="text-start">' +
+                                            '<div class="mb-2">' + (data.message || 'La baja se registrÃ³ correctamente.') + '</div>' +
+                                            '<span class="badge ' + legacyBadge + '">' + legacyEstado + '</span>' +
+                                            (legacyMensaje ? '<div class="small text-muted mt-2">' + legacyMensaje + '</div>' : '') +
+                                        '</div>';
+                                }
                                 Swal.fire({
-                                    icon: 'success',
+                                    icon: legacyResultado === 'error' ? 'warning' : 'success',
+                                    html: legacyHtml || undefined,
                                     title: '¡Listo!',
                                     text: data.message || 'La baja se registró correctamente.'
                                 }).then(() => {
@@ -14680,6 +14700,7 @@ public function getEstadosMunicipiosMexico()
         if ($resultado['success']) {
             echo json_encode([
                 'success' => true,
+                'datos' => $resultado['datos'] ?? null,
                 'message' => 'La baja se registró correctamente'
             ]);
         } else {

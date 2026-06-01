@@ -1003,9 +1003,12 @@ class CapHumRrhh extends Model
             }
 
             $db->commit();
+
+            $legacySync = LegacyUserSync::sincronizarDesdeEditarUsuario($idPersona, $idSesion);
             return self::resultado(true, 'Usuario RR.HH. registrado correctamente.', [
                 'id_persona' => $idPersona,
                 'numero_empleado' => $numeroEmpleado,
+                'legacy_sync' => $legacySync,
             ]);
         } catch (\Exception $e) {
             if (isset($db)) {
@@ -1623,7 +1626,12 @@ class CapHumRrhh extends Model
             unset($GLOBALS['rrhh_observaciones_actual']);
 
             $db->commit();
-            return self::resultado(true, 'Datos RR.HH. actualizados correctamente.', ['id_persona' => $idPersona]);
+
+            $legacySync = LegacyUserSync::sincronizarDesdeEditarUsuario($idPersona, $idSesion);
+            return self::resultado(true, 'Datos RR.HH. actualizados correctamente.', [
+                'id_persona' => $idPersona,
+                'legacy_sync' => $legacySync,
+            ]);
         } catch (\Exception $e) {
             if (isset($db)) {
                 try { $db->rollback(); } catch (\Exception $rollbackError) {}
