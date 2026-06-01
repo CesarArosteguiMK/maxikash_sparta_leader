@@ -68,10 +68,32 @@ class LegacyUserSync extends Model
                     'mensaje' => 'La persona no tiene numero de empleado para buscar en Legacy.',
                 ]);
             }
+            if (!self::externalIdValido($externalId)) {
+                return self::registrar($db, [
+                    'id_persona' => $idPersona,
+                    'external_id' => $externalId,
+                    'id_puesto' => (int)($ctx['id_puesto'] ?? 0),
+                    'puesto_nombre' => $ctx['puesto_nombre'] ?? '',
+                    'departamento_nombre' => $ctx['departamento_nombre'] ?? '',
+                    'role_legacy' => $roleClave,
+                    'id_usuario' => $idSesion,
+                    'resultado' => 'omitido',
+                    'mensaje' => 'Numero de empleado invalido para sincronizar con Legacy.',
+                    'detalle' => ['motivo' => 'external_id no numerico'],
+                ]);
+            }
 
             $legacy = new DatabaseLegacy();
             $legacyUser = self::buscarUsuarioLegacy($legacy, $externalId);
             $legacyUserCreado = false;
+            $legacyUserReactivado = false;
+            if (!$legacyUser) {
+                $legacyUserBaja = self::buscarUsuarioLegacyIncluyendoBaja($legacy, $externalId);
+                if ($legacyUserBaja && !empty($legacyUserBaja['deleted_at'])) {
+                    $legacyUser = $legacyUserBaja;
+                    $legacyUserReactivado = true;
+                }
+            }
 
             $roleLegacy = self::buscarRoleLegacy($legacy, $roleClave);
             if (!$roleLegacy) {
@@ -98,17 +120,22 @@ class LegacyUserSync extends Model
                 $legacyUser = self::crearUsuarioLegacyDesdeSpartan($legacy, $ctx, $externalId);
             }
             $estadoAnterior = self::estadoLegacyActual($legacy, (int)$legacyUser['id']);
+            if ($legacyUserReactivado) {
+                self::reactivarUsuarioLegacy($legacy, (int)$legacyUser['id']);
+            }
             self::actualizarUsuarioLegacy($legacy, (int)$legacyUser['id'], $jerarquiaLegacy['ids']);
             self::actualizarRoleLegacy($legacy, (int)$legacyUser['id'], (int)$roleLegacy['id']);
             $legacy->commit();
 
             $estadoNuevo = self::estadoLegacyActual($legacy, (int)$legacyUser['id']);
-            $resultado = $legacyUserCreado || !self::sinCambios($estadoAnterior, $estadoNuevo) ? 'actualizado' : 'sin_cambios';
+            $resultado = $legacyUserCreado || $legacyUserReactivado || !self::sinCambios($estadoAnterior, $estadoNuevo) ? 'actualizado' : 'sin_cambios';
             $mensaje = $legacyUserCreado
                 ? 'Usuario creado en Legacy y sincronizado correctamente.'
-                : ($resultado === 'sin_cambios'
-                ? 'Legacy ya estaba sincronizado.'
-                : 'Usuario Legacy sincronizado correctamente.');
+                : ($legacyUserReactivado
+                    ? 'Usuario reactivado en Legacy y sincronizado correctamente.'
+                    : ($resultado === 'sin_cambios'
+                        ? 'Legacy ya estaba sincronizado.'
+                        : 'Usuario Legacy sincronizado correctamente.'));
             if (!empty($jerarquiaLegacy['faltantes'])) {
                 $mensaje .= ' Jerarquia incompleta: hay jefes sin usuario Legacy.';
             }
@@ -126,6 +153,7 @@ class LegacyUserSync extends Model
                 'mensaje' => $mensaje,
                 'detalle' => [
                     'usuario_legacy_creado' => $legacyUserCreado,
+                    'usuario_legacy_reactivado' => $legacyUserReactivado,
                     'antes' => $estadoAnterior,
                     'despues' => $estadoNuevo,
                     'jerarquia_spartan' => $jerarquia,
@@ -144,6 +172,104 @@ class LegacyUserSync extends Model
                 'mensaje' => 'Error al sincronizar usuario con Legacy.',
                 'detalle' => ['error' => $e->getMessage()],
             ]);
+        }
+    }
+
+    public static function sincronizarPendientes(int $limite = 100, int $idSesion = 0): array
+    {
+        $limite = max(1, min(300, $limite));
+        $db = new Database();
+        self::asegurarBitacora($db);
+
+        try {
+            $legacy = new DatabaseLegacy();
+            $candidatos = self::obtenerCandidatosSincronizacion($db, $limite * 4);
+            $pendientes = [];
+
+            foreach ($candidatos as $ctx) {
+                if (!self::estaEnAlcance($ctx)) {
+                    continue;
+                }
+                $externalId = trim((string)($ctx['external_id'] ?? ''));
+                $roleClave = trim((string)($ctx['role_legacy'] ?? ''));
+                if ($externalId === '' || $roleClave === '' || !self::externalIdValido($externalId)) {
+                    continue;
+                }
+
+                $estadoLegacy = self::estadoLegacyPorExternalId($legacy, $externalId);
+                $motivos = [];
+                if (!$estadoLegacy) {
+                    $motivos[] = 'no_existe_en_legacy';
+                } elseif (!empty($estadoLegacy['deleted_at'])) {
+                    $motivos[] = 'baja_en_legacy_con_spartan_activo';
+                } elseif (trim((string)($estadoLegacy['role_name'] ?? '')) !== $roleClave) {
+                    $motivos[] = 'role_desalineado';
+                }
+
+                if (!$motivos) {
+                    continue;
+                }
+
+                $pendientes[] = [
+                    'ctx' => $ctx,
+                    'motivos' => $motivos,
+                    'estado_legacy' => $estadoLegacy,
+                ];
+                if (count($pendientes) >= $limite) {
+                    break;
+                }
+            }
+
+            $resultados = [];
+            $resumen = [
+                'revisados' => count($candidatos),
+                'pendientes_detectados' => count($pendientes),
+                'actualizados' => 0,
+                'sin_cambios' => 0,
+                'omitidos' => 0,
+                'errores' => 0,
+            ];
+
+            foreach ($pendientes as $pendiente) {
+                $ctx = $pendiente['ctx'];
+                $sync = self::sincronizarDesdeEditarUsuario((int)$ctx['id_persona'], $idSesion);
+                $resultado = (string)($sync['resultado'] ?? '');
+                if ($resultado === 'actualizado') {
+                    $resumen['actualizados']++;
+                } elseif ($resultado === 'sin_cambios') {
+                    $resumen['sin_cambios']++;
+                } elseif ($resultado === 'omitido') {
+                    $resumen['omitidos']++;
+                } elseif ($resultado === 'error') {
+                    $resumen['errores']++;
+                }
+
+                $resultados[] = [
+                    'id_persona' => (int)($ctx['id_persona'] ?? 0),
+                    'external_id' => trim((string)($ctx['external_id'] ?? '')),
+                    'nombre' => trim((string)($ctx['nombre_completo'] ?? '')),
+                    'puesto' => trim((string)($ctx['puesto_nombre'] ?? '')),
+                    'departamento' => trim((string)($ctx['departamento_nombre'] ?? '')),
+                    'role_legacy' => trim((string)($ctx['role_legacy'] ?? '')),
+                    'motivos' => $pendiente['motivos'],
+                    'sync' => $sync,
+                ];
+            }
+
+            return [
+                'success' => $resumen['errores'] === 0,
+                'mensaje' => $resumen['pendientes_detectados'] > 0
+                    ? 'Reproceso de sincronizacion Legacy terminado.'
+                    : 'No se detectaron usuarios pendientes de sincronizar con Legacy.',
+                'resumen' => $resumen,
+                'datos' => $resultados,
+            ];
+        } catch (\Throwable $e) {
+            return [
+                'success' => false,
+                'mensaje' => 'Error al reprocesar pendientes de sincronizacion Legacy.',
+                'error' => $e->getMessage(),
+            ];
         }
     }
 
@@ -318,6 +444,38 @@ class LegacyUserSync extends Model
         ", ['id_persona' => $idPersona]) ?: null;
     }
 
+    private static function obtenerCandidatosSincronizacion(Database $db, int $limite): array
+    {
+        $limite = max(1, min(1200, $limite));
+        return $db->queryAll("
+            SELECT
+                per.id AS id_persona,
+                TRIM(COALESCE(per.numero_empleado, '')) AS external_id,
+                TRIM(CONCAT_WS(' ', per.nombres, per.segundo_nombre, per.apellidop, per.apellidom)) AS nombre_completo,
+                TRIM(COALESCE(per.correo, '')) AS correo,
+                TRIM(COALESCE(per.user_name, '')) AS username,
+                COALESCE(per.password, '') AS password_spartan,
+                per.estatus,
+                p.id AS id_puesto,
+                p.nombre AS puesto_nombre,
+                d.id AS id_departamento,
+                d.nombre AS departamento_nombre,
+                pl.clave AS role_legacy
+            FROM __SPARTA_SECRET_REDACTED__.persona per
+            INNER JOIN __SPARTA_SECRET_REDACTED__.asigna_puesto ap ON ap.id_persona = per.id AND ap.activo = 1
+            INNER JOIN __SPARTA_SECRET_REDACTED__.puesto p ON p.id = ap.id_puesto
+            LEFT JOIN __SPARTA_SECRET_REDACTED__.departamento d ON d.id = p.departamento_id
+            LEFT JOIN __SPARTA_SECRET_REDACTED__.equivalencias_legacy_puestos el ON el.id_puesto = p.id
+            LEFT JOIN __SPARTA_SECRET_REDACTED__.puestos_legacy pl ON pl.id = el.id_puesto_legacy
+            WHERE COALESCE(per.estatus, '') <> 'Baja'
+              AND TRIM(COALESCE(per.numero_empleado, '')) <> ''
+              AND TRIM(COALESCE(per.numero_empleado, '')) REGEXP '^[0-9]+$'
+              AND TRIM(COALESCE(pl.clave, '')) <> ''
+            ORDER BY per.id DESC
+            LIMIT {$limite}
+        ");
+    }
+
     private static function obtenerContextoPersonaBaja(Database $db, int $idPersona): ?array
     {
         return $db->queryOne("
@@ -371,6 +529,11 @@ class LegacyUserSync extends Model
         $texto = trim(strtolower($texto));
         $map = ['á' => 'a', 'é' => 'e', 'í' => 'i', 'ó' => 'o', 'ú' => 'u', 'ñ' => 'n'];
         return strtr($texto, $map);
+    }
+
+    private static function externalIdValido(string $externalId): bool
+    {
+        return (bool)preg_match('/^[0-9]+$/', trim($externalId));
     }
 
     private static function calcularJerarquiaSpartan(Database $db, int $idPersona): array
@@ -459,6 +622,25 @@ class LegacyUserSync extends Model
             ORDER BY deleted_at IS NULL DESC, id DESC
             LIMIT 1
         ", ['external_id' => $externalId]) ?: null;
+    }
+
+    private static function estadoLegacyPorExternalId(DatabaseLegacy $legacy, string $externalId): ?array
+    {
+        return $legacy->queryOne("
+            SELECT
+                u.id,
+                u.external_id,
+                u.name,
+                u.deleted_at,
+                r.id AS role_id,
+                r.name AS role_name
+            FROM users u
+            LEFT JOIN model_has_roles m ON m.model_id = u.id AND m.model_type = :model_type
+            LEFT JOIN roles r ON r.id = m.role_id
+            WHERE TRIM(COALESCE(u.external_id, '')) = :external_id
+            ORDER BY u.deleted_at IS NULL DESC, u.id DESC
+            LIMIT 1
+        ", ['external_id' => $externalId, 'model_type' => self::MODEL_TYPE]) ?: null;
     }
 
     private static function crearUsuarioLegacyDesdeSpartan(DatabaseLegacy $legacy, array $ctx, string $externalId): array
@@ -678,6 +860,17 @@ class LegacyUserSync extends Model
         ", ['id' => $legacyUserId]);
     }
 
+    private static function reactivarUsuarioLegacy(DatabaseLegacy $legacy, int $legacyUserId): void
+    {
+        $legacy->CRUD("
+            UPDATE users
+            SET deleted_at = NULL,
+                updated_at = NOW()
+            WHERE id = :id
+            LIMIT 1
+        ", ['id' => $legacyUserId]);
+    }
+
     private static function sinCambios(array $antes, array $despues): bool
     {
         ksort($antes);
@@ -724,6 +917,8 @@ class LegacyUserSync extends Model
             'success' => !in_array(($data['resultado'] ?? ''), ['error'], true),
             'resultado' => $data['resultado'] ?? 'omitido',
             'mensaje' => $data['mensaje'] ?? '',
+            'external_id' => trim((string)($data['external_id'] ?? '')),
+            'role_legacy' => trim((string)($data['role_legacy'] ?? '')),
             'detalle' => $detalle,
         ];
     }

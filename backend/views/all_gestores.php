@@ -14121,30 +14121,65 @@ function precargarCascadaEdit(idPais, idEstado, idMunicipio, idColonia, idCalle,
   function swalUsuarioGuardadoRrhh(data, esEdicion) {
     const legacy = data && data.datos && data.datos.legacy_sync ? data.datos.legacy_sync : null;
     if (!legacy) {
-      return Swal.fire('Listo', data.mensaje || 'Usuario RR.HH. guardado correctamente.', 'success');
+      return Swal.fire({
+        icon: 'warning',
+        title: esEdicion ? 'Usuario actualizado' : 'Usuario registrado',
+        html:
+          '<div class="text-start">' +
+            '<div class="mb-2">' + htmlEscapeRrhhLegacy(data.mensaje || 'Usuario RR.HH. guardado correctamente.') + '</div>' +
+            '<div class="border rounded-3 p-3 bg-label-warning text-dark">' +
+              '<div class="fw-bold mb-1"><i class="fa fa-triangle-exclamation me-1"></i>Sincronizaci&oacute;n Legacy sin confirmar</div>' +
+              '<div class="small">La respuesta no incluy&oacute; el resultado de Legacy. Revisa bit&aacute;cora o ejecuta reproceso de pendientes.</div>' +
+            '</div>' +
+          '</div>',
+        confirmButtonText: 'Aceptar'
+      });
     }
 
     const resultado = String(legacy.resultado || '').toLowerCase();
     const mensaje = legacy.mensaje || '';
+    const numeroEmpleadoLegacy = (data.datos && data.datos.numero_empleado) || legacy.external_id || '';
     const creadoLegacy = !!(legacy.detalle && legacy.detalle.usuario_legacy_creado);
+    const reactivadoLegacy = !!(legacy.detalle && legacy.detalle.usuario_legacy_reactivado);
     let icon = 'success';
     let title = esEdicion ? 'Usuario actualizado' : 'Usuario registrado';
-    let estado = 'Legacy sincronizado';
+    let estado = 'Sincronizado en Legacy';
+    let estadoDetalle = 'Los cambios ya quedaron aplicados en Legacy.';
     let badgeClass = 'bg-success';
+    let panelClass = 'border-success bg-label-success';
+    let iconClass = 'fa-circle-check text-success';
 
     if (resultado === 'sin_cambios') {
       estado = 'Legacy ya estaba sincronizado';
+      estadoDetalle = 'No hubo diferencias que actualizar en Legacy.';
       badgeClass = 'bg-info';
+      panelClass = 'border-info bg-label-info';
+      iconClass = 'fa-circle-info text-info';
     } else if (resultado === 'omitido') {
-      estado = 'No aplica sincronizacion Legacy';
+      estado = 'No aplica sincronizaci&oacute;n Legacy';
+      estadoDetalle = 'El usuario no entra en alcance o no tiene un n&uacute;mero de empleado v&aacute;lido.';
       badgeClass = 'bg-secondary';
+      panelClass = 'border-secondary bg-label-secondary';
+      iconClass = 'fa-circle-minus text-secondary';
     } else if (resultado === 'error') {
       icon = 'warning';
       title = 'Usuario guardado, Legacy pendiente';
       estado = 'Legacy no se pudo actualizar';
+      estadoDetalle = 'El usuario se guard&oacute; en Spartan, pero Legacy requiere revisi&oacute;n o reproceso.';
       badgeClass = 'bg-warning text-dark';
+      panelClass = 'border-warning bg-label-warning';
+      iconClass = 'fa-triangle-exclamation text-warning';
     } else if (resultado === 'actualizado') {
-      estado = creadoLegacy ? 'Legacy creado y sincronizado' : 'Legacy actualizado';
+      if (creadoLegacy) {
+        estado = 'Creado y sincronizado en Legacy';
+        estadoDetalle = 'El usuario ya existe en Legacy con rol y jerarqu&iacute;a actualizados.';
+      } else if (reactivadoLegacy) {
+        estado = 'Reactivado y sincronizado en Legacy';
+        estadoDetalle = 'El usuario estaba dado de baja en Legacy y fue reactivado.';
+      } else {
+        estado = 'Actualizado en Legacy';
+        estadoDetalle = 'Rol y jerarqu&iacute;a fueron sincronizados con Legacy.';
+      }
     }
 
     return Swal.fire({
@@ -14153,9 +14188,16 @@ function precargarCascadaEdit(idPais, idEstado, idMunicipio, idColonia, idCalle,
       html:
         '<div class="text-start">' +
           '<div class="mb-2">' + htmlEscapeRrhhLegacy(data.mensaje || 'Datos RR.HH. actualizados correctamente.') + '</div>' +
-          '<div class="d-flex align-items-center gap-2 flex-wrap">' +
-            '<span class="badge ' + badgeClass + '">' + htmlEscapeRrhhLegacy(estado) + '</span>' +
-            (resultado ? '<span class="small text-muted">Resultado: ' + htmlEscapeRrhhLegacy(resultado) + '</span>' : '') +
+          '<div class="border rounded-3 p-3 ' + panelClass + '">' +
+            '<div class="d-flex align-items-center justify-content-between gap-2 flex-wrap mb-1">' +
+              '<div class="fw-bold"><i class="fa ' + iconClass + ' me-1"></i>Sincronizaci&oacute;n Legacy</div>' +
+              '<span class="badge ' + badgeClass + '">' + htmlEscapeRrhhLegacy(estado) + '</span>' +
+            '</div>' +
+            '<div class="small mb-2">' + estadoDetalle + '</div>' +
+            '<div class="small text-muted">' +
+              (resultado ? '<span class="me-2">Resultado: <strong>' + htmlEscapeRrhhLegacy(resultado) + '</strong></span>' : '') +
+              (numeroEmpleadoLegacy ? '<span>No. empleado: <strong>' + htmlEscapeRrhhLegacy(numeroEmpleadoLegacy) + '</strong></span>' : '') +
+            '</div>' +
           '</div>' +
           (mensaje ? '<div class="small text-muted mt-2">' + htmlEscapeRrhhLegacy(mensaje) + '</div>' : '') +
         '</div>',
@@ -14172,6 +14214,16 @@ function precargarCascadaEdit(idPais, idEstado, idMunicipio, idColonia, idCalle,
       const endpoint = form.dataset.mode === 'editar'
         ? '/CapHum/actualizarUsuarioRrhh'
         : '/CapHum/registrarUsuarioRrhh';
+
+      Swal.fire({
+        title: form.dataset.mode === 'editar' ? 'Actualizando usuario...' : 'Guardando usuario...',
+        html: '<div class="spinner-border text-primary" role="status"><span class="visually-hidden">Cargando...</span></div><p style="margin-top: 1rem;">Guardando en Spartan y sincronizando con Legacy...</p>',
+        allowOutsideClick: false,
+        allowEscapeKey: false,
+        showConfirmButton: false,
+        didOpen: () => Swal.showLoading()
+      });
+
       const response = await fetch(endpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },

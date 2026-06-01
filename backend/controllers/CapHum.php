@@ -8,6 +8,7 @@ use Core\OcrIdentidad;
 use Models\CapHum as CapHumDAO;
 use Models\CapHumRrhh;
 use Models\Candidatos as CandidatosDAO;
+use Models\LegacyUserSync;
 use Models\Login as LoginDao;
 use Models\Notificacion;
 
@@ -4233,6 +4234,99 @@ class CapHum extends Controller
             document.addEventListener('DOMContentLoaded', aplicarTipoRegistroAdd);
             if (document.readyState !== 'loading') aplicarTipoRegistroAdd();
 
+            function escapeHtmlLegacyAlta(value) {
+                return String(value == null ? '' : value)
+                    .replace(/&/g, '&amp;')
+                    .replace(/</g, '&lt;')
+                    .replace(/>/g, '&gt;')
+                    .replace(/"/g, '&quot;')
+                    .replace(/'/g, '&#039;');
+            }
+
+            function swalAltaUsuarioLegacy(data) {
+                const legacy = (data && data.legacy_sync) || (data && data.datos && data.datos.legacy_sync) || null;
+                if (!legacy) {
+                    return Swal.fire({
+                        icon: 'warning',
+                        title: 'Usuario registrado',
+                        html: '<div class="text-start">' +
+                            '<div class="mb-2">' + escapeHtmlLegacyAlta((data && data.mensaje) || 'Usuario registrado correctamente') + '</div>' +
+                            '<div class="border rounded-3 p-3 bg-label-warning text-dark">' +
+                                '<div class="fw-bold mb-1"><i class="fa fa-triangle-exclamation me-1"></i>Sincronizaci&oacute;n Legacy sin confirmar</div>' +
+                                '<div class="small">La respuesta no incluy&oacute; el resultado de Legacy. Revisa bit&aacute;cora o ejecuta reproceso de pendientes.</div>' +
+                            '</div>' +
+                        '</div>',
+                        confirmButtonText: 'Aceptar'
+                    });
+                }
+
+                const resultado = String(legacy.resultado || '').toLowerCase();
+                const creadoLegacy = !!(legacy.detalle && legacy.detalle.usuario_legacy_creado);
+                const reactivadoLegacy = !!(legacy.detalle && legacy.detalle.usuario_legacy_reactivado);
+                const numeroEmpleado = legacy.external_id || (data && data.datos && data.datos.numero_empleado) || '';
+                let icon = 'success';
+                let title = 'Usuario registrado';
+                let estado = 'Sincronizado en Legacy';
+                let estadoDetalle = 'Los datos ya quedaron aplicados en Legacy.';
+                let badgeClass = 'bg-success';
+                let panelClass = 'border-success bg-label-success';
+                let iconClass = 'fa-circle-check text-success';
+
+                if (resultado === 'actualizado') {
+                    if (creadoLegacy) {
+                        estado = 'Creado y sincronizado en Legacy';
+                        estadoDetalle = 'El usuario ya existe en Legacy con rol y jerarqu&iacute;a actualizados.';
+                    } else if (reactivadoLegacy) {
+                        estado = 'Reactivado y sincronizado en Legacy';
+                        estadoDetalle = 'El usuario estaba dado de baja en Legacy y fue reactivado.';
+                    } else {
+                        estado = 'Actualizado en Legacy';
+                        estadoDetalle = 'Rol y jerarqu&iacute;a fueron sincronizados con Legacy.';
+                    }
+                } else if (resultado === 'sin_cambios') {
+                    estado = 'Legacy ya estaba sincronizado';
+                    estadoDetalle = 'No hubo diferencias que actualizar en Legacy.';
+                    badgeClass = 'bg-info';
+                    panelClass = 'border-info bg-label-info';
+                    iconClass = 'fa-circle-info text-info';
+                } else if (resultado === 'omitido') {
+                    estado = 'No aplica sincronizaci&oacute;n Legacy';
+                    estadoDetalle = 'El usuario no entra en alcance o no tiene un n&uacute;mero de empleado v&aacute;lido.';
+                    badgeClass = 'bg-secondary';
+                    panelClass = 'border-secondary bg-label-secondary';
+                    iconClass = 'fa-circle-minus text-secondary';
+                } else if (resultado === 'error') {
+                    icon = 'warning';
+                    title = 'Usuario registrado, Legacy pendiente';
+                    estado = 'Legacy no se pudo actualizar';
+                    estadoDetalle = 'El usuario se guard&oacute; en Spartan, pero Legacy requiere revisi&oacute;n o reproceso.';
+                    badgeClass = 'bg-warning text-dark';
+                    panelClass = 'border-warning bg-label-warning';
+                    iconClass = 'fa-triangle-exclamation text-warning';
+                }
+
+                return Swal.fire({
+                    icon: icon,
+                    title: title,
+                    html: '<div class="text-start">' +
+                        '<div class="mb-2">' + escapeHtmlLegacyAlta((data && data.mensaje) || 'Usuario registrado correctamente') + '</div>' +
+                        '<div class="border rounded-3 p-3 ' + panelClass + '">' +
+                            '<div class="d-flex align-items-center justify-content-between gap-2 flex-wrap mb-1">' +
+                                '<div class="fw-bold"><i class="fa ' + iconClass + ' me-1"></i>Sincronizaci&oacute;n Legacy</div>' +
+                                '<span class="badge ' + badgeClass + '">' + escapeHtmlLegacyAlta(estado) + '</span>' +
+                            '</div>' +
+                            '<div class="small mb-2">' + estadoDetalle + '</div>' +
+                            '<div class="small text-muted">' +
+                                (resultado ? '<span class="me-2">Resultado: <strong>' + escapeHtmlLegacyAlta(resultado) + '</strong></span>' : '') +
+                                (numeroEmpleado ? '<span>No. empleado: <strong>' + escapeHtmlLegacyAlta(numeroEmpleado) + '</strong></span>' : '') +
+                            '</div>' +
+                        '</div>' +
+                        (legacy.mensaje ? '<div class="small text-muted mt-2">' + escapeHtmlLegacyAlta(legacy.mensaje) + '</div>' : '') +
+                    '</div>',
+                    confirmButtonText: 'Aceptar'
+                });
+            }
+
             function guardarGestor() {
                 const tipoRegistro = getTipoRegistroAdd();
                 const esVacante = tipoRegistro === 'vacante';
@@ -4339,6 +4433,14 @@ class CapHum extends Controller
                 if (id_div_nivel3 && selCalleAdd && !selCalleAdd.disabled && selCalleAdd.options && selCalleAdd.options.length > 1 && !id_div_nivel4 && !calleTxtAdd) {
                     return Swal.fire('Error', 'Indique la calle: elija una del catálogo o escríbala en el campo de texto (nombre o número, p. ej. Calle 10A).', 'error');
                 }
+                Swal.fire({
+                    title: 'Guardando usuario...',
+                    html: '<div class="spinner-border text-primary" role="status"><span class="visually-hidden">Cargando...</span></div><p style="margin-top: 1rem;">Guardando en Spartan y sincronizando con Legacy...</p>',
+                    allowOutsideClick: false,
+                    allowEscapeKey: false,
+                    showConfirmButton: false,
+                    didOpen: () => Swal.showLoading()
+                });
 
                 fetch('/CapHum/getInsertarGestor', {
                     method: 'POST',
@@ -4386,7 +4488,7 @@ class CapHum extends Controller
                         });
                     }
 
-                    Swal.fire('Éxito', data.mensaje, 'success')
+                    swalAltaUsuarioLegacy(data)
                         .then(() => location.reload());
                 })
                 .catch(err => {
@@ -13576,6 +13678,22 @@ class CapHum extends Controller
         self::respuestaJSON($resultado);
     }
 
+    public function sincronizarLegacyPendientesRrhh()
+    {
+        header('Content-Type: application/json; charset=utf-8');
+
+        $idSesion = (int) ($_SESSION['usuario_id'] ?? 0);
+        if (!self::tieneModuloWeb(self::MODULO_AGREGAR_USUARIO_RRHH)
+            && !self::tieneModuloWeb(self::MODULO_EDITAR_USUARIO_RRHH)) {
+            self::respuestaJSON(['success' => false, 'mensaje' => 'No tienes permiso para sincronizar usuarios con Legacy.']);
+            return;
+        }
+
+        $input = json_decode(file_get_contents('php://input'), true);
+        $limite = is_array($input) ? (int)($input['limite'] ?? 100) : 100;
+        self::respuestaJSON(LegacyUserSync::sincronizarPendientes($limite, $idSesion));
+    }
+
     public function obtenerDatosActualizacionInfoPersona()
     {
         header('Content-Type: application/json; charset=utf-8');
@@ -14561,7 +14679,24 @@ public function getEstadosMunicipiosMexico()
         $inserted = CapHumDAO::insertPersona($data);
 
         if ($inserted['success']) {
-            echo json_encode(['success' => true, 'mensaje' => 'Usuario registrado correctamente']);
+            $datos = is_array($inserted['datos'] ?? null) ? $inserted['datos'] : [];
+            $idPersona = (int)($datos['id'] ?? 0);
+            $legacySync = $idPersona > 0
+                ? LegacyUserSync::sincronizarDesdeEditarUsuario($idPersona, (int)($_SESSION['usuario_id'] ?? 0))
+                : [
+                    'success' => false,
+                    'resultado' => 'error',
+                    'mensaje' => 'No se pudo confirmar el ID de la persona para sincronizar con Legacy.',
+                    'detalle' => null,
+                ];
+            $datos['legacy_sync'] = $legacySync;
+
+            echo json_encode([
+                'success' => true,
+                'mensaje' => 'Usuario registrado correctamente',
+                'datos' => $datos,
+                'legacy_sync' => $legacySync,
+            ]);
         } else {
             $mensajeAmigable = $this->interpretarErrorDBPersona((string)($inserted['error'] ?? ''));
             echo json_encode(['success' => false, 'mensaje' => $mensajeAmigable]);
