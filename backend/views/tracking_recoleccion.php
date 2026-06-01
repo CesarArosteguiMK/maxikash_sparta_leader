@@ -4,21 +4,13 @@ $nombreUsuario = isset($_SESSION['usuario_nombre'])
     : 'USUARIO';
 $opcionesTracking = [
     [
-        'titulo' => 'Pendientes de Recolección',
-        'texto'  => 'Consulta las motos adjudicadas listas para planeacion, filtra por estado y municipio, y prepara nuevas rutas.',
-        'url'    => '/TrackingRecoleccion/creditos',
-        'btn'    => 'Ver pendientes',
+        'titulo' => 'Planeacion de rutas',
+        'texto'  => 'Consulta pendientes de recoleccion y retoma borradores para preparar rutas antes de enviarlas.',
+        'url'    => '/TrackingRecoleccion/planeacion',
+        'btn'    => 'Ver planeacion',
         'icon'   => 'fa-motorcycle',
         'visual' => 'checklist',
-        'class'  => 'primary',
-    ],
-    [
-        'titulo' => 'Borradores',
-        'texto'  => 'Retoma rutas guardadas, ajusta puntos de recoleccion, ETA, transportista y destino antes de enviarlas.',
-        'url'    => '/TrackingRecoleccion/borradores',
-        'btn'    => 'Ver borradores',
-        'icon'   => 'fa-file-pen',
-        'visual' => 'rocket',
+        'imgUrl' => 'https://cdn-icons-png.flaticon.com/512/9014/9014820.png',
         'class'  => 'primary',
     ],
     [
@@ -28,6 +20,7 @@ $opcionesTracking = [
         'btn'    => 'Ver rutas',
         'icon'   => 'fa-map-marked-alt',
         'visual' => 'map',
+        'imgUrl' => 'https://cdn-icons-png.flaticon.com/512/18251/18251605.png',
         'class'  => 'primary',
     ],
     [
@@ -37,6 +30,7 @@ $opcionesTracking = [
         'btn'    => 'Ver catalogos',
         'icon'   => 'fa-building-user',
         'visual' => 'avatar',
+        'imgUrl' => 'https://cdn-icons-png.flaticon.com/512/3165/3165829.png',
         'class'  => 'primary',
     ],
 ];
@@ -110,23 +104,25 @@ SVG,
                             </h5>
                             <p class="mb-6 mb-md-0">
                                 Aqui entras al <strong>tracking de recoleccion</strong>: administra creditos disponibles,
-                                borradores, rutas registradas y el directorio de <strong>CEDIS y transportistas</strong>
+                                planeacion de rutas, rutas registradas y el directorio de <strong>CEDIS y transportistas</strong>
                                 para operar la recoleccion fisica de motos adjudicadas.
                             </p>
                         </div>
                     </div>
 
                     <div class="col-12 col-md-4 d-flex flex-column justify-content-end align-items-center align-items-md-end cc-hero-mascot-col">
+                        <?php /* TODO: elegir imagen mascota
                         <img src="/assets/img/illustrations/tracking-join-__SPARTA_SECRET_REDACTED__.png"
                              class="cc-hero-mascot-floating img-fluid"
                              width="450"
                              height="450"
                              alt="Tracking recoleccion Maxikash">
+                        */ ?>
                     </div>
 
                     <div class="row gy-6 mb-6 gx-0 justify-content-start">
                         <?php foreach ($opcionesTracking as $op): ?>
-                            <div class="col-12 col-lg-3">
+                            <div class="col-12 col-lg-4">
                                 <div class="card shadow-none bg-label-<?= htmlspecialchars($op['class'], ENT_QUOTES, 'UTF-8'); ?> h-100 trk-menu-card">
                                     <div class="card-body d-flex justify-content-between flex-wrap-reverse">
                                         <div class="mb-0 w-100 app-academy-sm-60 d-flex flex-column justify-content-between text-center text-sm-start">
@@ -148,7 +144,11 @@ SVG,
                                         </div>
                                         <div class="w-100 app-academy-sm-40 d-flex justify-content-center justify-content-sm-end h-px-150 mb-4 mb-sm-0">
                                             <div class="trk-menu-visual" aria-hidden="true">
-                                                <?= trackingMenuSvg((string) ($op['visual'] ?? 'checklist')); ?>
+                                                <?php if (!empty($op['imgUrl'])): ?>
+                                                    <img src="<?= htmlspecialchars($op['imgUrl'], ENT_QUOTES, 'UTF-8'); ?>" alt="" style="width:132px;height:132px;object-fit:contain;">
+                                                <?php else: ?>
+                                                    <?= trackingMenuSvg((string) ($op['visual'] ?? 'checklist')); ?>
+                                                <?php endif; ?>
                                             </div>
                                         </div>
                                     </div>
