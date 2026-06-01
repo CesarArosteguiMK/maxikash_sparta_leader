@@ -80,13 +80,13 @@ body.dark-mode .cma-preview {
                         </button>
                         <input type="number" class="form-control text-center fw-semibold" id="cmaDiasMinRuta"
                                min="0" max="365" step="1" value="2">
-                        <span class="input-group-text">dias</span>
+                        <span class="input-group-text">días</span>
                         <button class="btn btn-outline-secondary" type="button" id="cmaBtnMas">
                             <i class="fa-solid fa-plus"></i>
                         </button>
                     </div>
                     <div class="form-text mt-2">
-                        Define desde cuantos dias en el futuro se puede programar una ruta. Por ejemplo: 3 dias, 4 dias o 7 dias.
+                        Define desde cuántos días en el futuro se puede programar una ruta. Por ejemplo: 3 días, 4 días o 7 días.
                     </div>
 
                     <div class="cma-preview mt-3" id="cmaPreview">
@@ -117,7 +117,7 @@ body.dark-mode .cma-preview {
                     <ul class="mb-0">
                         <li>ventanas maximas de recoleccion,</li>
                         <li>reglas por CEDIS,</li>
-                        <li>bloqueo por dias no laborales,</li>
+                        <li>bloqueo por días no laborales,</li>
                         <li>configuracion de ETA o transportistas.</li>
                     </ul>
                 </div>
@@ -147,7 +147,7 @@ body.dark-mode .cma-preview {
     function actualizarPreview() {
         const dias = clampDias($dias.value);
         $dias.value = String(dias);
-        $preview.innerHTML = `<b>Con ${dias} dia${dias === 1 ? '' : 's'} de anticipacion:</b> la ruta mas cercana se podra programar a partir de <b>${fechaMinimaTexto(dias)}</b>.`;
+        $preview.innerHTML = `<b>Con ${dias} día${dias === 1 ? '' : 's'} de anticipación:</b> la ruta más cercana se podrá programar a partir de <b>${fechaMinimaTexto(dias)}</b>.`;
     }
 
     async function cargar() {
