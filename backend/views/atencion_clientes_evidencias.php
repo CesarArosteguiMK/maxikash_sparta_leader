@@ -469,9 +469,17 @@ body.dark-mode #aeTabContent .dataTables_length select { background: #111827; bo
     pointer-events: none;
 }
 .aev-ev-progress-wrap { margin-bottom: 1rem; }
-.aev-ev-progress-lbl  { font-size: .8rem; font-weight: 700; color: #14532d; }
+.aev-ev-progress-lbl  { font-size: .8rem; font-weight: 800; color: #0f766e; }
 .aev-ev-progress-bg   { height: 8px; background: #e2e8f0; border-radius: 6px; overflow: hidden; }
-.aev-ev-progress-fill { height: 100%; background: linear-gradient(90deg, #16a34a, #4ade80); border-radius: 6px; transition: width .25s; }
+.aev-ev-progress-fill { height: 100%; background: linear-gradient(90deg, #0d9488, #5eead4); border-radius: 6px; transition: width .25s ease; }
+.aev-ev-progress-sub {
+    display: flex;
+    justify-content: flex-end;
+    margin-top: .25rem;
+    color: #475569;
+    font-size: .68rem;
+    font-weight: 700;
+}
 .aev-ev-section { margin-bottom: 1rem; }
 .aev-ev-section--doc { margin-bottom: .35rem; }
 .aev-ev-hdr {
@@ -1852,10 +1860,10 @@ $aevPuedeReemplazarEvidencia = in_array(79, array_map('intval', (array) ($_SESSI
 
         html += '<div class="aev-ev-progress-wrap">';
         html += '<div class="d-flex justify-content-between align-items-end mb-1 flex-wrap gap-1">';
-        html += '<span style="font-size:.75rem;font-weight:700;color:#0f172a;">Progreso de evidencias <span class="text-success">validadas</span> (fotos / video etapas 1–2)</span>';
-        html += '<span class="aev-ev-progress-lbl" id="aev-lbl-9">' + vi + ' / ' + AEV_TOTAL_IMAGEN + '</span>';
+        html += '<span style="font-size:.75rem;font-weight:700;color:#0f172a;">Progreso de evidencias <span class="text-success">validadas</span> (fotos / video + documento)</span>';
+        html += '<span class="aev-ev-progress-lbl" id="aev-lbl-9">' + vall + ' / ' + AEV_MODAL_TOTAL + '</span>';
         html += '</div><div class="aev-ev-progress-bg"><div class="aev-ev-progress-fill" id="aev-fill-9" style="width:' + pct9 + '%;"></div></div>';
-        html += '<p class="small text-muted mt-1 mb-0">PDF Repuve en expediente: <strong>' + vpdf + ' / 1</strong> · <strong>Avance en pantalla: ' + vall + ' / ' + AEV_MODAL_TOTAL + '</strong></p>';
+        html += '<div class="aev-ev-progress-sub">Fotos/video: ' + vi + ' / ' + AEV_TOTAL_IMAGEN + '</div>';
         html += '</div>';
 
         AEV_EV_SECTIONS.forEach(function (sec) { html += aevRenderSeccionValidar(sec, m); });
@@ -2295,7 +2303,7 @@ $aevPuedeReemplazarEvidencia = in_array(79, array_map('intval', (array) ($_SESSI
                         <span class="ac-val">${g}</span>
                     </div>
                     <div class="ae-list-cell ae-list-asig">
-                        <span class="ac-lbl">Asignación realizada</span>
+                        <span class="ac-lbl">Dictaminado</span>
                         <span class="ac-val">${fa}</span>
                         ${item.fecha_aprobacion_evidencias ? '<span class="ac-lbl mt-1">Aprobaci&oacute;n evidencias</span><span class="ac-val">' + aeEsc(item.fecha_aprobacion_evidencias) + '</span>' : ''}
                     </div>
@@ -2340,7 +2348,7 @@ $aevPuedeReemplazarEvidencia = in_array(79, array_map('intval', (array) ($_SESSI
             <td class="ae-table-name">${cliente}</td>
             <td>${gestor}</td>
             <td>
-                <div class="ae-table-date"><span class="text-muted">Asig.</span> ${fechaAsignacion}</div>
+                <div class="ae-table-date"><span class="text-muted">Dict.</span> ${fechaAsignacion}</div>
                 ${fechaAprobacion}
             </td>
             <td class="ae-table-evidence">${ev} / ${AE_EV_TOTAL}</td>
