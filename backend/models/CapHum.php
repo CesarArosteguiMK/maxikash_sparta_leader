@@ -3926,7 +3926,12 @@ class CapHum extends Model
 
             $db->commit();
 
-            return self::resultado(true, 'Baja registrada correctamente con archivos.');
+            $legacySync = LegacyUserSync::sincronizarBajaDesdeSpartan((int)$id_persona, (int)$usuario_baja);
+
+            return self::resultado(true, 'Baja registrada correctamente con archivos.', [
+                'id_persona' => (int)$id_persona,
+                'legacy_sync' => $legacySync,
+            ]);
 
         } catch (\Exception $e) {
             if (isset($db)) {
