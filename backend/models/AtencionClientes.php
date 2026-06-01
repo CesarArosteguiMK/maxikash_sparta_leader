@@ -270,6 +270,46 @@ SQL;
 SQL;
     }
 
+    private function sqlTiempoEnCierreDocumentacion(string $aliasOperacion = 'o'): string
+    {
+        $ahoraCdmx = $this->sqlAhoraCdmxLiteral();
+        $inicio = "COALESCE(
+            (
+                SELECT MAX(hc.fecha)
+                FROM adj_historial_estatus hc
+                WHERE hc.id_operacion = {$aliasOperacion}.id
+                  AND hc.estatus_nuevo = 'Cierre Documentado'
+            ),
+            {$aliasOperacion}.fecha_actualizacion,
+            {$aliasOperacion}.fecha_alta
+        )";
+
+        return <<<SQL
+            DATE_FORMAT({$inicio}, '%d/%m/%Y %H:%i') AS fecha_entrada_cierre_documentacion,
+            GREATEST(0, TIMESTAMPDIFF(MINUTE, {$inicio}, {$ahoraCdmx})) AS minutos_en_cierre_documentacion
+SQL;
+    }
+
+    private function sqlTiempoTotalCierreDocumentacion(string $aliasOperacion = 'o', string $aliasDictamen = 'd'): string
+    {
+        $inicio = "COALESCE(
+            (
+                SELECT MAX(hc.fecha)
+                FROM adj_historial_estatus hc
+                WHERE hc.id_operacion = {$aliasOperacion}.id
+                  AND hc.estatus_nuevo = 'Cierre Documentado'
+            ),
+            {$aliasOperacion}.fecha_actualizacion,
+            {$aliasOperacion}.fecha_alta
+        )";
+
+        return <<<SQL
+            DATE_FORMAT({$inicio}, '%d/%m/%Y %H:%i') AS fecha_inicio_cierre_documentacion,
+            DATE_FORMAT({$aliasDictamen}.fecha_alta, '%d/%m/%Y %H:%i') AS fecha_fin_cierre_documentacion,
+            GREATEST(0, TIMESTAMPDIFF(MINUTE, {$inicio}, {$aliasDictamen}.fecha_alta)) AS minutos_total_cierre_documentacion
+SQL;
+    }
+
     private function sqlConteoEvidenciasCartera(string $aliasOperacion = 'o'): string
     {
         return "(SELECT COUNT(DISTINCT e.slot)
@@ -508,8 +548,7 @@ SQL;
             DATE_FORMAT(aca.fecha_alta, '%d/%m/%Y') AS fecha_asignacion
         FROM adj_operacion o
         {$joinAsig}
-        WHERE o.estatus = 'Retenciones'
-          AND NOT EXISTS (
+        WHERE NOT EXISTS (
               SELECT 1
               FROM adj_dictamen dr
               WHERE dr.id_operacion = o.id
@@ -925,6 +964,7 @@ SQL;
         $joinAsig = $this->sqlJoinUnaAsignacionActivaPorCredito();
         $evidenciasCount = $this->sqlConteoEvidenciasCartera('o');
         $gestorNombre = $this->sqlNombreGestorConFallback('o');
+        $tiempoEnCierre = $this->sqlTiempoEnCierreDocumentacion('o');
         $sql = <<<SQL
         SELECT
             o.id,
@@ -937,6 +977,7 @@ SQL;
             o.adeudo_total,
             DATEDIFF(NOW(), o.fecha_alta) AS dias_en_pipeline,
             {$evidenciasCount} AS evidencias_count,
+            {$tiempoEnCierre},
             {$gestorNombre} AS gestor_nombre,
             DATE_FORMAT(o.fecha_alta, '%d/%m/%Y %H:%i') AS fecha_gestion_legacy,
             DATE_FORMAT(aca.fecha_alta, '%d/%m/%Y') AS fecha_asignacion
@@ -960,6 +1001,7 @@ SQL;
         $whereDict  = $this->sqlWhereComoDictaminadoCierreDocumentacion();
         $evidenciasCount = $this->sqlConteoEvidenciasCartera('o');
         $gestorNombre = $this->sqlNombreGestorConFallback('o');
+        $tiempoTotalCierre = $this->sqlTiempoTotalCierreDocumentacion('o', 'd');
         $sql        = <<<SQL
         SELECT
             o.id,
@@ -1038,6 +1080,7 @@ SQL;
             d.plataforma,
             d.comentarios,
             {$evidenciasCount} AS evidencias_count,
+            {$tiempoTotalCierre},
             DATE_FORMAT(o.fecha_alta, '%d/%m/%Y %H:%i') AS fecha_gestion_legacy,
             DATE_FORMAT(d.fecha_alta, '%d/%m/%Y %H:%i') AS fecha_dictamen,
             {$gestorNombre} AS gestor_nombre
@@ -1087,6 +1130,7 @@ SQL;
         $whereDict  = $this->sqlWhereComoDictaminadoCierreDocumentacion();
         $evidenciasCount = $this->sqlConteoEvidenciasCartera('o');
         $gestorNombre = $this->sqlNombreGestorConFallback('o');
+        $tiempoTotalCierre = $this->sqlTiempoTotalCierreDocumentacion('o', 'd');
         $sql        = <<<SQL
         SELECT
             o.id,
@@ -1105,6 +1149,7 @@ SQL;
             d.plataforma,
             d.comentarios,
             {$evidenciasCount} AS evidencias_count,
+            {$tiempoTotalCierre},
             DATE_FORMAT(o.fecha_alta, '%d/%m/%Y %H:%i') AS fecha_gestion_legacy,
             DATE_FORMAT(d.fecha_alta, '%d/%m/%Y %H:%i') AS fecha_dictamen,
             {$gestorNombre} AS gestor_nombre
@@ -1232,7 +1277,7 @@ SQL;
             LIMIT 1
         )
         {$joinAsig}
-        WHERE o.estatus != 'Retenciones'
+        WHERE COALESCE(d.dictamen, '') NOT LIKE 'Pendiente%'
         ORDER BY o.fecha_alta DESC
         SQL;
 
@@ -1246,6 +1291,10 @@ SQL;
     public function obtenerPendientes(): array
     {
         $joinAsig = $this->sqlJoinUnaAsignacionActivaPorCredito();
+        $predDp   = $this->sqlEsDictamenLlamadaRetenciones('dp');
+        $predDp2  = $this->sqlEsDictamenLlamadaRetenciones('dp2');
+        $predDp3  = $this->sqlEsDictamenLlamadaRetenciones('dp3');
+        $predDp4  = $this->sqlEsDictamenLlamadaRetenciones('dp4');
         $sql = <<<SQL
         SELECT
             o.id,
@@ -1257,14 +1306,14 @@ SQL;
                 SELECT COUNT(*)
                 FROM adj_dictamen dp
                 WHERE dp.id_operacion = o.id
-                  AND dp.tipo_contacto IN ('Contacto', 'Sin contacto')
+                  AND {$predDp}
             ) AS intentos_realizados,
             DATE_FORMAT(
                 (
                     SELECT dp2.fecha_alta
                     FROM adj_dictamen dp2
                     WHERE dp2.id_operacion = o.id
-                      AND dp2.tipo_contacto IN ('Contacto', 'Sin contacto')
+                      AND {$predDp2}
                     ORDER BY dp2.id DESC
                     LIMIT 1
                 ),
@@ -1279,18 +1328,17 @@ SQL;
             DATE_FORMAT(aca.fecha_alta, '%d/%m/%Y') AS fecha_asignacion
         FROM adj_operacion o
         {$joinAsig}
-        WHERE o.estatus = 'Retenciones'
-          AND EXISTS (
+        WHERE EXISTS (
               SELECT 1
               FROM adj_dictamen dp3
               WHERE dp3.id_operacion = o.id
-                AND dp3.tipo_contacto IN ('Contacto', 'Sin contacto')
+                AND {$predDp3}
           )
           AND (
               SELECT dp4.dictamen
               FROM adj_dictamen dp4
               WHERE dp4.id_operacion = o.id
-                AND dp4.tipo_contacto IN ('Contacto', 'Sin contacto')
+                AND {$predDp4}
               ORDER BY dp4.id DESC
               LIMIT 1
           ) LIKE 'Pendiente%'
@@ -1322,9 +1370,6 @@ SQL;
 
         if (!$op) {
             return ['success' => false, 'message' => 'Operación no encontrada.'];
-        }
-        if ($op['estatus'] !== 'Retenciones') {
-            return ['success' => false, 'message' => 'La operación ya fue dictaminada.'];
         }
 
         $dictamen     = trim($data['dictamen'] ?? '');
@@ -1384,12 +1429,13 @@ SQL;
             $this->db->CRUD(
                 "INSERT INTO adj_historial_estatus
                     (id_operacion, estatus_anterior, estatus_nuevo, id_usuario, fecha)
-                 VALUES (:id_op, 'Retenciones', :nuevo, :id_usr, :fecha)",
+                 VALUES (:id_op, :anterior, :nuevo, :id_usr, :fecha)",
                 [
-                    'id_op'  => $idOperacion,
-                    'nuevo'  => $nuevoEstatus,
-                    'id_usr' => $idUsuario ?: null,
-                    'fecha'  => $ahora,
+                    'id_op'    => $idOperacion,
+                    'anterior' => $op['estatus'],
+                    'nuevo'    => $nuevoEstatus,
+                    'id_usr'   => $idUsuario ?: null,
+                    'fecha'    => $ahora,
                 ]
             );
         }

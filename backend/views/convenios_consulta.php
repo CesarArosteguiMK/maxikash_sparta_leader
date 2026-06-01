@@ -1118,7 +1118,7 @@ body.dark-mode #migTotalFinal {
                   <div class="col-6" id="colBucketMorosidad">
                     <label class="form-label" id="labelBucketMorosidad">Bucket Morosidad</label>
                     <input type="text" id="migBucket" class="form-control"
-                           placeholder="g) 60 a 89 dias">
+                           placeholder="g) 60 a 89 días">
                   </div>
 
                   <div class="col-6" id="colPagoSemanal">
@@ -4110,7 +4110,7 @@ function _migBloquearPorBucket(credito, info) {
     var bucket = (credito && credito.Bucket_Morosidad_Real) || 'sin bucket';
     var diasBucket = _bucketMinimoDiasConvenio(bucket);
     var motivo = diasBucket > 0
-        ? 'su bucket inicia en ' + diasBucket + ' dias'
+        ? 'su bucket inicia en ' + diasBucket + ' días'
         : 'no tiene un bucket de morosidad valido';
 
     _migBloqueadoPorBucket = true;
@@ -4139,7 +4139,7 @@ function _migBloquearPorBucket(credito, info) {
             '<div>' +
             '<strong>No cumple condicion para convenio</strong><br>' +
             '<span>' + ((credito && credito.Nombre_cliente) || 'Cliente') + ' &mdash; Credito #' + ((credito && credito.Id_credito) || '') + '</span><br>' +
-            '<small class="d-block mt-1"><strong>Condicion:</strong> solo creditos en bucket 22 dias o mas pueden registrar un convenio existente.</small>' +
+            '<small class="d-block mt-1"><strong>Condición:</strong> solo créditos en bucket 22 días o más pueden registrar un convenio existente.</small>' +
             '<small class="d-block text-muted">Bucket actual: <strong>' + bucket + '</strong>; no cumple porque ' + motivo + ', por debajo del minimo requerido.</small>' +
             '</div>' +
             '</div>';
@@ -5861,7 +5861,7 @@ window.migGuardar = function () {
     if (_migBloqueadoPorBucket || !_creditoCumpleBucketConvenio(_migCredito)) {
         Swal.fire(
             'No cumple condicion',
-            'Solo creditos en bucket 22 dias o mas pueden registrar un convenio existente.',
+            'Solo créditos en bucket 22 días o más pueden registrar un convenio existente.',
             'warning'
         );
         return;

@@ -191,6 +191,7 @@
     border-bottom: 1px solid #e2e8f0;
 }
 .ae-form-field-wide { grid-column: span 2; }
+.ae-form-field-series { grid-column: span 2; }
 .ae-form-field-head {
     display: flex;
     align-items: center;
@@ -2696,46 +2697,50 @@ $aevPuedeReemplazarEvidencia = in_array(79, array_map('intval', (array) ($_SESSI
 
     function aeRenderFormularioOperacion(item) {
         const src = Object.assign({}, (item && item.datos_moto) ? item.datos_moto : {}, item || {});
-        const moto = [aeValorLimpio(src.moto_marca), aeValorLimpio(src.moto_modelo), aeValorLimpio(src.moto_anio)]
-            .filter(Boolean).join(' ');
+        const pick = function () {
+            for (let i = 0; i < arguments.length; i++) {
+                if (aeValorLimpio(arguments[i])) return arguments[i];
+            }
+            return '';
+        };
         const ubicacion = [aeResguardoTexto(src), aeValorLimpio(src.log_ciudad), aeValorLimpio(src.log_estado)]
             .filter(Boolean).join(' / ');
         const camposMoto = [
             ['Marca', aeValorLimpio(src.moto_marca)],
+            ['Serie', aeValorLimpio(src.moto_no_serie)],
             ['Modelo', aeValorLimpio(src.moto_modelo)],
             ['Año', aeValorLimpio(src.moto_anio)],
-            ['Moto', moto, true],
             ['Color', aeValorLimpio(src.moto_color)],
-            ['VIN / Serie', aeValorLimpio(src.moto_no_serie)],
             ['No. motor', aeValorLimpio(src.moto_no_motor)],
             ['Placas', aeValorLimpio(src.moto_placas)],
             ['Kilometraje', aeValorLimpio(src.kilometraje)],
-            ['Llave fisica', aeFormatoSiNo(src.llave_fisica || src.tiene_llave_fisica)],
-            ['Tarjeta circulacion', aeFormatoSiNo(src.tarjeta_circulacion || src.tiene_tarjeta_de_circulacion_en_fisico)],
-            ['Placa fisica', aeFormatoSiNo(src.placa_fisica || src.la_moto_tiene_placa_fisica)]
-        ].filter(function (row) { return !!row[1]; });
+            ['Llave fisica', aeFormatoSiNo(pick(src.llave_fisica, src.tiene_llave_fisica))],
+            ['Placa fisica', aeFormatoSiNo(pick(src.placa_fisica, src.la_moto_tiene_placa_fisica))],
+            ['Tarjeta circulacion', aeFormatoSiNo(pick(src.tarjeta_circulacion, src.tiene_tarjeta_de_circulacion_en_fisico)), true]
+        ];
 
         const camposResguardo = [
             ['Lugar de resguardo', ubicacion.replace(/\s\/\s/g, ' · '), true],
             ['Responsable', aeValorLimpio(src.responsable_entrega)],
             ['Telefono', aeFormatoTelefono(src.log_telefono)],
-            ['Latitud', aeValorLimpio(src.latitud)],
-            ['Longitud', aeValorLimpio(src.longitud)],
-            ['Direccion resguardo', aeValorLimpio(src.log_direccion), true],
-            ['Direccion task', aeValorLimpio(src.direccion_task), true]
-        ].filter(function (row) { return !!row[1]; });
-
-        if (!camposMoto.length && !camposResguardo.length) return '';
+            ['Direccion resguardo', aeValorLimpio(src.log_direccion), true]
+        ];
 
         const fecha = aeValorLimpio(src.datos_moto_fecha);
         function renderCampo(row) {
             const label = row[0];
-            const value = row[1];
+            const rawValue = aeValorLimpio(row[1]);
+            const value = rawValue || 'No capturado';
             const isColor = String(label || '').toLowerCase() === 'color';
-            const colorDot = isColor
+            const colorDot = isColor && rawValue
                 ? '<span class="ae-form-color-dot" style="background-color:' + aeEsc(aeColorCss(value)) + ';"></span>'
                 : '';
-            return `<div class="ae-form-field ${row[2] ? 'ae-form-field-wide' : ''}" title="${aeEsc(value)}">
+            const fieldClass = [
+                'ae-form-field',
+                row[2] ? 'ae-form-field-wide' : '',
+                String(label || '').toLowerCase() === 'serie' ? 'ae-form-field-series' : ''
+            ].filter(Boolean).join(' ');
+            return `<div class="${fieldClass}" title="${aeEsc(value)}">
                 <span class="ae-form-field-head">
                     <i class="fa-solid ${aeEsc(aeIconoFormulario(label))} ae-form-field-icon"></i>
                     <span class="ae-form-field-label">${aeEsc(label)}</span>
@@ -2813,8 +2818,8 @@ $aevPuedeReemplazarEvidencia = in_array(79, array_map('intval', (array) ($_SESSI
         if (horas < 24) return horas + (horas === 1 ? ' hora' : ' horas');
         const dias = Math.floor(horas / 24);
         const horasRestantes = horas % 24;
-        if (horasRestantes <= 0) return dias + (dias === 1 ? ' dia' : ' dias');
-        return dias + (dias === 1 ? ' dia ' : ' dias ') + horasRestantes + ' h';
+        if (horasRestantes <= 0) return dias + (dias === 1 ? ' día' : ' días');
+        return dias + (dias === 1 ? ' día ' : ' días ') + horasRestantes + ' h';
     }
 
     function aeRenderEstadoEvidencias(item, key) {

@@ -766,6 +766,9 @@ body.dark-mode #modalArRecuperacionEvidencias #ar-ev-btn-enviar-cartera {
     gap: .85rem;
     margin-bottom: .9rem;
 }
+.ar-ev-info-panel--form {
+    margin-bottom: 0;
+}
 .ar-ev-title-pill {
     margin-left: .5rem;
     vertical-align: middle;
@@ -827,6 +830,9 @@ body.dark-mode #modalArRecuperacionEvidencias #ar-ev-btn-enviar-cartera {
 .ar-ev-info-block--wide {
     grid-column: span 2;
 }
+.ar-ev-info-block--series {
+    grid-column: span 2;
+}
 .ar-ev-info-field-head {
     display: flex;
     align-items: center;
@@ -880,6 +886,139 @@ body.dark-mode .ar-ev-info-value { color: #e2e8f0; }
 body.dark-mode .ar-ev-info-block { border-color: #334155; }
 body.dark-mode .ar-ev-info-label { color: #94a3b8; }
 body.dark-mode .ar-ev-info-icon { color: #94a3b8; }
+.ar-ev-info-card--formulario {
+    margin-bottom: .9rem;
+}
+.ar-ev-info-card--formulario .ar-ev-info-pill {
+    border: 1px solid #fed7aa;
+    background: #fff7ed;
+    color: #b45309;
+    font-weight: 900;
+    box-shadow: 0 .08rem .22rem rgba(180, 83, 9, .08);
+}
+.ar-form-wrap {
+    margin-top: .58rem;
+    margin-bottom: .9rem;
+    padding: .58rem .65rem;
+    border: 1px solid #e2e8f0;
+    border-radius: .55rem;
+    background: #f8fafc;
+}
+.ar-form-wrap .ae-form-trace {
+    margin: 0;
+    padding: 0;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+}
+.ar-form-wrap .ae-form-trace-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: .75rem;
+    margin-bottom: .42rem;
+}
+.ar-form-wrap .ae-form-trace-title {
+    color: #123150;
+    font-size: .76rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: .035em;
+}
+.ar-form-wrap .ae-form-trace-date {
+    display: inline-flex;
+    align-items: center;
+    gap: .32rem;
+    padding: .2rem .58rem;
+    border: 1px solid #fed7aa;
+    border-radius: 999px;
+    background: #fff7ed;
+    color: #b45309;
+    font-size: .68rem;
+    font-weight: 900;
+    line-height: 1.05;
+    white-space: nowrap;
+    box-shadow: 0 .08rem .22rem rgba(180, 83, 9, .08);
+}
+.ar-form-wrap .ae-form-trace-grid {
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: .42rem .55rem;
+}
+.ar-form-wrap .ae-form-trace-columns {
+    display: grid;
+    grid-template-columns: minmax(0, 1.15fr) minmax(0, .85fr);
+    gap: .85rem;
+    align-items: start;
+}
+.ar-form-wrap .ae-form-trace-panel { min-width: 0; }
+.ar-form-wrap .ae-form-field {
+    min-width: 0;
+    padding: .08rem .15rem .18rem;
+    border-bottom: 1px solid #e2e8f0;
+}
+.ar-form-wrap .ae-form-field-wide { grid-column: span 2; }
+.ar-form-wrap .ae-form-field-series { grid-column: span 2; }
+.ar-form-wrap .ae-form-field-head {
+    display: flex;
+    align-items: center;
+    gap: .28rem;
+    min-width: 0;
+    margin-bottom: .12rem;
+}
+.ar-form-wrap .ae-form-field-icon {
+    color: #64748b;
+    font-size: .68rem;
+    width: .85rem;
+    flex: 0 0 .85rem;
+    text-align: center;
+}
+.ar-form-wrap .ae-form-field-label {
+    display: block;
+    color: #64748b;
+    font-size: .62rem;
+    font-weight: 800;
+    line-height: 1.1;
+    text-transform: uppercase;
+    letter-spacing: .035em;
+    white-space: nowrap;
+    margin-bottom: 0;
+}
+.ar-form-wrap .ae-form-field-value {
+    display: flex;
+    align-items: center;
+    gap: .34rem;
+    color: #1e293b;
+    font-size: .75rem;
+    font-weight: 700;
+    line-height: 1.18;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.ar-form-wrap .ae-form-color-dot {
+    display: inline-block;
+    width: .68rem;
+    height: .68rem;
+    min-width: .68rem;
+    border-radius: 999px;
+    border: 1px solid rgba(15, 23, 42, .16);
+    box-shadow: 0 0 0 2px rgba(255,255,255,.9);
+    flex: 0 0 .68rem;
+}
+.ar-form-wrap .ae-form-resguardo-list {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: .34rem;
+}
+.ar-form-wrap .ae-form-resguardo-list .ae-form-field-wide { grid-column: span 1; }
+body.dark-mode .ar-form-wrap { background: #0f172a; border-color: #1f2937; }
+body.dark-mode .ar-form-wrap .ae-form-trace-title { color: #e2e8f0; }
+body.dark-mode .ar-form-wrap .ae-form-trace-date { background: #422006; border-color: #78350f; color: #fcd34d; box-shadow: none; }
+body.dark-mode .ar-form-wrap .ae-form-field { border-color: #334155; }
+body.dark-mode .ar-form-wrap .ae-form-field-label,
+body.dark-mode .ar-form-wrap .ae-form-field-icon { color: #94a3b8; }
+body.dark-mode .ar-form-wrap .ae-form-field-value { color: #e2e8f0; }
 
 /* Visor in-page (fotos, video, PDF) — dentro del modal para z-index / foco */
 #modalArRecuperacionEvidencias.ar-ev-ar-vista-abierta { overflow: visible !important; }
@@ -1573,10 +1712,10 @@ $arPublicPath = function_exists('sparta_public_web_base') ? sparta_public_web_ba
         const n = parseInt(minutos, 10);
         if (!Number.isFinite(n) || n < 0) return '';
         const dias = Math.floor(n / 1440);
+        if (dias > 0) return dias + ' día' + (dias === 1 ? '' : 's');
         const horas = Math.floor((n % 1440) / 60);
         const mins = n % 60;
         const out = [];
-        if (dias > 0) out.push(dias + ' dia' + (dias === 1 ? '' : 's'));
         if (horas > 0) out.push(horas + ' hora' + (horas === 1 ? '' : 's'));
         if (!out.length && mins > 0) out.push(mins + ' min');
         return out.length ? out.join(' ') : '0 min';
@@ -2306,6 +2445,7 @@ $arPublicPath = function_exists('sparta_public_web_base') ? sparta_public_web_ba
         if (k.indexOf('llave') !== -1) return 'fa-key';
         if (k.indexOf('tarjeta') !== -1) return 'fa-address-card';
         if (k.indexOf('lugar') !== -1 || k.indexOf('resguardo') !== -1) return 'fa-warehouse';
+        if (k.indexOf('latitud') !== -1 || k.indexOf('longitud') !== -1) return 'fa-location-dot';
         if (k.indexOf('ciudad') !== -1 || k.indexOf('estado') !== -1) return 'fa-location-dot';
         if (k.indexOf('telefono') !== -1 || k.indexOf('tel') !== -1) return 'fa-phone';
         if (k.indexOf('direccion') !== -1 || k.indexOf('task') !== -1) return 'fa-route';
@@ -2368,27 +2508,29 @@ $arPublicPath = function_exists('sparta_public_web_base') ? sparta_public_web_ba
         return mapa[base] || base || otro;
     }
 
-    function arInfoItem(label, value, extraClass) {
-        const v = arDatoVisible(value);
+    function arInfoItem(label, value, extraClass, mostrarVacio) {
+        const valorReal = arDatoVisible(value);
+        const v = valorReal || (mostrarVacio ? 'No capturado' : '');
         if (!v) return '';
-        const cls = extraClass ? ' ' + extraClass : '';
+        const isSerie = String(label || '').toLowerCase() === 'serie';
+        const cls = (extraClass ? ' ' + extraClass : '') + (isSerie ? ' ae-form-field-series' : '');
         const esColor = String(label || '').toLowerCase() === 'color';
-        const colorDot = esColor
-            ? '<span class="ar-ev-info-color-dot" style="background-color:' + arEsc(arInfoColorCss(v)) + ';"></span>'
+        const colorDot = esColor && valorReal
+            ? '<span class="ae-form-color-dot" style="background-color:' + arEsc(arInfoColorCss(v)) + ';"></span>'
             : '';
-        return '<div class="ar-ev-info-block' + cls + '">' +
-            '<span class="ar-ev-info-field-head">' +
-            '<i class="fa-solid ' + arEsc(arInfoIcono(label)) + ' ar-ev-info-icon"></i>' +
-            '<span class="ar-ev-info-label">' + arEsc(label) + '</span>' +
+        return '<div class="ae-form-field' + cls + '">' +
+            '<span class="ae-form-field-head">' +
+            '<i class="fa-solid ' + arEsc(arInfoIcono(label)) + ' ae-form-field-icon"></i>' +
+            '<span class="ae-form-field-label">' + arEsc(label) + '</span>' +
             '</span>' +
-            '<div class="ar-ev-info-value">' + colorDot + '<span>' + arEsc(v) + '</span></div>' +
+            '<span class="ae-form-field-value">' + colorDot + '<span>' + arEsc(v) + '</span></span>' +
             '</div>';
     }
 
-    function arInfoCard(titulo, items, modoLista, pill) {
+    function arInfoCard(titulo, items, modoLista, pill, extraClass) {
         const html = items.filter(Boolean).join('');
         if (!html) return '';
-        return '<div class="ar-ev-info-card">' +
+        return '<div class="ar-ev-info-card' + (extraClass ? ' ' + extraClass : '') + '">' +
             '<div class="ar-ev-info-card-head">' +
             '<h6 class="ar-ev-info-title"><i class="fa-solid fa-list-check me-1"></i>' + arEsc(titulo) + '</h6>' +
             (pill ? '<span class="ar-ev-info-pill">' + arEsc(pill) + '</span>' : '') +
@@ -2398,54 +2540,53 @@ $arPublicPath = function_exists('sparta_public_web_base') ? sparta_public_web_ba
     }
 
     function arRenderInfoOperacion(det) {
-        const moto = det && det.datos_moto && typeof det.datos_moto === 'object' ? det.datos_moto : {};
-        const fechaAdjudicacion = arDatoVisible(det.fecha_alta_fmt || det.fecha_alta);
-        const fechaActualizacion = arDatoVisible(det.fecha_actualizacion_fmt || det.fecha_actualizacion);
-        const dias = det.dias_en_pipeline !== null && det.dias_en_pipeline !== undefined && det.dias_en_pipeline !== ''
-            ? String(det.dias_en_pipeline) + ' dias en etapa'
-            : '';
-        const motoNombre = [moto.moto_marca, moto.moto_modelo, moto.moto_anio]
-            .map(arDatoVisible)
-            .filter(Boolean)
-            .join(' ');
-        const lugarResguardo = arInfoResguardoTexto(moto);
+        const moto = Object.assign({}, det && det.datos_moto && typeof det.datos_moto === 'object' ? det.datos_moto : {}, det || {});
+        const pick = function () {
+            for (let i = 0; i < arguments.length; i++) {
+                if (arDatoVisible(arguments[i])) return arguments[i];
+            }
+            return '';
+        };
+        const ubicacion = [
+            arInfoResguardoTexto(moto),
+            arDatoVisible(moto.log_ciudad),
+            arDatoVisible(moto.log_estado)
+        ].filter(Boolean).join(' · ');
 
-        const operacion = arInfoCard('Operacion y fechas', [
-            arInfoItem('Folio', det.folio),
-            arInfoItem('Credito', det.id_credito),
-            arInfoItem('Cliente', det.nombre_cliente, 'ar-ev-info-block--wide'),
-            arInfoItem('Fecha adjudicacion', fechaAdjudicacion),
-            arInfoItem('Ultima actualizacion', fechaActualizacion),
-            arInfoItem('Tiempo en etapa', dias),
-            arInfoItem('Moto', motoNombre, 'ar-ev-info-block--wide'),
-            arInfoItem('Marca', moto.moto_marca),
-            arInfoItem('Modelo', moto.moto_modelo),
-            arInfoItem('A\u00f1o', moto.moto_anio),
-            arInfoItem('Color', moto.moto_color),
-            arInfoItem('VIN / Serie', moto.moto_no_serie, 'ar-ev-info-block--wide'),
-            arInfoItem('No. motor', moto.moto_no_motor, 'ar-ev-info-block--wide'),
-            arInfoItem('Placas', moto.moto_placas),
-            arInfoItem('Kilometraje', moto.kilometraje),
-            arInfoItem('Llave fisica', arInfoSiNo(moto.llave_fisica || moto.tiene_llave_fisica)),
-            arInfoItem('Tarjeta circulacion', arInfoSiNo(moto.tarjeta_circulacion || moto.tiene_tarjeta_de_circulacion_en_fisico)),
-            arInfoItem('Placa fisica', arInfoSiNo(moto.placa_fisica || moto.la_moto_tiene_placa_fisica)),
-            arInfoItem('Saldo capital', det.saldo_capital),
-            arInfoItem('Adeudo total', det.adeudo_total)
-        ], false, det.datos_moto_fecha ? 'Capturado ' + arDatoVisible(det.datos_moto_fecha) : '');
+        const datosMoto = [
+            arInfoItem('Marca', moto.moto_marca || moto.marca, '', true),
+            arInfoItem('Serie', moto.moto_no_serie || moto.serie, '', true),
+            arInfoItem('Modelo', moto.moto_modelo || moto.modelo, '', true),
+            arInfoItem('A\u00f1o', moto.moto_anio || moto.anio || moto.ano, '', true),
+            arInfoItem('Color', moto.moto_color || moto.color, '', true),
+            arInfoItem('No. motor', moto.moto_no_motor || moto.num_motor || moto.no_motor, '', true),
+            arInfoItem('Placas', moto.moto_placas || moto.placas, '', true),
+            arInfoItem('Kilometraje', moto.kilometraje, '', true),
+            arInfoItem('Llave fisica', arInfoSiNo(pick(moto.llave_fisica, moto.tiene_llave_fisica)), '', true),
+            arInfoItem('Placa fisica', arInfoSiNo(pick(moto.placa_fisica, moto.la_moto_tiene_placa_fisica)), '', true),
+            arInfoItem('Tarjeta circulacion', arInfoSiNo(pick(moto.tarjeta_circulacion, moto.tiene_tarjeta_de_circulacion_en_fisico)), 'ae-form-field-wide', true)
+        ].filter(Boolean).join('');
 
-        const resguardo = arInfoCard('Direccion / resguardo', [
-            arInfoItem('Lugar de resguardo', lugarResguardo, 'ar-ev-info-block--wide'),
-            arInfoItem('Direccion', moto.log_direccion, 'ar-ev-info-block--wide'),
-            arInfoItem('Ciudad / Municipio', moto.log_ciudad),
-            arInfoItem('Estado', moto.log_estado),
-            arInfoItem('Responsable', moto.responsable_entrega),
-            arInfoItem('Telefono', arInfoTelefono(moto.log_telefono)),
-            arInfoItem('Direccion task', moto.direccion_task, 'ar-ev-info-block--wide')
-        ], true);
+        const datosResguardo = [
+            arInfoItem('Lugar de resguardo', ubicacion, 'ar-ev-info-block--wide', true),
+            arInfoItem('Responsable', moto.responsable_entrega || moto.log_responsable || moto.nombre_responsable, '', true),
+            arInfoItem('Telefono', arInfoTelefono(moto.log_telefono || moto.telefono_contacto || moto.telefono), '', true),
+            arInfoItem('Direccion resguardo', moto.log_direccion || moto.direccion, 'ar-ev-info-block--wide', true)
+        ].filter(Boolean).join('');
 
-        return '<div class="ar-ev-info-panel">' +
-            operacion +
-            resguardo +
+        if (!datosMoto && !datosResguardo) return '';
+
+        return '<div class="ar-form-wrap">' +
+            '<div class="ae-form-trace">' +
+            '<div class="ae-form-trace-head">' +
+            '<span class="ae-form-trace-title"><i class="fa-solid fa-list-check me-1"></i>Formulario capturado</span>' +
+            (det.datos_moto_fecha ? '<span class="ae-form-trace-date"><i class="fa-solid fa-calendar-check"></i>Capturado ' + arEsc(arDatoVisible(det.datos_moto_fecha)) + '</span>' : '') +
+            '</div>' +
+            '<div class="ae-form-trace-columns">' +
+            '<div class="ae-form-trace-panel"><div class="ae-form-trace-grid">' + datosMoto + '</div></div>' +
+            (datosResguardo ? '<div class="ae-form-trace-panel"><div class="ae-form-resguardo-list">' + datosResguardo + '</div></div>' : '') +
+            '</div>' +
+            '</div>' +
             '</div>';
     }
 

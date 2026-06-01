@@ -431,7 +431,7 @@
                     </div>
                     <div class="fw-medium" style="font-size:.7rem;line-height:1.14;">${opsEsc(op.nombre_cliente)}</div>
                     <div class="d-flex justify-content-end mt-1">
-                        <span class="badge ${agingBadge}" title="${opsEsc(antiguedadTitle)}" style="font-size:.58rem;padding:.2rem .42rem;">${dias} dias en esta etapa</span>
+                        <span class="badge ${agingBadge}" title="${opsEsc(antiguedadTitle)}" style="font-size:.58rem;padding:.2rem .42rem;">${dias} días en esta etapa</span>
                     </div>
                     ${op.area_actual ? '<div class="text-muted text-truncate mt-1"><span class="badge bg-label-secondary" style="font-size:.68rem;">' + opsEsc(op.area_actual) + '</span></div>' : ''}
                 </div>
@@ -447,7 +447,7 @@
             </div>
             <div class="fw-medium" style="font-size:.71rem;line-height:1.14;">${opsEsc(op.nombre_cliente)}</div>
             <div class="d-flex justify-content-end mt-1">
-                <span class="badge ${agingBadge}" title="${opsEsc(antiguedadTitle)}" style="font-size:.58rem;padding:.2rem .42rem;">${dias} dias en esta etapa</span>
+                <span class="badge ${agingBadge}" title="${opsEsc(antiguedadTitle)}" style="font-size:.58rem;padding:.2rem .42rem;">${dias} días en esta etapa</span>
             </div>
             ${op.area_actual ? '<small class="text-muted"><span class="badge bg-label-secondary">' + opsEsc(op.area_actual) + '</span></small>' : ''}
             <div class="mt-3">
