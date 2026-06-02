@@ -17,6 +17,60 @@ class TrackingRecoleccion extends Model
         $this->asegurarTablas();
     }
 
+    private function normalizarEstadoTracking(?string $valor): string
+    {
+        $txt = mb_strtoupper(trim((string) $valor), 'UTF-8');
+        $txt = strtr($txt, [
+            'Á' => 'A', 'É' => 'E', 'Í' => 'I', 'Ó' => 'O', 'Ú' => 'U', 'Ü' => 'U', 'Ñ' => 'N',
+            'á' => 'A', 'é' => 'E', 'í' => 'I', 'ó' => 'O', 'ú' => 'U', 'ü' => 'U', 'ñ' => 'N',
+            'Ã' => 'A', 'Ã‰' => 'E', 'Ã' => 'I', 'Ã“' => 'O', 'Ãš' => 'U', 'Ãœ' => 'U', 'Ã‘' => 'N',
+            'Ã¡' => 'A', 'Ã©' => 'E', 'Ã­' => 'I', 'Ã³' => 'O', 'Ãº' => 'U', 'Ã¼' => 'U', 'Ã±' => 'N',
+        ]);
+        $txt = preg_replace('/[^A-Z0-9\s]/', ' ', $txt) ?? $txt;
+        $txt = preg_replace('/\s+/', ' ', $txt) ?? $txt;
+        $txt = trim($txt);
+
+        $alias = [
+            'CDMX' => 'CIUDAD DE MEXICO',
+            'CMDX' => 'CIUDAD DE MEXICO',
+            'DISTRITO FEDERAL' => 'CIUDAD DE MEXICO',
+            'DF' => 'CIUDAD DE MEXICO',
+            'MEXICO' => 'ESTADO DE MEXICO',
+            'EDOMEX' => 'ESTADO DE MEXICO',
+            'EDO MEX' => 'ESTADO DE MEXICO',
+            'EDO DE MEX' => 'ESTADO DE MEXICO',
+            'EDO DE MEXICO' => 'ESTADO DE MEXICO',
+            'ESTADO MEXICO' => 'ESTADO DE MEXICO',
+            'EDO MEXICO' => 'ESTADO DE MEXICO',
+            'MICHOACAN DE OCAMPO' => 'MICHOACAN',
+            'SLP' => 'SAN LUIS POTOSI',
+            'SAN LUIS' => 'SAN LUIS POTOSI',
+            'QRO' => 'QUERETARO',
+            'VER' => 'VERACRUZ',
+        ];
+        return $alias[$txt] ?? $txt;
+    }
+
+    private function aliasesEstadoTracking(?string $estado): array
+    {
+        $canon = $this->normalizarEstadoTracking($estado);
+        $map = [
+            'CIUDAD DE MEXICO' => ['CIUDAD DE MEXICO', 'CDMX', 'CMDX', 'DISTRITO FEDERAL', 'DF'],
+            'ESTADO DE MEXICO' => ['ESTADO DE MEXICO', 'MEXICO', 'EDOMEX', 'EDO MEX', 'EDO DE MEX', 'EDO DE MEXICO', 'ESTADO MEXICO', 'EDO MEXICO'],
+            'MICHOACAN' => ['MICHOACAN', 'MICHOACAN DE OCAMPO'],
+            'SAN LUIS POTOSI' => ['SAN LUIS POTOSI', 'SAN LUIS', 'SLP'],
+            'QUERETARO' => ['QUERETARO', 'QRO'],
+            'VERACRUZ' => ['VERACRUZ', 'VER'],
+        ];
+        $aliases = $map[$canon] ?? [$canon];
+        return array_values(array_unique(array_map(fn($v) => $this->normalizarEstadoTracking($v), $aliases)));
+    }
+
+    private function sqlEstadoNormalizado(string $columna): string
+    {
+        return "UPPER(TRIM(REPLACE(REPLACE(REPLACE(REPLACE({$columna}, '.', ''), ',', ''), ';', ''), ':', '')))";
+    }
+
     // =========================================================================
     // BOOTSTRAP: crear tablas si no existen (mismo patrón que adj_s2_cache_dictamen)
     // =========================================================================
@@ -244,8 +298,14 @@ class TrackingRecoleccion extends Model
         )";
 
         if ($estado !== null && $estado !== '') {
-            $where[]            = 'ao.log_estado = :estado';
-            $params['estado']   = $estado;
+            $aliases = $this->aliasesEstadoTracking($estado);
+            $phs = [];
+            foreach ($aliases as $i => $alias) {
+                $key = "estado{$i}";
+                $phs[] = ":{$key}";
+                $params[$key] = $alias;
+            }
+            $where[] = $this->sqlEstadoNormalizado('ao.log_estado') . ' IN (' . implode(',', $phs) . ')';
         }
         if ($municipio !== null && $municipio !== '') {
             $where[]              = 'ao.log_ciudad = :municipio';
@@ -317,17 +377,25 @@ class TrackingRecoleccion extends Model
             return [];
         }
         try {
+            $aliases = $this->aliasesEstadoTracking($estado);
+            $phs = [];
+            $params = [];
+            foreach ($aliases as $i => $alias) {
+                $key = "estado{$i}";
+                $phs[] = ":{$key}";
+                $params[$key] = $alias;
+            }
             $rows = $this->db->queryAll(
                 "SELECT da.nombre
                  FROM divisiones_administrativas da
                  INNER JOIN divisiones_administrativas padre
                         ON padre.id = da.id_padre
-                       AND padre.nombre  = :estado
+                       AND " . $this->sqlEstadoNormalizado('padre.nombre') . " IN (" . implode(',', $phs) . ")
                        AND padre.id_pais = 1
                        AND padre.nivel   = 1
                  WHERE da.activo = 1
                  ORDER BY da.nombre",
-                ['estado' => $estado]
+                $params
             ) ?: [];
             return array_column($rows, 'nombre');
         } catch (\Throwable $e) {
