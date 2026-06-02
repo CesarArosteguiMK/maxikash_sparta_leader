@@ -3615,6 +3615,15 @@ class CapHum extends Controller
             }
 
             function enviarUpdateGestor(payload) {
+                Swal.fire({
+                    title: 'Actualizando usuario...',
+                    html: '<div class="spinner-border text-primary" role="status"><span class="visually-hidden">Cargando...</span></div><p style="margin-top: 1rem;">Guardando cambios y sincronizando con Legacy...</p>',
+                    allowOutsideClick: false,
+                    allowEscapeKey: false,
+                    showConfirmButton: false,
+                    didOpen: () => Swal.showLoading()
+                });
+
                 fetch('/CapHum/updateGestorF', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -3636,13 +3645,17 @@ class CapHum extends Controller
                         return;
                     }
 
-                    Swal.fire("Exito", "Gestor actualizado correctamente", "success");
+                    swalGestionUsuarioLegacy(data, {
+                        tituloOk: 'Usuario actualizado',
+                        tituloPendiente: 'Usuario actualizado, Legacy pendiente',
+                        mensajeDefault: 'Gestor actualizado correctamente'
+                    }).then(() => {
+                        bootstrap.Offcanvas.getInstance(
+                            document.getElementById('offcanvasEditUser')
+                        ).hide();
 
-                    bootstrap.Offcanvas.getInstance(
-                        document.getElementById('offcanvasEditUser')
-                    ).hide();
-
-                    if (typeof getUsuarios === 'function') getUsuarios();
+                        if (typeof getUsuarios === 'function') getUsuarios();
+                    });
                 })
                 .catch(() => {
                     Swal.fire("Error", "No se pudo actualizar el gestor.", "error");
@@ -4243,14 +4256,18 @@ class CapHum extends Controller
                     .replace(/'/g, '&#039;');
             }
 
-            function swalAltaUsuarioLegacy(data) {
+            function swalGestionUsuarioLegacy(data, opciones) {
+                opciones = opciones || {};
                 const legacy = (data && data.legacy_sync) || (data && data.datos && data.datos.legacy_sync) || null;
+                const tituloOk = opciones.tituloOk || 'Usuario registrado';
+                const tituloPendiente = opciones.tituloPendiente || (tituloOk + ', Legacy pendiente');
+                const mensajeDefault = opciones.mensajeDefault || 'Usuario registrado correctamente';
                 if (!legacy) {
                     return Swal.fire({
                         icon: 'warning',
-                        title: 'Usuario registrado',
+                        title: tituloOk,
                         html: '<div class="text-start">' +
-                            '<div class="mb-2">' + escapeHtmlLegacyAlta((data && data.mensaje) || 'Usuario registrado correctamente') + '</div>' +
+                            '<div class="mb-2">' + escapeHtmlLegacyAlta((data && data.mensaje) || mensajeDefault) + '</div>' +
                             '<div class="border rounded-3 p-3 bg-label-warning text-dark">' +
                                 '<div class="fw-bold mb-1"><i class="fa fa-triangle-exclamation me-1"></i>Sincronizaci&oacute;n Legacy sin confirmar</div>' +
                                 '<div class="small">La respuesta no incluy&oacute; el resultado de Legacy. Revisa bit&aacute;cora o ejecuta reproceso de pendientes.</div>' +
@@ -4265,7 +4282,7 @@ class CapHum extends Controller
                 const reactivadoLegacy = !!(legacy.detalle && legacy.detalle.usuario_legacy_reactivado);
                 const numeroEmpleado = legacy.external_id || (data && data.datos && data.datos.numero_empleado) || '';
                 let icon = 'success';
-                let title = 'Usuario registrado';
+                let title = tituloOk;
                 let estado = 'Sincronizado en Legacy';
                 let estadoDetalle = 'Los datos ya quedaron aplicados en Legacy.';
                 let badgeClass = 'bg-success';
@@ -4297,7 +4314,7 @@ class CapHum extends Controller
                     iconClass = 'fa-circle-minus text-secondary';
                 } else if (resultado === 'error') {
                     icon = 'warning';
-                    title = 'Usuario registrado, Legacy pendiente';
+                    title = tituloPendiente;
                     estado = 'Legacy no se pudo actualizar';
                     estadoDetalle = 'El usuario se guard&oacute; en Spartan, pero Legacy requiere revisi&oacute;n o reproceso.';
                     badgeClass = 'bg-warning text-dark';
@@ -4309,7 +4326,7 @@ class CapHum extends Controller
                     icon: icon,
                     title: title,
                     html: '<div class="text-start">' +
-                        '<div class="mb-2">' + escapeHtmlLegacyAlta((data && data.mensaje) || 'Usuario registrado correctamente') + '</div>' +
+                        '<div class="mb-2">' + escapeHtmlLegacyAlta((data && data.mensaje) || mensajeDefault) + '</div>' +
                         '<div class="border rounded-3 p-3 ' + panelClass + '">' +
                             '<div class="d-flex align-items-center justify-content-between gap-2 flex-wrap mb-1">' +
                                 '<div class="fw-bold"><i class="fa ' + iconClass + ' me-1"></i>Sincronizaci&oacute;n Legacy</div>' +
@@ -4324,6 +4341,14 @@ class CapHum extends Controller
                         (legacy.mensaje ? '<div class="small text-muted mt-2">' + escapeHtmlLegacyAlta(legacy.mensaje) + '</div>' : '') +
                     '</div>',
                     confirmButtonText: 'Aceptar'
+                });
+            }
+
+            function swalAltaUsuarioLegacy(data) {
+                return swalGestionUsuarioLegacy(data, {
+                    tituloOk: 'Usuario registrado',
+                    tituloPendiente: 'Usuario registrado, Legacy pendiente',
+                    mensajeDefault: 'Usuario registrado correctamente'
                 });
             }
 
@@ -14301,6 +14326,21 @@ public function getEstadosMunicipiosMexico()
         }
 
         $resultado = CapHumDAO::UpdatePersona($input);
+        if (!empty($resultado['success'])) {
+            $idPersonaSync = (int)($input['id'] ?? 0);
+            $legacySync = $idPersonaSync > 0
+                ? LegacyUserSync::sincronizarDesdeEditarUsuario($idPersonaSync, (int)($_SESSION['usuario_id'] ?? $_SESSION['id_usuario'] ?? 0))
+                : [
+                    'success' => false,
+                    'resultado' => 'error',
+                    'mensaje' => 'No se pudo confirmar el ID de la persona para sincronizar con Legacy.',
+                    'detalle' => null,
+                ];
+            $datos = is_array($resultado['datos'] ?? null) ? $resultado['datos'] : [];
+            $datos['legacy_sync'] = $legacySync;
+            $resultado['datos'] = $datos;
+            $resultado['legacy_sync'] = $legacySync;
+        }
 
         echo json_encode($resultado);
         exit; //  CLAVE
