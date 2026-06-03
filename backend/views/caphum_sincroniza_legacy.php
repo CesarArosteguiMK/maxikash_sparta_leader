@@ -228,6 +228,7 @@
     const result = document.getElementById('legacy-sync-result');
     const summary = document.getElementById('legacy-sync-summary');
     const tbody = document.getElementById('legacy-sync-tbody');
+    const LEGACY_SYNC_UI_VERSION = 'legacy-sync-progress-v2';
 
     function esc(value) {
         return String(value == null ? '' : value)
@@ -300,14 +301,18 @@
 
     function progressHtml(actual, total, detalle) {
         const pct = total > 0 ? Math.round((actual / total) * 100) : 0;
+        const contador = total > 0
+            ? '<div class="small fw-bold mt-2">' + esc(actual) + ' de ' + esc(total) + '</div>'
+            : '<div class="small fw-bold mt-2">Preparando lista de usuarios...</div>';
         return '' +
-            '<div class="spinner-border text-primary mb-3" role="status"><span class="visually-hidden">Cargando...</span></div>' +
+            '<div class="spinner-border text-primary mb-3" role="status"><span class="visually-hidden">Sincronizando...</span></div>' +
             '<p class="fw-bold mb-1">' + esc(detalle || 'Preparando sincronizacion...') + '</p>' +
             '<p class="small text-muted mb-3">No cierre esta ventana.</p>' +
             '<div class="progress" style="height:10px;border-radius:999px;overflow:hidden;">' +
                 '<div class="progress-bar" role="progressbar" style="width:' + pct + '%;"></div>' +
             '</div>' +
-            '<div class="small fw-bold mt-2">' + esc(actual) + ' de ' + esc(total) + '</div>';
+            contador +
+            '<div class="small text-muted mt-1" style="font-size:.68rem;">' + esc(LEGACY_SYNC_UI_VERSION) + '</div>';
     }
 
     function swalProgress(actual, total, detalle) {
@@ -367,9 +372,10 @@
     async function sincronizar() {
         btn.disabled = true;
         if (typeof Swal !== 'undefined') {
+            Swal.close();
             Swal.fire({
-                title: 'Buscando usuarios',
-                html: progressHtml(0, 0, 'Detectando usuarios para sincronizar...'),
+                title: 'Buscando usuarios para sincronizar',
+                html: progressHtml(0, 0, 'Consultando usuarios dentro del alcance configurado...'),
                 allowOutsideClick: false,
                 allowEscapeKey: false,
                 showConfirmButton: false
@@ -397,13 +403,16 @@
             }
 
             if (typeof Swal !== 'undefined') {
-                Swal.update({ title: 'Usuarios encontrados' });
-                swalProgress(0, total, 'Encontrados ' + total + ' usuarios para sincronizar.');
+                Swal.update({ title: 'Encontrados ' + total + ' usuarios' });
+                swalProgress(0, total, 'Iniciando sincronizacion masiva por usuario.');
             }
 
             for (let i = 0; i < pendientes.length; i++) {
                 const item = Object.assign({}, pendientes[i], { lote: i + 1 });
                 const nombre = item.nombre ? (' · ' + item.nombre) : '';
+                if (typeof Swal !== 'undefined') {
+                    Swal.update({ title: 'Sincronizando ' + (i + 1) + ' de ' + total });
+                }
                 swalProgress(i + 1, total, 'Sincronizando ' + (i + 1) + ' de ' + total + nombre);
                 try {
                     const parcial = await postJson({ pendientes: [item] }, 'legacy_sync_lote');

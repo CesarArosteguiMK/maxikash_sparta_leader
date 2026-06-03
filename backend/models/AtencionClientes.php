@@ -484,8 +484,7 @@ SQL;
     private function sqlWhereAprobadosEvidenciasAtencion(): string
     {
         return <<<'SQL'
-o.estatus = 'Procesando IA'
-AND EXISTS (
+EXISTS (
       SELECT 1
       FROM adj_bitacora b
       WHERE b.id_operacion = o.id
@@ -658,7 +657,8 @@ SQL;
     }
 
     /**
-     * Misma lista que Evidencias → Aprobados: Procesando IA tras «Enviar evidencias validadas».
+     * Misma lista que Evidencias → Aprobados: operaciones con bitácora de «Enviar evidencias validadas».
+     * No depende del estatus actual porque la operación puede avanzar a Recuperación, Cierre o Recepción.
      * Si $excluirDictaminadoRecuperacion: no devuelve filas que ya salen en 3.- Recuperación → Dictaminado
      * (Cierre documentado + dictamen, p. ej. ya enviadas a cartera o en Recepción con historial).
      */
