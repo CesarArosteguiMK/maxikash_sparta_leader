@@ -97,6 +97,47 @@ class MotosAdjudicadas extends Model
         return isset(self::$adjOperacionColumnas[$columna]);
     }
 
+    /**
+     * Algunas bases antiguas no traen los campos capturados manualmente desde la app.
+     * Si faltan, los crea de forma idempotente para que guardarDatosMoto no los ignore.
+     */
+    private function asegurarColumnasFormularioMoto(): void
+    {
+        $faltantes = [
+            'kilometraje' => 'VARCHAR(40) NULL',
+            'tiene_llave_fisica' => 'VARCHAR(10) NULL',
+            'tiene_tarjeta_de_circulacion_en_fisico' => 'VARCHAR(10) NULL',
+            'la_moto_tiene_placa_fisica' => 'VARCHAR(10) NULL',
+            'llave_fisica' => 'VARCHAR(10) NULL',
+            'tarjeta_circulacion' => 'VARCHAR(10) NULL',
+            'placa_fisica' => 'VARCHAR(10) NULL',
+        ];
+
+        $alterado = false;
+        foreach ($faltantes as $columna => $definicion) {
+            if ($this->adjOperacionTieneColumna($columna)) {
+                continue;
+            }
+
+            try {
+                $this->db->CRUD(
+                    'ALTER TABLE adj_operacion ADD COLUMN `' . str_replace('`', '``', $columna) . '` ' . $definicion
+                );
+                $alterado = true;
+            } catch (\Throwable $e) {
+                // Si otra ejecución ya creó la columna entre el SHOW y el ALTER, recargamos caché y seguimos.
+                self::$adjOperacionColumnas = null;
+                if (!$this->adjOperacionTieneColumna($columna)) {
+                    throw $e;
+                }
+            }
+        }
+
+        if ($alterado) {
+            self::$adjOperacionColumnas = null;
+        }
+    }
+
     private function adjOperacionSelectColumnaONull(string $columna, string $prefijo = ''): string
     {
         $alias = str_replace('`', '', $columna);
@@ -3288,6 +3329,8 @@ SQL;
      */
     public function obtenerDetalle(int $id): ?array
     {
+        $this->asegurarColumnasFormularioMoto();
+
         $op = $this->db->queryOne(
             "SELECT o.*,
                     DATE_FORMAT(o.fecha_alta,          '%Y-%m-%d %H:%i') AS fecha_alta_fmt,
@@ -6721,6 +6764,8 @@ EOSQL;
             return ['success' => false, 'message' => 'Operaci?n inv?lida.'];
         }
 
+        $this->asegurarColumnasFormularioMoto();
+
         $op = $this->db->queryOne(
             'SELECT id FROM adj_operacion WHERE id = :id LIMIT 1',
             ['id' => $idOperacion]
@@ -6872,6 +6917,8 @@ EOSQL;
             return ['success' => false, 'message' => 'ID de credito invalido.'];
         }
 
+        $this->asegurarColumnasFormularioMoto();
+
         $colsFormularioCapturado = implode(",\n                    ", [
             $this->adjOperacionSelectColumnaONull('kilometraje'),
             $this->adjOperacionSelectColumnaONull('tiene_llave_fisica'),
@@ -6950,6 +6997,8 @@ EOSQL;
         if ($ids === []) {
             return [];
         }
+
+        $this->asegurarColumnasFormularioMoto();
 
         $params = [];
         $ph = [];

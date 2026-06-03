@@ -13,7 +13,7 @@ const fs = require('fs');
 try { require('dotenv').config({ path: path.join(__dirname, '.env') }); } catch (_) {}
 
 const express = require('express');
-const { runCommand, downloadFileStream, runCommandStream } = require('./lib/sshClient');
+const { runCommand, downloadFile, downloadFileStream, runCommandStream } = require('./lib/sshClient');
 const autoCopyConfig = require('./lib/autoCopyConfig');
 const { getAccurateCdmxNow, getCdmxLocalSync } = require('./lib/cdmxTime');
 const CDMX_WARN_LOG_COOLDOWN_MS = Math.max(30000, parseInt(process.env.CDMX_WARN_LOG_COOLDOWN_MS || '120000', 10) || 120000);
@@ -397,11 +397,12 @@ function formatSize(bytes) {
   return n.toFixed(2) + ' ' + units[i];
 }
 
-function parseListOutput(output, refCdmx) {
+function parseListOutput(output, refCdmx, options = {}) {
   const archivos = [];
   const hoyStr = refCdmx && refCdmx.fecha ? refCdmx.fecha : '1970-01-01';
   const ayerStr = sumarDiasYmd(hoyStr, -1);
   const fechalimite = ymdCompact(ayerStr);
+  const mesTexto = options.mesTexto || '';
   const meses = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
 
   const lineas = output.split('\n').map(l => l.trim()).filter(Boolean);
@@ -414,7 +415,11 @@ function parseListOutput(output, refCdmx) {
     const match = nombreArchivo.match(MEGA_RPT_REGEX);
     if (!match) continue;
     const [, fechaArchivo, hora, minuto, segundo] = match;
-    if (fechaArchivo < fechalimite) continue;
+    if (mesTexto) {
+      if (!fechaArchivo.startsWith(mesTexto)) continue;
+    } else if (fechaArchivo < fechalimite) {
+      continue;
+    }
 
     const y = fechaArchivo.slice(0, 4), m = fechaArchivo.slice(4, 6), d = fechaArchivo.slice(6, 8);
     const fechaObj = y + '-' + m + '-' + d;
@@ -1575,6 +1580,9 @@ app.get('/files', async (req, res) => {
     } catch (_) {
       nowCdmx = getCdmxLocalSync();
     }
+    const anio = String(req.query.anio || '').trim();
+    const mes = String(req.query.mes || '').trim().padStart(2, '0');
+    const mesTexto = /^\d{4}$/.test(anio) && /^(0[1-9]|1[0-2])$/.test(mes) ? (anio + mes) : '';
     const dirEsc = REMOTE_DIR.replace(/'/g, "'\\''");
     const cmd = `cd '${dirEsc}' && ls -l mega_rpt_*.csv.zip 2>/dev/null`;
     const result = await runCommand(cmd, { timeoutMs: 25000, retries: 0, readyTimeoutMs: 10000 });
@@ -1584,9 +1592,9 @@ app.get('/files', async (req, res) => {
         mensaje: 'No se pudieron listar los archivos: ' + (result.error || 'Error SSH'),
       });
     }
-    let archivos = parseListOutput(result.output, nowCdmx);
+    let archivos = parseListOutput(result.output, nowCdmx, { mesTexto });
     const ocultoInicioSemanaMartes = esMartesAntesDe0730Cdmx(nowCdmx);
-    if (ocultoInicioSemanaMartes) {
+    if (!mesTexto && ocultoInicioSemanaMartes) {
       archivos = [];
     }
     return res.json({
@@ -1682,6 +1690,49 @@ app.delete('/files/:nombre', async (req, res) => {
   }
 });
 
+app.get('/files/mega-report/download', async (req, res) => {
+  const anio = String(req.query.anio || '').trim();
+  const mes = String(req.query.mes || '').trim().padStart(2, '0');
+  if (!/^\d{4}$/.test(anio) || !/^(0[1-9]|1[0-2])$/.test(mes)) {
+    return res.status(400).send('Año o mes inválido.');
+  }
+
+  const mesTexto = anio + mes;
+  const token = Date.now() + '_' + Math.random().toString(16).slice(2);
+  const remoteCsv = '/tmp/sparta_mega_reporte_' + mesTexto + '_' + token + '.csv';
+  const remoteCsvEsc = remoteCsv.replace(/'/g, "'\\''");
+  const dirEsc = REMOTE_DIR.replace(/'/g, "'\\''");
+  const pattern = 'mega_rpt_' + mesTexto + '*.csv.zip';
+
+  const cmd = [
+    "cd '" + dirEsc + "'",
+    "rm -f '" + remoteCsvEsc + "'",
+    "count=$(ls " + pattern + " 2>/dev/null | wc -l)",
+    "test \"$count\" -gt 0",
+    "first=1; for f in " + pattern + "; do if [ \"$first\" -eq 1 ]; then unzip -p \"$f\" '*.csv' 2>/dev/null; first=0; else unzip -p \"$f\" '*.csv' 2>/dev/null | tail -n +2; fi; done | awk 'NF && !seen[$0]++' > '" + remoteCsvEsc + "'",
+    "test -s '" + remoteCsvEsc + "'"
+  ].join(' && ');
+
+  try {
+    const result = await runCommand(cmd, { timeoutMs: 900000, retries: 0, readyTimeoutMs: 45000 });
+    if (!result.success) {
+      return res.status(500).send('No se pudo generar el mega reporte mensual: ' + (result.error || result.output || 'error remoto'));
+    }
+
+    const buffer = await downloadFile(remoteCsv);
+    await runCommand("rm -f '" + remoteCsvEsc + "'", { timeoutMs: 15000, retries: 0 }).catch(() => {});
+
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    res.setHeader('Content-Disposition', 'attachment; filename="mega_reporte_' + mesTexto + '.csv"');
+    res.setHeader('Content-Length', buffer.length);
+    res.send(buffer);
+  } catch (e) {
+    await runCommand("rm -f '" + remoteCsvEsc + "'", { timeoutMs: 15000, retries: 0 }).catch(() => {});
+    console.error('[mega-report] Error al generar mega reporte mensual:', mesTexto, e && e.message ? e.message : e);
+    res.status(500).send('Error al generar mega reporte mensual: ' + (e && e.message ? e.message : e));
+  }
+});
+
 app.get('/files/:nombre/download', async (req, res) => {
   try {
     const nombre = (req.params.nombre || '').trim();
@@ -1689,16 +1740,13 @@ app.get('/files/:nombre/download', async (req, res) => {
       return res.status(400).send('Formato de archivo inválido.');
     }
     const remotePath = REMOTE_DIR + '/' + nombre;
-    const { stream, conn } = await downloadFileStream(remotePath);
+    const buffer = await downloadFile(remotePath);
     res.setHeader('Content-Type', 'application/zip');
     res.setHeader('Content-Disposition', 'attachment; filename="' + nombre + '"');
-    stream.on('error', (e) => {
-      try { conn.end(); } catch (_) {}
-      if (!res.headersSent) res.status(500).send('Error al descargar: ' + e.message);
-    });
-    stream.on('end', () => { conn.end(); });
-    stream.pipe(res);
+    res.setHeader('Content-Length', buffer.length);
+    res.send(buffer);
   } catch (e) {
+    console.error('[download] Error al descargar archivo remoto:', (req.params.nombre || '').trim(), e && e.message ? e.message : e);
     res.status(500).send('Error al descargar: ' + e.message);
   }
 });
