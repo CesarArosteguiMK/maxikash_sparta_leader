@@ -1585,7 +1585,12 @@ app.get('/files', async (req, res) => {
     const mesTexto = /^\d{4}$/.test(anio) && /^(0[1-9]|1[0-2])$/.test(mes) ? (anio + mes) : '';
     const dirEsc = REMOTE_DIR.replace(/'/g, "'\\''");
     const cmd = `cd '${dirEsc}' && ls -l mega_rpt_*.csv.zip 2>/dev/null`;
-    const result = await runCommand(cmd, { timeoutMs: 25000, retries: 0, readyTimeoutMs: 10000 });
+    const result = await runCommand(cmd, {
+      timeoutMs: mesTexto ? 90000 : 45000,
+      retries: mesTexto ? 3 : 2,
+      retryDelayMs: 1800,
+      readyTimeoutMs: mesTexto ? 45000 : 25000,
+    });
     if (!result.success) {
       return res.status(500).json({
         success: false,

@@ -163,33 +163,60 @@ function runCommand(command, options = {}) {
  * @param {string} remotePath - Ruta completa en el servidor
  * @returns {Promise<Buffer>}
  */
-function downloadFile(remotePath) {
-  const config = loadConfig();
-  return new Promise((resolve, reject) => {
-    const conn = new Client();
-    conn
-      .on('ready', () => {
-        conn.sftp((err, sftp) => {
-          if (err) {
-            conn.end();
-            return reject(err);
-          }
-          const chunks = [];
-          const stream = sftp.createReadStream(remotePath);
-          stream.on('data', (chunk) => chunks.push(chunk));
-          stream.on('end', () => {
-            conn.end();
-            resolve(Buffer.concat(chunks));
+function downloadFile(remotePath, options = {}) {
+  const maxRetries = options.retries != null
+    ? Math.max(0, parseInt(options.retries, 10) || 0)
+    : Math.max(0, parseInt(process.env.SSH_DOWNLOAD_RETRIES || '3', 10) || 3);
+  const retryDelayMs = options.retryDelayMs != null
+    ? Math.max(500, parseInt(options.retryDelayMs, 10) || 500)
+    : Math.max(500, parseInt(process.env.SSH_DOWNLOAD_RETRY_DELAY_MS || '1500', 10) || 1500);
+
+  function once() {
+    const config = loadConfig();
+    if (options.readyTimeoutMs != null) {
+      const rt = parseInt(options.readyTimeoutMs, 10);
+      if (Number.isFinite(rt) && rt > 0) config.readyTimeout = rt;
+    }
+    return new Promise((resolve, reject) => {
+      const conn = new Client();
+      let finished = false;
+      function finish(err, buffer) {
+        if (finished) return;
+        finished = true;
+        try { conn.end(); } catch (_) {}
+        if (err) reject(err);
+        else resolve(buffer);
+      }
+      conn
+        .on('ready', () => {
+          conn.sftp((err, sftp) => {
+            if (err) return finish(err);
+            const chunks = [];
+            const stream = sftp.createReadStream(remotePath);
+            stream.on('data', (chunk) => chunks.push(chunk));
+            stream.on('end', () => finish(null, Buffer.concat(chunks)));
+            stream.on('error', (e) => finish(e));
           });
-          stream.on('error', (e) => {
-            conn.end();
-            reject(e);
-          });
-        });
-      })
-      .on('error', reject)
-      .connect(config);
-  });
+        })
+        .on('error', (err) => finish(err))
+        .connect(config);
+    });
+  }
+
+  return (async () => {
+    let lastError = null;
+    for (let attempt = 0; attempt <= maxRetries; attempt++) {
+      try {
+        return await once();
+      } catch (err) {
+        lastError = err;
+        const message = err && err.message ? err.message : String(err || '');
+        if (!isTransientSshError(message) || attempt === maxRetries) throw err;
+        await sleep(retryDelayMs * (attempt + 1));
+      }
+    }
+    throw lastError || new Error('Error desconocido al descargar archivo remoto.');
+  })();
 }
 
 /**

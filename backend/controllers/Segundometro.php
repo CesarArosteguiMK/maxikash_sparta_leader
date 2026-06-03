@@ -1482,68 +1482,10 @@ class Segundometro extends Controller
         }
 
         try {
-            $url = $this->agenteBaseUrl() . '/files/mega-report/download?anio=' . rawurlencode((string)$anio) . '&mes=' . rawurlencode(sprintf('%02d', $mes));
-            $headers = [];
-            $key = $this->agenteApiKey();
-            if ($key !== '') $headers[] = 'X-Api-Key: ' . $key;
-
-            if (!function_exists('curl_init')) {
-                throw new \Exception('cURL no disponible para descargar desde agente.');
-            }
-
-            $ch = curl_init($url);
-            curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-            curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 10);
-            curl_setopt($ch, CURLOPT_TIMEOUT, 1000);
-            if (!empty($headers)) curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
-            $bin = curl_exec($ch);
-            $status = (int)curl_getinfo($ch, CURLINFO_HTTP_CODE);
-            $cerr = curl_error($ch);
-            curl_close($ch);
-
-            if ($bin === false || $status < 200 || $status >= 300) {
-                $detalle = is_string($bin) && trim($bin) !== '' ? ': ' . trim(substr($bin, 0, 700)) : '';
-                throw new \Exception($cerr !== '' ? $cerr : ('HTTP ' . $status . ' al generar desde agente' . $detalle));
-            }
-
             if (!class_exists('\ZipArchive')) {
                 throw new \Exception('El servidor no tiene habilitada la extension ZipArchive.');
             }
 
-            $nombreZipDescarga = 'mega_reporte_' . $this->nombreMesDescarga($mes) . '_' . $anio . '.csv.zip';
-            $nombreCsvDescarga = 'mega_reporte_' . $this->nombreMesDescarga($mes) . '_' . $anio . '.csv';
-            $tmpZip = sys_get_temp_dir() . DIRECTORY_SEPARATOR . 'sparta_mega_' . uniqid('', true) . '.zip';
-            $zipSalida = new \ZipArchive();
-            if ($zipSalida->open($tmpZip, \ZipArchive::CREATE | \ZipArchive::OVERWRITE) !== true) {
-                throw new \Exception('No se pudo comprimir el megareporte mensual.');
-            }
-            $zipSalida->addFromString($nombreCsvDescarga, $bin);
-            $zipSalida->close();
-
-            while (ob_get_level()) { @ob_end_clean(); }
-            header('Content-Type: application/zip');
-            header('Content-Disposition: attachment; filename="' . $nombreZipDescarga . '"');
-            header('Content-Length: ' . filesize($tmpZip));
-            readfile($tmpZip);
-            @unlink($tmpZip);
-            exit;
-        } catch (\Exception $e) {
-            header('HTTP/1.0 500 Internal Server Error');
-            echo 'Error al generar megareporte mensual: ' . $e->getMessage();
-            exit;
-        }
-
-        if (!class_exists('\ZipArchive')) {
-            header('HTTP/1.0 500 Internal Server Error');
-            echo 'El servidor no tiene habilitada la extension ZipArchive.';
-            exit;
-        }
-
-        $tmpDir = null;
-        $outCsv = null;
-        $outZip = null;
-
-        try {
             $agent = $this->agenteRequest('GET', '/files?anio=' . rawurlencode((string)$anio) . '&mes=' . rawurlencode(sprintf('%02d', $mes)), null, 90);
             if (!$agent['success'] || !is_array($agent['json']) || empty($agent['json']['success'])) {
                 $msg = 'No se pudieron listar archivos via agente.';
@@ -1552,115 +1494,110 @@ class Segundometro extends Controller
                 throw new \Exception($msg);
             }
 
-            $datos = $agent['json']['datos'] ?? [];
             $mesTexto = sprintf('%04d%02d', $anio, $mes);
             $archivos = [];
-
-            foreach ($datos as $item) {
+            foreach (($agent['json']['datos'] ?? []) as $item) {
                 $nombre = is_array($item) ? (string)($item['nombre'] ?? $item['name'] ?? '') : (string)$item;
                 if (preg_match('/^mega_rpt_' . $mesTexto . '\d{2}_\d{2}_\d{2}_\d{2}\.csv\.zip$/', $nombre)) {
                     $archivos[] = $nombre;
                 }
             }
-
             $archivos = array_values(array_unique($archivos));
-            sort($archivos, SORT_NATURAL);
-
+            rsort($archivos, SORT_NATURAL);
             if (empty($archivos)) {
                 header('HTTP/1.0 404 Not Found');
                 echo 'No se encontraron archivos mega_rpt para ' . sprintf('%02d/%04d', $mes, $anio) . '.';
                 exit;
             }
 
+            $nombreArchivo = null;
+            $descarga = null;
+            $erroresDescarga = [];
+            foreach (array_slice($archivos, 0, 8) as $candidato) {
+                try {
+                    $descarga = $this->descargarArchivoAgenteBinario($candidato, 900);
+                    $nombreArchivo = $candidato;
+                    break;
+                } catch (\Exception $e) {
+                    $erroresDescarga[] = $candidato . ' => ' . $e->getMessage();
+                }
+            }
+            if (!$nombreArchivo || !$descarga) {
+                throw new \Exception('No se pudo descargar ningun mega_rpt reciente del mes. ' . implode(' | ', array_slice($erroresDescarga, 0, 3)));
+            }
+
+            $nombreZipDescarga = 'mega_reporte_' . $this->nombreMesDescarga($mes) . '_' . $anio . '.csv.zip';
+            $nombreCsvDescarga = 'mega_reporte_' . $this->nombreMesDescarga($mes) . '_' . $anio . '.csv';
             $tmpDir = sys_get_temp_dir() . DIRECTORY_SEPARATOR . 'sparta_mega_' . uniqid('', true);
             if (!@mkdir($tmpDir, 0777, true) && !is_dir($tmpDir)) {
                 throw new \Exception('No se pudo crear temporal de descarga.');
             }
+            $zipOrigen = $tmpDir . DIRECTORY_SEPARATOR . $nombreArchivo;
+            $outCsv = $tmpDir . DIRECTORY_SEPARATOR . $nombreCsvDescarga;
+            $tmpZip = $tmpDir . DIRECTORY_SEPARATOR . $nombreZipDescarga;
+            file_put_contents($zipOrigen, $descarga['bin']);
 
-            $outCsv = $tmpDir . DIRECTORY_SEPARATOR . 'mega_reporte_' . $mesTexto . '.csv';
+            $zip = new \ZipArchive();
+            if ($zip->open($zipOrigen) !== true) {
+                throw new \Exception('No se pudo abrir el ZIP origen del agente.');
+            }
+
             $csvHandle = fopen($outCsv, 'wb');
             if (!$csvHandle) {
+                $zip->close();
                 throw new \Exception('No se pudo crear CSV consolidado.');
             }
 
             $encabezadoEscrito = false;
-            $csvsProcesados = 0;
             $filasVistas = [];
-            $duplicadosOmitidos = 0;
-
-            foreach ($archivos as $nombreArchivo) {
-                $descarga = $this->descargarArchivoAgenteBinario($nombreArchivo, 360);
-                $zipOrigen = $tmpDir . DIRECTORY_SEPARATOR . $nombreArchivo;
-                file_put_contents($zipOrigen, $descarga['bin']);
-
-                $zip = new \ZipArchive();
-                if ($zip->open($zipOrigen) !== true) {
-                    @unlink($zipOrigen);
-                    continue;
-                }
-
-                for ($i = 0; $i < $zip->numFiles; $i++) {
-                    $entryName = $zip->getNameIndex($i);
-                    if (!is_string($entryName) || !preg_match('/\.csv$/i', $entryName)) continue;
-
-                    $stream = $zip->getStream($entryName);
-                    if (!$stream) continue;
-
-                    $lineaNumero = 0;
-                    while (($linea = fgets($stream)) !== false) {
-                        $lineaNumero++;
-                        if ($encabezadoEscrito && $lineaNumero === 1) continue;
-                        if ($lineaNumero > 1) {
-                            $lineaNormalizada = rtrim($linea, "\r\n");
-                            if ($lineaNormalizada === '') continue;
-                            $hashFila = hash('sha256', $lineaNormalizada);
-                            if (isset($filasVistas[$hashFila])) {
-                                $duplicadosOmitidos++;
-                                continue;
-                            }
-                            $filasVistas[$hashFila] = true;
-                        }
-                        fwrite($csvHandle, $linea);
-                        if (!$encabezadoEscrito) $encabezadoEscrito = true;
+            for ($i = 0; $i < $zip->numFiles; $i++) {
+                $entryName = $zip->getNameIndex($i);
+                if (!is_string($entryName) || !preg_match('/\.csv$/i', $entryName)) continue;
+                $stream = $zip->getStream($entryName);
+                if (!$stream) continue;
+                $lineaNumero = 0;
+                while (($linea = fgets($stream)) !== false) {
+                    $lineaNumero++;
+                    if ($encabezadoEscrito && $lineaNumero === 1) continue;
+                    if ($lineaNumero > 1) {
+                        $lineaNormalizada = rtrim($linea, "\r\n");
+                        if ($lineaNormalizada === '') continue;
+                        $hashFila = hash('sha256', $lineaNormalizada);
+                        if (isset($filasVistas[$hashFila])) continue;
+                        $filasVistas[$hashFila] = true;
                     }
-                    fclose($stream);
-                    $csvsProcesados++;
+                    fwrite($csvHandle, $linea);
+                    if (!$encabezadoEscrito) $encabezadoEscrito = true;
                 }
-
-                $zip->close();
-                @unlink($zipOrigen);
+                fclose($stream);
             }
-
             fclose($csvHandle);
+            $zip->close();
 
-            if (!$encabezadoEscrito || $csvsProcesados === 0) {
-                throw new \Exception('Los archivos encontrados no contienen CSV validos.');
+            if (!$encabezadoEscrito) {
+                throw new \Exception('El ZIP origen no contiene CSV valido.');
             }
 
-            $outZip = $tmpDir . DIRECTORY_SEPARATOR . 'mega_reporte_' . $mesTexto . '.csv.zip';
             $zipSalida = new \ZipArchive();
-            if ($zipSalida->open($outZip, \ZipArchive::CREATE | \ZipArchive::OVERWRITE) !== true) {
+            if ($zipSalida->open($tmpZip, \ZipArchive::CREATE | \ZipArchive::OVERWRITE) !== true) {
                 throw new \Exception('No se pudo comprimir el megareporte mensual.');
             }
-
-            $nombreCsvDescarga = 'mega_reporte_' . $this->nombreMesDescarga($mes) . '_' . $anio . '.csv';
             $zipSalida->addFile($outCsv, $nombreCsvDescarga);
             $zipSalida->close();
 
-            $nombreZipDescarga = 'mega_reporte_' . $this->nombreMesDescarga($mes) . '_' . $anio . '.csv.zip';
             while (ob_get_level()) { @ob_end_clean(); }
             header('Content-Type: application/zip');
             header('Content-Disposition: attachment; filename="' . $nombreZipDescarga . '"');
-            header('Content-Length: ' . filesize($outZip));
-            readfile($outZip);
-            $this->limpiarTemporalesDescarga([$outZip, $outCsv, $tmpDir]);
+            header('Content-Length: ' . filesize($tmpZip));
+            readfile($tmpZip);
+            $this->limpiarTemporalesDescarga([$tmpZip, $outCsv, $zipOrigen, $tmpDir]);
             exit;
         } catch (\Exception $e) {
-            $this->limpiarTemporalesDescarga(array_filter([$outZip, $outCsv, $tmpDir]));
             header('HTTP/1.0 500 Internal Server Error');
             echo 'Error al generar megareporte mensual: ' . $e->getMessage();
             exit;
         }
+
     }
 
     public function eliminarArchivo()
