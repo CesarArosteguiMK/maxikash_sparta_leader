@@ -81,6 +81,10 @@ function getMenu(): string
                 '/analitica/callcenter',
                 '/analitica/resumencallcenter',
             ],
+            '/analitica/reportecampo' => [
+                '/analitica/reportecampo',
+                '/analitica/descargarreportecampoexcel',
+            ],
             '/adjudicacion/administracion' => [
                 '/adjudicacion/administracion',
                 '/adjudicacion/asignacioncreditos',
@@ -191,7 +195,7 @@ function getMenu(): string
                 ['label' => 'Direcciones', 'url' => '/analitica/asignacion', 'modulos' => [84]],
             ],
         ],
-        'Legacy Notificaciones' => [
+        'Legacy' => [
             'icono'    => 'fa-solid fa-bullhorn',
             'subItems' => [
                 ['label' => 'Campañas', 'url' => '/MotosAdjudicadas/campaniaNotificacionLegacy', 'modulos' => [64]],
@@ -215,6 +219,7 @@ function getMenu(): string
                 ['label' => 'Primeros pagos', 'url' => '/analitica/PrimerosPagos', 'modulos' => [49, 65, 66, 67, 68]],
                 ['label' => 'Cartera actual', 'url' => '/analitica/carteraactual', 'modulos' => [19]],
                 ['label' => 'Call Center',    'url' => '/analitica/callcenter',    'modulos' => [6]],
+                ['label' => 'Reporte de Campo', 'url' => '/analitica/reporteCampo', 'modulos' => [90]],
                 ['label' => 'Layout Legacy',  'url' => '/analitica/layoutlegacy',  'modulos' => [7]],
                 ['label' => 'Sabuesos', 'url' => '/sabueso/estadisticas',   'modulos' => [47]],
                 ['label' => 'Comparativas', 'url' => '/analitica/comparativas', 'modulos' => [60, 81]],
@@ -234,6 +239,7 @@ function getMenu(): string
                 ['label' => 'Áreas',                  'url' => '/departamentos/consulta/',     'modulos' => [10]],
                 ['label' => 'Países',                 'url' => '/paises/consulta',             'modulos' => [41]],
                 ['label' => 'Equivalencia puestos',   'url' => '/equivalencias/consulta',      'modulos' => [17]],
+                ['label' => 'Sincroniza Legacy',       'url' => '/caphum/sincronizaLegacy',     'modulos' => [89]],
                 ['label' => 'Asignación por puestos', 'url' => '/configticketpuesto/consulta', 'modulos' => [26]],
                 ['label' => 'Config Motos Adj',        'url' => '/ConfigMotosAdj/consulta',     'modulos' => [85]],
             ],

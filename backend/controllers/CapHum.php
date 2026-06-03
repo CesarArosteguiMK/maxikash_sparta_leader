@@ -18,6 +18,7 @@ class CapHum extends Controller
     private const MODULO_REVISION_ACTUALIZACIONES_RRHH = 83;
     private const MODULO_AGREGAR_USUARIO_RRHH = 87;
     private const MODULO_EDITAR_USUARIO_RRHH = 88;
+    private const MODULO_SINCRONIZA_LEGACY = 89;
 
     /** Último error de enviarCorreo para mostrarlo en la respuesta JSON */
     private $enviarCorreoUltimoError = '';
@@ -616,9 +617,29 @@ class CapHum extends Controller
                         }
 
                         const select = document.getElementById('edit_departamento_id');
+                        if (typeof window.jQuery !== 'undefined') {
+                            const jqSelect = window.jQuery(select);
+                            if (jqSelect.hasClass('select2-hidden-accessible')) {
+                                jqSelect.select2('destroy');
+                            }
+                        }
                         select.innerHTML = '<option value="">Seleccione un departamento</option>';
 
-                        data.datos.forEach(dep => {
+                        const idsPermitidos = new Set((Array.isArray(data.datos) ? data.datos : [])
+                            .map(dep => String(dep.id || dep.departamento_id || ''))
+                            .filter(Boolean));
+                        const listaCobranza = Array.isArray(window.departamentosCobranzaEditarUsuarioBackend)
+                            ? window.departamentosCobranzaEditarUsuarioBackend.filter(dep => {
+                                const idDep = dep.id || dep.departamento_id || '';
+                                return idDep && idsPermitidos.has(String(idDep));
+                            })
+                            : (Array.isArray(data.datos) ? data.datos : []).filter(dep => {
+                                const area = String(dep.departamento_organizacional_nombre || dep.nombre_departamento_organizacional || dep.area_nombre || dep.nombre_area || '')
+                                    .normalize('NFD').replace(/[\\u0300-\\u036f]/g, '').trim().toLowerCase();
+                                return area === 'cobranza' || area === 'cobranza corporativo';
+                            });
+
+                        listaCobranza.forEach(dep => {
                             const option = document.createElement('option');
                             option.value = dep.id;
                             option.textContent = dep.nombre;
@@ -4292,13 +4313,13 @@ class CapHum extends Controller
                 if (resultado === 'actualizado') {
                     if (creadoLegacy) {
                         estado = 'Creado y sincronizado en Legacy';
-                        estadoDetalle = 'El usuario ya existe en Legacy con rol y jerarqu&iacute;a actualizados.';
+                        estadoDetalle = 'El usuario ya existe en Legacy con usuario, contrase&ntilde;a, rol y jerarqu&iacute;a actualizados.';
                     } else if (reactivadoLegacy) {
                         estado = 'Reactivado y sincronizado en Legacy';
                         estadoDetalle = 'El usuario estaba dado de baja en Legacy y fue reactivado.';
                     } else {
                         estado = 'Actualizado en Legacy';
-                        estadoDetalle = 'Rol y jerarqu&iacute;a fueron sincronizados con Legacy.';
+                        estadoDetalle = 'Usuario, contrase&ntilde;a, rol y jerarqu&iacute;a fueron sincronizados con Legacy.';
                     }
                 } else if (resultado === 'sin_cambios') {
                     estado = 'Legacy ya estaba sincronizado';
@@ -6034,6 +6055,149 @@ class CapHum extends Controller
                 }
             }
 
+            function catalogoOrganizacionCandidato() {
+                return Array.isArray(window.departamentosCandidatoBackend) ? window.departamentosCandidatoBackend : [];
+            }
+
+            function normalizarTextoCandidato(txt) {
+                return String(txt || '').trim();
+            }
+
+            function resetPuestoJefeCandidato() {
+                var selPuesto = document.getElementById("candidato_id_puesto");
+                var selJefe = document.getElementById("candidato_id_posible_jefe");
+                if (selPuesto) {
+                    selPuesto.innerHTML = "<option value=''>Seleccione departamento primero</option>";
+                    selPuesto.disabled = true;
+                    refreshSelectBuscadorCandidato(selPuesto.id);
+                }
+                if (selJefe) {
+                    selJefe.innerHTML = "<option value=''>Seleccione departamento y puesto primero</option>";
+                    selJefe.disabled = true;
+                    refreshSelectBuscadorCandidato(selJefe.id);
+                }
+            }
+
+            function resetCascadaOrganizacionCandidato() {
+                var direccion = document.getElementById("candidato_id_direccion");
+                var area = document.getElementById("candidato_id_area");
+                var depto = document.getElementById("candidato_id_departamento");
+                if (direccion) {
+                    direccion.innerHTML = "<option value=''>Seleccione dirección</option>";
+                    direccion.disabled = false;
+                }
+                if (area) {
+                    area.innerHTML = "<option value=''>Seleccione dirección primero</option>";
+                    area.disabled = true;
+                }
+                if (depto) {
+                    depto.innerHTML = "<option value=''>Seleccione área primero</option>";
+                    depto.disabled = true;
+                }
+                resetPuestoJefeCandidato();
+                ["candidato_id_direccion", "candidato_id_area", "candidato_id_departamento"].forEach(refreshSelectBuscadorCandidato);
+            }
+
+            function renderDireccionesCandidato(valorSeleccionado) {
+                var select = document.getElementById("candidato_id_direccion");
+                if (!select) return;
+                var mapa = new Map();
+                catalogoOrganizacionCandidato().forEach(function(dep) {
+                    var id = String(dep.id_direccion || 0);
+                    var nombre = normalizarTextoCandidato(dep.direccion_nombre || "Sin dirección");
+                    if (!mapa.has(id)) mapa.set(id, nombre);
+                });
+                select.innerHTML = "<option value=''>Seleccione dirección</option>";
+                Array.from(mapa.entries()).sort(function(a, b) { return a[1].localeCompare(b[1]); }).forEach(function(row) {
+                    var opt = document.createElement("option");
+                    opt.value = row[0];
+                    opt.textContent = row[1];
+                    select.appendChild(opt);
+                });
+                select.disabled = mapa.size === 0;
+                if (valorSeleccionado !== undefined && valorSeleccionado !== null) {
+                    select.value = String(valorSeleccionado);
+                }
+                refreshSelectBuscadorCandidato(select.id);
+            }
+
+            function renderAreasCandidato(idDireccion, valorSeleccionado) {
+                var select = document.getElementById("candidato_id_area");
+                var depto = document.getElementById("candidato_id_departamento");
+                if (!select) return;
+                var direccionSeleccionada = String(idDireccion ?? "");
+                var mapa = new Map();
+                catalogoOrganizacionCandidato().forEach(function(dep) {
+                    if (String(dep.id_direccion || 0) !== direccionSeleccionada) return;
+                    var id = String(dep.id_departamento_organizacional || 0);
+                    var nombre = normalizarTextoCandidato(dep.departamento_organizacional_nombre || "Sin área");
+                    if (!mapa.has(id)) mapa.set(id, nombre);
+                });
+                select.innerHTML = "<option value=''>Seleccione área</option>";
+                Array.from(mapa.entries()).sort(function(a, b) { return a[1].localeCompare(b[1]); }).forEach(function(row) {
+                    var opt = document.createElement("option");
+                    opt.value = row[0];
+                    opt.textContent = row[1];
+                    select.appendChild(opt);
+                });
+                select.disabled = direccionSeleccionada === "" || mapa.size === 0;
+                if (valorSeleccionado !== undefined && valorSeleccionado !== null) {
+                    select.value = String(valorSeleccionado);
+                }
+                if (depto) {
+                    depto.innerHTML = "<option value=''>Seleccione área primero</option>";
+                    depto.disabled = true;
+                    refreshSelectBuscadorCandidato(depto.id);
+                }
+                resetPuestoJefeCandidato();
+                refreshSelectBuscadorCandidato(select.id);
+            }
+
+            function renderDepartamentosCandidato(idArea, valorSeleccionado) {
+                var select = document.getElementById("candidato_id_departamento");
+                if (!select) return;
+                var areaSeleccionada = String(idArea ?? "");
+                var mapa = new Map();
+                catalogoOrganizacionCandidato().forEach(function(dep) {
+                    if (String(dep.id_departamento_organizacional || 0) !== areaSeleccionada) return;
+                    var id = String(dep.id || dep.departamento_id || "");
+                    var nombre = normalizarTextoCandidato(dep.nombre || dep.departamento_nombre || "");
+                    if (id && nombre && !mapa.has(id)) mapa.set(id, nombre);
+                });
+                select.innerHTML = "<option value=''>Seleccione departamento</option>";
+                Array.from(mapa.entries()).sort(function(a, b) { return a[1].localeCompare(b[1]); }).forEach(function(row) {
+                    var opt = document.createElement("option");
+                    opt.value = row[0];
+                    opt.textContent = row[1];
+                    select.appendChild(opt);
+                });
+                select.disabled = areaSeleccionada === "" || mapa.size === 0;
+                if (valorSeleccionado !== undefined && valorSeleccionado !== null) {
+                    select.value = String(valorSeleccionado);
+                }
+                resetPuestoJefeCandidato();
+                refreshSelectBuscadorCandidato(select.id);
+            }
+
+            function seleccionarOrganizacionPorDepartamentoCandidato(idDepartamento) {
+                var dep = catalogoOrganizacionCandidato().find(function(item) {
+                    return String(item.id || item.departamento_id || "") === String(idDepartamento || "");
+                });
+                renderDireccionesCandidato(dep ? (dep.id_direccion || 0) : "");
+                if (!dep) {
+                    renderAreasCandidato("", "");
+                    renderDepartamentosCandidato("", "");
+                    return;
+                }
+                renderAreasCandidato(dep.id_direccion || 0, dep.id_departamento_organizacional || 0);
+                renderDepartamentosCandidato(dep.id_departamento_organizacional || 0, idDepartamento);
+                var selDepto = document.getElementById("candidato_id_departamento");
+                if (selDepto && idDepartamento) {
+                    if (typeof window.jQuery !== "undefined") window.jQuery(selDepto).trigger("change");
+                    else selDepto.dispatchEvent(new Event("change", { bubbles: true }));
+                }
+            }
+
             function ocultarSeccionesDomicilioCandidato() {
                 ["estado", "municipio", "colonia", "calle_texto", "num_extint"].forEach(function (k) {
                     var el = document.getElementById("div_candidato_" + k);
@@ -7273,6 +7437,7 @@ class CapHum extends Controller
             if (form.domicilio_num_exterior) form.domicilio_num_exterior.value = c.domicilio_num_exterior || "";
             if (form.domicilio_num_interior) form.domicilio_num_interior.value = c.domicilio_num_interior || "";
             if (form.id_departamento) form.id_departamento.value = c.id_departamento || "";
+            seleccionarOrganizacionPorDepartamentoCandidato(c.id_departamento || "");
             if (form.usuario) form.usuario.value = c.usuario || "";
             if (form.contrasena) form.contrasena.value = c.contrasena || "";
             var fpInput = document.getElementById("candidato_fecha_postulacion");
@@ -7400,6 +7565,7 @@ class CapHum extends Controller
         }
 
             function validarDomicilioCandidato() {
+        return true;
         var paisSel = document.getElementById("candidato_id_pais");
         var paisTxt = paisSel && paisSel.selectedIndex >= 0 ? String(paisSel.options[paisSel.selectedIndex].textContent || "").toLowerCase() : "";
         var esMexico = paisTxt.indexOf("mex") >= 0;
@@ -7718,6 +7884,8 @@ class CapHum extends Controller
                     "candidato_id_div_nivel1",
                     "candidato_id_div_nivel2",
                     "candidato_id_div_nivel3",
+                    "candidato_id_direccion",
+                    "candidato_id_area",
                     "candidato_id_departamento",
                     "candidato_id_puesto",
                     "candidato_id_posible_jefe",
@@ -7729,6 +7897,9 @@ class CapHum extends Controller
                 if (pais && pais.value && !document.getElementById("candidato_id_div_nivel1").value) {
                     if (typeof window.jQuery !== "undefined") window.jQuery(pais).trigger("change");
                     else pais.dispatchEvent(new Event("change", { bubbles: true }));
+                }
+                if (!depto || !depto.value) {
+                    renderDireccionesCandidato();
                 }
                 if (depto && depto.value && puesto && puesto.options.length <= 1) {
                     if (typeof window.jQuery !== "undefined") window.jQuery(depto).trigger("change");
@@ -7744,6 +7915,7 @@ class CapHum extends Controller
                 if (divLegion) divLegion.style.display = "none"; if (chkLegion) chkLegion.checked = false; if (selLegion) selLegion.value = "";
                 var selPuesto = document.getElementById("candidato_id_puesto"); var selJefe = document.getElementById("candidato_id_posible_jefe");
                 if (selPuesto) selPuesto.innerHTML = "<option value=''>Seleccione puesto</option>"; if (selJefe) selJefe.innerHTML = "<option value=''>Seleccione departamento y puesto primero</option>";
+                resetCascadaOrganizacionCandidato();
                 resetCascadaDomicilioCandidato();
             });
         }
@@ -7828,11 +8000,17 @@ class CapHum extends Controller
             if (divCalle) divCalle.style.display = "";
             if (divNum) divNum.style.display = "";
         });
+        $(document).off("change.candForm", "#candidato_id_direccion").on("change.candForm", "#candidato_id_direccion", function() {
+            renderAreasCandidato($(this).val(), "");
+        });
+        $(document).off("change.candForm", "#candidato_id_area").on("change.candForm", "#candidato_id_area", function() {
+            renderDepartamentosCandidato($(this).val(), "");
+        });
         $(document).off("change.candForm", "#candidato_id_departamento").on("change.candForm", "#candidato_id_departamento", function() {
             var idDepto = $(this).val();
             var selPuesto = document.getElementById("candidato_id_puesto"); var selJefe = document.getElementById("candidato_id_posible_jefe");
-            if (selPuesto) { selPuesto.innerHTML = "<option value=''>Seleccione puesto</option>"; refreshSelectBuscadorCandidato(selPuesto.id); }
-            if (selJefe) { selJefe.innerHTML = "<option value=''>Seleccione departamento y puesto primero</option>"; refreshSelectBuscadorCandidato(selJefe.id); }
+            if (selPuesto) { selPuesto.innerHTML = "<option value=''>Seleccione puesto</option>"; selPuesto.disabled = true; refreshSelectBuscadorCandidato(selPuesto.id); }
+            if (selJefe) { selJefe.innerHTML = "<option value=''>Seleccione departamento y puesto primero</option>"; selJefe.disabled = true; refreshSelectBuscadorCandidato(selJefe.id); }
             if (!idDepto) return;
             fetch("/caphum/getPuestos", { method: "POST", headers: { "Content-Type": "application/json", "Accept": "application/json" }, credentials: "same-origin", body: JSON.stringify({ id_departamento: idDepto }) })
                 .then(function(r){ return r.json(); })
@@ -7840,34 +8018,41 @@ class CapHum extends Controller
                     if (res.success && res.datos) {
                         res.datos.forEach(function(p){ var opt = document.createElement("option"); opt.value = p.id; opt.textContent = p.nombre || p.puesto_nombre || ""; selPuesto.appendChild(opt); });
                     }
+                    if (selPuesto) selPuesto.disabled = false;
                     refreshSelectBuscadorCandidato("candidato_id_puesto");
                 })
-                .catch(function(){ refreshSelectBuscadorCandidato("candidato_id_puesto"); });
+                .catch(function(){ if (selPuesto) selPuesto.disabled = false; refreshSelectBuscadorCandidato("candidato_id_puesto"); });
             if (selJefe) {
+                selJefe.disabled = true;
                 selJefe.innerHTML = "<option value=''>—</option>";
                 fetch("/caphum/getJefeDirecto", { method: "POST", headers: { "Content-Type": "application/json", "Accept": "application/json" }, credentials: "same-origin", body: JSON.stringify({ id_departamento: idDepto, id_puesto: null }) })
                     .then(function(r){ return r.json(); })
                     .then(function(res){
                         selJefe.innerHTML = "<option value=''>Seleccione posible jefe</option>";
                         if (res.success && res.datos && res.datos.length) res.datos.forEach(function(j){ var opt = document.createElement("option"); opt.value = j.id; opt.textContent = (j.nombre_completo || "").trim() || "ID " + j.id; selJefe.appendChild(opt); });
+                        selJefe.disabled = false;
                         refreshSelectBuscadorCandidato("candidato_id_posible_jefe");
                     })
-                    .catch(function(){ selJefe.innerHTML = "<option value=''>Seleccione posible jefe</option>"; refreshSelectBuscadorCandidato("candidato_id_posible_jefe"); });
+                    .catch(function(){ selJefe.innerHTML = "<option value=''>Seleccione posible jefe</option>"; selJefe.disabled = false; refreshSelectBuscadorCandidato("candidato_id_posible_jefe"); });
             }
         });
         $(document).off("change.candForm", "#candidato_id_puesto").on("change.candForm", "#candidato_id_puesto", function() {
             var idPuesto = $(this).val(); var selDepto = document.getElementById("candidato_id_departamento"); var selJefe = document.getElementById("candidato_id_posible_jefe");
             if (!selJefe || !selDepto) return;
-            selJefe.innerHTML = "<option value=''>—</option>"; var idDepto = selDepto.value;
-            if (!idDepto) { selJefe.innerHTML = "<option value=''>Seleccione departamento y puesto primero</option>"; return; }
+            selJefe.innerHTML = "<option value=''>—</option>";
+            selJefe.disabled = true;
+            refreshSelectBuscadorCandidato("candidato_id_posible_jefe");
+            var idDepto = selDepto.value;
+            if (!idDepto) { selJefe.innerHTML = "<option value=''>Seleccione departamento y puesto primero</option>"; refreshSelectBuscadorCandidato("candidato_id_posible_jefe"); return; }
             fetch("/caphum/getJefeDirecto", { method: "POST", headers: { "Content-Type": "application/json", "Accept": "application/json" }, credentials: "same-origin", body: JSON.stringify({ id_departamento: idDepto, id_puesto: idPuesto || null }) })
                 .then(function(r){ return r.json(); })
                 .then(function(res){
                     selJefe.innerHTML = "<option value=''>Seleccione posible jefe</option>";
                     if (res.success && res.datos && res.datos.length) res.datos.forEach(function(j){ var opt = document.createElement("option"); opt.value = j.id; opt.textContent = (j.nombre_completo || "").trim() || "ID " + j.id; selJefe.appendChild(opt); });
+                    selJefe.disabled = false;
                     refreshSelectBuscadorCandidato("candidato_id_posible_jefe");
                 })
-                .catch(function(){ selJefe.innerHTML = "<option value=''>Seleccione posible jefe</option>"; refreshSelectBuscadorCandidato("candidato_id_posible_jefe"); });
+                .catch(function(){ selJefe.innerHTML = "<option value=''>Seleccione posible jefe</option>"; selJefe.disabled = false; refreshSelectBuscadorCandidato("candidato_id_posible_jefe"); });
         });
         var btnAddCandidato = document.querySelector("[data-bs-target=\"#offcanvasAddCandidato\"]");
         if (btnAddCandidato) btnAddCandidato.addEventListener("click", function() { candidatoEditId = null; document.getElementById("offcanvasCandidatoTitulo").textContent = "Nuevo Candidato"; });
@@ -7880,7 +8065,7 @@ class CapHum extends Controller
         $miUsuarioId = (int) ($_SESSION['usuario_id'] ?? 0);
         $script = '<script>window.miUsuarioId = ' . json_encode($miUsuarioId) . ';</script>' . "\n" . $script;
 
-        $departamento = CapHumDAO::getConsultaDepartamentoGestor($_SESSION['usuario_id']);
+        $departamento = CapHumDAO::getTodosDepartamentosGestion();
         $modulos = $_SESSION['modulos'] ?? [];
         $puedeGestionarCandidatos = in_array(42, $modulos);
 
@@ -13709,14 +13894,40 @@ class CapHum extends Controller
 
         $idSesion = (int) ($_SESSION['usuario_id'] ?? 0);
         if (!self::tieneModuloWeb(self::MODULO_AGREGAR_USUARIO_RRHH)
-            && !self::tieneModuloWeb(self::MODULO_EDITAR_USUARIO_RRHH)) {
+            && !self::tieneModuloWeb(self::MODULO_EDITAR_USUARIO_RRHH)
+            && !self::tieneModuloWeb(self::MODULO_SINCRONIZA_LEGACY)) {
             self::respuestaJSON(['success' => false, 'mensaje' => 'No tienes permiso para sincronizar usuarios con Legacy.']);
             return;
         }
 
         $input = json_decode(file_get_contents('php://input'), true);
         $limite = is_array($input) ? (int)($input['limite'] ?? 100) : 100;
-        self::respuestaJSON(LegacyUserSync::sincronizarPendientes($limite, $idSesion));
+        $forzar = is_array($input) ? !empty($input['forzar']) : false;
+        $todos = is_array($input) ? !empty($input['todos']) : false;
+        $plan = is_array($input) ? !empty($input['plan']) : false;
+        $pendientesPlan = is_array($input) && isset($input['pendientes']) && is_array($input['pendientes'])
+            ? $input['pendientes']
+            : [];
+        $tamanoLote = is_array($input) ? (int)($input['tamano_lote'] ?? 100) : 100;
+        if ($plan) {
+            self::respuestaJSON(LegacyUserSync::planSincronizacionTodosPendientes($forzar));
+            return;
+        }
+        if ($pendientesPlan) {
+            self::respuestaJSON(LegacyUserSync::sincronizarPendientesPlan($pendientesPlan, $idSesion));
+            return;
+        }
+        if ($todos) {
+            self::respuestaJSON(LegacyUserSync::sincronizarTodosPendientes($idSesion, $forzar, $tamanoLote));
+            return;
+        }
+        self::respuestaJSON(LegacyUserSync::sincronizarPendientes($limite, $idSesion, $forzar));
+    }
+
+    public function sincronizaLegacy()
+    {
+        self::set('titulo', 'Sincroniza Legacy');
+        self::render('caphum_sincroniza_legacy');
     }
 
     public function obtenerDatosActualizacionInfoPersona()

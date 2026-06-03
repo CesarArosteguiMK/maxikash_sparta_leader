@@ -460,13 +460,18 @@ SQL;
     private function sqlWhereBandejaEvidencias(): string
     {
         return <<<'SQL'
-o.estatus IN ('Recibido', 'en_transito', 'Procesando IA')
-  AND NOT EXISTS (
-      SELECT 1
-      FROM adj_bitacora bv
-      WHERE bv.id_operacion = o.id
-        AND bv.accion LIKE :pat_validadas
-  )
+(
+      o.estatus IN ('Recibido', 'en_transito')
+      OR (
+          o.estatus = 'Procesando IA'
+          AND NOT EXISTS (
+              SELECT 1
+              FROM adj_bitacora bv
+              WHERE bv.id_operacion = o.id
+                AND bv.accion LIKE :pat_validadas
+          )
+      )
+)
   AND EXISTS (
       SELECT 1
       FROM adj_bitacora b
@@ -479,16 +484,7 @@ SQL;
     private function sqlWhereAprobadosEvidenciasAtencion(): string
     {
         return <<<'SQL'
-(
-      o.estatus = 'Procesando IA'
-      OR EXISTS (
-          SELECT 1
-          FROM adj_historial_estatus h
-          WHERE h.id_operacion = o.id
-            AND h.estatus_nuevo = 'Procesando IA'
-      )
-)
-AND EXISTS (
+EXISTS (
       SELECT 1
       FROM adj_bitacora b
       WHERE b.id_operacion = o.id
@@ -661,7 +657,8 @@ SQL;
     }
 
     /**
-     * Misma lista que Evidencias → Aprobados: Procesando IA tras «Enviar evidencias validadas».
+     * Misma lista que Evidencias → Aprobados: operaciones con bitácora de «Enviar evidencias validadas».
+     * No depende del estatus actual porque la operación puede avanzar a Recuperación, Cierre o Recepción.
      * Si $excluirDictaminadoRecuperacion: no devuelve filas que ya salen en 3.- Recuperación → Dictaminado
      * (Cierre documentado + dictamen, p. ej. ya enviadas a cartera o en Recepción con historial).
      */
@@ -679,6 +676,7 @@ SQL;
         if ($excluirDictaminadoRecuperacion) {
             $exclDictRec = <<<'SQL'
 
+            AND o.estatus = 'Procesando IA'
             AND NOT (
                 (
                     o.estatus = 'Cierre Documentado'
@@ -783,11 +781,13 @@ SQL;
     private function contarOperacionesAprobadasEvidenciasAtencion(bool $excluirDictaminadoRecuperacion = false): int
     {
         $exclDictRec = $excluirDictaminadoRecuperacion ? $this->sqlExclusionDictaminadoRecuperacion() : '';
+        $estatusActualRecuperacion = $excluirDictaminadoRecuperacion ? "AND o.estatus = 'Procesando IA'" : '';
 
         $sql = <<<SQL
         SELECT COUNT(*) AS total
         FROM adj_operacion o
         WHERE {$this->sqlWhereAprobadosEvidenciasAtencion()}
+          {$estatusActualRecuperacion}
           {$exclDictRec}
         SQL;
 

@@ -948,6 +948,68 @@ class Segundometro extends Controller
                     .then(function() { listarArchivos(true); actualizarEstadoAgente(); });
             }
 
+            async function descargarMegaReporteMensual() {
+                var ahora = new Date();
+                var mesDefault = ahora.getMonth();
+                var anioDefault = ahora.getFullYear();
+                if (mesDefault === 0) {
+                    mesDefault = 12;
+                    anioDefault--;
+                }
+                var result = await Swal.fire({
+                    title: 'Descargar mega reporte mensual',
+                    html: '<div class="text-start">'
+                        + '<label class="form-label fw-semibold mb-1">Año</label>'
+                        + '<input id="sgMegaAnio" type="number" min="2000" max="2100" class="form-control mb-3" value="' + anioDefault + '">'
+                        + '<label class="form-label fw-semibold mb-1">Mes</label>'
+                        + '<select id="sgMegaMes" class="form-select">'
+                        + '<option value="1">Enero</option><option value="2">Febrero</option><option value="3">Marzo</option><option value="4">Abril</option><option value="5">Mayo</option><option value="6">Junio</option>'
+                        + '<option value="7">Julio</option><option value="8">Agosto</option><option value="9">Septiembre</option><option value="10">Octubre</option><option value="11">Noviembre</option><option value="12">Diciembre</option>'
+                        + '</select>'
+                        + '<p class="text-muted small mt-3 mb-0"><i class="fa fa-info-circle me-1"></i>Se unirán los archivos <code>mega_rpt</code> del mes seleccionado en un solo CSV comprimido, sin repetir encabezados ni filas duplicadas.</p>'
+                        + '</div>',
+                    icon: 'question',
+                    showCancelButton: true,
+                    confirmButtonText: 'Descargar',
+                    cancelButtonText: 'Cancelar',
+                    didOpen: function() {
+                        var mes = document.getElementById('sgMegaMes');
+                        if (mes) mes.value = String(mesDefault);
+                    },
+                    preConfirm: function() {
+                        var anio = parseInt((document.getElementById('sgMegaAnio') || {}).value || '', 10);
+                        var mes = parseInt((document.getElementById('sgMegaMes') || {}).value || '', 10);
+                        if (!anio || anio < 2000 || anio > 2100 || !mes || mes < 1 || mes > 12) {
+                            Swal.showValidationMessage('Selecciona un año y mes válidos.');
+                            return false;
+                        }
+                        return { anio: anio, mes: mes };
+                    }
+                });
+                if (!result.isConfirmed || !result.value) return;
+                Swal.fire({
+                    title: 'Preparando descarga',
+                    html: '<div class="text-start">Estamos generando el mega reporte mensual. La descarga puede tardar unos minutos si el mes tiene muchos archivos.</div>',
+                    allowOutsideClick: false,
+                    allowEscapeKey: false,
+                    showConfirmButton: false,
+                    didOpen: function() {
+                        Swal.showLoading();
+                    }
+                });
+                setTimeout(function() {
+                    Swal.close();
+                    Swal.fire({
+                        icon: 'info',
+                        title: 'Descarga en proceso',
+                        text: 'Si el archivo aún no aparece, espera unos minutos. El navegador lo descargará cuando termine de prepararse.',
+                        timer: 4500,
+                        showConfirmButton: false
+                    });
+                }, 12000);
+                window.location.href = '/segundometro/descargarMegaReporteMes?anio=' + encodeURIComponent(result.value.anio) + '&mes=' + encodeURIComponent(result.value.mes);
+            }
+
             document.addEventListener('DOMContentLoaded', function() {
                 // Delegado único: aviso de descarga + fetch (funciona en localhost y servidor aunque haya caché)
                 document.addEventListener('click', function descargarReporteClick(e) {
@@ -1023,6 +1085,8 @@ class Segundometro extends Controller
                 if (btnDiag) btnDiag.addEventListener('click', ejecutarDiagnosticoSSH);
                 var btnEjecutarAhora = document.getElementById('sgEjecutarAhora');
                 if (btnEjecutarAhora) btnEjecutarAhora.addEventListener('click', ejecutarAhora);
+                var btnMegaReporteMes = document.getElementById('sgDescargarMegaReporteMes');
+                if (btnMegaReporteMes) btnMegaReporteMes.addEventListener('click', descargarMegaReporteMensual);
                 var chkAutoCopy = document.getElementById('sgAutoCopyEnabled');
                 if (chkAutoCopy) chkAutoCopy.addEventListener('change', guardarEstadoAutoCopy);
                 var linkPrueba = document.getElementById('linkTruncarModoPrueba');
@@ -1274,6 +1338,81 @@ class Segundometro extends Controller
     /**
      * Descargar reporte: copia del remoto a temporal y envía al navegador
      */
+    private function descargarArchivoAgenteBinario($nombreArchivo, $timeoutSec = 240)
+    {
+        $url = $this->agenteBaseUrl() . '/files/' . rawurlencode($nombreArchivo) . '/download';
+        $headers = [];
+        $key = $this->agenteApiKey();
+        if ($key !== '') $headers[] = 'X-Api-Key: ' . $key;
+
+        if (!function_exists('curl_init')) {
+            throw new \Exception('cURL no disponible para descargar desde agente.');
+        }
+
+        $ch = curl_init($url);
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+        curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 8);
+        curl_setopt($ch, CURLOPT_TIMEOUT, max(30, (int)$timeoutSec));
+        if (!empty($headers)) curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
+        $bin = curl_exec($ch);
+        $status = (int)curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        $ctype = (string)curl_getinfo($ch, CURLINFO_CONTENT_TYPE);
+        $cerr = curl_error($ch);
+        curl_close($ch);
+
+        if ($bin === false || $status < 200 || $status >= 300) {
+            $detalle = '';
+            if (is_string($bin) && trim($bin) !== '') {
+                $detalle = ': ' . trim(substr($bin, 0, 500));
+            }
+            throw new \Exception($cerr !== '' ? $cerr : ('HTTP ' . $status . ' al descargar desde agente' . $detalle));
+        }
+
+        return [
+            'bin' => $bin,
+            'content_type' => $ctype !== '' ? $ctype : 'application/zip'
+        ];
+    }
+
+    private function nombreMesDescarga($mes)
+    {
+        $meses = [
+            1 => 'enero',
+            2 => 'febrero',
+            3 => 'marzo',
+            4 => 'abril',
+            5 => 'mayo',
+            6 => 'junio',
+            7 => 'julio',
+            8 => 'agosto',
+            9 => 'septiembre',
+            10 => 'octubre',
+            11 => 'noviembre',
+            12 => 'diciembre'
+        ];
+        return $meses[(int)$mes] ?? ('mes_' . (int)$mes);
+    }
+
+    private function limpiarTemporalesDescarga(array $paths)
+    {
+        foreach ($paths as $path) {
+            if (!$path || !file_exists($path)) continue;
+            if (is_dir($path)) {
+                $items = @scandir($path);
+                if (is_array($items)) {
+                    foreach ($items as $item) {
+                        if ($item === '.' || $item === '..') continue;
+                        $child = $path . DIRECTORY_SEPARATOR . $item;
+                        if (is_file($child)) @unlink($child);
+                    }
+                }
+                @rmdir($path);
+            } elseif (is_file($path)) {
+                @unlink($path);
+            }
+        }
+    }
+
     public function descargarArchivo()
     {
         $nombreArchivo = $_GET['nombre_archivo'] ?? null;
@@ -1326,6 +1465,141 @@ class Segundometro extends Controller
     /**
      * Eliminar archivo en el servidor remoto (solo si owner es root)
      */
+    public function descargarMegaReporteMes()
+    {
+        $anio = isset($_GET['anio']) ? (int)$_GET['anio'] : (int)date('Y');
+        $mes = isset($_GET['mes']) ? (int)$_GET['mes'] : (int)date('n');
+
+        if ($anio < 2000 || $anio > 2100 || $mes < 1 || $mes > 12) {
+            header('HTTP/1.0 400 Bad Request');
+            echo 'Mes o anio invalido.';
+            exit;
+        }
+        if (!$this->usarAgente()) {
+            header('HTTP/1.0 503 Service Unavailable');
+            echo 'Flujo legado deshabilitado. Active segundometro_agent.enabled=1.';
+            exit;
+        }
+
+        try {
+            if (!class_exists('\ZipArchive')) {
+                throw new \Exception('El servidor no tiene habilitada la extension ZipArchive.');
+            }
+
+            $agent = $this->agenteRequest('GET', '/files?anio=' . rawurlencode((string)$anio) . '&mes=' . rawurlencode(sprintf('%02d', $mes)), null, 90);
+            if (!$agent['success'] || !is_array($agent['json']) || empty($agent['json']['success'])) {
+                $msg = 'No se pudieron listar archivos via agente.';
+                if (is_array($agent['json']) && !empty($agent['json']['mensaje'])) $msg .= ' ' . $agent['json']['mensaje'];
+                elseif (!empty($agent['error'])) $msg .= ' ' . $agent['error'];
+                throw new \Exception($msg);
+            }
+
+            $mesTexto = sprintf('%04d%02d', $anio, $mes);
+            $archivos = [];
+            foreach (($agent['json']['datos'] ?? []) as $item) {
+                $nombre = is_array($item) ? (string)($item['nombre'] ?? $item['name'] ?? '') : (string)$item;
+                if (preg_match('/^mega_rpt_' . $mesTexto . '\d{2}_\d{2}_\d{2}_\d{2}\.csv\.zip$/', $nombre)) {
+                    $archivos[] = $nombre;
+                }
+            }
+            $archivos = array_values(array_unique($archivos));
+            rsort($archivos, SORT_NATURAL);
+            if (empty($archivos)) {
+                header('HTTP/1.0 404 Not Found');
+                echo 'No se encontraron archivos mega_rpt para ' . sprintf('%02d/%04d', $mes, $anio) . '.';
+                exit;
+            }
+
+            $nombreArchivo = null;
+            $descarga = null;
+            $erroresDescarga = [];
+            foreach (array_slice($archivos, 0, 8) as $candidato) {
+                try {
+                    $descarga = $this->descargarArchivoAgenteBinario($candidato, 900);
+                    $nombreArchivo = $candidato;
+                    break;
+                } catch (\Exception $e) {
+                    $erroresDescarga[] = $candidato . ' => ' . $e->getMessage();
+                }
+            }
+            if (!$nombreArchivo || !$descarga) {
+                throw new \Exception('No se pudo descargar ningun mega_rpt reciente del mes. ' . implode(' | ', array_slice($erroresDescarga, 0, 3)));
+            }
+
+            $nombreZipDescarga = 'mega_reporte_' . $this->nombreMesDescarga($mes) . '_' . $anio . '.csv.zip';
+            $nombreCsvDescarga = 'mega_reporte_' . $this->nombreMesDescarga($mes) . '_' . $anio . '.csv';
+            $tmpDir = sys_get_temp_dir() . DIRECTORY_SEPARATOR . 'sparta_mega_' . uniqid('', true);
+            if (!@mkdir($tmpDir, 0777, true) && !is_dir($tmpDir)) {
+                throw new \Exception('No se pudo crear temporal de descarga.');
+            }
+            $zipOrigen = $tmpDir . DIRECTORY_SEPARATOR . $nombreArchivo;
+            $outCsv = $tmpDir . DIRECTORY_SEPARATOR . $nombreCsvDescarga;
+            $tmpZip = $tmpDir . DIRECTORY_SEPARATOR . $nombreZipDescarga;
+            file_put_contents($zipOrigen, $descarga['bin']);
+
+            $zip = new \ZipArchive();
+            if ($zip->open($zipOrigen) !== true) {
+                throw new \Exception('No se pudo abrir el ZIP origen del agente.');
+            }
+
+            $csvHandle = fopen($outCsv, 'wb');
+            if (!$csvHandle) {
+                $zip->close();
+                throw new \Exception('No se pudo crear CSV consolidado.');
+            }
+
+            $encabezadoEscrito = false;
+            $filasVistas = [];
+            for ($i = 0; $i < $zip->numFiles; $i++) {
+                $entryName = $zip->getNameIndex($i);
+                if (!is_string($entryName) || !preg_match('/\.csv$/i', $entryName)) continue;
+                $stream = $zip->getStream($entryName);
+                if (!$stream) continue;
+                $lineaNumero = 0;
+                while (($linea = fgets($stream)) !== false) {
+                    $lineaNumero++;
+                    if ($encabezadoEscrito && $lineaNumero === 1) continue;
+                    if ($lineaNumero > 1) {
+                        $lineaNormalizada = rtrim($linea, "\r\n");
+                        if ($lineaNormalizada === '') continue;
+                        $hashFila = hash('sha256', $lineaNormalizada);
+                        if (isset($filasVistas[$hashFila])) continue;
+                        $filasVistas[$hashFila] = true;
+                    }
+                    fwrite($csvHandle, $linea);
+                    if (!$encabezadoEscrito) $encabezadoEscrito = true;
+                }
+                fclose($stream);
+            }
+            fclose($csvHandle);
+            $zip->close();
+
+            if (!$encabezadoEscrito) {
+                throw new \Exception('El ZIP origen no contiene CSV valido.');
+            }
+
+            $zipSalida = new \ZipArchive();
+            if ($zipSalida->open($tmpZip, \ZipArchive::CREATE | \ZipArchive::OVERWRITE) !== true) {
+                throw new \Exception('No se pudo comprimir el megareporte mensual.');
+            }
+            $zipSalida->addFile($outCsv, $nombreCsvDescarga);
+            $zipSalida->close();
+
+            while (ob_get_level()) { @ob_end_clean(); }
+            header('Content-Type: application/zip');
+            header('Content-Disposition: attachment; filename="' . $nombreZipDescarga . '"');
+            header('Content-Length: ' . filesize($tmpZip));
+            readfile($tmpZip);
+            $this->limpiarTemporalesDescarga([$tmpZip, $outCsv, $zipOrigen, $tmpDir]);
+            exit;
+        } catch (\Exception $e) {
+            header('HTTP/1.0 500 Internal Server Error');
+            echo 'Error al generar megareporte mensual: ' . $e->getMessage();
+            exit;
+        }
+
+    }
+
     public function eliminarArchivo()
     {
         try {

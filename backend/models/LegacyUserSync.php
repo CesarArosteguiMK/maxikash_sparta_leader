@@ -123,12 +123,14 @@ class LegacyUserSync extends Model
             if ($legacyUserReactivado) {
                 self::reactivarUsuarioLegacy($legacy, (int)$legacyUser['id']);
             }
-            self::actualizarUsuarioLegacy($legacy, (int)$legacyUser['id'], $jerarquiaLegacy['ids']);
+            $credencialesLegacy = self::resolverCredencialesLegacy($legacy, (int)$legacyUser['id'], $ctx, $externalId);
+            self::actualizarUsuarioLegacy($legacy, (int)$legacyUser['id'], $jerarquiaLegacy['ids'], $credencialesLegacy);
             self::actualizarRoleLegacy($legacy, (int)$legacyUser['id'], (int)$roleLegacy['id']);
             $legacy->commit();
 
             $estadoNuevo = self::estadoLegacyActual($legacy, (int)$legacyUser['id']);
-            $resultado = $legacyUserCreado || $legacyUserReactivado || !self::sinCambios($estadoAnterior, $estadoNuevo) ? 'actualizado' : 'sin_cambios';
+            $passwordActualizado = !empty($credencialesLegacy['password_actualizado']);
+            $resultado = $legacyUserCreado || $legacyUserReactivado || $passwordActualizado || !self::sinCambios($estadoAnterior, $estadoNuevo) ? 'actualizado' : 'sin_cambios';
             $mensaje = $legacyUserCreado
                 ? 'Usuario creado en Legacy y sincronizado correctamente.'
                 : ($legacyUserReactivado
@@ -156,6 +158,10 @@ class LegacyUserSync extends Model
                     'usuario_legacy_reactivado' => $legacyUserReactivado,
                     'antes' => $estadoAnterior,
                     'despues' => $estadoNuevo,
+                    'credenciales' => [
+                        'username_sincronizado' => $credencialesLegacy['username'] ?? '',
+                        'password_actualizado' => $passwordActualizado,
+                    ],
                     'jerarquia_spartan' => $jerarquia,
                     'jefes_sin_usuario_legacy' => $jerarquiaLegacy['faltantes'],
                 ],
@@ -175,7 +181,7 @@ class LegacyUserSync extends Model
         }
     }
 
-    public static function sincronizarPendientes(int $limite = 100, int $idSesion = 0): array
+    public static function sincronizarPendientes(int $limite = 100, int $idSesion = 0, bool $forzarTodos = false): array
     {
         $limite = max(1, min(300, $limite));
         $db = new Database();
@@ -183,56 +189,292 @@ class LegacyUserSync extends Model
 
         try {
             $legacy = new DatabaseLegacy();
-            $candidatos = self::obtenerCandidatosSincronizacion($db, $limite * 4);
-            $pendientes = [];
+            $deteccion = self::detectarPendientesSincronizacion($db, $legacy, $limite, $forzarTodos);
+            [$resumen, $resultados] = self::procesarPendientesSincronizacion($deteccion['pendientes'], $idSesion);
+            $resumen['revisados'] = $deteccion['revisados'];
+            $resumen['pendientes_detectados'] = count($deteccion['pendientes']);
+            $resumen['lotes'] = count($deteccion['pendientes']) > 0 ? 1 : 0;
 
-            foreach ($candidatos as $ctx) {
+            return [
+                'success' => $resumen['errores'] === 0,
+                'tipo_respuesta' => 'legacy_sync_lote',
+                'mensaje' => $resumen['pendientes_detectados'] > 0
+                    ? ($forzarTodos
+                        ? 'Sincronizacion masiva Legacy terminada.'
+                        : 'Reproceso de sincronizacion Legacy terminado.')
+                    : 'No se detectaron usuarios pendientes de sincronizar con Legacy.',
+                'resumen' => $resumen,
+                'datos' => $resultados,
+            ];
+        } catch (\Throwable $e) {
+            return [
+                'success' => false,
+                'tipo_respuesta' => 'legacy_sync_lote',
+                'mensaje' => 'Error al reprocesar pendientes de sincronizacion Legacy.',
+                'error' => $e->getMessage(),
+            ];
+        }
+    }
+
+    public static function sincronizarTodosPendientes(int $idSesion = 0, bool $forzarTodos = false, int $tamanoLote = 100): array
+    {
+        $tamanoLote = max(25, min(300, $tamanoLote));
+        $db = new Database();
+        self::asegurarBitacora($db);
+
+        try {
+            $legacy = new DatabaseLegacy();
+            $deteccion = self::detectarPendientesSincronizacion($db, $legacy, 50000, $forzarTodos);
+            $pendientes = $deteccion['pendientes'];
+            [$resumen, $resultados] = self::procesarPendientesSincronizacion($pendientes, $idSesion, $tamanoLote);
+            $resumen['revisados'] = $deteccion['revisados'];
+            $resumen['pendientes_detectados'] = count($pendientes);
+            $resumen['lotes'] = count($pendientes) > 0 ? (int)ceil(count($pendientes) / $tamanoLote) : 0;
+            $resumen['tamano_lote'] = $tamanoLote;
+
+            return [
+                'success' => $resumen['errores'] === 0,
+                'tipo_respuesta' => 'legacy_sync_todos',
+                'mensaje' => $resumen['pendientes_detectados'] > 0
+                    ? 'Sincronizacion completa Legacy terminada.'
+                    : 'No se detectaron usuarios pendientes de sincronizar con Legacy.',
+                'resumen' => $resumen,
+                'datos' => $resultados,
+            ];
+        } catch (\Throwable $e) {
+            return [
+                'success' => false,
+                'tipo_respuesta' => 'legacy_sync_todos',
+                'mensaje' => 'Error al ejecutar sincronizacion completa Legacy.',
+                'error' => $e->getMessage(),
+            ];
+        }
+    }
+
+    public static function planSincronizacionTodosPendientes(bool $forzarTodos = false): array
+    {
+        $db = new Database();
+        self::asegurarBitacora($db);
+
+        try {
+            $legacy = new DatabaseLegacy();
+            $deteccion = self::detectarPendientesSincronizacion($db, $legacy, 50000, $forzarTodos);
+            $plan = array_map([self::class, 'pendienteAPlan'], $deteccion['pendientes']);
+
+            return [
+                'success' => true,
+                'tipo_respuesta' => 'legacy_sync_plan',
+                'mensaje' => count($plan) > 0
+                    ? 'Usuarios detectados para sincronizar.'
+                    : 'No se detectaron usuarios pendientes de sincronizar con Legacy.',
+                'resumen' => [
+                    'revisados' => $deteccion['revisados'],
+                    'pendientes_detectados' => count($plan),
+                    'lotes' => count($plan),
+                ],
+                'pendientes' => $plan,
+            ];
+        } catch (\Throwable $e) {
+            return [
+                'success' => false,
+                'tipo_respuesta' => 'legacy_sync_plan',
+                'mensaje' => 'Error al detectar usuarios para sincronizacion Legacy.',
+                'error' => $e->getMessage(),
+            ];
+        }
+    }
+
+    public static function sincronizarPendientesPlan(array $pendientes, int $idSesion = 0): array
+    {
+        $pendientes = array_values(array_filter($pendientes, function ($item) {
+            return is_array($item) && (int)($item['id_persona'] ?? 0) > 0;
+        }));
+        $resultados = [];
+        $resumen = [
+            'revisados' => 0,
+            'pendientes_detectados' => count($pendientes),
+            'actualizados' => 0,
+            'sin_cambios' => 0,
+            'omitidos' => 0,
+            'errores' => 0,
+            'lotes' => count($pendientes),
+        ];
+
+        foreach ($pendientes as $idx => $item) {
+            $tipo = (string)($item['tipo'] ?? 'activo');
+            $idPersona = (int)($item['id_persona'] ?? 0);
+            $sync = $tipo === 'baja'
+                ? self::sincronizarBajaDesdeSpartan($idPersona, $idSesion)
+                : self::sincronizarDesdeEditarUsuario($idPersona, $idSesion);
+            $resultado = (string)($sync['resultado'] ?? '');
+            if ($resultado === 'actualizado') {
+                $resumen['actualizados']++;
+            } elseif ($resultado === 'sin_cambios') {
+                $resumen['sin_cambios']++;
+            } elseif ($resultado === 'omitido') {
+                $resumen['omitidos']++;
+            } elseif ($resultado === 'error') {
+                $resumen['errores']++;
+            }
+
+            $resultados[] = [
+                'lote' => (int)($item['lote'] ?? ($idx + 1)),
+                'id_persona' => $idPersona,
+                'external_id' => trim((string)($item['external_id'] ?? '')),
+                'nombre' => trim((string)($item['nombre'] ?? '')),
+                'puesto' => trim((string)($item['puesto'] ?? '')),
+                'departamento' => trim((string)($item['departamento'] ?? '')),
+                'role_legacy' => trim((string)($item['role_legacy'] ?? '')),
+                'motivos' => is_array($item['motivos'] ?? null) ? $item['motivos'] : [],
+                'sync' => $sync,
+            ];
+        }
+
+        return [
+            'success' => $resumen['errores'] === 0,
+            'tipo_respuesta' => 'legacy_sync_lote',
+            'mensaje' => $resumen['errores'] > 0
+                ? 'El lote se proceso con errores.'
+                : 'Lote sincronizado correctamente.',
+            'resumen' => $resumen,
+            'datos' => $resultados,
+        ];
+    }
+
+    private static function pendienteAPlan(array $pendiente): array
+    {
+        $ctx = $pendiente['ctx'] ?? [];
+        return [
+            'tipo' => (string)($pendiente['tipo'] ?? 'activo'),
+            'id_persona' => (int)($ctx['id_persona'] ?? 0),
+            'external_id' => trim((string)($ctx['external_id'] ?? '')),
+            'nombre' => trim((string)($ctx['nombre_completo'] ?? '')),
+            'puesto' => trim((string)($ctx['puesto_nombre'] ?? '')),
+            'departamento' => trim((string)($ctx['departamento_nombre'] ?? '')),
+            'role_legacy' => trim((string)($ctx['role_legacy'] ?? '')),
+            'motivos' => is_array($pendiente['motivos'] ?? null) ? $pendiente['motivos'] : [],
+        ];
+    }
+
+    private static function detectarPendientesSincronizacion(Database $db, DatabaseLegacy $legacy, int $limite, bool $forzarTodos): array
+    {
+        $limite = max(1, min(50000, $limite));
+        $candidatos = self::obtenerCandidatosSincronizacion($db, $limite * 4);
+        $pendientes = [];
+        $bajasRevisadas = 0;
+        $activosEnAlcance = [];
+
+        foreach ($candidatos as $ctx) {
+            if (!self::estaEnAlcance($ctx)) {
+                continue;
+            }
+            $externalId = trim((string)($ctx['external_id'] ?? ''));
+            $roleClave = trim((string)($ctx['role_legacy'] ?? ''));
+            if ($externalId === '' || $roleClave === '' || !self::externalIdValido($externalId)) {
+                continue;
+            }
+            $activosEnAlcance[] = $ctx;
+        }
+
+        $estadosActivos = self::estadosLegacyPorExternalIds($legacy, array_column($activosEnAlcance, 'external_id'));
+        foreach ($activosEnAlcance as $ctx) {
+            $externalId = trim((string)($ctx['external_id'] ?? ''));
+            $roleClave = trim((string)($ctx['role_legacy'] ?? ''));
+            $estadoLegacy = $estadosActivos[$externalId] ?? null;
+            $motivos = [];
+            if (!$estadoLegacy) {
+                $motivos[] = 'no_existe_en_legacy';
+            } elseif (!empty($estadoLegacy['deleted_at'])) {
+                $motivos[] = 'baja_en_legacy_con_spartan_activo';
+            } elseif (trim((string)($estadoLegacy['role_name'] ?? '')) !== $roleClave) {
+                $motivos[] = 'role_desalineado';
+            } elseif (trim((string)($estadoLegacy['username'] ?? '')) !== self::usernameLegacyDesdeSpartan($ctx, $externalId)) {
+                $motivos[] = 'usuario_desalineado';
+            }
+
+            if (!$motivos && $forzarTodos) {
+                $motivos[] = 'sincronizacion_forzada';
+            }
+
+            if (!$motivos) {
+                continue;
+            }
+
+            $pendientes[] = [
+                'tipo' => 'activo',
+                'ctx' => $ctx,
+                'motivos' => $motivos,
+                'estado_legacy' => $estadoLegacy,
+            ];
+            if (count($pendientes) >= $limite) {
+                break;
+            }
+        }
+
+        if (count($pendientes) < $limite) {
+            $bajas = self::obtenerCandidatosBajaSincronizacion($db, ($limite - count($pendientes)) * 4);
+            $bajasRevisadas = count($bajas);
+            $bajasEnAlcance = [];
+            foreach ($bajas as $ctx) {
                 if (!self::estaEnAlcance($ctx)) {
                     continue;
                 }
                 $externalId = trim((string)($ctx['external_id'] ?? ''));
-                $roleClave = trim((string)($ctx['role_legacy'] ?? ''));
-                if ($externalId === '' || $roleClave === '' || !self::externalIdValido($externalId)) {
+                if ($externalId === '' || !self::externalIdValido($externalId)) {
                     continue;
                 }
+                $bajasEnAlcance[] = $ctx;
+            }
 
-                $estadoLegacy = self::estadoLegacyPorExternalId($legacy, $externalId);
-                $motivos = [];
-                if (!$estadoLegacy) {
-                    $motivos[] = 'no_existe_en_legacy';
-                } elseif (!empty($estadoLegacy['deleted_at'])) {
-                    $motivos[] = 'baja_en_legacy_con_spartan_activo';
-                } elseif (trim((string)($estadoLegacy['role_name'] ?? '')) !== $roleClave) {
-                    $motivos[] = 'role_desalineado';
-                }
-
-                if (!$motivos) {
+            $estadosBajas = self::estadosLegacyPorExternalIds($legacy, array_column($bajasEnAlcance, 'external_id'));
+            foreach ($bajasEnAlcance as $ctx) {
+                $externalId = trim((string)($ctx['external_id'] ?? ''));
+                $estadoLegacy = $estadosBajas[$externalId] ?? null;
+                if (!$estadoLegacy || !empty($estadoLegacy['deleted_at'])) {
                     continue;
                 }
 
                 $pendientes[] = [
+                    'tipo' => 'baja',
                     'ctx' => $ctx,
-                    'motivos' => $motivos,
+                    'motivos' => ['baja_spartan_activa_en_legacy'],
                     'estado_legacy' => $estadoLegacy,
                 ];
                 if (count($pendientes) >= $limite) {
                     break;
                 }
             }
+        }
 
-            $resultados = [];
-            $resumen = [
-                'revisados' => count($candidatos),
-                'pendientes_detectados' => count($pendientes),
-                'actualizados' => 0,
-                'sin_cambios' => 0,
-                'omitidos' => 0,
-                'errores' => 0,
-            ];
+        return [
+            'revisados' => count($candidatos) + $bajasRevisadas,
+            'pendientes' => $pendientes,
+        ];
+    }
 
-            foreach ($pendientes as $pendiente) {
+    private static function procesarPendientesSincronizacion(array $pendientes, int $idSesion, int $tamanoLote = 300): array
+    {
+        $tamanoLote = max(1, min(300, $tamanoLote));
+        $resultados = [];
+        $resumen = [
+            'revisados' => 0,
+            'pendientes_detectados' => count($pendientes),
+            'actualizados' => 0,
+            'sin_cambios' => 0,
+            'omitidos' => 0,
+            'errores' => 0,
+            'lotes' => 0,
+        ];
+
+        $lotes = array_chunk($pendientes, $tamanoLote);
+        $resumen['lotes'] = count($lotes);
+        foreach ($lotes as $idxLote => $lote) {
+            foreach ($lote as $pendiente) {
                 $ctx = $pendiente['ctx'];
-                $sync = self::sincronizarDesdeEditarUsuario((int)$ctx['id_persona'], $idSesion);
+                $tipo = (string)($pendiente['tipo'] ?? 'activo');
+                $sync = $tipo === 'baja'
+                    ? self::sincronizarBajaDesdeSpartan((int)$ctx['id_persona'], $idSesion)
+                    : self::sincronizarDesdeEditarUsuario((int)$ctx['id_persona'], $idSesion);
                 $resultado = (string)($sync['resultado'] ?? '');
                 if ($resultado === 'actualizado') {
                     $resumen['actualizados']++;
@@ -245,6 +487,7 @@ class LegacyUserSync extends Model
                 }
 
                 $resultados[] = [
+                    'lote' => $idxLote + 1,
                     'id_persona' => (int)($ctx['id_persona'] ?? 0),
                     'external_id' => trim((string)($ctx['external_id'] ?? '')),
                     'nombre' => trim((string)($ctx['nombre_completo'] ?? '')),
@@ -255,22 +498,9 @@ class LegacyUserSync extends Model
                     'sync' => $sync,
                 ];
             }
-
-            return [
-                'success' => $resumen['errores'] === 0,
-                'mensaje' => $resumen['pendientes_detectados'] > 0
-                    ? 'Reproceso de sincronizacion Legacy terminado.'
-                    : 'No se detectaron usuarios pendientes de sincronizar con Legacy.',
-                'resumen' => $resumen,
-                'datos' => $resultados,
-            ];
-        } catch (\Throwable $e) {
-            return [
-                'success' => false,
-                'mensaje' => 'Error al reprocesar pendientes de sincronizacion Legacy.',
-                'error' => $e->getMessage(),
-            ];
         }
+
+        return [$resumen, $resultados];
     }
 
     public static function sincronizarBajaDesdeSpartan(int $idPersona, int $idSesion = 0): array
@@ -446,7 +676,7 @@ class LegacyUserSync extends Model
 
     private static function obtenerCandidatosSincronizacion(Database $db, int $limite): array
     {
-        $limite = max(1, min(1200, $limite));
+        $limite = max(1, min(50000, $limite));
         return $db->queryAll("
             SELECT
                 per.id AS id_persona,
@@ -471,6 +701,37 @@ class LegacyUserSync extends Model
               AND TRIM(COALESCE(per.numero_empleado, '')) <> ''
               AND TRIM(COALESCE(per.numero_empleado, '')) REGEXP '^[0-9]+$'
               AND TRIM(COALESCE(pl.clave, '')) <> ''
+            ORDER BY per.id DESC
+            LIMIT {$limite}
+        ");
+    }
+
+    private static function obtenerCandidatosBajaSincronizacion(Database $db, int $limite): array
+    {
+        $limite = max(1, min(50000, $limite));
+        return $db->queryAll("
+            SELECT
+                per.id AS id_persona,
+                TRIM(COALESCE(per.numero_empleado, '')) AS external_id,
+                TRIM(CONCAT_WS(' ', per.nombres, per.segundo_nombre, per.apellidop, per.apellidom)) AS nombre_completo,
+                TRIM(COALESCE(per.correo, '')) AS correo,
+                TRIM(COALESCE(per.user_name, '')) AS username,
+                COALESCE(per.password, '') AS password_spartan,
+                per.estatus,
+                p.id AS id_puesto,
+                p.nombre AS puesto_nombre,
+                d.id AS id_departamento,
+                d.nombre AS departamento_nombre,
+                pl.clave AS role_legacy
+            FROM __SPARTA_SECRET_REDACTED__.persona per
+            LEFT JOIN __SPARTA_SECRET_REDACTED__.asigna_puesto ap ON ap.id_persona = per.id AND ap.activo = 1
+            LEFT JOIN __SPARTA_SECRET_REDACTED__.puesto p ON p.id = ap.id_puesto
+            LEFT JOIN __SPARTA_SECRET_REDACTED__.departamento d ON d.id = p.departamento_id
+            LEFT JOIN __SPARTA_SECRET_REDACTED__.equivalencias_legacy_puestos el ON el.id_puesto = p.id
+            LEFT JOIN __SPARTA_SECRET_REDACTED__.puestos_legacy pl ON pl.id = el.id_puesto_legacy
+            WHERE COALESCE(per.estatus, '') = 'Baja'
+              AND TRIM(COALESCE(per.numero_empleado, '')) <> ''
+              AND TRIM(COALESCE(per.numero_empleado, '')) REGEXP '^[0-9]+$'
             ORDER BY per.id DESC
             LIMIT {$limite}
         ");
@@ -631,6 +892,7 @@ class LegacyUserSync extends Model
                 u.id,
                 u.external_id,
                 u.name,
+                u.username,
                 u.deleted_at,
                 r.id AS role_id,
                 r.name AS role_name
@@ -643,6 +905,52 @@ class LegacyUserSync extends Model
         ", ['external_id' => $externalId, 'model_type' => self::MODEL_TYPE]) ?: null;
     }
 
+    private static function estadosLegacyPorExternalIds(DatabaseLegacy $legacy, array $externalIds): array
+    {
+        $externalIds = array_values(array_unique(array_filter(array_map(function ($id) {
+            return trim((string)$id);
+        }, $externalIds))));
+        if (!$externalIds) {
+            return [];
+        }
+
+        $map = [];
+        foreach (array_chunk($externalIds, 400) as $chunkIdx => $chunk) {
+            $params = ['model_type' => self::MODEL_TYPE];
+            $placeholders = [];
+            foreach ($chunk as $idx => $externalId) {
+                $key = 'external_id_' . $chunkIdx . '_' . $idx;
+                $placeholders[] = ':' . $key;
+                $params[$key] = $externalId;
+            }
+
+            $rows = $legacy->queryAll("
+                SELECT
+                    u.id,
+                    u.external_id,
+                    u.name,
+                    u.username,
+                    u.deleted_at,
+                    r.id AS role_id,
+                    r.name AS role_name
+                FROM users u
+                LEFT JOIN model_has_roles m ON m.model_id = u.id AND m.model_type = :model_type
+                LEFT JOIN roles r ON r.id = m.role_id
+                WHERE TRIM(COALESCE(u.external_id, '')) IN (" . implode(',', $placeholders) . ")
+                ORDER BY u.deleted_at IS NULL DESC, u.id DESC
+            ", $params);
+
+            foreach ($rows as $row) {
+                $externalId = trim((string)($row['external_id'] ?? ''));
+                if ($externalId !== '' && !isset($map[$externalId])) {
+                    $map[$externalId] = $row;
+                }
+            }
+        }
+
+        return $map;
+    }
+
     private static function crearUsuarioLegacyDesdeSpartan(DatabaseLegacy $legacy, array $ctx, string $externalId): array
     {
         $nombre = trim((string)($ctx['nombre_completo'] ?? ''));
@@ -650,10 +958,7 @@ class LegacyUserSync extends Model
             $nombre = 'Usuario ' . $externalId;
         }
 
-        $username = trim((string)($ctx['username'] ?? ''));
-        if ($username === '') {
-            $username = $externalId;
-        }
+        $username = self::usernameLegacyDesdeSpartan($ctx, $externalId);
 
         $email = self::resolverEmailLegacyDisponible($legacy, trim((string)($ctx['correo'] ?? '')), $externalId);
         $password = self::passwordLegacy($ctx['password_spartan'] ?? '');
@@ -728,13 +1033,59 @@ class LegacyUserSync extends Model
     private static function passwordLegacy($passwordSpartan): string
     {
         $raw = trim((string)$passwordSpartan);
-        if ($raw !== '' && password_get_info($raw)['algo'] !== 0) {
+        if ($raw !== '' && self::esPasswordHash($raw)) {
             return $raw;
         }
         if ($raw === '') {
             $raw = bin2hex(random_bytes(24));
         }
         return password_hash($raw, PASSWORD_BCRYPT);
+    }
+
+    private static function esPasswordHash(string $valor): bool
+    {
+        $info = password_get_info($valor);
+        $algo = $info['algo'] ?? 0;
+        $algoName = (string)($info['algoName'] ?? 'unknown');
+        return $valor !== '' && $algo !== 0 && $algo !== null && $algoName !== 'unknown';
+    }
+
+    private static function usernameLegacyDesdeSpartan(array $ctx, string $externalId): string
+    {
+        $username = trim((string)($ctx['username'] ?? ''));
+        return $username !== '' ? $username : $externalId;
+    }
+
+    private static function resolverCredencialesLegacy(DatabaseLegacy $legacy, int $legacyUserId, array $ctx, string $externalId): array
+    {
+        $actual = $legacy->queryOne("
+            SELECT username, password
+            FROM users
+            WHERE id = :id
+            LIMIT 1
+        ", ['id' => $legacyUserId]) ?: [];
+
+        $passwordSpartan = trim((string)($ctx['password_spartan'] ?? ''));
+        $passwordActual = (string)($actual['password'] ?? '');
+        $passwordNuevo = null;
+        $passwordActualizar = false;
+
+        if ($passwordSpartan !== '') {
+            if (self::esPasswordHash($passwordSpartan)) {
+                $passwordActualizar = $passwordSpartan !== $passwordActual;
+            } else {
+                $passwordActualizar = $passwordActual === '' || !password_verify($passwordSpartan, $passwordActual);
+            }
+            if ($passwordActualizar) {
+                $passwordNuevo = self::passwordLegacy($passwordSpartan);
+            }
+        }
+
+        return [
+            'username' => self::usernameLegacyDesdeSpartan($ctx, $externalId),
+            'password' => $passwordNuevo,
+            'password_actualizado' => $passwordActualizar,
+        ];
     }
 
     private static function buscarRoleLegacy(DatabaseLegacy $legacy, string $roleClave): ?array
@@ -785,6 +1136,7 @@ class LegacyUserSync extends Model
     {
         $row = $legacy->queryOne("
             SELECT
+                u.username,
                 u.supervisor_id,
                 u.subgerente_id,
                 u.gerente_id,
@@ -800,6 +1152,7 @@ class LegacyUserSync extends Model
         ", ['id' => $legacyUserId, 'model_type' => self::MODEL_TYPE]);
 
         return [
+            'username' => $row['username'] ?? null,
             'role_id' => isset($row['role_id']) ? (int)$row['role_id'] : null,
             'role_name' => $row['role_name'] ?? null,
             'supervisor_id' => isset($row['supervisor_id']) ? (int)$row['supervisor_id'] : null,
@@ -810,11 +1163,13 @@ class LegacyUserSync extends Model
         ];
     }
 
-    private static function actualizarUsuarioLegacy(DatabaseLegacy $legacy, int $legacyUserId, array $ids): void
+    private static function actualizarUsuarioLegacy(DatabaseLegacy $legacy, int $legacyUserId, array $ids, array $credenciales): void
     {
+        $setPassword = !empty($credenciales['password_actualizado']) && !empty($credenciales['password']);
         $legacy->CRUD("
             UPDATE users
-            SET supervisor_id = :supervisor_id,
+            SET username = :username,
+                " . ($setPassword ? "password = :password,\n                remember_token = NULL,\n                " : "") . "supervisor_id = :supervisor_id,
                 subgerente_id = :subgerente_id,
                 gerente_id = :gerente_id,
                 subdirector_id = :subdirector_id,
@@ -823,11 +1178,12 @@ class LegacyUserSync extends Model
             LIMIT 1
         ", [
             'id' => $legacyUserId,
+            'username' => $credenciales['username'] ?? null,
             'supervisor_id' => $ids['supervisor_id'] ?? null,
             'subgerente_id' => $ids['subgerente_id'] ?? null,
             'gerente_id' => $ids['gerente_id'] ?? null,
             'subdirector_id' => $ids['subdirector_id'] ?? null,
-        ]);
+        ] + ($setPassword ? ['password' => $credenciales['password']] : []));
     }
 
     private static function actualizarRoleLegacy(DatabaseLegacy $legacy, int $legacyUserId, int $roleId): void

@@ -4383,6 +4383,29 @@ window.puedeAgregarUsuarioRrhh = <?= json_encode(!empty($puedeAgregarUsuarioRrhh
 window.puedeEditarUsuarioRrhh = <?= json_encode(!empty($puedeEditarUsuarioRrhh ?? false)) ?>;
 window.todosDepartamentosBackend = <?= json_encode(($departamento['datos'] ?? [])) ?>;
 window.catalogoCompletoDeptosBackend = <?= json_encode(($catalogoCompletoDeptos['datos'] ?? [])) ?>;
+<?php
+    $departamentosCobranzaEditarUsuario = [];
+    $idsDepartamentosCobranzaEditarUsuario = [];
+    foreach (($catalogoCompletoDeptos['datos'] ?? []) as $rowDeptoCobranza) {
+        $areaDeptoCobranza = strtolower(trim((string)($rowDeptoCobranza['departamento_organizacional_nombre'] ?? '')));
+        if (!in_array($areaDeptoCobranza, ['cobranza', 'cobranza corporativo'], true)) {
+            continue;
+        }
+        if (isset($rowDeptoCobranza['activo']) && (int)$rowDeptoCobranza['activo'] !== 1) {
+            continue;
+        }
+        if (isset($rowDeptoCobranza['departamento_organizacional_activo']) && (int)$rowDeptoCobranza['departamento_organizacional_activo'] !== 1) {
+            continue;
+        }
+        $idDeptoCobranza = (int)($rowDeptoCobranza['id'] ?? ($rowDeptoCobranza['departamento_id'] ?? 0));
+        if ($idDeptoCobranza <= 0 || isset($idsDepartamentosCobranzaEditarUsuario[$idDeptoCobranza])) {
+            continue;
+        }
+        $idsDepartamentosCobranzaEditarUsuario[$idDeptoCobranza] = true;
+        $departamentosCobranzaEditarUsuario[] = $rowDeptoCobranza;
+    }
+?>
+window.departamentosCobranzaEditarUsuarioBackend = <?= json_encode($departamentosCobranzaEditarUsuario) ?>;
 window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
 </script>
 <div class="content-wrapper">
@@ -10148,30 +10171,65 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
    * Cargar departamentos en el select para agregar puesto.
    * Solo departamentos a los que el usuario en sesión tiene acceso (privilegios_departamento).
    */
-  function cargarDepartamentosParaAgregar() {
-    const select = document.getElementById('edit_nuevo_departamento');
+  function obtenerDepartamentosCobranzaEditarUsuario() {
+    const departamentosPermitidos = Array.isArray(window.todosDepartamentosBackend)
+      ? window.todosDepartamentosBackend
+      : [];
+    const catalogoCobranza = Array.isArray(window.departamentosCobranzaEditarUsuarioBackend)
+      ? window.departamentosCobranzaEditarUsuarioBackend
+      : [];
+    const idsPermitidos = new Set();
+
+    departamentosPermitidos.forEach(dep => {
+      if (!dep) return;
+      const id = dep.id || dep.departamento_id;
+      if (id) {
+        idsPermitidos.add(String(id));
+      }
+    });
+
+    return catalogoCobranza.filter(dep => {
+      const id = dep.id || dep.departamento_id;
+      return id && idsPermitidos.has(String(id));
+    });
+  }
+
+  function llenarSelectDepartamentosCobranza(selectId) {
+    const select = document.getElementById(selectId);
     if (!select) return;
 
+    if (typeof window.jQuery !== 'undefined') {
+      const $select = window.jQuery(select);
+      if ($select.hasClass('select2-hidden-accessible')) {
+        $select.select2('destroy');
+      }
+    }
+
+    select.value = '';
     select.innerHTML = '<option value="">Seleccione un departamento</option>';
     const agregados = new Map();
 
-    if (window.todosDepartamentosBackend && Array.isArray(window.todosDepartamentosBackend)) {
-      window.todosDepartamentosBackend.forEach(d => {
-        const id = d.id || d.departamento_id;
-        const nombre = d.nombre || d.departamento_nombre || '';
-        if (id && nombre) {
-          agregados.set(Number(id), nombre);
-        }
-      });
-    }
-    Array.from(agregados.entries()).sort((a, b) => a[1].localeCompare(b[1])).forEach(([id, nombre]) => {
+    obtenerDepartamentosCobranzaEditarUsuario().forEach(d => {
+      const id = d.id || d.departamento_id;
+      const nombre = d.nombre || d.departamento_nombre || '';
+      if (id && nombre) {
+        agregados.set(Number(id), nombre);
+      }
+    });
+
+    Array.from(agregados.entries()).sort((a, b) => a[1].localeCompare(b[1], 'es', { sensitivity: 'base' })).forEach(([id, nombre]) => {
       const option = document.createElement('option');
       option.value = id;
       option.textContent = nombre;
       option.dataset.nombre = nombre;
       select.appendChild(option);
     });
-    if (window.refreshSelectBuscador) window.refreshSelectBuscador('edit_nuevo_departamento');
+
+    if (window.refreshSelectBuscador) window.refreshSelectBuscador(selectId);
+  }
+
+  function cargarDepartamentosParaAgregar() {
+    llenarSelectDepartamentosCobranza('edit_nuevo_departamento');
   }
 
   /**
@@ -10276,29 +10334,7 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
    * Solo departamentos a los que el usuario en sesión tiene acceso (privilegios_departamento).
    */
   function cargarDepartamentosParaEditar() {
-    const select = document.getElementById('edit_editar_departamento');
-    if (!select) return;
-
-    select.innerHTML = '<option value="">Seleccione un departamento</option>';
-    const agregados = new Map();
-
-    if (window.todosDepartamentosBackend && Array.isArray(window.todosDepartamentosBackend)) {
-      window.todosDepartamentosBackend.forEach(d => {
-        const id = d.id || d.departamento_id;
-        const nombre = d.nombre || d.departamento_nombre || '';
-        if (id && nombre) {
-          agregados.set(Number(id), nombre);
-        }
-      });
-    }
-    Array.from(agregados.entries()).sort((a, b) => a[1].localeCompare(b[1])).forEach(([id, nombre]) => {
-      const option = document.createElement('option');
-      option.value = id;
-      option.textContent = nombre;
-      option.dataset.nombre = nombre;
-      select.appendChild(option);
-    });
-    if (window.refreshSelectBuscador) window.refreshSelectBuscador('edit_editar_departamento');
+    llenarSelectDepartamentosCobranza('edit_editar_departamento');
   }
 
   /**
@@ -14172,13 +14208,13 @@ function precargarCascadaEdit(idPais, idEstado, idMunicipio, idColonia, idCalle,
     } else if (resultado === 'actualizado') {
       if (creadoLegacy) {
         estado = 'Creado y sincronizado en Legacy';
-        estadoDetalle = 'El usuario ya existe en Legacy con rol y jerarqu&iacute;a actualizados.';
+        estadoDetalle = 'El usuario ya existe en Legacy con usuario, contrase&ntilde;a, rol y jerarqu&iacute;a actualizados.';
       } else if (reactivadoLegacy) {
         estado = 'Reactivado y sincronizado en Legacy';
         estadoDetalle = 'El usuario estaba dado de baja en Legacy y fue reactivado.';
       } else {
         estado = 'Actualizado en Legacy';
-        estadoDetalle = 'Rol y jerarqu&iacute;a fueron sincronizados con Legacy.';
+        estadoDetalle = 'Usuario, contrase&ntilde;a, rol y jerarqu&iacute;a fueron sincronizados con Legacy.';
       }
     }
 
