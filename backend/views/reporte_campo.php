@@ -19,7 +19,7 @@
                     </p>
                 </div>
                 <div class="col-lg-4 text-lg-end">
-                    <a href="/analitica/descargarReporteCampoExcel" class="btn btn-primary">
+                    <a href="/analitica/descargarReporteCampoExcel" class="btn btn-primary" id="btnDescargarReporteCampo">
                         <i class="fa-solid fa-download me-2"></i>Descargar Excel
                     </a>
                 </div>
@@ -27,3 +27,37 @@
         </div>
     </div>
 </div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    var btn = document.getElementById('btnDescargarReporteCampo');
+    if (!btn) return;
+
+    btn.addEventListener('click', function () {
+        if (window.Swal) {
+            Swal.fire({
+                title: 'Generando reporte',
+                text: 'La descarga comenzará en unos segundos.',
+                allowOutsideClick: false,
+                allowEscapeKey: false,
+                didOpen: function () {
+                    Swal.showLoading();
+                }
+            });
+            setTimeout(function () {
+                if (Swal.isVisible()) {
+                    Swal.close();
+                }
+            }, 4500);
+            return;
+        }
+
+        btn.classList.add('disabled');
+        btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin me-2"></i>Generando...';
+        setTimeout(function () {
+            btn.classList.remove('disabled');
+            btn.innerHTML = '<i class="fa-solid fa-download me-2"></i>Descargar Excel';
+        }, 4500);
+    });
+});
+</script>
