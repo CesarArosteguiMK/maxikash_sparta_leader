@@ -219,7 +219,7 @@ function getMenu(): string
                 ['label' => 'Primeros pagos', 'url' => '/analitica/PrimerosPagos', 'modulos' => [49, 65, 66, 67, 68]],
                 ['label' => 'Cartera actual', 'url' => '/analitica/carteraactual', 'modulos' => [19]],
                 ['label' => 'Call Center',    'url' => '/analitica/callcenter',    'modulos' => [6]],
-                ['label' => 'Reporte de Campo', 'url' => '/analitica/reporteCampo', 'modulos' => [6]],
+                ['label' => 'Reporte de Campo', 'url' => '/analitica/reporteCampo', 'modulos' => [90]],
                 ['label' => 'Layout Legacy',  'url' => '/analitica/layoutlegacy',  'modulos' => [7]],
                 ['label' => 'Sabuesos', 'url' => '/sabueso/estadisticas',   'modulos' => [47]],
                 ['label' => 'Comparativas', 'url' => '/analitica/comparativas', 'modulos' => [60, 81]],
