@@ -13904,7 +13904,19 @@ class CapHum extends Controller
         $limite = is_array($input) ? (int)($input['limite'] ?? 100) : 100;
         $forzar = is_array($input) ? !empty($input['forzar']) : false;
         $todos = is_array($input) ? !empty($input['todos']) : false;
+        $plan = is_array($input) ? !empty($input['plan']) : false;
+        $pendientesPlan = is_array($input) && isset($input['pendientes']) && is_array($input['pendientes'])
+            ? $input['pendientes']
+            : [];
         $tamanoLote = is_array($input) ? (int)($input['tamano_lote'] ?? 100) : 100;
+        if ($plan) {
+            self::respuestaJSON(LegacyUserSync::planSincronizacionTodosPendientes($forzar));
+            return;
+        }
+        if ($pendientesPlan) {
+            self::respuestaJSON(LegacyUserSync::sincronizarPendientesPlan($pendientesPlan, $idSesion));
+            return;
+        }
         if ($todos) {
             self::respuestaJSON(LegacyUserSync::sincronizarTodosPendientes($idSesion, $forzar, $tamanoLote));
             return;

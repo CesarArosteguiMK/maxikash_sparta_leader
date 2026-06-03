@@ -197,6 +197,7 @@ class LegacyUserSync extends Model
 
             return [
                 'success' => $resumen['errores'] === 0,
+                'tipo_respuesta' => 'legacy_sync_lote',
                 'mensaje' => $resumen['pendientes_detectados'] > 0
                     ? ($forzarTodos
                         ? 'Sincronizacion masiva Legacy terminada.'
@@ -208,6 +209,7 @@ class LegacyUserSync extends Model
         } catch (\Throwable $e) {
             return [
                 'success' => false,
+                'tipo_respuesta' => 'legacy_sync_lote',
                 'mensaje' => 'Error al reprocesar pendientes de sincronizacion Legacy.',
                 'error' => $e->getMessage(),
             ];
@@ -232,6 +234,7 @@ class LegacyUserSync extends Model
 
             return [
                 'success' => $resumen['errores'] === 0,
+                'tipo_respuesta' => 'legacy_sync_todos',
                 'mensaje' => $resumen['pendientes_detectados'] > 0
                     ? 'Sincronizacion completa Legacy terminada.'
                     : 'No se detectaron usuarios pendientes de sincronizar con Legacy.',
@@ -241,10 +244,116 @@ class LegacyUserSync extends Model
         } catch (\Throwable $e) {
             return [
                 'success' => false,
+                'tipo_respuesta' => 'legacy_sync_todos',
                 'mensaje' => 'Error al ejecutar sincronizacion completa Legacy.',
                 'error' => $e->getMessage(),
             ];
         }
+    }
+
+    public static function planSincronizacionTodosPendientes(bool $forzarTodos = false): array
+    {
+        $db = new Database();
+        self::asegurarBitacora($db);
+
+        try {
+            $legacy = new DatabaseLegacy();
+            $deteccion = self::detectarPendientesSincronizacion($db, $legacy, 50000, $forzarTodos);
+            $plan = array_map([self::class, 'pendienteAPlan'], $deteccion['pendientes']);
+
+            return [
+                'success' => true,
+                'tipo_respuesta' => 'legacy_sync_plan',
+                'mensaje' => count($plan) > 0
+                    ? 'Usuarios detectados para sincronizar.'
+                    : 'No se detectaron usuarios pendientes de sincronizar con Legacy.',
+                'resumen' => [
+                    'revisados' => $deteccion['revisados'],
+                    'pendientes_detectados' => count($plan),
+                    'lotes' => count($plan),
+                ],
+                'pendientes' => $plan,
+            ];
+        } catch (\Throwable $e) {
+            return [
+                'success' => false,
+                'tipo_respuesta' => 'legacy_sync_plan',
+                'mensaje' => 'Error al detectar usuarios para sincronizacion Legacy.',
+                'error' => $e->getMessage(),
+            ];
+        }
+    }
+
+    public static function sincronizarPendientesPlan(array $pendientes, int $idSesion = 0): array
+    {
+        $pendientes = array_values(array_filter($pendientes, function ($item) {
+            return is_array($item) && (int)($item['id_persona'] ?? 0) > 0;
+        }));
+        $resultados = [];
+        $resumen = [
+            'revisados' => 0,
+            'pendientes_detectados' => count($pendientes),
+            'actualizados' => 0,
+            'sin_cambios' => 0,
+            'omitidos' => 0,
+            'errores' => 0,
+            'lotes' => count($pendientes),
+        ];
+
+        foreach ($pendientes as $idx => $item) {
+            $tipo = (string)($item['tipo'] ?? 'activo');
+            $idPersona = (int)($item['id_persona'] ?? 0);
+            $sync = $tipo === 'baja'
+                ? self::sincronizarBajaDesdeSpartan($idPersona, $idSesion)
+                : self::sincronizarDesdeEditarUsuario($idPersona, $idSesion);
+            $resultado = (string)($sync['resultado'] ?? '');
+            if ($resultado === 'actualizado') {
+                $resumen['actualizados']++;
+            } elseif ($resultado === 'sin_cambios') {
+                $resumen['sin_cambios']++;
+            } elseif ($resultado === 'omitido') {
+                $resumen['omitidos']++;
+            } elseif ($resultado === 'error') {
+                $resumen['errores']++;
+            }
+
+            $resultados[] = [
+                'lote' => (int)($item['lote'] ?? ($idx + 1)),
+                'id_persona' => $idPersona,
+                'external_id' => trim((string)($item['external_id'] ?? '')),
+                'nombre' => trim((string)($item['nombre'] ?? '')),
+                'puesto' => trim((string)($item['puesto'] ?? '')),
+                'departamento' => trim((string)($item['departamento'] ?? '')),
+                'role_legacy' => trim((string)($item['role_legacy'] ?? '')),
+                'motivos' => is_array($item['motivos'] ?? null) ? $item['motivos'] : [],
+                'sync' => $sync,
+            ];
+        }
+
+        return [
+            'success' => $resumen['errores'] === 0,
+            'tipo_respuesta' => 'legacy_sync_lote',
+            'mensaje' => $resumen['errores'] > 0
+                ? 'El lote se proceso con errores.'
+                : 'Lote sincronizado correctamente.',
+            'resumen' => $resumen,
+            'datos' => $resultados,
+        ];
+    }
+
+    private static function pendienteAPlan(array $pendiente): array
+    {
+        $ctx = $pendiente['ctx'] ?? [];
+        return [
+            'tipo' => (string)($pendiente['tipo'] ?? 'activo'),
+            'id_persona' => (int)($ctx['id_persona'] ?? 0),
+            'external_id' => trim((string)($ctx['external_id'] ?? '')),
+            'nombre' => trim((string)($ctx['nombre_completo'] ?? '')),
+            'puesto' => trim((string)($ctx['puesto_nombre'] ?? '')),
+            'departamento' => trim((string)($ctx['departamento_nombre'] ?? '')),
+            'role_legacy' => trim((string)($ctx['role_legacy'] ?? '')),
+            'motivos' => is_array($pendiente['motivos'] ?? null) ? $pendiente['motivos'] : [],
+        ];
     }
 
     private static function detectarPendientesSincronizacion(Database $db, DatabaseLegacy $legacy, int $limite, bool $forzarTodos): array

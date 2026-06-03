@@ -298,38 +298,145 @@
         }).join('');
     }
 
+    function progressHtml(actual, total, detalle) {
+        const pct = total > 0 ? Math.round((actual / total) * 100) : 0;
+        return '' +
+            '<div class="spinner-border text-primary mb-3" role="status"><span class="visually-hidden">Cargando...</span></div>' +
+            '<p class="fw-bold mb-1">' + esc(detalle || 'Preparando sincronizacion...') + '</p>' +
+            '<p class="small text-muted mb-3">No cierre esta ventana.</p>' +
+            '<div class="progress" style="height:10px;border-radius:999px;overflow:hidden;">' +
+                '<div class="progress-bar" role="progressbar" style="width:' + pct + '%;"></div>' +
+            '</div>' +
+            '<div class="small fw-bold mt-2">' + esc(actual) + ' de ' + esc(total) + '</div>';
+    }
+
+    function swalProgress(actual, total, detalle) {
+        if (typeof Swal === 'undefined') return;
+        Swal.update({ html: progressHtml(actual, total, detalle) });
+    }
+
+    function describirRespuestaInesperada(data) {
+        if (data && Object.prototype.hasOwnProperty.call(data, 'total_no_leidas')) {
+            return 'Se recibio la respuesta del modulo de notificaciones, no la de Sincroniza Legacy. Recarga la pagina e intenta de nuevo.';
+        }
+        return 'La respuesta no corresponde al endpoint de Sincroniza Legacy.';
+    }
+
+    async function postJson(payload, tipoEsperado) {
+        const resp = await fetch('/CapHum/sincronizarLegacyPendientesRrhh', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+            credentials: 'same-origin',
+            body: JSON.stringify(payload)
+        });
+        let data = null;
+        try {
+            data = await resp.json();
+        } catch (err) {
+            throw new Error('El servidor no devolvio JSON valido para la sincronizacion Legacy.');
+        }
+        if (!resp.ok || !data || data.success === false) {
+            throw new Error((data && (data.mensaje || data.error)) || 'No se pudo procesar la solicitud.');
+        }
+        if (tipoEsperado && data.tipo_respuesta !== tipoEsperado) {
+            throw new Error(describirRespuestaInesperada(data));
+        }
+        return data;
+    }
+
+    function resumenBase(revisados, total) {
+        return {
+            revisados: revisados || 0,
+            pendientes_detectados: total || 0,
+            actualizados: 0,
+            sin_cambios: 0,
+            omitidos: 0,
+            errores: 0,
+            lotes: total || 0
+        };
+    }
+
+    function acumularResumen(destino, fuente) {
+        const f = fuente || {};
+        destino.actualizados += parseInt(f.actualizados, 10) || 0;
+        destino.sin_cambios += parseInt(f.sin_cambios, 10) || 0;
+        destino.omitidos += parseInt(f.omitidos, 10) || 0;
+        destino.errores += parseInt(f.errores, 10) || 0;
+    }
+
     async function sincronizar() {
         btn.disabled = true;
         if (typeof Swal !== 'undefined') {
             Swal.fire({
-                title: 'Sincronizando Legacy',
-                html: '<div class="spinner-border text-primary" role="status"><span class="visually-hidden">Cargando...</span></div><p class="mt-3 mb-0">Procesando todos los usuarios detectados por lotes...</p>',
+                title: 'Buscando usuarios',
+                html: progressHtml(0, 0, 'Detectando usuarios para sincronizar...'),
                 allowOutsideClick: false,
                 allowEscapeKey: false,
                 showConfirmButton: false
             });
         }
         try {
-            const resp = await fetch('/CapHum/sincronizarLegacyPendientesRrhh', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
-                credentials: 'same-origin',
-                body: JSON.stringify({ todos: true, forzar: true, tamano_lote: 100 })
-            });
-            const data = await resp.json();
-            renderResumen(data.resumen || {});
-            renderTabla(data.datos || []);
+            const plan = await postJson({ plan: true, forzar: true }, 'legacy_sync_plan');
+            const pendientes = Array.isArray(plan.pendientes) ? plan.pendientes : [];
+            const total = pendientes.length;
+            const acumulado = resumenBase(plan.resumen && plan.resumen.revisados, total);
+            const resultados = [];
+
+            if (total === 0) {
+                renderResumen(plan.resumen || acumulado);
+                renderTabla([]);
+                result.style.display = 'block';
+                if (typeof Swal !== 'undefined') {
+                    Swal.fire({
+                        icon: 'success',
+                        title: 'Sincronizacion terminada',
+                        text: plan.mensaje || 'No se detectaron usuarios pendientes.'
+                    });
+                }
+                return;
+            }
+
+            if (typeof Swal !== 'undefined') {
+                Swal.update({ title: 'Usuarios encontrados' });
+                swalProgress(0, total, 'Encontrados ' + total + ' usuarios para sincronizar.');
+            }
+
+            for (let i = 0; i < pendientes.length; i++) {
+                const item = Object.assign({}, pendientes[i], { lote: i + 1 });
+                const nombre = item.nombre ? (' · ' + item.nombre) : '';
+                swalProgress(i + 1, total, 'Sincronizando ' + (i + 1) + ' de ' + total + nombre);
+                try {
+                    const parcial = await postJson({ pendientes: [item] }, 'legacy_sync_lote');
+                    acumularResumen(acumulado, parcial.resumen || {});
+                    if (Array.isArray(parcial.datos)) {
+                        resultados.push.apply(resultados, parcial.datos);
+                    }
+                } catch (errItem) {
+                    acumulado.errores += 1;
+                    resultados.push(Object.assign({}, item, {
+                        sync: {
+                            resultado: 'error',
+                            mensaje: errItem.message || 'No se pudo sincronizar este usuario.'
+                        }
+                    }));
+                }
+            }
+
+            renderResumen(acumulado);
+            renderTabla(resultados);
             result.style.display = 'block';
             if (typeof Swal !== 'undefined') {
                 Swal.fire({
-                    icon: data.success ? 'success' : 'warning',
-                    title: data.success ? 'Sincronizacion terminada' : 'Sincronizacion con observaciones',
-                    text: data.mensaje || 'Proceso finalizado.'
+                    icon: acumulado.errores > 0 ? 'warning' : 'success',
+                    title: acumulado.errores > 0 ? 'Sincronizacion con observaciones' : 'Sincronizacion terminada',
+                    text: acumulado.errores > 0
+                        ? ('Se terminaron los lotes con ' + acumulado.errores + ' error(es).')
+                        : 'Todos los usuarios detectados fueron procesados.'
                 });
             }
         } catch (err) {
             if (typeof Swal !== 'undefined') {
-                Swal.fire({ icon: 'error', title: 'Error de red', text: 'No se pudo ejecutar la sincronizacion masiva.' });
+                Swal.fire({ icon: 'error', title: 'No se pudo iniciar', text: err.message || 'No se pudo ejecutar la sincronizacion masiva.' });
             } else {
                 window.alert('No se pudo ejecutar la sincronizacion masiva.');
             }
