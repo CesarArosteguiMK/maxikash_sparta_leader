@@ -239,6 +239,7 @@ function getMenu(): string
                 ['label' => 'Áreas',                  'url' => '/departamentos/consulta/',     'modulos' => [10]],
                 ['label' => 'Países',                 'url' => '/paises/consulta',             'modulos' => [41]],
                 ['label' => 'Equivalencia puestos',   'url' => '/equivalencias/consulta',      'modulos' => [17]],
+                ['label' => 'Sincroniza Legacy',       'url' => '/caphum/sincronizaLegacy',     'modulos' => [89]],
                 ['label' => 'Asignación por puestos', 'url' => '/configticketpuesto/consulta', 'modulos' => [26]],
                 ['label' => 'Config Motos Adj',        'url' => '/ConfigMotosAdj/consulta',     'modulos' => [85]],
             ],

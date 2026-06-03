@@ -18,6 +18,7 @@ class CapHum extends Controller
     private const MODULO_REVISION_ACTUALIZACIONES_RRHH = 83;
     private const MODULO_AGREGAR_USUARIO_RRHH = 87;
     private const MODULO_EDITAR_USUARIO_RRHH = 88;
+    private const MODULO_SINCRONIZA_LEGACY = 89;
 
     /** Último error de enviarCorreo para mostrarlo en la respuesta JSON */
     private $enviarCorreoUltimoError = '';
@@ -4312,13 +4313,13 @@ class CapHum extends Controller
                 if (resultado === 'actualizado') {
                     if (creadoLegacy) {
                         estado = 'Creado y sincronizado en Legacy';
-                        estadoDetalle = 'El usuario ya existe en Legacy con rol y jerarqu&iacute;a actualizados.';
+                        estadoDetalle = 'El usuario ya existe en Legacy con usuario, contrase&ntilde;a, rol y jerarqu&iacute;a actualizados.';
                     } else if (reactivadoLegacy) {
                         estado = 'Reactivado y sincronizado en Legacy';
                         estadoDetalle = 'El usuario estaba dado de baja en Legacy y fue reactivado.';
                     } else {
                         estado = 'Actualizado en Legacy';
-                        estadoDetalle = 'Rol y jerarqu&iacute;a fueron sincronizados con Legacy.';
+                        estadoDetalle = 'Usuario, contrase&ntilde;a, rol y jerarqu&iacute;a fueron sincronizados con Legacy.';
                     }
                 } else if (resultado === 'sin_cambios') {
                     estado = 'Legacy ya estaba sincronizado';
@@ -13893,14 +13894,22 @@ class CapHum extends Controller
 
         $idSesion = (int) ($_SESSION['usuario_id'] ?? 0);
         if (!self::tieneModuloWeb(self::MODULO_AGREGAR_USUARIO_RRHH)
-            && !self::tieneModuloWeb(self::MODULO_EDITAR_USUARIO_RRHH)) {
+            && !self::tieneModuloWeb(self::MODULO_EDITAR_USUARIO_RRHH)
+            && !self::tieneModuloWeb(self::MODULO_SINCRONIZA_LEGACY)) {
             self::respuestaJSON(['success' => false, 'mensaje' => 'No tienes permiso para sincronizar usuarios con Legacy.']);
             return;
         }
 
         $input = json_decode(file_get_contents('php://input'), true);
         $limite = is_array($input) ? (int)($input['limite'] ?? 100) : 100;
-        self::respuestaJSON(LegacyUserSync::sincronizarPendientes($limite, $idSesion));
+        $forzar = is_array($input) ? !empty($input['forzar']) : false;
+        self::respuestaJSON(LegacyUserSync::sincronizarPendientes($limite, $idSesion, $forzar));
+    }
+
+    public function sincronizaLegacy()
+    {
+        self::set('titulo', 'Sincroniza Legacy');
+        self::render('caphum_sincroniza_legacy');
     }
 
     public function obtenerDatosActualizacionInfoPersona()
