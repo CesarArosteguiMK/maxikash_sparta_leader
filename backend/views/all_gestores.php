@@ -14208,13 +14208,13 @@ function precargarCascadaEdit(idPais, idEstado, idMunicipio, idColonia, idCalle,
     } else if (resultado === 'actualizado') {
       if (creadoLegacy) {
         estado = 'Creado y sincronizado en Legacy';
-        estadoDetalle = 'El usuario ya existe en Legacy con rol y jerarqu&iacute;a actualizados.';
+        estadoDetalle = 'El usuario ya existe en Legacy con usuario, contrase&ntilde;a, rol y jerarqu&iacute;a actualizados.';
       } else if (reactivadoLegacy) {
         estado = 'Reactivado y sincronizado en Legacy';
         estadoDetalle = 'El usuario estaba dado de baja en Legacy y fue reactivado.';
       } else {
         estado = 'Actualizado en Legacy';
-        estadoDetalle = 'Rol y jerarqu&iacute;a fueron sincronizados con Legacy.';
+        estadoDetalle = 'Usuario, contrase&ntilde;a, rol y jerarqu&iacute;a fueron sincronizados con Legacy.';
       }
     }
 
