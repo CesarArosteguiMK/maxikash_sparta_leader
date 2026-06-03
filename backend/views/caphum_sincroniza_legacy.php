@@ -170,7 +170,7 @@
             <i class="fa-solid fa-arrows-rotate fa-2x"></i>
             <div>
                 <h4>Sincroniza Legacy</h4>
-                <p>Sincronizacion masiva de usuarios Spartan hacia Legacy: alta, rol y jerarquia.</p>
+                <p>Sincronizacion completa de usuarios Spartan hacia Legacy: alta, usuario, contrasena, rol y jerarquia.</p>
             </div>
         </div>
         <span class="badge bg-label-light text-dark">
@@ -183,22 +183,19 @@
             <i class="fa-solid fa-database"></i> Reproceso masivo
         </h5>
         <p class="legacy-sync-note">
-            Ejecuta una sincronizacion forzada para usuarios activos dentro del alcance configurado.
-            Esto actualiza o crea el usuario en Legacy, asigna el rol equivalente y recalcula supervisor,
-            subgerente, gerente y subdirector con base en Spartan.
+            Ejecuta una sincronizacion forzada para todos los usuarios dentro del alcance configurado.
+            El backend divide el proceso en lotes internos y entrega un resumen global; no necesitas escoger
+            cuantos usuarios revisar. Actualiza o crea el usuario en Legacy, sincroniza usuario/contrasena,
+            asigna el rol equivalente y recalcula supervisor, subgerente, gerente y subdirector.
         </p>
 
         <div class="legacy-sync-actionbar">
-            <div style="min-width: 220px;">
-                <label for="legacy-sync-limite" class="form-label small fw-bold mb-1">Usuarios a revisar</label>
-                <select id="legacy-sync-limite" class="form-select">
-                    <option value="100">100 usuarios</option>
-                    <option value="200">200 usuarios</option>
-                    <option value="300" selected>300 usuarios</option>
-                </select>
+            <div class="legacy-sync-note">
+                <i class="fa-solid fa-layer-group me-1"></i>
+                Se procesan todos los candidatos detectados, por lotes de backend.
             </div>
             <button type="button" class="legacy-sync-btn" id="legacy-sync-btn">
-                <i class="fa-solid fa-cloud-arrow-up"></i> Sincronizar con Legacy
+                <i class="fa-solid fa-cloud-arrow-up"></i> Sincronizar todo con Legacy
             </button>
         </div>
     </div>
@@ -209,6 +206,7 @@
             <table class="table table-hover legacy-sync-table" id="legacy-sync-table">
                 <thead>
                     <tr>
+                        <th>Lote</th>
                         <th>Usuario</th>
                         <th>Spartan</th>
                         <th>Legacy</th>
@@ -227,7 +225,6 @@
     'use strict';
 
     const btn = document.getElementById('legacy-sync-btn');
-    const limite = document.getElementById('legacy-sync-limite');
     const result = document.getElementById('legacy-sync-result');
     const summary = document.getElementById('legacy-sync-summary');
     const tbody = document.getElementById('legacy-sync-tbody');
@@ -271,7 +268,7 @@
             kpi('Detectados', r.pendientes_detectados || 0),
             kpi('Actualizados', r.actualizados || 0),
             kpi('Sin cambios', r.sin_cambios || 0),
-            kpi('Omitidos', r.omitidos || 0),
+            kpi('Lotes', r.lotes || 0),
             kpi('Errores', r.errores || 0)
         ].join('');
     }
@@ -279,7 +276,7 @@
     function renderTabla(datos) {
         const rows = Array.isArray(datos) ? datos : [];
         if (!rows.length) {
-            tbody.innerHTML = '<tr><td colspan="5" class="text-center text-muted py-4">No hubo usuarios por sincronizar.</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="6" class="text-center text-muted py-4">No hubo usuarios por sincronizar.</td></tr>';
             return;
         }
         tbody.innerHTML = rows.map(function (row) {
@@ -289,6 +286,7 @@
                 return '<span class="legacy-sync-pill legacy-sync-pill-info">' + esc(motivoLabel(m)) + '</span>';
             }).join('');
             return '<tr>' +
+                '<td><span class="legacy-sync-pill legacy-sync-pill-info">' + esc(row.lote || '-') + '</span></td>' +
                 '<td class="legacy-sync-user"><strong>' + esc(row.nombre || 'Sin nombre') + '</strong><div class="legacy-sync-muted"># ' + esc(row.external_id || '-') + '</div></td>' +
                 '<td><div class="legacy-sync-role">' + esc(row.puesto || '-') + '</div><div class="legacy-sync-muted">' + esc(row.departamento || '-') + '</div></td>' +
                 '<td><span class="legacy-sync-role">' + esc(row.role_legacy || '-') + '</span></td>' +
@@ -301,12 +299,11 @@
     }
 
     async function sincronizar() {
-        const n = parseInt(limite && limite.value ? limite.value : '300', 10) || 300;
         btn.disabled = true;
         if (typeof Swal !== 'undefined') {
             Swal.fire({
                 title: 'Sincronizando Legacy',
-                html: '<div class="spinner-border text-primary" role="status"><span class="visually-hidden">Cargando...</span></div><p class="mt-3 mb-0">Recalculando usuarios, roles y jerarquia...</p>',
+                html: '<div class="spinner-border text-primary" role="status"><span class="visually-hidden">Cargando...</span></div><p class="mt-3 mb-0">Procesando todos los usuarios detectados por lotes...</p>',
                 allowOutsideClick: false,
                 allowEscapeKey: false,
                 showConfirmButton: false
@@ -317,7 +314,7 @@
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
                 credentials: 'same-origin',
-                body: JSON.stringify({ limite: n, forzar: true })
+                body: JSON.stringify({ todos: true, forzar: true, tamano_lote: 100 })
             });
             const data = await resp.json();
             renderResumen(data.resumen || {});
