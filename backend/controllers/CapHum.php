@@ -13903,6 +13903,12 @@ class CapHum extends Controller
         $input = json_decode(file_get_contents('php://input'), true);
         $limite = is_array($input) ? (int)($input['limite'] ?? 100) : 100;
         $forzar = is_array($input) ? !empty($input['forzar']) : false;
+        $todos = is_array($input) ? !empty($input['todos']) : false;
+        $tamanoLote = is_array($input) ? (int)($input['tamano_lote'] ?? 100) : 100;
+        if ($todos) {
+            self::respuestaJSON(LegacyUserSync::sincronizarTodosPendientes($idSesion, $forzar, $tamanoLote));
+            return;
+        }
         self::respuestaJSON(LegacyUserSync::sincronizarPendientes($limite, $idSesion, $forzar));
     }
 

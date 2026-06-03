@@ -189,118 +189,11 @@ class LegacyUserSync extends Model
 
         try {
             $legacy = new DatabaseLegacy();
-            $candidatos = self::obtenerCandidatosSincronizacion($db, $limite * 4);
-            $pendientes = [];
-            $bajasRevisadas = 0;
-
-            foreach ($candidatos as $ctx) {
-                if (!self::estaEnAlcance($ctx)) {
-                    continue;
-                }
-                $externalId = trim((string)($ctx['external_id'] ?? ''));
-                $roleClave = trim((string)($ctx['role_legacy'] ?? ''));
-                if ($externalId === '' || $roleClave === '' || !self::externalIdValido($externalId)) {
-                    continue;
-                }
-
-                $estadoLegacy = self::estadoLegacyPorExternalId($legacy, $externalId);
-                $motivos = [];
-                if (!$estadoLegacy) {
-                    $motivos[] = 'no_existe_en_legacy';
-                } elseif (!empty($estadoLegacy['deleted_at'])) {
-                    $motivos[] = 'baja_en_legacy_con_spartan_activo';
-                } elseif (trim((string)($estadoLegacy['role_name'] ?? '')) !== $roleClave) {
-                    $motivos[] = 'role_desalineado';
-                } elseif (trim((string)($estadoLegacy['username'] ?? '')) !== self::usernameLegacyDesdeSpartan($ctx, $externalId)) {
-                    $motivos[] = 'usuario_desalineado';
-                }
-
-                if (!$motivos && $forzarTodos) {
-                    $motivos[] = 'sincronizacion_forzada';
-                }
-
-                if (!$motivos) {
-                    continue;
-                }
-
-                $pendientes[] = [
-                    'tipo' => 'activo',
-                    'ctx' => $ctx,
-                    'motivos' => $motivos,
-                    'estado_legacy' => $estadoLegacy,
-                ];
-                if (count($pendientes) >= $limite) {
-                    break;
-                }
-            }
-
-            if (count($pendientes) < $limite) {
-                $bajas = self::obtenerCandidatosBajaSincronizacion($db, ($limite - count($pendientes)) * 4);
-                $bajasRevisadas = count($bajas);
-                foreach ($bajas as $ctx) {
-                    if (!self::estaEnAlcance($ctx)) {
-                        continue;
-                    }
-                    $externalId = trim((string)($ctx['external_id'] ?? ''));
-                    if ($externalId === '' || !self::externalIdValido($externalId)) {
-                        continue;
-                    }
-
-                    $estadoLegacy = self::estadoLegacyPorExternalId($legacy, $externalId);
-                    if (!$estadoLegacy || !empty($estadoLegacy['deleted_at'])) {
-                        continue;
-                    }
-
-                    $pendientes[] = [
-                        'tipo' => 'baja',
-                        'ctx' => $ctx,
-                        'motivos' => ['baja_spartan_activa_en_legacy'],
-                        'estado_legacy' => $estadoLegacy,
-                    ];
-                    if (count($pendientes) >= $limite) {
-                        break;
-                    }
-                }
-            }
-
-            $resultados = [];
-            $resumen = [
-                'revisados' => count($candidatos) + $bajasRevisadas,
-                'pendientes_detectados' => count($pendientes),
-                'actualizados' => 0,
-                'sin_cambios' => 0,
-                'omitidos' => 0,
-                'errores' => 0,
-            ];
-
-            foreach ($pendientes as $pendiente) {
-                $ctx = $pendiente['ctx'];
-                $tipo = (string)($pendiente['tipo'] ?? 'activo');
-                $sync = $tipo === 'baja'
-                    ? self::sincronizarBajaDesdeSpartan((int)$ctx['id_persona'], $idSesion)
-                    : self::sincronizarDesdeEditarUsuario((int)$ctx['id_persona'], $idSesion);
-                $resultado = (string)($sync['resultado'] ?? '');
-                if ($resultado === 'actualizado') {
-                    $resumen['actualizados']++;
-                } elseif ($resultado === 'sin_cambios') {
-                    $resumen['sin_cambios']++;
-                } elseif ($resultado === 'omitido') {
-                    $resumen['omitidos']++;
-                } elseif ($resultado === 'error') {
-                    $resumen['errores']++;
-                }
-
-                $resultados[] = [
-                    'id_persona' => (int)($ctx['id_persona'] ?? 0),
-                    'external_id' => trim((string)($ctx['external_id'] ?? '')),
-                    'nombre' => trim((string)($ctx['nombre_completo'] ?? '')),
-                    'puesto' => trim((string)($ctx['puesto_nombre'] ?? '')),
-                    'departamento' => trim((string)($ctx['departamento_nombre'] ?? '')),
-                    'role_legacy' => trim((string)($ctx['role_legacy'] ?? '')),
-                    'motivos' => $pendiente['motivos'],
-                    'sync' => $sync,
-                ];
-            }
+            $deteccion = self::detectarPendientesSincronizacion($db, $legacy, $limite, $forzarTodos);
+            [$resumen, $resultados] = self::procesarPendientesSincronizacion($deteccion['pendientes'], $idSesion);
+            $resumen['revisados'] = $deteccion['revisados'];
+            $resumen['pendientes_detectados'] = count($deteccion['pendientes']);
+            $resumen['lotes'] = count($deteccion['pendientes']) > 0 ? 1 : 0;
 
             return [
                 'success' => $resumen['errores'] === 0,
@@ -319,6 +212,186 @@ class LegacyUserSync extends Model
                 'error' => $e->getMessage(),
             ];
         }
+    }
+
+    public static function sincronizarTodosPendientes(int $idSesion = 0, bool $forzarTodos = false, int $tamanoLote = 100): array
+    {
+        $tamanoLote = max(25, min(300, $tamanoLote));
+        $db = new Database();
+        self::asegurarBitacora($db);
+
+        try {
+            $legacy = new DatabaseLegacy();
+            $deteccion = self::detectarPendientesSincronizacion($db, $legacy, 50000, $forzarTodos);
+            $pendientes = $deteccion['pendientes'];
+            [$resumen, $resultados] = self::procesarPendientesSincronizacion($pendientes, $idSesion, $tamanoLote);
+            $resumen['revisados'] = $deteccion['revisados'];
+            $resumen['pendientes_detectados'] = count($pendientes);
+            $resumen['lotes'] = count($pendientes) > 0 ? (int)ceil(count($pendientes) / $tamanoLote) : 0;
+            $resumen['tamano_lote'] = $tamanoLote;
+
+            return [
+                'success' => $resumen['errores'] === 0,
+                'mensaje' => $resumen['pendientes_detectados'] > 0
+                    ? 'Sincronizacion completa Legacy terminada.'
+                    : 'No se detectaron usuarios pendientes de sincronizar con Legacy.',
+                'resumen' => $resumen,
+                'datos' => $resultados,
+            ];
+        } catch (\Throwable $e) {
+            return [
+                'success' => false,
+                'mensaje' => 'Error al ejecutar sincronizacion completa Legacy.',
+                'error' => $e->getMessage(),
+            ];
+        }
+    }
+
+    private static function detectarPendientesSincronizacion(Database $db, DatabaseLegacy $legacy, int $limite, bool $forzarTodos): array
+    {
+        $limite = max(1, min(50000, $limite));
+        $candidatos = self::obtenerCandidatosSincronizacion($db, $limite * 4);
+        $pendientes = [];
+        $bajasRevisadas = 0;
+        $activosEnAlcance = [];
+
+        foreach ($candidatos as $ctx) {
+            if (!self::estaEnAlcance($ctx)) {
+                continue;
+            }
+            $externalId = trim((string)($ctx['external_id'] ?? ''));
+            $roleClave = trim((string)($ctx['role_legacy'] ?? ''));
+            if ($externalId === '' || $roleClave === '' || !self::externalIdValido($externalId)) {
+                continue;
+            }
+            $activosEnAlcance[] = $ctx;
+        }
+
+        $estadosActivos = self::estadosLegacyPorExternalIds($legacy, array_column($activosEnAlcance, 'external_id'));
+        foreach ($activosEnAlcance as $ctx) {
+            $externalId = trim((string)($ctx['external_id'] ?? ''));
+            $roleClave = trim((string)($ctx['role_legacy'] ?? ''));
+            $estadoLegacy = $estadosActivos[$externalId] ?? null;
+            $motivos = [];
+            if (!$estadoLegacy) {
+                $motivos[] = 'no_existe_en_legacy';
+            } elseif (!empty($estadoLegacy['deleted_at'])) {
+                $motivos[] = 'baja_en_legacy_con_spartan_activo';
+            } elseif (trim((string)($estadoLegacy['role_name'] ?? '')) !== $roleClave) {
+                $motivos[] = 'role_desalineado';
+            } elseif (trim((string)($estadoLegacy['username'] ?? '')) !== self::usernameLegacyDesdeSpartan($ctx, $externalId)) {
+                $motivos[] = 'usuario_desalineado';
+            }
+
+            if (!$motivos && $forzarTodos) {
+                $motivos[] = 'sincronizacion_forzada';
+            }
+
+            if (!$motivos) {
+                continue;
+            }
+
+            $pendientes[] = [
+                'tipo' => 'activo',
+                'ctx' => $ctx,
+                'motivos' => $motivos,
+                'estado_legacy' => $estadoLegacy,
+            ];
+            if (count($pendientes) >= $limite) {
+                break;
+            }
+        }
+
+        if (count($pendientes) < $limite) {
+            $bajas = self::obtenerCandidatosBajaSincronizacion($db, ($limite - count($pendientes)) * 4);
+            $bajasRevisadas = count($bajas);
+            $bajasEnAlcance = [];
+            foreach ($bajas as $ctx) {
+                if (!self::estaEnAlcance($ctx)) {
+                    continue;
+                }
+                $externalId = trim((string)($ctx['external_id'] ?? ''));
+                if ($externalId === '' || !self::externalIdValido($externalId)) {
+                    continue;
+                }
+                $bajasEnAlcance[] = $ctx;
+            }
+
+            $estadosBajas = self::estadosLegacyPorExternalIds($legacy, array_column($bajasEnAlcance, 'external_id'));
+            foreach ($bajasEnAlcance as $ctx) {
+                $externalId = trim((string)($ctx['external_id'] ?? ''));
+                $estadoLegacy = $estadosBajas[$externalId] ?? null;
+                if (!$estadoLegacy || !empty($estadoLegacy['deleted_at'])) {
+                    continue;
+                }
+
+                $pendientes[] = [
+                    'tipo' => 'baja',
+                    'ctx' => $ctx,
+                    'motivos' => ['baja_spartan_activa_en_legacy'],
+                    'estado_legacy' => $estadoLegacy,
+                ];
+                if (count($pendientes) >= $limite) {
+                    break;
+                }
+            }
+        }
+
+        return [
+            'revisados' => count($candidatos) + $bajasRevisadas,
+            'pendientes' => $pendientes,
+        ];
+    }
+
+    private static function procesarPendientesSincronizacion(array $pendientes, int $idSesion, int $tamanoLote = 300): array
+    {
+        $tamanoLote = max(1, min(300, $tamanoLote));
+        $resultados = [];
+        $resumen = [
+            'revisados' => 0,
+            'pendientes_detectados' => count($pendientes),
+            'actualizados' => 0,
+            'sin_cambios' => 0,
+            'omitidos' => 0,
+            'errores' => 0,
+            'lotes' => 0,
+        ];
+
+        $lotes = array_chunk($pendientes, $tamanoLote);
+        $resumen['lotes'] = count($lotes);
+        foreach ($lotes as $idxLote => $lote) {
+            foreach ($lote as $pendiente) {
+                $ctx = $pendiente['ctx'];
+                $tipo = (string)($pendiente['tipo'] ?? 'activo');
+                $sync = $tipo === 'baja'
+                    ? self::sincronizarBajaDesdeSpartan((int)$ctx['id_persona'], $idSesion)
+                    : self::sincronizarDesdeEditarUsuario((int)$ctx['id_persona'], $idSesion);
+                $resultado = (string)($sync['resultado'] ?? '');
+                if ($resultado === 'actualizado') {
+                    $resumen['actualizados']++;
+                } elseif ($resultado === 'sin_cambios') {
+                    $resumen['sin_cambios']++;
+                } elseif ($resultado === 'omitido') {
+                    $resumen['omitidos']++;
+                } elseif ($resultado === 'error') {
+                    $resumen['errores']++;
+                }
+
+                $resultados[] = [
+                    'lote' => $idxLote + 1,
+                    'id_persona' => (int)($ctx['id_persona'] ?? 0),
+                    'external_id' => trim((string)($ctx['external_id'] ?? '')),
+                    'nombre' => trim((string)($ctx['nombre_completo'] ?? '')),
+                    'puesto' => trim((string)($ctx['puesto_nombre'] ?? '')),
+                    'departamento' => trim((string)($ctx['departamento_nombre'] ?? '')),
+                    'role_legacy' => trim((string)($ctx['role_legacy'] ?? '')),
+                    'motivos' => $pendiente['motivos'],
+                    'sync' => $sync,
+                ];
+            }
+        }
+
+        return [$resumen, $resultados];
     }
 
     public static function sincronizarBajaDesdeSpartan(int $idPersona, int $idSesion = 0): array
@@ -494,7 +567,7 @@ class LegacyUserSync extends Model
 
     private static function obtenerCandidatosSincronizacion(Database $db, int $limite): array
     {
-        $limite = max(1, min(1200, $limite));
+        $limite = max(1, min(50000, $limite));
         return $db->queryAll("
             SELECT
                 per.id AS id_persona,
@@ -526,7 +599,7 @@ class LegacyUserSync extends Model
 
     private static function obtenerCandidatosBajaSincronizacion(Database $db, int $limite): array
     {
-        $limite = max(1, min(1200, $limite));
+        $limite = max(1, min(50000, $limite));
         return $db->queryAll("
             SELECT
                 per.id AS id_persona,
@@ -721,6 +794,52 @@ class LegacyUserSync extends Model
             ORDER BY u.deleted_at IS NULL DESC, u.id DESC
             LIMIT 1
         ", ['external_id' => $externalId, 'model_type' => self::MODEL_TYPE]) ?: null;
+    }
+
+    private static function estadosLegacyPorExternalIds(DatabaseLegacy $legacy, array $externalIds): array
+    {
+        $externalIds = array_values(array_unique(array_filter(array_map(function ($id) {
+            return trim((string)$id);
+        }, $externalIds))));
+        if (!$externalIds) {
+            return [];
+        }
+
+        $map = [];
+        foreach (array_chunk($externalIds, 400) as $chunkIdx => $chunk) {
+            $params = ['model_type' => self::MODEL_TYPE];
+            $placeholders = [];
+            foreach ($chunk as $idx => $externalId) {
+                $key = 'external_id_' . $chunkIdx . '_' . $idx;
+                $placeholders[] = ':' . $key;
+                $params[$key] = $externalId;
+            }
+
+            $rows = $legacy->queryAll("
+                SELECT
+                    u.id,
+                    u.external_id,
+                    u.name,
+                    u.username,
+                    u.deleted_at,
+                    r.id AS role_id,
+                    r.name AS role_name
+                FROM users u
+                LEFT JOIN model_has_roles m ON m.model_id = u.id AND m.model_type = :model_type
+                LEFT JOIN roles r ON r.id = m.role_id
+                WHERE TRIM(COALESCE(u.external_id, '')) IN (" . implode(',', $placeholders) . ")
+                ORDER BY u.deleted_at IS NULL DESC, u.id DESC
+            ", $params);
+
+            foreach ($rows as $row) {
+                $externalId = trim((string)($row['external_id'] ?? ''));
+                if ($externalId !== '' && !isset($map[$externalId])) {
+                    $map[$externalId] = $row;
+                }
+            }
+        }
+
+        return $map;
     }
 
     private static function crearUsuarioLegacyDesdeSpartan(DatabaseLegacy $legacy, array $ctx, string $externalId): array
