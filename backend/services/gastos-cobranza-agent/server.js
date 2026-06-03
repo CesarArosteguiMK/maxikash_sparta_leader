@@ -34,6 +34,10 @@
  * en este proceso comprueba la hora civil en America/Mexico_City sobre el instante ya corregido
  * (offset remoto/manual); no usa el Programador de tareas de Windows. Recomendado activar
  * GASTOS_GC_REMOTE_CDMX_TIME=1 si el reloj del servidor no es fiable.
+ *
+ * Flujo automatico martes 08:00 CDMX: GASTOS_GC_AUTO_CRONJOBS_MARTES_ENABLED=1 ejecuta en cadena
+ * insertar_moras_martes.php -> detectar_gdc_liquidados.php -> eliminar_gastos_despachos.php.
+ * Por defecto sincroniza hora remota y no dispara si no hay reloj CDMX fresco.
  */
 const path = require('path');
 const fs = require('fs');
@@ -132,6 +136,8 @@ const AUTO_RUN_RUNTIME_FILE_DATA = path.join(AGENT_DATA_DIR, 'auto_run_reporte_r
 const AUTO_RUN_RUNTIME_FILE_LEGACY = path.join(LOG_DIR, '.auto_run_reporte_runtime.txt');
 /** Último recurso si `data/` y `logs/` no son escribibles por el proceso Node. */
 const AUTO_RUN_RUNTIME_FILE_TMP = path.join(os.tmpdir(), 'gastos-cobranza-agent-auto_run_reporte_runtime.txt');
+const AUTO_CRONJOBS_MARTES_STATE_FILE = path.join(AGENT_DATA_DIR, '.auto_cronjobs_gc_martes_ymd.txt');
+const AUTO_CRONJOBS_MARTES_RESULT_FILE = path.join(AGENT_DATA_DIR, 'auto_cronjobs_gc_martes_ultimo.json');
 /** Salida de scripts Python línea a línea + PYTHONPATH local (pydeps). */
 const ENV_CON_PYTHON_UNBUFFERED = {
   ...process.env,
@@ -911,6 +917,43 @@ function autoRunSyncRemoteClockForTick() {
 }
 
 let lastAutoRunDebugLogMs = 0;
+let lastAutoCronjobsMartesDebugLogMs = 0;
+let lastAutoCronjobsMartesClockWarnMs = 0;
+
+async function ensureCdmxTimeFreshForAutoCronjobsMartesTick() {
+  if (!remoteCdmxTimeEnabled() && !autoCronjobsMartesSyncRemoteClockForTick()) return;
+  const n = Date.now();
+  if (lastRemoteSyncOkAt && n - lastRemoteSyncOkAt < timeSyncMaxAgeMs()) return;
+  if (n - lastRemoteSyncAttemptAt < 15000) return;
+  lastRemoteSyncAttemptAt = n;
+  try {
+    await syncCdmxClockFromRemote();
+  } catch (e) {
+    appendRemoteSyncFailureLog('[reloj][auto-cronjobs-martes]', e);
+  }
+}
+
+function getAutoCronjobsMartesStatusPayload() {
+  return {
+    enabled: autoCronjobsMartesEnabled(),
+    weekday_cdmx: 1,
+    weekday_label: 'martes',
+    hour: autoCronjobsMartesTargetHour(),
+    minute: autoCronjobsMartesTargetMinute(),
+    window_minutes: autoCronjobsMartesWindowMinutes(),
+    tick_ms: autoCronjobsMartesTickMs(),
+    sync_remote_clock: autoCronjobsMartesSyncRemoteClockForTick(),
+    require_remote_clock: autoCronjobsMartesRequireFreshRemoteClock(),
+    remote_clock_fresh: isRemoteClockFreshForAutoCronjobsMartes(),
+    last_fired_cdmx_ymd: readAutoCronjobsMartesLastYmd(),
+    tick_busy: typeof autoCronjobsMartesTickBusy !== 'undefined' ? autoCronjobsMartesTickBusy : false,
+    sequence_busy:
+      typeof autoCronjobsMartesSequenceBusy !== 'undefined' ? autoCronjobsMartesSequenceBusy : false,
+    cronjobs_gc_busy: typeof cronjobsGcBusy !== 'undefined' ? cronjobsGcBusy : false,
+    sequence: AUTO_CRONJOBS_MARTES_SEQUENCE,
+    last_result: readAutoCronjobsMartesLastResult(),
+  };
+}
 
 function autoRunStateFilePath() {
   return path.join(AGENT_DATA_DIR, '.auto_run_reporte_cdmx_ymd.txt');
@@ -930,6 +973,90 @@ function writeAutoRunLastYmd(ymd) {
   try {
     fs.writeFileSync(autoRunStateFilePath(), String(ymd).trim(), { encoding: 'utf8' });
   } catch (_) {}
+}
+
+const AUTO_CRONJOBS_MARTES_SEQUENCE = [
+  'insertar_mora_martes',
+  'detectar_gdc_liquidados',
+  'eliminar_gastos_despachos',
+];
+
+function autoCronjobsMartesEnabled() {
+  return String(process.env.GASTOS_GC_AUTO_CRONJOBS_MARTES_ENABLED ?? '1').trim() !== '0';
+}
+
+function autoCronjobsMartesTargetHour() {
+  const n = parseInt(String(process.env.GASTOS_GC_AUTO_CRONJOBS_MARTES_HOUR || '8').trim(), 10);
+  return Number.isFinite(n) && n >= 0 && n <= 23 ? n : 8;
+}
+
+function autoCronjobsMartesTargetMinute() {
+  const n = parseInt(String(process.env.GASTOS_GC_AUTO_CRONJOBS_MARTES_MINUTE || '0').trim(), 10);
+  return Number.isFinite(n) && n >= 0 && n <= 59 ? n : 0;
+}
+
+function autoCronjobsMartesWindowMinutes() {
+  const n = parseInt(String(process.env.GASTOS_GC_AUTO_CRONJOBS_MARTES_WINDOW_MINUTES || '25').trim(), 10);
+  return Number.isFinite(n) && n >= 1 && n <= 120 ? n : 25;
+}
+
+function autoCronjobsMartesTickMs() {
+  const n = parseInt(String(process.env.GASTOS_GC_AUTO_CRONJOBS_MARTES_TICK_MS || '').trim(), 10);
+  if (Number.isFinite(n) && n >= 10000) return Math.min(600000, n);
+  return autoRunTickMs();
+}
+
+function autoCronjobsMartesSyncRemoteClockForTick() {
+  return String(process.env.GASTOS_GC_AUTO_CRONJOBS_MARTES_SYNC_REMOTE_CLOCK ?? '1').trim() !== '0';
+}
+
+function autoCronjobsMartesRequireFreshRemoteClock() {
+  return String(process.env.GASTOS_GC_AUTO_CRONJOBS_MARTES_REQUIRE_REMOTE_CLOCK ?? '1').trim() !== '0';
+}
+
+function autoCronjobsMartesStateFilePath() {
+  return AUTO_CRONJOBS_MARTES_STATE_FILE;
+}
+
+function readAutoCronjobsMartesLastYmd() {
+  ensureAgentDataDir();
+  try {
+    const p = autoCronjobsMartesStateFilePath();
+    if (fs.existsSync(p)) return fs.readFileSync(p, 'utf8').trim();
+  } catch (_) {}
+  return '';
+}
+
+function writeAutoCronjobsMartesLastYmd(ymd) {
+  ensureAgentDataDir();
+  try {
+    fs.writeFileSync(autoCronjobsMartesStateFilePath(), String(ymd).trim(), { encoding: 'utf8' });
+  } catch (_) {}
+}
+
+function readAutoCronjobsMartesLastResult() {
+  ensureAgentDataDir();
+  try {
+    if (!fs.existsSync(AUTO_CRONJOBS_MARTES_RESULT_FILE)) return null;
+    const raw = fs.readFileSync(AUTO_CRONJOBS_MARTES_RESULT_FILE, 'utf8');
+    return raw.trim() ? JSON.parse(raw) : null;
+  } catch (_) {
+    return null;
+  }
+}
+
+function writeAutoCronjobsMartesLastResult(payload) {
+  ensureAgentDataDir();
+  try {
+    fs.writeFileSync(AUTO_CRONJOBS_MARTES_RESULT_FILE, JSON.stringify(payload, null, 2), {
+      encoding: 'utf8',
+    });
+  } catch (_) {}
+}
+
+function isRemoteClockFreshForAutoCronjobsMartes() {
+  if (!lastRemoteSyncOkAt) return false;
+  return Date.now() - lastRemoteSyncOkAt < timeSyncMaxAgeMs();
 }
 
 /** Tras /run exitoso: correo (PHP + PHPMailer) + aviso en Google Chat webhook (texto; el .xlsx va en el correo). */
@@ -1634,6 +1761,8 @@ let ecLauncherBusy = false;
 let cargaVerificacionSemanaBusy = false;
 /** Un solo cronjob manual (insertar mora / detectar liquidados / eliminar despachos) a la vez. */
 let cronjobsGcBusy = false;
+let autoCronjobsMartesTickBusy = false;
+let autoCronjobsMartesSequenceBusy = false;
 
 function middlewareApiKey(req, res, next) {
   if (!API_KEY) return next();
@@ -1746,6 +1875,7 @@ app.get('/health', (req, res) => {
       },
     },
     auto_run_cdmx: getAutoRunCdmxStatusPayload(),
+    auto_cronjobs_martes_cdmx: getAutoCronjobsMartesStatusPayload(),
     reporte: {
       en_curso: reporteRunBusy,
       cancelar: 'POST /run/cancel (misma API key) termina el proceso Python del reporte si está en ejecución.',
@@ -1881,10 +2011,276 @@ app.post('/run/cancel', (req, res) => {
 });
 
 /**
- * Ejecuta cronjobs PHP existentes de gastos cobranza (sin lógica nueva en Node).
+ * Ejecuta cronjobs PHP existentes de gastos cobranza con la misma funcion compartida del auto-run.
  * POST /cronjobs-gc/run { proceso: insertar_mora_martes|detectar_gdc_liquidados|eliminar_gastos_despachos }
  */
-app.post('/cronjobs-gc/run', express.json({ limit: '32kb' }), (req, res) => {
+function runCronjobGcScript(meta, opts = {}) {
+  const gestionarBusy = opts.gestionarBusy !== false;
+  const origen = String(opts.origen || 'manual').trim() || 'manual';
+  const proceso = meta && meta.key ? meta.key : '';
+
+  if (!meta || !meta.scriptPath) {
+    return Promise.resolve({
+      success: false,
+      mensaje: 'Proceso GC invalido.',
+      proceso,
+      codigo_salida: -1,
+    });
+  }
+
+  try {
+    if (!fs.existsSync(meta.scriptPath) || !fs.statSync(meta.scriptPath).isFile()) {
+      return Promise.resolve({
+        success: false,
+        mensaje: `No existe script: ${meta.scriptPath}`,
+        proceso: meta.key,
+        codigo_salida: -1,
+      });
+    }
+  } catch (e) {
+    return Promise.resolve({
+      success: false,
+      mensaje: String(e?.message || e),
+      proceso: meta.key,
+      codigo_salida: -1,
+    });
+  }
+
+  if (gestionarBusy) {
+    if (cronjobsGcBusy) {
+      return Promise.resolve({
+        success: false,
+        mensaje: 'Ya hay un proceso de cronjobs GC en ejecucion. Espere a que termine.',
+        proceso: meta.key,
+        codigo_salida: -1,
+      });
+    }
+    cronjobsGcBusy = true;
+  }
+
+  return new Promise((resolve) => {
+    const php = resolvePhpExe();
+    const args = ['-d', 'output_buffering=0', '-d', 'implicit_flush=1', meta.scriptPath];
+    const startedAtMs = Date.now();
+    appendLog(
+      `--- cronjobs-gc inicio origen=${origen} proceso=${meta.key} php=${php} script=${meta.scriptPath} ---`,
+    );
+
+    let child;
+    try {
+      child = spawn(php, args, {
+        cwd: CRONJOBS_DIR,
+        env: { ...process.env },
+        windowsHide: true,
+        shell: false,
+      });
+    } catch (e) {
+      const durMs = Date.now() - startedAtMs;
+      appendLog(`[cronjobs-gc spawn][${meta.key}] ` + (e?.message || String(e)));
+      if (gestionarBusy) cronjobsGcBusy = false;
+      void notifyCronjobGcWebhook(meta.key, meta.titulo, false, -1, durMs, [
+        `Error spawn: ${String(e?.message || e)}`,
+      ]);
+      resolve({
+        success: false,
+        mensaje: e?.message || String(e),
+        proceso: meta.key,
+        codigo_salida: -1,
+        duracion_ms: durMs,
+      });
+      return;
+    }
+
+    let stdout = '';
+    let stderr = '';
+    const maxChunk = 1024 * 1024;
+    let respondio = false;
+    const enviar = (payload) => {
+      if (respondio) return;
+      respondio = true;
+      if (gestionarBusy) cronjobsGcBusy = false;
+      resolve(payload);
+    };
+
+    child.stdout.on('data', (d) => {
+      const s = d.toString();
+      stdout += s;
+      if (stdout.length > maxChunk) stdout = stdout.slice(-maxChunk);
+      appendLog(s.replace(/\r/g, ''));
+    });
+    child.stderr.on('data', (d) => {
+      const s = d.toString();
+      stderr += s;
+      if (stderr.length > maxChunk) stderr = stderr.slice(-maxChunk);
+      appendLog(`[cronjobs-gc stderr][${meta.key}] ` + s.replace(/\r/g, ''));
+    });
+    child.on('error', (err) => {
+      const durMs = Date.now() - startedAtMs;
+      appendLog(`[cronjobs-gc spawn][${meta.key}] ` + (err?.message || String(err)));
+      void notifyCronjobGcWebhook(meta.key, meta.titulo, false, -1, durMs, [
+        `Error spawn: ${String(err?.message || err)}`,
+      ]);
+      enviar({
+        success: false,
+        mensaje: err?.message || String(err),
+        proceso: meta.key,
+        codigo_salida: -1,
+        duracion_ms: durMs,
+      });
+    });
+    child.on('close', (code) => {
+      const salida = code == null ? -1 : Number(code);
+      const ok = salida === 0;
+      const durMs = Date.now() - startedAtMs;
+      appendLog(`--- cronjobs-gc cierre origen=${origen} proceso=${meta.key} codigo=${salida} dur_ms=${durMs} ---`);
+      void notifyCronjobGcWebhook(meta.key, meta.titulo, ok, salida, durMs, [
+        ok ? 'Ejecucion finalizada correctamente.' : 'La ejecucion termino con error.',
+      ]);
+      enviar({
+        success: ok,
+        proceso: meta.key,
+        codigo_salida: salida,
+        stdout: stdout.slice(-12000),
+        stderr: stderr.slice(-12000),
+        duracion_ms: durMs,
+      });
+    });
+  });
+}
+
+async function runAutoCronjobsMartesSequence(cdmxYmd, cdmxHora) {
+  const startedAtMs = Date.now();
+  const result = {
+    success: false,
+    cdmx_ymd: cdmxYmd,
+    cdmx_hora_inicio: cdmxHora,
+    started_at: new Date().toISOString(),
+    finished_at: null,
+    steps: [],
+    mensaje: '',
+  };
+
+  autoCronjobsMartesSequenceBusy = true;
+  cronjobsGcBusy = true;
+  writeAutoCronjobsMartesLastResult(result);
+  appendLog(`[auto-cronjobs-martes] Inicio CDMX ${cdmxYmd} ${cdmxHora}.`);
+
+  try {
+    const mapa = getCronjobsGcMap();
+    for (const key of AUTO_CRONJOBS_MARTES_SEQUENCE) {
+      const meta = mapa[key];
+      if (!meta) throw new Error(`Proceso no configurado: ${key}`);
+      const step = await runCronjobGcScript(meta, {
+        origen: 'auto-martes-8am-cdmx',
+        gestionarBusy: false,
+      });
+      const stepResult = {
+        proceso: meta.key,
+        titulo: meta.titulo,
+        success: !!step.success,
+        codigo_salida: step.codigo_salida ?? null,
+        duracion_ms: step.duracion_ms || 0,
+        mensaje: step.mensaje || '',
+      };
+      result.steps.push(stepResult);
+      writeAutoCronjobsMartesLastResult(result);
+      if (!step.success) {
+        result.success = false;
+        result.mensaje = `Flujo detenido en: ${meta.titulo}.`;
+        return result;
+      }
+    }
+    result.success = true;
+    result.mensaje = 'Flujo automatico de martes finalizado correctamente.';
+    return result;
+  } catch (e) {
+    result.success = false;
+    result.mensaje = String(e?.message || e);
+    appendLog(`[auto-cronjobs-martes] Error: ${result.mensaje}`);
+    return result;
+  } finally {
+    result.finished_at = new Date().toISOString();
+    writeAutoCronjobsMartesLastResult(result);
+    autoCronjobsMartesSequenceBusy = false;
+    cronjobsGcBusy = false;
+    const durMs = Date.now() - startedAtMs;
+    appendLog(`[auto-cronjobs-martes] Fin success=${result.success ? '1' : '0'} dur_ms=${durMs}. ${result.mensaje}`);
+    void notifyCronjobGcWebhook(
+      'auto_cronjobs_martes',
+      'Flujo automatico martes 8am CDMX',
+      !!result.success,
+      result.success ? 0 : 1,
+      durMs,
+      [result.mensaje || 'Flujo finalizado.'],
+    );
+  }
+}
+
+async function tickAutoCronjobsMartesCdmx() {
+  if (!autoCronjobsMartesEnabled()) return;
+  if (autoCronjobsMartesTickBusy) return;
+
+  autoCronjobsMartesTickBusy = true;
+  try {
+    await ensureCdmxTimeFreshForAutoCronjobsMartesTick();
+
+    if (
+      autoCronjobsMartesRequireFreshRemoteClock() &&
+      (remoteCdmxTimeEnabled() || autoCronjobsMartesSyncRemoteClockForTick()) &&
+      !isRemoteClockFreshForAutoCronjobsMartes()
+    ) {
+      const nowMs = Date.now();
+      if (nowMs - lastAutoCronjobsMartesClockWarnMs > 5 * 60 * 1000) {
+        lastAutoCronjobsMartesClockWarnMs = nowMs;
+        appendLog('[auto-cronjobs-martes] Hora remota CDMX no disponible/fresca; no se dispara con reloj local.');
+      }
+      return;
+    }
+
+    const wall = nowForCdmxCalendar();
+    const ymd = fmtCdmxYmdParts(wall);
+    if (!ymd) return;
+    const { h, m } = fmtCdmxHm24(wall);
+    const todayStr = `${ymd.y}-${pad2Seg(ymd.m)}-${pad2Seg(ymd.d)}`;
+    const wd = cdmxWeekdayMon0(ymd.y, ymd.m, ymd.d);
+
+    if (String(process.env.GASTOS_GC_AUTO_CRONJOBS_MARTES_DEBUG || '').trim() === '1') {
+      const nowMs = Date.now();
+      if (nowMs - lastAutoCronjobsMartesDebugLogMs > 9 * 60 * 1000) {
+        lastAutoCronjobsMartesDebugLogMs = nowMs;
+        appendLog(
+          `[auto-cronjobs-martes][debug] CDMX ${todayStr} ${pad2Seg(h)}:${pad2Seg(m)} wd=${wd} last=${readAutoCronjobsMartesLastYmd()} offset_remoto_ms=${remoteClockOffsetMs}`,
+        );
+      }
+    }
+
+    if (wd !== 1) return;
+
+    const th = autoCronjobsMartesTargetHour();
+    const tm = autoCronjobsMartesTargetMinute();
+    const startMin = th * 60 + tm;
+    const curMin = h * 60 + m;
+    const win = autoCronjobsMartesWindowMinutes();
+    if (curMin < startMin || curMin >= startMin + win) return;
+
+    if (readAutoCronjobsMartesLastYmd() === todayStr) return;
+
+    if (autoCronjobsMartesSequenceBusy || cronjobsGcBusy || reporteRunBusy || ecLauncherBusy || cargaVerificacionSemanaBusy) {
+      appendLog('[auto-cronjobs-martes] En ventana, pero el agente esta ocupado; se reintentara en el siguiente tick.');
+      return;
+    }
+
+    writeAutoCronjobsMartesLastYmd(todayStr);
+    appendLog(
+      `[auto-cronjobs-martes] Disparo CDMX ${todayStr} ${pad2Seg(h)}:${pad2Seg(m)} (objetivo ${pad2Seg(th)}:${pad2Seg(tm)}, ventana ${win} min).`,
+    );
+    await runAutoCronjobsMartesSequence(todayStr, `${pad2Seg(h)}:${pad2Seg(m)}`);
+  } finally {
+    autoCronjobsMartesTickBusy = false;
+  }
+}
+
+app.post('/cronjobs-gc/run', express.json({ limit: '32kb' }), async (req, res) => {
   const proceso = String(req.body?.proceso || '').trim().toLowerCase();
   const mapa = getCronjobsGcMap();
   const meta = mapa[proceso];
@@ -1917,71 +2313,8 @@ app.post('/cronjobs-gc/run', express.json({ limit: '32kb' }), (req, res) => {
     });
   }
 
-  cronjobsGcBusy = true;
-  const php = resolvePhpExe();
-  const args = ['-d', 'output_buffering=0', '-d', 'implicit_flush=1', meta.scriptPath];
-  const startedAtMs = Date.now();
-  appendLog(`--- cronjobs-gc inicio proceso=${meta.key} php=${php} script=${meta.scriptPath} ---`);
-  const child = spawn(php, args, {
-    cwd: CRONJOBS_DIR,
-    env: { ...process.env },
-    windowsHide: true,
-    shell: false,
-  });
-
-  let stdout = '';
-  let stderr = '';
-  const maxChunk = 1024 * 1024;
-  let respondio = false;
-  const enviar = (payload) => {
-    if (respondio) return;
-    respondio = true;
-    cronjobsGcBusy = false;
-    res.json(payload);
-  };
-
-  child.stdout.on('data', (d) => {
-    const s = d.toString();
-    stdout += s;
-    if (stdout.length > maxChunk) stdout = stdout.slice(-maxChunk);
-    appendLog(s.replace(/\r/g, ''));
-  });
-  child.stderr.on('data', (d) => {
-    const s = d.toString();
-    stderr += s;
-    if (stderr.length > maxChunk) stderr = stderr.slice(-maxChunk);
-    appendLog(`[cronjobs-gc stderr][${meta.key}] ` + s.replace(/\r/g, ''));
-  });
-  child.on('error', (err) => {
-    const durMs = Date.now() - startedAtMs;
-    appendLog(`[cronjobs-gc spawn][${meta.key}] ` + (err?.message || String(err)));
-    void notifyCronjobGcWebhook(meta.key, meta.titulo, false, -1, durMs, [
-      `Error spawn: ${String(err?.message || err)}`,
-    ]);
-    enviar({
-      success: false,
-      mensaje: err?.message || String(err),
-      proceso: meta.key,
-      codigo_salida: -1,
-    });
-  });
-  child.on('close', (code) => {
-    const salida = code == null ? -1 : Number(code);
-    const ok = salida === 0;
-    const durMs = Date.now() - startedAtMs;
-    appendLog(`--- cronjobs-gc cierre proceso=${meta.key} codigo=${salida} dur_ms=${durMs} ---`);
-    void notifyCronjobGcWebhook(meta.key, meta.titulo, ok, salida, durMs, [
-      ok ? 'Ejecución finalizada correctamente.' : 'La ejecución terminó con error.',
-    ]);
-    enviar({
-      success: ok,
-      proceso: meta.key,
-      codigo_salida: salida,
-      stdout: stdout.slice(-12000),
-      stderr: stderr.slice(-12000),
-      duracion_ms: durMs,
-    });
-  });
+  const payload = await runCronjobGcScript(meta, { origen: 'manual', gestionarBusy: true });
+  return res.json(payload);
 });
 
 /** EC launcher: worker.php o enrich_gc_excel.php (paridad con launcher/Lanzar.cmd). */
@@ -2641,4 +2974,11 @@ app.listen(PORT, () => {
     tickAutoRunReporteCdmx().catch((e) => appendLog(`[auto-run] error tick: ${e?.message || e}`));
   }, autoRunTickMs());
   tickAutoRunReporteCdmx().catch((e) => appendLog(`[auto-run] error tick: ${e?.message || e}`));
+  appendLog(
+    `[auto-cronjobs-martes] Tick cada ${autoCronjobsMartesTickMs()} ms | enabled=${autoCronjobsMartesEnabled() ? '1' : '0'} | objetivo=${pad2Seg(autoCronjobsMartesTargetHour())}:${pad2Seg(autoCronjobsMartesTargetMinute())} CDMX martes`,
+  );
+  setInterval(() => {
+    tickAutoCronjobsMartesCdmx().catch((e) => appendLog(`[auto-cronjobs-martes] error tick: ${e?.message || e}`));
+  }, autoCronjobsMartesTickMs());
+  tickAutoCronjobsMartesCdmx().catch((e) => appendLog(`[auto-cronjobs-martes] error tick: ${e?.message || e}`));
 });

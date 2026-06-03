@@ -1854,6 +1854,13 @@ $madjPublicPath = function_exists('sparta_public_web_base') ? sparta_public_web_
             ['moto_no_serie', 'madj-datos-moto_no_serie'],
             ['moto_no_motor', 'madj-datos-moto_no_motor'],
             ['moto_placas', 'madj-datos-moto_placas'],
+            ['kilometraje', 'madj-datos-kilometraje'],
+            ['tiene_llave_fisica', 'madj-datos-tiene_llave_fisica'],
+            ['tiene_tarjeta_de_circulacion_en_fisico', 'madj-datos-tiene_tarjeta_de_circulacion_en_fisico'],
+            ['la_moto_tiene_placa_fisica', 'madj-datos-la_moto_tiene_placa_fisica'],
+            ['llave_fisica', 'madj-datos-tiene_llave_fisica'],
+            ['tarjeta_circulacion', 'madj-datos-tiene_tarjeta_de_circulacion_en_fisico'],
+            ['placa_fisica', 'madj-datos-la_moto_tiene_placa_fisica'],
         ];
         map.forEach(function (pair) {
             const k = pair[0];
@@ -2317,6 +2324,19 @@ $madjPublicPath = function_exists('sparta_public_web_base') ? sparta_public_web_
     function _madjRenderDatosMotoForm() {
         const d = Object.assign({}, _madjMotoApiData || {}, _madjDatosMotoData || {});
         const v = (key) => esc(d[key] || '');
+        const siNo = (key, alias) => {
+            const raw = String(d[key] || d[alias] || '').trim().toLowerCase()
+                .normalize('NFD')
+                .replace(/[\u0300-\u036f]/g, '');
+            if (raw === 'si' || raw === '1' || raw === 'true') return 'si';
+            if (raw === 'no' || raw === '0' || raw === 'false') return 'no';
+            return '';
+        };
+        const siNoOptions = (valor) => `
+            <option value="">— Seleccionar —</option>
+            <option value="si"${valor === 'si' ? ' selected' : ''}>Si</option>
+            <option value="no"${valor === 'no' ? ' selected' : ''}>No</option>
+        `;
 
         const estadosMX = [
             'Aguascalientes','Baja California','Baja California Sur','Campeche','Chiapas',
@@ -2391,6 +2411,30 @@ $madjPublicPath = function_exists('sparta_public_web_base') ? sparta_public_web_
                                placeholder="Ej. Y001AA (moto)" maxlength="${MADJ_PLACAS_MOTO_MAX}" autocomplete="off"
                                title="Placa de motocicleta (México): típicamente 6 caracteres; máximo ${MADJ_PLACAS_MOTO_MAX}"
                                value="${v('moto_placas')}">
+                    </div>
+                    <div class="col-12 col-md-3 madj-datos-field">
+                        <label for="madj-datos-kilometraje">Kilometraje <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control form-control-sm" id="madj-datos-kilometraje"
+                               placeholder="Ej. 12500" maxlength="40" inputmode="numeric"
+                               value="${v('kilometraje')}">
+                    </div>
+                    <div class="col-12 col-md-3 madj-datos-field">
+                        <label for="madj-datos-tiene_llave_fisica">Llave fisica <span class="text-danger">*</span></label>
+                        <select class="form-select form-select-sm" id="madj-datos-tiene_llave_fisica">
+                            ${siNoOptions(siNo('tiene_llave_fisica', 'llave_fisica'))}
+                        </select>
+                    </div>
+                    <div class="col-12 col-md-3 madj-datos-field">
+                        <label for="madj-datos-la_moto_tiene_placa_fisica">Placa fisica <span class="text-danger">*</span></label>
+                        <select class="form-select form-select-sm" id="madj-datos-la_moto_tiene_placa_fisica">
+                            ${siNoOptions(siNo('la_moto_tiene_placa_fisica', 'placa_fisica'))}
+                        </select>
+                    </div>
+                    <div class="col-12 col-md-3 madj-datos-field">
+                        <label for="madj-datos-tiene_tarjeta_de_circulacion_en_fisico">Tarjeta circulacion <span class="text-danger">*</span></label>
+                        <select class="form-select form-select-sm" id="madj-datos-tiene_tarjeta_de_circulacion_en_fisico">
+                            ${siNoOptions(siNo('tiene_tarjeta_de_circulacion_en_fisico', 'tarjeta_circulacion'))}
+                        </select>
                     </div>
                 </div>
             </div>
@@ -2905,6 +2949,8 @@ $madjPublicPath = function_exists('sparta_public_web_base') ? sparta_public_web_
         const campos = [
             'moto_marca', 'moto_modelo', 'moto_anio', 'moto_color',
             'moto_no_serie', 'moto_no_motor', 'moto_placas',
+            'kilometraje', 'tiene_llave_fisica',
+            'la_moto_tiene_placa_fisica', 'tiene_tarjeta_de_circulacion_en_fisico',
             'log_lugar_resguardo', 'log_lugar_otro',
             'log_direccion', 'log_ciudad',
             'log_estado', 'responsable_entrega', 'log_telefono',

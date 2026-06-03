@@ -87,6 +87,13 @@
                                     <span class="sg-tooltip-icon" data-tip="Lanza ahora el flujo automático del agente: monitoreo previo, copia del último reporte y ajuste +1s."><i class="fa fa-info-circle" aria-hidden="true"></i></span>
                                 </span>
                             </button>
+                            <button type="button" class="sg-tip-btn sg-btn-cyan sg-tip-btn-run" id="sgDescargarMegaReporteMes">
+                                <span class="sg-tip-btn-face">
+                                    <i class="fa fa-file-archive"></i>
+                                    <span class="sg-btn-label">Mega reporte mensual</span>
+                                    <span class="sg-tooltip-icon" data-tip="Descarga un CSV consolidado con todos los mega reportes del mes seleccionado."><i class="fa fa-info-circle" aria-hidden="true"></i></span>
+                                </span>
+                            </button>
                         </div>
                     </div>
                     <div class="mt-2" id="wrapLinkTruncarPrueba" style="display: none;">
@@ -260,6 +267,7 @@
         margin-top: 8px;
         display: flex;
         width: 100%;
+        gap: 10px;
     }
     #shellSegundometroAgenteBar .sg-btn-wrap {
         min-width: 0;
