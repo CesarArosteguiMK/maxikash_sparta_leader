@@ -357,7 +357,7 @@ $rutasModulos = [
     'reporteria/getprimerospagoshistoricojerarquias' => [68],
     'reporteria/getprimerospagoshistoricoresumen' => [68],
     'reporteria/postprimerospagoshistoricopipeline' => [68],
-    'reporteria/sabuesos' => [18, 27, 48], 'reporteria/consultaidcredito' => [18, 27, 29], 'reporteria/consultacreditorastreo' => [18, 27, 29], 'reporteria/descargarReporteSabuesos1' => [18], 'reporteria/descargarReporteSabuesos2' => [27], 'reporteria/descargarReporteSabuesos3' => [27, 48], 'reporteria/descargarReporteSabuesosEstadisticasDetalle' => [47],     'reporteria/layoutlegacy' => [7], 'reporteria/reporteCapitalHumano' => [34],
+    'reporteria/sabuesos' => [18, 27, 48], 'reporteria/consultaidcredito' => [18, 27, 29], 'reporteria/consultacreditorastreo' => [18, 27, 29], 'reporteria/descargarReporteSabuesos1' => [18], 'reporteria/descargarReporteSabuesos2' => [27], 'reporteria/descargarReporteSabuesos3' => [27, 48], 'reporteria/descargarReporteSabuesosEstadisticasDetalle' => [47],     'reporteria/layoutlegacy' => [7], 'reporteria/reportecampo' => [6], 'reporteria/descargarreportecampoexcel' => [6], 'reporteria/reporteCapitalHumano' => [34],
     'reporteria/getusuarioscapitalhumano' => [34], 'reporteria/getbajascapitalhumano' => [34],
     'reporteria/descargarbajasexcelcapitalhumano' => [34], 'reporteria/getfiltroscapitalhumano' => [34],
     'reporteria/descargarusuariosexcelcapitalhumano' => [34],
