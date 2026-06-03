@@ -10,6 +10,8 @@ use Models\EstadoCuenta as EstadoCuentaDAO;
 use Models\Empresa as EmpresasDAO;
 use Models\PrimerosPagosHistoricoSegundometro;
 use Models\SegundometroComparativaSemanal;
+use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
+use Services\ReporteCampoService;
 
 require_once dirname(__DIR__) . '/cronjobs/PrimerosPagosAutoSwitch.php';
 
@@ -231,6 +233,39 @@ class Reporteria extends Controller
         self::set("titulo", "Reportes de Personal");
         self::set("script", $script);
         self::render("reporte_capital_humano");
+    }
+
+    public function reporteCampo()
+    {
+        self::set("titulo", "Reporte de Campo");
+        self::render("reporte_campo");
+    }
+
+    public function descargarReporteCampoExcel()
+    {
+        while (ob_get_level()) {
+            ob_end_clean();
+        }
+
+        try {
+            $reporte = (new ReporteCampoService())->generarExcel();
+            $spreadsheet = $reporte['spreadsheet'];
+            $filename = 'reporte_campo_' . date('Ymd_His') . '.xlsx';
+
+            header('Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+            header('Content-Disposition: attachment; filename="' . $filename . '"');
+            header('Cache-Control: max-age=0');
+            header('X-Reporte-Campo-Total: ' . (string)($reporte['total'] ?? 0));
+
+            (new Xlsx($spreadsheet))->save('php://output');
+            $spreadsheet->disconnectWorksheets();
+            exit;
+        } catch (\Throwable $e) {
+            error_log('Error en descargarReporteCampoExcel: ' . $e->getMessage());
+            http_response_code(500);
+            echo 'Error al generar el reporte de campo: ' . htmlspecialchars($e->getMessage(), ENT_QUOTES, 'UTF-8');
+            exit;
+        }
     }
 
     // ==== Reportes de Personal ====
