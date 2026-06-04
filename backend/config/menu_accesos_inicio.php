@@ -23,6 +23,7 @@ if (!function_exists('getMenuItemsConfig')) {
             ['url' => '/analitica/layoutlegacy', 'label' => 'Layout Legacy', 'icon' => 'fa-solid fa-file', 'bg' => 'bg-orange', 'modulos' => [7]],
             ['url' => '/analitica/reporteCapitalHumano', 'label' => 'Reportes de Personal', 'icon' => 'fa-solid fa-file-lines', 'bg' => 'bg-purple', 'modulos' => [34]],
             ['url' => '/caphum/estadisticas', 'label' => 'Estadísticas Capital Humano', 'icon' => 'fa-solid fa-chart-pie', 'bg' => 'bg-purple', 'modulos' => [38]],
+            ['url' => '/caphum/perfilesPuestos', 'label' => 'Perfiles de puesto', 'icon' => 'fa-solid fa-id-card-clip', 'bg' => 'bg-purple', 'modulos' => [91]],
             ['url' => '/ReporteriaBI/FlujoCobranza', 'label' => 'Flujo cobranza', 'icon' => 'fa-solid fa-chart-line', 'bg' => 'bg-orange', 'modulos' => [50]],
             ['url' => '/sabueso/ticket', 'label' => 'Sabueso - Ticket', 'icon' => 'fa-solid fa-dog', 'bg' => 'bg-teal', 'modulos' => [18]],
             ['url' => '/sabueso/panelAdminInicio', 'label' => 'Panel Admin', 'icon' => 'fa-solid fa-table-cells', 'bg' => 'bg-teal', 'modulos' => [25, 27]],

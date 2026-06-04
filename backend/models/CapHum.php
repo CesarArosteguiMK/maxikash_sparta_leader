@@ -1568,8 +1568,12 @@ class CapHum extends Model
 
             $query = <<<SQL
             SELECT
-                p.*
+                p.*,
+                COALESCE(pais.nombre, 'Sin país') AS nombre_pais,
+                COALESCE(pais.codigo_iso, 'xx') AS codigo_iso_pais
             FROM persona p
+            LEFT JOIN paises pais
+                   ON pais.id = p.id_pais
             WHERE p.id = $idPersona
               AND p.estatus != 'Baja'
             LIMIT 1
@@ -1607,6 +1611,11 @@ class CapHum extends Model
                 p.nivel as nivel,
                 d.id AS id_departamento,
                 d.nombre AS nombre_departamento,
+                dorg.id AS id_area,
+                dorg.nombre AS nombre_area,
+                dir.id AS id_direccion,
+                dir.nombre AS nombre_direccion,
+                COALESCE(pa.nombre, 'Sin país') AS nombre_pais,
                 CASE
                     WHEN p2.idPersona IS NULL THEN 'No asignado'
                     ELSE 'Asignado'
@@ -1618,16 +1627,30 @@ class CapHum extends Model
             FROM puesto p
             LEFT JOIN privilegios_departamento p2 ON p.id = p2.idPuesto AND p2.idPersona  = $idPersona
             LEFT JOIN departamento d ON d.id = p.departamento_id
+            LEFT JOIN departamento_organizacional dorg ON dorg.id = d.id_departamento_organizacional
+            LEFT JOIN asigna_direcciones ad ON ad.id_departamento_organizacional = d.id_departamento_organizacional AND COALESCE(ad.activo, 1) = 1
+            LEFT JOIN direcciones_organizacion dir ON dir.id = ad.id_direccion
+            LEFT JOIN paises pa ON pa.id = COALESCE(dorg.id_pais, d.id_pais)
+            WHERE COALESCE(p.activo, 1) = 1
+              AND COALESCE(d.activo, 1) = 1
+              AND COALESCE(dorg.activo, 1) = 1
             ORDER BY d.id, p.nivel desc
         SQL;
 
             $query_asignacion_actual = <<<SQL
             SELECT
                 d.nombre AS nombre_departamento,
-                pp.nombre AS nombre_puesto
+                pp.nombre AS nombre_puesto,
+                dorg.nombre AS nombre_area,
+                dir.nombre AS nombre_direccion,
+                COALESCE(pa.nombre, 'Sin país') AS nombre_pais
             FROM asigna_puesto ap
             INNER JOIN puesto pp ON pp.id = ap.id_puesto
             LEFT JOIN departamento d ON d.id = pp.departamento_id
+            LEFT JOIN departamento_organizacional dorg ON dorg.id = d.id_departamento_organizacional
+            LEFT JOIN asigna_direcciones ad ON ad.id_departamento_organizacional = d.id_departamento_organizacional AND COALESCE(ad.activo, 1) = 1
+            LEFT JOIN direcciones_organizacion dir ON dir.id = ad.id_direccion
+            LEFT JOIN paises pa ON pa.id = COALESCE(dorg.id_pais, d.id_pais)
             WHERE ap.id_persona = $idPersona
               AND COALESCE(ap.activo, 1) = 1
             ORDER BY pp.nivel ASC
@@ -1720,7 +1743,10 @@ class CapHum extends Model
             $rows = $db->queryAll(
                 "SELECT p.id
                  FROM puesto p
-                 WHERE p.departamento_id IN ($in)",
+                 INNER JOIN departamento d ON d.id = p.departamento_id
+                 WHERE p.departamento_id IN ($in)
+                   AND COALESCE(p.activo, 1) = 1
+                   AND COALESCE(d.activo, 1) = 1",
                 $params
             ) ?: [];
             foreach ($rows as $r) {
@@ -1735,7 +1761,11 @@ class CapHum extends Model
                 "SELECT p.id
                  FROM puesto p
                  INNER JOIN departamento d ON d.id = p.departamento_id
-                 WHERE d.id_departamento_organizacional IN ($in)",
+                 LEFT JOIN departamento_organizacional a ON a.id = d.id_departamento_organizacional
+                 WHERE d.id_departamento_organizacional IN ($in)
+                   AND COALESCE(p.activo, 1) = 1
+                   AND COALESCE(d.activo, 1) = 1
+                   AND COALESCE(a.activo, 1) = 1",
                 $params
             ) ?: [];
             foreach ($rows as $r) {
@@ -1751,7 +1781,10 @@ class CapHum extends Model
                  FROM puesto p
                  INNER JOIN departamento d ON d.id = p.departamento_id
                  INNER JOIN departamento_organizacional a ON a.id = d.id_departamento_organizacional
-                 WHERE a.id_pais IN ($in)",
+                 WHERE a.id_pais IN ($in)
+                   AND COALESCE(p.activo, 1) = 1
+                   AND COALESCE(d.activo, 1) = 1
+                   AND COALESCE(a.activo, 1) = 1",
                 $params
             ) ?: [];
             foreach ($rows as $r) {
@@ -1792,7 +1825,15 @@ class CapHum extends Model
             $totalSel = count($seleccion['pais']) + count($seleccion['area']) + count($seleccion['departamento']) + count($seleccion['puesto']);
             if ($totalSel === 0) {
                 $rowsLegacy = $db->queryAll(
-                    "SELECT idPuesto FROM privilegios_departamento WHERE idPersona = :id_persona",
+                    "SELECT pd.idPuesto
+                     FROM privilegios_departamento pd
+                     INNER JOIN puesto p ON p.id = pd.idPuesto
+                     INNER JOIN departamento d ON d.id = p.departamento_id
+                     LEFT JOIN departamento_organizacional a ON a.id = d.id_departamento_organizacional
+                     WHERE pd.idPersona = :id_persona
+                       AND COALESCE(p.activo, 1) = 1
+                       AND COALESCE(d.activo, 1) = 1
+                       AND COALESCE(a.activo, 1) = 1",
                     ['id_persona' => $idPersona]
                 ) ?: [];
                 foreach ($rowsLegacy as $r) {
@@ -1826,6 +1867,9 @@ class CapHum extends Model
                     d.nombre,
                     d.id_departamento_organizacional AS id_area
                  FROM departamento d
+                 LEFT JOIN departamento_organizacional a ON a.id = d.id_departamento_organizacional
+                 WHERE COALESCE(d.activo, 1) = 1
+                   AND COALESCE(a.activo, 1) = 1
                  ORDER BY d.nombre ASC"
             ) ?: [];
             $puestos = $db->queryAll(
@@ -1835,6 +1879,11 @@ class CapHum extends Model
                     p.nivel,
                     p.departamento_id AS id_departamento
                  FROM puesto p
+                 INNER JOIN departamento d ON d.id = p.departamento_id
+                 LEFT JOIN departamento_organizacional a ON a.id = d.id_departamento_organizacional
+                 WHERE COALESCE(p.activo, 1) = 1
+                   AND COALESCE(d.activo, 1) = 1
+                   AND COALESCE(a.activo, 1) = 1
                  ORDER BY p.nivel DESC, p.nombre ASC"
             ) ?: [];
 
@@ -2575,7 +2624,15 @@ class CapHum extends Model
     public static function getConsultaDepartamentoGestor($perfil_id)
     {
         $perfil_id = (int) $perfil_id;
-        $complet = $perfil_id > 0 ? 'WHERE pd.idPersona = ' . $perfil_id : '';
+        $condiciones = [
+            'COALESCE(d.activo, 1) = 1',
+            'COALESCE(p.activo, 1) = 1',
+            'COALESCE(dorg.activo, 1) = 1'
+        ];
+        if ($perfil_id > 0) {
+            $condiciones[] = 'pd.idPersona = ' . $perfil_id;
+        }
+        $complet = 'WHERE ' . implode(' AND ', $condiciones);
 
         $query = <<<SQL
            SELECT DISTINCT
@@ -2583,6 +2640,9 @@ class CapHum extends Model
                 d.id_departamento_organizacional,
                 COALESCE(dorg.nombre, 'Sin departamento') AS departamento_organizacional_nombre,
                 COALESCE(dorg.activo, 1) AS departamento_organizacional_activo,
+                COALESCE(dir.id, 0) AS id_direccion,
+                COALESCE(dir.nombre, 'Sin dirección') AS direccion_nombre,
+                COALESCE(dir.activo, 1) AS direccion_activo,
                 pa.nombre AS nombre_pais,
                 COALESCE(pa.codigo_iso, 'xx') AS codigo_iso_pais
             FROM privilegios_departamento pd
@@ -2592,10 +2652,15 @@ class CapHum extends Model
                     ON d.id = p.departamento_id
             LEFT JOIN departamento_organizacional dorg
                     ON dorg.id = d.id_departamento_organizacional
+            LEFT JOIN asigna_direcciones ad
+                    ON ad.id_departamento_organizacional = d.id_departamento_organizacional
+                   AND COALESCE(ad.activo, 1) = 1
+            LEFT JOIN direcciones_organizacion dir
+                    ON dir.id = ad.id_direccion
             LEFT JOIN paises pa
                     ON pa.id = d.id_pais
             $complet
-            ORDER BY FIELD(pa.codigo_iso, 'mx', 'gt', 'co'), d.nombre ASC
+            ORDER BY FIELD(pa.codigo_iso, 'mx', 'gt', 'co'), direccion_nombre, departamento_organizacional_nombre, d.nombre ASC
         SQL;
 
         try {
@@ -2633,6 +2698,7 @@ class CapHum extends Model
         $query = <<<SQL
             SELECT id, nombre
             FROM departamento
+            WHERE COALESCE(activo, 1) = 1
             ORDER BY nombre ASC
         SQL;
         try {
@@ -2668,6 +2734,8 @@ class CapHum extends Model
                    ON dir.id = ad.id_direccion
             LEFT JOIN paises pa
                    ON pa.id = d.id_pais
+            WHERE COALESCE(d.activo, 1) = 1
+              AND COALESCE(dorg.activo, 1) = 1
             ORDER BY FIELD(pa.codigo_iso, 'mx', 'gt', 'co'), direccion_nombre, departamento_organizacional_nombre, d.nombre ASC
         SQL;
 

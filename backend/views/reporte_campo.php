@@ -4,7 +4,7 @@
             <h3 class="mb-1">
                 <i class="fa-solid fa-clipboard-list me-2"></i>Reporte de Campo
             </h3>
-            <p class="text-muted mb-0">Personal de Campo 1-7 y Campo 8-21 con jerarquía operativa.</p>
+            <p class="text-muted mb-0">Personal de Campo 1-7 y Campo 8-30 con jerarquía operativa.</p>
         </div>
     </div>
 

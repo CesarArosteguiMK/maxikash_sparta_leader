@@ -1546,7 +1546,7 @@
             $sel.off('change.resumenTicket').empty().append('<option value="">Selecciona una persona</option>');
             $sel.data('resumen-id-ticket', idTicket);
             var labelCampo = function (campo) {
-                if (String(campo) === '8_21') return 'Campo 8–21';
+                if (String(campo) === '8_21') return 'Campo 8–30';
                 return 'Campo 1–7';
             };
 

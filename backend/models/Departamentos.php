@@ -210,7 +210,7 @@ class Departamentos extends Model
                     COALESCE(dir.activo, 1) AS direccion_activo,
                     COALESCE(pa.nombre, 'Sin país') AS nombre_pais,
                     COALESCE(pa.codigo_iso, 'xx') AS codigo_iso_pais,
-                    COUNT(DISTINCT d.id) AS total_areas
+                    COUNT(DISTINCT CASE WHEN COALESCE(d.activo, 1) = 1 THEN d.id END) AS total_areas
                 FROM __SPARTA_SECRET_REDACTED__.departamento_organizacional dorg
                 LEFT JOIN __SPARTA_SECRET_REDACTED__.asigna_direcciones ad ON ad.id_departamento_organizacional = dorg.id AND COALESCE(ad.activo, 1) = 1
                 LEFT JOIN __SPARTA_SECRET_REDACTED__.direcciones_organizacion dir ON dir.id = ad.id_direccion

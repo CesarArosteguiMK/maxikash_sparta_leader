@@ -103,11 +103,11 @@ class ReporteCampoService
                         INNER JOIN puesto pp2 ON pp2.id = ap2.id_puesto
                         INNER JOIN departamento d2 ON d2.id = pp2.departamento_id
                         WHERE ap2.activo = 1
-                          AND (d2.nombre LIKE 'Campo 1-7%' OR d2.nombre LIKE 'Campo 8-21%')
+                          AND (d2.nombre LIKE 'Campo 1-7%' OR d2.nombre LIKE 'Campo 8-30%')
                         GROUP BY ap2.id_persona
                     ) sel ON sel.id_persona = ap.id_persona AND sel.max_nivel = pp.nivel
                     WHERE ap.activo = 1
-                      AND (d.nombre LIKE 'Campo 1-7%' OR d.nombre LIKE 'Campo 8-21%')
+                      AND (d.nombre LIKE 'Campo 1-7%' OR d.nombre LIKE 'Campo 8-30%')
                     GROUP BY ap.id_persona
                 ) activo
                 LEFT JOIN (
@@ -120,10 +120,10 @@ class ReporteCampoService
                         FROM asigna_puesto ap2
                         INNER JOIN puesto pp2 ON pp2.id = ap2.id_puesto
                         INNER JOIN departamento d2 ON d2.id = pp2.departamento_id
-                        WHERE d2.nombre LIKE 'Campo 1-7%' OR d2.nombre LIKE 'Campo 8-21%'
+                        WHERE d2.nombre LIKE 'Campo 1-7%' OR d2.nombre LIKE 'Campo 8-30%'
                         GROUP BY ap2.id_persona
                     ) sel ON sel.id_persona = ap.id_persona AND sel.max_nivel = pp.nivel
-                    WHERE d.nombre LIKE 'Campo 1-7%' OR d.nombre LIKE 'Campo 8-21%'
+                    WHERE d.nombre LIKE 'Campo 1-7%' OR d.nombre LIKE 'Campo 8-30%'
                     GROUP BY ap.id_persona
                 ) todos ON todos.id_persona = activo.id_persona
 
@@ -140,10 +140,10 @@ class ReporteCampoService
                         FROM asigna_puesto ap2
                         INNER JOIN puesto pp2 ON pp2.id = ap2.id_puesto
                         INNER JOIN departamento d2 ON d2.id = pp2.departamento_id
-                        WHERE d2.nombre LIKE 'Campo 1-7%' OR d2.nombre LIKE 'Campo 8-21%'
+                        WHERE d2.nombre LIKE 'Campo 1-7%' OR d2.nombre LIKE 'Campo 8-30%'
                         GROUP BY ap2.id_persona
                     ) sel ON sel.id_persona = ap.id_persona AND sel.max_nivel = pp.nivel
-                    WHERE d.nombre LIKE 'Campo 1-7%' OR d.nombre LIKE 'Campo 8-21%'
+                    WHERE d.nombre LIKE 'Campo 1-7%' OR d.nombre LIKE 'Campo 8-30%'
                     GROUP BY ap.id_persona
                 ) todos
             ) puesto_sel ON puesto_sel.id_persona = p.id
@@ -153,7 +153,7 @@ class ReporteCampoService
             LEFT JOIN puestos_legacy pl ON pl.id = el.id_puesto_legacy
             WHERE p.estatus = 'Activo'
               AND UPPER(TRIM(COALESCE(p.user_name, ''))) <> 'REPORTERIA'
-              AND (d.nombre LIKE 'Campo 1-7%' OR d.nombre LIKE 'Campo 8-21%')
+              AND (d.nombre LIKE 'Campo 1-7%' OR d.nombre LIKE 'Campo 8-30%')
             "
         );
     }
