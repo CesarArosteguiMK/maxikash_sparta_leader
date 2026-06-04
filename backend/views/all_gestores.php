@@ -4834,6 +4834,13 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
                           </select>
                         </div>
                         <div class="col-md-3">
+                          <label class="form-label">Direcci&oacute;n</label>
+                          <select id="rrhh_direccion_id" class="form-select js-select-buscador" name="rrhh.direccion_id" disabled>
+                            <option value="">Seleccione una direcci&oacute;n</option>
+                          </select>
+                          <input type="hidden" id="rrhh_direccion_texto" name="rrhh.direccion_texto">
+                        </div>
+                        <div class="col-md-3">
                           <label class="form-label">&Aacute;rea</label>
                           <select id="rrhh_area_id" class="form-select js-select-buscador" name="rrhh.area_id" disabled>
                             <option value="">Seleccione un &aacute;rea</option>
@@ -4861,7 +4868,6 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
                           </select>
                           <input type="hidden" id="rrhh_jefe_directo_texto" name="rrhh.jefe_directo_texto">
                         </div>
-                        <div class="col-md-4"><label class="form-label">Dirección organizacional</label><input type="text" class="form-control" name="rrhh.direccion_organizacional"></div>
                         <div class="col-md-4"><label class="form-label">Ubicación laboral</label><input type="text" class="form-control" name="rrhh.ubicacion_laboral"></div>
                         <div class="col-md-4"><label class="form-label">Municipio</label><input type="text" class="form-control" name="rrhh.municipio_laboral"></div>
                       </div>
@@ -5552,7 +5558,6 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
                     <th></th> <!-- control responsive -->
                     <th>Nombre</th>
                     <th>Departamento</th>
-                    <th>Estatus</th>
                     <th>Acciones</th>
                 </tr>
                 </thead>
@@ -9480,7 +9485,6 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
               <i class="fa fa-user"></i>Jefe: <strong class="ms-1">${p.nombre_jefe && p.nombre_jefe !== 'Sin jefe' ? p.nombre_jefe : (p.nombre_vacante_jefe || 'Sin jefe')}</strong>
           </small>
         `.trim(),
-        estatus: p.estatus,
         acciones: (() => {
           const puedeEditar = window.puedeEditarTodos;
           const puedeEditarRrhh = !!window.puedeEditarUsuarioRrhh;
@@ -12369,6 +12373,33 @@ function precargarCascadaEdit(idPais, idEstado, idMunicipio, idColonia, idCalle,
     refreshRrhhSelect(selectId);
   }
 
+  function depDireccionIdRrhh(dep) {
+    return dep?.id_direccion || dep?.direccion_id || dep?.id_direccion_organizacion || dep?.id_direccion_organizacional || '';
+  }
+
+  function depDireccionNombreRrhh(dep) {
+    return dep?.nombre_direccion || dep?.direccion_nombre || dep?.direccion_organizacional || dep?.direccion || '';
+  }
+
+  function resolverDireccionIdRrhh(data) {
+    const direccionGuardada = data?.rrhh?.direccion_id || '';
+    const departamentoGuardado = data?.rrhh?.departamento_id || '';
+    const areaGuardada = data?.rrhh?.area_id || '';
+    const deps = rrhhDepartamentosBackend();
+
+    if (direccionGuardada && deps.some(dep => String(depDireccionIdRrhh(dep)) === String(direccionGuardada))) {
+      return direccionGuardada;
+    }
+
+    const depDesdeDepartamento = deps.find(dep => String(dep.id || dep.departamento_id || '') === String(departamentoGuardado));
+    if (depDesdeDepartamento && depDireccionIdRrhh(depDesdeDepartamento)) {
+      return depDireccionIdRrhh(depDesdeDepartamento);
+    }
+
+    const depDesdeArea = deps.find(dep => String(dep.id_departamento_organizacional || dep.departamento_organizacional_id || '') === String(areaGuardada));
+    return depDesdeArea ? depDireccionIdRrhh(depDesdeArea) : direccionGuardada;
+  }
+
   function resolverAreaIdRrhh(data) {
     const areaGuardada = data?.rrhh?.area_id || '';
     const departamentoGuardado = data?.rrhh?.departamento_id || '';
@@ -12407,14 +12438,17 @@ function precargarCascadaEdit(idPais, idEstado, idMunicipio, idColonia, idCalle,
   async function precargarSelectsLaboralesRrhh(data) {
     fillRrhhPaises();
     setSelectValue('rrhh_pais_id', data?.persona?.id_pais || '');
+    fillRrhhDirecciones();
+    setSelectValue('rrhh_direccion_id', resolverDireccionIdRrhh(data));
     fillRrhhAreas();
     setSelectValue('rrhh_area_id', resolverAreaIdRrhh(data));
-    fillRrhhDepartamentos();
+    fillRrhhDepartamentos(resolverDepartamentoIdRrhh(data));
     setSelectValue('rrhh_departamento_id', resolverDepartamentoIdRrhh(data));
-    await fillRrhhPuestos();
+    await fillRrhhPuestos(data?.rrhh?.puesto_id || '');
     setSelectValue('rrhh_puesto_id', data?.rrhh?.puesto_id || '');
     await fillRrhhJefes();
     setSelectValue('rrhh_jefe_id', data?.rrhh?.jefe_id || '');
+    setRrhhHiddenText('rrhh_direccion_id', 'rrhh_direccion_texto');
     setRrhhHiddenText('rrhh_area_id', 'rrhh_area_texto');
     setRrhhHiddenText('rrhh_departamento_id', 'rrhh_departamento_texto');
     setRrhhHiddenText('rrhh_puesto_id', 'rrhh_puesto_texto');
@@ -12483,6 +12517,65 @@ function precargarCascadaEdit(idPais, idEstado, idMunicipio, idColonia, idCalle,
     return `<option value="${safeValue}" data-nombre="${safeLabel}"${attrs}>${safeLabel}</option>`;
   }
 
+  function nombreSegmentoOperativoVisibleRrhh(nombre) {
+    const original = String(nombre || '').replace(/\s+/g, ' ').trim();
+    if (!original) return '';
+
+    const reglasDivisionOperativa = [
+      /\s+\(?\d+\s*[-_]\s*\d+\)?$/i,
+      /\s+\(?\d+\s+a\s+\d+\)?$/i,
+      /\s+\(?\d+\s*al\s*\d+\)?$/i,
+      /\s+(?:tramo|bucket|rango)\s+\d+\s*[-_]\s*\d+$/i,
+      /\s+(?:tramo|bucket|rango)\s+\d+\s+a\s+\d+$/i
+    ];
+
+    let visible = original;
+    reglasDivisionOperativa.some(regla => {
+      const candidato = visible.replace(regla, '').trim();
+      if (candidato && candidato !== visible) {
+        visible = candidato;
+        return true;
+      }
+      return false;
+    });
+
+    return visible || original;
+  }
+
+  function prepararOpcionesDepartamentosRrhh(departamentos, seleccionado = '') {
+    const grupos = new Map();
+    (Array.isArray(departamentos) ? departamentos : []).forEach(departamento => {
+      const id = departamento.id || departamento.departamento_id || '';
+      const nombreOriginal = departamento.nombre || departamento.departamento_nombre || '';
+      const nombreVisible = nombreSegmentoOperativoVisibleRrhh(nombreOriginal);
+      if (!id || !nombreVisible) return;
+
+      const key = normalizarValorFiltro(nombreVisible);
+      const actual = grupos.get(key);
+      const item = { id: String(id), nombre: nombreVisible };
+      if (!actual || String(id) === String(seleccionado)) grupos.set(key, item);
+    });
+
+    return Array.from(grupos.values()).sort((a, b) => a.nombre.localeCompare(b.nombre, 'es', { sensitivity: 'base' }));
+  }
+
+  function prepararOpcionesPuestosRrhh(puestos, seleccionado = '') {
+    const grupos = new Map();
+    (Array.isArray(puestos) ? puestos : []).forEach(puesto => {
+      const id = puesto.id || puesto.id_puesto || puesto.puesto_id || '';
+      const nombreOriginal = puesto.nombre || puesto.nombre_puesto || puesto.puesto_nombre || puesto.puesto || '';
+      const nombreVisible = nombreSegmentoOperativoVisibleRrhh(nombreOriginal);
+      if (!id || !nombreVisible) return;
+
+      const key = normalizarValorFiltro(nombreVisible);
+      const actual = grupos.get(key);
+      const item = { id: String(id), nombre: nombreVisible };
+      if (!actual || String(id) === String(seleccionado)) grupos.set(key, item);
+    });
+
+    return Array.from(grupos.values()).sort((a, b) => a.nombre.localeCompare(b.nombre, 'es', { sensitivity: 'base' }));
+  }
+
   function rrhhDepartamentosBackend() {
     return Array.isArray(window.todosDepartamentosBackend) ? window.todosDepartamentosBackend : [];
   }
@@ -12527,13 +12620,51 @@ function precargarCascadaEdit(idPais, idEstado, idMunicipio, idColonia, idCalle,
     return false;
   }
 
-  function fillRrhhDepartamentos() {
+  function fillRrhhDirecciones() {
+    const selectDireccion = document.getElementById('rrhh_direccion_id');
+    if (!selectDireccion) return;
+
+    const idPais = document.getElementById('rrhh_pais_id')?.value || '';
+    const direcciones = new Map();
+
+    rrhhDepartamentosBackend()
+      .filter(dep => depPertenecePais(dep, idPais))
+      .forEach(dep => {
+        const idDireccion = depDireccionIdRrhh(dep);
+        const nombreDireccion = depDireccionNombreRrhh(dep);
+        if (idDireccion && nombreDireccion && nombreDireccion !== 'Sin dirección') {
+          direcciones.set(String(idDireccion), nombreDireccion);
+        }
+      });
+
+    const current = selectDireccion.value;
+    selectDireccion.disabled = !idPais || direcciones.size === 0;
+    selectDireccion.innerHTML = '<option value="">Seleccione una direcci&oacute;n</option>' +
+      Array.from(direcciones.entries())
+        .sort((a, b) => a[1].localeCompare(b[1], 'es', { sensitivity: 'base' }))
+        .map(([id, nombre]) => optionHtml(id, nombre))
+        .join('');
+
+    if (current && direcciones.has(String(current))) {
+      selectDireccion.value = current;
+    } else if (direcciones.size === 1) {
+      selectDireccion.value = Array.from(direcciones.keys())[0];
+    } else {
+      selectDireccion.value = '';
+    }
+
+    setRrhhHiddenText('rrhh_direccion_id', 'rrhh_direccion_texto');
+    refreshRrhhSelect('rrhh_direccion_id');
+    fillRrhhAreas();
+  }
+
+  function fillRrhhDepartamentos(seleccionadoForzado = '') {
     const selectArea = document.getElementById('rrhh_area_id');
     const select = document.getElementById('rrhh_departamento_id');
     if (!select) return;
-    const current = select.value;
+    const current = seleccionadoForzado || select.value;
     const idArea = selectArea?.value || '';
-    const departamentos = new Map();
+    const departamentos = [];
 
     rrhhDepartamentosBackend()
       .filter(dep => depPertenecePais(dep, document.getElementById('rrhh_pais_id')?.value || ''))
@@ -12542,21 +12673,21 @@ function precargarCascadaEdit(idPais, idEstado, idMunicipio, idColonia, idCalle,
         const idDepartamento = dep.id || dep.departamento_id || '';
         const nombreDepartamento = dep.nombre || dep.departamento_nombre || '';
         if (idDepartamento && nombreDepartamento && nombreDepartamento !== 'Sin departamento') {
-          departamentos.set(String(idDepartamento), nombreDepartamento);
+          departamentos.push({ id: idDepartamento, nombre: nombreDepartamento });
         }
       });
+    const opciones = prepararOpcionesDepartamentosRrhh(departamentos, current);
 
     select.innerHTML = '<option value="">Seleccione un departamento</option>' +
-      Array.from(departamentos.entries())
-        .sort((a, b) => a[1].localeCompare(b[1], 'es', { sensitivity: 'base' }))
-        .map(([id, nombre]) => optionHtml(id, nombre))
+      opciones
+        .map(departamento => optionHtml(departamento.id, departamento.nombre))
         .join('');
 
-    select.disabled = !idArea || departamentos.size === 0;
-    if (current && departamentos.has(String(current))) {
+    select.disabled = !idArea || opciones.length === 0;
+    if (current && opciones.some(departamento => String(departamento.id) === String(current))) {
       select.value = current;
-    } else if (departamentos.size === 1) {
-      select.value = Array.from(departamentos.keys())[0];
+    } else if (opciones.length === 1) {
+      select.value = opciones[0].id;
     } else {
       select.value = '';
     }
@@ -12571,10 +12702,12 @@ function precargarCascadaEdit(idPais, idEstado, idMunicipio, idColonia, idCalle,
     if (!selectArea) return;
 
     const idPais = document.getElementById('rrhh_pais_id')?.value || '';
+    const idDireccion = document.getElementById('rrhh_direccion_id')?.value || '';
     const areas = new Map();
 
     rrhhDepartamentosBackend()
       .filter(dep => depPertenecePais(dep, idPais))
+      .filter(dep => String(depDireccionIdRrhh(dep) || '') === String(idDireccion || ''))
       .forEach(dep => {
         const idArea = dep.id_departamento_organizacional || dep.departamento_organizacional_id || '';
         const nombreArea = dep.departamento_organizacional_nombre || dep.nombre_departamento_organizacional || '';
@@ -12584,7 +12717,7 @@ function precargarCascadaEdit(idPais, idEstado, idMunicipio, idColonia, idCalle,
       });
 
     const current = selectArea.value;
-    selectArea.disabled = !idPais || areas.size === 0;
+    selectArea.disabled = !idPais || !idDireccion || areas.size === 0;
     selectArea.innerHTML = '<option value="">Seleccione un &aacute;rea</option>' +
       Array.from(areas.entries())
         .sort((a, b) => a[1].localeCompare(b[1], 'es', { sensitivity: 'base' }))
@@ -12600,31 +12733,36 @@ function precargarCascadaEdit(idPais, idEstado, idMunicipio, idColonia, idCalle,
     fillRrhhDepartamentos();
   }
 
-  function fillRrhhPuestosFallback(idDepartamento) {
+  function fillRrhhPuestosFallback(idDepartamento, seleccionadoForzado = '') {
     const select = document.getElementById('rrhh_puesto_id');
     if (!select) return;
     const puestos = new Map();
+    const seleccionado = seleccionadoForzado || select.value || '';
     usuariosData.forEach(usuario => {
       const lista = Array.isArray(usuario.puestos) ? usuario.puestos : [];
       lista.forEach(puesto => {
         if (String(puesto.id_departamento || '') === String(idDepartamento || '') && puesto.id_puesto && puesto.nombre_puesto && puesto.nombre_puesto !== 'Sin puesto') {
-          puestos.set(String(puesto.id_puesto), puesto.nombre_puesto);
+          puestos.set(String(puesto.id_puesto), { id: puesto.id_puesto, nombre: puesto.nombre_puesto });
         }
       });
       if (String(usuario.id_departamento || '') === String(idDepartamento || '') && usuario.id_puesto && usuario.nombre_puesto && usuario.nombre_puesto !== 'Sin puesto') {
-        puestos.set(String(usuario.id_puesto), usuario.nombre_puesto);
+        puestos.set(String(usuario.id_puesto), { id: usuario.id_puesto, nombre: usuario.nombre_puesto });
       }
     });
+    const opciones = prepararOpcionesPuestosRrhh(Array.from(puestos.values()), seleccionado);
     select.innerHTML = '<option value="">Seleccione un puesto</option>' +
-      Array.from(puestos.entries())
-        .sort((a, b) => a[1].localeCompare(b[1], 'es', { sensitivity: 'base' }))
-        .map(([id, nombre]) => optionHtml(id, nombre))
+      opciones
+        .map(puesto => optionHtml(puesto.id, puesto.nombre))
         .join('');
-    select.disabled = !idDepartamento || puestos.size === 0;
+    if (seleccionado && opciones.some(puesto => String(puesto.id) === String(seleccionado))) {
+      select.value = seleccionado;
+    }
+    select.disabled = !idDepartamento || opciones.length === 0;
+    setRrhhHiddenText('rrhh_puesto_id', 'rrhh_puesto_texto');
     refreshRrhhSelect('rrhh_puesto_id');
   }
 
-  async function fillRrhhPuestos() {
+  async function fillRrhhPuestos(seleccionadoForzado = '') {
     const selectDepartamento = document.getElementById('rrhh_departamento_id');
     const selectPuesto = document.getElementById('rrhh_puesto_id');
     if (!selectDepartamento || !selectPuesto) return;
@@ -12644,20 +12782,26 @@ function precargarCascadaEdit(idPais, idEstado, idMunicipio, idColonia, idCalle,
       });
       const data = await response.json();
       if (!data.success || !Array.isArray(data.datos)) {
-        fillRrhhPuestosFallback(idDepartamento);
+        fillRrhhPuestosFallback(idDepartamento, seleccionadoForzado);
         return;
       }
+      const seleccionado = seleccionadoForzado || selectPuesto.value || '';
+      const opciones = prepararOpcionesPuestosRrhh(
+        data.datos.map(puesto => ({ id: puesto.id, nombre: puesto.nombre || puesto.puesto_nombre || '' })),
+        seleccionado
+      );
       selectPuesto.innerHTML = '<option value="">Seleccione un puesto</option>' +
-        data.datos
-          .map(puesto => ({ id: puesto.id, nombre: puesto.nombre || puesto.puesto_nombre || '' }))
-          .filter(puesto => puesto.id && puesto.nombre)
-          .sort((a, b) => a.nombre.localeCompare(b.nombre, 'es', { sensitivity: 'base' }))
+        opciones
           .map(puesto => optionHtml(puesto.id, puesto.nombre))
           .join('');
+      if (seleccionado && opciones.some(puesto => String(puesto.id) === String(seleccionado))) {
+        selectPuesto.value = seleccionado;
+      }
       selectPuesto.disabled = selectPuesto.options.length <= 1;
+      setRrhhHiddenText('rrhh_puesto_id', 'rrhh_puesto_texto');
       refreshRrhhSelect('rrhh_puesto_id');
     } catch (error) {
-      fillRrhhPuestosFallback(idDepartamento);
+      fillRrhhPuestosFallback(idDepartamento, seleccionadoForzado);
     }
   }
 
@@ -12755,7 +12899,7 @@ function precargarCascadaEdit(idPais, idEstado, idMunicipio, idColonia, idCalle,
   function initRrhhLaboralSelects() {
     ordenarCamposLaboralesRrhh();
     fillRrhhPaises();
-    fillRrhhAreas();
+    fillRrhhDirecciones();
     fillRrhhJefes();
     vincularEventosSelect2Rrhh();
   }
@@ -12764,6 +12908,10 @@ function precargarCascadaEdit(idPais, idEstado, idMunicipio, idColonia, idCalle,
     if (typeof window.jQuery === 'undefined') return;
     const $ = window.jQuery;
     $('#rrhh_pais_id').off('change.rrhhLaboral').on('change.rrhhLaboral', function () {
+      fillRrhhDirecciones();
+    });
+    $('#rrhh_direccion_id').off('change.rrhhLaboral').on('change.rrhhLaboral', function () {
+      setRrhhHiddenText('rrhh_direccion_id', 'rrhh_direccion_texto');
       fillRrhhAreas();
     });
     $('#rrhh_area_id').off('change.rrhhLaboral').on('change.rrhhLaboral', function () {
@@ -13244,7 +13392,7 @@ function precargarCascadaEdit(idPais, idEstado, idMunicipio, idColonia, idCalle,
             campoExpediente('Fecha IMSS alta', payload?.rrhh?.fecha_imss_alta),
             campoExpediente('Registro patronal', payload?.rrhh?.registro_patronal),
             campoExpediente('Código CONTPAC', payload?.rrhh?.codigo_contpac),
-            campoExpediente('Dirección organizacional', payload?.rrhh?.direccion_organizacional),
+            campoExpediente('Dirección organizacional', payload?.rrhh?.direccion_texto),
             campoExpediente('Ubicación laboral', payload?.rrhh?.ubicacion_laboral),
             campoExpediente('Municipio', payload?.rrhh?.municipio)
           ])}
@@ -13424,6 +13572,9 @@ function precargarCascadaEdit(idPais, idEstado, idMunicipio, idColonia, idCalle,
     const target = event.target;
     if (!target) return;
     if (target.id === 'rrhh_pais_id') {
+      fillRrhhDirecciones();
+    } else if (target.id === 'rrhh_direccion_id') {
+      setRrhhHiddenText('rrhh_direccion_id', 'rrhh_direccion_texto');
       fillRrhhAreas();
     } else if (target.id === 'rrhh_departamento_id') {
       setRrhhHiddenText('rrhh_departamento_id', 'rrhh_departamento_texto');

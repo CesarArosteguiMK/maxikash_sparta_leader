@@ -198,7 +198,6 @@ class CapHum extends Controller
                                     <i class="fa fa-user"></i>Jefe: <strong class="ms-1">${p.nombre_jefe && p.nombre_jefe !== 'Sin jefe' ? p.nombre_jefe : (p.nombre_vacante_jefe || 'Sin jefe')}</strong>
                                 </small>
                             `.trim(),
-                            estatus: p.estatus,
                             acciones: (() => {
                                 const puedeEditar = window.puedeEditarTodos;
                                 const puedePermisos = window.puedeGestionarPermisos;
@@ -838,8 +837,26 @@ class CapHum extends Controller
                     document.getElementById("edit_perfil_nombres").value = nombreCompleto;
 
                     // Subtítulo: usar asignación real (asigna_puesto) si existe; si no, fallback a puestos del perfil
-                    let nombreArea = 'Sin área';
-                    let nombreEmpresa = persona.nombre_empresa || persona.empresa || persona.nombre_pais || 'Sin empresa';
+                    const textoPerfilValido = function(valor) {
+                        const txt = String(valor || '').trim();
+                        if (!txt) return '';
+                        const normalizado = txt.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+                        if (['sin area', 'sin empresa', 'sin pais', 'sin departamento', 'sin direccion', 'n/a', 'na', 'null', 'undefined'].includes(normalizado)) {
+                            return '';
+                        }
+                        return txt;
+                    };
+                    const puestoAsignadoHeader = puestos.find(p => Number(p.asignado_flag) === 1) || {};
+                    let nombreArea = textoPerfilValido(asignacionActual.nombre_area)
+                        || textoPerfilValido(puestoAsignadoHeader.nombre_area)
+                        || textoPerfilValido(persona.nombre_area)
+                        || textoPerfilValido(asignacionActual.nombre_departamento)
+                        || textoPerfilValido(puestoAsignadoHeader.nombre_departamento)
+                        || 'Sin área';
+                    let nombrePuestoHeader = textoPerfilValido(asignacionActual.nombre_puesto)
+                        || textoPerfilValido(puestoAsignadoHeader.nombre_puesto)
+                        || textoPerfilValido(persona.nombre_puesto)
+                        || 'Sin puesto';
                     let nombreDepartamento = asignacionActual.nombre_departamento || 'Sin departamento';
                     let nombrePuesto = asignacionActual.nombre_puesto || 'Sin puesto';
                     if (nombreDepartamento === 'Sin departamento' && nombrePuesto === 'Sin puesto') {
@@ -860,12 +877,12 @@ class CapHum extends Controller
                             return String(d.id || '') === String((puestos.find(function (p) { return Number(p.asignado_flag) === 1; }) || {}).id_departamento || '');
                         });
                         if (depRef && depRef.departamento_organizacional_nombre) {
-                            nombreArea = depRef.departamento_organizacional_nombre;
+                            nombreArea = textoPerfilValido(depRef.departamento_organizacional_nombre) || nombreArea;
                         }
                     }
 
                     document.getElementById("modalEditPerfilLabel").innerHTML = '<i class="fa fa-user-shield me-2 text-white"></i>Administrar puestos y módulos del usuario';
-                    document.getElementById("modalEditPerfil_subtitle").innerHTML = esc(nombreCompleto) + ' / ' + esc(nombreArea) + ' / ' + esc(nombreEmpresa);
+                    document.getElementById("modalEditPerfil_subtitle").innerHTML = esc(nombreCompleto) + ' / ' + esc(nombreArea) + ' / ' + esc(nombrePuestoHeader);
 
                     renderPuestos(puestos, permisosJerarquia);
                     // Cierre células / Cartera (ids 56–59 y/o nombre «Cierre: Despachos»…): pestaña Permisos especiales, tarjeta Convenios (menu_* vía PHP)
@@ -16183,6 +16200,25 @@ public function getEstadosMunicipiosMexico()
     {
         self::set('titulo', 'Constructor de Estructura Organizacional');
         self::render('caphum_estructura_organizacional');
+    }
+
+    public function perfilesPuestos()
+    {
+        self::set('titulo', 'Perfiles de puesto');
+        $rutaPerfiles = RAIZ . '/storage/caphum/perfiles_puestos_dummy.json';
+        $perfilesData = ['meta' => [], 'perfiles' => []];
+        if (is_file($rutaPerfiles) && is_readable($rutaPerfiles)) {
+            $json = file_get_contents($rutaPerfiles);
+            $decoded = json_decode($json ?: '{}', true);
+            if (is_array($decoded)) {
+                $perfilesData = $decoded;
+            }
+        }
+        self::set('perfilesPuestosJson', json_encode(
+            $perfilesData,
+            JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT
+        ));
+        self::render('caphum_perfiles_puestos');
     }
 
     public function getEstructuraOrganizacionalJson()

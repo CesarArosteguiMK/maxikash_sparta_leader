@@ -29,6 +29,7 @@ if (!function_exists('getMenuSidebarModulosStructure')) {
                     ['label' => 'Revisión RR.HH.', 'url' => '/caphum/actualizacionesInfo', 'modulos' => [83]],
                     ['label' => 'Organigrama Cobranza', 'url' => '/caphum/organigrama', 'modulos' => [5]],
                     ['label' => 'Organización', 'url' => '/caphum/estructuraOrganizacional', 'modulos' => [86]],
+                    ['label' => 'Perfiles de puesto', 'url' => '/caphum/perfilesPuestos', 'modulos' => [91]],
                     ['label' => 'Control de Bajas', 'url' => '/caphum/bajas', 'modulos' => [13]],
                     ['label' => 'Selección de Personal', 'url' => '/caphum/candidatos', 'modulos' => [42]],
                     ['label' => 'Curso Onboarding', 'url' => '/onboarding/index', 'modulos' => [44]],

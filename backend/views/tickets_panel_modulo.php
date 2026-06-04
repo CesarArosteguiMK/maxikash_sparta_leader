@@ -364,7 +364,7 @@ $mostrarModalFormBuilderLectura = !empty($tickets_panel_modal_form_builder_lectu
                                     <input type="radio" class="btn-check" name="tmAsignarCampo" id="tmAsignarCampo17" value="1_7" autocomplete="off" checked>
                                     <label class="btn btn-outline-secondary" for="tmAsignarCampo17">Campo 1–7</label>
                                     <input type="radio" class="btn-check" name="tmAsignarCampo" id="tmAsignarCampo821" value="8_21" autocomplete="off">
-                                    <label class="btn btn-outline-secondary" for="tmAsignarCampo821">Campo 8–21</label>
+                                    <label class="btn btn-outline-secondary" for="tmAsignarCampo821">Campo 8–30</label>
                                 </div>
                                 <select id="resumenTicketAsignarSelect" class="form-select form-select-sm" aria-label="Asignar ticket">
                                     <option value="">Selecciona una persona</option>

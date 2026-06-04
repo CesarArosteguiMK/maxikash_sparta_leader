@@ -6143,7 +6143,7 @@ class Sabueso extends Controller
     }
 
     /**
-     * Personas de máximo rango (jefes organigrama Sabueso) por segmento Campo 1–7 u 8–21.
+     * Personas de máximo rango (jefes organigrama Sabueso) por segmento Campo 1–7 u 8–30.
      * Body JSON: { "campo": "1_7" | "8_21" }
      */
     public function getPersonasSabuesoJefesPorCampo()

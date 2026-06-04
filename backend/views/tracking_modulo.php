@@ -296,6 +296,24 @@ body.dark-mode .track-filters { background: #1e2d2c; }
     overflow-wrap: anywhere;
     word-break: normal;
 }
+.trk-route-folio,
+.trk-borrador-chip {
+    -webkit-user-select: none;
+    user-select: none;
+}
+.trk-route-folio {
+    display: inline-flex;
+    align-items: center;
+    align-self: flex-start;
+    border-radius: 999px;
+    padding: .18rem .55rem;
+    background: #eef2ff;
+    color: #24304f;
+    font-size: .68rem;
+    font-weight: 800;
+    line-height: 1.1;
+    margin-bottom: .42rem;
+}
 .trk-ruta-subtitle {
     margin-top: .28rem;
     color: #697a8d;
@@ -388,6 +406,10 @@ body.dark-mode .trk-ruta-title,
 body.dark-mode .trk-ruta-meta-value {
     color: #f8fafc;
 }
+body.dark-mode .trk-route-folio {
+    background: #24304f;
+    color: #dbeafe;
+}
 body.dark-mode .trk-ruta-subtitle,
 body.dark-mode .trk-ruta-meta-label,
 body.dark-mode .trk-ruta-creditos,
@@ -403,6 +425,10 @@ body.dark-mode #tabBorradores .card-header {
     background: #1f2933 !important;
     border-color: #334155;
 }
+#tablaBorradores_wrapper .dataTables_length,
+#tablaBorradores_wrapper .dt-length {
+    display: none !important;
+}
 #tablaBorradores_wrapper .dataTables_paginate,
 #tablaBorradores_wrapper .dt-paging {
     display: flex;
@@ -411,6 +437,28 @@ body.dark-mode #tabBorradores .card-header {
 #tablaBorradores_wrapper .pagination {
     justify-content: flex-end;
     margin-left: auto;
+}
+.trk-table-toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 1.25rem 1.5rem .9rem;
+}
+.trk-table-toolbar .trk-table-length,
+.trk-table-toolbar .trk-table-search {
+    display: flex;
+    align-items: center;
+    gap: .55rem;
+}
+.trk-table-toolbar .trk-table-search {
+    margin-left: auto;
+}
+.trk-table-toolbar .form-select {
+    width: 72px;
+}
+.trk-table-toolbar .form-control {
+    width: min(280px, 32vw);
 }
 #tablaBorradores.trk-borradores-table,
 #tablaRutas.trk-operacion-table {
@@ -514,6 +562,9 @@ body.dark-mode .trk-borrador-muted {
     color: #94a3b8;
 }
 @media (max-width: 767.98px) {
+    .trk-table-toolbar { align-items: stretch; flex-direction: column; }
+    .trk-table-toolbar .trk-table-search { margin-left: 0; }
+    .trk-table-toolbar .form-control { width: 100%; }
     .trk-rutas-toolbar { align-items: stretch; flex-direction: column; }
     .trk-rutas-search { max-width: none; min-width: 0; }
     .trk-rutas-summary { gap: .4rem; }
@@ -531,6 +582,157 @@ body.dark-mode .trk-borrador-muted {
     font-size: .78rem;
     vertical-align: middle;
     white-space: nowrap;
+}
+.trk-catalog-shell {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+.trk-catalog-hero {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 1rem;
+    border: 1px solid #d7f4ef;
+    border-radius: .65rem;
+    background: #f0fdfa;
+}
+.trk-catalog-eyebrow {
+    color: var(--track-color);
+    font-size: .72rem;
+    font-weight: 800;
+    letter-spacing: .03em;
+    text-transform: uppercase;
+}
+.trk-catalog-actions,
+.trk-catalog-toolbar {
+    display: flex;
+    align-items: center;
+    gap: .6rem;
+    flex-wrap: wrap;
+}
+.trk-catalog-toolbar {
+    justify-content: space-between;
+    padding: .75rem;
+    border: 1px solid #e2e8f0;
+    border-radius: .65rem;
+    background: #fff;
+}
+.trk-catalog-search {
+    max-width: 480px;
+}
+.trk-catalog-list {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(310px, 1fr));
+    gap: .8rem;
+}
+.trk-catalog-card,
+.trk-catalog-group {
+    border: 1px solid #e2e8f0;
+    border-radius: .65rem;
+    background: #fff;
+    box-shadow: 0 .25rem .75rem rgba(15, 23, 42, .04);
+}
+.trk-catalog-card {
+    padding: .85rem;
+    display: flex;
+    flex-direction: column;
+    gap: .55rem;
+}
+.trk-catalog-card-title {
+    color: #24304f;
+    font-size: .92rem;
+    font-weight: 800;
+    line-height: 1.15;
+    text-transform: uppercase;
+    word-break: break-word;
+}
+.trk-catalog-card-sub {
+    color: #64748b;
+    font-size: .76rem;
+    font-weight: 700;
+    line-height: 1.2;
+}
+.trk-catalog-card-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: .35rem;
+}
+.trk-catalog-card-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: .35rem;
+    padding-top: .45rem;
+    border-top: 1px solid #e2e8f0;
+}
+.trk-catalog-group {
+    margin-bottom: .85rem;
+    overflow: hidden;
+}
+.trk-catalog-group-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: .75rem;
+    padding: .85rem 1rem;
+    background: #f8fafc;
+    border-bottom: 1px solid #e2e8f0;
+}
+.trk-catalog-group-title {
+    color: #24304f;
+    font-size: 1.05rem;
+    font-weight: 900;
+    line-height: 1.1;
+    text-transform: uppercase;
+}
+.trk-catalog-group-body {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: .7rem;
+    padding: .8rem;
+}
+.trk-catalog-empty {
+    border: 1px dashed #cbd5e1;
+    border-radius: .65rem;
+    padding: 2rem 1rem;
+    text-align: center;
+    color: #64748b;
+    background: #fff;
+}
+body.dark-mode .trk-catalog-hero {
+    background: #172121;
+    border-color: #2d4444;
+}
+body.dark-mode .trk-catalog-toolbar,
+body.dark-mode .trk-catalog-card,
+body.dark-mode .trk-catalog-group,
+body.dark-mode .trk-catalog-empty {
+    background: #1f2933;
+    border-color: #334155;
+}
+body.dark-mode .trk-catalog-group-head {
+    background: #17212b;
+    border-color: #334155;
+}
+body.dark-mode .trk-catalog-card-title,
+body.dark-mode .trk-catalog-group-title {
+    color: #f8fafc;
+}
+body.dark-mode .trk-catalog-card-sub {
+    color: #cbd5e1;
+}
+@media (max-width: 767.98px) {
+    .trk-catalog-hero,
+    .trk-catalog-toolbar {
+        align-items: stretch;
+        flex-direction: column;
+    }
+    .trk-catalog-actions .btn,
+    .trk-catalog-search {
+        width: 100%;
+        max-width: none;
+    }
 }
 .trk-action-btn {
     width: 2rem;
@@ -598,6 +800,24 @@ body.dark-mode .trk-loc-municipio {
     color: #93c5fd;
     border-color: #1d4ed8;
 }
+.trk-credit-address {
+    display: inline-flex;
+    align-items: center;
+    gap: .3rem;
+    max-width: 100%;
+    color: #64748b;
+    font-size: .72rem;
+    line-height: 1.2;
+}
+.trk-credit-address span {
+    display: inline-block;
+    max-width: min(620px, 100%);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    vertical-align: bottom;
+}
+body.dark-mode .trk-credit-address { color: #94a3b8; }
 .trk-catalog-grid {
     display: grid;
     grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -726,6 +946,39 @@ body.dark-mode .trk-loc-municipio {
     color: #64748b;
     font-size: .78rem;
 }
+.trk-quick-credit-summary {
+    border: 1px dashed #b6e7e2;
+    background: #f0fdfa;
+    border-radius: .5rem;
+    padding: .75rem;
+}
+.trk-quick-routes-list {
+    display: flex;
+    flex-direction: column;
+    gap: .55rem;
+}
+.trk-quick-route {
+    border: 1px solid #e2e8f0;
+    border-radius: .55rem;
+    background: #fff;
+    padding: .75rem;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: .75rem;
+    align-items: center;
+}
+.trk-quick-route-title {
+    color: #23304d;
+    font-weight: 800;
+    line-height: 1.15;
+    overflow-wrap: anywhere;
+    text-transform: uppercase;
+}
+.trk-quick-route-sub {
+    color: #64748b;
+    font-size: .76rem;
+    margin-top: .2rem;
+}
 body.dark-mode .trk-catalog-stat,
 body.dark-mode .trk-transport-panel {
     background: #172121;
@@ -758,6 +1011,16 @@ body.dark-mode .trk-transport-option:hover,
 body.dark-mode .trk-transport-option.active { background: #1e2d2c; }
 body.dark-mode .trk-transport-option .empresa,
 body.dark-mode .trk-transport-empty { color: #94a3b8; }
+body.dark-mode .trk-quick-credit-summary {
+    background: #172121;
+    border-color: #2d4444;
+}
+body.dark-mode .trk-quick-route {
+    background: #172121;
+    border-color: #2d4444;
+}
+body.dark-mode .trk-quick-route-title { color: #e2e8f0; }
+body.dark-mode .trk-quick-route-sub { color: #94a3b8; }
 body.dark-mode #tabCatalogosTracking .card-header {
     background: #172121 !important;
     color: #e2e8f0;
@@ -1347,6 +1610,15 @@ body.dark-mode .select2-results__option[aria-disabled="true"] {
     border-color: var(--track-color);
     background: var(--track-color-light);
 }
+.btn-pin-ubicacion.pin-default-blink {
+    color: #0d9488;
+    border-color: #0d9488;
+    animation: trkPinBlink 1.05s ease-in-out infinite;
+}
+@keyframes trkPinBlink {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(13,148,136,.42); }
+    50% { box-shadow: 0 0 0 .22rem rgba(13,148,136,.08); }
+}
 
 /* ========================================================
    Chat Operativo  -  Offcanvas lateral
@@ -1928,6 +2200,18 @@ $trackingHeaderTitle = isset($tracking_header_title) && $tracking_header_title !
 $trackingHeaderSubtitle = isset($tracking_header_subtitle) && $tracking_header_subtitle !== ''
     ? (string) $tracking_header_subtitle
     : 'Creditos disponibles para planeacion de ruta fisica';
+$trackingInitialSection = isset($tracking_initial_section) && $tracking_initial_section !== ''
+    ? (string) $tracking_initial_section
+    : 'creditos';
+if (!empty($trackingVisibleSections) && !in_array($trackingInitialSection, $trackingVisibleSections, true)) {
+    $trackingInitialSection = (string) reset($trackingVisibleSections);
+}
+$trackingCatalogoDefaultView = isset($tracking_catalogo_default_view) && in_array((string) $tracking_catalogo_default_view, ['directorio', 'agrupado', 'tabla'], true)
+    ? (string) $tracking_catalogo_default_view
+    : 'directorio';
+$trackingShowNewRouteButton = !isset($tracking_show_new_route_button)
+    ? !($trackingInitialSection === 'catalogos' && $trackingVisibleSections === ['catalogos'])
+    : !empty($tracking_show_new_route_button);
 ?>
 <?php if (!empty($tracking_hide_section_cards)): ?>
 <style>
@@ -1970,14 +2254,16 @@ $trackingHeaderSubtitle = isset($tracking_header_subtitle) && $tracking_header_s
             <h4><i class="fa-solid fa-route me-2"></i><?= htmlspecialchars($trackingHeaderTitle, ENT_QUOTES, 'UTF-8'); ?></h4>
             <div class="track-subtitle"><?= htmlspecialchars($trackingHeaderSubtitle, ENT_QUOTES, 'UTF-8'); ?></div>
         </div>
-        <button class="btn btn-primary fw-semibold" id="btnNuevaRuta">
-            <i class="icon-base bx bx-plus icon-sm me-1"></i>Registrar ruta
-        </button>
+        <?php if ($trackingShowNewRouteButton): ?>
+            <button class="btn btn-primary fw-semibold" id="btnNuevaRuta">
+                <i class="icon-base bx bx-plus icon-sm me-1"></i>Registrar ruta
+            </button>
+        <?php endif; ?>
     </div>
 
     <!-- -- Pestanas principales -- -->
     <div class="trk-section-grid" id="trkSectionGrid">
-        <button type="button" class="trk-section-card active" data-section-target="#tabCreditos" data-section-load="creditos">
+        <button type="button" class="trk-section-card<?= $trackingInitialSection === 'creditos' ? ' active' : ''; ?>" data-section-target="#tabCreditos" data-section-load="creditos">
             <div>
                 <span class="trk-section-icon"><i class="fa-solid fa-motorcycle"></i></span>
                 <div class="trk-section-title">Creditos disponibles</div>
@@ -1988,7 +2274,7 @@ $trackingHeaderSubtitle = isset($tracking_header_subtitle) && $tracking_header_s
                 <span class="trk-section-count" data-section-count="badgeCreditos">0</span>
             </div>
         </button>
-        <button type="button" class="trk-section-card" data-section-target="#tabBorradores" data-section-load="borradores">
+        <button type="button" class="trk-section-card<?= $trackingInitialSection === 'borradores' ? ' active' : ''; ?>" data-section-target="#tabBorradores" data-section-load="borradores">
             <div>
                 <span class="trk-section-icon"><i class="fa-solid fa-file-pen"></i></span>
                 <div class="trk-section-title">Borradores</div>
@@ -1999,7 +2285,7 @@ $trackingHeaderSubtitle = isset($tracking_header_subtitle) && $tracking_header_s
                 <span class="trk-section-count" data-section-count="badgeBorradores">0</span>
             </div>
         </button>
-        <button type="button" class="trk-section-card" data-section-target="#tabRutas" data-section-load="rutas">
+        <button type="button" class="trk-section-card<?= $trackingInitialSection === 'rutas' ? ' active' : ''; ?>" data-section-target="#tabRutas" data-section-load="rutas">
             <div>
                 <span class="trk-section-icon"><i class="fa-solid fa-map-marked-alt"></i></span>
                 <div class="trk-section-title">Rutas registradas</div>
@@ -2010,7 +2296,7 @@ $trackingHeaderSubtitle = isset($tracking_header_subtitle) && $tracking_header_s
                 <span class="trk-section-count" data-section-count="badgeRutas">0</span>
             </div>
         </button>
-        <button type="button" class="trk-section-card" data-section-target="#tabCatalogosTracking" data-section-load="catalogos">
+        <button type="button" class="trk-section-card<?= $trackingInitialSection === 'catalogos' ? ' active' : ''; ?>" data-section-target="#tabCatalogosTracking" data-section-load="catalogos">
             <div>
                 <span class="trk-section-icon"><i class="fa-solid fa-building-user"></i></span>
                 <div class="trk-section-title">CEDIS y Transportistas</div>
@@ -2025,28 +2311,28 @@ $trackingHeaderSubtitle = isset($tracking_header_subtitle) && $tracking_header_s
 
     <ul class="nav nav-tabs track-tabs mb-3 d-none" id="trackMainTabs">
         <li class="nav-item">
-            <button class="nav-link active" id="tabCreditosBtn" data-bs-toggle="tab" data-bs-target="#tabCreditos">
+            <button class="nav-link<?= $trackingInitialSection === 'creditos' ? ' active' : ''; ?>" id="tabCreditosBtn" data-bs-toggle="tab" data-bs-target="#tabCreditos">
                 <i class="fa-solid fa-motorcycle me-1"></i>Pendientes de recoleccion
                 <span id="badgeCreditos" class="badge rounded-pill ms-1"
                       style="background:var(--track-color);font-size:.7rem;">0</span>
             </button>
         </li>
         <li class="nav-item">
-            <button class="nav-link" id="tabBorradorBtn" data-bs-toggle="tab" data-bs-target="#tabBorradores">
+            <button class="nav-link<?= $trackingInitialSection === 'borradores' ? ' active' : ''; ?>" id="tabBorradorBtn" data-bs-toggle="tab" data-bs-target="#tabBorradores">
                 <i class="fa-solid fa-file-pen me-1"></i>Borradores
                 <span id="badgeBorradores" class="badge rounded-pill ms-1"
                       style="background:var(--track-color);font-size:.7rem;">0</span>
             </button>
         </li>
         <li class="nav-item">
-            <button class="nav-link" id="tabRutasBtn" data-bs-toggle="tab" data-bs-target="#tabRutas">
+            <button class="nav-link<?= $trackingInitialSection === 'rutas' ? ' active' : ''; ?>" id="tabRutasBtn" data-bs-toggle="tab" data-bs-target="#tabRutas">
                 <i class="fa-solid fa-map-marked-alt me-1"></i>Rutas registradas
                 <span id="badgeRutas" class="badge rounded-pill ms-1"
                       style="background:var(--track-color);font-size:.7rem;">0</span>
             </button>
         </li>
         <li class="nav-item">
-            <button class="nav-link" id="tabCatalogosBtn" data-bs-toggle="tab" data-bs-target="#tabCatalogosTracking">
+            <button class="nav-link<?= $trackingInitialSection === 'catalogos' ? ' active' : ''; ?>" id="tabCatalogosBtn" data-bs-toggle="tab" data-bs-target="#tabCatalogosTracking">
                 <i class="fa-solid fa-building-user me-1"></i>CEDIS y transportistas
                 <span id="badgeCatalogos" class="badge rounded-pill ms-1"
                       style="background:var(--track-color);font-size:.7rem;">0</span>
@@ -2056,7 +2342,7 @@ $trackingHeaderSubtitle = isset($tracking_header_subtitle) && $tracking_header_s
 
     <div class="tab-content">
         <!-- == Tab: Creditos disponibles == -->
-        <div class="tab-pane fade show active" id="tabCreditos">
+        <div class="tab-pane fade<?= $trackingInitialSection === 'creditos' ? ' show active' : ''; ?>" id="tabCreditos">
 
             <!-- Filtros -->
             <div class="track-filters">
@@ -2108,17 +2394,50 @@ $trackingHeaderSubtitle = isset($tracking_header_subtitle) && $tracking_header_s
         </div>
 
         <!-- == Tab: Borradores == -->
-        <div class="tab-pane fade" id="tabBorradores">
+        <div class="tab-pane fade<?= $trackingInitialSection === 'borradores' ? ' show active' : ''; ?>" id="tabBorradores">
+            <div class="track-filters">
+                <div class="row g-2 align-items-end">
+                    <div class="col-12 col-sm-4 col-lg-3">
+                        <label class="form-label mb-1 small fw-semibold">Estado</label>
+                        <select class="form-select form-select-sm trk-select-buscable" id="trkFiltroEstadoBorradores">
+                            <option value="">Todos los estados</option>
+                        </select>
+                    </div>
+                    <div class="col-12 col-sm-4 col-lg-3">
+                        <label class="form-label mb-1 small fw-semibold">Municipio</label>
+                        <select class="form-select form-select-sm trk-select-buscable" id="trkFiltroMunicipioBorradores" disabled>
+                            <option value="">Todos los municipios</option>
+                        </select>
+                    </div>
+                    <div class="col-12 col-sm-4 col-lg-2">
+                        <button class="btn btn-sm w-100" id="btnFiltrarBorradores"
+                                style="background:var(--track-color);color:#fff;">
+                            <i class="fa-solid fa-search me-1"></i>Filtrar
+                        </button>
+                    </div>
+                    <div class="col-12 col-sm-4 col-lg-2">
+                        <button class="btn btn-sm btn-outline-secondary w-100" id="btnLimpiarFiltrosBorradores">
+                            <i class="fa-solid fa-eraser me-1"></i>Limpiar
+                        </button>
+                    </div>
+                </div>
+            </div>
             <div class="card border-0 shadow-sm">
-                <div class="card-header bg-white py-2">
-                    <div class="row g-2 align-items-center">
-                        <div class="col-12 col-md-5 col-lg-4 ms-auto">
-                            <div class="input-group input-group-sm">
-                                <span class="input-group-text"><i class="fa-solid fa-search"></i></span>
-                                <input type="search" class="form-control" id="trkBuscarBorradores"
-                                       placeholder="Buscar borrador..." autocomplete="off">
-                            </div>
-                        </div>
+                <div class="trk-table-toolbar">
+                    <div class="trk-table-length">
+                        <span>Mostrar</span>
+                        <select class="form-select form-select-sm" id="trkBorradoresLength" aria-label="Registros por pagina">
+                            <option value="10">10</option>
+                            <option value="25" selected>25</option>
+                            <option value="50">50</option>
+                            <option value="100">100</option>
+                        </select>
+                        <span>registros</span>
+                    </div>
+                    <div class="trk-table-search">
+                        <label class="mb-0" for="trkBuscarBorradores">Buscar:</label>
+                        <input type="search" class="form-control form-control-sm" id="trkBuscarBorradores"
+                               placeholder="Buscar borrador..." autocomplete="off">
                     </div>
                 </div>
                 <div class="card-body p-0">
@@ -2140,7 +2459,7 @@ $trackingHeaderSubtitle = isset($tracking_header_subtitle) && $tracking_header_s
         </div>
 
         <!-- == Tab: Rutas registradas == -->
-        <div class="tab-pane fade" id="tabRutas">
+        <div class="tab-pane fade<?= $trackingInitialSection === 'rutas' ? ' show active' : ''; ?>" id="tabRutas">
             <div class="card border-0 shadow-sm">
                 <div class="trk-rutas-toolbar">
                     <div>
@@ -2203,70 +2522,92 @@ $trackingHeaderSubtitle = isset($tracking_header_subtitle) && $tracking_header_s
         </div>
 
         <!-- Tab: CEDIS y transportistas -->
-        <div class="tab-pane fade" id="tabCatalogosTracking">
-            <div class="trk-catalog-grid">
-                <div class="trk-catalog-stat">
-                    <div class="stat-label">CEDIS activos</div>
-                    <div class="stat-value" id="statAgenciasTracking">0</div>
-                </div>
-                <div class="trk-catalog-stat">
-                    <div class="stat-label">Transportistas internos</div>
-                    <div class="stat-value" id="statTransportistasInternos">0</div>
-                </div>
-                <div class="trk-catalog-stat">
-                    <div class="stat-label">Transportistas externos</div>
-                    <div class="stat-value" id="statTransportistasExternos">0</div>
-                </div>
-                <div class="trk-catalog-stat">
-                    <div class="stat-label">Directorio total</div>
-                    <div class="stat-value" id="statCatalogoTotal">0</div>
-                </div>
-            </div>
-
-            <div class="row g-3">
-                <div class="col-12 col-xl-5">
-                    <div class="card border-0 shadow-sm h-100">
-                        <div class="card-header bg-white fw-semibold py-2">
-                            <i class="fa-solid fa-location-dot me-1" style="color:var(--track-color);"></i>CEDIS
-                        </div>
-                        <div class="card-body p-0">
-                            <div class="table-responsive">
-                                <table id="tablaAgenciasTracking" class="table table-hover table-bordered mb-0 w-100" style="font-size:.8rem;">
-                                    <thead>
-                                        <tr>
-                                            <th>CEDIS</th>
-                                            <th>Ubicacion</th>
-                                            <th>Contacto</th>
-                                            <th>Horario</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody></tbody>
-                                </table>
-                            </div>
-                        </div>
+        <div class="tab-pane fade<?= $trackingInitialSection === 'catalogos' ? ' show active' : ''; ?>" id="tabCatalogosTracking">
+            <div class="trk-catalog-shell">
+                <div class="trk-catalog-hero">
+                    <div>
+                        <div class="trk-catalog-eyebrow">Directorio operativo</div>
+                        <h5 class="mb-1">CEDIS y transportistas</h5>
+                        <div class="text-muted small">Administra centros de destino y operadores para asignacion de rutas.</div>
+                    </div>
+                    <div class="trk-catalog-actions">
+                        <button type="button" class="btn btn-primary btn-sm fw-semibold" id="btnNuevoCedisTracking">
+                            <i class="fa-solid fa-plus me-1"></i>Registrar CEDIS <i class="fa-solid fa-warehouse ms-1"></i>
+                        </button>
+                        <button type="button" class="btn btn-primary btn-sm fw-semibold" id="btnNuevoTransportistaTracking">
+                            <i class="fa-solid fa-plus me-1"></i>Registrar Transportista <i class="fa-solid fa-id-card-clip ms-1"></i>
+                        </button>
                     </div>
                 </div>
-                <div class="col-12 col-xl-7">
-                    <div class="card border-0 shadow-sm h-100">
-                        <div class="card-header bg-white fw-semibold py-2">
-                            <i class="fa-solid fa-id-card-clip me-1" style="color:var(--track-color);"></i>Transportistas
-                        </div>
-                        <div class="card-body p-0">
-                            <div class="table-responsive">
-                                <table id="tablaTransportistasTracking" class="table table-hover table-bordered mb-0 w-100" style="font-size:.8rem;">
-                                    <thead>
-                                        <tr>
-                                            <th>Nombre</th>
-                                            <th>Tipo</th>
-                                            <th>CEDIS / empresa</th>
-                                            <th>Contacto</th>
-                                            <th>Puesto</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody></tbody>
-                                </table>
-                            </div>
-                        </div>
+
+                <div class="trk-catalog-grid">
+                    <div class="trk-catalog-stat">
+                        <div class="stat-label">CEDIS activos</div>
+                        <div class="stat-value" id="statAgenciasTracking">0</div>
+                    </div>
+                    <div class="trk-catalog-stat">
+                        <div class="stat-label">Transportistas internos</div>
+                        <div class="stat-value" id="statTransportistasInternos">0</div>
+                    </div>
+                    <div class="trk-catalog-stat">
+                        <div class="stat-label">Transportistas externos</div>
+                        <div class="stat-value" id="statTransportistasExternos">0</div>
+                    </div>
+                    <div class="trk-catalog-stat">
+                        <div class="stat-label">Directorio total</div>
+                        <div class="stat-value" id="statCatalogoTotal">0</div>
+                    </div>
+                </div>
+
+                <div class="trk-catalog-toolbar">
+                    <div class="input-group input-group-sm trk-catalog-search">
+                        <span class="input-group-text"><i class="fa-solid fa-search"></i></span>
+                        <input type="search" class="form-control" id="trkCatalogoBuscar"
+                               placeholder="Buscar CEDIS, transportista, empresa, estado..." autocomplete="off">
+                    </div>
+                    <div class="btn-group" role="group" aria-label="Vista catalogos">
+                        <button type="button" class="btn btn-sm <?= $trackingCatalogoDefaultView === 'directorio' ? 'btn-label-primary active' : 'btn-label-secondary'; ?> trk-catalog-view" data-view="directorio">
+                            <i class="fa-solid fa-table-cells-large me-1"></i>Directorio
+                        </button>
+                        <button type="button" class="btn btn-sm <?= $trackingCatalogoDefaultView === 'agrupado' ? 'btn-label-primary active' : 'btn-label-secondary'; ?> trk-catalog-view" data-view="agrupado">
+                            <i class="fa-solid fa-layer-group me-1"></i>Agrupado por CEDIS
+                        </button>
+                        <button type="button" class="btn btn-sm <?= $trackingCatalogoDefaultView === 'tabla' ? 'btn-label-primary active' : 'btn-label-secondary'; ?> trk-catalog-view" data-view="tabla">
+                            <i class="fa-solid fa-table-list me-1"></i>Tabla
+                        </button>
+                    </div>
+                </div>
+
+                <div id="trkCatalogoDirectorio" class="trk-catalog-list<?= $trackingCatalogoDefaultView !== 'directorio' ? ' d-none' : ''; ?>"></div>
+                <div id="trkCatalogoAgrupado" class="trk-catalog-grouped<?= $trackingCatalogoDefaultView !== 'agrupado' ? ' d-none' : ''; ?>"></div>
+                <div id="trkCatalogoTabla" class="trk-catalog-table<?= $trackingCatalogoDefaultView !== 'tabla' ? ' d-none' : ''; ?>">
+                    <div class="table-responsive">
+                        <table id="tablaAgenciasTracking" class="table table-hover mb-0 w-100 trk-operacion-table" style="font-size:.82rem;">
+                            <thead>
+                                <tr>
+                                    <th>CEDIS</th>
+                                    <th>Ubicacion</th>
+                                    <th>Contacto</th>
+                                    <th>Estado</th>
+                                    <th>Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody></tbody>
+                        </table>
+                    </div>
+                    <div class="table-responsive mt-3">
+                        <table id="tablaTransportistasTracking" class="table table-hover mb-0 w-100 trk-operacion-table" style="font-size:.82rem;">
+                            <thead>
+                                <tr>
+                                    <th>Transportista</th>
+                                    <th>Tipo</th>
+                                    <th>CEDIS / empresa</th>
+                                    <th>Contacto</th>
+                                    <th>Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody></tbody>
+                        </table>
                     </div>
                 </div>
             </div>
@@ -2274,6 +2615,169 @@ $trackingHeaderSubtitle = isset($tracking_header_subtitle) && $tracking_header_s
     </div><!-- /tab-content -->
 
 </div><!-- /container-fluid -->
+
+<!-- ==========================================================
+     Modal  -  CEDIS tracking
+========================================================== -->
+<div class="modal fade" id="modalCedisTracking" tabindex="-1" aria-labelledby="modalCedisTrackingLabel">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header py-2">
+                <h6 class="modal-title mb-0" id="modalCedisTrackingLabel">
+                    <i class="fa-solid fa-warehouse me-2" style="color:var(--track-color);"></i>Registrar CEDIS
+                </h6>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="cedisIdTracking" value="">
+                <div class="row g-2">
+                    <div class="col-12 col-md-8">
+                        <label class="form-label small fw-semibold">Nombre CEDIS *</label>
+                        <input type="text" class="form-control form-control-sm" id="cedisNombreTracking" maxlength="150">
+                    </div>
+                    <div class="col-12 col-md-4">
+                        <label class="form-label small fw-semibold">Clave</label>
+                        <input type="text" class="form-control form-control-sm" id="cedisClaveTracking" maxlength="80" placeholder="Auto">
+                    </div>
+                    <div class="col-12">
+                        <label class="form-label small fw-semibold">Direccion</label>
+                        <input type="text" class="form-control form-control-sm" id="cedisDireccionTracking" maxlength="255">
+                    </div>
+                    <div class="col-12 col-md-4">
+                        <label class="form-label small fw-semibold">Estado</label>
+                        <input type="text" class="form-control form-control-sm" id="cedisEstadoTracking" maxlength="100">
+                    </div>
+                    <div class="col-12 col-md-4">
+                        <label class="form-label small fw-semibold">Municipio</label>
+                        <input type="text" class="form-control form-control-sm" id="cedisMunicipioTracking" maxlength="120">
+                    </div>
+                    <div class="col-12 col-md-4">
+                        <label class="form-label small fw-semibold">Codigo postal</label>
+                        <input type="text" class="form-control form-control-sm" id="cedisCpTracking" maxlength="10">
+                    </div>
+                    <div class="col-12 col-md-6">
+                        <label class="form-label small fw-semibold">Latitud</label>
+                        <input type="number" step="any" class="form-control form-control-sm" id="cedisLatTracking">
+                    </div>
+                    <div class="col-12 col-md-6">
+                        <label class="form-label small fw-semibold">Longitud</label>
+                        <input type="number" step="any" class="form-control form-control-sm" id="cedisLngTracking">
+                    </div>
+                    <div class="col-12">
+                        <label class="form-label small fw-semibold">Link Google Maps</label>
+                        <input type="url" class="form-control form-control-sm" id="cedisLinkTracking" maxlength="1000">
+                        <div class="form-text small" id="cedisLinkCoordStatus"></div>
+                    </div>
+                    <div class="col-12 col-md-4">
+                        <label class="form-label small fw-semibold">Telefono</label>
+                        <input type="text" class="form-control form-control-sm" id="cedisTelefonoTracking" maxlength="30">
+                    </div>
+                    <div class="col-12 col-md-4">
+                        <label class="form-label small fw-semibold">Encargado</label>
+                        <input type="text" class="form-control form-control-sm" id="cedisEncargadoTracking" maxlength="150">
+                    </div>
+                    <div class="col-12 col-md-4">
+                        <label class="form-label small fw-semibold">Email</label>
+                        <input type="email" class="form-control form-control-sm" id="cedisEmailTracking" maxlength="150">
+                    </div>
+                    <div class="col-12">
+                        <label class="form-label small fw-semibold">Horario</label>
+                        <input type="text" class="form-control form-control-sm" id="cedisHorarioTracking" maxlength="1000">
+                    </div>
+                    <div class="col-12">
+                        <div class="form-check form-switch mt-1">
+                            <input class="form-check-input" type="checkbox" id="cedisActivoTracking" checked>
+                            <label class="form-check-label small" for="cedisActivoTracking">Activo</label>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer py-2">
+                <button type="button" class="btn btn-sm btn-label-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-sm btn-primary" id="btnGuardarCedisTracking">
+                    <i class="fa-solid fa-floppy-disk me-1"></i>Guardar CEDIS
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ==========================================================
+     Modal  -  Transportista tracking
+========================================================== -->
+<div class="modal fade" id="modalTransportistaTracking" tabindex="-1" aria-labelledby="modalTransportistaTrackingLabel">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header py-2">
+                <h6 class="modal-title mb-0" id="modalTransportistaTrackingLabel">
+                    <i class="fa-solid fa-id-card-clip me-2" style="color:var(--track-color);"></i>Registrar Transportista
+                </h6>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="transportistaIdTracking" value="">
+                <div class="row g-2">
+                    <div class="col-12 col-md-8">
+                        <label class="form-label small fw-semibold">Nombre transportista *</label>
+                        <input type="text" class="form-control form-control-sm" id="transportistaNombreTracking" maxlength="180">
+                    </div>
+                    <div class="col-12 col-md-4">
+                        <label class="form-label small fw-semibold">Tipo</label>
+                        <select class="form-select form-select-sm" id="transportistaTipoTracking" disabled>
+                            <option value="interno">Interno</option>
+                            <option value="externo">Externo</option>
+                        </select>
+                    </div>
+                    <div class="col-12 col-md-6">
+                        <label class="form-label small fw-semibold">CEDIS asignado</label>
+                        <select class="form-select form-select-sm" id="transportistaCedisTracking"></select>
+                        <div class="form-text small">LOMAS y TLALNEPANTLA asignan tipo Interno; el resto asigna Externo.</div>
+                    </div>
+                    <div class="col-12 col-md-6">
+                        <label class="form-label small fw-semibold">Empresa origen</label>
+                        <input type="text" class="form-control form-control-sm" id="transportistaEmpresaTracking" maxlength="180">
+                    </div>
+                    <div class="col-12 col-md-4">
+                        <label class="form-label small fw-semibold">CURP / RFC</label>
+                        <input type="text" class="form-control form-control-sm" id="transportistaCurpTracking" maxlength="25">
+                    </div>
+                    <div class="col-12 col-md-4">
+                        <label class="form-label small fw-semibold">Telefono</label>
+                        <input type="text" class="form-control form-control-sm" id="transportistaTelefonoTracking" maxlength="30">
+                    </div>
+                    <div class="col-12 col-md-4">
+                        <label class="form-label small fw-semibold">Puesto</label>
+                        <input type="text" class="form-control form-control-sm" id="transportistaPuestoTracking" maxlength="120">
+                    </div>
+                    <div class="col-12 col-md-6">
+                        <label class="form-label small fw-semibold">Email</label>
+                        <input type="email" class="form-control form-control-sm" id="transportistaEmailTracking" maxlength="150">
+                    </div>
+                    <div class="col-12 col-md-3">
+                        <label class="form-label small fw-semibold">Usuario</label>
+                        <input type="text" class="form-control form-control-sm" id="transportistaUsernameTracking" maxlength="60" placeholder="Auto">
+                    </div>
+                    <div class="col-12 col-md-3">
+                        <label class="form-label small fw-semibold">Password</label>
+                        <input type="text" class="form-control form-control-sm" id="transportistaPasswordTracking" maxlength="255" placeholder="Solo si cambia">
+                    </div>
+                    <div class="col-12">
+                        <div class="form-check form-switch mt-1">
+                            <input class="form-check-input" type="checkbox" id="transportistaActivoTracking" checked>
+                            <label class="form-check-label small" for="transportistaActivoTracking">Activo</label>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer py-2">
+                <button type="button" class="btn btn-sm btn-label-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-sm btn-primary" id="btnGuardarTransportistaTracking">
+                    <i class="fa-solid fa-floppy-disk me-1"></i>Guardar Transportista
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
 
 <!-- ==========================================================
      Modal  -  Registrar / editar ruta
@@ -2301,6 +2805,7 @@ $trackingHeaderSubtitle = isset($tracking_header_subtitle) && $tracking_header_s
                         </label>
                         <input type="text" class="form-control form-control-sm"
                                id="rutaNombre" maxlength="100" placeholder="Ej. Ruta GDL Norte Junio">
+                        <div class="form-text small mt-1" id="rutaNombreStatus"></div>
                     </div>
                     <div class="col-12 col-md-4">
                         <label class="form-label small fw-semibold">
@@ -2524,9 +3029,6 @@ $trackingHeaderSubtitle = isset($tracking_header_subtitle) && $tracking_header_s
                             style="display:none;">
                         <i class="icon-base bx bx-refresh icon-sm me-1"></i>Actualizar ruta
                     </button>
-                    <button type="button" class="btn btn-label-secondary btn-sm" id="btnGuardarBorrador">
-                        <i class="icon-base bx bx-save icon-sm me-1"></i>Guardar borrador
-                    </button>
                     <button type="button" class="btn btn-success btn-sm" id="btnEnviarRuta">
                         <i class="icon-base bx bx-send icon-sm me-1"></i>Enviar ruta
                     </button>
@@ -2568,15 +3070,15 @@ $trackingHeaderSubtitle = isset($tracking_header_subtitle) && $tracking_header_s
             <div class="modal-header py-2" style="background:var(--track-color-dark);color:#fff;">
                 <h6 class="modal-title mb-0">
                     <i class="fa-solid fa-map-pin me-2"></i>
-                    Seleccionar ubicacion en el mapa
+                    Asignar ubicacion manual del credito
                 </h6>
                 <button type="button" class="btn-close" id="btnCerrarMapPicker" style="filter:invert(1);"></button>
             </div>
             <div class="modal-body p-2">
                 <p class="small text-muted mb-2 px-1">
                     <i class="fa-solid fa-circle-info me-1"></i>
-                    Haz clic en el mapa para colocar el pin de la ubicacion del credito
-                    <strong id="mapPickerCreditoLabel"></strong>.
+                    Busca una direccion o haz clic en el mapa para colocar el pin del credito
+                    <strong id="mapPickerCreditoLabel"></strong>. Al confirmar o cancelar volveras a la ruta.
                 </p>
                 <div class="input-group input-group-sm mb-2" id="mapPickerSearchWrap">
                     <span class="input-group-text bg-white">
@@ -2599,6 +3101,10 @@ $trackingHeaderSubtitle = isset($tracking_header_subtitle) && $tracking_header_s
                         <i class="fa-solid fa-map-location-dot me-1" style="color:var(--track-color);"></i>
                         <span id="mapPickerEstadoMun"> - </span>
                     </div>
+                    <div id="mapPickerDireccionWrap" class="small text-muted mt-1 d-none">
+                        <i class="fa-solid fa-location-dot me-1" style="color:var(--track-color);"></i>
+                        <span id="mapPickerDireccionCompleta"> - </span>
+                    </div>
                 </div>
             </div>
             <div class="modal-footer py-2 d-flex justify-content-between">
@@ -2608,6 +3114,44 @@ $trackingHeaderSubtitle = isset($tracking_header_subtitle) && $tracking_header_s
                 <button type="button" class="btn btn-sm" id="btnConfirmarMapPicker"
                         style="background:var(--track-color);color:#fff;" disabled>
                     <i class="fa-solid fa-check me-1"></i>Confirmar ubicacion
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ==========================================================
+     Modal  -  Agregar credito a ruta existente
+========================================================== -->
+<div class="modal fade" id="modalAgregarCreditoRuta" tabindex="-1" aria-labelledby="modalAgregarCreditoRutaLabel">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header py-2">
+                <h6 class="modal-title mb-0" id="modalAgregarCreditoRutaLabel">
+                    <i class="fa-solid fa-plus me-2" style="color:var(--track-color);"></i>
+                    Agregar credito a ruta existente
+                </h6>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <div class="modal-body">
+                <div class="trk-quick-credit-summary mb-3" id="trkQuickCreditSummary"></div>
+                <div class="d-flex align-items-center justify-content-between mb-2">
+                    <span class="small fw-semibold text-muted">Rutas disponibles para esta ubicacion</span>
+                    <span class="badge bg-label-primary" id="trkQuickRoutesCount">0</span>
+                </div>
+                <div class="row g-2 align-items-end mb-3">
+                    <div class="col-12 col-md-6">
+                        <label class="form-label small fw-semibold mb-1">Filtrar rutas por estado</label>
+                        <select class="form-select form-select-sm" id="trkQuickFiltroEstado">
+                            <option value="">Todos los estados</option>
+                        </select>
+                    </div>
+                </div>
+                <div id="trkQuickRoutesList" class="trk-quick-routes-list"></div>
+            </div>
+            <div class="modal-footer py-2">
+                <button type="button" class="btn btn-sm btn-label-secondary" data-bs-dismiss="modal">
+                    <i class="fa-solid fa-xmark me-1"></i>Cancelar
                 </button>
             </div>
         </div>
@@ -2709,7 +3253,9 @@ window._trackingChatWsBaseUrl   = <?= json_encode((string)($tracking_chat_ws_bas
 window._trackingApiBaseUrl      = <?= json_encode((string)($tracking_api_base_url ?? '')) ?>;
 window._trackingChatGestorNombre = <?= json_encode(trim((string)($_SESSION['usuario_nombre'] ?? 'Gestor'))) ?>;
 window._trackingDiasMinimosProgramacion = <?= json_encode((int)($tracking_dias_minimos_programacion ?? 2)) ?>;
-window._trackingInitialSection = <?= json_encode((string)($tracking_initial_section ?? 'creditos')) ?>;
+window._trackingInitialSection = <?= json_encode($trackingInitialSection) ?>;
+window._trackingVisibleSections = <?= json_encode(array_values($trackingVisibleSections ?? [])) ?>;
+window._trackingCatalogoDefaultView = <?= json_encode($trackingCatalogoDefaultView) ?>;
 </script>
 <!-- SortableJS (drag-and-drop sin jQuery UI) -->
 <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.2/Sortable.min.js"></script>
@@ -2723,6 +3269,7 @@ window._trackingInitialSection = <?= json_encode((string)($tracking_initial_sect
 // --- Estado local ---------------------------------------
 const _trk = {
     creditosDisponibles:  [],   // todos los creditos disponibles del servidor
+    creditosFiltroBase:   [],   // base real para armar filtros estado/municipio
     creditosEnRuta:       [],   // creditos actualmente en el modal
     agenciasTracking:     [],
     transportistasTracking: [],
@@ -2734,11 +3281,23 @@ const _trk = {
     rutasPagina:          1,
     rutasPorPagina:       18,
     borradoresBusqueda:   '',
+    borradoresData:       [],
+    borradoresFiltroEstado: '',
+    borradoresFiltroMunicipio: '',
+    quickAddCredito:      null,
+    quickAddEstado:       '',
+    catalogoVista:        ['directorio', 'agrupado', 'tabla'].includes(window._trackingCatalogoDefaultView) ? window._trackingCatalogoDefaultView : 'directorio',
+    catalogoBusqueda:     '',
     cargadoEstados:       false,
     cargadoCreditos:      false,
     cargadoCatalogos:     false,
     cargadoBorradores:    false,
     cargadoRutas:         false,
+    syncStarted:          false,
+    syncTimers:           [],
+    syncInFlight:         {},
+    syncLastAt:           0,
+    syncLoaderActivo:     false,
     chatUnreadPorRuta:    {},
     trackingApiDisponible:true,
     trackingApiRetryAt:   0,
@@ -2755,6 +3314,11 @@ const _trk = {
     autosaveLastHash:     '',
     autosaveStatusTimer:  null,
     autosaveDirtyLists:   false,
+    nombreRutaCheckTimer: null,
+    nombreRutaCheckSeq:   0,
+    nombreRutaValidando:  false,
+    nombreRutaDisponible: null,
+    nombreRutaUltimoValor:'',
     tablaCreditosDT:      null,
     tablaRutasDT:         null,
     tablaRutasBorradorDT: null,
@@ -2848,6 +3412,8 @@ function _trkInicializarSelectBuscable(selector, opts = {}) {
 function _trkInicializarSelectsBuscables() {
     _trkInicializarSelectBuscable('#filtroEstado', { placeholder: 'Todos los estados', allowClear: true });
     _trkInicializarSelectBuscable('#filtroMunicipio', { placeholder: 'Todos los municipios', allowClear: true });
+    _trkInicializarSelectBuscable('#trkFiltroEstadoBorradores', { placeholder: 'Todos los estados', allowClear: true });
+    _trkInicializarSelectBuscable('#trkFiltroMunicipioBorradores', { placeholder: 'Todos los municipios', allowClear: true });
     _trkInicializarSelectBuscable('#crdFiltroEstado', {
         placeholder: 'Todos los estados',
         allowClear: true,
@@ -2887,6 +3453,107 @@ function _trkSetBadge(id, value) {
     document.querySelectorAll(`[data-section-count="${id}"]`).forEach(el => { el.textContent = text; });
 }
 
+function _trkSeccionesSincronizables() {
+    const visibles = Array.isArray(window._trackingVisibleSections)
+        ? window._trackingVisibleSections.filter(Boolean)
+        : [];
+    if (visibles.length) return [...new Set(visibles)];
+    return ['creditos', 'borradores', 'rutas', 'catalogos'];
+}
+
+function _trkPuedeSincronizarAhora() {
+    if (document.querySelector('.modal.show')) return false;
+    return document.visibilityState !== 'hidden';
+}
+
+function _trkCargarSeccion(key, opts = {}) {
+    const force = !!opts.force;
+    const silent = !!opts.silent;
+    if (_trk.syncInFlight[key]) return _trk.syncInFlight[key];
+    let task;
+    if (key === 'creditos') {
+        task = force
+            ? _trkCargarCreditosPaso2(silent)
+            : _trkCargarCreditosSiHaceFalta(silent);
+    } else if (key === 'borradores') {
+        task = force
+            ? _trkCargarBorradores(silent)
+            : _trkCargarBorradoresSiHaceFalta(silent);
+    } else if (key === 'rutas') {
+        task = force
+            ? _trkCargarRutas(silent)
+            : _trkCargarRutasSiHaceFalta(silent);
+    } else if (key === 'catalogos') {
+        task = (force ? _trkCargarCatalogoAgenciasTransportistas(silent) : _trkCargarCatalogosSiHaceFalta(silent))
+            .then(() => _trkRenderCatalogosTracking());
+    } else {
+        task = Promise.resolve();
+    }
+    _trk.syncInFlight[key] = Promise.resolve(task)
+        .catch(err => {
+            if (!silent) console.warn('[Tracking Recoleccion] No se pudo cargar seccion', key, err);
+        })
+        .finally(() => { delete _trk.syncInFlight[key]; });
+    return _trk.syncInFlight[key];
+}
+
+function _trkAbrirLoaderSincronizacion() {
+    if (typeof Swal === 'undefined') return false;
+    _trk.syncLoaderActivo = true;
+    Swal.fire({
+        title: 'Sincronizando tracking...',
+        html: '<span style="font-size:.875rem;color:#64748b;">Cargando pestanas, contadores y datos recientes del modulo.</span>',
+        allowOutsideClick: false,
+        allowEscapeKey: false,
+        showConfirmButton: false,
+        didOpen: () => Swal.showLoading(),
+    });
+    return true;
+}
+
+function _trkCerrarLoaderSincronizacion() {
+    if (!_trk.syncLoaderActivo) return;
+    _trk.syncLoaderActivo = false;
+    if (typeof Swal !== 'undefined' && Swal.isVisible()) {
+        Swal.close();
+    }
+}
+
+function _trkSincronizarSecciones(reason = 'auto', force = true, showLoader = false) {
+    if (!_trkPuedeSincronizarAhora()) return Promise.resolve();
+    const secciones = _trkSeccionesSincronizables();
+    const usarLoader = showLoader && secciones.length > 0 && _trkAbrirLoaderSincronizacion();
+    _trk.syncLastAt = Date.now();
+    const tasks = secciones.map((key, idx) => new Promise(resolve => {
+        setTimeout(() => {
+            _trkCargarSeccion(key, { force, silent: true }).finally(resolve);
+        }, idx * 500);
+    }));
+    return Promise.allSettled(tasks).then(() => {
+        console.info(`[Tracking Recoleccion] Sincronizacion ${reason}: ${secciones.join(', ')}`);
+    }).finally(() => {
+        if (usarLoader) _trkCerrarLoaderSincronizacion();
+    });
+}
+
+function _trkIniciarSincronizacionAutomatica() {
+    if (_trk.syncStarted) return;
+    _trk.syncStarted = true;
+    setTimeout(() => _trkSincronizarSecciones('inicial', false, true), 250);
+    _trk.syncTimers.push(setInterval(() => _trkSincronizarSecciones('periodica'), 60000));
+    document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState !== 'visible') return;
+        if (Date.now() - (_trk.syncLastAt || 0) > 30000) {
+            _trkSincronizarSecciones('visible');
+        }
+    });
+    window.addEventListener('focus', () => {
+        if (Date.now() - (_trk.syncLastAt || 0) > 30000) {
+            _trkSincronizarSecciones('focus');
+        }
+    });
+}
+
 document.addEventListener('DOMContentLoaded', function () {
     _trkInicializarFiltros();
     _trkInicializarSelectsBuscables();
@@ -2896,6 +3563,7 @@ document.addEventListener('DOMContentLoaded', function () {
     _trkInicializarTablasCatalogosDT();
     _trkInicializarRutasVista();
     _trkInicializarBusquedasRutas();
+    _trkInicializarCatalogosTrackingUI();
     _trkInicializarModal();
 
     // Observar cambios de clase en body para refrescar controles del mapa
@@ -2913,16 +3581,16 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     }).observe(document.body, { attributeFilter: ['class'] });
 
-    document.getElementById('tabRutasBtn').addEventListener('click', () => _trkCargarRutasSiHaceFalta());
-    document.getElementById('tabBorradorBtn').addEventListener('click', () => _trkCargarBorradoresSiHaceFalta());
-    document.getElementById('tabCatalogosBtn').addEventListener('click', () => _trkCargarCatalogosSiHaceFalta().then(() => _trkRenderCatalogosTracking()));
+    document.getElementById('tabRutasBtn').addEventListener('click', () => _trkCargarSeccion('rutas'));
+    document.getElementById('tabBorradorBtn').addEventListener('click', () => _trkCargarSeccion('borradores'));
+    document.getElementById('tabCatalogosBtn').addEventListener('click', () => _trkCargarSeccion('catalogos'));
     document.getElementById('btnToggleChatMap')?.addEventListener('click', () => _trkToggleChatMapPanel());
     document.getElementById('trkSectionGrid')?.addEventListener('click', ev => {
         const btn = ev.target.closest('.trk-section-card');
         if (!btn) return;
         _trkActivarSeccion(btn.dataset.sectionTarget, btn.dataset.sectionLoad);
     });
-    document.getElementById('btnNuevaRuta').addEventListener('click', () => _trkAbrirModalNuevo());
+    document.getElementById('btnNuevaRuta')?.addEventListener('click', () => _trkAbrirModalNuevo());
     const initialMap = {
         creditos: ['#tabCreditos', 'creditos'],
         borradores: ['#tabBorradores', 'borradores'],
@@ -2931,6 +3599,7 @@ document.addEventListener('DOMContentLoaded', function () {
     };
     const initial = initialMap[window._trackingInitialSection] || initialMap.creditos;
     _trkActivarSeccion(initial[0], initial[1]);
+    _trkIniciarSincronizacionAutomatica();
 
     // Validacion estricta del input de minutos
     const $horaM = document.getElementById('rutaHoraM');
@@ -2990,34 +3659,14 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     });
 
-    // La seccion activa carga sus datos bajo demanda.
+    // La seccion activa carga sus datos bajo demanda y el resto se sincroniza en segundo plano.
 });
 
 // --- Filtros ---------------------------------------------
 function _trkInicializarFiltros() {
     $('#filtroEstado').on('change', function () {
         const est = $(this).val();
-        const $mun = $('#filtroMunicipio');
-        $mun.html('<option value=""> -  Cargando...  - </option>').prop('disabled', true);
-        _trkRefrescarSelectBuscable('#filtroMunicipio');
-        if (!est) {
-            $mun.html('<option value=""> -  Todos los municipios  - </option>').prop('disabled', true);
-            _trkRefrescarSelectBuscable('#filtroMunicipio');
-            return;
-        }
-        trkFetch(`/TrackingRecoleccion/obtenerMunicipios?estado=${encodeURIComponent(est)}`)
-            .then(r => {
-                $mun.html('<option value=""> -  Todos los municipios  - </option>');
-                (r.datos || []).forEach(m => {
-                    $mun.append(`<option value="${m}">${m}</option>`);
-                });
-                $mun.prop('disabled', false);
-                _trkRefrescarSelectBuscable('#filtroMunicipio');
-            })
-            .catch(() => {
-                $mun.html('<option value=""> -  Error  - </option>');
-                _trkRefrescarSelectBuscable('#filtroMunicipio');
-            });
+        _trkPoblarFiltroMunicipiosPrincipales(est);
     });
 
     $('#btnFiltrarCreditos').on('click', function () {
@@ -3027,24 +3676,82 @@ function _trkInicializarFiltros() {
 
     $('#btnLimpiarFiltros').on('click', function () {
         $('#filtroEstado').val('').trigger('change.select2');
-        $('#filtroMunicipio').html('<option value=""> -  Todos los municipios  - </option>').prop('disabled', true);
-        _trkRefrescarSelectBuscable('#filtroMunicipio');
+        _trkPoblarFiltroMunicipiosPrincipales('');
+        _trkCargarEstados(true);
         _trkCargarCreditosPaso2();
     });
 }
 
-function _trkCargarEstados() {
-    if (_trk.cargadoEstados) return Promise.resolve();
-    return trkFetch('/TrackingRecoleccion/obtenerEstados')
+function _trkCreditoTieneUbicacionFiltro(c, requiereMunicipio = false) {
+    const estado = _trkEstadoCanonico(c?.estado, c?.municipio) || String(c?.estado || '').trim();
+    const municipio = String(c?.municipio || '').trim();
+    if (!estado) return false;
+    if (String(estado).toUpperCase().startsWith('SIN ESTADO')) return false;
+    if (['NA', 'N/A', 'SIN ESTADO', 'SIN UBICACION', 'NO DISPONIBLE'].includes(_trkNormTxt(estado))) return false;
+    if (requiereMunicipio && !municipio) return false;
+    if (requiereMunicipio && ['NA', 'N/A', 'SIN MUNICIPIO', 'NO DISPONIBLE'].includes(_trkNormTxt(municipio))) return false;
+    return true;
+}
+
+function _trkPoblarFiltroEstadosPrincipales(creditos) {
+    const actual = $('#filtroEstado').val();
+    const conteo = new Map();
+    (creditos || []).forEach(c => {
+        if (!_trkCreditoTieneUbicacionFiltro(c, true)) return;
+        const estado = _trkEstadoCanonico(c.estado, c.municipio) || String(c.estado || '').trim();
+        conteo.set(estado, (conteo.get(estado) || 0) + 1);
+    });
+    const estados = [...conteo.keys()].sort((a, b) => a.localeCompare(b));
+    const $selFiltro = $('#filtroEstado');
+    $selFiltro.html('<option value="">Todos los estados</option>');
+    estados.forEach(e => {
+        $selFiltro.append(`<option value="${_trkChatEscapeHtml(e)}">${_trkChatEscapeHtml(e)} - (${conteo.get(e)})</option>`);
+    });
+    if (actual && estados.some(e => _trkMismaUbicacion(e, actual))) {
+        $selFiltro.val(actual);
+    } else {
+        $selFiltro.val('');
+    }
+    _trkRefrescarSelectBuscable('#filtroEstado');
+    _trkPoblarFiltroMunicipiosPrincipales($selFiltro.val());
+}
+
+function _trkPoblarFiltroMunicipiosPrincipales(estado) {
+    const actual = $('#filtroMunicipio').val();
+    const $mun = $('#filtroMunicipio');
+    $mun.html('<option value="">Todos los municipios</option>');
+    if (!estado) {
+        $mun.val('').prop('disabled', true);
+        _trkRefrescarSelectBuscable('#filtroMunicipio');
+        return;
+    }
+    const conteo = new Map();
+    (_trk.creditosFiltroBase || []).forEach(c => {
+        if (!_trkCreditoTieneUbicacionFiltro(c, true)) return;
+        if (!_trkMismaUbicacionEstado(c.estado, estado, c.municipio)) return;
+        const municipio = _trkMunicipioFiltroCanonico(c.municipio, c.estado);
+        if (!municipio) return;
+        conteo.set(municipio, (conteo.get(municipio) || 0) + 1);
+    });
+    const municipios = [...conteo.keys()].sort((a, b) => a.localeCompare(b));
+    municipios.forEach(m => {
+        $mun.append(`<option value="${_trkChatEscapeHtml(m)}">${_trkChatEscapeHtml(m)} - (${conteo.get(m)})</option>`);
+    });
+    if (actual && municipios.some(m => _trkMismaUbicacion(m, actual))) {
+        $mun.val(actual);
+    } else {
+        $mun.val('');
+    }
+    $mun.prop('disabled', municipios.length === 0);
+    _trkRefrescarSelectBuscable('#filtroMunicipio');
+}
+
+function _trkCargarEstados(force = false) {
+    if (_trk.cargadoEstados && !force) return Promise.resolve();
+    return trkFetch('/TrackingRecoleccion/obtenerCreditosPaso2')
         .then(r => {
-            const estados = [...new Set((r.datos || [])
-                .map(e => _trkEstadoCanonico(e))
-                .filter(Boolean))]
-                .sort((a, b) => a.localeCompare(b));
-            const $selFiltro = $('#filtroEstado');
-            $selFiltro.find('option:not(:first)').remove();
-            estados.forEach(e => $selFiltro.append(`<option value="${e}">${e}</option>`));
-            _trkRefrescarSelectBuscable('#filtroEstado');
+            _trk.creditosFiltroBase = r.datos || [];
+            _trkPoblarFiltroEstadosPrincipales(_trk.creditosFiltroBase);
             _trk.cargadoEstados = true;
         });
 }
@@ -3052,12 +3759,26 @@ function _trkCargarEstados() {
 // --- Tabla de creditos ----------------------------------
 function _trkRenderLocationBadges(estado, municipio) {
     const est = _trkEstadoCanonico(estado, municipio) || String(estado || '').trim();
-    const mun = String(municipio || '').trim();
+    const mun = _trkMunicipioFiltroCanonico(municipio, est || estado);
     if (!est && !mun) return ' - ';
     const parts = [];
     if (est) parts.push(`<span class="trk-loc-badge trk-loc-estado" title="Estado">${_trkChatEscapeHtml(est)}</span>`);
     if (mun) parts.push(`<span class="trk-loc-badge trk-loc-municipio" title="Municipio">${_trkChatEscapeHtml(mun)}</span>`);
     return `<span class="trk-location-badges">${parts.join('')}</span>`;
+}
+
+function _trkDireccionCredito(c) {
+    return String(c?.direccion_google || c?.direccion || '').trim();
+}
+
+function _trkRenderDireccionCredito(c) {
+    const direccion = _trkDireccionCredito(c);
+    const tieneCoords = !!(c?.latitud_manual && c?.longitud_manual) || !!(c?.latitud && c?.longitud);
+    if (!direccion || !tieneCoords) return '';
+    return `<span class="trk-credit-address mt-1" title="${_trkChatEscapeHtml(direccion)}">
+        <i class="fa-solid fa-location-dot" style="color:var(--track-color);"></i>
+        <span>Direccion: ${_trkChatEscapeHtml(direccion)}</span>
+    </span>`;
 }
 
 function _trkCreditoModeloTexto(r) {
@@ -3104,7 +3825,7 @@ function _trkRenderCreditoUnidad(r, type) {
     return `<div class="trk-borrador-cell">
         <span class="trk-borrador-chip trk-borrador-chip-info"><i class="fa-solid fa-motorcycle me-1"></i>${_trkChatEscapeHtml(modelo)}</span>
         <div class="trk-borrador-divider">
-            <div class="trk-borrador-sub">VIN/BIN: ${_trkChatEscapeHtml(r?.bin || 'No disponible')}</div>
+            <div class="trk-borrador-sub">VIN: ${_trkChatEscapeHtml(r?.bin || 'No disponible')}</div>
             <div class="trk-borrador-muted">${_trkChatEscapeHtml(estatus)}</div>
         </div>
     </div>`;
@@ -3160,11 +3881,20 @@ function _trkInicializarTablaCreditosDT() {
         const idCred = $(this).data('id');
         const cred   = _trk.creditosDisponibles.find(c => String(c.id_credito) === String(idCred));
         if (!cred) return;
-        _trkAbrirModalConCredito(cred);
+        _trkAbrirModalAgregarCreditoRuta(cred);
+    });
+
+    $('#trkQuickRoutesList').on('click', '.btn-quick-add-ruta', function () {
+        _trkConfirmarAgregarCreditoRuta(Number($(this).data('id')));
+    });
+
+    $('#trkQuickFiltroEstado').on('change', function () {
+        _trk.quickAddEstado = this.value || '';
+        _trkRenderQuickRutas();
     });
 }
 
-function _trkCargarCreditosPaso2() {
+function _trkCargarCreditosPaso2(silent = false) {
     const estado    = $('#filtroEstado').val();
     const municipio = $('#filtroMunicipio').val();
     let url = '/TrackingRecoleccion/obtenerCreditosPaso2';
@@ -3176,6 +3906,11 @@ function _trkCargarCreditosPaso2() {
     return trkFetch(url)
         .then(r => {
             _trk.creditosDisponibles = r.datos || [];
+            if (!estado && !municipio) {
+                _trk.creditosFiltroBase = _trk.creditosDisponibles;
+                _trkPoblarFiltroEstadosPrincipales(_trk.creditosFiltroBase);
+                _trk.cargadoEstados = true;
+            }
             // TODO (pendiente autorizacion): descomentar para filtrar solo creditos listos para ruta
             // _trk.creditosDisponibles = _trkFiltrarListosParaRuta(_trk.creditosDisponibles);
             if (_trk.tablaCreditosDT) {
@@ -3186,7 +3921,11 @@ function _trkCargarCreditosPaso2() {
             _trk.cargadoCreditos = true;
             _trkSetBadge('badgeCreditos', _trk.creditosDisponibles.length);
         })
-        .catch(() => Swal.fire({ icon: 'error', title: 'Error', text: 'Error al cargar creditos.', confirmButtonText: 'Aceptar' }));
+        .catch(() => {
+            if (!silent) {
+                Swal.fire({ icon: 'error', title: 'Error', text: 'Error al cargar creditos.', confirmButtonText: 'Aceptar' });
+            }
+        });
 }
 
 // --- Filtro: solo creditos con estatus "Cierre Documentados" -------------
@@ -3257,8 +3996,8 @@ function _trkRenderTransportistaRuta(r) {
     </div>`;
 }
 
-function _trkCargarCreditosSiHaceFalta() {
-    return _trk.cargadoCreditos ? Promise.resolve() : _trkCargarCreditosPaso2();
+function _trkCargarCreditosSiHaceFalta(silent = false) {
+    return _trk.cargadoCreditos ? Promise.resolve() : _trkCargarCreditosPaso2(silent);
 }
 
 function _trkRutaCancelable(estatus) {
@@ -3326,6 +4065,33 @@ function _trkInicializarBusquedasRutas() {
             _trk.tablaRutasBorradorDT.search(_trk.borradoresBusqueda).draw();
         }
     });
+    $('#trkBorradoresLength').on('change', function () {
+        if (_trk.tablaRutasBorradorDT) {
+            _trk.tablaRutasBorradorDT.page.len(parseInt(this.value, 10) || 25).draw();
+        }
+    });
+    $('#trkFiltroEstadoBorradores').on('change', function () {
+        _trk.borradoresFiltroEstado = this.value || '';
+        _trk.borradoresFiltroMunicipio = '';
+        _trkPoblarFiltroMunicipiosBorradores(_trk.borradoresFiltroEstado);
+        _trkAplicarFiltrosBorradores();
+    });
+    $('#trkFiltroMunicipioBorradores').on('change', function () {
+        _trk.borradoresFiltroMunicipio = this.value || '';
+        _trkAplicarFiltrosBorradores();
+    });
+    $('#btnFiltrarBorradores').on('click', function () {
+        _trk.borradoresFiltroEstado = $('#trkFiltroEstadoBorradores').val() || '';
+        _trk.borradoresFiltroMunicipio = $('#trkFiltroMunicipioBorradores').val() || '';
+        _trkAplicarFiltrosBorradores();
+    });
+    $('#btnLimpiarFiltrosBorradores').on('click', function () {
+        _trk.borradoresFiltroEstado = '';
+        _trk.borradoresFiltroMunicipio = '';
+        $('#trkFiltroEstadoBorradores').val('').trigger('change.select2');
+        _trkPoblarFiltroMunicipiosBorradores('');
+        _trkAplicarFiltrosBorradores();
+    });
 
     $('#trkBuscarRutas').on('input', function () {
         _trk.rutasBusqueda = this.value || '';
@@ -3348,10 +4114,7 @@ function _trkActivarSeccion(target, loadKey = '') {
             pane.classList.toggle('active', `#${pane.id}` === target);
         });
     }
-    if (loadKey === 'creditos') _trkCargarCreditosInicialSiHaceFalta();
-    if (loadKey === 'borradores') _trkCargarBorradoresSiHaceFalta();
-    if (loadKey === 'rutas') _trkCargarRutasSiHaceFalta();
-    if (loadKey === 'catalogos') _trkCargarCatalogosSiHaceFalta().then(() => _trkRenderCatalogosTracking());
+    _trkCargarSeccion(loadKey);
 }
 
 function _trkSetRutasVista(vista) {
@@ -3436,6 +4199,10 @@ function _trkRutaTextoBusqueda(r) {
         r.estatus_ruta,
         r.fecha_programada_fmt,
         r.fecha_programada,
+        r.fecha_creacion_fmt,
+        r.fecha_creacion,
+        r.fecha_actualizacion_fmt,
+        r.fecha_actualizacion,
         r.hora_inicial,
         r.act_hora_1,
         r.ubicaciones_lista,
@@ -3446,6 +4213,19 @@ function _trkRutaTextoBusqueda(r) {
         transportista.agencia,
         transportista.direccion,
     ].filter(v => v !== null && v !== undefined).join(' ');
+}
+
+function _trkFechaCreacionRutaTexto(r) {
+    return r?.fecha_creacion_fmt || _trkFormatFechaHora(r?.fecha_creacion) || 'No disponible';
+}
+
+function _trkFechaActualizacionRutaTexto(r) {
+    return r?.fecha_actualizacion_fmt || _trkFormatFechaHora(r?.fecha_actualizacion) || _trkFechaCreacionRutaTexto(r);
+}
+
+function _trkRenderFechasRegistroRuta(r, etiquetaInicio = 'Creado') {
+    return `<div class="trk-borrador-muted"><i class="fa-solid fa-circle-play me-1"></i>${_trkChatEscapeHtml(etiquetaInicio)}: ${_trkChatEscapeHtml(_trkFechaCreacionRutaTexto(r))}</div>
+        <div class="trk-borrador-muted"><i class="fa-solid fa-clock-rotate-left me-1"></i>Actualizado: ${_trkChatEscapeHtml(_trkFechaActualizacionRutaTexto(r))}</div>`;
 }
 
 function _trkRutasFiltradas() {
@@ -3538,6 +4318,7 @@ function _trkRenderRutasPagination(total, desde, hasta, totalPaginas) {
 
 function _trkRenderRutaCard(r) {
     const id = r.id_ruta;
+    const nombreLimpio = _trkSanitizarNombreRuta(r.nombre_ruta || 'Ruta sin nombre') || 'Ruta sin nombre';
     const estatus = String(r.estatus_ruta || '');
     const total = parseInt(r.total_creditos, 10) || 0;
     const conf = parseInt(r.confirmados, 10) || 0;
@@ -3566,7 +4347,8 @@ function _trkRenderRutaCard(r) {
            </button>`;
     return `<article class="trk-ruta-card" data-estatus="${_trkChatEscapeHtml(estatus)}">
         <div class="trk-ruta-card-header">
-            <div class="trk-ruta-title">#${id} ${_trkChatEscapeHtml(r.nombre_ruta || 'Ruta sin nombre')}</div>
+            <span class="trk-route-folio">#${_trkChatEscapeHtml(id)}</span>
+            <div class="trk-ruta-title">${_trkChatEscapeHtml(nombreLimpio)}</div>
             <div class="trk-ruta-subtitle">${ubicacion || 'Sin ubicacion'}</div>
             <div class="trk-ruta-status">
                 ${estatusBadge}
@@ -3582,6 +4364,14 @@ function _trkRenderRutaCard(r) {
                 <div>
                     <span class="trk-ruta-meta-label">Hora</span>
                     <span class="trk-ruta-meta-value">${_trkChatEscapeHtml(_trkRutaHoraTexto(r))}</span>
+                </div>
+                <div>
+                    <span class="trk-ruta-meta-label">Creado</span>
+                    <span class="trk-ruta-meta-value">${_trkChatEscapeHtml(_trkFechaCreacionRutaTexto(r))}</span>
+                </div>
+                <div>
+                    <span class="trk-ruta-meta-label">Actualizado</span>
+                    <span class="trk-ruta-meta-value">${_trkChatEscapeHtml(_trkFechaActualizacionRutaTexto(r))}</span>
                 </div>
                 <div style="grid-column:1/-1;">
                     <span class="trk-ruta-meta-label">Transportista</span>
@@ -3616,8 +4406,7 @@ function _trkInicializarTablaRutasDTLegacy() {
             lengthMenu:  'Mostrar _MENU_ registros',
             search:      'Buscar:',
         },
-        dom: 'lrtip',
-        pageLength: 20,
+        pageLength: 25,
         deferRender: true,
         responsive: true,
         order: [[0, 'desc']],
@@ -3735,14 +4524,14 @@ function _trkRenderRutaTablaRuta(r, type) {
     if (type !== 'display') return _trkRutaTextoBusqueda(r);
     const id = r?.id_ruta || '';
     const estatus = String(r?.estatus_ruta || '');
-    const nombre = r?.nombre_ruta || 'Ruta sin nombre';
+    const nombre = _trkSanitizarNombreRuta(r?.nombre_ruta || 'Ruta sin nombre') || 'Ruta sin nombre';
     const ubicacion = _trkRenderUbicacionRuta(r?.ubicaciones_lista);
     const estatusBadge = RUTA_LABEL[estatus] || `<span class="badge bg-secondary">${_trkChatEscapeHtml(estatus || 'Sin estatus')}</span>`;
     const pct = _trkRutaPorcentaje(r);
     const pctBadge = pct > 0 ? `<span class="badge bg-light text-dark border" style="font-size:.68rem;">${pct}%</span>` : '';
     return `<div class="trk-borrador-cell">
         <span class="trk-borrador-chip trk-borrador-chip-info">RUTA-${_trkChatEscapeHtml(id)}</span>
-        <div class="trk-borrador-main">#${_trkChatEscapeHtml(id)} ${_trkChatEscapeHtml(nombre)}</div>
+        <div class="trk-borrador-main">${_trkChatEscapeHtml(nombre)}</div>
         <div class="trk-borrador-sub"><i class="fa-solid fa-location-dot me-1"></i>${ubicacion || 'Sin ubicacion'}</div>
         <div class="d-flex flex-wrap align-items-center gap-1 mt-1">${estatusBadge}${pctBadge}</div>
     </div>`;
@@ -3754,6 +4543,10 @@ function _trkRenderRutaTablaSeguimiento(r, type) {
         return [
             r?.fecha_programada_fmt,
             _trkHoraBorradorTexto(r),
+            r?.fecha_creacion_fmt,
+            r?.fecha_creacion,
+            r?.fecha_actualizacion_fmt,
+            r?.fecha_actualizacion,
             info.nombre,
             info.tipo,
             info.agencia,
@@ -3763,6 +4556,7 @@ function _trkRenderRutaTablaSeguimiento(r, type) {
     return `<div class="trk-borrador-cell">
         <div class="trk-borrador-main"><i class="fa-solid fa-calendar-day me-1"></i>${_trkChatEscapeHtml(r?.fecha_programada_fmt || 'Sin fecha')}</div>
         <div class="d-flex flex-wrap align-items-center gap-1">${_trkRenderHoraBorrador(r)}</div>
+        <div class="trk-borrador-divider">${_trkRenderFechasRegistroRuta(r)}</div>
         <div class="trk-borrador-divider">${_trkRenderTransportistaRuta(r)}</div>
     </div>`;
 }
@@ -3827,8 +4621,8 @@ function _trkInicializarTablaRutasDT() {
             lengthMenu:  'Mostrar _MENU_ registros',
             search:      'Buscar:',
         },
-        dom: 'lrtip',
-        pageLength: 20,
+        dom: 'rtip',
+        pageLength: 25,
         deferRender: true,
         responsive: false,
         autoWidth: false,
@@ -3932,7 +4726,7 @@ async function _trkActualizarEstadoCeldaRuta(idRuta) {
     }
 }
 
-function _trkCargarRutas() {
+function _trkCargarRutas(silent = false) {
     const t0 = performance.now();
     return trkFetch('/TrackingRecoleccion/obtenerRutas', { method: 'POST' })
         .then(r => {
@@ -3945,11 +4739,197 @@ function _trkCargarRutas() {
             _trkSetBadge('badgeRutas', rutas.length);
             console.info(`[Tracking Recoleccion] Rutas cargadas: ${rutas.length} en ${Math.round(performance.now() - t0)} ms`);
         })
-        .catch(() => Swal.fire({ icon: 'error', title: 'Error', text: 'Error al cargar rutas.', confirmButtonText: 'Aceptar' }));
+        .catch(() => {
+            if (!silent) {
+                Swal.fire({ icon: 'error', title: 'Error', text: 'Error al cargar rutas.', confirmButtonText: 'Aceptar' });
+            }
+        });
 }
 
-function _trkCargarRutasSiHaceFalta() {
-    return _trk.cargadoRutas ? Promise.resolve() : _trkCargarRutas();
+function _trkCargarRutasSiHaceFalta(silent = false) {
+    return _trk.cargadoRutas ? Promise.resolve() : _trkCargarRutas(silent);
+}
+
+function _trkRutaPermiteAgregarCredito(ruta, cred) {
+    if (!ruta || !cred) return false;
+    const estatus = String(ruta.estatus_ruta || '').toLowerCase();
+    if (['cancelada', 'concluida', 'finalizada'].includes(estatus)) return false;
+    const tipo = String(
+        ruta.tipo_transportista ||
+        ruta.transportista?.tipo_transportista ||
+        ruta.tipo ||
+        ''
+    ).toLowerCase();
+    if (tipo === 'interno' && !_trkEsZonaInterna(cred.estado, cred.municipio)) return false;
+    return true;
+}
+
+function _trkEstadosRutaQuick(ruta) {
+    const estados = new Set();
+    const agregar = (estado, municipio = '') => {
+        const canon = _trkEstadoCanonico(estado, municipio) || String(estado || '').trim();
+        if (!canon) return;
+        if (['MULTIPLE_ESTADOS', 'VARIOS', 'NACIONAL'].includes(String(canon).toUpperCase())) return;
+        estados.add(canon);
+    };
+    agregar(ruta?.estado, ruta?.municipio);
+    agregar(ruta?.estado_origen, ruta?.municipio_origen);
+    (ruta?.detalle || []).forEach(det => agregar(det.estado, det.municipio));
+    return [...estados].sort((a, b) => a.localeCompare(b));
+}
+
+function _trkPoblarQuickFiltroEstados(rutas) {
+    const actual = _trk.quickAddEstado || '';
+    const estados = new Set();
+    rutas.forEach(r => _trkEstadosRutaQuick(r).forEach(e => estados.add(e)));
+    const lista = [...estados].sort((a, b) => a.localeCompare(b));
+    const $sel = $('#trkQuickFiltroEstado');
+    $sel.html('<option value="">Todos los estados</option>');
+    lista.forEach(e => $sel.append(`<option value="${_trkChatEscapeHtml(e)}">${_trkChatEscapeHtml(e)}</option>`));
+    if (actual && lista.includes(actual)) {
+        $sel.val(actual);
+    } else {
+        _trk.quickAddEstado = '';
+        $sel.val('');
+    }
+}
+
+function _trkQuickRutaHtml(ruta, cred) {
+    const idRuta = Number(ruta.id_ruta || ruta.id || 0);
+    const nombre = _trkSanitizarNombreRuta(ruta.nombre_ruta || `Ruta #${idRuta}`) || `Ruta #${idRuta}`;
+    const estados = _trkEstadosRutaQuick(ruta);
+    const estadoTexto = estados.length ? estados.join(' / ') : (_trkEstadoCanonico(ruta.estado, ruta.municipio) || 'Sin estado definido');
+    const tipo = String(ruta.tipo_transportista || ruta.transportista?.tipo_transportista || '').toLowerCase();
+    const tipoBadge = tipo === 'interno'
+        ? '<span class="badge bg-success ms-1">Interno</span>'
+        : (tipo === 'externo' ? '<span class="badge bg-dark ms-1">Externo</span>' : '');
+    const estatus = String(ruta.estatus_ruta || '').toLowerCase();
+    const estatusBadge = RUTA_LABEL[estatus] || `<span class="badge bg-secondary">${_trkChatEscapeHtml(estatus || 'Sin estatus')}</span>`;
+    const total = Number(ruta.total_creditos || ruta.creditos || ruta.total || 0);
+    const transportista = ruta.nombre_transportista || ruta.transportista?.nombre_transportista || 'Sin transportista';
+    const destino = ruta.cedis_destino_nombre || ruta.cedis_destino?.nombre_agencia || ruta.destino_transportista || '';
+    return `
+        <div class="trk-quick-route">
+            <div style="min-width:0;">
+                <div class="d-flex align-items-center gap-1 flex-wrap mb-1">
+                    ${estatusBadge}
+                    ${tipoBadge}
+                    <span class="badge bg-label-primary">${total} credito${total === 1 ? '' : 's'}</span>
+                </div>
+                <span class="trk-route-folio">#${_trkChatEscapeHtml(idRuta)}</span>
+                <div class="trk-quick-route-title">${_trkChatEscapeHtml(nombre)}</div>
+                <div class="trk-quick-route-sub">
+                    <i class="fa-solid fa-location-dot me-1"></i>${_trkChatEscapeHtml(estadoTexto)}
+                    <span class="mx-1">|</span>
+                    <i class="fa-solid fa-truck me-1"></i>${_trkChatEscapeHtml(transportista)}
+                    ${destino ? `<span class="mx-1">|</span><i class="fa-solid fa-warehouse me-1"></i>${_trkChatEscapeHtml(destino)}` : ''}
+                </div>
+            </div>
+            <button type="button" class="btn btn-sm btn-primary btn-quick-add-ruta" data-id="${idRuta}">
+                <i class="fa-solid fa-plus me-1"></i>Agregar
+            </button>
+        </div>`;
+}
+
+function _trkRenderQuickRutas() {
+    const cred = _trk.quickAddCredito;
+    const filtroEstado = _trk.quickAddEstado || '';
+    if (!cred) return;
+    const rutasBase = (_trk.rutasRegistradas || []).filter(r => _trkRutaPermiteAgregarCredito(r, cred));
+    const rutas = filtroEstado
+        ? rutasBase.filter(r => _trkEstadosRutaQuick(r).some(e => _trkMismaUbicacion(e, filtroEstado)))
+        : rutasBase;
+    $('#trkQuickRoutesCount').text(rutas.length);
+    if (!rutas.length) {
+        $('#trkQuickRoutesList').html(`<div class="alert alert-warning small mb-0">
+            No hay rutas disponibles para esta ubicacion${filtroEstado ? ' con el estado seleccionado' : ''}.
+        </div>`);
+        return;
+    }
+    $('#trkQuickRoutesList').html(rutas.map(r => _trkQuickRutaHtml(r, cred)).join(''));
+}
+
+async function _trkAbrirModalAgregarCreditoRuta(cred) {
+    _trk.quickAddCredito = cred;
+    _trk.quickAddEstado = '';
+    const estado = _trkEstadoCanonico(cred.estado, cred.municipio) || cred.estado || 'Sin estado';
+    const modelo = [cred.moto_marca, cred.moto_modelo].filter(Boolean).join(' ') || 'Sin modelo';
+    $('#trkQuickCreditSummary').html(`
+        <div class="d-flex align-items-start justify-content-between gap-2 flex-wrap">
+            <div>
+                <div class="fw-bold">#${_trkChatEscapeHtml(cred.id_credito)} - ${_trkChatEscapeHtml(cred.nombre_cliente || 'Sin cliente')}</div>
+                <div class="small text-muted">
+                    <i class="fa-solid fa-motorcycle me-1" style="color:var(--track-color);"></i>${_trkChatEscapeHtml(modelo)}
+                    <span class="mx-1">|</span>${_trkRenderLocationBadges(estado, cred.municipio)}
+                </div>
+            </div>
+            <span class="badge bg-label-success">Agregado rapido</span>
+        </div>
+    `);
+    $('#trkQuickRoutesList').html('<div class="text-center py-3 text-muted small"><span class="spinner-border spinner-border-sm me-2"></span>Cargando rutas...</div>');
+    $('#trkQuickRoutesCount').text('0');
+    bootstrap.Modal.getOrCreateInstance(document.getElementById('modalAgregarCreditoRuta')).show();
+    await _trkCargarRutasSiHaceFalta();
+    const rutas = (_trk.rutasRegistradas || []).filter(r => _trkRutaPermiteAgregarCredito(r, cred));
+    _trkPoblarQuickFiltroEstados(rutas);
+    _trkRenderQuickRutas();
+}
+
+async function _trkConfirmarAgregarCreditoRuta(idRuta) {
+    const cred = _trk.quickAddCredito;
+    if (!cred || !idRuta) return;
+    const ruta = (_trk.rutasRegistradas || []).find(r => Number(r.id_ruta || r.id || 0) === Number(idRuta));
+    const nombreRuta = ruta?.nombre_ruta || `Ruta #${idRuta}`;
+    const res = await Swal.fire({
+        icon: 'question',
+        title: 'Agregar credito a ruta?',
+        html: `<div class="text-start small">
+            <div><b>Credito:</b> #${_trkChatEscapeHtml(cred.id_credito)} - ${_trkChatEscapeHtml(cred.nombre_cliente || '')}</div>
+            <div><b>Ruta:</b> ${_trkChatEscapeHtml(nombreRuta)}</div>
+            <div class="mt-2 text-muted">Se agregara al final de la ruta y quedara marcado como <b>NUEVO</b>.</div>
+        </div>`,
+        showCancelButton: true,
+        confirmButtonText: 'Si, agregar',
+        cancelButtonText: 'Cancelar',
+        confirmButtonColor: '#0d9488',
+    });
+    if (!res.isConfirmed) return;
+    Swal.fire({
+        title: 'Agregando credito...',
+        allowOutsideClick: false,
+        allowEscapeKey: false,
+        showConfirmButton: false,
+        didOpen: () => Swal.showLoading(),
+    });
+    try {
+        const r = await trkFetch('/TrackingRecoleccion/agregarCreditoRuta', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ id_ruta: idRuta, id_credito: cred.id_credito }),
+        });
+        if (!r.success) {
+            Swal.fire({ icon: 'error', title: 'No se pudo agregar', text: r.mensaje || r.message || 'Intenta nuevamente.', confirmButtonText: 'Aceptar' });
+            return;
+        }
+        bootstrap.Modal.getOrCreateInstance(document.getElementById('modalAgregarCreditoRuta')).hide();
+        _trk.cargadoRutas = false;
+        _trk.cargadoBorradores = false;
+        await Promise.allSettled([_trkCargarCreditosPaso2(), _trkCargarRutas(), _trkCargarBorradores()]);
+        const fechaRegistro = _trkFormatFechaHora(r.fecha_agregado) || 'ahora';
+        Swal.fire({
+            icon: 'success',
+            title: 'Credito agregado',
+            html: `<div class="small">
+                ${_trkChatEscapeHtml(r.message || r.mensaje || 'Se agrego al final de la ruta.')}<br>
+                <span class="badge bg-warning text-dark mt-2">NUEVO</span>
+                <span class="text-muted">Registro: ${_trkChatEscapeHtml(fechaRegistro)}</span>
+            </div>`,
+            timer: 2300,
+            showConfirmButton: false,
+        });
+    } catch {
+        Swal.fire({ icon: 'error', title: 'Error de conexion', text: 'No se pudo agregar el credito a la ruta.', confirmButtonText: 'Aceptar' });
+    }
 }
 
 async function _trkCancelarRuta(idRuta, nombreRuta = '') {
@@ -4042,12 +5022,120 @@ function _trkRenderHoraBorrador(r) {
     return `<span class="trk-borrador-chip trk-borrador-chip-info">Hora de salida ${_trkFormatHora(hi)}</span>`;
 }
 
+function _trkBorradorUbicaciones(r) {
+    const map = new Map();
+    const add = (estado, municipio) => {
+        const est = _trkEstadoCanonico(estado, municipio) || String(estado || '').trim();
+        const mun = _trkMunicipioFiltroCanonico(municipio, est);
+        if (!_trkCreditoTieneUbicacionFiltro({ estado: est, municipio: mun }, false)) return;
+        const key = `${_trkNormTxt(est)}|${_trkNormTxt(mun)}`;
+        if (!map.has(key)) map.set(key, { estado: est, municipio: mun });
+    };
+
+    String(r?.ubicaciones_lista || '').split('@@').forEach(p => {
+        const sep = p.indexOf('|||');
+        if (sep < 0) return;
+        add(p.slice(0, sep).trim(), p.slice(sep + 3).trim());
+    });
+    add(r?.estado, r?.municipio);
+    return [...map.values()];
+}
+
+function _trkPoblarFiltroEstadosBorradores() {
+    const actual = $('#trkFiltroEstadoBorradores').val();
+    const conteo = new Map();
+    (_trk.borradoresData || []).forEach(r => {
+        const estadosRuta = new Set(_trkBorradorUbicaciones(r).map(u => u.estado).filter(Boolean));
+        estadosRuta.forEach(e => conteo.set(e, (conteo.get(e) || 0) + 1));
+    });
+    const estados = [...conteo.keys()].sort((a, b) => a.localeCompare(b));
+    const $sel = $('#trkFiltroEstadoBorradores');
+    $sel.html('<option value="">Todos los estados</option>');
+    estados.forEach(e => {
+        $sel.append($('<option>', { value: e, text: `${e} - (${conteo.get(e)})` }));
+    });
+    if (actual && estados.some(e => _trkMismaUbicacion(e, actual))) {
+        $sel.val(actual);
+        _trk.borradoresFiltroEstado = actual;
+    } else {
+        $sel.val('');
+        _trk.borradoresFiltroEstado = '';
+    }
+    _trkRefrescarSelectBuscable('#trkFiltroEstadoBorradores');
+    _trkPoblarFiltroMunicipiosBorradores($sel.val());
+}
+
+function _trkPoblarFiltroMunicipiosBorradores(estado) {
+    const actual = $('#trkFiltroMunicipioBorradores').val();
+    const conteo = new Map();
+    const $mun = $('#trkFiltroMunicipioBorradores');
+    $mun.html('<option value="">Todos los municipios</option>');
+    if (!estado) {
+        $mun.val('').prop('disabled', true);
+        _trk.borradoresFiltroMunicipio = '';
+        _trkRefrescarSelectBuscable('#trkFiltroMunicipioBorradores');
+        return;
+    }
+
+    (_trk.borradoresData || []).forEach(r => {
+        const municipiosRuta = new Set();
+        _trkBorradorUbicaciones(r).forEach(u => {
+            if (!_trkMismaUbicacionEstado(u.estado, estado, u.municipio)) return;
+            if (!u.municipio) return;
+            municipiosRuta.add(u.municipio);
+        });
+        municipiosRuta.forEach(m => conteo.set(m, (conteo.get(m) || 0) + 1));
+    });
+    const municipios = [...conteo.keys()].sort((a, b) => a.localeCompare(b));
+    municipios.forEach(m => {
+        $mun.append($('<option>', { value: m, text: `${m} - (${conteo.get(m)})` }));
+    });
+    if (actual && municipios.some(m => _trkMismaUbicacionMunicipio(m, actual))) {
+        $mun.val(actual);
+        _trk.borradoresFiltroMunicipio = actual;
+    } else {
+        $mun.val('');
+        _trk.borradoresFiltroMunicipio = '';
+    }
+    $mun.prop('disabled', municipios.length === 0);
+    _trkRefrescarSelectBuscable('#trkFiltroMunicipioBorradores');
+}
+
+function _trkBorradorCoincideFiltros(r) {
+    const estado = _trk.borradoresFiltroEstado || '';
+    const municipio = _trk.borradoresFiltroMunicipio || '';
+    if (!estado && !municipio) return true;
+    return _trkBorradorUbicaciones(r).some(u => {
+        if (estado && !_trkMismaUbicacionEstado(u.estado, estado, u.municipio)) return false;
+        if (municipio && !_trkMismaUbicacionMunicipio(u.municipio, municipio)) return false;
+        return true;
+    });
+}
+
+function _trkBorradoresFiltrados() {
+    return (_trk.borradoresData || []).filter(r => _trkBorradorCoincideFiltros(r));
+}
+
+function _trkAplicarFiltrosBorradores() {
+    if (!_trk.tablaRutasBorradorDT) return;
+    const busquedaActiva = _trk.borradoresBusqueda || _trk.tablaRutasBorradorDT.search() || '';
+    _trk.tablaRutasBorradorDT
+        .clear()
+        .rows.add(_trkBorradoresFiltrados())
+        .search(busquedaActiva)
+        .draw();
+}
+
 function _trkBorradorTextoBusqueda(r) {
     return [
         r?.id_ruta,
         r?.nombre_ruta,
         _trkStripHtml(_trkRenderUbicacionRuta(r?.ubicaciones_lista)),
         r?.fecha_programada_fmt,
+        r?.fecha_creacion_fmt,
+        r?.fecha_creacion,
+        r?.fecha_actualizacion_fmt,
+        r?.fecha_actualizacion,
         _trkHoraBorradorTexto(r),
         r?.creditos_lista,
         r?.nombre_transportista,
@@ -4060,11 +5148,11 @@ function _trkRenderBorradorRuta(r, type) {
     if (type === 'sort' || type === 'type') return parseInt(r?.id_ruta, 10) || 0;
     if (type !== 'display') return _trkBorradorTextoBusqueda(r);
     const id = r?.id_ruta || '';
-    const nombre = r?.nombre_ruta || 'Ruta sin nombre';
+    const nombre = _trkSanitizarNombreRuta(r?.nombre_ruta || 'Ruta sin nombre') || 'Ruta sin nombre';
     const ubicacion = _trkRenderUbicacionRuta(r?.ubicaciones_lista);
     return `<div class="trk-borrador-cell">
-        <span class="trk-borrador-chip trk-borrador-chip-warning">BOR-${_trkChatEscapeHtml(id)}</span>
-        <div class="trk-borrador-main">#${_trkChatEscapeHtml(id)} ${_trkChatEscapeHtml(nombre)}</div>
+        <span class="trk-borrador-chip trk-borrador-chip-warning">#${_trkChatEscapeHtml(id)}</span>
+        <div class="trk-borrador-main">${_trkChatEscapeHtml(nombre)}</div>
         <div class="trk-borrador-sub"><i class="fa-solid fa-location-dot me-1"></i>${ubicacion}</div>
     </div>`;
 }
@@ -4074,6 +5162,10 @@ function _trkRenderBorradorPlaneacion(r, type) {
         return [
             r?.fecha_programada_fmt,
             _trkHoraBorradorTexto(r),
+            r?.fecha_creacion_fmt,
+            r?.fecha_creacion,
+            r?.fecha_actualizacion_fmt,
+            r?.fecha_actualizacion,
             r?.nombre_transportista,
             r?.nombre_agencia,
             r?.transportista_empresa,
@@ -4083,6 +5175,7 @@ function _trkRenderBorradorPlaneacion(r, type) {
     return `<div class="trk-borrador-cell">
         <div class="trk-borrador-main"><i class="fa-solid fa-calendar-day me-1"></i>${_trkChatEscapeHtml(r?.fecha_programada_fmt || 'Sin fecha')}</div>
         <div class="d-flex flex-wrap align-items-center gap-1">${_trkRenderHoraBorrador(r)}</div>
+        <div class="trk-borrador-divider">${_trkRenderFechasRegistroRuta(r, 'Inicio')}</div>
         <div class="trk-borrador-divider">${transportista}</div>
     </div>`;
 }
@@ -4120,8 +5213,8 @@ function _trkInicializarTablaBorradorDT() {
             lengthMenu:  'Mostrar _MENU_ registros',
             search:      'Buscar:',
         },
-        dom: 'lrtip',
-        pageLength: 20,
+        dom: 'rtip',
+        pageLength: 25,
         deferRender: true,
         responsive: false,
         autoWidth: false,
@@ -4166,23 +5259,25 @@ function _trkInicializarTablaBorradorDT() {
     });
 }
 
-function _trkCargarBorradores() {
+function _trkCargarBorradores(silent = false) {
     return trkFetch('/TrackingRecoleccion/obtenerBorradores')
         .then(r => {
             const borradores = r.datos || [];
-            if (_trk.tablaRutasBorradorDT) {
-                _trk.tablaRutasBorradorDT.clear().rows.add(borradores).search(_trk.borradoresBusqueda || '').draw();
-            }
+            _trk.borradoresData = borradores;
+            _trkPoblarFiltroEstadosBorradores();
+            _trkAplicarFiltrosBorradores();
             // Actualizar contador en la pestana
             _trk.cargadoBorradores = true;
             _trkSetBadge('badgeBorradores', borradores.length);
         })
-        .catch(() => {});
+        .catch(err => {
+            if (!silent) console.warn('[Tracking Recoleccion] Error al cargar borradores', err);
+        });
 }
 
 // --- Carga inicial de todos los datos en paralelo ---------
-function _trkCargarBorradoresSiHaceFalta() {
-    return _trk.cargadoBorradores ? Promise.resolve() : _trkCargarBorradores();
+function _trkCargarBorradoresSiHaceFalta(silent = false) {
+    return _trk.cargadoBorradores ? Promise.resolve() : _trkCargarBorradores(silent);
 }
 
 function _trkTipoTransportistaBadge(tipo) {
@@ -4229,7 +5324,18 @@ function _trkInicializarTablasCatalogosDT() {
                 render: a => `<div>${_trkChatEscapeHtml(a.encargado || '-')}</div>
                     <small class="text-muted">${_trkChatEscapeHtml([a.telefono, a.email].filter(Boolean).join('  -  '))}</small>`,
             },
-            { data: 'horario', defaultContent: '-', render: v => _trkChatEscapeHtml(v || '-') },
+            {
+                data: 'activo',
+                render: v => Number(v ?? 1) === 1
+                    ? '<span class="badge bg-success">Activo</span>'
+                    : '<span class="badge bg-secondary">Inactivo</span>',
+            },
+            {
+                data: null,
+                orderable: false,
+                searchable: false,
+                render: a => _trkCatalogoAccionesCedis(a),
+            },
         ],
     });
 
@@ -4262,12 +5368,446 @@ function _trkInicializarTablasCatalogosDT() {
                 render: t => `<div>${_trkChatEscapeHtml(t.telefono || '-')}</div>
                     <small class="text-muted">${_trkChatEscapeHtml(t.email || '')}</small>`,
             },
-            { data: 'puesto', defaultContent: '-', render: v => _trkChatEscapeHtml(v || '-') },
+            {
+                data: null,
+                orderable: false,
+                searchable: false,
+                render: t => _trkCatalogoAccionesTransportista(t),
+            },
         ],
     });
 }
 
-function _trkCargarCatalogoAgenciasTransportistas() {
+function _trkInicializarCatalogosTrackingUI() {
+    $('#btnNuevoCedisTracking').on('click', () => _trkAbrirModalCedisTracking());
+    $('#btnNuevoTransportistaTracking').on('click', () => _trkAbrirModalTransportistaTracking());
+    $('#btnGuardarCedisTracking').on('click', () => _trkGuardarCedisTracking());
+    $('#btnGuardarTransportistaTracking').on('click', () => _trkGuardarTransportistaTracking());
+    $('#cedisLinkTracking').on('input blur change', () => _trkAplicarCoordsCedisDesdeLink(false));
+    $('#cedisLinkTracking').on('paste', () => setTimeout(() => _trkAplicarCoordsCedisDesdeLink(true), 0));
+    $('#trkCatalogoBuscar').on('input', function () {
+        _trk.catalogoBusqueda = this.value || '';
+        _trkRenderCatalogosTracking();
+    });
+    $('#tabCatalogosTracking').on('click', '.trk-catalog-view', function () {
+        _trk.catalogoVista = this.dataset.view || 'directorio';
+        _trkRenderCatalogosTracking();
+    });
+    $('#tabCatalogosTracking').on('click', '.btn-editar-cedis', function () {
+        _trkAbrirModalCedisTracking(Number($(this).data('id')));
+    });
+    $('#tabCatalogosTracking').on('click', '.btn-editar-transportista', function () {
+        _trkAbrirModalTransportistaTracking(Number($(this).data('id')));
+    });
+    $('#tabCatalogosTracking').on('click', '.btn-toggle-cedis', function () {
+        _trkCambiarEstadoCedisTracking(Number($(this).data('id')), Number($(this).data('activo')));
+    });
+    $('#tabCatalogosTracking').on('click', '.btn-toggle-transportista', function () {
+        _trkCambiarEstadoTransportistaTracking(Number($(this).data('id')), Number($(this).data('activo')));
+    });
+    $('#transportistaCedisTracking').on('change', () => _trkCatalogoSincronizarTipoTransportista());
+}
+
+function _trkCatalogoFiltradoTexto(item, tipo) {
+    if (tipo === 'cedis') {
+        return [
+            item.nombre_agencia,
+            item.clave_agencia,
+            item.estado,
+            item.municipio,
+            item.direccion,
+            item.encargado,
+            item.email,
+            item.telefono,
+        ].filter(Boolean).join(' ');
+    }
+    return [
+        item.nombre_transportista,
+        item.tipo_transportista,
+        item.nombre_agencia,
+        item.empresa_origen,
+        item.curp_rfc,
+        item.email,
+        item.telefono,
+        item.puesto,
+        item.username,
+    ].filter(Boolean).join(' ');
+}
+
+function _trkCatalogoDatosFiltrados() {
+    const q = _trkNormTxt(_trk.catalogoBusqueda || '');
+    const agencias = (_trk.agenciasTracking || []).filter(a => {
+        if (!q) return true;
+        return _trkNormTxt(_trkCatalogoFiltradoTexto(a, 'cedis')).includes(q);
+    });
+    const transportistas = (_trk.transportistasTracking || []).filter(t => {
+        if (!q) return true;
+        return _trkNormTxt(_trkCatalogoFiltradoTexto(t, 'transportista')).includes(q);
+    });
+    return { agencias, transportistas };
+}
+
+function _trkCatalogoEstadoBadge(activo) {
+    return Number(activo ?? 1) === 1
+        ? '<span class="badge bg-success">Activo</span>'
+        : '<span class="badge bg-secondary">Inactivo</span>';
+}
+
+function _trkCatalogoAccionesCedis(a) {
+    const activo = Number(a?.activo ?? 1) === 1 ? 0 : 1;
+    const title = activo ? 'Activar CEDIS' : 'Desactivar CEDIS';
+    const icon = activo ? 'fa-toggle-off' : 'fa-toggle-on';
+    const klass = activo ? 'btn-label-secondary' : 'btn-label-danger';
+    return `<div class="d-flex justify-content-end gap-1">
+        <button type="button" class="btn btn-icon btn-sm rounded-pill btn-label-primary trk-action-btn btn-editar-cedis"
+            data-id="${_trkChatEscapeHtml(a?.id_agencia || '')}" title="Editar CEDIS">
+            <i class="fa-solid fa-pen-to-square"></i>
+        </button>
+        <button type="button" class="btn btn-icon btn-sm rounded-pill ${klass} trk-action-btn btn-toggle-cedis"
+            data-id="${_trkChatEscapeHtml(a?.id_agencia || '')}" data-activo="${activo}" title="${title}">
+            <i class="fa-solid ${icon}"></i>
+        </button>
+    </div>`;
+}
+
+function _trkCatalogoAccionesTransportista(t) {
+    const activo = Number(t?.activo ?? 1) === 1 ? 0 : 1;
+    const title = activo ? 'Activar transportista' : 'Desactivar transportista';
+    const icon = activo ? 'fa-toggle-off' : 'fa-toggle-on';
+    const klass = activo ? 'btn-label-secondary' : 'btn-label-danger';
+    return `<div class="d-flex justify-content-end gap-1">
+        <button type="button" class="btn btn-icon btn-sm rounded-pill btn-label-primary trk-action-btn btn-editar-transportista"
+            data-id="${_trkChatEscapeHtml(t?.id_transportista || '')}" title="Editar transportista">
+            <i class="fa-solid fa-pen-to-square"></i>
+        </button>
+        <button type="button" class="btn btn-icon btn-sm rounded-pill ${klass} trk-action-btn btn-toggle-transportista"
+            data-id="${_trkChatEscapeHtml(t?.id_transportista || '')}" data-activo="${activo}" title="${title}">
+            <i class="fa-solid ${icon}"></i>
+        </button>
+    </div>`;
+}
+
+function _trkCatalogoCedisCard(a, compacto = false) {
+    const ubicacion = [a.estado, a.municipio, a.codigo_postal ? `CP ${a.codigo_postal}` : ''].filter(Boolean).join(' / ') || 'Sin ubicacion';
+    const contacto = [a.telefono, a.email].filter(Boolean).join(' - ') || 'Sin contacto';
+    return `<article class="trk-catalog-card">
+        <div class="d-flex align-items-start justify-content-between gap-2">
+            <div>
+                <span class="badge bg-primary mb-1"><i class="fa-solid fa-warehouse me-1"></i>CEDIS</span>
+                <div class="trk-catalog-card-title">${_trkChatEscapeHtml(a.nombre_agencia || 'Sin nombre')}</div>
+                <div class="trk-catalog-card-sub">ID ${_trkChatEscapeHtml(a.id_agencia || '-')} / ${_trkChatEscapeHtml(a.clave_agencia || 'Sin clave')}</div>
+            </div>
+            ${_trkCatalogoEstadoBadge(a.activo)}
+        </div>
+        <div class="trk-catalog-card-sub"><strong>Ubicacion:</strong> ${_trkChatEscapeHtml(ubicacion)}</div>
+        ${compacto ? '' : `<div class="trk-catalog-card-sub"><strong>Direccion:</strong> ${_trkChatEscapeHtml(a.direccion || 'No disponible')}</div>`}
+        <div class="trk-catalog-card-sub"><strong>Contacto:</strong> ${_trkChatEscapeHtml(contacto)}</div>
+        ${compacto ? '' : `<div class="trk-catalog-card-sub"><strong>Encargado:</strong> ${_trkChatEscapeHtml(a.encargado || 'Sin encargado')}</div>`}
+        <div class="trk-catalog-card-actions">${_trkCatalogoAccionesCedis(a)}</div>
+    </article>`;
+}
+
+function _trkCatalogoTransportistaCard(t) {
+    const cedis = t.nombre_agencia || t.empresa_origen || 'Sin CEDIS';
+    const contacto = [t.telefono, t.email].filter(Boolean).join(' - ') || 'Sin contacto';
+    return `<article class="trk-catalog-card">
+        <div class="d-flex align-items-start justify-content-between gap-2">
+            <div>
+                ${_trkTipoTransportistaBadge(t.tipo_transportista)}
+                <div class="trk-catalog-card-title mt-1">${_trkChatEscapeHtml(t.nombre_transportista || 'Sin nombre')}</div>
+                <div class="trk-catalog-card-sub">${_trkChatEscapeHtml(cedis)}</div>
+            </div>
+            ${_trkCatalogoEstadoBadge(t.activo)}
+        </div>
+        <div class="trk-catalog-card-sub"><strong>Contacto:</strong> ${_trkChatEscapeHtml(contacto)}</div>
+        <div class="trk-catalog-card-sub"><strong>CURP/RFC:</strong> ${_trkChatEscapeHtml(t.curp_rfc || 'No disponible')}</div>
+        <div class="trk-catalog-card-sub"><strong>Puesto:</strong> ${_trkChatEscapeHtml(t.puesto || 'No disponible')}</div>
+        <div class="trk-catalog-card-actions">${_trkCatalogoAccionesTransportista(t)}</div>
+    </article>`;
+}
+
+function _trkRenderCatalogoDirectorio(agencias, transportistas) {
+    const cards = [
+        ...agencias.map(a => _trkCatalogoCedisCard(a, true)),
+        ...transportistas.map(t => _trkCatalogoTransportistaCard(t)),
+    ];
+    $('#trkCatalogoDirectorio').html(cards.length
+        ? cards.join('')
+        : '<div class="trk-catalog-empty">Sin registros para mostrar</div>');
+}
+
+function _trkRenderCatalogoAgrupado(agencias, transportistas) {
+    const grupos = agencias.map(a => {
+        const relacionados = transportistas.filter(t => String(t.id_agencia || '') === String(a.id_agencia || ''));
+        return `<section class="trk-catalog-group">
+            <div class="trk-catalog-group-head">
+                <div>
+                    <span class="badge bg-primary mb-1"><i class="fa-solid fa-warehouse me-1"></i>CEDIS</span>
+                    <div class="trk-catalog-group-title">${_trkChatEscapeHtml(a.nombre_agencia || 'Sin nombre')}</div>
+                    <div class="trk-catalog-card-sub">ID ${_trkChatEscapeHtml(a.id_agencia || '-')} / ${_trkChatEscapeHtml(a.clave_agencia || 'Sin clave')}</div>
+                </div>
+                <div class="d-flex align-items-center gap-2">
+                    <span class="badge bg-label-primary">${relacionados.length} transportista${relacionados.length !== 1 ? 's' : ''}</span>
+                    ${_trkCatalogoAccionesCedis(a)}
+                </div>
+            </div>
+            <div class="trk-catalog-group-body">
+                ${relacionados.length ? relacionados.map(_trkCatalogoTransportistaCard).join('') : '<div class="trk-catalog-empty">Sin transportistas asignados</div>'}
+            </div>
+        </section>`;
+    });
+    const sinCedis = transportistas.filter(t => !t.id_agencia);
+    if (sinCedis.length) {
+        grupos.push(`<section class="trk-catalog-group">
+            <div class="trk-catalog-group-head">
+                <div>
+                    <span class="badge bg-secondary mb-1">Sin CEDIS</span>
+                    <div class="trk-catalog-group-title">Transportistas sin CEDIS asignado</div>
+                </div>
+                <span class="badge bg-label-secondary">${sinCedis.length}</span>
+            </div>
+            <div class="trk-catalog-group-body">${sinCedis.map(_trkCatalogoTransportistaCard).join('')}</div>
+        </section>`);
+    }
+    $('#trkCatalogoAgrupado').html(grupos.length
+        ? grupos.join('')
+        : '<div class="trk-catalog-empty">Sin grupos para mostrar</div>');
+}
+
+function _trkSetCatalogoVista(vista) {
+    _trk.catalogoVista = ['directorio', 'agrupado', 'tabla'].includes(vista) ? vista : 'directorio';
+    $('.trk-catalog-view').each(function () {
+        const active = this.dataset.view === _trk.catalogoVista;
+        this.classList.toggle('active', active);
+        this.classList.toggle('btn-label-primary', active);
+        this.classList.toggle('btn-label-secondary', !active);
+    });
+    $('#trkCatalogoDirectorio').toggleClass('d-none', _trk.catalogoVista !== 'directorio');
+    $('#trkCatalogoAgrupado').toggleClass('d-none', _trk.catalogoVista !== 'agrupado');
+    $('#trkCatalogoTabla').toggleClass('d-none', _trk.catalogoVista !== 'tabla');
+}
+
+function _trkCedisCatalogoPorId(id) {
+    return (_trk.agenciasTracking || []).find(a => String(a.id_agencia) === String(id)) || null;
+}
+
+function _trkTransportistaCatalogoPorId(id) {
+    return (_trk.transportistasTracking || []).find(t => String(t.id_transportista) === String(id)) || null;
+}
+
+function _trkCatalogoLlenarSelectCedis(selected = '') {
+    const $sel = $('#transportistaCedisTracking');
+    $sel.html('<option value="">Sin CEDIS asignado</option>');
+    (_trk.agenciasTracking || []).forEach(a => {
+        $sel.append($('<option>', {
+            value: a.id_agencia,
+            text: a.nombre_agencia || `CEDIS ${a.id_agencia}`,
+        }));
+    });
+    $sel.val(selected ? String(selected) : '');
+    _trkCatalogoSincronizarTipoTransportista();
+}
+
+function _trkCatalogoSincronizarTipoTransportista() {
+    const cedis = _trkCedisCatalogoPorId($('#transportistaCedisTracking').val());
+    const tipo = cedis && _trkEsCedisDestinoInternoPermitido(cedis) ? 'interno' : 'externo';
+    $('#transportistaTipoTracking').val(tipo);
+}
+
+function _trkExtraerCoordsGoogleMaps(link) {
+    const raw = String(link || '').trim();
+    if (!raw) return null;
+    const variantes = [raw];
+    try {
+        variantes.push(decodeURIComponent(raw));
+    } catch (_) {}
+    for (const txt of variantes) {
+        const exacta = txt.match(/!3d(-?\d+(?:\.\d+)?)!4d(-?\d+(?:\.\d+)?)/i);
+        if (exacta) {
+            return { lat: exacta[1], lng: exacta[2], fuente: 'place' };
+        }
+    }
+    for (const txt of variantes) {
+        const centro = txt.match(/@(-?\d+(?:\.\d+)?),(-?\d+(?:\.\d+)?)(?:,|z|\/)/i);
+        if (centro) {
+            return { lat: centro[1], lng: centro[2], fuente: 'map' };
+        }
+    }
+    return null;
+}
+
+function _trkAplicarCoordsCedisDesdeLink(mostrarAviso = false) {
+    const link = $('#cedisLinkTracking').val();
+    const coords = _trkExtraerCoordsGoogleMaps(link);
+    const $status = $('#cedisLinkCoordStatus');
+    if (!String(link || '').trim()) {
+        $status.removeClass('text-success text-warning').text('');
+        $('#cedisLinkTracking').removeClass('is-valid is-invalid');
+        return false;
+    }
+    if (!coords) {
+        $('#cedisLinkTracking').removeClass('is-valid').toggleClass('is-invalid', mostrarAviso);
+        $status
+            .removeClass('text-success')
+            .addClass('text-warning')
+            .text(mostrarAviso ? 'No se detectaron coordenadas en este link.' : '');
+        return false;
+    }
+    $('#cedisLatTracking').val(coords.lat);
+    $('#cedisLngTracking').val(coords.lng);
+    $('#cedisLinkTracking').removeClass('is-invalid').addClass('is-valid');
+    $status
+        .removeClass('text-warning')
+        .addClass('text-success')
+        .text(`Coordenadas detectadas automaticamente: ${coords.lat}, ${coords.lng}`);
+    return true;
+}
+
+function _trkAbrirModalCedisTracking(id = 0) {
+    const a = id ? _trkCedisCatalogoPorId(id) : null;
+    $('#modalCedisTrackingLabel').html(`<i class="fa-solid fa-warehouse me-2" style="color:var(--track-color);"></i>${a ? 'Editar CEDIS' : 'Registrar CEDIS'}`);
+    $('#cedisIdTracking').val(a?.id_agencia || '');
+    $('#cedisNombreTracking').val(a?.nombre_agencia || '');
+    $('#cedisClaveTracking').val(a?.clave_agencia || '');
+    $('#cedisDireccionTracking').val(a?.direccion || '');
+    $('#cedisEstadoTracking').val(a?.estado || '');
+    $('#cedisMunicipioTracking').val(a?.municipio || '');
+    $('#cedisCpTracking').val(a?.codigo_postal || '');
+    $('#cedisLatTracking').val(a?.latitud ?? '');
+    $('#cedisLngTracking').val(a?.longitud ?? '');
+    $('#cedisLinkTracking').val(a?.link_ubicacion || '');
+    $('#cedisLinkCoordStatus').removeClass('text-success text-warning').text('');
+    $('#cedisLinkTracking').removeClass('is-valid is-invalid');
+    $('#cedisTelefonoTracking').val(a?.telefono || '');
+    $('#cedisEncargadoTracking').val(a?.encargado || '');
+    $('#cedisEmailTracking').val(a?.email || '');
+    $('#cedisHorarioTracking').val(a?.horario || '');
+    $('#cedisActivoTracking').prop('checked', Number(a?.activo ?? 1) === 1);
+    bootstrap.Modal.getOrCreateInstance(document.getElementById('modalCedisTracking')).show();
+}
+
+function _trkAbrirModalTransportistaTracking(id = 0) {
+    const t = id ? _trkTransportistaCatalogoPorId(id) : null;
+    $('#modalTransportistaTrackingLabel').html(`<i class="fa-solid fa-id-card-clip me-2" style="color:var(--track-color);"></i>${t ? 'Editar Transportista' : 'Registrar Transportista'}`);
+    $('#transportistaIdTracking').val(t?.id_transportista || '');
+    $('#transportistaNombreTracking').val(t?.nombre_transportista || '');
+    $('#transportistaCurpTracking').val(t?.curp_rfc || '');
+    $('#transportistaTelefonoTracking').val(t?.telefono || '');
+    $('#transportistaEmailTracking').val(t?.email || '');
+    $('#transportistaEmpresaTracking').val(t?.empresa_origen || '');
+    $('#transportistaPuestoTracking').val(t?.puesto || '');
+    $('#transportistaUsernameTracking').val(t?.username || '');
+    $('#transportistaPasswordTracking').val('');
+    $('#transportistaActivoTracking').prop('checked', Number(t?.activo ?? 1) === 1);
+    _trkCatalogoLlenarSelectCedis(t?.id_agencia || '');
+    if (t?.tipo_transportista) $('#transportistaTipoTracking').val(t.tipo_transportista);
+    bootstrap.Modal.getOrCreateInstance(document.getElementById('modalTransportistaTracking')).show();
+}
+
+function _trkPayloadCedisTracking() {
+    return {
+        id_agencia: $('#cedisIdTracking').val() || 0,
+        nombre_agencia: $('#cedisNombreTracking').val(),
+        clave_agencia: $('#cedisClaveTracking').val(),
+        tipo_ubicacion: 'agencia',
+        direccion: $('#cedisDireccionTracking').val(),
+        estado: $('#cedisEstadoTracking').val(),
+        municipio: $('#cedisMunicipioTracking').val(),
+        codigo_postal: $('#cedisCpTracking').val(),
+        latitud: $('#cedisLatTracking').val(),
+        longitud: $('#cedisLngTracking').val(),
+        link_ubicacion: $('#cedisLinkTracking').val(),
+        telefono: $('#cedisTelefonoTracking').val(),
+        encargado: $('#cedisEncargadoTracking').val(),
+        email: $('#cedisEmailTracking').val(),
+        horario: $('#cedisHorarioTracking').val(),
+        activo: $('#cedisActivoTracking').is(':checked') ? 1 : 0,
+    };
+}
+
+function _trkPayloadTransportistaTracking() {
+    return {
+        id_transportista: $('#transportistaIdTracking').val() || 0,
+        id_agencia: $('#transportistaCedisTracking').val() || null,
+        tipo_transportista: $('#transportistaTipoTracking').val() || 'externo',
+        nombre_transportista: $('#transportistaNombreTracking').val(),
+        curp_rfc: $('#transportistaCurpTracking').val(),
+        email: $('#transportistaEmailTracking').val(),
+        telefono: $('#transportistaTelefonoTracking').val(),
+        empresa_origen: $('#transportistaEmpresaTracking').val(),
+        puesto: $('#transportistaPuestoTracking').val(),
+        username: $('#transportistaUsernameTracking').val(),
+        password: $('#transportistaPasswordTracking').val(),
+        activo: $('#transportistaActivoTracking').is(':checked') ? 1 : 0,
+    };
+}
+
+function _trkGuardarCatalogo(url, payload, btn, modalId) {
+    const $btn = $(btn);
+    $btn.prop('disabled', true);
+    return trkFetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+    }).then(r => {
+        if (!r.success) {
+            Swal.fire({ icon: 'error', title: 'No se pudo guardar', text: r.message || r.mensaje || 'Intenta nuevamente.', confirmButtonText: 'Aceptar' });
+            return;
+        }
+        bootstrap.Modal.getInstance(document.getElementById(modalId))?.hide();
+        Swal.fire({ icon: 'success', title: 'Listo', text: r.message || r.mensaje || 'Registro guardado.', timer: 1500, showConfirmButton: false });
+        _trk.cargadoCatalogos = false;
+        _trkCargarSeccion('catalogos', { force: true, silent: true });
+    }).catch(() => {
+        Swal.fire({ icon: 'error', title: 'Error de conexion', text: 'No se pudo guardar el registro.', confirmButtonText: 'Aceptar' });
+    }).finally(() => $btn.prop('disabled', false));
+}
+
+function _trkGuardarCedisTracking() {
+    _trkAplicarCoordsCedisDesdeLink(false);
+    const payload = _trkPayloadCedisTracking();
+    if (!String(payload.nombre_agencia || '').trim()) {
+        Swal.fire({ icon: 'warning', title: 'Campo requerido', text: 'El nombre del CEDIS es obligatorio.', confirmButtonText: 'Aceptar' });
+        return;
+    }
+    _trkGuardarCatalogo('/TrackingRecoleccion/guardarAgenciaTracking', payload, '#btnGuardarCedisTracking', 'modalCedisTracking');
+}
+
+function _trkGuardarTransportistaTracking() {
+    const payload = _trkPayloadTransportistaTracking();
+    if (!String(payload.nombre_transportista || '').trim()) {
+        Swal.fire({ icon: 'warning', title: 'Campo requerido', text: 'El nombre del transportista es obligatorio.', confirmButtonText: 'Aceptar' });
+        return;
+    }
+    _trkGuardarCatalogo('/TrackingRecoleccion/guardarTransportistaTracking', payload, '#btnGuardarTransportistaTracking', 'modalTransportistaTracking');
+}
+
+function _trkCambiarEstadoCedisTracking(id, activo) {
+    _trkCambiarEstadoCatalogo('/TrackingRecoleccion/cambiarEstadoAgenciaTracking', { id_agencia: id, activo });
+}
+
+function _trkCambiarEstadoTransportistaTracking(id, activo) {
+    _trkCambiarEstadoCatalogo('/TrackingRecoleccion/cambiarEstadoTransportistaTracking', { id_transportista: id, activo });
+}
+
+function _trkCambiarEstadoCatalogo(url, payload) {
+    trkFetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+    }).then(r => {
+        if (!r.success) {
+            Swal.fire({ icon: 'error', title: 'No se pudo actualizar', text: r.message || r.mensaje || 'Intenta nuevamente.', confirmButtonText: 'Aceptar' });
+            return;
+        }
+        _trk.cargadoCatalogos = false;
+        _trkCargarSeccion('catalogos', { force: true, silent: true });
+    }).catch(() => {
+        Swal.fire({ icon: 'error', title: 'Error de conexion', text: 'No se pudo actualizar el registro.', confirmButtonText: 'Aceptar' });
+    });
+}
+
+function _trkCargarCatalogoAgenciasTransportistas(silent = false) {
     return Promise.all([
         trkFetch('/TrackingRecoleccion/obtenerCatalogoAgenciasTransportistas').catch(() => ({ success: false, datos: {} })),
         trkFetch('/TrackingRecoleccion/obtenerCedisTracking').catch(() => ({ success: false, datos: {} })),
@@ -4280,6 +5820,9 @@ function _trkCargarCatalogoAgenciasTransportistas() {
             _trkPoblarAgenciasTrackingSelect();
             _trkRefrescarSelectTransportistas();
             _trk.cargadoCatalogos = true;
+        })
+        .catch(err => {
+            if (!silent) console.warn('[Tracking Recoleccion] Error al cargar catalogos', err);
         });
 }
 
@@ -4294,10 +5837,10 @@ function _trkExtraerCedisTracking(resp) {
     return _trkFiltrarCedisActivos(Array.isArray(cedis) ? cedis : []);
 }
 
-function _trkCargarCatalogosSiHaceFalta() {
+function _trkCargarCatalogosSiHaceFalta(silent = false) {
     return _trk.cargadoCatalogos
         ? Promise.resolve()
-        : _trkCargarCatalogoAgenciasTransportistas().catch(() => {});
+        : _trkCargarCatalogoAgenciasTransportistas(silent).catch(() => {});
 }
 
 function _trkPoblarAgenciasTrackingSelect() {
@@ -4325,16 +5868,20 @@ function _trkPoblarAgenciasTrackingSelect() {
 }
 
 function _trkRenderCatalogosTracking() {
-    const agencias = _trk.agenciasTracking || [];
-    const transportistas = _trk.transportistasTracking || [];
-    const internos = transportistas.filter(t => t.tipo_transportista === 'interno').length;
-    const externos = transportistas.filter(t => t.tipo_transportista === 'externo').length;
+    const agenciasTotal = _trk.agenciasTracking || [];
+    const transportistasTotal = _trk.transportistasTracking || [];
+    const { agencias, transportistas } = _trkCatalogoDatosFiltrados();
+    const internos = transportistasTotal.filter(t => t.tipo_transportista === 'interno').length;
+    const externos = transportistasTotal.filter(t => t.tipo_transportista === 'externo').length;
 
-    $('#statAgenciasTracking').text(agencias.length);
+    $('#statAgenciasTracking').text(agenciasTotal.filter(a => Number(a.activo ?? 1) === 1).length);
     $('#statTransportistasInternos').text(internos);
     $('#statTransportistasExternos').text(externos);
-    $('#statCatalogoTotal').text(agencias.length + transportistas.length);
-    _trkSetBadge('badgeCatalogos', agencias.length + transportistas.length);
+    $('#statCatalogoTotal').text(agenciasTotal.length + transportistasTotal.length);
+    _trkSetBadge('badgeCatalogos', agenciasTotal.length + transportistasTotal.length);
+    _trkSetCatalogoVista(_trk.catalogoVista);
+    _trkRenderCatalogoDirectorio(agencias, transportistas);
+    _trkRenderCatalogoAgrupado(agencias, transportistas);
 
     if (_trk.tablaAgenciasDT) {
         _trk.tablaAgenciasDT.clear().rows.add(agencias).draw();
@@ -4618,6 +6165,8 @@ function _trkEstadoCanonico(estado, municipio = '') {
     const est = _trkEstadoTextoBase(estado);
     const mun = _trkEstadoTextoBase(municipio);
     if (!est && !mun) return '';
+    const estadoAmbiguo = ['MEXICO', 'EDO MEX', 'EDO DE MEX', 'EDO DE MEXICO', 'ESTADO MEXICO', 'EDO MEXICO'].includes(est);
+    if (estadoAmbiguo && mun && _TRK_MUNICIPIO_ESTADO_HINTS[mun]) return _TRK_MUNICIPIO_ESTADO_HINTS[mun];
     if (_TRK_ESTADO_ALIAS[est]) return _TRK_ESTADO_ALIAS[est];
     if (_TRK_ESTADOS_OFICIALES.includes(est)) return est;
 
@@ -4829,7 +6378,10 @@ function _trkInicializarModal() {
     document.getElementById('rutaFecha').min = minDate;
     $('#rutaDiasMinimosTxt').text(_trkDiasMinimosProgramacion());
 
-    $('#rutaNombre').on('input', _trkMarcarCambio);
+    $('#rutaNombre').on('input paste blur', function (e) {
+        _trkMarcarCambio();
+        _trkProgramarValidacionNombreRuta(e.type === 'blur' ? 80 : 650);
+    });
 
     $('#rutaTransportistaTracking').on('change', function () {
         $('#rutaCedisDestino').val('');
@@ -4903,7 +6455,6 @@ function _trkInicializarModal() {
     });
 
     // Guardar
-    $('#btnGuardarBorrador').on('click', () => _trkGuardarRuta('borrador'));
     $('#btnEnviarRuta').on('click', () => _trkGuardarRuta('enviar'));
     $('#btnActualizarRuta').on('click', async () => {
         const ok = await Swal.fire({
@@ -4920,18 +6471,12 @@ function _trkInicializarModal() {
 
     // Cerrar con aviso
     const _closeFn = async () => {
-        if (!_trk.soloLectura && _trk.haychangios && _trkPuedeAutosaveBorrador()) {
-            _trkCancelarAutosaveProgramado();
-            _trkSetAutosaveStatus('Guardando borrador...', 'muted');
-            const okAuto = await _trkGuardarBorradorAutomatico();
-            if (okAuto) {
-                _trk.autosaveLastHash = _trkAutosaveHash();
-                _trkSetAutosaveStatus('Borrador guardado', 'success');
-            }
-        }
         if (!_trk.soloLectura && _trk.haychangios) {
-            const ok = await trkConfirm('Tienes cambios sin guardar. Deseas salir sin guardar?');
-            if (!ok) return;
+            const okAuto = await _trkForzarAutosaveBorrador();
+            if (!okAuto) {
+                const ok = await trkConfirm('Tienes cambios sin guardar. Deseas salir sin guardar?');
+                if (!ok) return;
+            }
         }
         bootstrap.Modal.getInstance(document.getElementById('modalRegistrarRuta'))?.hide();
         if (_trk.autosaveDirtyLists) {
@@ -4990,8 +6535,9 @@ async function _trkAbrirModalConCredito(cred) {
     // Pre-seleccionar estado/municipio del credito en los filtros
     if (cred.estado) {
         $('#crdFiltroEstado').val(_trkEstadoCanonico(cred.estado, cred.municipio) || cred.estado).trigger('change');
-        if (cred.municipio) {
-            $('#crdFiltroMunicipio').val(cred.municipio).trigger('change');
+        const municipioFiltro = _trkMunicipioFiltroCanonico(cred.municipio, cred.estado);
+        if (municipioFiltro) {
+            $('#crdFiltroMunicipio').val(municipioFiltro).trigger('change');
         }
     }
     const modal = new bootstrap.Modal(document.getElementById('modalRegistrarRuta'));
@@ -5011,6 +6557,14 @@ function _trkResetModal() {
     _trk.haychangios           = false;
     _trk.autosaveLastHash      = '';
     _trk.autosaveDirtyLists    = false;
+    _trk.nombreRutaDisponible  = null;
+    _trk.nombreRutaValidando   = false;
+    _trk.nombreRutaUltimoValor = '';
+    if (_trk.nombreRutaCheckTimer) {
+        clearTimeout(_trk.nombreRutaCheckTimer);
+        _trk.nombreRutaCheckTimer = null;
+    }
+    _trkSetNombreRutaStatus('', '');
     _trkSetAutosaveStatus('Autoguardado listo');
     _trkDesbloquearModal();
     $('#rutaNombre').val('');
@@ -5090,6 +6644,36 @@ function _trkMismaUbicacion(a, b) {
     return _trkNormTxt(a) === _trkNormTxt(b);
 }
 
+function _trkMunicipioCanonico(municipio) {
+    return _trkEstadoTextoBase(municipio);
+}
+
+function _trkMunicipioEsEstadoAlias(municipio) {
+    const mun = _trkMunicipioCanonico(municipio);
+    if (!mun) return false;
+    return [
+        'CDMX', 'CMDX', 'DF', 'DISTRITO FEDERAL', 'CIUDAD DE MEXICO',
+        'ESTADO DE MEXICO', 'ESTADO MEXICO', 'EDO MEX', 'EDO DE MEX',
+        'EDO DE MEXICO', 'EDO MEXICO', 'EDOMEX', 'MEXICO',
+    ].includes(mun);
+}
+
+function _trkMunicipioFiltroCanonico(municipio, estado = '') {
+    const mun = _trkMunicipioCanonico(municipio);
+    if (!mun) return '';
+    if (['NA', 'N/A', 'SIN MUNICIPIO', 'SIN UBICACION', 'NO DISPONIBLE', 'NULL'].includes(mun)) return '';
+    if (_trkMunicipioEsEstadoAlias(mun)) return '';
+    if (_trkPareceDireccionEnEstado(mun)) return '';
+    const estadoCanonico = _trkEstadoCanonico(estado, municipio);
+    if (estadoCanonico === 'CIUDAD DE MEXICO' && ['CIUDAD DE MEXICO', 'CDMX', 'CMDX', 'DF'].includes(mun)) return '';
+    if (estadoCanonico === 'ESTADO DE MEXICO' && ['MEXICO', 'ESTADO DE MEXICO', 'EDOMEX'].includes(mun)) return '';
+    return mun;
+}
+
+function _trkMismaUbicacionMunicipio(municipioA, municipioB) {
+    return _trkMunicipioCanonico(municipioA) === _trkMunicipioCanonico(municipioB);
+}
+
 function _trkCreditosPorEstado(estado) {
     if (!estado) return [];
     return _trk.creditosDisponibles.filter(c => _trkMismaUbicacionEstado(c.estado, estado, c.municipio));
@@ -5098,32 +6682,42 @@ function _trkCreditosPorEstado(estado) {
 function _trkCreditosPorMunicipio(estado, municipio) {
     if (!estado || !municipio) return [];
     return _trk.creditosDisponibles.filter(c =>
-        _trkMismaUbicacionEstado(c.estado, estado, c.municipio) && _trkMismaUbicacion(c.municipio, municipio)
+        _trkMismaUbicacionEstado(c.estado, estado, c.municipio) && _trkMismaUbicacionMunicipio(_trkMunicipioFiltroCanonico(c.municipio, c.estado), municipio)
     );
+}
+
+function _trkCreditosRestantesPorEstado(estado) {
+    if (!estado) return [];
+    const ids = _trkIdsCreditosEnRutaSet();
+    return _trkCreditosPorEstado(estado).filter(c => !ids.has(String(c.id_credito)));
+}
+
+function _trkCreditosRestantesPorMunicipio(estado, municipio) {
+    if (!estado || !municipio) return [];
+    const ids = _trkIdsCreditosEnRutaSet();
+    return _trkCreditosPorMunicipio(estado, municipio).filter(c => !ids.has(String(c.id_credito)));
 }
 
 function _trkEstadoCreditosAgotado(estado) {
     if (!estado) return false;
-    const ids = _trkIdsCreditosEnRutaSet();
     const creditosEstado = _trkCreditosPorEstado(estado);
-    return creditosEstado.length > 0 && creditosEstado.every(c => ids.has(String(c.id_credito)));
+    return creditosEstado.length > 0 && _trkCreditosRestantesPorEstado(estado).length === 0;
 }
 
 function _trkTotalCreditosPorEstado(estado) {
     if (!estado) return 0;
-    return _trkCreditosPorEstado(estado).length;
+    return _trkCreditosRestantesPorEstado(estado).length;
 }
 
 function _trkTotalCreditosPorMunicipio(estado, municipio) {
     if (!estado || !municipio) return 0;
-    return _trkCreditosPorMunicipio(estado, municipio).length;
+    return _trkCreditosRestantesPorMunicipio(estado, municipio).length;
 }
 
 function _trkMunicipioCreditosAgotado(estado, municipio) {
     if (!estado || !municipio) return false;
-    const ids = _trkIdsCreditosEnRutaSet();
     const creditosMunicipio = _trkCreditosPorMunicipio(estado, municipio);
-    return creditosMunicipio.length > 0 && creditosMunicipio.every(c => ids.has(String(c.id_credito)));
+    return creditosMunicipio.length > 0 && _trkCreditosRestantesPorMunicipio(estado, municipio).length === 0;
 }
 
 function _trkPoblarFiltroMunicipiosCrd(estado) {
@@ -5136,19 +6730,23 @@ function _trkPoblarFiltroMunicipiosCrd(estado) {
         _trkRefrescarSelectBuscable('#crdFiltroMunicipio');
         return;
     }
-    const municipios = [...new Set(
-        _trk.creditosDisponibles
-            .filter(c => _trkMismaUbicacionEstado(c.estado, estado, c.municipio) && c.municipio)
-            .map(c => c.municipio)
-    )].sort();
+    const municipiosMap = new Map();
+    _trk.creditosDisponibles
+        .filter(c => _trkMismaUbicacionEstado(c.estado, estado, c.municipio) && c.municipio)
+        .forEach(c => {
+            const mun = _trkMunicipioFiltroCanonico(c.municipio, c.estado);
+            if (mun && !municipiosMap.has(mun)) municipiosMap.set(mun, mun);
+        });
+    const municipios = [...municipiosMap.values()].sort();
     municipios.forEach(m => {
         const total = _trkTotalCreditosPorMunicipio(estado, m);
         const agotado = _trkMunicipioCreditosAgotado(estado, m);
         const texto = agotado ? `${m} - (${total}) (TODOS SELECCIONADOS EN EL MAPA)` : `${m} - (${total})`;
         $mun.append($('<option>', { value: m, text: texto, disabled: agotado }));
     });
-    if (municipioActual && municipios.some(m => _trkMismaUbicacion(m, municipioActual)) && !_trkMunicipioCreditosAgotado(estado, municipioActual)) {
-        $mun.val(municipioActual);
+    const municipioActualCanonico = _trkMunicipioFiltroCanonico(municipioActual, estado);
+    if (municipioActualCanonico && municipios.some(m => _trkMismaUbicacionMunicipio(m, municipioActualCanonico)) && !_trkMunicipioCreditosAgotado(estado, municipioActualCanonico)) {
+        $mun.val(municipioActualCanonico);
     } else {
         $mun.val('');
     }
@@ -5171,7 +6769,7 @@ function _trkRefrescarSelectCreditos() {
     _trk.creditosDisponibles.forEach(c => {
         if (idsEnRuta.has(String(c.id_credito))) return;
         if (estFiltro && !_trkMismaUbicacionEstado(c.estado, estFiltro, c.municipio)) return;
-        if (munFiltro && !_trkMismaUbicacion(c.municipio, munFiltro)) return;
+        if (munFiltro && !_trkMismaUbicacionMunicipio(_trkMunicipioFiltroCanonico(c.municipio, c.estado), munFiltro)) return;
         const modelo = [c.moto_marca, c.moto_modelo].filter(Boolean).join(' ');
         const label  = `#${c.id_credito}  -  ${modelo || '(sin modelo)'}  -  ${c.bin || ' - '}`;
         $sel.append(`<option value="${c.id_credito}">${label}</option>`);
@@ -5250,9 +6848,14 @@ function _trkRenderListaCreditos() {
         const modelo    = [c.moto_marca, c.moto_modelo].filter(Boolean).join(' ') || ' - ';
         const badgeConf = CONF_LABEL[c.estatus_confirmacion_gestor] || CONF_LABEL['pendiente'];
         const tienePin  = c.latitud_manual && c.longitud_manual;
-        const pinClass  = tienePin ? 'btn-pin-ubicacion tiene-pin' : 'btn-pin-ubicacion';
+        const tieneUbicacionDefault = !tienePin && (!!(c.latitud && c.longitud) || !!String(c.direccion || '').trim());
+        const pinClass  = tienePin
+            ? 'btn-pin-ubicacion tiene-pin'
+            : (tieneUbicacionDefault ? 'btn-pin-ubicacion pin-default-blink' : 'btn-pin-ubicacion');
         const etaInfo   = _trkEstadoEta(c, c.estatus_recoleccion);
-        const pinTitle  = tienePin ? 'Ubicacion manual asignada (clic para cambiar)' : 'Asignar ubicacion en mapa';
+        const pinTitle  = tienePin
+            ? 'Ubicacion manual asignada (clic para cambiar)'
+            : (tieneUbicacionDefault ? 'Ubicacion default detectada (clic para confirmar o ajustar)' : 'Asignar ubicacion en mapa');
 
         // Los creditos en ruta nunca se bloquean
         // En rutas canceladas queda como consulta: solo se permite enfocar el credito en el mapa.
@@ -5297,12 +6900,13 @@ function _trkRenderListaCreditos() {
             ${dragHandle}
             <span class="orden-num">${idx + 1}</span>
             <div class="d-flex flex-column gap-0 flex-grow-1" style="min-width:0;">
-                <span class="fw-semibold text-truncate">#${c.id_credito}  -  ${c.nombre_cliente || ' - '}</span>
+                <span class="fw-semibold text-truncate">#${c.id_credito}  -  ${c.nombre_cliente || ' - '} ${_trkNuevoCreditoRutaHtml(c)}</span>
                 <span class="text-muted" style="font-size:.75rem;">
                     <span class="trk-moto-model-pill"><i class="fa-solid fa-motorcycle" title="Modelo de motocicleta"></i>${_trkChatEscapeHtml(modelo || '-')}</span>
-                    &middot; BIN: ${_trkChatEscapeHtml(c.bin || '-')}
+                    &middot; VIN: ${_trkChatEscapeHtml(c.bin || '-')}
                     &nbsp;|&nbsp;${_trkRenderLocationBadges(c.estado, c.municipio)}
                 </span>
+                ${_trkRenderDireccionCredito(c)}
                 ${filaLectura ? etaLectura : `<div class="eta-row d-flex align-items-center gap-1 mt-1 flex-wrap">
                     <span class="text-muted fw-semibold" style="font-size:.7rem;white-space:nowrap;">ETA:</span>
                     ${etaInfo.html}
@@ -5557,36 +7161,30 @@ function _trkDibujarMapa(creditos) {
     const paraRuta     = creditos
         .filter(c => c.estatus_confirmacion_gestor === 'confirmado')
         .sort((a, b) => (a.orden_ruta || 99) - (b.orden_ruta || 99));
-    const soloPin      = creditos.filter(c =>
-        c.estatus_confirmacion_gestor === 'pendiente' ||
-        c.estatus_confirmacion_gestor === 'en_revision'
-    );
-    // rechazados -> completamente omitidos del mapa
+    const soloPin      = creditos.filter(c => c.estatus_confirmacion_gestor !== 'confirmado');
 
-    // -- Icono SVG numerado (confirmados) ---------------------
-    const svgIcon = (num) => {
+    // -- Icono SVG numerado por estatus -----------------------
+    const markerColorByStatus = {
+        confirmado:  { fill: '#e53935', text: '#fff' },
+        pendiente:   { fill: '#fdd835', text: '#111827' },
+        en_revision: { fill: '#fb8c00', text: '#fff' },
+        rechazado:   { fill: '#ef4444', text: '#fff' },
+    };
+    const numeroMarkerRuta = (c, fallback = 1) => {
+        const n = parseInt(c?.orden_ruta, 10);
+        return Number.isFinite(n) && n > 0 ? n : fallback;
+    };
+    const svgIcon = (num, estatus = 'confirmado') => {
+        const cfg = markerColorByStatus[estatus] || { fill: '#64748b', text: '#fff' };
         const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="34" height="34">
-            <circle cx="17" cy="17" r="15" fill="#e53935" stroke="#fff" stroke-width="2.5"/>
-            <text x="17" y="22" text-anchor="middle" fill="#fff"
+            <circle cx="17" cy="17" r="15" fill="${cfg.fill}" stroke="#fff" stroke-width="2.5"/>
+            <text x="17" y="22" text-anchor="middle" fill="${cfg.text}"
                   font-size="${num > 9 ? 11 : 13}" font-weight="bold" font-family="Arial,sans-serif">${num}</text>
         </svg>`;
         return {
             url: 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(svg),
             scaledSize: new google.maps.Size(34, 34),
             anchor:     new google.maps.Point(17, 17),
-        };
-    };
-
-    // -- Icono por estatus (no confirmados) -------------------
-    const statusIcon = (estatus) => {
-        const color = estatus === 'en_revision' ? '#fb8c00' : '#fdd835';
-        const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="26" height="26">
-            <circle cx="13" cy="13" r="11" fill="${color}" stroke="#fff" stroke-width="2"/>
-        </svg>`;
-        return {
-            url: 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(svg),
-            scaledSize: new google.maps.Size(26, 26),
-            anchor:     new google.maps.Point(13, 13),
         };
     };
 
@@ -5630,21 +7228,25 @@ function _trkDibujarMapa(creditos) {
         ...paraRuta.map(c  => resolverPos(c).then(pos => ({ c, pos, tipo: 'ruta' }))),
         ...soloPin.map(c   => resolverPos(c).then(pos => ({ c, pos, tipo: 'pin'  }))),
     ]).then(results => {
-        // Marcadores sin ruta (pendiente / en_revision)
-        results.filter(r => r.tipo === 'pin' && r.pos).forEach(({ c, pos }) => {
-            const m = new google.maps.Marker({
-                map,
-                position: pos,
-                icon:  statusIcon(c.estatus_confirmacion_gestor),
-                title: `#${c.id_credito} \u2014 ${c.nombre_cliente || ''} (${c.estatus_confirmacion_gestor})`,
-                zIndex: 1,
+        // Marcadores sin ruta (pendiente / en_revision / rechazado)
+        results
+            .filter(r => r.tipo === 'pin' && r.pos)
+            .sort((a, b) => numeroMarkerRuta(a.c, 99) - numeroMarkerRuta(b.c, 99))
+            .forEach(({ c, pos }, idx) => {
+                const num = numeroMarkerRuta(c, idx + 1);
+                const m = new google.maps.Marker({
+                    map,
+                    position: pos,
+                    icon:  svgIcon(num, c.estatus_confirmacion_gestor || 'pendiente'),
+                    title: `Posicion ${num} - #${c.id_credito} \u2014 ${c.nombre_cliente || ''} (${c.estatus_confirmacion_gestor || 'pendiente'})`,
+                    zIndex: 10 + num,
+                });
+                _trk.mapMarkers.push(m);
+                _trk.mapMarkersByCredito[String(c.id_credito)] = m;
+                _trk.creditoPosiciones[String(c.id_credito)] = pos;
+                m.addListener('click', () => _trkEnfocarCreditoEnMapa(c.id_credito, { scroll: false }));
+                bounds.extend(pos);
             });
-            _trk.mapMarkers.push(m);
-            _trk.mapMarkersByCredito[String(c.id_credito)] = m;
-            _trk.creditoPosiciones[String(c.id_credito)] = pos;
-            m.addListener('click', () => _trkEnfocarCreditoEnMapa(c.id_credito, { scroll: false }));
-            bounds.extend(pos);
-        });
 
         // Marcadores numerados (confirmados)
         const rutaConPos = results
@@ -5652,12 +7254,13 @@ function _trkDibujarMapa(creditos) {
             .sort((a, b) => (a.c.orden_ruta || 99) - (b.c.orden_ruta || 99));
 
         rutaConPos.forEach(({ c, pos }, idx) => {
+            const num = numeroMarkerRuta(c, idx + 1);
             const m = new google.maps.Marker({
                 map,
                 position: pos,
-                icon:  svgIcon(idx + 1),
-                title: `#${c.id_credito} \u2014 ${c.nombre_cliente || ''}`,
-                zIndex: 10 + idx,
+                icon:  svgIcon(num, c.estatus_confirmacion_gestor || 'confirmado'),
+                title: `Posicion ${num} - #${c.id_credito} \u2014 ${c.nombre_cliente || ''}`,
+                zIndex: 20 + num,
             });
             _trk.mapMarkers.push(m);
             _trk.mapMarkersByCredito[String(c.id_credito)] = m;
@@ -5822,10 +7425,13 @@ const _trkPicker = {
     selectedLng:       null,
     selectedEstado:    null,
     selectedMunicipio: null,
+    selectedDireccion: null,
     geocoder:          null,
     autocomplete:      null,
     searchDebounce:    null,
     listenersBound:    false,
+    restoreRouteModal: false,
+    closingByConfirm:  false,
 };
 
 function _trkAbrirMapPicker(cred) {
@@ -5834,11 +7440,17 @@ function _trkAbrirMapPicker(cred) {
         return;
     }
 
+    const routeModalEl = document.getElementById('modalRegistrarRuta');
+    const routeModalAbierto = routeModalEl?.classList.contains('show');
+    _trkPicker.restoreRouteModal = !!routeModalAbierto;
+    _trkPicker.closingByConfirm = false;
+
     _trkPicker.creditoId         = cred.id_credito;
     _trkPicker.selectedLat        = null;
     _trkPicker.selectedLng        = null;
     _trkPicker.selectedEstado     = null;
     _trkPicker.selectedMunicipio  = null;
+    _trkPicker.selectedDireccion  = null;
 
     // Etiqueta en el modal
     document.getElementById('mapPickerCreditoLabel').textContent =
@@ -5846,6 +7458,8 @@ function _trkAbrirMapPicker(cred) {
     document.getElementById('mapPickerCoordsLabel').innerHTML =
         '<i class="fa-solid fa-crosshairs me-1"></i>Sin seleccion';
     document.getElementById('mapPickerGeoInfo').classList.add('d-none');
+    document.getElementById('mapPickerDireccionWrap').classList.add('d-none');
+    document.getElementById('mapPickerDireccionCompleta').textContent = ' - ';
     document.getElementById('btnConfirmarMapPicker').disabled = true;
     document.getElementById('mapPickerSearch').value = '';
 
@@ -5855,16 +7469,31 @@ function _trkAbrirMapPicker(cred) {
         document.getElementById('btnCerrarMapPicker').addEventListener('click',  () => _trkPicker.modal.hide());
         document.getElementById('btnCancelarMapPicker').addEventListener('click', () => _trkPicker.modal.hide());
         document.getElementById('btnConfirmarMapPicker').addEventListener('click', _trkConfirmarMapPicker);
+        document.getElementById('modalMapPicker').addEventListener('hidden.bs.modal', _trkRestaurarModalRutaDespuesPicker);
     }
-    // Oscurecer el backdrop cuando el map picker este sobre otro modal
-    document.getElementById('modalMapPicker').addEventListener('shown.bs.modal', () => {
-        const backdrops = document.querySelectorAll('.modal-backdrop');
-        if (backdrops.length >= 2) backdrops[backdrops.length - 1].style.opacity = '0.65';
-    }, { once: true });
-    _trkPicker.modal.show();
 
     // Inicializar mapa despues de que el modal sea visible (necesario para que el div tenga dimensiones)
     document.getElementById('modalMapPicker').addEventListener('shown.bs.modal', _trkInicializarMapPicker, { once: true });
+
+    const abrirPicker = () => _trkPicker.modal.show();
+    if (routeModalAbierto) {
+        routeModalEl.addEventListener('hidden.bs.modal', abrirPicker, { once: true });
+        bootstrap.Modal.getOrCreateInstance(routeModalEl).hide();
+    } else {
+        abrirPicker();
+    }
+}
+
+function _trkRestaurarModalRutaDespuesPicker() {
+    if (!_trkPicker.restoreRouteModal) return;
+    _trkPicker.restoreRouteModal = false;
+    const routeModalEl = document.getElementById('modalRegistrarRuta');
+    if (!routeModalEl) return;
+    bootstrap.Modal.getOrCreateInstance(routeModalEl).show();
+    setTimeout(() => {
+        _trkRenderListaCreditos();
+        _trkRenderizarMapa();
+    }, 250);
 }
 
 function _trkInicializarMapPicker() {
@@ -5994,6 +7623,13 @@ function _trkInicializarMapPicker() {
             });
             _trkPickerReverseGeocode(new google.maps.LatLng(prevPos.lat, prevPos.lng));
             document.getElementById('btnConfirmarMapPicker').disabled = false;
+        } else if (cred.latitud && cred.longitud) {
+            const defaultPos = { lat: parseFloat(cred.latitud), lng: parseFloat(cred.longitud) };
+            _trkPickerCrearMarker(defaultPos, 'Ubicacion default detectada');
+            _trkPicker.selectedLat = defaultPos.lat;
+            _trkPicker.selectedLng = defaultPos.lng;
+            _trkPickerReverseGeocode(new google.maps.LatLng(defaultPos.lat, defaultPos.lng));
+            document.getElementById('btnConfirmarMapPicker').disabled = false;
         }
 
         google.maps.event.trigger(_trkPicker.mapInstance, 'resize');
@@ -6046,10 +7682,11 @@ function _trkPickerAplicarLugar(latLng, components = null, addressText = '') {
     if (!_trkPicker.mapInstance || !latLng) return;
     _trkPicker.selectedLat = typeof latLng.lat === 'function' ? latLng.lat() : latLng.lat;
     _trkPicker.selectedLng = typeof latLng.lng === 'function' ? latLng.lng() : latLng.lng;
+    _trkPicker.selectedDireccion = addressText || null;
     _trkPicker.mapInstance.panTo(latLng);
     _trkPicker.mapInstance.setZoom(16);
     _trkPickerCrearMarker(latLng, addressText || 'Ubicacion seleccionada');
-    if (components) _trkPickerExtraerGeo(components);
+    if (components) _trkPickerExtraerGeo(components, addressText);
     else _trkPickerReverseGeocode(latLng);
     _trkActualizarLabelCoordsicker();
     document.getElementById('btnConfirmarMapPicker').disabled = false;
@@ -6122,7 +7759,10 @@ function _trkPickerInicializarBusqueda() {
             _trkPicker.selectedLng = null;
             _trkPicker.selectedEstado = null;
             _trkPicker.selectedMunicipio = null;
+            _trkPicker.selectedDireccion = null;
             document.getElementById('mapPickerGeoInfo').classList.add('d-none');
+            document.getElementById('mapPickerDireccionWrap').classList.add('d-none');
+            document.getElementById('mapPickerDireccionCompleta').textContent = ' - ';
             document.getElementById('mapPickerCoordsLabel').innerHTML =
                 '<i class="fa-solid fa-crosshairs me-1"></i>Sin seleccion';
             document.getElementById('btnConfirmarMapPicker').disabled = true;
@@ -6140,33 +7780,51 @@ function _trkActualizarLabelCoordsicker() {
         `Lat: <strong>${lat.toFixed(6)}</strong> &nbsp; Lng: <strong>${lng.toFixed(6)}</strong>`;
 }
 
-function _trkPickerExtraerGeo(components) {
+function _trkPickerExtraerGeo(components, formattedAddress = '') {
     if (!components) return;
-    let estado = '', municipio = '';
+    let estado = '', localidad = '', alcaldia = '', sublocalidad = '', barrio = '';
     components.forEach(c => {
-        if (c.types.includes('administrative_area_level_1')) estado    = c.long_name;
-        if (c.types.includes('locality'))                    municipio = c.long_name;
-        if (!municipio && c.types.includes('sublocality_level_1'))        municipio = c.long_name;
-        if (!municipio && c.types.includes('administrative_area_level_2')) municipio = c.long_name;
+        if (c.types.includes('administrative_area_level_1')) estado = c.long_name;
+        if (c.types.includes('locality')) localidad = c.long_name;
+        if (c.types.includes('administrative_area_level_2')) alcaldia = c.long_name;
+        if (c.types.includes('sublocality_level_1')) sublocalidad = c.long_name;
+        if (c.types.includes('neighborhood')) barrio = c.long_name;
     });
+    const estadoCanonico = _trkEstadoCanonico(estado, alcaldia || sublocalidad || localidad || barrio);
+    const municipio = estadoCanonico === 'CIUDAD DE MEXICO'
+        ? (alcaldia || sublocalidad || localidad || barrio)
+        : (localidad || alcaldia || sublocalidad || barrio);
     _trkPicker.selectedEstado    = estado    || null;
     _trkPicker.selectedMunicipio = municipio || null;
+    _trkPicker.selectedDireccion = formattedAddress || _trkPicker.selectedDireccion || null;
     const geoDiv  = document.getElementById('mapPickerGeoInfo');
     const geoSpan = document.getElementById('mapPickerEstadoMun');
+    const dirWrap = document.getElementById('mapPickerDireccionWrap');
+    const dirSpan = document.getElementById('mapPickerDireccionCompleta');
     if (estado || municipio) {
         geoSpan.textContent = [municipio, estado].filter(Boolean).join(', ');
         geoDiv.classList.remove('d-none');
     } else {
         geoDiv.classList.add('d-none');
     }
+    if (_trkPicker.selectedDireccion) {
+        dirSpan.textContent = _trkPicker.selectedDireccion;
+        dirWrap.classList.remove('d-none');
+    } else {
+        dirSpan.textContent = ' - ';
+        dirWrap.classList.add('d-none');
+    }
 }
 
 function _trkPickerReverseGeocode(latLng) {
     if (!window.google || !google.maps) return;
     if (!_trkPicker.geocoder) _trkPicker.geocoder = new google.maps.Geocoder();
+    _trkPicker.selectedDireccion = null;
+    document.getElementById('mapPickerDireccionCompleta').textContent = ' - ';
+    document.getElementById('mapPickerDireccionWrap').classList.add('d-none');
     _trkPicker.geocoder.geocode({ location: latLng }, (results, status) => {
         if (status === 'OK' && results && results[0]) {
-            _trkPickerExtraerGeo(results[0].address_components);
+            _trkPickerExtraerGeo(results[0].address_components, results[0].formatted_address || '');
         }
         _trkActualizarLabelCoordsicker();
     });
@@ -6187,12 +7845,16 @@ function _trkConfirmarMapPicker() {
         // Aplicar estado/municipio detectados por geocodificacion
         if (_trkPicker.selectedEstado)    cred.estado    = _trkPicker.selectedEstado;
         if (_trkPicker.selectedMunicipio) cred.municipio = _trkPicker.selectedMunicipio;
+        if (_trkPicker.selectedDireccion) {
+            cred.direccion_google = _trkPicker.selectedDireccion;
+            cred.direccion = _trkPicker.selectedDireccion;
+        }
         _trkMarcarCambio();
     }
 
+    _trkPicker.closingByConfirm = true;
     _trkPicker.modal.hide();
     _trkRenderListaCreditos();
-    _trkRenderizarMapa();
 }
 
 // --- Guardar ruta ----------------------------------------
@@ -6220,6 +7882,14 @@ function _trkFormatFechaHora(valor) {
         minute: '2-digit',
         hour12: false,
     });
+}
+
+function _trkNuevoCreditoRutaHtml(item) {
+    const fecha = item?.fecha_agregado_fmt || _trkFormatFechaHora(item?.fecha_agregado) || '';
+    if (!fecha) return '';
+    const safeFecha = _trkChatEscapeHtml(fecha);
+    return `<span class="badge bg-warning text-dark ms-1" title="Agregado el ${safeFecha}">NUEVO</span>
+            <span class="text-muted ms-1" style="font-size:.72rem;">Agregado ${safeFecha}</span>`;
 }
 
 function _trkHoraToPayload() {
@@ -6478,6 +8148,143 @@ async function _trkConfirmarRutaNoOptimaSiAplica(modo) {
     return r.isConfirmed;
 }
 
+function _trkUbicacionesResumenEnvio() {
+    const grupos = new Map();
+    (_trk.creditosEnRuta || []).forEach(c => {
+        const estado = _trkEstadoCanonico(c?.estado, c?.municipio) || String(c?.estado || '').trim() || 'Sin estado';
+        const municipio = _trkMunicipioFiltroCanonico(c?.municipio, estado) || 'Sin municipio';
+        const key = `${estado}|||${municipio}`;
+        if (!grupos.has(key)) grupos.set(key, { estado, municipio, creditos: [] });
+        grupos.get(key).creditos.push({
+            id: c?.id_credito || '',
+            orden: parseInt(c?.orden_ruta, 10) || 9999,
+        });
+    });
+    return [...grupos.values()]
+        .map(g => ({
+            ...g,
+            creditos: g.creditos.sort((a, b) => a.orden - b.orden),
+            total: g.creditos.length,
+        }))
+        .sort((a, b) => `${a.estado} ${a.municipio}`.localeCompare(`${b.estado} ${b.municipio}`));
+}
+
+function _trkResumenCreditoChips(creditos, limite = 6) {
+    const lista = Array.isArray(creditos) ? creditos : [];
+    const visibles = lista.slice(0, limite);
+    const chips = visibles.map(c =>
+        `<span class="badge bg-light text-dark border me-1 mb-1">#${_trkChatEscapeHtml(c.id)}</span>`
+    ).join('');
+    const restantes = lista.length - visibles.length;
+    return chips + (restantes > 0
+        ? `<span class="badge bg-label-secondary mb-1">+${restantes}</span>`
+        : '');
+}
+
+function _trkResumenUbicacionesPorEstado(ubicaciones) {
+    const estados = new Map();
+    ubicaciones.forEach(u => {
+        if (!estados.has(u.estado)) estados.set(u.estado, { estado: u.estado, total: 0, municipios: [] });
+        const bucket = estados.get(u.estado);
+        bucket.total += u.total;
+        bucket.municipios.push(u);
+    });
+    return [...estados.values()].sort((a, b) => b.total - a.total || a.estado.localeCompare(b.estado));
+}
+
+function _trkRenderResumenUbicacionesNormal(ubicaciones) {
+    if (!ubicaciones.length) return '<div class="text-muted small">Sin ubicaciones detectadas</div>';
+    const rows = ubicaciones.map(u => `
+        <div class="d-grid gap-2 align-items-start border-top px-2 py-2" style="grid-template-columns:1fr 1fr 1.25fr;">
+            <div><span class="badge bg-label-primary">${_trkChatEscapeHtml(u.estado)}</span></div>
+            <div><span class="badge bg-label-info">${_trkChatEscapeHtml(u.municipio)}</span></div>
+            <div>${_trkResumenCreditoChips(u.creditos, 8)}</div>
+        </div>`).join('');
+    return `
+        <div class="border rounded overflow-hidden">
+            <div class="d-grid gap-2 small text-muted fw-semibold text-uppercase bg-light px-2 py-1" style="grid-template-columns:1fr 1fr 1.25fr;">
+                <span>Estado</span><span>Municipio</span><span>Creditos</span>
+            </div>
+            ${rows}
+        </div>`;
+}
+
+function _trkRenderResumenUbicacionesVolumen(ubicaciones) {
+    if (!ubicaciones.length) return '<div class="text-muted small">Sin ubicaciones detectadas</div>';
+    const estados = _trkResumenUbicacionesPorEstado(ubicaciones);
+    return `
+        <div class="small text-muted mb-2">Vista volumen: agrupada por estado para revisar rapido el recorrido.</div>
+        <div style="max-height:260px;overflow:auto;">
+            ${estados.map((estado, idx) => `
+                <details class="border rounded mb-2" ${idx < 2 ? 'open' : ''}>
+                    <summary class="d-flex align-items-center justify-content-between gap-2 px-2 py-2" style="cursor:pointer;">
+                        <span class="fw-semibold">${_trkChatEscapeHtml(estado.estado)}</span>
+                        <span class="badge bg-label-primary">${estado.total} credito${estado.total !== 1 ? 's' : ''}</span>
+                    </summary>
+                    <div class="px-2 pb-2">
+                        ${estado.municipios.map(u => `
+                            <div class="border-top py-2">
+                                <div class="d-flex align-items-center justify-content-between gap-2 mb-1">
+                                    <span class="badge bg-label-info">${_trkChatEscapeHtml(u.municipio)}</span>
+                                    <span class="small text-muted">${u.total}</span>
+                                </div>
+                                <div>${_trkResumenCreditoChips(u.creditos, 10)}</div>
+                            </div>`).join('')}
+                    </div>
+                </details>`).join('')}
+        </div>`;
+}
+
+async function _trkConfirmarResumenEnvioRuta({ nombre, fecha }) {
+    const total = _trk.creditosEnRuta.length;
+    const confirmados = _trk.creditosEnRuta.filter(c => c.estatus_confirmacion_gestor === 'confirmado').length;
+    const ubicaciones = _trkUbicacionesResumenEnvio();
+    const horaSalida = _trkHoraToPayload();
+    const modoVolumen = total > 12 || ubicaciones.length > 6 || ubicaciones.some(u => u.total > 5);
+    const ubicacionesHtml = modoVolumen
+        ? _trkRenderResumenUbicacionesVolumen(ubicaciones)
+        : _trkRenderResumenUbicacionesNormal(ubicaciones);
+
+    const res = await Swal.fire({
+        icon: 'question',
+        title: 'Resumen de ruta',
+        html: `
+            <div class="text-start">
+                <div class="mb-2">
+                    <div class="small text-muted fw-semibold text-uppercase">Nombre de la ruta</div>
+                    <div class="fw-bold">${_trkChatEscapeHtml(nombre || 'Ruta sin nombre')}</div>
+                </div>
+                <div class="row g-2 mb-2">
+                    <div class="col-6">
+                        <div class="small text-muted fw-semibold text-uppercase">FECHA DE SALIDA</div>
+                        <div>${_trkChatEscapeHtml(fecha || 'Sin fecha')}</div>
+                    </div>
+                    <div class="col-6">
+                        <div class="small text-muted fw-semibold text-uppercase">Hora de salida</div>
+                        <div>${_trkChatEscapeHtml(_trkFormatHora(horaSalida))}</div>
+                    </div>
+                </div>
+                <div class="mb-2">
+                    <div class="small text-muted fw-semibold text-uppercase">Creditos confirmados</div>
+                    <span class="badge bg-success">${confirmados}</span>
+                </div>
+                <div>
+                    <div class="small text-muted fw-semibold text-uppercase mb-1">Ubicaciones</div>
+                    ${ubicacionesHtml}
+                </div>
+                <div class="alert alert-info py-2 px-3 mt-3 mb-0">
+                    Deseas confirmar la ruta?
+                </div>
+            </div>`,
+        showCancelButton: true,
+        confirmButtonText: 'Si, confirmar ruta',
+        cancelButtonText: 'Revisar',
+        confirmButtonColor: '#0d9488',
+        width: 640,
+    });
+    return res.isConfirmed;
+}
+
 function _trkSetAutosaveStatus(text, tone = 'muted') {
     const $status = $('#trkAutosaveStatus');
     if (!$status.length) return;
@@ -6500,6 +8307,10 @@ function _trkCancelarAutosaveProgramado() {
         clearTimeout(_trk.autosaveStatusTimer);
         _trk.autosaveStatusTimer = null;
     }
+}
+
+function _trkSleep(ms) {
+    return new Promise(resolve => setTimeout(resolve, ms));
 }
 
 function _trkAutosaveHash() {
@@ -6527,10 +8338,8 @@ function _trkPuedeAutosaveBorrador() {
     if (_trk.cargando || _trk.soloLectura || _trkRutaEstaCancelada()) return false;
     if (_trk.idRutaEditando && String(_trk.estatusRuta || '').toLowerCase() !== 'borrador') return false;
     if (!$('#rutaNombre').val().trim()) return false;
-    if (!_trk.creditosEnRuta.length) return false;
-    if (!$('#rutaFecha').val()) return false;
-    if (!$('#rutaTransportistaTracking').val()) return false;
-    if (!_trkValidarReglasTransportista().ok) return false;
+    if (_trk.nombreRutaValidando || _trk.nombreRutaDisponible === false) return false;
+    if ($('#rutaCedisDestino').val() && !_trkValidarReglasTransportista().ok) return false;
     return true;
 }
 
@@ -6544,7 +8353,13 @@ function _trkProgramarAutosaveBorrador(delay = 1200) {
 async function _trkEjecutarAutosaveBorrador() {
     _trk.autosaveTimer = null;
     if (!_trkPuedeAutosaveBorrador()) {
-        _trkSetAutosaveStatus('Autoguardado pendiente', 'warning');
+        if (_trk.nombreRutaValidando) {
+            _trkSetAutosaveStatus('Esperando validacion del nombre...', 'warning');
+            _trkProgramarAutosaveBorrador(700);
+            return;
+        }
+        const nombre = _trkSanitizarNombreRuta($('#rutaNombre').val());
+        _trkSetAutosaveStatus(nombre ? 'Autoguardado pendiente' : 'Escribe el nombre para autoguardar', 'warning');
         return;
     }
     if (_trkAutosaveHash() === _trk.autosaveLastHash) {
@@ -6586,11 +8401,193 @@ function _trkGuardarRutaError(mensaje, opts = {}) {
     return false;
 }
 
+function _trkSetNombreRutaStatus(tipo, texto = '') {
+    const el = document.getElementById('rutaNombreStatus');
+    const input = document.getElementById('rutaNombre');
+    if (!el || !input) return;
+    input.classList.remove('is-valid', 'is-invalid');
+    el.className = 'form-text small mt-1';
+    if (!texto) {
+        el.innerHTML = '';
+        return;
+    }
+    if (tipo === 'loading') {
+        el.classList.add('text-muted');
+        el.innerHTML = `<span class="spinner-border spinner-border-sm me-1" style="width:.8rem;height:.8rem;"></span>${_trkChatEscapeHtml(texto)}`;
+        return;
+    }
+    if (tipo === 'ok') {
+        input.classList.add('is-valid');
+        el.classList.add('text-success');
+        el.innerHTML = `<i class="fa-solid fa-circle-check me-1"></i>${_trkChatEscapeHtml(texto)}`;
+        return;
+    }
+    if (tipo === 'error') {
+        input.classList.add('is-invalid');
+        el.classList.add('text-danger');
+        el.innerHTML = `<i class="fa-solid fa-triangle-exclamation me-1"></i>${_trkChatEscapeHtml(texto)}`;
+    }
+}
+
+async function _trkForzarAutosaveBorrador() {
+    if (_trk.soloLectura || _trkRutaEstaCancelada()) return true;
+    _trkCancelarAutosaveProgramado();
+
+    const nombre = _trkSanitizarNombreRuta($('#rutaNombre').val());
+    if (!nombre) return false;
+
+    if (_trk.nombreRutaCheckTimer) {
+        clearTimeout(_trk.nombreRutaCheckTimer);
+        _trk.nombreRutaCheckTimer = null;
+    }
+
+    const nombreOk = await _trkValidarNombreRutaDisponible(false);
+    if (!nombreOk) return false;
+    _trkCancelarAutosaveProgramado();
+
+    while (_trk.autosaveInFlight) {
+        await _trkSleep(150);
+    }
+
+    if (_trkAutosaveHash() === _trk.autosaveLastHash) {
+        _trk.haychangios = false;
+        _trkSetAutosaveStatus('Borrador al dia', 'success');
+        return true;
+    }
+
+    if (!_trkPuedeAutosaveBorrador()) return false;
+
+    _trkSetAutosaveStatus('Guardando borrador...', 'muted');
+    const ok = await _trkGuardarBorradorAutomatico();
+    if (ok) {
+        _trk.autosaveLastHash = _trkAutosaveHash();
+        _trkSetAutosaveStatus('Borrador guardado', 'success');
+    }
+    return ok;
+}
+
+function _trkProgramarValidacionNombreRuta(delay = 650) {
+    if (_trk.nombreRutaCheckTimer) clearTimeout(_trk.nombreRutaCheckTimer);
+    _trk.nombreRutaDisponible = null;
+    const nombre = _trkSanitizarNombreRuta($('#rutaNombre').val());
+    if (!nombre) {
+        _trk.nombreRutaValidando = false;
+        _trk.nombreRutaUltimoValor = '';
+        _trkSetNombreRutaStatus('', '');
+        return;
+    }
+    _trkSetNombreRutaStatus('loading', 'Consultando disponibilidad del nombre...');
+    _trk.nombreRutaCheckTimer = setTimeout(() => {
+        _trkValidarNombreRutaDisponible(false);
+    }, delay);
+}
+
+async function _trkValidarNombreRutaDisponible(mostrarDisponible = true) {
+    const nombre = _trkSanitizarNombreRuta($('#rutaNombre').val());
+    if (!nombre) {
+        _trk.nombreRutaValidando = false;
+        _trk.nombreRutaDisponible = null;
+        _trk.nombreRutaUltimoValor = '';
+        _trkSetNombreRutaStatus('', '');
+        return false;
+    }
+
+    if (_trk.nombreRutaUltimoValor === nombre && _trk.nombreRutaDisponible !== null && !_trk.nombreRutaValidando) {
+        return _trk.nombreRutaDisponible;
+    }
+
+    const seq = ++_trk.nombreRutaCheckSeq;
+    _trk.nombreRutaValidando = true;
+    _trkSetNombreRutaStatus('loading', 'Consultando disponibilidad del nombre...');
+    try {
+        const r = await trkFetch('/TrackingRecoleccion/validarNombreRuta', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                nombre_ruta: nombre,
+                id_ruta: _trk.idRutaEditando || 0,
+            }),
+        });
+        if (seq !== _trk.nombreRutaCheckSeq) return false;
+        _trk.nombreRutaUltimoValor = nombre;
+        _trk.nombreRutaDisponible = !!r.disponible;
+        _trk.nombreRutaValidando = false;
+        if (r.nombre_limpio && r.nombre_limpio !== $('#rutaNombre').val().trim()) {
+            $('#rutaNombre').val(r.nombre_limpio);
+        }
+        if (_trk.nombreRutaDisponible) {
+            _trkSetNombreRutaStatus(mostrarDisponible ? 'ok' : '', mostrarDisponible ? 'Nombre disponible.' : '');
+            if (_trk.haychangios && _trkPuedeAutosaveBorrador()) {
+                _trkProgramarAutosaveBorrador(250);
+            }
+            return true;
+        }
+        _trkSetNombreRutaStatus('error', r.message || r.mensaje || 'Nombre no permitido, ya existe una ruta con este nombre.');
+        return false;
+    } catch {
+        if (seq !== _trk.nombreRutaCheckSeq) return false;
+        _trk.nombreRutaValidando = false;
+        _trk.nombreRutaDisponible = null;
+        _trkSetNombreRutaStatus('error', 'No se pudo validar el nombre. Intenta de nuevo.');
+        return false;
+    }
+}
+
+function _trkMostrarConflictosRuta(resp) {
+    const errores = Array.isArray(resp?.errores) ? resp.errores : [];
+    if (!errores.length) {
+        Swal.fire({
+            icon: 'error',
+            title: 'Error',
+            text: resp?.mensaje || resp?.message || 'Error al guardar la ruta.',
+            confirmButtonText: 'Aceptar',
+        });
+        return;
+    }
+
+    const bloques = errores.map(err => {
+        const titulo = (err.tipo === 'nombre_fecha' || err.tipo === 'nombre_ruta')
+            ? 'Nombre de ruta duplicado'
+            : 'Transportista con horario ocupado';
+        const rutas = Array.isArray(err.rutas) ? err.rutas : [];
+        const rows = rutas.map(r => `
+            <div class="border rounded p-2 mb-1">
+                <div class="fw-semibold">
+                    <span class="trk-route-folio me-1">#${_trkChatEscapeHtml(r.id_ruta || '')}</span>
+                    ${_trkChatEscapeHtml(_trkSanitizarNombreRuta(r.nombre_ruta || 'Ruta') || 'Ruta')}
+                </div>
+                <div class="text-muted">
+                    ${_trkChatEscapeHtml(r.fecha_programada_fmt || '')}
+                    ${r.hora_salida_fmt ? ` - ${_trkChatEscapeHtml(r.hora_salida_fmt)}` : ''}
+                    ${r.estatus_ruta ? ` - ${_trkChatEscapeHtml(r.estatus_ruta)}` : ''}
+                </div>
+                ${r.nombre_transportista ? `<div class="text-muted">${_trkChatEscapeHtml(r.nombre_transportista)}</div>` : ''}
+            </div>`).join('');
+        return `
+            <div class="text-start mb-3">
+                <div class="fw-bold mb-1">${_trkChatEscapeHtml(titulo)}</div>
+                <div class="small mb-2">${_trkChatEscapeHtml(err.message || err.mensaje || 'Conflicto detectado.')}</div>
+                ${rows}
+            </div>`;
+    }).join('');
+
+    Swal.fire({
+        icon: 'warning',
+        title: 'No se puede guardar la ruta',
+        html: `<div class="small">${bloques}</div>`,
+        confirmButtonText: 'Corregir datos',
+        confirmButtonColor: '#0d9488',
+        width: 620,
+    });
+}
+
 async function _trkGuardarBorradorAutomatico() {
     if (!_trkPuedeAutosaveBorrador()) return false;
 
-    const nombre = $('#rutaNombre').val().trim();
-    const fecha = $('#rutaFecha').val();
+    const nombre = _trkSanitizarNombreRuta($('#rutaNombre').val());
+    if (nombre && nombre !== $('#rutaNombre').val().trim()) $('#rutaNombre').val(nombre);
+    const fecha = $('#rutaFecha').val() || _trkFechaMinimaProgramacion();
+    if (!$('#rutaFecha').val()) $('#rutaFecha').val(fecha);
     const idTransportista = $('#rutaTransportistaTracking').val();
     const transportistaSel = _trkTransportistaSeleccionado();
     const tipoTransportista = transportistaSel?.tipo_transportista || '';
@@ -6635,7 +8632,6 @@ async function _trkGuardarBorradorAutomatico() {
         })),
     };
 
-    $('#btnGuardarBorrador').prop('disabled', true);
     try {
         const r = await trkFetch('/TrackingRecoleccion/guardarRuta', {
             method: 'POST',
@@ -6655,15 +8651,20 @@ async function _trkGuardarBorradorAutomatico() {
     } catch (err) {
         _trk.haychangios = true;
         return false;
-    } finally {
-        $('#btnGuardarBorrador').prop('disabled', false);
     }
 }
 
 async function _trkGuardarRuta(modo, opts = {}) {
     const silent = !!opts.silent;
     if (!silent) _trkCancelarAutosaveProgramado();
-    const nombre    = $('#rutaNombre').val().trim();
+    if (modo === 'enviar' && _trk.autosaveInFlight) {
+        _trkSetAutosaveStatus('Terminando autoguardado...', 'muted');
+        while (_trk.autosaveInFlight) {
+            await _trkSleep(150);
+        }
+    }
+    const nombre    = _trkSanitizarNombreRuta($('#rutaNombre').val());
+    if (nombre && nombre !== $('#rutaNombre').val().trim()) $('#rutaNombre').val(nombre);
     const fecha     = $('#rutaFecha').val();
     const idTransportista   = $('#rutaTransportistaTracking').val();
     const transportistaSel  = _trkTransportistaSeleccionado();
@@ -6678,6 +8679,11 @@ async function _trkGuardarRuta(modo, opts = {}) {
     if (!nombre) {
         if (!silent) document.getElementById('rutaNombre').focus();
         return _trkGuardarRutaError('El nombre de la ruta es obligatorio.', opts);
+    }
+    const nombreDisponible = await _trkValidarNombreRutaDisponible(true);
+    if (!nombreDisponible) {
+        if (!silent) document.getElementById('rutaNombre').focus();
+        return _trkGuardarRutaError('Nombre no permitido, ya existe una ruta con este nombre.', opts);
     }
     if (_trk.creditosEnRuta.length === 0) {
         Swal.fire({ icon: 'warning', title: 'Campo requerido', text: 'Debe agregar al menos un credito a la ruta.', confirmButtonText: 'Aceptar' });
@@ -6722,6 +8728,10 @@ async function _trkGuardarRuta(modo, opts = {}) {
     _trk.creditosEnRuta.forEach(c => _trkAsegurarEtaMinima(c));
     const continuarRuta = await _trkConfirmarRutaNoOptimaSiAplica(modo);
     if (!continuarRuta) return;
+    if (modo === 'enviar') {
+        const confirmarEnvio = await _trkConfirmarResumenEnvioRuta({ nombre, fecha });
+        if (!confirmarEnvio) return;
+    }
 
     const payload = {
         id_ruta:          _trk.idRutaEditando || 0,
@@ -6770,7 +8780,11 @@ async function _trkGuardarRuta(modo, opts = {}) {
             _trkCargarBorradores();
             _trkCargarRutas();
         } else {
-            Swal.fire({ icon: 'error', title: 'Error', text: r.mensaje || r.message || 'Error al guardar la ruta.', confirmButtonText: 'Aceptar' });
+            if (r.tipo === 'conflictos_ruta' || Array.isArray(r.errores)) {
+                _trkMostrarConflictosRuta(r);
+            } else {
+                Swal.fire({ icon: 'error', title: 'Error', text: r.mensaje || r.message || 'Error al guardar la ruta.', confirmButtonText: 'Aceptar' });
+            }
         }
     })
     .catch(() => Swal.fire({ icon: 'error', title: 'Error de conexion', text: 'Error de conexion al guardar.', confirmButtonText: 'Aceptar' }))
@@ -6810,7 +8824,7 @@ function _trkVerDetalleRuta(idRuta) {
             (d.detalle || []).forEach((det, i) => {
                 rowsHtml += `<tr>
                     <td class="text-center">${det.orden_ruta || (i + 1)}</td>
-                    <td>${det.id_credito || ' - '}</td>
+                    <td>${det.id_credito || ' - '} ${_trkNuevoCreditoRutaHtml(det)}</td>
                     <td>${det.nombre_cliente || ' - '}</td>
                     <td>${det.modelo || ' - '}</td>
                     <td>${det.bin || ' - '}</td>
@@ -6841,7 +8855,7 @@ function _trkVerDetalleRuta(idRuta) {
                         <thead style="background:var(--track-color);color:#fff;">
                             <tr>
                                 <th>#</th><th>Credito</th><th>Cliente</th><th>Modelo</th>
-                                <th>BIN</th><th>Estado / Municipio</th>
+                                <th>VIN</th><th>Estado / Municipio</th>
                                 <th>Proceso</th><th>Confirmacion</th>
                             </tr>
                         </thead>
@@ -6963,11 +8977,12 @@ function _trkCargarRutaEnModal(idRuta, soloLectura) {
             const d = r.datos;
 
             // Titulo final con nombre de la ruta
+            const nombreRutaLimpio = _trkSanitizarNombreRuta(d.nombre_ruta || '');
             document.getElementById('modalRegistrarRutaLabel').innerHTML =
-                `<i class="fa-solid fa-${icon} me-2"></i>${soloLectura ? 'Ver ruta' : 'Editar ruta'}: <em>${d.nombre_ruta || ''}</em>`;
+                `<i class="fa-solid fa-${icon} me-2"></i>${soloLectura ? 'Ver ruta' : 'Editar ruta'}: <em>${nombreRutaLimpio}</em>`;
 
             // Campos basicos
-            $('#rutaNombre').val(d.nombre_ruta || '');
+            $('#rutaNombre').val(nombreRutaLimpio);
             $('#rutaFecha').val(d.fecha_programada || '');
             $('#rutaTipoTransportista').val(d.tipo_transportista || '');
             _trkPoblarAgenciasTrackingSelect();
@@ -6997,6 +9012,8 @@ function _trkCargarRutaEnModal(idRuta, soloLectura) {
                 fecha_eta:                   det.fecha_eta    || null,
                 hora_eta_ini:                det.hora_eta_ini || null,
                 hora_eta_fin:                det.hora_eta_fin || null,
+                fecha_agregado:              det.fecha_agregado || null,
+                fecha_agregado_fmt:          det.fecha_agregado_fmt || '',
                 eta_manual:                  !!(det.fecha_eta || det.hora_eta_ini || det.hora_eta_fin),
                 eta_auto:                    false,
             }));
@@ -7008,8 +9025,9 @@ function _trkCargarRutaEnModal(idRuta, soloLectura) {
 
             // Estado + Municipio via filtros de creditos
             $('#crdFiltroEstado').val(_trkEstadoCanonico(d.estado, d.municipio) || d.estado || '').trigger('change');
-            if (d.municipio) {
-                $('#crdFiltroMunicipio').val(d.municipio).trigger('change.select2');
+            const municipioRutaFiltro = _trkMunicipioFiltroCanonico(d.municipio, d.estado);
+            if (municipioRutaFiltro) {
+                $('#crdFiltroMunicipio').val(municipioRutaFiltro).trigger('change.select2');
             }
             _trk.cargando     = false;
             _trk.haychangios  = false;
@@ -7064,7 +9082,7 @@ function _trkCreditosRutaFiltrados() {
     const q = _trkNormTxt($('#trkListaBuscar').val());
     return (_trk.creditosEnRuta || []).filter(c => {
         if (estado && _trkNormTxt(_trkEstadoCanonico(c.estado, c.municipio)) !== estado) return false;
-        if (municipio && _trkNormTxt(c.municipio) !== municipio) return false;
+        if (municipio && _trkNormTxt(_trkMunicipioFiltroCanonico(c.municipio, c.estado)) !== municipio) return false;
         if (!q) return true;
         return _trkNormTxt([
             c.id_credito,
@@ -7101,7 +9119,7 @@ function _trkPoblarFiltroMunicipiosListaRuta(render = true) {
     const actual = $municipio.val();
     const municipios = [...new Set((_trk.creditosEnRuta || [])
         .filter(c => !estado || _trkNormTxt(_trkEstadoCanonico(c.estado, c.municipio)) === estado)
-        .map(c => String(c.municipio || '').trim())
+        .map(c => _trkMunicipioFiltroCanonico(c.municipio, c.estado))
         .filter(Boolean))]
         .sort((a, b) => a.localeCompare(b));
     const html = '<option value="">Todos los municipios</option>' + municipios
@@ -7143,7 +9161,11 @@ function _trkRenderPlaneadorPanel() {
     if (!$summary.length || !$groups.length) return;
     const creditos = _trk.creditosEnRuta || [];
     const estados = new Set(creditos.map(c => _trkNormTxt(_trkEstadoCanonico(c.estado, c.municipio) || 'SIN ESTADO')));
-    const municipios = new Set(creditos.map(c => `${_trkNormTxt(_trkEstadoCanonico(c.estado, c.municipio) || 'SIN ESTADO')}|${_trkNormTxt(c.municipio || 'SIN MUNICIPIO')}`));
+    const municipios = new Set(creditos.map(c => {
+        const estado = _trkEstadoCanonico(c.estado, c.municipio) || 'SIN ESTADO';
+        const municipio = _trkMunicipioFiltroCanonico(c.municipio, c.estado) || 'SIN MUNICIPIO';
+        return `${_trkNormTxt(estado)}|${_trkNormTxt(municipio)}`;
+    }));
     const confirmados = creditos.filter(c => c.estatus_confirmacion_gestor === 'confirmado').length;
     const pendientes = creditos.filter(c => ['pendiente', 'en_revision'].includes(c.estatus_confirmacion_gestor || 'pendiente')).length;
     const rechazados = creditos.filter(c => c.estatus_confirmacion_gestor === 'rechazado').length;
@@ -7159,7 +9181,7 @@ function _trkRenderPlaneadorPanel() {
     const tree = {};
     creditos.forEach(c => {
         const estado = _trkEstadoCanonico(c.estado, c.municipio) || 'SIN ESTADO';
-        const municipio = String(c.municipio || 'SIN MUNICIPIO').trim() || 'SIN MUNICIPIO';
+        const municipio = _trkMunicipioFiltroCanonico(c.municipio, c.estado) || 'SIN MUNICIPIO';
         tree[estado] ??= { total: 0, confirmados: 0, pendientes: 0, rechazados: 0, municipios: {} };
         tree[estado].municipios[municipio] ??= { total: 0, confirmados: 0, pendientes: 0, rechazados: 0 };
         [tree[estado], tree[estado].municipios[municipio]].forEach(bucket => {
@@ -7211,7 +9233,7 @@ function _trkPlannerEnfocarGrupo(estado, municipio = '') {
     const municipioNorm = _trkNormTxt(municipio);
     const matches = (_trk.creditosEnRuta || []).filter(c => {
         const okEstado = _trkNormTxt(_trkEstadoCanonico(c.estado, c.municipio) || 'SIN ESTADO') === estadoNorm;
-        const okMunicipio = !municipioNorm || _trkNormTxt(c.municipio || 'SIN MUNICIPIO') === municipioNorm;
+        const okMunicipio = !municipioNorm || _trkNormTxt(_trkMunicipioFiltroCanonico(c.municipio, c.estado) || 'SIN MUNICIPIO') === municipioNorm;
         return okEstado && okMunicipio;
     });
     $('#rutaCreditosList .track-credito-row').removeClass('trk-row-focused');
@@ -8790,6 +10812,13 @@ function _trkChatEscapeHtml(str) {
         .replace(/>/g, '&gt;')
         .replace(/"/g, '&quot;')
         .replace(/'/g, '&#039;');
+}
+
+function _trkSanitizarNombreRuta(nombre) {
+    return String(nombre || '')
+        .replace(/^\s*(?:(?:#|BOR-|RUTA-)\s*\d+\s*)+/i, '')
+        .replace(/\s+/g, ' ')
+        .trim();
 }
 
 function _trkChatFechaLocal(iso) {

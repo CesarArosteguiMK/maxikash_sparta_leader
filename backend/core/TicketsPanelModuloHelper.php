@@ -250,13 +250,13 @@ class TicketsPanelModuloHelper
             if ($puestoNombreMenu !== '') {
                 if (strpos($puestoNombreMenu, '1_7') !== false) {
                     $campoTerritorialMenu = '1_7';
-                } elseif (strpos($puestoNombreMenu, '8_21') !== false) {
+                } elseif (strpos($puestoNombreMenu, '8_21') !== false || strpos($puestoNombreMenu, '8_30') !== false) {
                     $campoTerritorialMenu = '8_21';
                 }
                 if ($campoTerritorialMenu === '') {
                     if (preg_match('/1\s*[-_ ]?\s*7/', $puestoNombreMenu)) {
                         $campoTerritorialMenu = '1_7';
-                    } elseif (preg_match('/8\s*[-_ ]?\s*21/', $puestoNombreMenu)) {
+                    } elseif (preg_match('/8\s*[-_ ]?\s*(21|30)/', $puestoNombreMenu)) {
                         $campoTerritorialMenu = '8_21';
                     }
                 }

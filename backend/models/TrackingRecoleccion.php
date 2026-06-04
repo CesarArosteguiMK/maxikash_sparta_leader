@@ -120,6 +120,7 @@ class TrackingRecoleccion extends Model
                     `estatus_confirmacion_gestor` ENUM('pendiente','confirmado','rechazado','en_revision')
                                                   NOT NULL DEFAULT 'pendiente',
                     `estatus_recoleccion`         VARCHAR(50)   NULL,
+                    `fecha_agregado`              DATETIME      NULL,
                     PRIMARY KEY (`id_detalle`),
                     KEY `fk_tracking_det_ruta` (`id_ruta`),
                     KEY `idx_tracking_det_credito` (`id_credito`),
@@ -158,10 +159,25 @@ class TrackingRecoleccion extends Model
             $this->asegurarCatalogosTracking();
             $this->asegurarColumnasTransportistaRuta();
             $this->asegurarColumnasCancelacionRuta();
+            $this->asegurarColumnasDetalleRuta();
             self::$tablasOk = true;
         } catch (\Throwable $e) {
             // No bloquear la carga del módulo; la BD podría no tener permisos DDL
             self::$tablasOk = true;
+        }
+    }
+
+    private function asegurarColumnasDetalleRuta(): void
+    {
+        try {
+            if (!$this->columnaOpcionalExiste('asigna_horas_tracking_detalle', 'fecha_agregado')) {
+                $this->db->CRUD(
+                    "ALTER TABLE `asigna_horas_tracking_detalle`
+                     ADD COLUMN `fecha_agregado` DATETIME NULL DEFAULT NULL AFTER `estatus_recoleccion`"
+                );
+            }
+        } catch (\Throwable $e) {
+            // No bloquear si el usuario de BD no tiene permisos DDL.
         }
     }
 
@@ -267,6 +283,24 @@ class TrackingRecoleccion extends Model
             return (bool) $row;
         } catch (\Throwable $e) {
             return true;
+        }
+    }
+
+    private function columnaOpcionalExiste(string $tabla, string $columna): bool
+    {
+        try {
+            $row = $this->db->queryOne(
+                "SELECT 1 AS existe
+                 FROM INFORMATION_SCHEMA.COLUMNS
+                 WHERE TABLE_SCHEMA = DATABASE()
+                   AND TABLE_NAME = :tabla
+                   AND COLUMN_NAME = :columna
+                 LIMIT 1",
+                ['tabla' => $tabla, 'columna' => $columna]
+            );
+            return (bool) $row;
+        } catch (\Throwable $e) {
+            return false;
         }
     }
 
@@ -436,8 +470,9 @@ class TrackingRecoleccion extends Model
     // CATÁLOGOS TRACKING: AGENCIAS / TRANSPORTISTAS
     // =========================================================================
 
-    public function obtenerAgenciasTracking(): array
+    public function obtenerAgenciasTracking(bool $soloActivas = true): array
     {
+        $where = $soloActivas ? 'WHERE activo = 1' : '';
         try {
             return $this->db->queryAll(
                 "SELECT id_agencia, clave_agencia, nombre_agencia, tipo_ubicacion,
@@ -445,7 +480,7 @@ class TrackingRecoleccion extends Model
                         latitud, longitud, link_ubicacion, telefono, extension,
                         encargado, email, horario, activo
                  FROM agencias_tracking
-                 WHERE activo = 1
+                 {$where}
                  ORDER BY tipo_ubicacion, nombre_agencia"
             ) ?: [];
         } catch (\Throwable $e) {
@@ -453,9 +488,9 @@ class TrackingRecoleccion extends Model
         }
     }
 
-    public function obtenerTransportistasTracking(?string $tipo = null, ?int $idAgencia = null): array
+    public function obtenerTransportistasTracking(?string $tipo = null, ?int $idAgencia = null, bool $soloActivos = true): array
     {
-        $where = ['t.activo = 1'];
+        $where = $soloActivos ? ['t.activo = 1'] : ['1 = 1'];
         $params = [];
         if ($tipo !== null && in_array($tipo, ['interno', 'externo'], true)) {
             $where[] = 't.tipo_transportista = :tipo';
@@ -468,6 +503,13 @@ class TrackingRecoleccion extends Model
         }
 
         try {
+            $extraSelect = '';
+            if ($this->columnaOpcionalExiste('transportistas_tracking', 'username')) {
+                $extraSelect .= ",\n                    t.username";
+            }
+            if ($this->columnaOpcionalExiste('transportistas_tracking', 'debe_cambiar_password')) {
+                $extraSelect .= ",\n                    t.debe_cambiar_password";
+            }
             return $this->db->queryAll(
                 "SELECT
                     t.id_transportista,
@@ -479,8 +521,10 @@ class TrackingRecoleccion extends Model
                     t.telefono,
                     t.empresa_origen,
                     t.puesto,
+                    t.activo,
                     a.nombre_agencia,
                     a.clave_agencia
+                    {$extraSelect}
                  FROM transportistas_tracking t
                  LEFT JOIN agencias_tracking a ON a.id_agencia = t.id_agencia
                  WHERE " . implode(' AND ', $where) . "
@@ -495,9 +539,302 @@ class TrackingRecoleccion extends Model
     public function obtenerCatalogoAgenciasTransportistas(): array
     {
         return [
-            'agencias'       => $this->obtenerAgenciasTracking(),
-            'transportistas' => $this->obtenerTransportistasTracking(),
+            'agencias'       => $this->obtenerAgenciasTracking(false),
+            'transportistas' => $this->obtenerTransportistasTracking(null, null, false),
         ];
+    }
+
+    private function textoCatalogo(?string $valor, int $max = 255): ?string
+    {
+        $txt = trim((string) $valor);
+        if ($txt === '') {
+            return null;
+        }
+        return mb_substr($txt, 0, $max, 'UTF-8');
+    }
+
+    private function decimalCatalogo($valor): ?float
+    {
+        if ($valor === null || trim((string) $valor) === '') {
+            return null;
+        }
+        return is_numeric($valor) ? (float) $valor : null;
+    }
+
+    private function claveCatalogoDesdeNombre(string $texto): string
+    {
+        $txt = trim($texto);
+        if (function_exists('iconv')) {
+            $tmp = @iconv('UTF-8', 'ASCII//TRANSLIT//IGNORE', $txt);
+            if ($tmp !== false) {
+                $txt = $tmp;
+            }
+        }
+        $txt = strtoupper($txt);
+        $txt = preg_replace('/[^A-Z0-9]+/', '_', $txt) ?? $txt;
+        $txt = trim($txt, '_');
+        return mb_substr($txt !== '' ? $txt : ('CEDIS_' . date('YmdHis')), 0, 80, 'UTF-8');
+    }
+
+    private function claveAgenciaUnica(string $clave, int $idAgencia = 0): string
+    {
+        $base = mb_substr($clave !== '' ? $clave : ('CEDIS_' . date('YmdHis')), 0, 76, 'UTF-8');
+        $actual = $base;
+        for ($i = 1; $i <= 30; $i++) {
+            $row = $this->db->queryOne(
+                'SELECT id_agencia FROM agencias_tracking WHERE clave_agencia = :clave AND id_agencia <> :id LIMIT 1',
+                ['clave' => $actual, 'id' => $idAgencia]
+            );
+            if (!$row) {
+                return $actual;
+            }
+            $sufijo = '_' . ($i + 1);
+            $actual = mb_substr($base, 0, 80 - strlen($sufijo), 'UTF-8') . $sufijo;
+        }
+        return mb_substr($base, 0, 70, 'UTF-8') . '_' . substr(md5((string) microtime(true)), 0, 8);
+    }
+
+    private function usernameTransportistaUnico(string $username, int $idTransportista = 0): string
+    {
+        $base = mb_substr($username !== '' ? $username : ('TRK_' . date('YmdHis')), 0, 54, 'UTF-8');
+        $actual = $base;
+        for ($i = 1; $i <= 30; $i++) {
+            $row = $this->db->queryOne(
+                'SELECT id_transportista FROM transportistas_tracking WHERE username = :username AND id_transportista <> :id LIMIT 1',
+                ['username' => $actual, 'id' => $idTransportista]
+            );
+            if (!$row) {
+                return $actual;
+            }
+            $sufijo = '_' . ($i + 1);
+            $actual = mb_substr($base, 0, 60 - strlen($sufijo), 'UTF-8') . $sufijo;
+        }
+        return mb_substr($base, 0, 50, 'UTF-8') . '_' . substr(md5((string) microtime(true)), 0, 8);
+    }
+
+    public function guardarAgenciaTracking(array $data): array
+    {
+        $idAgencia = (int) ($data['id_agencia'] ?? 0);
+        $nombre = $this->textoCatalogo($data['nombre_agencia'] ?? '', 150);
+        if ($nombre === null) {
+            return ['success' => false, 'message' => 'El nombre del CEDIS es obligatorio.'];
+        }
+
+        $tipo = strtolower(trim((string) ($data['tipo_ubicacion'] ?? 'agencia')));
+        if (!in_array($tipo, ['agencia', 'almacen_llegada'], true)) {
+            $tipo = 'agencia';
+        }
+
+        $claveRaw = $this->textoCatalogo($data['clave_agencia'] ?? '', 80);
+        $clave = $this->claveAgenciaUnica($this->claveCatalogoDesdeNombre($claveRaw ?: $nombre), $idAgencia);
+        $activo = (int) (($data['activo'] ?? 1) ? 1 : 0);
+
+        $params = [
+            'clave_agencia' => $clave,
+            'nombre_agencia' => $nombre,
+            'tipo_ubicacion' => $tipo,
+            'direccion' => $this->textoCatalogo($data['direccion'] ?? null, 255),
+            'estado' => $this->textoCatalogo($data['estado'] ?? null, 100),
+            'municipio' => $this->textoCatalogo($data['municipio'] ?? null, 120),
+            'codigo_postal' => $this->textoCatalogo($data['codigo_postal'] ?? null, 10),
+            'latitud' => $this->decimalCatalogo($data['latitud'] ?? null),
+            'longitud' => $this->decimalCatalogo($data['longitud'] ?? null),
+            'link_ubicacion' => $this->textoCatalogo($data['link_ubicacion'] ?? null, 1000),
+            'telefono' => $this->textoCatalogo($data['telefono'] ?? null, 30),
+            'extension' => $this->textoCatalogo($data['extension'] ?? null, 20),
+            'encargado' => $this->textoCatalogo($data['encargado'] ?? null, 150),
+            'email' => $this->textoCatalogo($data['email'] ?? null, 150),
+            'horario' => $this->textoCatalogo($data['horario'] ?? null, 1000),
+            'activo' => $activo,
+        ];
+
+        if ($idAgencia > 0) {
+            $params['id_agencia'] = $idAgencia;
+            $existe = $this->db->queryOne(
+                'SELECT id_agencia FROM agencias_tracking WHERE id_agencia = :id_agencia LIMIT 1',
+                ['id_agencia' => $idAgencia]
+            );
+            if (!$existe) {
+                return ['success' => false, 'message' => 'CEDIS no encontrado.'];
+            }
+            $this->db->CRUD(
+                "UPDATE agencias_tracking
+                 SET clave_agencia = :clave_agencia,
+                     nombre_agencia = :nombre_agencia,
+                     tipo_ubicacion = :tipo_ubicacion,
+                     direccion = :direccion,
+                     estado = :estado,
+                     municipio = :municipio,
+                     codigo_postal = :codigo_postal,
+                     latitud = :latitud,
+                     longitud = :longitud,
+                     link_ubicacion = :link_ubicacion,
+                     telefono = :telefono,
+                     extension = :extension,
+                     encargado = :encargado,
+                     email = :email,
+                     horario = :horario,
+                     activo = :activo
+                 WHERE id_agencia = :id_agencia",
+                $params
+            );
+            return ['success' => true, 'message' => 'CEDIS actualizado.', 'id_agencia' => $idAgencia];
+        }
+
+        $this->db->CRUD(
+            "INSERT INTO agencias_tracking
+             (clave_agencia, nombre_agencia, tipo_ubicacion, direccion, estado, municipio, codigo_postal,
+              latitud, longitud, link_ubicacion, telefono, extension, encargado, email, horario, activo)
+             VALUES
+             (:clave_agencia, :nombre_agencia, :tipo_ubicacion, :direccion, :estado, :municipio, :codigo_postal,
+              :latitud, :longitud, :link_ubicacion, :telefono, :extension, :encargado, :email, :horario, :activo)",
+            $params
+        );
+
+        return ['success' => true, 'message' => 'CEDIS registrado.', 'id_agencia' => $this->db->lastInsertId()];
+    }
+
+    public function cambiarEstadoAgenciaTracking(int $idAgencia, int $activo): array
+    {
+        if ($idAgencia <= 0) {
+            return ['success' => false, 'message' => 'CEDIS requerido.'];
+        }
+        $this->db->CRUD(
+            'UPDATE agencias_tracking SET activo = :activo WHERE id_agencia = :id_agencia',
+            ['activo' => $activo ? 1 : 0, 'id_agencia' => $idAgencia]
+        );
+        return ['success' => true, 'message' => $activo ? 'CEDIS activado.' : 'CEDIS desactivado.'];
+    }
+
+    public function guardarTransportistaTracking(array $data): array
+    {
+        $idTransportista = (int) ($data['id_transportista'] ?? 0);
+        $nombre = $this->textoCatalogo($data['nombre_transportista'] ?? '', 180);
+        if ($nombre === null) {
+            return ['success' => false, 'message' => 'El nombre del transportista es obligatorio.'];
+        }
+
+        $tipo = strtolower(trim((string) ($data['tipo_transportista'] ?? '')));
+        if (!in_array($tipo, ['interno', 'externo'], true)) {
+            return ['success' => false, 'message' => 'Selecciona si el transportista es interno o externo.'];
+        }
+
+        $idAgencia = (int) ($data['id_agencia'] ?? 0);
+        if ($idAgencia > 0) {
+            $agencia = $this->db->queryOne(
+                'SELECT id_agencia FROM agencias_tracking WHERE id_agencia = :id_agencia LIMIT 1',
+                ['id_agencia' => $idAgencia]
+            );
+            if (!$agencia) {
+                return ['success' => false, 'message' => 'El CEDIS seleccionado no existe.'];
+            }
+        }
+
+        $params = [
+            'id_agencia' => $idAgencia > 0 ? $idAgencia : null,
+            'tipo_transportista' => $tipo,
+            'nombre_transportista' => $nombre,
+            'curp_rfc' => $this->textoCatalogo($data['curp_rfc'] ?? null, 25),
+            'email' => $this->textoCatalogo($data['email'] ?? null, 150),
+            'telefono' => $this->textoCatalogo($data['telefono'] ?? null, 30),
+            'empresa_origen' => $this->textoCatalogo($data['empresa_origen'] ?? null, 180),
+            'puesto' => $this->textoCatalogo($data['puesto'] ?? null, 120),
+            'activo' => (int) (($data['activo'] ?? 1) ? 1 : 0),
+        ];
+
+        $extraSet = [];
+        $extraInsertCols = [];
+        $extraInsertVals = [];
+        if ($this->columnaOpcionalExiste('transportistas_tracking', 'username')) {
+            $username = $this->textoCatalogo($data['username'] ?? null, 60);
+            if ($username === null && $idTransportista <= 0) {
+                $username = mb_substr($this->claveCatalogoDesdeNombre($nombre), 0, 50, 'UTF-8') . '2026';
+            }
+            if ($username !== null) {
+                $params['username'] = $this->usernameTransportistaUnico($username, $idTransportista);
+                $extraSet[] = 'username = :username';
+                $extraInsertCols[] = 'username';
+                $extraInsertVals[] = ':username';
+            }
+        }
+        $password = $this->textoCatalogo($data['password'] ?? '', 255);
+        if ($password === null && $idTransportista <= 0 && $this->columnaOpcionalExiste('transportistas_tracking', 'password_hash')) {
+            $password = '2026';
+        }
+        if ($password !== null && $this->columnaOpcionalExiste('transportistas_tracking', 'password_hash')) {
+            $params['password_hash'] = $password;
+            $extraSet[] = 'password_hash = :password_hash';
+            $extraInsertCols[] = 'password_hash';
+            $extraInsertVals[] = ':password_hash';
+        }
+        if ($this->columnaOpcionalExiste('transportistas_tracking', 'debe_cambiar_password')) {
+            $debeCambiarPassword = $password !== null ? 1 : (int) (($data['debe_cambiar_password'] ?? 1) ? 1 : 0);
+            if ($idTransportista <= 0) {
+                $params['debe_cambiar_password'] = $debeCambiarPassword;
+                $extraInsertCols[] = 'debe_cambiar_password';
+                $extraInsertVals[] = ':debe_cambiar_password';
+            } elseif ($password !== null) {
+                $params['debe_cambiar_password'] = 1;
+                $extraSet[] = 'debe_cambiar_password = :debe_cambiar_password';
+            }
+        }
+
+        if ($idTransportista > 0) {
+            $params['id_transportista'] = $idTransportista;
+            $existe = $this->db->queryOne(
+                'SELECT id_transportista FROM transportistas_tracking WHERE id_transportista = :id_transportista LIMIT 1',
+                ['id_transportista' => $idTransportista]
+            );
+            if (!$existe) {
+                return ['success' => false, 'message' => 'Transportista no encontrado.'];
+            }
+            $sqlExtra = $extraSet ? ",\n                     " . implode(",\n                     ", $extraSet) : '';
+            $this->db->CRUD(
+                "UPDATE transportistas_tracking
+                 SET id_agencia = :id_agencia,
+                     tipo_transportista = :tipo_transportista,
+                     nombre_transportista = :nombre_transportista,
+                     curp_rfc = :curp_rfc,
+                     email = :email,
+                     telefono = :telefono,
+                     empresa_origen = :empresa_origen,
+                     puesto = :puesto,
+                     activo = :activo
+                     {$sqlExtra}
+                 WHERE id_transportista = :id_transportista",
+                $params
+            );
+            return ['success' => true, 'message' => 'Transportista actualizado.', 'id_transportista' => $idTransportista];
+        }
+
+        $cols = array_merge([
+            'id_agencia', 'tipo_transportista', 'nombre_transportista', 'curp_rfc', 'email',
+            'telefono', 'empresa_origen', 'puesto', 'activo',
+        ], $extraInsertCols);
+        $vals = array_merge([
+            ':id_agencia', ':tipo_transportista', ':nombre_transportista', ':curp_rfc', ':email',
+            ':telefono', ':empresa_origen', ':puesto', ':activo',
+        ], $extraInsertVals);
+
+        $this->db->CRUD(
+            'INSERT INTO transportistas_tracking (' . implode(', ', $cols) . ')
+             VALUES (' . implode(', ', $vals) . ')',
+            $params
+        );
+
+        return ['success' => true, 'message' => 'Transportista registrado.', 'id_transportista' => $this->db->lastInsertId()];
+    }
+
+    public function cambiarEstadoTransportistaTracking(int $idTransportista, int $activo): array
+    {
+        if ($idTransportista <= 0) {
+            return ['success' => false, 'message' => 'Transportista requerido.'];
+        }
+        $this->db->CRUD(
+            'UPDATE transportistas_tracking SET activo = :activo WHERE id_transportista = :id_transportista',
+            ['activo' => $activo ? 1 : 0, 'id_transportista' => $idTransportista]
+        );
+        return ['success' => true, 'message' => $activo ? 'Transportista activado.' : 'Transportista desactivado.'];
     }
 
     // =========================================================================
@@ -526,6 +863,74 @@ class TrackingRecoleccion extends Model
             'á' => 'A', 'é' => 'E', 'í' => 'I', 'ó' => 'O', 'ú' => 'U', 'ü' => 'U', 'ñ' => 'N',
         ];
         return strtr($txt, $map);
+    }
+
+    private function sanitizarNombreRuta(string $nombre): string
+    {
+        $limpio = preg_replace('/^\s*(?:(?:#|BOR-|RUTA-)\s*\d+\s*)+/i', '', $nombre);
+        $limpio = preg_replace('/\s+/', ' ', (string) $limpio);
+        return trim((string) $limpio);
+    }
+
+    private function obtenerRutasConNombreDuplicado(string $nombre, int $idRuta = 0, int $limit = 5): array
+    {
+        $nombreLimpio = $this->sanitizarNombreRuta($nombre);
+        if ($nombreLimpio === '') {
+            return [];
+        }
+        $nombreNormalizado = mb_strtoupper($nombreLimpio, 'UTF-8');
+        $candidatas = $this->db->queryAll(
+            "SELECT
+                id_ruta,
+                nombre_ruta,
+                estatus_ruta,
+                DATE_FORMAT(fecha_programada, '%d/%m/%Y') AS fecha_programada_fmt,
+                TIME_FORMAT(COALESCE(act_hora_1, hora_inicial), '%H:%i') AS hora_salida_fmt
+             FROM asigna_horas_tracking
+             WHERE estatus_ruta <> 'cancelada'
+               AND id_ruta <> :id
+               AND (
+                   UPPER(TRIM(nombre_ruta)) = :nombre
+                   OR nombre_ruta LIKE :like_nombre
+               )
+             ORDER BY id_ruta DESC
+             LIMIT 250",
+            [
+                'id' => $idRuta,
+                'nombre' => $nombreNormalizado,
+                'like_nombre' => '%' . $nombreLimpio . '%',
+            ]
+        ) ?: [];
+
+        $duplicadas = array_values(array_filter($candidatas, function (array $ruta) use ($nombreNormalizado): bool {
+            return mb_strtoupper($this->sanitizarNombreRuta((string) ($ruta['nombre_ruta'] ?? '')), 'UTF-8') === $nombreNormalizado;
+        }));
+
+        return array_slice($duplicadas, 0, max(1, $limit));
+    }
+
+    public function validarNombreRutaDisponible(string $nombre, int $idRuta = 0): array
+    {
+        $nombreLimpio = $this->sanitizarNombreRuta($nombre);
+        if ($nombreLimpio === '') {
+            return [
+                'success' => true,
+                'disponible' => false,
+                'nombre_limpio' => '',
+                'message' => 'El nombre de la ruta es obligatorio.',
+            ];
+        }
+
+        $duplicadas = $this->obtenerRutasConNombreDuplicado($nombreLimpio, $idRuta, 5);
+        return [
+            'success' => true,
+            'disponible' => empty($duplicadas),
+            'nombre_limpio' => $nombreLimpio,
+            'duplicados' => $duplicadas,
+            'message' => empty($duplicadas)
+                ? 'Nombre disponible.'
+                : 'Nombre no permitido, ya existe una ruta con este nombre.',
+        ];
     }
 
     private function esZonaTransportistaInterno(?string $estado, ?string $municipio): bool
@@ -558,11 +963,63 @@ class TrackingRecoleccion extends Model
             || in_array($clave, ['LOMAS_PLAZA_MAXIKASH', 'TLALNEPANTLA_MAXIKASH'], true);
     }
 
+    private function validarConflictosRuta(int $idRuta, string $nombre, string $fechaStr, ?string $horaFmt, int $idTransportista): array
+    {
+        $conflictos = [];
+
+        $rutasNombre = $this->obtenerRutasConNombreDuplicado($nombre, $idRuta, 5);
+
+        if (!empty($rutasNombre)) {
+            $conflictos[] = [
+                'tipo' => 'nombre_ruta',
+                'message' => 'Nombre no permitido, ya existe una ruta con este nombre.',
+                'rutas' => $rutasNombre,
+            ];
+        }
+
+        if ($idTransportista > 0 && $horaFmt !== null) {
+            $rutasHorario = $this->db->queryAll(
+                "SELECT
+                    atr.id_ruta,
+                    atr.nombre_ruta,
+                    atr.estatus_ruta,
+                    DATE_FORMAT(atr.fecha_programada, '%d/%m/%Y') AS fecha_programada_fmt,
+                    TIME_FORMAT(COALESCE(atr.act_hora_1, atr.hora_inicial), '%H:%i') AS hora_salida_fmt,
+                    tt.nombre_transportista
+                 FROM asigna_horas_tracking atr
+                 LEFT JOIN transportistas_tracking tt ON tt.id_transportista = atr.id_transportista
+                 WHERE atr.id_transportista = :id_transportista
+                   AND atr.fecha_programada = :fecha
+                   AND TIME_FORMAT(COALESCE(atr.act_hora_1, atr.hora_inicial), '%H:%i:%s') = :hora
+                   AND atr.estatus_ruta <> 'cancelada'
+                   AND atr.id_ruta <> :id
+                 ORDER BY atr.id_ruta DESC
+                 LIMIT 5",
+                [
+                    'id_transportista' => $idTransportista,
+                    'fecha' => $fechaStr,
+                    'hora' => $horaFmt,
+                    'id' => $idRuta,
+                ]
+            ) ?: [];
+
+            if (!empty($rutasHorario)) {
+                $conflictos[] = [
+                    'tipo' => 'transportista_horario',
+                    'message' => 'El transportista ya tiene una ruta asignada para la misma fecha y hora.',
+                    'rutas' => $rutasHorario,
+                ];
+            }
+        }
+
+        return $conflictos;
+    }
+
     public function guardarRuta(array $data, int $idUsuario): array
     {
         $modo      = trim((string) ($data['modo'] ?? 'borrador'));
         $idRuta    = (int) ($data['id_ruta'] ?? 0);
-        $nombre    = trim((string) ($data['nombre_ruta'] ?? ''));
+        $nombre    = $this->sanitizarNombreRuta((string) ($data['nombre_ruta'] ?? ''));
         $estado    = trim((string) ($data['estado'] ?? ''));
         $municipio = trim((string) ($data['municipio'] ?? ''));
         $fechaStr  = trim((string) ($data['fecha_programada'] ?? ''));
@@ -598,22 +1055,26 @@ class TrackingRecoleccion extends Model
         if (mb_strlen($nombre, 'UTF-8') > 100) {
             return ['success' => false, 'message' => 'El nombre de la ruta no puede exceder 100 caracteres.'];
         }
-        if (empty($creditos)) {
+        if ($modo === 'borrador' && $fechaStr === '') {
+            $diasMinimosBorrador = ConfigMotosAdj::obtenerDiasMinimosRuta();
+            $fechaStr = (new \DateTime('today'))->modify('+' . $diasMinimosBorrador . ' days')->format('Y-m-d');
+        }
+        if ($modo !== 'borrador' && empty($creditos)) {
             return ['success' => false, 'message' => 'Debe agregar al menos un crédito a la ruta.'];
         }
-        if ($estado === '') {
+        if ($modo !== 'borrador' && $estado === '') {
             return ['success' => false, 'message' => 'El estado es obligatorio.'];
         }
-        if ($municipio === '') {
+        if ($modo !== 'borrador' && $municipio === '') {
             return ['success' => false, 'message' => 'El municipio es obligatorio.'];
         }
-        if ($tipoTransportista !== '' && $idTransportista <= 0) {
+        if ($modo !== 'borrador' && $tipoTransportista !== '' && $idTransportista <= 0) {
             return ['success' => false, 'message' => 'Selecciona un transportista válido.'];
         }
-        if ($tipoTransportista === 'externo' && $idAgenciaTracking <= 0) {
+        if ($modo !== 'borrador' && $tipoTransportista === 'externo' && $idAgenciaTracking <= 0) {
             return ['success' => false, 'message' => 'Selecciona el CEDIS relacionado para el transportista externo.'];
         }
-        if ($tipoTransportista !== '' && $idCedisDestino <= 0) {
+        if ($modo !== 'borrador' && $tipoTransportista !== '' && $idCedisDestino <= 0) {
             return ['success' => false, 'message' => 'Selecciona el CEDIS destino del transportista.'];
         }
 
@@ -704,7 +1165,7 @@ class TrackingRecoleccion extends Model
                 return ['success' => false, 'message' => 'El CEDIS destino no existe o esta inactivo.'];
             }
         }
-        if ($tipoTransportista === 'interno') {
+        if ($modo !== 'borrador' && $tipoTransportista === 'interno') {
             if ($cedisDestino && !$this->esCedisDestinoInternoPermitido($cedisDestino)) {
                 return ['success' => false, 'message' => 'Para transportistas internos solo puedes seleccionar LOMAS PLAZA MAXIKASH o TLALNEPANTLA MAXIKASH como destino.'];
             }
@@ -720,6 +1181,16 @@ class TrackingRecoleccion extends Model
                     ];
                 }
             }
+        }
+
+        $conflictosRuta = $this->validarConflictosRuta($idRuta, $nombre, $fechaStr, $horaFmt, $idTransportista);
+        if (!empty($conflictosRuta)) {
+            return [
+                'success' => false,
+                'tipo' => 'conflictos_ruta',
+                'message' => 'No se puede guardar la ruta porque existen conflictos.',
+                'errores' => $conflictosRuta,
+            ];
         }
 
         try {
@@ -913,7 +1384,10 @@ class TrackingRecoleccion extends Model
             atr.fecha_programada,
             atr.estatus_ruta,
             atr.creado_por,
+            atr.fecha_creacion,
+            atr.fecha_actualizacion,
             DATE_FORMAT(atr.fecha_creacion, \'%d/%m/%Y %H:%i\') AS fecha_creacion_fmt,
+            DATE_FORMAT(atr.fecha_actualizacion, \'%d/%m/%Y %H:%i\') AS fecha_actualizacion_fmt,
             TIME_FORMAT(atr.hora_inicial, \'%H:%i\') AS hora_inicial,
             TIME_FORMAT(atr.act_hora_1,   \'%H:%i\') AS act_hora_1,
             atr.tipo_transportista,
@@ -979,7 +1453,10 @@ class TrackingRecoleccion extends Model
             atr.fecha_programada,
             atr.estatus_ruta,
             atr.creado_por,
+            atr.fecha_creacion,
+            atr.fecha_actualizacion,
             DATE_FORMAT(atr.fecha_creacion, \'%d/%m/%Y %H:%i\') AS fecha_creacion_fmt,
+            DATE_FORMAT(atr.fecha_actualizacion, \'%d/%m/%Y %H:%i\') AS fecha_actualizacion_fmt,
             TIME_FORMAT(atr.hora_inicial, \'%H:%i\') AS hora_inicial,
             TIME_FORMAT(atr.act_hora_1,   \'%H:%i\') AS act_hora_1,
             atr.tipo_transportista,
@@ -1062,6 +1539,7 @@ class TrackingRecoleccion extends Model
                     cedis_dest.municipio AS cedis_destino_municipio,
                     CONCAT(DATE_FORMAT(atr.fecha_programada, '%d/'), ELT(MONTH(atr.fecha_programada), 'Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'), DATE_FORMAT(atr.fecha_programada, '/%Y')) AS fecha_programada_fmt,
                     DATE_FORMAT(atr.fecha_creacion,   '%d/%m/%Y %H:%i') AS fecha_creacion_fmt,
+                    DATE_FORMAT(atr.fecha_actualizacion, '%d/%m/%Y %H:%i') AS fecha_actualizacion_fmt,
                     DATE_FORMAT(atr.fecha_cancelacion, '%d/%m/%Y %H:%i') AS fecha_cancelacion_fmt
                  FROM asigna_horas_tracking atr
                  LEFT JOIN transportistas_tracking tt ON tt.id_transportista = atr.id_transportista
@@ -1077,6 +1555,7 @@ class TrackingRecoleccion extends Model
             $detalles = $this->db->queryAll(
                 "SELECT
                     atd.*,
+                    DATE_FORMAT(atd.fecha_agregado, '%d/%m/%Y %H:%i') AS fecha_agregado_fmt,
                     ao.nombre_cliente,
                     ao.estatus AS estatus_proceso,
                     TRIM(CONCAT_WS(' ', per.nombres, per.apellidop)) AS gestor_nombre
@@ -1106,6 +1585,160 @@ class TrackingRecoleccion extends Model
      *
      * @return array{success:bool, message?:string}
      */
+    public function agregarCreditoRutaExistente(int $idRuta, int $idCredito, int $idUsuario = 0): array
+    {
+        if ($idRuta <= 0 || $idCredito <= 0) {
+            return ['success' => false, 'message' => 'Ruta y credito son requeridos.'];
+        }
+
+        try {
+            $ruta = $this->db->queryOne(
+                "SELECT
+                    atr.id_ruta,
+                    atr.nombre_ruta,
+                    atr.estatus_ruta,
+                    atr.estado,
+                    atr.municipio,
+                    atr.tipo_transportista,
+                    atr.id_transportista,
+                    tt.tipo_transportista AS tipo_transportista_real
+                 FROM asigna_horas_tracking atr
+                 LEFT JOIN transportistas_tracking tt ON tt.id_transportista = atr.id_transportista
+                 WHERE atr.id_ruta = :id
+                 LIMIT 1",
+                ['id' => $idRuta]
+            );
+            if (!$ruta) {
+                return ['success' => false, 'message' => 'Ruta no encontrada.'];
+            }
+
+            $estatusRuta = strtolower((string)($ruta['estatus_ruta'] ?? ''));
+            if (in_array($estatusRuta, ['cancelada', 'completado', 'concluida'], true)) {
+                return ['success' => false, 'message' => 'La ruta ya no permite agregar creditos.'];
+            }
+
+            $credito = $this->db->queryOne(
+                "SELECT
+                    ao.id_credito,
+                    ao.nombre_cliente,
+                    ao.moto_marca,
+                    ao.moto_modelo,
+                    ao.moto_no_serie AS bin,
+                    ao.log_estado AS estado,
+                    ao.log_ciudad AS municipio,
+                    ao.log_direccion AS direccion
+                 FROM adj_operacion ao
+                 WHERE ao.id_credito = :id_credito
+                 LIMIT 1",
+                ['id_credito' => $idCredito]
+            );
+            if (!$credito) {
+                return ['success' => false, 'message' => 'Credito no encontrado.'];
+            }
+
+            $estadoCredito = trim((string)($credito['estado'] ?? ''));
+            $municipioCredito = trim((string)($credito['municipio'] ?? ''));
+            if ($estadoCredito === '' && $municipioCredito === '') {
+                return ['success' => false, 'message' => 'El credito no tiene estado ni municipio registrado.'];
+            }
+
+            $asignado = $this->db->queryOne(
+                "SELECT atr.id_ruta, atr.nombre_ruta
+                 FROM asigna_horas_tracking_detalle atd
+                 INNER JOIN asigna_horas_tracking atr ON atr.id_ruta = atd.id_ruta
+                 WHERE atd.id_credito = :id_credito
+                   AND atr.estatus_ruta NOT IN ('cancelada','completado','concluida')
+                 LIMIT 1",
+                ['id_credito' => $idCredito]
+            );
+            if ($asignado) {
+                return [
+                    'success' => false,
+                    'message' => 'El credito ya esta asignado a la ruta #' . (int)$asignado['id_ruta'] . '.',
+                ];
+            }
+
+            $tipoRuta = strtolower(trim((string)($ruta['tipo_transportista'] ?: $ruta['tipo_transportista_real'] ?: '')));
+            if ($tipoRuta === 'interno' && !$this->esZonaTransportistaInterno($estadoCredito, $municipioCredito)) {
+                return [
+                    'success' => false,
+                    'message' => 'Este credito esta fuera de CDMX/zona metropolitana y no puede agregarse a una ruta con transportista interno.',
+                ];
+            }
+
+            $this->db->beginTransaction();
+
+            $ordenRow = $this->db->queryOne(
+                'SELECT COALESCE(MAX(orden_ruta), 0) + 1 AS siguiente FROM asigna_horas_tracking_detalle WHERE id_ruta = :id',
+                ['id' => $idRuta]
+            );
+            $orden = (int)($ordenRow['siguiente'] ?? 1);
+            if ($orden <= 0) $orden = 1;
+
+            $modelo = trim(implode(' ', array_filter([
+                (string)($credito['moto_marca'] ?? ''),
+                (string)($credito['moto_modelo'] ?? ''),
+            ])));
+            $fechaAgregado = date('Y-m-d H:i:s');
+
+            $this->db->CRUD(
+                'INSERT INTO asigna_horas_tracking_detalle
+                    (id_ruta, id_credito, modelo, bin, estado, municipio, direccion, orden_ruta, estatus_confirmacion_gestor, fecha_agregado)
+                 VALUES (:ir, :ic, :mo, :bi, :es, :mu, :di, :or, :cf, :fg)',
+                [
+                    'ir' => $idRuta,
+                    'ic' => $idCredito,
+                    'mo' => mb_substr($modelo, 0, 100),
+                    'bi' => mb_substr(trim((string)($credito['bin'] ?? '')), 0, 100),
+                    'es' => mb_substr($estadoCredito, 0, 100),
+                    'mu' => mb_substr($municipioCredito, 0, 100),
+                    'di' => mb_substr(trim((string)($credito['direccion'] ?? '')), 0, 200),
+                    'or' => $orden,
+                    'cf' => 'pendiente',
+                    'fg' => $fechaAgregado,
+                ]
+            );
+
+            $geoRows = $this->db->queryAll(
+                "SELECT DISTINCT estado, municipio
+                 FROM asigna_horas_tracking_detalle
+                 WHERE id_ruta = :id",
+                ['id' => $idRuta]
+            ) ?: [];
+            $estados = [];
+            $municipios = [];
+            foreach ($geoRows as $row) {
+                $e = trim((string)($row['estado'] ?? ''));
+                $m = trim((string)($row['municipio'] ?? ''));
+                if ($e !== '') $estados[$e] = true;
+                if ($m !== '') $municipios[$m] = true;
+            }
+            $estadoRuta = count($estados) > 1 ? 'MULTIPLES ESTADOS' : (array_key_first($estados) ?: (string)($ruta['estado'] ?? ''));
+            $municipioRuta = count($municipios) > 1 ? 'MULTIPLES MUNICIPIOS' : (array_key_first($municipios) ?: (string)($ruta['municipio'] ?? ''));
+
+            $this->db->CRUD(
+                'UPDATE asigna_horas_tracking
+                 SET estado = :estado, municipio = :municipio, fecha_actualizacion = :fecha
+                 WHERE id_ruta = :id',
+                [
+                    'estado' => $estadoRuta,
+                    'municipio' => $municipioRuta,
+                    'fecha' => date('Y-m-d H:i:s'),
+                    'id' => $idRuta,
+                ]
+            );
+
+            $this->db->commit();
+            return ['success' => true, 'message' => 'Credito agregado a la ruta.', 'id_ruta' => $idRuta, 'orden_ruta' => $orden, 'fecha_agregado' => $fechaAgregado];
+        } catch (\Throwable $e) {
+            try {
+                $this->db->rollback();
+            } catch (\Throwable $ignored) {
+            }
+            return ['success' => false, 'message' => 'No se pudo agregar el credito: ' . $e->getMessage()];
+        }
+    }
+
     public function actualizarConfirmacionGestor(int $idRuta, int $idCredito, string $nuevoEstatus): array
     {
         $estatus = $this->sanitizarEstatusConfirmacion($nuevoEstatus);
