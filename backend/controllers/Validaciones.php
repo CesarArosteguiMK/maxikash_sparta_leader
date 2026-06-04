@@ -297,7 +297,7 @@ class Validaciones extends Controller
     /**
      * Obtiene información básica del capo territorial autenticado:
      * - nombre
-     * - campo (1_7 | 8_21)
+     * - campo (1_7 | 8_21; 8_30 se normaliza al valor interno 8_21)
      * - departamento_id
      */
     private function getCapoInfoForTerritorial(int $personaId): array
@@ -321,12 +321,12 @@ class Validaciones extends Controller
             $campo = '';
             if ($puestoNombre !== '') {
                 if (strpos($puestoNombre, '1_7') !== false) $campo = '1_7';
-                elseif (strpos($puestoNombre, '8_21') !== false) $campo = '8_21';
+                elseif (strpos($puestoNombre, '8_21') !== false || strpos($puestoNombre, '8_30') !== false) $campo = '8_21';
             }
             // Fallback por patrón en nombre
             if ($campo === '' && $puestoNombre !== '') {
                 if (preg_match('/1\s*[-_ ]?\s*7/', $puestoNombre)) $campo = '1_7';
-                else if (preg_match('/8\s*[-_ ]?\s*21/', $puestoNombre)) $campo = '8_21';
+                else if (preg_match('/8\s*[-_ ]?\s*(21|30)/', $puestoNombre)) $campo = '8_21';
             }
 
             $departamentoId = $row && isset($row['departamento_id']) ? (int)$row['departamento_id'] : 0;

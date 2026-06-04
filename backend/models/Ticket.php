@@ -1805,15 +1805,15 @@ class Ticket extends Model
         return $n !== '' && (bool) preg_match('/campo.*1\s*[-–]?\s*7|1\s*[-–]?\s*7.*campo|1\s+a\s+7/i', $n);
     }
 
-    /** Segmento 8–21 por nombre de departamento. */
+    /** Segmento 8–30 por nombre de departamento (valor interno heredado: 8_21). */
     private static function esDepartamentoCampo8a21($nombreDepartamento)
     {
         $n = mb_strtolower(trim((string)$nombreDepartamento));
-        return $n !== '' && (bool) preg_match('/campo.*8\s*[-–]?\s*21|8\s*[-–]?\s*21.*campo|8\s+a\s+21/i', $n);
+        return $n !== '' && (bool) preg_match('/campo.*8\s*[-–]?\s*(21|30)|8\s*[-–]?\s*(21|30).*campo|8\s+a\s+(21|30)/i', $n);
     }
 
     /**
-     * Busca el id del departamento "Campo 1-7" o "Campo 8-21" por nombre en tabla departamento.
+     * Busca el id del departamento "Campo 1-7" o "Campo 8-30" por nombre en tabla departamento.
      */
     private static function getDepartamentoCampoPorSegmento($campo)
     {
@@ -1844,7 +1844,7 @@ class Ticket extends Model
 
     /**
      * Personas de máximo rango por segmento (misma lógica de Organigrama).
-     * Toma el departamento "Campo 1-7" o "Campo 8-21" y llama al mismo DAO del organigrama.
+     * Toma el departamento "Campo 1-7" o "Campo 8-30" y llama al mismo DAO del organigrama.
      *
      * @param string $campo '1_7' | '8_21'
      */
@@ -1856,7 +1856,7 @@ class Ticket extends Model
         }
         $idDepartamento = self::getDepartamentoCampoPorSegmento($campo);
         if ($idDepartamento < 1) {
-            $txt = $campo === '1_7' ? 'Campo 1-7' : 'Campo 8-21';
+            $txt = $campo === '1_7' ? 'Campo 1-7' : 'Campo 8-30';
             return self::resultado(true, 'No se encontró el departamento "' . $txt . '" en Organigrama.', []);
         }
 
