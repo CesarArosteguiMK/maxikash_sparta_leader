@@ -595,6 +595,37 @@ class TrackingRecoleccion extends Controller
         }
     }
 
+    private function leerBodyTracking(): array
+    {
+        $rawBody = file_get_contents('php://input');
+        $data = [];
+        if ($rawBody !== '' && $rawBody !== false) {
+            $data = json_decode($rawBody, true) ?: [];
+        }
+        return !empty($data) ? $data : $_POST;
+    }
+
+    /**
+     * POST /TrackingRecoleccion/validarNombreRuta
+     * Body JSON: { nombre_ruta, id_ruta? }
+     */
+    public function validarNombreRuta()
+    {
+        $data = $this->leerBodyTracking();
+        if (empty($data)) {
+            $data = $_GET;
+        }
+        $nombre = trim((string) ($data['nombre_ruta'] ?? $data['nombre'] ?? ''));
+        $idRuta = (int) ($data['id_ruta'] ?? 0);
+
+        try {
+            $model = new TrackingModel();
+            self::respuestaJSON($model->validarNombreRutaDisponible($nombre, $idRuta));
+        } catch (\Throwable $e) {
+            self::respuestaJSON(self::respuesta(false, 'Error al validar nombre de ruta.', null, $e->getMessage()));
+        }
+    }
+
     /**
      * GET /TrackingRecoleccion/obtenerCatalogoAgenciasTransportistas
      */
@@ -605,6 +636,68 @@ class TrackingRecoleccion extends Controller
             self::respuestaJSON(self::respuesta(true, null, $model->obtenerCatalogoAgenciasTransportistas()));
         } catch (\Throwable $e) {
             self::respuestaJSON(self::respuesta(false, 'Error al obtener CEDIS y transportistas.', null, $e->getMessage()));
+        }
+    }
+
+    /**
+     * POST /TrackingRecoleccion/guardarAgenciaTracking
+     */
+    public function guardarAgenciaTracking()
+    {
+        try {
+            $model = new TrackingModel();
+            $result = $model->guardarAgenciaTracking($this->leerBodyTracking());
+            self::respuestaJSON($result);
+        } catch (\Throwable $e) {
+            self::respuestaJSON(self::respuesta(false, 'Error al guardar CEDIS.', null, $e->getMessage()));
+        }
+    }
+
+    /**
+     * POST /TrackingRecoleccion/cambiarEstadoAgenciaTracking
+     */
+    public function cambiarEstadoAgenciaTracking()
+    {
+        try {
+            $data = $this->leerBodyTracking();
+            $model = new TrackingModel();
+            self::respuestaJSON($model->cambiarEstadoAgenciaTracking(
+                (int) ($data['id_agencia'] ?? 0),
+                (int) (($data['activo'] ?? 1) ? 1 : 0)
+            ));
+        } catch (\Throwable $e) {
+            self::respuestaJSON(self::respuesta(false, 'Error al actualizar CEDIS.', null, $e->getMessage()));
+        }
+    }
+
+    /**
+     * POST /TrackingRecoleccion/guardarTransportistaTracking
+     */
+    public function guardarTransportistaTracking()
+    {
+        try {
+            $model = new TrackingModel();
+            $result = $model->guardarTransportistaTracking($this->leerBodyTracking());
+            self::respuestaJSON($result);
+        } catch (\Throwable $e) {
+            self::respuestaJSON(self::respuesta(false, 'Error al guardar transportista.', null, $e->getMessage()));
+        }
+    }
+
+    /**
+     * POST /TrackingRecoleccion/cambiarEstadoTransportistaTracking
+     */
+    public function cambiarEstadoTransportistaTracking()
+    {
+        try {
+            $data = $this->leerBodyTracking();
+            $model = new TrackingModel();
+            self::respuestaJSON($model->cambiarEstadoTransportistaTracking(
+                (int) ($data['id_transportista'] ?? 0),
+                (int) (($data['activo'] ?? 1) ? 1 : 0)
+            ));
+        } catch (\Throwable $e) {
+            self::respuestaJSON(self::respuesta(false, 'Error al actualizar transportista.', null, $e->getMessage()));
         }
     }
 
@@ -725,6 +818,25 @@ class TrackingRecoleccion extends Controller
             self::respuestaJSON($result);
         } catch (\Throwable $e) {
             self::respuestaJSON(self::respuesta(false, 'Error inesperado al guardar la ruta.', null, $e->getMessage()));
+        }
+    }
+
+    /**
+     * POST /TrackingRecoleccion/agregarCreditoRuta
+     * Body JSON: { id_ruta, id_credito }
+     */
+    public function agregarCreditoRuta()
+    {
+        $idUsuario = (int) ($_SESSION['persona_id'] ?? $_SESSION['usuario_id'] ?? 0);
+        $data = $this->leerBodyTracking();
+        $idRuta = (int) ($data['id_ruta'] ?? 0);
+        $idCredito = (int) ($data['id_credito'] ?? 0);
+
+        try {
+            $model = new TrackingModel();
+            self::respuestaJSON($model->agregarCreditoRutaExistente($idRuta, $idCredito, $idUsuario));
+        } catch (\Throwable $e) {
+            self::respuestaJSON(self::respuesta(false, 'Error al agregar credito a la ruta.', null, $e->getMessage()));
         }
     }
 
