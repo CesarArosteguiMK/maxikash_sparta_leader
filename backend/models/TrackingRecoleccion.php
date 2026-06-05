@@ -1055,22 +1055,26 @@ class TrackingRecoleccion extends Model
         if (mb_strlen($nombre, 'UTF-8') > 100) {
             return ['success' => false, 'message' => 'El nombre de la ruta no puede exceder 100 caracteres.'];
         }
-        if (empty($creditos)) {
+        if ($modo === 'borrador' && $fechaStr === '') {
+            $diasMinimosBorrador = ConfigMotosAdj::obtenerDiasMinimosRuta();
+            $fechaStr = (new \DateTime('today'))->modify('+' . $diasMinimosBorrador . ' days')->format('Y-m-d');
+        }
+        if ($modo !== 'borrador' && empty($creditos)) {
             return ['success' => false, 'message' => 'Debe agregar al menos un crédito a la ruta.'];
         }
-        if ($estado === '') {
+        if ($modo !== 'borrador' && $estado === '') {
             return ['success' => false, 'message' => 'El estado es obligatorio.'];
         }
-        if ($municipio === '') {
+        if ($modo !== 'borrador' && $municipio === '') {
             return ['success' => false, 'message' => 'El municipio es obligatorio.'];
         }
-        if ($tipoTransportista !== '' && $idTransportista <= 0) {
+        if ($modo !== 'borrador' && $tipoTransportista !== '' && $idTransportista <= 0) {
             return ['success' => false, 'message' => 'Selecciona un transportista válido.'];
         }
-        if ($tipoTransportista === 'externo' && $idAgenciaTracking <= 0) {
+        if ($modo !== 'borrador' && $tipoTransportista === 'externo' && $idAgenciaTracking <= 0) {
             return ['success' => false, 'message' => 'Selecciona el CEDIS relacionado para el transportista externo.'];
         }
-        if ($tipoTransportista !== '' && $idCedisDestino <= 0) {
+        if ($modo !== 'borrador' && $tipoTransportista !== '' && $idCedisDestino <= 0) {
             return ['success' => false, 'message' => 'Selecciona el CEDIS destino del transportista.'];
         }
 
@@ -1161,7 +1165,7 @@ class TrackingRecoleccion extends Model
                 return ['success' => false, 'message' => 'El CEDIS destino no existe o esta inactivo.'];
             }
         }
-        if ($tipoTransportista === 'interno') {
+        if ($modo !== 'borrador' && $tipoTransportista === 'interno') {
             if ($cedisDestino && !$this->esCedisDestinoInternoPermitido($cedisDestino)) {
                 return ['success' => false, 'message' => 'Para transportistas internos solo puedes seleccionar LOMAS PLAZA MAXIKASH o TLALNEPANTLA MAXIKASH como destino.'];
             }
