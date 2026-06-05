@@ -343,6 +343,11 @@ class Vacaciones extends Model
                 LIMIT {$limit}
             ");
 
+            foreach ($rows as &$row) {
+                self::completarDatosSolicitudAdmin($db, $row);
+            }
+            unset($row);
+
             return self::resultado(true, 'Solicitudes encontradas.', $rows);
         } catch (Exception $e) {
             return self::resultado(false, 'Error al consultar solicitudes.', null, $e->getMessage());
@@ -387,6 +392,8 @@ class Vacaciones extends Model
             if (!$solicitud) {
                 return self::resultado(false, 'Solicitud no encontrada.');
             }
+
+            self::completarDatosSolicitudAdmin($db, $solicitud);
 
             $dias = $db->queryAll("
                 SELECT fecha, cuenta, tipo
@@ -704,6 +711,28 @@ class Vacaciones extends Model
         }
 
         return $persona;
+    }
+
+    private static function completarDatosSolicitudAdmin(Database $db, array &$solicitud): void
+    {
+        $fechaIngreso = trim((string) ($solicitud['fecha_ingreso'] ?? ''));
+        if ($fechaIngreso === '' || $fechaIngreso === '0000-00-00') {
+            $fallback = self::fechaIngresoExcelFallback(
+                $db,
+                (int) ($solicitud['id_persona'] ?? 0),
+                (string) ($solicitud['nombre_completo'] ?? '')
+            );
+            if ($fallback) {
+                $solicitud['fecha_ingreso'] = $fallback['fecha_ingreso_excel'];
+                $solicitud['fecha_ingreso_origen'] = 'excel_vacaciones';
+                $solicitud['fecha_ingreso_excel_fila'] = $fallback['fila_resumen'];
+            }
+        }
+
+        $periodo = self::periodoActual((string) ($solicitud['fecha_ingreso'] ?? ''));
+        $solicitud['dias_otorgados'] = ($periodo['success'] ?? false)
+            ? (float) ($periodo['datos']['dias_otorgados'] ?? 0)
+            : 0;
     }
 
     private static function fechaIngresoExcelFallback(Database $db, int $idPersona, string $nombreCompleto): ?array

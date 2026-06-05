@@ -16599,6 +16599,11 @@ public function getEstadosMunicipiosMexico()
     public function vacacionesAdmin()
     {
         self::set('titulo', 'Panel admin vacaciones');
+        $solicitudes = VacacionesDAO::listarAdmin();
+        self::set('vacacionesAdminJson', json_encode(
+            ($solicitudes['success'] ?? false) ? ($solicitudes['datos'] ?? []) : [],
+            JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT
+        ));
         self::render('caphum_vacaciones_admin');
     }
 

@@ -173,6 +173,14 @@
         border: 1px solid #d8e2ef;
         border-radius: 8px;
     }
+    .vac-admin-firma-inline {
+        border: 1px solid #dce6f2;
+        border-radius: 12px;
+        padding: 14px;
+        background: #f8fbff;
+    }
+    #vacFirmaAdminModal { z-index: 1085; }
+    .modal-backdrop.vac-firma-backdrop { z-index: 1080; }
     @media print {
         body * { visibility: hidden !important; }
         #vacAdminFormatoPrint, #vacAdminFormatoPrint * { visibility: visible !important; }
@@ -348,6 +356,26 @@
                         </div>
                     </div>
                 </div>
+                <div class="vac-admin-firma-inline mt-3 d-none" id="vacFirmaInlinePanel">
+                    <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-2">
+                        <div>
+                            <strong id="vacFirmaTitulo">Firmar aprobación</strong>
+                            <div class="small text-muted">Dibuja la firma del responsable para aprobar esta etapa.</div>
+                        </div>
+                        <button type="button" class="btn btn-outline-secondary btn-sm" id="vacAdminCerrarFirma">
+                            <i class="fa-solid fa-xmark me-1"></i> Cancelar firma
+                        </button>
+                    </div>
+                    <canvas id="vacAdminFirmaCanvas"></canvas>
+                    <div class="d-flex gap-2 mt-3">
+                        <button type="button" class="btn btn-outline-secondary" id="vacAdminLimpiarFirma">
+                            <i class="fa-solid fa-trash-can me-1"></i> Limpiar
+                        </button>
+                        <button type="button" class="btn btn-primary ms-auto" id="vacAdminConfirmarFirma">
+                            <i class="fa-solid fa-check me-1"></i> Firmar y aprobar
+                        </button>
+                    </div>
+                </div>
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-warning" data-bs-dismiss="modal">Cerrar</button>
@@ -360,17 +388,17 @@
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title"><i class="fa-solid fa-signature me-2"></i><span id="vacFirmaTitulo">Firmar aprobacion</span></h5>
+                <h5 class="modal-title"><i class="fa-solid fa-signature me-2"></i><span>Firmar aprobación</span></h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
             </div>
             <div class="modal-body">
                 <p class="text-muted mb-2">Dibuja la firma del responsable para aprobar esta etapa.</p>
-                <canvas id="vacAdminFirmaCanvas"></canvas>
+                <canvas id="vacAdminFirmaCanvasModal"></canvas>
                 <div class="d-flex gap-2 mt-3">
-                    <button type="button" class="btn btn-outline-secondary" id="vacAdminLimpiarFirma">
+                    <button type="button" class="btn btn-outline-secondary" id="vacAdminLimpiarFirmaModal">
                         <i class="fa-solid fa-trash-can me-1"></i> Limpiar
                     </button>
-                    <button type="button" class="btn btn-primary ms-auto" id="vacAdminConfirmarFirma">
+                    <button type="button" class="btn btn-primary ms-auto" id="vacAdminConfirmarFirmaModal">
                         <i class="fa-solid fa-check me-1"></i> Firmar y aprobar
                     </button>
                 </div>
@@ -382,6 +410,7 @@
 <script>
 (function () {
     const $ = (id) => document.getElementById(id);
+    const solicitudesIniciales = <?= $vacacionesAdminJson ?? '[]' ?>;
     let modal;
     let modalFirma;
     let solicitudActual = 0;
@@ -438,6 +467,20 @@
         return Promise.resolve({ isConfirmed: true, value: '' });
     }
 
+    function getSolicitudModal() {
+        if (!modal && window.bootstrap && bootstrap.Modal) {
+            modal = new bootstrap.Modal($('vacSolicitudModal'));
+        }
+        return modal;
+    }
+
+    function getFirmaModal() {
+        if (!modalFirma && window.bootstrap && bootstrap.Modal) {
+            modalFirma = new bootstrap.Modal($('vacFirmaAdminModal'));
+        }
+        return modalFirma;
+    }
+
     function signatureBox(titulo, firma, nombre, fecha) {
         const contenido = firma
             ? `<img src="${firma}" alt="Firma ${titulo}">`
@@ -453,7 +496,7 @@
     function pintarFormato(s) {
         $('vacFmtNombre').textContent = s.nombre_completo || '-';
         $('vacFmtAreaDepto').textContent = `${s.area || '-'} / ${s.departamento || '-'}`;
-        $('vacFmtOtorgados').textContent = '-';
+        $('vacFmtOtorgados').textContent = fmtNum(s.dias_otorgados);
         $('vacFmtDisfrutar').textContent = fmtNum(s.dias_solicitados);
         $('vacFmtEstatus').innerHTML = pill(s.estatus);
         $('vacFmtPeriodo').textContent = `${fmtFecha(s.periodo_inicio)} - ${fmtFecha(s.periodo_fin)}`;
@@ -528,11 +571,12 @@
     function abrirFirma(etapa, accion) {
         firmaPendiente = { etapa, accion };
         $('vacFirmaTitulo').textContent = etapa === 'rrhh' ? 'Firma de RR.HH.' : 'Firma de jefe / responsable';
-        modalFirma.show();
+        $('vacFirmaInlinePanel').classList.remove('d-none');
         setTimeout(() => {
             initCanvasFirmaAdmin();
             ajustarCanvasFirmaAdmin();
-        }, 180);
+            $('vacFirmaInlinePanel').scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }, 80);
     }
 
     function imprimirFormatoAdmin() {
@@ -600,6 +644,11 @@ body { margin: 0; padding: 9mm 0 0; color: #24324a; font-family: Arial, Helvetic
             return;
         }
         const rows = Array.isArray(data.datos) ? data.datos : [];
+        pintarLista(rows);
+    }
+
+    function pintarLista(rows) {
+        rows = Array.isArray(rows) ? rows : [];
         $('vacAdminCount').textContent = `${rows.length} registros`;
         if (!rows.length) {
             $('vacAdminBody').innerHTML = '<tr><td colspan="8" class="text-center text-muted py-4">No hay solicitudes registradas.</td></tr>';
@@ -650,6 +699,9 @@ body { margin: 0; padding: 9mm 0 0; color: #24324a; font-family: Arial, Helvetic
         const s = data.datos.solicitud || {};
         const dias = Array.isArray(data.datos.dias) ? data.datos.dias : [];
         detalleActual = data.datos;
+        firmaPendiente = null;
+        firmaAdminDibujada = false;
+        $('vacFirmaInlinePanel').classList.add('d-none');
         $('vacModalTitulo').textContent = s.nombre_completo || 'Solicitud';
         $('vacModalInfo').innerHTML = [
             infoBox('Colaborador', `${s.nombre_completo || '-'} ${s.numero_empleado ? '#' + s.numero_empleado : ''}`),
@@ -674,7 +726,12 @@ body { margin: 0; padding: 9mm 0 0; color: #24324a; font-family: Arial, Helvetic
         document.querySelectorAll('[data-vac-resolver^="jefe:"]').forEach((btn) => {
             btn.disabled = s.jefe_estatus !== 'pendiente' || s.estatus === 'rechazada';
         });
-        modal.show();
+        const modalActual = getSolicitudModal();
+        if (!modalActual) {
+            swal('warning', 'Modal no disponible', 'Recarga la página e inténtalo de nuevo.');
+            return;
+        }
+        modalActual.show();
     }
 
     async function resolver(etapa, accion) {
@@ -746,19 +803,30 @@ body { margin: 0; padding: 9mm 0 0; color: #24324a; font-family: Arial, Helvetic
         $('vacAdminConfirmarFirma').disabled = true;
         try {
             await resolverEnviar(firmaPendiente.etapa, firmaPendiente.accion, '', firma);
-            modalFirma.hide();
+            $('vacFirmaInlinePanel').classList.add('d-none');
             firmaPendiente = null;
         } finally {
             $('vacAdminConfirmarFirma').disabled = false;
         }
     });
 
+    $('vacAdminCerrarFirma').addEventListener('click', function () {
+        firmaPendiente = null;
+        firmaAdminDibujada = false;
+        $('vacFirmaInlinePanel').classList.add('d-none');
+    });
+
     $('vacAdminRefresh').addEventListener('click', cargarLista);
-    modal = new bootstrap.Modal($('vacSolicitudModal'));
-    modalFirma = new bootstrap.Modal($('vacFirmaAdminModal'));
+    if (window.bootstrap && bootstrap.Modal) {
+        modal = new bootstrap.Modal($('vacSolicitudModal'));
+        modalFirma = new bootstrap.Modal($('vacFirmaAdminModal'));
+    }
+    pintarLista(solicitudesIniciales);
     cargarLista().catch((err) => {
         console.error(err);
-        swal('error', 'Error', 'No se pudo cargar el panel.');
+        if (!solicitudesIniciales.length) {
+            swal('error', 'Error', 'No se pudo cargar el panel.');
+        }
     });
 })();
 </script>
