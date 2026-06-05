@@ -11,6 +11,8 @@ use Models\Candidatos as CandidatosDAO;
 use Models\LegacyUserSync;
 use Models\Login as LoginDao;
 use Models\Notificacion;
+use Models\Vacaciones as VacacionesDAO;
+use Services\RrhhDocumentImportService;
 
 class CapHum extends Controller
 {
@@ -34,6 +36,17 @@ class CapHum extends Controller
         $modulos = array_map('intval', (array) ($_SESSION['modulos'] ?? []));
         // Módulo 4 ya habilita vista global en getUsuarios; mantener coherencia para catálogo de áreas/departamentos.
         return in_array(4, $modulos, true) || in_array(10, $modulos, true) || in_array(43, $modulos, true);
+    }
+
+    private static function puedeConsultarGestionPersonal(): bool
+    {
+        $modulos = array_map('intval', (array) ($_SESSION['modulos'] ?? []));
+        return in_array(4, $modulos, true) || in_array(10, $modulos, true);
+    }
+
+    private static function puedeImportarDocumentosRrhh(): bool
+    {
+        return self::tieneModuloWeb(4) || self::tieneModuloWeb(self::MODULO_EDITAR_USUARIO_RRHH);
     }
 
     private static function getDepartamentosGestionPersonal()
@@ -5585,6 +5598,37 @@ class CapHum extends Controller
         self::render("all_gestores");
     }
 
+    public function documentosColaborador()
+    {
+        self::set("titulo", "Mis documentos");
+        self::render("caphum_documentos_colaborador");
+    }
+
+    public function getResumenDocumentosColaborador()
+    {
+        $idPersona = (int) ($_SESSION['persona_id'] ?? $_SESSION['usuario_id'] ?? 0);
+        if ($idPersona <= 0) {
+            self::respuestaJSON([
+                'success' => false,
+                'mensaje' => 'No se pudo identificar al colaborador de la sesión.',
+                'datos' => []
+            ]);
+        }
+
+        self::respuestaJSON(CapHumDAO::getResumenDocumentosColaborador($idPersona));
+    }
+
+    public function documentosRrhh()
+    {
+        self::set("titulo", "Expedientes RR.HH.");
+        self::render("caphum_documentos_rrhh");
+    }
+
+    public function getResumenDocumentosRrhh()
+    {
+        self::respuestaJSON(CapHumDAO::getResumenDocumentosRrhhGlobal());
+    }
+
     /** Vista Candidatos (Capital Humano). Misma arquitectura que Gestión: heredoc con el script, self::set("script"), self::render. */
     public function candidatos()
     {
@@ -7723,9 +7767,39 @@ class CapHum extends Controller
                 e.preventDefault();
                 e.stopPropagation();
                 var idC = btn.getAttribute("data-id");
-                if (idC) ejecutarContinuarProceso(parseInt(idC, 10));
+                if (idC) abrirModalFechaIngresoCandidato(parseInt(idC, 10));
             }
         });
+        function initFlatpickrFechaIngresoCandidato() {
+            var input = document.getElementById("fechaIngresoCandidato");
+            if (!input || typeof flatpickr === "undefined") return;
+            if (input._flatpickr) return;
+            flatpickr(input, {
+                dateFormat: "Y-m-d",
+                minDate: "today",
+                allowInput: false,
+                clickOpens: true,
+                appendTo: document.body,
+                static: false,
+                locale: (typeof flatpickr !== "undefined" && flatpickr.l10ns && flatpickr.l10ns.es) ? flatpickr.l10ns.es : undefined
+            });
+        }
+        function abrirModalFechaIngresoCandidato(idCandidato) {
+            var hid = document.getElementById("fechaIngresoIdCandidato");
+            var input = document.getElementById("fechaIngresoCandidato");
+            if (hid) hid.value = idCandidato || "";
+            if (input) {
+                input.value = "";
+                if (input._flatpickr) input._flatpickr.clear();
+            }
+            var modalEl = document.getElementById("modalFechaIngresoCandidato");
+            if (modalEl && window.bootstrap && window.bootstrap.Modal) {
+                initFlatpickrFechaIngresoCandidato();
+                new window.bootstrap.Modal(modalEl).show();
+            } else {
+                ejecutarContinuarProceso(idCandidato, "");
+            }
+        }
         function abrirModalCerrarProceso(idCandidato) {
             var hid = document.getElementById("cerrarProcesoIdCandidato");
             var sel = document.getElementById("cerrarProcesoMotivo");
@@ -7788,11 +7862,11 @@ class CapHum extends Controller
                     .catch(function() { btnConfirmarCerrar.disabled = false; if (typeof Swal !== "undefined") Swal.fire({ icon: "error", title: "Error", text: "Error de conexión." }); });
             });
         }
-        function ejecutarContinuarProceso(idCandidato) {
+        function ejecutarContinuarProceso(idCandidato, fechaIngreso) {
             function pasoAltaNominaRRHH() {
                 if (typeof Swal === "undefined") {
                     if (confirm("¿Ya RRHH le dio de alta a la nómina del candidato?")) {
-                        fetch("/caphum/pasarCandidatoAGestion", { method: "POST", headers: { "Content-Type": "application/json", "Accept": "application/json" }, body: JSON.stringify({ id_candidato: idCandidato }) })
+                        fetch("/caphum/pasarCandidatoAGestion", { method: "POST", headers: { "Content-Type": "application/json", "Accept": "application/json" }, body: JSON.stringify({ id_candidato: idCandidato, fecha_ingreso: fechaIngreso }) })
                             .then(function(r){ return r.json(); })
                             .then(function(res) {
                                 if (res.success) {
@@ -7818,7 +7892,7 @@ class CapHum extends Controller
                 }).then(function(result) {
                     if (result.isConfirmed) {
                         Swal.fire({ title: "Procesando...", text: "Dando de alta en Gestión y enviando correo de bienvenida.", allowOutsideClick: false, allowEscapeKey: false, didOpen: function() { Swal.showLoading(); } });
-                        fetch("/caphum/pasarCandidatoAGestion", { method: "POST", headers: { "Content-Type": "application/json", "Accept": "application/json" }, body: JSON.stringify({ id_candidato: idCandidato }) })
+                        fetch("/caphum/pasarCandidatoAGestion", { method: "POST", headers: { "Content-Type": "application/json", "Accept": "application/json" }, body: JSON.stringify({ id_candidato: idCandidato, fecha_ingreso: fechaIngreso }) })
                             .then(function(r){ return r.json(); })
                             .then(function(res) {
                                 Swal.close();
@@ -7844,21 +7918,69 @@ class CapHum extends Controller
                     }
                 });
             }
+            if (!fechaIngreso) {
+                if (typeof Swal !== "undefined") Swal.fire({ icon: "warning", title: "Fecha requerida", text: "Selecciona la fecha de ingreso del candidato." });
+                else alert("Selecciona la fecha de ingreso del candidato.");
+                return;
+            }
             if (typeof Swal === "undefined") {
-                if (!confirm("¿Estás seguro de continuar el proceso del candidato?")) return;
-                pasoAltaNominaRRHH();
+                fetch("/caphum/continuarProcesoCandidato", { method: "POST", headers: { "Content-Type": "application/json", "Accept": "application/json" }, body: JSON.stringify({ id_candidato: idCandidato, fecha_ingreso: fechaIngreso }) })
+                    .then(function(r){ return r.json(); })
+                    .then(function(res) {
+                        if (!res.success) return alert(res.mensaje || "No se pudo continuar el proceso.");
+                        pasoAltaNominaRRHH();
+                    })
+                    .catch(function() { alert("Error de conexión."); });
                 return;
             }
             Swal.fire({
-                title: "¿Estás seguro?",
-                text: "Continuarás con el alta en Gestión y el envío de correo al candidato en los pasos siguientes.",
-                icon: "question",
-                showCancelButton: true,
-                confirmButtonText: "Sí, continuar",
-                cancelButtonText: "Cancelar"
-            }).then(function(primero) {
-                if (!primero.isConfirmed) return;
-                pasoAltaNominaRRHH();
+                title: "Enviando notificaciones...",
+                text: "Se notificará al candidato y al jefe del área.",
+                allowOutsideClick: false,
+                allowEscapeKey: false,
+                didOpen: function() { Swal.showLoading(); }
+            });
+            fetch("/caphum/continuarProcesoCandidato", { method: "POST", headers: { "Content-Type": "application/json", "Accept": "application/json" }, body: JSON.stringify({ id_candidato: idCandidato, fecha_ingreso: fechaIngreso }) })
+                .then(function(r){ return r.json(); })
+                .then(function(res) {
+                    Swal.close();
+                    if (!res.success) {
+                        Swal.fire({ icon: "error", title: "Error", text: res.mensaje || "No se pudo continuar el proceso." });
+                        return;
+                    }
+                    var detalle = res.mensaje || "Se notificó al candidato correctamente.";
+                    if (res.datos && res.datos.correo_jefe_intentado && !res.datos.correo_jefe_enviado) {
+                        detalle += " Revisa el correo del jefe; no se pudo enviar esa notificación.";
+                    }
+                    Swal.fire({ icon: "success", title: "Notificaciones enviadas", text: detalle, timer: 1800, showConfirmButton: false })
+                        .then(function() { pasoAltaNominaRRHH(); });
+                })
+                .catch(function() {
+                    Swal.close();
+                    Swal.fire({ icon: "error", title: "Error", text: "Error de conexión." });
+                });
+        }
+        var btnConfirmarFechaIngreso = document.getElementById("btnConfirmarFechaIngresoCandidato");
+        if (btnConfirmarFechaIngreso) {
+            btnConfirmarFechaIngreso.addEventListener("click", function() {
+                var hid = document.getElementById("fechaIngresoIdCandidato");
+                var input = document.getElementById("fechaIngresoCandidato");
+                var idCandidato = hid ? parseInt(hid.value, 10) : 0;
+                var fechaIngreso = input ? (input.value || "").trim() : "";
+                if (idCandidato <= 0) {
+                    if (typeof Swal !== "undefined") Swal.fire({ icon: "error", title: "Error", text: "ID de candidato no válido." });
+                    return;
+                }
+                if (!fechaIngreso) {
+                    if (typeof Swal !== "undefined") Swal.fire({ icon: "warning", title: "Fecha requerida", text: "Selecciona la fecha de ingreso del candidato." });
+                    return;
+                }
+                var modalFecha = document.getElementById("modalFechaIngresoCandidato");
+                if (modalFecha && window.bootstrap && window.bootstrap.Modal) {
+                    var instFecha = window.bootstrap.Modal.getInstance(modalFecha);
+                    if (instFecha) instFecha.hide();
+                }
+                ejecutarContinuarProceso(idCandidato, fechaIngreso);
             });
         }
         var btnAltaNominaNo = document.getElementById("btnConfirmarAltaNominaNo");
@@ -8357,6 +8479,7 @@ class CapHum extends Controller
         }
         $logoSrc = $rutaLogoInline ? 'cid:logo__SPARTA_SECRET_REDACTED__' : (rtrim($base, '/') . '/assets/img/logo_correo.png');
 
+        $asunto = 'Documentación aprobada - Fecha de ingreso a Maxikash';
         $mensajeHtml = '<!DOCTYPE html>
 <html lang="es">
 <head>
@@ -8419,6 +8542,20 @@ class CapHum extends Controller
   </table>
 </body>
 </html>';
+
+        $mensajeHtml = '<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Documentación aprobada</title></head>
+<body style="margin:0; padding:0; background-color:#e8eef4; font-family:\'Segoe UI\', Tahoma, Geneva, Verdana, sans-serif;">
+<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background-color:#e8eef4;"><tr><td align="center" style="padding:32px 16px;">
+<table role="presentation" width="600" cellspacing="0" cellpadding="0" style="max-width:600px; width:100%; background:#ffffff; border-radius:8px; box-shadow:0 2px 12px rgba(0,0,0,0.08);">
+<tr><td style="background-color:#1e3a5f; padding:24px 12px 24px 32px; border-radius:8px 8px 0 0;"><table role="presentation" width="100%"><tr><td><h1 style="margin:0; color:#ffffff; font-size:22px; font-weight:600;">MaxiKash - Capital Humano</h1><p style="margin:6px 0 0 0; color:rgba(255,255,255,0.9); font-size:14px;">Documentación aprobada</p></td><td style="text-align:right; width:160px;"><img src="' . htmlspecialchars($logoSrc) . '" alt="MaxiKash" width="160" style="max-height:70px; width:auto;" /></td></tr></table></td></tr>
+<tr><td style="padding:32px;"><p style="margin:0 0 16px 0; color:#1a202c; font-size:16px;">Hola ' . htmlspecialchars($nombreMayusculas) . ',</p>
+<p style="margin:0 0 16px 0; color:#2d3748; font-size:15px; line-height:1.6;">Nos da mucho gusto informarte que tu expediente documental fue revisado, validado y aprobado por Capital Humano.</p>
+<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin:20px 0; background:#edf7ff; border:1px solid #b6dcff; border-radius:8px;"><tr><td style="padding:18px 20px;"><p style="margin:0; color:#1e3a5f; font-size:13px; font-weight:700; text-transform:uppercase;">Fecha de ingreso</p><p style="margin:6px 0 0 0; color:#1a202c; font-size:20px; font-weight:700;">' . htmlspecialchars($fechaIngresoTexto) . '</p></td></tr></table>
+<p style="margin:0 0 16px 0; color:#2d3748; font-size:15px; line-height:1.6;">Te pedimos presentarte en la fecha indicada para la firma de contrato y el inicio formal de tus actividades. Capital Humano te acompañará con los siguientes pasos de incorporación.</p>
+<p style="margin:0 0 24px 0; color:#2d3748; font-size:15px; line-height:1.6;">Si tienes alguna duda, puedes escribirnos a <a href="mailto:' . htmlspecialchars($contacto) . '" style="color:#2c5282; text-decoration:none;">' . htmlspecialchars($contacto) . '</a>.</p>
+<p style="margin:24px 0 0 0; color:#1a202c; font-size:15px; font-weight:600;">Equipo de Capital Humano - Maxikash</p></td></tr>
+<tr><td style="padding:16px 32px 24px; background:#f7fafc; border-radius:0 0 8px 8px; border-top:1px solid #e2e8f0;"><p style="margin:0; color:#718096; font-size:12px;">Este correo fue generado automáticamente.</p></td></tr>
+</table></td></tr></table></body></html>';
 
         $enviado = $this->enviarCorreo($destino, $asunto, $mensajeHtml, $nombreCompleto, $rutaLogoInline);
         if ($enviado) {
@@ -9911,6 +10048,18 @@ class CapHum extends Controller
             echo json_encode(self::respuesta(false, 'ID de candidato inválido.'));
             return;
         }
+        $fechaIngreso = trim((string) ($body['fecha_ingreso'] ?? ''));
+        $fechaIngresoNormalizada = $this->normalizarFechaIngresoCandidato($fechaIngreso);
+        if ($fechaIngresoNormalizada === null) {
+            echo json_encode(self::respuesta(false, 'Selecciona una fecha de ingreso válida.'));
+            return;
+        }
+        $hoy = new \DateTime('today', new \DateTimeZone('America/Mexico_City'));
+        $fechaDt = \DateTime::createFromFormat('Y-m-d', $fechaIngresoNormalizada, new \DateTimeZone('America/Mexico_City'));
+        if ($fechaDt < $hoy) {
+            echo json_encode(self::respuesta(false, 'La fecha de ingreso no puede ser anterior a hoy.'));
+            return;
+        }
         $candidatoRes = CandidatosDAO::getById($id_candidato);
         if (!$candidatoRes['success'] || empty($candidatoRes['datos'])) {
             echo json_encode(self::respuesta(false, 'Candidato no encontrado.'));
@@ -9955,6 +10104,7 @@ class CapHum extends Controller
         }
         $logoSrc = $rutaLogoInline ? 'cid:logo__SPARTA_SECRET_REDACTED__' : ($baseUrl . '/assets/img/logo_correo.png');
 
+        $fechaIngresoTexto = $this->formatearFechaIngresoCandidato($fechaIngresoNormalizada);
         $nombreMayusculas = mb_strtoupper($nombreCompleto, 'UTF-8');
         $asunto = 'Tu documentación fue validada – Siguiente paso en tu proceso con Maxikash';
         $mensajeHtml = '<!DOCTYPE html>
@@ -10007,7 +10157,35 @@ class CapHum extends Controller
 
         $enviado = $this->enviarCorreo($destino, $asunto, $mensajeHtml, $nombreCompleto, $rutaLogoInline);
         if ($enviado) {
-            echo json_encode(self::respuesta(true, 'Correo enviado al candidato correctamente.', ['id_candidato' => $id_candidato]));
+            $correoJefe = trim($c['correo_jefe'] ?? '');
+            $nombreJefe = trim($c['nombre_jefe'] ?? '') ?: 'Jefe directo';
+            $puesto = trim($c['nombre_puesto'] ?? '');
+            $departamento = trim($c['nombre_departamento'] ?? '');
+            $correoJefeIntentado = $correoJefe !== '' && filter_var($correoJefe, FILTER_VALIDATE_EMAIL);
+            $correoJefeEnviado = false;
+            if ($correoJefeIntentado) {
+                $asuntoJefe = 'Nuevo ingreso programado - ' . $nombreCompleto;
+                $mensajeJefeHtml = '<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Nuevo ingreso programado</title></head>
+<body style="margin:0; padding:0; background-color:#e8eef4; font-family:\'Segoe UI\', Tahoma, Geneva, Verdana, sans-serif;">
+<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background-color:#e8eef4;"><tr><td align="center" style="padding:32px 16px;">
+<table role="presentation" width="600" cellspacing="0" cellpadding="0" style="max-width:600px; width:100%; background:#ffffff; border-radius:8px; box-shadow:0 2px 12px rgba(0,0,0,0.08);">
+<tr><td style="background-color:#1e3a5f; padding:24px 12px 24px 32px; border-radius:8px 8px 0 0;"><table role="presentation" width="100%"><tr><td><h1 style="margin:0; color:#ffffff; font-size:22px; font-weight:600;">MaxiKash - Capital Humano</h1><p style="margin:6px 0 0 0; color:rgba(255,255,255,0.9); font-size:14px;">Nuevo ingreso programado</p></td><td style="text-align:right; width:160px;"><img src="' . htmlspecialchars($logoSrc) . '" alt="MaxiKash" width="160" style="max-height:70px; width:auto;" /></td></tr></table></td></tr>
+<tr><td style="padding:32px;"><p style="margin:0 0 16px 0; color:#1a202c; font-size:16px;">Hola ' . htmlspecialchars($nombreJefe) . ',</p>
+<p style="margin:0 0 16px 0; color:#2d3748; font-size:15px; line-height:1.6;">Te informamos que <strong>' . htmlspecialchars($nombreCompleto) . '</strong> tiene programada su incorporación al equipo.</p>
+<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin:20px 0; background:#f7fafc; border:1px solid #d8e1ec; border-radius:8px;"><tr><td style="padding:18px 20px;"><p style="margin:0 0 8px 0; color:#1e3a5f; font-size:13px; font-weight:700; text-transform:uppercase;">Fecha de ingreso</p><p style="margin:0; color:#1a202c; font-size:20px; font-weight:700;">' . htmlspecialchars($fechaIngresoTexto) . '</p>' . ($puesto !== '' ? '<p style="margin:12px 0 0 0; color:#4a5568; font-size:14px;"><strong>Puesto:</strong> ' . htmlspecialchars($puesto) . '</p>' : '') . ($departamento !== '' ? '<p style="margin:4px 0 0 0; color:#4a5568; font-size:14px;"><strong>Departamento:</strong> ' . htmlspecialchars($departamento) . '</p>' : '') . '</td></tr></table>
+<p style="margin:0 0 16px 0; color:#2d3748; font-size:15px; line-height:1.6;">Por favor considera esta fecha para preparar su recepción, inducción operativa y cualquier actividad necesaria para su integración.</p>
+<p style="margin:24px 0 0 0; color:#1a202c; font-size:15px; font-weight:600;">Equipo de Capital Humano - Maxikash</p></td></tr>
+<tr><td style="padding:16px 32px 24px; background:#f7fafc; border-radius:0 0 8px 8px; border-top:1px solid #e2e8f0;"><p style="margin:0; color:#718096; font-size:12px;">Correo generado automáticamente.</p></td></tr>
+</table></td></tr></table></body></html>';
+                $correoJefeEnviado = $this->enviarCorreo($correoJefe, $asuntoJefe, $mensajeJefeHtml, $nombreJefe, $rutaLogoInline);
+            }
+            echo json_encode(self::respuesta(true, 'Correo enviado al candidato correctamente.', [
+                'id_candidato' => $id_candidato,
+                'fecha_ingreso' => $fechaIngresoNormalizada,
+                'correo_candidato_enviado' => true,
+                'correo_jefe_intentado' => $correoJefeIntentado,
+                'correo_jefe_enviado' => $correoJefeEnviado
+            ]));
         } else {
             $msg = $this->enviarCorreoUltimoError ?: 'No se pudo enviar el correo.';
             echo json_encode(self::respuesta(false, $msg, null));
@@ -10030,7 +10208,8 @@ class CapHum extends Controller
             echo json_encode(self::respuesta(false, 'ID de candidato inválido.'));
             return;
         }
-        $result = $this->ejecutarAltaCandidatoEnGestion($id_candidato);
+        $fechaIngreso = trim((string) ($body['fecha_ingreso'] ?? ''));
+        $result = $this->ejecutarAltaCandidatoEnGestion($id_candidato, $fechaIngreso);
         if ($result['success']) {
             echo json_encode(self::respuesta(true, 'Colaborador dado de alta en Gestión correctamente. Se envió el correo de bienvenida.', ['id_persona' => $result['id_persona'] ?? 0, 'id_candidato' => $result['id_candidato']]));
         } else {
@@ -10100,7 +10279,7 @@ class CapHum extends Controller
      * Lógica común: alta de candidato en Gestión (persona, módulo Onboarding, correo bienvenida).
      * @return array { success, mensaje, id_persona?, id_candidato }
      */
-    private function ejecutarAltaCandidatoEnGestion($id_candidato)
+    private function ejecutarAltaCandidatoEnGestion($id_candidato, $fecha_ingreso = null)
     {
         $id_candidato = (int) $id_candidato;
         if ($id_candidato <= 0) {
@@ -10115,7 +10294,10 @@ class CapHum extends Controller
         if ($numero_empleado === '') {
             $numero_empleado = 'PEND';
         }
-        $fechaIngreso = (new \DateTime('now', new \DateTimeZone('America/Mexico_City')))->format('Y-m-d');
+        $fechaIngreso = $this->normalizarFechaIngresoCandidato((string) $fecha_ingreso);
+        if ($fechaIngreso === null) {
+            $fechaIngreso = (new \DateTime('now', new \DateTimeZone('America/Mexico_City')))->format('Y-m-d');
+        }
         $dataPersona = [
             'nombres'       => $c['nombres'] ?? '',
             'segundo_nombre'=> $c['segundo_nombre'] ?? '',
@@ -10185,6 +10367,43 @@ class CapHum extends Controller
      * URL base de la aplicación (para enlaces de documentos y correos).
      * Si en config.ini [app] base_url está definida se usa; si no, la petición actual.
      */
+    private function normalizarFechaIngresoCandidato($fecha)
+    {
+        $fecha = trim((string) $fecha);
+        if ($fecha === '') {
+            return null;
+        }
+        $dt = \DateTime::createFromFormat('Y-m-d', $fecha, new \DateTimeZone('America/Mexico_City'));
+        $errores = \DateTime::getLastErrors();
+        if (!$dt || ($errores && ((int) ($errores['warning_count'] ?? 0) > 0 || (int) ($errores['error_count'] ?? 0) > 0))) {
+            return null;
+        }
+        return $dt->format('Y-m-d') === $fecha ? $fecha : null;
+    }
+
+    private function formatearFechaIngresoCandidato($fecha)
+    {
+        $dt = \DateTime::createFromFormat('Y-m-d', (string) $fecha, new \DateTimeZone('America/Mexico_City'));
+        if (!$dt) {
+            return (string) $fecha;
+        }
+        $meses = [
+            1 => 'enero',
+            2 => 'febrero',
+            3 => 'marzo',
+            4 => 'abril',
+            5 => 'mayo',
+            6 => 'junio',
+            7 => 'julio',
+            8 => 'agosto',
+            9 => 'septiembre',
+            10 => 'octubre',
+            11 => 'noviembre',
+            12 => 'diciembre',
+        ];
+        return (int) $dt->format('d') . ' de ' . $meses[(int) $dt->format('m')] . ' de ' . $dt->format('Y');
+    }
+
     private function obtenerBaseUrlApp()
     {
         $configFile = defined('RAIZ') ? (RAIZ . '/config/config.ini') : (__DIR__ . '/../config/config.ini');
@@ -13543,6 +13762,14 @@ class CapHum extends Controller
 
     public function getUsuarios()
     {
+        if (!self::puedeConsultarGestionPersonal() && !self::tieneModuloWeb(43)) {
+            self::respuestaJSON([
+                'success' => false,
+                'mensaje' => 'No tienes permiso para consultar usuarios.'
+            ]);
+            return;
+        }
+
         $modulos = $_SESSION['modulos'] ?? [];
         $puedeVerGestionPersonal = in_array(4, $modulos);
         $resultado = CapHumDAO::getConsultaGestoresAll($_SESSION['usuario_id'], !$puedeVerGestionPersonal);
@@ -14026,6 +14253,14 @@ class CapHum extends Controller
 
     public function getDetalles()
     {
+        if (!self::puedeConsultarGestionPersonal()) {
+            self::respuestaJSON([
+                'success' => false,
+                'mensaje' => 'No tienes permiso para consultar detalles de usuario.'
+            ]);
+            return;
+        }
+
         $input = json_decode(file_get_contents("php://input"), true);
         $idPersona = $input['idPersona'] ?? null;
 
@@ -14044,6 +14279,14 @@ class CapHum extends Controller
 
     public function getDetallesPerfil()
     {
+        if (!self::tieneModuloWeb(43)) {
+            self::respuestaJSON([
+                'success' => false,
+                'mensaje' => 'No tienes permiso para consultar permisos del usuario.'
+            ]);
+            return;
+        }
+
         $input = json_decode(file_get_contents("php://input"), true);
         // Siempre usar el id de la persona que se está revisando (fila en Gestión), nunca el de la sesión
         $idPersona = isset($input['idPersona']) ? (int) $input['idPersona'] : null;
@@ -15443,9 +15686,101 @@ public function getEstadosMunicipiosMexico()
         }
     }
 
+    public function analizarImportacionDocumentosRrhh()
+    {
+        try {
+            if (!self::puedeImportarDocumentosRrhh()) {
+                self::respuestaJSON(['success' => false, 'mensaje' => 'No tienes permiso para importar documentos RR.HH.']);
+                return;
+            }
+
+            $servicio = new RrhhDocumentImportService();
+            $fuentes = $servicio->fuentesDesdeRequest($_FILES, $_POST);
+            $documentosManual = $servicio->documentosManualDesdePost($_POST);
+            if (empty($fuentes)) {
+                self::respuestaJSON(['success' => false, 'mensaje' => 'Selecciona archivos PDF, ZIP o una carpeta con documentos.']);
+                return;
+            }
+
+            self::respuestaJSON([
+                'success' => true,
+                'mensaje' => 'Análisis completado.',
+                'datos' => $servicio->analizar($fuentes, $documentosManual)
+            ]);
+        } catch (\Exception $e) {
+            self::respuestaJSON(['success' => false, 'mensaje' => 'Error al analizar documentos: ' . $e->getMessage()]);
+        }
+    }
+
+    public function importarDocumentosRrhh()
+    {
+        try {
+            if (!self::puedeImportarDocumentosRrhh()) {
+                self::respuestaJSON(['success' => false, 'mensaje' => 'No tienes permiso para importar documentos RR.HH.']);
+                return;
+            }
+
+            $servicio = new RrhhDocumentImportService();
+            $fuentes = $servicio->fuentesDesdeRequest($_FILES, $_POST);
+            $documentosManual = $servicio->documentosManualDesdePost($_POST);
+            if (empty($fuentes)) {
+                self::respuestaJSON(['success' => false, 'mensaje' => 'Selecciona archivos PDF, ZIP o una carpeta con documentos.']);
+                return;
+            }
+
+            $resultado = $servicio->importar($fuentes, $documentosManual);
+            self::respuestaJSON([
+                'success' => true,
+                'mensaje' => 'Importación finalizada. Documentos importados: ' . (int) ($resultado['importados'] ?? 0) . '.',
+                'datos' => $resultado
+            ]);
+        } catch (\Exception $e) {
+            self::respuestaJSON(['success' => false, 'mensaje' => 'Error al importar documentos: ' . $e->getMessage()]);
+        }
+    }
+
     /**
      * Obtener documentos de una persona (Gestión)
      */
+    public function previsualizarImportacionDocumentosRrhh()
+    {
+        $tmpPath = null;
+        $limpiar = false;
+        try {
+            if (!self::puedeImportarDocumentosRrhh()) {
+                http_response_code(403);
+                echo 'No tienes permiso para previsualizar documentos RR.HH.';
+                return;
+            }
+
+            $servicio = new RrhhDocumentImportService();
+            $fuentes = $servicio->fuentesDesdeRequest($_FILES, $_POST);
+            $sourceIndex = (int) ($_POST['source_index'] ?? -1);
+            $pdf = $servicio->obtenerPdfTemporal($fuentes, $sourceIndex);
+            if (empty($pdf['success'])) {
+                http_response_code(400);
+                echo $pdf['mensaje'] ?? 'No se pudo abrir el documento.';
+                return;
+            }
+
+            $tmpPath = (string) ($pdf['path'] ?? '');
+            $limpiar = !empty($pdf['limpiar']);
+            $nombre = preg_replace('/[^A-Za-z0-9_\-. ]/', '_', (string) ($pdf['nombre'] ?? 'documento.pdf')) ?: 'documento.pdf';
+            header('Content-Type: application/pdf');
+            header('Content-Disposition: inline; filename="' . $nombre . '"');
+            header('Content-Length: ' . filesize($tmpPath));
+            readfile($tmpPath);
+        } catch (\Exception $e) {
+            http_response_code(500);
+            echo 'Error al previsualizar documento: ' . $e->getMessage();
+        } finally {
+            if ($limpiar && $tmpPath && is_file($tmpPath)) {
+                @unlink($tmpPath);
+            }
+        }
+        exit;
+    }
+
     public function getDocumentosPersona()
     {
         try {
@@ -16219,6 +16554,98 @@ public function getEstadosMunicipiosMexico()
             JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT
         ));
         self::render('caphum_perfiles_puestos');
+    }
+
+    public function vacaciones()
+    {
+        self::set('titulo', 'Vacaciones');
+        self::render('caphum_vacaciones');
+    }
+
+    public function getResumenVacaciones()
+    {
+        $idPersona = self::resolverPersonaVacaciones($_GET['id_persona'] ?? null);
+        if ($idPersona <= 0) {
+            self::respuestaJSON(['success' => false, 'mensaje' => 'No se pudo identificar a la persona de la sesión.']);
+        }
+
+        self::respuestaJSON(VacacionesDAO::resumenPersona($idPersona));
+    }
+
+    public function solicitarVacaciones()
+    {
+        $body = json_decode(file_get_contents('php://input') ?: '[]', true);
+        if (!is_array($body)) {
+            $body = [];
+        }
+
+        $idPersona = self::resolverPersonaVacaciones($body['id_persona'] ?? null);
+        if ($idPersona <= 0) {
+            self::respuestaJSON(['success' => false, 'mensaje' => 'No se pudo identificar a la persona de la sesión.']);
+        }
+
+        $fechaInicio = trim((string) ($body['fecha_inicio'] ?? ''));
+        $fechaFin = trim((string) ($body['fecha_fin'] ?? ''));
+        $modoFechas = trim((string) ($body['modo_fechas'] ?? 'rango'));
+        $fechasSeparadas = is_array($body['fechas_separadas'] ?? null) ? $body['fechas_separadas'] : [];
+        $comentario = trim((string) ($body['comentario'] ?? ''));
+        $firmaColaborador = trim((string) ($body['firma_colaborador'] ?? ''));
+        $creadoPor = (int) ($_SESSION['usuario_id'] ?? $_SESSION['persona_id'] ?? $idPersona);
+
+        self::respuestaJSON(VacacionesDAO::solicitar($idPersona, $fechaInicio, $fechaFin, $comentario, $creadoPor, $modoFechas, $fechasSeparadas, $firmaColaborador));
+    }
+
+    public function vacacionesAdmin()
+    {
+        self::set('titulo', 'Panel admin vacaciones');
+        self::render('caphum_vacaciones_admin');
+    }
+
+    public function getVacacionesAdmin()
+    {
+        self::respuestaJSON(VacacionesDAO::listarAdmin());
+    }
+
+    public function getVacacionesSolicitud()
+    {
+        $idSolicitud = (int) ($_GET['id_solicitud'] ?? $_POST['id_solicitud'] ?? 0);
+        if ($idSolicitud <= 0) {
+            self::respuestaJSON(['success' => false, 'mensaje' => 'Solicitud requerida.']);
+        }
+
+        self::respuestaJSON(VacacionesDAO::detalleAdmin($idSolicitud));
+    }
+
+    public function resolverVacacionesSolicitud()
+    {
+        $body = json_decode(file_get_contents('php://input') ?: '[]', true);
+        if (!is_array($body)) {
+            $body = [];
+        }
+
+        $idSolicitud = (int) ($body['id_solicitud'] ?? 0);
+        $etapa = trim((string) ($body['etapa'] ?? ''));
+        $accion = trim((string) ($body['accion'] ?? ''));
+        $comentario = trim((string) ($body['comentario'] ?? ''));
+        $firmaResponsable = trim((string) ($body['firma_responsable'] ?? ''));
+        $idResponsable = (int) ($_SESSION['persona_id'] ?? $_SESSION['usuario_id'] ?? 0);
+
+        if ($idSolicitud <= 0 || $idResponsable <= 0) {
+            self::respuestaJSON(['success' => false, 'mensaje' => 'Solicitud o sesión inválida.']);
+        }
+
+        self::respuestaJSON(VacacionesDAO::resolverAdmin($idSolicitud, $etapa, $accion, $comentario, $idResponsable, $firmaResponsable));
+    }
+
+    private static function resolverPersonaVacaciones($idSolicitado = null): int
+    {
+        $idSesion = (int) ($_SESSION['persona_id'] ?? $_SESSION['usuario_id'] ?? 0);
+        $idSolicitado = (int) ($idSolicitado ?? 0);
+        if ($idSolicitado <= 0 || !self::tieneModuloWeb(4)) {
+            return $idSesion;
+        }
+
+        return $idSolicitado;
     }
 
     public function getEstructuraOrganizacionalJson()
