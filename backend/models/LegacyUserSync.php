@@ -1077,9 +1077,8 @@ class LegacyUserSync extends Model
         $primerNombre = self::normalizarNombreLegacy($ctx['nombres'] ?? '');
         $segundoNombre = self::normalizarNombreLegacy($ctx['segundo_nombre'] ?? '');
 
-        $nombres = trim(implode(' ', array_filter([$primerNombre, $segundoNombre], fn($v) => $v !== '')));
-        $partes = array_filter([$apellidoPaterno, $apellidoMaterno, $nombres], fn($v) => $v !== '');
-        $nombre = trim(implode(', ', $partes));
+        $partes = array_filter([$apellidoPaterno, $apellidoMaterno, $primerNombre, $segundoNombre], fn($v) => $v !== '');
+        $nombre = trim(implode(' ', $partes));
 
         if ($nombre === '') {
             $nombre = self::normalizarNombreLegacy($ctx['nombre_completo'] ?? '');
