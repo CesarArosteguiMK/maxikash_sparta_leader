@@ -5073,6 +5073,9 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
                     <button type="button" class="btn btn-outline-primary btn-sm" id="btnAjustarFotoExpedienteRrhh">
                       <i class="fa fa-crop-alt me-1"></i>Ajustar foto
                     </button>
+                    <button type="button" class="btn btn-outline-success btn-sm" id="btnAbrirImportacionDocsRrhh">
+                      <i class="fa fa-file-import me-1"></i>Importar documentos
+                    </button>
                     <button type="button" class="btn btn-outline-danger btn-sm" id="btnLimpiarTodoExpedienteRrhh">
                       <i class="fa fa-trash me-1"></i>Limpiar todo
                     </button>
@@ -5088,6 +5091,79 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
                   <i class="fa fa-print me-1"></i>Imprimir expediente
                 </button>
                 <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cerrar</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <style>
+          .rrhh-import-person-separator > td {
+            border-top: 2px solid #263653 !important;
+          }
+        </style>
+
+        <div class="modal fade" id="modalImportarDocumentosRrhh" tabindex="-1" aria-labelledby="modalImportarDocumentosRrhhLabel" aria-hidden="true">
+          <div class="modal-dialog modal-dialog-centered modal-xl">
+            <div class="modal-content">
+              <div class="modal-header">
+                <h5 class="modal-title fw-bold" id="modalImportarDocumentosRrhhLabel">
+                  <i class="fa fa-file-import me-2"></i>Importar documentos RR.HH.
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+              </div>
+              <div class="modal-body">
+                <input type="file" class="d-none" id="rrhhImportDocsInputArchivos" accept=".pdf,.zip,application/pdf,application/zip" multiple>
+                <input type="file" class="d-none" id="rrhhImportDocsInputCarpeta" webkitdirectory directory multiple>
+                <div class="d-flex flex-wrap gap-2 align-items-center mb-3">
+                  <button type="button" class="btn btn-outline-primary" id="btnRrhhImportSeleccionarArchivos">
+                    <i class="fa fa-file-archive me-1"></i>Elegir ZIP/PDF
+                  </button>
+                  <button type="button" class="btn btn-outline-primary" id="btnRrhhImportSeleccionarCarpeta">
+                    <i class="fa fa-folder-open me-1"></i>Elegir carpeta
+                  </button>
+                  <button type="button" class="btn btn-success" id="btnRrhhImportImportar" disabled>
+                    <i class="fa fa-cloud-arrow-up me-1"></i>Importar listos
+                  </button>
+                  <button type="button" class="btn btn-outline-secondary" id="btnRrhhImportLimpiar">
+                    <i class="fa fa-eraser me-1"></i>Limpiar
+                  </button>
+                </div>
+                <div class="small text-muted mb-3" id="rrhhImportDocsSeleccionResumen">No se han seleccionado archivos.</div>
+                <div id="rrhhImportDocsResumen" class="d-flex flex-wrap gap-2 mb-3"></div>
+                <div class="table-responsive" style="max-height: 52vh;">
+                  <table class="table table-sm table-striped align-middle">
+                    <thead class="table-dark sticky-top">
+                      <tr>
+                        <th>Estado</th>
+                        <th>Persona detectada</th>
+                        <th>Tipo de documento</th>
+                        <th>Archivo</th>
+                        <th>Detalle</th>
+                        <th class="text-center">Acciones</th>
+                      </tr>
+                    </thead>
+                    <tbody id="rrhhImportDocsTabla">
+                      <tr><td colspan="6" class="text-center text-muted py-4">Selecciona archivos o una carpeta para analizarlos automaticamente.</td></tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+              <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cerrar</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="modal fade" id="modalRrhhImportPreview" tabindex="-1" aria-labelledby="modalRrhhImportPreviewLabel" aria-hidden="true">
+          <div class="modal-dialog modal-xl modal-dialog-scrollable">
+            <div class="modal-content">
+              <div class="modal-header">
+                <h5 class="modal-title" id="modalRrhhImportPreviewLabel">Documento</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+              </div>
+              <div class="modal-body p-0">
+                <iframe id="rrhhImportPreviewFrame" title="Vista previa documento" style="width: 100%; height: 78vh; border: 0;"></iframe>
               </div>
             </div>
           </div>
@@ -12070,6 +12146,20 @@ function precargarCascadaEdit(idPais, idEstado, idMunicipio, idColonia, idCalle,
   const dropzoneFotoExpedienteRrhh = document.getElementById('rrhhExpedienteFotoDropzone');
   const btnCambiarFotoExpedienteRrhh = document.getElementById('btnCambiarFotoExpedienteRrhh');
   const btnAjustarFotoExpedienteRrhh = document.getElementById('btnAjustarFotoExpedienteRrhh');
+  const btnAbrirImportacionDocsRrhh = document.getElementById('btnAbrirImportacionDocsRrhh');
+  const modalImportarDocumentosRrhh = document.getElementById('modalImportarDocumentosRrhh');
+  const inputRrhhImportArchivos = document.getElementById('rrhhImportDocsInputArchivos');
+  const inputRrhhImportCarpeta = document.getElementById('rrhhImportDocsInputCarpeta');
+  const btnRrhhImportSeleccionarArchivos = document.getElementById('btnRrhhImportSeleccionarArchivos');
+  const btnRrhhImportSeleccionarCarpeta = document.getElementById('btnRrhhImportSeleccionarCarpeta');
+  const btnRrhhImportImportar = document.getElementById('btnRrhhImportImportar');
+  const btnRrhhImportLimpiar = document.getElementById('btnRrhhImportLimpiar');
+  const rrhhImportDocsSeleccionResumen = document.getElementById('rrhhImportDocsSeleccionResumen');
+  const rrhhImportDocsResumen = document.getElementById('rrhhImportDocsResumen');
+  const rrhhImportDocsTabla = document.getElementById('rrhhImportDocsTabla');
+  const modalRrhhImportPreview = document.getElementById('modalRrhhImportPreview');
+  const rrhhImportPreviewFrame = document.getElementById('rrhhImportPreviewFrame');
+  const modalRrhhImportPreviewLabel = document.getElementById('modalRrhhImportPreviewLabel');
   const modalCredencialRrhh = document.getElementById('modalCredencialRrhh');
   const contenedorCredencialFrente = document.getElementById('rrhhCredencialFrente');
   const contenedorCredencialReverso = document.getElementById('rrhhCredencialReverso');
@@ -12102,6 +12192,9 @@ function precargarCascadaEdit(idPais, idEstado, idMunicipio, idColonia, idCalle,
   let fotoScaleExpedienteRrhh = 1;
   let fotoDragExpedienteRrhh = null;
   let fechaRecepcionExpedienteRrhh = '';
+  let rrhhImportDocsFiles = [];
+  let rrhhImportDocsAnalisis = null;
+  let rrhhImportPreviewUrl = '';
   let abriendoCredencialRrhh = false;
   let volverDesdeCredencialRrhh = false;
   let orientacionCredencialRrhh = 'vertical';
@@ -12508,6 +12601,247 @@ function precargarCascadaEdit(idPais, idEstado, idMunicipio, idColonia, idCalle,
     const div = document.createElement('div');
     div.textContent = String(value ?? '');
     return div.innerHTML;
+  }
+
+  function rrhhImportDocsFormData() {
+    const fd = new FormData();
+    rrhhImportDocsFiles.forEach(file => {
+      fd.append('archivos[]', file, file.name);
+      fd.append('rutas_relativas[]', file.webkitRelativePath || file.name);
+    });
+    (rrhhImportDocsAnalisis?.items || []).forEach(item => {
+      if (item.documento_manual && Number(item.id_documento || 0) > 0) {
+        fd.append(`documentos_manual[${Number(item.source_index || 0)}]`, Number(item.id_documento || 0));
+      }
+    });
+    return fd;
+  }
+
+  function rrhhImportDocsSetFiles(fileList) {
+    rrhhImportDocsFiles = Array.from(fileList || []);
+    rrhhImportDocsAnalisis = null;
+    rrhhImportDocsRenderResumen(null);
+    rrhhImportDocsRenderTabla([]);
+    const total = rrhhImportDocsFiles.length;
+    const peso = rrhhImportDocsFiles.reduce((sum, file) => sum + (file.size || 0), 0);
+    if (rrhhImportDocsSeleccionResumen) {
+      rrhhImportDocsSeleccionResumen.textContent = total
+        ? `${total} archivo(s) seleccionado(s), ${(peso / 1024 / 1024).toFixed(1)} MB.`
+        : 'No se han seleccionado archivos.';
+    }
+    if (btnRrhhImportImportar) btnRrhhImportImportar.disabled = true;
+    if (total > 0) {
+      setTimeout(rrhhImportDocsAnalizar, 0);
+    }
+  }
+
+  function rrhhImportDocsLimpiarSeleccion() {
+    rrhhImportDocsSetFiles([]);
+    if (inputRrhhImportArchivos) inputRrhhImportArchivos.value = '';
+    if (inputRrhhImportCarpeta) inputRrhhImportCarpeta.value = '';
+  }
+
+  function rrhhImportDocsBadge(estado, item = null) {
+    if (item && item.documento_otros_automatico) {
+      return '<span class="badge bg-secondary">Sin tipo</span>';
+    }
+    const mapa = {
+      listo: ['bg-success', 'Listo'],
+      importado: ['bg-primary', 'Importado'],
+      persona_no_encontrada: ['bg-danger', 'Sin persona'],
+      persona_ambigua: ['bg-warning text-dark', 'Ambiguo'],
+      documento_no_reconocido: ['bg-secondary', 'Sin tipo'],
+      ya_existe: ['bg-info text-dark', 'Ya existe'],
+      duplicado_lote: ['bg-warning text-dark', 'Duplicado'],
+      error: ['bg-danger', 'Error']
+    };
+    const cfg = mapa[estado] || ['bg-secondary', estado || 'Pendiente'];
+    return `<span class="badge ${cfg[0]}">${escapeRrhhHtml(cfg[1])}</span>`;
+  }
+
+  function rrhhImportDocsRenderResumen(resumen) {
+    if (!rrhhImportDocsResumen) return;
+    if (!resumen) {
+      rrhhImportDocsResumen.innerHTML = '';
+      return;
+    }
+    const chips = [
+      ['Total', resumen.total || 0, 'bg-dark'],
+      ['Listos', resumen.listo || 0, 'bg-success'],
+      ['Importados', resumen.importado || 0, 'bg-primary'],
+      ['Ambiguos', resumen.persona_ambigua || 0, 'bg-warning text-dark'],
+      ['Sin persona', resumen.persona_no_encontrada || 0, 'bg-danger'],
+      ['Sin tipo', resumen.documento_no_reconocido || 0, 'bg-secondary'],
+      ['Ya existe', resumen.ya_existe || 0, 'bg-info text-dark'],
+      ['Duplicados', resumen.duplicado_lote || 0, 'bg-warning text-dark'],
+      ['Errores', resumen.error || 0, 'bg-danger']
+    ];
+    rrhhImportDocsResumen.innerHTML = chips
+      .filter(([, valor], index) => index === 0 || Number(valor) > 0)
+      .map(([label, valor, cls]) => `<span class="badge ${cls}">${escapeRrhhHtml(label)}: ${escapeRrhhHtml(valor)}</span>`)
+      .join('');
+  }
+
+  function rrhhImportDocsRenderTabla(items) {
+    if (!rrhhImportDocsTabla) return;
+    if (!items || items.length === 0) {
+      rrhhImportDocsTabla.innerHTML = '<tr><td colspan="6" class="text-center text-muted py-4">Selecciona archivos o una carpeta para analizarlos automaticamente.</td></tr>';
+      return;
+    }
+    const catalogo = Array.isArray(rrhhImportDocsAnalisis?.catalogo) ? rrhhImportDocsAnalisis.catalogo : [];
+    let personaAnterior = '';
+    rrhhImportDocsTabla.innerHTML = items.map(item => {
+      const nombrePersona = escapeRrhhHtml(item.persona || '');
+      const numeroEmpleado = escapeRrhhHtml(item.numero_empleado || '');
+      const carpetaPersona = escapeRrhhHtml(item.carpeta_persona || 'N/A');
+      const personaKey = item.id_persona ? `id:${item.id_persona}` : `folder:${item.carpeta_persona || ''}`;
+      const separarPersona = personaAnterior !== '' && personaKey !== personaAnterior;
+      personaAnterior = personaKey;
+      const persona = item.persona
+        ? `${nombrePersona} ${numeroEmpleado ? `(No. ${numeroEmpleado})` : ''}<br><small class="text-muted">Score ${escapeRrhhHtml(item.score_persona || 0)}%</small>`
+        : `<span class="text-muted">${carpetaPersona}</span>`;
+      const idDocumento = Number(item.id_documento || 0);
+      const opciones = [
+        '<option value="">Seleccione tipo</option>',
+        ...catalogo.map(doc => {
+          const selected = Number(doc.id || 0) === idDocumento ? 'selected' : '';
+          return `<option value="${Number(doc.id || 0)}" ${selected}>${escapeRrhhHtml(doc.nombre || '')}</option>`;
+        })
+      ].join('');
+      const tipoDocumento = `
+        <select class="form-select form-select-sm" data-rrhh-import-doc-type="${Number(item.source_index || 0)}">
+          ${opciones}
+        </select>
+        ${item.documento_manual ? '<div class="text-primary small mt-1">Seleccion manual</div>' : ''}
+      `;
+      const detalle = item.razon || '';
+      return `<tr class="${separarPersona ? 'rrhh-import-person-separator' : ''}">
+        <td>${rrhhImportDocsBadge(item.estado, item)}</td>
+        <td>${persona}</td>
+        <td>${tipoDocumento}</td>
+        <td><span class="text-break">${escapeRrhhHtml(item.ruta || item.archivo || '')}</span></td>
+        <td>${escapeRrhhHtml(detalle)}</td>
+        <td class="text-center">
+          <button type="button" class="btn btn-sm btn-outline-primary" data-rrhh-import-preview="${Number(item.source_index || 0)}" title="Abrir documento">
+            <i class="fa fa-eye"></i>
+          </button>
+        </td>
+      </tr>`;
+    }).join('');
+  }
+
+  function rrhhImportDocsSetLoading(loading, texto) {
+    [btnRrhhImportImportar, btnRrhhImportSeleccionarArchivos, btnRrhhImportSeleccionarCarpeta].forEach(btn => {
+      if (btn) btn.disabled = !!loading;
+    });
+    if (btnRrhhImportImportar && !loading) {
+      const listos = rrhhImportDocsAnalisis?.resumen?.listo || 0;
+      btnRrhhImportImportar.disabled = listos <= 0;
+    }
+    if (rrhhImportDocsSeleccionResumen && texto) {
+      rrhhImportDocsSeleccionResumen.textContent = texto;
+    }
+  }
+
+  async function rrhhImportDocsEnviar(endpoint) {
+    const res = await fetch(endpoint, {
+      method: 'POST',
+      body: rrhhImportDocsFormData(),
+      headers: { 'X-Requested-With': 'XMLHttpRequest' }
+    });
+    const contentType = res.headers.get('content-type') || '';
+    if (!contentType.includes('application/json')) {
+      const texto = await res.text();
+      throw new Error(texto ? texto.slice(0, 250) : 'Respuesta no JSON del servidor.');
+    }
+    const json = await res.json();
+    if (!json.success) {
+      throw new Error(json.mensaje || 'La operación no se completó.');
+    }
+    return json.datos || {};
+  }
+
+  async function rrhhImportDocsAbrirDocumento(sourceIndex) {
+    try {
+      const fd = rrhhImportDocsFormData();
+      fd.append('source_index', Number(sourceIndex || 0));
+      const res = await fetch('/caphum/previsualizarImportacionDocumentosRrhh', {
+        method: 'POST',
+        body: fd,
+        headers: { 'X-Requested-With': 'XMLHttpRequest' }
+      });
+      if (!res.ok) {
+        const texto = await res.text();
+        throw new Error(texto || 'No se pudo abrir el documento.');
+      }
+      const blob = await res.blob();
+      if (rrhhImportPreviewUrl) {
+        URL.revokeObjectURL(rrhhImportPreviewUrl);
+        rrhhImportPreviewUrl = '';
+      }
+      const url = URL.createObjectURL(blob);
+      rrhhImportPreviewUrl = url;
+      if (rrhhImportPreviewFrame) {
+        rrhhImportPreviewFrame.src = url;
+      }
+      const item = (rrhhImportDocsAnalisis?.items || []).find(row => Number(row.source_index || 0) === Number(sourceIndex || 0));
+      if (modalRrhhImportPreviewLabel) {
+        modalRrhhImportPreviewLabel.textContent = item?.archivo || item?.ruta || 'Documento';
+      }
+      if (modalRrhhImportPreview) {
+        bootstrap.Modal.getOrCreateInstance(modalRrhhImportPreview)?.show();
+      }
+    } catch (error) {
+      Swal.fire('Abrir documento', error.message || 'No se pudo abrir el documento.', 'error');
+    }
+  }
+
+  async function rrhhImportDocsAnalizar() {
+    if (!rrhhImportDocsFiles.length) return;
+    try {
+      rrhhImportDocsSetLoading(true, 'Analizando documentos...');
+      rrhhImportDocsAnalisis = await rrhhImportDocsEnviar('/caphum/analizarImportacionDocumentosRrhh');
+      rrhhImportDocsRenderResumen(rrhhImportDocsAnalisis.resumen);
+      rrhhImportDocsRenderTabla(rrhhImportDocsAnalisis.items || []);
+      const listos = rrhhImportDocsAnalisis?.resumen?.listo || 0;
+      if (rrhhImportDocsSeleccionResumen) {
+        rrhhImportDocsSeleccionResumen.textContent = `Análisis listo. ${listos} documento(s) pueden importarse.`;
+      }
+      if (btnRrhhImportImportar) btnRrhhImportImportar.disabled = listos <= 0;
+    } catch (error) {
+      Swal.fire('Importar documentos', error.message || 'No se pudo analizar la selección.', 'error');
+    } finally {
+      rrhhImportDocsSetLoading(false);
+    }
+  }
+
+  async function rrhhImportDocsImportar() {
+    const listos = rrhhImportDocsAnalisis?.resumen?.listo || 0;
+    if (!listos) return;
+    const confirm = await Swal.fire({
+      icon: 'question',
+      title: 'Importar documentos',
+      text: `Se importarán ${listos} documento(s) listos. Los ambiguos, duplicados o ya existentes se omitirán.`,
+      showCancelButton: true,
+      confirmButtonText: 'Importar',
+      cancelButtonText: 'Cancelar'
+    });
+    if (!confirm.isConfirmed) return;
+
+    try {
+      rrhhImportDocsSetLoading(true, 'Importando documentos...');
+      rrhhImportDocsAnalisis = await rrhhImportDocsEnviar('/caphum/importarDocumentosRrhh');
+      rrhhImportDocsRenderResumen(rrhhImportDocsAnalisis.resumen);
+      rrhhImportDocsRenderTabla(rrhhImportDocsAnalisis.items || []);
+      if (rrhhImportDocsSeleccionResumen) {
+        rrhhImportDocsSeleccionResumen.textContent = `Importación finalizada. ${rrhhImportDocsAnalisis.importados || 0} documento(s) importado(s).`;
+      }
+      Swal.fire('Importación finalizada', `${rrhhImportDocsAnalisis.importados || 0} documento(s) importado(s).`, 'success');
+    } catch (error) {
+      Swal.fire('Importar documentos', error.message || 'No se pudo importar la selección.', 'error');
+    } finally {
+      rrhhImportDocsSetLoading(false);
+    }
   }
 
   function optionHtml(value, label, extraAttrs) {
@@ -13767,6 +14101,79 @@ function precargarCascadaEdit(idPais, idEstado, idMunicipio, idColonia, idCalle,
   btnAjustarFotoExpedienteRrhh?.addEventListener('click', function () {
     fotoFitExpedienteRrhh = 'cover';
     abrirEditorFotoRrhh('expediente');
+  });
+
+  btnAbrirImportacionDocsRrhh?.addEventListener('click', function () {
+    bootstrap.Modal.getOrCreateInstance(modalImportarDocumentosRrhh, { backdrop: false })?.show();
+  });
+
+  btnRrhhImportSeleccionarArchivos?.addEventListener('click', function () {
+    inputRrhhImportArchivos?.click();
+  });
+
+  btnRrhhImportSeleccionarCarpeta?.addEventListener('click', function () {
+    inputRrhhImportCarpeta?.click();
+  });
+
+  inputRrhhImportArchivos?.addEventListener('change', function () {
+    rrhhImportDocsSetFiles(this.files);
+  });
+
+  inputRrhhImportCarpeta?.addEventListener('change', function () {
+    rrhhImportDocsSetFiles(this.files);
+  });
+
+  btnRrhhImportImportar?.addEventListener('click', rrhhImportDocsImportar);
+
+  btnRrhhImportLimpiar?.addEventListener('click', function () {
+    rrhhImportDocsLimpiarSeleccion();
+  });
+
+  rrhhImportDocsTabla?.addEventListener('change', function (event) {
+    const select = event.target.closest('[data-rrhh-import-doc-type]');
+    if (!select || !rrhhImportDocsAnalisis) return;
+    const sourceIndex = Number(select.getAttribute('data-rrhh-import-doc-type') || 0);
+    const item = (rrhhImportDocsAnalisis.items || []).find(row => Number(row.source_index || 0) === sourceIndex);
+    if (!item) return;
+    item.id_documento = Number(select.value || 0) || null;
+    item.documento_manual = Number(select.value || 0) > 0;
+    rrhhImportDocsAnalizar();
+  });
+
+  rrhhImportDocsTabla?.addEventListener('click', function (event) {
+    const btn = event.target.closest('[data-rrhh-import-preview]');
+    if (!btn) return;
+    rrhhImportDocsAbrirDocumento(btn.getAttribute('data-rrhh-import-preview'));
+  });
+
+  modalRrhhImportPreview?.addEventListener('hidden.bs.modal', function () {
+    if (rrhhImportPreviewFrame) {
+      rrhhImportPreviewFrame.removeAttribute('src');
+    }
+    if (rrhhImportPreviewUrl) {
+      URL.revokeObjectURL(rrhhImportPreviewUrl);
+      rrhhImportPreviewUrl = '';
+    }
+    modalRrhhImportPreview.style.removeProperty('z-index');
+  });
+
+  modalRrhhImportPreview?.addEventListener('shown.bs.modal', function () {
+    modalRrhhImportPreview.style.setProperty('z-index', '100070', 'important');
+  });
+
+  modalImportarDocumentosRrhh?.addEventListener('shown.bs.modal', function () {
+    if (modalImportarDocumentosRrhh.parentNode !== document.body) {
+      document.body.appendChild(modalImportarDocumentosRrhh);
+    }
+    modalImportarDocumentosRrhh.style.setProperty('z-index', '100055', 'important');
+    document.querySelectorAll('.modal-backdrop').forEach(function (backdrop) {
+      backdrop.remove();
+    });
+  });
+
+  modalImportarDocumentosRrhh?.addEventListener('hidden.bs.modal', function () {
+    modalImportarDocumentosRrhh.style.removeProperty('z-index');
+    rrhhImportDocsLimpiarSeleccion();
   });
 
   inputFotoExpedienteRrhh?.addEventListener('change', function () {

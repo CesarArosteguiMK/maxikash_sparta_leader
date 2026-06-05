@@ -244,6 +244,7 @@
             baja_en_legacy_con_spartan_activo: 'Baja en Legacy',
             role_desalineado: 'Rol desalineado',
             usuario_desalineado: 'Usuario desalineado',
+            nombre_desalineado: 'Nombre desalineado',
             sincronizacion_forzada: 'Recalculo forzado',
             baja_spartan_activa_en_legacy: 'Baja Spartan activa en Legacy'
         };

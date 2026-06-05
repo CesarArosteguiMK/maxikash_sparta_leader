@@ -3087,7 +3087,7 @@ $aevPuedeReemplazarEvidencia = in_array(79, array_map('intval', (array) ($_SESSI
             (new bootstrap.Modal(mEl)).show();
         }
 
-        aevObtenerDetalleCredito(id, false)
+        aevObtenerDetalleCredito(id, true)
             .then(data => {
                 if (!data.success) {
                     body.innerHTML = '<div class="alert alert-warning"><i class="fa-solid fa-triangle-exclamation me-2"></i>' + aeEsc(data.message || 'Error al cargar') + '</div>';

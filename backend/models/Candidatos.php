@@ -151,10 +151,13 @@ class Candidatos extends Model
                 c.fecha_registro,
                 c.fecha_actualizacion,
                 p.nombre AS nombre_puesto,
-                d.nombre AS nombre_departamento
+                d.nombre AS nombre_departamento,
+                TRIM(CONCAT_WS(' ', jefe.nombres, jefe.segundo_nombre, jefe.apellidop, jefe.apellidom)) AS nombre_jefe,
+                jefe.correo AS correo_jefe
             FROM candidatos c
             LEFT JOIN puesto p ON p.id = c.id_puesto
             LEFT JOIN departamento d ON d.id = c.id_departamento
+            LEFT JOIN persona jefe ON jefe.id = c.id_posible_jefe
             WHERE c.id = :id
         SQL;
         try {

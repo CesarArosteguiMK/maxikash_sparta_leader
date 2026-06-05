@@ -238,6 +238,28 @@ window.departamentosCandidatoBackend = <?= json_encode($departamentosCandidatoCa
     </div>
 </div>
 
+<!-- Modal Fecha de ingreso (Continuar proceso) -->
+<div class="modal fade" id="modalFechaIngresoCandidato" tabindex="-1" aria-labelledby="modalFechaIngresoCandidatoLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="modalFechaIngresoCandidatoLabel"><i class="fa fa-calendar-check me-2"></i>Fecha de ingreso</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="fechaIngresoIdCandidato" value="">
+                <p class="text-muted small mb-3">Selecciona la fecha en la que el candidato se presentará para firma de contrato e inicio de labores.</p>
+                <label for="fechaIngresoCandidato" class="form-label">Fecha de ingreso <span class="text-danger">*</span></label>
+                <input type="text" id="fechaIngresoCandidato" class="form-control" placeholder="YYYY-MM-DD" autocomplete="off">
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-primary" id="btnConfirmarFechaIngresoCandidato"><i class="fa fa-check me-1"></i>Confirmar y continuar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <!-- Modal Cerrar proceso del candidato -->
 <div class="modal fade modal-cerrar-proceso" id="modalCerrarProcesoCandidato" tabindex="-1" aria-labelledby="modalCerrarProcesoCandidatoLabel" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">

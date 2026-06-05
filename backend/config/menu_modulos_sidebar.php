@@ -26,6 +26,10 @@ if (!function_exists('getMenuSidebarModulosStructure')) {
                 'icono' => 'fa-solid fa-users',
                 'subItems' => [
                     ['label' => 'Gestión', 'url' => '/caphum/gestion', 'modulos' => [4]],
+                    ['label' => 'Mis documentos', 'url' => '/caphum/documentosColaborador', 'modulos' => [92]],
+                    ['label' => 'Vacaciones', 'url' => '/caphum/vacaciones', 'modulos' => [4, 92]],
+                    ['label' => 'Panel vacaciones', 'url' => '/caphum/vacacionesAdmin', 'modulos' => [4]],
+                    ['label' => 'Expedientes RR.HH.', 'url' => '/caphum/documentosRrhh', 'modulos' => [93]],
                     ['label' => 'Revisión RR.HH.', 'url' => '/caphum/actualizacionesInfo', 'modulos' => [83]],
                     ['label' => 'Organigrama Cobranza', 'url' => '/caphum/organigrama', 'modulos' => [5]],
                     ['label' => 'Organización', 'url' => '/caphum/estructuraOrganizacional', 'modulos' => [86]],
