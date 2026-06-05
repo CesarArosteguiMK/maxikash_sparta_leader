@@ -8479,7 +8479,7 @@ class CapHum extends Controller
         }
         $logoSrc = $rutaLogoInline ? 'cid:logo__SPARTA_SECRET_REDACTED__' : (rtrim($base, '/') . '/assets/img/logo_correo.png');
 
-        $asunto = 'Documentación aprobada - Fecha de ingreso a Maxikash';
+        $asunto = 'Postulación MaxiKash - Carga de documentos';
         $mensajeHtml = '<!DOCTYPE html>
 <html lang="es">
 <head>
@@ -8542,20 +8542,6 @@ class CapHum extends Controller
   </table>
 </body>
 </html>';
-
-        $mensajeHtml = '<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Documentación aprobada</title></head>
-<body style="margin:0; padding:0; background-color:#e8eef4; font-family:\'Segoe UI\', Tahoma, Geneva, Verdana, sans-serif;">
-<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background-color:#e8eef4;"><tr><td align="center" style="padding:32px 16px;">
-<table role="presentation" width="600" cellspacing="0" cellpadding="0" style="max-width:600px; width:100%; background:#ffffff; border-radius:8px; box-shadow:0 2px 12px rgba(0,0,0,0.08);">
-<tr><td style="background-color:#1e3a5f; padding:24px 12px 24px 32px; border-radius:8px 8px 0 0;"><table role="presentation" width="100%"><tr><td><h1 style="margin:0; color:#ffffff; font-size:22px; font-weight:600;">MaxiKash - Capital Humano</h1><p style="margin:6px 0 0 0; color:rgba(255,255,255,0.9); font-size:14px;">Documentación aprobada</p></td><td style="text-align:right; width:160px;"><img src="' . htmlspecialchars($logoSrc) . '" alt="MaxiKash" width="160" style="max-height:70px; width:auto;" /></td></tr></table></td></tr>
-<tr><td style="padding:32px;"><p style="margin:0 0 16px 0; color:#1a202c; font-size:16px;">Hola ' . htmlspecialchars($nombreMayusculas) . ',</p>
-<p style="margin:0 0 16px 0; color:#2d3748; font-size:15px; line-height:1.6;">Nos da mucho gusto informarte que tu expediente documental fue revisado, validado y aprobado por Capital Humano.</p>
-<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin:20px 0; background:#edf7ff; border:1px solid #b6dcff; border-radius:8px;"><tr><td style="padding:18px 20px;"><p style="margin:0; color:#1e3a5f; font-size:13px; font-weight:700; text-transform:uppercase;">Fecha de ingreso</p><p style="margin:6px 0 0 0; color:#1a202c; font-size:20px; font-weight:700;">' . htmlspecialchars($fechaIngresoTexto) . '</p></td></tr></table>
-<p style="margin:0 0 16px 0; color:#2d3748; font-size:15px; line-height:1.6;">Te pedimos presentarte en la fecha indicada para la firma de contrato y el inicio formal de tus actividades. Capital Humano te acompañará con los siguientes pasos de incorporación.</p>
-<p style="margin:0 0 24px 0; color:#2d3748; font-size:15px; line-height:1.6;">Si tienes alguna duda, puedes escribirnos a <a href="mailto:' . htmlspecialchars($contacto) . '" style="color:#2c5282; text-decoration:none;">' . htmlspecialchars($contacto) . '</a>.</p>
-<p style="margin:24px 0 0 0; color:#1a202c; font-size:15px; font-weight:600;">Equipo de Capital Humano - Maxikash</p></td></tr>
-<tr><td style="padding:16px 32px 24px; background:#f7fafc; border-radius:0 0 8px 8px; border-top:1px solid #e2e8f0;"><p style="margin:0; color:#718096; font-size:12px;">Este correo fue generado automáticamente.</p></td></tr>
-</table></td></tr></table></body></html>';
 
         $enviado = $this->enviarCorreo($destino, $asunto, $mensajeHtml, $nombreCompleto, $rutaLogoInline);
         if ($enviado) {
@@ -10154,6 +10140,21 @@ class CapHum extends Controller
   </table>
 </body>
 </html>';
+
+        $asunto = 'Documentación aprobada - Fecha de ingreso a Maxikash';
+        $mensajeHtml = '<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Documentación aprobada</title></head>
+<body style="margin:0; padding:0; background-color:#e8eef4; font-family:\'Segoe UI\', Tahoma, Geneva, Verdana, sans-serif;">
+<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background-color:#e8eef4;"><tr><td align="center" style="padding:32px 16px;">
+<table role="presentation" width="600" cellspacing="0" cellpadding="0" style="max-width:600px; width:100%; background:#ffffff; border-radius:8px; box-shadow:0 2px 12px rgba(0,0,0,0.08);">
+<tr><td style="background-color:#1e3a5f; padding:24px 12px 24px 32px; border-radius:8px 8px 0 0;"><table role="presentation" width="100%"><tr><td><h1 style="margin:0; color:#ffffff; font-size:22px; font-weight:600;">MaxiKash - Capital Humano</h1><p style="margin:6px 0 0 0; color:rgba(255,255,255,0.9); font-size:14px;">Documentación aprobada</p></td><td style="text-align:right; width:160px;"><img src="' . htmlspecialchars($logoSrc) . '" alt="MaxiKash" width="160" style="max-height:70px; width:auto;" /></td></tr></table></td></tr>
+<tr><td style="padding:32px;"><p style="margin:0 0 16px 0; color:#1a202c; font-size:16px;">Hola ' . htmlspecialchars($nombreMayusculas) . ',</p>
+<p style="margin:0 0 16px 0; color:#2d3748; font-size:15px; line-height:1.6;">Nos da mucho gusto informarte que tu expediente documental fue revisado, validado y aprobado por Capital Humano.</p>
+<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin:20px 0; background:#edf7ff; border:1px solid #b6dcff; border-radius:8px;"><tr><td style="padding:18px 20px;"><p style="margin:0; color:#1e3a5f; font-size:13px; font-weight:700; text-transform:uppercase;">Fecha de ingreso</p><p style="margin:6px 0 0 0; color:#1a202c; font-size:20px; font-weight:700;">' . htmlspecialchars($fechaIngresoTexto) . '</p></td></tr></table>
+<p style="margin:0 0 16px 0; color:#2d3748; font-size:15px; line-height:1.6;">Te pedimos presentarte en la fecha indicada para la firma de contrato y el inicio formal de tus actividades. Capital Humano te acompañará con los siguientes pasos de incorporación.</p>
+<p style="margin:0 0 24px 0; color:#2d3748; font-size:15px; line-height:1.6;">Si tienes alguna duda, puedes escribirnos a <a href="mailto:' . htmlspecialchars($contacto) . '" style="color:#2c5282; text-decoration:none;">' . htmlspecialchars($contacto) . '</a>.</p>
+<p style="margin:24px 0 0 0; color:#1a202c; font-size:15px; font-weight:600;">Equipo de Capital Humano - Maxikash</p></td></tr>
+<tr><td style="padding:16px 32px 24px; background:#f7fafc; border-radius:0 0 8px 8px; border-top:1px solid #e2e8f0;"><p style="margin:0; color:#718096; font-size:12px;">Este correo fue generado automáticamente.</p></td></tr>
+</table></td></tr></table></body></html>';
 
         $enviado = $this->enviarCorreo($destino, $asunto, $mensajeHtml, $nombreCompleto, $rutaLogoInline);
         if ($enviado) {
