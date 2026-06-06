@@ -390,6 +390,8 @@ class LegacyUserSync extends Model
                 $motivos[] = 'role_desalineado';
             } elseif (trim((string)($estadoLegacy['username'] ?? '')) !== self::usernameLegacyDesdeSpartan($ctx, $externalId)) {
                 $motivos[] = 'usuario_desalineado';
+            } elseif (trim((string)($estadoLegacy['name'] ?? '')) !== self::nombreLegacyDesdeSpartan($ctx, $externalId)) {
+                $motivos[] = 'nombre_desalineado';
             }
 
             if (!$motivos && $forzarTodos) {
@@ -651,6 +653,10 @@ class LegacyUserSync extends Model
             SELECT
                 per.id AS id_persona,
                 TRIM(COALESCE(per.numero_empleado, '')) AS external_id,
+                TRIM(COALESCE(per.nombres, '')) AS nombres,
+                TRIM(COALESCE(per.segundo_nombre, '')) AS segundo_nombre,
+                TRIM(COALESCE(per.apellidop, '')) AS apellidop,
+                TRIM(COALESCE(per.apellidom, '')) AS apellidom,
                 TRIM(CONCAT_WS(' ', per.nombres, per.segundo_nombre, per.apellidop, per.apellidom)) AS nombre_completo,
                 TRIM(COALESCE(per.correo, '')) AS correo,
                 TRIM(COALESCE(per.user_name, '')) AS username,
@@ -681,6 +687,10 @@ class LegacyUserSync extends Model
             SELECT
                 per.id AS id_persona,
                 TRIM(COALESCE(per.numero_empleado, '')) AS external_id,
+                TRIM(COALESCE(per.nombres, '')) AS nombres,
+                TRIM(COALESCE(per.segundo_nombre, '')) AS segundo_nombre,
+                TRIM(COALESCE(per.apellidop, '')) AS apellidop,
+                TRIM(COALESCE(per.apellidom, '')) AS apellidom,
                 TRIM(CONCAT_WS(' ', per.nombres, per.segundo_nombre, per.apellidop, per.apellidom)) AS nombre_completo,
                 TRIM(COALESCE(per.correo, '')) AS correo,
                 TRIM(COALESCE(per.user_name, '')) AS username,
@@ -713,6 +723,10 @@ class LegacyUserSync extends Model
             SELECT
                 per.id AS id_persona,
                 TRIM(COALESCE(per.numero_empleado, '')) AS external_id,
+                TRIM(COALESCE(per.nombres, '')) AS nombres,
+                TRIM(COALESCE(per.segundo_nombre, '')) AS segundo_nombre,
+                TRIM(COALESCE(per.apellidop, '')) AS apellidop,
+                TRIM(COALESCE(per.apellidom, '')) AS apellidom,
                 TRIM(CONCAT_WS(' ', per.nombres, per.segundo_nombre, per.apellidop, per.apellidom)) AS nombre_completo,
                 TRIM(COALESCE(per.correo, '')) AS correo,
                 TRIM(COALESCE(per.user_name, '')) AS username,
@@ -743,6 +757,10 @@ class LegacyUserSync extends Model
             SELECT
                 per.id AS id_persona,
                 TRIM(COALESCE(per.numero_empleado, '')) AS external_id,
+                TRIM(COALESCE(per.nombres, '')) AS nombres,
+                TRIM(COALESCE(per.segundo_nombre, '')) AS segundo_nombre,
+                TRIM(COALESCE(per.apellidop, '')) AS apellidop,
+                TRIM(COALESCE(per.apellidom, '')) AS apellidom,
                 TRIM(CONCAT_WS(' ', per.nombres, per.segundo_nombre, per.apellidop, per.apellidom)) AS nombre_completo,
                 TRIM(COALESCE(per.correo, '')) AS correo,
                 TRIM(COALESCE(per.user_name, '')) AS username,
@@ -953,11 +971,7 @@ class LegacyUserSync extends Model
 
     private static function crearUsuarioLegacyDesdeSpartan(DatabaseLegacy $legacy, array $ctx, string $externalId): array
     {
-        $nombre = trim((string)($ctx['nombre_completo'] ?? ''));
-        if ($nombre === '') {
-            $nombre = 'Usuario ' . $externalId;
-        }
-
+        $nombre = self::nombreLegacyDesdeSpartan($ctx, $externalId);
         $username = self::usernameLegacyDesdeSpartan($ctx, $externalId);
 
         $email = self::resolverEmailLegacyDisponible($legacy, trim((string)($ctx['correo'] ?? '')), $externalId);
@@ -1056,6 +1070,33 @@ class LegacyUserSync extends Model
         return $username !== '' ? $username : $externalId;
     }
 
+    private static function nombreLegacyDesdeSpartan(array $ctx, string $externalId): string
+    {
+        $apellidoPaterno = self::normalizarNombreLegacy($ctx['apellidop'] ?? '');
+        $apellidoMaterno = self::normalizarNombreLegacy($ctx['apellidom'] ?? '');
+        $primerNombre = self::normalizarNombreLegacy($ctx['nombres'] ?? '');
+        $segundoNombre = self::normalizarNombreLegacy($ctx['segundo_nombre'] ?? '');
+
+        $partes = array_filter([$apellidoPaterno, $apellidoMaterno, $primerNombre, $segundoNombre], fn($v) => $v !== '');
+        $nombre = trim(implode(' ', $partes));
+
+        if ($nombre === '') {
+            $nombre = self::normalizarNombreLegacy($ctx['nombre_completo'] ?? '');
+        }
+        return $nombre !== '' ? $nombre : 'USUARIO ' . $externalId;
+    }
+
+    private static function normalizarNombreLegacy($valor): string
+    {
+        $texto = preg_replace('/\s+/u', ' ', trim((string)$valor));
+        if ($texto === '') {
+            return '';
+        }
+        return function_exists('mb_strtoupper')
+            ? mb_strtoupper($texto, 'UTF-8')
+            : strtoupper($texto);
+    }
+
     private static function resolverCredencialesLegacy(DatabaseLegacy $legacy, int $legacyUserId, array $ctx, string $externalId): array
     {
         $actual = $legacy->queryOne("
@@ -1082,6 +1123,7 @@ class LegacyUserSync extends Model
         }
 
         return [
+            'name' => self::nombreLegacyDesdeSpartan($ctx, $externalId),
             'username' => self::usernameLegacyDesdeSpartan($ctx, $externalId),
             'password' => $passwordNuevo,
             'password_actualizado' => $passwordActualizar,
@@ -1136,6 +1178,7 @@ class LegacyUserSync extends Model
     {
         $row = $legacy->queryOne("
             SELECT
+                u.name,
                 u.username,
                 u.supervisor_id,
                 u.subgerente_id,
@@ -1152,6 +1195,7 @@ class LegacyUserSync extends Model
         ", ['id' => $legacyUserId, 'model_type' => self::MODEL_TYPE]);
 
         return [
+            'name' => $row['name'] ?? null,
             'username' => $row['username'] ?? null,
             'role_id' => isset($row['role_id']) ? (int)$row['role_id'] : null,
             'role_name' => $row['role_name'] ?? null,
@@ -1168,7 +1212,8 @@ class LegacyUserSync extends Model
         $setPassword = !empty($credenciales['password_actualizado']) && !empty($credenciales['password']);
         $legacy->CRUD("
             UPDATE users
-            SET username = :username,
+            SET name = :name,
+                username = :username,
                 " . ($setPassword ? "password = :password,\n                remember_token = NULL,\n                " : "") . "supervisor_id = :supervisor_id,
                 subgerente_id = :subgerente_id,
                 gerente_id = :gerente_id,
@@ -1178,6 +1223,7 @@ class LegacyUserSync extends Model
             LIMIT 1
         ", [
             'id' => $legacyUserId,
+            'name' => $credenciales['name'] ?? null,
             'username' => $credenciales['username'] ?? null,
             'supervisor_id' => $ids['supervisor_id'] ?? null,
             'subgerente_id' => $ids['subgerente_id'] ?? null,
