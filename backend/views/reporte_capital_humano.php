@@ -397,7 +397,8 @@ function cargarUsuariosCapitalHumano() {
         .then(res => res.json())
         .then(data => {
             if (!data.success) {
-                Swal.fire('Error', 'No se pudieron cargar los usuarios', 'error');
+                const detalle = data.error ? String(data.error) : '';
+                Swal.fire('Error', data.mensaje || detalle || 'No se pudieron cargar los usuarios', 'error');
                 return;
             }
             
@@ -447,7 +448,7 @@ function cargarUsuariosCapitalHumano() {
         })
         .catch(error => {
             console.error('Error al cargar usuarios:', error);
-            Swal.fire('Error', 'Error al cargar usuarios', 'error');
+            Swal.fire('Error', error.message || 'Error al cargar usuarios', 'error');
         });
 }
 
@@ -807,7 +808,8 @@ function cargarUsuariosCapitalHumano() {
         .then(res => res.json())
         .then(data => {
             if (!data.success) {
-                Swal.fire('Error', 'No se pudieron cargar los usuarios', 'error');
+                const detalle = data.error ? String(data.error) : '';
+                Swal.fire('Error', data.mensaje || detalle || 'No se pudieron cargar los usuarios', 'error');
                 return;
             }
             
@@ -890,7 +892,7 @@ function cargarUsuariosCapitalHumano() {
         })
         .catch(error => {
             console.error('Error al cargar usuarios:', error);
-            Swal.fire('Error', 'Error al cargar usuarios', 'error');
+            Swal.fire('Error', error.message || 'Error al cargar usuarios', 'error');
         });
 }
 

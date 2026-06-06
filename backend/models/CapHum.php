@@ -8,7 +8,6 @@ use Core\UsuarioFantasmaReporteria;
 
 class CapHum extends Model
 {
-<<<<<<< HEAD
     private const MODULO_CONVENIOS_DESCARGAR_EXCEL = 92;
     private const MODULO_CONVENIOS_DESCARGAR_EXCEL_NOMBRE = 'Descargar Excel';
     private const MODULO_CONVENIOS_DESCARGAR_EXCEL_DESC = 'Convenios - Cierre de Credito - Descargar Excel';
@@ -88,7 +87,6 @@ class CapHum extends Model
 
         return $perfiles;
     }
-=======
     private const DOCUMENTO_RFC_RRHH = 10;
     private const DOCUMENTO_CONSTANCIA_FISCAL_RRHH = 22;
     private const DOCUMENTOS_EXCLUIDOS_RRHH = [19, 20, 21];
@@ -96,7 +94,6 @@ class CapHum extends Model
         19 => 12, // Acta de nacimiento certificada -> Acta de Nacimiento
         20 => 9,  // Identificacion oficial duplicada -> Identificacion Oficial (INE)
     ];
->>>>>>> abd0af4b505783d51ce706ab0d71964c378c36ad
 
     ////////////////////////////////////////////////////////////////////// VALIDADO AL 100
     ////////////////////////////////////////////////////////////////////// VALIDADO AL 100
