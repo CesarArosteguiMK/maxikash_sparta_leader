@@ -1151,6 +1151,136 @@ class Adjudicacion extends Model
         }
     }
 
+    public function enviarCampaniaGestorLegacy(array $data, int $idUsuarioSesion): array
+    {
+        $idCredito = (int) ($data['id_credito'] ?? 0);
+        $idUsuarioLegacy = (int) ($data['id_usuario_legacy'] ?? 0);
+
+        if ($idCredito <= 0) {
+            return ['success' => false, 'message' => 'ID de credito invalido.'];
+        }
+        if ($idUsuarioLegacy <= 0) {
+            return ['success' => false, 'message' => 'Indica el id_usuario Legacy que recibira la tarea.'];
+        }
+
+        $diag = $this->diagnosticarDictamenWebMoto($idCredito);
+        if (empty($diag['success'])) {
+            return $diag;
+        }
+        if (!empty($diag['legacy']['error'])) {
+            return ['success' => false, 'message' => 'Legacy no esta disponible: ' . $diag['legacy']['error']];
+        }
+        if (!empty($diag['legacy']['task'])) {
+            return [
+                'success' => false,
+                'message' => 'Ya existe Task Legacy para este credito. No se duplico.',
+                'task_id' => (int)($diag['legacy']['task']['id'] ?? 0),
+            ];
+        }
+        if (!empty($diag['operacion'])) {
+            return ['success' => false, 'message' => 'Ya existe adj_operacion para este credito; no se envio a gestor.'];
+        }
+        if (!empty($diag['legacy']['dictamen'])) {
+            return ['success' => false, 'message' => 'Ya existe dictamen Legacy para este credito; no se envio a gestor.'];
+        }
+        if (empty($diag['puede_simular'])) {
+            return [
+                'success' => false,
+                'message' => 'No se puede enviar a gestor: ' . implode(' ', $diag['bloqueos'] ?: ['Validacion incompleta.']),
+                'diagnostico' => $diag,
+            ];
+        }
+
+        try {
+            $legacyDb = new DatabaseLegacy();
+            $user = $legacyDb->queryOne(
+                "SELECT id, name, external_id
+                 FROM users
+                 WHERE id = :id
+                   AND deleted_at IS NULL
+                 LIMIT 1",
+                ['id' => $idUsuarioLegacy]
+            );
+            if (!$user) {
+                return ['success' => false, 'message' => 'No existe usuario Legacy activo con ese id_usuario.'];
+            }
+
+            $datos = $this->datosBaseTaskDictamenWeb($idCredito, $data, $diag);
+            $fecha = $this->fechaHoraCdmx();
+
+            $legacyDb->beginTransaction();
+            $taskId = $this->asegurarTaskLegacyDictamenWeb($legacyDb, $idCredito, $idUsuarioLegacy, $datos, $fecha);
+            if ($taskId <= 0) {
+                throw new \RuntimeException('No se pudo obtener el ID de la tarea Legacy.');
+            }
+            $this->asegurarAsignacionTaskLegacyDictamenWeb($legacyDb, $taskId, $idUsuarioLegacy, $fecha);
+            $legacyDb->commit();
+
+            return [
+                'success' => true,
+                'message' => 'Campana enviada al gestor en Legacy. Se creo la tarea para que cargue la gestion.',
+                'task_id' => $taskId,
+                'campaign_id' => self::LEGACY_CAMP_MOTOS_ADJUDICADAS,
+                'id_usuario_legacy' => $idUsuarioLegacy,
+                'id_usuario_sesion' => $idUsuarioSesion,
+                'fecha_envio' => $fecha,
+            ];
+        } catch (\Throwable $e) {
+            try {
+                if (isset($legacyDb)) {
+                    $legacyDb->rollback();
+                }
+            } catch (\Throwable $ignored) {
+            }
+
+            return ['success' => false, 'message' => 'No se pudo enviar la campana a gestor: ' . $e->getMessage()];
+        }
+    }
+
+    public function usuariosActivosLegacy(): array
+    {
+        try {
+            $legacyDb = new DatabaseLegacy();
+            $rows = $legacyDb->queryAll(
+                "SELECT id, name, username, external_id
+                 FROM users
+                 WHERE deleted_at IS NULL
+                 ORDER BY name ASC, id ASC"
+            );
+
+            $datos = array_map(static function (array $row): array {
+                $id = (int)($row['id'] ?? 0);
+                $name = trim((string)($row['name'] ?? ''));
+                $username = trim((string)($row['username'] ?? ''));
+                $externalId = trim((string)($row['external_id'] ?? ''));
+                $parts = [];
+                if ($name !== '') {
+                    $parts[] = $name;
+                }
+                if ($username !== '') {
+                    $parts[] = '@' . $username;
+                }
+                if ($externalId !== '') {
+                    $parts[] = 'Ext. ' . $externalId;
+                }
+
+                return [
+                    'id' => $id,
+                    'name' => $name,
+                    'username' => $username,
+                    'external_id' => $externalId,
+                    'label' => '#' . $id . ' - ' . implode(' - ', $parts),
+                ];
+            }, $rows);
+
+            $datos = array_values(array_filter($datos, static fn(array $row): bool => (int)($row['id'] ?? 0) > 0));
+
+            return ['success' => true, 'datos' => $datos];
+        } catch (\Throwable $e) {
+            return ['success' => false, 'message' => 'No se pudieron cargar usuarios Legacy: ' . $e->getMessage(), 'datos' => []];
+        }
+    }
+
     private function validarCamposObligatoriosDictamenWeb(array $data): array
     {
         $campos = [

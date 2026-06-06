@@ -66,6 +66,30 @@ class Adjudicacion extends Controller
         }
     }
 
+    public function enviarCampaniaGestorLegacy()
+    {
+        header('Content-Type: application/json; charset=utf-8');
+        $body = json_decode(file_get_contents('php://input'), true) ?? [];
+        $idUsuario = (int) ($_SESSION['persona_id'] ?? $_SESSION['usuario_id'] ?? 0);
+
+        try {
+            echo json_encode($this->model->enviarCampaniaGestorLegacy($body, $idUsuario), JSON_UNESCAPED_UNICODE);
+        } catch (\Throwable $e) {
+            echo json_encode(['success' => false, 'message' => $e->getMessage()], JSON_UNESCAPED_UNICODE);
+        }
+    }
+
+    public function usuariosActivosLegacy()
+    {
+        header('Content-Type: application/json; charset=utf-8');
+
+        try {
+            echo json_encode($this->model->usuariosActivosLegacy(), JSON_UNESCAPED_UNICODE);
+        } catch (\Throwable $e) {
+            echo json_encode(['success' => false, 'message' => $e->getMessage(), 'datos' => []], JSON_UNESCAPED_UNICODE);
+        }
+    }
+
     public function estadoDesbloqueoDictamenMoto()
     {
         header('Content-Type: application/json; charset=utf-8');
