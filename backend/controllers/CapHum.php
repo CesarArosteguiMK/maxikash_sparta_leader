@@ -1381,6 +1381,8 @@ class CapHum extends Controller
                 '60': 'fa-solid fa-chart-column',
                 79: 'fa-solid fa-file-pen',
                 '79': 'fa-solid fa-file-pen',
+                100: 'fa-solid fa-share-from-square',
+                '100': 'fa-solid fa-share-from-square',
             };
 
             /** Mapa base de íconos (pestaña Módulos del sistema y filas agrupadas de permisos especiales). */
@@ -1414,7 +1416,8 @@ class CapHum extends Controller
                 51: 'fa-solid fa-file-circle-check',
                 48: 'fa fa-archive',
                 60: 'fa-solid fa-chart-column',
-                79: 'fa-solid fa-file-pen'
+                79: 'fa-solid fa-file-pen',
+                100: 'fa-solid fa-share-from-square'
             };
 
             /* =========================

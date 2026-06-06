@@ -1,3 +1,6 @@
+<?php
+$madPuedeEnviarGestorLegacy = in_array(100, array_map('intval', $_SESSION['modulos'] ?? []), true);
+?>
 <div class="mad-dictamen container-fluid py-3 px-2 px-md-3">
     <div class="mad-page-head d-flex flex-wrap align-items-center justify-content-between gap-3 mb-3">
         <div>
@@ -27,7 +30,9 @@
             </div>
             <div class="col-12 col-lg-3">
                 <label for="mad-id-usuario-legacy" class="form-label">id_usuario Legacy</label>
-                <input type="number" id="mad-id-usuario-legacy" class="form-control" placeholder="Ej. 1160">
+                <select id="mad-id-usuario-legacy" class="form-select">
+                    <option value="">Cargando usuarios Legacy...</option>
+                </select>
             </div>
             <div class="col-12 col-lg-auto">
                 <button type="button" id="mad-btn-desbloquear" class="btn btn-outline-danger mad-hidden">
@@ -73,9 +78,16 @@
                     <div>
                         <h5>Datos para el dictamen web</h5>
                     </div>
-                    <button type="button" id="mad-btn-simular" class="btn btn-primary" disabled>
-                        <i class="fa-solid fa-paper-plane me-1"></i>Guardar dictamen
-                    </button>
+                    <div class="d-flex flex-wrap gap-2 justify-content-end">
+                        <?php if ($madPuedeEnviarGestorLegacy): ?>
+                            <button type="button" id="mad-btn-enviar-gestor-legacy" class="btn btn-outline-primary" disabled>
+                                <i class="fa-solid fa-share-from-square me-1"></i>Enviar campa&ntilde;a a gestor en Legacy
+                            </button>
+                        <?php endif; ?>
+                        <button type="button" id="mad-btn-simular" class="btn btn-primary" disabled>
+                            <i class="fa-solid fa-paper-plane me-1"></i>Guardar dictamen
+                        </button>
+                    </div>
                 </div>
 
                 <div class="row g-3">
@@ -675,6 +687,7 @@
     const fechaGestionInput = document.getElementById('mad-fecha-gestion');
     const btnDiag = document.getElementById('mad-btn-diagnosticar');
     const btnSim = document.getElementById('mad-btn-simular');
+    const btnEnviarGestorLegacy = document.getElementById('mad-btn-enviar-gestor-legacy');
     const btnUnlock = document.getElementById('mad-btn-desbloquear');
     const resultsGrid = document.getElementById('mad-results-grid');
     let diagnosticoActual = null;
@@ -733,6 +746,13 @@
         ].join('');
 
         btnSim.disabled = !d.puede_simular;
+        if (btnEnviarGestorLegacy) {
+            const puedeEnviarTask = !!d.puede_simular && !task;
+            btnEnviarGestorLegacy.disabled = !puedeEnviarTask;
+            btnEnviarGestorLegacy.title = puedeEnviarTask
+                ? 'Crear task Legacy y asignarlo al gestor seleccionado.'
+                : (task ? 'Ya existe Task Legacy para este credito.' : 'Primero diagnostica un credito libre y valido.');
+        }
         if (btnUnlock) {
             btnUnlock.classList.toggle('mad-hidden', !(puedeDesbloquearComponentes && tieneComponentesBloqueados));
         }
@@ -745,6 +765,7 @@
         resultsGrid?.classList.add('mad-hidden');
         document.querySelectorAll('.mad-dictamen-form').forEach(el => el.classList.add('mad-hidden'));
         if (btnSim) btnSim.disabled = true;
+        if (btnEnviarGestorLegacy) btnEnviarGestorLegacy.disabled = true;
         btnUnlock?.classList.add('mad-hidden');
     }
 
@@ -755,6 +776,66 @@
             body: JSON.stringify(payload)
         });
         return res.json();
+    }
+
+    async function getJson(url) {
+        const res = await fetch(url, {
+            headers: { 'Accept': 'application/json' },
+            credentials: 'same-origin'
+        });
+        return res.json();
+    }
+
+    function inicializarComboLegacy(intentos) {
+        if (!userInput || typeof window.jQuery === 'undefined' || !window.jQuery.fn || !window.jQuery.fn.select2) {
+            if ((intentos || 0) < 8) {
+                setTimeout(() => inicializarComboLegacy((intentos || 0) + 1), 180);
+            }
+            return;
+        }
+        const $select = window.jQuery(userInput);
+        if ($select.hasClass('select2-hidden-accessible')) {
+            $select.select2('destroy');
+        }
+        $select.select2({
+            width: '100%',
+            placeholder: 'Selecciona usuario Legacy',
+            allowClear: true,
+            language: {
+                noResults: function () { return 'Sin resultados'; },
+                searching: function () { return 'Buscando...'; }
+            }
+        });
+    }
+
+    async function cargarUsuariosLegacy() {
+        if (!userInput) return;
+        userInput.disabled = true;
+        userInput.innerHTML = '<option value="">Cargando usuarios Legacy...</option>';
+        try {
+            const data = await getJson('/Adjudicacion/usuariosActivosLegacy');
+            if (!data || !data.success) {
+                throw new Error((data && data.message) || 'No se pudieron cargar usuarios Legacy.');
+            }
+            const datos = Array.isArray(data.datos) ? data.datos : [];
+            userInput.innerHTML = '';
+            const opt0 = document.createElement('option');
+            opt0.value = '';
+            opt0.textContent = datos.length ? 'Selecciona usuario Legacy' : 'Sin usuarios Legacy activos';
+            userInput.appendChild(opt0);
+            datos.forEach(row => {
+                const opt = document.createElement('option');
+                opt.value = String(row.id || '');
+                opt.textContent = row.label || ('#' + row.id);
+                userInput.appendChild(opt);
+            });
+            userInput.disabled = datos.length === 0;
+            inicializarComboLegacy(0);
+        } catch (e) {
+            userInput.innerHTML = '<option value="">No se pudieron cargar usuarios Legacy</option>';
+            userInput.disabled = true;
+            console.error(e);
+        }
     }
 
     async function cargarPermisoDesbloqueo() {
@@ -937,6 +1018,49 @@
         }
     });
 
+    btnEnviarGestorLegacy?.addEventListener('click', async function () {
+        if (!diagnosticoActual?.puede_simular) return;
+        const legacy = diagnosticoActual.legacy || {};
+        if (legacy.task) {
+            Swal?.fire?.('Task existente', 'Ya existe Task Legacy para este credito. No se duplicara.', 'info');
+            return;
+        }
+        const payload = {
+            id_credito: idInput.value,
+            id_usuario_legacy: userInput.value
+        };
+        document.querySelectorAll('.mad-field').forEach(el => {
+            const key = el.dataset.key || '';
+            if (['direccion', 'lat', 'lng'].indexOf(key) >= 0) {
+                payload[key] = el.value || '';
+            }
+        });
+        if (!payload.id_usuario_legacy) {
+            Swal?.fire?.('Falta usuario', 'Indica el id_usuario Legacy que recibira la tarea.', 'warning');
+            return;
+        }
+        const confirm = await Swal.fire({
+            icon: 'question',
+            title: 'Enviar campania a gestor',
+            html: 'Se crear&aacute; una <strong>Task Legacy</strong> para que el gestor cargue la gesti&oacute;n. No se guardar&aacute; dictamen.',
+            showCancelButton: true,
+            confirmButtonText: 'Si, enviar',
+            cancelButtonText: 'Cancelar'
+        });
+        if (!confirm.isConfirmed) return;
+
+        Swal.fire({ title: 'Enviando a Legacy', text: 'Creando task y asignacion al gestor...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+        try {
+            const data = await postJson('/Adjudicacion/enviarCampaniaGestorLegacy', payload);
+            Swal.close();
+            if (!data.success) throw new Error(data.message || 'No se pudo enviar.');
+            await Swal.fire('Listo', `${data.message} Task: ${data.task_id || '-'}`, 'success');
+            btnDiag.click();
+        } catch (e) {
+            Swal.fire('Error', e.message || 'No se pudo enviar a gestor.', 'error');
+        }
+    });
+
     btnUnlock?.addEventListener('click', async function () {
         const id = (idInput.value || '').trim();
         if (!puedeDesbloquearComponentes || !diagnosticoActual || !id) return;
@@ -1021,6 +1145,7 @@
         });
     });
     cargarPermisoDesbloqueo();
+    cargarUsuariosLegacy();
     setFechaGestionDefault();
 })();
 </script>
