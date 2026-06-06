@@ -9,6 +9,9 @@ use Core\UsuarioFantasmaReporteria;
 class CapHum extends Model
 {
 <<<<<<< HEAD
+<<<<<<< HEAD
+=======
+>>>>>>> abc2f06310a517171d180040e1d880eebc7dcf2c
     private const MODULO_CONVENIOS_DESCARGAR_EXCEL = 92;
     private const MODULO_CONVENIOS_DESCARGAR_EXCEL_NOMBRE = 'Descargar Excel';
     private const MODULO_CONVENIOS_DESCARGAR_EXCEL_DESC = 'Convenios - Cierre de Credito - Descargar Excel';
@@ -88,7 +91,10 @@ class CapHum extends Model
 
         return $perfiles;
     }
+<<<<<<< HEAD
 =======
+=======
+>>>>>>> abc2f06310a517171d180040e1d880eebc7dcf2c
     private const DOCUMENTO_RFC_RRHH = 10;
     private const DOCUMENTO_CONSTANCIA_FISCAL_RRHH = 22;
     private const DOCUMENTOS_EXCLUIDOS_RRHH = [19, 20, 21];
