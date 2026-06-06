@@ -332,6 +332,7 @@
     let importPreviewZoom = 1;
     let importPreviewFitWidth = true;
     let importPreviewRenderId = 0;
+    let importPreparandoArchivosDesde = 0;
 
     const els = {
         importar: document.getElementById('btnImportarDocsRrhh'),
@@ -457,12 +458,18 @@
         els.importTabla.innerHTML = items.map(item => {
             const nombrePersona = escapeHtml(item.persona || '');
             const numeroEmpleado = escapeHtml(item.numero_empleado || '');
+            const estatusPersonaRaw = String(item.estatus_persona || '').trim();
+            const esPersonaBaja = estatusPersonaRaw.toLowerCase() === 'baja' || item.persona_activa === false;
+            const fechaBaja = escapeHtml(item.fecha_baja || '');
+            const estatusPersona = item.persona
+                ? `<br><span class="badge ${esPersonaBaja ? 'bg-danger' : 'bg-success'}">${escapeHtml(esPersonaBaja ? 'Baja' : (estatusPersonaRaw || 'Activo'))}</span>${esPersonaBaja && fechaBaja ? ` <small class="text-muted">${fechaBaja}</small>` : ''}`
+                : '';
             const carpetaPersona = escapeHtml(item.carpeta_persona || 'N/A');
             const personaKey = item.id_persona ? `id:${item.id_persona}` : `folder:${item.carpeta_persona || ''}`;
             const separarPersona = personaAnterior !== '' && personaKey !== personaAnterior;
             personaAnterior = personaKey;
             const persona = item.persona
-                ? `${nombrePersona} ${numeroEmpleado ? `(No. ${numeroEmpleado})` : ''}<br><small class="text-muted">Score ${escapeHtml(item.score_persona || 0)}%</small>`
+                ? `${nombrePersona} ${numeroEmpleado ? `(No. ${numeroEmpleado})` : ''}${estatusPersona}<br><small class="text-muted">Score ${escapeHtml(item.score_persona || 0)}%</small>`
                 : `<span class="text-muted">${carpetaPersona}</span>`;
             const idDocumento = Number(item.id_documento || 0);
             const opciones = [
@@ -495,6 +502,46 @@
         }).join('');
     }
 
+    function importEsZip(file) {
+        const texto = [
+            file?.name || '',
+            file?.webkitRelativePath || '',
+            file?.type || ''
+        ].join(' ');
+        return /\.zip\b/i.test(texto) || /zip/i.test(String(file?.type || ''));
+    }
+
+    function importSeleccionTieneZip() {
+        return importFiles.some(importEsZip);
+    }
+
+    function importMostrarPreparandoArchivos() {
+        importPreparandoArchivosDesde = Date.now();
+        Swal.fire({
+            title: 'Preparando archivos',
+            text: 'Estamos descomprimiendo y preparando los documentos. Por favor espere.',
+            allowOutsideClick: false,
+            allowEscapeKey: false,
+            showConfirmButton: false,
+            didOpen: () => {
+                Swal.showLoading();
+            }
+        });
+    }
+
+    async function importCerrarPreparandoArchivos() {
+        if (!importPreparandoArchivosDesde) return;
+        const restante = Math.max(0, 800 - (Date.now() - importPreparandoArchivosDesde));
+        if (restante > 0) {
+            await new Promise(resolve => setTimeout(resolve, restante));
+        }
+        const titulo = Swal.getTitle ? String(Swal.getTitle()?.textContent || '') : '';
+        if (Swal.isVisible() && titulo === 'Preparando archivos') {
+            Swal.close();
+        }
+        importPreparandoArchivosDesde = 0;
+    }
+
     function importSetFiles(fileList) {
         importFiles = Array.from(fileList || []);
         importAnalisis = null;
@@ -507,6 +554,9 @@
             : 'No se han seleccionado archivos.';
         els.importBtnImportar.disabled = true;
         if (total > 0) {
+            if (importSeleccionTieneZip()) {
+                importMostrarPreparandoArchivos();
+            }
             setTimeout(importAnalizar, 0);
         }
     }
@@ -649,15 +699,23 @@
 
     async function importAnalizar() {
         if (!importFiles.length) return;
+        const mostrarPreparando = importSeleccionTieneZip();
         try {
             importSetLoading(true, 'Analizando documentos...');
+            if (mostrarPreparando && !importPreparandoArchivosDesde) {
+                importMostrarPreparandoArchivos();
+            }
             importAnalisis = await importEnviar('/caphum/analizarImportacionDocumentosRrhh');
+            if (mostrarPreparando) {
+                await importCerrarPreparandoArchivos();
+            }
             importRenderResumen(importAnalisis.resumen);
             importRenderTabla(importAnalisis.items || []);
             const listos = importAnalisis?.resumen?.listo || 0;
             els.importSeleccionResumen.textContent = `Analisis listo. ${listos} documento(s) pueden importarse.`;
             els.importBtnImportar.disabled = listos <= 0;
         } catch (err) {
+            importPreparandoArchivosDesde = 0;
             Swal.fire('Importar documentos', err.message || 'No se pudo analizar la seleccion.', 'error');
         } finally {
             importSetLoading(false);
@@ -679,6 +737,16 @@
 
         try {
             importSetLoading(true, 'Importando documentos...');
+            Swal.fire({
+                title: 'Subiendo documentos',
+                text: 'Se estan subiendo los documentos. Por favor espere.',
+                allowOutsideClick: false,
+                allowEscapeKey: false,
+                showConfirmButton: false,
+                didOpen: () => {
+                    Swal.showLoading();
+                }
+            });
             const resultado = await importEnviar('/caphum/importarDocumentosRrhh');
             importAnalisis = resultado;
             importRenderResumen(resultado.resumen);
@@ -867,15 +935,23 @@
         const docs = Array.isArray(col.documentos) ? col.documentos : [];
         els.modalBody.innerHTML = docs.map(doc => {
             const cargado = !!doc.cargado;
+            const cubierto = String(doc.estatus || '').toLowerCase() === 'cubierto';
+            const badge = cubierto
+                ? '<span class="badge bg-info text-dark">Cubierto</span>'
+                : (cargado ? '<span class="badge bg-success">Cargado</span>' : '<span class="badge bg-warning text-dark">Faltante</span>');
+            const nota = cubierto && doc.cubierto_por
+                ? `<div class="small text-muted">Cubierto por ${escapeHtml(doc.cubierto_por)}</div>`
+                : '';
             return `
                 <tr>
                     <td>
                         <div class="fw-semibold">${escapeHtml(doc.nombre)}</div>
+                        ${nota}
                     </td>
                     <td class="text-center">${Number(doc.total_archivos || 0)}</td>
                     <td>${doc.ultima_fecha ? escapeHtml(doc.ultima_fecha) : '<span class="text-muted">Sin carga</span>'}</td>
                     <td class="text-end">
-                        ${cargado ? '<span class="badge bg-success">Cargado</span>' : '<span class="badge bg-warning text-dark">Faltante</span>'}
+                        ${badge}
                     </td>
                 </tr>
             `;

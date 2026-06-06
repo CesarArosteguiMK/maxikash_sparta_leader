@@ -25,7 +25,7 @@ if (!function_exists('getMenuSidebarModulosStructure')) {
             'Capital Humano' => [
                 'icono' => 'fa-solid fa-users',
                 'subItems' => [
-                    ['label' => 'Gestión', 'url' => '/caphum/gestion', 'modulos' => [4]],
+                    ['label' => 'Gestión', 'url' => '/caphum/gestion', 'modulos' => [4, 94, 95, 96, 97, 98, 99]],
                     ['label' => 'Mis documentos', 'url' => '/caphum/documentosColaborador', 'modulos' => [92]],
                     ['label' => 'Vacaciones', 'url' => '/caphum/vacaciones', 'modulos' => [4, 92]],
                     ['label' => 'Panel vacaciones', 'url' => '/caphum/vacacionesAdmin', 'modulos' => [4]],

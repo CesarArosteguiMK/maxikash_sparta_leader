@@ -91,10 +91,12 @@
         padding: 14px 20px;
     }
     .vac-official-logo {
-        border: 1px dashed rgba(255,255,255,.55);
-        border-radius: 6px;
-        padding: 5px 10px;
-        background: rgba(255,255,255,.08);
+        border: 0 !important;
+        outline: 0 !important;
+        box-shadow: none !important;
+        border-radius: 0 !important;
+        padding: 0 !important;
+        background: transparent !important;
         text-align: center;
     }
     .vac-official-logo img { max-width: 54px; max-height: 54px; }
@@ -136,32 +138,88 @@
         grid-template-columns: repeat(3, minmax(0, 1fr));
         gap: 12px;
     }
-    .vac-signature-card {
-        border: 1px solid #d8e2ef;
-        border-radius: 8px;
-        padding: 10px;
-        background: #f8fbff;
-        min-height: 132px;
-    }
-    .vac-signature-card img {
-        width: 100%;
-        height: 64px;
-        object-fit: contain;
-        background: #fff;
-        border: 1px solid #e1e8f2;
+    .vac-consent-box {
+        border-left: 4px solid #06449a;
         border-radius: 6px;
+        background: #f2f6fb;
+        color: #33445f;
+        padding: 12px 14px;
+        font-size: 13px;
+        line-height: 1.55;
     }
-    .vac-signature-empty {
-        height: 64px;
-        display: flex;
+    .vac-auth-title {
+        display: inline-flex;
         align-items: center;
+        gap: 6px;
+        border-radius: 5px;
+        background: #eef4ff;
+        color: #06449a;
+        padding: 7px 11px;
+        font-size: 12px;
+        font-weight: 900;
+        text-transform: uppercase;
+    }
+    .vac-sign-auth-grid {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 20px;
+        align-items: end;
+        margin-top: 26px;
+    }
+    .vac-sign-auth-item {
+        text-align: center;
+        min-height: 116px;
+        display: flex;
+        flex-direction: column;
+        justify-content: flex-end;
+    }
+    .vac-signature-space {
+        height: 58px;
+        display: flex;
+        align-items: flex-end;
         justify-content: center;
-        border: 1px dashed #c9d6e8;
-        border-radius: 6px;
+    }
+    .vac-signature-space img {
+        width: 100%;
+        height: 58px;
+        object-fit: contain;
+        display: block;
+    }
+    .vac-sign-placeholder {
         color: #7a889a;
-        background: #fff;
         font-size: 12px;
         font-weight: 800;
+    }
+    .vac-sign-line {
+        border-top: 1px solid #1e2a3b;
+        padding-top: 7px;
+        font-size: 11px;
+        font-weight: 900;
+        color: #607089;
+        text-transform: uppercase;
+    }
+    .vac-sign-name {
+        min-height: 20px;
+        margin-top: 4px;
+        color: #17233a;
+        font-size: 11px;
+        font-weight: 900;
+        text-transform: uppercase;
+    }
+    .vac-place-date {
+        text-align: right;
+        color: #607089;
+        font-size: 12px;
+        font-weight: 700;
+        margin-top: 16px;
+    }
+    .vac-important-notes {
+        border-top: 1px dashed #b8c8dd;
+        color: #52657e;
+        font-size: 11px;
+        line-height: 1.65;
+        margin-top: 18px;
+        padding-top: 12px;
     }
     #vacAdminFirmaCanvas {
         width: 100%;
@@ -196,7 +254,8 @@
         .vac-official-head,
         .vac-official-grid,
         .vac-official-grid.three,
-        .vac-signatures { grid-template-columns: 1fr; }
+        .vac-signatures,
+        .vac-sign-auth-grid { grid-template-columns: 1fr; }
     }
 </style>
 
@@ -312,10 +371,24 @@
                                 <label>Observaciones</label>
                                 <div class="vac-form-value" id="vacFmtObservaciones">-</div>
                             </div>
-                            <div class="vac-signatures">
-                                <div class="vac-signature-card" id="vacFirmaColaboradorBox"></div>
-                                <div class="vac-signature-card" id="vacFirmaRrhhBox"></div>
-                                <div class="vac-signature-card" id="vacFirmaJefeBox"></div>
+                            <div class="vac-consent-box mb-3">
+                                Por medio del presente, expreso mi conformidad de solicitar y gozar mis vacaciones de acuerdo con lo establecido en el articulo 76 de la Ley Federal del Trabajo y las politicas internas de MAXIKASH.
+                            </div>
+                            <div class="vac-sign-box">
+                                <div class="vac-auth-title"><i class="fa-solid fa-pen-nib"></i> Firmas de autorizacion</div>
+                                <div class="vac-sign-auth-grid">
+                                    <div class="vac-sign-auth-item" id="vacFirmaColaboradorBox"></div>
+                                    <div class="vac-sign-auth-item" id="vacFirmaJefeBox"></div>
+                                    <div class="vac-sign-auth-item" id="vacFirmaRrhhBox"></div>
+                                </div>
+                                <div class="vac-place-date" id="vacFmtLugarFecha">Lugar y fecha: -</div>
+                                <div class="vac-important-notes">
+                                    <strong>Notas importantes:</strong><br>
+                                    - El presente formato debera ser autorizado previo al disfrute de vacaciones.<br>
+                                    - Toda solicitud estara sujeta a validacion operativa y administrativa.<br>
+                                    - Recursos Humanos debera conservar una copia firmada para expediente.<br>
+                                    - Generado digitalmente mediante Universidad Corporativa Maxikash.
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -327,12 +400,13 @@
                                 <strong>Validación RR.HH.</strong>
                                 <span id="vacModalRrhh"></span>
                             </div>
+                            <div class="small text-muted mb-2">Paso 1: revisa RR.HH. y firma al aceptar.</div>
                             <div class="d-flex gap-2">
                                 <button class="btn btn-success flex-fill" data-vac-resolver="rrhh:aprobada">
-                                    <i class="fa-solid fa-check me-1"></i> Aceptar
+                                    <i class="fa-solid fa-check me-1"></i> Firmar RR.HH.
                                 </button>
                                 <button class="btn btn-outline-danger flex-fill" data-vac-resolver="rrhh:rechazada">
-                                    <i class="fa-solid fa-xmark me-1"></i> Rechazar
+                                    <i class="fa-solid fa-xmark me-1"></i> Rechazar RR.HH.
                                 </button>
                             </div>
                             <div class="small text-muted mt-2" id="vacModalRrhhMeta"></div>
@@ -344,12 +418,13 @@
                                 <strong>Validación jefe RR.HH.</strong>
                                 <span id="vacModalJefe"></span>
                             </div>
+                            <div class="small text-muted mb-2" id="vacModalJefeBloqueo">Paso 2: disponible despues de la validacion de RR.HH.</div>
                             <div class="d-flex gap-2">
                                 <button class="btn btn-success flex-fill" data-vac-resolver="jefe:aprobada">
-                                    <i class="fa-solid fa-check me-1"></i> Aceptar
+                                    <i class="fa-solid fa-check me-1"></i> Firmar jefe
                                 </button>
                                 <button class="btn btn-outline-danger flex-fill" data-vac-resolver="jefe:rechazada">
-                                    <i class="fa-solid fa-xmark me-1"></i> Rechazar
+                                    <i class="fa-solid fa-xmark me-1"></i> Rechazar jefe
                                 </button>
                             </div>
                             <div class="small text-muted mt-2" id="vacModalJefeMeta"></div>
@@ -481,15 +556,20 @@
         return modalFirma;
     }
 
+    function fechaLargaMX(fecha = new Date()) {
+        const meses = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
+        return `${fecha.getDate()} de ${meses[fecha.getMonth()]} de ${fecha.getFullYear()}`;
+    }
+
     function signatureBox(titulo, firma, nombre, fecha) {
         const contenido = firma
             ? `<img src="${firma}" alt="Firma ${titulo}">`
-            : '<div class="vac-signature-empty">Pendiente</div>';
+            : '<span class="vac-sign-placeholder">Pendiente</span>';
         return `
-            <div class="fw-bold small mb-2">${titulo}</div>
-            ${contenido}
-            <div class="small mt-2">${nombre || '-'}</div>
-            <div class="small text-muted">${fecha ? fmtFecha(fecha) : '-'}</div>
+            <div class="vac-signature-space">${contenido}</div>
+            <div class="vac-sign-line">${titulo}</div>
+            <div class="vac-sign-name">${nombre || '&nbsp;'}</div>
+            <div class="small text-muted">${fecha ? fmtFecha(fecha) : '&nbsp;'}</div>
         `;
     }
 
@@ -502,9 +582,10 @@
         $('vacFmtPeriodo').textContent = `${fmtFecha(s.periodo_inicio)} - ${fmtFecha(s.periodo_fin)}`;
         $('vacFmtReincorporacion').textContent = fmtFecha(siguienteDiaLaboral(s.fecha_fin));
         $('vacFmtObservaciones').textContent = s.comentario || 'Solicitud de vacaciones';
-        $('vacFirmaColaboradorBox').innerHTML = signatureBox('Colaborador', s.firma_colaborador, s.nombre_completo, s.firma_colaborador_fecha);
-        $('vacFirmaRrhhBox').innerHTML = signatureBox('RR.HH.', s.rrhh_firma, s.rrhh_nombre, s.rrhh_firma_fecha);
-        $('vacFirmaJefeBox').innerHTML = signatureBox('Jefe / responsable', s.jefe_firma, s.jefe_nombre, s.jefe_firma_fecha);
+        $('vacFmtLugarFecha').textContent = `Lugar y fecha: México D.F. a ${fechaLargaMX()}`;
+        $('vacFirmaColaboradorBox').innerHTML = signatureBox('Firma del colaborador', s.firma_colaborador, s.nombre_completo, s.firma_colaborador_fecha);
+        $('vacFirmaRrhhBox').innerHTML = signatureBox('Vo. Bo. Recursos Humanos', s.rrhh_firma, s.rrhh_nombre, s.rrhh_firma_fecha);
+        $('vacFirmaJefeBox').innerHTML = signatureBox('Firma del responsable del area', s.jefe_firma, s.jefe_nombre, s.jefe_firma_fecha);
     }
 
     function ajustarCanvasFirmaAdmin() {
@@ -570,7 +651,7 @@
 
     function abrirFirma(etapa, accion) {
         firmaPendiente = { etapa, accion };
-        $('vacFirmaTitulo').textContent = etapa === 'rrhh' ? 'Firma de RR.HH.' : 'Firma de jefe / responsable';
+        $('vacFirmaTitulo').textContent = etapa === 'rrhh' ? 'Firma de RR.HH.' : 'Firma de jefe RR.HH.';
         $('vacFirmaInlinePanel').classList.remove('d-none');
         setTimeout(() => {
             initCanvasFirmaAdmin();
@@ -604,7 +685,7 @@ body { margin: 0; padding: 9mm 0 0; color: #24324a; font-family: Arial, Helvetic
 .fa-solid { display: none !important; }
 .vac-official-admin { width: 180mm; margin: 0 auto; border: 0; border-radius: 0; overflow: hidden; background: #fff; }
 .vac-official-head { display: grid; grid-template-columns: 31mm 1fr 35mm; gap: 4mm; align-items: center; min-height: 21mm; background: #064aa2; color: #fff; padding: 4mm 6mm; }
-.vac-official-logo { height: 15mm; display: flex; align-items: center; justify-content: center; border: 1px dashed rgba(255,255,255,.6); border-radius: 1.5mm; background: rgba(255,255,255,.08); padding: 1.5mm; }
+.vac-official-logo { height: 15mm; display: flex; align-items: center; justify-content: center; border: 0 !important; outline: 0 !important; box-shadow: none !important; border-radius: 0 !important; background: transparent !important; padding: 0 !important; }
 .vac-official-logo img { width: 11mm; height: 11mm; object-fit: contain; }
 .vac-official-title { font-size: 16px; font-weight: 900; line-height: 1.15; color: #fff; }
 .vac-official-subtitle { font-size: 11px; opacity: .95; margin-top: 2px; color: #fff; }
@@ -614,10 +695,18 @@ body { margin: 0; padding: 9mm 0 0; color: #24324a; font-family: Arial, Helvetic
 .vac-official-grid.three { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 .vac-form-field label { display: block; color: #00275f; font-size: 10px; font-weight: 900; text-transform: uppercase; margin-bottom: 2mm; }
 .vac-form-value { min-height: 10mm; border: 1px solid #d8e2ef; border-radius: 1.5mm; background: #fff; color: #24324a; padding: 2.6mm 3mm; font-size: 13px; font-weight: 700; line-height: 1.2; }
-.vac-signatures { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 4mm; break-inside: avoid; }
-.vac-signature-card { border: 1px solid #d8e2ef; border-radius: 2mm; padding: 3mm; background: #f8fbff; min-height: 36mm; }
-.vac-signature-card img { width: 100%; height: 17mm; object-fit: contain; background: #fff; border: 1px solid #e1e8f2; border-radius: 1.5mm; }
-.vac-signature-empty { height: 17mm; display: flex; align-items: center; justify-content: center; border: 1px dashed #c9d6e8; border-radius: 1.5mm; color: #7a889a; background: #fff; font-size: 11px; font-weight: 800; }
+.vac-consent-box { border-left: 1.1mm solid #06449a; border-radius: 1.5mm; background: #f2f6fb; color: #33445f; padding: 3mm 4mm; font-size: 11px; line-height: 1.55; }
+.vac-sign-box { border: 1px solid #0b4ba2; border-radius: 2mm; background: #fff; padding: 4mm; break-inside: avoid; }
+.vac-auth-title { display: inline-flex; border-radius: 1.2mm; background: #eef4ff; color: #06449a; padding: 1.8mm 3mm; font-size: 10px; font-weight: 900; text-transform: uppercase; }
+.vac-sign-auth-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 5mm; align-items: end; margin-top: 8mm; }
+.vac-sign-auth-item { text-align: center; min-height: 29mm; display: flex; flex-direction: column; justify-content: flex-end; }
+.vac-signature-space { height: 14mm; display: flex; align-items: flex-end; justify-content: center; }
+.vac-signature-space img { width: 100%; height: 14mm; object-fit: contain; display: block; background: transparent; }
+.vac-sign-placeholder { color: #7a889a; font-size: 10px; font-weight: 800; }
+.vac-sign-line { border-top: 1px solid #1e2a3b; padding-top: 2mm; font-size: 9px; font-weight: 900; color: #607089; text-transform: uppercase; }
+.vac-sign-name { min-height: 5mm; margin-top: 1mm; color: #17233a; font-size: 9px; font-weight: 900; text-transform: uppercase; }
+.vac-place-date { text-align: right; color: #607089; font-size: 10px; font-weight: 700; margin-top: 4mm; }
+.vac-important-notes { border-top: 1px dashed #b8c8dd; color: #52657e; font-size: 9px; line-height: 1.6; margin-top: 5mm; padding-top: 3mm; }
 .fw-bold { font-weight: 700; }
 .small { font-size: 11px; }
 .text-muted { color: #65758b; }
@@ -720,11 +809,16 @@ body { margin: 0; padding: 9mm 0 0; color: #24324a; font-family: Arial, Helvetic
         $('vacModalRrhhMeta').textContent = [s.rrhh_nombre, s.rrhh_fecha ? fmtFecha(s.rrhh_fecha) : '', s.rrhh_comentario || ''].filter(Boolean).join(' · ');
         $('vacModalJefeMeta').textContent = [s.jefe_nombre, s.jefe_fecha ? fmtFecha(s.jefe_fecha) : '', s.jefe_comentario || ''].filter(Boolean).join(' · ');
         pintarFormato(s);
+        const rrhhAprobada = String(s.rrhh_estatus || '').toLowerCase() === 'aprobada';
+        $('vacModalJefeBloqueo').textContent = rrhhAprobada
+            ? 'Paso 2: jefe RR.HH. puede revisar y firmar.'
+            : 'Paso 2 bloqueado: primero debe aprobar y firmar RR.HH.';
+        $('vacModalJefeBloqueo').className = rrhhAprobada ? 'small text-success mb-2 fw-bold' : 'small text-muted mb-2';
         document.querySelectorAll('[data-vac-resolver^="rrhh:"]').forEach((btn) => {
             btn.disabled = s.rrhh_estatus !== 'pendiente' || s.estatus === 'rechazada';
         });
         document.querySelectorAll('[data-vac-resolver^="jefe:"]').forEach((btn) => {
-            btn.disabled = s.jefe_estatus !== 'pendiente' || s.estatus === 'rechazada';
+            btn.disabled = s.jefe_estatus !== 'pendiente' || s.estatus === 'rechazada' || !rrhhAprobada;
         });
         const modalActual = getSolicitudModal();
         if (!modalActual) {
@@ -735,6 +829,11 @@ body { margin: 0; padding: 9mm 0 0; color: #24324a; font-family: Arial, Helvetic
     }
 
     async function resolver(etapa, accion) {
+        const solicitud = detalleActual && detalleActual.solicitud ? detalleActual.solicitud : {};
+        if (etapa === 'jefe' && String(solicitud.rrhh_estatus || '').toLowerCase() !== 'aprobada') {
+            swal('warning', 'Paso bloqueado', 'Primero debe aprobar y firmar RR.HH.');
+            return;
+        }
         if (accion === 'aprobada') {
             abrirFirma(etapa, accion);
             return;
