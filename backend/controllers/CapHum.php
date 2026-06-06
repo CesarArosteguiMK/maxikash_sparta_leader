@@ -51,6 +51,13 @@ class CapHum extends Controller
         return in_array(4, $modulos, true) || in_array(10, $modulos, true);
     }
 
+    private static function puedeConsultarDetalleGestionPersonal(): bool
+    {
+        return self::puedeConsultarGestionPersonal()
+            || self::tieneModuloWeb(self::MODULO_GESTION_AUSENCIAS)
+            || self::tieneModuloWeb(self::MODULO_GESTION_DAR_BAJA);
+    }
+
     private static function puedeImportarDocumentosRrhh(): bool
     {
         return self::tieneModuloWeb(4) || self::tieneModuloWeb(self::MODULO_EDITAR_USUARIO_RRHH);
@@ -3122,7 +3129,7 @@ class CapHum extends Controller
                     document.getElementById("gestor").innerHTML = "<strong>Gestor:</strong> ";
                     resetBajaReasignacion();
 
-                    fetch('/CapHum/getDetallesPerfil', {
+                    fetch('/CapHum/getDetalles', {
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json',
@@ -3139,7 +3146,11 @@ class CapHum extends Controller
                             return;
                         }
 
-                       const persona = data.datos.persona;
+                       const persona = data.datos && data.datos.persona ? data.datos.persona : data.datos;
+                        if (!persona || !persona.id) {
+                            Swal.fire("Error", "No se encontraron datos de la persona.", "error");
+                            return;
+                        }
                         document.getElementById("edit_id").value = persona.id;
                         // Concatenar el nombre completo en el <p id="gestor">
                         document.getElementById("gestor").innerHTML = "<strong>Gestor:</strong> " + persona.nombres + " " + persona.apellidop + " " + persona.apellidom;
@@ -3160,7 +3171,7 @@ class CapHum extends Controller
                     return;
                 }
 
-                fetch('/CapHum/getDetallesPerfil', {
+                fetch('/CapHum/getDetalles', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
@@ -3178,7 +3189,11 @@ class CapHum extends Controller
                         return;
                     }
 
-                    const persona = resp.datos.persona;
+                    const persona = resp.datos && resp.datos.persona ? resp.datos.persona : resp.datos;
+                    if (!persona || !persona.id) {
+                        Swal.fire("Error", "No se encontraron datos de la persona.", "error");
+                        return;
+                    }
 
                     // ID oculto
                     document.getElementById("edit_id_ausencia").value = persona.id;
@@ -14362,7 +14377,7 @@ class CapHum extends Controller
 
     public function getDetalles()
     {
-        if (!self::puedeConsultarGestionPersonal()) {
+        if (!self::puedeConsultarDetalleGestionPersonal()) {
             self::respuestaJSON([
                 'success' => false,
                 'mensaje' => 'No tienes permiso para consultar detalles de usuario.'
@@ -15393,7 +15408,7 @@ public function getEstadosMunicipiosMexico()
         if (!self::puedeAccionGestion(self::MODULO_GESTION_DAR_BAJA)) {
             echo json_encode([
                 'success' => false,
-                'message' => 'No tienes permiso para dar de baja usuarios.'
+                'message' => 'No tienes permiso para dar de baja usuarios. Requiere el permiso especial Capital Humano > Dar de baja; Control de Bajas solo permite consultar el panel.'
             ]);
             return;
         }
