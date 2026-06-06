@@ -1084,6 +1084,184 @@ body.dark-mode .track-tabs .nav-link:focus {
     color: var(--track-color) !important;
 }
 
+/* -- Vista Planeacion: homologacion estilo Evidencias -- */
+.tracking-planeacion-view {
+    --track-color:       #2f4f9e;
+    --track-color-dark:  #24437f;
+    --track-bg-card:     #ffffff;
+    --track-border:      #dbe4f0;
+}
+.tracking-planeacion-view .track-header {
+    background: #244f8f;
+    border: 0;
+    color: #fff;
+    border-radius: .75rem;
+    padding: 1.35rem 1.55rem;
+    margin-bottom: 1.15rem;
+    box-shadow: none;
+}
+.tracking-planeacion-view .track-header h4 {
+    color: #fff;
+    font-size: 1.2rem;
+    letter-spacing: 0;
+}
+.tracking-planeacion-view .track-header .track-subtitle {
+    color: #e8eefc;
+    opacity: 1;
+    font-weight: 600;
+}
+.tracking-planeacion-view .track-header #btnNuevaRuta {
+    background: #1f2d4d;
+    border-color: #1f2d4d;
+    color: #fff;
+    border-radius: .65rem;
+    min-width: 132px;
+    box-shadow: 0 .25rem .55rem rgba(15, 23, 42, .24);
+}
+.tracking-planeacion-view .track-header #btnNuevaRuta:hover {
+    background: #17233d;
+    border-color: #17233d;
+}
+.trk-planeacion-shell {
+    background: #fff;
+    border: 1px solid #e5eaf2;
+    border-radius: .75rem;
+    padding: 1.2rem;
+    box-shadow: 0 .12rem .65rem rgba(15, 23, 42, .04);
+}
+.tracking-planeacion-view #trackMainTabs {
+    border-bottom: 0;
+    gap: .75rem;
+    margin-bottom: 1.15rem !important;
+}
+.tracking-planeacion-view #trackMainTabs .nav-item {
+    margin-bottom: 0;
+}
+.tracking-planeacion-view .track-tabs .nav-link,
+.tracking-planeacion-view .track-tabs .nav-link:link,
+.tracking-planeacion-view .track-tabs .nav-link:visited,
+.tracking-planeacion-view .track-tabs .nav-link:hover,
+.tracking-planeacion-view .track-tabs .nav-link:focus {
+    display: inline-flex;
+    align-items: center;
+    gap: .35rem;
+    border: 0 !important;
+    border-radius: .55rem !important;
+    background: transparent;
+    color: #4b5563 !important;
+    font-weight: 700;
+    padding: .55rem 1rem;
+    min-height: 2.45rem;
+}
+.tracking-planeacion-view .track-tabs .nav-link.active {
+    background: #2f4f9e !important;
+    color: #fff !important;
+    box-shadow: 0 .22rem .55rem rgba(47, 79, 158, .22);
+}
+.tracking-planeacion-view .track-tabs .nav-link .badge {
+    background: #d8f8c9 !important;
+    color: #228a15 !important;
+    min-width: 1.45rem;
+}
+.tracking-planeacion-view .track-tabs .nav-link.active .badge {
+    background: #eef2ff !important;
+    color: #24437f !important;
+}
+.tracking-planeacion-view .tab-content {
+    border: 1px solid #dbe4f0;
+    border-radius: .6rem;
+    background: #fff;
+    padding: 1.15rem 1.15rem 1rem;
+}
+.tracking-planeacion-view .track-filters {
+    background: #f8fafc;
+    border: 1px solid #edf2f7;
+    border-radius: .55rem;
+    padding: 1rem 1.15rem;
+    margin-bottom: 1rem;
+}
+.tracking-planeacion-view .track-filters .form-label {
+    color: #526477;
+}
+.tracking-planeacion-view .track-filters .btn:not(.btn-outline-secondary) {
+    background: #2f4f9e !important;
+    color: #fff !important;
+    border-color: #2f4f9e !important;
+}
+.tracking-planeacion-view .track-filters .btn-outline-secondary {
+    color: #d08718;
+    border-color: #d99a27;
+    background: #fff;
+}
+.tracking-planeacion-view #tabCreditos > .card,
+.tracking-planeacion-view #tabBorradores > .card {
+    border: 0 !important;
+    box-shadow: none !important;
+    background: transparent;
+}
+.tracking-planeacion-view #tabCreditos .card-body,
+.tracking-planeacion-view #tabBorradores .card-body {
+    background: transparent;
+}
+.tracking-planeacion-view .dataTables_wrapper .row:first-child,
+.tracking-planeacion-view .dataTables_wrapper .dt-layout-row:first-child {
+    align-items: center;
+    padding: .9rem 0 1.35rem;
+}
+.tracking-planeacion-view .dataTables_wrapper .dataTables_length,
+.tracking-planeacion-view .dataTables_wrapper .dataTables_filter,
+.tracking-planeacion-view .dataTables_wrapper .dt-length,
+.tracking-planeacion-view .dataTables_wrapper .dt-search {
+    color: #374151;
+    font-size: .85rem;
+}
+.tracking-planeacion-view .dataTables_wrapper .dataTables_filter input,
+.tracking-planeacion-view .dataTables_wrapper .dt-search input,
+.tracking-planeacion-view .trk-table-toolbar .form-control {
+    border-radius: .55rem;
+    border-color: #cfd8e3;
+}
+.tracking-planeacion-view .trk-table-toolbar {
+    padding: .75rem 0 1.25rem;
+}
+.tracking-planeacion-view #tablaCreditos.trk-operacion-table thead th,
+.tracking-planeacion-view #tablaBorradores.trk-borradores-table thead th {
+    border-bottom-color: #dbe4f0;
+    color: #62738d;
+    padding-top: 1.05rem;
+    padding-bottom: 1.05rem;
+}
+.tracking-planeacion-view #tablaCreditos.trk-operacion-table tbody td,
+.tracking-planeacion-view #tablaBorradores.trk-borradores-table tbody td {
+    border-bottom-color: #edf2f7;
+}
+body.dark-mode .tracking-planeacion-view {
+    --track-bg-card: #17212b;
+    --track-border:  #334155;
+}
+body.dark-mode .tracking-planeacion-view .track-header {
+    background: #1f3b73;
+}
+body.dark-mode .trk-planeacion-shell,
+body.dark-mode .tracking-planeacion-view .tab-content {
+    background: #17212b;
+    border-color: #334155;
+}
+body.dark-mode .tracking-planeacion-view .track-filters {
+    background: #111827;
+    border-color: #334155;
+}
+body.dark-mode .tracking-planeacion-view .track-tabs .nav-link,
+body.dark-mode .tracking-planeacion-view .track-tabs .nav-link:link,
+body.dark-mode .tracking-planeacion-view .track-tabs .nav-link:visited,
+body.dark-mode .tracking-planeacion-view .track-tabs .nav-link:hover,
+body.dark-mode .tracking-planeacion-view .track-tabs .nav-link:focus {
+    color: #cbd5e1 !important;
+}
+body.dark-mode .tracking-planeacion-view .track-tabs .nav-link.active {
+    color: #fff !important;
+}
+
 /* -- Lista de creditos en modal (sortable) -- */
 .track-credito-row {
     background: #fff;
@@ -2212,6 +2390,10 @@ $trackingCatalogoDefaultView = isset($tracking_catalogo_default_view) && in_arra
 $trackingShowNewRouteButton = !isset($tracking_show_new_route_button)
     ? !($trackingInitialSection === 'catalogos' && $trackingVisibleSections === ['catalogos'])
     : !empty($tracking_show_new_route_button);
+$trackingIsPlaneacion = $trackingShowMainTabs
+    && count($trackingVisibleSections) === 2
+    && in_array('creditos', $trackingVisibleSections, true)
+    && in_array('borradores', $trackingVisibleSections, true);
 ?>
 <?php if (!empty($tracking_hide_section_cards)): ?>
 <style>
@@ -2246,7 +2428,7 @@ $trackingShowNewRouteButton = !isset($tracking_show_new_route_button)
 </style>
 <?php endif; ?>
 
-<div class="container-fluid py-3 px-3 px-md-4">
+<div class="container-fluid py-3 px-3 px-md-4<?= $trackingIsPlaneacion ? ' tracking-planeacion-view' : ''; ?>">
 
     <!-- -- Cabecera -- -->
     <div class="track-header d-flex align-items-center justify-content-between flex-wrap gap-2">
@@ -2308,6 +2490,8 @@ $trackingShowNewRouteButton = !isset($tracking_show_new_route_button)
             </div>
         </button>
     </div>
+
+    <div class="<?= $trackingIsPlaneacion ? 'trk-planeacion-shell' : 'trk-module-content'; ?>">
 
     <ul class="nav nav-tabs track-tabs mb-3 d-none" id="trackMainTabs">
         <li class="nav-item">
@@ -2614,6 +2798,8 @@ $trackingShowNewRouteButton = !isset($tracking_show_new_route_button)
         </div>
     </div><!-- /tab-content -->
 
+    </div><!-- /trk-planeacion-shell -->
+
 </div><!-- /container-fluid -->
 
 <!-- ==========================================================
@@ -2804,7 +2990,7 @@ $trackingShowNewRouteButton = !isset($tracking_show_new_route_button)
                             Nombre de ruta <span class="text-danger">*</span>
                         </label>
                         <input type="text" class="form-control form-control-sm"
-                               id="rutaNombre" maxlength="100" placeholder="Ej. Ruta GDL Norte Junio">
+                               id="rutaNombre" maxlength="100" placeholder="Ej. Ruta GDL Norte Junio" style="text-transform:uppercase;">
                         <div class="form-text small mt-1" id="rutaNombreStatus"></div>
                     </div>
                     <div class="col-12 col-md-4">
@@ -3683,8 +3869,8 @@ function _trkInicializarFiltros() {
 }
 
 function _trkCreditoTieneUbicacionFiltro(c, requiereMunicipio = false) {
-    const estado = _trkEstadoCanonico(c?.estado, c?.municipio) || String(c?.estado || '').trim();
-    const municipio = String(c?.municipio || '').trim();
+    const estado = _trkEstadoMayus(c?.estado, c?.municipio);
+    const municipio = _trkMunicipioMayus(c?.municipio, estado);
     if (!estado) return false;
     if (String(estado).toUpperCase().startsWith('SIN ESTADO')) return false;
     if (['NA', 'N/A', 'SIN ESTADO', 'SIN UBICACION', 'NO DISPONIBLE'].includes(_trkNormTxt(estado))) return false;
@@ -3698,7 +3884,7 @@ function _trkPoblarFiltroEstadosPrincipales(creditos) {
     const conteo = new Map();
     (creditos || []).forEach(c => {
         if (!_trkCreditoTieneUbicacionFiltro(c, true)) return;
-        const estado = _trkEstadoCanonico(c.estado, c.municipio) || String(c.estado || '').trim();
+        const estado = _trkEstadoMayus(c.estado, c.municipio);
         conteo.set(estado, (conteo.get(estado) || 0) + 1);
     });
     const estados = [...conteo.keys()].sort((a, b) => a.localeCompare(b));
@@ -3729,7 +3915,7 @@ function _trkPoblarFiltroMunicipiosPrincipales(estado) {
     (_trk.creditosFiltroBase || []).forEach(c => {
         if (!_trkCreditoTieneUbicacionFiltro(c, true)) return;
         if (!_trkMismaUbicacionEstado(c.estado, estado, c.municipio)) return;
-        const municipio = _trkMunicipioFiltroCanonico(c.municipio, c.estado);
+        const municipio = _trkMunicipioMayus(c.municipio, c.estado);
         if (!municipio) return;
         conteo.set(municipio, (conteo.get(municipio) || 0) + 1);
     });
@@ -3750,7 +3936,12 @@ function _trkCargarEstados(force = false) {
     if (_trk.cargadoEstados && !force) return Promise.resolve();
     return trkFetch('/TrackingRecoleccion/obtenerCreditosPaso2')
         .then(r => {
-            _trk.creditosFiltroBase = r.datos || [];
+            _trk.creditosFiltroBase = (r.datos || []).map(c => ({
+                ...c,
+                estado_raw: c.estado || '',
+                estado: _trkEstadoMayus(c.estado, c.municipio),
+                municipio: _trkMunicipioMayus(c.municipio, c.estado),
+            }));
             _trkPoblarFiltroEstadosPrincipales(_trk.creditosFiltroBase);
             _trk.cargadoEstados = true;
         });
@@ -3758,8 +3949,8 @@ function _trkCargarEstados(force = false) {
 
 // --- Tabla de creditos ----------------------------------
 function _trkRenderLocationBadges(estado, municipio) {
-    const est = _trkEstadoCanonico(estado, municipio) || String(estado || '').trim();
-    const mun = _trkMunicipioFiltroCanonico(municipio, est || estado);
+    const est = _trkEstadoMayus(estado, municipio);
+    const mun = _trkMunicipioMayus(municipio, est || estado);
     if (!est && !mun) return ' - ';
     const parts = [];
     if (est) parts.push(`<span class="trk-loc-badge trk-loc-estado" title="Estado">${_trkChatEscapeHtml(est)}</span>`);
@@ -3905,7 +4096,12 @@ function _trkCargarCreditosPaso2(silent = false) {
 
     return trkFetch(url)
         .then(r => {
-            _trk.creditosDisponibles = r.datos || [];
+            _trk.creditosDisponibles = (r.datos || []).map(c => ({
+                ...c,
+                estado_raw: c.estado || '',
+                estado: _trkEstadoMayus(c.estado, c.municipio),
+                municipio: _trkMunicipioMayus(c.municipio, c.estado),
+            }));
             if (!estado && !municipio) {
                 _trk.creditosFiltroBase = _trk.creditosDisponibles;
                 _trkPoblarFiltroEstadosPrincipales(_trk.creditosFiltroBase);
@@ -4767,7 +4963,7 @@ function _trkRutaPermiteAgregarCredito(ruta, cred) {
 function _trkEstadosRutaQuick(ruta) {
     const estados = new Set();
     const agregar = (estado, municipio = '') => {
-        const canon = _trkEstadoCanonico(estado, municipio) || String(estado || '').trim();
+        const canon = _trkEstadoMayus(estado, municipio);
         if (!canon) return;
         if (['MULTIPLE_ESTADOS', 'VARIOS', 'NACIONAL'].includes(String(canon).toUpperCase())) return;
         estados.add(canon);
@@ -4798,7 +4994,7 @@ function _trkQuickRutaHtml(ruta, cred) {
     const idRuta = Number(ruta.id_ruta || ruta.id || 0);
     const nombre = _trkSanitizarNombreRuta(ruta.nombre_ruta || `Ruta #${idRuta}`) || `Ruta #${idRuta}`;
     const estados = _trkEstadosRutaQuick(ruta);
-    const estadoTexto = estados.length ? estados.join(' / ') : (_trkEstadoCanonico(ruta.estado, ruta.municipio) || 'Sin estado definido');
+    const estadoTexto = estados.length ? estados.join(' / ') : (_trkEstadoMayus(ruta.estado, ruta.municipio) || 'SIN ESTADO DEFINIDO');
     const tipo = String(ruta.tipo_transportista || ruta.transportista?.tipo_transportista || '').toLowerCase();
     const tipoBadge = tipo === 'interno'
         ? '<span class="badge bg-success ms-1">Interno</span>'
@@ -4852,7 +5048,7 @@ function _trkRenderQuickRutas() {
 async function _trkAbrirModalAgregarCreditoRuta(cred) {
     _trk.quickAddCredito = cred;
     _trk.quickAddEstado = '';
-    const estado = _trkEstadoCanonico(cred.estado, cred.municipio) || cred.estado || 'Sin estado';
+    const estado = _trkEstadoMayus(cred.estado, cred.municipio) || 'SIN ESTADO';
     const modelo = [cred.moto_marca, cred.moto_modelo].filter(Boolean).join(' ') || 'Sin modelo';
     $('#trkQuickCreditSummary').html(`
         <div class="d-flex align-items-start justify-content-between gap-2 flex-wrap">
@@ -5025,8 +5221,8 @@ function _trkRenderHoraBorrador(r) {
 function _trkBorradorUbicaciones(r) {
     const map = new Map();
     const add = (estado, municipio) => {
-        const est = _trkEstadoCanonico(estado, municipio) || String(estado || '').trim();
-        const mun = _trkMunicipioFiltroCanonico(municipio, est);
+        const est = _trkEstadoMayus(estado, municipio);
+        const mun = _trkMunicipioMayus(municipio, est);
         if (!_trkCreditoTieneUbicacionFiltro({ estado: est, municipio: mun }, false)) return;
         const key = `${_trkNormTxt(est)}|${_trkNormTxt(mun)}`;
         if (!map.has(key)) map.set(key, { estado: est, municipio: mun });
@@ -5241,10 +5437,19 @@ function _trkInicializarTablaBorradorDT() {
                 orderable: false,
                 searchable: false,
                 className: 'text-center align-middle',
-                render: r => `<button class="btn btn-icon btn-sm rounded-pill btn-label-warning trk-action-btn btn-editar-borrador"
-                                   data-id="${r.id_ruta}" title="Editar borrador">
-                                   <i class="fa-solid fa-pen-to-square"></i>
-                               </button>`,
+                render: r => {
+                    const nombre = _trkChatEscapeHtml(_trkSanitizarNombreRuta(r?.nombre_ruta || 'Borrador') || 'Borrador');
+                    return `<div class="d-flex justify-content-center gap-1">
+                        <button class="btn btn-icon btn-sm rounded-pill btn-label-warning trk-action-btn btn-editar-borrador"
+                            data-id="${r.id_ruta}" title="Editar borrador">
+                            <i class="fa-solid fa-pen-to-square"></i>
+                        </button>
+                        <button class="btn btn-icon btn-sm rounded-pill btn-label-danger trk-action-btn btn-eliminar-borrador"
+                            data-id="${r.id_ruta}" data-nombre="${nombre}" title="Borrar borrador">
+                            <i class="fa-solid fa-trash"></i>
+                        </button>
+                    </div>`;
+                },
             },
         ],
         drawCallback: function () {
@@ -5256,6 +5461,9 @@ function _trkInicializarTablaBorradorDT() {
 
     $('#tablaBorradores').on('click', '.btn-editar-borrador', function () {
         _trkCargarRutaEnModal($(this).data('id'), false);
+    });
+    $('#tablaBorradores').on('click', '.btn-eliminar-borrador', function () {
+        _trkEliminarBorrador($(this).data('id'), $(this).data('nombre') || 'Borrador');
     });
 }
 
@@ -5273,6 +5481,53 @@ function _trkCargarBorradores(silent = false) {
         .catch(err => {
             if (!silent) console.warn('[Tracking Recoleccion] Error al cargar borradores', err);
         });
+}
+
+async function _trkEliminarBorrador(idRuta, nombre = 'Borrador') {
+    idRuta = parseInt(idRuta, 10);
+    if (!idRuta) return;
+    const ok = await Swal.fire({
+        icon: 'warning',
+        title: 'Borrar borrador?',
+        html: `<div class="text-start small">
+            <div class="mb-2">Esta accion eliminara el borrador seleccionado.</div>
+            <div class="fw-semibold">${_trkChatEscapeHtml(nombre)}</div>
+        </div>`,
+        showCancelButton: true,
+        confirmButtonText: 'Si, borrar',
+        cancelButtonText: 'Cancelar',
+        confirmButtonColor: '#ef4444',
+    });
+    if (!ok.isConfirmed) return;
+
+    Swal.fire({
+        title: 'Eliminando borrador...',
+        allowOutsideClick: false,
+        allowEscapeKey: false,
+        showConfirmButton: false,
+        didOpen: () => Swal.showLoading(),
+    });
+
+    trkFetch('/TrackingRecoleccion/eliminarBorrador', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id_ruta: idRuta }),
+    }).then(r => {
+        if (!r.success) {
+            Swal.fire({ icon: 'error', title: 'No se pudo borrar', text: r.mensaje || r.message || 'Intenta nuevamente.', confirmButtonText: 'Aceptar' });
+            return;
+        }
+        if (String(_trk.idRutaEditando || '') === String(idRuta)) {
+            bootstrap.Modal.getInstance(document.getElementById('modalRegistrarRuta'))?.hide();
+            _trkResetModal();
+        }
+        Swal.fire({ icon: 'success', title: 'Borrador eliminado', timer: 1400, showConfirmButton: false });
+        _trkCargarCreditosPaso2();
+        _trkCargarBorradores();
+        _trkCargarRutas();
+    }).catch(() => {
+        Swal.fire({ icon: 'error', title: 'Error de conexion', text: 'No se pudo borrar el borrador.', confirmButtonText: 'Aceptar' });
+    });
 }
 
 // --- Carga inicial de todos los datos en paralelo ---------
@@ -5413,8 +5668,8 @@ function _trkCatalogoFiltradoTexto(item, tipo) {
         return [
             item.nombre_agencia,
             item.clave_agencia,
-            item.estado,
-            item.municipio,
+            _trkUbicacionMayus(item.estado),
+            _trkUbicacionMayus(item.municipio),
             item.direccion,
             item.encargado,
             item.email,
@@ -5670,8 +5925,8 @@ function _trkAbrirModalCedisTracking(id = 0) {
     $('#cedisNombreTracking').val(a?.nombre_agencia || '');
     $('#cedisClaveTracking').val(a?.clave_agencia || '');
     $('#cedisDireccionTracking').val(a?.direccion || '');
-    $('#cedisEstadoTracking').val(a?.estado || '');
-    $('#cedisMunicipioTracking').val(a?.municipio || '');
+    $('#cedisEstadoTracking').val(_trkUbicacionMayus(a?.estado || ''));
+    $('#cedisMunicipioTracking').val(_trkUbicacionMayus(a?.municipio || ''));
     $('#cedisCpTracking').val(a?.codigo_postal || '');
     $('#cedisLatTracking').val(a?.latitud ?? '');
     $('#cedisLngTracking').val(a?.longitud ?? '');
@@ -5711,8 +5966,8 @@ function _trkPayloadCedisTracking() {
         clave_agencia: $('#cedisClaveTracking').val(),
         tipo_ubicacion: 'agencia',
         direccion: $('#cedisDireccionTracking').val(),
-        estado: $('#cedisEstadoTracking').val(),
-        municipio: $('#cedisMunicipioTracking').val(),
+        estado: _trkUbicacionMayus($('#cedisEstadoTracking').val()),
+        municipio: _trkUbicacionMayus($('#cedisMunicipioTracking').val()),
         codigo_postal: $('#cedisCpTracking').val(),
         latitud: $('#cedisLatTracking').val(),
         longitud: $('#cedisLngTracking').val(),
@@ -5815,7 +6070,11 @@ function _trkCargarCatalogoAgenciasTransportistas(silent = false) {
             const datos = catalogoResp.datos || {};
             const cedisApi = _trkExtraerCedisTracking(cedisResp);
             const cedisLocal = _trkFiltrarCedisActivos(datos.agencias || []);
-            _trk.agenciasTracking = cedisApi.length ? cedisApi : cedisLocal;
+            _trk.agenciasTracking = (cedisApi.length ? cedisApi : cedisLocal).map(a => ({
+                ...a,
+                estado: _trkUbicacionMayus(a?.estado || ''),
+                municipio: _trkUbicacionMayus(a?.municipio || ''),
+            }));
             _trk.transportistasTracking = datos.transportistas || [];
             _trkPoblarAgenciasTrackingSelect();
             _trkRefrescarSelectTransportistas();
@@ -6379,6 +6638,20 @@ function _trkInicializarModal() {
     $('#rutaDiasMinimosTxt').text(_trkDiasMinimosProgramacion());
 
     $('#rutaNombre').on('input paste blur', function (e) {
+        if (e.type === 'input') {
+            const cursor = this.selectionStart;
+            const upper = String(this.value || '').toUpperCase();
+            if (upper !== this.value) {
+                this.value = upper;
+                if (Number.isInteger(cursor)) {
+                    try { this.setSelectionRange(cursor, cursor); } catch (_) {}
+                }
+            }
+        }
+        if (e.type === 'blur') {
+            const limpio = _trkSanitizarNombreRuta(this.value);
+            if (limpio && limpio !== this.value.trim()) this.value = limpio;
+        }
         _trkMarcarCambio();
         _trkProgramarValidacionNombreRuta(e.type === 'blur' ? 80 : 650);
     });
@@ -6534,8 +6807,8 @@ async function _trkAbrirModalConCredito(cred) {
     _trkAgregarCreditoALista(cred);
     // Pre-seleccionar estado/municipio del credito en los filtros
     if (cred.estado) {
-        $('#crdFiltroEstado').val(_trkEstadoCanonico(cred.estado, cred.municipio) || cred.estado).trigger('change');
-        const municipioFiltro = _trkMunicipioFiltroCanonico(cred.municipio, cred.estado);
+        $('#crdFiltroEstado').val(_trkEstadoMayus(cred.estado, cred.municipio)).trigger('change');
+        const municipioFiltro = _trkMunicipioMayus(cred.municipio, cred.estado);
         if (municipioFiltro) {
             $('#crdFiltroMunicipio').val(municipioFiltro).trigger('change');
         }
@@ -6616,7 +6889,7 @@ function _trkPoblarFiltroEstadosCrd() {
     const estadoActual = $('#crdFiltroEstado').val();
     const estados = [...new Set(
         _trk.creditosDisponibles
-            .map(c => _trkEstadoCanonico(c.estado, c.municipio))
+            .map(c => _trkEstadoMayus(c.estado, c.municipio))
             .filter(Boolean)
     )].sort();
     const $est = $('#crdFiltroEstado');
@@ -6670,6 +6943,18 @@ function _trkMunicipioFiltroCanonico(municipio, estado = '') {
     return mun;
 }
 
+function _trkUbicacionMayus(valor) {
+    return _trkEstadoTextoBase(valor);
+}
+
+function _trkEstadoMayus(estado, municipio = '') {
+    return _trkEstadoCanonico(estado, municipio) || _trkUbicacionMayus(estado);
+}
+
+function _trkMunicipioMayus(municipio, estado = '') {
+    return _trkMunicipioFiltroCanonico(municipio, estado) || _trkUbicacionMayus(municipio);
+}
+
 function _trkMismaUbicacionMunicipio(municipioA, municipioB) {
     return _trkMunicipioCanonico(municipioA) === _trkMunicipioCanonico(municipioB);
 }
@@ -6682,7 +6967,7 @@ function _trkCreditosPorEstado(estado) {
 function _trkCreditosPorMunicipio(estado, municipio) {
     if (!estado || !municipio) return [];
     return _trk.creditosDisponibles.filter(c =>
-        _trkMismaUbicacionEstado(c.estado, estado, c.municipio) && _trkMismaUbicacionMunicipio(_trkMunicipioFiltroCanonico(c.municipio, c.estado), municipio)
+        _trkMismaUbicacionEstado(c.estado, estado, c.municipio) && _trkMismaUbicacionMunicipio(_trkMunicipioMayus(c.municipio, c.estado), municipio)
     );
 }
 
@@ -6734,7 +7019,7 @@ function _trkPoblarFiltroMunicipiosCrd(estado) {
     _trk.creditosDisponibles
         .filter(c => _trkMismaUbicacionEstado(c.estado, estado, c.municipio) && c.municipio)
         .forEach(c => {
-            const mun = _trkMunicipioFiltroCanonico(c.municipio, c.estado);
+            const mun = _trkMunicipioMayus(c.municipio, c.estado);
             if (mun && !municipiosMap.has(mun)) municipiosMap.set(mun, mun);
         });
     const municipios = [...municipiosMap.values()].sort();
@@ -6769,7 +7054,7 @@ function _trkRefrescarSelectCreditos() {
     _trk.creditosDisponibles.forEach(c => {
         if (idsEnRuta.has(String(c.id_credito))) return;
         if (estFiltro && !_trkMismaUbicacionEstado(c.estado, estFiltro, c.municipio)) return;
-        if (munFiltro && !_trkMismaUbicacionMunicipio(_trkMunicipioFiltroCanonico(c.municipio, c.estado), munFiltro)) return;
+        if (munFiltro && !_trkMismaUbicacionMunicipio(_trkMunicipioMayus(c.municipio, c.estado), munFiltro)) return;
         const modelo = [c.moto_marca, c.moto_modelo].filter(Boolean).join(' ');
         const label  = `#${c.id_credito}  -  ${modelo || '(sin modelo)'}  -  ${c.bin || ' - '}`;
         $sel.append(`<option value="${c.id_credito}">${label}</option>`);
@@ -6786,7 +7071,8 @@ function _trkAgregarCreditoALista(cred) {
     cred = {
         ...cred,
         estado_raw: cred.estado || '',
-        estado: _trkEstadoCanonico(cred.estado, cred.municipio) || cred.estado || '',
+        estado: _trkEstadoMayus(cred.estado, cred.municipio),
+        municipio: _trkMunicipioMayus(cred.municipio, cred.estado),
     };
     const tipoSeleccionado = _trkTransportistaSeleccionado()?.tipo_transportista || $('#rutaTipoTransportista').val();
     if (tipoSeleccionado === 'interno' && !_trkEsZonaInterna(cred.estado, cred.municipio)) {
@@ -6886,11 +7172,12 @@ function _trkRenderListaCreditos() {
         const optsFin = _trkEtaHoraOpts(etaFin.h);
         const etaLectura = filaLectura
             ? `<div class="eta-row d-flex align-items-center gap-1 mt-1 flex-wrap">
-                    <span class="text-muted fw-semibold" style="font-size:.7rem;white-space:nowrap;">ETA:</span>
+                    <span class="text-muted fw-semibold" style="font-size:.7rem;white-space:nowrap;">Horas estimadas:</span>
                     ${etaInfo.html}
                     <span class="badge bg-light text-dark border">${_trkChatEscapeHtml(c.fecha_eta || 'Sin fecha')}</span>
                     ${(c.hora_eta_ini && c.hora_eta_fin)
-                        ? `<span class="badge bg-light text-dark border">${_trkFormatHora(c.hora_eta_ini)} - ${_trkFormatHora(c.hora_eta_fin)}</span>`
+                        ? `<span class="badge bg-light text-dark border">Inicio: ${_trkFormatHora(c.hora_eta_ini)}</span>
+                           <span class="badge bg-light text-dark border">Llegada: ${_trkFormatHora(c.hora_eta_fin)}</span>`
                         : '<span class="badge bg-light text-dark border">Sin horario</span>'}
                 </div>`
             : null;
@@ -6908,19 +7195,21 @@ function _trkRenderListaCreditos() {
                 </span>
                 ${_trkRenderDireccionCredito(c)}
                 ${filaLectura ? etaLectura : `<div class="eta-row d-flex align-items-center gap-1 mt-1 flex-wrap">
-                    <span class="text-muted fw-semibold" style="font-size:.7rem;white-space:nowrap;">ETA:</span>
+                    <span class="text-muted fw-semibold" style="font-size:.7rem;white-space:nowrap;">Horas estimadas:</span>
                     ${etaInfo.html}
                     <input type="date" class="form-control eta-fecha" data-id="${c.id_credito}" value="${c.fecha_eta || ''}" min="${_trkFechaRutaBase()}" style="max-width:130px;" title="Fecha estimada de llegada">
-                    <select class="form-select form-select-sm eta-h" data-id="${c.id_credito}" data-tipo="ini" style="width:62px;flex-shrink:0;" title="Hora inicio">${optsIni}</select>
+                    <span class="badge bg-label-secondary">Inicio</span>
+                    <select class="form-select form-select-sm eta-h" data-id="${c.id_credito}" data-tipo="ini" style="width:62px;flex-shrink:0;" title="Hora de inicio">${optsIni}</select>
                     <input type="text" class="form-control text-center fw-semibold eta-m" data-id="${c.id_credito}" data-tipo="ini" inputmode="numeric" maxlength="2" placeholder="00" autocomplete="off" value="${etaIni.m}" style="width:48px;flex-shrink:0;letter-spacing:.05em;" title="Minutos inicio">
                     <select class="form-select form-select-sm eta-ap" data-id="${c.id_credito}" data-tipo="ini" style="width:62px;flex-shrink:0;" title="AM/PM inicio">
                         <option value="AM"${etaIni.ampm === 'AM' ? ' selected' : ''}>AM</option>
                         <option value="PM"${etaIni.ampm === 'PM' ? ' selected' : ''}>PM</option>
                     </select>
                     <span class="text-muted" style="font-size:.7rem;line-height:1;">-</span>
-                    <select class="form-select form-select-sm eta-h" data-id="${c.id_credito}" data-tipo="fin" style="width:62px;flex-shrink:0;" title="Hora fin (minimo 4 horas despues)">${optsFin}</select>
-                    <input type="text" class="form-control text-center fw-semibold eta-m" data-id="${c.id_credito}" data-tipo="fin" inputmode="numeric" maxlength="2" placeholder="00" autocomplete="off" value="${etaFin.m}" style="width:48px;flex-shrink:0;letter-spacing:.05em;" title="Minutos fin (minimo 4 horas despues)">
-                    <select class="form-select form-select-sm eta-ap" data-id="${c.id_credito}" data-tipo="fin" style="width:62px;flex-shrink:0;" title="AM/PM fin (minimo 4 horas despues)">
+                    <span class="badge bg-label-secondary">Llegada</span>
+                    <select class="form-select form-select-sm eta-h" data-id="${c.id_credito}" data-tipo="fin" style="width:62px;flex-shrink:0;" title="Hora de llegada (minimo 4 horas despues)">${optsFin}</select>
+                    <input type="text" class="form-control text-center fw-semibold eta-m" data-id="${c.id_credito}" data-tipo="fin" inputmode="numeric" maxlength="2" placeholder="00" autocomplete="off" value="${etaFin.m}" style="width:48px;flex-shrink:0;letter-spacing:.05em;" title="Minutos llegada (minimo 4 horas despues)">
+                    <select class="form-select form-select-sm eta-ap" data-id="${c.id_credito}" data-tipo="fin" style="width:62px;flex-shrink:0;" title="AM/PM llegada (minimo 4 horas despues)">
                         <option value="AM"${etaFin.ampm === 'AM' ? ' selected' : ''}>AM</option>
                         <option value="PM"${etaFin.ampm === 'PM' ? ' selected' : ''}>PM</option>
                     </select>
@@ -6967,8 +7256,8 @@ function _trkRenderListaCreditos() {
                     val = base;
                     Swal.fire({
                         icon: 'warning',
-                        title: 'Fecha ETA invalida',
-                        text: 'La ETA no puede ser anterior a la fecha de salida de la ruta.',
+                        title: 'Fecha de horas estimadas invalida',
+                        text: 'Las horas estimadas no pueden ser anteriores a la fecha de salida de la ruta.',
                         confirmButtonText: 'Aceptar',
                     });
                 }
@@ -7794,15 +8083,15 @@ function _trkPickerExtraerGeo(components, formattedAddress = '') {
     const municipio = estadoCanonico === 'CIUDAD DE MEXICO'
         ? (alcaldia || sublocalidad || localidad || barrio)
         : (localidad || alcaldia || sublocalidad || barrio);
-    _trkPicker.selectedEstado    = estado    || null;
-    _trkPicker.selectedMunicipio = municipio || null;
+    _trkPicker.selectedEstado    = _trkEstadoMayus(estadoCanonico || estado, municipio) || null;
+    _trkPicker.selectedMunicipio = _trkMunicipioMayus(municipio, _trkPicker.selectedEstado) || null;
     _trkPicker.selectedDireccion = formattedAddress || _trkPicker.selectedDireccion || null;
     const geoDiv  = document.getElementById('mapPickerGeoInfo');
     const geoSpan = document.getElementById('mapPickerEstadoMun');
     const dirWrap = document.getElementById('mapPickerDireccionWrap');
     const dirSpan = document.getElementById('mapPickerDireccionCompleta');
-    if (estado || municipio) {
-        geoSpan.textContent = [municipio, estado].filter(Boolean).join(', ');
+    if (_trkPicker.selectedEstado || _trkPicker.selectedMunicipio) {
+        geoSpan.textContent = [_trkPicker.selectedMunicipio, _trkPicker.selectedEstado].filter(Boolean).join(', ');
         geoDiv.classList.remove('d-none');
     } else {
         geoDiv.classList.add('d-none');
@@ -7843,8 +8132,8 @@ function _trkConfirmarMapPicker() {
         cred.latitud  = lat;
         cred.longitud = lng;
         // Aplicar estado/municipio detectados por geocodificacion
-        if (_trkPicker.selectedEstado)    cred.estado    = _trkPicker.selectedEstado;
-        if (_trkPicker.selectedMunicipio) cred.municipio = _trkPicker.selectedMunicipio;
+        if (_trkPicker.selectedEstado)    cred.estado    = _trkEstadoMayus(_trkPicker.selectedEstado, _trkPicker.selectedMunicipio);
+        if (_trkPicker.selectedMunicipio) cred.municipio = _trkMunicipioMayus(_trkPicker.selectedMunicipio, cred.estado);
         if (_trkPicker.selectedDireccion) {
             cred.direccion_google = _trkPicker.selectedDireccion;
             cred.direccion = _trkPicker.selectedDireccion;
@@ -8011,7 +8300,7 @@ function _trkEstadoEta(c, estatusReal = null) {
     const real = String(estatusReal || '').toLowerCase();
     const done = ['recolectada', 'completado', 'completada'].includes(real);
     if (!ini || !fin) {
-        return { key: 'sin_eta', label: 'Sin ETA', html: '<span class="badge bg-secondary-subtle text-secondary border">Sin ETA</span>' };
+        return { key: 'sin_eta', label: 'Sin horas estimadas', html: '<span class="badge bg-secondary-subtle text-secondary border">Sin horas estimadas</span>' };
     }
     if (done) {
         return { key: 'completado', label: 'Completado', html: '<span class="badge bg-success-subtle text-success border">Completado</span>' };
@@ -8151,8 +8440,8 @@ async function _trkConfirmarRutaNoOptimaSiAplica(modo) {
 function _trkUbicacionesResumenEnvio() {
     const grupos = new Map();
     (_trk.creditosEnRuta || []).forEach(c => {
-        const estado = _trkEstadoCanonico(c?.estado, c?.municipio) || String(c?.estado || '').trim() || 'Sin estado';
-        const municipio = _trkMunicipioFiltroCanonico(c?.municipio, estado) || 'Sin municipio';
+        const estado = _trkEstadoMayus(c?.estado, c?.municipio) || 'SIN ESTADO';
+        const municipio = _trkMunicipioMayus(c?.municipio, estado) || 'SIN MUNICIPIO';
         const key = `${estado}|||${municipio}`;
         if (!grupos.has(key)) grupos.set(key, { estado, municipio, creditos: [] });
         grupos.get(key).creditos.push({
@@ -8316,7 +8605,7 @@ function _trkSleep(ms) {
 function _trkAutosaveHash() {
     return JSON.stringify({
         id_ruta: _trk.idRutaEditando || 0,
-        nombre: $('#rutaNombre').val().trim(),
+        nombre: _trkSanitizarNombreRuta($('#rutaNombre').val()),
         fecha: $('#rutaFecha').val() || '',
         hora: _trkHoraToPayload(),
         id_transportista: $('#rutaTransportistaTracking').val() || '',
@@ -8337,7 +8626,7 @@ function _trkAutosaveHash() {
 function _trkPuedeAutosaveBorrador() {
     if (_trk.cargando || _trk.soloLectura || _trkRutaEstaCancelada()) return false;
     if (_trk.idRutaEditando && String(_trk.estatusRuta || '').toLowerCase() !== 'borrador') return false;
-    if (!$('#rutaNombre').val().trim()) return false;
+    if (!_trkSanitizarNombreRuta($('#rutaNombre').val())) return false;
     if (_trk.nombreRutaValidando || _trk.nombreRutaDisponible === false) return false;
     if ($('#rutaCedisDestino').val() && !_trkValidarReglasTransportista().ok) return false;
     return true;
@@ -8393,6 +8682,27 @@ async function _trkEjecutarAutosaveBorrador() {
 
 function _trkExtraerIdRutaRespuesta(r) {
     return r?.id_ruta || r?.idRuta || r?.datos?.id_ruta || r?.data?.id_ruta || null;
+}
+
+function _trkDescargarPdfEvidenciaRuta(idRuta) {
+    if (!idRuta) return;
+    const url = `/TrackingRecoleccion/pdfEvidenciaRuta?id_ruta=${encodeURIComponent(idRuta)}`;
+    const now = new Date();
+    const dd = String(now.getDate()).padStart(2, '0');
+    const mm = String(now.getMonth() + 1).padStart(2, '0');
+    const yyyy = now.getFullYear();
+    let hh = now.getHours();
+    const ampm = hh >= 12 ? 'PM' : 'AM';
+    hh = hh % 12 || 12;
+    const min = String(now.getMinutes()).padStart(2, '0');
+    const filename = `EvidenciaRuta_${dd}.${mm}.${yyyy}_${String(hh).padStart(2, '0')}.${min}_${ampm}_No.${idRuta}.pdf`;
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    a.style.display = 'none';
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(() => a.remove(), 1000);
 }
 
 function _trkGuardarRutaError(mensaje, opts = {}) {
@@ -8594,8 +8904,8 @@ async function _trkGuardarBorradorAutomatico() {
     const idAgenciaTracking = transportistaSel?.id_agencia || '';
     const idCedisDestino = $('#rutaCedisDestino').val();
     const geoRuta = _trkGeoResumenRuta();
-    const municipio = $('#crdFiltroMunicipio').val() || geoRuta.municipio;
-    const estado = _trkEstadoCanonico($('#crdFiltroEstado').val() || geoRuta.estado, municipio) || ($('#crdFiltroEstado').val() || geoRuta.estado);
+    const municipio = _trkMunicipioMayus($('#crdFiltroMunicipio').val() || geoRuta.municipio, $('#crdFiltroEstado').val() || geoRuta.estado);
+    const estado = _trkEstadoMayus($('#crdFiltroEstado').val() || geoRuta.estado, municipio);
 
     if (_trk.creditosEnRuta.some(c => c.fecha_eta && _trkCompararFecha(c.fecha_eta, fecha) < 0)) {
         return false;
@@ -8619,8 +8929,8 @@ async function _trkGuardarBorradorAutomatico() {
             id_credito: c.id_credito,
             modelo: [c.moto_marca, c.moto_modelo].filter(Boolean).join(' '),
             bin: c.bin || '',
-            estado: _trkEstadoCanonico(c.estado, c.municipio) || c.estado || '',
-            municipio: c.municipio || '',
+            estado: _trkEstadoMayus(c.estado, c.municipio),
+            municipio: _trkMunicipioMayus(c.municipio, c.estado),
             direccion: c.direccion || '',
             latitud: c.latitud || null,
             longitud: c.longitud || null,
@@ -8673,8 +8983,8 @@ async function _trkGuardarRuta(modo, opts = {}) {
     const idCedisDestino    = $('#rutaCedisDestino').val();
 
     const geoRuta = _trkGeoResumenRuta();
-    const municipio = $('#crdFiltroMunicipio').val() || geoRuta.municipio;
-    const estado    = _trkEstadoCanonico($('#crdFiltroEstado').val() || geoRuta.estado, municipio) || ($('#crdFiltroEstado').val() || geoRuta.estado);
+    const municipio = _trkMunicipioMayus($('#crdFiltroMunicipio').val() || geoRuta.municipio, $('#crdFiltroEstado').val() || geoRuta.estado);
+    const estado    = _trkEstadoMayus($('#crdFiltroEstado').val() || geoRuta.estado, municipio);
 
     if (!nombre) {
         if (!silent) document.getElementById('rutaNombre').focus();
@@ -8697,8 +9007,8 @@ async function _trkGuardarRuta(modo, opts = {}) {
     if (etaInvalida) {
         Swal.fire({
             icon: 'warning',
-            title: 'ETA invalida',
-            text: `La ETA del credito #${etaInvalida.id_credito} no puede ser anterior a la fecha de salida de la ruta.`,
+            title: 'Horas estimadas invalidas',
+            text: `Las horas estimadas del credito #${etaInvalida.id_credito} no pueden ser anteriores a la fecha de salida de la ruta.`,
             confirmButtonText: 'Aceptar',
         });
         return;
@@ -8749,8 +9059,8 @@ async function _trkGuardarRuta(modo, opts = {}) {
             id_credito:                  c.id_credito,
             modelo:                      [c.moto_marca, c.moto_modelo].filter(Boolean).join(' '),
             bin:                         c.bin || '',
-            estado:                      _trkEstadoCanonico(c.estado, c.municipio) || c.estado || '',
-            municipio:                   c.municipio || '',
+            estado:                      _trkEstadoMayus(c.estado, c.municipio),
+            municipio:                   _trkMunicipioMayus(c.municipio, c.estado),
             direccion:                   c.direccion || '',
             latitud:                     c.latitud  || null,
             longitud:                    c.longitud || null,
@@ -8772,8 +9082,13 @@ async function _trkGuardarRuta(modo, opts = {}) {
     })
     .then(r => {
         if (r.success) {
+            const idRutaGuardada = _trkExtraerIdRutaRespuesta(r) || payload.id_ruta || _trk.idRutaEditando;
+            if (idRutaGuardada) {
+                _trk.idRutaEditando = parseInt(idRutaGuardada, 10) || idRutaGuardada;
+            }
             _trk.haychangios = false;
             _trk.autosaveLastHash = _trkAutosaveHash();
+            if (modo === 'enviar' && idRutaGuardada) _trkDescargarPdfEvidenciaRuta(idRutaGuardada);
             Swal.fire({ icon: 'success', title: 'Listo!', text: modo === 'borrador' ? 'Borrador guardado correctamente.' : 'Ruta enviada correctamente.', timer: 2000, showConfirmButton: false });
             bootstrap.Modal.getInstance(document.getElementById('modalRegistrarRuta'))?.hide();
             _trkCargarCreditosPaso2();
@@ -8787,7 +9102,9 @@ async function _trkGuardarRuta(modo, opts = {}) {
             }
         }
     })
-    .catch(() => Swal.fire({ icon: 'error', title: 'Error de conexion', text: 'Error de conexion al guardar.', confirmButtonText: 'Aceptar' }))
+    .catch(() => {
+        Swal.fire({ icon: 'error', title: 'Error de conexion', text: 'Error de conexion al guardar.', confirmButtonText: 'Aceptar' });
+    })
     .finally(() => $btnGuardar.prop('disabled', false));
 }
 
@@ -9001,9 +9318,9 @@ function _trkCargarRutaEnModal(idRuta, soloLectura) {
                 moto_marca:                  '',
                 moto_modelo:                 det.modelo || '',
                 bin:                         det.bin || '',
-                estado:                      _trkEstadoCanonico(det.estado, det.municipio) || det.estado || '',
+                estado:                      _trkEstadoMayus(det.estado, det.municipio),
                 estado_raw:                  det.estado || '',
-                municipio:                   det.municipio || '',
+                municipio:                   _trkMunicipioMayus(det.municipio, det.estado),
                 direccion:                   det.direccion || '',
                 latitud:                     det.latitud  || null,
                 longitud:                    det.longitud || null,
@@ -9024,8 +9341,8 @@ function _trkCargarRutaEnModal(idRuta, soloLectura) {
             _trkRenderizarMapa();
 
             // Estado + Municipio via filtros de creditos
-            $('#crdFiltroEstado').val(_trkEstadoCanonico(d.estado, d.municipio) || d.estado || '').trigger('change');
-            const municipioRutaFiltro = _trkMunicipioFiltroCanonico(d.municipio, d.estado);
+            $('#crdFiltroEstado').val(_trkEstadoMayus(d.estado, d.municipio)).trigger('change');
+            const municipioRutaFiltro = _trkMunicipioMayus(d.municipio, d.estado);
             if (municipioRutaFiltro) {
                 $('#crdFiltroMunicipio').val(municipioRutaFiltro).trigger('change.select2');
             }
@@ -9081,8 +9398,8 @@ function _trkCreditosRutaFiltrados() {
     const municipio = _trkNormTxt($('#trkListaFiltroMunicipio').val());
     const q = _trkNormTxt($('#trkListaBuscar').val());
     return (_trk.creditosEnRuta || []).filter(c => {
-        if (estado && _trkNormTxt(_trkEstadoCanonico(c.estado, c.municipio)) !== estado) return false;
-        if (municipio && _trkNormTxt(_trkMunicipioFiltroCanonico(c.municipio, c.estado)) !== municipio) return false;
+        if (estado && _trkNormTxt(_trkEstadoMayus(c.estado, c.municipio)) !== estado) return false;
+        if (municipio && _trkNormTxt(_trkMunicipioMayus(c.municipio, c.estado)) !== municipio) return false;
         if (!q) return true;
         return _trkNormTxt([
             c.id_credito,
@@ -9101,7 +9418,7 @@ function _trkCreditosRutaFiltrados() {
 function _trkPoblarFiltrosListaRuta() {
     const $estado = $('#trkListaFiltroEstado');
     const actual = $estado.val();
-    const estados = [...new Set((_trk.creditosEnRuta || []).map(c => _trkEstadoCanonico(c.estado, c.municipio)).filter(Boolean))]
+    const estados = [...new Set((_trk.creditosEnRuta || []).map(c => _trkEstadoMayus(c.estado, c.municipio)).filter(Boolean))]
         .sort((a, b) => a.localeCompare(b));
     const html = '<option value="">Todos los estados</option>' + estados
         .map(e => `<option value="${_trkChatEscapeHtml(e)}">${_trkChatEscapeHtml(e)}</option>`)
@@ -9118,8 +9435,8 @@ function _trkPoblarFiltroMunicipiosListaRuta(render = true) {
     const $municipio = $('#trkListaFiltroMunicipio');
     const actual = $municipio.val();
     const municipios = [...new Set((_trk.creditosEnRuta || [])
-        .filter(c => !estado || _trkNormTxt(_trkEstadoCanonico(c.estado, c.municipio)) === estado)
-        .map(c => _trkMunicipioFiltroCanonico(c.municipio, c.estado))
+        .filter(c => !estado || _trkNormTxt(_trkEstadoMayus(c.estado, c.municipio)) === estado)
+        .map(c => _trkMunicipioMayus(c.municipio, c.estado))
         .filter(Boolean))]
         .sort((a, b) => a.localeCompare(b));
     const html = '<option value="">Todos los municipios</option>' + municipios
@@ -9160,10 +9477,10 @@ function _trkRenderPlaneadorPanel() {
     const $groups = $('#trkPlannerGroups');
     if (!$summary.length || !$groups.length) return;
     const creditos = _trk.creditosEnRuta || [];
-    const estados = new Set(creditos.map(c => _trkNormTxt(_trkEstadoCanonico(c.estado, c.municipio) || 'SIN ESTADO')));
+    const estados = new Set(creditos.map(c => _trkNormTxt(_trkEstadoMayus(c.estado, c.municipio) || 'SIN ESTADO')));
     const municipios = new Set(creditos.map(c => {
-        const estado = _trkEstadoCanonico(c.estado, c.municipio) || 'SIN ESTADO';
-        const municipio = _trkMunicipioFiltroCanonico(c.municipio, c.estado) || 'SIN MUNICIPIO';
+        const estado = _trkEstadoMayus(c.estado, c.municipio) || 'SIN ESTADO';
+        const municipio = _trkMunicipioMayus(c.municipio, c.estado) || 'SIN MUNICIPIO';
         return `${_trkNormTxt(estado)}|${_trkNormTxt(municipio)}`;
     }));
     const confirmados = creditos.filter(c => c.estatus_confirmacion_gestor === 'confirmado').length;
@@ -9180,8 +9497,8 @@ function _trkRenderPlaneadorPanel() {
     }
     const tree = {};
     creditos.forEach(c => {
-        const estado = _trkEstadoCanonico(c.estado, c.municipio) || 'SIN ESTADO';
-        const municipio = _trkMunicipioFiltroCanonico(c.municipio, c.estado) || 'SIN MUNICIPIO';
+        const estado = _trkEstadoMayus(c.estado, c.municipio) || 'SIN ESTADO';
+        const municipio = _trkMunicipioMayus(c.municipio, c.estado) || 'SIN MUNICIPIO';
         tree[estado] ??= { total: 0, confirmados: 0, pendientes: 0, rechazados: 0, municipios: {} };
         tree[estado].municipios[municipio] ??= { total: 0, confirmados: 0, pendientes: 0, rechazados: 0 };
         [tree[estado], tree[estado].municipios[municipio]].forEach(bucket => {
@@ -9232,8 +9549,8 @@ function _trkPlannerEnfocarGrupo(estado, municipio = '') {
     const estadoNorm = _trkNormTxt(estado);
     const municipioNorm = _trkNormTxt(municipio);
     const matches = (_trk.creditosEnRuta || []).filter(c => {
-        const okEstado = _trkNormTxt(_trkEstadoCanonico(c.estado, c.municipio) || 'SIN ESTADO') === estadoNorm;
-        const okMunicipio = !municipioNorm || _trkNormTxt(_trkMunicipioFiltroCanonico(c.municipio, c.estado) || 'SIN MUNICIPIO') === municipioNorm;
+        const okEstado = _trkNormTxt(_trkEstadoMayus(c.estado, c.municipio) || 'SIN ESTADO') === estadoNorm;
+        const okMunicipio = !municipioNorm || _trkNormTxt(_trkMunicipioMayus(c.municipio, c.estado) || 'SIN MUNICIPIO') === municipioNorm;
         return okEstado && okMunicipio;
     });
     $('#rutaCreditosList .track-credito-row').removeClass('trk-row-focused');
@@ -9292,10 +9609,10 @@ function _trkAsegurarGoogleMaps(callback) {
 
 function _trkGeoResumenRuta() {
     const estados = [...new Set((_trk.creditosEnRuta || [])
-        .map(c => _trkEstadoCanonico(c.estado, c.municipio))
+        .map(c => _trkEstadoMayus(c.estado, c.municipio))
         .filter(Boolean))];
     const municipios = [...new Set((_trk.creditosEnRuta || [])
-        .map(c => String(c.municipio || '').trim())
+        .map(c => _trkMunicipioMayus(c.municipio, c.estado))
         .filter(Boolean))];
     return {
         estado: estados.length > 1 ? 'MULTIPLES ESTADOS' : (estados[0] || ''),
@@ -9435,7 +9752,7 @@ function _trkRTRenderizar(ruta) {
         const label   = LABELS[est] || est;
         const etaInfo = _trkEstadoEta(cEta, est);
         const etaTxt  = (cEta.fecha_eta && cEta.hora_eta_ini && cEta.hora_eta_fin)
-            ? `${_trkFormatHora(cEta.hora_eta_ini)} - ${_trkFormatHora(cEta.hora_eta_fin)}`
+            ? `Inicio: ${_trkFormatHora(cEta.hora_eta_ini)} / Llegada: ${_trkFormatHora(cEta.hora_eta_fin)}`
             : '';
 
         // Linea 1: Credito #XXXXX  -  MARCA MODELO | Estado, Municipio
@@ -9457,7 +9774,7 @@ function _trkRTRenderizar(ruta) {
                     ${etaInfo.html}
                 </div>
                 ${cliente ? `<span class="trk-step-dir">${cliente}</span>` : ''}
-                ${etaTxt ? `<span class="trk-step-dir">ETA ${_trkChatEscapeHtml(etaTxt)}  -  ${_trkChatEscapeHtml(etaInfo.label)}</span>` : ''}
+                ${etaTxt ? `<span class="trk-step-dir">Horas estimadas ${_trkChatEscapeHtml(etaTxt)}  -  ${_trkChatEscapeHtml(etaInfo.label)}</span>` : ''}
             </div>
         </div>`;
     });
@@ -10818,7 +11135,8 @@ function _trkSanitizarNombreRuta(nombre) {
     return String(nombre || '')
         .replace(/^\s*(?:(?:#|BOR-|RUTA-)\s*\d+\s*)+/i, '')
         .replace(/\s+/g, ' ')
-        .trim();
+        .trim()
+        .toUpperCase();
 }
 
 function _trkChatFechaLocal(iso) {

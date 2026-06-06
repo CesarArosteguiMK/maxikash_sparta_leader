@@ -1118,10 +1118,68 @@ class CierreCredito extends Model
     }
 
     /**
-     * Devuelve encabezado del convenio + tabla de amortización completa
+     * Convenios activos para el reporte XLSX de la pestana Convenios Activos.
+     */
+    public static function getConveniosActivosReporte(?array $celulas = null): array
+    {
+        try {
+            $db     = new Database();
+            $params = [];
+            $celulaWhere = self::_celulaWhere($celulas, 'cc', $params);
+
+            $rows = $db->queryAll(
+                "SELECT
+                    cc.id,
+                    cc.id_credito,
+                    cc.nombre_cliente,
+                    pc.nombre AS nombre_producto,
+                    cc.id_producto_convenio,
+                    cc.id_producto_convenio_detalle,
+                    cc.bucket_morosidad_real,
+                    cc.dias_mora,
+                    cc.avance_pago_plazo,
+                    cc.adeudo_total_original,
+                    cc.porcentaje_descuento,
+                    cc.descuento_monto,
+                    cc.total_a_pagar,
+                    cc.monto_adicional,
+                    cc.pago_inicial_monto,
+                    cc.numero_semanas,
+                    cc.pago_semanal,
+                    cc.fecha_acuerdo,
+                    cc.fecha_primer_pago,
+                    cc.fecha_ultimo_pago,
+                    cc.tipo_calendario,
+                    cc.estatus,
+                    cc.usuario_alta,
+                    cc.pdf_adjunto,
+                    cc.base_calculo,
+                    CASE cc.id_celula
+                        WHEN 1 THEN 'Despachos'
+                        WHEN 2 THEN 'Call Center'
+                        WHEN 3 THEN 'Campo'
+                        ELSE COALESCE(CAST(cc.id_celula AS CHAR), 'Sin celula')
+                    END AS celula,
+                    cc.fecha_alta,
+                    cc.fecha_modifica
+                 FROM convenio_cliente cc
+                 LEFT JOIN producto_convenio pc ON pc.id = cc.id_producto_convenio
+                 WHERE cc.estatus = 'activo'{$celulaWhere}
+                 ORDER BY cc.fecha_alta DESC",
+                $params ?: null
+            );
+
+            return self::resultado(true, 'Reporte de convenios activos.', $rows ?: []);
+        } catch (\Exception $e) {
+            return self::resultado(false, 'Error al obtener el reporte de convenios activos.', [], $e->getMessage());
+        }
+    }
+
+    /**
+     * Devuelve encabezado del convenio + tabla de amortizacion completa
      * para un convenio_cliente.id dado (acceso directo, sin cierre_credito_seguimiento).
      *
-     * @param int $idConvenio  PK de convenio_cliente
+     * @param int $idConvenio PK de convenio_cliente
      */
     public static function getDetalleConvenio(int $idConvenio): array
     {

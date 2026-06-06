@@ -898,6 +898,231 @@ class TrackingRecoleccion extends Controller
     }
 
     /**
+     * POST /TrackingRecoleccion/eliminarBorrador
+     * Body JSON: { id_ruta }
+     */
+    public function eliminarBorrador()
+    {
+        $data = $this->leerBodyTracking();
+        if (empty($data)) {
+            $data = $_GET;
+        }
+        $idRuta = (int) ($data['id_ruta'] ?? 0);
+        if ($idRuta <= 0) {
+            self::respuestaJSON(self::respuesta(false, 'ID de ruta requerido.'));
+            return;
+        }
+
+        try {
+            $model = new TrackingModel();
+            self::respuestaJSON($model->eliminarBorrador($idRuta));
+        } catch (\Throwable $e) {
+            self::respuestaJSON(self::respuesta(false, 'Error al eliminar borrador.', null, $e->getMessage()));
+        }
+    }
+
+    private function trkPdfEsc($valor): string
+    {
+        return htmlspecialchars((string) ($valor ?? ''), ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+    }
+
+    private function trkPdfVal($valor, string $fallback = 'No disponible'): string
+    {
+        $txt = trim((string) ($valor ?? ''));
+        return $this->trkPdfEsc($txt !== '' ? $txt : $fallback);
+    }
+
+    private function trkPdfHoraRuta(array $ruta): string
+    {
+        $hora = trim((string) ($ruta['act_hora_1'] ?? ''));
+        if ($hora === '') {
+            $hora = trim((string) ($ruta['hora_inicial'] ?? ''));
+        }
+        return $hora !== '' ? substr($hora, 0, 5) : 'No disponible';
+    }
+
+    private function trkPdfRutaHtml(array $ruta): string
+    {
+        $detalles = is_array($ruta['detalle'] ?? null) ? $ruta['detalle'] : [];
+        $fechaGeneracion = date('d/m/Y H:i');
+        $creadoPor = $ruta['creado_por_nombre'] ?? ($_SESSION['usuario_nombre'] ?? $_SESSION['nombre'] ?? '');
+        $estatus = strtoupper((string) ($ruta['estatus_ruta'] ?? ''));
+        $rows = '';
+
+        foreach ($detalles as $i => $det) {
+            $horasEstimadas = trim((string) ($det['fecha_eta'] ?? ''));
+            $hi = trim((string) ($det['hora_eta_ini'] ?? ''));
+            $hf = trim((string) ($det['hora_eta_fin'] ?? ''));
+            if ($hi !== '' || $hf !== '') {
+                $horasEstimadas .= ($horasEstimadas !== '' ? ' ' : '')
+                    . trim('Inicio: ' . substr($hi, 0, 5) . ' / Llegada: ' . substr($hf, 0, 5));
+            }
+            $ubicacion = implode(' / ', array_filter([
+                trim((string) ($det['estado'] ?? '')),
+                trim((string) ($det['municipio'] ?? '')),
+                trim((string) ($det['direccion'] ?? '')),
+            ]));
+            $rows .= '<tr>'
+                . '<td class="num">' . $this->trkPdfEsc($det['orden_ruta'] ?? ($i + 1)) . '</td>'
+                . '<td>' . $this->trkPdfVal($det['id_credito'] ?? '') . '</td>'
+                . '<td>' . $this->trkPdfVal($det['nombre_cliente'] ?? '') . '</td>'
+                . '<td>' . $this->trkPdfVal($det['modelo'] ?? '') . '</td>'
+                . '<td>' . $this->trkPdfVal($det['bin'] ?? '') . '</td>'
+                . '<td>' . $this->trkPdfVal($ubicacion) . '</td>'
+                . '<td>' . $this->trkPdfVal($horasEstimadas) . '</td>'
+                . '<td>' . $this->trkPdfVal($det['estatus_confirmacion_gestor'] ?? '') . '</td>'
+                . '</tr>';
+        }
+
+        if ($rows === '') {
+            $rows = '<tr><td colspan="8" class="empty">Sin creditos registrados</td></tr>';
+        }
+
+        $cedisUbicacion = implode(' / ', array_filter([
+            trim((string) ($ruta['cedis_destino_municipio'] ?? '')),
+            trim((string) ($ruta['cedis_destino_estado'] ?? '')),
+            trim((string) ($ruta['cedis_destino_codigo_postal'] ?? '')),
+        ]));
+
+        return '<!doctype html><html><head><meta charset="UTF-8"><style>
+            body{font-family:dejavusans,sans-serif;color:#1f2937;font-size:10.5px;}
+            .top{border-bottom:3px solid #0d9488;padding-bottom:10px;margin-bottom:14px;}
+            h1{font-size:20px;margin:0;color:#17213a;letter-spacing:.4px;}
+            h2{font-size:13px;margin:0 0 8px;color:#0f766e;text-transform:uppercase;}
+            .muted{color:#64748b;}
+            .folio{color:#0d9488;font-weight:bold;}
+            .grid{width:100%;border-collapse:collapse;margin-bottom:12px;}
+            .grid td{width:50%;vertical-align:top;padding:6px 8px;border:1px solid #dbe7ef;}
+            .label{font-size:8.5px;color:#64748b;text-transform:uppercase;font-weight:bold;margin-bottom:2px;}
+            .value{font-size:10.5px;color:#111827;}
+            .pill{display:inline-block;background:#e6fffb;color:#0f766e;border:1px solid #7dd3c7;border-radius:10px;padding:2px 8px;font-weight:bold;}
+            table.creditos{width:100%;border-collapse:collapse;margin-top:8px;}
+            table.creditos th{background:#17213a;color:#fff;text-align:left;padding:6px;font-size:8.5px;text-transform:uppercase;}
+            table.creditos td{border-bottom:1px solid #dbe7ef;padding:6px;vertical-align:top;}
+            table.creditos tr:nth-child(even) td{background:#f8fbfd;}
+            .num{text-align:center;font-weight:bold;color:#0d9488;}
+            .empty{text-align:center;color:#64748b;padding:16px;}
+            .footer{margin-top:14px;font-size:8.5px;color:#64748b;text-align:right;}
+        </style></head><body>
+            <div class="top">
+                <h1>EVIDENCIA DE RUTA DE RECOLECCION</h1>
+                <div class="muted">Generado: ' . $this->trkPdfEsc($fechaGeneracion) . '</div>
+            </div>
+
+            <table class="grid">
+                <tr>
+                    <td>
+                        <div class="label">Ruta</div>
+                        <div class="value"><span class="folio">#' . $this->trkPdfEsc($ruta['id_ruta'] ?? '') . '</span> ' . $this->trkPdfVal($ruta['nombre_ruta'] ?? '') . '</div>
+                    </td>
+                    <td>
+                        <div class="label">Estatus</div>
+                        <div class="value"><span class="pill">' . $this->trkPdfEsc($estatus ?: 'NO DISPONIBLE') . '</span></div>
+                    </td>
+                </tr>
+                <tr>
+                    <td><div class="label">Fecha de salida</div><div class="value">' . $this->trkPdfVal($ruta['fecha_programada_fmt'] ?? $ruta['fecha_programada'] ?? '') . '</div></td>
+                    <td><div class="label">Hora de salida</div><div class="value">' . $this->trkPdfEsc($this->trkPdfHoraRuta($ruta)) . '</div></td>
+                </tr>
+                <tr>
+                    <td><div class="label">Registrado por</div><div class="value">' . $this->trkPdfVal($creadoPor) . '</div></td>
+                    <td><div class="label">Creacion / ultima actualizacion</div><div class="value">' . $this->trkPdfVal($ruta['fecha_creacion_fmt'] ?? '') . ' / ' . $this->trkPdfVal($ruta['fecha_actualizacion_fmt'] ?? '') . '</div></td>
+                </tr>
+            </table>
+
+            <h2>Transportista</h2>
+            <table class="grid">
+                <tr>
+                    <td><div class="label">Nombre</div><div class="value">' . $this->trkPdfVal($ruta['nombre_transportista'] ?? '') . '</div></td>
+                    <td><div class="label">Tipo / empresa</div><div class="value">' . $this->trkPdfVal($ruta['tipo_transportista'] ?? '') . ' / ' . $this->trkPdfVal($ruta['transportista_empresa'] ?? '') . '</div></td>
+                </tr>
+                <tr>
+                    <td><div class="label">CURP/RFC</div><div class="value">' . $this->trkPdfVal($ruta['transportista_curp_rfc'] ?? '') . '</div></td>
+                    <td><div class="label">Puesto</div><div class="value">' . $this->trkPdfVal($ruta['transportista_puesto'] ?? '') . '</div></td>
+                </tr>
+                <tr>
+                    <td><div class="label">Telefono</div><div class="value">' . $this->trkPdfVal($ruta['transportista_telefono'] ?? '') . '</div></td>
+                    <td><div class="label">Email</div><div class="value">' . $this->trkPdfVal($ruta['transportista_email'] ?? '') . '</div></td>
+                </tr>
+            </table>
+
+            <h2>CEDIS destino</h2>
+            <table class="grid">
+                <tr>
+                    <td><div class="label">CEDIS</div><div class="value">' . $this->trkPdfVal($ruta['cedis_destino_nombre'] ?? '') . '</div></td>
+                    <td><div class="label">Recibe</div><div class="value">' . $this->trkPdfVal($ruta['cedis_destino_encargado'] ?? '') . '</div></td>
+                </tr>
+                <tr>
+                    <td><div class="label">Ubicacion</div><div class="value">' . $this->trkPdfVal($cedisUbicacion) . '</div></td>
+                    <td><div class="label">Contacto</div><div class="value">' . $this->trkPdfVal($ruta['cedis_destino_telefono'] ?? '') . ' / ' . $this->trkPdfVal($ruta['cedis_destino_email'] ?? '') . '</div></td>
+                </tr>
+                <tr>
+                    <td><div class="label">Direccion</div><div class="value">' . $this->trkPdfVal($ruta['cedis_destino_direccion'] ?? '') . '</div></td>
+                    <td><div class="label">Horario</div><div class="value">' . $this->trkPdfVal($ruta['cedis_destino_horario'] ?? '') . '</div></td>
+                </tr>
+            </table>
+
+            <h2>Creditos a recolectar</h2>
+            <table class="creditos">
+                <thead>
+                    <tr>
+                        <th>#</th><th>Credito</th><th>Cliente</th><th>Modelo</th>
+                        <th>VIN</th><th>Ubicacion</th><th>Horas estimadas</th><th>Confirmacion</th>
+                    </tr>
+                </thead>
+                <tbody>' . $rows . '</tbody>
+            </table>
+            <div class="footer">Sparta Ledger - Tracking Recoleccion</div>
+        </body></html>';
+    }
+
+    /**
+     * GET /TrackingRecoleccion/pdfEvidenciaRuta?id_ruta=N
+     */
+    public function pdfEvidenciaRuta()
+    {
+        $idRuta = (int) ($_GET['id_ruta'] ?? $_POST['id_ruta'] ?? 0);
+        if ($idRuta <= 0) {
+            http_response_code(400);
+            echo 'ID de ruta requerido.';
+            return;
+        }
+
+        try {
+            $model = new TrackingModel();
+            $ruta = $model->obtenerDetalleRuta($idRuta);
+            if ($ruta === null) {
+                http_response_code(404);
+                echo 'Ruta no encontrada.';
+                return;
+            }
+            if (function_exists('sparta_require_composer_autoload')) {
+                sparta_require_composer_autoload();
+            }
+            if (!class_exists('\\Mpdf\\Mpdf')) {
+                throw new \RuntimeException('mPDF no esta disponible.');
+            }
+
+            $mpdf = new \Mpdf\Mpdf([
+                'format' => 'Letter',
+                'tempDir' => sys_get_temp_dir(),
+                'margin_left' => 10,
+                'margin_right' => 10,
+                'margin_top' => 10,
+                'margin_bottom' => 10,
+            ]);
+            $mpdf->SetTitle('Evidencia ruta ' . (int) $idRuta);
+            $mpdf->WriteHTML($this->trkPdfRutaHtml($ruta));
+            $filename = 'EvidenciaRuta_' . date('d.m.Y_h.i_A') . '_No.' . (int) $idRuta . '.pdf';
+            $mpdf->Output($filename, \Mpdf\Output\Destination::DOWNLOAD);
+            exit;
+        } catch (\Throwable $e) {
+            http_response_code(500);
+            echo 'No se pudo generar el PDF de evidencia.';
+        }
+    }
+
+    /**
      * POST /TrackingRecoleccion/actualizarConfirmacionGestor
      * Body: { id_ruta, id_credito, estatus_confirmacion_gestor }
      */
