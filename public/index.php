@@ -443,6 +443,7 @@ $rutasModulos = [
     'cierecredito/getenviadofinalizado' => [50],
     'cierecredito/crear' => [50],
     'cierecredito/cambiarestatus' => [50],
+    'cierrecredito/descargarreporteconveniosactivos' => [92],
     // Atención / pipeline Motos: permisos granulares por vista (69–73).
     'atencionclientes/consulta' => [69],
     'atencionclientes/obtenerentrantes' => [69],

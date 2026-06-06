@@ -13,6 +13,8 @@ class CierreCredito extends Controller
      */
     private const CC_PESTANA_PERM_CONVENIOS = 52;
 
+    private const CC_PERM_CONVENIOS_DESCARGAR_EXCEL = 92;
+
     private const CC_PESTANA_PERM_VALIDACION = 53;
 
     private const CC_PESTANA_PERM_EN_PROCESO = 54;
@@ -155,6 +157,7 @@ class CierreCredito extends Controller
         $this->set('titulo', 'Cierre de crédito ' . $emp);
 
         $ccPermConvenios = $this->cierreTieneModuloPermisoSesion(self::CC_PESTANA_PERM_CONVENIOS);
+        $ccPermDescargarExcel = $this->cierreTieneModuloPermisoSesion(self::CC_PERM_CONVENIOS_DESCARGAR_EXCEL);
         $ccPermValidacion = $this->cierreTieneModuloPermisoSesion(self::CC_PESTANA_PERM_VALIDACION);
         $ccPermEnProceso = $this->cierreTieneModuloPermisoSesion(self::CC_PESTANA_PERM_EN_PROCESO);
         $ccPermVoBo = $this->cierreTieneModuloPermisoSesion(self::CC_PESTANA_PERM_VOBO);
@@ -180,6 +183,7 @@ class CierreCredito extends Controller
         }
 
         $this->set('cc_perm_convenios', $ccPermConvenios);
+        $this->set('cc_perm_descargar_excel', $ccPermDescargarExcel);
         $this->set('cc_perm_validacion', $ccPermValidacion);
         $this->set('cc_perm_en_proceso', $ccPermEnProceso);
         $this->set('cc_perm_vobo', $ccPermVoBo);
@@ -532,8 +536,113 @@ class CierreCredito extends Controller
     }
 
     // ─────────────────────────────────────────────
-    // DESCARGA EXCEL CIERRE EN PROCESO
+    // DESCARGA REPORTE CONVENIOS ACTIVOS
     // ─────────────────────────────────────────────
+
+    public function descargarReporteConveniosActivos()
+    {
+        $this->cierreRequiereModuloPermiso(self::CC_PERM_CONVENIOS_DESCARGAR_EXCEL);
+        while (ob_get_level()) { ob_end_clean(); }
+
+        try {
+            $r = CierreCreditoDAO::getConveniosActivosReporte($this->cierreGetCelulasPermitidas());
+            if (empty($r['success'])) {
+                http_response_code(500);
+                die($r['mensaje'] ?? 'Error al obtener convenios activos.');
+            }
+
+            require_once LIBRERIAS . '/PhpSpreadsheet/PhpSpreadsheet.php';
+
+            $fechaCorta = static function ($valor): string {
+                $valor = trim((string) ($valor ?? ''));
+                return $valor === '' ? '' : substr($valor, 0, 10);
+            };
+            $porcentaje = static function ($valor): string {
+                if ($valor === null || $valor === '') return '';
+                $txt = rtrim(rtrim(number_format((float) $valor, 2, '.', ''), '0'), '.');
+                return $txt . '%';
+            };
+
+            $datos = array_map(static function (array $row) use ($fechaCorta, $porcentaje): array {
+                return [
+                    'id'                           => $row['id'] ?? '',
+                    'id_credito'                   => $row['id_credito'] ?? '',
+                    'nombre_cliente'               => $row['nombre_cliente'] ?? '',
+                    'nombre_producto'              => $row['nombre_producto'] ?? '',
+                    'id_producto_convenio'         => $row['id_producto_convenio'] ?? '',
+                    'id_producto_convenio_detalle' => $row['id_producto_convenio_detalle'] ?? '',
+                    'celula'                       => $row['celula'] ?? '',
+                    'bucket_morosidad_real'        => $row['bucket_morosidad_real'] ?? '',
+                    'dias_mora'                    => $row['dias_mora'] ?? '',
+                    'avance_pago_plazo'            => $row['avance_pago_plazo'] ?? '',
+                    'adeudo_total_original'        => $row['adeudo_total_original'] ?? 0,
+                    'porcentaje_descuento'         => $porcentaje($row['porcentaje_descuento'] ?? null),
+                    'descuento_monto'              => $row['descuento_monto'] ?? 0,
+                    'total_a_pagar'                => $row['total_a_pagar'] ?? 0,
+                    'monto_adicional'              => $row['monto_adicional'] ?? 0,
+                    'pago_inicial_monto'           => $row['pago_inicial_monto'] ?? '',
+                    'numero_semanas'               => $row['numero_semanas'] ?? '',
+                    'pago_semanal'                 => $row['pago_semanal'] ?? 0,
+                    'fecha_acuerdo'                => $fechaCorta($row['fecha_acuerdo'] ?? ''),
+                    'fecha_primer_pago'            => $fechaCorta($row['fecha_primer_pago'] ?? ''),
+                    'fecha_ultimo_pago'            => $fechaCorta($row['fecha_ultimo_pago'] ?? ''),
+                    'tipo_calendario'              => $row['tipo_calendario'] ?? '',
+                    'estatus'                      => $row['estatus'] ?? '',
+                    'base_calculo'                 => $row['base_calculo'] ?? '',
+                    'usuario_alta'                 => $row['usuario_alta'] ?? '',
+                    'fecha_alta'                   => $row['fecha_alta'] ?? '',
+                    'fecha_modifica'               => $row['fecha_modifica'] ?? '',
+                    'pdf_adjunto'                  => $row['pdf_adjunto'] ?? '',
+                ];
+            }, $r['datos'] ?? []);
+
+            $columnas = [
+                \PHPSpreadsheet::ColumnaExcel('id', 'ID', ['estilo' => \PHPSpreadsheet::GetEstilosExcel('texto_centrado')]),
+                \PHPSpreadsheet::ColumnaExcel('id_credito', 'ID CREDITO', ['estilo' => \PHPSpreadsheet::GetEstilosExcel('texto_centrado')]),
+                \PHPSpreadsheet::ColumnaExcel('nombre_cliente', 'CLIENTE', ['estilo' => \PHPSpreadsheet::GetEstilosExcel('texto_izquierda')]),
+                \PHPSpreadsheet::ColumnaExcel('nombre_producto', 'PRODUCTO', ['estilo' => \PHPSpreadsheet::GetEstilosExcel('texto_izquierda')]),
+                \PHPSpreadsheet::ColumnaExcel('id_producto_convenio', 'ID PRODUCTO', ['estilo' => \PHPSpreadsheet::GetEstilosExcel('texto_centrado')]),
+                \PHPSpreadsheet::ColumnaExcel('id_producto_convenio_detalle', 'ID DETALLE', ['estilo' => \PHPSpreadsheet::GetEstilosExcel('texto_centrado')]),
+                \PHPSpreadsheet::ColumnaExcel('celula', 'CELULA', ['estilo' => \PHPSpreadsheet::GetEstilosExcel('texto_centrado')]),
+                \PHPSpreadsheet::ColumnaExcel('bucket_morosidad_real', 'BUCKET', ['estilo' => \PHPSpreadsheet::GetEstilosExcel('texto_centrado')]),
+                \PHPSpreadsheet::ColumnaExcel('dias_mora', 'DIAS MORA', ['estilo' => \PHPSpreadsheet::GetEstilosExcel('centrado')]),
+                \PHPSpreadsheet::ColumnaExcel('avance_pago_plazo', 'AVANCE PAGO PLAZO', ['estilo' => \PHPSpreadsheet::GetEstilosExcel('texto_centrado')]),
+                \PHPSpreadsheet::ColumnaExcel('adeudo_total_original', 'ADEUDO ORIGINAL', ['estilo' => \PHPSpreadsheet::GetEstilosExcel('moneda'), 'total' => true]),
+                \PHPSpreadsheet::ColumnaExcel('porcentaje_descuento', 'PORCENTAJE DESCUENTO', ['estilo' => \PHPSpreadsheet::GetEstilosExcel('texto_centrado')]),
+                \PHPSpreadsheet::ColumnaExcel('descuento_monto', 'MONTO DESCUENTO', ['estilo' => \PHPSpreadsheet::GetEstilosExcel('moneda'), 'total' => true]),
+                \PHPSpreadsheet::ColumnaExcel('total_a_pagar', 'TOTAL A PAGAR', ['estilo' => \PHPSpreadsheet::GetEstilosExcel('moneda'), 'total' => true]),
+                \PHPSpreadsheet::ColumnaExcel('monto_adicional', 'MONTO ADICIONAL', ['estilo' => \PHPSpreadsheet::GetEstilosExcel('moneda'), 'total' => true]),
+                \PHPSpreadsheet::ColumnaExcel('pago_inicial_monto', 'PAGO INICIAL', ['estilo' => \PHPSpreadsheet::GetEstilosExcel('moneda')]),
+                \PHPSpreadsheet::ColumnaExcel('numero_semanas', 'NUMERO SEMANAS', ['estilo' => \PHPSpreadsheet::GetEstilosExcel('centrado')]),
+                \PHPSpreadsheet::ColumnaExcel('pago_semanal', 'PAGO SEMANAL', ['estilo' => \PHPSpreadsheet::GetEstilosExcel('moneda')]),
+                \PHPSpreadsheet::ColumnaExcel('fecha_acuerdo', 'FECHA ACUERDO', ['estilo' => \PHPSpreadsheet::GetEstilosExcel('texto_centrado')]),
+                \PHPSpreadsheet::ColumnaExcel('fecha_primer_pago', 'FECHA PRIMER PAGO', ['estilo' => \PHPSpreadsheet::GetEstilosExcel('texto_centrado')]),
+                \PHPSpreadsheet::ColumnaExcel('fecha_ultimo_pago', 'FECHA ULTIMO PAGO', ['estilo' => \PHPSpreadsheet::GetEstilosExcel('texto_centrado')]),
+                \PHPSpreadsheet::ColumnaExcel('tipo_calendario', 'TIPO CALENDARIO', ['estilo' => \PHPSpreadsheet::GetEstilosExcel('texto_centrado')]),
+                \PHPSpreadsheet::ColumnaExcel('estatus', 'ESTATUS', ['estilo' => \PHPSpreadsheet::GetEstilosExcel('texto_centrado')]),
+                \PHPSpreadsheet::ColumnaExcel('base_calculo', 'BASE CALCULO', ['estilo' => \PHPSpreadsheet::GetEstilosExcel('texto_centrado')]),
+                \PHPSpreadsheet::ColumnaExcel('usuario_alta', 'USUARIO ALTA', ['estilo' => \PHPSpreadsheet::GetEstilosExcel('texto_izquierda')]),
+                \PHPSpreadsheet::ColumnaExcel('fecha_alta', 'FECHA ALTA', ['estilo' => \PHPSpreadsheet::GetEstilosExcel('texto_centrado')]),
+                \PHPSpreadsheet::ColumnaExcel('fecha_modifica', 'FECHA MODIFICA', ['estilo' => \PHPSpreadsheet::GetEstilosExcel('texto_centrado')]),
+                \PHPSpreadsheet::ColumnaExcel('pdf_adjunto', 'PDF ADJUNTO', ['estilo' => \PHPSpreadsheet::GetEstilosExcel('texto_izquierda')]),
+            ];
+
+            \PHPSpreadsheet::DescargaExcel(
+                'Convenios_Activos_' . date('Ymd'),
+                'Convenios Activos',
+                'Reporte de Convenios Activos',
+                $columnas,
+                $datos
+            );
+            exit;
+        } catch (\Throwable $e) {
+            error_log('CierreCredito::descargarReporteConveniosActivos -> ' . $e->getMessage());
+            http_response_code(500);
+            die('Error al generar el reporte de convenios activos.');
+        }
+    }
+
+    // DESCARGA EXCEL CIERRE EN PROCESO
 
     public function descargarExcelCierre()
     {

@@ -8,6 +8,87 @@ use Core\UsuarioFantasmaReporteria;
 
 class CapHum extends Model
 {
+<<<<<<< HEAD
+    private const MODULO_CONVENIOS_DESCARGAR_EXCEL = 92;
+    private const MODULO_CONVENIOS_DESCARGAR_EXCEL_NOMBRE = 'Descargar Excel';
+    private const MODULO_CONVENIOS_DESCARGAR_EXCEL_DESC = 'Convenios - Cierre de Credito - Descargar Excel';
+
+    private static function asegurarModuloConveniosDescargarExcel(Database $db): void
+    {
+        try {
+            $datos = [
+                'id' => self::MODULO_CONVENIOS_DESCARGAR_EXCEL,
+                'nombre' => self::MODULO_CONVENIOS_DESCARGAR_EXCEL_NOMBRE,
+                'pestana' => 'Permisos especiales',
+                'descripcion' => self::MODULO_CONVENIOS_DESCARGAR_EXCEL_DESC,
+            ];
+            $existe = $db->queryOne(
+                'SELECT id FROM modulos_web WHERE id = :id LIMIT 1',
+                ['id' => self::MODULO_CONVENIOS_DESCARGAR_EXCEL]
+            );
+
+            if ($existe) {
+                $db->CRUD(
+                    'UPDATE modulos_web
+                        SET nombre = :nombre,
+                            pestana = :pestana,
+                            descripcion = :descripcion,
+                            activo = 1
+                      WHERE id = :id',
+                    $datos
+                );
+                return;
+            }
+
+            $db->CRUD(
+                'INSERT INTO modulos_web (id, nombre, pestana, descripcion, activo)
+                 VALUES (:id, :nombre, :pestana, :descripcion, 1)',
+                $datos
+            );
+        } catch (\Throwable $e) {
+            error_log('CapHum::asegurarModuloConveniosDescargarExcel -> ' . $e->getMessage());
+        }
+    }
+
+    private static function agregarModuloConveniosDescargarExcelSiFalta(array $perfiles, int $idPersona, Database $db): array
+    {
+        foreach ($perfiles as $perfil) {
+            if ((int) ($perfil['modulo_id'] ?? 0) === self::MODULO_CONVENIOS_DESCARGAR_EXCEL) {
+                return $perfiles;
+            }
+        }
+
+        $asignado = null;
+        try {
+            $asignado = $db->queryOne(
+                'SELECT id
+                   FROM asigna_modulo_web
+                  WHERE usuario_id = :uid
+                    AND modulo_web_id = :mid
+                  LIMIT 1',
+                [
+                    'uid' => $idPersona,
+                    'mid' => self::MODULO_CONVENIOS_DESCARGAR_EXCEL,
+                ]
+            );
+        } catch (\Throwable $e) {
+            error_log('CapHum::agregarModuloConveniosDescargarExcelSiFalta -> ' . $e->getMessage());
+        }
+
+        $perfiles[] = [
+            'usuario_id' => $idPersona,
+            'modulo_id' => self::MODULO_CONVENIOS_DESCARGAR_EXCEL,
+            'modulo_nombre' => self::MODULO_CONVENIOS_DESCARGAR_EXCEL_NOMBRE,
+            'pestana' => 'Permisos especiales',
+            'descripcion' => self::MODULO_CONVENIOS_DESCARGAR_EXCEL_DESC,
+            'activo' => 1,
+            'estado' => $asignado ? 'Asignado' : 'No asignado',
+            'asignado_flag' => $asignado ? 1 : 0,
+        ];
+
+        return $perfiles;
+    }
+=======
     private const DOCUMENTO_RFC_RRHH = 10;
     private const DOCUMENTO_CONSTANCIA_FISCAL_RRHH = 22;
     private const DOCUMENTOS_EXCLUIDOS_RRHH = [19, 20, 21];
@@ -15,6 +96,7 @@ class CapHum extends Model
         19 => 12, // Acta de nacimiento certificada -> Acta de Nacimiento
         20 => 9,  // Identificacion oficial duplicada -> Identificacion Oficial (INE)
     ];
+>>>>>>> abd0af4b505783d51ce706ab0d71964c378c36ad
 
     ////////////////////////////////////////////////////////////////////// VALIDADO AL 100
     ////////////////////////////////////////////////////////////////////// VALIDADO AL 100
@@ -1146,6 +1228,9 @@ class CapHum extends Model
     {
         try {
             $db = new Database();
+            if ((int) $moduloId === self::MODULO_CONVENIOS_DESCARGAR_EXCEL) {
+                self::asegurarModuloConveniosDescargarExcel($db);
+            }
 
             if ($asignado === 1) {
 
@@ -2016,6 +2101,7 @@ class CapHum extends Model
 
         try {
             $db = new Database();
+            self::asegurarModuloConveniosDescargarExcel($db);
 
             $query = <<<SQL
             SELECT
@@ -2119,6 +2205,7 @@ class CapHum extends Model
 
             $persona = $db->queryOne($query);
             $perfiles = $db->queryAll($query_perfiles);
+            $perfiles = self::agregarModuloConveniosDescargarExcelSiFalta($perfiles, $idPersona, $db);
             require_once __DIR__ . '/../config/menu_modulos_sidebar.php';
             $perfiles = enriquecerPerfilesModulosConMenuSidebar($perfiles);
             $puestos = $db->queryAll($query_puestos);

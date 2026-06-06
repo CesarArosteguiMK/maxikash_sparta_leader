@@ -937,8 +937,13 @@ class CapHum extends Controller
                     document.getElementById("modalEditPerfil_subtitle").innerHTML = esc(nombreCompleto) + ' / ' + esc(nombreArea) + ' / ' + esc(nombrePuestoHeader);
 
                     renderPuestos(puestos, permisosJerarquia);
+<<<<<<< HEAD
+                    // Cierre células / Cartera (ids 56–59 y/o nombre «Cierre: Despachos»…): pestaña Permisos especiales, tarjeta Convenios (menu_* vía PHP)
+                    const MODULOS_WEB_CIERRE_CELULA_CARTERA_EC = new Set([56, 57, 59, 92]);
+=======
                     // Cierre células / Cartera (ids 56–59 y/o nombre Â«Cierre: DespachosÂ»â€¦): pestaña Permisos especiales, tarjeta Convenios (menu_* vía PHP)
                     const MODULOS_WEB_CIERRE_CELULA_CARTERA_EC = new Set([56, 57, 59]);
+>>>>>>> abd0af4b505783d51ce706ab0d71964c378c36ad
                     function esNombreModuloCierreCelulaCarteraEc(m) {
                         const nom = String(m.modulo_nombre || '')
                             .toLowerCase()
@@ -1416,6 +1421,8 @@ class CapHum extends Controller
                 '56': 'fa-solid fa-building',
                 57: 'fa-solid fa-headset',
                 '57': 'fa-solid fa-headset',
+                92: 'fa-solid fa-file-excel',
+                '92': 'fa-solid fa-file-excel',
                 60: 'fa-solid fa-chart-column',
                 '60': 'fa-solid fa-chart-column',
                 79: 'fa-solid fa-file-pen',
@@ -2361,9 +2368,15 @@ class CapHum extends Controller
             /** Células / Cartera bajo tarjeta Â«ConveniosÂ» (id 56–59 o nombre Â«Cierre: DespachosÂ»â€¦): iconos contextuales. */
             function esModuloCierreCelulaCarteraEnGrupoConveniosModal(grupoNombre, mod) {
                 if (normalizarTextoPermisoModal(grupoNombre) !== 'convenios') return false;
+<<<<<<< HEAD
+                const id = Number(mod?.modulo_id ?? mod?.id ?? 0);
+                if (id === 56 || id === 57 || id === 59 || id === 92) return true;
+=======
                 const id = Number(mod.modulo_id ?? mod.id ?? 0);
                 if (id === 56 || id === 57 || id === 59) return true;
+>>>>>>> abd0af4b505783d51ce706ab0d71964c378c36ad
                 const lab = normalizarTextoPermisoModal(mod?.modulo_nombre || '');
+                if (lab.includes('descargar') && lab.includes('excel')) return true;
                 if (!lab.includes('cierre')) return false;
                 return lab.includes('despachos') || lab.includes('call center') || lab.includes('cartera');
             }
@@ -2379,6 +2392,7 @@ class CapHum extends Controller
                 if (lab.includes('despachos') || lab.includes('celula despachos')) return true;
                 if (lab.includes('call center') || lab.includes('celula call center')) return true;
                 if (lab.includes('cartera')) return true;
+                if (lab.includes('descargar') && lab.includes('excel')) return true;
                 return false;
             }
 
@@ -2392,6 +2406,7 @@ class CapHum extends Controller
                 if (lab.includes('despachos') || lab.includes('celula despachos')) return 'fa-solid fa-building';
                 if (lab.includes('call center') || lab.includes('celula call center')) return 'fa-solid fa-headset';
                 if (lab.includes('cartera')) return 'fa-solid fa-briefcase';
+                if (lab.includes('descargar') && lab.includes('excel')) return 'fa-solid fa-file-excel';
                 return null;
             }
 
