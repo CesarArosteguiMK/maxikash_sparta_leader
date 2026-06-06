@@ -99,4 +99,28 @@ final class DatabaseCliSupport
 
         return (bool) preg_match('#.*/(?:reporteria|analitica)/(?:getusuarioscapitalhumano|getbajascapitalhumano|getfiltroscapitalhumano)$#', $path);
     }
+
+    public static function esCaphumDocumentosJsonRequest(): bool
+    {
+        $rutas = [
+            'caphum/getresumendocumentoscolaborador',
+            'caphum/getresumendocumentosrrhh',
+        ];
+
+        if (isset($_GET['url'])) {
+            $u = strtolower(trim(str_replace('\\', '/', (string) $_GET['url']), '/'));
+            if (in_array($u, $rutas, true)) {
+                return true;
+            }
+        }
+
+        $path = strtolower((string) (parse_url($_SERVER['REQUEST_URI'] ?? '', PHP_URL_PATH) ?: ''));
+        foreach ($rutas as $ruta) {
+            if (str_ends_with($path, '/' . $ruta)) {
+                return true;
+            }
+        }
+
+        return (bool) preg_match('#.*/caphum/(?:getresumendocumentoscolaborador|getresumendocumentosrrhh)$#', $path);
+    }
 }

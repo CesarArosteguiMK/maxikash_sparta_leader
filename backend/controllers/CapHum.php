@@ -937,22 +937,8 @@ class CapHum extends Controller
                     document.getElementById("modalEditPerfil_subtitle").innerHTML = esc(nombreCompleto) + ' / ' + esc(nombreArea) + ' / ' + esc(nombrePuestoHeader);
 
                     renderPuestos(puestos, permisosJerarquia);
-<<<<<<< HEAD
-<<<<<<< HEAD
-                    // Cierre células / Cartera (ids 56–59 y/o nombre «Cierre: Despachos»…): pestaña Permisos especiales, tarjeta Convenios (menu_* vía PHP)
+                    // Cierre celulas / Cartera (ids 56-59 y 92): pestana Permisos especiales, tarjeta Convenios.
                     const MODULOS_WEB_CIERRE_CELULA_CARTERA_EC = new Set([56, 57, 59, 92]);
-=======
-                    // Cierre células / Cartera (ids 56–59 y/o nombre Â«Cierre: DespachosÂ»â€¦): pestaña Permisos especiales, tarjeta Convenios (menu_* vía PHP)
-                    const MODULOS_WEB_CIERRE_CELULA_CARTERA_EC = new Set([56, 57, 59]);
->>>>>>> abd0af4b505783d51ce706ab0d71964c378c36ad
-=======
-                    // Cierre células / Cartera (ids 56–59 y/o nombre «Cierre: Despachos»…): pestaña Permisos especiales, tarjeta Convenios (menu_* vía PHP)
-                    const MODULOS_WEB_CIERRE_CELULA_CARTERA_EC = new Set([56, 57, 59, 92]);
-<<<<<<< HEAD
-                    // Cierre células / Cartera (ids 56–59 y/o nombre Â«Cierre: DespachosÂ»â€¦): pestaña Permisos especiales, tarjeta Convenios (menu_* vía PHP)
->>>>>>> abc2f06310a517171d180040e1d880eebc7dcf2c
-=======
->>>>>>> 3b2a393d34912374dcb1da62ee065a9b7451ed30
                     function esNombreModuloCierreCelulaCarteraEc(m) {
                         const nom = String(m.modulo_nombre || '')
                             .toLowerCase()
@@ -2374,21 +2360,11 @@ class CapHum extends Controller
                 return n.includes('cierre') && n.includes('credito');
             }
 
-            /** Células / Cartera bajo tarjeta Â«ConveniosÂ» (id 56–59 o nombre Â«Cierre: DespachosÂ»â€¦): iconos contextuales. */
+            /** Celulas / Cartera bajo tarjeta Convenios: iconos contextuales. */
             function esModuloCierreCelulaCarteraEnGrupoConveniosModal(grupoNombre, mod) {
                 if (normalizarTextoPermisoModal(grupoNombre) !== 'convenios') return false;
-<<<<<<< HEAD
-<<<<<<< HEAD
                 const id = Number(mod?.modulo_id ?? mod?.id ?? 0);
                 if (id === 56 || id === 57 || id === 59 || id === 92) return true;
-=======
-                const id = Number(mod.modulo_id ?? mod.id ?? 0);
-                if (id === 56 || id === 57 || id === 59) return true;
->>>>>>> abd0af4b505783d51ce706ab0d71964c378c36ad
-=======
-                const id = Number(mod?.modulo_id ?? mod?.id ?? 0);
-                if (id === 56 || id === 57 || id === 59 || id === 92) return true;
->>>>>>> abc2f06310a517171d180040e1d880eebc7dcf2c
                 const lab = normalizarTextoPermisoModal(mod?.modulo_nombre || '');
                 if (lab.includes('descargar') && lab.includes('excel')) return true;
                 if (!lab.includes('cierre')) return false;
@@ -5727,16 +5703,26 @@ class CapHum extends Controller
 
     public function getResumenDocumentosColaborador()
     {
-        $idPersona = (int) ($_SESSION['persona_id'] ?? $_SESSION['usuario_id'] ?? 0);
-        if ($idPersona <= 0) {
+        try {
+            $idPersona = (int) ($_SESSION['persona_id'] ?? $_SESSION['usuario_id'] ?? 0);
+            if ($idPersona <= 0) {
+                self::respuestaJSON([
+                    'success' => false,
+                    'mensaje' => 'No se pudo identificar al colaborador de la sesion.',
+                    'datos' => []
+                ]);
+                return;
+            }
+
+            self::respuestaJSON(CapHumDAO::getResumenDocumentosColaborador($idPersona));
+        } catch (\Throwable $e) {
             self::respuestaJSON([
                 'success' => false,
-                'mensaje' => 'No se pudo identificar al colaborador de la sesión.',
-                'datos' => []
+                'mensaje' => 'Error al obtener resumen documental.',
+                'datos' => [],
+                'error' => $e->getMessage()
             ]);
         }
-
-        self::respuestaJSON(CapHumDAO::getResumenDocumentosColaborador($idPersona));
     }
 
     public function documentosRrhh()
