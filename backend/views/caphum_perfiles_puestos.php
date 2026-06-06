@@ -581,6 +581,7 @@
                                 <thead>
                                     <tr>
                                         <th>Puesto</th>
+                                        <th>Dirección</th>
                                         <th>Departamento</th>
                                         <th>Área</th>
                                         <th>Nivel</th>
@@ -887,8 +888,8 @@ window.CH_PERFILES_PUESTOS_DATA = <?= $perfilesPuestosJson ?? '{"meta":{},"perfi
             <tr>
                 <td>
                     <div class="ch-team-name">${esc(item.nombre)}</div>
-                    <small class="text-muted">${esc(item.direccion)}</small>
                 </td>
+                <td>${esc(item.direccion || 'Sin dirección')}</td>
                 <td>${esc(item.departamento)}</td>
                 <td>${esc(item.area)}</td>
                 <td><span class="ch-fit-pill">${esc(item.nivel)}</span></td>
@@ -898,7 +899,7 @@ window.CH_PERFILES_PUESTOS_DATA = <?= $perfilesPuestosJson ?? '{"meta":{},"perfi
                     </button>
                 </td>
             </tr>
-        `).join('') || '<tr><td colspan="5" class="text-center text-muted py-4">Sin registros</td></tr>';
+        `).join('') || '<tr><td colspan="6" class="text-center text-muted py-4">Sin registros</td></tr>';
 
         document.querySelectorAll('.ch-open-profile').forEach((btn) => {
             btn.addEventListener('click', () => {

@@ -2805,7 +2805,7 @@
     }
 
     .select-search-display::after {
-        content: '▼';
+        content: 'â–¼';
         position: absolute;
         right: 0.75rem;
         top: 50%;
@@ -3140,7 +3140,7 @@
     }
 
     /* ==========================================
-     * ESTILOS PARA GESTIÓN DE MÚLTIPLES PUESTOS EN MODAL DE EDICIÓN
+     * ESTILOS PARA GESTIÃ“N DE MÃšLTIPLES PUESTOS EN MODAL DE EDICIÃ“N
      * ========================================== */
 
     /* Item de puesto en el panel de gestión */
@@ -3389,11 +3389,11 @@
     }
 
     /* =====================================================
-       KPI PANEL — REDISEÑO v3
+       KPI PANEL — REDISEÃ‘O v3
        Modos: Estándar | Visión (donut) | Mini-stat
        ===================================================== */
 
-    /* ── Toolbar ── */
+    /* â”€â”€ Toolbar â”€â”€ */
     .kpi-toolbar { display:flex; align-items:center; gap:0.5rem; margin-bottom:0.65rem; flex-wrap:wrap; }
 
     .kpi-toggle-btn {
@@ -3453,15 +3453,15 @@
     }
     .kpi-reset-btn:hover { color:#ef4444; border-color:rgba(239,68,68,0.25); background:rgba(239,68,68,0.05); }
 
-    /* ── Panel colapsable ── */
+    /* â”€â”€ Panel colapsable â”€â”€ */
     .kpi-collapsible { display:grid; grid-template-rows:0fr; transition:grid-template-rows 0.4s cubic-bezier(0.4,0,0.2,1), opacity 0.35s ease; opacity:0; }
     .kpi-collapsible.open { grid-template-rows:1fr; opacity:1; }
     .kpi-collapsible-inner { overflow:hidden; }
 
-    /* ── Fila de 3 celdas ── */
+    /* â”€â”€ Fila de 3 celdas â”€â”€ */
     .kpi-row-new { display:grid; grid-template-columns:repeat(3,1fr); gap:0.55rem; padding-bottom:0.2rem; }
 
-    /* ── Celda base ── */
+    /* â”€â”€ Celda base â”€â”€ */
     .kpi-cell {
         background:#fff; border-radius:11px;
         border:1px solid rgba(99,102,241,0.12);
@@ -3501,9 +3501,9 @@
     .kpi-cell.tipo-puesto { --cell-accent:#10b981; --cell-glow:rgba(16,185,129,0.06); --cell-icon:#10b981; --cell-num:#059669; }
     .kpi-cell.tipo-total  { --cell-accent:#f59e0b; --cell-glow:rgba(245,158,11,0.07);  --cell-icon:#f59e0b; --cell-num:#d97706; }
 
-    /* ── Elementos comunes ── */
+    /* â”€â”€ Elementos comunes â”€â”€ */
     .kpi-cell-top { display:flex; align-items:flex-start; justify-content:space-between; margin-bottom:0.5rem; }
-    /* ── kpi-icon-wrap: círculo coloreado, estilo __SPARTA_SECRET_REDACTED__ ── */
+    /* â”€â”€ kpi-icon-wrap: círculo coloreado, estilo __SPARTA_SECRET_REDACTED__ â”€â”€ */
     .kpi-icon-wrap {
       border-radius:50%;
       display:flex; align-items:center; justify-content:center; flex-shrink:0;
@@ -3545,7 +3545,7 @@
     body.dark-mode .kpi-cell.tipo-puesto .kpi-icon-wrap i { color:#6ee7b7 !important; }
     body.dark-mode .kpi-cell.tipo-total  .kpi-icon-wrap i { color:#fcd34d !important; }
 
-    /* ═══ KPI células Bajas — paleta roja / naranja / morada ═══ */
+    /* â•â•â• KPI células Bajas — paleta roja / naranja / morada â•â•â• */
     .kpi-cell.tipo-baja-total  { --cell-accent:#ef4444; --cell-glow:rgba(239,68,68,0.07);   --cell-icon:#ef4444; --cell-num:#dc2626; }
     .kpi-cell.tipo-baja-dep    { --cell-accent:#f97316; --cell-glow:rgba(249,115,22,0.07);  --cell-icon:#f97316; --cell-num:#ea580c; }
     .kpi-cell.tipo-baja-puesto { --cell-accent:#8b5cf6; --cell-glow:rgba(139,92,246,0.07); --cell-icon:#8b5cf6; --cell-num:#7c3aed; }
@@ -3699,7 +3699,7 @@
         color: #9ca3af;
     }
 
-    /* ── Icono decorativo esquina superior izquierda ── */
+    /* â”€â”€ Icono decorativo esquina superior izquierda â”€â”€ */
     .kpi-corner-icon {
         position:absolute; top:4px; left:6px;
         font-size:3rem; line-height:1;
@@ -3719,7 +3719,7 @@
     .kpi-bar-track { margin-top:0.55rem; height:2px; background:color-mix(in srgb,var(--cell-icon) 12%,transparent); border-radius:99px; overflow:hidden; }
     .kpi-bar-fill  { height:100%; width:0%; background:var(--cell-icon); border-radius:99px; transition:width 1s cubic-bezier(0.4,0,0.2,1) 0.3s; }
 
-    /* ════ MODO ESTÁNDAR ════ */
+    /* â•â•â•â• MODO ESTÁNDAR â•â•â•â• */
     .kpi-row-new.mode-default .kpi-cell { padding:0.8rem 0.95rem 0.72rem; }
     /* Ocultar icono y círculo en modo Estándar */
     .kpi-row-new.mode-default .kpi-icon-wrap { display:none !important; }
@@ -3727,7 +3727,7 @@
     .kpi-row-new.mode-default .donut-block  { display:none !important; }
     .kpi-row-new.mode-default .kpi-stats-grid-new { display:none !important; }
 
-    /* ════ MODO MINI-STAT ════ */
+    /* â•â•â•â• MODO MINI-STAT â•â•â•â• */
     .kpi-row-new.mode-ministat .kpi-cell { padding:0.8rem 0.95rem 0.72rem; }
     .kpi-row-new.mode-ministat .kpi-cell-top { margin-bottom:0.5rem; }
     .kpi-row-new.mode-ministat .kpi-cell-top .kpi-cell-status { display:none; }
@@ -3775,7 +3775,7 @@
     .kpi-arrow-up   { color:#10b981; font-size:0.95rem; line-height:1; display:flex; align-items:center; }
     .kpi-arrow-down { color:#ef4444; font-size:0.95rem; line-height:1; display:flex; align-items:center; }
 
-    /* ════ MODO VISIÓN (donut) ════ */
+    /* â•â•â•â• MODO VISIÃ“N (donut) â•â•â•â• */
     .kpi-row-new.mode-vision .kpi-cell { padding:0.8rem 0.95rem 0.72rem; }
     .kpi-row-new.mode-vision .kpi-cell-top    { display:none !important; }
     .kpi-row-new.mode-vision .kpi-num         { display:none !important; }
@@ -3825,7 +3825,7 @@
     .donut-trend.steady { color:var(--cell-icon); background:color-mix(in srgb,var(--cell-icon) 10%,transparent); }
     .donut-trend-label  { font-size:0.58rem; color:#6b7280; font-weight:500; }
 
-    /* ── Tooltip del donut ── */
+    /* â”€â”€ Tooltip del donut â”€â”€ */
     .kpi-donut-tooltip {
         position:fixed; z-index:9999; pointer-events:none;
         background:#1e1b4b; color:#f4f5fb;
@@ -3841,11 +3841,11 @@
         border:5px solid transparent; border-top-color:#1e1b4b;
     }
 
-    /* ── Swap animation ── */
+    /* â”€â”€ Swap animation â”€â”€ */
     @keyframes kpiModeFade { from{opacity:0;transform:translateY(6px)} to{opacity:1;transform:translateY(0)} }
     .kpi-cell.mode-swap { animation:kpiModeFade 0.32s ease forwards; }
 
-    /* ── Dark mode ── */
+    /* â”€â”€ Dark mode â”€â”€ */
     body.dark-mode .kpi-cell             { background:#1a1d2e; border-color:rgba(99,102,241,0.18); box-shadow:0 2px 14px rgba(0,0,0,0.32),0 1px 3px rgba(0,0,0,0.18),inset 3px 0 0 var(--cell-accent); }
     body.dark-mode .kpi-toggle-btn,
     body.dark-mode .kpi-view-btn         { background:#1a1d2e; }
@@ -3866,7 +3866,7 @@
     .kpi-cell::after { content:''; position:absolute; inset:0; border-radius:inherit; background:transparent; transition:background 0.18s; pointer-events:none; }
     .kpi-cell:active::after { background:rgba(0,0,0,0.06); }
 
-    /* ── Responsive móvil ── */
+    /* â”€â”€ Responsive móvil â”€â”€ */
     @media (max-width: 767px) {
         .kpi-row-new { grid-template-columns:1fr 1fr; }
         .kpi-toolbar { gap:0.4rem; }
@@ -3878,7 +3878,7 @@
         .kpi-row-new { grid-template-columns:1fr; }
     }
 
-    /* ── Conservar estilos de filtros rápidos ── */
+    /* â”€â”€ Conservar estilos de filtros rápidos â”€â”€ */
     .btn-filtro-rapido {
         transition: all 0.3s ease; font-size: 0.9rem;
         padding: 0.5rem 1rem; border-width: 2px;
@@ -3973,15 +3973,15 @@
 
     /* ============================================================
    RESPONSIVIDAD MODAL #modalEditPerfil
-   Optimizado para smartphones: 360x780 → 393x852
+   Optimizado para smartphones: 360x780 â†’ 393x852
    ============================================================ */
 
-/* ─────────────────────────────────────────────
-   BASE MÓVIL: aplica desde 0 hasta 575px
-   ───────────────────────────────────────────── */
+/* â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+   BASE MÃ“VIL: aplica desde 0 hasta 575px
+   â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 @media (max-width: 575.98px) {
 
-  /* ── 1. DIÁLOGO: ocupa toda la pantalla como sheet nativo ── */
+  /* â”€â”€ 1. DIÁLOGO: ocupa toda la pantalla como sheet nativo â”€â”€ */
   #modalEditPerfil .modal-dialog {
     margin: 0 !important;
     max-width: 100% !important;
@@ -3992,7 +3992,7 @@
     align-items: flex-end !important;         /* sube desde abajo (bottom-sheet) */
   }
 
-  /* ── 2. CONTENT: ocupa todo el ancho y altura máxima ── */
+  /* â”€â”€ 2. CONTENT: ocupa todo el ancho y altura máxima â”€â”€ */
   #modalEditPerfil .modal-content {
     border-radius: 1.25rem 1.25rem 0 0 !important;   /* esquinas solo arriba */
     width: 100% !important;
@@ -4003,7 +4003,7 @@
     flex-direction: column !important;
   }
 
-  /* ── 3. HEADER: compacto, sin desbordamiento ── */
+  /* â”€â”€ 3. HEADER: compacto, sin desbordamiento â”€â”€ */
   #modalEditPerfil .modal-header {
     padding: 1rem 1rem 0.75rem !important;
     flex-shrink: 0 !important;
@@ -4037,7 +4037,7 @@
     border-radius: 50% !important;
   }
 
-  /* ── 4. BODY: scroll interno, sin overflow roto ── */
+  /* â”€â”€ 4. BODY: scroll interno, sin overflow roto â”€â”€ */
   #modalEditPerfil .modal-body {
     overflow-y: auto !important;
     overflow-x: hidden !important;
@@ -4046,7 +4046,7 @@
     -webkit-overflow-scrolling: touch !important;  /* scroll suave iOS */
   }
 
-  /* ── 5. TABS: scroll horizontal si no caben, nunca wrap ── */
+  /* â”€â”€ 5. TABS: scroll horizontal si no caben, nunca wrap â”€â”€ */
   #modalEditPerfil .nav-tabs-custom {
     display: flex !important;
     flex-wrap: nowrap !important;
@@ -4086,12 +4086,12 @@
     margin-right: 0.3rem !important;
   }
 
-  /* ── 6. TAB CONTENT: padding cómodo para dedos ── */
+  /* â”€â”€ 6. TAB CONTENT: padding cómodo para dedos â”€â”€ */
   #modalEditPerfil .tab-content {
     padding: 1rem !important;
   }
 
-  /* ── 7. HEADERS DE SECCIÓN dentro de tabs ── */
+  /* â”€â”€ 7. HEADERS DE SECCIÃ“N dentro de tabs â”€â”€ */
   #modalEditPerfil .tab-pane h6 {
     font-size: 0.85rem !important;
     margin-bottom: 0.4rem !important;
@@ -4101,14 +4101,14 @@
     font-size: 0.7rem !important;
   }
 
-  /* ── 8. PUESTOS CONTAINER: altura adaptada a móvil ── */
+  /* â”€â”€ 8. PUESTOS CONTAINER: altura adaptada a móvil â”€â”€ */
   #modalEditPerfil #puestos-container {
     max-height: 55vh !important;
     overflow-y: auto !important;
     -webkit-overflow-scrolling: touch !important;
   }
 
-  /* ── 9. MÓDULOS CONTAINER ── */
+  /* â”€â”€ 9. MÃ“DULOS CONTAINER â”€â”€ */
   #modalEditPerfil #modulos-container {
     max-height: 55vh !important;
     overflow-y: auto !important;
@@ -4121,7 +4121,7 @@
     max-width: 100% !important;
   }
 
-  /* ── 10. PERMISOS ESPECIALES CONTAINER ── */
+  /* â”€â”€ 10. PERMISOS ESPECIALES CONTAINER â”€â”€ */
   #modalEditPerfil #permisos-especiales-container {
     max-height: 55vh !important;
     overflow-y: auto !important;
@@ -4131,7 +4131,7 @@
     border-left: none !important;
   }
 
-  /* ── 11. Pestaña Puestos: encabezado y expandir todos (móvil) ── */
+  /* â”€â”€ 11. Pestaña Puestos: encabezado y expandir todos (móvil) â”€â”€ */
   #modalEditPerfil #tabPuestos .d-flex.justify-content-between,
   #modalEditPerfil #tabPuestos .d-flex.justify-content-between.align-items-center.mb-4 {
     flex-direction: column !important;
@@ -4159,12 +4159,12 @@
     padding: 0.5rem 0.75rem !important;
   }
 
-  /* ── 12. TABLAS dentro de módulos/permisos ── */
+  /* â”€â”€ 12. TABLAS dentro de módulos/permisos â”€â”€ */
   #modalEditPerfil .table-hover tbody tr:hover {
     transform: none !important;              /* deshabilitar translateX en touch */
   }
 
-  /* ── 13. ACCORDION dentro de módulos ── */
+  /* â”€â”€ 13. ACCORDION dentro de módulos â”€â”€ */
   #modalEditPerfil .accordion-button {
     font-size: 0.82rem !important;
     padding: 0.65rem 0.75rem !important;
@@ -4174,7 +4174,7 @@
     padding: 0.5rem 0.75rem !important;
   }
 
-  /* ── 14. INDICADOR "pill" drag para bottom-sheet ── */
+  /* â”€â”€ 14. INDICADOR "pill" drag para bottom-sheet â”€â”€ */
   #modalEditPerfil .modal-content::before {
     content: '' !important;
     display: block !important;
@@ -4187,9 +4187,9 @@
   }
 }
 
-/* ─────────────────────────────────────────────
+/* â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
    AJUSTE FINO para los más pequeños (360px)
-   ───────────────────────────────────────────── */
+   â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 @media (max-width: 375px) {
 
   #modalEditPerfil .modal-title {
@@ -4206,10 +4206,10 @@
   }
 }
 
-/* ─────────────────────────────────────────────
-   ANIMACIÓN DE ENTRADA: slide-up desde abajo
+/* â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+   ANIMACIÃ“N DE ENTRADA: slide-up desde abajo
    (reemplaza el fade genérico de Bootstrap)
-   ───────────────────────────────────────────── */
+   â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 @media (max-width: 575.98px) {
 
   #modalEditPerfil.modal .modal-dialog {
@@ -4222,9 +4222,9 @@
   }
 }
 
-/* ─────────────────────────────────────────────
+/* â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
    Modal permisos/puestos: sin backdrop de Bootstrap; overlay propio suave; encima de todo
-   ───────────────────────────────────────────── */
+   â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 #modalEditPerfil.modal.show {
   z-index: 99999 !important;
   background: transparent !important;
@@ -4254,9 +4254,9 @@ body.modal-edit-perfil-open .layout-wrapper {
   z-index: 1051 !important;
 }
 
-/* ─────────────────────────────────────────────
+/* â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
    Modal Gestión: verse completo en pantalla (desktop y móvil)
-   ───────────────────────────────────────────── */
+   â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 #modalEditPerfil .modal-dialog {
   max-height: 90vh;
   margin: 1.75rem auto;
@@ -4276,10 +4276,10 @@ body.modal-edit-perfil-open .layout-wrapper {
   -webkit-overflow-scrolling: touch;
 }
 
-/* ─────────────────────────────────────────────
+/* â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
    Modal KPI Desglose (Departamentos / Puestos / Total Empleados)
    Template: Liquid Glass — consistente con #modalReingreso
-   ───────────────────────────────────────────── */
+   â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 #modalKpiDesglose.modal.show {
   z-index: 99999 !important;
   background: transparent !important;
@@ -4378,6 +4378,13 @@ body.dark-mode .sede-glass-badge {
 window.miUsuarioId = <?= json_encode((int)($miUsuarioId ?? 0)) ?>;
 window.puedeEditarTodos = <?= json_encode(!empty($puedeEditarTodos ?? false)) ?>;
 window.puedeGestionarPermisos = <?= json_encode(!empty($puedeGestionarPermisos ?? false)) ?>;
+window.puedeDescargarPlantillaGestion = <?= json_encode(!empty($puedeDescargarPlantillaGestion ?? false)) ?>;
+window.puedeAgregarUsuarioGestion = <?= json_encode(!empty($puedeAgregarUsuarioGestion ?? false)) ?>;
+window.puedeEditarUsuarioGestion = <?= json_encode(!empty($puedeEditarUsuarioGestion ?? false)) ?>;
+window.puedeCargarDocumentoGestion = <?= json_encode(!empty($puedeCargarDocumentoGestion ?? false)) ?>;
+window.puedeRegistrarAusenciaGestion = <?= json_encode(!empty($puedeRegistrarAusenciaGestion ?? false)) ?>;
+window.puedeDarBajaGestion = <?= json_encode(!empty($puedeDarBajaGestion ?? false)) ?>;
+window.puedeVisualizarContrasenaGestion = <?= json_encode(!empty($puedeVisualizarContrasenaGestion ?? false)) ?>;
 window.puedeActualizarInfo = <?= json_encode(!empty($puedeActualizarInfo ?? false)) ?>;
 window.puedeAgregarUsuarioRrhh = <?= json_encode(!empty($puedeAgregarUsuarioRrhh ?? false)) ?>;
 window.puedeEditarUsuarioRrhh = <?= json_encode(!empty($puedeEditarUsuarioRrhh ?? false)) ?>;
@@ -4489,7 +4496,7 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
         </div>
 
         <!-- =======================
-             PANEL DE INDICADORES (GESTIÓN) — REDISEÑO v3
+             PANEL DE INDICADORES (GESTIÃ“N) — REDISEÃ‘O v3
         ======================== -->
 
         <!-- Tooltip global para donuts (panel de indicadores oculto) -->
@@ -4535,7 +4542,7 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
                 <div class="kpi-collapsible-inner">
                     <div class="kpi-row-new mode-default" id="kpiRowNew">
 
-                        <!-- ░░ DEPARTAMENTOS ░░ -->
+                        <!-- â–‘â–‘ DEPARTAMENTOS â–‘â–‘ -->
                         <div class="kpi-cell tipo-dep" id="kpi-cell-dep" data-tipo="departamentos">
                             <span class="kpi-corner-icon"><i class="bx bx-buildings"></i></span>
                             <div class="kpi-cell-top">
@@ -4580,12 +4587,12 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
                             </div>
                         </div>
 
-                        <!-- ░░ PUESTOS ░░ -->
+                        <!-- â–‘â–‘ PUESTOS â–‘â–‘ -->
                         <div class="kpi-cell tipo-puesto" id="kpi-cell-puesto" data-tipo="puestos">
                             <span class="kpi-corner-icon"><i class="bx bx-briefcase"></i></span>
                             <div class="kpi-cell-top">
                                 <div class="kpi-icon-wrap"><i class="bx bx-briefcase"></i></div>
-                                <span class="kpi-cell-status">Únicos</span>
+                                <span class="kpi-cell-status">Ãšnicos</span>
                             </div>
                             <div class="kpi-num" id="kpi-puestos">0</div>
                             <div class="kpi-lbl">Puestos</div>
@@ -4601,7 +4608,7 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
                             <div class="donut-block">
                                 <div class="donut-header">
                                     <span class="donut-title">Puestos</span>
-                                    <span class="kpi-cell-status">Únicos</span>
+                                    <span class="kpi-cell-status">Ãšnicos</span>
                                 </div>
                                 <div class="donut-svg-wrap"
                                      onmouseenter="kpiShowTooltip(event, document.getElementById('kpi-puestos').textContent + ' puestos únicos')"
@@ -4625,7 +4632,7 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
                             </div>
                         </div>
 
-                        <!-- ░░ TOTAL EMPLEADOS ░░ -->
+                        <!-- â–‘â–‘ TOTAL EMPLEADOS â–‘â–‘ -->
                         <div class="kpi-cell tipo-total" id="kpi-cell-total" data-tipo="total">
                             <span class="kpi-corner-icon"><i class="bx bx-group"></i></span>
                             <div class="kpi-cell-top">
@@ -4691,7 +4698,7 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
         <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
       </div>
       <div class="modal-body" id="modalKpiContent">
-        <p class="text-muted text-center py-4"><i class="bx bx-loader-alt bx-spin me-2"></i>Cargando…</p>
+        <p class="text-muted text-center py-4"><i class="bx bx-loader-alt bx-spin me-2"></i>Cargandoâ€¦</p>
       </div>
       <div class="modal-footer">
         <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
@@ -4703,11 +4710,11 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
 
 
         <!-- =======================
-             BOTONES DE ACCIÓN
+             BOTONES DE ACCIÃ“N
         ======================== -->
         <div class="row justify-content-end m-4">
             <div class="col-12 d-flex align-items-end justify-content-end gap-2 flex-wrap">
-                <!-- Botón Descargar Plantilla -->
+                <?php if (!empty($puedeDescargarPlantillaGestion ?? false)): ?>
                 <button
                   type="button"
                   class="btn text-white btn-action-size"
@@ -4718,8 +4725,9 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
                     <i class="fa fa-download icon-sm me-sm-2"></i>
                     <span class="d-inline-block">Plantilla</span>
                 </button>
+                <?php endif; ?>
 
-                <!-- Botón Agregar Usuario -->
+                <?php if (!empty($puedeAgregarUsuarioGestion ?? false)): ?>
                 <button
                   type="button"
                   class="btn btn-primary add-new btn-action-size"
@@ -4729,6 +4737,7 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
                     <i class="fa fa-user-plus icon-sm me-sm-2"></i>
                     <span class="d-inline-block">Agregar Usuario</span>
                 </button>
+                <?php endif; ?>
 
                 <?php if (!empty($puedeAgregarUsuarioRrhh ?? false)): ?>
                 <button
@@ -5073,6 +5082,9 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
                     <button type="button" class="btn btn-outline-primary btn-sm" id="btnAjustarFotoExpedienteRrhh">
                       <i class="fa fa-crop-alt me-1"></i>Ajustar foto
                     </button>
+                    <button type="button" class="btn btn-outline-success btn-sm" id="btnAbrirImportacionDocsRrhh">
+                      <i class="fa fa-file-import me-1"></i>Importar documentos
+                    </button>
                     <button type="button" class="btn btn-outline-danger btn-sm" id="btnLimpiarTodoExpedienteRrhh">
                       <i class="fa fa-trash me-1"></i>Limpiar todo
                     </button>
@@ -5088,6 +5100,79 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
                   <i class="fa fa-print me-1"></i>Imprimir expediente
                 </button>
                 <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cerrar</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <style>
+          .rrhh-import-person-separator > td {
+            border-top: 2px solid #263653 !important;
+          }
+        </style>
+
+        <div class="modal fade" id="modalImportarDocumentosRrhh" tabindex="-1" aria-labelledby="modalImportarDocumentosRrhhLabel" aria-hidden="true">
+          <div class="modal-dialog modal-dialog-centered modal-xl">
+            <div class="modal-content">
+              <div class="modal-header">
+                <h5 class="modal-title fw-bold" id="modalImportarDocumentosRrhhLabel">
+                  <i class="fa fa-file-import me-2"></i>Importar documentos RR.HH.
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+              </div>
+              <div class="modal-body">
+                <input type="file" class="d-none" id="rrhhImportDocsInputArchivos" accept=".pdf,.zip,application/pdf,application/zip" multiple>
+                <input type="file" class="d-none" id="rrhhImportDocsInputCarpeta" webkitdirectory directory multiple>
+                <div class="d-flex flex-wrap gap-2 align-items-center mb-3">
+                  <button type="button" class="btn btn-outline-primary" id="btnRrhhImportSeleccionarArchivos">
+                    <i class="fa fa-file-archive me-1"></i>Elegir ZIP/PDF
+                  </button>
+                  <button type="button" class="btn btn-outline-primary" id="btnRrhhImportSeleccionarCarpeta">
+                    <i class="fa fa-folder-open me-1"></i>Elegir carpeta
+                  </button>
+                  <button type="button" class="btn btn-success" id="btnRrhhImportImportar" disabled>
+                    <i class="fa fa-cloud-arrow-up me-1"></i>Importar listos
+                  </button>
+                  <button type="button" class="btn btn-outline-secondary" id="btnRrhhImportLimpiar">
+                    <i class="fa fa-eraser me-1"></i>Limpiar
+                  </button>
+                </div>
+                <div class="small text-muted mb-3" id="rrhhImportDocsSeleccionResumen">No se han seleccionado archivos.</div>
+                <div id="rrhhImportDocsResumen" class="d-flex flex-wrap gap-2 mb-3"></div>
+                <div class="table-responsive" style="max-height: 52vh;">
+                  <table class="table table-sm table-striped align-middle">
+                    <thead class="table-dark sticky-top">
+                      <tr>
+                        <th>Estado</th>
+                        <th>Persona detectada</th>
+                        <th>Tipo de documento</th>
+                        <th>Archivo</th>
+                        <th>Detalle</th>
+                        <th class="text-center">Acciones</th>
+                      </tr>
+                    </thead>
+                    <tbody id="rrhhImportDocsTabla">
+                      <tr><td colspan="6" class="text-center text-muted py-4">Selecciona archivos o una carpeta para analizarlos automaticamente.</td></tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+              <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cerrar</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="modal fade" id="modalRrhhImportPreview" tabindex="-1" aria-labelledby="modalRrhhImportPreviewLabel" aria-hidden="true">
+          <div class="modal-dialog modal-xl modal-dialog-scrollable">
+            <div class="modal-content">
+              <div class="modal-header">
+                <h5 class="modal-title" id="modalRrhhImportPreviewLabel">Documento</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+              </div>
+              <div class="modal-body p-0">
+                <iframe id="rrhhImportPreviewFrame" title="Vista previa documento" style="width: 100%; height: 78vh; border: 0;"></iframe>
               </div>
             </div>
           </div>
@@ -5285,21 +5370,21 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
                                         class="btn btn-outline-primary btn-filtro-rapido"
                                         data-periodo="ultimo-mes"
                                     >
-                                        <i class="fa fa-calendar-day me-1"></i>Último Mes
+                                        <i class="fa fa-calendar-day me-1"></i>Ãšltimo Mes
                                     </button>
                                     <button
                                         type="button"
                                         class="btn btn-outline-primary btn-filtro-rapido"
                                         data-periodo="ultimos-3-meses"
                                     >
-                                        <i class="fa fa-calendar-week me-1"></i>Últimos 3 Meses
+                                        <i class="fa fa-calendar-week me-1"></i>Ãšltimos 3 Meses
                                     </button>
                                     <button
                                         type="button"
                                         class="btn btn-outline-primary btn-filtro-rapido"
                                         data-periodo="ultimos-6-meses"
                                     >
-                                        <i class="fa fa-calendar me-1"></i>Últimos 6 Meses
+                                        <i class="fa fa-calendar me-1"></i>Ãšltimos 6 Meses
                                     </button>
                                     <button
                                         type="button"
@@ -5364,7 +5449,7 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
                                     <div class="kpi-collapsible-inner">
                                         <div class="kpi-row-new mode-default" id="kpiRowNewB">
 
-                                            <!-- ░░ TOTAL BAJAS ░░ -->
+                                            <!-- â–‘â–‘ TOTAL BAJAS â–‘â–‘ -->
                                             <div class="kpi-cell tipo-baja-total" id="kpi-cell-b-total" data-tipo="bajas-total">
                                                 <span class="kpi-corner-icon"><i class="bx bx-user-x"></i></span>
                                                 <div class="kpi-cell-top">
@@ -5413,7 +5498,7 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
                                                 </div>
                                             </div>
 
-                                            <!-- ░░ DEPARTAMENTOS AFECTADOS ░░ -->
+                                            <!-- â–‘â–‘ DEPARTAMENTOS AFECTADOS â–‘â–‘ -->
                                             <div class="kpi-cell tipo-baja-dep" id="kpi-cell-b-dep" data-tipo="bajas-dep">
                                                 <span class="kpi-corner-icon"><i class="bx bx-buildings"></i></span>
                                                 <div class="kpi-cell-top">
@@ -5463,7 +5548,7 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
                                                 </div>
                                             </div>
 
-                                            <!-- ░░ PUESTOS AFECTADOS ░░ -->
+                                            <!-- â–‘â–‘ PUESTOS AFECTADOS â–‘â–‘ -->
                                             <div class="kpi-cell tipo-baja-puesto" id="kpi-cell-b-puesto" data-tipo="bajas-puesto">
                                                 <span class="kpi-corner-icon"><i class="bx bx-briefcase"></i></span>
                                                 <div class="kpi-cell-top">
@@ -5602,27 +5687,27 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
 
                 <div class="mb-2 add-persona-only">
                     <label class="form-label">Nombre *</label>
-                    <input type="text" id="add_nombres" class="form-control" oninput="this.value = this.value.replace(/[^A-Za-zÁÉÍÓÚáéíóúÑñ\s]/g, '').replace(/^\s+/, '').replace(/\s{2,}/g, ' ').toUpperCase()" onblur="this.value = this.value.trim()" style="text-transform: uppercase;">
+                    <input type="text" id="add_nombres" class="form-control" oninput="this.value = this.value.replace(/[^A-Za-zÁÃ‰ÍÃ“ÃšáéíóúÃ‘ñ\s]/g, '').replace(/^\s+/, '').replace(/\s{2,}/g, ' ').toUpperCase()" onblur="this.value = this.value.trim()" style="text-transform: uppercase;">
                 </div>
 
                 <div class="mb-2 add-persona-only">
                     <label class="form-label">Segundo Nombre (Opcional)</label>
-                    <input type="text" id="add_segundo_nombre" class="form-control" oninput="this.value = this.value.replace(/[^A-Za-zÁÉÍÓÚáéíóúÑñ\s]/g, '').replace(/^\s+/, '').replace(/\s{2,}/g, ' ').toUpperCase()" onblur="this.value = this.value.trim()" style="text-transform: uppercase;">
+                    <input type="text" id="add_segundo_nombre" class="form-control" oninput="this.value = this.value.replace(/[^A-Za-zÁÃ‰ÍÃ“ÃšáéíóúÃ‘ñ\s]/g, '').replace(/^\s+/, '').replace(/\s{2,}/g, ' ').toUpperCase()" onblur="this.value = this.value.trim()" style="text-transform: uppercase;">
                 </div>
 
                 <div class="mb-2 add-persona-only">
                     <label class="form-label">Apellido Paterno *</label>
-                    <input type="text" id="add_apellidop" class="form-control" oninput="this.value = this.value.replace(/[^A-Za-zÁÉÍÓÚáéíóúÑñ\s]/g, '').replace(/^\s+/, '').replace(/\s{2,}/g, ' ').toUpperCase()" onblur="this.value = this.value.trim()" style="text-transform: uppercase;">
+                    <input type="text" id="add_apellidop" class="form-control" oninput="this.value = this.value.replace(/[^A-Za-zÁÃ‰ÍÃ“ÃšáéíóúÃ‘ñ\s]/g, '').replace(/^\s+/, '').replace(/\s{2,}/g, ' ').toUpperCase()" onblur="this.value = this.value.trim()" style="text-transform: uppercase;">
                 </div>
 
                 <div class="mb-2 add-persona-only">
                     <label class="form-label">Apellido Materno *</label>
-                    <input type="text" id="add_apellidom" class="form-control" oninput="this.value = this.value.replace(/[^A-Za-zÁÉÍÓÚáéíóúÑñ\s]/g, '').replace(/^\s+/, '').replace(/\s{2,}/g, ' ').toUpperCase()" onblur="this.value = this.value.trim()" style="text-transform: uppercase;">
+                    <input type="text" id="add_apellidom" class="form-control" oninput="this.value = this.value.replace(/[^A-Za-zÁÃ‰ÍÃ“ÃšáéíóúÃ‘ñ\s]/g, '').replace(/^\s+/, '').replace(/\s{2,}/g, ' ').toUpperCase()" onblur="this.value = this.value.trim()" style="text-transform: uppercase;">
                 </div>
 
                 <div class="mb-2 add-persona-only">
                     <label class="form-label">CURP *</label>
-                    <input type="text" id="add_curp" class="form-control" maxlength="18" placeholder="18 caracteres" autocomplete="off" required style="text-transform: uppercase;" oninput="this.value = this.value.toUpperCase().replace(/[^A-ZÑ0-9]/g, '')" onblur="this.value = this.value.trim()">
+                    <input type="text" id="add_curp" class="form-control" maxlength="18" placeholder="18 caracteres" autocomplete="off" required style="text-transform: uppercase;" oninput="this.value = this.value.toUpperCase().replace(/[^A-ZÃ‘0-9]/g, '')" onblur="this.value = this.value.trim()">
                 </div>
 
                 <div class="mb-2 add-persona-only">
@@ -5799,7 +5884,7 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
                         </select>
                     </div>
 
-                    <!-- 🆕 Motivo de baja -->
+                    <!-- ðŸ†• Motivo de baja -->
                     <div class="mb-3">
                         <label for="motivoBajaDescripcion" class="form-label"><strong>Descripción de la baja:</strong></label>
                         <textarea class="form-control" id="motivoBajaDescripcion" rows="3" placeholder="Escribe el motivo..."></textarea>
@@ -5832,7 +5917,7 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
 
-                    <!-- 🆕 Botón para confirmar baja -->
+                    <!-- ðŸ†• Botón para confirmar baja -->
                     <button type="button" class="btn btn-danger" onclick="confirmarBaja()">
                         Confirmar Baja
                     </button>
@@ -5931,11 +6016,11 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
                             <option value="LOCALIZABLE EN DOMICILIO PRINCIPAL">LOCALIZABLE EN DOMICILIO PRINCIPAL</option>
                             <option value="LOCALIZABLE EN DOMICILIO ALTERNO (FIRMA, BURO Y FRACTURA)">LOCALIZABLE EN DOMICILIO ALTERNO (FIRMA, BURO Y FRACTURA)</option>
                             <option value="LOCALIZABLE EN DOMICILIO DE RIESGO">LOCALIZABLE EN DOMICILIO DE RIESGO</option>
-                            <option value="GESTIÓN INCOMPLETA">GESTIÓN INCOMPLETA</option>
-                            <option value="DUAL || ZONIFICACIÓN">DUAL || ZONIFICACIÓN</option>
+                            <option value="GESTIÃ“N INCOMPLETA">GESTIÃ“N INCOMPLETA</option>
+                            <option value="DUAL || ZONIFICACIÃ“N">DUAL || ZONIFICACIÃ“N</option>
                             <option value="FALTA VISITAR DOMICILIOS ALTERNOS">FALTA VISITAR DOMICILIOS ALTERNOS</option>
-                            <option value="FALTA INTENSIDAD DE GESTIÓN">FALTA INTENSIDAD DE GESTIÓN</option>
-                            <option value="GESTIONADA VÍA TELEFÓNICA">GESTIONADA VÍA TELEFÓNICA</option>
+                            <option value="FALTA INTENSIDAD DE GESTIÃ“N">FALTA INTENSIDAD DE GESTIÃ“N</option>
+                            <option value="GESTIONADA VÍA TELEFÃ“NICA">GESTIONADA VÍA TELEFÃ“NICA</option>
                         </select>
                     </div>
 
@@ -6075,7 +6160,7 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
     </div>
 
     <!-- =======================
-         MODAL - CARGAR DOCUMENTO PERSONA (GESTIÓN)
+         MODAL - CARGAR DOCUMENTO PERSONA (GESTIÃ“N)
     ======================== -->
     <div class="modal fade" id="modalCargarDocumentoPersona" tabindex="-1" aria-labelledby="modalCargarDocPersonaLabel" aria-hidden="true">
         <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
@@ -6295,27 +6380,27 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
 
                 <div class="mb-2">
                     <label class="form-label">Nombre *</label>
-                    <input type="text" id="edit_nombres" class="form-control" oninput="this.value = this.value.replace(/[^A-Za-zÁÉÍÓÚáéíóúÑñ\s]/g, '').replace(/^\s+/, '').replace(/\s{2,}/g, ' ').toUpperCase()" onblur="this.value = this.value.trim()" style="text-transform: uppercase;">
+                    <input type="text" id="edit_nombres" class="form-control" oninput="this.value = this.value.replace(/[^A-Za-zÁÃ‰ÍÃ“ÃšáéíóúÃ‘ñ\s]/g, '').replace(/^\s+/, '').replace(/\s{2,}/g, ' ').toUpperCase()" onblur="this.value = this.value.trim()" style="text-transform: uppercase;">
                 </div>
 
                 <div class="mb-2">
                     <label class="form-label">Segundo Nombre (Opcional)</label>
-                    <input type="text" id="edit_segundo_nombre" class="form-control" oninput="this.value = this.value.replace(/[^A-Za-zÁÉÍÓÚáéíóúÑñ\s]/g, '').replace(/^\s+/, '').replace(/\s{2,}/g, ' ').toUpperCase()" onblur="this.value = this.value.trim()" style="text-transform: uppercase;">
+                    <input type="text" id="edit_segundo_nombre" class="form-control" oninput="this.value = this.value.replace(/[^A-Za-zÁÃ‰ÍÃ“ÃšáéíóúÃ‘ñ\s]/g, '').replace(/^\s+/, '').replace(/\s{2,}/g, ' ').toUpperCase()" onblur="this.value = this.value.trim()" style="text-transform: uppercase;">
                 </div>
 
                 <div class="mb-2">
                     <label class="form-label">Apellido Paterno *</label>
-                    <input type="text" id="edit_apellidop" class="form-control" oninput="this.value = this.value.replace(/[^A-Za-zÁÉÍÓÚáéíóúÑñ\s]/g, '').replace(/^\s+/, '').replace(/\s{2,}/g, ' ').toUpperCase()" onblur="this.value = this.value.trim()" style="text-transform: uppercase;">
+                    <input type="text" id="edit_apellidop" class="form-control" oninput="this.value = this.value.replace(/[^A-Za-zÁÃ‰ÍÃ“ÃšáéíóúÃ‘ñ\s]/g, '').replace(/^\s+/, '').replace(/\s{2,}/g, ' ').toUpperCase()" onblur="this.value = this.value.trim()" style="text-transform: uppercase;">
                 </div>
 
                 <div class="mb-2">
                     <label class="form-label">Apellido Materno *</label>
-                    <input type="text" id="edit_apellidom" class="form-control" oninput="this.value = this.value.replace(/[^A-Za-zÁÉÍÓÚáéíóúÑñ\s]/g, '').replace(/^\s+/, '').replace(/\s{2,}/g, ' ').toUpperCase()" onblur="this.value = this.value.trim()" style="text-transform: uppercase;">
+                    <input type="text" id="edit_apellidom" class="form-control" oninput="this.value = this.value.replace(/[^A-Za-zÁÃ‰ÍÃ“ÃšáéíóúÃ‘ñ\s]/g, '').replace(/^\s+/, '').replace(/\s{2,}/g, ' ').toUpperCase()" onblur="this.value = this.value.trim()" style="text-transform: uppercase;">
                 </div>
 
                 <div class="mb-2">
                     <label class="form-label">CURP (opcional)</label>
-                    <input type="text" id="edit_curp" class="form-control" maxlength="18" placeholder="18 caracteres" autocomplete="off" style="text-transform: uppercase;" oninput="this.value = this.value.toUpperCase().replace(/[^A-ZÑ0-9]/g, '')" onblur="this.value = this.value.trim()">
+                    <input type="text" id="edit_curp" class="form-control" maxlength="18" placeholder="18 caracteres" autocomplete="off" style="text-transform: uppercase;" oninput="this.value = this.value.toUpperCase().replace(/[^A-ZÃ‘0-9]/g, '')" onblur="this.value = this.value.trim()">
                 </div>
 
                 <div class="mb-2">
@@ -6379,7 +6464,7 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
                     </div>
                 </div>
 
-                <!-- Contenedor de puestos múltiples - MEJORADO CON GESTIÓN COMPLETA -->
+                <!-- Contenedor de puestos múltiples - MEJORADO CON GESTIÃ“N COMPLETA -->
                 <div class="mb-3 d-none" id="edit_contenedor_multiples_puestos">
                     <label class="form-label fw-semibold">
                         <i class="fa fa-layer-group me-1"></i>Gestión de Puestos Asignados
@@ -6391,7 +6476,7 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
                         <div class="puesto-item" data-puesto-id="X">
                             <input type="radio" name="puesto_principal" />
                             <span>Departamento - Puesto</span>
-                            <button onclick="eliminarPuesto(X)">×</button>
+                            <button onclick="eliminarPuesto(X)">Ã—</button>
                         </div>
                         -->
                     </div>
@@ -6510,7 +6595,7 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
 
                 <div class="mb-2">
                     <label class="form-label">Usuario *</label>
-                    <input type="text" id="edit_usuario" class="form-control" readonly oninput="this.value = this.value.replace(/[^A-Za-zÁÉÍÓÚáéíóúÑñ\s]/g, '').toUpperCase()" style="text-transform: uppercase;">
+                    <input type="text" id="edit_usuario" class="form-control" readonly oninput="this.value = this.value.replace(/[^A-Za-zÁÃ‰ÍÃ“ÃšáéíóúÃ‘ñ\s]/g, '').toUpperCase()" style="text-transform: uppercase;">
                 </div>
 
                 <div class="mb-7" id="edit_row_contrasena">
@@ -6525,7 +6610,7 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
     </div>
 
     <!-- =======================
-      MODAL - GESTIÓN DE PERMISOS Y PUESTOS
+      MODAL - GESTIÃ“N DE PERMISOS Y PUESTOS
  ======================== -->
     <div class="modal fade" id="modalEditPerfil" tabindex="-1" aria-labelledby="modalEditPerfilLabel" aria-hidden="true" data-bs-backdrop="false" data-bs-keyboard="true">
         <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable modal-perfil-gestor-dialog">
@@ -6568,7 +6653,7 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
                     </ul>
 
                     <div class="tab-content p-4 modal-perfil-gestor-tab-content">
-                        <!-- TAB MÓDULOS -->
+                        <!-- TAB MÃ“DULOS -->
                         <div class="tab-pane fade show active" id="tabModulos" role="tabpanel">
                             <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
                                 <div>
@@ -6633,7 +6718,7 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
                                 <div id="modal-edit-perfil-permisos-especiales-form"></div>
                             </div>
 
-                            <!-- ── Herramienta admin: Eliminar convenios del crédito (temporalmente oculta) ──
+                            <!-- â”€â”€ Herramienta admin: Eliminar convenios del crédito (temporalmente oculta) â”€â”€
                             <div class="mt-4">
                                 <div class="card border shadow-sm">
                                     <div class="card-header py-2 px-3 d-flex align-items-center gap-2" style="background:#f8f9fa;">
@@ -6641,7 +6726,7 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
                                         <span class="fw-semibold small">Eliminar convenios del crédito</span>
                                     </div>
                                     <div class="card-body p-3">
-                                        <p class="text-muted small mb-3">Elimina <strong>todos los convenios y su amortización</strong> para un crédito. Úsalo cuando el crédito tenga convenios cancelados que bloquean la generación de uno nuevo.</p>
+                                        <p class="text-muted small mb-3">Elimina <strong>todos los convenios y su amortización</strong> para un crédito. Ãšsalo cuando el crédito tenga convenios cancelados que bloquean la generación de uno nuevo.</p>
                                         <div class="d-flex gap-2 align-items-end flex-wrap">
                                             <div class="flex-grow-1" style="max-width:240px;">
                                                 <label class="form-label small mb-1 fw-medium">ID Crédito</label>
@@ -6657,7 +6742,7 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
                             -->
                         </div>
 
-                        <!-- TAB SESIÓN REMOTA (force_logout en persona) -->
+                        <!-- TAB SESIÃ“N REMOTA (force_logout en persona) -->
                         <div class="tab-pane fade" id="tabSesionRemota" role="tabpanel" aria-labelledby="tabSesionRemota-tab">
                             <div class="row justify-content-start">
                                 <div class="col-12 col-md-10 col-lg-6 col-xl-5">
@@ -6686,12 +6771,12 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
                 </div>
                 <div class="modal-footer d-flex justify-content-between align-items-center border-top">
                     <div class="small text-muted">
-                        Total de puestos seleccionados:
-                        <span class="fw-bold text-dark" id="perfilPuestosSeleccionadosTotal">0</span>
+                        <i class="fa fa-circle-check text-success me-1"></i>
+                        Los cambios se guardan automáticamente al asignar o quitar.
+                        <span class="d-none" id="perfilPuestosSeleccionadosTotal">0</span>
                     </div>
                     <div class="d-flex gap-2">
-                        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
-                        <button type="button" class="btn text-white" onclick="guardarPermisos()" style="background:#0f2747;">Guardar cambios</button>
+                        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cerrar</button>
                     </div>
                 </div>
 
@@ -6774,7 +6859,7 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
 <script>
   /**
    * ==========================================
-   * FUNCIÓN VALIDAR TELÉFONO
+   * FUNCIÃ“N VALIDAR TELÃ‰FONO
    * ==========================================
    * Valida que el número no tenga patrones repetitivos
    */
@@ -6897,7 +6982,7 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
     const puestoSeleccionado = document.getElementById('UserPlan').value;
 
     // ==========================================
-    // LÓGICA CONDICIONAL SEGÚN FILTROS
+    // LÃ“GICA CONDICIONAL SEGÃšN FILTROS
     // ==========================================
 
     // CASO 1: Sin filtros seleccionados
@@ -6938,7 +7023,7 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
     animarNumero('kpi-departamentos', departamentos.size);
     animarNumero('kpi-puestos', puestos.size);
 
-    // INTEGRACIÓN CON SISTEMA KPI v3: Actualizar el nuevo panel con todos los datos
+    // INTEGRACIÃ“N CON SISTEMA KPI v3: Actualizar el nuevo panel con todos los datos
     if (typeof kpiUpdateValues === 'function') {
       // El total de empleados es simplemente la cantidad de datos que se pasaron (ya filtrados)
       const totalEmpleados = datos.length;
@@ -7056,7 +7141,7 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
 
       animarNumero('kpi-rol1-numero', cantidad);
 
-      // INTEGRACIÓN CON SISTEMA KPI v3
+      // INTEGRACIÃ“N CON SISTEMA KPI v3
       if (typeof kpiUpdateValues === 'function') {
         const datosKPI = {
           rol1: cantidad,
@@ -7097,7 +7182,7 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
 
       animarNumero('kpi-rol2-numero', cantidad);
 
-      // INTEGRACIÓN CON SISTEMA KPI v3
+      // INTEGRACIÃ“N CON SISTEMA KPI v3
       if (typeof kpiUpdateValues === 'function') {
         const datosKPI = {
           rol2: cantidad,
@@ -7125,7 +7210,7 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
     if (container) container.style.display = 'none';
     if (separador) separador.style.display = 'none';
 
-    // INTEGRACIÓN CON SISTEMA KPI v3: Limpiar valores
+    // INTEGRACIÃ“N CON SISTEMA KPI v3: Limpiar valores
     if (typeof kpiUpdateValues === 'function') {
       const datosKPI = {
         rol1: undefined,
@@ -7148,7 +7233,7 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
     if (container) container.style.display = 'none';
     if (separador) separador.style.display = 'none';
 
-    // INTEGRACIÓN CON SISTEMA KPI v3: Limpiar valores
+    // INTEGRACIÃ“N CON SISTEMA KPI v3: Limpiar valores
     if (typeof kpiUpdateValues === 'function') {
       const datosKPI = {
         rol2: undefined,
@@ -7194,7 +7279,7 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
 
       animarNumero('kpi-total-empleados', cantidad);
 
-      // INTEGRACIÓN CON SISTEMA KPI v3: Actualizar también el nuevo panel
+      // INTEGRACIÃ“N CON SISTEMA KPI v3: Actualizar también el nuevo panel
       if (typeof kpiUpdateValues === 'function') {
         // Solo actualizar el total, los otros valores se mantienen
         const datosKPI = {
@@ -7223,7 +7308,7 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
     if (container) container.style.display = 'none';
     if (separador) separador.style.display = 'none';
 
-    // INTEGRACIÓN CON SISTEMA KPI v3: Limpiar valores
+    // INTEGRACIÃ“N CON SISTEMA KPI v3: Limpiar valores
     if (typeof kpiUpdateValues === 'function') {
       const datosKPI = {
         total: 0,
@@ -7285,7 +7370,7 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
 
   /**
    * ==========================================
-   * ANIMAR NÚMEROS DE KPIs
+   * ANIMAR NÃšMEROS DE KPIs
    * ==========================================
    * Crea una animación suave al actualizar los números
    */
@@ -7374,7 +7459,7 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
         const depts = [...new Set(datos.filter(u => u.nombre_departamento && u.nombre_departamento !== 'Sin departamento').map(u => u.nombre_departamento))];
         const topDept = obtenerTopDepartamento(datos);
         return `
-          <div class="kpi-tooltip-title">📊 Departamentos</div>
+          <div class="kpi-tooltip-title">ðŸ“Š Departamentos</div>
           <div class="kpi-tooltip-item">
             <span class="kpi-tooltip-label">Total:</span>
             <span class="kpi-tooltip-value">${depts.length}</span>
@@ -7394,7 +7479,7 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
         const puestos = [...new Set(datos.filter(u => u.nombre_puesto && u.nombre_puesto !== 'Sin puesto').map(u => u.nombre_puesto))];
         const topPuesto = obtenerTopPuesto(datos);
         return `
-          <div class="kpi-tooltip-title">💼 Puestos</div>
+          <div class="kpi-tooltip-title">ðŸ’¼ Puestos</div>
           <div class="kpi-tooltip-item">
             <span class="kpi-tooltip-label">Total:</span>
             <span class="kpi-tooltip-value">${puestos.length}</span>
@@ -7413,7 +7498,7 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
       case 'total':
         const departamentoActual = document.getElementById('UserRole')?.value || '';
         return `
-          <div class="kpi-tooltip-title">👥 Total Empleados</div>
+          <div class="kpi-tooltip-title">ðŸ‘¥ Total Empleados</div>
           <div class="kpi-tooltip-item">
             <span class="kpi-tooltip-label">Contexto:</span>
             <span class="kpi-tooltip-value">${departamentoActual ? 'Departamento' : 'Global'}</span>
@@ -7431,7 +7516,7 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
 
       default:
         return `
-          <div class="kpi-tooltip-title">📈 Estadísticas</div>
+          <div class="kpi-tooltip-title">ðŸ“ˆ Estadísticas</div>
           <div style="margin-top: 0.5rem; font-size: 0.7rem; color: #94a3b8; text-align: center;">Click para más detalles</div>
         `;
     }
@@ -7982,7 +8067,7 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
 
     const totalBajas = datosBajas.length;
 
-    // ── DEPARTAMENTOS AFECTADOS ──
+    // â”€â”€ DEPARTAMENTOS AFECTADOS â”€â”€
     const depConteo = {};
     datosBajas.forEach(baja => {
       const d = baja.departamento;
@@ -7993,7 +8078,7 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
     const topDepNombre   = topDepEntry[0];
     const topDepBajas    = topDepEntry[1];
 
-    // ── PUESTOS AFECTADOS ──
+    // â”€â”€ PUESTOS AFECTADOS â”€â”€
     const puestoConteo = {};
     datosBajas.forEach(baja => {
       const p = baja.nombre_puesto;
@@ -8004,7 +8089,7 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
     const topPuestoNombre  = topPuestoEntry[0];
     const topPuestoBajas   = topPuestoEntry[1];
 
-    // ── BAJAS DEL MES / PERÍODO ──
+    // â”€â”€ BAJAS DEL MES / PERÍODO â”€â”€
     const ahora = new Date();
     const mesActual = ahora.getMonth(), anioActual = ahora.getFullYear();
     let bajasRef = 0, refLabel = 'Este mes';
@@ -8022,7 +8107,7 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
       }).length;
     }
 
-    // ── PORCENTAJES PARA BARRAS / DONUTS ──
+    // â”€â”€ PORCENTAJES PARA BARRAS / DONUTS â”€â”€
     const arcTotal  = Math.min(100, totalBajas);
     const arcDep    = Math.min(100, (depAfectados  / 20) * 100);
     const arcPuesto = Math.min(100, (puestosAfectados / 50) * 100);
@@ -8108,7 +8193,7 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
    * MOSTRAR INDICADOR DE BAJAS DEL PERÍODO
    */
   // Compatibilidad: estas funciones ya no manejan el DOM directamente;
-  // la lógica de período está integrada en actualizarIndicadoresBajas → kpiUpdateValuesBajas.
+  // la lógica de período está integrada en actualizarIndicadoresBajas â†’ kpiUpdateValuesBajas.
   function mostrarIndicadorBajasPeriodo(cantidad, rangoFechas) { /* integrado en kpiUpdateValuesBajas */ }
   function ocultarIndicadorBajasPeriodo() { /* integrado en kpiUpdateValuesBajas */ }
 
@@ -8211,7 +8296,7 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
       </div>
     `;
 
-    return { titulo: '🏢 Bajas Departamentales - Análisis Completo', html };
+    return { titulo: 'ðŸ¢ Bajas Departamentales - Análisis Completo', html };
   }
 
   /**
@@ -8289,7 +8374,7 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
       </div>
     `;
 
-    return { titulo: '💼 Bajas por Puesto - Análisis Completo', html };
+    return { titulo: 'ðŸ’¼ Bajas por Puesto - Análisis Completo', html };
   }
 
   /**
@@ -8676,7 +8761,7 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
     }
 
     if (options[2]) {
-      options[2].textContent = `Único puesto (${usuariosUnicos})`;
+      options[2].textContent = `Ãšnico puesto (${usuariosUnicos})`;
       options[2].disabled = usuariosUnicos === 0;
     }
 
@@ -8821,7 +8906,7 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
 
   /**
    * ==========================================
-   * CONSOLIDAR USUARIOS CON MÚLTIPLES PUESTOS
+   * CONSOLIDAR USUARIOS CON MÃšLTIPLES PUESTOS
    * ==========================================
    * Agrupa registros duplicados de usuarios que tienen múltiples puestos
    * y retorna un array con usuarios únicos
@@ -9023,7 +9108,7 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
         }
 
         // ==========================================
-        // INICIALIZAR FILTRO DE MÚLTIPLES PUESTOS
+        // INICIALIZAR FILTRO DE MÃšLTIPLES PUESTOS
         // ==========================================
         const selectMultiplePuestos = document.getElementById('FilterMultiplePuestos');
         if (selectMultiplePuestos) {
@@ -9088,7 +9173,7 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
     let puestosHTML = '<div class="d-flex flex-column gap-2">';
     usuario.puestos.forEach((puesto, index) => {
       const esPrincipal = index === 0;
-      const iconoPuesto = esPrincipal ? '⭐' : '📎';
+      const iconoPuesto = esPrincipal ? 'â­' : 'ðŸ“Ž';
       const claseBadge = esPrincipal
         ? 'badge text-white badge-puesto-principal'
         : 'badge bg-success badge-puesto-secundario';
@@ -9131,7 +9216,7 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
 
   /**
    * ==========================================
-   * ACTUALIZAR PUESTOS SEGÚN DEPARTAMENTO
+   * ACTUALIZAR PUESTOS SEGÃšN DEPARTAMENTO
    * ==========================================
    * Cuando el usuario selecciona un departamento,
    * este filtro muestra solo los puestos de ese departamento
@@ -9231,7 +9316,7 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
 
     // Filtrar datos
     const datosFiltrados = datosBase.filter(persona => {
-      // Filtro MÚLTIPLES PUESTOS
+      // Filtro MÃšLTIPLES PUESTOS
       if (multiplePuestosSeleccionado) {
         if (!usuarioCumpleTipoPuesto(persona, multiplePuestosSeleccionado)) {
           return false;
@@ -9365,7 +9450,7 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
       return;
     }
 
-    // Mapear datos con soporte para múltiples puestos - VISUALIZACIÓN MEJORADA
+    // Mapear datos con soporte para múltiples puestos - VISUALIZACIÃ“N MEJORADA
     const datosFormateados = datos.map(p => {
       const nombreCompleto = [p.nombres, p.segundo_nombre, p.apellidop, p.apellidom].filter(x => x).join(' ');
       const tienePuestos = p.puestos && p.puestos.length > 1;
@@ -9401,7 +9486,7 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
 
         puestosVisible.forEach((puesto, index) => {
           const esPrincipal = index === 0;
-          const iconoPuesto = esPrincipal ? '⭐' : '📎';
+          const iconoPuesto = esPrincipal ? 'â­' : 'ðŸ“Ž';
           const claseBadge = esPrincipal
             ? 'badge text-white badge-puesto-principal'
             : 'badge bg-success badge-puesto-secundario';
@@ -9486,36 +9571,47 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
           </small>
         `.trim(),
         acciones: (() => {
-          const puedeEditar = window.puedeEditarTodos;
+          const puedeEditar = !!window.puedeEditarTodos;
+          const miUsuarioId = Number(window.miUsuarioId || 0);
+          const mostrarEditar = puedeEditar;
+          const mostrarVisualizar = !puedeEditar || miUsuarioId === 1;
+          const puedePermisos = window.puedeGestionarPermisos;
           const puedeEditarRrhh = !!window.puedeEditarUsuarioRrhh;
           const puedeActualizarInfo = !!window.puedeActualizarInfo;
+          const puedeCargarDocumento = !!window.puedeCargarDocumentoGestion;
+          const puedeRegistrarAusencia = !!window.puedeRegistrarAusenciaGestion;
+          const puedeDarBaja = !!window.puedeDarBajaGestion;
           return `
          <div class="d-flex flex-column align-items-start gap-1" style="min-width: fit-content;">
            <div class="d-flex flex-wrap gap-1">
-             ${puedeEditar
-               ? `<button class="btn btn-sm btn-primary ${tienePuestos ? 'btn-with-indicator' : ''}" onclick="editar(${p.id})" title="${tienePuestos ? 'Editar usuario con ' + p.puestos.length + ' puestos asignados' : 'Editar usuario'}">
-                 ${tienePuestos ? '<span class="indicator-multiples-puestos" title="' + p.puestos.length + ' puestos">' + p.puestos.length + '</span>' : ''}
-                 <i class="fa fa-edit"></i>
-             </button>`
-               : `<button class="btn btn-sm btn-outline-secondary" onclick="visualizar(${p.id})" title="Visualizar">
-                 <i class="fa fa-eye"></i>
-             </button>`
-             }
-              <button class="btn btn-sm btn-info" onclick="cargarDocumentoPersona(this)" data-id-persona="${p.id}" data-nombre="${nombreCompleto.replace(/"/g, '&quot;')}" title="Cargar documento">
-                  <i class="fa fa-file"></i>
-              </button>
+              ${mostrarEditar
+                ? `<button class="btn btn-sm btn-primary ${tienePuestos ? 'btn-with-indicator' : ''}" onclick="editar(${p.id})" title="${tienePuestos ? 'Editar usuario con ' + p.puestos.length + ' puestos asignados' : 'Editar usuario'}">
+                  ${tienePuestos ? '<span class="indicator-multiples-puestos" title="' + p.puestos.length + ' puestos">' + p.puestos.length + '</span>' : ''}
+                  <i class="fa fa-edit"></i>
+              </button>`
+                : ''
+              }
+              ${mostrarVisualizar
+                ? `<button class="btn btn-sm btn-outline-secondary" onclick="visualizar(${p.id})" title="Visualizar">
+                  <i class="fa fa-eye"></i>
+              </button>`
+                : ''
+              }
+               ${puedeCargarDocumento ? `<button class="btn btn-sm btn-info" onclick="cargarDocumentoPersona(this)" data-id-persona="${p.id}" data-nombre="${nombreCompleto.replace(/"/g, '&quot;')}" title="Cargar documento">
+                   <i class="fa fa-file"></i>
+               </button>` : ''}
               ${puedeActualizarInfo ? `<button class="btn btn-sm btn-success" onclick="abrirActualizacionInfoPersona(${p.id})" title="Actualizar informaci&oacute;n" aria-label="Actualizar informaci&oacute;n">
                   <i class="fa fa-arrows-rotate"></i>
               </button>` : ''}
-              <button class="btn btn-sm btn-warning" onclick="registra_ausencia(${p.id})" title="Ausencias">
+              ${puedeRegistrarAusencia ? `<button class="btn btn-sm btn-warning" onclick="registra_ausencia(${p.id})" title="Ausencias">
                   <i class="fa fa-person-circle-minus"></i>
-              </button>
-             <button class="btn btn-sm btn-danger" onclick="baja_gestor(${p.id})" title="Dar de baja">
+              </button>` : ''}
+             ${puedeDarBaja ? `<button class="btn btn-sm btn-danger" onclick="baja_gestor(${p.id})" title="Dar de baja">
                  <i class="fa fa-user-slash"></i>
-             </button>
-             <button class="btn btn-sm" style="background-color: #D2D755; color: white;" onclick="edit_perfil(${p.id})" title="${tienePuestos ? 'Permisos (Gestionar múltiples puestos)' : 'Permisos'}">
+             </button>` : ''}
+             ${puedePermisos ? `<button class="btn btn-sm" style="background-color: #D2D755; color: white;" onclick="edit_perfil(${p.id})" title="${tienePuestos ? 'Permisos (Gestionar múltiples puestos)' : 'Permisos'}">
                  <i class="fa fa-lock" style="color: #007bff;"></i>
-             </button>
+             </button>` : ''}
            </div>
               ${puedeEditarRrhh ? `<button class="btn btn-sm btn-info text-white d-inline-flex align-items-center justify-content-center gap-1 px-3" onclick="abrirEditarRrhh(${p.id})" title="Editar RR.HH.">
                   <i class="fa fa-user-pen"></i><span>Editar RR.HH.</span>
@@ -9635,7 +9731,7 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
 
   /**
    * ==========================================
-   * SELECT CON BÚSQUEDA EN TIEMPO REAL
+   * SELECT CON BÃšSQUEDA EN TIEMPO REAL
    * ==========================================
    * Convierte un select normal en un select con búsqueda
    */
@@ -9823,7 +9919,7 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
 
   /**
    * ==========================================
-   * INICIALIZAR SELECTS CON BÚSQUEDA
+   * INICIALIZAR SELECTS CON BÃšSQUEDA
    * ==========================================
    */
   // Nota: Los selects de esta vista usan Select2 vía .js-select-buscador.
@@ -9832,7 +9928,7 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
 
   /**
    * ==========================================
-   * GESTIÓN DE MÚLTIPLES PUESTOS - FUNCIONES
+   * GESTIÃ“N DE MÃšLTIPLES PUESTOS - FUNCIONES
    * ==========================================
    */
 
@@ -10632,7 +10728,7 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
 
   /**
    * ==========================================
-   * FUNCIÓN DESCARGAR PLANTILLA GESTORES
+   * FUNCIÃ“N DESCARGAR PLANTILLA GESTORES
    * ==========================================
    */
   function descargarPlantillaGestores() {
@@ -10741,7 +10837,7 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
 
   /**
  * ==========================================
- * CASCADA GEOGRÁFICA: País → Estado → Municipio
+ * CASCADA GEOGRÁFICA: País â†’ Estado â†’ Municipio
  * ==========================================
  */
 
@@ -11480,7 +11576,7 @@ function precargarCascadaEdit(idPais, idEstado, idMunicipio, idColonia, idCalle,
     var kpiCurrentMode = localStorage.getItem(STORAGE_MODE) || DEFAULT_MODE;
     var kpiPanelOpen   = localStorage.getItem(STORAGE_OPEN) !== 'false';
 
-    /* ── Contador animado ── */
+    /* â”€â”€ Contador animado â”€â”€ */
     function kpiAnimateCounter(el, target, dur, delay) {
         if (!el) return;
         dur   = dur   || 900;
@@ -11497,7 +11593,7 @@ function precargarCascadaEdit(idPais, idEstado, idMunicipio, idColonia, idCalle,
         }, delay);
     }
 
-    /* ── Barra ── */
+    /* â”€â”€ Barra â”€â”€ */
     function kpiAnimateBar(id, pct, delay) {
         var el = document.getElementById(id);
         if (!el) return;
@@ -11505,7 +11601,7 @@ function precargarCascadaEdit(idPais, idEstado, idMunicipio, idColonia, idCalle,
         setTimeout(function() { el.style.width = pct + '%'; }, (delay || 0) + 80);
     }
 
-    /* ── Donut ── */
+    /* â”€â”€ Donut â”€â”€ */
     function kpiAnimateDonut(arcId, pct, delay) {
         var el = document.getElementById(arcId);
         if (!el) return;
@@ -11523,7 +11619,7 @@ function precargarCascadaEdit(idPais, idEstado, idMunicipio, idColonia, idCalle,
         });
     }
 
-    /* ── Tooltip donut ── */
+    /* â”€â”€ Tooltip donut â”€â”€ */
     var _kpiTooltip = null;
     function _getTooltip() {
         if (!_kpiTooltip) _kpiTooltip = document.getElementById('kpiDonutTooltip');
@@ -11544,7 +11640,7 @@ function precargarCascadaEdit(idPais, idEstado, idMunicipio, idColonia, idCalle,
         var t = _getTooltip(); if (t) t.classList.remove('visible');
     };
 
-    /* ── Revelar celdas ── */
+    /* â”€â”€ Revelar celdas â”€â”€ */
     function kpiRevealCells() {
         document.querySelectorAll('#kpiRowNew .kpi-cell').forEach(function(c, i) {
             c.style.opacity   = '0';
@@ -11562,7 +11658,7 @@ function precargarCascadaEdit(idPais, idEstado, idMunicipio, idColonia, idCalle,
         }
     }
 
-    /* ── Aplicar modo ── */
+    /* â”€â”€ Aplicar modo â”€â”€ */
     function kpiApplyMode(mode, animate) {
         var row = document.getElementById('kpiRowNew');
         if (!row) return;
@@ -11601,7 +11697,7 @@ function precargarCascadaEdit(idPais, idEstado, idMunicipio, idColonia, idCalle,
         }
     }
 
-    /* ── Público ── */
+    /* â”€â”€ Público â”€â”€ */
     window.kpiSetMode = function(mode) {
         kpiCurrentMode = mode;
         localStorage.setItem(STORAGE_MODE, mode);
@@ -11628,14 +11724,14 @@ function precargarCascadaEdit(idPais, idEstado, idMunicipio, idColonia, idCalle,
         location.reload();
     };
 
-    /* ── Actualizar valores (llamar desde el código existente) ──
+    /* â”€â”€ Actualizar valores (llamar desde el código existente) â”€â”€
        Reemplaza las asignaciones directas a kpi-departamentos,
        kpi-puestos y kpi-total-empleados con esta función.
 
        Ejemplo de uso:
          kpiUpdateValues({ dep: 12, puesto: 28, total: 147,
                            arcDep: 75, arcPuesto: 55, arcTotal: 90 });
-    ── */
+    â”€â”€ */
     window.kpiUpdateValues = function(data) {
         var numDep    = document.getElementById('kpi-departamentos');
         var numPuesto = document.getElementById('kpi-puestos');
@@ -11646,8 +11742,8 @@ function precargarCascadaEdit(idPais, idEstado, idMunicipio, idColonia, idCalle,
         if (numDep    && data.dep    !== undefined) kpiAnimateCounter(numDep,    data.dep,    600,  0);
         if (numPuesto && data.puesto !== undefined) kpiAnimateCounter(numPuesto, data.puesto, 600, 60);
         if (numTotal  && data.total  !== undefined) kpiAnimateCounter(numTotal,  data.total,  700, 120);
-        if (numRol1   && data.rol1   !== undefined) kpiAnimateCounter(numRol1,   data.rol1,   600, 180);
-        if (numRol2   && data.rol2   !== undefined) kpiAnimateCounter(numRol2,   data.rol2,   600, 240);
+        if (numRol1   && data.rol1   !== undefined) kpiAnimateCounter(numRol1,  data.rol1,  600, 180);
+        if (numRol2   && data.rol2   !== undefined) kpiAnimateCounter(numRol2,  data.rol2,  600, 240);
 
         // Actualizar labels de roles si se proporcionan
         if (data.rol1Label && document.getElementById('kpi-rol1-label')) {
@@ -11705,7 +11801,7 @@ function precargarCascadaEdit(idPais, idEstado, idMunicipio, idColonia, idCalle,
         if (dvEmpB && data.ingresosEsteMes   !== undefined) dvEmpB.textContent = data.ingresosEsteMes;
 
         // Actualizar badges de tendencia en donuts
-        var _trunc = function(s, n) { return s && s.length > n ? s.substring(0, n - 1) + '…' : (s || '—'); };
+        var _trunc = function(s, n) { return s && s.length > n ? s.substring(0, n - 1) + 'â€¦' : (s || '—'); };
         var trendDep    = document.getElementById('kpi-trend-dep');
         var trendPuesto = document.getElementById('kpi-trend-puesto');
         var trendTotal  = document.getElementById('kpi-trend-total');
@@ -11743,7 +11839,7 @@ function precargarCascadaEdit(idPais, idEstado, idMunicipio, idColonia, idCalle,
         }
     };
 
-    /* ── Init ── */
+    /* â”€â”€ Init â”€â”€ */
     document.addEventListener('DOMContentLoaded', function() {
         var panel    = document.getElementById('kpiCollapsible');
         var btn      = document.getElementById('kpiToggleBtn');
@@ -11919,7 +12015,7 @@ function precargarCascadaEdit(idPais, idEstado, idMunicipio, idColonia, idCalle,
         var elTotal  = document.getElementById('kpi-b-total');
         var elDep    = document.getElementById('kpi-b-dep');
         var elPuesto = document.getElementById('kpi-b-puesto');
-        if (elTotal  && data.total  !== undefined) kpiAnimateCounterB(elTotal,  data.total,  600,   0);
+        if (elTotal  && data.total  !== undefined) kpiAnimateCounterB(elTotal,  data.total,  600,  0);
         if (elDep    && data.dep    !== undefined) kpiAnimateCounterB(elDep,    data.dep,    600,  60);
         if (elPuesto && data.puesto !== undefined) kpiAnimateCounterB(elPuesto, data.puesto, 600, 120);
 
@@ -12016,7 +12112,7 @@ function precargarCascadaEdit(idPais, idEstado, idMunicipio, idColonia, idCalle,
 
     window.kpiRevealCellsB = kpiRevealCellsB;
 
-    /* ── Init ── */
+    /* â”€â”€ Init â”€â”€ */
     document.addEventListener('DOMContentLoaded', function() {
         // Restaurar estado open/closed del panel (idéntico al panel de Gestión)
         var panel    = document.getElementById('kpiCollapsibleB');
@@ -12028,7 +12124,7 @@ function precargarCascadaEdit(idPais, idEstado, idMunicipio, idColonia, idCalle,
         if (controls) controls.classList.toggle('kpi-vc-hidden', !kpiPanelOpenB);
         if (sep)      sep.classList.toggle('kpi-sep-hidden',     !kpiPanelOpenB);
         kpiApplyModeB(kpiCurrentModeB, false);
-        // NOTA: kpiRevealCellsB se llama desde inicializarBajas() DESPUÉS de que
+        // NOTA: kpiRevealCellsB se llama desde inicializarBajas() DESPUÃ‰S de que
         // el panel sea visible, porque las transiciones CSS no corren con display:none
 
         // Conectar celdas al modal de desglose de Bajas
@@ -12070,6 +12166,20 @@ function precargarCascadaEdit(idPais, idEstado, idMunicipio, idColonia, idCalle,
   const dropzoneFotoExpedienteRrhh = document.getElementById('rrhhExpedienteFotoDropzone');
   const btnCambiarFotoExpedienteRrhh = document.getElementById('btnCambiarFotoExpedienteRrhh');
   const btnAjustarFotoExpedienteRrhh = document.getElementById('btnAjustarFotoExpedienteRrhh');
+  const btnAbrirImportacionDocsRrhh = document.getElementById('btnAbrirImportacionDocsRrhh');
+  const modalImportarDocumentosRrhh = document.getElementById('modalImportarDocumentosRrhh');
+  const inputRrhhImportArchivos = document.getElementById('rrhhImportDocsInputArchivos');
+  const inputRrhhImportCarpeta = document.getElementById('rrhhImportDocsInputCarpeta');
+  const btnRrhhImportSeleccionarArchivos = document.getElementById('btnRrhhImportSeleccionarArchivos');
+  const btnRrhhImportSeleccionarCarpeta = document.getElementById('btnRrhhImportSeleccionarCarpeta');
+  const btnRrhhImportImportar = document.getElementById('btnRrhhImportImportar');
+  const btnRrhhImportLimpiar = document.getElementById('btnRrhhImportLimpiar');
+  const rrhhImportDocsSeleccionResumen = document.getElementById('rrhhImportDocsSeleccionResumen');
+  const rrhhImportDocsResumen = document.getElementById('rrhhImportDocsResumen');
+  const rrhhImportDocsTabla = document.getElementById('rrhhImportDocsTabla');
+  const modalRrhhImportPreview = document.getElementById('modalRrhhImportPreview');
+  const rrhhImportPreviewFrame = document.getElementById('rrhhImportPreviewFrame');
+  const modalRrhhImportPreviewLabel = document.getElementById('modalRrhhImportPreviewLabel');
   const modalCredencialRrhh = document.getElementById('modalCredencialRrhh');
   const contenedorCredencialFrente = document.getElementById('rrhhCredencialFrente');
   const contenedorCredencialReverso = document.getElementById('rrhhCredencialReverso');
@@ -12102,6 +12212,9 @@ function precargarCascadaEdit(idPais, idEstado, idMunicipio, idColonia, idCalle,
   let fotoScaleExpedienteRrhh = 1;
   let fotoDragExpedienteRrhh = null;
   let fechaRecepcionExpedienteRrhh = '';
+  let rrhhImportDocsFiles = [];
+  let rrhhImportDocsAnalisis = null;
+  let rrhhImportPreviewUrl = '';
   let abriendoCredencialRrhh = false;
   let volverDesdeCredencialRrhh = false;
   let orientacionCredencialRrhh = 'vertical';
@@ -12508,6 +12621,247 @@ function precargarCascadaEdit(idPais, idEstado, idMunicipio, idColonia, idCalle,
     const div = document.createElement('div');
     div.textContent = String(value ?? '');
     return div.innerHTML;
+  }
+
+  function rrhhImportDocsFormData() {
+    const fd = new FormData();
+    rrhhImportDocsFiles.forEach(file => {
+      fd.append('archivos[]', file, file.name);
+      fd.append('rutas_relativas[]', file.webkitRelativePath || file.name);
+    });
+    (rrhhImportDocsAnalisis?.items || []).forEach(item => {
+      if (item.documento_manual && Number(item.id_documento || 0) > 0) {
+        fd.append(`documentos_manual[${Number(item.source_index || 0)}]`, Number(item.id_documento || 0));
+      }
+    });
+    return fd;
+  }
+
+  function rrhhImportDocsSetFiles(fileList) {
+    rrhhImportDocsFiles = Array.from(fileList || []);
+    rrhhImportDocsAnalisis = null;
+    rrhhImportDocsRenderResumen(null);
+    rrhhImportDocsRenderTabla([]);
+    const total = rrhhImportDocsFiles.length;
+    const peso = rrhhImportDocsFiles.reduce((sum, file) => sum + (file.size || 0), 0);
+    if (rrhhImportDocsSeleccionResumen) {
+      rrhhImportDocsSeleccionResumen.textContent = total
+        ? `${total} archivo(s) seleccionado(s), ${(peso / 1024 / 1024).toFixed(1)} MB.`
+        : 'No se han seleccionado archivos.';
+    }
+    if (btnRrhhImportImportar) btnRrhhImportImportar.disabled = true;
+    if (total > 0) {
+      setTimeout(rrhhImportDocsAnalizar, 0);
+    }
+  }
+
+  function rrhhImportDocsLimpiarSeleccion() {
+    rrhhImportDocsSetFiles([]);
+    if (inputRrhhImportArchivos) inputRrhhImportArchivos.value = '';
+    if (inputRrhhImportCarpeta) inputRrhhImportCarpeta.value = '';
+  }
+
+  function rrhhImportDocsBadge(estado, item = null) {
+    if (item && item.documento_otros_automatico) {
+      return '<span class="badge bg-secondary">Sin tipo</span>';
+    }
+    const mapa = {
+      listo: ['bg-success', 'Listo'],
+      importado: ['bg-primary', 'Importado'],
+      persona_no_encontrada: ['bg-danger', 'Sin persona'],
+      persona_ambigua: ['bg-warning text-dark', 'Ambiguo'],
+      documento_no_reconocido: ['bg-secondary', 'Sin tipo'],
+      ya_existe: ['bg-info text-dark', 'Ya existe'],
+      duplicado_lote: ['bg-warning text-dark', 'Duplicado'],
+      error: ['bg-danger', 'Error']
+    };
+    const cfg = mapa[estado] || ['bg-secondary', estado || 'Pendiente'];
+    return `<span class="badge ${cfg[0]}">${escapeRrhhHtml(cfg[1])}</span>`;
+  }
+
+  function rrhhImportDocsRenderResumen(resumen) {
+    if (!rrhhImportDocsResumen) return;
+    if (!resumen) {
+      rrhhImportDocsResumen.innerHTML = '';
+      return;
+    }
+    const chips = [
+      ['Total', resumen.total || 0, 'bg-dark'],
+      ['Listos', resumen.listo || 0, 'bg-success'],
+      ['Importados', resumen.importado || 0, 'bg-primary'],
+      ['Ambiguos', resumen.persona_ambigua || 0, 'bg-warning text-dark'],
+      ['Sin persona', resumen.persona_no_encontrada || 0, 'bg-danger'],
+      ['Sin tipo', resumen.documento_no_reconocido || 0, 'bg-secondary'],
+      ['Ya existe', resumen.ya_existe || 0, 'bg-info text-dark'],
+      ['Duplicados', resumen.duplicado_lote || 0, 'bg-warning text-dark'],
+      ['Errores', resumen.error || 0, 'bg-danger']
+    ];
+    rrhhImportDocsResumen.innerHTML = chips
+      .filter(([, valor], index) => index === 0 || Number(valor) > 0)
+      .map(([label, valor, cls]) => `<span class="badge ${cls}">${escapeRrhhHtml(label)}: ${escapeRrhhHtml(valor)}</span>`)
+      .join('');
+  }
+
+  function rrhhImportDocsRenderTabla(items) {
+    if (!rrhhImportDocsTabla) return;
+    if (!items || items.length === 0) {
+      rrhhImportDocsTabla.innerHTML = '<tr><td colspan="6" class="text-center text-muted py-4">Selecciona archivos o una carpeta para analizarlos automaticamente.</td></tr>';
+      return;
+    }
+    const catalogo = Array.isArray(rrhhImportDocsAnalisis?.catalogo) ? rrhhImportDocsAnalisis.catalogo : [];
+    let personaAnterior = '';
+    rrhhImportDocsTabla.innerHTML = items.map(item => {
+      const nombrePersona = escapeRrhhHtml(item.persona || '');
+      const numeroEmpleado = escapeRrhhHtml(item.numero_empleado || '');
+      const carpetaPersona = escapeRrhhHtml(item.carpeta_persona || 'N/A');
+      const personaKey = item.id_persona ? `id:${item.id_persona}` : `folder:${item.carpeta_persona || ''}`;
+      const separarPersona = personaAnterior !== '' && personaKey !== personaAnterior;
+      personaAnterior = personaKey;
+      const persona = item.persona
+        ? `${nombrePersona} ${numeroEmpleado ? `(No. ${numeroEmpleado})` : ''}<br><small class="text-muted">Score ${escapeRrhhHtml(item.score_persona || 0)}%</small>`
+        : `<span class="text-muted">${carpetaPersona}</span>`;
+      const idDocumento = Number(item.id_documento || 0);
+      const opciones = [
+        '<option value="">Seleccione tipo</option>',
+        ...catalogo.map(doc => {
+          const selected = Number(doc.id || 0) === idDocumento ? 'selected' : '';
+          return `<option value="${Number(doc.id || 0)}" ${selected}>${escapeRrhhHtml(doc.nombre || '')}</option>`;
+        })
+      ].join('');
+      const tipoDocumento = `
+        <select class="form-select form-select-sm" data-rrhh-import-doc-type="${Number(item.source_index || 0)}">
+          ${opciones}
+        </select>
+        ${item.documento_manual ? '<div class="text-primary small mt-1">Seleccion manual</div>' : ''}
+      `;
+      const detalle = item.razon || '';
+      return `<tr class="${separarPersona ? 'rrhh-import-person-separator' : ''}">
+        <td>${rrhhImportDocsBadge(item.estado, item)}</td>
+        <td>${persona}</td>
+        <td>${tipoDocumento}</td>
+        <td><span class="text-break">${escapeRrhhHtml(item.ruta || item.archivo || '')}</span></td>
+        <td>${escapeRrhhHtml(detalle)}</td>
+        <td class="text-center">
+          <button type="button" class="btn btn-sm btn-outline-primary" data-rrhh-import-preview="${Number(item.source_index || 0)}" title="Abrir documento">
+            <i class="fa fa-eye"></i>
+          </button>
+        </td>
+      </tr>`;
+    }).join('');
+  }
+
+  function rrhhImportDocsSetLoading(loading, texto) {
+    [btnRrhhImportImportar, btnRrhhImportSeleccionarArchivos, btnRrhhImportSeleccionarCarpeta].forEach(btn => {
+      if (btn) btn.disabled = !!loading;
+    });
+    if (btnRrhhImportImportar && !loading) {
+      const listos = rrhhImportDocsAnalisis?.resumen?.listo || 0;
+      btnRrhhImportImportar.disabled = listos <= 0;
+    }
+    if (rrhhImportDocsSeleccionResumen && texto) {
+      rrhhImportDocsSeleccionResumen.textContent = texto;
+    }
+  }
+
+  async function rrhhImportDocsEnviar(endpoint) {
+    const res = await fetch(endpoint, {
+      method: 'POST',
+      body: rrhhImportDocsFormData(),
+      headers: { 'X-Requested-With': 'XMLHttpRequest' }
+    });
+    const contentType = res.headers.get('content-type') || '';
+    if (!contentType.includes('application/json')) {
+      const texto = await res.text();
+      throw new Error(texto ? texto.slice(0, 250) : 'Respuesta no JSON del servidor.');
+    }
+    const json = await res.json();
+    if (!json.success) {
+      throw new Error(json.mensaje || 'La operación no se completó.');
+    }
+    return json.datos || {};
+  }
+
+  async function rrhhImportDocsAbrirDocumento(sourceIndex) {
+    try {
+      const fd = rrhhImportDocsFormData();
+      fd.append('source_index', Number(sourceIndex || 0));
+      const res = await fetch('/caphum/previsualizarImportacionDocumentosRrhh', {
+        method: 'POST',
+        body: fd,
+        headers: { 'X-Requested-With': 'XMLHttpRequest' }
+      });
+      if (!res.ok) {
+        const texto = await res.text();
+        throw new Error(texto || 'No se pudo abrir el documento.');
+      }
+      const blob = await res.blob();
+      if (rrhhImportPreviewUrl) {
+        URL.revokeObjectURL(rrhhImportPreviewUrl);
+        rrhhImportPreviewUrl = '';
+      }
+      const url = URL.createObjectURL(blob);
+      rrhhImportPreviewUrl = url;
+      if (rrhhImportPreviewFrame) {
+        rrhhImportPreviewFrame.src = url;
+      }
+      const item = (rrhhImportDocsAnalisis?.items || []).find(row => Number(row.source_index || 0) === Number(sourceIndex || 0));
+      if (modalRrhhImportPreviewLabel) {
+        modalRrhhImportPreviewLabel.textContent = item?.archivo || item?.ruta || 'Documento';
+      }
+      if (modalRrhhImportPreview) {
+        bootstrap.Modal.getOrCreateInstance(modalRrhhImportPreview)?.show();
+      }
+    } catch (error) {
+      Swal.fire('Abrir documento', error.message || 'No se pudo abrir el documento.', 'error');
+    }
+  }
+
+  async function rrhhImportDocsAnalizar() {
+    if (!rrhhImportDocsFiles.length) return;
+    try {
+      rrhhImportDocsSetLoading(true, 'Analizando documentos...');
+      rrhhImportDocsAnalisis = await rrhhImportDocsEnviar('/caphum/analizarImportacionDocumentosRrhh');
+      rrhhImportDocsRenderResumen(rrhhImportDocsAnalisis.resumen);
+      rrhhImportDocsRenderTabla(rrhhImportDocsAnalisis.items || []);
+      const listos = rrhhImportDocsAnalisis?.resumen?.listo || 0;
+      if (rrhhImportDocsSeleccionResumen) {
+        rrhhImportDocsSeleccionResumen.textContent = `Análisis listo. ${listos} documento(s) pueden importarse.`;
+      }
+      if (btnRrhhImportImportar) btnRrhhImportImportar.disabled = listos <= 0;
+    } catch (error) {
+      Swal.fire('Importar documentos', error.message || 'No se pudo analizar la selección.', 'error');
+    } finally {
+      rrhhImportDocsSetLoading(false);
+    }
+  }
+
+  async function rrhhImportDocsImportar() {
+    const listos = rrhhImportDocsAnalisis?.resumen?.listo || 0;
+    if (!listos) return;
+    const confirm = await Swal.fire({
+      icon: 'question',
+      title: 'Importar documentos',
+      text: `Se importarán ${listos} documento(s) listos. Los ambiguos, duplicados o ya existentes se omitirán.`,
+      showCancelButton: true,
+      confirmButtonText: 'Importar',
+      cancelButtonText: 'Cancelar'
+    });
+    if (!confirm.isConfirmed) return;
+
+    try {
+      rrhhImportDocsSetLoading(true, 'Importando documentos...');
+      rrhhImportDocsAnalisis = await rrhhImportDocsEnviar('/caphum/importarDocumentosRrhh');
+      rrhhImportDocsRenderResumen(rrhhImportDocsAnalisis.resumen);
+      rrhhImportDocsRenderTabla(rrhhImportDocsAnalisis.items || []);
+      if (rrhhImportDocsSeleccionResumen) {
+        rrhhImportDocsSeleccionResumen.textContent = `Importación finalizada. ${rrhhImportDocsAnalisis.importados || 0} documento(s) importado(s).`;
+      }
+      Swal.fire('Importación finalizada', `${rrhhImportDocsAnalisis.importados || 0} documento(s) importado(s).`, 'success');
+    } catch (error) {
+      Swal.fire('Importar documentos', error.message || 'No se pudo importar la selección.', 'error');
+    } finally {
+      rrhhImportDocsSetLoading(false);
+    }
   }
 
   function optionHtml(value, label, extraAttrs) {
@@ -13358,7 +13712,7 @@ function precargarCascadaEdit(idPais, idEstado, idMunicipio, idColonia, idCalle,
           <div>
             <img class="rrhh-expediente-logo" src="${logoExpedienteRrhh}" alt="Maxikash">
             <div class="rrhh-expediente-title">Expediente de colaborador</div>
-            <div class="rrhh-expediente-subtitle">Capital Humano · Generado el ${escapeRrhhHtml(fechaGeneracion)}</div>
+            <div class="rrhh-expediente-subtitle">Capital Humano Â· Generado el ${escapeRrhhHtml(fechaGeneracion)}</div>
           </div>
           <div class="rrhh-expediente-person${incluirFotoExpedienteRrhh ? '' : ' no-photo'}">
             ${incluirFotoExpedienteRrhh ? `<div class="rrhh-expediente-photo ${claseFotoExpedienteWrap()}">${fotoExpedienteHtml(usuario, nombre)}</div>` : ''}
@@ -13767,6 +14121,79 @@ function precargarCascadaEdit(idPais, idEstado, idMunicipio, idColonia, idCalle,
   btnAjustarFotoExpedienteRrhh?.addEventListener('click', function () {
     fotoFitExpedienteRrhh = 'cover';
     abrirEditorFotoRrhh('expediente');
+  });
+
+  btnAbrirImportacionDocsRrhh?.addEventListener('click', function () {
+    bootstrap.Modal.getOrCreateInstance(modalImportarDocumentosRrhh, { backdrop: false })?.show();
+  });
+
+  btnRrhhImportSeleccionarArchivos?.addEventListener('click', function () {
+    inputRrhhImportArchivos?.click();
+  });
+
+  btnRrhhImportSeleccionarCarpeta?.addEventListener('click', function () {
+    inputRrhhImportCarpeta?.click();
+  });
+
+  inputRrhhImportArchivos?.addEventListener('change', function () {
+    rrhhImportDocsSetFiles(this.files);
+  });
+
+  inputRrhhImportCarpeta?.addEventListener('change', function () {
+    rrhhImportDocsSetFiles(this.files);
+  });
+
+  btnRrhhImportImportar?.addEventListener('click', rrhhImportDocsImportar);
+
+  btnRrhhImportLimpiar?.addEventListener('click', function () {
+    rrhhImportDocsLimpiarSeleccion();
+  });
+
+  rrhhImportDocsTabla?.addEventListener('change', function (event) {
+    const select = event.target.closest('[data-rrhh-import-doc-type]');
+    if (!select || !rrhhImportDocsAnalisis) return;
+    const sourceIndex = Number(select.getAttribute('data-rrhh-import-doc-type') || 0);
+    const item = (rrhhImportDocsAnalisis.items || []).find(row => Number(row.source_index || 0) === sourceIndex);
+    if (!item) return;
+    item.id_documento = Number(select.value || 0) || null;
+    item.documento_manual = Number(select.value || 0) > 0;
+    rrhhImportDocsAnalizar();
+  });
+
+  rrhhImportDocsTabla?.addEventListener('click', function (event) {
+    const btn = event.target.closest('[data-rrhh-import-preview]');
+    if (!btn) return;
+    rrhhImportDocsAbrirDocumento(btn.getAttribute('data-rrhh-import-preview'));
+  });
+
+  modalRrhhImportPreview?.addEventListener('hidden.bs.modal', function () {
+    if (rrhhImportPreviewFrame) {
+      rrhhImportPreviewFrame.removeAttribute('src');
+    }
+    if (rrhhImportPreviewUrl) {
+      URL.revokeObjectURL(rrhhImportPreviewUrl);
+      rrhhImportPreviewUrl = '';
+    }
+    modalRrhhImportPreview.style.removeProperty('z-index');
+  });
+
+  modalRrhhImportPreview?.addEventListener('shown.bs.modal', function () {
+    modalRrhhImportPreview.style.setProperty('z-index', '100070', 'important');
+  });
+
+  modalImportarDocumentosRrhh?.addEventListener('shown.bs.modal', function () {
+    if (modalImportarDocumentosRrhh.parentNode !== document.body) {
+      document.body.appendChild(modalImportarDocumentosRrhh);
+    }
+    modalImportarDocumentosRrhh.style.setProperty('z-index', '100055', 'important');
+    document.querySelectorAll('.modal-backdrop').forEach(function (backdrop) {
+      backdrop.remove();
+    });
+  });
+
+  modalImportarDocumentosRrhh?.addEventListener('hidden.bs.modal', function () {
+    modalImportarDocumentosRrhh.style.removeProperty('z-index');
+    rrhhImportDocsLimpiarSeleccion();
   });
 
   inputFotoExpedienteRrhh?.addEventListener('change', function () {
@@ -14491,7 +14918,7 @@ function precargarCascadaEdit(idPais, idEstado, idMunicipio, idColonia, idCalle,
       .filter(Boolean)
       .join(' ')
       .trim();
-    const numero = persona.numero_empleado ? `# ${persona.numero_empleado} · ` : '';
+    const numero = persona.numero_empleado ? `# ${persona.numero_empleado} Â· ` : '';
     return `${numero}${nombre || persona.nombre_completo || 'Trabajador'}`;
   }
 
@@ -14622,7 +15049,7 @@ function precargarCascadaEdit(idPais, idEstado, idMunicipio, idColonia, idCalle,
     actualizacionInfoCargando = false;
     actuales = data.datos?.actuales || actuales || {};
     const persona = data.datos?.persona || {};
-    const numeroEmpleado = persona.numero_empleado ? `# ${persona.numero_empleado} · ` : '';
+    const numeroEmpleado = persona.numero_empleado ? `# ${persona.numero_empleado} Â· ` : '';
     nombrePersona.textContent = `${numeroEmpleado}${persona.nombre || 'Trabajador'}`;
     pintarCamposSeleccionados();
     resetActualizacionScroll();

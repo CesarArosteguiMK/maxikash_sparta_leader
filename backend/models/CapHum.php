@@ -8,6 +8,7 @@ use Core\UsuarioFantasmaReporteria;
 
 class CapHum extends Model
 {
+<<<<<<< HEAD
     private const MODULO_CONVENIOS_DESCARGAR_EXCEL = 92;
     private const MODULO_CONVENIOS_DESCARGAR_EXCEL_NOMBRE = 'Descargar Excel';
     private const MODULO_CONVENIOS_DESCARGAR_EXCEL_DESC = 'Convenios - Cierre de Credito - Descargar Excel';
@@ -87,6 +88,15 @@ class CapHum extends Model
 
         return $perfiles;
     }
+=======
+    private const DOCUMENTO_RFC_RRHH = 10;
+    private const DOCUMENTO_CONSTANCIA_FISCAL_RRHH = 22;
+    private const DOCUMENTOS_EXCLUIDOS_RRHH = [19, 20, 21];
+    private const DOCUMENTOS_ALIAS_RRHH = [
+        19 => 12, // Acta de nacimiento certificada -> Acta de Nacimiento
+        20 => 9,  // Identificacion oficial duplicada -> Identificacion Oficial (INE)
+    ];
+>>>>>>> abd0af4b505783d51ce706ab0d71964c378c36ad
 
     ////////////////////////////////////////////////////////////////////// VALIDADO AL 100
     ////////////////////////////////////////////////////////////////////// VALIDADO AL 100
@@ -1423,12 +1433,14 @@ class CapHum extends Model
     {
         try {
             $db = new Database();
+            self::asegurarDocumentoOtros($db);
 
             // Obtener documentos activos desde la base de datos
             $documentos = $db->queryAll("
                 SELECT id, nombre, clave
-                FROM __SPARTA_SECRET_REDACTED__.documentos
+                FROM __SPARTA_SECRET_REDACTED__.documento
                 WHERE activo = 1
+                  AND id NOT IN (" . implode(',', self::DOCUMENTOS_EXCLUIDOS_RRHH) . ")
                 ORDER BY nombre
             ");
 
@@ -1436,6 +1448,132 @@ class CapHum extends Model
 
         } catch (\Exception $e) {
             return self::resultado(false, 'Error al obtener tipos de documentos.', [], $e->getMessage());
+        }
+    }
+
+    private static function asegurarDocumentoOtros(Database $db): void
+    {
+        $otros = $db->queryOne("
+            SELECT id, activo
+            FROM __SPARTA_SECRET_REDACTED__.documento
+            WHERE clave = 'OTROS'
+               OR LOWER(TRIM(nombre)) = 'otros'
+            LIMIT 1
+        ");
+
+        if ($otros) {
+            if ((int) ($otros['activo'] ?? 0) !== 1) {
+                $db->CRUD("
+                    UPDATE __SPARTA_SECRET_REDACTED__.documento
+                    SET activo = 1
+                    WHERE id = :id
+                ", ['id' => (int) $otros['id']]);
+            }
+            return;
+        }
+
+        $db->CRUD("
+            INSERT INTO __SPARTA_SECRET_REDACTED__.documento (clave, nombre, obligatorio, activo)
+            VALUES ('OTROS', 'Otros', 0, 1)
+        ");
+    }
+
+    public static function getPersonasParaImportacionDocumentos()
+    {
+        try {
+            $db = new Database();
+            $personas = $db->queryAll("
+                SELECT
+                    p.id,
+                    p.numero_empleado,
+                    p.nombres,
+                    p.segundo_nombre,
+                    p.apellidop,
+                    p.apellidom,
+                    p.curp,
+                    COALESCE(p.estatus, '') AS estatus,
+                    DATE_FORMAT(bp.fecha_baja, '%Y-%m-%d') AS fecha_baja
+                FROM __SPARTA_SECRET_REDACTED__.persona p
+                LEFT JOIN (
+                    SELECT id_persona, MAX(id) AS id_ultima_baja
+                    FROM __SPARTA_SECRET_REDACTED__.baja_persona
+                    GROUP BY id_persona
+                ) ub ON ub.id_persona = p.id
+                LEFT JOIN __SPARTA_SECRET_REDACTED__.baja_persona bp ON bp.id = ub.id_ultima_baja
+                ORDER BY
+                    CASE WHEN p.estatus = 'Baja' THEN 1 ELSE 0 END,
+                    p.nombres ASC,
+                    p.apellidop ASC,
+                    p.apellidom ASC
+            ");
+
+            return self::resultado(true, 'Personas encontradas.', $personas ?? []);
+        } catch (\Exception $e) {
+            return self::resultado(false, 'Error al obtener personas para importación.', [], $e->getMessage());
+        }
+    }
+
+    public static function getCatalogoDocumentosImportacion()
+    {
+        try {
+            $db = new Database();
+            self::asegurarDocumentoOtros($db);
+            $documentos = $db->queryAll("
+                SELECT id, clave, nombre
+                FROM __SPARTA_SECRET_REDACTED__.documento
+                WHERE activo = 1
+                  AND id NOT IN (" . implode(',', self::DOCUMENTOS_EXCLUIDOS_RRHH) . ")
+                ORDER BY id ASC
+            ");
+
+            return self::resultado(true, 'Catálogo de documentos encontrado.', $documentos ?? []);
+        } catch (\Exception $e) {
+            return self::resultado(false, 'Error al obtener catálogo de documentos.', [], $e->getMessage());
+        }
+    }
+
+    public static function getDocumentosPersonaIndex(array $idsPersonas)
+    {
+        try {
+            $idsPersonas = array_values(array_unique(array_filter(array_map('intval', $idsPersonas))));
+            if (empty($idsPersonas)) {
+                return self::resultado(true, 'Sin personas para consultar.', []);
+            }
+
+            $params = [];
+            $placeholders = [];
+            foreach ($idsPersonas as $i => $idPersona) {
+                $key = 'id_' . $i;
+                $params[$key] = $idPersona;
+                $placeholders[] = ':' . $key;
+            }
+
+            $db = new Database();
+            $rows = $db->queryAll("
+                SELECT id, id_persona, id_documento, archivo, fecha_carga
+                FROM __SPARTA_SECRET_REDACTED__.carga_documento_persona
+                WHERE id_persona IN (" . implode(',', $placeholders) . ")
+            ", $params);
+
+            $index = [];
+            foreach ($rows as $row) {
+                $idPersona = (int) ($row['id_persona'] ?? 0);
+                $idDocumento = (int) ($row['id_documento'] ?? 0);
+                if ($idPersona <= 0 || $idDocumento <= 0) {
+                    continue;
+                }
+                if (!isset($index[$idPersona])) {
+                    $index[$idPersona] = [];
+                }
+                if (!isset($index[$idPersona][$idDocumento])) {
+                    $index[$idPersona][$idDocumento] = [];
+                }
+                $index[$idPersona][$idDocumento][] = $row;
+            }
+
+            return self::resultado(true, 'Documentos existentes encontrados.', $index);
+        } catch (\Exception $e) {
+            return self::resultado(false, 'Error al consultar documentos existentes.', [], $e->getMessage());
         }
     }
 
@@ -1454,7 +1592,7 @@ class CapHum extends Model
             // Primero intentar búsqueda exacta (más rápida y precisa)
             $documento = $db->queryOne("
                 SELECT id
-                FROM __SPARTA_SECRET_REDACTED__.documentos
+                FROM __SPARTA_SECRET_REDACTED__.documento
                 WHERE nombre = :nombre
                 AND activo = 1
                 LIMIT 1
@@ -1467,7 +1605,7 @@ class CapHum extends Model
             // Si no se encuentra, intentar búsqueda case-insensitive con trim
             $documento = $db->queryOne("
                 SELECT id
-                FROM __SPARTA_SECRET_REDACTED__.documentos
+                FROM __SPARTA_SECRET_REDACTED__.documento
                 WHERE LOWER(TRIM(nombre)) = LOWER(TRIM(:nombre))
                 AND activo = 1
                 LIMIT 1
@@ -1521,6 +1659,318 @@ class CapHum extends Model
         }
     }
 
+    private static function coberturaDocumentoRrhh(int $idDocumento, array $mapaCargados): array
+    {
+        $info = $mapaCargados[$idDocumento] ?? null;
+        if ($info !== null && (int) ($info['total_archivos'] ?? 0) > 0) {
+            return ['cargado' => true, 'info' => $info, 'cubierto_por' => null];
+        }
+
+        if ($idDocumento === self::DOCUMENTO_RFC_RRHH) {
+            $infoConstancia = $mapaCargados[self::DOCUMENTO_CONSTANCIA_FISCAL_RRHH] ?? null;
+            if ($infoConstancia !== null && (int) ($infoConstancia['total_archivos'] ?? 0) > 0) {
+                return [
+                    'cargado' => true,
+                    'info' => $infoConstancia,
+                    'cubierto_por' => 'Constancia de situacion fiscal',
+                ];
+            }
+        }
+
+        return ['cargado' => false, 'info' => null, 'cubierto_por' => null];
+    }
+
+    public static function getResumenDocumentosColaborador($id_persona)
+    {
+        try {
+            $id_persona = (int) $id_persona;
+            if ($id_persona <= 0) {
+                return self::resultado(false, 'No se pudo identificar al colaborador.', []);
+            }
+
+            $db = new Database();
+            $persona = $db->queryOne("
+                SELECT
+                    p.id,
+                    p.numero_empleado,
+                    TRIM(CONCAT_WS(' ', p.nombres, p.segundo_nombre, p.apellidop, p.apellidom)) AS nombre_completo,
+                    p.correo,
+                    COALESCE(p.estatus, '') AS estatus
+                FROM __SPARTA_SECRET_REDACTED__.persona p
+                WHERE p.id = :id_persona
+                LIMIT 1
+            ", ['id_persona' => $id_persona]);
+
+            if (!$persona) {
+                return self::resultado(false, 'Colaborador no encontrado.', []);
+            }
+
+            $tipos = $db->queryAll("
+                SELECT id, nombre, clave, obligatorio
+                FROM __SPARTA_SECRET_REDACTED__.documento
+                WHERE activo = 1
+                  AND id NOT IN (15, 16, " . implode(',', self::DOCUMENTOS_EXCLUIDOS_RRHH) . ")
+                  AND clave <> 'OTROS'
+                ORDER BY obligatorio DESC, nombre ASC
+            ");
+
+            $idsConsulta = array_values(array_unique(array_merge(
+                array_map(static fn($doc) => (int) ($doc['id'] ?? 0), $tipos),
+                array_keys(self::DOCUMENTOS_ALIAS_RRHH)
+            )));
+            $cargados = $db->queryAll("
+                SELECT
+                    cdp.id_documento,
+                    COUNT(*) AS total_archivos,
+                    MAX(cdp.fecha_carga) AS ultima_fecha,
+                    GROUP_CONCAT(cdp.archivo ORDER BY cdp.fecha_carga DESC SEPARATOR '||') AS archivos
+                FROM __SPARTA_SECRET_REDACTED__.carga_documento_persona cdp
+                WHERE cdp.id_persona = :id_persona
+                  AND cdp.id_documento IN (" . implode(',', $idsConsulta) . ")
+                GROUP BY cdp.id_documento
+            ", ['id_persona' => $id_persona]);
+
+            $mapaCargados = [];
+            foreach ($cargados as $row) {
+                $idDocumentoOriginal = (int) $row['id_documento'];
+                $idDocumento = self::DOCUMENTOS_ALIAS_RRHH[$idDocumentoOriginal] ?? $idDocumentoOriginal;
+                if (!isset($mapaCargados[$idDocumento])) {
+                    $row['id_documento'] = $idDocumento;
+                    $mapaCargados[$idDocumento] = $row;
+                    continue;
+                }
+
+                $mapaCargados[$idDocumento]['total_archivos'] = (int) ($mapaCargados[$idDocumento]['total_archivos'] ?? 0) + (int) ($row['total_archivos'] ?? 0);
+                if (strtotime((string) ($row['ultima_fecha'] ?? '')) > strtotime((string) ($mapaCargados[$idDocumento]['ultima_fecha'] ?? ''))) {
+                    $mapaCargados[$idDocumento]['ultima_fecha'] = $row['ultima_fecha'];
+                }
+                $archivosActuales = (string) ($mapaCargados[$idDocumento]['archivos'] ?? '');
+                $archivosNuevos = (string) ($row['archivos'] ?? '');
+                $mapaCargados[$idDocumento]['archivos'] = trim($archivosActuales . '||' . $archivosNuevos, '|');
+            }
+
+            $documentos = [];
+            $totalCargados = 0;
+            foreach ($tipos as $tipo) {
+                $idDocumento = (int) $tipo['id'];
+                $cobertura = self::coberturaDocumentoRrhh($idDocumento, $mapaCargados);
+                $info = $cobertura['info'];
+                $estaCargado = (bool) ($cobertura['cargado'] ?? false);
+                $cubiertoPor = (string) ($cobertura['cubierto_por'] ?? '');
+                if ($estaCargado) {
+                    $totalCargados++;
+                }
+
+                $documentos[] = [
+                    'id_documento' => $idDocumento,
+                    'nombre' => $tipo['nombre'] ?? '',
+                    'clave' => $tipo['clave'] ?? '',
+                    'obligatorio' => (int) ($tipo['obligatorio'] ?? 0) === 1,
+                    'estatus' => $estaCargado ? ($cubiertoPor !== '' ? 'Cubierto' : 'Cargado') : 'Faltante',
+                    'cargado' => $estaCargado,
+                    'cubierto_por' => $cubiertoPor,
+                    'total_archivos' => $estaCargado && $cubiertoPor === '' ? (int) $info['total_archivos'] : 0,
+                    'ultima_fecha' => $estaCargado && $cubiertoPor === '' && !empty($info['ultima_fecha'])
+                        ? date('Y-m-d H:i', strtotime((string) $info['ultima_fecha']))
+                        : null,
+                    'archivos' => $estaCargado && $cubiertoPor === '' && !empty($info['archivos'])
+                        ? explode('||', (string) $info['archivos'])
+                        : [],
+                ];
+            }
+
+            $totalRequeridos = count($documentos);
+            $totalFaltantes = max(0, $totalRequeridos - $totalCargados);
+            $porcentaje = $totalRequeridos > 0 ? round(($totalCargados / $totalRequeridos) * 100, 1) : 0;
+
+            return self::resultado(true, 'Resumen documental encontrado.', [
+                'persona' => $persona,
+                'metricas' => [
+                    'total_requeridos' => $totalRequeridos,
+                    'total_cargados' => $totalCargados,
+                    'total_faltantes' => $totalFaltantes,
+                    'porcentaje' => $porcentaje,
+                ],
+                'documentos' => $documentos,
+            ]);
+        } catch (\Exception $e) {
+            return self::resultado(false, 'Error al obtener resumen documental.', [], $e->getMessage());
+        }
+    }
+
+    public static function getResumenDocumentosRrhhGlobal()
+    {
+        try {
+            $db = new Database();
+
+            $tipos = $db->queryAll("
+                SELECT id, nombre, clave, obligatorio
+                FROM __SPARTA_SECRET_REDACTED__.documento
+                WHERE activo = 1
+                  AND id NOT IN (15, 16, " . implode(',', self::DOCUMENTOS_EXCLUIDOS_RRHH) . ")
+                  AND clave <> 'OTROS'
+                ORDER BY obligatorio DESC, nombre ASC
+            ");
+
+            $personas = $db->queryAll("
+                SELECT
+                    p.id,
+                    p.numero_empleado,
+                    TRIM(CONCAT_WS(' ', p.nombres, p.segundo_nombre, p.apellidop, p.apellidom)) AS nombre_completo,
+                    p.correo,
+                    COALESCE(p.estatus, '') AS estatus,
+                    GROUP_CONCAT(DISTINCT d.nombre ORDER BY d.nombre SEPARATOR ', ') AS departamentos,
+                    GROUP_CONCAT(DISTINCT pp.nombre ORDER BY pp.nombre SEPARATOR ', ') AS puestos
+                FROM __SPARTA_SECRET_REDACTED__.persona p
+                LEFT JOIN __SPARTA_SECRET_REDACTED__.asigna_puesto ap
+                    ON ap.id_persona = p.id
+                   AND COALESCE(ap.activo, 1) = 1
+                LEFT JOIN __SPARTA_SECRET_REDACTED__.puesto pp
+                    ON pp.id = ap.id_puesto
+                LEFT JOIN __SPARTA_SECRET_REDACTED__.departamento d
+                    ON d.id = pp.departamento_id
+                WHERE p.estatus != 'Baja'
+                GROUP BY p.id, p.numero_empleado, p.nombres, p.segundo_nombre, p.apellidop, p.apellidom, p.correo, p.estatus
+                ORDER BY nombre_completo ASC
+            ");
+
+            $idsDocumento = array_map(static fn($doc) => (int) ($doc['id'] ?? 0), $tipos);
+            $idsDocumento = array_values(array_filter($idsDocumento));
+            $idsConsulta = array_values(array_unique(array_merge($idsDocumento, array_keys(self::DOCUMENTOS_ALIAS_RRHH))));
+            $cargas = [];
+            if (!empty($idsConsulta)) {
+                $cargas = $db->queryAll("
+                    SELECT
+                        cdp.id_persona,
+                        cdp.id_documento,
+                        COUNT(*) AS total_archivos,
+                        MAX(cdp.fecha_carga) AS ultima_fecha
+                    FROM __SPARTA_SECRET_REDACTED__.carga_documento_persona cdp
+                    WHERE cdp.id_documento IN (" . implode(',', $idsConsulta) . ")
+                    GROUP BY cdp.id_persona, cdp.id_documento
+                ");
+            }
+
+            $mapaCargas = [];
+            foreach ($cargas as $row) {
+                $idPersona = (int) ($row['id_persona'] ?? 0);
+                $idDocumentoOriginal = (int) ($row['id_documento'] ?? 0);
+                $idDocumento = self::DOCUMENTOS_ALIAS_RRHH[$idDocumentoOriginal] ?? $idDocumentoOriginal;
+                if ($idPersona <= 0 || $idDocumento <= 0) {
+                    continue;
+                }
+                if (!isset($mapaCargas[$idPersona])) {
+                    $mapaCargas[$idPersona] = [];
+                }
+                if (!isset($mapaCargas[$idPersona][$idDocumento])) {
+                    $row['id_documento'] = $idDocumento;
+                    $mapaCargas[$idPersona][$idDocumento] = $row;
+                    continue;
+                }
+
+                $mapaCargas[$idPersona][$idDocumento]['total_archivos'] = (int) ($mapaCargas[$idPersona][$idDocumento]['total_archivos'] ?? 0) + (int) ($row['total_archivos'] ?? 0);
+                if (strtotime((string) ($row['ultima_fecha'] ?? '')) > strtotime((string) ($mapaCargas[$idPersona][$idDocumento]['ultima_fecha'] ?? ''))) {
+                    $mapaCargas[$idPersona][$idDocumento]['ultima_fecha'] = $row['ultima_fecha'];
+                }
+            }
+
+            $totalTipos = count($tipos);
+            $colaboradores = [];
+            $totalCargadosGlobal = 0;
+            $colaboradoresCompletos = 0;
+            $colaboradoresConFaltantes = 0;
+
+            foreach ($personas as $persona) {
+                $idPersona = (int) ($persona['id'] ?? 0);
+                $cargadosLocal = 0;
+                $documentos = [];
+                $faltantes = [];
+
+                foreach ($tipos as $tipo) {
+                    $idDocumento = (int) ($tipo['id'] ?? 0);
+                    $cobertura = self::coberturaDocumentoRrhh($idDocumento, $mapaCargas[$idPersona] ?? []);
+                    $info = $cobertura['info'];
+                    $estaCargado = (bool) ($cobertura['cargado'] ?? false);
+                    $cubiertoPor = (string) ($cobertura['cubierto_por'] ?? '');
+                    if ($estaCargado) {
+                        $cargadosLocal++;
+                    } else {
+                        $faltantes[] = $tipo['nombre'] ?? '';
+                    }
+
+                    $documentos[] = [
+                        'id_documento' => $idDocumento,
+                        'nombre' => $tipo['nombre'] ?? '',
+                        'clave' => $tipo['clave'] ?? '',
+                        'obligatorio' => (int) ($tipo['obligatorio'] ?? 0) === 1,
+                        'estatus' => $estaCargado ? ($cubiertoPor !== '' ? 'Cubierto' : 'Cargado') : 'Faltante',
+                        'cargado' => $estaCargado,
+                        'cubierto_por' => $cubiertoPor,
+                        'total_archivos' => $estaCargado && $cubiertoPor === '' ? (int) ($info['total_archivos'] ?? 0) : 0,
+                        'ultima_fecha' => $estaCargado && $cubiertoPor === '' && !empty($info['ultima_fecha'])
+                            ? date('Y-m-d H:i', strtotime((string) $info['ultima_fecha']))
+                            : null,
+                    ];
+                }
+
+                $totalCargadosGlobal += $cargadosLocal;
+                $faltantesLocal = max(0, $totalTipos - $cargadosLocal);
+                $porcentajeLocal = $totalTipos > 0 ? round(($cargadosLocal / $totalTipos) * 100, 1) : 0;
+                if ($faltantesLocal > 0) {
+                    $colaboradoresConFaltantes++;
+                } else {
+                    $colaboradoresCompletos++;
+                }
+
+                $colaboradores[] = [
+                    'id_persona' => $idPersona,
+                    'numero_empleado' => $persona['numero_empleado'] ?? '',
+                    'nombre_completo' => $persona['nombre_completo'] ?? '',
+                    'correo' => $persona['correo'] ?? '',
+                    'departamentos' => $persona['departamentos'] ?: 'Sin departamento',
+                    'puestos' => $persona['puestos'] ?: 'Sin puesto',
+                    'estatus' => $persona['estatus'] ?? '',
+                    'total_requeridos' => $totalTipos,
+                    'total_cargados' => $cargadosLocal,
+                    'total_faltantes' => $faltantesLocal,
+                    'porcentaje_local' => $porcentajeLocal,
+                    'faltantes_resumen' => array_slice(array_values(array_filter($faltantes)), 0, 4),
+                    'documentos' => $documentos,
+                ];
+            }
+
+            usort($colaboradores, static function ($a, $b) {
+                $pa = (float) ($a['porcentaje_local'] ?? 0);
+                $pb = (float) ($b['porcentaje_local'] ?? 0);
+                if ($pa !== $pb) {
+                    return $pa <=> $pb;
+                }
+                return strcasecmp((string) ($a['nombre_completo'] ?? ''), (string) ($b['nombre_completo'] ?? ''));
+            });
+
+            $totalColaboradores = count($colaboradores);
+            $totalRequeridosGlobal = $totalColaboradores * $totalTipos;
+            $totalFaltantesGlobal = max(0, $totalRequeridosGlobal - $totalCargadosGlobal);
+            $porcentajeGlobal = $totalRequeridosGlobal > 0 ? round(($totalCargadosGlobal / $totalRequeridosGlobal) * 100, 1) : 0;
+
+            return self::resultado(true, 'Resumen documental global encontrado.', [
+                'metricas' => [
+                    'total_colaboradores' => $totalColaboradores,
+                    'total_documentos_catalogo' => $totalTipos,
+                    'total_requeridos_global' => $totalRequeridosGlobal,
+                    'total_cargados_global' => $totalCargadosGlobal,
+                    'total_faltantes_global' => $totalFaltantesGlobal,
+                    'porcentaje_global' => $porcentajeGlobal,
+                    'colaboradores_completos' => $colaboradoresCompletos,
+                    'colaboradores_con_faltantes' => $colaboradoresConFaltantes,
+                ],
+                'colaboradores' => $colaboradores,
+            ]);
+        } catch (\Exception $e) {
+            return self::resultado(false, 'Error al obtener resumen documental global.', [], $e->getMessage());
+        }
+    }
+
     public static function getDocumentosPersonaPorIds(array $ids)
     {
         try {
@@ -1544,8 +1994,11 @@ class CapHum extends Model
                     cdp.id_persona,
                     cdp.archivo,
                     cdp.id_documento,
+                    TRIM(CONCAT_WS(' ', p.nombres, p.segundo_nombre, p.apellidop, p.apellidom)) AS nombre_completo,
+                    p.numero_empleado,
                     DATE_FORMAT(cdp.fecha_carga, '%Y-%m-%d %H:%i') AS fecha_carga
                 FROM __SPARTA_SECRET_REDACTED__.carga_documento_persona cdp
+                LEFT JOIN __SPARTA_SECRET_REDACTED__.persona p ON p.id = cdp.id_persona
                 WHERE cdp.id IN (" . implode(',', $placeholders) . ")
                 ORDER BY cdp.fecha_carga DESC, cdp.id DESC
             ", $params);
@@ -1652,7 +2105,15 @@ class CapHum extends Model
 
             $query = <<<SQL
             SELECT
-                p.*,
+                p.id,
+                p.numero_empleado,
+                p.nombres,
+                p.segundo_nombre,
+                p.apellidop,
+                p.apellidom,
+                p.correo,
+                p.user_name,
+                p.estatus,
                 COALESCE(pais.nombre, 'Sin país') AS nombre_pais,
                 COALESCE(pais.codigo_iso, 'xx') AS codigo_iso_pais
             FROM persona p
@@ -2081,8 +2542,34 @@ class CapHum extends Model
 
         try {
             $db = new Database();
+            $persona = $db->queryOne(
+                "SELECT id, estatus, force_logout
+                   FROM persona
+                  WHERE id = :id
+                  LIMIT 1",
+                ['id' => $idPersona]
+            );
+
+            if (!$persona) {
+                return self::resultado(false, 'No se encontro el usuario indicado.');
+            }
+
+            $estatus = strtolower(trim((string) ($persona['estatus'] ?? '')));
+            if ($estatus === 'baja') {
+                return self::resultado(false, 'No se puede forzar cierre porque el usuario esta dado de baja.');
+            }
+
+            if ((int) ($persona['force_logout'] ?? 0) === 1) {
+                return self::resultado(
+                    true,
+                    'El cierre de sesion ya estaba solicitado. Se aplicara en cuanto el sistema valide la sesion del usuario.'
+                );
+            }
+
             $n = $db->CRUD(
-                "UPDATE persona SET force_logout = 1 WHERE id = :id AND estatus != 'Baja'",
+                "UPDATE persona
+                    SET force_logout = 1
+                  WHERE id = :id",
                 ['id' => $idPersona]
             );
             if ($n < 1) {
