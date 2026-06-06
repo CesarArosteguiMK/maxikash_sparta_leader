@@ -284,6 +284,8 @@ if (!function_exists('mapPermisoEspecialToMenuMeta')) {
             82 => [4, 115],
             87 => [4, 120],
             88 => [4, 125],
+            99 => [4, 128],
+            101 => [4, 130],
             // Motos Adjudicadas - 1.- Evidencias
             79 => [70, 710],
             100 => [62, 640],
