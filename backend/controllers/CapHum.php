@@ -948,8 +948,11 @@ class CapHum extends Controller
 =======
                     // Cierre células / Cartera (ids 56–59 y/o nombre «Cierre: Despachos»…): pestaña Permisos especiales, tarjeta Convenios (menu_* vía PHP)
                     const MODULOS_WEB_CIERRE_CELULA_CARTERA_EC = new Set([56, 57, 59, 92]);
+<<<<<<< HEAD
                     // Cierre células / Cartera (ids 56–59 y/o nombre Â«Cierre: DespachosÂ»â€¦): pestaña Permisos especiales, tarjeta Convenios (menu_* vía PHP)
 >>>>>>> abc2f06310a517171d180040e1d880eebc7dcf2c
+=======
+>>>>>>> 3b2a393d34912374dcb1da62ee065a9b7451ed30
                     function esNombreModuloCierreCelulaCarteraEc(m) {
                         const nom = String(m.modulo_nombre || '')
                             .toLowerCase()
@@ -16872,29 +16875,47 @@ public function getEstadosMunicipiosMexico()
     public function getEstructuraOrganizacionalJson()
     {
         header('Content-Type: application/json; charset=utf-8');
-        $idPais = (int) ($_GET['id_pais'] ?? $_POST['id_pais'] ?? 0);
-        $res = CapHumDAO::getConstructorEstructuraOrganizacional($idPais);
-        echo json_encode($res, JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE);
+        try {
+            $idPais = (int) ($_GET['id_pais'] ?? $_POST['id_pais'] ?? 0);
+            $res = CapHumDAO::getConstructorEstructuraOrganizacional($idPais);
+            echo json_encode($res, JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE);
+        } catch (\Throwable $e) {
+            http_response_code(500);
+            echo json_encode([
+                'success' => false,
+                'mensaje' => 'Error al cargar estructura organizacional.',
+                'error' => $e->getMessage(),
+            ], JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE);
+        }
         exit;
     }
 
     public function guardarEstructuraOrganizacionalJson()
     {
         header('Content-Type: application/json; charset=utf-8');
-        $raw = file_get_contents('php://input');
-        $body = json_decode($raw ?: '[]', true);
-        if (!is_array($body)) {
-            $body = [];
-        }
+        try {
+            $raw = file_get_contents('php://input');
+            $body = json_decode($raw ?: '[]', true);
+            if (!is_array($body)) {
+                $body = [];
+            }
 
-        $idPais = (int) ($body['id_pais'] ?? 0);
-        $nodos = $body['nodos'] ?? [];
-        if (!is_array($nodos)) {
-            $nodos = [];
-        }
+            $idPais = (int) ($body['id_pais'] ?? 0);
+            $nodos = $body['nodos'] ?? [];
+            if (!is_array($nodos)) {
+                $nodos = [];
+            }
 
-        $res = CapHumDAO::guardarConstructorEstructuraOrganizacional($idPais, $nodos);
-        echo json_encode($res, JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE);
+            $res = CapHumDAO::guardarConstructorEstructuraOrganizacional($idPais, $nodos);
+            echo json_encode($res, JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE);
+        } catch (\Throwable $e) {
+            http_response_code(500);
+            echo json_encode([
+                'success' => false,
+                'mensaje' => 'Error al guardar estructura organizacional.',
+                'error' => $e->getMessage(),
+            ], JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE);
+        }
         exit;
     }
 

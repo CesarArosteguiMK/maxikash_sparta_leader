@@ -71,4 +71,32 @@ final class DatabaseCliSupport
 
         return (bool) preg_match('#.*/(?:reporteria|analitica)/getasignaciontablerojson$#', $path);
     }
+
+    public static function esReporteriaCapitalHumanoJsonRequest(): bool
+    {
+        $rutas = [
+            'reporteria/getusuarioscapitalhumano',
+            'analitica/getusuarioscapitalhumano',
+            'reporteria/getbajascapitalhumano',
+            'analitica/getbajascapitalhumano',
+            'reporteria/getfiltroscapitalhumano',
+            'analitica/getfiltroscapitalhumano',
+        ];
+
+        if (isset($_GET['url'])) {
+            $u = strtolower(trim(str_replace('\\', '/', (string) $_GET['url']), '/'));
+            if (in_array($u, $rutas, true)) {
+                return true;
+            }
+        }
+
+        $path = strtolower((string) (parse_url($_SERVER['REQUEST_URI'] ?? '', PHP_URL_PATH) ?: ''));
+        foreach ($rutas as $ruta) {
+            if (str_ends_with($path, '/' . $ruta)) {
+                return true;
+            }
+        }
+
+        return (bool) preg_match('#.*/(?:reporteria|analitica)/(?:getusuarioscapitalhumano|getbajascapitalhumano|getfiltroscapitalhumano)$#', $path);
+    }
 }
