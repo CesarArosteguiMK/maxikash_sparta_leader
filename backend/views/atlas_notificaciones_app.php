@@ -1,125 +1,220 @@
+<link rel="stylesheet" href="/assets/vendor/libs/quill/editor.css">
 <div class="container-fluid py-3 atlas-notif-page">
     <style>
         .atlas-notif-page { color: #22303e; }
         .atlas-notif-head { display: flex; align-items: center; justify-content: space-between; gap: 1rem; margin-bottom: 1rem; }
-        .atlas-notif-title { display: flex; align-items: center; gap: .7rem; margin: 0; color: #1e3a5f; font-size: 1.28rem; font-weight: 800; }
+        .atlas-notif-title { display: flex; align-items: center; gap: .7rem; margin: 0; color: #173756; font-size: 1.3rem; font-weight: 900; }
         .atlas-notif-title i { color: #2563eb; }
         .atlas-notif-subtitle { margin: .2rem 0 0; color: #64748b; font-size: .86rem; font-weight: 700; }
-        .atlas-notif-layout { display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(19rem, .85fr); gap: 1rem; align-items: start; }
-        .atlas-notif-kpis { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: .75rem; }
-        .atlas-notif-kpi { border: 1px solid #e2e8f0; border-radius: .65rem; background: #fff; padding: .78rem .9rem; }
-        .atlas-notif-kpi span { display: flex; align-items: center; gap: .45rem; color: #64748b; font-size: .72rem; font-weight: 900; text-transform: uppercase; letter-spacing: .03em; }
-        .atlas-notif-kpi strong { display: block; margin-top: .2rem; color: #173756; font-size: 1.2rem; font-weight: 900; }
+        .atlas-notif-tabs { border-bottom: 1px solid #e2e8f0; margin-bottom: 1rem; gap: .35rem; flex-wrap: wrap; }
+        .atlas-notif-tabs .nav-link { border: 0; border-bottom: 3px solid transparent; color: #64748b; font-weight: 800; padding: .65rem .9rem; }
+        .atlas-notif-tabs .nav-link.active { color: #173756; border-bottom-color: #2563eb; background: transparent; }
+        .atlas-notif-tab-grid { display: grid; grid-template-columns: minmax(0, 1.28fr) minmax(20rem, .72fr); gap: 1rem; align-items: start; }
         .atlas-notif-card { border: 1px solid #e2e8f0; border-radius: .75rem; background: #fff; padding: 1rem; box-shadow: none; }
-        .atlas-notif-card h5 { display: flex; align-items: center; gap: .45rem; margin: 0 0 .75rem; color: #173756; font-size: .92rem; font-weight: 900; text-transform: uppercase; letter-spacing: .025em; }
+        .atlas-notif-card-head { display: flex; align-items: center; justify-content: space-between; gap: .8rem; margin-bottom: .85rem; }
+        .atlas-notif-card h5 { display: flex; align-items: center; gap: .45rem; margin: 0; color: #173756; font-size: .9rem; font-weight: 900; text-transform: uppercase; letter-spacing: .025em; }
+        .atlas-notif-step { display: inline-flex; align-items: center; justify-content: center; width: 1.65rem; height: 1.65rem; border-radius: 999px; background: #e0ecff; color: #1e40af; font-size: .78rem; font-weight: 900; }
         .atlas-notif-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .75rem; }
         .atlas-notif-grid-3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .75rem; }
         .atlas-notif-field-wide { grid-column: 1 / -1; }
         .atlas-notif-actions { display: flex; justify-content: flex-end; gap: .65rem; flex-wrap: wrap; margin-top: .85rem; }
-        .atlas-notif-preview { border: 1px solid #dbeafe; border-radius: 1rem; background: linear-gradient(180deg, #f8fbff, #fff); padding: .85rem; }
-        .atlas-notif-phone { border: 1px solid #e2e8f0; border-radius: .9rem; background: #f8fafc; padding: .75rem; min-height: 7rem; }
-        .atlas-notif-phone-title { color: #172033; font-size: .9rem; font-weight: 900; line-height: 1.15; }
-        .atlas-notif-phone-msg { color: #64748b; font-size: .8rem; font-weight: 700; line-height: 1.25; margin-top: .25rem; }
-        .atlas-notif-phone-img { width: 100%; max-height: 8rem; object-fit: cover; border-radius: .6rem; margin-top: .55rem; display: none; }
-        .atlas-notif-payload { margin: .75rem 0 0; border: 1px solid #e2e8f0; border-radius: .6rem; background: #0f172a; color: #e2e8f0; padding: .75rem; max-height: 13rem; overflow: auto; font-size: .76rem; line-height: 1.35; }
+        .atlas-notif-send-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .75rem; }
+        .atlas-notif-send-box { border: 1px solid #dbe4ef; border-radius: .7rem; padding: .85rem; background: #f8fafc; }
+        .atlas-notif-send-box h6 { display: flex; align-items: center; gap: .45rem; margin: 0 0 .65rem; color: #173756; font-size: .84rem; font-weight: 900; }
+        .atlas-notif-preview { border-color: #dbeafe; background: linear-gradient(180deg, #f8fbff, #fff); }
+        .atlas-notif-phone { border: 1px solid #dbe4ef; border-radius: 1rem; background: #f8fafc; padding: .85rem; min-height: 7rem; }
+        .atlas-notif-phone-title { color: #172033; font-size: .95rem; font-weight: 900; line-height: 1.15; }
+        .atlas-notif-phone-msg { color: #64748b; font-size: .82rem; font-weight: 700; line-height: 1.25; margin-top: .28rem; }
+        .atlas-notif-phone-img { width: 100%; max-height: 9rem; object-fit: cover; border-radius: .6rem; margin-top: .55rem; display: none; }
+        .atlas-notif-payload { margin: .75rem 0 0; border: 1px solid #e2e8f0; border-radius: .6rem; background: #0f172a; color: #e2e8f0; padding: .75rem; max-height: 12rem; overflow: auto; font-size: .74rem; line-height: 1.35; }
+        .atlas-notif-tools { display: flex; align-items: center; justify-content: flex-end; gap: .65rem; flex-wrap: wrap; }
+        .atlas-notif-tools .btn { min-height: 2.55rem; justify-content: center; }
         .atlas-notif-table { width: 100%; border-collapse: collapse; }
         .atlas-notif-table th { color: #566a7f; font-size: .7rem; font-weight: 900; text-transform: uppercase; border-bottom: 1px solid #dbe4ef; padding: .5rem; white-space: nowrap; }
         .atlas-notif-table td { color: #566a7f; font-size: .78rem; font-weight: 700; border-bottom: 1px solid #eef2f7; padding: .5rem; vertical-align: middle; }
+        .atlas-notif-table-main { color: #22303e; font-weight: 900; line-height: 1.18; }
+        .atlas-notif-table-sub { color: #94a3b8; font-size: .72rem; font-weight: 800; line-height: 1.18; margin-top: .12rem; }
         .atlas-notif-scroll { max-height: 18rem; overflow: auto; border: 1px solid #e2e8f0; border-radius: .65rem; }
-        .atlas-notif-response { min-height: 8rem; max-height: 18rem; overflow: auto; border: 1px solid #e2e8f0; border-radius: .65rem; background: #f8fafc; padding: .75rem; color: #334155; font-size: .78rem; font-weight: 700; white-space: pre-wrap; }
         .atlas-notif-status-dot { width: .55rem; height: .55rem; border-radius: 999px; display: inline-block; background: #dc2626; }
         .atlas-notif-status-dot.is-ok { background: #16a34a; }
         .atlas-notif-muted { color: #64748b; font-size: .78rem; font-weight: 700; }
-        .atlas-notif-badge { display: inline-flex; align-items: center; gap: .28rem; border-radius: 999px; padding: .18rem .55rem; font-size: .72rem; font-weight: 900; white-space: nowrap; }
+        .atlas-notif-badge { display: inline-flex; align-items: center; gap: .32rem; border-radius: 999px; padding: .22rem .65rem; font-size: .72rem; font-weight: 900; white-space: nowrap; }
         .atlas-notif-badge-ok { background: #dcfce7; color: #15803d; }
         .atlas-notif-badge-warn { background: #fee2e2; color: #b91c1c; }
         .atlas-notif-empty { text-align: center; color: #94a3b8; font-weight: 700; padding: 2rem !important; }
         .atlas-notif-row-actions { display: inline-flex; align-items: center; justify-content: center; gap: .35rem; }
         .atlas-notif-row-actions .btn { width: 2.15rem; height: 2.15rem; border-radius: 999px; padding: 0; display: inline-flex; align-items: center; justify-content: center; background: #26344e; border-color: #26344e; box-shadow: 0 5px 12px rgba(15, 23, 42, .18); }
-        @media (max-width: 991.98px) {
-            .atlas-notif-layout { grid-template-columns: 1fr; }
-            .atlas-notif-grid-3, .atlas-notif-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-        }
+        .atlas-notif-advanced { margin-top: .8rem; border-top: 1px solid #eef2f7; padding-top: .75rem; }
+        .atlas-notif-advanced summary { color: #566a7f; cursor: pointer; font-size: .78rem; font-weight: 900; text-transform: uppercase; letter-spacing: .02em; }
+        .atlas-template-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .65rem; }
+        .atlas-template-card { width: 100%; border: 1px solid #dbe4ef; border-radius: .7rem; background: #fff; padding: .8rem; cursor: pointer; text-align: left; transition: border-color .15s ease, background-color .15s ease; }
+        .atlas-template-card:hover, .atlas-template-card.is-active { border-color: #2563eb; background: #f8fbff; }
+        .atlas-template-card-title { color: #173756; font-size: .84rem; font-weight: 900; line-height: 1.15; }
+        .atlas-template-card-meta { color: #64748b; font-size: .72rem; font-weight: 800; margin-top: .18rem; text-transform: uppercase; letter-spacing: .02em; }
+        .atlas-template-editor { min-height: 16rem; background: #fff; }
+        .atlas-template-editor .ql-editor { min-height: 14rem; font-size: .9rem; }
+        .atlas-template-preview { border: 1px solid #e2e8f0; border-radius: .65rem; padding: .9rem; background: #fff; min-height: 10rem; color: #22303e; }
+        @media (max-width: 1199.98px) { .atlas-notif-tab-grid { grid-template-columns: 1fr; } }
+        @media (max-width: 991.98px) { .atlas-notif-send-grid, .atlas-notif-grid-3, .atlas-template-list { grid-template-columns: 1fr; } }
         @media (max-width: 575.98px) {
-            .atlas-notif-head { align-items: stretch; flex-direction: column; }
-            .atlas-notif-grid, .atlas-notif-grid-3, .atlas-notif-kpis { grid-template-columns: 1fr; }
-            .atlas-notif-actions .btn, .atlas-notif-head .btn { width: 100%; justify-content: center; }
+            .atlas-notif-head, .atlas-notif-card-head { align-items: stretch; flex-direction: column; }
+            .atlas-notif-tabs { flex-wrap: nowrap; overflow-x: auto; overflow-y: hidden; padding-bottom: .25rem; -webkit-overflow-scrolling: touch; }
+            .atlas-notif-tabs .nav-item { flex: 0 0 auto; }
+            .atlas-notif-tabs .nav-link { white-space: nowrap; padding: .6rem .75rem; }
+            .atlas-notif-grid { grid-template-columns: 1fr; }
+            .atlas-notif-actions .btn, .atlas-notif-head .btn, .atlas-notif-tools .btn { width: 100%; justify-content: center; }
         }
     </style>
 
     <div class="atlas-notif-head">
         <div>
-            <h4 class="atlas-notif-title"><i class="fa-solid fa-bell"></i><span>Notificaciones App</span></h4>
-            <p class="atlas-notif-subtitle">Gestion de avisos, campanas, inbox, tokens y auditoria Expo de Atlas.</p>
+            <?php $atlasAdminOk = !empty($atlas_admin_configurada); ?>
+            <h4 class="atlas-notif-title">
+                <i class="fa-solid fa-bell"></i>
+                <span>Notificaciones App</span>
+                <span class="atlas-notif-badge <?= $atlasAdminOk ? 'atlas-notif-badge-ok' : 'atlas-notif-badge-warn' ?>">
+                    <span class="atlas-notif-status-dot <?= $atlasAdminOk ? 'is-ok' : '' ?>"></span>
+                    <?= $atlasAdminOk ? 'Activa' : 'No configurada' ?>
+                </span>
+            </h4>
+            <p class="atlas-notif-subtitle">Operación de avisos push e inbox para Atlas App.</p>
         </div>
-        <a href="/Atlas/catalogos" class="btn btn-sm btn-outline-primary"><i class="fa-solid fa-tags me-1"></i>Catalogos</a>
     </div>
 
-    <div class="atlas-notif-layout">
-        <div class="d-flex flex-column gap-3">
-            <div class="atlas-notif-kpis">
-                <div class="atlas-notif-kpi"><span><i class="fa-solid fa-bullhorn"></i>Campanas</span><strong id="atlas-notif-kpi-campanias">0</strong></div>
-                <div class="atlas-notif-kpi"><span><i class="fa-solid fa-paper-plane"></i>Enviadas</span><strong id="atlas-notif-kpi-enviadas">0</strong></div>
-                <div class="atlas-notif-kpi"><span><i class="fa-solid fa-triangle-exclamation"></i>Fallidas</span><strong id="atlas-notif-kpi-fallidas">0</strong></div>
-                <div class="atlas-notif-kpi"><span><i class="fa-solid fa-mobile-screen"></i>Tokens activos</span><strong id="atlas-notif-kpi-tokens">0</strong></div>
-            </div>
+    <ul class="nav atlas-notif-tabs" id="atlas-notif-tabs" role="tablist">
+        <li class="nav-item" role="presentation"><button class="nav-link active" type="button" role="tab" data-bs-toggle="tab" data-bs-target="#atlas-notif-tab-enviar"><i class="fa-solid fa-paper-plane me-1"></i>Enviar</button></li>
+        <li class="nav-item" role="presentation"><button class="nav-link" type="button" role="tab" data-bs-toggle="tab" data-bs-target="#atlas-notif-tab-inbox"><i class="fa-solid fa-inbox me-1"></i>Inbox</button></li>
+        <li class="nav-item" role="presentation"><button class="nav-link" type="button" role="tab" data-bs-toggle="tab" data-bs-target="#atlas-notif-tab-monitoreo"><i class="fa-solid fa-chart-simple me-1"></i>Monitoreo</button></li>
+        <li class="nav-item" role="presentation"><button class="nav-link" type="button" role="tab" data-bs-toggle="tab" data-bs-target="#atlas-notif-tab-plantillas"><i class="fa-solid fa-layer-group me-1"></i>Plantillas</button></li>
+    </ul>
 
-            <div class="atlas-notif-card">
-                <h5><i class="fa-solid fa-plug-circle-bolt"></i>Conexion Atlas App</h5>
-                <div class="atlas-notif-grid">
-                    <div><label class="form-label">Token API</label><input type="password" class="form-control" id="atlas-notif-token" placeholder="Bearer token de Atlas App"></div>
-                    <div><label class="form-label">Usuario / correo API</label><input type="text" class="form-control" id="atlas-notif-login-user" placeholder="Usuario de login API"></div>
-                    <div><label class="form-label">Contrasena API</label><input type="password" class="form-control" id="atlas-notif-login-pass" placeholder="Contrasena"></div>
-                    <div class="d-flex align-items-end gap-2 flex-wrap">
-                        <button type="button" class="btn btn-primary" id="atlas-notif-btn-login"><i class="fa-solid fa-key me-1"></i>Iniciar sesion</button>
-                        <button type="button" class="btn btn-label-danger" id="atlas-notif-btn-clear-token">Limpiar token</button>
-                        <span class="atlas-notif-muted"><span class="atlas-notif-status-dot" id="atlas-notif-token-dot"></span> <span id="atlas-notif-token-status">Sin token</span></span>
+    <div class="tab-content p-0">
+        <div class="tab-pane fade" id="atlas-notif-tab-plantillas" role="tabpanel">
+            <div class="atlas-notif-tab-grid">
+                <div class="atlas-notif-card">
+                    <div class="atlas-notif-card-head">
+                        <h5><span class="atlas-notif-step">1</span><i class="fa-solid fa-layer-group"></i>Plantillas</h5>
+                        <button type="button" class="btn btn-primary btn-sm" id="atlas-template-btn-nueva"><i class="fa-solid fa-plus me-1"></i>Nueva plantilla</button>
+                    </div>
+                    <div class="atlas-template-list" id="atlas-template-list">
+                        <div class="atlas-notif-empty">Cargando plantillas...</div>
+                    </div>
+                </div>
+                <div class="atlas-notif-card">
+                    <div class="atlas-notif-card-head">
+                        <h5><i class="fa-solid fa-pen-nib"></i>Editor visual</h5>
+                        <button type="button" class="btn btn-outline-primary btn-sm" id="atlas-template-btn-usar"><i class="fa-solid fa-wand-magic-sparkles me-1"></i>Usar en aviso</button>
+                    </div>
+                    <form id="atlas-template-form" autocomplete="off">
+                        <input type="hidden" name="id">
+                        <div class="atlas-notif-grid">
+                            <div><label class="form-label">Nombre *</label><input type="text" class="form-control" name="nombre" required placeholder="Ej. Feliz cumpleaños"></div>
+                            <div><label class="form-label">Tipo *</label>
+                                <select class="form-select" name="categoria" required>
+                                    <option value="cumpleanos">Feliz cumpleaños</option>
+                                    <option value="avance_venta">Avance de venta</option>
+                                    <option value="notificacion_especial">Notificación especial</option>
+                                    <option value="atencion_colaborador">Atención al colaborador</option>
+                                </select>
+                            </div>
+                            <div><label class="form-label">Asunto</label><input type="text" class="form-control" name="asunto" placeholder="Título sugerido para el aviso"></div>
+                            <div><label class="form-label">Imagen URL</label><input type="url" class="form-control" name="imagen_url" placeholder="https://..."></div>
+                            <div class="atlas-notif-field-wide"><label class="form-label">Mensaje corto</label><textarea class="form-control" name="mensaje_texto" rows="2" placeholder="Texto corto para push o resumen"></textarea></div>
+                            <div><label class="form-label">Estatus</label><select class="form-select" name="activo"><option value="1">Activa</option><option value="0">Inactiva</option></select></div>
+                        </div>
+                        <div class="mt-3">
+                            <label class="form-label">Contenido HTML *</label>
+                            <div id="atlas-template-editor" class="atlas-template-editor"></div>
+                        </div>
+                        <div class="atlas-notif-actions">
+                            <button type="button" class="btn btn-outline-primary" id="atlas-template-btn-imagen"><i class="fa-solid fa-image me-1"></i>Insertar imagen URL</button>
+                            <button type="submit" class="btn btn-primary"><i class="fa-solid fa-floppy-disk me-1"></i>Guardar plantilla</button>
+                        </div>
+                    </form>
+                    <div class="mt-3">
+                        <label class="form-label">Vista previa HTML</label>
+                        <div class="atlas-template-preview" id="atlas-template-preview"></div>
                     </div>
                 </div>
             </div>
+        </div>
 
-            <div class="atlas-notif-card">
-                <h5><i class="fa-solid fa-pen-to-square"></i>Crear y enviar notificacion</h5>
-                <form id="atlas-notif-form-aviso" autocomplete="off">
-                    <div class="atlas-notif-grid-3">
-                        <div class="atlas-notif-field-wide"><label class="form-label">Titulo *</label><input type="text" class="form-control" name="titulo" required placeholder="Titulo de la notificacion"></div>
-                        <div class="atlas-notif-field-wide"><label class="form-label">Mensaje *</label><textarea class="form-control" name="mensaje" rows="2" required placeholder="Mensaje corto para el usuario"></textarea></div>
-                        <div><label class="form-label">Type</label><input type="text" class="form-control" name="type" value="aviso_especial" placeholder="aviso_especial"></div>
-                        <div><label class="form-label">Notification type</label><input type="text" class="form-control" name="notification_type" value="push" placeholder="push"></div>
-                        <div><label class="form-label">ID credito</label><input type="text" class="form-control" name="id_credito" placeholder="Opcional"></div>
-                        <div><label class="form-label">Monto</label><input type="number" step="0.01" class="form-control" name="monto" placeholder="Opcional"></div>
-                        <div><label class="form-label">Semana</label><input type="text" class="form-control" name="semana" placeholder="Opcional"></div>
-                        <div><label class="form-label">Imagen URL</label><input type="url" class="form-control" name="imagen_url" placeholder="https://..."></div>
-                        <div class="atlas-notif-field-wide"><label class="form-label">HTML / contenido extendido</label><textarea class="form-control" name="html" rows="3" placeholder="Contenido que vive en atlas_notifications"></textarea></div>
+        <div class="tab-pane fade show active" id="atlas-notif-tab-enviar" role="tabpanel">
+            <div class="atlas-notif-tab-grid">
+                <div class="atlas-notif-card">
+                    <div class="atlas-notif-card-head">
+                        <h5><span class="atlas-notif-step">1</span><i class="fa-solid fa-pen-to-square"></i>Contenido del envío</h5>
+                        <span class="atlas-notif-muted">Este contenido se usa para push e inbox.</span>
                     </div>
-                    <div class="atlas-notif-actions"><button type="submit" class="btn btn-primary"><i class="fa-solid fa-floppy-disk me-1"></i>Crear aviso</button></div>
-                </form>
+                    <form id="atlas-notif-form-aviso" autocomplete="off">
+                        <input type="hidden" name="type" value="aviso_especial">
+                        <input type="hidden" name="notification_type" value="push">
+                        <div class="atlas-notif-grid">
+                            <div class="atlas-notif-field-wide"><label class="form-label">Título *</label><input type="text" class="form-control" name="titulo" required placeholder="Ej. Nuevo aviso disponible"></div>
+                            <div class="atlas-notif-field-wide"><label class="form-label">Mensaje *</label><textarea class="form-control" name="mensaje" rows="3" required placeholder="Mensaje corto para mostrar en la app"></textarea></div>
+                            <div><label class="form-label">Imagen URL</label><input type="url" class="form-control" name="imagen_url" placeholder="https://..."></div>
+                            <div><label class="form-label">ID crédito</label><input type="text" class="form-control" name="id_credito" placeholder="Opcional"></div>
+                        </div>
+                        <details class="atlas-notif-advanced">
+                            <summary>Datos adicionales</summary>
+                            <div class="atlas-notif-grid-3 mt-3">
+                                <div><label class="form-label">Monto</label><input type="number" step="0.01" class="form-control" name="monto" placeholder="Opcional"></div>
+                                <div><label class="form-label">Semana</label><input type="text" class="form-control" name="semana" placeholder="Opcional"></div>
+                                <div class="atlas-notif-field-wide"><label class="form-label">HTML / contenido extendido</label><textarea class="form-control" name="html" rows="3" placeholder="Contenido del aviso en inbox"></textarea></div>
+                            </div>
+                        </details>
+                    </form>
+                </div>
+                <div class="atlas-notif-card atlas-notif-preview">
+                    <div class="atlas-notif-card-head">
+                        <h5><i class="fa-solid fa-eye"></i>Vista previa</h5>
+                        <span class="atlas-notif-muted">Así se arma el aviso.</span>
+                    </div>
+                    <div class="atlas-notif-phone">
+                        <div class="atlas-notif-phone-title" id="atlas-notif-preview-title">Título de la notificación</div>
+                        <div class="atlas-notif-phone-msg" id="atlas-notif-preview-msg">Mensaje corto para el usuario.</div>
+                        <img src="" alt="" class="atlas-notif-phone-img" id="atlas-notif-preview-img">
+                    </div>
+                    <pre class="atlas-notif-payload" id="atlas-notif-payload-preview">{}</pre>
+                </div>
             </div>
 
-            <div class="atlas-notif-card">
-                <h5><i class="fa-solid fa-user-check"></i>Envio individual</h5>
-                <form id="atlas-notif-form-individual" autocomplete="off">
-                    <div class="atlas-notif-grid">
-                        <div><label class="form-label">User ID</label><input type="text" class="form-control" name="user_id" placeholder="persona.id"></div>
-                        <div><label class="form-label">External ID</label><input type="text" class="form-control" name="external_id" placeholder="numero empleado"></div>
+            <div class="atlas-notif-card mt-3">
+                <div class="atlas-notif-card-head">
+                    <h5><span class="atlas-notif-step">2</span><i class="fa-solid fa-paper-plane"></i>Elegir destinatarios</h5>
+                    <span class="atlas-notif-muted">Captura el contenido y elige a quién se envía.</span>
+                </div>
+                <div class="atlas-notif-send-grid">
+                    <div class="atlas-notif-send-box">
+                        <h6><i class="fa-solid fa-user-check"></i>Enviar a una persona</h6>
+                        <form id="atlas-notif-form-individual" autocomplete="off">
+                            <div class="atlas-notif-grid">
+                                <div><label class="form-label">User ID</label><input type="text" class="form-control" name="user_id" placeholder="persona.id"></div>
+                                <div><label class="form-label">External ID</label><input type="text" class="form-control" name="external_id" placeholder="Número empleado"></div>
+                            </div>
+                            <div class="atlas-notif-actions"><button type="submit" class="btn btn-primary"><i class="fa-solid fa-paper-plane me-1"></i>Enviar individual</button></div>
+                        </form>
                     </div>
-                    <div class="atlas-notif-actions"><button type="submit" class="btn btn-primary"><i class="fa-solid fa-paper-plane me-1"></i>Enviar individual</button></div>
-                </form>
-            </div>
-
-            <div class="atlas-notif-card">
-                <h5><i class="fa-solid fa-users-rays"></i>Campana masiva</h5>
-                <form id="atlas-notif-form-campania" autocomplete="off">
-                    <div class="atlas-notif-grid">
-                        <div><label class="form-label">User IDs</label><textarea class="form-control" name="user_ids" rows="2" placeholder="1133, 7"></textarea></div>
-                        <div><label class="form-label">External IDs</label><textarea class="form-control" name="external_ids" rows="2" placeholder="999999704, 525"></textarea></div>
+                    <div class="atlas-notif-send-box">
+                        <h6><i class="fa-solid fa-users-rays"></i>Enviar campaña</h6>
+                        <form id="atlas-notif-form-campania" autocomplete="off">
+                            <div class="atlas-notif-grid">
+                                <div><label class="form-label">User IDs</label><textarea class="form-control" name="user_ids" rows="2" placeholder="1133, 7"></textarea></div>
+                                <div><label class="form-label">External IDs</label><textarea class="form-control" name="external_ids" rows="2" placeholder="999999704, 525"></textarea></div>
+                            </div>
+                            <div class="atlas-notif-actions"><button type="submit" class="btn btn-primary"><i class="fa-solid fa-bullhorn me-1"></i>Enviar campaña</button></div>
+                        </form>
                     </div>
-                    <div class="atlas-notif-actions"><button type="submit" class="btn btn-primary"><i class="fa-solid fa-bullhorn me-1"></i>Enviar campana</button></div>
-                </form>
+                </div>
             </div>
+        </div>
 
+        <div class="tab-pane fade" id="atlas-notif-tab-inbox" role="tabpanel">
             <div class="atlas-notif-card">
-                <h5><i class="fa-solid fa-inbox"></i>Inbox por usuario</h5>
+                <div class="atlas-notif-card-head">
+                    <h5><span class="atlas-notif-step">3</span><i class="fa-solid fa-inbox"></i>Inbox por usuario</h5>
+                    <span class="atlas-notif-muted">Consulta y actualiza notificaciones del inbox.</span>
+                </div>
                 <form id="atlas-notif-form-inbox" autocomplete="off">
                     <div class="atlas-notif-grid">
                         <div><label class="form-label">User ID</label><input type="text" class="form-control" name="user_id" placeholder="1133"></div>
@@ -129,83 +224,150 @@
                 </form>
                 <div class="atlas-notif-scroll mt-3">
                     <table class="atlas-notif-table">
-                        <thead><tr><th>Estado</th><th>Titulo</th><th>Fecha</th><th>Acciones</th></tr></thead>
+                        <thead><tr><th>Estado</th><th>Título</th><th>Fecha</th><th>Acciones</th></tr></thead>
                         <tbody id="atlas-notif-inbox-body"><tr><td colspan="4" class="atlas-notif-empty">Consulta un usuario para ver su inbox.</td></tr></tbody>
                     </table>
                 </div>
             </div>
         </div>
 
-        <div class="d-flex flex-column gap-3">
-            <div class="atlas-notif-card atlas-notif-preview">
-                <h5><i class="fa-solid fa-eye"></i>Preview visual</h5>
-                <div class="atlas-notif-phone">
-                    <div class="atlas-notif-phone-title" id="atlas-notif-preview-title">Titulo de la notificacion</div>
-                    <div class="atlas-notif-phone-msg" id="atlas-notif-preview-msg">Mensaje corto para el usuario.</div>
-                    <img src="" alt="" class="atlas-notif-phone-img" id="atlas-notif-preview-img">
-                </div>
-                <pre class="atlas-notif-payload" id="atlas-notif-payload-preview">{}</pre>
-            </div>
-
+        <div class="tab-pane fade" id="atlas-notif-tab-monitoreo" role="tabpanel">
             <div class="atlas-notif-card">
-                <h5><i class="fa-solid fa-clock-rotate-left"></i>Campanas, tokens y logs</h5>
-                <div class="atlas-notif-grid">
-                    <button type="button" class="btn btn-outline-primary" data-atlas-notif-load="/api/atlas/push-campaigns" data-atlas-notif-method="GET"><i class="fa-solid fa-bullhorn me-1"></i>Cargar campanas</button>
-                    <button type="button" class="btn btn-outline-primary" data-atlas-notif-load="/api/atlas/push-tokens" data-atlas-notif-method="GET"><i class="fa-solid fa-mobile-screen me-1"></i>Cargar tokens</button>
-                    <button type="button" class="btn btn-outline-primary" data-atlas-notif-load="/api/atlas/push-notifications/log" data-atlas-notif-method="GET"><i class="fa-solid fa-file-waveform me-1"></i>Cargar logs Expo</button>
-                    <button type="button" class="btn btn-outline-danger" id="atlas-notif-btn-disable-token"><i class="fa-solid fa-mobile-screen-button me-1"></i>Desactivar token</button>
+                <div class="atlas-notif-card-head">
+                    <h5><i class="fa-solid fa-users-viewfinder"></i>Usuarios disponibles</h5>
+                    <span class="atlas-notif-muted">Usuarios con dispositivo activo para recibir notificaciones.</span>
                 </div>
-                <div class="atlas-notif-grid mt-3">
-                    <div><label class="form-label">Expo token a desactivar</label><input type="text" class="form-control" id="atlas-notif-token-delete" placeholder="ExponentPushToken[...]"></div>
-                    <div><label class="form-label">Notification ID detalle</label><input type="text" class="form-control" id="atlas-notif-detalle-id" placeholder="123"></div>
+                <div class="atlas-notif-tools">
+                    <button type="button" class="btn btn-primary" data-atlas-usuarios-disponibles="1"><i class="fa-solid fa-rotate me-1"></i>Actualizar usuarios</button>
                 </div>
-                <div class="atlas-notif-actions"><button type="button" class="btn btn-outline-primary" id="atlas-notif-btn-detalle"><i class="fa-solid fa-circle-info me-1"></i>Consultar detalle</button></div>
-            </div>
-
-            <div class="atlas-notif-card">
-                <h5><i class="fa-solid fa-terminal"></i>Respuesta Atlas App</h5>
-                <div class="atlas-notif-response" id="atlas-notif-response">Sin acciones ejecutadas.</div>
+                <div class="atlas-notif-scroll mt-3">
+                    <table class="atlas-notif-table">
+                        <thead><tr><th>Usuario</th><th>Identificador</th><th>Dispositivo</th><th>Última actividad</th></tr></thead>
+                        <tbody id="atlas-notif-usuarios-body"><tr><td colspan="4" class="atlas-notif-empty">Actualiza para ver usuarios disponibles.</td></tr></tbody>
+                    </table>
+                </div>
             </div>
         </div>
     </div>
+
 </div>
 
+<script src="/assets/vendor/libs/quill/quill.js"></script>
 <script>
 (function () {
     let atlasNotifInboxContext = { user_id: '', external_id: '' };
+    let atlasPlantillas = [];
+    let atlasPlantillaActual = null;
+    let atlasTemplateQuill = null;
 
     function esc(v) { return String(v == null ? '' : v).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
     function setKpi(id, value) { const el = document.getElementById(id); if (el) el.textContent = Number(value || 0).toLocaleString('es-MX'); }
     function setTexto(id, value) { const el = document.getElementById(id); if (el) el.textContent = value == null ? '' : String(value); }
     function formToJson(form) { const data = {}; Array.from(new FormData(form).entries()).forEach(pair => { data[pair[0]] = pair[1]; }); return data; }
-    function showBusy() { if (typeof Swal !== 'undefined') Swal.fire({ title: 'Procesando su peticion', text: 'Espere un momento...', allowOutsideClick: false, allowEscapeKey: false, showConfirmButton: false, didOpen: function () { Swal.showLoading(); } }); }
+    function showBusy() { if (typeof Swal !== 'undefined') Swal.fire({ title: 'Procesando su petición', text: 'Espere un momento...', allowOutsideClick: false, allowEscapeKey: false, showConfirmButton: false, didOpen: function () { Swal.showLoading(); } }); }
     function hideBusy() {
         if (typeof Swal === 'undefined') return;
         const title = document.getElementById('swal2-title');
-        if (title && title.textContent === 'Procesando su peticion') Swal.close();
-    }
-    function tokenActual() {
-        const el = document.getElementById('atlas-notif-token');
-        return (el && el.value ? String(el.value).trim() : '') || (typeof localStorage !== 'undefined' ? String(localStorage.getItem('atlas_app_token') || '').trim() : '');
-    }
-    function guardarToken(token) {
-        const clean = String(token || '').trim();
-        const el = document.getElementById('atlas-notif-token');
-        if (el) el.value = clean;
-        try { if (clean) localStorage.setItem('atlas_app_token', clean); else localStorage.removeItem('atlas_app_token'); } catch (e) {}
-        actualizarTokenStatus();
-    }
-    function actualizarTokenStatus() {
-        const ok = tokenActual() !== '';
-        const dot = document.getElementById('atlas-notif-token-dot');
-        if (dot) dot.classList.toggle('is-ok', ok);
-        setTexto('atlas-notif-token-status', ok ? 'Token listo' : 'Sin token');
-    }
-    function setRespuesta(data) {
-        const el = document.getElementById('atlas-notif-response');
-        if (el) el.textContent = typeof data === 'string' ? data : JSON.stringify(data, null, 2);
+        if (title && title.textContent === 'Procesando su petición') Swal.close();
     }
     function lista(v) { return String(v || '').split(/[,\n;]/).map(x => x.trim()).filter(Boolean); }
+    async function atlasJson(url, body) {
+        const res = await fetch(url, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+            credentials: 'same-origin',
+            body: JSON.stringify(body || {})
+        });
+        const data = await res.json();
+        if (!data || data.success === false) throw new Error((data && (data.mensaje || data.error)) || 'No se pudo ejecutar la acción.');
+        return data;
+    }
+    function categoriaTexto(v) {
+        const mapa = {
+            cumpleanos: 'Feliz cumpleaños',
+            avance_venta: 'Avance de venta',
+            notificacion_especial: 'Notificación especial',
+            atencion_colaborador: 'Atención al colaborador'
+        };
+        return mapa[v] || v || 'Plantilla';
+    }
+    function templateHtmlActual() {
+        if (!atlasTemplateQuill) return '';
+        return atlasTemplateQuill.root.innerHTML || '';
+    }
+    function renderTemplatePreview() {
+        const preview = document.getElementById('atlas-template-preview');
+        if (preview) preview.innerHTML = templateHtmlActual() || '<span class="atlas-notif-muted">Sin contenido.</span>';
+    }
+    function setTemplateForm(row) {
+        const form = document.getElementById('atlas-template-form');
+        if (!form) return;
+        form.elements.id.value = row && row.id ? row.id : '';
+        form.elements.nombre.value = row && row.nombre ? row.nombre : '';
+        form.elements.categoria.value = row && row.categoria ? row.categoria : 'notificacion_especial';
+        form.elements.asunto.value = row && row.asunto ? row.asunto : '';
+        form.elements.imagen_url.value = row && row.imagen_url ? row.imagen_url : '';
+        form.elements.mensaje_texto.value = row && row.mensaje_texto ? row.mensaje_texto : '';
+        form.elements.activo.value = String(row && row.activo != null ? row.activo : 1);
+        if (atlasTemplateQuill) {
+            atlasTemplateQuill.root.innerHTML = row && row.html ? row.html : '<h2>Nueva plantilla</h2><p>Escribe aquí el mensaje.</p>';
+        }
+        atlasPlantillaActual = row || null;
+        renderTemplatePreview();
+    }
+    function renderPlantillas() {
+        const list = document.getElementById('atlas-template-list');
+        if (!list) return;
+        if (!atlasPlantillas.length) {
+            list.innerHTML = '<div class="atlas-notif-empty">No hay plantillas registradas.</div>';
+            return;
+        }
+        list.innerHTML = atlasPlantillas.map(row => {
+            const active = atlasPlantillaActual && String(atlasPlantillaActual.id || '') === String(row.id || '') ? ' is-active' : '';
+            const estado = Number(row.activo || 0) === 1 ? 'Activa' : 'Inactiva';
+            return '<button type="button" class="atlas-template-card' + active + '" data-template-id="' + esc(row.id) + '">'
+                + '<div class="atlas-template-card-title">' + esc(row.nombre || 'Plantilla') + '</div>'
+                + '<div class="atlas-template-card-meta">' + esc(categoriaTexto(row.categoria)) + ' · ' + esc(estado) + '</div>'
+                + '</button>';
+        }).join('');
+    }
+    async function cargarPlantillas() {
+        const data = await atlasJson('/Atlas/getPlantillasNotificaciones', {});
+        atlasPlantillas = Array.isArray(data.datos) ? data.datos : [];
+        if (!atlasPlantillaActual && atlasPlantillas.length) atlasPlantillaActual = atlasPlantillas[0];
+        renderPlantillas();
+        if (atlasPlantillaActual) setTemplateForm(atlasPlantillaActual);
+        return data;
+    }
+    function initTemplateEditor() {
+        if (atlasTemplateQuill || typeof Quill === 'undefined') return;
+        atlasTemplateQuill = new Quill('#atlas-template-editor', {
+            theme: 'snow',
+            modules: {
+                toolbar: [
+                    [{ header: [1, 2, 3, false] }],
+                    ['bold', 'italic', 'underline', 'strike'],
+                    [{ color: [] }, { background: [] }],
+                    [{ list: 'ordered' }, { list: 'bullet' }],
+                    [{ align: [] }],
+                    ['link', 'image'],
+                    ['clean']
+                ]
+            }
+        });
+        atlasTemplateQuill.on('text-change', renderTemplatePreview);
+    }
+    function usarPlantillaEnAviso(row) {
+        const form = document.getElementById('atlas-notif-form-aviso');
+        if (!form || !row) return;
+        form.elements.titulo.value = row.asunto || row.nombre || '';
+        form.elements.mensaje.value = row.mensaje_texto || '';
+        form.elements.imagen_url.value = row.imagen_url || '';
+        form.elements.html.value = row.html || '';
+        actualizarPreview();
+        const enviarBtn = document.querySelector('[data-bs-target="#atlas-notif-tab-enviar"]');
+        if (enviarBtn && window.bootstrap) bootstrap.Tab.getOrCreateInstance(enviarBtn).show();
+    }
     function avisoPayload() {
         const form = document.getElementById('atlas-notif-form-aviso');
         const d = form ? formToJson(form) : {};
@@ -224,7 +386,7 @@
     }
     function actualizarPreview() {
         const p = avisoPayload();
-        setTexto('atlas-notif-preview-title', p.titulo || 'Titulo de la notificacion');
+        setTexto('atlas-notif-preview-title', p.titulo || 'Título de la notificación');
         setTexto('atlas-notif-preview-msg', p.mensaje || 'Mensaje corto para el usuario.');
         const img = document.getElementById('atlas-notif-preview-img');
         if (img) { img.style.display = p.imagen_url ? 'block' : 'none'; img.src = p.imagen_url || ''; }
@@ -236,11 +398,10 @@
             method: 'POST',
             headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
             credentials: 'same-origin',
-            body: JSON.stringify({ method: method, path: path, body: body || {}, query: query || {}, token: tokenActual() })
+            body: JSON.stringify({ method: method, path: path, body: body || {}, query: query || {} })
         });
         const data = await res.json();
-        setRespuesta(data);
-        if (!data || data.success === false) throw new Error((data && (data.mensaje || data.error)) || 'No se pudo ejecutar la accion.');
+        if (!data || data.success === false) throw new Error((data && (data.mensaje || data.error)) || 'No se pudo ejecutar la acción.');
         return data;
     }
     function extraerArray(data) {
@@ -250,6 +411,8 @@
         if (d && Array.isArray(d.data)) return d.data;
         if (d && Array.isArray(d.notifications)) return d.notifications;
         if (d && Array.isArray(d.inbox)) return d.inbox;
+        if (d && Array.isArray(d.tokens)) return d.tokens;
+        if (d && Array.isArray(d.push_tokens)) return d.push_tokens;
         if (d && Array.isArray(d.items)) return d.items;
         return [];
     }
@@ -263,10 +426,40 @@
         body.innerHTML = items.map(row => {
             const id = row.id || row.inbox_id || row.user_notification_id || '';
             const read = Number(row.is_read || row.leida || 0) === 1;
-            const titulo = row.titulo || row.title || row.mensaje || row.message || 'Notificacion';
+            const titulo = row.titulo || row.title || row.mensaje || row.message || 'Notificación';
             const fecha = row.created_at || row.fecha_alta || row.sent_at || '';
-            const estado = read ? '<span class="atlas-notif-badge atlas-notif-badge-ok"><i class="fa-solid fa-check-double"></i>Leida</span>' : '<span class="atlas-notif-badge atlas-notif-badge-warn"><i class="fa-solid fa-circle"></i>No leida</span>';
-            return '<tr><td>' + estado + '</td><td>' + esc(titulo) + '</td><td>' + esc(fecha || '-') + '</td><td><div class="atlas-notif-row-actions"><button type="button" class="btn btn-sm btn-primary" title="Marcar leida" data-atlas-notif-read="' + esc(id) + '"><i class="fa-solid fa-check-double"></i></button><button type="button" class="btn btn-sm btn-primary" title="Ocultar" data-atlas-notif-hide="' + esc(id) + '"><i class="fa-solid fa-eye-slash"></i></button></div></td></tr>';
+            const estado = read ? '<span class="atlas-notif-badge atlas-notif-badge-ok"><i class="fa-solid fa-check-double"></i>Leída</span>' : '<span class="atlas-notif-badge atlas-notif-badge-warn"><i class="fa-solid fa-circle"></i>No leída</span>';
+            return '<tr><td>' + estado + '</td><td>' + esc(titulo) + '</td><td>' + esc(fecha || '-') + '</td><td><div class="atlas-notif-row-actions"><button type="button" class="btn btn-sm btn-primary" title="Marcar leída" data-atlas-notif-read="' + esc(id) + '"><i class="fa-solid fa-check-double"></i></button><button type="button" class="btn btn-sm btn-primary" title="Ocultar" data-atlas-notif-hide="' + esc(id) + '"><i class="fa-solid fa-eye-slash"></i></button></div></td></tr>';
+        }).join('');
+    }
+    function textoToken(row) {
+        return row.token_corto || row.expo_push_token || row.push_token || row.token || row.expo_token || row.device_token || '';
+    }
+    function renderUsuariosDisponibles(items) {
+        const body = document.getElementById('atlas-notif-usuarios-body');
+        if (!body) return;
+        const activos = (items || []).filter(row => {
+            const activo = row.activo ?? row.active ?? row.is_active ?? row.enabled ?? 1;
+            return String(activo) !== '0' && String(activo).toLowerCase() !== 'false';
+        });
+        if (!activos.length) {
+            body.innerHTML = '<tr><td colspan="4" class="atlas-notif-empty">No hay usuarios disponibles para notificar.</td></tr>';
+            return;
+        }
+        body.innerHTML = activos.map(row => {
+            const nombre = row.nombre || row.name || row.user_name || row.usuario || row.email || 'Usuario sin nombre';
+            const userId = row.user_id || row.persona_id || row.id_usuario || row.id || '';
+            const externalId = row.external_id || row.numero_empleado || row.employee_number || '';
+            const plataforma = row.platform || row.plataforma || row.device_platform || row.device_type || 'App';
+            const token = textoToken(row);
+            const tokenCorto = row.token_corto || (token ? (String(token).slice(0, 18) + '...') : 'Sin token visible');
+            const fecha = row.last_seen_at_fmt || row.last_seen_at || row.updated_at_fmt || row.updated_at || row.fecha_actualizacion || row.created_at_fmt || row.created_at || row.fecha_alta || '-';
+            return '<tr>'
+                + '<td><div class="atlas-notif-table-main">' + esc(nombre) + '</div><div class="atlas-notif-table-sub">' + esc(row.email || row.correo || '') + '</div></td>'
+                + '<td><div class="atlas-notif-table-main">' + esc(externalId ? 'External ID ' + externalId : 'User ID ' + (userId || '-')) + '</div><div class="atlas-notif-table-sub">' + esc(userId ? 'User ID ' + userId : '') + '</div></td>'
+                + '<td><div class="atlas-notif-table-main"><i class="fa-solid fa-mobile-screen me-1"></i>' + esc(plataforma) + '</div><div class="atlas-notif-table-sub">' + esc(row.device_name || row.dispositivo || tokenCorto) + '</div><div class="atlas-notif-table-sub">' + esc(row.device_name ? tokenCorto : '') + '</div></td>'
+                + '<td>' + esc(fecha) + '</td>'
+                + '</tr>';
         }).join('');
     }
     function actualizarKpis(data) {
@@ -278,46 +471,46 @@
         if (src.total_fallidos != null || src.failed != null) setKpi('atlas-notif-kpi-fallidas', src.total_fallidos || src.failed);
         if (src.total_tokens != null || src.active_tokens != null) setKpi('atlas-notif-kpi-tokens', src.total_tokens || src.active_tokens);
     }
+    async function cargarUsuariosDisponibles(silencioso) {
+        if (!silencioso) showBusy();
+        try {
+            const data = await atlasJson('/Atlas/getUsuariosNotificacionesDisponibles', {});
+            renderUsuariosDisponibles(Array.isArray(data.datos) ? data.datos : []);
+            actualizarKpis({ datos: { active_tokens: data.totales && data.totales.total ? data.totales.total : 0 } });
+            return data;
+        } catch (err) {
+            renderUsuariosDisponibles([]);
+            if (!silencioso && typeof Swal !== 'undefined') {
+                Swal.fire({ icon: 'error', title: 'No se pudo cargar', text: err.message || 'Error' });
+            }
+            return null;
+        } finally {
+            if (!silencioso) hideBusy();
+        }
+    }
 
-    guardarToken(typeof localStorage !== 'undefined' ? localStorage.getItem('atlas_app_token') || '' : '');
     actualizarPreview();
 
     const formAviso = document.getElementById('atlas-notif-form-aviso');
     const formIndividual = document.getElementById('atlas-notif-form-individual');
     const formCampania = document.getElementById('atlas-notif-form-campania');
     const formInbox = document.getElementById('atlas-notif-form-inbox');
+    const formTemplate = document.getElementById('atlas-template-form');
+
+    initTemplateEditor();
+    cargarPlantillas().catch(err => {
+        const list = document.getElementById('atlas-template-list');
+        if (list) list.innerHTML = '<div class="atlas-notif-empty">' + esc(err.message || 'No se pudieron cargar las plantillas.') + '</div>';
+    });
+    cargarUsuariosDisponibles(true);
 
     if (formAviso) {
         formAviso.addEventListener('input', actualizarPreview);
-        formAviso.addEventListener('submit', async function (ev) {
-            ev.preventDefault();
-            try { showBusy(); const data = await proxy('POST', '/api/atlas/notifications', avisoPayload(), {}); actualizarKpis(data); if (typeof Swal !== 'undefined') Swal.fire({ icon: 'success', title: 'Aviso creado', text: 'La notificacion fue enviada a Atlas App para registrarse.' }); }
-            catch (err) { if (typeof Swal !== 'undefined') Swal.fire({ icon: 'error', title: 'No se pudo crear', text: err.message || 'Error' }); }
-            finally { hideBusy(); }
-        });
+        formAviso.addEventListener('submit', function (ev) { ev.preventDefault(); });
     }
-    const btnLogin = document.getElementById('atlas-notif-btn-login');
-    if (btnLogin) btnLogin.addEventListener('click', async function () {
-        const usuario = String((document.getElementById('atlas-notif-login-user') || {}).value || '').trim();
-        const pass = String((document.getElementById('atlas-notif-login-pass') || {}).value || '').trim();
-        if (!usuario || !pass) { if (typeof Swal !== 'undefined') Swal.fire({ icon: 'warning', title: 'Datos incompletos', text: 'Captura usuario y contrasena de Atlas App.' }); return; }
-        try {
-            showBusy();
-            const data = await proxy('POST', '/auth/login', { email: usuario, username: usuario, password: pass }, {});
-            const d = data.datos || {};
-            const token = d.access_token || d.token || (d.data && (d.data.access_token || d.data.token)) || '';
-            if (!token) throw new Error('Atlas App no devolvio token.');
-            guardarToken(token);
-            if (typeof Swal !== 'undefined') Swal.fire({ icon: 'success', title: 'Conectado', text: 'Token de Atlas App guardado para esta sesion.' });
-        } catch (err) {
-            if (typeof Swal !== 'undefined') Swal.fire({ icon: 'error', title: 'No se pudo iniciar sesion', text: err.message || 'Error' });
-        } finally { hideBusy(); }
-    });
-    const btnClear = document.getElementById('atlas-notif-btn-clear-token');
-    if (btnClear) btnClear.addEventListener('click', function () { guardarToken(''); setRespuesta('Token local eliminado.'); });
     if (formIndividual) formIndividual.addEventListener('submit', async function (ev) {
         ev.preventDefault();
-        try { showBusy(); const data = await proxy('POST', '/api/atlas/push-notifications/send', Object.assign({}, avisoPayload(), formToJson(formIndividual)), {}); actualizarKpis(data); if (typeof Swal !== 'undefined') Swal.fire({ icon: 'success', title: 'Enviado', text: 'Solicitud de envio individual enviada a Atlas App.' }); }
+        try { showBusy(); const data = await proxy('POST', '/api/atlas/push-notifications/send', Object.assign({}, avisoPayload(), formToJson(formIndividual)), {}); actualizarKpis(data); if (typeof Swal !== 'undefined') Swal.fire({ icon: 'success', title: 'Enviado', text: 'Solicitud de envío individual enviada a Atlas App.' }); }
         catch (err) { if (typeof Swal !== 'undefined') Swal.fire({ icon: 'error', title: 'No se pudo enviar', text: err.message || 'Error' }); }
         finally { hideBusy(); }
     });
@@ -325,7 +518,7 @@
         ev.preventDefault();
         const datos = formToJson(formCampania);
         const payload = Object.assign({}, avisoPayload(), { filtros_json: { user_ids: lista(datos.user_ids), external_ids: lista(datos.external_ids) } });
-        try { showBusy(); const data = await proxy('POST', '/api/atlas/push-campaigns/send', payload, {}); actualizarKpis(data); if (typeof Swal !== 'undefined') Swal.fire({ icon: 'success', title: 'Campana enviada', text: 'Solicitud de campana enviada a Atlas App.' }); }
+        try { showBusy(); const data = await proxy('POST', '/api/atlas/push-campaigns/send', payload, {}); actualizarKpis(data); if (typeof Swal !== 'undefined') Swal.fire({ icon: 'success', title: 'Campaña enviada', text: 'Solicitud de campaña enviada a Atlas App.' }); }
         catch (err) { if (typeof Swal !== 'undefined') Swal.fire({ icon: 'error', title: 'No se pudo enviar', text: err.message || 'Error' }); }
         finally { hideBusy(); }
     });
@@ -336,11 +529,83 @@
         catch (err) { renderInbox([]); if (typeof Swal !== 'undefined') Swal.fire({ icon: 'error', title: 'No se pudo consultar', text: err.message || 'Error' }); }
         finally { hideBusy(); }
     });
+    if (formTemplate) formTemplate.addEventListener('submit', async function (ev) {
+        ev.preventDefault();
+        const payload = formToJson(formTemplate);
+        payload.html = templateHtmlActual();
+        try {
+            showBusy();
+            const data = await atlasJson('/Atlas/guardarPlantillaNotificacion', payload);
+            await cargarPlantillas();
+            const found = atlasPlantillas.find(row => String(row.id || '') === String(data.id || payload.id || ''));
+            if (found) setTemplateForm(found);
+            if (typeof Swal !== 'undefined') Swal.fire({ icon: 'success', title: 'Plantilla guardada', text: 'La plantilla quedó disponible para usarse en avisos.' });
+        } catch (err) {
+            if (typeof Swal !== 'undefined') Swal.fire({ icon: 'error', title: 'No se pudo guardar', text: err.message || 'Error' });
+        } finally { hideBusy(); }
+    });
     document.addEventListener('click', async function (ev) {
+        const templateCard = ev.target.closest('[data-template-id]');
+        if (templateCard) {
+            ev.preventDefault();
+            const id = templateCard.getAttribute('data-template-id');
+            const row = atlasPlantillas.find(item => String(item.id || '') === String(id || ''));
+            if (row) {
+                setTemplateForm(row);
+                renderPlantillas();
+            }
+            return;
+        }
+        const nuevaTemplate = ev.target.closest('#atlas-template-btn-nueva');
+        if (nuevaTemplate) {
+            ev.preventDefault();
+            setTemplateForm({
+                id: '',
+                nombre: '',
+                categoria: 'notificacion_especial',
+                asunto: '',
+                mensaje_texto: '',
+                imagen_url: '',
+                html: '<h2>Nueva plantilla</h2><p>Escribe aquí el mensaje.</p>',
+                activo: 1
+            });
+            renderPlantillas();
+            return;
+        }
+        const usarTemplate = ev.target.closest('#atlas-template-btn-usar');
+        if (usarTemplate) {
+            ev.preventDefault();
+            const payload = formTemplate ? formToJson(formTemplate) : {};
+            payload.html = templateHtmlActual();
+            usarPlantillaEnAviso(payload);
+            return;
+        }
+        const insertarImagen = ev.target.closest('#atlas-template-btn-imagen');
+        if (insertarImagen) {
+            ev.preventDefault();
+            const url = window.prompt('Pega la URL de la imagen');
+            if (url && atlasTemplateQuill) {
+                const range = atlasTemplateQuill.getSelection(true);
+                atlasTemplateQuill.insertEmbed(range ? range.index : atlasTemplateQuill.getLength(), 'image', url);
+            }
+            return;
+        }
+        const cargarUsuarios = ev.target.closest('[data-atlas-usuarios-disponibles]');
+        if (cargarUsuarios) {
+            ev.preventDefault();
+            await cargarUsuariosDisponibles(false);
+            return;
+        }
         const cargar = ev.target.closest('[data-atlas-notif-load]');
         if (cargar) {
             ev.preventDefault();
-            try { showBusy(); const data = await proxy(cargar.getAttribute('data-atlas-notif-method') || 'GET', cargar.getAttribute('data-atlas-notif-load'), {}, {}); actualizarKpis(data); }
+            try {
+                showBusy();
+                const path = cargar.getAttribute('data-atlas-notif-load');
+                const data = await proxy(cargar.getAttribute('data-atlas-notif-method') || 'GET', path, {}, {});
+                actualizarKpis(data);
+                if (path === '/api/atlas/push-tokens') renderUsuariosDisponibles(extraerArray(data));
+            }
             catch (err) { if (typeof Swal !== 'undefined') Swal.fire({ icon: 'error', title: 'No se pudo cargar', text: err.message || 'Error' }); }
             finally { hideBusy(); }
             return;
@@ -368,7 +633,7 @@
     if (btnDisable) btnDisable.addEventListener('click', async function () {
         const token = String((document.getElementById('atlas-notif-token-delete') || {}).value || '').trim();
         if (!token) return;
-        try { showBusy(); await proxy('DELETE', '/api/atlas/push-tokens', { expo_push_token: token }, {}); if (typeof Swal !== 'undefined') Swal.fire({ icon: 'success', title: 'Token desactivado', text: 'Atlas App recibio la solicitud.' }); }
+        try { showBusy(); await proxy('DELETE', '/api/atlas/push-tokens', { expo_push_token: token }, {}); if (typeof Swal !== 'undefined') Swal.fire({ icon: 'success', title: 'Token desactivado', text: 'Atlas App recibió la solicitud.' }); }
         catch (err) { if (typeof Swal !== 'undefined') Swal.fire({ icon: 'error', title: 'No se pudo desactivar', text: err.message || 'Error' }); }
         finally { hideBusy(); }
     });

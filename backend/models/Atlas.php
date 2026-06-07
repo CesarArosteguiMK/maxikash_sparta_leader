@@ -7,6 +7,237 @@ use Core\Model;
 
 class Atlas extends Model
 {
+    private static function asegurarTablaPlantillasNotificaciones(Database $db): void
+    {
+        $db->CRUD("
+            CREATE TABLE IF NOT EXISTS atlas_notificaciones_plantillas (
+                id INT UNSIGNED NOT NULL AUTO_INCREMENT,
+                nombre VARCHAR(150) NOT NULL,
+                categoria VARCHAR(80) NOT NULL,
+                asunto VARCHAR(180) NULL,
+                mensaje_texto TEXT NULL,
+                imagen_url TEXT NULL,
+                html LONGTEXT NOT NULL,
+                activo TINYINT(1) NOT NULL DEFAULT 1,
+                fecha_alta DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                fecha_actualizacion DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                PRIMARY KEY (id),
+                KEY idx_atlas_notif_plantillas_categoria (categoria),
+                KEY idx_atlas_notif_plantillas_activo (activo)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+        ");
+
+        $semillas = [
+            [
+                'nombre' => 'Feliz cumpleaños',
+                'categoria' => 'cumpleanos',
+                'asunto' => 'Feliz cumpleaños',
+                'mensaje_texto' => 'Hoy celebramos contigo. Que este nuevo año venga lleno de salud, alegría y grandes momentos.',
+                'html' => '<h2>¡Feliz cumpleaños!</h2><p>Hoy celebramos contigo. Que este nuevo año venga lleno de salud, alegría y grandes momentos.</p><p><strong>Gracias por ser parte de Atlas.</strong></p>',
+            ],
+            [
+                'nombre' => 'Avance de venta',
+                'categoria' => 'avance_venta',
+                'asunto' => 'Avance de venta',
+                'mensaje_texto' => 'Tenemos una actualización importante sobre tu avance de venta. Revisa el detalle y continúa con el seguimiento.',
+                'html' => '<h2>Avance de venta</h2><p>Tenemos una actualización importante sobre tu avance de venta.</p><ul><li>Revisa el detalle.</li><li>Da seguimiento oportuno.</li><li>Continúa con el proceso indicado.</li></ul>',
+            ],
+            [
+                'nombre' => 'Notificación especial',
+                'categoria' => 'notificacion_especial',
+                'asunto' => 'Notificación especial',
+                'mensaje_texto' => 'Tenemos información importante para ti. Revisa esta notificación y atiende las indicaciones correspondientes.',
+                'html' => '<h2>Notificación especial</h2><p>Tenemos información importante para ti. Revisa esta notificación y atiende las indicaciones correspondientes.</p>',
+            ],
+            [
+                'nombre' => 'Atención al colaborador',
+                'categoria' => 'atencion_colaborador',
+                'asunto' => 'Atención al colaborador',
+                'mensaje_texto' => 'Queremos acompañarte y darte seguimiento. Por favor revisa la información y comunícate si necesitas apoyo.',
+                'html' => '<h2>Atención al colaborador</h2><p>Queremos acompañarte y darte seguimiento.</p><p>Por favor revisa la información y comunícate si necesitas apoyo.</p>',
+            ],
+        ];
+
+        foreach ($semillas as $semilla) {
+            $db->CRUD("
+                INSERT INTO atlas_notificaciones_plantillas
+                    (nombre, categoria, asunto, mensaje_texto, html, activo)
+                SELECT :nombre, :categoria, :asunto, :mensaje_texto, :html, 1
+                WHERE NOT EXISTS (
+                    SELECT 1
+                    FROM atlas_notificaciones_plantillas
+                    WHERE categoria = :categoria2
+                      AND nombre = :nombre2
+                    LIMIT 1
+                )
+            ", [
+                'nombre' => $semilla['nombre'],
+                'categoria' => $semilla['categoria'],
+                'asunto' => $semilla['asunto'],
+                'mensaje_texto' => $semilla['mensaje_texto'],
+                'html' => $semilla['html'],
+                'categoria2' => $semilla['categoria'],
+                'nombre2' => $semilla['nombre'],
+            ]);
+        }
+    }
+
+    public static function getPlantillasNotificaciones(): array
+    {
+        try {
+            $db = new Database();
+            self::asegurarTablaPlantillasNotificaciones($db);
+            $datos = $db->queryAll("
+                SELECT
+                    id,
+                    nombre,
+                    categoria,
+                    asunto,
+                    mensaje_texto,
+                    imagen_url,
+                    html,
+                    activo,
+                    DATE_FORMAT(fecha_alta, '%d/%m/%Y %H:%i') AS fecha_alta_fmt,
+                    DATE_FORMAT(fecha_actualizacion, '%d/%m/%Y %H:%i') AS fecha_actualizacion_fmt
+                FROM atlas_notificaciones_plantillas
+                ORDER BY activo DESC, categoria ASC, nombre ASC, id ASC
+            ");
+
+            return [
+                'success' => true,
+                'mensaje' => 'Plantillas obtenidas.',
+                'datos' => $datos,
+            ];
+        } catch (\Throwable $e) {
+            return [
+                'success' => false,
+                'mensaje' => 'No se pudieron obtener las plantillas.',
+                'error' => $e->getMessage(),
+                'datos' => [],
+            ];
+        }
+    }
+
+    public static function guardarPlantillaNotificacion(array $input): array
+    {
+        try {
+            $db = new Database();
+            self::asegurarTablaPlantillasNotificaciones($db);
+
+            $id = self::intVal($input['id'] ?? 0);
+            $datos = [
+                'nombre' => self::strVal($input['nombre'] ?? ''),
+                'categoria' => self::strVal($input['categoria'] ?? ''),
+                'asunto' => self::nullableStr($input['asunto'] ?? null),
+                'mensaje_texto' => self::nullableStr($input['mensaje_texto'] ?? null),
+                'imagen_url' => self::nullableStr($input['imagen_url'] ?? null),
+                'html' => self::strVal($input['html'] ?? ''),
+                'activo' => self::activoVal($input['activo'] ?? 1),
+            ];
+
+            if ($datos['nombre'] === '' || $datos['categoria'] === '' || $datos['html'] === '') {
+                return ['success' => false, 'mensaje' => 'Captura nombre, categoría y contenido HTML.'];
+            }
+
+            if ($id > 0) {
+                $datos['id'] = $id;
+                $db->CRUD("
+                    UPDATE atlas_notificaciones_plantillas
+                    SET nombre = :nombre,
+                        categoria = :categoria,
+                        asunto = :asunto,
+                        mensaje_texto = :mensaje_texto,
+                        imagen_url = :imagen_url,
+                        html = :html,
+                        activo = :activo
+                    WHERE id = :id
+                ", $datos);
+                return ['success' => true, 'mensaje' => 'Plantilla actualizada.', 'id' => $id];
+            }
+
+            $db->CRUD("
+                INSERT INTO atlas_notificaciones_plantillas
+                    (nombre, categoria, asunto, mensaje_texto, imagen_url, html, activo)
+                VALUES
+                    (:nombre, :categoria, :asunto, :mensaje_texto, :imagen_url, :html, :activo)
+            ", $datos);
+
+            return ['success' => true, 'mensaje' => 'Plantilla agregada.', 'id' => $db->lastInsertId()];
+        } catch (\Throwable $e) {
+            return ['success' => false, 'mensaje' => 'No se pudo guardar la plantilla.', 'error' => $e->getMessage()];
+        }
+    }
+
+    public static function getUsuariosNotificacionesDisponibles(): array
+    {
+        try {
+            $db = new Database();
+            $datos = $db->queryAll("
+                SELECT
+                    t.id,
+                    t.app,
+                    t.user_id,
+                    t.external_id,
+                    CONCAT(LEFT(t.expo_push_token, 18), '...') AS token_corto,
+                    t.platform,
+                    t.device_name,
+                    t.app_version,
+                    t.is_active,
+                    DATE_FORMAT(t.last_seen_at, '%d/%m/%Y %H:%i') AS last_seen_at_fmt,
+                    DATE_FORMAT(t.created_at, '%d/%m/%Y %H:%i') AS created_at_fmt,
+                    DATE_FORMAT(t.updated_at, '%d/%m/%Y %H:%i') AS updated_at_fmt,
+                    p.id AS persona_match_id,
+                    p.numero_empleado,
+                    p.correo,
+                    TRIM(CONCAT_WS(' ',
+                        NULLIF(TRIM(p.nombres), ''),
+                        NULLIF(TRIM(p.segundo_nombre), ''),
+                        NULLIF(TRIM(p.apellidop), ''),
+                        NULLIF(TRIM(p.apellidom), '')
+                    )) AS nombre
+                FROM atlas_push_tokens t
+                LEFT JOIN persona p
+                    ON (t.user_id REGEXP '^[0-9]+$' AND p.id = CAST(t.user_id AS UNSIGNED))
+                    OR (TRIM(COALESCE(t.external_id, '')) <> '' AND p.numero_empleado = t.external_id)
+                WHERE t.app = 'atlas'
+                  AND t.is_active = 1
+                  AND TRIM(COALESCE(t.expo_push_token, '')) <> ''
+                ORDER BY t.last_seen_at DESC, t.updated_at DESC, t.id DESC
+            ");
+
+            $totales = [
+                'total' => count($datos),
+                'android' => 0,
+                'ios' => 0,
+                'sin_plataforma' => 0,
+            ];
+            foreach ($datos as $row) {
+                $platform = strtolower(trim((string)($row['platform'] ?? '')));
+                if ($platform === 'android') {
+                    $totales['android']++;
+                } elseif ($platform === 'ios') {
+                    $totales['ios']++;
+                } else {
+                    $totales['sin_plataforma']++;
+                }
+            }
+
+            return [
+                'success' => true,
+                'mensaje' => 'Usuarios disponibles obtenidos desde la base local.',
+                'datos' => $datos,
+                'totales' => $totales,
+            ];
+        } catch (\Throwable $e) {
+            return [
+                'success' => false,
+                'mensaje' => 'No se pudieron obtener los usuarios disponibles.',
+                'error' => $e->getMessage(),
+                'datos' => [],
+            ];
+        }
+    }
+
     public static function getSucursales(): array
     {
         try {

@@ -23,6 +23,7 @@ class Atlas extends Controller
     public function notificacionesApp()
     {
         $this->set('titulo', 'Notificaciones App');
+        $this->set('atlas_admin_configurada', $this->atlasAdminApiKey() !== '');
         $this->render('atlas_notificaciones_app');
     }
 
@@ -40,6 +41,21 @@ class Atlas extends Controller
     public function getCatalogos()
     {
         $this->json(AtlasDAO::getCatalogos());
+    }
+
+    public function getPlantillasNotificaciones()
+    {
+        $this->json(AtlasDAO::getPlantillasNotificaciones());
+    }
+
+    public function guardarPlantillaNotificacion()
+    {
+        $this->json(AtlasDAO::guardarPlantillaNotificacion($this->payload()));
+    }
+
+    public function getUsuariosNotificacionesDisponibles()
+    {
+        $this->json(AtlasDAO::getUsuariosNotificacionesDisponibles());
     }
 
     public function guardarSucursal()
@@ -79,7 +95,6 @@ class Atlas extends Controller
         $path = trim((string)($payload['path'] ?? ''));
         $body = $payload['body'] ?? null;
         $query = is_array($payload['query'] ?? null) ? $payload['query'] : [];
-        $token = trim((string)($payload['token'] ?? ''));
 
         if (!in_array($method, ['GET', 'POST', 'PATCH', 'DELETE'], true)) {
             $this->json(['success' => false, 'mensaje' => 'Método no permitido.']);
@@ -89,8 +104,9 @@ class Atlas extends Controller
             $this->json(['success' => false, 'mensaje' => 'Endpoint Atlas App no permitido.']);
         }
 
-        if ($token === '' && $path !== '/auth/login') {
-            $this->json(['success' => false, 'mensaje' => 'Captura el token de Atlas App o inicia sesión.']);
+        $adminApiKey = $this->atlasAdminApiKey();
+        if ($adminApiKey === '') {
+            $this->json(['success' => false, 'mensaje' => 'ATLAS_ADMIN_API_KEYS no está configurada en servidor.']);
         }
 
         $base = getenv('ATLAS_APP_API_BASE');
@@ -103,9 +119,7 @@ class Atlas extends Controller
         }
 
         $headers = ['Content-Type: application/json', 'Accept: application/json'];
-        if ($token !== '' && $path !== '/auth/login') {
-            $headers[] = 'Authorization: Bearer ' . $token;
-        }
+        $headers[] = 'X-API-Key: ' . $adminApiKey;
 
         $ch = curl_init($url);
         curl_setopt_array($ch, [
@@ -140,7 +154,6 @@ class Atlas extends Controller
 
     private function atlasNotificacionesPathPermitido(string $path): bool
     {
-        if ($path === '/auth/login') return true;
         if (in_array($path, [
             '/api/atlas/push-notifications/send',
             '/api/atlas/push-campaigns/send',
@@ -153,6 +166,28 @@ class Atlas extends Controller
 
         return (bool)preg_match('#^/api/atlas/notifications/\d+$#', $path)
             || (bool)preg_match('#^/api/atlas/notifications/inbox/\d+/(read|hide)$#', $path);
+    }
+
+    private function atlasAdminApiKey(): string
+    {
+        $raw = getenv('ATLAS_ADMIN_API_KEYS');
+        if ($raw === false || trim((string)$raw) === '') {
+            $raw = getenv('ATLAS_ADMIN_API_KEY');
+        }
+
+        if ($raw === false || trim((string)$raw) === '') {
+            $configPath = dirname(__DIR__) . DIRECTORY_SEPARATOR . 'config' . DIRECTORY_SEPARATOR . 'ConfigApi.php';
+            if (!function_exists('config_api_load_from_db') && is_file($configPath)) {
+                require_once $configPath;
+            }
+            if (function_exists('config_api_load_from_db')) {
+                $config = config_api_load_from_db();
+                $raw = $config['ATLAS_ADMIN_API_KEYS'] ?? $config['ATLAS_ADMIN_API_KEY'] ?? '';
+            }
+        }
+
+        $keys = array_filter(array_map('trim', explode(',', (string)$raw)));
+        return (string)($keys[0] ?? '');
     }
 
     private function payload(): array
