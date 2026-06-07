@@ -210,7 +210,8 @@ function getMenu(): string
         'Atlas' => [
             'icono'    => 'fa-solid fa-map-location-dot',
             'subItems' => [
-                ['label' => 'Sucursales', 'url' => '/Atlas/sucursales', 'modulos' => [102]],
+                ['label' => 'Catálogos', 'url' => '/Atlas/catalogos', 'modulos' => [102]],
+                ['label' => 'Notificaciones App', 'url' => '/Atlas/notificacionesApp', 'modulos' => [102]],
             ],
         ],
         'Tickets' => [
