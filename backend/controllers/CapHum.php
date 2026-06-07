@@ -1417,7 +1417,8 @@ class CapHum extends Controller
                 48: 'fa fa-archive',
                 60: 'fa-solid fa-chart-column',
                 79: 'fa-solid fa-file-pen',
-                100: 'fa-solid fa-share-from-square'
+                100: 'fa-solid fa-share-from-square',
+                102: 'fa-solid fa-map-location-dot'
             };
 
             /* =========================

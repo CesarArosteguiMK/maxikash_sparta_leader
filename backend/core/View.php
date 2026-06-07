@@ -207,6 +207,12 @@ function getMenu(): string
                 ['label' => 'Comentarios', 'url' => '/MotosAdjudicadas/comentariosLegacy', 'modulos' => [64]],
             ],
         ],
+        'Atlas' => [
+            'icono'    => 'fa-solid fa-map-location-dot',
+            'subItems' => [
+                ['label' => 'Sucursales', 'url' => '/Atlas/sucursales', 'modulos' => [102]],
+            ],
+        ],
         'Tickets' => [
             'icono'    => 'fa-solid fa-ticket',
             'subItems' => array_values(array_filter([

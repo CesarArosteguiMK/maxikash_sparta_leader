@@ -112,6 +112,12 @@ if (!function_exists('getMenuSidebarModulosStructure')) {
                     ['label' => 'Campañas', 'url' => '/MotosAdjudicadas/campaniaNotificacionLegacy', 'modulos' => [64]],
                 ],
             ],
+            'Atlas' => [
+                'icono' => 'fa-solid fa-map-location-dot',
+                'subItems' => [
+                    ['label' => 'Sucursales', 'url' => '/Atlas/sucursales', 'modulos' => [102]],
+                ],
+            ],
             'Gastos Cobranza' => [
                 'icono' => 'fa-solid fa-file-invoice-dollar',
                 'subItems' => [
