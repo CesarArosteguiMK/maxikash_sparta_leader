@@ -33,7 +33,8 @@
         .atlas-table-wrap thead th { color: #566a7f; font-size: .76rem; font-weight: 900; letter-spacing: .03em; text-transform: uppercase; white-space: nowrap; border-bottom: 1px solid #dbe4ef; }
         .atlas-table-wrap tbody td { vertical-align: middle; color: #566a7f; border-color: #e8eef5; }
         .atlas-table-wrap.atlas-loading table, .atlas-table-wrap.atlas-loading .dt-container, .atlas-table-wrap.atlas-loading .dataTables_wrapper { opacity: .25; pointer-events: none; }
-        .atlas-form-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .9rem 1rem; }
+        .atlas-form-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .95rem 1rem; }
+        .atlas-form-grid > div { min-width: 0; }
         .atlas-field-wide { grid-column: 1 / -1; }
         .atlas-required::after { content: " *"; color: #dc2626; font-weight: 900; }
         .atlas-modal-medium { max-width: min(50rem, 96vw); }
@@ -109,11 +110,59 @@
         #modalAtlasUbicacion .btn-close:hover {
             opacity: 1;
         }
-        .atlas-combo-row { display: grid; grid-template-columns: minmax(0, 1fr) 2.8rem; gap: .45rem; align-items: end; }
-        .atlas-combo-add { height: 2.8rem; border-radius: .8rem; }
+        #modalAtlasSucursal .form-label,
+        #modalAtlasCatalogo .form-label {
+            margin-bottom: .38rem;
+            color: #2f3a45;
+            font-size: .86rem;
+            font-weight: 700;
+            line-height: 1.15;
+        }
+        #modalAtlasSucursal input.form-control,
+        #modalAtlasSucursal select.form-select,
+        #modalAtlasCatalogo input.form-control,
+        #modalAtlasCatalogo select.form-select {
+            min-height: 2.875rem;
+            height: 2.875rem;
+        }
+        #modalAtlasSucursal .select2-container .select2-selection--single,
+        #modalAtlasCatalogo .select2-container .select2-selection--single {
+            min-height: 2.875rem;
+            height: 2.875rem;
+            display: flex;
+            align-items: center;
+            border-color: #d1d9e2;
+            border-radius: .6rem;
+        }
+        #modalAtlasSucursal .select2-container--default .select2-selection--single .select2-selection__rendered,
+        #modalAtlasCatalogo .select2-container--default .select2-selection--single .select2-selection__rendered {
+            line-height: 2.875rem;
+            padding-left: .95rem;
+            padding-right: 2rem;
+        }
+        #modalAtlasSucursal .select2-container--default .select2-selection--single .select2-selection__arrow,
+        #modalAtlasCatalogo .select2-container--default .select2-selection--single .select2-selection__arrow {
+            height: 2.875rem;
+            right: .5rem;
+        }
+        .atlas-combo-row { display: grid; grid-template-columns: minmax(0, 1fr) 2.875rem; gap: .45rem; align-items: start; }
+        .atlas-combo-add {
+            width: 2.875rem;
+            min-width: 2.875rem;
+            height: 2.875rem;
+            min-height: 2.875rem;
+            padding: 0 !important;
+            border-radius: .72rem;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1rem;
+            line-height: 1;
+        }
+        .atlas-combo-add i { margin: 0; }
         .atlas-cascade-help { display: block; margin-top: .28rem; color: #64748b; font-size: .72rem; font-weight: 700; }
         .atlas-fk-input { max-width: 10rem; text-align: center; font-weight: 900; color: #94a3b8; }
-        .atlas-branch-row { display: grid; grid-template-columns: 11rem minmax(0, 1fr); gap: 1rem; align-items: end; }
+        .atlas-branch-row { display: grid; grid-template-columns: 11rem minmax(0, 1fr); gap: 1rem; align-items: start; }
         .atlas-location-fields { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: .75rem; }
         .atlas-coord-row { display: grid; grid-template-columns: repeat(2, minmax(0, 12rem)); gap: .75rem; }
         .atlas-address-field { cursor: pointer; resize: vertical; min-height: 4.4rem; }
@@ -403,7 +452,14 @@
     function numeroValido(v) { if (v == null || v === '') return null; const n = Number(String(v).trim()); return Number.isFinite(n) ? n : null; }
     function sucursalConCoordenadas(row) { const lat = numeroValido(row.latitud); const lng = numeroValido(row.longitud); if (lat == null || lng == null || Math.abs(lat) < 1e-9 && Math.abs(lng) < 1e-9) return null; return Object.assign({}, row, { _lat: lat, _lng: lng }); }
     function formToJson(form) { const data = {}; Array.from(new FormData(form).entries()).forEach(pair => { data[pair[0]] = pair[1]; }); return data; }
-    function setFormValue(form, name, value) { const el = form ? form.elements[name] : null; if (el) el.value = value == null ? '' : String(value); }
+    function setFormValue(form, name, value) {
+        const el = form ? form.elements[name] : null;
+        if (!el) return;
+        el.value = value == null ? '' : String(value);
+        if (window.jQuery && jQuery.fn.select2 && jQuery(el).hasClass('select2-hidden-accessible')) {
+            jQuery(el).trigger('change.select2');
+        }
+    }
     function getFormValue(form, name) { const el = form ? form.elements[name] : null; return el ? String(el.value || '').trim() : ''; }
     function atlasWrapTabla(key) { return document.querySelector('[data-atlas-table-loader="' + key + '"]'); }
     function atlasMostrarLoaderGlobal() {
@@ -758,7 +814,20 @@
     function abrirCatalogoRapido(tipo, target, prefill) {
         const snapshot = formSucursal ? formToJson(formSucursal) : {};
         const abrir = () => abrirCatalogo(tipo, null, { quickAdd: true, target: target, prefill: prefill || {}, snapshot: snapshot });
-        if (modalSucursalEl && modalSucursalEl.classList.contains('show')) { modalSucursalEl.addEventListener('hidden.bs.modal', abrir, { once: true }); cerrarModal(modalSucursalEl); return; }
+        if (modalSucursalEl && modalSucursalEl.classList.contains('show')) {
+            let abierto = false;
+            const abrirUnaVez = function () {
+                if (abierto) return;
+                abierto = true;
+                abrir();
+            };
+            modalSucursalEl.addEventListener('hidden.bs.modal', abrirUnaVez, { once: true });
+            cerrarModal(modalSucursalEl);
+            setTimeout(function () {
+                if (!modalCatalogoEl || !modalCatalogoEl.classList.contains('show')) abrirUnaVez();
+            }, 360);
+            return;
+        }
         abrir();
     }
     async function cargarGoogleMapsAtlas(requierePlaces) {
@@ -819,6 +888,108 @@
     function abrirDireccionGoogle() { if (direccionBusqueda) direccionBusqueda.value = getFormValue(formSucursal, 'direccion_sucursal'); atlasDireccionActual = null; mostrarModal(modalDireccionEl); }
     function confirmarDireccionGoogle() {
         if (!formSucursal || !atlasDireccionActual) return;
+        setFormValue(formSucursal, 'direccion_sucursal', atlasDireccionActual.direccion);
+        setFormValue(formSucursal, 'latitud', atlasDireccionActual.lat.toFixed(7));
+        setFormValue(formSucursal, 'longitud', atlasDireccionActual.lng.toFixed(7));
+        setFormValue(formSucursal, 'coordenadas', atlasDireccionActual.lat.toFixed(7) + ',' + atlasDireccionActual.lng.toFixed(7));
+        ['estado','municipio','localidad','codigo_postal'].forEach(key => { if (atlasDireccionActual[key]) setFormValue(formSucursal, key, atlasDireccionActual[key]); });
+        cerrarModal(modalDireccionEl);
+    }
+
+    function setDireccionStatus(texto, habilitar) {
+        if (direccionCoordenadas) direccionCoordenadas.textContent = texto;
+        if (btnConfirmarDireccion) btnConfirmarDireccion.disabled = !habilitar;
+    }
+    function setDireccionSeleccionada(lat, lng, direccion, componentes, centrar) {
+        const extra = extraerDireccionGoogle(componentes || []);
+        atlasDireccionActual = { lat: lat, lng: lng, direccion: String(direccion || '').trim(), estado: extra.estado, municipio: extra.municipio, localidad: extra.localidad, codigo_postal: extra.codigo_postal };
+        const punto = { lat: lat, lng: lng };
+        if (!atlasDireccionMarker) {
+            atlasDireccionMarker = new google.maps.Marker({ map: atlasDireccionMapa, position: punto, draggable: true, icon: iconoPinDireccionActual(), title: 'Arrastra el pin para ajustar la ubicacion' });
+            atlasDireccionMarker.addListener('dragend', function () {
+                const pos = atlasDireccionMarker.getPosition();
+                if (pos) resolverDireccionPorCoordenadas(pos.lat(), pos.lng(), atlasDireccionActual ? atlasDireccionActual.direccion : '', false);
+            });
+        } else {
+            atlasDireccionMarker.setPosition(punto);
+        }
+        actualizarMarkerDireccionIcono();
+        if (direccionBusqueda && atlasDireccionActual.direccion) direccionBusqueda.value = atlasDireccionActual.direccion;
+        if (atlasDireccionMapa && centrar !== false) { atlasDireccionMapa.setCenter(punto); atlasDireccionMapa.setZoom(17); }
+        setDireccionStatus('Coordenadas: ' + lat.toFixed(6) + ', ' + lng.toFixed(6), !!atlasDireccionActual.direccion);
+    }
+    function resolverDireccionPorCoordenadas(lat, lng, direccionFallback, centrar) {
+        if (!atlasDireccionGeocoder) {
+            setDireccionSeleccionada(lat, lng, direccionFallback || '', [], centrar);
+            return;
+        }
+        setDireccionStatus('Resolviendo direccion...', false);
+        atlasDireccionGeocoder.geocode({ location: { lat: lat, lng: lng } }, function (results, status) {
+            if (status === 'OK' && results && results[0]) {
+                setDireccionSeleccionada(lat, lng, results[0].formatted_address || direccionFallback || '', results[0].address_components || [], centrar);
+                return;
+            }
+            setDireccionSeleccionada(lat, lng, direccionFallback || '', [], centrar);
+        });
+    }
+    function resolverDireccionPorTexto() {
+        const texto = direccionBusqueda ? String(direccionBusqueda.value || '').trim() : '';
+        if (!texto || !atlasDireccionGeocoder) return;
+        setDireccionStatus('Buscando direccion...', false);
+        atlasDireccionGeocoder.geocode({ address: texto, componentRestrictions: { country: 'MX' } }, function (results, status) {
+            if (status === 'OK' && results && results[0] && results[0].geometry && results[0].geometry.location) {
+                const loc = results[0].geometry.location;
+                setDireccionSeleccionada(loc.lat(), loc.lng(), results[0].formatted_address || texto, results[0].address_components || [], true);
+                return;
+            }
+            setDireccionStatus('No se encontro la direccion. Ajusta la busqueda.', false);
+        });
+    }
+    async function inicializarModalDireccion() {
+        await cargarGoogleMapsAtlas(true);
+        atlasDireccionGeocoder = atlasDireccionGeocoder || new google.maps.Geocoder();
+        if (!atlasDireccionMapa) {
+            atlasDireccionMapa = new google.maps.Map(direccionMapaCont, { center: { lat: 23.6345, lng: -102.5528 }, zoom: 5, mapTypeControl: false, streetViewControl: false });
+        }
+        if (atlasDireccionMapa && !atlasDireccionMapClickReady) {
+            atlasDireccionMapClickReady = true;
+            atlasDireccionMapa.addListener('click', function (ev) {
+                if (!ev || !ev.latLng) return;
+                resolverDireccionPorCoordenadas(ev.latLng.lat(), ev.latLng.lng(), direccionBusqueda ? direccionBusqueda.value : '', true);
+            });
+        }
+        if (direccionBusqueda && !atlasDireccionAutocomplete) {
+            atlasDireccionAutocomplete = new google.maps.places.Autocomplete(direccionBusqueda, { fields: ['formatted_address','geometry','address_components'], componentRestrictions: { country: 'mx' } });
+            atlasDireccionAutocomplete.addListener('place_changed', function () {
+                const place = atlasDireccionAutocomplete.getPlace();
+                if (!place || !place.geometry || !place.geometry.location) return;
+                setDireccionSeleccionada(place.geometry.location.lat(), place.geometry.location.lng(), place.formatted_address || direccionBusqueda.value, place.address_components || [], true);
+            });
+        }
+        const lat = numeroValido(getFormValue(formSucursal, 'latitud'));
+        const lng = numeroValido(getFormValue(formSucursal, 'longitud'));
+        if (lat != null && lng != null) {
+            setDireccionSeleccionada(lat, lng, getFormValue(formSucursal, 'direccion_sucursal'), [], true);
+        } else {
+            limpiarDireccionMarker();
+            atlasDireccionMapa.setCenter({ lat: 23.6345, lng: -102.5528 });
+            atlasDireccionMapa.setZoom(5);
+            setDireccionStatus('Selecciona una direccion para colocar el pin.', false);
+        }
+        setTimeout(function () { if (atlasDireccionMapa && google.maps.event) google.maps.event.trigger(atlasDireccionMapa, 'resize'); }, 120);
+        setTimeout(function () { if (direccionBusqueda) direccionBusqueda.focus(); }, 250);
+    }
+    function abrirDireccionGoogle() {
+        if (modalDireccionEl && modalDireccionEl.classList.contains('show')) return;
+        if (direccionBusqueda) direccionBusqueda.value = getFormValue(formSucursal, 'direccion_sucursal');
+        atlasDireccionActual = null;
+        mostrarModal(modalDireccionEl);
+    }
+    function confirmarDireccionGoogle() {
+        if (!formSucursal || !atlasDireccionActual || !atlasDireccionActual.direccion) {
+            if (typeof Swal !== 'undefined') Swal.fire({ icon: 'warning', title: 'Selecciona una direccion', text: 'Elige una sugerencia, presiona Enter o da clic en el mapa.' });
+            return;
+        }
         setFormValue(formSucursal, 'direccion_sucursal', atlasDireccionActual.direccion);
         setFormValue(formSucursal, 'latitud', atlasDireccionActual.lat.toFixed(7));
         setFormValue(formSucursal, 'longitud', atlasDireccionActual.lng.toFixed(7));
@@ -921,6 +1092,9 @@
             if (label) label.textContent = colorHexSeguro(ev.target.value);
         }
     });
+    document.addEventListener('change', function (ev) {
+        if (ev.target && ev.target.name === 'clasificacion_id') actualizarMarkerDireccionIcono();
+    });
     if (formSucursal) {
         ['divisional_id','division_id','regional_id','supervisor_id'].forEach(name => {
             const el = formSucursal.elements[name];
@@ -945,6 +1119,7 @@
     if (modalDireccionEl) modalDireccionEl.addEventListener('shown.bs.modal', function () { inicializarModalDireccion().catch(err => { if (typeof Swal !== 'undefined') Swal.fire({ icon: 'warning', title: 'No se pudo abrir el mapa', text: err.message || 'Revisa la configuración de Google Maps.' }); }); });
     if (btnConfirmarDireccion) btnConfirmarDireccion.addEventListener('click', confirmarDireccionGoogle);
     if (direccionBusqueda) direccionBusqueda.addEventListener('keydown', ev => { if (ev.key === 'Enter') ev.preventDefault(); });
+    if (direccionBusqueda) direccionBusqueda.addEventListener('keydown', function (ev) { if (ev.key === 'Enter') { ev.preventDefault(); resolverDireccionPorTexto(); } });
     if (btnMapa) btnMapa.addEventListener('click', renderMapa);
     if (btnRecargar) btnRecargar.addEventListener('click', function () { Promise.all([cargarCatalogos(), cargarSucursales()]).catch(() => {}); });
     if (formCatalogo) {
@@ -959,7 +1134,8 @@
                 if (ctx && ctx.target) {
                     atlasQuickAddContext = null;
                     await cargarCatalogos({ valoresSucursal: ctx.snapshot || {}, seleccionar: { name: ctx.target, id: data.id } });
-                    mostrarModal(modalSucursalEl);
+                    atlasOcultarLoaderGlobal();
+                    setTimeout(function () { mostrarModal(modalSucursalEl); }, 80);
                     return;
                 }
                 atlasQuickAddContext = null;
