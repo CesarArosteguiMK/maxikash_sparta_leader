@@ -167,10 +167,10 @@
         align-items: center;
         justify-content: center;
         min-height: 42px;
-        border: 1px dashed rgba(255,255,255,.55);
-        border-radius: 6px;
-        background: rgba(255,255,255,.08);
-        padding: 4px 10px;
+        border: 0;
+        border-radius: 0;
+        background: transparent;
+        padding: 0;
     }
 
     .vac-official-logo img {
@@ -261,6 +261,131 @@
         cursor: crosshair;
     }
 
+    #vacFirmaGrandeModal {
+        z-index: 1090;
+    }
+
+    #vacModalFormato.vac-modal-under-signature .modal-dialog {
+        transform: translateY(-14px) scale(0.94);
+        opacity: 0.32;
+        filter: blur(1px);
+        pointer-events: none;
+        transition: transform .18s ease, opacity .18s ease, filter .18s ease;
+    }
+
+    #vacModalFormato .modal-dialog {
+        transition: transform .18s ease, opacity .18s ease, filter .18s ease;
+    }
+
+    body.vac-signature-expanded-open #vacModalFormato .modal-content {
+        box-shadow: none;
+    }
+
+    #vacFirmaCanvasGrande {
+        width: 100%;
+        height: 260px;
+        display: block;
+        touch-action: none;
+        cursor: crosshair;
+        border: 1px dashed #b8c8dd;
+        border-radius: 12px;
+        background: #fff;
+    }
+
+    .vac-signature-modal-hint {
+        color: #607089;
+        font-size: 14px;
+    }
+
+    .vac-consent-box {
+        border-left: 4px solid #06449a;
+        border-radius: 6px;
+        background: #f2f6fb;
+        color: #33445f;
+        padding: 12px 14px;
+        font-size: 13px;
+        line-height: 1.55;
+    }
+
+    .vac-auth-title {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        border-radius: 5px;
+        background: #eef4ff;
+        color: #06449a;
+        padding: 7px 11px;
+        font-size: 12px;
+        font-weight: 900;
+        text-transform: uppercase;
+    }
+
+    .vac-sign-auth-grid {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 20px;
+        align-items: end;
+        margin-top: 26px;
+    }
+
+    .vac-sign-auth-item {
+        text-align: center;
+        min-height: 116px;
+        display: flex;
+        flex-direction: column;
+        justify-content: flex-end;
+    }
+
+    .vac-signature-space {
+        height: 58px;
+        display: flex;
+        align-items: flex-end;
+        justify-content: center;
+    }
+
+    .vac-signature-space canvas {
+        width: 100%;
+        height: 58px;
+        display: block;
+        touch-action: none;
+        cursor: crosshair;
+    }
+
+    .vac-sign-line {
+        border-top: 1px solid #1e2a3b;
+        padding-top: 7px;
+        font-size: 11px;
+        font-weight: 900;
+        color: #607089;
+        text-transform: uppercase;
+    }
+
+    .vac-sign-name {
+        min-height: 20px;
+        margin-top: 4px;
+        color: #17233a;
+        font-size: 11px;
+        font-weight: 900;
+        text-transform: uppercase;
+    }
+
+    .vac-place-date {
+        text-align: right;
+        color: #607089;
+        font-size: 12px;
+        font-weight: 700;
+        margin-top: 16px;
+    }
+
+    .vac-important-notes {
+        border-top: 1px dashed #b8c8dd;
+        color: #52657e;
+        font-size: 11px;
+        line-height: 1.65;
+        margin-top: 18px;
+        padding-top: 12px;
+    }
+
     .vac-official-actions {
         display: grid;
         grid-template-columns: 1fr 1fr;
@@ -298,6 +423,9 @@
         .vac-official-grid,
         .vac-official-grid.three,
         .vac-official-actions {
+            grid-template-columns: 1fr;
+        }
+        .vac-sign-auth-grid {
             grid-template-columns: 1fr;
         }
     }
@@ -525,6 +653,9 @@
                                 <canvas id="vacFirmaCanvas"></canvas>
                             </div>
                             <div class="d-flex flex-wrap align-items-center gap-3 mt-2 vac-no-print">
+                                <button type="button" class="btn btn-sm btn-outline-primary" id="vacBtnAmpliarFirma">
+                                    <i class="fa-solid fa-up-right-and-down-left-from-center me-1"></i> Agrandar firma
+                                </button>
                                 <button type="button" class="btn btn-sm btn-outline-secondary" id="vacBtnLimpiarFirma">
                                     <i class="fa-solid fa-trash-can me-1"></i> Limpiar firma
                                 </button>
@@ -553,6 +684,29 @@
     </div>
 </div>
 
+<div class="modal fade" id="vacFirmaGrandeModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content">
+            <div class="modal-header border-0 pb-0">
+                <h5 class="modal-title fw-bold"><i class="fa-solid fa-pen me-2"></i>Capturar firma</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <div class="modal-body">
+                <div class="vac-signature-modal-hint mb-2">Firma dentro del recuadro. Puedes repetirla antes de aceptarla.</div>
+                <canvas id="vacFirmaCanvasGrande"></canvas>
+            </div>
+            <div class="modal-footer border-0 pt-0">
+                <button type="button" class="btn btn-outline-warning" id="vacBtnRepetirFirmaGrande">
+                    <i class="fa-solid fa-rotate-left me-1"></i> Repetir
+                </button>
+                <button type="button" class="btn btn-primary" id="vacBtnAceptarFirmaGrande">
+                    <i class="fa-solid fa-check me-1"></i> Aceptar firma
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <script>
 (function () {
     const $ = (id) => document.getElementById(id);
@@ -570,6 +724,8 @@
     let solicitudPendiente = null;
     let firmaDibujada = false;
     let firmaCanvasInicializado = false;
+    let firmaGrandeDibujada = false;
+    let firmaGrandeInicializada = false;
 
     function fmtNum(v) {
         const n = Number(v || 0);
@@ -580,6 +736,11 @@
         if (!v) return '-';
         const parts = String(v).slice(0, 10).split('-');
         return parts.length === 3 ? `${parts[2]}/${parts[1]}/${parts[0]}` : v;
+    }
+
+    function fechaLargaMX(fecha = new Date()) {
+        const meses = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
+        return `${fecha.getDate()} de ${meses[fecha.getMonth()]} de ${fecha.getFullYear()}`;
     }
 
     function escapeHtml(v) {
@@ -858,9 +1019,10 @@
         $('vacBtnSolicitar').disabled = excede || total <= 0;
     }
 
-    function ajustarCanvasFirma() {
+    function ajustarCanvasFirma(preservar = false) {
         const canvas = $('vacFirmaCanvas');
         if (!canvas) return;
+        const firmaPrev = preservar && firmaDibujada ? canvas.toDataURL('image/png') : '';
         const rect = canvas.getBoundingClientRect();
         const ratio = window.devicePixelRatio || 1;
         canvas.width = Math.max(1, Math.floor(rect.width * ratio));
@@ -871,9 +1033,17 @@
         ctx.lineCap = 'round';
         ctx.lineJoin = 'round';
         ctx.strokeStyle = '#24324a';
-        ctx.fillStyle = '#fff';
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
-        firmaDibujada = false;
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        if (firmaPrev) {
+            const img = new Image();
+            img.onload = () => {
+                ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+            };
+            img.src = firmaPrev;
+            firmaDibujada = true;
+        } else {
+            firmaDibujada = false;
+        }
     }
 
     function initFirmaCanvas() {
@@ -924,11 +1094,165 @@
         canvas.addEventListener('touchstart', iniciar, { passive: false });
         canvas.addEventListener('touchmove', mover, { passive: false });
         canvas.addEventListener('touchend', terminar);
-        window.addEventListener('resize', ajustarCanvasFirma);
+        window.addEventListener('resize', () => ajustarCanvasFirma(true));
     }
 
     function limpiarFirma() {
         ajustarCanvasFirma();
+    }
+
+    function configurarCanvasFirmaGrande(preservar = false, fuente = '') {
+        const canvas = $('vacFirmaCanvasGrande');
+        if (!canvas) return;
+        const firmaPrev = fuente || (preservar && firmaGrandeDibujada ? canvas.toDataURL('image/png') : '');
+        const rect = canvas.getBoundingClientRect();
+        const ratio = window.devicePixelRatio || 1;
+        canvas.width = Math.max(1, Math.floor(rect.width * ratio));
+        canvas.height = Math.max(1, Math.floor(rect.height * ratio));
+        const ctx = canvas.getContext('2d');
+        ctx.setTransform(1, 0, 0, 1, 0, 0);
+        ctx.lineWidth = 2.8 * ratio;
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
+        ctx.strokeStyle = '#24324a';
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        if (firmaPrev) {
+            const img = new Image();
+            img.onload = () => {
+                ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+                firmaGrandeDibujada = true;
+            };
+            img.src = firmaPrev;
+        } else {
+            firmaGrandeDibujada = false;
+        }
+    }
+
+    function initFirmaGrandeCanvas() {
+        const canvas = $('vacFirmaCanvasGrande');
+        if (!canvas || firmaGrandeInicializada) return;
+        firmaGrandeInicializada = true;
+        let dibujando = false;
+        let ultimo = null;
+
+        function punto(ev) {
+            const rect = canvas.getBoundingClientRect();
+            const touch = ev.touches && ev.touches.length ? ev.touches[0] : ev;
+            const scaleX = canvas.width / rect.width;
+            const scaleY = canvas.height / rect.height;
+            return {
+                x: (touch.clientX - rect.left) * scaleX,
+                y: (touch.clientY - rect.top) * scaleY
+            };
+        }
+
+        function iniciar(ev) {
+            ev.preventDefault();
+            dibujando = true;
+            ultimo = punto(ev);
+        }
+
+        function mover(ev) {
+            if (!dibujando || !ultimo) return;
+            ev.preventDefault();
+            const actual = punto(ev);
+            const ctx = canvas.getContext('2d');
+            ctx.beginPath();
+            ctx.moveTo(ultimo.x, ultimo.y);
+            ctx.lineTo(actual.x, actual.y);
+            ctx.stroke();
+            ultimo = actual;
+            firmaGrandeDibujada = true;
+        }
+
+        function terminar() {
+            dibujando = false;
+            ultimo = null;
+        }
+
+        canvas.addEventListener('mousedown', iniciar);
+        canvas.addEventListener('mousemove', mover);
+        window.addEventListener('mouseup', terminar);
+        canvas.addEventListener('touchstart', iniciar, { passive: false });
+        canvas.addEventListener('touchmove', mover, { passive: false });
+        canvas.addEventListener('touchend', terminar);
+        window.addEventListener('resize', () => configurarCanvasFirmaGrande(true));
+    }
+
+    function marcarFormatoBajoFirma(activo) {
+        const formato = $('vacModalFormato');
+        if (!formato) return;
+        formato.classList.toggle('vac-modal-under-signature', !!activo);
+        document.body.classList.toggle('vac-signature-expanded-open', !!activo);
+    }
+
+    function abrirFirmaGrande() {
+        const modalEl = $('vacFirmaGrandeModal');
+        const modal = window.bootstrap && bootstrap.Modal
+            ? bootstrap.Modal.getOrCreateInstance(modalEl)
+            : null;
+        const fuente = firmaDibujada ? $('vacFirmaCanvas').toDataURL('image/png') : '';
+        marcarFormatoBajoFirma(true);
+        if (modal) {
+            modal.show();
+            setTimeout(() => {
+                initFirmaGrandeCanvas();
+                configurarCanvasFirmaGrande(false, fuente);
+                modalEl.style.zIndex = '1090';
+                document.querySelectorAll('.modal-backdrop').forEach((backdrop, index, all) => {
+                    if (index === all.length - 1) {
+                        backdrop.style.zIndex = '1085';
+                    }
+                });
+            }, 180);
+        } else {
+            modalEl.style.display = 'block';
+            modalEl.classList.add('show');
+            initFirmaGrandeCanvas();
+            configurarCanvasFirmaGrande(false, fuente);
+        }
+    }
+
+    function repetirFirmaGrande() {
+        configurarCanvasFirmaGrande(false);
+    }
+
+    function aceptarFirmaGrande() {
+        if (!firmaGrandeDibujada) {
+            swal('warning', 'Firma requerida', 'Dibuja la firma antes de aceptarla.');
+            return;
+        }
+        const origen = $('vacFirmaCanvasGrande');
+        const destino = $('vacFirmaCanvas');
+        if (!origen || !destino) return;
+        const firma = origen.toDataURL('image/png');
+        const rect = destino.getBoundingClientRect();
+        const ratio = window.devicePixelRatio || 1;
+        destino.width = Math.max(1, Math.floor(rect.width * ratio));
+        destino.height = Math.max(1, Math.floor(rect.height * ratio));
+        const ctx = destino.getContext('2d');
+        ctx.setTransform(1, 0, 0, 1, 0, 0);
+        ctx.lineWidth = 2.4 * ratio;
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
+        ctx.strokeStyle = '#24324a';
+        ctx.clearRect(0, 0, destino.width, destino.height);
+        const img = new Image();
+        img.onload = () => {
+            ctx.drawImage(img, 0, 0, destino.width, destino.height);
+            firmaDibujada = true;
+        };
+        img.src = firma;
+
+        const modal = window.bootstrap && bootstrap.Modal
+            ? bootstrap.Modal.getInstance($('vacFirmaGrandeModal'))
+            : null;
+        if (modal) modal.hide();
+        else {
+            $('vacFirmaGrandeModal').classList.remove('show');
+            marcarFormatoBajoFirma(false);
+        }
     }
 
     function datosSolicitudPendiente() {
@@ -999,13 +1323,43 @@
         const clone = source.cloneNode(true);
         clone.querySelectorAll('.vac-no-print').forEach((el) => el.remove());
         const originalCanvas = $(canvasId);
-        const cloneCanvas = clone.querySelector('#' + canvasId);
-        if (originalCanvas && cloneCanvas) {
-            const img = document.createElement('img');
-            img.src = originalCanvas.toDataURL('image/png');
-            img.alt = 'Firma digital';
-            img.className = 'vac-print-signature-img';
-            cloneCanvas.replaceWith(img);
+        const firmaSrc = originalCanvas ? originalCanvas.toDataURL('image/png') : '';
+        const nombre = clone.querySelector('#vacFmtNombre')?.textContent?.trim() || '-';
+        const signBox = clone.querySelector('.vac-sign-box');
+        if (signBox) {
+            signBox.outerHTML = `
+                <div class="vac-consent-box mb-4">
+                    Por medio del presente, expreso mi conformidad de solicitar y gozar mis vacaciones de acuerdo con lo establecido en el articulo 76 de la Ley Federal del Trabajo y las politicas internas de MAXIKASH.
+                </div>
+                <div class="vac-sign-box">
+                    <div class="vac-auth-title">Firmas de autorizacion</div>
+                    <div class="vac-sign-auth-grid">
+                        <div class="vac-sign-auth-item">
+                            <div class="vac-signature-space">${firmaSrc ? `<img src="${firmaSrc}" alt="Firma digital" class="vac-print-signature-img">` : ''}</div>
+                            <div class="vac-sign-line">Firma del colaborador</div>
+                            <div class="vac-sign-name">${escapeHtml(nombre)}</div>
+                        </div>
+                        <div class="vac-sign-auth-item">
+                            <div class="vac-signature-space"></div>
+                            <div class="vac-sign-line">Firma del responsable del area</div>
+                            <div class="vac-sign-name">&nbsp;</div>
+                        </div>
+                        <div class="vac-sign-auth-item">
+                            <div class="vac-signature-space"></div>
+                            <div class="vac-sign-line">Vo. Bo. Recursos Humanos</div>
+                            <div class="vac-sign-name">&nbsp;</div>
+                        </div>
+                    </div>
+                    <div class="vac-place-date">Lugar y fecha: México D.F. a ${fechaLargaMX()}</div>
+                    <div class="vac-important-notes">
+                        <strong>Notas importantes:</strong><br>
+                        - El presente formato debera ser autorizado previo al disfrute de vacaciones.<br>
+                        - Toda solicitud estara sujeta a validacion operativa y administrativa.<br>
+                        - Recursos Humanos debera conservar una copia firmada para expediente.<br>
+                        - Generado digitalmente mediante Universidad Corporativa Maxikash.
+                    </div>
+                </div>
+            `;
         }
         return clone.outerHTML;
     }
@@ -1033,7 +1387,7 @@ body { margin: 0; padding: 9mm 0 0; color: #24324a; font-family: Arial, Helvetic
 .fa-solid { display: none !important; }
 .vac-official-form { width: 180mm; margin: 0 auto; border: 0; border-radius: 0; overflow: hidden; background: #fff; }
 .vac-official-head { display: grid; grid-template-columns: 31mm 1fr 35mm; gap: 4mm; align-items: center; min-height: 21mm; background: #064aa2; color: #fff; padding: 4mm 6mm; }
-.vac-official-logo { height: 15mm; display: flex; align-items: center; justify-content: center; border: 1px dashed rgba(255,255,255,.6); border-radius: 1.5mm; background: rgba(255,255,255,.08); padding: 1.5mm; }
+.vac-official-logo { height: 15mm; display: flex; align-items: center; justify-content: center; border: 0; border-radius: 0; background: transparent; padding: 0; }
 .vac-official-logo img { width: 11mm; height: 11mm; object-fit: contain; }
 .vac-official-title { font-size: 16px; font-weight: 900; line-height: 1.15; color: #fff; }
 .vac-official-subtitle { font-size: 11px; opacity: .95; margin-top: 2px; color: #fff; }
@@ -1044,9 +1398,17 @@ body { margin: 0; padding: 9mm 0 0; color: #24324a; font-family: Arial, Helvetic
 .vac-official-field label { display: block; color: #00275f; font-size: 10px; font-weight: 900; letter-spacing: .02em; text-transform: uppercase; margin-bottom: 2mm; }
 .vac-official-value { min-height: 10mm; border: 1px solid #d8e2ef; border-radius: 1.5mm; background: #fff; color: #24324a; padding: 2.6mm 3mm; font-size: 13px; font-weight: 700; line-height: 1.2; }
 .vac-official-value.muted { background: #f6f8fb; color: #607089; }
-.vac-sign-box { border: 1px solid #d8e2ef; border-radius: 2mm; background: #f8fbff; padding: 4mm; break-inside: avoid; }
-.vac-sign-canvas-wrap { background: #fff; border: 1px solid #d8e2ef; border-radius: 1.5mm; overflow: hidden; min-height: 31mm; }
-.vac-print-signature-img { width: 100%; height: 31mm; object-fit: contain; display: block; background: #fff; }
+.vac-consent-box { border-left: 1.1mm solid #06449a; border-radius: 1.5mm; background: #f2f6fb; color: #33445f; padding: 3mm 4mm; font-size: 11px; line-height: 1.55; }
+.vac-sign-box { border: 1px solid #0b4ba2; border-radius: 2mm; background: #fff; padding: 4mm; break-inside: avoid; }
+.vac-auth-title { display: inline-flex; border-radius: 1.2mm; background: #eef4ff; color: #06449a; padding: 1.8mm 3mm; font-size: 10px; font-weight: 900; text-transform: uppercase; }
+.vac-sign-auth-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 5mm; align-items: end; margin-top: 8mm; }
+.vac-sign-auth-item { text-align: center; min-height: 29mm; display: flex; flex-direction: column; justify-content: flex-end; }
+.vac-signature-space { height: 14mm; display: flex; align-items: flex-end; justify-content: center; }
+.vac-print-signature-img { width: 100%; height: 14mm; object-fit: contain; display: block; background: transparent; }
+.vac-sign-line { border-top: 1px solid #1e2a3b; padding-top: 2mm; font-size: 9px; font-weight: 900; color: #607089; text-transform: uppercase; }
+.vac-sign-name { min-height: 5mm; margin-top: 1mm; color: #17233a; font-size: 9px; font-weight: 900; text-transform: uppercase; }
+.vac-place-date { text-align: right; color: #607089; font-size: 10px; font-weight: 700; margin-top: 4mm; }
+.vac-important-notes { border-top: 1px dashed #b8c8dd; color: #52657e; font-size: 9px; line-height: 1.6; margin-top: 5mm; padding-top: 3mm; }
 .mb-4 { margin-bottom: 5mm; }
 .mb-2 { margin-bottom: 8px; }
 .fw-bold { font-weight: 700; }
@@ -1261,6 +1623,10 @@ h6 { margin: 0 0 2mm; font-size: 14px; }
     $('vacFechaInicio').addEventListener('change', actualizarPreviewDias);
     $('vacFechaFin').addEventListener('change', actualizarPreviewDias);
     $('vacBtnRefrescar').addEventListener('click', cargarResumen);
+    $('vacBtnAmpliarFirma').addEventListener('click', abrirFirmaGrande);
+    $('vacBtnRepetirFirmaGrande').addEventListener('click', repetirFirmaGrande);
+    $('vacBtnAceptarFirmaGrande').addEventListener('click', aceptarFirmaGrande);
+    $('vacFirmaGrandeModal').addEventListener('hidden.bs.modal', () => marcarFormatoBajoFirma(false));
     $('vacBtnLimpiarFirma').addEventListener('click', limpiarFirma);
     $('vacBtnGenerarPdf').addEventListener('click', imprimirFormato);
     $('vacBtnImprimirFormato').addEventListener('click', imprimirFormato);

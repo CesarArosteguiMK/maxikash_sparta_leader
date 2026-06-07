@@ -25,7 +25,7 @@ if (!function_exists('getMenuSidebarModulosStructure')) {
             'Capital Humano' => [
                 'icono' => 'fa-solid fa-users',
                 'subItems' => [
-                    ['label' => 'Gestión', 'url' => '/caphum/gestion', 'modulos' => [4]],
+                    ['label' => 'Gestión', 'url' => '/caphum/gestion', 'modulos' => [4, 94, 95, 96, 97, 98, 99]],
                     ['label' => 'Mis documentos', 'url' => '/caphum/documentosColaborador', 'modulos' => [92]],
                     ['label' => 'Vacaciones', 'url' => '/caphum/vacaciones', 'modulos' => [4, 92]],
                     ['label' => 'Panel vacaciones', 'url' => '/caphum/vacacionesAdmin', 'modulos' => [4]],
@@ -284,11 +284,14 @@ if (!function_exists('mapPermisoEspecialToMenuMeta')) {
             68 => [49, 150],
             // Convenios — Crear convenio
             32 => [46, 110],
+            92 => [51, 405],
             // Capital Humano — Gestión
             43 => [4, 110],
             82 => [4, 115],
             87 => [4, 120],
             88 => [4, 125],
+            99 => [4, 128],
+            101 => [4, 130],
             // Motos Adjudicadas - 1.- Evidencias
             79 => [70, 710],
             100 => [62, 640],
@@ -312,6 +315,9 @@ if (!function_exists('mapPermisoEspecialToMenuMeta')) {
         $excluyeCrearConvenio = str_contains($nbNorm, 'crear convenio')
             || str_contains($nbNorm, 'registrar convenio');
         $tNorm = preg_replace('/\s+/u', ' ', trim($nbNorm));
+        if (str_contains($nbNorm, 'descargar') && str_contains($nbNorm, 'excel')) {
+            return mapMetaDesdeAnclaModuloMenu(51, $nombreRaw, 405, false);
+        }
         // 1. Convenio (pestaña Cierre de crédito): título «Convenio(s)» o cualquier texto que empiece por esa palabra
         if (!$excluyeCrearConvenio && preg_match('/\bconvenios?\b/u', $nbNorm) === 1) {
             if (
@@ -369,6 +375,8 @@ if (!function_exists('enriquecerPerfilesModulosConMenuSidebar')) {
                 $meta = mapMetaDesdeAnclaModuloMenu(62, $nombreRaw !== '' ? $nombreRaw : 'Admin Cobranza', 620, false);
             } elseif ($mid === 80) {
                 $meta = mapMetaDesdeAnclaModuloMenu(62, $nombreRaw !== '' ? $nombreRaw : 'Dictaminar creditos', 630, false);
+            } elseif ($mid === 92) {
+                $meta = mapMetaDesdeAnclaModuloMenu(51, $nombreRaw !== '' ? $nombreRaw : 'Descargar Excel', 405, false);
             }
             // Cierre de crédito — células / cartera (ids 56–59 y/o nombre «Cierre: Despachos»…): tarjeta «Convenios»; pestaña Permisos especiales en CapHum
             $nbCierreCel = mb_strtolower(preg_replace('/\s+/u', ' ', trim($nombreRaw)), 'UTF-8');

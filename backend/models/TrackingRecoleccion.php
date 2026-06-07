@@ -17,9 +17,28 @@ class TrackingRecoleccion extends Model
         $this->asegurarTablas();
     }
 
-    private function normalizarEstadoTracking(?string $valor): string
+    private function textoUbicacionBase(?string $valor): string
     {
         $txt = mb_strtoupper(trim((string) $valor), 'UTF-8');
+        $txt = strtr($txt, [
+            'Ã' => 'A', 'Ã‰' => 'E', 'Ã' => 'I', 'Ã“' => 'O', 'Ãš' => 'U', 'Ãœ' => 'U', 'Ã‘' => 'N',
+            'Ã¡' => 'A', 'Ã©' => 'E', 'Ã­' => 'I', 'Ã³' => 'O', 'Ãº' => 'U', 'Ã¼' => 'U', 'Ã±' => 'N',
+            'ÃƒÂ' => 'A', 'Ãƒâ€°' => 'E', 'ÃƒÂ' => 'I', 'Ãƒâ€œ' => 'O', 'ÃƒÅ¡' => 'U', 'ÃƒÅ“' => 'U', 'Ãƒâ€˜' => 'N',
+            'ÃƒÂ¡' => 'A', 'ÃƒÂ©' => 'E', 'ÃƒÂ­' => 'I', 'ÃƒÂ³' => 'O', 'ÃƒÂº' => 'U', 'ÃƒÂ¼' => 'U', 'ÃƒÂ±' => 'N',
+        ]);
+        if (function_exists('iconv')) {
+            $tmp = @iconv('UTF-8', 'ASCII//TRANSLIT//IGNORE', $txt);
+            if ($tmp !== false) {
+                $txt = $tmp;
+            }
+        }
+        $txt = preg_replace('/\s+/', ' ', $txt) ?? $txt;
+        return trim($txt);
+    }
+
+    private function normalizarEstadoTracking(?string $valor): string
+    {
+        $txt = $this->textoUbicacionBase($valor);
         $txt = strtr($txt, [
             'Á' => 'A', 'É' => 'E', 'Í' => 'I', 'Ó' => 'O', 'Ú' => 'U', 'Ü' => 'U', 'Ñ' => 'N',
             'á' => 'A', 'é' => 'E', 'í' => 'I', 'ó' => 'O', 'ú' => 'U', 'ü' => 'U', 'ñ' => 'N',
@@ -68,7 +87,19 @@ class TrackingRecoleccion extends Model
 
     private function sqlEstadoNormalizado(string $columna): string
     {
-        return "UPPER(TRIM(REPLACE(REPLACE(REPLACE(REPLACE({$columna}, '.', ''), ',', ''), ';', ''), ':', '')))";
+        $expr = "UPPER(TRIM(REPLACE(REPLACE(REPLACE(REPLACE({$columna}, '.', ''), ',', ''), ';', ''), ':', '')))";
+        $map = [
+            'Á' => 'A', 'À' => 'A', 'Ä' => 'A', 'Â' => 'A',
+            'É' => 'E', 'È' => 'E', 'Ë' => 'E', 'Ê' => 'E',
+            'Í' => 'I', 'Ì' => 'I', 'Ï' => 'I', 'Î' => 'I',
+            'Ó' => 'O', 'Ò' => 'O', 'Ö' => 'O', 'Ô' => 'O',
+            'Ú' => 'U', 'Ù' => 'U', 'Ü' => 'U', 'Û' => 'U',
+            'Ñ' => 'N',
+        ];
+        foreach ($map as $from => $to) {
+            $expr = "REPLACE({$expr}, '{$from}', '{$to}')";
+        }
+        return $expr;
     }
 
     // =========================================================================
@@ -342,8 +373,8 @@ class TrackingRecoleccion extends Model
             $where[] = $this->sqlEstadoNormalizado('ao.log_estado') . ' IN (' . implode(',', $phs) . ')';
         }
         if ($municipio !== null && $municipio !== '') {
-            $where[]              = 'ao.log_ciudad = :municipio';
-            $params['municipio']  = $municipio;
+            $where[]              = $this->sqlEstadoNormalizado('ao.log_ciudad') . ' = :municipio';
+            $params['municipio']  = $this->sanitizarUbicacionMayus($municipio, 120);
         }
 
         $sql = 'SELECT
@@ -553,6 +584,24 @@ class TrackingRecoleccion extends Model
         return mb_substr($txt, 0, $max, 'UTF-8');
     }
 
+    private function textoCatalogoMayus(?string $valor, int $max = 255): ?string
+    {
+        $txt = $this->textoCatalogo($valor, $max);
+        if ($txt === null) {
+            return null;
+        }
+        return mb_substr($this->textoUbicacionBase($txt), 0, $max, 'UTF-8');
+    }
+
+    private function sanitizarUbicacionMayus(?string $valor, int $max = 120): string
+    {
+        $txt = $this->textoUbicacionBase($valor);
+        if ($txt === '') {
+            return '';
+        }
+        return mb_substr(mb_strtoupper($txt, 'UTF-8'), 0, $max, 'UTF-8');
+    }
+
     private function decimalCatalogo($valor): ?float
     {
         if ($valor === null || trim((string) $valor) === '') {
@@ -634,8 +683,8 @@ class TrackingRecoleccion extends Model
             'nombre_agencia' => $nombre,
             'tipo_ubicacion' => $tipo,
             'direccion' => $this->textoCatalogo($data['direccion'] ?? null, 255),
-            'estado' => $this->textoCatalogo($data['estado'] ?? null, 100),
-            'municipio' => $this->textoCatalogo($data['municipio'] ?? null, 120),
+            'estado' => $this->textoCatalogoMayus($data['estado'] ?? null, 100),
+            'municipio' => $this->textoCatalogoMayus($data['municipio'] ?? null, 120),
             'codigo_postal' => $this->textoCatalogo($data['codigo_postal'] ?? null, 10),
             'latitud' => $this->decimalCatalogo($data['latitud'] ?? null),
             'longitud' => $this->decimalCatalogo($data['longitud'] ?? null),
@@ -869,7 +918,7 @@ class TrackingRecoleccion extends Model
     {
         $limpio = preg_replace('/^\s*(?:(?:#|BOR-|RUTA-)\s*\d+\s*)+/i', '', $nombre);
         $limpio = preg_replace('/\s+/', ' ', (string) $limpio);
-        return trim((string) $limpio);
+        return mb_strtoupper(trim((string) $limpio), 'UTF-8');
     }
 
     private function obtenerRutasConNombreDuplicado(string $nombre, int $idRuta = 0, int $limit = 5): array
@@ -1020,8 +1069,8 @@ class TrackingRecoleccion extends Model
         $modo      = trim((string) ($data['modo'] ?? 'borrador'));
         $idRuta    = (int) ($data['id_ruta'] ?? 0);
         $nombre    = $this->sanitizarNombreRuta((string) ($data['nombre_ruta'] ?? ''));
-        $estado    = trim((string) ($data['estado'] ?? ''));
-        $municipio = trim((string) ($data['municipio'] ?? ''));
+        $estado    = $this->sanitizarUbicacionMayus($data['estado'] ?? '', 100);
+        $municipio = $this->sanitizarUbicacionMayus($data['municipio'] ?? '', 100);
         $fechaStr  = trim((string) ($data['fecha_programada'] ?? ''));
         $creditos  = is_array($data['creditos'] ?? null) ? $data['creditos'] : [];
         $tipoTransportista = strtolower(trim((string) ($data['tipo_transportista'] ?? '')));
@@ -1035,8 +1084,8 @@ class TrackingRecoleccion extends Model
             $estadosRuta = [];
             $municipiosRuta = [];
             foreach ($creditos as $det) {
-                $e = trim((string)($det['estado'] ?? ''));
-                $m = trim((string)($det['municipio'] ?? ''));
+                $e = $this->sanitizarUbicacionMayus($det['estado'] ?? '', 100);
+                $m = $this->sanitizarUbicacionMayus($det['municipio'] ?? '', 100);
                 if ($e !== '') $estadosRuta[$e] = true;
                 if ($m !== '') $municipiosRuta[$m] = true;
             }
@@ -1328,8 +1377,8 @@ class TrackingRecoleccion extends Model
                         'ic' => $idCredito,
                         'mo' => mb_substr(trim((string) ($det['modelo']    ?? '')), 0, 100),
                         'bi' => mb_substr(trim((string) ($det['bin']       ?? '')), 0, 100),
-                        'es' => mb_substr(trim((string) ($det['estado']    ?? '')), 0, 100),
-                        'mu' => mb_substr(trim((string) ($det['municipio'] ?? '')), 0, 100),
+                        'es' => $this->sanitizarUbicacionMayus($det['estado'] ?? '', 100),
+                        'mu' => $this->sanitizarUbicacionMayus($det['municipio'] ?? '', 100),
                         'di' => mb_substr(trim((string) ($det['direccion'] ?? '')), 0, 200),
                         'la' => $lat,
                         'lo' => $lng,
@@ -1343,7 +1392,7 @@ class TrackingRecoleccion extends Model
             }
 
             $this->db->commit();
-            return ['success' => true, 'id_ruta' => $idRuta];
+            return ['success' => true, 'id_ruta' => $idRuta, 'estatus_ruta' => $estatusRuta];
         } catch (\Throwable $e) {
             $this->db->rollback();
             return ['success' => false, 'message' => 'Error al guardar la ruta: ' . $e->getMessage()];
@@ -1364,12 +1413,18 @@ class TrackingRecoleccion extends Model
         $where  = ['1 = 1'];
         $params = [];
         if ($estado !== null && $estado !== '') {
-            $where[]          = 'atr.estado = :estado';
-            $params['estado'] = $estado;
+            $aliases = $this->aliasesEstadoTracking($estado);
+            $phs = [];
+            foreach ($aliases as $i => $alias) {
+                $key = "estado{$i}";
+                $phs[] = ":{$key}";
+                $params[$key] = $alias;
+            }
+            $where[] = $this->sqlEstadoNormalizado('atr.estado') . ' IN (' . implode(',', $phs) . ')';
         }
         if ($municipio !== null && $municipio !== '') {
-            $where[]              = 'atr.municipio = :municipio';
-            $params['municipio']  = $municipio;
+            $where[]              = $this->sqlEstadoNormalizado('atr.municipio') . ' = :municipio';
+            $params['municipio']  = $this->sanitizarUbicacionMayus($municipio, 120);
         }
 
         // Excluir rutas borrador (tienen su propia pestaña)
@@ -1537,16 +1592,24 @@ class TrackingRecoleccion extends Model
                     cedis_dest.direccion AS cedis_destino_direccion,
                     cedis_dest.estado AS cedis_destino_estado,
                     cedis_dest.municipio AS cedis_destino_municipio,
+                    cedis_dest.codigo_postal AS cedis_destino_codigo_postal,
+                    cedis_dest.telefono AS cedis_destino_telefono,
+                    cedis_dest.encargado AS cedis_destino_encargado,
+                    cedis_dest.email AS cedis_destino_email,
+                    cedis_dest.horario AS cedis_destino_horario,
+                    cedis_dest.link_ubicacion AS cedis_destino_link_ubicacion,
+                    TRIM(CONCAT_WS(' ', creador.nombres, creador.segundo_nombre, creador.apellidop, creador.apellidom)) AS creado_por_nombre,
                     CONCAT(DATE_FORMAT(atr.fecha_programada, '%d/'), ELT(MONTH(atr.fecha_programada), 'Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'), DATE_FORMAT(atr.fecha_programada, '/%Y')) AS fecha_programada_fmt,
                     DATE_FORMAT(atr.fecha_creacion,   '%d/%m/%Y %H:%i') AS fecha_creacion_fmt,
                     DATE_FORMAT(atr.fecha_actualizacion, '%d/%m/%Y %H:%i') AS fecha_actualizacion_fmt,
                     DATE_FORMAT(atr.fecha_cancelacion, '%d/%m/%Y %H:%i') AS fecha_cancelacion_fmt
                  FROM asigna_horas_tracking atr
-                 LEFT JOIN transportistas_tracking tt ON tt.id_transportista = atr.id_transportista
-                 LEFT JOIN agencias_tracking ag ON ag.id_agencia = atr.id_agencia_tracking
-                 LEFT JOIN agencias_tracking cedis_dest ON cedis_dest.id_agencia = atr.id_cedis_destino
-                 WHERE atr.id_ruta = :id
-                 LIMIT 1",
+                  LEFT JOIN transportistas_tracking tt ON tt.id_transportista = atr.id_transportista
+                  LEFT JOIN agencias_tracking ag ON ag.id_agencia = atr.id_agencia_tracking
+                  LEFT JOIN agencias_tracking cedis_dest ON cedis_dest.id_agencia = atr.id_cedis_destino
+                  LEFT JOIN persona creador ON creador.id = atr.creado_por
+                  WHERE atr.id_ruta = :id
+                  LIMIT 1",
                 ['id' => $idRuta]
             );
             if (!$cabecera) {
@@ -1636,8 +1699,8 @@ class TrackingRecoleccion extends Model
                 return ['success' => false, 'message' => 'Credito no encontrado.'];
             }
 
-            $estadoCredito = trim((string)($credito['estado'] ?? ''));
-            $municipioCredito = trim((string)($credito['municipio'] ?? ''));
+            $estadoCredito = $this->sanitizarUbicacionMayus($credito['estado'] ?? '', 100);
+            $municipioCredito = $this->sanitizarUbicacionMayus($credito['municipio'] ?? '', 100);
             if ($estadoCredito === '' && $municipioCredito === '') {
                 return ['success' => false, 'message' => 'El credito no tiene estado ni municipio registrado.'];
             }
@@ -1708,8 +1771,8 @@ class TrackingRecoleccion extends Model
             $estados = [];
             $municipios = [];
             foreach ($geoRows as $row) {
-                $e = trim((string)($row['estado'] ?? ''));
-                $m = trim((string)($row['municipio'] ?? ''));
+                $e = $this->sanitizarUbicacionMayus($row['estado'] ?? '', 100);
+                $m = $this->sanitizarUbicacionMayus($row['municipio'] ?? '', 100);
                 if ($e !== '') $estados[$e] = true;
                 if ($m !== '') $municipios[$m] = true;
             }
@@ -1758,6 +1821,49 @@ class TrackingRecoleccion extends Model
             return ['success' => true];
         } catch (\Throwable $e) {
             return ['success' => false, 'message' => 'Error al actualizar confirmación.'];
+        }
+    }
+
+    /**
+     * Elimina una ruta siempre que siga en estatus borrador.
+     *
+     * @return array{success:bool, message?:string}
+     */
+    public function eliminarBorrador(int $idRuta): array
+    {
+        if ($idRuta <= 0) {
+            return ['success' => false, 'message' => 'Ruta requerida.'];
+        }
+
+        $enTransaccion = false;
+        try {
+            $ruta = $this->db->queryOne(
+                "SELECT id_ruta, estatus_ruta
+                 FROM asigna_horas_tracking
+                 WHERE id_ruta = :id
+                 LIMIT 1",
+                ['id' => $idRuta]
+            );
+            if (!$ruta) {
+                return ['success' => false, 'message' => 'Borrador no encontrado.'];
+            }
+            if ((string) $ruta['estatus_ruta'] !== 'borrador') {
+                return ['success' => false, 'message' => 'Solo se pueden borrar rutas en borrador.'];
+            }
+
+            $this->db->beginTransaction();
+            $enTransaccion = true;
+            $this->db->CRUD('DELETE FROM asigna_horas_tracking_detalle WHERE id_ruta = :id', ['id' => $idRuta]);
+            $this->db->CRUD('DELETE FROM asigna_horas_tracking_usuarios WHERE id_ruta = :id', ['id' => $idRuta]);
+            $this->db->CRUD('DELETE FROM asigna_horas_tracking WHERE id_ruta = :id', ['id' => $idRuta]);
+            $this->db->commit();
+
+            return ['success' => true, 'message' => 'Borrador eliminado correctamente.'];
+        } catch (\Throwable $e) {
+            if ($enTransaccion) {
+                $this->db->rollback();
+            }
+            return ['success' => false, 'message' => 'Error al eliminar el borrador.'];
         }
     }
 

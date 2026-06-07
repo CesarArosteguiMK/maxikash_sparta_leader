@@ -882,6 +882,7 @@ body.dark-mode .cc-badge-nuevo { background:linear-gradient(135deg,#059669,#0478
 /* Permisos por pestaña (modulos_web 52–55, 59). Si la vista se carga sin el controlador, no muestra pestañas por seguridad. */
 if (!isset($cc_perm_alguno)) {
     $cc_perm_convenios = false;
+    $cc_perm_descargar_excel = false;
     $cc_perm_validacion = false;
     $cc_perm_en_proceso = false;
     $cc_perm_vobo = false;
@@ -1006,6 +1007,15 @@ $ccActCart  = ($cc_default_tab === 'cartera');
     <?php if (!empty($cc_perm_convenios)): ?>
     <!-- ══ PESTAÑA 0: CONVENIOS (TODOS) ══ -->
     <div class="tab-pane fade<?= $ccActConv ? ' show active' : '' ?>" id="tab-convenios" role="tabpanel">
+        <?php if (!empty($cc_perm_descargar_excel)): ?>
+        <div class="d-flex justify-content-end align-items-center mb-2">
+            <a href="/CierreCredito/descargarReporteConveniosActivos"
+               class="btn btn-sm btn-outline-success"
+               title="Descargar reporte de convenios activos en Excel">
+                <i class="fa-solid fa-file-excel me-1"></i>Descargar Reporte
+            </a>
+        </div>
+        <?php endif; ?>
         <!-- Filtros Convenios -->
         <div id="cc-filtros-conv" class="cc-filtros-bar d-none">
             <button id="cc-filtros-conv-toggle" class="cc-filtros-btn-toggle" type="button">

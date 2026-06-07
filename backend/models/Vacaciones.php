@@ -435,7 +435,7 @@ class Vacaciones extends Model
             }
 
             $sol = $db->queryOne("
-                SELECT id, estatus, rrhh_estatus, jefe_estatus
+                SELECT id, id_persona, estatus, rrhh_estatus, jefe_estatus, fecha_inicio, fecha_fin
                 FROM __SPARTA_SECRET_REDACTED__.vacaciones_solicitudes
                 WHERE id = :id_solicitud
                 LIMIT 1
@@ -453,6 +453,10 @@ class Vacaciones extends Model
 
             $rrhh = (string) ($sol['rrhh_estatus'] ?? 'pendiente');
             $jefe = (string) ($sol['jefe_estatus'] ?? 'pendiente');
+            if ($etapa === 'jefe' && $rrhh !== 'aprobada') {
+                return self::resultado(false, 'Primero debe aprobar y firmar RR.HH.');
+            }
+
             $estatusEtapaActual = $etapa === 'rrhh' ? $rrhh : $jefe;
             if ($estatusEtapaActual !== 'pendiente') {
                 return self::resultado(false, 'Esta etapa ya fue resuelta.');
@@ -503,6 +507,21 @@ class Vacaciones extends Model
                 'comentario_rechazo' => $comentario,
                 'id_solicitud' => $idSolicitud,
             ]);
+
+            if (in_array($estatusGeneral, ['aprobada', 'rechazada'], true)) {
+                $idPersonaSolicitante = (int) ($sol['id_persona'] ?? 0);
+                $tipoNotificacion = $estatusGeneral === 'aprobada' ? 'vacaciones_aprobadas' : 'vacaciones_rechazadas';
+                $mensajeNotificacion = $estatusGeneral === 'aprobada'
+                    ? 'Tu solicitud de vacaciones fue aprobada.'
+                    : 'Tu solicitud de vacaciones fue rechazada.';
+                if (!empty($sol['fecha_inicio']) && !empty($sol['fecha_fin'])) {
+                    $mensajeNotificacion .= ' Periodo solicitado: ' . $sol['fecha_inicio'] . ' al ' . $sol['fecha_fin'] . '.';
+                }
+                if ($estatusGeneral === 'rechazada' && $comentario !== '') {
+                    $mensajeNotificacion .= ' Motivo: ' . $comentario;
+                }
+                Notificacion::crear($idPersonaSolicitante, $tipoNotificacion, $mensajeNotificacion, null);
+            }
 
             return self::resultado(true, 'Solicitud actualizada.', [
                 'estatus' => $estatusGeneral,

@@ -8,6 +8,87 @@ use Core\UsuarioFantasmaReporteria;
 
 class CapHum extends Model
 {
+    private const MODULO_CONVENIOS_DESCARGAR_EXCEL = 92;
+    private const MODULO_CONVENIOS_DESCARGAR_EXCEL_NOMBRE = 'Descargar Excel';
+    private const MODULO_CONVENIOS_DESCARGAR_EXCEL_DESC = 'Convenios - Cierre de Credito - Descargar Excel';
+
+    private static function asegurarModuloConveniosDescargarExcel(Database $db): void
+    {
+        try {
+            $datos = [
+                'id' => self::MODULO_CONVENIOS_DESCARGAR_EXCEL,
+                'nombre' => self::MODULO_CONVENIOS_DESCARGAR_EXCEL_NOMBRE,
+                'pestana' => 'Permisos especiales',
+                'descripcion' => self::MODULO_CONVENIOS_DESCARGAR_EXCEL_DESC,
+            ];
+            $existe = $db->queryOne(
+                'SELECT id FROM modulos_web WHERE id = :id LIMIT 1',
+                ['id' => self::MODULO_CONVENIOS_DESCARGAR_EXCEL]
+            );
+
+            if ($existe) {
+                $db->CRUD(
+                    'UPDATE modulos_web
+                        SET nombre = :nombre,
+                            pestana = :pestana,
+                            descripcion = :descripcion,
+                            activo = 1
+                      WHERE id = :id',
+                    $datos
+                );
+                return;
+            }
+
+            $db->CRUD(
+                'INSERT INTO modulos_web (id, nombre, pestana, descripcion, activo)
+                 VALUES (:id, :nombre, :pestana, :descripcion, 1)',
+                $datos
+            );
+        } catch (\Throwable $e) {
+            error_log('CapHum::asegurarModuloConveniosDescargarExcel -> ' . $e->getMessage());
+        }
+    }
+
+    private static function agregarModuloConveniosDescargarExcelSiFalta(array $perfiles, int $idPersona, Database $db): array
+    {
+        foreach ($perfiles as $perfil) {
+            if ((int) ($perfil['modulo_id'] ?? 0) === self::MODULO_CONVENIOS_DESCARGAR_EXCEL) {
+                return $perfiles;
+            }
+        }
+
+        $asignado = null;
+        try {
+            $asignado = $db->queryOne(
+                'SELECT id
+                   FROM asigna_modulo_web
+                  WHERE usuario_id = :uid
+                    AND modulo_web_id = :mid
+                  LIMIT 1',
+                [
+                    'uid' => $idPersona,
+                    'mid' => self::MODULO_CONVENIOS_DESCARGAR_EXCEL,
+                ]
+            );
+        } catch (\Throwable $e) {
+            error_log('CapHum::agregarModuloConveniosDescargarExcelSiFalta -> ' . $e->getMessage());
+        }
+
+        $perfiles[] = [
+            'usuario_id' => $idPersona,
+            'modulo_id' => self::MODULO_CONVENIOS_DESCARGAR_EXCEL,
+            'modulo_nombre' => self::MODULO_CONVENIOS_DESCARGAR_EXCEL_NOMBRE,
+            'pestana' => 'Permisos especiales',
+            'descripcion' => self::MODULO_CONVENIOS_DESCARGAR_EXCEL_DESC,
+            'activo' => 1,
+            'estado' => $asignado ? 'Asignado' : 'No asignado',
+            'asignado_flag' => $asignado ? 1 : 0,
+        ];
+
+        return $perfiles;
+    }
+    private const DOCUMENTO_RFC_RRHH = 10;
+    private const DOCUMENTO_CONSTANCIA_FISCAL_RRHH = 22;
     private const DOCUMENTOS_EXCLUIDOS_RRHH = [19, 20, 21];
     private const DOCUMENTOS_ALIAS_RRHH = [
         19 => 12, // Acta de nacimiento certificada -> Acta de Nacimiento
@@ -1144,6 +1225,9 @@ class CapHum extends Model
     {
         try {
             $db = new Database();
+            if ((int) $moduloId === self::MODULO_CONVENIOS_DESCARGAR_EXCEL) {
+                self::asegurarModuloConveniosDescargarExcel($db);
+            }
 
             if ($asignado === 1) {
 
@@ -1397,17 +1481,27 @@ class CapHum extends Model
             $db = new Database();
             $personas = $db->queryAll("
                 SELECT
-                    id,
-                    numero_empleado,
-                    nombres,
-                    segundo_nombre,
-                    apellidop,
-                    apellidom,
-                    curp,
-                    estatus
-                FROM __SPARTA_SECRET_REDACTED__.persona
-                WHERE estatus != 'Baja'
-                ORDER BY nombres ASC, apellidop ASC, apellidom ASC
+                    p.id,
+                    p.numero_empleado,
+                    p.nombres,
+                    p.segundo_nombre,
+                    p.apellidop,
+                    p.apellidom,
+                    p.curp,
+                    COALESCE(p.estatus, '') AS estatus,
+                    DATE_FORMAT(bp.fecha_baja, '%Y-%m-%d') AS fecha_baja
+                FROM __SPARTA_SECRET_REDACTED__.persona p
+                LEFT JOIN (
+                    SELECT id_persona, MAX(id) AS id_ultima_baja
+                    FROM __SPARTA_SECRET_REDACTED__.baja_persona
+                    GROUP BY id_persona
+                ) ub ON ub.id_persona = p.id
+                LEFT JOIN __SPARTA_SECRET_REDACTED__.baja_persona bp ON bp.id = ub.id_ultima_baja
+                ORDER BY
+                    CASE WHEN p.estatus = 'Baja' THEN 1 ELSE 0 END,
+                    p.nombres ASC,
+                    p.apellidop ASC,
+                    p.apellidom ASC
             ");
 
             return self::resultado(true, 'Personas encontradas.', $personas ?? []);
@@ -1562,6 +1656,27 @@ class CapHum extends Model
         }
     }
 
+    private static function coberturaDocumentoRrhh(int $idDocumento, array $mapaCargados): array
+    {
+        $info = $mapaCargados[$idDocumento] ?? null;
+        if ($info !== null && (int) ($info['total_archivos'] ?? 0) > 0) {
+            return ['cargado' => true, 'info' => $info, 'cubierto_por' => null];
+        }
+
+        if ($idDocumento === self::DOCUMENTO_RFC_RRHH) {
+            $infoConstancia = $mapaCargados[self::DOCUMENTO_CONSTANCIA_FISCAL_RRHH] ?? null;
+            if ($infoConstancia !== null && (int) ($infoConstancia['total_archivos'] ?? 0) > 0) {
+                return [
+                    'cargado' => true,
+                    'info' => $infoConstancia,
+                    'cubierto_por' => 'Constancia de situacion fiscal',
+                ];
+            }
+        }
+
+        return ['cargado' => false, 'info' => null, 'cubierto_por' => null];
+    }
+
     public static function getResumenDocumentosColaborador($id_persona)
     {
         try {
@@ -1635,8 +1750,10 @@ class CapHum extends Model
             $totalCargados = 0;
             foreach ($tipos as $tipo) {
                 $idDocumento = (int) $tipo['id'];
-                $info = $mapaCargados[$idDocumento] ?? null;
-                $estaCargado = $info !== null && (int) ($info['total_archivos'] ?? 0) > 0;
+                $cobertura = self::coberturaDocumentoRrhh($idDocumento, $mapaCargados);
+                $info = $cobertura['info'];
+                $estaCargado = (bool) ($cobertura['cargado'] ?? false);
+                $cubiertoPor = (string) ($cobertura['cubierto_por'] ?? '');
                 if ($estaCargado) {
                     $totalCargados++;
                 }
@@ -1646,13 +1763,14 @@ class CapHum extends Model
                     'nombre' => $tipo['nombre'] ?? '',
                     'clave' => $tipo['clave'] ?? '',
                     'obligatorio' => (int) ($tipo['obligatorio'] ?? 0) === 1,
-                    'estatus' => $estaCargado ? 'Cargado' : 'Faltante',
+                    'estatus' => $estaCargado ? ($cubiertoPor !== '' ? 'Cubierto' : 'Cargado') : 'Faltante',
                     'cargado' => $estaCargado,
-                    'total_archivos' => $estaCargado ? (int) $info['total_archivos'] : 0,
-                    'ultima_fecha' => $estaCargado && !empty($info['ultima_fecha'])
+                    'cubierto_por' => $cubiertoPor,
+                    'total_archivos' => $estaCargado && $cubiertoPor === '' ? (int) $info['total_archivos'] : 0,
+                    'ultima_fecha' => $estaCargado && $cubiertoPor === '' && !empty($info['ultima_fecha'])
                         ? date('Y-m-d H:i', strtotime((string) $info['ultima_fecha']))
                         : null,
-                    'archivos' => $estaCargado && !empty($info['archivos'])
+                    'archivos' => $estaCargado && $cubiertoPor === '' && !empty($info['archivos'])
                         ? explode('||', (string) $info['archivos'])
                         : [],
                 ];
@@ -1767,8 +1885,10 @@ class CapHum extends Model
 
                 foreach ($tipos as $tipo) {
                     $idDocumento = (int) ($tipo['id'] ?? 0);
-                    $info = $mapaCargas[$idPersona][$idDocumento] ?? null;
-                    $estaCargado = $info !== null && (int) ($info['total_archivos'] ?? 0) > 0;
+                    $cobertura = self::coberturaDocumentoRrhh($idDocumento, $mapaCargas[$idPersona] ?? []);
+                    $info = $cobertura['info'];
+                    $estaCargado = (bool) ($cobertura['cargado'] ?? false);
+                    $cubiertoPor = (string) ($cobertura['cubierto_por'] ?? '');
                     if ($estaCargado) {
                         $cargadosLocal++;
                     } else {
@@ -1780,10 +1900,11 @@ class CapHum extends Model
                         'nombre' => $tipo['nombre'] ?? '',
                         'clave' => $tipo['clave'] ?? '',
                         'obligatorio' => (int) ($tipo['obligatorio'] ?? 0) === 1,
-                        'estatus' => $estaCargado ? 'Cargado' : 'Faltante',
+                        'estatus' => $estaCargado ? ($cubiertoPor !== '' ? 'Cubierto' : 'Cargado') : 'Faltante',
                         'cargado' => $estaCargado,
-                        'total_archivos' => $estaCargado ? (int) ($info['total_archivos'] ?? 0) : 0,
-                        'ultima_fecha' => $estaCargado && !empty($info['ultima_fecha'])
+                        'cubierto_por' => $cubiertoPor,
+                        'total_archivos' => $estaCargado && $cubiertoPor === '' ? (int) ($info['total_archivos'] ?? 0) : 0,
+                        'ultima_fecha' => $estaCargado && $cubiertoPor === '' && !empty($info['ultima_fecha'])
                             ? date('Y-m-d H:i', strtotime((string) $info['ultima_fecha']))
                             : null,
                     ];
@@ -1870,8 +1991,11 @@ class CapHum extends Model
                     cdp.id_persona,
                     cdp.archivo,
                     cdp.id_documento,
+                    TRIM(CONCAT_WS(' ', p.nombres, p.segundo_nombre, p.apellidop, p.apellidom)) AS nombre_completo,
+                    p.numero_empleado,
                     DATE_FORMAT(cdp.fecha_carga, '%Y-%m-%d %H:%i') AS fecha_carga
                 FROM __SPARTA_SECRET_REDACTED__.carga_documento_persona cdp
+                LEFT JOIN __SPARTA_SECRET_REDACTED__.persona p ON p.id = cdp.id_persona
                 WHERE cdp.id IN (" . implode(',', $placeholders) . ")
                 ORDER BY cdp.fecha_carga DESC, cdp.id DESC
             ", $params);
@@ -1974,6 +2098,7 @@ class CapHum extends Model
 
         try {
             $db = new Database();
+            self::asegurarModuloConveniosDescargarExcel($db);
 
             $query = <<<SQL
             SELECT
@@ -2077,6 +2202,7 @@ class CapHum extends Model
 
             $persona = $db->queryOne($query);
             $perfiles = $db->queryAll($query_perfiles);
+            $perfiles = self::agregarModuloConveniosDescargarExcelSiFalta($perfiles, $idPersona, $db);
             require_once __DIR__ . '/../config/menu_modulos_sidebar.php';
             $perfiles = enriquecerPerfilesModulosConMenuSidebar($perfiles);
             $puestos = $db->queryAll($query_puestos);
@@ -2413,8 +2539,34 @@ class CapHum extends Model
 
         try {
             $db = new Database();
+            $persona = $db->queryOne(
+                "SELECT id, estatus, force_logout
+                   FROM persona
+                  WHERE id = :id
+                  LIMIT 1",
+                ['id' => $idPersona]
+            );
+
+            if (!$persona) {
+                return self::resultado(false, 'No se encontro el usuario indicado.');
+            }
+
+            $estatus = strtolower(trim((string) ($persona['estatus'] ?? '')));
+            if ($estatus === 'baja') {
+                return self::resultado(false, 'No se puede forzar cierre porque el usuario esta dado de baja.');
+            }
+
+            if ((int) ($persona['force_logout'] ?? 0) === 1) {
+                return self::resultado(
+                    true,
+                    'El cierre de sesion ya estaba solicitado. Se aplicara en cuanto el sistema valide la sesion del usuario.'
+                );
+            }
+
             $n = $db->CRUD(
-                "UPDATE persona SET force_logout = 1 WHERE id = :id AND estatus != 'Baja'",
+                "UPDATE persona
+                    SET force_logout = 1
+                  WHERE id = :id",
                 ['id' => $idPersona]
             );
             if ($n < 1) {

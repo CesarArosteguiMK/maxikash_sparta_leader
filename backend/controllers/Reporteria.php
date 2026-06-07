@@ -270,52 +270,72 @@ class Reporteria extends Controller
 
     // ==== Reportes de Personal ====
     public function getUsuariosCapitalHumano()
-{
-    // No activar display_errors en producción; los errores se registran en log del servidor
-    // Limpiar cualquier salida previa
-    while (ob_get_level()) ob_end_clean();
-
-    try {
-        $tieneDepartamento = in_array(10, $_SESSION['modulos'] ?? []);
-        $resultado = \Models\CapHum::getConsultaGestoresAll($_SESSION['usuario_id'], $tieneDepartamento);
-        $usuarios = $resultado['datos'] ?? [];
-
-        $datos = array_map(function($p) {
-            return [
-                'id' => $p['id'] ?? '',
-                'numero_empleado' => $p['numero_empleado'] ?? '',
-                'nombre_jefe' => $p['nombre_jefe'] ?? '',
-                'nombres' => $p['nombres'] ?? '',
-                'segundo_nombre' => $p['segundo_nombre'] ?? '',
-                'apellidop' => $p['apellidop'] ?? '',
-                'apellidom' => $p['apellidom'] ?? '',
-                'nombre_departamento' => $p['nombre_departamento'] ?? '',
-                'nombre_puesto' => $p['nombre_puesto'] ?? '',
-                'id_puesto' => $p['id_puesto'] ?? null,
-                'id_departamento' => $p['id_departamento'] ?? null,
-                'estatus' => $p['estatus'] ?? '',
-                'usuario' => $p['usuario'] ?? '',
-            ];
-        }, $usuarios);
-
+    {
+        while (ob_get_level()) {
+            ob_end_clean();
+        }
         header('Content-Type: application/json; charset=utf-8');
-        echo json_encode([
-            'success' => true,
-            'datos' => $datos
-        ]);
-        exit;
 
-    } catch (\Exception $e) {
-        error_log('Error en getUsuariosCapitalHumano: ' . $e->getMessage());
-        header('Content-Type: application/json; charset=utf-8');
-        echo json_encode([
-            'success' => false,
-            'datos' => [],
-            'mensaje' => 'Error al cargar usuarios: ' . $e->getMessage()
-        ]);
-        exit;
+        try {
+            $usuarioId = (int) ($_SESSION['usuario_id'] ?? $_SESSION['persona_id'] ?? 0);
+            if ($usuarioId <= 0) {
+                echo json_encode([
+                    'success' => false,
+                    'datos' => [],
+                    'mensaje' => 'Sesion no valida. Vuelve a iniciar sesion.'
+                ], JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE);
+                exit;
+            }
+
+            $modulos = array_map('intval', (array) ($_SESSION['modulos'] ?? []));
+            $tieneDepartamento = in_array(10, $modulos, true);
+            $resultado = \Models\CapHum::getConsultaGestoresAll($usuarioId, $tieneDepartamento);
+            if (!($resultado['success'] ?? false)) {
+                echo json_encode([
+                    'success' => false,
+                    'datos' => [],
+                    'mensaje' => $resultado['mensaje'] ?? 'Error al cargar usuarios.',
+                    'error' => $resultado['error'] ?? null
+                ], JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE);
+                exit;
+            }
+
+            $usuarios = is_array($resultado['datos'] ?? null) ? $resultado['datos'] : [];
+            $datos = array_map(function($p) {
+                return [
+                    'id' => $p['id'] ?? '',
+                    'numero_empleado' => $p['numero_empleado'] ?? '',
+                    'nombre_jefe' => $p['nombre_jefe'] ?? ($p['nombre_vacante_jefe'] ?? ''),
+                    'nombres' => $p['nombres'] ?? '',
+                    'segundo_nombre' => $p['segundo_nombre'] ?? '',
+                    'apellidop' => $p['apellidop'] ?? '',
+                    'apellidom' => $p['apellidom'] ?? '',
+                    'nombre_departamento' => $p['nombre_departamento'] ?? '',
+                    'nombre_puesto' => $p['nombre_puesto'] ?? '',
+                    'id_puesto' => $p['id_puesto'] ?? null,
+                    'id_departamento' => $p['id_departamento'] ?? null,
+                    'estatus' => $p['estatus'] ?? '',
+                    'usuario' => $p['usuario'] ?? ($p['user_name'] ?? ''),
+                ];
+            }, $usuarios);
+
+            echo json_encode([
+                'success' => true,
+                'datos' => $datos
+            ], JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE);
+            exit;
+        } catch (\Throwable $e) {
+            error_log('Error en getUsuariosCapitalHumano: ' . $e->getMessage());
+            http_response_code(500);
+            echo json_encode([
+                'success' => false,
+                'datos' => [],
+                'mensaje' => 'Error al cargar usuarios.',
+                'error' => $e->getMessage()
+            ], JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE);
+            exit;
+        }
     }
-}
 
     public function getBajasCapitalHumano()
     {

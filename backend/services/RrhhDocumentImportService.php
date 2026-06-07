@@ -7,6 +7,8 @@ use Models\CapHum as CapHumDAO;
 
 class RrhhDocumentImportService
 {
+    private const DOCUMENTO_RFC = 10;
+    private const DOCUMENTO_CONSTANCIA_FISCAL = 22;
     private const DOCUMENTOS_OMITIR = [
         'contrata' => [
             'etiqueta' => 'Contrata',
@@ -113,6 +115,9 @@ class RrhhDocumentImportService
                     'id_persona' => null,
                     'persona' => '',
                     'numero_empleado' => '',
+                    'estatus_persona' => '',
+                    'persona_activa' => null,
+                    'fecha_baja' => '',
                     'score_persona' => 0,
                     'alternativas' => [],
                     'id_documento' => null,
@@ -167,6 +172,9 @@ class RrhhDocumentImportService
                 'id_persona' => $mejor ? (int) ($mejor['id'] ?? 0) : null,
                 'persona' => $mejor ? (string) ($mejor['nombre'] ?? '') : '',
                 'numero_empleado' => $mejor ? (string) ($mejor['numero_empleado'] ?? '') : '',
+                'estatus_persona' => $mejor ? (string) ($mejor['estatus'] ?? '') : '',
+                'persona_activa' => $mejor ? (bool) ($mejor['activa'] ?? false) : null,
+                'fecha_baja' => $mejor ? (string) ($mejor['fecha_baja'] ?? '') : '',
                 'score_persona' => $mejor ? (float) ($mejor['score'] ?? 0) : 0,
                 'alternativas' => $match['alternativas'] ?? [],
                 'id_documento' => $doc ? (int) ($doc['id'] ?? 0) : null,
@@ -356,10 +364,15 @@ class RrhhDocumentImportService
             $norm = $this->normalizarTexto($nombre);
             $tokens = $this->tokens($norm);
             sort($tokens);
+            $estatus = trim((string) ($persona['estatus'] ?? ''));
+            $estatusNorm = $this->normalizarTexto($estatus);
             $out[] = [
                 'id' => (int) ($persona['id'] ?? 0),
                 'numero_empleado' => (string) ($persona['numero_empleado'] ?? ''),
                 'nombre' => $nombre,
+                'estatus' => $estatus,
+                'activa' => $estatusNorm !== 'baja',
+                'fecha_baja' => (string) ($persona['fecha_baja'] ?? ''),
                 'norm' => $norm,
                 'tokens' => $tokens,
                 'token_key' => implode(' ', $tokens),
@@ -489,6 +502,9 @@ class RrhhDocumentImportService
                     'id' => (int) ($persona['id'] ?? 0),
                     'numero_empleado' => (string) ($persona['numero_empleado'] ?? ''),
                     'nombre' => (string) ($persona['nombre'] ?? ''),
+                    'estatus' => (string) ($persona['estatus'] ?? ''),
+                    'activa' => (bool) ($persona['activa'] ?? false),
+                    'fecha_baja' => (string) ($persona['fecha_baja'] ?? ''),
                     'score' => round($score, 1),
                 ];
             }
@@ -585,6 +601,17 @@ class RrhhDocumentImportService
         $indexExistentes = !empty($existentes['success']) && is_array($existentes['datos'] ?? null) ? $existentes['datos'] : [];
 
         $vistos = [];
+        $personasConConstanciaEnLote = [];
+        foreach ($items as $itemLote) {
+            if (($itemLote['estado'] ?? '') !== 'listo') {
+                continue;
+            }
+            $idPersonaLote = (int) ($itemLote['id_persona'] ?? 0);
+            $idDocumentoLote = (int) ($itemLote['id_documento'] ?? 0);
+            if ($idPersonaLote > 0 && $idDocumentoLote === self::DOCUMENTO_CONSTANCIA_FISCAL) {
+                $personasConConstanciaEnLote[$idPersonaLote] = true;
+            }
+        }
         $multiplesPermitidos = [14 => true, 15 => true, 16 => true];
         foreach ($items as &$item) {
             if (($item['estado'] ?? '') !== 'listo') {
@@ -598,6 +625,16 @@ class RrhhDocumentImportService
             $permiteMultiple = !empty($multiplesPermitidos[$idDocumento])
                 || strtoupper((string) ($item['documento_clave'] ?? '')) === 'OTROS'
                 || $this->normalizarTexto((string) ($item['documento'] ?? '')) === 'otros';
+            if (!$permiteMultiple && $idDocumento === self::DOCUMENTO_RFC && !empty($indexExistentes[$idPersona][self::DOCUMENTO_CONSTANCIA_FISCAL])) {
+                $item['estado'] = 'ya_existe';
+                $item['razon'] = 'La Constancia de situacion fiscal ya cubre el RFC.';
+                continue;
+            }
+            if (!$permiteMultiple && $idDocumento === self::DOCUMENTO_RFC && !empty($personasConConstanciaEnLote[$idPersona])) {
+                $item['estado'] = 'duplicado_lote';
+                $item['razon'] = 'En este lote hay Constancia de situacion fiscal; cubre el RFC.';
+                continue;
+            }
             if (!$permiteMultiple && !empty($indexExistentes[$idPersona][$idDocumento])) {
                 $item['estado'] = 'ya_existe';
                 $item['razon'] = 'La persona ya tiene este tipo de documento cargado.';
