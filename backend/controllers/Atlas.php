@@ -22,42 +22,42 @@ class Atlas extends Controller
 
     public function getSucursales()
     {
-        self::respuestaJSON(AtlasDAO::getSucursales());
+        $this->json(AtlasDAO::getSucursales());
     }
 
     public function getCatalogos()
     {
-        self::respuestaJSON(AtlasDAO::getCatalogos());
+        $this->json(AtlasDAO::getCatalogos());
     }
 
     public function guardarSucursal()
     {
-        self::respuestaJSON(AtlasDAO::guardarSucursal($this->payload()));
+        $this->json(AtlasDAO::guardarSucursal($this->payload()));
     }
 
     public function guardarDivision()
     {
-        self::respuestaJSON(AtlasDAO::guardarDivision($this->payload()));
+        $this->json(AtlasDAO::guardarDivision($this->payload()));
     }
 
     public function guardarDistribuidor()
     {
-        self::respuestaJSON(AtlasDAO::guardarDistribuidor($this->payload()));
+        $this->json(AtlasDAO::guardarDistribuidor($this->payload()));
     }
 
     public function guardarDiversificacion()
     {
-        self::respuestaJSON(AtlasDAO::guardarDiversificacion($this->payload()));
+        $this->json(AtlasDAO::guardarDiversificacion($this->payload()));
     }
 
     public function guardarClasificacion()
     {
-        self::respuestaJSON(AtlasDAO::guardarClasificacion($this->payload()));
+        $this->json(AtlasDAO::guardarClasificacion($this->payload()));
     }
 
     public function guardarOrdenClasificaciones()
     {
-        self::respuestaJSON(AtlasDAO::guardarOrdenClasificaciones($this->payload()));
+        $this->json(AtlasDAO::guardarOrdenClasificaciones($this->payload()));
     }
 
     private function payload(): array
@@ -68,5 +68,12 @@ class Atlas extends Controller
             return $json;
         }
         return $_POST ?: [];
+    }
+
+    private function json(array $data): void
+    {
+        header('Content-Type: application/json; charset=utf-8');
+        echo json_encode($data, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+        exit;
     }
 }
