@@ -33,132 +33,13 @@
         .atlas-table-wrap thead th { color: #566a7f; font-size: .76rem; font-weight: 900; letter-spacing: .03em; text-transform: uppercase; white-space: nowrap; border-bottom: 1px solid #dbe4ef; }
         .atlas-table-wrap tbody td { vertical-align: middle; color: #566a7f; border-color: #e8eef5; }
         .atlas-table-wrap.atlas-loading table, .atlas-table-wrap.atlas-loading .dt-container, .atlas-table-wrap.atlas-loading .dataTables_wrapper { opacity: .25; pointer-events: none; }
-        .atlas-form-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .95rem 1rem; }
+        .atlas-form-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .75rem 1rem; }
         .atlas-form-grid > div { min-width: 0; }
         .atlas-field-wide { grid-column: 1 / -1; }
         .atlas-required::after { content: " *"; color: #dc2626; font-weight: 900; }
         .atlas-modal-medium { max-width: min(50rem, 96vw); }
         .atlas-modal-small { max-width: min(35rem, 96vw); }
-        #modalAtlasSucursal .modal-content,
-        #modalAtlasDireccion .modal-content,
-        #modalAtlasCatalogo .modal-content,
-        #modalAtlasMapa .modal-content,
-        #modalAtlasUbicacion .modal-content {
-            border: 0;
-            border-radius: var(--bs-modal-border-radius, .875rem);
-            background: var(--bs-paper-bg, #fff);
-            box-shadow: var(--bs-box-shadow-lg, 0 .25rem .75rem rgba(34, 48, 62, .14));
-            color: var(--bs-body-color, #22303e);
-        }
-        #modalAtlasSucursal .modal-header,
-        #modalAtlasDireccion .modal-header,
-        #modalAtlasCatalogo .modal-header,
-        #modalAtlasMapa .modal-header,
-        #modalAtlasUbicacion .modal-header {
-            padding: 1.5rem 1.5rem 0;
-            border-bottom: 0;
-            background: transparent;
-        }
-        #modalAtlasSucursal .modal-title,
-        #modalAtlasDireccion .modal-title,
-        #modalAtlasCatalogo .modal-title,
-        #modalAtlasMapa .modal-title,
-        #modalAtlasUbicacion .modal-title {
-            display: inline-flex;
-            align-items: center;
-            gap: .5rem;
-            margin: 0;
-            color: var(--bs-heading-color, #22303e);
-            font-size: 1.125rem;
-            font-weight: 700;
-            line-height: 1.375;
-        }
-        #modalAtlasSucursal .modal-title i,
-        #modalAtlasDireccion .modal-title i,
-        #modalAtlasCatalogo .modal-title i,
-        #modalAtlasMapa .modal-title i,
-        #modalAtlasUbicacion .modal-title i {
-            margin-right: 0 !important;
-            color: var(--bs-primary, #26344e);
-        }
-        #modalAtlasSucursal .modal-body,
-        #modalAtlasDireccion .modal-body,
-        #modalAtlasCatalogo .modal-body,
-        #modalAtlasMapa .modal-body,
-        #modalAtlasUbicacion .modal-body {
-            padding: 1.5rem;
-        }
-        #modalAtlasSucursal .modal-footer,
-        #modalAtlasCatalogo .modal-footer {
-            gap: 1rem;
-            padding: 0 1.5rem 1.5rem;
-            border-top: 0;
-            background: transparent;
-        }
-        #modalAtlasSucursal .btn-close,
-        #modalAtlasDireccion .btn-close,
-        #modalAtlasCatalogo .btn-close,
-        #modalAtlasMapa .btn-close,
-        #modalAtlasUbicacion .btn-close {
-            margin: 0;
-            opacity: .6;
-        }
-        #modalAtlasSucursal .btn-close:hover,
-        #modalAtlasDireccion .btn-close:hover,
-        #modalAtlasCatalogo .btn-close:hover,
-        #modalAtlasMapa .btn-close:hover,
-        #modalAtlasUbicacion .btn-close:hover {
-            opacity: 1;
-        }
-        #modalAtlasSucursal .form-label,
-        #modalAtlasCatalogo .form-label {
-            margin-bottom: .38rem;
-            color: #2f3a45;
-            font-size: .86rem;
-            font-weight: 700;
-            line-height: 1.15;
-        }
-        #modalAtlasSucursal input.form-control,
-        #modalAtlasSucursal select.form-select,
-        #modalAtlasCatalogo input.form-control,
-        #modalAtlasCatalogo select.form-select {
-            min-height: 2.875rem;
-            height: 2.875rem;
-        }
-        #modalAtlasSucursal .select2-container .select2-selection--single,
-        #modalAtlasCatalogo .select2-container .select2-selection--single {
-            min-height: 2.875rem;
-            height: 2.875rem;
-            display: flex;
-            align-items: center;
-            border-color: #d1d9e2;
-            border-radius: .6rem;
-        }
-        #modalAtlasSucursal .select2-container--default .select2-selection--single .select2-selection__rendered,
-        #modalAtlasCatalogo .select2-container--default .select2-selection--single .select2-selection__rendered {
-            line-height: 2.875rem;
-            padding-left: .95rem;
-            padding-right: 2rem;
-        }
-        #modalAtlasSucursal .select2-container--default .select2-selection--single .select2-selection__arrow,
-        #modalAtlasCatalogo .select2-container--default .select2-selection--single .select2-selection__arrow {
-            height: 2.875rem;
-            right: .5rem;
-        }
-        .atlas-combo-row { display: grid; grid-template-columns: minmax(0, 1fr) 2.875rem; gap: .45rem; align-items: start; }
-        .atlas-combo-add {
-            width: 2.875rem;
-            min-width: 2.875rem;
-            height: 2.875rem;
-            min-height: 2.875rem;
-            padding: 0 !important;
-            border-radius: .72rem;
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 1rem;
-            line-height: 1;
-        }
+        .atlas-combo-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: .45rem; align-items: end; }
         .atlas-combo-add i { margin: 0; }
         .atlas-cascade-help { display: block; margin-top: .28rem; color: #64748b; font-size: .72rem; font-weight: 700; }
         .atlas-fk-input { max-width: 10rem; text-align: center; font-weight: 900; color: #94a3b8; }
@@ -169,6 +50,7 @@
         .atlas-address-search { position: relative; }
         .atlas-address-search i { position: absolute; left: .9rem; top: 50%; transform: translateY(-50%); color: #64748b; z-index: 2; }
         .atlas-address-search .form-control { padding-left: 2.35rem; }
+        .pac-container { z-index: 200000 !important; }
         .atlas-map-box { min-height: 24rem; border: 1px solid #dbe4ef; border-radius: .75rem; background: #f8fafc; overflow: hidden; }
         #atlas-direccion-mapa, #atlas-mapa-sucursales, #atlas-ubicacion-mapa { min-height: 24rem; width: 100%; }
         .atlas-map-marker {
@@ -314,14 +196,14 @@
                         <div><label class="form-label">FK sucursal</label><input type="text" class="form-control atlas-fk-input" name="fk_sucursal" readonly placeholder="Auto"><span class="atlas-cascade-help">Auto al guardar.</span></div>
                         <div><label class="form-label atlas-required">Sucursal</label><input type="text" class="form-control" name="sucursal" required placeholder="Nombre de la sucursal"></div>
                     </div>
-                    <div><label class="form-label atlas-required">Distribuidor</label><div class="atlas-combo-row"><select class="form-select js-atlas-select-buscador" name="distribuidor_id" id="atlas-sucursal-distribuidor" required></select><button type="button" class="btn btn-sm btn-outline-primary atlas-combo-add" data-atlas-quick-add="distribuidor" data-atlas-target="distribuidor_id" title="Agregar distribuidor" aria-label="Agregar distribuidor"><i class="fa-solid fa-plus"></i></button></div></div>
-                    <div><label class="form-label atlas-required">Clasificación</label><div class="atlas-combo-row"><select class="form-select js-atlas-select-buscador" name="clasificacion_id" id="atlas-sucursal-clasificacion" required></select><button type="button" class="btn btn-sm btn-outline-primary atlas-combo-add" data-atlas-quick-add="clasificacion" data-atlas-target="clasificacion_id" title="Agregar clasificación" aria-label="Agregar clasificación"><i class="fa-solid fa-plus"></i></button></div></div>
+                    <div><label class="form-label atlas-required">Distribuidor</label><div class="atlas-combo-row"><select class="form-select js-atlas-select-buscador" name="distribuidor_id" id="atlas-sucursal-distribuidor" required></select><button type="button" class="btn btn-icon btn-outline-primary atlas-combo-add" data-atlas-quick-add="distribuidor" data-atlas-target="distribuidor_id" title="Agregar distribuidor" aria-label="Agregar distribuidor"><i class="fa-solid fa-plus"></i></button></div></div>
+                    <div><label class="form-label atlas-required">Clasificación</label><div class="atlas-combo-row"><select class="form-select js-atlas-select-buscador" name="clasificacion_id" id="atlas-sucursal-clasificacion" required></select><button type="button" class="btn btn-icon btn-outline-primary atlas-combo-add" data-atlas-quick-add="clasificacion" data-atlas-target="clasificacion_id" title="Agregar clasificación" aria-label="Agregar clasificación"><i class="fa-solid fa-plus"></i></button></div></div>
                     <div><label class="form-label atlas-required">Divisional</label><select class="form-select js-atlas-select-buscador" name="divisional_id" id="atlas-sucursal-divisional" required></select></div>
-                    <div><label class="form-label atlas-required">División</label><div class="atlas-combo-row"><select class="form-select js-atlas-select-buscador" name="division_id" id="atlas-sucursal-division" required></select><button type="button" class="btn btn-sm btn-outline-primary atlas-combo-add" data-atlas-quick-add="division" data-atlas-target="division_id" title="Agregar división" aria-label="Agregar división"><i class="fa-solid fa-plus"></i></button></div><span class="atlas-cascade-help">Se habilita después de seleccionar un divisional.</span></div>
+                    <div><label class="form-label atlas-required">División</label><div class="atlas-combo-row"><select class="form-select js-atlas-select-buscador" name="division_id" id="atlas-sucursal-division" required></select><button type="button" class="btn btn-icon btn-outline-primary atlas-combo-add" data-atlas-quick-add="division" data-atlas-target="division_id" title="Agregar división" aria-label="Agregar división"><i class="fa-solid fa-plus"></i></button></div><span class="atlas-cascade-help">Se habilita después de seleccionar un divisional.</span></div>
                     <div><label class="form-label atlas-required">Regional</label><select class="form-select js-atlas-select-buscador" name="regional_id" id="atlas-sucursal-regional" required></select><span class="atlas-cascade-help">Se habilita después de seleccionar una división.</span></div>
                     <div><label class="form-label atlas-required">Supervisor</label><select class="form-select js-atlas-select-buscador" name="supervisor_id" id="atlas-sucursal-supervisor" required></select></div>
                     <div><label class="form-label atlas-required">Asesor</label><select class="form-select js-atlas-select-buscador" name="asesor_id" id="atlas-sucursal-asesor" required></select></div>
-                    <div><label class="form-label atlas-required">Diversificación</label><div class="atlas-combo-row"><select class="form-select js-atlas-select-buscador" name="diversificacion_id" id="atlas-sucursal-diversificacion" required></select><button type="button" class="btn btn-sm btn-outline-primary atlas-combo-add" data-atlas-quick-add="diversificacion" data-atlas-target="diversificacion_id" title="Agregar diversificación" aria-label="Agregar diversificación"><i class="fa-solid fa-plus"></i></button></div></div>
+                    <div><label class="form-label atlas-required">Diversificación</label><div class="atlas-combo-row"><select class="form-select js-atlas-select-buscador" name="diversificacion_id" id="atlas-sucursal-diversificacion" required></select><button type="button" class="btn btn-icon btn-outline-primary atlas-combo-add" data-atlas-quick-add="diversificacion" data-atlas-target="diversificacion_id" title="Agregar diversificación" aria-label="Agregar diversificación"><i class="fa-solid fa-plus"></i></button></div></div>
                     <div><label class="form-label atlas-required">Estatus</label><select class="form-select js-atlas-select-buscador" name="activo" required><option value="1">Activa</option><option value="0">Inactiva</option></select></div>
                     <div class="atlas-field-wide"><label class="form-label atlas-required">Dirección</label><textarea class="form-control atlas-address-field" name="direccion_sucursal" id="atlas-sucursal-direccion" rows="2" readonly required placeholder="Da clic para buscar la dirección en el mapa"></textarea><span class="atlas-cascade-help">La dirección se captura desde Google Maps para calcular estado, municipio, localidad, CP y coordenadas.</span></div>
                     <div class="atlas-location-fields atlas-field-wide">
@@ -429,6 +311,7 @@
     let atlasDireccionAutocomplete = null;
     let atlasDireccionGeocoder = null;
     let atlasDireccionActual = null;
+    let atlasDireccionContext = null;
     let atlasDireccionMapClickReady = false;
     let atlasUbicacionMapa = null;
     let atlasUbicacionMarker = null;
@@ -452,6 +335,15 @@
     function numeroValido(v) { if (v == null || v === '') return null; const n = Number(String(v).trim()); return Number.isFinite(n) ? n : null; }
     function sucursalConCoordenadas(row) { const lat = numeroValido(row.latitud); const lng = numeroValido(row.longitud); if (lat == null || lng == null || Math.abs(lat) < 1e-9 && Math.abs(lng) < 1e-9) return null; return Object.assign({}, row, { _lat: lat, _lng: lng }); }
     function formToJson(form) { const data = {}; Array.from(new FormData(form).entries()).forEach(pair => { data[pair[0]] = pair[1]; }); return data; }
+    function formSnapshot(form) {
+        const data = {};
+        if (!form) return data;
+        Array.from(form.elements || []).forEach(el => {
+            if (!el || !el.name) return;
+            data[el.name] = el.value == null ? '' : String(el.value);
+        });
+        return data;
+    }
     function setFormValue(form, name, value) {
         const el = form ? form.elements[name] : null;
         if (!el) return;
@@ -736,8 +628,8 @@
         }
     }
     async function cargarCatalogos(opciones) {
-        atlasSetCatalogosLoading(true);
         const opts = opciones || {};
+        if (!opts.silencioso) atlasSetCatalogosLoading(true);
         const valores = opts.valoresSucursal ? Object.assign({}, opts.valoresSucursal) : {};
         if (opts.seleccionar && opts.seleccionar.name) valores[opts.seleccionar.name] = String(opts.seleccionar.id || '');
         try {
@@ -752,7 +644,7 @@
             Object.keys(valores).forEach(key => setFormValue(formSucursal, key, valores[key]));
             renderCatalogos();
         } catch (err) {
-            atlasSetCatalogosLoading(false);
+            if (!opts.silencioso) atlasSetCatalogosLoading(false);
             throw err;
         }
     }
@@ -829,6 +721,59 @@
             return;
         }
         abrir();
+    }
+    function refrescarCombosSucursal(valores) {
+        const v = valores || valoresSucursalActuales();
+        llenarSelect('atlas-sucursal-distribuidor', catalogos.distribuidores, 'Selecciona distribuidor');
+        llenarSelect('atlas-sucursal-diversificacion', catalogos.diversificaciones, 'Selecciona diversificaciÃ³n');
+        llenarSelect('atlas-sucursal-clasificacion', catalogos.clasificaciones, 'Selecciona clasificaciÃ³n');
+        actualizarCascadaSucursal(v);
+        Object.keys(v).forEach(key => setFormValue(formSucursal, key, v[key]));
+    }
+    function agregarCatalogoLocal(tipo, payload, id) {
+        const nuevoId = String(id || '');
+        if (!nuevoId) return;
+        const activo = Number(payload.activo ?? 1) === 1 ? 1 : 0;
+        const nombre = String(payload.nombre || '').trim();
+        if (!nombre) return;
+        if (tipo === 'distribuidor') {
+            catalogos.distribuidores = (catalogos.distribuidores || []).filter(row => String(row.id || '') !== nuevoId).concat([{ id: nuevoId, nombre: nombre, activo: activo }]);
+        } else if (tipo === 'diversificacion') {
+            catalogos.diversificaciones = (catalogos.diversificaciones || []).filter(row => String(row.id || '') !== nuevoId).concat([{ id: nuevoId, nombre: nombre, activo: activo }]);
+        } else if (tipo === 'division') {
+            const divisionalId = String(payload.divisional_id || '');
+            const divisional = findCatalogo('divisionales', divisionalId);
+            catalogos.divisiones = (catalogos.divisiones || []).filter(row => String(row.id || '') !== nuevoId).concat([{ id: nuevoId, nombre: nombre, activo: activo, divisional_id: divisionalId, divisional_nombre: divisional ? divisional.nombre : '' }]);
+        } else if (tipo === 'clasificacion') {
+            const ordenes = (catalogos.clasificaciones || []).map(row => parseInt(row.orden, 10) || 0);
+            const siguienteOrden = Math.max(0, ...ordenes) + 1;
+            catalogos.clasificaciones = (catalogos.clasificaciones || []).filter(row => String(row.id || '') !== nuevoId).concat([{
+                id: nuevoId,
+                nombre: nombre,
+                activo: activo,
+                icon_font: payload.icon_font || 'fa-solid fa-tags',
+                color_hex: colorHexSeguro(payload.color_hex || '#94A3B8'),
+                orden: siguienteOrden
+            }]);
+        }
+        renderCatalogos();
+    }
+    function restaurarSucursalRapido(snapshot, seleccionar) {
+        const valores = Object.assign({}, snapshot || {});
+        if (seleccionar && seleccionar.name) valores[seleccionar.name] = String(seleccionar.id || '');
+        refrescarCombosSucursal(valores);
+        mostrarModal(modalSucursalEl);
+    }
+    function restaurarSucursalDesdeQuickAdd(ctx) {
+        if (!ctx || !ctx.target || !formSucursal) return;
+        const snapshot = Object.assign({}, ctx.snapshot || {});
+        restaurarSucursalRapido(snapshot);
+    }
+    function restaurarSucursalDesdeDireccion() {
+        const ctx = atlasDireccionContext;
+        if (!ctx || !formSucursal) return;
+        atlasDireccionContext = null;
+        restaurarSucursalRapido(Object.assign({}, ctx.snapshot || {}));
     }
     async function cargarGoogleMapsAtlas(requierePlaces) {
         if (typeof google !== 'undefined' && google.maps && (!requierePlaces || google.maps.places)) return;
@@ -959,6 +904,7 @@
             });
         }
         if (direccionBusqueda && !atlasDireccionAutocomplete) {
+            direccionBusqueda.setAttribute('autocomplete', 'off');
             atlasDireccionAutocomplete = new google.maps.places.Autocomplete(direccionBusqueda, { fields: ['formatted_address','geometry','address_components'], componentRestrictions: { country: 'mx' } });
             atlasDireccionAutocomplete.addListener('place_changed', function () {
                 const place = atlasDireccionAutocomplete.getPlace();
@@ -981,20 +927,41 @@
     }
     function abrirDireccionGoogle() {
         if (modalDireccionEl && modalDireccionEl.classList.contains('show')) return;
-        if (direccionBusqueda) direccionBusqueda.value = getFormValue(formSucursal, 'direccion_sucursal');
+        const snapshot = formSnapshot(formSucursal);
+        atlasDireccionContext = { snapshot: snapshot };
+        if (direccionBusqueda) direccionBusqueda.value = snapshot.direccion_sucursal || '';
         atlasDireccionActual = null;
-        mostrarModal(modalDireccionEl);
+        const abrir = function () { mostrarModal(modalDireccionEl); };
+        if (modalSucursalEl && modalSucursalEl.classList.contains('show')) {
+            let abierto = false;
+            const abrirUnaVez = function () {
+                if (abierto) return;
+                abierto = true;
+                abrir();
+            };
+            modalSucursalEl.addEventListener('hidden.bs.modal', abrirUnaVez, { once: true });
+            cerrarModal(modalSucursalEl);
+            setTimeout(function () {
+                if (!modalDireccionEl || !modalDireccionEl.classList.contains('show')) abrirUnaVez();
+            }, 260);
+            return;
+        }
+        abrir();
     }
     function confirmarDireccionGoogle() {
         if (!formSucursal || !atlasDireccionActual || !atlasDireccionActual.direccion) {
             if (typeof Swal !== 'undefined') Swal.fire({ icon: 'warning', title: 'Selecciona una direccion', text: 'Elige una sugerencia, presiona Enter o da clic en el mapa.' });
             return;
         }
-        setFormValue(formSucursal, 'direccion_sucursal', atlasDireccionActual.direccion);
-        setFormValue(formSucursal, 'latitud', atlasDireccionActual.lat.toFixed(7));
-        setFormValue(formSucursal, 'longitud', atlasDireccionActual.lng.toFixed(7));
-        setFormValue(formSucursal, 'coordenadas', atlasDireccionActual.lat.toFixed(7) + ',' + atlasDireccionActual.lng.toFixed(7));
-        ['estado','municipio','localidad','codigo_postal'].forEach(key => { if (atlasDireccionActual[key]) setFormValue(formSucursal, key, atlasDireccionActual[key]); });
+        const valores = {
+            direccion_sucursal: atlasDireccionActual.direccion,
+            latitud: atlasDireccionActual.lat.toFixed(7),
+            longitud: atlasDireccionActual.lng.toFixed(7),
+            coordenadas: atlasDireccionActual.lat.toFixed(7) + ',' + atlasDireccionActual.lng.toFixed(7)
+        };
+        ['estado','municipio','localidad','codigo_postal'].forEach(key => { if (atlasDireccionActual[key]) valores[key] = atlasDireccionActual[key]; });
+        Object.keys(valores).forEach(key => setFormValue(formSucursal, key, valores[key]));
+        if (atlasDireccionContext && atlasDireccionContext.snapshot) Object.assign(atlasDireccionContext.snapshot, valores);
         cerrarModal(modalDireccionEl);
     }
     function initOrdenClasificaciones() {
@@ -1109,7 +1076,7 @@
             });
         });
         const dir = formSucursal.elements.direccion_sucursal;
-        if (dir) { dir.addEventListener('click', abrirDireccionGoogle); dir.addEventListener('focus', abrirDireccionGoogle); }
+        if (dir) dir.addEventListener('click', abrirDireccionGoogle);
         formSucursal.addEventListener('submit', async function (ev) {
             ev.preventDefault();
             try { validarSucursalObligatoria(); await guardarJson('/Atlas/guardarSucursal', formToJson(formSucursal)); cerrarModal(modalSucursalEl); await cargarSucursales(); }
@@ -1122,6 +1089,14 @@
     if (direccionBusqueda) direccionBusqueda.addEventListener('keydown', function (ev) { if (ev.key === 'Enter') { ev.preventDefault(); resolverDireccionPorTexto(); } });
     if (btnMapa) btnMapa.addEventListener('click', renderMapa);
     if (btnRecargar) btnRecargar.addEventListener('click', function () { Promise.all([cargarCatalogos(), cargarSucursales()]).catch(() => {}); });
+    if (modalCatalogoEl) {
+        modalCatalogoEl.addEventListener('hidden.bs.modal', function () {
+            const ctx = atlasQuickAddContext;
+            if (!ctx || ctx.guardado) return;
+            atlasQuickAddContext = null;
+            restaurarSucursalDesdeQuickAdd(ctx);
+        });
+    }
     if (formCatalogo) {
         formCatalogo.addEventListener('submit', async function (ev) {
             ev.preventDefault();
@@ -1130,12 +1105,13 @@
             try {
                 const ctx = atlasQuickAddContext;
                 const data = await guardarJson(urls[tipo], payload);
+                if (atlasQuickAddContext) atlasQuickAddContext.guardado = true;
                 cerrarModal(modalCatalogoEl);
                 if (ctx && ctx.target) {
                     atlasQuickAddContext = null;
-                    await cargarCatalogos({ valoresSucursal: ctx.snapshot || {}, seleccionar: { name: ctx.target, id: data.id } });
+                    agregarCatalogoLocal(tipo, payload, data.id);
                     atlasOcultarLoaderGlobal();
-                    setTimeout(function () { mostrarModal(modalSucursalEl); }, 80);
+                    restaurarSucursalRapido(ctx.snapshot || {}, { name: ctx.target, id: data.id });
                     return;
                 }
                 atlasQuickAddContext = null;
