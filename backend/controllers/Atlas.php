@@ -179,16 +179,7 @@ class Atlas extends Controller
 
     private function atlasNotificacionesPathPermitido(string $path): bool
     {
-        if (in_array($path, [
-            '/api/atlas/notifications/send',
-            '/api/atlas/push-campaigns',
-            '/api/atlas/push-notifications/log',
-            '/api/atlas/notifications/inbox',
-            '/api/atlas/push-tokens',
-        ], true)) return true;
-
-        return (bool)preg_match('#^/api/atlas/notifications/\d+$#', $path)
-            || (bool)preg_match('#^/api/atlas/notifications/inbox/\d+/(read|hide)$#', $path);
+        return $path === '/api/atlas/notifications/send';
     }
 
     private function atlasAdminApiKey(): string

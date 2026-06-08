@@ -6,6 +6,9 @@
         .atlas-notif-title { display: flex; align-items: center; gap: .7rem; margin: 0; color: #173756; font-size: 1.3rem; font-weight: 900; }
         .atlas-notif-title i { color: #2563eb; }
         .atlas-notif-subtitle { margin: .2rem 0 0; color: #64748b; font-size: .86rem; font-weight: 700; }
+        .atlas-notif-shell { border: 1px solid #e2e8f0; border-radius: .85rem; background: #fff; box-shadow: 0 .125rem .375rem rgba(34, 48, 62, .08); }
+        .atlas-notif-shell .card-body { padding: 1rem; }
+        .atlas-notif-shell .select2-container { max-width: 100% !important; }
         .atlas-notif-tabs { border-bottom: 1px solid #e2e8f0; margin-bottom: 1rem; gap: .35rem; flex-wrap: wrap; }
         .atlas-notif-tabs .nav-link { border: 0; border-bottom: 3px solid transparent; color: #64748b; font-weight: 800; padding: .65rem .9rem; }
         .atlas-notif-tabs .nav-link.active { color: #173756; border-bottom-color: #2563eb; background: transparent; }
@@ -51,19 +54,39 @@
         .atlas-template-card:hover, .atlas-template-card.is-active { border-color: #2563eb; background: #f8fbff; }
         .atlas-template-card-title { color: #173756; font-size: .84rem; font-weight: 900; line-height: 1.15; }
         .atlas-template-card-meta { color: #64748b; font-size: .72rem; font-weight: 800; margin-top: .18rem; text-transform: uppercase; letter-spacing: .02em; }
-        .atlas-template-editor { min-height: 16rem; background: #fff; }
+        .atlas-template-editor, .atlas-message-editor { min-height: 16rem; background: #fff; }
+        .atlas-message-editor { min-height: 12rem; }
         .atlas-template-editor .ql-editor { min-height: 14rem; font-size: .9rem; }
+        .atlas-message-editor .ql-editor { min-height: 10rem; font-size: .9rem; }
+        .atlas-template-editor .ql-editor img,
+        .atlas-message-editor .ql-editor img { max-width: 100%; height: auto; cursor: pointer; }
+        .atlas-quill-img-selected { outline: 3px solid rgba(37, 99, 235, .38); outline-offset: 3px; border-radius: .35rem; }
+        .atlas-quill-image-tools {
+            position: fixed; z-index: 1095; display: none; align-items: center; gap: .2rem;
+            padding: .28rem; border: 1px solid #dbe4ef; border-radius: .55rem; background: rgba(255,255,255,.98);
+            box-shadow: 0 10px 28px rgba(15,23,42,.18);
+        }
+        .atlas-quill-image-tools button {
+            width: 2rem; height: 2rem; border: 0; border-radius: .45rem; background: #f8fafc; color: #173756;
+            font-size: .72rem; font-weight: 900; display: inline-flex; align-items: center; justify-content: center;
+        }
+        .atlas-quill-image-tools button:hover { background: #e0ecff; color: #1d4ed8; }
+        .atlas-quill-image-resize {
+            position: fixed; z-index: 1096; display: none; width: 14px; height: 14px; border: 2px solid #fff;
+            border-radius: 999px; background: #2563eb; box-shadow: 0 4px 12px rgba(15,23,42,.25); cursor: nwse-resize;
+        }
         .atlas-template-preview { border: 1px solid #e2e8f0; border-radius: .65rem; padding: .9rem; background: #fff; min-height: 10rem; color: #22303e; }
-        .atlas-dest-panel { border: 1px solid #dbe4ef; border-radius: .7rem; padding: .85rem; background: #f8fafc; }
-        .atlas-dest-list { max-height: 16rem; overflow: auto; border: 1px solid #dbe4ef; border-radius: .65rem; background: #fff; }
+        .atlas-dest-panel { min-width: 0; overflow-x: hidden; }
+        .atlas-dest-list { max-height: 16rem; overflow-y: auto; overflow-x: hidden; border: 1px solid #dbe4ef; border-radius: .65rem; background: #fff; }
         .atlas-dest-row { display: flex; align-items: center; gap: .55rem; padding: .55rem .7rem; border-bottom: 1px solid #eef2f7; cursor: pointer; }
         .atlas-dest-row:last-child { border-bottom: 0; }
         .atlas-dest-row:hover { background: #f8fbff; }
         .atlas-dest-row input { flex: 0 0 auto; }
+        .atlas-dest-row > div { min-width: 0; max-width: 100%; }
         .atlas-dest-name { color: #22303e; font-size: .82rem; font-weight: 900; line-height: 1.12; }
         .atlas-dest-meta { color: #94a3b8; font-size: .7rem; font-weight: 800; line-height: 1.15; margin-top: .1rem; }
+        .atlas-dest-name, .atlas-dest-meta { overflow-wrap: anywhere; word-break: normal; }
         .atlas-dest-mode[hidden] { display: none !important; }
-        .atlas-notif-page .select2-container { width: 100% !important; }
         @media (max-width: 1199.98px) { .atlas-notif-tab-grid { grid-template-columns: 1fr; } }
         @media (max-width: 991.98px) { .atlas-notif-send-grid, .atlas-notif-grid-3, .atlas-template-list { grid-template-columns: 1fr; } }
         @media (max-width: 575.98px) {
@@ -91,16 +114,18 @@
         </div>
     </div>
 
-    <ul class="nav atlas-notif-tabs" id="atlas-notif-tabs" role="tablist">
-        <li class="nav-item" role="presentation"><button class="nav-link active" type="button" role="tab" data-bs-toggle="tab" data-bs-target="#atlas-notif-tab-enviar"><i class="fa-solid fa-paper-plane me-1"></i>Notificaciones</button></li>
-        <li class="nav-item" role="presentation"><button class="nav-link" type="button" role="tab" data-bs-toggle="tab" data-bs-target="#atlas-notif-tab-historial"><i class="fa-solid fa-clock-rotate-left me-1"></i>Historial</button></li>
-        <li class="nav-item" role="presentation"><button class="nav-link" type="button" role="tab" data-bs-toggle="tab" data-bs-target="#atlas-notif-tab-monitoreo"><i class="fa-solid fa-chart-simple me-1"></i>Monitoreo</button></li>
-        <li class="nav-item" role="presentation"><button class="nav-link" type="button" role="tab" data-bs-toggle="tab" data-bs-target="#atlas-notif-tab-plantillas"><i class="fa-solid fa-layer-group me-1"></i>Plantillas</button></li>
-    </ul>
+    <div class="card atlas-notif-shell">
+        <div class="card-body">
+            <ul class="nav atlas-notif-tabs" id="atlas-notif-tabs" role="tablist">
+                <li class="nav-item" role="presentation"><button class="nav-link active" type="button" role="tab" data-bs-toggle="tab" data-bs-target="#atlas-notif-tab-enviar"><i class="fa-solid fa-paper-plane me-1"></i>Notificaciones</button></li>
+                <li class="nav-item" role="presentation"><button class="nav-link" type="button" role="tab" data-bs-toggle="tab" data-bs-target="#atlas-notif-tab-historial"><i class="fa-solid fa-clock-rotate-left me-1"></i>Historial</button></li>
+                <li class="nav-item" role="presentation"><button class="nav-link" type="button" role="tab" data-bs-toggle="tab" data-bs-target="#atlas-notif-tab-monitoreo"><i class="fa-solid fa-chart-simple me-1"></i>Monitoreo</button></li>
+                <li class="nav-item" role="presentation"><button class="nav-link" type="button" role="tab" data-bs-toggle="tab" data-bs-target="#atlas-notif-tab-plantillas"><i class="fa-solid fa-layer-group me-1"></i>Plantillas</button></li>
+            </ul>
 
-    <div class="tab-content p-0">
-        <div class="tab-pane fade" id="atlas-notif-tab-plantillas" role="tabpanel">
-            <div class="atlas-notif-tab-grid">
+            <div class="tab-content p-0">
+                <div class="tab-pane fade" id="atlas-notif-tab-plantillas" role="tabpanel">
+                    <div class="atlas-notif-tab-grid">
                 <div class="atlas-notif-card">
                     <div class="atlas-notif-card-head">
                         <h5><span class="atlas-notif-step">1</span><i class="fa-solid fa-layer-group"></i>Plantillas</h5>
@@ -128,33 +153,31 @@
                                 </select>
                             </div>
                             <div><label class="form-label">Asunto</label><input type="text" class="form-control" name="asunto" placeholder="Título sugerido para el aviso"></div>
-                            <div><label class="form-label">Imagen URL</label><input type="url" class="form-control" name="imagen_url" placeholder="https://..."></div>
-                            <div class="atlas-notif-field-wide"><label class="form-label">Mensaje corto</label><textarea class="form-control" name="mensaje_texto" rows="2" placeholder="Texto corto para push o resumen"></textarea></div>
+                            <div class="atlas-notif-field-wide"><label class="form-label">Resumen corto</label><textarea class="form-control" name="mensaje_texto" rows="2" placeholder="Texto breve para la notificación"></textarea></div>
                             <div><label class="form-label">Estatus</label><select class="form-select" name="activo"><option value="1">Activa</option><option value="0">Inactiva</option></select></div>
                         </div>
                         <div class="mt-3">
-                            <label class="form-label">Contenido HTML *</label>
+                            <label class="form-label">Contenido completo del mensaje *</label>
                             <div id="atlas-template-editor" class="atlas-template-editor"></div>
                         </div>
                         <div class="atlas-notif-actions">
-                            <button type="button" class="btn btn-outline-primary" id="atlas-template-btn-imagen"><i class="fa-solid fa-image me-1"></i>Insertar imagen URL</button>
+                            <button type="button" class="btn btn-outline-primary" id="atlas-template-btn-imagen"><i class="fa-solid fa-image me-1"></i>Insertar imagen</button>
                             <button type="submit" class="btn btn-primary"><i class="fa-solid fa-floppy-disk me-1"></i>Guardar plantilla</button>
                         </div>
                     </form>
                     <div class="mt-3">
-                        <label class="form-label">Vista previa HTML</label>
+                        <label class="form-label">Vista previa del contenido</label>
                         <div class="atlas-template-preview" id="atlas-template-preview"></div>
                     </div>
                 </div>
-            </div>
-        </div>
+                    </div>
+                </div>
 
-        <div class="tab-pane fade show active" id="atlas-notif-tab-enviar" role="tabpanel">
-            <div class="atlas-notif-tab-grid">
+                <div class="tab-pane fade show active" id="atlas-notif-tab-enviar" role="tabpanel">
+                    <div class="atlas-notif-tab-grid">
                 <div class="atlas-notif-card">
                     <div class="atlas-notif-card-head">
                         <h5><i class="fa-solid fa-pen-to-square"></i>Contenido del envío</h5>
-                        <span class="atlas-notif-muted">Este contenido se usa para push e inbox.</span>
                     </div>
                     <form id="atlas-notif-form-aviso" autocomplete="off">
                         <input type="hidden" name="type" value="aviso_especial">
@@ -171,18 +194,17 @@
                                 </select>
                             </div>
                             <div><label class="form-label">Título *</label><input type="text" class="form-control" name="titulo" required placeholder="Ej. Nuevo aviso disponible"></div>
-                            <div class="atlas-notif-field-wide"><label class="form-label">Mensaje *</label><textarea class="form-control" name="mensaje" rows="3" required placeholder="Mensaje corto para mostrar en la app"></textarea></div>
-                            <div class="atlas-notif-field-wide"><label class="form-label">Imagen URL</label><input type="url" class="form-control" name="imagen_url" placeholder="https://..."></div>
+                            <div class="atlas-notif-field-wide"><label class="form-label">Resumen corto *</label><input type="text" class="form-control" name="mensaje" required placeholder="Texto breve que verá el usuario en la notificación"></div>
+                            <div class="atlas-notif-field-wide">
+                                <label class="form-label">Contenido completo para la app</label>
+                                <div id="atlas-message-editor" class="atlas-message-editor"></div>
+                            </div>
                         </div>
                         <input type="hidden" name="html" value="">
                         <div class="mt-3">
-                            <div class="atlas-notif-card-head mb-2">
-                                <h5><i class="fa-solid fa-paper-plane"></i>Elegir destinatarios</h5>
-                                <span class="atlas-notif-muted">Elige a quién se envía.</span>
-                            </div>
                             <div class="atlas-dest-panel atlas-dest-mode" id="atlas-dest-unico">
                                 <label class="form-label">Destinatario *</label>
-                                <select class="form-select" id="atlas-notif-destinatario-unico">
+                                <select class="form-select js-atlas-select-buscador" id="atlas-notif-destinatario-unico">
                                     <option value="">Selecciona destinatario</option>
                                 </select>
                             </div>
@@ -208,19 +230,18 @@
                 <div class="atlas-notif-card atlas-notif-preview">
                     <div class="atlas-notif-card-head">
                         <h5><i class="fa-solid fa-eye"></i>Vista previa</h5>
-                        <span class="atlas-notif-muted">Así se arma el aviso.</span>
                     </div>
                     <div class="atlas-notif-phone">
                         <div class="atlas-notif-phone-title" id="atlas-notif-preview-title">Título de la notificación</div>
-                        <div class="atlas-notif-phone-msg" id="atlas-notif-preview-msg">Mensaje corto para el usuario.</div>
+                        <div class="atlas-notif-phone-msg" id="atlas-notif-preview-msg">Resumen corto para el usuario.</div>
                         <img src="" alt="" class="atlas-notif-phone-img" id="atlas-notif-preview-img">
                     </div>
                 </div>
-            </div>
-        </div>
+                    </div>
+                </div>
 
-        <div class="tab-pane fade" id="atlas-notif-tab-historial" role="tabpanel">
-            <div class="atlas-notif-card">
+                <div class="tab-pane fade" id="atlas-notif-tab-historial" role="tabpanel">
+                    <div class="atlas-notif-card">
                 <div class="atlas-notif-card-head">
                     <h5><i class="fa-solid fa-clock-rotate-left"></i>Historial de envíos</h5>
                     <span class="atlas-notif-muted">Registro general de notificaciones enviadas.</span>
@@ -242,14 +263,14 @@
                         <tbody id="atlas-notif-historial-body"><tr><td colspan="5" class="atlas-notif-empty">Cargando historial...</td></tr></tbody>
                     </table>
                 </div>
-            </div>
-        </div>
+                    </div>
+                </div>
 
-        <div class="tab-pane fade" id="atlas-notif-tab-monitoreo" role="tabpanel">
-            <div class="atlas-notif-card">
+                <div class="tab-pane fade" id="atlas-notif-tab-monitoreo" role="tabpanel">
+                    <div class="atlas-notif-card">
                 <div class="atlas-notif-card-head">
                     <h5><i class="fa-solid fa-users-viewfinder"></i>Usuarios disponibles</h5>
-                    <span class="atlas-notif-muted">Usuarios con dispositivo activo para recibir notificaciones.</span>
+                    <span class="atlas-notif-muted">Usuarios con dispositivo registrado para recibir notificaciones.</span>
                 </div>
                 <div class="atlas-notif-tools">
                     <button type="button" class="btn btn-primary" data-atlas-usuarios-disponibles="1"><i class="fa-solid fa-rotate me-1"></i>Actualizar usuarios</button>
@@ -259,6 +280,8 @@
                         <thead><tr><th>Usuario</th><th>Identificador</th><th>Dispositivo</th><th>Última actividad</th></tr></thead>
                         <tbody id="atlas-notif-usuarios-body"><tr><td colspan="4" class="atlas-notif-empty">Actualiza para ver usuarios disponibles.</td></tr></tbody>
                     </table>
+                </div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -272,13 +295,27 @@
     let atlasPlantillas = [];
     let atlasPlantillaActual = null;
     let atlasTemplateQuill = null;
+    let atlasMessageQuill = null;
     let atlasUsuariosDisponibles = [];
     let atlasDestinatariosSeleccionados = new Set();
+    const atlasQuillImageState = { img: null, quill: null, tools: null, handle: null, dragging: false, startX: 0, startWidth: 0, editorWidth: 0 };
 
     function esc(v) { return String(v == null ? '' : v).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
     function setKpi(id, value) { const el = document.getElementById(id); if (el) el.textContent = Number(value || 0).toLocaleString('es-MX'); }
     function setTexto(id, value) { const el = document.getElementById(id); if (el) el.textContent = value == null ? '' : String(value); }
     function formToJson(form) { const data = {}; Array.from(new FormData(form).entries()).forEach(pair => { data[pair[0]] = pair[1]; }); return data; }
+    function textoDesdeContenido(v) {
+        const html = String(v || '').trim();
+        if (!html) return '';
+        const tmp = document.createElement('div');
+        tmp.innerHTML = html;
+        return (tmp.textContent || tmp.innerText || '').replace(/\n{3,}/g, '\n\n').trim();
+    }
+    function contenidoDesdeTexto(v) {
+        const texto = String(v || '').trim();
+        if (!texto) return '';
+        return texto.split(/\n{2,}/).map(parrafo => '<p>' + esc(parrafo).replace(/\n/g, '<br>') + '</p>').join('');
+    }
     function showBusy() { if (typeof Swal !== 'undefined') Swal.fire({ title: 'Procesando su petición', text: 'Espere un momento...', allowOutsideClick: false, allowEscapeKey: false, showConfirmButton: false, didOpen: function () { Swal.showLoading(); } }); }
     function hideBusy() {
         if (typeof Swal === 'undefined') return;
@@ -310,6 +347,162 @@
         if (!atlasTemplateQuill) return '';
         return atlasTemplateQuill.root.innerHTML || '';
     }
+    function messageHtmlActual() {
+        if (!atlasMessageQuill) return '';
+        return atlasMessageQuill.root.innerHTML || '';
+    }
+    function setMessageHtml(html) {
+        if (atlasMessageQuill) {
+            atlasMessageQuill.root.innerHTML = html || '';
+        }
+        const form = document.getElementById('atlas-notif-form-aviso');
+        if (form && form.elements.html) form.elements.html.value = html || '';
+    }
+    function atlasQuillImageEnsureTools() {
+        if (atlasQuillImageState.tools && atlasQuillImageState.handle) return;
+        const tools = document.createElement('div');
+        tools.className = 'atlas-quill-image-tools';
+        tools.innerHTML = [
+            '<button type="button" data-atlas-img-size="small" title="Imagen pequeña">S</button>',
+            '<button type="button" data-atlas-img-size="medium" title="Imagen mediana">M</button>',
+            '<button type="button" data-atlas-img-size="large" title="Imagen grande">L</button>',
+            '<button type="button" data-atlas-img-align="left" title="Alinear izquierda"><i class="fa-solid fa-align-left"></i></button>',
+            '<button type="button" data-atlas-img-align="center" title="Centrar"><i class="fa-solid fa-align-center"></i></button>',
+            '<button type="button" data-atlas-img-align="right" title="Alinear derecha"><i class="fa-solid fa-align-right"></i></button>'
+        ].join('');
+        const handle = document.createElement('div');
+        handle.className = 'atlas-quill-image-resize';
+        document.body.appendChild(tools);
+        document.body.appendChild(handle);
+        atlasQuillImageState.tools = tools;
+        atlasQuillImageState.handle = handle;
+        tools.addEventListener('mousedown', ev => ev.preventDefault());
+        tools.addEventListener('click', function (ev) {
+            const sizeBtn = ev.target.closest('[data-atlas-img-size]');
+            const alignBtn = ev.target.closest('[data-atlas-img-align]');
+            if (sizeBtn) atlasQuillImageSetSize(sizeBtn.getAttribute('data-atlas-img-size'));
+            if (alignBtn) atlasQuillImageSetAlign(alignBtn.getAttribute('data-atlas-img-align'));
+        });
+        handle.addEventListener('mousedown', function (ev) {
+            if (!atlasQuillImageState.img) return;
+            ev.preventDefault();
+            const editor = atlasQuillImageState.quill ? atlasQuillImageState.quill.root : null;
+            atlasQuillImageState.dragging = true;
+            atlasQuillImageState.startX = ev.clientX;
+            atlasQuillImageState.startWidth = atlasQuillImageState.img.getBoundingClientRect().width;
+            atlasQuillImageState.editorWidth = editor ? editor.getBoundingClientRect().width : atlasQuillImageState.startWidth;
+            document.body.style.userSelect = 'none';
+        });
+        document.addEventListener('mousemove', atlasQuillImageResizeMove);
+        document.addEventListener('mouseup', atlasQuillImageResizeEnd);
+        window.addEventListener('scroll', atlasQuillImagePositionTools, true);
+        window.addEventListener('resize', atlasQuillImagePositionTools);
+        document.addEventListener('click', function (ev) {
+            if (!atlasQuillImageState.img) return;
+            if (ev.target.closest('.atlas-quill-image-tools') || ev.target === atlasQuillImageState.handle || ev.target === atlasQuillImageState.img) return;
+            atlasQuillImageHideTools();
+        });
+    }
+    function atlasQuillImagePositionTools() {
+        const img = atlasQuillImageState.img;
+        const tools = atlasQuillImageState.tools;
+        const handle = atlasQuillImageState.handle;
+        if (!img || !tools || !handle || !document.body.contains(img)) {
+            atlasQuillImageHideTools();
+            return;
+        }
+        const rect = img.getBoundingClientRect();
+        tools.style.display = 'flex';
+        handle.style.display = 'block';
+        const toolsTop = Math.max(8, rect.top - tools.offsetHeight - 8);
+        const toolsLeft = Math.max(8, Math.min(rect.left, window.innerWidth - tools.offsetWidth - 8));
+        tools.style.top = toolsTop + 'px';
+        tools.style.left = toolsLeft + 'px';
+        handle.style.top = (rect.bottom - 7) + 'px';
+        handle.style.left = (rect.right - 7) + 'px';
+    }
+    function atlasQuillImageHideTools() {
+        if (atlasQuillImageState.img) atlasQuillImageState.img.classList.remove('atlas-quill-img-selected');
+        atlasQuillImageState.img = null;
+        atlasQuillImageState.quill = null;
+        if (atlasQuillImageState.tools) atlasQuillImageState.tools.style.display = 'none';
+        if (atlasQuillImageState.handle) atlasQuillImageState.handle.style.display = 'none';
+    }
+    function atlasQuillImageSyncEditor() {
+        if (!atlasQuillImageState.quill) return;
+        if (atlasQuillImageState.quill === atlasMessageQuill) {
+            const form = document.getElementById('atlas-notif-form-aviso');
+            if (form && form.elements.html) form.elements.html.value = messageHtmlActual();
+        }
+        if (atlasQuillImageState.quill === atlasTemplateQuill) {
+            renderTemplatePreview();
+        }
+    }
+    function atlasQuillImageSelect(img, quill) {
+        atlasQuillImageEnsureTools();
+        if (atlasQuillImageState.img && atlasQuillImageState.img !== img) atlasQuillImageState.img.classList.remove('atlas-quill-img-selected');
+        atlasQuillImageState.img = img;
+        atlasQuillImageState.quill = quill;
+        img.draggable = true;
+        img.classList.add('atlas-quill-img-selected');
+        atlasQuillImagePositionTools();
+    }
+    function atlasQuillImageSetSize(size) {
+        const img = atlasQuillImageState.img;
+        if (!img) return;
+        const widths = { small: '32%', medium: '58%', large: '100%' };
+        img.removeAttribute('width');
+        img.removeAttribute('height');
+        img.style.width = widths[size] || widths.medium;
+        img.style.maxWidth = '100%';
+        img.style.height = 'auto';
+        atlasQuillImagePositionTools();
+        atlasQuillImageSyncEditor();
+    }
+    function atlasQuillImageSetAlign(align) {
+        const img = atlasQuillImageState.img;
+        if (!img) return;
+        img.style.float = 'none';
+        img.style.display = 'block';
+        if (align === 'left') img.style.margin = '.45rem auto .45rem 0';
+        else if (align === 'right') img.style.margin = '.45rem 0 .45rem auto';
+        else img.style.margin = '.45rem auto';
+        atlasQuillImagePositionTools();
+        atlasQuillImageSyncEditor();
+    }
+    function atlasQuillImageResizeMove(ev) {
+        if (!atlasQuillImageState.dragging || !atlasQuillImageState.img) return;
+        const next = Math.max(72, Math.min(atlasQuillImageState.editorWidth, atlasQuillImageState.startWidth + (ev.clientX - atlasQuillImageState.startX)));
+        const pct = Math.max(10, Math.min(100, Math.round((next / Math.max(1, atlasQuillImageState.editorWidth)) * 100)));
+        atlasQuillImageState.img.removeAttribute('width');
+        atlasQuillImageState.img.removeAttribute('height');
+        atlasQuillImageState.img.style.width = pct + '%';
+        atlasQuillImageState.img.style.maxWidth = '100%';
+        atlasQuillImageState.img.style.height = 'auto';
+        atlasQuillImagePositionTools();
+    }
+    function atlasQuillImageResizeEnd() {
+        if (!atlasQuillImageState.dragging) return;
+        atlasQuillImageState.dragging = false;
+        document.body.style.userSelect = '';
+        atlasQuillImageSyncEditor();
+    }
+    function atlasQuillEnableImageTools(quill) {
+        if (!quill || !quill.root) return;
+        quill.root.addEventListener('click', function (ev) {
+            const img = ev.target && ev.target.tagName && ev.target.tagName.toLowerCase() === 'img' ? ev.target : null;
+            if (img) atlasQuillImageSelect(img, quill);
+        });
+        quill.on('text-change', function () {
+            if (atlasQuillImageState.img && quill.root.contains(atlasQuillImageState.img)) atlasQuillImagePositionTools();
+        });
+        quill.root.addEventListener('dragstart', function (ev) {
+            const img = ev.target && ev.target.tagName && ev.target.tagName.toLowerCase() === 'img' ? ev.target : null;
+            if (!img) return;
+            atlasQuillImageSelect(img, quill);
+            if (ev.dataTransfer) ev.dataTransfer.setData('text/html', img.outerHTML);
+        });
+    }
     function renderTemplatePreview() {
         const preview = document.getElementById('atlas-template-preview');
         if (preview) preview.innerHTML = templateHtmlActual() || '<span class="atlas-notif-muted">Sin contenido.</span>';
@@ -321,7 +514,6 @@
         form.elements.nombre.value = row && row.nombre ? row.nombre : '';
         form.elements.categoria.value = row && row.categoria ? row.categoria : 'notificacion_especial';
         form.elements.asunto.value = row && row.asunto ? row.asunto : '';
-        form.elements.imagen_url.value = row && row.imagen_url ? row.imagen_url : '';
         form.elements.mensaje_texto.value = row && row.mensaje_texto ? row.mensaje_texto : '';
         form.elements.activo.value = String(row && row.activo != null ? row.activo : 1);
         if (atlasTemplateQuill) {
@@ -382,14 +574,36 @@
             }
         });
         atlasTemplateQuill.on('text-change', renderTemplatePreview);
+        atlasQuillEnableImageTools(atlasTemplateQuill);
+    }
+    function initMessageEditor() {
+        if (atlasMessageQuill || typeof Quill === 'undefined') return;
+        atlasMessageQuill = new Quill('#atlas-message-editor', {
+            theme: 'snow',
+            modules: {
+                toolbar: [
+                    [{ header: [1, 2, 3, false] }],
+                    ['bold', 'italic', 'underline'],
+                    [{ color: [] }, { background: [] }],
+                    [{ list: 'ordered' }, { list: 'bullet' }],
+                    [{ align: [] }],
+                    ['link', 'image'],
+                    ['clean']
+                ]
+            }
+        });
+        atlasMessageQuill.on('text-change', function () {
+            const form = document.getElementById('atlas-notif-form-aviso');
+            if (form && form.elements.html) form.elements.html.value = messageHtmlActual();
+        });
+        atlasQuillEnableImageTools(atlasMessageQuill);
     }
     function usarPlantillaEnAviso(row) {
         const form = document.getElementById('atlas-notif-form-aviso');
         if (!form || !row) return;
         form.elements.titulo.value = row.asunto || row.nombre || '';
         form.elements.mensaje.value = row.mensaje_texto || '';
-        form.elements.imagen_url.value = row.imagen_url || '';
-        form.elements.html.value = row.html || '';
+        setMessageHtml(row.html || contenidoDesdeTexto(row.mensaje_texto || ''));
         actualizarPreview();
         const enviarBtn = document.querySelector('[data-bs-target="#atlas-notif-tab-enviar"]');
         if (enviarBtn && window.bootstrap) bootstrap.Tab.getOrCreateInstance(enviarBtn).show();
@@ -401,11 +615,10 @@
             titulo: d.titulo || '',
             mensaje: d.mensaje || '',
             type: d.type || 'aviso_especial',
+            notification_type: 'push',
             data_json: { screen: 'NotificacionEspecial' }
         };
-        const imagenUrl = String(d.imagen_url || '').trim();
-        const html = String(d.html || '').trim();
-        if (imagenUrl) payload.imagen_url = imagenUrl;
+        const html = messageHtmlActual() || String(d.html || '').trim();
         if (html) payload.html = html;
         return payload;
     }
@@ -428,7 +641,7 @@
     function validarContenidoAviso() {
         const p = avisoPayload();
         if (!String(p.titulo || '').trim() || !String(p.mensaje || '').trim()) {
-            if (typeof Swal !== 'undefined') Swal.fire({ icon: 'warning', title: 'Contenido requerido', text: 'Captura titulo y mensaje antes de enviar.' });
+            if (typeof Swal !== 'undefined') Swal.fire({ icon: 'warning', title: 'Contenido requerido', text: 'Captura título y resumen corto antes de enviar.' });
             return false;
         }
         return true;
@@ -455,7 +668,7 @@
     function actualizarPreview() {
         const p = avisoPayload();
         setTexto('atlas-notif-preview-title', p.titulo || 'Título de la notificación');
-        setTexto('atlas-notif-preview-msg', p.mensaje || 'Mensaje corto para el usuario.');
+        setTexto('atlas-notif-preview-msg', p.mensaje || 'Resumen corto para el usuario.');
         const img = document.getElementById('atlas-notif-preview-img');
         if (img) { img.style.display = p.imagen_url ? 'block' : 'none'; img.src = p.imagen_url || ''; }
     }
@@ -502,7 +715,8 @@
     }
     function usuarioActivo(row) {
         const activo = row.activo ?? row.active ?? row.is_active ?? row.enabled ?? 1;
-        return String(activo) !== '0' && String(activo).toLowerCase() !== 'false';
+        if (String(activo) !== '0' && String(activo).toLowerCase() !== 'false') return true;
+        return !!(row.token_corto || row.expo_push_token);
     }
     function usuarioMeta(row) {
         const partes = [];
@@ -516,25 +730,45 @@
     function usuariosActivosDisponibles() {
         return atlasUsuariosDisponibles.filter(usuarioActivo);
     }
-    function destruirSelect2(el) {
-        if (!el || !window.jQuery || !jQuery.fn || !jQuery.fn.select2) return;
-        if (jQuery(el).data('select2')) jQuery(el).select2('destroy');
+    function destruirSelectBuscador(el) {
+        if (window.jQuery && jQuery.fn.select2 && el && jQuery(el).hasClass('select2-hidden-accessible')) {
+            jQuery(el).select2('destroy');
+        }
     }
-    function iniciarSelect2(el) {
-        if (!el || !window.jQuery || !jQuery.fn || !jQuery.fn.select2) return;
-        jQuery(el).select2({ placeholder: 'Selecciona destinatario', width: '100%' });
+    function inicializarSelectBuscador(el) {
+        if (!window.jQuery || !jQuery.fn.select2 || !el) return;
+        const modal = jQuery(el).closest('.modal');
+        const shell = jQuery(el).closest('.atlas-notif-shell');
+        jQuery(el).select2({
+            width: '100%',
+            dropdownParent: modal.length ? modal : (shell.length ? shell : jQuery(document.body))
+        });
+    }
+    function usuarioDispositivo(row) {
+        const partes = [];
+        const plataforma = row.platform || row.plataforma || row.device_platform || row.device_type || '';
+        const equipo = row.device_name || row.dispositivo || row.device || '';
+        const version = row.app_version || row.version_app || '';
+        if (plataforma) partes.push(String(plataforma).toUpperCase());
+        if (equipo) partes.push(equipo);
+        if (version) partes.push('v' + version);
+        return partes.join(' - ');
+    }
+    function textoDestinatarioCombo(row) {
+        const dispositivo = usuarioDispositivo(row);
+        return dispositivo ? usuarioNombre(row) + ' - ' + dispositivo : usuarioNombre(row);
     }
     function renderDestinatariosRapidos(filtro) {
         const activos = usuariosActivosDisponibles();
         const sel = document.getElementById('atlas-notif-destinatario-unico');
         if (sel) {
             const valorActual = sel.value || '';
-            destruirSelect2(sel);
+            destruirSelectBuscador(sel);
             sel.innerHTML = '<option value="">Selecciona destinatario</option>' + activos.map((row, idx) => {
-                return '<option value="' + esc(String(idx)) + '">' + esc(usuarioNombre(row) + (usuarioMeta(row) ? ' · ' + usuarioMeta(row) : '')) + '</option>';
+                return '<option value="' + esc(String(idx)) + '">' + esc(textoDestinatarioCombo(row)) + '</option>';
             }).join('');
             if (valorActual && activos[Number(valorActual)]) sel.value = valorActual;
-            iniciarSelect2(sel);
+            inicializarSelectBuscador(sel);
         }
 
         const list = document.getElementById('atlas-dest-lista');
@@ -542,7 +776,7 @@
         const q = String(filtro || '').trim().toLowerCase();
         const visibles = activos.map((row, idx) => ({ row, idx })).filter(item => {
             if (!q) return true;
-            return [usuarioNombre(item.row), usuarioMeta(item.row), item.row.correo || item.row.email || '', textoToken(item.row)]
+            return [usuarioNombre(item.row), usuarioMeta(item.row), usuarioDispositivo(item.row), item.row.correo || item.row.email || '', textoToken(item.row)]
                 .join(' ').toLowerCase().includes(q);
         });
         if (!visibles.length) {
@@ -659,6 +893,7 @@
     const formTemplate = document.getElementById('atlas-template-form');
 
     initTemplateEditor();
+    initMessageEditor();
     cargarPlantillas().catch(err => {
         const list = document.getElementById('atlas-template-list');
         if (list) list.innerHTML = '<div class="atlas-notif-empty">' + esc(err.message || 'No se pudieron cargar las plantillas.') + '</div>';
@@ -771,7 +1006,6 @@
                 categoria: 'notificacion_especial',
                 asunto: '',
                 mensaje_texto: '',
-                imagen_url: '',
                 html: '<h2>Nueva plantilla</h2><p>Escribe aquí el mensaje.</p>',
                 activo: 1
             });
@@ -808,41 +1042,6 @@
             await cargarHistorialNotificaciones(false);
             return;
         }
-        const cargar = ev.target.closest('[data-atlas-notif-load]');
-        if (cargar) {
-            ev.preventDefault();
-            try {
-                showBusy();
-                const path = cargar.getAttribute('data-atlas-notif-load');
-                const data = await proxy(cargar.getAttribute('data-atlas-notif-method') || 'GET', path, {}, {});
-                actualizarKpis(data);
-                if (path === '/api/atlas/push-tokens') {
-                    atlasUsuariosDisponibles = extraerArray(data);
-                    atlasDestinatariosSeleccionados = new Set();
-                    renderUsuariosDisponibles(atlasUsuariosDisponibles);
-                    renderDestinatariosRapidos(document.getElementById('atlas-dest-buscar') ? document.getElementById('atlas-dest-buscar').value : '');
-                }
-            }
-            catch (err) { if (typeof Swal !== 'undefined') Swal.fire({ icon: 'error', title: 'No se pudo cargar', text: err.message || 'Error' }); }
-            finally { hideBusy(); }
-            return;
-        }
-    });
-    const btnDetalle = document.getElementById('atlas-notif-btn-detalle');
-    if (btnDetalle) btnDetalle.addEventListener('click', async function () {
-        const id = String((document.getElementById('atlas-notif-detalle-id') || {}).value || '').trim();
-        if (!id) return;
-        try { showBusy(); await proxy('GET', '/api/atlas/notifications/' + encodeURIComponent(id), {}, {}); }
-        catch (err) { if (typeof Swal !== 'undefined') Swal.fire({ icon: 'error', title: 'No se pudo consultar', text: err.message || 'Error' }); }
-        finally { hideBusy(); }
-    });
-    const btnDisable = document.getElementById('atlas-notif-btn-disable-token');
-    if (btnDisable) btnDisable.addEventListener('click', async function () {
-        const token = String((document.getElementById('atlas-notif-token-delete') || {}).value || '').trim();
-        if (!token) return;
-        try { showBusy(); await proxy('DELETE', '/api/atlas/push-tokens', { expo_push_token: token }, {}); if (typeof Swal !== 'undefined') Swal.fire({ icon: 'success', title: 'Token desactivado', text: 'Atlas App recibió la solicitud.' }); }
-        catch (err) { if (typeof Swal !== 'undefined') Swal.fire({ icon: 'error', title: 'No se pudo desactivar', text: err.message || 'Error' }); }
-        finally { hideBusy(); }
     });
 })();
 </script>
