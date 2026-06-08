@@ -112,6 +112,13 @@ if (!function_exists('getMenuSidebarModulosStructure')) {
                     ['label' => 'Campañas', 'url' => '/MotosAdjudicadas/campaniaNotificacionLegacy', 'modulos' => [64]],
                 ],
             ],
+            'Atlas' => [
+                'icono' => 'fa-solid fa-map-location-dot',
+                'subItems' => [
+                    ['label' => 'Catálogos', 'url' => '/Atlas/catalogos', 'modulos' => [102]],
+                    ['label' => 'Notificaciones App', 'url' => '/Atlas/notificacionesApp', 'modulos' => [102]],
+                ],
+            ],
             'Gastos Cobranza' => [
                 'icono' => 'fa-solid fa-file-invoice-dollar',
                 'subItems' => [
