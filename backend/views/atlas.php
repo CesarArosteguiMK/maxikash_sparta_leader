@@ -195,7 +195,7 @@
         <div>
             <h4 class="atlas-title">
                 <i class="fa-solid fa-map-location-dot" aria-hidden="true"></i>
-                <span>CatÃ¡logos</span>
+                <span>Catálogos</span>
             </h4>
         </div>
         <button type="button" class="btn btn-sm btn-outline-primary" id="atlas-btn-recargar">
@@ -224,15 +224,15 @@
             </div>
             <div class="card-datatable table-responsive atlas-table-wrap atlas-loading" data-atlas-table-loader="sucursales" data-atlas-loading-label="Cargando sucursales...">
                 <table id="atlasTablaSucursales" class="dt-responsive table border-top">
-                    <thead><tr><th></th><th>Sucursal</th><th>ClasificaciÃ³n</th><th>Estatus</th><th>Acciones</th></tr></thead>
+                    <thead><tr><th></th><th>Sucursal</th><th>Clasificación</th><th>Estatus</th><th>Acciones</th></tr></thead>
                     <tbody id="atlas-sucursales-body"><tr><td colspan="5" class="atlas-empty"><span class="spinner-border spinner-border-sm me-2"></span>Cargando sucursales...</td></tr></tbody>
                 </table>
             </div>
         </div>
         <div class="tab-pane fade" id="atlas-tab-divisiones" role="tabpanel">
-            <div class="atlas-panel-head"><button type="button" class="btn btn-primary add-new btn-action-size" data-atlas-agregar="division"><i class="fa fa-plus icon-sm me-sm-1"></i><span>Agregar divisiÃ³n</span></button></div>
+            <div class="atlas-panel-head"><button type="button" class="btn btn-primary add-new btn-action-size" data-atlas-agregar="division"><i class="fa fa-plus icon-sm me-sm-1"></i><span>Agregar división</span></button></div>
             <div class="card-datatable table-responsive atlas-table-wrap atlas-loading" data-atlas-table-loader="divisiones" data-atlas-loading-label="Cargando divisiones...">
-                <table id="atlasTablaDivisiones" class="dt-responsive table border-top"><thead><tr><th>DivisiÃ³n</th><th>Divisional</th><th>Estatus</th><th>Acciones</th></tr></thead><tbody></tbody></table>
+                <table id="atlasTablaDivisiones" class="dt-responsive table border-top"><thead><tr><th>División</th><th>Divisional</th><th>Estatus</th><th>Acciones</th></tr></thead><tbody></tbody></table>
             </div>
         </div>
         <div class="tab-pane fade" id="atlas-tab-distribuidores" role="tabpanel">
@@ -242,15 +242,15 @@
             </div>
         </div>
         <div class="tab-pane fade" id="atlas-tab-diversificaciones" role="tabpanel">
-            <div class="atlas-panel-head"><button type="button" class="btn btn-primary add-new btn-action-size" data-atlas-agregar="diversificacion"><i class="fa fa-plus icon-sm me-sm-1"></i><span>Agregar diversificaciÃ³n</span></button></div>
+            <div class="atlas-panel-head"><button type="button" class="btn btn-primary add-new btn-action-size" data-atlas-agregar="diversificacion"><i class="fa fa-plus icon-sm me-sm-1"></i><span>Agregar diversificación</span></button></div>
             <div class="card-datatable table-responsive atlas-table-wrap atlas-loading" data-atlas-table-loader="diversificaciones" data-atlas-loading-label="Cargando diversificaciones...">
-                <table id="atlasTablaDiversificaciones" class="dt-responsive table border-top"><thead><tr><th>DiversificaciÃ³n</th><th>Estatus</th><th>Acciones</th></tr></thead><tbody></tbody></table>
+                <table id="atlasTablaDiversificaciones" class="dt-responsive table border-top"><thead><tr><th>Diversificación</th><th>Estatus</th><th>Acciones</th></tr></thead><tbody></tbody></table>
             </div>
         </div>
         <div class="tab-pane fade" id="atlas-tab-clasificaciones" role="tabpanel">
-            <div class="atlas-panel-head"><button type="button" class="btn btn-primary add-new btn-action-size" data-atlas-agregar="clasificacion"><i class="fa fa-plus icon-sm me-sm-1"></i><span>Agregar clasificaciÃ³n</span></button></div>
+            <div class="atlas-panel-head"><button type="button" class="btn btn-primary add-new btn-action-size" data-atlas-agregar="clasificacion"><i class="fa fa-plus icon-sm me-sm-1"></i><span>Agregar clasificación</span></button></div>
             <div class="card-datatable table-responsive atlas-table-wrap atlas-loading" data-atlas-table-loader="clasificaciones" data-atlas-loading-label="Cargando clasificaciones...">
-                <table id="atlasTablaClasificaciones" class="dt-responsive table border-top"><thead><tr><th></th><th>Orden</th><th>ClasificaciÃ³n</th><th>Estatus</th><th>Acciones</th></tr></thead><tbody></tbody></table>
+                <table id="atlasTablaClasificaciones" class="dt-responsive table border-top"><thead><tr><th></th><th>Orden</th><th>Clasificación</th><th>Estatus</th><th>Acciones</th></tr></thead><tbody></tbody></table>
             </div>
         </div>
     </div>
@@ -271,20 +271,20 @@
                         <div><label class="form-label atlas-required">Sucursal</label><input type="text" class="form-control" name="sucursal" required placeholder="Nombre de la sucursal"></div>
                     </div>
                     <div><label class="form-label atlas-required">Distribuidor</label><div class="atlas-combo-row"><select class="form-select js-atlas-select-buscador" name="distribuidor_id" id="atlas-sucursal-distribuidor" required></select><button type="button" class="btn btn-icon btn-outline-primary atlas-combo-add" data-atlas-quick-add="distribuidor" data-atlas-target="distribuidor_id" title="Agregar distribuidor" aria-label="Agregar distribuidor"><i class="fa-solid fa-plus"></i></button></div></div>
-                    <div><label class="form-label atlas-required">ClasificaciÃ³n</label><div class="atlas-combo-row"><select class="form-select js-atlas-select-buscador" name="clasificacion_id" id="atlas-sucursal-clasificacion" required></select><button type="button" class="btn btn-icon btn-outline-primary atlas-combo-add" data-atlas-quick-add="clasificacion" data-atlas-target="clasificacion_id" title="Agregar clasificaciÃ³n" aria-label="Agregar clasificaciÃ³n"><i class="fa-solid fa-plus"></i></button></div></div>
+                    <div><label class="form-label atlas-required">Clasificación</label><div class="atlas-combo-row"><select class="form-select js-atlas-select-buscador" name="clasificacion_id" id="atlas-sucursal-clasificacion" required></select><button type="button" class="btn btn-icon btn-outline-primary atlas-combo-add" data-atlas-quick-add="clasificacion" data-atlas-target="clasificacion_id" title="Agregar clasificación" aria-label="Agregar clasificación"><i class="fa-solid fa-plus"></i></button></div></div>
                     <div><label class="form-label atlas-required">Divisional</label><select class="form-select js-atlas-select-buscador" name="divisional_id" id="atlas-sucursal-divisional" required></select></div>
-                    <div><label class="form-label atlas-required">DivisiÃ³n</label><div class="atlas-combo-row"><select class="form-select js-atlas-select-buscador" name="division_id" id="atlas-sucursal-division" required></select><button type="button" class="btn btn-icon btn-outline-primary atlas-combo-add" data-atlas-quick-add="division" data-atlas-target="division_id" title="Agregar divisiÃ³n" aria-label="Agregar divisiÃ³n"><i class="fa-solid fa-plus"></i></button></div><span class="atlas-cascade-help">Se habilita despuÃ©s de seleccionar un divisional.</span></div>
-                    <div><label class="form-label atlas-required">Regional</label><select class="form-select js-atlas-select-buscador" name="regional_id" id="atlas-sucursal-regional" required></select><span class="atlas-cascade-help">Se habilita despuÃ©s de seleccionar una divisiÃ³n.</span></div>
+                    <div><label class="form-label atlas-required">División</label><div class="atlas-combo-row"><select class="form-select js-atlas-select-buscador" name="division_id" id="atlas-sucursal-division" required></select><button type="button" class="btn btn-icon btn-outline-primary atlas-combo-add" data-atlas-quick-add="division" data-atlas-target="division_id" title="Agregar división" aria-label="Agregar división"><i class="fa-solid fa-plus"></i></button></div><span class="atlas-cascade-help">Se habilita después de seleccionar un divisional.</span></div>
+                    <div><label class="form-label atlas-required">Regional</label><select class="form-select js-atlas-select-buscador" name="regional_id" id="atlas-sucursal-regional" required></select><span class="atlas-cascade-help">Se habilita después de seleccionar una división.</span></div>
                     <div><label class="form-label atlas-required">Supervisor</label><select class="form-select js-atlas-select-buscador" name="supervisor_id" id="atlas-sucursal-supervisor" required></select></div>
                     <div><label class="form-label atlas-required">Asesor</label><select class="form-select js-atlas-select-buscador" name="asesor_id" id="atlas-sucursal-asesor" required></select></div>
-                    <div><label class="form-label atlas-required">DiversificaciÃ³n</label><div class="atlas-combo-row"><select class="form-select js-atlas-select-buscador" name="diversificacion_id" id="atlas-sucursal-diversificacion" required></select><button type="button" class="btn btn-icon btn-outline-primary atlas-combo-add" data-atlas-quick-add="diversificacion" data-atlas-target="diversificacion_id" title="Agregar diversificaciÃ³n" aria-label="Agregar diversificaciÃ³n"><i class="fa-solid fa-plus"></i></button></div></div>
+                    <div><label class="form-label atlas-required">Diversificación</label><div class="atlas-combo-row"><select class="form-select js-atlas-select-buscador" name="diversificacion_id" id="atlas-sucursal-diversificacion" required></select><button type="button" class="btn btn-icon btn-outline-primary atlas-combo-add" data-atlas-quick-add="diversificacion" data-atlas-target="diversificacion_id" title="Agregar diversificación" aria-label="Agregar diversificación"><i class="fa-solid fa-plus"></i></button></div></div>
                     <div><label class="form-label atlas-required">Estatus</label><select class="form-select js-atlas-select-buscador" name="activo" required><option value="1">Activa</option><option value="0">Inactiva</option></select></div>
-                    <div class="atlas-field-wide"><label class="form-label atlas-required">DirecciÃ³n</label><textarea class="form-control atlas-address-field" name="direccion_sucursal" id="atlas-sucursal-direccion" rows="2" readonly required placeholder="Da clic para buscar la direcciÃ³n en el mapa"></textarea><span class="atlas-cascade-help">La direcciÃ³n se captura desde Google Maps para calcular estado, municipio, localidad, CP y coordenadas.</span></div>
+                    <div class="atlas-field-wide"><label class="form-label atlas-required">Dirección</label><textarea class="form-control atlas-address-field" name="direccion_sucursal" id="atlas-sucursal-direccion" rows="2" readonly required placeholder="Da clic para buscar la dirección en el mapa"></textarea><span class="atlas-cascade-help">La dirección se captura desde Google Maps para calcular estado, municipio, localidad, CP y coordenadas.</span></div>
                     <div class="atlas-location-fields atlas-field-wide">
                         <div><label class="form-label atlas-required">Estado</label><input type="text" class="form-control" name="estado" readonly required placeholder="Estado"></div>
                         <div><label class="form-label atlas-required">Municipio</label><input type="text" class="form-control" name="municipio" readonly required placeholder="Municipio"></div>
                         <div><label class="form-label atlas-required">Localidad</label><input type="text" class="form-control" name="localidad" readonly required placeholder="Localidad"></div>
-                        <div><label class="form-label atlas-required">CÃ³digo postal</label><input type="text" class="form-control" name="codigo_postal" readonly required placeholder="CP"></div>
+                        <div><label class="form-label atlas-required">Código postal</label><input type="text" class="form-control" name="codigo_postal" readonly required placeholder="CP"></div>
                     </div>
                     <div class="atlas-coord-row atlas-field-wide">
                         <div><label class="form-label atlas-required">Latitud</label><input type="text" class="form-control" name="latitud" readonly required placeholder="Latitud"></div>
@@ -303,11 +303,11 @@
         <div class="modal-content">
             <div class="modal-header"><h5 class="modal-title fw-bold" id="modalAtlasDireccionLabel"><i class="fa-solid fa-map-location-dot me-2"></i>Ubicar sucursal</h5><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button></div>
             <div class="modal-body">
-                <div class="atlas-address-search mb-3"><i class="fa-solid fa-magnifying-glass"></i><input type="text" class="form-control" id="atlas-direccion-busqueda" placeholder="Escribe la direcciÃ³n de la sucursal"></div>
-                <div class="atlas-map-box"><div id="atlas-direccion-mapa" aria-label="Mapa para seleccionar ubicaciÃ³n"></div></div>
-                <div class="atlas-address-meta"><span id="atlas-direccion-coordenadas">Selecciona una direcciÃ³n para colocar el pin.</span></div>
+                <div class="atlas-address-search mb-3"><i class="fa-solid fa-magnifying-glass"></i><input type="text" class="form-control" id="atlas-direccion-busqueda" placeholder="Escribe la dirección de la sucursal"></div>
+                <div class="atlas-map-box"><div id="atlas-direccion-mapa" aria-label="Mapa para seleccionar ubicación"></div></div>
+                <div class="atlas-address-meta"><span id="atlas-direccion-coordenadas">Selecciona una dirección para colocar el pin.</span></div>
             </div>
-            <div class="modal-footer"><button type="button" class="btn btn-primary" id="atlas-direccion-confirmar" disabled><i class="fa-solid fa-location-dot"></i>Usar ubicaciÃ³n</button><button type="button" class="btn btn-label-danger" data-bs-dismiss="modal">Cancelar</button></div>
+            <div class="modal-footer"><button type="button" class="btn btn-primary" id="atlas-direccion-confirmar" disabled><i class="fa-solid fa-location-dot"></i>Usar ubicación</button><button type="button" class="btn btn-label-danger" data-bs-dismiss="modal">Cancelar</button></div>
         </div>
     </div>
 </div>
@@ -316,7 +316,7 @@
     <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable modal-fullscreen-sm-down">
         <form class="modal-content" id="formAtlasCatalogo" autocomplete="off">
             <input type="hidden" name="id" id="atlas-catalogo-id"><input type="hidden" name="tipo" id="atlas-catalogo-tipo">
-            <div class="modal-header"><h5 class="modal-title fw-bold" id="modalAtlasCatalogoLabel"><i class="fa-solid fa-tags me-2"></i>Agregar catÃ¡logo</h5><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button></div>
+            <div class="modal-header"><h5 class="modal-title fw-bold" id="modalAtlasCatalogoLabel"><i class="fa-solid fa-tags me-2"></i>Agregar catálogo</h5><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button></div>
             <div class="modal-body"><div class="atlas-form-grid" id="atlas-catalogo-fields"></div></div>
             <div class="modal-footer"><button type="submit" class="btn btn-primary"><i class="fa-solid fa-floppy-disk"></i>Guardar</button><button type="button" class="btn btn-label-danger" data-bs-dismiss="modal">Cancelar</button></div>
         </form>
@@ -340,8 +340,8 @@
 <div class="modal fade" id="modalAtlasUbicacion" tabindex="-1" aria-labelledby="modalAtlasUbicacionLabel" aria-hidden="true">
     <div class="modal-dialog modal-lg modal-dialog-centered modal-fullscreen-sm-down">
         <div class="modal-content">
-            <div class="modal-header"><h5 class="modal-title fw-bold" id="modalAtlasUbicacionLabel"><i class="fa-solid fa-location-dot me-2"></i><span id="atlas-ubicacion-titulo">UbicaciÃ³n</span></h5><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button></div>
-            <div class="modal-body"><div class="mb-2 atlas-field-value" id="atlas-ubicacion-direccion">-</div><div class="mb-3 atlas-muted" id="atlas-ubicacion-coordenadas">-</div><div class="atlas-map-box"><div id="atlas-ubicacion-mapa"></div></div><div class="atlas-empty d-none" id="atlas-ubicacion-empty">Cargando ubicaciÃ³n...</div></div>
+            <div class="modal-header"><h5 class="modal-title fw-bold" id="modalAtlasUbicacionLabel"><i class="fa-solid fa-location-dot me-2"></i><span id="atlas-ubicacion-titulo">Ubicación</span></h5><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button></div>
+            <div class="modal-body"><div class="mb-2 atlas-field-value" id="atlas-ubicacion-direccion">-</div><div class="mb-3 atlas-muted" id="atlas-ubicacion-coordenadas">-</div><div class="atlas-map-box"><div id="atlas-ubicacion-mapa"></div></div><div class="atlas-empty d-none" id="atlas-ubicacion-empty">Cargando ubicación...</div></div>
         </div>
     </div>
 </div>
@@ -438,7 +438,7 @@
     function atlasMostrarLoaderGlobal() {
         if (atlasSwalLoaderAbierto || typeof Swal === 'undefined') return;
         atlasSwalLoaderAbierto = true;
-        Swal.fire({ title: 'Procesando su peticiÃ³n', text: 'Espere un momento...', allowOutsideClick: false, allowEscapeKey: false, showConfirmButton: false, didOpen: function () { Swal.showLoading(); } });
+        Swal.fire({ title: 'Procesando su petición', text: 'Espere un momento...', allowOutsideClick: false, allowEscapeKey: false, showConfirmButton: false, didOpen: function () { Swal.showLoading(); } });
     }
     function atlasOcultarLoaderGlobal() { if (atlasTablasCargando.size > 0 || !atlasSwalLoaderAbierto) return; atlasSwalLoaderAbierto = false; if (typeof Swal !== 'undefined') Swal.close(); }
     function atlasSetTablaLoading(key, loading, texto) {
@@ -513,7 +513,7 @@
             if (panes && panes.overlayMouseTarget) panes.overlayMouseTarget.appendChild(div);
             div.addEventListener('click', function () {
                 const info = new google.maps.InfoWindow({
-                    content: '<div style="min-width:190px;"><div style="font-weight:800;color:#22303e;margin-bottom:.25rem;">' + esc(row.sucursal || 'Sucursal') + '</div><div style="display:flex;align-items:center;gap:.35rem;color:#64748b;font-size:.78rem;font-weight:700;"><span class="atlas-classif-dot" style="--atlas-class-color:' + esc(color) + ';"></span><i class="' + esc(icono) + '" style="color:' + esc(color) + ';"></i><span>' + esc(row.clasificacion_nombre || 'Sin clasificaciÃ³n') + '</span></div></div>'
+                    content: '<div style="min-width:190px;"><div style="font-weight:800;color:#22303e;margin-bottom:.25rem;">' + esc(row.sucursal || 'Sucursal') + '</div><div style="display:flex;align-items:center;gap:.35rem;color:#64748b;font-size:.78rem;font-weight:700;"><span class="atlas-classif-dot" style="--atlas-class-color:' + esc(color) + ';"></span><i class="' + esc(icono) + '" style="color:' + esc(color) + ';"></i><span>' + esc(row.clasificacion_nombre || 'Sin clasificación') + '</span></div></div>'
                 });
                 info.setPosition(pos);
                 info.open(map);
@@ -539,7 +539,7 @@
             const key = String(row.clasificacion_id || row.clasificacion_nombre || 'sin');
             if (!usados.has(key)) {
                 usados.set(key, {
-                    nombre: row.clasificacion_nombre || 'Sin clasificaciÃ³n',
+                    nombre: row.clasificacion_nombre || 'Sin clasificación',
                     color: colorClasificacion(row),
                     icono: iconoClasificacion(row)
                 });
@@ -597,8 +597,8 @@
         const supervisores = regionalId ? (catalogos.supervisores || []).filter(row => String(row.regional_id || '') === regionalId) : [];
         const asesores = supervisorId ? (catalogos.asesores || []).filter(row => String(row.supervisor_id || '') === supervisorId) : [];
         llenarSelectCascada('atlas-sucursal-divisional', catalogos.divisionales || [], 'Selecciona divisional', divisionalId, false);
-        llenarSelectCascada('atlas-sucursal-division', divisiones, divisionalId ? 'Selecciona divisiÃ³n' : 'Primero selecciona divisional', divisiones.some(row => String(row.id || '') === divisionId) ? divisionId : '', !divisionalId);
-        llenarSelectCascada('atlas-sucursal-regional', regionales, divisionId ? 'Selecciona regional' : 'Primero selecciona divisiÃ³n', regionales.some(row => String(row.id || '') === regionalId) ? regionalId : '', !divisionId);
+        llenarSelectCascada('atlas-sucursal-division', divisiones, divisionalId ? 'Selecciona división' : 'Primero selecciona divisional', divisiones.some(row => String(row.id || '') === divisionId) ? divisionId : '', !divisionalId);
+        llenarSelectCascada('atlas-sucursal-regional', regionales, divisionId ? 'Selecciona regional' : 'Primero selecciona división', regionales.some(row => String(row.id || '') === regionalId) ? regionalId : '', !divisionId);
         llenarSelectCascada('atlas-sucursal-supervisor', supervisores, regionalId ? 'Selecciona supervisor' : 'Primero selecciona regional', supervisores.some(row => String(row.id || '') === supervisorId) ? supervisorId : '', !regionalId);
         llenarSelectCascada('atlas-sucursal-asesor', asesores, supervisorId ? 'Selecciona asesor' : 'Primero selecciona supervisor', asesores.some(row => String(row.id || '') === asesorId) ? asesorId : '', !supervisorId);
     }
@@ -613,14 +613,14 @@
             { data: null, orderable: false, searchable: false, render: function () { return ''; } },
             { data: 'sucursal', title: 'Sucursal', render: function (data, renderType, row) {
                 if (renderType !== 'display') return textoPlano(row, ['sucursal','fk_sucursal','distribuidor_nombre','direccion','numero_telefono','nombre_contacto']);
-                const direccionBtn = row.direccion ? '<button type="button" class="atlas-location-link mt-1" data-atlas-ubicacion="' + esc(row.id || '') + '"><i class="fa-solid fa-location-dot"></i><span>' + esc(row.direccion) + '</span></button>' : '<span class="atlas-muted">Sin direcciÃ³n</span>';
-                return '<div class="atlas-field-row"><span class="atlas-field-value">' + esc(data || 'Sin nombre') + '</span><span class="atlas-muted">FK ' + esc(row.fk_sucursal || '-') + ' Â· ' + esc(row.distribuidor_nombre || 'Sin distribuidor') + '</span></div>'
-                    + '<div class="atlas-field-row mt-1"><span class="atlas-field-label">TelÃ©fono</span><span class="atlas-muted"><i class="fa-solid fa-phone me-1"></i>' + esc(row.numero_telefono || 'Sin telÃ©fono') + (row.nombre_contacto ? ' Â· ' + esc(row.nombre_contacto) : '') + '</span></div>'
-                    + '<div class="atlas-field-row mt-1"><span class="atlas-field-label">DirecciÃ³n</span>' + direccionBtn + '</div>';
+                const direccionBtn = row.direccion ? '<button type="button" class="atlas-location-link mt-1" data-atlas-ubicacion="' + esc(row.id || '') + '"><i class="fa-solid fa-location-dot"></i><span>' + esc(row.direccion) + '</span></button>' : '<span class="atlas-muted">Sin dirección</span>';
+                return '<div class="atlas-field-row"><span class="atlas-field-value">' + esc(data || 'Sin nombre') + '</span><span class="atlas-muted">FK ' + esc(row.fk_sucursal || '-') + ' &middot; ' + esc(row.distribuidor_nombre || 'Sin distribuidor') + '</span></div>'
+                    + '<div class="atlas-field-row mt-1"><span class="atlas-field-label">Teléfono</span><span class="atlas-muted"><i class="fa-solid fa-phone me-1"></i>' + esc(row.numero_telefono || 'Sin teléfono') + (row.nombre_contacto ? ' &middot; ' + esc(row.nombre_contacto) : '') + '</span></div>'
+                    + '<div class="atlas-field-row mt-1"><span class="atlas-field-label">Dirección</span>' + direccionBtn + '</div>';
             }},
-            { data: 'clasificacion_nombre', title: 'ClasificaciÃ³n', render: function (data, renderType, row) {
+            { data: 'clasificacion_nombre', title: 'Clasificación', render: function (data, renderType, row) {
                 if (renderType !== 'display') return textoPlano(row, ['clasificacion_nombre','clasificacion_id']);
-                return '<div class="atlas-classif" style="--atlas-class-color:' + esc(colorClasificacion(row)) + ';"><span class="atlas-classif-dot"></span><i class="' + esc(row.clasificacion_icon_font || 'fa-solid fa-tags') + '"></i><span>' + esc(data || 'Sin clasificaciÃ³n') + '</span></div>';
+                return '<div class="atlas-classif" style="--atlas-class-color:' + esc(colorClasificacion(row)) + ';"><span class="atlas-classif-dot"></span><i class="' + esc(row.clasificacion_icon_font || 'fa-solid fa-tags') + '"></i><span>' + esc(data || 'Sin clasificación') + '</span></div>';
             }},
             { data: 'activo', title: 'Estatus', render: function (data, renderType, row) { return renderType === 'display' ? renderEstatus(row) : (Number(data || 0) === 1 ? 'Activa' : 'Inactiva'); }},
             { data: null, title: 'Acciones', orderable: false, searchable: false, className: 'text-center', render: function (data, renderType, row) { return renderType === 'display' ? renderEditar('sucursal', row.id) : ''; }}
@@ -643,7 +643,7 @@
 
     function columnasCatalogo(tipo) {
         if (tipo === 'divisiones') return [
-            { data: 'nombre', title: 'DivisiÃ³n', render: function (data, renderType) { return renderType === 'display' ? '<span class="atlas-field-value">' + esc(data || 'Sin nombre') + '</span>' : (data || ''); }},
+            { data: 'nombre', title: 'División', render: function (data, renderType) { return renderType === 'display' ? '<span class="atlas-field-value">' + esc(data || 'Sin nombre') + '</span>' : (data || ''); }},
             { data: 'divisional_id', title: 'Divisional', render: function (data, renderType, row) { return renderType === 'display' ? (data ? '<span class="atlas-field-value">' + esc(row.divisional_nombre || 'Sin divisional') + '</span>' : '<span class="atlas-muted">Sin divisional</span>') : [row.divisional_nombre || '', data || ''].join(' '); }},
             { data: 'activo', title: 'Estatus', render: function (data, renderType, row) { return renderType === 'display' ? renderEstatus(row) : (Number(data || 0) === 1 ? 'Activa' : 'Inactiva'); }},
             { data: null, title: 'Acciones', orderable: false, searchable: false, className: 'text-center', render: function (data, renderType, row) { return renderType === 'display' ? renderEditar('division', row.id) : ''; }}
@@ -654,14 +654,14 @@
             { data: null, title: 'Acciones', orderable: false, searchable: false, className: 'text-center', render: function (data, renderType, row) { return renderType === 'display' ? renderEditar('distribuidor', row.id) : ''; }}
         ];
         if (tipo === 'diversificaciones') return [
-            { data: 'nombre', title: 'DiversificaciÃ³n', render: function (data, renderType) { return renderType === 'display' ? '<span class="atlas-field-value">' + esc(data || 'Sin nombre') + '</span>' : (data || ''); }},
+            { data: 'nombre', title: 'Diversificación', render: function (data, renderType) { return renderType === 'display' ? '<span class="atlas-field-value">' + esc(data || 'Sin nombre') + '</span>' : (data || ''); }},
             { data: 'activo', title: 'Estatus', render: function (data, renderType, row) { return renderType === 'display' ? renderEstatus(row) : (Number(data || 0) === 1 ? 'Activa' : 'Inactiva'); }},
             { data: null, title: 'Acciones', orderable: false, searchable: false, className: 'text-center', render: function (data, renderType, row) { return renderType === 'display' ? renderEditar('diversificacion', row.id) : ''; }}
         ];
         return [
             { data: null, title: '', orderable: false, searchable: false, render: function () { return '<span class="atlas-drag-handle"><i class="fa-solid fa-grip-vertical"></i></span>'; }},
             { data: 'orden', title: 'Orden', render: function (data, renderType) { return renderType === 'display' ? '<span class="atlas-order-pill">' + esc(data || '-') + '</span>' : (parseInt(data, 10) || 999999); }},
-            { data: 'nombre', title: 'ClasificaciÃ³n', render: function (data, renderType, row) { return renderType === 'display' ? '<div class="atlas-classif" style="--atlas-class-color:' + esc(colorHexSeguro(row.color_hex)) + ';"><span class="atlas-classif-dot"></span><i class="' + esc(row.icon_font || 'fa-solid fa-tags') + '"></i><span>' + esc(data || 'Sin nombre') + '</span></div>' : (data || ''); }},
+            { data: 'nombre', title: 'Clasificación', render: function (data, renderType, row) { return renderType === 'display' ? '<div class="atlas-classif" style="--atlas-class-color:' + esc(colorHexSeguro(row.color_hex)) + ';"><span class="atlas-classif-dot"></span><i class="' + esc(row.icon_font || 'fa-solid fa-tags') + '"></i><span>' + esc(data || 'Sin nombre') + '</span></div>' : (data || ''); }},
             { data: 'activo', title: 'Estatus', render: function (data, renderType, row) { return renderType === 'display' ? renderEstatus(row) : (Number(data || 0) === 1 ? 'Activa' : 'Inactiva'); }},
             { data: null, title: 'Acciones', orderable: false, searchable: false, className: 'text-center', render: function (data, renderType, row) { return renderType === 'display' ? renderEditar('clasificacion', row.id) : ''; }}
         ];
@@ -669,7 +669,7 @@
     function initDataTable(selector, columns, order) {
         if (!window.jQuery || !jQuery.fn.DataTable) return null;
         if (jQuery.fn.DataTable.isDataTable(selector)) jQuery(selector).DataTable().destroy();
-        return jQuery(selector).DataTable({ pageLength: 10, lengthMenu: [[10,40,-1],[10,40,'Todos']], order: order || [], autoWidth: false, responsive: { details: { type: 'inline', target: 'tr' } }, columns: columns, language: { emptyTable: 'No hay datos disponibles', info: 'Mostrando de _START_ a _END_ de _TOTAL_ registros', infoEmpty: 'Sin registros para mostrar', zeroRecords: 'No se encontraron registros', lengthMenu: 'Mostrar _MENU_ registros', search: 'Buscar:', paginate: { first: 'Â«', last: 'Â»', next: 'â€º', previous: 'â€¹' } }, destroy: true });
+        return jQuery(selector).DataTable({ pageLength: 10, lengthMenu: [[10,40,-1],[10,40,'Todos']], order: order || [], autoWidth: false, responsive: { details: { type: 'inline', target: 'tr' } }, columns: columns, language: { emptyTable: 'No hay datos disponibles', info: 'Mostrando de _START_ a _END_ de _TOTAL_ registros', infoEmpty: 'Sin registros para mostrar', zeroRecords: 'No se encontraron registros', lengthMenu: 'Mostrar _MENU_ registros', search: 'Buscar:', paginate: { first: '&laquo;', last: '&raquo;', next: '&rsaquo;', previous: '&lsaquo;' } }, destroy: true });
     }
     function ajustarTablasAtlas() {
         const tablas = [atlasTabla].concat(Object.keys(tablasCatalogo || {}).map(key => tablasCatalogo[key]));
@@ -724,11 +724,11 @@
         try {
             const res = await fetch('/Atlas/getCatalogos', { headers: { Accept: 'application/json' }, credentials: 'same-origin' });
             const data = await res.json();
-            if (!data || !data.success) throw new Error((data && (data.mensaje || data.error)) || 'No se pudieron cargar catÃ¡logos.');
+            if (!data || !data.success) throw new Error((data && (data.mensaje || data.error)) || 'No se pudieron cargar catálogos.');
             catalogos = Object.assign({ divisiones: [], divisionales: [], regionales: [], supervisores: [], asesores: [], distribuidores: [], diversificaciones: [], clasificaciones: [] }, data.datos || {});
             llenarSelect('atlas-sucursal-distribuidor', catalogos.distribuidores, 'Selecciona distribuidor');
-            llenarSelect('atlas-sucursal-diversificacion', catalogos.diversificaciones, 'Selecciona diversificaciÃ³n');
-            llenarSelect('atlas-sucursal-clasificacion', catalogos.clasificaciones, 'Selecciona clasificaciÃ³n');
+            llenarSelect('atlas-sucursal-diversificacion', catalogos.diversificaciones, 'Selecciona diversificación');
+            llenarSelect('atlas-sucursal-clasificacion', catalogos.clasificaciones, 'Selecciona clasificación');
             actualizarCascadaSucursal(valores);
             Object.keys(valores).forEach(key => setFormValue(formSucursal, key, valores[key]));
             renderCatalogos();
@@ -754,32 +754,32 @@
     function iconoDisponibleClasificacion(idActual) { return atlasIconosClasificacion.find(icon => !clasificacionConIcono(icon, idActual)) || 'fa-solid fa-tags'; }
     function renderGaleriaIconos(iconoActual, idActual) {
         const actual = String(iconoActual || '').trim() || iconoDisponibleClasificacion(idActual);
-        return '<div class="atlas-icon-gallery" role="group" aria-label="GalerÃ­a de iconos">' + atlasIconosClasificacion.map(icon => {
+        return '<div class="atlas-icon-gallery" role="group" aria-label="Galería de iconos">' + atlasIconosClasificacion.map(icon => {
             const usada = clasificacionConIcono(icon, idActual);
             const disabled = !!usada;
-            const titulo = disabled ? 'Usado por: ' + (usada.nombre || 'ClasificaciÃ³n sin nombre') : icon;
+            const titulo = disabled ? 'Usado por: ' + (usada.nombre || 'Clasificación sin nombre') : icon;
             return '<button type="button" class="atlas-icon-option' + (icon === actual ? ' is-active' : '') + (disabled ? ' is-disabled' : '') + '" data-atlas-icon-option="' + esc(icon) + '"' + (disabled ? ' data-atlas-tooltip="' + esc(titulo) + '"' : '') + ' title="' + esc(titulo) + '" aria-label="' + esc(titulo) + '"' + (disabled ? ' aria-disabled="true" tabindex="0"' : '') + '><i class="' + esc(icon) + '"></i></button>';
         }).join('') + '</div>';
     }
     function camposCatalogo(tipo, data) {
         const row = data || {};
-        if (tipo === 'division') return '<div><label class="form-label atlas-required">Nombre</label><input type="text" class="form-control" name="nombre" required placeholder="Nombre de la divisiÃ³n" value="' + esc(row.nombre || '') + '"></div><div><label class="form-label atlas-required">Divisional activo</label><select class="form-select js-atlas-select-buscador" name="divisional_id" required>' + optionsCatalogo(catalogos.divisionales, row.divisional_id, 'Selecciona divisional') + '</select></div><div><label class="form-label atlas-required">Estatus</label><select class="form-select js-atlas-select-buscador" name="activo" required><option value="1"' + (Number(row.activo ?? 1) === 1 ? ' selected' : '') + '>Activa</option><option value="0"' + (Number(row.activo ?? 1) === 0 ? ' selected' : '') + '>Inactiva</option></select></div>';
+        if (tipo === 'division') return '<div><label class="form-label atlas-required">Nombre</label><input type="text" class="form-control" name="nombre" required placeholder="Nombre de la división" value="' + esc(row.nombre || '') + '"></div><div><label class="form-label atlas-required">Divisional activo</label><select class="form-select js-atlas-select-buscador" name="divisional_id" required>' + optionsCatalogo(catalogos.divisionales, row.divisional_id, 'Selecciona divisional') + '</select></div><div><label class="form-label atlas-required">Estatus</label><select class="form-select js-atlas-select-buscador" name="activo" required><option value="1"' + (Number(row.activo ?? 1) === 1 ? ' selected' : '') + '>Activa</option><option value="0"' + (Number(row.activo ?? 1) === 0 ? ' selected' : '') + '>Inactiva</option></select></div>';
         if (tipo === 'distribuidor' || tipo === 'diversificacion') {
-            const label = tipo === 'diversificacion' ? 'DiversificaciÃ³n' : 'Nombre';
-            const placeholder = tipo === 'diversificacion' ? 'Nombre de la diversificaciÃ³n' : 'Nombre del distribuidor';
+            const label = tipo === 'diversificacion' ? 'Diversificación' : 'Nombre';
+            const placeholder = tipo === 'diversificacion' ? 'Nombre de la diversificación' : 'Nombre del distribuidor';
             return '<div class="atlas-catalog-inline"><div><label class="form-label atlas-required">' + label + '</label><input type="text" class="form-control" name="nombre" required placeholder="' + esc(placeholder) + '" value="' + esc(row.nombre || '') + '"></div><div><label class="form-label atlas-required">Estatus</label><select class="form-select js-atlas-select-buscador" name="activo" required><option value="1"' + (Number(row.activo ?? 1) === 1 ? ' selected' : '') + '>Activa</option><option value="0"' + (Number(row.activo ?? 1) === 0 ? ' selected' : '') + '>Inactiva</option></select></div></div>';
         }
         const colorActual = colorHexSeguro(row.color_hex || '#94A3B8');
         const idActual = row.id || '';
         const iconoActual = String(row.icon_font || iconoDisponibleClasificacion(idActual)).trim();
-        return '<div><label class="form-label atlas-required">Nombre</label><input type="text" class="form-control" name="nombre" required placeholder="Nombre de la clasificaciÃ³n" value="' + esc(row.nombre || '') + '"></div><div class="atlas-field-wide"><label class="form-label atlas-required">Icono</label><input type="hidden" name="icon_font" id="atlas-catalogo-icon-font" required value="' + esc(iconoActual) + '">' + renderGaleriaIconos(iconoActual, idActual) + '</div><div><label class="form-label atlas-required">Color</label><div class="atlas-color-input-wrap"><input type="color" name="color_hex" id="atlas-catalogo-color" required value="' + esc(colorActual) + '"><span class="atlas-muted" id="atlas-catalogo-color-label">' + esc(colorActual) + '</span></div></div><div><label class="form-label atlas-required">Estatus</label><select class="form-select js-atlas-select-buscador" name="activo" required><option value="1"' + (Number(row.activo ?? 1) === 1 ? ' selected' : '') + '>Activa</option><option value="0"' + (Number(row.activo ?? 1) === 0 ? ' selected' : '') + '>Inactiva</option></select></div>';
+        return '<div><label class="form-label atlas-required">Nombre</label><input type="text" class="form-control" name="nombre" required placeholder="Nombre de la clasificación" value="' + esc(row.nombre || '') + '"></div><div class="atlas-field-wide"><label class="form-label atlas-required">Icono</label><input type="hidden" name="icon_font" id="atlas-catalogo-icon-font" required value="' + esc(iconoActual) + '">' + renderGaleriaIconos(iconoActual, idActual) + '</div><div><label class="form-label atlas-required">Color</label><div class="atlas-color-input-wrap"><input type="color" name="color_hex" id="atlas-catalogo-color" required value="' + esc(colorActual) + '"><span class="atlas-muted" id="atlas-catalogo-color-label">' + esc(colorActual) + '</span></div></div><div><label class="form-label atlas-required">Estatus</label><select class="form-select js-atlas-select-buscador" name="activo" required><option value="1"' + (Number(row.activo ?? 1) === 1 ? ' selected' : '') + '>Activa</option><option value="0"' + (Number(row.activo ?? 1) === 0 ? ' selected' : '') + '>Inactiva</option></select></div>';
     }
     function abrirCatalogo(tipo, row, opciones) {
         formCatalogo.reset();
         const opts = opciones || {};
         atlasQuickAddContext = opts.quickAdd ? { tipo: tipo, target: opts.target || '', snapshot: Object.assign({}, opts.snapshot || {}), guardado: false } : null;
         const data = Object.assign({}, row || {}, opts.prefill || {});
-        const titulos = { division: ['fa-solid fa-diagram-project','divisiÃ³n'], distribuidor: ['fa-solid fa-building','distribuidor'], diversificacion: ['fa-solid fa-layer-group','diversificaciÃ³n'], clasificacion: ['fa-solid fa-tags','clasificaciÃ³n'] };
+        const titulos = { division: ['fa-solid fa-diagram-project','división'], distribuidor: ['fa-solid fa-building','distribuidor'], diversificacion: ['fa-solid fa-layer-group','diversificación'], clasificacion: ['fa-solid fa-tags','clasificación'] };
         const cfg = titulos[tipo] || titulos.clasificacion;
         document.getElementById('atlas-catalogo-id').value = data.id || '';
         document.getElementById('atlas-catalogo-tipo').value = tipo;
@@ -814,8 +814,8 @@
     function refrescarCombosSucursal(valores) {
         const v = valores || valoresSucursalActuales();
         llenarSelect('atlas-sucursal-distribuidor', catalogos.distribuidores, 'Selecciona distribuidor');
-        llenarSelect('atlas-sucursal-diversificacion', catalogos.diversificaciones, 'Selecciona diversificaciÃƒÂ³n');
-        llenarSelect('atlas-sucursal-clasificacion', catalogos.clasificaciones, 'Selecciona clasificaciÃƒÂ³n');
+        llenarSelect('atlas-sucursal-diversificacion', catalogos.diversificaciones, 'Selecciona diversificación');
+        llenarSelect('atlas-sucursal-clasificacion', catalogos.clasificaciones, 'Selecciona clasificación');
         actualizarCascadaSucursal(v);
         Object.keys(v).forEach(key => setFormValue(formSucursal, key, v[key]));
     }
@@ -868,7 +868,7 @@
         if (typeof google !== 'undefined' && google.maps && (!requierePlaces || google.maps.places)) return;
         if (atlasMapaCargando) return atlasMapaCargando;
         const apiKey = typeof window.ATLAS_GOOGLE_MAPS_KEY === 'string' ? window.ATLAS_GOOGLE_MAPS_KEY.trim() : '';
-        if (!apiKey) throw new Error('Falta GOOGLE_MAPS_API_KEY en configuraciÃ³n.');
+        if (!apiKey) throw new Error('Falta GOOGLE_MAPS_API_KEY en configuración.');
         atlasMapaCargando = new Promise((resolve, reject) => {
             const script = document.createElement('script');
             script.src = 'https://maps.googleapis.com/maps/api/js?key=' + encodeURIComponent(apiKey) + '&libraries=places&language=es&region=MX';
@@ -883,7 +883,7 @@
     function normalizarTextoDireccionGoogle(valor) { return String(valor || '').trim().normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase(); }
     function normalizarEstadoGoogle(valor) {
         const estado = String(valor || '').trim();
-        const mapa = { 'state of mexico': 'Estado de MÃ©xico', 'mexico state': 'Estado de MÃ©xico', 'estado de mexico': 'Estado de MÃ©xico', 'mexico city': 'Ciudad de MÃ©xico', 'ciudad de mexico': 'Ciudad de MÃ©xico' };
+        const mapa = { 'state of mexico': 'Estado de México', 'mexico state': 'Estado de México', 'estado de mexico': 'Estado de México', 'mexico city': 'Ciudad de México', 'ciudad de mexico': 'Ciudad de México' };
         return mapa[normalizarTextoDireccionGoogle(estado)] || estado;
     }
     function extraerDireccionGoogle(componentes) {
@@ -894,7 +894,7 @@
         atlasDireccionActual = { lat: lat, lng: lng, direccion: String(direccion || '').trim(), estado: extra.estado, municipio: extra.municipio, localidad: extra.localidad, codigo_postal: extra.codigo_postal };
         const punto = { lat: lat, lng: lng };
         if (!atlasDireccionMarker) {
-            atlasDireccionMarker = new google.maps.Marker({ map: atlasDireccionMapa, position: punto, draggable: true, title: 'Arrastra el pin para ajustar la ubicaciÃ³n' });
+            atlasDireccionMarker = new google.maps.Marker({ map: atlasDireccionMapa, position: punto, draggable: true, title: 'Arrastra el pin para ajustar la ubicación' });
             atlasDireccionMarker.addListener('dragend', function () { const pos = atlasDireccionMarker.getPosition(); setDireccionSeleccionada(pos.lat(), pos.lng(), atlasDireccionActual ? atlasDireccionActual.direccion : '', [], false); });
         } else atlasDireccionMarker.setPosition(punto);
         if (direccionBusqueda && atlasDireccionActual.direccion) direccionBusqueda.value = atlasDireccionActual.direccion;
@@ -916,7 +916,7 @@
         }
         const lat = numeroValido(getFormValue(formSucursal, 'latitud')), lng = numeroValido(getFormValue(formSucursal, 'longitud'));
         if (lat != null && lng != null) setDireccionSeleccionada(lat, lng, getFormValue(formSucursal, 'direccion_sucursal'), [], true);
-        else { if (btnConfirmarDireccion) btnConfirmarDireccion.disabled = true; if (direccionCoordenadas) direccionCoordenadas.textContent = 'Selecciona una direcciÃ³n para colocar el pin.'; }
+        else { if (btnConfirmarDireccion) btnConfirmarDireccion.disabled = true; if (direccionCoordenadas) direccionCoordenadas.textContent = 'Selecciona una dirección para colocar el pin.'; }
         setTimeout(() => { if (direccionBusqueda) direccionBusqueda.focus(); }, 250);
     }
     function abrirDireccionGoogle() { if (direccionBusqueda) direccionBusqueda.value = getFormValue(formSucursal, 'direccion_sucursal'); atlasDireccionActual = null; mostrarModal(modalDireccionEl); }
@@ -939,7 +939,7 @@
         atlasDireccionActual = { lat: lat, lng: lng, direccion: String(direccion || '').trim(), estado: extra.estado, municipio: extra.municipio, localidad: extra.localidad, codigo_postal: extra.codigo_postal };
         const punto = { lat: lat, lng: lng };
         if (!atlasDireccionMarker) {
-            atlasDireccionMarker = new google.maps.Marker({ map: atlasDireccionMapa, position: punto, draggable: true, icon: iconoPinDireccionActual(), title: 'Arrastra el pin para ajustar la ubicacion' });
+            atlasDireccionMarker = new google.maps.Marker({ map: atlasDireccionMapa, position: punto, draggable: true, icon: iconoPinDireccionActual(), title: 'Arrastra el pin para ajustar la ubicación' });
             atlasDireccionMarker.addListener('dragend', function () {
                 const pos = atlasDireccionMarker.getPosition();
                 if (pos) resolverDireccionPorCoordenadas(pos.lat(), pos.lng(), atlasDireccionActual ? atlasDireccionActual.direccion : '', false);
@@ -957,7 +957,7 @@
             setDireccionSeleccionada(lat, lng, direccionFallback || '', [], centrar);
             return;
         }
-        setDireccionStatus('Resolviendo direccion...', false);
+        setDireccionStatus('Resolviendo dirección...', false);
         atlasDireccionGeocoder.geocode({ location: { lat: lat, lng: lng } }, function (results, status) {
             if (status === 'OK' && results && results[0]) {
                 setDireccionSeleccionada(lat, lng, results[0].formatted_address || direccionFallback || '', results[0].address_components || [], centrar);
@@ -969,14 +969,14 @@
     function resolverDireccionPorTexto() {
         const texto = direccionBusqueda ? String(direccionBusqueda.value || '').trim() : '';
         if (!texto || !atlasDireccionGeocoder) return;
-        setDireccionStatus('Buscando direccion...', false);
+        setDireccionStatus('Buscando dirección...', false);
         atlasDireccionGeocoder.geocode({ address: texto, componentRestrictions: { country: 'MX' } }, function (results, status) {
             if (status === 'OK' && results && results[0] && results[0].geometry && results[0].geometry.location) {
                 const loc = results[0].geometry.location;
                 setDireccionSeleccionada(loc.lat(), loc.lng(), results[0].formatted_address || texto, results[0].address_components || [], true);
                 return;
             }
-            setDireccionStatus('No se encontro la direccion. Ajusta la busqueda.', false);
+            setDireccionStatus('No se encontró la dirección. Ajusta la búsqueda.', false);
         });
     }
     async function inicializarModalDireccion() {
@@ -1009,7 +1009,7 @@
             limpiarDireccionMarker();
             atlasDireccionMapa.setCenter({ lat: 23.6345, lng: -102.5528 });
             atlasDireccionMapa.setZoom(5);
-            setDireccionStatus('Selecciona una direccion para colocar el pin.', false);
+            setDireccionStatus('Selecciona una dirección para colocar el pin.', false);
         }
         setTimeout(function () { if (atlasDireccionMapa && google.maps.event) google.maps.event.trigger(atlasDireccionMapa, 'resize'); }, 120);
         setTimeout(function () { if (direccionBusqueda) direccionBusqueda.focus(); }, 250);
@@ -1080,8 +1080,8 @@
     }
     function abrirModalUbicacion(idSucursal) {
         const row = sucursales.find(r => String(r.id || '') === String(idSucursal || '')); if (!row) return;
-        document.getElementById('atlas-ubicacion-titulo').textContent = row.sucursal || 'UbicaciÃ³n';
-        document.getElementById('atlas-ubicacion-direccion').textContent = atlasNormalizarTexto(row.direccion || 'Sin direcciÃ³n capturada');
+        document.getElementById('atlas-ubicacion-titulo').textContent = row.sucursal || 'Ubicación';
+        document.getElementById('atlas-ubicacion-direccion').textContent = atlasNormalizarTexto(row.direccion || 'Sin dirección capturada');
         document.getElementById('atlas-ubicacion-coordenadas').textContent = (row.latitud && row.longitud) ? row.latitud + ', ' + row.longitud : 'Sin coordenadas';
         mostrarModal(modalUbicacionEl);
         setTimeout(() => renderMapaSimple(row, 'atlas-ubicacion-mapa'), 250);
@@ -1122,7 +1122,7 @@
             const prefill = {};
             if (tipo === 'division') {
                 const divisionalId = getFormValue(formSucursal, 'divisional_id');
-                if (!divisionalId) { if (typeof Swal !== 'undefined') Swal.fire({ icon: 'info', title: 'Selecciona un divisional', text: 'La divisiÃ³n se agrega dentro del divisional elegido.' }); return; }
+                if (!divisionalId) { if (typeof Swal !== 'undefined') Swal.fire({ icon: 'info', title: 'Selecciona un divisional', text: 'La división se agrega dentro del divisional elegido.' }); return; }
                 prefill.divisional_id = divisionalId;
             }
             abrirCatalogoRapido(tipo, target, prefill);
@@ -1172,7 +1172,7 @@
             catch (err) { if (typeof Swal !== 'undefined') Swal.fire({ icon: 'error', title: 'No se pudo guardar', text: err.message || 'Error' }); }
         });
     }
-    if (modalDireccionEl) modalDireccionEl.addEventListener('shown.bs.modal', function () { inicializarModalDireccion().catch(err => { if (typeof Swal !== 'undefined') Swal.fire({ icon: 'warning', title: 'No se pudo abrir el mapa', text: err.message || 'Revisa la configuraciÃ³n de Google Maps.' }); }); });
+    if (modalDireccionEl) modalDireccionEl.addEventListener('shown.bs.modal', function () { inicializarModalDireccion().catch(err => { if (typeof Swal !== 'undefined') Swal.fire({ icon: 'warning', title: 'No se pudo abrir el mapa', text: err.message || 'Revisa la configuración de Google Maps.' }); }); });
     if (modalDireccionEl) modalDireccionEl.addEventListener('hidden.bs.modal', restaurarSucursalDesdeDireccion);
     if (btnConfirmarDireccion) btnConfirmarDireccion.addEventListener('click', confirmarDireccionGoogle);
     if (direccionBusqueda) direccionBusqueda.addEventListener('keydown', ev => { if (ev.key === 'Enter') ev.preventDefault(); });

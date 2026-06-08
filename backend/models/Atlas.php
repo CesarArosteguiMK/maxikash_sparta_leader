@@ -238,6 +238,73 @@ class Atlas extends Model
         }
     }
 
+    public static function getHistorialNotificacionesApp(): array
+    {
+        try {
+            $db = new Database();
+            $datos = $db->queryAll("
+                SELECT
+                    n.id,
+                    n.type,
+                    n.notification_type,
+                    n.titulo,
+                    n.mensaje,
+                    DATE_FORMAT(n.created_at, '%d/%m/%Y %H:%i') AS created_at_fmt,
+                    COUNT(DISTINCT un.id) AS total_destinatarios,
+                    SUM(CASE WHEN un.is_read = 1 THEN 1 ELSE 0 END) AS total_leidas,
+                    SUM(CASE WHEN un.is_active = 1 THEN 1 ELSE 0 END) AS total_activas,
+                    DATE_FORMAT(MAX(COALESCE(un.sent_at, un.created_at, n.created_at)), '%d/%m/%Y %H:%i') AS ultima_actividad_fmt,
+                    MAX(un.user_id) AS user_id_ref,
+                    MAX(un.external_id) AS external_id_ref,
+                    MAX(p.correo) AS correo_ref,
+                    MAX(TRIM(CONCAT_WS(' ',
+                        NULLIF(TRIM(p.nombres), ''),
+                        NULLIF(TRIM(p.segundo_nombre), ''),
+                        NULLIF(TRIM(p.apellidop), ''),
+                        NULLIF(TRIM(p.apellidom), '')
+                    ))) AS nombre_ref
+                FROM atlas_notifications n
+                LEFT JOIN atlas_user_notifications un ON un.notification_id = n.id
+                LEFT JOIN persona p
+                    ON (un.user_id REGEXP '^[0-9]+$' AND p.id = CAST(un.user_id AS UNSIGNED))
+                    OR (TRIM(COALESCE(un.external_id, '')) <> '' AND p.numero_empleado = un.external_id)
+                GROUP BY n.id, n.type, n.notification_type, n.titulo, n.mensaje, n.created_at
+                ORDER BY n.created_at DESC, n.id DESC
+                LIMIT 250
+            ");
+
+            foreach ($datos as &$row) {
+                $total = (int)($row['total_destinatarios'] ?? 0);
+                $nombre = trim((string)($row['nombre_ref'] ?? ''));
+                $externalId = trim((string)($row['external_id_ref'] ?? ''));
+                $userId = trim((string)($row['user_id_ref'] ?? ''));
+                if ($total <= 1) {
+                    $row['alcance'] = 'usuario';
+                    $row['alcance_nombre'] = $nombre !== ''
+                        ? $nombre
+                        : 'Usuario ' . ($externalId !== '' ? $externalId : ($userId !== '' ? $userId : 'sin identificar'));
+                } else {
+                    $row['alcance'] = 'campania';
+                    $row['alcance_nombre'] = 'Campaña a ' . $total . ' usuarios';
+                }
+            }
+            unset($row);
+
+            return [
+                'success' => true,
+                'mensaje' => 'Historial de notificaciones obtenido.',
+                'datos' => $datos,
+            ];
+        } catch (\Throwable $e) {
+            return [
+                'success' => false,
+                'mensaje' => 'No se pudo obtener el historial de notificaciones.',
+                'error' => $e->getMessage(),
+                'datos' => [],
+            ];
+        }
+    }
+
     public static function getSucursales(): array
     {
         try {

@@ -411,6 +411,7 @@ $rutasModulos = [
     'atlas/getcatalogos' => [102],
     'atlas/getplantillasnotificaciones' => [102],
     'atlas/getusuariosnotificacionesdisponibles' => [102],
+    'atlas/gethistorialnotificacionesapp' => [102],
     'atlas/guardarplantillanotificacion' => [102],
     'atlas/guardarsucursal' => [102],
     'atlas/guardardivision' => [102],

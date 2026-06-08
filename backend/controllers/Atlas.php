@@ -58,6 +58,11 @@ class Atlas extends Controller
         $this->json(AtlasDAO::getUsuariosNotificacionesDisponibles());
     }
 
+    public function getHistorialNotificacionesApp()
+    {
+        $this->json(AtlasDAO::getHistorialNotificacionesApp());
+    }
+
     public function guardarSucursal()
     {
         $this->json(AtlasDAO::guardarSucursal($this->payload()));
@@ -143,23 +148,41 @@ class Atlas extends Controller
         }
 
         $decoded = json_decode((string)$raw, true);
+        $mensaje = ($httpCode >= 200 && $httpCode < 300) ? 'Respuesta recibida.' : 'Atlas App devolvió un error.';
+        if ($httpCode < 200 || $httpCode >= 300) {
+            $detalle = is_array($decoded) ? ($decoded['detail'] ?? $decoded['message'] ?? $decoded['error'] ?? $decoded['mensaje'] ?? '') : '';
+            if (is_array($detalle)) {
+                $partes = [];
+                foreach ($detalle as $item) {
+                    if (is_array($item)) {
+                        $partes[] = (string)($item['msg'] ?? json_encode($item, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
+                    } else {
+                        $partes[] = (string)$item;
+                    }
+                }
+                $detalle = implode(' · ', array_filter($partes));
+            }
+            if (trim((string)$detalle) !== '') {
+                $mensaje = (string)$detalle;
+            } elseif (!is_array($decoded) && trim((string)$raw) !== '') {
+                $mensaje = 'Atlas App HTTP ' . $httpCode . ': ' . trim((string)$raw);
+            }
+        }
         $this->json([
             'success' => $httpCode >= 200 && $httpCode < 300,
             'status' => $httpCode,
             'datos' => is_array($decoded) ? $decoded : null,
             'raw' => is_array($decoded) ? null : $raw,
-            'mensaje' => ($httpCode >= 200 && $httpCode < 300) ? 'Respuesta recibida.' : 'Atlas App devolvió un error.',
+            'mensaje' => $mensaje,
         ]);
     }
 
     private function atlasNotificacionesPathPermitido(string $path): bool
     {
         if (in_array($path, [
-            '/api/atlas/push-notifications/send',
-            '/api/atlas/push-campaigns/send',
+            '/api/atlas/notifications/send',
             '/api/atlas/push-campaigns',
             '/api/atlas/push-notifications/log',
-            '/api/atlas/notifications',
             '/api/atlas/notifications/inbox',
             '/api/atlas/push-tokens',
         ], true)) return true;
