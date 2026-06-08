@@ -7,16 +7,25 @@
         .atlas-title { display: flex; align-items: center; gap: .7rem; margin: 0; color: #1e3a5f; font-size: 1.28rem; font-weight: 800; }
         .atlas-title i { color: #2563eb; }
         .btn-action-size { height: 36px; padding: .375rem .75rem; font-size: .875rem; line-height: 1; display: inline-flex; align-items: center; gap: .375rem; }
+        .atlas-shell { border: 1px solid #e2e8f0; border-radius: .85rem; background: #fff; box-shadow: 0 .125rem .375rem rgba(34, 48, 62, .08); }
+        .atlas-shell .card-body { padding: 1rem; }
+        .atlas-shell .select2-container { max-width: 100% !important; }
         .atlas-tabs { border-bottom: 1px solid #e2e8f0; margin-bottom: 1rem; gap: .35rem; flex-wrap: wrap; }
         .atlas-tabs .nav-link { border: 0; border-bottom: 3px solid transparent; color: #64748b; font-weight: 800; padding: .65rem .9rem; }
         .atlas-tabs .nav-link.active { color: #173756; border-bottom-color: #2563eb; background: transparent; }
         .atlas-panel-head { display: flex; align-items: center; justify-content: flex-end; gap: .8rem; margin-bottom: .85rem; }
-        .atlas-kpis { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: .75rem; margin-bottom: 1rem; }
+        .atlas-kpis { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: .75rem; margin-bottom: 1rem; }
         .atlas-kpi { border: 1px solid #e2e8f0; border-radius: .65rem; background: #fff; padding: .78rem .9rem; }
         .atlas-kpi span { display: flex; align-items: center; gap: .45rem; color: #64748b; font-size: .72rem; font-weight: 900; text-transform: uppercase; letter-spacing: .03em; }
         .atlas-kpi strong { display: block; margin-top: .2rem; color: #173756; font-size: 1.2rem; font-weight: 900; }
         .atlas-kpi-action { display: flex; align-items: center; justify-content: space-between; gap: .6rem; }
+        .atlas-kpi-danger { border-color: #fecaca; background: #fff7f7; }
+        .atlas-kpi-danger strong, .atlas-kpi-danger span { color: #b91c1c; }
+        .atlas-kpi-warn { border-color: #fde68a; background: #fffbeb; }
+        .atlas-kpi-warn strong, .atlas-kpi-warn span { color: #92400e; }
         .atlas-map-badge-btn, .atlas-location-link { border: 1px solid #bfdbfe; color: #1d4ed8; background: #eff6ff; border-radius: 999px; font-size: .72rem; font-weight: 800; padding: .22rem .55rem; display: inline-flex; align-items: center; gap: .32rem; }
+        .atlas-quality-btn { border-color: #fecaca; color: #b91c1c; background: #fff1f2; }
+        .atlas-quality-btn-warning { border-color: #fde68a; color: #92400e; background: #fffbeb; }
         .atlas-location-link { max-width: 100%; border-color: #dbe4ef; color: #334155; background: #f8fafc; white-space: normal; text-align: left; border-radius: .45rem; }
         .atlas-field-row { display: flex; flex-direction: column; gap: .08rem; min-width: 0; }
         .atlas-field-label { color: #64748b; font-size: .68rem; font-weight: 900; text-transform: uppercase; letter-spacing: .03em; line-height: 1.1; }
@@ -100,6 +109,17 @@
         }
         .atlas-map-legend-item i { color: var(--atlas-class-color, #2563eb); }
         .atlas-address-meta { display: flex; align-items: center; justify-content: space-between; gap: .75rem; margin-top: .65rem; color: #64748b; font-size: .78rem; font-weight: 800; }
+        .atlas-quality-list { display: grid; gap: .75rem; }
+        .atlas-quality-item { border: 1px solid #e2e8f0; border-radius: .7rem; background: #fff; padding: .85rem; }
+        .atlas-quality-head { display: flex; align-items: flex-start; justify-content: space-between; gap: .75rem; margin-bottom: .55rem; }
+        .atlas-quality-title { color: #173756; font-size: .9rem; font-weight: 900; line-height: 1.15; }
+        .atlas-quality-sub { color: #64748b; font-size: .72rem; font-weight: 800; line-height: 1.2; margin-top: .12rem; }
+        .atlas-quality-reasons { display: flex; flex-wrap: wrap; gap: .38rem; }
+        .atlas-quality-reason { display: inline-flex; align-items: center; gap: .3rem; border-radius: 999px; padding: .22rem .55rem; font-size: .7rem; font-weight: 900; line-height: 1.1; }
+        .atlas-quality-reason.is-error { background: #fee2e2; color: #b91c1c; }
+        .atlas-quality-reason.is-warning { background: #fef3c7; color: #92400e; }
+        .atlas-quality-reason.is-info { background: #e0f2fe; color: #0369a1; }
+        .atlas-quality-actions { display: inline-flex; align-items: center; gap: .4rem; flex-shrink: 0; }
         .atlas-classif, .atlas-select-classif { display: inline-flex; align-items: center; gap: .42rem; color: #24364b; font-weight: 900; }
         .atlas-classif i { color: var(--atlas-class-color, #2563eb); }
         .atlas-classif-dot, .atlas-select-classif-dot { width: .72rem; height: .72rem; border-radius: 999px; background: var(--atlas-class-color, #94a3b8); box-shadow: inset 0 0 0 2px rgba(255,255,255,.8), 0 0 0 1px rgba(15,23,42,.12); flex: 0 0 auto; }
@@ -119,14 +139,16 @@
         #modalAtlasSucursal .modal-footer,
         #modalAtlasDireccion .modal-footer,
         #modalAtlasCatalogo .modal-footer,
-        #modalAtlasMapa .modal-footer {
+        #modalAtlasMapa .modal-footer,
+        #modalAtlasCalidad .modal-footer {
             justify-content: flex-end;
             gap: .75rem;
         }
         #modalAtlasSucursal .modal-footer .btn,
         #modalAtlasDireccion .modal-footer .btn,
         #modalAtlasCatalogo .modal-footer .btn,
-        #modalAtlasMapa .modal-footer .btn {
+        #modalAtlasMapa .modal-footer .btn,
+        #modalAtlasCalidad .modal-footer .btn {
             min-width: 8.5rem;
             display: inline-flex;
             align-items: center;
@@ -168,11 +190,13 @@
             #modalAtlasSucursal .modal-footer,
             #modalAtlasDireccion .modal-footer,
             #modalAtlasCatalogo .modal-footer,
-            #modalAtlasMapa .modal-footer { flex-direction: column; align-items: stretch; }
+            #modalAtlasMapa .modal-footer,
+            #modalAtlasCalidad .modal-footer { flex-direction: column; align-items: stretch; }
             #modalAtlasSucursal .modal-footer .btn,
             #modalAtlasDireccion .modal-footer .btn,
             #modalAtlasCatalogo .modal-footer .btn,
-            #modalAtlasMapa .modal-footer .btn { width: 100%; }
+            #modalAtlasMapa .modal-footer .btn,
+            #modalAtlasCalidad .modal-footer .btn { width: 100%; }
         }
         @media (max-width: 575.98px) {
             .atlas-head { align-items: stretch; flex-direction: column; }
@@ -203,16 +227,18 @@
         </button>
     </div>
 
-    <ul class="nav atlas-tabs" id="atlas-tabs" role="tablist">
-        <li class="nav-item" role="presentation"><button class="nav-link active" type="button" role="tab" data-bs-toggle="tab" data-bs-target="#atlas-tab-sucursales"><i class="fa-solid fa-store me-1"></i>Sucursales</button></li>
-        <li class="nav-item" role="presentation"><button class="nav-link" type="button" role="tab" data-bs-toggle="tab" data-bs-target="#atlas-tab-divisiones"><i class="fa-solid fa-diagram-project me-1"></i>Divisiones</button></li>
-        <li class="nav-item" role="presentation"><button class="nav-link" type="button" role="tab" data-bs-toggle="tab" data-bs-target="#atlas-tab-distribuidores"><i class="fa-solid fa-building me-1"></i>Distribuidores</button></li>
-        <li class="nav-item" role="presentation"><button class="nav-link" type="button" role="tab" data-bs-toggle="tab" data-bs-target="#atlas-tab-diversificaciones"><i class="fa-solid fa-layer-group me-1"></i>Diversificaciones</button></li>
-        <li class="nav-item" role="presentation"><button class="nav-link" type="button" role="tab" data-bs-toggle="tab" data-bs-target="#atlas-tab-clasificaciones"><i class="fa-solid fa-tags me-1"></i>Clasificaciones</button></li>
-    </ul>
+    <div class="card atlas-shell">
+        <div class="card-body">
+            <ul class="nav atlas-tabs" id="atlas-tabs" role="tablist">
+                <li class="nav-item" role="presentation"><button class="nav-link active" type="button" role="tab" data-bs-toggle="tab" data-bs-target="#atlas-tab-sucursales"><i class="fa-solid fa-store me-1"></i>Sucursales</button></li>
+                <li class="nav-item" role="presentation"><button class="nav-link" type="button" role="tab" data-bs-toggle="tab" data-bs-target="#atlas-tab-divisiones"><i class="fa-solid fa-diagram-project me-1"></i>Divisiones</button></li>
+                <li class="nav-item" role="presentation"><button class="nav-link" type="button" role="tab" data-bs-toggle="tab" data-bs-target="#atlas-tab-distribuidores"><i class="fa-solid fa-building me-1"></i>Distribuidores</button></li>
+                <li class="nav-item" role="presentation"><button class="nav-link" type="button" role="tab" data-bs-toggle="tab" data-bs-target="#atlas-tab-diversificaciones"><i class="fa-solid fa-layer-group me-1"></i>Diversificaciones</button></li>
+                <li class="nav-item" role="presentation"><button class="nav-link" type="button" role="tab" data-bs-toggle="tab" data-bs-target="#atlas-tab-clasificaciones"><i class="fa-solid fa-tags me-1"></i>Clasificaciones</button></li>
+            </ul>
 
-    <div class="tab-content p-0">
-        <div class="tab-pane fade show active" id="atlas-tab-sucursales" role="tabpanel">
+            <div class="tab-content p-0">
+                <div class="tab-pane fade show active" id="atlas-tab-sucursales" role="tabpanel">
             <div class="atlas-panel-head">
                 <button type="button" class="btn btn-primary add-new btn-action-size" data-atlas-agregar="sucursal"><i class="fa fa-plus icon-sm me-sm-1"></i><span>Agregar sucursal</span></button>
             </div>
@@ -221,6 +247,8 @@
                 <div class="atlas-kpi"><span><i class="fa-solid fa-circle-check"></i>Activas</span><strong id="atlas-kpi-activas">0</strong></div>
                 <div class="atlas-kpi"><span><i class="fa-solid fa-circle-pause"></i>Inactivas</span><strong id="atlas-kpi-inactivas">0</strong></div>
                 <div class="atlas-kpi"><span><i class="fa-solid fa-location-crosshairs"></i>Con coordenadas</span><div class="atlas-kpi-action"><strong id="atlas-kpi-coordenadas">0</strong><button type="button" class="atlas-map-badge-btn" id="atlas-btn-ver-mapa"><i class="fa-solid fa-map-location-dot"></i>Ver mapa</button></div></div>
+                <div class="atlas-kpi atlas-kpi-danger"><span><i class="fa-solid fa-triangle-exclamation"></i>Con error</span><div class="atlas-kpi-action"><strong id="atlas-kpi-errores">0</strong><button type="button" class="atlas-map-badge-btn atlas-quality-btn" id="atlas-btn-ver-errores"><i class="fa-solid fa-list-check"></i>Detalle</button></div></div>
+                <div class="atlas-kpi atlas-kpi-warn"><span><i class="fa-solid fa-map-pin"></i>Sin coordenadas</span><div class="atlas-kpi-action"><strong id="atlas-kpi-sin-coordenadas">0</strong><button type="button" class="atlas-map-badge-btn atlas-quality-btn-warning" id="atlas-btn-ver-sin-coordenadas"><i class="fa-solid fa-screwdriver-wrench"></i>Corregir</button></div></div>
             </div>
             <div class="card-datatable table-responsive atlas-table-wrap atlas-loading" data-atlas-table-loader="sucursales" data-atlas-loading-label="Cargando sucursales...">
                 <table id="atlasTablaSucursales" class="dt-responsive table border-top">
@@ -228,29 +256,32 @@
                     <tbody id="atlas-sucursales-body"><tr><td colspan="5" class="atlas-empty"><span class="spinner-border spinner-border-sm me-2"></span>Cargando sucursales...</td></tr></tbody>
                 </table>
             </div>
-        </div>
-        <div class="tab-pane fade" id="atlas-tab-divisiones" role="tabpanel">
+                </div>
+                <div class="tab-pane fade" id="atlas-tab-divisiones" role="tabpanel">
             <div class="atlas-panel-head"><button type="button" class="btn btn-primary add-new btn-action-size" data-atlas-agregar="division"><i class="fa fa-plus icon-sm me-sm-1"></i><span>Agregar división</span></button></div>
             <div class="card-datatable table-responsive atlas-table-wrap atlas-loading" data-atlas-table-loader="divisiones" data-atlas-loading-label="Cargando divisiones...">
                 <table id="atlasTablaDivisiones" class="dt-responsive table border-top"><thead><tr><th>División</th><th>Divisional</th><th>Estatus</th><th>Acciones</th></tr></thead><tbody></tbody></table>
             </div>
-        </div>
-        <div class="tab-pane fade" id="atlas-tab-distribuidores" role="tabpanel">
+                </div>
+                <div class="tab-pane fade" id="atlas-tab-distribuidores" role="tabpanel">
             <div class="atlas-panel-head"><button type="button" class="btn btn-primary add-new btn-action-size" data-atlas-agregar="distribuidor"><i class="fa fa-plus icon-sm me-sm-1"></i><span>Agregar distribuidor</span></button></div>
             <div class="card-datatable table-responsive atlas-table-wrap atlas-loading" data-atlas-table-loader="distribuidores" data-atlas-loading-label="Cargando distribuidores...">
                 <table id="atlasTablaDistribuidores" class="dt-responsive table border-top"><thead><tr><th>Distribuidor</th><th>Estatus</th><th>Acciones</th></tr></thead><tbody></tbody></table>
             </div>
-        </div>
-        <div class="tab-pane fade" id="atlas-tab-diversificaciones" role="tabpanel">
+                </div>
+                <div class="tab-pane fade" id="atlas-tab-diversificaciones" role="tabpanel">
             <div class="atlas-panel-head"><button type="button" class="btn btn-primary add-new btn-action-size" data-atlas-agregar="diversificacion"><i class="fa fa-plus icon-sm me-sm-1"></i><span>Agregar diversificación</span></button></div>
             <div class="card-datatable table-responsive atlas-table-wrap atlas-loading" data-atlas-table-loader="diversificaciones" data-atlas-loading-label="Cargando diversificaciones...">
                 <table id="atlasTablaDiversificaciones" class="dt-responsive table border-top"><thead><tr><th>Diversificación</th><th>Estatus</th><th>Acciones</th></tr></thead><tbody></tbody></table>
             </div>
-        </div>
-        <div class="tab-pane fade" id="atlas-tab-clasificaciones" role="tabpanel">
+                </div>
+                <div class="tab-pane fade" id="atlas-tab-clasificaciones" role="tabpanel">
             <div class="atlas-panel-head"><button type="button" class="btn btn-primary add-new btn-action-size" data-atlas-agregar="clasificacion"><i class="fa fa-plus icon-sm me-sm-1"></i><span>Agregar clasificación</span></button></div>
             <div class="card-datatable table-responsive atlas-table-wrap atlas-loading" data-atlas-table-loader="clasificaciones" data-atlas-loading-label="Cargando clasificaciones...">
                 <table id="atlasTablaClasificaciones" class="dt-responsive table border-top"><thead><tr><th></th><th>Orden</th><th>Clasificación</th><th>Estatus</th><th>Acciones</th></tr></thead><tbody></tbody></table>
+            </div>
+            </div>
+                </div>
             </div>
         </div>
     </div>
@@ -346,12 +377,27 @@
     </div>
 </div>
 
+<div class="modal fade" id="modalAtlasCalidad" tabindex="-1" aria-labelledby="modalAtlasCalidadLabel" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable modal-fullscreen-sm-down">
+        <div class="modal-content">
+            <div class="modal-header"><h5 class="modal-title fw-bold" id="modalAtlasCalidadLabel"><i class="fa-solid fa-list-check me-2"></i>Calidad de datos</h5><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button></div>
+            <div class="modal-body">
+                <div class="atlas-muted mb-3" id="atlas-calidad-resumen">Revisando sucursales...</div>
+                <div class="atlas-quality-list" id="atlas-calidad-lista"></div>
+            </div>
+            <div class="modal-footer"><button type="button" class="btn btn-label-danger" data-bs-dismiss="modal">Cerrar</button></div>
+        </div>
+    </div>
+</div>
+
 <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.2/Sortable.min.js"></script>
 <script>
 (function () {
     const body = document.getElementById('atlas-sucursales-body');
     const btnRecargar = document.getElementById('atlas-btn-recargar');
     const btnMapa = document.getElementById('atlas-btn-ver-mapa');
+    const btnErrores = document.getElementById('atlas-btn-ver-errores');
+    const btnSinCoordenadas = document.getElementById('atlas-btn-ver-sin-coordenadas');
     const formSucursal = document.getElementById('formAtlasSucursal');
     const formCatalogo = document.getElementById('formAtlasCatalogo');
     const modalSucursalEl = document.getElementById('modalAtlasSucursal');
@@ -359,8 +405,12 @@
     const modalDireccionEl = document.getElementById('modalAtlasDireccion');
     const modalMapaEl = document.getElementById('modalAtlasMapa');
     const modalUbicacionEl = document.getElementById('modalAtlasUbicacion');
+    const modalCalidadEl = document.getElementById('modalAtlasCalidad');
     const modalSucursalTitulo = document.getElementById('modalAtlasSucursalLabel');
     const modalCatalogoTitulo = document.getElementById('modalAtlasCatalogoLabel');
+    const modalCalidadTitulo = document.getElementById('modalAtlasCalidadLabel');
+    const calidadResumen = document.getElementById('atlas-calidad-resumen');
+    const calidadLista = document.getElementById('atlas-calidad-lista');
     const catalogoFields = document.getElementById('atlas-catalogo-fields');
     const direccionBusqueda = document.getElementById('atlas-direccion-busqueda');
     const direccionMapaCont = document.getElementById('atlas-direccion-mapa');
@@ -378,6 +428,7 @@
         'fa-solid fa-seedling','fa-solid fa-hand-holding-dollar','fa-solid fa-sack-dollar','fa-solid fa-scale-unbalanced','fa-solid fa-hourglass-half','fa-solid fa-clock-rotate-left'
     ];
     let sucursales = [];
+    let atlasCalidadSucursales = { errores: [], sinCoordenadas: [] };
     let catalogos = { divisiones: [], divisionales: [], regionales: [], supervisores: [], asesores: [], distribuidores: [], diversificaciones: [], clasificaciones: [] };
     let atlasTabla = null;
     let tablasCatalogo = {};
@@ -415,6 +466,110 @@
     function setTexto(id, value) { const el = document.getElementById(id); if (el) el.textContent = value == null ? '' : String(value); }
     function numeroValido(v) { if (v == null || v === '') return null; const n = Number(String(v).trim()); return Number.isFinite(n) ? n : null; }
     function sucursalConCoordenadas(row) { const lat = numeroValido(row.latitud); const lng = numeroValido(row.longitud); if (lat == null || lng == null || Math.abs(lat) < 1e-9 && Math.abs(lng) < 1e-9) return null; return Object.assign({}, row, { _lat: lat, _lng: lng }); }
+    function atlasClaveCalidad(v) {
+        return atlasNormalizarTexto(v || '')
+            .normalize('NFD')
+            .replace(/[\u0300-\u036f]/g, '')
+            .toLowerCase()
+            .replace(/\s+/g, ' ')
+            .trim();
+    }
+    function atlasCoordenadaMexico(lat, lng) {
+        return lat >= 14 && lat <= 33.5 && lng >= -119 && lng <= -86;
+    }
+    function atlasCalidadAddIssue(mapa, row, issue) {
+        const id = String(row.id || '');
+        if (!id) return;
+        if (!mapa[id]) mapa[id] = { row: row, issues: [] };
+        if (!mapa[id].issues.some(item => item.codigo === issue.codigo && item.detalle === issue.detalle)) {
+            mapa[id].issues.push(issue);
+        }
+    }
+    function atlasGrupoDuplicados(rows, keyFn) {
+        const grupos = {};
+        rows.forEach(row => {
+            const key = keyFn(row);
+            if (!key) return;
+            if (!grupos[key]) grupos[key] = [];
+            grupos[key].push(row);
+        });
+        return Object.keys(grupos).map(key => grupos[key]).filter(grupo => grupo.length > 1);
+    }
+    function atlasEvaluarCalidadSucursales() {
+        const issuesById = {};
+        const activas = sucursales.filter(row => Number(row.activo || 0) === 1);
+        activas.forEach(row => {
+            const lat = numeroValido(row.latitud);
+            const lng = numeroValido(row.longitud);
+            const direccion = atlasClaveCalidad(row.direccion || row.direccion_sucursal || '');
+            if (!direccion) {
+                atlasCalidadAddIssue(issuesById, row, { codigo: 'sin_direccion', severidad: 'error', icono: 'fa-solid fa-map', titulo: 'Sin dirección', detalle: 'No tiene dirección capturada para guiar rutas.' });
+            }
+            if (lat == null || lng == null) {
+                atlasCalidadAddIssue(issuesById, row, { codigo: 'sin_coordenadas', severidad: 'error', icono: 'fa-solid fa-map-pin', titulo: 'Sin coordenadas', detalle: 'No tiene latitud y longitud capturadas.' });
+            } else if (Math.abs(lat) < 1e-9 && Math.abs(lng) < 1e-9) {
+                atlasCalidadAddIssue(issuesById, row, { codigo: 'coordenadas_cero', severidad: 'error', icono: 'fa-solid fa-location-crosshairs', titulo: 'Coordenadas en cero', detalle: 'La ubicación está en 0,0 y no sirve para ruta.' });
+            } else if (!atlasCoordenadaMexico(lat, lng)) {
+                atlasCalidadAddIssue(issuesById, row, { codigo: 'coordenadas_fuera_mx', severidad: 'warning', icono: 'fa-solid fa-globe', titulo: 'Coordenadas fuera de México', detalle: 'La ubicación parece estar fuera del rango operativo de México.' });
+            }
+            [
+                ['distribuidor_id', 'Sin distribuidor'],
+                ['clasificacion_id', 'Sin clasificación'],
+                ['divisional_id', 'Sin divisional'],
+                ['division_id', 'Sin división'],
+                ['regional_id', 'Sin regional'],
+                ['supervisor_id', 'Sin supervisor'],
+                ['asesor_id', 'Sin asesor'],
+                ['diversificacion_id', 'Sin diversificación']
+            ].forEach(pair => {
+                if (!String(row[pair[0]] || '').trim()) {
+                    atlasCalidadAddIssue(issuesById, row, { codigo: pair[0], severidad: 'warning', icono: 'fa-solid fa-diagram-project', titulo: pair[1], detalle: 'Falta una asignación del catálogo operativo.' });
+                }
+            });
+            if (!String(row.numero_telefono || '').trim()) {
+                atlasCalidadAddIssue(issuesById, row, { codigo: 'sin_telefono', severidad: 'info', icono: 'fa-solid fa-phone', titulo: 'Sin teléfono', detalle: 'No tiene teléfono de contacto para validar ruta o entrega.' });
+            }
+        });
+        atlasGrupoDuplicados(activas, row => atlasClaveCalidad(row.sucursal)).forEach(grupo => {
+            grupo.forEach(row => {
+                const nombres = grupo.filter(item => String(item.id || '') !== String(row.id || '')).map(item => '#' + (item.fk_sucursal || item.id) + ' ' + (item.sucursal || '')).join(', ');
+                atlasCalidadAddIssue(issuesById, row, { codigo: 'sucursal_duplicada', severidad: 'error', icono: 'fa-solid fa-copy', titulo: 'Sucursal duplicada', detalle: 'Comparte nombre con ' + nombres + '.' });
+            });
+        });
+        atlasGrupoDuplicados(activas, row => String(row.fk_sucursal || '').trim()).forEach(grupo => {
+            grupo.forEach(row => {
+                const nombres = grupo.filter(item => String(item.id || '') !== String(row.id || '')).map(item => item.sucursal || ('ID ' + item.id)).join(', ');
+                atlasCalidadAddIssue(issuesById, row, { codigo: 'fk_duplicado', severidad: 'error', icono: 'fa-solid fa-hashtag', titulo: 'FK sucursal duplicado', detalle: 'El mismo FK aparece también en: ' + nombres + '.' });
+            });
+        });
+        atlasGrupoDuplicados(activas, row => {
+            const punto = sucursalConCoordenadas(row);
+            return punto ? punto._lat.toFixed(6) + ',' + punto._lng.toFixed(6) : '';
+        }).forEach(grupo => {
+            grupo.forEach(row => {
+                const nombres = grupo.filter(item => String(item.id || '') !== String(row.id || '')).map(item => item.sucursal || ('ID ' + item.id)).join(', ');
+                atlasCalidadAddIssue(issuesById, row, { codigo: 'misma_ubicacion', severidad: 'error', icono: 'fa-solid fa-location-dot', titulo: 'Diferente sucursal con misma ubicación', detalle: 'Comparte coordenadas con: ' + nombres + '.' });
+            });
+        });
+        atlasGrupoDuplicados(activas, row => atlasClaveCalidad(row.direccion || row.direccion_sucursal || '')).forEach(grupo => {
+            grupo.forEach(row => {
+                const nombres = grupo.filter(item => String(item.id || '') !== String(row.id || '')).map(item => item.sucursal || ('ID ' + item.id)).join(', ');
+                atlasCalidadAddIssue(issuesById, row, { codigo: 'misma_direccion', severidad: 'warning', icono: 'fa-solid fa-road', titulo: 'Dirección repetida', detalle: 'Comparte dirección con: ' + nombres + '.' });
+            });
+        });
+        const errores = Object.keys(issuesById).map(id => issuesById[id]).sort((a, b) => {
+            const ae = a.issues.some(item => item.severidad === 'error') ? 0 : 1;
+            const be = b.issues.some(item => item.severidad === 'error') ? 0 : 1;
+            return ae - be || atlasClaveCalidad(a.row.sucursal).localeCompare(atlasClaveCalidad(b.row.sucursal));
+        });
+        const sinCoordenadas = errores
+            .filter(item => item.issues.some(issue => issue.codigo === 'sin_coordenadas' || issue.codigo === 'coordenadas_cero'))
+            .sort((a, b) => atlasClaveCalidad(a.row.sucursal).localeCompare(atlasClaveCalidad(b.row.sucursal)));
+        atlasCalidadSucursales = { errores: errores, sinCoordenadas: sinCoordenadas };
+        setKpi('atlas-kpi-errores', errores.length);
+        setKpi('atlas-kpi-sin-coordenadas', sinCoordenadas.length);
+        return atlasCalidadSucursales;
+    }
     function formToJson(form) { const data = {}; Array.from(new FormData(form).entries()).forEach(pair => { data[pair[0]] = pair[1]; }); return data; }
     function formSnapshot(form) {
         const data = {};
@@ -451,7 +606,9 @@
     function destruirSelectBuscador(el) { if (window.jQuery && jQuery.fn.select2 && jQuery(el).hasClass('select2-hidden-accessible')) jQuery(el).select2('destroy'); }
     function inicializarSelectBuscador(el) {
         if (!window.jQuery || !jQuery.fn.select2 || !el) return;
-        jQuery(el).select2({ width: '100%', dropdownParent: jQuery(el).closest('.modal').length ? jQuery(el).closest('.modal') : jQuery(document.body) });
+        const modal = jQuery(el).closest('.modal');
+        const shell = jQuery(el).closest('.atlas-shell');
+        jQuery(el).select2({ width: '100%', dropdownParent: modal.length ? modal : (shell.length ? shell : jQuery(document.body)) });
     }
     function refrescarSelectBuscadores(ctx) { (ctx || document).querySelectorAll('.js-atlas-select-buscador').forEach(inicializarSelectBuscador); }
     function colorHexSeguro(value) { const raw = String(value || '').trim(); if (/^#[0-9a-f]{6}$/i.test(raw)) return raw.toUpperCase(); if (/^[0-9a-f]{6}$/i.test(raw)) return ('#' + raw).toUpperCase(); return '#94A3B8'; }
@@ -710,6 +867,7 @@
             sucursales = Array.isArray(data.datos) ? data.datos : [];
             const t = data.totales || {};
             setKpi('atlas-kpi-total', t.total); setKpi('atlas-kpi-activas', t.activas); setKpi('atlas-kpi-inactivas', t.inactivas); setKpi('atlas-kpi-coordenadas', t.con_coordenadas);
+            atlasEvaluarCalidadSucursales();
             renderTabla();
         } catch (err) {
             if (body) body.innerHTML = '<tr><td colspan="5" class="atlas-empty">No se pudieron cargar las sucursales.</td></tr>';
@@ -1086,6 +1244,45 @@
         mostrarModal(modalUbicacionEl);
         setTimeout(() => renderMapaSimple(row, 'atlas-ubicacion-mapa'), 250);
     }
+    function renderCalidadItem(item) {
+        const row = item.row || {};
+        const razones = (item.issues || []).map(issue => {
+            const clase = issue.severidad === 'error' ? 'is-error' : (issue.severidad === 'warning' ? 'is-warning' : 'is-info');
+            return '<span class="atlas-quality-reason ' + clase + '"><i class="' + esc(issue.icono || 'fa-solid fa-circle-info') + '"></i>' + esc(issue.titulo || 'Revisar') + '</span>';
+        }).join('');
+        const detalles = (item.issues || []).map(issue => '<div class="atlas-quality-sub"><i class="' + esc(issue.icono || 'fa-solid fa-circle-info') + ' me-1"></i>' + esc(issue.detalle || issue.titulo || 'Revisar dato') + '</div>').join('');
+        const coordenadas = row.latitud && row.longitud ? row.latitud + ', ' + row.longitud : 'Sin coordenadas';
+        return '<div class="atlas-quality-item">'
+            + '<div class="atlas-quality-head">'
+            + '<div><div class="atlas-quality-title">' + esc(row.sucursal || 'Sucursal sin nombre') + '</div>'
+            + '<div class="atlas-quality-sub">FK ' + esc(row.fk_sucursal || '-') + ' · ' + esc(row.distribuidor_nombre || 'Sin distribuidor') + ' · ' + esc(coordenadas) + '</div></div>'
+            + '<div class="atlas-quality-actions"><button type="button" class="btn btn-sm btn-primary" data-atlas-editar-calidad="' + esc(row.id || '') + '"><i class="fa-solid fa-pen-to-square me-1"></i>Editar</button></div>'
+            + '</div>'
+            + '<div class="atlas-quality-reasons">' + razones + '</div>'
+            + '<div class="mt-2">' + detalles + '</div>'
+            + '</div>';
+    }
+    function abrirModalCalidad(tipo) {
+        const calidad = atlasEvaluarCalidadSucursales();
+        const esSinCoordenadas = tipo === 'sin-coordenadas';
+        const datos = esSinCoordenadas ? calidad.sinCoordenadas : calidad.errores;
+        if (modalCalidadTitulo) {
+            modalCalidadTitulo.innerHTML = esSinCoordenadas
+                ? '<i class="fa-solid fa-map-pin me-2"></i>Sucursales sin coordenadas'
+                : '<i class="fa-solid fa-triangle-exclamation me-2"></i>Sucursales con error';
+        }
+        if (calidadResumen) {
+            calidadResumen.textContent = esSinCoordenadas
+                ? 'Sucursales activas sin ubicación útil para rutas. Corrige la dirección y confirma el pin en el mapa.'
+                : 'Errores detectados en datos críticos para rutas: duplicados, ubicación compartida, datos faltantes o coordenadas inválidas.';
+        }
+        if (calidadLista) {
+            calidadLista.innerHTML = datos.length
+                ? datos.map(renderCalidadItem).join('')
+                : '<div class="atlas-empty"><i class="fa-solid fa-circle-check d-block mb-2"></i>No hay registros para esta revisión.</div>';
+        }
+        mostrarModal(modalCalidadEl);
+    }
     function renderMapa() {
         const puntos = sucursales.map(sucursalConCoordenadas).filter(Boolean);
         mostrarModal(modalMapaEl);
@@ -1140,6 +1337,15 @@
         }
         const ubicacion = ev.target.closest('[data-atlas-ubicacion]');
         if (ubicacion) { ev.preventDefault(); abrirModalUbicacion(ubicacion.getAttribute('data-atlas-ubicacion')); }
+        const editarCalidad = ev.target.closest('[data-atlas-editar-calidad]');
+        if (editarCalidad) {
+            ev.preventDefault();
+            const id = editarCalidad.getAttribute('data-atlas-editar-calidad');
+            const row = sucursales.find(item => String(item.id || '') === String(id || '')) || null;
+            cerrarModal(modalCalidadEl);
+            if (row) setTimeout(() => abrirSucursal(row), 180);
+            return;
+        }
     });
     document.addEventListener('input', function (ev) {
         if (!ev.target) return;
@@ -1178,6 +1384,8 @@
     if (direccionBusqueda) direccionBusqueda.addEventListener('keydown', ev => { if (ev.key === 'Enter') ev.preventDefault(); });
     if (direccionBusqueda) direccionBusqueda.addEventListener('keydown', function (ev) { if (ev.key === 'Enter') { ev.preventDefault(); resolverDireccionPorTexto(); } });
     if (btnMapa) btnMapa.addEventListener('click', renderMapa);
+    if (btnErrores) btnErrores.addEventListener('click', function () { abrirModalCalidad('errores'); });
+    if (btnSinCoordenadas) btnSinCoordenadas.addEventListener('click', function () { abrirModalCalidad('sin-coordenadas'); });
     if (btnRecargar) btnRecargar.addEventListener('click', function () { Promise.all([cargarCatalogos(), cargarSucursales()]).catch(() => {}); });
     document.querySelectorAll('#atlas-tabs [data-bs-toggle="tab"]').forEach(btn => {
         btn.addEventListener('shown.bs.tab', function () { setTimeout(ajustarTablasAtlas, 80); });
