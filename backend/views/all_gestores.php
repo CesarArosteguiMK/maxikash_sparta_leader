@@ -885,6 +885,12 @@
       margin-bottom: .85rem;
     }
 
+    #modalAgregarUsuarioRrhh .rrhh-password-masked {
+      -webkit-text-security: disc;
+      text-security: disc;
+      font-family: var(--bs-font-sans-serif);
+    }
+
     #modalAgregarUsuarioRrhh .rrhh-assignment-summary {
       display: grid;
       grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -5180,8 +5186,8 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
                           </select>
                         </div>
                         <div class="col-md-3"><label class="form-label">Entidad federativa</label><input type="text" class="form-control text-uppercase" name="persona.entidad_federativa_rfc"></div>
-                        <div class="col-md-3"><label class="form-label">Usuario</label><input type="text" class="form-control" name="persona.usuario"></div>
-                        <div class="col-md-3"><label class="form-label">Contraseña</label><input type="text" class="form-control" name="persona.contrasena"></div>
+                        <div class="col-md-3"><label class="form-label">Usuario</label><input type="text" class="form-control" name="persona.usuario" autocomplete="off" data-lpignore="true" data-1p-ignore="true"></div>
+                        <div class="col-md-3"><label class="form-label">Contrase&ntilde;a</label><input type="text" class="form-control" name="persona.contrasena" autocomplete="off" autocapitalize="off" spellcheck="false" data-lpignore="true" data-1p-ignore="true" data-form-type="other"></div>
                       </div>
                     </div>
 
@@ -13159,7 +13165,14 @@ function precargarCascadaEdit(idPais, idEstado, idMunicipio, idColonia, idCalle,
   function asegurarPasswordToggleRrhh() {
     const input = form.querySelector('[name="persona.contrasena"]');
     if (!input || input.dataset.passwordToggleReady === '1') return;
-    input.type = 'password';
+    input.type = 'text';
+    input.autocomplete = 'off';
+    input.setAttribute('readonly', 'readonly');
+    input.setAttribute('inputmode', 'text');
+    input.setAttribute('data-lpignore', 'true');
+    input.setAttribute('data-1p-ignore', 'true');
+    input.setAttribute('data-form-type', 'other');
+    input.classList.add('rrhh-password-masked');
     const wrap = document.createElement('div');
     wrap.className = 'input-group';
     const btn = document.createElement('button');
@@ -13171,10 +13184,12 @@ function precargarCascadaEdit(idPais, idEstado, idMunicipio, idColonia, idCalle,
     wrap.appendChild(input);
     wrap.appendChild(btn);
     input.dataset.passwordToggleReady = '1';
+    input.addEventListener('focus', function () {
+      input.removeAttribute('readonly');
+    }, { once: true });
     btn.addEventListener('click', function () {
-      const visible = input.type === 'text';
-      input.type = visible ? 'password' : 'text';
-      btn.innerHTML = visible ? '<i class="fa fa-eye"></i>' : '<i class="fa fa-eye-slash"></i>';
+      const masked = input.classList.toggle('rrhh-password-masked');
+      btn.innerHTML = masked ? '<i class="fa fa-eye"></i>' : '<i class="fa fa-eye-slash"></i>';
     });
   }
 

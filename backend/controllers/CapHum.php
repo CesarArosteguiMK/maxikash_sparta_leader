@@ -6659,19 +6659,19 @@ class CapHum extends Controller
                 if (verificacionEnProceso) {
                     html += "<div class=\"alert alert-info py-2 px-2 mb-2 small\" role=\"status\"><strong>Verificación en proceso.</strong><br><span class=\"text-muted\">Puedes dejar abierto este recuadro; se actualizará automáticamente.</span></div>";
                 } else if (errApi) {
-                    candidatosDocConsola("error", "verificación API Â· error_api (detalle técnico)", errApi);
+                    candidatosDocConsola("error", "verificación API - error_api (detalle técnico)", errApi);
                     html += "<div class=\"alert alert-danger py-2 px-2 mb-2 small\" role=\"alert\"><strong>No se pudo completar la verificación automática.</strong><br><span class=\"text-muted\">El servicio no respondió a tiempo o hubo un fallo técnico. Capital Humano puede revisar el expediente manualmente.</span></div>";
                 } else if (respuestaVaciaApi) {
-                    candidatosDocConsola("warn", "verificación API Â· respuesta vacía / sin datos útiles (objeto)", v);
-                    html += "<div class=\"alert alert-warning py-2 px-2 mb-2 small\" role=\"alert\"><strong>No hubo resultado útil de la verificación automática.</strong><br><span class=\"text-muted\">Intente Â«Reintentar APIÂ» más tarde.</span></div>";
+                    candidatosDocConsola("warn", "verificación API - respuesta vacía / sin datos útiles (objeto)", v);
+                    html += "<div class=\"alert alert-warning py-2 px-2 mb-2 small\" role=\"alert\"><strong>No hubo resultado útil de la verificación automática.</strong><br><span class=\"text-muted\">Intente \"Reintentar API\" más tarde.</span></div>";
                 }
                 if (errApi || respuestaVaciaApi) {
-                    html += "<div class=\"d-grid gap-2 mb-2\"><button type=\"button\" class=\"btn btn-sm btn-outline-primary btn-reintentar-verif-expediente\" id=\"btnReintentarVerifExpediente\" title=\"Volver a ejecutar la verificación contra la API\"><i class=\"fa fa-sync-alt me-1\"></i>Reintentar API</button></div>";
+                    html += "<div class=\"d-grid gap-2 mb-2\"><button type=\"button\" class=\"btn btn-sm btn-outline-primary btn-reintentar-verif-expediente\" id=\"btnReintentarVerifExpediente\" title=\"Volver a ejecutar la verificaci&oacute;n contra la API\"><i class=\"fa fa-sync-alt me-1\"></i>Reintentar API</button></div>";
                 }
                 html += "<div class=\"row g-2 mb-2 align-items-center\">";
                 html += "<div class=\"col-6\"><span class=\"text-muted d-block\">Confianza</span><strong class=\"fs-6 " + confianzaClase + "\">" + confianzaTexto + "</strong></div>";
-                html += "<div class=\"col-6\"><span class=\"text-muted d-block\">Checks</span><strong>" + (checksOk != null && checksTotales != null ? checksOk + "/" + checksTotales : "—") + "</strong></div>";
-                html += "<div class=\"col-12\"><span class=\"text-muted d-block\">Coinciden</span><strong class=\"" + (todoCoincide ? "text-success" : (v.todo_coincide === false ? "text-danger" : "text-secondary")) + "\">" + (v.todo_coincide === true ? "Sí" : (v.todo_coincide === false ? "No" : (verificacionEnProceso ? "En proceso" : "—"))) + "</strong></div>";
+                html += "<div class=\"col-6\"><span class=\"text-muted d-block\">Checks</span><strong>" + (checksOk != null && checksTotales != null ? checksOk + "/" + checksTotales : "&mdash;") + "</strong></div>";
+                html += "<div class=\"col-12\"><span class=\"text-muted d-block\">Coinciden</span><strong class=\"" + (todoCoincide ? "text-success" : (v.todo_coincide === false ? "text-danger" : "text-secondary")) + "\">" + (v.todo_coincide === true ? "S&iacute;" : (v.todo_coincide === false ? "No" : (verificacionEnProceso ? "En proceso" : "&mdash;"))) + "</strong></div>";
                 html += "</div>";
                 if (alertas.length) {
                     html += "<div class=\"mt-2 pt-2 border-top\"><span class=\"text-muted d-block mb-1\"><strong>Alertas</strong></span><ul class=\"mb-0 ps-3\">";
@@ -6686,15 +6686,16 @@ class CapHum extends Controller
             }
 
             function escHtmlComparaciones(s) {
-                var t = String(s === null || s === undefined ? "" : s);
+                var t = normalizarTextoDocModal(s);
                 return t.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
             }
 
             function esAvisoCurpOcrResuelto(s) {
-                var t = String(s === null || s === undefined ? "" : s);
+                var t = normalizarTextoDocModal(s);
+                var k = claveDocModal(t);
                 return /^Advertencia OCR:/i.test(t)
-                    || (t.indexOf("CURP leida en identificacion") !== -1 && t.indexOf("Nombres coinciden") !== -1)
-                    || (t.indexOf("CURP de identificaci") !== -1 && t.indexOf("Nombres coinciden") !== -1 && t.indexOf("documento oficial") !== -1);
+                    || (k.indexOf("CURP LEIDA EN IDENTIFICACION") !== -1 && k.indexOf("NOMBRES COINCIDEN") !== -1)
+                    || (k.indexOf("CURP DE IDENTIFICACION") !== -1 && k.indexOf("NOMBRES COINCIDEN") !== -1 && k.indexOf("DOCUMENTO OFICIAL") !== -1);
             }
 
             /** Solo mostrar la tarjeta si la API guardó comparaciones reales (objeto con al menos una clave conocida). */
@@ -6847,9 +6848,9 @@ class CapHum extends Controller
             function badgeVerificacionDoc(tipoDoc, v) {
                 if (!v || !tipoDoc) return "";
                 if (expedienteVerifApiInconsistente(v)) return "";
-                var t = (tipoDoc + "").trim().toUpperCase();
+                var t = claveDocModal(tipoDoc);
                 if (t.indexOf("REVERSO") !== -1) { var r = v.identificacion_reverso_score; if (r == null) return ""; return "<span class=\"badge bg-primary ms-1\" title=\"Veracidad con el candidato\">" + r + "%</span>"; }
-                if (t === "IDENTIFICACIÃ“N OFICIAL" || t === "IDENTIFICACION OFICIAL") { var s = v.identificacion_frente_score; if (s == null) return ""; return "<span class=\"badge bg-primary ms-1\" title=\"Veracidad con el candidato\">" + s + "%</span>"; }
+                if (t === "IDENTIFICACION OFICIAL") { var s = v.identificacion_frente_score; if (s == null) return ""; return "<span class=\"badge bg-primary ms-1\" title=\"Veracidad con el candidato\">" + s + "%</span>"; }
                 if (!hayComparacionesEvaluables(v)) return "";
                 var comp = v.comparaciones || {};
                 if (t.indexOf("CURP") !== -1 && t.indexOf("ACTA") === -1) { var c1 = comp.nombre_id_vs_curp_pdf || comp.curp_id_vs_documento; if (c1 && c1.coincide !== undefined) return c1.coincide ? "<span class=\"badge bg-success ms-1\" title=\"Coincide con INE\">Coincide</span>" : "<span class=\"badge bg-danger ms-1\" title=\"No coincide\">No coincide</span>"; }
@@ -6887,14 +6888,28 @@ class CapHum extends Controller
                 lista.innerHTML = "";
                 if (!datos || datos.length === 0) { if (vacio) vacio.classList.remove("d-none"); return; }
                 if (vacio) vacio.classList.add("d-none");
-                function escHtml(s) { var t = String(s === null || s === undefined ? "" : s); return t.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;"); }
+                function escHtml(s) { var t = normalizarTextoDocModal(s); return t.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;"); }
                 function normalizarTextoDocModal(s) {
                     var t = String(s === null || s === undefined ? "" : s);
+                    for (var i = 0; i < 2 && /[\u00c2\u00c3\u00e2\u00ef\u00bf]/.test(t); i++) {
+                        try {
+                            var reparado = decodeURIComponent(escape(t));
+                            if (!reparado || reparado === t) break;
+                            t = reparado;
+                        } catch (e) {
+                            break;
+                        }
+                    }
                     return t
                         .replace(/IDENTIFICACI\u00c3\u201cN/gi, "IDENTIFICACION")
                         .replace(/IDENTIFICACI\u00c3\u0192\u00e2\u20ac\u0153N/gi, "IDENTIFICACION")
+                        .replace(/IDENTIFICACI\u00c4\u201cN/gi, "IDENTIFICACION")
                         .replace(/N\u00c3\u0161MERO/gi, "NUMERO")
                         .replace(/N\u00c3\u0192\u00c5\u00a1MERO/gi, "NUMERO")
+                        .replace(/DOCUMENTACI\u00c4\u201cN/gi, "DOCUMENTACION")
+                        .replace(/SITUACI\u00c4\u201cN/gi, "SITUACION")
+                        .replace(/VERIFICACI\u00c4\u201cN/gi, "VERIFICACION")
+                        .replace(/REVISI\u00c4\u201cN/gi, "REVISION")
                         .replace(/\u00c3\u201c/g, "O")
                         .replace(/\u00c3\u0161/g, "U")
                         .replace(/\u00c3\u00a9/g, "e")
@@ -6905,7 +6920,15 @@ class CapHum extends Controller
                         .replace(/\u00c3\u2018/g, "N")
                         .replace(/\u00c3\u00b1/g, "n")
                         .replace(/\u00c3\u201a\u00c2\u00b7/g, " - ")
-                        .replace(/\u00c2\u00b7/g, " - ");
+                        .replace(/\u00c2\u00b7/g, " - ")
+                        .replace(/\u2026/g, "...")
+                        .replace(/[\u00ab\u00bb\u201c\u201d]/g, "\"")
+                        .replace(/\u00ef\u00bf\u00bd/g, "")
+                        .replace(/\s+/g, " ")
+                        .trim();
+                }
+                function claveDocModal(s) {
+                    return normalizarTextoDocModal(s).normalize("NFD").replace(/[\u0300-\u036f]/g, "").toUpperCase();
                 }
                 datos.forEach(function(d) {
                     var item = document.createElement("div");
@@ -6915,15 +6938,15 @@ class CapHum extends Controller
             var nombreArchivoTexto = normalizarTextoDocModal(d.nombre_archivo || "");
             var badge = badgeVerificacionDoc(tipoDocTexto, verif);
             var tooltipFiscalHtml = "";
-            var tipoNorm = tipoDocTexto.toUpperCase();
+            var tipoNorm = claveDocModal(tipoDocTexto);
             if ((tipoNorm.indexOf("FISCAL") !== -1 || tipoNorm.indexOf("SITUACION") !== -1) && d.verificacion_fiscal && typeof d.verificacion_fiscal === "object") {
                 var v = d.verificacion_fiscal;
                 var filas = [
                     ["RFC", v.rfc],
                     ["CURP", v.curp],
                     ["Fecha emisión", v.fecha_emision],
-                    ["Meses antigÃ¼edad", v.meses_antiguedad != null ? v.meses_antiguedad : "-"],
-                    ["Vigencia â‰¤2 meses", v.vigencia_ok ? "Sí" : "No"],
+                    ["Meses antigüedad", v.meses_antiguedad != null ? v.meses_antiguedad : "-"],
+                    ["Vigencia <= 2 meses", v.vigencia_ok ? "Sí" : "No"],
                     ["Actividad Asalariado", v.actividad_asalariado ? "Sí" : "No"],
                     ["Régimen Sueldos y Salarios", v.regimen_sueldos_salarios ? "Sí" : "No"]
                 ];
@@ -6933,7 +6956,7 @@ class CapHum extends Controller
                 tooltipFiscalHtml = " <span class=\"ms-1\" data-bs-toggle=\"tooltip\" data-bs-html=\"true\" data-bs-title=\"" + tableHtml.replace(/"/g, "&quot;") + "\"><i class=\"fa fa-info-circle text-info\"></i></span>";
             }
             var tooltipIdHtml = "";
-            if ((tipoNorm === "IDENTIFICACIÃ“N OFICIAL" || tipoNorm === "IDENTIFICACION OFICIAL") && verif && typeof verif === "object" && !expedienteVerifApiInconsistente(verif)) {
+            if (tipoNorm === "IDENTIFICACION OFICIAL" && verif && typeof verif === "object" && !expedienteVerifApiInconsistente(verif)) {
                 var tipoDocLabel = "—";
                 if (verif.tipo_documento) {
                     var td = (verif.tipo_documento + "").toUpperCase();
@@ -6974,7 +6997,7 @@ class CapHum extends Controller
             var tooltipCalidadHtml = "";
             var vc = d.verificacion_calidad;
             var notasCalidad = (vc && typeof vc === "object" && Array.isArray(vc.notas)) ? vc.notas : [];
-            if ((tipoNorm.indexOf("IDENTIFICACION") !== -1 || tipoNorm.indexOf("IDENTIFICACIÃ“N") !== -1) && notasCalidad.length > 0) {
+            if (tipoNorm.indexOf("IDENTIFICACION") !== -1 && notasCalidad.length > 0) {
                 var tit = "Revisión identificación oficial (revisar manualmente):";
                 var listHtml = "<div class=\"text-start\"><strong>" + escHtml(tit) + "</strong><ul class=\"mb-0 ps-3 small\">";
                 notasCalidad.forEach(function(n) { listHtml += "<li>" + escHtml(typeof n === "string" ? n : String(n)) + "</li>"; });
@@ -7074,8 +7097,8 @@ class CapHum extends Controller
                     if (Array.isArray(x.notas)) x.notas.forEach(function(n) { notas.push(typeof n === "string" ? n : String(n)); });
                 });
                 if (!requiereRevision) return;
-                var detalle = notas.length ? notas.join(" | ") : "La verificacion automatica no confirmo el documento; revisar manualmente.";
-                revisionManualHtml = " <span class=\"badge bg-warning text-dark ms-1\" data-bs-toggle=\"tooltip\" data-bs-title=\"" + escHtml(detalle).replace(/"/g, "&quot;") + "\">Revision manual</span>";
+                var detalle = notas.length ? notas.join(" | ") : "La verificaci\u00f3n autom\u00e1tica no confirm\u00f3 el documento; revisar manualmente.";
+                revisionManualHtml = " <span class=\"badge bg-warning text-dark ms-1\" data-bs-toggle=\"tooltip\" data-bs-title=\"" + escHtml(detalle).replace(/"/g, "&quot;") + "\">Revisi\u00f3n manual</span>";
             })();
             var esValidado = parseInt(d.validado || 0, 10) === 1;
             var btnValidarClase = esValidado ? "btn-success" : "btn-outline-success";
@@ -7099,7 +7122,7 @@ class CapHum extends Controller
         function mensajeActaAmigable(mensaje) {
             mensaje = String(mensaje || "");
             if (/timed out|timeout|operation timed out|couldn'?t connect|failed to connect/i.test(mensaje)) {
-                return "La validacion del acta tardo mas de lo esperado. El documento quedo guardado; puedes intentar de nuevo en unos segundos.";
+                return "La validación del acta tardó más de lo esperado. El documento quedó guardado; puedes intentar de nuevo en unos segundos.";
             }
             return mensaje || "Proceso terminado.";
         }
@@ -7224,15 +7247,15 @@ class CapHum extends Controller
                 }
             }
 
-            /** Registro en consola del navegador para diagnósticos (desarrollo). Prefijo: [Sparta candidatos Â· documentación] */
+            /** Registro en consola del navegador para diagnósticos (desarrollo). Prefijo: [Sparta candidatos - documentación] */
             function candidatosDocConsola(nivel, titulo, datos) {
                 try {
                     var fn = console.log;
                     if (nivel === "error" && console.error) fn = console.error.bind(console);
                     else if (nivel === "warn" && console.warn) fn = console.warn.bind(console);
                     else if (nivel === "info" && console.info) fn = console.info.bind(console);
-                    if (datos !== undefined && datos !== null) fn("[Sparta candidatos Â· documentación] " + titulo, datos);
-                    else fn("[Sparta candidatos Â· documentación] " + titulo);
+                    if (datos !== undefined && datos !== null) fn("[Sparta candidatos - documentación] " + titulo, datos);
+                    else fn("[Sparta candidatos - documentación] " + titulo);
                 } catch (e2) {}
             }
 
@@ -7280,8 +7303,8 @@ class CapHum extends Controller
                 var toMs = 780000;
                 var tid = setTimeout(function() { try { ctrl.abort(); } catch (e) {} }, toMs);
                 var t0 = (typeof performance !== "undefined" && performance.now) ? performance.now() : Date.now();
-                candidatosDocConsola("info", "verificarExpedienteCandidato Â· inicio POST", { id_candidato: idC, url: "/caphum/verificarExpedienteCandidato", timeout_ms: toMs, solo_identificacion: !!soloIdentificacion });
-                registrarTrazaDocModalTecnico("verificarExpedienteCandidato Â· POST (detalle)", { id_candidato: idC, url: "/caphum/verificarExpedienteCandidato", timeout_ms: toMs, solo_identificacion: !!soloIdentificacion });
+                candidatosDocConsola("info", "verificarExpedienteCandidato - inicio POST", { id_candidato: idC, url: "/caphum/verificarExpedienteCandidato", timeout_ms: toMs, solo_identificacion: !!soloIdentificacion });
+                registrarTrazaDocModalTecnico("verificarExpedienteCandidato - POST (detalle)", { id_candidato: idC, url: "/caphum/verificarExpedienteCandidato", timeout_ms: toMs, solo_identificacion: !!soloIdentificacion });
                 setDocModalApiTraceUsuario("Verificación iniciada. Puedes dejar este recuadro abierto; se actualizará sola.", "wait");
                 fetch("/caphum/verificarExpedienteCandidato", { method: "POST", body: fd, headers: { "X-Requested-With": "XMLHttpRequest" }, signal: ctrl.signal })
                     .then(function(r) {
@@ -7290,8 +7313,8 @@ class CapHum extends Controller
                         return r.text().then(function(body) {
                             var res;
                             try { res = body ? JSON.parse(body) : {}; } catch (e) {
-                                candidatosDocConsola("error", "verificarExpedienteCandidato Â· respuesta no JSON", { id_candidato: idC, http_status: r.status, ms: ms, body_head: body ? String(body).slice(0, 2500) : "", parse_error: String(e) });
-                                registrarTrazaDocModalTecnico("verificarExpedienteCandidato Â· no JSON", { http_status: r.status, ms: ms, parse_error: String(e) });
+                                candidatosDocConsola("error", "verificarExpedienteCandidato - respuesta no JSON", { id_candidato: idC, http_status: r.status, ms: ms, body_head: body ? String(body).slice(0, 2500) : "", parse_error: String(e) });
+                                registrarTrazaDocModalTecnico("verificarExpedienteCandidato - no JSON", { http_status: r.status, ms: ms, parse_error: String(e) });
                                 setDocModalApiTraceUsuario("No se pudo leer la respuesta del servidor. Cierre el recuadro e inténtelo de nuevo.", "err");
                                 throw e;
                             }
@@ -7300,14 +7323,14 @@ class CapHum extends Controller
                     })
                     .then(function(box) {
                         var r = box.r, res = box.res, ms = box.ms;
-                        var linea = "HTTP " + r.status + (ms != null ? " Â· " + ms + " ms" : "") + ". ";
+                        var linea = "HTTP " + r.status + (ms != null ? " - " + ms + " ms" : "") + ". ";
                         var nivelCons = res && res.success ? "log" : "warn";
-                        candidatosDocConsola(nivelCons, "verificarExpedienteCandidato Â· respuesta", { id_candidato: idC, http_status: r.status, ms: ms, success: !!(res && res.success), mensaje: res && res.mensaje, datos: res && res.datos });
-                        registrarTrazaDocModalTecnico("verificarExpedienteCandidato Â· respuesta (técnico)", { id_candidato: idC, resumen_http: linea, success: !!(res && res.success), mensaje: res && res.mensaje, datos: res && res.datos });
+                        candidatosDocConsola(nivelCons, "verificarExpedienteCandidato - respuesta", { id_candidato: idC, http_status: r.status, ms: ms, success: !!(res && res.success), mensaje: res && res.mensaje, datos: res && res.datos });
+                        registrarTrazaDocModalTecnico("verificarExpedienteCandidato - respuesta (técnico)", { id_candidato: idC, resumen_http: linea, success: !!(res && res.success), mensaje: res && res.mensaje, datos: res && res.datos });
                         if (res && res.success) {
                             clearDocModalApiTrace();
                         } else {
-                            setDocModalApiTraceUsuario("No se pudo completar la verificación. Puede intentar Â«Reintentar APIÂ» más tarde.", "warn");
+                            setDocModalApiTraceUsuario("No se pudo completar la verificación. Puede intentar \"Reintentar API\" más tarde.", "warn");
                         }
                         if (typeof Swal !== "undefined") {
                             if (res && res.success) {
@@ -7320,13 +7343,13 @@ class CapHum extends Controller
                     })
                     .catch(function(err) {
                         clearTimeout(tid);
-                        candidatosDocConsola("error", "verificarExpedienteCandidato Â· error (catch)", { id_candidato: idC, name: err && err.name, message: err && err.message, stack: err && err.stack });
-                        registrarTrazaDocModalTecnico("verificarExpedienteCandidato Â· catch (técnico)", { id_candidato: idC, name: err && err.name, message: err && err.message, stack: err && err.stack, timeout_ms: toMs });
+                        candidatosDocConsola("error", "verificarExpedienteCandidato - error (catch)", { id_candidato: idC, name: err && err.name, message: err && err.message, stack: err && err.stack });
+                        registrarTrazaDocModalTecnico("verificarExpedienteCandidato - catch (técnico)", { id_candidato: idC, name: err && err.name, message: err && err.message, stack: err && err.stack, timeout_ms: toMs });
                         if (typeof Swal !== "undefined") {
-                            var msg = (err && err.name === "AbortError") ? "La verificación tardó demasiado. Cuando la red o el servidor estén disponibles, use Â«Reintentar APIÂ»." : "No hubo respuesta del servidor. Revise su conexión e inténtelo de nuevo.";
+                            var msg = (err && err.name === "AbortError") ? "La verificación tardó demasiado. Cuando la red o el servidor estén disponibles, use \"Reintentar API\"." : "No hubo respuesta del servidor. Revise su conexión e inténtelo de nuevo.";
                             Swal.fire({ icon: "error", title: "Error", text: msg, toast: true, position: "top-end", showConfirmButton: true });
                         }
-                        setDocModalApiTraceUsuario((err && err.name === "AbortError") ? "Tiempo de espera agotado. Use Â«Reintentar APIÂ» más tarde." : "Error de conexión o del servidor.", "err");
+                        setDocModalApiTraceUsuario((err && err.name === "AbortError") ? "Tiempo de espera agotado. Use \"Reintentar API\" más tarde." : "Error de conexión o del servidor.", "err");
                         cargarDocumentosModal(idC);
                     })
                     .finally(function() {
@@ -7366,17 +7389,17 @@ class CapHum extends Controller
                 var t0List = (typeof performance !== "undefined" && performance.now) ? performance.now() : Date.now();
                 if (!opts.fromPoll) {
                     clearDocModalApiTrace();
-                    registrarTrazaDocModalTecnico("getDocumentosCandidatoList Â· GET (técnico)", { id_candidato: idCandidato, url: urlList });
+                    registrarTrazaDocModalTecnico("getDocumentosCandidatoList - GET (técnico)", { id_candidato: idCandidato, url: urlList });
                 }
-                candidatosDocConsola("info", "getDocumentosCandidatoList Â· inicio", { id_candidato: idCandidato, fromPoll: !!opts.fromPoll, url: urlList });
+                candidatosDocConsola("info", "getDocumentosCandidatoList - inicio", { id_candidato: idCandidato, fromPoll: !!opts.fromPoll, url: urlList });
                 fetch(urlList, { headers: { "X-Requested-With": "XMLHttpRequest" } }).then(function(r) {
                     var ms = (typeof performance !== "undefined" && performance.now) ? Math.round(performance.now() - t0List) : null;
                     var cacheHdr = r.headers.get("X-Doc-List-Cache") || "";
                     return r.text().then(function(body) {
                         var res;
                         try { res = body ? JSON.parse(body) : {}; } catch (e) {
-                            candidatosDocConsola("error", "getDocumentosCandidatoList Â· JSON inválido", { id_candidato: idCandidato, http_status: r.status, ms: ms, cache: cacheHdr, body_head: body ? String(body).slice(0, 2500) : "", parse_error: String(e) });
-                            registrarTrazaDocModalTecnico("getDocumentosCandidatoList Â· JSON inválido (técnico)", { http_status: r.status, ms: ms, cache: cacheHdr, parse_error: String(e) });
+                            candidatosDocConsola("error", "getDocumentosCandidatoList - JSON inválido", { id_candidato: idCandidato, http_status: r.status, ms: ms, cache: cacheHdr, body_head: body ? String(body).slice(0, 2500) : "", parse_error: String(e) });
+                            registrarTrazaDocModalTecnico("getDocumentosCandidatoList - JSON inválido (técnico)", { http_status: r.status, ms: ms, cache: cacheHdr, parse_error: String(e) });
                             setDocModalApiTraceUsuario("No se pudo cargar la lista de documentos. Cierre el recuadro e inténtelo de nuevo.", "err");
                             throw e;
                         }
@@ -7384,22 +7407,22 @@ class CapHum extends Controller
                     });
                 }).then(function(box) {
                     var r = box.r, res = box.res, ms = box.ms, cacheHdr = box.cacheHdr;
-                    var cacheNote = cacheHdr ? (" Â· caché listado: " + cacheHdr) : "";
+                    var cacheNote = cacheHdr ? (" - caché listado: " + cacheHdr) : "";
                     if (!res.success) {
-                        registrarTrazaDocModalTecnico("getDocumentosCandidatoList Â· success=false (técnico)", { http_status: r.status, ms: ms, cache: cacheHdr, mensaje: res.mensaje || null });
+                        registrarTrazaDocModalTecnico("getDocumentosCandidatoList - success=false (técnico)", { http_status: r.status, ms: ms, cache: cacheHdr, mensaje: res.mensaje || null });
                         setDocModalApiTraceUsuario("No se pudo obtener la documentación del candidato.", "warn");
                     } else {
                         var nDocs = (res.datos && res.datos.documentos) ? res.datos.documentos.length : (res.datos && Array.isArray(res.datos) ? res.datos.length : 0);
                         var verifPrev = (res.datos && res.datos.verificacion_expediente) ? res.datos.verificacion_expediente : null;
                         var errApi = verifPrev && verifPrev.error_api ? String(verifPrev.error_api).trim() : "";
-                        var baseOk = "Listado: HTTP " + r.status + (ms != null ? " Â· " + ms + " ms" : "") + cacheNote + ". JSON OK Â· " + nDocs + " documento(s).";
-                        registrarTrazaDocModalTecnico("getDocumentosCandidatoList Â· resumen (técnico)", { id_candidato: idCandidato, texto: baseOk, error_api: errApi || null, verificacion_en_bd: !!verifPrev, expediente_completo: !!(res.datos && res.datos.metricas && res.datos.metricas.expediente_completo) });
+                        var baseOk = "Listado: HTTP " + r.status + (ms != null ? " - " + ms + " ms" : "") + cacheNote + ". JSON OK - " + nDocs + " documento(s).";
+                        registrarTrazaDocModalTecnico("getDocumentosCandidatoList - resumen (técnico)", { id_candidato: idCandidato, texto: baseOk, error_api: errApi || null, verificacion_en_bd: !!verifPrev, expediente_completo: !!(res.datos && res.datos.metricas && res.datos.metricas.expediente_completo) });
                         if (errApi) {
                             clearDocModalApiTrace();
                         } else if (verifPrev) {
                             clearDocModalApiTrace();
                         } else if (res.datos && res.datos.metricas && res.datos.metricas.expediente_completo) {
-                            setDocModalApiTraceUsuario("Expediente completo. Si la verificación automática no aparece, use Â«Reintentar APIÂ».", "neutral");
+                            setDocModalApiTraceUsuario("Expediente completo. Si la verificación automática no aparece, use \"Reintentar API\".", "neutral");
                         } else {
                             clearDocModalApiTrace();
                         }
@@ -7408,12 +7431,12 @@ class CapHum extends Controller
                     var verif = (res.datos && res.datos.verificacion_expediente) ? res.datos.verificacion_expediente : null;
                     var metricas = (res.datos && res.datos.metricas) ? res.datos.metricas : null;
 
-                    candidatosDocConsola("log", "getDocumentosCandidatoList Â· respuesta", { id_candidato: idCandidato, http_status: r.status, ms: ms, cache_listado: cacheHdr || null, success: !!res.success, mensaje: res.mensaje || null, n_documentos: docs.length, metricas: metricas || null, verificacion_resumen: verif ? { error_api: verif.error_api || null, checks_ok: verif.checks_ok, checks_totales: verif.checks_totales, todo_coincide: verif.todo_coincide } : null });
+                    candidatosDocConsola("log", "getDocumentosCandidatoList - respuesta", { id_candidato: idCandidato, http_status: r.status, ms: ms, cache_listado: cacheHdr || null, success: !!res.success, mensaje: res.mensaje || null, n_documentos: docs.length, metricas: metricas || null, verificacion_resumen: verif ? { error_api: verif.error_api || null, checks_ok: verif.checks_ok, checks_totales: verif.checks_totales, todo_coincide: verif.todo_coincide } : null });
                     if (!res.success) {
-                        candidatosDocConsola("warn", "getDocumentosCandidatoList Â· success=false (objeto completo)", res);
+                        candidatosDocConsola("warn", "getDocumentosCandidatoList - success=false (objeto completo)", res);
                     }
                     if (verif && verif.error_api != null && String(verif.error_api).trim() !== "") {
-                        candidatosDocConsola("warn", "verificación expediente Â· último intento falló (detalle en BD; use Reintentar verificación si ya corrigió la API)", { id_candidato: idCandidato, error_api: String(verif.error_api) });
+                        candidatosDocConsola("warn", "verificación expediente - último intento falló (detalle en BD; use Reintentar verificación si ya corrigió la API)", { id_candidato: idCandidato, error_api: String(verif.error_api) });
                     }
 
                     // Actualizar el Map global con los nuevos datos
@@ -7443,9 +7466,9 @@ class CapHum extends Controller
                     }
                     maybeScheduleDocModalPoll(idCandidato, metricas, verif, opts);
                 }).catch(function(err) {
-                    candidatosDocConsola("error", "getDocumentosCandidatoList Â· catch", { id_candidato: idCandidato, name: err && err.name, message: err && err.message, stack: err && err.stack });
+                    candidatosDocConsola("error", "getDocumentosCandidatoList - catch", { id_candidato: idCandidato, name: err && err.name, message: err && err.message, stack: err && err.stack });
                     if (!err || (err.name !== "SyntaxError" && err.message && String(err.message).indexOf("JSON") === -1)) {
-                        registrarTrazaDocModalTecnico("getDocumentosCandidatoList Â· red/catch (técnico)", { name: err && err.name, message: err && err.message });
+                        registrarTrazaDocModalTecnico("getDocumentosCandidatoList - red/catch (técnico)", { name: err && err.name, message: err && err.message });
                         setDocModalApiTraceUsuario("No se pudo cargar la documentación. Revise su conexión.", "err");
                     }
                     renderListaDocumentos(lista, cargando, vacio, [], null, idCandidato);
@@ -9165,7 +9188,7 @@ class CapHum extends Controller
                 $fis = is_array($dec) ? $dec : null;
             }
 
-            if ($tipo === 'IDENTIFICACIÃ“N OFICIAL' || $tipo === 'IDENTIFICACION OFICIAL') {
+            if (in_array($tipo, ['IDENTIFICACIÓN OFICIAL', 'IDENTIFICACION OFICIAL', 'IDENTIFICACIÃ“N OFICIAL'], true)) {
                 $fr = is_array($cal['detalle_frente'] ?? null) ? $cal['detalle_frente'] : [];
                 $rv = is_array($cal['detalle_reverso'] ?? null) ? $cal['detalle_reverso'] : [];
                 $idCurp = $fr['curp_ocr'] ?? ($rv['curp_ocr'] ?? null);
@@ -9182,7 +9205,7 @@ class CapHum extends Controller
                 $curpReciente = $cal['es_reciente'] ?? null;
                 $curpMeses = $cal['meses_antiguedad'] ?? null;
                 $curpFecha = $cal['fecha_emision'] ?? null;
-            } elseif ($tipo === 'NÃšMERO DE SEGURIDAD SOCIAL' || $tipo === 'NUMERO DE SEGURIDAD SOCIAL') {
+            } elseif (in_array($tipo, ['NÚMERO DE SEGURIDAD SOCIAL', 'NUMERO DE SEGURIDAD SOCIAL', 'NÃšMERO DE SEGURIDAD SOCIAL'], true)) {
                 $nssCurp = is_array($cal) ? ($cal['curp'] ?? null) : null;
                 $nssNombre = is_array($cal) ? ($cal['nombre'] ?? null) : null;
             } elseif ($tipo === 'CONSTANCIA DE SITUACION FISCAL' && is_array($fis)) {
@@ -9202,9 +9225,9 @@ class CapHum extends Controller
             $this->docVerifBoolComp($comparaciones, 'curp_id_vs_documento', 'identificacion', $idCurp, 'documento_curp', $curpDoc, $coincide);
             if (!$sameCurp && $coincide) {
                 $comparaciones['curp_id_vs_documento']['advertencia_ocr'] = true;
-                $comparaciones['curp_id_vs_documento']['nota'] = 'CURP OCR de identificacion difiere, pero nombres coinciden; se usa CURP oficial.';
+                $comparaciones['curp_id_vs_documento']['nota'] = 'CURP OCR de identificación difiere, pero nombres coinciden; se usa CURP oficial.';
             } elseif (!$coincide) {
-                $alertas[] = 'CURP de identificacion difiere del documento CURP y los nombres no coinciden.';
+                $alertas[] = 'CURP de identificación difiere del documento CURP y los nombres no coinciden.';
             }
         }
         if ($idNombre && $curpNombre) $this->docVerifBoolComp($comparaciones, 'nombre_id_vs_curp_pdf', 'identificacion', $idNombre, 'documento_curp', $curpNombre, $this->docVerifNombresCoinciden($idNombre, $curpNombre));
@@ -9484,12 +9507,12 @@ class CapHum extends Controller
             return;
         }
 
-        $timeout = 60;
+        $timeout = 15;
         if ($endpoint === 'verificar-calidad-identificacion-pdf') {
             // El análisis de PDFs de identificación puede tardar más de 60s.
-            $timeout = 180;
+            $timeout = 30;
         } elseif ($endpoint === 'verificar-curp-documento' || $endpoint === 'verificar-constancia-fiscal-documento') {
-            $timeout = 35;
+            $timeout = 12;
         }
 
         $ch = curl_init($targetUrl);
@@ -9796,11 +9819,11 @@ class CapHum extends Controller
             }
             $pathAbs = $storageRoot . '/' . $rutaRel;
             $tipo = trim($d['tipo_documento'] ?? '');
-            if ($tipo === 'IDENTIFICACIÃ“N OFICIAL') {
+            if (in_array($tipo, ['IDENTIFICACIÓN OFICIAL', 'IDENTIFICACION OFICIAL', 'IDENTIFICACIÃ“N OFICIAL'], true)) {
                 $rutasParaValidar['identificacion_pdf'] = $pathAbs;
             } elseif ($tipo === 'CURP') {
                 $rutasParaValidar['curp'] = $pathAbs;
-            } elseif ($tipo === 'NÃšMERO DE SEGURIDAD SOCIAL') {
+            } elseif (in_array($tipo, ['NÚMERO DE SEGURIDAD SOCIAL', 'NUMERO DE SEGURIDAD SOCIAL', 'NÃšMERO DE SEGURIDAD SOCIAL'], true)) {
                 $rutasParaValidar['nss'] = $pathAbs;
             } elseif ($tipo === 'CONSTANCIA DE SITUACION FISCAL') {
                 $rutasParaValidar['constancia_fiscal'] = $pathAbs;
@@ -9824,7 +9847,7 @@ class CapHum extends Controller
                 'foto_rechazada' => false,
                 'checks_ok' => 0,
                 'checks_totales' => 0,
-                'alertas' => ['Verificacion automatica en proceso. Esta vista se actualizara sola.'],
+                'alertas' => ['Verificación automática en proceso. Esta vista se actualizará sola.'],
                 'identificacion_frente_score' => null,
                 'identificacion_reverso_score' => null,
                 'comparaciones' => null,
@@ -9885,7 +9908,7 @@ class CapHum extends Controller
         if (!empty($resultadoApi['error'])) {
             $alertasErr = ['La verificación automática no finalizó correctamente. El expediente quedó completo y requiere revisión manual de Capital Humano.'];
             if ($soloIdentificacion) {
-                array_unshift($alertasErr, 'Modo Â«solo identificaciónÂ» activo: el fallo puede no reproducirse al verificar con todos los PDFs.');
+                array_unshift($alertasErr, 'Modo "solo identificación" activo: el fallo puede no reproducirse al verificar con todos los PDFs.');
             }
             $payloadError = [
                 'todo_coincide' => false,
@@ -10175,10 +10198,10 @@ class CapHum extends Controller
           <tr>
             <td style="padding: 32px;">
               <p style="margin:0 0 16px 0; color:#1a202c; font-size: 16px; line-height: 1.6;">Estimado/a <strong>' . htmlspecialchars($nombreCompleto) . '</strong>,</p>
-              <p style="margin:0 0 16px 0; color:#2d3748; font-size: 15px; line-height: 1.6;">Recursos Humanos ha <strong>retirado del sistema</strong> el siguiente documento de su expediente:</p>
+              <p style="margin:0 0 16px 0; color:#2d3748; font-size: 15px; line-height: 1.6;">Capital Humano ha <strong>retirado del sistema</strong> el siguiente documento de su expediente:</p>
               <p style="margin:0 0 16px 0; color:#2d3748; font-size: 15px; line-height: 1.6;"><strong>' . htmlspecialchars($labelTipo) . '</strong>'
                     . ($nombreArch !== '' ? ' — archivo: <em>' . htmlspecialchars($nombreArch) . '</em>' : '') . '</p>
-              <p style="margin:0 0 8px 0; color:#2d3748; font-size: 15px; line-height: 1.6;"><strong>Motivo indicado por Recursos Humanos:</strong></p>
+              <p style="margin:0 0 8px 0; color:#2d3748; font-size: 15px; line-height: 1.6;"><strong>Motivo indicado por Capital Humano:</strong></p>
               <div style="margin:0 0 24px 0; padding:12px 14px; background:#f7fafc; border-left:4px solid #2c5282; font-size:15px; line-height:1.6; color:#1a202c;">' . $htmlCom . '</div>
               <p style="margin:0 0 12px 0; color:#2d3748; font-size: 15px; line-height: 1.6;">' . $textoPlazoRestante . '</p>
               ' . $bloqueBtnDoc . '
@@ -11163,9 +11186,9 @@ class CapHum extends Controller
                 if (is_array($data) && isset($data['error'])) {
                     $msg = is_string($data['error']) ? $data['error'] : json_encode($data['error'], JSON_UNESCAPED_UNICODE);
                     if (function_exists('mb_strlen') && mb_strlen($msg) > 700) {
-                        $msg = mb_substr($msg, 0, 700) . 'â€¦';
+                        $msg = mb_substr($msg, 0, 700) . '...';
                     } elseif (strlen($msg) > 700) {
-                        $msg = substr($msg, 0, 700) . 'â€¦';
+                        $msg = substr($msg, 0, 700) . '...';
                     }
 
                     return ['error' => 'La API respondió 200 pero reportó error en JSON: ' . $msg];
@@ -11179,7 +11202,7 @@ class CapHum extends Controller
                 $detApi = $this->expedienteApiExtraerDetalleRespuesta(is_string($body) ? $body : null, $httpCode);
                 $detalle = 'La API respondió HTTP ' . $httpCode . '. ' . $detApi;
                 if ($curlErr !== '') {
-                    $detalle .= ' Â· cURL: ' . $curlErr;
+                    $detalle .= ' - cURL: ' . $curlErr;
                 }
             } else {
                 $mensaje = $curlErr !== '' ? $curlErr : 'Error de conexión (código ' . $curlErrno . ').';
@@ -11193,7 +11216,7 @@ class CapHum extends Controller
                 }
             }
             if ($attempt < $totalIntentos - 1) {
-                $detalle .= ' Reintento ' . ($attempt + 2) . '/' . $totalIntentos . 'â€¦';
+                $detalle .= ' Reintento ' . ($attempt + 2) . '/' . $totalIntentos . '...';
             }
             $lastPayloadError = ['error' => $detalle];
 
@@ -11232,7 +11255,7 @@ class CapHum extends Controller
             CURLOPT_POSTFIELDS => ['documento' => $cfile],
             CURLOPT_HTTPHEADER => ['X-API-Key: ' . $apiKey],
             CURLOPT_RETURNTRANSFER => true,
-            CURLOPT_TIMEOUT => 70,
+            CURLOPT_TIMEOUT => 15,
             CURLOPT_CONNECTTIMEOUT => 5,
         ]);
         $body = curl_exec($ch);
@@ -11240,7 +11263,7 @@ class CapHum extends Controller
         $curlErr = curl_error($ch);
         if ($body === false || $httpCode !== 200) {
             if (stripos((string) $curlErr, 'timed out') !== false || stripos((string) $curlErr, 'timeout') !== false) {
-                return ['valido' => false, 'revision_manual' => true, 'timeout' => true, 'mensaje' => 'La validacion de la constancia fiscal tardo mas de lo esperado.'];
+                return ['valido' => false, 'revision_manual' => true, 'timeout' => true, 'mensaje' => 'La validación de la constancia fiscal tardó más de lo esperado.'];
             }
             return ['valido' => false, 'revision_manual' => true, 'mensaje' => $curlErr ?: 'La API no respondió correctamente (HTTP ' . $httpCode . ').'];
         }
@@ -11278,7 +11301,7 @@ class CapHum extends Controller
             CURLOPT_POSTFIELDS => ['documento' => $cfile],
             CURLOPT_HTTPHEADER => ['X-API-Key: ' . $apiKey],
             CURLOPT_RETURNTRANSFER => true,
-            CURLOPT_TIMEOUT => 35,
+            CURLOPT_TIMEOUT => 15,
             CURLOPT_CONNECTTIMEOUT => 5,
         ]);
         $body = curl_exec($ch);
@@ -11286,7 +11309,7 @@ class CapHum extends Controller
         $curlErr = curl_error($ch);
         if ($body === false || $httpCode !== 200) {
             if (stripos((string) $curlErr, 'timed out') !== false || stripos((string) $curlErr, 'timeout') !== false) {
-                return ['valido' => false, 'revision_manual' => true, 'timeout' => true, 'mensaje' => 'La validacion de estado de cuenta tardo mas de lo esperado.'];
+                return ['valido' => false, 'revision_manual' => true, 'timeout' => true, 'mensaje' => 'La validación de estado de cuenta tardó más de lo esperado.'];
             }
             return ['valido' => false, 'revision_manual' => true, 'mensaje' => $curlErr ?: 'La API no respondió correctamente (HTTP ' . $httpCode . ').'];
         }
@@ -11321,7 +11344,7 @@ class CapHum extends Controller
             CURLOPT_POSTFIELDS => ['documento' => $cfile],
             CURLOPT_HTTPHEADER => ['X-API-Key: ' . $apiKey],
             CURLOPT_RETURNTRANSFER => true,
-            CURLOPT_TIMEOUT => 35,
+            CURLOPT_TIMEOUT => 12,
             CURLOPT_CONNECTTIMEOUT => 8,
         ]);
         $body = curl_exec($ch);
@@ -11329,7 +11352,7 @@ class CapHum extends Controller
         $curlErr = curl_error($ch);
         if ($body === false || $httpCode !== 200) {
             if (stripos((string) $curlErr, 'timed out') !== false || stripos((string) $curlErr, 'timeout') !== false) {
-                return ['valido' => false, 'revision_manual' => true, 'timeout' => true, 'mensaje' => 'La validacion de NSS tardo mas de lo esperado.'];
+                return ['valido' => false, 'revision_manual' => true, 'timeout' => true, 'mensaje' => 'La validación de NSS tardó más de lo esperado.'];
             }
             return ['valido' => false, 'revision_manual' => true, 'mensaje' => $curlErr ?: 'La API no respondió correctamente (HTTP ' . $httpCode . ').'];
         }
@@ -11363,7 +11386,7 @@ class CapHum extends Controller
             CURLOPT_POSTFIELDS => ['documento' => $cfile],
             CURLOPT_HTTPHEADER => ['X-API-Key: ' . $apiKey],
             CURLOPT_RETURNTRANSFER => true,
-            CURLOPT_TIMEOUT => 35,
+            CURLOPT_TIMEOUT => 10,
             CURLOPT_CONNECTTIMEOUT => 5,
         ]);
         $body = curl_exec($ch);
@@ -11371,9 +11394,9 @@ class CapHum extends Controller
         $curlErr = curl_error($ch);
         if ($body === false || $httpCode !== 200) {
             if (stripos((string) $curlErr, 'timed out') !== false || stripos((string) $curlErr, 'timeout') !== false) {
-                return ['valido' => false, 'revision_manual' => true, 'timeout' => true, 'mensaje' => 'La validacion de CURP tardo mas de lo esperado.'];
+                return ['valido' => false, 'revision_manual' => true, 'timeout' => true, 'mensaje' => 'La validación de CURP tardó más de lo esperado.'];
             }
-            return ['valido' => false, 'revision_manual' => true, 'mensaje' => $curlErr ?: 'La API no respondio correctamente (HTTP ' . $httpCode . ').'];
+            return ['valido' => false, 'revision_manual' => true, 'mensaje' => $curlErr ?: 'La API no respondió correctamente (HTTP ' . $httpCode . ').'];
         }
         $data = json_decode($body, true);
         return is_array($data) ? $data : null;
@@ -11406,7 +11429,7 @@ class CapHum extends Controller
                 'Expect:',
             ],
             CURLOPT_RETURNTRANSFER => true,
-            CURLOPT_TIMEOUT => 25,
+            CURLOPT_TIMEOUT => 10,
             CURLOPT_CONNECTTIMEOUT => 5,
             CURLOPT_HTTP_VERSION => CURL_HTTP_VERSION_1_1,
             CURLOPT_FORBID_REUSE => true,
@@ -11446,7 +11469,7 @@ class CapHum extends Controller
             CURLOPT_POSTFIELDS => ['documento' => $cfile],
             CURLOPT_HTTPHEADER => ['X-API-Key: ' . $apiKey],
             CURLOPT_RETURNTRANSFER => true,
-            CURLOPT_TIMEOUT => 12,
+            CURLOPT_TIMEOUT => 10,
             CURLOPT_CONNECTTIMEOUT => 4,
         ]);
         $body = curl_exec($ch);
@@ -11485,7 +11508,7 @@ class CapHum extends Controller
             CURLOPT_POSTFIELDS => ['documento' => $cfile],
             CURLOPT_HTTPHEADER => ['X-API-Key: ' . $apiKey],
             CURLOPT_RETURNTRANSFER => true,
-            CURLOPT_TIMEOUT => 90,
+            CURLOPT_TIMEOUT => 20,
             CURLOPT_CONNECTTIMEOUT => 10,
         ]);
         $body = curl_exec($ch);
@@ -11585,7 +11608,7 @@ class CapHum extends Controller
                 'X-API-Key: ' . $apiKey,
             ],
             CURLOPT_RETURNTRANSFER => true,
-            CURLOPT_TIMEOUT => 30,
+            CURLOPT_TIMEOUT => 15,
             CURLOPT_CONNECTTIMEOUT => 5,
         ]);
         $body = curl_exec($ch);
@@ -11640,10 +11663,10 @@ class CapHum extends Controller
             2  => 'CV O SOLICITUD DE TRABAJO',
             3  => 'ACTA DE NACIMIENTO Certificada',
             4  => 'CURP',
-            5  => 'IDENTIFICACIÃ“N OFICIAL',
+            5  => 'IDENTIFICACIÓN OFICIAL',
             6  => 'COMPROBANTE DE DOMICILIO',
             7  => 'CONSTANCIA DE SITUACION FISCAL',
-            8  => 'NÃšMERO DE SEGURIDAD SOCIAL',
+            8  => 'NÚMERO DE SEGURIDAD SOCIAL',
             9  => 'HOJA DE RETENCION FONACOT O INFONAVIT',
             10 => 'ESTADO DE CUENTA',
         ];
@@ -11667,7 +11690,7 @@ class CapHum extends Controller
         $guardados = 0;
         $errores = [];
         $tiposSubidosEnEstaPeticion = [];
-        $permitidos = ['pdf', 'doc', 'docx', 'jpg', 'jpeg', 'png'];
+        $permitidos = ['pdf'];
         $rutasParaValidar = ['identificacion_pdf' => null, 'curp' => null, 'nss' => null, 'constancia_fiscal' => null, 'acta_nacimiento' => null];
 
         // Documentos ya subidos (no exigir ni permitir reemplazo)
@@ -11686,8 +11709,8 @@ class CapHum extends Controller
         }
         $mapTipoDocStrToNum = [
             'SOLICITUD INTERNA' => 1, 'CV O SOLICITUD DE TRABAJO' => 2, 'ACTA DE NACIMIENTO' => 3, 'ACTA DE NACIMIENTO Certificada' => 3,
-            'CURP' => 4, 'IDENTIFICACIÃ“N OFICIAL' => 5, 'COMPROBANTE DE DOMICILIO' => 6, 'CONSTANCIA DE SITUACION FISCAL' => 7,
-            'NÃšMERO DE SEGURIDAD SOCIAL' => 8, 'HOJA DE RETENCION FONACOT O INFONAVIT' => 9, 'ESTADO DE CUENTA' => 10,
+            'CURP' => 4, 'IDENTIFICACIÓN OFICIAL' => 5, 'IDENTIFICACION OFICIAL' => 5, 'IDENTIFICACIÃ“N OFICIAL' => 5, 'COMPROBANTE DE DOMICILIO' => 6, 'CONSTANCIA DE SITUACION FISCAL' => 7,
+            'NÚMERO DE SEGURIDAD SOCIAL' => 8, 'NUMERO DE SEGURIDAD SOCIAL' => 8, 'NÃšMERO DE SEGURIDAD SOCIAL' => 8, 'HOJA DE RETENCION FONACOT O INFONAVIT' => 9, 'ESTADO DE CUENTA' => 10,
         ];
         $tipoDocumentoValidadoRh = [];
         foreach ($listaDocsExistentes as $d) {
@@ -11704,8 +11727,7 @@ class CapHum extends Controller
             if (!empty($yaSubidos[$i])) {
                 continue;
             }
-            $tiene = (isset($_FILES['archivo_' . $i]) && $_FILES['archivo_' . $i]['error'] === UPLOAD_ERR_OK && $_FILES['archivo_' . $i]['size'] > 0)
-                || (isset($_FILES['archivo_' . $i . '_foto']) && $_FILES['archivo_' . $i . '_foto']['error'] === UPLOAD_ERR_OK && $_FILES['archivo_' . $i . '_foto']['size'] > 0);
+            $tiene = (isset($_FILES['archivo_' . $i]) && $_FILES['archivo_' . $i]['error'] === UPLOAD_ERR_OK && $_FILES['archivo_' . $i]['size'] > 0);
             if ($tiene) {
                 $tieneAlgunoNuevo = true;
                 break;
@@ -11723,17 +11745,12 @@ class CapHum extends Controller
             $key = 'archivo_' . $i;
             $fileKey = $key;
             if (!isset($_FILES[$key]) || $_FILES[$key]['error'] !== UPLOAD_ERR_OK || $_FILES[$key]['size'] <= 0) {
-                $keyFoto = 'archivo_' . $i . '_foto';
-                if (isset($_FILES[$keyFoto]) && $_FILES[$keyFoto]['error'] === UPLOAD_ERR_OK && $_FILES[$keyFoto]['size'] > 0) {
-                    $fileKey = $keyFoto;
-                } else {
-                    continue;
-                }
+                continue;
             }
             $nombreOriginal = basename($_FILES[$fileKey]['name'] ?? '');
             $ext = strtolower(pathinfo($nombreOriginal, PATHINFO_EXTENSION));
             if (!in_array($ext, $permitidos)) {
-                $errores[] = ($tiposDocumento[$i] ?? $key) . ': tipo no permitido';
+                $errores[] = ($tiposDocumento[$i] ?? $key) . ': solo se acepta archivo PDF.';
                 continue;
             }
             if ($i === 6 && $ext !== 'pdf') {
@@ -11745,7 +11762,7 @@ class CapHum extends Controller
                 continue;
             }
             if ($i === 8 && $ext !== 'pdf') {
-                $errores[] = 'NÃšMERO DE SEGURIDAD SOCIAL: solo se acepta el PDF de vigencia de derechos del IMSS (descargado desde imss.gob.mx).';
+                $errores[] = 'NÚMERO DE SEGURIDAD SOCIAL: solo se acepta el PDF de vigencia de derechos del IMSS (descargado desde imss.gob.mx).';
                 continue;
             }
             if ($i === 4 && $ext !== 'pdf') {
@@ -11753,7 +11770,7 @@ class CapHum extends Controller
                 continue;
             }
             if ($i === 5 && $ext !== 'pdf') {
-                $errores[] = 'IDENTIFICACIÃ“N OFICIAL: solo se acepta un archivo PDF (con frente y reverso).';
+                $errores[] = 'IDENTIFICACIÓN OFICIAL: solo se acepta un archivo PDF (con frente y reverso).';
                 continue;
             }
             if (in_array($i, [3, 4, 5, 6, 7, 8, 10], true) && !$this->esPdfValidoBasico($_FILES[$fileKey]['tmp_name'] ?? '')) {
@@ -11813,11 +11830,11 @@ class CapHum extends Controller
             }
             $pathAbs = $storageRoot . '/' . $rutaRel;
             $tipo = trim($d['tipo_documento'] ?? '');
-            if ($tipo === 'IDENTIFICACIÃ“N OFICIAL') {
+            if (in_array($tipo, ['IDENTIFICACIÓN OFICIAL', 'IDENTIFICACION OFICIAL', 'IDENTIFICACIÃ“N OFICIAL'], true)) {
                 $rutasParaValidar['identificacion_pdf'] = $pathAbs;
             } elseif ($tipo === 'CURP' && $rutasParaValidar['curp'] === null) {
                 $rutasParaValidar['curp'] = $pathAbs;
-            } elseif ($tipo === 'NÃšMERO DE SEGURIDAD SOCIAL' && $rutasParaValidar['nss'] === null) {
+            } elseif (in_array($tipo, ['NÚMERO DE SEGURIDAD SOCIAL', 'NUMERO DE SEGURIDAD SOCIAL', 'NÃšMERO DE SEGURIDAD SOCIAL'], true) && $rutasParaValidar['nss'] === null) {
                 $rutasParaValidar['nss'] = $pathAbs;
             } elseif ($tipo === 'CONSTANCIA DE SITUACION FISCAL' && $rutasParaValidar['constancia_fiscal'] === null) {
                 $rutasParaValidar['constancia_fiscal'] = $pathAbs;
@@ -11834,11 +11851,11 @@ class CapHum extends Controller
             }
             $pathAbs = $storageRoot . '/' . $rutaRel;
             $tipo = trim($d['tipo_documento'] ?? '');
-            if ($tipo === 'IDENTIFICACIÃ“N OFICIAL' && $rutasParaValidar['identificacion_pdf'] === null) {
+            if (in_array($tipo, ['IDENTIFICACIÓN OFICIAL', 'IDENTIFICACION OFICIAL', 'IDENTIFICACIÃ“N OFICIAL'], true) && $rutasParaValidar['identificacion_pdf'] === null) {
                 $rutasParaValidar['identificacion_pdf'] = $pathAbs;
             } elseif ($tipo === 'CURP' && $rutasParaValidar['curp'] === null) {
                 $rutasParaValidar['curp'] = $pathAbs;
-            } elseif ($tipo === 'NÃšMERO DE SEGURIDAD SOCIAL' && $rutasParaValidar['nss'] === null) {
+            } elseif (in_array($tipo, ['NÚMERO DE SEGURIDAD SOCIAL', 'NUMERO DE SEGURIDAD SOCIAL', 'NÃšMERO DE SEGURIDAD SOCIAL'], true) && $rutasParaValidar['nss'] === null) {
                 $rutasParaValidar['nss'] = $pathAbs;
             } elseif ($tipo === 'CONSTANCIA DE SITUACION FISCAL' && $rutasParaValidar['constancia_fiscal'] === null) {
                 $rutasParaValidar['constancia_fiscal'] = $pathAbs;
@@ -11968,10 +11985,12 @@ class CapHum extends Controller
             'ACTA DE NACIMIENTO' => 3,
             'ACTA DE NACIMIENTO CERTIFICADA' => 3,
             'CURP' => 4,
+            'IDENTIFICACIÓN OFICIAL' => 5,
             'IDENTIFICACIÃ“N OFICIAL' => 5,
             'IDENTIFICACION OFICIAL' => 5,
             'COMPROBANTE DE DOMICILIO' => 6,
             'CONSTANCIA DE SITUACION FISCAL' => 7,
+            'NÚMERO DE SEGURIDAD SOCIAL' => 8,
             'NÃšMERO DE SEGURIDAD SOCIAL' => 8,
             'NUMERO DE SEGURIDAD SOCIAL' => 8,
             'HOJA DE RETENCION FONACOT O INFONAVIT' => 9,
@@ -12007,7 +12026,7 @@ class CapHum extends Controller
                     $tiposPresentes[$tipoNum] = true;
                 }
                 $esReciente = $tipoNum > 0 && (!$limitarARecientes || isset($tiposSubidosSet[$tipoNum]));
-                if ($tipo === 'IDENTIFICACIÃ“N OFICIAL') {
+                if (in_array($tipo, ['IDENTIFICACIÓN OFICIAL', 'IDENTIFICACION OFICIAL', 'IDENTIFICACIÃ“N OFICIAL'], true)) {
                     $rutasParaValidar['identificacion_pdf'] = $pathAbs;
                     if ($idDoc > 0 && $esReciente) {
                         CandidatosDAO::updateVerificacionDocumento($idDoc, null, json_encode([
@@ -12039,7 +12058,7 @@ class CapHum extends Controller
                             CandidatosDAO::updateVerificacionDocumento($idDoc, null, json_encode($resCurp));
                         }
                     }
-                } elseif ($tipo === 'NÃšMERO DE SEGURIDAD SOCIAL') {
+                } elseif (in_array($tipo, ['NÚMERO DE SEGURIDAD SOCIAL', 'NUMERO DE SEGURIDAD SOCIAL', 'NÃšMERO DE SEGURIDAD SOCIAL'], true)) {
                     $rutasParaValidar['nss'] = $pathAbs;
                     if ($idDoc > 0 && $esReciente) {
                         CandidatosDAO::updateVerificacionDocumento($idDoc, null, json_encode([
@@ -12132,7 +12151,7 @@ class CapHum extends Controller
                 $err = is_array($resultadoApi) ? ($resultadoApi['error'] ?? 'desconocido') : 'null';
                 $alertasErr = ['La verificación automática no finalizó correctamente. El expediente quedó completo y requiere revisión manual de Capital Humano.'];
                 if ($soloIdentificacion) {
-                    array_unshift($alertasErr, 'Modo Â«solo identificaciónÂ» (config.ini): el fallo puede no reproducirse con expediente completo.');
+                    array_unshift($alertasErr, 'Modo "solo identificación" (config.ini): el fallo puede no reproducirse con expediente completo.');
                 }
                 CandidatosDAO::updateVerificacionExpediente($id_candidato, json_encode([
                     'todo_coincide' => false,

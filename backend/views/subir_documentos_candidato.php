@@ -564,16 +564,14 @@ $documentos = [
                     <input type="hidden" name="token" value="<?= htmlspecialchars($token) ?>">
                     <?php
                     $urlBaseDescarga = '/CapHum/descargarDocumentoCandidato/' . urlencode($token);
-                    // Sin botón "Tomar foto": identificación oficial (5) y comprobante (6) solo por archivo.
-                    $documentosConFoto = [];
-                    $docsSoloPdf = [3, 4, 5, 6, 7, 8, 10]; // acta, CURP, identificación, comprobante, constancia fiscal, NSS, estado de cuenta
+                    // Flujo actual: todos los documentos se reciben solo en PDF.
+                    $docsSoloPdf = array_keys($documentos);
                     foreach ($documentos as $num => $nombreDoc):
                         if (!empty($tipo_documento_validado_rh[$num])) {
                             continue;
                         }
                         $esSolicitud = ($num === 1);
                         $esCartaAdeudo = ($num === 9);
-                        $permiteFoto = in_array($num, $documentosConFoto, true);
                         $soloPdf = in_array($num, $docsSoloPdf, true);
                         $yaSubido = isset($documentos_subidos[$num]);
                     ?>
@@ -608,7 +606,7 @@ $documentos = [
                         </div>
                         <?php endif; ?>
                         <div class="d-flex flex-wrap gap-2 align-items-center">
-                            <input type="file" class="form-control-file" id="archivo_<?= $num ?>" name="archivo_<?= $num ?>" accept="<?= $soloPdf ? '.pdf' : '.pdf,.doc,.docx,.jpg,.jpeg,.png' ?>">
+                            <input type="file" class="form-control-file" id="archivo_<?= $num ?>" name="archivo_<?= $num ?>" accept=".pdf">
                             <?php if ($num === 4): ?>
                             <span id="curp-verificado" class="doc-check-inline" style="display:none;color:#2e7d32;font-weight:600;"><i class="fa fa-check-circle me-1"></i> CURP listo</span>
                             <?php endif; ?>
@@ -624,17 +622,11 @@ $documentos = [
                             <?php if ($num === 8): ?>
                             <span id="nss-verificado" class="doc-check-inline" style="display:none;color:#2e7d32;font-weight:600;"><i class="fa fa-check-circle me-1"></i> NSS listo</span>
                             <?php endif; ?>
-                            <?php if ($permiteFoto): ?>
-                            <input type="file" id="archivo_<?= $num ?>_foto" name="archivo_<?= $num ?>_foto" accept="image/*" capture="environment" class="d-none">
-                            <button type="button" class="btn btn-outline-primary btn-sm btn-tomar-foto <?= $num === 5 ? 'btn-captura-identificacion' : '' ?> <?= $num === 6 ? 'btn-captura-comprobante' : '' ?>" data-target="<?= $num ?>" <?= $num === 5 ? 'data-es-identificacion="1"' : '' ?> <?= $num === 6 ? 'data-es-comprobante="1"' : '' ?> title="Abrir cámara para tomar foto">
-                                <i class="fa fa-camera me-1"></i> Tomar foto
-                            </button>
-                            <?php endif; ?>
                         </div>
                         <?php endif; ?>
                     </div>
                     <?php endforeach; ?>
-                    <p class="small-text">Puedes subir los documentos por partes: envía los que tengas ahora y el resto después. Los que ya enviaste no se pueden cambiar. Formatos: PDF, JPG, PNG.</p>
+                    <p class="small-text">Puedes subir los documentos por partes: envía los que tengas ahora y el resto después. Los que ya enviaste no se pueden cambiar. Formato permitido: PDF.</p>
                     <button type="submit" class="btn-submit" id="btnEnviar">Subir documentos</button>
                 </form>
                 <div id="mensajeResultado"></div>
@@ -845,16 +837,16 @@ $documentos = [
             var API_BASE = <?= json_encode($api_verificacion_base) ?>;
             var API_KEY = 'sparta-__SPARTA_SECRET_REDACTED__-doc-verificacion-key';
             var idVerificado = { front: false, back: false };
-            var VERIFICACION_TIMEOUT_MS = 25000;
-            var VERIFICACION_ESTADO_CUENTA_TIMEOUT_MS = 30000;
-            var VERIFICACION_IDENTIFICACION_TIMEOUT_MS = 30000;
-            var VERIFICACION_CALIDAD_TIMEOUT_MS = 15000;
+            var VERIFICACION_TIMEOUT_MS = 12000;
+            var VERIFICACION_ESTADO_CUENTA_TIMEOUT_MS = 12000;
+            var VERIFICACION_IDENTIFICACION_TIMEOUT_MS = 15000;
+            var VERIFICACION_CALIDAD_TIMEOUT_MS = 10000;
 
-            var VERIFICACION_CURP_TIMEOUT_MS = 25000;
-            var VERIFICACION_FISCAL_TIMEOUT_MS = 25000;
+            var VERIFICACION_CURP_TIMEOUT_MS = 8000;
+            var VERIFICACION_FISCAL_TIMEOUT_MS = 10000;
 
             function crearErrorTimeout(timeoutMs) {
-                var err = new Error('Validacion automatica omitida.');
+                var err = new Error('Validaci\u00f3n autom\u00e1tica omitida.');
                 err.name = 'TimeoutError';
                 err.esTimeout = true;
                 err.timeoutMs = timeoutMs;
@@ -872,9 +864,29 @@ $documentos = [
 
             function mensajeTecnicoSeguro(err) {
                 if (esErrorTimeoutOAbort(err)) {
-                    return 'Validacion automatica omitida.';
+                    return 'Validaci\u00f3n autom\u00e1tica omitida.';
                 }
-                return (err && err.message) ? err.message : 'No se pudo completar la operacion.';
+                return normalizarTextoInterfaz((err && err.message) ? err.message : 'No se pudo completar la operaci\u00f3n.');
+            }
+
+            function normalizarTextoInterfaz(s) {
+                var t = String(s === null || s === undefined ? '' : s);
+                for (var i = 0; i < 2 && /[\u00c2\u00c3\u00e2\u00ef\u00bf]/.test(t); i++) {
+                    try {
+                        var reparado = decodeURIComponent(escape(t));
+                        if (!reparado || reparado === t) break;
+                        t = reparado;
+                    } catch (e) {
+                        break;
+                    }
+                }
+                return t
+                    .replace(/\u00ef\u00bf\u00bd/g, '')
+                    .replace(/\u00c2\u00b7/g, ' - ')
+                    .replace(/\u2026/g, '...')
+                    .replace(/[\u00ab\u00bb\u201c\u201d]/g, '"')
+                    .replace(/\s+/g, ' ')
+                    .trim();
             }
 
             function fetchWithTimeout(url, options, timeoutMs) {
@@ -969,7 +981,7 @@ $documentos = [
                 return new Promise(function(resolve, reject) {
                     var formData = new FormData();
                     formData.append('documento', file, file.name || 'identificacion.pdf');
-                    fetchWithTimeout(API_BASE + '/precheck-identificacion-pdf', { method: 'POST', headers: { 'X-API-Key': API_KEY }, body: formData }, 15000)
+                    fetchWithTimeout(API_BASE + '/precheck-identificacion-pdf', { method: 'POST', headers: { 'X-API-Key': API_KEY }, body: formData }, 10000)
                     .then(function(r) {
                         if (!r.ok) {
                             return r.json().catch(function() { return {}; }).then(function(body) {
@@ -1001,8 +1013,8 @@ $documentos = [
 
             function textoPlano(html) {
                 var tmp = document.createElement('div');
-                tmp.innerHTML = html || '';
-                return (tmp.textContent || tmp.innerText || '').trim();
+                tmp.innerHTML = normalizarTextoInterfaz(html || '');
+                return normalizarTextoInterfaz(tmp.textContent || tmp.innerText || '');
             }
 
             function mostrarAlertaDocumento(estado, titulo, texto) {
@@ -1019,8 +1031,8 @@ $documentos = [
                 uploadAlertIcon.innerHTML = estado === 'loading'
                     ? '<span class="doc-upload-spinner" aria-hidden="true"></span>'
                     : (estado === 'success' ? '<i class="fa fa-check" aria-hidden="true"></i>' : '<i class="fa fa-exclamation-triangle" aria-hidden="true"></i>');
-                uploadAlertTitle.textContent = titulo;
-                uploadAlertText.textContent = texto;
+                uploadAlertTitle.textContent = normalizarTextoInterfaz(titulo);
+                uploadAlertText.textContent = normalizarTextoInterfaz(texto);
                 uploadAlert.classList.add('is-visible');
                 uploadAlert.setAttribute('aria-hidden', 'false');
                 if (uploadAlertClose) {
@@ -1042,8 +1054,8 @@ $documentos = [
                 var btn = document.getElementById('btnEnviar');
                 if (btn) {
                     btn.disabled = verificacionesPendientes > 0;
-                    btn.textContent = verificacionesPendientes > 0 ? 'Verificando... (no se puede subir aún)' : 'Subir documentos';
-                    btn.setAttribute('title', verificacionesPendientes > 0 ? 'Espera a que termine la verificación' : '');
+                    btn.textContent = verificacionesPendientes > 0 ? 'Verificando... (no se puede subir a\u00fan)' : 'Subir documentos';
+                    btn.setAttribute('title', verificacionesPendientes > 0 ? 'Espera a que termine la verificaci\u00f3n' : '');
                 }
             }
 
@@ -1054,12 +1066,13 @@ $documentos = [
                 mostrarAlertaDocumento('loading', 'Procesando documento', texto || 'Estamos revisando tu documento. Espera un momento.');
                 var div = document.createElement('div');
                 div.className = 'msg-verificando';
-                div.textContent = texto;
+                div.textContent = normalizarTextoInterfaz(texto);
                 cont.appendChild(div);
                 return div;
             }
             function showResultado(cont, verificandoDiv, html, esError) {
                 if (!cont) return;
+                html = normalizarTextoInterfaz(html);
                 if (verificandoDiv) {
                     verificacionesPendientes = Math.max(0, verificacionesPendientes - 1);
                 }
@@ -1102,6 +1115,7 @@ $documentos = [
             window.crearErrorTimeout = crearErrorTimeout;
             window.esErrorTimeoutOAbort = esErrorTimeoutOAbort;
             window.mensajeTecnicoSeguro = mensajeTecnicoSeguro;
+            window.normalizarTextoInterfaz = normalizarTextoInterfaz;
             window.showResultado = showResultado;
             window.mostrarAlertaDocumento = mostrarAlertaDocumento;
             window.cerrarAlertaDocumento = cerrarAlertaDocumento;
@@ -1124,16 +1138,10 @@ $documentos = [
 
             function asignarArchivoDesdeBlob(num, blob) {
                 var inputPrincipal = document.getElementById('archivo_' + num);
-                var inputFoto = document.getElementById('archivo_' + num + '_foto');
                 var file = new File([blob], 'foto_' + num + '.jpg', { type: 'image/jpeg' });
                 var dt = new DataTransfer();
                 dt.items.add(file);
                 if (inputPrincipal) inputPrincipal.files = dt.files;
-                if (inputFoto) {
-                    var dt2 = new DataTransfer();
-                    dt2.items.add(file);
-                    inputFoto.files = dt2.files;
-                }
             }
             window.asignarArchivoIdentificacion = function(blob) {
                 asignarArchivoDesdeBlob(5, blob);
@@ -1168,11 +1176,17 @@ $documentos = [
                     })
                     .then(function(res) {
                         if (res.resultado === 'RECHAZADO') {
-                            showResultado(msg, verificandoDiv, '<i class="fa fa-check-circle me-1"></i> Comprobante recibido.', false);
-                            marcarDocumentoRecibido(6, 'comp-verificado');
+                            showResultado(msg, verificandoDiv, res.recomendacion || 'Comprobante rechazado. Sube un comprobante válido y reciente.', true);
+                            inputComprobante.value = '';
+                            var elComp = document.getElementById('comp-verificado');
+                            if (elComp) elComp.style.display = 'none';
+                            actualizarCheckmark(6, false);
                         } else {
                             var info = res.empresa ? ' (' + res.empresa + ')' : '';
-                            showResultado(msg, verificandoDiv, '<i class="fa fa-check-circle me-1"></i> Comprobante verificado' + info + '.', false);
+                            var textoComprobante = res.resultado === 'REVISION_MANUAL'
+                                ? '<i class="fa fa-check-circle me-1"></i> Comprobante recibido.'
+                                : '<i class="fa fa-check-circle me-1"></i> Comprobante verificado' + info + '.';
+                            showResultado(msg, verificandoDiv, textoComprobante, false);
                             actualizarCheckmark(6, true);
                             var el = document.getElementById('comp-verificado');
                             if (el) el.style.display = 'inline';
@@ -1207,6 +1221,13 @@ $documentos = [
                     })
                     .then(function(res) {
                         var el = document.getElementById('curp-verificado');
+                        if (res && res.rechazado === true) {
+                            showResultado(msg, verificandoDiv, res.mensaje || 'Documento rechazado. Sube la constancia CURP correcta.', true);
+                            inputCURP.value = '';
+                            if (el) el.style.display = 'none';
+                            actualizarCheckmark(4, false);
+                            return;
+                        }
                         if (res.valido !== true) {
                             showResultado(msg, verificandoDiv, '<i class="fa fa-check-circle me-1"></i> CURP recibido.', false);
                             marcarDocumentoRecibido(4, 'curp-verificado');
@@ -1247,6 +1268,15 @@ $documentos = [
                     var verificandoDiv = showVerificando(msg, 'Validando identificación...');
                     precheckIdentificacionPdfAPI(file).then(function(res) {
                         var el = document.getElementById('id-verificado-frente');
+                        if (res && res.rechazado === true) {
+                            idVerificado.front = false;
+                            idVerificado.back = false;
+                            showResultado(msg, verificandoDiv, res.mensaje || 'Documento rechazado. Sube una identificación oficial válida.', true);
+                            inputFrente.value = '';
+                            if (el) el.style.display = 'none';
+                            actualizarCheckmark(5, false);
+                            return;
+                        }
                         if (!res || res.valido !== true) {
                             idVerificado.front = true;
                             idVerificado.back = true;
@@ -1329,13 +1359,20 @@ $documentos = [
                     .then(function(r) {
                         if (!r.ok) {
                             return r.json().catch(function() { return {}; }).then(function(body) {
-                                throw new Error((body && body.mensaje) ? body.mensaje : 'No se pudo completar la revision automatica. Intenta de nuevo.');
+                                throw new Error((body && body.mensaje) ? body.mensaje : 'No se pudo completar la revisión automática. Intenta de nuevo.');
                             });
                         }
                         return r.json();
                     })
                     .then(function(res) {
                         var el = document.getElementById('fiscal-verificado');
+                        if (res && res.rechazado === true) {
+                            showResultado(msg, verificandoDiv, res.mensaje || 'Documento rechazado. Sube la constancia fiscal correcta.', true);
+                            inputFiscal.value = '';
+                            if (el) el.style.display = 'none';
+                            actualizarCheckmark(7, false);
+                            return;
+                        }
                         if (res.valido !== true) {
                             showResultado(msg, verificandoDiv, '<i class="fa fa-check-circle me-1"></i> Constancia fiscal recibida.', false);
                             marcarDocumentoRecibido(7, 'fiscal-verificado');
@@ -1374,6 +1411,13 @@ $documentos = [
                     })
                     .then(function(res) {
                         var el = document.getElementById('nss-verificado');
+                        if (res && res.rechazado === true) {
+                            showResultado(msg, verificandoDiv, res.mensaje || 'No se acepta tarjeta NSS. Sube constancia o vigencia de derechos del IMSS.', true);
+                            inputNSS.value = '';
+                            if (el) el.style.display = 'none';
+                            actualizarCheckmark(8, false);
+                            return;
+                        }
                         if (res.valido !== true) {
                             showResultado(msg, verificandoDiv, '<i class="fa fa-check-circle me-1"></i> NSS recibido.', false);
                             marcarDocumentoRecibido(8, 'nss-verificado');
@@ -1415,6 +1459,12 @@ $documentos = [
                         return r.json();
                     })
                     .then(function(res) {
+                        if (res && res.rechazado === true) {
+                            showResultado(msg, verificandoDiv, res.mensaje || 'Estado de cuenta rechazado. Sube un estado de cuenta válido.', true);
+                            inputEstadoCuenta.value = '';
+                            actualizarCheckmark(10, false);
+                            return;
+                        }
                         if (!res || res.valido !== true) {
                             showResultado(msg, verificandoDiv, '<i class="fa fa-check-circle me-1"></i> Estado de cuenta recibido.', false);
                             actualizarCheckmark(10, true);
@@ -1907,7 +1957,7 @@ $documentos = [
                 verificarComprobanteAPI(blob, 'comprobante.jpg').then(function(res) {
                     if (window.verificacionPendienteFin) window.verificacionPendienteFin();
                     if (btnUse) { btnUse.disabled = false; btnUse.textContent = 'Usar esta foto'; }
-                    if (false && res.resultado === 'RECHAZADO') {
+                    if (res.resultado === 'RECHAZADO') {
                         var razon = (res.recomendacion && res.recomendacion.trim()) ? res.recomendacion : (res.alertas && res.alertas.length ? res.alertas.join('. ') : 'No se pudo verificar el comprobante.');
                         if (razon.indexOf('Comprobante rechazado') !== 0) razon = 'Comprobante rechazado: ' + razon;
                         alert(razon + '\n\nPor favor retoma la foto o sube un documento más reciente.');
@@ -1920,7 +1970,10 @@ $documentos = [
                     compGoIntro();
                     var msg = document.getElementById('mensajeResultado');
                     var info = res.empresa ? ' (' + res.empresa + ')' : '';
-                    if (msg) (window.showResultado || function(){})(msg, null, '<i class="fa fa-check-circle me-1"></i> Comprobante verificado' + info + '.', false);
+                    var textoComprobante = res.resultado === 'REVISION_MANUAL'
+                        ? '<i class="fa fa-check-circle me-1"></i> Comprobante recibido.'
+                        : '<i class="fa fa-check-circle me-1"></i> Comprobante verificado' + info + '.';
+                    if (msg) (window.showResultado || function(){})(msg, null, textoComprobante, false);
                 }).catch(function(err) {
                     if (window.verificacionPendienteFin) window.verificacionPendienteFin();
                     if (btnUse) { btnUse.disabled = false; btnUse.textContent = 'Usar esta foto'; }
@@ -1993,8 +2046,9 @@ $documentos = [
                 uploadAlertIcon.innerHTML = estado === 'loading'
                     ? '<span class="doc-upload-spinner" aria-hidden="true"></span>'
                     : (estado === 'success' ? '<i class="fa fa-check" aria-hidden="true"></i>' : '<i class="fa fa-exclamation-triangle" aria-hidden="true"></i>');
-                uploadAlertTitle.textContent = titulo;
-                uploadAlertText.textContent = texto;
+                var limpiarTexto = window.normalizarTextoInterfaz || function(v) { return String(v === null || v === undefined ? '' : v); };
+                uploadAlertTitle.textContent = limpiarTexto(titulo);
+                uploadAlertText.textContent = limpiarTexto(texto);
                 uploadAlert.classList.add('is-visible');
                 uploadAlert.setAttribute('aria-hidden', 'false');
             }
@@ -2018,12 +2072,6 @@ $documentos = [
             for (var i = 1; i <= 10; i++) {
                 var input = document.getElementById('archivo_' + i);
                 if (input && input.files && input.files.length > 0) { tieneAlgunArchivo = true; break; }
-                var foto = document.getElementById('archivo_' + i + '_foto');
-                if (foto && foto.files && foto.files.length > 0) { tieneAlgunArchivo = true; break; }
-            }
-            if (!tieneAlgunArchivo) {
-                var rev = document.getElementById('archivo_5_reverso');
-                if (rev && rev.files && rev.files.length > 0) tieneAlgunArchivo = true;
             }
             if (!tieneAlgunArchivo) {
                 msg.innerHTML = '';
@@ -2038,7 +2086,7 @@ $documentos = [
             var ctrl = new AbortController();
             var uploadTimeoutErr = null;
             var timeoutId = setTimeout(function() {
-                uploadTimeoutErr = (typeof crearErrorTimeout === 'function') ? crearErrorTimeout(180000) : new Error('La subida tardo mas de lo esperado.');
+                uploadTimeoutErr = (typeof crearErrorTimeout === 'function') ? crearErrorTimeout(180000) : new Error('La subida tardó más de lo esperado.');
                 try { ctrl.abort(uploadTimeoutErr); } catch (e) { ctrl.abort(); }
             }, 180000);
             fetch(window.location.href, {
@@ -2106,11 +2154,11 @@ $documentos = [
                 btn.textContent = 'Subir documentos';
                 var errFinal = uploadTimeoutErr || err;
                 if (typeof esErrorTimeoutOAbort === 'function' && esErrorTimeoutOAbort(errFinal)) {
-                    var textoTimeout = 'La subida tardo mas de lo esperado. Revisa el listado en unos segundos; si el archivo se recibio, aparecera como cargado.';
-                    mostrarAlertaSubida('warning', 'Subida en revision', textoTimeout);
+                    var textoTimeout = 'La subida tardó más de lo esperado. Revisa el listado en unos segundos; si el archivo se recibió, aparecerá como cargado.';
+                    mostrarAlertaSubida('warning', 'Subida en revisión', textoTimeout);
                     showResultado(msg, null, textoTimeout, false);
                 } else {
-                    var textoConexion = 'Error de conexion. Intenta de nuevo.';
+                    var textoConexion = 'Error de conexión. Intenta de nuevo.';
                     mostrarAlertaSubida('error', 'No se pudo cargar la documentación', textoConexion);
                     showResultado(msg, null, textoConexion, true);
                 }

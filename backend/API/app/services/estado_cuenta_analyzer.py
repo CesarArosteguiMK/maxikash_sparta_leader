@@ -549,6 +549,7 @@ def validar___SPARTA_SECRET_REDACTED___pdf(pdf_bytes: bytes) -> Dict[str, Any]:
     }
     texto = _texto_de_pdf(pdf_bytes)
     if not texto.strip():
+        resultado["revision_manual"] = True
         resultado["mensaje"] = (
             "No se pudo leer el contenido del PDF (ni texto ni OCR). "
             "Si es escaneado, instale RapidOCR: pip install rapidocr-onnxruntime, o Tesseract."
@@ -570,10 +571,16 @@ def validar___SPARTA_SECRET_REDACTED___pdf(pdf_bytes: bytes) -> Dict[str, Any]:
         or (es_fisico and banco)
     )
     if not es___SPARTA_SECRET_REDACTED__:
+        resultado["rechazado"] = True
+        resultado["revision_manual"] = False
+        resultado["motivo_rechazo"] = "no_es___SPARTA_SECRET_REDACTED__"
         resultado["mensaje"] = "El documento no parece ser un estado de cuenta bancario. Suba el PDF del estado de cuenta."
         return resultado
 
     if not es_fisico and banco:
+        resultado["rechazado"] = True
+        resultado["revision_manual"] = False
+        resultado["motivo_rechazo"] = "banco_no_fisico"
         resultado["mensaje"] = (
             f"No se aceptan bancos o fintechs digitales ({banco}). "
             "Debe ser un estado de cuenta de un banco físico en México (BBVA, Banorte, Santander, Citibanamex, etc.)."
@@ -581,6 +588,7 @@ def validar___SPARTA_SECRET_REDACTED___pdf(pdf_bytes: bytes) -> Dict[str, Any]:
         return resultado
 
     if not es_fisico and not banco:
+        resultado["revision_manual"] = True
         resultado["mensaje"] = (
             "No se pudo identificar el banco. Solo se aceptan estados de cuenta de bancos físicos en México "
             "(BBVA, Banorte, Santander, Citibanamex, Scotiabank, etc.)."
