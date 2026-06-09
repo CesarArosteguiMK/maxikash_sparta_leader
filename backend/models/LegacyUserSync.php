@@ -37,7 +37,7 @@ class LegacyUserSync extends Model
                     'departamento_nombre' => $ctx['departamento_nombre'] ?? '',
                     'id_usuario' => $idSesion,
                     'resultado' => 'omitido',
-                    'mensaje' => 'Usuario fuera de alcance para sincronizacion Legacy.',
+                    'mensaje' => 'Usuario fuera de alcance para sincronización Legacy.',
                     'detalle' => ['motivo' => 'No pertenece a segmentos Campo 1-7 / Campo 8-30 de Cobranza.'],
                 ]);
             }
@@ -65,7 +65,7 @@ class LegacyUserSync extends Model
                     'departamento_nombre' => $ctx['departamento_nombre'] ?? '',
                     'id_usuario' => $idSesion,
                     'resultado' => 'error',
-                    'mensaje' => 'La persona no tiene numero de empleado para buscar en Legacy.',
+                    'mensaje' => 'La persona no tiene número de empleado para buscar en Legacy.',
                 ]);
             }
             if (!self::externalIdValido($externalId)) {
@@ -78,7 +78,7 @@ class LegacyUserSync extends Model
                     'role_legacy' => $roleClave,
                     'id_usuario' => $idSesion,
                     'resultado' => 'omitido',
-                    'mensaje' => 'Numero de empleado invalido para sincronizar con Legacy.',
+                    'mensaje' => 'Número de empleado inválido para sincronizar con Legacy.',
                     'detalle' => ['motivo' => 'external_id no numerico'],
                 ]);
             }
@@ -139,7 +139,7 @@ class LegacyUserSync extends Model
                         ? 'Legacy ya estaba sincronizado.'
                         : 'Usuario Legacy sincronizado correctamente.'));
             if (!empty($jerarquiaLegacy['faltantes'])) {
-                $mensaje .= ' Jerarquia incompleta: hay jefes sin usuario Legacy.';
+                $mensaje .= ' Jerarquía incompleta: hay jefes sin usuario Legacy.';
             }
 
             return self::registrar($db, [
@@ -200,8 +200,8 @@ class LegacyUserSync extends Model
                 'tipo_respuesta' => 'legacy_sync_lote',
                 'mensaje' => $resumen['pendientes_detectados'] > 0
                     ? ($forzarTodos
-                        ? 'Sincronizacion masiva Legacy terminada.'
-                        : 'Reproceso de sincronizacion Legacy terminado.')
+                        ? 'Sincronización masiva Legacy terminada.'
+                        : 'Reproceso de sincronización Legacy terminado.')
                     : 'No se detectaron usuarios pendientes de sincronizar con Legacy.',
                 'resumen' => $resumen,
                 'datos' => $resultados,
@@ -210,7 +210,7 @@ class LegacyUserSync extends Model
             return [
                 'success' => false,
                 'tipo_respuesta' => 'legacy_sync_lote',
-                'mensaje' => 'Error al reprocesar pendientes de sincronizacion Legacy.',
+                'mensaje' => 'Error al reprocesar pendientes de sincronización Legacy.',
                 'error' => $e->getMessage(),
             ];
         }
@@ -236,7 +236,7 @@ class LegacyUserSync extends Model
                 'success' => $resumen['errores'] === 0,
                 'tipo_respuesta' => 'legacy_sync_todos',
                 'mensaje' => $resumen['pendientes_detectados'] > 0
-                    ? 'Sincronizacion completa Legacy terminada.'
+                    ? 'Sincronización completa Legacy terminada.'
                     : 'No se detectaron usuarios pendientes de sincronizar con Legacy.',
                 'resumen' => $resumen,
                 'datos' => $resultados,
@@ -245,7 +245,7 @@ class LegacyUserSync extends Model
             return [
                 'success' => false,
                 'tipo_respuesta' => 'legacy_sync_todos',
-                'mensaje' => 'Error al ejecutar sincronizacion completa Legacy.',
+                'mensaje' => 'Error al ejecutar sincronización completa Legacy.',
                 'error' => $e->getMessage(),
             ];
         }
@@ -278,7 +278,7 @@ class LegacyUserSync extends Model
             return [
                 'success' => false,
                 'tipo_respuesta' => 'legacy_sync_plan',
-                'mensaje' => 'Error al detectar usuarios para sincronizacion Legacy.',
+                'mensaje' => 'Error al detectar usuarios para sincronización Legacy.',
                 'error' => $e->getMessage(),
             ];
         }
@@ -532,7 +532,7 @@ class LegacyUserSync extends Model
                     'departamento_nombre' => $ctx['departamento_nombre'] ?? '',
                     'id_usuario' => $idSesion,
                     'resultado' => 'error',
-                    'mensaje' => 'La persona no tiene numero de empleado para dar de baja en Legacy.',
+                    'mensaje' => 'La persona no tiene número de empleado para dar de baja en Legacy.',
                 ]);
             }
 
@@ -549,7 +549,7 @@ class LegacyUserSync extends Model
                     'role_legacy' => $ctx['role_legacy'] ?? '',
                     'id_usuario' => $idSesion,
                     'resultado' => 'omitido',
-                    'mensaje' => 'Usuario no encontrado en Legacy; no habia registro que dar de baja.',
+                    'mensaje' => 'Usuario no encontrado en Legacy; no había registro que dar de baja.',
                 ]);
             }
 
@@ -1031,7 +1031,7 @@ class LegacyUserSync extends Model
             }
         }
 
-        throw new \RuntimeException('No se pudo generar un correo unico para Legacy.');
+        throw new \RuntimeException('No se pudo generar un correo único para Legacy.');
     }
 
     private static function emailLegacyExiste(DatabaseLegacy $legacy, string $email): bool

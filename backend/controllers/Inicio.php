@@ -1227,28 +1227,28 @@ class Inicio extends Controller
         $ok = false;
         if ($action === 'iniciar') {
             $ok = $this->serviciosLocalesIniciar($srv);
-            usleep(350000);
+            $post = $ok
+                ? $this->serviciosLocalesEsperarEstado($srv, 'up', $port === 8000 ? 30000 : 35000)
+                : $this->serviciosLocalesEstadoActual($srv);
         } elseif ($action === 'parar') {
             $ok = $this->serviciosLocalesParar($srv);
-            usleep(350000);
+            $post = $this->serviciosLocalesEsperarEstado($srv, 'down', 10000);
         } else { // reiniciar
             $this->serviciosLocalesParar($srv);
             usleep(800000);
             $ok = $this->serviciosLocalesIniciar($srv);
-            usleep(350000);
+            $post = $ok
+                ? $this->serviciosLocalesEsperarEstado($srv, 'up', $port === 8000 ? 30000 : 35000)
+                : $this->serviciosLocalesEstadoActual($srv);
         }
 
-        $listening = $this->serviciosLocalesPuertosEnListen();
-        $isListen = isset($listening[$port]);
-        $http = ['ok' => false, 'status' => null, 'ms' => null];
-        if ($isListen) {
-            $http = $this->serviciosLocalesProbarHttp((string)$srv['url_check'], 1400);
-        }
-        $estado = ($isListen && $http['ok']) ? 'up' : ($isListen ? 'listen_no_http' : 'down');
-        $st = $http['status'];
+        $post = $post ?? $this->serviciosLocalesEstadoActual($srv);
+        $isListen = (bool)($post['listening'] ?? false);
+        $estado = (string)($post['estado'] ?? 'down');
+        $st = $post['http_status'] ?? null;
         $stStr = $st === null || $st === '' ? '—' : (string) $st;
         $hintPost = 'Tras la orden: puerto ' . $port . ' ' . ($isListen ? 'en escucha' : 'sin proceso en escucha')
-            . '. HTTP ' . ($http['ok'] ? 'OK (' . $stStr . ')' : 'sin respuesta esperada (' . $stStr . ').');
+            . '. HTTP ' . ($estado === 'up' ? 'OK (' . $stStr . ')' : 'sin respuesta esperada (' . $stStr . ').');
 
         echo json_encode([
             'success' => (bool) $ok,
@@ -1258,8 +1258,8 @@ class Inicio extends Controller
             'action'  => $action,
             'estado'  => $estado,
             'listening' => $isListen,
-            'pid' => $isListen ? ($listening[$port] ?? null) : null,
-            'http_status' => $http['status'],
+            'pid' => $isListen ? ($post['pid'] ?? null) : null,
+            'http_status' => $st,
         ], JSON_UNESCAPED_UNICODE);
     }
 
@@ -1552,7 +1552,7 @@ class Inicio extends Controller
                 'name' => 'API verificación documentos (Python · uvicorn)',
                 'port' => 8000,
                 'role' => 'OCR + verificación documental (FastAPI 1-click)',
-                'url_check'   => 'http://127.0.0.1:8000/docs',
+                'url_check'   => 'http://127.0.0.1:8000/api/v1/health',
                 'url_browser' => null,
                 'browser_note' => 'Docs externos dependen de firewall. Para validar candidatos basta que esta prueba interna este verde.',
                 'hint' => 'Si está caída: backend/API/launcher/iniciar-agente.bat',
@@ -1571,6 +1571,46 @@ class Inicio extends Controller
         $cmd = 'start "" /b cmd /c ""' . str_replace('"', '""', $bat) . '""';
         @pclose(@popen($cmd, 'r'));
         return true;
+    }
+
+    private function serviciosLocalesEstadoActual(array $srv, int $httpTimeoutMs = 1400): array
+    {
+        $port = (int)($srv['port'] ?? 0);
+        $listening = $this->serviciosLocalesPuertosEnListen();
+        $isListen = $port > 0 && isset($listening[$port]);
+        $http = ['ok' => false, 'status' => null, 'ms' => null];
+        if ($isListen && !empty($srv['url_check'])) {
+            $http = $this->serviciosLocalesProbarHttp((string)$srv['url_check'], $httpTimeoutMs);
+        }
+        $estado = ($isListen && $http['ok']) ? 'up' : ($isListen ? 'listen_no_http' : 'down');
+
+        return [
+            'estado' => $estado,
+            'listening' => $isListen,
+            'pid' => $isListen ? ($listening[$port] ?? null) : null,
+            'http_ok' => (bool)($http['ok'] ?? false),
+            'http_status' => $http['status'] ?? null,
+            'latency_ms' => $http['ms'] ?? null,
+        ];
+    }
+
+    private function serviciosLocalesEsperarEstado(array $srv, string $objetivo, int $maxMs): array
+    {
+        $deadline = microtime(true) + (max(0, $maxMs) / 1000);
+        $last = $this->serviciosLocalesEstadoActual($srv);
+        while (true) {
+            if ($objetivo === 'up' && ($last['estado'] ?? '') === 'up') {
+                return $last;
+            }
+            if ($objetivo === 'down' && empty($last['listening'])) {
+                return $last;
+            }
+            if (microtime(true) >= $deadline) {
+                return $last;
+            }
+            usleep(500000);
+            $last = $this->serviciosLocalesEstadoActual($srv);
+        }
     }
 
     private function serviciosLocalesParar(array $srv): bool
@@ -1677,7 +1717,7 @@ class Inicio extends Controller
         $status = (int)@curl_getinfo($ch, CURLINFO_RESPONSE_CODE);
         $errno  = @curl_errno($ch);
         @curl_close($ch);
-        if ($errno !== 0 && $status === 0) {
+        if (($errno !== 0 && $status === 0) || $status === 405) {
             // Algunos /health solo aceptan GET completo; reintentar sin NOBODY.
             $ch2 = @curl_init($url);
             if ($ch2) {

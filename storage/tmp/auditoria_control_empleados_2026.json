@@ -1,0 +1,1858 @@
+﻿{
+    "modo": "DRY-RUN",
+    "resumen": {
+        "registros_excel": 836,
+        "sin_match": 35,
+        "ambiguos": 5,
+        "duplicados_nombre_detectados": 123,
+        "duplicados_nombre_corregidos": 0
+    },
+    "sin_match": [
+        {
+            "sheet": "ACTIVOS MAXI 2026",
+            "row": 18,
+            "nombre": "JESUS ORTIZ LUCERO",
+            "codigo_contpaq": "0015",
+            "curp": "OILJ821023HDFRCS04",
+            "rfc": "OILJ821023L7A",
+            "correo": "jesus.ortizlucero@icloud.com",
+            "razon": "sin_match",
+            "candidatos": [
+                {
+                    "score": 41,
+                    "id": 1177,
+                    "numero_empleado": "999999737",
+                    "codigo_contpaq": "0579",
+                    "nombre": "JESUS ALBERTO ORTIZ LUCERO",
+                    "curp": "HERA920719HVZRDL07",
+                    "rfc": "HERA920719797",
+                    "correo": "ing.jahr.92@gmail.com"
+                }
+            ]
+        },
+        {
+            "sheet": "ACTIVOS MAXI 2026",
+            "row": 46,
+            "nombre": "MARCELO JORGE ARCOS DE LA CRUZ",
+            "codigo_contpaq": "0078",
+            "curp": "AOCM900116HDFRRR09",
+            "rfc": "AOCM900116EJ1",
+            "correo": "jackdriot1719@gmail.com",
+            "razon": "sin_match",
+            "candidatos": []
+        },
+        {
+            "sheet": "ACTIVOS MAXI 2026",
+            "row": 252,
+            "nombre": "LUIS CARLOS FLORES RODRIGUEZ",
+            "codigo_contpaq": "0707",
+            "curp": "FORL831009HMCLDS02",
+            "rfc": "FORL831009ND7",
+            "correo": "charlyfr83@gmail.com",
+            "razon": "sin_match",
+            "candidatos": [
+                {
+                    "score": 36,
+                    "id": 143,
+                    "numero_empleado": "1255",
+                    "codigo_contpaq": "1255",
+                    "nombre": "LUIS ALBERTO ROQUEÑI RODRIGUEZ",
+                    "curp": "RORL760815HVZQDS09",
+                    "rfc": "RORL760815E35",
+                    "correo": "luis.roqueni15@gmail.com"
+                },
+                {
+                    "score": 36,
+                    "id": 562,
+                    "numero_empleado": "54",
+                    "codigo_contpaq": "0054",
+                    "nombre": "JONNATHAN MARLON FLORES RODRIGUEZ",
+                    "curp": "FORJ800908HMCLDN01",
+                    "rfc": "FORJ8009088Q3",
+                    "correo": "ayadajm@hotmail.com"
+                },
+                {
+                    "score": 35,
+                    "id": 548,
+                    "numero_empleado": "639",
+                    "codigo_contpaq": "0639",
+                    "nombre": "LUIS CARLOS ISIDORO CRUZ",
+                    "curp": "IICL900215HVZSRS00",
+                    "rfc": "IICL900215224",
+                    "correo": "cartel_888@hoptmail.com"
+                }
+            ]
+        },
+        {
+            "sheet": "ACTIVOS MAXI 2026",
+            "row": 273,
+            "nombre": "VICTOR MANUEL GALARZA CASTILLON",
+            "codigo_contpaq": "0777",
+            "curp": "GACV950703HJCLSC07",
+            "rfc": "GACV950703V3A",
+            "correo": "manuelgc030795@gmail.com",
+            "razon": "sin_match",
+            "candidatos": []
+        },
+        {
+            "sheet": "ACTIVOS MAXI 2026",
+            "row": 284,
+            "nombre": "JOSE ANTONIO BOCANEGRA SILVAN",
+            "codigo_contpaq": "0800",
+            "curp": "BOSA831020HTCCLN17",
+            "rfc": "BOSA831020AL9",
+            "correo": "jabs1983@hotmail.com",
+            "razon": "sin_match",
+            "candidatos": []
+        },
+        {
+            "sheet": "ACTIVOS MAXI 2026",
+            "row": 370,
+            "nombre": "DAVID NOE PEREZ FRAGA",
+            "codigo_contpaq": "0093",
+            "curp": "PEFD900309HDFRRV04",
+            "rfc": "PEFD900309CK0",
+            "correo": "davidnpf@outlook.com",
+            "razon": "sin_match",
+            "candidatos": []
+        },
+        {
+            "sheet": "ACTIVOS MAXI 2026",
+            "row": 380,
+            "nombre": "OMAR GUADALUPE MANRIQUEZ BRAVO",
+            "codigo_contpaq": "1063",
+            "curp": "MABO950404HCMNRM07",
+            "rfc": "MABO950404BP0",
+            "correo": "omyomb@outlook.com",
+            "razon": "sin_match",
+            "candidatos": []
+        },
+        {
+            "sheet": "ACTIVOS MAXI 2026",
+            "row": 444,
+            "nombre": "JUANA RAMIREZ HERNANDEZ",
+            "codigo_contpaq": "1228",
+            "curp": "RAHJ861022MVZMRN02",
+            "rfc": "RAHJ8610226Y6",
+            "correo": "anna2008rmz@gmail.com",
+            "razon": "sin_match",
+            "candidatos": []
+        },
+        {
+            "sheet": "ACTIVOS MAXI 2026",
+            "row": 446,
+            "nombre": "JOSE DE JESUS QUEMADA CALDERON",
+            "codigo_contpaq": "1235",
+            "curp": "QUCJ011029HMCMLSA1",
+            "rfc": "QUCJ011029S81",
+            "correo": "josequemada76@gmail.com",
+            "razon": "sin_match",
+            "candidatos": []
+        },
+        {
+            "sheet": "ACTIVOS MAXI 2026",
+            "row": 474,
+            "nombre": "JOSE URIEL ROMERO RIVERA",
+            "codigo_contpaq": "1283",
+            "curp": "RORU010112HGTMVRA6",
+            "rfc": "RORU010112RG5",
+            "correo": "deitan5894@gmail.com",
+            "razon": "sin_match",
+            "candidatos": []
+        },
+        {
+            "sheet": "ACTIVOS MAXI 2026",
+            "row": 507,
+            "nombre": "ROBERTO ENRIQUE PEREZ CRUZ",
+            "codigo_contpaq": "1359",
+            "curp": "PECR040820HDFRRBA0",
+            "rfc": "PECR0408207S2",
+            "correo": "vanecruzperez1802@gmail.com",
+            "razon": "sin_match",
+            "candidatos": []
+        },
+        {
+            "sheet": "ACTIVOS MAXI 2026",
+            "row": 521,
+            "nombre": "JOEL ISAAC RIOS OLMOS",
+            "codigo_contpaq": "1389",
+            "curp": "RIOJ970412HGTSLL06",
+            "rfc": "RIOJ9704128M0",
+            "correo": "soisaacrios@gmail.com",
+            "razon": "sin_match",
+            "candidatos": []
+        },
+        {
+            "sheet": "ACTIVOS MAXI 2026",
+            "row": 540,
+            "nombre": "MARIBEL ORTEGA MANZO",
+            "codigo_contpaq": "1423",
+            "curp": "OEMM800808MVZRNR06",
+            "rfc": "OEMM800808HE2",
+            "correo": "maryxsb@hotmail.com",
+            "razon": "sin_match",
+            "candidatos": []
+        },
+        {
+            "sheet": "ACTIVOS MAXI 2026",
+            "row": 629,
+            "nombre": "LUIS ANTONIO DENICIA PEREZ",
+            "codigo_contpaq": "1629",
+            "curp": "DEPL740117HDFNRS02",
+            "rfc": "DEPL740117N41",
+            "correo": "denicialuis08@gmail.com",
+            "razon": "sin_match",
+            "candidatos": []
+        },
+        {
+            "sheet": "ACTIVOS MAXI 2026",
+            "row": 634,
+            "nombre": "JOSE JULIAN ALBORNOS MORAN",
+            "codigo_contpaq": "1640",
+            "curp": "AOMJ010807HCMLRLA2",
+            "rfc": "AOMJ010807SK5",
+            "correo": "jk278998@gmail.com",
+            "razon": "sin_match",
+            "candidatos": [
+                {
+                    "score": 35,
+                    "id": 1070,
+                    "numero_empleado": "999999652",
+                    "codigo_contpaq": "1857",
+                    "nombre": "JOSE LUIS ORNELAS MORA",
+                    "curp": "OEML650206HNTRRS04",
+                    "rfc": "OEML650206GY6",
+                    "correo": "joseluisornelas791@gmail.com"
+                }
+            ]
+        },
+        {
+            "sheet": "ACTIVOS MAXI 2026",
+            "row": 639,
+            "nombre": "ORLANDO GUTIERREZ SENSED",
+            "codigo_contpaq": "1654",
+            "curp": "GUSO940917HJCTNR09",
+            "rfc": "GUSO940917M47",
+            "correo": "orlandosensed80@gmail.com",
+            "razon": "sin_match",
+            "candidatos": []
+        },
+        {
+            "sheet": "ACTIVOS MAXI 2026",
+            "row": 654,
+            "nombre": "NAOMI SAMANTHA PADILLA ABREGO",
+            "codigo_contpaq": "1684",
+            "curp": "PAAN011102MGTDBMA0",
+            "rfc": "PAAN011102MB9",
+            "correo": "moushp6@gmail.com",
+            "razon": "sin_match",
+            "candidatos": []
+        },
+        {
+            "sheet": "ACTIVOS MAXI 2026",
+            "row": 692,
+            "nombre": "JORGE ENRIQUE MELENA MONTES",
+            "codigo_contpaq": "1751",
+            "curp": "MEMJ910210HMNLNR09",
+            "rfc": "MEMJ910210N22",
+            "correo": "jmelrna730@gmail.com",
+            "razon": "sin_match",
+            "candidatos": []
+        },
+        {
+            "sheet": "ACTIVOS MAXI 2026",
+            "row": 696,
+            "nombre": "SANDRA YANETT FELIX FERIA",
+            "codigo_contpaq": "1757",
+            "curp": "FEFS790812MTCLRN02",
+            "rfc": "FEFS7908122J9",
+            "correo": "maestramason@gmail.com",
+            "razon": "sin_match",
+            "candidatos": []
+        },
+        {
+            "sheet": "ACTIVOS MAXI 2026",
+            "row": 700,
+            "nombre": "BRENDA GUADALUPE CISNEROS BAEZ",
+            "codigo_contpaq": "1761",
+            "curp": "CIBB870530MNLSZR03",
+            "rfc": "CIBB870530NL4",
+            "correo": "lic.cisnerosrh@live.com.mx",
+            "razon": "sin_match",
+            "candidatos": []
+        },
+        {
+            "sheet": "ACTIVOS MAXI 2026",
+            "row": 722,
+            "nombre": "TADEO GABRIEL CANUL JIMENEZ",
+            "codigo_contpaq": "1793",
+            "curp": "CAJT821013HGRNMD05",
+            "rfc": "CAJT821013RZ3",
+            "correo": "tgabrieljimenez1982@gmail.com",
+            "razon": "sin_match",
+            "candidatos": []
+        },
+        {
+            "sheet": "ACTIVOS MAXI 2026",
+            "row": 756,
+            "nombre": "JUAN MARTIN GARCIA SANTELIZ",
+            "codigo_contpaq": "1840",
+            "curp": "GASJ821111HHGRNN01",
+            "rfc": "GASJ8211118Z2",
+            "correo": "j.martin-garcia@hotmail.com",
+            "razon": "sin_match",
+            "candidatos": []
+        },
+        {
+            "sheet": "ACTIVOS MAXI 2026",
+            "row": 760,
+            "nombre": "MIRNA LETICIA CAMARILLO RODRIGUEZ",
+            "codigo_contpaq": "1844",
+            "curp": "CARM780423MDFMDR00",
+            "rfc": "CARM7804234S9",
+            "correo": "2304lemir@gmail.com",
+            "razon": "sin_match",
+            "candidatos": [
+                {
+                    "score": 37,
+                    "id": 180,
+                    "numero_empleado": "112",
+                    "codigo_contpaq": "0112",
+                    "nombre": "JUAN ISAAC CAMARILLO RODRIGUEZ",
+                    "curp": "CARJ820712HDFMDN18",
+                    "rfc": "CARJ820712TVZ",
+                    "correo": "juanisaaccamarillo@yahoo.com"
+                },
+                {
+                    "score": 36,
+                    "id": 88,
+                    "numero_empleado": "1421",
+                    "codigo_contpaq": "1421",
+                    "nombre": "SANDRA OSVELIA CARRILLO RODRIGUEZ",
+                    "curp": "CARS770420MDFRDN00",
+                    "rfc": "CARS7704208W5",
+                    "correo": "sandyvica2004@gmail.com"
+                }
+            ]
+        },
+        {
+            "sheet": "ACTIVOS MAXI 2026",
+            "row": 770,
+            "nombre": "OSVALDO JAVIER TORRES ACOSTA",
+            "codigo_contpaq": "1856",
+            "curp": "TOAO840910HDFRCS05",
+            "rfc": "TOAO840910E42",
+            "correo": "valotorres34@gmail.com",
+            "razon": "sin_match",
+            "candidatos": []
+        },
+        {
+            "sheet": "ACTIVOS MAXI 2026",
+            "row": 797,
+            "nombre": "ERIK JOSE RAMOS ANGUIANO",
+            "codigo_contpaq": "1898",
+            "curp": "RAAE900529HCMMNR06",
+            "rfc": "RAAE900529RQ5",
+            "correo": "ramosanguianoerik42@gmail.com",
+            "razon": "sin_match",
+            "candidatos": []
+        },
+        {
+            "sheet": "ACTIVOS MAXI 2026",
+            "row": 803,
+            "nombre": "EDUARDO ROMERO HERNANDEZ",
+            "codigo_contpaq": "1904",
+            "curp": "ROHE910315HPLMRD07",
+            "rfc": "ROHE910315MP2",
+            "correo": "moreedu91@gmail.com",
+            "razon": "sin_match",
+            "candidatos": [
+                {
+                    "score": 38,
+                    "id": 238,
+                    "numero_empleado": "1157",
+                    "codigo_contpaq": "1157",
+                    "nombre": "EDUARDO HIRAM SANTOYO HERNANDEZ",
+                    "curp": "SAHE700626HDFNRD05",
+                    "rfc": "SAHE700626LL5",
+                    "correo": "eduardo.santoyo@gmail.com"
+                }
+            ]
+        },
+        {
+            "sheet": "ACTIVOS MAXI 2026",
+            "row": 804,
+            "nombre": "JOSE ADOLFO ROMERO JUAREZ",
+            "codigo_contpaq": "1905",
+            "curp": "ROJA900828HPLMRD06",
+            "rfc": "ROJA900828AS0",
+            "correo": "romerojuarezjoseadolfo22gm ail.com",
+            "razon": "sin_match",
+            "candidatos": [
+                {
+                    "score": 36,
+                    "id": 1426,
+                    "numero_empleado": "1572",
+                    "codigo_contpaq": "1572",
+                    "nombre": "JOSE CARLOS CARLOS ROQUE JUAREZ",
+                    "curp": "ROJC941014HMCQRR08",
+                    "rfc": "ROJC941014A96",
+                    "correo": "roquej.94@gmail.com"
+                }
+            ]
+        },
+        {
+            "sheet": "ACTIVOS MAXI 2026",
+            "row": 810,
+            "nombre": "VLADIMIR SANDOVAL CASTILLO",
+            "codigo_contpaq": "1911",
+            "curp": "SACV001018HDFNSLA1",
+            "rfc": "SACV001018SD5",
+            "correo": "sandovalcastillovladimir494@gmail.com",
+            "razon": "sin_match",
+            "candidatos": []
+        },
+        {
+            "sheet": "ACTIVOS MAXI 2026",
+            "row": 813,
+            "nombre": "ANTONIO HERNANDEZ FLORES",
+            "codigo_contpaq": "1914",
+            "curp": "HEFA820304HMNRLN08",
+            "rfc": "HEFA820304K86",
+            "correo": "yepeza978@gmail.com",
+            "razon": "sin_match",
+            "candidatos": [
+                {
+                    "score": 35,
+                    "id": 1170,
+                    "numero_empleado": "999999730",
+                    "codigo_contpaq": "",
+                    "nombre": "FAUSTO  HERNANDEZ LIMON",
+                    "curp": "HELF880318HPLRMS05",
+                    "rfc": "",
+                    "correo": ""
+                }
+            ]
+        },
+        {
+            "sheet": "ACTIVOS MAXI 2026",
+            "row": 818,
+            "nombre": "JUAN CARLOS ALEJO ROSALIO",
+            "codigo_contpaq": "1920",
+            "curp": "AERJ961216HMCLSN05",
+            "rfc": "AERJ961216GR1",
+            "correo": "karlozlbr@gmail.com",
+            "razon": "sin_match",
+            "candidatos": []
+        },
+        {
+            "sheet": "ACTIVOS MAXI 2026",
+            "row": 819,
+            "nombre": "HUGO RAMSES ALCANTARA CORONA",
+            "codigo_contpaq": "1921",
+            "curp": "AACH020425HDFLRGA6",
+            "rfc": "AACH020425AY4",
+            "correo": "lic.ramses.alacantara25@gmail.com",
+            "razon": "sin_match",
+            "candidatos": []
+        },
+        {
+            "sheet": "ACTIVOS GUATEMALA 2026",
+            "row": 14,
+            "nombre": "MARCELO DANIEL VASQUEZ CIFUENTES",
+            "codigo_contpaq": "0002",
+            "curp": "",
+            "rfc": "",
+            "correo": "mdvasquez1972@gmail.com",
+            "razon": "sin_match",
+            "candidatos": []
+        },
+        {
+            "sheet": "ACTIVOS GUATEMALA 2026",
+            "row": 15,
+            "nombre": "MICHAEL ANTONIO TOBAR ARGUETA",
+            "codigo_contpaq": "0005",
+            "curp": "",
+            "rfc": "",
+            "correo": "Tobarmichael14@gmail.com",
+            "razon": "sin_match",
+            "candidatos": []
+        },
+        {
+            "sheet": "ACTIVOS GUATEMALA 2026",
+            "row": 16,
+            "nombre": "MYNOR FRANCISCO JIMENEZ PEREZ",
+            "codigo_contpaq": "0006",
+            "curp": "",
+            "rfc": "",
+            "correo": "mynorfran1980@hotmail.com",
+            "razon": "sin_match",
+            "candidatos": []
+        },
+        {
+            "sheet": "ACTIVOS GUATEMALA 2026",
+            "row": 17,
+            "nombre": "HUGO RONALDO BELTRAN LOPEZ",
+            "codigo_contpaq": "0007",
+            "curp": "",
+            "rfc": "",
+            "correo": "lopezronaldohb@gmail.com",
+            "razon": "sin_match",
+            "candidatos": []
+        }
+    ],
+    "ambiguos": [
+        {
+            "sheet": "ACTIVOS MAXI 2026",
+            "row": 62,
+            "nombre": "ROSA MARTINEZ PEREZ",
+            "codigo_contpaq": "0003",
+            "curp": "MAPR851009MDFRRS02",
+            "rfc": "MAPR8510097U0",
+            "correo": "rosa-martinezperez@hotmail.com",
+            "razon": "ambiguo:numero_empleado",
+            "matches": [
+                {
+                    "id": 3,
+                    "numero_empleado": "3",
+                    "codigo_contpaq": "0075",
+                    "nombre": "JESUS SIMON RUVALCABA PAEZ"
+                },
+                {
+                    "id": 1367,
+                    "numero_empleado": "0003",
+                    "codigo_contpaq": "0003",
+                    "nombre": "ROSA  MARTINEZ PEREZ"
+                }
+            ]
+        },
+        {
+            "sheet": "ACTIVOS MAXI 2026",
+            "row": 311,
+            "nombre": "LUIS JOSE SANCHEZ VILLEGAS",
+            "codigo_contpaq": "0890",
+            "curp": "SAVL840621HDFNLS09",
+            "rfc": "SAVL840621R60",
+            "correo": "luis_sanv@hotmail.com",
+            "razon": "ambiguo:nombre",
+            "matches": [
+                {
+                    "id": 1184,
+                    "numero_empleado": "999999744",
+                    "codigo_contpaq": "",
+                    "nombre": "LUIS JOSE SANCHEZ VILLEGAS"
+                },
+                {
+                    "id": 1218,
+                    "numero_empleado": "999999774",
+                    "codigo_contpaq": "",
+                    "nombre": "LUIS JOSE SANCHEZ VILLEGAS"
+                }
+            ]
+        },
+        {
+            "sheet": "ACTIVOS MAXI 2026",
+            "row": 513,
+            "nombre": "GAEL ANTONIO VEGA TREJO",
+            "codigo_contpaq": "1368",
+            "curp": "VETG070108HMCGRLA5",
+            "rfc": "VETG070108C49",
+            "correo": "gvega3926@gmail.com",
+            "razon": "ambiguo:nombre",
+            "matches": [
+                {
+                    "id": 1182,
+                    "numero_empleado": "999999742",
+                    "codigo_contpaq": "",
+                    "nombre": "GAEL ANTONIO VEGA TREJO"
+                },
+                {
+                    "id": 1217,
+                    "numero_empleado": "999999773",
+                    "codigo_contpaq": "",
+                    "nombre": "GAEL ANTONIO VEGA TREJO"
+                }
+            ]
+        },
+        {
+            "sheet": "ACTIVOS FURIA 26",
+            "row": 13,
+            "nombre": "ERICK TOMAS SANCHEZ ZUÑIGA",
+            "codigo_contpaq": "0002",
+            "curp": "SAZE020726HMCNXRA8",
+            "rfc": "SAZE020726873",
+            "correo": "ericktomassanchez676@gmail.com",
+            "razon": "ambiguo:numero_empleado",
+            "matches": [
+                {
+                    "id": 2,
+                    "numero_empleado": "2",
+                    "codigo_contpaq": "",
+                    "nombre": "JONATHAN VALDEZ MARTINEZ"
+                },
+                {
+                    "id": 1317,
+                    "numero_empleado": "0002",
+                    "codigo_contpaq": "0002",
+                    "nombre": "ERICK TOMAS  SANCHEZ ZUÑIGA"
+                }
+            ]
+        },
+        {
+            "sheet": "ACTIVOS FURIA 26",
+            "row": 14,
+            "nombre": "CESAR VILLEGAS PONCE",
+            "codigo_contpaq": "0003",
+            "curp": "VIPC031120HDFLNSA9",
+            "rfc": "VIPC031120RT3",
+            "correo": "chaparrovllegas288@gmail.com",
+            "razon": "ambiguo:numero_empleado",
+            "matches": [
+                {
+                    "id": 3,
+                    "numero_empleado": "3",
+                    "codigo_contpaq": "0075",
+                    "nombre": "JESUS SIMON RUVALCABA PAEZ"
+                },
+                {
+                    "id": 1367,
+                    "numero_empleado": "0003",
+                    "codigo_contpaq": "0003",
+                    "nombre": "ROSA  MARTINEZ PEREZ"
+                }
+            ]
+        }
+    ],
+    "duplicados_nombre": [
+        {
+            "id": 985,
+            "numero_empleado": "999999569",
+            "nombres": "MOISES DE JESUS",
+            "segundo_nombre": "DE JESUS",
+            "apellidop": "AVILA",
+            "apellidom": "ARREOLA",
+            "nombre_actual": "MOISES DE JESUS DE JESUS AVILA ARREOLA",
+            "nombre_corregido": "MOISES DE JESUS AVILA ARREOLA"
+        },
+        {
+            "id": 1208,
+            "numero_empleado": "999999766",
+            "nombres": "PEDRO",
+            "segundo_nombre": "PEDRO",
+            "apellidop": "PEDRO",
+            "apellidom": "PEDRO",
+            "nombre_actual": "PEDRO PEDRO PEDRO PEDRO",
+            "nombre_corregido": "PEDRO PEDRO PEDRO"
+        },
+        {
+            "id": 1234,
+            "numero_empleado": "999999788",
+            "nombres": "JOSE OCTAVIO",
+            "segundo_nombre": "OCTAVIO",
+            "apellidop": "MAYORAL",
+            "apellidom": "CORTES",
+            "nombre_actual": "JOSE OCTAVIO OCTAVIO MAYORAL CORTES",
+            "nombre_corregido": "JOSE OCTAVIO MAYORAL CORTES"
+        },
+        {
+            "id": 1238,
+            "numero_empleado": "0277",
+            "nombres": "MARA GABRIELA",
+            "segundo_nombre": "GABRIELA",
+            "apellidop": "VIAMONTE",
+            "apellidom": "ROSALES",
+            "nombre_actual": "MARA GABRIELA GABRIELA VIAMONTE ROSALES",
+            "nombre_corregido": "MARA GABRIELA VIAMONTE ROSALES"
+        },
+        {
+            "id": 1239,
+            "numero_empleado": "0230",
+            "nombres": "EDGAR ALAN JESUS",
+            "segundo_nombre": "ALAN JESUS",
+            "apellidop": "BERAUD",
+            "apellidom": "GARZA",
+            "nombre_actual": "EDGAR ALAN JESUS ALAN JESUS BERAUD GARZA",
+            "nombre_corregido": "EDGAR ALAN JESUS BERAUD GARZA"
+        },
+        {
+            "id": 1241,
+            "numero_empleado": "0079",
+            "nombres": "MONICA AMERICA",
+            "segundo_nombre": "AMERICA",
+            "apellidop": "GARCIA",
+            "apellidom": "ESCALANTE",
+            "nombre_actual": "MONICA AMERICA AMERICA GARCIA ESCALANTE",
+            "nombre_corregido": "MONICA AMERICA GARCIA ESCALANTE"
+        },
+        {
+            "id": 1242,
+            "numero_empleado": "0070",
+            "nombres": "CLAUDIA ISABEL",
+            "segundo_nombre": "ISABEL",
+            "apellidop": "PEREZ",
+            "apellidom": "ROJAS",
+            "nombre_actual": "CLAUDIA ISABEL ISABEL PEREZ ROJAS",
+            "nombre_corregido": "CLAUDIA ISABEL PEREZ ROJAS"
+        },
+        {
+            "id": 1244,
+            "numero_empleado": "0336",
+            "nombres": "LUZ MARIA",
+            "segundo_nombre": "MARIA",
+            "apellidop": "MUÑOZ",
+            "apellidom": "MENDEZ",
+            "nombre_actual": "LUZ MARIA MARIA MUÑOZ MENDEZ",
+            "nombre_corregido": "LUZ MARIA MUÑOZ MENDEZ"
+        },
+        {
+            "id": 1246,
+            "numero_empleado": "0101",
+            "nombres": "JOSE DAVID",
+            "segundo_nombre": "DAVID",
+            "apellidop": "RODRIGUEZ",
+            "apellidom": "ZAZUETA",
+            "nombre_actual": "JOSE DAVID DAVID RODRIGUEZ ZAZUETA",
+            "nombre_corregido": "JOSE DAVID RODRIGUEZ ZAZUETA"
+        },
+        {
+            "id": 1247,
+            "numero_empleado": "0102",
+            "nombres": "LUIS FERNANDO",
+            "segundo_nombre": "FERNANDO",
+            "apellidop": "JIMENEZ",
+            "apellidom": "RAMOS",
+            "nombre_actual": "LUIS FERNANDO FERNANDO JIMENEZ RAMOS",
+            "nombre_corregido": "LUIS FERNANDO JIMENEZ RAMOS"
+        },
+        {
+            "id": 1248,
+            "numero_empleado": "0085",
+            "nombres": "VERONICA DEL ROCIO",
+            "segundo_nombre": "DEL ROCIO",
+            "apellidop": "PADILLA",
+            "apellidom": "CASTRO",
+            "nombre_actual": "VERONICA DEL ROCIO DEL ROCIO PADILLA CASTRO",
+            "nombre_corregido": "VERONICA DEL ROCIO PADILLA CASTRO"
+        },
+        {
+            "id": 1249,
+            "numero_empleado": "0136",
+            "nombres": "ZULMA YAKZIRI",
+            "segundo_nombre": "YAKZIRI",
+            "apellidop": "ALVARADO",
+            "apellidom": "DIAZ",
+            "nombre_actual": "ZULMA YAKZIRI YAKZIRI ALVARADO DIAZ",
+            "nombre_corregido": "ZULMA YAKZIRI ALVARADO DIAZ"
+        },
+        {
+            "id": 1250,
+            "numero_empleado": "0161",
+            "nombres": "SHARON ALEXA",
+            "segundo_nombre": "ALEXA",
+            "apellidop": "LOPEZ",
+            "apellidom": "ROJAS",
+            "nombre_actual": "SHARON ALEXA ALEXA LOPEZ ROJAS",
+            "nombre_corregido": "SHARON ALEXA LOPEZ ROJAS"
+        },
+        {
+            "id": 1253,
+            "numero_empleado": "0322",
+            "nombres": "HUMBERTO ALEJANDRO",
+            "segundo_nombre": "ALEJANDRO",
+            "apellidop": "CASTAÑEDA",
+            "apellidom": "GONZALEZ",
+            "nombre_actual": "HUMBERTO ALEJANDRO ALEJANDRO CASTAÑEDA GONZALEZ",
+            "nombre_corregido": "HUMBERTO ALEJANDRO CASTAÑEDA GONZALEZ"
+        },
+        {
+            "id": 1255,
+            "numero_empleado": "0437",
+            "nombres": "JOSE ISRAEL",
+            "segundo_nombre": "ISRAEL",
+            "apellidop": "DE AVILA",
+            "apellidom": "MARQUEZ",
+            "nombre_actual": "JOSE ISRAEL ISRAEL DE AVILA MARQUEZ",
+            "nombre_corregido": "JOSE ISRAEL DE AVILA MARQUEZ"
+        },
+        {
+            "id": 1257,
+            "numero_empleado": "0476",
+            "nombres": "EDUARD CHRISTIAAN",
+            "segundo_nombre": "CHRISTIAAN",
+            "apellidop": "VAN MEGEN",
+            "apellidom": "LEON",
+            "nombre_actual": "EDUARD CHRISTIAAN CHRISTIAAN VAN MEGEN LEON",
+            "nombre_corregido": "EDUARD CHRISTIAAN VAN MEGEN LEON"
+        },
+        {
+            "id": 1258,
+            "numero_empleado": "0478",
+            "nombres": "LUIS DAVID",
+            "segundo_nombre": "DAVID",
+            "apellidop": "GUTIERREZ",
+            "apellidom": "MORALES",
+            "nombre_actual": "LUIS DAVID DAVID GUTIERREZ MORALES",
+            "nombre_corregido": "LUIS DAVID GUTIERREZ MORALES"
+        },
+        {
+            "id": 1259,
+            "numero_empleado": "0533",
+            "nombres": "LUIS GUSTAVO",
+            "segundo_nombre": "GUSTAVO",
+            "apellidop": "ROMO",
+            "apellidom": "MENDOZA",
+            "nombre_actual": "LUIS GUSTAVO GUSTAVO ROMO MENDOZA",
+            "nombre_corregido": "LUIS GUSTAVO ROMO MENDOZA"
+        },
+        {
+            "id": 1261,
+            "numero_empleado": "0540",
+            "nombres": "DIANA ISABEL",
+            "segundo_nombre": "ISABEL",
+            "apellidop": "JAQUEZ",
+            "apellidom": "NUÑEZ",
+            "nombre_actual": "DIANA ISABEL ISABEL JAQUEZ NUÑEZ",
+            "nombre_corregido": "DIANA ISABEL JAQUEZ NUÑEZ"
+        },
+        {
+            "id": 1263,
+            "numero_empleado": "0678",
+            "nombres": "FELIX ORLANDO",
+            "segundo_nombre": "ORLANDO",
+            "apellidop": "ORTEGA",
+            "apellidom": "CUPUL",
+            "nombre_actual": "FELIX ORLANDO ORLANDO ORTEGA CUPUL",
+            "nombre_corregido": "FELIX ORLANDO ORTEGA CUPUL"
+        },
+        {
+            "id": 1264,
+            "numero_empleado": "0679",
+            "nombres": "JOSE HUMBERTO",
+            "segundo_nombre": "HUMBERTO",
+            "apellidop": "HERRERA",
+            "apellidom": "MEZA",
+            "nombre_actual": "JOSE HUMBERTO HUMBERTO HERRERA MEZA",
+            "nombre_corregido": "JOSE HUMBERTO HERRERA MEZA"
+        },
+        {
+            "id": 1266,
+            "numero_empleado": "0780",
+            "nombres": "VICTOR RAFAEL",
+            "segundo_nombre": "RAFAEL",
+            "apellidop": "MEDINA",
+            "apellidom": "OCHOA",
+            "nombre_actual": "VICTOR RAFAEL RAFAEL MEDINA OCHOA",
+            "nombre_corregido": "VICTOR RAFAEL MEDINA OCHOA"
+        },
+        {
+            "id": 1270,
+            "numero_empleado": "0847",
+            "nombres": "NORMA ELIZABETH",
+            "segundo_nombre": "ELIZABETH",
+            "apellidop": "MUÑOZ",
+            "apellidom": "VARGAS",
+            "nombre_actual": "NORMA ELIZABETH ELIZABETH MUÑOZ VARGAS",
+            "nombre_corregido": "NORMA ELIZABETH MUÑOZ VARGAS"
+        },
+        {
+            "id": 1271,
+            "numero_empleado": "0853",
+            "nombres": "FRIDA XIMENA",
+            "segundo_nombre": "XIMENA",
+            "apellidop": "SEGURA",
+            "apellidom": "CADENA",
+            "nombre_actual": "FRIDA XIMENA XIMENA SEGURA CADENA",
+            "nombre_corregido": "FRIDA XIMENA SEGURA CADENA"
+        },
+        {
+            "id": 1272,
+            "numero_empleado": "0854",
+            "nombres": "EMMANUEL ALEXANDER",
+            "segundo_nombre": "ALEXANDER",
+            "apellidop": "VAQUERO",
+            "apellidom": "AQUINO",
+            "nombre_actual": "EMMANUEL ALEXANDER ALEXANDER VAQUERO AQUINO",
+            "nombre_corregido": "EMMANUEL ALEXANDER VAQUERO AQUINO"
+        },
+        {
+            "id": 1274,
+            "numero_empleado": "0857",
+            "nombres": "JUAN ANTONIO",
+            "segundo_nombre": "ANTONIO",
+            "apellidop": "HERNANDEZ",
+            "apellidom": "COTA",
+            "nombre_actual": "JUAN ANTONIO ANTONIO HERNANDEZ COTA",
+            "nombre_corregido": "JUAN ANTONIO HERNANDEZ COTA"
+        },
+        {
+            "id": 1275,
+            "numero_empleado": "0866",
+            "nombres": "CESAR ANTONIO",
+            "segundo_nombre": "ANTONIO",
+            "apellidop": "MONROY",
+            "apellidom": "ROSAS",
+            "nombre_actual": "CESAR ANTONIO ANTONIO MONROY ROSAS",
+            "nombre_corregido": "CESAR ANTONIO MONROY ROSAS"
+        },
+        {
+            "id": 1276,
+            "numero_empleado": "0867",
+            "nombres": "JESUS OSVALDO",
+            "segundo_nombre": "OSVALDO",
+            "apellidop": "JOCOBI",
+            "apellidom": "ROSAS",
+            "nombre_actual": "JESUS OSVALDO OSVALDO JOCOBI ROSAS",
+            "nombre_corregido": "JESUS OSVALDO JOCOBI ROSAS"
+        },
+        {
+            "id": 1279,
+            "numero_empleado": "0903",
+            "nombres": "FAUSTO ENRIQUE",
+            "segundo_nombre": "ENRIQUE",
+            "apellidop": "LOPEZ",
+            "apellidom": "RODRIGUEZ",
+            "nombre_actual": "FAUSTO ENRIQUE ENRIQUE LOPEZ RODRIGUEZ",
+            "nombre_corregido": "FAUSTO ENRIQUE LOPEZ RODRIGUEZ"
+        },
+        {
+            "id": 1280,
+            "numero_empleado": "0914",
+            "nombres": "NUBIA MARLENE",
+            "segundo_nombre": "MARLENE",
+            "apellidop": "QUINTERO",
+            "apellidom": "VAZQUEZ",
+            "nombre_actual": "NUBIA MARLENE MARLENE QUINTERO VAZQUEZ",
+            "nombre_corregido": "NUBIA MARLENE QUINTERO VAZQUEZ"
+        },
+        {
+            "id": 1282,
+            "numero_empleado": "0939",
+            "nombres": "CESAR AUGUSTO",
+            "segundo_nombre": "AUGUSTO",
+            "apellidop": "PEREZ",
+            "apellidom": "BALTAZAR",
+            "nombre_actual": "CESAR AUGUSTO AUGUSTO PEREZ BALTAZAR",
+            "nombre_corregido": "CESAR AUGUSTO PEREZ BALTAZAR"
+        },
+        {
+            "id": 1284,
+            "numero_empleado": "0942",
+            "nombres": "CLAUDIA PATRICIA",
+            "segundo_nombre": "PATRICIA",
+            "apellidop": "HERNANDEZ",
+            "apellidom": "LORENZO",
+            "nombre_actual": "CLAUDIA PATRICIA PATRICIA HERNANDEZ LORENZO",
+            "nombre_corregido": "CLAUDIA PATRICIA HERNANDEZ LORENZO"
+        },
+        {
+            "id": 1285,
+            "numero_empleado": "0967",
+            "nombres": "BELSY ADRIANA",
+            "segundo_nombre": "ADRIANA",
+            "apellidop": "CABRERA",
+            "apellidom": "RIOS",
+            "nombre_actual": "BELSY ADRIANA ADRIANA CABRERA RIOS",
+            "nombre_corregido": "BELSY ADRIANA CABRERA RIOS"
+        },
+        {
+            "id": 1287,
+            "numero_empleado": "0988",
+            "nombres": "KARLA XIMENA",
+            "segundo_nombre": "XIMENA",
+            "apellidop": "APARICIO",
+            "apellidom": "MENDEZ",
+            "nombre_actual": "KARLA XIMENA XIMENA APARICIO MENDEZ",
+            "nombre_corregido": "KARLA XIMENA APARICIO MENDEZ"
+        },
+        {
+            "id": 1288,
+            "numero_empleado": "0998",
+            "nombres": "MARCO ANTONIO",
+            "segundo_nombre": "ANTONIO",
+            "apellidop": "JUAREZ",
+            "apellidom": "RAMOS",
+            "nombre_actual": "MARCO ANTONIO ANTONIO JUAREZ RAMOS",
+            "nombre_corregido": "MARCO ANTONIO JUAREZ RAMOS"
+        },
+        {
+            "id": 1290,
+            "numero_empleado": "0228",
+            "nombres": "DANIELA ALEJANDRA",
+            "segundo_nombre": "ALEJANDRA",
+            "apellidop": "RODRIGUEZ",
+            "apellidom": "CABRERA",
+            "nombre_actual": "DANIELA ALEJANDRA ALEJANDRA RODRIGUEZ CABRERA",
+            "nombre_corregido": "DANIELA ALEJANDRA RODRIGUEZ CABRERA"
+        },
+        {
+            "id": 1291,
+            "numero_empleado": "1263",
+            "nombres": "JUAN CARLOS",
+            "segundo_nombre": "CARLOS",
+            "apellidop": "MARTINEZ SOTO",
+            "apellidom": "TUDON",
+            "nombre_actual": "JUAN CARLOS CARLOS MARTINEZ SOTO TUDON",
+            "nombre_corregido": "JUAN CARLOS MARTINEZ SOTO TUDON"
+        },
+        {
+            "id": 1293,
+            "numero_empleado": "1419",
+            "nombres": "EDGAR ROGELIO",
+            "segundo_nombre": "ROGELIO",
+            "apellidop": "MANCILLA",
+            "apellidom": "GARCIA",
+            "nombre_actual": "EDGAR ROGELIO ROGELIO MANCILLA GARCIA",
+            "nombre_corregido": "EDGAR ROGELIO MANCILLA GARCIA"
+        },
+        {
+            "id": 1296,
+            "numero_empleado": "1578",
+            "nombres": "LUIS FERNANDO",
+            "segundo_nombre": "FERNANDO",
+            "apellidop": "CUBA",
+            "apellidom": "RODRIGUEZ",
+            "nombre_actual": "LUIS FERNANDO FERNANDO CUBA RODRIGUEZ",
+            "nombre_corregido": "LUIS FERNANDO CUBA RODRIGUEZ"
+        },
+        {
+            "id": 1297,
+            "numero_empleado": "1701",
+            "nombres": "GUILLERMO MANUEL",
+            "segundo_nombre": "MANUEL",
+            "apellidop": "RAMIREZ",
+            "apellidom": "GOMEZ",
+            "nombre_actual": "GUILLERMO MANUEL MANUEL RAMIREZ GOMEZ",
+            "nombre_corregido": "GUILLERMO MANUEL RAMIREZ GOMEZ"
+        },
+        {
+            "id": 1298,
+            "numero_empleado": "1754",
+            "nombres": "ELVIS LEE",
+            "segundo_nombre": "LEE",
+            "apellidop": "POZOS",
+            "apellidom": "JUAREZ",
+            "nombre_actual": "ELVIS LEE LEE POZOS JUAREZ",
+            "nombre_corregido": "ELVIS LEE POZOS JUAREZ"
+        },
+        {
+            "id": 1299,
+            "numero_empleado": "1767",
+            "nombres": "CARLOS ALBERTO",
+            "segundo_nombre": "ALBERTO",
+            "apellidop": "GARCIA",
+            "apellidom": "PEREZ",
+            "nombre_actual": "CARLOS ALBERTO ALBERTO GARCIA PEREZ",
+            "nombre_corregido": "CARLOS ALBERTO GARCIA PEREZ"
+        },
+        {
+            "id": 1300,
+            "numero_empleado": "1768",
+            "nombres": "KAREN YAZMIN",
+            "segundo_nombre": "YAZMIN",
+            "apellidop": "HURTADO",
+            "apellidom": "SALAS",
+            "nombre_actual": "KAREN YAZMIN YAZMIN HURTADO SALAS",
+            "nombre_corregido": "KAREN YAZMIN HURTADO SALAS"
+        },
+        {
+            "id": 1301,
+            "numero_empleado": "1795",
+            "nombres": "FERMIN ALEJANDRO",
+            "segundo_nombre": "ALEJANDRO",
+            "apellidop": "AHUMADA",
+            "apellidom": "GARCIA",
+            "nombre_actual": "FERMIN ALEJANDRO ALEJANDRO AHUMADA GARCIA",
+            "nombre_corregido": "FERMIN ALEJANDRO AHUMADA GARCIA"
+        },
+        {
+            "id": 1305,
+            "numero_empleado": "1848",
+            "nombres": "ABRIL YANNINA",
+            "segundo_nombre": "YANNINA",
+            "apellidop": "ARGUELLES",
+            "apellidom": "RIVAS",
+            "nombre_actual": "ABRIL YANNINA YANNINA ARGUELLES RIVAS",
+            "nombre_corregido": "ABRIL YANNINA ARGUELLES RIVAS"
+        },
+        {
+            "id": 1307,
+            "numero_empleado": "0252",
+            "nombres": "JHOANA GERALDINE",
+            "segundo_nombre": "GERALDINE",
+            "apellidop": "BARRERA",
+            "apellidom": "QUEZADA",
+            "nombre_actual": "JHOANA GERALDINE GERALDINE BARRERA QUEZADA",
+            "nombre_corregido": "JHOANA GERALDINE BARRERA QUEZADA"
+        },
+        {
+            "id": 1308,
+            "numero_empleado": "1894",
+            "nombres": "ERICK JOEL",
+            "segundo_nombre": "JOEL",
+            "apellidop": "NAVARRO",
+            "apellidom": "MELENDREZ",
+            "nombre_actual": "ERICK JOEL JOEL NAVARRO MELENDREZ",
+            "nombre_corregido": "ERICK JOEL NAVARRO MELENDREZ"
+        },
+        {
+            "id": 1309,
+            "numero_empleado": "1895",
+            "nombres": "ANA PATRICIA",
+            "segundo_nombre": "PATRICIA",
+            "apellidop": "RENDON",
+            "apellidom": "DIAZ",
+            "nombre_actual": "ANA PATRICIA PATRICIA RENDON DIAZ",
+            "nombre_corregido": "ANA PATRICIA RENDON DIAZ"
+        },
+        {
+            "id": 1311,
+            "numero_empleado": "1908",
+            "nombres": "ARCELIA JULIETA",
+            "segundo_nombre": "JULIETA",
+            "apellidop": "GARCIA",
+            "apellidom": "GARCIA",
+            "nombre_actual": "ARCELIA JULIETA JULIETA GARCIA GARCIA",
+            "nombre_corregido": "ARCELIA JULIETA GARCIA GARCIA"
+        },
+        {
+            "id": 1312,
+            "numero_empleado": "1922",
+            "nombres": "JAZMIN SUSANA",
+            "segundo_nombre": "SUSANA",
+            "apellidop": "BETANZO",
+            "apellidom": "HERNANDEZ",
+            "nombre_actual": "JAZMIN SUSANA SUSANA BETANZO HERNANDEZ",
+            "nombre_corregido": "JAZMIN SUSANA BETANZO HERNANDEZ"
+        },
+        {
+            "id": 1313,
+            "numero_empleado": "1923",
+            "nombres": "JOSE ANGEL",
+            "segundo_nombre": "ANGEL",
+            "apellidop": "LIMON",
+            "apellidom": "PEREZ",
+            "nombre_actual": "JOSE ANGEL ANGEL LIMON PEREZ",
+            "nombre_corregido": "JOSE ANGEL LIMON PEREZ"
+        },
+        {
+            "id": 1314,
+            "numero_empleado": "1932",
+            "nombres": "LUIS FELIPE",
+            "segundo_nombre": "FELIPE",
+            "apellidop": "RODRIGUEZ",
+            "apellidom": "REYES",
+            "nombre_actual": "LUIS FELIPE FELIPE RODRIGUEZ REYES",
+            "nombre_corregido": "LUIS FELIPE RODRIGUEZ REYES"
+        },
+        {
+            "id": 1315,
+            "numero_empleado": "0001",
+            "nombres": "JUAN CARLOS",
+            "segundo_nombre": "CARLOS",
+            "apellidop": "REYNOSA",
+            "apellidom": "VILLALTA",
+            "nombre_actual": "JUAN CARLOS CARLOS REYNOSA VILLALTA",
+            "nombre_corregido": "JUAN CARLOS REYNOSA VILLALTA"
+        },
+        {
+            "id": 1319,
+            "numero_empleado": "0006",
+            "nombres": "JOSE ANTONIO",
+            "segundo_nombre": "ANTONIO",
+            "apellidop": "MENESES",
+            "apellidom": "GONZALEZ",
+            "nombre_actual": "JOSE ANTONIO ANTONIO MENESES GONZALEZ",
+            "nombre_corregido": "JOSE ANTONIO MENESES GONZALEZ"
+        },
+        {
+            "id": 1359,
+            "numero_empleado": "999999794",
+            "nombres": "CESAR OMAR",
+            "segundo_nombre": "OMAR",
+            "apellidop": "CASAS",
+            "apellidom": "JUAREZ",
+            "nombre_actual": "CESAR OMAR OMAR CASAS JUAREZ",
+            "nombre_corregido": "CESAR OMAR CASAS JUAREZ"
+        },
+        {
+            "id": 1360,
+            "numero_empleado": "226",
+            "nombres": "ALEJANDRO ROMULO",
+            "segundo_nombre": "ROMULO",
+            "apellidop": "PAEZ",
+            "apellidom": "EUSEBIO",
+            "nombre_actual": "ALEJANDRO ROMULO ROMULO PAEZ EUSEBIO",
+            "nombre_corregido": "ALEJANDRO ROMULO PAEZ EUSEBIO"
+        },
+        {
+            "id": 1362,
+            "numero_empleado": "0032",
+            "nombres": "MARIA DEL CARMEN",
+            "segundo_nombre": "DEL CARMEN",
+            "apellidop": "JARAMILLO",
+            "apellidom": "CAMACHO",
+            "nombre_actual": "MARIA DEL CARMEN DEL CARMEN JARAMILLO CAMACHO",
+            "nombre_corregido": "MARIA DEL CARMEN JARAMILLO CAMACHO"
+        },
+        {
+            "id": 1364,
+            "numero_empleado": "0045",
+            "nombres": "ALEXIS CELINE",
+            "segundo_nombre": "CELINE",
+            "apellidop": "GUTIERREZ",
+            "apellidom": "VILLEGAS",
+            "nombre_actual": "ALEXIS CELINE CELINE GUTIERREZ VILLEGAS",
+            "nombre_corregido": "ALEXIS CELINE GUTIERREZ VILLEGAS"
+        },
+        {
+            "id": 1365,
+            "numero_empleado": "0049",
+            "nombres": "AMERICA JAZMIN",
+            "segundo_nombre": "JAZMIN",
+            "apellidop": "TEJEDA",
+            "apellidom": "CARBAJAL",
+            "nombre_actual": "AMERICA JAZMIN JAZMIN TEJEDA CARBAJAL",
+            "nombre_corregido": "AMERICA JAZMIN TEJEDA CARBAJAL"
+        },
+        {
+            "id": 1366,
+            "numero_empleado": "0051",
+            "nombres": "JOSE ANTONIO",
+            "segundo_nombre": "ANTONIO",
+            "apellidop": "ESPINOZA",
+            "apellidom": "APOLONIO",
+            "nombre_actual": "JOSE ANTONIO ANTONIO ESPINOZA APOLONIO",
+            "nombre_corregido": "JOSE ANTONIO ESPINOZA APOLONIO"
+        },
+        {
+            "id": 1369,
+            "numero_empleado": "0120",
+            "nombres": "BRANDO BRIAN",
+            "segundo_nombre": "BRIAN",
+            "apellidop": "ARMAS",
+            "apellidom": "CASTRO",
+            "nombre_actual": "BRANDO BRIAN BRIAN ARMAS CASTRO",
+            "nombre_corregido": "BRANDO BRIAN ARMAS CASTRO"
+        },
+        {
+            "id": 1371,
+            "numero_empleado": "0089",
+            "nombres": "ARTURO TONATIUH",
+            "segundo_nombre": "TONATIUH",
+            "apellidop": "CAMACHO",
+            "apellidom": "HERNANDEZ",
+            "nombre_actual": "ARTURO TONATIUH TONATIUH CAMACHO HERNANDEZ",
+            "nombre_corregido": "ARTURO TONATIUH CAMACHO HERNANDEZ"
+        },
+        {
+            "id": 1372,
+            "numero_empleado": "0331",
+            "nombres": "MAGDIEL SAMIR",
+            "segundo_nombre": "SAMIR",
+            "apellidop": "GOMEZ",
+            "apellidom": "PATIÑO",
+            "nombre_actual": "MAGDIEL SAMIR SAMIR GOMEZ PATIÑO",
+            "nombre_corregido": "MAGDIEL SAMIR GOMEZ PATIÑO"
+        },
+        {
+            "id": 1373,
+            "numero_empleado": "0243",
+            "nombres": "ANA GUADALUPE",
+            "segundo_nombre": "GUADALUPE",
+            "apellidop": "ALFARO",
+            "apellidom": "MONTESINOS",
+            "nombre_actual": "ANA GUADALUPE GUADALUPE ALFARO MONTESINOS",
+            "nombre_corregido": "ANA GUADALUPE ALFARO MONTESINOS"
+        },
+        {
+            "id": 1374,
+            "numero_empleado": "0271",
+            "nombres": "BRENDA YAZERETH",
+            "segundo_nombre": "YAZERETH",
+            "apellidop": "CORTES",
+            "apellidom": "ANGELES",
+            "nombre_actual": "BRENDA YAZERETH YAZERETH CORTES ANGELES",
+            "nombre_corregido": "BRENDA YAZERETH CORTES ANGELES"
+        },
+        {
+            "id": 1375,
+            "numero_empleado": "0329",
+            "nombres": "MONICA GABRIELA",
+            "segundo_nombre": "GABRIELA",
+            "apellidop": "GARRIDO",
+            "apellidom": "ORTEGA",
+            "nombre_actual": "MONICA GABRIELA GABRIELA GARRIDO ORTEGA",
+            "nombre_corregido": "MONICA GABRIELA GARRIDO ORTEGA"
+        },
+        {
+            "id": 1376,
+            "numero_empleado": "0319",
+            "nombres": "ZAIRA YAEL",
+            "segundo_nombre": "YAEL",
+            "apellidop": "TORRES",
+            "apellidom": "DIAZ",
+            "nombre_actual": "ZAIRA YAEL YAEL TORRES DIAZ",
+            "nombre_corregido": "ZAIRA YAEL TORRES DIAZ"
+        },
+        {
+            "id": 1378,
+            "numero_empleado": "0468",
+            "nombres": "JORGE JAVIER",
+            "segundo_nombre": "JAVIER",
+            "apellidop": "RUIZ",
+            "apellidom": "PINEDA",
+            "nombre_actual": "JORGE JAVIER JAVIER RUIZ PINEDA",
+            "nombre_corregido": "JORGE JAVIER RUIZ PINEDA"
+        },
+        {
+            "id": 1379,
+            "numero_empleado": "0486",
+            "nombres": "MIRYAM ANAHY",
+            "segundo_nombre": "ANAHY",
+            "apellidop": "SILVA",
+            "apellidom": "VALERO",
+            "nombre_actual": "MIRYAM ANAHY ANAHY SILVA VALERO",
+            "nombre_corregido": "MIRYAM ANAHY SILVA VALERO"
+        },
+        {
+            "id": 1380,
+            "numero_empleado": "0490",
+            "nombres": "LESLY MICHEL",
+            "segundo_nombre": "MICHEL",
+            "apellidop": "PORTILLA",
+            "apellidom": "DARAN",
+            "nombre_actual": "LESLY MICHEL MICHEL PORTILLA DARAN",
+            "nombre_corregido": "LESLY MICHEL PORTILLA DARAN"
+        },
+        {
+            "id": 1381,
+            "numero_empleado": "0495",
+            "nombres": "KEVIN ANDRE",
+            "segundo_nombre": "ANDRE",
+            "apellidop": "VILLALVAZO",
+            "apellidom": "VELAZQUEZ",
+            "nombre_actual": "KEVIN ANDRE ANDRE VILLALVAZO VELAZQUEZ",
+            "nombre_corregido": "KEVIN ANDRE VILLALVAZO VELAZQUEZ"
+        },
+        {
+            "id": 1382,
+            "numero_empleado": "0521",
+            "nombres": "PEDRO MANUEL",
+            "segundo_nombre": "MANUEL",
+            "apellidop": "ARVIZU",
+            "apellidom": "TORRES",
+            "nombre_actual": "PEDRO MANUEL MANUEL ARVIZU TORRES",
+            "nombre_corregido": "PEDRO MANUEL ARVIZU TORRES"
+        },
+        {
+            "id": 1384,
+            "numero_empleado": "0549",
+            "nombres": "CARLOS DAVID",
+            "segundo_nombre": "DAVID",
+            "apellidop": "BERMUDEZ",
+            "apellidom": "ALDRETE",
+            "nombre_actual": "CARLOS DAVID DAVID BERMUDEZ ALDRETE",
+            "nombre_corregido": "CARLOS DAVID BERMUDEZ ALDRETE"
+        },
+        {
+            "id": 1385,
+            "numero_empleado": "0581",
+            "nombres": "KAREN BERENICE",
+            "segundo_nombre": "BERENICE",
+            "apellidop": "MIRANDA",
+            "apellidom": "CRUZ",
+            "nombre_actual": "KAREN BERENICE BERENICE MIRANDA CRUZ",
+            "nombre_corregido": "KAREN BERENICE MIRANDA CRUZ"
+        },
+        {
+            "id": 1388,
+            "numero_empleado": "0652",
+            "nombres": "LEYDI ANAHI",
+            "segundo_nombre": "ANAHI",
+            "apellidop": "RAMIREZ",
+            "apellidom": "REYES",
+            "nombre_actual": "LEYDI ANAHI ANAHI RAMIREZ REYES",
+            "nombre_corregido": "LEYDI ANAHI RAMIREZ REYES"
+        },
+        {
+            "id": 1391,
+            "numero_empleado": "0735",
+            "nombres": "LUIS EMMANUEL",
+            "segundo_nombre": "EMMANUEL",
+            "apellidop": "JIMENEZ",
+            "apellidom": "MEJIA",
+            "nombre_actual": "LUIS EMMANUEL EMMANUEL JIMENEZ MEJIA",
+            "nombre_corregido": "LUIS EMMANUEL JIMENEZ MEJIA"
+        },
+        {
+            "id": 1393,
+            "numero_empleado": "0806",
+            "nombres": "ARMAND HUBERT ORTEGA WANIGNON",
+            "segundo_nombre": "HUBERT ORTEGA WANIGNON",
+            "apellidop": "DOVOEDO",
+            "apellidom": "",
+            "nombre_actual": "ARMAND HUBERT ORTEGA WANIGNON HUBERT ORTEGA WANIGNON DOVOEDO",
+            "nombre_corregido": "ARMAND HUBERT ORTEGA WANIGNON DOVOEDO"
+        },
+        {
+            "id": 1394,
+            "numero_empleado": "0805",
+            "nombres": "SAUL GEOVANNY",
+            "segundo_nombre": "GEOVANNY",
+            "apellidop": "GUTIERREZ",
+            "apellidom": "VELASCO",
+            "nombre_actual": "SAUL GEOVANNY GEOVANNY GUTIERREZ VELASCO",
+            "nombre_corregido": "SAUL GEOVANNY GUTIERREZ VELASCO"
+        },
+        {
+            "id": 1396,
+            "numero_empleado": "0835",
+            "nombres": "RICARDO RAFAEL",
+            "segundo_nombre": "RAFAEL",
+            "apellidop": "GEN",
+            "apellidom": "LAGUNA",
+            "nombre_actual": "RICARDO RAFAEL RAFAEL GEN LAGUNA",
+            "nombre_corregido": "RICARDO RAFAEL GEN LAGUNA"
+        },
+        {
+            "id": 1397,
+            "numero_empleado": "0951",
+            "nombres": "MICHAEL NAZARETH",
+            "segundo_nombre": "NAZARETH",
+            "apellidop": "MARQUEZ",
+            "apellidom": "ENRIQUEZ",
+            "nombre_actual": "MICHAEL NAZARETH NAZARETH MARQUEZ ENRIQUEZ",
+            "nombre_corregido": "MICHAEL NAZARETH MARQUEZ ENRIQUEZ"
+        },
+        {
+            "id": 1398,
+            "numero_empleado": "0955",
+            "nombres": "JESSICA LIZETH",
+            "segundo_nombre": "LIZETH",
+            "apellidop": "ANDRADE",
+            "apellidom": "PEDRAZA",
+            "nombre_actual": "JESSICA LIZETH LIZETH ANDRADE PEDRAZA",
+            "nombre_corregido": "JESSICA LIZETH ANDRADE PEDRAZA"
+        },
+        {
+            "id": 1400,
+            "numero_empleado": "1002",
+            "nombres": "AXEL MAURICIO",
+            "segundo_nombre": "MAURICIO",
+            "apellidop": "VAZQUEZ",
+            "apellidom": "PEREZ",
+            "nombre_actual": "AXEL MAURICIO MAURICIO VAZQUEZ PEREZ",
+            "nombre_corregido": "AXEL MAURICIO VAZQUEZ PEREZ"
+        },
+        {
+            "id": 1403,
+            "numero_empleado": "1102",
+            "nombres": "RAFAEL HECTOR",
+            "segundo_nombre": "HECTOR",
+            "apellidop": "MARTINEZ",
+            "apellidom": "MARQUEZ",
+            "nombre_actual": "RAFAEL HECTOR HECTOR MARTINEZ MARQUEZ",
+            "nombre_corregido": "RAFAEL HECTOR MARTINEZ MARQUEZ"
+        },
+        {
+            "id": 1406,
+            "numero_empleado": "1201",
+            "nombres": "GIOVANNI ANTHONY",
+            "segundo_nombre": "ANTHONY",
+            "apellidop": "MARTINEZ",
+            "apellidom": "SUAREZ",
+            "nombre_actual": "GIOVANNI ANTHONY ANTHONY MARTINEZ SUAREZ",
+            "nombre_corregido": "GIOVANNI ANTHONY MARTINEZ SUAREZ"
+        },
+        {
+            "id": 1410,
+            "numero_empleado": "1330",
+            "nombres": "DOMINIQUEE ALEJANDRO",
+            "segundo_nombre": "ALEJANDRO",
+            "apellidop": "DAVILA",
+            "apellidom": "CORTES",
+            "nombre_actual": "DOMINIQUEE ALEJANDRO ALEJANDRO DAVILA CORTES",
+            "nombre_corregido": "DOMINIQUEE ALEJANDRO DAVILA CORTES"
+        },
+        {
+            "id": 1411,
+            "numero_empleado": "1352",
+            "nombres": "BRYAN DANIEL",
+            "segundo_nombre": "DANIEL",
+            "apellidop": "PRADO",
+            "apellidom": "PEREZ",
+            "nombre_actual": "BRYAN DANIEL DANIEL PRADO PEREZ",
+            "nombre_corregido": "BRYAN DANIEL PRADO PEREZ"
+        },
+        {
+            "id": 1412,
+            "numero_empleado": "1360",
+            "nombres": "PERLA YEREYDI",
+            "segundo_nombre": "YEREYDI",
+            "apellidop": "AVENDAÑO",
+            "apellidom": "ARENAS",
+            "nombre_actual": "PERLA YEREYDI YEREYDI AVENDAÑO ARENAS",
+            "nombre_corregido": "PERLA YEREYDI AVENDAÑO ARENAS"
+        },
+        {
+            "id": 1413,
+            "numero_empleado": "1362",
+            "nombres": "DIANA PATRICIA",
+            "segundo_nombre": "PATRICIA",
+            "apellidop": "SANCHEZ",
+            "apellidom": "GUTIERREZ",
+            "nombre_actual": "DIANA PATRICIA PATRICIA SANCHEZ GUTIERREZ",
+            "nombre_corregido": "DIANA PATRICIA SANCHEZ GUTIERREZ"
+        },
+        {
+            "id": 1414,
+            "numero_empleado": "1364",
+            "nombres": "BRYAN OMAR",
+            "segundo_nombre": "OMAR",
+            "apellidop": "RODRIGUEZ",
+            "apellidom": "ALVAREZ",
+            "nombre_actual": "BRYAN OMAR OMAR RODRIGUEZ ALVAREZ",
+            "nombre_corregido": "BRYAN OMAR RODRIGUEZ ALVAREZ"
+        },
+        {
+            "id": 1415,
+            "numero_empleado": "1365",
+            "nombres": "DIEGO EMANUEL",
+            "segundo_nombre": "EMANUEL",
+            "apellidop": "MONTES",
+            "apellidom": "MARTINEZ",
+            "nombre_actual": "DIEGO EMANUEL EMANUEL MONTES MARTINEZ",
+            "nombre_corregido": "DIEGO EMANUEL MONTES MARTINEZ"
+        },
+        {
+            "id": 1418,
+            "numero_empleado": "1377",
+            "nombres": "DARIG JOEL",
+            "segundo_nombre": "JOEL",
+            "apellidop": "LOZANO",
+            "apellidom": "BRISEÑO",
+            "nombre_actual": "DARIG JOEL JOEL LOZANO BRISEÑO",
+            "nombre_corregido": "DARIG JOEL LOZANO BRISEÑO"
+        },
+        {
+            "id": 1419,
+            "numero_empleado": "1415",
+            "nombres": "PAUL LEONARDO",
+            "segundo_nombre": "LEONARDO",
+            "apellidop": "MOLANO",
+            "apellidom": "LOPEZ",
+            "nombre_actual": "PAUL LEONARDO LEONARDO MOLANO LOPEZ",
+            "nombre_corregido": "PAUL LEONARDO MOLANO LOPEZ"
+        },
+        {
+            "id": 1420,
+            "numero_empleado": "1515",
+            "nombres": "IRVHIN ADRIAN",
+            "segundo_nombre": "ADRIAN",
+            "apellidop": "ROMERO",
+            "apellidom": "GONZALEZ",
+            "nombre_actual": "IRVHIN ADRIAN ADRIAN ROMERO GONZALEZ",
+            "nombre_corregido": "IRVHIN ADRIAN ROMERO GONZALEZ"
+        },
+        {
+            "id": 1421,
+            "numero_empleado": "1518",
+            "nombres": "ALEJANDRA BERENICE",
+            "segundo_nombre": "BERENICE",
+            "apellidop": "FLORES",
+            "apellidom": "BACA",
+            "nombre_actual": "ALEJANDRA BERENICE BERENICE FLORES BACA",
+            "nombre_corregido": "ALEJANDRA BERENICE FLORES BACA"
+        },
+        {
+            "id": 1422,
+            "numero_empleado": "1537",
+            "nombres": "JOSUE EDGAR",
+            "segundo_nombre": "EDGAR",
+            "apellidop": "ALVAREZ",
+            "apellidom": "GARDUÑO",
+            "nombre_actual": "JOSUE EDGAR EDGAR ALVAREZ GARDUÑO",
+            "nombre_corregido": "JOSUE EDGAR ALVAREZ GARDUÑO"
+        },
+        {
+            "id": 1423,
+            "numero_empleado": "1538",
+            "nombres": "HECTOR RENE",
+            "segundo_nombre": "RENE",
+            "apellidop": "VIRAMONTES",
+            "apellidom": "SANDOVAL",
+            "nombre_actual": "HECTOR RENE RENE VIRAMONTES SANDOVAL",
+            "nombre_corregido": "HECTOR RENE VIRAMONTES SANDOVAL"
+        },
+        {
+            "id": 1424,
+            "numero_empleado": "1565",
+            "nombres": "LESLIE VANESSA",
+            "segundo_nombre": "VANESSA",
+            "apellidop": "LARA",
+            "apellidom": "SOTO",
+            "nombre_actual": "LESLIE VANESSA VANESSA LARA SOTO",
+            "nombre_corregido": "LESLIE VANESSA LARA SOTO"
+        },
+        {
+            "id": 1425,
+            "numero_empleado": "1571",
+            "nombres": "VALERIA SHARI",
+            "segundo_nombre": "SHARI",
+            "apellidop": "VEGA",
+            "apellidom": "ANGELES",
+            "nombre_actual": "VALERIA SHARI SHARI VEGA ANGELES",
+            "nombre_corregido": "VALERIA SHARI VEGA ANGELES"
+        },
+        {
+            "id": 1426,
+            "numero_empleado": "1572",
+            "nombres": "JOSE CARLOS",
+            "segundo_nombre": "CARLOS",
+            "apellidop": "ROQUE",
+            "apellidom": "JUAREZ",
+            "nombre_actual": "JOSE CARLOS CARLOS ROQUE JUAREZ",
+            "nombre_corregido": "JOSE CARLOS ROQUE JUAREZ"
+        },
+        {
+            "id": 1428,
+            "numero_empleado": "1583",
+            "nombres": "PALOMA ISABEL",
+            "segundo_nombre": "ISABEL",
+            "apellidop": "RODRIGUEZ",
+            "apellidom": "MARTINEZ",
+            "nombre_actual": "PALOMA ISABEL ISABEL RODRIGUEZ MARTINEZ",
+            "nombre_corregido": "PALOMA ISABEL RODRIGUEZ MARTINEZ"
+        },
+        {
+            "id": 1430,
+            "numero_empleado": "1606",
+            "nombres": "LILIAN JAZMIN",
+            "segundo_nombre": "JAZMIN",
+            "apellidop": "CABALLERO",
+            "apellidom": "GONZALEZ",
+            "nombre_actual": "LILIAN JAZMIN JAZMIN CABALLERO GONZALEZ",
+            "nombre_corregido": "LILIAN JAZMIN CABALLERO GONZALEZ"
+        },
+        {
+            "id": 1432,
+            "numero_empleado": "1611",
+            "nombres": "CARLOS DANIEL",
+            "segundo_nombre": "DANIEL",
+            "apellidop": "PEREZ",
+            "apellidom": "GUTIERREZ",
+            "nombre_actual": "CARLOS DANIEL DANIEL PEREZ GUTIERREZ",
+            "nombre_corregido": "CARLOS DANIEL PEREZ GUTIERREZ"
+        },
+        {
+            "id": 1433,
+            "numero_empleado": "1617",
+            "nombres": "PEDRO LUIS",
+            "segundo_nombre": "LUIS",
+            "apellidop": "HERNANDEZ",
+            "apellidom": "PEREZ",
+            "nombre_actual": "PEDRO LUIS LUIS HERNANDEZ PEREZ",
+            "nombre_corregido": "PEDRO LUIS HERNANDEZ PEREZ"
+        },
+        {
+            "id": 1438,
+            "numero_empleado": "1726",
+            "nombres": "JOSE VICENTE",
+            "segundo_nombre": "VICENTE",
+            "apellidop": "PRADO",
+            "apellidom": "MUÑOZ",
+            "nombre_actual": "JOSE VICENTE VICENTE PRADO MUÑOZ",
+            "nombre_corregido": "JOSE VICENTE PRADO MUÑOZ"
+        },
+        {
+            "id": 1439,
+            "numero_empleado": "1727",
+            "nombres": "MICHEL YOZIMAR",
+            "segundo_nombre": "YOZIMAR",
+            "apellidop": "GOMEZ",
+            "apellidom": "SALAZAR",
+            "nombre_actual": "MICHEL YOZIMAR YOZIMAR GOMEZ SALAZAR",
+            "nombre_corregido": "MICHEL YOZIMAR GOMEZ SALAZAR"
+        },
+        {
+            "id": 1440,
+            "numero_empleado": "1759",
+            "nombres": "IRMA NALLELY",
+            "segundo_nombre": "NALLELY",
+            "apellidop": "AGUILAR",
+            "apellidom": "ISLAS",
+            "nombre_actual": "IRMA NALLELY NALLELY AGUILAR ISLAS",
+            "nombre_corregido": "IRMA NALLELY AGUILAR ISLAS"
+        },
+        {
+            "id": 1443,
+            "numero_empleado": "1771",
+            "nombres": "LAURA IVONNE",
+            "segundo_nombre": "IVONNE",
+            "apellidop": "ESCOBAR",
+            "apellidom": "LEON",
+            "nombre_actual": "LAURA IVONNE IVONNE ESCOBAR LEON",
+            "nombre_corregido": "LAURA IVONNE ESCOBAR LEON"
+        },
+        {
+            "id": 1444,
+            "numero_empleado": "1772",
+            "nombres": "YAZUMI ANAHI",
+            "segundo_nombre": "ANAHI",
+            "apellidop": "NOH",
+            "apellidom": "HERNANDEZ",
+            "nombre_actual": "YAZUMI ANAHI ANAHI NOH HERNANDEZ",
+            "nombre_corregido": "YAZUMI ANAHI NOH HERNANDEZ"
+        },
+        {
+            "id": 1445,
+            "numero_empleado": "1773",
+            "nombres": "RICARDO ALFONSO",
+            "segundo_nombre": "ALFONSO",
+            "apellidop": "BRITO",
+            "apellidom": "GOMEZ",
+            "nombre_actual": "RICARDO ALFONSO ALFONSO BRITO GOMEZ",
+            "nombre_corregido": "RICARDO ALFONSO BRITO GOMEZ"
+        },
+        {
+            "id": 1446,
+            "numero_empleado": "1783",
+            "nombres": "ALAN YOVANI",
+            "segundo_nombre": "YOVANI",
+            "apellidop": "SALINAS",
+            "apellidom": "DE LA CRUZ",
+            "nombre_actual": "ALAN YOVANI YOVANI SALINAS DE LA CRUZ",
+            "nombre_corregido": "ALAN YOVANI SALINAS DE LA CRUZ"
+        },
+        {
+            "id": 1448,
+            "numero_empleado": "1798",
+            "nombres": "ROXANA WENDY",
+            "segundo_nombre": "WENDY",
+            "apellidop": "ROJAS",
+            "apellidom": "ROMERO",
+            "nombre_actual": "ROXANA WENDY WENDY ROJAS ROMERO",
+            "nombre_corregido": "ROXANA WENDY ROJAS ROMERO"
+        },
+        {
+            "id": 1450,
+            "numero_empleado": "1816",
+            "nombres": "ULISES FERNANDO",
+            "segundo_nombre": "FERNANDO",
+            "apellidop": "SALAZAR",
+            "apellidom": "SALAZAR",
+            "nombre_actual": "ULISES FERNANDO FERNANDO SALAZAR SALAZAR",
+            "nombre_corregido": "ULISES FERNANDO SALAZAR SALAZAR"
+        },
+        {
+            "id": 1451,
+            "numero_empleado": "1821",
+            "nombres": "ALMA VANESSA",
+            "segundo_nombre": "VANESSA",
+            "apellidop": "BARRERA",
+            "apellidom": "SANCHEZ",
+            "nombre_actual": "ALMA VANESSA VANESSA BARRERA SANCHEZ",
+            "nombre_corregido": "ALMA VANESSA BARRERA SANCHEZ"
+        },
+        {
+            "id": 1454,
+            "numero_empleado": "1855",
+            "nombres": "EDUARDO DANIEL",
+            "segundo_nombre": "DANIEL",
+            "apellidop": "NERI",
+            "apellidom": "GODINEZ",
+            "nombre_actual": "EDUARDO DANIEL DANIEL NERI GODINEZ",
+            "nombre_corregido": "EDUARDO DANIEL NERI GODINEZ"
+        },
+        {
+            "id": 1455,
+            "numero_empleado": "1858",
+            "nombres": "LAURA ELENA",
+            "segundo_nombre": "ELENA",
+            "apellidop": "ZAMORA",
+            "apellidom": "GARCIA",
+            "nombre_actual": "LAURA ELENA ELENA ZAMORA GARCIA",
+            "nombre_corregido": "LAURA ELENA ZAMORA GARCIA"
+        },
+        {
+            "id": 1456,
+            "numero_empleado": "1888",
+            "nombres": "JAIME AUGUSTO",
+            "segundo_nombre": "AUGUSTO",
+            "apellidop": "RAMIREZ",
+            "apellidom": "VAZQUEZ",
+            "nombre_actual": "JAIME AUGUSTO AUGUSTO RAMIREZ VAZQUEZ",
+            "nombre_corregido": "JAIME AUGUSTO RAMIREZ VAZQUEZ"
+        },
+        {
+            "id": 1458,
+            "numero_empleado": "1897",
+            "nombres": "ELENA DEL CARMEN",
+            "segundo_nombre": "DEL CARMEN",
+            "apellidop": "PEREZ",
+            "apellidom": "CAMPOS",
+            "nombre_actual": "ELENA DEL CARMEN DEL CARMEN PEREZ CAMPOS",
+            "nombre_corregido": "ELENA DEL CARMEN PEREZ CAMPOS"
+        },
+        {
+            "id": 1459,
+            "numero_empleado": "1903",
+            "nombres": "ANDREA YAMILE",
+            "segundo_nombre": "YAMILE",
+            "apellidop": "MEZA",
+            "apellidom": "TAFOYA",
+            "nombre_actual": "ANDREA YAMILE YAMILE MEZA TAFOYA",
+            "nombre_corregido": "ANDREA YAMILE MEZA TAFOYA"
+        },
+        {
+            "id": 1463,
+            "numero_empleado": "1925",
+            "nombres": "BRIAN ADRIAN",
+            "segundo_nombre": "ADRIAN",
+            "apellidop": "FUENTES",
+            "apellidom": "DE LA ROSA",
+            "nombre_actual": "BRIAN ADRIAN ADRIAN FUENTES DE LA ROSA",
+            "nombre_corregido": "BRIAN ADRIAN FUENTES DE LA ROSA"
+        },
+        {
+            "id": 1464,
+            "numero_empleado": "1926",
+            "nombres": "JUAN CARLOS",
+            "segundo_nombre": "CARLOS",
+            "apellidop": "HERNANDEZ",
+            "apellidom": "PUGA",
+            "nombre_actual": "JUAN CARLOS CARLOS HERNANDEZ PUGA",
+            "nombre_corregido": "JUAN CARLOS HERNANDEZ PUGA"
+        },
+        {
+            "id": 1465,
+            "numero_empleado": "1928",
+            "nombres": "PAMELA CRISTINA",
+            "segundo_nombre": "CRISTINA",
+            "apellidop": "CRAVIOTO",
+            "apellidom": "SAPIEN",
+            "nombre_actual": "PAMELA CRISTINA CRISTINA CRAVIOTO SAPIEN",
+            "nombre_corregido": "PAMELA CRISTINA CRAVIOTO SAPIEN"
+        },
+        {
+            "id": 1467,
+            "numero_empleado": "0004",
+            "nombres": "JAIR DE JESUS",
+            "segundo_nombre": "DE JESUS",
+            "apellidop": "JUVERA",
+            "apellidom": "GOMEZ",
+            "nombre_actual": "JAIR DE JESUS DE JESUS JUVERA GOMEZ",
+            "nombre_corregido": "JAIR DE JESUS JUVERA GOMEZ"
+        },
+        {
+            "id": 1468,
+            "numero_empleado": "0009",
+            "nombres": "EDUARDO DANIEL",
+            "segundo_nombre": "DANIEL",
+            "apellidop": "MORALES",
+            "apellidom": "MIRANDA",
+            "nombre_actual": "EDUARDO DANIEL DANIEL MORALES MIRANDA",
+            "nombre_corregido": "EDUARDO DANIEL MORALES MIRANDA"
+        }
+    ]
+}

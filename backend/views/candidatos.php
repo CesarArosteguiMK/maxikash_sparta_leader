@@ -41,7 +41,6 @@ window.departamentosCandidatoBackend = <?= json_encode($departamentosCandidatoCa
                         <option value="">Selecciona Estatus</option>
                         <option value="Por evaluar">Por evaluar</option>
                         <option value="En entrevista">En entrevista</option>
-                        <option value="Contratado">Contratado</option>
                         <option value="Descartado">Descartado</option>
                         <option value="Validado">Validado</option>
                         <option value="Proceso cerrado">Proceso cerrado</option>
@@ -191,11 +190,9 @@ window.departamentosCandidatoBackend = <?= json_encode($departamentosCandidatoCa
                 <thead>
                     <tr>
                         <th></th>
-                        <th>Nombre</th>
-                        <th>Contacto</th>
+                        <th>Nombre / Contacto</th>
                         <th>Puesto / Departamento</th>
                         <th>Ubicación</th>
-                        <th>Domicilio</th>
                         <th>Estatus</th>
                         <th class="col-acciones-candidatos">Acciones</th>
                     </tr>
@@ -254,7 +251,7 @@ window.departamentosCandidatoBackend = <?= json_encode($departamentosCandidatoCa
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
-                <button type="button" class="btn btn-primary" id="btnConfirmarFechaIngresoCandidato"><i class="fa fa-check me-1"></i>Confirmar y continuar</button>
+                <button type="button" class="btn btn-primary" id="btnConfirmarFechaIngresoCandidato"><i class="fa fa-envelope me-1"></i>Enviar notificaciones</button>
             </div>
         </div>
     </div>
@@ -289,26 +286,6 @@ window.departamentosCandidatoBackend = <?= json_encode($departamentosCandidatoCa
             <div class="modal-footer">
                 <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
                 <button type="button" class="btn btn-outline-danger" id="btnConfirmarCerrarProceso"><i class="fa fa-check me-1"></i>Confirmar</button>
-            </div>
-        </div>
-    </div>
-</div>
-
-<!-- Modal Confirmar RRHH dio de alta en nómina (tras Continuar proceso) -->
-<div class="modal fade" id="modalConfirmarAltaNomina" tabindex="-1" aria-labelledby="modalConfirmarAltaNominaLabel" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title" id="modalConfirmarAltaNominaLabel"><i class="fa fa-user-check me-2"></i>Confirmar alta en nómina</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
-            </div>
-            <div class="modal-body">
-                <p class="mb-0">Confirma que Recursos Humanos ya dio de alta al candidato en nómina.</p>
-                <input type="hidden" id="confirmarAltaNominaIdCandidato" value="">
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-outline-secondary" id="btnConfirmarAltaNominaNo">No</button>
-                <button type="button" class="btn btn-primary" id="btnConfirmarAltaNominaSi"><i class="fa fa-check me-1"></i>Sí</button>
             </div>
         </div>
     </div>
@@ -475,6 +452,7 @@ window.departamentosCandidatoBackend = <?= json_encode($departamentosCandidatoCa
                             </span>
                             <input type="text" class="link-documentos-url-input" id="inputUrlDocumentos" readonly placeholder="Se generará al enviar o al reenviar" title="">
                         </div>
+                        <div class="link-documentos-status" id="estadoUrlDocumentos" aria-live="polite"></div>
                         <div class="link-documentos-actions">
                             <button type="button" class="link-documentos-btn link-documentos-btn-copy" id="btnCopiarUrlDocumentos" title="Copiar URL">
                                 <svg width="15" height="15" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
@@ -483,6 +461,10 @@ window.departamentosCandidatoBackend = <?= json_encode($departamentosCandidatoCa
                             <button type="button" class="link-documentos-btn link-documentos-btn-open" id="btnAbrirUrlDocumentos" title="Abrir en nueva pestaña">
                                 <svg width="15" height="15" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
                                 Abrir URL
+                            </button>
+                            <button type="button" class="link-documentos-btn link-documentos-btn-reactivar" id="btnReactivarUrlDocumentos" title="Reactivar link vencido" style="display: none;">
+                                <i class="bx bx-refresh" aria-hidden="true"></i>
+                                Reactivar link
                             </button>
                         </div>
                     </div>
@@ -497,7 +479,7 @@ window.departamentosCandidatoBackend = <?= json_encode($departamentosCandidatoCa
     </div>
 </div>
 
-<div class="link-documentos-toast" id="toastUrlDocumentos" role="status" aria-live="polite">✓ URL copiada al portapapeles</div>
+<div class="link-documentos-toast" id="toastUrlDocumentos" role="status" aria-live="polite">URL copiada al portapapeles</div>
 
 <style>
 .btn-action-size { height: 36px; padding: 0.375rem 0.75rem; font-size: 0.875rem; display: inline-flex; align-items: center; gap: 0.375rem; }
@@ -585,7 +567,16 @@ body:not(.dark-mode) .link-documentos-url-icon { color: rgba(0, 0, 0, 0.4); }
 .link-documentos-url-input::placeholder { color: rgba(255, 255, 255, 0.3); }
 body:not(.dark-mode) .link-documentos-url-input { color: rgba(0, 0, 0, 0.85); }
 body:not(.dark-mode) .link-documentos-url-input::placeholder { color: rgba(0, 0, 0, 0.4); }
-.link-documentos-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.link-documentos-status {
+    margin: -8px 0 14px;
+    font-size: 12.5px;
+    font-weight: 600;
+    color: #34d399;
+}
+.link-documentos-status.is-expired { color: #f87171; }
+body:not(.dark-mode) .link-documentos-status { color: #047857; }
+body:not(.dark-mode) .link-documentos-status.is-expired { color: #b91c1c; }
+.link-documentos-actions { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px; }
 .link-documentos-btn {
     display: flex;
     align-items: center;
@@ -614,6 +605,12 @@ body:not(.dark-mode) .link-documentos-url-input::placeholder { color: rgba(0, 0,
 .link-documentos-btn:hover::before { opacity: 0.05; }
 .link-documentos-btn:active::before { opacity: 0.1; }
 .link-documentos-btn svg { width: 15px; height: 15px; flex-shrink: 0; }
+.link-documentos-btn:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
+    transform: none !important;
+    box-shadow: none !important;
+}
 .link-documentos-btn-copy {
     background: rgba(139, 92, 246, 0.12);
     color: #a78bfa;
@@ -634,6 +631,16 @@ body:not(.dark-mode) .link-documentos-url-input::placeholder { color: rgba(0, 0,
     background: linear-gradient(135deg, #8b5cf6, #7c3aed);
     transform: translateY(-1px);
     box-shadow: 0 6px 24px rgba(124, 58, 237, 0.35);
+}
+.link-documentos-btn-reactivar {
+    background: linear-gradient(135deg, #f59e0b, #d97706);
+    color: #fff;
+    border: 1px solid rgba(245, 158, 11, 0.35);
+}
+.link-documentos-btn-reactivar:hover {
+    background: linear-gradient(135deg, #fbbf24, #f59e0b);
+    transform: translateY(-1px);
+    box-shadow: 0 6px 24px rgba(217, 119, 6, 0.28);
 }
 .link-documentos-toast {
     position: fixed;

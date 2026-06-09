@@ -12,6 +12,10 @@ use Exception;
 class Vacaciones extends Model
 {
     private const TZ = 'America/Mexico_City';
+    private const PUESTOS_AUTORIZA_RRHH = [
+        'Analista De Gestion De Talento',
+        'Gerente De Gestion De Talento',
+    ];
 
     public static function asegurarTablas(): void
     {
@@ -282,6 +286,17 @@ class Vacaciones extends Model
             }
             $db->commit();
 
+            $responsables = array_values(array_unique(array_merge(
+                self::idsResponsablesRrhhVacaciones($db),
+                self::idsResponsablesAreaPersona($db, $idPersona)
+            )));
+            if (!empty($responsables)) {
+                $nombrePersona = trim((string) ($persona['nombre_completo'] ?? ''));
+                $mensaje = 'Nueva solicitud de vacaciones de ' . ($nombrePersona !== '' ? $nombrePersona : 'un colaborador')
+                    . '. Periodo solicitado: ' . $fechaInicio . ' al ' . $fechaFin . '.';
+                Notificacion::crearParaPersonas($responsables, 'vacaciones_solicitud_pendiente', $mensaje, (int) $idSolicitud);
+            }
+
             return self::resultado(true, 'Solicitud de vacaciones registrada.', [
                 'id_solicitud' => $idSolicitud,
                 'dias_solicitados' => $diasSolicitados,
@@ -294,12 +309,21 @@ class Vacaciones extends Model
         }
     }
 
-    public static function listarAdmin(int $limit = 150): array
+    public static function listarAdmin(int $limit = 150, int $idUsuarioSesion = 0): array
     {
         try {
             self::asegurarTablas();
             $db = new Database();
             $limit = max(20, min(300, $limit));
+            $params = [];
+            $filtroResponsable = '';
+            $esResponsableRrhh = self::esResponsableRrhhVacaciones($db, $idUsuarioSesion);
+            if ($idUsuarioSesion > 0 && !$esResponsableRrhh) {
+                $filtroResponsable = ' AND responsable_area.id_responsable_area = :id_responsable_area';
+                $params['id_responsable_area'] = $idUsuarioSesion;
+            } elseif ($idUsuarioSesion <= 0) {
+                $filtroResponsable = ' AND 1 = 0';
+            }
 
             $rows = $db->queryAll("
                 SELECT
@@ -323,14 +347,26 @@ class Vacaciones extends Model
                     s.creado_en,
                     pp.nombre AS puesto,
                     d.nombre AS departamento,
-                    dorg.nombre AS area
+                    dorg.nombre AS area,
+                    responsable_area.id_responsable_area
                 FROM __SPARTA_SECRET_REDACTED__.vacaciones_solicitudes s
                 INNER JOIN __SPARTA_SECRET_REDACTED__.persona p ON p.id = s.id_persona
                 LEFT JOIN __SPARTA_SECRET_REDACTED__.asigna_puesto ap ON ap.id_persona = p.id AND COALESCE(ap.activo, 1) = 1
                 LEFT JOIN __SPARTA_SECRET_REDACTED__.puesto pp ON pp.id = ap.id_puesto
                 LEFT JOIN __SPARTA_SECRET_REDACTED__.departamento d ON d.id = pp.departamento_id
                 LEFT JOIN __SPARTA_SECRET_REDACTED__.departamento_organizacional dorg ON dorg.id = d.id_departamento_organizacional
+                LEFT JOIN (
+                    SELECT aj.id_persona, COALESCE(aj.id_jefe, vj.id_jefe) AS id_responsable_area
+                    FROM __SPARTA_SECRET_REDACTED__.asigna_jefe aj
+                    INNER JOIN (
+                        SELECT id_persona, MAX(id) AS mid
+                        FROM __SPARTA_SECRET_REDACTED__.asigna_jefe
+                        GROUP BY id_persona
+                    ) ult ON ult.id_persona = aj.id_persona AND ult.mid = aj.id
+                    LEFT JOIN __SPARTA_SECRET_REDACTED__.vacantes_personal vj ON vj.id = aj.id_vacante_jefe
+                ) responsable_area ON responsable_area.id_persona = s.id_persona
                 WHERE COALESCE(s.fuente, '') = ''
+                  {$filtroResponsable}
                 ORDER BY
                     CASE s.estatus
                         WHEN 'pendiente' THEN 1
@@ -341,10 +377,16 @@ class Vacaciones extends Model
                     s.creado_en DESC,
                     s.id DESC
                 LIMIT {$limit}
-            ");
+            ", $params);
 
             foreach ($rows as &$row) {
                 self::completarDatosSolicitudAdmin($db, $row);
+                $row['responsable_area_estatus'] = $row['jefe_estatus'] ?? 'pendiente';
+                $row['responsable_area_fecha'] = $row['jefe_fecha'] ?? null;
+                $row['responsable_del_area_estatus'] = $row['responsable_area_estatus'];
+                $row['responsable_del_area_fecha'] = $row['responsable_area_fecha'];
+                $row['puede_resolver_rrhh'] = $esResponsableRrhh;
+                $row['puede_resolver_responsable_area'] = (int) ($row['id_responsable_area'] ?? 0) === $idUsuarioSesion;
             }
             unset($row);
 
@@ -354,11 +396,20 @@ class Vacaciones extends Model
         }
     }
 
-    public static function detalleAdmin(int $idSolicitud): array
+    public static function detalleAdmin(int $idSolicitud, int $idUsuarioSesion = 0): array
     {
         try {
             self::asegurarTablas();
             $db = new Database();
+            $params = ['id_solicitud' => $idSolicitud];
+            $filtroResponsable = '';
+            $esResponsableRrhh = self::esResponsableRrhhVacaciones($db, $idUsuarioSesion);
+            if ($idUsuarioSesion > 0 && !$esResponsableRrhh) {
+                $filtroResponsable = ' AND responsable_area.id_responsable_area = :id_responsable_area';
+                $params['id_responsable_area'] = $idUsuarioSesion;
+            } elseif ($idUsuarioSesion <= 0) {
+                $filtroResponsable = ' AND 1 = 0';
+            }
             $solicitud = $db->queryOne("
                 SELECT
                     s.*,
@@ -370,7 +421,8 @@ class Vacaciones extends Model
                     jefe.nombre_resuelve AS jefe_nombre,
                     pp.nombre AS puesto,
                     d.nombre AS departamento,
-                    dorg.nombre AS area
+                    dorg.nombre AS area,
+                    responsable_area.id_responsable_area
                 FROM __SPARTA_SECRET_REDACTED__.vacaciones_solicitudes s
                 INNER JOIN __SPARTA_SECRET_REDACTED__.persona p ON p.id = s.id_persona
                 LEFT JOIN (
@@ -385,15 +437,38 @@ class Vacaciones extends Model
                 LEFT JOIN __SPARTA_SECRET_REDACTED__.puesto pp ON pp.id = ap.id_puesto
                 LEFT JOIN __SPARTA_SECRET_REDACTED__.departamento d ON d.id = pp.departamento_id
                 LEFT JOIN __SPARTA_SECRET_REDACTED__.departamento_organizacional dorg ON dorg.id = d.id_departamento_organizacional
+                LEFT JOIN (
+                    SELECT aj.id_persona, COALESCE(aj.id_jefe, vj.id_jefe) AS id_responsable_area
+                    FROM __SPARTA_SECRET_REDACTED__.asigna_jefe aj
+                    INNER JOIN (
+                        SELECT id_persona, MAX(id) AS mid
+                        FROM __SPARTA_SECRET_REDACTED__.asigna_jefe
+                        GROUP BY id_persona
+                    ) ult ON ult.id_persona = aj.id_persona AND ult.mid = aj.id
+                    LEFT JOIN __SPARTA_SECRET_REDACTED__.vacantes_personal vj ON vj.id = aj.id_vacante_jefe
+                ) responsable_area ON responsable_area.id_persona = s.id_persona
                 WHERE s.id = :id_solicitud
+                  {$filtroResponsable}
                 LIMIT 1
-            ", ['id_solicitud' => $idSolicitud]);
+            ", $params);
 
             if (!$solicitud) {
-                return self::resultado(false, 'Solicitud no encontrada.');
+                return self::resultado(false, 'Solicitud no encontrada o no asignada al Responsable del Área.');
             }
 
             self::completarDatosSolicitudAdmin($db, $solicitud);
+            $solicitud['responsable_area_estatus'] = $solicitud['jefe_estatus'] ?? 'pendiente';
+            $solicitud['responsable_area_fecha'] = $solicitud['jefe_fecha'] ?? null;
+            $solicitud['responsable_area_nombre'] = $solicitud['jefe_nombre'] ?? '';
+            $solicitud['responsable_area_firma'] = $solicitud['jefe_firma'] ?? '';
+            $solicitud['responsable_area_firma_fecha'] = $solicitud['jefe_firma_fecha'] ?? null;
+            $solicitud['responsable_del_area_estatus'] = $solicitud['responsable_area_estatus'];
+            $solicitud['responsable_del_area_fecha'] = $solicitud['responsable_area_fecha'];
+            $solicitud['responsable_del_area_nombre'] = $solicitud['responsable_area_nombre'];
+            $solicitud['responsable_del_area_firma'] = $solicitud['responsable_area_firma'];
+            $solicitud['responsable_del_area_firma_fecha'] = $solicitud['responsable_area_firma_fecha'];
+            $solicitud['puede_resolver_rrhh'] = $esResponsableRrhh;
+            $solicitud['puede_resolver_responsable_area'] = (int) ($solicitud['id_responsable_area'] ?? 0) === $idUsuarioSesion;
 
             $dias = $db->queryAll("
                 SELECT fecha, cuenta, tipo
@@ -443,7 +518,6 @@ class Vacaciones extends Model
             if (!$sol) {
                 return self::resultado(false, 'Solicitud no encontrada.');
             }
-
             if (in_array((string) $sol['estatus'], ['tomada', 'cancelada'], true)) {
                 return self::resultado(false, 'Esta solicitud no puede resolverse desde el panel.');
             }
@@ -453,10 +527,12 @@ class Vacaciones extends Model
 
             $rrhh = (string) ($sol['rrhh_estatus'] ?? 'pendiente');
             $jefe = (string) ($sol['jefe_estatus'] ?? 'pendiente');
-            if ($etapa === 'jefe' && $rrhh !== 'aprobada') {
-                return self::resultado(false, 'Primero debe aprobar y firmar RR.HH.');
+            if ($etapa === 'rrhh' && !self::esResponsableRrhhVacaciones($db, $idResponsable)) {
+                return self::resultado(false, 'Solo Analista o Gerente De Gestion De Talento puede resolver la validación de RR.HH.');
             }
-
+            if ($etapa === 'jefe' && !self::esResponsableAreaDePersona($db, (int) ($sol['id_persona'] ?? 0), $idResponsable)) {
+                return self::resultado(false, 'Solo el Responsable del Área puede resolver esta etapa.');
+            }
             $estatusEtapaActual = $etapa === 'rrhh' ? $rrhh : $jefe;
             if ($estatusEtapaActual !== 'pendiente') {
                 return self::resultado(false, 'Esta etapa ya fue resuelta.');
@@ -520,13 +596,15 @@ class Vacaciones extends Model
                 if ($estatusGeneral === 'rechazada' && $comentario !== '') {
                     $mensajeNotificacion .= ' Motivo: ' . $comentario;
                 }
-                Notificacion::crear($idPersonaSolicitante, $tipoNotificacion, $mensajeNotificacion, null);
+                Notificacion::crear($idPersonaSolicitante, $tipoNotificacion, $mensajeNotificacion, $idSolicitud);
             }
 
             return self::resultado(true, 'Solicitud actualizada.', [
                 'estatus' => $estatusGeneral,
                 'rrhh_estatus' => $rrhh,
                 'jefe_estatus' => $jefe,
+                'responsable_area_estatus' => $jefe,
+                'responsable_del_area_estatus' => $jefe,
             ]);
         } catch (Exception $e) {
             return self::resultado(false, 'Error al resolver solicitud.', null, $e->getMessage());
@@ -730,6 +808,116 @@ class Vacaciones extends Model
         }
 
         return $persona;
+    }
+
+    private static function idsResponsablesAreaPersona(Database $db, int $idPersona): array
+    {
+        if ($idPersona <= 0) {
+            return [];
+        }
+
+        $rows = $db->queryAll("
+            SELECT DISTINCT COALESCE(aj.id_jefe, vj.id_jefe) AS id_responsable_area
+            FROM __SPARTA_SECRET_REDACTED__.asigna_jefe aj
+            INNER JOIN (
+                SELECT id_persona, MAX(id) AS mid
+                FROM __SPARTA_SECRET_REDACTED__.asigna_jefe
+                GROUP BY id_persona
+            ) ult ON ult.id_persona = aj.id_persona AND ult.mid = aj.id
+            LEFT JOIN __SPARTA_SECRET_REDACTED__.vacantes_personal vj ON vj.id = aj.id_vacante_jefe
+            WHERE aj.id_persona = :id_persona
+        ", ['id_persona' => $idPersona]) ?: [];
+
+        $ids = [];
+        foreach ($rows as $row) {
+            $id = (int) ($row['id_responsable_area'] ?? 0);
+            if ($id > 0 && $id !== $idPersona) {
+                $ids[$id] = true;
+            }
+        }
+
+        return array_map('intval', array_keys($ids));
+    }
+
+    private static function filtroPuestosAutorizaRrhh(string $aliasPuesto, array &$params): string
+    {
+        $puestos = [];
+        foreach (self::PUESTOS_AUTORIZA_RRHH as $puesto) {
+            $puestos[] = strtolower($puesto);
+            $puestos[] = str_replace('gestion', 'gestión', strtolower($puesto));
+        }
+        $puestos = array_values(array_unique($puestos));
+
+        $placeholders = [];
+        foreach ($puestos as $idx => $puesto) {
+            $key = 'puesto_rrhh_' . $idx;
+            $placeholders[] = ':' . $key;
+            $params[$key] = $puesto;
+        }
+
+        return 'LOWER(TRIM(' . $aliasPuesto . '.nombre)) IN (' . implode(', ', $placeholders) . ')';
+    }
+
+    private static function idsResponsablesRrhhVacaciones(Database $db): array
+    {
+        $params = [];
+        $filtroPuestos = self::filtroPuestosAutorizaRrhh('pu', $params);
+        $rows = $db->queryAll("
+            SELECT DISTINCT p.id
+            FROM __SPARTA_SECRET_REDACTED__.persona p
+            INNER JOIN __SPARTA_SECRET_REDACTED__.asigna_puesto ap
+                ON ap.id_persona = p.id
+               AND COALESCE(ap.activo, 1) = 1
+            INNER JOIN __SPARTA_SECRET_REDACTED__.puesto pu
+                ON pu.id = ap.id_puesto
+            WHERE p.id > 0
+              AND COALESCE(p.estatus, '') <> 'Baja'
+              AND {$filtroPuestos}
+        ", $params) ?: [];
+
+        $ids = [];
+        foreach ($rows as $row) {
+            $id = (int) ($row['id'] ?? 0);
+            if ($id > 0) {
+                $ids[$id] = true;
+            }
+        }
+
+        return array_map('intval', array_keys($ids));
+    }
+
+    private static function esResponsableRrhhVacaciones(Database $db, int $idPersona): bool
+    {
+        if ($idPersona <= 0) {
+            return false;
+        }
+
+        $params = ['id_persona' => $idPersona];
+        $filtroPuestos = self::filtroPuestosAutorizaRrhh('pu', $params);
+        $row = $db->queryOne("
+            SELECT 1
+            FROM __SPARTA_SECRET_REDACTED__.persona p
+            INNER JOIN __SPARTA_SECRET_REDACTED__.asigna_puesto ap
+                ON ap.id_persona = p.id
+               AND COALESCE(ap.activo, 1) = 1
+            INNER JOIN __SPARTA_SECRET_REDACTED__.puesto pu
+                ON pu.id = ap.id_puesto
+            WHERE p.id = :id_persona
+              AND COALESCE(p.estatus, '') <> 'Baja'
+              AND {$filtroPuestos}
+            LIMIT 1
+        ", $params);
+
+        return !empty($row);
+    }
+
+    private static function esResponsableAreaDePersona(Database $db, int $idPersona, int $idResponsableArea): bool
+    {
+        if ($idPersona <= 0 || $idResponsableArea <= 0) {
+            return false;
+        }
+
+        return in_array($idResponsableArea, self::idsResponsablesAreaPersona($db, $idPersona), true);
     }
 
     private static function completarDatosSolicitudAdmin(Database $db, array &$solicitud): void
