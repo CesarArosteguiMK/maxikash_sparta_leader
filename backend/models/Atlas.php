@@ -200,7 +200,6 @@ class Atlas extends Model
                     ON (t.user_id REGEXP '^[0-9]+$' AND p.id = CAST(t.user_id AS UNSIGNED))
                     OR (TRIM(COALESCE(t.external_id, '')) <> '' AND p.numero_empleado = t.external_id)
                 WHERE t.app = 'atlas'
-                  AND t.is_active = 1
                   AND TRIM(COALESCE(t.expo_push_token, '')) <> ''
                 ORDER BY t.last_seen_at DESC, t.updated_at DESC, t.id DESC
             ");

@@ -2544,12 +2544,6 @@ $trackingIsPlaneacion = $trackingShowMainTabs
                         </select>
                     </div>
                     <div class="col-12 col-sm-4 col-lg-2">
-                        <button class="btn btn-sm w-100" id="btnFiltrarCreditos"
-                                style="background:var(--track-color);color:#fff;">
-                            <i class="fa-solid fa-search me-1"></i>Filtrar
-                        </button>
-                    </div>
-                    <div class="col-12 col-sm-4 col-lg-2">
                         <button class="btn btn-sm btn-outline-secondary w-100" id="btnLimpiarFiltros">
                             <i class="fa-solid fa-eraser me-1"></i>Limpiar
                         </button>
@@ -2592,12 +2586,6 @@ $trackingIsPlaneacion = $trackingShowMainTabs
                         <select class="form-select form-select-sm trk-select-buscable" id="trkFiltroMunicipioBorradores" disabled>
                             <option value="">Todos los municipios</option>
                         </select>
-                    </div>
-                    <div class="col-12 col-sm-4 col-lg-2">
-                        <button class="btn btn-sm w-100" id="btnFiltrarBorradores"
-                                style="background:var(--track-color);color:#fff;">
-                            <i class="fa-solid fa-search me-1"></i>Filtrar
-                        </button>
                     </div>
                     <div class="col-12 col-sm-4 col-lg-2">
                         <button class="btn btn-sm btn-outline-secondary w-100" id="btnLimpiarFiltrosBorradores">
@@ -3248,6 +3236,47 @@ $trackingIsPlaneacion = $trackingShowMainTabs
 </div>
 
 <!-- ==========================================================
+     Modal  -  Cambiar CEDIS destino
+========================================================== -->
+<div class="modal fade" id="modalCambiarCedisDestino" tabindex="-1" aria-labelledby="modalCambiarCedisDestinoLabel">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header py-2">
+                <h6 class="modal-title mb-0" id="modalCambiarCedisDestinoLabel">
+                    <i class="fa-solid fa-warehouse me-2" style="color:var(--track-color);"></i>
+                    Cambiar CEDIS destino
+                </h6>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="trkCambiarCedisRutaId">
+                <div class="alert alert-info py-2 px-3 small mb-3" id="trkCambiarCedisActual">
+                    CEDIS actual: Sin destino asignado
+                </div>
+                <div class="mb-3">
+                    <label class="form-label small fw-semibold">Nuevo CEDIS destino</label>
+                    <select class="form-select" id="trkCambiarCedisSelect"></select>
+                </div>
+                <div class="mb-1 d-flex justify-content-between align-items-center">
+                    <label class="form-label small fw-semibold mb-0">Motivo del cambio</label>
+                    <span class="small text-muted" id="trkCambiarCedisMotivoCount">0/200</span>
+                </div>
+                <textarea class="form-control" id="trkCambiarCedisMotivo" rows="4" maxlength="200"
+                          placeholder="Ej. Cambio por disponibilidad operativa"></textarea>
+            </div>
+            <div class="modal-footer py-2">
+                <button type="button" class="btn btn-sm btn-label-secondary" data-bs-dismiss="modal">
+                    <i class="fa-solid fa-xmark me-1"></i>Cancelar
+                </button>
+                <button type="button" class="btn btn-sm btn-primary" id="btnConfirmarCambioCedisDestino">
+                    <i class="fa-solid fa-check me-1"></i>Confirmar cambio
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ==========================================================
      Modal  -  Seleccionar ubicacion en mapa (map picker)
 ========================================================== -->
 <div class="modal fade" id="modalMapPicker" tabindex="-1" data-bs-backdrop="static" data-bs-keyboard="false">
@@ -3322,7 +3351,7 @@ $trackingIsPlaneacion = $trackingShowMainTabs
             <div class="modal-body">
                 <div class="trk-quick-credit-summary mb-3" id="trkQuickCreditSummary"></div>
                 <div class="d-flex align-items-center justify-content-between mb-2">
-                    <span class="small fw-semibold text-muted">Rutas disponibles para esta ubicacion</span>
+                    <span class="small fw-semibold text-muted">Rutas disponibles para agregar</span>
                     <span class="badge bg-label-primary" id="trkQuickRoutesCount">0</span>
                 </div>
                 <div class="row g-2 align-items-end mb-3">
@@ -3472,6 +3501,9 @@ const _trk = {
     borradoresFiltroMunicipio: '',
     quickAddCredito:      null,
     quickAddEstado:       '',
+    detalleRutaActualId:   null,
+    cedisDestinoPorRuta:   {},
+    cedisDestinoHistorial: {},
     catalogoVista:        ['directorio', 'agrupado', 'tabla'].includes(window._trackingCatalogoDefaultView) ? window._trackingCatalogoDefaultView : 'directorio',
     catalogoBusqueda:     '',
     cargadoEstados:       false,
@@ -3853,18 +3885,21 @@ function _trkInicializarFiltros() {
     $('#filtroEstado').on('change', function () {
         const est = $(this).val();
         _trkPoblarFiltroMunicipiosPrincipales(est);
+        _trkAplicarFiltrosCreditosLocales();
     });
 
-    $('#btnFiltrarCreditos').on('click', function () {
-        _trkRefrescarSelectBuscable('#filtroMunicipio');
-        _trkCargarCreditosPaso2();
+    $('#filtroMunicipio').on('change', function () {
+        _trkAplicarFiltrosCreditosLocales();
     });
 
     $('#btnLimpiarFiltros').on('click', function () {
         $('#filtroEstado').val('').trigger('change.select2');
         _trkPoblarFiltroMunicipiosPrincipales('');
-        _trkCargarEstados(true);
-        _trkCargarCreditosPaso2();
+        if ((_trk.creditosFiltroBase || []).length) {
+            _trkAplicarFiltrosCreditosLocales();
+        } else {
+            _trkCargarCreditosPaso2();
+        }
     });
 }
 
@@ -3930,6 +3965,23 @@ function _trkPoblarFiltroMunicipiosPrincipales(estado) {
     }
     $mun.prop('disabled', municipios.length === 0);
     _trkRefrescarSelectBuscable('#filtroMunicipio');
+}
+
+function _trkAplicarFiltrosCreditosLocales() {
+    const estado = $('#filtroEstado').val();
+    const municipio = $('#filtroMunicipio').val();
+    const base = (_trk.creditosFiltroBase || []).length ? _trk.creditosFiltroBase : (_trk.creditosDisponibles || []);
+    _trk.creditosDisponibles = base.filter(c => {
+        if (estado && !_trkMismaUbicacionEstado(c.estado, estado, c.municipio)) return false;
+        if (municipio && !_trkMismaUbicacionMunicipio(_trkMunicipioMayus(c.municipio, c.estado), municipio)) return false;
+        return true;
+    });
+    if (_trk.tablaCreditosDT) {
+        _trk.tablaCreditosDT.clear().rows.add(_trk.creditosDisponibles).draw();
+    }
+    _trkPoblarFiltroEstadosCrd();
+    _trkRefrescarSelectCreditos();
+    _trkSetBadge('badgeCreditos', _trk.creditosDisponibles.length);
 }
 
 function _trkCargarEstados(force = false) {
@@ -4083,39 +4135,35 @@ function _trkInicializarTablaCreditosDT() {
         _trk.quickAddEstado = this.value || '';
         _trkRenderQuickRutas();
     });
+    $('#detalleRutaBody').on('click', '.btn-cambiar-cedis-destino', function () {
+        _trkAbrirModalCambiarCedisDestino(Number($(this).data('id')));
+    });
+    $('#rutaCedisDestinoInfo').on('click', '.btn-cambiar-cedis-destino', function () {
+        _trkAbrirModalCambiarCedisDestino(Number($(this).data('id')));
+    });
+    $('#trkCambiarCedisMotivo').on('input', function () {
+        $('#trkCambiarCedisMotivoCount').text(`${String(this.value || '').length}/200`);
+    });
+    $('#btnConfirmarCambioCedisDestino').on('click', _trkConfirmarCambioCedisDestino);
 }
 
 function _trkCargarCreditosPaso2(silent = false) {
-    const estado    = $('#filtroEstado').val();
-    const municipio = $('#filtroMunicipio').val();
     let url = '/TrackingRecoleccion/obtenerCreditosPaso2';
-    const params = [];
-    if (estado)    params.push(`estado=${encodeURIComponent(estado)}`);
-    if (municipio) params.push(`municipio=${encodeURIComponent(municipio)}`);
-    if (params.length) url += '?' + params.join('&');
 
     return trkFetch(url)
         .then(r => {
-            _trk.creditosDisponibles = (r.datos || []).map(c => ({
+            _trk.creditosFiltroBase = (r.datos || []).map(c => ({
                 ...c,
                 estado_raw: c.estado || '',
                 estado: _trkEstadoMayus(c.estado, c.municipio),
                 municipio: _trkMunicipioMayus(c.municipio, c.estado),
             }));
-            if (!estado && !municipio) {
-                _trk.creditosFiltroBase = _trk.creditosDisponibles;
-                _trkPoblarFiltroEstadosPrincipales(_trk.creditosFiltroBase);
-                _trk.cargadoEstados = true;
-            }
+            _trkPoblarFiltroEstadosPrincipales(_trk.creditosFiltroBase);
+            _trk.cargadoEstados = true;
             // TODO (pendiente autorizacion): descomentar para filtrar solo creditos listos para ruta
             // _trk.creditosDisponibles = _trkFiltrarListosParaRuta(_trk.creditosDisponibles);
-            if (_trk.tablaCreditosDT) {
-                _trk.tablaCreditosDT.clear().rows.add(_trk.creditosDisponibles).draw();
-            }
-            _trkPoblarFiltroEstadosCrd();
-            _trkRefrescarSelectCreditos();
+            _trkAplicarFiltrosCreditosLocales();
             _trk.cargadoCreditos = true;
-            _trkSetBadge('badgeCreditos', _trk.creditosDisponibles.length);
         })
         .catch(() => {
             if (!silent) {
@@ -4274,11 +4322,6 @@ function _trkInicializarBusquedasRutas() {
     });
     $('#trkFiltroMunicipioBorradores').on('change', function () {
         _trk.borradoresFiltroMunicipio = this.value || '';
-        _trkAplicarFiltrosBorradores();
-    });
-    $('#btnFiltrarBorradores').on('click', function () {
-        _trk.borradoresFiltroEstado = $('#trkFiltroEstadoBorradores').val() || '';
-        _trk.borradoresFiltroMunicipio = $('#trkFiltroMunicipioBorradores').val() || '';
         _trkAplicarFiltrosBorradores();
     });
     $('#btnLimpiarFiltrosBorradores').on('click', function () {
@@ -4949,15 +4992,18 @@ function _trkCargarRutasSiHaceFalta(silent = false) {
 function _trkRutaPermiteAgregarCredito(ruta, cred) {
     if (!ruta || !cred) return false;
     const estatus = String(ruta.estatus_ruta || '').toLowerCase();
-    if (['cancelada', 'concluida', 'finalizada'].includes(estatus)) return false;
-    const tipo = String(
-        ruta.tipo_transportista ||
-        ruta.transportista?.tipo_transportista ||
-        ruta.tipo ||
-        ''
-    ).toLowerCase();
-    if (tipo === 'interno' && !_trkEsZonaInterna(cred.estado, cred.municipio)) return false;
+    if (['cancelada', 'completado', 'concluida', 'finalizada'].includes(estatus)) return false;
     return true;
+}
+
+function _trkRutasQuickDisponibles(cred) {
+    const porId = new Map();
+    [...(_trk.rutasRegistradas || []), ...(_trk.borradoresData || [])].forEach(r => {
+        const idRuta = Number(r?.id_ruta || r?.id || 0);
+        if (!idRuta || porId.has(idRuta)) return;
+        porId.set(idRuta, r);
+    });
+    return [...porId.values()].filter(r => _trkRutaPermiteAgregarCredito(r, cred));
 }
 
 function _trkEstadosRutaQuick(ruta) {
@@ -5031,14 +5077,14 @@ function _trkRenderQuickRutas() {
     const cred = _trk.quickAddCredito;
     const filtroEstado = _trk.quickAddEstado || '';
     if (!cred) return;
-    const rutasBase = (_trk.rutasRegistradas || []).filter(r => _trkRutaPermiteAgregarCredito(r, cred));
+    const rutasBase = _trkRutasQuickDisponibles(cred);
     const rutas = filtroEstado
         ? rutasBase.filter(r => _trkEstadosRutaQuick(r).some(e => _trkMismaUbicacion(e, filtroEstado)))
         : rutasBase;
     $('#trkQuickRoutesCount').text(rutas.length);
     if (!rutas.length) {
         $('#trkQuickRoutesList').html(`<div class="alert alert-warning small mb-0">
-            No hay rutas disponibles para esta ubicacion${filtroEstado ? ' con el estado seleccionado' : ''}.
+            No hay rutas disponibles${filtroEstado ? ' con el estado seleccionado' : ''}.
         </div>`);
         return;
     }
@@ -5065,8 +5111,11 @@ async function _trkAbrirModalAgregarCreditoRuta(cred) {
     $('#trkQuickRoutesList').html('<div class="text-center py-3 text-muted small"><span class="spinner-border spinner-border-sm me-2"></span>Cargando rutas...</div>');
     $('#trkQuickRoutesCount').text('0');
     bootstrap.Modal.getOrCreateInstance(document.getElementById('modalAgregarCreditoRuta')).show();
-    await _trkCargarRutasSiHaceFalta();
-    const rutas = (_trk.rutasRegistradas || []).filter(r => _trkRutaPermiteAgregarCredito(r, cred));
+    await Promise.allSettled([
+        _trkCargarRutasSiHaceFalta(true),
+        _trkCargarBorradoresSiHaceFalta(true),
+    ]);
+    const rutas = _trkRutasQuickDisponibles(cred);
     _trkPoblarQuickFiltroEstados(rutas);
     _trkRenderQuickRutas();
 }
@@ -5074,7 +5123,7 @@ async function _trkAbrirModalAgregarCreditoRuta(cred) {
 async function _trkConfirmarAgregarCreditoRuta(idRuta) {
     const cred = _trk.quickAddCredito;
     if (!cred || !idRuta) return;
-    const ruta = (_trk.rutasRegistradas || []).find(r => Number(r.id_ruta || r.id || 0) === Number(idRuta));
+    const ruta = _trkRutasQuickDisponibles(cred).find(r => Number(r.id_ruta || r.id || 0) === Number(idRuta));
     const nombreRuta = ruta?.nombre_ruta || `Ruta #${idRuta}`;
     const res = await Swal.fire({
         icon: 'question',
@@ -6112,11 +6161,11 @@ function _trkPoblarAgenciasTrackingSelect() {
     const cedis = _trkCedisActivos();
     const cedisDestino = _trkCedisDestinoFiltrados($('#rutaTipoTransportista').val());
     cedis.forEach(a => {
-        const label = a.nombre_agencia || '';
+        const label = `${a.nombre_agencia || ''}${_trkCedisTieneUbicacionOperativa(a) ? '' : ' - SIN UBICACION'}`;
         $sel.append(`<option value="${a.id_agencia}">${_trkChatEscapeHtml(label)}</option>`);
     });
     cedisDestino.forEach(a => {
-        const label = a.nombre_agencia || '';
+        const label = `${a.nombre_agencia || ''}${_trkCedisTieneUbicacionOperativa(a) ? '' : ' - SIN UBICACION'}`;
         $dest.append(`<option value="${a.id_agencia}">${_trkChatEscapeHtml(label)}</option>`);
     });
     if (selected) $sel.val(selected);
@@ -6295,6 +6344,23 @@ function _trkCedisDestinoPosicion(cedis) {
     const lng = parseFloat(cedis.longitud);
     if (isNaN(lat) || isNaN(lng) || lat === 0 || lng === 0) return null;
     return { lat, lng };
+}
+
+function _trkCedisValorUtil(v) {
+    const txt = _trkNormTxt(v);
+    if (!txt) return false;
+    return !['NA', 'N/A', 'NO APLICA', 'SIN DATOS', 'NO DISPONIBLE', 'EN ESPERA DE DATOS', 'SIN UBICACION'].includes(txt);
+}
+
+function _trkCedisTieneUbicacionOperativa(cedis) {
+    if (!cedis) return false;
+    if (_trkCedisDestinoPosicion(cedis)) return true;
+    return _trkCedisValorUtil(cedis.estado) && _trkCedisValorUtil(cedis.municipio);
+}
+
+function _trkCedisUbicacionBloqueoMsg(cedis) {
+    const nombre = cedis?.nombre_agencia || cedis?.clave_agencia || 'El CEDIS seleccionado';
+    return `${nombre} no tiene ubicacion operativa suficiente. Completa al menos coordenadas o Estado/Municipio en CEDIS y Transportistas antes de asignarlo como destino.`;
 }
 
 function _trkEsCedisDestinoInternoPermitido(cedis) {
@@ -6486,6 +6552,9 @@ function _trkValidarReglasTransportista() {
     if (!cedisDestino) {
         return { ok: false, mensaje: 'El CEDIS destino seleccionado no esta disponible en el catalogo activo.' };
     }
+    if (!_trkCedisTieneUbicacionOperativa(cedisDestino)) {
+        return { ok: false, mensaje: _trkCedisUbicacionBloqueoMsg(cedisDestino) };
+    }
     if (tipo === 'interno') {
         if (!_trkEsCedisDestinoInternoPermitido(cedisDestino)) {
             return { ok: false, mensaje: 'Para transportistas internos solo puedes seleccionar LOMAS PLAZA MAXIKASH o TLALNEPANTLA MAXIKASH como destino.' };
@@ -6525,7 +6594,14 @@ function _trkRenderCedisDestinoInfo() {
     const cedis = _trkCedisDestinoSeleccionado();
     const $box = $('#rutaCedisDestinoInfo');
     if (!cedis) {
-        $box.addClass('d-none').empty();
+        if (_trk.idRutaEditando && _trkRutaPermiteCambioCedis(_trk.estatusRuta)) {
+            $box.removeClass('d-none').html(_trkCedisDestinoHtml(null, {
+                idRuta: _trk.idRutaEditando,
+                estatus: _trk.estatusRuta,
+            }));
+        } else {
+            $box.addClass('d-none').empty();
+        }
         return;
     }
     const nombre = cedis.nombre_agencia || 'Sin destino asignado';
@@ -6536,6 +6612,13 @@ function _trkRenderCedisDestinoInfo() {
     const contacto = [cedis.telefono, cedis.email].filter(Boolean).join(' / ') || 'Sin contacto';
     const horario = cedis.horario || 'No disponible';
     const mapsUrl = _trkCedisMapsUrl(cedis);
+    const puedeCambiar = _trk.idRutaEditando && _trkRutaPermiteCambioCedis(_trk.estatusRuta);
+    const ubicacionOperativa = _trkCedisTieneUbicacionOperativa(cedis);
+    const avisoUbicacion = ubicacionOperativa ? '' : `
+        <div class="alert alert-warning py-1 px-2 mb-0 mt-1 small">
+            <i class="fa-solid fa-triangle-exclamation me-1"></i>
+            Sin ubicacion operativa. No se puede asignar como destino hasta completar coordenadas o Estado/Municipio.
+        </div>`;
     const mapsBtn = mapsUrl
         ? `<a class="trk-cedis-map-btn" href="${_trkChatEscapeHtml(mapsUrl)}" target="_blank" rel="noopener noreferrer" title="Abrir CEDIS en Google Maps">
                 <i class="fa-solid fa-location-dot maps-pin"></i>
@@ -6560,8 +6643,14 @@ function _trkRenderCedisDestinoInfo() {
                     <span><strong>Contacto:</strong> ${_trkChatEscapeHtml(contacto)}</span>
                     <span><strong>Horario:</strong> ${_trkChatEscapeHtml(horario)}</span>
                 </div>
+                ${avisoUbicacion}
             </div>
-            ${mapsBtn}
+            <div class="d-flex align-items-center gap-2 flex-wrap justify-content-end">
+                ${mapsBtn}
+                ${puedeCambiar ? `<button type="button" class="btn btn-sm btn-primary btn-cambiar-cedis-destino" data-id="${_trkChatEscapeHtml(_trk.idRutaEditando)}">
+                    <i class="fa-solid fa-rotate me-1"></i>Cambiar
+                </button>` : ''}
+            </div>
         </div>
     `);
 }
@@ -6578,6 +6667,301 @@ function _trkCedisMapsUrl(cedis) {
         .join(', ');
     if (query) return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query)}`;
     return cedis.link_ubicacion ? String(cedis.link_ubicacion) : '';
+}
+
+function _trkRutaPermiteCambioCedis(estatus) {
+    const st = String(estatus || '').toLowerCase();
+    return !['cancelada', 'concluida', 'completado', 'finalizada'].includes(st);
+}
+
+function _trkNormalizarCedisDestino(c) {
+    if (!c || typeof c !== 'object') return null;
+    return {
+        id_agencia: c.id_agencia || c.id_cedis_destino || c.id || null,
+        clave_agencia: c.clave_agencia || '',
+        nombre_agencia: c.nombre_agencia || c.nombre_cedis || c.nombre || 'Sin destino asignado',
+        direccion: c.direccion || '',
+        estado: _trkEstadoMayus(c.estado || '', c.municipio || ''),
+        municipio: _trkMunicipioMayus(c.municipio || '', c.estado || ''),
+        codigo_postal: c.codigo_postal || '',
+        latitud: c.latitud ?? c.lat ?? null,
+        longitud: c.longitud ?? c.lng ?? null,
+        link_ubicacion: c.link_ubicacion || '',
+        telefono: c.telefono || '',
+        encargado: c.encargado || '',
+        email: c.email || '',
+        horario: c.horario || '',
+        activo: c.activo !== false && c.activo !== 0 && c.activo !== '0',
+    };
+}
+
+function _trkCedisDestinoHtml(cedis, opts = {}) {
+    const idRuta = opts.idRuta || '';
+    const estatus = opts.estatus || '';
+    const puedeCambiar = opts.puedeCambiar !== false && _trkRutaPermiteCambioCedis(estatus);
+    if (!cedis) {
+        return `
+            <div class="trk-cedis-info-card" id="trkDetalleCedisDestinoCard">
+                <div class="trk-cedis-info-body">
+                    <div class="d-flex flex-wrap align-items-center gap-2 mb-1">
+                        <span class="badge bg-primary"><i class="fa-solid fa-warehouse me-1"></i>CEDIS destino</span>
+                        <span class="fw-semibold">Sin destino asignado</span>
+                    </div>
+                    <div class="text-muted small">Esta ruta no tiene CEDIS destino registrado.</div>
+                </div>
+                ${puedeCambiar ? `<button type="button" class="btn btn-sm btn-primary btn-cambiar-cedis-destino" data-id="${_trkChatEscapeHtml(idRuta)}">
+                    <i class="fa-solid fa-rotate me-1"></i>Cambiar
+                </button>` : ''}
+            </div>`;
+    }
+    const ubicacion = [cedis.municipio, cedis.estado, cedis.codigo_postal ? `CP ${cedis.codigo_postal}` : '']
+        .filter(Boolean).join(' / ') || 'Ubicacion no disponible';
+    const coords = (cedis.latitud != null && cedis.longitud != null)
+        ? `${cedis.latitud}, ${cedis.longitud}`
+        : 'Sin coordenadas';
+    const contacto = [cedis.telefono, cedis.email].filter(Boolean).join(' / ') || 'Sin contacto';
+    const mapsUrl = _trkCedisMapsUrl(cedis);
+    const ubicacionOperativa = _trkCedisTieneUbicacionOperativa(cedis);
+    const avisoUbicacion = ubicacionOperativa ? '' : `
+        <div class="alert alert-warning py-1 px-2 mb-0 mt-1 small">
+            <i class="fa-solid fa-triangle-exclamation me-1"></i>
+            Sin ubicacion operativa. No se puede asignar como destino hasta completar coordenadas o Estado/Municipio.
+        </div>`;
+    const mapsBtn = mapsUrl
+        ? `<a class="trk-cedis-map-btn" href="${_trkChatEscapeHtml(mapsUrl)}" target="_blank" rel="noopener noreferrer" title="Abrir en Google Maps">
+                <i class="fa-solid fa-location-dot maps-pin"></i><span>Maps</span>
+           </a>`
+        : '';
+    return `
+        <div class="trk-cedis-info-card" id="trkDetalleCedisDestinoCard">
+            <div class="trk-cedis-info-body d-flex flex-column gap-1">
+                <div class="d-flex flex-wrap align-items-center gap-2">
+                    <span class="badge bg-primary"><i class="fa-solid fa-warehouse me-1"></i>CEDIS destino</span>
+                    <span class="fw-semibold">${_trkChatEscapeHtml(cedis.nombre_agencia || 'Sin destino asignado')}</span>
+                </div>
+                <div class="d-flex flex-wrap gap-2 text-muted">
+                    <span><strong>Recibe:</strong> ${_trkChatEscapeHtml(cedis.encargado || 'No disponible')}</span>
+                    <span><strong>Ubicacion:</strong> ${_trkChatEscapeHtml(ubicacion)}</span>
+                </div>
+                <div class="text-muted"><strong>Direccion:</strong> ${_trkChatEscapeHtml(cedis.direccion || 'No disponible')}</div>
+                <div class="d-flex flex-wrap gap-2 text-muted">
+                    <span><strong>Coordenadas:</strong> ${_trkChatEscapeHtml(coords)}</span>
+                    <span><strong>Contacto:</strong> ${_trkChatEscapeHtml(contacto)}</span>
+                </div>
+                ${cedis.horario ? `<div class="text-muted"><strong>Horario:</strong> ${_trkChatEscapeHtml(cedis.horario)}</div>` : ''}
+                ${avisoUbicacion}
+            </div>
+            <div class="d-flex align-items-center gap-2 flex-wrap justify-content-end">
+                ${mapsBtn}
+                ${puedeCambiar ? `<button type="button" class="btn btn-sm btn-primary btn-cambiar-cedis-destino" data-id="${_trkChatEscapeHtml(idRuta)}">
+                    <i class="fa-solid fa-rotate me-1"></i>Cambiar
+                </button>` : ''}
+            </div>
+        </div>`;
+}
+
+function _trkRenderHistorialCedisDestino(historial) {
+    if (!Array.isArray(historial) || !historial.length) {
+        return '<div class="text-muted small">Sin cambios registrados.</div>';
+    }
+    return historial.map(h => {
+        const anterior = h.cedis_anterior_nombre || h.nombre_cedis_anterior || h.id_cedis_anterior || 'Sin destino';
+        const nuevo = h.cedis_nuevo_nombre || h.nombre_cedis_nuevo || h.id_cedis_nuevo || 'No disponible';
+        const fecha = _trkFormatFechaHora(h.fecha_cambio || h.created_at || h.updated_at) || (h.fecha_cambio || 'No disponible');
+        return `
+            <div class="border-top py-2 small">
+                <div class="fw-semibold">${_trkChatEscapeHtml(anterior)} <i class="fa-solid fa-arrow-right mx-1"></i> ${_trkChatEscapeHtml(nuevo)}</div>
+                <div class="text-muted">${_trkChatEscapeHtml(fecha)} | ${_trkChatEscapeHtml(h.tipo_actor || 'gestor')}</div>
+                <div class="text-muted">${_trkChatEscapeHtml(h.motivo || 'Sin motivo')}</div>
+            </div>`;
+    }).join('');
+}
+
+async function _trkConsultarCedisDestinoRuta(idRuta) {
+    const r = await trkFetch(`/TrackingRecoleccion/trackingCedisDestino?id_ruta=${encodeURIComponent(idRuta)}`);
+    if (!r || !r.success) {
+        const endpointNotFound = Number(r?.codigo_http || 0) === 404 && String(r?.detail || '').toLowerCase() === 'not found';
+        throw new Error(endpointNotFound
+            ? 'La API no encontro el endpoint cedis-destino. Verifica la ruta publicada del servicio.'
+            : (r?.mensaje || r?.message || r?.detail || 'No se pudo consultar CEDIS destino.'));
+    }
+    const cedis = _trkNormalizarCedisDestino(r.cedis_destino || r.datos?.cedis_destino || null);
+    const historial = r.historial || r.datos?.historial || [];
+    _trk.cedisDestinoPorRuta[idRuta] = cedis;
+    _trk.cedisDestinoHistorial[idRuta] = Array.isArray(historial) ? historial : [];
+    return { cedis, historial: _trk.cedisDestinoHistorial[idRuta] };
+}
+
+function _trkActualizarCedisDestinoEnMemoria(idRuta, cedis) {
+    const normal = _trkNormalizarCedisDestino(cedis);
+    _trk.cedisDestinoPorRuta[idRuta] = normal;
+    const aplicar = r => {
+        if (String(r?.id_ruta || r?.id || '') !== String(idRuta)) return;
+        r.id_cedis_destino = normal?.id_agencia || null;
+        r.cedis_destino = normal;
+        r.cedis_destino_nombre = normal?.nombre_agencia || '';
+        r.cedis_destino_direccion = normal?.direccion || '';
+    };
+    (_trk.rutasRegistradas || []).forEach(aplicar);
+    (_trk.borradoresData || []).forEach(aplicar);
+    if (String(_trk.idRutaEditando || '') === String(idRuta)) {
+        $('#rutaCedisDestino').val(normal?.id_agencia ? String(normal.id_agencia) : '');
+        _trkRenderCedisDestinoInfo();
+        _trkRenderizarMapa();
+    }
+}
+
+function _trkRenderDetalleCedisDestino(idRuta, estatus) {
+    const cedis = _trk.cedisDestinoPorRuta[idRuta] || null;
+    const historial = _trk.cedisDestinoHistorial[idRuta] || [];
+    $('#trkDetalleCedisDestinoWrap').html(_trkCedisDestinoHtml(cedis, { idRuta, estatus }));
+    $('#trkDetalleCedisHistorial').html(_trkRenderHistorialCedisDestino(historial));
+}
+
+async function _trkCargarDetalleCedisDestino(idRuta, estatus) {
+    $('#trkDetalleCedisDestinoWrap').html('<div class="text-muted small"><span class="spinner-border spinner-border-sm me-2"></span>Consultando CEDIS destino...</div>');
+    try {
+        await _trkConsultarCedisDestinoRuta(idRuta);
+    } catch (err) {
+        $('#trkDetalleCedisDestinoWrap').html(`<div class="alert alert-warning py-2 small mb-0">${_trkChatEscapeHtml(err.message || 'No se pudo consultar CEDIS destino.')}</div>`);
+        return;
+    }
+    _trkRenderDetalleCedisDestino(idRuta, estatus);
+}
+
+function _trkLlenarSelectCambioCedis(selected = '') {
+    const cedis = _trkCedisActivos();
+    const $sel = $('#trkCambiarCedisSelect');
+    $sel.html('<option value="">Selecciona CEDIS destino</option>');
+    cedis.forEach(a => {
+        const label = `${a.nombre_agencia || a.clave_agencia || 'CEDIS'}${_trkCedisTieneUbicacionOperativa(a) ? '' : ' - SIN UBICACION'}`;
+        $sel.append(`<option value="${_trkChatEscapeHtml(a.id_agencia)}">${_trkChatEscapeHtml(label)}</option>`);
+    });
+    $sel.val(selected ? String(selected) : '');
+}
+
+async function _trkAbrirModalCambiarCedisDestino(idRuta) {
+    if (!idRuta) return;
+    await _trkCargarCatalogosSiHaceFalta();
+    const cedisActual = _trk.cedisDestinoPorRuta[idRuta] || null;
+    $('#trkCambiarCedisRutaId').val(idRuta);
+    $('#trkCambiarCedisActual').html(`CEDIS actual: <b>${_trkChatEscapeHtml(cedisActual?.nombre_agencia || 'Sin destino asignado')}</b>`);
+    _trkLlenarSelectCambioCedis(cedisActual?.id_agencia || '');
+    $('#trkCambiarCedisMotivo').val('');
+    $('#trkCambiarCedisMotivoCount').text('0/200');
+    bootstrap.Modal.getOrCreateInstance(document.getElementById('modalCambiarCedisDestino')).show();
+}
+
+function _trkMensajeErrorCedisDestino(r) {
+    const code = Number(r?.codigo_http || r?.status || r?.http_code || 0);
+    const msg = r?.mensaje || r?.message || r?.detail || r?.error || '';
+    if (code === 404 && String(r?.detail || '').toLowerCase() === 'not found') {
+        return 'La API no encontro el endpoint cedis-destino. Verifica la ruta publicada del servicio.';
+    }
+    if (code === 409) return 'No se puede cambiar el CEDIS destino en el estatus actual de la ruta';
+    if (code === 404) return 'Ruta o CEDIS no encontrado';
+    if (code === 422) return msg || 'CEDIS inactivo o motivo invalido';
+    return msg || 'No se pudo cambiar el CEDIS destino.';
+}
+
+async function _trkConfirmarCambioCedisDestino() {
+    const idRuta = Number($('#trkCambiarCedisRutaId').val() || 0);
+    const idCedisDestino = Number($('#trkCambiarCedisSelect').val() || 0);
+    const motivo = String($('#trkCambiarCedisMotivo').val() || '').trim();
+    if (!idRuta) return;
+    if (!idCedisDestino) {
+        Swal.fire({ icon: 'warning', title: 'Selecciona CEDIS', text: 'El CEDIS destino es obligatorio.', confirmButtonText: 'Aceptar' });
+        return;
+    }
+    const cedisSeleccionado = _trkCedisPorId(idCedisDestino);
+    if (!cedisSeleccionado || !_trkCedisTieneUbicacionOperativa(cedisSeleccionado)) {
+        Swal.fire({
+            icon: 'warning',
+            title: 'CEDIS sin ubicacion',
+            text: _trkCedisUbicacionBloqueoMsg(cedisSeleccionado),
+            confirmButtonText: 'Aceptar',
+        });
+        return;
+    }
+    if (!motivo) {
+        Swal.fire({ icon: 'warning', title: 'Motivo obligatorio', text: 'Escribe el motivo del cambio.', confirmButtonText: 'Aceptar' });
+        return;
+    }
+    if (motivo.length > 200) {
+        Swal.fire({ icon: 'warning', title: 'Motivo muy largo', text: 'El motivo no puede exceder 200 caracteres.', confirmButtonText: 'Aceptar' });
+        return;
+    }
+    const ok = await Swal.fire({
+        icon: 'warning',
+        title: 'Confirmar cambio de CEDIS?',
+        text: 'La ruta puede estar en operacion. El transportista recibira el nuevo destino.',
+        showCancelButton: true,
+        confirmButtonText: 'Si, cambiar',
+        cancelButtonText: 'Cancelar',
+        confirmButtonColor: '#0d9488',
+    });
+    if (!ok.isConfirmed) return;
+
+    Swal.fire({
+        title: 'Actualizando CEDIS destino...',
+        allowOutsideClick: false,
+        allowEscapeKey: false,
+        showConfirmButton: false,
+        didOpen: () => Swal.showLoading(),
+    });
+
+    try {
+        const r = await trkFetch('/TrackingRecoleccion/trackingCambiarCedisDestino', {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ id_ruta: idRuta, id_cedis_destino: idCedisDestino, motivo }),
+        });
+        const informativo = String(r?.message || r?.mensaje || '').toLowerCase().includes('ya esta asignado')
+            || String(r?.message || r?.mensaje || '').toLowerCase().includes('ya est');
+        if (!r.success && !informativo) {
+            Swal.fire({ icon: 'error', title: 'No se pudo cambiar', text: _trkMensajeErrorCedisDestino(r), confirmButtonText: 'Aceptar' });
+            return;
+        }
+        const cedis = _trkNormalizarCedisDestino(r.cedis_destino || r.datos?.cedis_destino || _trkCedisPorId(idCedisDestino));
+        if (cedis) _trkActualizarCedisDestinoEnMemoria(idRuta, cedis);
+        await _trkConsultarCedisDestinoRuta(idRuta).catch(() => {});
+        if (_trk.detalleRutaActualId && String(_trk.detalleRutaActualId) === String(idRuta)) {
+            const ruta = [...(_trk.rutasRegistradas || []), ...(_trk.borradoresData || [])].find(x => String(x.id_ruta || x.id || '') === String(idRuta));
+            _trkRenderDetalleCedisDestino(idRuta, ruta?.estatus_ruta || '');
+        }
+        bootstrap.Modal.getOrCreateInstance(document.getElementById('modalCambiarCedisDestino')).hide();
+        Swal.fire({
+            icon: informativo ? 'info' : 'success',
+            title: informativo ? 'Sin cambios' : 'CEDIS destino actualizado',
+            text: r.message || r.mensaje || 'Cambio aplicado correctamente.',
+            timer: 2200,
+            showConfirmButton: false,
+        });
+    } catch {
+        Swal.fire({ icon: 'error', title: 'Error de conexion', text: 'No se pudo cambiar el CEDIS destino.', confirmButtonText: 'Aceptar' });
+    }
+}
+
+function _trkAplicarEventoCambioCedisDestino(data) {
+    const idRuta = Number(data?.id_ruta || data?.ruta_id || 0);
+    if (!idRuta) return;
+    const cedis = _trkNormalizarCedisDestino({
+        id_agencia: data.id_cedis_destino,
+        nombre_agencia: data.nombre_cedis,
+        direccion: data.direccion,
+        estado: data.estado,
+        municipio: data.municipio,
+        latitud: data.lat,
+        longitud: data.lng,
+        link_ubicacion: data.link_ubicacion,
+        activo: true,
+    });
+    _trkActualizarCedisDestinoEnMemoria(idRuta, cedis);
+    if (_trk.detalleRutaActualId && String(_trk.detalleRutaActualId) === String(idRuta)) {
+        _trkConsultarCedisDestinoRuta(idRuta)
+            .then(() => _trkRenderDetalleCedisDestino(idRuta, ''))
+            .catch(() => _trkRenderDetalleCedisDestino(idRuta, ''));
+    }
 }
 
 function _trkCargarCreditosInicialSiHaceFalta() {
@@ -9111,6 +9495,7 @@ async function _trkGuardarRuta(modo, opts = {}) {
 // --- Ver detalle de ruta ---------------------------------
 function _trkVerDetalleRuta(idRuta) {
     const $body = $('#detalleRutaBody');
+    _trk.detalleRutaActualId = idRuta;
     $body.html('<div class="text-center py-4"><div class="spinner-border" style="color:var(--track-color);"></div></div>');
     const modal = new bootstrap.Modal(document.getElementById('modalDetalleRuta'));
     modal.show();
@@ -9128,7 +9513,22 @@ function _trkVerDetalleRuta(idRuta) {
                 ? `${infoTransportista.nombre} (${infoTransportista.tipo || 'No disponible'})`
                 : 'Sin transportista';
             const agenciaTracking = infoTransportista.agencia || infoTransportista.direccion || 'Sin CEDIS';
-            const cedisDestino = d.cedis_destino_nombre || d.cedis_destino?.nombre_agencia || 'Sin destino asignado';
+            const cedisDestinoLocal = _trkNormalizarCedisDestino(d.cedis_destino || (d.id_cedis_destino || d.cedis_destino_nombre ? {
+                id_agencia: d.id_cedis_destino,
+                nombre_agencia: d.cedis_destino_nombre,
+                direccion: d.cedis_destino_direccion,
+                estado: d.cedis_destino_estado,
+                municipio: d.cedis_destino_municipio,
+                codigo_postal: d.cedis_destino_codigo_postal,
+                telefono: d.cedis_destino_telefono,
+                encargado: d.cedis_destino_encargado,
+                email: d.cedis_destino_email,
+                horario: d.cedis_destino_horario,
+                link_ubicacion: d.cedis_destino_link_ubicacion,
+            } : null));
+            if (cedisDestinoLocal && !_trk.cedisDestinoPorRuta[idRuta]) {
+                _trk.cedisDestinoPorRuta[idRuta] = cedisDestinoLocal;
+            }
             const fechaCancelacion = d.fecha_cancelacion_fmt || _trkFormatFechaHora(d.fecha_cancelacion) || 'No disponible';
             const motivoCancelacion = d.estatus_ruta === 'cancelada'
                 ? `<div class="col-12"><div class="alert alert-danger py-2 mb-0">
@@ -9164,7 +9564,14 @@ function _trkVerDetalleRuta(idRuta) {
                     <div class="col-6 col-md-1"><b class="d-block small text-muted">Estatus</b>${estatusBadge}</div>
                     <div class="col-6 col-md-3"><b class="d-block small text-muted">Transportista</b><span class="small">${_trkChatEscapeHtml(transportista)}</span></div>
                     <div class="col-6 col-md-3"><b class="d-block small text-muted">CEDIS / empresa</b><span class="small">${_trkChatEscapeHtml(agenciaTracking)}</span></div>
-                    <div class="col-6 col-md-3"><b class="d-block small text-muted">Destino transportista</b><span class="small">${_trkChatEscapeHtml(cedisDestino)}</span></div>
+                    <div class="col-12">
+                        <b class="d-block small text-muted mb-1">CEDIS destino</b>
+                        <div id="trkDetalleCedisDestinoWrap">${_trkCedisDestinoHtml(cedisDestinoLocal, { idRuta, estatus: d.estatus_ruta })}</div>
+                    </div>
+                    <div class="col-12">
+                        <div class="small fw-semibold text-muted mb-1"><i class="fa-solid fa-clock-rotate-left me-1"></i>Historial de cambios de CEDIS</div>
+                        <div id="trkDetalleCedisHistorial">${_trkRenderHistorialCedisDestino([])}</div>
+                    </div>
                     ${motivoCancelacion}
                 </div>
                 <div class="table-responsive">
@@ -9180,6 +9587,7 @@ function _trkVerDetalleRuta(idRuta) {
                     </table>
                 </div>
             `);
+            _trkCargarDetalleCedisDestino(idRuta, d.estatus_ruta);
         })
         .catch(() => $body.html('<div class="alert alert-danger">Error de conexion.</div>'));
 }
@@ -9309,6 +9717,15 @@ function _trkCargarRutaEnModal(idRuta, soloLectura) {
             _trkRefrescarSelectTransportistas(d.id_transportista || null);
             $('#rutaCedisDestino').val(idCedisDestinoRuta ? String(idCedisDestinoRuta) : '');
             _trkRenderCedisDestinoInfo();
+            _trkConsultarCedisDestinoRuta(idRuta).then(({ cedis }) => {
+                if (cedis) {
+                    _trkActualizarCedisDestinoEnMemoria(idRuta, cedis);
+                } else {
+                    _trk.cedisDestinoPorRuta[idRuta] = null;
+                    $('#rutaCedisDestino').val('');
+                    _trkRenderCedisDestinoInfo();
+                }
+            }).catch(() => {});
 
             // Creditos (cargar directamente en array)
             _trk.creditosEnRuta = (d.detalle || []).map((det, i) => ({
@@ -10217,6 +10634,9 @@ function _trkRTProcesarEvento(data) {
         case 'vehicle.snapshot':
         case 'vehicle.location':
             _trkRTActualizarVehiculo(data.data || data, { center: data.event === 'vehicle.snapshot', append: true });
+            break;
+        case 'route.destination.changed':
+            _trkAplicarEventoCambioCedisDestino(data.data || data);
             break;
         case 'tracking.event':
             // Recargar estado completo ante cualquier evento de tracking

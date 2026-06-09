@@ -1012,6 +1012,24 @@ class TrackingRecoleccion extends Model
             || in_array($clave, ['LOMAS_PLAZA_MAXIKASH', 'TLALNEPANTLA_MAXIKASH'], true);
     }
 
+    private function cedisValorUbicacionUtil(?string $valor): bool
+    {
+        $txt = $this->normalizarTextoZona((string) $valor);
+        return $txt !== ''
+            && !in_array($txt, ['NA', 'N/A', 'NO APLICA', 'SIN DATOS', 'NO DISPONIBLE', 'EN ESPERA DE DATOS', 'SIN UBICACION'], true);
+    }
+
+    private function cedisTieneUbicacionOperativa(array $cedis): bool
+    {
+        $lat = $cedis['latitud'] ?? null;
+        $lng = $cedis['longitud'] ?? null;
+        if (is_numeric($lat) && is_numeric($lng) && (float)$lat !== 0.0 && (float)$lng !== 0.0) {
+            return true;
+        }
+        return $this->cedisValorUbicacionUtil($cedis['estado'] ?? null)
+            && $this->cedisValorUbicacionUtil($cedis['municipio'] ?? null);
+    }
+
     private function validarConflictosRuta(int $idRuta, string $nombre, string $fechaStr, ?string $horaFmt, int $idTransportista): array
     {
         $conflictos = [];
@@ -1204,7 +1222,7 @@ class TrackingRecoleccion extends Model
         $cedisDestino = null;
         if ($idCedisDestino > 0) {
             $cedisDestino = $this->db->queryOne(
-                "SELECT id_agencia, clave_agencia, nombre_agencia, estado, municipio
+                "SELECT id_agencia, clave_agencia, nombre_agencia, estado, municipio, latitud, longitud
                  FROM agencias_tracking
                  WHERE id_agencia = :id AND activo = 1
                  LIMIT 1",
@@ -1212,6 +1230,9 @@ class TrackingRecoleccion extends Model
             );
             if (!$cedisDestino) {
                 return ['success' => false, 'message' => 'El CEDIS destino no existe o esta inactivo.'];
+            }
+            if (!$this->cedisTieneUbicacionOperativa($cedisDestino)) {
+                return ['success' => false, 'message' => 'El CEDIS destino no tiene ubicacion operativa suficiente. Completa coordenadas o Estado/Municipio antes de asignarlo.'];
             }
         }
         if ($modo !== 'borrador' && $tipoTransportista === 'interno') {
@@ -1718,14 +1739,6 @@ class TrackingRecoleccion extends Model
                 return [
                     'success' => false,
                     'message' => 'El credito ya esta asignado a la ruta #' . (int)$asignado['id_ruta'] . '.',
-                ];
-            }
-
-            $tipoRuta = strtolower(trim((string)($ruta['tipo_transportista'] ?: $ruta['tipo_transportista_real'] ?: '')));
-            if ($tipoRuta === 'interno' && !$this->esZonaTransportistaInterno($estadoCredito, $municipioCredito)) {
-                return [
-                    'success' => false,
-                    'message' => 'Este credito esta fuera de CDMX/zona metropolitana y no puede agregarse a una ruta con transportista interno.',
                 ];
             }
 
