@@ -751,6 +751,8 @@ def es_documento_nss(pdf_bytes: bytes) -> bool:
 def es_documento_curp(pdf_bytes: bytes) -> bool:
     """True si el PDF es constancia de CURP (RENAPO)."""
     t = _texto_de_pdf(pdf_bytes).upper()
+    if not t.strip():
+        t = texto_de_pdf_con_ocr(pdf_bytes, max_paginas=2).upper()
     t = t.replace("Á", "A").replace("É", "E").replace("Í", "I").replace("Ó", "O").replace("Ú", "U")
     if not t:
         return False
@@ -833,6 +835,8 @@ def extraer_datos_curp_pdf(pdf_bytes: bytes) -> Dict[str, Any]:
         doc.close()
     except Exception:
         return resultado
+    if not texto.strip():
+        texto = texto_de_pdf_con_ocr(pdf_bytes, max_paginas=2)
 
     lineas = [ln.strip() for ln in texto.split("\n") if ln.strip()]
 
@@ -842,6 +846,17 @@ def extraer_datos_curp_pdf(pdf_bytes: bytes) -> Dict[str, Any]:
         if len(cand) == 18 and validar_curp(cand)[0]:
             resultado["curp"] = cand
             break
+    if not resultado["curp"]:
+        texto_ocr = texto_de_pdf_con_ocr(pdf_bytes, max_paginas=2)
+        if texto_ocr and texto_ocr.strip() and texto_ocr != texto:
+            texto = texto + "\n" + texto_ocr
+            lineas = [ln.strip() for ln in texto.split("\n") if ln.strip()]
+            compacto = texto.upper().replace(" ", "").replace("\n", "")
+            for m in re.finditer(r"[A-Z]{4}[A-Z0-9]{14}", compacto):
+                cand = m.group()[:18]
+                if len(cand) == 18 and validar_curp(cand)[0]:
+                    resultado["curp"] = cand
+                    break
 
     skip_words = {"PRESENTE", "SECRETARIA", "ROSA", "ICELA", "AGRADEZCO", "ESTAMOS",
                   "NUESTRO", "LOS", "EL", "LA", "DE", "EN", "DATOS", "TELCURP",

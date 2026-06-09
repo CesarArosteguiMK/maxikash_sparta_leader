@@ -16,6 +16,50 @@
         box-shadow: 0 8px 24px rgba(16, 42, 67, 0.08);
     }
 
+    .ch-search-select {
+        position: relative;
+    }
+
+    .ch-search-select-toggle {
+        background-color: #fff;
+        min-height: 42px;
+    }
+
+    .ch-search-select-menu {
+        position: absolute;
+        top: calc(100% + 4px);
+        left: 0;
+        z-index: 1060;
+        width: 100%;
+        padding: 10px;
+        background: #fff;
+        border: 1px solid #dce6f2;
+        border-radius: 10px;
+        box-shadow: 0 12px 26px rgba(16, 42, 67, 0.16);
+    }
+
+    .ch-search-select-options {
+        max-height: 260px;
+        overflow-y: auto;
+    }
+
+    .ch-search-select-option {
+        display: block;
+        width: 100%;
+        border: 0;
+        background: transparent;
+        color: #24324a;
+        text-align: left;
+        padding: 10px 12px;
+        border-radius: 8px;
+        font-weight: 600;
+    }
+
+    .ch-search-select-option:hover,
+    .ch-search-select-option.active {
+        background: #e9edf3;
+    }
+
     .ch-perfiles-tabs {
         gap: 8px;
     }
@@ -382,6 +426,8 @@
     }
 </style>
 
+<?php $puedeConfigurarPermisosPuesto = !empty($puedeConfigurarPermisosPuesto ?? false); ?>
+
 <div class="content-wrapper">
     <div class="container-xxl flex-grow-1 container-p-y ch-perfiles-page">
         <div class="d-flex flex-wrap justify-content-between align-items-start gap-3 mb-4">
@@ -412,12 +458,28 @@
                             <i class="fa-solid fa-table-list me-2"></i>Matriz
                         </button>
                     </li>
+                    <?php if ($puedeConfigurarPermisosPuesto): ?>
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link" type="button" data-ch-view="permisos">
+                                <i class="fa-solid fa-key me-2"></i>Permisos por puesto
+                            </button>
+                        </li>
+                    <?php endif; ?>
                 </ul>
 
                 <div class="d-flex flex-wrap align-items-end gap-2">
                     <div style="min-width: 280px;">
-                        <label for="chPerfilSelect" class="form-label text-muted fw-semibold mb-1">Perfil</label>
-                        <select id="chPerfilSelect" class="form-select shadow-none"></select>
+                        <label for="chPerfilToggle" class="form-label text-muted fw-semibold mb-1">Perfil</label>
+                        <div class="ch-search-select" id="chPerfilPicker">
+                            <button type="button" class="form-select shadow-none text-start ch-search-select-toggle" id="chPerfilToggle" aria-expanded="false">
+                                Selecciona perfil
+                            </button>
+                            <div class="ch-search-select-menu d-none" id="chPerfilMenu">
+                                <input type="search" class="form-control shadow-none mb-2" id="chPerfilSearch" placeholder="Buscar perfil">
+                                <div class="ch-search-select-options" id="chPerfilOptions"></div>
+                            </div>
+                        </div>
+                        <select id="chPerfilSelect" class="d-none" aria-hidden="true" tabindex="-1"></select>
                     </div>
                     <button type="button" class="btn btn-outline-secondary" id="chBtnRestaurarPerfil">
                         <i class="fa-solid fa-rotate-left me-1"></i>Restablecer
@@ -590,6 +652,61 @@
                                 </thead>
                                 <tbody id="chTeamBody"></tbody>
                             </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section class="ch-view-panel" id="chPanelPermisos">
+            <div class="ch-section-card">
+                <div class="card-header d-flex flex-wrap justify-content-between align-items-center gap-2">
+                    <h3 class="card-title mb-0">
+                        <i class="fa-solid fa-key me-2 text-primary"></i>Permisos por puesto
+                    </h3>
+                    <span class="badge bg-label-secondary text-secondary" id="chPermisosResumen">Selecciona un puesto</span>
+                </div>
+                <div class="card-body">
+                    <div class="row g-3 align-items-end mb-3">
+                        <div class="col-12 col-lg-5">
+                            <label for="chPermisosPuestoToggle" class="form-label text-muted fw-semibold mb-1">Puesto</label>
+                            <div class="ch-search-select" id="chPermisosPuestoPicker">
+                                <button type="button" class="form-select shadow-none text-start ch-search-select-toggle" id="chPermisosPuestoToggle" aria-expanded="false">
+                                    Cargando puestos...
+                                </button>
+                                <div class="ch-search-select-menu d-none" id="chPermisosPuestoMenu">
+                                    <input type="search" class="form-control shadow-none mb-2" id="chPermisosPuestoSearch" placeholder="Buscar puesto">
+                                    <div class="ch-search-select-options" id="chPermisosPuestoOptions"></div>
+                                </div>
+                            </div>
+                            <select id="chPermisosPuestoSelect" class="d-none" aria-hidden="true" tabindex="-1">
+                                <option value="">Cargando puestos...</option>
+                            </select>
+                            <div class="small text-muted mt-2" id="chPermisosPuestoMeta"></div>
+                        </div>
+                        <div class="col-12 col-lg-7">
+                            <div class="d-flex flex-wrap justify-content-lg-end gap-2">
+                                <button type="button" class="btn btn-outline-secondary" id="chPermisosMarcarTodo">
+                                    <i class="fa-solid fa-check-double me-1"></i>Marcar todo
+                                </button>
+                                <button type="button" class="btn btn-outline-warning" id="chPermisosLimpiar">
+                                    <i class="fa-solid fa-eraser me-1"></i>Limpiar
+                                </button>
+                                <button type="button" class="btn btn-primary" id="chPermisosGuardar">
+                                    <i class="fa-solid fa-floppy-disk me-1"></i>Guardar plantilla
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="input-group mb-3">
+                        <span class="input-group-text bg-white"><i class="fa-solid fa-search"></i></span>
+                        <input type="search" class="form-control shadow-none" id="chPermisosBuscar" placeholder="Buscar modulo o permiso">
+                    </div>
+
+                    <div id="chPermisosModulos" class="row g-3">
+                        <div class="col-12">
+                            <div class="text-center text-muted py-4">Selecciona un puesto para configurar permisos.</div>
                         </div>
                     </div>
                 </div>
@@ -781,6 +898,13 @@ window.CH_PERFILES_PUESTOS_DATA = <?= $perfilesPuestosJson ?? '{"meta":{},"perfi
     }
 
     const $ = (id) => document.getElementById(id);
+    let permisosConfigLoaded = false;
+    let permisosPuestos = [];
+    let permisosModulos = [];
+    let permisosSeleccionados = new Set();
+    let permisosFiltro = '';
+    let permisosPuestoFiltro = '';
+    let perfilFiltro = '';
 
     function esc(value) {
         return String(value ?? '')
@@ -904,12 +1028,352 @@ window.CH_PERFILES_PUESTOS_DATA = <?= $perfilesPuestosJson ?? '{"meta":{},"perfi
         document.querySelectorAll('.ch-open-profile').forEach((btn) => {
             btn.addEventListener('click', () => {
                 const key = btn.getAttribute('data-perfil-key');
-                $('chPerfilSelect').value = key;
-                renderPerfil(key);
+                seleccionarPerfil(key);
                 const tabPerfil = document.querySelector('[data-ch-view="perfil"]');
                 if (tabPerfil) tabPerfil.click();
             });
         });
+    }
+
+    function chToast(icon, title, text) {
+        if (window.Swal) {
+            Swal.fire({ icon, title, text, confirmButtonColor: '#243653' });
+            return;
+        }
+        alert([title, text].filter(Boolean).join('\n'));
+    }
+
+    function getPermisosPuestoActual() {
+        const select = $('chPermisosPuestoSelect');
+        return select ? Number(select.value || 0) : 0;
+    }
+
+    function normalizarTexto(value) {
+        return String(value ?? '')
+            .replace(/Ã¡/g, 'á')
+            .replace(/Ã©/g, 'é')
+            .replace(/Ã­/g, 'í')
+            .replace(/Ã³/g, 'ó')
+            .replace(/Ãº/g, 'ú')
+            .replace(/Ã¼/g, 'ü')
+            .replace(/Ã±/g, 'ñ')
+            .replace(/Ã/g, 'Á')
+            .replace(/Ã‰/g, 'É')
+            .replace(/Ã/g, 'Í')
+            .replace(/Ã“/g, 'Ó')
+            .replace(/Ãš/g, 'Ú')
+            .replace(/Ãœ/g, 'Ü')
+            .replace(/Ã‘/g, 'Ñ')
+            .toLowerCase()
+            .normalize('NFD')
+            .replace(/[\u0300-\u036f]/g, '');
+    }
+
+    function etiquetaPerfil(perfil) {
+        return `${perfil.nombre || 'Perfil'} - ${perfil.departamento || 'Sin departamento'}`;
+    }
+
+    function actualizarPerfilToggle() {
+        const toggle = $('chPerfilToggle');
+        const select = $('chPerfilSelect');
+        if (!toggle || !select) return;
+
+        const perfil = perfiles.find((item) => item.key === select.value) || perfiles[0];
+        toggle.textContent = perfil ? etiquetaPerfil(perfil) : 'Selecciona perfil';
+    }
+
+    function renderPerfilOptions() {
+        const options = $('chPerfilOptions');
+        const select = $('chPerfilSelect');
+        if (!options || !select) return;
+
+        const filtro = normalizarTexto(perfilFiltro);
+        const perfilesFiltrados = perfiles.filter((perfil) => {
+            const texto = normalizarTexto(`${etiquetaPerfil(perfil)} ${perfil.direccion || ''} ${perfil.area || ''}`);
+            return filtro === '' || texto.includes(filtro);
+        });
+
+        options.innerHTML = perfilesFiltrados.map((perfil) => {
+            const active = perfil.key === select.value ? 'active' : '';
+            return `
+                <button type="button" class="ch-search-select-option ${active}" data-perfil-key="${esc(perfil.key)}">
+                    <span class="d-block">${esc(etiquetaPerfil(perfil))}</span>
+                    <small class="text-muted">${esc(perfil.direccion || 'Sin direccion')} / ${esc(perfil.area || 'Sin area')}</small>
+                </button>
+            `;
+        }).join('') || '<div class="text-muted text-center py-3">Sin coincidencias</div>';
+    }
+
+    function setPerfilMenu(open) {
+        const menu = $('chPerfilMenu');
+        const toggle = $('chPerfilToggle');
+        const search = $('chPerfilSearch');
+        if (!menu || !toggle) return;
+
+        menu.classList.toggle('d-none', !open);
+        toggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+        if (open) {
+            perfilFiltro = '';
+            if (search) search.value = '';
+            renderPerfilOptions();
+            window.setTimeout(() => search && search.focus(), 0);
+        }
+    }
+
+    function seleccionarPerfil(key) {
+        const select = $('chPerfilSelect');
+        if (!select) return;
+
+        select.value = key || (perfiles[0] ? perfiles[0].key : '');
+        actualizarPerfilToggle();
+        renderPerfilOptions();
+        setPerfilMenu(false);
+        renderPerfil(select.value);
+    }
+
+    function etiquetaPermisosPuesto(puesto) {
+        return `${puesto.nombre || 'Puesto'} - ${puesto.departamento || 'Sin departamento'}`;
+    }
+
+    function actualizarPermisosPuestoToggle() {
+        const toggle = $('chPermisosPuestoToggle');
+        if (!toggle) return;
+
+        const idPuesto = getPermisosPuestoActual();
+        const puesto = permisosPuestos.find((item) => Number(item.id) === idPuesto);
+        toggle.textContent = puesto ? etiquetaPermisosPuesto(puesto) : (permisosPuestos.length ? 'Selecciona un puesto' : 'Cargando puestos...');
+    }
+
+    function renderPermisosPuestoOptions() {
+        const options = $('chPermisosPuestoOptions');
+        if (!options) return;
+
+        const selectedId = getPermisosPuestoActual();
+        const filtro = normalizarTexto(permisosPuestoFiltro);
+        const puestosFiltrados = permisosPuestos.filter((puesto) => {
+            const texto = normalizarTexto(`${etiquetaPermisosPuesto(puesto)} ${puesto.direccion || ''} ${puesto.area || ''}`);
+            return filtro === '' || texto.includes(filtro);
+        });
+
+        if (!permisosPuestos.length) {
+            options.innerHTML = '<div class="text-muted text-center py-3">Cargando puestos...</div>';
+            return;
+        }
+
+        const placeholder = `
+            <button type="button" class="ch-search-select-option ${selectedId ? '' : 'active'}" data-id="">
+                Selecciona un puesto
+            </button>
+        `;
+
+        const filas = puestosFiltrados.map((puesto) => {
+            const id = Number(puesto.id);
+            const active = id === selectedId ? 'active' : '';
+            return `
+                <button type="button" class="ch-search-select-option ${active}" data-id="${esc(id)}">
+                    <span class="d-block">${esc(etiquetaPermisosPuesto(puesto))}</span>
+                    <small class="text-muted">${esc(puesto.direccion || 'Sin direccion')} / ${esc(puesto.area || 'Sin area')}</small>
+                </button>
+            `;
+        }).join('');
+
+        options.innerHTML = placeholder + (filas || '<div class="text-muted text-center py-3">Sin coincidencias</div>');
+    }
+
+    function setPermisosPuestoMenu(open) {
+        const menu = $('chPermisosPuestoMenu');
+        const toggle = $('chPermisosPuestoToggle');
+        const search = $('chPermisosPuestoSearch');
+        if (!menu || !toggle) return;
+
+        menu.classList.toggle('d-none', !open);
+        toggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+        if (open) {
+            permisosPuestoFiltro = '';
+            if (search) search.value = '';
+            renderPermisosPuestoOptions();
+            window.setTimeout(() => search && search.focus(), 0);
+        }
+    }
+
+    function seleccionarPermisosPuesto(idPuesto) {
+        const select = $('chPermisosPuestoSelect');
+        if (!select) return;
+
+        select.value = idPuesto ? String(idPuesto) : '';
+        actualizarPermisosPuestoToggle();
+        renderPermisosPuestoOptions();
+        setPermisosPuestoMenu(false);
+        cargarPermisosPuesto(Number(idPuesto || 0));
+    }
+
+    async function cargarPermisosPuestoConfig() {
+        if (permisosConfigLoaded) {
+            return;
+        }
+
+        $('chPermisosModulos').innerHTML = '<div class="col-12"><div class="text-center text-muted py-4"><i class="fa-solid fa-spinner fa-spin me-2"></i>Cargando permisos...</div></div>';
+
+        try {
+            const response = await fetch('/caphum/getPermisosPuestoConfig', { headers: { Accept: 'application/json' } });
+            const json = await response.json();
+            if (!json.success) {
+                throw new Error(json.mensaje || 'No se pudo cargar la configuracion.');
+            }
+
+            const data = json.datos || {};
+            permisosPuestos = Array.isArray(data.puestos) ? data.puestos : [];
+            permisosModulos = Array.isArray(data.modulos) ? data.modulos : [];
+            permisosSeleccionados = new Set((data.seleccionados || []).map((id) => Number(id)));
+            permisosConfigLoaded = true;
+            renderPermisosPuestoSelect();
+            renderPermisosModulos();
+        } catch (error) {
+            $('chPermisosPuestoSelect').innerHTML = '<option value="">No se pudieron cargar puestos</option>';
+            const toggle = $('chPermisosPuestoToggle');
+            if (toggle) toggle.textContent = 'No se pudieron cargar puestos';
+            const options = $('chPermisosPuestoOptions');
+            if (options) options.innerHTML = '<div class="text-muted text-center py-3">No se pudieron cargar puestos.</div>';
+            $('chPermisosModulos').innerHTML = `<div class="col-12"><div class="alert alert-danger mb-0">${esc(error.message || 'Error al cargar permisos.')}</div></div>`;
+        }
+    }
+
+    function renderPermisosPuestoSelect() {
+        const select = $('chPermisosPuestoSelect');
+        if (!select) return;
+
+        select.innerHTML = '<option value="">Selecciona un puesto</option>' + permisosPuestos.map((puesto) => {
+            const etiqueta = `${puesto.nombre || 'Puesto'} - ${puesto.departamento || 'Sin departamento'}`;
+            return `<option value="${esc(puesto.id)}">${esc(etiqueta)}</option>`;
+        }).join('');
+        actualizarPermisosPuestoToggle();
+        renderPermisosPuestoOptions();
+        renderPermisosMeta();
+    }
+
+    async function cargarPermisosPuesto(idPuesto) {
+        if (!idPuesto) {
+            permisosSeleccionados = new Set();
+            renderPermisosMeta();
+            renderPermisosModulos();
+            return;
+        }
+
+        $('chPermisosResumen').textContent = 'Cargando...';
+        try {
+            const response = await fetch('/caphum/getPermisosPuesto', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+                body: JSON.stringify({ id_puesto: idPuesto })
+            });
+            const json = await response.json();
+            if (!json.success) {
+                throw new Error(json.mensaje || 'No se pudieron cargar los permisos del puesto.');
+            }
+            permisosSeleccionados = new Set(((json.datos || {}).seleccionados || []).map((id) => Number(id)));
+            renderPermisosMeta();
+            renderPermisosModulos();
+        } catch (error) {
+            chToast('error', 'No se pudo cargar', error.message || 'Error al cargar permisos del puesto.');
+            renderPermisosMeta();
+            renderPermisosModulos();
+        }
+    }
+
+    function renderPermisosMeta() {
+        const idPuesto = getPermisosPuestoActual();
+        const puesto = permisosPuestos.find((item) => Number(item.id) === idPuesto);
+        const total = permisosSeleccionados.size;
+
+        $('chPermisosResumen').textContent = idPuesto ? `${total} permisos seleccionados` : 'Selecciona un puesto';
+        $('chPermisosPuestoMeta').textContent = puesto
+            ? `${puesto.direccion || 'Sin direccion'} / ${puesto.area || 'Sin area'} / ${puesto.departamento || 'Sin departamento'}`
+            : '';
+    }
+
+    function renderPermisosModulos() {
+        const container = $('chPermisosModulos');
+        if (!container) return;
+
+        const idPuesto = getPermisosPuestoActual();
+        if (!idPuesto) {
+            container.innerHTML = '<div class="col-12"><div class="text-center text-muted py-4 border rounded">Selecciona un puesto para configurar permisos.</div></div>';
+            return;
+        }
+
+        const filtro = normalizarTexto(permisosFiltro);
+        const modulos = permisosModulos.filter((modulo) => {
+            const texto = normalizarTexto(`${modulo.modulo_nombre || ''} ${modulo.pestana || ''} ${modulo.descripcion || ''}`);
+            return filtro === '' || texto.includes(filtro);
+        });
+
+        if (!modulos.length) {
+            container.innerHTML = '<div class="col-12"><div class="text-center text-muted py-4 border rounded">No se encontraron permisos con ese filtro.</div></div>';
+            return;
+        }
+
+        container.innerHTML = modulos.map((modulo) => {
+            const id = Number(modulo.id);
+            const checked = permisosSeleccionados.has(id) ? 'checked' : '';
+            return `
+                <div class="col-12 col-md-6 col-xl-4">
+                    <label class="border rounded p-3 h-100 d-flex gap-3 align-items-start bg-white">
+                        <input type="checkbox" class="form-check-input mt-1 ch-perm-check" value="${esc(id)}" ${checked}>
+                        <span class="d-block">
+                            <span class="fw-bold d-block">${esc(modulo.pestana || modulo.modulo_nombre || 'Permiso')}</span>
+                            <span class="badge bg-label-secondary text-secondary my-2">${esc(modulo.modulo_nombre || 'Modulo')}</span>
+                            <small class="text-muted d-block">${esc(modulo.descripcion || 'Sin descripcion')}</small>
+                        </span>
+                    </label>
+                </div>
+            `;
+        }).join('');
+
+        document.querySelectorAll('.ch-perm-check').forEach((check) => {
+            check.addEventListener('change', () => {
+                const id = Number(check.value);
+                if (check.checked) {
+                    permisosSeleccionados.add(id);
+                } else {
+                    permisosSeleccionados.delete(id);
+                }
+                renderPermisosMeta();
+            });
+        });
+    }
+
+    async function guardarPermisosPuesto() {
+        const idPuesto = getPermisosPuestoActual();
+        if (!idPuesto) {
+            chToast('warning', 'Selecciona un puesto', 'Primero selecciona el puesto que recibira esta plantilla.');
+            return;
+        }
+
+        const btn = $('chPermisosGuardar');
+        const original = btn.innerHTML;
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin me-1"></i>Guardando...';
+
+        try {
+            const response = await fetch('/caphum/guardarPermisosPuesto', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+                body: JSON.stringify({ id_puesto: idPuesto, modulos: [...permisosSeleccionados] })
+            });
+            const json = await response.json();
+            if (!json.success) {
+                throw new Error(json.mensaje || 'No se pudo guardar la plantilla.');
+            }
+            permisosSeleccionados = new Set(((json.datos || {}).seleccionados || [...permisosSeleccionados]).map((id) => Number(id)));
+            renderPermisosMeta();
+            renderPermisosModulos();
+            chToast('success', 'Listo', 'Plantilla de permisos guardada.');
+        } catch (error) {
+            chToast('error', 'No se pudo guardar', error.message || 'Error al guardar permisos.');
+        } finally {
+            btn.disabled = false;
+            btn.innerHTML = original;
+        }
     }
 
     function initSelects() {
@@ -925,6 +1389,9 @@ window.CH_PERFILES_PUESTOS_DATA = <?= $perfilesPuestosJson ?? '{"meta":{},"perfi
             <option value="${esc(perfil.key)}">${esc(perfil.nombre)} · ${esc(perfil.departamento)}</option>
         `).join('');
 
+        actualizarPerfilToggle();
+        renderPerfilOptions();
+
         const areas = [...new Set(equipoBase.map((item) => item.area))].sort();
         const niveles = [...new Set(equipoBase.map((item) => item.nivel))].sort();
         $('chFiltroArea').innerHTML = '<option value="">Todas las áreas</option>' + areas.map((area) => `<option value="${esc(area)}">${esc(area)}</option>`).join('');
@@ -938,17 +1405,112 @@ window.CH_PERFILES_PUESTOS_DATA = <?= $perfilesPuestosJson ?? '{"meta":{},"perfi
                 document.querySelectorAll('[data-ch-view]').forEach((item) => item.classList.toggle('active', item === btn));
                 $('chPanelPerfil').classList.toggle('active', view === 'perfil');
                 $('chPanelEquipo').classList.toggle('active', view === 'equipo');
+                $('chPanelPermisos').classList.toggle('active', view === 'permisos');
+                if (view === 'permisos') {
+                    cargarPermisosPuestoConfig();
+                }
             });
         });
 
-        $('chPerfilSelect').addEventListener('change', (event) => renderPerfil(event.target.value));
+        $('chPerfilSelect').addEventListener('change', (event) => {
+            actualizarPerfilToggle();
+            renderPerfilOptions();
+            renderPerfil(event.target.value);
+        });
+        const perfilToggle = $('chPerfilToggle');
+        if (perfilToggle) {
+            perfilToggle.addEventListener('click', () => {
+                const menu = $('chPerfilMenu');
+                setPerfilMenu(menu ? menu.classList.contains('d-none') : true);
+            });
+        }
+        const perfilSearch = $('chPerfilSearch');
+        if (perfilSearch) {
+            perfilSearch.addEventListener('input', (event) => {
+                perfilFiltro = event.target.value || '';
+                renderPerfilOptions();
+            });
+            perfilSearch.addEventListener('keydown', (event) => {
+                if (event.key === 'Escape') setPerfilMenu(false);
+            });
+        }
+        const perfilOptions = $('chPerfilOptions');
+        if (perfilOptions) {
+            perfilOptions.addEventListener('click', (event) => {
+                const option = event.target.closest('[data-perfil-key]');
+                if (!option) return;
+                seleccionarPerfil(option.getAttribute('data-perfil-key'));
+            });
+        }
+        document.addEventListener('click', (event) => {
+            const picker = $('chPerfilPicker');
+            if (picker && !picker.contains(event.target)) {
+                setPerfilMenu(false);
+            }
+        });
         $('chBtnRestaurarPerfil').addEventListener('click', () => {
-            $('chPerfilSelect').value = perfiles[0].key;
-            renderPerfil(perfiles[0].key);
+            seleccionarPerfil(perfiles[0].key);
         });
         $('chBtnAplicarEquipo').addEventListener('click', renderEquipo);
         $('chFiltroArea').addEventListener('change', renderEquipo);
         $('chFiltroNivel').addEventListener('change', renderEquipo);
+
+        const puestoSelect = $('chPermisosPuestoSelect');
+        if (puestoSelect) {
+            puestoSelect.addEventListener('change', (event) => {
+                actualizarPermisosPuestoToggle();
+                renderPermisosPuestoOptions();
+                cargarPermisosPuesto(Number(event.target.value || 0));
+            });
+        }
+        const puestoToggle = $('chPermisosPuestoToggle');
+        if (puestoToggle) {
+            puestoToggle.addEventListener('click', () => {
+                const menu = $('chPermisosPuestoMenu');
+                setPermisosPuestoMenu(menu ? menu.classList.contains('d-none') : true);
+            });
+        }
+        const puestoSearch = $('chPermisosPuestoSearch');
+        if (puestoSearch) {
+            puestoSearch.addEventListener('input', (event) => {
+                permisosPuestoFiltro = event.target.value || '';
+                renderPermisosPuestoOptions();
+            });
+            puestoSearch.addEventListener('keydown', (event) => {
+                if (event.key === 'Escape') setPermisosPuestoMenu(false);
+            });
+        }
+        const puestoOptions = $('chPermisosPuestoOptions');
+        if (puestoOptions) {
+            puestoOptions.addEventListener('click', (event) => {
+                const option = event.target.closest('[data-id]');
+                if (!option) return;
+                seleccionarPermisosPuesto(Number(option.getAttribute('data-id') || 0));
+            });
+        }
+        document.addEventListener('click', (event) => {
+            const picker = $('chPermisosPuestoPicker');
+            if (picker && !picker.contains(event.target)) {
+                setPermisosPuestoMenu(false);
+            }
+        });
+        $('chPermisosBuscar').addEventListener('input', (event) => {
+            permisosFiltro = event.target.value || '';
+            renderPermisosModulos();
+        });
+        $('chPermisosMarcarTodo').addEventListener('click', () => {
+            if (!getPermisosPuestoActual()) return;
+            permisosModulos.forEach((modulo) => permisosSeleccionados.add(Number(modulo.id)));
+            renderPermisosMeta();
+            renderPermisosModulos();
+        });
+        $('chPermisosLimpiar').addEventListener('click', () => {
+            if (!getPermisosPuestoActual()) return;
+            permisosSeleccionados = new Set();
+            renderPermisosMeta();
+            renderPermisosModulos();
+        });
+        $('chPermisosGuardar').addEventListener('click', guardarPermisosPuesto);
     }
 
     initSelects();

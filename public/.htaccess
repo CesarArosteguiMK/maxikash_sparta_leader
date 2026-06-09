@@ -1,5 +1,22 @@
 Options -Multiviews
 
+<IfModule mod_php.c>
+    php_value upload_max_filesize 256M
+    php_value post_max_size 256M
+    php_value max_file_uploads 200
+    php_value memory_limit 1024M
+    php_value max_execution_time 0
+    php_value max_input_time -1
+</IfModule>
+<IfModule php_module>
+    php_value upload_max_filesize 256M
+    php_value post_max_size 256M
+    php_value max_file_uploads 200
+    php_value memory_limit 1024M
+    php_value max_execution_time 0
+    php_value max_input_time -1
+</IfModule>
+
 RewriteEngine On
 
 RewriteCond %{REQUEST_FILENAME} !-d

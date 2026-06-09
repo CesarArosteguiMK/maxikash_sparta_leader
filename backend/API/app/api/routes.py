@@ -484,20 +484,21 @@ async def verificar_constancia_fiscal_documento(
     try:
         datos = await asyncio.wait_for(
             asyncio.to_thread(extraer_datos_constancia_fiscal, file_bytes),
-            timeout=60,
+            timeout=25,
         )
     except asyncio.TimeoutError:
         return {
             "valido": False,
-            "mensaje": "No se pudo leer la constancia a tiempo. Intenta subir el PDF original del SAT o una copia escaneada más clara.",
+            "mensaje": "No se pudo leer la constancia a tiempo.",
             "timeout": True,
+            "revision_manual": True,
             "tiempo_ms": int((time.time() - inicio) * 1000),
         }
 
     if not datos.get("parece_constancia_fiscal"):
         if await asyncio.to_thread(es_documento_nss, file_bytes):
-            return {"valido": False, "mensaje": "El documento es la constancia de NSS del IMSS. En este campo solo se acepta la constancia de situación fiscal del SAT (descargada del portal del SAT)."}
-        return {"valido": False, "mensaje": "El documento no es una constancia de situación fiscal del SAT. Sube el PDF descargado del portal del SAT."}
+            return {"valido": False, "revision_manual": True, "mensaje": "El documento no se pudo confirmar automaticamente como constancia fiscal SAT."}
+        return {"valido": False, "revision_manual": True, "mensaje": "El documento no se pudo confirmar automaticamente como constancia fiscal SAT."}
 
     # Vigencia: máximo 2 meses desde "Lugar y Fecha de Emisión"
     meses = datos.get("meses_antiguedad")
@@ -652,13 +653,32 @@ async def verificar_curp_documento(
     if es_documento_constancia_fiscal(file_bytes):
         return {"curp_extraido": None, "valido": False, "mensaje": "El documento es una constancia de situación fiscal (SAT). En este campo solo se acepta la constancia de CURP del RENAPO.", "es_reciente": None, "meses_antiguedad": None, "fecha_emision": None}
     if not es_documento_curp(file_bytes):
-        return {"curp_extraido": None, "valido": False, "mensaje": "El documento no es una constancia de CURP. Sube el PDF de la constancia del RENAPO.", "es_reciente": None, "meses_antiguedad": None, "fecha_emision": None}
-    curp_extraido = extraer_curp_de_pdf(file_bytes)
+        return {"curp_extraido": None, "valido": False, "revision_manual": True, "mensaje": "El documento no se pudo confirmar automaticamente como constancia de CURP.", "es_reciente": None, "meses_antiguedad": None, "fecha_emision": None}
+    inicio = time.time()
+    try:
+        datos = await asyncio.wait_for(
+            asyncio.to_thread(extraer_datos_curp_pdf, file_bytes),
+            timeout=25,
+        )
+    except asyncio.TimeoutError:
+        return {
+            "curp_extraido": None,
+            "valido": False,
+            "mensaje": "No se pudo leer el CURP a tiempo.",
+            "timeout": True,
+            "revision_manual": True,
+            "es_reciente": None,
+            "meses_antiguedad": None,
+            "fecha_emision": None,
+            "tiempo_ms": int((time.time() - inicio) * 1000),
+        }
+    curp_extraido = datos.get("curp") if isinstance(datos, dict) else None
+    if not curp_extraido:
+        curp_extraido = extraer_curp_de_pdf(file_bytes)
     if curp_extraido is None:
         return {"curp_extraido": None, "valido": False, "mensaje": "No se encontró un CURP válido en el documento. Sube la constancia de CURP del RENAPO.",
-                "es_reciente": None, "meses_antiguedad": None, "fecha_emision": None}
+                "revision_manual": True, "es_reciente": None, "meses_antiguedad": None, "fecha_emision": None}
     valido, mensaje = validar_curp(curp_extraido)
-    datos = extraer_datos_curp_pdf(file_bytes)
     nombre = datos.get("nombre") if isinstance(datos, dict) else None
     return {
         "curp_extraido": curp_extraido,

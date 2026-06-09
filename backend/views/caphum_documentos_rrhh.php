@@ -55,6 +55,91 @@
             text-align: center;
             width: 100%;
         }
+        .docs-rrhh-actions {
+            align-items: center;
+            display: inline-flex;
+            flex-wrap: wrap;
+            gap: 7px;
+            justify-content: center;
+            min-width: 90px;
+        }
+        .docs-rrhh-action-btn {
+            align-items: center;
+            display: inline-flex;
+            height: 34px;
+            justify-content: center;
+            padding: 0 !important;
+            width: 42px;
+        }
+        .docs-rrhh-trayectoria-list {
+            position: relative;
+            padding: 0.25rem 0 0.25rem 1.35rem;
+        }
+        .docs-rrhh-trayectoria-list::before {
+            content: "";
+            position: absolute;
+            left: 0.5rem;
+            top: 0.75rem;
+            bottom: 0.75rem;
+            border-left: 2px dashed #cbd5e1;
+        }
+        .docs-rrhh-trayectoria-item {
+            position: relative;
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) auto;
+            gap: 0.85rem;
+            padding: 0.45rem 0 1rem 1rem;
+        }
+        .docs-rrhh-trayectoria-item::before {
+            content: "";
+            position: absolute;
+            left: -0.04rem;
+            top: 0.65rem;
+            width: 0.8rem;
+            height: 0.8rem;
+            border-radius: 50%;
+            background: #fff;
+            border: 3px solid var(--docs-trayectoria-color, #2563eb);
+            box-shadow: 0 0 0 3px #fff;
+        }
+        .docs-rrhh-trayectoria-title {
+            color: #1e293b;
+            font-size: 0.86rem;
+            font-weight: 900;
+            line-height: 1.25;
+            text-transform: uppercase;
+        }
+        .docs-rrhh-trayectoria-actor,
+        .docs-rrhh-trayectoria-detail,
+        .docs-rrhh-trayectoria-date {
+            color: #64748b;
+            font-size: 0.78rem;
+            font-weight: 700;
+        }
+        .docs-rrhh-trayectoria-date {
+            text-align: right;
+            white-space: nowrap;
+        }
+        .docs-rrhh-trayectoria-meta {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+            margin-top: 7px;
+        }
+        .docs-rrhh-trayectoria-chip {
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 999px;
+            color: #475569;
+            font-size: 0.74rem;
+            font-weight: 700;
+            line-height: 1.25;
+            padding: 4px 8px;
+        }
+        .docs-rrhh-trayectoria-chip strong {
+            color: #1e293b;
+            font-weight: 900;
+        }
     </style>
     <div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-4">
         <div class="d-flex align-items-center gap-3">
@@ -322,6 +407,29 @@
     </div>
 </div>
 
+<div class="modal fade" id="docsRrhhTrayectoriaModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header">
+                <div>
+                    <h5 class="modal-title mb-1"><i class="fa-solid fa-route me-1"></i>Trayectoria laboral</h5>
+                    <div class="text-muted small" id="docsRrhhTrayectoriaSubtitulo"></div>
+                </div>
+                <span class="badge bg-light text-dark ms-auto me-3" id="docsRrhhTrayectoriaTotal">0 movimientos</span>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <div class="modal-body">
+                <div id="docsRrhhTrayectoriaBody" class="docs-rrhh-trayectoria-list">
+                    <div class="text-muted small py-3">Selecciona un colaborador para consultar su trayectoria.</div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-warning" data-bs-dismiss="modal">Cerrar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <script>
 (function () {
     let colaboradores = [];
@@ -373,7 +481,11 @@
         pdfZoomIn: document.getElementById('docsRrhhPdfZoomIn'),
         pdfFitWidth: document.getElementById('docsRrhhPdfFitWidth'),
         pdfZoomReset: document.getElementById('docsRrhhPdfZoomReset'),
-        pdfZoomLabel: document.getElementById('docsRrhhPdfZoomLabel')
+        pdfZoomLabel: document.getElementById('docsRrhhPdfZoomLabel'),
+        trayectoriaModal: document.getElementById('docsRrhhTrayectoriaModal'),
+        trayectoriaSubtitulo: document.getElementById('docsRrhhTrayectoriaSubtitulo'),
+        trayectoriaTotal: document.getElementById('docsRrhhTrayectoriaTotal'),
+        trayectoriaBody: document.getElementById('docsRrhhTrayectoriaBody')
     };
 
     function escapeHtml(value) {
@@ -892,9 +1004,14 @@
                             <div class="small text-muted">${escapeHtml(faltantesResumen)}</div>
                         </td>
                         <td class="text-center">
-                            <button type="button" class="btn btn-sm btn-primary" data-docs-detalle="${Number(col.id_persona || 0)}" title="Ver detalle">
-                                <i class="fa-solid fa-eye"></i>
-                            </button>
+                            <div class="docs-rrhh-actions">
+                                <button type="button" class="btn btn-sm btn-primary docs-rrhh-action-btn" data-docs-detalle="${Number(col.id_persona || 0)}" title="Ver detalle">
+                                    <i class="fa-solid fa-eye"></i>
+                                </button>
+                                <button type="button" class="btn btn-sm btn-outline-warning docs-rrhh-action-btn" data-docs-trayectoria="${Number(col.id_persona || 0)}" title="Ver trayectoria laboral">
+                                    <i class="fa-solid fa-route"></i>
+                                </button>
+                            </div>
                         </td>
                     </tr>
                 `;
@@ -961,6 +1078,156 @@
             bootstrap.Modal.getOrCreateInstance(els.modal).show();
         } else if (window.jQuery) {
             window.jQuery(els.modal).modal('show');
+        }
+    }
+
+    function formatoFechaTrayectoria(value) {
+        if (!value) return '';
+        const raw = String(value).replace('T', ' ');
+        const fecha = raw.slice(0, 10).split('-');
+        const hora = raw.length > 10 ? raw.slice(11, 19) : '';
+        return fecha.length === 3 ? `${fecha[2]}/${fecha[1]}/${fecha[0]}${hora ? ' ' + hora : ''}` : raw;
+    }
+
+    function configTrayectoria(accion) {
+        const key = String(accion || '').toLowerCase();
+        const mapa = {
+            alta_puesto: ['Asignaci\u00f3n inicial de puesto', '#2563eb'],
+            agrego_puesto: ['Agreg\u00f3 puesto al colaborador', '#16a34a'],
+            removio_puesto: ['Removi\u00f3 puesto del colaborador', '#dc2626'],
+            ascenso_puesto: ['Aumento de puesto', '#7c3aed'],
+            cambio_puesto_principal: ['Cambi\u00f3 puesto principal', '#0891b2'],
+            puesto_actual: ['Puesto actual', '#64748b']
+        };
+        return mapa[key] || ['Movimiento de puesto', '#f97316'];
+    }
+
+    function origenTrayectoria(origen) {
+        const key = String(origen || '').toLowerCase();
+        const mapa = {
+            alta_gestion_personal: 'Alta en Gesti\u00f3n de personal',
+            edicion_gestion_personal: 'Edici\u00f3n en Gesti\u00f3n de personal',
+            alta_rrhh: 'Alta desde RR.HH.',
+            edicion_rrhh: 'Edici\u00f3n desde RR.HH.',
+            semilla_estado_actual: 'L\u00ednea base desde puesto actual',
+            estado_actual: 'Estado actual'
+        };
+        return mapa[key] || origen || '';
+    }
+
+    function detalleTrayectoria(item) {
+        const anterior = item?.nombre_puesto_anterior || '';
+        const nuevo = item?.nombre_puesto_nuevo || '';
+        const deptoAnterior = item?.nombre_departamento_anterior || '';
+        const deptoNuevo = item?.nombre_departamento_nuevo || '';
+        const accion = String(item?.accion || '').toLowerCase();
+        if (accion === 'removio_puesto') {
+            return [anterior, deptoAnterior].filter(Boolean).join(' / ');
+        }
+        if (anterior && nuevo && anterior !== nuevo) {
+            return `${anterior} -> ${nuevo}${deptoNuevo ? ' / ' + deptoNuevo : ''}`;
+        }
+        return [nuevo || anterior, deptoNuevo || deptoAnterior, item?.motivo || ''].filter(Boolean).join(' / ');
+    }
+
+    function metaTrayectoria(item) {
+        const chips = [];
+        const add = (label, value) => {
+            const text = String(value || '').trim();
+            if (text) chips.push([label, text]);
+        };
+        const fechaMovimiento = item?.fecha_movimiento || item?.creado_at || '';
+        const fechaAsignacionNueva = item?.fecha_asignacion_nueva || '';
+        const fechaAsignacionAnterior = item?.fecha_asignacion_anterior || '';
+        const origenRaw = String(item?.origen || '').toLowerCase();
+        const esLineaBase = origenRaw === 'semilla_estado_actual' || origenRaw === 'estado_actual';
+        const mismaFechaNueva = fechaMovimiento && fechaAsignacionNueva
+            && String(fechaMovimiento).slice(0, 19) === String(fechaAsignacionNueva).slice(0, 19);
+        const origen = origenTrayectoria(item?.origen || '');
+        const nivelAnterior = item?.nivel_anterior;
+        const nivelNuevo = item?.nivel_nuevo;
+
+        add('Fecha movimiento', formatoFechaTrayectoria(fechaMovimiento));
+        if (fechaAsignacionNueva && !mismaFechaNueva) {
+            add('Asignaci\u00f3n nuevo puesto', formatoFechaTrayectoria(fechaAsignacionNueva));
+        }
+        if (fechaAsignacionAnterior) {
+            add('Asignaci\u00f3n puesto anterior', formatoFechaTrayectoria(fechaAsignacionAnterior));
+        }
+        if (!esLineaBase) {
+            if (nivelAnterior !== null && nivelAnterior !== undefined && nivelAnterior !== '' && nivelNuevo !== null && nivelNuevo !== undefined && nivelNuevo !== '' && String(nivelAnterior) !== String(nivelNuevo)) {
+                add('Nivel', `${nivelAnterior} -> ${nivelNuevo}`);
+            } else if (nivelNuevo !== null && nivelNuevo !== undefined && nivelNuevo !== '') {
+                add('Nivel', nivelNuevo);
+            }
+            add('Origen', origen);
+            add('Motivo', item?.motivo || '');
+        }
+
+        return chips;
+    }
+
+    function renderTrayectoria(items) {
+        const lista = Array.isArray(items) ? items : [];
+        if (els.trayectoriaTotal) {
+            els.trayectoriaTotal.textContent = `${lista.length} movimiento${lista.length === 1 ? '' : 's'}`;
+        }
+        if (!els.trayectoriaBody) return;
+        if (!lista.length) {
+            els.trayectoriaBody.innerHTML = '<div class="text-muted small py-3">Sin movimientos de puesto registrados todavia.</div>';
+            return;
+        }
+        els.trayectoriaBody.innerHTML = lista.map(item => {
+            const [titulo, color] = configTrayectoria(item.accion);
+            const actor = item.responsable_nombre || 'Sistema';
+            const fecha = formatoFechaTrayectoria(item.fecha_movimiento || item.creado_at || item.fecha_asignacion_nueva);
+            const detalle = detalleTrayectoria(item);
+            const chips = metaTrayectoria(item)
+                .map(([label, value]) => `<span class="docs-rrhh-trayectoria-chip"><strong>${escapeHtml(label)}:</strong> ${escapeHtml(value)}</span>`)
+                .join('');
+            return `
+                <div class="docs-rrhh-trayectoria-item" style="--docs-trayectoria-color:${escapeHtml(color)}">
+                    <div class="min-w-0">
+                        <div class="docs-rrhh-trayectoria-title">${escapeHtml(titulo)}</div>
+                        <div class="docs-rrhh-trayectoria-actor">${escapeHtml(actor)}</div>
+                        ${detalle ? `<div class="docs-rrhh-trayectoria-detail">${escapeHtml(detalle)}</div>` : ''}
+                        ${chips ? `<div class="docs-rrhh-trayectoria-meta">${chips}</div>` : ''}
+                    </div>
+                    <div class="docs-rrhh-trayectoria-date">${escapeHtml(fecha)}</div>
+                </div>
+            `;
+        }).join('');
+    }
+
+    async function abrirTrayectoria(idPersona) {
+        const col = colaboradores.find(item => Number(item.id_persona || 0) === Number(idPersona));
+        if (els.trayectoriaSubtitulo) {
+            els.trayectoriaSubtitulo.textContent = col
+                ? `# ${col.numero_empleado || ''} - ${col.nombre_completo || 'Colaborador'}`
+                : 'Colaborador';
+        }
+        if (els.trayectoriaBody) {
+            els.trayectoriaBody.innerHTML = '<div class="text-muted small py-3"><span class="spinner-border spinner-border-sm me-2"></span>Cargando trayectoria...</div>';
+        }
+        if (els.trayectoriaTotal) els.trayectoriaTotal.textContent = '0 movimientos';
+        if (window.bootstrap && bootstrap.Modal) {
+            bootstrap.Modal.getOrCreateInstance(els.trayectoriaModal).show();
+        } else if (window.jQuery) {
+            window.jQuery(els.trayectoriaModal).modal('show');
+        }
+        try {
+            const response = await fetch('/CapHum/getTrayectoriaPuestoPersona', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+                body: JSON.stringify({ id_persona: Number(idPersona || 0) })
+            });
+            const json = await response.json();
+            if (!json.success) throw new Error(json.mensaje || 'No se pudo cargar la trayectoria.');
+            renderTrayectoria(json.datos || []);
+        } catch (err) {
+            if (els.trayectoriaBody) {
+                els.trayectoriaBody.innerHTML = `<div class="text-danger small py-3">${escapeHtml(err.message || 'No se pudo cargar la trayectoria.')}</div>`;
+            }
         }
     }
 
@@ -1056,8 +1323,15 @@
         importAbrirDocumento(btn.getAttribute('data-import-preview'));
     });
     els.body.addEventListener('click', function (event) {
-        const btn = event.target.closest('[data-docs-detalle]');
-        if (btn) abrirDetalle(btn.getAttribute('data-docs-detalle'));
+        const detalleBtn = event.target.closest('[data-docs-detalle]');
+        if (detalleBtn) {
+            abrirDetalle(detalleBtn.getAttribute('data-docs-detalle'));
+            return;
+        }
+        const trayectoriaBtn = event.target.closest('[data-docs-trayectoria]');
+        if (trayectoriaBtn) {
+            abrirTrayectoria(trayectoriaBtn.getAttribute('data-docs-trayectoria'));
+        }
     });
     document.addEventListener('DOMContentLoaded', cargarResumen);
 })();
