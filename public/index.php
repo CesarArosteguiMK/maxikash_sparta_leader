@@ -295,6 +295,12 @@ if ($solicitaCierreCreditoAjaxSinSesion) {
 }
 
 if ((!isset($_SESSION['login']) && !$esCrearTicketWhatsApp && !$esSubirDocCandidato && !$esDocVerificacionProxy && !$esDescargarDocCandidato && !$esLlenarSolicitudEnLinea && !$esObtenerPlantillaSolicitudPdf && !$esSegundometroAgenteInterno) || strtolower($urlSolicitada[0]) === strtolower(LOGIN)) {
+    if (!isset($_SESSION['login']) && solicitudEsFrontRequest()) {
+        header('Content-Type: application/json; charset=utf-8');
+        http_response_code(401);
+        echo json_encode(['success' => false, 'mensaje' => 'Sesion expirada. Vuelva a iniciar sesion.']);
+        exit;
+    }
     $login = 'Controllers\\' . LOGIN;
     $login = new $login;
 
@@ -341,7 +347,7 @@ $rutasModulos = [
     'estadocuenta/validarcredito' => [1],
     'estadocuenta/getcomplementosestadocuenta' => [1],
     'gestiones/seguimiento' => [3],
-    'caphum/gestion' => [4], 'caphum/gettrayectoriapuestopersona' => [4, 88], 'caphum/analizarimportaciondocumentosrrhh' => [4, 88], 'caphum/importardocumentosrrhh' => [4, 88], 'caphum/previsualizarimportaciondocumentosrrhh' => [4, 88], 'caphum/documentoscolaborador' => [92], 'caphum/getresumendocumentoscolaborador' => [92], 'caphum/documentosrrhh' => [93], 'caphum/getresumendocumentosrrhh' => [93], 'caphum/actualizacionesinfo' => [83], 'caphum/obtenerdatosactualizacioninfopersona' => [82], 'caphum/obtenerdatosactualizacioninfopersonas' => [82], 'caphum/guardaractualizacioninfopersona' => [82], 'caphum/candidatos' => [42], 'caphum/getcandidatos' => [42], 'caphum/getcandidato' => [42], 'caphum/guardarcandidato' => [42], 'caphum/actualizarcandidato' => [42], 'caphum/eliminarcandidato' => [42], 'caphum/enviarpostulacioncandidato' => [42], 'caphum/gettokendocumentoscandidato' => [42], 'caphum/getdocumentoscandidatolist' => [42], 'caphum/verificarexpedientecandidato' => [42], 'caphum/verdocumentocandidato' => [42], 'caphum/eliminardocumentocandidato' => [42], 'caphum/validardocumentocandidato' => [42], 'caphum/cerrarprocesocandidato' => [42], 'caphum/continuarprocesocandidato' => [42], 'caphum/pasarcandidatoagestion' => [42],
+    'caphum/gestion' => [4], 'caphum/gettrayectoriapuestopersona' => [4, 88], 'caphum/analizarimportaciondocumentosrrhh' => [4, 88], 'caphum/importardocumentosrrhh' => [4, 88], 'caphum/previsualizarimportaciondocumentosrrhh' => [4, 88], 'caphum/documentoscolaborador' => [92], 'caphum/getresumendocumentoscolaborador' => [92], 'caphum/documentosrrhh' => [93], 'caphum/getresumendocumentosrrhh' => [93], 'caphum/actualizacionesinfo' => [83], 'caphum/obtenerdatosactualizacioninfopersona' => [82], 'caphum/obtenerdatosactualizacioninfopersonas' => [82], 'caphum/guardaractualizacioninfopersona' => [82], 'caphum/candidatos' => [42, 104, 105], 'caphum/getcandidatos' => [42, 104, 105], 'caphum/getcandidato' => [42, 104, 105], 'caphum/guardarcandidato' => [42], 'caphum/actualizarcandidato' => [42], 'caphum/eliminarcandidato' => [42], 'caphum/enviarpostulacioncandidato' => [42], 'caphum/gettokendocumentoscandidato' => [42], 'caphum/getdocumentoscandidatolist' => [42, 104, 105], 'caphum/verificarexpedientecandidato' => [42, 104, 105], 'caphum/verdocumentocandidato' => [42, 104, 105], 'caphum/eliminardocumentocandidato' => [42, 104, 105], 'caphum/validardocumentocandidato' => [42, 104, 105], 'caphum/cerrarprocesocandidato' => [42, 104, 105], 'caphum/continuarprocesocandidato' => [42, 104, 105], 'caphum/pasarcandidatoagestion' => [42, 104, 105],
     'caphum/getpuestos' => [42], 'caphum/getjefedirecto' => [4, 5, 42], 'caphum/getestados' => [42], 'caphum/getmunicipios' => [42], 'caphum/getcolonias' => [42], 'caphum/getcalles' => [42],
     'caphum/bajas' => [13], 'caphum/organigrama' => [5], 'caphum/niveljerarquicocolaborador' => [5], 'caphum/getpuestospersona' => [5], 'caphum/actualizarjefevacante' => [4, 5, 10, 43], 'caphum/actualizarjefepersonaorganigrama' => [4, 5, 10, 43],
     'caphum/estructuraorganizacional' => [86], 'caphum/perfilespuestos' => [91], 'caphum/getpermisospuestoconfig' => [91], 'caphum/getpermisospuesto' => [91], 'caphum/guardarpermisospuesto' => [91], 'caphum/getestructuraorganizacionaljson' => [86], 'caphum/guardarestructuraorganizacionaljson' => [86],
@@ -554,6 +560,12 @@ if (!$esSegundometroAgenteInterno && $modulosRequeridos !== null) {
             }
         }
         if (!$permitirValidacionesOperativa) {
+            if (solicitudEsFrontRequest()) {
+                header('HTTP/1.0 403 Forbidden');
+                header('Content-Type: application/json; charset=utf-8');
+                echo json_encode(['success' => false, 'mensaje' => 'No tienes permiso para realizar esta accion.']);
+                exit;
+            }
             header('Location: /' . VISTA_DEFECTO);
             exit;
         }
