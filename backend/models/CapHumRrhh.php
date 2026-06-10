@@ -11,6 +11,7 @@ class CapHumRrhh extends Model
     private const MODULO_REVISION_ACTUALIZACIONES_RRHH = 83;
     private const MODULO_AGREGAR_USUARIO_RRHH = 87;
     private const MODULO_EDITAR_USUARIO_RRHH = 88;
+    private const MODULO_GESTION_VISUALIZAR_CONTRASENA = 101;
 
     private static function usuarioTieneModuloWeb(int $moduloId): bool
     {
@@ -120,6 +121,8 @@ class CapHumRrhh extends Model
 
     public static function asegurarTablas(Database $db): void
     {
+        CapHum::asegurarTablaTrayectoriaPuesto($db);
+
         $db->CRUD("CREATE TABLE IF NOT EXISTS __SPARTA_SECRET_REDACTED__.persona_datos_rrhh (
             id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
             id_persona INT NOT NULL,
@@ -704,10 +707,11 @@ class CapHumRrhh extends Model
         }
     }
 
-    private static function sincronizarAsignaciones(Database $db, int $idPersona, array $rrhh): void
+    private static function sincronizarAsignaciones(Database $db, int $idPersona, array $rrhh, int $idSesion = 0): void
     {
         $idPuesto = !empty($rrhh['puesto_id']) ? (int) $rrhh['puesto_id'] : null;
         [$idJefe, $idVacanteJefe] = self::jefeSeleccionado($rrhh);
+        $puestosAntes = CapHum::puestosActivosTrayectoria($db, $idPersona);
 
         if ($idPuesto) {
             $existe = $db->queryOne("SELECT id FROM __SPARTA_SECRET_REDACTED__.asigna_puesto WHERE id_persona = :id_persona AND id_puesto = :id_puesto AND activo = 1 LIMIT 1", [
@@ -715,13 +719,24 @@ class CapHumRrhh extends Model
                 'id_puesto' => $idPuesto,
             ]);
             if (!$existe) {
+                $fechaAsignacionCdmx = CapHum::fechaHoraCdmx();
                 $db->CRUD("UPDATE __SPARTA_SECRET_REDACTED__.asigna_puesto SET activo = 0 WHERE id_persona = :id_persona AND activo = 1", ['id_persona' => $idPersona]);
-                $db->CRUD("INSERT INTO __SPARTA_SECRET_REDACTED__.asigna_puesto (id, id_persona, id_puesto, fecha_asignacion, activo) VALUES (DEFAULT, :id_persona, :id_puesto, NOW(), 1)", [
+                $db->CRUD("INSERT INTO __SPARTA_SECRET_REDACTED__.asigna_puesto (id, id_persona, id_puesto, fecha_asignacion, activo) VALUES (DEFAULT, :id_persona, :id_puesto, :fecha_asignacion, 1)", [
                     'id_persona' => $idPersona,
                     'id_puesto' => $idPuesto,
+                    'fecha_asignacion' => $fechaAsignacionCdmx,
                 ]);
             }
         }
+
+        CapHum::registrarCambiosTrayectoriaPuestos(
+            $db,
+            $idPersona,
+            $puestosAntes,
+            CapHum::puestosActivosTrayectoria($db, $idPersona),
+            $idSesion,
+            'edicion_rrhh'
+        );
 
         if ($idJefe || $idVacanteJefe) {
             $actual = $db->queryOne("SELECT id_jefe, id_vacante_jefe FROM __SPARTA_SECRET_REDACTED__.asigna_jefe WHERE id_persona = :id_persona ORDER BY id DESC LIMIT 1", ['id_persona' => $idPersona]);
@@ -891,12 +906,22 @@ class CapHumRrhh extends Model
             ]);
 
             if ($idPuesto) {
+                $fechaAsignacionCdmx = CapHum::fechaHoraCdmx();
                 $db->CRUD("INSERT INTO __SPARTA_SECRET_REDACTED__.asigna_puesto
                     (id, id_persona, id_puesto, fecha_asignacion, activo)
-                    VALUES (DEFAULT, :id_persona, :id_puesto, NOW(), 1)", [
+                    VALUES (DEFAULT, :id_persona, :id_puesto, :fecha_asignacion, 1)", [
                     'id_persona' => $idPersona,
                     'id_puesto' => $idPuesto,
+                    'fecha_asignacion' => $fechaAsignacionCdmx,
                 ]);
+                CapHum::registrarCambiosTrayectoriaPuestos(
+                    $db,
+                    $idPersona,
+                    [],
+                    CapHum::puestosActivosTrayectoria($db, $idPersona),
+                    $idSesion,
+                    'alta_rrhh'
+                );
             }
 
             if ($idJefe || $idVacanteJefe) {
@@ -1029,11 +1054,10 @@ class CapHumRrhh extends Model
 
         try {
             $db = new Database();
-            self::asegurarTablas($db);
 
             $persona = $db->queryOne("
                 SELECT p.id, p.nombres, p.segundo_nombre, p.apellidop, p.apellidom, p.numero_empleado,
-                       p.correo, p.telefono_uno, p.telefono_dos, p.user_name, p.fecha_ingreso, p.id_pais,
+                       p.correo, p.telefono_uno, p.telefono_dos, p.user_name, p.password, p.fecha_ingreso, p.id_pais,
                        p.domicilio_calle_texto, p.codigo_postal, p.curp,
                        r.rfc, r.nss, r.entidad_federativa_rfc, r.anio, r.mes, r.dia,
                        r.fecha_nacimiento, r.sexo
@@ -1059,6 +1083,46 @@ class CapHumRrhh extends Model
                 WHERE id_persona = :id_persona
                 LIMIT 1
             ", ['id_persona' => $idPersona]) ?: [];
+
+            $asignacionPuesto = $db->queryOne("
+                SELECT
+                    ap.id_puesto AS puesto_id,
+                    pu.nombre AS puesto_texto,
+                    pu.departamento_id AS departamento_id,
+                    dep.nombre AS departamento_texto,
+                    dorg.id AS area_id,
+                    dorg.nombre AS area_texto,
+                    dir.id AS direccion_id,
+                    dir.nombre AS direccion_texto
+                FROM __SPARTA_SECRET_REDACTED__.asigna_puesto ap
+                INNER JOIN __SPARTA_SECRET_REDACTED__.puesto pu ON pu.id = ap.id_puesto
+                LEFT JOIN __SPARTA_SECRET_REDACTED__.departamento dep ON dep.id = pu.departamento_id
+                LEFT JOIN __SPARTA_SECRET_REDACTED__.departamento_organizacional dorg ON dorg.id = dep.id_departamento_organizacional
+                LEFT JOIN __SPARTA_SECRET_REDACTED__.asigna_direcciones ad
+                       ON ad.id_departamento_organizacional = dep.id_departamento_organizacional
+                      AND COALESCE(ad.activo, 1) = 1
+                LEFT JOIN __SPARTA_SECRET_REDACTED__.direcciones_organizacion dir ON dir.id = ad.id_direccion
+                WHERE ap.id_persona = :id_persona
+                  AND COALESCE(ap.activo, 1) = 1
+                ORDER BY COALESCE(pu.nivel, 0) DESC, ap.id DESC
+                LIMIT 1
+            ", ['id_persona' => $idPersona]) ?: [];
+
+            if ($asignacionPuesto) {
+                foreach (['departamento_id', 'area_id', 'puesto_id', 'direccion_id'] as $campo) {
+                    if (empty($rrhh[$campo]) && !empty($asignacionPuesto[$campo])) {
+                        $rrhh[$campo] = $asignacionPuesto[$campo];
+                    }
+                }
+                foreach (['departamento_texto', 'area_texto', 'puesto_texto', 'direccion_texto'] as $campo) {
+                    if (empty($rrhh[$campo]) && !empty($asignacionPuesto[$campo])) {
+                        $rrhh[$campo] = $asignacionPuesto[$campo];
+                    }
+                }
+            }
+            if (empty($rrhh['fecha_ingreso']) && !empty($persona['fecha_ingreso'])) {
+                $rrhh['fecha_ingreso'] = $persona['fecha_ingreso'];
+            }
 
             $jefe = $db->queryOne("
                 SELECT id_jefe, id_vacante_jefe
@@ -1103,6 +1167,7 @@ class CapHumRrhh extends Model
                     'telefono_uno' => $persona['telefono_uno'] ?? '',
                     'telefono_dos' => $persona['telefono_dos'] ?? '',
                     'usuario' => $persona['user_name'] ?? '',
+                    'contrasena' => self::usuarioTieneModuloWeb(self::MODULO_GESTION_VISUALIZAR_CONTRASENA) ? ($persona['password'] ?? '') : '',
                     'fecha_ingreso' => $persona['fecha_ingreso'] ?? '',
                     'id_pais' => $persona['id_pais'] ?? '',
                     'domicilio' => $persona['domicilio_calle_texto'] ?? '',
@@ -1622,7 +1687,7 @@ class CapHumRrhh extends Model
             $GLOBALS['rrhh_observaciones_actual'] = self::texto($data['observaciones'] ?? '', 5000);
             self::guardarDatosRrhh($db, $idPersona, $persona, $rrhh, $nomina);
             self::reemplazarListas($db, $idPersona, $datos);
-            self::sincronizarAsignaciones($db, $idPersona, $rrhh);
+            self::sincronizarAsignaciones($db, $idPersona, $rrhh, $idSesion);
             unset($GLOBALS['rrhh_observaciones_actual']);
 
             $db->commit();

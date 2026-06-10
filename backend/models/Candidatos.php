@@ -7,6 +7,43 @@ use Core\Database;
 
 class Candidatos extends Model
 {
+    private static function columnaExiste(Database $db, string $tabla, string $columna): bool
+    {
+        try {
+            $row = $db->queryOne(
+                "SELECT 1 AS ok
+                 FROM information_schema.COLUMNS
+                 WHERE TABLE_SCHEMA = DATABASE()
+                   AND TABLE_NAME = :tabla
+                   AND COLUMN_NAME = :columna
+                 LIMIT 1",
+                ['tabla' => $tabla, 'columna' => $columna]
+            );
+            return !empty($row);
+        } catch (\Exception $e) {
+            return false;
+        }
+    }
+
+    private static function asegurarColumnasFlujoIngreso(Database $db): void
+    {
+        $columnas = [
+            'fecha_ingreso_programada' => "DATE NULL AFTER fecha_postulacion_enviada",
+            'fecha_ingreso_notificada_en' => "DATETIME NULL AFTER fecha_ingreso_programada",
+            'contrato_firmado_en' => "DATETIME NULL AFTER fecha_ingreso_notificada_en",
+        ];
+
+        foreach ($columnas as $nombre => $definicion) {
+            if (self::columnaExiste($db, 'candidatos', $nombre)) {
+                continue;
+            }
+            try {
+                $db->CRUD("ALTER TABLE __SPARTA_SECRET_REDACTED__.candidatos ADD COLUMN {$nombre} {$definicion}");
+            } catch (\Exception $e) {
+            }
+        }
+    }
+
     private static function candidatoTokenTieneColumnaExpira(Database $db): bool
     {
         try {
@@ -69,6 +106,9 @@ class Candidatos extends Model
                 c.estatus,
                 c.notas,
                 c.postulacion_enviada,
+                c.fecha_ingreso_programada,
+                c.fecha_ingreso_notificada_en,
+                c.contrato_firmado_en,
                 c.fecha_registro,
                 c.fecha_actualizacion,
                 pais.nombre AS nombre_pais,
@@ -88,7 +128,8 @@ class Candidatos extends Model
         SQL;
         $params = [];
 
-        if ($estatus !== null && $estatus !== '') {
+        $query .= " AND COALESCE(c.estatus, '') <> 'Contratado'";
+        if ($estatus !== null && $estatus !== '' && $estatus !== 'Contratado') {
             $query .= " AND c.estatus = :estatus";
             $params['estatus'] = $estatus;
         }
@@ -105,6 +146,7 @@ class Candidatos extends Model
 
         try {
             $db = new Database();
+            self::asegurarColumnasFlujoIngreso($db);
             $r = $db->queryAll($query, $params);
             return self::resultado(true, 'Candidatos encontrados.', $r);
         } catch (\Exception $e) {
@@ -148,6 +190,9 @@ class Candidatos extends Model
                 c.notas,
                 c.postulacion_enviada,
                 c.fecha_postulacion_enviada,
+                c.fecha_ingreso_programada,
+                c.fecha_ingreso_notificada_en,
+                c.contrato_firmado_en,
                 c.fecha_registro,
                 c.fecha_actualizacion,
                 p.nombre AS nombre_puesto,
@@ -162,6 +207,7 @@ class Candidatos extends Model
         SQL;
         try {
             $db = new Database();
+            self::asegurarColumnasFlujoIngreso($db);
             $r = $db->queryOne($query, ['id' => $id]);
             if (!$r) {
                 return self::resultado(false, 'Candidato no encontrado.', null);
@@ -195,6 +241,51 @@ class Candidatos extends Model
             $db->CRUD(
                 'UPDATE candidatos SET fecha_postulacion_enviada = :fe, postulacion_enviada = 1, fecha_actualizacion = :fe WHERE id = :id',
                 ['id' => $id_candidato, 'fe' => $fe]
+            );
+        } catch (\Exception $e) {
+        }
+    }
+
+    public static function registrarIngresoProgramado($id_candidato, $fechaIngreso, $fechaHoraCdmxMysql = null): void
+    {
+        $id_candidato = (int) $id_candidato;
+        $fechaIngreso = trim((string) $fechaIngreso);
+        if ($id_candidato <= 0 || $fechaIngreso === '') {
+            return;
+        }
+        try {
+            $db = new Database();
+            self::asegurarColumnasFlujoIngreso($db);
+            $fechaHora = trim((string) ($fechaHoraCdmxMysql ?: self::fechaHoraActualMexicoCiudad()));
+            $db->CRUD(
+                "UPDATE candidatos
+                 SET fecha_ingreso_programada = :fecha_ingreso,
+                     fecha_ingreso_notificada_en = :fecha_hora,
+                     estatus = 'Ingreso programado',
+                     fecha_actualizacion = :fecha_hora
+                 WHERE id = :id",
+                ['id' => $id_candidato, 'fecha_ingreso' => $fechaIngreso, 'fecha_hora' => $fechaHora]
+            );
+        } catch (\Exception $e) {
+        }
+    }
+
+    public static function marcarContratoFirmado($id_candidato, $fechaHoraCdmxMysql = null): void
+    {
+        $id_candidato = (int) $id_candidato;
+        if ($id_candidato <= 0) {
+            return;
+        }
+        try {
+            $db = new Database();
+            self::asegurarColumnasFlujoIngreso($db);
+            $fechaHora = trim((string) ($fechaHoraCdmxMysql ?: self::fechaHoraActualMexicoCiudad()));
+            $db->CRUD(
+                "UPDATE candidatos
+                 SET contrato_firmado_en = :fecha_hora,
+                     fecha_actualizacion = :fecha_hora
+                 WHERE id = :id",
+                ['id' => $id_candidato, 'fecha_hora' => $fechaHora]
             );
         } catch (\Exception $e) {
         }
@@ -430,21 +521,17 @@ class Candidatos extends Model
     private static function documentacionLimiteFinDesdeReferencia(\DateTimeImmutable $referenciaCdmx, int $diasHabiles): \DateTimeImmutable
     {
         $tz = self::zonaMexico();
-        $ref = $referenciaCdmx->setTimezone($tz);
-        $d = $ref->setTime(0, 0, 0)->modify('+1 day');
+        $d = $referenciaCdmx->setTimezone($tz);
         $rest = max(1, $diasHabiles);
         while ($rest > 0) {
+            $d = $d->modify('+1 day');
             $n = (int) $d->format('N');
             if ($n >= 1 && $n <= 5) {
                 $rest--;
-                if ($rest === 0) {
-                    return $d->setTime(23, 59, 59);
-                }
             }
-            $d = $d->modify('+1 day');
         }
 
-        return $d->setTime(23, 59, 59);
+        return $d;
     }
 
     /**
@@ -492,6 +579,126 @@ class Candidatos extends Model
      * Retorna el token (string) para construir la URL.
      * La columna expira debe existir en la tabla candidato_documento (enlace de subida de documentos).
      */
+    public static function getTokenDocumentosInfo(int $id_candidato): array
+    {
+        $id_candidato = (int) $id_candidato;
+        if ($id_candidato <= 0) {
+            return self::resultado(false, 'ID de candidato inválido.', null);
+        }
+
+        try {
+            $db = new Database();
+            $usaExpira = self::candidatoTokenTieneColumnaExpira($db);
+            $row = $db->queryOne(
+                $usaExpira
+                    ? 'SELECT token, expira FROM candidato_documento_token WHERE id_candidato = :id LIMIT 1'
+                    : 'SELECT token FROM candidato_documento_token WHERE id_candidato = :id LIMIT 1',
+                ['id' => $id_candidato]
+            );
+
+            if (!$row || empty($row['token'])) {
+                return self::resultado(false, 'Token no encontrado.', null);
+            }
+
+            $expiraMysql = $row['expira'] ?? null;
+            if ($usaExpira && ($expiraMysql === null || trim((string) $expiraMysql) === '')) {
+                $cand = $db->queryOne(
+                    'SELECT id, fecha_postulacion_enviada, fecha_registro FROM candidatos WHERE id = :id LIMIT 1',
+                    ['id' => $id_candidato]
+                );
+                if ($cand) {
+                    $expiraMysql = self::calcularExpiraTokenMysqlDesdeCandidato($cand);
+                    self::actualizarExpiraTokenDocumentos($id_candidato, $expiraMysql);
+                }
+            }
+
+            $vencido = false;
+            if ($usaExpira) {
+                $limite = self::parseFechaHoraMexicoCiudad((string) $expiraMysql);
+                $ahora = self::ahoraMexicoCiudadImmutable();
+                $vencido = $limite instanceof \DateTimeImmutable ? ($ahora > $limite) : true;
+            }
+
+            return self::resultado(true, 'OK', [
+                'token' => $row['token'],
+                'expira' => $expiraMysql,
+                'vencido' => $vencido,
+                'usa_expira' => $usaExpira,
+            ]);
+        } catch (\Exception $e) {
+            return self::resultado(false, 'Error al consultar token.', null, $e->getMessage());
+        }
+    }
+
+    public static function reactivarTokenDocumentos(int $id_candidato, ?string $referenciaYmdHis = null): array
+    {
+        $id_candidato = (int) $id_candidato;
+        if ($id_candidato <= 0) {
+            return self::resultado(false, 'ID de candidato inválido.', null);
+        }
+
+        try {
+            $db = new Database();
+            $cand = $db->queryOne(
+                'SELECT id, fecha_postulacion_enviada, fecha_registro FROM candidatos WHERE id = :id LIMIT 1',
+                ['id' => $id_candidato]
+            );
+            if (!$cand) {
+                return self::resultado(false, 'Candidato no encontrado.', null);
+            }
+
+            $usaExpira = self::candidatoTokenTieneColumnaExpira($db);
+            $row = $db->queryOne(
+                $usaExpira
+                    ? 'SELECT token, expira FROM candidato_documento_token WHERE id_candidato = :id LIMIT 1'
+                    : 'SELECT token FROM candidato_documento_token WHERE id_candidato = :id LIMIT 1',
+                ['id' => $id_candidato]
+            );
+
+            $token = trim((string) ($row['token'] ?? ''));
+            if ($token === '') {
+                $token = bin2hex(random_bytes(32));
+            }
+
+            $ref = self::parseFechaHoraMexicoCiudad($referenciaYmdHis);
+            if ($ref === null) {
+                $ref = self::ahoraMexicoCiudadImmutable();
+            }
+            $expiraMysql = self::documentacionLimiteFinDesdeReferencia(
+                $ref,
+                self::diasHabilesLimiteDocumentosDesdeIni()
+            )->format('Y-m-d H:i:s');
+
+            if ($row && !empty($row['token'])) {
+                if ($usaExpira) {
+                    $db->CRUD(
+                        'UPDATE candidato_documento_token SET expira = :expira WHERE id_candidato = :id',
+                        ['expira' => $expiraMysql, 'id' => $id_candidato]
+                    );
+                }
+            } elseif ($usaExpira) {
+                $db->CRUD(
+                    'INSERT INTO candidato_documento_token (id_candidato, token, expira) VALUES (:id, :token, :expira)',
+                    ['id' => $id_candidato, 'token' => $token, 'expira' => $expiraMysql]
+                );
+            } else {
+                $db->CRUD(
+                    'INSERT INTO candidato_documento_token (id_candidato, token) VALUES (:id, :token)',
+                    ['id' => $id_candidato, 'token' => $token]
+                );
+            }
+
+            return self::resultado(true, 'Link reactivado.', [
+                'token' => $token,
+                'expira' => $expiraMysql,
+                'vencido' => false,
+                'usa_expira' => $usaExpira,
+            ]);
+        } catch (\Exception $e) {
+            return self::resultado(false, 'Error al reactivar link.', null, $e->getMessage());
+        }
+    }
+
     public static function getOrCreateTokenDocumentos($id_candidato)
     {
         $id_candidato = (int) $id_candidato;
@@ -579,7 +786,7 @@ class Candidatos extends Model
 
                     return self::resultado(
                         false,
-                        'Este enlace ha vencido. El plazo para subir la documentación finalizó. Si necesita ayuda, escríbanos a '
+                        'Link expirado. Este enlace ya no está disponible para subir documentos. Solicite a Capital Humano la reactivación del enlace o escríbanos a '
                         . $mailCt . '.',
                         null
                     );
@@ -594,7 +801,7 @@ class Candidatos extends Model
     }
 
     /**
-     * Crea token para confirmación de alta en nómina (enlace en correo a RRHH).
+     * Crea token heredado de confirmacion externa del candidato.
      * Retorna token y expira en 7 días.
      */
     public static function createTokenConfirmacionAlta($id_candidato)
@@ -617,7 +824,7 @@ class Candidatos extends Model
     }
 
     /**
-     * Obtiene id_candidato por token de confirmación alta nómina. Válido si no usado y no expirado.
+     * Obtiene id_candidato por token heredado. Valido si no usado y no expirado.
      */
     public static function getPorTokenConfirmacionAlta($token)
     {
@@ -641,7 +848,7 @@ class Candidatos extends Model
     }
 
     /**
-     * Marca token de confirmación alta nómina como usado (respuesta si o no).
+     * Marca token heredado como usado (respuesta si o no).
      */
     public static function marcarTokenConfirmacionAltaUsado($token, $respuesta)
     {
@@ -942,8 +1149,11 @@ class Candidatos extends Model
                 "SELECT id, id_candidato, tipo_documento, nombre_archivo, ruta_archivo, fecha_carga, validado, fecha_validado, verificacion_fiscal_json, verificacion_calidad_json FROM candidato_documento WHERE id_candidato = :id ORDER BY fecha_carga DESC",
                 ['id' => $id_candidato]
             );
-            $documentos = self::filtrarDocumentosConArchivo($documentos ?: []);
+            $documentos = $documentos ?: [];
+            $storageRoot = self::storageRoot();
             foreach ($documentos as &$d) {
+                $ruta = trim((string) ($d['ruta_archivo'] ?? ''));
+                $d['archivo_disponible'] = ($ruta === '' || is_file($storageRoot . '/' . $ruta)) ? 1 : 0;
                 if (!empty($d['verificacion_fiscal_json'])) {
                     $dec = json_decode($d['verificacion_fiscal_json'], true);
                     $d['verificacion_fiscal'] = is_array($dec) ? $dec : null;
@@ -980,12 +1190,16 @@ class Candidatos extends Model
             return;
         }
         $cacheDir = defined('RAIZ') ? (RAIZ . '/storage/cache') : (__DIR__ . '/../storage/cache');
-        $file = $cacheDir . '/doc_candidato_' . $id_candidato . '.json';
-        if (is_file($file)) {
-            @unlink($file);
+        foreach (['doc_candidato_', 'doc_candidato_v2_', 'doc_candidato_v3_'] as $prefix) {
+            $file = $cacheDir . '/' . $prefix . $id_candidato . '.json';
+            if (is_file($file)) {
+                @unlink($file);
+            }
         }
         if (function_exists('apcu_delete')) {
             @apcu_delete('doc_candidato_' . $id_candidato);
+            @apcu_delete('doc_candidato_v2_' . $id_candidato);
+            @apcu_delete('doc_candidato_v3_' . $id_candidato);
         }
     }
 
@@ -1043,7 +1257,8 @@ class Candidatos extends Model
         }
         try {
             $db = new Database();
-            $db->CRUD("UPDATE candidatos SET estatus = :e, fecha_actualizacion = NOW() WHERE id = :id", ['id' => $id_candidato, 'e' => trim($estatus)]);
+            $fechaHora = self::fechaHoraActualMexicoCiudad();
+            $db->CRUD("UPDATE candidatos SET estatus = :e, fecha_actualizacion = :fecha_hora WHERE id = :id", ['id' => $id_candidato, 'e' => trim($estatus), 'fecha_hora' => $fechaHora]);
         } catch (\Exception $e) {
         }
     }

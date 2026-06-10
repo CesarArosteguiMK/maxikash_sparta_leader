@@ -123,6 +123,10 @@ Desktop.ini
 tmp_asignacion_*.csv
 tmp_histo_primeros_pagos_*.csv
 tmp_histo_primeros_pagos_*.xlsx
+outputs/
+*.xlsx
+*.xls
+*.xlsm
 
 # ========== Node / npm (si se ejecuta fuera de subcarpetas con .gitignore propio) ==========
 npm-debug.log*

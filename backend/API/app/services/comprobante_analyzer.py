@@ -45,6 +45,13 @@ EMPRESAS_CONOCIDAS = {
             r"COMISI[OÓ]N\s+ESTATAL\s+DE\s+AGUA",
             r"ORGANISMO\s+DE\s+AGUA",
             r"JUNTA\s+DE\s+AGUA",
+            r"COMIT[EÃ‰]\s+DE\s+AGUA",
+            r"COMIT[EÃ‰]\s+DE\s+AGUA\s+POTABLE",
+            r"AGUA\s+POTABLE\s+Y\s+ALCANTARILLADO",
+            r"ALCANTARILLADO\s+MUNICIPAL",
+            r"RECIBO\s+OFICIAL\s+DE\s+SERVICIO\s+DE\s+PAGO\s+DE\s+AGUA",
+            r"RECIBO\s+OFICIAL\s+.*PAGO\s+DE\s+AGUA",
+            r"\bCOAPAM\b",
             r"AGUA\s+POTABLE",
             r"RECIBO\s+DE\s+AGUA",
             r"PAGO\s+DE\s+AGUA",
@@ -336,6 +343,13 @@ class ComprobanteAnalyzer:
             nombre = self._extraer_nombre_titular(texto_upper, tipo)
             direccion = self._extraer_direccion(texto_upper)
             fecha_doc, fecha_obj = self._extraer_fecha_documento(texto_upper)
+            if (
+                tipo == TipoComprobante.AGUA
+                and not direccion
+                and not fecha_doc
+                and re.search(r"COMIT[EÃ‰]\s+DE\s+AGUA|\bCOAPAM\b", texto_upper)
+            ):
+                nombre = None
             es_reciente, meses_antiguedad = self._verificar_antiguedad(fecha_obj)
 
             alertas = []
@@ -416,14 +430,55 @@ class ComprobanteAnalyzer:
             doc.close()
             return texto_total
 
+        doc.close()
+        return ""
+
         try:
             for page in doc:
-                pix = page.get_pixmap(dpi=180)
-                texto_total += self._extraer_texto_imagen(pix.tobytes("png")) + "\n"
+                pix = page.get_pixmap(dpi=120)
+                texto_total += self._extraer_texto_imagen_con_rotaciones(pix.tobytes("png")) + "\n"
         except Exception as e:
             logger.warning(f"OCR de comprobante PDF escaneado falló: {e}")
         doc.close()
         return texto_total
+
+    def _extraer_texto_imagen_con_rotaciones(self, file_bytes: bytes) -> str:
+        from PIL import Image
+
+        try:
+            img = Image.open(io.BytesIO(file_bytes)).convert("RGB")
+        except Exception:
+            return self._extraer_texto_imagen(file_bytes)
+
+        mejor_texto = ""
+        mejor_score = -1
+        for angulo in (0, 90, 180, 270):
+            prueba = img.rotate(angulo, expand=True)
+            buf = io.BytesIO()
+            prueba.save(buf, format="PNG")
+            texto = self._extraer_texto_imagen(buf.getvalue())
+            score = self._score_texto_comprobante(texto)
+            if score > mejor_score:
+                mejor_score = score
+                mejor_texto = texto
+            if mejor_score >= 120:
+                return mejor_texto
+        return mejor_texto
+
+    def _score_texto_comprobante(self, texto: str) -> int:
+        if not texto:
+            return 0
+        texto_upper = texto.upper()
+        score = len(re.findall(r"[A-ZÃÃ‰ÃÃ“ÃšÃ‘]{3,}", texto_upper))
+        for tipo_info in EMPRESAS_CONOCIDAS.values():
+            for patron in tipo_info["patrones"]:
+                if re.search(patron, texto_upper, re.IGNORECASE):
+                    score += 80
+        if re.search(r"DOMICILIO|DIRECCI[OÃ“]N|C\.?P\.?\s*\d{5}", texto_upper):
+            score += 30
+        if re.search(r"RECIBO|SERVICIO|PAGO|CONTRATO|USUARIO", texto_upper):
+            score += 20
+        return score
 
     def _extraer_texto_imagen(self, file_bytes: bytes) -> str:
         import pytesseract
@@ -460,6 +515,8 @@ class ComprobanteAnalyzer:
     def _detectar_tipo_por_claves(self, texto: str):
         """Inferir tipo de comprobante por palabras clave cuando no hay match de empresa."""
         t = texto.upper()
+        if re.search(r"COMIT[EÃ‰]\s+DE\s+AGUA|ALCANTARILLADO\s+MUNICIPAL|PAGO\s+DE\s+AGUA|\bCOAPAM\b", t) and not re.search(r"\bGAS\b", t):
+            return TipoComprobante.AGUA, "Agua"
         # Luz: KWH, kilowatts, tarifa DAC, lectura anterior/actual
         if re.search(r"\bKWH\b|\bKILOWATTS?\b|L[EÉ]CTURA\s+(?:ANTERIOR|ACTUAL)|TARIFA\s+DAC", t) or re.search(r"CFE|ELECTRICIDAD", t):
             return TipoComprobante.CFE_LUZ, "CFE / Luz"
@@ -499,7 +556,7 @@ class ComprobanteAnalyzer:
             m = re.search(pat, texto)
             if m:
                 nombre = m.group(1).strip()
-                if len(nombre) >= 6 and not re.search(r"CALLE|AVENIDA|COLONIA|C\.P\.|CODIGO|TOTAL", nombre):
+                if len(nombre) >= 6 and not re.search(r"CALLE|AVENIDA|COLONIA|C\.P\.|CODIGO|TOTAL|NOMBRE\s+Y\s+FIRMA|FIRMA|COBRADOR|COBRA", nombre):
                     return nombre
         return None
 
@@ -507,6 +564,7 @@ class ComprobanteAnalyzer:
         patterns = [
             r"((?:CALLE|AV\.?|AVENIDA|BLVD\.?|BOULEVARD|PRIV\.?|PRIVADA|CERRADA|AND\.?|ANDADOR)\s+.{10,80}(?:C\.?P\.?\s*\d{5}))",
             r"((?:CALLE|AV\.?)\s+[A-Z0-9\s]{5,40}\n[A-Z0-9\s,]+\n[A-Z\s]+C\.?P\.?\s*\d{5})",
+            r"CON\s+DOMICILIO\s+(.{10,120}?)(?:\s+EN\s+ESTA\s+CIUDAD|\s+TEL[EÃ‰]FONO|\s+NOMBRE\s+Y\s+FIRMA|$)",
         ]
         for pat in patterns:
             m = re.search(pat, texto, re.IGNORECASE)

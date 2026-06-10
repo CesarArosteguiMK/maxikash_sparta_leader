@@ -1,0 +1,816 @@
+﻿{
+    "modo": "DRY-RUN",
+    "resumen": {
+        "registros_excel": 836,
+        "sin_match": 35,
+        "ambiguos": 2,
+        "duplicados_nombre_detectados": 0,
+        "duplicados_nombre_corregidos": 0
+    },
+    "sin_match": [
+        {
+            "sheet": "ACTIVOS MAXI 2026",
+            "row": 18,
+            "nombre": "JESUS ORTIZ LUCERO",
+            "codigo_contpaq": "0015",
+            "curp": "OILJ821023HDFRCS04",
+            "rfc": "OILJ821023L7A",
+            "correo": "jesus.ortizlucero@icloud.com",
+            "razon": "sin_match",
+            "candidatos": [
+                {
+                    "score": 41,
+                    "id": 1177,
+                    "numero_empleado": "999999737",
+                    "codigo_contpaq": "0579",
+                    "nombre": "JESUS ALBERTO ORTIZ LUCERO",
+                    "estatus": "Activo",
+                    "curp": "HERA920719HVZRDL07",
+                    "rfc": "HERA920719797",
+                    "correo": "ing.jahr.92@gmail.com"
+                }
+            ]
+        },
+        {
+            "sheet": "ACTIVOS MAXI 2026",
+            "row": 46,
+            "nombre": "MARCELO JORGE ARCOS DE LA CRUZ",
+            "codigo_contpaq": "0078",
+            "curp": "AOCM900116HDFRRR09",
+            "rfc": "AOCM900116EJ1",
+            "correo": "jackdriot1719@gmail.com",
+            "razon": "sin_match",
+            "coincidencia_no_activa": {
+                "razon": "nombre",
+                "id": 1090,
+                "numero_empleado": "999999672",
+                "codigo_contpaq": "",
+                "nombre": "MARCELO JORGE ARCOS DE LA CRUZ",
+                "estatus": "Baja"
+            },
+            "candidatos": []
+        },
+        {
+            "sheet": "ACTIVOS MAXI 2026",
+            "row": 252,
+            "nombre": "LUIS CARLOS FLORES RODRIGUEZ",
+            "codigo_contpaq": "0707",
+            "curp": "FORL831009HMCLDS02",
+            "rfc": "FORL831009ND7",
+            "correo": "charlyfr83@gmail.com",
+            "razon": "sin_match",
+            "coincidencia_no_activa": {
+                "razon": "numero_empleado",
+                "id": 184,
+                "numero_empleado": "707",
+                "codigo_contpaq": "",
+                "nombre": "LUIS CARLOS FLORES RODRIGUEZ",
+                "estatus": "Baja"
+            },
+            "candidatos": [
+                {
+                    "score": 36,
+                    "id": 143,
+                    "numero_empleado": "1255",
+                    "codigo_contpaq": "1255",
+                    "nombre": "LUIS ALBERTO ROQUEÑI RODRIGUEZ",
+                    "estatus": "Activo",
+                    "curp": "RORL760815HVZQDS09",
+                    "rfc": "RORL760815E35",
+                    "correo": "luis.roqueni15@gmail.com"
+                },
+                {
+                    "score": 36,
+                    "id": 562,
+                    "numero_empleado": "54",
+                    "codigo_contpaq": "0054",
+                    "nombre": "JONNATHAN MARLON FLORES RODRIGUEZ",
+                    "estatus": "Activo",
+                    "curp": "FORJ800908HMCLDN01",
+                    "rfc": "FORJ8009088Q3",
+                    "correo": "ayadajm@hotmail.com"
+                },
+                {
+                    "score": 35,
+                    "id": 548,
+                    "numero_empleado": "639",
+                    "codigo_contpaq": "0639",
+                    "nombre": "LUIS CARLOS ISIDORO CRUZ",
+                    "estatus": "Activo",
+                    "curp": "IICL900215HVZSRS00",
+                    "rfc": "IICL900215224",
+                    "correo": "cartel_888@hoptmail.com"
+                }
+            ]
+        },
+        {
+            "sheet": "ACTIVOS MAXI 2026",
+            "row": 273,
+            "nombre": "VICTOR MANUEL GALARZA CASTILLON",
+            "codigo_contpaq": "0777",
+            "curp": "GACV950703HJCLSC07",
+            "rfc": "GACV950703V3A",
+            "correo": "manuelgc030795@gmail.com",
+            "razon": "sin_match",
+            "coincidencia_no_activa": {
+                "razon": "numero_empleado",
+                "id": 34,
+                "numero_empleado": "777",
+                "codigo_contpaq": "",
+                "nombre": "VICTOR MANUEL GALARZA CASTILLON",
+                "estatus": "Baja"
+            },
+            "candidatos": []
+        },
+        {
+            "sheet": "ACTIVOS MAXI 2026",
+            "row": 284,
+            "nombre": "JOSE ANTONIO BOCANEGRA SILVAN",
+            "codigo_contpaq": "0800",
+            "curp": "BOSA831020HTCCLN17",
+            "rfc": "BOSA831020AL9",
+            "correo": "jabs1983@hotmail.com",
+            "razon": "sin_match",
+            "coincidencia_no_activa": {
+                "razon": "numero_empleado",
+                "id": 408,
+                "numero_empleado": "800",
+                "codigo_contpaq": "",
+                "nombre": "JOSE ANTONIO BOCANEGRA SILVAN",
+                "estatus": "Baja"
+            },
+            "candidatos": []
+        },
+        {
+            "sheet": "ACTIVOS MAXI 2026",
+            "row": 370,
+            "nombre": "DAVID NOE PEREZ FRAGA",
+            "codigo_contpaq": "0093",
+            "curp": "PEFD900309HDFRRV04",
+            "rfc": "PEFD900309CK0",
+            "correo": "davidnpf@outlook.com",
+            "razon": "sin_match",
+            "coincidencia_no_activa": {
+                "razon": "nombre",
+                "id": 710,
+                "numero_empleado": "999999296",
+                "codigo_contpaq": "",
+                "nombre": "DAVID NOE PEREZ FRAGA",
+                "estatus": "Baja"
+            },
+            "candidatos": []
+        },
+        {
+            "sheet": "ACTIVOS MAXI 2026",
+            "row": 380,
+            "nombre": "OMAR GUADALUPE MANRIQUEZ BRAVO",
+            "codigo_contpaq": "1063",
+            "curp": "MABO950404HCMNRM07",
+            "rfc": "MABO950404BP0",
+            "correo": "omyomb@outlook.com",
+            "razon": "sin_match",
+            "coincidencia_no_activa": {
+                "razon": "numero_empleado",
+                "id": 12,
+                "numero_empleado": "1063",
+                "codigo_contpaq": "",
+                "nombre": "OMAR GUADALUPE MANRIQUEZ BRAVO",
+                "estatus": "Baja"
+            },
+            "candidatos": []
+        },
+        {
+            "sheet": "ACTIVOS MAXI 2026",
+            "row": 444,
+            "nombre": "JUANA RAMIREZ HERNANDEZ",
+            "codigo_contpaq": "1228",
+            "curp": "RAHJ861022MVZMRN02",
+            "rfc": "RAHJ8610226Y6",
+            "correo": "anna2008rmz@gmail.com",
+            "razon": "sin_match",
+            "coincidencia_no_activa": {
+                "razon": "numero_empleado",
+                "id": 339,
+                "numero_empleado": "1228",
+                "codigo_contpaq": "",
+                "nombre": "JUANA  RAMIREZ HERNANDEZ",
+                "estatus": "Baja"
+            },
+            "candidatos": []
+        },
+        {
+            "sheet": "ACTIVOS MAXI 2026",
+            "row": 446,
+            "nombre": "JOSE DE JESUS QUEMADA CALDERON",
+            "codigo_contpaq": "1235",
+            "curp": "QUCJ011029HMCMLSA1",
+            "rfc": "QUCJ011029S81",
+            "correo": "josequemada76@gmail.com",
+            "razon": "sin_match",
+            "coincidencia_no_activa": {
+                "razon": "numero_empleado",
+                "id": 473,
+                "numero_empleado": "1235",
+                "codigo_contpaq": "",
+                "nombre": "JOSE DE JESUS QUEMADA CALDERON",
+                "estatus": "Baja"
+            },
+            "candidatos": []
+        },
+        {
+            "sheet": "ACTIVOS MAXI 2026",
+            "row": 474,
+            "nombre": "JOSE URIEL ROMERO RIVERA",
+            "codigo_contpaq": "1283",
+            "curp": "RORU010112HGTMVRA6",
+            "rfc": "RORU010112RG5",
+            "correo": "deitan5894@gmail.com",
+            "razon": "sin_match",
+            "coincidencia_no_activa": {
+                "razon": "numero_empleado",
+                "id": 482,
+                "numero_empleado": "1283",
+                "codigo_contpaq": "",
+                "nombre": "JOSE URIEL ROMERO RIVERA",
+                "estatus": "Baja"
+            },
+            "candidatos": []
+        },
+        {
+            "sheet": "ACTIVOS MAXI 2026",
+            "row": 507,
+            "nombre": "ROBERTO ENRIQUE PEREZ CRUZ",
+            "codigo_contpaq": "1359",
+            "curp": "PECR040820HDFRRBA0",
+            "rfc": "PECR0408207S2",
+            "correo": "vanecruzperez1802@gmail.com",
+            "razon": "sin_match",
+            "coincidencia_no_activa": {
+                "razon": "nombre",
+                "id": 584,
+                "numero_empleado": "999999169",
+                "codigo_contpaq": "",
+                "nombre": "ROBERTO ENRIQUE PEREZ CRUZ",
+                "estatus": "Baja"
+            },
+            "candidatos": []
+        },
+        {
+            "sheet": "ACTIVOS MAXI 2026",
+            "row": 521,
+            "nombre": "JOEL ISAAC RIOS OLMOS",
+            "codigo_contpaq": "1389",
+            "curp": "RIOJ970412HGTSLL06",
+            "rfc": "RIOJ9704128M0",
+            "correo": "soisaacrios@gmail.com",
+            "razon": "sin_match",
+            "coincidencia_no_activa": {
+                "razon": "numero_empleado",
+                "id": 478,
+                "numero_empleado": "1389",
+                "codigo_contpaq": "",
+                "nombre": "JOEL ISAAC RIOS OLMOS",
+                "estatus": "Baja"
+            },
+            "candidatos": []
+        },
+        {
+            "sheet": "ACTIVOS MAXI 2026",
+            "row": 540,
+            "nombre": "MARIBEL ORTEGA MANZO",
+            "codigo_contpaq": "1423",
+            "curp": "OEMM800808MVZRNR06",
+            "rfc": "OEMM800808HE2",
+            "correo": "maryxsb@hotmail.com",
+            "razon": "sin_match",
+            "coincidencia_no_activa": {
+                "razon": "numero_empleado",
+                "id": 550,
+                "numero_empleado": "1423",
+                "codigo_contpaq": "",
+                "nombre": "MARIBEL  ORTEGA MANZO",
+                "estatus": "Baja"
+            },
+            "candidatos": []
+        },
+        {
+            "sheet": "ACTIVOS MAXI 2026",
+            "row": 629,
+            "nombre": "LUIS ANTONIO DENICIA PEREZ",
+            "codigo_contpaq": "1629",
+            "curp": "DEPL740117HDFNRS02",
+            "rfc": "DEPL740117N41",
+            "correo": "denicialuis08@gmail.com",
+            "razon": "sin_match",
+            "coincidencia_no_activa": {
+                "razon": "nombre",
+                "id": 713,
+                "numero_empleado": "999999299",
+                "codigo_contpaq": "",
+                "nombre": "LUIS ANTONIO DENICIA PEREZ",
+                "estatus": "Baja"
+            },
+            "candidatos": []
+        },
+        {
+            "sheet": "ACTIVOS MAXI 2026",
+            "row": 634,
+            "nombre": "JOSE JULIAN ALBORNOS MORAN",
+            "codigo_contpaq": "1640",
+            "curp": "AOMJ010807HCMLRLA2",
+            "rfc": "AOMJ010807SK5",
+            "correo": "jk278998@gmail.com",
+            "razon": "sin_match",
+            "coincidencia_no_activa": {
+                "razon": "nombre",
+                "id": 788,
+                "numero_empleado": "999999374",
+                "codigo_contpaq": "",
+                "nombre": "JOSE JULIAN ALBORNOS MORAN",
+                "estatus": "Baja"
+            },
+            "candidatos": [
+                {
+                    "score": 35,
+                    "id": 1070,
+                    "numero_empleado": "999999652",
+                    "codigo_contpaq": "1857",
+                    "nombre": "JOSE LUIS ORNELAS MORA",
+                    "estatus": "Activo",
+                    "curp": "OEML650206HNTRRS04",
+                    "rfc": "OEML650206GY6",
+                    "correo": "joseluisornelas791@gmail.com"
+                }
+            ]
+        },
+        {
+            "sheet": "ACTIVOS MAXI 2026",
+            "row": 639,
+            "nombre": "ORLANDO GUTIERREZ SENSED",
+            "codigo_contpaq": "1654",
+            "curp": "GUSO940917HJCTNR09",
+            "rfc": "GUSO940917M47",
+            "correo": "orlandosensed80@gmail.com",
+            "razon": "sin_match",
+            "coincidencia_no_activa": {
+                "razon": "nombre",
+                "id": 805,
+                "numero_empleado": "999999391",
+                "codigo_contpaq": "",
+                "nombre": "ORLANDO  GUTIERREZ SENSED",
+                "estatus": "Baja"
+            },
+            "candidatos": []
+        },
+        {
+            "sheet": "ACTIVOS MAXI 2026",
+            "row": 654,
+            "nombre": "NAOMI SAMANTHA PADILLA ABREGO",
+            "codigo_contpaq": "1684",
+            "curp": "PAAN011102MGTDBMA0",
+            "rfc": "PAAN011102MB9",
+            "correo": "moushp6@gmail.com",
+            "razon": "sin_match",
+            "coincidencia_no_activa": {
+                "razon": "nombre",
+                "id": 847,
+                "numero_empleado": "999999433",
+                "codigo_contpaq": "",
+                "nombre": "NAOMI SAMANTHA PADILLA ABREGO",
+                "estatus": "Baja"
+            },
+            "candidatos": []
+        },
+        {
+            "sheet": "ACTIVOS MAXI 2026",
+            "row": 692,
+            "nombre": "JORGE ENRIQUE MELENA MONTES",
+            "codigo_contpaq": "1751",
+            "curp": "MEMJ910210HMNLNR09",
+            "rfc": "MEMJ910210N22",
+            "correo": "jmelrna730@gmail.com",
+            "razon": "sin_match",
+            "coincidencia_no_activa": {
+                "razon": "nombre",
+                "id": 955,
+                "numero_empleado": "999999540",
+                "codigo_contpaq": "",
+                "nombre": "JORGE ENRIQUE MELENA MONTES",
+                "estatus": "Baja"
+            },
+            "candidatos": []
+        },
+        {
+            "sheet": "ACTIVOS MAXI 2026",
+            "row": 696,
+            "nombre": "SANDRA YANETT FELIX FERIA",
+            "codigo_contpaq": "1757",
+            "curp": "FEFS790812MTCLRN02",
+            "rfc": "FEFS7908122J9",
+            "correo": "maestramason@gmail.com",
+            "razon": "sin_match",
+            "coincidencia_no_activa": {
+                "razon": "nombre",
+                "id": 970,
+                "numero_empleado": "999999554",
+                "codigo_contpaq": "",
+                "nombre": "SANDRA YANETT FELIX FERIA",
+                "estatus": "Baja"
+            },
+            "candidatos": []
+        },
+        {
+            "sheet": "ACTIVOS MAXI 2026",
+            "row": 700,
+            "nombre": "BRENDA GUADALUPE CISNEROS BAEZ",
+            "codigo_contpaq": "1761",
+            "curp": "CIBB870530MNLSZR03",
+            "rfc": "CIBB870530NL4",
+            "correo": "lic.cisnerosrh@live.com.mx",
+            "razon": "sin_match",
+            "coincidencia_no_activa": {
+                "razon": "nombre",
+                "id": 974,
+                "numero_empleado": "999999558",
+                "codigo_contpaq": "",
+                "nombre": "BRENDA GUADALUPE CISNEROS BAEZ",
+                "estatus": "Baja"
+            },
+            "candidatos": []
+        },
+        {
+            "sheet": "ACTIVOS MAXI 2026",
+            "row": 722,
+            "nombre": "TADEO GABRIEL CANUL JIMENEZ",
+            "codigo_contpaq": "1793",
+            "curp": "CAJT821013HGRNMD05",
+            "rfc": "CAJT821013RZ3",
+            "correo": "tgabrieljimenez1982@gmail.com",
+            "razon": "sin_match",
+            "coincidencia_no_activa": {
+                "razon": "nombre",
+                "id": 1004,
+                "numero_empleado": "999999587",
+                "codigo_contpaq": "",
+                "nombre": "TADEO GABRIEL CANUL JIMENEZ",
+                "estatus": "Baja"
+            },
+            "candidatos": []
+        },
+        {
+            "sheet": "ACTIVOS MAXI 2026",
+            "row": 756,
+            "nombre": "JUAN MARTIN GARCIA SANTELIZ",
+            "codigo_contpaq": "1840",
+            "curp": "GASJ821111HHGRNN01",
+            "rfc": "GASJ8211118Z2",
+            "correo": "j.martin-garcia@hotmail.com",
+            "razon": "sin_match",
+            "coincidencia_no_activa": {
+                "razon": "nombre",
+                "id": 1050,
+                "numero_empleado": "999999632",
+                "codigo_contpaq": "",
+                "nombre": "JUAN MARTIN GARCIA SANTELIZ",
+                "estatus": "Baja"
+            },
+            "candidatos": []
+        },
+        {
+            "sheet": "ACTIVOS MAXI 2026",
+            "row": 760,
+            "nombre": "MIRNA LETICIA CAMARILLO RODRIGUEZ",
+            "codigo_contpaq": "1844",
+            "curp": "CARM780423MDFMDR00",
+            "rfc": "CARM7804234S9",
+            "correo": "2304lemir@gmail.com",
+            "razon": "sin_match",
+            "coincidencia_no_activa": {
+                "razon": "nombre",
+                "id": 1054,
+                "numero_empleado": "999999636",
+                "codigo_contpaq": "",
+                "nombre": "MIRNA LETICIA CAMARILLO RODRIGUEZ",
+                "estatus": "Baja"
+            },
+            "candidatos": [
+                {
+                    "score": 37,
+                    "id": 180,
+                    "numero_empleado": "112",
+                    "codigo_contpaq": "0112",
+                    "nombre": "JUAN ISAAC CAMARILLO RODRIGUEZ",
+                    "estatus": "Activo",
+                    "curp": "CARJ820712HDFMDN18",
+                    "rfc": "CARJ820712TVZ",
+                    "correo": "juanisaaccamarillo@yahoo.com"
+                },
+                {
+                    "score": 36,
+                    "id": 88,
+                    "numero_empleado": "1421",
+                    "codigo_contpaq": "1421",
+                    "nombre": "SANDRA OSVELIA CARRILLO RODRIGUEZ",
+                    "estatus": "Activo",
+                    "curp": "CARS770420MDFRDN00",
+                    "rfc": "CARS7704208W5",
+                    "correo": "sandyvica2004@gmail.com"
+                }
+            ]
+        },
+        {
+            "sheet": "ACTIVOS MAXI 2026",
+            "row": 770,
+            "nombre": "OSVALDO JAVIER TORRES ACOSTA",
+            "codigo_contpaq": "1856",
+            "curp": "TOAO840910HDFRCS05",
+            "rfc": "TOAO840910E42",
+            "correo": "valotorres34@gmail.com",
+            "razon": "sin_match",
+            "coincidencia_no_activa": {
+                "razon": "nombre",
+                "id": 1063,
+                "numero_empleado": "999999645",
+                "codigo_contpaq": "",
+                "nombre": "OSVALDO JAVIER TORRES ACOSTA",
+                "estatus": "Baja"
+            },
+            "candidatos": []
+        },
+        {
+            "sheet": "ACTIVOS MAXI 2026",
+            "row": 797,
+            "nombre": "ERIK JOSE RAMOS ANGUIANO",
+            "codigo_contpaq": "1898",
+            "curp": "RAAE900529HCMMNR06",
+            "rfc": "RAAE900529RQ5",
+            "correo": "ramosanguianoerik42@gmail.com",
+            "razon": "sin_match",
+            "coincidencia_no_activa": {
+                "razon": "curp",
+                "id": 1108,
+                "numero_empleado": "999999680",
+                "codigo_contpaq": "",
+                "nombre": "ERIK JOSE RAMOS ANGUIANO",
+                "estatus": "Baja"
+            },
+            "candidatos": []
+        },
+        {
+            "sheet": "ACTIVOS MAXI 2026",
+            "row": 803,
+            "nombre": "EDUARDO ROMERO HERNANDEZ",
+            "codigo_contpaq": "1904",
+            "curp": "ROHE910315HPLMRD07",
+            "rfc": "ROHE910315MP2",
+            "correo": "moreedu91@gmail.com",
+            "razon": "sin_match",
+            "coincidencia_no_activa": {
+                "razon": "curp",
+                "id": 1120,
+                "numero_empleado": "999999692",
+                "codigo_contpaq": "",
+                "nombre": "EDUARDO  ROMERO HERNANDEZ",
+                "estatus": "Baja"
+            },
+            "candidatos": [
+                {
+                    "score": 38,
+                    "id": 238,
+                    "numero_empleado": "1157",
+                    "codigo_contpaq": "1157",
+                    "nombre": "EDUARDO HIRAM SANTOYO HERNANDEZ",
+                    "estatus": "Activo",
+                    "curp": "SAHE700626HDFNRD05",
+                    "rfc": "SAHE700626LL5",
+                    "correo": "eduardo.santoyo@gmail.com"
+                }
+            ]
+        },
+        {
+            "sheet": "ACTIVOS MAXI 2026",
+            "row": 804,
+            "nombre": "JOSE ADOLFO ROMERO JUAREZ",
+            "codigo_contpaq": "1905",
+            "curp": "ROJA900828HPLMRD06",
+            "rfc": "ROJA900828AS0",
+            "correo": "romerojuarezjoseadolfo22gm ail.com",
+            "razon": "sin_match",
+            "coincidencia_no_activa": {
+                "razon": "curp",
+                "id": 1121,
+                "numero_empleado": "999999693",
+                "codigo_contpaq": "",
+                "nombre": "JOSE ADOLFO ROMERO JUAREZ",
+                "estatus": "Baja"
+            },
+            "candidatos": [
+                {
+                    "score": 37,
+                    "id": 1426,
+                    "numero_empleado": "1572",
+                    "codigo_contpaq": "1572",
+                    "nombre": "JOSE CARLOS  ROQUE JUAREZ",
+                    "estatus": "Activo",
+                    "curp": "ROJC941014HMCQRR08",
+                    "rfc": "ROJC941014A96",
+                    "correo": "roquej.94@gmail.com"
+                }
+            ]
+        },
+        {
+            "sheet": "ACTIVOS MAXI 2026",
+            "row": 810,
+            "nombre": "VLADIMIR SANDOVAL CASTILLO",
+            "codigo_contpaq": "1911",
+            "curp": "SACV001018HDFNSLA1",
+            "rfc": "SACV001018SD5",
+            "correo": "sandovalcastillovladimir494@gmail.com",
+            "razon": "sin_match",
+            "coincidencia_no_activa": {
+                "razon": "curp",
+                "id": 1129,
+                "numero_empleado": "999999700",
+                "codigo_contpaq": "",
+                "nombre": "VLADIMIR  SANDOVAL CASTILLO",
+                "estatus": "Baja"
+            },
+            "candidatos": []
+        },
+        {
+            "sheet": "ACTIVOS MAXI 2026",
+            "row": 813,
+            "nombre": "ANTONIO HERNANDEZ FLORES",
+            "codigo_contpaq": "1914",
+            "curp": "HEFA820304HMNRLN08",
+            "rfc": "HEFA820304K86",
+            "correo": "yepeza978@gmail.com",
+            "razon": "sin_match",
+            "coincidencia_no_activa": {
+                "razon": "curp",
+                "id": 1130,
+                "numero_empleado": "999999701",
+                "codigo_contpaq": "",
+                "nombre": "ANTONIO  HERNANDEZ FLORES",
+                "estatus": "Baja"
+            },
+            "candidatos": [
+                {
+                    "score": 37,
+                    "id": 1274,
+                    "numero_empleado": "0857",
+                    "codigo_contpaq": "0857",
+                    "nombre": "JUAN ANTONIO  HERNANDEZ COTA",
+                    "estatus": "Activo",
+                    "curp": "HECJ000818HSRRTNA3",
+                    "rfc": "HECJ000818BL9",
+                    "correo": "jahc.mex@oulook.com"
+                },
+                {
+                    "score": 35,
+                    "id": 1170,
+                    "numero_empleado": "999999730",
+                    "codigo_contpaq": "",
+                    "nombre": "FAUSTO  HERNANDEZ LIMON",
+                    "estatus": "Activo",
+                    "curp": "HELF880318HPLRMS05",
+                    "rfc": "",
+                    "correo": ""
+                }
+            ]
+        },
+        {
+            "sheet": "ACTIVOS MAXI 2026",
+            "row": 818,
+            "nombre": "JUAN CARLOS ALEJO ROSALIO",
+            "codigo_contpaq": "1920",
+            "curp": "AERJ961216HMCLSN05",
+            "rfc": "AERJ961216GR1",
+            "correo": "karlozlbr@gmail.com",
+            "razon": "sin_match",
+            "coincidencia_no_activa": {
+                "razon": "curp",
+                "id": 1135,
+                "numero_empleado": "999999706",
+                "codigo_contpaq": "",
+                "nombre": "JUAN CARLOS ALEJO ROSALIO",
+                "estatus": "Baja"
+            },
+            "candidatos": []
+        },
+        {
+            "sheet": "ACTIVOS MAXI 2026",
+            "row": 819,
+            "nombre": "HUGO RAMSES ALCANTARA CORONA",
+            "codigo_contpaq": "1921",
+            "curp": "AACH020425HDFLRGA6",
+            "rfc": "AACH020425AY4",
+            "correo": "lic.ramses.alacantara25@gmail.com",
+            "razon": "sin_match",
+            "coincidencia_no_activa": {
+                "razon": "curp",
+                "id": 1154,
+                "numero_empleado": "999999717",
+                "codigo_contpaq": "",
+                "nombre": "HUGO RAMSES ALCANTARA CORONA",
+                "estatus": "Baja"
+            },
+            "candidatos": []
+        },
+        {
+            "sheet": "ACTIVOS GUATEMALA 2026",
+            "row": 14,
+            "nombre": "MARCELO DANIEL VASQUEZ CIFUENTES",
+            "codigo_contpaq": "0002",
+            "curp": "",
+            "rfc": "",
+            "correo": "mdvasquez1972@gmail.com",
+            "razon": "sin_match",
+            "candidatos": []
+        },
+        {
+            "sheet": "ACTIVOS GUATEMALA 2026",
+            "row": 15,
+            "nombre": "MICHAEL ANTONIO TOBAR ARGUETA",
+            "codigo_contpaq": "0005",
+            "curp": "",
+            "rfc": "",
+            "correo": "Tobarmichael14@gmail.com",
+            "razon": "sin_match",
+            "candidatos": []
+        },
+        {
+            "sheet": "ACTIVOS GUATEMALA 2026",
+            "row": 16,
+            "nombre": "MYNOR FRANCISCO JIMENEZ PEREZ",
+            "codigo_contpaq": "0006",
+            "curp": "",
+            "rfc": "",
+            "correo": "mynorfran1980@hotmail.com",
+            "razon": "sin_match",
+            "candidatos": []
+        },
+        {
+            "sheet": "ACTIVOS GUATEMALA 2026",
+            "row": 17,
+            "nombre": "HUGO RONALDO BELTRAN LOPEZ",
+            "codigo_contpaq": "0007",
+            "curp": "",
+            "rfc": "",
+            "correo": "lopezronaldohb@gmail.com",
+            "razon": "sin_match",
+            "candidatos": []
+        }
+    ],
+    "ambiguos": [
+        {
+            "sheet": "ACTIVOS MAXI 2026",
+            "row": 311,
+            "nombre": "LUIS JOSE SANCHEZ VILLEGAS",
+            "codigo_contpaq": "0890",
+            "curp": "SAVL840621HDFNLS09",
+            "rfc": "SAVL840621R60",
+            "correo": "luis_sanv@hotmail.com",
+            "razon": "ambiguo:nombre",
+            "matches": [
+                {
+                    "id": 1184,
+                    "numero_empleado": "999999744",
+                    "codigo_contpaq": "",
+                    "nombre": "LUIS JOSE SANCHEZ VILLEGAS"
+                },
+                {
+                    "id": 1218,
+                    "numero_empleado": "999999774",
+                    "codigo_contpaq": "",
+                    "nombre": "LUIS JOSE SANCHEZ VILLEGAS"
+                }
+            ]
+        },
+        {
+            "sheet": "ACTIVOS MAXI 2026",
+            "row": 513,
+            "nombre": "GAEL ANTONIO VEGA TREJO",
+            "codigo_contpaq": "1368",
+            "curp": "VETG070108HMCGRLA5",
+            "rfc": "VETG070108C49",
+            "correo": "gvega3926@gmail.com",
+            "razon": "ambiguo:nombre",
+            "matches": [
+                {
+                    "id": 1182,
+                    "numero_empleado": "999999742",
+                    "codigo_contpaq": "",
+                    "nombre": "GAEL ANTONIO VEGA TREJO"
+                },
+                {
+                    "id": 1217,
+                    "numero_empleado": "999999773",
+                    "codigo_contpaq": "",
+                    "nombre": "GAEL ANTONIO VEGA TREJO"
+                }
+            ]
+        }
+    ],
+    "duplicados_nombre": []
+}

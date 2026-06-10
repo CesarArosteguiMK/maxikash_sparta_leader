@@ -8,6 +8,7 @@ use Core\UsuarioFantasmaReporteria;
 
 class CapHum extends Model
 {
+    private static $trayectoriaPuestoTablaAsegurada = false;
     private const MODULO_CONVENIOS_DESCARGAR_EXCEL = 92;
     private const MODULO_CONVENIOS_DESCARGAR_EXCEL_NOMBRE = 'Descargar Excel';
     private const MODULO_CONVENIOS_DESCARGAR_EXCEL_DESC = 'Convenios - Cierre de Credito - Descargar Excel';
@@ -150,6 +151,396 @@ class CapHum extends Model
         19 => 12, // Acta de nacimiento certificada -> Acta de Nacimiento
         20 => 9,  // Identificacion oficial duplicada -> Identificacion Oficial (INE)
     ];
+
+    public static function fechaHoraCdmx(): string
+    {
+        return (new \DateTimeImmutable('now', new \DateTimeZone('America/Mexico_City')))->format('Y-m-d H:i:s');
+    }
+
+    public static function asegurarTablaTrayectoriaPuesto(Database $db): void
+    {
+        if (self::$trayectoriaPuestoTablaAsegurada) {
+            return;
+        }
+
+        $db->CRUD("CREATE TABLE IF NOT EXISTS __SPARTA_SECRET_REDACTED__.persona_puesto_trayectoria (
+            id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+            id_persona INT NOT NULL,
+            accion VARCHAR(60) NOT NULL,
+            id_puesto_anterior INT NULL,
+            fecha_asignacion_anterior DATETIME NULL,
+            id_puesto_nuevo INT NULL,
+            fecha_asignacion_nueva DATETIME NULL,
+            nombre_puesto_anterior VARCHAR(180) NULL,
+            nombre_puesto_nuevo VARCHAR(180) NULL,
+            id_departamento_anterior INT NULL,
+            id_departamento_nuevo INT NULL,
+            nombre_departamento_anterior VARCHAR(180) NULL,
+            nombre_departamento_nuevo VARCHAR(180) NULL,
+            nivel_anterior INT NULL,
+            nivel_nuevo INT NULL,
+            motivo VARCHAR(500) NULL,
+            origen VARCHAR(80) NULL,
+            creado_por INT NULL,
+            creado_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            KEY idx_puesto_trayectoria_persona (id_persona, creado_at),
+            KEY idx_puesto_trayectoria_puesto_nuevo (id_puesto_nuevo),
+            KEY idx_puesto_trayectoria_creado_por (creado_por)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+        self::asegurarColumnaTrayectoriaPuesto($db, 'fecha_asignacion_anterior', "DATETIME NULL AFTER id_puesto_anterior");
+        self::asegurarColumnaTrayectoriaPuesto($db, 'fecha_asignacion_nueva', "DATETIME NULL AFTER id_puesto_nuevo");
+        self::$trayectoriaPuestoTablaAsegurada = true;
+    }
+
+    private static function asegurarColumnaTrayectoriaPuesto(Database $db, string $columna, string $definicion): void
+    {
+        $existe = $db->queryOne(
+            "SHOW COLUMNS FROM __SPARTA_SECRET_REDACTED__.persona_puesto_trayectoria LIKE :columna",
+            ['columna' => $columna]
+        );
+        if (!$existe) {
+            $db->CRUD("ALTER TABLE __SPARTA_SECRET_REDACTED__.persona_puesto_trayectoria ADD COLUMN {$columna} {$definicion}");
+        }
+    }
+
+    public static function puestosActivosTrayectoria(Database $db, int $idPersona): array
+    {
+        if ($idPersona <= 0) {
+            return [];
+        }
+
+        return $db->queryAll("
+            SELECT
+                ap.id AS id_asigna_puesto,
+                ap.id_puesto,
+                ap.fecha_asignacion,
+                pu.nombre AS nombre_puesto,
+                pu.departamento_id AS id_departamento,
+                dep.nombre AS nombre_departamento,
+                COALESCE(pu.nivel, 0) AS nivel
+            FROM __SPARTA_SECRET_REDACTED__.asigna_puesto ap
+            INNER JOIN __SPARTA_SECRET_REDACTED__.puesto pu ON pu.id = ap.id_puesto
+            LEFT JOIN __SPARTA_SECRET_REDACTED__.departamento dep ON dep.id = pu.departamento_id
+            WHERE ap.id_persona = :id_persona
+              AND COALESCE(ap.activo, 1) = 1
+            ORDER BY COALESCE(pu.nivel, 0) DESC, ap.id ASC
+        ", ['id_persona' => $idPersona]);
+    }
+
+    private static function indexarPuestosTrayectoria(array $puestos): array
+    {
+        $out = [];
+        foreach ($puestos as $puesto) {
+            $id = (int)($puesto['id_puesto'] ?? 0);
+            if ($id > 0) {
+                $out[$id] = $puesto;
+            }
+        }
+        return $out;
+    }
+
+    public static function registrarTrayectoriaPuesto(
+        Database $db,
+        int $idPersona,
+        string $accion,
+        ?array $puestoAnterior = null,
+        ?array $puestoNuevo = null,
+        ?int $creadoPor = null,
+        string $motivo = '',
+        string $origen = 'gestion_personal'
+    ): void {
+        if ($idPersona <= 0 || trim($accion) === '') {
+            return;
+        }
+
+        self::asegurarTablaTrayectoriaPuesto($db);
+        $fechaCdmx = self::fechaHoraCdmx();
+        $db->CRUD("
+            INSERT INTO __SPARTA_SECRET_REDACTED__.persona_puesto_trayectoria
+                (id_persona, accion, id_puesto_anterior, fecha_asignacion_anterior, id_puesto_nuevo, fecha_asignacion_nueva,
+                 nombre_puesto_anterior, nombre_puesto_nuevo,
+                 id_departamento_anterior, id_departamento_nuevo,
+                 nombre_departamento_anterior, nombre_departamento_nuevo,
+                 nivel_anterior, nivel_nuevo, motivo, origen, creado_por, creado_at)
+            VALUES
+                (:id_persona, :accion, :id_puesto_anterior, :fecha_asignacion_anterior, :id_puesto_nuevo, :fecha_asignacion_nueva,
+                 :nombre_puesto_anterior, :nombre_puesto_nuevo,
+                 :id_departamento_anterior, :id_departamento_nuevo,
+                 :nombre_departamento_anterior, :nombre_departamento_nuevo,
+                 :nivel_anterior, :nivel_nuevo, :motivo, :origen, :creado_por, :creado_at)
+        ", [
+            'id_persona' => $idPersona,
+            'accion' => mb_substr(trim($accion), 0, 60),
+            'id_puesto_anterior' => $puestoAnterior['id_puesto'] ?? null,
+            'fecha_asignacion_anterior' => $puestoAnterior['fecha_asignacion'] ?? null,
+            'id_puesto_nuevo' => $puestoNuevo['id_puesto'] ?? null,
+            'fecha_asignacion_nueva' => $puestoNuevo['fecha_asignacion'] ?? null,
+            'nombre_puesto_anterior' => $puestoAnterior['nombre_puesto'] ?? null,
+            'nombre_puesto_nuevo' => $puestoNuevo['nombre_puesto'] ?? null,
+            'id_departamento_anterior' => $puestoAnterior['id_departamento'] ?? null,
+            'id_departamento_nuevo' => $puestoNuevo['id_departamento'] ?? null,
+            'nombre_departamento_anterior' => $puestoAnterior['nombre_departamento'] ?? null,
+            'nombre_departamento_nuevo' => $puestoNuevo['nombre_departamento'] ?? null,
+            'nivel_anterior' => isset($puestoAnterior['nivel']) ? (int)$puestoAnterior['nivel'] : null,
+            'nivel_nuevo' => isset($puestoNuevo['nivel']) ? (int)$puestoNuevo['nivel'] : null,
+            'motivo' => mb_substr(trim($motivo), 0, 500),
+            'origen' => mb_substr(trim($origen), 0, 80),
+            'creado_por' => $creadoPor && $creadoPor > 0 ? $creadoPor : null,
+            'creado_at' => $fechaCdmx,
+        ]);
+    }
+
+    public static function registrarCambiosTrayectoriaPuestos(
+        Database $db,
+        int $idPersona,
+        array $puestosAntes,
+        array $puestosDespues,
+        ?int $creadoPor = null,
+        string $origen = 'gestion_personal'
+    ): void {
+        if ($idPersona <= 0) {
+            return;
+        }
+
+        $antes = self::indexarPuestosTrayectoria($puestosAntes);
+        $despues = self::indexarPuestosTrayectoria($puestosDespues);
+        $idsAgregados = array_diff(array_keys($despues), array_keys($antes));
+        $idsRemovidos = array_diff(array_keys($antes), array_keys($despues));
+
+        $principalAntes = array_values($puestosAntes)[0] ?? null;
+        $principalDespues = array_values($puestosDespues)[0] ?? null;
+        if ($principalAntes && $principalDespues && (int)$principalAntes['id_puesto'] !== (int)$principalDespues['id_puesto']) {
+            $nivelAntes = (int)($principalAntes['nivel'] ?? 0);
+            $nivelDespues = (int)($principalDespues['nivel'] ?? 0);
+            $accion = $nivelDespues > $nivelAntes ? 'ascenso_puesto' : 'cambio_puesto_principal';
+            self::registrarTrayectoriaPuesto(
+                $db,
+                $idPersona,
+                $accion,
+                $principalAntes,
+                $principalDespues,
+                $creadoPor,
+                $accion === 'ascenso_puesto' ? 'Aumento de puesto principal.' : 'Cambio de puesto principal.',
+                $origen
+            );
+
+            $idsAgregados = array_values(array_filter($idsAgregados, function ($idPuesto) use ($principalDespues) {
+                return (int)$idPuesto !== (int)($principalDespues['id_puesto'] ?? 0);
+            }));
+            $idsRemovidos = array_values(array_filter($idsRemovidos, function ($idPuesto) use ($principalAntes) {
+                return (int)$idPuesto !== (int)($principalAntes['id_puesto'] ?? 0);
+            }));
+        }
+
+        foreach ($idsAgregados as $idPuesto) {
+            $puestoNuevo = $despues[$idPuesto] ?? null;
+            if (!$puestoNuevo) {
+                continue;
+            }
+            self::registrarTrayectoriaPuesto(
+                $db,
+                $idPersona,
+                empty($antes) ? 'alta_puesto' : 'agrego_puesto',
+                null,
+                $puestoNuevo,
+                $creadoPor,
+                empty($antes) ? 'Asignacion inicial del colaborador.' : 'Puesto agregado al colaborador.',
+                $origen
+            );
+        }
+
+        foreach ($idsRemovidos as $idPuesto) {
+            $puestoAnterior = $antes[$idPuesto] ?? null;
+            if (!$puestoAnterior) {
+                continue;
+            }
+            self::registrarTrayectoriaPuesto(
+                $db,
+                $idPersona,
+                'removio_puesto',
+                $puestoAnterior,
+                null,
+                $creadoPor,
+                'Puesto retirado del colaborador.',
+                $origen
+            );
+        }
+    }
+
+    public static function sembrarTrayectoriaPuestosActuales(Database $db, ?int $creadoPor = null): int
+    {
+        self::asegurarTablaTrayectoriaPuesto($db);
+        $fechaCdmx = self::fechaHoraCdmx();
+        return $db->CRUD("
+            INSERT INTO __SPARTA_SECRET_REDACTED__.persona_puesto_trayectoria
+                (id_persona, accion, id_puesto_anterior, fecha_asignacion_anterior, id_puesto_nuevo, fecha_asignacion_nueva,
+                 nombre_puesto_anterior, nombre_puesto_nuevo,
+                 id_departamento_anterior, id_departamento_nuevo,
+                 nombre_departamento_anterior, nombre_departamento_nuevo,
+                 nivel_anterior, nivel_nuevo, motivo, origen, creado_por, creado_at)
+            SELECT
+                ap.id_persona,
+                CASE
+                    WHEN NOT EXISTS (
+                        SELECT 1
+                        FROM __SPARTA_SECRET_REDACTED__.asigna_puesto ap2
+                        INNER JOIN __SPARTA_SECRET_REDACTED__.puesto pu2 ON pu2.id = ap2.id_puesto
+                        WHERE ap2.id_persona = ap.id_persona
+                          AND COALESCE(ap2.activo, 1) = 1
+                          AND (
+                              COALESCE(pu2.nivel, 0) > COALESCE(pu.nivel, 0)
+                              OR (COALESCE(pu2.nivel, 0) = COALESCE(pu.nivel, 0) AND ap2.id < ap.id)
+                          )
+                    )
+                    THEN 'alta_puesto'
+                    ELSE 'agrego_puesto'
+                END AS accion,
+                NULL AS id_puesto_anterior,
+                NULL AS fecha_asignacion_anterior,
+                ap.id_puesto AS id_puesto_nuevo,
+                ap.fecha_asignacion AS fecha_asignacion_nueva,
+                NULL AS nombre_puesto_anterior,
+                pu.nombre AS nombre_puesto_nuevo,
+                NULL AS id_departamento_anterior,
+                pu.departamento_id AS id_departamento_nuevo,
+                NULL AS nombre_departamento_anterior,
+                dep.nombre AS nombre_departamento_nuevo,
+                NULL AS nivel_anterior,
+                COALESCE(pu.nivel, 0) AS nivel_nuevo,
+                CASE
+                    WHEN NOT EXISTS (
+                        SELECT 1
+                        FROM __SPARTA_SECRET_REDACTED__.asigna_puesto ap3
+                        INNER JOIN __SPARTA_SECRET_REDACTED__.puesto pu3 ON pu3.id = ap3.id_puesto
+                        WHERE ap3.id_persona = ap.id_persona
+                          AND COALESCE(ap3.activo, 1) = 1
+                          AND (
+                              COALESCE(pu3.nivel, 0) > COALESCE(pu.nivel, 0)
+                              OR (COALESCE(pu3.nivel, 0) = COALESCE(pu.nivel, 0) AND ap3.id < ap.id)
+                          )
+                    )
+                    THEN 'Linea base de trayectoria creada desde el puesto activo actual.'
+                    ELSE 'Linea base de puesto adicional activo actual.'
+                END AS motivo,
+                'semilla_estado_actual' AS origen,
+                :creado_por AS creado_por,
+                COALESCE(ap.fecha_asignacion, :fecha_cdmx) AS creado_at
+            FROM __SPARTA_SECRET_REDACTED__.asigna_puesto ap
+            INNER JOIN __SPARTA_SECRET_REDACTED__.persona p ON p.id = ap.id_persona
+            INNER JOIN __SPARTA_SECRET_REDACTED__.puesto pu ON pu.id = ap.id_puesto
+            LEFT JOIN __SPARTA_SECRET_REDACTED__.departamento dep ON dep.id = pu.departamento_id
+            WHERE COALESCE(ap.activo, 1) = 1
+              AND p.estatus != 'Baja'
+              AND NOT EXISTS (
+                  SELECT 1
+                  FROM __SPARTA_SECRET_REDACTED__.persona_puesto_trayectoria t
+                  WHERE t.id_persona = ap.id_persona
+              )
+        ", [
+            'creado_por' => $creadoPor && $creadoPor > 0 ? $creadoPor : null,
+            'fecha_cdmx' => $fechaCdmx,
+        ]);
+    }
+
+    public static function actualizarFechasTrayectoriaDesdeAsignaPuesto(Database $db): int
+    {
+        self::asegurarTablaTrayectoriaPuesto($db);
+        return $db->CRUD("
+            UPDATE __SPARTA_SECRET_REDACTED__.persona_puesto_trayectoria t
+            SET
+                t.fecha_asignacion_nueva = COALESCE(
+                    t.fecha_asignacion_nueva,
+                    (
+                        SELECT ap.fecha_asignacion
+                        FROM __SPARTA_SECRET_REDACTED__.asigna_puesto ap
+                        WHERE ap.id_persona = t.id_persona
+                          AND ap.id_puesto = t.id_puesto_nuevo
+                        ORDER BY COALESCE(ap.activo, 0) DESC, ap.id DESC
+                        LIMIT 1
+                    )
+                ),
+                t.fecha_asignacion_anterior = COALESCE(
+                    t.fecha_asignacion_anterior,
+                    (
+                        SELECT ap2.fecha_asignacion
+                        FROM __SPARTA_SECRET_REDACTED__.asigna_puesto ap2
+                        WHERE ap2.id_persona = t.id_persona
+                          AND ap2.id_puesto = t.id_puesto_anterior
+                        ORDER BY COALESCE(ap2.activo, 0) DESC, ap2.id DESC
+                        LIMIT 1
+                    )
+                ),
+                t.creado_at = CASE
+                    WHEN t.origen IN ('semilla_estado_actual', 'estado_actual')
+                         AND COALESCE(t.fecha_asignacion_nueva, '') <> ''
+                    THEN t.fecha_asignacion_nueva
+                    ELSE t.creado_at
+                END
+            WHERE t.fecha_asignacion_nueva IS NULL
+               OR t.fecha_asignacion_anterior IS NULL
+               OR (t.origen IN ('semilla_estado_actual', 'estado_actual')
+                   AND t.fecha_asignacion_nueva IS NOT NULL
+                   AND t.creado_at <> t.fecha_asignacion_nueva)
+        ");
+    }
+
+    public static function getTrayectoriaPuestoPersona(int $idPersona): array
+    {
+        if ($idPersona <= 0) {
+            return self::resultado(false, 'ID de persona invalido.', []);
+        }
+
+        try {
+            $db = new Database();
+            self::asegurarTablaTrayectoriaPuesto($db);
+            $rows = $db->queryAll("
+                SELECT
+                    t.*,
+                    CASE
+                        WHEN t.origen IN ('semilla_estado_actual', 'estado_actual')
+                            THEN COALESCE(t.fecha_asignacion_nueva, t.creado_at)
+                        ELSE t.creado_at
+                    END AS fecha_movimiento,
+                    CONCAT_WS(' ', p.nombres, p.segundo_nombre, p.apellidop, p.apellidom) AS responsable_nombre
+                FROM __SPARTA_SECRET_REDACTED__.persona_puesto_trayectoria t
+                LEFT JOIN __SPARTA_SECRET_REDACTED__.persona p ON p.id = t.creado_por
+                WHERE t.id_persona = :id_persona
+                ORDER BY t.creado_at DESC, t.id DESC
+            ", ['id_persona' => $idPersona]);
+
+            if (empty($rows)) {
+                foreach (self::puestosActivosTrayectoria($db, $idPersona) as $puestoActual) {
+                    $rows[] = [
+                        'id' => 0,
+                        'id_persona' => $idPersona,
+                        'accion' => 'puesto_actual',
+                        'id_puesto_anterior' => null,
+                        'fecha_asignacion_anterior' => null,
+                        'id_puesto_nuevo' => $puestoActual['id_puesto'] ?? null,
+                        'fecha_asignacion_nueva' => $puestoActual['fecha_asignacion'] ?? null,
+                        'nombre_puesto_anterior' => null,
+                        'nombre_puesto_nuevo' => $puestoActual['nombre_puesto'] ?? '',
+                        'id_departamento_anterior' => null,
+                        'id_departamento_nuevo' => $puestoActual['id_departamento'] ?? null,
+                        'nombre_departamento_anterior' => null,
+                        'nombre_departamento_nuevo' => $puestoActual['nombre_departamento'] ?? '',
+                        'nivel_anterior' => null,
+                        'nivel_nuevo' => $puestoActual['nivel'] ?? null,
+                        'motivo' => 'Puesto activo actual. No hay movimientos históricos registrados todavía.',
+                        'origen' => 'estado_actual',
+                        'creado_por' => null,
+                        'creado_at' => null,
+                        'fecha_movimiento' => $puestoActual['fecha_asignacion'] ?? null,
+                        'responsable_nombre' => 'Sistema',
+                    ];
+                }
+            }
+
+            return self::resultado(true, 'Trayectoria consultada correctamente.', $rows);
+        } catch (\Exception $e) {
+            return self::resultado(false, 'Error al consultar trayectoria de puesto.', [], $e->getMessage());
+        }
+    }
 
     ////////////////////////////////////////////////////////////////////// VALIDADO AL 100
     ////////////////////////////////////////////////////////////////////// VALIDADO AL 100
@@ -1111,6 +1502,253 @@ class CapHum extends Model
             ]);
         } catch (\Exception $e) {
             return self::resultado(false, 'Error al obtener meta de organigrama.', null, $e->getMessage());
+        }
+    }
+
+    private static function asegurarTablaPermisosPuesto(Database $db): void
+    {
+        $db->CRUD("
+            CREATE TABLE IF NOT EXISTS __SPARTA_SECRET_REDACTED__.permisos_puesto (
+                id INT NOT NULL AUTO_INCREMENT,
+                id_puesto INT NOT NULL,
+                modulo_web_id INT NOT NULL,
+                activo TINYINT(1) NOT NULL DEFAULT 1,
+                creado_en DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                actualizado_en DATETIME NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
+                PRIMARY KEY (id),
+                UNIQUE KEY uq_permisos_puesto (id_puesto, modulo_web_id),
+                KEY idx_permisos_puesto_puesto (id_puesto),
+                KEY idx_permisos_puesto_modulo (modulo_web_id)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+        ");
+    }
+
+    public static function getPermisosPuestoConfig($idPuesto = 0)
+    {
+        try {
+            $db = new Database();
+            self::asegurarTablaPermisosPuesto($db);
+            self::asegurarModuloConveniosDescargarExcel($db);
+
+            $puestos = $db->queryAll("
+                SELECT
+                    p.id,
+                    p.nombre,
+                    COALESCE(p.nivel, 0) AS nivel,
+                    COALESCE(d.nombre, 'Sin departamento') AS departamento,
+                    COALESCE(dorg.nombre, 'Sin area') AS area,
+                    COALESCE(dir.nombre, 'Sin direccion') AS direccion
+                FROM __SPARTA_SECRET_REDACTED__.puesto p
+                LEFT JOIN __SPARTA_SECRET_REDACTED__.departamento d
+                    ON d.id = p.departamento_id
+                LEFT JOIN __SPARTA_SECRET_REDACTED__.departamento_organizacional dorg
+                    ON dorg.id = d.id_departamento_organizacional
+                LEFT JOIN __SPARTA_SECRET_REDACTED__.asigna_direcciones ad
+                    ON ad.id_departamento_organizacional = d.id_departamento_organizacional
+                   AND COALESCE(ad.activo, 1) = 1
+                LEFT JOIN __SPARTA_SECRET_REDACTED__.direcciones_organizacion dir
+                    ON dir.id = ad.id_direccion
+                WHERE COALESCE(p.activo, 1) = 1
+                  AND COALESCE(d.activo, 1) = 1
+                ORDER BY direccion ASC, area ASC, departamento ASC, p.nombre ASC
+            ");
+
+            $modulos = $db->queryAll("
+                SELECT
+                    m.id,
+                    CASE WHEN m.id = 27 THEN 'Panel Admin' ELSE m.nombre END AS modulo_nombre,
+                    COALESCE(NULLIF(TRIM(m.pestana), ''), m.nombre) AS pestana,
+                    COALESCE(NULLIF(TRIM(m.descripcion), ''), '') AS descripcion
+                FROM __SPARTA_SECRET_REDACTED__.modulos_web m
+                WHERE COALESCE(m.activo, 1) = 1
+                  AND m.id NOT IN (25)
+                  AND LOWER(TRIM(COALESCE(m.pestana, ''))) <> 'permisos especiales'
+                ORDER BY modulo_nombre ASC, pestana ASC, m.id ASC
+            ");
+
+            $seleccionados = [];
+            $idPuesto = (int) $idPuesto;
+            if ($idPuesto > 0) {
+                $seleccionados = self::modulosPlantillaPuesto($db, $idPuesto);
+            }
+
+            return self::resultado(true, 'Configuracion de permisos cargada.', [
+                'puestos' => $puestos,
+                'modulos' => $modulos,
+                'seleccionados' => $seleccionados,
+            ]);
+        } catch (\Exception $e) {
+            return self::resultado(false, 'Error al cargar permisos por puesto.', null, $e->getMessage());
+        }
+    }
+
+    public static function getPermisosPuesto($idPuesto)
+    {
+        try {
+            $db = new Database();
+            self::asegurarTablaPermisosPuesto($db);
+
+            $idPuesto = (int) $idPuesto;
+            if ($idPuesto <= 0) {
+                return self::resultado(false, 'ID de puesto invalido.');
+            }
+
+            return self::resultado(true, 'Permisos del puesto cargados.', [
+                'id_puesto' => $idPuesto,
+                'seleccionados' => self::modulosPlantillaPuesto($db, $idPuesto),
+            ]);
+        } catch (\Exception $e) {
+            return self::resultado(false, 'Error al cargar permisos del puesto.', null, $e->getMessage());
+        }
+    }
+
+    public static function guardarPermisosPuesto($idPuesto, array $modulos)
+    {
+        $db = null;
+        try {
+            $db = new Database();
+            self::asegurarTablaPermisosPuesto($db);
+            self::asegurarModuloConveniosDescargarExcel($db);
+
+            $idPuesto = (int) $idPuesto;
+            if ($idPuesto <= 0) {
+                return self::resultado(false, 'Selecciona un puesto valido.');
+            }
+
+            $puesto = $db->queryOne(
+                "SELECT id FROM __SPARTA_SECRET_REDACTED__.puesto WHERE id = :id AND COALESCE(activo, 1) = 1 LIMIT 1",
+                ['id' => $idPuesto]
+            );
+            if (!$puesto) {
+                return self::resultado(false, 'Puesto no encontrado.');
+            }
+
+            $modulos = array_values(array_unique(array_filter(array_map('intval', $modulos), function ($id) {
+                return $id > 0 && $id !== 25;
+            })));
+
+            $modulosValidos = [];
+            if (!empty($modulos)) {
+                $placeholders = [];
+                $params = [];
+                foreach ($modulos as $idx => $moduloId) {
+                    $key = 'm' . $idx;
+                    $placeholders[] = ':' . $key;
+                    $params[$key] = $moduloId;
+                }
+                $rows = $db->queryAll(
+                    "SELECT id
+                       FROM __SPARTA_SECRET_REDACTED__.modulos_web
+                      WHERE COALESCE(activo, 1) = 1
+                        AND LOWER(TRIM(COALESCE(pestana, ''))) <> 'permisos especiales'
+                        AND id IN (" . implode(',', $placeholders) . ")",
+                    $params
+                );
+                $modulosValidos = array_map('intval', array_column($rows, 'id'));
+            }
+
+            $db->beginTransaction();
+            $db->CRUD(
+                "UPDATE __SPARTA_SECRET_REDACTED__.permisos_puesto SET activo = 0 WHERE id_puesto = :id_puesto",
+                ['id_puesto' => $idPuesto]
+            );
+
+            foreach ($modulosValidos as $moduloId) {
+                $db->CRUD(
+                    "INSERT INTO __SPARTA_SECRET_REDACTED__.permisos_puesto (id_puesto, modulo_web_id, activo)
+                     VALUES (:id_puesto, :modulo_web_id, 1)
+                     ON DUPLICATE KEY UPDATE activo = 1, actualizado_en = NOW()",
+                    ['id_puesto' => $idPuesto, 'modulo_web_id' => $moduloId]
+                );
+            }
+
+            $db->commit();
+
+            return self::resultado(true, 'Plantilla de permisos guardada.', [
+                'id_puesto' => $idPuesto,
+                'seleccionados' => $modulosValidos,
+            ]);
+        } catch (\Exception $e) {
+            if ($db) {
+                try { $db->rollback(); } catch (\Exception $rollbackError) {}
+            }
+            return self::resultado(false, 'Error al guardar plantilla de permisos.', null, $e->getMessage());
+        }
+    }
+
+    private static function modulosPlantillaPuesto(Database $db, int $idPuesto): array
+    {
+        $rows = $db->queryAll(
+            "SELECT pp.modulo_web_id
+               FROM __SPARTA_SECRET_REDACTED__.permisos_puesto pp
+               INNER JOIN __SPARTA_SECRET_REDACTED__.modulos_web mw
+                   ON mw.id = pp.modulo_web_id
+                  AND COALESCE(mw.activo, 1) = 1
+                  AND LOWER(TRIM(COALESCE(mw.pestana, ''))) <> 'permisos especiales'
+              WHERE pp.id_puesto = :id_puesto
+                AND pp.activo = 1
+              ORDER BY pp.modulo_web_id ASC",
+            ['id_puesto' => $idPuesto]
+        );
+
+        return array_map('intval', array_column($rows, 'modulo_web_id'));
+    }
+
+    private static function aplicarPermisosPuestoAPersonaConDb(Database $db, int $idPersona, int $idPuesto): int
+    {
+        if ($idPersona <= 0 || $idPuesto <= 0) {
+            return 0;
+        }
+
+        self::asegurarTablaPermisosPuesto($db);
+        $modulos = self::modulosPlantillaPuesto($db, $idPuesto);
+        if (empty($modulos)) {
+            return 0;
+        }
+
+        $insertados = 0;
+        foreach ($modulos as $moduloId) {
+            $existe = $db->queryOne(
+                "SELECT id
+                   FROM __SPARTA_SECRET_REDACTED__.asigna_modulo_web
+                  WHERE usuario_id = :usuario_id
+                    AND modulo_web_id = :modulo_web_id
+                  LIMIT 1",
+                ['usuario_id' => $idPersona, 'modulo_web_id' => $moduloId]
+            );
+
+            if ($existe) {
+                continue;
+            }
+
+            $db->CRUD(
+                "INSERT INTO __SPARTA_SECRET_REDACTED__.asigna_modulo_web (usuario_id, modulo_web_id)
+                 VALUES (:usuario_id, :modulo_web_id)",
+                ['usuario_id' => $idPersona, 'modulo_web_id' => $moduloId]
+            );
+            $insertados++;
+        }
+
+        if ($insertados > 0) {
+            $db->CRUD(
+                "UPDATE __SPARTA_SECRET_REDACTED__.persona
+                    SET session_version = COALESCE(session_version, 1) + 1
+                  WHERE id = :id",
+                ['id' => $idPersona]
+            );
+        }
+
+        return $insertados;
+    }
+
+    public static function aplicarPermisosPuestoAPersona(int $idPersona, int $idPuesto)
+    {
+        try {
+            $db = new Database();
+            $insertados = self::aplicarPermisosPuestoAPersonaConDb($db, $idPersona, $idPuesto);
+            return self::resultado(true, 'Permisos automaticos aplicados.', ['insertados' => $insertados]);
+        } catch (\Exception $e) {
+            return self::resultado(false, 'Error al aplicar permisos automaticos.', null, $e->getMessage());
         }
     }
 
@@ -3614,12 +4252,25 @@ class CapHum extends Model
 
             if ($result)
             {
+                $fechaAsignacionCdmx = self::fechaHoraCdmx();
                 $db->queryOne("
                     INSERT INTO __SPARTA_SECRET_REDACTED__.asigna_puesto
                         (id, id_persona, id_puesto, fecha_asignacion, activo)
                     VALUES
-                        (DEFAULT, $id_persona, $id_puesto, NOW(), 1)
+                        (DEFAULT, $id_persona, $id_puesto, '$fechaAsignacionCdmx', 1)
                 ");
+
+                self::aplicarPermisosPuestoAPersonaConDb($db, (int) $id_persona, (int) $id_puesto);
+
+                $puestosDespuesAlta = self::puestosActivosTrayectoria($db, (int)$id_persona);
+                self::registrarCambiosTrayectoriaPuestos(
+                    $db,
+                    (int)$id_persona,
+                    [],
+                    $puestosDespuesAlta,
+                    isset($data['usuario_edita']) ? (int)$data['usuario_edita'] : (int)($_SESSION['usuario_id'] ?? 0),
+                    'alta_gestion_personal'
+                );
 
                 if ($id_vacante_jefe > 0) {
                     $db->queryOne("
@@ -3861,6 +4512,7 @@ class CapHum extends Model
             $db = new Database();
             self::asegurarAsignaJefeSoportaVacante($db);
             self::asegurarTablaVacantesPersonal($db);
+            self::asegurarTablaTrayectoriaPuesto($db);
 
             $puestoAnterior = $db->queryOne("
                 SELECT
@@ -4008,6 +4660,7 @@ class CapHum extends Model
                 }
             }
 
+            $puestosTrayectoriaAntes = self::puestosActivosTrayectoria($db, $id_persona);
             $db->beginTransaction();
 
             if ($cp === '' && $id_div_nivel3 !== 'NULL') {
@@ -4103,6 +4756,15 @@ class CapHum extends Model
             if (!$sincronizarPuestosDesdeLista && empty($idsPuestosGuardar)) {
                 throw new \Exception('Debe quedar al menos un puesto asignado.');
             }
+            $fechaAsignacionCdmx = self::fechaHoraCdmx();
+
+            $idsPuestosActivosAntes = [];
+            foreach ($puestosTrayectoriaAntes as $puestoActivoAntes) {
+                $idPuestoActivoAntes = (int)($puestoActivoAntes['id_puesto'] ?? 0);
+                if ($idPuestoActivoAntes > 0) {
+                    $idsPuestosActivosAntes[$idPuestoActivoAntes] = true;
+                }
+            }
 
             $db->CRUD(
                 "UPDATE __SPARTA_SECRET_REDACTED__.asigna_puesto
@@ -4123,22 +4785,29 @@ class CapHum extends Model
                 );
 
                 if ($asignacionExistente) {
+                    $actualizarFechaAsignacion = !isset($idsPuestosActivosAntes[(int)$puestoId]);
                     $db->CRUD(
                         "UPDATE __SPARTA_SECRET_REDACTED__.asigna_puesto
-                         SET activo = 1
+                         SET activo = 1" . ($actualizarFechaAsignacion ? ", fecha_asignacion = :fecha_asignacion" : "") . "
                          WHERE id = :id",
-                        ['id' => (int)$asignacionExistente['id']]
+                        $actualizarFechaAsignacion
+                            ? ['id' => (int)$asignacionExistente['id'], 'fecha_asignacion' => $fechaAsignacionCdmx]
+                            : ['id' => (int)$asignacionExistente['id']]
                     );
                 } else {
                     $db->CRUD(
-                        "INSERT INTO __SPARTA_SECRET_REDACTED__.asigna_puesto (id_persona, id_puesto, activo)
-                         VALUES (:id_persona, :id_puesto, 1)",
-                        ['id_persona' => $id_persona, 'id_puesto' => $puestoId]
+                        "INSERT INTO __SPARTA_SECRET_REDACTED__.asigna_puesto (id_persona, id_puesto, fecha_asignacion, activo)
+                         VALUES (:id_persona, :id_puesto, :fecha_asignacion, 1)",
+                        ['id_persona' => $id_persona, 'id_puesto' => $puestoId, 'fecha_asignacion' => $fechaAsignacionCdmx]
                     );
                 }
             }
 
             // 4️⃣ ASIGNA LEGIÓN
+            foreach ($idsPuestosGuardar as $puestoIdAutoPermiso) {
+                self::aplicarPermisosPuestoAPersonaConDb($db, (int) $id_persona, (int) $puestoIdAutoPermiso);
+            }
+
             if ($esDegradacionConHueco && !empty($subordinadosPuestoAnterior) && in_array($resolverPuestoAnterior, ['vacante', 'sustituto'], true)) {
                 $idsSubordinados = array_values(array_map(function ($row) {
                     return (int)$row['id'];
@@ -4284,6 +4953,16 @@ class CapHum extends Model
                     ['id' => $existeDespachoActivo['id']]
                 );
             }
+
+            $puestosTrayectoriaDespues = self::puestosActivosTrayectoria($db, $id_persona);
+            self::registrarCambiosTrayectoriaPuestos(
+                $db,
+                $id_persona,
+                $puestosTrayectoriaAntes,
+                $puestosTrayectoriaDespues,
+                !empty($data['usuario_edita']) ? (int)$data['usuario_edita'] : (int)($_SESSION['usuario_id'] ?? 0),
+                'edicion_gestion_personal'
+            );
 
             $db->commit();
 

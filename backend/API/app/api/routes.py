@@ -23,7 +23,7 @@ from app.services.document_crosscheck import (
     extraer_informacion_ingresos_fad,
     extraer_datos_motocicleta_factura,
     validacion_cruzada,
-    es_documento_nss, es_documento_curp, es_documento_constancia_fiscal, es_documento_acta_nacimiento,
+    es_documento_nss, es_tarjeta_nss, es_documento_curp, es_documento_constancia_fiscal, es_documento_acta_nacimiento,
     pdf_paginas_a_png_bytes,
 )
 from app.core.config import get_settings
@@ -66,18 +66,26 @@ def _indicadores_identificacion(texto: str) -> Dict[str, bool]:
     tiene_elector = bool(re.search(r"CLAVE\s*DE\s*ELECTOR|CLAVEDEELECTOR|CLAVE.{0,4}ELECTOR|SECCION\s*\d|ELECTORAL|VOTAR", t))
     tiene_curp = bool(re.search(r"[A-Z]{4}\d{6}[HM][A-Z]{5}[A-Z0-9]\d", t))
     tiene_inm = bool(re.search(r"INSTITUTO\s+NACIONAL\s+DE\s+MIGRACION|MIGRACION|INM|RESIDENCIA\s+(TEMPORAL|PERMANENTE)|RESIDENTE\s+(TEMPORAL|PERMANENTE)|NUE\s*[.:]?\s*\d", t))
+    tiene_pasaporte = bool(
+        re.search(r"PASAPORTE|PASSPORT|PASSAPORT|PASAPORTE\s*NO|NO\.?\s*DE\s*PASAPORTE", t)
+        or (re.search(r"ESTADOS\s+UNIDOS\s+MEXICANOS", t) and re.search(r"CLAVE\s+DEL\s+PAIS|MEX\b|PASAPORTE", t))
+        or re.search(r"\bP\s*<\s*MEX|P<MEX|MEX\d{6}[HM]\d{6}", t)
+    )
+    if not tiene_pasaporte and tiene_mrz and not tiene_inm and not tiene_ine:
+        tiene_pasaporte = True
     return {
         "mrz": tiene_mrz,
         "ine": tiene_ine,
         "elector": tiene_elector,
         "curp": tiene_curp,
         "inm_residencia": tiene_inm,
+        "pasaporte": tiene_pasaporte,
     }
 
 
 def _parece_identificacion_oficial(texto: str) -> bool:
     indicadores = _indicadores_identificacion(texto)
-    if indicadores["mrz"] or indicadores["ine"] or indicadores["inm_residencia"]:
+    if indicadores["mrz"] or indicadores["ine"] or indicadores["inm_residencia"] or indicadores["pasaporte"]:
         return True
     return indicadores["curp"] and indicadores["elector"]
 
@@ -103,18 +111,40 @@ def _extraer_texto_pdf_rapido(pdf_bytes: bytes, max_paginas: int = 2) -> Dict[st
             doc.close()
             return {"texto": texto, "paginas": paginas, "modo": "texto_pdf"}
 
+        if paginas > 0 and any(page.get_images(full=True) for page in doc):
+            doc.close()
+            return {"texto": "", "paginas": paginas, "modo": "imagen_pdf_sin_texto"}
+
         service = VerificacionService()
+        # Pasaportes/IDs fotografiados suelen venir girados o con mucho margen blanco.
+        # Probar primero la zona de contenido evita gastar OCR en toda la hoja.
+        if paginas > 0:
+            try:
+                page = doc[0]
+                rect = page.rect
+                clip = fitz.Rect(0, rect.height * 0.20, rect.width, rect.height * 0.92)
+                pix = page.get_pixmap(dpi=145, clip=clip)
+                img_bytes = pix.tobytes("png")
+                texto_crop = service.ocr_analyzer.extraer_texto_rapido(img_bytes, max_ancho=1800)
+                if _parece_identificacion_oficial(texto_crop):
+                    doc.close()
+                    return {"texto": texto_crop, "paginas": paginas, "modo": "ocr_zona_contenido_145dpi"}
+                texto = texto_crop or ""
+            except Exception as e:
+                logger.warning(f"precheck_identificacion_pdf: crop inicial falló: {e}")
         for dpi, max_ancho in ((95, 1000), (150, 1400)):
-            texto = ""
+            texto_full = ""
             for i, page in enumerate(doc):
                 if i >= max_paginas:
                     break
                 pix = page.get_pixmap(dpi=dpi)
                 img_bytes = pix.tobytes("png")
-                texto += service.ocr_analyzer.extraer_texto_rapido(img_bytes, max_ancho=max_ancho) + "\n"
-            if _parece_identificacion_oficial(texto):
+                texto_full += service.ocr_analyzer.extraer_texto_rapido(img_bytes, max_ancho=max_ancho) + "\n"
+            texto_total = (texto or "") + "\n" + texto_full
+            if _parece_identificacion_oficial(texto_total):
                 doc.close()
-                return {"texto": texto, "paginas": paginas, "modo": f"ocr_rapido_{dpi}dpi"}
+                return {"texto": texto_total, "paginas": paginas, "modo": f"ocr_rapido_{dpi}dpi"}
+            texto = texto_total
 
         # Fallback ligero para INE escaneada: enfoca zona de datos/clave sin correr validación profunda.
         if paginas > 0:
@@ -132,11 +162,49 @@ def _extraer_texto_pdf_rapido(pdf_bytes: bytes, max_paginas: int = 2) -> Dict[st
                     return {"texto": texto, "paginas": paginas, "modo": "ocr_zona_datos_120dpi"}
             except Exception as e:
                 logger.warning(f"precheck_identificacion_pdf: fallback zona datos falló: {e}")
+
+        # Pasaporte/ID fotografiado dentro de una página: suele venir con mucho margen blanco.
+        # Recortar la franja central-inferior evita que el OCR lea solo el fondo.
+        if paginas > 0:
+            try:
+                page = doc[0]
+                rect = page.rect
+                clip = fitz.Rect(0, rect.height * 0.22, rect.width, rect.height * 0.90)
+                for dpi in (160, 220):
+                    pix = page.get_pixmap(dpi=dpi, clip=clip)
+                    img_bytes = pix.tobytes("png")
+                    texto_crop = service.ocr_analyzer.extraer_texto_rapido(img_bytes, max_ancho=2200)
+                    texto_total = (texto or "") + "\n" + (texto_crop or "")
+                    if _parece_identificacion_oficial(texto_total):
+                        doc.close()
+                        return {"texto": texto_total, "paginas": paginas, "modo": f"ocr_zona_contenido_{dpi}dpi"}
+                    texto = texto_total
+            except Exception as e:
+                logger.warning(f"precheck_identificacion_pdf: fallback zona contenido falló: {e}")
         doc.close()
         return {"texto": texto, "paginas": paginas, "modo": "ocr_rapido"}
     except Exception as e:
         logger.warning(f"precheck_identificacion_pdf: error leyendo PDF: {e}")
         return {"texto": texto, "paginas": paginas, "modo": "error"}
+
+
+def _texto_pdf_embebido_rapido(pdf_bytes: bytes, max_paginas: int = 2) -> Dict[str, Any]:
+    """Lee solo texto embebido del PDF, sin OCR, para no bloquear con escaneos."""
+    if not PYMUPDF_AVAILABLE:
+        return {"texto": "", "paginas": 0, "modo": "pymupdf_no_disponible"}
+    try:
+        doc = fitz.open(stream=pdf_bytes, filetype="pdf")
+        paginas = len(doc)
+        texto = []
+        for i, page in enumerate(doc):
+            if i >= max_paginas:
+                break
+            texto.append(page.get_text("text") or "")
+        doc.close()
+        return {"texto": "\n".join(texto), "paginas": paginas, "modo": "texto_pdf_embebido"}
+    except Exception as e:
+        logger.warning(f"texto_pdf_embebido_rapido: error leyendo PDF: {e}")
+        return {"texto": "", "paginas": 0, "modo": "error"}
 
 
 async def verificar_api_key(api_key: str = Depends(api_key_header)):
@@ -154,6 +222,36 @@ def validar_imagen(file: UploadFile) -> None:
             status_code=400,
             detail=f"Formato no permitido. Use: {', '.join(EXTENSIONES_PERMITIDAS)}"
         )
+
+
+async def _ejecutar_pdf_timeout(nombre: str, func, *args, timeout: int = 8, fallback: Optional[Dict[str, Any]] = None):
+    """Ejecuta extracción de PDF sin dejar que una OCR difícil bloquee el expediente."""
+    try:
+        return await asyncio.wait_for(asyncio.to_thread(func, *args), timeout=timeout)
+    except asyncio.TimeoutError:
+        logger.warning(f"{nombre}: timeout tras {timeout}s; se enviará a revisión manual")
+        data = {"revision_manual": True, "timeout": True, "mensaje": f"{nombre} no se pudo leer a tiempo."}
+        if fallback:
+            data.update(fallback)
+        return data
+    except Exception as e:
+        logger.warning(f"{nombre}: error en extracción PDF: {e}")
+        data = {"revision_manual": True, "error": str(e), "mensaje": f"{nombre} no se pudo leer automáticamente."}
+        if fallback:
+            data.update(fallback)
+        return data
+
+
+def _respuesta_rechazo(motivo: str, mensaje: str, **extra) -> Dict[str, Any]:
+    data: Dict[str, Any] = {
+        "valido": False,
+        "revision_manual": False,
+        "rechazado": True,
+        "motivo_rechazo": motivo,
+        "mensaje": mensaje,
+    }
+    data.update(extra)
+    return data
 
 
 @router.post(
@@ -319,22 +417,31 @@ async def verificar_comprobante(
         elif check.tipo_comprobante:
             tipo_label = (check.tipo_comprobante or "").replace("_", " ").title()
         prefijo = f"Comprobante de {tipo_label} rechazado: " if tipo_label else "Comprobante rechazado: "
+        alerta_principal = (check.alertas[0] if check.alertas else "") or ""
+        es_documento_equivocado = alerta_principal.startswith("Este documento es ") or alerta_principal.startswith("Este documento no es ")
 
-        if check.es_reciente is False:
+        if es_documento_equivocado:
             resultado = "RECHAZADO"
-            recomendacion = prefijo + "tiene mas de 3 meses de antigüedad. Se requiere máximo 3 meses."
+            recomendacion = alerta_principal
+        elif check.es_reciente is False:
+            resultado = "RECHAZADO"
+            recomendacion = prefijo + "tiene más de 3 meses de antigüedad. Se requiere máximo 3 meses."
         elif check.es_reciente is None and not check.fecha_documento:
-            resultado = "RECHAZADO"
+            resultado = "REVISION_MANUAL"
             if any("no se pudo extraer texto" in (a or "").lower() for a in (check.alertas or [])):
-                recomendacion = prefijo + "no se pudo extraer texto legible del PDF para validar la fecha. Sube un PDF digital o una imagen más clara."
+                recomendacion = "Comprobante recibido; no se pudo extraer texto legible para validar la fecha. Revisar manualmente."
             else:
-                recomendacion = prefijo + "no se pudo verificar la fecha del documento."
+                recomendacion = "Comprobante recibido; no se pudo verificar la fecha automáticamente. Revisar manualmente."
         elif score >= 75 and check.es_reciente is True:
             resultado = "APROBADO"
             recomendacion = f"Comprobante de {tipo_label} válido y reciente. Puede procesarse." if tipo_label else "Comprobante válido y reciente. Puede procesarse."
         elif score >= 50:
             resultado = "REVISION_MANUAL"
             recomendacion = "Comprobante requiere revisión manual."
+
+        else:
+            resultado = "REVISION_MANUAL"
+            recomendacion = "Comprobante recibido; no se pudo verificar con suficiente confianza. Revisar manualmente."
 
         return ComprobanteResponse(
             tipo_comprobante=check.tipo_comprobante,
@@ -378,7 +485,7 @@ async def verificar_nss(
 @router.post(
     "/verificar-nss-documento",
     summary="Extraer y validar NSS desde PDF (vigencia de derechos / constancia IMSS)",
-    description="Sube el PDF de vigencia de derechos del IMSS (imss.gob.mx), constancia de vigencia FF-IMSS-012, o constancia de semanas cotizadas. No se acepta la tarjeta NSS (imprimir y recortar). Retorna nss_extraido, valido y mensaje.",
+    description="Sube el PDF de vigencia de derechos del IMSS (imss.gob.mx), constancia de vigencia FF-IMSS-012, o constancia de semanas cotizadas. La tarjeta NSS (imprimir y recortar) se detecta y se rechaza sin mandarla a revisión manual. Retorna nss_extraido, válido y mensaje.",
     tags=["Utilidades"]
 )
 async def verificar_nss_documento(
@@ -390,22 +497,63 @@ async def verificar_nss_documento(
     file_bytes = await documento.read()
     if len(file_bytes) == 0:
         raise HTTPException(status_code=400, detail="Documento vacío")
-    if not es_documento_nss(file_bytes):
-        return {"nss_extraido": None, "valido": False, "mensaje": "El documento no es uno de los formatos aceptados (vigencia de derechos, constancia de vigencia o constancia de semanas cotizadas del IMSS). No se acepta la tarjeta NSS. Suba el PDF desde imss.gob.mx."}
-    nss_extraido = extraer_nss_de_pdf(file_bytes)
-    if nss_extraido is None:
-        return {"nss_extraido": None, "valido": False, "mensaje": "No se encontró un NSS de 11 dígitos en el documento. Sube la constancia de NSS del IMSS."}
-    valido, mensaje = validar_nss(nss_extraido)
-    datos_nss = extraer_datos_nss_pdf(file_bytes)
-    nombre = datos_nss.get("nombre") if isinstance(datos_nss, dict) else None
-    return {
-        "nss_extraido": nss_extraido,
-        "valido": valido,
-        "mensaje": mensaje,
-        "nombre": nombre,
-        "curp": datos_nss.get("curp") if isinstance(datos_nss, dict) else None,
-        "fecha_nacimiento": datos_nss.get("fecha_nacimiento") if isinstance(datos_nss, dict) else None,
-    }
+    try:
+        tarjeta_nss = await asyncio.wait_for(asyncio.to_thread(es_tarjeta_nss, file_bytes), timeout=4)
+    except asyncio.TimeoutError:
+        return {"nss_extraido": None, "valido": False, "revision_manual": True, "timeout": True, "mensaje": "No se pudo confirmar automáticamente el formato del NSS. Revisar manualmente."}
+
+    if tarjeta_nss:
+        nss_extraido = extraer_nss_de_pdf(file_bytes)
+        datos_nss = extraer_datos_nss_pdf(file_bytes)
+        return _respuesta_rechazo(
+            "tarjeta_nss_no_aceptada",
+            "No se acepta tarjeta NSS (imprimir y recortar). Debe subir constancia o vigencia de derechos del IMSS.",
+            nss_extraido=nss_extraido,
+            nombre=datos_nss.get("nombre") if isinstance(datos_nss, dict) else None,
+            curp=datos_nss.get("curp") if isinstance(datos_nss, dict) else None,
+            fecha_nacimiento=datos_nss.get("fecha_nacimiento") if isinstance(datos_nss, dict) else None,
+        )
+
+    try:
+        parece_nss = await asyncio.wait_for(asyncio.to_thread(es_documento_nss, file_bytes), timeout=5)
+    except asyncio.TimeoutError:
+        return {"nss_extraido": None, "valido": False, "revision_manual": True, "timeout": True, "mensaje": "No se pudo confirmar automáticamente el formato del NSS. Revisar manualmente."}
+
+    if parece_nss:
+        nss_extraido = extraer_nss_de_pdf(file_bytes)
+        if nss_extraido is None:
+            return {"nss_extraido": None, "valido": False, "revision_manual": True, "mensaje": "No se encontró automáticamente un NSS de 11 dígitos. Revisar manualmente."}
+        valido, mensaje = validar_nss(nss_extraido)
+        datos_nss = extraer_datos_nss_pdf(file_bytes)
+        nombre = datos_nss.get("nombre") if isinstance(datos_nss, dict) else None
+        return {
+            "nss_extraido": nss_extraido,
+            "valido": valido,
+            "mensaje": mensaje,
+            "nombre": nombre,
+            "curp": datos_nss.get("curp") if isinstance(datos_nss, dict) else None,
+            "fecha_nacimiento": datos_nss.get("fecha_nacimiento") if isinstance(datos_nss, dict) else None,
+        }
+
+    if es_documento_curp(file_bytes):
+        return _respuesta_rechazo(
+            "documento_curp_en_nss",
+            "El documento es una constancia CURP. En NSS debe subir constancia o vigencia de derechos del IMSS.",
+            nss_extraido=None,
+        )
+    if es_documento_constancia_fiscal(file_bytes):
+        return _respuesta_rechazo(
+            "constancia_fiscal_en_nss",
+            "El documento es una constancia fiscal SAT. En NSS debe subir constancia o vigencia de derechos del IMSS.",
+            nss_extraido=None,
+        )
+    if es_documento_acta_nacimiento(file_bytes):
+        return _respuesta_rechazo(
+            "acta_en_nss",
+            "El documento es un acta de nacimiento. En NSS debe subir constancia o vigencia de derechos del IMSS.",
+            nss_extraido=None,
+        )
+    return {"nss_extraido": None, "valido": False, "revision_manual": True, "mensaje": "No se pudo confirmar automáticamente el formato del NSS. Revisar manualmente."}
 
 
 @router.post(
@@ -423,10 +571,33 @@ async def verificar_acta_documento(
     file_bytes = await documento.read()
     if len(file_bytes) == 0:
         raise HTTPException(status_code=400, detail="Documento vacío")
-    if es_documento_nss(file_bytes):
-        return {"valido": False, "mensaje": "El documento es una constancia de NSS del IMSS. En este campo solo se acepta el acta de nacimiento certificada en PDF."}
     inicio = time.time()
-    parece_acta = es_documento_acta_nacimiento(file_bytes)
+    texto_info = _texto_pdf_embebido_rapido(file_bytes, max_paginas=2)
+    texto_norm = _normalizar_texto_precheck(texto_info.get("texto") or "")
+
+    if (
+        ("INSTITUTO MEXICANO DEL SEGURO SOCIAL" in texto_norm or "IMSS" in texto_norm)
+        and (
+            "NUMERO DE SEGURIDAD SOCIAL" in texto_norm
+            or "VIGENCIA DE DERECHOS" in texto_norm
+            or "CONSTANCIA DE VIGENCIA" in texto_norm
+            or "SEMANAS COTIZADAS" in texto_norm
+            or "HISTORIAL DE REGISTROS AFILIATORIOS" in texto_norm
+        )
+    ):
+        return _respuesta_rechazo(
+            "nss_en_acta",
+            "El documento corresponde a NSS del IMSS. En este campo solo se acepta acta de nacimiento certificada.",
+            parece_acta=False,
+            tiempo_ms=int((time.time() - inicio) * 1000),
+        )
+
+    parece_acta = bool(
+        "ACTA DE NACIMIENTO" in texto_norm
+        or "CERTIFICADO DE NACIMIENTO" in texto_norm
+        or "CERTIFICACION DE NACIMIENTO" in texto_norm
+        or (("ACTA" in texto_norm or "REGISTRO CIVIL" in texto_norm) and "NACIMIENTO" in texto_norm)
+    )
     if parece_acta:
         tiempo_ms = int((time.time() - inicio) * 1000)
         return {
@@ -438,33 +609,14 @@ async def verificar_acta_documento(
             "modo_validacion": "texto_pdf_rapido",
             "tiempo_ms": tiempo_ms,
         }
-    try:
-        datos = await asyncio.wait_for(
-            asyncio.to_thread(extraer_datos_acta_nacimiento, file_bytes, True),
-            timeout=35,
-        )
-    except asyncio.TimeoutError:
-        return {
-            "valido": False,
-            "mensaje": "No se pudo leer el acta a tiempo. El PDF parece ser una imagen escaneada pesada; intente nuevamente o revise el documento manualmente.",
-            "timeout": True,
-        }
-    parece_acta = parece_acta or bool(datos.get("parece_acta"))
-    tiempo_ms = int((time.time() - inicio) * 1000)
-    # Muy flexible: si el extractor obtuvo fecha o nombre (incluso con baja confianza, ej. escaneos/manuscritos), aceptar
-    if datos.get("fecha_nacimiento") or datos.get("nombre"):
-        return {"valido": True, "mensaje": "Acta de nacimiento verificada.", "nombre": datos.get("nombre"), "fecha_nacimiento": datos.get("fecha_nacimiento")}
-    # Si hay texto extraído y coincide con acta por encabezados, aceptar
-    if datos.get("texto_extraido") and parece_acta:
-        return {"valido": True, "mensaje": "Acta de nacimiento verificada.", "nombre": datos.get("nombre"), "fecha_nacimiento": datos.get("fecha_nacimiento")}
-    # Documento con texto que parece acta pero no se pudo extraer fecha/nombre (ej. manuscrito muy cerrado)
-    if parece_acta:
-        return {"valido": True, "mensaje": "Acta de nacimiento verificada (revisión manual recomendada).", "nombre": None, "fecha_nacimiento": None}
-    if datos.get("texto_extraido"):
-        return {"valido": False, "mensaje": "No se pudo leer nombre ni fecha en el documento. Sube el PDF del acta certificada (evita imágenes muy borrosas o manuscritas)."}
-    return {"valido": False, "mensaje": "El documento no es un acta de nacimiento. Sube el PDF del acta certificada."}
-
-
+    return {
+        "valido": False,
+        "revision_manual": True,
+        "mensaje": "No se pudo confirmar automáticamente el acta de nacimiento. Revisar manualmente.",
+        "parece_acta": False,
+        "modo_validacion": "revision_manual_rapida",
+        "tiempo_ms": int((time.time() - inicio) * 1000),
+    }
 @router.post(
     "/verificar-constancia-fiscal-documento",
     summary="Verificar que el PDF sea constancia de situación fiscal (SAT)",
@@ -484,23 +636,47 @@ async def verificar_constancia_fiscal_documento(
     try:
         datos = await asyncio.wait_for(
             asyncio.to_thread(extraer_datos_constancia_fiscal, file_bytes),
-            timeout=60,
+            timeout=4,
         )
     except asyncio.TimeoutError:
         return {
             "valido": False,
-            "mensaje": "No se pudo leer la constancia a tiempo. Intenta subir el PDF original del SAT o una copia escaneada más clara.",
+            "mensaje": "No se pudo leer la constancia a tiempo.",
             "timeout": True,
+            "revision_manual": True,
             "tiempo_ms": int((time.time() - inicio) * 1000),
         }
 
     if not datos.get("parece_constancia_fiscal"):
-        if await asyncio.to_thread(es_documento_nss, file_bytes):
-            return {"valido": False, "mensaje": "El documento es la constancia de NSS del IMSS. En este campo solo se acepta la constancia de situación fiscal del SAT (descargada del portal del SAT)."}
-        return {"valido": False, "mensaje": "El documento no es una constancia de situación fiscal del SAT. Sube el PDF descargado del portal del SAT."}
+        if es_tarjeta_nss(file_bytes) or await asyncio.to_thread(es_documento_nss, file_bytes):
+            return _respuesta_rechazo(
+                "nss_en_constancia_fiscal",
+                "El documento corresponde a NSS del IMSS. En este campo solo se acepta constancia de situación fiscal SAT.",
+            )
+        if await asyncio.to_thread(es_documento_curp, file_bytes):
+            return _respuesta_rechazo(
+                "curp_en_constancia_fiscal",
+                "El documento es una constancia CURP. En este campo solo se acepta constancia de situación fiscal SAT.",
+            )
+        if await asyncio.to_thread(es_documento_acta_nacimiento, file_bytes):
+            return _respuesta_rechazo(
+                "acta_en_constancia_fiscal",
+                "El documento es un acta de nacimiento. En este campo solo se acepta constancia de situación fiscal SAT.",
+            )
+        return {"valido": False, "revision_manual": True, "mensaje": "El documento no se pudo confirmar automáticamente como constancia fiscal SAT."}
 
     # Vigencia: máximo 2 meses desde "Lugar y Fecha de Emisión"
     meses = datos.get("meses_antiguedad")
+    if meses is not None and meses > 2.0:
+        return _respuesta_rechazo(
+            "constancia_fiscal_vencida",
+            "La constancia no puede tener más de 2 meses de antigüedad. Descarga una nueva constancia en el portal del SAT.",
+            fecha_emision=datos.get("fecha_emision"),
+            meses_antiguedad=meses,
+            vigencia_ok=False,
+            actividad_asalariado=datos.get("actividad_economica_asalariado"),
+            regimen_sueldos_salarios=datos.get("regimen_sueldos_salarios"),
+        )
     if meses is not None and meses > 2.0:
         return {
             "valido": False,
@@ -516,7 +692,8 @@ async def verificar_constancia_fiscal_documento(
     if not datos.get("actividad_economica_asalariado"):
         return {
             "valido": False,
-            "mensaje": "La constancia debe tener Actividad Económica 'Asalariado'. Verifica que en el PDF aparezca Asalariado en la sección Actividades Económicas.",
+            "revision_manual": True,
+            "mensaje": "No se pudo confirmar automáticamente la actividad Asalariado. Revisar manualmente.",
             "fecha_emision": datos.get("fecha_emision"),
             "meses_antiguedad": meses,
             "vigencia_ok": meses is None or meses <= 2.0,
@@ -528,7 +705,8 @@ async def verificar_constancia_fiscal_documento(
     if not datos.get("regimen_sueldos_salarios"):
         return {
             "valido": False,
-            "mensaje": "La constancia debe incluir 'Régimen de Sueldos y Salarios e Ingresos Asimilados a Salarios' en la sección Regímenes (normalmente en la segunda página).",
+            "revision_manual": True,
+            "mensaje": "No se pudo confirmar automáticamente el régimen de Sueldos y Salarios. Revisar manualmente.",
             "fecha_emision": datos.get("fecha_emision"),
             "meses_antiguedad": meses,
             "vigencia_ok": meses is None or meses <= 2.0,
@@ -537,7 +715,7 @@ async def verificar_constancia_fiscal_documento(
         }
 
     if not (datos.get("rfc") or (datos.get("curp") and validar_curp(datos["curp"])[0])):
-        return {"valido": False, "mensaje": "El documento no parece ser una constancia de situación fiscal del SAT. Sube el PDF descargado del portal del SAT."}
+        return {"valido": False, "revision_manual": True, "mensaje": "No se pudo confirmar automáticamente la constancia fiscal SAT. Revisar manualmente."}
 
     return {
         "valido": True,
@@ -569,8 +747,24 @@ async def verificar___SPARTA_SECRET_REDACTED__(
     if len(file_bytes) == 0:
         raise HTTPException(status_code=400, detail="Documento vacío")
     from app.services.__SPARTA_SECRET_REDACTED___analyzer import validar___SPARTA_SECRET_REDACTED___pdf
-    resultado = await asyncio.to_thread(validar___SPARTA_SECRET_REDACTED___pdf, file_bytes)
-    return resultado
+    try:
+        resultado = await asyncio.wait_for(
+            asyncio.to_thread(validar___SPARTA_SECRET_REDACTED___pdf, file_bytes),
+            timeout=8,
+        )
+        return resultado
+    except asyncio.TimeoutError:
+        return {
+            "valido": False,
+            "revision_manual": True,
+            "timeout": True,
+            "mensaje": "No se pudo leer el estado de cuenta a tiempo. Revisar manualmente.",
+            "banco_detectado": None,
+            "nombre_propietario": None,
+            "clabe": None,
+            "es_banco_fisico": False,
+            "tiene_datos_titular": False,
+        }
 
 
 @router.post(
@@ -647,27 +841,96 @@ async def verificar_curp_documento(
     file_bytes = await documento.read()
     if len(file_bytes) == 0:
         raise HTTPException(status_code=400, detail="Documento vacío")
-    if es_documento_nss(file_bytes):
-        return {"curp_extraido": None, "valido": False, "mensaje": "El documento es la constancia de NSS del IMSS. En este campo solo se acepta la constancia de CURP del RENAPO.", "es_reciente": None, "meses_antiguedad": None, "fecha_emision": None}
+    inicio = time.time()
+    if es_tarjeta_nss(file_bytes) or es_documento_nss(file_bytes):
+        return _respuesta_rechazo(
+            "nss_en_curp",
+            "El documento corresponde a NSS del IMSS. En este campo solo se acepta constancia CURP del RENAPO.",
+            curp_extraido=None,
+            es_reciente=None,
+            meses_antiguedad=None,
+            fecha_emision=None,
+            tiempo_ms=int((time.time() - inicio) * 1000),
+        )
     if es_documento_constancia_fiscal(file_bytes):
-        return {"curp_extraido": None, "valido": False, "mensaje": "El documento es una constancia de situación fiscal (SAT). En este campo solo se acepta la constancia de CURP del RENAPO.", "es_reciente": None, "meses_antiguedad": None, "fecha_emision": None}
-    if not es_documento_curp(file_bytes):
-        return {"curp_extraido": None, "valido": False, "mensaje": "El documento no es una constancia de CURP. Sube el PDF de la constancia del RENAPO.", "es_reciente": None, "meses_antiguedad": None, "fecha_emision": None}
-    curp_extraido = extraer_curp_de_pdf(file_bytes)
+        return _respuesta_rechazo(
+            "constancia_fiscal_en_curp",
+            "El documento es una constancia fiscal SAT. En este campo solo se acepta constancia CURP del RENAPO.",
+            curp_extraido=None,
+            es_reciente=None,
+            meses_antiguedad=None,
+            fecha_emision=None,
+            tiempo_ms=int((time.time() - inicio) * 1000),
+        )
+    if False and es_documento_acta_nacimiento(file_bytes):
+        return _respuesta_rechazo(
+            "acta_en_curp",
+            "El documento es un acta de nacimiento. En este campo solo se acepta constancia CURP del RENAPO.",
+            curp_extraido=None,
+            es_reciente=None,
+            meses_antiguedad=None,
+            fecha_emision=None,
+            tiempo_ms=int((time.time() - inicio) * 1000),
+        )
+    parece_curp = es_documento_curp(file_bytes)
+    try:
+        datos = await asyncio.wait_for(
+            asyncio.to_thread(extraer_datos_curp_pdf, file_bytes),
+            timeout=25,
+        )
+    except asyncio.TimeoutError:
+        return {
+            "curp_extraido": None,
+            "valido": False,
+            "mensaje": "No se pudo leer el CURP a tiempo.",
+            "timeout": True,
+            "revision_manual": True,
+            "es_reciente": None,
+            "meses_antiguedad": None,
+            "fecha_emision": None,
+            "tiempo_ms": int((time.time() - inicio) * 1000),
+        }
+    curp_extraido = datos.get("curp") if isinstance(datos, dict) else None
+    if not curp_extraido:
+        curp_extraido = extraer_curp_de_pdf(file_bytes)
     if curp_extraido is None:
-        return {"curp_extraido": None, "valido": False, "mensaje": "No se encontró un CURP válido en el documento. Sube la constancia de CURP del RENAPO.",
-                "es_reciente": None, "meses_antiguedad": None, "fecha_emision": None}
+        return {
+            "curp_extraido": None,
+            "valido": False,
+            "mensaje": "No se pudo leer automáticamente un CURP válido en el documento.",
+            "revision_manual": True,
+            "es_reciente": None,
+            "meses_antiguedad": None,
+            "fecha_emision": None,
+            "parece_curp": parece_curp,
+            "tiempo_ms": int((time.time() - inicio) * 1000),
+        }
     valido, mensaje = validar_curp(curp_extraido)
-    datos = extraer_datos_curp_pdf(file_bytes)
     nombre = datos.get("nombre") if isinstance(datos, dict) else None
+    if not valido:
+        return {
+            "curp_extraido": curp_extraido,
+            "valido": False,
+            "mensaje": mensaje,
+            "nombre": nombre,
+            "revision_manual": True,
+            "es_reciente": datos.get("es_reciente"),
+            "meses_antiguedad": datos.get("meses_antiguedad"),
+            "fecha_emision": datos.get("fecha_emision"),
+            "parece_curp": parece_curp,
+            "tiempo_ms": int((time.time() - inicio) * 1000),
+        }
     return {
         "curp_extraido": curp_extraido,
-        "valido": valido,
+        "valido": True,
         "mensaje": mensaje,
         "nombre": nombre,
         "es_reciente": datos.get("es_reciente"),
         "meses_antiguedad": datos.get("meses_antiguedad"),
         "fecha_emision": datos.get("fecha_emision"),
+        "parece_curp": parece_curp,
+        "revision_manual": not parece_curp,
+        "tiempo_ms": int((time.time() - inicio) * 1000),
     }
 
 
@@ -701,11 +964,111 @@ async def precheck_identificacion_pdf(
             "tiempo_ms": int((time.time() - inicio) * 1000),
         }
 
-    extraido = await asyncio.to_thread(_extraer_texto_pdf_rapido, file_bytes, 2)
+    if False and (es_tarjeta_nss(file_bytes) or es_documento_nss(file_bytes)):
+        return _respuesta_rechazo(
+            "nss_en_identificacion",
+            "El documento corresponde a NSS del IMSS. En este campo solo se acepta identificación oficial.",
+            paginas=0,
+            indicadores={},
+            modo="documento_equivocado",
+            tiempo_ms=int((time.time() - inicio) * 1000),
+        )
+    if False and es_documento_curp(file_bytes):
+        return _respuesta_rechazo(
+            "curp_en_identificacion",
+            "El documento es una constancia CURP. En este campo solo se acepta identificación oficial.",
+            paginas=0,
+            indicadores={},
+            modo="documento_equivocado",
+            tiempo_ms=int((time.time() - inicio) * 1000),
+        )
+    if False and es_documento_constancia_fiscal(file_bytes):
+        return _respuesta_rechazo(
+            "constancia_fiscal_en_identificacion",
+            "El documento es una constancia fiscal SAT. En este campo solo se acepta identificación oficial.",
+            paginas=0,
+            indicadores={},
+            modo="documento_equivocado",
+            tiempo_ms=int((time.time() - inicio) * 1000),
+        )
+    if False and es_documento_acta_nacimiento(file_bytes):
+        return _respuesta_rechazo(
+            "acta_en_identificacion",
+            "El documento es un acta de nacimiento. En este campo solo se acepta identificación oficial.",
+            paginas=0,
+            indicadores={},
+            modo="documento_equivocado",
+            tiempo_ms=int((time.time() - inicio) * 1000),
+        )
+
+    try:
+        extraido = await asyncio.wait_for(
+            asyncio.to_thread(_extraer_texto_pdf_rapido, file_bytes, 2),
+            timeout=10,
+        )
+    except asyncio.TimeoutError:
+        return {
+            "valido": False,
+            "revision_manual": True,
+            "mensaje": "No se pudo revisar la identificación a tiempo. Revisar manualmente.",
+            "paginas": 0,
+            "indicadores": {},
+            "modo": "timeout",
+            "tiempo_ms": int((time.time() - inicio) * 1000),
+        }
     texto = extraido.get("texto") or ""
     indicadores = _indicadores_identificacion(texto)
     valido = _parece_identificacion_oficial(texto)
     paginas = int(extraido.get("paginas") or 0)
+    texto_upper = texto.upper()
+
+    if texto.strip() and not valido:
+        if re.search(r"ASIGNACI[OÓ]N\s+O\s+LOCALIZACI[OÓ]N|N[UÚ]MERO\s+DE\s+SEGURIDAD\s+SOCIAL|INSTITUTO\s+MEXICANO\s+DEL\s+SEGURO\s+SOCIAL|\bIMSS\b", texto_upper):
+            return _respuesta_rechazo(
+                "nss_en_identificacion",
+                "El documento corresponde a NSS del IMSS. En este campo solo se acepta identificación oficial.",
+                paginas=paginas,
+                indicadores=indicadores,
+                modo="documento_equivocado_texto",
+                tiempo_ms=int((time.time() - inicio) * 1000),
+            )
+        if re.search(r"CONSTANCIA\s+.*CURP|CLAVE\s+[UÚ]NICA\s+DE\s+REGISTRO|RENAPO|REGISTRO\s+NACIONAL\s+DE\s+POBLACI[OÓ]N", texto_upper):
+            return _respuesta_rechazo(
+                "curp_en_identificacion",
+                "El documento es una constancia CURP. En este campo solo se acepta identificación oficial.",
+                paginas=paginas,
+                indicadores=indicadores,
+                modo="documento_equivocado_texto",
+                tiempo_ms=int((time.time() - inicio) * 1000),
+            )
+        if re.search(r"CONSTANCIA\s+DE\s+SITUACI[OÓ]N\s+FISCAL|SERVICIO\s+DE\s+ADMINISTRACI[OÓ]N\s+TRIBUTARIA|PORTAL\s+DEL\s+SAT|\bSAT\b", texto_upper):
+            return _respuesta_rechazo(
+                "constancia_fiscal_en_identificacion",
+                "El documento es una constancia fiscal SAT. En este campo solo se acepta identificación oficial.",
+                paginas=paginas,
+                indicadores=indicadores,
+                modo="documento_equivocado_texto",
+                tiempo_ms=int((time.time() - inicio) * 1000),
+            )
+        if re.search(r"ACTA\s+DE\s+NACIMIENTO|REGISTRO\s+CIVIL|CERTIFICADO\s+DE\s+NACIMIENTO", texto_upper):
+            return _respuesta_rechazo(
+                "acta_en_identificacion",
+                "El documento es un acta de nacimiento. En este campo solo se acepta identificación oficial.",
+                paginas=paginas,
+                indicadores=indicadores,
+                modo="documento_equivocado_texto",
+                tiempo_ms=int((time.time() - inicio) * 1000),
+            )
+
+        if re.search(r"SOLICITUD\s+(INTERNA|DE\s+EMPLEO|EMPLEO|DE\s+TRABAJO|TRABAJO)|CURR.?CULUM|CURRICULUM\s+VITAE|EXPERIENCIA\s+LABORAL", texto_upper):
+            return _respuesta_rechazo(
+                "solicitud_en_identificacion",
+                "El documento corresponde a solicitud/CV. En este campo solo se acepta identificacion oficial.",
+                paginas=paginas,
+                indicadores=indicadores,
+                modo="documento_equivocado_texto",
+                tiempo_ms=int((time.time() - inicio) * 1000),
+            )
 
     if paginas <= 0:
         mensaje = "No se pudo abrir el PDF para revisión rápida."
@@ -719,6 +1082,7 @@ async def precheck_identificacion_pdf(
 
     return {
         "valido": valido,
+        "revision_manual": not valido,
         "mensaje": mensaje,
         "paginas": paginas,
         "indicadores": indicadores,
@@ -747,17 +1111,18 @@ async def verificar_calidad_identificacion_pdf(
     if len(file_bytes) == 0:
         raise HTTPException(status_code=400, detail="Documento vacío")
 
-    imagenes = pdf_paginas_a_png_bytes(file_bytes, dpi=150, max_paginas=2)
+    inicio = time.time()
+    imagenes = pdf_paginas_a_png_bytes(file_bytes, dpi=115, max_paginas=2)
     if not imagenes:
         return {
             "aceptado": True,
             "notas": ["No se pudo procesar el PDF para revisión de calidad. Revisar identificación manualmente."],
             "detalle_frente": None,
             "detalle_reverso": None,
+            "tiempo_ms": int((time.time() - inicio) * 1000),
         }
 
     service = VerificacionService()
-    tipo = TipoDocumento.RESIDENCIA_TEMPORAL
     notas: List[str] = []
     detalle_frente: Optional[Dict[str, Any]] = None
     detalle_reverso: Optional[Dict[str, Any]] = None
@@ -776,17 +1141,15 @@ async def verificar_calidad_identificacion_pdf(
 
     try:
         # Página 1 = frente
-        res_frente = await service.verificar(imagenes[0], tipo)
-        forense_f = res_frente.checks.forense
-        ocr_f = res_frente.checks.ocr_campos
+        forense_f = await asyncio.to_thread(service.forense_analyzer.analyze, imagenes[0])
         detalle_frente = {
             "calidad_foto": forense_f.calidad_foto,
             "brillo_excesivo": forense_f.brillo_excesivo,
             "porcentaje_sobreexpuesto": forense_f.porcentaje_sobreexpuesto,
             "borroso": forense_f.borroso,
             "alertas": forense_f.alertas or [],
-            "nombre_ocr": ocr_f.nombre_ocr if ocr_f else None,
-            "curp_ocr": ocr_f.curp.get("valor") if ocr_f and ocr_f.curp else None,
+            "nombre_ocr": None,
+            "curp_ocr": None,
         }
         # Nota por calidad (texto amigable, una sola vez)
         texto_calidad = _texto_calidad(forense_f.calidad_foto)
@@ -796,24 +1159,17 @@ async def verificar_calidad_identificacion_pdf(
         for a in (forense_f.alertas or []):
             if a and a.strip() and a not in notas:
                 notas.append("Revisar identificación oficial: " + a.strip())
-        if res_frente.recomendacion and res_frente.recomendacion.strip() and res_frente.recomendacion not in notas:
-            notas.append(res_frente.recomendacion.strip())
-        for a in (res_frente.alertas_globales or []):
-            if a and a.strip() and not any(a.strip() in n for n in notas):
-                notas.append(a.strip())
 
         # Página 2 = reverso (si existe)
         if len(imagenes) > 1:
-            res_reverso = await service.verificar(imagenes[1], tipo)
-            forense_r = res_reverso.checks.forense
-            ocr_r = res_reverso.checks.ocr_campos
+            forense_r = await asyncio.to_thread(service.forense_analyzer.analyze, imagenes[1])
             detalle_reverso = {
                 "calidad_foto": forense_r.calidad_foto,
                 "brillo_excesivo": forense_r.brillo_excesivo,
                 "borroso": forense_r.borroso,
                 "alertas": forense_r.alertas or [],
-                "mrz_nombre": ocr_r.mrz_nombre_completo if ocr_r else None,
-                "mrz_fecha_nac": ocr_r.mrz_fecha_nacimiento if ocr_r else None,
+                "mrz_nombre": None,
+                "mrz_fecha_nac": None,
             }
             texto_rev = _texto_calidad(forense_r.calidad_foto)
             if texto_rev and not any("reverso" in n.lower() for n in notas):
@@ -835,6 +1191,7 @@ async def verificar_calidad_identificacion_pdf(
         "notas": notas,
         "detalle_frente": detalle_frente,
         "detalle_reverso": detalle_reverso,
+        "tiempo_ms": int((time.time() - inicio) * 1000),
     }
 
 
@@ -925,10 +1282,14 @@ async def validar_expediente(
         inicio = time.time()
         service = VerificacionService()
         t_id = time.time()
-        res_frente, res_reverso = await asyncio.gather(
-            service.verificar(frente_bytes, tipo_documento),
-            service.verificar(reverso_bytes, tipo_documento),
-        )
+        if frente_bytes == reverso_bytes:
+            res_frente = await service.verificar(frente_bytes, tipo_documento)
+            res_reverso = res_frente
+        else:
+            res_frente, res_reverso = await asyncio.gather(
+                service.verificar(frente_bytes, tipo_documento),
+                service.verificar(reverso_bytes, tipo_documento),
+            )
         tiempos_fase["identificacion_ocr_forense_ms"] = int((time.time() - t_id) * 1000)
 
         ocr_f = res_frente.checks.ocr_campos
@@ -938,10 +1299,22 @@ async def validar_expediente(
         # Estos PDFs pueden disparar OCR. Ejecutarlos en paralelo evita sumar sus tiempos uno tras otro.
         t_pdfs = time.time()
         datos_curp, datos_nss, datos_fiscal, datos_acta = await asyncio.gather(
-            asyncio.to_thread(extraer_datos_curp_pdf, curp_pdf_bytes) if curp_pdf_bytes else asyncio.sleep(0, result=None),
-            asyncio.to_thread(extraer_datos_nss_pdf, nss_pdf_bytes) if nss_pdf_bytes else asyncio.sleep(0, result=None),
-            asyncio.to_thread(extraer_datos_constancia_fiscal, fiscal_pdf_bytes) if fiscal_pdf_bytes else asyncio.sleep(0, result=None),
-            asyncio.to_thread(extraer_datos_acta_nacimiento, acta_pdf_bytes) if acta_pdf_bytes else asyncio.sleep(0, result=None),
+            _ejecutar_pdf_timeout("CURP", extraer_datos_curp_pdf, curp_pdf_bytes, timeout=5) if curp_pdf_bytes else asyncio.sleep(0, result=None),
+            _ejecutar_pdf_timeout("NSS", extraer_datos_nss_pdf, nss_pdf_bytes, timeout=5) if nss_pdf_bytes else asyncio.sleep(0, result=None),
+            _ejecutar_pdf_timeout(
+                "Constancia fiscal",
+                extraer_datos_constancia_fiscal,
+                fiscal_pdf_bytes,
+                timeout=10,
+                fallback={"parece_constancia_fiscal": None},
+            ) if fiscal_pdf_bytes else asyncio.sleep(0, result=None),
+            _ejecutar_pdf_timeout(
+                "Acta de nacimiento",
+                lambda data: extraer_datos_acta_nacimiento(data, modo_rapido=True),
+                acta_pdf_bytes,
+                timeout=8,
+                fallback={"parece_acta": None},
+            ) if acta_pdf_bytes else asyncio.sleep(0, result=None),
         )
         tiempos_fase["pdfs_datos_ms"] = int((time.time() - t_pdfs) * 1000)
 
