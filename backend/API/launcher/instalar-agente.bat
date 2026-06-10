@@ -334,6 +334,27 @@ if errorlevel 1 (
 )
 
 :post_install
+echo.>>"%INST_LOG%"
+echo ===== PaddleOCR modelos locales =====>>"%INST_LOG%"
+echo [paddleocr] Preparando modelos locales en API\.paddlex_cache_runtime...
+set "PADDLE_WARMUP_PY="
+if defined VENV_PY if exist "%VENV_PY%" set "PADDLE_WARMUP_PY=%VENV_PY%"
+if not defined PADDLE_WARMUP_PY if defined PY_EXE_FULL set "PADDLE_WARMUP_PY=%PY_EXE_FULL%"
+if exist "%API_DIR%\scripts\ensure_paddleocr_models.py" (
+    if defined PADDLE_WARMUP_PY (
+        "!PADDLE_WARMUP_PY!" "%API_DIR%\scripts\ensure_paddleocr_models.py" >>"%INST_LOG%" 2>&1
+    ) else (
+        call %PY_CMD% "%API_DIR%\scripts\ensure_paddleocr_models.py" >>"%INST_LOG%" 2>&1
+    )
+    if errorlevel 1 (
+        echo [AVISO] PaddleOCR no quedo precargado. La API usara RapidOCR/Tesseract como respaldo hasta corregirlo.
+        echo [AVISO] PaddleOCR warmup fallo; revisar detalle arriba.>>"%INST_LOG%"
+    ) else (
+        echo [OK] PaddleOCR instalado y modelos locales listos.
+        echo [OK] PaddleOCR instalado y modelos locales listos.>>"%INST_LOG%"
+    )
+)
+
 set "TESS_OK=0"
 if exist "C:\Program Files\Tesseract-OCR\tesseract.exe" set "TESS_OK=1"
 if "%TESS_OK%"=="0" if exist "C:\Program Files (x86)\Tesseract-OCR\tesseract.exe" set "TESS_OK=1"
@@ -358,9 +379,9 @@ if "%DOC_RC%"=="0" (
     echo [OK] Diagnostico final: sin problemas.
 ) else (
     if "%DOC_RC%"=="2" (
-        echo [AVISO] Diagnostico final: hay advertencias (codigo 2). Vea %INST_LOG%.
+        echo [AVISO] Diagnostico final: hay advertencias ^(codigo 2^). Vea %INST_LOG%.
     ) else (
-        echo [ERROR] Diagnostico final detecto problemas (codigo %DOC_RC%).
+        echo [ERROR] Diagnostico final detecto problemas ^(codigo %DOC_RC%^).
         echo         Ejecute  launcher\Diagnosticar-API.bat  para verlos en pantalla.
     )
 )

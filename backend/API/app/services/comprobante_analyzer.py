@@ -486,6 +486,15 @@ class ComprobanteAnalyzer:
         import numpy as np
         from PIL import Image
         from app.core.config import get_settings
+        try:
+            from app.services.ocr_local import extraer_texto_paddle
+        except Exception:
+            extraer_texto_paddle = None
+
+        if extraer_texto_paddle is not None:
+            texto_paddle = extraer_texto_paddle(file_bytes)
+            if texto_paddle and texto_paddle.strip():
+                return texto_paddle
 
         s = get_settings()
         cmd = getattr(s, "tesseract_cmd", "")

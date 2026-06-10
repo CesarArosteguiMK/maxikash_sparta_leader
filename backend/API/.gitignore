@@ -6,6 +6,9 @@ __pycache__/
 *$py.class
 .pytest_cache/
 .mypy_cache/
+.paddle_home/
+.paddlex_cache/
+.paddlex_cache_runtime/
 .venv/
 venv/
 *.egg-info/

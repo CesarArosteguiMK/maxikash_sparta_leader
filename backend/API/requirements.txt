@@ -23,6 +23,8 @@ scipy>=1.13.0
 # --- OCR ---
 pytesseract==0.3.10
 rapidocr-onnxruntime
+paddleocr==3.6.0
+paddlepaddle==3.3.1
 
 # --- PDF (extracción de páginas, comprobantes, NSS/CURP/actas) ---
 pymupdf>=1.24.0

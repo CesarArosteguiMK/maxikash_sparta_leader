@@ -3987,6 +3987,36 @@ class CapHum extends Model
         }
     }
 
+    public static function getPuestosActivosPersonaParaEdicion($id_persona)
+    {
+        $id_persona = (int) $id_persona;
+        if ($id_persona <= 0) {
+            return self::resultado(false, 'ID de persona invalido.', []);
+        }
+
+        try {
+            $db = new Database();
+            $rows = $db->queryAll(
+                "SELECT
+                    ap.id_puesto,
+                    pp.nombre AS nombre_puesto,
+                    pp.departamento_id AS id_departamento,
+                    d.nombre AS nombre_departamento,
+                    pp.nivel
+                 FROM __SPARTA_SECRET_REDACTED__.asigna_puesto ap
+                 INNER JOIN __SPARTA_SECRET_REDACTED__.puesto pp ON pp.id = ap.id_puesto
+                 LEFT JOIN __SPARTA_SECRET_REDACTED__.departamento d ON d.id = pp.departamento_id
+                 WHERE ap.id_persona = :id_persona
+                   AND COALESCE(ap.activo, 1) = 1
+                 ORDER BY pp.nivel DESC, ap.id ASC",
+                ['id_persona' => $id_persona]
+            );
+            return self::resultado(true, 'Puestos activos encontrados.', $rows ?: []);
+        } catch (\Exception $e) {
+            return self::resultado(false, 'Error al obtener puestos activos.', [], $e->getMessage());
+        }
+    }
+
     /** Nombre del puesto por ID (para organigrama por cargo). */
     public static function getNombrePuesto($id_puesto)
     {
@@ -4394,6 +4424,7 @@ class CapHum extends Model
     public static function UpdatePersona($data)
     {
         $id_persona      = (int)$data['id'];
+        $numero_empleado = trim((string)($data['numero_empleado'] ?? ''));
         $nombres         = addslashes($data['nombres']);
         $segundo_nombre  = addslashes($data['segundo_nombre'] ?? '');
         $apellidop       = addslashes($data['apellidop']);
@@ -4453,6 +4484,25 @@ class CapHum extends Model
             self::asegurarAsignaJefeSoportaVacante($db);
             self::asegurarTablaVacantesPersonal($db);
             self::asegurarTablaTrayectoriaPuesto($db);
+
+            if ($numero_empleado === '') {
+                $actualNumero = $db->queryOne(
+                    "SELECT numero_empleado FROM __SPARTA_SECRET_REDACTED__.persona WHERE id = :id LIMIT 1",
+                    ['id' => $id_persona]
+                );
+                $numero_empleado = trim((string)($actualNumero['numero_empleado'] ?? ''));
+            }
+
+            if ($numero_empleado !== '') {
+                $duplicadoNumero = $db->queryOne(
+                    "SELECT id FROM __SPARTA_SECRET_REDACTED__.persona WHERE numero_empleado = :numero_empleado AND id <> :id LIMIT 1",
+                    ['numero_empleado' => $numero_empleado, 'id' => $id_persona]
+                );
+                if ($duplicadoNumero) {
+                    return self::resultado(false, 'El numero de empleado ya existe en otro usuario.');
+                }
+            }
+            $numero_empleado_sql = "'" . addslashes($numero_empleado) . "'";
 
             $puestoAnterior = $db->queryOne("
                 SELECT
@@ -4621,6 +4671,7 @@ class CapHum extends Model
             $db->queryOne("
             UPDATE __SPARTA_SECRET_REDACTED__.persona
             SET
+                numero_empleado = $numero_empleado_sql,
                 nombres       = '$nombres',
                 segundo_nombre = '$segundo_nombre',
                 apellidop     = '$apellidop',
@@ -4838,24 +4889,26 @@ class CapHum extends Model
                 }
             }
 
-            $asignarLegion = isset($data['asignar_legion']) && $data['asignar_legion'];
-            $id_legion = isset($data['id_legion']) && $data['id_legion'] !== '' && $data['id_legion'] !== null
-                ? (int)$data['id_legion']
-                : null;
+            if (empty($data['_preservar_legion'])) {
+                $asignarLegion = isset($data['asignar_legion']) && $data['asignar_legion'];
+                $id_legion = isset($data['id_legion']) && $data['id_legion'] !== '' && $data['id_legion'] !== null
+                    ? (int)$data['id_legion']
+                    : null;
 
-            $db->queryOne("
-                UPDATE __SPARTA_SECRET_REDACTED__.asigna_legion
-                SET activo = 0, fecha_fin = NOW()
-                WHERE id_persona = $id_persona AND activo = 1
-            ");
-
-            if ($asignarLegion && $id_legion) {
                 $db->queryOne("
-                    INSERT INTO __SPARTA_SECRET_REDACTED__.asigna_legion
-                        (id, id_persona, id_legion, fecha_asignacion, activo)
-                    VALUES
-                        (DEFAULT, $id_persona, $id_legion, NOW(), 1)
+                    UPDATE __SPARTA_SECRET_REDACTED__.asigna_legion
+                    SET activo = 0, fecha_fin = NOW()
+                    WHERE id_persona = $id_persona AND activo = 1
                 ");
+
+                if ($asignarLegion && $id_legion) {
+                    $db->queryOne("
+                        INSERT INTO __SPARTA_SECRET_REDACTED__.asigna_legion
+                            (id, id_persona, id_legion, fecha_asignacion, activo)
+                        VALUES
+                            (DEFAULT, $id_persona, $id_legion, NOW(), 1)
+                    ");
+                }
             }
 
             // Auto-sincronizar despachos según los puestos actualizados

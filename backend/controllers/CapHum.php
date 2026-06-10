@@ -31,6 +31,29 @@ class CapHum extends Controller
     private const MODULO_PERMISOS_POR_PUESTO = 103;
     private const MODULO_VALIDADOR_DOCUMENTAL_CANDIDATOS = 104;
     private const MODULO_VALIDADOR_FINAL_CANDIDATOS = 105;
+    private const MODULOS_EDICION_COBRANZA = [
+        'numero_empleado' => 107,
+        'nombres' => 108,
+        'segundo_nombre' => 109,
+        'apellidop' => 110,
+        'apellidom' => 111,
+        'curp' => 112,
+        'telefono' => 113,
+        'estado' => 114,
+        'municipio' => 115,
+        'colonia' => 116,
+        'calle' => 117,
+        'num_exterior' => 118,
+        'num_interior' => 119,
+        'codigo_postal' => 120,
+        'gestion_puestos' => 121,
+        'departamento' => 122,
+        'puesto' => 123,
+        'jefe' => 124,
+        'usuario' => 125,
+        'contrasena' => 126,
+        'legion' => 127,
+    ];
 
     /** Ãšltimo error de enviarCorreo para mostrarlo en la respuesta JSON */
     private $enviarCorreoUltimoError = '';
@@ -69,6 +92,104 @@ class CapHum extends Controller
     private static function puedeAccionGestion(int $moduloId): bool
     {
         return self::tieneModuloWeb($moduloId);
+    }
+
+    private static function permisosEdicionCobranzaSesion(): array
+    {
+        $modulos = array_map('intval', (array) ($_SESSION['modulos'] ?? []));
+        $permisos = [];
+        foreach (self::MODULOS_EDICION_COBRANZA as $campo => $moduloId) {
+            $permisos[$campo] = in_array((int) $moduloId, $modulos, true);
+        }
+        return $permisos;
+    }
+
+    private static function tienePermisoEdicionCobranzaParcial(): bool
+    {
+        return in_array(true, self::permisosEdicionCobranzaSesion(), true);
+    }
+
+    private static function normalizarPayloadEdicionCobranzaParcial(array $input, array $permisos): array
+    {
+        $idPersona = (int) ($input['id'] ?? 0);
+        if ($idPersona <= 0) {
+            return $input;
+        }
+
+        $detalle = CapHumDAO::getPersonaDetalle($idPersona);
+        $actual = is_array($detalle['datos'] ?? null) ? $detalle['datos'] : [];
+        $puestosRes = CapHumDAO::getPuestosActivosPersonaParaEdicion($idPersona);
+        $puestosActuales = is_array($puestosRes['datos'] ?? null) ? $puestosRes['datos'] : [];
+        $principalActual = $puestosActuales[0] ?? [];
+
+        $preservar = function (string $campoInput, string $campoActual = null) use (&$input, $actual): void {
+            $campoActual = $campoActual ?: $campoInput;
+            $input[$campoInput] = $actual[$campoActual] ?? null;
+        };
+
+        if (empty($permisos['numero_empleado'])) $preservar('numero_empleado');
+        if (empty($permisos['nombres'])) $preservar('nombres');
+        if (empty($permisos['segundo_nombre'])) $preservar('segundo_nombre');
+        if (empty($permisos['apellidop'])) $preservar('apellidop');
+        if (empty($permisos['apellidom'])) $preservar('apellidom');
+        if (empty($permisos['curp'])) $preservar('curp');
+        if (empty($permisos['telefono'])) $preservar('telefono', 'telefono');
+        if (empty($permisos['usuario'])) $preservar('usuario', 'user_name');
+        if (empty($permisos['contrasena'])) $preservar('contrasena', 'password');
+
+        if (empty($permisos['estado'])) $preservar('id_div_nivel1');
+        if (empty($permisos['municipio'])) $preservar('id_div_nivel2');
+        if (empty($permisos['colonia'])) $preservar('id_div_nivel3');
+        if (empty($permisos['calle'])) {
+            $input['id_div_nivel4'] = null;
+            $preservar('domicilio_calle_texto');
+        }
+        if (empty($permisos['num_exterior'])) $preservar('domicilio_num_exterior');
+        if (empty($permisos['num_interior'])) $preservar('domicilio_num_interior');
+        if (empty($permisos['codigo_postal'])) $preservar('codigo_postal');
+
+        if (empty($permisos['jefe'])) {
+            $input['jefe_id'] = $actual['id_jefe'] ?? null;
+        }
+
+        if (empty($permisos['legion'])) {
+            $idLegionActual = $actual['id_legion'] ?? null;
+            $input['asignar_legion'] = !empty($idLegionActual);
+            $input['id_legion'] = $idLegionActual ?: null;
+            $input['_preservar_legion'] = true;
+        }
+
+        $puedeGestionarPuestos = !empty($permisos['gestion_puestos']);
+        $puedeEditarPrincipal = !empty($permisos['departamento']) || !empty($permisos['puesto']);
+        if (!$puedeGestionarPuestos) {
+            if ($puedeEditarPrincipal && !empty($puestosActuales)) {
+                $puestosActuales[0]['id_puesto'] = !empty($permisos['puesto'])
+                    ? (int) ($input['puesto_id'] ?? ($principalActual['id_puesto'] ?? 0))
+                    : (int) ($principalActual['id_puesto'] ?? 0);
+                $puestosActuales[0]['id_departamento'] = !empty($permisos['departamento'])
+                    ? (int) ($input['departamento_id'] ?? ($principalActual['id_departamento'] ?? 0))
+                    : (int) ($principalActual['id_departamento'] ?? 0);
+            }
+
+            $input['puestos_adicionales'] = array_values(array_filter(array_map(function ($puesto) {
+                $idPuesto = (int) ($puesto['id_puesto'] ?? 0);
+                if ($idPuesto <= 0) {
+                    return null;
+                }
+                return [
+                    'id_puesto' => $idPuesto,
+                    'id_departamento' => (int) ($puesto['id_departamento'] ?? 0),
+                    'nombre_puesto' => $puesto['nombre_puesto'] ?? '',
+                    'nombre_departamento' => $puesto['nombre_departamento'] ?? '',
+                ];
+            }, $puestosActuales)));
+            $input['puestos_eliminados'] = [];
+            $input['puesto_principal_original'] = (int) ($principalActual['id_puesto'] ?? 0);
+            $input['puesto_id'] = (int) ($input['puestos_adicionales'][0]['id_puesto'] ?? ($principalActual['id_puesto'] ?? 0));
+            $input['departamento_id'] = (int) ($input['puestos_adicionales'][0]['id_departamento'] ?? ($principalActual['id_departamento'] ?? 0));
+        }
+
+        return $input;
     }
 
     private static function puedeGestionarPermisosEspeciales(): bool
@@ -447,7 +568,8 @@ class CapHum extends Controller
                 const titulo = document.getElementById('offcanvasEditUserTitle');
                 const btnGuardar = document.getElementById('edit_btn_guardar');
                 const form = document.getElementById('editNewUserForm');
-                const puedeVerContrasena = !!window.puedeVisualizarContrasenaGestion;
+                const permisosEdicion = window.permisosEdicionCobranzaGestion || {};
+                const puedeVerContrasena = !!window.puedeVisualizarContrasenaGestion || !!permisosEdicion.contrasena;
                 if (rowContrasena) rowContrasena.style.display = puedeVerContrasena ? '' : 'none';
                 if (titulo) titulo.textContent = 'Visualizar Usuario';
                 if (btnGuardar) btnGuardar.style.display = 'none';
@@ -460,6 +582,125 @@ class CapHum extends Controller
                     if (oc) window.destruirSelectsBuscadorOffcanvas(oc);
                 }
             }
+
+            function tienePermisoEdicionCobranza(campo) {
+                const permisos = window.permisosEdicionCobranzaGestion || {};
+                return !!permisos[campo];
+            }
+
+            function tieneAlgunPermisoEdicionCobranza() {
+                const permisos = window.permisosEdicionCobranzaGestion || {};
+                return Object.keys(permisos).some(k => !!permisos[k]);
+            }
+
+            function setDisabledEdicionCobranza(ids, disabled) {
+                ids.forEach(id => {
+                    const el = document.getElementById(id);
+                    if (!el) return;
+                    el.disabled = disabled;
+                    if (typeof window.jQuery !== 'undefined') {
+                        const $el = window.jQuery('#' + id);
+                        if ($el.length && $el.hasClass('select2-hidden-accessible')) {
+                            $el.prop('disabled', disabled);
+                        }
+                    }
+                });
+            }
+
+            function setReadonlyInputsEdicionCobranza(ids, readonly) {
+                ids.forEach(id => {
+                    const el = document.getElementById(id);
+                    if (!el) return;
+                    el.disabled = false;
+                    el.readOnly = readonly;
+                });
+            }
+
+            function aplicarPermisosEdicionCobranzaAlOffcanvas() {
+                if (!window.modoVisualizarConEdicionCobranza) return;
+                const form = document.getElementById('editNewUserForm');
+                const btnGuardar = document.getElementById('edit_btn_guardar');
+                const titulo = document.getElementById('offcanvasEditUserTitle');
+                if (!form) return;
+
+                form.querySelectorAll('input, select, button[type="button"]').forEach(el => {
+                    if ('readOnly' in el) el.readOnly = false;
+                    el.disabled = true;
+                });
+                if (titulo) titulo.textContent = 'Visualizar Usuario - edici\u00f3n limitada';
+                if (btnGuardar) {
+                    btnGuardar.style.display = '';
+                    btnGuardar.disabled = false;
+                    btnGuardar.innerHTML = 'Guardar';
+                }
+
+                const campos = {
+                    numero_empleado: ['edit_num_empleado'],
+                    nombres: ['edit_nombres'],
+                    segundo_nombre: ['edit_segundo_nombre'],
+                    apellidop: ['edit_apellidop'],
+                    apellidom: ['edit_apellidom'],
+                    curp: ['edit_curp'],
+                    telefono: ['edit_telefono'],
+                    estado: ['edit_id_div_nivel1'],
+                    municipio: ['edit_id_div_nivel2'],
+                    colonia: ['edit_id_div_nivel3'],
+                    calle: ['edit_id_div_nivel4', 'edit_domicilio_calle_texto'],
+                    num_exterior: ['edit_domicilio_num_exterior'],
+                    num_interior: ['edit_domicilio_num_interior'],
+                    codigo_postal: ['edit_codigo_postal'],
+                    departamento: ['edit_departamento_id'],
+                    puesto: ['edit_id_puesto'],
+                    jefe: ['edit_id_jefe'],
+                    usuario: ['edit_usuario'],
+                    contrasena: ['edit_contrasena'],
+                    legion: ['edit_asignar_legion', 'edit_id_legion']
+                };
+
+                Object.keys(campos).forEach(campo => {
+                    if (tienePermisoEdicionCobranza(campo)) {
+                        setDisabledEdicionCobranza(campos[campo], false);
+                    }
+                });
+
+                if (tienePermisoEdicionCobranza('numero_empleado')) {
+                    setReadonlyInputsEdicionCobranza(['edit_num_empleado'], false);
+                }
+                if (tienePermisoEdicionCobranza('usuario')) {
+                    setReadonlyInputsEdicionCobranza(['edit_usuario'], false);
+                }
+                if (tienePermisoEdicionCobranza('codigo_postal')) {
+                    setReadonlyInputsEdicionCobranza(['edit_codigo_postal'], false);
+                }
+                if (!tienePermisoEdicionCobranza('calle')) {
+                    setReadonlyInputsEdicionCobranza(['edit_domicilio_calle_texto'], true);
+                }
+                if (tienePermisoEdicionCobranza('gestion_puestos')) {
+                    setDisabledEdicionCobranza([
+                        'edit_nuevo_departamento',
+                        'edit_nuevo_puesto',
+                        'edit_editar_departamento',
+                        'edit_editar_puesto'
+                    ], false);
+                    document.querySelectorAll('#edit_contenedor_multiples_puestos button').forEach(btn => {
+                        btn.disabled = false;
+                    });
+                } else {
+                    document.querySelectorAll('#edit_contenedor_multiples_puestos button').forEach(btn => {
+                        btn.disabled = true;
+                    });
+                }
+
+                if (!tienePermisoEdicionCobranza('contrasena')) {
+                    const inputContrasena = document.getElementById('edit_contrasena');
+                    if (inputContrasena) inputContrasena.disabled = true;
+                }
+
+                if (typeof window.refrescarSelectsBuscadorOffcanvas === 'function') {
+                    window.refrescarSelectsBuscadorOffcanvas('offcanvasEditUser');
+                }
+            }
+
             function editar(id) {
 
                 if (!id) {
@@ -468,6 +709,7 @@ class CapHum extends Controller
                 }
 
                 resetEditCombos();
+                window.modoVisualizarConEdicionCobranza = false;
                 setModoEdicion();
 
                 fetch('/CapHum/getDetalles', {
@@ -569,6 +811,7 @@ class CapHum extends Controller
                     return;
                 }
                 resetEditCombos();
+                window.modoVisualizarConEdicionCobranza = tieneAlgunPermisoEdicionCobranza();
                 setModoVisualizar();
                 fetch('/CapHum/getDetalles', {
                     method: 'POST',
@@ -597,7 +840,7 @@ class CapHum extends Controller
                     if (elCurpV) elCurpV.value = persona.curp ?? '';
                     document.getElementById("edit_telefono").value = persona.telefono ?? '';
                     document.getElementById("edit_usuario").value = persona.user_name ?? '';
-                    document.getElementById("edit_contrasena").value = window.puedeVisualizarContrasenaGestion ? (persona.password ?? '') : '';
+                    document.getElementById("edit_contrasena").value = (window.puedeVisualizarContrasenaGestion || tienePermisoEdicionCobranza('contrasena')) ? (persona.password ?? '') : '';
                     cargarDepartamentosCombo(null, persona.id_departamento);
                     if (persona.id_departamento) {
                         cargarPuestosCombo(persona.id_departamento, persona.id_puesto);
@@ -610,8 +853,12 @@ class CapHum extends Controller
                     checkLegion.checked = !!idLegion;
                     selectLegion.value = idLegion || '';
                     divLegion.style.display = checkLegion.checked ? 'block' : 'none';
-                    document.getElementById('edit_alerta_multiples_puestos').classList.add('d-none');
-                    document.getElementById('edit_contenedor_multiples_puestos').classList.add('d-none');
+                    if (window.modoVisualizarConEdicionCobranza && tienePermisoEdicionCobranza('gestion_puestos') && typeof cargarPuestosUsuario === 'function') {
+                        cargarPuestosUsuario(id);
+                    } else {
+                        document.getElementById('edit_alerta_multiples_puestos').classList.add('d-none');
+                        document.getElementById('edit_contenedor_multiples_puestos').classList.add('d-none');
+                    }
                     if (typeof precargarCascadaEdit === 'function') {
                         precargarCascadaEdit(
                             persona.id_pais,
@@ -624,6 +871,11 @@ class CapHum extends Controller
                             persona.domicilio_num_interior,
                             persona.codigo_postal
                         );
+                    }
+                    if (window.modoVisualizarConEdicionCobranza) {
+                        aplicarPermisosEdicionCobranzaAlOffcanvas();
+                        setTimeout(aplicarPermisosEdicionCobranzaAlOffcanvas, 250);
+                        setTimeout(aplicarPermisosEdicionCobranzaAlOffcanvas, 700);
                     }
                     const offcanvas = new bootstrap.Offcanvas(document.getElementById('offcanvasEditUser'));
                     offcanvas.show();
@@ -724,6 +976,9 @@ class CapHum extends Controller
                         if (typeof window.refreshSelectBuscador === 'function') {
                             window.refreshSelectBuscador('edit_departamento_id');
                         }
+                        if (typeof aplicarPermisosEdicionCobranzaAlOffcanvas === 'function') {
+                            aplicarPermisosEdicionCobranzaAlOffcanvas();
+                        }
                     });
                 }
 
@@ -759,6 +1014,9 @@ class CapHum extends Controller
                         });
                         if (typeof window.refreshSelectBuscador === 'function') {
                             window.refreshSelectBuscador('edit_id_puesto');
+                        }
+                        if (typeof aplicarPermisosEdicionCobranzaAlOffcanvas === 'function') {
+                            aplicarPermisosEdicionCobranzaAlOffcanvas();
                         }
                     });
                 }
@@ -798,6 +1056,9 @@ class CapHum extends Controller
                         select.trigger('change');
                         if (typeof window.refreshSelectBuscador === 'function') {
                             window.refreshSelectBuscador('edit_id_jefe');
+                        }
+                        if (typeof aplicarPermisosEdicionCobranzaAlOffcanvas === 'function') {
+                            aplicarPermisosEdicionCobranzaAlOffcanvas();
                         }
                     });
                 }
@@ -2798,7 +3059,20 @@ class CapHum extends Controller
             function renderPermisosEspeciales(perfiles) {
                 const container = document.getElementById('modal-edit-perfil-permisos-especiales-form') || document.getElementById('permisos-especiales-form');
                 const iconosMap = Object.assign({}, iconosModulosSistemaPerfil, iconosPermisosEspeciales);
-                renderAgrupadoPorMenuGrupo(perfiles, container, {
+                const idsPermisoEdicionCobranza = new Set(Array.from({ length: 21 }, (_, i) => 107 + i));
+                const perfilesNormalizados = (Array.isArray(perfiles) ? perfiles : []).map(mod => {
+                    const idMod = Number(mod.modulo_id ?? mod.id ?? 0);
+                    if (!idsPermisoEdicionCobranza.has(idMod)) {
+                        return mod;
+                    }
+                    return Object.assign({}, mod, {
+                        menu_grupo: 'Permiso edici\u00f3n cobranza',
+                        menu_grupo_icono: 'fa-solid fa-pen-to-square',
+                        menu_grupo_orden: 12,
+                        menu_item_orden: idMod
+                    });
+                });
+                renderAgrupadoPorMenuGrupo(perfilesNormalizados, container, {
                     masterIdPrefix: 'modal-perfil-perm-esp-master-',
                     iconosMap: iconosMap,
                     emptyHtml: '<p class="text-muted small mb-0">No hay permisos especiales configurados.</p>',
@@ -3877,6 +4151,7 @@ class CapHum extends Controller
             }
 
             function UpdateGestor() {
+                const esEdicionParcialCobranza = !!window.modoVisualizarConEdicionCobranza;
 
                 let departamento = document.getElementById("edit_departamento_id").value;  // <---- esta es la linea 2009
                 let puesto       = document.getElementById("edit_id_puesto").value;
@@ -3910,22 +4185,22 @@ class CapHum extends Controller
                 }
 
                 //  VALIDACIONES OBLIGATORIAS
-                if (!puestosModificados && !departamento) {
+                if ((!esEdicionParcialCobranza || tienePermisoEdicionCobranza('departamento') || tienePermisoEdicionCobranza('puesto') || tienePermisoEdicionCobranza('gestion_puestos')) && !puestosModificados && !departamento) {
                     Swal.fire("Falta información", "Debes seleccionar un departamento", "warning");
                     return;
                 }
 
-                if (!puestosModificados && !puesto) {
+                if ((!esEdicionParcialCobranza || tienePermisoEdicionCobranza('puesto') || tienePermisoEdicionCobranza('gestion_puestos')) && !puestosModificados && !puesto) {
                     Swal.fire("Falta información", "Debes seleccionar un puesto", "warning");
                     return;
                 }
 
-                if (!jefe) {
+                if ((!esEdicionParcialCobranza || tienePermisoEdicionCobranza('jefe')) && !jefe) {
                     Swal.fire("Falta información", "Debes seleccionar un jefe", "warning");
                     return;
                 }
 
-                if (asignarLegion && !idLegion) {
+                if ((!esEdicionParcialCobranza || tienePermisoEdicionCobranza('legion')) && asignarLegion && !idLegion) {
                     Swal.fire("Falta información", "Debes seleccionar una legión", "warning");
                     return;
                 }
@@ -3935,12 +4210,19 @@ class CapHum extends Controller
                 const calleTxtEdit = document.getElementById('edit_domicilio_calle_texto')?.value?.trim() || '';
                 const idCalleEdit = id_div_nivel4 || '';
                 const capturaDomicilioEdit = !!(idColoniaEdit || cpEdit || calleTxtEdit || idCalleEdit);
-                if (capturaDomicilioEdit && !domicilio_num_exterior) {
+                const puedeEditarDomicilioParcial = tienePermisoEdicionCobranza('estado')
+                    || tienePermisoEdicionCobranza('municipio')
+                    || tienePermisoEdicionCobranza('colonia')
+                    || tienePermisoEdicionCobranza('calle')
+                    || tienePermisoEdicionCobranza('num_exterior')
+                    || tienePermisoEdicionCobranza('num_interior')
+                    || tienePermisoEdicionCobranza('codigo_postal');
+                if ((!esEdicionParcialCobranza || puedeEditarDomicilioParcial) && capturaDomicilioEdit && !domicilio_num_exterior) {
                     Swal.fire("Falta información", "El número exterior es obligatorio cuando captura domicilio (colonia, calle o código postal).", "warning");
                     return;
                 }
                 var selCalleEdit = document.getElementById('edit_id_div_nivel4');
-                if (id_div_nivel3 && selCalleEdit && !selCalleEdit.disabled && selCalleEdit.options && selCalleEdit.options.length > 1 && !id_div_nivel4 && !calleTxtEdit) {
+                if ((!esEdicionParcialCobranza || puedeEditarDomicilioParcial) && id_div_nivel3 && selCalleEdit && !selCalleEdit.disabled && selCalleEdit.options && selCalleEdit.options.length > 1 && !id_div_nivel4 && !calleTxtEdit) {
                     Swal.fire("Falta información", "Indique la calle: elija una del catálogo o escríbala en el campo de texto (nombre o número, p. ej. Calle 10A).", "warning");
                     return;
                 }
@@ -3948,6 +4230,7 @@ class CapHum extends Controller
                 // ðŸ¹ Payload
                 const payload = {
                     id: document.getElementById("edit_id").value,
+                    numero_empleado: document.getElementById("edit_num_empleado").value,
                     nombres: document.getElementById("edit_nombres").value,
                     segundo_nombre: document.getElementById("edit_segundo_nombre").value,
                     apellidop: document.getElementById("edit_apellidop").value,
@@ -3971,7 +4254,8 @@ class CapHum extends Controller
                     domicilio_calle_texto: domicilio_calle_texto,
                     domicilio_num_exterior: domicilio_num_exterior,
                     domicilio_num_interior: domicilio_num_interior,
-                    codigo_postal: codigo_postal
+                    codigo_postal: codigo_postal,
+                    modo_edicion_cobranza: esEdicionParcialCobranza ? 'parcial' : 'completa'
                 };
 
                 enviarUpdateGestor(payload);
@@ -5687,6 +5971,7 @@ class CapHum extends Controller
         $puedeRegistrarAusenciaGestion = in_array(self::MODULO_GESTION_AUSENCIAS, $modulos);
         $puedeDarBajaGestion = in_array(self::MODULO_GESTION_DAR_BAJA, $modulos);
         $puedeVisualizarContrasenaGestion = in_array(self::MODULO_GESTION_VISUALIZAR_CONTRASENA, $modulos);
+        $permisosEdicionCobranzaGestion = self::permisosEdicionCobranzaSesion();
         $puedeEditarTodos = $puedeEditarUsuarioGestion;
         $puedeGestionarPermisos = self::puedeGestionarPermisosEspeciales();
         $puedeActualizarInfo = in_array(self::MODULO_ACTUALIZAR_DATOS_RRHH, $modulos);
@@ -5710,6 +5995,7 @@ class CapHum extends Controller
         self::set("puedeRegistrarAusenciaGestion", $puedeRegistrarAusenciaGestion);
         self::set("puedeDarBajaGestion", $puedeDarBajaGestion);
         self::set("puedeVisualizarContrasenaGestion", $puedeVisualizarContrasenaGestion);
+        self::set("permisosEdicionCobranzaGestion", $permisosEdicionCobranzaGestion);
         self::set("puedeActualizarInfo", $puedeActualizarInfo);
         self::set("puedeAgregarUsuarioRrhh", $puedeAgregarUsuarioRrhh);
         self::set("puedeEditarUsuarioRrhh", $puedeEditarUsuarioRrhh);
@@ -10049,6 +10335,107 @@ class CapHum extends Controller
      * Ejecutar verificación API del expediente ahora (frente + reverso + PDFs).
      * POST/GET: id_candidato. Ãštil cuando la verificación no se disparó al subir documentos.
      */
+    private function encolarVerificacionDocumentalCandidato($id_candidato, array $tiposSubidos = [], ?bool $expedienteCompleto = null, string $origen = 'upload'): array
+    {
+        $res = CandidatosDAO::encolarVerificacionDocumental((int) $id_candidato, $tiposSubidos, $expedienteCompleto, $origen);
+        if (!empty($res['success']) && $expedienteCompleto === true) {
+            $payloadEnProceso = [
+                'verificacion_en_proceso' => true,
+                'todo_coincide' => null,
+                'foto_rechazada' => false,
+                'checks_ok' => 0,
+                'checks_totales' => 0,
+                'alertas' => ['Verificacion automatica en cola local. Capital Humano puede continuar y la vista se actualizara al terminar.'],
+                'identificacion_frente_score' => null,
+                'identificacion_reverso_score' => null,
+                'comparaciones' => null,
+                'modo_verificacion' => 'cola_background',
+                'api_pendiente' => false,
+                'error_api' => null,
+                'job_id' => (int) ($res['datos']['id_job'] ?? 0),
+                'iniciado_en' => date('Y-m-d H:i:s'),
+            ];
+            CandidatosDAO::updateVerificacionExpediente((int) $id_candidato, json_encode($payloadEnProceso));
+        }
+        if (!empty($res['success'])) {
+            $this->lanzarWorkerVerificacionDocumental();
+        } else {
+            error_log('CapHum::encolarVerificacionDocumental: ' . ($res['error'] ?? $res['mensaje'] ?? 'error desconocido'));
+        }
+        return $res;
+    }
+
+    private function phpCliBinarioVerificacionDocumental(): string
+    {
+        $candidatos = [];
+        if (defined('PHP_BINARY') && PHP_BINARY) {
+            $candidatos[] = PHP_BINARY;
+            $candidatos[] = dirname(PHP_BINARY) . DIRECTORY_SEPARATOR . 'php.exe';
+            $candidatos[] = dirname(PHP_BINARY) . DIRECTORY_SEPARATOR . 'php';
+        }
+        $candidatos[] = 'C:\\xampp\\php\\php.exe';
+        $candidatos[] = 'php';
+
+        foreach ($candidatos as $bin) {
+            if ($bin === 'php' || is_file($bin)) {
+                return $bin;
+            }
+        }
+        return 'php';
+    }
+
+    private function lanzarWorkerVerificacionDocumental(): void
+    {
+        $projectRoot = defined('RAIZ') ? dirname(RAIZ) : dirname(__DIR__, 2);
+        $script = $projectRoot . DIRECTORY_SEPARATOR . 'scripts' . DIRECTORY_SEPARATOR . 'procesar_verificacion_documental.php';
+        if (!is_file($script)) {
+            return;
+        }
+        $php = $this->phpCliBinarioVerificacionDocumental();
+        try {
+            if (stripos(PHP_OS_FAMILY, 'Windows') !== false) {
+                $cmd = 'start /B "" ' . escapeshellarg($php) . ' ' . escapeshellarg($script) . ' --once';
+                $h = @popen($cmd, 'r');
+                if (is_resource($h)) {
+                    @pclose($h);
+                }
+            } else {
+                $cmd = escapeshellarg($php) . ' ' . escapeshellarg($script) . ' --once > /dev/null 2>&1 &';
+                @exec($cmd);
+            }
+        } catch (\Throwable $e) {
+            error_log('CapHum::lanzarWorkerVerificacionDocumental: ' . $e->getMessage());
+        }
+    }
+
+    public function procesarSiguienteVerificacionDocumentalJob(): array
+    {
+        $job = CandidatosDAO::tomarSiguienteJobVerificacionDocumental();
+        if (!$job) {
+            return ['procesado' => false, 'mensaje' => 'Sin trabajos pendientes.'];
+        }
+
+        $idJob = (int) ($job['id'] ?? 0);
+        $idCandidato = (int) ($job['id_candidato'] ?? 0);
+        $tipos = json_decode((string) ($job['tipos_subidos_json'] ?? '[]'), true);
+        if (!is_array($tipos)) {
+            $tipos = [];
+        }
+        $expedienteCompleto = null;
+        if (array_key_exists('expediente_completo', $job) && $job['expediente_completo'] !== null) {
+            $expedienteCompleto = ((int) $job['expediente_completo']) === 1;
+        }
+
+        try {
+            $ok = $this->ejecutarVerificacionBackground($idCandidato, $tipos, $expedienteCompleto);
+            CandidatosDAO::finalizarJobVerificacionDocumental($idJob, (bool) $ok, $ok ? null : 'La verificacion documental no pudo completarse.');
+            return ['procesado' => true, 'ok' => (bool) $ok, 'id_job' => $idJob, 'id_candidato' => $idCandidato];
+        } catch (\Throwable $e) {
+            CandidatosDAO::finalizarJobVerificacionDocumental($idJob, false, $e->getMessage());
+            return ['procesado' => true, 'ok' => false, 'id_job' => $idJob, 'id_candidato' => $idCandidato, 'error' => $e->getMessage()];
+        }
+    }
+
     public function verificarExpedienteCandidato()
     {
         set_time_limit(1200);
@@ -10094,6 +10481,12 @@ class CapHum extends Controller
         }
         $ejecutarAsync = !empty($_POST['async']) || !empty($_GET['async']);
         if ($ejecutarAsync && !$soloIdentificacion) {
+            $this->encolarVerificacionDocumentalCandidato($id_candidato, [], true, 'reintento_modal');
+            echo json_encode(self::respuesta(true, 'Verificacion encolada en segundo plano. La documentacion se actualizara automaticamente.', [
+                'verificacion_en_proceso' => true,
+            ]));
+            return;
+
             $payloadEnProceso = [
                 'verificacion_en_proceso' => true,
                 'todo_coincide' => null,
@@ -12383,6 +12776,15 @@ class CapHum extends Controller
 
         $jsonRespuesta = json_encode($respuestaSubida);
         $puedeValidarEnBackground = $guardados > 0;
+        if ($puedeValidarEnBackground) {
+            $this->encolarVerificacionDocumentalCandidato(
+                (int) $id_candidato,
+                array_keys($tiposSubidosEnEstaPeticion),
+                !empty($expedienteCompleto),
+                'subida_documentos'
+            );
+            $puedeValidarEnBackground = false;
+        }
 
         // Verificación automática en background: responder primero; el trabajo pesado va en shutdown.
         // En Apache mod_php no existe fastcgi_finish_request(): si ejecutáramos la verificación aquí,
@@ -12459,7 +12861,7 @@ class CapHum extends Controller
             $resDocs = CandidatosDAO::getDocumentosCandidato($id_candidato);
             if (!$resDocs['success'] || empty($resDocs['datos'])) {
                 error_log('CapHum::verificacionBackground: sin documentos para candidato ' . $id_candidato);
-                return;
+                return false;
             }
             $tiposSubidosSet = array_fill_keys(array_map('intval', $tiposSubidos), true);
             $limitarARecientes = !empty($tiposSubidosSet);
@@ -12567,11 +12969,11 @@ class CapHum extends Controller
             }
             if (!$expedienteCompleto) {
                 error_log('CapHum::verificacionBackground: validacion rapida terminada; expediente aun incompleto candidato ' . $id_candidato);
-                return;
+                return true;
             }
             if (!$rutasParaValidar['identificacion_pdf']) {
                 error_log('CapHum::verificacionBackground: falta identificación oficial (PDF) para candidato ' . $id_candidato);
-                return;
+                return false;
             }
             $soloIdentificacion = $this->docVerificacionIniSoloIdentificacion();
             if ($soloIdentificacion) {
@@ -12589,13 +12991,14 @@ class CapHum extends Controller
             if (is_array($payloadCache)) {
                 CandidatosDAO::updateVerificacionExpediente($id_candidato, json_encode($payloadCache));
                 error_log('CapHum::verificacionBackground: OK cache_documentos para candidato ' . $id_candidato);
-                return;
+                return true;
             }
             $resultadoApi = $this->validarExpedienteApi($rutasParaValidar, $nombreCandidatoRegistro);
             if (is_array($resultadoApi) && !isset($resultadoApi['error'])) {
                 $payload = $this->expedientePayloadDesdeApi($resultadoApi, $soloIdentificacion);
                 CandidatosDAO::updateVerificacionExpediente($id_candidato, json_encode($payload));
                 error_log('CapHum::verificacionBackground: OK para candidato ' . $id_candidato);
+                return true;
             } else {
                 $err = is_array($resultadoApi) ? ($resultadoApi['error'] ?? 'desconocido') : 'null';
                 $alertasErr = ['La verificacion automatica no finalizo por un fallo tecnico de la API. No se considera revision manual; reintente cuando el servicio este disponible.'];
@@ -15318,8 +15721,10 @@ class CapHum extends Controller
         }
 
         $detalles = CapHumDAO::getPersonaDetalle($idPersona);
+        $permisosEdicionCobranza = self::permisosEdicionCobranzaSesion();
         $puedeRecibirContrasena = self::tieneModuloWeb(self::MODULO_GESTION_EDITAR_USUARIO)
-            || self::tieneModuloWeb(self::MODULO_GESTION_VISUALIZAR_CONTRASENA);
+            || self::tieneModuloWeb(self::MODULO_GESTION_VISUALIZAR_CONTRASENA)
+            || !empty($permisosEdicionCobranza['contrasena']);
         if (!$puedeRecibirContrasena && isset($detalles['datos']) && is_array($detalles['datos'])) {
             unset($detalles['datos']['password']);
         }
@@ -15819,7 +16224,11 @@ public function getEstadosMunicipiosMexico()
         header('Content-Type: application/json; charset=utf-8');
 
         // Mismo permiso que Gestiones: solo quien tiene Organización - Departamentos (módulo 10) puede editar
-        if (!self::puedeAccionGestion(self::MODULO_GESTION_EDITAR_USUARIO)) {
+        $puedeEditarCompleto = self::puedeAccionGestion(self::MODULO_GESTION_EDITAR_USUARIO);
+        $permisosEdicionCobranza = self::permisosEdicionCobranzaSesion();
+        $puedeEditarParcial = in_array(true, $permisosEdicionCobranza, true);
+
+        if (!$puedeEditarCompleto && !$puedeEditarParcial) {
             echo json_encode([
                 'success' => false,
                 'mensaje' => 'No tienes permiso para editar usuarios.'
@@ -15838,6 +16247,10 @@ public function getEstadosMunicipiosMexico()
             exit; //  CLAVE
         }
         $input['usuario_edita'] = $_SESSION['usuario_id'] ?? $_SESSION['id_usuario'] ?? null;
+
+        if (!$puedeEditarCompleto) {
+            $input = self::normalizarPayloadEdicionCobranzaParcial($input, $permisosEdicionCobranza);
+        }
 
         $n3e = trim((string) ($input['id_div_nivel3'] ?? ''));
         $n4e = trim((string) ($input['id_div_nivel4'] ?? ''));

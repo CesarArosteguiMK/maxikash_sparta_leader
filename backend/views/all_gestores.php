@@ -4766,6 +4766,7 @@ window.puedeCargarDocumentoGestion = <?= json_encode(!empty($puedeCargarDocument
 window.puedeRegistrarAusenciaGestion = <?= json_encode(!empty($puedeRegistrarAusenciaGestion ?? false)) ?>;
 window.puedeDarBajaGestion = <?= json_encode(!empty($puedeDarBajaGestion ?? false)) ?>;
 window.puedeVisualizarContrasenaGestion = <?= json_encode(!empty($puedeVisualizarContrasenaGestion ?? false)) ?>;
+window.permisosEdicionCobranzaGestion = <?= json_encode(($permisosEdicionCobranzaGestion ?? [])) ?>;
 window.puedeActualizarInfo = <?= json_encode(!empty($puedeActualizarInfo ?? false)) ?>;
 window.puedeAgregarUsuarioRrhh = <?= json_encode(!empty($puedeAgregarUsuarioRrhh ?? false)) ?>;
 window.puedeEditarUsuarioRrhh = <?= json_encode(!empty($puedeEditarUsuarioRrhh ?? false)) ?>;
@@ -6760,12 +6761,12 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
 
                 <div class="mb-2" style="display: none">
                     <label class="form-label">Id Empleado *</label>
-                    <input ype="text" id="edit_id" class="form-control phone-mask"disabled>
+                    <input type="text" id="edit_id" class="form-control phone-mask" disabled>
                 </div>
 
                 <div class="mb-2">
                     <label class="form-label">Número de Empleado *</label>
-                    <input ype="text" id="edit_num_empleado" class="form-control phone-mask"disabled>
+                    <input type="text" id="edit_num_empleado" class="form-control phone-mask" disabled>
                 </div>
 
                 <div class="mb-2">

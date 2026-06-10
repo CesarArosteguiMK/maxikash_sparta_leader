@@ -53,6 +53,24 @@ if (-not (Test-Path -LiteralPath $LogsDir)) {
 $stamp   = Get-Date -Format 'yyyyMMdd-HHmmss'
 $LogFile = Join-Path $LogsDir "doctor-$stamp.log"
 
+# PaddleOCR/Paddle intenta usar caches en el perfil del usuario por defecto.
+# En servidores con servicios o permisos restringidos eso falla; forzamos rutas
+# locales dentro de API para que el instalador y el runtime sean portables.
+$PaddleHome = Join-Path $ApiDir '.paddle_home'
+$PaddleCache = Join-Path $PaddleHome '.cache'
+$PaddlexCache = Join-Path $ApiDir '.paddlex_cache_runtime'
+foreach ($p in @($PaddleHome, $PaddleCache, $PaddlexCache)) {
+    try { New-Item -ItemType Directory -Path $p -Force | Out-Null } catch {}
+}
+$env:USERPROFILE = $PaddleHome
+$env:HOME = $PaddleHome
+$env:XDG_CACHE_HOME = $PaddleCache
+$env:PADDLE_HOME = $PaddleHome
+$env:PADDLE_PDX_CACHE_HOME = $PaddlexCache
+$env:PADDLE_PDX_ENABLE_MKLDNN_BYDEFAULT = 'False'
+$env:FLAGS_use_mkldnn = '0'
+$env:FLAGS_use_onednn = '0'
+
 . (Join-Path $here '_resolve_python.ps1')
 
 # ---------- Estado global ----------
@@ -428,6 +446,8 @@ $pkgs = @(
     @('scipy',                   'scipy'),
     @('pytesseract',             'pytesseract'),
     @('rapidocr_onnxruntime',    'rapidocr-onnxruntime'),
+    @('paddleocr',               'paddleocr'),
+    @('paddle',                  'paddlepaddle'),
     @('fitz',                    'pymupdf'),
     @('torch',                   'torch'),
     @('torchvision',             'torchvision'),

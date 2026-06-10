@@ -17,6 +17,11 @@ from app.models.schemas import CheckOCR, TipoDocumento
 from app.utils.curp_validator import validar_curp, extraer_datos_curp
 from app.core.config import get_settings
 
+try:
+    from app.services.ocr_local import extraer_texto_paddle
+except Exception:
+    extraer_texto_paddle = None
+
 # RapidOCR opcional (gratuito, local): pip install rapidocr-onnxruntime
 _RAPIDOCR_ENGINE = None
 
@@ -267,6 +272,10 @@ class OCRAnalyzer:
         (bosque, videojuego, etc.) al no ejecutar las 12 pasadas de _extraer_mejor_texto.
         """
         try:
+            if extraer_texto_paddle is not None:
+                texto_paddle = extraer_texto_paddle(image_bytes)
+                if texto_paddle and texto_paddle.strip():
+                    return texto_paddle.upper()
             img_cv = cv2.imdecode(np.frombuffer(image_bytes, np.uint8), cv2.IMREAD_COLOR)
             if img_cv is None:
                 return ""

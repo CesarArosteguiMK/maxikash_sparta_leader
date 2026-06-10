@@ -29,6 +29,11 @@ except ImportError:
 from app.utils.curp_validator import validar_curp, extraer_datos_curp
 from app.core.config import get_settings
 
+try:
+    from app.services.ocr_local import extraer_texto_paddle
+except Exception:
+    extraer_texto_paddle = None
+
 _RAPIDOCR_ENGINE_DC = None
 
 
@@ -72,6 +77,13 @@ def _get_rapidocr_dc():
 
 def _texto_ocr_imagen(image_png_bytes: bytes) -> Optional[str]:
     """Extrae texto de una imagen PNG: RapidOCR si está disponible, si no Tesseract."""
+    if extraer_texto_paddle is not None:
+        try:
+            texto_paddle = extraer_texto_paddle(image_png_bytes)
+            if texto_paddle and texto_paddle.strip():
+                return texto_paddle
+        except Exception:
+            pass
     try:
         engine = _get_rapidocr_dc()
         if engine is not None:
@@ -96,6 +108,7 @@ def _texto_ocr_imagen(image_png_bytes: bytes) -> Optional[str]:
     return None
 
 
+@lru_cache(maxsize=32)
 def texto_de_pdf_con_ocr(pdf_bytes: bytes, max_paginas: int = 3) -> str:
     """Extrae texto del PDF; si no hay capa de texto (escaneado), usa OCR (RapidOCR o Tesseract)."""
     if not PYMUPDF_AVAILABLE or not pdf_bytes or len(pdf_bytes) < 100:
@@ -243,6 +256,7 @@ def _nombres_coinciden(n1: str, n2: str) -> bool:
     return len(comunes) >= 2
 
 
+@lru_cache(maxsize=64)
 def _texto_de_pdf(pdf_bytes: bytes) -> str:
     """Extrae todo el texto de un PDF. Devuelve '' si falla."""
     if not PYMUPDF_AVAILABLE:

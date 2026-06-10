@@ -1137,6 +1137,215 @@ class Candidatos extends Model
      * Documentos + verificación en una sola conexión (para listado Documentación, optimizado).
      * @return array{documentos: array, verificacion: array|null}
      */
+    private static function asegurarTablaJobsVerificacionDocumental(Database $db): void
+    {
+        try {
+            $db->CRUD(
+                "CREATE TABLE IF NOT EXISTS candidato_verificacion_documental_job (
+                    id INT AUTO_INCREMENT PRIMARY KEY,
+                    id_candidato INT NOT NULL,
+                    estado VARCHAR(20) NOT NULL DEFAULT 'pendiente',
+                    prioridad TINYINT NOT NULL DEFAULT 5,
+                    intentos TINYINT NOT NULL DEFAULT 0,
+                    max_intentos TINYINT NOT NULL DEFAULT 3,
+                    origen VARCHAR(40) NULL,
+                    tipos_subidos_json TEXT NULL,
+                    expediente_completo TINYINT NULL,
+                    locked_at DATETIME NULL,
+                    started_at DATETIME NULL,
+                    finished_at DATETIME NULL,
+                    next_run_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                    last_error TEXT NULL,
+                    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                    updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                    INDEX idx_cvdj_estado_next (estado, next_run_at),
+                    INDEX idx_cvdj_candidato_estado (id_candidato, estado),
+                    INDEX idx_cvdj_locked (locked_at)
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci"
+            );
+        } catch (\Exception $e) {
+        }
+    }
+
+    public static function encolarVerificacionDocumental($id_candidato, array $tiposSubidos = [], ?bool $expedienteCompleto = null, string $origen = 'upload')
+    {
+        $id_candidato = (int) $id_candidato;
+        if ($id_candidato <= 0) {
+            return self::resultado(false, 'ID invalido.');
+        }
+
+        $tipos = [];
+        foreach ($tiposSubidos as $tipo) {
+            $n = (int) $tipo;
+            if ($n > 0) {
+                $tipos[$n] = true;
+            }
+        }
+        $expedienteValor = $expedienteCompleto === null ? null : ($expedienteCompleto ? 1 : 0);
+
+        try {
+            $db = new Database();
+            self::asegurarTablaJobsVerificacionDocumental($db);
+
+            $existente = $db->queryOne(
+                "SELECT id, tipos_subidos_json, expediente_completo
+                 FROM candidato_verificacion_documental_job
+                 WHERE id_candidato = :id
+                   AND estado IN ('pendiente', 'procesando')
+                 ORDER BY id DESC
+                 LIMIT 1",
+                ['id' => $id_candidato]
+            );
+
+            if ($existente) {
+                $tiposPrevios = json_decode((string) ($existente['tipos_subidos_json'] ?? '[]'), true);
+                if (!is_array($tiposPrevios)) {
+                    $tiposPrevios = [];
+                }
+                foreach ($tiposPrevios as $tipoPrevio) {
+                    $n = (int) $tipoPrevio;
+                    if ($n > 0) {
+                        $tipos[$n] = true;
+                    }
+                }
+                $expedienteFinal = $expedienteValor;
+                if ($expedienteFinal === null && $existente['expediente_completo'] !== null) {
+                    $expedienteFinal = (int) $existente['expediente_completo'];
+                }
+                if ((int) ($existente['expediente_completo'] ?? 0) === 1) {
+                    $expedienteFinal = 1;
+                }
+                $db->CRUD(
+                    "UPDATE candidato_verificacion_documental_job
+                     SET estado = CASE WHEN estado = 'procesando' THEN estado ELSE 'pendiente' END,
+                         tipos_subidos_json = :tipos,
+                         expediente_completo = :expediente,
+                         origen = :origen,
+                         next_run_at = NOW(),
+                         last_error = NULL,
+                         updated_at = NOW()
+                     WHERE id = :job",
+                    [
+                        'job' => (int) $existente['id'],
+                        'tipos' => json_encode(array_keys($tipos)),
+                        'expediente' => $expedienteFinal,
+                        'origen' => substr($origen, 0, 40),
+                    ]
+                );
+                return self::resultado(true, 'Verificacion documental encolada.', ['id_job' => (int) $existente['id']]);
+            }
+
+            $db->CRUD(
+                "INSERT INTO candidato_verificacion_documental_job
+                    (id_candidato, estado, prioridad, origen, tipos_subidos_json, expediente_completo, next_run_at)
+                 VALUES
+                    (:id, 'pendiente', :prioridad, :origen, :tipos, :expediente, NOW())",
+                [
+                    'id' => $id_candidato,
+                    'prioridad' => $expedienteCompleto ? 9 : 5,
+                    'origen' => substr($origen, 0, 40),
+                    'tipos' => json_encode(array_keys($tipos)),
+                    'expediente' => $expedienteValor,
+                ]
+            );
+            return self::resultado(true, 'Verificacion documental encolada.', ['id_job' => $db->lastInsertId()]);
+        } catch (\Exception $e) {
+            return self::resultado(false, 'No se pudo encolar la verificacion documental.', null, $e->getMessage());
+        }
+    }
+
+    public static function tomarSiguienteJobVerificacionDocumental(int $staleMinutes = 20)
+    {
+        $staleMinutes = max(5, min(120, $staleMinutes));
+        try {
+            $db = new Database();
+            self::asegurarTablaJobsVerificacionDocumental($db);
+            $db->beginTransaction();
+            $job = $db->queryOne(
+                "SELECT *
+                 FROM candidato_verificacion_documental_job
+                 WHERE (
+                        estado = 'pendiente'
+                        AND next_run_at <= NOW()
+                       )
+                    OR (
+                        estado = 'procesando'
+                        AND locked_at IS NOT NULL
+                        AND locked_at < DATE_SUB(NOW(), INTERVAL {$staleMinutes} MINUTE)
+                       )
+                 ORDER BY prioridad DESC, id ASC
+                 LIMIT 1
+                 FOR UPDATE"
+            );
+            if (!$job) {
+                $db->commit();
+                return null;
+            }
+            $db->CRUD(
+                "UPDATE candidato_verificacion_documental_job
+                 SET estado = 'procesando',
+                     intentos = intentos + 1,
+                     locked_at = NOW(),
+                     started_at = COALESCE(started_at, NOW()),
+                     last_error = NULL,
+                     updated_at = NOW()
+                 WHERE id = :id",
+                ['id' => (int) $job['id']]
+            );
+            $db->commit();
+            $job['intentos'] = (int) ($job['intentos'] ?? 0) + 1;
+            return $job;
+        } catch (\Exception $e) {
+            try {
+                if (isset($db)) {
+                    $db->rollback();
+                }
+            } catch (\Exception $e2) {
+            }
+            return null;
+        }
+    }
+
+    public static function finalizarJobVerificacionDocumental($id_job, bool $ok, ?string $error = null)
+    {
+        $id_job = (int) $id_job;
+        if ($id_job <= 0) {
+            return;
+        }
+        try {
+            $db = new Database();
+            self::asegurarTablaJobsVerificacionDocumental($db);
+            if ($ok) {
+                $db->CRUD(
+                    "UPDATE candidato_verificacion_documental_job
+                     SET estado = 'terminado',
+                         finished_at = NOW(),
+                         locked_at = NULL,
+                         last_error = NULL,
+                         updated_at = NOW()
+                     WHERE id = :id",
+                    ['id' => $id_job]
+                );
+                return;
+            }
+            $db->CRUD(
+                "UPDATE candidato_verificacion_documental_job
+                 SET estado = CASE WHEN intentos >= max_intentos THEN 'error' ELSE 'pendiente' END,
+                     next_run_at = CASE WHEN intentos >= max_intentos THEN next_run_at ELSE DATE_ADD(NOW(), INTERVAL 5 MINUTE) END,
+                     finished_at = CASE WHEN intentos >= max_intentos THEN NOW() ELSE finished_at END,
+                     locked_at = NULL,
+                     last_error = :error,
+                     updated_at = NOW()
+                 WHERE id = :id",
+                [
+                    'id' => $id_job,
+                    'error' => $error !== null ? substr($error, 0, 2000) : null,
+                ]
+            );
+        } catch (\Exception $e) {
+        }
+    }
+
     public static function getDocumentosYVerificacion($id_candidato)
     {
         $id_candidato = (int) $id_candidato;
