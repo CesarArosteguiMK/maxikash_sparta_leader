@@ -49,6 +49,10 @@ backend/logs/**
 backend/API/logs/**
 backend/storage/tmp_media/
 backend/storage/tmp_mpdf/
+# Expedientes/documentos de candidatos (runtime; no subir PDFs ni archivos personales al repo)
+backend/storage/candidatos/**
+!backend/storage/candidatos/.gitkeep
+!backend/storage/candidatos/**/.gitkeep
 # Contenido de storage/logs ignorado; la carpeta se versiona con .gitkeep (git no re-incluye hijos si se ignora el directorio padre entero).
 backend/storage/logs/*
 !backend/storage/logs/.gitkeep
