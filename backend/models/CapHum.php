@@ -11,6 +11,9 @@ class CapHum extends Model
     private const MODULO_CONVENIOS_DESCARGAR_EXCEL = 92;
     private const MODULO_CONVENIOS_DESCARGAR_EXCEL_NOMBRE = 'Descargar Excel';
     private const MODULO_CONVENIOS_DESCARGAR_EXCEL_DESC = 'Convenios - Cierre de Credito - Descargar Excel';
+    private const MODULO_TRACKING_CANCELAR_RUTA = 102;
+    private const MODULO_TRACKING_CANCELAR_RUTA_NOMBRE = 'Cancelar rutas Tracking';
+    private const MODULO_TRACKING_CANCELAR_RUTA_DESC = 'Tracking Recoleccion - Cancelar rutas registradas';
 
     private static function asegurarModuloConveniosDescargarExcel(Database $db): void
     {
@@ -46,6 +49,59 @@ class CapHum extends Model
             );
         } catch (\Throwable $e) {
             error_log('CapHum::asegurarModuloConveniosDescargarExcel -> ' . $e->getMessage());
+        }
+    }
+
+    private static function asegurarModuloTrackingCancelarRuta(Database $db): void
+    {
+        try {
+            $datos = [
+                'nombre' => self::MODULO_TRACKING_CANCELAR_RUTA_NOMBRE,
+                'pestana' => 'Permisos especiales',
+                'descripcion' => self::MODULO_TRACKING_CANCELAR_RUTA_DESC,
+            ];
+            $existe = $db->queryOne(
+                'SELECT id
+                   FROM modulos_web
+                  WHERE pestana = :pestana
+                    AND (descripcion = :descripcion OR nombre = :nombre)
+                  LIMIT 1',
+                $datos
+            );
+
+            if ($existe) {
+                $db->CRUD(
+                    'UPDATE modulos_web
+                        SET nombre = :nombre,
+                            pestana = :pestana,
+                            descripcion = :descripcion,
+                            activo = 1
+                      WHERE id = :id',
+                    $datos + ['id' => (int) $existe['id']]
+                );
+                return;
+            }
+
+            $idOcupado = $db->queryOne(
+                'SELECT id FROM modulos_web WHERE id = :id LIMIT 1',
+                ['id' => self::MODULO_TRACKING_CANCELAR_RUTA]
+            );
+            if (!$idOcupado) {
+                $db->CRUD(
+                    'INSERT INTO modulos_web (id, nombre, pestana, descripcion, activo)
+                     VALUES (:id, :nombre, :pestana, :descripcion, 1)',
+                    $datos + ['id' => self::MODULO_TRACKING_CANCELAR_RUTA]
+                );
+                return;
+            }
+
+            $db->CRUD(
+                'INSERT INTO modulos_web (nombre, pestana, descripcion, activo)
+                 VALUES (:nombre, :pestana, :descripcion, 1)',
+                $datos
+            );
+        } catch (\Throwable $e) {
+            error_log('CapHum::asegurarModuloTrackingCancelarRuta -> ' . $e->getMessage());
         }
     }
 
@@ -1228,6 +1284,9 @@ class CapHum extends Model
             if ((int) $moduloId === self::MODULO_CONVENIOS_DESCARGAR_EXCEL) {
                 self::asegurarModuloConveniosDescargarExcel($db);
             }
+            if ((int) $moduloId === self::MODULO_TRACKING_CANCELAR_RUTA) {
+                self::asegurarModuloTrackingCancelarRuta($db);
+            }
 
             if ($asignado === 1) {
 
@@ -2201,6 +2260,7 @@ class CapHum extends Model
 
 
             $persona = $db->queryOne($query);
+            self::asegurarModuloTrackingCancelarRuta($db);
             $perfiles = $db->queryAll($query_perfiles);
             $perfiles = self::agregarModuloConveniosDescargarExcelSiFalta($perfiles, $idPersona, $db);
             require_once __DIR__ . '/../config/menu_modulos_sidebar.php';

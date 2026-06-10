@@ -313,6 +313,11 @@ if (!function_exists('mapPermisoEspecialToMenuMeta')) {
             return null;
         }
         // Cierre de crédito (ancla módulo 51 → grupo «Convenios»): orden 401 / 411 / 421 / 431
+        if (str_contains($nbNorm, 'cancelar')
+            && str_contains($nbNorm, 'rutas')
+            && str_contains($nbNorm, 'tracking')) {
+            return mapMetaDesdeAnclaModuloMenu(74, $nombreRaw, 740, false);
+        }
         $excluyeCrearConvenio = str_contains($nbNorm, 'crear convenio')
             || str_contains($nbNorm, 'registrar convenio');
         $tNorm = preg_replace('/\s+/u', ' ', trim($nbNorm));
