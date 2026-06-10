@@ -640,8 +640,8 @@
     }
 
     #modalAgregarUsuarioRrhh .modal-dialog {
-      max-width: min(1180px, calc(100vw - 2rem));
-      margin: 1rem auto;
+      max-width: min(1320px, calc(100vw - 1.75rem));
+      margin: .875rem auto;
     }
 
     #modalAgregarUsuarioRrhh.modal.show {
@@ -650,10 +650,13 @@
     }
 
     #modalAgregarUsuarioRrhh .modal-content {
-      height: min(860px, calc(100vh - 2rem));
-      max-height: calc(100vh - 2rem);
-      border-radius: 10px;
+      position: relative;
+      height: min(900px, calc(100vh - 1.75rem));
+      max-height: calc(100vh - 1.75rem);
+      border: 1px solid #dbe5f2;
+      border-radius: 18px;
       overflow: hidden;
+      box-shadow: 0 24px 70px rgba(15, 23, 42, .28);
     }
 
     #modalAgregarUsuarioRrhh .modal-header,
@@ -663,31 +666,216 @@
       z-index: 2;
     }
 
+    #modalAgregarUsuarioRrhh .modal-header {
+      min-height: 86px;
+      padding: 1.15rem 1.4rem;
+      border-bottom-color: #e7edf6;
+    }
+
+    #modalAgregarUsuarioRrhh .rrhh-wizard-title {
+      display: flex;
+      align-items: center;
+      gap: .85rem;
+      min-width: 0;
+    }
+
+    #modalAgregarUsuarioRrhh .rrhh-wizard-avatar {
+      width: 52px;
+      height: 52px;
+      border-radius: 50%;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      color: #0d54c9;
+      background: #eaf2ff;
+      flex: 0 0 52px;
+      font-size: 1.35rem;
+    }
+
+    #modalAgregarUsuarioRrhh .rrhh-wizard-subtitle {
+      color: #63718a;
+      font-size: .95rem;
+      font-weight: 500;
+      margin-top: .2rem;
+    }
+
     #modalAgregarUsuarioRrhh .modal-body {
-      overflow-y: auto;
-      padding: 1rem 1.25rem;
+      display: flex;
+      flex-direction: column;
+      gap: .9rem;
+      overflow: hidden;
+      padding: 1rem 1.35rem;
+      min-height: 0;
+      background: #f6f9fd;
+    }
+
+    #modalAgregarUsuarioRrhh .rrhh-wizard-progress {
+      display: grid;
+      grid-template-columns: auto minmax(160px, 1fr) auto;
+      align-items: center;
+      gap: .95rem;
+      color: #334155;
+      font-size: .86rem;
+      font-weight: 700;
+    }
+
+    #modalAgregarUsuarioRrhh .rrhh-progress-track {
+      height: 8px;
+      border-radius: 999px;
+      background: #e5e8ee;
+      overflow: hidden;
+    }
+
+    #modalAgregarUsuarioRrhh .rrhh-progress-bar {
+      width: 0;
+      height: 100%;
+      border-radius: inherit;
+      background: linear-gradient(90deg, #0d6efd, #1559cc);
+      transition: width .2s ease;
+    }
+
+    #modalAgregarUsuarioRrhh .rrhh-wizard-info {
+      display: flex;
+      align-items: center;
+      gap: .6rem;
+      border: 1px solid #b7d4ff;
+      border-radius: 8px;
+      background: #eef6ff;
+      color: #0d4ead;
+      padding: .65rem .85rem;
+      font-size: .88rem;
+      font-weight: 600;
+    }
+
+    #modalAgregarUsuarioRrhh .rrhh-wizard-layout {
+      display: grid;
+      grid-template-columns: 285px minmax(0, 1fr);
+      gap: 1rem;
+      min-height: 0;
+      flex: 1;
+    }
+
+    #modalAgregarUsuarioRrhh .rrhh-wizard-sidebar,
+    #modalAgregarUsuarioRrhh .rrhh-wizard-content {
       min-height: 0;
     }
 
-    #modalAgregarUsuarioRrhh .nav-tabs .nav-link {
-      color: #5d6978;
-      font-weight: 600;
-      border: 0;
-      border-bottom: 3px solid transparent;
-      padding: .65rem 1rem;
+    #modalAgregarUsuarioRrhh .rrhh-wizard-sidebar {
+      border-right: 1px solid #dfe7f2;
+      padding-right: 1rem;
+      overflow-y: auto;
     }
 
-    #modalAgregarUsuarioRrhh .nav-tabs .nav-link.active {
-      color: #24324d;
-      border-bottom-color: #0d6efd;
+    #modalAgregarUsuarioRrhh .rrhh-wizard-content {
+      overflow-y: auto;
+      padding-right: .35rem;
+    }
+
+    #modalAgregarUsuarioRrhh .rrhh-wizard-steps {
+      display: flex;
+      flex-direction: column;
+      gap: .28rem;
+      border: 0;
+      margin: 0;
+      padding: .15rem 0;
+      position: relative;
+    }
+
+    #modalAgregarUsuarioRrhh .rrhh-wizard-steps::before {
+      content: "";
+      position: absolute;
+      left: 23px;
+      top: 24px;
+      bottom: 24px;
+      width: 1px;
+      background: #d4ddeb;
+    }
+
+    #modalAgregarUsuarioRrhh .rrhh-wizard-steps .nav-item {
+      position: relative;
+      z-index: 1;
+    }
+
+    #modalAgregarUsuarioRrhh .rrhh-wizard-steps .nav-link {
+      width: 100%;
+      display: grid;
+      grid-template-columns: 48px minmax(0, 1fr);
+      align-items: center;
+      gap: .6rem;
+      color: #334155;
+      text-align: left;
+      border: 1px solid transparent;
+      border-radius: 8px;
       background: transparent;
+      padding: .72rem .8rem .72rem 0;
+      box-shadow: none;
+    }
+
+    #modalAgregarUsuarioRrhh .rrhh-wizard-steps .nav-link.active {
+      color: #0f3f98;
+      border-color: #b9d3ff;
+      background: #edf5ff;
+    }
+
+    #modalAgregarUsuarioRrhh .rrhh-step-marker {
+      width: 42px;
+      height: 42px;
+      border: 1px solid #d5dfec;
+      border-radius: 50%;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      background: #fff;
+      color: #334155;
+      font-weight: 800;
+    }
+
+    #modalAgregarUsuarioRrhh .rrhh-wizard-steps .nav-link.active .rrhh-step-marker {
+      border-color: #0d6efd;
+      background: #0d6efd;
+      color: #fff;
+      box-shadow: 0 6px 16px rgba(13, 110, 253, .25);
+    }
+
+    #modalAgregarUsuarioRrhh .rrhh-step-marker .fa-check {
+      display: none;
+    }
+
+    #modalAgregarUsuarioRrhh .rrhh-wizard-steps .nav-link.is-complete .rrhh-step-marker {
+      border-color: #21a45d;
+      background: #21a45d;
+      color: #fff;
+    }
+
+    #modalAgregarUsuarioRrhh .rrhh-wizard-steps .nav-link.is-complete .rrhh-step-num {
+      display: none;
+    }
+
+    #modalAgregarUsuarioRrhh .rrhh-wizard-steps .nav-link.is-complete .fa-check {
+      display: inline-block;
+    }
+
+    #modalAgregarUsuarioRrhh .rrhh-step-title {
+      display: block;
+      font-weight: 800;
+      color: #24324d;
+      line-height: 1.15;
+    }
+
+    #modalAgregarUsuarioRrhh .rrhh-step-state {
+      display: block;
+      color: #64748b;
+      font-size: .78rem;
+      font-weight: 600;
+      margin-top: .25rem;
     }
 
     #modalAgregarUsuarioRrhh .rrhh-section {
       border: 1px solid #e3e8ef;
       border-radius: 8px;
-      padding: .85rem;
+      padding: 1rem;
       background: #fff;
+      box-shadow: 0 8px 18px rgba(15, 23, 42, .04);
     }
 
     #modalAgregarUsuarioRrhh .rrhh-section-title {
@@ -695,6 +883,76 @@
       font-weight: 700;
       color: #24324d;
       margin-bottom: .85rem;
+    }
+
+    #modalAgregarUsuarioRrhh .rrhh-password-masked {
+      -webkit-text-security: disc;
+      text-security: disc;
+      font-family: var(--bs-font-sans-serif);
+    }
+
+    #modalAgregarUsuarioRrhh .rrhh-assignment-summary {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: .75rem;
+    }
+
+    #modalAgregarUsuarioRrhh .rrhh-summary-label {
+      color: #64748b;
+      font-size: .76rem;
+      font-weight: 800;
+      margin-bottom: .35rem;
+    }
+
+    #modalAgregarUsuarioRrhh .rrhh-summary-chip {
+      display: inline-flex;
+      max-width: 100%;
+      align-items: center;
+      border-radius: 999px;
+      background: #eef1f5;
+      color: #475569;
+      padding: .25rem .65rem;
+      font-size: .8rem;
+      font-weight: 700;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    #modalAgregarUsuarioRrhh .rrhh-beneficiarios-status {
+      display: inline-flex;
+      align-items: center;
+      gap: .4rem;
+      border-radius: 999px;
+      background: #eef1f5;
+      color: #475569;
+      padding: .25rem .65rem;
+      font-size: .8rem;
+      font-weight: 800;
+    }
+
+    #modalAgregarUsuarioRrhh .rrhh-beneficiarios-status.is-ok {
+      background: #dcfce7;
+      color: #166534;
+    }
+
+    #modalAgregarUsuarioRrhh .rrhh-beneficiarios-status.is-warn {
+      background: #fff7d6;
+      color: #9a6400;
+    }
+
+    #modalAgregarUsuarioRrhh .rrhh-beneficiarios-status.is-error {
+      background: #fee2e2;
+      color: #b42318;
+    }
+
+    #modalAgregarUsuarioRrhh .rrhh-sensitive-note {
+      display: flex;
+      gap: .5rem;
+      color: #64748b;
+      font-size: .82rem;
+      font-weight: 600;
+      margin: -.25rem 0 .85rem;
     }
 
     #modalAgregarUsuarioRrhh .rrhh-repeat-row {
@@ -722,6 +980,62 @@
 
     #modalAgregarUsuarioRrhh .row.g-3 {
       --bs-gutter-y: .75rem;
+    }
+
+    #modalAgregarUsuarioRrhh .modal-footer {
+      min-height: 72px;
+      padding: .85rem 1.35rem;
+      border-top-color: #e7edf6;
+      gap: .65rem;
+    }
+
+    #modalAgregarUsuarioRrhh .rrhh-footer-left,
+    #modalAgregarUsuarioRrhh .rrhh-footer-right {
+      display: flex;
+      align-items: center;
+      gap: .65rem;
+      flex-wrap: wrap;
+    }
+
+    #modalAgregarUsuarioRrhh .rrhh-footer-left {
+      flex: 1 1 auto;
+    }
+
+    #modalAgregarUsuarioRrhh .rrhh-footer-right {
+      justify-content: flex-end;
+    }
+
+    #modalAgregarUsuarioRrhh .rrhh-wizard-action {
+      min-width: 168px;
+      min-height: 42px;
+    }
+
+    #modalAgregarUsuarioRrhh .rrhh-loading-overlay {
+      position: absolute;
+      inset: 0;
+      z-index: 6;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      background: rgba(246, 249, 253, .92);
+      backdrop-filter: blur(2px);
+    }
+
+    #modalAgregarUsuarioRrhh.is-loading-rrhh .rrhh-loading-overlay {
+      display: flex;
+    }
+
+    #modalAgregarUsuarioRrhh .rrhh-loading-card {
+      display: inline-flex;
+      align-items: center;
+      gap: .85rem;
+      padding: 1rem 1.25rem;
+      border: 1px solid #dbe5f2;
+      border-radius: 10px;
+      background: #fff;
+      color: #243551;
+      font-weight: 700;
+      box-shadow: 0 16px 34px rgba(15, 23, 42, .14);
     }
 
     #modalActualizacionInfoPersona {
@@ -957,9 +1271,76 @@
         max-height: calc(100vh - .75rem);
       }
 
-      #modalAgregarUsuarioRrhh .nav-tabs {
-        flex-wrap: nowrap;
+      #modalAgregarUsuarioRrhh .modal-header {
+        min-height: 76px;
+        padding: .85rem 1rem;
+      }
+
+      #modalAgregarUsuarioRrhh .rrhh-wizard-avatar {
+        width: 44px;
+        height: 44px;
+        flex-basis: 44px;
+      }
+
+      #modalAgregarUsuarioRrhh .modal-body {
+        padding: .85rem;
+      }
+
+      #modalAgregarUsuarioRrhh .rrhh-wizard-progress {
+        grid-template-columns: 1fr;
+        gap: .5rem;
+      }
+
+      #modalAgregarUsuarioRrhh .rrhh-wizard-layout {
+        grid-template-columns: 1fr;
+        gap: .75rem;
+      }
+
+      #modalAgregarUsuarioRrhh .rrhh-wizard-sidebar {
+        border-right: 0;
+        border-bottom: 1px solid #dfe7f2;
+        padding: 0 0 .75rem;
         overflow-x: auto;
+        overflow-y: hidden;
+      }
+
+      #modalAgregarUsuarioRrhh .rrhh-wizard-steps {
+        flex-direction: row;
+        min-width: max-content;
+      }
+
+      #modalAgregarUsuarioRrhh .rrhh-wizard-steps::before {
+        display: none;
+      }
+
+      #modalAgregarUsuarioRrhh .rrhh-wizard-steps .nav-link {
+        width: 190px;
+        grid-template-columns: 38px minmax(0, 1fr);
+        padding: .55rem .65rem .55rem 0;
+      }
+
+      #modalAgregarUsuarioRrhh .rrhh-step-marker {
+        width: 34px;
+        height: 34px;
+      }
+
+      #modalAgregarUsuarioRrhh .rrhh-assignment-summary {
+        grid-template-columns: 1fr;
+      }
+
+      #modalAgregarUsuarioRrhh .modal-footer {
+        align-items: stretch;
+      }
+
+      #modalAgregarUsuarioRrhh .rrhh-footer-left,
+      #modalAgregarUsuarioRrhh .rrhh-footer-right {
+        width: 100%;
+        justify-content: stretch;
+      }
+
+      #modalAgregarUsuarioRrhh .rrhh-wizard-action,
+      #modalAgregarUsuarioRrhh .modal-footer .btn {
+        flex: 1 1 0;
       }
     }
 
@@ -4755,15 +5136,21 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
         </div>
 
         <?php if (!empty($puedeAgregarUsuarioRrhh ?? false) || !empty($puedeEditarUsuarioRrhh ?? false)): ?>
-        <div class="modal fade" id="modalAgregarUsuarioRrhh" tabindex="-1" aria-labelledby="modalAgregarUsuarioRrhhLabel" aria-hidden="true" data-bs-backdrop="false" data-bs-keyboard="true">
+        <div class="modal fade" id="modalAgregarUsuarioRrhh" tabindex="-1" aria-labelledby="modalAgregarUsuarioRrhhLabel" aria-hidden="true" data-bs-backdrop="static" data-bs-keyboard="false">
           <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
             <form class="modal-content" id="formAgregarUsuarioRrhh" autocomplete="off">
               <input type="hidden" id="rrhh_edit_id_persona" name="id_persona">
               <div class="modal-header">
-                <h5 class="modal-title fw-bold" id="modalAgregarUsuarioRrhhLabel">
-                  <i class="fa fa-user-tie me-2"></i>Agregar usuario RR.HH.
-                </h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                <div class="rrhh-wizard-title">
+                  <span class="rrhh-wizard-avatar"><i class="fa fa-user"></i></span>
+                  <div class="min-w-0">
+                    <h5 class="modal-title fw-bold mb-0" id="modalAgregarUsuarioRrhhLabel">Agregar usuario RR.HH.</h5>
+                    <div class="rrhh-wizard-subtitle" id="rrhhWizardSubtitle">Completa la informaci&oacute;n del nuevo usuario por secciones.</div>
+                  </div>
+                </div>
+                <div class="d-flex align-items-center gap-3 ms-auto">
+                  <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                </div>
               </div>
               <div class="modal-body">
                 <ul class="nav nav-tabs mb-3" role="tablist">
@@ -4799,8 +5186,8 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
                           </select>
                         </div>
                         <div class="col-md-3"><label class="form-label">Entidad federativa</label><input type="text" class="form-control text-uppercase" name="persona.entidad_federativa_rfc"></div>
-                        <div class="col-md-3"><label class="form-label">Usuario</label><input type="text" class="form-control" name="persona.usuario"></div>
-                        <div class="col-md-3"><label class="form-label">Contraseña</label><input type="text" class="form-control" name="persona.contrasena"></div>
+                        <div class="col-md-3"><label class="form-label">Usuario</label><input type="text" class="form-control" name="persona.usuario" autocomplete="off" data-lpignore="true" data-1p-ignore="true"></div>
+                        <div class="col-md-3"><label class="form-label">Contrase&ntilde;a</label><input type="text" class="form-control" name="persona.contrasena" autocomplete="off" autocapitalize="off" spellcheck="false" data-lpignore="true" data-1p-ignore="true" data-form-type="other"></div>
                       </div>
                     </div>
 
@@ -4837,8 +5224,8 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
                         <div class="col-md-3"><label class="form-label">Fecha CONTPAC</label><input type="text" class="form-control rrhh-date" name="rrhh.fecha_contpaq" placeholder="YYYY-MM-DD" readonly></div>
                         <div class="col-md-3"><label class="form-label">Fecha IMSS alta</label><input type="text" class="form-control rrhh-date" name="rrhh.fecha_imss_alta" placeholder="YYYY-MM-DD" readonly></div>
                         <div class="col-md-3">
-                          <label class="form-label">Pa&iacute;s</label>
-                          <select id="rrhh_pais_id" class="form-select js-select-buscador" name="persona.id_pais">
+                          <label class="form-label">Pa&iacute;s *</label>
+                          <select id="rrhh_pais_id" class="form-select js-select-buscador" name="persona.id_pais" required>
                             <option value="">Seleccione un pa&iacute;s</option>
                           </select>
                         </div>
@@ -5137,7 +5524,10 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
                     <i class="fa fa-eraser me-1"></i>Limpiar
                   </button>
                 </div>
-                <div class="small text-muted mb-3" id="rrhhImportDocsSeleccionResumen">No se han seleccionado archivos.</div>
+                <div class="small text-muted mb-1" id="rrhhImportDocsSeleccionResumen">No se han seleccionado archivos.</div>
+                <div class="small text-muted mb-3">
+                  Soporta lotes masivos de hasta 200 archivos o 256 MB por carga. El an&aacute;lisis conserva un lote temporal para importar sin volver a subir los documentos.
+                </div>
                 <div id="rrhhImportDocsResumen" class="d-flex flex-wrap gap-2 mb-3"></div>
                 <div class="table-responsive" style="max-height: 52vh;">
                   <table class="table table-sm table-striped align-middle">
@@ -5655,7 +6045,7 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
     <!-- =======================
          OFFCANVAS - AGREGAR
     ======================== -->
-    <div class="offcanvas offcanvas-end" id="offcanvasAddUser">
+    <div class="offcanvas offcanvas-end" id="offcanvasAddUser" tabindex="-1" data-bs-backdrop="static" data-bs-keyboard="false">
         <div class="offcanvas-header border-bottom">
             <h5 class="offcanvas-title">Registrar Nuevo Usuario</h5>
             <button type="button" class="btn-close" data-bs-dismiss="offcanvas"></button>
@@ -5844,8 +6234,8 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
                     <input type="text" id="add_contrasena" class="form-control" maxlength="15" oninput="this.value = this.value.replace(/^\s+/, '').replace(/\s{2,}/g, ' ')" onblur="this.value = this.value.trim()">
                 </div>
 
-                <button class="btn btn-primary me-3" onclick="guardarGestor()">Guardar</button>
-                <button class="btn btn-label-danger" data-bs-dismiss="offcanvas">Cancelar</button>
+                <button type="button" class="btn btn-primary me-3" onclick="guardarGestor()">Guardar</button>
+                <button type="button" class="btn btn-label-danger" data-bs-dismiss="offcanvas">Cancelar</button>
 
             </form>
         </div>
@@ -8441,6 +8831,9 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
   let usuariosData = [];
   let actualizandoFiltrosGestion = false;
   const mapaDepartamentoMetaGestion = new Map();
+  document.querySelectorAll('#kpi-cell-puesto .kpi-cell-status').forEach(el => {
+    el.textContent = '\u00danicos';
+  });
 
   function normalizarValorFiltro(valor) {
     return String(valor || '')
@@ -8758,11 +9151,13 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
     if (options[1]) {
       options[1].textContent = `Múltiples puestos (${usuariosMultiples})`;
       options[1].disabled = usuariosMultiples === 0;
+      options[1].textContent = `M\u00faltiples puestos (${usuariosMultiples})`;
     }
 
     if (options[2]) {
       options[2].textContent = `Ãšnico puesto (${usuariosUnicos})`;
       options[2].disabled = usuariosUnicos === 0;
+      options[2].textContent = `\u00danico puesto (${usuariosUnicos})`;
     }
 
     let valorActual = selectMultiple.value;
@@ -9173,7 +9568,7 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
     let puestosHTML = '<div class="d-flex flex-column gap-2">';
     usuario.puestos.forEach((puesto, index) => {
       const esPrincipal = index === 0;
-      const iconoPuesto = esPrincipal ? 'â­' : 'ðŸ“Ž';
+      const iconoPuestoHtml = esPrincipal ? '<i class="fa fa-star"></i>' : '<i class="fa fa-thumbtack"></i>';
       const claseBadge = esPrincipal
         ? 'badge text-white badge-puesto-principal'
         : 'badge bg-success badge-puesto-secundario';
@@ -9184,7 +9579,7 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
             <i class="fa fa-building"></i>${puesto.nombre_departamento}
           </small>
           <span class="${claseBadge}" style="${esPrincipal ? 'background-color: var(--bs-blue); ' : ''}width: 100%;">
-            <span style="font-size: 0.9rem;">${iconoPuesto}</span>
+            <span style="font-size: 0.9rem;">${iconoPuestoHtml}</span>
             <i class="fa fa-briefcase"></i>
             ${puesto.nombre_puesto}
             ${esPrincipal ? '<small class="ms-1" style="opacity: 0.8;">(Principal)</small>' : ''}
@@ -9486,7 +9881,7 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
 
         puestosVisible.forEach((puesto, index) => {
           const esPrincipal = index === 0;
-          const iconoPuesto = esPrincipal ? 'â­' : 'ðŸ“Ž';
+          const iconoPuestoHtml = esPrincipal ? '<i class="fa fa-star"></i>' : '<i class="fa fa-thumbtack"></i>';
           const claseBadge = esPrincipal
             ? 'badge text-white badge-puesto-principal'
             : 'badge bg-success badge-puesto-secundario';
@@ -9499,7 +9894,7 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
               <span class="${claseBadge}"
                     style="${esPrincipal ? 'background-color: var(--bs-blue);' : ''}"
                     title="${esPrincipal ? 'Puesto Principal' : 'Puesto Secundario'}: ${puesto.nombre_puesto}">
-                <span style="font-size: 0.9rem;">${iconoPuesto}</span>
+                <span style="font-size: 0.9rem;">${iconoPuestoHtml}</span>
                 <i class="fa fa-briefcase"></i>
                 ${puesto.nombre_puesto}
                 ${esPrincipal ? '<small class="ms-1" style="opacity: 0.8;">(Principal)</small>' : ''}
@@ -11134,6 +11529,13 @@ function ocultarBloquesDomicilio(prefix) {
     document.addEventListener('DOMContentLoaded', function () {
         var editOc = document.getElementById('offcanvasEditUser');
         var addOc = document.getElementById('offcanvasAddUser');
+        function configurarOffcanvasAddPersistente() {
+            if (!addOc || !window.bootstrap || !bootstrap.Offcanvas) return;
+            return bootstrap.Offcanvas.getInstance(addOc) || bootstrap.Offcanvas.getOrCreateInstance(addOc, {
+                backdrop: 'static',
+                keyboard: false
+            });
+        }
         if (editOc) {
             editOc.addEventListener('shown.bs.offcanvas', function () {
                 if (typeof window.refrescarSelectsBuscadorOffcanvas === 'function') {
@@ -11147,7 +11549,9 @@ function ocultarBloquesDomicilio(prefix) {
             });
         }
         if (addOc) {
+            configurarOffcanvasAddPersistente();
             addOc.addEventListener('shown.bs.offcanvas', function () {
+                configurarOffcanvasAddPersistente();
                 if (typeof window.refrescarSelectsBuscadorOffcanvas === 'function') {
                     window.refrescarSelectsBuscadorOffcanvas('offcanvasAddUser');
                 }
@@ -12146,8 +12550,14 @@ function precargarCascadaEdit(idPais, idEstado, idMunicipio, idColonia, idCalle,
   const modal = document.getElementById('modalAgregarUsuarioRrhh');
   const form = document.getElementById('formAgregarUsuarioRrhh');
   if (!modal || !form) return;
+  const modalOptionsRrhh = { backdrop: 'static', keyboard: false };
+  if (window.bootstrap?.Modal) {
+    bootstrap.Modal.getInstance(modal)?.dispose();
+    bootstrap.Modal.getOrCreateInstance(modal, modalOptionsRrhh);
+  }
 
   const tituloModalRrhh = document.getElementById('modalAgregarUsuarioRrhhLabel');
+  const subtituloModalRrhh = document.getElementById('rrhhWizardSubtitle');
   const inputEditIdRrhh = document.getElementById('rrhh_edit_id_persona');
   const btnGuardarRrhh = document.getElementById('btnGuardarUsuarioRrhh');
   const btnGenerarExpedienteRrhh = document.getElementById('btnGenerarExpedienteRrhh');
@@ -12215,6 +12625,8 @@ function precargarCascadaEdit(idPais, idEstado, idMunicipio, idColonia, idCalle,
   let rrhhImportDocsFiles = [];
   let rrhhImportDocsAnalisis = null;
   let rrhhImportPreviewUrl = '';
+  const RRHH_IMPORT_DOCS_MAX_FILES = 200;
+  const RRHH_IMPORT_DOCS_MAX_BYTES = 256 * 1024 * 1024;
   let abriendoCredencialRrhh = false;
   let volverDesdeCredencialRrhh = false;
   let orientacionCredencialRrhh = 'vertical';
@@ -12228,6 +12640,15 @@ function precargarCascadaEdit(idPais, idEstado, idMunicipio, idColonia, idCalle,
   let fotoEditorDragCredencialRrhh = null;
   let fotoEditorContextoRrhh = 'credencial';
   let fotoEditorEstadoInicialRrhh = null;
+  const rrhhWizardSteps = [
+    { target: '#rrhhTabPersona', title: 'Datos personales' },
+    { target: '#rrhhTabLaboral', title: 'Laboral' },
+    { target: '#rrhhTabNomina', title: 'Banco y cr&eacute;ditos' },
+    { target: '#rrhhTabContactos', title: 'Contactos' },
+    { target: '#rrhhTabBeneficiarios', title: 'Beneficiarios' },
+    { target: '#rrhhTabSalud', title: 'Salud' },
+    { target: '#rrhhTabObservaciones', title: 'Observaciones' }
+  ];
 
   const templates = {
     telefonos: [
@@ -12262,14 +12683,38 @@ function precargarCascadaEdit(idPais, idEstado, idMunicipio, idColonia, idCalle,
     ]
   };
 
+  function ensureRrhhLoadingOverlay() {
+    let overlay = modal.querySelector('.rrhh-loading-overlay');
+    if (overlay) return overlay;
+    overlay = document.createElement('div');
+    overlay.className = 'rrhh-loading-overlay';
+    overlay.setAttribute('aria-live', 'polite');
+    overlay.innerHTML = '<div class="rrhh-loading-card">' +
+      '<span class="spinner-border spinner-border-sm text-primary" role="status" aria-hidden="true"></span>' +
+      '<span data-rrhh-loading-text>Cargando datos RR.HH...</span>' +
+    '</div>';
+    modal.querySelector('.modal-content')?.appendChild(overlay);
+    return overlay;
+  }
+
+  function setRrhhModalLoading(loading, text = 'Cargando datos RR.HH...') {
+    const overlay = ensureRrhhLoadingOverlay();
+    const label = overlay?.querySelector('[data-rrhh-loading-text]');
+    if (label) label.textContent = text;
+    modal.classList.toggle('is-loading-rrhh', !!loading);
+  }
+
   function setModoRrhh(modo, idPersona) {
     const esEdicion = modo === 'editar';
     form.dataset.mode = esEdicion ? 'editar' : 'crear';
     if (inputEditIdRrhh) inputEditIdRrhh.value = esEdicion ? String(idPersona || '') : '';
     if (tituloModalRrhh) {
-      tituloModalRrhh.innerHTML = esEdicion
-        ? '<i class="fa fa-user-pen me-2"></i>Editar usuario RR.HH.'
-        : '<i class="fa fa-user-tie me-2"></i>Agregar usuario RR.HH.';
+      tituloModalRrhh.textContent = esEdicion ? 'Editar usuario RR.HH.' : 'Agregar usuario RR.HH.';
+    }
+    if (subtituloModalRrhh) {
+      subtituloModalRrhh.innerHTML = esEdicion
+        ? 'Actualiza la informaci&oacute;n del colaborador por secciones.'
+        : 'Completa la informaci&oacute;n del nuevo usuario por secciones.';
     }
     if (btnGuardarRrhh) {
       btnGuardarRrhh.innerHTML = esEdicion
@@ -12279,6 +12724,7 @@ function precargarCascadaEdit(idPais, idEstado, idMunicipio, idColonia, idCalle,
     [btnGenerarExpedienteRrhh, document.getElementById('btnGenerarCredencialRrhh')].forEach(btn => {
       if (btn) btn.classList.toggle('d-none', !esEdicion);
     });
+    actualizarRrhhWizard();
   }
 
   function escapeRrhhAttr(value) {
@@ -12369,6 +12815,382 @@ function precargarCascadaEdit(idPais, idEstado, idMunicipio, idColonia, idCalle,
     });
 
     return payload;
+  }
+
+  function initRrhhWizardMarkup() {
+    if (form.dataset.wizardReady === '1') return;
+    form.setAttribute('novalidate', 'novalidate');
+
+    const body = modal.querySelector('.modal-body');
+    const nav = body?.querySelector('.nav-tabs[role="tablist"]');
+    const tabContent = body?.querySelector('.tab-content');
+    if (!body || !nav || !tabContent) return;
+
+    if (!document.getElementById('rrhhWizardStepText')) {
+      const progress = document.createElement('div');
+      progress.className = 'rrhh-wizard-progress';
+      progress.innerHTML = '<span id="rrhhWizardStepText">Paso 1 de 7</span>' +
+        '<div class="rrhh-progress-track" aria-hidden="true"><div class="rrhh-progress-bar" id="rrhhWizardProgressBar"></div></div>' +
+        '<span id="rrhhWizardPercent">0% completado</span>';
+      body.insertBefore(progress, nav);
+
+      const info = document.createElement('div');
+      info.className = 'rrhh-wizard-info';
+      info.innerHTML = '<i class="fa fa-circle-info"></i><span>Los campos marcados con * son obligatorios.</span>';
+      body.insertBefore(info, nav);
+    }
+
+    const layout = document.createElement('div');
+    layout.className = 'rrhh-wizard-layout';
+    const sidebar = document.createElement('aside');
+    sidebar.className = 'rrhh-wizard-sidebar';
+    sidebar.setAttribute('aria-label', 'Secciones de captura RR.HH.');
+    const content = document.createElement('div');
+    content.className = 'rrhh-wizard-content';
+
+    nav.classList.remove('mb-3');
+    nav.classList.add('rrhh-wizard-steps');
+    Array.from(nav.querySelectorAll('.nav-link')).forEach((btn, index) => {
+      const step = rrhhWizardSteps[index] || { title: btn.textContent.trim() || `Paso ${index + 1}` };
+      btn.dataset.rrhhStep = String(index);
+      btn.innerHTML = '<span class="rrhh-step-marker"><span class="rrhh-step-num">' + (index + 1) + '</span><i class="fa fa-check"></i></span>' +
+        '<span><span class="rrhh-step-title">' + step.title + '</span><small class="rrhh-step-state">Pendiente</small></span>';
+    });
+
+    body.insertBefore(layout, nav);
+    sidebar.appendChild(nav);
+    content.appendChild(tabContent);
+    layout.appendChild(sidebar);
+    layout.appendChild(content);
+
+    const footer = modal.querySelector('.modal-footer');
+    if (footer && !document.getElementById('btnRrhhWizardNext')) {
+      const left = document.createElement('div');
+      left.className = 'rrhh-footer-left';
+      const right = document.createElement('div');
+      right.className = 'rrhh-footer-right';
+
+      const btnExpediente = document.getElementById('btnGenerarExpedienteRrhh');
+      const btnCredencial = document.getElementById('btnGenerarCredencialRrhh');
+      const btnCerrar = footer.querySelector('[data-bs-dismiss="modal"]');
+      const btnSiguiente = document.createElement('button');
+      btnSiguiente.type = 'button';
+      btnSiguiente.className = 'btn btn-primary rrhh-wizard-action';
+      btnSiguiente.id = 'btnRrhhWizardNext';
+      btnSiguiente.innerHTML = 'Siguiente <i class="fa fa-arrow-right ms-1"></i>';
+
+      if (btnExpediente) left.appendChild(btnExpediente);
+      if (btnCredencial) left.appendChild(btnCredencial);
+      if (btnCerrar) {
+        btnCerrar.className = 'btn btn-outline-secondary rrhh-wizard-action';
+        btnCerrar.textContent = 'Cancelar';
+        left.appendChild(btnCerrar);
+      }
+      right.appendChild(btnSiguiente);
+      if (btnGuardarRrhh) {
+        btnGuardarRrhh.classList.add('rrhh-wizard-action');
+        right.appendChild(btnGuardarRrhh);
+      }
+      footer.replaceChildren(left, right);
+
+      btnSiguiente.addEventListener('click', () => navegarRrhhPaso(obtenerPasoActivoRrhh() + 1, true));
+    }
+
+    nav.addEventListener('shown.bs.tab', actualizarRrhhWizard);
+    asegurarResumenLaboralRrhh();
+    asegurarBeneficiariosStatusRrhh();
+    asegurarNotaSaludRrhh();
+    asegurarPasswordToggleRrhh();
+    form.dataset.wizardReady = '1';
+    actualizarRrhhWizard();
+  }
+
+  function obtenerBotonesPasoRrhh() {
+    return Array.from(form.querySelectorAll('[data-rrhh-step]'));
+  }
+
+  function obtenerPasoActivoRrhh() {
+    const botones = obtenerBotonesPasoRrhh();
+    const index = botones.findIndex(btn => btn.classList.contains('active'));
+    return index >= 0 ? index : 0;
+  }
+
+  function paneRrhhPorPaso(index) {
+    const step = rrhhWizardSteps[index];
+    return step ? form.querySelector(step.target) : null;
+  }
+
+  function valorControlRrhh(control) {
+    if (!control || control.disabled) return '';
+    if (control.type === 'checkbox' || control.type === 'radio') return control.checked ? control.value : '';
+    return String(control.value || '').trim();
+  }
+
+  function controlesRequeridosRrhh(pane) {
+    return Array.from(pane?.querySelectorAll('[required]') || []).filter(control => !control.disabled);
+  }
+
+  function paneTieneDatosRrhh(pane) {
+    return Array.from(pane?.querySelectorAll('input, select, textarea') || [])
+      .some(control => control.name && valorControlRrhh(control) !== '');
+  }
+
+  function controlCuentaParaProgresoRrhh(control) {
+    if (!control || control.disabled) return false;
+    if (control.closest('.rrhh-repeat-row')) return false;
+    if (control.type === 'hidden' || control.type === 'button' || control.type === 'submit') return false;
+    if (!control.name) return false;
+    return true;
+  }
+
+  function calcularProgresoCapturaRrhh() {
+    let total = 0;
+    let llenos = 0;
+
+    Array.from(form.querySelectorAll('input, select, textarea')).forEach(control => {
+      if (!controlCuentaParaProgresoRrhh(control)) return;
+      total += 1;
+      if (valorControlRrhh(control) !== '') llenos += 1;
+    });
+
+    form.querySelectorAll('.rrhh-repeat-row').forEach(row => {
+      const fields = Array.from(row.querySelectorAll('[data-field]')).filter(control => !control.disabled);
+      if (!fields.length) return;
+      const rowConDatoReal = fields.some(control => {
+        if (control.tagName === 'SELECT') return false;
+        return valorControlRrhh(control) !== '';
+      });
+      if (!rowConDatoReal) return;
+      fields.forEach(control => {
+        total += 1;
+        if (valorControlRrhh(control) !== '') llenos += 1;
+      });
+    });
+
+    if (total <= 0 || llenos <= 0) return 0;
+    return Math.max(0, Math.min(100, Math.round((llenos / total) * 100)));
+  }
+
+  function marcarControlRrhh(control, invalido) {
+    if (!control) return;
+    control.classList.toggle('is-invalid', !!invalido);
+    if (!invalido) control.classList.remove('is-invalid');
+  }
+
+  function totalBeneficiariosRrhh() {
+    return collectRepeats('beneficiarios').reduce((total, item) => {
+      const value = Number(String(item.porcentaje || '').replace(',', '.'));
+      return total + (Number.isFinite(value) ? value : 0);
+    }, 0);
+  }
+
+  function validarRrhhPaso(index, mostrarMensaje = true) {
+    const pane = paneRrhhPorPaso(index);
+    if (!pane) return true;
+    const invalidos = [];
+
+    controlesRequeridosRrhh(pane).forEach(control => {
+      const invalido = valorControlRrhh(control) === '';
+      marcarControlRrhh(control, invalido);
+      if (invalido) invalidos.push({ control, mensaje: 'Completa los campos obligatorios de esta secci\u00f3n.' });
+    });
+
+    const curp = pane.querySelector('[name="persona.curp"]');
+    if (curp && valorControlRrhh(curp) && !/^[A-Z]{4}\d{6}[HM][A-Z]{5}[0-9A-Z]\d$/i.test(valorControlRrhh(curp))) {
+      marcarControlRrhh(curp, true);
+      invalidos.push({ control: curp, mensaje: 'El formato de CURP no es v\u00e1lido.' });
+    }
+
+    const nss = pane.querySelector('[name="persona.nss"]');
+    if (nss && valorControlRrhh(nss) && !/^\d+$/.test(valorControlRrhh(nss))) {
+      marcarControlRrhh(nss, true);
+      invalidos.push({ control: nss, mensaje: 'El NSS debe contener solo n\u00fameros.' });
+    }
+
+    pane.querySelectorAll('[data-field="correo"]').forEach(control => {
+      const value = valorControlRrhh(control);
+      if (value && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) {
+        marcarControlRrhh(control, true);
+        invalidos.push({ control, mensaje: 'Revisa el formato del correo electr\u00f3nico.' });
+      }
+    });
+
+    pane.querySelectorAll('[data-field="numero"]').forEach(control => {
+      const value = valorControlRrhh(control).replace(/\D/g, '');
+      if (value && value.length < 8) {
+        marcarControlRrhh(control, true);
+        invalidos.push({ control, mensaje: 'Revisa la longitud del tel\u00e9fono.' });
+      }
+    });
+
+    pane.querySelectorAll('[data-field="clabe"]').forEach(control => {
+      const value = valorControlRrhh(control).replace(/\s/g, '');
+      if (value && !/^\d{18}$/.test(value)) {
+        marcarControlRrhh(control, true);
+        invalidos.push({ control, mensaje: 'La CLABE interbancaria debe tener 18 d\u00edgitos.' });
+      }
+    });
+
+    if (rrhhWizardSteps[index]?.target === '#rrhhTabBeneficiarios' && totalBeneficiariosRrhh() > 100) {
+      invalidos.push({ control: pane.querySelector('[data-field="porcentaje"]'), mensaje: 'El porcentaje total de beneficiarios no puede superar 100%.' });
+    }
+
+    if (!invalidos.length) return true;
+    if (mostrarMensaje) {
+      const primero = invalidos[0];
+      Swal.fire('Faltan datos', primero.mensaje, 'warning');
+      setTimeout(() => primero.control?.focus?.(), 180);
+    }
+    return false;
+  }
+
+  function validarRrhhFormularioCompleto() {
+    for (let i = 0; i < rrhhWizardSteps.length; i++) {
+      if (!validarRrhhPaso(i, false)) {
+        navegarRrhhPaso(i, false);
+        Swal.fire('Faltan datos', 'Revisa los campos marcados antes de guardar.', 'warning');
+        return false;
+      }
+    }
+    return true;
+  }
+
+  function navegarRrhhPaso(index, validarActual = false) {
+    const botones = obtenerBotonesPasoRrhh();
+    const actual = obtenerPasoActivoRrhh();
+    const destino = Math.max(0, Math.min(botones.length - 1, index));
+    if (validarActual && destino > actual && !validarRrhhPaso(actual, true)) return;
+    const btn = botones[destino];
+    if (!btn) return;
+    if (window.bootstrap?.Tab) bootstrap.Tab.getOrCreateInstance(btn).show();
+    else btn.click();
+    setTimeout(actualizarRrhhWizard, 40);
+  }
+
+  function actualizarRrhhWizard() {
+    initRrhhWizardMarkup();
+    const botones = obtenerBotonesPasoRrhh();
+    const activo = obtenerPasoActivoRrhh();
+    const total = botones.length || rrhhWizardSteps.length;
+    const porcentaje = calcularProgresoCapturaRrhh();
+    const pasoTexto = document.getElementById('rrhhWizardStepText');
+    const porcentajeTexto = document.getElementById('rrhhWizardPercent');
+    const barra = document.getElementById('rrhhWizardProgressBar');
+    if (pasoTexto) pasoTexto.textContent = `Paso ${activo + 1} de ${total}`;
+    if (porcentajeTexto) porcentajeTexto.textContent = `${porcentaje}% completado`;
+    if (barra) barra.style.width = `${porcentaje}%`;
+
+    botones.forEach((btn, index) => {
+      const pane = paneRrhhPorPaso(index);
+      const requeridos = controlesRequeridosRrhh(pane);
+      const completos = requeridos.length
+        ? requeridos.every(control => valorControlRrhh(control) !== '')
+        : paneTieneDatosRrhh(pane);
+      btn.classList.toggle('is-complete', completos);
+      const state = btn.querySelector('.rrhh-step-state');
+      if (state) state.textContent = index === activo && !completos ? 'En progreso' : (completos ? 'Completado' : 'Pendiente');
+    });
+
+    const btnSiguiente = document.getElementById('btnRrhhWizardNext');
+    if (btnSiguiente) btnSiguiente.classList.toggle('d-none', activo >= total - 1);
+    if (btnGuardarRrhh) btnGuardarRrhh.classList.toggle('d-none', activo < total - 1);
+    actualizarResumenLaboralRrhh();
+    actualizarBeneficiariosStatusRrhh();
+  }
+
+  function asegurarResumenLaboralRrhh() {
+    const pane = form.querySelector('#rrhhTabLaboral');
+    if (!pane || pane.querySelector('#rrhhAssignmentSummary')) return;
+    const summary = document.createElement('div');
+    summary.className = 'rrhh-section shadow-sm mt-3';
+    summary.id = 'rrhhAssignmentSummary';
+    summary.innerHTML = '<div class="rrhh-section-title"><i class="fa fa-sitemap me-1"></i>Resumen de asignaci&oacute;n</div>' +
+      '<div class="rrhh-assignment-summary">' +
+        '<div><div class="rrhh-summary-label">&Aacute;rea</div><span class="rrhh-summary-chip" data-rrhh-summary="area">Sin asignar</span></div>' +
+        '<div><div class="rrhh-summary-label">Departamento</div><span class="rrhh-summary-chip" data-rrhh-summary="departamento">Sin asignar</span></div>' +
+        '<div><div class="rrhh-summary-label">Puesto</div><span class="rrhh-summary-chip" data-rrhh-summary="puesto">Sin asignar</span></div>' +
+        '<div><div class="rrhh-summary-label">Jefe directo</div><span class="rrhh-summary-chip" data-rrhh-summary="jefe">Sin asignar</span></div>' +
+      '</div>';
+    pane.appendChild(summary);
+  }
+
+  function setResumenLaboralChipRrhh(key, value) {
+    const chip = form.querySelector(`[data-rrhh-summary="${key}"]`);
+    if (!chip) return;
+    chip.textContent = value || 'Sin asignar';
+    chip.title = chip.textContent;
+  }
+
+  function actualizarResumenLaboralRrhh() {
+    setResumenLaboralChipRrhh('area', rrhhSelectText('rrhh_area_id'));
+    setResumenLaboralChipRrhh('departamento', rrhhSelectText('rrhh_departamento_id'));
+    setResumenLaboralChipRrhh('puesto', rrhhSelectText('rrhh_puesto_id'));
+    setResumenLaboralChipRrhh('jefe', rrhhSelectText('rrhh_jefe_id'));
+  }
+
+  function asegurarBeneficiariosStatusRrhh() {
+    const header = form.querySelector('#rrhhTabBeneficiarios .rrhh-section .d-flex');
+    if (!header || header.querySelector('#rrhhBeneficiariosTotal')) return;
+    const status = document.createElement('span');
+    status.id = 'rrhhBeneficiariosTotal';
+    status.className = 'rrhh-beneficiarios-status';
+    status.textContent = 'Total asignado: 0%';
+    const btn = header.querySelector('button');
+    if (btn) header.insertBefore(status, btn);
+    else header.appendChild(status);
+  }
+
+  function actualizarBeneficiariosStatusRrhh() {
+    const status = document.getElementById('rrhhBeneficiariosTotal');
+    if (!status) return;
+    const total = totalBeneficiariosRrhh();
+    const entero = Math.round(total * 100) / 100;
+    status.textContent = `Total asignado: ${entero}%`;
+    status.classList.toggle('is-ok', entero === 100);
+    status.classList.toggle('is-warn', entero > 0 && entero < 100);
+    status.classList.toggle('is-error', entero > 100);
+  }
+
+  function asegurarNotaSaludRrhh() {
+    const pane = form.querySelector('#rrhhTabSalud .rrhh-section');
+    if (!pane || pane.querySelector('.rrhh-sensitive-note')) return;
+    const title = pane.querySelector('.rrhh-section-title');
+    const note = document.createElement('div');
+    note.className = 'rrhh-sensitive-note';
+    note.innerHTML = '<i class="fa fa-shield-halved mt-1"></i><span>Esta informaci&oacute;n debe tratarse como confidencial y visible solo para personal autorizado.</span>';
+    if (title) title.insertAdjacentElement('afterend', note);
+    else pane.insertBefore(note, pane.firstChild);
+  }
+
+  function asegurarPasswordToggleRrhh() {
+    const input = form.querySelector('[name="persona.contrasena"]');
+    if (!input || input.dataset.passwordToggleReady === '1') return;
+    input.type = 'text';
+    input.autocomplete = 'off';
+    input.setAttribute('readonly', 'readonly');
+    input.setAttribute('inputmode', 'text');
+    input.setAttribute('data-lpignore', 'true');
+    input.setAttribute('data-1p-ignore', 'true');
+    input.setAttribute('data-form-type', 'other');
+    input.classList.add('rrhh-password-masked');
+    const wrap = document.createElement('div');
+    wrap.className = 'input-group';
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'btn btn-outline-secondary';
+    btn.title = 'Mostrar u ocultar contrase\u00f1a';
+    btn.innerHTML = '<i class="fa fa-eye"></i>';
+    input.parentNode.insertBefore(wrap, input);
+    wrap.appendChild(input);
+    wrap.appendChild(btn);
+    input.dataset.passwordToggleReady = '1';
+    input.addEventListener('focus', function () {
+      input.removeAttribute('readonly');
+    }, { once: true });
+    btn.addEventListener('click', function () {
+      const masked = input.classList.toggle('rrhh-password-masked');
+      btn.innerHTML = masked ? '<i class="fa fa-eye"></i>' : '<i class="fa fa-eye-slash"></i>';
+    });
   }
 
   function initRrhhDatepickers() {
@@ -12486,6 +13308,19 @@ function precargarCascadaEdit(idPais, idEstado, idMunicipio, idColonia, idCalle,
     refreshRrhhSelect(selectId);
   }
 
+  function ensureSelectOptionRrhh(selectId, value, label) {
+    const select = document.getElementById(selectId);
+    const val = value == null ? '' : String(value);
+    if (!select || !val) return;
+    if (Array.from(select.options).some(option => String(option.value) === val)) return;
+    const option = document.createElement('option');
+    option.value = val;
+    option.textContent = String(label || val);
+    option.dataset.nombre = option.textContent;
+    select.appendChild(option);
+    select.disabled = false;
+  }
+
   function depDireccionIdRrhh(dep) {
     return dep?.id_direccion || dep?.direccion_id || dep?.id_direccion_organizacion || dep?.id_direccion_organizacional || '';
   }
@@ -12549,26 +13384,50 @@ function precargarCascadaEdit(idPais, idEstado, idMunicipio, idColonia, idCalle,
   }
 
   async function precargarSelectsLaboralesRrhh(data) {
-    fillRrhhPaises();
-    setSelectValue('rrhh_pais_id', data?.persona?.id_pais || '');
-    fillRrhhDirecciones();
-    setSelectValue('rrhh_direccion_id', resolverDireccionIdRrhh(data));
-    fillRrhhAreas();
-    setSelectValue('rrhh_area_id', resolverAreaIdRrhh(data));
-    fillRrhhDepartamentos(resolverDepartamentoIdRrhh(data));
-    setSelectValue('rrhh_departamento_id', resolverDepartamentoIdRrhh(data));
-    await fillRrhhPuestos(data?.rrhh?.puesto_id || '');
-    setSelectValue('rrhh_puesto_id', data?.rrhh?.puesto_id || '');
-    await fillRrhhJefes();
-    setSelectValue('rrhh_jefe_id', data?.rrhh?.jefe_id || '');
-    setRrhhHiddenText('rrhh_direccion_id', 'rrhh_direccion_texto');
-    setRrhhHiddenText('rrhh_area_id', 'rrhh_area_texto');
-    setRrhhHiddenText('rrhh_departamento_id', 'rrhh_departamento_texto');
-    setRrhhHiddenText('rrhh_puesto_id', 'rrhh_puesto_texto');
-    setRrhhHiddenText('rrhh_jefe_id', 'rrhh_jefe_directo_texto');
+    const rrhh = data?.rrhh || {};
+    const direccionId = resolverDireccionIdRrhh(data);
+    const areaId = resolverAreaIdRrhh(data);
+    const departamentoId = resolverDepartamentoIdRrhh(data);
+    const puestoId = rrhh.puesto_id || '';
+    const jefeId = rrhh.jefe_id || '';
+
+    form.dataset.rrhhPreloading = '1';
+    try {
+      fillRrhhPaises();
+      setSelectValue('rrhh_pais_id', data?.persona?.id_pais || '');
+
+      fillRrhhDirecciones();
+      ensureSelectOptionRrhh('rrhh_direccion_id', direccionId, rrhh.direccion_texto || rrhh.direccion_organizacional);
+      setSelectValue('rrhh_direccion_id', direccionId);
+
+      fillRrhhAreas();
+      ensureSelectOptionRrhh('rrhh_area_id', areaId, rrhh.area_texto);
+      setSelectValue('rrhh_area_id', areaId);
+
+      fillRrhhDepartamentos(departamentoId);
+      ensureSelectOptionRrhh('rrhh_departamento_id', departamentoId, rrhh.departamento_texto);
+      setSelectValue('rrhh_departamento_id', departamentoId);
+
+      await fillRrhhPuestos(puestoId, rrhh.puesto_texto);
+      ensureSelectOptionRrhh('rrhh_puesto_id', puestoId, rrhh.puesto_texto);
+      setSelectValue('rrhh_puesto_id', puestoId);
+
+      await fillRrhhJefes(jefeId, rrhh.jefe_directo_texto);
+      ensureSelectOptionRrhh('rrhh_jefe_id', jefeId, rrhh.jefe_directo_texto);
+      setSelectValue('rrhh_jefe_id', jefeId);
+
+      setRrhhHiddenText('rrhh_direccion_id', 'rrhh_direccion_texto');
+      setRrhhHiddenText('rrhh_area_id', 'rrhh_area_texto');
+      setRrhhHiddenText('rrhh_departamento_id', 'rrhh_departamento_texto');
+      setRrhhHiddenText('rrhh_puesto_id', 'rrhh_puesto_texto');
+      setRrhhHiddenText('rrhh_jefe_id', 'rrhh_jefe_directo_texto');
+    } finally {
+      delete form.dataset.rrhhPreloading;
+    }
   }
 
   async function cargarDatosEnModalRrhh(data) {
+    delete form.dataset.rrhhDataLoaded;
     form.reset();
     pintarRepeats(data || {});
 
@@ -12579,12 +13438,32 @@ function precargarCascadaEdit(idPais, idEstado, idMunicipio, idColonia, idCalle,
 
     initRrhhDatepickers();
     await precargarSelectsLaboralesRrhh(data || {});
+    initRrhhWizardMarkup();
+    actualizarRrhhWizard();
+    form.dataset.rrhhDataLoaded = '1';
+  }
+
+  function prepararCargaEditarRrhh(idPersona) {
+    limpiarPruebasExpedienteRrhh(false);
+    delete form.dataset.rrhhDataLoaded;
+    form.querySelectorAll('.rrhh-date').forEach(input => {
+      if (input._flatpickr) input._flatpickr.clear();
+    });
+    form.reset();
+    resetRepeats();
+    setModoRrhh('editar', idPersona);
+    form.querySelector('[data-bs-target="#rrhhTabPersona"]')?.click();
+    initRrhhWizardMarkup();
+    actualizarRrhhWizard();
   }
 
   window.abrirEditarRrhh = async function (idPersona) {
     if (!idPersona) return;
-    setModoRrhh('editar', idPersona);
-    const modalInstance = bootstrap.Modal.getOrCreateInstance(modal);
+    const modalInstance = bootstrap.Modal.getOrCreateInstance(modal, modalOptionsRrhh);
+    const loadToken = `${idPersona}:${Date.now()}`;
+    form.dataset.rrhhLoadToken = loadToken;
+    prepararCargaEditarRrhh(idPersona);
+    setRrhhModalLoading(true, 'Cargando datos RR.HH...');
     modalInstance.show();
 
     try {
@@ -12597,8 +13476,14 @@ function precargarCascadaEdit(idPais, idEstado, idMunicipio, idColonia, idCalle,
       if (!data.success) {
         throw new Error(data.mensaje || 'No se pudo cargar la informacion RR.HH.');
       }
+      if (form.dataset.rrhhLoadToken !== loadToken) return;
       await cargarDatosEnModalRrhh(data.datos || {});
+      setRrhhModalLoading(false);
     } catch (error) {
+      if (form.dataset.rrhhLoadToken === loadToken) {
+        setRrhhModalLoading(false);
+        modalInstance.hide();
+      }
       Swal.fire('Error', error.message || 'No se pudo cargar la informacion RR.HH.', 'error');
     }
   };
@@ -12623,12 +13508,19 @@ function precargarCascadaEdit(idPais, idEstado, idMunicipio, idColonia, idCalle,
     return div.innerHTML;
   }
 
-  function rrhhImportDocsFormData() {
+  function rrhhImportDocsFormData(options = {}) {
     const fd = new FormData();
-    rrhhImportDocsFiles.forEach(file => {
-      fd.append('archivos[]', file, file.name);
-      fd.append('rutas_relativas[]', file.webkitRelativePath || file.name);
-    });
+    const batchId = String(rrhhImportDocsAnalisis?.batch_id || '').trim();
+    const includeFiles = options.includeFiles !== false && !batchId;
+    if (batchId) {
+      fd.append('batch_id', batchId);
+    }
+    if (includeFiles) {
+      rrhhImportDocsFiles.forEach(file => {
+        fd.append('archivos[]', file, file.name);
+        fd.append('rutas_relativas[]', file.webkitRelativePath || file.name);
+      });
+    }
     (rrhhImportDocsAnalisis?.items || []).forEach(item => {
       if (item.documento_manual && Number(item.id_documento || 0) > 0) {
         fd.append(`documentos_manual[${Number(item.source_index || 0)}]`, Number(item.id_documento || 0));
@@ -12644,6 +13536,21 @@ function precargarCascadaEdit(idPais, idEstado, idMunicipio, idColonia, idCalle,
     rrhhImportDocsRenderTabla([]);
     const total = rrhhImportDocsFiles.length;
     const peso = rrhhImportDocsFiles.reduce((sum, file) => sum + (file.size || 0), 0);
+    if (total > RRHH_IMPORT_DOCS_MAX_FILES || peso > RRHH_IMPORT_DOCS_MAX_BYTES) {
+      const pesoMb = (peso / 1024 / 1024).toFixed(1);
+      const mensaje = total > RRHH_IMPORT_DOCS_MAX_FILES
+        ? `Seleccionaste ${total} archivos. El l\u00edmite por carga es de ${RRHH_IMPORT_DOCS_MAX_FILES} archivos.`
+        : `Seleccionaste ${pesoMb} MB. El l\u00edmite por carga es de 256 MB.`;
+      rrhhImportDocsFiles = [];
+      if (inputRrhhImportArchivos) inputRrhhImportArchivos.value = '';
+      if (inputRrhhImportCarpeta) inputRrhhImportCarpeta.value = '';
+      if (rrhhImportDocsSeleccionResumen) {
+        rrhhImportDocsSeleccionResumen.textContent = 'No se han seleccionado archivos.';
+      }
+      if (btnRrhhImportImportar) btnRrhhImportImportar.disabled = true;
+      Swal.fire('Carga masiva', mensaje, 'warning');
+      return;
+    }
     if (rrhhImportDocsSeleccionResumen) {
       rrhhImportDocsSeleccionResumen.textContent = total
         ? `${total} archivo(s) seleccionado(s), ${(peso / 1024 / 1024).toFixed(1)} MB.`
@@ -12763,10 +13670,10 @@ function precargarCascadaEdit(idPais, idEstado, idMunicipio, idColonia, idCalle,
     }
   }
 
-  async function rrhhImportDocsEnviar(endpoint) {
+  async function rrhhImportDocsEnviar(endpoint, options = {}) {
     const res = await fetch(endpoint, {
       method: 'POST',
-      body: rrhhImportDocsFormData(),
+      body: rrhhImportDocsFormData(options),
       headers: { 'X-Requested-With': 'XMLHttpRequest' }
     });
     const contentType = res.headers.get('content-type') || '';
@@ -12783,7 +13690,7 @@ function precargarCascadaEdit(idPais, idEstado, idMunicipio, idColonia, idCalle,
 
   async function rrhhImportDocsAbrirDocumento(sourceIndex) {
     try {
-      const fd = rrhhImportDocsFormData();
+      const fd = rrhhImportDocsFormData({ includeFiles: false });
       fd.append('source_index', Number(sourceIndex || 0));
       const res = await fetch('/caphum/previsualizarImportacionDocumentosRrhh', {
         method: 'POST',
@@ -12850,7 +13757,7 @@ function precargarCascadaEdit(idPais, idEstado, idMunicipio, idColonia, idCalle,
 
     try {
       rrhhImportDocsSetLoading(true, 'Importando documentos...');
-      rrhhImportDocsAnalisis = await rrhhImportDocsEnviar('/caphum/importarDocumentosRrhh');
+      rrhhImportDocsAnalisis = await rrhhImportDocsEnviar('/caphum/importarDocumentosRrhh', { includeFiles: false });
       rrhhImportDocsRenderResumen(rrhhImportDocsAnalisis.resumen);
       rrhhImportDocsRenderTabla(rrhhImportDocsAnalisis.items || []);
       if (rrhhImportDocsSeleccionResumen) {
@@ -13009,7 +13916,9 @@ function precargarCascadaEdit(idPais, idEstado, idMunicipio, idColonia, idCalle,
 
     setRrhhHiddenText('rrhh_direccion_id', 'rrhh_direccion_texto');
     refreshRrhhSelect('rrhh_direccion_id');
-    fillRrhhAreas();
+    if (form.dataset.rrhhPreloading !== '1') {
+      fillRrhhAreas();
+    }
   }
 
   function fillRrhhDepartamentos(seleccionadoForzado = '') {
@@ -13047,8 +13956,10 @@ function precargarCascadaEdit(idPais, idEstado, idMunicipio, idColonia, idCalle,
     }
     setRrhhHiddenText('rrhh_departamento_id', 'rrhh_departamento_texto');
     refreshRrhhSelect('rrhh_departamento_id');
-    fillRrhhPuestos();
-    fillRrhhJefes();
+    if (form.dataset.rrhhPreloading !== '1') {
+      fillRrhhPuestos();
+      fillRrhhJefes();
+    }
   }
 
   function fillRrhhAreas() {
@@ -13084,7 +13995,9 @@ function precargarCascadaEdit(idPais, idEstado, idMunicipio, idColonia, idCalle,
     }
     setRrhhHiddenText('rrhh_area_id', 'rrhh_area_texto');
     refreshRrhhSelect('rrhh_area_id');
-    fillRrhhDepartamentos();
+    if (form.dataset.rrhhPreloading !== '1') {
+      fillRrhhDepartamentos();
+    }
   }
 
   function fillRrhhPuestosFallback(idDepartamento, seleccionadoForzado = '') {
@@ -13116,7 +14029,7 @@ function precargarCascadaEdit(idPais, idEstado, idMunicipio, idColonia, idCalle,
     refreshRrhhSelect('rrhh_puesto_id');
   }
 
-  async function fillRrhhPuestos(seleccionadoForzado = '') {
+  async function fillRrhhPuestos(seleccionadoForzado = '', etiquetaSeleccionado = '') {
     const selectDepartamento = document.getElementById('rrhh_departamento_id');
     const selectPuesto = document.getElementById('rrhh_puesto_id');
     if (!selectDepartamento || !selectPuesto) return;
@@ -13127,6 +14040,12 @@ function precargarCascadaEdit(idPais, idEstado, idMunicipio, idColonia, idCalle,
     setRrhhHiddenText('rrhh_puesto_id', 'rrhh_puesto_texto');
     refreshRrhhSelect('rrhh_puesto_id');
     if (!idDepartamento) return;
+
+    if (seleccionadoForzado) {
+      ensureSelectOptionRrhh('rrhh_puesto_id', seleccionadoForzado, etiquetaSeleccionado);
+      setSelectValue('rrhh_puesto_id', seleccionadoForzado);
+      setRrhhHiddenText('rrhh_puesto_id', 'rrhh_puesto_texto');
+    }
 
     try {
       const response = await fetch('/CapHum/getPuestosParaGestor', {
@@ -13205,7 +14124,7 @@ function precargarCascadaEdit(idPais, idEstado, idMunicipio, idColonia, idCalle,
     refreshRrhhSelect('rrhh_jefe_id');
   }
 
-  async function fillRrhhJefes() {
+  async function fillRrhhJefes(seleccionadoForzado = '', etiquetaSeleccionado = '') {
     const selectDepartamento = document.getElementById('rrhh_departamento_id');
     const selectPuesto = document.getElementById('rrhh_puesto_id');
     const selectJefe = document.getElementById('rrhh_jefe_id');
@@ -13218,6 +14137,12 @@ function precargarCascadaEdit(idPais, idEstado, idMunicipio, idColonia, idCalle,
     setRrhhHiddenText('rrhh_jefe_id', 'rrhh_jefe_directo_texto');
     refreshRrhhSelect('rrhh_jefe_id');
     if (!idDepartamento || !idPuesto) return;
+
+    if (seleccionadoForzado) {
+      ensureSelectOptionRrhh('rrhh_jefe_id', seleccionadoForzado, etiquetaSeleccionado);
+      setSelectValue('rrhh_jefe_id', seleccionadoForzado);
+      setRrhhHiddenText('rrhh_jefe_id', 'rrhh_jefe_directo_texto');
+    }
 
     try {
       const response = await fetch('/CapHum/getJefeDirecto', {
@@ -13243,7 +14168,12 @@ function precargarCascadaEdit(idPais, idEstado, idMunicipio, idColonia, idCalle,
           .sort((a, b) => a.nombre.localeCompare(b.nombre))
           .map(jefe => optionHtml(jefe.id, `${jefe.nombre}${jefe.puesto ? ' - ' + jefe.puesto : ''}`))
           .join('');
+      const seleccionado = seleccionadoForzado || selectJefe.value || '';
+      if (seleccionado && Array.from(selectJefe.options).some(option => String(option.value) === String(seleccionado))) {
+        selectJefe.value = seleccionado;
+      }
       selectJefe.disabled = opciones.length === 0;
+      setRrhhHiddenText('rrhh_jefe_id', 'rrhh_jefe_directo_texto');
       refreshRrhhSelect('rrhh_jefe_id');
     } catch (error) {
       fillRrhhJefesFallback(idDepartamento, idPuesto);
@@ -13271,8 +14201,6 @@ function precargarCascadaEdit(idPais, idEstado, idMunicipio, idColonia, idCalle,
     $('#rrhh_area_id').off('change.rrhhLaboral').on('change.rrhhLaboral', function () {
       setRrhhHiddenText('rrhh_area_id', 'rrhh_area_texto');
       fillRrhhDepartamentos();
-      fillRrhhPuestos();
-      fillRrhhJefes();
     });
     $('#rrhh_departamento_id').off('change.rrhhLaboral').on('change.rrhhLaboral', function () {
       setRrhhHiddenText('rrhh_departamento_id', 'rrhh_departamento_texto');
@@ -13306,6 +14234,7 @@ function precargarCascadaEdit(idPais, idEstado, idMunicipio, idColonia, idCalle,
 
   function resetRrhhFormCompleto() {
     limpiarPruebasExpedienteRrhh(false);
+    delete form.dataset.rrhhDataLoaded;
     form.querySelectorAll('.rrhh-date').forEach(input => {
       if (input._flatpickr) input._flatpickr.clear();
     });
@@ -13314,6 +14243,7 @@ function precargarCascadaEdit(idPais, idEstado, idMunicipio, idColonia, idCalle,
     setModoRrhh('crear');
     initRrhhLaboralSelects();
     form.querySelector('[data-bs-target="#rrhhTabPersona"]')?.click();
+    actualizarRrhhWizard();
   }
 
   function obtenerUsuarioActualRrhh() {
@@ -13908,7 +14838,10 @@ function precargarCascadaEdit(idPais, idEstado, idMunicipio, idColonia, idCalle,
 
   form.addEventListener('click', function (event) {
     const addBtn = event.target.closest('[data-rrhh-add]');
-    if (addBtn) addRow(addBtn.dataset.rrhhAdd);
+    if (addBtn) {
+      addRow(addBtn.dataset.rrhhAdd);
+      actualizarRrhhWizard();
+    }
 
     const removeBtn = event.target.closest('.rrhh-remove-row');
     if (removeBtn) {
@@ -13919,6 +14852,7 @@ function precargarCascadaEdit(idPais, idEstado, idMunicipio, idColonia, idCalle,
         if (input.tagName === 'SELECT') input.selectedIndex = 0;
         else input.value = '';
       });
+      actualizarRrhhWizard();
     }
   });
 
@@ -13943,6 +14877,14 @@ function precargarCascadaEdit(idPais, idEstado, idMunicipio, idColonia, idCalle,
     } else if (target.id === 'rrhh_jefe_id') {
       setRrhhHiddenText('rrhh_jefe_id', 'rrhh_jefe_directo_texto');
     }
+    marcarControlRrhh(target, false);
+    actualizarRrhhWizard();
+  });
+
+  form.addEventListener('input', function (event) {
+    const target = event.target;
+    if (target) marcarControlRrhh(target, false);
+    actualizarRrhhWizard();
   });
 
   modal.addEventListener('shown.bs.modal', function () {
@@ -13959,7 +14901,11 @@ function precargarCascadaEdit(idPais, idEstado, idMunicipio, idColonia, idCalle,
       form.dataset.initialized = '1';
     }
     initRrhhDatepickers();
-    initRrhhLaboralSelects();
+    if (!(form.dataset.mode === 'editar' && form.dataset.rrhhDataLoaded === '1')) {
+      initRrhhLaboralSelects();
+    }
+    initRrhhWizardMarkup();
+    actualizarRrhhWizard();
   });
 
   modal.addEventListener('show.bs.modal', function () {
@@ -13970,10 +14916,13 @@ function precargarCascadaEdit(idPais, idEstado, idMunicipio, idColonia, idCalle,
       setModoRrhh('crear');
     }
     showRrhhScrim();
+    initRrhhWizardMarkup();
   });
 
   modal.addEventListener('hidden.bs.modal', function () {
     modal.style.removeProperty('z-index');
+    setRrhhModalLoading(false);
+    delete form.dataset.rrhhLoadToken;
     hideRrhhScrim();
     if (abriendoExpedienteRrhh) {
       abriendoExpedienteRrhh = false;
@@ -14308,7 +15257,7 @@ function precargarCascadaEdit(idPais, idEstado, idMunicipio, idColonia, idCalle,
     hideRrhhScrim();
     if (volverDesdeExpedienteRrhh) {
       volverDesdeExpedienteRrhh = false;
-      bootstrap.Modal.getOrCreateInstance(modal)?.show();
+      bootstrap.Modal.getOrCreateInstance(modal, modalOptionsRrhh)?.show();
       return;
     }
     resetRrhhFormCompleto();
@@ -14709,7 +15658,7 @@ function precargarCascadaEdit(idPais, idEstado, idMunicipio, idColonia, idCalle,
     hideRrhhScrim();
     if (volverDesdeCredencialRrhh) {
       volverDesdeCredencialRrhh = false;
-      bootstrap.Modal.getOrCreateInstance(modal)?.show();
+      bootstrap.Modal.getOrCreateInstance(modal, modalOptionsRrhh)?.show();
       return;
     }
     if (fotoTemporalCredencialRrhh && fotoTemporalCredencialRrhh.startsWith('blob:')) {
@@ -14736,16 +15685,9 @@ function precargarCascadaEdit(idPais, idEstado, idMunicipio, idColonia, idCalle,
     const legacy = data && data.datos && data.datos.legacy_sync ? data.datos.legacy_sync : null;
     if (!legacy) {
       return Swal.fire({
-        icon: 'warning',
+        icon: 'success',
         title: esEdicion ? 'Usuario actualizado' : 'Usuario registrado',
-        html:
-          '<div class="text-start">' +
-            '<div class="mb-2">' + htmlEscapeRrhhLegacy(data.mensaje || 'Usuario RR.HH. guardado correctamente.') + '</div>' +
-            '<div class="border rounded-3 p-3 bg-label-warning text-dark">' +
-              '<div class="fw-bold mb-1"><i class="fa fa-triangle-exclamation me-1"></i>Sincronizaci&oacute;n Legacy sin confirmar</div>' +
-              '<div class="small">La respuesta no incluy&oacute; el resultado de Legacy. Revisa bit&aacute;cora o ejecuta reproceso de pendientes.</div>' +
-            '</div>' +
-          '</div>',
+        text: data.mensaje || 'Usuario RR.HH. guardado correctamente.',
         confirmButtonText: 'Aceptar'
       });
     }
@@ -14755,6 +15697,16 @@ function precargarCascadaEdit(idPais, idEstado, idMunicipio, idColonia, idCalle,
     const numeroEmpleadoLegacy = (data.datos && data.datos.numero_empleado) || legacy.external_id || '';
     const creadoLegacy = !!(legacy.detalle && legacy.detalle.usuario_legacy_creado);
     const reactivadoLegacy = !!(legacy.detalle && legacy.detalle.usuario_legacy_reactivado);
+
+    if (!['actualizado', 'sin_cambios'].includes(resultado)) {
+      return Swal.fire({
+        icon: 'success',
+        title: esEdicion ? 'Usuario actualizado' : 'Usuario registrado',
+        text: data.mensaje || 'Usuario RR.HH. guardado correctamente.',
+        confirmButtonText: 'Aceptar'
+      });
+    }
+
     let icon = 'success';
     let title = esEdicion ? 'Usuario actualizado' : 'Usuario registrado';
     let estado = 'Sincronizado en Legacy';
@@ -14769,30 +15721,16 @@ function precargarCascadaEdit(idPais, idEstado, idMunicipio, idColonia, idCalle,
       badgeClass = 'bg-info';
       panelClass = 'border-info bg-label-info';
       iconClass = 'fa-circle-info text-info';
-    } else if (resultado === 'omitido') {
-      estado = 'No aplica sincronizaci&oacute;n Legacy';
-      estadoDetalle = 'El usuario no entra en alcance o no tiene un n&uacute;mero de empleado v&aacute;lido.';
-      badgeClass = 'bg-secondary';
-      panelClass = 'border-secondary bg-label-secondary';
-      iconClass = 'fa-circle-minus text-secondary';
-    } else if (resultado === 'error') {
-      icon = 'warning';
-      title = 'Usuario guardado, Legacy pendiente';
-      estado = 'Legacy no se pudo actualizar';
-      estadoDetalle = 'El usuario se guard&oacute; en Spartan, pero Legacy requiere revisi&oacute;n o reproceso.';
-      badgeClass = 'bg-warning text-dark';
-      panelClass = 'border-warning bg-label-warning';
-      iconClass = 'fa-triangle-exclamation text-warning';
     } else if (resultado === 'actualizado') {
       if (creadoLegacy) {
         estado = 'Creado y sincronizado en Legacy';
-        estadoDetalle = 'El usuario ya existe en Legacy con usuario, contrase&ntilde;a, rol y jerarqu&iacute;a actualizados.';
+        estadoDetalle = 'El usuario ya existe en Legacy con usuario, contraseña, rol y jerarquía actualizados.';
       } else if (reactivadoLegacy) {
         estado = 'Reactivado y sincronizado en Legacy';
         estadoDetalle = 'El usuario estaba dado de baja en Legacy y fue reactivado.';
       } else {
         estado = 'Actualizado en Legacy';
-        estadoDetalle = 'Usuario, contrase&ntilde;a, rol y jerarqu&iacute;a fueron sincronizados con Legacy.';
+        estadoDetalle = 'Usuario, contraseña, rol y jerarquía fueron sincronizados con Legacy.';
       }
     }
 
@@ -14804,7 +15742,7 @@ function precargarCascadaEdit(idPais, idEstado, idMunicipio, idColonia, idCalle,
           '<div class="mb-2">' + htmlEscapeRrhhLegacy(data.mensaje || 'Datos RR.HH. actualizados correctamente.') + '</div>' +
           '<div class="border rounded-3 p-3 ' + panelClass + '">' +
             '<div class="d-flex align-items-center justify-content-between gap-2 flex-wrap mb-1">' +
-              '<div class="fw-bold"><i class="fa ' + iconClass + ' me-1"></i>Sincronizaci&oacute;n Legacy</div>' +
+              '<div class="fw-bold"><i class="fa ' + iconClass + ' me-1"></i>Sincronización Legacy</div>' +
               '<span class="badge ' + badgeClass + '">' + htmlEscapeRrhhLegacy(estado) + '</span>' +
             '</div>' +
             '<div class="small mb-2">' + estadoDetalle + '</div>' +
@@ -14821,6 +15759,7 @@ function precargarCascadaEdit(idPais, idEstado, idMunicipio, idColonia, idCalle,
 
   form.addEventListener('submit', async function (event) {
     event.preventDefault();
+    if (!validarRrhhFormularioCompleto()) return;
     const submitBtn = form.querySelector('button[type="submit"]');
     submitBtn.disabled = true;
 
@@ -14831,7 +15770,7 @@ function precargarCascadaEdit(idPais, idEstado, idMunicipio, idColonia, idCalle,
 
       Swal.fire({
         title: form.dataset.mode === 'editar' ? 'Actualizando usuario...' : 'Guardando usuario...',
-        html: '<div class="spinner-border text-primary" role="status"><span class="visually-hidden">Cargando...</span></div><p style="margin-top: 1rem;">Guardando en Spartan y sincronizando con Legacy...</p>',
+        html: '<div class="spinner-border text-primary" role="status"><span class="visually-hidden">Cargando...</span></div><p style="margin-top: 1rem;">Guardando usuario...</p>',
         allowOutsideClick: false,
         allowEscapeKey: false,
         showConfirmButton: false,

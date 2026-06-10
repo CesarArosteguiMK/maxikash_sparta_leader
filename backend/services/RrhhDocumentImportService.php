@@ -9,6 +9,7 @@ class RrhhDocumentImportService
 {
     private const DOCUMENTO_RFC = 10;
     private const DOCUMENTO_CONSTANCIA_FISCAL = 22;
+    private const BATCH_TTL_SECONDS = 86400;
     private const DOCUMENTOS_OMITIR = [
         'contrata' => [
             'etiqueta' => 'Contrata',
@@ -84,6 +85,102 @@ class RrhhDocumentImportService
         }
 
         return $out;
+    }
+
+    public function crearLoteTemporal(array $fuentes): array
+    {
+        $this->limpiarLotesTemporales();
+        $batchId = bin2hex(random_bytes(16));
+        $dir = $this->directorioLote($batchId);
+        SecureUpload::ensureDir($dir);
+
+        $zipCopies = [];
+        $fuentesPersistentes = [];
+        foreach ($fuentes as $idx => $fuente) {
+            $persistente = $fuente;
+            $tipo = (string) ($fuente['tipo'] ?? '');
+
+            if ($tipo === 'upload') {
+                $src = (string) ($fuente['tmp'] ?? '');
+                if ($src === '' || !is_file($src)) {
+                    continue;
+                }
+                $dest = $dir . DIRECTORY_SEPARATOR . 'src_' . $idx . '.pdf';
+                if (!@copy($src, $dest)) {
+                    continue;
+                }
+                $persistente['tmp'] = $dest;
+                $persistente['cached'] = true;
+            } elseif ($tipo === 'zip' || $tipo === 'zip_nested') {
+                $zipTmp = (string) ($fuente['zip_tmp'] ?? '');
+                if ($zipTmp === '' || !is_file($zipTmp)) {
+                    continue;
+                }
+                if (!isset($zipCopies[$zipTmp])) {
+                    $dest = $dir . DIRECTORY_SEPARATOR . 'zip_' . count($zipCopies) . '.zip';
+                    if (!@copy($zipTmp, $dest)) {
+                        continue;
+                    }
+                    $zipCopies[$zipTmp] = $dest;
+                }
+                $persistente['zip_tmp'] = $zipCopies[$zipTmp];
+                $persistente['cached'] = true;
+            }
+
+            $fuentesPersistentes[] = $persistente;
+        }
+
+        if (empty($fuentesPersistentes)) {
+            $this->eliminarDirectorio($dir);
+            throw new \RuntimeException('No se pudo preparar el lote temporal de documentos.');
+        }
+
+        $manifest = [
+            'batch_id' => $batchId,
+            'created_at' => time(),
+            'fuentes' => $fuentesPersistentes,
+        ];
+        file_put_contents($dir . DIRECTORY_SEPARATOR . 'manifest.json', json_encode($manifest, JSON_UNESCAPED_UNICODE));
+
+        return [
+            'batch_id' => $batchId,
+            'fuentes' => $fuentesPersistentes,
+        ];
+    }
+
+    public function fuentesDesdeLoteTemporal(string $batchId): array
+    {
+        $batchId = trim($batchId);
+        if (!preg_match('/^[a-f0-9]{32}$/', $batchId)) {
+            return [];
+        }
+
+        $manifestPath = $this->directorioLote($batchId) . DIRECTORY_SEPARATOR . 'manifest.json';
+        if (!is_file($manifestPath)) {
+            return [];
+        }
+
+        $manifest = json_decode((string) file_get_contents($manifestPath), true);
+        if (!is_array($manifest)) {
+            return [];
+        }
+
+        $createdAt = (int) ($manifest['created_at'] ?? 0);
+        if ($createdAt > 0 && (time() - $createdAt) > self::BATCH_TTL_SECONDS) {
+            $this->eliminarLoteTemporal($batchId);
+            return [];
+        }
+
+        $fuentes = $manifest['fuentes'] ?? [];
+        return is_array($fuentes) ? array_values($fuentes) : [];
+    }
+
+    public function eliminarLoteTemporal(string $batchId): void
+    {
+        if (!preg_match('/^[a-f0-9]{32}$/', $batchId)) {
+            return;
+        }
+        $this->eliminarDirectorio($this->directorioLote($batchId));
     }
 
     public function analizar(array $fuentes, array $documentosManual = []): array
@@ -682,13 +779,15 @@ class RrhhDocumentImportService
             return ['success' => false, 'mensaje' => 'El archivo no parece ser un PDF valido.'];
         }
 
-        if (($fuente['tipo'] ?? '') === 'upload') {
+        if (($fuente['tipo'] ?? '') === 'upload' && is_uploaded_file($tmpParaValidar)) {
             $movido = move_uploaded_file($tmpParaValidar, $rutaFinal);
         } else {
             $movido = @rename($tmpParaValidar, $rutaFinal);
             if (!$movido) {
                 $movido = @copy($tmpParaValidar, $rutaFinal);
-                @unlink($tmpParaValidar);
+                if (!empty($fuente['cached']) || $limpiarTmp) {
+                    @unlink($tmpParaValidar);
+                }
             }
         }
 
@@ -764,6 +863,60 @@ class RrhhDocumentImportService
         $zip->close();
 
         return $tmp;
+    }
+
+    private function directorioBaseLotes(): string
+    {
+        $base = sparta_project_root() . DIRECTORY_SEPARATOR . 'backend' . DIRECTORY_SEPARATOR . 'storage' . DIRECTORY_SEPARATOR . 'tmp_rrhh_import';
+        SecureUpload::ensureDir($base);
+        return $base;
+    }
+
+    private function directorioLote(string $batchId): string
+    {
+        return $this->directorioBaseLotes() . DIRECTORY_SEPARATOR . $batchId;
+    }
+
+    private function limpiarLotesTemporales(): void
+    {
+        $base = $this->directorioBaseLotes();
+        foreach (glob($base . DIRECTORY_SEPARATOR . '*') ?: [] as $dir) {
+            if (!is_dir($dir)) {
+                continue;
+            }
+            $manifest = $dir . DIRECTORY_SEPARATOR . 'manifest.json';
+            $manifestData = is_file($manifest) ? json_decode((string) file_get_contents($manifest), true) : [];
+            $createdAt = is_array($manifestData)
+                ? (int) ($manifestData['created_at'] ?? 0)
+                : (int) @filemtime($dir);
+            if ($createdAt <= 0 || (time() - $createdAt) > self::BATCH_TTL_SECONDS) {
+                $this->eliminarDirectorio($dir);
+            }
+        }
+    }
+
+    private function eliminarDirectorio(string $dir): void
+    {
+        if ($dir === '' || !is_dir($dir)) {
+            return;
+        }
+        $base = realpath($this->directorioBaseLotes());
+        $target = realpath($dir);
+        if (!$base || !$target || strpos(strtolower(str_replace('\\', '/', $target)), strtolower(str_replace('\\', '/', $base)) . '/') !== 0) {
+            return;
+        }
+        foreach (scandir($target) ?: [] as $item) {
+            if ($item === '.' || $item === '..') {
+                continue;
+            }
+            $path = $target . DIRECTORY_SEPARATOR . $item;
+            if (is_dir($path)) {
+                $this->eliminarDirectorio($path);
+            } else {
+                @unlink($path);
+            }
+        }
+        @rmdir($target);
     }
 
     private function resumen(array $items): array

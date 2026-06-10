@@ -120,6 +120,34 @@ class TrackingRecoleccion extends Controller
         return ['http_code' => $httpCode, 'body' => ($raw === false ? '' : (string)$raw), 'error' => $curlErr];
     }
 
+    private function _trkTrackingBuildUrl(string $baseUrl, string $path): string
+    {
+        $base = rtrim($baseUrl, '/');
+        if (substr(strtolower($base), -4) === '/api' && substr($path, 0, 5) === '/api/') {
+            $path = substr($path, 4);
+        }
+        return $base . $path;
+    }
+
+    private function _trkTrackingCurlFallback(string $baseUrl, array $paths, string $method, string $body, array $headers): array
+    {
+        $last = ['http_code' => 0, 'body' => '', 'error' => 'Sin rutas para consultar.'];
+        foreach ($paths as $path) {
+            $url = $this->_trkTrackingBuildUrl($baseUrl, $path);
+            $resp = $this->_trkChatCurl($url, $method, $body, $headers);
+            $resp['path'] = $path;
+            $data = json_decode((string)($resp['body'] ?? ''), true);
+            $isEndpointNotFound = (int)($resp['http_code'] ?? 0) === 404
+                && is_array($data)
+                && strtolower((string)($data['detail'] ?? '')) === 'not found';
+            $last = $resp;
+            if (!$isEndpointNotFound) {
+                return $resp;
+            }
+        }
+        return $last;
+    }
+
     /**
      * Obtiene el JWT de la API de tracking y lo cachea en sesión por ~55 min.
      * Retorna '' si no hay configuración o falla el login.
@@ -762,6 +790,100 @@ class TrackingRecoleccion extends Controller
         } catch (\Throwable $e) {
             self::respuestaJSON(self::respuesta(false, 'Error al obtener CEDIS.', null, $e->getMessage()));
         }
+    }
+
+    /**
+     * GET /TrackingRecoleccion/trackingCedisDestino?id_ruta=N
+     * Proxy seguro: GET /api/tracking/rutas/{id_ruta}/cedis-destino
+     */
+    public function trackingCedisDestino()
+    {
+        $idRuta = (int)($_GET['id_ruta'] ?? 0);
+        if ($idRuta <= 0) {
+            self::respuestaJSON(['success' => false, 'mensaje' => 'id_ruta requerido.']);
+            return;
+        }
+
+        $cfg   = $this->_trkChatConfig();
+        $token = $this->_trkChatObtenerJwt();
+        if ($cfg['base_url'] === '' || $cfg['api_key'] === '' || $token === '') {
+            self::respuestaJSON(['success' => false, 'mensaje' => 'Tracking no disponible.']);
+            return;
+        }
+
+        $paths = [
+            "/api/tracking/rutas/{$idRuta}/cedis-destino",
+            "/api/tracking/rutas/{$idRuta}/cedis_destino",
+            "/api/tracking/cedis-destino/rutas/{$idRuta}",
+            "/api/tracking/cedis_destino/rutas/{$idRuta}",
+            "/api/tracking/cedis-destino/{$idRuta}",
+            "/api/tracking/cedis_destino/{$idRuta}",
+        ];
+        $resp = $this->_trkTrackingCurlFallback($cfg['base_url'], $paths, 'GET', '', [
+            'X-API-Key: ' . $cfg['api_key'],
+            'Authorization: Bearer ' . $token,
+        ]);
+
+        $this->_trkChatRelayResponse($resp);
+    }
+
+    /**
+     * PATCH /TrackingRecoleccion/trackingCambiarCedisDestino
+     * Body JSON: { id_ruta, id_cedis_destino, motivo }
+     * Proxy seguro: PATCH /api/tracking/rutas/{id_ruta}/cedis-destino
+     */
+    public function trackingCambiarCedisDestino()
+    {
+        $raw  = (string)file_get_contents('php://input');
+        $data = json_decode($raw, true) ?: [];
+
+        $idRuta = (int)($data['id_ruta'] ?? 0);
+        $idCedisDestino = (int)($data['id_cedis_destino'] ?? 0);
+        $motivo = trim((string)($data['motivo'] ?? ''));
+
+        if ($idRuta <= 0) {
+            self::respuestaJSON(['success' => false, 'mensaje' => 'id_ruta requerido.']);
+            return;
+        }
+        if ($idCedisDestino <= 0) {
+            self::respuestaJSON(['success' => false, 'mensaje' => 'Selecciona un CEDIS destino.']);
+            return;
+        }
+        if ($motivo === '') {
+            self::respuestaJSON(['success' => false, 'mensaje' => 'El motivo es obligatorio.']);
+            return;
+        }
+        if (mb_strlen($motivo) > 200) {
+            self::respuestaJSON(['success' => false, 'mensaje' => 'El motivo no puede exceder 200 caracteres.']);
+            return;
+        }
+
+        $cfg   = $this->_trkChatConfig();
+        $token = $this->_trkChatObtenerJwt();
+        if ($cfg['base_url'] === '' || $cfg['api_key'] === '' || $token === '') {
+            self::respuestaJSON(['success' => false, 'mensaje' => 'Tracking no disponible.']);
+            return;
+        }
+
+        $body = json_encode([
+            'id_cedis_destino' => $idCedisDestino,
+            'motivo' => $motivo,
+        ]);
+        $paths = [
+            "/api/tracking/rutas/{$idRuta}/cedis-destino",
+            "/api/tracking/rutas/{$idRuta}/cedis_destino",
+            "/api/tracking/cedis-destino/rutas/{$idRuta}",
+            "/api/tracking/cedis_destino/rutas/{$idRuta}",
+            "/api/tracking/cedis-destino/{$idRuta}",
+            "/api/tracking/cedis_destino/{$idRuta}",
+        ];
+        $resp = $this->_trkTrackingCurlFallback($cfg['base_url'], $paths, 'PATCH', $body, [
+            'Content-Type: application/json',
+            'X-API-Key: ' . $cfg['api_key'],
+            'Authorization: Bearer ' . $token,
+        ]);
+
+        $this->_trkChatRelayResponse($resp);
     }
 
     /**

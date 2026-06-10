@@ -150,23 +150,29 @@ def _parsear_fecha_espanol(texto: str) -> Optional[datetime]:
 
 def _parsear_fecha_sat_emision(texto: str) -> Optional[datetime]:
     """Extrae fecha de emision SAT aun cuando OCR pegue palabras o parta lineas."""
+    compacto = _compactar_texto_sat(texto)
+    meses = {k.upper(): v for k, v in MESES_ES.items()}
+    candidatas: List[datetime] = []
+    if compacto:
+        idx = compacto.find("FECHADEEMISION")
+        ventana = compacto[idx:idx + 650] if idx >= 0 else compacto[:1200]
+        for mes_nombre, mes_num in meses.items():
+            for m in re.finditer(rf"([0-3O]?\d)DE{mes_nombre}DE[A-Z]{{0,20}}?(\d{{4}})", ventana):
+                dia_txt = m.group(1).replace("O", "0")
+                try:
+                    fecha = datetime(int(m.group(2)), mes_num, int(dia_txt))
+                    if 2000 <= fecha.year <= datetime.now().year + 1:
+                        candidatas.append(fecha)
+                except ValueError:
+                    continue
+    if candidatas:
+        hoy = datetime.now()
+        no_futuras = [f for f in candidatas if f <= hoy + timedelta(days=1)]
+        return max(no_futuras or candidatas)
+
     fecha = _parsear_fecha_espanol(texto)
     if fecha:
         return fecha
-    compacto = _compactar_texto_sat(texto)
-    if not compacto:
-        return None
-    idx = compacto.find("FECHADEEMISION")
-    ventana = compacto[idx:idx + 450] if idx >= 0 else compacto[:700]
-    meses = {k.upper(): v for k, v in MESES_ES.items()}
-    for mes_nombre, mes_num in meses.items():
-        m = re.search(rf"(\d{{1,2}})DE{mes_nombre}DE[A-Z]{{0,20}}?(\d{{4}})", ventana)
-        if not m:
-            continue
-        try:
-            return datetime(int(m.group(2)), mes_num, int(m.group(1)))
-        except ValueError:
-            return None
     return None
 
 
@@ -712,6 +718,30 @@ def extraer_datos_motocicleta_factura(file_bytes: bytes, filename: str = "") -> 
     out["encontrado"] = bool(vin or no_motor or color)
     out["texto_fuente"] = texto_norm[:2500]
     return out
+def _normalizar_texto_nss(texto: str) -> str:
+    t = (texto or "").upper()
+    reemplazos = {
+        "Ã": "A", "Ã‰": "E", "Ã": "I", "Ã“": "O", "Ãš": "U", "Ã‘": "N",
+        "Ã¡": "A", "Ã©": "E", "Ã­": "I", "Ã³": "O", "Ãº": "U", "Ã±": "N",
+    }
+    for src, dst in reemplazos.items():
+        t = t.replace(src, dst)
+    t = unicodedata.normalize("NFKD", t)
+    t = "".join(c for c in t if not unicodedata.combining(c))
+    return re.sub(r"\s+", " ", t).strip()
+
+
+def es_tarjeta_nss(pdf_bytes: bytes) -> bool:
+    t = _normalizar_texto_nss(texto_de_pdf_con_ocr(pdf_bytes))
+    if not t:
+        return False
+    if "INSTITUTO MEXICANO DEL SEGURO SOCIAL" not in t and "IMSS" not in t:
+        return False
+    return (
+        "IMPRIME Y RECORTA" in t
+        or "ASIGNACION O LOCALIZACION" in t
+        or "TU NUMERO DE SEGURIDAD SOCIAL ES" in t
+    )
 
 
 def es_documento_nss(pdf_bytes: bytes) -> bool:
@@ -720,7 +750,7 @@ def es_documento_nss(pdf_bytes: bytes) -> bool:
     """
     if _texto_parece_constancia_fiscal(_texto_de_pdf(pdf_bytes)):
         return False
-    t = texto_de_pdf_con_ocr(pdf_bytes).upper()
+    t = _normalizar_texto_nss(texto_de_pdf_con_ocr(pdf_bytes))
     t = t.replace("Á", "A").replace("É", "E").replace("Í", "I").replace("Ó", "O").replace("Ú", "U")
     if not t:
         return False
@@ -751,6 +781,8 @@ def es_documento_nss(pdf_bytes: bytes) -> bool:
 def es_documento_curp(pdf_bytes: bytes) -> bool:
     """True si el PDF es constancia de CURP (RENAPO)."""
     t = _texto_de_pdf(pdf_bytes).upper()
+    if not t.strip():
+        t = texto_de_pdf_con_ocr(pdf_bytes, max_paginas=2).upper()
     t = t.replace("Á", "A").replace("É", "E").replace("Í", "I").replace("Ó", "O").replace("Ú", "U")
     if not t:
         return False
@@ -768,7 +800,10 @@ def es_documento_curp(pdf_bytes: bytes) -> bool:
 
 def es_documento_constancia_fiscal(pdf_bytes: bytes) -> bool:
     """True si el PDF es constancia de situación fiscal (SAT)."""
-    return _texto_parece_constancia_fiscal(_texto_constancia_fiscal_pdf(pdf_bytes))
+    texto = _texto_de_pdf(pdf_bytes)
+    if texto.strip():
+        return _texto_parece_constancia_fiscal(texto)
+    return False
 
 
 def es_documento_acta_nacimiento(pdf_bytes: bytes) -> bool:
@@ -833,6 +868,8 @@ def extraer_datos_curp_pdf(pdf_bytes: bytes) -> Dict[str, Any]:
         doc.close()
     except Exception:
         return resultado
+    if not texto.strip():
+        texto = texto_de_pdf_con_ocr(pdf_bytes, max_paginas=2)
 
     lineas = [ln.strip() for ln in texto.split("\n") if ln.strip()]
 
@@ -842,6 +879,17 @@ def extraer_datos_curp_pdf(pdf_bytes: bytes) -> Dict[str, Any]:
         if len(cand) == 18 and validar_curp(cand)[0]:
             resultado["curp"] = cand
             break
+    if not resultado["curp"]:
+        texto_ocr = texto_de_pdf_con_ocr(pdf_bytes, max_paginas=2)
+        if texto_ocr and texto_ocr.strip() and texto_ocr != texto:
+            texto = texto + "\n" + texto_ocr
+            lineas = [ln.strip() for ln in texto.split("\n") if ln.strip()]
+            compacto = texto.upper().replace(" ", "").replace("\n", "")
+            for m in re.finditer(r"[A-Z]{4}[A-Z0-9]{14}", compacto):
+                cand = m.group()[:18]
+                if len(cand) == 18 and validar_curp(cand)[0]:
+                    resultado["curp"] = cand
+                    break
 
     skip_words = {"PRESENTE", "SECRETARIA", "ROSA", "ICELA", "AGRADEZCO", "ESTAMOS",
                   "NUESTRO", "LOS", "EL", "LA", "DE", "EN", "DATOS", "TELCURP",
@@ -1426,7 +1474,7 @@ def validacion_cruzada(
                 comparaciones["curp_id_vs_documento"]["coincide"] = True
                 comparaciones["curp_id_vs_documento"]["advertencia_ocr"] = True
                 comparaciones["curp_id_vs_documento"]["nota"] = (
-                    "La CURP leida en la identificacion difiere del PDF oficial, "
+                    "La CURP leída en la identificación difiere del PDF oficial, "
                     "pero los nombres coinciden. Se toma la CURP del documento oficial."
                 )
                 # No se agrega a alertas: queda resuelto usando el PDF oficial cuando el nombre coincide.

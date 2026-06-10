@@ -237,6 +237,13 @@
         padding: 14px;
         background: #f8fbff;
     }
+    #vacRechazoAdminModal { z-index: 1095; }
+    #vacAdminRechazoTextarea {
+        pointer-events: auto !important;
+        user-select: text !important;
+        -webkit-user-select: text !important;
+        background: #fff !important;
+    }
     #vacFirmaAdminModal { z-index: 1085; }
     .modal-backdrop.vac-firma-backdrop { z-index: 1080; }
     @media print {
@@ -263,7 +270,7 @@
     <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
         <div>
             <h2 class="fw-bold mb-1"><i class="fa-solid fa-clipboard-check me-2"></i>Panel admin vacaciones</h2>
-            <p class="text-muted mb-0">Revisión de solicitudes por RR.HH. y jefe RR.HH.</p>
+            <p class="text-muted mb-0">Revisión de solicitudes por RR.HH. y Responsable del Área.</p>
         </div>
         <button type="button" class="btn btn-outline-primary" id="vacAdminRefresh">
             <i class="fa-solid fa-rotate me-1"></i> Actualizar
@@ -284,7 +291,7 @@
                         <th>Fechas</th>
                         <th>Días</th>
                         <th>RR.HH.</th>
-                        <th>Jefe RR.HH.</th>
+                        <th>Responsable del Área</th>
                         <th>Estatus</th>
                         <th>Acción</th>
                     </tr>
@@ -339,17 +346,17 @@
                                     <div class="vac-form-value" id="vacFmtNombre">-</div>
                                 </div>
                                 <div class="vac-form-field">
-                                    <label>Area / departamento</label>
+                                    <label>Área / departamento</label>
                                     <div class="vac-form-value" id="vacFmtAreaDepto">-</div>
                                 </div>
                             </div>
                             <div class="vac-official-grid three mb-3">
                                 <div class="vac-form-field">
-                                    <label>Dias que corresponden</label>
+                                    <label>Días que corresponden</label>
                                     <div class="vac-form-value" id="vacFmtOtorgados">-</div>
                                 </div>
                                 <div class="vac-form-field">
-                                    <label>Dias a disfrutar</label>
+                                    <label>Días a disfrutar</label>
                                     <div class="vac-form-value" id="vacFmtDisfrutar">-</div>
                                 </div>
                                 <div class="vac-form-field">
@@ -372,7 +379,7 @@
                                 <div class="vac-form-value" id="vacFmtObservaciones">-</div>
                             </div>
                             <div class="vac-consent-box mb-3">
-                                Por medio del presente, expreso mi conformidad de solicitar y gozar mis vacaciones de acuerdo con lo establecido en el articulo 76 de la Ley Federal del Trabajo y las politicas internas de MAXIKASH.
+                                Por medio del presente, expreso mi conformidad de solicitar y gozar mis vacaciones de acuerdo con lo establecido en el artículo 76 de la Ley Federal del Trabajo y las políticas internas de MAXIKASH.
                             </div>
                             <div class="vac-sign-box">
                                 <div class="vac-auth-title"><i class="fa-solid fa-pen-nib"></i> Firmas de autorizacion</div>
@@ -385,7 +392,7 @@
                                 <div class="vac-important-notes">
                                     <strong>Notas importantes:</strong><br>
                                     - El presente formato debera ser autorizado previo al disfrute de vacaciones.<br>
-                                    - Toda solicitud estara sujeta a validacion operativa y administrativa.<br>
+                                    - Toda solicitud estará sujeta a validación operativa y administrativa.<br>
                                     - Recursos Humanos debera conservar una copia firmada para expediente.<br>
                                     - Generado digitalmente mediante Universidad Corporativa Maxikash.
                                 </div>
@@ -415,16 +422,16 @@
                     <div class="col-lg-6">
                         <div class="vac-approval-box">
                             <div class="d-flex justify-content-between align-items-center mb-3">
-                                <strong>Validación jefe RR.HH.</strong>
+                                <strong id="vacModalJefeTitulo">Validación Responsable del Área</strong>
                                 <span id="vacModalJefe"></span>
                             </div>
-                            <div class="small text-muted mb-2" id="vacModalJefeBloqueo">Paso 2: disponible despues de la validacion de RR.HH.</div>
+                            <div class="small text-muted mb-2" id="vacModalJefeBloqueo">Validación independiente del Responsable del Área.</div>
                             <div class="d-flex gap-2">
                                 <button class="btn btn-success flex-fill" data-vac-resolver="jefe:aprobada">
-                                    <i class="fa-solid fa-check me-1"></i> Firmar jefe
+                                    <i class="fa-solid fa-check me-1"></i> <span id="vacBtnFirmarResponsableTxt">Firmar Responsable</span>
                                 </button>
                                 <button class="btn btn-outline-danger flex-fill" data-vac-resolver="jefe:rechazada">
-                                    <i class="fa-solid fa-xmark me-1"></i> Rechazar jefe
+                                    <i class="fa-solid fa-xmark me-1"></i> <span id="vacBtnRechazarResponsableTxt">Rechazar Responsable</span>
                                 </button>
                             </div>
                             <div class="small text-muted mt-2" id="vacModalJefeMeta"></div>
@@ -459,6 +466,28 @@
     </div>
 </div>
 
+<div class="modal fade" id="vacRechazoAdminModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="fa-solid fa-triangle-exclamation me-2"></i>Motivo del rechazo</h5>
+                <button type="button" class="btn-close" id="vacAdminCerrarRechazoX" aria-label="Cerrar"></button>
+            </div>
+            <div class="modal-body">
+                <p class="text-muted mb-2">Escribe por qué se rechaza la solicitud.</p>
+                <textarea class="form-control" id="vacAdminRechazoTextarea" rows="5" placeholder="Motivo..."></textarea>
+                <div class="small text-danger mt-2 d-none" id="vacAdminRechazoError">Escribe el motivo del rechazo.</div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" id="vacAdminCancelarRechazo">Cancelar</button>
+                <button type="button" class="btn btn-outline-danger" id="vacAdminConfirmarRechazo">
+                    <i class="fa-solid fa-xmark me-1"></i> Rechazar solicitud
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <div class="modal fade" id="vacFirmaAdminModal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content">
@@ -488,9 +517,12 @@
     const solicitudesIniciales = <?= $vacacionesAdminJson ?? '[]' ?>;
     let modal;
     let modalFirma;
+    let modalRechazo;
     let solicitudActual = 0;
     let detalleActual = null;
     let firmaPendiente = null;
+    let rechazoPendiente = null;
+    let rechazoCompatResolve = null;
     let firmaAdminDibujada = false;
     let firmaAdminInicializada = false;
 
@@ -556,6 +588,124 @@
         return modalFirma;
     }
 
+    function getRechazoModal() {
+        if (!modalRechazo && window.bootstrap && bootstrap.Modal) {
+            modalRechazo = new bootstrap.Modal($('vacRechazoAdminModal'), {
+                backdrop: 'static',
+                keyboard: false
+            });
+        }
+        return modalRechazo;
+    }
+
+    function aplicarEtiquetasResponsableArea() {
+        const titulo = $('vacModalJefeTitulo');
+        const btnFirmar = $('vacBtnFirmarResponsableTxt');
+        const btnRechazar = $('vacBtnRechazarResponsableTxt');
+        if (titulo) titulo.textContent = 'Validación Responsable del Área';
+        if (btnFirmar) btnFirmar.textContent = 'Firmar Responsable';
+        if (btnRechazar) btnRechazar.textContent = 'Rechazar Responsable';
+    }
+
+    function cerrarRechazoInline() {
+        rechazoPendiente = null;
+        const textarea = $('vacAdminRechazoTextarea');
+        const error = $('vacAdminRechazoError');
+        if (textarea) textarea.value = '';
+        if (error) error.classList.add('d-none');
+    }
+
+    function mostrarRechazoModal() {
+        const textarea = $('vacAdminRechazoTextarea');
+        const error = $('vacAdminRechazoError');
+        const rechazoModal = getRechazoModal();
+        if (textarea) {
+            textarea.value = '';
+            textarea.removeAttribute('readonly');
+            textarea.removeAttribute('disabled');
+        }
+        if (error) error.classList.add('d-none');
+        if (!rechazoModal) return;
+        rechazoModal.show();
+        setTimeout(() => {
+            if (textarea) textarea.focus();
+        }, 180);
+    }
+
+    function abrirRechazo(etapa, accion) {
+        rechazoPendiente = { etapa, accion };
+        firmaPendiente = null;
+        firmaAdminDibujada = false;
+        const firmaPanel = $('vacFirmaInlinePanel');
+        if (firmaPanel) firmaPanel.classList.add('d-none');
+        if (window.Swal && typeof Swal.close === 'function') {
+            Swal.close();
+        }
+        if (document.activeElement && typeof document.activeElement.blur === 'function') {
+            document.activeElement.blur();
+        }
+        const mostrarModal = () => mostrarRechazoModal();
+        const solicitudModalEl = $('vacSolicitudModal');
+        const modalActual = getSolicitudModal();
+        if (solicitudModalEl && solicitudModalEl.classList.contains('show') && modalActual) {
+            solicitudModalEl.addEventListener('hidden.bs.modal', mostrarModal, { once: true });
+            modalActual.hide();
+            return;
+        }
+        mostrarModal();
+    }
+
+    function cerrarRechazoModal(reabrirSolicitud = true) {
+        const rechazoModal = getRechazoModal();
+        if (rechazoModal) rechazoModal.hide();
+        cerrarRechazoInline();
+        if (reabrirSolicitud && solicitudActual > 0) {
+            setTimeout(() => {
+                const modalActual = getSolicitudModal();
+                if (modalActual) modalActual.show();
+            }, 180);
+        }
+    }
+
+    function resolverRechazoCompat(isConfirmed, value = '') {
+        const resolve = rechazoCompatResolve;
+        rechazoCompatResolve = null;
+        if (resolve) {
+            resolve({ isConfirmed, value });
+        }
+    }
+
+    function pedirMotivoRechazoCompat() {
+        return new Promise((resolve) => {
+            rechazoCompatResolve = resolve;
+            rechazoPendiente = null;
+            const textarea = $('vacAdminRechazoTextarea');
+            const error = $('vacAdminRechazoError');
+            if (textarea) textarea.value = '';
+            if (error) error.classList.add('d-none');
+
+            abrirRechazo('', 'rechazada');
+        });
+    }
+
+    function instalarCompatibilidadSwalRechazo() {
+        if (!window.Swal || window.Swal.__vacacionesRechazoCompat) return;
+        const fireOriginal = window.Swal.fire.bind(window.Swal);
+        window.Swal.fire = function (...args) {
+            const config = typeof args[0] === 'object' && args[0] !== null
+                ? args[0]
+                : { title: args[0], text: args[1], icon: args[2] };
+            const title = String(config.title || '');
+            const input = String(config.input || '');
+            const text = String(config.text || config.html || config.inputLabel || '');
+            if ((/Motivo del rechazo/i.test(title) || /rechaza la solicitud/i.test(text)) && input === 'textarea') {
+                return pedirMotivoRechazoCompat();
+            }
+            return fireOriginal(...args);
+        };
+        window.Swal.__vacacionesRechazoCompat = true;
+    }
+
     function fechaLargaMX(fecha = new Date()) {
         const meses = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
         return `${fecha.getDate()} de ${meses[fecha.getMonth()]} de ${fecha.getFullYear()}`;
@@ -585,7 +735,7 @@
         $('vacFmtLugarFecha').textContent = `Lugar y fecha: México D.F. a ${fechaLargaMX()}`;
         $('vacFirmaColaboradorBox').innerHTML = signatureBox('Firma del colaborador', s.firma_colaborador, s.nombre_completo, s.firma_colaborador_fecha);
         $('vacFirmaRrhhBox').innerHTML = signatureBox('Vo. Bo. Recursos Humanos', s.rrhh_firma, s.rrhh_nombre, s.rrhh_firma_fecha);
-        $('vacFirmaJefeBox').innerHTML = signatureBox('Firma del responsable del area', s.jefe_firma, s.jefe_nombre, s.jefe_firma_fecha);
+        $('vacFirmaJefeBox').innerHTML = signatureBox('Responsable del Área', s.jefe_firma, s.jefe_nombre, s.jefe_firma_fecha);
     }
 
     function ajustarCanvasFirmaAdmin() {
@@ -651,7 +801,8 @@
 
     function abrirFirma(etapa, accion) {
         firmaPendiente = { etapa, accion };
-        $('vacFirmaTitulo').textContent = etapa === 'rrhh' ? 'Firma de RR.HH.' : 'Firma de jefe RR.HH.';
+        cerrarRechazoInline();
+        $('vacFirmaTitulo').textContent = etapa === 'rrhh' ? 'Firma de RR.HH.' : 'Firma de Responsable del Área';
         $('vacFirmaInlinePanel').classList.remove('d-none');
         setTimeout(() => {
             initCanvasFirmaAdmin();
@@ -775,6 +926,7 @@ body { margin: 0; padding: 9mm 0 0; color: #24324a; font-family: Arial, Helvetic
     }
 
     async function abrirDetalle(idSolicitud) {
+        aplicarEtiquetasResponsableArea();
         solicitudActual = idSolicitud;
         $('vacModalInfo').innerHTML = '';
         $('vacModalDias').innerHTML = '<span class="text-muted">Cargando...</span>';
@@ -789,6 +941,7 @@ body { margin: 0; padding: 9mm 0 0; color: #24324a; font-family: Arial, Helvetic
         const dias = Array.isArray(data.datos.dias) ? data.datos.dias : [];
         detalleActual = data.datos;
         firmaPendiente = null;
+        cerrarRechazoInline();
         firmaAdminDibujada = false;
         $('vacFirmaInlinePanel').classList.add('d-none');
         $('vacModalTitulo').textContent = s.nombre_completo || 'Solicitud';
@@ -809,16 +962,18 @@ body { margin: 0; padding: 9mm 0 0; color: #24324a; font-family: Arial, Helvetic
         $('vacModalRrhhMeta').textContent = [s.rrhh_nombre, s.rrhh_fecha ? fmtFecha(s.rrhh_fecha) : '', s.rrhh_comentario || ''].filter(Boolean).join(' · ');
         $('vacModalJefeMeta').textContent = [s.jefe_nombre, s.jefe_fecha ? fmtFecha(s.jefe_fecha) : '', s.jefe_comentario || ''].filter(Boolean).join(' · ');
         pintarFormato(s);
-        const rrhhAprobada = String(s.rrhh_estatus || '').toLowerCase() === 'aprobada';
-        $('vacModalJefeBloqueo').textContent = rrhhAprobada
-            ? 'Paso 2: jefe RR.HH. puede revisar y firmar.'
-            : 'Paso 2 bloqueado: primero debe aprobar y firmar RR.HH.';
-        $('vacModalJefeBloqueo').className = rrhhAprobada ? 'small text-success mb-2 fw-bold' : 'small text-muted mb-2';
+        const puedeResolverRrhh = s.puede_resolver_rrhh === true || s.puede_resolver_rrhh === 1 || s.puede_resolver_rrhh === '1';
+        const puedeResolverResponsableArea = s.puede_resolver_responsable_area === true || s.puede_resolver_responsable_area === 1 || s.puede_resolver_responsable_area === '1';
+        const solicitudCerrada = ['aprobada', 'rechazada', 'tomada', 'cancelada'].includes(String(s.estatus || '').toLowerCase());
+        $('vacModalJefeBloqueo').textContent = puedeResolverResponsableArea
+            ? 'Responsable del Área puede revisar y firmar sin esperar a RR.HH.'
+            : 'Solo el Responsable del Área de este colaborador puede resolver esta validación.';
+        $('vacModalJefeBloqueo').className = puedeResolverResponsableArea ? 'small text-success mb-2 fw-bold' : 'small text-muted mb-2';
         document.querySelectorAll('[data-vac-resolver^="rrhh:"]').forEach((btn) => {
-            btn.disabled = s.rrhh_estatus !== 'pendiente' || s.estatus === 'rechazada';
+            btn.disabled = !puedeResolverRrhh || s.rrhh_estatus !== 'pendiente' || solicitudCerrada;
         });
         document.querySelectorAll('[data-vac-resolver^="jefe:"]').forEach((btn) => {
-            btn.disabled = s.jefe_estatus !== 'pendiente' || s.estatus === 'rechazada' || !rrhhAprobada;
+            btn.disabled = !puedeResolverResponsableArea || s.jefe_estatus !== 'pendiente' || solicitudCerrada;
         });
         const modalActual = getSolicitudModal();
         if (!modalActual) {
@@ -829,29 +984,15 @@ body { margin: 0; padding: 9mm 0 0; color: #24324a; font-family: Arial, Helvetic
     }
 
     async function resolver(etapa, accion) {
-        const solicitud = detalleActual && detalleActual.solicitud ? detalleActual.solicitud : {};
-        if (etapa === 'jefe' && String(solicitud.rrhh_estatus || '').toLowerCase() !== 'aprobada') {
-            swal('warning', 'Paso bloqueado', 'Primero debe aprobar y firmar RR.HH.');
-            return;
-        }
         if (accion === 'aprobada') {
             abrirFirma(etapa, accion);
             return;
         }
 
-        const r = await swal('warning', 'Motivo del rechazo', 'Escribe por que se rechaza la solicitud.', {
-            input: 'textarea',
-            inputPlaceholder: 'Motivo...',
-            showCancelButton: true,
-            confirmButtonText: 'Rechazar',
-            cancelButtonText: 'Cancelar',
-            inputValidator: (value) => !String(value || '').trim() ? 'El comentario es obligatorio.' : undefined
-        });
-        if (!r.isConfirmed) return;
-        await resolverEnviar(etapa, accion, String(r.value || '').trim(), '');
+        abrirRechazo(etapa, accion);
     }
 
-    async function resolverEnviar(etapa, accion, comentario, firmaResponsable) {
+    async function resolverEnviar(etapa, accion, comentario, firmaResponsable, opciones = {}) {
         const res = await fetch('/caphum/resolverVacacionesSolicitud', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
@@ -866,11 +1007,14 @@ body { margin: 0; padding: 9mm 0 0; color: #24324a; font-family: Arial, Helvetic
         const data = await res.json();
         if (!data.success) {
             swal('warning', 'No se pudo actualizar', data.mensaje || 'Revisa la solicitud.');
-            return;
+            return false;
         }
         await cargarLista();
-        await abrirDetalle(solicitudActual);
+        if (opciones.reabrirDetalle !== false) {
+            await abrirDetalle(solicitudActual);
+        }
         swal('success', 'Listo', data.mensaje || 'Solicitud actualizada.');
+        return true;
     }
 
     document.addEventListener('click', function (ev) {
@@ -885,6 +1029,17 @@ body { margin: 0; padding: 9mm 0 0; color: #24324a; font-family: Arial, Helvetic
             resolver(etapa, accion);
         }
     });
+
+    document.addEventListener('click', function (ev) {
+        const action = ev.target.closest('[data-vac-resolver]');
+        if (!action) return;
+        const [etapa, accion] = String(action.getAttribute('data-vac-resolver')).split(':');
+        if (accion !== 'rechazada') return;
+        ev.preventDefault();
+        ev.stopPropagation();
+        ev.stopImmediatePropagation();
+        abrirRechazo(etapa, accion);
+    }, true);
 
     $('vacAdminBtnPdf').addEventListener('click', function () {
         imprimirFormatoAdmin();
@@ -901,9 +1056,11 @@ body { margin: 0; padding: 9mm 0 0; color: #24324a; font-family: Arial, Helvetic
         const firma = $('vacAdminFirmaCanvas').toDataURL('image/png');
         $('vacAdminConfirmarFirma').disabled = true;
         try {
-            await resolverEnviar(firmaPendiente.etapa, firmaPendiente.accion, '', firma);
-            $('vacFirmaInlinePanel').classList.add('d-none');
-            firmaPendiente = null;
+            const ok = await resolverEnviar(firmaPendiente.etapa, firmaPendiente.accion, '', firma);
+            if (ok) {
+                $('vacFirmaInlinePanel').classList.add('d-none');
+                firmaPendiente = null;
+            }
         } finally {
             $('vacAdminConfirmarFirma').disabled = false;
         }
@@ -915,11 +1072,69 @@ body { margin: 0; padding: 9mm 0 0; color: #24324a; font-family: Arial, Helvetic
         $('vacFirmaInlinePanel').classList.add('d-none');
     });
 
+    $('vacAdminCerrarRechazoX').addEventListener('click', function () {
+        if (rechazoCompatResolve) {
+            resolverRechazoCompat(false, '');
+        }
+        cerrarRechazoModal(true);
+    });
+
+    $('vacAdminCancelarRechazo').addEventListener('click', function () {
+        if (rechazoCompatResolve) {
+            resolverRechazoCompat(false, '');
+        }
+        cerrarRechazoModal(true);
+    });
+
+    $('vacAdminConfirmarRechazo').addEventListener('click', async function () {
+        const textarea = $('vacAdminRechazoTextarea');
+        const error = $('vacAdminRechazoError');
+        const motivo = String(textarea ? textarea.value : '').trim();
+        if (!motivo) {
+            if (error) error.classList.remove('d-none');
+            if (textarea) textarea.focus();
+            return;
+        }
+        if (error) error.classList.add('d-none');
+        if (rechazoCompatResolve) {
+            resolverRechazoCompat(true, motivo);
+            cerrarRechazoModal(true);
+            return;
+        }
+        if (!rechazoPendiente) return;
+        this.disabled = true;
+        try {
+            const ok = await resolverEnviar(rechazoPendiente.etapa, rechazoPendiente.accion, motivo, '', { reabrirDetalle: false });
+            if (ok) {
+                cerrarRechazoModal(false);
+                await abrirDetalle(solicitudActual);
+            }
+        } finally {
+            this.disabled = false;
+        }
+    });
+
+    $('vacRechazoAdminModal').addEventListener('shown.bs.modal', function () {
+        const textarea = $('vacAdminRechazoTextarea');
+        if (textarea) {
+            textarea.removeAttribute('readonly');
+            textarea.removeAttribute('disabled');
+            textarea.focus();
+        }
+    });
+
     $('vacAdminRefresh').addEventListener('click', cargarLista);
     if (window.bootstrap && bootstrap.Modal) {
         modal = new bootstrap.Modal($('vacSolicitudModal'));
         modalFirma = new bootstrap.Modal($('vacFirmaAdminModal'));
+        modalRechazo = new bootstrap.Modal($('vacRechazoAdminModal'), {
+            backdrop: 'static',
+            keyboard: false
+        });
     }
+    instalarCompatibilidadSwalRechazo();
+    setTimeout(instalarCompatibilidadSwalRechazo, 300);
+    aplicarEtiquetasResponsableArea();
     pintarLista(solicitudesIniciales);
     cargarLista().catch((err) => {
         console.error(err);

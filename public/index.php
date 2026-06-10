@@ -36,6 +36,10 @@ if (function_exists('date_default_timezone_set')) {
     @date_default_timezone_set('America/Mexico_City');
 }
 
+@ini_set('memory_limit', '1024M');
+@ini_set('max_execution_time', '0');
+@ini_set('max_input_time', '-1');
+
 // Cargar .env si existe — solo variables MAIL_* para no afectar DB ni otras configs
 $envFile = dirname(__DIR__) . '/.env';
 if (is_file($envFile) && is_readable($envFile)) {
@@ -337,10 +341,10 @@ $rutasModulos = [
     'estadocuenta/validarcredito' => [1],
     'estadocuenta/getcomplementosestadocuenta' => [1],
     'gestiones/seguimiento' => [3],
-    'caphum/gestion' => [4], 'caphum/analizarimportaciondocumentosrrhh' => [4, 88], 'caphum/importardocumentosrrhh' => [4, 88], 'caphum/previsualizarimportaciondocumentosrrhh' => [4, 88], 'caphum/documentoscolaborador' => [92], 'caphum/getresumendocumentoscolaborador' => [92], 'caphum/documentosrrhh' => [93], 'caphum/getresumendocumentosrrhh' => [93], 'caphum/actualizacionesinfo' => [83], 'caphum/obtenerdatosactualizacioninfopersona' => [82], 'caphum/obtenerdatosactualizacioninfopersonas' => [82], 'caphum/guardaractualizacioninfopersona' => [82], 'caphum/candidatos' => [42], 'caphum/getcandidatos' => [42], 'caphum/getcandidato' => [42], 'caphum/guardarcandidato' => [42], 'caphum/actualizarcandidato' => [42], 'caphum/eliminarcandidato' => [42], 'caphum/enviarpostulacioncandidato' => [42], 'caphum/gettokendocumentoscandidato' => [42], 'caphum/getdocumentoscandidatolist' => [42], 'caphum/verificarexpedientecandidato' => [42], 'caphum/verdocumentocandidato' => [42], 'caphum/eliminardocumentocandidato' => [42], 'caphum/validardocumentocandidato' => [42], 'caphum/cerrarprocesocandidato' => [42], 'caphum/continuarprocesocandidato' => [42], 'caphum/pasarcandidatoagestion' => [42],
+    'caphum/gestion' => [4], 'caphum/gettrayectoriapuestopersona' => [4, 88], 'caphum/analizarimportaciondocumentosrrhh' => [4, 88], 'caphum/importardocumentosrrhh' => [4, 88], 'caphum/previsualizarimportaciondocumentosrrhh' => [4, 88], 'caphum/documentoscolaborador' => [92], 'caphum/getresumendocumentoscolaborador' => [92], 'caphum/documentosrrhh' => [93], 'caphum/getresumendocumentosrrhh' => [93], 'caphum/actualizacionesinfo' => [83], 'caphum/obtenerdatosactualizacioninfopersona' => [82], 'caphum/obtenerdatosactualizacioninfopersonas' => [82], 'caphum/guardaractualizacioninfopersona' => [82], 'caphum/candidatos' => [42], 'caphum/getcandidatos' => [42], 'caphum/getcandidato' => [42], 'caphum/guardarcandidato' => [42], 'caphum/actualizarcandidato' => [42], 'caphum/eliminarcandidato' => [42], 'caphum/enviarpostulacioncandidato' => [42], 'caphum/gettokendocumentoscandidato' => [42], 'caphum/getdocumentoscandidatolist' => [42], 'caphum/verificarexpedientecandidato' => [42], 'caphum/verdocumentocandidato' => [42], 'caphum/eliminardocumentocandidato' => [42], 'caphum/validardocumentocandidato' => [42], 'caphum/cerrarprocesocandidato' => [42], 'caphum/continuarprocesocandidato' => [42], 'caphum/pasarcandidatoagestion' => [42],
     'caphum/getpuestos' => [42], 'caphum/getjefedirecto' => [4, 5, 42], 'caphum/getestados' => [42], 'caphum/getmunicipios' => [42], 'caphum/getcolonias' => [42], 'caphum/getcalles' => [42],
     'caphum/bajas' => [13], 'caphum/organigrama' => [5], 'caphum/niveljerarquicocolaborador' => [5], 'caphum/getpuestospersona' => [5], 'caphum/actualizarjefevacante' => [4, 5, 10, 43], 'caphum/actualizarjefepersonaorganigrama' => [4, 5, 10, 43],
-    'caphum/estructuraorganizacional' => [86], 'caphum/perfilespuestos' => [91], 'caphum/getestructuraorganizacionaljson' => [86], 'caphum/guardarestructuraorganizacionaljson' => [86],
+    'caphum/estructuraorganizacional' => [86], 'caphum/perfilespuestos' => [91], 'caphum/getpermisospuestoconfig' => [91], 'caphum/getpermisospuesto' => [91], 'caphum/guardarpermisospuesto' => [91], 'caphum/getestructuraorganizacionaljson' => [86], 'caphum/guardarestructuraorganizacionaljson' => [86],
     'caphum/sincronizalegacy' => [89], 'caphum/sincronizarlegacypendientesrrhh' => [87, 88, 89],
     'caphum/estadisticas' => [38], 'caphum/getestadisticaspanel' => [38], 'caphum/getestadisticasmovimientodetalle' => [38],
     'caphum/vacaciones' => [4, 92], 'caphum/getresumenvacaciones' => [4, 92], 'caphum/solicitarvacaciones' => [4, 92],
