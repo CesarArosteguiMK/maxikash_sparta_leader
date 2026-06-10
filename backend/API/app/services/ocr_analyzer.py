@@ -270,12 +270,9 @@ class OCRAnalyzer:
         """
         Una sola pasada de OCR para verificación ligera. Evita timeout en imágenes que no son documento
         (bosque, videojuego, etc.) al no ejecutar las 12 pasadas de _extraer_mejor_texto.
+        No usa PaddleOCR: es más preciso, pero demasiado caro para prechecks y filtros iniciales.
         """
         try:
-            if extraer_texto_paddle is not None:
-                texto_paddle = extraer_texto_paddle(image_bytes)
-                if texto_paddle and texto_paddle.strip():
-                    return texto_paddle.upper()
             img_cv = cv2.imdecode(np.frombuffer(image_bytes, np.uint8), cv2.IMREAD_COLOR)
             if img_cv is None:
                 return ""

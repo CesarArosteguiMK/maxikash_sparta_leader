@@ -294,8 +294,9 @@ if ($solicitaCierreCreditoAjaxSinSesion) {
     exit;
 }
 
-if ((!isset($_SESSION['login']) && !$esCrearTicketWhatsApp && !$esSubirDocCandidato && !$esDocVerificacionProxy && !$esDescargarDocCandidato && !$esLlenarSolicitudEnLinea && !$esObtenerPlantillaSolicitudPdf && !$esSegundometroAgenteInterno) || strtolower($urlSolicitada[0]) === strtolower(LOGIN)) {
-    if (!isset($_SESSION['login']) && solicitudEsFrontRequest()) {
+$esRutaLogin = strtolower((string)($urlSolicitada[0] ?? '')) === strtolower(LOGIN);
+if ((!isset($_SESSION['login']) && !$esCrearTicketWhatsApp && !$esSubirDocCandidato && !$esDocVerificacionProxy && !$esDescargarDocCandidato && !$esLlenarSolicitudEnLinea && !$esObtenerPlantillaSolicitudPdf && !$esSegundometroAgenteInterno) || $esRutaLogin) {
+    if (!$esRutaLogin && !isset($_SESSION['login']) && solicitudEsFrontRequest()) {
         header('Content-Type: application/json; charset=utf-8');
         http_response_code(401);
         echo json_encode(['success' => false, 'mensaje' => 'Sesion expirada. Vuelva a iniciar sesion.']);
@@ -305,7 +306,7 @@ if ((!isset($_SESSION['login']) && !$esCrearTicketWhatsApp && !$esSubirDocCandid
     $login = new $login;
 
     $metodo = isset($urlSolicitada[1]) ? $urlSolicitada[1] : METODO_DEFECTO;
-    $metodo = strtolower($urlSolicitada[0]) === strtolower(LOGIN)
+    $metodo = $esRutaLogin
         ? $metodo
         : METODO_DEFECTO;
 

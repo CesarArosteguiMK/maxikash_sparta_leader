@@ -76,17 +76,22 @@ def short_result(data):
 
 
 def post_pdf(client, endpoint, field, path, timeout=90):
-    with path.open("rb") as fh:
-        files = {field: (path.name, fh, "application/pdf")}
-        t0 = time.perf_counter()
-        resp = client.post(API + endpoint, headers=HEADERS, files=files, timeout=timeout)
-        elapsed = int((time.perf_counter() - t0) * 1000)
+    t0 = time.perf_counter()
     try:
-        data = resp.json()
-    except Exception:
-        data = {"body": resp.text[:1000]}
+        with path.open("rb") as fh:
+            files = {field: (path.name, fh, "application/pdf")}
+            resp = client.post(API + endpoint, headers=HEADERS, files=files, timeout=timeout)
+        try:
+            data = resp.json()
+        except Exception:
+            data = {"body": resp.text[:1000]}
+        status = resp.status_code
+    except Exception as exc:
+        data = {"error": type(exc).__name__, "mensaje": str(exc)}
+        status = "CLIENT_ERROR"
+    elapsed = int((time.perf_counter() - t0) * 1000)
     return {
-        "status": resp.status_code,
+        "status": status,
         "elapsed_ms": elapsed,
         "data": data,
         "short": short_result(data),
@@ -121,21 +126,26 @@ def post_expediente(client, folder, docs, timeout=180):
                 files[field] = (path.name, fh, "application/pdf")
         data = {"nombre_candidato_registro": ""}
         t0 = time.perf_counter()
-        resp = client.post(
-            API + "/validar-expediente",
-            headers=HEADERS,
-            data=data,
-            files=files,
-            timeout=timeout,
-        )
-        elapsed = int((time.perf_counter() - t0) * 1000)
         try:
-            body = resp.json()
-        except Exception:
-            body = {"body": resp.text[:1000]}
+            resp = client.post(
+                API + "/validar-expediente",
+                headers=HEADERS,
+                data=data,
+                files=files,
+                timeout=timeout,
+            )
+            try:
+                body = resp.json()
+            except Exception:
+                body = {"body": resp.text[:1000]}
+            status = resp.status_code
+        except Exception as exc:
+            body = {"error": type(exc).__name__, "mensaje": str(exc)}
+            status = "CLIENT_ERROR"
+        elapsed = int((time.perf_counter() - t0) * 1000)
         return {
             "folder": folder,
-            "status": resp.status_code,
+            "status": status,
             "elapsed_ms": elapsed,
             "docs": {k: str(v.name) for k, v in docs.items()},
             "short": short_result(body),
