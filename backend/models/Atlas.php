@@ -753,6 +753,596 @@ class Atlas extends Model
         }
     }
 
+    private static function asegurarTablasCatalogosComerciales(Database $db): void
+    {
+        $db->CRUD("
+            CREATE TABLE IF NOT EXISTS atlas_catalogo_dictamen (
+                id INT UNSIGNED NOT NULL AUTO_INCREMENT,
+                codigo_estatus VARCHAR(60) NULL,
+                clave VARCHAR(80) NOT NULL,
+                nombre VARCHAR(180) NOT NULL,
+                objetivo TEXT NULL,
+                orden INT NOT NULL DEFAULT 1,
+                activo TINYINT(1) NOT NULL DEFAULT 1,
+                estado_registro VARCHAR(30) NOT NULL DEFAULT 'publicado',
+                fecha_alta DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                fecha_actualizacion DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                PRIMARY KEY (id),
+                KEY idx_atlas_dictamen_activo_orden (activo, orden),
+                KEY idx_atlas_dictamen_clave (clave)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+        ");
+        $db->CRUD("
+            CREATE TABLE IF NOT EXISTS atlas_dictamen_sub_estatus (
+                id INT UNSIGNED NOT NULL AUTO_INCREMENT,
+                dictamen_id INT UNSIGNED NOT NULL,
+                clave VARCHAR(80) NOT NULL,
+                nombre VARCHAR(180) NOT NULL,
+                orden INT NOT NULL DEFAULT 1,
+                activo TINYINT(1) NOT NULL DEFAULT 1,
+                estado_registro VARCHAR(30) NOT NULL DEFAULT 'publicado',
+                fecha_alta DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                fecha_actualizacion DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                PRIMARY KEY (id),
+                KEY idx_atlas_sub_dictamen_orden (dictamen_id, orden),
+                KEY idx_atlas_sub_clave (clave)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+        ");
+        $db->CRUD("
+            CREATE TABLE IF NOT EXISTS atlas_catalogo_tipos_gestion (
+                id INT UNSIGNED NOT NULL AUTO_INCREMENT,
+                clave VARCHAR(80) NOT NULL,
+                nombre VARCHAR(180) NOT NULL,
+                orden INT NOT NULL DEFAULT 1,
+                activo TINYINT(1) NOT NULL DEFAULT 1,
+                estado_registro VARCHAR(30) NOT NULL DEFAULT 'publicado',
+                fecha_alta DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                fecha_actualizacion DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                PRIMARY KEY (id),
+                KEY idx_atlas_tipo_gestion_orden (activo, orden),
+                KEY idx_atlas_tipo_gestion_clave (clave)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+        ");
+        $db->CRUD("
+            CREATE TABLE IF NOT EXISTS atlas_catalogo_gestion (
+                id INT UNSIGNED NOT NULL AUTO_INCREMENT,
+                dictamen_id INT UNSIGNED NOT NULL,
+                subestatus_id INT UNSIGNED NOT NULL,
+                tipo_gestion_id INT UNSIGNED NULL,
+                tipo_gestion VARCHAR(150) NULL,
+                clave VARCHAR(80) NOT NULL,
+                nombre VARCHAR(220) NOT NULL,
+                ventana_complementaria VARCHAR(180) NULL,
+                campos_adicionales TEXT NULL,
+                requiere_fecha TINYINT(1) NOT NULL DEFAULT 0,
+                permite_comentario TINYINT(1) NOT NULL DEFAULT 1,
+                orden INT NOT NULL DEFAULT 1,
+                activo TINYINT(1) NOT NULL DEFAULT 1,
+                estado_registro VARCHAR(30) NOT NULL DEFAULT 'publicado',
+                fecha_alta DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                fecha_actualizacion DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                PRIMARY KEY (id),
+                KEY idx_atlas_gestion_sub_orden (subestatus_id, orden),
+                KEY idx_atlas_gestion_dictamen (dictamen_id),
+                KEY idx_atlas_gestion_clave (clave)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+        ");
+
+        self::asegurarColumna($db, 'atlas_catalogo_dictamen', 'codigo_estatus', "VARCHAR(60) NULL");
+        self::asegurarColumna($db, 'atlas_catalogo_dictamen', 'clave', "VARCHAR(80) NOT NULL DEFAULT ''");
+        self::asegurarColumna($db, 'atlas_catalogo_dictamen', 'nombre', "VARCHAR(180) NOT NULL DEFAULT ''");
+        self::asegurarColumna($db, 'atlas_catalogo_dictamen', 'objetivo', "TEXT NULL");
+        self::asegurarColumna($db, 'atlas_catalogo_dictamen', 'orden', "INT NOT NULL DEFAULT 1");
+        self::asegurarColumna($db, 'atlas_catalogo_dictamen', 'activo', "TINYINT(1) NOT NULL DEFAULT 1");
+        self::asegurarColumna($db, 'atlas_catalogo_dictamen', 'estado_registro', "VARCHAR(30) NOT NULL DEFAULT 'publicado'");
+        self::asegurarColumna($db, 'atlas_catalogo_dictamen', 'fecha_alta', "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP");
+        self::asegurarColumna($db, 'atlas_catalogo_dictamen', 'fecha_actualizacion', "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP");
+
+        self::asegurarColumna($db, 'atlas_dictamen_sub_estatus', 'dictamen_id', "INT UNSIGNED NOT NULL DEFAULT 0");
+        self::asegurarColumna($db, 'atlas_dictamen_sub_estatus', 'clave', "VARCHAR(80) NOT NULL DEFAULT ''");
+        self::asegurarColumna($db, 'atlas_dictamen_sub_estatus', 'nombre', "VARCHAR(180) NOT NULL DEFAULT ''");
+        self::asegurarColumna($db, 'atlas_dictamen_sub_estatus', 'orden', "INT NOT NULL DEFAULT 1");
+        self::asegurarColumna($db, 'atlas_dictamen_sub_estatus', 'activo', "TINYINT(1) NOT NULL DEFAULT 1");
+        self::asegurarColumna($db, 'atlas_dictamen_sub_estatus', 'estado_registro', "VARCHAR(30) NOT NULL DEFAULT 'publicado'");
+        self::asegurarColumna($db, 'atlas_dictamen_sub_estatus', 'fecha_alta', "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP");
+        self::asegurarColumna($db, 'atlas_dictamen_sub_estatus', 'fecha_actualizacion', "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP");
+
+        self::asegurarColumna($db, 'atlas_catalogo_tipos_gestion', 'clave', "VARCHAR(80) NOT NULL DEFAULT ''");
+        self::asegurarColumna($db, 'atlas_catalogo_tipos_gestion', 'nombre', "VARCHAR(180) NOT NULL DEFAULT ''");
+        self::asegurarColumna($db, 'atlas_catalogo_tipos_gestion', 'orden', "INT NOT NULL DEFAULT 1");
+        self::asegurarColumna($db, 'atlas_catalogo_tipos_gestion', 'activo', "TINYINT(1) NOT NULL DEFAULT 1");
+        self::asegurarColumna($db, 'atlas_catalogo_tipos_gestion', 'estado_registro', "VARCHAR(30) NOT NULL DEFAULT 'publicado'");
+        self::asegurarColumna($db, 'atlas_catalogo_tipos_gestion', 'fecha_alta', "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP");
+        self::asegurarColumna($db, 'atlas_catalogo_tipos_gestion', 'fecha_actualizacion', "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP");
+
+        self::asegurarColumna($db, 'atlas_catalogo_gestion', 'dictamen_id', "INT UNSIGNED NOT NULL DEFAULT 0");
+        self::asegurarColumna($db, 'atlas_catalogo_gestion', 'sub_estatus_id', "INT UNSIGNED NOT NULL DEFAULT 0");
+        self::asegurarColumna($db, 'atlas_catalogo_gestion', 'subestatus_id', "INT UNSIGNED NOT NULL DEFAULT 0");
+        self::asegurarColumna($db, 'atlas_catalogo_gestion', 'tipo_gestion_id', "INT UNSIGNED NULL");
+        self::asegurarColumna($db, 'atlas_catalogo_gestion', 'tipo_gestion', "VARCHAR(150) NULL");
+        self::asegurarColumna($db, 'atlas_catalogo_gestion', 'clave', "VARCHAR(80) NOT NULL DEFAULT ''");
+        self::asegurarColumna($db, 'atlas_catalogo_gestion', 'nombre', "VARCHAR(220) NOT NULL DEFAULT ''");
+        self::asegurarColumna($db, 'atlas_catalogo_gestion', 'ventana_complementaria', "VARCHAR(180) NULL");
+        self::asegurarColumna($db, 'atlas_catalogo_gestion', 'campos_adicionales', "TEXT NULL");
+        self::asegurarColumna($db, 'atlas_catalogo_gestion', 'requiere_fecha', "TINYINT(1) NOT NULL DEFAULT 0");
+        self::asegurarColumna($db, 'atlas_catalogo_gestion', 'permite_comentario', "TINYINT(1) NOT NULL DEFAULT 1");
+        self::asegurarColumna($db, 'atlas_catalogo_gestion', 'orden', "INT NOT NULL DEFAULT 1");
+        self::asegurarColumna($db, 'atlas_catalogo_gestion', 'activo', "TINYINT(1) NOT NULL DEFAULT 1");
+        self::asegurarColumna($db, 'atlas_catalogo_gestion', 'estado_registro', "VARCHAR(30) NOT NULL DEFAULT 'publicado'");
+        self::asegurarColumna($db, 'atlas_catalogo_gestion', 'fecha_alta', "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP");
+        self::asegurarColumna($db, 'atlas_catalogo_gestion', 'fecha_actualizacion', "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP");
+
+        self::sincronizarTiposGestionDesdeGestiones($db);
+        $db->CRUD("
+            UPDATE atlas_catalogo_gestion
+            SET subestatus_id = sub_estatus_id
+            WHERE (subestatus_id IS NULL OR subestatus_id = 0)
+              AND COALESCE(sub_estatus_id, 0) > 0
+        ");
+    }
+
+    private static function asegurarColumna(Database $db, string $tabla, string $columna, string $definicion): void
+    {
+        $existe = $db->queryOne("SHOW COLUMNS FROM `$tabla` LIKE :columna", ['columna' => $columna]);
+        if (!$existe) {
+            $db->CRUD("ALTER TABLE `$tabla` ADD COLUMN `$columna` $definicion");
+        }
+    }
+
+    private static function sincronizarTiposGestionDesdeGestiones(Database $db): void
+    {
+        $rows = $db->queryAll("
+            SELECT DISTINCT TRIM(tipo_gestion) AS nombre
+            FROM atlas_catalogo_gestion
+            WHERE TRIM(COALESCE(tipo_gestion, '')) <> ''
+            ORDER BY nombre ASC
+        ");
+        foreach ($rows as $idx => $row) {
+            $nombre = self::strVal($row['nombre'] ?? '');
+            if ($nombre === '') {
+                continue;
+            }
+            $tipo = self::obtenerOCrearTipoGestionComercial($db, $nombre);
+            if (!empty($tipo['id'])) {
+                $db->CRUD(
+                    "UPDATE atlas_catalogo_gestion
+                     SET tipo_gestion_id = :tipo_id
+                     WHERE TRIM(COALESCE(tipo_gestion, '')) = :nombre
+                       AND (tipo_gestion_id IS NULL OR tipo_gestion_id = 0)",
+                    ['tipo_id' => (int)$tipo['id'], 'nombre' => $nombre]
+                );
+            }
+        }
+    }
+
+    public static function getCatalogosComerciales(): array
+    {
+        try {
+            $db = new Database();
+            self::asegurarTablasCatalogosComerciales($db);
+            $dictamenes = $db->queryAll("
+                SELECT id, codigo_estatus, clave, nombre, objetivo, orden, activo, estado_registro,
+                       DATE_FORMAT(fecha_actualizacion, '%d/%m/%Y %H:%i') AS fecha_actualizacion_fmt
+                FROM atlas_catalogo_dictamen
+                ORDER BY orden ASC, nombre ASC, id ASC
+            ");
+            $subestatus = $db->queryAll("
+                SELECT s.id, s.dictamen_id, d.nombre AS dictamen_nombre, d.codigo_estatus, s.clave, s.nombre,
+                       s.orden, s.activo, s.estado_registro,
+                       DATE_FORMAT(s.fecha_actualizacion, '%d/%m/%Y %H:%i') AS fecha_actualizacion_fmt
+                FROM atlas_dictamen_sub_estatus s
+                INNER JOIN atlas_catalogo_dictamen d ON d.id = s.dictamen_id
+                ORDER BY s.orden ASC, d.orden ASC, s.nombre ASC, s.id ASC
+            ");
+            $tiposGestion = $db->queryAll("
+                SELECT id, clave, nombre, orden, activo, estado_registro,
+                       DATE_FORMAT(fecha_actualizacion, '%d/%m/%Y %H:%i') AS fecha_actualizacion_fmt
+                FROM atlas_catalogo_tipos_gestion
+                ORDER BY orden ASC, nombre ASC, id ASC
+            ");
+            $gestiones = $db->queryAll("
+                SELECT g.id, g.dictamen_id, d.nombre AS dictamen_nombre,
+                       COALESCE(NULLIF(g.subestatus_id, 0), g.sub_estatus_id) AS subestatus_id,
+                       s.nombre AS subestatus_nombre,
+                       g.tipo_gestion_id, COALESCE(tg.nombre, g.tipo_gestion) AS tipo_gestion, g.clave, g.nombre, g.ventana_complementaria, g.campos_adicionales,
+                       g.requiere_fecha, g.permite_comentario, g.orden, g.activo, g.estado_registro,
+                       DATE_FORMAT(g.fecha_actualizacion, '%d/%m/%Y %H:%i') AS fecha_actualizacion_fmt
+                FROM atlas_catalogo_gestion g
+                INNER JOIN atlas_catalogo_dictamen d ON d.id = g.dictamen_id
+                INNER JOIN atlas_dictamen_sub_estatus s ON s.id = COALESCE(NULLIF(g.subestatus_id, 0), g.sub_estatus_id)
+                LEFT JOIN atlas_catalogo_tipos_gestion tg ON tg.id = g.tipo_gestion_id
+                ORDER BY d.orden ASC, s.orden ASC, g.orden ASC, g.nombre ASC, g.id ASC
+            ");
+
+            return [
+                'success' => true,
+                'mensaje' => 'Catálogos comerciales obtenidos.',
+                'datos' => [
+                    'dictamenes' => $dictamenes,
+                    'subestatus' => $subestatus,
+                    'tipos_gestion' => $tiposGestion,
+                    'gestiones' => $gestiones,
+                ],
+            ];
+        } catch (\Throwable $e) {
+            return ['success' => false, 'mensaje' => 'No se pudieron obtener los catálogos comerciales.', 'error' => $e->getMessage(), 'datos' => ['dictamenes' => [], 'subestatus' => [], 'tipos_gestion' => [], 'gestiones' => []]];
+        }
+    }
+
+    public static function guardarCatalogoComercial(array $input): array
+    {
+        try {
+            $db = new Database();
+            self::asegurarTablasCatalogosComerciales($db);
+            $tipo = strtolower(self::strVal($input['tipo'] ?? ''));
+            if ($tipo === 'dictamen') {
+                return self::guardarDictamenComercial($db, $input);
+            }
+            if ($tipo === 'subestatus') {
+                return self::guardarSubestatusComercial($db, $input);
+            }
+            if ($tipo === 'tipo_gestion') {
+                return self::guardarTipoGestionComercial($db, $input);
+            }
+            if ($tipo === 'gestion') {
+                return self::guardarGestionComercial($db, $input);
+            }
+            return ['success' => false, 'mensaje' => 'Tipo de catálogo no válido.'];
+        } catch (\Throwable $e) {
+            return ['success' => false, 'mensaje' => 'No se pudo guardar el catálogo comercial.', 'error' => $e->getMessage()];
+        }
+    }
+
+    private static function guardarDictamenComercial(Database $db, array $input): array
+    {
+        $id = self::intVal($input['id'] ?? 0);
+        $nombre = self::strVal($input['nombre'] ?? '');
+        if ($nombre === '') {
+            return ['success' => false, 'mensaje' => 'Captura el nombre del estatus.'];
+        }
+        $codigo = self::nullableStr($input['codigo_estatus'] ?? null);
+        $clave = self::nullableStr($input['clave'] ?? null) ?: self::claveDesdeTexto($nombre);
+        $dup = $db->queryOne("SELECT id FROM atlas_catalogo_dictamen WHERE (LOWER(nombre)=LOWER(:nombre) OR LOWER(clave)=LOWER(:clave)) AND id <> :id LIMIT 1", ['nombre' => $nombre, 'clave' => $clave, 'id' => $id]);
+        if ($dup) {
+            return ['success' => false, 'mensaje' => 'Ya existe un estatus con el mismo nombre o clave.'];
+        }
+        $datos = [
+            'codigo_estatus' => $codigo,
+            'clave' => $clave,
+            'nombre' => $nombre,
+            'objetivo' => self::nullableStr($input['objetivo'] ?? null),
+            'orden' => self::intVal($input['orden'] ?? 0),
+            'activo' => self::activoVal($input['activo'] ?? 1),
+            'estado_registro' => self::estadoCatalogoVal($input['estado_registro'] ?? 'publicado'),
+        ];
+        if ($datos['orden'] <= 0) {
+            $row = $db->queryOne("SELECT COALESCE(MAX(orden), 0) + 1 AS siguiente FROM atlas_catalogo_dictamen");
+            $datos['orden'] = (int)($row['siguiente'] ?? 1);
+        }
+        return self::guardarFilaCatalogo($db, 'atlas_catalogo_dictamen', $datos, $id, 'Estatus');
+    }
+
+    private static function guardarSubestatusComercial(Database $db, array $input): array
+    {
+        $id = self::intVal($input['id'] ?? 0);
+        $dictamenId = self::intVal($input['dictamen_id'] ?? 0);
+        $nombre = self::strVal($input['nombre'] ?? '');
+        if ($dictamenId <= 0 || $nombre === '') {
+            return ['success' => false, 'mensaje' => 'Selecciona estatus y captura subestatus.'];
+        }
+        $clave = self::nullableStr($input['clave'] ?? null) ?: self::claveDesdeTexto($nombre);
+        $dup = $db->queryOne("SELECT id FROM atlas_dictamen_sub_estatus WHERE dictamen_id = :dictamen_id AND LOWER(nombre)=LOWER(:nombre) AND id <> :id LIMIT 1", ['dictamen_id' => $dictamenId, 'nombre' => $nombre, 'id' => $id]);
+        if ($dup) {
+            return ['success' => false, 'mensaje' => 'Ya existe ese subestatus dentro del estatus.'];
+        }
+        $datos = [
+            'dictamen_id' => $dictamenId,
+            'clave' => $clave,
+            'nombre' => $nombre,
+            'orden' => self::intVal($input['orden'] ?? 0),
+            'activo' => self::activoVal($input['activo'] ?? 1),
+            'estado_registro' => self::estadoCatalogoVal($input['estado_registro'] ?? 'publicado'),
+        ];
+        if ($datos['orden'] <= 0) {
+            $row = $db->queryOne("SELECT COALESCE(MAX(orden), 0) + 1 AS siguiente FROM atlas_dictamen_sub_estatus WHERE dictamen_id = :id", ['id' => $dictamenId]);
+            $datos['orden'] = (int)($row['siguiente'] ?? 1);
+        }
+        return self::guardarFilaCatalogo($db, 'atlas_dictamen_sub_estatus', $datos, $id, 'Subestatus');
+    }
+
+    private static function guardarTipoGestionComercial(Database $db, array $input): array
+    {
+        $id = self::intVal($input['id'] ?? 0);
+        $nombre = self::strVal($input['nombre'] ?? '');
+        if ($nombre === '') {
+            return ['success' => false, 'mensaje' => 'Captura el tipo de gestión.'];
+        }
+        $clave = self::nullableStr($input['clave'] ?? null) ?: self::claveDesdeTexto($nombre);
+        $dup = $db->queryOne("SELECT id FROM atlas_catalogo_tipos_gestion WHERE (LOWER(nombre)=LOWER(:nombre) OR LOWER(clave)=LOWER(:clave)) AND id <> :id LIMIT 1", ['nombre' => $nombre, 'clave' => $clave, 'id' => $id]);
+        if ($dup) {
+            return ['success' => false, 'mensaje' => 'Ya existe ese tipo de gestión.'];
+        }
+        $datos = [
+            'clave' => $clave,
+            'nombre' => $nombre,
+            'orden' => self::intVal($input['orden'] ?? 0),
+            'activo' => self::activoVal($input['activo'] ?? 1),
+            'estado_registro' => self::estadoCatalogoVal($input['estado_registro'] ?? 'publicado'),
+        ];
+        if ($datos['orden'] <= 0) {
+            $row = $db->queryOne("SELECT COALESCE(MAX(orden), 0) + 1 AS siguiente FROM atlas_catalogo_tipos_gestion");
+            $datos['orden'] = (int)($row['siguiente'] ?? 1);
+        }
+        return self::guardarFilaCatalogo($db, 'atlas_catalogo_tipos_gestion', $datos, $id, 'Tipo de gestión');
+    }
+
+    private static function guardarGestionComercial(Database $db, array $input): array
+    {
+        $id = self::intVal($input['id'] ?? 0);
+        $subestatusId = self::intVal($input['subestatus_id'] ?? 0);
+        $sub = $subestatusId > 0 ? $db->queryOne("SELECT id, dictamen_id FROM atlas_dictamen_sub_estatus WHERE id = :id LIMIT 1", ['id' => $subestatusId]) : null;
+        $nombre = self::strVal($input['nombre'] ?? '');
+        if (!$sub || $nombre === '') {
+            return ['success' => false, 'mensaje' => 'Selecciona subestatus y captura gestión.'];
+        }
+        $tipoGestionId = self::intVal($input['tipo_gestion_id'] ?? 0);
+        $tipoGestionNombre = self::nullableStr($input['tipo_gestion'] ?? null);
+        if ($tipoGestionId > 0) {
+            $tipo = $db->queryOne("SELECT id, nombre FROM atlas_catalogo_tipos_gestion WHERE id = :id LIMIT 1", ['id' => $tipoGestionId]);
+            if (!$tipo) {
+                return ['success' => false, 'mensaje' => 'Selecciona un tipo de gestión válido.'];
+            }
+            $tipoGestionNombre = (string)$tipo['nombre'];
+        } elseif ($tipoGestionNombre !== null) {
+            $tipo = self::obtenerOCrearTipoGestionComercial($db, $tipoGestionNombre);
+            $tipoGestionId = (int)$tipo['id'];
+            $tipoGestionNombre = (string)$tipo['nombre'];
+        }
+        $clave = self::nullableStr($input['clave'] ?? null) ?: self::claveDesdeTexto($nombre);
+        $dup = $db->queryOne("SELECT id FROM atlas_catalogo_gestion WHERE COALESCE(NULLIF(subestatus_id, 0), sub_estatus_id) = :subestatus_id AND LOWER(nombre)=LOWER(:nombre) AND id <> :id LIMIT 1", ['subestatus_id' => $subestatusId, 'nombre' => $nombre, 'id' => $id]);
+        if ($dup) {
+            return ['success' => false, 'mensaje' => 'Ya existe esa gestión dentro del subestatus.'];
+        }
+        $datos = [
+            'dictamen_id' => (int)$sub['dictamen_id'],
+            'sub_estatus_id' => $subestatusId,
+            'subestatus_id' => $subestatusId,
+            'tipo_gestion_id' => $tipoGestionId > 0 ? $tipoGestionId : null,
+            'tipo_gestion' => $tipoGestionNombre,
+            'clave' => $clave,
+            'nombre' => $nombre,
+            'ventana_complementaria' => self::nullableStr($input['ventana_complementaria'] ?? null),
+            'campos_adicionales' => self::nullableStr($input['campos_adicionales'] ?? null),
+            'requiere_fecha' => self::activoVal($input['requiere_fecha'] ?? 0),
+            'permite_comentario' => self::activoVal($input['permite_comentario'] ?? 1),
+            'orden' => self::intVal($input['orden'] ?? 0),
+            'activo' => self::activoVal($input['activo'] ?? 1),
+            'estado_registro' => self::estadoCatalogoVal($input['estado_registro'] ?? 'publicado'),
+        ];
+        if ($datos['orden'] <= 0) {
+            $row = $db->queryOne("SELECT COALESCE(MAX(orden), 0) + 1 AS siguiente FROM atlas_catalogo_gestion WHERE COALESCE(NULLIF(subestatus_id, 0), sub_estatus_id) = :id", ['id' => $subestatusId]);
+            $datos['orden'] = (int)($row['siguiente'] ?? 1);
+        }
+        return self::guardarFilaCatalogo($db, 'atlas_catalogo_gestion', $datos, $id, 'Gestión');
+    }
+
+    public static function guardarCatalogosComercialesBloque(array $input): array
+    {
+        $filas = $input['filas'] ?? [];
+        if (!is_array($filas) || !$filas) {
+            return ['success' => false, 'mensaje' => 'No hay filas para guardar.'];
+        }
+        try {
+            $db = new Database();
+            self::asegurarTablasCatalogosComerciales($db);
+            $errores = self::validarFilasComerciales($filas);
+            if ($errores) {
+                return ['success' => false, 'mensaje' => 'Corrige los errores antes de publicar.', 'errores' => $errores];
+            }
+            $resumen = ['dictamenes' => 0, 'subestatus' => 0, 'tipos_gestion' => 0, 'gestiones' => 0];
+            $db->beginTransaction();
+            foreach (array_values($filas) as $idx => $fila) {
+                $orden = $idx + 1;
+                $dictamenNombre = self::strVal($fila['estatus'] ?? $fila['dictamen'] ?? '');
+                $dictamen = self::obtenerOCrearDictamenComercial($db, $dictamenNombre, self::nullableStr($fila['objetivo'] ?? null), $orden);
+                if ($dictamen['creado']) $resumen['dictamenes']++;
+                $sub = self::obtenerOCrearSubestatusComercial($db, (int)$dictamen['id'], self::strVal($fila['subestatus'] ?? $fila['sub_estatus'] ?? ''), $orden);
+                if ($sub['creado']) $resumen['subestatus']++;
+                $tipoGestion = null;
+                $tipoGestionTxt = self::nullableStr($fila['tipo_gestion'] ?? null);
+                if ($tipoGestionTxt !== null) {
+                    $tipoGestion = self::obtenerOCrearTipoGestionComercial($db, $tipoGestionTxt);
+                    if ($tipoGestion['creado']) $resumen['tipos_gestion']++;
+                }
+                $gestion = self::obtenerOCrearGestionComercial($db, (int)$dictamen['id'], (int)$sub['id'], [
+                    'tipo_gestion_id' => $tipoGestion ? (int)$tipoGestion['id'] : null,
+                    'tipo_gestion' => $tipoGestion ? (string)$tipoGestion['nombre'] : null,
+                    'nombre' => self::strVal($fila['gestion'] ?? $fila['lista_desplegable_gestion'] ?? ''),
+                    'ventana_complementaria' => self::nullableStr($fila['ventana_complementaria'] ?? null),
+                    'campos_adicionales' => self::nullableStr($fila['campos_adicionales'] ?? null),
+                    'requiere_fecha' => self::activoVal($fila['requiere_fecha'] ?? 0),
+                    'permite_comentario' => self::activoVal($fila['permite_comentario'] ?? 1),
+                    'orden' => $orden,
+                ]);
+                if ($gestion['creado']) $resumen['gestiones']++;
+            }
+            $db->commit();
+            return ['success' => true, 'mensaje' => 'Catálogos comerciales publicados.', 'resumen' => $resumen];
+        } catch (\Throwable $e) {
+            if (isset($db)) {
+                $db->rollback();
+            }
+            return ['success' => false, 'mensaje' => 'No se pudo publicar el bloque.', 'error' => $e->getMessage()];
+        }
+    }
+
+    public static function guardarOrdenCatalogosComerciales(array $input): array
+    {
+        $tipo = strtolower(self::strVal($input['tipo'] ?? ''));
+        $ids = array_values(array_filter(array_map('intval', is_array($input['ids'] ?? null) ? $input['ids'] : []), static function ($id) { return $id > 0; }));
+        if (!$ids || !in_array($tipo, ['dictamen', 'subestatus', 'tipo_gestion', 'gestion'], true)) {
+            return ['success' => false, 'mensaje' => 'Orden inválido.'];
+        }
+        $tabla = $tipo === 'dictamen' ? 'atlas_catalogo_dictamen' : ($tipo === 'subestatus' ? 'atlas_dictamen_sub_estatus' : ($tipo === 'tipo_gestion' ? 'atlas_catalogo_tipos_gestion' : 'atlas_catalogo_gestion'));
+        try {
+            $db = new Database();
+            self::asegurarTablasCatalogosComerciales($db);
+            $db->beginTransaction();
+            if ($tipo === 'subestatus') {
+                $padres = [];
+                foreach ($ids as $id) {
+                    $row = $db->queryOne("SELECT dictamen_id FROM atlas_dictamen_sub_estatus WHERE id = :id LIMIT 1", ['id' => $id]);
+                    $dictamenId = (int)($row['dictamen_id'] ?? 0);
+                    if ($dictamenId <= 0) {
+                        continue;
+                    }
+                    $padres[$dictamenId] = ($padres[$dictamenId] ?? 0) + 1;
+                    $db->CRUD(
+                        "UPDATE atlas_dictamen_sub_estatus SET orden = :orden WHERE id = :id",
+                        ['orden' => $padres[$dictamenId], 'id' => $id]
+                    );
+                }
+            } else {
+                foreach ($ids as $idx => $id) {
+                    $db->CRUD("UPDATE $tabla SET orden = :orden WHERE id = :id", ['orden' => $idx + 1, 'id' => $id]);
+                }
+            }
+            $db->commit();
+            return ['success' => true, 'mensaje' => 'Orden actualizado.'];
+        } catch (\Throwable $e) {
+            if (isset($db)) {
+                $db->rollback();
+            }
+            return ['success' => false, 'mensaje' => 'No se pudo guardar el orden.', 'error' => $e->getMessage()];
+        }
+    }
+
+    private static function validarFilasComerciales(array $filas): array
+    {
+        $errores = [];
+        $subKeys = [];
+        $gestionKeys = [];
+        foreach (array_values($filas) as $idx => $fila) {
+            $n = $idx + 1;
+            $estatus = self::strVal($fila['estatus'] ?? $fila['dictamen'] ?? '');
+            $sub = self::strVal($fila['subestatus'] ?? $fila['sub_estatus'] ?? '');
+            $gestion = self::strVal($fila['gestion'] ?? $fila['lista_desplegable_gestion'] ?? '');
+            if ($estatus === '') $errores[] = "Fila $n: estatus obligatorio.";
+            if ($sub === '') $errores[] = "Fila $n: subestatus obligatorio.";
+            if ($gestion === '') $errores[] = "Fila $n: gestión obligatoria.";
+            $subKey = mb_strtolower($estatus . '|' . $sub, 'UTF-8');
+            $gestionKey = mb_strtolower($estatus . '|' . $sub . '|' . $gestion, 'UTF-8');
+            if ($sub !== '' && isset($subKeys[$subKey]) && $subKeys[$subKey] !== $n) {
+                // Permitimos repetir el subestatus si trae gestiones distintas.
+            } else {
+                $subKeys[$subKey] = $n;
+            }
+            if ($gestion !== '' && isset($gestionKeys[$gestionKey])) {
+                $errores[] = "Fila $n: gestión duplicada dentro del mismo subestatus.";
+            }
+            $gestionKeys[$gestionKey] = true;
+        }
+        return $errores;
+    }
+
+    private static function obtenerOCrearDictamenComercial(Database $db, string $nombre, ?string $objetivo, int $orden): array
+    {
+        $row = $db->queryOne("SELECT id FROM atlas_catalogo_dictamen WHERE LOWER(nombre)=LOWER(:nombre) LIMIT 1", ['nombre' => $nombre]);
+        if ($row) {
+            $db->CRUD("UPDATE atlas_catalogo_dictamen SET objetivo = COALESCE(:objetivo, objetivo), activo = 1, estado_registro = 'publicado' WHERE id = :id", ['objetivo' => $objetivo, 'id' => (int)$row['id']]);
+            return ['id' => (int)$row['id'], 'creado' => false];
+        }
+        $clave = self::claveDesdeTexto($nombre);
+        $db->CRUD("INSERT INTO atlas_catalogo_dictamen (codigo_estatus, clave, nombre, objetivo, orden, activo, estado_registro) VALUES (:codigo, :clave, :nombre, :objetivo, :orden, 1, 'publicado')", ['codigo' => null, 'clave' => $clave, 'nombre' => $nombre, 'objetivo' => $objetivo, 'orden' => $orden]);
+        return ['id' => $db->lastInsertId(), 'creado' => true];
+    }
+
+    private static function obtenerOCrearSubestatusComercial(Database $db, int $dictamenId, string $nombre, int $orden): array
+    {
+        $row = $db->queryOne("SELECT id FROM atlas_dictamen_sub_estatus WHERE dictamen_id = :dictamen_id AND LOWER(nombre)=LOWER(:nombre) LIMIT 1", ['dictamen_id' => $dictamenId, 'nombre' => $nombre]);
+        if ($row) {
+            return ['id' => (int)$row['id'], 'creado' => false];
+        }
+        $db->CRUD("INSERT INTO atlas_dictamen_sub_estatus (dictamen_id, clave, nombre, orden, activo, estado_registro) VALUES (:dictamen_id, :clave, :nombre, :orden, 1, 'publicado')", ['dictamen_id' => $dictamenId, 'clave' => self::claveDesdeTexto($nombre), 'nombre' => $nombre, 'orden' => $orden]);
+        return ['id' => $db->lastInsertId(), 'creado' => true];
+    }
+
+    private static function obtenerOCrearTipoGestionComercial(Database $db, string $nombre): array
+    {
+        $nombre = self::strVal($nombre);
+        if ($nombre === '') {
+            return ['id' => null, 'nombre' => null, 'creado' => false];
+        }
+        $row = $db->queryOne("SELECT id, nombre FROM atlas_catalogo_tipos_gestion WHERE LOWER(nombre)=LOWER(:nombre) LIMIT 1", ['nombre' => $nombre]);
+        if ($row) {
+            $db->CRUD("UPDATE atlas_catalogo_tipos_gestion SET activo = 1, estado_registro = 'publicado' WHERE id = :id", ['id' => (int)$row['id']]);
+            return ['id' => (int)$row['id'], 'nombre' => (string)$row['nombre'], 'creado' => false];
+        }
+        $orden = $db->queryOne("SELECT COALESCE(MAX(orden), 0) + 1 AS siguiente FROM atlas_catalogo_tipos_gestion");
+        $db->CRUD(
+            "INSERT INTO atlas_catalogo_tipos_gestion (clave, nombre, orden, activo, estado_registro) VALUES (:clave, :nombre, :orden, 1, 'publicado')",
+            ['clave' => self::claveDesdeTexto($nombre), 'nombre' => $nombre, 'orden' => (int)($orden['siguiente'] ?? 1)]
+        );
+        return ['id' => $db->lastInsertId(), 'nombre' => $nombre, 'creado' => true];
+    }
+
+    private static function obtenerOCrearGestionComercial(Database $db, int $dictamenId, int $subestatusId, array $datos): array
+    {
+        $nombre = self::strVal($datos['nombre'] ?? '');
+        $row = $db->queryOne("SELECT id FROM atlas_catalogo_gestion WHERE COALESCE(NULLIF(subestatus_id, 0), sub_estatus_id) = :subestatus_id AND LOWER(nombre)=LOWER(:nombre) LIMIT 1", ['subestatus_id' => $subestatusId, 'nombre' => $nombre]);
+        $payload = [
+            'dictamen_id' => $dictamenId,
+            'sub_estatus_id' => $subestatusId,
+            'subestatus_id' => $subestatusId,
+            'tipo_gestion_id' => self::nullableInt($datos['tipo_gestion_id'] ?? null),
+            'tipo_gestion' => $datos['tipo_gestion'] ?? null,
+            'clave' => self::claveDesdeTexto($nombre),
+            'nombre' => $nombre,
+            'ventana_complementaria' => $datos['ventana_complementaria'] ?? null,
+            'campos_adicionales' => $datos['campos_adicionales'] ?? null,
+            'requiere_fecha' => self::activoVal($datos['requiere_fecha'] ?? 0),
+            'permite_comentario' => self::activoVal($datos['permite_comentario'] ?? 1),
+            'orden' => self::intVal($datos['orden'] ?? 1),
+        ];
+        if ($row) {
+            $payload['id'] = (int)$row['id'];
+            $db->CRUD("UPDATE atlas_catalogo_gestion SET sub_estatus_id = :sub_estatus_id, subestatus_id = :subestatus_id, tipo_gestion_id = :tipo_gestion_id, tipo_gestion = :tipo_gestion, ventana_complementaria = :ventana_complementaria, campos_adicionales = :campos_adicionales, requiere_fecha = :requiere_fecha, permite_comentario = :permite_comentario, activo = 1, estado_registro = 'publicado' WHERE id = :id", $payload);
+            return ['id' => (int)$row['id'], 'creado' => false];
+        }
+        $db->CRUD("INSERT INTO atlas_catalogo_gestion (dictamen_id, sub_estatus_id, subestatus_id, tipo_gestion_id, tipo_gestion, clave, nombre, ventana_complementaria, campos_adicionales, requiere_fecha, permite_comentario, orden, activo, estado_registro) VALUES (:dictamen_id, :sub_estatus_id, :subestatus_id, :tipo_gestion_id, :tipo_gestion, :clave, :nombre, :ventana_complementaria, :campos_adicionales, :requiere_fecha, :permite_comentario, :orden, 1, 'publicado')", $payload);
+        return ['id' => $db->lastInsertId(), 'creado' => true];
+    }
+
+    private static function guardarFilaCatalogo(Database $db, string $tabla, array $datos, int $id, string $entidad): array
+    {
+        if ($id > 0) {
+            $datos['id'] = $id;
+            $sets = [];
+            foreach (array_keys($datos) as $campo) {
+                if ($campo !== 'id') $sets[] = "$campo = :$campo";
+            }
+            $db->CRUD("UPDATE $tabla SET " . implode(', ', $sets) . " WHERE id = :id", $datos);
+            return ['success' => true, 'mensaje' => "$entidad actualizado.", 'id' => $id];
+        }
+        $campos = array_keys($datos);
+        $db->CRUD("INSERT INTO $tabla (" . implode(', ', $campos) . ") VALUES (:" . implode(', :', $campos) . ")", $datos);
+        return ['success' => true, 'mensaje' => "$entidad agregado.", 'id' => $db->lastInsertId()];
+    }
+
+    private static function estadoCatalogoVal($v): string
+    {
+        $s = strtolower(self::strVal($v));
+        return in_array($s, ['borrador', 'pendiente', 'publicado'], true) ? $s : 'publicado';
+    }
+
+    private static function claveDesdeTexto(string $texto): string
+    {
+        $s = iconv('UTF-8', 'ASCII//TRANSLIT//IGNORE', $texto);
+        $s = strtoupper(preg_replace('/[^A-Z0-9]+/', '_', (string)$s));
+        $s = trim($s, '_');
+        return $s !== '' ? substr($s, 0, 80) : 'SIN_CLAVE';
+    }
+
     private static function guardarSimple(string $tabla, array $datos, int $id, array $requeridos, string $nombreEntidad): array
     {
         try {

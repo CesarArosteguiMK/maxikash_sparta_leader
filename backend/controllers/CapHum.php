@@ -29,6 +29,8 @@ class CapHum extends Controller
     private const MODULO_GESTION_DAR_BAJA = 99;
     private const MODULO_GESTION_VISUALIZAR_CONTRASENA = 101;
     private const MODULO_PERMISOS_POR_PUESTO = 103;
+    private const MODULO_VALIDADOR_DOCUMENTAL_CANDIDATOS = 104;
+    private const MODULO_VALIDADOR_FINAL_CANDIDATOS = 105;
 
     /** Ãšltimo error de enviarCorreo para mostrarlo en la respuesta JSON */
     private $enviarCorreoUltimoError = '';
@@ -77,6 +79,18 @@ class CapHum extends Controller
     private static function puedeConfigurarPermisosPorPuesto(): bool
     {
         return self::tieneModuloWeb(self::MODULO_PERMISOS_POR_PUESTO);
+    }
+
+    private static function puedeValidarDocumentalCandidatos(): bool
+    {
+        return (int) ($_SESSION['usuario_id'] ?? 0) === 1
+            || self::tieneModuloWeb(self::MODULO_VALIDADOR_DOCUMENTAL_CANDIDATOS);
+    }
+
+    private static function puedeValidarFinalCandidatos(): bool
+    {
+        return (int) ($_SESSION['usuario_id'] ?? 0) === 1
+            || self::tieneModuloWeb(self::MODULO_VALIDADOR_FINAL_CANDIDATOS);
     }
 
     private static function getDepartamentosGestionPersonal()
@@ -5783,7 +5797,7 @@ class CapHum extends Controller
                     return;
                 }
                 var intentos = 0;
-                var maxIntentos = 60;
+                var maxIntentos = 10;
                 docModalPollTimer = setInterval(function() {
                     intentos++;
                     if (intentos > maxIntentos) {
@@ -5792,7 +5806,7 @@ class CapHum extends Controller
                         var modalAbierto = document.getElementById("modalDocumentacionCandidato");
                         if (bv && modalAbierto && modalAbierto.classList.contains("show")) {
                             bv.classList.remove("d-none");
-                            bv.innerHTML = "<div class=\"alert alert-warning small mb-0\"><i class=\"fa fa-info-circle me-1\"></i>No llegó el resultado de la verificación automática en el tiempo esperado. Cierra el modal y ábrelo de nuevo, o espera unos minutos y actualiza la página.</div>";
+                            bv.innerHTML = "<div class=\"alert alert-warning small mb-0\"><i class=\"fa fa-info-circle me-1\"></i>La verificación automática no respondió rápido. El expediente queda disponible para revisión manual; puede validar, rechazar o reintentar la API después.</div>";
                         }
                         return;
                     }
@@ -6042,7 +6056,13 @@ class CapHum extends Controller
                                 var ubicacionPartes = [paisTexto, estadoTexto, municipioTexto, coloniaTexto].filter(function(v) { return !!v; });
                                 var ubicacion = ubicacionPartes.length ? ubicacionPartes.join(" / ") : "—";
                                 var est = c.estatus || "Por evaluar";
-                                var estBadge = est === "Validado" ? "bg-success" : (est === "Por evaluar" ? "bg-warning text-dark" : (est === "Proceso cerrado" ? "bg-dark" : "bg-secondary"));
+                                var estBadge = est === "Validado"
+                                    ? "bg-success"
+                                    : (est === "Pendiente de validacion final"
+                                        ? "bg-info text-dark"
+                                        : (est === "Ingreso programado"
+                                            ? "bg-primary"
+                                            : (est === "Por evaluar" ? "bg-warning text-dark" : (est === "Proceso cerrado" ? "bg-dark" : "bg-secondary"))));
 
                                 var acciones = '<div class="d-flex flex-wrap gap-1 align-items-center">' +
                                     '<button type="button" class="btn btn-sm btn-primary btn-editar-candidato" data-id="' + id + '" title="Editar"><i class="fa fa-edit"></i></button>' +
@@ -6609,7 +6629,26 @@ class CapHum extends Controller
                 if (validados >= requeridos && requeridos >= 10) {
                     var candidato = obtenerCandidatoLocalPorId(idCandidato);
                     var estatus = candidato && candidato.estatus ? String(candidato.estatus) : "";
+                    var permisosCand = window.candidatosPermisos || {};
+                    var puedeDocumental = !!permisosCand.documental;
+                    var puedeFinal = !!permisosCand.final;
+                    var pendienteFinal = estatus === "Pendiente de validacion final";
                     var ingresoProgramado = !!(candidato && candidato.fecha_ingreso_programada) || estatus === "Ingreso programado";
+                    if (puedeDocumental && !pendienteFinal && !ingresoProgramado) {
+                        bloqueAccionesProceso.classList.remove("d-none");
+                        bloqueAccionesProceso.innerHTML = "<div class=\"w-100 text-start text-lg-end\"><p class=\"text-muted small mb-2 mb-lg-3\">Los documentos estan validados. Envia el expediente a validacion final para continuar el proceso.</p><div class=\"d-flex flex-wrap gap-2 justify-content-end\"><button type=\"button\" class=\"btn btn-outline-danger btn-cerrar-proceso-candidato\" data-id=\"" + idCandidato + "\"><i class=\"fa fa-times-circle me-1\"></i>Cerrar proceso</button><button type=\"button\" class=\"btn btn-primary btn-enviar-validacion-final-candidato\" data-id=\"" + idCandidato + "\"><i class=\"fa fa-paper-plane me-1\"></i>Enviar a validacion final</button></div></div>";
+                        return;
+                    }
+                    if (puedeDocumental && !puedeFinal && (pendienteFinal || ingresoProgramado)) {
+                        bloqueAccionesProceso.classList.remove("d-none");
+                        bloqueAccionesProceso.innerHTML = "<div class=\"w-100 text-start text-lg-end\"><p class=\"text-muted small mb-0\">El expediente ya fue enviado a validacion final.</p></div>";
+                        return;
+                    }
+                    if (!puedeFinal || (!pendienteFinal && !ingresoProgramado)) {
+                        bloqueAccionesProceso.classList.add("d-none");
+                        bloqueAccionesProceso.innerHTML = "";
+                        return;
+                    }
                     var btnClase = ingresoProgramado ? "btn-confirmar-firma-candidato" : "btn-continuar-proceso-candidato";
                     var btnIcon = ingresoProgramado ? "fa-file-signature" : "fa-check-circle";
                     var btnTexto = ingresoProgramado ? "Confirmar firma" : "Continuar proceso";
@@ -6649,6 +6688,7 @@ class CapHum extends Controller
                 var usuarioPuedeRevalidar = (typeof window.miUsuarioId !== "undefined" && parseInt(window.miUsuarioId, 10) === 1);
                 var btnHeaderRevalidar = usuarioPuedeRevalidar ? "<button type=\"button\" class=\"btn btn-xs btn-outline-primary py-0 px-1 btn-reintentar-verif-expediente\" data-reintentar-api=\"1\" title=\"Volver a validar expediente\"><i class=\"fa fa-sync-alt\"></i></button>" : "";
                 var html = "<div class=\"card border shadow-none h-100\"><div class=\"card-header py-2 bg-light d-flex align-items-center justify-content-between gap-2\"><strong><i class=\"fa fa-shield-alt me-1\"></i>Resultado de la verificación API</strong>" + btnHeaderRevalidar + "</div><div class=\"card-body py-2 small overflow-auto\">";
+                html = html.replace(/Resultado de .*?API/, "Resultado de revisi&oacute;n documental");
                 if (v.modo_verificacion === "solo_identificacion") {
                     html += "<div class=\"alert alert-info py-1 px-2 mb-2 small\" role=\"status\"><strong>Modo prueba:</strong> esta corrida solo envió el PDF de identificación a la API (sin CURP, NSS, constancia ni acta).</div>";
                 }
@@ -6656,8 +6696,19 @@ class CapHum extends Controller
                 var checksTotNum = checksTotales != null ? parseInt(checksTotales, 10) : null;
                 var sinPuntuaciones = (scoreFrente == null || scoreFrente === "") && (scoreReverso == null || scoreReverso === "");
                 var respuestaVaciaApi = !errApi && checksTotNum === 0 && sinPuntuaciones && alertas.length === 0 && v.todo_coincide !== true;
+                if (!verificacionEnProceso && errApi) {
+                    candidatosDocConsola("error", "verificacion API - error_api (detalle tecnico)", errApi);
+                    html += "<div class=\"alert alert-warning py-2 px-2 mb-2 small\" role=\"alert\"><strong>API pendiente / fallo t&eacute;cnico.</strong><br><span class=\"text-muted\">La validaci&oacute;n autom&aacute;tica no entreg&oacute; un resultado confiable. No se marca como revisi&oacute;n manual; corrige/reinicia la API o usa \"Reintentar API\".</span></div>";
+                    html += "<div class=\"d-grid gap-2 mb-2\"><button type=\"button\" class=\"btn btn-sm btn-outline-primary btn-reintentar-verif-expediente\" id=\"btnReintentarVerifExpediente\" title=\"Volver a ejecutar la verificaci&oacute;n contra la API\"><i class=\"fa fa-sync-alt me-1\"></i>Reintentar API</button></div>";
+                    errApi = "";
+                }
+                if (!verificacionEnProceso && respuestaVaciaApi) {
+                    candidatosDocConsola("warn", "verificacion API - respuesta sin datos utiles", v);
+                    html += "<div class=\"alert alert-warning py-2 px-2 mb-2 small\" role=\"alert\"><strong>Revisi&oacute;n manual requerida.</strong><br><span class=\"text-muted\">La validaci&oacute;n autom&aacute;tica no gener&oacute; datos suficientes. El expediente queda disponible para dictamen manual.</span></div>";
+                    respuestaVaciaApi = false;
+                }
                 if (verificacionEnProceso) {
-                    html += "<div class=\"alert alert-info py-2 px-2 mb-2 small\" role=\"status\"><strong>Verificación en proceso.</strong><br><span class=\"text-muted\">Puedes dejar abierto este recuadro; se actualizará automáticamente.</span></div>";
+                    html += "<div class=\"alert alert-info py-2 px-2 mb-2 small\" role=\"status\"><strong>Verificación en proceso.</strong><br><span class=\"text-muted\">No es necesario esperar: el expediente puede revisarse manualmente mientras la API termina.</span></div>";
                 } else if (errApi) {
                     candidatosDocConsola("error", "verificación API - error_api (detalle técnico)", errApi);
                     html += "<div class=\"alert alert-danger py-2 px-2 mb-2 small\" role=\"alert\"><strong>No se pudo completar la verificación automática.</strong><br><span class=\"text-muted\">El servicio no respondió a tiempo o hubo un fallo técnico. Capital Humano puede revisar el expediente manualmente.</span></div>";
@@ -7088,26 +7139,39 @@ class CapHum extends Controller
                 if (vc && typeof vc === "object") candidatosRevision.push(vc);
                 if (vf) candidatosRevision.push(vf);
                 var requiereRevision = false;
+                var apiPendiente = false;
                 var notas = [];
+                if (tipoNorm.indexOf("IDENTIFICACION") !== -1 && notasCalidad.length > 0) {
+                    requiereRevision = true;
+                }
                 candidatosRevision.forEach(function(x) {
                     if (!x || typeof x !== "object") return;
-                    if (x.pendiente_revision_backend || x.pendiente_revision_manual || x.revision_manual || x.timeout) requiereRevision = true;
-                    if (x.valido === false || x.ok === false || x.aceptado === false) requiereRevision = true;
+                    var esFalloTecnicoApi = !!(x.timeout || x.error_api || x.api_pendiente || x.pendiente_revision_backend);
+                    if (esFalloTecnicoApi) apiPendiente = true;
+                    if (x.pendiente_revision_manual || (x.revision_manual && !esFalloTecnicoApi)) requiereRevision = true;
+                    if ((x.valido === false || x.ok === false || x.aceptado === false) && !esFalloTecnicoApi) requiereRevision = true;
                     if (x.mensaje) notas.push(x.mensaje);
                     if (Array.isArray(x.notas)) x.notas.forEach(function(n) { notas.push(typeof n === "string" ? n : String(n)); });
                 });
-                if (!requiereRevision) return;
+                if (!requiereRevision && !apiPendiente) return;
                 var detalle = notas.length ? notas.join(" | ") : "La verificaci\u00f3n autom\u00e1tica no confirm\u00f3 el documento; revisar manualmente.";
-                revisionManualHtml = " <span class=\"badge bg-warning text-dark ms-1\" data-bs-toggle=\"tooltip\" data-bs-title=\"" + escHtml(detalle).replace(/"/g, "&quot;") + "\">Revisi\u00f3n manual</span>";
+                if (requiereRevision) {
+                    revisionManualHtml = " <span class=\"badge bg-warning text-dark ms-1\" data-bs-toggle=\"tooltip\" data-bs-title=\"" + escHtml(detalle).replace(/"/g, "&quot;") + "\">Revisi\u00f3n manual</span>";
+                } else {
+                    revisionManualHtml = " <span class=\"badge bg-info text-dark ms-1\" data-bs-toggle=\"tooltip\" data-bs-title=\"" + escHtml(detalle || "La API no entreg\u00f3 resultado todav\u00eda. Reintentar verificaci\u00f3n autom\u00e1tica.").replace(/"/g, "&quot;") + "\">API pendiente</span>";
+                }
             })();
             var esValidado = parseInt(d.validado || 0, 10) === 1;
+            var permisosCandDoc = window.candidatosPermisos || {};
+            var puedeValidarDocumentalDoc = !!permisosCandDoc.documental;
+            var puedeRechazarFinalDoc = !!permisosCandDoc.final;
             var btnValidarClase = esValidado ? "btn-success" : "btn-outline-success";
             var btnValidarIcon = esValidado ? "fa-check-circle" : "fa-check";
-            var btnValidarTitle = esValidado ? "Documento validado" : "Marcar como validado";
-            var btnValidarDisabled = esValidado ? " disabled" : "";
+            var btnValidarTitle = esValidado ? "Documento validado" : (puedeValidarDocumentalDoc ? "Marcar como validado" : "Requiere permiso de validador documental");
+            var btnValidarDisabled = (esValidado || !puedeValidarDocumentalDoc) ? " disabled" : "";
             if (esValidado) { item.style.borderLeft = "3px solid #198754"; item.style.background = "#f0fdf4"; }
             var btnActaHtml = tipoNorm.indexOf("ACTA") !== -1 ? "<button type=\"button\" class=\"btn btn-sm btn-outline-info btn-validar-acta-candidato\" data-id=\"" + d.id + "\" title=\"Validar acta con API\"><i class=\"fa fa-sync-alt\"></i></button>" : "";
-            var btnEliminarHtml = esValidado
+            var btnEliminarHtml = (esValidado && !puedeRechazarFinalDoc)
                 ? "<span class=\"btn btn-sm btn-outline-secondary disabled\" title=\"No se puede eliminar un documento validado\"><i class=\"fa fa-trash\"></i></span>"
                 : "<button type=\"button\" class=\"btn btn-sm btn-outline-danger btn-eliminar-doc-candidato\" data-id=\"" + d.id + "\" title=\"Eliminar\"><i class=\"fa fa-trash\"></i></button>";
             item.innerHTML = "<div class=\"d-flex align-items-center flex-wrap\"><div><strong>" + escHtml(tipoDocTexto) + "</strong>" + tooltipFiscalHtml + tooltipIdHtml + tooltipCalidadHtml + tooltipEstadoCuentaHtml + tooltipNssHtml + tooltipCurpHtml + tooltipActaHtml + revisionManualHtml + (esValidado ? " <span class=\"badge bg-success ms-1\">Validado</span>" : "") + "<br><small class=\"text-muted\">" + escHtml(nombreArchivoTexto) + (fecha ? " &middot; " + fecha : "") + "</small></div>" + badge + "</div>" +
@@ -7300,12 +7364,12 @@ class CapHum extends Controller
                     fd.append("solo_identificacion", "1");
                 }
                 var ctrl = new AbortController();
-                var toMs = 780000;
+                var toMs = 30000;
                 var tid = setTimeout(function() { try { ctrl.abort(); } catch (e) {} }, toMs);
                 var t0 = (typeof performance !== "undefined" && performance.now) ? performance.now() : Date.now();
                 candidatosDocConsola("info", "verificarExpedienteCandidato - inicio POST", { id_candidato: idC, url: "/caphum/verificarExpedienteCandidato", timeout_ms: toMs, solo_identificacion: !!soloIdentificacion });
                 registrarTrazaDocModalTecnico("verificarExpedienteCandidato - POST (detalle)", { id_candidato: idC, url: "/caphum/verificarExpedienteCandidato", timeout_ms: toMs, solo_identificacion: !!soloIdentificacion });
-                setDocModalApiTraceUsuario("Verificación iniciada. Puedes dejar este recuadro abierto; se actualizará sola.", "wait");
+                setDocModalApiTraceUsuario("Verificación iniciada en segundo plano. No bloquea la revisión manual del expediente.", "wait");
                 fetch("/caphum/verificarExpedienteCandidato", { method: "POST", body: fd, headers: { "X-Requested-With": "XMLHttpRequest" }, signal: ctrl.signal })
                     .then(function(r) {
                         clearTimeout(tid);
@@ -7422,7 +7486,7 @@ class CapHum extends Controller
                         } else if (verifPrev) {
                             clearDocModalApiTrace();
                         } else if (res.datos && res.datos.metricas && res.datos.metricas.expediente_completo) {
-                            setDocModalApiTraceUsuario("Expediente completo. Si la verificación automática no aparece, use \"Reintentar API\".", "neutral");
+                            setDocModalApiTraceUsuario("Expediente completo. La verificación automática corre en segundo plano y no bloquea la revisión manual.", "neutral");
                         } else {
                             clearDocModalApiTrace();
                         }
@@ -7458,7 +7522,7 @@ class CapHum extends Controller
                         renderVerificacionApiCard(bloqueVerif, verif);
                         renderComparacionesDocFullWidth(bloqueComp, verif);
                     } else if (metricas && metricas.expediente_completo) {
-                        if (bloqueVerif) { bloqueVerif.classList.remove("d-none"); bloqueVerif.innerHTML = "<div class=\"alert alert-info small mb-0\"><i class=\"fa fa-hourglass-half me-1\"></i>Verificación en proceso. Esta vista se actualiza sola cada pocos segundos hasta recibir el resultado.</div>"; }
+                        if (bloqueVerif) { bloqueVerif.classList.remove("d-none"); bloqueVerif.innerHTML = "<div class=\"alert alert-info small mb-0\"><i class=\"fa fa-hourglass-half me-1\"></i>Verificación automática en proceso. El expediente ya está completo; el resultado puede tardar unos minutos según el tamaño de los PDF y la respuesta de la API.</div>"; }
                         if (bloqueComp) { bloqueComp.classList.add("d-none"); bloqueComp.innerHTML = ""; }
                     } else {
                         if (bloqueVerif) { bloqueVerif.classList.add("d-none"); bloqueVerif.innerHTML = ""; }
@@ -8042,6 +8106,14 @@ class CapHum extends Controller
                 }
                 return;
             }
+            btn = e.target.closest(".btn-enviar-validacion-final-candidato");
+            if (btn) {
+                e.preventDefault();
+                e.stopPropagation();
+                var idValFinal = btn.getAttribute("data-id");
+                if (idValFinal) enviarCandidatoAValidacionFinal(parseInt(idValFinal, 10), btn);
+                return;
+            }
             btn = e.target.closest(".btn-continuar-proceso-candidato");
             if (btn) {
                 e.preventDefault();
@@ -8058,6 +8130,44 @@ class CapHum extends Controller
                 if (idFirma) confirmarFirmaContratoCandidato(parseInt(idFirma, 10));
             }
         });
+        function enviarCandidatoAValidacionFinal(idCandidato, btn) {
+            if (!idCandidato || idCandidato <= 0) return;
+            var prevHtml = btn ? btn.innerHTML : "";
+            var ejecutar = function() {
+                if (btn) { btn.disabled = true; btn.innerHTML = "<i class=\"fa fa-spinner fa-spin me-1\"></i>Enviando"; }
+                fetch("/caphum/enviarCandidatoValidacionFinal", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json", "Accept": "application/json" },
+                    body: JSON.stringify({ id_candidato: idCandidato })
+                }).then(function(r){ return r.json(); }).then(function(res) {
+                    if (btn) { btn.disabled = false; btn.innerHTML = prevHtml; }
+                    if (!res.success) {
+                        if (typeof Swal !== "undefined") Swal.fire({ icon: "error", title: "Error", text: res.mensaje || "No se pudo enviar a validacion final." });
+                        return;
+                    }
+                    var candidato = obtenerCandidatoLocalPorId(idCandidato);
+                    if (candidato) candidato.estatus = "Pendiente de validacion final";
+                    cargarDocumentosModal(idCandidato);
+                    if (typeof getCandidatos === "function") getCandidatos();
+                    if (typeof Swal !== "undefined") Swal.fire({ icon: "success", title: "Enviado", text: res.mensaje || "Expediente enviado a validacion final.", timer: 2200, showConfirmButton: false });
+                }).catch(function() {
+                    if (btn) { btn.disabled = false; btn.innerHTML = prevHtml; }
+                    if (typeof Swal !== "undefined") Swal.fire({ icon: "error", title: "Error", text: "Error de conexion." });
+                });
+            };
+            if (typeof Swal === "undefined") {
+                if (confirm("Enviar este expediente a validacion final?")) ejecutar();
+                return;
+            }
+            Swal.fire({
+                title: "Enviar a validacion final",
+                text: "El responsable final podra aprobar el ingreso o rechazar documentos.",
+                icon: "question",
+                showCancelButton: true,
+                confirmButtonText: "Enviar",
+                cancelButtonText: "Cancelar"
+            }).then(function(r) { if (r.isConfirmed) ejecutar(); });
+        }
         function initFlatpickrFechaIngresoCandidato() {
             var input = document.getElementById("fechaIngresoCandidato");
             if (!input || typeof flatpickr === "undefined") return;
@@ -8498,7 +8608,11 @@ class CapHum extends Controller
         HTML;
 
         $miUsuarioId = (int) ($_SESSION['usuario_id'] ?? 0);
-        $script = '<script>window.miUsuarioId = ' . json_encode($miUsuarioId) . ';</script>' . "\n" . $script;
+        $permisosCandidatos = [
+            'documental' => self::puedeValidarDocumentalCandidatos(),
+            'final' => self::puedeValidarFinalCandidatos(),
+        ];
+        $script = '<script>window.miUsuarioId = ' . json_encode($miUsuarioId) . '; window.candidatosPermisos = ' . json_encode($permisosCandidatos) . ';</script>' . "\n" . $script;
 
         $departamento = CapHumDAO::getTodosDepartamentosGestion();
         $modulos = $_SESSION['modulos'] ?? [];
@@ -8510,6 +8624,7 @@ class CapHum extends Controller
         self::set("departamento", $departamento);
         self::set("paisesActivos", \Models\Paises::getPaisesActivos());
         self::set("miUsuarioId", $miUsuarioId);
+        self::set("permisosCandidatos", $permisosCandidatos);
         self::set("listaJefes", CapHumDAO::getListaPersonasParaJefe());
         self::render("candidatos");
     }
@@ -8954,10 +9069,10 @@ class CapHum extends Controller
         if ($resDocs['success'] && !empty($resDocs['datos'])) {
             foreach ($resDocs['datos'] as $d) {
                 $tipo = trim($d['tipo_documento'] ?? '');
-                if (!isset($tiposNombre[$tipo])) {
+                $numTipo = $this->numeroTipoDocumentoCandidatoMetricas($tipo);
+                if ($numTipo <= 0) {
                     continue;
                 }
-                $numTipo = $tiposNombre[$tipo];
                 if (!empty((int) ($d['validado'] ?? 0))) {
                     $tipoDocumentoValidadoRh[$numTipo] = true;
                 }
@@ -9910,8 +10025,9 @@ class CapHum extends Controller
             if ($soloIdentificacion) {
                 array_unshift($alertasErr, 'Modo "solo identificación" activo: el fallo puede no reproducirse al verificar con todos los PDFs.');
             }
+            $alertasErr = ['La verificacion automatica no finalizo por un fallo tecnico de la API. No se considera revision manual; reintente cuando el servicio este disponible.'];
             $payloadError = [
-                'todo_coincide' => false,
+                'todo_coincide' => null,
                 'foto_rechazada' => false,
                 'curp_definitivo' => null,
                 'checks_ok' => 0,
@@ -9924,10 +10040,12 @@ class CapHum extends Controller
                 'anio_nacimiento' => null,
                 'tipo_documento' => null,
                 'modo_verificacion' => $soloIdentificacion ? 'solo_identificacion' : 'completo',
+                'api_pendiente' => true,
                 'error_api' => $resultadoApi['error'],
             ];
             CandidatosDAO::updateVerificacionExpediente($id_candidato, json_encode($payloadError));
             $mensajeUsuario = 'La verificación automática no pudo completarse. El estado quedó guardado; Capital Humano revisará el expediente.';
+            $mensajeUsuario = 'La verificacion automatica no pudo completarse por un fallo tecnico. Reintente la API cuando el servicio este disponible.';
             echo json_encode(self::respuesta(true, $mensajeUsuario, ['verificacion_expediente' => $payloadError]));
             return;
         }
@@ -10032,6 +10150,10 @@ class CapHum extends Controller
     public function eliminarDocumentoCandidato()
     {
         header('Content-Type: application/json; charset=utf-8');
+        if (!self::puedeValidarDocumentalCandidatos() && !self::puedeValidarFinalCandidatos()) {
+            echo json_encode(self::respuesta(false, 'No tienes permiso para rechazar documentos de candidatos.'));
+            return;
+        }
         $id_doc = 0;
         $comentario = '';
         $ct = $_SERVER['CONTENT_TYPE'] ?? '';
@@ -10094,6 +10216,7 @@ class CapHum extends Controller
         }
         if ($idCand > 0) {
             CandidatosDAO::updateVerificacionExpediente($idCand, null);
+            CandidatosDAO::updateEstatus($idCand, 'Por evaluar');
             CandidatosDAO::invalidateDocumentacionCache($idCand);
         }
 
@@ -10252,6 +10375,10 @@ class CapHum extends Controller
     public function validarDocumentoCandidato()
     {
         header('Content-Type: application/json; charset=utf-8');
+        if (!self::puedeValidarDocumentalCandidatos()) {
+            echo json_encode(self::respuesta(false, 'No tienes permiso de validador documental.'));
+            return;
+        }
         $id_doc = (int) ($_POST['id'] ?? $_GET['id'] ?? 0);
         if ($id_doc <= 0) {
             echo json_encode(self::respuesta(false, 'ID inválido.'));
@@ -10271,7 +10398,7 @@ class CapHum extends Controller
         }
         $idCand = (int) ($doc['id_candidato'] ?? 0);
         $conteo = CandidatosDAO::contarValidados($idCand);
-        $requeridos = 11;
+        $requeridos = 10;
         $todosValidados = ($conteo['total'] >= $requeridos && $conteo['validados'] >= $requeridos);
         if ($todosValidados) {
             CandidatosDAO::updateEstatus($idCand, 'Validado');
@@ -10291,6 +10418,44 @@ class CapHum extends Controller
      * Cerrar proceso del candidato (modal "Cerrar proceso"). Requiere módulo Candidatos.
      * POST JSON: id_candidato, motivo, descripcion (opcional).
      */
+    public function enviarCandidatoValidacionFinal()
+    {
+        header('Content-Type: application/json; charset=utf-8');
+        if (!self::puedeValidarDocumentalCandidatos()) {
+            echo json_encode(self::respuesta(false, 'No tienes permiso de validador documental.'));
+            return;
+        }
+        $raw = file_get_contents('php://input');
+        $body = json_decode($raw, true) ?: [];
+        $id_candidato = (int) ($body['id_candidato'] ?? $body['id'] ?? $_POST['id_candidato'] ?? $_POST['id'] ?? 0);
+        if ($id_candidato <= 0) {
+            echo json_encode(self::respuesta(false, 'ID de candidato invalido.'));
+            return;
+        }
+        $candidatoRes = CandidatosDAO::getById($id_candidato);
+        if (!$candidatoRes['success'] || empty($candidatoRes['datos'])) {
+            echo json_encode(self::respuesta(false, 'Candidato no encontrado.'));
+            return;
+        }
+        $estatusActual = trim((string) ($candidatoRes['datos']['estatus'] ?? ''));
+        if (strcasecmp($estatusActual, 'Contratado') === 0 || strcasecmp($estatusActual, 'Proceso cerrado') === 0) {
+            echo json_encode(self::respuesta(false, 'Este candidato ya no puede enviarse a validacion final.'));
+            return;
+        }
+        $conteo = CandidatosDAO::contarValidados($id_candidato);
+        $requeridos = 10;
+        if ((int) ($conteo['total'] ?? 0) < $requeridos || (int) ($conteo['validados'] ?? 0) < $requeridos) {
+            echo json_encode(self::respuesta(false, 'Primero deben estar validados todos los documentos requeridos.'));
+            return;
+        }
+        CandidatosDAO::updateEstatus($id_candidato, 'Pendiente de validacion final');
+        CandidatosDAO::invalidateDocumentacionCache($id_candidato);
+        echo json_encode(self::respuesta(true, 'Expediente enviado a validacion final.', [
+            'id_candidato' => $id_candidato,
+            'estatus' => 'Pendiente de validacion final',
+        ]));
+    }
+
     public function verificarActaDocumentoCandidato()
     {
         header('Content-Type: application/json; charset=utf-8');
@@ -10369,6 +10534,10 @@ class CapHum extends Controller
     public function continuarProcesoCandidato()
     {
         header('Content-Type: application/json; charset=utf-8');
+        if (!self::puedeValidarFinalCandidatos()) {
+            echo json_encode(self::respuesta(false, 'No tienes permiso de validador final.'));
+            return;
+        }
         $raw = file_get_contents('php://input');
         $body = json_decode($raw, true) ?: [];
         $id_candidato = (int) ($body['id_candidato'] ?? $body['id'] ?? 0);
@@ -10394,6 +10563,11 @@ class CapHum extends Controller
             return;
         }
         $c = $candidatoRes['datos'];
+        $estatusActual = trim((string) ($c['estatus'] ?? ''));
+        if ($estatusActual !== 'Pendiente de validacion final' && $estatusActual !== 'Ingreso programado') {
+            echo json_encode(self::respuesta(false, 'El expediente debe estar en validacion final antes de continuar el proceso.'));
+            return;
+        }
         $nombreCompleto = trim(implode(' ', [
             $c['nombres'] ?? '',
             $c['segundo_nombre'] ?? '',
@@ -10547,6 +10721,10 @@ class CapHum extends Controller
     public function pasarCandidatoAGestion()
     {
         header('Content-Type: application/json; charset=utf-8');
+        if (!self::puedeValidarFinalCandidatos()) {
+            echo json_encode(self::respuesta(false, 'No tienes permiso de validador final.'));
+            return;
+        }
         $raw = file_get_contents('php://input');
         $body = json_decode($raw, true) ?: [];
         $id_candidato = (int) ($body['id_candidato'] ?? $body['id'] ?? 0);
@@ -10590,7 +10768,7 @@ class CapHum extends Controller
         }
         $result = $this->ejecutarAltaCandidatoEnGestion($id_candidato);
         if ($result['success']) {
-            $this->mostrarPaginaConfirmacionAlta(true, 'El colaborador ha sido dado de alta en Gestión correctamente. Se envió el correo de bienvenida y ya tiene acceso al menú de Onboarding.');
+            $this->mostrarPaginaConfirmacionAlta(true, 'El colaborador ha sido dado de alta en Gestion correctamente. Se envio el correo de bienvenida.');
         } else {
             $this->mostrarPaginaConfirmacionAlta(false, $result['mensaje'] ?? 'Error al dar de alta en Gestión.');
         }
@@ -10622,7 +10800,7 @@ class CapHum extends Controller
     }
 
     /**
-     * Lógica común: alta de candidato en Gestión (persona, módulo Onboarding, correo bienvenida).
+     * Logica comun: alta de candidato en Gestion (persona, documentos y correo bienvenida).
      * @return array { success, mensaje, id_persona?, id_candidato }
      */
     private function ejecutarAltaCandidatoEnGestion($id_candidato, $fecha_ingreso = null)
@@ -10638,6 +10816,9 @@ class CapHum extends Controller
         $c = $candidatoRes['datos'];
         if (strcasecmp((string) ($c['estatus'] ?? ''), 'Contratado') === 0) {
             return ['success' => false, 'mensaje' => 'Este candidato ya fue enviado a Gestión.'];
+        }
+        if (trim((string) ($c['estatus'] ?? '')) !== 'Ingreso programado') {
+            return ['success' => false, 'mensaje' => 'Primero debe estar programado el ingreso desde validacion final.'];
         }
         $numero_empleado = trim($c['numero_empleado'] ?? '');
         if ($numero_empleado === '') {
@@ -10676,10 +10857,6 @@ class CapHum extends Controller
         $documentosCopiados = $this->copiarDocumentosCandidatoAGestion($id_candidato, $id_persona);
         CandidatosDAO::marcarContratoFirmado($id_candidato, (new \DateTimeImmutable('now', new \DateTimeZone('America/Mexico_City')))->format('Y-m-d H:i:s'));
         CandidatosDAO::updateEstatus($id_candidato, 'Contratado');
-        $resModulo = CapHumDAO::asignarSoloModuloOnboarding($id_persona);
-        if (!$resModulo['success']) {
-            return ['success' => false, 'mensaje' => $resModulo['mensaje'] ?? 'Error al asignar permiso de Onboarding.'];
-        }
         $nombreCompleto = trim(implode(' ', [$c['nombres'] ?? '', $c['segundo_nombre'] ?? '', $c['apellidop'] ?? '', $c['apellidom'] ?? '']));
         $destino = trim($c['email'] ?? '');
         if ($destino !== '' && filter_var($destino, FILTER_VALIDATE_EMAIL)) {
@@ -10693,7 +10870,6 @@ class CapHum extends Controller
             }
             $logoSrc = $rutaLogoInline ? 'cid:logo__SPARTA_SECRET_REDACTED__' : (rtrim($base, '/') . '/assets/img/logo_correo.png');
             $urlPlataforma = rtrim($base, '/') . '/';
-            $urlOnboarding = rtrim($base, '/') . '/onboarding/index';
             $cuerpoBienvenida = '<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><title>Bienvenida</title></head><body style="margin:0; padding:0; background-color:#e8eef4; font-family: \'Segoe UI\', Tahoma, sans-serif;">
   <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background-color:#e8eef4;"><tr><td align="center" style="padding: 32px 16px;">
     <table role="presentation" width="600" cellspacing="0" cellpadding="0" style="max-width:600px; background-color:#ffffff; border-radius:8px; box-shadow: 0 2px 12px rgba(0,0,0,0.08);">
@@ -10701,8 +10877,8 @@ class CapHum extends Controller
       <tr><td style="padding: 32px;">
         <p style="margin:0 0 16px 0; color:#1a202c; font-size: 16px;">Hola <strong>' . htmlspecialchars($nombreCompleto) . '</strong>,</p>
         <p style="margin:0 0 16px 0; color:#2d3748; font-size: 15px; line-height: 1.6;">Nos da mucho gusto darte la bienvenida a Maxikash. Ya formas parte del equipo.</p>
-        <p style="margin:0 0 20px 0; color:#2d3748; font-size: 15px; line-height: 1.6;">Para comenzar, entra al <strong>Onboarding</strong> donde encontrarás la información importante para tu incorporación.</p>
-        <p style="margin: 24px 0 16px 0;"><a href="' . htmlspecialchars($urlOnboarding) . '" style="display:inline-block; padding: 14px 28px; background-color:#1e3a5f; color:#ffffff !important; text-decoration:none; border-radius: 8px; font-weight: 600; font-size: 16px;">Entrar al Onboarding</a></p>
+        <p style="margin:0 0 20px 0; color:#2d3748; font-size: 15px; line-height: 1.6;">Tu usuario quedo registrado en la plataforma. Capital Humano te compartira los siguientes pasos de incorporacion.</p>
+        <p style="margin: 24px 0 16px 0;"><a href="' . htmlspecialchars($urlPlataforma) . '" style="display:inline-block; padding: 14px 28px; background-color:#1e3a5f; color:#ffffff !important; text-decoration:none; border-radius: 8px; font-weight: 600; font-size: 16px;">Entrar a la plataforma</a></p>
         <p style="margin:0 0 8px 0; color:#718096; font-size: 14px;">También puedes <a href="' . htmlspecialchars($urlPlataforma) . '" style="color:#2c5282;">acceder a la plataforma</a> con tu usuario y contraseña.</p>
         <p style="margin: 24px 0 0 0; color:#1a202c; font-size: 15px; font-weight: 600;">¡Bienvenido(a)!<br>Equipo de Capital Humano – Maxikash</p>
       </td></tr>
@@ -10833,6 +11009,123 @@ class CapHum extends Controller
         if (strpos($tipo, 'RETENCION') !== false || strpos($tipo, 'FONACOT') !== false || strpos($tipo, 'INFONAVIT') !== false) return 9;
         if (strpos($tipo, 'ESTADO DE CUENTA') !== false) return 10;
         return 0;
+    }
+
+    private function detectarTipoDocumentoPorNombreArchivoCandidato(string $nombreArchivo): int
+    {
+        $nombre = $this->normalizarTipoDocumentoCandidatoMetricas(pathinfo($nombreArchivo, PATHINFO_FILENAME));
+        if ($nombre === '') return 0;
+
+        if (strpos($nombre, 'SOLICITUD MAXIKASH') !== false || strpos($nombre, 'SOLICITUD INTERNA') !== false) return 1;
+        if (strpos($nombre, 'CURRICUL') !== false || preg_match('/\bCV\b/', $nombre) || strpos($nombre, 'SOLICITUD DE TRABAJO') !== false || strpos($nombre, 'SOLICITUD EMPLEO') !== false) return 2;
+        if (strpos($nombre, 'ACTA') !== false || strpos($nombre, 'NACIMIENTO') !== false) return 3;
+        if (strpos($nombre, 'CURP') !== false) return 4;
+        if (strpos($nombre, 'IDENTIFIC') !== false || strpos($nombre, 'INE') !== false || strpos($nombre, 'IFE') !== false) return 5;
+        if (strpos($nombre, 'DOMICILIO') !== false || strpos($nombre, 'COMPROBANTE') !== false) return 6;
+        if (strpos($nombre, 'FISCAL') !== false || strpos($nombre, 'RFC') !== false || strpos($nombre, 'SAT') !== false) return 7;
+        if (strpos($nombre, 'NSS') !== false || strpos($nombre, 'SEGURIDAD SOCIAL') !== false || strpos($nombre, 'IMSS') !== false) return 8;
+        if (strpos($nombre, 'RETENCION') !== false || strpos($nombre, 'FONACOT') !== false || strpos($nombre, 'INFONAVIT') !== false) return 9;
+        if (strpos($nombre, 'ESTADO DE CUENTA') !== false || strpos($nombre, 'CUENTA BANCARIA') !== false) return 10;
+        return 0;
+    }
+
+    private function esRechazoFirmeVerificacionDocumentoCandidato($resultado): bool
+    {
+        if (!is_array($resultado)) {
+            return false;
+        }
+        if (!empty($resultado['revision_manual'])) {
+            return false;
+        }
+        $mensaje = $this->normalizarTipoDocumentoCandidatoMetricas($resultado['mensaje'] ?? $resultado['recomendacion'] ?? '');
+        if ($mensaje !== '' && (
+            strpos($mensaje, 'API NO RESPONDIO') !== false
+            || strpos($mensaje, 'API NO RESPOND') !== false
+            || strpos($mensaje, 'NO DEVOLVIO JSON') !== false
+            || strpos($mensaje, 'TIMEOUT') !== false
+            || strpos($mensaje, 'TARDO') !== false
+            || strpos($mensaje, 'CONECTAR') !== false
+            || strpos($mensaje, 'NO SE PUDO REVISAR') !== false
+            || strpos($mensaje, 'NO SE PUDO CONFIRMAR') !== false
+            || strpos($mensaje, 'NO SE PUDO LEER') !== false
+            || strpos($mensaje, 'NO SE PUDO CONTACTAR') !== false
+        )) {
+            return false;
+        }
+        $motivo = trim((string) ($resultado['motivo'] ?? $resultado['codigo'] ?? ''));
+        if ($motivo !== '') {
+            return true;
+        }
+        if (array_key_exists('valido', $resultado) && $resultado['valido'] === false) {
+            return true;
+        }
+        $estado = strtoupper(trim((string) ($resultado['resultado'] ?? '')));
+        if ($estado === 'RECHAZADO') {
+            return true;
+        }
+        return false;
+    }
+
+    private function verificarComprobanteDomicilioApi($rutaPdf)
+    {
+        $configFile = defined('RAIZ') ? (RAIZ . '/config/config.ini') : (__DIR__ . '/../config/config.ini');
+        if (!is_file($configFile)) {
+            return null;
+        }
+        $config = @parse_ini_file($configFile, true);
+        $apiUrl = trim($config['doc_verificacion']['api_url'] ?? '');
+        $apiKey = trim($config['doc_verificacion']['api_key'] ?? '');
+        if ($apiUrl === '' || $apiKey === '') {
+            return null;
+        }
+        $baseUrl = preg_replace('#/verificar\s*$#', '', $apiUrl);
+        $url = rtrim($baseUrl, '/') . '/verificar-comprobante';
+        $cfile = new \CURLFile($rutaPdf, 'application/pdf', basename($rutaPdf));
+        $ch = curl_init($url);
+        curl_setopt_array($ch, [
+            CURLOPT_POST => true,
+            CURLOPT_POSTFIELDS => ['documento' => $cfile],
+            CURLOPT_HTTPHEADER => ['X-API-Key: ' . $apiKey],
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_TIMEOUT => 6,
+            CURLOPT_CONNECTTIMEOUT => 2,
+        ]);
+        $body = curl_exec($ch);
+        $httpCode = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        $curlErr = curl_error($ch);
+        curl_close($ch);
+        if ($body === false || $httpCode !== 200) {
+            return ['valido' => false, 'revision_manual' => true, 'mensaje' => $curlErr ?: 'La API no respondiÃ³ correctamente (HTTP ' . $httpCode . ').'];
+        }
+        $data = json_decode($body, true);
+        return is_array($data) ? $data : ['valido' => false, 'revision_manual' => true, 'mensaje' => 'La API no devolviÃ³ JSON vÃ¡lido.'];
+    }
+
+    private function verificarContenidoDocumentoCandidatoAntesDeGuardar(int $tipoDocumento, string $rutaPdf): array
+    {
+        $resultado = null;
+        if ($tipoDocumento === 3) {
+            $resultado = $this->verificarActaApi($rutaPdf);
+        } elseif ($tipoDocumento === 4) {
+            $resultado = $this->verificarCurpApi($rutaPdf);
+        } elseif ($tipoDocumento === 5) {
+            $resultado = $this->precheckIdentificacionPdfApi($rutaPdf);
+        } elseif ($tipoDocumento === 6) {
+            $resultado = $this->verificarComprobanteDomicilioApi($rutaPdf);
+        } elseif ($tipoDocumento === 7) {
+            $resultado = $this->verificarConstanciaFiscalApi($rutaPdf);
+        } elseif ($tipoDocumento === 8) {
+            $resultado = $this->verificarNssApi($rutaPdf);
+        } elseif ($tipoDocumento === 10) {
+            $resultado = $this->verificarEstadoCuentaApi($rutaPdf);
+        }
+
+        if ($this->esRechazoFirmeVerificacionDocumentoCandidato($resultado)) {
+            $mensaje = trim((string) ($resultado['mensaje'] ?? $resultado['recomendacion'] ?? 'El archivo no corresponde al documento solicitado.'));
+            return ['aceptar' => false, 'mensaje' => $mensaje, 'verificacion' => $resultado];
+        }
+
+        return ['aceptar' => true, 'mensaje' => null, 'verificacion' => is_array($resultado) ? $resultado : null];
     }
 
     private function calcularMetricasDocumentosCandidato(array $documentos, int $idCandidato = 0): array
@@ -11062,15 +11355,15 @@ class CapHum extends Controller
         $healthUrl = rtrim($baseUrl, '/') . '/health';
         $healthOk = false;
         $hLastErr = '';
-        for ($hi = 0; $hi < 2; $hi++) {
+        for ($hi = 0; $hi < 1; $hi++) {
             if ($hi > 0) {
                 usleep(500000);
             }
             $hc = curl_init($healthUrl);
             curl_setopt_array($hc, [
                 CURLOPT_RETURNTRANSFER => true,
-                CURLOPT_TIMEOUT_MS => 5000,
-                CURLOPT_CONNECTTIMEOUT_MS => 3000,
+                CURLOPT_TIMEOUT_MS => 1500,
+                CURLOPT_CONNECTTIMEOUT_MS => 1000,
                 CURLOPT_NOBODY => false,
             ]);
             $hBody = curl_exec($hc);
@@ -11090,23 +11383,23 @@ class CapHum extends Controller
         $docCfg = is_array($config['doc_verificacion'] ?? null) ? $config['doc_verificacion'] : [];
         $tipoDocExp = $this->docVerificacionTipoExpediente($docCfg);
         $urlExp = rtrim($baseUrl, '/') . '/validar-expediente?' . http_build_query(['tipo_documento' => $tipoDocExp]);
-        $timeoutExp = isset($docCfg['validar_expediente_timeout_seconds']) ? (int) $docCfg['validar_expediente_timeout_seconds'] : 300;
-        if ($timeoutExp < 90) {
-            $timeoutExp = 90;
+        $timeoutExp = isset($docCfg['validar_expediente_timeout_seconds']) ? (int) $docCfg['validar_expediente_timeout_seconds'] : 25;
+        if ($timeoutExp < 10) {
+            $timeoutExp = 10;
         }
-        if ($timeoutExp > 600) {
-            $timeoutExp = 600;
+        if ($timeoutExp > 45) {
+            $timeoutExp = 45;
         }
-        $maxExtraRetries = isset($docCfg['validar_expediente_retries']) ? (int) $docCfg['validar_expediente_retries'] : 2;
+        $maxExtraRetries = isset($docCfg['validar_expediente_retries']) ? (int) $docCfg['validar_expediente_retries'] : 0;
         if ($maxExtraRetries < 0) {
             $maxExtraRetries = 0;
         }
-        if ($maxExtraRetries > 5) {
-            $maxExtraRetries = 5;
+        if ($maxExtraRetries > 1) {
+            $maxExtraRetries = 1;
         }
         $totalIntentos = 1 + $maxExtraRetries;
         if (function_exists('set_time_limit')) {
-            @set_time_limit(max(900, $timeoutExp * $totalIntentos + 120 + ($maxExtraRetries * 15)));
+            @set_time_limit(max(90, $timeoutExp * $totalIntentos + 30 + ($maxExtraRetries * 5)));
         }
 
         $lowSpeedTime = isset($docCfg['validar_expediente_low_speed_time_seconds']) ? (int) $docCfg['validar_expediente_low_speed_time_seconds'] : 0;
@@ -11130,7 +11423,7 @@ class CapHum extends Controller
         $lastPayloadError = ['error' => 'No se obtuvo respuesta válida de la API.'];
         for ($attempt = 0; $attempt < $totalIntentos; $attempt++) {
             if ($attempt > 0) {
-                sleep(min(15, 2 * $attempt + 1));
+                sleep(min(5, 2 * $attempt + 1));
             }
             $post = $this->construirPostValidarExpedienteMultipart($rutas, $nombreCandidatoRegistro, $tipoDocExp);
             if ($post === null) {
@@ -11155,7 +11448,7 @@ class CapHum extends Controller
                 ],
                 CURLOPT_RETURNTRANSFER => true,
                 CURLOPT_TIMEOUT => $timeoutExp,
-                CURLOPT_CONNECTTIMEOUT => 15,
+                CURLOPT_CONNECTTIMEOUT => 5,
                 CURLOPT_HTTP_VERSION => CURL_HTTP_VERSION_1_1,
                 CURLOPT_FORBID_REUSE => true,
             ];
@@ -11255,8 +11548,8 @@ class CapHum extends Controller
             CURLOPT_POSTFIELDS => ['documento' => $cfile],
             CURLOPT_HTTPHEADER => ['X-API-Key: ' . $apiKey],
             CURLOPT_RETURNTRANSFER => true,
-            CURLOPT_TIMEOUT => 15,
-            CURLOPT_CONNECTTIMEOUT => 5,
+            CURLOPT_TIMEOUT => 8,
+            CURLOPT_CONNECTTIMEOUT => 3,
         ]);
         $body = curl_exec($ch);
         $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
@@ -11301,8 +11594,8 @@ class CapHum extends Controller
             CURLOPT_POSTFIELDS => ['documento' => $cfile],
             CURLOPT_HTTPHEADER => ['X-API-Key: ' . $apiKey],
             CURLOPT_RETURNTRANSFER => true,
-            CURLOPT_TIMEOUT => 15,
-            CURLOPT_CONNECTTIMEOUT => 5,
+            CURLOPT_TIMEOUT => 8,
+            CURLOPT_CONNECTTIMEOUT => 3,
         ]);
         $body = curl_exec($ch);
         $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
@@ -11344,8 +11637,8 @@ class CapHum extends Controller
             CURLOPT_POSTFIELDS => ['documento' => $cfile],
             CURLOPT_HTTPHEADER => ['X-API-Key: ' . $apiKey],
             CURLOPT_RETURNTRANSFER => true,
-            CURLOPT_TIMEOUT => 12,
-            CURLOPT_CONNECTTIMEOUT => 8,
+            CURLOPT_TIMEOUT => 8,
+            CURLOPT_CONNECTTIMEOUT => 3,
         ]);
         $body = curl_exec($ch);
         $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
@@ -11386,8 +11679,8 @@ class CapHum extends Controller
             CURLOPT_POSTFIELDS => ['documento' => $cfile],
             CURLOPT_HTTPHEADER => ['X-API-Key: ' . $apiKey],
             CURLOPT_RETURNTRANSFER => true,
-            CURLOPT_TIMEOUT => 10,
-            CURLOPT_CONNECTTIMEOUT => 5,
+            CURLOPT_TIMEOUT => 8,
+            CURLOPT_CONNECTTIMEOUT => 3,
         ]);
         $body = curl_exec($ch);
         $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
@@ -11429,8 +11722,8 @@ class CapHum extends Controller
                 'Expect:',
             ],
             CURLOPT_RETURNTRANSFER => true,
-            CURLOPT_TIMEOUT => 10,
-            CURLOPT_CONNECTTIMEOUT => 5,
+            CURLOPT_TIMEOUT => 8,
+            CURLOPT_CONNECTTIMEOUT => 3,
             CURLOPT_HTTP_VERSION => CURL_HTTP_VERSION_1_1,
             CURLOPT_FORBID_REUSE => true,
         ]);
@@ -11469,8 +11762,8 @@ class CapHum extends Controller
             CURLOPT_POSTFIELDS => ['documento' => $cfile],
             CURLOPT_HTTPHEADER => ['X-API-Key: ' . $apiKey],
             CURLOPT_RETURNTRANSFER => true,
-            CURLOPT_TIMEOUT => 10,
-            CURLOPT_CONNECTTIMEOUT => 4,
+            CURLOPT_TIMEOUT => 5,
+            CURLOPT_CONNECTTIMEOUT => 2,
         ]);
         $body = curl_exec($ch);
         $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
@@ -11508,8 +11801,8 @@ class CapHum extends Controller
             CURLOPT_POSTFIELDS => ['documento' => $cfile],
             CURLOPT_HTTPHEADER => ['X-API-Key: ' . $apiKey],
             CURLOPT_RETURNTRANSFER => true,
-            CURLOPT_TIMEOUT => 20,
-            CURLOPT_CONNECTTIMEOUT => 10,
+            CURLOPT_TIMEOUT => 8,
+            CURLOPT_CONNECTTIMEOUT => 3,
         ]);
         $body = curl_exec($ch);
         $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
@@ -11701,8 +11994,8 @@ class CapHum extends Controller
             $listaDocsExistentes = $resDocs['datos'];
             foreach ($resDocs['datos'] as $d) {
                 $tipo = trim($d['tipo_documento'] ?? '');
-                $num = array_search($tipo, $tiposDocumento, true);
-                if ($num !== false) {
+                $num = $this->numeroTipoDocumentoCandidatoMetricas($tipo);
+                if ($num > 0) {
                     $yaSubidos[(int) $num] = true;
                 }
             }
@@ -11715,8 +12008,9 @@ class CapHum extends Controller
         $tipoDocumentoValidadoRh = [];
         foreach ($listaDocsExistentes as $d) {
             $tipo = trim($d['tipo_documento'] ?? '');
-            if (isset($mapTipoDocStrToNum[$tipo]) && !empty((int) ($d['validado'] ?? 0))) {
-                $tipoDocumentoValidadoRh[$mapTipoDocStrToNum[$tipo]] = true;
+            $numTipo = $this->numeroTipoDocumentoCandidatoMetricas($tipo);
+            if ($numTipo > 0 && !empty((int) ($d['validado'] ?? 0))) {
+                $tipoDocumentoValidadoRh[$numTipo] = true;
             }
         }
         $storageRoot = defined('RAIZ') ? (RAIZ . '/storage') : (__DIR__ . '/../storage');
@@ -11742,6 +12036,9 @@ class CapHum extends Controller
             if (!empty($tipoDocumentoValidadoRh[$i])) {
                 continue;
             }
+            if (!empty($yaSubidos[$i])) {
+                continue;
+            }
             $key = 'archivo_' . $i;
             $fileKey = $key;
             if (!isset($_FILES[$key]) || $_FILES[$key]['error'] !== UPLOAD_ERR_OK || $_FILES[$key]['size'] <= 0) {
@@ -11749,6 +12046,11 @@ class CapHum extends Controller
             }
             $nombreOriginal = basename($_FILES[$fileKey]['name'] ?? '');
             $ext = strtolower(pathinfo($nombreOriginal, PATHINFO_EXTENSION));
+            $tipoSugeridoPorNombre = $this->detectarTipoDocumentoPorNombreArchivoCandidato($nombreOriginal);
+            if ($tipoSugeridoPorNombre > 0 && $tipoSugeridoPorNombre !== $i && !($i === 6 && $tipoSugeridoPorNombre === 10)) {
+                $errores[] = ($tiposDocumento[$i] ?? $key) . ': el archivo parece corresponder a otro documento. Sube el PDF correcto en su campo correspondiente.';
+                continue;
+            }
             if (!in_array($ext, $permitidos)) {
                 $errores[] = ($tiposDocumento[$i] ?? $key) . ': solo se acepta archivo PDF.';
                 continue;
@@ -11777,6 +12079,15 @@ class CapHum extends Controller
                 $errores[] = ($tiposDocumento[$i] ?? $key) . ': el archivo no parece ser un PDF válido.';
                 continue;
             }
+            $verificacionPreviaContenido = null;
+            if (in_array($i, [3, 4, 5, 6, 7, 8, 10], true)) {
+                $precheckContenido = $this->verificarContenidoDocumentoCandidatoAntesDeGuardar($i, $_FILES[$fileKey]['tmp_name']);
+                $verificacionPreviaContenido = $precheckContenido['verificacion'] ?? null;
+                if (empty($precheckContenido['aceptar'])) {
+                    $errores[] = ($tiposDocumento[$i] ?? $key) . ': ' . ($precheckContenido['mensaje'] ?? 'El archivo no corresponde al documento solicitado.');
+                    continue;
+                }
+            }
             $slug = $slugPorTipo[$i] ?? ('doc_' . $i);
             $nombreArchivo = $slug . '.' . $ext;
             $rutaDestino = $dirExpediente . '/' . $nombreArchivo;
@@ -11789,7 +12100,13 @@ class CapHum extends Controller
 
             $verificacionFiscalJson = null;
             $verificacionCalidadJson = null;
-            if (in_array($i, [4, 5, 7, 8, 10], true)) {
+            if (is_array($verificacionPreviaContenido)) {
+                if ($i === 7) {
+                    $verificacionFiscalJson = json_encode($verificacionPreviaContenido);
+                } else {
+                    $verificacionCalidadJson = json_encode($verificacionPreviaContenido);
+                }
+            } elseif (in_array($i, [4, 5, 6, 7, 8, 10], true)) {
                 $verificacionCalidadJson = json_encode([
                     'pendiente_revision_backend' => true,
                     'notas' => ['Documento guardado.'],
@@ -11876,18 +12193,9 @@ class CapHum extends Controller
             if ($resDocsNuevo['success'] && !empty($resDocsNuevo['datos'])) {
                 foreach ($resDocsNuevo['datos'] as $d) {
                     $tipo = trim($d['tipo_documento'] ?? '');
-                    $tipoUpper = mb_strtoupper($tipo);
-                    $tipoNorm = preg_replace('/\s+/', ' ', $tipoUpper);
-                    if (isset($tiposNombre[$tipoNorm])) {
-                        $documentosSubidosPayload[$tiposNombre[$tipoNorm]] = ['nombre_archivo' => $d['nombre_archivo'] ?? 'documento'];
-                    } else {
-                        foreach ($tiposNombre as $nombre => $num) {
-                            $nombreNorm = mb_strtoupper($nombre);
-                            if ($tipoNorm === $nombreNorm || strpos($tipoNorm, $nombreNorm) !== false || strpos($nombreNorm, $tipoNorm) !== false) {
-                                $documentosSubidosPayload[$num] = ['nombre_archivo' => $d['nombre_archivo'] ?? 'documento'];
-                                break;
-                            }
-                        }
+                    $numTipo = $this->numeroTipoDocumentoCandidatoMetricas($tipo);
+                    if ($numTipo > 0) {
+                        $documentosSubidosPayload[$numTipo] = ['nombre_archivo' => $d['nombre_archivo'] ?? 'documento'];
                     }
                 }
             }
@@ -11978,6 +12286,7 @@ class CapHum extends Controller
      */
     private function tipoDocumentoCandidatoNumero($tipo): int
     {
+        return $this->numeroTipoDocumentoCandidatoMetricas($tipo);
         $t = mb_strtoupper(trim((string) $tipo));
         $map = [
             'SOLICITUD INTERNA' => 1,
@@ -12153,8 +12462,9 @@ class CapHum extends Controller
                 if ($soloIdentificacion) {
                     array_unshift($alertasErr, 'Modo "solo identificación" (config.ini): el fallo puede no reproducirse con expediente completo.');
                 }
+                $alertasErr = ['La verificacion automatica no finalizo por un fallo tecnico de la API. No se considera revision manual; reintente cuando el servicio este disponible.'];
                 CandidatosDAO::updateVerificacionExpediente($id_candidato, json_encode([
-                    'todo_coincide' => false,
+                    'todo_coincide' => null,
                     'foto_rechazada' => false,
                     'curp_definitivo' => null,
                     'checks_ok' => 0,
@@ -12167,6 +12477,7 @@ class CapHum extends Controller
                     'anio_nacimiento' => null,
                     'tipo_documento' => null,
                     'modo_verificacion' => $soloIdentificacion ? 'solo_identificacion' : 'completo',
+                    'api_pendiente' => true,
                     'error_api' => $err,
                 ]));
                 error_log('CapHum::verificacionBackground: error API para candidato ' . $id_candidato . ': ' . $err);
