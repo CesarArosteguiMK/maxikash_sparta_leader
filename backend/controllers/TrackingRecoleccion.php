@@ -19,6 +19,14 @@ class TrackingRecoleccion extends Controller
             self::set('google_maps_api_key_js', GOOGLE_MAPS_API_KEY);
         }
         self::set('tracking_dias_minimos_programacion', ConfigMotosAdj::obtenerDiasMinimosRuta());
+        $puedeCancelarRutas = false;
+        try {
+            $idUsuario = (int) ($_SESSION['persona_id'] ?? $_SESSION['usuario_id'] ?? 0);
+            $puedeCancelarRutas = (new TrackingModel())->usuarioPuedeCancelarRutasTracking($idUsuario);
+        } catch (\Throwable $e) {
+            $puedeCancelarRutas = false;
+        }
+        self::set('tracking_puede_cancelar_rutas', $puedeCancelarRutas);
         self::set('titulo', $titulo);
         // Chat Operativo — pasar URL base de WebSocket al frontend (no se expone la API key)
         $trkCfg = $this->_trkChatConfig();
@@ -887,6 +895,70 @@ class TrackingRecoleccion extends Controller
     }
 
     /**
+     * GET /TrackingRecoleccion/trackingOtpActivo?id_detalle=N
+     * Proxy: GET /api/tracking/detalles/{id_detalle}/otp/activo
+     */
+    public function trackingOtpActivo()
+    {
+        $idDetalle = (int)($_GET['id_detalle'] ?? 0);
+        if ($idDetalle <= 0) {
+            self::respuestaJSON(['success' => false, 'mensaje' => 'id_detalle requerido.']);
+            return;
+        }
+
+        $cfg   = $this->_trkChatConfig();
+        $token = $this->_trkChatObtenerJwt();
+        if ($cfg['base_url'] === '' || $cfg['api_key'] === '' || $token === '') {
+            self::respuestaJSON(['success' => false, 'mensaje' => 'Tracking no disponible.']);
+            return;
+        }
+
+        $url  = $this->_trkTrackingBuildUrl($cfg['base_url'], "/api/tracking/detalles/{$idDetalle}/otp/activo");
+        $resp = $this->_trkChatCurl($url, 'GET', '', [
+            'X-API-Key: ' . $cfg['api_key'],
+            'Authorization: Bearer ' . $token,
+        ]);
+
+        $this->_trkChatRelayResponse($resp);
+    }
+
+    /**
+     * POST /TrackingRecoleccion/trackingGenerarOtp
+     * Body JSON: { id_detalle, canal?, telefono_destino? }
+     * Proxy: POST /api/tracking/detalles/{id_detalle}/otp/generar
+     */
+    public function trackingGenerarOtp()
+    {
+        $raw  = (string)file_get_contents('php://input');
+        $data = json_decode($raw, true) ?: [];
+        $idDetalle = (int)($data['id_detalle'] ?? 0);
+        if ($idDetalle <= 0) {
+            self::respuestaJSON(['success' => false, 'mensaje' => 'id_detalle requerido.']);
+            return;
+        }
+
+        $cfg   = $this->_trkChatConfig();
+        $token = $this->_trkChatObtenerJwt();
+        if ($cfg['base_url'] === '' || $cfg['api_key'] === '' || $token === '') {
+            self::respuestaJSON(['success' => false, 'mensaje' => 'Tracking no disponible.']);
+            return;
+        }
+
+        $body = json_encode([
+            'canal' => trim((string)($data['canal'] ?? 'manual')) ?: 'manual',
+            'telefono_destino' => $data['telefono_destino'] ?? null,
+        ]);
+        $url  = $this->_trkTrackingBuildUrl($cfg['base_url'], "/api/tracking/detalles/{$idDetalle}/otp/generar");
+        $resp = $this->_trkChatCurl($url, 'POST', $body, [
+            'Content-Type: application/json',
+            'X-API-Key: ' . $cfg['api_key'],
+            'Authorization: Bearer ' . $token,
+        ]);
+
+        $this->_trkChatRelayResponse($resp);
+    }
+
+    /**
      * GET /TrackingRecoleccion/obtenerTransportistasTracking?tipo=interno|externo&id_agencia=N
      */
     public function obtenerTransportistasTracking()
@@ -1304,7 +1376,12 @@ class TrackingRecoleccion extends Controller
         try {
             $idUsuario = (int) ($_SESSION['persona_id'] ?? $_SESSION['usuario_id'] ?? 0);
             $model     = new TrackingModel();
-            self::respuestaJSON($model->cancelarRuta($idRuta, $motivo, $idUsuario));
+            $puedeCancelar = $model->usuarioPuedeCancelarRutasTracking($idUsuario);
+            if (!$puedeCancelar) {
+                self::respuestaJSON(self::respuesta(false, 'No tienes permiso para cancelar rutas registradas.'));
+                return;
+            }
+            self::respuestaJSON($model->cancelarRuta($idRuta, $motivo, $idUsuario, true));
         } catch (\Throwable $e) {
             self::respuestaJSON(self::respuesta(false, 'Error al cancelar la ruta.', null, $e->getMessage()));
         }

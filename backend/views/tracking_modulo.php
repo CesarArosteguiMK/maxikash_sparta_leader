@@ -2102,6 +2102,76 @@ body.dark-mode .chat-tab-link {
     position: relative;
 }
 .chat-pane.active { display: flex; }
+.chat-detail-context {
+    flex-shrink: 0;
+    display: grid;
+    gap: .42rem;
+    padding: .62rem .78rem;
+    border-bottom: 1px solid #c7f5ef;
+    background: #f0fdfa;
+    color: #334155;
+    font-size: .76rem;
+}
+.chat-detail-context-main {
+    display: flex;
+    align-items: center;
+    gap: .45rem;
+    min-width: 0;
+    flex-wrap: wrap;
+}
+.chat-detail-context-title {
+    color: #0f172a;
+    font-weight: 800;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.chat-detail-context-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: .24rem;
+    border-radius: 999px;
+    padding: .12rem .42rem;
+    background: #dbeafe;
+    color: #1d4ed8;
+    font-size: .66rem;
+    font-weight: 800;
+    white-space: nowrap;
+}
+.chat-detail-context-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: .32rem .8rem;
+}
+.chat-detail-context-item {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.chat-detail-context-item b {
+    color: #0f766e;
+}
+.chat-detail-context-address {
+    white-space: normal;
+    grid-column: 1 / -1;
+}
+body.dark-mode .chat-detail-context {
+    background: #112222;
+    border-bottom-color: #244644;
+    color: #b0cece;
+}
+body.dark-mode .chat-detail-context-title {
+    color: #e2e8f0;
+}
+body.dark-mode .chat-detail-context-chip {
+    background: #1e3a5f;
+    color: #bfdbfe;
+}
+body.dark-mode .chat-detail-context-item b {
+    color: #5eead4;
+}
 
 /* Aviso de estatus (bloqueado / cerrado / sin conexion) */
 .chat-status-notice {
@@ -3471,6 +3541,7 @@ window._trackingDiasMinimosProgramacion = <?= json_encode((int)($tracking_dias_m
 window._trackingInitialSection = <?= json_encode($trackingInitialSection) ?>;
 window._trackingVisibleSections = <?= json_encode(array_values($trackingVisibleSections ?? [])) ?>;
 window._trackingCatalogoDefaultView = <?= json_encode($trackingCatalogoDefaultView) ?>;
+window._trackingPuedeCancelarRutas = <?= !empty($tracking_puede_cancelar_rutas) ? 'true' : 'false' ?>;
 </script>
 <!-- SortableJS (drag-and-drop sin jQuery UI) -->
 <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.2/Sortable.min.js"></script>
@@ -3550,6 +3621,8 @@ const _trk = {
     mapMarkersByCredito:  {},
     creditoPosiciones:    {},
     directionsRenderer:   null, // renderer de ruta activo
+    trafficLayer:         null,
+    chatTrafficLayer:     null,
     liveVehicleMarker:    null,
     liveVehiclePolyline:  null,
     liveVehiclePath:      [],
@@ -3788,13 +3861,16 @@ document.addEventListener('DOMContentLoaded', function () {
     new MutationObserver(() => {
         if (!_trk.mapInstance) return;
         _trk.mapInstance.setOptions({ styles: [] });
+        _trkActivarTraficoMapa(_trk.mapInstance, 'trafficLayer');
         google.maps.event.trigger(_trk.mapInstance, 'resize');
         if (_trkPicker.mapInstance) {
             _trkPicker.mapInstance.setOptions({ styles: [] });
+            _trkActivarTraficoMapa(_trkPicker.mapInstance, 'trafficLayer', _trkPicker);
             google.maps.event.trigger(_trkPicker.mapInstance, 'resize');
         }
         if (_trk.chatMapInstance) {
             _trk.chatMapInstance.setOptions({ styles: document.body.classList.contains('dark-mode') ? _TRK_DARK_MAP_STYLES : [] });
+            _trkActivarTraficoMapa(_trk.chatMapInstance, 'chatTrafficLayer');
             google.maps.event.trigger(_trk.chatMapInstance, 'resize');
         }
     }).observe(document.body, { attributeFilter: ['class'] });
@@ -4138,6 +4214,9 @@ function _trkInicializarTablaCreditosDT() {
     $('#detalleRutaBody').on('click', '.btn-cambiar-cedis-destino', function () {
         _trkAbrirModalCambiarCedisDestino(Number($(this).data('id')));
     });
+    $('#detalleRutaBody').on('click', '.btn-generar-otp', function () {
+        _trkGenerarOtpDetalle(Number($(this).data('id')));
+    });
     $('#rutaCedisDestinoInfo').on('click', '.btn-cambiar-cedis-destino', function () {
         _trkAbrirModalCambiarCedisDestino(Number($(this).data('id')));
     });
@@ -4245,7 +4324,8 @@ function _trkCargarCreditosSiHaceFalta(silent = false) {
 }
 
 function _trkRutaCancelable(estatus) {
-    return !['borrador', 'concluida', 'cancelada'].includes(String(estatus || ''));
+    if (!window._trackingPuedeCancelarRutas) return false;
+    return !['borrador', 'cancelada'].includes(String(estatus || ''));
 }
 
 function _trkRutaDebeConsultarEstadoLive(estatus) {
@@ -5179,6 +5259,15 @@ async function _trkConfirmarAgregarCreditoRuta(idRuta) {
 
 async function _trkCancelarRuta(idRuta, nombreRuta = '') {
     if (!idRuta) return;
+    if (!window._trackingPuedeCancelarRutas) {
+        Swal.fire({
+            icon: 'warning',
+            title: 'Sin permiso',
+            text: 'No tienes permiso para cancelar rutas registradas.',
+            confirmButtonText: 'Aceptar',
+        });
+        return;
+    }
     const result = await Swal.fire({
         icon: 'warning',
         title: 'Cancelar ruta',
@@ -6964,6 +7053,133 @@ function _trkAplicarEventoCambioCedisDestino(data) {
     }
 }
 
+function _trkEstatusRecoleccionTexto(estatus) {
+    const st = String(estatus || '').toLowerCase();
+    const labels = {
+        pendiente: 'Pendiente',
+        en_camino: 'En camino',
+        en_sitio: 'En sitio',
+        recolectada: 'Recolectada',
+        recolectado: 'Recolectada',
+        no_recolectada: 'No recolectada',
+        cancelada: 'Cancelada',
+    };
+    return labels[st] || (estatus || 'Pendiente');
+}
+
+function _trkRenderEstatusRecoleccionDetalle(estatus) {
+    const st = String(estatus || '').toLowerCase();
+    const cls = st === 'recolectada' || st === 'recolectado'
+        ? 'bg-success'
+        : (st === 'en_sitio' ? 'bg-warning text-dark' : (st === 'en_camino' ? 'bg-info' : 'bg-label-secondary'));
+    return `<span class="badge ${cls}">${_trkChatEscapeHtml(_trkEstatusRecoleccionTexto(estatus))}</span>`;
+}
+
+function _trkPuntoPermiteOtp(det) {
+    return String(det?.estatus_recoleccion || '').toLowerCase() === 'en_sitio' && Number(det?.id_detalle || 0) > 0;
+}
+
+function _trkOtpExpiraInfo(expiraAt) {
+    if (!expiraAt) return { texto: 'Sin expiracion', alerta: false };
+    const fecha = new Date(String(expiraAt).replace(' ', 'T'));
+    if (Number.isNaN(fecha.getTime())) return { texto: expiraAt, alerta: false };
+    const diffMs = fecha.getTime() - Date.now();
+    const min = Math.ceil(diffMs / 60000);
+    if (diffMs <= 0) return { texto: `Expirado ${_trkFormatFechaHora(expiraAt) || expiraAt}`, alerta: true };
+    return { texto: `Expira en ${min} min`, alerta: min <= 5 };
+}
+
+function _trkRenderOtpEstado(otp) {
+    if (!otp) return '<span class="text-muted small">Sin OTP activo</span>';
+    const exp = _trkOtpExpiraInfo(otp.expira_at);
+    const intentosActuales = Number.isFinite(Number(otp.intentos)) ? Number(otp.intentos) : 0;
+    const intentosMax = Number.isFinite(Number(otp.max_intentos)) ? Number(otp.max_intentos) : 3;
+    const intentos = `${intentosActuales} / ${intentosMax}`;
+    return `
+        <div class="small ${exp.alerta ? 'text-danger fw-semibold' : 'text-muted'}">
+            <i class="fa-solid fa-key me-1"></i>${_trkChatEscapeHtml(otp.estatus || 'activo')}
+            <span class="mx-1">|</span>${_trkChatEscapeHtml(exp.texto)}
+            <span class="mx-1">|</span>Intentos ${_trkChatEscapeHtml(intentos)}
+        </div>`;
+}
+
+function _trkOtpCellHtml(det) {
+    const idDetalle = Number(det?.id_detalle || 0);
+    if (!_trkPuntoPermiteOtp(det)) {
+        return '<span class="text-muted small">Disponible en sitio</span>';
+    }
+    return `
+        <div class="d-flex flex-column gap-1">
+            <div id="trkOtpEstado-${idDetalle}" class="trk-otp-status">
+                <span class="spinner-border spinner-border-sm me-1"></span>Consultando OTP...
+            </div>
+            <button type="button" class="btn btn-sm btn-primary btn-generar-otp" data-id="${idDetalle}">
+                <i class="fa-solid fa-key me-1"></i>Generar OTP
+            </button>
+        </div>`;
+}
+
+async function _trkConsultarOtpActivo(idDetalle) {
+    const r = await trkFetch(`/TrackingRecoleccion/trackingOtpActivo?id_detalle=${encodeURIComponent(idDetalle)}`);
+    const otp = r?.otp || r?.datos?.otp || null;
+    $(`#trkOtpEstado-${idDetalle}`).html(_trkRenderOtpEstado((r && r.success) ? otp : null));
+    return otp;
+}
+
+function _trkConsultarOtpsActivosDetalle(detalles) {
+    (detalles || []).filter(_trkPuntoPermiteOtp).forEach(det => {
+        _trkConsultarOtpActivo(det.id_detalle).catch(() => {
+            $(`#trkOtpEstado-${det.id_detalle}`).html('<span class="text-muted small">Sin OTP activo</span>');
+        });
+    });
+}
+
+async function _trkGenerarOtpDetalle(idDetalle) {
+    if (!idDetalle) return;
+    Swal.fire({
+        title: 'Generando OTP...',
+        allowOutsideClick: false,
+        allowEscapeKey: false,
+        showConfirmButton: false,
+        didOpen: () => Swal.showLoading(),
+    });
+    try {
+        const r = await trkFetch('/TrackingRecoleccion/trackingGenerarOtp', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ id_detalle: idDetalle, canal: 'manual', telefono_destino: null }),
+        });
+        if (!r.success) {
+            Swal.fire({ icon: 'error', title: 'No se pudo generar OTP', text: r.mensaje || r.message || r.detail || 'Intenta nuevamente.', confirmButtonText: 'Aceptar' });
+            return;
+        }
+        const otp = r.otp || r.datos?.otp || {};
+        $(`#trkOtpEstado-${idDetalle}`).html(_trkRenderOtpEstado(otp));
+        Swal.fire({
+            icon: 'success',
+            title: 'OTP generado',
+            html: `<div class="text-center">
+                <div class="small text-muted mb-2">Comparte este codigo con el transportista.</div>
+                <div class="display-6 fw-bold" style="letter-spacing:.18em;">${_trkChatEscapeHtml(otp.codigo || '')}</div>
+                <div class="small text-muted mt-2">${_trkChatEscapeHtml(_trkOtpExpiraInfo(otp.expira_at).texto)}</div>
+            </div>`,
+            confirmButtonText: 'Entendido',
+        });
+    } catch {
+        Swal.fire({ icon: 'error', title: 'Error de conexion', text: 'No se pudo generar el OTP.', confirmButtonText: 'Aceptar' });
+    }
+}
+
+function _trkDetalleActualizarRecoleccion(idDetalle, estatus) {
+    if (!idDetalle) return;
+    const $cell = $(`.trk-det-recoleccion[data-id="${idDetalle}"]`);
+    if ($cell.length) $cell.html(_trkRenderEstatusRecoleccionDetalle(estatus));
+    const $otp = $(`.trk-det-otp[data-id="${idDetalle}"]`);
+    if ($otp.length && String(estatus || '').toLowerCase() !== 'en_sitio') {
+        $otp.html('<span class="text-muted small">Disponible en sitio</span>');
+    }
+}
+
 function _trkCargarCreditosInicialSiHaceFalta() {
     return Promise.all([
         _trkCargarEstados().catch(() => {}),
@@ -7800,6 +8016,14 @@ const _TRK_DARK_MAP_STYLES = [
     { featureType: 'administrative',       elementType: 'geometry.stroke', stylers: [{ color: '#334444' }] },
 ];
 
+function _trkActivarTraficoMapa(map, layerKey, state = _trk) {
+    if (!map || typeof google === 'undefined' || !google.maps || !google.maps.TrafficLayer) return;
+    if (!state[layerKey]) {
+        state[layerKey] = new google.maps.TrafficLayer();
+    }
+    state[layerKey].setMap(map);
+}
+
 function _trkDibujarMapa(creditos) {
     const mapDiv = document.getElementById('trackMap');
     if (!mapDiv || typeof google === 'undefined') return;
@@ -7815,6 +8039,7 @@ function _trkDibujarMapa(creditos) {
         });
         _trk.geocoder = new google.maps.Geocoder();
     }
+    _trkActivarTraficoMapa(_trk.mapInstance, 'trafficLayer');
 
     // -- Limpiar mapa anterior ---------------------------------
     _trk.mapMarkers.forEach(m => m.setMap(null));
@@ -7994,12 +8219,16 @@ function _trkDibujarMapa(creditos) {
             destination,
             waypoints,
             travelMode:               google.maps.TravelMode.DRIVING,
+            drivingOptions: {
+                departureTime: new Date(),
+                trafficModel: google.maps.TrafficModel?.BEST_GUESS || 'bestguess',
+            },
             provideRouteAlternatives: false,
         }, (result, status) => {
             if (status === 'OK') {
                 _trk.directionsRenderer.setDirections(result);
                 const legs = result.routes?.[0]?.legs || [];
-                _trk.routeLegDurations = legs.map(l => l.duration?.value || null);
+                _trk.routeLegDurations = legs.map(l => l.duration_in_traffic?.value || l.duration?.value || null);
                 _trkAplicarEtasAutomaticas();
                 _trkRenderListaCreditos();
             }
@@ -8105,6 +8334,7 @@ const _trkPicker = {
     listenersBound:    false,
     restoreRouteModal: false,
     closingByConfirm:  false,
+    trafficLayer:      null,
 };
 
 function _trkAbrirMapPicker(cred) {
@@ -8194,6 +8424,7 @@ function _trkInicializarMapPicker() {
                 streetViewControl: false,
                 fullscreenControl: false,
             });
+            _trkActivarTraficoMapa(_trkPicker.mapInstance, 'trafficLayer', _trkPicker);
 
             _trkPicker.mapInstance.addListener('click', (e) => {
                 const lat = e.latLng.lat();
@@ -9539,7 +9770,7 @@ function _trkVerDetalleRuta(idRuta) {
                 : '';
             let rowsHtml = '';
             (d.detalle || []).forEach((det, i) => {
-                rowsHtml += `<tr>
+                rowsHtml += `<tr data-id-detalle="${_trkChatEscapeHtml(det.id_detalle || '')}">
                     <td class="text-center">${det.orden_ruta || (i + 1)}</td>
                     <td>${det.id_credito || ' - '} ${_trkNuevoCreditoRutaHtml(det)}</td>
                     <td>${det.nombre_cliente || ' - '}</td>
@@ -9547,7 +9778,13 @@ function _trkVerDetalleRuta(idRuta) {
                     <td>${det.bin || ' - '}</td>
                     <td>${_trkRenderLocationBadges(det.estado, det.municipio)}</td>
                     <td>${det.estatus_proceso || ' - '}</td>
+                    <td class="trk-det-recoleccion" data-id="${_trkChatEscapeHtml(det.id_detalle || '')}">
+                        ${_trkRenderEstatusRecoleccionDetalle(det.estatus_recoleccion)}
+                    </td>
                     <td>${CONF_LABEL[det.estatus_confirmacion_gestor] || det.estatus_confirmacion_gestor || ' - '}</td>
+                    <td class="trk-det-otp" data-id="${_trkChatEscapeHtml(det.id_detalle || '')}">
+                        ${_trkOtpCellHtml(det)}
+                    </td>
                 </tr>`;
             });
             $body.html(`
@@ -9580,14 +9817,15 @@ function _trkVerDetalleRuta(idRuta) {
                             <tr>
                                 <th>#</th><th>Credito</th><th>Cliente</th><th>Modelo</th>
                                 <th>VIN</th><th>Estado / Municipio</th>
-                                <th>Proceso</th><th>Confirmacion</th>
+                                <th>Proceso</th><th>Recoleccion</th><th>Confirmacion</th><th>OTP</th>
                             </tr>
                         </thead>
-                        <tbody>${rowsHtml || '<tr><td colspan="8" class="text-center text-muted">Sin creditos</td></tr>'}</tbody>
+                        <tbody>${rowsHtml || '<tr><td colspan="10" class="text-center text-muted">Sin creditos</td></tr>'}</tbody>
                     </table>
                 </div>
             `);
             _trkCargarDetalleCedisDestino(idRuta, d.estatus_ruta);
+            _trkConsultarOtpsActivosDetalle(d.detalle || []);
         })
         .catch(() => $body.html('<div class="alert alert-danger">Error de conexion.</div>'));
 }
@@ -10207,6 +10445,10 @@ function _trkRTAplicarChanges(changes) {
         if (c && ch.estatus_recoleccion) c.estatus_recoleccion = ch.estatus_recoleccion;
         const local = _trk.creditosEnRuta.find(x => x.id_detalle && Number(x.id_detalle) === Number(ch.id_detalle));
         if (local && ch.estatus_recoleccion) local.estatus_recoleccion = ch.estatus_recoleccion;
+        if (ch.id_detalle && ch.estatus_recoleccion) {
+            _trkDetalleActualizarRecoleccion(ch.id_detalle, ch.estatus_recoleccion);
+            _trkChatActualizarContextoDetalle(ch.id_detalle, { estatus_recoleccion: ch.estatus_recoleccion });
+        }
     });
     // Recalcular progreso
     const total       = creditos.length;
@@ -10401,6 +10643,7 @@ function _trkChatPrepararMapaLive(idRuta, rutaNombre = '') {
                 styles: document.body.classList.contains('dark-mode') ? _TRK_DARK_MAP_STYLES : [],
             });
         }
+        _trkActivarTraficoMapa(_trk.chatMapInstance, 'chatTrafficLayer');
         google.maps.event.trigger(_trk.chatMapInstance, 'resize');
         _trkChatRepaintLiveMap({ center: true });
     });
@@ -10638,10 +10881,35 @@ function _trkRTProcesarEvento(data) {
         case 'route.destination.changed':
             _trkAplicarEventoCambioCedisDestino(data.data || data);
             break;
-        case 'tracking.event':
-            // Recargar estado completo ante cualquier evento de tracking
-            _trkRTCargarEstado();
+        case 'otp.generated': {
+            const payload = data.data || data;
+            const idDetalle = payload.id_detalle || payload.detalle_id || payload.otp?.id_detalle;
+            if (idDetalle) {
+                const otp = payload.otp || payload;
+                $(`#trkOtpEstado-${idDetalle}`).html(_trkRenderOtpEstado(otp));
+            }
             break;
+        }
+        case 'tracking.event': {
+            const payload = data.data || data;
+            const tipo = String(payload.type || payload.tipo || '').toLowerCase();
+            if (tipo === 'recoleccion_confirmada_otp') {
+                if (Array.isArray(payload.changes) && payload.changes.length) {
+                    _trkRTAplicarChanges(payload.changes);
+                } else {
+                    const idDetalle = payload.id_detalle || payload.detalle_id;
+                    _trkDetalleActualizarRecoleccion(idDetalle, 'recolectada');
+                    const nextId = payload.next_id_detalle || payload.siguiente_id_detalle;
+                    if (nextId) _trkDetalleActualizarRecoleccion(nextId, 'en_camino');
+                    if (_trkRT.estado && idDetalle) {
+                        _trkRTAplicarChanges([{ id_detalle: idDetalle, estatus_recoleccion: 'recolectada' }]);
+                    }
+                }
+            } else {
+                _trkRTCargarEstado();
+            }
+            break;
+        }
         case 'error': {
             const code = String(data.code || data.codigo || '');
             if (code === '4001') {
@@ -10696,10 +10964,97 @@ function _trkChatCargarYAbrir(idRuta) {
                 id_credito:     d.id_credito,
                 nombre_cliente: d.nombre_cliente || '',
                 orden_ruta:     d.orden_ruta,
+                modelo:         d.modelo || '',
+                bin:            d.bin || d.vin || '',
+                estado:         d.estado || '',
+                municipio:      d.municipio || '',
+                direccion:      d.direccion || '',
+                estatus_confirmacion_gestor: d.estatus_confirmacion_gestor || '',
+                estatus_recoleccion: d.estatus_recoleccion || '',
             }));
             _trkChatAbrir(idRuta, r.datos.nombre_ruta || `Ruta #${idRuta}`, detalle);
         })
         .catch(() => Swal.fire({ icon: 'error', title: 'Error', text: 'Error de conexion.', confirmButtonText: 'Aceptar' }));
+}
+
+function _trkChatRenderContextoDetalle(det) {
+    const idDetalle = det?.id_detalle || '';
+    const idCredito = det?.id_credito || 'Sin credito';
+    const orden = parseInt(det?.orden_ruta, 10) || 0;
+    const cliente = det?.nombre_cliente || 'Sin cliente';
+    const modelo = det?.modelo || 'Unidad no disponible';
+    const vin = det?.bin || 'VIN no disponible';
+    const estado = det?.estado || 'Sin estado';
+    const municipio = det?.municipio || 'Sin municipio';
+    const direccion = det?.direccion || 'Sin direccion registrada';
+    const confirmacion = det?.estatus_confirmacion_gestor || 'Sin confirmacion';
+    const recoleccion = det?.estatus_recoleccion || 'Sin avance';
+    return `<div class="chat-detail-context-main">
+            <span class="chat-detail-context-chip">
+                <i class="fa-solid fa-location-dot"></i>Punto ${orden || '-'}
+            </span>
+            <span class="chat-detail-context-title">${_trkChatEscapeHtml(cliente)}</span>
+            <span class="chat-detail-context-chip">Credito #${_trkChatEscapeHtml(idCredito)}</span>
+            <span class="chat-detail-context-chip">Detalle #${_trkChatEscapeHtml(idDetalle)}</span>
+        </div>
+        <div class="chat-detail-context-grid">
+            <span class="chat-detail-context-item"><b>Unidad:</b> ${_trkChatEscapeHtml(modelo)}</span>
+            <span class="chat-detail-context-item"><b>VIN:</b> ${_trkChatEscapeHtml(vin)}</span>
+            <span class="chat-detail-context-item"><b>Estado:</b> ${_trkChatEscapeHtml(estado)}</span>
+            <span class="chat-detail-context-item"><b>Municipio:</b> ${_trkChatEscapeHtml(municipio)}</span>
+            <span class="chat-detail-context-item"><b>Confirmacion:</b> ${_trkChatEscapeHtml(confirmacion)}</span>
+            <span class="chat-detail-context-item"><b>Recoleccion:</b> ${_trkChatEscapeHtml(recoleccion)}</span>
+            <span class="chat-detail-context-item chat-detail-context-address"><b>Direccion:</b> ${_trkChatEscapeHtml(direccion)}</span>
+        </div>`;
+}
+
+function _trkChatDetalleActivoValido(idDetalle, accion = 'continuar') {
+    const id = Number(idDetalle);
+    const state = _trkChat.chats[id];
+    const pane = document.getElementById(`chatPane_${id}`);
+    if (!state || !pane) {
+        Swal.fire({
+            icon: 'warning',
+            title: 'Punto no disponible',
+            text: 'No se encontro el punto de recoleccion para esta accion.',
+            confirmButtonText: 'Aceptar',
+        });
+        return false;
+    }
+    if (Number(_trkChat.activeTab) !== id || !pane.classList.contains('active')) {
+        Swal.fire({
+            icon: 'warning',
+            title: 'Revisa el punto activo',
+            text: `Para ${accion}, primero abre la pestana correcta del punto de recoleccion.`,
+            confirmButtonText: 'Aceptar',
+        });
+        return false;
+    }
+    return true;
+}
+
+function _trkChatEventoPerteneceDetalle(idDetalle, data) {
+    const recibido = data?.id_detalle || data?.detalle_id || data?.mensaje?.id_detalle;
+    return !recibido || Number(recibido) === Number(idDetalle);
+}
+
+function _trkChatResumenDetalle(idDetalle) {
+    const det = _trkChat.chats[Number(idDetalle)]?.detalle || {};
+    const partes = [
+        det.orden_ruta ? `Punto ${det.orden_ruta}` : '',
+        det.id_detalle ? `Detalle #${det.id_detalle}` : '',
+        det.id_credito ? `Credito #${det.id_credito}` : '',
+        det.nombre_cliente || '',
+    ].filter(Boolean);
+    return partes.join(' | ') || `Detalle #${idDetalle}`;
+}
+
+function _trkChatActualizarContextoDetalle(idDetalle, patch = {}) {
+    const state = _trkChat.chats[Number(idDetalle)];
+    if (!state) return;
+    state.detalle = { ...(state.detalle || {}), ...(patch || {}) };
+    const el = document.getElementById(`chatContext_${idDetalle}`);
+    if (el) el.innerHTML = _trkChatRenderContextoDetalle(state.detalle);
 }
 
 function _trkChatAbrir(idRuta, rutaNombre, detalleItems) {
@@ -10744,6 +11099,7 @@ function _trkChatAbrir(idRuta, rutaNombre, detalleItems) {
         const id = det.id_detalle;
         _trkChat.chats[id] = {
             id_chat: null, estatus: null, mensajes: [],
+            detalle: det,
             ws: null, wsRetries: 0, wsRetryTimeout: null, wsPingInterval: null,
             unread: 0, loadingMsgs: false, allLoaded: false, oldestMsgId: null,
             typingTimeout: null, typingStopTimeout: null, lastTypingSent: 0,
@@ -10768,6 +11124,9 @@ function _trkChatAbrir(idRuta, rutaNombre, detalleItems) {
         pane.className = 'chat-pane';
         pane.id        = `chatPane_${id}`;
         pane.innerHTML = `
+            <div class="chat-detail-context" id="chatContext_${id}">
+                ${_trkChatRenderContextoDetalle(det)}
+            </div>
             <div class="chat-status-notice d-none" id="chatNotice_${id}"></div>
             <div class="chat-messages-wrap" id="chatMsgsWrap_${id}"></div>
             <div class="chat-typing-indicator d-none" id="chatTyping_${id}">
@@ -11114,6 +11473,7 @@ function _trkChatScrollFinal(idDetalle) {
 
 // --- Enviar mensaje --------------------------------------
 async function _trkChatEnviarMensaje(idDetalle) {
+    if (!_trkChatDetalleActivoValido(idDetalle, 'enviar mensajes')) return;
     const state    = _trkChat.chats[idDetalle];
     const textarea = document.getElementById(`chatTextarea_${idDetalle}`);
     const sendBtn  = document.getElementById(`chatSendBtn_${idDetalle}`);
@@ -11256,6 +11616,7 @@ function _trkChatConectarWS(idDetalle, token) {
 function _trkChatProcesarEventoWS(idDetalle, data) {
     const state = _trkChat.chats[idDetalle];
     if (!state) return;
+    if (!_trkChatEventoPerteneceDetalle(idDetalle, data)) return;
 
     switch (data.event) {
         case 'init':
@@ -11424,6 +11785,7 @@ function _trkChatDeshabilitarInput(idDetalle, motivo) {
 }
 
 function _trkChatSeleccionarArchivo(idDetalle, tipo, accept = '') {
+    if (!_trkChatDetalleActivoValido(idDetalle, 'adjuntar evidencia')) return;
     const input = document.getElementById(`chatFileInput_${idDetalle}`);
     if (!input) return;
     input.value = '';
@@ -11434,6 +11796,10 @@ function _trkChatSeleccionarArchivo(idDetalle, tipo, accept = '') {
 
 async function _trkChatPrepararArchivo(idDetalle, file, input) {
     if (!file) return;
+    if (!_trkChatDetalleActivoValido(idDetalle, 'adjuntar evidencia')) {
+        if (input) input.value = '';
+        return;
+    }
     if (file.size > 100 * 1024 * 1024) {
         Swal.fire({ icon: 'warning', title: 'Archivo muy grande', text: 'El archivo no puede superar 100 MB.', confirmButtonText: 'Aceptar' });
         if (input) input.value = '';
@@ -11441,9 +11807,13 @@ async function _trkChatPrepararArchivo(idDetalle, file, input) {
     }
     const tipo = _trkChatTipoArchivo(file);
     const preview = await _trkChatPreviewArchivo(file, tipo);
+    const contexto = _trkChatEscapeHtml(_trkChatResumenDetalle(idDetalle));
     const res = await Swal.fire({
         title: 'Enviar evidencia',
-        html: preview,
+        html: `<div class="alert alert-info py-2 px-3 text-start small mb-3">
+                <i class="fa-solid fa-circle-info me-1"></i>
+                Esta evidencia se adjuntara a: <b>${contexto}</b>
+            </div>${preview}`,
         input: 'textarea',
         inputPlaceholder: 'Mensaje opcional...',
         inputAttributes: { maxlength: 1000, rows: 3 },
@@ -11489,6 +11859,7 @@ function _trkChatPreviewArchivo(file, tipo) {
 }
 
 async function _trkChatSubirArchivo(idDetalle, file, mensaje = '') {
+    if (!_trkChatDetalleActivoValido(idDetalle, 'subir evidencia')) return;
     const state = _trkChat.chats[idDetalle];
     if (!state || state.estatus !== 'activo') return;
     const sendBtn = document.getElementById(`chatSendBtn_${idDetalle}`);

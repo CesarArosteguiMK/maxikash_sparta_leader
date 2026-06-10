@@ -8,8 +8,13 @@ use Models\ConfigMotosAdj;
 
 class TrackingRecoleccion extends Model
 {
+    public const MODULO_TRACKING_CANCELAR_RUTA = 102;
+    private const MODULO_TRACKING_CANCELAR_RUTA_NOMBRE = 'Cancelar rutas Tracking';
+    private const MODULO_TRACKING_CANCELAR_RUTA_DESC = 'Tracking Recoleccion - Cancelar rutas registradas';
+
     /** @var Database */
     private $db;
+    private static ?int $moduloCancelarRutaId = null;
 
     public function __construct()
     {
@@ -191,10 +196,132 @@ class TrackingRecoleccion extends Model
             $this->asegurarColumnasTransportistaRuta();
             $this->asegurarColumnasCancelacionRuta();
             $this->asegurarColumnasDetalleRuta();
+            $this->asegurarPermisoCancelarRutaTracking();
             self::$tablasOk = true;
         } catch (\Throwable $e) {
             // No bloquear la carga del módulo; la BD podría no tener permisos DDL
             self::$tablasOk = true;
+        }
+    }
+
+    public function asegurarPermisoCancelarRutaTracking(): int
+    {
+        if (self::$moduloCancelarRutaId !== null) {
+            return self::$moduloCancelarRutaId;
+        }
+
+        try {
+            $row = $this->db->queryOne(
+                "SELECT id
+                   FROM modulos_web
+                  WHERE pestana = 'Permisos especiales'
+                    AND (descripcion = :descripcion_where OR nombre = :nombre_where)
+                  ORDER BY CASE
+                      WHEN descripcion = :descripcion_order THEN 0
+                      WHEN nombre = :nombre_order THEN 1
+                      ELSE 2
+                  END
+                  LIMIT 1",
+                [
+                    'descripcion_where' => self::MODULO_TRACKING_CANCELAR_RUTA_DESC,
+                    'nombre_where' => self::MODULO_TRACKING_CANCELAR_RUTA_NOMBRE,
+                    'descripcion_order' => self::MODULO_TRACKING_CANCELAR_RUTA_DESC,
+                    'nombre_order' => self::MODULO_TRACKING_CANCELAR_RUTA_NOMBRE,
+                ]
+            );
+
+            if ($row && (int) ($row['id'] ?? 0) > 0) {
+                self::$moduloCancelarRutaId = (int) $row['id'];
+                $this->db->CRUD(
+                    "UPDATE modulos_web
+                        SET nombre = :nombre,
+                            pestana = 'Permisos especiales',
+                            descripcion = :descripcion,
+                            activo = 1
+                      WHERE id = :id",
+                    [
+                        'nombre' => self::MODULO_TRACKING_CANCELAR_RUTA_NOMBRE,
+                        'descripcion' => self::MODULO_TRACKING_CANCELAR_RUTA_DESC,
+                        'id' => self::$moduloCancelarRutaId,
+                    ]
+                );
+                return self::$moduloCancelarRutaId;
+            }
+
+            $idOcupado = $this->db->queryOne(
+                "SELECT id FROM modulos_web WHERE id = :id LIMIT 1",
+                ['id' => self::MODULO_TRACKING_CANCELAR_RUTA]
+            );
+
+            if (!$idOcupado) {
+                $this->db->CRUD(
+                    "INSERT INTO modulos_web (id, nombre, pestana, descripcion, activo)
+                     VALUES (:id, :nombre, 'Permisos especiales', :descripcion, 1)",
+                    [
+                        'id' => self::MODULO_TRACKING_CANCELAR_RUTA,
+                        'nombre' => self::MODULO_TRACKING_CANCELAR_RUTA_NOMBRE,
+                        'descripcion' => self::MODULO_TRACKING_CANCELAR_RUTA_DESC,
+                    ]
+                );
+                self::$moduloCancelarRutaId = self::MODULO_TRACKING_CANCELAR_RUTA;
+                return self::$moduloCancelarRutaId;
+            }
+
+            $this->db->CRUD(
+                "INSERT INTO modulos_web (nombre, pestana, descripcion, activo)
+                 VALUES (:nombre, 'Permisos especiales', :descripcion, 1)",
+                [
+                    'nombre' => self::MODULO_TRACKING_CANCELAR_RUTA_NOMBRE,
+                    'descripcion' => self::MODULO_TRACKING_CANCELAR_RUTA_DESC,
+                ]
+            );
+            $row = $this->db->queryOne(
+                "SELECT id
+                   FROM modulos_web
+                  WHERE descripcion = :descripcion
+                  ORDER BY id DESC
+                  LIMIT 1",
+                ['descripcion' => self::MODULO_TRACKING_CANCELAR_RUTA_DESC]
+            );
+            self::$moduloCancelarRutaId = (int) ($row['id'] ?? 0);
+            return self::$moduloCancelarRutaId;
+        } catch (\Throwable $e) {
+            self::$moduloCancelarRutaId = 0;
+            return self::$moduloCancelarRutaId;
+        }
+    }
+
+    public function usuarioPuedeCancelarRutasTracking(int $idUsuario): bool
+    {
+        if ($idUsuario <= 0) {
+            return false;
+        }
+
+        $moduloId = $this->asegurarPermisoCancelarRutaTracking();
+        if ($moduloId <= 0) {
+            return false;
+        }
+
+        $modulosSesion = array_map('intval', (array) ($_SESSION['modulos'] ?? []));
+        if (in_array($moduloId, $modulosSesion, true)) {
+            return true;
+        }
+
+        try {
+            $row = $this->db->queryOne(
+                "SELECT 1 AS ok
+                   FROM asigna_modulo_web
+                  WHERE usuario_id = :usuario
+                    AND modulo_web_id = :modulo
+                  LIMIT 1",
+                [
+                    'usuario' => $idUsuario,
+                    'modulo' => $moduloId,
+                ]
+            );
+            return (bool) $row;
+        } catch (\Throwable $e) {
+            return false;
         }
     }
 
@@ -1885,9 +2012,12 @@ class TrackingRecoleccion extends Model
      *
      * @return array{success:bool, message?:string}
      */
-    public function cancelarRuta(int $idRuta, string $motivo, int $idUsuario): array
+    public function cancelarRuta(int $idRuta, string $motivo, int $idUsuario, bool $permisoEspecial = false): array
     {
         $motivo = trim(preg_replace('/\s+/', ' ', $motivo));
+        if (!$permisoEspecial) {
+            return ['success' => false, 'message' => 'No tienes permiso para cancelar rutas registradas.'];
+        }
         if ($idRuta <= 0) {
             return ['success' => false, 'message' => 'Ruta requerida.'];
         }
@@ -1909,8 +2039,11 @@ class TrackingRecoleccion extends Model
             if (!$ruta) {
                 return ['success' => false, 'message' => 'Ruta no encontrada.'];
             }
-            if (in_array((string) $ruta['estatus_ruta'], ['borrador', 'concluida', 'cancelada'], true)) {
-                return ['success' => false, 'message' => 'Esta ruta no se puede cancelar por su estatus actual.'];
+            if ((string) $ruta['estatus_ruta'] === 'borrador') {
+                return ['success' => false, 'message' => 'Los borradores se eliminan desde la pestana de borradores.'];
+            }
+            if ((string) $ruta['estatus_ruta'] === 'cancelada') {
+                return ['success' => false, 'message' => 'La ruta ya se encuentra cancelada.'];
             }
 
             $this->db->CRUD(
