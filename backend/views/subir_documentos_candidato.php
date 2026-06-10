@@ -585,9 +585,8 @@ $documentos = [
                         <?php else: ?>
                         <?php if ($esSolicitud): ?>
                         <div class="descarga-doc mb-2">
-                            <a href="<?= htmlspecialchars($urlBaseDescarga) ?>/solicitud_interna" class="btn-descarga" target="_blank" rel="noopener"><i class="fa fa-download me-1"></i> Descargar solicitud</a>
                             <a href="/CapHum/llenarSolicitudEnLinea/<?= htmlspecialchars($token) ?>" class="btn-descarga btn-llenar"><i class="fa fa-edit me-1"></i> Llenar solicitud en línea</a>
-                            <span class="d-block small-text mt-1">Descarga la plantilla en blanco para llenarla a mano o en computadora, o usa el formulario en línea. Luego guárdalo, fírmalo y súbelo aquí.</span>
+                            <span class="d-block small-text mt-1">Llena la solicitud en línea. Al terminar, guarda el PDF firmado y súbelo aquí.</span>
                         </div>
                         <?php elseif ($esCartaAdeudo): ?>
                         <div class="descarga-doc mb-2">
@@ -844,6 +843,8 @@ $documentos = [
 
             var VERIFICACION_CURP_TIMEOUT_MS = 8000;
             var VERIFICACION_FISCAL_TIMEOUT_MS = 10000;
+            var VALIDACION_PREVIA_REMOTA = false;
+            window.VALIDACION_PREVIA_REMOTA = VALIDACION_PREVIA_REMOTA;
 
             function crearErrorTimeout(timeoutMs) {
                 var err = new Error('Validaci\u00f3n autom\u00e1tica omitida.');
@@ -1008,6 +1009,32 @@ $documentos = [
                 else el.classList.remove('visible');
             }
 
+            function normalizarNombreDocumentoLocal(valor) {
+                return String(valor || '')
+                    .normalize('NFD')
+                    .replace(/[\u0300-\u036f]/g, '')
+                    .replace(/[^A-Za-z0-9]+/g, ' ')
+                    .toUpperCase()
+                    .replace(/\s+/g, ' ')
+                    .trim();
+            }
+
+            function tipoSugeridoPorNombreArchivo(nombreArchivo) {
+                var base = normalizarNombreDocumentoLocal(String(nombreArchivo || '').replace(/\.[^.]+$/, ''));
+                if (!base) return 0;
+                if (base.indexOf('SOLICITUD MAXIKASH') !== -1 || base.indexOf('SOLICITUD INTERNA') !== -1) return 1;
+                if (base.indexOf('CURRICUL') !== -1 || /\bCV\b/.test(base) || base.indexOf('SOLICITUD DE TRABAJO') !== -1 || base.indexOf('SOLICITUD EMPLEO') !== -1) return 2;
+                if (base.indexOf('ACTA') !== -1 || base.indexOf('NACIMIENTO') !== -1) return 3;
+                if (base.indexOf('CURP') !== -1) return 4;
+                if (base.indexOf('IDENTIFIC') !== -1 || base.indexOf('INE') !== -1 || base.indexOf('IFE') !== -1) return 5;
+                if (base.indexOf('DOMICILIO') !== -1 || base.indexOf('COMPROBANTE') !== -1) return 6;
+                if (base.indexOf('FISCAL') !== -1 || base.indexOf('RFC') !== -1 || base.indexOf('SAT') !== -1) return 7;
+                if (base.indexOf('NSS') !== -1 || base.indexOf('SEGURIDAD SOCIAL') !== -1 || base.indexOf('IMSS') !== -1) return 8;
+                if (base.indexOf('RETENCION') !== -1 || base.indexOf('FONACOT') !== -1 || base.indexOf('INFONAVIT') !== -1) return 9;
+                if (base.indexOf('ESTADO DE CUENTA') !== -1 || base.indexOf('CUENTA BANCARIA') !== -1) return 10;
+                return 0;
+            }
+
             var MSG_AUTO_OCULTAR_MS = 10000;
             var verificacionesPendientes = 0;
 
@@ -1053,14 +1080,15 @@ $documentos = [
             function actualizarBotonEnviar() {
                 var btn = document.getElementById('btnEnviar');
                 if (btn) {
-                    btn.disabled = verificacionesPendientes > 0;
-                    btn.textContent = verificacionesPendientes > 0 ? 'Verificando... (no se puede subir a\u00fan)' : 'Subir documentos';
-                    btn.setAttribute('title', verificacionesPendientes > 0 ? 'Espera a que termine la verificaci\u00f3n' : '');
+                    btn.disabled = false;
+                    btn.textContent = 'Subir documentos';
+                    btn.setAttribute('title', '');
                 }
             }
 
             function showVerificando(cont, texto) {
                 if (!cont) return null;
+                if (!VALIDACION_PREVIA_REMOTA) return null;
                 verificacionesPendientes++;
                 actualizarBotonEnviar();
                 mostrarAlertaDocumento('loading', 'Procesando documento', texto || 'Estamos revisando tu documento. Espera un momento.');
@@ -1119,9 +1147,9 @@ $documentos = [
             window.showResultado = showResultado;
             window.mostrarAlertaDocumento = mostrarAlertaDocumento;
             window.cerrarAlertaDocumento = cerrarAlertaDocumento;
-            window.verificacionPendienteInicio = function() { verificacionesPendientes++; actualizarBotonEnviar(); };
-            window.verificacionPendienteFin = function() { verificacionesPendientes = Math.max(0, verificacionesPendientes - 1); actualizarBotonEnviar(); };
-            window.puedeEnviarDocumentos = function() { return verificacionesPendientes === 0; };
+            window.verificacionPendienteInicio = function() { if (!VALIDACION_PREVIA_REMOTA) return; verificacionesPendientes++; actualizarBotonEnviar(); };
+            window.verificacionPendienteFin = function() { if (!VALIDACION_PREVIA_REMOTA) return; verificacionesPendientes = Math.max(0, verificacionesPendientes - 1); actualizarBotonEnviar(); };
+            window.puedeEnviarDocumentos = function() { return true; };
 
             function cerrarModal() {
                 if (streamActual) {
@@ -1165,7 +1193,19 @@ $documentos = [
                     if (!file) return;
                     var ext = file.name.split('.').pop().toLowerCase();
                     if (['pdf', 'jpg', 'jpeg', 'png'].indexOf(ext) === -1) return;
+                    var tipoDetectado = tipoSugeridoPorNombreArchivo(file.name);
+                    if (tipoDetectado > 0 && tipoDetectado !== 6 && tipoDetectado !== 10) {
+                        showResultado(document.getElementById('mensajeResultado'), null, 'Este archivo parece corresponder a otro documento. Para Comprobante de domicilio sube el PDF o imagen del comprobante correcto.', true);
+                        inputComprobante.value = '';
+                        actualizarCheckmark(6, false);
+                        return;
+                    }
                     var msg = document.getElementById('mensajeResultado');
+                    if (!VALIDACION_PREVIA_REMOTA) {
+                        showResultado(msg, null, '<i class="fa fa-check-circle me-1"></i> Comprobante recibido. Capital Humano lo revisar\u00e1.', false);
+                        marcarDocumentoRecibido(6, 'comp-verificado');
+                        return;
+                    }
                     var verificandoDiv = showVerificando(msg, 'Verificando comprobante...');
                     var formData = new FormData();
                     formData.append('documento', file, file.name);
@@ -1211,6 +1251,11 @@ $documentos = [
                         return;
                     }
                     var msg = document.getElementById('mensajeResultado');
+                    if (!VALIDACION_PREVIA_REMOTA) {
+                        showResultado(msg, null, '<i class="fa fa-check-circle me-1"></i> CURP recibido. Capital Humano lo revisar\u00e1.', false);
+                        marcarDocumentoRecibido(4, 'curp-verificado');
+                        return;
+                    }
                     var verificandoDiv = showVerificando(msg, 'Verificando CURP...');
                     var formData = new FormData();
                     formData.append('documento', file, file.name);
@@ -1264,8 +1309,22 @@ $documentos = [
                         actualizarCheckmark(5, false);
                         return;
                     }
+                    var tipoDetectadoId = tipoSugeridoPorNombreArchivo(file.name);
+                    if (tipoDetectadoId > 0 && tipoDetectadoId !== 5) {
+                        showResultado(document.getElementById('mensajeResultado'), null, 'Este archivo parece corresponder a otro documento. Para Identificación oficial sube el PDF de INE/IFE o identificación válida con frente y reverso.', true);
+                        inputFrente.value = '';
+                        actualizarCheckmark(5, false);
+                        return;
+                    }
                     var msg = document.getElementById('mensajeResultado');
                     var verificandoDiv = showVerificando(msg, 'Validando identificación...');
+                    if (!VALIDACION_PREVIA_REMOTA) {
+                        idVerificado.front = true;
+                        idVerificado.back = true;
+                        showResultado(msg, null, '<i class="fa fa-check-circle me-1"></i> Identificaci\u00f3n oficial recibida. Capital Humano la revisar\u00e1.', false);
+                        marcarDocumentoRecibido(5, 'id-verificado-frente');
+                        return;
+                    }
                     precheckIdentificacionPdfAPI(file).then(function(res) {
                         var el = document.getElementById('id-verificado-frente');
                         if (res && res.rechazado === true) {
@@ -1352,6 +1411,11 @@ $documentos = [
                         return;
                     }
                     var msg = document.getElementById('mensajeResultado');
+                    if (!VALIDACION_PREVIA_REMOTA) {
+                        showResultado(msg, null, '<i class="fa fa-check-circle me-1"></i> Constancia fiscal recibida. Capital Humano la revisar\u00e1.', false);
+                        marcarDocumentoRecibido(7, 'fiscal-verificado');
+                        return;
+                    }
                     var verificandoDiv = showVerificando(msg, 'Verificando constancia fiscal...');
                     var formData = new FormData();
                     formData.append('documento', file, file.name);
@@ -1404,6 +1468,11 @@ $documentos = [
                     var verificandoDiv = showVerificando(msg, 'Verificando número de seguro social...');
                     var formData = new FormData();
                     formData.append('documento', file, file.name);
+                    if (!VALIDACION_PREVIA_REMOTA) {
+                        showResultado(msg, null, '<i class="fa fa-check-circle me-1"></i> NSS recibido. Capital Humano lo revisar\u00e1.', false);
+                        marcarDocumentoRecibido(8, 'nss-verificado');
+                        return;
+                    }
                     fetchWithTimeout(API_BASE + '/verificar-nss-documento', { method: 'POST', headers: { 'X-API-Key': API_KEY }, body: formData }, VERIFICACION_TIMEOUT_MS)
                     .then(function(r) {
                         if (!r.ok) throw new Error('La API respondió con error. Intenta de nuevo.');
@@ -1449,6 +1518,11 @@ $documentos = [
                     var verificandoDiv = showVerificando(msg, 'Verificando estado de cuenta...');
                     var formData = new FormData();
                     formData.append('documento', file, file.name);
+                    if (!VALIDACION_PREVIA_REMOTA) {
+                        showResultado(msg, null, '<i class="fa fa-check-circle me-1"></i> Estado de cuenta recibido. Capital Humano lo revisar\u00e1.', false);
+                        actualizarCheckmark(10, true);
+                        return;
+                    }
                     fetchWithTimeout(API_BASE + '/verificar-estado-cuenta', { method: 'POST', headers: { 'X-API-Key': API_KEY }, body: formData }, VERIFICACION_ESTADO_CUENTA_TIMEOUT_MS)
                     .then(function(r) {
                         if (!r.ok) {
@@ -1720,6 +1794,23 @@ $documentos = [
                 var side = currentSide;
                 var btnUse = document.getElementById('capturaId-btn-use');
                 var statusEl = document.getElementById('capturaId-result-side');
+                if (!window.VALIDACION_PREVIA_REMOTA) {
+                    idVerificado[side] = true;
+                    if (side === 'front') {
+                        if (window.asignarArchivoIdentificacion) window.asignarArchivoIdentificacion(blob);
+                        var elFrontFast = document.getElementById('id-verificado-frente');
+                        if (elFrontFast) elFrontFast.style.display = 'inline';
+                    } else {
+                        if (window.asignarArchivoReverso) window.asignarArchivoReverso(blob);
+                        var elBackFast = document.getElementById('id-verificado-reverso');
+                        if (elBackFast) elBackFast.style.display = 'inline';
+                    }
+                    if (idVerificado.front && idVerificado.back) actualizarCheckmark(5, true);
+                    goIntro();
+                    var msgFast = document.getElementById('mensajeResultado');
+                    if (msgFast) (window.showResultado || function(){})(msgFast, null, '<i class="fa fa-check-circle me-1"></i> Foto recibida. Capital Humano la revisar\u00e1.', false);
+                    return;
+                }
                 if (btnUse) { btnUse.disabled = true; btnUse.textContent = 'Verificando...'; }
                 if (window.verificacionPendienteInicio) window.verificacionPendienteInicio();
 
@@ -1951,6 +2042,16 @@ $documentos = [
             function compUsePhoto() {
                 var blob = compDataURLtoBlob(capturedCompDataURL);
                 var btnUse = document.getElementById('comp-btn-use');
+                if (!window.VALIDACION_PREVIA_REMOTA) {
+                    if (window.asignarArchivoComprobante) window.asignarArchivoComprobante(blob);
+                    actualizarCheckmark(6, true);
+                    var elFast = document.getElementById('comp-verificado');
+                    if (elFast) elFast.style.display = 'inline';
+                    compGoIntro();
+                    var msgFast = document.getElementById('mensajeResultado');
+                    if (msgFast) (window.showResultado || function(){})(msgFast, null, '<i class="fa fa-check-circle me-1"></i> Comprobante recibido. Capital Humano lo revisar\u00e1.', false);
+                    return;
+                }
                 if (btnUse) { btnUse.disabled = true; btnUse.textContent = 'Verificando...'; }
                 if (window.verificacionPendienteInicio) window.verificacionPendienteInicio();
 

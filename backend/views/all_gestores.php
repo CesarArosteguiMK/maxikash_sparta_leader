@@ -9576,7 +9576,7 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
       puestosHTML += `
         <div class="d-flex flex-column" style="gap: 0.25rem;">
           <small class="departamento-label">
-            <i class="fa fa-building"></i>${puesto.nombre_departamento}
+            <i class="fa fa-building"></i>${nombreDepartamentoSeguro(puesto.nombre_departamento)}
           </small>
           <span class="${claseBadge}" style="${esPrincipal ? 'background-color: var(--bs-blue); ' : ''}width: 100%;">
             <span style="font-size: 0.9rem;">${iconoPuestoHtml}</span>
@@ -9836,6 +9836,50 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
     }
   });
 
+  function normalizarDepartamentoEtiqueta(valor) {
+    return String(valor || '')
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .trim()
+      .toLowerCase();
+  }
+
+  function usuarioExentoEtiquetaExterno(usuario) {
+    if (!usuario) return false;
+    const nombreCompleto = [
+      usuario.nombres,
+      usuario.segundo_nombre,
+      usuario.apellidop,
+      usuario.apellidom
+    ].filter(Boolean).join(' ');
+    const nombreNormalizado = normalizarDepartamentoEtiqueta(nombreCompleto);
+    return nombreNormalizado.includes('hector') && nombreNormalizado.includes('ruiz');
+  }
+
+  function esDepartamentoExterno(nombreDepartamento) {
+    return normalizarDepartamentoEtiqueta(nombreDepartamento) === 'despachos cobranza';
+  }
+
+  function etiquetaExternoPorUsuario(usuario) {
+    if (usuarioExentoEtiquetaExterno(usuario)) return '';
+
+    const departamentos = [];
+    if (usuario?.nombre_departamento) departamentos.push(usuario.nombre_departamento);
+    if (Array.isArray(usuario?.puestos)) {
+      usuario.puestos.forEach(puesto => {
+        if (puesto?.nombre_departamento) departamentos.push(puesto.nombre_departamento);
+      });
+    }
+
+    return departamentos.some(esDepartamentoExterno)
+      ? '<span class="badge bg-dark text-white ms-2 align-middle" title="Departamento externo">Externo</span>'
+      : '';
+  }
+
+  function nombreDepartamentoSeguro(nombreDepartamento, fallback = 'Sin departamento') {
+    return nombreDepartamento || fallback;
+  }
+
   function actualizarTabla(datos) {
     // Si estamos usando DataTables
     const tabla = $('#historialUsuarios').DataTable();
@@ -9850,6 +9894,7 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
       const nombreCompleto = [p.nombres, p.segundo_nombre, p.apellidop, p.apellidom].filter(x => x).join(' ');
       const tienePuestos = p.puestos && p.puestos.length > 1;
       const vistaMultiplesActiva = document.getElementById('FilterMultiplePuestos')?.value === 'multiples';
+      const etiquetaExternoPersona = etiquetaExternoPorUsuario(p);
 
       // Generar badges para múltiples puestos con JERARQUÍA VISUAL
       let puestosHTML = '';
@@ -9858,7 +9903,7 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
         puestosHTML = `
           <div class="d-flex flex-column align-items-start gap-1" style="max-width: 360px;">
             <small class="departamento-label mb-0">
-              <i class="fa fa-building"></i>${puestoPrincipal.nombre_departamento || p.nombre_departamento || 'Sin departamento'}
+              <i class="fa fa-building"></i>${nombreDepartamentoSeguro(puestoPrincipal.nombre_departamento || p.nombre_departamento)}
             </small>
             <span class="badge text-white d-inline-flex align-items-center gap-2 text-wrap text-start px-2 py-2 shadow-sm"
                   style="background-color: var(--bs-blue);"
@@ -9889,7 +9934,7 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
           puestosHTML += `
             <div class="d-flex flex-column" style="gap: 0.25rem;">
               <small class="departamento-label">
-                <i class="fa fa-building"></i>${puesto.nombre_departamento}
+                <i class="fa fa-building"></i>${nombreDepartamentoSeguro(puesto.nombre_departamento)}
               </small>
               <span class="${claseBadge}"
                     style="${esPrincipal ? 'background-color: var(--bs-blue);' : ''}"
@@ -9919,7 +9964,7 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
         puestosHTML = `
           <small class="text-muted d-flex align-items-center gap-1">
             <i class="fa fa-building"></i>
-            ${p.nombre_departamento || 'Sin departamento'}
+            ${nombreDepartamentoSeguro(p.nombre_departamento)}
           </small>
           <small class="text-muted d-flex align-items-center gap-1">
             <i class="fa fa-briefcase"></i>
@@ -9947,7 +9992,7 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
                  # ${p.numero_empleado}
               </div>
               <div class="fw-semibold text-uppercase">
-                  ${nombreCompleto}
+                  ${nombreCompleto}${etiquetaExternoPersona}
               </div>
               <small class="text-muted d-flex align-items-center gap-1">
                   <i class="fa fa-key"></i>

@@ -125,6 +125,8 @@ function j_resolve_jefe(string $jefeTexto, array $jefesByName, array $people): a
 
     $aliasJefes = [
         'ALEJANDRO PAEZ' => 'ALEJANDRO ROMULO PAEZ EUSEBIO',
+        'JUAN CARLOS' => 'JUAN CARLOS MARTINEZ SOTO TUDON',
+        'ENRIQUE GARCIA' => 'ENRIQUE GARCIA ROSAS',
     ];
     if (isset($aliasJefes[$targetKey])) {
         $aliasKey = j_key($aliasJefes[$targetKey]);

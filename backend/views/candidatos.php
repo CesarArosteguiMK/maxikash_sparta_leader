@@ -43,6 +43,8 @@ window.departamentosCandidatoBackend = <?= json_encode($departamentosCandidatoCa
                         <option value="En entrevista">En entrevista</option>
                         <option value="Descartado">Descartado</option>
                         <option value="Validado">Validado</option>
+                        <option value="Pendiente de validacion final">Pendiente de validacion final</option>
+                        <option value="Ingreso programado">Ingreso programado</option>
                         <option value="Proceso cerrado">Proceso cerrado</option>
                     </select>
                 </div>
