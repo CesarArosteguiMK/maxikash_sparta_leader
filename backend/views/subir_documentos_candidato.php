@@ -534,6 +534,12 @@ $documentos = [
         #comprobanteOverlay [id^="comp-q-"][id$="-bar"] { height: 100%; border-radius: 2px; background: #4ADE80; transition: width 0.6s ease; }
         #comprobanteOverlay [id^="comp-q-"][id$="-bar"].warn { background: #FBBF24; }
         #comprobanteOverlay [id^="comp-q-"][id$="-val"].warn { color: #FBBF24; }
+        .btn-tomar-foto,
+        #modalCamara,
+        #capturaIdOverlay,
+        #comprobanteOverlay {
+            display: none !important;
+        }
     </style>
 </head>
 <body>
@@ -844,7 +850,9 @@ $documentos = [
             var VERIFICACION_CURP_TIMEOUT_MS = 8000;
             var VERIFICACION_FISCAL_TIMEOUT_MS = 10000;
             var VALIDACION_PREVIA_REMOTA = false;
+            var FLUJO_CAPTURA_DOCUMENTOS_ACTIVO = false;
             window.VALIDACION_PREVIA_REMOTA = VALIDACION_PREVIA_REMOTA;
+            window.FLUJO_CAPTURA_DOCUMENTOS_ACTIVO = FLUJO_CAPTURA_DOCUMENTOS_ACTIVO;
 
             function crearErrorTimeout(timeoutMs) {
                 var err = new Error('Validaci\u00f3n autom\u00e1tica omitida.');
@@ -1568,6 +1576,10 @@ $documentos = [
                 });
             });
 
+            if (!FLUJO_CAPTURA_DOCUMENTOS_ACTIVO) {
+                return;
+            }
+
             document.getElementById('btnCerrarModalCamara').addEventListener('click', cerrarModal);
             document.getElementById('btnCancelarCamara').addEventListener('click', cerrarModal);
             btnCapturar.addEventListener('click', function() {
@@ -1646,6 +1658,7 @@ $documentos = [
             });
         })();
         (function() {
+            if (window.FLUJO_CAPTURA_DOCUMENTOS_ACTIVO !== true) return;
             var DOC_ID_NUM = 5;
             var overlay = document.getElementById('capturaIdOverlay');
             var intro = document.getElementById('capturaId-intro');
@@ -1894,6 +1907,7 @@ $documentos = [
             });
         })();
         (function() {
+            if (window.FLUJO_CAPTURA_DOCUMENTOS_ACTIVO !== true) return;
             var compOverlay = document.getElementById('comprobanteOverlay');
             var compIntro = document.getElementById('comp-intro');
             var compCamera = document.getElementById('comp-camera');

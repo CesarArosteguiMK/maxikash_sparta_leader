@@ -1060,6 +1060,16 @@ async def precheck_identificacion_pdf(
                 tiempo_ms=int((time.time() - inicio) * 1000),
             )
 
+        if re.search(r"SOLICITUD\s+(INTERNA|DE\s+EMPLEO|EMPLEO|DE\s+TRABAJO|TRABAJO)|CURR.?CULUM|CURRICULUM\s+VITAE|EXPERIENCIA\s+LABORAL", texto_upper):
+            return _respuesta_rechazo(
+                "solicitud_en_identificacion",
+                "El documento corresponde a solicitud/CV. En este campo solo se acepta identificacion oficial.",
+                paginas=paginas,
+                indicadores=indicadores,
+                modo="documento_equivocado_texto",
+                tiempo_ms=int((time.time() - inicio) * 1000),
+            )
+
     if paginas <= 0:
         mensaje = "No se pudo abrir el PDF para revisión rápida."
         valido = False

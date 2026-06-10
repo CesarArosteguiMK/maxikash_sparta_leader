@@ -5797,7 +5797,7 @@ class CapHum extends Controller
                     return;
                 }
                 var intentos = 0;
-                var maxIntentos = 60;
+                var maxIntentos = 10;
                 docModalPollTimer = setInterval(function() {
                     intentos++;
                     if (intentos > maxIntentos) {
@@ -5806,7 +5806,7 @@ class CapHum extends Controller
                         var modalAbierto = document.getElementById("modalDocumentacionCandidato");
                         if (bv && modalAbierto && modalAbierto.classList.contains("show")) {
                             bv.classList.remove("d-none");
-                            bv.innerHTML = "<div class=\"alert alert-warning small mb-0\"><i class=\"fa fa-info-circle me-1\"></i>No llegó el resultado de la verificación automática en el tiempo esperado. Cierra el modal y ábrelo de nuevo, o espera unos minutos y actualiza la página.</div>";
+                            bv.innerHTML = "<div class=\"alert alert-warning small mb-0\"><i class=\"fa fa-info-circle me-1\"></i>La verificación automática no respondió rápido. El expediente queda disponible para revisión manual; puede validar, rechazar o reintentar la API después.</div>";
                         }
                         return;
                     }
@@ -6698,7 +6698,8 @@ class CapHum extends Controller
                 var respuestaVaciaApi = !errApi && checksTotNum === 0 && sinPuntuaciones && alertas.length === 0 && v.todo_coincide !== true;
                 if (!verificacionEnProceso && errApi) {
                     candidatosDocConsola("error", "verificacion API - error_api (detalle tecnico)", errApi);
-                    html += "<div class=\"alert alert-warning py-2 px-2 mb-2 small\" role=\"alert\"><strong>Revisi&oacute;n manual requerida.</strong><br><span class=\"text-muted\">La validaci&oacute;n autom&aacute;tica no entreg&oacute; resultado a tiempo. El expediente ya est&aacute; recibido y Capital Humano puede revisarlo sin esperar a la API.</span></div>";
+                    html += "<div class=\"alert alert-warning py-2 px-2 mb-2 small\" role=\"alert\"><strong>API pendiente / fallo t&eacute;cnico.</strong><br><span class=\"text-muted\">La validaci&oacute;n autom&aacute;tica no entreg&oacute; un resultado confiable. No se marca como revisi&oacute;n manual; corrige/reinicia la API o usa \"Reintentar API\".</span></div>";
+                    html += "<div class=\"d-grid gap-2 mb-2\"><button type=\"button\" class=\"btn btn-sm btn-outline-primary btn-reintentar-verif-expediente\" id=\"btnReintentarVerifExpediente\" title=\"Volver a ejecutar la verificaci&oacute;n contra la API\"><i class=\"fa fa-sync-alt me-1\"></i>Reintentar API</button></div>";
                     errApi = "";
                 }
                 if (!verificacionEnProceso && respuestaVaciaApi) {
@@ -6707,7 +6708,7 @@ class CapHum extends Controller
                     respuestaVaciaApi = false;
                 }
                 if (verificacionEnProceso) {
-                    html += "<div class=\"alert alert-info py-2 px-2 mb-2 small\" role=\"status\"><strong>Verificación en proceso.</strong><br><span class=\"text-muted\">Puedes dejar abierto este recuadro; se actualizará automáticamente.</span></div>";
+                    html += "<div class=\"alert alert-info py-2 px-2 mb-2 small\" role=\"status\"><strong>Verificación en proceso.</strong><br><span class=\"text-muted\">No es necesario esperar: el expediente puede revisarse manualmente mientras la API termina.</span></div>";
                 } else if (errApi) {
                     candidatosDocConsola("error", "verificación API - error_api (detalle técnico)", errApi);
                     html += "<div class=\"alert alert-danger py-2 px-2 mb-2 small\" role=\"alert\"><strong>No se pudo completar la verificación automática.</strong><br><span class=\"text-muted\">El servicio no respondió a tiempo o hubo un fallo técnico. Capital Humano puede revisar el expediente manualmente.</span></div>";
@@ -7138,20 +7139,27 @@ class CapHum extends Controller
                 if (vc && typeof vc === "object") candidatosRevision.push(vc);
                 if (vf) candidatosRevision.push(vf);
                 var requiereRevision = false;
+                var apiPendiente = false;
                 var notas = [];
                 if (tipoNorm.indexOf("IDENTIFICACION") !== -1 && notasCalidad.length > 0) {
                     requiereRevision = true;
                 }
                 candidatosRevision.forEach(function(x) {
                     if (!x || typeof x !== "object") return;
-                    if (x.pendiente_revision_backend || x.pendiente_revision_manual || x.revision_manual || x.timeout) requiereRevision = true;
-                    if (x.valido === false || x.ok === false || x.aceptado === false) requiereRevision = true;
+                    var esFalloTecnicoApi = !!(x.timeout || x.error_api || x.api_pendiente || x.pendiente_revision_backend);
+                    if (esFalloTecnicoApi) apiPendiente = true;
+                    if (x.pendiente_revision_manual || (x.revision_manual && !esFalloTecnicoApi)) requiereRevision = true;
+                    if ((x.valido === false || x.ok === false || x.aceptado === false) && !esFalloTecnicoApi) requiereRevision = true;
                     if (x.mensaje) notas.push(x.mensaje);
                     if (Array.isArray(x.notas)) x.notas.forEach(function(n) { notas.push(typeof n === "string" ? n : String(n)); });
                 });
-                if (!requiereRevision) return;
+                if (!requiereRevision && !apiPendiente) return;
                 var detalle = notas.length ? notas.join(" | ") : "La verificaci\u00f3n autom\u00e1tica no confirm\u00f3 el documento; revisar manualmente.";
-                revisionManualHtml = " <span class=\"badge bg-warning text-dark ms-1\" data-bs-toggle=\"tooltip\" data-bs-title=\"" + escHtml(detalle).replace(/"/g, "&quot;") + "\">Revisi\u00f3n manual</span>";
+                if (requiereRevision) {
+                    revisionManualHtml = " <span class=\"badge bg-warning text-dark ms-1\" data-bs-toggle=\"tooltip\" data-bs-title=\"" + escHtml(detalle).replace(/"/g, "&quot;") + "\">Revisi\u00f3n manual</span>";
+                } else {
+                    revisionManualHtml = " <span class=\"badge bg-info text-dark ms-1\" data-bs-toggle=\"tooltip\" data-bs-title=\"" + escHtml(detalle || "La API no entreg\u00f3 resultado todav\u00eda. Reintentar verificaci\u00f3n autom\u00e1tica.").replace(/"/g, "&quot;") + "\">API pendiente</span>";
+                }
             })();
             var esValidado = parseInt(d.validado || 0, 10) === 1;
             var permisosCandDoc = window.candidatosPermisos || {};
@@ -7356,12 +7364,12 @@ class CapHum extends Controller
                     fd.append("solo_identificacion", "1");
                 }
                 var ctrl = new AbortController();
-                var toMs = 780000;
+                var toMs = 30000;
                 var tid = setTimeout(function() { try { ctrl.abort(); } catch (e) {} }, toMs);
                 var t0 = (typeof performance !== "undefined" && performance.now) ? performance.now() : Date.now();
                 candidatosDocConsola("info", "verificarExpedienteCandidato - inicio POST", { id_candidato: idC, url: "/caphum/verificarExpedienteCandidato", timeout_ms: toMs, solo_identificacion: !!soloIdentificacion });
                 registrarTrazaDocModalTecnico("verificarExpedienteCandidato - POST (detalle)", { id_candidato: idC, url: "/caphum/verificarExpedienteCandidato", timeout_ms: toMs, solo_identificacion: !!soloIdentificacion });
-                setDocModalApiTraceUsuario("Verificación iniciada. Puedes dejar este recuadro abierto; se actualizará sola.", "wait");
+                setDocModalApiTraceUsuario("Verificación iniciada en segundo plano. No bloquea la revisión manual del expediente.", "wait");
                 fetch("/caphum/verificarExpedienteCandidato", { method: "POST", body: fd, headers: { "X-Requested-With": "XMLHttpRequest" }, signal: ctrl.signal })
                     .then(function(r) {
                         clearTimeout(tid);
@@ -7478,7 +7486,7 @@ class CapHum extends Controller
                         } else if (verifPrev) {
                             clearDocModalApiTrace();
                         } else if (res.datos && res.datos.metricas && res.datos.metricas.expediente_completo) {
-                            setDocModalApiTraceUsuario("Expediente completo. La verificación automática sigue procesándose en segundo plano; esta vista se actualizará sola.", "neutral");
+                            setDocModalApiTraceUsuario("Expediente completo. La verificación automática corre en segundo plano y no bloquea la revisión manual.", "neutral");
                         } else {
                             clearDocModalApiTrace();
                         }
@@ -10017,8 +10025,9 @@ class CapHum extends Controller
             if ($soloIdentificacion) {
                 array_unshift($alertasErr, 'Modo "solo identificación" activo: el fallo puede no reproducirse al verificar con todos los PDFs.');
             }
+            $alertasErr = ['La verificacion automatica no finalizo por un fallo tecnico de la API. No se considera revision manual; reintente cuando el servicio este disponible.'];
             $payloadError = [
-                'todo_coincide' => false,
+                'todo_coincide' => null,
                 'foto_rechazada' => false,
                 'curp_definitivo' => null,
                 'checks_ok' => 0,
@@ -10031,10 +10040,12 @@ class CapHum extends Controller
                 'anio_nacimiento' => null,
                 'tipo_documento' => null,
                 'modo_verificacion' => $soloIdentificacion ? 'solo_identificacion' : 'completo',
+                'api_pendiente' => true,
                 'error_api' => $resultadoApi['error'],
             ];
             CandidatosDAO::updateVerificacionExpediente($id_candidato, json_encode($payloadError));
             $mensajeUsuario = 'La verificación automática no pudo completarse. El estado quedó guardado; Capital Humano revisará el expediente.';
+            $mensajeUsuario = 'La verificacion automatica no pudo completarse por un fallo tecnico. Reintente la API cuando el servicio este disponible.';
             echo json_encode(self::respuesta(true, $mensajeUsuario, ['verificacion_expediente' => $payloadError]));
             return;
         }
@@ -11018,6 +11029,105 @@ class CapHum extends Controller
         return 0;
     }
 
+    private function esRechazoFirmeVerificacionDocumentoCandidato($resultado): bool
+    {
+        if (!is_array($resultado)) {
+            return false;
+        }
+        if (!empty($resultado['revision_manual'])) {
+            return false;
+        }
+        $mensaje = $this->normalizarTipoDocumentoCandidatoMetricas($resultado['mensaje'] ?? $resultado['recomendacion'] ?? '');
+        if ($mensaje !== '' && (
+            strpos($mensaje, 'API NO RESPONDIO') !== false
+            || strpos($mensaje, 'API NO RESPOND') !== false
+            || strpos($mensaje, 'NO DEVOLVIO JSON') !== false
+            || strpos($mensaje, 'TIMEOUT') !== false
+            || strpos($mensaje, 'TARDO') !== false
+            || strpos($mensaje, 'CONECTAR') !== false
+            || strpos($mensaje, 'NO SE PUDO REVISAR') !== false
+            || strpos($mensaje, 'NO SE PUDO CONFIRMAR') !== false
+            || strpos($mensaje, 'NO SE PUDO LEER') !== false
+            || strpos($mensaje, 'NO SE PUDO CONTACTAR') !== false
+        )) {
+            return false;
+        }
+        $motivo = trim((string) ($resultado['motivo'] ?? $resultado['codigo'] ?? ''));
+        if ($motivo !== '') {
+            return true;
+        }
+        if (array_key_exists('valido', $resultado) && $resultado['valido'] === false) {
+            return true;
+        }
+        $estado = strtoupper(trim((string) ($resultado['resultado'] ?? '')));
+        if ($estado === 'RECHAZADO') {
+            return true;
+        }
+        return false;
+    }
+
+    private function verificarComprobanteDomicilioApi($rutaPdf)
+    {
+        $configFile = defined('RAIZ') ? (RAIZ . '/config/config.ini') : (__DIR__ . '/../config/config.ini');
+        if (!is_file($configFile)) {
+            return null;
+        }
+        $config = @parse_ini_file($configFile, true);
+        $apiUrl = trim($config['doc_verificacion']['api_url'] ?? '');
+        $apiKey = trim($config['doc_verificacion']['api_key'] ?? '');
+        if ($apiUrl === '' || $apiKey === '') {
+            return null;
+        }
+        $baseUrl = preg_replace('#/verificar\s*$#', '', $apiUrl);
+        $url = rtrim($baseUrl, '/') . '/verificar-comprobante';
+        $cfile = new \CURLFile($rutaPdf, 'application/pdf', basename($rutaPdf));
+        $ch = curl_init($url);
+        curl_setopt_array($ch, [
+            CURLOPT_POST => true,
+            CURLOPT_POSTFIELDS => ['documento' => $cfile],
+            CURLOPT_HTTPHEADER => ['X-API-Key: ' . $apiKey],
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_TIMEOUT => 6,
+            CURLOPT_CONNECTTIMEOUT => 2,
+        ]);
+        $body = curl_exec($ch);
+        $httpCode = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        $curlErr = curl_error($ch);
+        curl_close($ch);
+        if ($body === false || $httpCode !== 200) {
+            return ['valido' => false, 'revision_manual' => true, 'mensaje' => $curlErr ?: 'La API no respondiÃ³ correctamente (HTTP ' . $httpCode . ').'];
+        }
+        $data = json_decode($body, true);
+        return is_array($data) ? $data : ['valido' => false, 'revision_manual' => true, 'mensaje' => 'La API no devolviÃ³ JSON vÃ¡lido.'];
+    }
+
+    private function verificarContenidoDocumentoCandidatoAntesDeGuardar(int $tipoDocumento, string $rutaPdf): array
+    {
+        $resultado = null;
+        if ($tipoDocumento === 3) {
+            $resultado = $this->verificarActaApi($rutaPdf);
+        } elseif ($tipoDocumento === 4) {
+            $resultado = $this->verificarCurpApi($rutaPdf);
+        } elseif ($tipoDocumento === 5) {
+            $resultado = $this->precheckIdentificacionPdfApi($rutaPdf);
+        } elseif ($tipoDocumento === 6) {
+            $resultado = $this->verificarComprobanteDomicilioApi($rutaPdf);
+        } elseif ($tipoDocumento === 7) {
+            $resultado = $this->verificarConstanciaFiscalApi($rutaPdf);
+        } elseif ($tipoDocumento === 8) {
+            $resultado = $this->verificarNssApi($rutaPdf);
+        } elseif ($tipoDocumento === 10) {
+            $resultado = $this->verificarEstadoCuentaApi($rutaPdf);
+        }
+
+        if ($this->esRechazoFirmeVerificacionDocumentoCandidato($resultado)) {
+            $mensaje = trim((string) ($resultado['mensaje'] ?? $resultado['recomendacion'] ?? 'El archivo no corresponde al documento solicitado.'));
+            return ['aceptar' => false, 'mensaje' => $mensaje, 'verificacion' => $resultado];
+        }
+
+        return ['aceptar' => true, 'mensaje' => null, 'verificacion' => is_array($resultado) ? $resultado : null];
+    }
+
     private function calcularMetricasDocumentosCandidato(array $documentos, int $idCandidato = 0): array
     {
         $clavesUnicas = [];
@@ -11245,15 +11355,15 @@ class CapHum extends Controller
         $healthUrl = rtrim($baseUrl, '/') . '/health';
         $healthOk = false;
         $hLastErr = '';
-        for ($hi = 0; $hi < 2; $hi++) {
+        for ($hi = 0; $hi < 1; $hi++) {
             if ($hi > 0) {
                 usleep(500000);
             }
             $hc = curl_init($healthUrl);
             curl_setopt_array($hc, [
                 CURLOPT_RETURNTRANSFER => true,
-                CURLOPT_TIMEOUT_MS => 5000,
-                CURLOPT_CONNECTTIMEOUT_MS => 3000,
+                CURLOPT_TIMEOUT_MS => 1500,
+                CURLOPT_CONNECTTIMEOUT_MS => 1000,
                 CURLOPT_NOBODY => false,
             ]);
             $hBody = curl_exec($hc);
@@ -11273,23 +11383,23 @@ class CapHum extends Controller
         $docCfg = is_array($config['doc_verificacion'] ?? null) ? $config['doc_verificacion'] : [];
         $tipoDocExp = $this->docVerificacionTipoExpediente($docCfg);
         $urlExp = rtrim($baseUrl, '/') . '/validar-expediente?' . http_build_query(['tipo_documento' => $tipoDocExp]);
-        $timeoutExp = isset($docCfg['validar_expediente_timeout_seconds']) ? (int) $docCfg['validar_expediente_timeout_seconds'] : 300;
-        if ($timeoutExp < 90) {
-            $timeoutExp = 90;
+        $timeoutExp = isset($docCfg['validar_expediente_timeout_seconds']) ? (int) $docCfg['validar_expediente_timeout_seconds'] : 25;
+        if ($timeoutExp < 10) {
+            $timeoutExp = 10;
         }
-        if ($timeoutExp > 600) {
-            $timeoutExp = 600;
+        if ($timeoutExp > 45) {
+            $timeoutExp = 45;
         }
-        $maxExtraRetries = isset($docCfg['validar_expediente_retries']) ? (int) $docCfg['validar_expediente_retries'] : 2;
+        $maxExtraRetries = isset($docCfg['validar_expediente_retries']) ? (int) $docCfg['validar_expediente_retries'] : 0;
         if ($maxExtraRetries < 0) {
             $maxExtraRetries = 0;
         }
-        if ($maxExtraRetries > 5) {
-            $maxExtraRetries = 5;
+        if ($maxExtraRetries > 1) {
+            $maxExtraRetries = 1;
         }
         $totalIntentos = 1 + $maxExtraRetries;
         if (function_exists('set_time_limit')) {
-            @set_time_limit(max(900, $timeoutExp * $totalIntentos + 120 + ($maxExtraRetries * 15)));
+            @set_time_limit(max(90, $timeoutExp * $totalIntentos + 30 + ($maxExtraRetries * 5)));
         }
 
         $lowSpeedTime = isset($docCfg['validar_expediente_low_speed_time_seconds']) ? (int) $docCfg['validar_expediente_low_speed_time_seconds'] : 0;
@@ -11313,7 +11423,7 @@ class CapHum extends Controller
         $lastPayloadError = ['error' => 'No se obtuvo respuesta válida de la API.'];
         for ($attempt = 0; $attempt < $totalIntentos; $attempt++) {
             if ($attempt > 0) {
-                sleep(min(15, 2 * $attempt + 1));
+                sleep(min(5, 2 * $attempt + 1));
             }
             $post = $this->construirPostValidarExpedienteMultipart($rutas, $nombreCandidatoRegistro, $tipoDocExp);
             if ($post === null) {
@@ -11338,7 +11448,7 @@ class CapHum extends Controller
                 ],
                 CURLOPT_RETURNTRANSFER => true,
                 CURLOPT_TIMEOUT => $timeoutExp,
-                CURLOPT_CONNECTTIMEOUT => 15,
+                CURLOPT_CONNECTTIMEOUT => 5,
                 CURLOPT_HTTP_VERSION => CURL_HTTP_VERSION_1_1,
                 CURLOPT_FORBID_REUSE => true,
             ];
@@ -11438,8 +11548,8 @@ class CapHum extends Controller
             CURLOPT_POSTFIELDS => ['documento' => $cfile],
             CURLOPT_HTTPHEADER => ['X-API-Key: ' . $apiKey],
             CURLOPT_RETURNTRANSFER => true,
-            CURLOPT_TIMEOUT => 15,
-            CURLOPT_CONNECTTIMEOUT => 5,
+            CURLOPT_TIMEOUT => 8,
+            CURLOPT_CONNECTTIMEOUT => 3,
         ]);
         $body = curl_exec($ch);
         $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
@@ -11484,8 +11594,8 @@ class CapHum extends Controller
             CURLOPT_POSTFIELDS => ['documento' => $cfile],
             CURLOPT_HTTPHEADER => ['X-API-Key: ' . $apiKey],
             CURLOPT_RETURNTRANSFER => true,
-            CURLOPT_TIMEOUT => 15,
-            CURLOPT_CONNECTTIMEOUT => 5,
+            CURLOPT_TIMEOUT => 8,
+            CURLOPT_CONNECTTIMEOUT => 3,
         ]);
         $body = curl_exec($ch);
         $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
@@ -11527,8 +11637,8 @@ class CapHum extends Controller
             CURLOPT_POSTFIELDS => ['documento' => $cfile],
             CURLOPT_HTTPHEADER => ['X-API-Key: ' . $apiKey],
             CURLOPT_RETURNTRANSFER => true,
-            CURLOPT_TIMEOUT => 12,
-            CURLOPT_CONNECTTIMEOUT => 8,
+            CURLOPT_TIMEOUT => 8,
+            CURLOPT_CONNECTTIMEOUT => 3,
         ]);
         $body = curl_exec($ch);
         $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
@@ -11569,8 +11679,8 @@ class CapHum extends Controller
             CURLOPT_POSTFIELDS => ['documento' => $cfile],
             CURLOPT_HTTPHEADER => ['X-API-Key: ' . $apiKey],
             CURLOPT_RETURNTRANSFER => true,
-            CURLOPT_TIMEOUT => 10,
-            CURLOPT_CONNECTTIMEOUT => 5,
+            CURLOPT_TIMEOUT => 8,
+            CURLOPT_CONNECTTIMEOUT => 3,
         ]);
         $body = curl_exec($ch);
         $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
@@ -11612,8 +11722,8 @@ class CapHum extends Controller
                 'Expect:',
             ],
             CURLOPT_RETURNTRANSFER => true,
-            CURLOPT_TIMEOUT => 10,
-            CURLOPT_CONNECTTIMEOUT => 5,
+            CURLOPT_TIMEOUT => 8,
+            CURLOPT_CONNECTTIMEOUT => 3,
             CURLOPT_HTTP_VERSION => CURL_HTTP_VERSION_1_1,
             CURLOPT_FORBID_REUSE => true,
         ]);
@@ -11652,8 +11762,8 @@ class CapHum extends Controller
             CURLOPT_POSTFIELDS => ['documento' => $cfile],
             CURLOPT_HTTPHEADER => ['X-API-Key: ' . $apiKey],
             CURLOPT_RETURNTRANSFER => true,
-            CURLOPT_TIMEOUT => 10,
-            CURLOPT_CONNECTTIMEOUT => 4,
+            CURLOPT_TIMEOUT => 5,
+            CURLOPT_CONNECTTIMEOUT => 2,
         ]);
         $body = curl_exec($ch);
         $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
@@ -11691,8 +11801,8 @@ class CapHum extends Controller
             CURLOPT_POSTFIELDS => ['documento' => $cfile],
             CURLOPT_HTTPHEADER => ['X-API-Key: ' . $apiKey],
             CURLOPT_RETURNTRANSFER => true,
-            CURLOPT_TIMEOUT => 20,
-            CURLOPT_CONNECTTIMEOUT => 10,
+            CURLOPT_TIMEOUT => 8,
+            CURLOPT_CONNECTTIMEOUT => 3,
         ]);
         $body = curl_exec($ch);
         $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
@@ -11969,6 +12079,15 @@ class CapHum extends Controller
                 $errores[] = ($tiposDocumento[$i] ?? $key) . ': el archivo no parece ser un PDF válido.';
                 continue;
             }
+            $verificacionPreviaContenido = null;
+            if (in_array($i, [3, 4, 5, 6, 7, 8, 10], true)) {
+                $precheckContenido = $this->verificarContenidoDocumentoCandidatoAntesDeGuardar($i, $_FILES[$fileKey]['tmp_name']);
+                $verificacionPreviaContenido = $precheckContenido['verificacion'] ?? null;
+                if (empty($precheckContenido['aceptar'])) {
+                    $errores[] = ($tiposDocumento[$i] ?? $key) . ': ' . ($precheckContenido['mensaje'] ?? 'El archivo no corresponde al documento solicitado.');
+                    continue;
+                }
+            }
             $slug = $slugPorTipo[$i] ?? ('doc_' . $i);
             $nombreArchivo = $slug . '.' . $ext;
             $rutaDestino = $dirExpediente . '/' . $nombreArchivo;
@@ -11981,7 +12100,13 @@ class CapHum extends Controller
 
             $verificacionFiscalJson = null;
             $verificacionCalidadJson = null;
-            if (in_array($i, [4, 5, 7, 8, 10], true)) {
+            if (is_array($verificacionPreviaContenido)) {
+                if ($i === 7) {
+                    $verificacionFiscalJson = json_encode($verificacionPreviaContenido);
+                } else {
+                    $verificacionCalidadJson = json_encode($verificacionPreviaContenido);
+                }
+            } elseif (in_array($i, [4, 5, 6, 7, 8, 10], true)) {
                 $verificacionCalidadJson = json_encode([
                     'pendiente_revision_backend' => true,
                     'notas' => ['Documento guardado.'],
@@ -12337,8 +12462,9 @@ class CapHum extends Controller
                 if ($soloIdentificacion) {
                     array_unshift($alertasErr, 'Modo "solo identificación" (config.ini): el fallo puede no reproducirse con expediente completo.');
                 }
+                $alertasErr = ['La verificacion automatica no finalizo por un fallo tecnico de la API. No se considera revision manual; reintente cuando el servicio este disponible.'];
                 CandidatosDAO::updateVerificacionExpediente($id_candidato, json_encode([
-                    'todo_coincide' => false,
+                    'todo_coincide' => null,
                     'foto_rechazada' => false,
                     'curp_definitivo' => null,
                     'checks_ok' => 0,
@@ -12351,6 +12477,7 @@ class CapHum extends Controller
                     'anio_nacimiento' => null,
                     'tipo_documento' => null,
                     'modo_verificacion' => $soloIdentificacion ? 'solo_identificacion' : 'completo',
+                    'api_pendiente' => true,
                     'error_api' => $err,
                 ]));
                 error_log('CapHum::verificacionBackground: error API para candidato ' . $id_candidato . ': ' . $err);
