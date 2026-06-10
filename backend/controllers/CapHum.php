@@ -5787,6 +5787,19 @@ class CapHum extends Controller
                 }
             }
 
+            function disposeDocModalTooltips() {
+                if (typeof bootstrap === "undefined" || !bootstrap.Tooltip) return;
+                document.querySelectorAll("#modalDocumentacionCandidato [data-bs-toggle=\"tooltip\"], .tooltip").forEach(function(el) {
+                    try {
+                        var inst = bootstrap.Tooltip.getInstance(el);
+                        if (inst) inst.dispose();
+                    } catch (e) {}
+                    if (el.classList && el.classList.contains("tooltip") && el.parentNode) {
+                        try { el.parentNode.removeChild(el); } catch (e2) {}
+                    }
+                });
+            }
+
             function maybeScheduleDocModalPoll(idCandidato, metricas, verif, opts) {
                 opts = opts || {};
                 if (opts.fromPoll) {
@@ -5806,7 +5819,7 @@ class CapHum extends Controller
                         var modalAbierto = document.getElementById("modalDocumentacionCandidato");
                         if (bv && modalAbierto && modalAbierto.classList.contains("show")) {
                             bv.classList.remove("d-none");
-                            bv.innerHTML = "<div class=\"alert alert-warning small mb-0\"><i class=\"fa fa-info-circle me-1\"></i>La verificación automática no respondió rápido. El expediente queda disponible para revisión manual; puede validar, rechazar o reintentar la API después.</div>";
+                            bv.innerHTML = "<div class=\"alert alert-warning small mb-0\"><i class=\"fa fa-info-circle me-1\"></i>API pendiente / fallo técnico. No hay dictamen automático confiable todavía; reintente la API cuando el servicio responda.</div>";
                         }
                         return;
                     }
@@ -6708,10 +6721,16 @@ class CapHum extends Controller
                     respuestaVaciaApi = false;
                 }
                 if (verificacionEnProceso) {
-                    html += "<div class=\"alert alert-info py-2 px-2 mb-2 small\" role=\"status\"><strong>Verificación en proceso.</strong><br><span class=\"text-muted\">No es necesario esperar: el expediente puede revisarse manualmente mientras la API termina.</span></div>";
+                    html += "<div class=\"alert alert-info py-2 px-2 mb-2 small\" role=\"status\"><strong>Verificaci&oacute;n en proceso.</strong><br><span class=\"text-muted\">No hay dictamen autom&aacute;tico todav&iacute;a. Si tarda demasiado, quedar&aacute; como API pendiente para reintento.</span></div>";
+                    errApi = "";
+                    respuestaVaciaApi = false;
+                /*
+                } else if (false) {
+                    html += "";
                 } else if (errApi) {
                     candidatosDocConsola("error", "verificación API - error_api (detalle técnico)", errApi);
-                    html += "<div class=\"alert alert-danger py-2 px-2 mb-2 small\" role=\"alert\"><strong>No se pudo completar la verificación automática.</strong><br><span class=\"text-muted\">El servicio no respondió a tiempo o hubo un fallo técnico. Capital Humano puede revisar el expediente manualmente.</span></div>";
+                    html += "";
+                */
                 } else if (respuestaVaciaApi) {
                     candidatosDocConsola("warn", "verificación API - respuesta vacía / sin datos útiles (objeto)", v);
                     html += "<div class=\"alert alert-warning py-2 px-2 mb-2 small\" role=\"alert\"><strong>No hubo resultado útil de la verificación automática.</strong><br><span class=\"text-muted\">Intente \"Reintentar API\" más tarde.</span></div>";
@@ -6935,6 +6954,7 @@ class CapHum extends Controller
 
             function renderListaDocumentos(lista, cargando, vacio, datos, verif, idCandidato) {
                 if (!lista) return;
+                disposeDocModalTooltips();
                 if (cargando) cargando.classList.add("d-none");
                 lista.innerHTML = "";
                 if (!datos || datos.length === 0) { if (vacio) vacio.classList.remove("d-none"); return; }
@@ -7182,7 +7202,19 @@ class CapHum extends Controller
                 btnEliminarHtml + "</div>";
             lista.appendChild(item);
         });
-        lista.querySelectorAll("[data-bs-toggle=\"tooltip\"]").forEach(function(el) { if (typeof bootstrap !== "undefined" && bootstrap.Tooltip) { new bootstrap.Tooltip(el); } });
+        lista.querySelectorAll("[data-bs-toggle=\"tooltip\"]").forEach(function(el) {
+            if (typeof bootstrap === "undefined" || !bootstrap.Tooltip) return;
+            var contenido = (el.getAttribute("data-bs-title") || el.getAttribute("title") || "").trim();
+            if (!contenido) {
+                el.removeAttribute("data-bs-toggle");
+                el.removeAttribute("data-bs-title");
+                el.removeAttribute("title");
+                return;
+            }
+            var inst = bootstrap.Tooltip.getInstance(el);
+            if (inst) inst.dispose();
+            new bootstrap.Tooltip(el, { container: "body", trigger: "hover focus" });
+        });
         function mensajeActaAmigable(mensaje) {
             mensaje = String(mensaje || "");
             if (/timed out|timeout|operation timed out|couldn'?t connect|failed to connect/i.test(mensaje)) {
@@ -7369,7 +7401,7 @@ class CapHum extends Controller
                 var t0 = (typeof performance !== "undefined" && performance.now) ? performance.now() : Date.now();
                 candidatosDocConsola("info", "verificarExpedienteCandidato - inicio POST", { id_candidato: idC, url: "/caphum/verificarExpedienteCandidato", timeout_ms: toMs, solo_identificacion: !!soloIdentificacion });
                 registrarTrazaDocModalTecnico("verificarExpedienteCandidato - POST (detalle)", { id_candidato: idC, url: "/caphum/verificarExpedienteCandidato", timeout_ms: toMs, solo_identificacion: !!soloIdentificacion });
-                setDocModalApiTraceUsuario("Verificación iniciada en segundo plano. No bloquea la revisión manual del expediente.", "wait");
+                setDocModalApiTraceUsuario("Verificación iniciada en segundo plano. Si no responde pronto, quedará como API pendiente para reintento.", "wait");
                 fetch("/caphum/verificarExpedienteCandidato", { method: "POST", body: fd, headers: { "X-Requested-With": "XMLHttpRequest" }, signal: ctrl.signal })
                     .then(function(r) {
                         clearTimeout(tid);
@@ -7486,7 +7518,7 @@ class CapHum extends Controller
                         } else if (verifPrev) {
                             clearDocModalApiTrace();
                         } else if (res.datos && res.datos.metricas && res.datos.metricas.expediente_completo) {
-                            setDocModalApiTraceUsuario("Expediente completo. La verificación automática corre en segundo plano y no bloquea la revisión manual.", "neutral");
+                            setDocModalApiTraceUsuario("Expediente completo. La verificación automática corre en segundo plano; si no responde quedará como API pendiente.", "neutral");
                         } else {
                             clearDocModalApiTrace();
                         }
@@ -7522,7 +7554,7 @@ class CapHum extends Controller
                         renderVerificacionApiCard(bloqueVerif, verif);
                         renderComparacionesDocFullWidth(bloqueComp, verif);
                     } else if (metricas && metricas.expediente_completo) {
-                        if (bloqueVerif) { bloqueVerif.classList.remove("d-none"); bloqueVerif.innerHTML = "<div class=\"alert alert-info small mb-0\"><i class=\"fa fa-hourglass-half me-1\"></i>Verificación automática en proceso. El expediente ya está completo; el resultado puede tardar unos minutos según el tamaño de los PDF y la respuesta de la API.</div>"; }
+                        if (bloqueVerif) { bloqueVerif.classList.remove("d-none"); bloqueVerif.innerHTML = "<div class=\"alert alert-info small mb-0\"><i class=\"fa fa-hourglass-half me-1\"></i>Verificación automática en proceso. Si la API no entrega resultado pronto, quedará como API pendiente para reintento.</div>"; }
                         if (bloqueComp) { bloqueComp.classList.add("d-none"); bloqueComp.innerHTML = ""; }
                     } else {
                         if (bloqueVerif) { bloqueVerif.classList.add("d-none"); bloqueVerif.innerHTML = ""; }
@@ -7544,6 +7576,7 @@ class CapHum extends Controller
             }
 
             function abrirModalDocumentacionCandidato(idCandidato, nombreCandidato) {
+                disposeDocModalTooltips();
                 var modal = document.getElementById("modalDocumentacionCandidato");
                 var label = document.getElementById("modalDocumentacionCandidatoNombre");
                 var bloqueVerif = document.getElementById("modalDocumentacionCandidatoVerificacion");
@@ -8066,7 +8099,7 @@ class CapHum extends Controller
         if (form) { form.addEventListener("submit", function(e) { e.preventDefault(); if (candidatoEditId) guardarCandidatoEdicion(); else guardarCandidatoAbrirResumen(); }); }
         document.addEventListener("click", candidatosTableClick);
         var modalDocPollEl = document.getElementById("modalDocumentacionCandidato");
-        if (modalDocPollEl) modalDocPollEl.addEventListener("hidden.bs.modal", function() { clearDocModalPoll(); });
+        if (modalDocPollEl) modalDocPollEl.addEventListener("hidden.bs.modal", function() { clearDocModalPoll(); disposeDocModalTooltips(); });
         ["modalResumenPostulacion", "modalDocumentacionCandidato"].forEach(function(mid) {
             var m = document.getElementById(mid);
             if (!m) return;
@@ -10021,11 +10054,10 @@ class CapHum extends Controller
             return;
         }
         if (!empty($resultadoApi['error'])) {
-            $alertasErr = ['La verificación automática no finalizó correctamente. El expediente quedó completo y requiere revisión manual de Capital Humano.'];
+            $alertasErr = ['La verificacion automatica no finalizo por un fallo tecnico de la API. No se considera revision manual; reintente cuando el servicio este disponible.'];
             if ($soloIdentificacion) {
                 array_unshift($alertasErr, 'Modo "solo identificación" activo: el fallo puede no reproducirse al verificar con todos los PDFs.');
             }
-            $alertasErr = ['La verificacion automatica no finalizo por un fallo tecnico de la API. No se considera revision manual; reintente cuando el servicio este disponible.'];
             $payloadError = [
                 'todo_coincide' => null,
                 'foto_rechazada' => false,
@@ -10044,7 +10076,7 @@ class CapHum extends Controller
                 'error_api' => $resultadoApi['error'],
             ];
             CandidatosDAO::updateVerificacionExpediente($id_candidato, json_encode($payloadError));
-            $mensajeUsuario = 'La verificación automática no pudo completarse. El estado quedó guardado; Capital Humano revisará el expediente.';
+            $mensajeUsuario = 'La verificación automática no pudo completarse. El estado quedó como API pendiente; reintente cuando el servicio esté disponible.';
             $mensajeUsuario = 'La verificacion automatica no pudo completarse por un fallo tecnico. Reintente la API cuando el servicio este disponible.';
             echo json_encode(self::respuesta(true, $mensajeUsuario, ['verificacion_expediente' => $payloadError]));
             return;
@@ -12458,11 +12490,10 @@ class CapHum extends Controller
                 error_log('CapHum::verificacionBackground: OK para candidato ' . $id_candidato);
             } else {
                 $err = is_array($resultadoApi) ? ($resultadoApi['error'] ?? 'desconocido') : 'null';
-                $alertasErr = ['La verificación automática no finalizó correctamente. El expediente quedó completo y requiere revisión manual de Capital Humano.'];
+                $alertasErr = ['La verificacion automatica no finalizo por un fallo tecnico de la API. No se considera revision manual; reintente cuando el servicio este disponible.'];
                 if ($soloIdentificacion) {
                     array_unshift($alertasErr, 'Modo "solo identificación" (config.ini): el fallo puede no reproducirse con expediente completo.');
                 }
-                $alertasErr = ['La verificacion automatica no finalizo por un fallo tecnico de la API. No se considera revision manual; reintente cuando el servicio este disponible.'];
                 CandidatosDAO::updateVerificacionExpediente($id_candidato, json_encode([
                     'todo_coincide' => null,
                     'foto_rechazada' => false,
