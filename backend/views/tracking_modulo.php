@@ -40,7 +40,7 @@ body.dark-mode .track-header {
 /* -- Filtros -- */
 .trk-section-grid {
     display: grid;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
     gap: 1rem;
     margin-bottom: 1rem;
 }
@@ -121,6 +121,174 @@ body.dark-mode .trk-section-desc {
 }
 @media (min-width: 768px) and (max-width: 1199.98px) {
     .trk-section-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+/* -- Administracion de transportistas -- */
+.trk-admin-shell { display: grid; gap: 1rem; }
+.trk-admin-kpis {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(145px, 1fr));
+    gap: .75rem;
+}
+.trk-admin-kpi,
+.trk-admin-toolbar,
+.trk-admin-card,
+.trk-admin-empty {
+    background: #fff;
+    border: 1px solid #e2e8f0;
+    border-radius: .75rem;
+    box-shadow: 0 .12rem .55rem rgba(15,23,42,.04);
+}
+.trk-admin-kpi { padding: .85rem; }
+.trk-admin-kpi span,
+.trk-admin-metric span {
+    display: block;
+    color: #64748b;
+    font-size: .66rem;
+    font-weight: 800;
+    text-transform: uppercase;
+}
+.trk-admin-kpi strong {
+    display: block;
+    color: #25364f;
+    font-size: 1.45rem;
+    line-height: 1.1;
+    margin-top: .25rem;
+}
+.trk-admin-toolbar {
+    display: grid;
+    grid-template-columns: minmax(220px, 1fr) 190px 190px auto;
+    gap: .65rem;
+    align-items: end;
+    padding: .9rem;
+}
+.trk-admin-alerts { display: grid; gap: .5rem; }
+.trk-admin-alert {
+    border-radius: .55rem;
+    border: 1px solid #fde68a;
+    background: #fffbeb;
+    color: #92400e;
+    padding: .6rem .75rem;
+    font-size: .78rem;
+    font-weight: 700;
+}
+.trk-admin-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+    gap: .85rem;
+}
+.trk-admin-card {
+    padding: .95rem;
+    display: grid;
+    gap: .72rem;
+}
+.trk-admin-card-head {
+    display: flex;
+    justify-content: space-between;
+    gap: .75rem;
+    align-items: flex-start;
+}
+.trk-admin-name {
+    color: #25364f;
+    font-size: .95rem;
+    font-weight: 900;
+    line-height: 1.18;
+}
+.trk-admin-sub,
+.trk-admin-live {
+    color: #64748b;
+    font-size: .73rem;
+}
+.trk-admin-status {
+    border-radius: 999px;
+    padding: .18rem .5rem;
+    font-size: .65rem;
+    font-weight: 900;
+    white-space: nowrap;
+}
+.trk-admin-status.disponible { background: #dcfce7; color: #166534; }
+.trk-admin-status.en_ruta { background: #dbeafe; color: #1d4ed8; }
+.trk-admin-status.programado { background: #fef3c7; color: #92400e; }
+.trk-admin-status.advertencia { background: #ffedd5; color: #c2410c; }
+.trk-admin-status.saturado { background: #fee2e2; color: #b91c1c; }
+.trk-admin-metrics {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: .45rem;
+}
+.trk-admin-metric {
+    border: 1px solid #e2e8f0;
+    border-radius: .55rem;
+    padding: .5rem;
+    min-width: 0;
+}
+.trk-admin-metric strong { color: #25364f; font-size: .9rem; }
+.trk-admin-progress {
+    height: .45rem;
+    border-radius: 999px;
+    background: #e2e8f0;
+    overflow: hidden;
+}
+.trk-admin-progress-bar {
+    height: 100%;
+    width: 0%;
+    background: #0d9488;
+    border-radius: inherit;
+}
+.trk-admin-progress-bar.warn { background: #f59e0b; }
+.trk-admin-progress-bar.danger { background: #ef4444; }
+.trk-admin-route-list { display: grid; gap: .45rem; }
+.trk-admin-route {
+    border: 1px dashed #cbd5e1;
+    border-radius: .55rem;
+    padding: .55rem .65rem;
+    background: #f8fafc;
+    font-size: .74rem;
+}
+.trk-admin-route-title {
+    color: #25364f;
+    font-weight: 900;
+}
+.trk-admin-route-meta {
+    color: #64748b;
+    display: flex;
+    flex-wrap: wrap;
+    gap: .45rem;
+    margin-top: .2rem;
+}
+.trk-admin-empty {
+    padding: 2rem;
+    text-align: center;
+    color: #64748b;
+}
+body.dark-mode .trk-admin-kpi,
+body.dark-mode .trk-admin-toolbar,
+body.dark-mode .trk-admin-card,
+body.dark-mode .trk-admin-empty {
+    background: #172121;
+    border-color: #2d4444;
+}
+body.dark-mode .trk-admin-kpi strong,
+body.dark-mode .trk-admin-name,
+body.dark-mode .trk-admin-metric strong,
+body.dark-mode .trk-admin-route-title { color: #e2e8f0; }
+body.dark-mode .trk-admin-sub,
+body.dark-mode .trk-admin-kpi span,
+body.dark-mode .trk-admin-metric span,
+body.dark-mode .trk-admin-live,
+body.dark-mode .trk-admin-route-meta { color: #94a3b8; }
+body.dark-mode .trk-admin-metric,
+body.dark-mode .trk-admin-route {
+    background: #101818;
+    border-color: #2d4444;
+}
+@media (max-width: 991.98px) {
+    .trk-admin-toolbar { grid-template-columns: 1fr 1fr; }
+}
+@media (max-width: 575.98px) {
+    .trk-admin-toolbar,
+    .trk-admin-metrics { grid-template-columns: 1fr; }
+    .trk-admin-grid { grid-template-columns: 1fr; }
 }
 
 .track-filters {
@@ -2495,6 +2663,9 @@ $trackingIsPlaneacion = $trackingShowMainTabs
 <?php if (!in_array('catalogos', $trackingVisibleSections, true)): ?>
 #tabCatalogosBtn, #tabCatalogosTracking { display: none !important; }
 <?php endif; ?>
+<?php if (!in_array('operacion', $trackingVisibleSections, true)): ?>
+#tabOperacionBtn, #tabOperacionTransportistas { display: none !important; }
+<?php endif; ?>
 </style>
 <?php endif; ?>
 
@@ -2559,6 +2730,17 @@ $trackingIsPlaneacion = $trackingShowMainTabs
                 <span class="trk-section-count" data-section-count="badgeCatalogos">0</span>
             </div>
         </button>
+        <button type="button" class="trk-section-card<?= $trackingInitialSection === 'operacion' ? ' active' : ''; ?>" data-section-target="#tabOperacionTransportistas" data-section-load="operacion">
+            <div>
+                <span class="trk-section-icon"><i class="fa-solid fa-truck-fast"></i></span>
+                <div class="trk-section-title">Administracion de transportistas</div>
+                <div class="trk-section-desc">Disponibilidad, capacidad, rutas activas y alertas operativas.</div>
+            </div>
+            <div class="trk-section-footer">
+                <span>Ver operacion</span>
+                <span class="trk-section-count" data-section-count="badgeOperacionTransportistas">0</span>
+            </div>
+        </button>
     </div>
 
     <div class="<?= $trackingIsPlaneacion ? 'trk-planeacion-shell' : 'trk-module-content'; ?>">
@@ -2589,6 +2771,13 @@ $trackingIsPlaneacion = $trackingShowMainTabs
             <button class="nav-link<?= $trackingInitialSection === 'catalogos' ? ' active' : ''; ?>" id="tabCatalogosBtn" data-bs-toggle="tab" data-bs-target="#tabCatalogosTracking">
                 <i class="fa-solid fa-building-user me-1"></i>CEDIS y transportistas
                 <span id="badgeCatalogos" class="badge rounded-pill ms-1"
+                      style="background:var(--track-color);font-size:.7rem;">0</span>
+            </button>
+        </li>
+        <li class="nav-item">
+            <button class="nav-link<?= $trackingInitialSection === 'operacion' ? ' active' : ''; ?>" id="tabOperacionBtn" data-bs-toggle="tab" data-bs-target="#tabOperacionTransportistas">
+                <i class="fa-solid fa-truck-fast me-1"></i>Administracion de transportistas
+                <span id="badgeOperacionTransportistas" class="badge rounded-pill ms-1"
                       style="background:var(--track-color);font-size:.7rem;">0</span>
             </button>
         </li>
@@ -2852,6 +3041,53 @@ $trackingIsPlaneacion = $trackingShowMainTabs
                         </table>
                     </div>
                 </div>
+            </div>
+        </div>
+
+        <!-- Tab: Administracion de transportistas -->
+        <div class="tab-pane fade<?= $trackingInitialSection === 'operacion' ? ' show active' : ''; ?>" id="tabOperacionTransportistas">
+            <div class="trk-admin-shell">
+                <div class="trk-admin-kpis">
+                    <div class="trk-admin-kpi"><span>Activos</span><strong id="trkOpKpiActivos">0</strong></div>
+                    <div class="trk-admin-kpi"><span>Disponibles</span><strong id="trkOpKpiDisponibles">0</strong></div>
+                    <div class="trk-admin-kpi"><span>En ruta</span><strong id="trkOpKpiRuta">0</strong></div>
+                    <div class="trk-admin-kpi"><span>Programados</span><strong id="trkOpKpiProgramados">0</strong></div>
+                    <div class="trk-admin-kpi"><span>Advertencia</span><strong id="trkOpKpiAdvertencia">0</strong></div>
+                    <div class="trk-admin-kpi"><span>Saturados</span><strong id="trkOpKpiSaturados">0</strong></div>
+                </div>
+
+                <div class="trk-admin-toolbar">
+                    <div>
+                        <label class="form-label mb-1 small fw-semibold">Buscar transportista</label>
+                        <input type="search" class="form-control form-control-sm" id="trkOpBuscar"
+                               placeholder="Nombre, empresa, CEDIS, ruta..." autocomplete="off">
+                    </div>
+                    <div>
+                        <label class="form-label mb-1 small fw-semibold">Estatus operativo</label>
+                        <select class="form-select form-select-sm" id="trkOpFiltroEstatus">
+                            <option value="">Todos</option>
+                            <option value="disponible">Disponible</option>
+                            <option value="programado">Programado</option>
+                            <option value="en_ruta">En ruta</option>
+                            <option value="advertencia">Advertencia</option>
+                            <option value="saturado">Saturado</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="form-label mb-1 small fw-semibold">Tipo</label>
+                        <select class="form-select form-select-sm" id="trkOpFiltroTipo">
+                            <option value="">Todos</option>
+                            <option value="interno">Interno</option>
+                            <option value="externo">Externo</option>
+                        </select>
+                    </div>
+                    <button type="button" class="btn btn-sm btn-primary" id="trkOpActualizar">
+                        <i class="fa-solid fa-rotate me-1"></i>Actualizar
+                    </button>
+                </div>
+
+                <div id="trkOpAlertas" class="trk-admin-alerts"></div>
+                <div id="trkOpGrid" class="trk-admin-grid"></div>
             </div>
         </div>
     </div><!-- /tab-content -->
@@ -3559,6 +3795,12 @@ const _trk = {
     creditosEnRuta:       [],   // creditos actualmente en el modal
     agenciasTracking:     [],
     transportistasTracking: [],
+    operacionTransportistas: [],
+    operacionResumen:      {},
+    operacionFiltroEstatus:'',
+    operacionFiltroTipo:   '',
+    operacionBusqueda:     '',
+    operacionLiveLoaded:   {},
     rutasRegistradas:     [],
     rutasFiltro:          'todas',
     rutasVista:           'cards',
@@ -3580,6 +3822,7 @@ const _trk = {
     cargadoEstados:       false,
     cargadoCreditos:      false,
     cargadoCatalogos:     false,
+    cargadoOperacion:     false,
     cargadoBorradores:    false,
     cargadoRutas:         false,
     syncStarted:          false,
@@ -3749,7 +3992,7 @@ function _trkSeccionesSincronizables() {
         ? window._trackingVisibleSections.filter(Boolean)
         : [];
     if (visibles.length) return [...new Set(visibles)];
-    return ['creditos', 'borradores', 'rutas', 'catalogos'];
+    return ['creditos', 'borradores', 'rutas', 'catalogos', 'operacion'];
 }
 
 function _trkPuedeSincronizarAhora() {
@@ -3777,6 +4020,10 @@ function _trkCargarSeccion(key, opts = {}) {
     } else if (key === 'catalogos') {
         task = (force ? _trkCargarCatalogoAgenciasTransportistas(silent) : _trkCargarCatalogosSiHaceFalta(silent))
             .then(() => _trkRenderCatalogosTracking());
+    } else if (key === 'operacion') {
+        task = force
+            ? _trkCargarOperacionTransportistas(silent)
+            : _trkCargarOperacionTransportistasSiHaceFalta(silent);
     } else {
         task = Promise.resolve();
     }
@@ -3878,6 +4125,20 @@ document.addEventListener('DOMContentLoaded', function () {
     document.getElementById('tabRutasBtn').addEventListener('click', () => _trkCargarSeccion('rutas'));
     document.getElementById('tabBorradorBtn').addEventListener('click', () => _trkCargarSeccion('borradores'));
     document.getElementById('tabCatalogosBtn').addEventListener('click', () => _trkCargarSeccion('catalogos'));
+    document.getElementById('tabOperacionBtn')?.addEventListener('click', () => _trkCargarSeccion('operacion'));
+    document.getElementById('trkOpBuscar')?.addEventListener('input', e => {
+        _trk.operacionBusqueda = e.target.value || '';
+        _trkRenderOperacionTransportistas();
+    });
+    document.getElementById('trkOpFiltroEstatus')?.addEventListener('change', e => {
+        _trk.operacionFiltroEstatus = e.target.value || '';
+        _trkRenderOperacionTransportistas();
+    });
+    document.getElementById('trkOpFiltroTipo')?.addEventListener('change', e => {
+        _trk.operacionFiltroTipo = e.target.value || '';
+        _trkRenderOperacionTransportistas();
+    });
+    document.getElementById('trkOpActualizar')?.addEventListener('click', () => _trkCargarSeccion('operacion', { force: true }));
     document.getElementById('btnToggleChatMap')?.addEventListener('click', () => _trkToggleChatMapPanel());
     document.getElementById('trkSectionGrid')?.addEventListener('click', ev => {
         const btn = ev.target.closest('.trk-section-card');
@@ -3890,6 +4151,7 @@ document.addEventListener('DOMContentLoaded', function () {
         borradores: ['#tabBorradores', 'borradores'],
         rutas: ['#tabRutas', 'rutas'],
         catalogos: ['#tabCatalogosTracking', 'catalogos'],
+        operacion: ['#tabOperacionTransportistas', 'operacion'],
     };
     const initial = initialMap[window._trackingInitialSection] || initialMap.creditos;
     _trkActivarSeccion(initial[0], initial[1]);
@@ -6292,6 +6554,201 @@ function _trkRenderCatalogosTracking() {
         _trk.tablaTransportistasDT?.columns.adjust();
         _trk.tablaTransportistasDT?.responsive?.recalc();
     }, 120);
+}
+
+function _trkCargarOperacionTransportistas(silent = false) {
+    const $grid = $('#trkOpGrid');
+    if (!silent) {
+        $grid.html('<div class="trk-admin-empty"><span class="spinner-border spinner-border-sm me-2"></span>Cargando operacion de transportistas...</div>');
+    }
+    return trkFetch('/TrackingRecoleccion/obtenerOperacionTransportistas')
+        .then(r => {
+            if (!r.success) {
+                throw new Error(r.message || r.mensaje || 'No se pudo cargar la operacion.');
+            }
+            const datos = r.datos || {};
+            _trk.operacionResumen = datos.resumen || {};
+            _trk.operacionTransportistas = Array.isArray(datos.transportistas) ? datos.transportistas : [];
+            _trk.operacionLiveLoaded = {};
+            _trkSetBadge('badgeOperacionTransportistas', _trk.operacionTransportistas.length);
+            _trkRenderOperacionTransportistas();
+            _trk.cargadoOperacion = true;
+            _trkCargarUbicacionesOperacion();
+        })
+        .catch(err => {
+            if (!silent) {
+                $grid.html(`<div class="trk-admin-empty text-danger"><i class="fa-solid fa-triangle-exclamation me-1"></i>${_trkChatEscapeHtml(err.message || 'No se pudo cargar la operacion.')}</div>`);
+            }
+        });
+}
+
+function _trkCargarOperacionTransportistasSiHaceFalta(silent = false) {
+    return _trk.cargadoOperacion
+        ? Promise.resolve().then(() => _trkRenderOperacionTransportistas())
+        : _trkCargarOperacionTransportistas(silent);
+}
+
+function _trkOperacionStatusLabel(status) {
+    const map = {
+        disponible: 'Disponible',
+        en_ruta: 'En ruta',
+        programado: 'Programado',
+        advertencia: 'Advertencia',
+        saturado: 'Saturado',
+    };
+    return map[String(status || '')] || 'Sin estado';
+}
+
+function _trkOperacionFiltrados() {
+    const q = _trkNormTxt(_trk.operacionBusqueda || '');
+    const estatus = String(_trk.operacionFiltroEstatus || '');
+    const tipo = String(_trk.operacionFiltroTipo || '');
+    return (_trk.operacionTransportistas || []).filter(t => {
+        if (estatus && String(t.estatus_operativo || '') !== estatus) return false;
+        if (tipo && String(t.tipo_transportista || '') !== tipo) return false;
+        if (!q) return true;
+        const rutasTxt = (t.rutas || []).map(r => `${r.nombre_ruta || ''} ${r.cedis_destino_nombre || ''} ${r.estado || ''} ${r.municipio || ''}`).join(' ');
+        const base = [
+            t.nombre_transportista,
+            t.tipo_transportista,
+            t.empresa_origen,
+            t.cedis_base?.nombre,
+            t.cedis_base?.estado,
+            t.cedis_base?.municipio,
+            rutasTxt,
+        ].join(' ');
+        return _trkNormTxt(base).includes(q);
+    });
+}
+
+function _trkRenderOperacionTransportistas() {
+    const resumen = _trk.operacionResumen || {};
+    $('#trkOpKpiActivos').text(resumen.transportistas_activos || 0);
+    $('#trkOpKpiDisponibles').text(resumen.disponibles || 0);
+    $('#trkOpKpiRuta').text(resumen.en_ruta || 0);
+    $('#trkOpKpiProgramados').text(resumen.programados || 0);
+    $('#trkOpKpiAdvertencia').text(resumen.advertencia || 0);
+    $('#trkOpKpiSaturados').text(resumen.saturados || 0);
+
+    const filtrados = _trkOperacionFiltrados();
+    const alertas = [];
+    (_trk.operacionTransportistas || []).forEach(t => {
+        (t.alertas || []).forEach(a => {
+            if (a.nivel === 'danger' || a.tipo === 'sin_capacidad') {
+                alertas.push(`${t.nombre_transportista}: ${a.texto}`);
+            }
+        });
+    });
+    $('#trkOpAlertas').html(alertas.slice(0, 5).map(a => (
+        `<div class="trk-admin-alert"><i class="fa-solid fa-circle-exclamation me-1"></i>${_trkChatEscapeHtml(a)}</div>`
+    )).join(''));
+
+    if (!filtrados.length) {
+        $('#trkOpGrid').html('<div class="trk-admin-empty"><i class="fa-solid fa-truck-fast fa-2x opacity-25 d-block mb-2"></i>No hay transportistas con los filtros seleccionados.</div>');
+        return;
+    }
+    $('#trkOpGrid').html(filtrados.map(_trkOperacionTransportistaCard).join(''));
+}
+
+function _trkOperacionTransportistaCard(t) {
+    const status = String(t.estatus_operativo || 'disponible');
+    const cap = Number(t.capacidad_total || 0);
+    const proyectada = Number(t.capacidad_proyectada || 0);
+    const usada = Number(t.capacidad_usada || 0);
+    const pct = cap > 0 ? Math.min(100, Math.round((proyectada / cap) * 100)) : 0;
+    const barClass = cap > 0 && proyectada >= cap ? 'danger' : (cap > 0 && pct >= 80 ? 'warn' : '');
+    const capacidadTxt = cap > 0 ? `${proyectada} / ${cap}` : 'Sin configurar';
+    const disponibleTxt = cap > 0 ? `${t.capacidad_disponible ?? 0}` : '-';
+    const cedisBase = [t.cedis_base?.nombre, t.cedis_base?.municipio, t.cedis_base?.estado].filter(Boolean).join(' / ') || t.empresa_origen || 'Sin CEDIS base';
+    const rutas = (t.rutas || []).slice(0, 3).map(_trkOperacionRutaMini).join('');
+    const alertas = (t.alertas || []).map(a => `<span class="badge bg-label-${a.nivel === 'danger' ? 'danger' : (a.nivel === 'warning' ? 'warning' : 'info')} me-1 mb-1">${_trkChatEscapeHtml(a.texto)}</span>`).join('');
+    const tipoBadge = _trkTipoTransportistaBadge(t.tipo_transportista);
+    return `<article class="trk-admin-card" data-id-transportista="${_trkChatEscapeHtml(t.id_transportista || '')}">
+        <div class="trk-admin-card-head">
+            <div style="min-width:0;">
+                <div class="trk-admin-name">${_trkChatEscapeHtml(t.nombre_transportista || 'Sin nombre')}</div>
+                <div class="trk-admin-sub">${tipoBadge} ${_trkChatEscapeHtml(cedisBase)}</div>
+            </div>
+            <span class="trk-admin-status ${_trkChatEscapeHtml(status)}">${_trkChatEscapeHtml(_trkOperacionStatusLabel(status))}</span>
+        </div>
+        <div class="trk-admin-metrics">
+            <div class="trk-admin-metric"><span>Activas</span><strong>${_trkChatEscapeHtml(t.rutas_activas || 0)}</strong></div>
+            <div class="trk-admin-metric"><span>Programadas</span><strong>${_trkChatEscapeHtml(t.rutas_programadas || 0)}</strong></div>
+            <div class="trk-admin-metric"><span>Recolectadas</span><strong>${_trkChatEscapeHtml(usada)}</strong></div>
+            <div class="trk-admin-metric"><span>Disponible</span><strong>${_trkChatEscapeHtml(disponibleTxt)}</strong></div>
+        </div>
+        <div>
+            <div class="d-flex justify-content-between small fw-semibold mb-1">
+                <span>Capacidad proyectada</span><span>${_trkChatEscapeHtml(capacidadTxt)}</span>
+            </div>
+            <div class="trk-admin-progress"><div class="trk-admin-progress-bar ${barClass}" style="width:${pct}%;"></div></div>
+        </div>
+        <div class="small fw-semibold text-muted">Recomendacion: ${_trkChatEscapeHtml(t.recomendacion || 'Evaluar')}</div>
+        <div class="trk-admin-live" id="trkOpLive-${_trkChatEscapeHtml(t.id_transportista || '')}">
+            <i class="fa-solid fa-location-dot me-1"></i>${Number(t.rutas_activas || 0) > 0 ? 'Consultando ubicacion live...' : 'Sin ruta live activa'}
+        </div>
+        ${alertas ? `<div>${alertas}</div>` : ''}
+        <div class="trk-admin-route-list">${rutas || '<div class="trk-admin-route text-muted">Sin rutas activas o programadas.</div>'}</div>
+    </article>`;
+}
+
+function _trkOperacionRutaMini(r) {
+    const nombre = _trkSanitizarNombreRuta(r.nombre_ruta || `Ruta #${r.id_ruta || ''}`) || `Ruta #${r.id_ruta || ''}`;
+    const destino = r.cedis_destino_nombre || 'Sin CEDIS destino';
+    const fecha = [r.fecha_programada_fmt, r.hora_inicial ? `Hora de salida ${r.hora_inicial}` : ''].filter(Boolean).join(' - ');
+    const ubicaciones = _trkOperacionUbicacionesTexto(r.ubicaciones_lista || r.estado || '');
+    return `<div class="trk-admin-route" data-id-ruta="${_trkChatEscapeHtml(r.id_ruta || '')}">
+        <div class="trk-admin-route-title">#${_trkChatEscapeHtml(r.id_ruta || '')} ${_trkChatEscapeHtml(nombre)}</div>
+        <div class="trk-admin-route-meta">
+            <span><i class="fa-solid fa-circle-play me-1"></i>${_trkChatEscapeHtml(r.estatus_ruta || 'sin estatus')}</span>
+            <span><i class="fa-solid fa-calendar-day me-1"></i>${_trkChatEscapeHtml(fecha || 'Sin fecha')}</span>
+            <span><i class="fa-solid fa-warehouse me-1"></i>${_trkChatEscapeHtml(destino)}</span>
+        </div>
+        <div class="trk-admin-route-meta">
+            <span>${_trkChatEscapeHtml(r.recolectadas || 0)} rec.</span>
+            <span>${_trkChatEscapeHtml(r.confirmados || 0)} confirm.</span>
+            <span>${_trkChatEscapeHtml(ubicaciones || 'Sin ubicacion')}</span>
+        </div>
+    </div>`;
+}
+
+function _trkOperacionUbicacionesTexto(raw) {
+    const txt = String(raw || '');
+    if (!txt) return '';
+    if (!txt.includes('@@')) return txt;
+    const partes = txt.split('@@')
+        .map(x => x.split('|||').filter(Boolean).join(' / '))
+        .filter(Boolean);
+    return partes.slice(0, 2).join(' | ') + (partes.length > 2 ? ` +${partes.length - 2}` : '');
+}
+
+function _trkCargarUbicacionesOperacion() {
+    const activas = (_trk.operacionTransportistas || [])
+        .filter(t => Number(t.rutas_activas || 0) > 0 && t.ruta_activa?.id_ruta)
+        .slice(0, 12);
+    activas.forEach(t => {
+        const idRuta = Number(t.ruta_activa.id_ruta);
+        const idTransportista = String(t.id_transportista || '');
+        if (!idRuta || _trk.operacionLiveLoaded[idRuta]) return;
+        _trk.operacionLiveLoaded[idRuta] = true;
+        trkFetch(`/TrackingRecoleccion/trackingUbicacionActual?id_ruta=${encodeURIComponent(idRuta)}`)
+            .then(r => {
+                const ubi = r.ubicacion || r.datos?.ubicacion || null;
+                const el = document.getElementById(`trkOpLive-${idTransportista}`);
+                if (!el) return;
+                if (!ubi) {
+                    el.innerHTML = '<i class="fa-solid fa-location-dot me-1"></i>Sin ubicacion live reportada';
+                    return;
+                }
+                const fecha = ubi.created_at || ubi.updated_at || '';
+                const hora = fecha ? _trkChatFechaLocal(fecha) : 'Sin fecha';
+                el.innerHTML = `<i class="fa-solid fa-location-arrow me-1"></i>Ultima ubicacion ${_trkChatEscapeHtml(hora)} · ${_trkChatEscapeHtml(Number(ubi.lat).toFixed(5))}, ${_trkChatEscapeHtml(Number(ubi.lng).toFixed(5))}`;
+            })
+            .catch(() => {
+                const el = document.getElementById(`trkOpLive-${idTransportista}`);
+                if (el) el.innerHTML = '<i class="fa-solid fa-location-dot me-1"></i>Ubicacion live no disponible';
+            });
+    });
 }
 
 function _trkTransportistasFiltrados() {

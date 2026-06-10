@@ -29,8 +29,18 @@
  *
  * EJECUCIÓN FORZADA (FORCE):
  *
+ * & "C:\xampp\php\php.exe" ".\backend\cronjobs\insertar_moras_martes.php" --force
+ * 
+ * 
+ * ESTE SIRVE PARA EJECUTAR EL CRONJOB SIN IMPORTAR SI NO ES MARTES, PUEDE SER CUALQUIER OTRO DIA DE LA SEMANA, PERO SE EJECUTARÁ NORMALMENTE 
+ * (CON INSERCIONES EN DB Y TODO), SOLO QUE SE OMITIRÁ LA VALIDACIÓN DEL DÍA DE LA SEMANA.
+ * 
+ * 
+ * EJECUCION ESTANDAR:
+ * 
  * & "C:\xampp\php\php.exe" ".\backend\cronjobs\insertar_moras_martes.php"
  */
+
 
 // ============================================
 // 1. BOOTSTRAP DEL PROYECTO

@@ -98,6 +98,7 @@ if (!function_exists('getMenuSidebarModulosStructure')) {
                     ['label' => '4.- Recepción', 'url' => '/AtencionClientes/recepcion', 'modulos' => [73]],
                     ['label' => 'Retenciones', 'url' => '/AtencionClientes/consulta', 'modulos' => [69]],
                     ['label' => 'Tracking Recolección', 'url' => '/TrackingRecoleccion/rutas', 'modulos' => [74]],
+                    ['label' => 'Administracion de transportistas', 'url' => '/TrackingRecoleccion/administracionTransportistas', 'modulos' => [74]],
                 ],
             ],
             'Direcciones' => [

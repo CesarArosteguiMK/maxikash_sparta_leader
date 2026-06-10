@@ -224,6 +224,31 @@ class Convenios extends Controller
         self::respuestaJSON($r);
     }
 
+    // ─────────────────────────────────────────────
+    // API: SOLICITAR CANCELAMIENTO (petición pendiente de autorizar)
+    // ─────────────────────────────────────────────
+
+    public function solicitarCancelamiento()
+    {
+        $idConvenio = isset($_POST['id_convenio']) ? (int) $_POST['id_convenio'] : 0;
+        $motivo     = mb_substr(trim(strip_tags($_POST['motivo'] ?? '')), 0, 200);
+
+        if ($idConvenio <= 0) {
+            self::respuestaJSON(self::respuesta(false, 'ID de convenio inválido.'));
+            return;
+        }
+
+        if ($motivo === '') {
+            self::respuestaJSON(self::respuesta(false, 'El motivo de cancelamiento es obligatorio.'));
+            return;
+        }
+
+        $usuario = $_SESSION['usuario_nombre'] ?? $_SESSION['usuario'] ?? 'sistema';
+
+        $r = ConveniosDAO::solicitarCancelamiento($idConvenio, $usuario, $motivo);
+        self::respuestaJSON($r);
+    }
+
     // ════════════════════════════════════════════════
     // API: VALIDAR CRÉDITO EN DESPACHO
     // Verifica que el crédito exista en asigna_creditos_despacho

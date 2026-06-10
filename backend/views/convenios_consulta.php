@@ -2530,7 +2530,31 @@ function congelarModulo(convenio) {
     document.getElementById('btnGuardar').style.display = 'none';
     document.getElementById('btnPdf').className = 'btn btn-primary';
     document.getElementById('btnPdf').style.display = 'inline-block';
-    document.getElementById('btnCancelar').style.display = convenio.estatus === 'completado' ? 'none' : 'inline-block';
+
+    // Botón cancelar: oculto si completado o si ya tiene solicitud pendiente
+    var btnCancelar = document.getElementById('btnCancelar');
+    var tieneSolicitud = convenio.solicitud_cancelamiento_fecha && convenio.estatus === 'activo';
+    if (convenio.estatus === 'completado') {
+        btnCancelar.style.display = 'none';
+    } else if (tieneSolicitud) {
+        btnCancelar.style.display = 'none';
+        // Mostrar aviso de solicitud pendiente junto al botón
+        var pendWrap = document.getElementById('cc-cancelamiento-pendiente-info');
+        if (!pendWrap) {
+            pendWrap = document.createElement('span');
+            pendWrap.id = 'cc-cancelamiento-pendiente-info';
+            pendWrap.className = 'badge align-self-center ms-1';
+            pendWrap.style.cssText = 'background:#fef3c7;color:#92400e;border:1px solid #fcd34d;font-size:.8rem;padding:.35em .7em;';
+            btnCancelar.parentNode.insertBefore(pendWrap, btnCancelar.nextSibling);
+        }
+        pendWrap.innerHTML = '<i class="fa-solid fa-hourglass-half me-1"></i>Solicitud de cancelamiento pendiente de autorización';
+        pendWrap.style.display = '';
+    } else {
+        btnCancelar.style.display = 'inline-block';
+        var pendWrap2 = document.getElementById('cc-cancelamiento-pendiente-info');
+        if (pendWrap2) pendWrap2.style.display = 'none';
+    }
+
     window._idConvenioActivo = convenio.id;
 
     // Banner informativo
@@ -3766,46 +3790,70 @@ window.guardarConvenio = function () {
 window.cancelarConvenio = function () {
     if (!window._idConvenioActivo) return;
 
+    // ── NUEVO FLUJO: solicitar motivo y enviar petición de cancelamiento ──
     Swal.fire({
-        title: '¿Cancelar convenio?',
-        html: 'Esta acción <strong>no se puede deshacer</strong>.<br>' +
-            'Las semanas pendientes quedarán marcadas como canceladas.',
+        title: 'Solicitar cancelamiento de convenio',
+        html:
+            '<p class="text-muted mb-2" style="font-size:.88rem;">Describe el motivo por el cual se solicita el cancelamiento. ' +
+            'Un supervisor deberá autorizarlo para que quede efectivo.</p>' +
+            '<textarea id="swal-motivo-cancelamiento" class="form-control" rows="3" maxlength="200" ' +
+            'placeholder="Motivo de cancelamiento (máx. 200 caracteres)..."></textarea>' +
+            '<div class="text-end mt-1"><small class="text-muted"><span id="swal-motivo-count">0</span>/200</small></div>',
         icon: 'warning',
         showCancelButton: true,
-        confirmButtonText: 'Sí, cancelar',
+        confirmButtonText: '<i class="fa-solid fa-paper-plane me-1"></i>Enviar solicitud',
         cancelButtonText: 'No, volver',
-        confirmButtonColor: '#ef4444',
+        confirmButtonColor: '#d97706',
+        didOpen: function () {
+            var ta = document.getElementById('swal-motivo-cancelamiento');
+            var cnt = document.getElementById('swal-motivo-count');
+            if (ta && cnt) {
+                ta.addEventListener('input', function () { cnt.textContent = ta.value.length; });
+            }
+        },
+        preConfirm: function () {
+            var motivo = (document.getElementById('swal-motivo-cancelamiento').value || '').trim();
+            if (!motivo) {
+                Swal.showValidationMessage('El motivo de cancelamiento es obligatorio.');
+                return false;
+            }
+            return motivo;
+        }
     }).then(function (result) {
         if (!result.isConfirmed) return;
 
+        var motivo = result.value;
+
         Swal.fire({
-            title: 'Cancelando...',
+            title: 'Enviando solicitud...',
             allowOutsideClick: false,
             didOpen: function () { Swal.showLoading(); }
         });
 
         http.request({
-            endpoint: '/convenios/cancelarConvenio',
+            endpoint: '/convenios/solicitarCancelamiento',
             method: 'POST',
-            data: { id_convenio: window._idConvenioActivo },
+            data: { id_convenio: window._idConvenioActivo, motivo: motivo },
             onSuccess: function (resp) {
                 if (!resp.success) {
-                    Swal.fire({ icon: 'error', title: 'Error', text: resp.mensaje || 'No se pudo cancelar.', confirmButtonColor: '#764ba2' });
+                    Swal.fire({ icon: 'error', title: 'Error', text: resp.mensaje || 'No se pudo registrar la solicitud.', confirmButtonColor: '#764ba2' });
                     return;
                 }
                 Swal.fire({
                     icon: 'success',
-                    title: 'Convenio cancelado',
-                    text: 'El convenio fue cancelado correctamente.',
+                    title: 'Solicitud enviada',
+                    html: 'La solicitud de cancelamiento fue registrada.<br>' +
+                          '<span class="text-muted" style="font-size:.85rem;">Un supervisor deberá autorizarla desde <strong>Cierre de Crédito &rarr; Peticiones</strong>.</span>',
                     confirmButtonColor: '#764ba2',
-                    timer: 1500,
-                    showConfirmButton: false
+                    timer: 3500,
+                    showConfirmButton: true,
+                    confirmButtonText: 'Entendido'
                 }).then(function () {
-                    location.reload(); // AUTO-REFRESH
+                    location.reload();
                 });
             },
             onError: function () {
-                Swal.fire({ icon: 'error', title: 'Error de conexión', text: 'No se pudo cancelar el convenio. Intenta de nuevo.', confirmButtonColor: '#764ba2' });
+                Swal.fire({ icon: 'error', title: 'Error de conexión', text: 'No se pudo registrar la solicitud. Intenta de nuevo.', confirmButtonColor: '#764ba2' });
             }
         });
     });

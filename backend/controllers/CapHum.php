@@ -1705,6 +1705,8 @@ class CapHum extends Controller
                 '79': 'fa-solid fa-file-pen',
                 100: 'fa-solid fa-share-from-square',
                 '100': 'fa-solid fa-share-from-square',
+                128: 'fa-solid fa-inbox',
+                '128': 'fa-solid fa-inbox',
             };
 
             /** Mapa base de íconos (pestaña Módulos del sistema y filas agrupadas de permisos especiales). */

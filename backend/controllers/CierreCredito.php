@@ -4,6 +4,7 @@ namespace Controllers;
 
 use Core\Controller;
 use Models\CierreCredito as CierreCreditoDAO;
+use Models\Convenios as ConveniosDAO;
 
 class CierreCredito extends Controller
 {
@@ -24,6 +25,9 @@ class CierreCredito extends Controller
     private const CC_PESTANA_PERM_HISTORIAL = 55;
 
     private const CC_PESTANA_PERM_CARTERA = 59;
+
+    /** Módulo 128 — Peticiones de cancelamiento de convenios (autorizar o denegar). */
+    private const CC_PESTANA_PERM_PETICIONES = 128;
 
     /** Filtro de célula: 58 = solo Despachos (célula 1), 57 = solo Call Center (célula 2). */
     private const CC_CELULA_DESPACHOS    = 58;
@@ -162,18 +166,20 @@ class CierreCredito extends Controller
         $ccPermEnProceso = $this->cierreTieneModuloPermisoSesion(self::CC_PESTANA_PERM_EN_PROCESO);
         $ccPermVoBo = $this->cierreTieneModuloPermisoSesion(self::CC_PESTANA_PERM_VOBO);
         $ccPermHistorial = $this->cierreTieneModuloPermisoSesion(self::CC_PESTANA_PERM_HISTORIAL);
-        $ccPermCartera   = $this->cierreTieneModuloPermisoSesion(self::CC_PESTANA_PERM_CARTERA);
-        $ccPermAlguno = $ccPermConvenios || $ccPermValidacion || $ccPermEnProceso || $ccPermVoBo || $ccPermHistorial || $ccPermCartera;
+        $ccPermCartera     = $this->cierreTieneModuloPermisoSesion(self::CC_PESTANA_PERM_CARTERA);
+        $ccPermPeticiones  = $this->cierreTieneModuloPermisoSesion(self::CC_PESTANA_PERM_PETICIONES);
+        $ccPermAlguno = $ccPermConvenios || $ccPermValidacion || $ccPermEnProceso || $ccPermVoBo || $ccPermHistorial || $ccPermCartera || $ccPermPeticiones;
 
         $ccDefaultTab = null;
         foreach (
             [
-                'convenios' => $ccPermConvenios,
+                'convenios'  => $ccPermConvenios,
                 'validacion' => $ccPermValidacion,
                 'en_proceso' => $ccPermEnProceso,
-                'vobo' => $ccPermVoBo,
-                'historial' => $ccPermHistorial,
-                'cartera'   => $ccPermCartera,
+                'vobo'       => $ccPermVoBo,
+                'historial'  => $ccPermHistorial,
+                'cartera'    => $ccPermCartera,
+                'peticiones' => $ccPermPeticiones,
             ] as $clave => $ok
         ) {
             if ($ok) {
@@ -182,15 +188,16 @@ class CierreCredito extends Controller
             }
         }
 
-        $this->set('cc_perm_convenios', $ccPermConvenios);
+        $this->set('cc_perm_convenios',   $ccPermConvenios);
         $this->set('cc_perm_descargar_excel', $ccPermDescargarExcel);
-        $this->set('cc_perm_validacion', $ccPermValidacion);
-        $this->set('cc_perm_en_proceso', $ccPermEnProceso);
-        $this->set('cc_perm_vobo', $ccPermVoBo);
-        $this->set('cc_perm_historial', $ccPermHistorial);
-        $this->set('cc_perm_cartera',   $ccPermCartera);
-        $this->set('cc_perm_alguno', $ccPermAlguno);
-        $this->set('cc_default_tab', $ccDefaultTab);
+        $this->set('cc_perm_validacion',  $ccPermValidacion);
+        $this->set('cc_perm_en_proceso',  $ccPermEnProceso);
+        $this->set('cc_perm_vobo',        $ccPermVoBo);
+        $this->set('cc_perm_historial',   $ccPermHistorial);
+        $this->set('cc_perm_cartera',     $ccPermCartera);
+        $this->set('cc_perm_peticiones',  $ccPermPeticiones);
+        $this->set('cc_perm_alguno',      $ccPermAlguno);
+        $this->set('cc_default_tab',      $ccDefaultTab);
         $this->set('cc_celulas_permitidas', $this->cierreGetCelulasPermitidas());
 
         $this->render('cierre_credito_consulta');
@@ -773,6 +780,68 @@ class CierreCredito extends Controller
     {
         $this->cierreRequiereModuloPermiso(self::CC_PESTANA_PERM_HISTORIAL);
         $r = CierreCreditoDAO::getHistorial($this->cierreGetCelulasPermitidas());
+        self::respuestaJSON($r);
+    }
+
+    // ─────────────────────────────────────────────
+    // API: PETICIONES DE CANCELAMIENTO
+    // ─────────────────────────────────────────────
+
+    public function getPeticionesCancelamiento()
+    {
+        $this->cierreRequiereModuloPermiso(self::CC_PESTANA_PERM_PETICIONES);
+        $r = ConveniosDAO::getPeticionesCancelamiento($this->cierreGetCelulasPermitidas());
+        self::respuestaJSON($r);
+    }
+
+    // ─────────────────────────────────────────────
+    // API: AUTORIZAR CANCELAMIENTO DE CONVENIO
+    // ─────────────────────────────────────────────
+
+    public function autorizarCancelamiento()
+    {
+        $this->cierreRequiereModuloPermiso(self::CC_PESTANA_PERM_PETICIONES);
+
+        $idConvenio = isset($_POST['id_convenio']) ? (int) $_POST['id_convenio'] : 0;
+
+        if ($idConvenio <= 0) {
+            self::respuestaJSON(self::respuesta(false, 'ID de convenio inválido.'));
+            return;
+        }
+
+        // Verificar que tenga solicitud pendiente antes de autorizar
+        $db = new \Core\Database();
+        $check = $db->queryOne(
+            "SELECT id FROM convenio_cliente
+             WHERE id = :id AND estatus = 'activo'
+               AND solicitud_cancelamiento_fecha IS NOT NULL
+             LIMIT 1",
+            ['id' => $idConvenio]
+        );
+
+        if (!$check) {
+            self::respuestaJSON(self::respuesta(false, 'El convenio no tiene una solicitud de cancelamiento pendiente.'));
+            return;
+        }
+
+        $usuario = $_SESSION['usuario_nombre'] ?? $_SESSION['usuario'] ?? 'sistema';
+        $r = ConveniosDAO::cancelarConvenio($idConvenio, $usuario);
+        self::respuestaJSON($r);
+    }
+
+    public function descartarCancelamiento()
+    {
+        $this->cierreRequiereModuloPermiso(self::CC_PESTANA_PERM_PETICIONES);
+
+        $idConvenio = isset($_POST['id_convenio']) ? (int) $_POST['id_convenio'] : 0;
+
+        if ($idConvenio <= 0) {
+            self::respuestaJSON(self::respuesta(false, 'ID de convenio inválido.'));
+            return;
+        }
+
+        $usuario = $_SESSION['usuario_nombre'] ?? $_SESSION['usuario'] ?? 'sistema';
+        $r = ConveniosDAO::descartarCancelamiento($idConvenio, $usuario);
         self::respuestaJSON($r);
     }
 }

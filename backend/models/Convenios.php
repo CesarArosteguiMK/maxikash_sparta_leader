@@ -1413,7 +1413,144 @@ public static function cancelarConvenio($id_convenio, $usuario)
     }
 }
 
+// ─────────────────────────────────────────────
+// SOLICITAR CANCELAMIENTO (registra petición pendiente de autorizar)
+// ─────────────────────────────────────────────
 
+public static function solicitarCancelamiento($id_convenio, $usuario, $motivo)
+{
+    try {
+        $db = new Database();
+
+        $convenio = $db->queryOne(
+            "SELECT id FROM convenio_cliente
+             WHERE id = :id AND estatus = 'activo'
+               AND solicitud_cancelamiento_fecha IS NULL
+             LIMIT 1",
+            ['id' => (int) $id_convenio]
+        );
+
+        if (!$convenio) {
+            return self::resultado(false, 'El convenio no existe, no está activo, o ya tiene una solicitud pendiente.');
+        }
+
+        $ok = $db->CRUD(
+            "UPDATE convenio_cliente SET
+                motivo_cancelamiento           = :motivo,
+                solicitud_cancelamiento_fecha  = NOW(),
+                usuario_cancela                = :usuario,
+                usuario_modifica               = :usuario,
+                fecha_modifica                 = NOW()
+             WHERE id = :id",
+            [
+                'motivo'  => mb_substr(strip_tags($motivo), 0, 200),
+                'usuario' => $usuario,
+                'id'      => (int) $id_convenio,
+            ]
+        );
+
+        if (!$ok) {
+            return self::resultado(false, 'No se pudo registrar la solicitud.');
+        }
+
+        return self::resultado(true, 'Solicitud de cancelamiento enviada. Queda pendiente de autorización.');
+
+    } catch (\Exception $e) {
+        return self::resultado(false, 'Error al registrar solicitud.', null, $e->getMessage());
+    }
+}
+
+// ─────────────────────────────────────────────
+// PETICIONES PENDIENTES DE CANCELAMIENTO
+// ─────────────────────────────────────────────
+
+public static function getPeticionesCancelamiento(?array $celulas = null)
+{
+    try {
+        $db = new Database();
+
+        $where = "cc.estatus = 'activo' AND cc.solicitud_cancelamiento_fecha IS NOT NULL";
+        $params = [];
+
+        if (!empty($celulas)) {
+            $placeholders = implode(',', array_map(fn($i) => ":cel$i", array_keys($celulas)));
+            $where .= " AND cc.id_celula IN ($placeholders)";
+            foreach ($celulas as $i => $v) {
+                $params["cel$i"] = $v;
+            }
+        }
+
+        $rows = $db->queryAll(
+            "SELECT cc.id,
+                    cc.id_credito,
+                    cc.nombre_cliente,
+                    cc.motivo_cancelamiento,
+                    cc.solicitud_cancelamiento_fecha,
+                    cc.usuario_cancela,
+                    cc.fecha_acuerdo,
+                    cc.total_a_pagar,
+                    cc.numero_semanas,
+                    cc.id_celula,
+                    pc.nombre AS nombre_producto
+             FROM convenio_cliente cc
+             INNER JOIN producto_convenio pc ON pc.id = cc.id_producto_convenio
+             WHERE $where
+             ORDER BY cc.solicitud_cancelamiento_fecha ASC",
+            $params
+        );
+
+        return self::resultado(true, 'OK', ['peticiones' => $rows ?: []]);
+
+    } catch (\Exception $e) {
+        return self::resultado(false, 'Error al obtener peticiones.', null, $e->getMessage());
+    }
+}
+
+// ─────────────────────────────────────────────
+// DESCARTAR SOLICITUD DE CANCELAMIENTO
+// ─────────────────────────────────────────────
+
+public static function descartarCancelamiento($id_convenio, $usuario)
+{
+    try {
+        $db = new Database();
+
+        $check = $db->queryOne(
+            "SELECT id FROM convenio_cliente
+             WHERE id = :id AND estatus = 'activo'
+               AND solicitud_cancelamiento_fecha IS NOT NULL
+             LIMIT 1",
+            ['id' => (int) $id_convenio]
+        );
+
+        if (!$check) {
+            return self::resultado(false, 'El convenio no tiene una solicitud pendiente o no está activo.');
+        }
+
+        $ok = $db->CRUD(
+            "UPDATE convenio_cliente SET
+                motivo_cancelamiento           = NULL,
+                solicitud_cancelamiento_fecha  = NULL,
+                usuario_cancela                = NULL,
+                usuario_modifica               = :usuario,
+                fecha_modifica                 = NOW()
+             WHERE id = :id",
+            [
+                'usuario' => $usuario,
+                'id'      => (int) $id_convenio,
+            ]
+        );
+
+        if (!$ok) {
+            return self::resultado(false, 'No se pudo descartar la solicitud.');
+        }
+
+        return self::resultado(true, 'La solicitud de cancelamiento fue descartada. El convenio permanece activo.');
+
+    } catch (\Exception $e) {
+        return self::resultado(false, 'Error al descartar solicitud.', null, $e->getMessage());
+    }
+}
 
     /**
      * Detecta incumplimiento: devuelve true si existió convenio y el último pago
