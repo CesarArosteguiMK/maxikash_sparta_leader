@@ -121,6 +121,30 @@ class CapHum extends Controller
         $puestosRes = CapHumDAO::getPuestosActivosPersonaParaEdicion($idPersona);
         $puestosActuales = is_array($puestosRes['datos'] ?? null) ? $puestosRes['datos'] : [];
         $principalActual = $puestosActuales[0] ?? [];
+        $normalizarValor = function ($valor): string {
+            return trim((string) ($valor ?? ''));
+        };
+        $domicilioEditado = false;
+        $marcarDomicilioEditado = function (string $permiso, string $campoInput, string $campoActual = null) use (&$domicilioEditado, $permisos, $input, $actual, $normalizarValor): void {
+            if (empty($permisos[$permiso])) {
+                return;
+            }
+            $campoActual = $campoActual ?: $campoInput;
+            if ($normalizarValor($input[$campoInput] ?? null) !== $normalizarValor($actual[$campoActual] ?? null)) {
+                $domicilioEditado = true;
+            }
+        };
+
+        $marcarDomicilioEditado('estado', 'id_div_nivel1');
+        $marcarDomicilioEditado('municipio', 'id_div_nivel2');
+        $marcarDomicilioEditado('colonia', 'id_div_nivel3');
+        $marcarDomicilioEditado('calle', 'id_div_nivel4');
+        $marcarDomicilioEditado('calle', 'domicilio_calle_texto');
+        $marcarDomicilioEditado('num_exterior', 'domicilio_num_exterior');
+        $marcarDomicilioEditado('num_interior', 'domicilio_num_interior');
+        $marcarDomicilioEditado('codigo_postal', 'codigo_postal');
+        $input['_edicion_cobranza_parcial'] = true;
+        $input['_domicilio_editado_parcial'] = $domicilioEditado;
 
         $preservar = function (string $campoInput, string $campoActual = null) use (&$input, $actual): void {
             $campoActual = $campoActual ?: $campoInput;
@@ -4185,22 +4209,22 @@ class CapHum extends Controller
                 }
 
                 //  VALIDACIONES OBLIGATORIAS
-                if ((!esEdicionParcialCobranza || tienePermisoEdicionCobranza('departamento') || tienePermisoEdicionCobranza('puesto') || tienePermisoEdicionCobranza('gestion_puestos')) && !puestosModificados && !departamento) {
+                if (!esEdicionParcialCobranza && !puestosModificados && !departamento) {
                     Swal.fire("Falta información", "Debes seleccionar un departamento", "warning");
                     return;
                 }
 
-                if ((!esEdicionParcialCobranza || tienePermisoEdicionCobranza('puesto') || tienePermisoEdicionCobranza('gestion_puestos')) && !puestosModificados && !puesto) {
+                if (!esEdicionParcialCobranza && !puestosModificados && !puesto) {
                     Swal.fire("Falta información", "Debes seleccionar un puesto", "warning");
                     return;
                 }
 
-                if ((!esEdicionParcialCobranza || tienePermisoEdicionCobranza('jefe')) && !jefe) {
+                if (!esEdicionParcialCobranza && !jefe) {
                     Swal.fire("Falta información", "Debes seleccionar un jefe", "warning");
                     return;
                 }
 
-                if ((!esEdicionParcialCobranza || tienePermisoEdicionCobranza('legion')) && asignarLegion && !idLegion) {
+                if (!esEdicionParcialCobranza && asignarLegion && !idLegion) {
                     Swal.fire("Falta información", "Debes seleccionar una legión", "warning");
                     return;
                 }
@@ -4210,19 +4234,12 @@ class CapHum extends Controller
                 const calleTxtEdit = document.getElementById('edit_domicilio_calle_texto')?.value?.trim() || '';
                 const idCalleEdit = id_div_nivel4 || '';
                 const capturaDomicilioEdit = !!(idColoniaEdit || cpEdit || calleTxtEdit || idCalleEdit);
-                const puedeEditarDomicilioParcial = tienePermisoEdicionCobranza('estado')
-                    || tienePermisoEdicionCobranza('municipio')
-                    || tienePermisoEdicionCobranza('colonia')
-                    || tienePermisoEdicionCobranza('calle')
-                    || tienePermisoEdicionCobranza('num_exterior')
-                    || tienePermisoEdicionCobranza('num_interior')
-                    || tienePermisoEdicionCobranza('codigo_postal');
-                if ((!esEdicionParcialCobranza || puedeEditarDomicilioParcial) && capturaDomicilioEdit && !domicilio_num_exterior) {
+                if (!esEdicionParcialCobranza && capturaDomicilioEdit && !domicilio_num_exterior) {
                     Swal.fire("Falta información", "El número exterior es obligatorio cuando captura domicilio (colonia, calle o código postal).", "warning");
                     return;
                 }
                 var selCalleEdit = document.getElementById('edit_id_div_nivel4');
-                if ((!esEdicionParcialCobranza || puedeEditarDomicilioParcial) && id_div_nivel3 && selCalleEdit && !selCalleEdit.disabled && selCalleEdit.options && selCalleEdit.options.length > 1 && !id_div_nivel4 && !calleTxtEdit) {
+                if (!esEdicionParcialCobranza && id_div_nivel3 && selCalleEdit && !selCalleEdit.disabled && selCalleEdit.options && selCalleEdit.options.length > 1 && !id_div_nivel4 && !calleTxtEdit) {
                     Swal.fire("Falta información", "Indique la calle: elija una del catálogo o escríbala en el campo de texto (nombre o número, p. ej. Calle 10A).", "warning");
                     return;
                 }
@@ -11916,12 +11933,12 @@ class CapHum extends Controller
         $docCfg = is_array($config['doc_verificacion'] ?? null) ? $config['doc_verificacion'] : [];
         $tipoDocExp = $this->docVerificacionTipoExpediente($docCfg);
         $urlExp = rtrim($baseUrl, '/') . '/validar-expediente?' . http_build_query(['tipo_documento' => $tipoDocExp]);
-        $timeoutExp = isset($docCfg['validar_expediente_timeout_seconds']) ? (int) $docCfg['validar_expediente_timeout_seconds'] : 25;
+        $timeoutExp = isset($docCfg['validar_expediente_timeout_seconds']) ? (int) $docCfg['validar_expediente_timeout_seconds'] : 40;
         if ($timeoutExp < 10) {
             $timeoutExp = 10;
         }
-        if ($timeoutExp > 45) {
-            $timeoutExp = 45;
+        if ($timeoutExp > 90) {
+            $timeoutExp = 90;
         }
         $maxExtraRetries = isset($docCfg['validar_expediente_retries']) ? (int) $docCfg['validar_expediente_retries'] : 0;
         if ($maxExtraRetries < 0) {
@@ -16258,7 +16275,8 @@ public function getEstadosMunicipiosMexico()
         $cpe = trim((string) ($input['codigo_postal'] ?? ''));
         $numExte = trim((string) ($input['domicilio_num_exterior'] ?? ''));
         $capturaDome = ($n3e !== '' || $n4e !== '' || $calleTe !== '' || $cpe !== '');
-        if ($capturaDome && $numExte === '') {
+        $validarDomicilioObligatorio = $puedeEditarCompleto || !empty($input['_domicilio_editado_parcial']);
+        if ($validarDomicilioObligatorio && $capturaDome && $numExte === '') {
             echo json_encode([
                 'success' => false,
                 'mensaje' => 'El número exterior es obligatorio cuando captura domicilio (colonia, calle o código postal).',

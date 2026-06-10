@@ -11,7 +11,8 @@ from typing import Optional, List, Dict, Any
 from loguru import logger
 
 from app.models.schemas import (
-    VerificacionResponse, VerificacionCalidadResponse, TipoDocumento, ErrorResponse, ComprobanteResponse
+    VerificacionResponse, VerificacionCalidadResponse, TipoDocumento, ErrorResponse, ComprobanteResponse,
+    CheckOCR, CheckForense
 )
 from app.services.verificacion import VerificacionService
 from app.services.comprobante_analyzer import ComprobanteAnalyzer
@@ -111,10 +112,6 @@ def _extraer_texto_pdf_rapido(pdf_bytes: bytes, max_paginas: int = 2) -> Dict[st
             doc.close()
             return {"texto": texto, "paginas": paginas, "modo": "texto_pdf"}
 
-        if paginas > 0 and any(page.get_images(full=True) for page in doc):
-            doc.close()
-            return {"texto": "", "paginas": paginas, "modo": "imagen_pdf_sin_texto"}
-
         service = VerificacionService()
         # Pasaportes/IDs fotografiados suelen venir girados o con mucho margen blanco.
         # Probar primero la zona de contenido evita gastar OCR en toda la hoja.
@@ -205,6 +202,171 @@ def _texto_pdf_embebido_rapido(pdf_bytes: bytes, max_paginas: int = 2) -> Dict[s
     except Exception as e:
         logger.warning(f"texto_pdf_embebido_rapido: error leyendo PDF: {e}")
         return {"texto": "", "paginas": 0, "modo": "error"}
+
+
+def _rechazo_identificacion_por_texto_equivocado(texto: str, paginas: int, modo: str, inicio: float) -> Optional[Dict[str, Any]]:
+    """Rechaza rapido PDFs que claramente pertenecen a otro campo documental."""
+    texto_upper = (texto or "").upper()
+    if not texto_upper.strip():
+        return None
+    indicadores = _indicadores_identificacion(texto_upper)
+    if _parece_identificacion_oficial(texto_upper):
+        return None
+    reglas = [
+        (
+            r"ASIGNACI[OÓ]N\s+O\s+LOCALIZACI[OÓ]N|N[UÚ]MERO\s+DE\s+SEGURIDAD\s+SOCIAL|INSTITUTO\s+MEXICANO\s+DEL\s+SEGURO\s+SOCIAL|\bIMSS\b",
+            "nss_en_identificacion",
+            "El documento corresponde a NSS del IMSS. En este campo solo se acepta identificacion oficial.",
+        ),
+        (
+            r"CONSTANCIA\s+.*CURP|CLAVE\s+[UÚ]NICA\s+DE\s+REGISTRO|RENAPO|REGISTRO\s+NACIONAL\s+DE\s+POBLACI[OÓ]N",
+            "curp_en_identificacion",
+            "El documento es una constancia CURP. En este campo solo se acepta identificacion oficial.",
+        ),
+        (
+            r"CONSTANCIA\s+DE\s+SITUACI[OÓ]N\s+FISCAL|SERVICIO\s+DE\s+ADMINISTRACI[OÓ]N\s+TRIBUTARIA|PORTAL\s+DEL\s+SAT|\bSAT\b",
+            "constancia_fiscal_en_identificacion",
+            "El documento es una constancia fiscal SAT. En este campo solo se acepta identificacion oficial.",
+        ),
+        (
+            r"ACTA\s+DE\s+NACIMIENTO|REGISTRO\s+CIVIL|CERTIFICADO\s+DE\s+NACIMIENTO",
+            "acta_en_identificacion",
+            "El documento es un acta de nacimiento. En este campo solo se acepta identificacion oficial.",
+        ),
+        (
+            r"SOLICITUD\s+(INTERNA|DE\s+EMPLEO|EMPLEO|DE\s+TRABAJO|TRABAJO)|CURR.?CULUM|CURRICULUM\s+VITAE|EXPERIENCIA\s+LABORAL",
+            "solicitud_en_identificacion",
+            "El documento corresponde a solicitud/CV. En este campo solo se acepta identificacion oficial.",
+        ),
+    ]
+    for patron, motivo, mensaje in reglas:
+        if re.search(patron, texto_upper):
+            return _respuesta_rechazo(
+                motivo,
+                mensaje,
+                paginas=paginas,
+                indicadores=indicadores,
+                modo=modo,
+                tiempo_ms=int((time.time() - inicio) * 1000),
+            )
+    return None
+
+
+def _detectar_documento_equivocado_identificacion_pdf(pdf_bytes: bytes, inicio: float) -> Optional[Dict[str, Any]]:
+    """Precheck barato: texto embebido y OCR de primera pagina a baja resolucion."""
+    info = _texto_pdf_embebido_rapido(pdf_bytes, max_paginas=2)
+    rechazo = _rechazo_identificacion_por_texto_equivocado(
+        info.get("texto") or "",
+        int(info.get("paginas") or 0),
+        "documento_equivocado_texto_embebido",
+        inicio,
+    )
+    if rechazo:
+        return rechazo
+    if not PYMUPDF_AVAILABLE:
+        return None
+    try:
+        doc = fitz.open(stream=pdf_bytes, filetype="pdf")
+        paginas = doc.page_count
+        if paginas <= 0:
+            doc.close()
+            return None
+        page = doc[0]
+        pix = page.get_pixmap(dpi=105)
+        img_bytes = pix.tobytes("png")
+        doc.close()
+        service = VerificacionService()
+        texto = service.ocr_analyzer.extraer_texto_rapido(img_bytes, max_ancho=1000)
+        return _rechazo_identificacion_por_texto_equivocado(
+            texto,
+            paginas,
+            "documento_equivocado_ocr_rapido",
+            inicio,
+        )
+    except Exception as e:
+        logger.debug(f"detectar documento equivocado identificacion fallo: {e}")
+        return None
+
+
+def _rechazo_curp_por_texto_equivocado(texto: str, inicio: float, modo: str) -> Optional[Dict[str, Any]]:
+    """Rechaza documentos claramente equivocados antes del extractor CURP pesado."""
+    texto_upper = (texto or "").upper()
+    if not texto_upper.strip():
+        return None
+    if re.search(r"CONSTANCIA\s+.*CURP|CLAVE\s+[UÚ]NICA\s+DE\s+REGISTRO|RENAPO|REGISTRO\s+NACIONAL\s+DE\s+POBLACI[OÓ]N", texto_upper):
+        return None
+    reglas = [
+        (
+            r"PASAPORTE|CREDENCIAL\s+PARA\s+VOTAR|INSTITUTO\s+NACIONAL\s+ELECTORAL|\bINE\b|RESIDENCIA\s+(TEMPORAL|PERMANENTE)|INSTITUTO\s+NACIONAL\s+DE\s+MIGRACI[OÓ]N|\bINM\b",
+            "identificacion_en_curp",
+            "El documento corresponde a identificacion oficial. En este campo solo se acepta constancia CURP del RENAPO.",
+        ),
+        (
+            r"SOLICITUD\s+(INTERNA|DE\s+EMPLEO|EMPLEO|DE\s+TRABAJO|TRABAJO)|CURR.?CULUM|CURRICULUM\s+VITAE|EXPERIENCIA\s+LABORAL",
+            "solicitud_en_curp",
+            "El documento corresponde a solicitud/CV. En este campo solo se acepta constancia CURP del RENAPO.",
+        ),
+        (
+            r"ASIGNACI[OÓ]N\s+O\s+LOCALIZACI[OÓ]N|N[UÚ]MERO\s+DE\s+SEGURIDAD\s+SOCIAL|INSTITUTO\s+MEXICANO\s+DEL\s+SEGURO\s+SOCIAL|\bIMSS\b",
+            "nss_en_curp",
+            "El documento corresponde a NSS del IMSS. En este campo solo se acepta constancia CURP del RENAPO.",
+        ),
+        (
+            r"CONSTANCIA\s+DE\s+SITUACI[OÓ]N\s+FISCAL|SERVICIO\s+DE\s+ADMINISTRACI[OÓ]N\s+TRIBUTARIA|PORTAL\s+DEL\s+SAT|\bSAT\b",
+            "constancia_fiscal_en_curp",
+            "El documento es una constancia fiscal SAT. En este campo solo se acepta constancia CURP del RENAPO.",
+        ),
+        (
+            r"ACTA\s+DE\s+NACIMIENTO|REGISTRO\s+CIVIL|CERTIFICADO\s+DE\s+NACIMIENTO",
+            "acta_en_curp",
+            "El documento es un acta de nacimiento. En este campo solo se acepta constancia CURP del RENAPO.",
+        ),
+    ]
+    for patron, motivo, mensaje in reglas:
+        if re.search(patron, texto_upper):
+            return _respuesta_rechazo(
+                motivo,
+                mensaje,
+                curp_extraido=None,
+                es_reciente=None,
+                meses_antiguedad=None,
+                fecha_emision=None,
+                modo=modo,
+                tiempo_ms=int((time.time() - inicio) * 1000),
+            )
+    return None
+
+
+def _detectar_documento_equivocado_curp_pdf(pdf_bytes: bytes, inicio: float) -> Optional[Dict[str, Any]]:
+    info = _texto_pdf_embebido_rapido(pdf_bytes, max_paginas=2)
+    rechazo = _rechazo_curp_por_texto_equivocado(
+        info.get("texto") or "",
+        inicio,
+        "documento_equivocado_texto_embebido",
+    )
+    if rechazo:
+        return rechazo
+    if not PYMUPDF_AVAILABLE:
+        return None
+    try:
+        doc = fitz.open(stream=pdf_bytes, filetype="pdf")
+        if doc.page_count <= 0:
+            doc.close()
+            return None
+        page = doc[0]
+        pix = page.get_pixmap(dpi=105)
+        img_bytes = pix.tobytes("png")
+        doc.close()
+        service = VerificacionService()
+        texto = service.ocr_analyzer.extraer_texto_rapido(img_bytes, max_ancho=1000)
+        return _rechazo_curp_por_texto_equivocado(
+            texto,
+            inicio,
+            "documento_equivocado_ocr_rapido",
+        )
+    except Exception as e:
+        logger.debug(f"detectar documento equivocado curp fallo: {e}")
+        return None
 
 
 async def verificar_api_key(api_key: str = Depends(api_key_header)):
@@ -636,7 +798,7 @@ async def verificar_constancia_fiscal_documento(
     try:
         datos = await asyncio.wait_for(
             asyncio.to_thread(extraer_datos_constancia_fiscal, file_bytes),
-            timeout=4,
+            timeout=8,
         )
     except asyncio.TimeoutError:
         return {
@@ -689,7 +851,7 @@ async def verificar_constancia_fiscal_documento(
         }
 
     # Actividad económica debe ser "Asalariado"
-    if not datos.get("actividad_economica_asalariado"):
+    if not datos.get("actividad_economica_asalariado") and not datos.get("regimen_sueldos_salarios"):
         return {
             "valido": False,
             "revision_manual": True,
@@ -710,7 +872,7 @@ async def verificar_constancia_fiscal_documento(
             "fecha_emision": datos.get("fecha_emision"),
             "meses_antiguedad": meses,
             "vigencia_ok": meses is None or meses <= 2.0,
-            "actividad_asalariado": True,
+            "actividad_asalariado": bool(datos.get("actividad_economica_asalariado")),
             "regimen_sueldos_salarios": False,
         }
 
@@ -725,7 +887,7 @@ async def verificar_constancia_fiscal_documento(
         "fecha_emision": datos.get("fecha_emision"),
         "meses_antiguedad": meses,
         "vigencia_ok": True,
-        "actividad_asalariado": True,
+        "actividad_asalariado": bool(datos.get("actividad_economica_asalariado")),
         "regimen_sueldos_salarios": True,
         "tiempo_ms": int((time.time() - inicio) * 1000),
     }
@@ -838,10 +1000,30 @@ async def verificar_curp_documento(
 ):
     if not documento.filename or not documento.filename.lower().endswith(".pdf"):
         raise HTTPException(status_code=400, detail="Se requiere un archivo PDF de constancia de CURP")
+    nombre_archivo = (documento.filename or "").upper()
     file_bytes = await documento.read()
     if len(file_bytes) == 0:
         raise HTTPException(status_code=400, detail="Documento vacío")
     inicio = time.time()
+    if re.search(r"SOLICITUD|CURR.?CUL|CURRICULUM|CV[\s_\-()]|IDENTIFICACI[OÓ]N|IDENTIFICACION|INDENTIFICACION|IDENTIF|INE|PASAPORTE|RESIDENCIA", nombre_archivo):
+        return _respuesta_rechazo(
+            "documento_no_curp",
+            "El documento no corresponde a constancia CURP del RENAPO. En este campo solo se acepta CURP.",
+            curp_extraido=None,
+            es_reciente=None,
+            meses_antiguedad=None,
+            fecha_emision=None,
+            tiempo_ms=int((time.time() - inicio) * 1000),
+        )
+    try:
+        rechazo_equivocado = await asyncio.wait_for(
+            asyncio.to_thread(_detectar_documento_equivocado_curp_pdf, file_bytes, inicio),
+            timeout=5,
+        )
+        if rechazo_equivocado:
+            return rechazo_equivocado
+    except asyncio.TimeoutError:
+        logger.warning("verificar_curp_documento: deteccion de documento equivocado agoto tiempo")
     if es_tarjeta_nss(file_bytes) or es_documento_nss(file_bytes):
         return _respuesta_rechazo(
             "nss_en_curp",
@@ -862,7 +1044,7 @@ async def verificar_curp_documento(
             fecha_emision=None,
             tiempo_ms=int((time.time() - inicio) * 1000),
         )
-    if False and es_documento_acta_nacimiento(file_bytes):
+    if es_documento_acta_nacimiento(file_bytes):
         return _respuesta_rechazo(
             "acta_en_curp",
             "El documento es un acta de nacimiento. En este campo solo se acepta constancia CURP del RENAPO.",
@@ -920,6 +1102,18 @@ async def verificar_curp_documento(
             "parece_curp": parece_curp,
             "tiempo_ms": int((time.time() - inicio) * 1000),
         }
+    if not parece_curp:
+        return _respuesta_rechazo(
+            "documento_no_curp",
+            "Se encontro una CURP, pero el PDF no corresponde a una constancia CURP del RENAPO.",
+            curp_extraido=curp_extraido,
+            nombre=nombre,
+            es_reciente=datos.get("es_reciente"),
+            meses_antiguedad=datos.get("meses_antiguedad"),
+            fecha_emision=datos.get("fecha_emision"),
+            parece_curp=parece_curp,
+            tiempo_ms=int((time.time() - inicio) * 1000),
+        )
     return {
         "curp_extraido": curp_extraido,
         "valido": True,
@@ -929,7 +1123,7 @@ async def verificar_curp_documento(
         "meses_antiguedad": datos.get("meses_antiguedad"),
         "fecha_emision": datos.get("fecha_emision"),
         "parece_curp": parece_curp,
-        "revision_manual": not parece_curp,
+        "revision_manual": False,
         "tiempo_ms": int((time.time() - inicio) * 1000),
     }
 
@@ -949,6 +1143,16 @@ async def precheck_identificacion_pdf(
     api_key: str = Depends(verificar_api_key)
 ):
     inicio = time.time()
+    nombre_archivo = (documento.filename or "").upper()
+    if re.search(r"SOLICITUD|CURR.?CUL|CURRICULUM|CV[\s_\-()]", nombre_archivo):
+        return _respuesta_rechazo(
+            "solicitud_en_identificacion",
+            "El documento corresponde a solicitud/CV. En este campo solo se acepta identificacion oficial.",
+            paginas=0,
+            indicadores={},
+            modo="documento_equivocado_nombre_archivo",
+            tiempo_ms=int((time.time() - inicio) * 1000),
+        )
     if not documento.filename or not documento.filename.lower().endswith(".pdf"):
         raise HTTPException(status_code=400, detail="Se requiere un archivo PDF de identificación oficial")
     file_bytes = await documento.read()
@@ -963,6 +1167,16 @@ async def precheck_identificacion_pdf(
             "modo": "firma_pdf",
             "tiempo_ms": int((time.time() - inicio) * 1000),
         }
+
+    try:
+        rechazo_equivocado = await asyncio.wait_for(
+            asyncio.to_thread(_detectar_documento_equivocado_identificacion_pdf, file_bytes, inicio),
+            timeout=5,
+        )
+        if rechazo_equivocado:
+            return rechazo_equivocado
+    except asyncio.TimeoutError:
+        logger.warning("precheck_identificacion_pdf: deteccion de documento equivocado agoto tiempo")
 
     if False and (es_tarjeta_nss(file_bytes) or es_documento_nss(file_bytes)):
         return _respuesta_rechazo(
@@ -1281,20 +1495,51 @@ async def validar_expediente(
     try:
         inicio = time.time()
         service = VerificacionService()
+
+        async def _analizar_identificacion_para_cruce(img_bytes: bytes) -> Dict[str, Any]:
+            """Analisis acotado para validacion cruzada: calidad + OCR de campos."""
+            try:
+                forense, ocr = await asyncio.wait_for(
+                    asyncio.gather(
+                        asyncio.to_thread(service.forense_analyzer.analyze, img_bytes),
+                        asyncio.to_thread(service.ocr_analyzer.analyze, img_bytes, tipo_documento),
+                    ),
+                    timeout=45,
+                )
+                score = round(((forense.score or 0.0) * 0.4 + (ocr.score or 0.0) * 0.6) * 100)
+                return {"score": score, "forense": forense, "ocr": ocr, "timeout": False}
+            except asyncio.TimeoutError:
+                return {
+                    "score": 0,
+                    "forense": CheckForense(
+                        ok=False,
+                        ela_score=0.0,
+                        calidad_foto="revision_manual",
+                        alertas=["La identificacion no se pudo analizar en el tiempo esperado."],
+                        score=0.3,
+                    ),
+                    "ocr": CheckOCR(
+                        ok=False,
+                        alertas=["OCR de identificacion agoto el tiempo de espera."],
+                        score=0.0,
+                    ),
+                    "timeout": True,
+                }
+
         t_id = time.time()
         if frente_bytes == reverso_bytes:
-            res_frente = await service.verificar(frente_bytes, tipo_documento)
+            res_frente = await _analizar_identificacion_para_cruce(frente_bytes)
             res_reverso = res_frente
         else:
             res_frente, res_reverso = await asyncio.gather(
-                service.verificar(frente_bytes, tipo_documento),
-                service.verificar(reverso_bytes, tipo_documento),
+                _analizar_identificacion_para_cruce(frente_bytes),
+                _analizar_identificacion_para_cruce(reverso_bytes),
             )
         tiempos_fase["identificacion_ocr_forense_ms"] = int((time.time() - t_id) * 1000)
 
-        ocr_f = res_frente.checks.ocr_campos
-        ocr_r = res_reverso.checks.ocr_campos
-        calidad = res_frente.checks.forense.calidad_foto
+        ocr_f = res_frente["ocr"]
+        ocr_r = res_reverso["ocr"]
+        calidad = res_frente["forense"].calidad_foto
 
         # Estos PDFs pueden disparar OCR. Ejecutarlos en paralelo evita sumar sus tiempos uno tras otro.
         t_pdfs = time.time()
@@ -1352,8 +1597,9 @@ async def validar_expediente(
 
         return {
             **resultado,
-            "identificacion_frente_score": res_frente.score_autenticidad,
-            "identificacion_reverso_score": res_reverso.score_autenticidad,
+            "identificacion_frente_score": res_frente["score"],
+            "identificacion_reverso_score": res_reverso["score"],
+            "identificacion_timeout": bool(res_frente.get("timeout") or res_reverso.get("timeout")),
             "nombre_ocr": nombre_ocr,
             "anio_nacimiento": anio_nacimiento,
             "tipo_documento": tipo_doc_val,
