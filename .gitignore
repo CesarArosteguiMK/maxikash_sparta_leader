@@ -140,3 +140,4 @@ yarn-error.log*
 # ========== API zbar ==========
 # Se versionan DLLs portables en backend/API/tools/zbar/bin para evitar
 # dependencia de System32 y tambien evitar descarga en servidores sin internet.
+backend/storage/candidatos/
