@@ -211,6 +211,7 @@ function getMenu(): string
             'icono'    => 'fa-solid fa-map-location-dot',
             'subItems' => [
                 ['label' => 'Catálogos', 'url' => '/Atlas/catalogos', 'modulos' => [102]],
+                ['label' => 'Catálogos comerciales', 'url' => '/Atlas/catalogosComerciales', 'modulos' => [102]],
                 ['label' => 'Notificaciones App', 'url' => '/Atlas/notificacionesApp', 'modulos' => [102]],
             ],
         ],

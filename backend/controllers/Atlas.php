@@ -27,6 +27,12 @@ class Atlas extends Controller
         $this->render('atlas_notificaciones_app');
     }
 
+    public function catalogosComerciales()
+    {
+        $this->set('titulo', 'Catálogos comerciales');
+        $this->render('atlas_catalogos_comerciales');
+    }
+
     public function sucursales()
     {
         header('Location: /Atlas/catalogos', true, 302);
@@ -41,6 +47,26 @@ class Atlas extends Controller
     public function getCatalogos()
     {
         $this->json(AtlasDAO::getCatalogos());
+    }
+
+    public function getCatalogosComerciales()
+    {
+        $this->json(AtlasDAO::getCatalogosComerciales());
+    }
+
+    public function guardarCatalogoComercial()
+    {
+        $this->json(AtlasDAO::guardarCatalogoComercial($this->payload()));
+    }
+
+    public function guardarCatalogosComercialesBloque()
+    {
+        $this->json(AtlasDAO::guardarCatalogosComercialesBloque($this->payload()));
+    }
+
+    public function guardarOrdenCatalogosComerciales()
+    {
+        $this->json(AtlasDAO::guardarOrdenCatalogosComerciales($this->payload()));
     }
 
     public function getPlantillasNotificaciones()
