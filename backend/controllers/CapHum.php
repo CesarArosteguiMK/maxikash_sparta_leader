@@ -6755,14 +6755,33 @@ class CapHum extends Controller
                 bloqueVerif.innerHTML = html;
             }
 
+            function normalizarTextoDocModalGlobal(s) {
+                var t = String(s === null || s === undefined ? "" : s);
+                for (var i = 0; i < 2 && /[\u00c2\u00c3\u00e2\u00ef\u00bf]/.test(t); i++) {
+                    try {
+                        var reparado = decodeURIComponent(escape(t));
+                        if (!reparado || reparado === t) break;
+                        t = reparado;
+                    } catch (e) {
+                        break;
+                    }
+                }
+                return t
+                    .replace(/\u2026/g, "...")
+                    .replace(/[\u00ab\u00bb\u201c\u201d]/g, "\"")
+                    .replace(/\u00ef\u00bf\u00bd/g, "")
+                    .replace(/\s+/g, " ")
+                    .trim();
+            }
+
             function escHtmlComparaciones(s) {
-                var t = normalizarTextoDocModal(s);
+                var t = normalizarTextoDocModalGlobal(s);
                 return t.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
             }
 
             function esAvisoCurpOcrResuelto(s) {
-                var t = normalizarTextoDocModal(s);
-                var k = claveDocModal(t);
+                var t = normalizarTextoDocModalGlobal(s);
+                var k = claveDocModalGlobal(t);
                 return /^Advertencia OCR:/i.test(t)
                     || (k.indexOf("CURP LEIDA EN IDENTIFICACION") !== -1 && k.indexOf("NOMBRES COINCIDEN") !== -1)
                     || (k.indexOf("CURP DE IDENTIFICACION") !== -1 && k.indexOf("NOMBRES COINCIDEN") !== -1 && k.indexOf("DOCUMENTO OFICIAL") !== -1);
@@ -6915,10 +6934,23 @@ class CapHum extends Controller
                 bloqueComp.innerHTML = html;
             }
 
+            function claveDocModalGlobal(s) {
+                try {
+                    return String(s === null || s === undefined ? "" : s)
+                        .normalize("NFD")
+                        .replace(/[\u0300-\u036f]/g, "")
+                        .toUpperCase()
+                        .replace(/\s+/g, " ")
+                        .trim();
+                } catch (e) {
+                    return String(s === null || s === undefined ? "" : s).toUpperCase();
+                }
+            }
+
             function badgeVerificacionDoc(tipoDoc, v) {
                 if (!v || !tipoDoc) return "";
                 if (expedienteVerifApiInconsistente(v)) return "";
-                var t = claveDocModal(tipoDoc);
+                var t = claveDocModalGlobal(tipoDoc);
                 if (t.indexOf("REVERSO") !== -1) { var r = v.identificacion_reverso_score; if (r == null) return ""; return "<span class=\"badge bg-primary ms-1\" title=\"Veracidad con el candidato\">" + r + "%</span>"; }
                 if (t === "IDENTIFICACION OFICIAL") { var s = v.identificacion_frente_score; if (s == null) return ""; return "<span class=\"badge bg-primary ms-1\" title=\"Veracidad con el candidato\">" + s + "%</span>"; }
                 if (!hayComparacionesEvaluables(v)) return "";
@@ -7152,8 +7184,10 @@ class CapHum extends Controller
                 tableActaHtml += "</tbody></table>";
                 tooltipActaHtml = " <span class=\"ms-1\" data-bs-toggle=\"tooltip\" data-bs-html=\"true\" data-bs-title=\"" + tableActaHtml.replace(/"/g, "&quot;") + "\"><i class=\"fa fa-info-circle text-info\"></i></span>";
             }
+            var esValidado = parseInt(d.validado || 0, 10) === 1;
             var revisionManualHtml = "";
             (function() {
+                if (esValidado) return;
                 var vf = d.verificacion_fiscal && typeof d.verificacion_fiscal === "object" ? d.verificacion_fiscal : null;
                 var candidatosRevision = [];
                 if (vc && typeof vc === "object") candidatosRevision.push(vc);
@@ -7181,7 +7215,6 @@ class CapHum extends Controller
                     revisionManualHtml = " <span class=\"badge bg-info text-dark ms-1\" data-bs-toggle=\"tooltip\" data-bs-title=\"" + escHtml(detalle || "La API no entreg\u00f3 resultado todav\u00eda. Reintentar verificaci\u00f3n autom\u00e1tica.").replace(/"/g, "&quot;") + "\">API pendiente</span>";
                 }
             })();
-            var esValidado = parseInt(d.validado || 0, 10) === 1;
             var permisosCandDoc = window.candidatosPermisos || {};
             var puedeValidarDocumentalDoc = !!permisosCandDoc.documental;
             var puedeRechazarFinalDoc = !!permisosCandDoc.final;
@@ -7194,11 +7227,15 @@ class CapHum extends Controller
             var btnEliminarHtml = (esValidado && !puedeRechazarFinalDoc)
                 ? "<span class=\"btn btn-sm btn-outline-secondary disabled\" title=\"No se puede eliminar un documento validado\"><i class=\"fa fa-trash\"></i></span>"
                 : "<button type=\"button\" class=\"btn btn-sm btn-outline-danger btn-eliminar-doc-candidato\" data-id=\"" + d.id + "\" title=\"Eliminar\"><i class=\"fa fa-trash\"></i></button>";
+            var archivoDisponible = String(d.archivo_disponible == null ? "1" : d.archivo_disponible) !== "0";
+            var btnAbrirHtml = archivoDisponible
+                ? "<a href=\"/caphum/verDocumentoCandidato/" + d.id + "\" target=\"_blank\" class=\"btn btn-sm btn-outline-primary\" title=\"Abrir\"><i class=\"fa fa-eye\"></i></a>"
+                : "<span class=\"btn btn-sm btn-outline-secondary disabled\" title=\"El registro existe, pero el PDF no est&aacute; en storage\"><i class=\"fa fa-eye-slash\"></i></span>";
             item.innerHTML = "<div class=\"d-flex align-items-center flex-wrap\"><div><strong>" + escHtml(tipoDocTexto) + "</strong>" + tooltipFiscalHtml + tooltipIdHtml + tooltipCalidadHtml + tooltipEstadoCuentaHtml + tooltipNssHtml + tooltipCurpHtml + tooltipActaHtml + revisionManualHtml + (esValidado ? " <span class=\"badge bg-success ms-1\">Validado</span>" : "") + "<br><small class=\"text-muted\">" + escHtml(nombreArchivoTexto) + (fecha ? " &middot; " + fecha : "") + "</small></div>" + badge + "</div>" +
                 "<div class=\"d-flex gap-1 align-items-center\">" +
                 btnActaHtml +
                 "<button type=\"button\" class=\"btn btn-sm " + btnValidarClase + " btn-validar-doc-candidato\"" + btnValidarDisabled + " data-id=\"" + d.id + "\" data-validado=\"" + (esValidado ? 1 : 0) + "\" title=\"" + btnValidarTitle + "\"><i class=\"fa " + btnValidarIcon + "\"></i></button>" +
-                "<a href=\"/caphum/verDocumentoCandidato/" + d.id + "\" target=\"_blank\" class=\"btn btn-sm btn-outline-primary\" title=\"Abrir\"><i class=\"fa fa-eye\"></i></a>" +
+                btnAbrirHtml +
                 btnEliminarHtml + "</div>";
             lista.appendChild(item);
         });
@@ -7477,7 +7514,8 @@ class CapHum extends Controller
                 var bloqueMetricas = document.getElementById("modalDocumentacionCandidatoMetricas");
                 var bloqueAccionVerificar = document.getElementById("modalDocumentacionCandidatoAccionVerificar");
                 var bloqueAccionesProceso = document.getElementById("modalDocumentacionCandidatoAccionesProceso");
-                var mostrarLoaderPrincipal = !opts.fromPoll && !(lista && lista.children && lista.children.length > 0);
+                var listaTieneContenidoPrevio = !!(lista && lista.children && lista.children.length > 0);
+                var mostrarLoaderPrincipal = !opts.fromPoll && !listaTieneContenidoPrevio;
                 if (cargando && mostrarLoaderPrincipal) {
                     cargando.classList.remove("d-none");
                 }
@@ -7496,17 +7534,33 @@ class CapHum extends Controller
                         try { res = body ? JSON.parse(body) : {}; } catch (e) {
                             candidatosDocConsola("error", "getDocumentosCandidatoList - JSON inválido", { id_candidato: idCandidato, http_status: r.status, ms: ms, cache: cacheHdr, body_head: body ? String(body).slice(0, 2500) : "", parse_error: String(e) });
                             registrarTrazaDocModalTecnico("getDocumentosCandidatoList - JSON inválido (técnico)", { http_status: r.status, ms: ms, cache: cacheHdr, parse_error: String(e) });
-                            setDocModalApiTraceUsuario("No se pudo cargar la lista de documentos. Cierre el recuadro e inténtelo de nuevo.", "err");
-                            throw e;
+                            var bodyTxt = String(body || "");
+                            var pareceHtml = r.redirected || /<(html|body|!doctype)/i.test(bodyTxt);
+                            var msgJson = pareceHtml
+                                ? "No se pudo cargar la documentaci&oacute;n porque la sesi&oacute;n o los permisos no devolvieron JSON. Recargue la p&aacute;gina e intente de nuevo."
+                                : "No se pudo cargar la lista de documentos por una respuesta inv&aacute;lida del servidor.";
+                            setDocModalApiTraceUsuario(msgJson, "err");
+                            var errJson = new Error(msgJson);
+                            errJson.name = "DocListInvalidJson";
+                            errJson.userMessage = msgJson;
+                            throw errJson;
                         }
                         return { r: r, res: res, ms: ms, cacheHdr: cacheHdr };
                     });
                 }).then(function(box) {
+                    var modalActualListado = document.getElementById("modalDocumentacionCandidato");
+                    if (modalActualListado && modalActualListado.dataset.idCandidato && String(modalActualListado.dataset.idCandidato) !== String(idCandidato)) {
+                        return;
+                    }
                     var r = box.r, res = box.res, ms = box.ms, cacheHdr = box.cacheHdr;
                     var cacheNote = cacheHdr ? (" - caché listado: " + cacheHdr) : "";
                     if (!res.success) {
                         registrarTrazaDocModalTecnico("getDocumentosCandidatoList - success=false (técnico)", { http_status: r.status, ms: ms, cache: cacheHdr, mensaje: res.mensaje || null });
                         setDocModalApiTraceUsuario("No se pudo obtener la documentación del candidato.", "warn");
+                        var errListado = new Error(res.mensaje || "No se pudo obtener la documentación del candidato.");
+                        errListado.name = "DocListBusinessError";
+                        errListado.userMessage = res.mensaje || "No se pudo obtener la documentación del candidato.";
+                        throw errListado;
                     } else {
                         var nDocs = (res.datos && res.datos.documentos) ? res.datos.documentos.length : (res.datos && Array.isArray(res.datos) ? res.datos.length : 0);
                         var verifPrev = (res.datos && res.datos.verificacion_expediente) ? res.datos.verificacion_expediente : null;
@@ -7526,6 +7580,22 @@ class CapHum extends Controller
                     var docs = (res.datos && res.datos.documentos) ? res.datos.documentos : (res.datos && Array.isArray(res.datos) ? res.datos : []);
                     var verif = (res.datos && res.datos.verificacion_expediente) ? res.datos.verificacion_expediente : null;
                     var metricas = (res.datos && res.datos.metricas) ? res.datos.metricas : null;
+                    if (lista && docs.length > 0) {
+                        var escBasico = function(s) {
+                            return String(s === null || s === undefined ? "" : s)
+                                .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+                        };
+                        if (cargando) cargando.classList.add("d-none");
+                        if (vacio) vacio.classList.add("d-none");
+                        lista.innerHTML = docs.map(function(d) {
+                            var disponible = String(d.archivo_disponible == null ? "1" : d.archivo_disponible) !== "0";
+                            var fechaBasica = d.fecha_carga ? (" - " + new Date(d.fecha_carga).toLocaleDateString("es-MX")) : "";
+                            return "<div class=\"list-group-item d-flex justify-content-between align-items-center\">" +
+                                "<div><strong>" + escBasico(d.tipo_documento || "Documento") + "</strong><br><small class=\"text-muted\">" + escBasico(d.nombre_archivo || "") + fechaBasica + "</small></div>" +
+                                (disponible ? "<span class=\"badge bg-light text-dark\">PDF</span>" : "<span class=\"badge bg-secondary\">Solo registro local</span>") +
+                                "</div>";
+                        }).join("");
+                    }
 
                     candidatosDocConsola("log", "getDocumentosCandidatoList - respuesta", { id_candidato: idCandidato, http_status: r.status, ms: ms, cache_listado: cacheHdr || null, success: !!res.success, mensaje: res.mensaje || null, n_documentos: docs.length, metricas: metricas || null, verificacion_resumen: verif ? { error_api: verif.error_api || null, checks_ok: verif.checks_ok, checks_totales: verif.checks_totales, todo_coincide: verif.todo_coincide } : null });
                     if (!res.success) {
@@ -7535,6 +7605,7 @@ class CapHum extends Controller
                         candidatosDocConsola("warn", "verificación expediente - último intento falló (detalle en BD; use Reintentar verificación si ya corrigió la API)", { id_candidato: idCandidato, error_api: String(verif.error_api) });
                     }
 
+                    try {
                     // Actualizar el Map global con los nuevos datos
                     actualizarDocumentosEnMap(idCandidato, {
                         documentos: docs,
@@ -7561,17 +7632,51 @@ class CapHum extends Controller
                         if (bloqueComp) { bloqueComp.classList.add("d-none"); bloqueComp.innerHTML = ""; }
                     }
                     maybeScheduleDocModalPoll(idCandidato, metricas, verif, opts);
-                }).catch(function(err) {
-                    candidatosDocConsola("error", "getDocumentosCandidatoList - catch", { id_candidato: idCandidato, name: err && err.name, message: err && err.message, stack: err && err.stack });
-                    if (!err || (err.name !== "SyntaxError" && err.message && String(err.message).indexOf("JSON") === -1)) {
-                        registrarTrazaDocModalTecnico("getDocumentosCandidatoList - red/catch (técnico)", { name: err && err.name, message: err && err.message });
-                        setDocModalApiTraceUsuario("No se pudo cargar la documentación. Revise su conexión.", "err");
+                    } catch (uiErr) {
+                        candidatosDocConsola("error", "getDocumentosCandidatoList - error al pintar modal", { id_candidato: idCandidato, name: uiErr && uiErr.name, message: uiErr && uiErr.message, stack: uiErr && uiErr.stack });
+                        registrarTrazaDocModalTecnico("getDocumentosCandidatoList - error UI (tecnico)", { name: uiErr && uiErr.name, message: uiErr && uiErr.message });
+                        if (cargando) cargando.classList.add("d-none");
+                        if (vacio) vacio.classList.toggle("d-none", docs.length > 0);
+                        if (lista && docs.length > 0) {
+                            var escUiFallback = function(s) {
+                                return String(s === null || s === undefined ? "" : s)
+                                    .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+                            };
+                            lista.innerHTML = docs.map(function(d) {
+                                return "<div class=\"border rounded p-2 mb-1\"><strong>" + escUiFallback(d.tipo_documento || "Documento") + "</strong><br><small class=\"text-muted\">" + escUiFallback(d.nombre_archivo || "") + "</small></div>";
+                            }).join("");
+                        }
                     }
-                    renderListaDocumentos(lista, cargando, vacio, [], null, idCandidato);
-                    if (bloqueAccionesProceso) { bloqueAccionesProceso.classList.add("d-none"); bloqueAccionesProceso.innerHTML = ""; }
-                    if (bloqueMetricas) { bloqueMetricas.classList.add("d-none"); bloqueMetricas.innerHTML = ""; }
-                    if (bloqueVerif) { bloqueVerif.classList.add("d-none"); bloqueVerif.innerHTML = ""; }
-                    if (bloqueComp) { bloqueComp.classList.add("d-none"); bloqueComp.innerHTML = ""; }
+                }).catch(function(err) {
+                    var modalActualCatch = document.getElementById("modalDocumentacionCandidato");
+                    if (modalActualCatch && modalActualCatch.dataset.idCandidato && String(modalActualCatch.dataset.idCandidato) !== String(idCandidato)) {
+                        return;
+                    }
+                    candidatosDocConsola("error", "getDocumentosCandidatoList - catch", { id_candidato: idCandidato, name: err && err.name, message: err && err.message, stack: err && err.stack });
+                    if (!opts.fromRetry && (!err || !err.userMessage)) {
+                        if (cargando) cargando.classList.add("d-none");
+                        setTimeout(function() {
+                            cargarDocumentosModal(idCandidato, Object.assign({}, opts, { fromRetry: true }));
+                        }, 450);
+                        return;
+                    }
+                    if (err && err.userMessage) {
+                        setDocModalApiTraceUsuario(err.userMessage, "err");
+                    } else if (!err || (err.name !== "SyntaxError" && err.message && String(err.message).indexOf("JSON") === -1)) {
+                        registrarTrazaDocModalTecnico("getDocumentosCandidatoList - red/catch (técnico)", { name: err && err.name, message: err && err.message });
+                        setDocModalApiTraceUsuario("No se pudo consultar el listado de documentos. El servidor no respondió correctamente; recargue la página e intente de nuevo.", "err");
+                    }
+                    if (cargando) {
+                        cargando.classList.add("d-none");
+                    }
+                    if (vacio) vacio.classList.add("d-none");
+                    if (!listaTieneContenidoPrevio && lista) {
+                        lista.innerHTML = "";
+                        if (bloqueAccionesProceso) { bloqueAccionesProceso.classList.add("d-none"); bloqueAccionesProceso.innerHTML = ""; }
+                        if (bloqueMetricas) { bloqueMetricas.classList.add("d-none"); bloqueMetricas.innerHTML = ""; }
+                        if (bloqueVerif) { bloqueVerif.classList.add("d-none"); bloqueVerif.innerHTML = ""; }
+                        if (bloqueComp) { bloqueComp.classList.add("d-none"); bloqueComp.innerHTML = ""; }
+                    }
                 });
             }
 
@@ -7597,7 +7702,7 @@ class CapHum extends Controller
                 if (bloqueMetricas) { bloqueMetricas.classList.add("d-none"); bloqueMetricas.innerHTML = ""; }
                 if (bloqueAccionVerificar) bloqueAccionVerificar.classList.add("d-none");
                 if (bloqueAccionesProceso) { bloqueAccionesProceso.classList.add("d-none"); bloqueAccionesProceso.innerHTML = ""; }
-                if (lista) lista.innerHTML = "";
+                if (lista) lista.innerHTML = "<div class=\"p-3 text-center text-muted\">Cargando documentos...</div>";
                 if (vacio) vacio.classList.add("d-none");
                 if (cargando) cargando.classList.remove("d-none");
                 clearDocModalApiTrace();
@@ -9841,7 +9946,7 @@ class CapHum extends Controller
         }
 
         $cacheDir = defined('RAIZ') ? (RAIZ . '/storage/cache') : (__DIR__ . '/../storage/cache');
-        $cacheKey = 'doc_candidato_v2_' . $id_candidato;
+        $cacheKey = 'doc_candidato_v3_' . $id_candidato;
         $ttl = 45;
 
         if (function_exists('apcu_fetch')) {
@@ -11187,10 +11292,13 @@ class CapHum extends Controller
             'expediente_completo' => $expedienteCompleto,
         ];
 
-        if ($idCandidato > 0) {
-            $conteoValidados = CandidatosDAO::contarValidados($idCandidato);
-            $metricas['validados'] = (int) ($conteoValidados['validados'] ?? 0);
+        $validadosVisibles = 0;
+        foreach ($documentos as $doc) {
+            if ((int) ($doc['validado'] ?? 0) === 1) {
+                $validadosVisibles++;
+            }
         }
+        $metricas['validados'] = $validadosVisibles;
 
         return $metricas;
     }

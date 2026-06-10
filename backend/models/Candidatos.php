@@ -1149,8 +1149,11 @@ class Candidatos extends Model
                 "SELECT id, id_candidato, tipo_documento, nombre_archivo, ruta_archivo, fecha_carga, validado, fecha_validado, verificacion_fiscal_json, verificacion_calidad_json FROM candidato_documento WHERE id_candidato = :id ORDER BY fecha_carga DESC",
                 ['id' => $id_candidato]
             );
-            $documentos = self::filtrarDocumentosConArchivo($documentos ?: []);
+            $documentos = $documentos ?: [];
+            $storageRoot = self::storageRoot();
             foreach ($documentos as &$d) {
+                $ruta = trim((string) ($d['ruta_archivo'] ?? ''));
+                $d['archivo_disponible'] = ($ruta === '' || is_file($storageRoot . '/' . $ruta)) ? 1 : 0;
                 if (!empty($d['verificacion_fiscal_json'])) {
                     $dec = json_decode($d['verificacion_fiscal_json'], true);
                     $d['verificacion_fiscal'] = is_array($dec) ? $dec : null;
@@ -1187,7 +1190,7 @@ class Candidatos extends Model
             return;
         }
         $cacheDir = defined('RAIZ') ? (RAIZ . '/storage/cache') : (__DIR__ . '/../storage/cache');
-        foreach (['doc_candidato_', 'doc_candidato_v2_'] as $prefix) {
+        foreach (['doc_candidato_', 'doc_candidato_v2_', 'doc_candidato_v3_'] as $prefix) {
             $file = $cacheDir . '/' . $prefix . $id_candidato . '.json';
             if (is_file($file)) {
                 @unlink($file);
@@ -1196,6 +1199,7 @@ class Candidatos extends Model
         if (function_exists('apcu_delete')) {
             @apcu_delete('doc_candidato_' . $id_candidato);
             @apcu_delete('doc_candidato_v2_' . $id_candidato);
+            @apcu_delete('doc_candidato_v3_' . $id_candidato);
         }
     }
 
