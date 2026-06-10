@@ -108,6 +108,41 @@ def _texto_ocr_imagen(image_png_bytes: bytes) -> Optional[str]:
     return None
 
 
+def _texto_ocr_imagen_ligero(image_png_bytes: bytes, max_ancho: int = 1700) -> Optional[str]:
+    """OCR rapido sin Paddle para validaciones documentales de bajo costo."""
+    if TESSERACT_AVAILABLE:
+        try:
+            _configurar_tesseract()
+            img_cv = cv2.imdecode(np.frombuffer(image_png_bytes, np.uint8), cv2.IMREAD_COLOR)
+            if img_cv is not None:
+                h, w = img_cv.shape[:2]
+                if w > max_ancho:
+                    scale = max_ancho / w
+                    img_cv = cv2.resize(img_cv, None, fx=scale, fy=scale, interpolation=cv2.INTER_AREA)
+                gray = cv2.cvtColor(img_cv, cv2.COLOR_BGR2GRAY)
+                clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8)).apply(gray)
+                texto = pytesseract.image_to_string(Image.fromarray(clahe), config="--oem 3 --psm 6 -l spa+eng")
+                if texto.strip():
+                    return texto.strip()
+        except Exception:
+            pass
+    try:
+        engine = _get_rapidocr_dc()
+        if engine is not None:
+            out = engine(image_png_bytes)
+            result = out[0] if isinstance(out, (list, tuple)) and len(out) > 0 else out
+            if result:
+                lineas = [str(item[1]).strip() for item in result if isinstance(item, (list, tuple)) and len(item) >= 2 and item[1]]
+                if not lineas:
+                    lineas = [item.strip() for item in result if isinstance(item, str)]
+                texto = "\n".join(lineas).strip()
+                if texto:
+                    return texto
+    except Exception:
+        pass
+    return None
+
+
 @lru_cache(maxsize=32)
 def texto_de_pdf_con_ocr(pdf_bytes: bytes, max_paginas: int = 3) -> str:
     """Extrae texto del PDF; si no hay capa de texto (escaneado), usa OCR (RapidOCR o Tesseract)."""
@@ -163,9 +198,34 @@ def _parsear_fecha_espanol(texto: str) -> Optional[datetime]:
 
 def _parsear_fecha_sat_emision(texto: str) -> Optional[datetime]:
     """Extrae fecha de emision SAT aun cuando OCR pegue palabras o parta lineas."""
+    normal = _normalizar_texto_sat(texto)
     compacto = _compactar_texto_sat(texto)
     meses = {k.upper(): v for k, v in MESES_ES.items()}
     candidatas: List[datetime] = []
+    for mes_nombre, mes_num in meses.items():
+        patron_normal = rf"\bA\s+([0-3O]?\d)\s+DE\s+{mes_nombre}\s+DE\s+[^0-9]{{0,55}}(\d{{4}})"
+        for m in re.finditer(patron_normal, normal):
+            dia_txt = m.group(1).replace("O", "0")
+            try:
+                fecha = datetime(int(m.group(2)), mes_num, int(dia_txt))
+                if 2000 <= fecha.year <= datetime.now().year + 1:
+                    candidatas.append(fecha)
+            except ValueError:
+                continue
+        patron_compacto = rf"A([0-3O]?\d)DE{mes_nombre}DE[A-Z0-9]{{0,55}}?(\d{{4}})"
+        for m in re.finditer(patron_compacto, compacto):
+            dia_txt = m.group(1).replace("O", "0")
+            try:
+                fecha = datetime(int(m.group(2)), mes_num, int(dia_txt))
+                if 2000 <= fecha.year <= datetime.now().year + 1:
+                    candidatas.append(fecha)
+            except ValueError:
+                continue
+    if candidatas:
+        hoy = datetime.now()
+        no_futuras = [f for f in candidatas if f <= hoy + timedelta(days=1)]
+        return max(no_futuras or candidatas)
+    candidatas = []
     if compacto:
         idx = compacto.find("FECHADEEMISION")
         ventana = compacto[idx:idx + 650] if idx >= 0 else compacto[:1200]
@@ -237,7 +297,7 @@ def _texto_constancia_fiscal_pdf(pdf_bytes: bytes, max_paginas: int = 2) -> str:
             continue
         partes: List[str] = []
         for img_bytes in imagenes:
-            t = _texto_ocr_imagen(img_bytes)
+            t = _texto_ocr_imagen_ligero(img_bytes)
             if t:
                 partes.append(t)
         texto_ocr = "\n".join(partes).strip()
@@ -253,7 +313,33 @@ def _nombres_coinciden(n1: str, n2: str) -> bool:
     p1 = {w for w in _normalizar_nombre(n1).split() if len(w) > 2}
     p2 = {w for w in _normalizar_nombre(n2).split() if len(w) > 2}
     comunes = p1 & p2
-    return len(comunes) >= 2
+    if len(comunes) >= 2:
+        return True
+
+    def casi_igual_ocr(a: str, b: str) -> bool:
+        if a == b:
+            return True
+        if min(len(a), len(b)) < 5 or abs(len(a) - len(b)) > 1:
+            return False
+        # OCR suele perder o agregar una letra al inicio: JIMENEZ -> IMENEZ, OSVALDO -> COSVALDO.
+        if a.endswith(b) or b.endswith(a):
+            return True
+        if len(a) != len(b):
+            return False
+        diferencias = sum(1 for ca, cb in zip(a, b) if ca != cb)
+        return diferencias <= 1
+
+    usados = set(comunes)
+    coincidencias = len(comunes)
+    for w1 in p1 - comunes:
+        for w2 in p2 - comunes:
+            if w2 in usados:
+                continue
+            if casi_igual_ocr(w1, w2):
+                usados.add(w2)
+                coincidencias += 1
+                break
+    return coincidencias >= 2
 
 
 @lru_cache(maxsize=64)
@@ -1019,20 +1105,23 @@ def extraer_datos_constancia_fiscal(pdf_bytes: bytes) -> Dict[str, Any]:
     }
     if not PYMUPDF_AVAILABLE:
         return resultado
-    texto = _texto_constancia_fiscal_pdf(pdf_bytes)
-    resultado["parece_constancia_fiscal"] = _texto_parece_constancia_fiscal(texto)
+    texto = ""
     try:
         doc = fitz.open(stream=pdf_bytes, filetype="pdf")
         texto_nativo = ""
         for page in doc:
             texto_nativo += page.get_text() + "\n"
         doc.close()
-        if not texto.strip():
-            texto = texto_nativo
-            resultado["parece_constancia_fiscal"] = _texto_parece_constancia_fiscal(texto)
+        texto = texto_nativo
     except Exception:
-        if not texto.strip():
-            return resultado
+        texto = ""
+    if not _texto_parece_constancia_fiscal(texto):
+        texto_ocr = _texto_constancia_fiscal_pdf(pdf_bytes)
+        if texto_ocr.strip():
+            texto = texto_ocr
+    resultado["parece_constancia_fiscal"] = _texto_parece_constancia_fiscal(texto)
+    if not texto.strip():
+        return resultado
 
     lineas = [ln.strip() for ln in texto.split("\n")]
     texto_upper = texto.upper()
@@ -1062,15 +1151,32 @@ def extraer_datos_constancia_fiscal(pdf_bytes: bytes) -> Dict[str, Any]:
             resultado["rfc"] = m.group(1).upper()
 
     nombre_val = apellido1 = apellido2 = None
+    m_nombre_inline = re.search(
+        r"NOMBRE\s*\(?S?\)?\s*:\s*([A-ZÑ\s]{2,50}?)\s+PRIMER\s+APELLIDO\s*:\s*([A-ZÑ\s]{2,50}?)\s+SEGUNDO\s+APELLIDO\s*:\s*([A-ZÑ\s]{2,50}?)(?=\s+FECHA|\s+ESTATUS|\s+NOMBRE\s+COMERCIAL|\s+DATOS|$)",
+        texto_norm,
+    )
+    if m_nombre_inline:
+        nombre_val = m_nombre_inline.group(1).strip()
+        apellido1 = m_nombre_inline.group(2).strip()
+        apellido2 = m_nombre_inline.group(3).strip()
     for i, ln in enumerate(lineas):
         if re.match(r"Nombre\s*\(?s?\)?:", ln, re.IGNORECASE):
-            if i + 1 < len(lineas):
+            m_inline = re.match(r"Nombre\s*\(?s?\)?:\s*(.+)$", ln, re.IGNORECASE)
+            if m_inline and m_inline.group(1).strip():
+                nombre_val = m_inline.group(1).strip()
+            elif i + 1 < len(lineas):
                 nombre_val = lineas[i + 1].strip()
         elif re.match(r"Primer\s+Apellido:", ln, re.IGNORECASE):
-            if i + 1 < len(lineas):
+            m_inline = re.match(r"Primer\s+Apellido:\s*(.+)$", ln, re.IGNORECASE)
+            if m_inline and m_inline.group(1).strip():
+                apellido1 = m_inline.group(1).strip()
+            elif i + 1 < len(lineas):
                 apellido1 = lineas[i + 1].strip()
         elif re.match(r"Segundo\s+Apellido:", ln, re.IGNORECASE):
-            if i + 1 < len(lineas):
+            m_inline = re.match(r"Segundo\s+Apellido:\s*(.+)$", ln, re.IGNORECASE)
+            if m_inline and m_inline.group(1).strip():
+                apellido2 = re.split(r"\bFecha\b|\bEstatus\b|\bNombre\s+Comercial\b|\bDatos\b", m_inline.group(1), flags=re.IGNORECASE)[0].strip()
+            elif i + 1 < len(lineas):
                 apellido2 = lineas[i + 1].strip()
 
     partes = []
