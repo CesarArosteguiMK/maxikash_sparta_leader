@@ -3067,6 +3067,9 @@ $aevPuedeReemplazarEvidencia = in_array(79, array_map('intval', (array) ($_SESSI
         }
         return limpio
             .replace(/\(PROCESANDO IA\)/ig, '(RECUPERACION)')
+            .replace(/^ENVIÓ EVIDENCIAS AL PIPELINE$/i, 'EL GESTOR ENVIO EVIDENCIAS DE LA ADJUDICACION')
+            .replace(/^ENVI[Ã“O] EVIDENCIAS AL PIPELINE$/i, 'EL GESTOR ENVIO EVIDENCIAS DE LA ADJUDICACION')
+            .replace(/^ENVIO EVIDENCIAS AL PIPELINE$/i, 'EL GESTOR ENVIO EVIDENCIAS DE LA ADJUDICACION')
             .replace(/^VALIDACI[ÓO]N EVIDENCIA\s+/i, 'Evidencia ')
             .replace(/^ENVI[ÓO] EVIDENCIAS VALIDADAS\s*/i, 'Enviado a siguiente fase ')
             .replace(/^REGISTRO RECHAZOS EVIDENCIAS APP\s*/i, 'Registro de rechazos ')
