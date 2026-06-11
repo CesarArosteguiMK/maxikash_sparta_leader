@@ -948,6 +948,77 @@ class Inicio extends Controller
     }
 
     /**
+     * Borra archivos .log acumulados en backend/API/logs.
+     * Solo elimina nombres planos permitidos dentro de esa carpeta.
+     */
+    public function apiDocLogLimpiar()
+    {
+        header('Content-Type: application/json; charset=utf-8');
+        if ((int)($_SESSION['usuario_id'] ?? 0) !== 878) {
+            http_response_code(403);
+            echo json_encode(['success' => false, 'message' => 'No autorizado']);
+            return;
+        }
+        if (($_SERVER['REQUEST_METHOD'] ?? 'GET') !== 'POST') {
+            http_response_code(405);
+            echo json_encode(['success' => false, 'message' => 'Método no permitido']);
+            return;
+        }
+        $dir = $this->apiDocLogsDirResolved();
+        if ($dir === '') {
+            echo json_encode(['success' => false, 'message' => 'No existe carpeta logs de la API']);
+            return;
+        }
+
+        $deleted = 0;
+        $bytes = 0;
+        $failed = [];
+        $dh = @opendir($dir);
+        if ($dh === false) {
+            echo json_encode(['success' => false, 'message' => 'No se puede leer la carpeta logs']);
+            return;
+        }
+        while (($f = readdir($dh)) !== false) {
+            if ($f === '.' || $f === '..' || !$this->apiDocLogBasenamePermitido($f)) {
+                continue;
+            }
+            $full = $dir . DIRECTORY_SEPARATOR . $f;
+            if (!is_file($full)) {
+                continue;
+            }
+            $real = @realpath($full);
+            if (!is_string($real) || !$this->apiDocPathInsideDir($real, $dir)) {
+                continue;
+            }
+            $size = @filesize($real);
+            if (@unlink($real)) {
+                $deleted++;
+                $bytes += is_int($size) ? $size : 0;
+            } else {
+                $failed[] = $f;
+            }
+        }
+        closedir($dh);
+        clearstatcache(true);
+
+        $message = $deleted === 1
+            ? 'Se borró 1 log.'
+            : 'Se borraron ' . $deleted . ' logs.';
+        if (!empty($failed)) {
+            $message .= ' Algunos no se pudieron borrar porque pueden estar en uso.';
+        }
+        echo json_encode([
+            'success' => empty($failed),
+            'partial' => !empty($failed) && $deleted > 0,
+            'message' => $message,
+            'deleted' => $deleted,
+            'bytes' => $bytes,
+            'failed' => array_slice($failed, 0, 12),
+            'failed_total' => count($failed),
+        ], JSON_UNESCAPED_UNICODE);
+    }
+
+    /**
      * Devuelve contenido de un log permitido (JSON). GET ?archivo=nombre.log&completo=1
      */
     public function apiDocLogContenido()
@@ -1093,10 +1164,17 @@ class Inicio extends Controller
         }
         $dirNorm = strtolower(str_replace('\\', '/', $dir));
         $realNorm = strtolower(str_replace('\\', '/', $real));
-        if ($realNorm !== $dirNorm && strpos($realNorm, $dirNorm . '/') !== 0) {
+        if (!$this->apiDocPathInsideDir($realNorm, $dirNorm)) {
             return '';
         }
         return $real;
+    }
+
+    private function apiDocPathInsideDir(string $path, string $dir): bool
+    {
+        $dirNorm = strtolower(str_replace('\\', '/', $dir));
+        $pathNorm = strtolower(str_replace('\\', '/', $path));
+        return $pathNorm === $dirNorm || strpos($pathNorm, $dirNorm . '/') === 0;
     }
 
     /**

@@ -53,6 +53,24 @@ if "!API_READY!"=="1" (
     echo [OK] La API ya esta en marcha en el puerto 8000.
     echo      URL: http://127.0.0.1:8000/docs
     echo.
+    echo [CHECK] Verificando dependencias criticas por si el servidor quedo a medias...
+    powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0doctor-api.ps1"
+    set "DOC_READY_RC=!ERRORLEVEL!"
+    if "!DOC_READY_RC!"=="1" (
+        echo [FIX] La API esta viva, pero faltan dependencias criticas. Reparando...
+        powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0doctor-api.ps1" -Fix -InstallMissing
+        set "DOC_READY_FIX_RC=!ERRORLEVEL!"
+        if "!DOC_READY_FIX_RC!"=="1" (
+            echo [ERROR] No se pudieron instalar todas las dependencias criticas.
+            echo         Revise: %API_DIR%\logs\doctor-pip-*.log
+            ping 127.0.0.1 -n 8 >nul
+            exit /b 1
+        )
+        echo [RESTART] Dependencias actualizadas. Reiniciando API para cargar PaddleOCR/Paddle...
+        powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0cerrar-agente.ps1" -Silent
+        call "%~dp0iniciar-agente.bat"
+        exit /b !ERRORLEVEL!
+    )
     ping 127.0.0.1 -n 3 >nul
     exit /b 0
 )

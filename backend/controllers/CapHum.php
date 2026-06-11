@@ -6123,8 +6123,8 @@ class CapHum extends Controller
                         var bv = document.getElementById("modalDocumentacionCandidatoVerificacion");
                         var modalAbierto = document.getElementById("modalDocumentacionCandidato");
                         if (bv && modalAbierto && modalAbierto.classList.contains("show")) {
-                            bv.classList.add("d-none");
-                            bv.innerHTML = "";
+                            bv.classList.remove("d-none");
+                            bv.innerHTML = "<div class=\"alert alert-info small mb-0\"><i class=\"fa fa-hourglass-half me-1\"></i>Validación documental en segundo plano. Puedes cerrar este modal y volver a abrirlo; el resultado aparecerá cuando termine.</div>";
                         }
                         return;
                     }
@@ -7295,6 +7295,12 @@ class CapHum extends Controller
             function renderListaDocumentos(lista, cargando, vacio, datos, verif, idCandidato) {
                 if (!lista) return;
                 disposeDocModalTooltips();
+                if (!document.getElementById("docModalTooltipStyle")) {
+                    var stDocTooltip = document.createElement("style");
+                    stDocTooltip.id = "docModalTooltipStyle";
+                    stDocTooltip.textContent = ".doc-modal-tooltip{--bs-tooltip-max-width:420px}.doc-modal-tooltip .tooltip-inner{max-width:420px;text-align:left;padding:.65rem .75rem}.doc-modal-tooltip table{color:inherit;margin:0}.doc-modal-tooltip td{padding:.25rem .35rem!important;border-color:rgba(255,255,255,.22)!important}.doc-modal-tooltip .text-muted{color:rgba(255,255,255,.78)!important}";
+                    document.head.appendChild(stDocTooltip);
+                }
                 if (cargando) cargando.classList.add("d-none");
                 lista.innerHTML = "";
                 if (!datos || datos.length === 0) { if (vacio) vacio.classList.remove("d-none"); return; }
@@ -7580,16 +7586,32 @@ class CapHum extends Controller
         });
         lista.querySelectorAll("[data-bs-toggle=\"tooltip\"]").forEach(function(el) {
             if (typeof bootstrap === "undefined" || !bootstrap.Tooltip) return;
-            var contenido = (el.getAttribute("data-bs-title") || el.getAttribute("title") || "").trim();
+            var contenido = (el.getAttribute("data-bs-title") || el.getAttribute("data-bs-original-title") || el.getAttribute("title") || "").trim();
             if (!contenido) {
                 el.removeAttribute("data-bs-toggle");
                 el.removeAttribute("data-bs-title");
+                el.removeAttribute("data-bs-original-title");
                 el.removeAttribute("title");
                 return;
             }
+            el.setAttribute("data-bs-title", contenido);
+            el.setAttribute("title", contenido);
+            el.querySelectorAll("[title]").forEach(function(child) { child.removeAttribute("title"); });
+            el.addEventListener("show.bs.tooltip", function(ev) {
+                var txt = (el.getAttribute("data-bs-title") || el.getAttribute("data-bs-original-title") || el.getAttribute("title") || "").trim();
+                if (!txt) {
+                    ev.preventDefault();
+                }
+            });
             var inst = bootstrap.Tooltip.getInstance(el);
             if (inst) inst.dispose();
-            new bootstrap.Tooltip(el, { container: "body", trigger: "hover focus" });
+            new bootstrap.Tooltip(el, {
+                container: "body",
+                trigger: "hover focus",
+                html: el.getAttribute("data-bs-html") === "true",
+                sanitize: false,
+                customClass: "doc-modal-tooltip"
+            });
         });
         function mensajeActaAmigable(mensaje) {
             mensaje = String(mensaje || "");
@@ -10478,7 +10500,7 @@ class CapHum extends Controller
         $payload['metricas']['validados'] = (int) ($conteoValidados['validados'] ?? 0);
         $payload['metricas'] = $this->calcularMetricasDocumentosCandidato($documentos, $id_candidato);
 
-        if (!empty($payload['metricas']['expediente_completo']) && $this->docVerifExpedientePendienteTecnico($verificacion)) {
+        if (!empty($payload['metricas']['expediente_completo']) && ($verificacion === null || $this->docVerifExpedientePendienteTecnico($verificacion))) {
             $candidatoRes = CandidatosDAO::getById($id_candidato);
             $candidato = ($candidatoRes['success'] ?? false) && !empty($candidatoRes['datos']) ? $candidatoRes['datos'] : [];
             $nombreCandidatoRegistro = trim(($candidato['nombres'] ?? '') . ' ' . ($candidato['apellidop'] ?? '') . ' ' . ($candidato['apellidom'] ?? ''));
@@ -10493,6 +10515,26 @@ class CapHum extends Controller
                 $verificacion = $payloadCache;
                 $payload['verificacion_expediente'] = $payloadCache;
                 CandidatosDAO::updateVerificacionExpediente($id_candidato, json_encode($payloadCache));
+            } else {
+                $resCola = $this->encolarVerificacionDocumentalCandidato($id_candidato, [], true, $verificacion === null ? 'modal_auto_sin_dictamen' : 'modal_auto_reintento');
+                $payloadEnProceso = [
+                    'verificacion_en_proceso' => true,
+                    'todo_coincide' => null,
+                    'foto_rechazada' => false,
+                    'checks_ok' => 0,
+                    'checks_totales' => 0,
+                    'alertas' => ['Validacion documental en proceso. El expediente ya esta completo y se esta ejecutando el cruce automatico.'],
+                    'identificacion_frente_score' => null,
+                    'identificacion_reverso_score' => null,
+                    'comparaciones' => null,
+                    'modo_verificacion' => 'cola_background',
+                    'api_pendiente' => false,
+                    'error_api' => null,
+                    'job_id' => (int) ($resCola['datos']['id_job'] ?? 0),
+                    'iniciado_en' => date('Y-m-d H:i:s'),
+                ];
+                $verificacion = $payloadEnProceso;
+                $payload['verificacion_expediente'] = $payloadEnProceso;
             }
         }
 
