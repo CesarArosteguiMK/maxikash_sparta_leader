@@ -9684,9 +9684,11 @@ class CapHum extends Controller
 
         $res = CandidatosDAO::getCandidatoPorToken($token);
         if (!$res['success'] || empty($res['datos'])) {
+            unset($_SESSION['candidato_documentos_token_publico']);
             $this->subirDocumentosCandidatoError($res['mensaje'] ?? 'Enlace no válido o expirado.');
             return;
         }
+        $_SESSION['candidato_documentos_token_publico'] = $token;
         $candidato = $res['datos'];
         $id_candidato = (int) $candidato['id_candidato'];
         $nombreCompleto = trim(($candidato['nombres'] ?? '') . ' ' . ($candidato['apellidop'] ?? '') . ' ' . ($candidato['apellidom'] ?? ''));
@@ -10168,6 +10170,7 @@ class CapHum extends Controller
 
     private function subirDocumentosCandidatoError($mensaje)
     {
+        unset($_SESSION['candidato_documentos_token_publico']);
         $this->set('error_mensaje', $mensaje);
         $this->set('token', '');
         $this->set('api_verificacion_base', $this->getApiVerificacionBase());
@@ -10194,6 +10197,18 @@ class CapHum extends Controller
             header('Content-Type: application/json; charset=utf-8');
             echo json_encode(['ok' => false, 'mensaje' => 'Método no permitido.']);
             return;
+        }
+
+        if (empty($_SESSION['login'])) {
+            $tokenPublico = trim((string) ($_SESSION['candidato_documentos_token_publico'] ?? ''));
+            $resToken = $tokenPublico !== '' ? CandidatosDAO::getCandidatoPorToken($tokenPublico) : ['success' => false];
+            if (!$resToken['success'] || empty($resToken['datos'])) {
+                unset($_SESSION['candidato_documentos_token_publico']);
+                http_response_code(401);
+                header('Content-Type: application/json; charset=utf-8');
+                echo json_encode(['ok' => false, 'mensaje' => 'Enlace público no válido o expirado.']);
+                return;
+            }
         }
 
         $endpoint = trim((string) $endpoint, " \t\n\r\0\x0B/");

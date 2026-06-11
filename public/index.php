@@ -37,17 +37,29 @@ session_set_cookie_params([
 ]);
 session_start();
 
+$urlSolicitada = isset($_GET['url']) ? explode('/', filter_var(rtrim($_GET['url'], '/'), FILTER_SANITIZE_URL)) : [''];
+$controladorRuta = strtolower((string) ($urlSolicitada[0] ?? ''));
+$metodoRuta = strtolower((string) ($urlSolicitada[1] ?? METODO_DEFECTO));
+$rutasPublicasSinLogin = [
+    'caphum' => [
+        'subirdocumentoscandidato',
+        'llenarsolicitudenlinea',
+        'obtenerplantillasolicitudpdf',
+        'descargardocumentocandidato',
+        'docverificacionproxy',
+    ],
+];
+$rutaPublicaSinLogin = isset($rutasPublicasSinLogin[$controladorRuta])
+    && in_array($metodoRuta, $rutasPublicasSinLogin[$controladorRuta], true);
+
 // Verifica si la sesión de usuario está activa y si el navegador es compatible
-if (!isset($_SESSION['login'])) {
+if (!isset($_SESSION['login']) && !$rutaPublicaSinLogin) {
     require_once LIBRERIAS . '/BrowserDetection/BrowserDetection.php';
     if (!validaNavegador()) {
         echo getErrorNavegador();
         exit;
     }
 }
-
-// La URL esperada es de la forma: /controlador/metodo/?parametro1=valor1&parametro2=valor2
-$urlSolicitada = isset($_GET['url']) ? explode('/', filter_var(rtrim($_GET['url'], '/'), FILTER_SANITIZE_URL)) : [''];
 
 if ($urlSolicitada[0] === 'plat_desc') {
     phpinfo(); // Muestra información de PHP si se solicita
@@ -73,7 +85,7 @@ spl_autoload_register(function ($archivo) {
 });
 
 // Si no se ha iniciado sesión o se solicita el login, se llama al controlador de login y se finaliza la ejecución
-if (!isset($_SESSION['login']) || strtolower($urlSolicitada[0]) === strtolower(LOGIN)) {
+if ((!isset($_SESSION['login']) && !$rutaPublicaSinLogin) || strtolower($urlSolicitada[0]) === strtolower(LOGIN)) {
     $login = 'Controllers\\' . LOGIN;
     $login = new $login;
     $metodo = isset($urlSolicitada[1]) ? $urlSolicitada[1] : METODO_DEFECTO;
