@@ -65,7 +65,11 @@ if ($extension !== '' && strtolower($extension) !== 'php') {
 // Se registra el autoload
 spl_autoload_register(function ($archivo) {
     $archivo = str_replace('\\', '/', $archivo);
-    require_once RAIZ . "/$archivo.php";
+    $ruta = RAIZ . "/$archivo.php";
+
+    if (is_readable($ruta)) {
+        require_once $ruta;
+    }
 });
 
 // Si no se ha iniciado sesión o se solicita el login, se llama al controlador de login y se finaliza la ejecución
@@ -78,10 +82,17 @@ if (!isset($_SESSION['login']) || strtolower($urlSolicitada[0]) === strtolower(L
     exit;
 }
 
-// Se valida que el archivo del controlador solicitado exista
-if ($urlSolicitada[0] === '' || !file_exists(CONTROLADORES . "/$urlSolicitada[0].php")) recursoNoDisponible();
+// Alias historico: las rutas /analitica/* viven en el controlador Reporteria.
+$controladorSolicitado = $urlSolicitada[0];
+$controladorArchivo = strtolower((string) $controladorSolicitado) === 'analitica'
+    ? 'Reporteria'
+    : $controladorSolicitado;
 
-$controlador = 'Controllers\\' . ucfirst($urlSolicitada[0]);
+// Se valida que el archivo del controlador solicitado exista
+if ($controladorArchivo === '' || !file_exists(CONTROLADORES . "/$controladorArchivo.php")) recursoNoDisponible();
+require_once CONTROLADORES . "/$controladorArchivo.php";
+
+$controlador = 'Controllers\\' . ucfirst($controladorArchivo);
 unset($urlSolicitada[0]);
 
 // Se valida que la clase del controlador exista

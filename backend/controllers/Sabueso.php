@@ -133,7 +133,7 @@ class Sabueso extends Controller
             $mapTitulosPanel[$ck === '' ? '_mixto' : $ck] = \Core\PanelAdminTicketTable::getTitulosColumnasPanelAdminPorCategoria($ck);
         }
         $panelAdminTitulosPorCatJs = json_encode($mapTitulosPanel, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT);
-        $googleMapsKeyJs = json_encode(defined('GOOGLE_MAPS_API_KEY') && (string)GOOGLE_MAPS_API_KEY !== '' ? (string)GOOGLE_MAPS_API_KEY : '', JSON_UNESCAPED_SLASHES);
+        $googleMapsKeyJs = $this->googleMapsKeyJson();
         $soloConsultaCreditoJs = $soloConsultaCredito ? 'true' : 'false';
         require __DIR__ . '/SabuesoPaneladminScriptChunk.php';
         $panelesVis = ConfigPanelUsuarioDAO::getPanelesVisiblesParaPersona($personaId, []);
@@ -194,7 +194,7 @@ class Sabueso extends Controller
             $mapTitulosPanel[$ck === '' ? '_mixto' : $ck] = \Core\PanelAdminTicketTable::getTitulosColumnasPanelAdminPorCategoria($ck);
         }
         $panelAdminTitulosPorCatJs = json_encode($mapTitulosPanel, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT);
-        $googleMapsKeyJs = json_encode(defined('GOOGLE_MAPS_API_KEY') && (string) GOOGLE_MAPS_API_KEY !== '' ? (string) GOOGLE_MAPS_API_KEY : '', JSON_UNESCAPED_SLASHES);
+        $googleMapsKeyJs = $this->googleMapsKeyJson();
         $soloConsultaCreditoJs = 'true';
         require __DIR__ . '/SabuesoPaneladminScriptChunk.php';
 
@@ -204,6 +204,27 @@ class Sabueso extends Controller
     private function getColumnsConfig($esAdmin, string $categoriaPanel = '')
     {
         return \Core\PanelAdminTicketTable::getColumnsConfig((bool)$esAdmin, $categoriaPanel);
+    }
+
+    private function googleMapsKeyJson(): string
+    {
+        $key = defined('GOOGLE_MAPS_API_KEY') ? trim((string) GOOGLE_MAPS_API_KEY) : '';
+        if ($key === '') {
+            $configApiPath = __DIR__ . '/../config/ConfigApi.php';
+            if (is_file($configApiPath)) {
+                require_once $configApiPath;
+                if (function_exists('config_api_load_from_db')) {
+                    try {
+                        $apiConfig = config_api_load_from_db();
+                        $key = trim((string) ($apiConfig['GOOGLE_MAPS_API_KEY'] ?? ''));
+                    } catch (\Throwable $e) {
+                        $key = '';
+                    }
+                }
+            }
+        }
+
+        return json_encode($key, JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT);
     }
 
     /**

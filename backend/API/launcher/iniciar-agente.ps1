@@ -28,7 +28,7 @@ $argList += @(
     'app.main:app',
     '--host', '0.0.0.0',
     '--port', '8000',
-    '--workers', '2'
+    '--workers', '1'
 )
 
 Start-Process -FilePath $py -ArgumentList $argList -WorkingDirectory $dir -WindowStyle Hidden
