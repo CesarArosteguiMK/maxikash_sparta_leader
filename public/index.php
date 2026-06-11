@@ -394,7 +394,7 @@ $rutasModulos = [
     'sabueso/getpersonassabuesojefesporcampo' => [18, 27],
     'sabueso/eliminarevidenciaticket' => [27], 'sabueso/verevidencia' => [18, 27], 'sabueso/otorgarprorrogadictamensistema' => [27], 'sabueso/otorgarintensidaddictamensistema' => [27],
     'convenios/consulta' => [45, 46], 'convenios/buscarcredito' => [45, 46], 'convenios/getofertascredito' => [45, 46], 'convenios/guardarconvenio' => [45, 46], 'convenios/getconvenioactivo' => [45, 46], 'convenios/descargarpdf' => [45, 46], 'convenios/getestatuss2' => [45, 46],
-    'convenios/cancelarconvenio' => [45, 46], 'convenios/checkdespacho' => [45, 46], 'convenios/validardespacho' => [45, 46], 'convenios/migrarconvenio' => [45, 46], 'convenios/gethistorialconvenios' => [45, 46], 'convenios/registrarpago' => [45, 46], 'convenios/getproductosconvenio' => [45, 46], 'convenios/getamortizacionconvenio' => [45, 46], 'convenios/getconciliacionsemana' => [45, 46], 'convenios/guardarconciliacion' => [45, 46], 'convenios/subircomprobante' => [45, 46], 'convenios/actualizarpdfconvenio' => [45, 46],
+    'convenios/cancelarconvenio' => [45, 46], 'convenios/solicitarcancelamiento' => [45, 46], 'convenios/checkdespacho' => [45, 46], 'convenios/validardespacho' => [45, 46], 'convenios/migrarconvenio' => [45, 46], 'convenios/gethistorialconvenios' => [45, 46], 'convenios/registrarpago' => [45, 46], 'convenios/getproductosconvenio' => [45, 46], 'convenios/getamortizacionconvenio' => [45, 46], 'convenios/getconciliacionsemana' => [45, 46], 'convenios/guardarconciliacion' => [45, 46], 'convenios/subircomprobante' => [45, 46], 'convenios/actualizarpdfconvenio' => [45, 46],
     'convenios/registrarconvenioglobo' => [45, 46],
     'convenios/estadisticas' => [56],
     'convenios/getestadisticasconvenios' => [56],
@@ -470,6 +470,9 @@ $rutasModulos = [
     'cierecredito/getenviadofinalizado' => [50],
     'cierecredito/crear' => [50],
     'cierecredito/cambiarestatus' => [50],
+    'cierecredito/getpeticionescancelamiento' => [128],
+    'cierecredito/autorizarcancelamiento' => [128],
+    'cierecredito/descartarcancelamiento' => [128],
     'cierrecredito/descargarreporteconveniosactivos' => [92],
     // Atención / pipeline Motos: permisos granulares por vista (69–73).
     'atencionclientes/consulta' => [69],

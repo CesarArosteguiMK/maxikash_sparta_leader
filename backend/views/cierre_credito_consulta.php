@@ -888,6 +888,7 @@ if (!isset($cc_perm_alguno)) {
     $cc_perm_vobo = false;
     $cc_perm_historial = false;
     $cc_perm_cartera   = false;
+    $cc_perm_peticiones = false;                                                                            
     $cc_perm_alguno = false;
     $cc_default_tab = null;
 }
@@ -897,6 +898,8 @@ $ccActEp    = ($cc_default_tab === 'en_proceso');
 $ccActVoBo  = ($cc_default_tab === 'vobo');
 $ccActHist  = ($cc_default_tab === 'historial');
 $ccActCart  = ($cc_default_tab === 'cartera');
+$ccActPet   = ($cc_default_tab === 'peticiones');
+$cc_perm_peticiones = $cc_perm_peticiones ?? false;
 ?>
 <!-- ══════════════════════════════════════
      PESTAÑAS (visibles según permisos especiales modulos_web 52–55)
@@ -972,6 +975,17 @@ $ccActCart  = ($cc_default_tab === 'cartera');
                             aria-controls="tab-cartera" aria-selected="<?= $ccActCart ? 'true' : 'false' ?>">
                         <i class="fa-solid fa-building-columns me-1" style="color:#0f5c8a;"></i>Cartera
                         <span class="badge ms-1" id="badge-cartera" style="background:#0f5c8a;color:#fff;">0</span>
+                    </button>
+                </li>
+                <?php endif; ?>
+                <?php if (!empty($cc_perm_peticiones)): ?>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link<?= $ccActPet ? ' active' : '' ?>" id="tab-peticiones-btn"
+                            data-bs-toggle="tab" data-bs-target="#tab-peticiones"
+                            type="button" role="tab"
+                            aria-controls="tab-peticiones" aria-selected="<?= $ccActPet ? 'true' : 'false' ?>">
+                        <i class="fa-solid fa-inbox me-1" style="color:#7c3aed;"></i>Peticiones
+                        <span class="badge ms-1" id="badge-peticiones" style="background:#7c3aed;color:#fff;">0</span>
                     </button>
                 </li>
                 <?php endif; ?>
@@ -1275,8 +1289,7 @@ $ccActCart  = ($cc_default_tab === 'cartera');
     <?php endif; ?>
 
     <?php if (!empty($cc_perm_cartera)): ?>
-    <!-- ══ PESTAÑA 4: CARTERA ══ -->
-    <div class="tab-pane fade<?= $ccActCart ? ' show active' : '' ?>" id="tab-cartera" role="tabpanel">
+    <!-- ══ PESTAÑA 4: CARTERA ══ -->    <div class="tab-pane fade<?= $ccActCart ? ' show active' : '' ?>" id="tab-cartera" role="tabpanel">
         <div id="loader-cartera" class="text-center py-5 text-muted<?= $ccActCart ? '' : ' d-none' ?>">
             <i class="fa-solid fa-spinner fa-spin fa-2x mb-2 d-block"></i>
             Cargando notificaciones de cartera...
@@ -1369,6 +1382,43 @@ $ccActCart  = ($cc_default_tab === 'cartera');
     </div>
     <?php endif; ?>
 
+    <?php if (!empty($cc_perm_peticiones)): ?>
+    <!-- ══ PESTAÑA PETICIONES DE CANCELAMIENTO ══ -->
+    <div class="tab-pane fade<?= $ccActPet ? ' show active' : '' ?>" id="tab-peticiones" role="tabpanel">
+        <div class="cc-subtab-desc mb-3" style="background:#faf5ff;border-color:#c4b5fd;">
+            <i class="fa-solid fa-circle-info" style="color:#7c3aed;"></i>
+            <span>Solicitudes de cancelamiento enviadas por los gestores de Despachos, pendientes de <strong>autorización</strong>.
+            Revisa el motivo y, si procede, autoriza la cancelación del convenio.</span>
+        </div>
+        <div id="loader-peticiones" class="text-center py-5 text-muted<?= $ccActPet ? '' : ' d-none' ?>">
+            <i class="fa-solid fa-spinner fa-spin fa-2x mb-2 d-block"></i>
+            Cargando peticiones de cancelamiento...
+        </div>
+        <div id="wrap-peticiones" class="d-none">
+            <div class="card-datatable table-responsive">
+                <table id="tablaPeticiones" class="dt-responsive table border-top">
+                    <thead>
+                        <tr>
+                            <th></th><!-- control expand -->
+                            <th>Crédito / Cliente</th>
+                            <th>Producto</th>
+                            <th>Total convenio</th>
+                            <th>Fecha acuerdo</th>
+                            <th>Solicita</th>
+                            <th>Fecha solicitud</th>
+                        </tr>
+                    </thead>
+                    <tbody></tbody>
+                </table>
+            </div>
+        </div>
+        <div id="empty-peticiones" class="text-center py-5 text-muted d-none">
+            <i class="fa-solid fa-inbox fa-2x mb-2 d-block opacity-50"></i>
+            Sin peticiones de cancelamiento pendientes.
+        </div>
+    </div>
+    <?php endif; ?>
+
 </div>
 </div>
 <?php endif; ?>
@@ -1407,14 +1457,15 @@ $ccActCart  = ($cc_default_tab === 'cartera');
 
 <script>
 window.__CC_PESTANAS_PERM__ = <?= json_encode([
-    'alguno' => !empty($cc_perm_alguno),
-    'convenios' => !empty($cc_perm_convenios),
-    'validacion' => !empty($cc_perm_validacion),
-    'en_proceso' => !empty($cc_perm_en_proceso),
-    'vobo'      => !empty($cc_perm_vobo),
-    'historial' => !empty($cc_perm_historial),
-    'cartera'   => !empty($cc_perm_cartera),
-    'defaultTab' => isset($cc_default_tab) ? $cc_default_tab : null,
+    'alguno'      => !empty($cc_perm_alguno),
+    'convenios'   => !empty($cc_perm_convenios),
+    'validacion'  => !empty($cc_perm_validacion),
+    'en_proceso'  => !empty($cc_perm_en_proceso),
+    'vobo'        => !empty($cc_perm_vobo),
+    'historial'   => !empty($cc_perm_historial),
+    'cartera'     => !empty($cc_perm_cartera),
+    'peticiones'  => !empty($cc_perm_peticiones),
+    'defaultTab'  => isset($cc_default_tab) ? $cc_default_tab : null,
     'ambas_celulas' => (isset($cc_celulas_permitidas) ? $cc_celulas_permitidas : null) === null,
 ], JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>;
 </script>
@@ -1433,6 +1484,7 @@ window.__CC_PESTANAS_PERM__ = <?= json_encode([
         vobo: true,
         historial: true,
         cartera: true,
+        peticiones: true,
         defaultTab: 'validacion',
         ambas_celulas: false,
     };
@@ -1838,6 +1890,8 @@ window.__CC_PESTANAS_PERM__ = <?= json_encode([
         if (elHist && elHist.classList.contains('show')) return 'hist';
         const elCart = document.getElementById('tab-cartera');
         if (elCart && elCart.classList.contains('show')) return 'cartera';
+        const elPet = document.getElementById('tab-peticiones');
+        if (elPet && elPet.classList.contains('show')) return 'peticiones';
         return 'ef';
     }
 
@@ -1888,6 +1942,11 @@ window.__CC_PESTANAS_PERM__ = <?= json_encode([
             } else {
                 if (_tablaCartRec) _tablaCartRec.search(t).draw();
             }
+            return;
+        }
+
+        if (tab === 'peticiones') {
+            if (_tablaPeticiones) _tablaPeticiones.search(t).draw();
             return;
         }
 
@@ -3650,6 +3709,7 @@ window.__CC_PESTANAS_PERM__ = <?= json_encode([
         if (CC_P.vobo)       promesas.push(cargarVoBo().catch(() => {}));
         if (CC_P.historial)  promesas.push(cargarHistorial().catch(() => {}));
         if (CC_P.cartera)    promesas.push(cargarCartera().catch(() => {}));
+        if (CC_P.peticiones) promesas.push(cargarPeticiones().catch(() => {}));
 
         Promise.all(promesas).then(() => { if (hasSwal) Swal.close(); });
     }
@@ -3707,6 +3767,14 @@ window.__CC_PESTANAS_PERM__ = <?= json_encode([
         tabVoBoBtn.addEventListener('shown.bs.tab', function () {
             const t = document.getElementById('barraGeneral-input').value;
             if (t.trim()) { if (_tablaVoBo) _tablaVoBo.search(t).draw(); }
+        });
+    }
+
+    const tabPeticionesBtn = document.getElementById('tab-peticiones-btn');
+    if (tabPeticionesBtn) {
+        tabPeticionesBtn.addEventListener('shown.bs.tab', function () {
+            const t = document.getElementById('barraGeneral-input').value.trim();
+            if (t && _tablaPeticiones) _tablaPeticiones.search(t).draw();
         });
     }
 
@@ -4453,6 +4521,356 @@ window.__CC_PESTANAS_PERM__ = <?= json_encode([
         });   // cierra Swal.then(result)
         });   // cierra fetch outer .then(cat)
     };
+
+    /* ══════════════════════════════════
+       PESTAÑA PETICIONES DE CANCELAMIENTO
+    ══════════════════════════════════ */
+    let _tablaPeticiones    = null;
+    let _petDetalleCache    = {};   // cache amortizacion por id_convenio
+
+    function cargarPeticiones() {
+        if (!CC_P.peticiones) return Promise.resolve();
+        return fetch('/CierreCredito/getPeticionesCancelamiento', { method: 'POST', headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+            .then(function (res) { return res.json(); })
+            .then(function (res) {
+                if (!res.success) throw new Error(res.mensaje);
+                renderPeticiones((res.datos && res.datos.peticiones) ? res.datos.peticiones : []);
+            });
+    }
+
+    function _petRefrescar() {
+        _petDetalleCache = {};
+        if (_tablaPeticiones) {
+            _tablaPeticiones.destroy();
+            _tablaPeticiones = null;
+        }
+        const wrap  = document.getElementById('wrap-peticiones');
+        const empty = document.getElementById('empty-peticiones');
+        const loader= document.getElementById('loader-peticiones');
+        if (wrap)  wrap.classList.add('d-none');
+        if (empty) empty.classList.add('d-none');
+        if (loader) loader.classList.remove('d-none');
+        cargarPeticiones().catch(() => {});
+    }
+
+    /* Construye el HTML del detalle expandido de una fila */
+    function _buildPetDetalle(amort, rowData) {
+        const fmtN = function(n) { return parseFloat(n || 0).toLocaleString('es-MX', { style: 'currency', currency: 'MXN' }); };
+
+        const badgeEstPago = function(e) {
+            if (e === 'pagado')    return '<span class="badge" style="background:#dcfce7;color:#15803d;">Pagado</span>';
+            if (e === 'vencido')   return '<span class="badge" style="background:#fee2e2;color:#991b1b;">Vencido</span>';
+            if (e === 'cancelado') return '<span class="badge" style="background:#f1f5f9;color:#64748b;">Cancelado</span>';
+            return '<span class="badge" style="background:#fef9c3;color:#854d0e;">Pendiente</span>';
+        };
+
+        let filas = '';
+        if (!amort || !amort.length) {
+            filas = '<tr><td colspan="5" class="text-center text-muted py-3">Sin amortización registrada.</td></tr>';
+        } else {
+            filas = amort.map(function(a) {
+                const comp = a.comprobante_path
+                    ? `<a href="${esc(a.comprobante_path)}" target="_blank" style="font-size:.72rem;padding:2px 8px;border-radius:4px;background:#dcfce7;color:#15803d;text-decoration:none;white-space:nowrap;"><i class="fa-solid fa-paperclip me-1"></i>Ver</a>`
+                    : '<span class="text-muted" style="font-size:.75rem;">—</span>';
+                return `<tr>
+                    <td class="text-center fw-bold">${esc(a.numero_semana)}</td>
+                    <td>${esc(a.fecha_pago || '—')}</td>
+                    <td class="text-end">${fmtN(a.pago_semanal)}</td>
+                    <td class="text-center">${badgeEstPago(a.estatus_pago)}</td>
+                    <td class="text-center">${comp}</td>
+                </tr>`;
+            }).join('');
+        }
+
+        const motivoHtml = rowData.motivo_cancelamiento
+            ? `<div style="margin-bottom:.9rem;padding:.65rem .9rem;background:#fefce8;border:1px solid #fde68a;border-radius:.45rem;">
+                   <div style="font-size:.73rem;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:#92400e;margin-bottom:.3rem;">
+                       <i class="fa-solid fa-comment-dots me-1"></i>Motivo de cancelamiento
+                   </div>
+                   <div style="font-size:.87rem;color:#78350f;">${esc(rowData.motivo_cancelamiento)}</div>
+               </div>`
+            : '';
+
+        return `<div style="padding:.9rem 1.1rem 1rem 1.4rem;background:#fafafa;">
+            ${motivoHtml}
+            <div style="font-size:.75rem;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:#1d4ed8;margin-bottom:.5rem;">
+                <i class="fa-solid fa-table-list me-1"></i>Amortización
+            </div>
+            <div style="overflow-x:auto;">
+                <table class="cc-amort-table" style="width:100%;">
+                    <thead>
+                        <tr>
+                            <th class="text-center">#</th>
+                            <th>Fecha pago</th>
+                            <th class="text-end">Pago</th>
+                            <th class="text-center">Estatus</th>
+                            <th class="text-center">Comprobante</th>
+                        </tr>
+                    </thead>
+                    <tbody>${filas}</tbody>
+                </table>
+            </div>
+            <div class="mt-3 d-flex gap-2 flex-wrap">
+                <button class="btn btn-sm btn-danger fw-bold cc-btn-autorizar-cancelamiento"
+                        data-id="${esc(rowData.id)}" data-credito="${esc(rowData.id_credito)}" data-cliente="${esc(rowData.nombre_cliente)}"
+                        style="font-size:.82rem;white-space:nowrap;">
+                    <i class="fa-solid fa-circle-check me-1"></i>Sí, autorizar cancelamiento
+                </button>
+                <button class="btn btn-sm btn-outline-secondary cc-pet-btn-descartar"
+                        data-id="${esc(rowData.id)}" data-credito="${esc(rowData.id_credito)}" data-cliente="${esc(rowData.nombre_cliente)}"
+                        style="font-size:.82rem;white-space:nowrap;">
+                    <i class="fa-solid fa-ban me-1"></i>No, descartar cancelamiento
+                </button>
+            </div>
+        </div>`;
+    }
+
+    function renderPeticiones(rows) {
+        const loader = document.getElementById('loader-peticiones');
+        const wrap   = document.getElementById('wrap-peticiones');
+        const empty  = document.getElementById('empty-peticiones');
+        if (loader) loader.classList.add('d-none');
+
+        const badge = document.getElementById('badge-peticiones');
+        if (badge) badge.textContent = rows.length;
+
+        if (!rows.length) {
+            if (empty) empty.classList.remove('d-none');
+            return;
+        }
+
+        if (wrap) wrap.classList.remove('d-none');
+
+        if (_tablaPeticiones) {
+            _tablaPeticiones.clear().rows.add(rows).draw();
+            return;
+        }
+
+        _tablaPeticiones = $('#tablaPeticiones').DataTable({
+            data: rows,
+            order: [[6, 'asc']],   // col 6 = solicitud_cancelamiento_fecha
+            language: {
+                emptyTable:   'Sin peticiones de cancelamiento',
+                infoEmpty:    'Sin registros',
+                info:         'Mostrando _START_ a _END_ de _TOTAL_ peticiones',
+                infoFiltered: '(filtrado de _MAX_ totales)',
+                lengthMenu:   'Mostrar _MENU_ registros',
+                search:       'Buscar:',
+                zeroRecords:  'Sin resultados para la búsqueda',
+                paginate: { first: '«', last: '»', next: '›', previous: '‹' }
+            },
+            columns: [
+                // col 0 — control expand
+                {
+                    data: null, orderable: false, searchable: false, className: 'dt-control text-center',
+                    defaultContent: '<i class="fa-solid fa-plus-circle" style="font-size:1rem;color:#7c3aed;cursor:pointer;"></i>'
+                },
+                // col 1 — crédito / cliente
+                {
+                    data: null,
+                    render: function (d, t, r) {
+                        if (t === 'filter' || t === 'sort') return String(r.id_credito || '') + ' ' + String(r.nombre_cliente || '');
+                        return `<strong style="color:#3b82f6;">#${esc(r.id_credito)}</strong><br>` +
+                               `<small class="text-muted">${esc(r.nombre_cliente)}</small>`;
+                    }
+                },
+                // col 2 — producto
+                {
+                    data: 'nombre_producto',
+                    render: function (d) { return esc(d || '—'); }
+                },
+                // col 3 — total
+                {
+                    data: 'total_a_pagar', className: 'text-end',
+                    render: function (d) { return `<strong class="text-success">${fmt(d)}</strong>`; }
+                },
+                // col 4 — fecha acuerdo
+                {
+                    data: 'fecha_acuerdo',
+                    render: function (d) { return esc(d || '—'); }
+                },
+                // col 5 — solicita (usuario)
+                {
+                    data: 'usuario_cancela',
+                    render: function (d) {
+                        return `<span class="badge" style="background:#e0e7ff;color:#3730a3;font-weight:600;white-space:normal;">` +
+                               `<i class="fa-solid fa-user me-1"></i>${esc(d || '—')}</span>`;
+                    }
+                },
+                // col 6 — fecha solicitud
+                {
+                    data: 'solicitud_cancelamiento_fecha',
+                    render: function (d, t) {
+                        if (t === 'sort') return d || '';
+                        return fmtFecha(d);
+                    }
+                },
+                // cols 7+ eliminadas: Motivo y Acciones se ven en el detalle expandido
+            ],
+            pageLength: 15,
+            lengthMenu: [10, 15, 25, 50],
+            responsive: { details: false },  // desactiva flecha responsive; el control + / - lo maneja dt-control
+            dom: '<"row"<"col-sm-12 col-md-6"l>>' +
+                 '<"row"<"col-sm-12"tr>>' +
+                 '<"row"<"col-sm-12 col-md-5"i><"col-sm-12 col-md-7"p>>',
+            autoWidth: false,
+            drawCallback: function () {
+                $('.dataTables_paginate > .pagination').addClass('pagination-sm');
+                $('.dataTables_length select').addClass('form-select form-select-sm');
+                $('.dataTables_filter input').addClass('form-control form-control-sm');
+            }
+        });
+
+        /* ── Expandir/Colapsar fila con tabla de amortización ── */
+        $('#tablaPeticiones tbody').on('click', 'td.dt-control', function () {
+            const tr  = $(this).closest('tr');
+            const row = _tablaPeticiones.row(tr);
+            const iconEl = this.querySelector('i');
+
+            if (row.child.isShown()) {
+                row.child.hide();
+                tr.removeClass('shown');
+                if (iconEl) { iconEl.classList.replace('fa-minus-circle', 'fa-plus-circle'); iconEl.style.color = '#7c3aed'; }
+                return;
+            }
+
+            // Cambiar ícono a spinner mientras carga
+            if (iconEl) { iconEl.className = 'fa-solid fa-spinner fa-spin'; iconEl.style.color = '#7c3aed'; }
+
+            const rowData = row.data();
+            const idConv  = rowData.id;
+
+            // Si ya está en caché, mostrar directo
+            if (_petDetalleCache[idConv]) {
+                row.child(`<div>${_buildPetDetalle(_petDetalleCache[idConv], rowData)}</div>`).show();
+                tr.addClass('shown');
+                if (iconEl) { iconEl.className = 'fa-solid fa-minus-circle'; iconEl.style.color = '#7c3aed'; }
+                return;
+            }
+
+            // Cargar amortización desde el endpoint de detalle de convenio
+            row.child('<div class="text-center py-3 text-muted"><i class="fa-solid fa-spinner fa-spin me-2"></i>Cargando detalle...</div>').show();
+
+            fetch('/CierreCredito/getDetalleConvenio', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: 'id=' + idConv
+            })
+            .then(function (r) { return r.json(); })
+            .then(function (res) {
+                if (!res.success) throw new Error(res.mensaje);
+                const amort = (res.datos && res.datos.amortizacion) ? res.datos.amortizacion : [];
+                _petDetalleCache[idConv] = amort;
+                row.child(`<div>${_buildPetDetalle(amort, rowData)}</div>`).show();
+                tr.addClass('shown');
+                if (iconEl) { iconEl.className = 'fa-solid fa-minus-circle'; iconEl.style.color = '#7c3aed'; }
+            })
+            .catch(function (err) {
+                row.child(`<div class="alert alert-danger m-2 py-2">Error al cargar detalle: ${esc(err.message)}</div>`).show();
+                if (iconEl) { iconEl.className = 'fa-solid fa-plus-circle'; iconEl.style.color = '#7c3aed'; }
+            });
+        });
+
+        /* ── Botones de acción (autorizar / descartar) ── */
+        document.getElementById('tablaPeticiones').addEventListener('click', function (e) {
+
+            /* ── Botón Descartar cancelamiento ── */
+            const btnDes = e.target.closest('.cc-pet-btn-descartar');
+            if (btnDes) {
+                const idConv  = btnDes.dataset.id;
+                const credito = btnDes.dataset.credito;
+                const cliente = btnDes.dataset.cliente;
+
+                Swal.fire({
+                    title: '¿Seguro que descartas la petición?',
+                    html: `El convenio del crédito <strong>${esc(credito)}</strong> — ${esc(cliente)} volverá a estar <strong>activo</strong> sin solicitud pendiente.`,
+                    icon: 'question',
+                    showCancelButton: true,
+                    confirmButtonText: '<i class="fa-solid fa-ban me-1"></i>Sí, descartar',
+                    cancelButtonText: 'No, revisar',
+                    confirmButtonColor: '#6b7280',
+                }).then(function (result) {
+                    if (!result.isConfirmed) return;
+
+                    Swal.fire({ title: 'Descartando...', allowOutsideClick: false, didOpen: function () { Swal.showLoading(); } });
+
+                    const fd = new FormData();
+                    fd.append('id_convenio', idConv);
+
+                    fetch('/CierreCredito/descartarCancelamiento', {
+                        method: 'POST',
+                        headers: { 'X-Requested-With': 'XMLHttpRequest' },
+                        body: fd
+                    })
+                    .then(function (r) { return r.json(); })
+                    .then(function (resp) {
+                        if (!resp.success) {
+                            Swal.fire({ icon: 'error', title: 'Error', text: resp.mensaje || 'No se pudo descartar.' });
+                            return;
+                        }
+                        Swal.fire({
+                            icon: 'success',
+                            title: 'Petición descartada',
+                            text: 'El convenio permanece activo sin solicitud de cancelamiento.',
+                            timer: 1800,
+                            showConfirmButton: false
+                        }).then(function () { _petRefrescar(); });
+                    })
+                    .catch(function () {
+                        Swal.fire({ icon: 'error', title: 'Error de conexión', text: 'No se pudo completar la operación.' });
+                    });
+                });
+                return;
+            }
+
+            /* ── Botón Autorizar cancelamiento ── */
+            const btn = e.target.closest('.cc-btn-autorizar-cancelamiento');
+            if (!btn) return;
+            const idConvenio = btn.dataset.id;
+            const credito    = btn.dataset.credito;
+            const cliente    = btn.dataset.cliente;
+
+            Swal.fire({
+                title: '¿Autorizar cancelamiento?',
+                html: `Estás a punto de <strong>cancelar definitivamente</strong> el convenio del crédito <strong>${esc(credito)}</strong> — ${esc(cliente)}.<br><br>Esta acción <strong>no se puede deshacer</strong>.`,
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonText: '<i class="fa-solid fa-circle-check me-1"></i>Sí, autorizar',
+                cancelButtonText: 'No, volver',
+                confirmButtonColor: '#dc2626',
+            }).then(function (result) {
+                if (!result.isConfirmed) return;
+
+                Swal.fire({ title: 'Autorizando...', allowOutsideClick: false, didOpen: function () { Swal.showLoading(); } });
+
+                const fd = new FormData();
+                fd.append('id_convenio', idConvenio);
+
+                fetch('/CierreCredito/autorizarCancelamiento', {
+                    method: 'POST',
+                    headers: { 'X-Requested-With': 'XMLHttpRequest' },
+                    body: fd
+                })
+                .then(function (r) { return r.json(); })
+                .then(function (resp) {
+                    if (!resp.success) {
+                        Swal.fire({ icon: 'error', title: 'Error', text: resp.mensaje || 'No se pudo autorizar.' });
+                        return;
+                    }
+                    Swal.fire({
+                        icon: 'success',
+                        title: 'Cancelamiento autorizado',
+                        text: 'El convenio fue cancelado correctamente.',
+                        timer: 1800,
+                        showConfirmButton: false
+                    }).then(function () { _petRefrescar(); });
+                })
+                .catch(function () {
+                    Swal.fire({ icon: 'error', title: 'Error de conexión', text: 'No se pudo completar la operación.' });
+                });
+            });
+        });
+    }
 
 })();
 </script>

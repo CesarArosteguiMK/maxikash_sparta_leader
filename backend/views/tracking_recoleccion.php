@@ -33,6 +33,16 @@ $opcionesTracking = [
         'imgUrl' => 'https://cdn-icons-png.flaticon.com/512/3165/3165829.png',
         'class'  => 'primary',
     ],
+    [
+        'titulo' => 'Administracion de transportistas',
+        'texto'  => 'Consulta disponibilidad, capacidad, rutas activas y alertas antes de asignar recolecciones.',
+        'url'    => '/TrackingRecoleccion/administracionTransportistas',
+        'btn'    => 'Ver operacion',
+        'icon'   => 'fa-truck-fast',
+        'visual' => 'rocket',
+        'imgUrl' => 'https://cdn-icons-png.flaticon.com/512/3097/3097180.png',
+        'class'  => 'primary',
+    ],
 ];
 
 if (!function_exists('trackingMenuSvg')) {
@@ -122,7 +132,7 @@ SVG,
 
                     <div class="row gy-6 mb-6 gx-0 justify-content-start">
                         <?php foreach ($opcionesTracking as $op): ?>
-                            <div class="col-12 col-lg-4">
+                            <div class="col-12 col-lg-3">
                                 <div class="card shadow-none bg-label-<?= htmlspecialchars($op['class'], ENT_QUOTES, 'UTF-8'); ?> h-100 trk-menu-card">
                                     <div class="card-body d-flex justify-content-between flex-wrap-reverse">
                                         <div class="mb-0 w-100 app-academy-sm-60 d-flex flex-column justify-content-between text-center text-sm-start">

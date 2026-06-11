@@ -79,6 +79,13 @@ class TrackingRecoleccion extends Controller
         return self::render('tracking_CEDIS_transportistas');
     }
 
+    public function administracionTransportistas()
+    {
+        $this->prepararVistaTracking('Tracking Recoleccion - Administracion de transportistas');
+        self::set('tracking_initial_section', 'operacion');
+        return self::render('tracking_admin_transportistas');
+    }
+
     // =========================================================================
     // CHAT OPERATIVO — helpers privados
     // =========================================================================
@@ -672,6 +679,19 @@ class TrackingRecoleccion extends Controller
             self::respuestaJSON(self::respuesta(true, null, $model->obtenerCatalogoAgenciasTransportistas()));
         } catch (\Throwable $e) {
             self::respuestaJSON(self::respuesta(false, 'Error al obtener CEDIS y transportistas.', null, $e->getMessage()));
+        }
+    }
+
+    /**
+     * GET /TrackingRecoleccion/obtenerOperacionTransportistas
+     */
+    public function obtenerOperacionTransportistas()
+    {
+        try {
+            $model = new TrackingModel();
+            self::respuestaJSON(self::respuesta(true, null, $model->obtenerOperacionTransportistas()));
+        } catch (\Throwable $e) {
+            self::respuestaJSON(self::respuesta(false, 'Error al obtener operacion de transportistas.', null, $e->getMessage()));
         }
     }
 

@@ -462,6 +462,16 @@ class TrackingRecoleccion extends Model
         }
     }
 
+    private function tablaOpcionalExiste(string $tabla): bool
+    {
+        try {
+            $row = $this->db->queryOne("SHOW TABLES LIKE :tabla", ['tabla' => $tabla]);
+            return (bool) $row;
+        } catch (\Throwable $e) {
+            return false;
+        }
+    }
+
     // =========================================================================
     // CRÉDITOS PASO 2
     // =========================================================================
@@ -699,6 +709,279 @@ class TrackingRecoleccion extends Model
         return [
             'agencias'       => $this->obtenerAgenciasTracking(false),
             'transportistas' => $this->obtenerTransportistasTracking(null, null, false),
+        ];
+    }
+
+    public function obtenerOperacionTransportistas(): array
+    {
+        $tablaCapacidad = 'transportistas_capacidad_tracking';
+        $tablaCapacidadExiste = $this->tablaOpcionalExiste($tablaCapacidad);
+        $tieneCapacidad = $tablaCapacidadExiste
+            && $this->columnaOpcionalExiste($tablaCapacidad, 'id_capacidad')
+            && $this->columnaOpcionalExiste($tablaCapacidad, 'id_transportista')
+            && $this->columnaOpcionalExiste($tablaCapacidad, 'capacidad_motos');
+        $capTieneTipoUnidad = $tieneCapacidad && $this->columnaOpcionalExiste($tablaCapacidad, 'tipo_unidad');
+        $capTieneActivo = $tieneCapacidad && $this->columnaOpcionalExiste($tablaCapacidad, 'activo');
+        $capSelect = $tieneCapacidad
+            ? 'COALESCE(cap.capacidad_motos, 0) AS capacidad_motos, cap.tipo_unidad'
+            : '0 AS capacidad_motos, NULL AS tipo_unidad';
+        $capTipoUnidadSelect = $capTieneTipoUnidad ? 'c1.tipo_unidad' : 'NULL AS tipo_unidad';
+        $capActivoWhere = $capTieneActivo ? 'WHERE activo = 1' : '';
+        $capJoin = $tieneCapacidad
+            ? "LEFT JOIN (
+                    SELECT c1.id_transportista, {$capTipoUnidadSelect}, c1.capacidad_motos
+                    FROM transportistas_capacidad_tracking c1
+                    INNER JOIN (
+                        SELECT id_transportista, MAX(id_capacidad) AS id_capacidad
+                        FROM transportistas_capacidad_tracking
+                        {$capActivoWhere}
+                        GROUP BY id_transportista
+                    ) cm ON cm.id_capacidad = c1.id_capacidad
+                ) cap ON cap.id_transportista = t.id_transportista"
+            : '';
+
+        $transportistas = $this->db->queryAll(
+            "SELECT
+                t.id_transportista,
+                t.id_agencia,
+                t.tipo_transportista,
+                t.nombre_transportista,
+                t.telefono,
+                t.email,
+                t.empresa_origen,
+                t.puesto,
+                t.activo,
+                a.nombre_agencia AS cedis_base_nombre,
+                a.estado AS cedis_base_estado,
+                a.municipio AS cedis_base_municipio,
+                {$capSelect}
+             FROM transportistas_tracking t
+             LEFT JOIN agencias_tracking a ON a.id_agencia = t.id_agencia
+             {$capJoin}
+             WHERE t.activo = 1
+             ORDER BY t.tipo_transportista, t.nombre_transportista"
+        ) ?: [];
+
+        $rutas = $this->db->queryAll(
+            "SELECT
+                atr.id_ruta,
+                atr.nombre_ruta,
+                atr.estado,
+                atr.municipio,
+                atr.fecha_programada,
+                CONCAT(DATE_FORMAT(atr.fecha_programada, '%d/'), ELT(MONTH(atr.fecha_programada), 'Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'), DATE_FORMAT(atr.fecha_programada, '/%Y')) AS fecha_programada_fmt,
+                TIME_FORMAT(atr.hora_inicial, '%H:%i') AS hora_inicial,
+                atr.estatus_ruta,
+                atr.id_transportista,
+                atr.id_cedis_destino,
+                cedis_dest.nombre_agencia AS cedis_destino_nombre,
+                cedis_dest.estado AS cedis_destino_estado,
+                cedis_dest.municipio AS cedis_destino_municipio,
+                cedis_dest.latitud AS cedis_destino_latitud,
+                cedis_dest.longitud AS cedis_destino_longitud,
+                COUNT(atd.id_detalle) AS total_creditos,
+                SUM(CASE WHEN atd.estatus_confirmacion_gestor = 'confirmado' THEN 1 ELSE 0 END) AS confirmados,
+                SUM(CASE WHEN LOWER(COALESCE(atd.estatus_recoleccion, '')) IN ('recolectada','recolectado') THEN 1 ELSE 0 END) AS recolectadas,
+                SUM(CASE WHEN LOWER(COALESCE(atd.estatus_recoleccion, '')) = 'en_camino' THEN 1 ELSE 0 END) AS en_camino,
+                SUM(CASE WHEN LOWER(COALESCE(atd.estatus_recoleccion, '')) = 'en_sitio' THEN 1 ELSE 0 END) AS en_sitio,
+                GROUP_CONCAT(
+                    DISTINCT CONCAT(COALESCE(atd.estado, ''), '|||', COALESCE(atd.municipio, ''))
+                    ORDER BY atd.estado, atd.municipio SEPARATOR '@@'
+                ) AS ubicaciones_lista
+             FROM asigna_horas_tracking atr
+             LEFT JOIN asigna_horas_tracking_detalle atd ON atd.id_ruta = atr.id_ruta
+             LEFT JOIN agencias_tracking cedis_dest ON cedis_dest.id_agencia = atr.id_cedis_destino
+             WHERE atr.id_transportista IS NOT NULL
+               AND atr.id_transportista > 0
+               AND LOWER(COALESCE(atr.estatus_ruta, '')) NOT IN ('borrador','cancelada','concluida','completado','finalizada')
+             GROUP BY
+                atr.id_ruta,
+                atr.nombre_ruta,
+                atr.estado,
+                atr.municipio,
+                atr.fecha_programada,
+                atr.hora_inicial,
+                atr.estatus_ruta,
+                atr.id_transportista,
+                atr.id_cedis_destino,
+                cedis_dest.nombre_agencia,
+                cedis_dest.estado,
+                cedis_dest.municipio,
+                cedis_dest.latitud,
+                cedis_dest.longitud
+             ORDER BY atr.fecha_programada ASC, atr.hora_inicial ASC, atr.fecha_creacion DESC"
+        ) ?: [];
+
+        $porTransportista = [];
+        foreach ($transportistas as $t) {
+            $id = (int) ($t['id_transportista'] ?? 0);
+            if ($id <= 0) {
+                continue;
+            }
+            $porTransportista[$id] = [
+                'id_transportista' => $id,
+                'nombre_transportista' => (string) ($t['nombre_transportista'] ?? ''),
+                'tipo_transportista' => (string) ($t['tipo_transportista'] ?? ''),
+                'empresa_origen' => (string) ($t['empresa_origen'] ?? ''),
+                'telefono' => (string) ($t['telefono'] ?? ''),
+                'email' => (string) ($t['email'] ?? ''),
+                'puesto' => (string) ($t['puesto'] ?? ''),
+                'cedis_base' => [
+                    'id_agencia' => (int) ($t['id_agencia'] ?? 0),
+                    'nombre' => (string) ($t['cedis_base_nombre'] ?? ''),
+                    'estado' => (string) ($t['cedis_base_estado'] ?? ''),
+                    'municipio' => (string) ($t['cedis_base_municipio'] ?? ''),
+                ],
+                'tipo_unidad' => (string) ($t['tipo_unidad'] ?? ''),
+                'capacidad_total' => (int) ($t['capacidad_motos'] ?? 0),
+                'capacidad_configurada' => (int) ($t['capacidad_motos'] ?? 0) > 0,
+                'capacidad_usada' => 0,
+                'capacidad_proyectada' => 0,
+                'rutas_activas' => 0,
+                'rutas_programadas' => 0,
+                'rutas_en_camino_cedis' => 0,
+                'rutas' => [],
+                'ruta_activa' => null,
+                'alertas' => [],
+                'estatus_operativo' => 'disponible',
+                'recomendacion' => 'Disponible',
+            ];
+        }
+
+        foreach ($rutas as $r) {
+            $idTransportista = (int) ($r['id_transportista'] ?? 0);
+            if (!isset($porTransportista[$idTransportista])) {
+                continue;
+            }
+            $estatus = strtolower((string) ($r['estatus_ruta'] ?? ''));
+            $total = (int) ($r['total_creditos'] ?? 0);
+            $confirmados = (int) ($r['confirmados'] ?? 0);
+            $recolectadas = (int) ($r['recolectadas'] ?? 0);
+            $enCamino = (int) ($r['en_camino'] ?? 0);
+            $enSitio = (int) ($r['en_sitio'] ?? 0);
+            $ruta = [
+                'id_ruta' => (int) ($r['id_ruta'] ?? 0),
+                'nombre_ruta' => (string) ($r['nombre_ruta'] ?? ''),
+                'estatus_ruta' => $estatus,
+                'fecha_programada' => (string) ($r['fecha_programada'] ?? ''),
+                'fecha_programada_fmt' => (string) ($r['fecha_programada_fmt'] ?? ''),
+                'hora_inicial' => (string) ($r['hora_inicial'] ?? ''),
+                'estado' => (string) ($r['estado'] ?? ''),
+                'municipio' => (string) ($r['municipio'] ?? ''),
+                'id_cedis_destino' => (int) ($r['id_cedis_destino'] ?? 0),
+                'cedis_destino_nombre' => (string) ($r['cedis_destino_nombre'] ?? ''),
+                'cedis_destino_estado' => (string) ($r['cedis_destino_estado'] ?? ''),
+                'cedis_destino_municipio' => (string) ($r['cedis_destino_municipio'] ?? ''),
+                'cedis_destino_latitud' => $r['cedis_destino_latitud'] ?? null,
+                'cedis_destino_longitud' => $r['cedis_destino_longitud'] ?? null,
+                'total_creditos' => $total,
+                'confirmados' => $confirmados,
+                'recolectadas' => $recolectadas,
+                'en_camino' => $enCamino,
+                'en_sitio' => $enSitio,
+                'pendientes_recoleccion' => max(0, $confirmados - $recolectadas),
+                'ubicaciones_lista' => (string) ($r['ubicaciones_lista'] ?? ''),
+            ];
+            $porTransportista[$idTransportista]['rutas'][] = $ruta;
+
+            if ($estatus === 'en_proceso') {
+                $porTransportista[$idTransportista]['rutas_activas']++;
+                $porTransportista[$idTransportista]['capacidad_usada'] += $recolectadas;
+                $porTransportista[$idTransportista]['capacidad_proyectada'] += max($confirmados, $recolectadas);
+                if ($porTransportista[$idTransportista]['ruta_activa'] === null) {
+                    $porTransportista[$idTransportista]['ruta_activa'] = $ruta;
+                }
+                if ($confirmados > 0 && $recolectadas >= $confirmados) {
+                    $porTransportista[$idTransportista]['rutas_en_camino_cedis']++;
+                }
+            } else {
+                $porTransportista[$idTransportista]['rutas_programadas']++;
+                if ($porTransportista[$idTransportista]['rutas_activas'] === 0) {
+                    $porTransportista[$idTransportista]['capacidad_proyectada'] = max(
+                        $porTransportista[$idTransportista]['capacidad_proyectada'],
+                        $confirmados
+                    );
+                }
+            }
+
+            if ((int) ($r['id_cedis_destino'] ?? 0) <= 0) {
+                $porTransportista[$idTransportista]['alertas'][] = [
+                    'tipo' => 'sin_cedis',
+                    'nivel' => 'warning',
+                    'texto' => 'Ruta sin CEDIS destino.',
+                ];
+            }
+        }
+
+        $resumen = [
+            'transportistas_activos' => count($porTransportista),
+            'disponibles' => 0,
+            'en_ruta' => 0,
+            'programados' => 0,
+            'advertencia' => 0,
+            'saturados' => 0,
+            'sin_capacidad' => 0,
+        ];
+
+        foreach ($porTransportista as &$t) {
+            $capacidad = (int) $t['capacidad_total'];
+            $proyectada = (int) $t['capacidad_proyectada'];
+            if ($capacidad <= 0) {
+                $t['alertas'][] = [
+                    'tipo' => 'sin_capacidad',
+                    'nivel' => 'info',
+                    'texto' => 'Capacidad de unidad no configurada.',
+                ];
+                $resumen['sin_capacidad']++;
+            }
+            if ((int) $t['rutas_activas'] > 1) {
+                $t['alertas'][] = [
+                    'tipo' => 'rutas_activas_multiples',
+                    'nivel' => 'danger',
+                    'texto' => 'Tiene mas de una ruta en proceso.',
+                ];
+            }
+            if ($capacidad > 0 && $proyectada >= $capacidad) {
+                $t['estatus_operativo'] = 'saturado';
+                $t['recomendacion'] = 'No asignar';
+                $t['alertas'][] = [
+                    'tipo' => 'capacidad_saturada',
+                    'nivel' => 'danger',
+                    'texto' => 'Capacidad proyectada al limite.',
+                ];
+                $resumen['saturados']++;
+            } elseif ($capacidad > 0 && $proyectada >= (int) ceil($capacidad * 0.8)) {
+                $t['estatus_operativo'] = 'advertencia';
+                $t['recomendacion'] = 'Con cuidado';
+                $t['alertas'][] = [
+                    'tipo' => 'capacidad_advertencia',
+                    'nivel' => 'warning',
+                    'texto' => 'Capacidad proyectada arriba del 80%.',
+                ];
+                $resumen['advertencia']++;
+            } elseif ((int) $t['rutas_activas'] > 0) {
+                $t['estatus_operativo'] = 'en_ruta';
+                $t['recomendacion'] = 'Evaluar paso de ruta';
+                $resumen['en_ruta']++;
+            } elseif ((int) $t['rutas_programadas'] > 0) {
+                $t['estatus_operativo'] = 'programado';
+                $t['recomendacion'] = 'Agenda ocupada';
+                $resumen['programados']++;
+            } else {
+                $t['estatus_operativo'] = 'disponible';
+                $t['recomendacion'] = 'Disponible';
+                $resumen['disponibles']++;
+            }
+
+            $t['capacidad_disponible'] = $capacidad > 0 ? max(0, $capacidad - $proyectada) : null;
+            $t['alertas'] = array_values(array_slice($t['alertas'], 0, 5));
+        }
+        unset($t);
+
+        return [
+            'resumen' => $resumen,
+            'transportistas' => array_values($porTransportista),
+            'capacidad_habilitada' => $tieneCapacidad,
         ];
     }
 
