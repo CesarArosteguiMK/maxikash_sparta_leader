@@ -37,6 +37,7 @@ except ImportError:
 
 router = APIRouter()
 settings = get_settings()
+API_BUILD = "doc-precheck-2026-06-11-rfc-nss-fiscal-cfe-id"
 
 api_key_header = APIKeyHeader(name=settings.api_key_header, auto_error=False)
 
@@ -1149,6 +1150,8 @@ async def verificar_constancia_fiscal_documento(
         return _respuesta_rechazo(
             "constancia_fiscal_vencida",
             "La constancia no puede tener más de 2 meses de antigüedad. Descarga una nueva constancia en el portal del SAT.",
+            rfc=datos.get("rfc"),
+            curp=datos.get("curp"),
             fecha_emision=datos.get("fecha_emision"),
             meses_antiguedad=meses,
             vigencia_ok=False,
@@ -1159,6 +1162,10 @@ async def verificar_constancia_fiscal_documento(
         return {
             "valido": False,
             "mensaje": "La constancia no puede tener más de 2 meses de antigüedad. Descarga una nueva constancia en el portal del SAT.",
+            "rfc": datos.get("rfc"),
+            "curp": datos.get("curp"),
+            "rfc": datos.get("rfc"),
+            "curp": datos.get("curp"),
             "fecha_emision": datos.get("fecha_emision"),
             "meses_antiguedad": meses,
             "vigencia_ok": False,
@@ -1172,6 +1179,8 @@ async def verificar_constancia_fiscal_documento(
             "valido": False,
             "revision_manual": True,
             "mensaje": "No se pudo confirmar automáticamente la actividad Asalariado. Revisar manualmente.",
+            "rfc": datos.get("rfc"),
+            "curp": datos.get("curp"),
             "fecha_emision": datos.get("fecha_emision"),
             "meses_antiguedad": meses,
             "vigencia_ok": meses is None or meses <= 2.0,
@@ -2024,4 +2033,4 @@ async def listar_tipos():
 @router.get("/health", tags=["Sistema"])
 async def health_check():
     """Verifica que el servicio esté funcionando."""
-    return {"status": "ok", "version": settings.app_version}
+    return {"status": "ok", "version": settings.app_version, "build": API_BUILD}

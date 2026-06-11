@@ -648,6 +648,10 @@ class CapHum extends Controller
                 if (!form) return;
 
                 form.querySelectorAll('input, select, button[type="button"]').forEach(el => {
+                    if (el.matches('button[data-bs-dismiss]')) {
+                        el.disabled = false;
+                        return;
+                    }
                     if ('readOnly' in el) el.readOnly = false;
                     el.disabled = true;
                 });
@@ -6084,6 +6088,8 @@ class CapHum extends Controller
             }
 
             var docModalPollTimer = null;
+            var docModalFetchInFlight = false;
+            window.SPARTA_DOC_DEBUG = window.SPARTA_DOC_DEBUG === true;
 
             function clearDocModalPoll() {
                 if (docModalPollTimer) {
@@ -6115,7 +6121,7 @@ class CapHum extends Controller
                     return;
                 }
                 var intentos = 0;
-                var maxIntentos = 10;
+                var maxIntentos = 60;
                 docModalPollTimer = setInterval(function() {
                     intentos++;
                     if (intentos > maxIntentos) {
@@ -6129,7 +6135,7 @@ class CapHum extends Controller
                         return;
                     }
                     cargarDocumentosModal(idCandidato, { fromPoll: true });
-                }, 3000);
+                }, 2000);
             }
 
             /* â€â€ KPI Candidatos: contador animado (misma lógica que Gestión kpiAnimateCounter) â€â€ */
@@ -7744,6 +7750,9 @@ class CapHum extends Controller
             /** Registro en consola del navegador para diagnósticos (desarrollo). Prefijo: [Sparta candidatos - documentación] */
             function candidatosDocConsola(nivel, titulo, datos) {
                 try {
+                    if (window.SPARTA_DOC_DEBUG !== true) {
+                        return;
+                    }
                     var fn = console.log;
                     if (nivel === "error" && console.error) fn = console.error.bind(console);
                     else if (nivel === "warn" && console.warn) fn = console.warn.bind(console);
@@ -7864,6 +7873,14 @@ class CapHum extends Controller
 
             function cargarDocumentosModal(idCandidato, opts) {
                 opts = opts || {};
+                if (docModalFetchInFlight) {
+                    if (opts.fromPoll) {
+                        return;
+                    }
+                    clearDocModalPoll();
+                    return;
+                }
+                docModalFetchInFlight = true;
                 if (!opts.fromPoll) {
                     clearDocModalPoll();
                 }
@@ -8038,6 +8055,8 @@ class CapHum extends Controller
                         if (bloqueVerif) { bloqueVerif.classList.add("d-none"); bloqueVerif.innerHTML = ""; }
                         if (bloqueComp) { bloqueComp.classList.add("d-none"); bloqueComp.innerHTML = ""; }
                     }
+                }).finally(function() {
+                    docModalFetchInFlight = false;
                 });
             }
 
@@ -10592,12 +10611,23 @@ class CapHum extends Controller
     private function phpCliBinarioVerificacionDocumental(): string
     {
         $candidatos = [];
-        if (defined('PHP_BINARY') && PHP_BINARY) {
-            $candidatos[] = PHP_BINARY;
-            $candidatos[] = dirname(PHP_BINARY) . DIRECTORY_SEPARATOR . 'php.exe';
-            $candidatos[] = dirname(PHP_BINARY) . DIRECTORY_SEPARATOR . 'php';
+        if (stripos(PHP_OS_FAMILY, 'Windows') !== false) {
+            $candidatos[] = 'C:\\xampp\\php\\php.exe';
+            if (defined('PHP_BINDIR') && PHP_BINDIR) {
+                $candidatos[] = PHP_BINDIR . DIRECTORY_SEPARATOR . 'php.exe';
+            }
         }
-        $candidatos[] = 'C:\\xampp\\php\\php.exe';
+        if (defined('PHP_BINARY') && PHP_BINARY) {
+            $base = strtolower(basename(PHP_BINARY));
+            if (strpos($base, 'php') === 0) {
+                $candidatos[] = PHP_BINARY;
+                $candidatos[] = dirname(PHP_BINARY) . DIRECTORY_SEPARATOR . 'php.exe';
+                $candidatos[] = dirname(PHP_BINARY) . DIRECTORY_SEPARATOR . 'php';
+            }
+        }
+        if (stripos(PHP_OS_FAMILY, 'Windows') === false && defined('PHP_BINDIR') && PHP_BINDIR) {
+            $candidatos[] = PHP_BINDIR . DIRECTORY_SEPARATOR . 'php';
+        }
         $candidatos[] = 'php';
 
         foreach ($candidatos as $bin) {
@@ -10613,18 +10643,36 @@ class CapHum extends Controller
         $projectRoot = defined('RAIZ') ? dirname(RAIZ) : dirname(__DIR__, 2);
         $script = $projectRoot . DIRECTORY_SEPARATOR . 'scripts' . DIRECTORY_SEPARATOR . 'procesar_verificacion_documental.php';
         if (!is_file($script)) {
+            error_log('CapHum::lanzarWorkerVerificacionDocumental: no existe script ' . $script);
             return;
         }
         $php = $this->phpCliBinarioVerificacionDocumental();
+        $logDir = defined('RAIZ') ? (RAIZ . DIRECTORY_SEPARATOR . 'logs') : (__DIR__ . DIRECTORY_SEPARATOR . '..' . DIRECTORY_SEPARATOR . 'logs');
+        if (!is_dir($logDir)) {
+            @mkdir($logDir, 0775, true);
+        }
+        $logSuffix = date('Ymd-His') . '-' . getmypid() . '-' . substr(str_replace('.', '', uniqid('', true)), -6);
+        $outLog = $logDir . DIRECTORY_SEPARATOR . 'verificacion_documental_worker-' . $logSuffix . '.log';
+        $errLog = $logDir . DIRECTORY_SEPARATOR . 'verificacion_documental_worker-' . $logSuffix . '.err.log';
+        $cmdQuote = function ($value) {
+            return '"' . str_replace('"', '""', (string) $value) . '"';
+        };
         try {
             if (stripos(PHP_OS_FAMILY, 'Windows') !== false) {
-                $cmd = 'start /B "" ' . escapeshellarg($php) . ' ' . escapeshellarg($script) . ' --once';
+                // En Windows "start" es un builtin de cmd; escapeshellarg produce comillas
+                // incompatibles en algunos entornos PHP/IIS/Apache. Se arma cmd /C con
+                // comillas dobles para que el worker realmente quede desacoplado.
+                $cmd = 'cmd /C start "" /B '
+                    . $cmdQuote($php) . ' '
+                    . $cmdQuote($script) . ' --max 5'
+                    . ' >> ' . $cmdQuote($outLog)
+                    . ' 2>> ' . $cmdQuote($errLog);
                 $h = @popen($cmd, 'r');
                 if (is_resource($h)) {
                     @pclose($h);
                 }
             } else {
-                $cmd = escapeshellarg($php) . ' ' . escapeshellarg($script) . ' --once > /dev/null 2>&1 &';
+                $cmd = escapeshellarg($php) . ' ' . escapeshellarg($script) . ' --max 5 >> ' . escapeshellarg($outLog) . ' 2>> ' . escapeshellarg($errLog) . ' &';
                 @exec($cmd);
             }
         } catch (\Throwable $e) {

@@ -724,6 +724,8 @@ class Inicio extends Controller
             $exitCode = 0;
             $content .= "\r\n\r\n[OK PANEL] La API ya responde en http://127.0.0.1:8000/api/v1/health.\r\n";
             $content .= "El log no tiene marca __FIN__, pero el servicio esta levantado; se libera el panel.\r\n";
+            $content .= "__FIN__:0\r\n";
+            @file_put_contents($logPath, "\r\n[OK PANEL] La API ya responde en http://127.0.0.1:8000/api/v1/health.\r\n__FIN__:0\r\n", FILE_APPEND);
         }
 
         echo json_encode([
