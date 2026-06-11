@@ -6121,8 +6121,8 @@ class CapHum extends Controller
                         var bv = document.getElementById("modalDocumentacionCandidatoVerificacion");
                         var modalAbierto = document.getElementById("modalDocumentacionCandidato");
                         if (bv && modalAbierto && modalAbierto.classList.contains("show")) {
-                            bv.classList.remove("d-none");
-                            bv.innerHTML = "<div class=\"alert alert-warning small mb-0\"><i class=\"fa fa-info-circle me-1\"></i>API pendiente / fallo técnico. No hay dictamen automático confiable todavía; reintente la API cuando el servicio responda.</div>";
+                            bv.classList.add("d-none");
+                            bv.innerHTML = "";
                         }
                         return;
                     }
@@ -7014,8 +7014,11 @@ class CapHum extends Controller
                 var respuestaVaciaApi = !errApi && checksTotNum === 0 && sinPuntuaciones && alertas.length === 0 && v.todo_coincide !== true;
                 if (!verificacionEnProceso && errApi) {
                     candidatosDocConsola("error", "verificacion API - error_api (detalle tecnico)", errApi);
-                    html += "<div class=\"alert alert-warning py-2 px-2 mb-2 small\" role=\"alert\"><strong>API pendiente / fallo t&eacute;cnico.</strong><br><span class=\"text-muted\">La validaci&oacute;n autom&aacute;tica no entreg&oacute; un resultado confiable. No se marca como revisi&oacute;n manual; corrige/reinicia la API o usa \"Reintentar API\".</span></div>";
-                    html += "<div class=\"d-grid gap-2 mb-2\"><button type=\"button\" class=\"btn btn-sm btn-outline-primary btn-reintentar-verif-expediente\" id=\"btnReintentarVerifExpediente\" title=\"Volver a ejecutar la verificaci&oacute;n contra la API\"><i class=\"fa fa-sync-alt me-1\"></i>Reintentar API</button></div>";
+                    if (!checksTotNum || checksTotNum <= 0) {
+                        bloqueVerif.classList.add("d-none");
+                        bloqueVerif.innerHTML = "";
+                        return;
+                    }
                     errApi = "";
                 }
                 if (!verificacionEnProceso && respuestaVaciaApi) {
@@ -7491,6 +7494,12 @@ class CapHum extends Controller
             var revisionManualHtml = "";
             (function() {
                 if (esValidado) return;
+                var expedienteApiPendiente = !!(verif && typeof verif === "object" && (
+                    verif.verificacion_en_proceso === true ||
+                    verif.api_pendiente === true ||
+                    (verif.error_api != null && String(verif.error_api).trim() !== "") ||
+                    verif.modo_verificacion === "cola_background"
+                ));
                 var vf = d.verificacion_fiscal && typeof d.verificacion_fiscal === "object" ? d.verificacion_fiscal : null;
                 var candidatosRevision = [];
                 if (vc && typeof vc === "object") candidatosRevision.push(vc);
@@ -7503,14 +7512,39 @@ class CapHum extends Controller
                 }
                 candidatosRevision.forEach(function(x) {
                     if (!x || typeof x !== "object") return;
-                    var esFalloTecnicoApi = !!(x.timeout || x.error_api || x.api_pendiente || x.pendiente_revision_backend);
+                    var textoEstadoRevision = claveDocModal([
+                        x.mensaje || "",
+                        x.recomendacion || "",
+                        x.nota_backend || "",
+                        Array.isArray(x.alertas) ? x.alertas.join(" ") : "",
+                        Array.isArray(x.notas) ? x.notas.join(" ") : ""
+                    ].join(" "));
+                    var esFalloTecnicoApi = !!(
+                        x.timeout ||
+                        x.error_api ||
+                        x.api_pendiente ||
+                        x.pendiente_revision_backend ||
+                        x.nota_backend ||
+                        textoEstadoRevision.indexOf("SEGUNDA LECTURA") !== -1 ||
+                        textoEstadoRevision.indexOf("NO SE OBTUVO RESPUESTA") !== -1 ||
+                        textoEstadoRevision.indexOf("NO SE PUDO CONFIRMAR") !== -1 ||
+                        textoEstadoRevision.indexOf("NO SE PUDO LEER") !== -1 ||
+                        textoEstadoRevision.indexOf("NO SE PUDO REVISAR") !== -1 ||
+                        textoEstadoRevision.indexOf("NO SE PUDO CONTACTAR") !== -1 ||
+                        textoEstadoRevision.indexOf("API NO RESPOND") !== -1 ||
+                        textoEstadoRevision.indexOf("NO RESPONDIO CORRECTAMENTE") !== -1 ||
+                        textoEstadoRevision.indexOf("TARDO MAS") !== -1 ||
+                        textoEstadoRevision.indexOf("TIMEOUT") !== -1
+                    );
                     if (esFalloTecnicoApi) apiPendiente = true;
                     if (x.pendiente_revision_manual || (x.revision_manual && !esFalloTecnicoApi)) requiereRevision = true;
                     if ((x.valido === false || x.ok === false || x.aceptado === false) && !esFalloTecnicoApi) requiereRevision = true;
                     if (x.mensaje) notas.push(x.mensaje);
+                    if (x.nota_backend) notas.push(x.nota_backend);
                     if (Array.isArray(x.notas)) x.notas.forEach(function(n) { notas.push(typeof n === "string" ? n : String(n)); });
                 });
                 if (!requiereRevision && !apiPendiente) return;
+                if (!requiereRevision && apiPendiente && expedienteApiPendiente) return;
                 var detalle = notas.length ? notas.join(" | ") : "La verificaci\u00f3n autom\u00e1tica no confirm\u00f3 el documento; revisar manualmente.";
                 if (requiereRevision) {
                     revisionManualHtml = " <span class=\"badge bg-warning text-dark ms-1\" data-bs-toggle=\"tooltip\" data-bs-title=\"" + escHtml(detalle).replace(/"/g, "&quot;") + "\">Revisi\u00f3n manual</span>";
@@ -10210,6 +10244,111 @@ class CapHum extends Controller
     }
 
     /**
+     * Helpers para no degradar una lectura rápida buena con un timeout/fallo técnico posterior.
+     */
+    private function docVerifJsonArray($json): ?array
+    {
+        if (is_array($json)) {
+            return $json;
+        }
+        if (!is_string($json) || trim($json) === '') {
+            return null;
+        }
+        $dec = json_decode($json, true);
+        return is_array($dec) ? $dec : null;
+    }
+
+    private function docVerifTextoNormalizado(array $resultado): string
+    {
+        $partes = [
+            (string) ($resultado['mensaje'] ?? ''),
+            (string) ($resultado['recomendacion'] ?? ''),
+            (string) ($resultado['nota_backend'] ?? ''),
+            (string) ($resultado['error'] ?? ''),
+        ];
+        foreach (['notas', 'alertas'] as $k) {
+            if (!empty($resultado[$k]) && is_array($resultado[$k])) {
+                foreach ($resultado[$k] as $v) {
+                    $partes[] = is_scalar($v) ? (string) $v : '';
+                }
+            }
+        }
+        $txt = strtoupper(implode(' ', $partes));
+        $txt = strtr($txt, ['Á' => 'A', 'É' => 'E', 'Í' => 'I', 'Ó' => 'O', 'Ú' => 'U', 'Ñ' => 'N']);
+        return preg_replace('/\s+/', ' ', $txt) ?: '';
+    }
+
+    private function docVerifResultadoTecnico(array $resultado): bool
+    {
+        if (!empty($resultado['timeout']) || !empty($resultado['error_api']) || !empty($resultado['api_pendiente']) || !empty($resultado['pendiente_revision_backend']) || !empty($resultado['nota_backend'])) {
+            return true;
+        }
+        $txt = $this->docVerifTextoNormalizado($resultado);
+        foreach (['TIMEOUT', 'TARDO MAS', 'NO SE OBTUVO RESPUESTA', 'NO SE PUDO CONFIRMAR', 'NO SE PUDO LEER', 'NO SE PUDO REVISAR', 'NO SE PUDO CONTACTAR', 'API NO RESPOND', 'NO RESPONDIO CORRECTAMENTE', 'HTTP ', 'CURL', 'JSON VALIDO'] as $needle) {
+            if (strpos($txt, $needle) !== false) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private function docVerifTieneDatosUtiles(?array $resultado): bool
+    {
+        if (!$resultado) {
+            return false;
+        }
+        if (($resultado['valido'] ?? null) === true || ($resultado['ok'] ?? null) === true || ($resultado['aceptado'] ?? null) === true) {
+            return true;
+        }
+        foreach (['curp_extraido', 'curp', 'nombre', 'rfc', 'nss', 'banco', 'banco_detectado', 'tipo_documento', 'tipo_identificacion', 'documento_detectado'] as $k) {
+            if (isset($resultado[$k]) && trim((string) $resultado[$k]) !== '') {
+                return true;
+            }
+        }
+        foreach (['detalle_frente', 'detalle_reverso', 'datos_extraidos', 'datos_titular'] as $k) {
+            if (!empty($resultado[$k]) && is_array($resultado[$k])) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private function docVerifDebeConservarAnterior(?array $anterior, ?array $nuevo): bool
+    {
+        if (!$anterior || !$nuevo) {
+            return false;
+        }
+        return $this->docVerifTieneDatosUtiles($anterior)
+            && !$this->docVerifTieneDatosUtiles($nuevo)
+            && $this->docVerifResultadoTecnico($nuevo);
+    }
+
+    private function docVerifExpedientePendienteTecnico($verificacion): bool
+    {
+        if (!is_array($verificacion)) {
+            return false;
+        }
+        if (!empty($verificacion['verificacion_en_proceso']) || !empty($verificacion['api_pendiente'])) {
+            return true;
+        }
+        if (isset($verificacion['error_api']) && trim((string) $verificacion['error_api']) !== '') {
+            return true;
+        }
+        $checks = isset($verificacion['checks_totales']) ? (int) $verificacion['checks_totales'] : null;
+        return $checks === 0 && empty($verificacion['comparaciones']);
+    }
+
+    private function docListCacheTienePendienteTecnico(string $json): bool
+    {
+        $dec = json_decode($json, true);
+        if (!is_array($dec)) {
+            return false;
+        }
+        $verificacion = $dec['datos']['verificacion_expediente'] ?? null;
+        return $this->docVerifExpedientePendienteTecnico($verificacion);
+    }
+
+    /**
      * Obtiene configuración de la API de verificación de documentos.
      */
     private function getDocVerificacionConfig()
@@ -10255,20 +10394,26 @@ class CapHum extends Controller
         if (function_exists('apcu_fetch')) {
             $cached = @\apcu_fetch($cacheKey);
             if ($cached !== false && is_array($cached) && isset($cached['ts']) && (time() - $cached['ts']) <= $ttl && isset($cached['json'])) {
-                header('X-Doc-List-Cache: hit');
-                header('X-Doc-List-Cache-Ttl-Sec: ' . $ttl);
-                echo $cached['json'];
-                return;
+                if (!$this->docListCacheTienePendienteTecnico((string) $cached['json'])) {
+                    header('X-Doc-List-Cache: hit');
+                    header('X-Doc-List-Cache-Ttl-Sec: ' . $ttl);
+                    echo $cached['json'];
+                    return;
+                }
+                @\apcu_delete($cacheKey);
             }
         } else {
             $cacheFile = $cacheDir . '/' . $cacheKey . '.json';
             if (is_file($cacheFile) && (time() - filemtime($cacheFile)) <= $ttl) {
                 $raw = @file_get_contents($cacheFile);
                 if ($raw !== false && $raw !== '') {
-                    header('X-Doc-List-Cache: hit');
-                    header('X-Doc-List-Cache-Ttl-Sec: ' . $ttl);
-                    echo $raw;
-                    return;
+                    if (!$this->docListCacheTienePendienteTecnico((string) $raw)) {
+                        header('X-Doc-List-Cache: hit');
+                        header('X-Doc-List-Cache-Ttl-Sec: ' . $ttl);
+                        echo $raw;
+                        return;
+                    }
+                    @unlink($cacheFile);
                 }
             }
         }
@@ -10330,6 +10475,24 @@ class CapHum extends Controller
         $conteoValidados = CandidatosDAO::contarValidados($id_candidato);
         $payload['metricas']['validados'] = (int) ($conteoValidados['validados'] ?? 0);
         $payload['metricas'] = $this->calcularMetricasDocumentosCandidato($documentos, $id_candidato);
+
+        if (!empty($payload['metricas']['expediente_completo']) && $this->docVerifExpedientePendienteTecnico($verificacion)) {
+            $candidatoRes = CandidatosDAO::getById($id_candidato);
+            $candidato = ($candidatoRes['success'] ?? false) && !empty($candidatoRes['datos']) ? $candidatoRes['datos'] : [];
+            $nombreCandidatoRegistro = trim(($candidato['nombres'] ?? '') . ' ' . ($candidato['apellidop'] ?? '') . ' ' . ($candidato['apellidom'] ?? ''));
+            $payloadCache = $this->expedientePayloadDesdeCacheDocumentos($documentos, $nombreCandidatoRegistro, $this->docVerificacionIniSoloIdentificacion());
+            if (is_array($payloadCache) && (int) ($payloadCache['checks_totales'] ?? 0) > 0) {
+                $payloadCache['api_pendiente'] = false;
+                $payloadCache['error_api'] = null;
+                $payloadCache['alertas'] = array_values(array_filter($payloadCache['alertas'] ?? [], function ($a) {
+                    $txt = strtoupper((string) $a);
+                    return strpos($txt, 'FALLO TECNICO') === false && strpos($txt, 'API') === false;
+                }));
+                $verificacion = $payloadCache;
+                $payload['verificacion_expediente'] = $payloadCache;
+                CandidatosDAO::updateVerificacionExpediente($id_candidato, json_encode($payloadCache));
+            }
+        }
 
         $json = json_encode(self::respuesta(true, 'OK', $payload));
 
@@ -11567,7 +11730,7 @@ class CapHum extends Controller
         if (strpos($nombre, 'CURRICUL') !== false || preg_match('/\bCV\b/', $nombre) || strpos($nombre, 'SOLICITUD DE TRABAJO') !== false || strpos($nombre, 'SOLICITUD EMPLEO') !== false) return 2;
         if (strpos($nombre, 'ACTA') !== false || strpos($nombre, 'NACIMIENTO') !== false) return 3;
         if (strpos($nombre, 'CURP') !== false) return 4;
-        if (strpos($nombre, 'IDENTIFIC') !== false || strpos($nombre, 'INE') !== false || strpos($nombre, 'IFE') !== false) return 5;
+        if (strpos($nombre, 'IDENTIFIC') !== false || strpos($nombre, 'INE') !== false || strpos($nombre, 'IFE') !== false || strpos($nombre, 'PASAPORTE') !== false || strpos($nombre, 'RESIDENCIA') !== false) return 5;
         if (strpos($nombre, 'DOMICILIO') !== false || strpos($nombre, 'COMPROBANTE') !== false) return 6;
         if (strpos($nombre, 'FISCAL') !== false || strpos($nombre, 'RFC') !== false || strpos($nombre, 'SAT') !== false) return 7;
         if (strpos($nombre, 'NSS') !== false || strpos($nombre, 'SEGURIDAD SOCIAL') !== false || strpos($nombre, 'IMSS') !== false) return 8;
@@ -11672,6 +11835,44 @@ class CapHum extends Controller
             return ['aceptar' => false, 'mensaje' => $mensaje, 'verificacion' => $resultado];
         }
 
+        if ($tipoDocumento === 4) {
+            if (!is_array($resultado) || ($resultado['valido'] ?? null) !== true) {
+                return [
+                    'aceptar' => true,
+                    'mensaje' => null,
+                    'verificacion' => is_array($resultado) ? array_merge($resultado, [
+                        'revision_manual' => true,
+                        'nota_backend' => 'La constancia CURP no se confirmo en la segunda lectura rapida; se acepta para revision manual.',
+                    ]) : [
+                        'valido' => false,
+                        'revision_manual' => true,
+                        'nota_backend' => 'No se obtuvo respuesta de CURP; se acepta para revision manual.',
+                    ],
+                ];
+            }
+            if (array_key_exists('es_reciente', $resultado) && $resultado['es_reciente'] === false) {
+                return [
+                    'aceptar' => false,
+                    'mensaje' => 'La constancia CURP no está vigente. Descarga una constancia reciente del RENAPO.',
+                    'verificacion' => $resultado,
+                ];
+            }
+        }
+
+        if ($tipoDocumento === 5 && (!is_array($resultado) || ($resultado['valido'] ?? null) !== true)) {
+            return [
+                'aceptar' => true,
+                'mensaje' => null,
+                'verificacion' => is_array($resultado) ? array_merge($resultado, [
+                    'revision_manual' => true,
+                    'nota_backend' => 'La identificacion oficial no se confirmo en la segunda lectura rapida; se acepta para revision manual.',
+                ]) : [
+                    'valido' => false,
+                    'revision_manual' => true,
+                    'nota_backend' => 'No se obtuvo respuesta de precheck; se acepta para revision manual.',
+                ],
+            ];
+        }
         return ['aceptar' => true, 'mensaje' => null, 'verificacion' => is_array($resultado) ? $resultado : null];
     }
 
@@ -12098,7 +12299,7 @@ class CapHum extends Controller
             CURLOPT_POSTFIELDS => ['documento' => $cfile],
             CURLOPT_HTTPHEADER => ['X-API-Key: ' . $apiKey],
             CURLOPT_RETURNTRANSFER => true,
-            CURLOPT_TIMEOUT => 8,
+            CURLOPT_TIMEOUT => 12,
             CURLOPT_CONNECTTIMEOUT => 3,
         ]);
         $body = curl_exec($ch);
@@ -12144,7 +12345,7 @@ class CapHum extends Controller
             CURLOPT_POSTFIELDS => ['documento' => $cfile],
             CURLOPT_HTTPHEADER => ['X-API-Key: ' . $apiKey],
             CURLOPT_RETURNTRANSFER => true,
-            CURLOPT_TIMEOUT => 8,
+            CURLOPT_TIMEOUT => 12,
             CURLOPT_CONNECTTIMEOUT => 3,
         ]);
         $body = curl_exec($ch);
@@ -12229,7 +12430,7 @@ class CapHum extends Controller
             CURLOPT_POSTFIELDS => ['documento' => $cfile],
             CURLOPT_HTTPHEADER => ['X-API-Key: ' . $apiKey],
             CURLOPT_RETURNTRANSFER => true,
-            CURLOPT_TIMEOUT => 8,
+            CURLOPT_TIMEOUT => 12,
             CURLOPT_CONNECTTIMEOUT => 3,
         ]);
         $body = curl_exec($ch);
@@ -12312,8 +12513,8 @@ class CapHum extends Controller
             CURLOPT_POSTFIELDS => ['documento' => $cfile],
             CURLOPT_HTTPHEADER => ['X-API-Key: ' . $apiKey],
             CURLOPT_RETURNTRANSFER => true,
-            CURLOPT_TIMEOUT => 5,
-            CURLOPT_CONNECTTIMEOUT => 2,
+            CURLOPT_TIMEOUT => 10,
+            CURLOPT_CONNECTTIMEOUT => 3,
         ]);
         $body = curl_exec($ch);
         $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
@@ -12889,6 +13090,10 @@ class CapHum extends Controller
                 $pathAbs = $storageRoot . '/' . $rutaRel;
                 $tipo = trim($d['tipo_documento'] ?? '');
                 $idDoc = (int) ($d['id'] ?? 0);
+                $prevFiscalJson = isset($d['verificacion_fiscal_json']) ? (string) $d['verificacion_fiscal_json'] : null;
+                $prevCalidadJson = isset($d['verificacion_calidad_json']) ? (string) $d['verificacion_calidad_json'] : null;
+                $prevFiscalArr = $this->docVerifJsonArray($prevFiscalJson);
+                $prevCalidadArr = $this->docVerifJsonArray($prevCalidadJson);
                 $tipoNum = $this->tipoDocumentoCandidatoNumero($tipo);
                 if ($tipoNum > 0) {
                     $tiposPresentes[$tipoNum] = true;
@@ -12897,7 +13102,7 @@ class CapHum extends Controller
                 if (in_array($tipo, ['IDENTIFICACIÓN OFICIAL', 'IDENTIFICACION OFICIAL', 'IDENTIFICACIÃ“N OFICIAL'], true)) {
                     $rutasParaValidar['identificacion_pdf'] = $pathAbs;
                     if ($idDoc > 0 && $esReciente) {
-                        CandidatosDAO::updateVerificacionDocumento($idDoc, null, json_encode([
+                        CandidatosDAO::updateVerificacionDocumento($idDoc, $prevFiscalJson, json_encode([
                             'aceptado' => null,
                             'precheck' => null,
                             'pendiente_revision_profunda' => true,
@@ -12909,68 +13114,75 @@ class CapHum extends Controller
                         $calidad = $this->verificarCalidadIdentificacionPdfApi($pathAbs);
                         if (is_array($calidad)) {
                             $calidad['precheck'] = $precheck;
-                            CandidatosDAO::updateVerificacionDocumento($idDoc, null, json_encode($calidad));
+                            $calidadFinal = $this->docVerifDebeConservarAnterior($prevCalidadArr, $calidad) ? $prevCalidadArr : $calidad;
+                            CandidatosDAO::updateVerificacionDocumento($idDoc, $prevFiscalJson, json_encode($calidadFinal));
                         } elseif (is_array($precheck)) {
-                            CandidatosDAO::updateVerificacionDocumento($idDoc, null, json_encode($precheck));
+                            $precheckFinal = $this->docVerifDebeConservarAnterior($prevCalidadArr, $precheck) ? $prevCalidadArr : $precheck;
+                            CandidatosDAO::updateVerificacionDocumento($idDoc, $prevFiscalJson, json_encode($precheckFinal));
                         }
                     }
                 } elseif ($tipo === 'CURP') {
                     $rutasParaValidar['curp'] = $pathAbs;
                     if ($idDoc > 0 && $esReciente) {
-                        CandidatosDAO::updateVerificacionDocumento($idDoc, null, json_encode([
+                        CandidatosDAO::updateVerificacionDocumento($idDoc, $prevFiscalJson, json_encode([
                             'pendiente_revision_backend' => true,
                             'notas' => ['CURP recibido; re-evaluando contra el expediente.'],
                         ]));
                         $resCurp = $this->verificarCurpApi($pathAbs);
                         if (is_array($resCurp)) {
-                            CandidatosDAO::updateVerificacionDocumento($idDoc, null, json_encode($resCurp));
+                            $resCurpFinal = $this->docVerifDebeConservarAnterior($prevCalidadArr, $resCurp) ? $prevCalidadArr : $resCurp;
+                            CandidatosDAO::updateVerificacionDocumento($idDoc, $prevFiscalJson, json_encode($resCurpFinal));
                         }
                     }
                 } elseif (in_array($tipo, ['NÚMERO DE SEGURIDAD SOCIAL', 'NUMERO DE SEGURIDAD SOCIAL', 'NÃšMERO DE SEGURIDAD SOCIAL'], true)) {
                     $rutasParaValidar['nss'] = $pathAbs;
                     if ($idDoc > 0 && $esReciente) {
-                        CandidatosDAO::updateVerificacionDocumento($idDoc, null, json_encode([
+                        CandidatosDAO::updateVerificacionDocumento($idDoc, $prevFiscalJson, json_encode([
                             'pendiente_revision_backend' => true,
                             'notas' => ['NSS recibido; re-evaluando contra el expediente.'],
                         ]));
                         $resNss = $this->verificarNssApi($pathAbs);
                         if (is_array($resNss)) {
-                            CandidatosDAO::updateVerificacionDocumento($idDoc, null, json_encode($resNss));
+                            $resNssFinal = $this->docVerifDebeConservarAnterior($prevCalidadArr, $resNss) ? $prevCalidadArr : $resNss;
+                            CandidatosDAO::updateVerificacionDocumento($idDoc, $prevFiscalJson, json_encode($resNssFinal));
                         }
                     }
                 } elseif ($tipo === 'CONSTANCIA DE SITUACION FISCAL') {
                     $rutasParaValidar['constancia_fiscal'] = $pathAbs;
                     if ($idDoc > 0 && $esReciente) {
-                        CandidatosDAO::updateVerificacionDocumento($idDoc, null, json_encode([
+                        CandidatosDAO::updateVerificacionDocumento($idDoc, json_encode([
                             'pendiente_revision_backend' => true,
                             'notas' => ['Constancia fiscal recibida; re-evaluando contra el expediente.'],
-                        ]));
+                        ]), $prevCalidadJson);
                         $resFiscal = $this->verificarConstanciaFiscalApi($pathAbs);
                         if (is_array($resFiscal)) {
-                            CandidatosDAO::updateVerificacionDocumento($idDoc, json_encode($resFiscal), null);
+                            $resFiscalFinal = $this->docVerifDebeConservarAnterior($prevFiscalArr, $resFiscal) ? $prevFiscalArr : $resFiscal;
+                            CandidatosDAO::updateVerificacionDocumento($idDoc, json_encode($resFiscalFinal), $prevCalidadJson);
                         }
                     }
                 } elseif ($tipo === 'ESTADO DE CUENTA') {
                     if ($idDoc > 0 && $esReciente) {
-                        CandidatosDAO::updateVerificacionDocumento($idDoc, null, json_encode([
+                        CandidatosDAO::updateVerificacionDocumento($idDoc, $prevFiscalJson, json_encode([
                             'pendiente_revision_backend' => true,
                             'notas' => ['Estado de cuenta recibido para revisión.'],
                         ]));
                         $resEstadoCuenta = $this->verificarEstadoCuentaApi($pathAbs);
                         if (is_array($resEstadoCuenta)) {
-                            CandidatosDAO::updateVerificacionDocumento($idDoc, null, json_encode($resEstadoCuenta));
+                            $resEstadoFinal = $this->docVerifDebeConservarAnterior($prevCalidadArr, $resEstadoCuenta) ? $prevCalidadArr : $resEstadoCuenta;
+                            CandidatosDAO::updateVerificacionDocumento($idDoc, $prevFiscalJson, json_encode($resEstadoFinal));
                         }
                     }
                 } elseif ($tipo === 'ACTA DE NACIMIENTO' || $tipo === 'ACTA DE NACIMIENTO Certificada') {
                     $rutasParaValidar['acta_nacimiento'] = $pathAbs;
                     if ($idDoc > 0 && $esReciente) {
-                        CandidatosDAO::updateVerificacionDocumento($idDoc, null, json_encode([
+                        CandidatosDAO::updateVerificacionDocumento($idDoc, $prevFiscalJson, json_encode([
                             'pendiente_revision_backend' => true,
                             'notas' => ['Acta de nacimiento recibida; re-evaluando contra el expediente.'],
                         ]));
                         $resActa = $this->verificarActaApi($pathAbs);
                         if (is_array($resActa)) {
-                            CandidatosDAO::updateVerificacionDocumento($idDoc, null, json_encode($resActa));
+                            $resActaFinal = $this->docVerifDebeConservarAnterior($prevCalidadArr, $resActa) ? $prevCalidadArr : $resActa;
+                            CandidatosDAO::updateVerificacionDocumento($idDoc, $prevFiscalJson, json_encode($resActaFinal));
                         }
                     }
                 }

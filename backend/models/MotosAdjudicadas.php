@@ -3892,25 +3892,30 @@ SQL;
                     d.created_at,
                     d.lat,
                     d.lng,
+                    t.campaign_id,
                     t.credit_number,
                     t.client_name,
                     c.name AS campaign_name
                  FROM tasks t
                  INNER JOIN dictums d ON d.task_id = t.id
                  INNER JOIN campaigns c ON c.id = t.campaign_id
-                 WHERE c.name LIKE :campaign_prefix
+                 WHERE (
+                    (c.name LIKE :campaign_prefix AND d.opciondictamen_id = 13)
+                    OR t.campaign_id = :campaign_motos
+                 )
                    AND c.deleted_at IS NULL
                    AND t.deleted_at IS NULL
                    AND c.start_date <= CURDATE()
                    AND c.end_date >= CURDATE()
                    AND d.created_at >= c.start_date
+                   AND d.updated_at >= DATE_SUB(NOW(), INTERVAL 14 DAY)
                    AND d.form_response IS NOT NULL
                    AND TRIM(CAST(d.form_response AS CHAR)) <> ''
-                   AND d.opciondictamen_id = 13
                  ORDER BY d.id DESC
-                 LIMIT 500",
+                 LIMIT 200",
                 [
                     'campaign_prefix' => self::LEGACY_CAMPAIGN_ASIGNACION_PREFIX . '%',
+                    'campaign_motos' => self::LEGACY_CAMPAIGN_MOTOS_ADJ_AUTORIZADAS,
                 ]
             ) ?: [];
         } catch (\Throwable $e) {
@@ -4021,6 +4026,10 @@ SQL;
 
     private function dictumAsignacionEsMotoAdjudicada(array $row, array $campos): bool
     {
+        if ((int) ($row['campaign_id'] ?? 0) === self::LEGACY_CAMPAIGN_MOTOS_ADJ_AUTORIZADAS) {
+            return true;
+        }
+
         if ((int) ($row['opciondictamen_id'] ?? 0) === 13) {
             return true;
         }
@@ -4164,7 +4173,28 @@ SQL;
         }
 
         if (!$dictum || empty($dictum['form_response'])) {
-            return;
+            try {
+                $legacyDb = $legacyDb ?? new DatabaseLegacy();
+                $dictum = $legacyDb->queryOne(
+                    "SELECT d.id, d.form_response, d.created_at
+                     FROM dictums d
+                     INNER JOIN tasks t ON t.id = d.task_id
+                     WHERE TRIM(CAST(t.credit_number AS CHAR)) = :credit_number
+                       AND d.opciondictamen_id = 13
+                       AND d.form_response IS NOT NULL
+                       AND TRIM(CAST(d.form_response AS CHAR)) <> ''
+                     ORDER BY d.id DESC
+                     LIMIT 1",
+                    [
+                        'credit_number' => (string) $idCredito,
+                    ]
+                );
+            } catch (\Throwable $e) {
+                return;
+            }
+            if (!$dictum || empty($dictum['form_response'])) {
+                return;
+            }
         }
 
         $campos = $this->normalizarFormResponseDictumApp((string) $dictum['form_response']);
@@ -4240,6 +4270,10 @@ SQL;
                 if ($name !== '') {
                     $campos[$name] = $item;
                 }
+                $labelKey = $this->normalizarClaveDictumApp((string) ($item['label'] ?? ''));
+                if ($labelKey !== '') {
+                    $campos['__label__' . $labelKey] = $item;
+                }
             }
             return $campos;
         }
@@ -4247,13 +4281,63 @@ SQL;
         return [];
     }
 
+    private function normalizarClaveDictumApp(string $valor): string
+    {
+        $valor = trim($valor);
+        if ($valor === '') {
+            return '';
+        }
+        $valor = html_entity_decode($valor, ENT_QUOTES | ENT_HTML5, 'UTF-8');
+        $valor = str_replace(["\xc2\xa0", '&nbsp;'], ' ', $valor);
+        if (class_exists('\Normalizer')) {
+            $valor = \Normalizer::normalize($valor, \Normalizer::FORM_D) ?: $valor;
+        }
+        $valor = preg_replace('/[\x{0300}-\x{036f}]/u', '', $valor);
+        $valor = strtolower((string) $valor);
+        $valor = preg_replace('/[^a-z0-9]+/u', '_', $valor);
+        return trim((string) $valor, '_');
+    }
+
+    private function aliasesCampoDictumApp(string $name): array
+    {
+        static $aliases = [
+            'no_de_serie_vin' => ['numero_de_serie', 'numero_de_serie_vin', 'no_de_serie', 'serie', 'vin', 'serie_vin'],
+            'no_de_motor' => ['numero_de_motor', 'num_motor', 'motor'],
+            'tiene_tarjeta_de_circulacion_en_fisico' => ['tiene_tarjeta_de_circulacion', 'tarjeta_de_circulacion', 'tarjeta_circulacion'],
+            'responsable_de_resguardo' => ['nombre_de_responsable_de_resguardo', 'responsable_resguardo'],
+            'telefono_de_contacto' => ['contacto_de_resguardo', 'telefono_de_resguardo', 'celular'],
+            'estado_de_lugar_de_resguardo_ejemplo_ciudad_de_mex' => ['estado_de_lugar_de_resguardo', 'estado_resguardo'],
+            'ciudad_municipio_de_lugar_de_resguardo' => ['ciudad_de_lugar_de_resguardo', 'municipio_de_lugar_de_resguardo', 'ciudad_municipio_resguardo'],
+            'calle_y_numero_de_lugar_de_resguardo' => ['calle_numero_de_lugar_de_resguardo', 'direccion_de_resguardo', 'domicilio_de_resguardo'],
+        ];
+
+        $keys = [$name, $this->normalizarClaveDictumApp($name)];
+        foreach ($aliases[$name] ?? [] as $alias) {
+            $keys[] = $alias;
+            $keys[] = $this->normalizarClaveDictumApp($alias);
+        }
+
+        return array_values(array_unique(array_filter($keys, static fn ($v) => is_string($v) && $v !== '')));
+    }
+
     private function valorCampoDictumApp(array $campos, string $name, bool $usarLabelSeleccionado = false): string
     {
-        if (!isset($campos[$name]) || !is_array($campos[$name])) {
+        $campo = null;
+        foreach ($this->aliasesCampoDictumApp($name) as $key) {
+            if (isset($campos[$key]) && is_array($campos[$key])) {
+                $campo = $campos[$key];
+                break;
+            }
+            $labelKey = '__label__' . $this->normalizarClaveDictumApp($key);
+            if (isset($campos[$labelKey]) && is_array($campos[$labelKey])) {
+                $campo = $campos[$labelKey];
+                break;
+            }
+        }
+        if ($campo === null) {
             return '';
         }
 
-        $campo = $campos[$name];
         $valor = $campo['value'] ?? null;
         if (is_scalar($valor) && trim((string) $valor) !== '') {
             return trim((string) $valor);
@@ -4334,7 +4418,6 @@ SQL;
             'tiene_tarjeta_de_circulacion_en_fisico' => ['tiene_tarjeta_de_circulacion_en_fisico', 'tarjeta_circulacion'],
             'la_moto_tiene_placa_fisica' => ['la_moto_tiene_placa_fisica', 'placa_fisica'],
             'marca_y_modelo' => ['moto_modelo', 'modelo'],
-            'numero_de_serie' => ['moto_no_serie', 'serie'],
             'direccion_actual' => ['log_direccion'],
             'actualizacion_de_direccion' => ['log_direccion'],
             'actualizacion_de_numero_telefonico' => ['log_telefono'],
@@ -5628,6 +5711,7 @@ EOSQL;
         // en PROCESANDO solo se hacen GET de estatus (mismo UUID).
         if ($row) {
             $estado = strtoupper(trim((string) ($row['estado'] ?? '')));
+            $reintentarFalloServicio = false;
             if ($estado === 'COMPLETADO' || $estado === 'ERROR') {
                 $datosMoto = $this->repuveDatosMotoDesdeFila($row);
                 $out = $this->repuveConstruirRespuestaConsulta(
@@ -5639,9 +5723,17 @@ EOSQL;
                 );
                 $out = $this->repuveAdjuntarRespuestasTecnicas($row, $out);
 
-                return $this->repuveEnriquecerResultado($idCredito, $idUsuario, $out);
+                if (
+                    empty($criterioForzado['ok'])
+                    || empty($out['repuve_error_servicio'])
+                    || !$this->repuveEsFalloServicioReintentable($row)
+                ) {
+                    return $this->repuveEnriquecerResultado($idCredito, $idUsuario, $out);
+                }
+                $reintentarFalloServicio = true;
             }
 
+            if (!$reintentarFalloServicio) {
             $uuid = trim((string) ($row['uuid'] ?? ''));
             if ($uuid !== '') {
                 $estatus = $this->repuveSondearEstatus($cfg, $uuid);
@@ -5695,6 +5787,7 @@ EOSQL;
             ];
 
             return $this->repuveEnriquecerResultado($idCredito, $idUsuario, $this->repuveAdjuntarRespuestasTecnicas($row, $unico));
+            }
         }
 
         $criterio = $criterioForzado ?? $this->repuveResolverCriterio($idCredito);
@@ -6142,7 +6235,7 @@ EOSQL;
                 $terminal = false;
             } elseif ($status !== '' || $messageCode !== null) {
                 $terminal = true;
-                $estadoFinal = 'COMPLETADO';
+                $estadoFinal = ($status === 'ERROR' || empty($res['ok'])) ? 'ERROR' : 'COMPLETADO';
             } elseif (empty($res['ok']) && (($res['http_status'] ?? 0) >= 400)) {
                 $terminal = true;
                 $estadoFinal = 'ERROR';
@@ -6566,7 +6659,33 @@ EOSQL;
     }
 
     /**
-     * Arma respuesta JSON unificada tras leer adj_repuve_consulta (evita marcar éxito solo porque el VIN coincide con la consulta).
+     * Fallos de disponibilidad del proveedor que no deben dejar atrapado el credito en cache.
+     * Si el usuario vuelve a consultar desde la vista dedicada, se permite un nuevo intento.
+     */
+    private function repuveEsFalloServicioReintentable(array $row): bool
+    {
+        $http = (int) ($row['http_status'] ?? 0);
+        if (in_array($http, [408, 429, 500, 502, 503, 504], true)) {
+            return true;
+        }
+
+        $mc = isset($row['message_code']) && $row['message_code'] !== '' ? (int) $row['message_code'] : null;
+        if ($mc === 40) {
+            return true;
+        }
+
+        $msgL = strtolower(trim((string) ($row['mensaje'] ?? '')));
+        foreach (['temporarily unavailable', 'try again later', 'service unavailable', 'timeout', 'bad gateway', 'gateway'] as $needle) {
+            if ($msgL !== '' && str_contains($msgL, $needle)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Arma respuesta JSON unificada tras leer adj_repuve_consulta (evita marcar exito solo porque el VIN coincide con la consulta).
      *
      * @return array<string, mixed>
      */
@@ -6583,6 +6702,7 @@ EOSQL;
         $mcInt = $mcRaw !== null && $mcRaw !== '' ? (int) $mcRaw : null;
         $mensajeTabla = trim((string) ($row['mensaje'] ?? ''));
         $estadoRow = strtoupper(trim((string) ($row['estado'] ?? '')));
+        $estadoRespuesta = $estadoRow !== '' ? $estadoRow : (string) ($row['estado'] ?? '');
 
         if ($tieneReal) {
             $tipo = 'datos_ok';
@@ -6592,6 +6712,7 @@ EOSQL;
         } elseif ($this->repuveEsFalloServicioExterno($row, $mensajeTabla)) {
             $tipo = 'fallo_servicio';
             $errorServicio = true;
+            $estadoRespuesta = 'ERROR';
             $sinDatos = false;
             // Mensaje breve para UI (tooltip, alertas). El detalle técnico sigue en `repuve` (http_status, message_code, mensaje).
             $message = "REPUVE no disponible\n\n"
@@ -6620,9 +6741,10 @@ EOSQL;
             'message'                 => $message,
             'repuve_resultado_tipo'   => $tipo,
             'repuve_error_servicio'   => $errorServicio,
+            'repuve_reintento_disponible' => $errorServicio && $this->repuveEsFalloServicioReintentable($row),
             'repuve_sin_datos_padron' => $sinDatos,
             'repuve'                  => [
-                'estado'         => $estadoRow !== '' ? $estadoRow : (string) ($row['estado'] ?? ''),
+                'estado'         => $estadoRespuesta,
                 'message_code'   => $mcInt,
                 'mensaje'        => $mensajeTabla,
                 'http_status'    => $http > 0 ? $http : null,
