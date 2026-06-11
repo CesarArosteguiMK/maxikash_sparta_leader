@@ -2549,12 +2549,113 @@ class MotosAdjudicadas extends Model
              LIMIT 100",
             ['id' => $idOperacion]
         ) ?: [];
+        $labelsPorEvidencia = [];
+        foreach (($this->db->queryAll(
+            'SELECT id, slot FROM adj_evidencia WHERE id_operacion = :id',
+            ['id' => $idOperacion]
+        ) ?: []) as $ev) {
+            $idEv = (int) ($ev['id'] ?? 0);
+            $slot = (string) ($ev['slot'] ?? '');
+            if ($idEv > 0 && $slot !== '') {
+                $labelsPorEvidencia[$idEv] = self::SLOT_LABELS[$slot] ?? $slot;
+            }
+        }
         foreach ($rows as &$r) {
-            $r['accion'] = $this->normalizarAdjBitacoraAccionDisplay((string) ($r['accion'] ?? ''));
+            $accion = $this->normalizarAdjBitacoraAccionDisplay((string) ($r['accion'] ?? ''));
+            $accion = preg_replace_callback(
+                '/\s*\(id evidencia\s+(\d+)\)\s*/i',
+                static function (array $m) use ($labelsPorEvidencia): string {
+                    $idEv = (int) ($m[1] ?? 0);
+                    $label = trim((string) ($labelsPorEvidencia[$idEv] ?? ''));
+                    return $label !== '' ? ' - ' . $label : '';
+                },
+                $accion
+            );
+            if (preg_match('/^VALIDACI(?:Ó|O)N EVIDENCIA\s+(ACEPTADA|RECHAZADA)\s+-\s+(.+)$/iu', $accion, $m)) {
+                $accion = 'VALIDACION EVIDENCIA ' . trim((string) $m[2]) . ': ' . strtoupper((string) $m[1]);
+            }
+            $r['accion'] = $accion;
         }
         unset($r);
 
         return $rows;
+    }
+
+    private function obtenerUltimoAnalistaEvidencias(int $idOperacion): ?array
+    {
+        if ($idOperacion <= 0) {
+            return null;
+        }
+
+        $row = $this->db->queryOne(
+            "SELECT nombre_usuario,
+                    accion,
+                    DATE_FORMAT(fecha_alta, '%d/%m/%Y %H:%i') AS fecha_alta
+             FROM adj_bitacora
+             WHERE id_operacion = :id
+               AND (
+                    UPPER(accion) LIKE '%VALIDACI%'
+                    OR UPPER(accion) LIKE '%RECHAZOS EVIDENCIAS%'
+                    OR UPPER(accion) LIKE '%EVIDENCIAS VALIDADAS%'
+                    OR UPPER(accion) LIKE '%REEMPLAZO ESPECIAL DE EVIDENCIA%'
+               )
+               AND TRIM(COALESCE(nombre_usuario, '')) <> ''
+               AND UPPER(TRIM(COALESCE(nombre_usuario, ''))) NOT IN ('SISTEMA', 'SYSTEM', 'MAXIKASH APP')
+             ORDER BY adj_bitacora.fecha_alta DESC, adj_bitacora.id DESC
+             LIMIT 1",
+            ['id' => $idOperacion]
+        );
+
+        if (!$row) {
+            return null;
+        }
+
+        $accion = $this->normalizarAdjBitacoraAccionDisplay((string) ($row['accion'] ?? ''));
+        if (preg_match('/\s*\(id evidencia\s+(\d+)\)\s*/i', $accion, $m)) {
+            $idEv = (int) ($m[1] ?? 0);
+            $label = '';
+            if ($idEv > 0) {
+                $ev = $this->db->queryOne(
+                    'SELECT slot FROM adj_evidencia WHERE id = :id_ev AND id_operacion = :id_op LIMIT 1',
+                    ['id_ev' => $idEv, 'id_op' => $idOperacion]
+                );
+                $slot = (string) ($ev['slot'] ?? '');
+                $label = trim((string) (self::SLOT_LABELS[$slot] ?? $slot));
+            }
+            $accion = preg_replace('/\s*\(id evidencia\s+\d+\)\s*/i', $label !== '' ? ' - ' . $label : '', $accion);
+            if (preg_match('/^VALIDACI(?:Ó|O)N EVIDENCIA\s+(ACEPTADA|RECHAZADA)\s+-\s+(.+)$/iu', $accion, $mv)) {
+                $accion = 'VALIDACION EVIDENCIA ' . trim((string) $mv[2]) . ': ' . strtoupper((string) $mv[1]);
+            }
+        }
+        $row['accion'] = $accion;
+        return $row;
+    }
+
+    private function obtenerUltimoGestorOperacion(int $idCredito): ?array
+    {
+        if ($idCredito <= 0) {
+            return null;
+        }
+
+        return $this->db->queryOne(
+            "SELECT TRIM(CONCAT_WS(' ',
+                        per.nombres,
+                        per.segundo_nombre,
+                        per.apellidop,
+                        per.apellidom
+                    )) AS nombre,
+                    DATE_FORMAT(aca.fecha_alta, '%d/%m/%Y %H:%i') AS fecha_asignacion
+             FROM asigna_creditos_adjudicacion aca
+             INNER JOIN personal_adjudicacion pa ON pa.id = aca.id_personal_adj
+             INNER JOIN persona per ON per.id = pa.id_persona
+             WHERE aca.id_credito = :id_credito
+             ORDER BY
+                CASE WHEN aca.estatus = '1' THEN 0 ELSE 1 END,
+                aca.fecha_alta DESC,
+                aca.id DESC
+             LIMIT 1",
+            ['id_credito' => $idCredito]
+        ) ?: null;
     }
 
     /**
@@ -3458,6 +3559,16 @@ SQL;
         ) ?: [];
 
         $op['bitacora'] = $this->obtenerBitacora($id);
+        $ultimoAnalista = $this->obtenerUltimoAnalistaEvidencias($id);
+        $op['ultimo_analista_evidencias'] = $ultimoAnalista;
+        $op['ultimo_analista_nombre'] = $ultimoAnalista['nombre_usuario'] ?? null;
+        $op['ultimo_analista_fecha'] = $ultimoAnalista['fecha_alta'] ?? null;
+        $op['ultimo_analista_accion'] = $ultimoAnalista['accion'] ?? null;
+
+        $ultimoGestor = $this->obtenerUltimoGestorOperacion((int) ($op['id_credito'] ?? 0));
+        $op['ultimo_gestor_operacion'] = $ultimoGestor;
+        $op['ultimo_gestor_nombre'] = $ultimoGestor['nombre'] ?? null;
+        $op['ultimo_gestor_fecha'] = $ultimoGestor['fecha_asignacion'] ?? null;
 
         return $op;
     }
@@ -7299,9 +7410,11 @@ EOSQL;
             ]
         );
         $etiq = $valAtn === 1 ? 'ACEPTADA' : 'RECHAZADA';
+        $slot = (string) ($row['slot'] ?? '');
+        $labelEvidencia = trim((string) (self::SLOT_LABELS[$slot] ?? $slot));
         $this->registrarBitacora(
             $idOperacion,
-            'VALIDACIÓN EVIDENCIA ' . $etiq . ' (id evidencia ' . $idEvidencia . ')',
+            'VALIDACION EVIDENCIA ' . ($labelEvidencia !== '' ? $labelEvidencia . ': ' : '') . $etiq,
             $idUsuario,
             $nombreUsuario
         );
