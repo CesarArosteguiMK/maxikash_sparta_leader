@@ -2507,6 +2507,7 @@ class MotosAdjudicadas extends Model
             'OD??METRO'     => 'ODÓMETRO',
             'DA??OS'        => 'DAÑOS',
             '(F?SICA)'      => '(FÍSICA)',
+            '(PROCESANDO IA)' => '(RECUPERACION)',
         ];
 
         return str_replace(array_keys($map), array_values($map), $accion);
@@ -4431,8 +4432,13 @@ SQL;
         }
         $valor = html_entity_decode($valor, ENT_QUOTES | ENT_HTML5, 'UTF-8');
         $valor = str_replace(["\xc2\xa0", '&nbsp;'], ' ', $valor);
-        if (class_exists('\Normalizer')) {
+        if (class_exists('\Normalizer', false)) {
             $valor = \Normalizer::normalize($valor, \Normalizer::FORM_D) ?: $valor;
+        } else {
+            $valor = strtr($valor, [
+                'Á' => 'A', 'É' => 'E', 'Í' => 'I', 'Ó' => 'O', 'Ú' => 'U', 'Ü' => 'U', 'Ñ' => 'N',
+                'á' => 'a', 'é' => 'e', 'í' => 'i', 'ó' => 'o', 'ú' => 'u', 'ü' => 'u', 'ñ' => 'n',
+            ]);
         }
         $valor = preg_replace('/[\x{0300}-\x{036f}]/u', '', $valor);
         $valor = strtolower((string) $valor);
