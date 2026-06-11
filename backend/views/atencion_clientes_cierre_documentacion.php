@@ -172,7 +172,7 @@
     border-radius: .75rem;
     overflow: visible;
     background: #fff;
-    padding: 1.5rem;
+    padding: 0;
 }
 .acd-table {
     margin: 0;
@@ -242,7 +242,8 @@
     font-style: italic;
 }
 .acd-table-action {
-    min-width: 124px;
+    width: 92px;
+    min-width: 92px;
     text-align: center !important;
 }
 .acd-table-date {
@@ -562,6 +563,18 @@ body.dark-mode .acd-dict-observacion { background: #292524; color: #fed7aa; }
 }
 
 /* Modal Cierre documentación (vista 4) */
+#modalAcdCierreDocumentacion .modal-header,
+#modalAcdDictaminadoDetalle .modal-header {
+    background: #fff !important;
+    color: #0f172a !important;
+    padding: .85rem 1.15rem;
+    border: none !important;
+    border-bottom: 1px solid #e2e8f0 !important;
+}
+#modalAcdCierreDocumentacion .modal-dialog.modal-xl,
+#modalAcdDictaminadoDetalle .modal-dialog.modal-xl {
+    max-width: min(72rem, 98vw);
+}
 #modalAcdCierreDocumentacion .acd-cierre-banner {
     background: linear-gradient(135deg, #c7d2fe 0%, #e9d5ff 100%);
     border-radius: 0.75rem;
@@ -577,7 +590,8 @@ body.dark-mode .acd-dict-observacion { background: #292524; color: #fed7aa; }
 #modalAcdCierreDocumentacion .acd-cierre-banner i { font-size: 1.25rem; opacity: 0.9; }
 .acd-modal-context-title {
     color: #1f2937;
-    font-weight: 800;
+    font-weight: 900;
+    line-height: 1.2;
 }
 .acd-modal-context-title .acd-modal-context-client {
     font-weight: 500;
@@ -588,6 +602,13 @@ body.dark-mode .acd-dict-observacion { background: #292524; color: #fed7aa; }
     font-weight: 700;
     line-height: 1.25;
 }
+.acd-modal-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 270px;
+    gap: .85rem;
+    align-items: start;
+}
+.acd-modal-main { min-width: 0; }
 .acd-form-wrap {
     border: 1px solid #dbe4ef;
     border-radius: .65rem;
@@ -851,6 +872,94 @@ body.dark-mode #modalAcdCierreVerBitacoraEtapa .modal-content { background: #1e2
 #modalAcdCierreVerBitacoraEtapa .acd-bit-dot--1 { color: #16a34a; }
 #modalAcdCierreVerBitacoraEtapa .acd-bit-dot--2 { color: #0891b2; }
 #modalAcdCierreVerBitacoraEtapa .acd-bit-dot--3 { color: #ea580c; }
+.acd-bitacora-full {
+    position: sticky;
+    top: .35rem;
+    border: 1px solid #dbe4ef;
+    border-radius: .75rem;
+    background: #fff;
+    max-height: 66vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    padding: 0;
+    margin-top: 0;
+}
+.acd-bitacora-full-title {
+    display: flex;
+    align-items: center;
+    gap: .4rem;
+    color: #123150;
+    font-size: .78rem;
+    font-weight: 900;
+    text-transform: uppercase;
+    letter-spacing: .04em;
+    margin: 0;
+    padding: .68rem .75rem .16rem;
+    background: #f8fafc;
+}
+.acd-bitacora-full-sub {
+    color: #64748b;
+    font-size: .68rem;
+    font-weight: 700;
+    padding: 0 .75rem .68rem;
+    border-bottom: 1px solid #e2e8f0;
+    background: #f8fafc;
+}
+.acd-bitacora-full .acd-bit-tl {
+    list-style: none;
+    margin: 0;
+    padding: .7rem .75rem;
+    overflow: auto;
+}
+.acd-bitacora-full .acd-bit-tl-item {
+    position: relative;
+    padding: 0 0 .72rem .9rem;
+    margin: 0;
+    border-left: 2px solid #dbe4ef;
+}
+.acd-bitacora-full .acd-bit-tl-item:last-child { padding-bottom: 0; }
+.acd-bitacora-full .acd-bit-tl-item::before {
+    content: "";
+    position: absolute;
+    left: -.32rem;
+    top: .08rem;
+    width: .55rem;
+    height: .55rem;
+    border-radius: 999px;
+    background: #ea580c;
+    box-shadow: 0 0 0 3px #fff7ed;
+}
+.acd-bitacora-full .acd-bit-tl-dot { display: none; }
+.acd-bitacora-full .acd-bit-tl-headrow {
+    display: block;
+    margin-bottom: .18rem;
+}
+.acd-bitacora-full .acd-bit-tl-title {
+    display: block;
+    color: #1e293b;
+    font-size: .72rem;
+    font-weight: 850;
+    line-height: 1.2;
+    text-transform: none;
+    letter-spacing: 0;
+}
+.acd-bitacora-full .acd-bit-tl-time,
+.acd-bitacora-full .acd-bit-tl-user {
+    display: block;
+    color: #64748b;
+    font-size: .66rem;
+    font-weight: 750;
+    line-height: 1.18;
+}
+.acd-bitacora-full .acd-bit-tl-user { margin-top: .18rem; }
+.acd-bitacora-empty {
+    color: #94a3b8;
+    font-size: .78rem;
+    text-align: center;
+    margin: 0;
+    padding: .85rem;
+}
 body.dark-mode #modalAcdCierreVerBitacoraEtapa .acd-bit-tl-item::before {
     border-left-color: #475569;
 }
@@ -861,6 +970,15 @@ body.dark-mode #modalAcdCierreVerBitacoraEtapa .acd-bit-tl-dot {
 body.dark-mode #modalAcdCierreVerBitacoraEtapa .acd-bit-tl-title { color: #f1f5f9; }
 body.dark-mode #modalAcdCierreVerBitacoraEtapa .acd-bit-tl-time,
 body.dark-mode #modalAcdCierreVerBitacoraEtapa .acd-bit-tl-user { color: #94a3b8; }
+body.dark-mode .acd-bitacora-full { background: #0f172a; border-color: #334155; }
+body.dark-mode .acd-bitacora-full-title { color: #e2e8f0; }
+body.dark-mode .acd-bitacora-full-title,
+body.dark-mode .acd-bitacora-full-sub { background: #0f172a; border-color: #1f2937; }
+body.dark-mode .acd-bitacora-full .acd-bit-tl-item { border-color: #334155; }
+body.dark-mode .acd-bitacora-full .acd-bit-tl-title { color: #e2e8f0; }
+body.dark-mode .acd-bitacora-full .acd-bit-tl-time,
+body.dark-mode .acd-bitacora-full .acd-bit-tl-user,
+body.dark-mode .acd-bitacora-full-sub { color: #94a3b8; }
 
 /* Bloque documento S2 (modal vista 4) */
 #acdEvidenciaCard {
@@ -1001,6 +1119,15 @@ body.dark-mode .acd-dict-evidencia-main small { color: #94a3b8; }
     border-top: 1px solid rgba(148, 163, 184, .22);
     border-radius: 0 0 .5rem .5rem;
 }
+@media (max-width: 991.98px) {
+    .acd-modal-grid {
+        grid-template-columns: 1fr;
+    }
+    .acd-bitacora-full {
+        position: static;
+        max-height: none;
+    }
+}
 </style>
 
 <div class="container-fluid py-4">
@@ -1066,6 +1193,8 @@ body.dark-mode .acd-dict-evidencia-main small { color: #94a3b8; }
                 <div id="acdCierreLoader" class="text-center py-4 text-muted" style="display:none;">
                     <div class="spinner-border spinner-border-sm me-2"></div>Cargando expediente…
                 </div>
+                <div class="acd-modal-grid">
+                    <div class="acd-modal-main">
                 <div id="acdCierreFormularioCapturado"></div>
                 <div id="acdCierreContenido" class="row g-3 mt-1">
                     <div class="col-lg-5">
@@ -1113,6 +1242,9 @@ body.dark-mode .acd-dict-evidencia-main small { color: #94a3b8; }
                             </div>
                         </div>
                     </div>
+                </div>
+                    </div>
+                    <div id="acdCierreBitacoraCompleta"></div>
                 </div>
             </div>
             <div class="modal-footer border-top">
@@ -1246,6 +1378,35 @@ body.dark-mode .acd-dict-evidencia-main small { color: #94a3b8; }
         }).join('');
     }
 
+    function acdRenderBitacoraCompleta(bitacora) {
+        const rows = Array.isArray(bitacora) ? bitacora : [];
+        if (!rows.length) {
+            return '<div class="acd-bitacora-full">' +
+                '<div class="acd-bitacora-full-title"><i class="fa-solid fa-clock-rotate-left"></i>Bitacora completa</div>' +
+                '<div class="acd-bitacora-full-sub">Movimientos completos de la operacion.</div>' +
+                '<p class="acd-bitacora-empty">Sin movimientos registrados.</p>' +
+            '</div>';
+        }
+        const nDots = 4;
+        return '<div class="acd-bitacora-full">' +
+            '<div class="acd-bitacora-full-title"><i class="fa-solid fa-clock-rotate-left"></i>Bitacora completa</div>' +
+            '<div class="acd-bitacora-full-sub">' + rows.length + ' movimientos registrados.</div>' +
+            '<ul class="acd-bit-tl" role="list">' + rows.map(function (b, idx) {
+                const dotCls = 'acd-bit-dot--' + (idx % nDots);
+                return '<li class="acd-bit-tl-item ' + dotCls + '">' +
+                    '<span class="acd-bit-tl-dot" aria-hidden="true"></span>' +
+                    '<div class="acd-bit-tl-content">' +
+                        '<div class="acd-bit-tl-headrow">' +
+                            '<span class="acd-bit-tl-title">' + acdEsc(b.accion || 'Movimiento') + '</span>' +
+                            '<span class="acd-bit-tl-time">' + acdEsc(b.fecha_alta || '') + '</span>' +
+                        '</div>' +
+                        '<div class="acd-bit-tl-user">' + acdEsc(b.nombre_usuario || 'Sistema') + '</div>' +
+                    '</div>' +
+                '</li>';
+            }).join('') + '</ul>' +
+        '</div>';
+    }
+
     function acdModalBitacoraEtapaMostrar(key) {
         const meta = ACD_CIERRE_ETAPA_META.find(function (m) { return m.key === key; });
         const lines = _acdCierreBuckets[key] || [];
@@ -1305,6 +1466,7 @@ body.dark-mode .acd-dict-evidencia-main small { color: #94a3b8; }
         const formEv = document.getElementById('acdEvidenciaFormulario');
         const okEv = document.getElementById('acdEvidenciaExito');
         const formCap = document.getElementById('acdCierreFormularioCapturado');
+        const bitFull = document.getElementById('acdCierreBitacoraCompleta');
         const inpF = document.getElementById('acdEvidenciaArchivo');
         const txC = document.getElementById('acdEvidenciaComentarios');
         if (chk) {
@@ -1324,6 +1486,7 @@ body.dark-mode .acd-dict-evidencia-main small { color: #94a3b8; }
         if (formEv) formEv.style.display = '';
         if (okEv) okEv.style.display = 'none';
         if (formCap) formCap.innerHTML = '';
+        if (bitFull) bitFull.innerHTML = '';
         if (inpF) inpF.value = '';
         if (txC) txC.value = '';
     }
@@ -1336,7 +1499,7 @@ body.dark-mode .acd-dict-evidencia-main small { color: #94a3b8; }
         _acdCierreIdOp = idOperacion;
         const sub = document.getElementById('acdCierreSubtitulo');
         if (sub) {
-            sub.textContent = 'Crédito ' + String(idCredito || '') + (nombreCliente ? ' · ' + String(nombreCliente) : '');
+            sub.textContent = 'Crédito ' + String(idCredito || '') + (nombreCliente ? ' / ' + String(nombreCliente) : '');
         }
         const title = document.getElementById('modalAcdCierreDocumentacionLabel');
         if (title) {
@@ -1368,8 +1531,10 @@ body.dark-mode .acd-dict-evidencia-main small { color: #94a3b8; }
                 _acdCierreBuckets = acdPartirBitacoraPorEtapa(bit);
                 const filas = document.getElementById('acdCierreEtapasFilas');
                 const formCap = document.getElementById('acdCierreFormularioCapturado');
+                const bitFull = document.getElementById('acdCierreBitacoraCompleta');
                 if (filas) filas.innerHTML = acdRenderFilasEtapasCierre(_acdCierreBuckets);
                 if (formCap) formCap.innerHTML = acdRenderFormularioOperacion(data.detalle);
+                if (bitFull) bitFull.innerHTML = acdRenderBitacoraCompleta(bit);
             })
             .catch(function (err) {
                 const filas = document.getElementById('acdCierreEtapasFilas');
@@ -1483,7 +1648,7 @@ body.dark-mode .acd-dict-evidencia-main small { color: #94a3b8; }
             acdResguardoTexto(src),
             acdDatoVisible(src.log_ciudad),
             acdDatoVisible(src.log_estado)
-        ].filter(Boolean).join(' · ');
+        ].filter(Boolean).join(' / ');
         const camposMoto = [
             ['Marca', src.moto_marca || src.marca],
             ['Serie', src.moto_no_serie || src.serie],
@@ -1750,7 +1915,7 @@ body.dark-mode .acd-dict-evidencia-main small { color: #94a3b8; }
         const n = parseInt(minutos, 10);
         if (!Number.isFinite(n) || n < 0) return '';
         const dias = Math.floor(n / 1440);
-        if (dias > 0) return dias + ' dÃ­a' + (dias === 1 ? '' : 's');
+        if (dias > 0) return dias + ' día' + (dias === 1 ? '' : 's');
         const horas = Math.floor((n % 1440) / 60);
         const mins = n % 60;
         if (horas > 0) return horas + ' hora' + (horas === 1 ? '' : 's');
@@ -1906,7 +2071,7 @@ body.dark-mode .acd-dict-evidencia-main small { color: #94a3b8; }
                     <tr>
                         <th>Operacion</th>
                         <th>Gestor</th>
-                        <th>Operacion</th>
+                        <th>Tiempo</th>
                         <th class="acd-table-action">Acciones</th>
                     </tr>
                 </thead>
@@ -1988,7 +2153,7 @@ body.dark-mode .acd-dict-evidencia-main small { color: #94a3b8; }
         const minutosCalc = acdMinutosEntreFechas(fechaInicioEtapa, fechaFinEtapa);
         const tiempoEtapa = acdMinutosTexto(Number.isFinite(minutosNum) && minutosNum >= 0 ? minutosNum : minutosCalc);
         const tiempoEtapaDetalle = tiempoEtapa
-            ? tiempoEtapa + (fechaFinEtapa ? ' · Lista ' + fechaFinEtapa : '')
+            ? tiempoEtapa + (fechaFinEtapa ? ' / Lista ' + fechaFinEtapa : '')
             : (fechaFinEtapa || '-');
         const chips = [
             ['Gestor', base.gestor_nombre || '-'],
@@ -1997,33 +2162,36 @@ body.dark-mode .acd-dict-evidencia-main small { color: #94a3b8; }
         ];
 
         return `
-        <div class="d-flex flex-column gap-3">
-            ${acdRenderFormularioOperacion(base)}
-            <div class="acd-dict-detail-grid">
-                ${chips.map(function (chip) {
-                    return `<div class="acd-dict-chip"><span>${acdEsc(chip[0])}</span><strong>${acdEsc(String(chip[1] || '-'))}</strong></div>`;
-                }).join('')}
-            </div>
-            <div class="acd-dict-evidencia-card">
-                <div class="acd-dict-evidencia-main">
-                    <i class="fa-solid fa-file-circle-check"></i>
-                    <div>
-                        <strong>Evidencia de cierre documentado</strong>
-                        <small>${_acdDictaminadoEvidenciaUrl ? 'Documento cargado en expediente.' : 'Sin documento cargado en expediente.'}</small>
-                    </div>
+        <div class="acd-modal-grid">
+            <div class="acd-modal-main d-flex flex-column gap-3">
+                ${acdRenderFormularioOperacion(base)}
+                <div class="acd-dict-detail-grid">
+                    ${chips.map(function (chip) {
+                        return `<div class="acd-dict-chip"><span>${acdEsc(chip[0])}</span><strong>${acdEsc(String(chip[1] || '-'))}</strong></div>`;
+                    }).join('')}
                 </div>
-                <button type="button" class="btn btn-outline-success btn-sm rounded-pill fw-bold" data-acd-ver-evidencia-dict="1"${_acdDictaminadoEvidenciaUrl ? '' : ' disabled'}>
-                    <i class="fa-regular fa-eye me-1"></i>Ver evidencia
-                </button>
+                <div class="acd-dict-evidencia-card">
+                    <div class="acd-dict-evidencia-main">
+                        <i class="fa-solid fa-file-circle-check"></i>
+                        <div>
+                            <strong>Evidencia de cierre documentado</strong>
+                            <small>${_acdDictaminadoEvidenciaUrl ? 'Documento cargado en expediente.' : 'Sin documento cargado en expediente.'}</small>
+                        </div>
+                    </div>
+                    <button type="button" class="btn btn-outline-success btn-sm rounded-pill fw-bold" data-acd-ver-evidencia-dict="1"${_acdDictaminadoEvidenciaUrl ? '' : ' disabled'}>
+                        <i class="fa-regular fa-eye me-1"></i>Ver evidencia
+                    </button>
+                </div>
+                <div>
+                    <h6 class="fw-bold mb-2">Dictamen</h6>
+                    <div class="acd-dict-observacion">${acdEsc(dictamen || 'Sin dictamen registrado.')}</div>
+                </div>
+                ${comentarios ? `<div>
+                    <h6 class="fw-bold mb-2">Comentarios</h6>
+                    <div class="acd-dict-observacion">${acdEsc(comentarios)}</div>
+                </div>` : ''}
             </div>
-            <div>
-                <h6 class="fw-bold mb-2">Dictamen</h6>
-                <div class="acd-dict-observacion">${acdEsc(dictamen || 'Sin dictamen registrado.')}</div>
-            </div>
-            ${comentarios ? `<div>
-                <h6 class="fw-bold mb-2">Comentarios</h6>
-                <div class="acd-dict-observacion">${acdEsc(comentarios)}</div>
-            </div>` : ''}
+            ${acdRenderBitacoraCompleta(base.bitacora || [])}
         </div>`;
     }
 

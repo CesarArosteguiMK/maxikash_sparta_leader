@@ -1,4 +1,4 @@
-<style>
+﻿<style>
 .ar-header-gradient {
     background: linear-gradient(135deg, #0f766e 0%, #14b8a6 100%);
     border-radius: 1rem;
@@ -1245,6 +1245,47 @@ body.dark-mode #modalArRecuperacionEvidencias .ar-ev-vista-panel { background: #
     font-size: .68rem; font-weight: 800; text-transform: uppercase; letter-spacing: .05em;
     color: #64748b; margin-bottom: .5rem;
 }
+.ar-ev-bit-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+.ar-ev-bit-item {
+    position: relative;
+    padding: 0 0 .72rem .9rem;
+    border-left: 2px solid #cbd5e1;
+}
+.ar-ev-bit-item:last-child { padding-bottom: 0; }
+.ar-ev-bit-item::before {
+    content: "";
+    position: absolute;
+    left: -.32rem;
+    top: .08rem;
+    width: .55rem;
+    height: .55rem;
+    border-radius: 999px;
+    background: #14b8a6;
+    box-shadow: 0 0 0 3px #ccfbf1;
+}
+.ar-ev-bit-action {
+    color: #1e293b;
+    font-size: .72rem;
+    font-weight: 850;
+    line-height: 1.2;
+}
+.ar-ev-bit-meta {
+    margin-top: .18rem;
+    color: #64748b;
+    font-size: .66rem;
+    font-weight: 750;
+    line-height: 1.18;
+}
+.ar-ev-bit-empty {
+    color: #94a3b8;
+    font-size: .76rem;
+    text-align: center;
+    padding: .75rem 0;
+}
 
 body.dark-mode .ac-card              { background: #111827; border-color: #1f2937; }
 body.dark-mode .ac-card.ar-card-dict { background: #111827; }
@@ -1262,6 +1303,9 @@ body.dark-mode .ae-main-credito { color: #e2e8f0; }
 body.dark-mode .ar-ev-slots-wrap { background: #0f172a; border-color: #334155; }
 body.dark-mode .ar-ev-slot { background: #1e293b; border-color: #475569; }
 body.dark-mode .ar-ev-notas-panel { background: #0f172a; border-color: #334155; }
+body.dark-mode .ar-ev-bit-action { color: #e2e8f0; }
+body.dark-mode .ar-ev-bit-meta { color: #94a3b8; }
+body.dark-mode .ar-ev-bit-item { border-color: #334155; }
 body.dark-mode .ar-table-wrap { background: #111827; border-color: #1f2937; }
 body.dark-mode .ar-table thead th { background: #0f172a; color: #e2e8f0; border-color: #1f2937; }
 body.dark-mode .ar-table tbody tr:hover { background: #172033; }
@@ -1535,17 +1579,6 @@ $arPublicPath = function_exists('sparta_public_web_base') ? sparta_public_web_ba
     };
 
     const AR_BADGE = { bandeja: 'ar-badge-bandeja', dictaminado: 'ar-badge-dictaminado' };
-
-    /** Texto provisional en panel lateral (Bitácora forense IA) hasta integrar contenido real */
-    const AR_BITACORA_FORENSE_LOREM =
-        '<p class="mb-3 text-body-secondary" style="font-size:.82rem;line-height:1.55;">Lorem ipsum dolor sit amet, ' +
-        'consectetur adipiscing elit. Sed ut perspiciatis unde omnis iste natus error sit voluptatem accusantium ' +
-        'doloremque laudantium, totam rem aperiam, eaque ipsa quae ab illo inventore veritatis et quasi architecto ' +
-        'beatae vitae dicta sunt explicabo.</p>' +
-        '<p class="mb-0 text-body-secondary" style="font-size:.82rem;line-height:1.55;">Nemo enim ipsam voluptatem ' +
-        'quia voluptas sit aspernatur aut odit aut fugit, sed quia consequuntur magni dolores eos qui ratione ' +
-        'voluptatem sequi nesciunt. Neque porro quisquam est, qui dolorem ipsum quia dolor sit amet, consectetur, ' +
-        'adipisci velit.</p>';
 
     let _arCargada = { bandeja: false, dictaminado: false };
     let _arEvDetalle = null;
@@ -2551,7 +2584,7 @@ $arPublicPath = function_exists('sparta_public_web_base') ? sparta_public_web_ba
             arInfoResguardoTexto(moto),
             arDatoVisible(moto.log_ciudad),
             arDatoVisible(moto.log_estado)
-        ].filter(Boolean).join(' · ');
+        ].filter(Boolean).join(' / ');
 
         const datosMoto = [
             arInfoItem('Marca', moto.moto_marca || moto.marca, '', true),
@@ -2588,6 +2621,24 @@ $arPublicPath = function_exists('sparta_public_web_base') ? sparta_public_web_ba
             '</div>' +
             '</div>' +
             '</div>';
+    }
+
+    function arRenderBitacoraOperacion(det) {
+        const rows = Array.isArray(det && det.bitacora) ? det.bitacora : [];
+        if (!rows.length) {
+            return '<div class="ar-ev-bit-empty">Sin movimientos registrados.</div>';
+        }
+        return '<ul class="ar-ev-bit-list">' + rows.map(function (b) {
+            const accion = arEsc(b.accion || 'Movimiento');
+            const usuario = arEsc(b.nombre_usuario || 'Sistema');
+            const fecha = arEsc(b.fecha_alta || '');
+            return '<li class="ar-ev-bit-item">' +
+                '<div class="ar-ev-bit-action">' + accion + '</div>' +
+                '<div class="ar-ev-bit-meta"><i class="fa-solid fa-user me-1"></i>' + usuario +
+                (fecha ? '<br><i class="fa-regular fa-clock me-1"></i>' + fecha : '') +
+                '</div>' +
+            '</li>';
+        }).join('') + '</ul>';
     }
 
     function arEvRenderDetalle(det) {
@@ -2642,8 +2693,8 @@ $arPublicPath = function_exists('sparta_public_web_base') ? sparta_public_web_ba
             '</div>' +
             '<div class="col-lg-4">' +
             '<div class="ar-ev-notas-panel">' +
-            '<div class="ar-ev-notas-title"><i class="fa-solid fa-fingerprint me-1"></i> Bitácora forense IA</div>' +
-            '<div id="ar-ev-notas-body">' + AR_BITACORA_FORENSE_LOREM + '</div>' +
+            '<div class="ar-ev-notas-title"><i class="fa-solid fa-clock-rotate-left me-1"></i>Bitácora</div>' +
+            '<div id="ar-ev-notas-body">' + arRenderBitacoraOperacion(det) + '</div>' +
             '</div></div></div>';
 
         arBindSlotClicks(inner);

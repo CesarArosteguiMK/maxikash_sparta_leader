@@ -1415,6 +1415,14 @@ class MotosAdjudicadas extends Controller
                 'evidencias'             => is_array($detalle['evidencias'] ?? null) ? $detalle['evidencias'] : [],
                 'observaciones'          => is_array($detalle['observaciones'] ?? null) ? $detalle['observaciones'] : [],
                 'historial'              => $historial,
+                'bitacora'               => is_array($detalle['bitacora'] ?? null) ? $detalle['bitacora'] : [],
+                'ultimo_analista_evidencias' => is_array($detalle['ultimo_analista_evidencias'] ?? null) ? $detalle['ultimo_analista_evidencias'] : null,
+                'ultimo_analista_nombre' => $detalle['ultimo_analista_nombre'] ?? null,
+                'ultimo_analista_fecha'  => $detalle['ultimo_analista_fecha'] ?? null,
+                'ultimo_analista_accion' => $detalle['ultimo_analista_accion'] ?? null,
+                'ultimo_gestor_operacion'=> is_array($detalle['ultimo_gestor_operacion'] ?? null) ? $detalle['ultimo_gestor_operacion'] : null,
+                'ultimo_gestor_nombre'   => $detalle['ultimo_gestor_nombre'] ?? null,
+                'ultimo_gestor_fecha'    => $detalle['ultimo_gestor_fecha'] ?? null,
             ];
 
             echo json_encode(['success' => true, 'detalle' => $detalleCompacto]);

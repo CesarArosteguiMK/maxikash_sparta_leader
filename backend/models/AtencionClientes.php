@@ -141,6 +141,48 @@ SQL;
 SQL;
     }
 
+    private function sqlUltimoAnalistaEvidencias(string $aliasOperacion = 'o'): string
+    {
+        $whereAcciones = "(
+            UPPER(bu.accion) LIKE '%VALIDACI%'
+            OR UPPER(bu.accion) LIKE '%RECHAZOS EVIDENCIAS%'
+            OR UPPER(bu.accion) LIKE '%EVIDENCIAS VALIDADAS%'
+            OR UPPER(bu.accion) LIKE '%REEMPLAZO ESPECIAL DE EVIDENCIA%'
+        )";
+        $whereUsuario = "TRIM(COALESCE(bu.nombre_usuario, '')) <> ''
+            AND UPPER(TRIM(COALESCE(bu.nombre_usuario, ''))) NOT IN ('SISTEMA', 'SYSTEM', 'MAXIKASH APP')";
+
+        return <<<SQL
+            (
+                SELECT bu.nombre_usuario
+                FROM adj_bitacora bu
+                WHERE bu.id_operacion = {$aliasOperacion}.id
+                  AND {$whereAcciones}
+                  AND {$whereUsuario}
+                ORDER BY bu.fecha_alta DESC, bu.id DESC
+                LIMIT 1
+            ) AS ultimo_analista_nombre,
+            (
+                SELECT DATE_FORMAT(bu.fecha_alta, '%d/%m/%Y %H:%i')
+                FROM adj_bitacora bu
+                WHERE bu.id_operacion = {$aliasOperacion}.id
+                  AND {$whereAcciones}
+                  AND {$whereUsuario}
+                ORDER BY bu.fecha_alta DESC, bu.id DESC
+                LIMIT 1
+            ) AS ultimo_analista_fecha,
+            (
+                SELECT bu.accion
+                FROM adj_bitacora bu
+                WHERE bu.id_operacion = {$aliasOperacion}.id
+                  AND {$whereAcciones}
+                  AND {$whereUsuario}
+                ORDER BY bu.fecha_alta DESC, bu.id DESC
+                LIMIT 1
+            ) AS ultimo_analista_accion
+SQL;
+    }
+
     private function sqlTiempoEnBandejaEvidencias(string $aliasOperacion = 'o'): string
     {
         $ahoraCdmx = $this->sqlAhoraCdmxLiteral();
@@ -569,6 +611,7 @@ SQL;
         $evidenciasCount = $this->sqlConteoEvidenciasFisicas('o');
         $evidenciasValidacion = $this->sqlConteosValidacionAtn('o');
         $ultimoMovimientoEvidencias = $this->sqlUltimoMovimientoEvidencias('o');
+        $ultimoAnalistaEvidencias = $this->sqlUltimoAnalistaEvidencias('o');
         $tiempoEnBandeja = $this->sqlTiempoEnCorrecciones('o');
         $formulario = $this->sqlSelectFormularioEvidencias('o');
         $sql = <<<SQL
@@ -585,6 +628,7 @@ SQL;
             {$evidenciasCount} AS evidencias_count,
             {$evidenciasValidacion},
             {$ultimoMovimientoEvidencias},
+            {$ultimoAnalistaEvidencias},
             {$tiempoEnBandeja},
             {$formulario},
             TRIM(CONCAT_WS(' ',
@@ -621,6 +665,7 @@ SQL;
         $evidenciasCount = $this->sqlConteoEvidenciasFisicas('o');
         $evidenciasValidacion = $this->sqlConteosValidacionAtn('o');
         $ultimoMovimientoEvidencias = $this->sqlUltimoMovimientoEvidencias('o');
+        $ultimoAnalistaEvidencias = $this->sqlUltimoAnalistaEvidencias('o');
         $tiempoEnBandeja = $this->sqlTiempoEnBandejaEvidencias('o');
         $formulario = $this->sqlSelectFormularioEvidencias('o');
         $sql = <<<SQL
@@ -637,6 +682,7 @@ SQL;
             {$evidenciasCount} AS evidencias_count,
             {$evidenciasValidacion},
             {$ultimoMovimientoEvidencias},
+            {$ultimoAnalistaEvidencias},
             {$tiempoEnBandeja},
             {$formulario},
             TRIM(CONCAT_WS(' ',
@@ -669,6 +715,7 @@ SQL;
         $recuperacionExpedienteCount = $this->sqlConteoExpedienteRecuperacion('o');
         $evidenciasValidacion = $this->sqlConteosValidacionAtn('o');
         $ultimoMovimientoEvidencias = $this->sqlUltimoMovimientoEvidencias('o');
+        $ultimoAnalistaEvidencias = $this->sqlUltimoAnalistaEvidencias('o');
         $tiempoTotalValidacion = $this->sqlTiempoTotalValidacionEvidencias('o');
         $tiempoEnRecuperacion = $this->sqlTiempoEnBandejaRecuperacion('o');
         $formulario = $this->sqlSelectFormularioEvidencias('o');
@@ -709,6 +756,7 @@ SQL;
             {$recuperacionExpedienteCount} AS recuperacion_expediente_count,
             {$evidenciasValidacion},
             {$ultimoMovimientoEvidencias},
+            {$ultimoAnalistaEvidencias},
             {$tiempoTotalValidacion},
             {$tiempoEnRecuperacion},
             {$formulario},
