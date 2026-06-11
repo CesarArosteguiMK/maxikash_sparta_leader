@@ -320,6 +320,7 @@
 .ae-table-main-client i,
 .ae-table-gestor-name i,
 .ae-table-legacy-label i,
+.ae-table-analyst-label i,
 .ae-evidence-approved-date i {
     color: #64748b;
     font-size: .72rem;
@@ -499,6 +500,38 @@ body.dark-mode .ae-evidence-detail-pending { color: #94a3b8; }
     font-weight: 700;
     line-height: 1.15;
 }
+.ae-table-analyst {
+    display: block;
+    margin-top: .42rem;
+    padding-top: .36rem;
+    border-top: 1px solid #e2e8f0;
+}
+.ae-table-analyst-label {
+    display: flex;
+    align-items: flex-start;
+    gap: .34rem;
+    color: #64748b;
+    font-size: .66rem;
+    font-weight: 800;
+    line-height: 1.1;
+    text-transform: uppercase;
+    letter-spacing: .025em;
+}
+.ae-table-analyst-value {
+    display: block;
+    margin-top: .12rem;
+    color: #566a7f;
+    font-size: .78rem;
+    font-weight: 800;
+    line-height: 1.15;
+}
+.ae-table-analyst-date {
+    display: block;
+    color: #94a3b8;
+    font-size: .66rem;
+    font-weight: 700;
+    line-height: 1.1;
+}
 .ae-action-buttons {
     display: flex;
     width: 100%;
@@ -627,9 +660,14 @@ body.dark-mode .ae-table-evidence { color: #e2e8f0; }
 body.dark-mode .ae-table-legacy-label { color: #94a3b8; }
 body.dark-mode .ae-table-legacy-label { border-color: #1f2937; }
 body.dark-mode .ae-table-legacy-date { color: #e2e8f0; }
+body.dark-mode .ae-table-analyst { border-color: #1f2937; }
+body.dark-mode .ae-table-analyst-label { color: #94a3b8; }
+body.dark-mode .ae-table-analyst-value { color: #e2e8f0; }
+body.dark-mode .ae-table-analyst-date { color: #64748b; }
 body.dark-mode .ae-table-main-client i,
 body.dark-mode .ae-table-gestor-name i,
 body.dark-mode .ae-table-legacy-label i,
+body.dark-mode .ae-table-analyst-label i,
 body.dark-mode .ae-evidence-approved-date i { color: #94a3b8; }
 body.dark-mode .ae-evidence-detail { color: #94a3b8; }
 body.dark-mode .ae-evidence-approved-date { color: #94a3b8; border-color: #1f2937; }
@@ -686,6 +724,14 @@ body.dark-mode #aeTabContent .dataTables_length select { background: #111827; bo
     }
     .ae-form-field-wide {
         grid-column: span 1;
+    }
+    .aev-modal-grid,
+    .aev-context-strip {
+        grid-template-columns: 1fr;
+    }
+    .aev-bitacora-panel {
+        position: static;
+        max-height: none;
     }
 }
 
@@ -760,6 +806,131 @@ body.dark-mode #aeTabContent .dataTables_length select { background: #111827; bo
     background: linear-gradient(90deg, #f8fafc 0%, #eef2f7 45%, #f8fafc 90%);
     background-size: 220% 100%;
     animation: aevLoadShimmer 1.05s linear infinite;
+}
+.aev-modal-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 270px;
+    gap: .85rem;
+    align-items: start;
+}
+.aev-modal-main { min-width: 0; }
+.aev-context-strip {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: .55rem;
+    margin-bottom: .75rem;
+}
+.aev-context-card {
+    border: 1px solid #dbe4ef;
+    border-radius: .6rem;
+    background: #f8fafc;
+    padding: .55rem .65rem;
+    min-width: 0;
+}
+.aev-context-card-label {
+    display: flex;
+    align-items: center;
+    gap: .34rem;
+    color: #64748b;
+    font-size: .64rem;
+    font-weight: 900;
+    line-height: 1.1;
+    text-transform: uppercase;
+    letter-spacing: .04em;
+}
+.aev-context-card-value {
+    display: block;
+    margin-top: .18rem;
+    color: #1e293b;
+    font-size: .78rem;
+    font-weight: 850;
+    line-height: 1.15;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.aev-context-card-sub {
+    display: block;
+    margin-top: .08rem;
+    color: #94a3b8;
+    font-size: .68rem;
+    font-weight: 800;
+    line-height: 1.1;
+}
+.aev-bitacora-panel {
+    position: sticky;
+    top: .35rem;
+    border: 1px solid #dbe4ef;
+    border-radius: .75rem;
+    background: #fff;
+    max-height: 66vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+.aev-bitacora-head {
+    padding: .68rem .75rem;
+    border-bottom: 1px solid #e2e8f0;
+    background: #f8fafc;
+}
+.aev-bitacora-title {
+    display: flex;
+    align-items: center;
+    gap: .4rem;
+    color: #123150;
+    font-size: .78rem;
+    font-weight: 900;
+    text-transform: uppercase;
+    letter-spacing: .04em;
+    margin: 0;
+}
+.aev-bitacora-sub {
+    color: #64748b;
+    font-size: .68rem;
+    font-weight: 700;
+    margin-top: .16rem;
+}
+.aev-bitacora-list {
+    list-style: none;
+    margin: 0;
+    padding: .7rem .75rem;
+    overflow: auto;
+}
+.aev-bitacora-item {
+    position: relative;
+    padding: 0 0 .72rem .9rem;
+    border-left: 2px solid #dbe4ef;
+}
+.aev-bitacora-item:last-child { padding-bottom: 0; }
+.aev-bitacora-item::before {
+    content: "";
+    position: absolute;
+    left: -.32rem;
+    top: .08rem;
+    width: .55rem;
+    height: .55rem;
+    border-radius: 999px;
+    background: #2563eb;
+    box-shadow: 0 0 0 3px #eff6ff;
+}
+.aev-bitacora-action {
+    color: #1e293b;
+    font-size: .72rem;
+    font-weight: 850;
+    line-height: 1.2;
+}
+.aev-bitacora-meta {
+    margin-top: .18rem;
+    color: #64748b;
+    font-size: .66rem;
+    font-weight: 750;
+    line-height: 1.18;
+}
+.aev-bitacora-empty {
+    color: #94a3b8;
+    font-size: .76rem;
+    padding: .85rem;
+    text-align: center;
 }
 @keyframes aevLoadShimmer {
     0% { background-position: 220% 0; }
@@ -1021,6 +1192,17 @@ body.dark-mode .aev-detalle-loading-card {
     background: linear-gradient(90deg, #111827 0%, #1e293b 45%, #111827 90%);
     background-size: 220% 100%;
 }
+body.dark-mode .aev-context-card,
+body.dark-mode .aev-bitacora-panel { background: #111827; border-color: #1f2937; }
+body.dark-mode .aev-context-card-label,
+body.dark-mode .aev-context-card-sub,
+body.dark-mode .aev-bitacora-sub,
+body.dark-mode .aev-bitacora-meta { color: #94a3b8; }
+body.dark-mode .aev-context-card-value,
+body.dark-mode .aev-bitacora-action,
+body.dark-mode .aev-bitacora-title { color: #e2e8f0; }
+body.dark-mode .aev-bitacora-head { background: #0f172a; border-color: #1f2937; }
+body.dark-mode .aev-bitacora-item { border-color: #334155; }
 </style>
 
 <div class="container-fluid py-4">
@@ -1394,7 +1576,7 @@ $aevPuedeReemplazarEvidencia = in_array(79, array_map('intval', (array) ($_SESSI
         const promesa = fetch('/MotosAdjudicadas/obtenerEvidenciasCredito', {
             method:  'POST',
             headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
-            body:    JSON.stringify({ id_credito: id, nombre_cliente: '', rapido: true }),
+            body:    JSON.stringify({ id_credito: id, nombre_cliente: '', rapido: !forzar }),
             credentials: 'same-origin'
         })
             .then(function (r) { return r.json(); })
@@ -1463,7 +1645,7 @@ $aevPuedeReemplazarEvidencia = in_array(79, array_map('intval', (array) ($_SESSI
         },
         aprobados: {
             url:   '/AtencionClientes/obtenerAprobadosEvidencias',
-            vacio: 'No hay operaciones en Aprobados (Procesando IA) en este momento.',
+            vacio: 'No hay operaciones en Aprobados (RECUPERACION) en este momento.',
         },
         correcciones: {
             url:   '/AtencionClientes/obtenerCorreccionesEvidencias',
@@ -2265,6 +2447,61 @@ $aevPuedeReemplazarEvidencia = in_array(79, array_map('intval', (array) ($_SESSI
         </div>`;
     }
 
+    function aevTextoDato(v, fallback) {
+        const s = (v == null) ? '' : String(v).trim();
+        return s ? s : (fallback || 'No registrado');
+    }
+
+    function aevRenderContextoAtencion(det) {
+        const analista = aevTextoDato(det.ultimo_analista_nombre, 'Sin atencion registrada');
+        const fechaAnalista = aevTextoDato(det.ultimo_analista_fecha, '');
+        const accionAnalista = aevTextoDato(det.ultimo_analista_accion, '');
+        const gestor = aevTextoDato(det.ultimo_gestor_nombre || det.gestor_nombre, 'Sin gestor registrado');
+        const fechaGestor = aevTextoDato(det.ultimo_gestor_fecha, '');
+        return '<div class="aev-context-strip">' +
+            '<div class="aev-context-card">' +
+                '<span class="aev-context-card-label"><i class="fa-solid fa-user-check"></i>Ultimo analista</span>' +
+                '<span class="aev-context-card-value">' + aeEsc(analista) + '</span>' +
+                (fechaAnalista ? '<span class="aev-context-card-sub">' + aeEsc(fechaAnalista) + (accionAnalista ? ' / ' + aeEsc(accionAnalista) : '') + '</span>' : '') +
+            '</div>' +
+            '<div class="aev-context-card">' +
+                '<span class="aev-context-card-label"><i class="fa-solid fa-user-tie"></i>Ultimo gestor</span>' +
+                '<span class="aev-context-card-value">' + aeEsc(gestor) + '</span>' +
+                (fechaGestor ? '<span class="aev-context-card-sub">Asignado ' + aeEsc(fechaGestor) + '</span>' : '') +
+            '</div>' +
+        '</div>';
+    }
+
+    function aevRenderBitacoraCompleta(det) {
+        const rows = Array.isArray(det && det.bitacora) ? det.bitacora : [];
+        if (!rows.length) {
+            return '<aside class="aev-bitacora-panel">' +
+                '<div class="aev-bitacora-head">' +
+                    '<h6 class="aev-bitacora-title"><i class="fa-solid fa-clock-rotate-left"></i>Bitacora</h6>' +
+                    '<div class="aev-bitacora-sub">Movimientos completos de la operacion.</div>' +
+                '</div>' +
+                '<div class="aev-bitacora-empty">Sin movimientos registrados.</div>' +
+            '</aside>';
+        }
+        return '<aside class="aev-bitacora-panel">' +
+            '<div class="aev-bitacora-head">' +
+                '<h6 class="aev-bitacora-title"><i class="fa-solid fa-clock-rotate-left"></i>Bitacora</h6>' +
+                '<div class="aev-bitacora-sub">' + rows.length + ' movimientos registrados.</div>' +
+            '</div>' +
+            '<ul class="aev-bitacora-list">' + rows.map(function (b) {
+                const accion = aevTextoDato(b.accion, 'Movimiento');
+                const usuario = aevTextoDato(b.nombre_usuario, 'Sistema');
+                const fecha = aevTextoDato(b.fecha_alta, '');
+                return '<li class="aev-bitacora-item">' +
+                    '<div class="aev-bitacora-action">' + aeEsc(accion) + '</div>' +
+                    '<div class="aev-bitacora-meta"><i class="fa-solid fa-user me-1"></i>' + aeEsc(usuario) +
+                        (fecha ? '<br><i class="fa-regular fa-clock me-1"></i>' + aeEsc(fecha) : '') +
+                    '</div>' +
+                '</li>';
+            }).join('') + '</ul>' +
+        '</aside>';
+    }
+
     function aevRenderCuerpoModalValidar(det) {
         const evl = det.evidencias || [];
         const m   = aevMapaPorSlot(evl);
@@ -2274,7 +2511,8 @@ $aevPuedeReemplazarEvidencia = in_array(79, array_map('intval', (array) ($_SESSI
         const pctAll = AEV_MODAL_TOTAL ? Math.round((vall / AEV_MODAL_TOTAL) * 100) : 0;
         const mostrarDoc = vpdf > 0 || aevImagenesTodasAceptadas(evl);
 
-        let html = '';
+        let html = '<div class="aev-modal-grid"><div class="aev-modal-main">';
+        html += aevRenderContextoAtencion(det);
         html += aeRenderFormularioOperacion(det);
 
         html += '<div class="aev-ev-progress-wrap">';
@@ -2301,6 +2539,7 @@ $aevPuedeReemplazarEvidencia = in_array(79, array_map('intval', (array) ($_SESSI
                 html += '</div>';
             });
         }
+        html += '</div>' + aevRenderBitacoraCompleta(det) + '</div>';
         return html;
     }
 
@@ -2738,7 +2977,7 @@ $aevPuedeReemplazarEvidencia = in_array(79, array_map('intval', (array) ($_SESSI
         ];
 
         const camposResguardo = [
-            ['Lugar de resguardo', ubicacion.replace(/\s\/\s/g, ' · '), true],
+            ['Lugar de resguardo', ubicacion, true],
             ['Responsable', aeValorLimpio(src.responsable_entrega)],
             ['Telefono', aeFormatoTelefono(src.log_telefono)],
             ['Direccion resguardo', aeValorLimpio(src.log_direccion), true]
@@ -2819,8 +3058,18 @@ $aevPuedeReemplazarEvidencia = in_array(79, array_map('intval', (array) ($_SESSI
     function aeTextoMovimientoEvidencias(accion) {
         const txt = String(accion || '').trim();
         if (!txt) return '';
-        return txt
+        const limpio = txt
             .replace(/\s*\(id evidencia\s+\d+\)\s*/i, '')
+            .trim();
+        const evAntigua = limpio.match(/^VALIDACI[ÓO]N EVIDENCIA\s+(ACEPTADA|RECHAZADA)\s*-\s*(.+)$/i);
+        if (evAntigua) {
+            return 'Evidencia ' + evAntigua[2].trim() + ': ' + evAntigua[1].toUpperCase();
+        }
+        return limpio
+            .replace(/\(PROCESANDO IA\)/ig, '(RECUPERACION)')
+            .replace(/^ENVIÓ EVIDENCIAS AL PIPELINE$/i, 'EL GESTOR ENVIO EVIDENCIAS DE LA ADJUDICACION')
+            .replace(/^ENVI[Ã“O] EVIDENCIAS AL PIPELINE$/i, 'EL GESTOR ENVIO EVIDENCIAS DE LA ADJUDICACION')
+            .replace(/^ENVIO EVIDENCIAS AL PIPELINE$/i, 'EL GESTOR ENVIO EVIDENCIAS DE LA ADJUDICACION')
             .replace(/^VALIDACI[ÓO]N EVIDENCIA\s+/i, 'Evidencia ')
             .replace(/^ENVI[ÓO] EVIDENCIAS VALIDADAS\s*/i, 'Enviado a siguiente fase ')
             .replace(/^REGISTRO RECHAZOS EVIDENCIAS APP\s*/i, 'Registro de rechazos ')
@@ -2957,6 +3206,8 @@ $aevPuedeReemplazarEvidencia = in_array(79, array_map('intval', (array) ($_SESSI
         const fechaDictamenLegacy = item.fecha_dictamen_legacy
             ? aeEsc(item.fecha_dictamen_legacy)
             : (item.fecha_gestion_legacy ? aeEsc(item.fecha_gestion_legacy) : '<span class="ae-table-muted">-</span>');
+        const analistaNombre = item.ultimo_analista_nombre ? aeEsc(item.ultimo_analista_nombre) : '<span class="ae-table-muted">Sin atencion</span>';
+        const analistaFecha = item.ultimo_analista_fecha ? aeEsc(item.ultimo_analista_fecha) : '';
         const cliente = item.nombre_cliente ? aeEsc(item.nombre_cliente) : '<span class="ae-table-muted">Sin nombre</span>';
         const folio = item.folio ? aeEsc(item.folio) : '-';
         const esAprobados = String(key || '').toLowerCase() === 'aprobados';
@@ -2984,6 +3235,11 @@ $aevPuedeReemplazarEvidencia = in_array(79, array_map('intval', (array) ($_SESSI
                 <span class="ae-table-gestor-name"><i class="fa-solid fa-user-tie"></i>${gestor}</span>
                 <span class="ae-table-legacy-label"><i class="fa-solid fa-calendar-days"></i>DICTAMINADO EN LEGACY</span>
                 <span class="ae-table-legacy-date">${fechaDictamenLegacy}</span>
+                <span class="ae-table-analyst">
+                    <span class="ae-table-analyst-label"><i class="fa-solid fa-user-check"></i>ULTIMO ANALISTA</span>
+                    <span class="ae-table-analyst-value">${analistaNombre}</span>
+                    ${analistaFecha ? '<span class="ae-table-analyst-date">' + analistaFecha + '</span>' : ''}
+                </span>
             </td>
             <td class="ae-table-evidence">${aeRenderEstadoEvidencias(item, key)}</td>
             <td class="ae-table-action">
