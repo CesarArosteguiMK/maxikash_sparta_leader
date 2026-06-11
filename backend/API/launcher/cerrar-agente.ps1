@@ -1,10 +1,15 @@
-# Detiene el proceso que escucha en el puerto 8000 (API verificacion documentos, uvicorn).
+# Detiene la API de verificacion documentos.
+# Cierra el proceso que escucha en el puerto 8000 y limpia uvicorns huerfanos
+# de esta misma carpeta para evitar que quede codigo viejo en memoria.
 param(
     [switch]$Silent
 )
 
 $ErrorActionPreference = 'SilentlyContinue'
 $port = 8000
+$here = Split-Path -Parent $MyInvocation.MyCommand.Path
+$apiDir = Resolve-Path (Join-Path $here '..') -ErrorAction SilentlyContinue
+$apiDirText = if ($apiDir) { $apiDir.Path } else { (Join-Path $here '..') }
 $pids = New-Object 'System.Collections.Generic.HashSet[int]'
 
 try {
@@ -26,9 +31,62 @@ if ($pids.Count -eq 0) {
     }
 }
 
+$portPids = @($pids)
+
+try {
+    $procList = @(Get-CimInstance Win32_Process -ErrorAction SilentlyContinue)
+    $procById = @{}
+    foreach ($p in $procList) {
+        if ($p.ProcessId -gt 0) { $procById[[int]$p.ProcessId] = $p }
+    }
+
+    $procList | Where-Object {
+        $cmd = [string]$_.CommandLine
+        if ([string]::IsNullOrWhiteSpace($cmd)) { return $false }
+
+        $isThisApiPython = $cmd -like "*$apiDirText*" -or $cmd -like "*backend\API\tools\PythonPortable\python.exe*" -or $cmd -like "*backend\API\venv\Scripts\python.exe*"
+        $isPythonProcess = ([string]$_.Name) -match '^python'
+        $isUvicornDocApi = $cmd -match 'uvicorn\s+app\.main:app' -or $cmd -match 'uvicorn.*app\.main:app' -or $cmd -match 'run-uvicorn-hidden\.cmd'
+        $isPort8000Api = $cmd -match '--port\s+8000'
+        $isLauncherCmd = $cmd -match 'iniciar-agente-foreground\.bat' -or $cmd -match 'run-uvicorn-hidden\.cmd'
+
+        return ($isThisApiPython -and ($isPythonProcess -or $isUvicornDocApi -or $isPort8000Api)) -or ($cmd -like "*$apiDirText*" -and $isLauncherCmd)
+    } | ForEach-Object {
+        if ($_.ProcessId -gt 0) { [void]$pids.Add([int]$_.ProcessId) }
+    }
+
+    foreach ($procId in @($pids)) {
+        $current = if ($procById.ContainsKey([int]$procId)) { $procById[[int]$procId] } else { $null }
+        for ($i = 0; $i -lt 4 -and $current -and $current.ParentProcessId -gt 0; $i++) {
+            $parentId = [int]$current.ParentProcessId
+            if (-not $procById.ContainsKey($parentId)) { break }
+            $parent = $procById[$parentId]
+            $parentCmd = [string]$parent.CommandLine
+            if ($parentCmd -like "*$apiDirText*" -or $parentCmd -match 'uvicorn.*app\.main:app' -or $parentCmd -match 'run-uvicorn-hidden\.cmd' -or $parentCmd -match 'iniciar-agente-foreground\.bat') {
+                [void]$pids.Add($parentId)
+                $current = $parent
+                continue
+            }
+            break
+        }
+    }
+} catch {}
+
+try {
+    Get-Process python -ErrorAction SilentlyContinue | Where-Object {
+        $path = [string]$_.Path
+        $path -like "*\sparta___SPARTA_SECRET_REDACTED__\backend\API\*" -or
+        $path -like "*\backend\API\tools\PythonPortable\python.exe" -or
+        $path -like "*\backend\API\venv\Scripts\python.exe"
+    } | ForEach-Object {
+        if ($_.Id -gt 0) { [void]$pids.Add([int]$_.Id) }
+    }
+} catch {}
+
 $killed = $false
 $failed = @()
 foreach ($procId in @($pids)) {
+    $taskkillFailure = $null
     $taskkill = Join-Path ${env:SystemRoot} 'System32\taskkill.exe'
     if (Test-Path -LiteralPath $taskkill) {
         try {
@@ -39,26 +97,93 @@ foreach ($procId in @($pids)) {
                 $killed = $true
                 continue
             }
-            $failed += "PID $procId taskkill exit=$($p.ExitCode)"
+            $taskkillFailure = "PID $procId taskkill exit=$($p.ExitCode)"
         } catch {}
     }
     try {
         Stop-Process -Id $procId -Force -ErrorAction Stop
         $killed = $true
     } catch {
-        $failed += "PID $procId Stop-Process: $($_.Exception.Message)"
+        $msg = [string]$_.Exception.Message
+        if ($msg -match 'No se encuentra|Cannot find|not find|not found') {
+            continue
+        }
+        if ($taskkillFailure) { $failed += $taskkillFailure }
+        $failed += "PID $procId Stop-Process: $msg"
     }
 }
+
+Start-Sleep -Milliseconds 1200
+$stillListening = @()
+try {
+    Get-NetTCPConnection -LocalPort $port -State Listen -ErrorAction SilentlyContinue | ForEach-Object {
+        if ($_.OwningProcess -gt 0) { $stillListening += $_.OwningProcess }
+    }
+} catch {
+    foreach ($line in (netstat -ano 2>$null)) {
+        if ($line -match 'LISTENING' -and $line -match ":$port\s") {
+            $parts = $line.Trim() -split '\s+'
+            if ($parts.Count -gt 0) { $stillListening += $parts[$parts.Count - 1] }
+        }
+    }
+}
+
+if ($stillListening.Count -gt 0) {
+    foreach ($procId in @($stillListening | Sort-Object -Unique)) {
+        $taskkill = Join-Path ${env:SystemRoot} 'System32\taskkill.exe'
+        if (Test-Path -LiteralPath $taskkill) {
+            try {
+                Start-Process -FilePath $taskkill `
+                    -ArgumentList @('/F', '/T', '/PID', ([string]$procId)) `
+                    -Wait -WindowStyle Hidden -ErrorAction SilentlyContinue | Out-Null
+            } catch {}
+        }
+        try { Stop-Process -Id ([int]$procId) -Force -ErrorAction SilentlyContinue } catch {}
+    }
+    Start-Sleep -Milliseconds 1200
+    $stillListening = @()
+    try {
+        Get-NetTCPConnection -LocalPort $port -State Listen -ErrorAction SilentlyContinue | ForEach-Object {
+            if ($_.OwningProcess -gt 0) { $stillListening += $_.OwningProcess }
+        }
+    } catch {
+        foreach ($line in (netstat -ano 2>$null)) {
+            if ($line -match 'LISTENING' -and $line -match ":$port\s") {
+                $parts = $line.Trim() -split '\s+'
+                if ($parts.Count -gt 0) { $stillListening += $parts[$parts.Count - 1] }
+            }
+        }
+    }
+}
+
+$healthStillUp = $false
+try {
+    $resp = Invoke-WebRequest -Uri 'http://127.0.0.1:8000/api/v1/health' -UseBasicParsing -TimeoutSec 3 -ErrorAction Stop
+    if ($resp.StatusCode -ge 200 -and $resp.StatusCode -lt 500) { $healthStillUp = $true }
+} catch {}
 
 if (-not $Silent) {
     if ($killed) {
         Write-Host "Listo: se detuvo el proceso en el puerto $port."
+        $extra = @($pids | Where-Object { $portPids -notcontains $_ })
+        if ($extra.Count -gt 0) {
+            Write-Host ("Tambien se limpiaron procesos uvicorn residuales: " + (($extra | Sort-Object -Unique) -join ', '))
+        }
     } else {
         Write-Host "No habia ningun proceso escuchando en el puerto $port."
+    }
+    if ($stillListening.Count -gt 0 -or $healthStillUp) {
+        Write-Host ("[WARN] El puerto $port sigue ocupado por PID(s): " + (($stillListening | Sort-Object -Unique) -join ', '))
+        if ($healthStillUp) {
+            Write-Host "[WARN] /api/v1/health sigue respondiendo; la API no se detuvo por completo."
+        }
+    } else {
+        Write-Host "Verificado: el puerto $port quedo libre."
     }
     foreach ($f in $failed) {
         Write-Host "[WARN] $f"
     }
 }
 
+if ($stillListening.Count -gt 0 -or $healthStillUp) { exit 1 }
 exit 0

@@ -110,8 +110,9 @@ function Start-UvicornWithCmdFallback {
     $ErrLog = ([string]::Join('', @($ErrLog)) -replace '[\r\n]+', '').Trim()
     $foregroundBat = Join-Path $here 'iniciar-agente-foreground.bat'
     if (Test-Path -LiteralPath $foregroundBat) {
+        $cmd = 'set "SPARTA_API_NO_PAUSE=1" && "' + $foregroundBat + '"'
         return Start-Process -FilePath 'cmd.exe' `
-            -ArgumentList @('/d', '/c', ('"' + $foregroundBat + '"')) `
+            -ArgumentList @('/d', '/c', $cmd) `
             -WorkingDirectory $ApiDir `
             -WindowStyle Hidden `
             -PassThru

@@ -71,8 +71,10 @@ if "!API_READY!"=="1" (
         call "%~dp0iniciar-agente.bat"
         exit /b !ERRORLEVEL!
     )
-    ping 127.0.0.1 -n 3 >nul
-    exit /b 0
+    echo [RESTART] La API ya estaba viva. Reiniciando para cargar el codigo actual...
+    powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0cerrar-agente.ps1" -Silent
+    call "%~dp0iniciar-agente.bat"
+    exit /b !ERRORLEVEL!
 )
 
 rem ----- Bootstrap defensivo: si Python portable existe pero esta roto -----

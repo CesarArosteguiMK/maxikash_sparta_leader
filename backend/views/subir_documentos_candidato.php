@@ -1567,7 +1567,10 @@ $documentos = [
                     .then(function(res) {
                         var el = document.getElementById('fiscal-verificado');
                         if (res && res.rechazado === true) {
-                            showResultado(msg, verificandoDiv, res.mensaje || 'Documento rechazado. Sube la constancia fiscal correcta.', true);
+                            var detalleFiscalRechazo = '';
+                            if (res.rfc) detalleFiscalRechazo += ' RFC detectado: ' + normalizarTextoInterfaz(res.rfc) + '.';
+                            if (res.curp) detalleFiscalRechazo += ' CURP detectada: ' + normalizarTextoInterfaz(res.curp) + '.';
+                            showResultado(msg, verificandoDiv, (res.mensaje || 'Documento rechazado. Sube la constancia fiscal correcta.') + detalleFiscalRechazo, true);
                             inputFiscal.value = '';
                             if (el) el.style.display = 'none';
                             actualizarCheckmark(7, false);

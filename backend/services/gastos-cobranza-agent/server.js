@@ -210,6 +210,8 @@ const MANUAL_CLOCK_OFFSET_MS =
 let remoteClockOffsetMs = 0;
 let lastRemoteSyncOkAt = 0;
 let lastRemoteSyncAttemptAt = 0;
+let lastRemoteSyncSource = '';
+let lastRemoteSyncError = '';
 /** Evita saturar el log si la API de hora falla en bucle (ECONNRESET, etc.). */
 let lastRemoteSyncFailLogAt = 0;
 let lastRemoteSyncFailMsg = '';
@@ -656,6 +658,52 @@ function httpsGetJson(urlStr, timeoutMs) {
   });
 }
 
+function httpsGetDateHeaderOffset(urlStr, timeoutMs) {
+  return new Promise((resolve, reject) => {
+    let settled = false;
+    const url = new URL(urlStr);
+    const req = https.request(
+      {
+        hostname: url.hostname,
+        port: url.port || 443,
+        path: `${url.pathname}${url.search}`,
+        method: 'HEAD',
+        headers: { 'User-Agent': 'gastos-cobranza-agent/1.0' },
+      },
+      (res) => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(to);
+        res.resume();
+        if (res.statusCode && res.statusCode >= 400) {
+          reject(new Error(`HTTP ${res.statusCode}`));
+          return;
+        }
+        const rawDate = String(res.headers.date || '').trim();
+        const epoch = Date.parse(rawDate);
+        if (!rawDate || !Number.isFinite(epoch)) {
+          reject(new Error('cabecera Date invalida'));
+          return;
+        }
+        resolve(epoch - Date.now());
+      },
+    );
+    const to = setTimeout(() => {
+      if (settled) return;
+      settled = true;
+      req.destroy();
+      reject(new Error('timeout'));
+    }, timeoutMs);
+    req.on('error', (e) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(to);
+      reject(e);
+    });
+    req.end();
+  });
+}
+
 function offsetMsFromPublicTimeJson(body) {
   if (!body || typeof body !== 'object') throw new Error('cuerpo vacío');
   if (body.unixtime != null) return Number(body.unixtime) * 1000 - Date.now();
@@ -685,6 +733,74 @@ async function syncCdmxClockFromRemote() {
   );
 }
 
+function splitEnvUrls(value, defaults) {
+  const raw = String(value || '').trim();
+  if (!raw) return defaults;
+  return raw
+    .split(/[,\s]+/)
+    .map((x) => x.trim())
+    .filter(Boolean);
+}
+
+async function syncCdmxClockFromRemoteRobust() {
+  const timeout = Math.min(
+    30000,
+    Math.max(3000, parseInt(String(process.env.GASTOS_GC_TIME_API_TIMEOUT_MS || '8000').trim(), 10) || 8000),
+  );
+  const jsonUrls = splitEnvUrls(process.env.GASTOS_GC_TIME_API_URLS || process.env.GASTOS_GC_TIME_API_URL, [
+    'https://worldtimeapi.org/api/timezone/America/Mexico_City',
+  ]);
+  const headerUrls = splitEnvUrls(process.env.GASTOS_GC_TIME_HEADER_URLS, [
+    'https://www.google.com/generate_204',
+    'https://www.cloudflare.com/',
+  ]);
+  const errors = [];
+
+  for (const url of jsonUrls) {
+    try {
+      const body = await httpsGetJson(url, timeout);
+      const off = offsetMsFromPublicTimeJson(body);
+      if (!Number.isFinite(off)) throw new Error('offset NaN');
+      remoteClockOffsetMs = off;
+      lastRemoteSyncOkAt = Date.now();
+      lastRemoteSyncSource = url;
+      lastRemoteSyncError = '';
+      lastRemoteSyncFailMsg = '';
+      const parts = fmtCdmxYmdParts(nowForCdmxCalendar());
+      appendLog(
+        `[reloj] API hora (${url}) offset_remoto_ms=${remoteClockOffsetMs} ` +
+          `-> CDMX hoy ${parts ? `${parts.y}-${pad2Seg(parts.m)}-${pad2Seg(parts.d)}` : '?'}`,
+      );
+      return;
+    } catch (e) {
+      errors.push(`${url}: ${e?.message || e}`);
+    }
+  }
+
+  for (const url of headerUrls) {
+    try {
+      const off = await httpsGetDateHeaderOffset(url, timeout);
+      if (!Number.isFinite(off)) throw new Error('offset NaN');
+      remoteClockOffsetMs = off;
+      lastRemoteSyncOkAt = Date.now();
+      lastRemoteSyncSource = `${url} [Date]`;
+      lastRemoteSyncError = '';
+      lastRemoteSyncFailMsg = '';
+      const parts = fmtCdmxYmdParts(nowForCdmxCalendar());
+      appendLog(
+        `[reloj] Cabecera Date (${url}) offset_remoto_ms=${remoteClockOffsetMs} ` +
+          `-> CDMX hoy ${parts ? `${parts.y}-${pad2Seg(parts.m)}-${pad2Seg(parts.d)}` : '?'}`,
+      );
+      return;
+    } catch (e) {
+      errors.push(`${url}: ${e?.message || e}`);
+    }
+  }
+
+  lastRemoteSyncError = errors.join(' | ');
+  throw new Error(`no se pudo sincronizar hora remota (${lastRemoteSyncError})`);
+}
+
 async function ensureCdmxTimeFresh() {
   if (!remoteCdmxTimeEnabled()) return;
   const n = Date.now();
@@ -692,7 +808,7 @@ async function ensureCdmxTimeFresh() {
   if (n - lastRemoteSyncAttemptAt < 15000) return;
   lastRemoteSyncAttemptAt = n;
   try {
-    await syncCdmxClockFromRemote();
+    await syncCdmxClockFromRemoteRobust();
   } catch (e) {
     appendRemoteSyncFailureLog('[reloj]', e);
   }
@@ -706,7 +822,7 @@ async function ensureCdmxTimeFreshForAutoRunTick() {
   if (n - lastRemoteSyncAttemptAt < 15000) return;
   lastRemoteSyncAttemptAt = n;
   try {
-    await syncCdmxClockFromRemote();
+    await syncCdmxClockFromRemoteRobust();
   } catch (e) {
     appendRemoteSyncFailureLog('[reloj][auto-run]', e);
   }
@@ -927,7 +1043,7 @@ async function ensureCdmxTimeFreshForAutoCronjobsMartesTick() {
   if (n - lastRemoteSyncAttemptAt < 15000) return;
   lastRemoteSyncAttemptAt = n;
   try {
-    await syncCdmxClockFromRemote();
+    await syncCdmxClockFromRemoteRobust();
   } catch (e) {
     appendRemoteSyncFailureLog('[reloj][auto-cronjobs-martes]', e);
   }
@@ -996,8 +1112,8 @@ function autoCronjobsMartesTargetMinute() {
 }
 
 function autoCronjobsMartesWindowMinutes() {
-  const n = parseInt(String(process.env.GASTOS_GC_AUTO_CRONJOBS_MARTES_WINDOW_MINUTES || '25').trim(), 10);
-  return Number.isFinite(n) && n >= 1 && n <= 120 ? n : 25;
+  const n = parseInt(String(process.env.GASTOS_GC_AUTO_CRONJOBS_MARTES_WINDOW_MINUTES || '600').trim(), 10);
+  return Number.isFinite(n) && n >= 1 && n <= 900 ? n : 600;
 }
 
 function autoCronjobsMartesTickMs() {
@@ -1846,6 +1962,9 @@ app.get('/health', (req, res) => {
     cdmx_calendario_hoy: hCdmx ? `${hCdmx.y}-${pad2Seg(hCdmx.m)}-${pad2Seg(hCdmx.d)}` : null,
     reloj_remoto_cdmx: remoteCdmxTimeEnabled(),
     reloj_offset_remoto_ms: remoteClockOffsetMs,
+    reloj_remoto_fresco: lastRemoteSyncOkAt ? Date.now() - lastRemoteSyncOkAt < timeSyncMaxAgeMs() : false,
+    reloj_remoto_fuente: lastRemoteSyncSource,
+    reloj_remoto_ultimo_error: lastRemoteSyncError,
     reloj_offset_manual_ms: MANUAL_CLOCK_OFFSET_MS,
     script_configurado: scriptPath.length > 0,
     script_bundled: scriptPath !== '' && scriptPath === SCRIPT_BUNDLED,
@@ -2270,11 +2389,17 @@ async function tickAutoCronjobsMartesCdmx() {
       return;
     }
 
-    writeAutoCronjobsMartesLastYmd(todayStr);
     appendLog(
       `[auto-cronjobs-martes] Disparo CDMX ${todayStr} ${pad2Seg(h)}:${pad2Seg(m)} (objetivo ${pad2Seg(th)}:${pad2Seg(tm)}, ventana ${win} min).`,
     );
-    await runAutoCronjobsMartesSequence(todayStr, `${pad2Seg(h)}:${pad2Seg(m)}`);
+    const result = await runAutoCronjobsMartesSequence(todayStr, `${pad2Seg(h)}:${pad2Seg(m)}`);
+    if (result?.success) {
+      writeAutoCronjobsMartesLastYmd(todayStr);
+    } else {
+      appendLog(
+        `[auto-cronjobs-martes] No se marca ${todayStr} como ejecutado porque el flujo no termino correctamente; se reintentara dentro de la ventana.`,
+      );
+    }
   } finally {
     autoCronjobsMartesTickBusy = false;
   }

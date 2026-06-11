@@ -3840,6 +3840,7 @@ SQL;
             $this->sincronizarDictumsAsignacionVigentePendientes();
 
             if ($soloAsignacionVigente) {
+                $this->sincronizarDictumsOperacionesLocalesPendientes();
                 return;
             }
 
@@ -3875,6 +3876,36 @@ SQL;
                 }
                 @fclose($lockHandle);
             }
+        }
+    }
+
+    private function sincronizarDictumsOperacionesLocalesPendientes(): void
+    {
+        try {
+            $rows = $this->db->queryAll(
+                "SELECT ao.id AS id_operacion, ao.id_credito
+                 FROM adj_operacion ao
+                 WHERE ao.estatus IN ('en_transito', 'Recibido')
+                   AND NOT EXISTS (
+                       SELECT 1
+                       FROM adj_bitacora b
+                       WHERE b.id_operacion = ao.id
+                         AND b.accion LIKE '%AL PIPELINE%'
+                   )
+                 ORDER BY ao.fecha_actualizacion DESC
+                 LIMIT 300"
+            ) ?: [];
+
+            foreach ($rows as $row) {
+                $this->sincronizarDictumAppCreditoOperacion(
+                    (int) ($row['id_credito'] ?? 0),
+                    (int) ($row['id_operacion'] ?? 0),
+                    0,
+                    'APP MOVIL'
+                );
+            }
+        } catch (\Throwable $e) {
+            // La sincronizacion es auxiliar; la bandeja no debe romper si Legacy no responde.
         }
     }
 
