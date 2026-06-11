@@ -1403,7 +1403,7 @@ $documentos = [
                             return;
                         }
                         if (res.es_reciente === false && res.meses_antiguedad != null) {
-                            showResultado(msg, null, 'La constancia CURP tiene más de 3 meses (' + res.meses_antiguedad + ' meses). Descarga una constancia reciente desde la página del RENAPO.', true);
+                            showResultado(msg, null, 'La constancia CURP tiene más de 3 meses. Descarga una constancia reciente desde la página del RENAPO.', true);
                             inputCURP.value = '';
                             if (el) el.style.display = 'none';
                             actualizarCheckmark(4, false);
@@ -1473,7 +1473,7 @@ $documentos = [
                         idVerificado.front = true;
                         idVerificado.back = true;
                         var ind = res.indicadores || {};
-                        var etiquetaId = ind.pasaporte ? 'Pasaporte listo' : (ind.inm_residencia ? 'Residencia lista' : ((ind.ine || ind.elector) ? 'INE listo' : 'Identificación lista'));
+                        var etiquetaId = ind.pasaporte ? 'Pasaporte listo' : (ind.inm_residencia ? 'Residencia lista' : ((ind.ine || ind.elector) ? 'INE listo' : 'Identificación detectada'));
                         if (el) {
                             el.innerHTML = '<i class="fa fa-check-circle me-1"></i> ' + etiquetaId;
                             el.style.display = 'inline';

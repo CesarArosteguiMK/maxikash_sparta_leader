@@ -14,7 +14,7 @@ class OfertaCoordenada
 
     private static function getCachePath(int $idCredito): string
     {
-        return dirname(__DIR__) . '/storage/cache/oferta_coordenada_' . $idCredito . '.json';
+        return dirname(__DIR__) . '/storage/cache/oferta_coordenada_v2_' . $idCredito . '.json';
     }
 
     private static function readCache(int $idCredito): ?array
@@ -77,6 +77,34 @@ class OfertaCoordenada
 
             return ['lat' => round($lat, 6), 'lng' => round($lng, 6)];
         }
+        // Fallback tolerante para coordenadas con simbolos UTF-8 correctos o mojibake.
+        $normalizado = html_entity_decode($dms, ENT_QUOTES | ENT_HTML5, 'UTF-8');
+        $normalizado = str_replace(
+            ['Â°', 'º', '˚', '°', '′', '’', '`', '´', '″', '“', '”'],
+            [' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' '],
+            $normalizado
+        );
+        if (
+            preg_match_all('/-?\d+(?:[.,]\d+)?/', $normalizado, $nums)
+            && count($nums[0]) >= 6
+            && preg_match_all('/[NSEW]/iu', $normalizado, $dirs)
+            && count($dirs[0]) >= 2
+        ) {
+            $latDeg = (float) str_replace(',', '.', $nums[0][0]);
+            $latMin = (float) str_replace(',', '.', $nums[0][1]);
+            $latSec = (float) str_replace(',', '.', $nums[0][2]);
+            $lngDeg = (float) str_replace(',', '.', $nums[0][3]);
+            $lngMin = (float) str_replace(',', '.', $nums[0][4]);
+            $lngSec = (float) str_replace(',', '.', $nums[0][5]);
+            $latSign = strtoupper($dirs[0][0]) === 'S' ? -1 : 1;
+            $lngSign = strtoupper($dirs[0][1]) === 'W' ? -1 : 1;
+
+            $lat = $latSign * ($latDeg + $latMin / 60 + $latSec / 3600);
+            $lng = $lngSign * ($lngDeg + $lngMin / 60 + $lngSec / 3600);
+
+            return ['lat' => round($lat, 6), 'lng' => round($lng, 6)];
+        }
+
         return null;
     }
 

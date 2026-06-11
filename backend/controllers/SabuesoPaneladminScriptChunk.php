@@ -743,7 +743,10 @@ JS;
             puntosGeo = puntosGeo || [];
             var cont = document.getElementById(\'rastreoMapaAlternas\');
             if (!cont) return;
-            if (!googleMapsApiKey || !googleMapsApiKey.length) return;
+            if (!googleMapsApiKey || !googleMapsApiKey.length) {
+                cont.innerHTML = \'<div class="d-flex align-items-center justify-content-center h-100 text-muted small p-3 text-center">Falta configurar GOOGLE_MAPS_API_KEY para mostrar este mapa.</div>\';
+                return;
+            }
             if (typeof google === \'undefined\' || !google.maps) { setTimeout(function() { maybeInitMapaAlternas(); }, 500); return; }
             if (rastreoMapaAlternas) { try { if (typeof rastreoMapaAlternas.remove === \'function\') rastreoMapaAlternas.remove(); } catch (e) {} rastreoMapaAlternas = null; }
             if (rastreoPolylineAlternas) { try { rastreoPolylineAlternas.setMap(null); } catch (e) {} rastreoPolylineAlternas = null; }
@@ -1026,7 +1029,10 @@ JS;
             if (oldOverlayG) oldOverlayG.remove();
             var oldLeyendaG = cont.querySelector(\'.rastreo-leyenda-mapa-grande\');
             if (oldLeyendaG) oldLeyendaG.remove();
-            if (!googleMapsApiKey || !googleMapsApiKey.length) return;
+            if (!googleMapsApiKey || !googleMapsApiKey.length) {
+                cont.innerHTML = \'<div class="d-flex align-items-center justify-content-center h-100 text-muted small p-3 text-center">Falta configurar GOOGLE_MAPS_API_KEY para mostrar este mapa.</div>\';
+                return;
+            }
             if (typeof google === \'undefined\' || !google.maps) return;
             if (rastreoMapaAlternasGrande) { try { if (typeof rastreoMapaAlternasGrande.remove === \'function\') rastreoMapaAlternasGrande.remove(); } catch (e) {} rastreoMapaAlternasGrande = null; }
             if (rastreoPolylineAlternasGrande) { try { rastreoPolylineAlternasGrande.setMap(null); } catch (e) {} rastreoPolylineAlternasGrande = null; }
