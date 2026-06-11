@@ -96,7 +96,7 @@ function Test-ApiReady {
     return $false
 }
 
-function Start-UvicornWithCmdFallback {
+function Start-UvicornDirect {
     param(
         [Parameter(Mandatory)] [string] $PyExe,
         [string[]] $PyArgs = @(),
@@ -108,26 +108,17 @@ function Start-UvicornWithCmdFallback {
     $ApiDir = ([string]::Join('', @($ApiDir)) -replace '[\r\n]+', '').Trim()
     $OutLog = ([string]::Join('', @($OutLog)) -replace '[\r\n]+', '').Trim()
     $ErrLog = ([string]::Join('', @($ErrLog)) -replace '[\r\n]+', '').Trim()
-    $foregroundBat = Join-Path $here 'iniciar-agente-foreground.bat'
-    if (Test-Path -LiteralPath $foregroundBat) {
-        $cmd = 'set "SPARTA_API_NO_PAUSE=1" && "' + $foregroundBat + '"'
-        return Start-Process -FilePath 'cmd.exe' `
-            -ArgumentList @('/d', '/c', $cmd) `
-            -WorkingDirectory $ApiDir `
-            -WindowStyle Hidden `
-            -PassThru
-    }
-    $cmdFile = Join-Path $logsDir 'run-uvicorn-hidden.cmd'
-    $argText = ''
-    if ($PyArgs.Count -gt 0) {
-        $argText = (($PyArgs | ForEach-Object { '"' + ($_ -replace '"', '\"') + '"' }) -join ' ') + ' '
-    }
-    $cmdText = "@echo off`r`n"
-    $cmdText += "cd /d ""$ApiDir""`r`n"
-    $cmdText += "set ""PYTHONUNBUFFERED=1""`r`n"
-    $cmdText += """$PyExe"" $argText-m uvicorn app.main:app --host 0.0.0.0 --port 8000 --workers 2 1>>""$OutLog"" 2>>""$ErrLog""`r`n"
-    Set-Content -LiteralPath $cmdFile -Value $cmdText -Encoding ASCII
-    $p = Start-Process -FilePath 'cmd.exe' -ArgumentList @('/d','/c','start','"SpartaAPI"','/min', $cmdFile) -WindowStyle Hidden -PassThru
+    $argList = @()
+    if ($PyArgs.Count -gt 0) { $argList += $PyArgs }
+    $argList += @('-m', 'uvicorn', 'app.main:app', '--host', '0.0.0.0', '--port', '8000', '--workers', '1')
+    $env:PYTHONUNBUFFERED = '1'
+    $p = Start-Process -FilePath $PyExe `
+        -ArgumentList $argList `
+        -WorkingDirectory $ApiDir `
+        -WindowStyle Hidden `
+        -RedirectStandardOutput $OutLog `
+        -RedirectStandardError $ErrLog `
+        -PassThru
     return $p
 }
 
@@ -201,18 +192,18 @@ Write-Start 'OK: smoke import correcto.'
 # ---- 5) Lanzar uvicorn capturando stdout y stderr ----
 $argList = @()
 if ($pyArgs.Count -gt 0) { $argList += $pyArgs }
-$argList += @('-m','uvicorn','app.main:app','--host','0.0.0.0','--port','8000','--workers','2')
+$argList += @('-m','uvicorn','app.main:app','--host','0.0.0.0','--port','8000','--workers','1')
 
 # Truncar logs anteriores (mantener historial seria sumar tamano sin control).
 try { Set-Content -LiteralPath $outLog -Value '' -Encoding UTF8 } catch {}
 try { Set-Content -LiteralPath $errLog -Value '' -Encoding UTF8 } catch {}
 
 try {
-    $proc = Start-UvicornWithCmdFallback -PyExe $pyExe -PyArgs $pyArgs -ApiDir $ApiDir -OutLog $outLog -ErrLog $errLog
-    Write-Start "OK: arranque enviado por cmd dedicado (PID cmd $($proc.Id)). stdout=$outLog stderr=$errLog"
-    $usedFallback = $true
+    $proc = Start-UvicornDirect -PyExe $pyExe -PyArgs $pyArgs -ApiDir $ApiDir -OutLog $outLog -ErrLog $errLog
+    Write-Start "OK: arranque enviado directo a Python (PID $($proc.Id)). stdout=$outLog stderr=$errLog"
+    $usedFallback = $false
 } catch {
-    Write-Start "ERROR: no se pudo lanzar Python con cmd dedicado: $($_.Exception.Message)"
+    Write-Start "ERROR: no se pudo lanzar Python directo: $($_.Exception.Message)"
     exit 1
 }
 
@@ -225,20 +216,6 @@ for ($i = 0; $i -lt 90; $i++) {
     } catch {}
     # Si el proceso murio, no tiene sentido seguir esperando.
     if ($proc -and $proc.HasExited -and -not (Test-ApiReady)) { break }
-}
-
-if (-not $ok -and -not $usedFallback) {
-    Write-Start 'AVISO: primer arranque no quedo listo; intentando fallback cmd/start antes de fallar.'
-    try {
-        $proc = Start-UvicornWithCmdFallback -PyExe $pyExe -PyArgs $pyArgs -ApiDir $ApiDir -OutLog $outLog -ErrLog $errLog
-        Write-Start "OK: fallback enviado (PID cmd $($proc.Id))."
-        for ($i = 0; $i -lt 90; $i++) {
-            Start-Sleep -Milliseconds 500
-            if (Test-ApiReady) { $ok = $true; break }
-        }
-    } catch {
-        Write-Start "AVISO: fallback tambien fallo: $($_.Exception.Message)"
-    }
 }
 
 if (-not $ok) {
@@ -257,6 +234,23 @@ if (-not $ok) {
         Get-Content -LiteralPath $outLog -Tail 20 -ErrorAction SilentlyContinue | ForEach-Object { Write-Start ('  ' + $_) }
     } catch {}
     Write-Start 'SOLUCION: ejecute launcher\Diagnosticar-API.bat (o Diagnosticar-API.bat /FIX) para identificar la causa.'
+    exit 1
+}
+
+Start-Sleep -Seconds 2
+if (-not (Test-ApiReady)) {
+    Write-Start 'ERROR: la API respondio al inicio, pero se cayo durante la verificacion de estabilidad.'
+    try {
+        if ($proc -and $proc.HasExited) { Write-Start "  ProcessExitCode: $($proc.ExitCode)" }
+    } catch {}
+    Write-Start '  --- Ultimas lineas de stderr ---'
+    try {
+        Get-Content -LiteralPath $errLog -Tail 40 -ErrorAction SilentlyContinue | ForEach-Object { Write-Start ('  ' + $_) }
+    } catch {}
+    Write-Start '  --- Ultimas lineas de stdout ---'
+    try {
+        Get-Content -LiteralPath $outLog -Tail 20 -ErrorAction SilentlyContinue | ForEach-Object { Write-Start ('  ' + $_) }
+    } catch {}
     exit 1
 }
 

@@ -654,9 +654,17 @@ class Inicio extends Controller
         $_SESSION['api_doc_1click_log'] = $logPath;
         $_SESSION['api_doc_1click_started_at'] = time();
 
-        $runnerQ = '"' . str_replace('"', '""', $runner) . '"';
-        $logQ = '"' . str_replace('"', '""', $logPath) . '"';
-        $cmd = 'start "" /b cmd /c ""' . str_replace('"', '""', $runner) . '" > "' . str_replace('"', '""', $logPath) . '" 2>&1"';
+        $runCmdName = 'web-api-1click-runner-' . date('Ymd-His') . '.cmd';
+        $runCmdPath = $logsDir . DIRECTORY_SEPARATOR . $runCmdName;
+        $runCmd = "@echo off\r\n"
+            . "chcp 65001 >nul\r\n"
+            . 'cd /d "' . str_replace('"', '""', $launcherDir) . '"' . "\r\n"
+            . 'call "' . str_replace('"', '""', $runner) . '" > "' . str_replace('"', '""', $logPath) . '" 2>&1' . "\r\n";
+        @file_put_contents($runCmdPath, $runCmd);
+        @file_put_contents($logPath, "[PANEL] Preparando ejecucion 1-click...\r\n");
+
+        $runCmdQ = '"' . str_replace('"', '""', $runCmdPath) . '"';
+        $cmd = 'cmd /d /c start "" /min cmd /d /c ' . $runCmdQ;
         @pclose(@popen($cmd, 'r'));
 
         // Pequeña pausa para que el log nazca y no se vea vacío al primer poll
@@ -710,6 +718,21 @@ class Inicio extends Controller
             }
         }
         $startedAt = (int)($_SESSION['api_doc_1click_started_at'] ?? 0);
+        $logAgeSeconds = is_file($logPath) ? max(0, time() - (int)@filemtime($logPath)) : 0;
+        $elapsedSeconds = $startedAt > 0 ? max(0, time() - $startedAt) : 0;
+        if (!$completed && $elapsedSeconds > 120 && $logAgeSeconds > 90 && !$this->apiDocOneClickProcesoRunnerVivo()) {
+            $completed = true;
+            $exitCode = 1;
+            $content .= "\r\n\r\n[ERROR PANEL] La ejecucion 1-click ya no esta viva y no escribio __FIN__.\r\n";
+            if ($this->apiDocOneClickApiEstaArriba()) {
+                $content .= "La API responde, pero el panel no puede confirmar que se haya reiniciado limpio con el codigo nuevo.\r\n";
+            } else {
+                $content .= "El log lleva mas de 90 segundos sin crecer y la API no responde en /api/v1/health.\r\n";
+            }
+            $content .= "Use Parar ejecucion y pulse API otra vez. No se marca OK sin reinicio confirmado.\r\n";
+            $content .= "__FIN__:1\r\n";
+            @file_put_contents($logPath, "\r\n[ERROR PANEL] La ejecucion 1-click ya no esta viva y no escribio __FIN__. No se confirma reinicio limpio.\r\n__FIN__:1\r\n", FILE_APPEND);
+        }
         if ($startedAt > 0 && (time() - $startedAt) > 7200 && !$completed && !$fatalBatch) {
             $completed = true;
             if ($exitCode === null) {
@@ -717,15 +740,6 @@ class Inicio extends Controller
             }
             $content .= "\r\n\r\n[AVISO PANEL] Lleva más de 2 horas sin marca de fin en el log.\r\n";
             $content .= "Puede usar «Desbloquear panel» y pulsar API de nuevo (el .bat del servidor puede seguir un rato).\r\n";
-        }
-
-        if (!$completed && $this->apiDocOneClickApiEstaArriba()) {
-            $completed = true;
-            $exitCode = 0;
-            $content .= "\r\n\r\n[OK PANEL] La API ya responde en http://127.0.0.1:8000/api/v1/health.\r\n";
-            $content .= "El log no tiene marca __FIN__, pero el servicio esta levantado; se libera el panel.\r\n";
-            $content .= "__FIN__:0\r\n";
-            @file_put_contents($logPath, "\r\n[OK PANEL] La API ya responde en http://127.0.0.1:8000/api/v1/health.\r\n__FIN__:0\r\n", FILE_APPEND);
         }
 
         echo json_encode([
@@ -758,10 +772,34 @@ class Inicio extends Controller
         if ($this->apiDocOneClickDetectFatalBatchError($tail)) {
             return ['is_running' => false, 'log_file' => $logPath];
         }
-        if ($this->apiDocOneClickApiEstaArriba()) {
-            return ['is_running' => false, 'log_file' => $logPath, 'api_ready' => true];
+        $logAgeSeconds = is_file($logPath) ? max(0, time() - (int)@filemtime($logPath)) : 0;
+        $elapsedSeconds = $startedAt > 0 ? max(0, time() - $startedAt) : 0;
+        if ($elapsedSeconds > 120 && $logAgeSeconds > 90 && !$this->apiDocOneClickProcesoRunnerVivo()) {
+            return ['is_running' => false, 'log_file' => $logPath, 'runner_dead' => true];
         }
         return ['is_running' => true, 'log_file' => $logPath];
+    }
+
+    private function apiDocOneClickProcesoRunnerVivo(): bool
+    {
+        if (stripos(PHP_OS, 'WIN') !== 0) {
+            return false;
+        }
+        $ps = '$ProgressPreference = "SilentlyContinue"; $p = Get-CimInstance Win32_Process -ErrorAction SilentlyContinue | Where-Object { ($_.Name -eq "cmd.exe" -or $_.Name -eq "powershell.exe") -and ($_.CommandLine -like "*web-api-1click-runner.bat*" -or $_.CommandLine -like "*Iniciar-API-Verificacion.bat*") } | Select-Object -First 1 -ExpandProperty ProcessId; if ($p) { Write-Output ("RUNNER_PID:" + $p) }';
+        $encoded = '';
+        if (function_exists('mb_convert_encoding')) {
+            $encoded = base64_encode(mb_convert_encoding($ps, 'UTF-16LE', 'UTF-8'));
+        } elseif (function_exists('iconv')) {
+            $encoded = base64_encode((string)iconv('UTF-8', 'UTF-16LE', $ps));
+        }
+        if ($encoded === '') {
+            return false;
+        }
+        $out = @shell_exec('powershell -NoProfile -ExecutionPolicy Bypass -EncodedCommand ' . $encoded);
+        if (!is_string($out) || stripos($out, 'RUNNER_PID:') === false) {
+            return false;
+        }
+        return true;
     }
 
     private function apiDocOneClickApiEstaArriba(): bool
@@ -1754,13 +1792,25 @@ class Inicio extends Controller
         foreach ($lines as $line) {
             $line = trim($line);
             if ($line === '') continue;
-            // Windows: "  TCP    127.0.0.1:8000   0.0.0.0:0   LISTENING   12345"
             if (stripos(PHP_OS, 'WIN') === 0) {
                 if (stripos($line, 'LISTENING') === false) continue;
-                if (preg_match('/(?:\[?[^\s\[\]]+\]?:|:):?(\d+)\s+\S+\s+LISTENING\s+(\d+)/i', $line, $m)) {
+                // Windows Server: TCP 0.0.0.0:8000 0.0.0.0:0 LISTENING 12345
+                $parts = preg_split('/\s+/', $line);
+                if (!is_array($parts) || count($parts) < 5) continue;
+                $stateIndex = null;
+                foreach ($parts as $idx => $part) {
+                    if (strcasecmp((string)$part, 'LISTENING') === 0) {
+                        $stateIndex = $idx;
+                        break;
+                    }
+                }
+                if ($stateIndex === null || $stateIndex < 2 || !isset($parts[$stateIndex + 1])) continue;
+                $local = (string)$parts[$stateIndex - 2];
+                $pidRaw = (string)$parts[$stateIndex + 1];
+                if (!preg_match('/^\d+$/', $pidRaw)) continue;
+                if (preg_match('/:(\d+)$/', $local, $m)) {
                     $port = (int)$m[1];
-                    $pid  = (int)$m[2];
-                    if ($port > 0) $ports[$port] = $pid;
+                    if ($port > 0) $ports[$port] = (int)$pidRaw;
                 }
             } else {
                 // ss -tlnp: ej. "LISTEN 0 128 *:8000 *:* users:((\"python\",pid=1234,fd=4))"

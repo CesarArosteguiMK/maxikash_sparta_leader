@@ -7298,6 +7298,64 @@ class CapHum extends Controller
                 });
             }
 
+            function subirDocumentoManualCandidato(idCandidato, tipoNum, tipoNombre) {
+                idCandidato = parseInt(idCandidato, 10) || 0;
+                tipoNum = parseInt(tipoNum, 10) || 0;
+                if (!idCandidato || !tipoNum) return;
+                var input = document.createElement("input");
+                input.type = "file";
+                input.accept = "application/pdf,.pdf";
+                input.style.display = "none";
+                document.body.appendChild(input);
+                input.addEventListener("change", function() {
+                    var archivo = input.files && input.files[0] ? input.files[0] : null;
+                    try { document.body.removeChild(input); } catch (e0) {}
+                    if (!archivo) return;
+                    if (!/\.pdf$/i.test(archivo.name || "")) {
+                        if (typeof Swal !== "undefined") Swal.fire({ icon: "warning", title: "Archivo no permitido", text: "Solo se acepta PDF." });
+                        return;
+                    }
+                    var fd = new FormData();
+                    fd.append("id_candidato", String(idCandidato));
+                    fd.append("tipo_documento", String(tipoNum));
+                    fd.append("archivo", archivo);
+                    if (typeof Swal !== "undefined") {
+                        Swal.fire({
+                            title: "Subiendo documento...",
+                            html: "Guardando " + (tipoNombre || "documento") + " en el expediente.",
+                            allowOutsideClick: false,
+                            allowEscapeKey: false,
+                            showConfirmButton: false,
+                            didOpen: function() { Swal.showLoading(); }
+                        });
+                    }
+                    fetch("/caphum/subirDocumentoManualCandidato", {
+                        method: "POST",
+                        headers: { "X-Requested-With": "XMLHttpRequest", "Accept": "application/json" },
+                        body: fd
+                    })
+                    .then(function(r) { return r.json(); })
+                    .then(function(res) {
+                        if (typeof Swal !== "undefined") Swal.close();
+                        if (res && res.success) {
+                            if (typeof Swal !== "undefined") {
+                                Swal.fire({ icon: "success", title: "Documento agregado", text: res.mensaje || "Documento subido manualmente.", timer: 2400, showConfirmButton: false });
+                            }
+                            cargarDocumentosModal(idCandidato);
+                            if (typeof getCandidatos === "function") getCandidatos();
+                        } else if (typeof Swal !== "undefined") {
+                            Swal.fire({ icon: "error", title: "No se pudo subir", text: (res && res.mensaje) ? res.mensaje : "No se pudo guardar el documento." });
+                        }
+                    })
+                    .catch(function() {
+                        if (typeof Swal !== "undefined") {
+                            Swal.fire({ icon: "error", title: "Error", text: "No se pudo conectar con el servidor." });
+                        }
+                    });
+                });
+                input.click();
+            }
+
             function renderListaDocumentos(lista, cargando, vacio, datos, verif, idCandidato) {
                 if (!lista) return;
                 disposeDocModalTooltips();
@@ -7309,7 +7367,8 @@ class CapHum extends Controller
                 }
                 if (cargando) cargando.classList.add("d-none");
                 lista.innerHTML = "";
-                if (!datos || datos.length === 0) { if (vacio) vacio.classList.remove("d-none"); return; }
+                datos = Array.isArray(datos) ? datos : [];
+                if (!datos || datos.length === 0) { if (vacio) vacio.classList.add("d-none"); }
                 if (vacio) vacio.classList.add("d-none");
                 function escHtml(s) { var t = normalizarTextoDocModal(s); return t.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;"); }
                 function normalizarTextoDocModal(s) {
@@ -7353,6 +7412,37 @@ class CapHum extends Controller
                 function claveDocModal(s) {
                     return normalizarTextoDocModal(s).normalize("NFD").replace(/[\u0300-\u036f]/g, "").toUpperCase();
                 }
+                var documentosRequeridosManual = [
+                    [1, "SOLICITUD INTERNA"],
+                    [2, "CV O SOLICITUD DE TRABAJO"],
+                    [3, "ACTA DE NACIMIENTO Certificada"],
+                    [4, "CURP"],
+                    [5, "IDENTIFICACION OFICIAL"],
+                    [6, "COMPROBANTE DE DOMICILIO"],
+                    [7, "CONSTANCIA DE SITUACION FISCAL"],
+                    [8, "NUMERO DE SEGURIDAD SOCIAL"],
+                    [9, "HOJA DE RETENCION FONACOT O INFONAVIT"],
+                    [10, "ESTADO DE CUENTA"]
+                ];
+                function numeroTipoDocModal(tipo) {
+                    var t = claveDocModal(tipo);
+                    if (t.indexOf("SOLICITUD INTERNA") !== -1) return 1;
+                    if (t.indexOf("CV") !== -1 || t.indexOf("SOLICITUD DE TRABAJO") !== -1) return 2;
+                    if (t.indexOf("ACTA DE NACIMIENTO") !== -1) return 3;
+                    if (t === "CURP" || (t.indexOf("CURP") !== -1 && t.indexOf("ACTA") === -1)) return 4;
+                    if (t.indexOf("IDENTIFICACION OFICIAL") !== -1) return 5;
+                    if (t.indexOf("COMPROBANTE DE DOMICILIO") !== -1) return 6;
+                    if (t.indexOf("CONSTANCIA") !== -1 && t.indexOf("FISCAL") !== -1) return 7;
+                    if (t.indexOf("SEGURIDAD SOCIAL") !== -1 || t.indexOf("NSS") !== -1) return 8;
+                    if (t.indexOf("FONACOT") !== -1 || t.indexOf("INFONAVIT") !== -1) return 9;
+                    if (t.indexOf("ESTADO DE CUENTA") !== -1) return 10;
+                    return 0;
+                }
+                var tiposPresentesManual = {};
+                datos.forEach(function(dPresente) {
+                    var nPresente = numeroTipoDocModal(dPresente && dPresente.tipo_documento ? dPresente.tipo_documento : "");
+                    if (nPresente > 0) tiposPresentesManual[nPresente] = true;
+                });
                 datos.forEach(function(d) {
                     var item = document.createElement("div");
             item.className = "list-group-item list-group-item-action d-flex justify-content-between align-items-center";
@@ -7567,12 +7657,17 @@ class CapHum extends Controller
                 }
             })();
             var permisosCandDoc = window.candidatosPermisos || {};
+            var candidatoDocActual = obtenerCandidatoLocalPorId(idCandidato);
+            var estatusDocActual = candidatoDocActual && candidatoDocActual.estatus ? String(candidatoDocActual.estatus) : "";
+            var documentoEnFlujoFinal = estatusDocActual === "Pendiente de validacion final" || estatusDocActual === "Ingreso programado";
             var puedeValidarDocumentalDoc = !!permisosCandDoc.documental;
+            var puedeValidarFinalDoc = !!permisosCandDoc.final && documentoEnFlujoFinal;
+            var puedeValidarDocActual = puedeValidarDocumentalDoc || puedeValidarFinalDoc;
             var puedeRechazarFinalDoc = !!permisosCandDoc.final;
             var btnValidarClase = esValidado ? "btn-success" : "btn-outline-success";
             var btnValidarIcon = esValidado ? "fa-check-circle" : "fa-check";
-            var btnValidarTitle = esValidado ? "Documento validado" : (puedeValidarDocumentalDoc ? "Marcar como validado" : "Requiere permiso de validador documental");
-            var btnValidarDisabled = (esValidado || !puedeValidarDocumentalDoc) ? " disabled" : "";
+            var btnValidarTitle = esValidado ? "Documento validado" : (puedeValidarDocActual ? "Marcar como validado" : "Requiere permiso de validador documental");
+            var btnValidarDisabled = (esValidado || !puedeValidarDocActual) ? " disabled" : "";
             if (esValidado) { item.style.borderLeft = "3px solid #198754"; item.style.background = "#f0fdf4"; }
             var btnActaHtml = tipoNorm.indexOf("ACTA") !== -1 ? "<button type=\"button\" class=\"btn btn-sm btn-outline-info btn-validar-acta-candidato\" data-id=\"" + d.id + "\" title=\"Validar acta con API\"><i class=\"fa fa-sync-alt\"></i></button>" : "";
             var btnEliminarHtml = (esValidado && !puedeRechazarFinalDoc)
@@ -7589,6 +7684,25 @@ class CapHum extends Controller
                 btnAbrirHtml +
                 btnEliminarHtml + "</div>";
             lista.appendChild(item);
+        });
+        var permisosManualDoc = window.candidatosPermisos || {};
+        var puedeSubirManualDoc = !!(permisosManualDoc.documental || permisosManualDoc.final);
+        documentosRequeridosManual.forEach(function(req) {
+            if (tiposPresentesManual[req[0]]) return;
+            var itemPend = document.createElement("div");
+            itemPend.className = "list-group-item d-flex justify-content-between align-items-center bg-light";
+            var accionManual = puedeSubirManualDoc
+                ? "<button type=\"button\" class=\"btn btn-sm btn-outline-primary btn-subir-doc-manual-candidato\" data-tipo=\"" + req[0] + "\" data-tipo-nombre=\"" + escHtml(req[1]) + "\" title=\"Subir PDF manualmente\"><i class=\"fa fa-upload me-1\"></i>Subir manualmente</button>"
+                : "<span class=\"badge bg-secondary\">Pendiente</span>";
+            itemPend.innerHTML = "<div><strong>" + escHtml(req[1]) + "</strong> <span class=\"badge bg-warning text-dark ms-1\">Pendiente</span><br><small class=\"text-muted\">Documento no subido por el candidato.</small></div><div>" + accionManual + "</div>";
+            lista.appendChild(itemPend);
+        });
+        lista.querySelectorAll(".btn-subir-doc-manual-candidato").forEach(function(btn) {
+            btn.addEventListener("click", function() {
+                var tipoNum = parseInt(btn.getAttribute("data-tipo"), 10);
+                var tipoNombre = btn.getAttribute("data-tipo-nombre") || "Documento";
+                subirDocumentoManualCandidato(idCandidato, tipoNum, tipoNombre);
+            });
         });
         lista.querySelectorAll("[data-bs-toggle=\"tooltip\"]").forEach(function(el) {
             if (typeof bootstrap === "undefined" || !bootstrap.Tooltip) return;
@@ -10708,6 +10822,134 @@ class CapHum extends Controller
         }
     }
 
+    public function subirDocumentoManualCandidato()
+    {
+        header('Content-Type: application/json; charset=utf-8');
+        if (!self::puedeValidarDocumentalCandidatos() && !self::puedeValidarFinalCandidatos()) {
+            echo json_encode(self::respuesta(false, 'No tienes permiso para subir documentos manualmente.'));
+            return;
+        }
+
+        $idCandidato = (int) ($_POST['id_candidato'] ?? 0);
+        $tipoNum = (int) ($_POST['tipo_documento'] ?? 0);
+        $tiposDocumento = [
+            1  => 'SOLICITUD INTERNA',
+            2  => 'CV O SOLICITUD DE TRABAJO',
+            3  => 'ACTA DE NACIMIENTO Certificada',
+            4  => 'CURP',
+            5  => 'IDENTIFICACION OFICIAL',
+            6  => 'COMPROBANTE DE DOMICILIO',
+            7  => 'CONSTANCIA DE SITUACION FISCAL',
+            8  => 'NUMERO DE SEGURIDAD SOCIAL',
+            9  => 'HOJA DE RETENCION FONACOT O INFONAVIT',
+            10 => 'ESTADO DE CUENTA',
+        ];
+        $slugPorTipo = [
+            1 => 'solicitud_interna', 2 => 'cv', 3 => 'acta_nacimiento', 4 => 'curp',
+            5 => 'identificacion_oficial', 6 => 'comprobante_domicilio', 7 => 'constancia_fiscal',
+            8 => 'nss', 9 => 'hoja_retencion', 10 => '__SPARTA_SECRET_REDACTED__',
+        ];
+
+        if ($idCandidato <= 0 || !isset($tiposDocumento[$tipoNum])) {
+            echo json_encode(self::respuesta(false, 'Datos incompletos para subir el documento.'));
+            return;
+        }
+        if (!isset($_FILES['archivo']) || ($_FILES['archivo']['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_OK) {
+            echo json_encode(self::respuesta(false, 'Selecciona un PDF para subir.'));
+            return;
+        }
+
+        $tmp = (string) ($_FILES['archivo']['tmp_name'] ?? '');
+        $nombreOriginal = basename((string) ($_FILES['archivo']['name'] ?? 'documento.pdf'));
+        $ext = strtolower(pathinfo($nombreOriginal, PATHINFO_EXTENSION));
+        if ($tmp === '' || !is_uploaded_file($tmp) || $ext !== 'pdf' || !SecureUpload::validateMime($tmp, SecureUpload::MIME_PDF) || !$this->esPdfValidoBasico($tmp)) {
+            echo json_encode(self::respuesta(false, 'Solo se acepta un archivo PDF valido.'));
+            return;
+        }
+
+        $resCandidato = CandidatosDAO::getById($idCandidato);
+        if (empty($resCandidato['success']) || empty($resCandidato['datos'])) {
+            echo json_encode(self::respuesta(false, 'Candidato no encontrado.'));
+            return;
+        }
+
+        $resDocs = CandidatosDAO::getDocumentosCandidato($idCandidato);
+        if (!empty($resDocs['success']) && !empty($resDocs['datos'])) {
+            foreach ($resDocs['datos'] as $docExistente) {
+                if ($this->numeroTipoDocumentoCandidatoMetricas($docExistente['tipo_documento'] ?? '') === $tipoNum) {
+                    echo json_encode(self::respuesta(false, 'Ese documento ya existe en el expediente. Si necesita reemplazarlo, primero elimine el documento actual.'));
+                    return;
+                }
+            }
+        }
+
+        $dirBase = defined('RAIZ') ? (RAIZ . '/storage/candidatos') : (__DIR__ . '/../storage/candidatos');
+        $dirExpediente = $dirBase . '/' . $idCandidato . '/expediente';
+        if (!is_dir($dirExpediente)) {
+            @mkdir($dirExpediente, 0755, true);
+        }
+        if (!is_dir($dirExpediente)) {
+            echo json_encode(self::respuesta(false, 'No se pudo preparar la carpeta del expediente.'));
+            return;
+        }
+
+        $slug = $slugPorTipo[$tipoNum] ?? ('doc_' . $tipoNum);
+        $nombreSeguro = preg_replace('/[^A-Za-z0-9._-]+/', '_', pathinfo($nombreOriginal, PATHINFO_FILENAME));
+        $nombreSeguro = trim($nombreSeguro, '._-');
+        if ($nombreSeguro === '') {
+            $nombreSeguro = $slug;
+        }
+        $nombreArchivo = $slug . '_manual_' . date('Ymd_His') . '_' . substr(md5($nombreSeguro . microtime(true)), 0, 8) . '.pdf';
+        $rutaDestino = $dirExpediente . '/' . $nombreArchivo;
+        if (!move_uploaded_file($tmp, $rutaDestino)) {
+            echo json_encode(self::respuesta(false, 'No se pudo guardar el PDF en el expediente.'));
+            return;
+        }
+
+        $rutaRelativa = 'candidatos/' . $idCandidato . '/expediente/' . $nombreArchivo;
+        $tipoNombre = $tiposDocumento[$tipoNum];
+        $marcaManual = [
+            'subida_manual_rrhh' => true,
+            'revision_manual' => true,
+            'pendiente_revision_manual' => true,
+            'id_usuario_rrhh' => (int) ($_SESSION['usuario_id'] ?? 0),
+            'fecha_subida_manual' => date('Y-m-d H:i:s'),
+            'notas' => ['Documento subido manualmente por Capital Humano.'],
+        ];
+        $verificacionFiscalJson = $tipoNum === 7 ? json_encode($marcaManual) : null;
+        $verificacionCalidadJson = $tipoNum !== 7 ? json_encode($marcaManual) : null;
+
+        $guardar = CandidatosDAO::guardarDocumento($idCandidato, $nombreOriginal, $rutaRelativa, $tipoNombre, null, null, $verificacionFiscalJson, $verificacionCalidadJson);
+        if (empty($guardar['success'])) {
+            @unlink($rutaDestino);
+            echo json_encode(self::respuesta(false, $guardar['mensaje'] ?? 'No se pudo registrar el documento.', null, $guardar['error'] ?? null));
+            return;
+        }
+
+        CandidatosDAO::registrarSubidaManualDocumentoCandidato(
+            $idCandidato,
+            $tipoNombre,
+            $nombreOriginal,
+            $rutaRelativa,
+            (int) ($_SESSION['usuario_id'] ?? 0),
+            'Subida manual desde modal de documentación'
+        );
+        CandidatosDAO::updateVerificacionExpediente($idCandidato, null);
+
+        $resDocsActualizados = CandidatosDAO::getDocumentosCandidato($idCandidato);
+        $docsActualizados = (!empty($resDocsActualizados['success']) && !empty($resDocsActualizados['datos'])) ? $resDocsActualizados['datos'] : [];
+        $metricas = $this->calcularMetricasDocumentosCandidato($docsActualizados, $idCandidato);
+        if (!empty($metricas['expediente_completo'])) {
+            $this->encolarVerificacionDocumentalCandidato($idCandidato, [$tipoNum], true, 'subida_manual_rrhh');
+        }
+
+        echo json_encode(self::respuesta(true, 'Documento subido manualmente al expediente.', [
+            'id_candidato' => $idCandidato,
+            'tipo_documento' => $tipoNombre,
+            'expediente_completo' => !empty($metricas['expediente_completo']),
+        ]));
+    }
+
     public function verificarExpedienteCandidato()
     {
         set_time_limit(1200);
@@ -10952,7 +11194,9 @@ class CapHum extends Controller
     public function eliminarDocumentoCandidato()
     {
         header('Content-Type: application/json; charset=utf-8');
-        if (!self::puedeValidarDocumentalCandidatos() && !self::puedeValidarFinalCandidatos()) {
+        $puedeDocumentalEliminar = self::puedeValidarDocumentalCandidatos();
+        $puedeFinalEliminar = self::puedeValidarFinalCandidatos();
+        if (!$puedeDocumentalEliminar && !$puedeFinalEliminar) {
             echo json_encode(self::respuesta(false, 'No tienes permiso para rechazar documentos de candidatos.'));
             return;
         }
@@ -10996,6 +11240,14 @@ class CapHum extends Controller
         $tipoDoc = trim((string) ($doc['tipo_documento'] ?? ''));
         $nombreArch = trim((string) ($doc['nombre_archivo'] ?? ''));
         $idUsuarioRrhh = (int) ($_SESSION['usuario_id'] ?? 0);
+        $estatusAntesRechazo = '';
+        if ($idCand > 0) {
+            $candAntesRes = CandidatosDAO::getById($idCand);
+            if ($candAntesRes['success'] && !empty($candAntesRes['datos'])) {
+                $estatusAntesRechazo = trim((string) ($candAntesRes['datos']['estatus'] ?? ''));
+            }
+        }
+        $rechazoEnFlujoFinal = $puedeFinalEliminar && in_array($estatusAntesRechazo, ['Pendiente de validacion final', 'Ingreso programado'], true);
 
         $logRes = CandidatosDAO::registrarEliminacionDocumentoCandidato(
             $idCand,
@@ -11018,7 +11270,7 @@ class CapHum extends Controller
         }
         if ($idCand > 0) {
             CandidatosDAO::updateVerificacionExpediente($idCand, null);
-            CandidatosDAO::updateEstatus($idCand, 'Por evaluar');
+            CandidatosDAO::updateEstatus($idCand, $rechazoEnFlujoFinal ? 'Pendiente de validacion final' : 'Por evaluar');
             CandidatosDAO::invalidateDocumentacionCache($idCand);
         }
 
@@ -11177,8 +11429,10 @@ class CapHum extends Controller
     public function validarDocumentoCandidato()
     {
         header('Content-Type: application/json; charset=utf-8');
-        if (!self::puedeValidarDocumentalCandidatos()) {
-            echo json_encode(self::respuesta(false, 'No tienes permiso de validador documental.'));
+        $puedeDocumentalValidar = self::puedeValidarDocumentalCandidatos();
+        $puedeFinalValidar = self::puedeValidarFinalCandidatos();
+        if (!$puedeDocumentalValidar && !$puedeFinalValidar) {
+            echo json_encode(self::respuesta(false, 'No tienes permiso para validar documentos.'));
             return;
         }
         $id_doc = (int) ($_POST['id'] ?? $_GET['id'] ?? 0);
@@ -11192,20 +11446,32 @@ class CapHum extends Controller
             return;
         }
         $doc = $res['datos'];
+        $idCand = (int) ($doc['id_candidato'] ?? 0);
+        $estatusActual = '';
+        if ($idCand > 0) {
+            $candidatoRes = CandidatosDAO::getById($idCand);
+            if ($candidatoRes['success'] && !empty($candidatoRes['datos'])) {
+                $estatusActual = trim((string) ($candidatoRes['datos']['estatus'] ?? ''));
+            }
+        }
+        $enFlujoFinal = in_array($estatusActual, ['Pendiente de validacion final', 'Ingreso programado'], true);
+        if (!$puedeDocumentalValidar && !($puedeFinalValidar && $enFlujoFinal)) {
+            echo json_encode(self::respuesta(false, 'Este documento solo puede validarlo el validador documental antes de enviarlo a validacion final.'));
+            return;
+        }
         $nuevoValor = isset($_POST['validado']) ? (int) $_POST['validado'] : (((int) ($doc['validado'] ?? 0)) === 0 ? 1 : 0);
         $upd = CandidatosDAO::toggleValidadoDocumento($id_doc, $nuevoValor);
         if (!$upd['success']) {
             echo json_encode(self::respuesta(false, $upd['mensaje'] ?? 'Error.'));
             return;
         }
-        $idCand = (int) ($doc['id_candidato'] ?? 0);
         $conteo = CandidatosDAO::contarValidados($idCand);
         $requeridos = 10;
         $todosValidados = ($conteo['total'] >= $requeridos && $conteo['validados'] >= $requeridos);
         if ($todosValidados) {
-            CandidatosDAO::updateEstatus($idCand, 'Validado');
+            CandidatosDAO::updateEstatus($idCand, $enFlujoFinal ? ($estatusActual === 'Ingreso programado' ? 'Ingreso programado' : 'Pendiente de validacion final') : 'Validado');
         } else {
-            CandidatosDAO::updateEstatus($idCand, 'Por evaluar');
+            CandidatosDAO::updateEstatus($idCand, $enFlujoFinal ? 'Pendiente de validacion final' : 'Por evaluar');
         }
         CandidatosDAO::invalidateDocumentacionCache($idCand);
         echo json_encode(self::respuesta(true, $upd['mensaje'], [

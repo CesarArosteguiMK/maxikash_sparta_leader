@@ -11,6 +11,22 @@ $here = Split-Path -Parent $MyInvocation.MyCommand.Path
 $apiDir = Resolve-Path (Join-Path $here '..') -ErrorAction SilentlyContinue
 $apiDirText = if ($apiDir) { $apiDir.Path } else { (Join-Path $here '..') }
 $pids = New-Object 'System.Collections.Generic.HashSet[int]'
+$protectedPids = New-Object 'System.Collections.Generic.HashSet[int]'
+[void]$protectedPids.Add([int]$PID)
+
+try {
+    $selfProcMap = @{}
+    Get-CimInstance Win32_Process -ErrorAction SilentlyContinue | ForEach-Object {
+        if ($_.ProcessId -gt 0) { $selfProcMap[[int]$_.ProcessId] = $_ }
+    }
+    $curPid = [int]$PID
+    for ($guard = 0; $guard -lt 12 -and $selfProcMap.ContainsKey($curPid); $guard++) {
+        $parentPid = [int]$selfProcMap[$curPid].ParentProcessId
+        if ($parentPid -le 0 -or $protectedPids.Contains($parentPid)) { break }
+        [void]$protectedPids.Add($parentPid)
+        $curPid = $parentPid
+    }
+} catch {}
 
 try {
     Get-NetTCPConnection -LocalPort $port -State Listen -ErrorAction SilentlyContinue | ForEach-Object {
@@ -86,6 +102,10 @@ try {
 $killed = $false
 $failed = @()
 foreach ($procId in @($pids)) {
+    if ($protectedPids.Contains([int]$procId)) {
+        $failed += "PID $procId omitido: pertenece al proceso actual del 1-click."
+        continue
+    }
     $taskkillFailure = $null
     $taskkill = Join-Path ${env:SystemRoot} 'System32\taskkill.exe'
     if (Test-Path -LiteralPath $taskkill) {
@@ -107,6 +127,19 @@ foreach ($procId in @($pids)) {
         $msg = [string]$_.Exception.Message
         if ($msg -match 'No se encuentra|Cannot find|not find|not found') {
             continue
+        }
+        try {
+            $cimProc = Get-CimInstance Win32_Process -Filter "ProcessId=$procId" -ErrorAction Stop
+            if ($cimProc) {
+                $cimResult = Invoke-CimMethod -InputObject $cimProc -MethodName Terminate -ErrorAction Stop
+                if ($cimResult -and [int]$cimResult.ReturnValue -eq 0) {
+                    $killed = $true
+                    continue
+                }
+                $failed += "PID $procId CIM Terminate return=$($cimResult.ReturnValue)"
+            }
+        } catch {
+            $failed += "PID $procId CIM Terminate: $($_.Exception.Message)"
         }
         if ($taskkillFailure) { $failed += $taskkillFailure }
         $failed += "PID $procId Stop-Process: $msg"
@@ -130,6 +163,10 @@ try {
 
 if ($stillListening.Count -gt 0) {
     foreach ($procId in @($stillListening | Sort-Object -Unique)) {
+        if ($protectedPids.Contains([int]$procId)) {
+            $failed += "PID $procId omitido en segundo intento: pertenece al proceso actual del 1-click."
+            continue
+        }
         $taskkill = Join-Path ${env:SystemRoot} 'System32\taskkill.exe'
         if (Test-Path -LiteralPath $taskkill) {
             try {
@@ -139,6 +176,10 @@ if ($stillListening.Count -gt 0) {
             } catch {}
         }
         try { Stop-Process -Id ([int]$procId) -Force -ErrorAction SilentlyContinue } catch {}
+        try {
+            $cimProc = Get-CimInstance Win32_Process -Filter "ProcessId=$procId" -ErrorAction SilentlyContinue
+            if ($cimProc) { Invoke-CimMethod -InputObject $cimProc -MethodName Terminate -ErrorAction SilentlyContinue | Out-Null }
+        } catch {}
     }
     Start-Sleep -Milliseconds 1200
     $stillListening = @()
@@ -169,6 +210,8 @@ if (-not $Silent) {
         if ($extra.Count -gt 0) {
             Write-Host ("Tambien se limpiaron procesos uvicorn residuales: " + (($extra | Sort-Object -Unique) -join ', '))
         }
+    } elseif ($pids.Count -gt 0) {
+        Write-Host ("[WARN] Se encontraron procesos de la API, pero Windows no permitio cerrarlos: " + (($pids | Sort-Object -Unique) -join ', '))
     } else {
         Write-Host "No habia ningun proceso escuchando en el puerto $port."
     }
