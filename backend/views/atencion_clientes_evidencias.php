@@ -1645,7 +1645,7 @@ $aevPuedeReemplazarEvidencia = in_array(79, array_map('intval', (array) ($_SESSI
         },
         aprobados: {
             url:   '/AtencionClientes/obtenerAprobadosEvidencias',
-            vacio: 'No hay operaciones en Aprobados (Procesando IA) en este momento.',
+            vacio: 'No hay operaciones en Aprobados (RECUPERACION) en este momento.',
         },
         correcciones: {
             url:   '/AtencionClientes/obtenerCorreccionesEvidencias',
@@ -3066,6 +3066,7 @@ $aevPuedeReemplazarEvidencia = in_array(79, array_map('intval', (array) ($_SESSI
             return 'Evidencia ' + evAntigua[2].trim() + ': ' + evAntigua[1].toUpperCase();
         }
         return limpio
+            .replace(/\(PROCESANDO IA\)/ig, '(RECUPERACION)')
             .replace(/^VALIDACI[ÓO]N EVIDENCIA\s+/i, 'Evidencia ')
             .replace(/^ENVI[ÓO] EVIDENCIAS VALIDADAS\s*/i, 'Enviado a siguiente fase ')
             .replace(/^REGISTRO RECHAZOS EVIDENCIAS APP\s*/i, 'Registro de rechazos ')
