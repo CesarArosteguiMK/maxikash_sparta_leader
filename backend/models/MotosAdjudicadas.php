@@ -9,6 +9,8 @@ use Models\Adjudicacion as AdjudicacionModel;
 
 class MotosAdjudicadas extends Model
 {
+    private const ACCION_GESTOR_ENVIO_EVIDENCIAS_ADJUDICACION = 'EL GESTOR ENVIO EVIDENCIAS DE LA ADJUDICACION';
+
     private $db;
 
     /** @var null|bool null = a?n no comprobado, true = existen val_atn/comentario_atn */
@@ -2508,6 +2510,8 @@ class MotosAdjudicadas extends Model
             'DA??OS'        => 'DAÑOS',
             '(F?SICA)'      => '(FÍSICA)',
             '(PROCESANDO IA)' => '(RECUPERACION)',
+            'ENVIÓ EVIDENCIAS AL PIPELINE' => self::ACCION_GESTOR_ENVIO_EVIDENCIAS_ADJUDICACION,
+            'ENVIO EVIDENCIAS AL PIPELINE' => self::ACCION_GESTOR_ENVIO_EVIDENCIAS_ADJUDICACION,
         ];
 
         return str_replace(array_keys($map), array_values($map), $accion);
@@ -2855,7 +2859,7 @@ class MotosAdjudicadas extends Model
         }
         $est = trim((string) ($op['estatus'] ?? ''));
         if ($est !== 'Procesando IA') {
-            return ['success' => false, 'message' => 'La operaci?n no est? en etapa Procesando IA.'];
+            return ['success' => false, 'message' => 'La operaci?n no est? en etapa Recuperacion.'];
         }
 
         $fact = $this->db->queryOne(
@@ -3719,7 +3723,7 @@ SQL;
             ['id' => $idOperacion]
         );
 
-        $this->registrarBitacora($idOperacion, 'ENVIÓ EVIDENCIAS AL PIPELINE', $idUsuario, $nombreUsuario);
+        $this->registrarBitacora($idOperacion, self::ACCION_GESTOR_ENVIO_EVIDENCIAS_ADJUDICACION, $idUsuario, $nombreUsuario);
 
         return ['success' => true];
     }
@@ -4002,7 +4006,10 @@ SQL;
                        SELECT 1
                        FROM adj_bitacora b
                        WHERE b.id_operacion = ao.id
-                         AND b.accion LIKE '%AL PIPELINE%'
+                         AND (
+                              b.accion LIKE '%AL PIPELINE%'
+                              OR b.accion LIKE '%EVIDENCIAS DE LA ADJUDICACION%'
+                         )
                    )
                  ORDER BY ao.fecha_actualizacion DESC
                  LIMIT 300"
@@ -4093,7 +4100,10 @@ SQL;
                      FROM adj_operacion ao
                      INNER JOIN adj_bitacora b
                         ON b.id_operacion = ao.id
-                       AND b.accion LIKE '%AL PIPELINE%'
+                       AND (
+                            b.accion LIKE '%AL PIPELINE%'
+                            OR b.accion LIKE '%EVIDENCIAS DE LA ADJUDICACION%'
+                       )
                      WHERE ao.id_credito IN (" . implode(',', $ph) . ")",
                     $params
                 ) ?: [];
@@ -4379,8 +4389,8 @@ SQL;
             ['fecha' => $ahora, 'id' => $idOperacion]
         );
 
-        if (!$this->existeBitacoraOperacion($idOperacion, '%AL PIPELINE%')) {
-            $this->registrarBitacora($idOperacion, 'ENVIÓ EVIDENCIAS AL PIPELINE', $idUsuario, $nombreUsuario, $ahora);
+        if (!$this->existeBitacoraEnvioEvidenciasAdjudicacion($idOperacion)) {
+            $this->registrarBitacora($idOperacion, self::ACCION_GESTOR_ENVIO_EVIDENCIAS_ADJUDICACION, $idUsuario, $nombreUsuario, $ahora);
         }
     }
 
@@ -4546,8 +4556,8 @@ SQL;
             ['fecha' => $ahora, 'id' => $idOperacion]
         );
 
-        if (!$this->existeBitacoraOperacion($idOperacion, '%AL PIPELINE%')) {
-            $this->registrarBitacora($idOperacion, 'ENVIO EVIDENCIAS AL PIPELINE', $idUsuario, $nombreUsuario, $ahora);
+        if (!$this->existeBitacoraEnvioEvidenciasAdjudicacion($idOperacion)) {
+            $this->registrarBitacora($idOperacion, self::ACCION_GESTOR_ENVIO_EVIDENCIAS_ADJUDICACION, $idUsuario, $nombreUsuario, $ahora);
         }
     }
 
@@ -4695,6 +4705,23 @@ SQL;
         $row = $this->db->queryOne(
             'SELECT 1 AS ok FROM adj_bitacora WHERE id_operacion = :id AND accion LIKE :accion LIMIT 1',
             ['id' => $idOperacion, 'accion' => $like]
+        );
+
+        return (bool) ($row && (int) ($row['ok'] ?? 0) === 1);
+    }
+
+    private function existeBitacoraEnvioEvidenciasAdjudicacion(int $idOperacion): bool
+    {
+        $row = $this->db->queryOne(
+            "SELECT 1 AS ok
+             FROM adj_bitacora
+             WHERE id_operacion = :id
+               AND (
+                    accion LIKE '%AL PIPELINE%'
+                    OR accion LIKE '%EVIDENCIAS DE LA ADJUDICACION%'
+               )
+             LIMIT 1",
+            ['id' => $idOperacion]
         );
 
         return (bool) ($row && (int) ($row['ok'] ?? 0) === 1);
