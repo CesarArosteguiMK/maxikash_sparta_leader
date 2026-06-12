@@ -9,6 +9,8 @@ use Models\Adjudicacion as AdjudicacionModel;
 
 class MotosAdjudicadas extends Model
 {
+    private const ACCION_GESTOR_ENVIO_EVIDENCIAS_ADJUDICACION = 'EL GESTOR ENVIO EVIDENCIAS DE LA ADJUDICACION';
+
     private $db;
 
     /** @var null|bool null = a?n no comprobado, true = existen val_atn/comentario_atn */
@@ -2507,6 +2509,9 @@ class MotosAdjudicadas extends Model
             'OD??METRO'     => 'ODÓMETRO',
             'DA??OS'        => 'DAÑOS',
             '(F?SICA)'      => '(FÍSICA)',
+            '(PROCESANDO IA)' => '(RECUPERACION)',
+            'ENVIÓ EVIDENCIAS AL PIPELINE' => self::ACCION_GESTOR_ENVIO_EVIDENCIAS_ADJUDICACION,
+            'ENVIO EVIDENCIAS AL PIPELINE' => self::ACCION_GESTOR_ENVIO_EVIDENCIAS_ADJUDICACION,
         ];
 
         return str_replace(array_keys($map), array_values($map), $accion);
@@ -2549,12 +2554,113 @@ class MotosAdjudicadas extends Model
              LIMIT 100",
             ['id' => $idOperacion]
         ) ?: [];
+        $labelsPorEvidencia = [];
+        foreach (($this->db->queryAll(
+            'SELECT id, slot FROM adj_evidencia WHERE id_operacion = :id',
+            ['id' => $idOperacion]
+        ) ?: []) as $ev) {
+            $idEv = (int) ($ev['id'] ?? 0);
+            $slot = (string) ($ev['slot'] ?? '');
+            if ($idEv > 0 && $slot !== '') {
+                $labelsPorEvidencia[$idEv] = self::SLOT_LABELS[$slot] ?? $slot;
+            }
+        }
         foreach ($rows as &$r) {
-            $r['accion'] = $this->normalizarAdjBitacoraAccionDisplay((string) ($r['accion'] ?? ''));
+            $accion = $this->normalizarAdjBitacoraAccionDisplay((string) ($r['accion'] ?? ''));
+            $accion = preg_replace_callback(
+                '/\s*\(id evidencia\s+(\d+)\)\s*/i',
+                static function (array $m) use ($labelsPorEvidencia): string {
+                    $idEv = (int) ($m[1] ?? 0);
+                    $label = trim((string) ($labelsPorEvidencia[$idEv] ?? ''));
+                    return $label !== '' ? ' - ' . $label : '';
+                },
+                $accion
+            );
+            if (preg_match('/^VALIDACI(?:Ó|O)N EVIDENCIA\s+(ACEPTADA|RECHAZADA)\s+-\s+(.+)$/iu', $accion, $m)) {
+                $accion = 'VALIDACION EVIDENCIA ' . trim((string) $m[2]) . ': ' . strtoupper((string) $m[1]);
+            }
+            $r['accion'] = $accion;
         }
         unset($r);
 
         return $rows;
+    }
+
+    private function obtenerUltimoAnalistaEvidencias(int $idOperacion): ?array
+    {
+        if ($idOperacion <= 0) {
+            return null;
+        }
+
+        $row = $this->db->queryOne(
+            "SELECT nombre_usuario,
+                    accion,
+                    DATE_FORMAT(fecha_alta, '%d/%m/%Y %H:%i') AS fecha_alta
+             FROM adj_bitacora
+             WHERE id_operacion = :id
+               AND (
+                    UPPER(accion) LIKE '%VALIDACI%'
+                    OR UPPER(accion) LIKE '%RECHAZOS EVIDENCIAS%'
+                    OR UPPER(accion) LIKE '%EVIDENCIAS VALIDADAS%'
+                    OR UPPER(accion) LIKE '%REEMPLAZO ESPECIAL DE EVIDENCIA%'
+               )
+               AND TRIM(COALESCE(nombre_usuario, '')) <> ''
+               AND UPPER(TRIM(COALESCE(nombre_usuario, ''))) NOT IN ('SISTEMA', 'SYSTEM', 'MAXIKASH APP')
+             ORDER BY adj_bitacora.fecha_alta DESC, adj_bitacora.id DESC
+             LIMIT 1",
+            ['id' => $idOperacion]
+        );
+
+        if (!$row) {
+            return null;
+        }
+
+        $accion = $this->normalizarAdjBitacoraAccionDisplay((string) ($row['accion'] ?? ''));
+        if (preg_match('/\s*\(id evidencia\s+(\d+)\)\s*/i', $accion, $m)) {
+            $idEv = (int) ($m[1] ?? 0);
+            $label = '';
+            if ($idEv > 0) {
+                $ev = $this->db->queryOne(
+                    'SELECT slot FROM adj_evidencia WHERE id = :id_ev AND id_operacion = :id_op LIMIT 1',
+                    ['id_ev' => $idEv, 'id_op' => $idOperacion]
+                );
+                $slot = (string) ($ev['slot'] ?? '');
+                $label = trim((string) (self::SLOT_LABELS[$slot] ?? $slot));
+            }
+            $accion = preg_replace('/\s*\(id evidencia\s+\d+\)\s*/i', $label !== '' ? ' - ' . $label : '', $accion);
+            if (preg_match('/^VALIDACI(?:Ó|O)N EVIDENCIA\s+(ACEPTADA|RECHAZADA)\s+-\s+(.+)$/iu', $accion, $mv)) {
+                $accion = 'VALIDACION EVIDENCIA ' . trim((string) $mv[2]) . ': ' . strtoupper((string) $mv[1]);
+            }
+        }
+        $row['accion'] = $accion;
+        return $row;
+    }
+
+    private function obtenerUltimoGestorOperacion(int $idCredito): ?array
+    {
+        if ($idCredito <= 0) {
+            return null;
+        }
+
+        return $this->db->queryOne(
+            "SELECT TRIM(CONCAT_WS(' ',
+                        per.nombres,
+                        per.segundo_nombre,
+                        per.apellidop,
+                        per.apellidom
+                    )) AS nombre,
+                    DATE_FORMAT(aca.fecha_alta, '%d/%m/%Y %H:%i') AS fecha_asignacion
+             FROM asigna_creditos_adjudicacion aca
+             INNER JOIN personal_adjudicacion pa ON pa.id = aca.id_personal_adj
+             INNER JOIN persona per ON per.id = pa.id_persona
+             WHERE aca.id_credito = :id_credito
+             ORDER BY
+                CASE WHEN aca.estatus = '1' THEN 0 ELSE 1 END,
+                aca.fecha_alta DESC,
+                aca.id DESC
+             LIMIT 1",
+            ['id_credito' => $idCredito]
+        ) ?: null;
     }
 
     /**
@@ -2753,7 +2859,7 @@ class MotosAdjudicadas extends Model
         }
         $est = trim((string) ($op['estatus'] ?? ''));
         if ($est !== 'Procesando IA') {
-            return ['success' => false, 'message' => 'La operaci?n no est? en etapa Procesando IA.'];
+            return ['success' => false, 'message' => 'La operaci?n no est? en etapa Recuperacion.'];
         }
 
         $fact = $this->db->queryOne(
@@ -3458,6 +3564,16 @@ SQL;
         ) ?: [];
 
         $op['bitacora'] = $this->obtenerBitacora($id);
+        $ultimoAnalista = $this->obtenerUltimoAnalistaEvidencias($id);
+        $op['ultimo_analista_evidencias'] = $ultimoAnalista;
+        $op['ultimo_analista_nombre'] = $ultimoAnalista['nombre_usuario'] ?? null;
+        $op['ultimo_analista_fecha'] = $ultimoAnalista['fecha_alta'] ?? null;
+        $op['ultimo_analista_accion'] = $ultimoAnalista['accion'] ?? null;
+
+        $ultimoGestor = $this->obtenerUltimoGestorOperacion((int) ($op['id_credito'] ?? 0));
+        $op['ultimo_gestor_operacion'] = $ultimoGestor;
+        $op['ultimo_gestor_nombre'] = $ultimoGestor['nombre'] ?? null;
+        $op['ultimo_gestor_fecha'] = $ultimoGestor['fecha_asignacion'] ?? null;
 
         return $op;
     }
@@ -3607,7 +3723,7 @@ SQL;
             ['id' => $idOperacion]
         );
 
-        $this->registrarBitacora($idOperacion, 'ENVIÓ EVIDENCIAS AL PIPELINE', $idUsuario, $nombreUsuario);
+        $this->registrarBitacora($idOperacion, self::ACCION_GESTOR_ENVIO_EVIDENCIAS_ADJUDICACION, $idUsuario, $nombreUsuario);
 
         return ['success' => true];
     }
@@ -3840,6 +3956,7 @@ SQL;
             $this->sincronizarDictumsAsignacionVigentePendientes();
 
             if ($soloAsignacionVigente) {
+                $this->sincronizarDictumsOperacionesLocalesPendientes();
                 return;
             }
 
@@ -3878,6 +3995,39 @@ SQL;
         }
     }
 
+    private function sincronizarDictumsOperacionesLocalesPendientes(): void
+    {
+        try {
+            $rows = $this->db->queryAll(
+                "SELECT ao.id AS id_operacion, ao.id_credito
+                 FROM adj_operacion ao
+                 WHERE ao.estatus IN ('en_transito', 'Recibido')
+                   AND NOT EXISTS (
+                       SELECT 1
+                       FROM adj_bitacora b
+                       WHERE b.id_operacion = ao.id
+                         AND (
+                              b.accion LIKE '%AL PIPELINE%'
+                              OR b.accion LIKE '%EVIDENCIAS DE LA ADJUDICACION%'
+                         )
+                   )
+                 ORDER BY ao.fecha_actualizacion DESC
+                 LIMIT 300"
+            ) ?: [];
+
+            foreach ($rows as $row) {
+                $this->sincronizarDictumAppCreditoOperacion(
+                    (int) ($row['id_credito'] ?? 0),
+                    (int) ($row['id_operacion'] ?? 0),
+                    0,
+                    'APP MOVIL'
+                );
+            }
+        } catch (\Throwable $e) {
+            // La sincronizacion es auxiliar; la bandeja no debe romper si Legacy no responde.
+        }
+    }
+
     private function sincronizarDictumsAsignacionVigentePendientes(): void
     {
         try {
@@ -3892,25 +4042,30 @@ SQL;
                     d.created_at,
                     d.lat,
                     d.lng,
+                    t.campaign_id,
                     t.credit_number,
                     t.client_name,
                     c.name AS campaign_name
                  FROM tasks t
                  INNER JOIN dictums d ON d.task_id = t.id
                  INNER JOIN campaigns c ON c.id = t.campaign_id
-                 WHERE c.name LIKE :campaign_prefix
+                 WHERE (
+                    (c.name LIKE :campaign_prefix AND d.opciondictamen_id = 13)
+                    OR t.campaign_id = :campaign_motos
+                 )
                    AND c.deleted_at IS NULL
                    AND t.deleted_at IS NULL
                    AND c.start_date <= CURDATE()
                    AND c.end_date >= CURDATE()
                    AND d.created_at >= c.start_date
+                   AND d.updated_at >= DATE_SUB(NOW(), INTERVAL 14 DAY)
                    AND d.form_response IS NOT NULL
                    AND TRIM(CAST(d.form_response AS CHAR)) <> ''
-                   AND d.opciondictamen_id = 13
                  ORDER BY d.id DESC
-                 LIMIT 500",
+                 LIMIT 200",
                 [
                     'campaign_prefix' => self::LEGACY_CAMPAIGN_ASIGNACION_PREFIX . '%',
+                    'campaign_motos' => self::LEGACY_CAMPAIGN_MOTOS_ADJ_AUTORIZADAS,
                 ]
             ) ?: [];
         } catch (\Throwable $e) {
@@ -3945,7 +4100,10 @@ SQL;
                      FROM adj_operacion ao
                      INNER JOIN adj_bitacora b
                         ON b.id_operacion = ao.id
-                       AND b.accion LIKE '%AL PIPELINE%'
+                       AND (
+                            b.accion LIKE '%AL PIPELINE%'
+                            OR b.accion LIKE '%EVIDENCIAS DE LA ADJUDICACION%'
+                       )
                      WHERE ao.id_credito IN (" . implode(',', $ph) . ")",
                     $params
                 ) ?: [];
@@ -4021,6 +4179,10 @@ SQL;
 
     private function dictumAsignacionEsMotoAdjudicada(array $row, array $campos): bool
     {
+        if ((int) ($row['campaign_id'] ?? 0) === self::LEGACY_CAMPAIGN_MOTOS_ADJ_AUTORIZADAS) {
+            return true;
+        }
+
         if ((int) ($row['opciondictamen_id'] ?? 0) === 13) {
             return true;
         }
@@ -4164,7 +4326,28 @@ SQL;
         }
 
         if (!$dictum || empty($dictum['form_response'])) {
-            return;
+            try {
+                $legacyDb = $legacyDb ?? new DatabaseLegacy();
+                $dictum = $legacyDb->queryOne(
+                    "SELECT d.id, d.form_response, d.created_at
+                     FROM dictums d
+                     INNER JOIN tasks t ON t.id = d.task_id
+                     WHERE TRIM(CAST(t.credit_number AS CHAR)) = :credit_number
+                       AND d.opciondictamen_id = 13
+                       AND d.form_response IS NOT NULL
+                       AND TRIM(CAST(d.form_response AS CHAR)) <> ''
+                     ORDER BY d.id DESC
+                     LIMIT 1",
+                    [
+                        'credit_number' => (string) $idCredito,
+                    ]
+                );
+            } catch (\Throwable $e) {
+                return;
+            }
+            if (!$dictum || empty($dictum['form_response'])) {
+                return;
+            }
         }
 
         $campos = $this->normalizarFormResponseDictumApp((string) $dictum['form_response']);
@@ -4206,8 +4389,8 @@ SQL;
             ['fecha' => $ahora, 'id' => $idOperacion]
         );
 
-        if (!$this->existeBitacoraOperacion($idOperacion, '%AL PIPELINE%')) {
-            $this->registrarBitacora($idOperacion, 'ENVIÓ EVIDENCIAS AL PIPELINE', $idUsuario, $nombreUsuario, $ahora);
+        if (!$this->existeBitacoraEnvioEvidenciasAdjudicacion($idOperacion)) {
+            $this->registrarBitacora($idOperacion, self::ACCION_GESTOR_ENVIO_EVIDENCIAS_ADJUDICACION, $idUsuario, $nombreUsuario, $ahora);
         }
     }
 
@@ -4240,6 +4423,10 @@ SQL;
                 if ($name !== '') {
                     $campos[$name] = $item;
                 }
+                $labelKey = $this->normalizarClaveDictumApp((string) ($item['label'] ?? ''));
+                if ($labelKey !== '') {
+                    $campos['__label__' . $labelKey] = $item;
+                }
             }
             return $campos;
         }
@@ -4247,13 +4434,68 @@ SQL;
         return [];
     }
 
+    private function normalizarClaveDictumApp(string $valor): string
+    {
+        $valor = trim($valor);
+        if ($valor === '') {
+            return '';
+        }
+        $valor = html_entity_decode($valor, ENT_QUOTES | ENT_HTML5, 'UTF-8');
+        $valor = str_replace(["\xc2\xa0", '&nbsp;'], ' ', $valor);
+        if (class_exists('\Normalizer', false)) {
+            $valor = \Normalizer::normalize($valor, \Normalizer::FORM_D) ?: $valor;
+        } else {
+            $valor = strtr($valor, [
+                'Á' => 'A', 'É' => 'E', 'Í' => 'I', 'Ó' => 'O', 'Ú' => 'U', 'Ü' => 'U', 'Ñ' => 'N',
+                'á' => 'a', 'é' => 'e', 'í' => 'i', 'ó' => 'o', 'ú' => 'u', 'ü' => 'u', 'ñ' => 'n',
+            ]);
+        }
+        $valor = preg_replace('/[\x{0300}-\x{036f}]/u', '', $valor);
+        $valor = strtolower((string) $valor);
+        $valor = preg_replace('/[^a-z0-9]+/u', '_', $valor);
+        return trim((string) $valor, '_');
+    }
+
+    private function aliasesCampoDictumApp(string $name): array
+    {
+        static $aliases = [
+            'no_de_serie_vin' => ['numero_de_serie', 'numero_de_serie_vin', 'no_de_serie', 'serie', 'vin', 'serie_vin'],
+            'no_de_motor' => ['numero_de_motor', 'num_motor', 'motor'],
+            'tiene_tarjeta_de_circulacion_en_fisico' => ['tiene_tarjeta_de_circulacion', 'tarjeta_de_circulacion', 'tarjeta_circulacion'],
+            'responsable_de_resguardo' => ['nombre_de_responsable_de_resguardo', 'responsable_resguardo'],
+            'telefono_de_contacto' => ['contacto_de_resguardo', 'telefono_de_resguardo', 'celular'],
+            'estado_de_lugar_de_resguardo_ejemplo_ciudad_de_mex' => ['estado_de_lugar_de_resguardo', 'estado_resguardo'],
+            'ciudad_municipio_de_lugar_de_resguardo' => ['ciudad_de_lugar_de_resguardo', 'municipio_de_lugar_de_resguardo', 'ciudad_municipio_resguardo'],
+            'calle_y_numero_de_lugar_de_resguardo' => ['calle_numero_de_lugar_de_resguardo', 'direccion_de_resguardo', 'domicilio_de_resguardo'],
+        ];
+
+        $keys = [$name, $this->normalizarClaveDictumApp($name)];
+        foreach ($aliases[$name] ?? [] as $alias) {
+            $keys[] = $alias;
+            $keys[] = $this->normalizarClaveDictumApp($alias);
+        }
+
+        return array_values(array_unique(array_filter($keys, static fn ($v) => is_string($v) && $v !== '')));
+    }
+
     private function valorCampoDictumApp(array $campos, string $name, bool $usarLabelSeleccionado = false): string
     {
-        if (!isset($campos[$name]) || !is_array($campos[$name])) {
+        $campo = null;
+        foreach ($this->aliasesCampoDictumApp($name) as $key) {
+            if (isset($campos[$key]) && is_array($campos[$key])) {
+                $campo = $campos[$key];
+                break;
+            }
+            $labelKey = '__label__' . $this->normalizarClaveDictumApp($key);
+            if (isset($campos[$labelKey]) && is_array($campos[$labelKey])) {
+                $campo = $campos[$labelKey];
+                break;
+            }
+        }
+        if ($campo === null) {
             return '';
         }
 
-        $campo = $campos[$name];
         $valor = $campo['value'] ?? null;
         if (is_scalar($valor) && trim((string) $valor) !== '') {
             return trim((string) $valor);
@@ -4314,8 +4556,8 @@ SQL;
             ['fecha' => $ahora, 'id' => $idOperacion]
         );
 
-        if (!$this->existeBitacoraOperacion($idOperacion, '%AL PIPELINE%')) {
-            $this->registrarBitacora($idOperacion, 'ENVIO EVIDENCIAS AL PIPELINE', $idUsuario, $nombreUsuario, $ahora);
+        if (!$this->existeBitacoraEnvioEvidenciasAdjudicacion($idOperacion)) {
+            $this->registrarBitacora($idOperacion, self::ACCION_GESTOR_ENVIO_EVIDENCIAS_ADJUDICACION, $idUsuario, $nombreUsuario, $ahora);
         }
     }
 
@@ -4334,7 +4576,6 @@ SQL;
             'tiene_tarjeta_de_circulacion_en_fisico' => ['tiene_tarjeta_de_circulacion_en_fisico', 'tarjeta_circulacion'],
             'la_moto_tiene_placa_fisica' => ['la_moto_tiene_placa_fisica', 'placa_fisica'],
             'marca_y_modelo' => ['moto_modelo', 'modelo'],
-            'numero_de_serie' => ['moto_no_serie', 'serie'],
             'direccion_actual' => ['log_direccion'],
             'actualizacion_de_direccion' => ['log_direccion'],
             'actualizacion_de_numero_telefonico' => ['log_telefono'],
@@ -4464,6 +4705,23 @@ SQL;
         $row = $this->db->queryOne(
             'SELECT 1 AS ok FROM adj_bitacora WHERE id_operacion = :id AND accion LIKE :accion LIMIT 1',
             ['id' => $idOperacion, 'accion' => $like]
+        );
+
+        return (bool) ($row && (int) ($row['ok'] ?? 0) === 1);
+    }
+
+    private function existeBitacoraEnvioEvidenciasAdjudicacion(int $idOperacion): bool
+    {
+        $row = $this->db->queryOne(
+            "SELECT 1 AS ok
+             FROM adj_bitacora
+             WHERE id_operacion = :id
+               AND (
+                    accion LIKE '%AL PIPELINE%'
+                    OR accion LIKE '%EVIDENCIAS DE LA ADJUDICACION%'
+               )
+             LIMIT 1",
+            ['id' => $idOperacion]
         );
 
         return (bool) ($row && (int) ($row['ok'] ?? 0) === 1);
@@ -5628,6 +5886,7 @@ EOSQL;
         // en PROCESANDO solo se hacen GET de estatus (mismo UUID).
         if ($row) {
             $estado = strtoupper(trim((string) ($row['estado'] ?? '')));
+            $reintentarFalloServicio = false;
             if ($estado === 'COMPLETADO' || $estado === 'ERROR') {
                 $datosMoto = $this->repuveDatosMotoDesdeFila($row);
                 $out = $this->repuveConstruirRespuestaConsulta(
@@ -5639,9 +5898,17 @@ EOSQL;
                 );
                 $out = $this->repuveAdjuntarRespuestasTecnicas($row, $out);
 
-                return $this->repuveEnriquecerResultado($idCredito, $idUsuario, $out);
+                if (
+                    empty($criterioForzado['ok'])
+                    || empty($out['repuve_error_servicio'])
+                    || !$this->repuveEsFalloServicioReintentable($row)
+                ) {
+                    return $this->repuveEnriquecerResultado($idCredito, $idUsuario, $out);
+                }
+                $reintentarFalloServicio = true;
             }
 
+            if (!$reintentarFalloServicio) {
             $uuid = trim((string) ($row['uuid'] ?? ''));
             if ($uuid !== '') {
                 $estatus = $this->repuveSondearEstatus($cfg, $uuid);
@@ -5695,6 +5962,7 @@ EOSQL;
             ];
 
             return $this->repuveEnriquecerResultado($idCredito, $idUsuario, $this->repuveAdjuntarRespuestasTecnicas($row, $unico));
+            }
         }
 
         $criterio = $criterioForzado ?? $this->repuveResolverCriterio($idCredito);
@@ -6142,7 +6410,7 @@ EOSQL;
                 $terminal = false;
             } elseif ($status !== '' || $messageCode !== null) {
                 $terminal = true;
-                $estadoFinal = 'COMPLETADO';
+                $estadoFinal = ($status === 'ERROR' || empty($res['ok'])) ? 'ERROR' : 'COMPLETADO';
             } elseif (empty($res['ok']) && (($res['http_status'] ?? 0) >= 400)) {
                 $terminal = true;
                 $estadoFinal = 'ERROR';
@@ -6566,7 +6834,33 @@ EOSQL;
     }
 
     /**
-     * Arma respuesta JSON unificada tras leer adj_repuve_consulta (evita marcar éxito solo porque el VIN coincide con la consulta).
+     * Fallos de disponibilidad del proveedor que no deben dejar atrapado el credito en cache.
+     * Si el usuario vuelve a consultar desde la vista dedicada, se permite un nuevo intento.
+     */
+    private function repuveEsFalloServicioReintentable(array $row): bool
+    {
+        $http = (int) ($row['http_status'] ?? 0);
+        if (in_array($http, [408, 429, 500, 502, 503, 504], true)) {
+            return true;
+        }
+
+        $mc = isset($row['message_code']) && $row['message_code'] !== '' ? (int) $row['message_code'] : null;
+        if ($mc === 40) {
+            return true;
+        }
+
+        $msgL = strtolower(trim((string) ($row['mensaje'] ?? '')));
+        foreach (['temporarily unavailable', 'try again later', 'service unavailable', 'timeout', 'bad gateway', 'gateway'] as $needle) {
+            if ($msgL !== '' && str_contains($msgL, $needle)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Arma respuesta JSON unificada tras leer adj_repuve_consulta (evita marcar exito solo porque el VIN coincide con la consulta).
      *
      * @return array<string, mixed>
      */
@@ -6583,6 +6877,7 @@ EOSQL;
         $mcInt = $mcRaw !== null && $mcRaw !== '' ? (int) $mcRaw : null;
         $mensajeTabla = trim((string) ($row['mensaje'] ?? ''));
         $estadoRow = strtoupper(trim((string) ($row['estado'] ?? '')));
+        $estadoRespuesta = $estadoRow !== '' ? $estadoRow : (string) ($row['estado'] ?? '');
 
         if ($tieneReal) {
             $tipo = 'datos_ok';
@@ -6592,6 +6887,7 @@ EOSQL;
         } elseif ($this->repuveEsFalloServicioExterno($row, $mensajeTabla)) {
             $tipo = 'fallo_servicio';
             $errorServicio = true;
+            $estadoRespuesta = 'ERROR';
             $sinDatos = false;
             // Mensaje breve para UI (tooltip, alertas). El detalle técnico sigue en `repuve` (http_status, message_code, mensaje).
             $message = "REPUVE no disponible\n\n"
@@ -6620,9 +6916,10 @@ EOSQL;
             'message'                 => $message,
             'repuve_resultado_tipo'   => $tipo,
             'repuve_error_servicio'   => $errorServicio,
+            'repuve_reintento_disponible' => $errorServicio && $this->repuveEsFalloServicioReintentable($row),
             'repuve_sin_datos_padron' => $sinDatos,
             'repuve'                  => [
-                'estado'         => $estadoRow !== '' ? $estadoRow : (string) ($row['estado'] ?? ''),
+                'estado'         => $estadoRespuesta,
                 'message_code'   => $mcInt,
                 'mensaje'        => $mensajeTabla,
                 'http_status'    => $http > 0 ? $http : null,
@@ -7146,9 +7443,11 @@ EOSQL;
             ]
         );
         $etiq = $valAtn === 1 ? 'ACEPTADA' : 'RECHAZADA';
+        $slot = (string) ($row['slot'] ?? '');
+        $labelEvidencia = trim((string) (self::SLOT_LABELS[$slot] ?? $slot));
         $this->registrarBitacora(
             $idOperacion,
-            'VALIDACIÓN EVIDENCIA ' . $etiq . ' (id evidencia ' . $idEvidencia . ')',
+            'VALIDACION EVIDENCIA ' . ($labelEvidencia !== '' ? $labelEvidencia . ': ' : '') . $etiq,
             $idUsuario,
             $nombreUsuario
         );

@@ -928,6 +928,57 @@ class Candidatos extends Model
     /**
      * Actualizar resultados de verificación OCR/API de un documento ya guardado.
      */
+    private static function ensureTablaSubidaManualDocumentoCandidato(): void
+    {
+        try {
+            $db = new Database();
+            $db->CRUD(
+                "CREATE TABLE IF NOT EXISTS candidato_documento_subida_manual (
+                    id INT AUTO_INCREMENT PRIMARY KEY,
+                    id_candidato INT NOT NULL,
+                    tipo_documento VARCHAR(120) NOT NULL,
+                    nombre_archivo VARCHAR(255) NOT NULL,
+                    ruta_archivo VARCHAR(500) NULL,
+                    id_usuario_rrhh INT NULL,
+                    motivo VARCHAR(500) NULL,
+                    fecha_registro DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                    INDEX idx_cdsm_candidato (id_candidato),
+                    INDEX idx_cdsm_usuario (id_usuario_rrhh)
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci"
+            );
+        } catch (\Exception $e) {
+        }
+    }
+
+    public static function registrarSubidaManualDocumentoCandidato($id_candidato, $tipo_documento, $nombre_archivo, $ruta_archivo, $id_usuario_rrhh = null, $motivo = null)
+    {
+        $id_candidato = (int) $id_candidato;
+        if ($id_candidato <= 0) {
+            return self::resultado(false, 'ID invalido.');
+        }
+        self::ensureTablaSubidaManualDocumentoCandidato();
+        try {
+            $db = new Database();
+            $db->CRUD(
+                "INSERT INTO candidato_documento_subida_manual
+                    (id_candidato, tipo_documento, nombre_archivo, ruta_archivo, id_usuario_rrhh, motivo)
+                 VALUES
+                    (:id_candidato, :tipo_documento, :nombre_archivo, :ruta_archivo, :id_usuario_rrhh, :motivo)",
+                [
+                    'id_candidato' => $id_candidato,
+                    'tipo_documento' => trim((string) $tipo_documento),
+                    'nombre_archivo' => trim((string) $nombre_archivo),
+                    'ruta_archivo' => trim((string) $ruta_archivo),
+                    'id_usuario_rrhh' => $id_usuario_rrhh ? (int) $id_usuario_rrhh : null,
+                    'motivo' => $motivo !== null ? substr(trim((string) $motivo), 0, 500) : null,
+                ]
+            );
+            return self::resultado(true, 'Subida manual registrada.');
+        } catch (\Exception $e) {
+            return self::resultado(false, 'No se pudo registrar la subida manual.', null, $e->getMessage());
+        }
+    }
+
     public static function updateVerificacionDocumento($id_documento, $verificacion_fiscal_json = null, $verificacion_calidad_json = null)
     {
         $id_documento = (int) $id_documento;
@@ -1010,7 +1061,7 @@ class Candidatos extends Model
         }
         try {
             $db = new Database();
-            $lista = $db->queryAll("SELECT id, id_candidato, tipo_documento, nombre_archivo, ruta_archivo, fecha_carga, validado, fecha_validado, verificacion_fiscal_json FROM candidato_documento WHERE id_candidato = :id ORDER BY fecha_carga DESC", ['id' => $id_candidato]);
+            $lista = $db->queryAll("SELECT id, id_candidato, tipo_documento, nombre_archivo, ruta_archivo, fecha_carga, validado, fecha_validado, verificacion_fiscal_json, verificacion_calidad_json FROM candidato_documento WHERE id_candidato = :id ORDER BY fecha_carga DESC", ['id' => $id_candidato]);
             return self::resultado(true, 'Documentos encontrados.', self::filtrarDocumentosConArchivo($lista ?: []));
         } catch (\Exception $e) {
             return self::resultado(false, 'Error al listar documentos.', [], $e->getMessage());

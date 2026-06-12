@@ -526,6 +526,9 @@ $lrRes = (int) ($limite_repuve['restantes'] ?? max(0, $lrMax - $lrUso));
             if (j.repuve_error_servicio) {
                 txt = 'REPUVE no disponible. El proveedor respondió con un error. Esto no se debe a sus datos.';
             }
+            if (j.repuve_error_servicio && j.repuve_reintento_disponible) {
+                txt = 'REPUVE no disponible. El proveedor respondió con un error temporal. Esto no se debe a sus datos; puede volver a intentar con el botón Consultar REPUVE.';
+            }
             $msg.innerHTML = '<div class="alert alert-' + cls + ' py-1 px-2 small mb-0">' + String(txt).replace(/</g, '&lt;') + '</div>'
                 + repBloqueDetalleRepuve(j);
 

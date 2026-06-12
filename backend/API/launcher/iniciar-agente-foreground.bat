@@ -74,13 +74,13 @@ if not errorlevel 1 (
 echo [ERROR] No hay Python: ni venv, ni portable en tools\, ni py -3, ni python en PATH.
 echo         Sin instalador ni PATH: carpeta python.exe en API\tools\PythonPortable\ o launcher\PYTHON_EXE.txt
 echo         Ejecute  launcher\Diagnosticar-API.bat  para ver el detalle.
-pause
+if not "%SPARTA_API_NO_PAUSE%"=="1" pause
 exit /b 1
 
 :have_py
 if not exist "%API_DIR%\app\main.py" (
     echo [ERROR] No esta app\main.py en %API_DIR%
-    pause
+    if not "%SPARTA_API_NO_PAUSE%"=="1" pause
     exit /b 1
 )
 
@@ -89,7 +89,7 @@ if !errorlevel! EQU 0 (
     echo [AVISO] Puerto 8000 ya esta en LISTEN.
     echo         Si quiere reiniciar, ejecute primero  launcher\cerrar-agente.bat
     echo.
-    pause
+    if not "%SPARTA_API_NO_PAUSE%"=="1" pause
     exit /b 0
 )
 
@@ -115,18 +115,18 @@ if errorlevel 1 (
     echo     launcher\Diagnosticar-API.bat /INSTALL
     echo ============================================
     echo.
-    pause
+    if not "%SPARTA_API_NO_PAUSE%"=="1" pause
     exit /b 1
 )
 echo [doctor] OK -- arrancando uvicorn (Ctrl+C para detener).
 echo.
 
-"%PY_EXE%" %PY_ARG% -m uvicorn app.main:app --host 0.0.0.0 --port 8000 --workers 2
+"%PY_EXE%" %PY_ARG% -m uvicorn app.main:app --host 0.0.0.0 --port 8000 --workers 1
 set "RC=%ERRORLEVEL%"
 
 echo.
 echo ============================================
 echo  uvicorn termino con codigo %RC%
 echo ============================================
-pause
+if not "%SPARTA_API_NO_PAUSE%"=="1" pause
 exit /b %RC%

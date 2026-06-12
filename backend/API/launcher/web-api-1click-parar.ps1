@@ -77,6 +77,20 @@ function Invoke-TaskKillTree([int]$ProcessId, [string]$Label) {
         [void]$killedPids.Add($ProcessId, $true)
         Write-Host "[OK] $Label PID=$ProcessId (Stop-Process fallback)"
     } catch {
+        try {
+            $cimProc = Get-CimInstance Win32_Process -Filter "ProcessId=$ProcessId" -ErrorAction Stop
+            if ($cimProc) {
+                $cimResult = Invoke-CimMethod -InputObject $cimProc -MethodName Terminate -ErrorAction Stop
+                if ($cimResult -and [int]$cimResult.ReturnValue -eq 0) {
+                    [void]$killedPids.Add($ProcessId, $true)
+                    Write-Host "[OK] $Label PID=$ProcessId (CIM Terminate)"
+                    return
+                }
+                Write-Host "[WARN] CIM Terminate fallo PID $ProcessId ($Label): return=$($cimResult.ReturnValue)"
+            }
+        } catch {
+            Write-Host "[WARN] CIM Terminate fallo PID $ProcessId ($Label): $($_.Exception.Message)"
+        }
         Write-Host "[WARN] Stop-Process fallback fallo PID $ProcessId ($Label): $($_.Exception.Message)"
     }
 }

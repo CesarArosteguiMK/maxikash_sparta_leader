@@ -9,11 +9,9 @@ class ConfigMotosAdj extends Model
 {
     public const CLAVE_DIAS_MINIMOS_RUTA = 'tracking_ruta_dias_minimos';
     public const DEFAULT_DIAS_MINIMOS_RUTA = 2;
-    private const FAD_TABLA_REGLAS = '__SPARTA_SECRET_REDACTED__.fad_motos_config_reglas';
-    private const FAD_TABLA_EVENTOS = '__SPARTA_SECRET_REDACTED__.fad_motos_config_eventos';
-    private const FAD_SCOPES = ['global', 'user', 'external_id', 'credit', 'operation', 'dictamen'];
-    private const FAD_MODES = ['off', 'optional', 'required'];
-    private const FAD_ROLLOUT_MODES = ['manual', 'automatic', 'pilot'];
+    private const FAD_TABLA_GLOBAL_HISTORIAL = '__SPARTA_SECRET_REDACTED__.fad_motos_global_estado_historial';
+    private const FAD_TABLA_CREDITO_EXCEPCIONES = '__SPARTA_SECRET_REDACTED__.fad_motos_credito_excepciones';
+    private const FAD_TABLA_DECISIONES = '__SPARTA_SECRET_REDACTED__.fad_motos_decisiones';
 
     private Database $db;
 
@@ -99,49 +97,36 @@ class ConfigMotosAdj extends Model
     public function obtenerFad(): array
     {
         try {
-            $global = $this->db->queryOne(
-                "SELECT
-                    id, scope, scope_value, enabled, requires_fad, mode, rollout_mode,
-                    notify_pending, show_badge, block_close, effective_from, effective_to,
-                    message, metadata_json, priority, is_active
-                 FROM " . self::FAD_TABLA_REGLAS . "
-                 WHERE scope = 'global'
-                   AND scope_value = '*'
-                   AND is_active = 1
-                 ORDER BY id DESC
+            $apagadoActual = $this->db->queryOne(
+                "SELECT *
+                 FROM " . self::FAD_TABLA_GLOBAL_HISTORIAL . "
+                 WHERE estado = 'apagado'
+                   AND started_at <= NOW()
+                   AND (ended_at IS NULL OR ended_at >= NOW())
+                 ORDER BY started_at DESC, id DESC
                  LIMIT 1"
-            );
-
-            $reglas = $this->db->queryAll(
-                "SELECT
-                    id, scope, scope_value, enabled, requires_fad, mode, rollout_mode,
-                    notify_pending, show_badge, block_close, effective_from, effective_to,
-                    message, metadata_json, priority, is_active
-                 FROM " . self::FAD_TABLA_REGLAS . "
-                 WHERE is_active = 1
-                   AND (effective_from IS NULL OR effective_from <= CURDATE())
-                   AND (effective_to IS NULL OR effective_to >= CURDATE())
-                 ORDER BY priority DESC, id DESC"
             );
 
             return [
                 'disponible' => true,
-                'global' => $this->normalizarReglaFad($global),
-                'reglas' => array_map([$this, 'normalizarReglaFad'], $reglas),
-                'scopes' => self::FAD_SCOPES,
-                'modes' => self::FAD_MODES,
-                'rollout_modes' => self::FAD_ROLLOUT_MODES,
+                'global_apagado' => (bool) $apagadoActual,
+                'global_estado' => $apagadoActual ? 'apagado' : 'activo',
+                'apagado_actual' => $apagadoActual,
+                'historial_apagados' => $this->obtenerHistorialApagadosFad(),
+                'excepciones' => $this->obtenerExcepcionesFad(),
+                'decisiones' => $this->obtenerDecisionesFad(),
             ];
         } catch (\Throwable $e) {
             return [
                 'disponible' => false,
                 'mensaje' => 'No se pudo consultar la configuracion FAD.',
                 'error' => $e->getMessage(),
-                'global' => null,
-                'reglas' => [],
-                'scopes' => self::FAD_SCOPES,
-                'modes' => self::FAD_MODES,
-                'rollout_modes' => self::FAD_ROLLOUT_MODES,
+                'global_apagado' => false,
+                'global_estado' => 'desconocido',
+                'apagado_actual' => null,
+                'historial_apagados' => [],
+                'excepciones' => [],
+                'decisiones' => [],
             ];
         }
     }
@@ -149,152 +134,114 @@ class ConfigMotosAdj extends Model
     public function actualizarFadGlobal(string $accion, int $idUsuario = 0): array
     {
         $accion = strtolower(trim($accion));
-        if (!in_array($accion, ['off', 'soft_on'], true)) {
+        if (!in_array($accion, ['off', 'soft_on', 'on'], true)) {
             return ['success' => false, 'mensaje' => 'Accion FAD no valida.'];
         }
 
-        $valores = $accion === 'off'
-            ? [
-                'enabled' => 0,
-                'requires_fad' => 0,
-                'mode' => 'off',
-                'rollout_mode' => 'manual',
-                'show_badge' => 0,
-                'block_close' => 0,
-                'notify_pending' => 0,
-                'message' => 'FAD apagado globalmente.',
-                'priority' => 100,
-            ]
-            : [
-                'enabled' => 1,
-                'requires_fad' => 1,
-                'mode' => 'required',
-                'rollout_mode' => 'manual',
-                'show_badge' => 1,
-                'block_close' => 0,
-                'notify_pending' => 0,
-                'message' => 'FAD pendiente para moto adjudicada',
-                'priority' => 100,
-            ];
+        return $accion === 'off'
+            ? $this->apagarFadGlobal('FAD desactivado temporalmente', $idUsuario)
+            : $this->encenderFadGlobal($idUsuario);
+    }
+
+    public function apagarFadGlobal(string $motivo, int $idUsuario = 0): array
+    {
+        $motivo = trim($motivo);
+        if ($motivo === '') {
+            return ['success' => false, 'mensaje' => 'Captura el motivo para apagar FAD.'];
+        }
 
         try {
-            $actual = $this->db->queryOne(
-                "SELECT id FROM " . self::FAD_TABLA_REGLAS . "
-                 WHERE scope = 'global' AND scope_value = '*' AND is_active = 1
-                 ORDER BY id DESC
-                 LIMIT 1"
+            $this->db->CRUD(
+                "INSERT INTO " . self::FAD_TABLA_GLOBAL_HISTORIAL . "
+                    (estado, started_at, ended_at, motivo, created_by)
+                 VALUES
+                    ('apagado', NOW(), NULL, :motivo, :created_by)",
+                [
+                    'motivo' => $motivo,
+                    'created_by' => $this->actorFad($idUsuario),
+                ]
             );
 
-            if ($actual && !empty($actual['id'])) {
-                $this->db->CRUD(
-                    "UPDATE " . self::FAD_TABLA_REGLAS . "
-                     SET enabled = :enabled,
-                         requires_fad = :requires_fad,
-                         mode = :mode,
-                         rollout_mode = :rollout_mode,
-                         show_badge = :show_badge,
-                         block_close = :block_close,
-                         notify_pending = :notify_pending,
-                         message = :message,
-                         priority = :priority
-                     WHERE id = :id",
-                    $valores + ['id' => (int) $actual['id']]
-                );
-                $idRegla = (int) $actual['id'];
-            } else {
-                $this->db->CRUD(
-                    "INSERT INTO " . self::FAD_TABLA_REGLAS . "
-                        (scope, scope_value, enabled, requires_fad, mode, rollout_mode,
-                         notify_pending, show_badge, block_close, effective_from, message,
-                         priority, is_active, created_by)
-                     VALUES
-                        ('global', '*', :enabled, :requires_fad, :mode, :rollout_mode,
-                         :notify_pending, :show_badge, :block_close, CURDATE(), :message,
-                         :priority, 1, :created_by)",
-                    $valores + ['created_by' => $idUsuario > 0 ? (string) $idUsuario : 'sparta']
-                );
-                $idRegla = $this->db->lastInsertId();
-            }
-
-            $this->registrarEventoFad($idRegla, 'global_' . $accion, $idUsuario, $valores);
-            return ['success' => true, 'mensaje' => 'Configuracion global FAD actualizada.', 'datos' => $this->obtenerFad()];
+            return ['success' => true, 'mensaje' => 'FAD apagado correctamente.', 'datos' => $this->obtenerFad()];
         } catch (\Throwable $e) {
-            return ['success' => false, 'mensaje' => 'No se pudo actualizar FAD global.', 'error' => $e->getMessage()];
+            return ['success' => false, 'mensaje' => 'No se pudo apagar FAD.', 'error' => $e->getMessage()];
+        }
+    }
+
+    public function encenderFadGlobal(int $idUsuario = 0): array
+    {
+        try {
+            $this->db->CRUD(
+                "UPDATE " . self::FAD_TABLA_GLOBAL_HISTORIAL . "
+                 SET ended_at = NOW()
+                 WHERE estado = 'apagado'
+                   AND ended_at IS NULL"
+            );
+
+            return ['success' => true, 'mensaje' => 'FAD encendido correctamente.', 'datos' => $this->obtenerFad()];
+        } catch (\Throwable $e) {
+            return ['success' => false, 'mensaje' => 'No se pudo encender FAD.', 'error' => $e->getMessage()];
         }
     }
 
     public function guardarReglaFad(array $data, int $idUsuario = 0): array
     {
-        $scope = strtolower(trim((string) ($data['scope'] ?? '')));
-        $scopeValue = trim((string) ($data['scope_value'] ?? ''));
-        $mode = strtolower(trim((string) ($data['mode'] ?? 'required')));
-        $rolloutMode = strtolower(trim((string) ($data['rollout_mode'] ?? 'manual')));
+        return $this->agregarExcepcionCredito($data, $idUsuario);
+    }
 
-        if (!in_array($scope, self::FAD_SCOPES, true)) {
-            return ['success' => false, 'mensaje' => 'Scope FAD no valido.'];
-        }
-        if (!in_array($mode, self::FAD_MODES, true)) {
-            return ['success' => false, 'mensaje' => 'Modo FAD no valido.'];
-        }
-        if (!in_array($rolloutMode, self::FAD_ROLLOUT_MODES, true)) {
-            return ['success' => false, 'mensaje' => 'Rollout FAD no valido.'];
-        }
+    public function agregarExcepcionCredito(array $data, int $idUsuario = 0): array
+    {
+        $idCredito = trim((string) ($data['id_credito'] ?? ''));
+        $motivo = trim((string) ($data['motivo'] ?? $data['reason'] ?? $data['message'] ?? ''));
 
-        if ($scope === 'global') {
-            $scopeValue = '*';
+        if ($idCredito === '') {
+            return ['success' => false, 'mensaje' => 'Captura el credito.'];
         }
-        if ($scopeValue === '') {
-            return ['success' => false, 'mensaje' => 'Captura el valor del scope.'];
+        if ($motivo === '') {
+            return ['success' => false, 'mensaje' => 'Captura el motivo de la excepcion.'];
         }
-
-        $enabled = !empty($data['enabled']) ? 1 : 0;
-        $requiresFad = !empty($data['requires_fad']) ? 1 : 0;
-        $showBadge = !empty($data['show_badge']) ? 1 : 0;
-        $blockClose = !empty($data['block_close']) ? 1 : 0;
-        $notifyPending = !empty($data['notify_pending']) ? 1 : 0;
-        $priority = max(0, min(9999, (int) ($data['priority'] ?? 100)));
-        $message = trim((string) ($data['message'] ?? 'FAD pendiente para moto adjudicada'));
-        $effectiveFrom = $this->normalizarFechaFad($data['effective_from'] ?? null);
-        $effectiveTo = $this->normalizarFechaFad($data['effective_to'] ?? null);
 
         try {
             $this->db->CRUD(
-                "INSERT INTO " . self::FAD_TABLA_REGLAS . "
-                    (scope, scope_value, enabled, requires_fad, mode, rollout_mode,
-                     notify_pending, show_badge, block_close, effective_from, effective_to,
-                     message, priority, is_active, created_by)
+                "INSERT INTO " . self::FAD_TABLA_CREDITO_EXCEPCIONES . "
+                    (id_credito, action, reason, active, created_by)
                  VALUES
-                    (:scope, :scope_value, :enabled, :requires_fad, :mode, :rollout_mode,
-                     :notify_pending, :show_badge, :block_close, :effective_from, :effective_to,
-                     :message, :priority, 1, :created_by)",
+                    (:id_credito, 'no_pedir_fad', :reason, 1, :created_by)",
                 [
-                    'scope' => $scope,
-                    'scope_value' => $scopeValue,
-                    'enabled' => $enabled,
-                    'requires_fad' => $requiresFad,
-                    'mode' => $mode,
-                    'rollout_mode' => $rolloutMode,
-                    'notify_pending' => $notifyPending,
-                    'show_badge' => $showBadge,
-                    'block_close' => $blockClose,
-                    'effective_from' => $effectiveFrom,
-                    'effective_to' => $effectiveTo,
-                    'message' => $message,
-                    'priority' => $priority,
-                    'created_by' => $idUsuario > 0 ? (string) $idUsuario : 'sparta',
+                    'id_credito' => $idCredito,
+                    'reason' => $motivo,
+                    'created_by' => $this->actorFad($idUsuario),
                 ]
             );
-            $idRegla = $this->db->lastInsertId();
-            $this->registrarEventoFad($idRegla, 'crear_regla', $idUsuario, [
-                'scope' => $scope,
-                'scope_value' => $scopeValue,
-                'mode' => $mode,
-                'priority' => $priority,
-            ]);
 
-            return ['success' => true, 'mensaje' => 'Regla FAD agregada.', 'datos' => $this->obtenerFad()];
+            return ['success' => true, 'mensaje' => 'Excepcion agregada.', 'datos' => $this->obtenerFad()];
         } catch (\Throwable $e) {
-            return ['success' => false, 'mensaje' => 'No se pudo guardar la regla FAD.', 'error' => $e->getMessage()];
+            return ['success' => false, 'mensaje' => 'No se pudo agregar la excepcion.', 'error' => $e->getMessage()];
+        }
+    }
+
+    public function desactivarExcepcionCredito(int $id, int $idUsuario = 0): array
+    {
+        if ($id <= 0) {
+            return ['success' => false, 'mensaje' => 'Excepcion no valida.'];
+        }
+
+        try {
+            $this->db->CRUD(
+                "UPDATE " . self::FAD_TABLA_CREDITO_EXCEPCIONES . "
+                 SET active = 0,
+                     deleted_at = NOW(),
+                     deleted_by = :deleted_by
+                 WHERE id = :id",
+                [
+                    'id' => $id,
+                    'deleted_by' => $this->actorFad($idUsuario),
+                ]
+            );
+
+            return ['success' => true, 'mensaje' => 'Excepcion desactivada.', 'datos' => $this->obtenerFad()];
+        } catch (\Throwable $e) {
+            return ['success' => false, 'mensaje' => 'No se pudo desactivar la excepcion.', 'error' => $e->getMessage()];
         }
     }
 
@@ -327,51 +274,75 @@ class ConfigMotosAdj extends Model
         }
     }
 
-    private function normalizarReglaFad(?array $row): ?array
+    private function obtenerHistorialApagadosFad(): array
     {
-        if (!$row) {
-            return null;
-        }
+        return $this->db->queryAll(
+            "SELECT
+                id,
+                estado,
+                started_at,
+                ended_at,
+                motivo,
+                created_by,
+                created_at
+             FROM " . self::FAD_TABLA_GLOBAL_HISTORIAL . "
+             ORDER BY started_at DESC, id DESC"
+        );
+    }
 
-        foreach (['enabled', 'requires_fad', 'notify_pending', 'show_badge', 'block_close', 'priority', 'is_active'] as $key) {
-            if (array_key_exists($key, $row)) {
-                $row[$key] = (int) $row[$key];
+    private function obtenerExcepcionesFad(): array
+    {
+        return $this->db->queryAll(
+            "SELECT
+                id,
+                id_credito,
+                action,
+                reason,
+                active,
+                created_by,
+                created_at,
+                deleted_at,
+                deleted_by
+             FROM " . self::FAD_TABLA_CREDITO_EXCEPCIONES . "
+             WHERE active = 1
+               AND deleted_at IS NULL
+             ORDER BY created_at DESC"
+        );
+    }
+
+    private function obtenerDecisionesFad(): array
+    {
+        return $this->db->queryAll(
+            "SELECT
+                id,
+                id_operacion,
+                id_credito,
+                user_id_legacy,
+                external_id,
+                dictamen_at,
+                fad_required,
+                fad_decision_reason,
+                fad_decision_at,
+                matched_rule_json,
+                created_at,
+                updated_at
+             FROM " . self::FAD_TABLA_DECISIONES . "
+             ORDER BY fad_decision_at DESC"
+        );
+    }
+
+    private function actorFad(int $idUsuario = 0): string
+    {
+        foreach (['usuario_nombre', 'nombre_usuario', 'username', 'email', 'correo'] as $key) {
+            if (!empty($_SESSION[$key])) {
+                return (string) $_SESSION[$key];
             }
         }
 
-        return $row;
-    }
-
-    private function normalizarFechaFad($fecha): ?string
-    {
-        $fecha = trim((string) $fecha);
-        if ($fecha === '') {
-            return null;
-        }
-        return preg_match('/^\d{4}-\d{2}-\d{2}$/', $fecha) ? $fecha : null;
-    }
-
-    private function registrarEventoFad(int $idRegla, string $evento, int $idUsuario, array $payload = []): void
-    {
-        if ($idRegla <= 0) {
-            return;
+        if ($idUsuario > 0) {
+            return 'usuario_' . $idUsuario;
         }
 
-        try {
-            $this->db->CRUD(
-                "INSERT INTO " . self::FAD_TABLA_EVENTOS . "
-                    (id_regla, evento, usuario_id, payload_json, fecha_alta)
-                 VALUES
-                    (:id_regla, :evento, :usuario_id, :payload_json, NOW())",
-                [
-                    'id_regla' => $idRegla,
-                    'evento' => $evento,
-                    'usuario_id' => $idUsuario > 0 ? $idUsuario : null,
-                    'payload_json' => json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
-                ]
-            );
-        } catch (\Throwable $e) {
-            // La bitacora FAD es opcional; no debe bloquear la configuracion.
-        }
+        return 'sparta';
     }
 }

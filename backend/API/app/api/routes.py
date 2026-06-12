@@ -37,6 +37,7 @@ except ImportError:
 
 router = APIRouter()
 settings = get_settings()
+API_BUILD = "doc-precheck-2026-06-11-rfc-nss-fiscal-cfe-id"
 
 api_key_header = APIKeyHeader(name=settings.api_key_header, auto_error=False)
 
@@ -63,17 +64,27 @@ def _indicadores_identificacion(texto: str) -> Dict[str, bool]:
     t = _normalizar_texto_precheck(texto)
     lineas_mrz = re.findall(r"[A-Z0-9<]{20,}", t)
     tiene_mrz = bool(lineas_mrz and any("<<" in l or l.count("<") >= 2 for l in lineas_mrz))
-    tiene_ine = bool(re.search(r"INSTITUTO\s+NACIONAL\s+ELECTORAL|CREDENCIAL\s+PARA\s+VOT", t))
+    tiene_mrz_ine = bool(
+        re.search(r"(?:^|\s)(?:ID\s*<?\s*MEX|IDMEX|I\s*<\s*MEX|I<MEX)|IDMEX", t)
+        or (tiene_mrz and "MEX" in t and not re.search(r"\bP\s*<\s*[A-Z]{3}|P<[A-Z]{3}", t))
+    )
+    tiene_ine = bool(re.search(r"INSTITUTO\s+NACIONAL\s+ELECTORAL|CREDENCIAL\s+PARA\s+VOT", t) or tiene_mrz_ine)
     tiene_elector = bool(re.search(r"CLAVE\s*DE\s*ELECTOR|CLAVEDEELECTOR|CLAVE.{0,4}ELECTOR|SECCION\s*\d|ELECTORAL|VOTAR", t))
     tiene_curp = bool(re.search(r"[A-Z]{4}\d{6}[HM][A-Z]{5}[A-Z0-9]\d", t))
     tiene_inm = bool(re.search(r"INSTITUTO\s+NACIONAL\s+DE\s+MIGRACION|MIGRACION|INM|RESIDENCIA\s+(TEMPORAL|PERMANENTE)|RESIDENTE\s+(TEMPORAL|PERMANENTE)|NUE\s*[.:]?\s*\d", t))
-    tiene_pasaporte = bool(
-        re.search(r"PASAPORTE|PASSPORT|PASSAPORT|PASAPORTE\s*NO|NO\.?\s*DE\s*PASAPORTE", t)
-        or (re.search(r"ESTADOS\s+UNIDOS\s+MEXICANOS", t) and re.search(r"CLAVE\s+DEL\s+PAIS|MEX\b|PASAPORTE", t))
-        or re.search(r"\bP\s*<\s*MEX|P<MEX|MEX\d{6}[HM]\d{6}", t)
+    tiene_senales_pasaporte = bool(re.search(r"PASAPORTE|PASSPORT|PASSAPORT|PASAPORTE\s*NO|NO\.?\s*DE\s*PASAPORTE", t))
+    tiene_campos_pasaporte = bool(
+        re.search(r"ISSUE\s+DATE|EXPIRY\s+DATE|DATE\s+DE\s+D[EI][LÍI]V|DATE\s+D['E]XP|HOLDER'?S\s+SIGNATURE|PLACE\s+OF\s+BIRTH", t)
     )
-    if not tiene_pasaporte and tiene_mrz and not tiene_inm and not tiene_ine:
-        tiene_pasaporte = True
+    tiene_mrz_pasaporte = bool(re.search(r"\bP\s*<\s*[A-Z]{3}|P<[A-Z]{3}", t))
+    tiene_pasaporte = bool(
+        tiene_senales_pasaporte
+        or tiene_mrz_pasaporte
+        or (tiene_mrz and tiene_campos_pasaporte)
+        or (re.search(r"ESTADOS\s+UNIDOS\s+MEXICANOS", t) and re.search(r"CLAVE\s+DEL\s+PAIS|MEX\b|PASAPORTE", t))
+    )
+    if tiene_mrz_ine and not tiene_senales_pasaporte:
+        tiene_pasaporte = False
     return {
         "mrz": tiene_mrz,
         "ine": tiene_ine,
@@ -86,7 +97,9 @@ def _indicadores_identificacion(texto: str) -> Dict[str, bool]:
 
 def _parece_identificacion_oficial(texto: str) -> bool:
     indicadores = _indicadores_identificacion(texto)
-    if indicadores["mrz"] or indicadores["ine"] or indicadores["inm_residencia"] or indicadores["pasaporte"]:
+    if indicadores["ine"] or indicadores["inm_residencia"] or indicadores["pasaporte"]:
+        return True
+    if indicadores["mrz"] and not indicadores["curp"]:
         return True
     return indicadores["curp"] and indicadores["elector"]
 
@@ -234,6 +247,16 @@ def _rechazo_identificacion_por_texto_equivocado(texto: str, paginas: int, modo:
             "El documento es un acta de nacimiento. En este campo solo se acepta identificacion oficial.",
         ),
         (
+            r"ESTADO\s+DE\s+CUENTA|CUENTA\s+CLABE|NO\.?\s+DE\s+CUENTA|N[UÚ]MERO\s+DE\s+CUENTA|TARJETA\s+N[OÓ]MINA|BBVA|BANCOMER|SANTANDER|BANORTE|HSBC|SCOTIABANK|BANCO\s+AZTECA|NU\s+M[EÉ]XICO",
+            "__SPARTA_SECRET_REDACTED___en_identificacion",
+            "El documento corresponde a estado de cuenta bancario. En este campo solo se acepta identificacion oficial.",
+        ),
+        (
+            r"COMPROBANTE\s+DE\s+DOMICILIO|RECIBO\s+DE\s+(LUZ|AGUA|TEL[EÉ]FONO)|COMISI[OÓ]N\s+FEDERAL\s+DE\s+ELECTRICIDAD|\bCFE\b|TELMEX|IZZI|TOTALPLAY",
+            "comprobante_domicilio_en_identificacion",
+            "El documento corresponde a comprobante de domicilio. En este campo solo se acepta identificacion oficial.",
+        ),
+        (
             r"SOLICITUD\s+(INTERNA|DE\s+EMPLEO|EMPLEO|DE\s+TRABAJO|TRABAJO)|CURR.?CULUM|CURRICULUM\s+VITAE|EXPERIENCIA\s+LABORAL",
             "solicitud_en_identificacion",
             "El documento corresponde a solicitud/CV. En este campo solo se acepta identificacion oficial.",
@@ -367,6 +390,260 @@ def _detectar_documento_equivocado_curp_pdf(pdf_bytes: bytes, inicio: float) -> 
     except Exception as e:
         logger.debug(f"detectar documento equivocado curp fallo: {e}")
         return None
+
+
+def _rechazo___SPARTA_SECRET_REDACTED___por_texto_equivocado(texto: str, inicio: float, modo: str) -> Optional[Dict[str, Any]]:
+    """Rechaza documentos claramente equivocados antes del OCR pesado de estado de cuenta."""
+    texto_upper = _normalizar_texto_precheck(texto)
+    reglas = [
+        (
+            r"CONSTANCIA\s+DE\s+SITUACI[OÓ]N\s+FISCAL|SERVICIO\s+DE\s+ADMINISTRACI[OÓ]N\s+TRIBUTARIA|PORTAL\s+DEL\s+SAT|\bSAT\b",
+            "constancia_fiscal_en___SPARTA_SECRET_REDACTED__",
+            "El documento es una constancia fiscal SAT. En este campo solo se acepta estado de cuenta bancario.",
+        ),
+        (
+            r"CONSTANCIA\s+.*CURP|CLAVE\s+[UÚ]NICA\s+DE\s+REGISTRO|RENAPO|REGISTRO\s+NACIONAL\s+DE\s+POBLACI[OÓ]N",
+            "curp_en___SPARTA_SECRET_REDACTED__",
+            "El documento es una constancia CURP. En este campo solo se acepta estado de cuenta bancario.",
+        ),
+        (
+            r"N[UÚ]MERO\s+DE\s+SEGURIDAD\s+SOCIAL|INSTITUTO\s+MEXICANO\s+DEL\s+SEGURO\s+SOCIAL|\bIMSS\b|CONSTANCIA\s+.*NSS|TARJETA\s+NSS",
+            "nss_en___SPARTA_SECRET_REDACTED__",
+            "El documento corresponde a NSS del IMSS. En este campo solo se acepta estado de cuenta bancario.",
+        ),
+        (
+            r"ACTA\s+DE\s+NACIMIENTO|REGISTRO\s+CIVIL|CERTIFICAD[AO]\s+DE\s+NACIMIENTO",
+            "acta_en___SPARTA_SECRET_REDACTED__",
+            "El documento es un acta de nacimiento. En este campo solo se acepta estado de cuenta bancario.",
+        ),
+        (
+            r"SOLICITUD\s+DE\s+EMPLEO|CURRICULUM|CURR[IÍ]CULO|EXPERIENCIA\s+LABORAL",
+            "solicitud_en___SPARTA_SECRET_REDACTED__",
+            "El documento corresponde a solicitud/CV. En este campo solo se acepta estado de cuenta bancario.",
+        ),
+        (
+            r"CREDENCIAL\s+PARA\s+VOTAR|INSTITUTO\s+NACIONAL\s+ELECTORAL|PASAPORTE|PASSPORT|RESIDENCIA\s+(TEMPORAL|PERMANENTE)|INSTITUTO\s+NACIONAL\s+DE\s+MIGRACI[OÓ]N",
+            "identificacion_en___SPARTA_SECRET_REDACTED__",
+            "El documento corresponde a identificación oficial. En este campo solo se acepta estado de cuenta bancario.",
+        ),
+    ]
+    for patron, motivo, mensaje in reglas:
+        if re.search(patron, texto_upper):
+            return _respuesta_rechazo(
+                motivo,
+                mensaje,
+                modo=modo,
+                tiempo_ms=int((time.time() - inicio) * 1000),
+                banco_detectado=None,
+                nombre_propietario=None,
+                clabe=None,
+                es_banco_fisico=False,
+                tiene_datos_titular=False,
+            )
+    return None
+
+
+def _detectar_documento_equivocado___SPARTA_SECRET_REDACTED___pdf(pdf_bytes: bytes, inicio: float) -> Optional[Dict[str, Any]]:
+    info = _texto_pdf_embebido_rapido(pdf_bytes, max_paginas=2)
+    rechazo = _rechazo___SPARTA_SECRET_REDACTED___por_texto_equivocado(
+        info.get("texto") or "",
+        inicio,
+        "documento_equivocado_texto_embebido",
+    )
+    if rechazo:
+        return rechazo
+    if not PYMUPDF_AVAILABLE:
+        return None
+    try:
+        doc = fitz.open(stream=pdf_bytes, filetype="pdf")
+        if doc.page_count <= 0:
+            doc.close()
+            return None
+        page = doc[0]
+        pix = page.get_pixmap(dpi=105)
+        img_bytes = pix.tobytes("png")
+        doc.close()
+        service = VerificacionService()
+        texto = service.ocr_analyzer.extraer_texto_rapido(img_bytes, max_ancho=1000)
+        return _rechazo___SPARTA_SECRET_REDACTED___por_texto_equivocado(
+            texto,
+            inicio,
+            "documento_equivocado_ocr_rapido",
+        )
+    except Exception as e:
+        logger.debug(f"detectar documento equivocado __SPARTA_SECRET_REDACTED__ fallo: {e}")
+    return None
+
+
+def _rechazo_por_texto_para_campo(texto: str, campo: str, mensaje_campo: str, **extra: Any) -> Optional[Dict[str, Any]]:
+    """Rechazo barato cuando el PDF claramente pertenece a otro campo documental."""
+    texto_upper = _normalizar_texto_precheck(texto)
+    parece_nss_texto = bool(
+        re.search(
+            r"INSTITUTO\s+MEXICANO\s+DEL\s+SEGURO\s+SOCIAL|\bIMSS\b|N[UÚ]MERO\s+DE\s+SEGURIDAD\s+SOCIAL|\bNSS\b|"
+            r"VIGENCIA\s+DE\s+DERECHOS|CONSTANCIA\s+DE\s+VIGENCIA|SEMANAS\s+COTIZADAS|HISTORIAL\s+DE\s+REGISTROS\s+AFILIATORIOS",
+            texto_upper,
+        )
+    )
+    parece_fiscal_texto = bool(
+        re.search(
+            r"CONSTANCIA\s+DE\s+SITUACI[OÓ]N\s+FISCAL|C[ÉE]DULA\s+DE\s+IDENTIFICACI[OÓ]N\s+FISCAL|"
+            r"REGISTRO\s+FEDERAL\s+DE\s+CONTRIBUYENTES|\bRFC\b|SERVICIO\s+DE\s+ADMINISTRACI[OÓ]N\s+TRIBUTARIA|\bSAT\b|IDCIF",
+            texto_upper,
+        )
+    )
+    reglas = [
+        (
+            r"CONSTANCIA\s+DE\s+SITUACI[OÓ]N\s+FISCAL|SERVICIO\s+DE\s+ADMINISTRACI[OÓ]N\s+TRIBUTARIA|PORTAL\s+DEL\s+SAT|\bSAT\b",
+            "constancia_fiscal",
+            "El documento es una constancia fiscal SAT.",
+        ),
+        (
+            r"CONSTANCIA\s+.*CURP|CLAVE\s+[UÚ]NICA\s+DE\s+REGISTRO|RENAPO|REGISTRO\s+NACIONAL\s+DE\s+POBLACI[OÓ]N",
+            "curp",
+            "El documento es una constancia CURP.",
+        ),
+        (
+            r"N[UÚ]MERO\s+DE\s+SEGURIDAD\s+SOCIAL|INSTITUTO\s+MEXICANO\s+DEL\s+SEGURO\s+SOCIAL|\bIMSS\b|CONSTANCIA\s+.*NSS|TARJETA\s+NSS",
+            "nss",
+            "El documento corresponde a NSS del IMSS.",
+        ),
+        (
+            r"ACTA\s+DE\s+NACIMIENTO|REGISTRO\s+CIVIL|CERTIFICAD[AO]\s+DE\s+NACIMIENTO",
+            "acta",
+            "El documento es un acta de nacimiento.",
+        ),
+        (
+            r"ESTADO\s+DE\s+CUENTA|CUENTA\s+CLABE|NO\.?\s+DE\s+CUENTA|CLABE\s+INTERBANCARIA|BBVA|BANCOMER|SANTANDER|BANORTE|HSBC|SCOTIABANK",
+            "__SPARTA_SECRET_REDACTED__",
+            "El documento corresponde a estado de cuenta bancario.",
+        ),
+        (
+            r"CREDENCIAL\s+PARA\s+VOTAR|INSTITUTO\s+NACIONAL\s+ELECTORAL|PASAPORTE|PASSPORT|RESIDENCIA\s+(TEMPORAL|PERMANENTE)|INSTITUTO\s+NACIONAL\s+DE\s+MIGRACI[OÓ]N",
+            "identificacion",
+            "El documento corresponde a identificación oficial.",
+        ),
+        (
+            r"SOLICITUD\s+DE\s+EMPLEO|CURRICULUM|CURR[IÍ]CULO|EXPERIENCIA\s+LABORAL",
+            "solicitud",
+            "El documento corresponde a solicitud/CV.",
+        ),
+    ]
+    for patron, tipo, base_msg in reglas:
+        if tipo == campo:
+            continue
+        if campo == "nss" and tipo == "curp" and parece_nss_texto:
+            continue
+        if campo == "constancia_fiscal" and tipo == "curp" and parece_fiscal_texto:
+            continue
+        if re.search(patron, texto_upper):
+            return _respuesta_rechazo(
+                f"{tipo}_en_{campo}",
+                f"{base_msg} {mensaje_campo}",
+                **extra,
+            )
+    return None
+
+
+def _respuesta_comprobante_rechazo(mensaje: str, inicio: float) -> ComprobanteResponse:
+    return ComprobanteResponse(
+        tipo_comprobante=None,
+        score_validacion=0,
+        resultado="RECHAZADO",
+        nombre_titular=None,
+        direccion=None,
+        fecha_documento=None,
+        es_reciente=None,
+        meses_antiguedad=None,
+        empresa=None,
+        alertas=[mensaje],
+        recomendacion=mensaje,
+        tiempo_proceso_ms=int((time.time() - inicio) * 1000),
+    )
+
+
+def _nombre_archivo_indica_otro_documento(nombre_archivo: str, campo: str, mensaje_campo: str, **extra: Any) -> Optional[Dict[str, Any]]:
+    nombre = _normalizar_texto_precheck(nombre_archivo or "")
+    reglas = [
+        (r"CONSTANCIA.*(SF|FISCAL|SAT)|SITUACION\s+FISCAL|\bCSF\b", "constancia_fiscal", "El archivo parece ser una constancia fiscal SAT."),
+        (r"\bCURP\b|CONSTANCIA.*CURP", "curp", "El archivo parece ser una constancia CURP."),
+        (r"\bNSS\b|SEGURO\s+SOCIAL", "nss", "El archivo parece corresponder a NSS del IMSS."),
+        (r"ACTA.*NACIMIENTO|NACIMIENTO", "acta", "El archivo parece ser un acta de nacimiento."),
+        (r"ESTADO.*CUENTA|CUENTA.*BANC", "__SPARTA_SECRET_REDACTED__", "El archivo parece ser un estado de cuenta bancario."),
+        (r"IDENTIFICACI[OÓ]N|IDENTIFICACION|INDENTIFICACION|INE|PASAPORTE|PASSPORT|RESIDENCIA", "identificacion", "El archivo parece ser una identificación oficial."),
+        (r"SOLICITUD|CURRICULUM|CURR[IÍ]CULO|CV", "solicitud", "El archivo parece corresponder a solicitud/CV."),
+    ]
+    for patron, tipo, base_msg in reglas:
+        if tipo == campo:
+            continue
+        if re.search(patron, nombre):
+            return _respuesta_rechazo(
+                f"{tipo}_en_{campo}_nombre_archivo",
+                f"{base_msg} {mensaje_campo}",
+                **extra,
+            )
+    return None
+
+
+def _nombre_archivo_rechazo_comprobante(nombre_archivo: str, inicio: float) -> Optional[ComprobanteResponse]:
+    rechazo = _nombre_archivo_indica_otro_documento(
+        nombre_archivo,
+        "comprobante_domicilio",
+        "En este campo debe subir un comprobante de domicilio.",
+    )
+    if rechazo:
+        return _respuesta_comprobante_rechazo(rechazo.get("mensaje") or "El archivo no corresponde a comprobante de domicilio.", inicio)
+    return None
+
+
+def _rechazo_comprobante_domicilio_rapido(pdf_bytes: bytes, inicio: float) -> Optional[ComprobanteResponse]:
+    """Evita mandar documentos claramente equivocados al analizador de comprobante."""
+    info = _texto_pdf_embebido_rapido(pdf_bytes, max_paginas=2)
+    texto = info.get("texto") or ""
+    texto_upper = _normalizar_texto_precheck(texto)
+    reglas = [
+        (
+            r"CONSTANCIA\s+DE\s+SITUACI[OÓ]N\s+FISCAL|C[ÉE]DULA\s+DE\s+IDENTIFICACI[OÓ]N\s+FISCAL|SERVICIO\s+DE\s+ADMINISTRACI[OÓ]N\s+TRIBUTARIA|PORTAL\s+DEL\s+SAT",
+            "Este documento es una constancia fiscal SAT, no un comprobante de domicilio. Sube un recibo de luz, agua, gas, teléfono, banco o predial.",
+        ),
+        (
+            r"CONSTANCIA\s+.*CURP|CLAVE\s+[UÚ]NICA\s+DE\s+REGISTRO|RENAPO|REGISTRO\s+NACIONAL\s+DE\s+POBLACI[OÓ]N",
+            "Este documento es una constancia CURP, no un comprobante de domicilio. Sube un recibo de luz, agua, gas, teléfono, banco o predial.",
+        ),
+        (
+            r"N[UÚ]MERO\s+DE\s+SEGURIDAD\s+SOCIAL|INSTITUTO\s+MEXICANO\s+DEL\s+SEGURO\s+SOCIAL|\bIMSS\b|CONSTANCIA\s+.*NSS|TARJETA\s+NSS",
+            "Este documento corresponde a NSS del IMSS, no a comprobante de domicilio. Sube un recibo de luz, agua, gas, teléfono, banco o predial.",
+        ),
+        (
+            r"ACTA\s+DE\s+NACIMIENTO|REGISTRO\s+CIVIL|CERTIFICAD[AO]\s+DE\s+NACIMIENTO",
+            "Este documento es un acta de nacimiento, no un comprobante de domicilio. Sube un recibo de luz, agua, gas, teléfono, banco o predial.",
+        ),
+        (
+            r"SOLICITUD\s+DE\s+EMPLEO|CURRICULUM|CURR[IÍ]CULO|EXPERIENCIA\s+LABORAL",
+            "Este documento corresponde a solicitud/CV, no a comprobante de domicilio. Sube un recibo de luz, agua, gas, teléfono, banco o predial.",
+        ),
+    ]
+    for patron, mensaje in reglas:
+        if re.search(patron, texto_upper):
+            return _respuesta_comprobante_rechazo(mensaje, inicio)
+    try:
+        indicadores = _indicadores_identificacion(texto_upper)
+        if any(indicadores.get(k) for k in ("ine", "elector", "inm_residencia", "pasaporte", "mrz")):
+            return _respuesta_comprobante_rechazo(
+                "Este documento es una identificación oficial, no un comprobante de domicilio. Sube un recibo de luz, agua, gas, teléfono, banco o predial.",
+                inicio,
+            )
+        if len(texto_upper) < 80 or not any(indicadores.get(k) for k in ("ine", "elector", "inm_residencia", "pasaporte", "mrz")):
+            texto_id = _extraer_texto_identificacion_pdf(pdf_bytes, max_paginas=1, max_chars=2500, timeout_s=2.5)
+            indicadores_id = _indicadores_identificacion(texto_id)
+            if any(indicadores_id.get(k) for k in ("ine", "elector", "inm_residencia", "pasaporte", "mrz")):
+                return _respuesta_comprobante_rechazo(
+                    "Este documento es una identificación oficial, no un comprobante de domicilio. Sube un recibo de luz, agua, gas, teléfono, banco o predial.",
+                    inicio,
+                )
+    except Exception as e:
+        logger.debug(f"rechazo comprobante rapido fallo: {e}")
+    return None
 
 
 async def verificar_api_key(api_key: str = Depends(api_key_header)):
@@ -551,8 +828,16 @@ async def verificar_comprobante(
 
     logger.info(f"Verificando comprobante - archivo: {documento.filename} - tamaño: {len(file_bytes)/1024:.1f}KB")
 
+    inicio = time.time()
+    rechazo_nombre = _nombre_archivo_rechazo_comprobante(documento.filename or "", inicio)
+    if rechazo_nombre:
+        return rechazo_nombre
+    if extension == "pdf":
+        rechazo_rapido = _rechazo_comprobante_domicilio_rapido(file_bytes, inicio)
+        if rechazo_rapido:
+            return rechazo_rapido
+
     try:
-        inicio = time.time()
         analyzer = ComprobanteAnalyzer()
         check = analyzer.analyze(file_bytes, documento.filename or "")
         tiempo_ms = int((time.time() - inicio) * 1000)
@@ -659,6 +944,23 @@ async def verificar_nss_documento(
     file_bytes = await documento.read()
     if len(file_bytes) == 0:
         raise HTTPException(status_code=400, detail="Documento vacío")
+    rechazo_nombre = _nombre_archivo_indica_otro_documento(
+        documento.filename or "",
+        "nss",
+        "En NSS debe subir constancia o vigencia de derechos del IMSS.",
+        nss_extraido=None,
+    )
+    if rechazo_nombre:
+        return rechazo_nombre
+    info_rapida = _texto_pdf_embebido_rapido(file_bytes, max_paginas=2)
+    rechazo_rapido = _rechazo_por_texto_para_campo(
+        info_rapida.get("texto") or "",
+        "nss",
+        "En NSS debe subir constancia o vigencia de derechos del IMSS.",
+        nss_extraido=None,
+    )
+    if rechazo_rapido:
+        return rechazo_rapido
     try:
         tarjeta_nss = await asyncio.wait_for(asyncio.to_thread(es_tarjeta_nss, file_bytes), timeout=4)
     except asyncio.TimeoutError:
@@ -795,6 +1097,21 @@ async def verificar_constancia_fiscal_documento(
     if len(file_bytes) == 0:
         raise HTTPException(status_code=400, detail="Documento vacío")
     inicio = time.time()
+    rechazo_nombre = _nombre_archivo_indica_otro_documento(
+        documento.filename or "",
+        "constancia_fiscal",
+        "En este campo solo se acepta constancia de situación fiscal SAT.",
+    )
+    if rechazo_nombre:
+        return rechazo_nombre
+    info_rapida = _texto_pdf_embebido_rapido(file_bytes, max_paginas=2)
+    rechazo_rapido = _rechazo_por_texto_para_campo(
+        info_rapida.get("texto") or "",
+        "constancia_fiscal",
+        "En este campo solo se acepta constancia de situación fiscal SAT.",
+    )
+    if rechazo_rapido:
+        return rechazo_rapido
     try:
         datos = await asyncio.wait_for(
             asyncio.to_thread(extraer_datos_constancia_fiscal, file_bytes),
@@ -833,6 +1150,8 @@ async def verificar_constancia_fiscal_documento(
         return _respuesta_rechazo(
             "constancia_fiscal_vencida",
             "La constancia no puede tener más de 2 meses de antigüedad. Descarga una nueva constancia en el portal del SAT.",
+            rfc=datos.get("rfc"),
+            curp=datos.get("curp"),
             fecha_emision=datos.get("fecha_emision"),
             meses_antiguedad=meses,
             vigencia_ok=False,
@@ -843,6 +1162,10 @@ async def verificar_constancia_fiscal_documento(
         return {
             "valido": False,
             "mensaje": "La constancia no puede tener más de 2 meses de antigüedad. Descarga una nueva constancia en el portal del SAT.",
+            "rfc": datos.get("rfc"),
+            "curp": datos.get("curp"),
+            "rfc": datos.get("rfc"),
+            "curp": datos.get("curp"),
             "fecha_emision": datos.get("fecha_emision"),
             "meses_antiguedad": meses,
             "vigencia_ok": False,
@@ -856,6 +1179,8 @@ async def verificar_constancia_fiscal_documento(
             "valido": False,
             "revision_manual": True,
             "mensaje": "No se pudo confirmar automáticamente la actividad Asalariado. Revisar manualmente.",
+            "rfc": datos.get("rfc"),
+            "curp": datos.get("curp"),
             "fecha_emision": datos.get("fecha_emision"),
             "meses_antiguedad": meses,
             "vigencia_ok": meses is None or meses <= 2.0,
@@ -903,11 +1228,23 @@ async def verificar___SPARTA_SECRET_REDACTED__(
     documento: UploadFile = File(..., description="PDF de estado de cuenta"),
     api_key: str = Depends(verificar_api_key)
 ):
+    inicio = time.time()
     if not documento.filename or not documento.filename.lower().endswith(".pdf"):
         raise HTTPException(status_code=400, detail="Se requiere un archivo PDF de estado de cuenta")
     file_bytes = await documento.read()
     if len(file_bytes) == 0:
         raise HTTPException(status_code=400, detail="Documento vacío")
+    try:
+        rechazo = await asyncio.wait_for(
+            asyncio.to_thread(_detectar_documento_equivocado___SPARTA_SECRET_REDACTED___pdf, file_bytes, inicio),
+            timeout=3,
+        )
+        if rechazo:
+            return rechazo
+    except asyncio.TimeoutError:
+        logger.debug("verificar___SPARTA_SECRET_REDACTED__: deteccion de documento equivocado agoto tiempo")
+    except Exception as e:
+        logger.debug(f"verificar___SPARTA_SECRET_REDACTED__: deteccion de documento equivocado fallo: {e}")
     from app.services.__SPARTA_SECRET_REDACTED___analyzer import validar___SPARTA_SECRET_REDACTED___pdf
     try:
         resultado = await asyncio.wait_for(
@@ -1015,6 +1352,38 @@ async def verificar_curp_documento(
             fecha_emision=None,
             tiempo_ms=int((time.time() - inicio) * 1000),
         )
+    info_inicial = _texto_pdf_embebido_rapido(file_bytes, max_paginas=2)
+    texto_inicial = _normalizar_texto_precheck(info_inicial.get("texto") or "")
+    if texto_inicial:
+        rechazo_inicial = _rechazo_curp_por_texto_equivocado(
+            texto_inicial,
+            inicio,
+            "documento_equivocado_texto_embebido",
+        )
+        if rechazo_inicial:
+            return rechazo_inicial
+        if not re.search(r"CONSTANCIA\s+.*CURP|CLAVE\s+[UÚ]NICA\s+DE\s+REGISTRO|RENAPO|REGISTRO\s+NACIONAL\s+DE\s+POBLACI[OÓ]N", texto_inicial):
+            return _respuesta_rechazo(
+                "documento_no_curp",
+                "El documento no corresponde a constancia CURP del RENAPO. En este campo solo se acepta CURP.",
+                curp_extraido=None,
+                es_reciente=None,
+                meses_antiguedad=None,
+                fecha_emision=None,
+                tiempo_ms=int((time.time() - inicio) * 1000),
+            )
+    elif not re.search(r"\bCURP\b", nombre_archivo):
+        return {
+            "curp_extraido": None,
+            "valido": False,
+            "revision_manual": True,
+            "mensaje": "No se pudo confirmar automáticamente que el PDF sea una constancia CURP del RENAPO. Revisar manualmente.",
+            "es_reciente": None,
+            "meses_antiguedad": None,
+            "fecha_emision": None,
+            "parece_curp": False,
+            "tiempo_ms": int((time.time() - inicio) * 1000),
+        }
     try:
         rechazo_equivocado = await asyncio.wait_for(
             asyncio.to_thread(_detectar_documento_equivocado_curp_pdf, file_bytes, inicio),
@@ -1055,6 +1424,20 @@ async def verificar_curp_documento(
             tiempo_ms=int((time.time() - inicio) * 1000),
         )
     parece_curp = es_documento_curp(file_bytes)
+    if not parece_curp:
+        info_texto = _texto_pdf_embebido_rapido(file_bytes, max_paginas=2)
+        texto_curp = _normalizar_texto_precheck(info_texto.get("texto") or "")
+        if not re.search(r"CONSTANCIA\s+.*CURP|CLAVE\s+[UÚ]NICA\s+DE\s+REGISTRO|RENAPO|REGISTRO\s+NACIONAL\s+DE\s+POBLACI[OÓ]N", texto_curp):
+            return _respuesta_rechazo(
+                "documento_no_curp",
+                "El documento no corresponde a constancia CURP del RENAPO. En este campo solo se acepta CURP.",
+                curp_extraido=None,
+                es_reciente=None,
+                meses_antiguedad=None,
+                fecha_emision=None,
+                parece_curp=parece_curp,
+                tiempo_ms=int((time.time() - inicio) * 1000),
+            )
     try:
         datos = await asyncio.wait_for(
             asyncio.to_thread(extraer_datos_curp_pdf, file_bytes),
@@ -1235,6 +1618,10 @@ async def precheck_identificacion_pdf(
     valido = _parece_identificacion_oficial(texto)
     paginas = int(extraido.get("paginas") or 0)
     texto_upper = texto.upper()
+    if re.search(r"(?:^|\s)(?:ID\s*<?\s*MEX|IDMEX|I\s*<\s*MEX|I<MEX)|IDMEX", texto_upper):
+        indicadores["ine"] = True
+        indicadores["pasaporte"] = False
+        valido = True
 
     if texto.strip() and not valido:
         if re.search(r"ASIGNACI[OÓ]N\s+O\s+LOCALIZACI[OÓ]N|N[UÚ]MERO\s+DE\s+SEGURIDAD\s+SOCIAL|INSTITUTO\s+MEXICANO\s+DEL\s+SEGURO\s+SOCIAL|\bIMSS\b", texto_upper):
@@ -1646,4 +2033,4 @@ async def listar_tipos():
 @router.get("/health", tags=["Sistema"])
 async def health_check():
     """Verifica que el servicio esté funcionando."""
-    return {"status": "ok", "version": settings.app_version}
+    return {"status": "ok", "version": settings.app_version, "build": API_BUILD}

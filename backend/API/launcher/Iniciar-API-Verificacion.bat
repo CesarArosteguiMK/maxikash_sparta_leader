@@ -6,14 +6,14 @@ rem =====================================================================
 rem  Iniciar-API-Verificacion.bat  (MODO INTELIGENTE 1-CLICK)
 rem
 rem  Uso normal (doble clic):
-rem    - Diagnostica rápido el entorno
+rem    - Diagnostica rapido el entorno
 rem    - Si detecta errores bloqueantes, intenta auto-reparar
 rem    - Intenta levantar la API en segundo plano
-rem    - Te deja un mensaje claro de éxito/fallo
+rem    - Te deja un mensaje claro de exito/fallo
 rem
 rem  Opciones:
-rem    /CONSOLA  -> abre depuración visible (foreground)
-rem    /RAPIDO   -> arranque directo sin auto-reparación
+rem    /CONSOLA  -> abre depuracion visible (foreground)
+rem    /RAPIDO   -> arranque directo sin auto-reparacion
 rem =====================================================================
 
 cd /d "%~dp0"
@@ -39,22 +39,52 @@ echo   Carpeta: %API_DIR%
 echo ============================================================
 echo.
 
-rem Si ya está levantada, no hacer nada más.
-netstat -ano 2>nul | findstr ":8000" | findstr "LISTENING" >nul
+rem Si ya esta levantada, no hacer nada mas.
+echo [PRECHECK] Probando si la API ya responde en 127.0.0.1:8000...
+call :ApiReady 4
 if !errorlevel! EQU 0 (
     set "API_READY=1"
 ) else (
     set "API_READY=0"
-    powershell -NoProfile -ExecutionPolicy Bypass -Command "try { $r = Invoke-WebRequest -Uri 'http://127.0.0.1:8000/docs' -UseBasicParsing -TimeoutSec 5; if ($r.StatusCode -eq 200) { exit 0 } else { exit 1 } } catch { exit 1 }" >nul 2>nul
-    if !errorlevel! EQU 0 set "API_READY=1"
 )
+echo [PRECHECK] API_READY=!API_READY!
 
 if "!API_READY!"=="1" (
     echo [OK] La API ya esta en marcha en el puerto 8000.
     echo      URL: http://127.0.0.1:8000/docs
     echo.
-    ping 127.0.0.1 -n 3 >nul
-    exit /b 0
+    echo [CHECK] Verificando dependencias criticas por si el servidor quedo a medias...
+    powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0doctor-api.ps1"
+    set "DOC_READY_RC=!ERRORLEVEL!"
+    if "!DOC_READY_RC!"=="1" (
+        echo [FIX] La API esta viva, pero faltan dependencias criticas. Reparando...
+        powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0doctor-api.ps1" -Fix -InstallMissing
+        set "DOC_READY_FIX_RC=!ERRORLEVEL!"
+        if "!DOC_READY_FIX_RC!"=="1" (
+            echo [ERROR] No se pudieron instalar todas las dependencias criticas.
+            echo         Revise: %API_DIR%\logs\doctor-pip-*.log
+            ping 127.0.0.1 -n 8 >nul
+            exit /b 1
+        )
+        echo [RESTART] Dependencias actualizadas. Reiniciando API para cargar PaddleOCR/Paddle...
+        powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0cerrar-agente.ps1" -Silent
+        if !errorlevel! NEQ 0 (
+            echo [ERROR] No se pudo detener la API anterior. No se arranca encima para evitar codigo viejo en memoria.
+            echo         Use "Parar ejecucion" o cierre el proceso que ocupa el puerto 8000 y vuelva a intentar.
+            exit /b 1
+        )
+        call "%~dp0iniciar-agente.bat"
+        exit /b !ERRORLEVEL!
+    )
+    echo [RESTART] La API ya estaba viva. Reiniciando para cargar el codigo actual...
+    powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0cerrar-agente.ps1" -Silent
+    if !errorlevel! NEQ 0 (
+        echo [ERROR] No se pudo detener la API anterior. No se arranca encima para evitar codigo viejo en memoria.
+        echo         Use "Parar ejecucion" o cierre el proceso que ocupa el puerto 8000 y vuelva a intentar.
+        exit /b 1
+    )
+    call "%~dp0iniciar-agente.bat"
+    exit /b !ERRORLEVEL!
 )
 
 rem ----- Bootstrap defensivo: si Python portable existe pero esta roto -----
@@ -161,25 +191,14 @@ echo [4/4] Intentando levantar la API...
 call "%~dp0iniciar-agente.bat"
 set "START_RC=!ERRORLEVEL!"
 
-rem Confirmación final
-netstat -ano 2>nul | findstr ":8000" | findstr "LISTENING" >nul
+rem Confirmacion final
+echo [4/4] Confirmando health de la API...
+call :ApiReady 6
 if !errorlevel! EQU 0 (
     echo.
     echo ============================================================
     echo   [OK] API levantada correctamente
-    echo   URL:  http://127.0.0.1:8000/docs
-    echo ============================================================
-    echo.
-    ping 127.0.0.1 -n 4 >nul
-    exit /b 0
-)
-
-powershell -NoProfile -ExecutionPolicy Bypass -Command "try { $r = Invoke-WebRequest -Uri 'http://127.0.0.1:8000/docs' -UseBasicParsing -TimeoutSec 5; if ($r.StatusCode -eq 200) { exit 0 } else { exit 1 } } catch { exit 1 }" >nul 2>nul
-if !errorlevel! EQU 0 (
-    echo.
-    echo ============================================================
-    echo   [OK] API levantada correctamente
-    echo   URL:  http://127.0.0.1:8000/docs
+    echo   URL:  http://127.0.0.1:8000/api/v1/health
     echo ============================================================
     echo.
     ping 127.0.0.1 -n 4 >nul
@@ -202,3 +221,9 @@ echo ============================================================
 echo.
 ping 127.0.0.1 -n 9 >nul
 exit /b %START_RC%
+
+:ApiReady
+set "API_READY_TIMEOUT=%~1"
+if "%API_READY_TIMEOUT%"=="" set "API_READY_TIMEOUT=4"
+powershell -NoProfile -ExecutionPolicy Bypass -Command "try { $t=[int]$env:API_READY_TIMEOUT; $r = Invoke-WebRequest -Uri 'http://127.0.0.1:8000/api/v1/health' -UseBasicParsing -TimeoutSec $t; if ($r.StatusCode -ge 200 -and $r.StatusCode -lt 500) { exit 0 } else { exit 1 } } catch { try { $r = Invoke-WebRequest -Uri 'http://127.0.0.1:8000/docs' -UseBasicParsing -TimeoutSec $t; if ($r.StatusCode -ge 200 -and $r.StatusCode -lt 500) { exit 0 } else { exit 1 } } catch { exit 1 } }" >nul 2>nul
+exit /b !ERRORLEVEL!

@@ -884,6 +884,7 @@ body.dark-mode .api1click-tbtn--danger { color: #fecaca; }
         </label>
         <button type="button" class="api1click-tbtn" id="api1clickBtnCopy" title="Copiar texto visible al portapapeles">Copiar</button>
         <button type="button" class="api1click-tbtn" id="api1clickBtnDownload" title="Descargar .log">Descargar</button>
+        <button type="button" class="api1click-tbtn api1click-tbtn--danger" id="api1clickBtnClearLogs" title="Borrar todos los .log acumulados en backend/API/logs">Borrar logs</button>
         <button type="button" class="api1click-tbtn" id="api1clickBtnOlvidar" title="Solo quita el bloqueo en la web; no mata procesos en el servidor">Desbloquear panel</button>
         <button type="button" class="api1click-tbtn api1click-tbtn--danger" id="api1clickBtnParar" title="Corta en el servidor esta ejecución (batch/doctor/pip/python de esta API + puerto 8000)">Parar ejecución</button>
       </div>
@@ -1353,6 +1354,7 @@ body.dark-mode .api1click-tbtn--danger { color: #fecaca; }
   var btnApi1View = document.getElementById('api1clickBtnView');
   var btnApi1Copy = document.getElementById('api1clickBtnCopy');
   var btnApi1Download = document.getElementById('api1clickBtnDownload');
+  var btnApi1ClearLogs = document.getElementById('api1clickBtnClearLogs');
   var btnApi1Olvidar = document.getElementById('api1clickBtnOlvidar');
   var btnApi1Parar = document.getElementById('api1clickBtnParar');
   var chkApi1Completo = document.getElementById('api1clickLogCompleto');
@@ -1495,10 +1497,38 @@ body.dark-mode .api1click-tbtn--danger { color: #fecaca; }
     }
     window.location.href = '/inicio/apidoclogdescargar?archivo=' + encodeURIComponent(selApi1Logs.value);
   }
+  function api1ClearLogs() {
+    if (!confirm('¿Borrar todos los logs acumulados de backend/API/logs? Esto no detiene la API; solo limpia archivos .log.')) return;
+    if (btnApi1ClearLogs) btnApi1ClearLogs.disabled = true;
+    if (outApi1) outApi1.textContent = 'Borrando logs...';
+    fetch('/inicio/apidocloglimpiar', { method: 'POST', credentials: 'same-origin', headers: api1AjaxHeaders() })
+      .then(function(r){
+        return r.text().then(function(body){
+          if (!r.ok) throw new Error(body.slice(0, 180) || ('HTTP ' + r.status));
+          return api1ParseJsonBody(body, 'apidocloglimpiar');
+        });
+      })
+      .then(function(data){
+        var msg = data && data.message ? String(data.message) : 'Limpieza terminada.';
+        if (data && data.failed_total) {
+          msg += '\nNo borrados (' + data.failed_total + '): ' + (data.failed || []).join(', ');
+        }
+        if (outApi1) outApi1.textContent = msg;
+        if (selApi1Logs) selApi1Logs.value = '';
+        api1RefreshLogList();
+      })
+      .catch(function(e){
+        if (outApi1) outApi1.textContent = 'No se pudieron borrar los logs: ' + (e && e.message ? e.message : e);
+      })
+      .finally(function(){
+        if (btnApi1ClearLogs) btnApi1ClearLogs.disabled = false;
+      });
+  }
   if (btnApi1RefreshList) btnApi1RefreshList.addEventListener('click', api1RefreshLogList);
   if (btnApi1View) btnApi1View.addEventListener('click', api1ViewSelectedLog);
   if (btnApi1Copy) btnApi1Copy.addEventListener('click', api1CopyVisibleLog);
   if (btnApi1Download) btnApi1Download.addEventListener('click', api1DownloadSelectedLog);
+  if (btnApi1ClearLogs) btnApi1ClearLogs.addEventListener('click', api1ClearLogs);
   if (btnApi1Olvidar) btnApi1Olvidar.addEventListener('click', function(){
     if (!confirm('¿Desbloquear el panel? Podrás pulsar «API» otra vez. Un proceso ya lanzado puede seguir en el servidor hasta terminar.')) return;
     fetch('/inicio/apidoconeclickolvidar', { method: 'POST', credentials: 'same-origin', headers: api1AjaxHeaders() })

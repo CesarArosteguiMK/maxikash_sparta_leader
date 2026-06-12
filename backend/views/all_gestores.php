@@ -11175,9 +11175,10 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
   function descargarPlantillaGestores() {
     // Obtener filtros activos
     const direccion = document.getElementById('UserDireccion')?.value || '';
-    const area = document.getElementById('UserArea').value || '';
-    const departamento = document.getElementById('UserRole').value || '';
-    const puesto = document.getElementById('UserPlan').value || '';
+    const area = document.getElementById('UserArea')?.value || '';
+    const departamento = document.getElementById('UserRole')?.value || '';
+    const puesto = document.getElementById('UserPlan')?.value || '';
+    const estatus = document.getElementById('FilterTransaction')?.value || '';
 
     // Generar mensaje dinámico según filtros
     let mensajeFiltros = 'Se descargará un archivo Excel con ';
@@ -11187,6 +11188,7 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
     if (area) detallesFiltros.push(`Área: <strong>${area}</strong>`);
     if (departamento) detallesFiltros.push(`Departamento: <strong>${departamento}</strong>`);
     if (puesto) detallesFiltros.push(`Puesto: <strong>${puesto}</strong>`);
+    if (estatus) detallesFiltros.push(`Estatus: <strong>${estatus}</strong>`);
 
     if (detallesFiltros.length > 0) {
       mensajeFiltros = 'Se descargará un archivo Excel filtrado por:<br><br>' + detallesFiltros.join('<br>');
@@ -11214,14 +11216,18 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
       showCancelButton: true,
       confirmButtonText: '<i class="bx bx-download me-2"></i>Sí, descargar',
       cancelButtonText: 'Cancelar',
-      confirmButtonColor: '#0047bb',
-      cancelButtonColor: '#a1acb8',
+      buttonsStyling: false,
+      customClass: {
+        actions: 'gap-3',
+        confirmButton: 'btn btn-primary px-4',
+        cancelButton: 'btn btn-label-danger px-4'
+      },
       reverseButtons: true
     }).then((result) => {
       if (result.isConfirmed) {
         Swal.fire({
           title: 'Generando archivo Excel...',
-          html: '<div class="spinner-border text-primary" role="status"><span class="visually-hidden">Cargando...</span></div><p style="margin-top: 1rem;">Por favor espera...</p>',
+          html: '<p style="margin-top: 1rem;">Por favor espera...</p>',
           allowOutsideClick: false,
           showConfirmButton: false,
           didOpen: () => Swal.showLoading()
@@ -11230,7 +11236,7 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
         // Crear formulario para descarga con filtros
         const form = document.createElement('form');
         form.method = 'GET';
-        form.action = '/analitica/descargarPlantillaGestores';
+        form.action = '/Reporteria/descargarPlantillaGestores';
         form.style.display = 'none';
 
         // Agregar filtros como inputs hidden

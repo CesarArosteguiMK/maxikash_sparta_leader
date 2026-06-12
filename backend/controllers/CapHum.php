@@ -648,6 +648,10 @@ class CapHum extends Controller
                 if (!form) return;
 
                 form.querySelectorAll('input, select, button[type="button"]').forEach(el => {
+                    if (el.matches('button[data-bs-dismiss]')) {
+                        el.disabled = false;
+                        return;
+                    }
                     if ('readOnly' in el) el.readOnly = false;
                     el.disabled = true;
                 });
@@ -6084,6 +6088,8 @@ class CapHum extends Controller
             }
 
             var docModalPollTimer = null;
+            var docModalFetchInFlight = false;
+            window.SPARTA_DOC_DEBUG = window.SPARTA_DOC_DEBUG === true;
 
             function clearDocModalPoll() {
                 if (docModalPollTimer) {
@@ -6115,7 +6121,7 @@ class CapHum extends Controller
                     return;
                 }
                 var intentos = 0;
-                var maxIntentos = 10;
+                var maxIntentos = 60;
                 docModalPollTimer = setInterval(function() {
                     intentos++;
                     if (intentos > maxIntentos) {
@@ -6124,12 +6130,12 @@ class CapHum extends Controller
                         var modalAbierto = document.getElementById("modalDocumentacionCandidato");
                         if (bv && modalAbierto && modalAbierto.classList.contains("show")) {
                             bv.classList.remove("d-none");
-                            bv.innerHTML = "<div class=\"alert alert-warning small mb-0\"><i class=\"fa fa-info-circle me-1\"></i>API pendiente / fallo técnico. No hay dictamen automático confiable todavía; reintente la API cuando el servicio responda.</div>";
+                            bv.innerHTML = "<div class=\"alert alert-info small mb-0\"><i class=\"fa fa-hourglass-half me-1\"></i>Validación documental en segundo plano. Puedes cerrar este modal y volver a abrirlo; el resultado aparecerá cuando termine.</div>";
                         }
                         return;
                     }
                     cargarDocumentosModal(idCandidato, { fromPoll: true });
-                }, 3000);
+                }, 2000);
             }
 
             /* â€â€ KPI Candidatos: contador animado (misma lógica que Gestión kpiAnimateCounter) â€â€ */
@@ -7016,8 +7022,11 @@ class CapHum extends Controller
                 var respuestaVaciaApi = !errApi && checksTotNum === 0 && sinPuntuaciones && alertas.length === 0 && v.todo_coincide !== true;
                 if (!verificacionEnProceso && errApi) {
                     candidatosDocConsola("error", "verificacion API - error_api (detalle tecnico)", errApi);
-                    html += "<div class=\"alert alert-warning py-2 px-2 mb-2 small\" role=\"alert\"><strong>API pendiente / fallo t&eacute;cnico.</strong><br><span class=\"text-muted\">La validaci&oacute;n autom&aacute;tica no entreg&oacute; un resultado confiable. No se marca como revisi&oacute;n manual; corrige/reinicia la API o usa \"Reintentar API\".</span></div>";
-                    html += "<div class=\"d-grid gap-2 mb-2\"><button type=\"button\" class=\"btn btn-sm btn-outline-primary btn-reintentar-verif-expediente\" id=\"btnReintentarVerifExpediente\" title=\"Volver a ejecutar la verificaci&oacute;n contra la API\"><i class=\"fa fa-sync-alt me-1\"></i>Reintentar API</button></div>";
+                    if (!checksTotNum || checksTotNum <= 0) {
+                        bloqueVerif.classList.add("d-none");
+                        bloqueVerif.innerHTML = "";
+                        return;
+                    }
                     errApi = "";
                 }
                 if (!verificacionEnProceso && respuestaVaciaApi) {
@@ -7289,12 +7298,77 @@ class CapHum extends Controller
                 });
             }
 
+            function subirDocumentoManualCandidato(idCandidato, tipoNum, tipoNombre) {
+                idCandidato = parseInt(idCandidato, 10) || 0;
+                tipoNum = parseInt(tipoNum, 10) || 0;
+                if (!idCandidato || !tipoNum) return;
+                var input = document.createElement("input");
+                input.type = "file";
+                input.accept = "application/pdf,.pdf";
+                input.style.display = "none";
+                document.body.appendChild(input);
+                input.addEventListener("change", function() {
+                    var archivo = input.files && input.files[0] ? input.files[0] : null;
+                    try { document.body.removeChild(input); } catch (e0) {}
+                    if (!archivo) return;
+                    if (!/\.pdf$/i.test(archivo.name || "")) {
+                        if (typeof Swal !== "undefined") Swal.fire({ icon: "warning", title: "Archivo no permitido", text: "Solo se acepta PDF." });
+                        return;
+                    }
+                    var fd = new FormData();
+                    fd.append("id_candidato", String(idCandidato));
+                    fd.append("tipo_documento", String(tipoNum));
+                    fd.append("archivo", archivo);
+                    if (typeof Swal !== "undefined") {
+                        Swal.fire({
+                            title: "Subiendo documento...",
+                            html: "Guardando " + (tipoNombre || "documento") + " en el expediente.",
+                            allowOutsideClick: false,
+                            allowEscapeKey: false,
+                            showConfirmButton: false,
+                            didOpen: function() { Swal.showLoading(); }
+                        });
+                    }
+                    fetch("/caphum/subirDocumentoManualCandidato", {
+                        method: "POST",
+                        headers: { "X-Requested-With": "XMLHttpRequest", "Accept": "application/json" },
+                        body: fd
+                    })
+                    .then(function(r) { return r.json(); })
+                    .then(function(res) {
+                        if (typeof Swal !== "undefined") Swal.close();
+                        if (res && res.success) {
+                            if (typeof Swal !== "undefined") {
+                                Swal.fire({ icon: "success", title: "Documento agregado", text: res.mensaje || "Documento subido manualmente.", timer: 2400, showConfirmButton: false });
+                            }
+                            cargarDocumentosModal(idCandidato);
+                            if (typeof getCandidatos === "function") getCandidatos();
+                        } else if (typeof Swal !== "undefined") {
+                            Swal.fire({ icon: "error", title: "No se pudo subir", text: (res && res.mensaje) ? res.mensaje : "No se pudo guardar el documento." });
+                        }
+                    })
+                    .catch(function() {
+                        if (typeof Swal !== "undefined") {
+                            Swal.fire({ icon: "error", title: "Error", text: "No se pudo conectar con el servidor." });
+                        }
+                    });
+                });
+                input.click();
+            }
+
             function renderListaDocumentos(lista, cargando, vacio, datos, verif, idCandidato) {
                 if (!lista) return;
                 disposeDocModalTooltips();
+                if (!document.getElementById("docModalTooltipStyle")) {
+                    var stDocTooltip = document.createElement("style");
+                    stDocTooltip.id = "docModalTooltipStyle";
+                    stDocTooltip.textContent = ".doc-modal-tooltip{--bs-tooltip-max-width:420px}.doc-modal-tooltip .tooltip-inner{max-width:420px;text-align:left;padding:.65rem .75rem}.doc-modal-tooltip table{color:inherit;margin:0}.doc-modal-tooltip td{padding:.25rem .35rem!important;border-color:rgba(255,255,255,.22)!important}.doc-modal-tooltip .text-muted{color:rgba(255,255,255,.78)!important}";
+                    document.head.appendChild(stDocTooltip);
+                }
                 if (cargando) cargando.classList.add("d-none");
                 lista.innerHTML = "";
-                if (!datos || datos.length === 0) { if (vacio) vacio.classList.remove("d-none"); return; }
+                datos = Array.isArray(datos) ? datos : [];
+                if (!datos || datos.length === 0) { if (vacio) vacio.classList.add("d-none"); }
                 if (vacio) vacio.classList.add("d-none");
                 function escHtml(s) { var t = normalizarTextoDocModal(s); return t.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;"); }
                 function normalizarTextoDocModal(s) {
@@ -7338,6 +7412,37 @@ class CapHum extends Controller
                 function claveDocModal(s) {
                     return normalizarTextoDocModal(s).normalize("NFD").replace(/[\u0300-\u036f]/g, "").toUpperCase();
                 }
+                var documentosRequeridosManual = [
+                    [1, "SOLICITUD INTERNA"],
+                    [2, "CV O SOLICITUD DE TRABAJO"],
+                    [3, "ACTA DE NACIMIENTO Certificada"],
+                    [4, "CURP"],
+                    [5, "IDENTIFICACION OFICIAL"],
+                    [6, "COMPROBANTE DE DOMICILIO"],
+                    [7, "CONSTANCIA DE SITUACION FISCAL"],
+                    [8, "NUMERO DE SEGURIDAD SOCIAL"],
+                    [9, "HOJA DE RETENCION FONACOT O INFONAVIT"],
+                    [10, "ESTADO DE CUENTA"]
+                ];
+                function numeroTipoDocModal(tipo) {
+                    var t = claveDocModal(tipo);
+                    if (t.indexOf("SOLICITUD INTERNA") !== -1) return 1;
+                    if (t.indexOf("CV") !== -1 || t.indexOf("SOLICITUD DE TRABAJO") !== -1) return 2;
+                    if (t.indexOf("ACTA DE NACIMIENTO") !== -1) return 3;
+                    if (t === "CURP" || (t.indexOf("CURP") !== -1 && t.indexOf("ACTA") === -1)) return 4;
+                    if (t.indexOf("IDENTIFICACION OFICIAL") !== -1) return 5;
+                    if (t.indexOf("COMPROBANTE DE DOMICILIO") !== -1) return 6;
+                    if (t.indexOf("CONSTANCIA") !== -1 && t.indexOf("FISCAL") !== -1) return 7;
+                    if (t.indexOf("SEGURIDAD SOCIAL") !== -1 || t.indexOf("NSS") !== -1) return 8;
+                    if (t.indexOf("FONACOT") !== -1 || t.indexOf("INFONAVIT") !== -1) return 9;
+                    if (t.indexOf("ESTADO DE CUENTA") !== -1) return 10;
+                    return 0;
+                }
+                var tiposPresentesManual = {};
+                datos.forEach(function(dPresente) {
+                    var nPresente = numeroTipoDocModal(dPresente && dPresente.tipo_documento ? dPresente.tipo_documento : "");
+                    if (nPresente > 0) tiposPresentesManual[nPresente] = true;
+                });
                 datos.forEach(function(d) {
                     var item = document.createElement("div");
             item.className = "list-group-item list-group-item-action d-flex justify-content-between align-items-center";
@@ -7493,6 +7598,12 @@ class CapHum extends Controller
             var revisionManualHtml = "";
             (function() {
                 if (esValidado) return;
+                var expedienteApiPendiente = !!(verif && typeof verif === "object" && (
+                    verif.verificacion_en_proceso === true ||
+                    verif.api_pendiente === true ||
+                    (verif.error_api != null && String(verif.error_api).trim() !== "") ||
+                    verif.modo_verificacion === "cola_background"
+                ));
                 var vf = d.verificacion_fiscal && typeof d.verificacion_fiscal === "object" ? d.verificacion_fiscal : null;
                 var candidatosRevision = [];
                 if (vc && typeof vc === "object") candidatosRevision.push(vc);
@@ -7505,14 +7616,39 @@ class CapHum extends Controller
                 }
                 candidatosRevision.forEach(function(x) {
                     if (!x || typeof x !== "object") return;
-                    var esFalloTecnicoApi = !!(x.timeout || x.error_api || x.api_pendiente || x.pendiente_revision_backend);
+                    var textoEstadoRevision = claveDocModal([
+                        x.mensaje || "",
+                        x.recomendacion || "",
+                        x.nota_backend || "",
+                        Array.isArray(x.alertas) ? x.alertas.join(" ") : "",
+                        Array.isArray(x.notas) ? x.notas.join(" ") : ""
+                    ].join(" "));
+                    var esFalloTecnicoApi = !!(
+                        x.timeout ||
+                        x.error_api ||
+                        x.api_pendiente ||
+                        x.pendiente_revision_backend ||
+                        x.nota_backend ||
+                        textoEstadoRevision.indexOf("SEGUNDA LECTURA") !== -1 ||
+                        textoEstadoRevision.indexOf("NO SE OBTUVO RESPUESTA") !== -1 ||
+                        textoEstadoRevision.indexOf("NO SE PUDO CONFIRMAR") !== -1 ||
+                        textoEstadoRevision.indexOf("NO SE PUDO LEER") !== -1 ||
+                        textoEstadoRevision.indexOf("NO SE PUDO REVISAR") !== -1 ||
+                        textoEstadoRevision.indexOf("NO SE PUDO CONTACTAR") !== -1 ||
+                        textoEstadoRevision.indexOf("API NO RESPOND") !== -1 ||
+                        textoEstadoRevision.indexOf("NO RESPONDIO CORRECTAMENTE") !== -1 ||
+                        textoEstadoRevision.indexOf("TARDO MAS") !== -1 ||
+                        textoEstadoRevision.indexOf("TIMEOUT") !== -1
+                    );
                     if (esFalloTecnicoApi) apiPendiente = true;
                     if (x.pendiente_revision_manual || (x.revision_manual && !esFalloTecnicoApi)) requiereRevision = true;
                     if ((x.valido === false || x.ok === false || x.aceptado === false) && !esFalloTecnicoApi) requiereRevision = true;
                     if (x.mensaje) notas.push(x.mensaje);
+                    if (x.nota_backend) notas.push(x.nota_backend);
                     if (Array.isArray(x.notas)) x.notas.forEach(function(n) { notas.push(typeof n === "string" ? n : String(n)); });
                 });
                 if (!requiereRevision && !apiPendiente) return;
+                if (!requiereRevision && apiPendiente && expedienteApiPendiente) return;
                 var detalle = notas.length ? notas.join(" | ") : "La verificaci\u00f3n autom\u00e1tica no confirm\u00f3 el documento; revisar manualmente.";
                 if (requiereRevision) {
                     revisionManualHtml = " <span class=\"badge bg-warning text-dark ms-1\" data-bs-toggle=\"tooltip\" data-bs-title=\"" + escHtml(detalle).replace(/"/g, "&quot;") + "\">Revisi\u00f3n manual</span>";
@@ -7521,12 +7657,17 @@ class CapHum extends Controller
                 }
             })();
             var permisosCandDoc = window.candidatosPermisos || {};
+            var candidatoDocActual = obtenerCandidatoLocalPorId(idCandidato);
+            var estatusDocActual = candidatoDocActual && candidatoDocActual.estatus ? String(candidatoDocActual.estatus) : "";
+            var documentoEnFlujoFinal = estatusDocActual === "Pendiente de validacion final" || estatusDocActual === "Ingreso programado";
             var puedeValidarDocumentalDoc = !!permisosCandDoc.documental;
+            var puedeValidarFinalDoc = !!permisosCandDoc.final && documentoEnFlujoFinal;
+            var puedeValidarDocActual = puedeValidarDocumentalDoc || puedeValidarFinalDoc;
             var puedeRechazarFinalDoc = !!permisosCandDoc.final;
             var btnValidarClase = esValidado ? "btn-success" : "btn-outline-success";
             var btnValidarIcon = esValidado ? "fa-check-circle" : "fa-check";
-            var btnValidarTitle = esValidado ? "Documento validado" : (puedeValidarDocumentalDoc ? "Marcar como validado" : "Requiere permiso de validador documental");
-            var btnValidarDisabled = (esValidado || !puedeValidarDocumentalDoc) ? " disabled" : "";
+            var btnValidarTitle = esValidado ? "Documento validado" : (puedeValidarDocActual ? "Marcar como validado" : "Requiere permiso de validador documental");
+            var btnValidarDisabled = (esValidado || !puedeValidarDocActual) ? " disabled" : "";
             if (esValidado) { item.style.borderLeft = "3px solid #198754"; item.style.background = "#f0fdf4"; }
             var btnActaHtml = tipoNorm.indexOf("ACTA") !== -1 ? "<button type=\"button\" class=\"btn btn-sm btn-outline-info btn-validar-acta-candidato\" data-id=\"" + d.id + "\" title=\"Validar acta con API\"><i class=\"fa fa-sync-alt\"></i></button>" : "";
             var btnEliminarHtml = (esValidado && !puedeRechazarFinalDoc)
@@ -7544,18 +7685,53 @@ class CapHum extends Controller
                 btnEliminarHtml + "</div>";
             lista.appendChild(item);
         });
+        var permisosManualDoc = window.candidatosPermisos || {};
+        var puedeSubirManualDoc = !!(permisosManualDoc.documental || permisosManualDoc.final);
+        documentosRequeridosManual.forEach(function(req) {
+            if (tiposPresentesManual[req[0]]) return;
+            var itemPend = document.createElement("div");
+            itemPend.className = "list-group-item d-flex justify-content-between align-items-center bg-light";
+            var accionManual = puedeSubirManualDoc
+                ? "<button type=\"button\" class=\"btn btn-sm btn-outline-primary btn-subir-doc-manual-candidato\" data-tipo=\"" + req[0] + "\" data-tipo-nombre=\"" + escHtml(req[1]) + "\" title=\"Subir PDF manualmente\"><i class=\"fa fa-upload me-1\"></i>Subir manualmente</button>"
+                : "<span class=\"badge bg-secondary\">Pendiente</span>";
+            itemPend.innerHTML = "<div><strong>" + escHtml(req[1]) + "</strong> <span class=\"badge bg-warning text-dark ms-1\">Pendiente</span><br><small class=\"text-muted\">Documento no subido por el candidato.</small></div><div>" + accionManual + "</div>";
+            lista.appendChild(itemPend);
+        });
+        lista.querySelectorAll(".btn-subir-doc-manual-candidato").forEach(function(btn) {
+            btn.addEventListener("click", function() {
+                var tipoNum = parseInt(btn.getAttribute("data-tipo"), 10);
+                var tipoNombre = btn.getAttribute("data-tipo-nombre") || "Documento";
+                subirDocumentoManualCandidato(idCandidato, tipoNum, tipoNombre);
+            });
+        });
         lista.querySelectorAll("[data-bs-toggle=\"tooltip\"]").forEach(function(el) {
             if (typeof bootstrap === "undefined" || !bootstrap.Tooltip) return;
-            var contenido = (el.getAttribute("data-bs-title") || el.getAttribute("title") || "").trim();
+            var contenido = (el.getAttribute("data-bs-title") || el.getAttribute("data-bs-original-title") || el.getAttribute("title") || "").trim();
             if (!contenido) {
                 el.removeAttribute("data-bs-toggle");
                 el.removeAttribute("data-bs-title");
+                el.removeAttribute("data-bs-original-title");
                 el.removeAttribute("title");
                 return;
             }
+            el.setAttribute("data-bs-title", contenido);
+            el.setAttribute("title", contenido);
+            el.querySelectorAll("[title]").forEach(function(child) { child.removeAttribute("title"); });
+            el.addEventListener("show.bs.tooltip", function(ev) {
+                var txt = (el.getAttribute("data-bs-title") || el.getAttribute("data-bs-original-title") || el.getAttribute("title") || "").trim();
+                if (!txt) {
+                    ev.preventDefault();
+                }
+            });
             var inst = bootstrap.Tooltip.getInstance(el);
             if (inst) inst.dispose();
-            new bootstrap.Tooltip(el, { container: "body", trigger: "hover focus" });
+            new bootstrap.Tooltip(el, {
+                container: "body",
+                trigger: "hover focus",
+                html: el.getAttribute("data-bs-html") === "true",
+                sanitize: false,
+                customClass: "doc-modal-tooltip"
+            });
         });
         function mensajeActaAmigable(mensaje) {
             mensaje = String(mensaje || "");
@@ -7688,6 +7864,9 @@ class CapHum extends Controller
             /** Registro en consola del navegador para diagnósticos (desarrollo). Prefijo: [Sparta candidatos - documentación] */
             function candidatosDocConsola(nivel, titulo, datos) {
                 try {
+                    if (window.SPARTA_DOC_DEBUG !== true) {
+                        return;
+                    }
                     var fn = console.log;
                     if (nivel === "error" && console.error) fn = console.error.bind(console);
                     else if (nivel === "warn" && console.warn) fn = console.warn.bind(console);
@@ -7808,6 +7987,14 @@ class CapHum extends Controller
 
             function cargarDocumentosModal(idCandidato, opts) {
                 opts = opts || {};
+                if (docModalFetchInFlight) {
+                    if (opts.fromPoll) {
+                        return;
+                    }
+                    clearDocModalPoll();
+                    return;
+                }
+                docModalFetchInFlight = true;
                 if (!opts.fromPoll) {
                     clearDocModalPoll();
                 }
@@ -7982,6 +8169,8 @@ class CapHum extends Controller
                         if (bloqueVerif) { bloqueVerif.classList.add("d-none"); bloqueVerif.innerHTML = ""; }
                         if (bloqueComp) { bloqueComp.classList.add("d-none"); bloqueComp.innerHTML = ""; }
                     }
+                }).finally(function() {
+                    docModalFetchInFlight = false;
                 });
             }
 
@@ -9495,9 +9684,11 @@ class CapHum extends Controller
 
         $res = CandidatosDAO::getCandidatoPorToken($token);
         if (!$res['success'] || empty($res['datos'])) {
+            unset($_SESSION['candidato_documentos_token_publico']);
             $this->subirDocumentosCandidatoError($res['mensaje'] ?? 'Enlace no válido o expirado.');
             return;
         }
+        $_SESSION['candidato_documentos_token_publico'] = $token;
         $candidato = $res['datos'];
         $id_candidato = (int) $candidato['id_candidato'];
         $nombreCompleto = trim(($candidato['nombres'] ?? '') . ' ' . ($candidato['apellidop'] ?? '') . ' ' . ($candidato['apellidom'] ?? ''));
@@ -9979,6 +10170,7 @@ class CapHum extends Controller
 
     private function subirDocumentosCandidatoError($mensaje)
     {
+        unset($_SESSION['candidato_documentos_token_publico']);
         $this->set('error_mensaje', $mensaje);
         $this->set('token', '');
         $this->set('api_verificacion_base', $this->getApiVerificacionBase());
@@ -10005,6 +10197,18 @@ class CapHum extends Controller
             header('Content-Type: application/json; charset=utf-8');
             echo json_encode(['ok' => false, 'mensaje' => 'Método no permitido.']);
             return;
+        }
+
+        if (empty($_SESSION['login'])) {
+            $tokenPublico = trim((string) ($_SESSION['candidato_documentos_token_publico'] ?? ''));
+            $resToken = $tokenPublico !== '' ? CandidatosDAO::getCandidatoPorToken($tokenPublico) : ['success' => false];
+            if (!$resToken['success'] || empty($resToken['datos'])) {
+                unset($_SESSION['candidato_documentos_token_publico']);
+                http_response_code(401);
+                header('Content-Type: application/json; charset=utf-8');
+                echo json_encode(['ok' => false, 'mensaje' => 'Enlace público no válido o expirado.']);
+                return;
+            }
         }
 
         $endpoint = trim((string) $endpoint, " \t\n\r\0\x0B/");
@@ -10212,6 +10416,111 @@ class CapHum extends Controller
     }
 
     /**
+     * Helpers para no degradar una lectura rápida buena con un timeout/fallo técnico posterior.
+     */
+    private function docVerifJsonArray($json): ?array
+    {
+        if (is_array($json)) {
+            return $json;
+        }
+        if (!is_string($json) || trim($json) === '') {
+            return null;
+        }
+        $dec = json_decode($json, true);
+        return is_array($dec) ? $dec : null;
+    }
+
+    private function docVerifTextoNormalizado(array $resultado): string
+    {
+        $partes = [
+            (string) ($resultado['mensaje'] ?? ''),
+            (string) ($resultado['recomendacion'] ?? ''),
+            (string) ($resultado['nota_backend'] ?? ''),
+            (string) ($resultado['error'] ?? ''),
+        ];
+        foreach (['notas', 'alertas'] as $k) {
+            if (!empty($resultado[$k]) && is_array($resultado[$k])) {
+                foreach ($resultado[$k] as $v) {
+                    $partes[] = is_scalar($v) ? (string) $v : '';
+                }
+            }
+        }
+        $txt = strtoupper(implode(' ', $partes));
+        $txt = strtr($txt, ['Á' => 'A', 'É' => 'E', 'Í' => 'I', 'Ó' => 'O', 'Ú' => 'U', 'Ñ' => 'N']);
+        return preg_replace('/\s+/', ' ', $txt) ?: '';
+    }
+
+    private function docVerifResultadoTecnico(array $resultado): bool
+    {
+        if (!empty($resultado['timeout']) || !empty($resultado['error_api']) || !empty($resultado['api_pendiente']) || !empty($resultado['pendiente_revision_backend']) || !empty($resultado['nota_backend'])) {
+            return true;
+        }
+        $txt = $this->docVerifTextoNormalizado($resultado);
+        foreach (['TIMEOUT', 'TARDO MAS', 'NO SE OBTUVO RESPUESTA', 'NO SE PUDO CONFIRMAR', 'NO SE PUDO LEER', 'NO SE PUDO REVISAR', 'NO SE PUDO CONTACTAR', 'API NO RESPOND', 'NO RESPONDIO CORRECTAMENTE', 'HTTP ', 'CURL', 'JSON VALIDO'] as $needle) {
+            if (strpos($txt, $needle) !== false) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private function docVerifTieneDatosUtiles(?array $resultado): bool
+    {
+        if (!$resultado) {
+            return false;
+        }
+        if (($resultado['valido'] ?? null) === true || ($resultado['ok'] ?? null) === true || ($resultado['aceptado'] ?? null) === true) {
+            return true;
+        }
+        foreach (['curp_extraido', 'curp', 'nombre', 'rfc', 'nss', 'banco', 'banco_detectado', 'tipo_documento', 'tipo_identificacion', 'documento_detectado'] as $k) {
+            if (isset($resultado[$k]) && trim((string) $resultado[$k]) !== '') {
+                return true;
+            }
+        }
+        foreach (['detalle_frente', 'detalle_reverso', 'datos_extraidos', 'datos_titular'] as $k) {
+            if (!empty($resultado[$k]) && is_array($resultado[$k])) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private function docVerifDebeConservarAnterior(?array $anterior, ?array $nuevo): bool
+    {
+        if (!$anterior || !$nuevo) {
+            return false;
+        }
+        return $this->docVerifTieneDatosUtiles($anterior)
+            && !$this->docVerifTieneDatosUtiles($nuevo)
+            && $this->docVerifResultadoTecnico($nuevo);
+    }
+
+    private function docVerifExpedientePendienteTecnico($verificacion): bool
+    {
+        if (!is_array($verificacion)) {
+            return false;
+        }
+        if (!empty($verificacion['verificacion_en_proceso']) || !empty($verificacion['api_pendiente'])) {
+            return true;
+        }
+        if (isset($verificacion['error_api']) && trim((string) $verificacion['error_api']) !== '') {
+            return true;
+        }
+        $checks = isset($verificacion['checks_totales']) ? (int) $verificacion['checks_totales'] : null;
+        return $checks === 0 && empty($verificacion['comparaciones']);
+    }
+
+    private function docListCacheTienePendienteTecnico(string $json): bool
+    {
+        $dec = json_decode($json, true);
+        if (!is_array($dec)) {
+            return false;
+        }
+        $verificacion = $dec['datos']['verificacion_expediente'] ?? null;
+        return $this->docVerifExpedientePendienteTecnico($verificacion);
+    }
+
+    /**
      * Obtiene configuración de la API de verificación de documentos.
      */
     private function getDocVerificacionConfig()
@@ -10257,20 +10566,26 @@ class CapHum extends Controller
         if (function_exists('apcu_fetch')) {
             $cached = @\apcu_fetch($cacheKey);
             if ($cached !== false && is_array($cached) && isset($cached['ts']) && (time() - $cached['ts']) <= $ttl && isset($cached['json'])) {
-                header('X-Doc-List-Cache: hit');
-                header('X-Doc-List-Cache-Ttl-Sec: ' . $ttl);
-                echo $cached['json'];
-                return;
+                if (!$this->docListCacheTienePendienteTecnico((string) $cached['json'])) {
+                    header('X-Doc-List-Cache: hit');
+                    header('X-Doc-List-Cache-Ttl-Sec: ' . $ttl);
+                    echo $cached['json'];
+                    return;
+                }
+                @\apcu_delete($cacheKey);
             }
         } else {
             $cacheFile = $cacheDir . '/' . $cacheKey . '.json';
             if (is_file($cacheFile) && (time() - filemtime($cacheFile)) <= $ttl) {
                 $raw = @file_get_contents($cacheFile);
                 if ($raw !== false && $raw !== '') {
-                    header('X-Doc-List-Cache: hit');
-                    header('X-Doc-List-Cache-Ttl-Sec: ' . $ttl);
-                    echo $raw;
-                    return;
+                    if (!$this->docListCacheTienePendienteTecnico((string) $raw)) {
+                        header('X-Doc-List-Cache: hit');
+                        header('X-Doc-List-Cache-Ttl-Sec: ' . $ttl);
+                        echo $raw;
+                        return;
+                    }
+                    @unlink($cacheFile);
                 }
             }
         }
@@ -10333,6 +10648,44 @@ class CapHum extends Controller
         $payload['metricas']['validados'] = (int) ($conteoValidados['validados'] ?? 0);
         $payload['metricas'] = $this->calcularMetricasDocumentosCandidato($documentos, $id_candidato);
 
+        if (!empty($payload['metricas']['expediente_completo']) && ($verificacion === null || $this->docVerifExpedientePendienteTecnico($verificacion))) {
+            $candidatoRes = CandidatosDAO::getById($id_candidato);
+            $candidato = ($candidatoRes['success'] ?? false) && !empty($candidatoRes['datos']) ? $candidatoRes['datos'] : [];
+            $nombreCandidatoRegistro = trim(($candidato['nombres'] ?? '') . ' ' . ($candidato['apellidop'] ?? '') . ' ' . ($candidato['apellidom'] ?? ''));
+            $payloadCache = $this->expedientePayloadDesdeCacheDocumentos($documentos, $nombreCandidatoRegistro, $this->docVerificacionIniSoloIdentificacion());
+            if (is_array($payloadCache) && (int) ($payloadCache['checks_totales'] ?? 0) > 0) {
+                $payloadCache['api_pendiente'] = false;
+                $payloadCache['error_api'] = null;
+                $payloadCache['alertas'] = array_values(array_filter($payloadCache['alertas'] ?? [], function ($a) {
+                    $txt = strtoupper((string) $a);
+                    return strpos($txt, 'FALLO TECNICO') === false && strpos($txt, 'API') === false;
+                }));
+                $verificacion = $payloadCache;
+                $payload['verificacion_expediente'] = $payloadCache;
+                CandidatosDAO::updateVerificacionExpediente($id_candidato, json_encode($payloadCache));
+            } else {
+                $resCola = $this->encolarVerificacionDocumentalCandidato($id_candidato, [], true, $verificacion === null ? 'modal_auto_sin_dictamen' : 'modal_auto_reintento');
+                $payloadEnProceso = [
+                    'verificacion_en_proceso' => true,
+                    'todo_coincide' => null,
+                    'foto_rechazada' => false,
+                    'checks_ok' => 0,
+                    'checks_totales' => 0,
+                    'alertas' => ['Validacion documental en proceso. El expediente ya esta completo y se esta ejecutando el cruce automatico.'],
+                    'identificacion_frente_score' => null,
+                    'identificacion_reverso_score' => null,
+                    'comparaciones' => null,
+                    'modo_verificacion' => 'cola_background',
+                    'api_pendiente' => false,
+                    'error_api' => null,
+                    'job_id' => (int) ($resCola['datos']['id_job'] ?? 0),
+                    'iniciado_en' => date('Y-m-d H:i:s'),
+                ];
+                $verificacion = $payloadEnProceso;
+                $payload['verificacion_expediente'] = $payloadEnProceso;
+            }
+        }
+
         $json = json_encode(self::respuesta(true, 'OK', $payload));
 
         header('X-Doc-List-Cache: miss');
@@ -10387,12 +10740,23 @@ class CapHum extends Controller
     private function phpCliBinarioVerificacionDocumental(): string
     {
         $candidatos = [];
-        if (defined('PHP_BINARY') && PHP_BINARY) {
-            $candidatos[] = PHP_BINARY;
-            $candidatos[] = dirname(PHP_BINARY) . DIRECTORY_SEPARATOR . 'php.exe';
-            $candidatos[] = dirname(PHP_BINARY) . DIRECTORY_SEPARATOR . 'php';
+        if (stripos(PHP_OS_FAMILY, 'Windows') !== false) {
+            $candidatos[] = 'C:\\xampp\\php\\php.exe';
+            if (defined('PHP_BINDIR') && PHP_BINDIR) {
+                $candidatos[] = PHP_BINDIR . DIRECTORY_SEPARATOR . 'php.exe';
+            }
         }
-        $candidatos[] = 'C:\\xampp\\php\\php.exe';
+        if (defined('PHP_BINARY') && PHP_BINARY) {
+            $base = strtolower(basename(PHP_BINARY));
+            if (strpos($base, 'php') === 0) {
+                $candidatos[] = PHP_BINARY;
+                $candidatos[] = dirname(PHP_BINARY) . DIRECTORY_SEPARATOR . 'php.exe';
+                $candidatos[] = dirname(PHP_BINARY) . DIRECTORY_SEPARATOR . 'php';
+            }
+        }
+        if (stripos(PHP_OS_FAMILY, 'Windows') === false && defined('PHP_BINDIR') && PHP_BINDIR) {
+            $candidatos[] = PHP_BINDIR . DIRECTORY_SEPARATOR . 'php';
+        }
         $candidatos[] = 'php';
 
         foreach ($candidatos as $bin) {
@@ -10408,18 +10772,36 @@ class CapHum extends Controller
         $projectRoot = defined('RAIZ') ? dirname(RAIZ) : dirname(__DIR__, 2);
         $script = $projectRoot . DIRECTORY_SEPARATOR . 'scripts' . DIRECTORY_SEPARATOR . 'procesar_verificacion_documental.php';
         if (!is_file($script)) {
+            error_log('CapHum::lanzarWorkerVerificacionDocumental: no existe script ' . $script);
             return;
         }
         $php = $this->phpCliBinarioVerificacionDocumental();
+        $logDir = defined('RAIZ') ? (RAIZ . DIRECTORY_SEPARATOR . 'logs') : (__DIR__ . DIRECTORY_SEPARATOR . '..' . DIRECTORY_SEPARATOR . 'logs');
+        if (!is_dir($logDir)) {
+            @mkdir($logDir, 0775, true);
+        }
+        $logSuffix = date('Ymd-His') . '-' . getmypid() . '-' . substr(str_replace('.', '', uniqid('', true)), -6);
+        $outLog = $logDir . DIRECTORY_SEPARATOR . 'verificacion_documental_worker-' . $logSuffix . '.log';
+        $errLog = $logDir . DIRECTORY_SEPARATOR . 'verificacion_documental_worker-' . $logSuffix . '.err.log';
+        $cmdQuote = function ($value) {
+            return '"' . str_replace('"', '""', (string) $value) . '"';
+        };
         try {
             if (stripos(PHP_OS_FAMILY, 'Windows') !== false) {
-                $cmd = 'start /B "" ' . escapeshellarg($php) . ' ' . escapeshellarg($script) . ' --once';
+                // En Windows "start" es un builtin de cmd; escapeshellarg produce comillas
+                // incompatibles en algunos entornos PHP/IIS/Apache. Se arma cmd /C con
+                // comillas dobles para que el worker realmente quede desacoplado.
+                $cmd = 'cmd /C start "" /B '
+                    . $cmdQuote($php) . ' '
+                    . $cmdQuote($script) . ' --max 5'
+                    . ' >> ' . $cmdQuote($outLog)
+                    . ' 2>> ' . $cmdQuote($errLog);
                 $h = @popen($cmd, 'r');
                 if (is_resource($h)) {
                     @pclose($h);
                 }
             } else {
-                $cmd = escapeshellarg($php) . ' ' . escapeshellarg($script) . ' --once > /dev/null 2>&1 &';
+                $cmd = escapeshellarg($php) . ' ' . escapeshellarg($script) . ' --max 5 >> ' . escapeshellarg($outLog) . ' 2>> ' . escapeshellarg($errLog) . ' &';
                 @exec($cmd);
             }
         } catch (\Throwable $e) {
@@ -10453,6 +10835,134 @@ class CapHum extends Controller
             CandidatosDAO::finalizarJobVerificacionDocumental($idJob, false, $e->getMessage());
             return ['procesado' => true, 'ok' => false, 'id_job' => $idJob, 'id_candidato' => $idCandidato, 'error' => $e->getMessage()];
         }
+    }
+
+    public function subirDocumentoManualCandidato()
+    {
+        header('Content-Type: application/json; charset=utf-8');
+        if (!self::puedeValidarDocumentalCandidatos() && !self::puedeValidarFinalCandidatos()) {
+            echo json_encode(self::respuesta(false, 'No tienes permiso para subir documentos manualmente.'));
+            return;
+        }
+
+        $idCandidato = (int) ($_POST['id_candidato'] ?? 0);
+        $tipoNum = (int) ($_POST['tipo_documento'] ?? 0);
+        $tiposDocumento = [
+            1  => 'SOLICITUD INTERNA',
+            2  => 'CV O SOLICITUD DE TRABAJO',
+            3  => 'ACTA DE NACIMIENTO Certificada',
+            4  => 'CURP',
+            5  => 'IDENTIFICACION OFICIAL',
+            6  => 'COMPROBANTE DE DOMICILIO',
+            7  => 'CONSTANCIA DE SITUACION FISCAL',
+            8  => 'NUMERO DE SEGURIDAD SOCIAL',
+            9  => 'HOJA DE RETENCION FONACOT O INFONAVIT',
+            10 => 'ESTADO DE CUENTA',
+        ];
+        $slugPorTipo = [
+            1 => 'solicitud_interna', 2 => 'cv', 3 => 'acta_nacimiento', 4 => 'curp',
+            5 => 'identificacion_oficial', 6 => 'comprobante_domicilio', 7 => 'constancia_fiscal',
+            8 => 'nss', 9 => 'hoja_retencion', 10 => '__SPARTA_SECRET_REDACTED__',
+        ];
+
+        if ($idCandidato <= 0 || !isset($tiposDocumento[$tipoNum])) {
+            echo json_encode(self::respuesta(false, 'Datos incompletos para subir el documento.'));
+            return;
+        }
+        if (!isset($_FILES['archivo']) || ($_FILES['archivo']['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_OK) {
+            echo json_encode(self::respuesta(false, 'Selecciona un PDF para subir.'));
+            return;
+        }
+
+        $tmp = (string) ($_FILES['archivo']['tmp_name'] ?? '');
+        $nombreOriginal = basename((string) ($_FILES['archivo']['name'] ?? 'documento.pdf'));
+        $ext = strtolower(pathinfo($nombreOriginal, PATHINFO_EXTENSION));
+        if ($tmp === '' || !is_uploaded_file($tmp) || $ext !== 'pdf' || !SecureUpload::validateMime($tmp, SecureUpload::MIME_PDF) || !$this->esPdfValidoBasico($tmp)) {
+            echo json_encode(self::respuesta(false, 'Solo se acepta un archivo PDF valido.'));
+            return;
+        }
+
+        $resCandidato = CandidatosDAO::getById($idCandidato);
+        if (empty($resCandidato['success']) || empty($resCandidato['datos'])) {
+            echo json_encode(self::respuesta(false, 'Candidato no encontrado.'));
+            return;
+        }
+
+        $resDocs = CandidatosDAO::getDocumentosCandidato($idCandidato);
+        if (!empty($resDocs['success']) && !empty($resDocs['datos'])) {
+            foreach ($resDocs['datos'] as $docExistente) {
+                if ($this->numeroTipoDocumentoCandidatoMetricas($docExistente['tipo_documento'] ?? '') === $tipoNum) {
+                    echo json_encode(self::respuesta(false, 'Ese documento ya existe en el expediente. Si necesita reemplazarlo, primero elimine el documento actual.'));
+                    return;
+                }
+            }
+        }
+
+        $dirBase = defined('RAIZ') ? (RAIZ . '/storage/candidatos') : (__DIR__ . '/../storage/candidatos');
+        $dirExpediente = $dirBase . '/' . $idCandidato . '/expediente';
+        if (!is_dir($dirExpediente)) {
+            @mkdir($dirExpediente, 0755, true);
+        }
+        if (!is_dir($dirExpediente)) {
+            echo json_encode(self::respuesta(false, 'No se pudo preparar la carpeta del expediente.'));
+            return;
+        }
+
+        $slug = $slugPorTipo[$tipoNum] ?? ('doc_' . $tipoNum);
+        $nombreSeguro = preg_replace('/[^A-Za-z0-9._-]+/', '_', pathinfo($nombreOriginal, PATHINFO_FILENAME));
+        $nombreSeguro = trim($nombreSeguro, '._-');
+        if ($nombreSeguro === '') {
+            $nombreSeguro = $slug;
+        }
+        $nombreArchivo = $slug . '_manual_' . date('Ymd_His') . '_' . substr(md5($nombreSeguro . microtime(true)), 0, 8) . '.pdf';
+        $rutaDestino = $dirExpediente . '/' . $nombreArchivo;
+        if (!move_uploaded_file($tmp, $rutaDestino)) {
+            echo json_encode(self::respuesta(false, 'No se pudo guardar el PDF en el expediente.'));
+            return;
+        }
+
+        $rutaRelativa = 'candidatos/' . $idCandidato . '/expediente/' . $nombreArchivo;
+        $tipoNombre = $tiposDocumento[$tipoNum];
+        $marcaManual = [
+            'subida_manual_rrhh' => true,
+            'revision_manual' => true,
+            'pendiente_revision_manual' => true,
+            'id_usuario_rrhh' => (int) ($_SESSION['usuario_id'] ?? 0),
+            'fecha_subida_manual' => date('Y-m-d H:i:s'),
+            'notas' => ['Documento subido manualmente por Capital Humano.'],
+        ];
+        $verificacionFiscalJson = $tipoNum === 7 ? json_encode($marcaManual) : null;
+        $verificacionCalidadJson = $tipoNum !== 7 ? json_encode($marcaManual) : null;
+
+        $guardar = CandidatosDAO::guardarDocumento($idCandidato, $nombreOriginal, $rutaRelativa, $tipoNombre, null, null, $verificacionFiscalJson, $verificacionCalidadJson);
+        if (empty($guardar['success'])) {
+            @unlink($rutaDestino);
+            echo json_encode(self::respuesta(false, $guardar['mensaje'] ?? 'No se pudo registrar el documento.', null, $guardar['error'] ?? null));
+            return;
+        }
+
+        CandidatosDAO::registrarSubidaManualDocumentoCandidato(
+            $idCandidato,
+            $tipoNombre,
+            $nombreOriginal,
+            $rutaRelativa,
+            (int) ($_SESSION['usuario_id'] ?? 0),
+            'Subida manual desde modal de documentación'
+        );
+        CandidatosDAO::updateVerificacionExpediente($idCandidato, null);
+
+        $resDocsActualizados = CandidatosDAO::getDocumentosCandidato($idCandidato);
+        $docsActualizados = (!empty($resDocsActualizados['success']) && !empty($resDocsActualizados['datos'])) ? $resDocsActualizados['datos'] : [];
+        $metricas = $this->calcularMetricasDocumentosCandidato($docsActualizados, $idCandidato);
+        if (!empty($metricas['expediente_completo'])) {
+            $this->encolarVerificacionDocumentalCandidato($idCandidato, [$tipoNum], true, 'subida_manual_rrhh');
+        }
+
+        echo json_encode(self::respuesta(true, 'Documento subido manualmente al expediente.', [
+            'id_candidato' => $idCandidato,
+            'tipo_documento' => $tipoNombre,
+            'expediente_completo' => !empty($metricas['expediente_completo']),
+        ]));
     }
 
     public function verificarExpedienteCandidato()
@@ -10699,7 +11209,9 @@ class CapHum extends Controller
     public function eliminarDocumentoCandidato()
     {
         header('Content-Type: application/json; charset=utf-8');
-        if (!self::puedeValidarDocumentalCandidatos() && !self::puedeValidarFinalCandidatos()) {
+        $puedeDocumentalEliminar = self::puedeValidarDocumentalCandidatos();
+        $puedeFinalEliminar = self::puedeValidarFinalCandidatos();
+        if (!$puedeDocumentalEliminar && !$puedeFinalEliminar) {
             echo json_encode(self::respuesta(false, 'No tienes permiso para rechazar documentos de candidatos.'));
             return;
         }
@@ -10743,6 +11255,14 @@ class CapHum extends Controller
         $tipoDoc = trim((string) ($doc['tipo_documento'] ?? ''));
         $nombreArch = trim((string) ($doc['nombre_archivo'] ?? ''));
         $idUsuarioRrhh = (int) ($_SESSION['usuario_id'] ?? 0);
+        $estatusAntesRechazo = '';
+        if ($idCand > 0) {
+            $candAntesRes = CandidatosDAO::getById($idCand);
+            if ($candAntesRes['success'] && !empty($candAntesRes['datos'])) {
+                $estatusAntesRechazo = trim((string) ($candAntesRes['datos']['estatus'] ?? ''));
+            }
+        }
+        $rechazoEnFlujoFinal = $puedeFinalEliminar && in_array($estatusAntesRechazo, ['Pendiente de validacion final', 'Ingreso programado'], true);
 
         $logRes = CandidatosDAO::registrarEliminacionDocumentoCandidato(
             $idCand,
@@ -10765,7 +11285,7 @@ class CapHum extends Controller
         }
         if ($idCand > 0) {
             CandidatosDAO::updateVerificacionExpediente($idCand, null);
-            CandidatosDAO::updateEstatus($idCand, 'Por evaluar');
+            CandidatosDAO::updateEstatus($idCand, $rechazoEnFlujoFinal ? 'Pendiente de validacion final' : 'Por evaluar');
             CandidatosDAO::invalidateDocumentacionCache($idCand);
         }
 
@@ -10924,8 +11444,10 @@ class CapHum extends Controller
     public function validarDocumentoCandidato()
     {
         header('Content-Type: application/json; charset=utf-8');
-        if (!self::puedeValidarDocumentalCandidatos()) {
-            echo json_encode(self::respuesta(false, 'No tienes permiso de validador documental.'));
+        $puedeDocumentalValidar = self::puedeValidarDocumentalCandidatos();
+        $puedeFinalValidar = self::puedeValidarFinalCandidatos();
+        if (!$puedeDocumentalValidar && !$puedeFinalValidar) {
+            echo json_encode(self::respuesta(false, 'No tienes permiso para validar documentos.'));
             return;
         }
         $id_doc = (int) ($_POST['id'] ?? $_GET['id'] ?? 0);
@@ -10939,20 +11461,32 @@ class CapHum extends Controller
             return;
         }
         $doc = $res['datos'];
+        $idCand = (int) ($doc['id_candidato'] ?? 0);
+        $estatusActual = '';
+        if ($idCand > 0) {
+            $candidatoRes = CandidatosDAO::getById($idCand);
+            if ($candidatoRes['success'] && !empty($candidatoRes['datos'])) {
+                $estatusActual = trim((string) ($candidatoRes['datos']['estatus'] ?? ''));
+            }
+        }
+        $enFlujoFinal = in_array($estatusActual, ['Pendiente de validacion final', 'Ingreso programado'], true);
+        if (!$puedeDocumentalValidar && !($puedeFinalValidar && $enFlujoFinal)) {
+            echo json_encode(self::respuesta(false, 'Este documento solo puede validarlo el validador documental antes de enviarlo a validacion final.'));
+            return;
+        }
         $nuevoValor = isset($_POST['validado']) ? (int) $_POST['validado'] : (((int) ($doc['validado'] ?? 0)) === 0 ? 1 : 0);
         $upd = CandidatosDAO::toggleValidadoDocumento($id_doc, $nuevoValor);
         if (!$upd['success']) {
             echo json_encode(self::respuesta(false, $upd['mensaje'] ?? 'Error.'));
             return;
         }
-        $idCand = (int) ($doc['id_candidato'] ?? 0);
         $conteo = CandidatosDAO::contarValidados($idCand);
         $requeridos = 10;
         $todosValidados = ($conteo['total'] >= $requeridos && $conteo['validados'] >= $requeridos);
         if ($todosValidados) {
-            CandidatosDAO::updateEstatus($idCand, 'Validado');
+            CandidatosDAO::updateEstatus($idCand, $enFlujoFinal ? ($estatusActual === 'Ingreso programado' ? 'Ingreso programado' : 'Pendiente de validacion final') : 'Validado');
         } else {
-            CandidatosDAO::updateEstatus($idCand, 'Por evaluar');
+            CandidatosDAO::updateEstatus($idCand, $enFlujoFinal ? 'Pendiente de validacion final' : 'Por evaluar');
         }
         CandidatosDAO::invalidateDocumentacionCache($idCand);
         echo json_encode(self::respuesta(true, $upd['mensaje'], [
@@ -11569,7 +12103,7 @@ class CapHum extends Controller
         if (strpos($nombre, 'CURRICUL') !== false || preg_match('/\bCV\b/', $nombre) || strpos($nombre, 'SOLICITUD DE TRABAJO') !== false || strpos($nombre, 'SOLICITUD EMPLEO') !== false) return 2;
         if (strpos($nombre, 'ACTA') !== false || strpos($nombre, 'NACIMIENTO') !== false) return 3;
         if (strpos($nombre, 'CURP') !== false) return 4;
-        if (strpos($nombre, 'IDENTIFIC') !== false || strpos($nombre, 'INE') !== false || strpos($nombre, 'IFE') !== false) return 5;
+        if (strpos($nombre, 'IDENTIFIC') !== false || strpos($nombre, 'INE') !== false || strpos($nombre, 'IFE') !== false || strpos($nombre, 'PASAPORTE') !== false || strpos($nombre, 'RESIDENCIA') !== false) return 5;
         if (strpos($nombre, 'DOMICILIO') !== false || strpos($nombre, 'COMPROBANTE') !== false) return 6;
         if (strpos($nombre, 'FISCAL') !== false || strpos($nombre, 'RFC') !== false || strpos($nombre, 'SAT') !== false) return 7;
         if (strpos($nombre, 'NSS') !== false || strpos($nombre, 'SEGURIDAD SOCIAL') !== false || strpos($nombre, 'IMSS') !== false) return 8;
@@ -11674,6 +12208,44 @@ class CapHum extends Controller
             return ['aceptar' => false, 'mensaje' => $mensaje, 'verificacion' => $resultado];
         }
 
+        if ($tipoDocumento === 4) {
+            if (!is_array($resultado) || ($resultado['valido'] ?? null) !== true) {
+                return [
+                    'aceptar' => true,
+                    'mensaje' => null,
+                    'verificacion' => is_array($resultado) ? array_merge($resultado, [
+                        'revision_manual' => true,
+                        'nota_backend' => 'La constancia CURP no se confirmo en la segunda lectura rapida; se acepta para revision manual.',
+                    ]) : [
+                        'valido' => false,
+                        'revision_manual' => true,
+                        'nota_backend' => 'No se obtuvo respuesta de CURP; se acepta para revision manual.',
+                    ],
+                ];
+            }
+            if (array_key_exists('es_reciente', $resultado) && $resultado['es_reciente'] === false) {
+                return [
+                    'aceptar' => false,
+                    'mensaje' => 'La constancia CURP no está vigente. Descarga una constancia reciente del RENAPO.',
+                    'verificacion' => $resultado,
+                ];
+            }
+        }
+
+        if ($tipoDocumento === 5 && (!is_array($resultado) || ($resultado['valido'] ?? null) !== true)) {
+            return [
+                'aceptar' => true,
+                'mensaje' => null,
+                'verificacion' => is_array($resultado) ? array_merge($resultado, [
+                    'revision_manual' => true,
+                    'nota_backend' => 'La identificacion oficial no se confirmo en la segunda lectura rapida; se acepta para revision manual.',
+                ]) : [
+                    'valido' => false,
+                    'revision_manual' => true,
+                    'nota_backend' => 'No se obtuvo respuesta de precheck; se acepta para revision manual.',
+                ],
+            ];
+        }
         return ['aceptar' => true, 'mensaje' => null, 'verificacion' => is_array($resultado) ? $resultado : null];
     }
 
@@ -12100,7 +12672,7 @@ class CapHum extends Controller
             CURLOPT_POSTFIELDS => ['documento' => $cfile],
             CURLOPT_HTTPHEADER => ['X-API-Key: ' . $apiKey],
             CURLOPT_RETURNTRANSFER => true,
-            CURLOPT_TIMEOUT => 8,
+            CURLOPT_TIMEOUT => 12,
             CURLOPT_CONNECTTIMEOUT => 3,
         ]);
         $body = curl_exec($ch);
@@ -12146,7 +12718,7 @@ class CapHum extends Controller
             CURLOPT_POSTFIELDS => ['documento' => $cfile],
             CURLOPT_HTTPHEADER => ['X-API-Key: ' . $apiKey],
             CURLOPT_RETURNTRANSFER => true,
-            CURLOPT_TIMEOUT => 8,
+            CURLOPT_TIMEOUT => 12,
             CURLOPT_CONNECTTIMEOUT => 3,
         ]);
         $body = curl_exec($ch);
@@ -12231,7 +12803,7 @@ class CapHum extends Controller
             CURLOPT_POSTFIELDS => ['documento' => $cfile],
             CURLOPT_HTTPHEADER => ['X-API-Key: ' . $apiKey],
             CURLOPT_RETURNTRANSFER => true,
-            CURLOPT_TIMEOUT => 8,
+            CURLOPT_TIMEOUT => 12,
             CURLOPT_CONNECTTIMEOUT => 3,
         ]);
         $body = curl_exec($ch);
@@ -12314,8 +12886,8 @@ class CapHum extends Controller
             CURLOPT_POSTFIELDS => ['documento' => $cfile],
             CURLOPT_HTTPHEADER => ['X-API-Key: ' . $apiKey],
             CURLOPT_RETURNTRANSFER => true,
-            CURLOPT_TIMEOUT => 5,
-            CURLOPT_CONNECTTIMEOUT => 2,
+            CURLOPT_TIMEOUT => 10,
+            CURLOPT_CONNECTTIMEOUT => 3,
         ]);
         $body = curl_exec($ch);
         $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
@@ -12891,6 +13463,10 @@ class CapHum extends Controller
                 $pathAbs = $storageRoot . '/' . $rutaRel;
                 $tipo = trim($d['tipo_documento'] ?? '');
                 $idDoc = (int) ($d['id'] ?? 0);
+                $prevFiscalJson = isset($d['verificacion_fiscal_json']) ? (string) $d['verificacion_fiscal_json'] : null;
+                $prevCalidadJson = isset($d['verificacion_calidad_json']) ? (string) $d['verificacion_calidad_json'] : null;
+                $prevFiscalArr = $this->docVerifJsonArray($prevFiscalJson);
+                $prevCalidadArr = $this->docVerifJsonArray($prevCalidadJson);
                 $tipoNum = $this->tipoDocumentoCandidatoNumero($tipo);
                 if ($tipoNum > 0) {
                     $tiposPresentes[$tipoNum] = true;
@@ -12899,7 +13475,7 @@ class CapHum extends Controller
                 if (in_array($tipo, ['IDENTIFICACIÓN OFICIAL', 'IDENTIFICACION OFICIAL', 'IDENTIFICACIÃ“N OFICIAL'], true)) {
                     $rutasParaValidar['identificacion_pdf'] = $pathAbs;
                     if ($idDoc > 0 && $esReciente) {
-                        CandidatosDAO::updateVerificacionDocumento($idDoc, null, json_encode([
+                        CandidatosDAO::updateVerificacionDocumento($idDoc, $prevFiscalJson, json_encode([
                             'aceptado' => null,
                             'precheck' => null,
                             'pendiente_revision_profunda' => true,
@@ -12911,68 +13487,75 @@ class CapHum extends Controller
                         $calidad = $this->verificarCalidadIdentificacionPdfApi($pathAbs);
                         if (is_array($calidad)) {
                             $calidad['precheck'] = $precheck;
-                            CandidatosDAO::updateVerificacionDocumento($idDoc, null, json_encode($calidad));
+                            $calidadFinal = $this->docVerifDebeConservarAnterior($prevCalidadArr, $calidad) ? $prevCalidadArr : $calidad;
+                            CandidatosDAO::updateVerificacionDocumento($idDoc, $prevFiscalJson, json_encode($calidadFinal));
                         } elseif (is_array($precheck)) {
-                            CandidatosDAO::updateVerificacionDocumento($idDoc, null, json_encode($precheck));
+                            $precheckFinal = $this->docVerifDebeConservarAnterior($prevCalidadArr, $precheck) ? $prevCalidadArr : $precheck;
+                            CandidatosDAO::updateVerificacionDocumento($idDoc, $prevFiscalJson, json_encode($precheckFinal));
                         }
                     }
                 } elseif ($tipo === 'CURP') {
                     $rutasParaValidar['curp'] = $pathAbs;
                     if ($idDoc > 0 && $esReciente) {
-                        CandidatosDAO::updateVerificacionDocumento($idDoc, null, json_encode([
+                        CandidatosDAO::updateVerificacionDocumento($idDoc, $prevFiscalJson, json_encode([
                             'pendiente_revision_backend' => true,
                             'notas' => ['CURP recibido; re-evaluando contra el expediente.'],
                         ]));
                         $resCurp = $this->verificarCurpApi($pathAbs);
                         if (is_array($resCurp)) {
-                            CandidatosDAO::updateVerificacionDocumento($idDoc, null, json_encode($resCurp));
+                            $resCurpFinal = $this->docVerifDebeConservarAnterior($prevCalidadArr, $resCurp) ? $prevCalidadArr : $resCurp;
+                            CandidatosDAO::updateVerificacionDocumento($idDoc, $prevFiscalJson, json_encode($resCurpFinal));
                         }
                     }
                 } elseif (in_array($tipo, ['NÚMERO DE SEGURIDAD SOCIAL', 'NUMERO DE SEGURIDAD SOCIAL', 'NÃšMERO DE SEGURIDAD SOCIAL'], true)) {
                     $rutasParaValidar['nss'] = $pathAbs;
                     if ($idDoc > 0 && $esReciente) {
-                        CandidatosDAO::updateVerificacionDocumento($idDoc, null, json_encode([
+                        CandidatosDAO::updateVerificacionDocumento($idDoc, $prevFiscalJson, json_encode([
                             'pendiente_revision_backend' => true,
                             'notas' => ['NSS recibido; re-evaluando contra el expediente.'],
                         ]));
                         $resNss = $this->verificarNssApi($pathAbs);
                         if (is_array($resNss)) {
-                            CandidatosDAO::updateVerificacionDocumento($idDoc, null, json_encode($resNss));
+                            $resNssFinal = $this->docVerifDebeConservarAnterior($prevCalidadArr, $resNss) ? $prevCalidadArr : $resNss;
+                            CandidatosDAO::updateVerificacionDocumento($idDoc, $prevFiscalJson, json_encode($resNssFinal));
                         }
                     }
                 } elseif ($tipo === 'CONSTANCIA DE SITUACION FISCAL') {
                     $rutasParaValidar['constancia_fiscal'] = $pathAbs;
                     if ($idDoc > 0 && $esReciente) {
-                        CandidatosDAO::updateVerificacionDocumento($idDoc, null, json_encode([
+                        CandidatosDAO::updateVerificacionDocumento($idDoc, json_encode([
                             'pendiente_revision_backend' => true,
                             'notas' => ['Constancia fiscal recibida; re-evaluando contra el expediente.'],
-                        ]));
+                        ]), $prevCalidadJson);
                         $resFiscal = $this->verificarConstanciaFiscalApi($pathAbs);
                         if (is_array($resFiscal)) {
-                            CandidatosDAO::updateVerificacionDocumento($idDoc, json_encode($resFiscal), null);
+                            $resFiscalFinal = $this->docVerifDebeConservarAnterior($prevFiscalArr, $resFiscal) ? $prevFiscalArr : $resFiscal;
+                            CandidatosDAO::updateVerificacionDocumento($idDoc, json_encode($resFiscalFinal), $prevCalidadJson);
                         }
                     }
                 } elseif ($tipo === 'ESTADO DE CUENTA') {
                     if ($idDoc > 0 && $esReciente) {
-                        CandidatosDAO::updateVerificacionDocumento($idDoc, null, json_encode([
+                        CandidatosDAO::updateVerificacionDocumento($idDoc, $prevFiscalJson, json_encode([
                             'pendiente_revision_backend' => true,
                             'notas' => ['Estado de cuenta recibido para revisión.'],
                         ]));
                         $resEstadoCuenta = $this->verificarEstadoCuentaApi($pathAbs);
                         if (is_array($resEstadoCuenta)) {
-                            CandidatosDAO::updateVerificacionDocumento($idDoc, null, json_encode($resEstadoCuenta));
+                            $resEstadoFinal = $this->docVerifDebeConservarAnterior($prevCalidadArr, $resEstadoCuenta) ? $prevCalidadArr : $resEstadoCuenta;
+                            CandidatosDAO::updateVerificacionDocumento($idDoc, $prevFiscalJson, json_encode($resEstadoFinal));
                         }
                     }
                 } elseif ($tipo === 'ACTA DE NACIMIENTO' || $tipo === 'ACTA DE NACIMIENTO Certificada') {
                     $rutasParaValidar['acta_nacimiento'] = $pathAbs;
                     if ($idDoc > 0 && $esReciente) {
-                        CandidatosDAO::updateVerificacionDocumento($idDoc, null, json_encode([
+                        CandidatosDAO::updateVerificacionDocumento($idDoc, $prevFiscalJson, json_encode([
                             'pendiente_revision_backend' => true,
                             'notas' => ['Acta de nacimiento recibida; re-evaluando contra el expediente.'],
                         ]));
                         $resActa = $this->verificarActaApi($pathAbs);
                         if (is_array($resActa)) {
-                            CandidatosDAO::updateVerificacionDocumento($idDoc, null, json_encode($resActa));
+                            $resActaFinal = $this->docVerifDebeConservarAnterior($prevCalidadArr, $resActa) ? $prevCalidadArr : $resActa;
+                            CandidatosDAO::updateVerificacionDocumento($idDoc, $prevFiscalJson, json_encode($resActaFinal));
                         }
                     }
                 }

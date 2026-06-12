@@ -4538,6 +4538,7 @@ class CapHum extends Model
         $dom_ext_sql = $dom_ext !== '' ? "'" . addslashes($dom_ext) . "'" : 'NULL';
         $dom_int_sql = $dom_int !== '' ? "'" . addslashes($dom_int) . "'" : 'NULL';
         $cp_sql = $cp !== '' ? "'" . addslashes($cp) . "'" : 'NULL';
+        $transaccionActiva = false;
 
         try {
             $db = new Database();
@@ -4712,6 +4713,7 @@ class CapHum extends Model
 
             $puestosTrayectoriaAntes = self::puestosActivosTrayectoria($db, $id_persona);
             $db->beginTransaction();
+            $transaccionActiva = true;
 
             if ($cp === '' && $id_div_nivel3 !== 'NULL') {
                 $crow = $db->queryOne(
@@ -5017,12 +5019,15 @@ class CapHum extends Model
                 'edicion_gestion_personal'
             );
 
-            $db->commit();
+            if ($transaccionActiva && $db->inTransaction()) {
+                $db->commit();
+            }
+            $transaccionActiva = false;
 
             return self::resultado(true, 'Persona actualizada correctamente.', null);
 
         } catch (\Exception $e) {
-            if (isset($db)) {
+            if (isset($db) && $transaccionActiva && $db->inTransaction()) {
                 try { $db->rollback(); } catch (\Exception $rollbackError) {}
             }
             return self::resultado(false, 'Error al actualizar persona.', null, $e->getMessage());

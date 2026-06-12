@@ -241,8 +241,9 @@ BANCOS_FISICOS_PATRONES: List[Dict[str, Any]] = [
 # Bancos / fintechs digitales NO permitidos para estado de cuenta.
 BANCOS_DIGITALES_PATRONES: List[str] = [
     r"\bNU\s+BANCO\b", r"\bNU\s+BANK\b", r"\bNUBANK\b", r"\bNU\s*BANCO\b",
+    r"\bCUENTA\s+NU\b", r"\bNU\s+M[EEÉ]XICO\s+FINANCIERA\b", r"\bCOMISIONES\s+COBRADAS\s+POR\s+NU\b",
     r"\bUAL[ÁA]\b", r"\bUALA\b", r"\bUALA\s+BANCO\b",
-    r"\bKLAR\b", r"\bKLAR\s+FINANCIERA\b",
+    r"\bKLAR\s+TECHNOLOGIES\b", r"\bKLAR\s+FINANCIERA\b", r"\bKLAR\s+CUENTA\b", r"\bCUENTA\s+KLAR\b", r"\bKLAR\s+PRINCIPAL\b",
     r"\bSTORI\b", r"\bSTORI\s+CARD\b",
     r"\bRAPPI\s+CARD\b", r"\bRAPPIPAY\b",
     r"\bMERCADO\s+PAGO\b", r"\bMERCADOPAGO\b",
@@ -269,9 +270,9 @@ BANCOS_FISICOS_COMPACTOS: Dict[str, List[str]] = {
 }
 
 BANCOS_DIGITALES_COMPACTOS: Dict[str, List[str]] = {
-    "Nu Banco": ["NUBANCO", "NUBANK", "NUBANCOMEXICO"],
+    "Nu Banco": ["NUBANCO", "NUBANK", "NUBANCOMEXICO", "CUENTANU", "NUMEXICOFINANCIERA", "COMISIONESCOBRADASPORNU"],
     "Uala": ["UALA", "UALABANCO"],
-    "Klar": ["KLAR", "KLARFINANCIERA"],
+    "Klar": ["KLARTECHNOLOGIES", "KLARFINANCIERA", "KLARCUENTA", "CUENTAKLAR", "KLARPRINCIPAL"],
     "Stori": ["STORI", "STORICARD"],
     "RappiCard": ["RAPPICARD", "RAPPIPAY"],
     "Mercado Pago": ["MERCADOPAGO"],
@@ -401,15 +402,15 @@ def _detectar_banco(texto: str) -> Tuple[Optional[str], bool]:
     texto_norm = _normalizar_texto_busqueda(texto)
     texto_compacto = _compactar_texto_busqueda(texto)
 
-    # Primero comprobar si es banco digital (rechazar)
+    # Primero comprobar si es banco digital (rechazar). Usar alias compactos primero
+    # para devolver el emisor correcto y no confundir destinatarios de SPEI.
+    for nombre, aliases in BANCOS_DIGITALES_COMPACTOS.items():
+        if any(len(alias) > 4 and alias in texto_compacto for alias in aliases):
+            return (nombre, False)
     for pat in BANCOS_DIGITALES_PATRONES:
         m = re.search(pat, texto_norm, re.IGNORECASE)
         if m:
-            nombre = m.group(0).strip() if m else "Banco digital"
-            return (nombre, False)
-    for nombre, aliases in BANCOS_DIGITALES_COMPACTOS.items():
-        if any(alias in texto_compacto for alias in aliases):
-            return (nombre, False)
+            return ("Banco digital/fintech", False)
 
     # Luego buscar banco físico
     for banco in BANCOS_FISICOS_PATRONES:
@@ -582,7 +583,7 @@ def validar___SPARTA_SECRET_REDACTED___pdf(pdf_bytes: bytes) -> Dict[str, Any]:
         resultado["revision_manual"] = False
         resultado["motivo_rechazo"] = "banco_no_fisico"
         resultado["mensaje"] = (
-            f"No se aceptan bancos o fintechs digitales ({banco}). "
+            f"No se aceptan bancos o fintechs digitales{f' ({banco})' if banco != 'Banco digital/fintech' else ''}. "
             "Debe ser un estado de cuenta de un banco físico en México (BBVA, Banorte, Santander, Citibanamex, etc.)."
         )
         return resultado

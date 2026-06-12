@@ -362,7 +362,7 @@ class Adjudicacion extends Model
                 'idPersonalAdj' => $idPersonalAdj,
                 'idCredito'     => $idCredito,
                 'fechaAlta'     => $fechaAlta,
-                'alta'          => $usuarioAlta,
+                'alta'          => $usuarioAlta > 0 ? $usuarioAlta : null,
             ]
         );
 
@@ -1170,13 +1170,6 @@ class Adjudicacion extends Model
         if (!empty($diag['legacy']['error'])) {
             return ['success' => false, 'message' => 'Legacy no esta disponible: ' . $diag['legacy']['error']];
         }
-        if (!empty($diag['legacy']['task'])) {
-            return [
-                'success' => false,
-                'message' => 'Ya existe Task Legacy para este credito. No se duplico.',
-                'task_id' => (int)($diag['legacy']['task']['id'] ?? 0),
-            ];
-        }
         if (!empty($diag['operacion'])) {
             return ['success' => false, 'message' => 'Ya existe adj_operacion para este credito; no se envio a gestor.'];
         }
@@ -1216,14 +1209,19 @@ class Adjudicacion extends Model
             $this->asegurarAsignacionTaskLegacyDictamenWeb($legacyDb, $taskId, $idUsuarioLegacy, $fecha);
             $legacyDb->commit();
 
+            $asignacionSparta = $this->asignarCreditoSpartaDesdeUsuarioLegacy($user, $idCredito, $idUsuarioSesion);
+
             return [
                 'success' => true,
-                'message' => 'Campana enviada al gestor en Legacy. Se creo la tarea para que cargue la gestion.',
+                'message' => !empty($diag['legacy']['task'])
+                    ? 'Campana reasignada al gestor en Legacy. La tarea existente quedo apuntando al gestor seleccionado.'
+                    : 'Campana enviada al gestor en Legacy. Se creo la tarea para que cargue la gestion.',
                 'task_id' => $taskId,
                 'campaign_id' => self::LEGACY_CAMP_MOTOS_ADJUDICADAS,
                 'id_usuario_legacy' => $idUsuarioLegacy,
                 'id_usuario_sesion' => $idUsuarioSesion,
                 'fecha_envio' => $fecha,
+                'asignacion_sparta' => $asignacionSparta,
             ];
         } catch (\Throwable $e) {
             try {
@@ -1235,6 +1233,44 @@ class Adjudicacion extends Model
 
             return ['success' => false, 'message' => 'No se pudo enviar la campana a gestor: ' . $e->getMessage()];
         }
+    }
+
+    private function asignarCreditoSpartaDesdeUsuarioLegacy(array $usuarioLegacy, int $idCredito, int $idUsuarioSesion): array
+    {
+        $externalId = trim((string) ($usuarioLegacy['external_id'] ?? ''));
+        if ($externalId === '') {
+            return [
+                'success' => false,
+                'message' => 'No se pudo reflejar en Mis adjudicaciones: el usuario Legacy no tiene external_id.',
+            ];
+        }
+
+        $persona = $this->db->queryOne(
+            "SELECT id, TRIM(CONCAT_WS(' ', nombres, segundo_nombre, apellidop, apellidom)) AS nombre
+             FROM persona
+             WHERE TRIM(COALESCE(numero_empleado, '')) = :external_id
+               AND COALESCE(estatus, 'Activo') <> 'Baja'
+             ORDER BY id DESC
+             LIMIT 1",
+            ['external_id' => $externalId]
+        );
+
+        if (!$persona) {
+            return [
+                'success' => false,
+                'message' => 'No se pudo reflejar en Mis adjudicaciones: no existe persona activa en Sparta con numero_empleado ' . $externalId . '.',
+            ];
+        }
+
+        $res = $this->asignarCredito((int) $persona['id'], $idCredito, $idUsuarioSesion);
+        if (empty($res['success']) && stripos((string) ($res['message'] ?? ''), 'ya est') !== false) {
+            $res['informativo'] = true;
+        }
+        $res['id_persona'] = (int) $persona['id'];
+        $res['persona'] = (string) ($persona['nombre'] ?? '');
+        $res['external_id'] = $externalId;
+
+        return $res;
     }
 
     public function usuariosActivosLegacy(): array
@@ -1426,6 +1462,20 @@ class Adjudicacion extends Model
         if ($asignacion) {
             return;
         }
+
+        $legacyDb->CRUD(
+            "UPDATE task_user_assignments
+             SET unassigned_at = :unassigned_at, updated_at = :updated_at
+             WHERE task_id = :task_id
+               AND user_id <> :user_id
+               AND unassigned_at IS NULL",
+            [
+                'unassigned_at' => $fecha,
+                'updated_at' => $fecha,
+                'task_id' => $taskId,
+                'user_id' => $idUsuarioLegacy,
+            ]
+        );
 
         $legacyDb->CRUD(
             "INSERT INTO task_user_assignments

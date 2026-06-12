@@ -141,3 +141,6 @@ yarn-error.log*
 # Se versionan DLLs portables en backend/API/tools/zbar/bin para evitar
 # dependencia de System32 y tambien evitar descarga en servidores sin internet.
 backend/storage/candidatos/
+backend/API/pip/ 
+backend/API/pip/
+backend/API/pip/

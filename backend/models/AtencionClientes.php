@@ -46,6 +46,11 @@ class AtencionClientes
         return "'" . addslashes($this->fechaHoraCdmx()) . "'";
     }
 
+    private function sqlCondicionBitacoraEnvioEvidencias(string $aliasBitacora): string
+    {
+        return "({$aliasBitacora}.accion LIKE '%AL PIPELINE%' OR {$aliasBitacora}.accion LIKE '%EVIDENCIAS DE LA ADJUDICACION%')";
+    }
+
     private function sqlConteoEvidenciasFisicas(string $aliasOperacion = 'o'): string
     {
         return "(SELECT COUNT(DISTINCT e.slot)
@@ -141,22 +146,65 @@ SQL;
 SQL;
     }
 
+    private function sqlUltimoAnalistaEvidencias(string $aliasOperacion = 'o'): string
+    {
+        $whereAcciones = "(
+            UPPER(bu.accion) LIKE '%VALIDACI%'
+            OR UPPER(bu.accion) LIKE '%RECHAZOS EVIDENCIAS%'
+            OR UPPER(bu.accion) LIKE '%EVIDENCIAS VALIDADAS%'
+            OR UPPER(bu.accion) LIKE '%REEMPLAZO ESPECIAL DE EVIDENCIA%'
+        )";
+        $whereUsuario = "TRIM(COALESCE(bu.nombre_usuario, '')) <> ''
+            AND UPPER(TRIM(COALESCE(bu.nombre_usuario, ''))) NOT IN ('SISTEMA', 'SYSTEM', 'MAXIKASH APP')";
+
+        return <<<SQL
+            (
+                SELECT bu.nombre_usuario
+                FROM adj_bitacora bu
+                WHERE bu.id_operacion = {$aliasOperacion}.id
+                  AND {$whereAcciones}
+                  AND {$whereUsuario}
+                ORDER BY bu.fecha_alta DESC, bu.id DESC
+                LIMIT 1
+            ) AS ultimo_analista_nombre,
+            (
+                SELECT DATE_FORMAT(bu.fecha_alta, '%d/%m/%Y %H:%i')
+                FROM adj_bitacora bu
+                WHERE bu.id_operacion = {$aliasOperacion}.id
+                  AND {$whereAcciones}
+                  AND {$whereUsuario}
+                ORDER BY bu.fecha_alta DESC, bu.id DESC
+                LIMIT 1
+            ) AS ultimo_analista_fecha,
+            (
+                SELECT bu.accion
+                FROM adj_bitacora bu
+                WHERE bu.id_operacion = {$aliasOperacion}.id
+                  AND {$whereAcciones}
+                  AND {$whereUsuario}
+                ORDER BY bu.fecha_alta DESC, bu.id DESC
+                LIMIT 1
+            ) AS ultimo_analista_accion
+SQL;
+    }
+
     private function sqlTiempoEnBandejaEvidencias(string $aliasOperacion = 'o'): string
     {
         $ahoraCdmx = $this->sqlAhoraCdmxLiteral();
+        $condEnvio = $this->sqlCondicionBitacoraEnvioEvidencias('bt');
 
         return <<<SQL
             (
                 SELECT DATE_FORMAT(MIN(bt.fecha_alta), '%d/%m/%Y %H:%i')
                 FROM adj_bitacora bt
                 WHERE bt.id_operacion = {$aliasOperacion}.id
-                  AND bt.accion LIKE '%AL PIPELINE%'
+                  AND {$condEnvio}
             ) AS fecha_entrada_bandeja_evidencias,
             (
                 SELECT GREATEST(0, TIMESTAMPDIFF(MINUTE, MIN(bt.fecha_alta), {$ahoraCdmx}))
                 FROM adj_bitacora bt
                 WHERE bt.id_operacion = {$aliasOperacion}.id
-                  AND bt.accion LIKE '%AL PIPELINE%'
+                  AND {$condEnvio}
             ) AS minutos_en_bandeja_evidencias
 SQL;
     }
@@ -183,12 +231,14 @@ SQL;
 
     private function sqlTiempoTotalValidacionEvidencias(string $aliasOperacion = 'o'): string
     {
+        $condEnvio = $this->sqlCondicionBitacoraEnvioEvidencias('bt');
+
         return <<<SQL
             (
                 SELECT DATE_FORMAT(MIN(bt.fecha_alta), '%d/%m/%Y %H:%i')
                 FROM adj_bitacora bt
                 WHERE bt.id_operacion = {$aliasOperacion}.id
-                  AND bt.accion LIKE '%AL PIPELINE%'
+                  AND {$condEnvio}
             ) AS fecha_inicio_validacion_evidencias,
             (
                 SELECT DATE_FORMAT(MAX(bv.fecha_alta), '%d/%m/%Y %H:%i')
@@ -203,7 +253,7 @@ SQL;
                         ON bv.id_operacion = bt.id_operacion
                        AND bv.accion LIKE '%EVIDENCIAS VALIDADAS (PROCESANDO IA)%'
                 WHERE bt.id_operacion = {$aliasOperacion}.id
-                  AND bt.accion LIKE '%AL PIPELINE%'
+                  AND {$condEnvio}
             ) AS minutos_total_validacion_evidencias
 SQL;
     }
@@ -476,7 +526,10 @@ SQL;
       SELECT 1
       FROM adj_bitacora b
       WHERE b.id_operacion = o.id
-        AND b.accion LIKE '%AL PIPELINE%'
+        AND (
+            b.accion LIKE '%AL PIPELINE%'
+            OR b.accion LIKE '%EVIDENCIAS DE LA ADJUDICACION%'
+        )
   )
 SQL;
     }
@@ -569,6 +622,7 @@ SQL;
         $evidenciasCount = $this->sqlConteoEvidenciasFisicas('o');
         $evidenciasValidacion = $this->sqlConteosValidacionAtn('o');
         $ultimoMovimientoEvidencias = $this->sqlUltimoMovimientoEvidencias('o');
+        $ultimoAnalistaEvidencias = $this->sqlUltimoAnalistaEvidencias('o');
         $tiempoEnBandeja = $this->sqlTiempoEnCorrecciones('o');
         $formulario = $this->sqlSelectFormularioEvidencias('o');
         $sql = <<<SQL
@@ -585,6 +639,7 @@ SQL;
             {$evidenciasCount} AS evidencias_count,
             {$evidenciasValidacion},
             {$ultimoMovimientoEvidencias},
+            {$ultimoAnalistaEvidencias},
             {$tiempoEnBandeja},
             {$formulario},
             TRIM(CONCAT_WS(' ',
@@ -606,7 +661,7 @@ SQL;
 
     /**
      * Pestaña Bandeja de entrada (Evidencias): solo operaciones que ya pasaron por
-     * «Enviar evidencias» en Mis adjudicaciones (bitácora ENVIÓ EVIDENCIAS AL PIPELINE).
+     * «Enviar evidencias» en Mis adjudicaciones (bitácora de envío de evidencias de adjudicación).
      * Hasta entonces no deben aparecer aquí aunque estén en Recibido / en tránsito / etc.
      */
     public function obtenerRecibidos(bool $sincronizarDictums = false): array
@@ -621,6 +676,7 @@ SQL;
         $evidenciasCount = $this->sqlConteoEvidenciasFisicas('o');
         $evidenciasValidacion = $this->sqlConteosValidacionAtn('o');
         $ultimoMovimientoEvidencias = $this->sqlUltimoMovimientoEvidencias('o');
+        $ultimoAnalistaEvidencias = $this->sqlUltimoAnalistaEvidencias('o');
         $tiempoEnBandeja = $this->sqlTiempoEnBandejaEvidencias('o');
         $formulario = $this->sqlSelectFormularioEvidencias('o');
         $sql = <<<SQL
@@ -637,6 +693,7 @@ SQL;
             {$evidenciasCount} AS evidencias_count,
             {$evidenciasValidacion},
             {$ultimoMovimientoEvidencias},
+            {$ultimoAnalistaEvidencias},
             {$tiempoEnBandeja},
             {$formulario},
             TRIM(CONCAT_WS(' ',
@@ -669,6 +726,7 @@ SQL;
         $recuperacionExpedienteCount = $this->sqlConteoExpedienteRecuperacion('o');
         $evidenciasValidacion = $this->sqlConteosValidacionAtn('o');
         $ultimoMovimientoEvidencias = $this->sqlUltimoMovimientoEvidencias('o');
+        $ultimoAnalistaEvidencias = $this->sqlUltimoAnalistaEvidencias('o');
         $tiempoTotalValidacion = $this->sqlTiempoTotalValidacionEvidencias('o');
         $tiempoEnRecuperacion = $this->sqlTiempoEnBandejaRecuperacion('o');
         $formulario = $this->sqlSelectFormularioEvidencias('o');
@@ -709,6 +767,7 @@ SQL;
             {$recuperacionExpedienteCount} AS recuperacion_expediente_count,
             {$evidenciasValidacion},
             {$ultimoMovimientoEvidencias},
+            {$ultimoAnalistaEvidencias},
             {$tiempoTotalValidacion},
             {$tiempoEnRecuperacion},
             {$formulario},

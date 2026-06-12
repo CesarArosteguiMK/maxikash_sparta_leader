@@ -135,6 +135,10 @@ class Database
     public function beginTransaction()  { if ($this->db) $this->db->beginTransaction(); }
     public function commit()           { if ($this->db) $this->db->commit(); }
     public function rollback()         { if ($this->db) $this->db->rollBack(); }
+    public function inTransaction(): bool
+    {
+        return $this->db ? $this->db->inTransaction() : false;
+    }
 
     private function runQuery($sql, $valores = null, &$retorno = null)
     {

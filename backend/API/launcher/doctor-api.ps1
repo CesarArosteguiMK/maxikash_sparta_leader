@@ -461,6 +461,10 @@ $pkgs = @(
     @('loguru',                  'loguru'),
     @('dotenv',                  'python-dotenv')
 )
+$pipPins = @{
+    'paddleocr'    = 'paddleocr==3.6.0'
+    'paddlepaddle' = 'paddlepaddle==3.3.1'
+}
 $missing = @()
 $brokenImport = @()
 if ($pyExe) {
@@ -499,7 +503,18 @@ except Exception as e:
     if ($missing.Count -gt 0) {
         $pfx = "`"$pyExe`""
         if ($pyArgs.Count -gt 0) { $pfx += ' ' + ($pyArgs -join ' ') }
-        Rec ("Instale: $pfx -m pip install " + ($missing -join ' '))
+        $missingInstall = @()
+        $missingUniqueForRec = @($missing | Select-Object -Unique)
+        $needPaddleRec = ($missingUniqueForRec -contains 'paddleocr') -or ($missingUniqueForRec -contains 'paddlepaddle')
+        if ($needPaddleRec) {
+            $missingInstall += @('paddlepaddle==3.3.1', 'paddleocr==3.6.0')
+        }
+        foreach ($pkgRaw in $missingUniqueForRec) {
+            if ($needPaddleRec -and ($pkgRaw -eq 'paddleocr' -or $pkgRaw -eq 'paddlepaddle')) { continue }
+            if ($pipPins.ContainsKey($pkgRaw)) { $missingInstall += $pipPins[$pkgRaw] }
+            else { $missingInstall += $pkgRaw }
+        }
+        Rec ("Instale: $pfx -m pip install " + ($missingInstall -join ' '))
     }
     if ($brokenImport.Count -gt 0) {
         Rec "Algun paquete esta instalado pero falla al importar (DLL ausente, version incompatible, archivo corrupto)."
@@ -803,13 +818,40 @@ if ($InstallMissing -and $Script:PythonFreeThreading) {
         Info 'Omitiendo instalacion por pip (no disponible).'
     } else {
     $pipLog = Join-Path $LogsDir "doctor-pip-$stamp.log"
-    foreach ($pkg in $missing) {
-        Out-Log "  pip install $pkg ..." 'Magenta'
-        $proc = Invoke-ExeCapture -FilePath $pyExe -ArgumentList (@($pyArgs) + @('-m','pip','install','--no-input',$pkg)) -WorkDir $ApiDir
-        Add-Content -LiteralPath $pipLog -Value $proc.StdOut -Encoding UTF8
-        Add-Content -LiteralPath $pipLog -Value $proc.StdErr -Encoding UTF8
-        if ($proc.ExitCode -eq 0) { Fix "Instalado $pkg" }
-        else { Err "Fallo pip install $pkg (vea $pipLog)" }
+    $missingUnique = @($missing | Select-Object -Unique)
+    $installGroups = @()
+    $needPaddleBundle = ($missingUnique -contains 'paddleocr') -or ($missingUnique -contains 'paddlepaddle')
+    if ($needPaddleBundle) {
+        $installGroups += ,@('paddlepaddle==3.3.1', 'paddleocr==3.6.0')
+    }
+    foreach ($pkgRaw in $missingUnique) {
+        if ($needPaddleBundle -and ($pkgRaw -eq 'paddleocr' -or $pkgRaw -eq 'paddlepaddle')) {
+            continue
+        }
+        $pkg = $pkgRaw
+        if ($pipPins.ContainsKey($pkgRaw)) {
+            $pkg = $pipPins[$pkgRaw]
+        }
+        $installGroups += ,@($pkg)
+    }
+    foreach ($group in $installGroups) {
+        $label = ($group -join ' ')
+        Out-Log "  pip install $label ..." 'Magenta'
+        Add-Content -LiteralPath $pipLog -Value ("===== pip install " + $label + " =====") -Encoding UTF8
+        Push-Location $ApiDir
+        try {
+            $pipArgs = @($pyArgs) + @('-m', 'pip', 'install', '--no-input', '--prefer-binary', '--timeout', '120') + @($group)
+            & $pyExe @pipArgs 2>&1 | ForEach-Object {
+                $line = $_.ToString()
+                Add-Content -LiteralPath $pipLog -Value $line -Encoding UTF8
+                Out-Log ("    " + $line) 'DarkGray'
+            }
+            $pipExit = $LASTEXITCODE
+        } finally {
+            Pop-Location
+        }
+        if ($pipExit -eq 0) { Fix "Instalado $label" }
+        else { Err "Fallo pip install $label (vea $pipLog)" }
     }
     Info "Log de pip: $pipLog"
     }
@@ -903,7 +945,18 @@ except Exception as e:
             Err ("Aun faltan: " + ($stillMissing -join ', '))
             $pfx = "`"$pyExe`""
             if ($pyArgs.Count -gt 0) { $pfx += ' ' + ($pyArgs -join ' ') }
-            Rec ("Reintente: $pfx -m pip install " + ($stillMissing -join ' '))
+            $retryInstall = @()
+            $stillMissingUnique = @($stillMissing | Select-Object -Unique)
+            $needPaddleRetry = ($stillMissingUnique -contains 'paddleocr') -or ($stillMissingUnique -contains 'paddlepaddle')
+            if ($needPaddleRetry) {
+                $retryInstall += @('paddlepaddle==3.3.1', 'paddleocr==3.6.0')
+            }
+            foreach ($pkgRaw in $stillMissingUnique) {
+                if ($needPaddleRetry -and ($pkgRaw -eq 'paddleocr' -or $pkgRaw -eq 'paddlepaddle')) { continue }
+                if ($pipPins.ContainsKey($pkgRaw)) { $retryInstall += $pipPins[$pkgRaw] }
+                else { $retryInstall += $pkgRaw }
+            }
+            Rec ("Reintente: $pfx -m pip install " + ($retryInstall -join ' '))
         }
         if ($stillBroken.Count -gt 0) {
             foreach ($b in $stillBroken) {

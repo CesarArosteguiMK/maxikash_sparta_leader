@@ -194,6 +194,9 @@ body.dark-mode .ae-list-cell .ac-val { color: #e2e8f0; }
 body.dark-mode .ae-list-muted { color: #64748b; }
 body.dark-mode .ae-main-folio { color: #fcd34d; }
 body.dark-mode .ae-main-credito { color: #e2e8f0; }
+body.dark-mode .acr-rcpt-bit-action { color: #e2e8f0; }
+body.dark-mode .acr-rcpt-bit-meta { color: #94a3b8; }
+body.dark-mode .acr-rcpt-bit-item { border-color: #475569; }
 
 @media (max-width: 991.98px) {
     .ae-list-grid {
@@ -266,6 +269,49 @@ body.dark-mode #modalAcrRecepcionAlmacen .acr-rcpt-page {
     font-weight: 600;
     letter-spacing: 0.06em;
     white-space: nowrap;
+}
+.acr-rcpt-bit-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    max-height: 300px;
+    overflow: auto;
+}
+.acr-rcpt-bit-item {
+    position: relative;
+    padding: 0 0 .72rem .95rem;
+    border-left: 2px solid #d8b4fe;
+}
+.acr-rcpt-bit-item:last-child { padding-bottom: 0; }
+.acr-rcpt-bit-item::before {
+    content: "";
+    position: absolute;
+    left: -.33rem;
+    top: .1rem;
+    width: .56rem;
+    height: .56rem;
+    border-radius: 999px;
+    background: #7c3aed;
+    box-shadow: 0 0 0 3px #f3e8ff;
+}
+.acr-rcpt-bit-action {
+    color: #1e293b;
+    font-size: .78rem;
+    font-weight: 850;
+    line-height: 1.2;
+}
+.acr-rcpt-bit-meta {
+    margin-top: .18rem;
+    color: #64748b;
+    font-size: .7rem;
+    font-weight: 750;
+    line-height: 1.18;
+}
+.acr-rcpt-bit-empty {
+    color: #94a3b8;
+    font-size: .82rem;
+    text-align: center;
+    margin: 0;
 }
 .acr-rcpt-steps {
     display: flex;
@@ -670,6 +716,19 @@ body.dark-mode .acr-rcpt-doc-h { background: #1e293b; }
 
         <div class="acr-rcpt-section">
             <div class="acr-rcpt-sec-head">
+                <span class="text-primary"><i class="fa-solid fa-clock-rotate-left"></i></span>
+                <div>
+                    <div class="acr-rcpt-sec-title">BitÃ¡cora completa</div>
+                    <div class="acr-rcpt-sec-sub">Movimientos de la operaciÃ³n sin limitar por etapa</div>
+                </div>
+            </div>
+            <div class="acr-rcpt-sec-body" id="acr-rcpt-bitacora">
+                <p class="acr-rcpt-bit-empty">Cargando movimientos...</p>
+            </div>
+        </div>
+
+        <div class="acr-rcpt-section">
+            <div class="acr-rcpt-sec-head">
                 <span class="text-warning"><i class="fa-regular fa-clock"></i></span>
                 <div>
                     <div class="acr-rcpt-sec-title">Llegada a Almacén</div>
@@ -707,7 +766,7 @@ body.dark-mode .acr-rcpt-doc-h { background: #1e293b; }
                 </div>
                 <div class="acr-rcpt-ev-grid" id="acr-rcpt-evGrid"></div>
                 <div class="mt-3 small text-muted">
-                    Subidos: <span id="acr-rcpt-evCount">0</span> / 8 · Requeridos: <span id="acr-rcpt-evReq">0</span> / 6
+                    Subidos: <span id="acr-rcpt-evCount">0</span> / 8 / Requeridos: <span id="acr-rcpt-evReq">0</span> / 6
                 </div>
             </div>
         </div>
@@ -870,6 +929,30 @@ body.dark-mode .acr-rcpt-doc-h { background: #1e293b; }
             .replace(/</g, '&lt;')
             .replace(/>/g, '&gt;')
             .replace(/"/g, '&quot;');
+    }
+
+    function acrDatoVisible(v) {
+        if (v === null || v === undefined) return '';
+        const s = String(v).trim();
+        return s === '' || s === 'null' || s === 'undefined' ? '' : s;
+    }
+
+    function acrRenderBitacoraCompleta(det) {
+        const rows = Array.isArray(det && det.bitacora) ? det.bitacora : [];
+        if (!rows.length) {
+            return '<p class="acr-rcpt-bit-empty">Sin movimientos registrados.</p>';
+        }
+        return '<ul class="acr-rcpt-bit-list">' + rows.map(function (b) {
+            const accion = acrDatoVisible(b.accion) || 'Movimiento';
+            const usuario = acrDatoVisible(b.nombre_usuario) || 'Sistema';
+            const fecha = acrDatoVisible(b.fecha_alta);
+            return '<li class="acr-rcpt-bit-item">' +
+                '<div class="acr-rcpt-bit-action">' + acrEsc(accion) + '</div>' +
+                '<div class="acr-rcpt-bit-meta"><i class="fa-solid fa-user me-1"></i>' + acrEsc(usuario) +
+                    (fecha ? '<br><i class="fa-regular fa-clock me-1"></i>' + acrEsc(fecha) : '') +
+                '</div>' +
+            '</li>';
+        }).join('') + '</ul>';
     }
 
     function acrSinDatos(msg) {
@@ -1519,6 +1602,8 @@ body.dark-mode .acr-rcpt-doc-h { background: #1e293b; }
         var ob = document.getElementById('acr-rcpt-obs');
         if (ub) { ub.value = ''; ub.disabled = false; }
         if (ob) { ob.value = ''; ob.disabled = false; }
+        var bit = document.getElementById('acr-rcpt-bitacora');
+        if (bit) bit.innerHTML = '<p class="acr-rcpt-bit-empty">Cargando movimientos...</p>';
         acrRcptSyncFinRecepcionUi(null);
         acrRcptBuildEvGrid();
     }
@@ -1596,6 +1681,8 @@ body.dark-mode .acr-rcpt-doc-h { background: #1e293b; }
                     acrRcptApplyArrivalUi(String(fl), true);
                 }
                 acrRcptApplyDocumentacionDesdeDetalle(jd.detalle);
+                var bit = document.getElementById('acr-rcpt-bitacora');
+                if (bit) bit.innerHTML = acrRenderBitacoraCompleta(jd.detalle);
             }
             if (je && je.success) {
                 if (sc) sc.textContent = acrFmtMoney(je.saldo_capital);
