@@ -758,6 +758,20 @@ class TrackingRecoleccion extends Controller
     }
 
     /**
+     * POST /TrackingRecoleccion/guardarUnidadTransportistaTracking
+     */
+    public function guardarUnidadTransportistaTracking()
+    {
+        try {
+            $model = new TrackingModel();
+            $result = $model->guardarUnidadTransportistaTracking($this->leerBodyTracking());
+            self::respuestaJSON($result);
+        } catch (\Throwable $e) {
+            self::respuestaJSON(self::respuesta(false, 'Error al guardar unidad.', null, $e->getMessage()));
+        }
+    }
+
+    /**
      * GET /TrackingRecoleccion/obtenerCedisTracking
      * Proxy seguro: GET /api/tracking/cedis
      */

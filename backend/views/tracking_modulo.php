@@ -157,10 +157,17 @@ body.dark-mode .trk-section-desc {
 }
 .trk-admin-toolbar {
     display: grid;
-    grid-template-columns: minmax(220px, 1fr) 190px 190px auto;
+    grid-template-columns: minmax(220px, 1fr) 180px 170px auto auto auto;
     gap: .65rem;
     align-items: end;
     padding: .9rem;
+}
+.trk-admin-view-toggle .btn {
+    min-width: 2.35rem;
+    height: 2rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
 }
 .trk-admin-alerts { display: grid; gap: .5rem; }
 .trk-admin-alert {
@@ -176,6 +183,21 @@ body.dark-mode .trk-section-desc {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
     gap: .85rem;
+}
+.trk-admin-grid.is-list {
+    grid-template-columns: 1fr;
+}
+.trk-admin-grid.is-list .trk-admin-card {
+    grid-template-columns: minmax(260px, .9fr) minmax(340px, 1.4fr);
+    align-items: start;
+}
+.trk-admin-grid.is-list .trk-admin-card-head,
+.trk-admin-grid.is-list .trk-admin-metrics,
+.trk-admin-grid.is-list .trk-admin-route-list {
+    grid-column: auto;
+}
+.trk-admin-grid.is-list .trk-admin-route-list {
+    grid-row: span 5;
 }
 .trk-admin-card {
     padding: .95rem;
@@ -261,10 +283,40 @@ body.dark-mode .trk-section-desc {
     text-align: center;
     color: #64748b;
 }
+.trk-admin-table-wrap {
+    background: #fff;
+    border: 1px solid #e2e8f0;
+    border-radius: .75rem;
+    box-shadow: 0 .12rem .55rem rgba(15,23,42,.04);
+    overflow: hidden;
+}
+.trk-admin-table {
+    margin: 0;
+    font-size: .78rem;
+}
+.trk-admin-table thead th {
+    color: #64748b;
+    font-size: .68rem;
+    font-weight: 900;
+    text-transform: uppercase;
+    border-bottom-color: #dbe3ef;
+}
+.trk-admin-table td {
+    vertical-align: middle;
+}
+.trk-no-spinner::-webkit-outer-spin-button,
+.trk-no-spinner::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+}
+.trk-no-spinner {
+    -moz-appearance: textfield;
+}
 body.dark-mode .trk-admin-kpi,
 body.dark-mode .trk-admin-toolbar,
 body.dark-mode .trk-admin-card,
-body.dark-mode .trk-admin-empty {
+body.dark-mode .trk-admin-empty,
+body.dark-mode .trk-admin-table-wrap {
     background: #172121;
     border-color: #2d4444;
 }
@@ -282,8 +334,13 @@ body.dark-mode .trk-admin-route {
     background: #101818;
     border-color: #2d4444;
 }
+body.dark-mode .trk-admin-table thead th,
+body.dark-mode .trk-admin-table td {
+    border-color: #2d4444;
+}
 @media (max-width: 991.98px) {
     .trk-admin-toolbar { grid-template-columns: 1fr 1fr; }
+    .trk-admin-grid.is-list .trk-admin-card { grid-template-columns: 1fr; }
 }
 @media (max-width: 575.98px) {
     .trk-admin-toolbar,
@@ -2968,6 +3025,9 @@ $trackingIsPlaneacion = $trackingShowMainTabs
                         <button type="button" class="btn btn-primary btn-sm fw-semibold" id="btnNuevoTransportistaTracking">
                             <i class="fa-solid fa-plus me-1"></i>Registrar Transportista <i class="fa-solid fa-id-card-clip ms-1"></i>
                         </button>
+                        <button type="button" class="btn btn-primary btn-sm fw-semibold" id="btnNuevaUnidadTracking">
+                            <i class="fa-solid fa-plus me-1"></i>Registrar Unidad <i class="fa-solid fa-truck ms-1"></i>
+                        </button>
                     </div>
                 </div>
 
@@ -3084,10 +3144,43 @@ $trackingIsPlaneacion = $trackingShowMainTabs
                     <button type="button" class="btn btn-sm btn-primary" id="trkOpActualizar">
                         <i class="fa-solid fa-rotate me-1"></i>Actualizar
                     </button>
+                    <button type="button" class="btn btn-sm btn-label-info" id="btnNuevaUnidadOperacion">
+                        <i class="fa-solid fa-plus me-1"></i>Registrar Unidad <i class="fa-solid fa-truck ms-1"></i>
+                    </button>
+                    <div class="btn-group trk-admin-view-toggle" role="group" aria-label="Vista administracion transportistas">
+                        <button type="button" class="btn btn-sm btn-label-secondary" id="trkOpVistaLista" title="Vista lista">
+                            <i class="fa-solid fa-list"></i>
+                        </button>
+                        <button type="button" class="btn btn-sm btn-label-primary active" id="trkOpVistaGrid" title="Vista celdas">
+                            <i class="fa-solid fa-table-cells-large"></i>
+                        </button>
+                        <button type="button" class="btn btn-sm btn-label-secondary" id="trkOpVistaTabla" title="Vista tabla">
+                            <i class="fa-solid fa-table-list"></i>
+                        </button>
+                    </div>
                 </div>
 
                 <div id="trkOpAlertas" class="trk-admin-alerts"></div>
-                <div id="trkOpGrid" class="trk-admin-grid"></div>
+                <div id="trkOpGridWrap">
+                    <div id="trkOpGrid" class="trk-admin-grid"></div>
+                </div>
+                <div id="trkOpTablaWrap" class="trk-admin-table-wrap d-none">
+                    <div class="table-responsive">
+                        <table class="table table-hover trk-admin-table w-100">
+                            <thead>
+                                <tr>
+                                    <th>Transportista</th>
+                                    <th>Operacion</th>
+                                    <th>Capacidad</th>
+                                    <th>Rutas</th>
+                                    <th>CEDIS / ubicacion</th>
+                                    <th>Alertas</th>
+                                </tr>
+                            </thead>
+                            <tbody id="trkOpTablaBody"></tbody>
+                        </table>
+                    </div>
+                </div>
             </div>
         </div>
     </div><!-- /tab-content -->
@@ -3253,6 +3346,106 @@ $trackingIsPlaneacion = $trackingShowMainTabs
                 <button type="button" class="btn btn-sm btn-label-secondary" data-bs-dismiss="modal">Cancelar</button>
                 <button type="button" class="btn btn-sm btn-primary" id="btnGuardarTransportistaTracking">
                     <i class="fa-solid fa-floppy-disk me-1"></i>Guardar Transportista
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ==========================================================
+     Modal  -  Unidad / transporte tracking
+========================================================== -->
+<div class="modal fade" id="modalUnidadTransportistaTracking" tabindex="-1" aria-labelledby="modalUnidadTransportistaTrackingLabel">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header py-2">
+                <h6 class="modal-title mb-0" id="modalUnidadTransportistaTrackingLabel">
+                    <i class="fa-solid fa-truck me-2" style="color:var(--track-color);"></i>Registrar Unidad
+                </h6>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="unidadIdCapacidadTracking" value="">
+                <div class="row g-2">
+                    <div class="col-12">
+                        <label class="form-label small fw-semibold">Transportista *</label>
+                        <select class="form-select form-select-sm" id="unidadTransportistaTracking"></select>
+                    </div>
+                    <div class="col-12 col-md-5">
+                        <label class="form-label small fw-semibold">Tipo de unidad *</label>
+                        <select class="form-select form-select-sm" id="unidadTipoTracking">
+                            <option value="">Selecciona tipo</option>
+                            <option value="CAMIONETA">CAMIONETA</option>
+                            <option value="TORTON">TORTON</option>
+                            <option value="RABON">RABON</option>
+                            <option value="GRUA">GRUA</option>
+                        </select>
+                    </div>
+                    <div class="col-6 col-md-2">
+                        <label class="form-label small fw-semibold">Capacidad motos *</label>
+                        <input type="text" class="form-control form-control-sm trk-no-spinner text-center fw-semibold"
+                               id="unidadCapacidadTracking" inputmode="numeric" maxlength="2" autocomplete="off">
+                    </div>
+                    <div class="col-6 col-md-5">
+                        <label class="form-label small fw-semibold">Identificador de unidad <span class="text-muted fw-normal">(opcional)</span></label>
+                        <input type="text" class="form-control form-control-sm text-uppercase" id="unidadEconomicoTracking" maxlength="60" placeholder="Ej. CAM-07, TORTON-02">
+                    </div>
+                    <div class="col-12 col-md-4">
+                        <label class="form-label small fw-semibold">Marca</label>
+                        <input type="text" class="form-control form-control-sm text-uppercase" id="unidadMarcaTracking" maxlength="80">
+                    </div>
+                    <div class="col-12 col-md-4">
+                        <label class="form-label small fw-semibold">Modelo</label>
+                        <input type="text" class="form-control form-control-sm text-uppercase" id="unidadModeloTracking" maxlength="100">
+                    </div>
+                    <div class="col-12 col-md-4">
+                        <label class="form-label small fw-semibold">Año</label>
+                        <input type="number" min="1980" max="2100" step="1" class="form-control form-control-sm" id="unidadAnioTracking">
+                    </div>
+                    <div class="col-12 col-md-4">
+                        <label class="form-label small fw-semibold">Placa</label>
+                        <input type="text" class="form-control form-control-sm text-uppercase" id="unidadPlacaTracking" maxlength="30">
+                    </div>
+                    <div class="col-12 col-md-4">
+                        <label class="form-label small fw-semibold">Color</label>
+                        <input type="text" class="form-control form-control-sm text-uppercase" id="unidadColorTracking" maxlength="60">
+                    </div>
+                    <div class="col-12 col-md-4">
+                        <label class="form-label small fw-semibold">Seguro vence</label>
+                        <input type="date" class="form-control form-control-sm" id="unidadVigenciaSeguroTracking">
+                    </div>
+                    <div class="col-12 col-md-6">
+                        <label class="form-label small fw-semibold">VIN / Numero de serie</label>
+                        <input type="text" class="form-control form-control-sm text-uppercase" id="unidadSerieTracking" maxlength="80">
+                    </div>
+                    <div class="col-12 col-md-6">
+                        <label class="form-label small fw-semibold">Numero de motor</label>
+                        <input type="text" class="form-control form-control-sm text-uppercase" id="unidadMotorTracking" maxlength="80">
+                    </div>
+                    <div class="col-12 col-md-6">
+                        <label class="form-label small fw-semibold">Aseguradora</label>
+                        <input type="text" class="form-control form-control-sm text-uppercase" id="unidadAseguradoraTracking" maxlength="120">
+                    </div>
+                    <div class="col-12 col-md-6">
+                        <label class="form-label small fw-semibold">Poliza</label>
+                        <input type="text" class="form-control form-control-sm text-uppercase" id="unidadPolizaTracking" maxlength="80">
+                    </div>
+                    <div class="col-12">
+                        <label class="form-label small fw-semibold">Observaciones</label>
+                        <textarea class="form-control form-control-sm" id="unidadObservacionesTracking" rows="2" maxlength="500"></textarea>
+                    </div>
+                    <div class="col-12">
+                        <div class="form-check form-switch mt-1">
+                            <input class="form-check-input" type="checkbox" id="unidadActivoTracking" checked>
+                            <label class="form-check-label small" for="unidadActivoTracking">Unidad activa para asignacion</label>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer py-2">
+                <button type="button" class="btn btn-sm btn-label-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-sm btn-primary" id="btnGuardarUnidadTransportistaTracking">
+                    <i class="fa-solid fa-floppy-disk me-1"></i>Guardar Unidad
                 </button>
             </div>
         </div>
@@ -3800,7 +3993,9 @@ const _trk = {
     operacionFiltroEstatus:'',
     operacionFiltroTipo:   '',
     operacionBusqueda:     '',
+    operacionVista:        'grid',
     operacionLiveLoaded:   {},
+    operacionLiveInfo:     {},
     rutasRegistradas:     [],
     rutasFiltro:          'todas',
     rutasVista:           'cards',
@@ -3971,6 +4166,14 @@ function _trkInicializarSelectsBuscables() {
         templateSelection: _trkTemplateTransportistaSeleccionado,
         escapeMarkup: markup => markup,
     });
+    _trkInicializarSelectBuscable('#unidadTransportistaTracking', {
+        placeholder: 'Buscar transportista...',
+        allowClear: true,
+        dropdownParent: '#modalUnidadTransportistaTracking',
+        templateResult: _trkTemplateUnidadTransportistaSelect2,
+        templateSelection: _trkTemplateUnidadTransportistaSeleccionado,
+        escapeMarkup: markup => markup,
+    });
 }
 
 function _trkRefrescarSelectBuscable(selector) {
@@ -4138,6 +4341,9 @@ document.addEventListener('DOMContentLoaded', function () {
         _trk.operacionFiltroTipo = e.target.value || '';
         _trkRenderOperacionTransportistas();
     });
+    document.getElementById('trkOpVistaLista')?.addEventListener('click', () => _trkSetOperacionVista('lista'));
+    document.getElementById('trkOpVistaGrid')?.addEventListener('click', () => _trkSetOperacionVista('grid'));
+    document.getElementById('trkOpVistaTabla')?.addEventListener('click', () => _trkSetOperacionVista('tabla'));
     document.getElementById('trkOpActualizar')?.addEventListener('click', () => _trkCargarSeccion('operacion', { force: true }));
     document.getElementById('btnToggleChatMap')?.addEventListener('click', () => _trkToggleChatMapPanel());
     document.getElementById('trkSectionGrid')?.addEventListener('click', ev => {
@@ -6036,8 +6242,14 @@ function _trkInicializarTablasCatalogosDT() {
 function _trkInicializarCatalogosTrackingUI() {
     $('#btnNuevoCedisTracking').on('click', () => _trkAbrirModalCedisTracking());
     $('#btnNuevoTransportistaTracking').on('click', () => _trkAbrirModalTransportistaTracking());
+    $('#btnNuevaUnidadTracking').on('click', () => _trkAbrirModalUnidadTransportistaTracking());
+    $('#btnNuevaUnidadOperacion').on('click', () => _trkAbrirModalUnidadTransportistaTracking());
     $('#btnGuardarCedisTracking').on('click', () => _trkGuardarCedisTracking());
     $('#btnGuardarTransportistaTracking').on('click', () => _trkGuardarTransportistaTracking());
+    $('#btnGuardarUnidadTransportistaTracking').on('click', () => _trkGuardarUnidadTransportistaTracking());
+    $('#unidadCapacidadTracking').on('input', function () {
+        this.value = String(this.value || '').replace(/\D+/g, '').slice(0, 2);
+    });
     $('#cedisLinkTracking').on('input blur change', () => _trkAplicarCoordsCedisDesdeLink(false));
     $('#cedisLinkTracking').on('paste', () => setTimeout(() => _trkAplicarCoordsCedisDesdeLink(true), 0));
     $('#trkCatalogoBuscar').on('input', function () {
@@ -6054,6 +6266,9 @@ function _trkInicializarCatalogosTrackingUI() {
     $('#tabCatalogosTracking').on('click', '.btn-editar-transportista', function () {
         _trkAbrirModalTransportistaTracking(Number($(this).data('id')));
     });
+    $('#tabCatalogosTracking, #tabOperacionTransportistas').on('click', '.btn-editar-unidad', function () {
+        _trkAbrirModalUnidadTransportistaTracking(Number($(this).data('id')));
+    });
     $('#tabCatalogosTracking').on('click', '.btn-toggle-cedis', function () {
         _trkCambiarEstadoCedisTracking(Number($(this).data('id')), Number($(this).data('activo')));
     });
@@ -6061,6 +6276,9 @@ function _trkInicializarCatalogosTrackingUI() {
         _trkCambiarEstadoTransportistaTracking(Number($(this).data('id')), Number($(this).data('activo')));
     });
     $('#transportistaCedisTracking').on('change', () => _trkCatalogoSincronizarTipoTransportista());
+    $('#unidadTransportistaTracking').on('change', function () {
+        _trkPrecargarUnidadTransportista(Number(this.value || 0));
+    });
 }
 
 function _trkCatalogoFiltradoTexto(item, tipo) {
@@ -6134,6 +6352,10 @@ function _trkCatalogoAccionesTransportista(t) {
         <button type="button" class="btn btn-icon btn-sm rounded-pill btn-label-primary trk-action-btn btn-editar-transportista"
             data-id="${_trkChatEscapeHtml(t?.id_transportista || '')}" title="Editar transportista">
             <i class="fa-solid fa-pen-to-square"></i>
+        </button>
+        <button type="button" class="btn btn-icon btn-sm rounded-pill btn-label-info trk-action-btn btn-editar-unidad"
+            data-id="${_trkChatEscapeHtml(t?.id_transportista || '')}" title="Unidad y capacidad">
+            <i class="fa-solid fa-truck"></i>
         </button>
         <button type="button" class="btn btn-icon btn-sm rounded-pill ${klass} trk-action-btn btn-toggle-transportista"
             data-id="${_trkChatEscapeHtml(t?.id_transportista || '')}" data-activo="${activo}" title="${title}">
@@ -6359,6 +6581,136 @@ function _trkAbrirModalTransportistaTracking(id = 0) {
     bootstrap.Modal.getOrCreateInstance(document.getElementById('modalTransportistaTracking')).show();
 }
 
+function _trkOperacionTransportistaPorId(id) {
+    return (_trk.operacionTransportistas || []).find(t => String(t.id_transportista) === String(id)) || null;
+}
+
+function _trkTransportistasUnidadBase() {
+    const map = new Map();
+    (_trk.transportistasTracking || []).forEach(t => {
+        if (t?.id_transportista) map.set(String(t.id_transportista), t);
+    });
+    (_trk.operacionTransportistas || []).forEach(t => {
+        if (!t?.id_transportista) return;
+        const key = String(t.id_transportista);
+        map.set(key, { ...(map.get(key) || {}), ...t });
+    });
+    return Array.from(map.values()).sort((a, b) => String(a.nombre_transportista || '').localeCompare(String(b.nombre_transportista || '')));
+}
+
+function _trkUnidadTransportistaPorId(id) {
+    if (!id) return null;
+    return _trkTransportistasUnidadBase().find(t => String(t.id_transportista) === String(id)) || null;
+}
+
+function _trkTemplateUnidadTransportistaSelect2(item) {
+    if (!item.id) return _trkChatEscapeHtml(item.text || '');
+    const t = _trkUnidadTransportistaPorId(item.id);
+    if (!t) return _trkChatEscapeHtml(item.text || '');
+    const empresa = t.nombre_agencia || t.empresa_origen || t.cedis_base?.nombre || 'Sin CEDIS';
+    const contacto = [t.telefono, t.email].filter(Boolean).join(' - ');
+    const unidad = _trkOperacionUnidadTexto(t);
+    return `<div class="d-flex flex-column" style="line-height:1.2;">
+        <div class="d-flex align-items-center gap-2 flex-wrap">
+            ${_trkTipoTransportistaBadge(t.tipo_transportista)}
+            <span class="fw-semibold">${_trkChatEscapeHtml(t.nombre_transportista || 'Sin nombre')}</span>
+        </div>
+        <small class="text-muted">${_trkChatEscapeHtml(empresa)}${contacto ? ' - ' + _trkChatEscapeHtml(contacto) : ''}</small>
+        <small class="text-muted">${_trkChatEscapeHtml(unidad)}</small>
+    </div>`;
+}
+
+function _trkTemplateUnidadTransportistaSeleccionado(item) {
+    if (!item.id) return _trkChatEscapeHtml(item.text || '');
+    const t = _trkUnidadTransportistaPorId(item.id);
+    if (!t) return _trkChatEscapeHtml(item.text || '');
+    const empresa = t.nombre_agencia || t.empresa_origen || t.cedis_base?.nombre || '';
+    return _trkChatEscapeHtml(`${t.nombre_transportista || 'Sin nombre'}${empresa ? ' - ' + empresa : ''}`);
+}
+
+function _trkCatalogoLlenarSelectUnidadTransportistas(selected = '') {
+    const $sel = $('#unidadTransportistaTracking');
+    $sel.html('<option value="">Selecciona transportista</option>');
+    _trkTransportistasUnidadBase().forEach(t => {
+        const empresa = t.nombre_agencia || t.empresa_origen || t.cedis_base?.nombre || 'Sin CEDIS';
+        const busqueda = [
+            t.nombre_transportista,
+            empresa,
+            t.tipo_transportista,
+            t.telefono,
+            t.email,
+            t.unidad?.tipo_unidad,
+            t.unidad?.marca,
+            t.unidad?.modelo,
+            t.unidad?.placa,
+            t.unidad?.numero_economico,
+        ].filter(Boolean).join(' - ');
+        $sel.append($('<option>', {
+            value: t.id_transportista,
+            text: busqueda || `${t.nombre_transportista || 'Sin nombre'} - ${empresa}`,
+        }));
+    });
+    $sel.val(selected ? String(selected) : '');
+    _trkRefrescarSelectBuscable('#unidadTransportistaTracking');
+}
+
+function _trkLimpiarUnidadTransportista() {
+    $('#unidadIdCapacidadTracking').val('');
+    $('#unidadTipoTracking').val('');
+    $('#unidadCapacidadTracking').val('');
+    $('#unidadEconomicoTracking').val('');
+    $('#unidadMarcaTracking').val('');
+    $('#unidadModeloTracking').val('');
+    $('#unidadAnioTracking').val('');
+    $('#unidadPlacaTracking').val('');
+    $('#unidadColorTracking').val('');
+    $('#unidadVigenciaSeguroTracking').val('');
+    $('#unidadSerieTracking').val('');
+    $('#unidadMotorTracking').val('');
+    $('#unidadAseguradoraTracking').val('');
+    $('#unidadPolizaTracking').val('');
+    $('#unidadObservacionesTracking').val('');
+    $('#unidadActivoTracking').prop('checked', true);
+}
+
+function _trkPrecargarUnidadTransportista(idTransportista) {
+    _trkLimpiarUnidadTransportista();
+    const t = _trkOperacionTransportistaPorId(idTransportista) || _trkTransportistaCatalogoPorId(idTransportista);
+    const u = t?.unidad || {};
+    $('#unidadIdCapacidadTracking').val(u.id_capacidad || '');
+    $('#unidadTipoTracking').val(u.tipo_unidad || t?.tipo_unidad || '');
+    $('#unidadCapacidadTracking').val(t?.capacidad_total || '');
+    $('#unidadEconomicoTracking').val(u.numero_economico || '');
+    $('#unidadMarcaTracking').val(u.marca || '');
+    $('#unidadModeloTracking').val(u.modelo || '');
+    $('#unidadAnioTracking').val(u.anio || '');
+    $('#unidadPlacaTracking').val(u.placa || '');
+    $('#unidadColorTracking').val(u.color || '');
+    $('#unidadVigenciaSeguroTracking').val(u.vigencia_seguro || '');
+    $('#unidadSerieTracking').val(u.numero_serie || '');
+    $('#unidadMotorTracking').val(u.numero_motor || '');
+    $('#unidadAseguradoraTracking').val(u.aseguradora || '');
+    $('#unidadPolizaTracking').val(u.poliza_seguro || '');
+    $('#unidadObservacionesTracking').val(u.observaciones || '');
+    $('#unidadActivoTracking').prop('checked', Number(u.activo ?? 1) === 1);
+}
+
+function _trkAbrirModalUnidadTransportistaTracking(idTransportista = 0) {
+    const abrir = () => {
+        _trkCatalogoLlenarSelectUnidadTransportistas(idTransportista || '');
+        _trkPrecargarUnidadTransportista(Number(idTransportista || 0));
+        const t = idTransportista ? (_trkOperacionTransportistaPorId(idTransportista) || _trkTransportistaCatalogoPorId(idTransportista)) : null;
+        $('#modalUnidadTransportistaTrackingLabel').html(`<i class="fa-solid fa-truck me-2" style="color:var(--track-color);"></i>${t ? 'Editar Unidad' : 'Registrar Unidad'}`);
+        bootstrap.Modal.getOrCreateInstance(document.getElementById('modalUnidadTransportistaTracking')).show();
+    };
+
+    const requiereOperacion = idTransportista && !_trkOperacionTransportistaPorId(idTransportista);
+    const promesa = requiereOperacion || !_trk.cargadoOperacion
+        ? _trkCargarOperacionTransportistas(true).catch(() => {})
+        : Promise.resolve();
+    promesa.then(abrir);
+}
+
 function _trkPayloadCedisTracking() {
     return {
         id_agencia: $('#cedisIdTracking').val() || 0,
@@ -6394,6 +6746,28 @@ function _trkPayloadTransportistaTracking() {
         username: $('#transportistaUsernameTracking').val(),
         password: $('#transportistaPasswordTracking').val(),
         activo: $('#transportistaActivoTracking').is(':checked') ? 1 : 0,
+    };
+}
+
+function _trkPayloadUnidadTransportistaTracking() {
+    return {
+        id_capacidad: $('#unidadIdCapacidadTracking').val() || 0,
+        id_transportista: $('#unidadTransportistaTracking').val() || 0,
+        tipo_unidad: $('#unidadTipoTracking').val(),
+        capacidad_motos: $('#unidadCapacidadTracking').val(),
+        numero_economico: _trkUbicacionMayus($('#unidadEconomicoTracking').val()),
+        marca: _trkUbicacionMayus($('#unidadMarcaTracking').val()),
+        modelo: _trkUbicacionMayus($('#unidadModeloTracking').val()),
+        anio: $('#unidadAnioTracking').val(),
+        placa: _trkUbicacionMayus($('#unidadPlacaTracking').val()),
+        color: _trkUbicacionMayus($('#unidadColorTracking').val()),
+        vigencia_seguro: $('#unidadVigenciaSeguroTracking').val(),
+        numero_serie: _trkUbicacionMayus($('#unidadSerieTracking').val()),
+        numero_motor: _trkUbicacionMayus($('#unidadMotorTracking').val()),
+        aseguradora: _trkUbicacionMayus($('#unidadAseguradoraTracking').val()),
+        poliza_seguro: _trkUbicacionMayus($('#unidadPolizaTracking').val()),
+        observaciones: $('#unidadObservacionesTracking').val(),
+        activo: $('#unidadActivoTracking').is(':checked') ? 1 : 0,
     };
 }
 
@@ -6435,6 +6809,41 @@ function _trkGuardarTransportistaTracking() {
         return;
     }
     _trkGuardarCatalogo('/TrackingRecoleccion/guardarTransportistaTracking', payload, '#btnGuardarTransportistaTracking', 'modalTransportistaTracking');
+}
+
+function _trkGuardarUnidadTransportistaTracking() {
+    const payload = _trkPayloadUnidadTransportistaTracking();
+    if (!Number(payload.id_transportista || 0)) {
+        Swal.fire({ icon: 'warning', title: 'Campo requerido', text: 'Selecciona un transportista.', confirmButtonText: 'Aceptar' });
+        return;
+    }
+    if (!String(payload.tipo_unidad || '').trim()) {
+        Swal.fire({ icon: 'warning', title: 'Campo requerido', text: 'El tipo de unidad es obligatorio.', confirmButtonText: 'Aceptar' });
+        return;
+    }
+    if (!Number(payload.capacidad_motos || 0)) {
+        Swal.fire({ icon: 'warning', title: 'Campo requerido', text: 'La capacidad debe ser mayor a cero.', confirmButtonText: 'Aceptar' });
+        return;
+    }
+
+    const $btn = $('#btnGuardarUnidadTransportistaTracking');
+    $btn.prop('disabled', true);
+    trkFetch('/TrackingRecoleccion/guardarUnidadTransportistaTracking', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+    }).then(r => {
+        if (!r.success) {
+            Swal.fire({ icon: 'error', title: 'No se pudo guardar', text: r.message || r.mensaje || 'Intenta nuevamente.', confirmButtonText: 'Aceptar' });
+            return;
+        }
+        bootstrap.Modal.getInstance(document.getElementById('modalUnidadTransportistaTracking'))?.hide();
+        Swal.fire({ icon: 'success', title: 'Listo', text: r.message || r.mensaje || 'Unidad guardada.', timer: 1500, showConfirmButton: false });
+        _trk.cargadoOperacion = false;
+        _trkCargarSeccion('operacion', { force: true, silent: true });
+    }).catch(() => {
+        Swal.fire({ icon: 'error', title: 'Error de conexion', text: 'No se pudo guardar la unidad.', confirmButtonText: 'Aceptar' });
+    }).finally(() => $btn.prop('disabled', false));
 }
 
 function _trkCambiarEstadoCedisTracking(id, activo) {
@@ -6560,6 +6969,7 @@ function _trkCargarOperacionTransportistas(silent = false) {
     const $grid = $('#trkOpGrid');
     if (!silent) {
         $grid.html('<div class="trk-admin-empty"><span class="spinner-border spinner-border-sm me-2"></span>Cargando operacion de transportistas...</div>');
+        $('#trkOpTablaBody').html('<tr><td colspan="6" class="text-center text-muted py-4"><span class="spinner-border spinner-border-sm me-2"></span>Cargando operacion de transportistas...</td></tr>');
     }
     return trkFetch('/TrackingRecoleccion/obtenerOperacionTransportistas')
         .then(r => {
@@ -6570,6 +6980,7 @@ function _trkCargarOperacionTransportistas(silent = false) {
             _trk.operacionResumen = datos.resumen || {};
             _trk.operacionTransportistas = Array.isArray(datos.transportistas) ? datos.transportistas : [];
             _trk.operacionLiveLoaded = {};
+            _trk.operacionLiveInfo = {};
             _trkSetBadge('badgeOperacionTransportistas', _trk.operacionTransportistas.length);
             _trkRenderOperacionTransportistas();
             _trk.cargadoOperacion = true;
@@ -6577,7 +6988,9 @@ function _trkCargarOperacionTransportistas(silent = false) {
         })
         .catch(err => {
             if (!silent) {
-                $grid.html(`<div class="trk-admin-empty text-danger"><i class="fa-solid fa-triangle-exclamation me-1"></i>${_trkChatEscapeHtml(err.message || 'No se pudo cargar la operacion.')}</div>`);
+                const msg = _trkChatEscapeHtml(err.message || 'No se pudo cargar la operacion.');
+                $grid.html(`<div class="trk-admin-empty text-danger"><i class="fa-solid fa-triangle-exclamation me-1"></i>${msg}</div>`);
+                $('#trkOpTablaBody').html(`<tr><td colspan="6" class="text-center text-danger py-4"><i class="fa-solid fa-triangle-exclamation me-1"></i>${msg}</td></tr>`);
             }
         });
 }
@@ -6586,6 +6999,33 @@ function _trkCargarOperacionTransportistasSiHaceFalta(silent = false) {
     return _trk.cargadoOperacion
         ? Promise.resolve().then(() => _trkRenderOperacionTransportistas())
         : _trkCargarOperacionTransportistas(silent);
+}
+
+function _trkSetOperacionVista(vista) {
+    _trk.operacionVista = ['lista', 'grid', 'tabla'].includes(vista) ? vista : 'grid';
+    _trkRenderOperacionTransportistas();
+}
+
+function _trkAplicarOperacionVista() {
+    const vista = ['lista', 'grid', 'tabla'].includes(_trk.operacionVista) ? _trk.operacionVista : 'grid';
+    _trk.operacionVista = vista;
+    const esTabla = vista === 'tabla';
+    $('#trkOpGridWrap').toggleClass('d-none', esTabla);
+    $('#trkOpTablaWrap').toggleClass('d-none', !esTabla);
+    $('#trkOpGrid').toggleClass('is-list', vista === 'lista');
+
+    const botones = {
+        lista: document.getElementById('trkOpVistaLista'),
+        grid: document.getElementById('trkOpVistaGrid'),
+        tabla: document.getElementById('trkOpVistaTabla'),
+    };
+    Object.entries(botones).forEach(([key, btn]) => {
+        if (!btn) return;
+        const active = key === vista;
+        btn.classList.toggle('active', active);
+        btn.classList.toggle('btn-label-primary', active);
+        btn.classList.toggle('btn-label-secondary', !active);
+    });
 }
 
 function _trkOperacionStatusLabel(status) {
@@ -6615,6 +7055,12 @@ function _trkOperacionFiltrados() {
             t.cedis_base?.nombre,
             t.cedis_base?.estado,
             t.cedis_base?.municipio,
+            t.unidad?.tipo_unidad,
+            t.unidad?.marca,
+            t.unidad?.modelo,
+            t.unidad?.placa,
+            t.unidad?.numero_economico,
+            t.unidad?.numero_serie,
             rutasTxt,
         ].join(' ');
         return _trkNormTxt(base).includes(q);
@@ -6622,6 +7068,7 @@ function _trkOperacionFiltrados() {
 }
 
 function _trkRenderOperacionTransportistas() {
+    _trkAplicarOperacionVista();
     const resumen = _trk.operacionResumen || {};
     $('#trkOpKpiActivos').text(resumen.transportistas_activos || 0);
     $('#trkOpKpiDisponibles').text(resumen.disponibles || 0);
@@ -6644,9 +7091,16 @@ function _trkRenderOperacionTransportistas() {
     )).join(''));
 
     if (!filtrados.length) {
-        $('#trkOpGrid').html('<div class="trk-admin-empty"><i class="fa-solid fa-truck-fast fa-2x opacity-25 d-block mb-2"></i>No hay transportistas con los filtros seleccionados.</div>');
+        $('#trkOpGrid').html('<div class="trk-admin-empty" style="grid-column:1/-1;"><i class="fa-solid fa-truck-fast fa-2x opacity-25 d-block mb-2"></i>No hay transportistas con los filtros seleccionados.</div>');
+        $('#trkOpTablaBody').html('<tr><td colspan="6" class="text-center text-muted py-4">No hay transportistas con los filtros seleccionados.</td></tr>');
         return;
     }
+    if (_trk.operacionVista === 'tabla') {
+        $('#trkOpGrid').empty();
+        $('#trkOpTablaBody').html(filtrados.map(_trkOperacionTransportistaFila).join(''));
+        return;
+    }
+    $('#trkOpTablaBody').empty();
     $('#trkOpGrid').html(filtrados.map(_trkOperacionTransportistaCard).join(''));
 }
 
@@ -6660,6 +7114,8 @@ function _trkOperacionTransportistaCard(t) {
     const capacidadTxt = cap > 0 ? `${proyectada} / ${cap}` : 'Sin configurar';
     const disponibleTxt = cap > 0 ? `${t.capacidad_disponible ?? 0}` : '-';
     const cedisBase = [t.cedis_base?.nombre, t.cedis_base?.municipio, t.cedis_base?.estado].filter(Boolean).join(' / ') || t.empresa_origen || 'Sin CEDIS base';
+    const unidad = _trkOperacionUnidadTexto(t);
+    const unidadBtnTxt = Number(t.unidad?.id_capacidad || 0) > 0 ? 'Editar unidad' : '+ Registrar Unidad';
     const rutas = (t.rutas || []).slice(0, 3).map(_trkOperacionRutaMini).join('');
     const alertas = (t.alertas || []).map(a => `<span class="badge bg-label-${a.nivel === 'danger' ? 'danger' : (a.nivel === 'warning' ? 'warning' : 'info')} me-1 mb-1">${_trkChatEscapeHtml(a.texto)}</span>`).join('');
     const tipoBadge = _trkTipoTransportistaBadge(t.tipo_transportista);
@@ -6683,13 +7139,97 @@ function _trkOperacionTransportistaCard(t) {
             </div>
             <div class="trk-admin-progress"><div class="trk-admin-progress-bar ${barClass}" style="width:${pct}%;"></div></div>
         </div>
-        <div class="small fw-semibold text-muted">Recomendacion: ${_trkChatEscapeHtml(t.recomendacion || 'Evaluar')}</div>
-        <div class="trk-admin-live" id="trkOpLive-${_trkChatEscapeHtml(t.id_transportista || '')}">
-            <i class="fa-solid fa-location-dot me-1"></i>${Number(t.rutas_activas || 0) > 0 ? 'Consultando ubicacion live...' : 'Sin ruta live activa'}
+        <div class="d-flex align-items-start justify-content-between gap-2">
+            <div class="small text-muted"><i class="fa-solid fa-truck me-1"></i>${_trkChatEscapeHtml(unidad)}</div>
+            <button type="button" class="btn btn-xs btn-label-info btn-editar-unidad" data-id="${_trkChatEscapeHtml(t.id_transportista || '')}">
+                <i class="fa-solid fa-truck me-1"></i>${_trkChatEscapeHtml(unidadBtnTxt)}
+            </button>
         </div>
+        <div class="small fw-semibold text-muted">Recomendacion: ${_trkChatEscapeHtml(t.recomendacion || 'Evaluar')}</div>
+        <div class="trk-admin-live" data-id-transportista-live="${_trkChatEscapeHtml(t.id_transportista || '')}">${_trkOperacionLiveHtml(t)}</div>
         ${alertas ? `<div>${alertas}</div>` : ''}
         <div class="trk-admin-route-list">${rutas || '<div class="trk-admin-route text-muted">Sin rutas activas o programadas.</div>'}</div>
     </article>`;
+}
+
+function _trkOperacionUnidadTexto(t) {
+    const u = t?.unidad || {};
+    const base = [
+        u.tipo_unidad || t?.tipo_unidad,
+        u.marca,
+        u.modelo,
+        u.anio,
+    ].filter(Boolean).join(' ');
+    const placa = u.placa ? `Placa ${u.placa}` : '';
+    const eco = u.numero_economico ? `Identificador ${u.numero_economico}` : '';
+    return [base || 'Unidad sin datos generales', placa, eco].filter(Boolean).join(' - ');
+}
+
+function _trkOperacionAlertasHtml(t) {
+    const alertas = Array.isArray(t.alertas) ? t.alertas : [];
+    if (!alertas.length) {
+        return '<span class="text-muted">Sin alertas</span>';
+    }
+    return alertas.map(a => `<span class="badge bg-label-${a.nivel === 'danger' ? 'danger' : (a.nivel === 'warning' ? 'warning' : 'info')} me-1 mb-1">${_trkChatEscapeHtml(a.texto || 'Alerta')}</span>`).join('');
+}
+
+function _trkOperacionLiveHtml(t) {
+    const id = String(t.id_transportista || '');
+    if (_trk.operacionLiveInfo[id]) {
+        return _trk.operacionLiveInfo[id];
+    }
+    return `<i class="fa-solid fa-location-dot me-1"></i>${Number(t.rutas_activas || 0) > 0 ? 'Consultando ubicacion live...' : 'Sin ruta live activa'}`;
+}
+
+function _trkOperacionTransportistaFila(t) {
+    const status = String(t.estatus_operativo || 'disponible');
+    const cap = Number(t.capacidad_total || 0);
+    const proyectada = Number(t.capacidad_proyectada || 0);
+    const usada = Number(t.capacidad_usada || 0);
+    const pct = cap > 0 ? Math.min(100, Math.round((proyectada / cap) * 100)) : 0;
+    const barClass = cap > 0 && proyectada >= cap ? 'danger' : (cap > 0 && pct >= 80 ? 'warn' : '');
+    const cedisBase = [t.cedis_base?.nombre, t.cedis_base?.municipio, t.cedis_base?.estado].filter(Boolean).join(' / ') || t.empresa_origen || 'Sin CEDIS base';
+    const rutas = Array.isArray(t.rutas) ? t.rutas : [];
+    const rutaActiva = t.ruta_activa || rutas.find(r => String(r.estatus_ruta || '').toLowerCase() === 'en_proceso') || rutas[0] || null;
+    const destino = rutaActiva?.cedis_destino_nombre || 'Sin CEDIS destino';
+    const ubicaciones = rutaActiva ? _trkOperacionUbicacionesTexto(rutaActiva.ubicaciones_lista || rutaActiva.estado || '') : 'Sin ruta asignada';
+    const capacidadTxt = cap > 0 ? `${proyectada} / ${cap}` : 'Sin configurar';
+    const rutasTxt = `${t.rutas_activas || 0} activas / ${t.rutas_programadas || 0} programadas`;
+    const unidadTxt = _trkOperacionUnidadTexto(t);
+    const unidadBtnTxt = Number(t.unidad?.id_capacidad || 0) > 0 ? 'Editar unidad' : '+ Registrar Unidad';
+    return `<tr>
+        <td>
+            <div class="fw-bold text-heading">${_trkChatEscapeHtml(t.nombre_transportista || 'Sin nombre')}</div>
+            <div class="small text-muted">${_trkTipoTransportistaBadge(t.tipo_transportista)} ${_trkChatEscapeHtml(t.empresa_origen || cedisBase)}</div>
+            <div class="small text-muted">${_trkChatEscapeHtml(t.telefono || 'Sin telefono')}</div>
+        </td>
+        <td>
+            <span class="trk-admin-status ${_trkChatEscapeHtml(status)}">${_trkChatEscapeHtml(_trkOperacionStatusLabel(status))}</span>
+            <div class="small text-muted mt-1">${_trkChatEscapeHtml(t.recomendacion || 'Evaluar')}</div>
+            <div class="trk-admin-live mt-1" data-id-transportista-live="${_trkChatEscapeHtml(t.id_transportista || '')}">${_trkOperacionLiveHtml(t)}</div>
+        </td>
+        <td style="min-width:150px;">
+            <div class="d-flex justify-content-between small fw-semibold mb-1">
+                <span>${_trkChatEscapeHtml(capacidadTxt)}</span><span>${_trkChatEscapeHtml(usada)} rec.</span>
+            </div>
+            <div class="trk-admin-progress"><div class="trk-admin-progress-bar ${barClass}" style="width:${pct}%;"></div></div>
+            <div class="small text-muted mt-1">${cap > 0 ? `${_trkChatEscapeHtml(t.capacidad_disponible ?? 0)} disponibles` : 'Configurar capacidad'}</div>
+            <div class="small text-muted mt-1">${_trkChatEscapeHtml(unidadTxt)}</div>
+            <button type="button" class="btn btn-xs btn-label-info btn-editar-unidad mt-1" data-id="${_trkChatEscapeHtml(t.id_transportista || '')}">
+                <i class="fa-solid fa-truck me-1"></i>${_trkChatEscapeHtml(unidadBtnTxt)}
+            </button>
+        </td>
+        <td>
+            <div class="fw-semibold">${_trkChatEscapeHtml(rutasTxt)}</div>
+            <div class="small text-muted">${rutaActiva ? `#${_trkChatEscapeHtml(rutaActiva.id_ruta || '')} ${_trkChatEscapeHtml(_trkSanitizarNombreRuta(rutaActiva.nombre_ruta || '') || 'Ruta sin nombre')}` : 'Sin rutas activas o programadas'}</div>
+        </td>
+        <td>
+            <div class="fw-semibold"><i class="fa-solid fa-warehouse me-1"></i>${_trkChatEscapeHtml(destino)}</div>
+            <div class="small text-muted">${_trkChatEscapeHtml(ubicaciones)}</div>
+            <div class="small text-muted">${_trkChatEscapeHtml(cedisBase)}</div>
+        </td>
+        <td>${_trkOperacionAlertasHtml(t)}</td>
+    </tr>`;
 }
 
 function _trkOperacionRutaMini(r) {
@@ -6734,20 +7274,33 @@ function _trkCargarUbicacionesOperacion() {
         trkFetch(`/TrackingRecoleccion/trackingUbicacionActual?id_ruta=${encodeURIComponent(idRuta)}`)
             .then(r => {
                 const ubi = r.ubicacion || r.datos?.ubicacion || null;
-                const el = document.getElementById(`trkOpLive-${idTransportista}`);
-                if (!el) return;
                 if (!ubi) {
-                    el.innerHTML = '<i class="fa-solid fa-location-dot me-1"></i>Sin ubicacion live reportada';
+                    _trkActualizarOperacionLive(idTransportista, '<i class="fa-solid fa-location-dot me-1"></i>Sin ubicacion live reportada');
                     return;
                 }
                 const fecha = ubi.created_at || ubi.updated_at || '';
                 const hora = fecha ? _trkChatFechaLocal(fecha) : 'Sin fecha';
-                el.innerHTML = `<i class="fa-solid fa-location-arrow me-1"></i>Ultima ubicacion ${_trkChatEscapeHtml(hora)} · ${_trkChatEscapeHtml(Number(ubi.lat).toFixed(5))}, ${_trkChatEscapeHtml(Number(ubi.lng).toFixed(5))}`;
+                const lat = Number(ubi.lat);
+                const lng = Number(ubi.lng);
+                const coords = Number.isFinite(lat) && Number.isFinite(lng)
+                    ? `${lat.toFixed(5)}, ${lng.toFixed(5)}`
+                    : 'Coordenadas no disponibles';
+                _trkActualizarOperacionLive(idTransportista, `<i class="fa-solid fa-location-arrow me-1"></i>Ultima ubicacion ${_trkChatEscapeHtml(hora)} - ${_trkChatEscapeHtml(coords)}`);
             })
             .catch(() => {
-                const el = document.getElementById(`trkOpLive-${idTransportista}`);
-                if (el) el.innerHTML = '<i class="fa-solid fa-location-dot me-1"></i>Ubicacion live no disponible';
+                _trkActualizarOperacionLive(idTransportista, '<i class="fa-solid fa-location-dot me-1"></i>Ubicacion live no disponible');
             });
+    });
+}
+
+function _trkActualizarOperacionLive(idTransportista, html) {
+    const id = String(idTransportista || '');
+    if (!id) return;
+    _trk.operacionLiveInfo[id] = html;
+    document.querySelectorAll('.trk-admin-live[data-id-transportista-live]').forEach(el => {
+        if (String(el.dataset.idTransportistaLive || '') === id) {
+            el.innerHTML = html;
+        }
     });
 }
 

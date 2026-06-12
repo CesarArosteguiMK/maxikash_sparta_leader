@@ -720,16 +720,63 @@ class TrackingRecoleccion extends Model
             && $this->columnaOpcionalExiste($tablaCapacidad, 'id_capacidad')
             && $this->columnaOpcionalExiste($tablaCapacidad, 'id_transportista')
             && $this->columnaOpcionalExiste($tablaCapacidad, 'capacidad_motos');
-        $capTieneTipoUnidad = $tieneCapacidad && $this->columnaOpcionalExiste($tablaCapacidad, 'tipo_unidad');
         $capTieneActivo = $tieneCapacidad && $this->columnaOpcionalExiste($tablaCapacidad, 'activo');
+        $capColumnas = [
+            'id_capacidad' => 'id_capacidad',
+            'tipo_unidad' => 'tipo_unidad',
+            'capacidad_motos' => 'capacidad_motos',
+            'marca' => 'marca',
+            'modelo' => 'modelo',
+            'anio' => 'anio',
+            'color' => 'color',
+            'placa' => 'placa',
+            'numero_serie' => 'numero_serie',
+            'numero_motor' => 'numero_motor',
+            'numero_economico' => 'numero_economico',
+            'aseguradora' => 'aseguradora',
+            'poliza_seguro' => 'poliza_seguro',
+            'vigencia_seguro' => 'vigencia_seguro',
+            'observaciones' => 'observaciones',
+            'activo' => 'activo',
+        ];
+        $capSelectInterno = ['c1.id_transportista'];
+        $capSelectExterno = [
+            'COALESCE(cap.capacidad_motos, 0) AS capacidad_motos',
+        ];
+        foreach ($capColumnas as $columna => $alias) {
+            if ($columna === 'id_transportista') {
+                continue;
+            }
+            $existeColumna = $tieneCapacidad && $this->columnaOpcionalExiste($tablaCapacidad, $columna);
+            $capSelectInterno[] = $existeColumna
+                ? "c1.{$columna} AS {$alias}"
+                : "NULL AS {$alias}";
+            if ($columna !== 'capacidad_motos') {
+                $capSelectExterno[] = "cap.{$alias} AS unidad_{$alias}";
+            }
+        }
         $capSelect = $tieneCapacidad
-            ? 'COALESCE(cap.capacidad_motos, 0) AS capacidad_motos, cap.tipo_unidad'
-            : '0 AS capacidad_motos, NULL AS tipo_unidad';
-        $capTipoUnidadSelect = $capTieneTipoUnidad ? 'c1.tipo_unidad' : 'NULL AS tipo_unidad';
+            ? implode(",\n                ", $capSelectExterno)
+            : "0 AS capacidad_motos,
+                NULL AS unidad_id_capacidad,
+                NULL AS unidad_tipo_unidad,
+                NULL AS unidad_marca,
+                NULL AS unidad_modelo,
+                NULL AS unidad_anio,
+                NULL AS unidad_color,
+                NULL AS unidad_placa,
+                NULL AS unidad_numero_serie,
+                NULL AS unidad_numero_motor,
+                NULL AS unidad_numero_economico,
+                NULL AS unidad_aseguradora,
+                NULL AS unidad_poliza_seguro,
+                NULL AS unidad_vigencia_seguro,
+                NULL AS unidad_observaciones,
+                NULL AS unidad_activo";
         $capActivoWhere = $capTieneActivo ? 'WHERE activo = 1' : '';
         $capJoin = $tieneCapacidad
             ? "LEFT JOIN (
-                    SELECT c1.id_transportista, {$capTipoUnidadSelect}, c1.capacidad_motos
+                    SELECT " . implode(", ", $capSelectInterno) . "
                     FROM transportistas_capacidad_tracking c1
                     INNER JOIN (
                         SELECT id_transportista, MAX(id_capacidad) AS id_capacidad
@@ -832,7 +879,24 @@ class TrackingRecoleccion extends Model
                     'estado' => (string) ($t['cedis_base_estado'] ?? ''),
                     'municipio' => (string) ($t['cedis_base_municipio'] ?? ''),
                 ],
-                'tipo_unidad' => (string) ($t['tipo_unidad'] ?? ''),
+                'unidad' => [
+                    'id_capacidad' => (int) ($t['unidad_id_capacidad'] ?? 0),
+                    'tipo_unidad' => (string) ($t['unidad_tipo_unidad'] ?? ''),
+                    'marca' => (string) ($t['unidad_marca'] ?? ''),
+                    'modelo' => (string) ($t['unidad_modelo'] ?? ''),
+                    'anio' => $t['unidad_anio'] ?? null,
+                    'color' => (string) ($t['unidad_color'] ?? ''),
+                    'placa' => (string) ($t['unidad_placa'] ?? ''),
+                    'numero_serie' => (string) ($t['unidad_numero_serie'] ?? ''),
+                    'numero_motor' => (string) ($t['unidad_numero_motor'] ?? ''),
+                    'numero_economico' => (string) ($t['unidad_numero_economico'] ?? ''),
+                    'aseguradora' => (string) ($t['unidad_aseguradora'] ?? ''),
+                    'poliza_seguro' => (string) ($t['unidad_poliza_seguro'] ?? ''),
+                    'vigencia_seguro' => (string) ($t['unidad_vigencia_seguro'] ?? ''),
+                    'observaciones' => (string) ($t['unidad_observaciones'] ?? ''),
+                    'activo' => (int) ($t['unidad_activo'] ?? 1),
+                ],
+                'tipo_unidad' => (string) ($t['unidad_tipo_unidad'] ?? ''),
                 'capacidad_total' => (int) ($t['capacidad_motos'] ?? 0),
                 'capacidad_configurada' => (int) ($t['capacidad_motos'] ?? 0) > 0,
                 'capacidad_usada' => 0,
@@ -1294,6 +1358,126 @@ class TrackingRecoleccion extends Model
             ['activo' => $activo ? 1 : 0, 'id_transportista' => $idTransportista]
         );
         return ['success' => true, 'message' => $activo ? 'Transportista activado.' : 'Transportista desactivado.'];
+    }
+
+    public function guardarUnidadTransportistaTracking(array $data): array
+    {
+        $tabla = 'transportistas_capacidad_tracking';
+        if (!$this->tablaOpcionalExiste($tabla)) {
+            return ['success' => false, 'message' => 'La tabla de unidades/capacidad aun no existe.'];
+        }
+        foreach (['id_capacidad', 'id_transportista', 'capacidad_motos'] as $columna) {
+            if (!$this->columnaOpcionalExiste($tabla, $columna)) {
+                return ['success' => false, 'message' => "Falta la columna {$columna} en la tabla de unidades."];
+            }
+        }
+
+        $idCapacidad = (int) ($data['id_capacidad'] ?? 0);
+        $idTransportista = (int) ($data['id_transportista'] ?? 0);
+        if ($idTransportista <= 0) {
+            return ['success' => false, 'message' => 'Selecciona un transportista.'];
+        }
+        $transportista = $this->db->queryOne(
+            'SELECT id_transportista FROM transportistas_tracking WHERE id_transportista = :id LIMIT 1',
+            ['id' => $idTransportista]
+        );
+        if (!$transportista) {
+            return ['success' => false, 'message' => 'Transportista no encontrado.'];
+        }
+
+        $capacidad = (int) ($data['capacidad_motos'] ?? 0);
+        if ($capacidad <= 0) {
+            return ['success' => false, 'message' => 'La capacidad debe ser mayor a cero.'];
+        }
+
+        $campos = [
+            'id_transportista' => $idTransportista,
+            'tipo_unidad' => $this->textoCatalogoMayus($data['tipo_unidad'] ?? null, 80),
+            'capacidad_motos' => $capacidad,
+            'marca' => $this->textoCatalogoMayus($data['marca'] ?? null, 80),
+            'modelo' => $this->textoCatalogoMayus($data['modelo'] ?? null, 100),
+            'anio' => isset($data['anio']) && trim((string) $data['anio']) !== '' ? (int) $data['anio'] : null,
+            'color' => $this->textoCatalogoMayus($data['color'] ?? null, 60),
+            'placa' => $this->textoCatalogoMayus($data['placa'] ?? null, 30),
+            'numero_serie' => $this->textoCatalogoMayus($data['numero_serie'] ?? null, 80),
+            'numero_motor' => $this->textoCatalogoMayus($data['numero_motor'] ?? null, 80),
+            'numero_economico' => $this->textoCatalogoMayus($data['numero_economico'] ?? null, 60),
+            'aseguradora' => $this->textoCatalogoMayus($data['aseguradora'] ?? null, 120),
+            'poliza_seguro' => $this->textoCatalogoMayus($data['poliza_seguro'] ?? null, 80),
+            'vigencia_seguro' => $this->textoCatalogo($data['vigencia_seguro'] ?? null, 20),
+            'observaciones' => $this->textoCatalogo($data['observaciones'] ?? null, 500),
+            'activo' => (int) (($data['activo'] ?? 1) ? 1 : 0),
+        ];
+        if (($campos['tipo_unidad'] ?? null) === null) {
+            return ['success' => false, 'message' => 'El tipo de unidad es obligatorio.'];
+        }
+
+        $params = [];
+        $columnas = [];
+        foreach ($campos as $columna => $valor) {
+            if ($this->columnaOpcionalExiste($tabla, $columna)) {
+                $params[$columna] = $valor;
+                $columnas[] = $columna;
+            }
+        }
+
+        if (isset($params['activo']) && (int) $params['activo'] === 1) {
+            $desactivarParams = ['id_transportista' => $idTransportista];
+            $sqlExcepto = '';
+            if ($idCapacidad > 0) {
+                $desactivarParams['id_capacidad'] = $idCapacidad;
+                $sqlExcepto = ' AND id_capacidad <> :id_capacidad';
+            }
+            $this->db->CRUD(
+                "UPDATE {$tabla}
+                 SET activo = 0
+                 WHERE id_transportista = :id_transportista{$sqlExcepto}",
+                $desactivarParams
+            );
+        }
+
+        if ($idCapacidad > 0) {
+            $existe = $this->db->queryOne(
+                "SELECT id_capacidad FROM {$tabla} WHERE id_capacidad = :id LIMIT 1",
+                ['id' => $idCapacidad]
+            );
+            if (!$existe) {
+                return ['success' => false, 'message' => 'Unidad no encontrada.'];
+            }
+            $set = [];
+            foreach ($columnas as $columna) {
+                $set[] = "{$columna} = :{$columna}";
+            }
+            if ($this->columnaOpcionalExiste($tabla, 'fecha_actualizacion')) {
+                $set[] = 'fecha_actualizacion = NOW()';
+            }
+            $params['id_capacidad'] = $idCapacidad;
+            $this->db->CRUD(
+                "UPDATE {$tabla}
+                 SET " . implode(",\n                     ", $set) . "
+                 WHERE id_capacidad = :id_capacidad",
+                $params
+            );
+            return ['success' => true, 'message' => 'Unidad actualizada.', 'id_capacidad' => $idCapacidad];
+        }
+
+        $insertCols = $columnas;
+        $insertVals = array_map(static fn($col) => ':' . $col, $columnas);
+        if ($this->columnaOpcionalExiste($tabla, 'fecha_alta')) {
+            $insertCols[] = 'fecha_alta';
+            $insertVals[] = 'NOW()';
+        }
+        if ($this->columnaOpcionalExiste($tabla, 'fecha_actualizacion')) {
+            $insertCols[] = 'fecha_actualizacion';
+            $insertVals[] = 'NOW()';
+        }
+        $this->db->CRUD(
+            "INSERT INTO {$tabla} (" . implode(', ', $insertCols) . ')
+             VALUES (' . implode(', ', $insertVals) . ')',
+            $params
+        );
+
+        return ['success' => true, 'message' => 'Unidad registrada.', 'id_capacidad' => $this->db->lastInsertId()];
     }
 
     // =========================================================================
