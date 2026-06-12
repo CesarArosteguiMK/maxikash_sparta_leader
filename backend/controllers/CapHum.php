@@ -11757,8 +11757,9 @@ class CapHum extends Controller
 
         $enviado = $this->enviarCorreo($destino, $asunto, $mensajeHtml, $nombreCompleto, $rutaLogoInline);
         if ($enviado) {
-            $correoJefe = trim($c['correo_jefe'] ?? '');
             $nombreJefe = trim($c['nombre_jefe'] ?? '') ?: 'Jefe directo';
+            $correoJefeInfo = $this->resolverCorreoInstitucionalJefe($nombreJefe, trim($c['correo_jefe'] ?? ''));
+            $correoJefe = $correoJefeInfo['email'];
             $puesto = trim($c['nombre_puesto'] ?? '');
             $departamento = trim($c['nombre_departamento'] ?? '');
             $correoJefeIntentado = $correoJefe !== '' && filter_var($correoJefe, FILTER_VALIDATE_EMAIL);
@@ -11787,7 +11788,8 @@ class CapHum extends Controller
                 'fecha_ingreso_notificada_en' => $fechaNotificada,
                 'correo_candidato_enviado' => true,
                 'correo_jefe_intentado' => $correoJefeIntentado,
-                'correo_jefe_enviado' => $correoJefeEnviado
+                'correo_jefe_enviado' => $correoJefeEnviado,
+                'correo_jefe_fuente' => $correoJefeInfo['fuente']
             ]));
         } else {
             $msg = $this->enviarCorreoUltimoError ?: 'No se pudo enviar el correo.';
@@ -12326,6 +12328,139 @@ class CapHum extends Controller
             12 => 'diciembre',
         ];
         return (int) $dt->format('d') . ' de ' . $meses[(int) $dt->format('m')] . ' de ' . $dt->format('Y');
+    }
+
+    private function normalizarNombreParaCorreoInstitucional($valor): string
+    {
+        $texto = trim((string) $valor);
+        if ($texto === '') {
+            return '';
+        }
+        $texto = strtr($texto, [
+            'Á' => 'A', 'É' => 'E', 'Í' => 'I', 'Ó' => 'O', 'Ú' => 'U', 'Ü' => 'U', 'Ñ' => 'N',
+            'á' => 'A', 'é' => 'E', 'í' => 'I', 'ó' => 'O', 'ú' => 'U', 'ü' => 'U', 'ñ' => 'N',
+        ]);
+        if (function_exists('iconv')) {
+            $convertido = @iconv('UTF-8', 'ASCII//TRANSLIT//IGNORE', $texto);
+            if ($convertido !== false && $convertido !== '') {
+                $texto = $convertido;
+            }
+        }
+        $texto = preg_replace('/[^A-Za-z0-9]+/', ' ', $texto);
+        $texto = preg_replace('/\s+/', ' ', $texto ?? '');
+        return strtoupper(trim((string) $texto));
+    }
+
+    private function catalogoCorreosInstitucionalesJefes(): array
+    {
+        static $catalogo = null;
+        if ($catalogo !== null) {
+            return $catalogo;
+        }
+
+        $catalogo = [];
+        $archivo = defined('RAIZ')
+            ? RAIZ . '/config/correos_institucionales_personas.csv'
+            : __DIR__ . '/../config/correos_institucionales_personas.csv';
+        if (!is_file($archivo) || !is_readable($archivo)) {
+            return $catalogo;
+        }
+
+        $fh = @fopen($archivo, 'r');
+        if (!$fh) {
+            return $catalogo;
+        }
+        $headers = fgetcsv($fh);
+        if (!is_array($headers)) {
+            fclose($fh);
+            return $catalogo;
+        }
+        $idx = array_flip($headers);
+        while (($row = fgetcsv($fh)) !== false) {
+            $nombre = trim((string) ($row[$idx['nombre_completo'] ?? -1] ?? ''));
+            $normalizado = trim((string) ($row[$idx['nombre_normalizado'] ?? -1] ?? ''));
+            $email = strtolower(trim((string) ($row[$idx['email'] ?? -1] ?? '')));
+            $status = strtolower(trim((string) ($row[$idx['status'] ?? -1] ?? '')));
+            if ($email === '' || !filter_var($email, FILTER_VALIDATE_EMAIL) || substr($email, -12) !== '@__SPARTA_SECRET_REDACTED__.mx') {
+                continue;
+            }
+            if ($normalizado === '') {
+                $normalizado = $this->normalizarNombreParaCorreoInstitucional($nombre);
+            }
+            if ($normalizado === '') {
+                continue;
+            }
+            $prioridad = $status === 'active' ? 2 : 1;
+            if (!isset($catalogo[$normalizado]) || $prioridad > ($catalogo[$normalizado]['prioridad'] ?? 0)) {
+                $catalogo[$normalizado] = [
+                    'email' => $email,
+                    'status' => $status,
+                    'prioridad' => $prioridad,
+                ];
+            }
+        }
+        fclose($fh);
+        return $catalogo;
+    }
+
+    private function aliasCorreosInstitucionalesJefes(): array
+    {
+        static $alias = null;
+        if ($alias !== null) {
+            return $alias;
+        }
+
+        $alias = [];
+        $archivo = defined('RAIZ')
+            ? RAIZ . '/config/correos_institucionales_personas_aliases.csv'
+            : __DIR__ . '/../config/correos_institucionales_personas_aliases.csv';
+        if (!is_file($archivo) || !is_readable($archivo)) {
+            return $alias;
+        }
+
+        $fh = @fopen($archivo, 'r');
+        if (!$fh) {
+            return $alias;
+        }
+        $headers = fgetcsv($fh);
+        if (!is_array($headers)) {
+            fclose($fh);
+            return $alias;
+        }
+
+        $idx = array_flip($headers);
+        while (($row = fgetcsv($fh)) !== false) {
+            $nombreBd = trim((string) ($row[$idx['nombre_bd'] ?? -1] ?? ''));
+            $email = strtolower(trim((string) ($row[$idx['email'] ?? -1] ?? '')));
+            $normalizado = $this->normalizarNombreParaCorreoInstitucional($nombreBd);
+            if ($normalizado === '' || $email === '' || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
+                continue;
+            }
+            $alias[$normalizado] = $email;
+        }
+        fclose($fh);
+        return $alias;
+    }
+
+    private function resolverCorreoInstitucionalJefe($nombreJefe, $correoActual = ''): array
+    {
+        $nombreNormalizado = $this->normalizarNombreParaCorreoInstitucional($nombreJefe);
+        $alias = $this->aliasCorreosInstitucionalesJefes();
+        if ($nombreNormalizado !== '' && isset($alias[$nombreNormalizado])) {
+            return ['email' => $alias[$nombreNormalizado], 'fuente' => 'alias_google_workspace'];
+        }
+
+        $catalogo = $this->catalogoCorreosInstitucionalesJefes();
+        if ($nombreNormalizado !== '' && isset($catalogo[$nombreNormalizado])) {
+            return ['email' => $catalogo[$nombreNormalizado]['email'], 'fuente' => 'catalogo_google_workspace'];
+        }
+
+        $correoActual = strtolower(trim((string) $correoActual));
+        if ($correoActual !== '' && filter_var($correoActual, FILTER_VALIDATE_EMAIL)) {
+            return ['email' => $correoActual, 'fuente' => 'persona_correo'];
+        }
+
+        return ['email' => '', 'fuente' => 'no_encontrado'];
     }
 
     private function obtenerBaseUrlApp()
