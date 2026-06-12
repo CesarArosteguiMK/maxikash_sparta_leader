@@ -10991,12 +10991,12 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
    */
   function guardarEdicionPuesto() {
     const index = window.puestoEditandoIndex;
-    if (index === null || index === undefined) return;
+    if (index === null || index === undefined) return true;
 
     const selectDept = document.getElementById('edit_editar_departamento');
     const selectPuesto = document.getElementById('edit_editar_puesto');
 
-    if (!selectDept || !selectPuesto) return;
+    if (!selectDept || !selectPuesto) return false;
 
     const departamentoId = selectDept.value;
     const departamentoNombre = selectDept.options[selectDept.selectedIndex]?.dataset.nombre;
@@ -11011,7 +11011,7 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
         text: 'Selecciona un departamento y un puesto',
         confirmButtonColor: '#6366f1'
       });
-      return;
+      return false;
     }
 
     // Verificar si ya existe otro puesto con los mismos datos (excepto el que estamos editando)
@@ -11026,7 +11026,7 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
         text: 'Este puesto ya está asignado al usuario',
         confirmButtonColor: '#6366f1'
       });
-      return;
+      return false;
     }
 
     // Actualizar el puesto
@@ -11037,10 +11037,14 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
       id_departamento: departamentoId
     };
     window.puestosUsuarioModificados = true;
+    if (index === 0) {
+      actualizarPuestoPrincipalDesdeLista(puestosUsuarioActual[0]);
+    }
 
     // Re-renderizar
     renderizarListaPuestos();
     cancelarEditarPuesto();
+    return true;
   }
 
   /**
@@ -11121,8 +11125,13 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
     const nombreDepto = selDepto.options[selDepto.selectedIndex]?.textContent || '';
     if (!idPuesto || !idDepto) return;
     const principal = { id_puesto: idPuesto, id_departamento: idDepto, nombre_puesto: nombrePuesto, nombre_departamento: nombreDepto };
-    const otros = (puestosUsuarioActual || []).filter(p => String(p.id_puesto) !== String(idPuesto));
+    const principalOriginal = window.puestoPrincipalOriginalUsuario || '';
+    const otros = (puestosUsuarioActual || []).slice(1).filter(p =>
+      String(p.id_puesto) !== String(idPuesto)
+      && (!principalOriginal || String(p.id_puesto) !== String(principalOriginal))
+    );
     puestosUsuarioActual = [principal, ...otros];
+    window.puestosUsuarioModificados = true;
     if (typeof renderizarListaPuestos === 'function') renderizarListaPuestos();
   }
 
@@ -11134,37 +11143,32 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
         id_departamento: p.id_departamento || p.departamento_id || ''
       }));
 
-    if (window.puestosUsuarioModificados === true) {
+    const normalizarListaPuestos = (lista) => {
       const vistos = new Set();
-      return listaDesdeEstado.filter(p => {
+      return (lista || []).filter(p => {
         const id = String(p.id_puesto);
+        if (!id) return false;
         if (vistos.has(id)) return false;
         vistos.add(id);
         return true;
       });
-    }
-
-    if (listaDesdeEstado.length) {
-      const vistos = new Set();
-      return listaDesdeEstado.filter(p => {
-        const id = String(p.id_puesto);
-        if (vistos.has(id)) return false;
-        vistos.add(id);
-        return true;
-      });
-    }
+    };
 
     const principalId = document.getElementById('edit_id_puesto') && document.getElementById('edit_id_puesto').value;
     const principalDepto = document.getElementById('edit_departamento_id') && document.getElementById('edit_departamento_id').value;
     const principal = principalId ? [{ id_puesto: principalId, id_departamento: principalDepto || '' }] : [];
-    const otros = (puestosUsuarioActual || [])
-      .filter(p => String(p.id_puesto) !== String(principalId))
+    const principalOriginal = window.puestoPrincipalOriginalUsuario || '';
+    const otros = (puestosUsuarioActual || []).slice(1)
+      .filter(p =>
+        String(p.id_puesto) !== String(principalId)
+        && (!principalOriginal || String(p.id_puesto) !== String(principalOriginal))
+      )
       .map(p => ({
         id_puesto: p.id_puesto,
         id_departamento: p.id_departamento || p.departamento_id || ''
       }));
     const lista = principal.length ? [...principal, ...otros] : otros;
-    return lista;
+    return normalizarListaPuestos(lista.length ? lista : listaDesdeEstado);
   }
 
   /**

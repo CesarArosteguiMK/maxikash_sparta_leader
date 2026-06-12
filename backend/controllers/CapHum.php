@@ -4197,9 +4197,30 @@ class CapHum extends Controller
                 const domicilio_num_interior = document.getElementById('edit_domicilio_num_interior')?.value?.trim() || null;
                 const codigo_postal = document.getElementById('edit_codigo_postal')?.value?.trim() || null;
 
+                const panelEditarPuesto = document.getElementById('edit_panel_editar_puesto');
+                const hayEdicionPuestoPendiente = panelEditarPuesto
+                    && !panelEditarPuesto.classList.contains('d-none')
+                    && window.puestoEditandoIndex !== null
+                    && window.puestoEditandoIndex !== undefined;
+                if (hayEdicionPuestoPendiente && typeof guardarEdicionPuesto === 'function') {
+                    const edicionAplicada = guardarEdicionPuesto();
+                    if (edicionAplicada === false) {
+                        return;
+                    }
+                }
+
                 let puestosAdicionales = [];
+                const permisosEdicionCobranza = window.permisosEdicionCobranzaGestion || {};
+                const puedeGestionarPuestosParcial = esEdicionParcialCobranza && !!permisosEdicionCobranza.gestion_puestos;
+                const puedeEditarPuestoPrincipalParcial = esEdicionParcialCobranza && (!!permisosEdicionCobranza.puesto || !!permisosEdicionCobranza.departamento);
                 if (typeof obtenerPuestosParaGuardar === 'function') {
                     puestosAdicionales = obtenerPuestosParaGuardar();
+                }
+                if (puedeEditarPuestoPrincipalParcial && !puedeGestionarPuestosParcial && puesto) {
+                    puestosAdicionales = [{
+                        id_puesto: puesto,
+                        id_departamento: departamento || ''
+                    }];
                 }
                 const puestosModificados = window.puestosUsuarioModificados === true;
                 const puestosEliminados = Array.isArray(window.puestosEliminadosUsuario) ? window.puestosEliminadosUsuario : [];
@@ -4222,11 +4243,6 @@ class CapHum extends Controller
 
                 if (!esEdicionParcialCobranza && !puestosModificados && !puesto) {
                     Swal.fire("Falta información", "Debes seleccionar un puesto", "warning");
-                    return;
-                }
-
-                if (!esEdicionParcialCobranza && !jefe) {
-                    Swal.fire("Falta información", "Debes seleccionar un jefe", "warning");
                     return;
                 }
 
@@ -6937,6 +6953,109 @@ class CapHum extends Controller
                 bloqueMetricas.innerHTML = html;
             }
 
+            function docSueldoEsc(s) {
+                return String(s === null || s === undefined ? "" : s)
+                    .replace(/&/g, "&amp;")
+                    .replace(/</g, "&lt;")
+                    .replace(/>/g, "&gt;")
+                    .replace(/"/g, "&quot;");
+            }
+
+            function docSueldoValor(v) {
+                v = String(v === null || v === undefined ? "" : v).replace(/[$,\s]/g, "").trim();
+                if (!v || !/^\d+(\.\d{1,2})?$/.test(v)) return "";
+                return v;
+            }
+
+            function renderSueldoCandidatoCard(bloqueSueldo, sueldo, idCandidato) {
+                if (!bloqueSueldo) return;
+                var permisos = window.candidatosPermisos || {};
+                if (!permisos.documental && !permisos.final) {
+                    bloqueSueldo.classList.add("d-none");
+                    bloqueSueldo.innerHTML = "";
+                    return;
+                }
+                var candidato = obtenerCandidatoLocalPorId(idCandidato);
+                var estatus = candidato && candidato.estatus ? String(candidato.estatus) : "";
+                var editable = !!permisos.documental && estatus !== "Pendiente de validacion final" && estatus !== "Ingreso programado";
+                var bruto = docSueldoValor(sueldo && (sueldo.bruto || sueldo.sueldo_bruto));
+                var neto = docSueldoValor(sueldo && (sueldo.neto || sueldo.sueldo_neto));
+                var motivo = sueldo && sueldo.motivo_contratacion ? String(sueldo.motivo_contratacion) : "";
+                var disabled = editable ? "" : " disabled";
+                bloqueSueldo.classList.remove("d-none");
+                bloqueSueldo.innerHTML =
+                    "<div class=\"card border shadow-none doc-sueldo-card\">" +
+                        "<div class=\"card-header py-2 bg-light d-flex align-items-center justify-content-between gap-2\">" +
+                            "<strong><i class=\"fa fa-money-bill-wave me-1\"></i>Sueldo del ingreso</strong>" +
+                            "<span class=\"badge bg-warning text-dark\">Requerido</span>" +
+                        "</div>" +
+                        "<div class=\"card-body py-2 small\">" +
+                            "<p class=\"text-muted mb-2\">Capture sueldo bruto o sueldo neto antes de enviar a validacion final.</p>" +
+                            "<label class=\"form-label mb-1\">Sueldo bruto</label>" +
+                            "<div class=\"input-group input-group-sm mb-2\">" +
+                                "<span class=\"input-group-text\">$</span>" +
+                                "<input type=\"text\" inputmode=\"decimal\" autocomplete=\"off\" data-lpignore=\"true\" data-1p-ignore=\"true\" class=\"form-control doc-sueldo-input\" id=\"docSueldoBruto\" data-sueldo-campo=\"bruto\" value=\"" + docSueldoEsc(bruto) + "\" placeholder=\"0.00\" style=\"-webkit-text-security:disc;\"" + disabled + ">" +
+                                "<button type=\"button\" class=\"btn btn-outline-secondary btn-eye-sueldo\" data-target=\"docSueldoBruto\" title=\"Mostrar u ocultar sueldo\"><i class=\"fa fa-eye\"></i></button>" +
+                            "</div>" +
+                            "<label class=\"form-label mb-1\">Sueldo neto</label>" +
+                            "<div class=\"input-group input-group-sm mb-2\">" +
+                                "<span class=\"input-group-text\">$</span>" +
+                                "<input type=\"text\" inputmode=\"decimal\" autocomplete=\"off\" data-lpignore=\"true\" data-1p-ignore=\"true\" class=\"form-control doc-sueldo-input\" id=\"docSueldoNeto\" data-sueldo-campo=\"neto\" value=\"" + docSueldoEsc(neto) + "\" placeholder=\"0.00\" style=\"-webkit-text-security:disc;\"" + disabled + ">" +
+                                "<button type=\"button\" class=\"btn btn-outline-secondary btn-eye-sueldo\" data-target=\"docSueldoNeto\" title=\"Mostrar u ocultar sueldo\"><i class=\"fa fa-eye\"></i></button>" +
+                            "</div>" +
+                            "<label class=\"form-label mb-1\">Motivo de contratacion</label>" +
+                            "<textarea class=\"form-control form-control-sm mb-2\" id=\"docMotivoContratacion\" maxlength=\"500\" rows=\"2\" placeholder=\"Ej. cobertura de vacante, crecimiento, reemplazo...\"" + disabled + ">" + docSueldoEsc(motivo) + "</textarea>" +
+                            (editable ? "<button type=\"button\" class=\"btn btn-sm btn-outline-primary w-100 btn-guardar-sueldo-candidato\" data-id=\"" + idCandidato + "\"><i class=\"fa fa-save me-1\"></i>Guardar datos</button>" : "<div class=\"text-muted\">Solo lectura en validacion final.</div>") +
+                        "</div>" +
+                    "</div>";
+            }
+
+            function leerSueldosModal() {
+                var brutoEl = document.getElementById("docSueldoBruto");
+                var netoEl = document.getElementById("docSueldoNeto");
+                var motivoEl = document.getElementById("docMotivoContratacion");
+                return {
+                    sueldo_bruto: docSueldoValor(brutoEl ? brutoEl.value : ""),
+                    sueldo_neto: docSueldoValor(netoEl ? netoEl.value : ""),
+                    motivo_contratacion: motivoEl ? String(motivoEl.value || "").trim().slice(0, 500) : ""
+                };
+            }
+
+            function validarSueldosModal(mostrar) {
+                var valores = leerSueldosModal();
+                if (valores.sueldo_bruto || valores.sueldo_neto) return valores;
+                if (mostrar && typeof Swal !== "undefined") {
+                    Swal.fire({ icon: "warning", title: "Sueldo requerido", text: "Capture sueldo bruto o sueldo neto antes de enviar a validacion final." });
+                }
+                var foco = document.getElementById("docSueldoBruto") || document.getElementById("docSueldoNeto");
+                if (foco && typeof foco.focus === "function") foco.focus();
+                return null;
+            }
+
+            function guardarSueldoCandidatoDocumentacion(idCandidato, btn) {
+                var valores = validarSueldosModal(true);
+                if (!valores || !idCandidato) return Promise.resolve(false);
+                var prevHtml = btn ? btn.innerHTML : "";
+                if (btn) { btn.disabled = true; btn.innerHTML = "<i class=\"fa fa-spinner fa-spin me-1\"></i>Guardando"; }
+                return fetch("/caphum/guardarSueldoCandidatoDocumentacion", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json", "Accept": "application/json" },
+                    body: JSON.stringify(Object.assign({ id_candidato: idCandidato }, valores))
+                }).then(function(r) { return r.json(); }).then(function(res) {
+                    if (!res.success) {
+                        if (typeof Swal !== "undefined") Swal.fire({ icon: "error", title: "No se pudo guardar", text: res.mensaje || "Revise el sueldo capturado." });
+                        return false;
+                    }
+                    if (typeof Swal !== "undefined") Swal.fire({ icon: "success", title: "Guardado", text: res.mensaje || "Sueldo guardado.", timer: 1600, showConfirmButton: false });
+                    return true;
+                }).catch(function() {
+                    if (typeof Swal !== "undefined") Swal.fire({ icon: "error", title: "Error", text: "Error de conexion al guardar sueldo." });
+                    return false;
+                }).finally(function() {
+                    if (btn) { btn.disabled = false; btn.innerHTML = prevHtml; }
+                });
+            }
+
             function obtenerCandidatoLocalPorId(idCandidato) {
                 var id = parseInt(idCandidato, 10);
                 if (!id || !window.candidatosData || !Array.isArray(window.candidatosData)) return null;
@@ -8004,6 +8123,7 @@ class CapHum extends Controller
                 var bloqueVerif = document.getElementById("modalDocumentacionCandidatoVerificacion");
                 var bloqueComp = document.getElementById("modalDocumentacionCandidatoComparaciones");
                 var bloqueMetricas = document.getElementById("modalDocumentacionCandidatoMetricas");
+                var bloqueSueldo = document.getElementById("modalDocumentacionCandidatoSueldo");
                 var bloqueAccionVerificar = document.getElementById("modalDocumentacionCandidatoAccionVerificar");
                 var bloqueAccionesProceso = document.getElementById("modalDocumentacionCandidatoAccionesProceso");
                 var listaTieneContenidoPrevio = !!(lista && lista.children && lista.children.length > 0);
@@ -8072,6 +8192,7 @@ class CapHum extends Controller
                     var docs = (res.datos && res.datos.documentos) ? res.datos.documentos : (res.datos && Array.isArray(res.datos) ? res.datos : []);
                     var verif = (res.datos && res.datos.verificacion_expediente) ? res.datos.verificacion_expediente : null;
                     var metricas = (res.datos && res.datos.metricas) ? res.datos.metricas : null;
+                    var sueldoDoc = (res.datos && res.datos.sueldo) ? res.datos.sueldo : null;
                     if (lista && docs.length > 0) {
                         var escBasico = function(s) {
                             return String(s === null || s === undefined ? "" : s)
@@ -8111,6 +8232,7 @@ class CapHum extends Controller
 
                     renderListaDocumentos(lista, cargando, vacio, docs, verif, idCandidato);
                     renderMetricasDoc(bloqueMetricas, metricas);
+                    renderSueldoCandidatoCard(bloqueSueldo, sueldoDoc, idCandidato);
                     renderAccionesProcesoCandidato(bloqueAccionesProceso, metricas, idCandidato);
                     if (bloqueAccionVerificar) bloqueAccionVerificar.classList.add("d-none");
                     if (verif) {
@@ -8166,6 +8288,7 @@ class CapHum extends Controller
                         lista.innerHTML = "";
                         if (bloqueAccionesProceso) { bloqueAccionesProceso.classList.add("d-none"); bloqueAccionesProceso.innerHTML = ""; }
                         if (bloqueMetricas) { bloqueMetricas.classList.add("d-none"); bloqueMetricas.innerHTML = ""; }
+                        if (bloqueSueldo) { bloqueSueldo.classList.add("d-none"); bloqueSueldo.innerHTML = ""; }
                         if (bloqueVerif) { bloqueVerif.classList.add("d-none"); bloqueVerif.innerHTML = ""; }
                         if (bloqueComp) { bloqueComp.classList.add("d-none"); bloqueComp.innerHTML = ""; }
                     }
@@ -8181,6 +8304,7 @@ class CapHum extends Controller
                 var bloqueVerif = document.getElementById("modalDocumentacionCandidatoVerificacion");
                 var bloqueComp = document.getElementById("modalDocumentacionCandidatoComparaciones");
                 var bloqueMetricas = document.getElementById("modalDocumentacionCandidatoMetricas");
+                var bloqueSueldo = document.getElementById("modalDocumentacionCandidatoSueldo");
                 var bloqueAccionVerificar = document.getElementById("modalDocumentacionCandidatoAccionVerificar");
                 var bloqueAccionesProceso = document.getElementById("modalDocumentacionCandidatoAccionesProceso");
                 var lista = document.getElementById("modalDocumentacionCandidatoLista");
@@ -8194,6 +8318,7 @@ class CapHum extends Controller
                 if (bloqueVerif) { bloqueVerif.classList.add("d-none"); bloqueVerif.innerHTML = ""; }
                 if (bloqueComp) { bloqueComp.classList.add("d-none"); bloqueComp.innerHTML = ""; }
                 if (bloqueMetricas) { bloqueMetricas.classList.add("d-none"); bloqueMetricas.innerHTML = ""; }
+                if (bloqueSueldo) { bloqueSueldo.classList.add("d-none"); bloqueSueldo.innerHTML = ""; }
                 if (bloqueAccionVerificar) bloqueAccionVerificar.classList.add("d-none");
                 if (bloqueAccionesProceso) { bloqueAccionesProceso.classList.add("d-none"); bloqueAccionesProceso.innerHTML = ""; }
                 if (lista) lista.innerHTML = "<div class=\"p-3 text-center text-muted\">Cargando documentos...</div>";
@@ -8708,6 +8833,26 @@ class CapHum extends Controller
             });
         });
         document.addEventListener("click", function(e) {
+            var btnEyeSueldo = e.target.closest(".btn-eye-sueldo");
+            if (btnEyeSueldo) {
+                e.preventDefault();
+                e.stopPropagation();
+                var targetId = btnEyeSueldo.getAttribute("data-target");
+                var inputSueldo = targetId ? document.getElementById(targetId) : null;
+                if (!inputSueldo) return;
+                var mostrando = String(inputSueldo.style.webkitTextSecurity || "").toLowerCase() === "none";
+                inputSueldo.style.webkitTextSecurity = mostrando ? "disc" : "none";
+                btnEyeSueldo.innerHTML = mostrando ? "<i class=\"fa fa-eye\"></i>" : "<i class=\"fa fa-eye-slash\"></i>";
+                return;
+            }
+            var btnGuardarSueldo = e.target.closest(".btn-guardar-sueldo-candidato");
+            if (btnGuardarSueldo) {
+                e.preventDefault();
+                e.stopPropagation();
+                var idSueldo = parseInt(btnGuardarSueldo.getAttribute("data-id") || "0", 10);
+                guardarSueldoCandidatoDocumentacion(idSueldo, btnGuardarSueldo);
+                return;
+            }
             var btnReintentarVerif = e.target.closest(".btn-reintentar-verif-expediente, [data-reintentar-api='1'], #btnReintentarVerifExpediente");
             if (btnReintentarVerif) {
                 e.preventDefault();
@@ -8764,13 +8909,16 @@ class CapHum extends Controller
         });
         function enviarCandidatoAValidacionFinal(idCandidato, btn) {
             if (!idCandidato || idCandidato <= 0) return;
+            if (!validarSueldosModal(true)) return;
             var prevHtml = btn ? btn.innerHTML : "";
             var ejecutar = function() {
+                var sueldos = validarSueldosModal(true);
+                if (!sueldos) return;
                 if (btn) { btn.disabled = true; btn.innerHTML = "<i class=\"fa fa-spinner fa-spin me-1\"></i>Enviando"; }
                 fetch("/caphum/enviarCandidatoValidacionFinal", {
                     method: "POST",
                     headers: { "Content-Type": "application/json", "Accept": "application/json" },
-                    body: JSON.stringify({ id_candidato: idCandidato })
+                    body: JSON.stringify(Object.assign({ id_candidato: idCandidato }, sueldos))
                 }).then(function(r){ return r.json(); }).then(function(res) {
                     if (btn) { btn.disabled = false; btn.innerHTML = prevHtml; }
                     if (!res.success) {
@@ -10593,6 +10741,7 @@ class CapHum extends Controller
         $data = CandidatosDAO::getDocumentosYVerificacion($id_candidato);
         $documentos = $data['documentos'] ?? [];
         $verificacion = $data['verificacion'] ?? null;
+        $sueldoDoc = $data['sueldo'] ?? ['bruto' => '', 'neto' => ''];
         if (is_array($verificacion)) {
             $errApi = trim((string) ($verificacion['error_api'] ?? ''));
             if ($errApi !== '') {
@@ -10606,7 +10755,7 @@ class CapHum extends Controller
             }
         }
 
-        $payload = ['documentos' => $documentos];
+        $payload = ['documentos' => $documentos, 'sueldo' => $sueldoDoc];
         if ($verificacion !== null) {
             $payload['verificacion_expediente'] = $verificacion;
         }
@@ -11501,6 +11650,34 @@ class CapHum extends Controller
      * Cerrar proceso del candidato (modal "Cerrar proceso"). Requiere módulo Candidatos.
      * POST JSON: id_candidato, motivo, descripcion (opcional).
      */
+    public function guardarSueldoCandidatoDocumentacion()
+    {
+        header('Content-Type: application/json; charset=utf-8');
+        if (!self::puedeValidarDocumentalCandidatos()) {
+            echo json_encode(self::respuesta(false, 'No tienes permiso de validador documental.'));
+            return;
+        }
+
+        $raw = file_get_contents('php://input');
+        $body = json_decode($raw, true) ?: [];
+        $id_candidato = (int) ($body['id_candidato'] ?? $body['id'] ?? $_POST['id_candidato'] ?? $_POST['id'] ?? 0);
+        if ($id_candidato <= 0) {
+            echo json_encode(self::respuesta(false, 'ID de candidato invalido.'));
+            return;
+        }
+
+        $res = CandidatosDAO::guardarSueldosDocumentacion(
+            $id_candidato,
+            $body['sueldo_bruto'] ?? $_POST['sueldo_bruto'] ?? null,
+            $body['sueldo_neto'] ?? $_POST['sueldo_neto'] ?? null,
+            $body['motivo_contratacion'] ?? $_POST['motivo_contratacion'] ?? null
+        );
+        if (!empty($res['success'])) {
+            CandidatosDAO::invalidateDocumentacionCache($id_candidato);
+        }
+        echo json_encode($res);
+    }
+
     public function enviarCandidatoValidacionFinal()
     {
         header('Content-Type: application/json; charset=utf-8');
@@ -11531,11 +11708,22 @@ class CapHum extends Controller
             echo json_encode(self::respuesta(false, 'Primero deben estar validados todos los documentos requeridos.'));
             return;
         }
+        $guardarSueldo = CandidatosDAO::guardarSueldosDocumentacion(
+            $id_candidato,
+            $body['sueldo_bruto'] ?? $_POST['sueldo_bruto'] ?? ($candidatoRes['datos']['sueldo_bruto'] ?? null),
+            $body['sueldo_neto'] ?? $_POST['sueldo_neto'] ?? ($candidatoRes['datos']['sueldo_neto'] ?? null),
+            $body['motivo_contratacion'] ?? $_POST['motivo_contratacion'] ?? ($candidatoRes['datos']['motivo_contratacion'] ?? null)
+        );
+        if (empty($guardarSueldo['success'])) {
+            echo json_encode(self::respuesta(false, $guardarSueldo['mensaje'] ?? 'Capture sueldo bruto o sueldo neto antes de enviar a validacion final.'));
+            return;
+        }
         CandidatosDAO::updateEstatus($id_candidato, 'Pendiente de validacion final');
         CandidatosDAO::invalidateDocumentacionCache($id_candidato);
         echo json_encode(self::respuesta(true, 'Expediente enviado a validacion final.', [
             'id_candidato' => $id_candidato,
             'estatus' => 'Pendiente de validacion final',
+            'sueldo' => $guardarSueldo['datos'] ?? null,
         ]));
     }
 

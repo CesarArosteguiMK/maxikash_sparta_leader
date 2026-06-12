@@ -707,8 +707,69 @@ class CapHumRrhh extends Model
         }
     }
 
+    private static function completarPuestoRrhhDesdeTexto(Database $db, array &$rrhh): void
+    {
+        $idPuesto = !empty($rrhh['puesto_id']) ? (int) $rrhh['puesto_id'] : 0;
+        if ($idPuesto > 0) {
+            if (empty($rrhh['departamento_id'])) {
+                $puesto = $db->queryOne(
+                    "SELECT departamento_id FROM __SPARTA_SECRET_REDACTED__.puesto WHERE id = :id_puesto LIMIT 1",
+                    ['id_puesto' => $idPuesto]
+                );
+                if (!empty($puesto['departamento_id'])) {
+                    $rrhh['departamento_id'] = (int) $puesto['departamento_id'];
+                }
+            }
+            return;
+        }
+
+        $puestoTexto = self::texto($rrhh['puesto_texto'] ?? $rrhh['puesto'] ?? '', 180);
+        if ($puestoTexto === '') {
+            return;
+        }
+
+        $params = ['puesto' => strtolower(trim($puestoTexto))];
+        $whereDepartamento = '';
+        if (!empty($rrhh['departamento_id'])) {
+            $whereDepartamento = ' AND departamento_id = :id_departamento';
+            $params['id_departamento'] = (int) $rrhh['departamento_id'];
+        }
+
+        if ($whereDepartamento !== '') {
+            $puesto = $db->queryOne(
+                "SELECT id, departamento_id
+                 FROM __SPARTA_SECRET_REDACTED__.puesto
+                 WHERE activo = 1
+                   AND LOWER(TRIM(nombre)) = :puesto
+                   {$whereDepartamento}
+                 ORDER BY id DESC
+                 LIMIT 1",
+                $params
+            );
+        } else {
+            $coincidencias = $db->queryAll(
+                "SELECT id, departamento_id
+                 FROM __SPARTA_SECRET_REDACTED__.puesto
+                 WHERE activo = 1
+                   AND LOWER(TRIM(nombre)) = :puesto
+                 ORDER BY id DESC
+                 LIMIT 2",
+                ['puesto' => $params['puesto']]
+            );
+            $puesto = count($coincidencias) === 1 ? $coincidencias[0] : null;
+        }
+
+        if (!empty($puesto['id'])) {
+            $rrhh['puesto_id'] = (int) $puesto['id'];
+            if (empty($rrhh['departamento_id']) && !empty($puesto['departamento_id'])) {
+                $rrhh['departamento_id'] = (int) $puesto['departamento_id'];
+            }
+        }
+    }
+
     private static function sincronizarAsignaciones(Database $db, int $idPersona, array $rrhh, int $idSesion = 0): void
     {
+        self::completarPuestoRrhhDesdeTexto($db, $rrhh);
         $idPuesto = !empty($rrhh['puesto_id']) ? (int) $rrhh['puesto_id'] : null;
         [$idJefe, $idVacanteJefe] = self::jefeSeleccionado($rrhh);
         $puestosAntes = CapHum::puestosActivosTrayectoria($db, $idPersona);
@@ -785,6 +846,7 @@ class CapHumRrhh extends Model
         try {
             $db = new Database();
             self::asegurarTablas($db);
+            self::completarPuestoRrhhDesdeTexto($db, $rrhh);
 
             $numeroEmpleado = self::texto($persona['numero_empleado'] ?? '', 40);
             if (!$numeroEmpleado) {
@@ -1636,6 +1698,7 @@ class CapHumRrhh extends Model
         try {
             $db = new Database();
             self::asegurarTablas($db);
+            self::completarPuestoRrhhDesdeTexto($db, $rrhh);
 
             $existePersona = $db->queryOne("SELECT id FROM __SPARTA_SECRET_REDACTED__.persona WHERE id = :id_persona LIMIT 1", ['id_persona' => $idPersona]);
             if (!$existePersona) {

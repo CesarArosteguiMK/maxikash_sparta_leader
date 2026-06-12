@@ -4492,11 +4492,13 @@ class CapHum extends Model
         $correo          = addslashes($data['correo'] ?? '');
         $telefono_uno    = addslashes($data['telefono_uno'] ?? $data['telefono'] ?? '');
         $jefeRaw         = trim((string)($data['jefe_id'] ?? ''));
+        $preservarJefeActual = $jefeRaw === '';
+        $id_jefe = null;
         $id_vacante_jefe = 0;
         if (preg_match('/^vacante:(\d+)$/', $jefeRaw, $m)) {
             $id_jefe = null;
             $id_vacante_jefe = (int)$m[1];
-        } else {
+        } elseif ($jefeRaw !== '') {
             $id_jefe = (int)$jefeRaw;
         }
         $id_puesto       = (int)$data['puesto_id'];
@@ -4754,42 +4756,44 @@ class CapHum extends Model
         ");
 
             // 2️⃣ ASIGNA JEFE (si existe UPDATE, si no INSERT)
-            $idJefeSql = ($id_jefe !== null && (int)$id_jefe > 0) ? (string)(int)$id_jefe : 'NULL';
+            if (!$preservarJefeActual) {
+                $idJefeSql = ($id_jefe !== null && (int)$id_jefe > 0) ? (string)(int)$id_jefe : 'NULL';
 
-            $existeJefe = $db->queryOne("
+                $existeJefe = $db->queryOne("
             SELECT id
             FROM asigna_jefe
             WHERE id_persona = $id_persona
             LIMIT 1
         ");
 
-            if ($existeJefe) {
-                if ($id_vacante_jefe > 0) {
-                    $db->queryOne("
+                if ($existeJefe) {
+                    if ($id_vacante_jefe > 0) {
+                        $db->queryOne("
                     UPDATE asigna_jefe
                     SET id_jefe = NULL,
                         id_vacante_jefe = $id_vacante_jefe
                     WHERE id_persona = $id_persona
                 ");
-                } else {
-                    $db->queryOne("
+                    } else {
+                        $db->queryOne("
                     UPDATE asigna_jefe
                     SET id_jefe = $idJefeSql,
                         id_vacante_jefe = NULL
                     WHERE id_persona = $id_persona
                 ");
-                }
-            } else {
-                if ($id_vacante_jefe > 0) {
-                    $db->queryOne("
+                    }
+                } else {
+                    if ($id_vacante_jefe > 0) {
+                        $db->queryOne("
                     INSERT INTO asigna_jefe (id_persona, id_jefe, id_vacante_jefe)
                     VALUES ($id_persona, NULL, $id_vacante_jefe)
                 ");
-                } else {
-                    $db->queryOne("
+                    } else {
+                        $db->queryOne("
                     INSERT INTO asigna_jefe (id_persona, id_jefe, id_vacante_jefe)
                     VALUES ($id_persona, $idJefeSql, NULL)
                 ");
+                    }
                 }
             }
 

@@ -994,7 +994,7 @@ $documentos = [
                 return new Promise(function(resolve, reject) {
                     var formData = new FormData();
                     formData.append('documento', file, file.name || 'identificacion.pdf');
-                    fetchWithTimeout(API_BASE + '/precheck-identificacion-pdf', { method: 'POST', headers: { 'X-API-Key': API_KEY }, body: formData }, 10000)
+                    fetchWithTimeout(API_BASE + '/precheck-identificacion-pdf', { method: 'POST', headers: { 'X-API-Key': API_KEY }, body: formData }, 15000)
                     .then(function(r) {
                         if (!r.ok) {
                             return r.json().catch(function() { return {}; }).then(function(body) {

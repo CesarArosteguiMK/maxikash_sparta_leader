@@ -31,6 +31,9 @@ class Candidatos extends Model
             'fecha_ingreso_programada' => "DATE NULL AFTER fecha_postulacion_enviada",
             'fecha_ingreso_notificada_en' => "DATETIME NULL AFTER fecha_ingreso_programada",
             'contrato_firmado_en' => "DATETIME NULL AFTER fecha_ingreso_notificada_en",
+            'sueldo_bruto' => "DECIMAL(12,2) NULL AFTER contrato_firmado_en",
+            'sueldo_neto' => "DECIMAL(12,2) NULL AFTER sueldo_bruto",
+            'motivo_contratacion' => "VARCHAR(500) NULL AFTER sueldo_neto",
         ];
 
         foreach ($columnas as $nombre => $definicion) {
@@ -109,6 +112,9 @@ class Candidatos extends Model
                 c.fecha_ingreso_programada,
                 c.fecha_ingreso_notificada_en,
                 c.contrato_firmado_en,
+                c.sueldo_bruto,
+                c.sueldo_neto,
+                c.motivo_contratacion,
                 c.fecha_registro,
                 c.fecha_actualizacion,
                 pais.nombre AS nombre_pais,
@@ -193,6 +199,9 @@ class Candidatos extends Model
                 c.fecha_ingreso_programada,
                 c.fecha_ingreso_notificada_en,
                 c.contrato_firmado_en,
+                c.sueldo_bruto,
+                c.sueldo_neto,
+                c.motivo_contratacion,
                 c.fecha_registro,
                 c.fecha_actualizacion,
                 p.nombre AS nombre_puesto,
@@ -1405,6 +1414,7 @@ class Candidatos extends Model
         }
         try {
             $db = new Database();
+            self::asegurarColumnasFlujoIngreso($db);
             $documentos = $db->queryAll(
                 "SELECT id, id_candidato, tipo_documento, nombre_archivo, ruta_archivo, fecha_carga, validado, fecha_validado, verificacion_fiscal_json, verificacion_calidad_json FROM candidato_documento WHERE id_candidato = :id ORDER BY fecha_carga DESC",
                 ['id' => $id_candidato]
@@ -1428,15 +1438,86 @@ class Candidatos extends Model
                 }
             }
             unset($d);
-            $row = $db->queryOne("SELECT ultima_verificacion_expediente FROM candidatos WHERE id = :id", ['id' => $id_candidato]);
+            $row = $db->queryOne("SELECT ultima_verificacion_expediente, sueldo_bruto, sueldo_neto, motivo_contratacion FROM candidatos WHERE id = :id", ['id' => $id_candidato]);
             $verificacion = null;
             if ($row && !empty($row['ultima_verificacion_expediente'])) {
                 $decoded = json_decode($row['ultima_verificacion_expediente'], true);
                 $verificacion = is_array($decoded) ? $decoded : null;
             }
-            return ['documentos' => $documentos, 'verificacion' => $verificacion];
+            return [
+                'documentos' => $documentos,
+                'verificacion' => $verificacion,
+                'sueldo' => [
+                    'bruto' => $row && $row['sueldo_bruto'] !== null ? (string) $row['sueldo_bruto'] : '',
+                    'neto' => $row && $row['sueldo_neto'] !== null ? (string) $row['sueldo_neto'] : '',
+                    'motivo_contratacion' => $row && $row['motivo_contratacion'] !== null ? (string) $row['motivo_contratacion'] : '',
+                ],
+            ];
         } catch (\Exception $e) {
-            return ['documentos' => [], 'verificacion' => null];
+            return ['documentos' => [], 'verificacion' => null, 'sueldo' => ['bruto' => '', 'neto' => '']];
+        }
+    }
+
+    private static function normalizarSueldo($valor): ?float
+    {
+        $txt = trim((string) ($valor ?? ''));
+        if ($txt === '') {
+            return null;
+        }
+        $txt = str_replace([',', '$', ' '], '', $txt);
+        if (!preg_match('/^\d+(\.\d{1,2})?$/', $txt)) {
+            return null;
+        }
+        $num = (float) $txt;
+        return $num > 0 ? round($num, 2) : null;
+    }
+
+    public static function guardarSueldosDocumentacion($id_candidato, $sueldo_bruto, $sueldo_neto, $motivo_contratacion = null): array
+    {
+        $id_candidato = (int) $id_candidato;
+        if ($id_candidato <= 0) {
+            return self::resultado(false, 'ID de candidato invalido.');
+        }
+
+        $bruto = self::normalizarSueldo($sueldo_bruto);
+        $neto = self::normalizarSueldo($sueldo_neto);
+        if ($bruto === null && $neto === null) {
+            return self::resultado(false, 'Capture sueldo bruto o sueldo neto antes de continuar.');
+        }
+        $motivo = trim((string) ($motivo_contratacion ?? ''));
+        if ($motivo !== '') {
+            $motivo = mb_substr($motivo, 0, 500);
+        } else {
+            $motivo = null;
+        }
+
+        try {
+            $db = new Database();
+            self::asegurarColumnasFlujoIngreso($db);
+            $fechaHora = self::fechaHoraActualMexicoCiudad();
+            $db->CRUD(
+                "UPDATE candidatos
+                    SET sueldo_bruto = :bruto,
+                        sueldo_neto = :neto,
+                        motivo_contratacion = :motivo,
+                        fecha_actualizacion = :fecha_hora
+                  WHERE id = :id",
+                [
+                    'id' => $id_candidato,
+                    'bruto' => $bruto,
+                    'neto' => $neto,
+                    'motivo' => $motivo,
+                    'fecha_hora' => $fechaHora,
+                ]
+            );
+            return self::resultado(true, 'Sueldo guardado.', [
+                'id_candidato' => $id_candidato,
+                'sueldo_bruto' => $bruto !== null ? number_format($bruto, 2, '.', '') : '',
+                'sueldo_neto' => $neto !== null ? number_format($neto, 2, '.', '') : '',
+                'motivo_contratacion' => $motivo ?? '',
+            ]);
+        } catch (\Exception $e) {
+            return self::resultado(false, 'No se pudo guardar el sueldo.', null, $e->getMessage());
         }
     }
 
