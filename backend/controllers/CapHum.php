@@ -6275,6 +6275,7 @@ class CapHum extends Controller
                                         domicilio_calle_texto: candidato.domicilio_calle_texto,
                                         domicilio_num_exterior: candidato.domicilio_num_exterior,
                                         domicilio_num_interior: candidato.domicilio_num_interior,
+                                        codigo_postal: candidato.codigo_postal,
                                         id_puesto: candidato.id_puesto,
                                         nombre_puesto: candidato.nombre_puesto,
                                         nombre_departamento: candidato.nombre_departamento,
@@ -6351,15 +6352,28 @@ class CapHum extends Controller
                                     .replace(/"/g, "&quot;")
                                     .replace(/'/g, "&#039;");
                             };
+                            var formatearFechaListaCandidato = function(valor) {
+                                var raw = String(valor || "").trim();
+                                if (!raw) return "";
+                                var match = raw.match(/^(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2})/);
+                                if (!match) return raw;
+                                var hora = parseInt(match[4], 10);
+                                var hora12 = hora % 12 || 12;
+                                var sufijo = hora >= 12 ? "p.m." : "a.m.";
+                                return match[3] + "/" + match[2] + "/" + match[1] + ", " +
+                                    String(hora12).padStart(2, "0") + ":" + match[5] + " " + sufijo;
+                            };
                             var datos = candidatosConsolidados.map(function(c) {
                                 var nombre = [c.nombres, c.segundo_nombre, c.apellidop, c.apellidom].filter(Boolean).join(" ");
                                 var tienePuestos = c.puestos && c.puestos.length > 1;
                                 var correo = c.email || "";
                                 var telefono = c.telefono || "";
+                                var fechaCreacion = formatearFechaListaCandidato(c.fecha_registro);
                                 var nombreContacto = '<div class="d-flex flex-column">' +
                                     '<span class="fw-semibold text-uppercase">' + escapeTablaCandidato(nombre || "Sin nombre") + '</span>' +
                                     '<small class="text-muted">' + escapeTablaCandidato(correo || "Sin correo") + '</small>' +
                                     '<small class="text-muted">' + escapeTablaCandidato(telefono || "Sin teléfono") + '</small>' +
+                                    (fechaCreacion ? '<small class="text-muted"><i class="fa fa-calendar-plus me-1"></i>Creado: ' + escapeTablaCandidato(fechaCreacion) + '</small>' : '') +
                                     '</div>';
 
                                 // Generar HTML para puesto/departamento
@@ -6747,17 +6761,31 @@ class CapHum extends Controller
             }
 
             function ocultarSeccionesDomicilioCandidato() {
-                ["estado", "municipio", "colonia", "calle_texto", "num_extint"].forEach(function (k) {
+                ["estado", "municipio", "colonia", "codigo_postal", "calle_texto", "num_extint"].forEach(function (k) {
                     var el = document.getElementById("div_candidato_" + k);
                     if (el) el.style.display = "none";
                 });
             }
 
             function limpiarDomicilioTextoCandidato() {
-                ["candidato_domicilio_calle_texto", "candidato_domicilio_num_exterior", "candidato_domicilio_num_interior"].forEach(function(id) {
+                ["candidato_domicilio_calle_texto", "candidato_domicilio_num_exterior", "candidato_domicilio_num_interior", "candidato_codigo_postal"].forEach(function(id) {
                     var el = document.getElementById(id);
                     if (el) el.value = "";
                 });
+            }
+
+            function setCodigoPostalCandidato(valor) {
+                var input = document.getElementById("candidato_codigo_postal");
+                var wrap = document.getElementById("div_candidato_codigo_postal");
+                if (input) input.value = String(valor || "").trim();
+                if (wrap) wrap.style.display = String(valor || "").trim() ? "" : "none";
+            }
+
+            function actualizarCodigoPostalCandidatoDesdeColonia() {
+                var col = document.getElementById("candidato_id_div_nivel3");
+                var opt = col && col.selectedIndex >= 0 ? col.options[col.selectedIndex] : null;
+                var cp = opt ? (opt.getAttribute("data-codigo-postal") || opt.getAttribute("data-cp") || "") : "";
+                setCodigoPostalCandidato(cp);
             }
 
             function resetCascadaDomicilioCandidato() {
@@ -6854,6 +6882,7 @@ class CapHum extends Controller
                             var opt = document.createElement("option");
                             opt.value = e.id;
                             opt.textContent = e.nombre || "";
+                            if (e.codigo_postal) opt.setAttribute("data-codigo-postal", e.codigo_postal);
                             col.appendChild(opt);
                         });
                         col.disabled = false;
@@ -6872,6 +6901,7 @@ class CapHum extends Controller
                 var idEstado = c && c.id_div_nivel1 ? String(c.id_div_nivel1) : "";
                 var idMunicipio = c && c.id_div_nivel2 ? String(c.id_div_nivel2) : "";
                 var idColonia = c && c.id_div_nivel3 ? String(c.id_div_nivel3) : "";
+                setCodigoPostalCandidato(c && c.codigo_postal ? c.codigo_postal : "");
                 if (!idPais) {
                     resetCascadaDomicilioCandidato();
                     return;
@@ -6903,6 +6933,8 @@ class CapHum extends Controller
                                     if (idColonia) {
                                         colonia.value = idColonia;
                                         refreshSelectBuscadorCandidato("candidato_id_div_nivel3");
+                                        setCodigoPostalCandidato(c && c.codigo_postal ? c.codigo_postal : "");
+                                        if (!(c && c.codigo_postal)) actualizarCodigoPostalCandidatoDesdeColonia();
                                     }
                                     var calle = document.getElementById("div_candidato_calle_texto");
                                     var extInt = document.getElementById("div_candidato_num_extint");
@@ -8595,6 +8627,7 @@ class CapHum extends Controller
             if (form.domicilio_calle_texto) form.domicilio_calle_texto.value = c.domicilio_calle_texto || "";
             if (form.domicilio_num_exterior) form.domicilio_num_exterior.value = c.domicilio_num_exterior || "";
             if (form.domicilio_num_interior) form.domicilio_num_interior.value = c.domicilio_num_interior || "";
+            if (form.codigo_postal) form.codigo_postal.value = c.codigo_postal || "";
             if (form.id_departamento) form.id_departamento.value = c.id_departamento || "";
             seleccionarOrganizacionPorDepartamentoCandidato(c.id_departamento || "");
             if (form.usuario) form.usuario.value = c.usuario || "";
@@ -8717,6 +8750,7 @@ class CapHum extends Controller
             domicilio_calle_texto: (form.domicilio_calle_texto && form.domicilio_calle_texto.value.trim()) || null,
             domicilio_num_exterior: (form.domicilio_num_exterior && form.domicilio_num_exterior.value.trim()) || null,
             domicilio_num_interior: (form.domicilio_num_interior && form.domicilio_num_interior.value.trim()) || null,
+            codigo_postal: (form.codigo_postal && form.codigo_postal.value.trim()) || null,
             id_departamento: (form.id_departamento && form.id_departamento.value) || null,
             id_puesto: (form.id_puesto && form.id_puesto.value) || null,
             id_posible_jefe: (form.id_posible_jefe && form.id_posible_jefe.value) || null,
@@ -9266,10 +9300,12 @@ class CapHum extends Controller
             if (col) { col.innerHTML = "<option value=''>Seleccione una colonia</option>"; col.disabled = true; refreshSelectBuscadorCandidato(col.id); }
             var divMunicipio = document.getElementById("div_candidato_municipio");
             var divColonia = document.getElementById("div_candidato_colonia");
+            var divCp = document.getElementById("div_candidato_codigo_postal");
             var divCalle = document.getElementById("div_candidato_calle_texto");
             var divNum = document.getElementById("div_candidato_num_extint");
             if (divMunicipio) divMunicipio.style.display = "none";
             if (divColonia) divColonia.style.display = "none";
+            if (divCp) divCp.style.display = "none";
             if (divCalle) divCalle.style.display = "none";
             if (divNum) divNum.style.display = "none";
             limpiarDomicilioTextoCandidato();
@@ -9289,9 +9325,11 @@ class CapHum extends Controller
             var col = document.getElementById("candidato_id_div_nivel3");
             if (col) { col.innerHTML = "<option value=''>Seleccione una colonia</option>"; col.disabled = true; refreshSelectBuscadorCandidato(col.id); }
             var divColonia = document.getElementById("div_candidato_colonia");
+            var divCp = document.getElementById("div_candidato_codigo_postal");
             var divCalle = document.getElementById("div_candidato_calle_texto");
             var divNum = document.getElementById("div_candidato_num_extint");
             if (divColonia) divColonia.style.display = "none";
+            if (divCp) divCp.style.display = "none";
             if (divCalle) divCalle.style.display = "none";
             if (divNum) divNum.style.display = "none";
             limpiarDomicilioTextoCandidato();
@@ -9314,12 +9352,14 @@ class CapHum extends Controller
             var txtExt = document.getElementById("candidato_domicilio_num_exterior");
             var txtInt = document.getElementById("candidato_domicilio_num_interior");
             var v = $(this).val();
+            actualizarCodigoPostalCandidatoDesdeColonia();
             if (!v) {
                 if (divCalle) divCalle.style.display = "none";
                 if (divNum) divNum.style.display = "none";
                 if (txtCalle) txtCalle.value = "";
                 if (txtExt) txtExt.value = "";
                 if (txtInt) txtInt.value = "";
+                setCodigoPostalCandidato("");
                 return;
             }
             if (divCalle) divCalle.style.display = "";

@@ -34,6 +34,7 @@ class Candidatos extends Model
             'sueldo_bruto' => "DECIMAL(12,2) NULL AFTER contrato_firmado_en",
             'sueldo_neto' => "DECIMAL(12,2) NULL AFTER sueldo_bruto",
             'motivo_contratacion' => "VARCHAR(500) NULL AFTER sueldo_neto",
+            'codigo_postal' => "VARCHAR(12) NULL AFTER domicilio_num_interior",
         ];
 
         foreach ($columnas as $nombre => $definicion) {
@@ -62,6 +63,27 @@ class Candidatos extends Model
             return false;
         }
     }
+
+    private static function completarCodigoPostalDesdeColonia(Database $db, array &$params): void
+    {
+        if (!empty($params['codigo_postal']) || empty($params['id_div_nivel3'])) {
+            return;
+        }
+        try {
+            $row = $db->queryOne(
+                "SELECT NULLIF(TRIM(codigo_interno), '') AS codigo_postal
+                 FROM __SPARTA_SECRET_REDACTED__.divisiones_administrativas
+                 WHERE id = :id AND activo = 1
+                 LIMIT 1",
+                ['id' => (int) $params['id_div_nivel3']]
+            );
+            if (!empty($row['codigo_postal'])) {
+                $params['codigo_postal'] = substr(trim((string) $row['codigo_postal']), 0, 12);
+            }
+        } catch (\Exception $e) {
+        }
+    }
+
     private static function storageRoot(): string
     {
         return defined('RAIZ') ? (RAIZ . '/storage') : (__DIR__ . '/../storage');
@@ -102,6 +124,7 @@ class Candidatos extends Model
                 c.domicilio_calle_texto,
                 c.domicilio_num_exterior,
                 c.domicilio_num_interior,
+                c.codigo_postal,
                 c.id_puesto,
                 c.id_departamento,
                 c.estatus,
@@ -185,6 +208,7 @@ class Candidatos extends Model
                 c.domicilio_calle_texto,
                 c.domicilio_num_exterior,
                 c.domicilio_num_interior,
+                c.codigo_postal,
                 c.id_puesto,
                 c.id_departamento,
                 c.id_posible_jefe,
@@ -317,16 +341,16 @@ class Candidatos extends Model
         $query = <<<SQL
             INSERT INTO candidatos (
                 nombres, segundo_nombre, apellidop, apellidom,
-                email, telefono, id_pais, id_div_nivel1, id_div_nivel2, id_div_nivel3, domicilio_calle_texto, domicilio_num_exterior, domicilio_num_interior,
+                email, telefono, id_pais, id_div_nivel1, id_div_nivel2, id_div_nivel3, domicilio_calle_texto, domicilio_num_exterior, domicilio_num_interior, codigo_postal,
                 id_puesto, id_departamento, id_posible_jefe,
                 fecha_postulacion, id_legion, usuario, contrasena,
-                postulacion_enviada, fecha_postulacion_enviada, estatus, notas
+                postulacion_enviada, fecha_postulacion_enviada, estatus, notas, fecha_registro
             ) VALUES (
                 :nombres, :segundo_nombre, :apellidop, :apellidom,
-                :email, :telefono, :id_pais, :id_div_nivel1, :id_div_nivel2, :id_div_nivel3, :domicilio_calle_texto, :domicilio_num_exterior, :domicilio_num_interior,
+                :email, :telefono, :id_pais, :id_div_nivel1, :id_div_nivel2, :id_div_nivel3, :domicilio_calle_texto, :domicilio_num_exterior, :domicilio_num_interior, :codigo_postal,
                 :id_puesto, :id_departamento, :id_posible_jefe,
                 :fecha_postulacion, :id_legion, :usuario, :contrasena,
-                :postulacion_enviada, :fecha_postulacion_enviada, :estatus, :notas
+                :postulacion_enviada, :fecha_postulacion_enviada, :estatus, :notas, :fecha_registro
             )
         SQL;
         $params = [
@@ -343,6 +367,7 @@ class Candidatos extends Model
             'domicilio_calle_texto' => trim($data['domicilio_calle_texto'] ?? '') ?: null,
             'domicilio_num_exterior' => trim($data['domicilio_num_exterior'] ?? '') ?: null,
             'domicilio_num_interior' => trim($data['domicilio_num_interior'] ?? '') ?: null,
+            'codigo_postal' => substr(trim($data['codigo_postal'] ?? ''), 0, 12) ?: null,
             'id_puesto' => !empty($data['id_puesto']) ? (int) $data['id_puesto'] : null,
             'id_departamento' => !empty($data['id_departamento']) ? (int) $data['id_departamento'] : null,
             'id_posible_jefe' => !empty($data['id_posible_jefe']) ? (int) $data['id_posible_jefe'] : null,
@@ -354,10 +379,13 @@ class Candidatos extends Model
             'fecha_postulacion_enviada' => $fechaEnviada,
             'estatus' => trim($data['estatus'] ?? '') ?: 'Por evaluar',
             'notas' => trim($data['notas'] ?? '') ?: null,
+            'fecha_registro' => self::fechaHoraActualMexicoCiudad(),
         ];
 
         try {
             $db = new Database();
+            self::asegurarColumnasFlujoIngreso($db);
+            self::completarCodigoPostalDesdeColonia($db, $params);
             $db->CRUD($query, $params);
             $newId = $db->queryOne("SELECT LAST_INSERT_ID() AS id");
             $id = (int) ($newId['id'] ?? 0);
@@ -398,6 +426,7 @@ class Candidatos extends Model
                 domicilio_calle_texto = :domicilio_calle_texto,
                 domicilio_num_exterior = :domicilio_num_exterior,
                 domicilio_num_interior = :domicilio_num_interior,
+                codigo_postal = :codigo_postal,
                 id_puesto = :id_puesto,
                 id_departamento = :id_departamento,
                 id_posible_jefe = :id_posible_jefe,
@@ -424,6 +453,7 @@ class Candidatos extends Model
             'domicilio_calle_texto' => trim($data['domicilio_calle_texto'] ?? '') ?: null,
             'domicilio_num_exterior' => trim($data['domicilio_num_exterior'] ?? '') ?: null,
             'domicilio_num_interior' => trim($data['domicilio_num_interior'] ?? '') ?: null,
+            'codigo_postal' => substr(trim($data['codigo_postal'] ?? ''), 0, 12) ?: null,
             'id_puesto' => !empty($data['id_puesto']) ? (int) $data['id_puesto'] : null,
             'id_departamento' => !empty($data['id_departamento']) ? (int) $data['id_departamento'] : null,
             'id_posible_jefe' => !empty($data['id_posible_jefe']) ? (int) $data['id_posible_jefe'] : null,
@@ -437,6 +467,8 @@ class Candidatos extends Model
 
         try {
             $db = new Database();
+            self::asegurarColumnasFlujoIngreso($db);
+            self::completarCodigoPostalDesdeColonia($db, $params);
             $db->CRUD($query, $params);
             return self::resultado(true, 'Candidato actualizado correctamente.', ['id' => $id]);
         } catch (\Exception $e) {

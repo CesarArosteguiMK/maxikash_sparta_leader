@@ -70,6 +70,7 @@ class MotosAdjudicadas extends Model
         'video_cliente_de_acuerdo' => 'fis_video_cliente_acuerdo',
         'video_del_cliente_aceptando_la_adjudicacion_de_mot' => 'fis_video_cliente_acuerdo',
         'video_vuelta_de_prueba' => 'fis_video_vuelta_prueba',
+        'tomar_video' => 'fis_video_vuelta_prueba',
         'foto_de_checklist' => 'fis_checklist',
         'foto_de_check_list' => 'fis_checklist',
         'video_de_moto_recuperada' => 'fis_360_encendida',

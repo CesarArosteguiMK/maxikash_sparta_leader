@@ -352,6 +352,10 @@ window.departamentosCandidatoBackend = <?= json_encode($departamentosCandidatoCa
                     <option value="">Seleccione una colonia</option>
                 </select>
             </div>
+            <div class="mb-2" id="div_candidato_codigo_postal" style="display:none;">
+                <label class="form-label">Codigo postal</label>
+                <input type="text" name="codigo_postal" id="candidato_codigo_postal" class="form-control" maxlength="12" readonly>
+            </div>
             <div class="mb-2" id="div_candidato_calle_texto" style="display:none;">
                 <label class="form-label">Calle</label>
                 <input type="text" name="domicilio_calle_texto" id="candidato_domicilio_calle_texto" class="form-control" maxlength="180">
