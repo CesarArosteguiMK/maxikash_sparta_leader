@@ -583,7 +583,7 @@ public static function getConvenioActivo($id_credito)
             // Verificar si hay semanas que aún requieren conciliación S2
             $hayPendienteConciliar = false;
             foreach ($amortCompletada as $f) {
-                if (in_array($f['estatus_pago'], ['pendiente_conciliar', 'pendiente', 'vencido'])) {
+                if (in_array($f['estatus_pago'], ['pendiente_conciliar', 'pendiente', 'vencido', 'parcial'])) {
                     $hayPendienteConciliar = true;
                     break;
                 }
@@ -607,6 +607,7 @@ public static function getConvenioActivo($id_credito)
                 $mapaC             = $resultadoMapaC['mapa'];
                 $mapaMontosC       = $resultadoMapaC['montos'];
                 $mapaSecundariosC  = $resultadoMapaC['secundarios'];
+                $estadoCuentaS2C   = $resultS2c['estadoCuenta'] ?? null;
 
                 foreach ($amortCompletada as &$filaC) {
                     $numSemC = (int)$filaC['numero_semana'];
@@ -669,10 +670,14 @@ public static function getConvenioActivo($id_credito)
                 }
                 unset($filaC);
 
+                $cerradoPorS2C = self::_estadoCuentaS2EstaSaldado($estadoCuentaS2C)
+                    ? self::_cerrarConvenioPorLiquidacionS2($db, $convenio, $amortCompletada, $estadoCuentaS2C)
+                    : false;
+
                 // Si ahora todas quedaron pagadas, confirmar convenio como completado en BD
                 $todasC = array_reduce($amortCompletada,
                     fn($c, $f) => $c && ($f['estatus_pago'] === 'pagado'), true);
-                if ($todasC && !empty($amortCompletada)) {
+                if (!$cerradoPorS2C && $todasC && !empty($amortCompletada)) {
                     $db->CRUD(
                         "UPDATE convenio_cliente SET estatus = 'completado', fecha_modifica = NOW()
                           WHERE id = :id AND estatus != 'cancelado'",
@@ -723,6 +728,7 @@ public static function getConvenioActivo($id_credito)
                 );
                 $s2Verif      = self::_getPagosS2Movil((int) $id_credito);
                 $rawVerif     = $s2Verif['raw'];
+                $s2YaSaldado  = self::_estadoCuentaS2EstaSaldado($s2Verif['estadoCuenta'] ?? null);
                 $fechaAcuerdo = $convenio['fecha_acuerdo'] ?? null;
                 if ($fechaAcuerdo) {
                     // FIX #4: ventana de gracia de 7 días antes de fecha_acuerdo.
@@ -740,7 +746,7 @@ public static function getConvenioActivo($id_credito)
                 $resultadoVerif  = self::_mapearCuotasS2AConvenio($rawVerif, $amortParaVerif);
                 $mapaVerif       = $resultadoVerif['mapa'];
                 $numSemVencida   = (int) $primerVencida['numero_semana'];
-                $pagoConfirmadoS2 = isset($mapaVerif[$numSemVencida]);
+                $pagoConfirmadoS2 = $s2YaSaldado || isset($mapaVerif[$numSemVencida]);
 
                 if ($pagoConfirmadoS2) {
                     // El pago existe en S2 — no cancelar; continuar y mostrar estado conciliado
@@ -791,6 +797,7 @@ public static function getConvenioActivo($id_credito)
         $pagosS2Indexado = $resultadoS2['indexado'];   // cuota_s2 => pagos[] (compatibilidad)
         $pagosS2Raw      = $resultadoS2['raw'];
         $pagosS2PorId    = $resultadoS2['porIdPago'];  // NUEVO: idPago => pago
+        $estadoCuentaS2  = $resultadoS2['estadoCuenta'] ?? null;
 
 
                  // Filtrar solo pagos S2 dentro del ámbito del convenio.
@@ -933,7 +940,11 @@ public static function getConvenioActivo($id_credito)
         // Si todas las filas quedaron pagadas → completar el convenio
         // FIX #3: guardia extra — no completar si alguna semana no tiene monto confirmado
         // (evita marcar completado cuando el mapa asignó pagos parciales/incorrectos)
-        if ($todasPagadas && !empty($amortizacion)) {
+        $cerradoPorS2 = self::_estadoCuentaS2EstaSaldado($estadoCuentaS2)
+            ? self::_cerrarConvenioPorLiquidacionS2($db, $convenio, $amortizacion, $estadoCuentaS2)
+            : false;
+
+        if (!$cerradoPorS2 && $todasPagadas && !empty($amortizacion)) {
             $todasConMonto = array_reduce(
                 $amortizacion,
                 fn($carry, $f) => $carry && ($f['monto_pagado'] !== null),
@@ -1082,10 +1093,13 @@ private static function _getPagosS2Movil($id_credito)
         $response = curl_exec($ch);
         curl_close($ch);
 
-        $data       = json_decode($response, true);
-        $datosPagos = $data['estadoCuenta']['datosPagos'] ?? [];
+        $data         = json_decode($response, true);
+        $estadoCuenta = $data['estadoCuenta'] ?? [];
+        $datosPagos   = $estadoCuenta['datosPagos'] ?? [];
 
-        if (empty($datosPagos)) return ['indexado' => [], 'raw' => [], 'porIdPago' => []];
+        if (empty($datosPagos)) {
+            return ['indexado' => [], 'raw' => [], 'porIdPago' => [], 'estadoCuenta' => $estadoCuenta];
+        }
 
         // ── Índice por cuota S2 (compatibilidad con código existente) ──
         $indexado  = [];
@@ -1133,10 +1147,11 @@ private static function _getPagosS2Movil($id_credito)
             'indexado'  => $indexado,
             'raw'       => $datosPagos,
             'porIdPago' => $porIdPago,   // ← NUEVO
+            'estadoCuenta' => $estadoCuenta,
         ];
 
     } catch (\Exception $e) {
-        return ['indexado' => [], 'raw' => [], 'porIdPago' => []];
+        return ['indexado' => [], 'raw' => [], 'porIdPago' => [], 'estadoCuenta' => []];
     }
 }
 
@@ -1153,7 +1168,9 @@ private static function _getPagosS2Movil($id_credito)
  */
 private static function _mapearCuotasS2AConvenio(array $rawPagos, array $amortizacion): array
 {
-    if (empty($rawPagos) || empty($amortizacion)) return [];
+    if (empty($rawPagos) || empty($amortizacion)) {
+        return ['mapa' => [], 'montos' => [], 'secundarios' => []];
+    }
 
     // ── 1. Ordenar pagos S2 por fechaValor ASC ───────────────────
     usort($rawPagos, function ($a, $b) {
@@ -1322,6 +1339,94 @@ private static function _mapearCuotasS2AConvenio(array $rawPagos, array $amortiz
     }
 
     return ['mapa' => $mapa, 'montos' => $mapaMontos, 'secundarios' => $mapaSecundarios];
+}
+
+// HELPERS: CIERRE POR LIQUIDACION S2
+
+private static function _estadoCuentaS2EstaSaldado(?array $estadoCuenta): bool
+{
+    if (empty($estadoCuenta)) return false;
+
+    $status = strtolower(trim((string)($estadoCuenta['statusCredito'] ?? '')));
+    if ($status === 'saldado') return true;
+
+    $adeudo = (float)($estadoCuenta['datosSaldos']['adeudoTotal'] ?? 0);
+    return $adeudo <= 0.01 && !empty($estadoCuenta['fechaLiquidacion']);
+}
+
+private static function _fechaLiquidacionS2(?array $estadoCuenta): string
+{
+    $fecha = trim((string)($estadoCuenta['fechaLiquidacion'] ?? ''));
+    return preg_match('/^\d{4}-\d{2}-\d{2}$/', $fecha) ? $fecha : date('Y-m-d');
+}
+
+private static function _montoEsperadoSemanaConvenio(array $fila): float
+{
+    $pagoSemanal = round((float)($fila['pago_semanal'] ?? 0), 2);
+    $capital     = (float)($fila['capital'] ?? 0);
+
+    return ($capital > 0.50 && $capital < $pagoSemanal - 1.00)
+        ? round($capital, 2)
+        : $pagoSemanal;
+}
+
+private static function _cerrarConvenioPorLiquidacionS2($db, array &$convenio, array &$amortizacion, ?array $estadoCuenta): bool
+{
+    if (empty($amortizacion) || ($convenio['estatus'] ?? '') === 'cancelado') {
+        return false;
+    }
+
+    $fechaCierre = self::_fechaLiquidacionS2($estadoCuenta);
+
+    foreach ($amortizacion as &$fila) {
+        if (($fila['estatus_pago'] ?? '') === 'cancelado') {
+            continue;
+        }
+
+        $esperado       = self::_montoEsperadoSemanaConvenio($fila);
+        $montoPrincipal = max(0.0, (float)($fila['monto_pagado'] ?? 0));
+        $montoSecActual = max(0.0, (float)($fila['monto_secundario'] ?? 0));
+        $faltante       = max(0.0, round($esperado - $montoPrincipal - $montoSecActual, 2));
+
+        $nuevoMonto = $montoPrincipal > 0.01 ? $montoPrincipal : $esperado;
+        $nuevoSec   = $montoSecActual;
+        if ($montoPrincipal > 0.01 && $faltante > 0.01) {
+            $nuevoSec = round($montoSecActual + $faltante, 2);
+        }
+        $nuevoSecParam = $nuevoSec > 0.01 ? $nuevoSec : null;
+
+        $db->CRUD(
+            "UPDATE convenio_cliente_amortizacion
+                SET estatus_pago     = 'pagado',
+                    fecha_pago_real  = COALESCE(fecha_pago_real, :fecha),
+                    monto_pagado     = :monto,
+                    monto_secundario = :ms
+              WHERE id = :id
+                AND estatus_pago != 'cancelado'",
+            [
+                'fecha' => $fechaCierre,
+                'monto' => round($nuevoMonto, 2),
+                'ms'    => $nuevoSecParam,
+                'id'    => (int)$fila['id'],
+            ]
+        );
+
+        $fila['estatus_pago']     = 'pagado';
+        $fila['fecha_pago_real']  = $fila['fecha_pago_real'] ?: $fechaCierre;
+        $fila['monto_pagado']     = round($nuevoMonto, 2);
+        $fila['monto_secundario'] = $nuevoSecParam;
+    }
+    unset($fila);
+
+    $db->CRUD(
+        "UPDATE convenio_cliente
+            SET estatus = 'completado', fecha_modifica = NOW()
+          WHERE id = :id AND estatus != 'cancelado'",
+        ['id' => (int)$convenio['id']]
+    );
+    $convenio['estatus'] = 'completado';
+
+    return true;
 }
 
     // ─────────────────────────────────────────────

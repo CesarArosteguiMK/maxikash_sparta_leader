@@ -15,8 +15,10 @@ class Atlas extends Controller
 
     public function catalogos()
     {
-        $this->set('titulo', 'Catálogos');
-        $this->set('google_maps_api_key_js', json_encode(defined('GOOGLE_MAPS_API_KEY') ? (string)GOOGLE_MAPS_API_KEY : '', JSON_UNESCAPED_SLASHES));
+        $this->set('titulo', 'Catálogos Operativos');
+        $this->set('google_maps_api_key_js', json_encode($this->googleMapsApiKey(), JSON_UNESCAPED_SLASHES));
+        $usuarioId = (int) ($_SESSION['usuario_id'] ?? $_SESSION['persona_id'] ?? $_SESSION['id'] ?? 0);
+        $this->set('atlas_permisos_sucursal', AtlasDAO::permisosSucursalAtlas($usuarioId));
         $this->render('atlas');
     }
 
@@ -27,10 +29,357 @@ class Atlas extends Controller
         $this->render('atlas_notificaciones_app');
     }
 
+    public function accesosAtlas()
+    {
+        $this->set('titulo', 'Accesos Atlas');
+        $this->render('atlas_accesos');
+    }
+
     public function catalogosComerciales()
     {
-        $this->set('titulo', 'Catálogos comerciales');
+        $this->set('titulo', 'Catálogos Comerciales');
         $this->render('atlas_catalogos_comerciales');
+    }
+
+    public function presupuestos()
+    {
+        $this->set('titulo', 'Presupuestos');
+        $this->set('atlas_suc_asig_embedded', true);
+        $this->set('atlas_suc_asig_titulo', 'Avance de meta');
+        $this->render('atlas_presupuestos');
+    }
+
+    public function creditosOperacion()
+    {
+        $this->set('titulo', 'Créditos en operación');
+        $this->render('atlas_creditos_operacion');
+    }
+
+    public function getPresupuestos()
+    {
+        $anio = (int)($_GET['anio'] ?? date('Y'));
+        $this->json(AtlasDAO::getPresupuestos($anio));
+    }
+
+    public function getPresupuestoDetalle()
+    {
+        $this->json(AtlasDAO::getPresupuestoDetalle((int)($_GET['id'] ?? 0)));
+    }
+
+    public function getPresupuestoRanking()
+    {
+        $this->json(AtlasDAO::getPresupuestoRanking(
+            (int)($_GET['id'] ?? 0),
+            (string)($_GET['periodo'] ?? 'mes'),
+            (int)($_GET['semana'] ?? 1),
+            (string)($_GET['orden'] ?? 'cash')
+        ));
+    }
+
+    public function getPresupuestoBitacora()
+    {
+        $this->json(AtlasDAO::getPresupuestoBitacora(
+            (int)($_GET['id'] ?? 0),
+            (int)($_GET['anio'] ?? date('Y'))
+        ));
+    }
+
+    public function guardarPresupuestoSucursal()
+    {
+        $payload = $this->payload();
+        $payload['usuario_id'] = (int)($_SESSION['usuario_id'] ?? $_SESSION['persona_id'] ?? $_SESSION['id'] ?? 0);
+        $this->json(AtlasDAO::guardarPresupuestoSucursal($payload));
+    }
+
+    public function eliminarPresupuestoMes()
+    {
+        $payload = $this->payload();
+        $payload['usuario_id'] = (int)($_SESSION['usuario_id'] ?? $_SESSION['persona_id'] ?? $_SESSION['id'] ?? 0);
+        $this->json(AtlasDAO::eliminarPresupuestoMes($payload));
+    }
+
+    public function importarPresupuesto()
+    {
+        $anio = (int)($_POST['anio'] ?? date('Y'));
+        $mes = (int)($_POST['mes'] ?? 0);
+        $archivo = $_FILES['archivo'] ?? null;
+
+        if ($mes < 1 || $mes > 12) {
+            $this->json(['success' => false, 'mensaje' => 'Selecciona un mes valido.']);
+        }
+        if (!$archivo || (int)($archivo['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_OK) {
+            $this->json(['success' => false, 'mensaje' => 'Carga un archivo Excel valido.']);
+        }
+
+        try {
+            $filas = $this->leerPresupuestoExcel((string)$archivo['tmp_name']);
+            $usuarioId = (int)($_SESSION['usuario_id'] ?? $_SESSION['persona_id'] ?? $_SESSION['id'] ?? 0);
+            $resultado = AtlasDAO::importarPresupuestoMensual($anio, $mes, (string)$archivo['name'], $filas, $usuarioId);
+            if (!empty($resultado['success']) && !empty($resultado['datos']['resumen_importacion'])) {
+                $token = bin2hex(random_bytes(16));
+                if (!isset($_SESSION['atlas_presupuesto_resumen_importacion']) || !is_array($_SESSION['atlas_presupuesto_resumen_importacion'])) {
+                    $_SESSION['atlas_presupuesto_resumen_importacion'] = [];
+                }
+                foreach ($_SESSION['atlas_presupuesto_resumen_importacion'] as $key => $item) {
+                    if ((int)($item['created_at'] ?? 0) < time() - 3600) {
+                        unset($_SESSION['atlas_presupuesto_resumen_importacion'][$key]);
+                    }
+                }
+                $_SESSION['atlas_presupuesto_resumen_importacion'][$token] = [
+                    'created_at' => time(),
+                    'archivo_original' => (string)$archivo['name'],
+                    'datos' => $resultado['datos'],
+                ];
+                $resultado['datos']['pdf_token'] = $token;
+                $resultado['datos']['pdf_url'] = '/Atlas/descargarResumenImportacionPresupuesto?token=' . rawurlencode($token);
+            }
+            $this->json($resultado);
+        } catch (\Throwable $e) {
+            $this->json(['success' => false, 'mensaje' => 'No se pudo leer el Excel de presupuesto.', 'error' => $e->getMessage()]);
+        }
+    }
+
+    public function descargarResumenImportacionPresupuesto()
+    {
+        while (ob_get_level()) {
+            ob_end_clean();
+        }
+
+        $token = trim((string)($_GET['token'] ?? ''));
+        $store = $_SESSION['atlas_presupuesto_resumen_importacion'] ?? [];
+        $item = is_array($store) ? ($store[$token] ?? null) : null;
+        if (!$token || !is_array($item) || (int)($item['created_at'] ?? 0) < time() - 3600) {
+            header('Content-Type: text/plain; charset=utf-8', true, 404);
+            echo 'Resumen de importacion no disponible.';
+            exit;
+        }
+
+        try {
+            $datos = is_array($item['datos'] ?? null) ? $item['datos'] : [];
+            $resumen = is_array($datos['resumen_importacion'] ?? null) ? $datos['resumen_importacion'] : [];
+            $anio = (int)($datos['anio'] ?? date('Y'));
+            $mes = (int)($datos['mes'] ?? date('n'));
+            $archivoOriginal = (string)($item['archivo_original'] ?? '');
+            $html = $this->htmlResumenImportacionPresupuesto($resumen, $anio, $mes, $archivoOriginal);
+            $tmpDir = defined('RAIZ') ? (RAIZ . '/storage/tmp_mpdf') : sys_get_temp_dir();
+            if (!is_dir($tmpDir)) {
+                @mkdir($tmpDir, 0775, true);
+            }
+            $mpdf = new \Mpdf\Mpdf([
+                'mode' => 'utf-8',
+                'format' => 'Letter',
+                'tempDir' => is_dir($tmpDir) ? $tmpDir : sys_get_temp_dir(),
+                'margin_left' => 10,
+                'margin_right' => 10,
+                'margin_top' => 12,
+                'margin_bottom' => 12,
+            ]);
+            $mpdf->SetTitle('Resumen importacion presupuesto');
+            $mpdf->WriteHTML($html);
+            $filename = sprintf('resumen_importacion_presupuesto_%04d_%02d.pdf', $anio, $mes);
+            $mpdf->Output($filename, \Mpdf\Output\Destination::DOWNLOAD);
+            exit;
+        } catch (\Throwable $e) {
+            header('Content-Type: text/plain; charset=utf-8', true, 500);
+            echo 'No se pudo generar el resumen PDF.';
+            exit;
+        }
+    }
+
+    public function descargarTemplatePresupuesto()
+    {
+        while (ob_get_level()) {
+            ob_end_clean();
+        }
+
+        try {
+            $anio = (int)($_GET['anio'] ?? date('Y'));
+            $mes = (int)($_GET['mes'] ?? date('n'));
+            if ($mes < 1 || $mes > 12) {
+                $mes = (int)date('n');
+            }
+
+            $spreadsheet = new \PhpOffice\PhpSpreadsheet\Spreadsheet();
+            $sheet = $spreadsheet->getActiveSheet();
+            $sheet->setTitle('Presupuesto');
+
+            $headers = [
+                'Pk_Sucursal',
+                'Distribuidor',
+                'Sucursal',
+                'Divisional',
+                'Regional',
+                'Supervisor ',
+                'Asesor',
+                'Estado',
+                'Promedio Feb -  May',
+                'Clasificacion nuevo esquema',
+                'Creditos',
+                'Cash',
+            ];
+            foreach ($headers as $idx => $label) {
+                $sheet->setCellValue($this->excelCell($idx + 1, 1), $label);
+            }
+
+            $rowNum = 2;
+            foreach (AtlasDAO::getSucursalesTemplatePresupuesto() as $row) {
+                $sheet->setCellValueExplicit($this->excelCell(1, $rowNum), (string)($row['fk_sucursal'] ?? ''), \PhpOffice\PhpSpreadsheet\Cell\DataType::TYPE_STRING);
+                $sheet->setCellValue($this->excelCell(2, $rowNum), $row['distribuidor'] ?? '');
+                $sheet->setCellValue($this->excelCell(3, $rowNum), $row['sucursal'] ?? '');
+                $sheet->setCellValue($this->excelCell(4, $rowNum), $row['divisional'] ?? '');
+                $sheet->setCellValue($this->excelCell(5, $rowNum), $row['regional'] ?? '');
+                $sheet->setCellValue($this->excelCell(6, $rowNum), $row['supervisor'] ?? '');
+                $sheet->setCellValue($this->excelCell(7, $rowNum), $row['asesor'] ?? '');
+                $sheet->setCellValue($this->excelCell(8, $rowNum), $row['estado'] ?? '');
+                $sheet->setCellValue($this->excelCell(9, $rowNum), '');
+                $sheet->setCellValue($this->excelCell(10, $rowNum), $row['clasificacion'] ?? '');
+                $sheet->setCellValue($this->excelCell(11, $rowNum), '');
+                $sheet->setCellValue($this->excelCell(12, $rowNum), '');
+                $rowNum++;
+            }
+
+            $lastRow = max(2, $rowNum - 1);
+            $sheet->getStyle('A1:L1')->getFont()->setBold(true)->getColor()->setRGB('FFFFFF');
+            $sheet->getStyle('A1:L1')->getFill()->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)->getStartColor()->setRGB('26344E');
+            $sheet->getStyle('A1:L' . $lastRow)->getBorders()->getAllBorders()->setBorderStyle(\PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN)->getColor()->setRGB('D9DEE3');
+            $sheet->getStyle('K2:K' . $lastRow)->getNumberFormat()->setFormatCode('0');
+            $sheet->getStyle('L2:L' . $lastRow)->getNumberFormat()->setFormatCode('$#,##0.00');
+            foreach (range('A', 'L') as $col) {
+                $sheet->getColumnDimension($col)->setAutoSize(true);
+            }
+            $sheet->freezePane('A2');
+
+            $filename = sprintf('template_presupuesto_%04d_%02d.xlsx', $anio, $mes);
+            $tmp = tempnam(sys_get_temp_dir(), 'atlas_presupuesto_');
+            if ($tmp === false) {
+                throw new \RuntimeException('No se pudo preparar el archivo temporal.');
+            }
+            (new \PhpOffice\PhpSpreadsheet\Writer\Xlsx($spreadsheet))->save($tmp);
+            $spreadsheet->disconnectWorksheets();
+
+            if (function_exists('session_write_close')) {
+                session_write_close();
+            }
+
+            header('Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+            header('Content-Disposition: attachment; filename="' . $filename . '"');
+            header('Content-Transfer-Encoding: binary');
+            header('Content-Length: ' . filesize($tmp));
+            header('Cache-Control: max-age=0');
+            readfile($tmp);
+            @unlink($tmp);
+            exit;
+        } catch (\Throwable $e) {
+            http_response_code(500);
+            echo 'No se pudo generar el template: ' . htmlspecialchars($e->getMessage(), ENT_QUOTES, 'UTF-8');
+            exit;
+        }
+    }
+
+    private function htmlResumenImportacionPresupuesto(array $resumen, int $anio, int $mes, string $archivoOriginal): string
+    {
+        $nombreMes = $this->nombreMesPresupuesto($mes);
+        $metricas = [
+            'Esperadas' => (int)($resumen['sucursales_esperadas'] ?? 0),
+            'Leidas' => (int)($resumen['filas_leidas'] ?? 0),
+            'Cargadas' => (int)($resumen['registros_importados'] ?? 0),
+            'Duplicadas' => (int)($resumen['duplicados'] ?? 0),
+            'Extras' => (int)($resumen['extras'] ?? 0),
+            'Faltantes' => (int)($resumen['faltantes'] ?? 0),
+        ];
+
+        $cards = '';
+        foreach ($metricas as $label => $valor) {
+            $cards .= '<td class="card"><div class="label">' . $this->ePdf($label) . '</div><div class="value">' . number_format($valor) . '</div></td>';
+        }
+
+        $html = '
+        <html><head><style>
+            body { font-family: sans-serif; color: #22303e; font-size: 10px; }
+            h1 { font-size: 18px; margin: 0 0 4px; text-align: center; }
+            h2 { font-size: 13px; margin: 18px 0 7px; color: #26344e; }
+            .sub { text-align: center; color: #64748b; font-size: 10px; margin-bottom: 12px; }
+            .cards { width: 100%; border-collapse: separate; border-spacing: 5px; margin-bottom: 10px; }
+            .card { border: 1px solid #d9dee8; border-radius: 6px; padding: 7px; background: #f8fafc; text-align: center; }
+            .label { color: #64748b; font-size: 8px; font-weight: bold; text-transform: uppercase; }
+            .value { color: #22303e; font-size: 14px; font-weight: bold; margin-top: 2px; }
+            .note { border: 1px solid #fde68a; background: #fffbeb; color: #92400e; padding: 8px; border-radius: 6px; margin: 10px 0; }
+            table.detalle { width: 100%; border-collapse: collapse; margin-top: 4px; }
+            table.detalle th { background: #26344e; color: #fff; font-size: 8px; text-align: left; padding: 5px; }
+            table.detalle td { border: 1px solid #e5e7eb; padding: 5px; vertical-align: top; }
+            .muted { color: #64748b; }
+        </style></head><body>
+            <h1>Resumen de importacion de presupuesto</h1>
+            <div class="sub">' . $this->ePdf($nombreMes . ' ' . $anio) . ' &middot; Archivo: ' . $this->ePdf($archivoOriginal ?: 'Sin archivo') . '</div>
+            <table class="cards"><tr>' . $cards . '</tr></table>
+            <div class="note">
+                Este documento muestra las observaciones detectadas durante la carga. Las sucursales extra no se cargaron porque no estaban en el template esperado. Las faltantes son sucursales del template que no llegaron en el Excel.
+            </div>';
+
+        $html .= $this->tablaResumenImportacionPdf('Sucursales extra del Excel', 'Estas filas venian en el Excel, pero no existen en el template esperado y no se cargaron.', $resumen['detalle_extras'] ?? [], true);
+        $html .= $this->tablaResumenImportacionPdf('Sucursales faltantes del template', 'Estas sucursales existen en el template esperado, pero no llegaron en el Excel.', $resumen['detalle_faltantes'] ?? [], false);
+        $html .= $this->tablaResumenImportacionPdf('Sucursales duplicadas', 'Estas sucursales venian repetidas. Para cargar se tomo el ultimo registro encontrado por FK.', $resumen['detalle_duplicados'] ?? [], true);
+        $html .= '</body></html>';
+        return $html;
+    }
+
+    private function tablaResumenImportacionPdf(string $titulo, string $descripcion, $rows, bool $mostrarFila): string
+    {
+        if (!is_array($rows) || !$rows) {
+            return '';
+        }
+        $headFila = $mostrarFila ? '<th>Fila Excel</th>' : '';
+        $html = '<h2>' . $this->ePdf($titulo) . '</h2><div class="muted">' . $this->ePdf($descripcion) . '</div>';
+        $html .= '<table class="detalle"><thead><tr>' . $headFila . '<th>FK Sucursal</th><th>Sucursal</th><th>Distribuidor</th></tr></thead><tbody>';
+        foreach ($rows as $row) {
+            if (!is_array($row)) {
+                $row = ['fk_sucursal' => $row];
+            }
+            $html .= '<tr>';
+            if ($mostrarFila) {
+                $html .= '<td>' . $this->ePdf((string)($row['fila'] ?? '')) . '</td>';
+            }
+            $html .= '<td>' . $this->ePdf((string)($row['fk_sucursal'] ?? '')) . '</td>';
+            $html .= '<td>' . $this->ePdf((string)($row['sucursal'] ?? 'Sin nombre en archivo')) . '</td>';
+            $html .= '<td>' . $this->ePdf((string)($row['distribuidor'] ?? '')) . '</td>';
+            $html .= '</tr>';
+        }
+        $html .= '</tbody></table>';
+        return $html;
+    }
+
+    private function nombreMesPresupuesto(int $mes): string
+    {
+        $nombres = [
+            1 => 'Enero', 2 => 'Febrero', 3 => 'Marzo', 4 => 'Abril',
+            5 => 'Mayo', 6 => 'Junio', 7 => 'Julio', 8 => 'Agosto',
+            9 => 'Septiembre', 10 => 'Octubre', 11 => 'Noviembre', 12 => 'Diciembre',
+        ];
+        return $nombres[$mes] ?? 'Mes';
+    }
+
+    private function ePdf(string $value): string
+    {
+        return htmlspecialchars($value, ENT_QUOTES, 'UTF-8');
+    }
+
+    public function rutasGestores()
+    {
+        $this->set('titulo', 'Rutas y seguimiento');
+        $this->set('google_maps_api_key_js', json_encode($this->googleMapsApiKey(), JSON_UNESCAPED_SLASHES));
+        $this->render('atlas_rutas_gestores');
+    }
+
+    public function sucursalesAsignadas()
+    {
+        $this->set('titulo', 'Seguimiento');
+        $this->render('atlas_sucursales_asignadas');
+    }
+
+    public function seguimiento()
+    {
+        header('Location: /Atlas/presupuestos', true, 302);
+        exit;
     }
 
     public function sucursales()
@@ -44,14 +393,297 @@ class Atlas extends Controller
         $this->json(AtlasDAO::getSucursales());
     }
 
+    public function guardarConfiguracionCalidadSucursales()
+    {
+        $this->json(AtlasDAO::guardarConfiguracionCalidadSucursales($this->payload()));
+    }
+
+    public function guardarConfiguracionHorarioOperativoRutas()
+    {
+        $this->json(AtlasDAO::guardarConfiguracionHorarioOperativoRutas($this->payload()));
+    }
+
     public function getCatalogos()
     {
         $this->json(AtlasDAO::getCatalogos());
     }
 
+    public function getMunicipiosPresencia()
+    {
+        $this->json(AtlasDAO::getMunicipiosPresencia((int)($_GET['estado_id'] ?? 0)));
+    }
+
     public function getCatalogosComerciales()
     {
         $this->json(AtlasDAO::getCatalogosComerciales());
+    }
+
+    public function getAccesosAtlas()
+    {
+        $this->json(AtlasDAO::getAccesosAtlas());
+    }
+
+    public function sincronizarAccesosAtlas()
+    {
+        $this->json(AtlasDAO::sincronizarAccesosAtlasComercialMexico());
+    }
+
+    public function actualizarExclusionAccesosAtlas()
+    {
+        $payload = $this->payload();
+        $payload['_usuario_id'] = (int) ($_SESSION['usuario_id'] ?? $_SESSION['persona_id'] ?? $_SESSION['id'] ?? 0);
+        $this->json(AtlasDAO::actualizarExclusionAccesosAtlas($payload));
+    }
+
+    public function getAccesoAtlasDetalle()
+    {
+        $this->json(AtlasDAO::getAccesoAtlasDetalle((int)($_GET['id'] ?? 0)));
+    }
+
+    public function guardarPermisosAccesoAtlas()
+    {
+        $this->json(AtlasDAO::guardarPermisosAccesoAtlas($this->payload()));
+    }
+
+    public function restablecerPasswordAccesoAtlas()
+    {
+        $payload = $this->payload();
+        $payload['_usuario_id'] = (int) ($_SESSION['usuario_id'] ?? $_SESSION['persona_id'] ?? $_SESSION['id'] ?? 0);
+        $this->json(AtlasDAO::restablecerPasswordAccesoAtlas($payload));
+    }
+
+    public function getRutasGestores()
+    {
+        $this->json(AtlasDAO::getRutasGestores());
+    }
+
+    public function getRutaGestorDetalle()
+    {
+        $this->json(AtlasDAO::getRutaGestorDetalle((int)($_GET['id'] ?? 0)));
+    }
+
+    public function pdfRutaGestor()
+    {
+        $id = (int)($_GET['id'] ?? 0);
+        $res = AtlasDAO::getRutaGestorResumenTecnico($id);
+        if (!$res['success']) {
+            http_response_code(404);
+            echo htmlspecialchars($res['mensaje'] ?? 'No se pudo generar el PDF.', ENT_QUOTES, 'UTF-8');
+            exit;
+        }
+        $datos = $res['datos'];
+        $ruta = $datos['ruta'];
+        $resumen = $datos['resumen'];
+        $sucursales = $datos['sucursales'];
+        $creditos = $datos['creditos'];
+        $h = static fn($v) => htmlspecialchars((string)($v ?? ''), ENT_QUOTES, 'UTF-8');
+        $money = static fn($v) => '$' . number_format((float)$v, 2, '.', ',');
+        $num = static fn($v) => number_format((float)$v, 0, '.', ',');
+        $fechaGeneracion = (new \DateTimeImmutable('now', new \DateTimeZone('America/Mexico_City')))->format('d/m/Y H:i');
+        $clasificaciones = '';
+        foreach (($resumen['clasificaciones'] ?? []) as $nombre => $total) {
+            $clasificaciones .= '<span class="pill">' . $h($nombre) . ': ' . $num($total) . '</span>';
+        }
+        $estados = '';
+        foreach (($resumen['estados'] ?? []) as $nombre => $total) {
+            $estados .= '<span class="pill">' . $h($nombre) . ': ' . $num($total) . '</span>';
+        }
+        $alertas = [];
+        if ((int)($resumen['sucursales_sin_coordenadas'] ?? 0) > 0) {
+            $alertas[] = $num($resumen['sucursales_sin_coordenadas']) . ' sucursal(es) sin coordenadas.';
+        }
+        if ((int)($resumen['sucursales_sin_telefono'] ?? 0) > 0) {
+            $alertas[] = $num($resumen['sucursales_sin_telefono']) . ' sucursal(es) sin telefono principal.';
+        }
+        if (!$alertas) {
+            $alertas[] = 'Sin alertas criticas detectadas en sucursales de la ruta.';
+        }
+
+        $rowsSuc = '';
+        foreach ($sucursales as $s) {
+            $lat = trim((string)($s['latitud'] ?? ''));
+            $lng = trim((string)($s['longitud'] ?? ''));
+            $coords = $lat !== '' && $lng !== ''
+                ? '<a class="mini-card map-link" href="https://www.google.com/maps?q=' . rawurlencode($lat . ',' . $lng) . '" target="_blank" rel="noopener">Maps</a>'
+                : '<span class="mini-card">Sin coordenadas</span>';
+            $clasificacion = '<span class="mini-card">' . $h($s['clasificacion_nombre']) . '</span>';
+            $visita = '<span class="mini-card">Fecha ' . $h($s['fecha_inicio_visita'] ?? '') . '</span>';
+            $horario = '<span class="mini-card">Estancia ' . $h($s['estancia_valor'] ?? 45) . ' ' . $h($s['estancia_unidad'] ?? 'minutos') . '</span>';
+            $detalleVisita = '<div class="inline-cards">' . $clasificacion . $coords . $visita . $horario . '</div>';
+            $rowsSuc .= '<tr>
+                <td class="center">' . $num($s['orden_visita'] ?? 0) . '</td>
+                <td><strong>' . $h($s['sucursal']) . '</strong><br><span class="muted">FK ' . $h($s['fk_sucursal']) . ' · ' . $h($s['distribuidor']) . '</span></td>
+                <td>' . $h($s['direccion']) . '<br><span class="muted">' . $h($s['municipio']) . ', ' . $h($s['estado']) . ' · CP ' . $h($s['codigo_postal']) . '</span></td>
+                <td>' . $detalleVisita . '</td>
+                <td class="right">' . $num($s['meta_creditos']) . '<br><span class="muted">' . $money($s['meta_cash']) . '</span></td>
+                <td class="right">' . $num($s['total_creditos']) . '<br><span class="muted">' . $money($s['cash_detenido_operativo']) . '</span></td>
+            </tr>';
+        }
+        if ($rowsSuc === '') {
+            $rowsSuc = '<tr><td colspan="6" class="center muted">La ruta no tiene visitas activas.</td></tr>';
+        }
+
+        $rowsCred = '';
+        foreach ($creditos as $c) {
+            $rowsCred .= '<tr>
+                <td>' . $h($c['id_solicitud'] ?: $c['credito_id']) . '</td>
+                <td>' . $h($c['sucursal']) . '<br><span class="muted">FK ' . $h($c['fk_sucursal']) . '</span></td>
+                <td>' . $h($c['bucket_actual'] ?: $c['tipo_bucket_actual']) . '</td>
+                <td class="right">' . $money($c['monto_financiar']) . '</td>
+                <td>' . $h($c['fecha_ultima_sync']) . '</td>
+            </tr>';
+        }
+        if ($rowsCred === '') {
+            $rowsCred = '<tr><td colspan="5" class="center muted">No hay creditos detenidos/pendientes operativos en esta ruta.</td></tr>';
+        }
+
+        $html = '<!doctype html><html><head><meta charset="utf-8"><style>
+            body{font-family:DejaVu Sans,Arial,sans-serif;color:#1f2937;font-size:10px}
+            h1{font-size:20px;margin:0 0 4px;color:#172554}
+            h2{font-size:13px;margin:16px 0 7px;color:#1e3a8a;border-bottom:1px solid #dbeafe;padding-bottom:4px}
+            .muted{color:#64748b;font-size:9px}.right{text-align:right}.center{text-align:center}
+            .top{display:flex;justify-content:space-between;gap:12px;border-bottom:3px solid #1d4ed8;padding-bottom:10px;margin-bottom:10px}
+            .boxgrid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin:10px 0}
+            .box{border:1px solid #dbeafe;background:#f8fafc;border-radius:6px;padding:8px}
+            .box .lbl{font-size:8px;text-transform:uppercase;color:#64748b;font-weight:bold}.box .val{font-size:15px;color:#111827;font-weight:bold}
+            table{width:100%;border-collapse:collapse;margin-top:6px}th{background:#eff6ff;color:#1e3a8a;text-align:left;font-size:8px;text-transform:uppercase}
+            th,td{border:1px solid #e5e7eb;padding:5px;vertical-align:top}.pill{display:inline-block;border:1px solid #bfdbfe;background:#eff6ff;color:#1e40af;border-radius:10px;padding:3px 7px;margin:2px;font-size:9px}
+            .inline-cards{white-space:nowrap;display:block}.mini-card{display:inline-block;border:1px solid #dbeafe;background:#f8fbff;color:#1f2937;border-radius:8px;padding:2px 5px;margin:0 2px 0 0;font-size:7.5px;font-weight:bold;white-space:nowrap}.map-link{color:#1d4ed8;text-decoration:none}
+            .alert{border:1px solid #fde68a;background:#fffbeb;color:#92400e;padding:6px;margin:4px 0;border-radius:6px}
+        </style></head><body>
+            <div class="top">
+                <div><h1>Resumen tecnico de ruta Atlas</h1><div class="muted">Generado CDMX: ' . $h($fechaGeneracion) . '</div></div>
+                <div class="right"><strong>Ruta #' . $h($ruta['id']) . '</strong><br>' . $h($ruta['estatus']) . '</div>
+            </div>
+            <h2>Identificacion de ruta</h2>
+            <table><tr><th>Ruta</th><th>Gestor</th><th>Periodo</th><th>Presupuesto</th></tr><tr>
+                <td><strong>' . $h($ruta['nombre_ruta']) . '</strong><br><span class="muted">Tipo ' . $h($ruta['tipo_ruta']) . ' · Prioridad ' . $h($ruta['prioridad']) . ' · Criterio ' . $h($ruta['criterio_prioridad']) . '</span></td>
+                <td><strong>' . $h($ruta['gestor_persona_nombre'] ?: $ruta['gestor_nombre']) . '</strong><br><span class="muted">' . $h($ruta['gestor_numero_empleado_actual'] ?: $ruta['gestor_numero_empleado']) . ' · ' . $h($ruta['gestor_departamento']) . ' / ' . $h($ruta['gestor_puesto']) . '</span><br><span class="muted">' . $h($ruta['gestor_correo']) . ' ' . $h($ruta['gestor_telefono']) . '</span></td>
+                <td>' . $h($ruta['fecha_inicio_fmt']) . ' a ' . $h($ruta['fecha_fin_fmt']) . '</td>
+                <td><strong>' . $h($ruta['presupuesto_mes']) . ' ' . $h($ruta['presupuesto_anio']) . '</strong></td>
+            </tr></table>
+            <div class="boxgrid">
+                <div class="box"><div class="lbl">Visitas</div><div class="val">' . $num($resumen['total_sucursales']) . '</div></div>
+                <div class="box"><div class="lbl">Meta creditos</div><div class="val">' . $num($resumen['meta_creditos']) . '</div></div>
+                <div class="box"><div class="lbl">Meta cash</div><div class="val">' . $money($resumen['meta_cash']) . '</div></div>
+                <div class="box"><div class="lbl">Cash operativo</div><div class="val">' . $money($resumen['cash_operativo']) . '</div></div>
+            </div>
+            <h2>Lecturas explotables</h2>
+            <div><strong>Clasificaciones:</strong> ' . $clasificaciones . '</div>
+            <div><strong>Estados:</strong> ' . $estados . '</div>
+            <div><strong>Calidad operativa:</strong> ' . $num($resumen['sucursales_con_coordenadas']) . ' con coordenadas · ' . $num($resumen['sucursales_sin_coordenadas']) . ' sin coordenadas · ' . $num($resumen['sucursales_sin_telefono']) . ' sin telefono</div>
+            <h2>Alertas</h2>' . implode('', array_map(static fn($a) => '<div class="alert">' . $h($a) . '</div>', $alertas)) . '
+            <h2>Detalle tecnico de visitas</h2>
+            <table><colgroup><col style="width:4%"><col style="width:20%"><col style="width:28%"><col style="width:28%"><col style="width:10%"><col style="width:10%"></colgroup><thead><tr><th>#</th><th>Sucursal</th><th>Direccion</th><th>Detalle visita</th><th class="right">Meta</th><th class="right">Operacion</th></tr></thead><tbody>' . $rowsSuc . '</tbody></table>
+            <h2>Creditos pendientes/detenidos vinculados</h2>
+            <table><thead><tr><th>Credito</th><th>Sucursal</th><th>Bucket</th><th class="right">Monto</th><th>Ultima sync</th></tr></thead><tbody>' . $rowsCred . '</tbody></table>
+            <h2>Observaciones</h2><div>' . nl2br($h($ruta['observaciones'] ?: 'Sin observaciones capturadas.')) . '</div>
+        </body></html>';
+
+        $autoload = dirname(RAIZ) . '/vendor/autoload.php';
+        if (!class_exists(\Mpdf\Mpdf::class) && is_file($autoload)) {
+            require_once $autoload;
+        }
+        if (!class_exists(\Mpdf\Mpdf::class)) {
+            http_response_code(500);
+            echo 'No esta disponible la libreria mPDF para generar el resumen tecnico.';
+            exit;
+        }
+        $mpdf = new \Mpdf\Mpdf([
+            'format' => 'Letter',
+            'orientation' => 'L',
+            'tempDir' => sys_get_temp_dir(),
+            'margin_left' => 8,
+            'margin_right' => 8,
+            'margin_top' => 8,
+            'margin_bottom' => 8,
+        ]);
+        $mpdf->SetTitle('Resumen tecnico ruta ' . (int)$ruta['id']);
+        $mpdf->WriteHTML($html);
+        $filename = 'atlas_ruta_' . (int)$ruta['id'] . '_resumen_tecnico.pdf';
+        $mpdf->Output($filename, \Mpdf\Output\Destination::INLINE);
+        exit;
+    }
+
+    public function getRutasGestoresCatalogos()
+    {
+        $usuarioId = (int) ($_SESSION['usuario_id'] ?? $_SESSION['persona_id'] ?? $_SESSION['id'] ?? 0);
+        $this->json(AtlasDAO::getRutasGestoresCatalogos($usuarioId));
+    }
+
+    public function getSucursalesAsignadas()
+    {
+        $this->json(AtlasDAO::getSucursalesAsignadas());
+    }
+
+    public function getSucursalAsignadaDetalle()
+    {
+        $this->json(AtlasDAO::getSucursalAsignadaDetalle((int)($_GET['fk_sucursal'] ?? 0)));
+    }
+
+    public function sincronizarCreditosOfertaMexico()
+    {
+        $this->json(AtlasDAO::sincronizarCreditosOfertaMexico($this->payload()));
+    }
+
+    public function getGestoresOperativos()
+    {
+        $this->json(AtlasDAO::getGestoresOperativos());
+    }
+
+    public function guardarGestorOperativo()
+    {
+        $this->json(AtlasDAO::guardarGestorOperativo($this->payload()));
+    }
+
+    public function eliminarGestorOperativo()
+    {
+        $this->json(AtlasDAO::eliminarGestorOperativo($this->payload()));
+    }
+
+    public function guardarGestorSucursal()
+    {
+        $this->json(AtlasDAO::guardarGestorSucursal($this->payload()));
+    }
+
+    public function eliminarGestorSucursal()
+    {
+        $this->json(AtlasDAO::eliminarGestorSucursal($this->payload()));
+    }
+
+    public function guardarRutaGestor()
+    {
+        $this->json(AtlasDAO::guardarRutaGestor($this->payload()));
+    }
+
+    public function guardarRutaSucursal()
+    {
+        $this->json(AtlasDAO::guardarRutaSucursal($this->payload()));
+    }
+
+    public function guardarRutaCredito()
+    {
+        $this->json(AtlasDAO::guardarRutaCredito($this->payload()));
+    }
+
+    public function actualizarEstatusRutaGestor()
+    {
+        $this->json(AtlasDAO::actualizarEstatusRutaGestor($this->payload()));
+    }
+
+    public function eliminarRutaSucursal()
+    {
+        $this->json(AtlasDAO::eliminarRutaSucursal($this->payload()));
+    }
+
+    public function guardarOrdenRutaSucursales()
+    {
+        $this->json(AtlasDAO::guardarOrdenRutaSucursales($this->payload()));
+    }
+
+    public function eliminarRutaCredito()
+    {
+        $this->json(AtlasDAO::eliminarRutaCredito($this->payload()));
     }
 
     public function guardarCatalogoComercial()
@@ -91,7 +723,14 @@ class Atlas extends Controller
 
     public function guardarSucursal()
     {
-        $this->json(AtlasDAO::guardarSucursal($this->payload()));
+        $payload = $this->payload();
+        $payload['_usuario_id'] = (int) ($_SESSION['usuario_id'] ?? $_SESSION['persona_id'] ?? $_SESSION['id'] ?? 0);
+        $this->json(AtlasDAO::guardarSucursal($payload));
+    }
+
+    public function actualizarSucursalPendiente()
+    {
+        $this->json(AtlasDAO::actualizarSucursalPendiente($this->payload()));
     }
 
     public function guardarDivision()
@@ -99,14 +738,47 @@ class Atlas extends Controller
         $this->json(AtlasDAO::guardarDivision($this->payload()));
     }
 
-    public function guardarDistribuidor()
+    public function guardarAsignacionDivision()
     {
-        $this->json(AtlasDAO::guardarDistribuidor($this->payload()));
+        $payload = $this->payload();
+        $payload['_usuario_id'] = (int) ($_SESSION['usuario_id'] ?? $_SESSION['persona_id'] ?? $_SESSION['id'] ?? 0);
+        $this->json(AtlasDAO::guardarAsignacionDivision($payload));
     }
 
-    public function guardarDiversificacion()
+    public function getActualizacionesDivisionales()
     {
-        $this->json(AtlasDAO::guardarDiversificacion($this->payload()));
+        $this->json(AtlasDAO::getActualizacionesDivisionales());
+    }
+
+    public function crearDivisionalDesdePersona()
+    {
+        $payload = $this->payload();
+        $payload['_usuario_id'] = (int) ($_SESSION['usuario_id'] ?? $_SESSION['persona_id'] ?? $_SESSION['id'] ?? 0);
+        $this->json(AtlasDAO::crearDivisionalDesdePersona($payload));
+    }
+
+    public function desactivarDivisional()
+    {
+        $payload = $this->payload();
+        $payload['_usuario_id'] = (int) ($_SESSION['usuario_id'] ?? $_SESSION['persona_id'] ?? $_SESSION['id'] ?? 0);
+        $this->json(AtlasDAO::desactivarDivisional($payload));
+    }
+
+    public function guardarDistribuidor()
+    {
+        $payload = $this->payload();
+        $payload['_usuario_id'] = (int) ($_SESSION['usuario_id'] ?? $_SESSION['persona_id'] ?? $_SESSION['id'] ?? 0);
+        $this->json(AtlasDAO::guardarDistribuidor($payload));
+    }
+
+    public function subirConstanciaFiscalDistribuidor()
+    {
+        $this->json(AtlasDAO::subirConstanciaFiscalDistribuidor($_POST, $_FILES['archivo'] ?? []));
+    }
+
+    public function guardarCatalogoDistribuidorOpcion()
+    {
+        $this->json(AtlasDAO::guardarCatalogoDistribuidorOpcion($this->payload()));
     }
 
     public function guardarClasificacion()
@@ -230,6 +902,25 @@ class Atlas extends Controller
         return (string)($keys[0] ?? '');
     }
 
+    private function googleMapsApiKey(): string
+    {
+        $key = defined('GOOGLE_MAPS_API_KEY') ? trim((string)GOOGLE_MAPS_API_KEY) : '';
+        if ($key !== '') {
+            return $key;
+        }
+
+        $configPath = dirname(__DIR__) . DIRECTORY_SEPARATOR . 'config' . DIRECTORY_SEPARATOR . 'ConfigApi.php';
+        if (!function_exists('config_api_load_from_db') && is_file($configPath)) {
+            require_once $configPath;
+        }
+        if (function_exists('config_api_load_from_db')) {
+            $config = config_api_load_from_db();
+            $key = trim((string)($config['GOOGLE_MAPS_API_KEY'] ?? ''));
+        }
+
+        return $key;
+    }
+
     private function payload(): array
     {
         $raw = file_get_contents('php://input');
@@ -238,6 +929,99 @@ class Atlas extends Controller
             return $json;
         }
         return $_POST ?: [];
+    }
+
+    private function leerPresupuestoExcel(string $ruta): array
+    {
+        $spreadsheet = \PhpOffice\PhpSpreadsheet\IOFactory::load($ruta);
+        $sheet = $spreadsheet->getActiveSheet();
+        $highestRow = $sheet->getHighestDataRow();
+        $highestColumn = $sheet->getHighestDataColumn();
+        $highestColumnIndex = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::columnIndexFromString($highestColumn);
+
+        $headerRow = 0;
+        $headers = [];
+        for ($row = 1; $row <= min(15, $highestRow); $row++) {
+            $tmp = [];
+            for ($col = 1; $col <= $highestColumnIndex; $col++) {
+                $value = $sheet->getCell($this->excelCell($col, $row))->getValue();
+                $tmp[$col] = $this->normalizarHeaderPresupuesto($value);
+            }
+            if (in_array('pksucursal', $tmp, true) && (in_array('creditos', $tmp, true) || in_array('cash', $tmp, true))) {
+                $headerRow = $row;
+                $headers = $tmp;
+                break;
+            }
+        }
+
+        if ($headerRow === 0) {
+            throw new \RuntimeException('No se encontro encabezado con Pk_Sucursal, Creditos y Cash.');
+        }
+
+        $map = [];
+        foreach ($headers as $col => $header) {
+            $campo = match ($header) {
+                'pksucursal', 'fksucursal', 'fksucursalid' => 'fk_sucursal',
+                'diversificacion' => 'diversificacion',
+                'distribuidor' => 'distribuidor',
+                'sucursal' => 'sucursal',
+                'divisional' => 'divisional',
+                'regional' => 'regional',
+                'supervisor' => 'supervisor',
+                'asesor' => 'asesor',
+                'estado' => 'estado',
+                'promediofebmay', 'promediofebreroamay' => 'promedio_creditos',
+                'clasificacionnuevoesquema', 'clasificacion' => 'clasificacion',
+                'creditos', 'credito', 'meta', 'metacreditos', 'metacredito' => 'meta_creditos',
+                'cash', 'metacash', 'presupuesto' => 'meta_cash',
+                default => null,
+            };
+            if ($campo !== null) {
+                $map[$col] = $campo;
+            }
+        }
+
+        if (!in_array('fk_sucursal', $map, true)) {
+            throw new \RuntimeException('El Excel no trae Pk_Sucursal.');
+        }
+
+        $filas = [];
+        for ($row = $headerRow + 1; $row <= $highestRow; $row++) {
+            $item = [];
+            foreach ($map as $col => $campo) {
+                $cell = $sheet->getCell($this->excelCell($col, $row));
+                $value = $cell->isFormula() ? $cell->getCalculatedValue() : $cell->getValue();
+                $item[$campo] = is_string($value) ? trim($value) : $value;
+            }
+            $fk = trim((string)($item['fk_sucursal'] ?? ''));
+            if ($fk === '' || !is_numeric($fk)) {
+                continue;
+            }
+            $item['_excel_row'] = $row;
+            $filas[] = $item;
+        }
+
+        $spreadsheet->disconnectWorksheets();
+        if (!$filas) {
+            throw new \RuntimeException('El Excel no contiene filas de presupuesto.');
+        }
+        return $filas;
+    }
+
+    private function normalizarHeaderPresupuesto($value): string
+    {
+        $text = mb_strtolower(trim((string)$value), 'UTF-8');
+        $text = strtr($text, [
+            'á' => 'a', 'é' => 'e', 'í' => 'i', 'ó' => 'o', 'ú' => 'u', 'ü' => 'u', 'ñ' => 'n',
+            'Á' => 'a', 'É' => 'e', 'Í' => 'i', 'Ó' => 'o', 'Ú' => 'u', 'Ü' => 'u', 'Ñ' => 'n',
+            'Ã¡' => 'a', 'Ã©' => 'e', 'Ã­' => 'i', 'Ã³' => 'o', 'Ãº' => 'u', 'Ã¼' => 'u', 'Ã±' => 'n',
+        ]);
+        return preg_replace('/[^a-z0-9]+/', '', $text) ?: '';
+    }
+
+    private function excelCell(int $col, int $row): string
+    {
+        return \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($col) . $row;
     }
 
     private function json(array $data): void

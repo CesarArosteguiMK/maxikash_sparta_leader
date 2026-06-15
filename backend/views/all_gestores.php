@@ -7102,7 +7102,7 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
                                     <h6 class="mb-1 fw-bold">Permisos especiales</h6>
                                 </div>
                                 <button type="button" class="btn btn-sm btn-outline-primary flex-shrink-0" id="btn-permisos-esp-expandir-todos" onclick="expandirTodosPermisosEspeciales()">
-                                    <i class="fa fa-expand me-1"></i>Expandir todos
+                                    <i class="fa fa-expand me-1"></i>Desplegar todas las pestañas
                                 </button>
                             </div>
                             <div id="permisos-especiales-container" class="modal-perfil-permisos-outer">

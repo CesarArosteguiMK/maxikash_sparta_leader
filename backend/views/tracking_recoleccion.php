@@ -40,7 +40,7 @@ $opcionesTracking = [
         'btn'    => 'Ver operacion',
         'icon'   => 'fa-truck-fast',
         'visual' => 'rocket',
-        'imgUrl' => 'https://cdn-icons-png.flaticon.com/512/3097/3097180.png',
+        'imgUrl' => 'https://cdn-icons-png.flaticon.com/512/11377/11377059.png',
         'class'  => 'primary',
     ],
 ];
