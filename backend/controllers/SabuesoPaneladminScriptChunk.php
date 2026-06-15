@@ -58,12 +58,44 @@
         var rastreoPaletaColoresGestores = ["#ea580c", "#dc2626", "#9333ea", "#0891b2", "#ca8a04", "#db2777", "#0d9488", "#64748b"];
         /** Valor reservado en data-gestor del filtro del mapa (Dirección megareporte); no usar como nombre de persona. */
         var RASTREO_FILTRO_CAPA_MEGAREPORTE = '__MEGAREPORTE__';
+        var rastreoGeocodificandoMegareporte = false;
         var rastreoMegareporteMarkerAlternas = null;
         var rastreoMegareporteOverlayAlternas = null;
         var rastreoMegareporteMarkerAlternasGrande = null;
         var rastreoMegareporteOverlayAlternasGrande = null;
 SCRIPT;
         $script .= <<<'JS'
+        function rastreoTieneCoordsMegareporte() {
+            if (!rastreoDomicilioMegareporte) return false;
+            var lat = parseFloat(rastreoDomicilioMegareporte.lat);
+            var lng = parseFloat(rastreoDomicilioMegareporte.lng);
+            return !isNaN(lat) && !isNaN(lng);
+        }
+        function rastreoIntentarGeocodificarMegareporte(callback) {
+            if (!rastreoDomicilioMegareporte || rastreoTieneCoordsMegareporte() || rastreoGeocodificandoMegareporte) {
+                if (typeof callback === 'function') callback(rastreoTieneCoordsMegareporte());
+                return;
+            }
+            var direccion = ((rastreoDomicilioMegareporte.direccion || rastreoDatosClienteActual.direccion || '') + '').trim();
+            if (!direccion || typeof google === 'undefined' || !google.maps || typeof google.maps.Geocoder === 'undefined') {
+                if (typeof callback === 'function') callback(false);
+                return;
+            }
+            rastreoGeocodificandoMegareporte = true;
+            var geocoder = new google.maps.Geocoder();
+            geocoder.geocode({ address: direccion, componentRestrictions: { country: 'MX' } }, function(results, status) {
+                rastreoGeocodificandoMegareporte = false;
+                if (status === 'OK' && results && results[0] && results[0].geometry && results[0].geometry.location) {
+                    var loc = results[0].geometry.location;
+                    rastreoDomicilioMegareporte.lat = typeof loc.lat === 'function' ? loc.lat() : loc.lat;
+                    rastreoDomicilioMegareporte.lng = typeof loc.lng === 'function' ? loc.lng() : loc.lng;
+                    rastreoDomicilioMegareporte.direccion = direccion;
+                    if (typeof callback === 'function') callback(true);
+                    return;
+                }
+                if (typeof callback === 'function') callback(false);
+            });
+        }
         function sabuesoCloseDondeDetalle(){
             try {
                 var b = document.getElementById('rastreoDondeDetalle');
@@ -1857,7 +1889,9 @@ JS;
                 filtrarMapaPorGestor(selected);
             });
             $(\'#modalMapaAlternasGrande\').on(\'shown.bs.modal\', function() {
-                initMapaRastreoAlternasGrande(rastreoDireccionesParaMapa, rastreoGestionesParaMapa, rastreoPuntosGeo || []);
+                rastreoIntentarGeocodificarMegareporte(function() {
+                    initMapaRastreoAlternasGrande(rastreoDireccionesParaMapa, rastreoGestionesParaMapa, rastreoPuntosGeo || []);
+                });
                 var idxGeo = rastreoCentrarEnGeoAlternasIndice;
                 rastreoCentrarEnGeoAlternasIndice = null;
                 if (idxGeo !== null && idxGeo !== undefined) {
@@ -1892,7 +1926,7 @@ JS;
                     $(\'#rastreoResumenIAContenido\').empty();
                     rastreoDireccionesParaMapa = (r.puntos_mapa && r.puntos_mapa.length) ? r.puntos_mapa : [];
                     rastreoPuntosGeo = [];
-                    rastreoDomicilioMegareporte = (r.domicilio_megareporte && r.domicilio_megareporte.lat != null && r.domicilio_megareporte.lng != null) ? r.domicilio_megareporte : null;
+                    rastreoDomicilioMegareporte = (r.domicilio_megareporte && (r.domicilio_megareporte.direccion || (r.domicilio_megareporte.lat != null && r.domicilio_megareporte.lng != null))) ? r.domicilio_megareporte : null;
                     rastreoIndiceCasa = (r.indice_casa !== undefined && r.indice_casa !== null && Number.isInteger(r.indice_casa)) ? r.indice_casa : null;
                     $(\'#rastreoDireccionesAlternasContenido\').removeClass(\'rastreo-contenido-cargando\').html(\'<span class="text-muted small">Cargando direcciones alternas...</span>\');
                     $(\'#rastreoDireccionesAlternas .rastreo-mapa-wrap\').show();
@@ -2035,11 +2069,18 @@ JS;
                     }
                     $(\'#rastreoDirecciones .rastreo-mapa-wrap\').show();
                     var ptsMapa = rastreoDireccionesParaMapa;
-                    requestAnimationFrame(function() {
+                    function renderizarMapasRastreo() {
                         requestAnimationFrame(function() {
-                            try { initMapaRastreo(ptsMapa); maybeInitMapaAlternas(); } catch (e) {}
+                            requestAnimationFrame(function() {
+                                try { initMapaRastreo(ptsMapa); maybeInitMapaAlternas(); } catch (e) {}
+                            });
                         });
-                    });
+                    }
+                    if (rastreoDomicilioMegareporte && !rastreoTieneCoordsMegareporte()) {
+                        rastreoIntentarGeocodificarMegareporte(function() { renderizarMapasRastreo(); });
+                    } else {
+                        renderizarMapasRastreo();
+                    }
                     cargarPuntosGeoRastreoDiferido();
                 }, onError: function() {
                     rastreoDomicilioMegareporte = null; rastreoIndiceCasa = null;
