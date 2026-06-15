@@ -1,0 +1,998 @@
+{
+  "arcgis:v3:1::24400:ZMOTO CHAMPOTON, Mexico": {
+    "ok": false,
+    "error": "demasiado_generico:Locality:90 | demasiado_generico:Locality:90 | demasiado_generico:Locality:90 | demasiado_generico:Locality:90 | demasiado_generico:Locality:85.5",
+    "query": "ZMOTO CHAMPOTON, Mexico",
+    "source": "arcgis"
+  },
+  "arcgis:v3:1::24400:ZMOTO CHAMPOTON, entre Calle 8, Col. Ejido Paraíso (justo enfrente de la gasolinera), C.P. 24400, 24400, Mexico": {
+    "ok": false,
+    "error": "score_bajo:79.2 | score_bajo:79 | score_bajo:77 | score_bajo:76.12 | score_bajo:76.12",
+    "query": "ZMOTO CHAMPOTON, entre Calle 8, Col. Ejido Paraíso (justo enfrente de la gasolinera), C.P. 24400, 24400, Mexico",
+    "source": "arcgis"
+  },
+  "arcgis:v3:0::24400:Calle 26 s/n, entre Calle 8, Col. Ejido Paraíso (justo enfrente de la gasolinera), C.P. 24400,, Mexico": {
+    "ok": false,
+    "error": "calle_generica:StreetName:81.8 | score_bajo:79.2 | score_bajo:79 | score_bajo:79 | score_bajo:79",
+    "query": "Calle 26 s/n, entre Calle 8, Col. Ejido Paraíso (justo enfrente de la gasolinera), C.P. 24400,, Mexico",
+    "source": "arcgis"
+  },
+  "arcgis:v3:1::24400:ZMOTO CHAMPOTON, Calle 26 s/n, entre Calle 8, Col. Ejido Paraíso (justo enfrente de la gasolinera), C.P. 24400,, Mexico": {
+    "ok": false,
+    "error": "score_bajo:79.2 | score_bajo:79.16 | cp_no_coincide:24402 | score_bajo:77.58 | score_bajo:77.58",
+    "query": "ZMOTO CHAMPOTON, Calle 26 s/n, entre Calle 8, Col. Ejido Paraíso (justo enfrente de la gasolinera), C.P. 24400,, Mexico",
+    "source": "arcgis"
+  },
+  "nominatim:ZMOTO CHAMPOTON, Mexico": {
+    "ok": false,
+    "error": "sin_resultado",
+    "query": "ZMOTO CHAMPOTON, Mexico",
+    "source": "nominatim"
+  },
+  "nominatim:ZMOTO CHAMPOTON, entre Calle 8, Col. Ejido Paraíso (justo enfrente de la gasolinera), C.P. 24400, 24400, Mexico": {
+    "ok": false,
+    "error": "sin_resultado",
+    "query": "ZMOTO CHAMPOTON, entre Calle 8, Col. Ejido Paraíso (justo enfrente de la gasolinera), C.P. 24400, 24400, Mexico",
+    "source": "nominatim"
+  },
+  "nominatim:Calle 26 s/n, entre Calle 8, Col. Ejido Paraíso (justo enfrente de la gasolinera), C.P. 24400,, Mexico": {
+    "ok": false,
+    "error": "sin_resultado",
+    "query": "Calle 26 s/n, entre Calle 8, Col. Ejido Paraíso (justo enfrente de la gasolinera), C.P. 24400,, Mexico",
+    "source": "nominatim"
+  },
+  "nominatim:ZMOTO CHAMPOTON, Calle 26 s/n, entre Calle 8, Col. Ejido Paraíso (justo enfrente de la gasolinera), C.P. 24400,, Mexico": {
+    "ok": false,
+    "error": "sin_resultado",
+    "query": "ZMOTO CHAMPOTON, Calle 26 s/n, entre Calle 8, Col. Ejido Paraíso (justo enfrente de la gasolinera), C.P. 24400,, Mexico",
+    "source": "nominatim"
+  },
+  "arcgis:v3:1:Chiapas:30470:BAJAJ VILLAFLORES, Mexico": {
+    "ok": false,
+    "error": "demasiado_generico:Locality:90.91 | demasiado_generico:Locality:90.91 | demasiado_generico:Locality:90.91 | demasiado_generico:Locality:90.91 | demasiado_generico:Locality:90.91",
+    "query": "BAJAJ VILLAFLORES, Mexico",
+    "source": "arcgis"
+  },
+  "arcgis:v3:1:Chiapas:30470:BAJAJ VILLAFLORES, Reforma, 30479 Villaflores, Chis., Chiapas, 30470, Mexico": {
+    "ok": false,
+    "error": "demasiado_generico:Locality:81.18 | demasiado_generico:Postal:80 | score_bajo:79.2 | score_bajo:79.2 | score_bajo:79.2",
+    "query": "BAJAJ VILLAFLORES, Reforma, 30479 Villaflores, Chis., Chiapas, 30470, Mexico",
+    "source": "arcgis"
+  },
+  "arcgis:v3:0:Chiapas:30470:30470, Calle Quinta Pte. 127, Reforma, 30479 Villaflores, Chis., Mexico": {
+    "ok": true,
+    "lat": "16.69400513",
+    "lng": "-93.72288931",
+    "query": "30470, Calle Quinta Pte. 127, Reforma, 30479 Villaflores, Chis., Mexico",
+    "display_name": "Calle Quinta Sur 127, Central, Cintalapa De Figueroa, Chiapas, 30400, MEX",
+    "class": "arcgis",
+    "type": "PointAddress",
+    "importance": 88.28,
+    "source": "arcgis",
+    "error": ""
+  },
+  "arcgis:v3:1:Puebla:72440:VENTO AMERICA, Mexico": {
+    "ok": false,
+    "error": "estado_no_coincide:Baja California | estado_no_coincide:Chiapas | estado_no_coincide:Chiapas | estado_no_coincide:Ciudad De México | estado_no_coincide:Coahuila De Zaragoza",
+    "query": "VENTO AMERICA, Mexico",
+    "source": "arcgis"
+  },
+  "arcgis:v3:1:Puebla:72440:VENTO AMERICA, Residencial Boulevares, 72440 Heroica Puebla de Zaragoza, Pue., Puebla, 72440, Mexico": {
+    "ok": false,
+    "error": "sin_token_sucursal:PointAddress:88.38 | demasiado_generico:Locality:88.24 | demasiado_generico:Locality:83.82 | demasiado_generico:Locality:83.36 | demasiado_generico:Locality:83.36",
+    "query": "VENTO AMERICA, Residencial Boulevares, 72440 Heroica Puebla de Zaragoza, Pue., Puebla, 72440, Mexico",
+    "source": "arcgis"
+  },
+  "arcgis:v3:0:Puebla:72440:72440 51 Pte Local 10 #505 Plaza America Col, Residencial Boulevares, 72440 Heroica Puebla de Zaragoza, Pue., Mexico": {
+    "ok": true,
+    "lat": "19.02494082",
+    "lng": "-98.21166660",
+    "query": "72440 51 Pte Local 10 #505 Plaza America Col, Residencial Boulevares, 72440 Heroica Puebla de Zaragoza, Pue., Mexico",
+    "display_name": "VOULEVARES, Calle De Madrid 4920, Gabriel Pastor 2da. Sección, Heroica Puebla De Zaragoza, Puebla, 72425, MEX",
+    "class": "arcgis",
+    "type": "PointAddress",
+    "importance": 87.46,
+    "source": "arcgis",
+    "error": ""
+  },
+  "arcgis:v3:1:Queretaro:10271:LONG MOTOR, Mexico": {
+    "ok": false,
+    "error": "estado_no_coincide:Baja California Sur | estado_no_coincide:Baja California Sur | estado_no_coincide:Nuevo León | estado_no_coincide:Sonora | estado_no_coincide:Sonora",
+    "query": "LONG MOTOR, Mexico",
+    "source": "arcgis"
+  },
+  "arcgis:v3:1:Queretaro:10271:LONG MOTOR, cumbres de conin, 76246 Mexico, Qro., Queretaro, 10271, Mexico": {
+    "ok": false,
+    "error": "cp_no_coincide:76246 | score_bajo:79.55 | score_bajo:79.2 | score_bajo:79.2 | score_bajo:79.2",
+    "query": "LONG MOTOR, cumbres de conin, 76246 Mexico, Qro., Queretaro, 10271, Mexico",
+    "source": "arcgis"
+  },
+  "arcgis:v3:0:Queretaro:10271:ANILLO VIAL ii 10271 83, microparque pyme 03, cumbres de conin, 76246 Mexico, Qro., Mexico": {
+    "ok": false,
+    "error": "cp_no_coincide:76246 | cp_no_coincide:76246 | score_bajo:75 | score_bajo:75 | score_bajo:75",
+    "query": "ANILLO VIAL ii 10271 83, microparque pyme 03, cumbres de conin, 76246 Mexico, Qro., Mexico",
+    "source": "arcgis"
+  },
+  "arcgis:v3:1:Queretaro:10271:LONG MOTOR, ANILLO VIAL ii 10271 83, microparque pyme 03, cumbres de conin, 76246 Mexico, Qro., Mexico": {
+    "ok": false,
+    "error": "cp_no_coincide:76246 | cp_no_coincide:76246 | score_bajo:75 | score_bajo:75 | score_bajo:75",
+    "query": "LONG MOTOR, ANILLO VIAL ii 10271 83, microparque pyme 03, cumbres de conin, 76246 Mexico, Qro., Mexico",
+    "source": "arcgis"
+  },
+  "nominatim:LONG MOTOR, Mexico": {
+    "ok": false,
+    "error": "sin_resultado",
+    "query": "LONG MOTOR, Mexico",
+    "source": "nominatim"
+  },
+  "nominatim:LONG MOTOR, cumbres de conin, 76246 Mexico, Qro., Queretaro, 10271, Mexico": {
+    "ok": false,
+    "error": "sin_resultado",
+    "query": "LONG MOTOR, cumbres de conin, 76246 Mexico, Qro., Queretaro, 10271, Mexico",
+    "source": "nominatim"
+  },
+  "nominatim:ANILLO VIAL ii 10271 83, microparque pyme 03, cumbres de conin, 76246 Mexico, Qro., Mexico": {
+    "ok": false,
+    "error": "sin_resultado",
+    "query": "ANILLO VIAL ii 10271 83, microparque pyme 03, cumbres de conin, 76246 Mexico, Qro., Mexico",
+    "source": "nominatim"
+  },
+  "nominatim:LONG MOTOR, ANILLO VIAL ii 10271 83, microparque pyme 03, cumbres de conin, 76246 Mexico, Qro., Mexico": {
+    "ok": false,
+    "error": "sin_resultado",
+    "query": "LONG MOTOR, ANILLO VIAL ii 10271 83, microparque pyme 03, cumbres de conin, 76246 Mexico, Qro., Mexico",
+    "source": "nominatim"
+  },
+  "arcgis:v3:1:Tabasco:86077:BAJAJ MENDEZ, Mexico": {
+    "ok": false,
+    "error": "estado_no_coincide:Tamaulipas | estado_no_coincide:Baja California | estado_no_coincide:Baja California | estado_no_coincide:Baja California | estado_no_coincide:San Luis Potosí",
+    "query": "BAJAJ MENDEZ, Mexico",
+    "source": "arcgis"
+  },
+  "arcgis:v3:1:Tabasco:86077:BAJAJ MENDEZ, entre Castillo, 86077 Villahermosa, Tab., Tabasco, 86077, Mexico": {
+    "ok": false,
+    "error": "score_bajo:79.2 | estado_no_coincide:Zacatecas | score_bajo:79.2 | estado_no_coincide:Zacatecas | score_bajo:74.25",
+    "query": "BAJAJ MENDEZ, entre Castillo, 86077 Villahermosa, Tab., Tabasco, 86077, Mexico",
+    "source": "arcgis"
+  },
+  "arcgis:v3:0:Tabasco:86077:Av. Gregorio Mendez, C. Juan Álvarez 726, entre Castillo, 86077 Villahermosa, Tab., Mexico": {
+    "ok": false,
+    "error": "cp_no_coincide:86029 | cp_no_coincide:86029 | cp_no_coincide:86019 | cp_no_coincide:86019 | cp_no_coincide:86000",
+    "query": "Av. Gregorio Mendez, C. Juan Álvarez 726, entre Castillo, 86077 Villahermosa, Tab., Mexico",
+    "source": "arcgis"
+  },
+  "arcgis:v3:1:Tabasco:86077:BAJAJ MENDEZ, Av. Gregorio Mendez, C. Juan Álvarez 726, entre Castillo, 86077 Villahermosa, Tab., Mexico": {
+    "ok": false,
+    "error": "cp_no_coincide:86029 | cp_no_coincide:86029 | cp_no_coincide:86019 | cp_no_coincide:86019 | demasiado_generico:Locality:80",
+    "query": "BAJAJ MENDEZ, Av. Gregorio Mendez, C. Juan Álvarez 726, entre Castillo, 86077 Villahermosa, Tab., Mexico",
+    "source": "arcgis"
+  },
+  "nominatim:BAJAJ MENDEZ, Mexico": {
+    "ok": false,
+    "error": "sin_resultado",
+    "query": "BAJAJ MENDEZ, Mexico",
+    "source": "nominatim"
+  },
+  "nominatim:BAJAJ MENDEZ, entre Castillo, 86077 Villahermosa, Tab., Tabasco, 86077, Mexico": {
+    "ok": false,
+    "error": "sin_resultado",
+    "query": "BAJAJ MENDEZ, entre Castillo, 86077 Villahermosa, Tab., Tabasco, 86077, Mexico",
+    "source": "nominatim"
+  },
+  "nominatim:Av. Gregorio Mendez, C. Juan Álvarez 726, entre Castillo, 86077 Villahermosa, Tab., Mexico": {
+    "ok": false,
+    "error": "sin_resultado",
+    "query": "Av. Gregorio Mendez, C. Juan Álvarez 726, entre Castillo, 86077 Villahermosa, Tab., Mexico",
+    "source": "nominatim"
+  },
+  "nominatim:BAJAJ MENDEZ, Av. Gregorio Mendez, C. Juan Álvarez 726, entre Castillo, 86077 Villahermosa, Tab., Mexico": {
+    "ok": false,
+    "error": "sin_resultado",
+    "query": "BAJAJ MENDEZ, Av. Gregorio Mendez, C. Juan Álvarez 726, entre Castillo, 86077 Villahermosa, Tab., Mexico",
+    "source": "nominatim"
+  },
+  "arcgis:v3:1:Veracruz:91726:VENTO TEJERIA, Mexico": {
+    "ok": false,
+    "error": "estado_no_coincide:Chiapas | estado_no_coincide:Chiapas | estado_no_coincide:Chiapas | estado_no_coincide:Guerrero | estado_no_coincide:Guerrero",
+    "query": "VENTO TEJERIA, Mexico",
+    "source": "arcgis"
+  },
+  "arcgis:v3:1:Veracruz:91726:VENTO TEJERIA, Tejería, 91726 Veracruz, Ver., Veracruz, 91726, Mexico": {
+    "ok": false,
+    "error": "demasiado_generico:Postal:85.93 | score_bajo:78.04",
+    "query": "VENTO TEJERIA, Tejería, 91726 Veracruz, Ver., Veracruz, 91726, Mexico",
+    "source": "arcgis"
+  },
+  "arcgis:v3:0:Veracruz:91726:Avenida Carretera Federal Veracruz-Xalapa 845, Tejería, 91726 Veracruz, Ver., Mexico": {
+    "ok": false,
+    "error": "demasiado_generico:Postal:82",
+    "query": "Avenida Carretera Federal Veracruz-Xalapa 845, Tejería, 91726 Veracruz, Ver., Mexico",
+    "source": "arcgis"
+  },
+  "arcgis:v3:1:Veracruz:91726:VENTO TEJERIA, Avenida Carretera Federal Veracruz-Xalapa 845, Tejería, 91726 Veracruz, Ver., Mexico": {
+    "ok": false,
+    "error": "demasiado_generico:Postal:82",
+    "query": "VENTO TEJERIA, Avenida Carretera Federal Veracruz-Xalapa 845, Tejería, 91726 Veracruz, Ver., Mexico",
+    "source": "arcgis"
+  },
+  "nominatim:VENTO TEJERIA, Mexico": {
+    "ok": false,
+    "error": "sin_resultado",
+    "query": "VENTO TEJERIA, Mexico",
+    "source": "nominatim"
+  },
+  "nominatim:VENTO TEJERIA, Tejería, 91726 Veracruz, Ver., Veracruz, 91726, Mexico": {
+    "ok": false,
+    "error": "sin_resultado",
+    "query": "VENTO TEJERIA, Tejería, 91726 Veracruz, Ver., Veracruz, 91726, Mexico",
+    "source": "nominatim"
+  },
+  "nominatim:Avenida Carretera Federal Veracruz-Xalapa 845, Tejería, 91726 Veracruz, Ver., Mexico": {
+    "ok": false,
+    "error": "sin_resultado",
+    "query": "Avenida Carretera Federal Veracruz-Xalapa 845, Tejería, 91726 Veracruz, Ver., Mexico",
+    "source": "nominatim"
+  },
+  "nominatim:VENTO TEJERIA, Avenida Carretera Federal Veracruz-Xalapa 845, Tejería, 91726 Veracruz, Ver., Mexico": {
+    "ok": false,
+    "error": "sin_resultado",
+    "query": "VENTO TEJERIA, Avenida Carretera Federal Veracruz-Xalapa 845, Tejería, 91726 Veracruz, Ver., Mexico",
+    "source": "nominatim"
+  },
+  "arcgis:v3:1:Hidalgo:42082:TVS PACHUCA, Mexico": {
+    "ok": false,
+    "error": "demasiado_generico:Locality:92.5 | estado_no_coincide:Campeche | estado_no_coincide:Chihuahua | estado_no_coincide:San Luis Potosí | estado_no_coincide:Veracruz De Ignacio De La Llave",
+    "query": "TVS PACHUCA, Mexico",
+    "source": "arcgis"
+  },
+  "arcgis:v3:1:Hidalgo:42082:TVS PACHUCA, BLVD SANTA CATARINA 144 HACIENDA LA HERRADURA 42082 PACHIUCA HGO, Hidalgo, 42082, Mexico": {
+    "ok": false,
+    "error": "demasiado_generico:Postal:80 | estado_no_coincide:Nuevo León | estado_no_coincide:Michoacán de Ocampo | estado_no_coincide:Tamaulipas | estado_no_coincide:Coahuila De Zaragoza",
+    "query": "TVS PACHUCA, BLVD SANTA CATARINA 144 HACIENDA LA HERRADURA 42082 PACHIUCA HGO, Hidalgo, 42082, Mexico",
+    "source": "arcgis"
+  },
+  "arcgis:v3:0:Hidalgo:42082:BLVD SANTA CATARINA 144 HACIENDA LA HERRADURA 42082 PACHIUCA HGO, Mexico": {
+    "ok": false,
+    "error": "cp_no_coincide:42079 | cp_no_coincide:42030 | cp_no_coincide:42030 | cp_no_coincide:42039 | cp_no_coincide:42088",
+    "query": "BLVD SANTA CATARINA 144 HACIENDA LA HERRADURA 42082 PACHIUCA HGO, Mexico",
+    "source": "arcgis"
+  },
+  "arcgis:v3:1:Hidalgo:42082:TVS PACHUCA, BLVD SANTA CATARINA 144 HACIENDA LA HERRADURA 42082 PACHIUCA HGO, Mexico": {
+    "ok": false,
+    "error": "cp_no_coincide:42079 | score_bajo:77.18 | cp_no_coincide:42030 | cp_no_coincide:42030 | cp_no_coincide:42039",
+    "query": "TVS PACHUCA, BLVD SANTA CATARINA 144 HACIENDA LA HERRADURA 42082 PACHIUCA HGO, Mexico",
+    "source": "arcgis"
+  },
+  "nominatim:TVS PACHUCA, Mexico": {
+    "ok": false,
+    "error": "sin_resultado",
+    "query": "TVS PACHUCA, Mexico",
+    "source": "nominatim"
+  },
+  "nominatim:TVS PACHUCA, BLVD SANTA CATARINA 144 HACIENDA LA HERRADURA 42082 PACHIUCA HGO, Hidalgo, 42082, Mexico": {
+    "ok": false,
+    "error": "sin_resultado",
+    "query": "TVS PACHUCA, BLVD SANTA CATARINA 144 HACIENDA LA HERRADURA 42082 PACHIUCA HGO, Hidalgo, 42082, Mexico",
+    "source": "nominatim"
+  },
+  "nominatim:BLVD SANTA CATARINA 144 HACIENDA LA HERRADURA 42082 PACHIUCA HGO, Mexico": {
+    "ok": false,
+    "error": "sin_resultado",
+    "query": "BLVD SANTA CATARINA 144 HACIENDA LA HERRADURA 42082 PACHIUCA HGO, Mexico",
+    "source": "nominatim"
+  },
+  "nominatim:TVS PACHUCA, BLVD SANTA CATARINA 144 HACIENDA LA HERRADURA 42082 PACHIUCA HGO, Mexico": {
+    "ok": false,
+    "error": "sin_resultado",
+    "query": "TVS PACHUCA, BLVD SANTA CATARINA 144 HACIENDA LA HERRADURA 42082 PACHIUCA HGO, Mexico",
+    "source": "nominatim"
+  },
+  "arcgis:v3:1:Morelos:39097:CFLITE PRADERA, Mexico": {
+    "ok": false,
+    "error": "estado_no_coincide:Michoacán De Ocampo | estado_no_coincide:Veracruz De Ignacio De La Llave | estado_no_coincide:Veracruz-Llave | estado_no_coincide:Chihuahua | estado_no_coincide:Ciudad De México",
+    "query": "CFLITE PRADERA, Mexico",
+    "source": "arcgis"
+  },
+  "arcgis:v3:1:Morelos:39097:CFLITE PRADERA, La Pradera, 62170 Cuernavaca, Mor., Morelos, 39097, Mexico": {
+    "ok": false,
+    "error": "cp_no_coincide:62170 | cp_no_coincide:62170 | cp_no_coincide:62170 | cp_no_coincide:62170 | cp_no_coincide:62170",
+    "query": "CFLITE PRADERA, La Pradera, 62170 Cuernavaca, Mor., Morelos, 39097, Mexico",
+    "source": "arcgis"
+  },
+  "arcgis:v3:0:Morelos:39097:Blvd. Vicente Guerrero Km 274, Plaza Pradera, Chilpancingo, Guerrero, C.P. 39097 / Calle Melchor Ocampo 104, La Pradera, 62170 Cuernavaca, Mor., Mexico": {
+    "ok": true,
+    "lat": "18.94014350",
+    "lng": "-99.23581991",
+    "query": "Blvd. Vicente Guerrero Km 274, Plaza Pradera, Chilpancingo, Guerrero, C.P. 39097 / Calle Melchor Ocampo 104, La Pradera, 62170 Cuernavaca, Mor., Mexico",
+    "display_name": "Calle Melchor Ocampo 104, El Empleado, Cuernavaca, Morelos, 62250, MEX",
+    "class": "arcgis",
+    "type": "PointAddress",
+    "importance": 93.49,
+    "source": "arcgis",
+    "error": ""
+  },
+  "arcgis:v3:1::97370:ZMOTO KANASIN, Mexico": {
+    "ok": false,
+    "error": "demasiado_generico:Locality:88.89 | demasiado_generico:Locality:88.89 | demasiado_generico:Locality:88.89 | demasiado_generico:Locality:88.89 | demasiado_generico:Locality:88.89",
+    "query": "ZMOTO KANASIN, Mexico",
+    "source": "arcgis"
+  },
+  "arcgis:v3:1::97370:ZMOTO KANASIN, C Xelpac Cuahutemoc SN CP 97370 Col Centro Kanasin Yucatán, 97370, Mexico": {
+    "ok": false,
+    "error": "demasiado_generico:Postal:82",
+    "query": "ZMOTO KANASIN, C Xelpac Cuahutemoc SN CP 97370 Col Centro Kanasin Yucatán, 97370, Mexico",
+    "source": "arcgis"
+  },
+  "arcgis:v3:0::97370:C Xelpac Cuahutemoc SN CP 97370 Col Centro Kanasin Yucatán, Mexico": {
+    "ok": false,
+    "error": "demasiado_generico:Postal:81.18",
+    "query": "C Xelpac Cuahutemoc SN CP 97370 Col Centro Kanasin Yucatán, Mexico",
+    "source": "arcgis"
+  },
+  "arcgis:v3:1::97370:ZMOTO KANASIN, C Xelpac Cuahutemoc SN CP 97370 Col Centro Kanasin Yucatán, Mexico": {
+    "ok": false,
+    "error": "demasiado_generico:Postal:81.18 | score_bajo:74.3 | score_bajo:74.3 | cp_no_coincide:97376 | cp_no_coincide:97375",
+    "query": "ZMOTO KANASIN, C Xelpac Cuahutemoc SN CP 97370 Col Centro Kanasin Yucatán, Mexico",
+    "source": "arcgis"
+  },
+  "nominatim:ZMOTO KANASIN, Mexico": {
+    "ok": false,
+    "error": "sin_resultado",
+    "query": "ZMOTO KANASIN, Mexico",
+    "source": "nominatim"
+  },
+  "nominatim:ZMOTO KANASIN, C Xelpac Cuahutemoc SN CP 97370 Col Centro Kanasin Yucatán, 97370, Mexico": {
+    "ok": false,
+    "error": "sin_resultado",
+    "query": "ZMOTO KANASIN, C Xelpac Cuahutemoc SN CP 97370 Col Centro Kanasin Yucatán, 97370, Mexico",
+    "source": "nominatim"
+  },
+  "nominatim:C Xelpac Cuahutemoc SN CP 97370 Col Centro Kanasin Yucatán, Mexico": {
+    "ok": false,
+    "error": "sin_resultado",
+    "query": "C Xelpac Cuahutemoc SN CP 97370 Col Centro Kanasin Yucatán, Mexico",
+    "source": "nominatim"
+  },
+  "nominatim:ZMOTO KANASIN, C Xelpac Cuahutemoc SN CP 97370 Col Centro Kanasin Yucatán, Mexico": {
+    "ok": false,
+    "error": "sin_resultado",
+    "query": "ZMOTO KANASIN, C Xelpac Cuahutemoc SN CP 97370 Col Centro Kanasin Yucatán, Mexico",
+    "source": "nominatim"
+  },
+  "arcgis:v3:1:Oaxaca:71320:BAJAJ DIAZ, Mexico": {
+    "ok": false,
+    "error": "estado_no_coincide:Nuevo León | estado_no_coincide:Baja California | estado_no_coincide:Chihuahua | estado_no_coincide:Chihuahua | estado_no_coincide:Guanajuato",
+    "query": "BAJAJ DIAZ, Mexico",
+    "source": "arcgis"
+  },
+  "arcgis:v3:1:Oaxaca:71320:BAJAJ DIAZ, San Sebastian Tutla, 71320 Oaxaca de Juárez, Oax., Oaxaca, 71320, Mexico": {
+    "ok": false,
+    "error": "demasiado_generico:Locality:81.18 | demasiado_generico:Postal:80 | score_bajo:79.2 | score_bajo:79.2 | score_bajo:79.2",
+    "query": "BAJAJ DIAZ, San Sebastian Tutla, 71320 Oaxaca de Juárez, Oax., Oaxaca, 71320, Mexico",
+    "source": "arcgis"
+  },
+  "arcgis:v3:0:Oaxaca:71320:Carr. Internacional Km.7.5, San Sebastian Tutla, 71320 Oaxaca de Juárez, Oax., Mexico": {
+    "ok": false,
+    "error": "calle_generica:StreetName:92.05 | cp_no_coincide:71242 | cp_no_coincide:68050 | cp_no_coincide:68050 | cp_no_coincide:68080",
+    "query": "Carr. Internacional Km.7.5, San Sebastian Tutla, 71320 Oaxaca de Juárez, Oax., Mexico",
+    "source": "arcgis"
+  },
+  "arcgis:v3:1:Oaxaca:71320:BAJAJ DIAZ, Carr. Internacional Km.7.5, San Sebastian Tutla, 71320 Oaxaca de Juárez, Oax., Mexico": {
+    "ok": false,
+    "error": "calle_generica:StreetName:88.8 | cp_no_coincide:71242 | cp_no_coincide:68050 | cp_no_coincide:68050 | cp_no_coincide:68080",
+    "query": "BAJAJ DIAZ, Carr. Internacional Km.7.5, San Sebastian Tutla, 71320 Oaxaca de Juárez, Oax., Mexico",
+    "source": "arcgis"
+  },
+  "nominatim:BAJAJ DIAZ, Mexico": {
+    "ok": false,
+    "error": "sin_resultado",
+    "query": "BAJAJ DIAZ, Mexico",
+    "source": "nominatim"
+  },
+  "nominatim:BAJAJ DIAZ, San Sebastian Tutla, 71320 Oaxaca de Juárez, Oax., Oaxaca, 71320, Mexico": {
+    "ok": false,
+    "error": "sin_resultado",
+    "query": "BAJAJ DIAZ, San Sebastian Tutla, 71320 Oaxaca de Juárez, Oax., Oaxaca, 71320, Mexico",
+    "source": "nominatim"
+  },
+  "nominatim:Carr. Internacional Km.7.5, San Sebastian Tutla, 71320 Oaxaca de Juárez, Oax., Mexico": {
+    "ok": false,
+    "error": "sin_resultado",
+    "query": "Carr. Internacional Km.7.5, San Sebastian Tutla, 71320 Oaxaca de Juárez, Oax., Mexico",
+    "source": "nominatim"
+  },
+  "nominatim:BAJAJ DIAZ, Carr. Internacional Km.7.5, San Sebastian Tutla, 71320 Oaxaca de Juárez, Oax., Mexico": {
+    "ok": false,
+    "error": "sin_resultado",
+    "query": "BAJAJ DIAZ, Carr. Internacional Km.7.5, San Sebastian Tutla, 71320 Oaxaca de Juárez, Oax., Mexico",
+    "source": "nominatim"
+  },
+  "arcgis:v3:1::62790:PARA MOTO DRM ATLACHOLOAYA 3R, Mexico": {
+    "ok": false,
+    "error": "demasiado_generico:Locality:82.39 | demasiado_generico:Locality:82.39 | demasiado_generico:Locality:82.39",
+    "query": "PARA MOTO DRM ATLACHOLOAYA 3R, Mexico",
+    "source": "arcgis"
+  },
+  "arcgis:v3:1::62790:PARA MOTO DRM ATLACHOLOAYA 3R, Atlacholoaya, Xochitepec, Morelos, 62790, Mexico": {
+    "ok": false,
+    "error": "demasiado_generico:Postal:83.47 | score_bajo:76.92 | score_bajo:76.11 | cp_no_coincide:62793 | cp_no_coincide:62796",
+    "query": "PARA MOTO DRM ATLACHOLOAYA 3R, Atlacholoaya, Xochitepec, Morelos, 62790, Mexico",
+    "source": "arcgis"
+  },
+  "arcgis:v3:0::62790:Carretera Federal Cuernavaca–Acapulco Km 104, Atlacholoaya, Xochitepec, Morelos, C.P. 62790 / América Central S/N, Col. Centro, Atlacholoaya, Xochitepec, Morelos, Mexico": {
+    "ok": false,
+    "error": "cp_no_coincide:62797 | demasiado_generico:Locality:80 | demasiado_generico:Locality:80 | demasiado_generico:Locality:80 | demasiado_generico:Locality:80",
+    "query": "Carretera Federal Cuernavaca–Acapulco Km 104, Atlacholoaya, Xochitepec, Morelos, C.P. 62790 / América Central S/N, Col. Centro, Atlacholoaya, Xochitepec, Morelos, Mexico",
+    "source": "arcgis"
+  },
+  "arcgis:v3:1::62790:PARA MOTO DRM ATLACHOLOAYA 3R, Carretera Federal Cuernavaca–Acapulco Km 104, Atlacholoaya, Xochitepec, Morelos, C.P. 62790 / América Central S/N, Col. Centro, Atlacholoaya, Xochitepec, Morelos, Mexico": {
+    "ok": false,
+    "error": "cp_no_coincide:62797 | demasiado_generico:Locality:80 | demasiado_generico:Locality:80 | demasiado_generico:Locality:80 | demasiado_generico:Locality:80",
+    "query": "PARA MOTO DRM ATLACHOLOAYA 3R, Carretera Federal Cuernavaca–Acapulco Km 104, Atlacholoaya, Xochitepec, Morelos, C.P. 62790 / América Central S/N, Col. Centro, Atlacholoaya, Xochitepec, Morelos, Mexico",
+    "source": "arcgis"
+  },
+  "nominatim:PARA MOTO DRM ATLACHOLOAYA 3R, Mexico": {
+    "ok": false,
+    "error": "sin_resultado",
+    "query": "PARA MOTO DRM ATLACHOLOAYA 3R, Mexico",
+    "source": "nominatim"
+  },
+  "nominatim:PARA MOTO DRM ATLACHOLOAYA 3R, Atlacholoaya, Xochitepec, Morelos, 62790, Mexico": {
+    "ok": false,
+    "error": "sin_resultado",
+    "query": "PARA MOTO DRM ATLACHOLOAYA 3R, Atlacholoaya, Xochitepec, Morelos, 62790, Mexico",
+    "source": "nominatim"
+  },
+  "nominatim:Carretera Federal Cuernavaca–Acapulco Km 104, Atlacholoaya, Xochitepec, Morelos, C.P. 62790 / América Central S/N, Col. Centro, Atlacholoaya, Xochitepec, Morelos, Mexico": {
+    "ok": false,
+    "error": "sin_resultado",
+    "query": "Carretera Federal Cuernavaca–Acapulco Km 104, Atlacholoaya, Xochitepec, Morelos, C.P. 62790 / América Central S/N, Col. Centro, Atlacholoaya, Xochitepec, Morelos, Mexico",
+    "source": "nominatim"
+  },
+  "nominatim:PARA MOTO DRM ATLACHOLOAYA 3R, Carretera Federal Cuernavaca–Acapulco Km 104, Atlacholoaya, Xochitepec, Morelos, C.P. 62790 / América Central S/N, Col. Centro, Atlacholoaya, Xochitepec, Morelos, Mexico": {
+    "ok": false,
+    "error": "sin_resultado",
+    "query": "PARA MOTO DRM ATLACHOLOAYA 3R, Carretera Federal Cuernavaca–Acapulco Km 104, Atlacholoaya, Xochitepec, Morelos, C.P. 62790 / América Central S/N, Col. Centro, Atlacholoaya, Xochitepec, Morelos, Mexico",
+    "source": "nominatim"
+  },
+  "arcgis:v3:1::47600:KTM LOS ALTOS, Mexico": {
+    "ok": false,
+    "error": "demasiado_generico:Locality:92.94 | demasiado_generico:Locality:92.94 | demasiado_generico:Locality:92.94 | demasiado_generico:Locality:92.94 | demasiado_generico:Locality:92.94",
+    "query": "KTM LOS ALTOS, Mexico",
+    "source": "arcgis"
+  },
+  "arcgis:v3:1::47600:KTM LOS ALTOS, Tepatitlán de Morelos, Jalisco, C.P. 47600, 47600, Mexico": {
+    "ok": false,
+    "error": "cp_no_coincide:47634 | cp_no_coincide:47630 | cp_no_coincide:47698 | sin_token_sucursal:POI:80.31 | score_bajo:77.99",
+    "query": "KTM LOS ALTOS, Tepatitlán de Morelos, Jalisco, C.P. 47600, 47600, Mexico",
+    "source": "arcgis"
+  },
+  "arcgis:v3:0::47600:Carretera Guadalajara–Lagos de Moreno Km 78, Tepatitlán de Morelos, Jalisco, C.P. 47600, Mexico": {
+    "ok": false,
+    "error": "cp_no_coincide:47656 | cp_no_coincide:47657 | cp_no_coincide:47686 | cp_no_coincide:47690 | cp_no_coincide:47630",
+    "query": "Carretera Guadalajara–Lagos de Moreno Km 78, Tepatitlán de Morelos, Jalisco, C.P. 47600, Mexico",
+    "source": "arcgis"
+  },
+  "arcgis:v3:1::47600:KTM LOS ALTOS, Carretera Guadalajara–Lagos de Moreno Km 78, Tepatitlán de Morelos, Jalisco, C.P. 47600, Mexico": {
+    "ok": false,
+    "error": "cp_no_coincide:47656 | cp_no_coincide:47686 | cp_no_coincide:47690 | cp_no_coincide:47630 | cp_no_coincide:47630",
+    "query": "KTM LOS ALTOS, Carretera Guadalajara–Lagos de Moreno Km 78, Tepatitlán de Morelos, Jalisco, C.P. 47600, Mexico",
+    "source": "arcgis"
+  },
+  "nominatim:KTM LOS ALTOS, Mexico": {
+    "ok": false,
+    "error": "sin_resultado",
+    "query": "KTM LOS ALTOS, Mexico",
+    "source": "nominatim"
+  },
+  "nominatim:KTM LOS ALTOS, Tepatitlán de Morelos, Jalisco, C.P. 47600, 47600, Mexico": {
+    "ok": false,
+    "error": "sin_resultado",
+    "query": "KTM LOS ALTOS, Tepatitlán de Morelos, Jalisco, C.P. 47600, 47600, Mexico",
+    "source": "nominatim"
+  },
+  "nominatim:Carretera Guadalajara–Lagos de Moreno Km 78, Tepatitlán de Morelos, Jalisco, C.P. 47600, Mexico": {
+    "ok": false,
+    "error": "sin_resultado",
+    "query": "Carretera Guadalajara–Lagos de Moreno Km 78, Tepatitlán de Morelos, Jalisco, C.P. 47600, Mexico",
+    "source": "nominatim"
+  },
+  "nominatim:KTM LOS ALTOS, Carretera Guadalajara–Lagos de Moreno Km 78, Tepatitlán de Morelos, Jalisco, C.P. 47600, Mexico": {
+    "ok": false,
+    "error": "sin_resultado",
+    "query": "KTM LOS ALTOS, Carretera Guadalajara–Lagos de Moreno Km 78, Tepatitlán de Morelos, Jalisco, C.P. 47600, Mexico",
+    "source": "nominatim"
+  },
+  "arcgis:v3:1::45300:AGROTEC DE OCCIDENTE, Mexico": {
+    "ok": false,
+    "error": "demasiado_generico:Locality:87.5 | demasiado_generico:Locality:87.5 | demasiado_generico:Locality:87.5 | demasiado_generico:Locality:87.5 | sin_token_sucursal:POI:83.31",
+    "query": "AGROTEC DE OCCIDENTE, Mexico",
+    "source": "arcgis"
+  },
+  "arcgis:v3:1::45300:AGROTEC DE OCCIDENTE, Tala, Jalisco, C.P. 45300, 45300, Mexico": {
+    "ok": false,
+    "error": "score_bajo:79.2 | score_bajo:79.2 | score_bajo:79.2 | score_bajo:79.2 | score_bajo:77",
+    "query": "AGROTEC DE OCCIDENTE, Tala, Jalisco, C.P. 45300, 45300, Mexico",
+    "source": "arcgis"
+  },
+  "arcgis:v3:0::45300:Carretera Guadalajara–Nogales Km 32, Tala, Jalisco, C.P. 45300, Mexico": {
+    "ok": false,
+    "error": "calle_generica:StreetName:85.3 | cp_no_coincide:45325 | cp_no_coincide:45331 | cp_no_coincide:45331 | cp_no_coincide:45310",
+    "query": "Carretera Guadalajara–Nogales Km 32, Tala, Jalisco, C.P. 45300, Mexico",
+    "source": "arcgis"
+  },
+  "arcgis:v3:1::45300:AGROTEC DE OCCIDENTE, Carretera Guadalajara–Nogales Km 32, Tala, Jalisco, C.P. 45300, Mexico": {
+    "ok": false,
+    "error": "score_bajo:79.2 | score_bajo:79.2 | score_bajo:79.2 | score_bajo:79.2 | score_bajo:77.98",
+    "query": "AGROTEC DE OCCIDENTE, Carretera Guadalajara–Nogales Km 32, Tala, Jalisco, C.P. 45300, Mexico",
+    "source": "arcgis"
+  },
+  "nominatim:AGROTEC DE OCCIDENTE, Mexico": {
+    "ok": false,
+    "error": "sin_resultado",
+    "query": "AGROTEC DE OCCIDENTE, Mexico",
+    "source": "nominatim"
+  },
+  "nominatim:AGROTEC DE OCCIDENTE, Tala, Jalisco, C.P. 45300, 45300, Mexico": {
+    "ok": false,
+    "error": "sin_resultado",
+    "query": "AGROTEC DE OCCIDENTE, Tala, Jalisco, C.P. 45300, 45300, Mexico",
+    "source": "nominatim"
+  },
+  "nominatim:Carretera Guadalajara–Nogales Km 32, Tala, Jalisco, C.P. 45300, Mexico": {
+    "ok": false,
+    "error": "sin_resultado",
+    "query": "Carretera Guadalajara–Nogales Km 32, Tala, Jalisco, C.P. 45300, Mexico",
+    "source": "nominatim"
+  },
+  "nominatim:AGROTEC DE OCCIDENTE, Carretera Guadalajara–Nogales Km 32, Tala, Jalisco, C.P. 45300, Mexico": {
+    "ok": false,
+    "error": "sin_resultado",
+    "query": "AGROTEC DE OCCIDENTE, Carretera Guadalajara–Nogales Km 32, Tala, Jalisco, C.P. 45300, Mexico",
+    "source": "nominatim"
+  },
+  "arcgis:v3:1:Oaxaca:71240:HONDA TALON, Mexico": {
+    "ok": false,
+    "error": "estado_no_coincide:Durango | estado_no_coincide:San Luis Potosí | estado_no_coincide:Guanajuato | estado_no_coincide:Guanajuato | estado_no_coincide:Guanajuato",
+    "query": "HONDA TALON, Mexico",
+    "source": "arcgis"
+  },
+  "arcgis:v3:1:Oaxaca:71240:HONDA TALON, Primera Sección del Casco, 71250 San Antonio de la Cal, Oax., Oaxaca, 71240, Mexico": {
+    "ok": false,
+    "error": "cp_no_coincide:71250 | demasiado_generico:Postal:80 | score_bajo:75.28",
+    "query": "HONDA TALON, Primera Sección del Casco, 71250 San Antonio de la Cal, Oax., Oaxaca, 71240, Mexico",
+    "source": "arcgis"
+  },
+  "arcgis:v3:0:Oaxaca:71240:Carretera Internacional 190 No. 210, Santa Lucía del Camino, Oaxaca, C.P. 71240 / Oaxaca Oax MX, Av.Morelos 101, Primera Sección del Casco, 71250 San Antonio de la Cal, Oax., Mexico": {
+    "ok": false,
+    "error": "cp_no_coincide:71250 | score_bajo:74.08",
+    "query": "Carretera Internacional 190 No. 210, Santa Lucía del Camino, Oaxaca, C.P. 71240 / Oaxaca Oax MX, Av.Morelos 101, Primera Sección del Casco, 71250 San Antonio de la Cal, Oax., Mexico",
+    "source": "arcgis"
+  },
+  "arcgis:v3:1:Oaxaca:71240:HONDA TALON, Carretera Internacional 190 No. 210, Santa Lucía del Camino, Oaxaca, C.P. 71240 / Oaxaca Oax MX, Av.Morelos 101, Primera Sección del Casco, 71250 San Antonio de la Cal, Oax., Mexico": {
+    "ok": false,
+    "error": "cp_no_coincide:71250",
+    "query": "HONDA TALON, Carretera Internacional 190 No. 210, Santa Lucía del Camino, Oaxaca, C.P. 71240 / Oaxaca Oax MX, Av.Morelos 101, Primera Sección del Casco, 71250 San Antonio de la Cal, Oax., Mexico",
+    "source": "arcgis"
+  },
+  "nominatim:HONDA TALON, Mexico": {
+    "ok": false,
+    "error": "sin_resultado",
+    "query": "HONDA TALON, Mexico",
+    "source": "nominatim"
+  },
+  "nominatim:HONDA TALON, Primera Sección del Casco, 71250 San Antonio de la Cal, Oax., Oaxaca, 71240, Mexico": {
+    "ok": false,
+    "error": "sin_resultado",
+    "query": "HONDA TALON, Primera Sección del Casco, 71250 San Antonio de la Cal, Oax., Oaxaca, 71240, Mexico",
+    "source": "nominatim"
+  },
+  "nominatim:Carretera Internacional 190 No. 210, Santa Lucía del Camino, Oaxaca, C.P. 71240 / Oaxaca Oax MX, Av.Morelos 101, Primera Sección del Casco, 71250 San Antonio de la Cal, Oax., Mexico": {
+    "ok": false,
+    "error": "sin_resultado",
+    "query": "Carretera Internacional 190 No. 210, Santa Lucía del Camino, Oaxaca, C.P. 71240 / Oaxaca Oax MX, Av.Morelos 101, Primera Sección del Casco, 71250 San Antonio de la Cal, Oax., Mexico",
+    "source": "nominatim"
+  },
+  "nominatim:HONDA TALON, Carretera Internacional 190 No. 210, Santa Lucía del Camino, Oaxaca, C.P. 71240 / Oaxaca Oax MX, Av.Morelos 101, Primera Sección del Casco, 71250 San Antonio de la Cal, Oax., Mexico": {
+    "ok": false,
+    "error": "sin_resultado",
+    "query": "HONDA TALON, Carretera Internacional 190 No. 210, Santa Lucía del Camino, Oaxaca, C.P. 71240 / Oaxaca Oax MX, Av.Morelos 101, Primera Sección del Casco, 71250 San Antonio de la Cal, Oax., Mexico",
+    "source": "nominatim"
+  },
+  "arcgis:v3:1::24800:ZMOTO HECELCHAKAN, Mexico": {
+    "ok": false,
+    "error": "demasiado_generico:Locality:90.91 | demasiado_generico:Locality:90.91 | demasiado_generico:Locality:90.91 | demasiado_generico:Locality:90.91 | demasiado_generico:Locality:90.91",
+    "query": "ZMOTO HECELCHAKAN, Mexico",
+    "source": "arcgis"
+  },
+  "arcgis:v3:1::24800:ZMOTO HECELCHAKAN, Hecelchakán: Calle 18A S/N entre 21 y 23 Barrio San Antonio C.P. 24800, Campeche. Hopelchén: Calle 18 entre 21 y 23 Centro Hopelchén, Campeche C.P. 24600, 24800, Mexico": {
+    "ok": false,
+    "error": "cp_no_coincide:24600 | demasiado_generico:Locality:81.18 | demasiado_generico:Locality:81.18 | demasiado_generico:Locality:81.18 | demasiado_generico:Locality:81.18",
+    "query": "ZMOTO HECELCHAKAN, Hecelchakán: Calle 18A S/N entre 21 y 23 Barrio San Antonio C.P. 24800, Campeche. Hopelchén: Calle 18 entre 21 y 23 Centro Hopelchén, Campeche C.P. 24600, 24800, Mexico",
+    "source": "arcgis"
+  },
+  "arcgis:v3:0::24800:Hecelchakán: Calle 18A S/N entre 21 y 23 Barrio San Antonio C.P. 24800, Campeche. Hopelchén: Calle 18 entre 21 y 23 Centro Hopelchén, Campeche C.P. 24600, Mexico": {
+    "ok": false,
+    "error": "cp_no_coincide:24600 | demasiado_generico:Locality:81.18 | demasiado_generico:Locality:81.18 | demasiado_generico:Locality:81.18 | demasiado_generico:Locality:81.18",
+    "query": "Hecelchakán: Calle 18A S/N entre 21 y 23 Barrio San Antonio C.P. 24800, Campeche. Hopelchén: Calle 18 entre 21 y 23 Centro Hopelchén, Campeche C.P. 24600, Mexico",
+    "source": "arcgis"
+  },
+  "arcgis:v3:1::24800:ZMOTO HECELCHAKAN, Hecelchakán: Calle 18A S/N entre 21 y 23 Barrio San Antonio C.P. 24800, Campeche. Hopelchén: Calle 18 entre 21 y 23 Centro Hopelchén, Campeche C.P. 24600, Mexico": {
+    "ok": false,
+    "error": "cp_no_coincide:24600 | demasiado_generico:Locality:81.18 | demasiado_generico:Locality:81.18 | demasiado_generico:Locality:81.18 | demasiado_generico:Locality:81.18",
+    "query": "ZMOTO HECELCHAKAN, Hecelchakán: Calle 18A S/N entre 21 y 23 Barrio San Antonio C.P. 24800, Campeche. Hopelchén: Calle 18 entre 21 y 23 Centro Hopelchén, Campeche C.P. 24600, Mexico",
+    "source": "arcgis"
+  },
+  "nominatim:ZMOTO HECELCHAKAN, Mexico": {
+    "ok": false,
+    "error": "sin_resultado",
+    "query": "ZMOTO HECELCHAKAN, Mexico",
+    "source": "nominatim"
+  },
+  "nominatim:ZMOTO HECELCHAKAN, Hecelchakán: Calle 18A S/N entre 21 y 23 Barrio San Antonio C.P. 24800, Campeche. Hopelchén: Calle 18 entre 21 y 23 Centro Hopelchén, Campeche C.P. 24600, 24800, Mexico": {
+    "ok": false,
+    "error": "sin_resultado",
+    "query": "ZMOTO HECELCHAKAN, Hecelchakán: Calle 18A S/N entre 21 y 23 Barrio San Antonio C.P. 24800, Campeche. Hopelchén: Calle 18 entre 21 y 23 Centro Hopelchén, Campeche C.P. 24600, 24800, Mexico",
+    "source": "nominatim"
+  },
+  "nominatim:Hecelchakán: Calle 18A S/N entre 21 y 23 Barrio San Antonio C.P. 24800, Campeche. Hopelchén: Calle 18 entre 21 y 23 Centro Hopelchén, Campeche C.P. 24600, Mexico": {
+    "ok": false,
+    "error": "sin_resultado",
+    "query": "Hecelchakán: Calle 18A S/N entre 21 y 23 Barrio San Antonio C.P. 24800, Campeche. Hopelchén: Calle 18 entre 21 y 23 Centro Hopelchén, Campeche C.P. 24600, Mexico",
+    "source": "nominatim"
+  },
+  "nominatim:ZMOTO HECELCHAKAN, Hecelchakán: Calle 18A S/N entre 21 y 23 Barrio San Antonio C.P. 24800, Campeche. Hopelchén: Calle 18 entre 21 y 23 Centro Hopelchén, Campeche C.P. 24600, Mexico": {
+    "ok": false,
+    "error": "sin_resultado",
+    "query": "ZMOTO HECELCHAKAN, Hecelchakán: Calle 18A S/N entre 21 y 23 Barrio San Antonio C.P. 24800, Campeche. Hopelchén: Calle 18 entre 21 y 23 Centro Hopelchén, Campeche C.P. 24600, Mexico",
+    "source": "nominatim"
+  },
+  "arcgis:v3:1:Sonora:85800:VALDEZ BALUARTE SUCURSAL 73, Mexico": {
+    "ok": false,
+    "error": "estado_no_coincide:Chiapas | estado_no_coincide:Jalisco | estado_no_coincide:Jalisco | estado_no_coincide:Zacatecas | estado_no_coincide:Chiapas",
+    "query": "VALDEZ BALUARTE SUCURSAL 73, Mexico",
+    "source": "arcgis"
+  },
+  "arcgis:v3:1:Sonora:85800:VALDEZ BALUARTE SUCURSAL 73, Reforma, 85800 Navojoa, Son., Sonora, 85800, Mexico": {
+    "ok": false,
+    "error": "demasiado_generico:Locality:81.18 | demasiado_generico:Postal:80 | score_bajo:79.2 | score_bajo:79.2 | score_bajo:79.2",
+    "query": "VALDEZ BALUARTE SUCURSAL 73, Reforma, 85800 Navojoa, Son., Sonora, 85800, Mexico",
+    "source": "arcgis"
+  },
+  "arcgis:v3:0:Sonora:85800:Hidalgo 112-B, Centro, Reforma, 85800 Navojoa, Son., Mexico": {
+    "ok": false,
+    "error": "cp_no_coincide:85845 | demasiado_generico:Postal:84.89",
+    "query": "Hidalgo 112-B, Centro, Reforma, 85800 Navojoa, Son., Mexico",
+    "source": "arcgis"
+  },
+  "arcgis:v3:1:Sonora:85800:VALDEZ BALUARTE SUCURSAL 73, Hidalgo 112-B, Centro, Reforma, 85800 Navojoa, Son., Mexico": {
+    "ok": false,
+    "error": "demasiado_generico:Postal:84",
+    "query": "VALDEZ BALUARTE SUCURSAL 73, Hidalgo 112-B, Centro, Reforma, 85800 Navojoa, Son., Mexico",
+    "source": "arcgis"
+  },
+  "nominatim:VALDEZ BALUARTE SUCURSAL 73, Mexico": {
+    "ok": false,
+    "error": "sin_resultado",
+    "query": "VALDEZ BALUARTE SUCURSAL 73, Mexico",
+    "source": "nominatim"
+  },
+  "nominatim:VALDEZ BALUARTE SUCURSAL 73, Reforma, 85800 Navojoa, Son., Sonora, 85800, Mexico": {
+    "ok": false,
+    "error": "sin_resultado",
+    "query": "VALDEZ BALUARTE SUCURSAL 73, Reforma, 85800 Navojoa, Son., Sonora, 85800, Mexico",
+    "source": "nominatim"
+  },
+  "nominatim:Hidalgo 112-B, Centro, Reforma, 85800 Navojoa, Son., Mexico": {
+    "ok": false,
+    "error": "sin_resultado",
+    "query": "Hidalgo 112-B, Centro, Reforma, 85800 Navojoa, Son., Mexico",
+    "source": "nominatim"
+  },
+  "nominatim:VALDEZ BALUARTE SUCURSAL 73, Hidalgo 112-B, Centro, Reforma, 85800 Navojoa, Son., Mexico": {
+    "ok": false,
+    "error": "sin_resultado",
+    "query": "VALDEZ BALUARTE SUCURSAL 73, Hidalgo 112-B, Centro, Reforma, 85800 Navojoa, Son., Mexico",
+    "source": "nominatim"
+  },
+  "arcgis:v3:1:Estado de Mexico:57000:VENTO NEZA ORIENTE, Mexico": {
+    "ok": false,
+    "error": "estado_no_coincide:Baja California Sur | estado_no_coincide:Chihuahua | estado_no_coincide:Ciudad De México | estado_no_coincide:Coahuila De Zaragoza | estado_no_coincide:Nuevo León",
+    "query": "VENTO NEZA ORIENTE, Mexico",
+    "source": "arcgis"
+  },
+  "arcgis:v3:1:Estado de Mexico:57000:VENTO NEZA ORIENTE, Col. Aurora Oriente, 57000 Cdad. Nezahualcóyotl, Méx., Estado de Mexico, 57000, Mexico": {
+    "ok": false,
+    "error": "demasiado_generico:Locality:81.18 | demasiado_generico:Postal:80 | score_bajo:79.2 | score_bajo:79.2",
+    "query": "VENTO NEZA ORIENTE, Col. Aurora Oriente, 57000 Cdad. Nezahualcóyotl, Méx., Estado de Mexico, 57000, Mexico",
+    "source": "arcgis"
+  },
+  "arcgis:v3:0:Estado de Mexico:57000:Imploración Manzana 499, Col. Aurora Oriente, 57000 Cdad. Nezahualcóyotl, Méx., Mexico": {
+    "ok": false,
+    "error": "calle_generica:StreetName:87.95 | demasiado_generico:Postal:86.09 | estado_no_coincide:Colima | estado_no_coincide:Colima | score_bajo:77.12",
+    "query": "Imploración Manzana 499, Col. Aurora Oriente, 57000 Cdad. Nezahualcóyotl, Méx., Mexico",
+    "source": "arcgis"
+  },
+  "arcgis:v3:1:Estado de Mexico:57000:VENTO NEZA ORIENTE, Imploración Manzana 499, Col. Aurora Oriente, 57000 Cdad. Nezahualcóyotl, Méx., Mexico": {
+    "ok": false,
+    "error": "demasiado_generico:Postal:82 | score_bajo:78.86 | estado_no_coincide:Colima | estado_no_coincide:Colima | estado_no_coincide:Ciudad de México",
+    "query": "VENTO NEZA ORIENTE, Imploración Manzana 499, Col. Aurora Oriente, 57000 Cdad. Nezahualcóyotl, Méx., Mexico",
+    "source": "arcgis"
+  },
+  "nominatim:VENTO NEZA ORIENTE, Mexico": {
+    "ok": false,
+    "error": "sin_resultado",
+    "query": "VENTO NEZA ORIENTE, Mexico",
+    "source": "nominatim"
+  },
+  "nominatim:VENTO NEZA ORIENTE, Col. Aurora Oriente, 57000 Cdad. Nezahualcóyotl, Méx., Estado de Mexico, 57000, Mexico": {
+    "ok": false,
+    "error": "sin_resultado",
+    "query": "VENTO NEZA ORIENTE, Col. Aurora Oriente, 57000 Cdad. Nezahualcóyotl, Méx., Estado de Mexico, 57000, Mexico",
+    "source": "nominatim"
+  },
+  "nominatim:Imploración Manzana 499, Col. Aurora Oriente, 57000 Cdad. Nezahualcóyotl, Méx., Mexico": {
+    "ok": false,
+    "error": "sin_resultado",
+    "query": "Imploración Manzana 499, Col. Aurora Oriente, 57000 Cdad. Nezahualcóyotl, Méx., Mexico",
+    "source": "nominatim"
+  },
+  "nominatim:VENTO NEZA ORIENTE, Imploración Manzana 499, Col. Aurora Oriente, 57000 Cdad. Nezahualcóyotl, Méx., Mexico": {
+    "ok": false,
+    "error": "sin_resultado",
+    "query": "VENTO NEZA ORIENTE, Imploración Manzana 499, Col. Aurora Oriente, 57000 Cdad. Nezahualcóyotl, Méx., Mexico",
+    "source": "nominatim"
+  },
+  "arcgis:v3:1:Tlaxcala:90300:GRUPO SHUJIN MOTOS, Mexico": {
+    "ok": false,
+    "error": "estado_no_coincide:Sonora | estado_no_coincide:Ciudad de México | estado_no_coincide:Veracruz De Ignacio De La Llave | estado_no_coincide:Baja California Sur | estado_no_coincide:Baja California Sur",
+    "query": "GRUPO SHUJIN MOTOS, Mexico",
+    "source": "arcgis"
+  },
+  "arcgis:v3:1:Tlaxcala:90300:GRUPO SHUJIN MOTOS, 90300, CDAD. DE APIZACO, TLAX., Tlaxcala, 90300, Mexico": {
+    "ok": false,
+    "error": "demasiado_generico:Postal:80 | score_bajo:79.2 | score_bajo:79.2 | score_bajo:79.2 | score_bajo:75.75",
+    "query": "GRUPO SHUJIN MOTOS, 90300, CDAD. DE APIZACO, TLAX., Tlaxcala, 90300, Mexico",
+    "source": "arcgis"
+  },
+  "arcgis:v3:0:Tlaxcala:90300:INDEPENDENCIA 402-LOCAL 04 Y 05, CENTRO, 90300, CDAD. DE APIZACO, TLAX., Mexico": {
+    "ok": false,
+    "error": "cp_no_coincide:90340 | calle_generica:StreetName:82.08 | demasiado_generico:Postal:81.18 | cp_no_coincide:90329 | cp_no_coincide:90339",
+    "query": "INDEPENDENCIA 402-LOCAL 04 Y 05, CENTRO, 90300, CDAD. DE APIZACO, TLAX., Mexico",
+    "source": "arcgis"
+  },
+  "arcgis:v3:1:Tlaxcala:90300:GRUPO SHUJIN MOTOS, INDEPENDENCIA 402-LOCAL 04 Y 05, CENTRO, 90300, CDAD. DE APIZACO, TLAX., Mexico": {
+    "ok": false,
+    "error": "demasiado_generico:Postal:81.18 | score_bajo:73.16",
+    "query": "GRUPO SHUJIN MOTOS, INDEPENDENCIA 402-LOCAL 04 Y 05, CENTRO, 90300, CDAD. DE APIZACO, TLAX., Mexico",
+    "source": "arcgis"
+  },
+  "nominatim:GRUPO SHUJIN MOTOS, Mexico": {
+    "ok": false,
+    "error": "sin_resultado",
+    "query": "GRUPO SHUJIN MOTOS, Mexico",
+    "source": "nominatim"
+  },
+  "nominatim:GRUPO SHUJIN MOTOS, 90300, CDAD. DE APIZACO, TLAX., Tlaxcala, 90300, Mexico": {
+    "ok": false,
+    "error": "sin_resultado",
+    "query": "GRUPO SHUJIN MOTOS, 90300, CDAD. DE APIZACO, TLAX., Tlaxcala, 90300, Mexico",
+    "source": "nominatim"
+  },
+  "nominatim:INDEPENDENCIA 402-LOCAL 04 Y 05, CENTRO, 90300, CDAD. DE APIZACO, TLAX., Mexico": {
+    "ok": false,
+    "error": "sin_resultado",
+    "query": "INDEPENDENCIA 402-LOCAL 04 Y 05, CENTRO, 90300, CDAD. DE APIZACO, TLAX., Mexico",
+    "source": "nominatim"
+  },
+  "nominatim:GRUPO SHUJIN MOTOS, INDEPENDENCIA 402-LOCAL 04 Y 05, CENTRO, 90300, CDAD. DE APIZACO, TLAX., Mexico": {
+    "ok": false,
+    "error": "sin_resultado",
+    "query": "GRUPO SHUJIN MOTOS, INDEPENDENCIA 402-LOCAL 04 Y 05, CENTRO, 90300, CDAD. DE APIZACO, TLAX., Mexico",
+    "source": "nominatim"
+  },
+  "arcgis:v3:1:Oaxaca:71980:HONDA PUERTO ESCONDIDO, Mexico": {
+    "ok": false,
+    "error": "estado_no_coincide:San Luis Potosí | estado_no_coincide:San Luis Potosí | demasiado_generico:Locality:92.31 | demasiado_generico:Locality:92.31 | estado_no_coincide:México",
+    "query": "HONDA PUERTO ESCONDIDO, Mexico",
+    "source": "arcgis"
+  },
+  "arcgis:v3:1:Oaxaca:71980:HONDA PUERTO ESCONDIDO, fracc puerto del sol puerto escondido fracc puerto del sol, 71980 Puerto Escondido, Oax., Oaxaca, 71980, Mexico": {
+    "ok": false,
+    "error": "demasiado_generico:Postal:80 | score_bajo:79.2 | score_bajo:79.2 | score_bajo:79.2 | score_bajo:79.2",
+    "query": "HONDA PUERTO ESCONDIDO, fracc puerto del sol puerto escondido fracc puerto del sol, 71980 Puerto Escondido, Oax., Oaxaca, 71980, Mexico",
+    "source": "arcgis"
+  },
+  "arcgis:v3:0:Oaxaca:71980:puerto angel mza1 lte 2, fracc puerto del sol puerto escondido fracc puerto del sol, 71980 Puerto Escondido, Oax., Mexico": {
+    "ok": false,
+    "error": "demasiado_generico:Postal:80 | score_bajo:72.83",
+    "query": "puerto angel mza1 lte 2, fracc puerto del sol puerto escondido fracc puerto del sol, 71980 Puerto Escondido, Oax., Mexico",
+    "source": "arcgis"
+  },
+  "arcgis:v3:1:Oaxaca:71980:HONDA PUERTO ESCONDIDO, puerto angel mza1 lte 2, fracc puerto del sol puerto escondido fracc puerto del sol, 71980 Puerto Escondido, Oax., Mexico": {
+    "ok": false,
+    "error": "demasiado_generico:Postal:80 | cp_no_coincide:71983 | score_bajo:73.4 | cp_no_coincide:71970 | cp_no_coincide:71974",
+    "query": "HONDA PUERTO ESCONDIDO, puerto angel mza1 lte 2, fracc puerto del sol puerto escondido fracc puerto del sol, 71980 Puerto Escondido, Oax., Mexico",
+    "source": "arcgis"
+  },
+  "nominatim:HONDA PUERTO ESCONDIDO, Mexico": {
+    "ok": false,
+    "error": "sin_resultado",
+    "query": "HONDA PUERTO ESCONDIDO, Mexico",
+    "source": "nominatim"
+  },
+  "nominatim:HONDA PUERTO ESCONDIDO, fracc puerto del sol puerto escondido fracc puerto del sol, 71980 Puerto Escondido, Oax., Oaxaca, 71980, Mexico": {
+    "ok": false,
+    "error": "sin_resultado",
+    "query": "HONDA PUERTO ESCONDIDO, fracc puerto del sol puerto escondido fracc puerto del sol, 71980 Puerto Escondido, Oax., Oaxaca, 71980, Mexico",
+    "source": "nominatim"
+  },
+  "nominatim:puerto angel mza1 lte 2, fracc puerto del sol puerto escondido fracc puerto del sol, 71980 Puerto Escondido, Oax., Mexico": {
+    "ok": false,
+    "error": "sin_resultado",
+    "query": "puerto angel mza1 lte 2, fracc puerto del sol puerto escondido fracc puerto del sol, 71980 Puerto Escondido, Oax., Mexico",
+    "source": "nominatim"
+  },
+  "nominatim:HONDA PUERTO ESCONDIDO, puerto angel mza1 lte 2, fracc puerto del sol puerto escondido fracc puerto del sol, 71980 Puerto Escondido, Oax., Mexico": {
+    "ok": false,
+    "error": "sin_resultado",
+    "query": "HONDA PUERTO ESCONDIDO, puerto angel mza1 lte 2, fracc puerto del sol puerto escondido fracc puerto del sol, 71980 Puerto Escondido, Oax., Mexico",
+    "source": "nominatim"
+  },
+  "arcgis:v3:1:Oaxaca:68130:MOTOS GT SIMBOLOS, Mexico": {
+    "ok": false,
+    "error": "estado_no_coincide:Veracruz-Llave | estado_no_coincide:Chihuahua | estado_no_coincide:Chihuahua | estado_no_coincide:Guanajuato | estado_no_coincide:Ciudad de México",
+    "query": "MOTOS GT SIMBOLOS, Mexico",
+    "source": "arcgis"
+  },
+  "arcgis:v3:1:Oaxaca:68130:MOTOS GT SIMBOLOS, 24 de Febrero, 71236 San Antonio de la Cal, Oax., Oaxaca, 68130, Mexico": {
+    "ok": false,
+    "error": "demasiado_generico:Postal:82",
+    "query": "MOTOS GT SIMBOLOS, 24 de Febrero, 71236 San Antonio de la Cal, Oax., Oaxaca, 68130, Mexico",
+    "source": "arcgis"
+  },
+  "arcgis:v3:0:Oaxaca:68130:Símbolos Patrios 1008, Ex Hacienda Candiani, Oaxaca de Juárez, Oaxaca, C.P. 68130 / Primera Priv. de Símbolos Patrios 2-A, 24 de Febrero, 71236 San Antonio de la Cal, Oax., Mexico": {
+    "ok": false,
+    "error": "demasiado_generico:Locality:80 | demasiado_generico:Locality:80 | demasiado_generico:Locality:80 | demasiado_generico:Locality:80 | score_bajo:79.37",
+    "query": "Símbolos Patrios 1008, Ex Hacienda Candiani, Oaxaca de Juárez, Oaxaca, C.P. 68130 / Primera Priv. de Símbolos Patrios 2-A, 24 de Febrero, 71236 San Antonio de la Cal, Oax., Mexico",
+    "source": "arcgis"
+  },
+  "arcgis:v3:1:Oaxaca:68130:MOTOS GT SIMBOLOS, Símbolos Patrios 1008, Ex Hacienda Candiani, Oaxaca de Juárez, Oaxaca, C.P. 68130 / Primera Priv. de Símbolos Patrios 2-A, 24 de Febrero, 71236 San Antonio de la Cal, Oax., Mexico": {
+    "ok": false,
+    "error": "demasiado_generico:Locality:80 | demasiado_generico:Locality:80 | demasiado_generico:Locality:80 | demasiado_generico:Locality:80 | score_bajo:79.37",
+    "query": "MOTOS GT SIMBOLOS, Símbolos Patrios 1008, Ex Hacienda Candiani, Oaxaca de Juárez, Oaxaca, C.P. 68130 / Primera Priv. de Símbolos Patrios 2-A, 24 de Febrero, 71236 San Antonio de la Cal, Oax., Mexico",
+    "source": "arcgis"
+  },
+  "nominatim:MOTOS GT SIMBOLOS, Mexico": {
+    "ok": false,
+    "error": "sin_resultado",
+    "query": "MOTOS GT SIMBOLOS, Mexico",
+    "source": "nominatim"
+  },
+  "nominatim:MOTOS GT SIMBOLOS, 24 de Febrero, 71236 San Antonio de la Cal, Oax., Oaxaca, 68130, Mexico": {
+    "ok": false,
+    "error": "sin_resultado",
+    "query": "MOTOS GT SIMBOLOS, 24 de Febrero, 71236 San Antonio de la Cal, Oax., Oaxaca, 68130, Mexico",
+    "source": "nominatim"
+  },
+  "nominatim:Símbolos Patrios 1008, Ex Hacienda Candiani, Oaxaca de Juárez, Oaxaca, C.P. 68130 / Primera Priv. de Símbolos Patrios 2-A, 24 de Febrero, 71236 San Antonio de la Cal, Oax., Mexico": {
+    "ok": false,
+    "error": "sin_resultado",
+    "query": "Símbolos Patrios 1008, Ex Hacienda Candiani, Oaxaca de Juárez, Oaxaca, C.P. 68130 / Primera Priv. de Símbolos Patrios 2-A, 24 de Febrero, 71236 San Antonio de la Cal, Oax., Mexico",
+    "source": "nominatim"
+  },
+  "nominatim:MOTOS GT SIMBOLOS, Símbolos Patrios 1008, Ex Hacienda Candiani, Oaxaca de Juárez, Oaxaca, C.P. 68130 / Primera Priv. de Símbolos Patrios 2-A, 24 de Febrero, 71236 San Antonio de la Cal, Oax., Mexico": {
+    "ok": false,
+    "error": "sin_resultado",
+    "query": "MOTOS GT SIMBOLOS, Símbolos Patrios 1008, Ex Hacienda Candiani, Oaxaca de Juárez, Oaxaca, C.P. 68130 / Primera Priv. de Símbolos Patrios 2-A, 24 de Febrero, 71236 San Antonio de la Cal, Oax., Mexico",
+    "source": "nominatim"
+  },
+  "arcgis:v3:1:::LA BARATA DEL HOGAR CANCUN, Mexico": {
+    "ok": false,
+    "error": "score_bajo:79.2 | score_bajo:78.14 | score_bajo:77.26 | score_bajo:77.26 | score_bajo:77.14",
+    "query": "LA BARATA DEL HOGAR CANCUN, Mexico",
+    "source": "arcgis"
+  },
+  "arcgis:v3:1:::LA BARATA DEL HOGAR CANCUN, Sucursal Av. Kabah: Av. Kabah, Plaza Kabah 221, entre calle 84 y 88, Mexico": {
+    "ok": false,
+    "error": "calle_generica:StreetInt:91.38 | calle_generica:StreetInt:91.38 | calle_generica:StreetInt:91.35",
+    "query": "LA BARATA DEL HOGAR CANCUN, Sucursal Av. Kabah: Av. Kabah, Plaza Kabah 221, entre calle 84 y 88, Mexico",
+    "source": "arcgis"
+  },
+  "arcgis:v3:0:::Sucursal Av. Kabah: Av. Kabah, Plaza Kabah 221, entre calle 84 y 88, Mexico": {
+    "ok": false,
+    "error": "calle_generica:StreetInt:92.18 | calle_generica:StreetInt:92.18",
+    "query": "Sucursal Av. Kabah: Av. Kabah, Plaza Kabah 221, entre calle 84 y 88, Mexico",
+    "source": "arcgis"
+  },
+  "nominatim:LA BARATA DEL HOGAR CANCUN, Mexico": {
+    "ok": false,
+    "error": "sin_resultado",
+    "query": "LA BARATA DEL HOGAR CANCUN, Mexico",
+    "source": "nominatim"
+  },
+  "nominatim:LA BARATA DEL HOGAR CANCUN, Sucursal Av. Kabah: Av. Kabah, Plaza Kabah 221, entre calle 84 y 88, Mexico": {
+    "ok": false,
+    "error": "sin_resultado",
+    "query": "LA BARATA DEL HOGAR CANCUN, Sucursal Av. Kabah: Av. Kabah, Plaza Kabah 221, entre calle 84 y 88, Mexico",
+    "source": "nominatim"
+  },
+  "nominatim:Sucursal Av. Kabah: Av. Kabah, Plaza Kabah 221, entre calle 84 y 88, Mexico": {
+    "ok": false,
+    "error": "sin_resultado",
+    "query": "Sucursal Av. Kabah: Av. Kabah, Plaza Kabah 221, entre calle 84 y 88, Mexico",
+    "source": "nominatim"
+  },
+  "arcgis:v3:1:::AODES CUMBRES, Mexico": {
+    "ok": false,
+    "error": "calle_generica:StreetName:91.69 | demasiado_generico:Locality:88.89 | demasiado_generico:Locality:88.89 | demasiado_generico:Locality:88.89 | demasiado_generico:Locality:88.89",
+    "query": "AODES CUMBRES, Mexico",
+    "source": "arcgis"
+  },
+  "nominatim:AODES CUMBRES, Mexico": {
+    "ok": false,
+    "error": "sin_resultado",
+    "query": "AODES CUMBRES, Mexico",
+    "source": "nominatim"
+  },
+  "arcgis:v3:1:::ATRUM MTY, Mexico": {
+    "ok": false,
+    "error": "demasiado_generico:Locality:85.71 | demasiado_generico:Locality:85.71 | demasiado_generico:Locality:85.71 | demasiado_generico:Locality:85.71 | demasiado_generico:Locality:85.71",
+    "query": "ATRUM MTY, Mexico",
+    "source": "arcgis"
+  },
+  "nominatim:ATRUM MTY, Mexico": {
+    "ok": false,
+    "error": "sin_resultado",
+    "query": "ATRUM MTY, Mexico",
+    "source": "nominatim"
+  },
+  "arcgis:v3:1:::CF MOTO CIUDAD VICTORIA, Mexico": {
+    "ok": false,
+    "error": "calle_generica:StreetName:92.94 | calle_generica:StreetName:92.94 | demasiado_generico:Locality:90.77 | demasiado_generico:Locality:90.77 | demasiado_generico:Locality:90.77",
+    "query": "CF MOTO CIUDAD VICTORIA, Mexico",
+    "source": "arcgis"
+  },
+  "nominatim:CF MOTO CIUDAD VICTORIA, Mexico": {
+    "ok": false,
+    "error": "sin_resultado",
+    "query": "CF MOTO CIUDAD VICTORIA, Mexico",
+    "source": "nominatim"
+  },
+  "arcgis:v3:1:::EL ARCO ALLENDE CARRETERA, Mexico": {
+    "ok": false,
+    "error": "calle_generica:StreetName:84.83 | calle_generica:StreetName:84.83 | calle_generica:StreetName:84.83 | calle_generica:StreetName:84.83 | calle_generica:StreetName:84.83",
+    "query": "EL ARCO ALLENDE CARRETERA, Mexico",
+    "source": "arcgis"
+  },
+  "nominatim:EL ARCO ALLENDE CARRETERA, Mexico": {
+    "ok": false,
+    "error": "sin_resultado",
+    "query": "EL ARCO ALLENDE CARRETERA, Mexico",
+    "source": "nominatim"
+  },
+  "arcgis:v3:1:::MULTIMARCAS PIEDRAS NEGRAS, Mexico": {
+    "ok": false,
+    "error": "demasiado_generico:Locality:85.33 | demasiado_generico:Locality:85.33 | demasiado_generico:Locality:85.33 | demasiado_generico:Locality:85.33 | demasiado_generico:Locality:85.33",
+    "query": "MULTIMARCAS PIEDRAS NEGRAS, Mexico",
+    "source": "arcgis"
+  },
+  "nominatim:MULTIMARCAS PIEDRAS NEGRAS, Mexico": {
+    "ok": false,
+    "error": "sin_resultado",
+    "query": "MULTIMARCAS PIEDRAS NEGRAS, Mexico",
+    "source": "nominatim"
+  },
+  "arcgis:v3:1:::XPRESS MOTOS SABINAS, Mexico": {
+    "ok": false,
+    "error": "demasiado_generico:Locality:81.67 | demasiado_generico:Locality:81.67 | demasiado_generico:Locality:81.67 | demasiado_generico:Locality:81.67 | demasiado_generico:Locality:81.67",
+    "query": "XPRESS MOTOS SABINAS, Mexico",
+    "source": "arcgis"
+  },
+  "nominatim:XPRESS MOTOS SABINAS, Mexico": {
+    "ok": false,
+    "error": "sin_resultado",
+    "query": "XPRESS MOTOS SABINAS, Mexico",
+    "source": "nominatim"
+  }
+}
