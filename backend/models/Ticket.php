@@ -4028,6 +4028,202 @@ public static function getNombresClienteParaReporte(array $idsCredito): array
         return $resumen;
     }
 
+    private static function asegurarHistoricoIlocalizablesSchema(Database $db): void
+    {
+        static $ok = false;
+        if ($ok) {
+            return;
+        }
+        $db->CRUD("
+            CREATE TABLE IF NOT EXISTS __SPARTA_SECRET_REDACTED__.sabueso_ilocalizables_historico (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                id_ticket INT NOT NULL,
+                id_credito INT NULL,
+                folio VARCHAR(80) NULL,
+                semana_inicio DATE NOT NULL,
+                semana_fin DATE NOT NULL,
+                dictamen_envio DATETIME NULL,
+                id_gestor INT NULL,
+                nombre_gestor VARCHAR(255) NULL,
+                nombre_cliente VARCHAR(255) NULL,
+                tipo_contacto VARCHAR(40) NULL,
+                motivo VARCHAR(80) NULL,
+                origen VARCHAR(40) NULL,
+                dictamen_tipo_sabueso VARCHAR(80) NULL,
+                resultado_ds VARCHAR(80) NULL,
+                fue_todas_direcciones TINYINT(1) NULL,
+                direcciones_fue TEXT NULL,
+                pago_semana_si TINYINT(1) NOT NULL DEFAULT 0,
+                pago_semana_count INT NOT NULL DEFAULT 0,
+                pago_semana_consultado TINYINT(1) NOT NULL DEFAULT 0,
+                ilocalizable_auto TINYINT(1) NOT NULL DEFAULT 0,
+                ilocalizable_override TINYINT(1) NOT NULL DEFAULT 0,
+                activo TINYINT(1) NOT NULL DEFAULT 1,
+                detalle_json LONGTEXT NULL,
+                detectado_en DATETIME NOT NULL,
+                actualizado_en DATETIME NOT NULL,
+                UNIQUE KEY uq_sabueso_ilocalizable_ticket (id_ticket),
+                KEY idx_sabueso_iloc_credito (id_credito),
+                KEY idx_sabueso_iloc_semana (semana_inicio),
+                KEY idx_sabueso_iloc_activo (activo)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+        ");
+        $ok = true;
+    }
+
+    private static function motivoIlocalizable(array $fila): array
+    {
+        if (!empty($fila['ilocalizable_override'])) {
+            return ['manual', 'manual'];
+        }
+        if (self::esTipoDictamenIlocalizable((string)($fila['dictamen_tipo_sabueso'] ?? ''))) {
+            return ['dictamen_sabueso', 'sabueso'];
+        }
+        if (($fila['resultado_ds'] ?? '') === 'dictamen_ilocalizable') {
+            return ['dictamen_sistema', 'sistema'];
+        }
+        if (($fila['fue_todas_direcciones'] ?? null) === true
+            && !empty($fila['pago_semana_consultado'])
+            && empty($fila['pago_semana_si'])) {
+            return ['todas_direcciones_sin_pago', 'operativo'];
+        }
+        return ['ilocalizable', 'sistema'];
+    }
+
+    private static function guardarHistoricoIlocalizableDesdeFila(Database $db, array $fila, string $semanaInicio, string $semanaFin): void
+    {
+        $idTicket = (int)($fila['id_ticket'] ?? 0);
+        if ($idTicket < 1 || !preg_match('/^\d{4}-\d{2}-\d{2}$/', $semanaInicio) || !preg_match('/^\d{4}-\d{2}-\d{2}$/', $semanaFin)) {
+            return;
+        }
+        self::asegurarHistoricoIlocalizablesSchema($db);
+        $activo = !empty($fila['ilocalizable']) ? 1 : 0;
+        [$motivo, $origen] = self::motivoIlocalizable($fila);
+        $now = self::ahoraCdmx();
+        $detalle = [];
+        foreach ([
+            'fue_todas_direcciones',
+            'direcciones_fue',
+            'pago_semana_si',
+            'pago_semana_count',
+            'pago_semana_consultado',
+            'ilocalizable_auto',
+            'ilocalizable_override',
+            'resultado_ds',
+            'dictamen_tipo_sabueso',
+        ] as $k) {
+            if (array_key_exists($k, $fila)) {
+                $detalle[$k] = $fila[$k];
+            }
+        }
+        $db->CRUD("
+            INSERT INTO __SPARTA_SECRET_REDACTED__.sabueso_ilocalizables_historico (
+                id_ticket, id_credito, folio, semana_inicio, semana_fin, dictamen_envio,
+                id_gestor, nombre_gestor, nombre_cliente, tipo_contacto, motivo, origen,
+                dictamen_tipo_sabueso, resultado_ds, fue_todas_direcciones, direcciones_fue,
+                pago_semana_si, pago_semana_count, pago_semana_consultado,
+                ilocalizable_auto, ilocalizable_override, activo, detalle_json,
+                detectado_en, actualizado_en
+            ) VALUES (
+                :id_ticket, :id_credito, :folio, :semana_inicio, :semana_fin, :dictamen_envio,
+                :id_gestor, :nombre_gestor, :nombre_cliente, :tipo_contacto, :motivo, :origen,
+                :dictamen_tipo_sabueso, :resultado_ds, :fue_todas_direcciones, :direcciones_fue,
+                :pago_semana_si, :pago_semana_count, :pago_semana_consultado,
+                :ilocalizable_auto, :ilocalizable_override, :activo, :detalle_json,
+                :detectado_en, :actualizado_en
+            )
+            ON DUPLICATE KEY UPDATE
+                id_credito = VALUES(id_credito),
+                folio = VALUES(folio),
+                semana_inicio = VALUES(semana_inicio),
+                semana_fin = VALUES(semana_fin),
+                dictamen_envio = VALUES(dictamen_envio),
+                id_gestor = VALUES(id_gestor),
+                nombre_gestor = VALUES(nombre_gestor),
+                nombre_cliente = VALUES(nombre_cliente),
+                tipo_contacto = VALUES(tipo_contacto),
+                motivo = VALUES(motivo),
+                origen = VALUES(origen),
+                dictamen_tipo_sabueso = VALUES(dictamen_tipo_sabueso),
+                resultado_ds = VALUES(resultado_ds),
+                fue_todas_direcciones = VALUES(fue_todas_direcciones),
+                direcciones_fue = VALUES(direcciones_fue),
+                pago_semana_si = VALUES(pago_semana_si),
+                pago_semana_count = VALUES(pago_semana_count),
+                pago_semana_consultado = VALUES(pago_semana_consultado),
+                ilocalizable_auto = VALUES(ilocalizable_auto),
+                ilocalizable_override = VALUES(ilocalizable_override),
+                activo = VALUES(activo),
+                detalle_json = VALUES(detalle_json),
+                actualizado_en = VALUES(actualizado_en)
+        ", [
+            'id_ticket' => $idTicket,
+            'id_credito' => !empty($fila['id_credito']) ? (int)$fila['id_credito'] : null,
+            'folio' => (string)($fila['folio'] ?? ''),
+            'semana_inicio' => $semanaInicio,
+            'semana_fin' => $semanaFin,
+            'dictamen_envio' => !empty($fila['dictamen_envio']) ? (string)$fila['dictamen_envio'] : null,
+            'id_gestor' => !empty($fila['id_gestor']) ? (int)$fila['id_gestor'] : null,
+            'nombre_gestor' => (string)($fila['nombre_gestor'] ?? ''),
+            'nombre_cliente' => (string)($fila['nombre_cliente'] ?? ''),
+            'tipo_contacto' => (string)($fila['tipo_contacto'] ?? ''),
+            'motivo' => $motivo,
+            'origen' => $origen,
+            'dictamen_tipo_sabueso' => (string)($fila['dictamen_tipo_sabueso'] ?? ''),
+            'resultado_ds' => (string)($fila['resultado_ds'] ?? ''),
+            'fue_todas_direcciones' => (($fila['fue_todas_direcciones'] ?? null) === null) ? null : (!empty($fila['fue_todas_direcciones']) ? 1 : 0),
+            'direcciones_fue' => (string)($fila['direcciones_fue'] ?? ''),
+            'pago_semana_si' => !empty($fila['pago_semana_si']) ? 1 : 0,
+            'pago_semana_count' => (int)($fila['pago_semana_count'] ?? 0),
+            'pago_semana_consultado' => !empty($fila['pago_semana_consultado']) ? 1 : 0,
+            'ilocalizable_auto' => !empty($fila['ilocalizable_auto']) ? 1 : 0,
+            'ilocalizable_override' => !empty($fila['ilocalizable_override']) ? 1 : 0,
+            'activo' => $activo,
+            'detalle_json' => json_encode($detalle, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
+            'detectado_en' => $now,
+            'actualizado_en' => $now,
+        ]);
+    }
+
+    private static function sincronizarHistoricoIlocalizables(Database $db, array $filas, string $semanaInicio, string $semanaFin): void
+    {
+        foreach ($filas as $fila) {
+            if (!empty($fila['ilocalizable']) || !empty($fila['ilocalizable_override'])) {
+                self::guardarHistoricoIlocalizableDesdeFila($db, $fila, $semanaInicio, $semanaFin);
+            }
+        }
+    }
+
+    public static function getHistoricoIlocalizables(array $filtros = []): array
+    {
+        $db = new Database();
+        try {
+            self::asegurarHistoricoIlocalizablesSchema($db);
+            $where = ["activo = 1"];
+            $params = [];
+            $q = trim((string)($filtros['q'] ?? ''));
+            if ($q !== '') {
+                $where[] = "(CAST(id_credito AS CHAR) LIKE :q OR folio LIKE :q OR nombre_cliente LIKE :q OR nombre_gestor LIKE :q)";
+                $params['q'] = '%' . $q . '%';
+            }
+            $limit = (int)($filtros['limit'] ?? 500);
+            if ($limit < 1 || $limit > 2000) {
+                $limit = 500;
+            }
+            $rows = $db->queryAll(
+                "SELECT * FROM __SPARTA_SECRET_REDACTED__.sabueso_ilocalizables_historico
+                 WHERE " . implode(' AND ', $where) . "
+                 ORDER BY COALESCE(dictamen_envio, actualizado_en) DESC, id DESC
+                 LIMIT " . $limit,
+                $params
+            );
+            return ['success' => true, 'mensaje' => 'OK', 'datos' => $rows, 'total' => count($rows)];
+        } catch (\Throwable $e) {
+            error_log('getHistoricoIlocalizables error: ' . $e->getMessage());
+            return ['success' => false, 'mensaje' => $e->getMessage(), 'datos' => [], 'total' => 0];
+        }
+    }
+
     /**
      * Tras reconsultar un crédito, actualiza el JSON de la semana si existe (sin regenerar todo).
      */
@@ -4145,6 +4341,12 @@ public static function getNombresClienteParaReporte(array $idsCredito): array
                 $row = $f;
                 break;
             }
+        }
+        if ($row !== null) {
+            $semanaFin = (new \DateTimeImmutable($semanaInicio . ' 00:00:00', new \DateTimeZone('America/Mexico_City')))
+                ->modify('+6 days')
+                ->format('Y-m-d');
+            self::guardarHistoricoIlocalizableDesdeFila(new Database(), $row, $semanaInicio, $semanaFin);
         }
         return [
             'success' => true,
@@ -5942,14 +6144,18 @@ public static function getNombresClienteParaReporte(array $idsCredito): array
             $semanaSelInicio = $semanaSelDt->format('Y-m-d') . ' 00:00:00';
             $semanaSelFinExcl = $semanaSelDt->modify('+7 days')->format('Y-m-d') . ' 00:00:00';
             $semanaSelFinIncl = $semanaSelDt->modify('+6 days')->format('Y-m-d') . ' 23:59:59';
-            $cacheKey = 'reporte_semanal_global:v3:' . $semanaSelDt->format('Y-m-d');
+            $semanaInicioYmd = $semanaSelDt->format('Y-m-d');
+            $semanaFinYmd = $semanaSelDt->modify('+6 days')->format('Y-m-d');
+            $cacheKey = 'reporte_semanal_global:v3:' . $semanaInicioYmd;
             $cacheHit = self::statsCacheRead($cacheKey, 300);
             if (is_array($cacheHit) && !empty($cacheHit['success'])) {
+                self::sincronizarHistoricoIlocalizables($db, $cacheHit['filas'] ?? [], $semanaInicioYmd, $semanaFinYmd);
                 return $cacheHit;
             }
 
-            $archivoHit = self::reporteSemanalGlobalArchivoLeer($semanaSelDt->format('Y-m-d'));
+            $archivoHit = self::reporteSemanalGlobalArchivoLeer($semanaInicioYmd);
             if (is_array($archivoHit) && !empty($archivoHit['success'])) {
+                self::sincronizarHistoricoIlocalizables($db, $archivoHit['filas'] ?? [], $semanaInicioYmd, $semanaFinYmd);
                 self::statsCacheWrite($cacheKey, $archivoHit, 300);
                 return $archivoHit;
             }
@@ -6206,6 +6412,8 @@ public static function getNombresClienteParaReporte(array $idsCredito): array
                     'nombre_gestor' => $nombreGestor,
                     'tipo_contacto' => $tipoContacto,
                     'dictamen_envio' => $r['dictamen_envio'] ?? null,
+                    'dictamen_tipo_sabueso' => (string)($r['dictamen_tipo_sabueso'] ?? ''),
+                    'resultado_ds' => $res,
                     'fue_todas_direcciones' => $fueDirecciones,
                     'direcciones_fue' => $direccionesFue,
                     'pago_12h' => $pago12h,
@@ -6251,16 +6459,18 @@ public static function getNombresClienteParaReporte(array $idsCredito): array
                 }
             }
 
+            self::sincronizarHistoricoIlocalizables($db, $filas, $semanaInicioYmd, $semanaFinYmd);
+
             $payload = [
                 'success' => true,
                 'mensaje' => 'OK',
-                'semana_inicio' => $semanaSelDt->format('Y-m-d'),
-                'semana_fin' => $semanaSelDt->modify('+6 days')->format('Y-m-d'),
+                'semana_inicio' => $semanaInicioYmd,
+                'semana_fin' => $semanaFinYmd,
                 'semanas' => $semanas,
                 'resumen' => $resumen,
                 'filas' => $filas,
             ];
-            self::reporteSemanalGlobalArchivoEscribir($semanaSelDt->format('Y-m-d'), $payload);
+            self::reporteSemanalGlobalArchivoEscribir($semanaInicioYmd, $payload);
             self::statsCacheWrite($cacheKey, $payload, 300);
             return $payload;
         } catch (\Throwable $e) {
@@ -6413,6 +6623,21 @@ public static function getNombresClienteParaReporte(array $idsCredito): array
                 ? !empty($filaFinal['ilocalizable_auto'])
                 : $esIlocalizable;
             $ilOv = $filaFinal !== null && !empty($filaFinal['ilocalizable_override']);
+            $historicoFila = $filaFinal ?: [
+                'id_ticket' => $idTicket,
+                'id_credito' => $idCredito,
+                'dictamen_tipo_sabueso' => (string)($row['dictamen_tipo_sabueso'] ?? ''),
+            ];
+            $historicoFila['pago_semana_si'] = !empty($pagoSemana['si']);
+            $historicoFila['pago_semana_count'] = (int)$pagoSemana['count'];
+            $historicoFila['pago_semana_consultado'] = !empty($pagoSemana['consultado']);
+            $historicoFila['fue_todas_direcciones'] = $fueDirecciones;
+            $historicoFila['resultado_ds'] = $resDs;
+            $historicoFila['dictamen_tipo_sabueso'] = (string)($historicoFila['dictamen_tipo_sabueso'] ?? $row['dictamen_tipo_sabueso'] ?? '');
+            $historicoFila['ilocalizable'] = $ilEff;
+            $historicoFila['ilocalizable_auto'] = $ilAut;
+            $historicoFila['ilocalizable_override'] = $ilOv;
+            self::guardarHistoricoIlocalizableDesdeFila($db, $historicoFila, $semanaSelDt->format('Y-m-d'), $semanaSelDt->modify('+6 days')->format('Y-m-d'));
 
             return [
                 'success' => true,

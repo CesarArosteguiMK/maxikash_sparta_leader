@@ -118,6 +118,22 @@ $documentos = [
         }
         .form-group {
             margin-bottom: 1rem;
+            border-radius: 12px;
+            transition: background-color 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease, padding 0.2s ease;
+        }
+        .form-group.doc-pendiente {
+            background: linear-gradient(135deg, rgba(255, 251, 235, 0.95), rgba(255, 247, 214, 0.7));
+            border: 1px solid rgba(245, 158, 11, 0.28);
+            box-shadow: 0 8px 22px rgba(245, 158, 11, 0.14), inset 4px 0 0 rgba(245, 158, 11, 0.72);
+            padding: 0.75rem 0.85rem;
+        }
+        .form-group.doc-pendiente label {
+            color: #1f2937;
+        }
+        .form-group.doc-pendiente .form-control-file {
+            background: #fffaf0;
+            border-color: #f6c343;
+            box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.12);
         }
         .form-group label {
             display: block;
@@ -581,7 +597,7 @@ $documentos = [
                         $soloPdf = in_array($num, $docsSoloPdf, true);
                         $yaSubido = isset($documentos_subidos[$num]);
                     ?>
-                    <div class="form-group" data-doc-num="<?= $num ?>">
+                    <div class="form-group<?= $yaSubido ? '' : ' doc-pendiente' ?>" data-doc-num="<?= $num ?>">
                         <label for="archivo_<?= $num ?>"><?= $num ?>. <?= htmlspecialchars($nombreDoc) ?><?= $num === 5 ? ' <span class="text-muted" style="font-weight:400;">(un solo archivo PDF con frente y reverso)</span>' : '' ?><span id="doc-check-<?= (int)$num ?>" class="doc-palomita<?= $yaSubido ? ' visible' : '' ?>"<?= $yaSubido ? ' aria-label="Documento ya recibido"' : ' aria-hidden="true"' ?> title="<?= $yaSubido ? 'Documento ya recibido' : 'Archivo listo' ?>"><i class="fa fa-check-circle" aria-hidden="true"></i></span></label>
                         <?php if ($yaSubido): ?>
                         <div class="doc-ya-subido py-2 px-3 rounded" style="background:#e8f5e9;color:#2e7d32;">
@@ -1016,9 +1032,24 @@ $documentos = [
 
             function actualizarCheckmark(docNum, aprobado) {
                 var el = document.getElementById('doc-check-' + docNum);
+                actualizarEstadoPendiente(docNum, !aprobado);
                 if (!el) return;
                 if (aprobado) el.classList.add('visible');
                 else el.classList.remove('visible');
+            }
+
+            function actualizarEstadoPendiente(docNum, pendiente) {
+                var grupo = document.querySelector('.form-group[data-doc-num="' + docNum + '"]');
+                if (!grupo) return;
+                if (pendiente) {
+                    var input = grupo.querySelector('input[type="file"]');
+                    var yaSubido = grupo.querySelector('.doc-ya-subido');
+                    if (!yaSubido && (!input || !input.files || input.files.length === 0)) {
+                        grupo.classList.add('doc-pendiente');
+                    }
+                    return;
+                }
+                grupo.classList.remove('doc-pendiente');
             }
 
             function normalizarNombreDocumentoLocal(valor) {
@@ -2392,6 +2423,7 @@ $documentos = [
                                 el = document.querySelector('.form-group[data-doc-num="' + key + '"]');
                             }
                             if (el) {
+                                el.classList.remove('doc-pendiente');
                                 var label = el.querySelector('label');
                                 var labelText = label ? label.innerHTML : '';
                                 el.innerHTML = (label ? '<label>' + labelText + '</label>' : '') + yaSubidoHtml(nombre);
