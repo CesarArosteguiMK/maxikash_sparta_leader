@@ -15,9 +15,7 @@ class TrackingRecoleccion extends Controller
     private function prepararVistaTracking(string $titulo = 'Tracking Recoleccion - Motos Adjudicadas'): void
     {
         self::set('titulo', 'Tracking Recolección — Motos Adjudicadas');
-        if (defined('GOOGLE_MAPS_API_KEY')) {
-            self::set('google_maps_api_key_js', GOOGLE_MAPS_API_KEY);
-        }
+        self::set('google_maps_api_key_js', $this->googleMapsKey());
         self::set('tracking_dias_minimos_programacion', ConfigMotosAdj::obtenerDiasMinimosRuta());
         $puedeCancelarRutas = false;
         try {
@@ -36,6 +34,30 @@ class TrackingRecoleccion extends Controller
             self::set('tracking_api_base_url', rtrim($trkCfg['base_url'], '/'));
         }
         return;
+    }
+
+    private function googleMapsKey(): string
+    {
+        $key = defined('GOOGLE_MAPS_API_KEY') ? trim((string) GOOGLE_MAPS_API_KEY) : '';
+        if ($key !== '') {
+            return $key;
+        }
+
+        $env = getenv('GOOGLE_MAPS_API_KEY');
+        if ($env !== false && trim((string) $env) !== '') {
+            return trim((string) $env);
+        }
+
+        try {
+            if (function_exists('config_api_load_from_db')) {
+                $cfg = config_api_load_from_db();
+                $key = trim((string) ($cfg['GOOGLE_MAPS_API_KEY'] ?? ''));
+            }
+        } catch (\Throwable $e) {
+            $key = '';
+        }
+
+        return $key;
     }
 
     public function index()

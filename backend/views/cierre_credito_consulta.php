@@ -863,18 +863,163 @@ body.dark-mode .cc-det-registered-by { color:#94a3b8; }
     text-transform:uppercase; flex-shrink:0;
 }
 body.dark-mode .cc-badge-nuevo { background:linear-gradient(135deg,#059669,#047857); }
+
+/* Manual / FAQ */
+.manual-help-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: .45rem;
+    border: 1px solid rgba(255,255,255,.7);
+    background: rgba(255,255,255,.14);
+    color: #fff;
+    border-radius: 999px;
+    padding: .45rem .9rem;
+    font-size: .86rem;
+    font-weight: 700;
+    line-height: 1;
+    transition: background .16s ease, transform .12s ease, border-color .16s ease;
+}
+.manual-help-btn:hover {
+    background: rgba(255,255,255,.24);
+    color: #fff;
+    border-color: #fff;
+    transform: translateY(-1px);
+}
+.manual-faq-modal .modal-content { border: 0; border-radius: .85rem; overflow: hidden; }
+.manual-faq-modal .modal-header {
+    background: linear-gradient(135deg, #1e3a5f 0%, #2563eb 100%);
+    color: #fff;
+}
+.manual-faq-modal .modal-title { color: #fff; font-weight: 800; }
+.manual-faq-modal .manual-tabs {
+    border-bottom: 1px solid #e2e8f0;
+    gap: .35rem;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    padding-bottom: .55rem;
+}
+.manual-faq-modal .manual-tabs .nav-link {
+    border: 0;
+    border-radius: .55rem;
+    color: #475569;
+    font-weight: 700;
+    font-size: .84rem;
+    white-space: nowrap;
+    padding: .45rem .7rem;
+}
+.manual-faq-modal .manual-tabs .nav-link.active {
+    background: #eff6ff;
+    color: #1d4ed8;
+}
+.manual-faq-modal .manual-pane-title {
+    color: #1d4ed8;
+    font-size: 1.05rem;
+    font-weight: 800;
+    margin-bottom: .75rem;
+}
+.manual-faq-modal .manual-note {
+    background: #eff6ff;
+    border: 1px solid #bfdbfe;
+    border-radius: .65rem;
+    padding: .8rem 1rem;
+    color: #475569;
+    font-size: .9rem;
+}
+.manual-faq-modal .manual-list {
+    margin: 0;
+    padding-left: 1.1rem;
+    color: #334155;
+    font-size: .9rem;
+}
+.manual-faq-modal .manual-list li { margin-bottom: .45rem; }
+.manual-faq-modal .manual-step {
+    display: flex;
+    gap: .75rem;
+    align-items: flex-start;
+    padding: .75rem 0;
+    border-bottom: 1px solid #eef2f7;
+}
+.manual-faq-modal .manual-step:last-child { border-bottom: 0; }
+.manual-faq-modal .manual-step-num {
+    width: 1.75rem;
+    height: 1.75rem;
+    border-radius: 50%;
+    flex: 0 0 1.75rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: #2563eb;
+    color: #fff;
+    font-weight: 800;
+    font-size: .82rem;
+}
+.manual-faq-modal .manual-step strong { color: #1e293b; }
+.manual-faq-modal .manual-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: .35rem;
+    border-radius: 999px;
+    padding: .25rem .6rem;
+    background: #e0f2fe;
+    color: #0369a1;
+    font-size: .76rem;
+    font-weight: 800;
+    margin: 0 .25rem .35rem 0;
+}
+.manual-faq-modal .manual-rule {
+    border: 1px solid #e2e8f0;
+    border-radius: .65rem;
+    padding: .8rem .9rem;
+    height: 100%;
+    background: #fff;
+}
+.manual-faq-modal .manual-rule i { color: #2563eb; }
+.manual-faq-modal .manual-rule strong {
+    display: block;
+    color: #1e293b;
+    margin-bottom: .25rem;
+}
+.manual-faq-modal .manual-rule span {
+    display: block;
+    color: #64748b;
+    font-size: .86rem;
+}
+body.dark-mode .manual-faq-modal .modal-content,
+body.dark-mode .manual-faq-modal .modal-body {
+    background: #1e293b;
+    color: #e2e8f0;
+}
+body.dark-mode .manual-faq-modal .modal-footer { background: #1e293b; border-color: #334155; }
+body.dark-mode .manual-faq-modal .manual-tabs { border-color: #334155; }
+body.dark-mode .manual-faq-modal .manual-tabs .nav-link { color: #94a3b8; }
+body.dark-mode .manual-faq-modal .manual-tabs .nav-link.active { background: rgba(59,130,246,.18); color: #93c5fd; }
+body.dark-mode .manual-faq-modal .manual-pane-title { color: #93c5fd; }
+body.dark-mode .manual-faq-modal .manual-note { background: #0f2744; border-color: #1d4ed8; color: #cbd5e1; }
+body.dark-mode .manual-faq-modal .manual-list { color: #cbd5e1; }
+body.dark-mode .manual-faq-modal .manual-step { border-color: #334155; }
+body.dark-mode .manual-faq-modal .manual-step strong,
+body.dark-mode .manual-faq-modal .manual-rule strong { color: #f1f5f9; }
+body.dark-mode .manual-faq-modal .manual-rule { background: #0f172a; border-color: #334155; }
+body.dark-mode .manual-faq-modal .manual-rule span { color: #94a3b8; }
+body.dark-mode .manual-faq-modal .manual-pill { background: rgba(14,165,233,.16); color: #38bdf8; }
 </style>
 
 <!-- ══════════════════════════════════════
      ENCABEZADO
 ══════════════════════════════════════ -->
 <div class="cc-header-gradient">
-    <div class="d-flex align-items-center gap-3">
-        <i class="fa-solid fa-file-circle-check fa-2x opacity-90"></i>
-        <div>
-            <h4>Cierre de Crédito</h4>
-            <p>Seguimiento al proceso de cierre final de créditos.</p>
+    <div class="d-flex align-items-center justify-content-between gap-3 flex-wrap">
+        <div class="d-flex align-items-center gap-3">
+            <i class="fa-solid fa-file-circle-check fa-2x opacity-90"></i>
+            <div>
+                <h4>Cierre de Crédito</h4>
+                <p>Seguimiento al proceso de cierre final de créditos.</p>
+            </div>
         </div>
+        <button type="button" class="manual-help-btn ms-auto" data-bs-toggle="modal" data-bs-target="#modalFaqCierreCredito" title="Manual de Ayuda de cierre de crédito">
+            <i class="fa-solid fa-circle-question"></i>
+            <span>Manual de Ayuda</span>
+        </button>
     </div>
 </div>
 
@@ -1422,6 +1567,240 @@ $cc_perm_peticiones = $cc_perm_peticiones ?? false;
 </div>
 </div>
 <?php endif; ?>
+
+<div class="modal fade manual-faq-modal" id="modalFaqCierreCredito" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="fa-solid fa-circle-question me-2"></i>Manual rápido: Cierre de Crédito
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <div class="modal-body">
+                <ul class="nav nav-pills manual-tabs mb-3" id="faqCierreTabs" role="tablist">
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link active" id="faq-cc-resumen-tab" data-bs-toggle="pill" data-bs-target="#faq-cc-resumen" type="button" role="tab" aria-controls="faq-cc-resumen" aria-selected="true">
+                            <i class="fa-solid fa-map me-1"></i>Resumen
+                        </button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="faq-cc-pestanas-tab" data-bs-toggle="pill" data-bs-target="#faq-cc-pestanas" type="button" role="tab" aria-controls="faq-cc-pestanas" aria-selected="false">
+                            <i class="fa-solid fa-layer-group me-1"></i>Pestañas
+                        </button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="faq-cc-flujo-tab" data-bs-toggle="pill" data-bs-target="#faq-cc-flujo" type="button" role="tab" aria-controls="faq-cc-flujo" aria-selected="false">
+                            <i class="fa-solid fa-arrow-right-arrow-left me-1"></i>Flujo
+                        </button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="faq-cc-revision-tab" data-bs-toggle="pill" data-bs-target="#faq-cc-revision" type="button" role="tab" aria-controls="faq-cc-revision" aria-selected="false">
+                            <i class="fa-solid fa-clipboard-check me-1"></i>Qué revisar
+                        </button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="faq-cc-cartera-tab" data-bs-toggle="pill" data-bs-target="#faq-cc-cartera" type="button" role="tab" aria-controls="faq-cc-cartera" aria-selected="false">
+                            <i class="fa-solid fa-building-columns me-1"></i>Cartera
+                        </button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="faq-cc-peticiones-tab" data-bs-toggle="pill" data-bs-target="#faq-cc-peticiones" type="button" role="tab" aria-controls="faq-cc-peticiones" aria-selected="false">
+                            <i class="fa-solid fa-inbox me-1"></i>Peticiones
+                        </button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="faq-cc-faq-tab" data-bs-toggle="pill" data-bs-target="#faq-cc-faq" type="button" role="tab" aria-controls="faq-cc-faq" aria-selected="false">
+                            <i class="fa-solid fa-comments me-1"></i>FAQ
+                        </button>
+                    </li>
+                </ul>
+
+                <div class="tab-content">
+                    <div class="tab-pane fade show active" id="faq-cc-resumen" role="tabpanel" aria-labelledby="faq-cc-resumen-tab">
+                        <div class="manual-pane-title">¿Qué hace Cierre de Crédito?</div>
+                        <div class="manual-note mb-3">
+                            Este módulo toma convenios que ya avanzaron o se completaron y los lleva por revisión, validación, Vo.Bo cuando aplique y entrega a Cartera. En lenguaje simple: aquí se confirma que el convenio está bien documentado y que el crédito puede cerrarse correctamente.
+                        </div>
+                        <div class="manual-step">
+                            <span class="manual-step-num">1</span>
+                            <div><strong>Detecta convenios por atender.</strong><br><span class="text-muted">Las bandejas muestran convenios activos, completados, en revisión, enviados a cartera o pendientes de cancelamiento.</span></div>
+                        </div>
+                        <div class="manual-step">
+                            <span class="manual-step-num">2</span>
+                            <div><strong>Revisa evidencia y números.</strong><br><span class="text-muted">Antes de mover un crédito, confirma producto, total, descuento, fechas, amortización, documentos y pagos.</span></div>
+                        </div>
+                        <div class="manual-step">
+                            <span class="manual-step-num">3</span>
+                            <div><strong>Mueve el registro a la siguiente bandeja.</strong><br><span class="text-muted">Cada botón cambia el estado del cierre. Si algo no cuadra, se devuelve o descarta con motivo.</span></div>
+                        </div>
+                    </div>
+
+                    <div class="tab-pane fade" id="faq-cc-pestanas" role="tabpanel" aria-labelledby="faq-cc-pestanas-tab">
+                        <div class="manual-pane-title">Qué significa cada pestaña</div>
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <div class="manual-rule">
+                                    <i class="fa-solid fa-handshake me-1"></i>
+                                    <strong>Convenios Activos</strong>
+                                    <span>Lista convenios en seguimiento, cancelados o con documentos. Sirve para consultar avance y evidencia.</span>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="manual-rule">
+                                    <i class="fa-solid fa-circle-check me-1"></i>
+                                    <strong>Validación de cierre</strong>
+                                    <span>Convenios que ya terminaron su calendario y necesitan revisión antes de pasar a proceso formal.</span>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="manual-rule">
+                                    <i class="fa-solid fa-hourglass-half me-1"></i>
+                                    <strong>En Proceso</strong>
+                                    <span>Bandeja de trabajo del validador. Aquí se revisan documentos, datos del convenio y se decide enviar a Cartera o pedir Vo.Bo.</span>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="manual-rule">
+                                    <i class="fa-solid fa-stamp me-1"></i>
+                                    <strong>Vo.Bo</strong>
+                                    <span>Dirección de cobranza aprueba o rechaza casos que necesitan una validación adicional.</span>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="manual-rule">
+                                    <i class="fa-solid fa-clock-rotate-left me-1"></i>
+                                    <strong>Movimientos</strong>
+                                    <span>Historial de lo que pasó con cada crédito: enviado, devuelto, rechazado, cerrado o pendiente de reenvío.</span>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="manual-rule">
+                                    <i class="fa-solid fa-building-columns me-1"></i>
+                                    <strong>Cartera</strong>
+                                    <span>Registros enviados para revisión operativa, notificación interna, carga por QUITA en S2 y cierre final.</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="tab-pane fade" id="faq-cc-flujo" role="tabpanel" aria-labelledby="faq-cc-flujo-tab">
+                        <div class="manual-pane-title">Flujo normal de un cierre</div>
+                        <div class="mb-3">
+                            <span class="manual-pill"><i class="fa-solid fa-circle-check"></i>Validación</span>
+                            <span class="manual-pill"><i class="fa-solid fa-hourglass-half"></i>En Proceso</span>
+                            <span class="manual-pill"><i class="fa-solid fa-stamp"></i>Vo.Bo opcional</span>
+                            <span class="manual-pill"><i class="fa-solid fa-paper-plane"></i>Cartera</span>
+                            <span class="manual-pill"><i class="fa-solid fa-flag-checkered"></i>Cerrado</span>
+                        </div>
+                        <div class="manual-step">
+                            <span class="manual-step-num">1</span>
+                            <div><strong>Validación de cierre.</strong><br><span class="text-muted">El convenio aparece cuando ya terminó su calendario y falta revisión. Si todo se ve correcto, se envía a En Proceso.</span></div>
+                        </div>
+                        <div class="manual-step">
+                            <span class="manual-step-num">2</span>
+                            <div><strong>En Proceso.</strong><br><span class="text-muted">Se revisa la ficha completa. Desde aquí puede enviarse a Cartera, mandarse a Vo.Bo o descartarse para que regrese a validación.</span></div>
+                        </div>
+                        <div class="manual-step">
+                            <span class="manual-step-num">3</span>
+                            <div><strong>Vo.Bo, si aplica.</strong><br><span class="text-muted">Si Dirección aprueba, el registro vuelve a En Proceso marcado como validado. Si rechaza, queda para retrabajo con comentario.</span></div>
+                        </div>
+                        <div class="manual-step">
+                            <span class="manual-step-num">4</span>
+                            <div><strong>Cartera.</strong><br><span class="text-muted">Cartera confirma la revisión, notificación o carga correspondiente. Cuando ya no requiere acción, se marca como Cerrado.</span></div>
+                        </div>
+                    </div>
+
+                    <div class="tab-pane fade" id="faq-cc-revision" role="tabpanel" aria-labelledby="faq-cc-revision-tab">
+                        <div class="manual-pane-title">Checklist antes de avanzar un crédito</div>
+                        <ul class="manual-list">
+                            <li>Confirma que el crédito y el cliente coincidan con el convenio que estás revisando.</li>
+                            <li>Revisa producto, descuento, total a pagar, pago inicial, pago semanal, número de pagos y fechas.</li>
+                            <li>Abre el detalle para ver la tabla de amortización completa y verificar qué pagos están marcados como pagados.</li>
+                            <li>Valida documentos: convenio adjunto, comprobantes cargados y comentarios de devolución si existen.</li>
+                            <li>Revisa los datos de S2 que se muestran en la ficha: cuotas contratadas, cuotas pagadas, monto otorgado, total pagado y semana de acuerdo.</li>
+                            <li>Si algo no cuadra, no avances por avanzar. Usa descartar, devolver o Vo.Bo según el caso y deja comentario claro.</li>
+                        </ul>
+                        <div class="manual-note mt-3">
+                            Regla práctica: si otra persona no podría entender por qué moviste el crédito leyendo el historial, falta contexto en el comentario.
+                        </div>
+                    </div>
+
+                    <div class="tab-pane fade" id="faq-cc-cartera" role="tabpanel" aria-labelledby="faq-cc-cartera-tab">
+                        <div class="manual-pane-title">Cómo trabaja la pestaña Cartera</div>
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <div class="manual-rule">
+                                    <i class="fa-solid fa-inbox me-1"></i>
+                                    <strong>Recibidos</strong>
+                                    <span>Son convenios enviados a Cartera y pendientes de revisión interna. Aquí se valida que la captura y la liquidación por QUITA en S2 estén completas.</span>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="manual-rule">
+                                    <i class="fa-solid fa-bell me-1"></i>
+                                    <strong>Notificados</strong>
+                                    <span>Son convenios ya notificados al área correspondiente y en espera de resolución. Cuando se liquidan, se cierran.</span>
+                                </div>
+                            </div>
+                        </div>
+                        <ul class="manual-list mt-3">
+                            <li>Usa "Cerrar" cuando Cartera ya revisó y el crédito no requiere más acción.</li>
+                            <li>Usa "Devolver" cuando Cartera detecta un problema. El comentario debe explicar qué se debe corregir.</li>
+                            <li>Si el correo o envío queda limitado, el registro aparecerá en Movimientos con estatus de cola o listo para reenvío.</li>
+                        </ul>
+                    </div>
+
+                    <div class="tab-pane fade" id="faq-cc-peticiones" role="tabpanel" aria-labelledby="faq-cc-peticiones-tab">
+                        <div class="manual-pane-title">Peticiones de cancelamiento</div>
+                        <div class="manual-note mb-3">
+                            Esta pestaña existe para que una cancelación no dependa solo de quien la solicita. Un gestor puede pedir cancelar un convenio activo, pero un perfil autorizado debe revisar el motivo y decidir.
+                        </div>
+                        <div class="manual-step">
+                            <span class="manual-step-num">1</span>
+                            <div><strong>Revisa el motivo.</strong><br><span class="text-muted">Abre el detalle, lee el comentario y revisa la amortización antes de autorizar.</span></div>
+                        </div>
+                        <div class="manual-step">
+                            <span class="manual-step-num">2</span>
+                            <div><strong>Autoriza si procede.</strong><br><span class="text-muted">Autorizar cancela definitivamente el convenio. Úsalo solo cuando la cancelación esté justificada.</span></div>
+                        </div>
+                        <div class="manual-step">
+                            <span class="manual-step-num">3</span>
+                            <div><strong>Descarta si no procede.</strong><br><span class="text-muted">Descartar mantiene el convenio activo y elimina la solicitud pendiente.</span></div>
+                        </div>
+                    </div>
+
+                    <div class="tab-pane fade" id="faq-cc-faq" role="tabpanel" aria-labelledby="faq-cc-faq-tab">
+                        <div class="manual-pane-title">Preguntas frecuentes</div>
+                        <div class="manual-step">
+                            <span class="manual-step-num"><i class="fa-solid fa-question"></i></span>
+                            <div><strong>¿Por qué no veo todas las pestañas?</strong><br><span class="text-muted">Las pestañas dependen de permisos especiales. Si falta una, solicita el permiso correspondiente a Capital Humano.</span></div>
+                        </div>
+                        <div class="manual-step">
+                            <span class="manual-step-num"><i class="fa-solid fa-question"></i></span>
+                            <div><strong>¿Por qué un convenio no aparece en Validación?</strong><br><span class="text-muted">Puede seguir activo, estar cancelado, ya estar en seguimiento de cierre o no cumplir la condición operativa para esta bandeja.</span></div>
+                        </div>
+                        <div class="manual-step">
+                            <span class="manual-step-num"><i class="fa-solid fa-question"></i></span>
+                            <div><strong>¿Cuándo mando a Vo.Bo?</strong><br><span class="text-muted">Cuando el caso necesita revisión de Dirección de Cobranza antes de enviarlo a Cartera. Agrega comentario claro y archivo si ayuda.</span></div>
+                        </div>
+                        <div class="manual-step">
+                            <span class="manual-step-num"><i class="fa-solid fa-question"></i></span>
+                            <div><strong>¿Qué hago si Cartera lo devuelve?</strong><br><span class="text-muted">Lee el comentario de devolución, corrige el punto indicado y vuelve a moverlo solo cuando esté listo.</span></div>
+                        </div>
+                        <div class="manual-step">
+                            <span class="manual-step-num"><i class="fa-solid fa-question"></i></span>
+                            <div><strong>¿Movimientos es editable?</strong><br><span class="text-muted">No. Movimientos es la bitácora de lo ocurrido. Sirve para auditar y entender quién hizo qué y cuándo.</span></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-label-secondary" data-bs-dismiss="modal">Cerrar</button>
+            </div>
+        </div>
+    </div>
+</div>
 
 <div class="modal fade" id="ccModalVoBo" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">

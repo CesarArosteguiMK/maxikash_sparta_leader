@@ -101,6 +101,12 @@ if (!function_exists('getMenuSidebarModulosStructure')) {
                     ['label' => 'Administracion de transportistas', 'url' => '/TrackingRecoleccion/administracionTransportistas', 'modulos' => [74]],
                 ],
             ],
+            'Almacen Virtual' => [
+                'icono' => 'fa-solid fa-warehouse',
+                'subItems' => [
+                    ['label' => 'Inventario', 'url' => '/AlmacenVirtual/inventario', 'modulos' => [139]],
+                ],
+            ],
             'Direcciones' => [
                 'icono' => 'fa-solid fa-route',
                 'subItems' => [

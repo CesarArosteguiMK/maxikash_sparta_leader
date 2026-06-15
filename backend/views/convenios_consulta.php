@@ -561,6 +561,145 @@ body.dark-mode #migTotalFinal {
     color: #c084fc !important;
 }
 
+/* Manual / FAQ */
+.manual-help-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: .45rem;
+    border: 1px solid rgba(255,255,255,.7);
+    background: rgba(255,255,255,.14);
+    color: #fff;
+    border-radius: 999px;
+    padding: .45rem .9rem;
+    font-size: .86rem;
+    font-weight: 700;
+    line-height: 1;
+    transition: background .16s ease, transform .12s ease, border-color .16s ease;
+}
+.manual-help-btn:hover {
+    background: rgba(255,255,255,.24);
+    color: #fff;
+    border-color: #fff;
+    transform: translateY(-1px);
+}
+.manual-faq-modal .modal-content { border: 0; border-radius: .85rem; overflow: hidden; }
+.manual-faq-modal .modal-header {
+    background: linear-gradient(135deg, #5b2d8e 0%, #764ba2 100%);
+    color: #fff;
+}
+.manual-faq-modal .modal-title { color: #fff; font-weight: 800; }
+.manual-faq-modal .manual-tabs {
+    border-bottom: 1px solid #e2e8f0;
+    gap: .35rem;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    padding-bottom: .55rem;
+}
+.manual-faq-modal .manual-tabs .nav-link {
+    border: 0;
+    border-radius: .55rem;
+    color: #475569;
+    font-weight: 700;
+    font-size: .84rem;
+    white-space: nowrap;
+    padding: .45rem .7rem;
+}
+.manual-faq-modal .manual-tabs .nav-link.active {
+    background: #f5f0ff;
+    color: #5b2d8e;
+}
+.manual-faq-modal .manual-pane-title {
+    color: #5b2d8e;
+    font-size: 1.05rem;
+    font-weight: 800;
+    margin-bottom: .75rem;
+}
+.manual-faq-modal .manual-note {
+    background: #f8f5ff;
+    border: 1px solid #e9d5ff;
+    border-radius: .65rem;
+    padding: .8rem 1rem;
+    color: #475569;
+    font-size: .9rem;
+}
+.manual-faq-modal .manual-list {
+    margin: 0;
+    padding-left: 1.1rem;
+    color: #334155;
+    font-size: .9rem;
+}
+.manual-faq-modal .manual-list li { margin-bottom: .45rem; }
+.manual-faq-modal .manual-step {
+    display: flex;
+    gap: .75rem;
+    align-items: flex-start;
+    padding: .75rem 0;
+    border-bottom: 1px solid #eef2f7;
+}
+.manual-faq-modal .manual-step:last-child { border-bottom: 0; }
+.manual-faq-modal .manual-step-num {
+    width: 1.75rem;
+    height: 1.75rem;
+    border-radius: 50%;
+    flex: 0 0 1.75rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: #764ba2;
+    color: #fff;
+    font-weight: 800;
+    font-size: .82rem;
+}
+.manual-faq-modal .manual-step strong { color: #1e293b; }
+.manual-faq-modal .manual-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: .35rem;
+    border-radius: 999px;
+    padding: .25rem .6rem;
+    background: #eef2ff;
+    color: #4338ca;
+    font-size: .76rem;
+    font-weight: 800;
+    margin: 0 .25rem .35rem 0;
+}
+.manual-faq-modal .manual-rule {
+    border: 1px solid #e2e8f0;
+    border-radius: .65rem;
+    padding: .8rem .9rem;
+    height: 100%;
+    background: #fff;
+}
+.manual-faq-modal .manual-rule i { color: #764ba2; }
+.manual-faq-modal .manual-rule strong {
+    display: block;
+    color: #1e293b;
+    margin-bottom: .25rem;
+}
+.manual-faq-modal .manual-rule span {
+    display: block;
+    color: #64748b;
+    font-size: .86rem;
+}
+body.dark-mode .manual-faq-modal .modal-content,
+body.dark-mode .manual-faq-modal .modal-body {
+    background: #1e293b;
+    color: #e2e8f0;
+}
+body.dark-mode .manual-faq-modal .modal-footer { background: #1e293b; border-color: #334155; }
+body.dark-mode .manual-faq-modal .manual-tabs { border-color: #334155; }
+body.dark-mode .manual-faq-modal .manual-tabs .nav-link { color: #94a3b8; }
+body.dark-mode .manual-faq-modal .manual-tabs .nav-link.active { background: #2d1b69; color: #c084fc; }
+body.dark-mode .manual-faq-modal .manual-pane-title { color: #c084fc; }
+body.dark-mode .manual-faq-modal .manual-note { background: #1e1533; border-color: #4c1d95; color: #cbd5e1; }
+body.dark-mode .manual-faq-modal .manual-list { color: #cbd5e1; }
+body.dark-mode .manual-faq-modal .manual-step { border-color: #334155; }
+body.dark-mode .manual-faq-modal .manual-step strong,
+body.dark-mode .manual-faq-modal .manual-rule strong { color: #f1f5f9; }
+body.dark-mode .manual-faq-modal .manual-rule { background: #0f172a; border-color: #334155; }
+body.dark-mode .manual-faq-modal .manual-rule span { color: #94a3b8; }
+body.dark-mode .manual-faq-modal .manual-pill { background: rgba(167,139,250,.16); color: #c084fc; }
+
 /* Loader de SweetAlert2 — siempre amarillo ► eliminar azul */
 .swal2-loader {
     border-color: #f59e0b transparent #f59e0b transparent !important;
@@ -574,12 +713,18 @@ body.dark-mode #migTotalFinal {
 
     <!-- HEADER -->
     <div class="conv-header-gradient">
-        <div class="d-flex align-items-center justify-content-between">
+        <div class="d-flex align-items-center justify-content-between gap-3 flex-wrap">
             <div>
                 <h4 style="color:#fff;"><i class="fa-solid fa-handshake me-2"></i>Convenios de Liquidación</h4>
                 <p>Consulta y genera ofertas especiales para créditos en mora</p>
             </div>
-            <i class="fa-solid fa-sack-dollar" style="font-size:3rem;opacity:0.3;"></i>
+            <div class="d-flex align-items-center gap-3 ms-auto">
+                <button type="button" class="manual-help-btn" data-bs-toggle="modal" data-bs-target="#modalFaqConvenios" title="Manual de Ayuda de convenios">
+                    <i class="fa-solid fa-circle-question"></i>
+                    <span>Manual de Ayuda</span>
+                </button>
+                <i class="fa-solid fa-sack-dollar" style="font-size:3rem;opacity:0.3;"></i>
+            </div>
         </div>
     </div>
 
@@ -779,6 +924,228 @@ body.dark-mode #migTotalFinal {
             </div>
         </div>
 
+    </div>
+</div>
+
+<div class="modal fade manual-faq-modal" id="modalFaqConvenios" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="fa-solid fa-circle-question me-2"></i>Manual rápido: Convenios de Liquidación
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <div class="modal-body">
+                <ul class="nav nav-pills manual-tabs mb-3" id="faqConveniosTabs" role="tablist">
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link active" id="faq-conv-rapido-tab" data-bs-toggle="pill" data-bs-target="#faq-conv-rapido" type="button" role="tab" aria-controls="faq-conv-rapido" aria-selected="true">
+                            <i class="fa-solid fa-route me-1"></i>Inicio rápido
+                        </button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="faq-conv-consulta-tab" data-bs-toggle="pill" data-bs-target="#faq-conv-consulta" type="button" role="tab" aria-controls="faq-conv-consulta" aria-selected="false">
+                            <i class="fa-solid fa-magnifying-glass me-1"></i>Consultar
+                        </button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="faq-conv-reglas-tab" data-bs-toggle="pill" data-bs-target="#faq-conv-reglas" type="button" role="tab" aria-controls="faq-conv-reglas" aria-selected="false">
+                            <i class="fa-solid fa-scale-balanced me-1"></i>Reglas
+                        </button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="faq-conv-productos-tab" data-bs-toggle="pill" data-bs-target="#faq-conv-productos" type="button" role="tab" aria-controls="faq-conv-productos" aria-selected="false">
+                            <i class="fa-solid fa-tags me-1"></i>Productos
+                        </button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="faq-conv-registro-tab" data-bs-toggle="pill" data-bs-target="#faq-conv-registro" type="button" role="tab" aria-controls="faq-conv-registro" aria-selected="false">
+                            <i class="fa-solid fa-file-signature me-1"></i>Registro
+                        </button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="faq-conv-pagos-tab" data-bs-toggle="pill" data-bs-target="#faq-conv-pagos" type="button" role="tab" aria-controls="faq-conv-pagos" aria-selected="false">
+                            <i class="fa-solid fa-money-check-dollar me-1"></i>Pagos
+                        </button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="faq-conv-faq-tab" data-bs-toggle="pill" data-bs-target="#faq-conv-faq" type="button" role="tab" aria-controls="faq-conv-faq" aria-selected="false">
+                            <i class="fa-solid fa-comments me-1"></i>FAQ
+                        </button>
+                    </li>
+                </ul>
+
+                <div class="tab-content">
+                    <div class="tab-pane fade show active" id="faq-conv-rapido" role="tabpanel" aria-labelledby="faq-conv-rapido-tab">
+                        <div class="manual-pane-title">¿Para qué sirve este módulo?</div>
+                        <div class="manual-note mb-3">
+                            Aquí consultas un crédito, revisas si cumple condiciones para convenio y, si aplica, generas una propuesta de liquidación con descuento y calendario de pagos. Piensa en esto como: "¿este cliente puede tener convenio?, ¿cuánto pagaría?, ¿en cuántos pagos queda?".
+                        </div>
+                        <div class="manual-step">
+                            <span class="manual-step-num">1</span>
+                            <div><strong>Busca el crédito.</strong><br><span class="text-muted">Escribe el ID del crédito y presiona Buscar. Si existe, verás el cliente, mora, adeudo y estatus.</span></div>
+                        </div>
+                        <div class="manual-step">
+                            <span class="manual-step-num">2</span>
+                            <div><strong>Revisa las ofertas.</strong><br><span class="text-muted">El sistema muestra solo los productos que sí puede usar ese crédito. Si no aparece un producto, normalmente no cumple alguna regla.</span></div>
+                        </div>
+                        <div class="manual-step">
+                            <span class="manual-step-num">3</span>
+                            <div><strong>Elige plazo y valida la tabla.</strong><br><span class="text-muted">La tabla de amortización muestra fechas, pagos y saldo. No guardes si el calendario no coincide con lo acordado con el cliente.</span></div>
+                        </div>
+                        <div class="manual-step">
+                            <span class="manual-step-num">4</span>
+                            <div><strong>Guarda y da seguimiento.</strong><br><span class="text-muted">Cuando se guarda, el convenio queda activo y se le da seguimiento semana por semana hasta completarlo, cancelarlo o enviarlo a cierre.</span></div>
+                        </div>
+                    </div>
+
+                    <div class="tab-pane fade" id="faq-conv-consulta" role="tabpanel" aria-labelledby="faq-conv-consulta-tab">
+                        <div class="manual-pane-title">Cómo consultar un crédito, paso a paso</div>
+                        <ul class="manual-list">
+                            <li>Usa el buscador principal con el ID del crédito. El módulo está pensado para buscar por crédito, no para hacer búsquedas generales de clientes.</li>
+                            <li>El banner del crédito resume lo importante: cliente, crédito, bucket de mora, días de atraso, avance de pago y estatus del convenio.</li>
+                            <li>Si el crédito ya tiene convenio activo, el sistema congela la captura para evitar duplicados. Podrás revisar el convenio, descargar PDF o consultar historial.</li>
+                            <li>Si el crédito ya liquidó en S2, el sistema lo marca como saldado. En ese caso, no se debe crear otro convenio desde cero.</li>
+                            <li>El botón "Ver historial de convenios" sirve para revisar acuerdos anteriores, cancelaciones, convenios completados y tablas de amortización.</li>
+                        </ul>
+                        <div class="manual-note mt-3">
+                            En palabras simples: primero confirma que estás viendo el crédito correcto. Después revisa si está libre, activo, cancelado, completado o saldado antes de tomar acción.
+                        </div>
+                    </div>
+
+                    <div class="tab-pane fade" id="faq-conv-reglas" role="tabpanel" aria-labelledby="faq-conv-reglas-tab">
+                        <div class="manual-pane-title">Reglas de negocio en palabras simples</div>
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <div class="manual-rule">
+                                    <i class="fa-solid fa-calendar-day me-1"></i>
+                                    <strong>Mora mínima</strong>
+                                    <span>El crédito debe estar en bucket de 22 días o más. Si está current, 1 a 7, 8 a 14 o 15 a 21 días, no es candidato normal para convenio.</span>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="manual-rule">
+                                    <i class="fa-solid fa-building-user me-1"></i>
+                                    <strong>Despacho activo para registrar existente</strong>
+                                    <span>Cuando se captura un convenio ya acordado fuera del sistema, el crédito debe estar asignado y activo en despacho.</span>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="manual-rule">
+                                    <i class="fa-solid fa-filter me-1"></i>
+                                    <strong>Productos filtrados automáticamente</strong>
+                                    <span>Cada producto tiene sus propias reglas de bucket, avance de pago, descuento y plazo. El usuario solo ve lo que aplica.</span>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="manual-rule">
+                                    <i class="fa-solid fa-ban me-1"></i>
+                                    <strong>Bloqueo por incumplimiento</strong>
+                                    <span>Si un convenio fue cancelado automáticamente por falta de pago, ese mismo producto puede quedar bloqueado para ese crédito.</span>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="manual-rule">
+                                    <i class="fa-solid fa-copy me-1"></i>
+                                    <strong>Sin duplicados activos</strong>
+                                    <span>Un crédito no debe tener dos convenios activos al mismo tiempo. Si ya hay uno activo, primero hay que resolverlo.</span>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="manual-rule">
+                                    <i class="fa-solid fa-percent me-1"></i>
+                                    <strong>Descuento máximo en captura manual</strong>
+                                    <span>En capturas manuales o mixtas, el sistema valida que el descuento real no rebase el máximo permitido por la operación.</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="tab-pane fade" id="faq-conv-productos" role="tabpanel" aria-labelledby="faq-conv-productos-tab">
+                        <div class="manual-pane-title">Cómo entender los productos</div>
+                        <div class="mb-3">
+                            <span class="manual-pill"><i class="fa-solid fa-dollar-sign"></i>Adeudo total</span>
+                            <span class="manual-pill"><i class="fa-solid fa-piggy-bank"></i>Capital</span>
+                            <span class="manual-pill"><i class="fa-solid fa-chart-line"></i>Interés</span>
+                            <span class="manual-pill"><i class="fa-solid fa-calendar-week"></i>Semanas</span>
+                            <span class="manual-pill"><i class="fa-solid fa-flag-checkered"></i>Pago de cierre</span>
+                        </div>
+                        <ul class="manual-list">
+                            <li>Un producto es una forma autorizada de negociar: trae porcentaje de descuento, base de cálculo y plazo permitido.</li>
+                            <li>La base de cálculo indica sobre qué monto se calcula el descuento: total del adeudo, capital o interés. Por eso dos productos pueden dar totales distintos aunque tengan el mismo porcentaje.</li>
+                            <li>El plazo máximo puede cambiar según el monto del crédito. Si el sistema limita semanas, no es error: está aplicando la regla de monto y producto.</li>
+                            <li>Cuando existe pago inicial, el sistema lo descuenta del total a pagar y después reparte el resto en el calendario.</li>
+                            <li>El producto tipo Pago Mixto permite estructuras como pago inicial, pagos iguales y un pago de cierre. También puede trabajar con fechas específicas cuando el acuerdo no es semanal fijo.</li>
+                            <li>El monto adicional es opcional. Sirve para ajustar el total final cuando se requiere cobrar algo extra, pero debe mantenerse dentro del límite permitido.</li>
+                        </ul>
+                        <div class="manual-note mt-3">
+                            Regla práctica: si una oferta aparece en pantalla, el sistema ya revisó que el crédito cumpla las condiciones básicas de ese producto.
+                        </div>
+                    </div>
+
+                    <div class="tab-pane fade" id="faq-conv-registro" role="tabpanel" aria-labelledby="faq-conv-registro-tab">
+                        <div class="manual-pane-title">Registrar un convenio</div>
+                        <div class="row g-3">
+                            <div class="col-lg-6">
+                                <div class="manual-rule">
+                                    <i class="fa-solid fa-wand-magic-sparkles me-1"></i>
+                                    <strong>Registro desde ofertas</strong>
+                                    <span>Busca el crédito, selecciona una oferta, elige semanas, revisa la tabla y presiona Confirmar y Guardar Convenio.</span>
+                                </div>
+                            </div>
+                            <div class="col-lg-6">
+                                <div class="manual-rule">
+                                    <i class="fa-solid fa-file-import me-1"></i>
+                                    <strong>Registrar convenio existente</strong>
+                                    <span>Sirve para capturar un acuerdo que ya se hizo. Debe cumplir mora mínima, estar activo en despacho y no tener otro convenio activo.</span>
+                                </div>
+                            </div>
+                        </div>
+                        <ul class="manual-list mt-3">
+                            <li>Antes de guardar, revisa cliente, crédito, producto, descuento, total a pagar, pago inicial, fechas y pago semanal.</li>
+                            <li>El PDF del convenio firmado es opcional en la captura, pero ayuda a que cierre y cartera tengan evidencia clara.</li>
+                            <li>Si cambias el total final o agregas monto adicional, la tabla se recalcula. Vuelve a revisar antes de guardar.</li>
+                            <li>Si el sistema muestra una alerta, léela completa. Normalmente está evitando un convenio duplicado, una mora insuficiente o un descuento fuera de regla.</li>
+                        </ul>
+                    </div>
+
+                    <div class="tab-pane fade" id="faq-conv-pagos" role="tabpanel" aria-labelledby="faq-conv-pagos-tab">
+                        <div class="manual-pane-title">Seguimiento de pagos y cancelaciones</div>
+                        <ul class="manual-list">
+                            <li>Cada convenio genera una tabla de pagos. Cada fila representa una semana, pago único, quincena, pago inicial o pago de cierre, según el producto.</li>
+                            <li>Para marcar pagos, el sistema cruza contra S2. Si no encuentra pago real, no deja marcar la semana como pagada.</li>
+                            <li>Los comprobantes se pueden subir para documentar pagos o reemplazarlos si se cargó uno incorrecto.</li>
+                            <li>Cuando todas las semanas quedan pagadas correctamente, el convenio pasa a completado y entra al flujo de Cierre de Crédito.</li>
+                            <li>Si una semana queda vencida más de 3 días y S2 no confirma pago, el sistema puede cancelar automáticamente por incumplimiento.</li>
+                            <li>Si necesitas cancelar manualmente un convenio activo, se genera una petición. Un supervisor la revisa desde Cierre de Crédito, pestaña Peticiones.</li>
+                        </ul>
+                    </div>
+
+                    <div class="tab-pane fade" id="faq-conv-faq" role="tabpanel" aria-labelledby="faq-conv-faq-tab">
+                        <div class="manual-pane-title">Preguntas frecuentes</div>
+                        <div class="manual-step">
+                            <span class="manual-step-num"><i class="fa-solid fa-question"></i></span>
+                            <div><strong>¿Por qué no veo ofertas?</strong><br><span class="text-muted">Puede estar en un bucket menor a 22 días, no cumplir avance mínimo, tener el producto bloqueado por incumplimiento o no existir en la fuente de consulta.</span></div>
+                        </div>
+                        <div class="manual-step">
+                            <span class="manual-step-num"><i class="fa-solid fa-question"></i></span>
+                            <div><strong>¿Por qué no me deja registrar uno existente?</strong><br><span class="text-muted">Ese flujo exige que el crédito esté activo en despacho, tenga mora suficiente y no tenga otro convenio activo.</span></div>
+                        </div>
+                        <div class="manual-step">
+                            <span class="manual-step-num"><i class="fa-solid fa-question"></i></span>
+                            <div><strong>¿Qué hago si el cliente ya pagó?</strong><br><span class="text-muted">Consulta el convenio y revisa si S2 ya refleja el pago. Si S2 no lo confirma, el sistema no debe marcarlo como pagado.</span></div>
+                        </div>
+                        <div class="manual-step">
+                            <span class="manual-step-num"><i class="fa-solid fa-question"></i></span>
+                            <div><strong>¿Puedo cambiar el convenio después de guardarlo?</strong><br><span class="text-muted">No lo trates como borrador editable. Si algo quedó mal, revisa con supervisor si procede cancelación, reactivación o nueva captura.</span></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-label-secondary" data-bs-dismiss="modal">Cerrar</button>
+            </div>
+        </div>
     </div>
 </div>
 
