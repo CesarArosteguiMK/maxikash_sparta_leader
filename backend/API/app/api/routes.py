@@ -5,6 +5,8 @@ Endpoints de la API REST.
 import asyncio
 import re
 import time
+import unicodedata
+from datetime import datetime
 from fastapi import APIRouter, UploadFile, File, HTTPException, Depends, Query, Body, Form
 from fastapi.security.api_key import APIKeyHeader
 from typing import Optional, List, Dict, Any
@@ -37,7 +39,7 @@ except ImportError:
 
 router = APIRouter()
 settings = get_settings()
-API_BUILD = "doc-precheck-2026-06-11-rfc-nss-fiscal-cfe-id"
+API_BUILD = "doc-precheck-2026-06-12-comprobante-fast-manual"
 
 api_key_header = APIKeyHeader(name=settings.api_key_header, auto_error=False)
 
@@ -104,6 +106,18 @@ def _parece_identificacion_oficial(texto: str) -> bool:
     return indicadores["curp"] and indicadores["elector"]
 
 
+def _tipo_identificacion_desde_indicadores(indicadores: Dict[str, bool]) -> str:
+    if indicadores.get("pasaporte"):
+        return "pasaporte"
+    if indicadores.get("inm_residencia"):
+        return "residencia"
+    if indicadores.get("ine") or indicadores.get("elector"):
+        return "ine"
+    if indicadores.get("mrz"):
+        return "identificacion"
+    return "identificacion"
+
+
 def _extraer_texto_pdf_rapido(pdf_bytes: bytes, max_paginas: int = 2) -> Dict[str, Any]:
     """
     Extrae texto mínimo para precheck. Primero usa capa de texto del PDF; si no hay,
@@ -126,6 +140,47 @@ def _extraer_texto_pdf_rapido(pdf_bytes: bytes, max_paginas: int = 2) -> Dict[st
             return {"texto": texto, "paginas": paginas, "modo": "texto_pdf"}
 
         service = VerificacionService()
+        # Pasaportes/IDs fotografiados suelen venir con margen amplio. Este recorte
+        # es barato y evita probar rotaciones caras cuando el documento ya se lee derecho.
+        if paginas > 0:
+            try:
+                page = doc[0]
+                rect = page.rect
+                clip = fitz.Rect(0, rect.height * 0.20, rect.width, rect.height * 0.92)
+                pix = page.get_pixmap(dpi=145, clip=clip)
+                img_bytes = pix.tobytes("png")
+                texto_crop = service.ocr_analyzer.extraer_texto_rapido(img_bytes, max_ancho=1800)
+                if _parece_identificacion_oficial(texto_crop):
+                    doc.close()
+                    return {"texto": texto_crop, "paginas": paginas, "modo": "ocr_zona_contenido_145dpi"}
+                texto = texto_crop or ""
+            except Exception as e:
+                logger.warning(f"precheck_identificacion_pdf: crop inicial fallo: {e}")
+        # Si es una sola hoja escaneada, puede traer frente/reverso de INE girados.
+        # Probar una rotacion de hoja completa temprano es mucho mas barato que agotar
+        # todos los OCR normales y luego intentar rescatar el documento.
+        if paginas == 1:
+            try:
+                from io import BytesIO
+                from PIL import Image
+                import pytesseract
+
+                page = doc[0]
+                pix = page.get_pixmap(dpi=180)
+                img = Image.open(BytesIO(pix.tobytes("png")))
+                pytesseract.pytesseract.tesseract_cmd = settings.tesseract_cmd
+                for angulo in (90, 180):
+                    bio = BytesIO()
+                    img.rotate(angulo, expand=True).save(bio, format="PNG")
+                    texto_rotado = pytesseract.image_to_string(
+                        Image.open(BytesIO(bio.getvalue())).convert("L"),
+                        config="--oem 3 --psm 6 -l eng -c tessedit_char_whitelist=ABCDEFGHIJKLMNOPQRSTUVWXYZ0__SPARTA_PASSWORD_REDACTED__<"
+                    ).upper()
+                    if _parece_identificacion_oficial(texto_rotado):
+                        doc.close()
+                        return {"texto": texto_rotado, "paginas": paginas, "modo": f"ocr_hoja_rotada_temprana_180dpi_rot{angulo}"}
+            except Exception as e:
+                logger.warning(f"precheck_identificacion_pdf: rotacion temprana fallo: {e}")
         # Pasaportes/IDs fotografiados suelen venir girados o con mucho margen blanco.
         # Probar primero la zona de contenido evita gastar OCR en toda la hoja.
         if paginas > 0:
@@ -191,11 +246,89 @@ def _extraer_texto_pdf_rapido(pdf_bytes: bytes, max_paginas: int = 2) -> Dict[st
                     texto = texto_total
             except Exception as e:
                 logger.warning(f"precheck_identificacion_pdf: fallback zona contenido falló: {e}")
+        # INE escaneada en una sola hoja: a veces el frente/reverso vienen girados
+        # y con mucho margen blanco. Si lo normal fallo, probamos rotaciones para leer IDMEX/MRZ.
+        if paginas > 0:
+            try:
+                from io import BytesIO
+                from PIL import Image
+
+                def _ocr_rotaciones_png(img_bytes: bytes, prefijo: str) -> Optional[Dict[str, str]]:
+                    imagen = Image.open(BytesIO(img_bytes))
+                    for angulo in (90, 180, 270):
+                        bio = BytesIO()
+                        imagen.rotate(angulo, expand=True).save(bio, format="PNG")
+                        texto_rotado = service.ocr_analyzer.extraer_texto_rapido(bio.getvalue(), max_ancho=2400)
+                        texto_total_rotado = (texto or "") + "\n" + (texto_rotado or "")
+                        if _parece_identificacion_oficial(texto_total_rotado):
+                            return {"texto": texto_total_rotado, "modo": f"{prefijo}_rot{angulo}"}
+                    return None
+
+                page = doc[0]
+                pix = page.get_pixmap(dpi=180)
+                rotado = _ocr_rotaciones_png(pix.tobytes("png"), "ocr_hoja_rotada_180dpi")
+                if rotado:
+                    doc.close()
+                    return {"texto": rotado["texto"], "paginas": paginas, "modo": rotado["modo"]}
+
+                rect = page.rect
+                clip = fitz.Rect(rect.width * 0.12, rect.height * 0.32, rect.width * 0.82, rect.height * 0.72)
+                pix = page.get_pixmap(dpi=230, clip=clip)
+                rotado = _ocr_rotaciones_png(pix.tobytes("png"), "ocr_zona_mrz_rotada_230dpi")
+                if rotado:
+                    doc.close()
+                    return {"texto": rotado["texto"], "paginas": paginas, "modo": rotado["modo"]}
+            except Exception as e:
+                logger.warning(f"precheck_identificacion_pdf: fallback rotado fallo: {e}")
         doc.close()
         return {"texto": texto, "paginas": paginas, "modo": "ocr_rapido"}
     except Exception as e:
         logger.warning(f"precheck_identificacion_pdf: error leyendo PDF: {e}")
         return {"texto": texto, "paginas": paginas, "modo": "error"}
+
+
+def _extraer_texto_identificacion_rotada_pdf(pdf_bytes: bytes) -> Dict[str, Any]:
+    """OCR corto para INE escaneada con reverso/frente girado dentro de una hoja PDF."""
+    if not PYMUPDF_AVAILABLE or not pdf_bytes or len(pdf_bytes) < 100:
+        return {"texto": "", "paginas": 0, "modo": "rotado_sin_pymupdf"}
+    try:
+        from io import BytesIO
+        from PIL import Image
+        import pytesseract
+
+        doc = fitz.open(stream=pdf_bytes, filetype="pdf")
+        paginas = doc.page_count
+        if paginas <= 0:
+            doc.close()
+            return {"texto": "", "paginas": paginas, "modo": "rotado_sin_paginas"}
+
+        pytesseract.pytesseract.tesseract_cmd = settings.tesseract_cmd
+        page = doc[0]
+        rect = page.rect
+        pruebas = [
+            ("ocr_hoja_rotada_180dpi", None, 180),
+            ("ocr_zona_mrz_rotada_230dpi", fitz.Rect(rect.width * 0.12, rect.height * 0.32, rect.width * 0.82, rect.height * 0.72), 230),
+        ]
+        acumulado = ""
+        for prefijo, clip, dpi in pruebas:
+            pix = page.get_pixmap(dpi=dpi, clip=clip) if clip else page.get_pixmap(dpi=dpi)
+            img = Image.open(BytesIO(pix.tobytes("png")))
+            for angulo in (90, 180, 270):
+                bio = BytesIO()
+                img.rotate(angulo, expand=True).save(bio, format="PNG")
+                texto = pytesseract.image_to_string(
+                    Image.open(BytesIO(bio.getvalue())).convert("L"),
+                    config="--oem 3 --psm 6 -l eng -c tessedit_char_whitelist=ABCDEFGHIJKLMNOPQRSTUVWXYZ0__SPARTA_PASSWORD_REDACTED__<"
+                ).upper()
+                acumulado = (acumulado + "\n" + (texto or "")).strip()
+                if _parece_identificacion_oficial(acumulado):
+                    doc.close()
+                    return {"texto": acumulado, "paginas": paginas, "modo": f"{prefijo}_rot{angulo}"}
+        doc.close()
+        return {"texto": acumulado, "paginas": paginas, "modo": "rotado_no_detectado"}
+    except Exception as e:
+        logger.warning(f"extraer_texto_identificacion_rotada_pdf: {e}")
+        return {"texto": "", "paginas": 0, "modo": "rotado_error"}
 
 
 def _texto_pdf_embebido_rapido(pdf_bytes: bytes, max_paginas: int = 2) -> Dict[str, Any]:
@@ -215,6 +348,118 @@ def _texto_pdf_embebido_rapido(pdf_bytes: bytes, max_paginas: int = 2) -> Dict[s
     except Exception as e:
         logger.warning(f"texto_pdf_embebido_rapido: error leyendo PDF: {e}")
         return {"texto": "", "paginas": 0, "modo": "error"}
+
+
+def _normalizar_ascii_precheck(texto: str) -> str:
+    texto = unicodedata.normalize("NFKD", texto or "")
+    texto = "".join(c for c in texto if not unicodedata.combining(c))
+    return re.sub(r"\s+", " ", texto.upper()).strip()
+
+
+def _parsear_fecha_curp_rapida(texto: str) -> Optional[datetime]:
+    meses = {
+        "ENERO": 1, "FEBRERO": 2, "MARZO": 3, "ABRIL": 4, "MAYO": 5, "JUNIO": 6,
+        "JULIO": 7, "AGOSTO": 8, "SEPTIEMBRE": 9, "SETIEMBRE": 9, "OCTUBRE": 10,
+        "NOVIEMBRE": 11, "DICIEMBRE": 12,
+    }
+    t = _normalizar_ascii_precheck(texto)
+    m = re.search(r"\bA\s+(\d{1,2})\s+DE\s+([A-Z]+)\s+DE\s+(\d{4})\b", t)
+    if not m:
+        m = re.search(r"\b(\d{1,2})\s+DE\s+([A-Z]+)\s+DE\s+(\d{4})\b", t)
+    if not m:
+        return None
+    mes = meses.get(m.group(2))
+    if not mes:
+        return None
+    try:
+        return datetime(int(m.group(3)), mes, int(m.group(1)))
+    except ValueError:
+        return None
+
+
+def _extraer_datos_curp_pdf_rapido(pdf_bytes: bytes) -> Dict[str, Any]:
+    """Ruta barata para constancia CURP: texto embebido o Tesseract ligero, sin Paddle."""
+    resultado = {
+        "nombre": None,
+        "curp": None,
+        "fecha_emision": None,
+        "es_reciente": None,
+        "meses_antiguedad": None,
+        "parece_curp": False,
+        "texto": "",
+        "modo": "sin_texto",
+    }
+    info = _texto_pdf_embebido_rapido(pdf_bytes, max_paginas=2)
+    texto = info.get("texto") or ""
+    modo = info.get("modo") or "texto_pdf_embebido"
+
+    if not texto.strip() and PYMUPDF_AVAILABLE:
+        try:
+            from io import BytesIO
+            from PIL import Image
+            import pytesseract
+
+            pytesseract.pytesseract.tesseract_cmd = settings.tesseract_cmd
+            doc = fitz.open(stream=pdf_bytes, filetype="pdf")
+            partes = []
+            for i, page in enumerate(doc):
+                if i >= 2:
+                    break
+                pix = page.get_pixmap(dpi=140)
+                img = Image.open(BytesIO(pix.tobytes("png"))).convert("L")
+                partes.append(pytesseract.image_to_string(img, lang="spa+eng", config="--oem 3 --psm 6"))
+            doc.close()
+            texto = "\n".join(partes)
+            modo = "ocr_tesseract_curp_140dpi"
+        except Exception as e:
+            logger.debug(f"extraer_datos_curp_pdf_rapido OCR fallo: {e}")
+
+    texto_norm = _normalizar_ascii_precheck(texto)
+    resultado["texto"] = texto_norm
+    resultado["modo"] = modo
+    resultado["parece_curp"] = bool(
+        ("CONSTANCIA" in texto_norm and ("CURP" in texto_norm or "CLAVE UNICA" in texto_norm or "REGISTRO DE POBLACION" in texto_norm))
+        or ("ESTADOS UNIDOS MEXICANOS" in texto_norm and "CLAVE UNICA" in texto_norm)
+        or ("RENAPO" in texto_norm and ("CURP" in texto_norm or "CONSTANCIA" in texto_norm))
+    )
+
+    curp_regex = r"\b[A-Z]{4}\d{6}[HM][A-Z]{5}[A-Z0-9]\d\b"
+    m_curp = re.search(curp_regex, texto_norm)
+    if m_curp and validar_curp(m_curp.group(0))[0]:
+        resultado["curp"] = m_curp.group(0)
+    else:
+        compacto = re.sub(r"[^A-Z0-9]", "", texto_norm)
+        for i in range(0, max(0, len(compacto) - 17)):
+            cand = compacto[i:i + 18]
+            if validar_curp(cand)[0]:
+                resultado["curp"] = cand
+                break
+
+    if resultado["curp"]:
+        curp_pos = texto_norm.find(resultado["curp"])
+        antes = texto_norm[:curp_pos] if curp_pos > 0 else texto_norm
+        m_nombre = re.search(r"NOMBRE\s+([A-Z\s]{6,80}?)(?:\s+ENTIDAD|\s+CURP|\s+CLAVE|\s+FECHA|$)", texto_norm)
+        if m_nombre:
+            nombre = re.sub(r"[^A-Z\s]", " ", m_nombre.group(1))
+            nombre = re.sub(r"\s+", " ", nombre).strip()
+            if len(nombre.split()) >= 3:
+                resultado["nombre"] = nombre
+        elif antes:
+            candidatos = [ln.strip() for ln in antes.split("\n") if ln.strip()]
+            for ln in reversed(candidatos[-8:]):
+                limpio = re.sub(r"[^A-Z\s]", " ", _normalizar_ascii_precheck(ln))
+                limpio = re.sub(r"\s+", " ", limpio).strip()
+                if 3 <= len(limpio.split()) <= 6:
+                    resultado["nombre"] = limpio
+                    break
+
+    fecha = _parsear_fecha_curp_rapida(texto_norm)
+    if fecha:
+        resultado["fecha_emision"] = fecha.strftime("%d/%m/%Y")
+        meses = (datetime.now() - fecha).days / 30.44
+        resultado["meses_antiguedad"] = round(meses, 1)
+        resultado["es_reciente"] = meses <= 3.0
+    return resultado
 
 
 def _rechazo_identificacion_por_texto_equivocado(texto: str, paginas: int, modo: str, inicio: float) -> Optional[Dict[str, Any]]:
@@ -1352,16 +1597,35 @@ async def verificar_curp_documento(
             fecha_emision=None,
             tiempo_ms=int((time.time() - inicio) * 1000),
         )
-    info_inicial = _texto_pdf_embebido_rapido(file_bytes, max_paginas=2)
-    texto_inicial = _normalizar_texto_precheck(info_inicial.get("texto") or "")
+    datos_rapidos = _extraer_datos_curp_pdf_rapido(file_bytes)
+    texto_inicial = datos_rapidos.get("texto") or ""
     if texto_inicial:
         rechazo_inicial = _rechazo_curp_por_texto_equivocado(
             texto_inicial,
             inicio,
-            "documento_equivocado_texto_embebido",
+            f"documento_equivocado_{datos_rapidos.get('modo') or 'texto_rapido'}",
         )
         if rechazo_inicial:
             return rechazo_inicial
+        curp_rapida = datos_rapidos.get("curp")
+        if datos_rapidos.get("parece_curp") and curp_rapida:
+            valido_rapido, mensaje_rapido = validar_curp(curp_rapida)
+            if valido_rapido:
+                return {
+                    "curp_extraido": curp_rapida,
+                    "valido": True,
+                    "mensaje": mensaje_rapido,
+                    "nombre": datos_rapidos.get("nombre"),
+                    "es_reciente": datos_rapidos.get("es_reciente"),
+                    "meses_antiguedad": datos_rapidos.get("meses_antiguedad"),
+                    "fecha_emision": datos_rapidos.get("fecha_emision"),
+                    "parece_curp": True,
+                    "revision_manual": False,
+                    "modo": datos_rapidos.get("modo"),
+                    "tiempo_ms": int((time.time() - inicio) * 1000),
+                }
+        if datos_rapidos.get("parece_curp"):
+            texto_inicial = "CONSTANCIA CURP RENAPO"
         if not re.search(r"CONSTANCIA\s+.*CURP|CLAVE\s+[UÚ]NICA\s+DE\s+REGISTRO|RENAPO|REGISTRO\s+NACIONAL\s+DE\s+POBLACI[OÓ]N", texto_inicial):
             return _respuesta_rechazo(
                 "documento_no_curp",
@@ -1423,7 +1687,7 @@ async def verificar_curp_documento(
             fecha_emision=None,
             tiempo_ms=int((time.time() - inicio) * 1000),
         )
-    parece_curp = es_documento_curp(file_bytes)
+    parece_curp = bool(datos_rapidos.get("parece_curp")) or es_documento_curp(file_bytes)
     if not parece_curp:
         info_texto = _texto_pdf_embebido_rapido(file_bytes, max_paginas=2)
         texto_curp = _normalizar_texto_precheck(info_texto.get("texto") or "")
@@ -1617,6 +1881,21 @@ async def precheck_identificacion_pdf(
     indicadores = _indicadores_identificacion(texto)
     valido = _parece_identificacion_oficial(texto)
     paginas = int(extraido.get("paginas") or 0)
+    if not valido:
+        try:
+            extraido_rotado = await asyncio.wait_for(
+                asyncio.to_thread(_extraer_texto_identificacion_rotada_pdf, file_bytes),
+                timeout=6,
+            )
+            texto_rotado = extraido_rotado.get("texto") or ""
+            if _parece_identificacion_oficial(texto_rotado):
+                extraido = extraido_rotado
+                texto = texto_rotado
+                indicadores = _indicadores_identificacion(texto)
+                valido = True
+                paginas = int(extraido.get("paginas") or paginas)
+        except asyncio.TimeoutError:
+            logger.warning("precheck_identificacion_pdf: fallback rotado agoto tiempo")
     texto_upper = texto.upper()
     if re.search(r"(?:^|\s)(?:ID\s*<?\s*MEX|IDMEX|I\s*<\s*MEX|I<MEX)|IDMEX", texto_upper):
         indicadores["ine"] = True
@@ -1687,6 +1966,7 @@ async def precheck_identificacion_pdf(
         "mensaje": mensaje,
         "paginas": paginas,
         "indicadores": indicadores,
+        "tipo_identificacion": _tipo_identificacion_desde_indicadores(indicadores) if valido else None,
         "modo": extraido.get("modo"),
         "tiempo_ms": int((time.time() - inicio) * 1000),
     }

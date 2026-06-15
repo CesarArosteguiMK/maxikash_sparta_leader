@@ -225,6 +225,7 @@ window.departamentosCandidatoBackend = <?= json_encode($departamentosCandidatoCa
                     <div class="col-lg-4 col-12 d-flex flex-column">
                         <div class="modal-doc-col-stack d-flex flex-column gap-3 flex-grow-1 h-100">
                             <div id="modalDocumentacionCandidatoMetricas" class="d-none flex-fill"></div>
+                            <div id="modalDocumentacionCandidatoSueldo" class="d-none flex-shrink-0"></div>
                             <div id="modalDocumentacionCandidatoVerificacion" class="d-none flex-fill"></div>
                             <div id="modalDocumentacionCandidatoAccionVerificar" class="d-none flex-shrink-0"></div>
                         </div>
@@ -350,6 +351,10 @@ window.departamentosCandidatoBackend = <?= json_encode($departamentosCandidatoCa
                 <select id="candidato_id_div_nivel3" name="id_div_nivel3" class="form-select js-select-buscador" disabled>
                     <option value="">Seleccione una colonia</option>
                 </select>
+            </div>
+            <div class="mb-2" id="div_candidato_codigo_postal" style="display:none;">
+                <label class="form-label">Codigo postal</label>
+                <input type="text" name="codigo_postal" id="candidato_codigo_postal" class="form-control" maxlength="12" readonly>
             </div>
             <div class="mb-2" id="div_candidato_calle_texto" style="display:none;">
                 <label class="form-label">Calle</label>
@@ -831,6 +836,9 @@ body.dark-mode #modalCerrarProcesoCandidato.modal.show { z-index: 99999 !importa
 #modalCerrarProcesoCandidato .modal-dialog { position: relative; z-index: 1 !important; }
 /* Mantener Documentación por debajo del scrim de Cerrar cuando hay dos modales */
 #modalDocumentacionCandidato.modal.show { z-index: 1090 !important; }
+#modalDocumentacionCandidato .doc-sueldo-card .input-group-text { min-width: 38px; justify-content: center; }
+#modalDocumentacionCandidato .doc-sueldo-card .btn-eye-sueldo { width: 38px; }
+#modalDocumentacionCandidato .doc-sueldo-card input[disabled] { background-color: #f8fafc; }
 
 /* Modal Cerrar proceso: identidad visual distinta al de Documentación (diálogo de acción, no panel) */
 #modalCerrarProcesoCandidato.modal-cerrar-proceso .modal-dialog { max-width: 420px; }

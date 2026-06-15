@@ -31,6 +31,10 @@ class Candidatos extends Model
             'fecha_ingreso_programada' => "DATE NULL AFTER fecha_postulacion_enviada",
             'fecha_ingreso_notificada_en' => "DATETIME NULL AFTER fecha_ingreso_programada",
             'contrato_firmado_en' => "DATETIME NULL AFTER fecha_ingreso_notificada_en",
+            'sueldo_bruto' => "DECIMAL(12,2) NULL AFTER contrato_firmado_en",
+            'sueldo_neto' => "DECIMAL(12,2) NULL AFTER sueldo_bruto",
+            'motivo_contratacion' => "VARCHAR(500) NULL AFTER sueldo_neto",
+            'codigo_postal' => "VARCHAR(12) NULL AFTER domicilio_num_interior",
         ];
 
         foreach ($columnas as $nombre => $definicion) {
@@ -59,6 +63,27 @@ class Candidatos extends Model
             return false;
         }
     }
+
+    private static function completarCodigoPostalDesdeColonia(Database $db, array &$params): void
+    {
+        if (!empty($params['codigo_postal']) || empty($params['id_div_nivel3'])) {
+            return;
+        }
+        try {
+            $row = $db->queryOne(
+                "SELECT NULLIF(TRIM(codigo_interno), '') AS codigo_postal
+                 FROM __SPARTA_SECRET_REDACTED__.divisiones_administrativas
+                 WHERE id = :id AND activo = 1
+                 LIMIT 1",
+                ['id' => (int) $params['id_div_nivel3']]
+            );
+            if (!empty($row['codigo_postal'])) {
+                $params['codigo_postal'] = substr(trim((string) $row['codigo_postal']), 0, 12);
+            }
+        } catch (\Exception $e) {
+        }
+    }
+
     private static function storageRoot(): string
     {
         return defined('RAIZ') ? (RAIZ . '/storage') : (__DIR__ . '/../storage');
@@ -99,6 +124,7 @@ class Candidatos extends Model
                 c.domicilio_calle_texto,
                 c.domicilio_num_exterior,
                 c.domicilio_num_interior,
+                c.codigo_postal,
                 c.id_puesto,
                 c.id_departamento,
                 c.estatus,
@@ -109,6 +135,9 @@ class Candidatos extends Model
                 c.fecha_ingreso_programada,
                 c.fecha_ingreso_notificada_en,
                 c.contrato_firmado_en,
+                c.sueldo_bruto,
+                c.sueldo_neto,
+                c.motivo_contratacion,
                 c.fecha_registro,
                 c.fecha_actualizacion,
                 pais.nombre AS nombre_pais,
@@ -179,6 +208,7 @@ class Candidatos extends Model
                 c.domicilio_calle_texto,
                 c.domicilio_num_exterior,
                 c.domicilio_num_interior,
+                c.codigo_postal,
                 c.id_puesto,
                 c.id_departamento,
                 c.id_posible_jefe,
@@ -193,6 +223,9 @@ class Candidatos extends Model
                 c.fecha_ingreso_programada,
                 c.fecha_ingreso_notificada_en,
                 c.contrato_firmado_en,
+                c.sueldo_bruto,
+                c.sueldo_neto,
+                c.motivo_contratacion,
                 c.fecha_registro,
                 c.fecha_actualizacion,
                 p.nombre AS nombre_puesto,
@@ -308,16 +341,16 @@ class Candidatos extends Model
         $query = <<<SQL
             INSERT INTO candidatos (
                 nombres, segundo_nombre, apellidop, apellidom,
-                email, telefono, id_pais, id_div_nivel1, id_div_nivel2, id_div_nivel3, domicilio_calle_texto, domicilio_num_exterior, domicilio_num_interior,
+                email, telefono, id_pais, id_div_nivel1, id_div_nivel2, id_div_nivel3, domicilio_calle_texto, domicilio_num_exterior, domicilio_num_interior, codigo_postal,
                 id_puesto, id_departamento, id_posible_jefe,
                 fecha_postulacion, id_legion, usuario, contrasena,
-                postulacion_enviada, fecha_postulacion_enviada, estatus, notas
+                postulacion_enviada, fecha_postulacion_enviada, estatus, notas, fecha_registro
             ) VALUES (
                 :nombres, :segundo_nombre, :apellidop, :apellidom,
-                :email, :telefono, :id_pais, :id_div_nivel1, :id_div_nivel2, :id_div_nivel3, :domicilio_calle_texto, :domicilio_num_exterior, :domicilio_num_interior,
+                :email, :telefono, :id_pais, :id_div_nivel1, :id_div_nivel2, :id_div_nivel3, :domicilio_calle_texto, :domicilio_num_exterior, :domicilio_num_interior, :codigo_postal,
                 :id_puesto, :id_departamento, :id_posible_jefe,
                 :fecha_postulacion, :id_legion, :usuario, :contrasena,
-                :postulacion_enviada, :fecha_postulacion_enviada, :estatus, :notas
+                :postulacion_enviada, :fecha_postulacion_enviada, :estatus, :notas, :fecha_registro
             )
         SQL;
         $params = [
@@ -334,6 +367,7 @@ class Candidatos extends Model
             'domicilio_calle_texto' => trim($data['domicilio_calle_texto'] ?? '') ?: null,
             'domicilio_num_exterior' => trim($data['domicilio_num_exterior'] ?? '') ?: null,
             'domicilio_num_interior' => trim($data['domicilio_num_interior'] ?? '') ?: null,
+            'codigo_postal' => substr(trim($data['codigo_postal'] ?? ''), 0, 12) ?: null,
             'id_puesto' => !empty($data['id_puesto']) ? (int) $data['id_puesto'] : null,
             'id_departamento' => !empty($data['id_departamento']) ? (int) $data['id_departamento'] : null,
             'id_posible_jefe' => !empty($data['id_posible_jefe']) ? (int) $data['id_posible_jefe'] : null,
@@ -345,10 +379,13 @@ class Candidatos extends Model
             'fecha_postulacion_enviada' => $fechaEnviada,
             'estatus' => trim($data['estatus'] ?? '') ?: 'Por evaluar',
             'notas' => trim($data['notas'] ?? '') ?: null,
+            'fecha_registro' => self::fechaHoraActualMexicoCiudad(),
         ];
 
         try {
             $db = new Database();
+            self::asegurarColumnasFlujoIngreso($db);
+            self::completarCodigoPostalDesdeColonia($db, $params);
             $db->CRUD($query, $params);
             $newId = $db->queryOne("SELECT LAST_INSERT_ID() AS id");
             $id = (int) ($newId['id'] ?? 0);
@@ -389,6 +426,7 @@ class Candidatos extends Model
                 domicilio_calle_texto = :domicilio_calle_texto,
                 domicilio_num_exterior = :domicilio_num_exterior,
                 domicilio_num_interior = :domicilio_num_interior,
+                codigo_postal = :codigo_postal,
                 id_puesto = :id_puesto,
                 id_departamento = :id_departamento,
                 id_posible_jefe = :id_posible_jefe,
@@ -415,6 +453,7 @@ class Candidatos extends Model
             'domicilio_calle_texto' => trim($data['domicilio_calle_texto'] ?? '') ?: null,
             'domicilio_num_exterior' => trim($data['domicilio_num_exterior'] ?? '') ?: null,
             'domicilio_num_interior' => trim($data['domicilio_num_interior'] ?? '') ?: null,
+            'codigo_postal' => substr(trim($data['codigo_postal'] ?? ''), 0, 12) ?: null,
             'id_puesto' => !empty($data['id_puesto']) ? (int) $data['id_puesto'] : null,
             'id_departamento' => !empty($data['id_departamento']) ? (int) $data['id_departamento'] : null,
             'id_posible_jefe' => !empty($data['id_posible_jefe']) ? (int) $data['id_posible_jefe'] : null,
@@ -428,6 +467,8 @@ class Candidatos extends Model
 
         try {
             $db = new Database();
+            self::asegurarColumnasFlujoIngreso($db);
+            self::completarCodigoPostalDesdeColonia($db, $params);
             $db->CRUD($query, $params);
             return self::resultado(true, 'Candidato actualizado correctamente.', ['id' => $id]);
         } catch (\Exception $e) {
@@ -1405,6 +1446,7 @@ class Candidatos extends Model
         }
         try {
             $db = new Database();
+            self::asegurarColumnasFlujoIngreso($db);
             $documentos = $db->queryAll(
                 "SELECT id, id_candidato, tipo_documento, nombre_archivo, ruta_archivo, fecha_carga, validado, fecha_validado, verificacion_fiscal_json, verificacion_calidad_json FROM candidato_documento WHERE id_candidato = :id ORDER BY fecha_carga DESC",
                 ['id' => $id_candidato]
@@ -1428,15 +1470,86 @@ class Candidatos extends Model
                 }
             }
             unset($d);
-            $row = $db->queryOne("SELECT ultima_verificacion_expediente FROM candidatos WHERE id = :id", ['id' => $id_candidato]);
+            $row = $db->queryOne("SELECT ultima_verificacion_expediente, sueldo_bruto, sueldo_neto, motivo_contratacion FROM candidatos WHERE id = :id", ['id' => $id_candidato]);
             $verificacion = null;
             if ($row && !empty($row['ultima_verificacion_expediente'])) {
                 $decoded = json_decode($row['ultima_verificacion_expediente'], true);
                 $verificacion = is_array($decoded) ? $decoded : null;
             }
-            return ['documentos' => $documentos, 'verificacion' => $verificacion];
+            return [
+                'documentos' => $documentos,
+                'verificacion' => $verificacion,
+                'sueldo' => [
+                    'bruto' => $row && $row['sueldo_bruto'] !== null ? (string) $row['sueldo_bruto'] : '',
+                    'neto' => $row && $row['sueldo_neto'] !== null ? (string) $row['sueldo_neto'] : '',
+                    'motivo_contratacion' => $row && $row['motivo_contratacion'] !== null ? (string) $row['motivo_contratacion'] : '',
+                ],
+            ];
         } catch (\Exception $e) {
-            return ['documentos' => [], 'verificacion' => null];
+            return ['documentos' => [], 'verificacion' => null, 'sueldo' => ['bruto' => '', 'neto' => '']];
+        }
+    }
+
+    private static function normalizarSueldo($valor): ?float
+    {
+        $txt = trim((string) ($valor ?? ''));
+        if ($txt === '') {
+            return null;
+        }
+        $txt = str_replace([',', '$', ' '], '', $txt);
+        if (!preg_match('/^\d+(\.\d{1,2})?$/', $txt)) {
+            return null;
+        }
+        $num = (float) $txt;
+        return $num > 0 ? round($num, 2) : null;
+    }
+
+    public static function guardarSueldosDocumentacion($id_candidato, $sueldo_bruto, $sueldo_neto, $motivo_contratacion = null): array
+    {
+        $id_candidato = (int) $id_candidato;
+        if ($id_candidato <= 0) {
+            return self::resultado(false, 'ID de candidato invalido.');
+        }
+
+        $bruto = self::normalizarSueldo($sueldo_bruto);
+        $neto = self::normalizarSueldo($sueldo_neto);
+        if ($bruto === null && $neto === null) {
+            return self::resultado(false, 'Capture sueldo bruto o sueldo neto antes de continuar.');
+        }
+        $motivo = trim((string) ($motivo_contratacion ?? ''));
+        if ($motivo !== '') {
+            $motivo = mb_substr($motivo, 0, 500);
+        } else {
+            $motivo = null;
+        }
+
+        try {
+            $db = new Database();
+            self::asegurarColumnasFlujoIngreso($db);
+            $fechaHora = self::fechaHoraActualMexicoCiudad();
+            $db->CRUD(
+                "UPDATE candidatos
+                    SET sueldo_bruto = :bruto,
+                        sueldo_neto = :neto,
+                        motivo_contratacion = :motivo,
+                        fecha_actualizacion = :fecha_hora
+                  WHERE id = :id",
+                [
+                    'id' => $id_candidato,
+                    'bruto' => $bruto,
+                    'neto' => $neto,
+                    'motivo' => $motivo,
+                    'fecha_hora' => $fechaHora,
+                ]
+            );
+            return self::resultado(true, 'Sueldo guardado.', [
+                'id_candidato' => $id_candidato,
+                'sueldo_bruto' => $bruto !== null ? number_format($bruto, 2, '.', '') : '',
+                'sueldo_neto' => $neto !== null ? number_format($neto, 2, '.', '') : '',
+                'motivo_contratacion' => $motivo ?? '',
+            ]);
+        } catch (\Exception $e) {
+            return self::resultado(false, 'No se pudo guardar el sueldo.', null, $e->getMessage());
         }
     }
 

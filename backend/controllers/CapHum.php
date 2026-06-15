@@ -4197,9 +4197,30 @@ class CapHum extends Controller
                 const domicilio_num_interior = document.getElementById('edit_domicilio_num_interior')?.value?.trim() || null;
                 const codigo_postal = document.getElementById('edit_codigo_postal')?.value?.trim() || null;
 
+                const panelEditarPuesto = document.getElementById('edit_panel_editar_puesto');
+                const hayEdicionPuestoPendiente = panelEditarPuesto
+                    && !panelEditarPuesto.classList.contains('d-none')
+                    && window.puestoEditandoIndex !== null
+                    && window.puestoEditandoIndex !== undefined;
+                if (hayEdicionPuestoPendiente && typeof guardarEdicionPuesto === 'function') {
+                    const edicionAplicada = guardarEdicionPuesto();
+                    if (edicionAplicada === false) {
+                        return;
+                    }
+                }
+
                 let puestosAdicionales = [];
+                const permisosEdicionCobranza = window.permisosEdicionCobranzaGestion || {};
+                const puedeGestionarPuestosParcial = esEdicionParcialCobranza && !!permisosEdicionCobranza.gestion_puestos;
+                const puedeEditarPuestoPrincipalParcial = esEdicionParcialCobranza && (!!permisosEdicionCobranza.puesto || !!permisosEdicionCobranza.departamento);
                 if (typeof obtenerPuestosParaGuardar === 'function') {
                     puestosAdicionales = obtenerPuestosParaGuardar();
+                }
+                if (puedeEditarPuestoPrincipalParcial && !puedeGestionarPuestosParcial && puesto) {
+                    puestosAdicionales = [{
+                        id_puesto: puesto,
+                        id_departamento: departamento || ''
+                    }];
                 }
                 const puestosModificados = window.puestosUsuarioModificados === true;
                 const puestosEliminados = Array.isArray(window.puestosEliminadosUsuario) ? window.puestosEliminadosUsuario : [];
@@ -4222,11 +4243,6 @@ class CapHum extends Controller
 
                 if (!esEdicionParcialCobranza && !puestosModificados && !puesto) {
                     Swal.fire("Falta información", "Debes seleccionar un puesto", "warning");
-                    return;
-                }
-
-                if (!esEdicionParcialCobranza && !jefe) {
-                    Swal.fire("Falta información", "Debes seleccionar un jefe", "warning");
                     return;
                 }
 
@@ -6259,6 +6275,7 @@ class CapHum extends Controller
                                         domicilio_calle_texto: candidato.domicilio_calle_texto,
                                         domicilio_num_exterior: candidato.domicilio_num_exterior,
                                         domicilio_num_interior: candidato.domicilio_num_interior,
+                                        codigo_postal: candidato.codigo_postal,
                                         id_puesto: candidato.id_puesto,
                                         nombre_puesto: candidato.nombre_puesto,
                                         nombre_departamento: candidato.nombre_departamento,
@@ -6335,15 +6352,28 @@ class CapHum extends Controller
                                     .replace(/"/g, "&quot;")
                                     .replace(/'/g, "&#039;");
                             };
+                            var formatearFechaListaCandidato = function(valor) {
+                                var raw = String(valor || "").trim();
+                                if (!raw) return "";
+                                var match = raw.match(/^(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2})/);
+                                if (!match) return raw;
+                                var hora = parseInt(match[4], 10);
+                                var hora12 = hora % 12 || 12;
+                                var sufijo = hora >= 12 ? "p.m." : "a.m.";
+                                return match[3] + "/" + match[2] + "/" + match[1] + ", " +
+                                    String(hora12).padStart(2, "0") + ":" + match[5] + " " + sufijo;
+                            };
                             var datos = candidatosConsolidados.map(function(c) {
                                 var nombre = [c.nombres, c.segundo_nombre, c.apellidop, c.apellidom].filter(Boolean).join(" ");
                                 var tienePuestos = c.puestos && c.puestos.length > 1;
                                 var correo = c.email || "";
                                 var telefono = c.telefono || "";
+                                var fechaCreacion = formatearFechaListaCandidato(c.fecha_registro);
                                 var nombreContacto = '<div class="d-flex flex-column">' +
                                     '<span class="fw-semibold text-uppercase">' + escapeTablaCandidato(nombre || "Sin nombre") + '</span>' +
                                     '<small class="text-muted">' + escapeTablaCandidato(correo || "Sin correo") + '</small>' +
                                     '<small class="text-muted">' + escapeTablaCandidato(telefono || "Sin teléfono") + '</small>' +
+                                    (fechaCreacion ? '<small class="text-muted"><i class="fa fa-calendar-plus me-1"></i>Creado: ' + escapeTablaCandidato(fechaCreacion) + '</small>' : '') +
                                     '</div>';
 
                                 // Generar HTML para puesto/departamento
@@ -6731,17 +6761,31 @@ class CapHum extends Controller
             }
 
             function ocultarSeccionesDomicilioCandidato() {
-                ["estado", "municipio", "colonia", "calle_texto", "num_extint"].forEach(function (k) {
+                ["estado", "municipio", "colonia", "codigo_postal", "calle_texto", "num_extint"].forEach(function (k) {
                     var el = document.getElementById("div_candidato_" + k);
                     if (el) el.style.display = "none";
                 });
             }
 
             function limpiarDomicilioTextoCandidato() {
-                ["candidato_domicilio_calle_texto", "candidato_domicilio_num_exterior", "candidato_domicilio_num_interior"].forEach(function(id) {
+                ["candidato_domicilio_calle_texto", "candidato_domicilio_num_exterior", "candidato_domicilio_num_interior", "candidato_codigo_postal"].forEach(function(id) {
                     var el = document.getElementById(id);
                     if (el) el.value = "";
                 });
+            }
+
+            function setCodigoPostalCandidato(valor) {
+                var input = document.getElementById("candidato_codigo_postal");
+                var wrap = document.getElementById("div_candidato_codigo_postal");
+                if (input) input.value = String(valor || "").trim();
+                if (wrap) wrap.style.display = String(valor || "").trim() ? "" : "none";
+            }
+
+            function actualizarCodigoPostalCandidatoDesdeColonia() {
+                var col = document.getElementById("candidato_id_div_nivel3");
+                var opt = col && col.selectedIndex >= 0 ? col.options[col.selectedIndex] : null;
+                var cp = opt ? (opt.getAttribute("data-codigo-postal") || opt.getAttribute("data-cp") || "") : "";
+                setCodigoPostalCandidato(cp);
             }
 
             function resetCascadaDomicilioCandidato() {
@@ -6838,6 +6882,7 @@ class CapHum extends Controller
                             var opt = document.createElement("option");
                             opt.value = e.id;
                             opt.textContent = e.nombre || "";
+                            if (e.codigo_postal) opt.setAttribute("data-codigo-postal", e.codigo_postal);
                             col.appendChild(opt);
                         });
                         col.disabled = false;
@@ -6856,6 +6901,7 @@ class CapHum extends Controller
                 var idEstado = c && c.id_div_nivel1 ? String(c.id_div_nivel1) : "";
                 var idMunicipio = c && c.id_div_nivel2 ? String(c.id_div_nivel2) : "";
                 var idColonia = c && c.id_div_nivel3 ? String(c.id_div_nivel3) : "";
+                setCodigoPostalCandidato(c && c.codigo_postal ? c.codigo_postal : "");
                 if (!idPais) {
                     resetCascadaDomicilioCandidato();
                     return;
@@ -6887,6 +6933,8 @@ class CapHum extends Controller
                                     if (idColonia) {
                                         colonia.value = idColonia;
                                         refreshSelectBuscadorCandidato("candidato_id_div_nivel3");
+                                        setCodigoPostalCandidato(c && c.codigo_postal ? c.codigo_postal : "");
+                                        if (!(c && c.codigo_postal)) actualizarCodigoPostalCandidatoDesdeColonia();
                                     }
                                     var calle = document.getElementById("div_candidato_calle_texto");
                                     var extInt = document.getElementById("div_candidato_num_extint");
@@ -6935,6 +6983,109 @@ class CapHum extends Controller
                 html += "<div class=\"col-12\"><span class=\"text-muted d-block\">Expediente completo</span><strong class=\"" + (completo ? "text-success" : "text-secondary") + "\">" + (completo ? "Sí" : "No") + "</strong></div>";
                 html += "</div></div></div>";
                 bloqueMetricas.innerHTML = html;
+            }
+
+            function docSueldoEsc(s) {
+                return String(s === null || s === undefined ? "" : s)
+                    .replace(/&/g, "&amp;")
+                    .replace(/</g, "&lt;")
+                    .replace(/>/g, "&gt;")
+                    .replace(/"/g, "&quot;");
+            }
+
+            function docSueldoValor(v) {
+                v = String(v === null || v === undefined ? "" : v).replace(/[$,\s]/g, "").trim();
+                if (!v || !/^\d+(\.\d{1,2})?$/.test(v)) return "";
+                return v;
+            }
+
+            function renderSueldoCandidatoCard(bloqueSueldo, sueldo, idCandidato) {
+                if (!bloqueSueldo) return;
+                var permisos = window.candidatosPermisos || {};
+                if (!permisos.documental && !permisos.final) {
+                    bloqueSueldo.classList.add("d-none");
+                    bloqueSueldo.innerHTML = "";
+                    return;
+                }
+                var candidato = obtenerCandidatoLocalPorId(idCandidato);
+                var estatus = candidato && candidato.estatus ? String(candidato.estatus) : "";
+                var editable = !!permisos.documental && estatus !== "Pendiente de validacion final" && estatus !== "Ingreso programado";
+                var bruto = docSueldoValor(sueldo && (sueldo.bruto || sueldo.sueldo_bruto));
+                var neto = docSueldoValor(sueldo && (sueldo.neto || sueldo.sueldo_neto));
+                var motivo = sueldo && sueldo.motivo_contratacion ? String(sueldo.motivo_contratacion) : "";
+                var disabled = editable ? "" : " disabled";
+                bloqueSueldo.classList.remove("d-none");
+                bloqueSueldo.innerHTML =
+                    "<div class=\"card border shadow-none doc-sueldo-card\">" +
+                        "<div class=\"card-header py-2 bg-light d-flex align-items-center justify-content-between gap-2\">" +
+                            "<strong><i class=\"fa fa-money-bill-wave me-1\"></i>Sueldo del ingreso</strong>" +
+                            "<span class=\"badge bg-warning text-dark\">Requerido</span>" +
+                        "</div>" +
+                        "<div class=\"card-body py-2 small\">" +
+                            "<p class=\"text-muted mb-2\">Capture sueldo bruto o sueldo neto antes de enviar a validacion final.</p>" +
+                            "<label class=\"form-label mb-1\">Sueldo bruto</label>" +
+                            "<div class=\"input-group input-group-sm mb-2\">" +
+                                "<span class=\"input-group-text\">$</span>" +
+                                "<input type=\"text\" inputmode=\"decimal\" autocomplete=\"off\" data-lpignore=\"true\" data-1p-ignore=\"true\" class=\"form-control doc-sueldo-input\" id=\"docSueldoBruto\" data-sueldo-campo=\"bruto\" value=\"" + docSueldoEsc(bruto) + "\" placeholder=\"0.00\" style=\"-webkit-text-security:disc;\"" + disabled + ">" +
+                                "<button type=\"button\" class=\"btn btn-outline-secondary btn-eye-sueldo\" data-target=\"docSueldoBruto\" title=\"Mostrar u ocultar sueldo\"><i class=\"fa fa-eye\"></i></button>" +
+                            "</div>" +
+                            "<label class=\"form-label mb-1\">Sueldo neto</label>" +
+                            "<div class=\"input-group input-group-sm mb-2\">" +
+                                "<span class=\"input-group-text\">$</span>" +
+                                "<input type=\"text\" inputmode=\"decimal\" autocomplete=\"off\" data-lpignore=\"true\" data-1p-ignore=\"true\" class=\"form-control doc-sueldo-input\" id=\"docSueldoNeto\" data-sueldo-campo=\"neto\" value=\"" + docSueldoEsc(neto) + "\" placeholder=\"0.00\" style=\"-webkit-text-security:disc;\"" + disabled + ">" +
+                                "<button type=\"button\" class=\"btn btn-outline-secondary btn-eye-sueldo\" data-target=\"docSueldoNeto\" title=\"Mostrar u ocultar sueldo\"><i class=\"fa fa-eye\"></i></button>" +
+                            "</div>" +
+                            "<label class=\"form-label mb-1\">Motivo de contratacion</label>" +
+                            "<textarea class=\"form-control form-control-sm mb-2\" id=\"docMotivoContratacion\" maxlength=\"500\" rows=\"2\" placeholder=\"Ej. cobertura de vacante, crecimiento, reemplazo...\"" + disabled + ">" + docSueldoEsc(motivo) + "</textarea>" +
+                            (editable ? "<button type=\"button\" class=\"btn btn-sm btn-outline-primary w-100 btn-guardar-sueldo-candidato\" data-id=\"" + idCandidato + "\"><i class=\"fa fa-save me-1\"></i>Guardar datos</button>" : "<div class=\"text-muted\">Solo lectura en validacion final.</div>") +
+                        "</div>" +
+                    "</div>";
+            }
+
+            function leerSueldosModal() {
+                var brutoEl = document.getElementById("docSueldoBruto");
+                var netoEl = document.getElementById("docSueldoNeto");
+                var motivoEl = document.getElementById("docMotivoContratacion");
+                return {
+                    sueldo_bruto: docSueldoValor(brutoEl ? brutoEl.value : ""),
+                    sueldo_neto: docSueldoValor(netoEl ? netoEl.value : ""),
+                    motivo_contratacion: motivoEl ? String(motivoEl.value || "").trim().slice(0, 500) : ""
+                };
+            }
+
+            function validarSueldosModal(mostrar) {
+                var valores = leerSueldosModal();
+                if (valores.sueldo_bruto || valores.sueldo_neto) return valores;
+                if (mostrar && typeof Swal !== "undefined") {
+                    Swal.fire({ icon: "warning", title: "Sueldo requerido", text: "Capture sueldo bruto o sueldo neto antes de enviar a validacion final." });
+                }
+                var foco = document.getElementById("docSueldoBruto") || document.getElementById("docSueldoNeto");
+                if (foco && typeof foco.focus === "function") foco.focus();
+                return null;
+            }
+
+            function guardarSueldoCandidatoDocumentacion(idCandidato, btn) {
+                var valores = validarSueldosModal(true);
+                if (!valores || !idCandidato) return Promise.resolve(false);
+                var prevHtml = btn ? btn.innerHTML : "";
+                if (btn) { btn.disabled = true; btn.innerHTML = "<i class=\"fa fa-spinner fa-spin me-1\"></i>Guardando"; }
+                return fetch("/caphum/guardarSueldoCandidatoDocumentacion", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json", "Accept": "application/json" },
+                    body: JSON.stringify(Object.assign({ id_candidato: idCandidato }, valores))
+                }).then(function(r) { return r.json(); }).then(function(res) {
+                    if (!res.success) {
+                        if (typeof Swal !== "undefined") Swal.fire({ icon: "error", title: "No se pudo guardar", text: res.mensaje || "Revise el sueldo capturado." });
+                        return false;
+                    }
+                    if (typeof Swal !== "undefined") Swal.fire({ icon: "success", title: "Guardado", text: res.mensaje || "Sueldo guardado.", timer: 1600, showConfirmButton: false });
+                    return true;
+                }).catch(function() {
+                    if (typeof Swal !== "undefined") Swal.fire({ icon: "error", title: "Error", text: "Error de conexion al guardar sueldo." });
+                    return false;
+                }).finally(function() {
+                    if (btn) { btn.disabled = false; btn.innerHTML = prevHtml; }
+                });
             }
 
             function obtenerCandidatoLocalPorId(idCandidato) {
@@ -8004,6 +8155,7 @@ class CapHum extends Controller
                 var bloqueVerif = document.getElementById("modalDocumentacionCandidatoVerificacion");
                 var bloqueComp = document.getElementById("modalDocumentacionCandidatoComparaciones");
                 var bloqueMetricas = document.getElementById("modalDocumentacionCandidatoMetricas");
+                var bloqueSueldo = document.getElementById("modalDocumentacionCandidatoSueldo");
                 var bloqueAccionVerificar = document.getElementById("modalDocumentacionCandidatoAccionVerificar");
                 var bloqueAccionesProceso = document.getElementById("modalDocumentacionCandidatoAccionesProceso");
                 var listaTieneContenidoPrevio = !!(lista && lista.children && lista.children.length > 0);
@@ -8072,6 +8224,7 @@ class CapHum extends Controller
                     var docs = (res.datos && res.datos.documentos) ? res.datos.documentos : (res.datos && Array.isArray(res.datos) ? res.datos : []);
                     var verif = (res.datos && res.datos.verificacion_expediente) ? res.datos.verificacion_expediente : null;
                     var metricas = (res.datos && res.datos.metricas) ? res.datos.metricas : null;
+                    var sueldoDoc = (res.datos && res.datos.sueldo) ? res.datos.sueldo : null;
                     if (lista && docs.length > 0) {
                         var escBasico = function(s) {
                             return String(s === null || s === undefined ? "" : s)
@@ -8111,6 +8264,7 @@ class CapHum extends Controller
 
                     renderListaDocumentos(lista, cargando, vacio, docs, verif, idCandidato);
                     renderMetricasDoc(bloqueMetricas, metricas);
+                    renderSueldoCandidatoCard(bloqueSueldo, sueldoDoc, idCandidato);
                     renderAccionesProcesoCandidato(bloqueAccionesProceso, metricas, idCandidato);
                     if (bloqueAccionVerificar) bloqueAccionVerificar.classList.add("d-none");
                     if (verif) {
@@ -8166,6 +8320,7 @@ class CapHum extends Controller
                         lista.innerHTML = "";
                         if (bloqueAccionesProceso) { bloqueAccionesProceso.classList.add("d-none"); bloqueAccionesProceso.innerHTML = ""; }
                         if (bloqueMetricas) { bloqueMetricas.classList.add("d-none"); bloqueMetricas.innerHTML = ""; }
+                        if (bloqueSueldo) { bloqueSueldo.classList.add("d-none"); bloqueSueldo.innerHTML = ""; }
                         if (bloqueVerif) { bloqueVerif.classList.add("d-none"); bloqueVerif.innerHTML = ""; }
                         if (bloqueComp) { bloqueComp.classList.add("d-none"); bloqueComp.innerHTML = ""; }
                     }
@@ -8181,6 +8336,7 @@ class CapHum extends Controller
                 var bloqueVerif = document.getElementById("modalDocumentacionCandidatoVerificacion");
                 var bloqueComp = document.getElementById("modalDocumentacionCandidatoComparaciones");
                 var bloqueMetricas = document.getElementById("modalDocumentacionCandidatoMetricas");
+                var bloqueSueldo = document.getElementById("modalDocumentacionCandidatoSueldo");
                 var bloqueAccionVerificar = document.getElementById("modalDocumentacionCandidatoAccionVerificar");
                 var bloqueAccionesProceso = document.getElementById("modalDocumentacionCandidatoAccionesProceso");
                 var lista = document.getElementById("modalDocumentacionCandidatoLista");
@@ -8194,6 +8350,7 @@ class CapHum extends Controller
                 if (bloqueVerif) { bloqueVerif.classList.add("d-none"); bloqueVerif.innerHTML = ""; }
                 if (bloqueComp) { bloqueComp.classList.add("d-none"); bloqueComp.innerHTML = ""; }
                 if (bloqueMetricas) { bloqueMetricas.classList.add("d-none"); bloqueMetricas.innerHTML = ""; }
+                if (bloqueSueldo) { bloqueSueldo.classList.add("d-none"); bloqueSueldo.innerHTML = ""; }
                 if (bloqueAccionVerificar) bloqueAccionVerificar.classList.add("d-none");
                 if (bloqueAccionesProceso) { bloqueAccionesProceso.classList.add("d-none"); bloqueAccionesProceso.innerHTML = ""; }
                 if (lista) lista.innerHTML = "<div class=\"p-3 text-center text-muted\">Cargando documentos...</div>";
@@ -8470,6 +8627,7 @@ class CapHum extends Controller
             if (form.domicilio_calle_texto) form.domicilio_calle_texto.value = c.domicilio_calle_texto || "";
             if (form.domicilio_num_exterior) form.domicilio_num_exterior.value = c.domicilio_num_exterior || "";
             if (form.domicilio_num_interior) form.domicilio_num_interior.value = c.domicilio_num_interior || "";
+            if (form.codigo_postal) form.codigo_postal.value = c.codigo_postal || "";
             if (form.id_departamento) form.id_departamento.value = c.id_departamento || "";
             seleccionarOrganizacionPorDepartamentoCandidato(c.id_departamento || "");
             if (form.usuario) form.usuario.value = c.usuario || "";
@@ -8592,6 +8750,7 @@ class CapHum extends Controller
             domicilio_calle_texto: (form.domicilio_calle_texto && form.domicilio_calle_texto.value.trim()) || null,
             domicilio_num_exterior: (form.domicilio_num_exterior && form.domicilio_num_exterior.value.trim()) || null,
             domicilio_num_interior: (form.domicilio_num_interior && form.domicilio_num_interior.value.trim()) || null,
+            codigo_postal: (form.codigo_postal && form.codigo_postal.value.trim()) || null,
             id_departamento: (form.id_departamento && form.id_departamento.value) || null,
             id_puesto: (form.id_puesto && form.id_puesto.value) || null,
             id_posible_jefe: (form.id_posible_jefe && form.id_posible_jefe.value) || null,
@@ -8708,6 +8867,26 @@ class CapHum extends Controller
             });
         });
         document.addEventListener("click", function(e) {
+            var btnEyeSueldo = e.target.closest(".btn-eye-sueldo");
+            if (btnEyeSueldo) {
+                e.preventDefault();
+                e.stopPropagation();
+                var targetId = btnEyeSueldo.getAttribute("data-target");
+                var inputSueldo = targetId ? document.getElementById(targetId) : null;
+                if (!inputSueldo) return;
+                var mostrando = String(inputSueldo.style.webkitTextSecurity || "").toLowerCase() === "none";
+                inputSueldo.style.webkitTextSecurity = mostrando ? "disc" : "none";
+                btnEyeSueldo.innerHTML = mostrando ? "<i class=\"fa fa-eye\"></i>" : "<i class=\"fa fa-eye-slash\"></i>";
+                return;
+            }
+            var btnGuardarSueldo = e.target.closest(".btn-guardar-sueldo-candidato");
+            if (btnGuardarSueldo) {
+                e.preventDefault();
+                e.stopPropagation();
+                var idSueldo = parseInt(btnGuardarSueldo.getAttribute("data-id") || "0", 10);
+                guardarSueldoCandidatoDocumentacion(idSueldo, btnGuardarSueldo);
+                return;
+            }
             var btnReintentarVerif = e.target.closest(".btn-reintentar-verif-expediente, [data-reintentar-api='1'], #btnReintentarVerifExpediente");
             if (btnReintentarVerif) {
                 e.preventDefault();
@@ -8764,13 +8943,16 @@ class CapHum extends Controller
         });
         function enviarCandidatoAValidacionFinal(idCandidato, btn) {
             if (!idCandidato || idCandidato <= 0) return;
+            if (!validarSueldosModal(true)) return;
             var prevHtml = btn ? btn.innerHTML : "";
             var ejecutar = function() {
+                var sueldos = validarSueldosModal(true);
+                if (!sueldos) return;
                 if (btn) { btn.disabled = true; btn.innerHTML = "<i class=\"fa fa-spinner fa-spin me-1\"></i>Enviando"; }
                 fetch("/caphum/enviarCandidatoValidacionFinal", {
                     method: "POST",
                     headers: { "Content-Type": "application/json", "Accept": "application/json" },
-                    body: JSON.stringify({ id_candidato: idCandidato })
+                    body: JSON.stringify(Object.assign({ id_candidato: idCandidato }, sueldos))
                 }).then(function(r){ return r.json(); }).then(function(res) {
                     if (btn) { btn.disabled = false; btn.innerHTML = prevHtml; }
                     if (!res.success) {
@@ -9118,10 +9300,12 @@ class CapHum extends Controller
             if (col) { col.innerHTML = "<option value=''>Seleccione una colonia</option>"; col.disabled = true; refreshSelectBuscadorCandidato(col.id); }
             var divMunicipio = document.getElementById("div_candidato_municipio");
             var divColonia = document.getElementById("div_candidato_colonia");
+            var divCp = document.getElementById("div_candidato_codigo_postal");
             var divCalle = document.getElementById("div_candidato_calle_texto");
             var divNum = document.getElementById("div_candidato_num_extint");
             if (divMunicipio) divMunicipio.style.display = "none";
             if (divColonia) divColonia.style.display = "none";
+            if (divCp) divCp.style.display = "none";
             if (divCalle) divCalle.style.display = "none";
             if (divNum) divNum.style.display = "none";
             limpiarDomicilioTextoCandidato();
@@ -9141,9 +9325,11 @@ class CapHum extends Controller
             var col = document.getElementById("candidato_id_div_nivel3");
             if (col) { col.innerHTML = "<option value=''>Seleccione una colonia</option>"; col.disabled = true; refreshSelectBuscadorCandidato(col.id); }
             var divColonia = document.getElementById("div_candidato_colonia");
+            var divCp = document.getElementById("div_candidato_codigo_postal");
             var divCalle = document.getElementById("div_candidato_calle_texto");
             var divNum = document.getElementById("div_candidato_num_extint");
             if (divColonia) divColonia.style.display = "none";
+            if (divCp) divCp.style.display = "none";
             if (divCalle) divCalle.style.display = "none";
             if (divNum) divNum.style.display = "none";
             limpiarDomicilioTextoCandidato();
@@ -9166,12 +9352,14 @@ class CapHum extends Controller
             var txtExt = document.getElementById("candidato_domicilio_num_exterior");
             var txtInt = document.getElementById("candidato_domicilio_num_interior");
             var v = $(this).val();
+            actualizarCodigoPostalCandidatoDesdeColonia();
             if (!v) {
                 if (divCalle) divCalle.style.display = "none";
                 if (divNum) divNum.style.display = "none";
                 if (txtCalle) txtCalle.value = "";
                 if (txtExt) txtExt.value = "";
                 if (txtInt) txtInt.value = "";
+                setCodigoPostalCandidato("");
                 return;
             }
             if (divCalle) divCalle.style.display = "";
@@ -10593,6 +10781,7 @@ class CapHum extends Controller
         $data = CandidatosDAO::getDocumentosYVerificacion($id_candidato);
         $documentos = $data['documentos'] ?? [];
         $verificacion = $data['verificacion'] ?? null;
+        $sueldoDoc = $data['sueldo'] ?? ['bruto' => '', 'neto' => ''];
         if (is_array($verificacion)) {
             $errApi = trim((string) ($verificacion['error_api'] ?? ''));
             if ($errApi !== '') {
@@ -10606,7 +10795,7 @@ class CapHum extends Controller
             }
         }
 
-        $payload = ['documentos' => $documentos];
+        $payload = ['documentos' => $documentos, 'sueldo' => $sueldoDoc];
         if ($verificacion !== null) {
             $payload['verificacion_expediente'] = $verificacion;
         }
@@ -11501,6 +11690,34 @@ class CapHum extends Controller
      * Cerrar proceso del candidato (modal "Cerrar proceso"). Requiere módulo Candidatos.
      * POST JSON: id_candidato, motivo, descripcion (opcional).
      */
+    public function guardarSueldoCandidatoDocumentacion()
+    {
+        header('Content-Type: application/json; charset=utf-8');
+        if (!self::puedeValidarDocumentalCandidatos()) {
+            echo json_encode(self::respuesta(false, 'No tienes permiso de validador documental.'));
+            return;
+        }
+
+        $raw = file_get_contents('php://input');
+        $body = json_decode($raw, true) ?: [];
+        $id_candidato = (int) ($body['id_candidato'] ?? $body['id'] ?? $_POST['id_candidato'] ?? $_POST['id'] ?? 0);
+        if ($id_candidato <= 0) {
+            echo json_encode(self::respuesta(false, 'ID de candidato invalido.'));
+            return;
+        }
+
+        $res = CandidatosDAO::guardarSueldosDocumentacion(
+            $id_candidato,
+            $body['sueldo_bruto'] ?? $_POST['sueldo_bruto'] ?? null,
+            $body['sueldo_neto'] ?? $_POST['sueldo_neto'] ?? null,
+            $body['motivo_contratacion'] ?? $_POST['motivo_contratacion'] ?? null
+        );
+        if (!empty($res['success'])) {
+            CandidatosDAO::invalidateDocumentacionCache($id_candidato);
+        }
+        echo json_encode($res);
+    }
+
     public function enviarCandidatoValidacionFinal()
     {
         header('Content-Type: application/json; charset=utf-8');
@@ -11531,11 +11748,22 @@ class CapHum extends Controller
             echo json_encode(self::respuesta(false, 'Primero deben estar validados todos los documentos requeridos.'));
             return;
         }
+        $guardarSueldo = CandidatosDAO::guardarSueldosDocumentacion(
+            $id_candidato,
+            $body['sueldo_bruto'] ?? $_POST['sueldo_bruto'] ?? ($candidatoRes['datos']['sueldo_bruto'] ?? null),
+            $body['sueldo_neto'] ?? $_POST['sueldo_neto'] ?? ($candidatoRes['datos']['sueldo_neto'] ?? null),
+            $body['motivo_contratacion'] ?? $_POST['motivo_contratacion'] ?? ($candidatoRes['datos']['motivo_contratacion'] ?? null)
+        );
+        if (empty($guardarSueldo['success'])) {
+            echo json_encode(self::respuesta(false, $guardarSueldo['mensaje'] ?? 'Capture sueldo bruto o sueldo neto antes de enviar a validacion final.'));
+            return;
+        }
         CandidatosDAO::updateEstatus($id_candidato, 'Pendiente de validacion final');
         CandidatosDAO::invalidateDocumentacionCache($id_candidato);
         echo json_encode(self::respuesta(true, 'Expediente enviado a validacion final.', [
             'id_candidato' => $id_candidato,
             'estatus' => 'Pendiente de validacion final',
+            'sueldo' => $guardarSueldo['datos'] ?? null,
         ]));
     }
 
@@ -11757,8 +11985,9 @@ class CapHum extends Controller
 
         $enviado = $this->enviarCorreo($destino, $asunto, $mensajeHtml, $nombreCompleto, $rutaLogoInline);
         if ($enviado) {
-            $correoJefe = trim($c['correo_jefe'] ?? '');
             $nombreJefe = trim($c['nombre_jefe'] ?? '') ?: 'Jefe directo';
+            $correoJefeInfo = $this->resolverCorreoInstitucionalJefe($nombreJefe, trim($c['correo_jefe'] ?? ''));
+            $correoJefe = $correoJefeInfo['email'];
             $puesto = trim($c['nombre_puesto'] ?? '');
             $departamento = trim($c['nombre_departamento'] ?? '');
             $correoJefeIntentado = $correoJefe !== '' && filter_var($correoJefe, FILTER_VALIDATE_EMAIL);
@@ -11787,7 +12016,8 @@ class CapHum extends Controller
                 'fecha_ingreso_notificada_en' => $fechaNotificada,
                 'correo_candidato_enviado' => true,
                 'correo_jefe_intentado' => $correoJefeIntentado,
-                'correo_jefe_enviado' => $correoJefeEnviado
+                'correo_jefe_enviado' => $correoJefeEnviado,
+                'correo_jefe_fuente' => $correoJefeInfo['fuente']
             ]));
         } else {
             $msg = $this->enviarCorreoUltimoError ?: 'No se pudo enviar el correo.';
@@ -12326,6 +12556,139 @@ class CapHum extends Controller
             12 => 'diciembre',
         ];
         return (int) $dt->format('d') . ' de ' . $meses[(int) $dt->format('m')] . ' de ' . $dt->format('Y');
+    }
+
+    private function normalizarNombreParaCorreoInstitucional($valor): string
+    {
+        $texto = trim((string) $valor);
+        if ($texto === '') {
+            return '';
+        }
+        $texto = strtr($texto, [
+            'Á' => 'A', 'É' => 'E', 'Í' => 'I', 'Ó' => 'O', 'Ú' => 'U', 'Ü' => 'U', 'Ñ' => 'N',
+            'á' => 'A', 'é' => 'E', 'í' => 'I', 'ó' => 'O', 'ú' => 'U', 'ü' => 'U', 'ñ' => 'N',
+        ]);
+        if (function_exists('iconv')) {
+            $convertido = @iconv('UTF-8', 'ASCII//TRANSLIT//IGNORE', $texto);
+            if ($convertido !== false && $convertido !== '') {
+                $texto = $convertido;
+            }
+        }
+        $texto = preg_replace('/[^A-Za-z0-9]+/', ' ', $texto);
+        $texto = preg_replace('/\s+/', ' ', $texto ?? '');
+        return strtoupper(trim((string) $texto));
+    }
+
+    private function catalogoCorreosInstitucionalesJefes(): array
+    {
+        static $catalogo = null;
+        if ($catalogo !== null) {
+            return $catalogo;
+        }
+
+        $catalogo = [];
+        $archivo = defined('RAIZ')
+            ? RAIZ . '/config/correos_institucionales_personas.csv'
+            : __DIR__ . '/../config/correos_institucionales_personas.csv';
+        if (!is_file($archivo) || !is_readable($archivo)) {
+            return $catalogo;
+        }
+
+        $fh = @fopen($archivo, 'r');
+        if (!$fh) {
+            return $catalogo;
+        }
+        $headers = fgetcsv($fh);
+        if (!is_array($headers)) {
+            fclose($fh);
+            return $catalogo;
+        }
+        $idx = array_flip($headers);
+        while (($row = fgetcsv($fh)) !== false) {
+            $nombre = trim((string) ($row[$idx['nombre_completo'] ?? -1] ?? ''));
+            $normalizado = trim((string) ($row[$idx['nombre_normalizado'] ?? -1] ?? ''));
+            $email = strtolower(trim((string) ($row[$idx['email'] ?? -1] ?? '')));
+            $status = strtolower(trim((string) ($row[$idx['status'] ?? -1] ?? '')));
+            if ($email === '' || !filter_var($email, FILTER_VALIDATE_EMAIL) || substr($email, -12) !== '@__SPARTA_SECRET_REDACTED__.mx') {
+                continue;
+            }
+            if ($normalizado === '') {
+                $normalizado = $this->normalizarNombreParaCorreoInstitucional($nombre);
+            }
+            if ($normalizado === '') {
+                continue;
+            }
+            $prioridad = $status === 'active' ? 2 : 1;
+            if (!isset($catalogo[$normalizado]) || $prioridad > ($catalogo[$normalizado]['prioridad'] ?? 0)) {
+                $catalogo[$normalizado] = [
+                    'email' => $email,
+                    'status' => $status,
+                    'prioridad' => $prioridad,
+                ];
+            }
+        }
+        fclose($fh);
+        return $catalogo;
+    }
+
+    private function aliasCorreosInstitucionalesJefes(): array
+    {
+        static $alias = null;
+        if ($alias !== null) {
+            return $alias;
+        }
+
+        $alias = [];
+        $archivo = defined('RAIZ')
+            ? RAIZ . '/config/correos_institucionales_personas_aliases.csv'
+            : __DIR__ . '/../config/correos_institucionales_personas_aliases.csv';
+        if (!is_file($archivo) || !is_readable($archivo)) {
+            return $alias;
+        }
+
+        $fh = @fopen($archivo, 'r');
+        if (!$fh) {
+            return $alias;
+        }
+        $headers = fgetcsv($fh);
+        if (!is_array($headers)) {
+            fclose($fh);
+            return $alias;
+        }
+
+        $idx = array_flip($headers);
+        while (($row = fgetcsv($fh)) !== false) {
+            $nombreBd = trim((string) ($row[$idx['nombre_bd'] ?? -1] ?? ''));
+            $email = strtolower(trim((string) ($row[$idx['email'] ?? -1] ?? '')));
+            $normalizado = $this->normalizarNombreParaCorreoInstitucional($nombreBd);
+            if ($normalizado === '' || $email === '' || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
+                continue;
+            }
+            $alias[$normalizado] = $email;
+        }
+        fclose($fh);
+        return $alias;
+    }
+
+    private function resolverCorreoInstitucionalJefe($nombreJefe, $correoActual = ''): array
+    {
+        $nombreNormalizado = $this->normalizarNombreParaCorreoInstitucional($nombreJefe);
+        $alias = $this->aliasCorreosInstitucionalesJefes();
+        if ($nombreNormalizado !== '' && isset($alias[$nombreNormalizado])) {
+            return ['email' => $alias[$nombreNormalizado], 'fuente' => 'alias_google_workspace'];
+        }
+
+        $catalogo = $this->catalogoCorreosInstitucionalesJefes();
+        if ($nombreNormalizado !== '' && isset($catalogo[$nombreNormalizado])) {
+            return ['email' => $catalogo[$nombreNormalizado]['email'], 'fuente' => 'catalogo_google_workspace'];
+        }
+
+        $correoActual = strtolower(trim((string) $correoActual));
+        if ($correoActual !== '' && filter_var($correoActual, FILTER_VALIDATE_EMAIL)) {
+            return ['email' => $correoActual, 'fuente' => 'persona_correo'];
+        }
+
+        return ['email' => '', 'fuente' => 'no_encontrado'];
     }
 
     private function obtenerBaseUrlApp()

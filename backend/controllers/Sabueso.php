@@ -4432,8 +4432,8 @@ class Sabueso extends Controller
 
     private function getUbicacionesCachePath(int $idCredito, bool $modoRapido = false): string
     {
-        // Bump lite suffix when lite payload shape changes (ej. domicilio_megareporte en modo rápido).
-        $sufijo = $modoRapido ? '_lite2' : '';
+        // Bump suffix when payload shape changes (ej. domicilio_megareporte con dirección aunque falten coords).
+        $sufijo = $modoRapido ? '_lite3' : '_v2';
         return dirname(__DIR__) . '/storage/cache/sabueso_ubicaciones_' . $idCredito . $sufijo . '.json';
     }
 
@@ -4475,14 +4475,16 @@ class Sabueso extends Controller
                 ? trim((string) $dirMegareporte['datos'][0]['Domicilio_Completo'])
                 : '';
             if ($domicilioCompleto !== '') {
+                $domicilioMegareporte = [
+                    'lat' => null,
+                    'lng' => null,
+                    'direccion' => $domicilioCompleto,
+                ];
                 $geocoding = new GeocodingService();
                 $coordsMegareporte = $geocoding->getDomicilioCoordsForCredito($idCredito, $domicilioCompleto);
                 if (!empty($coordsMegareporte)) {
-                    $domicilioMegareporte = [
-                        'lat' => (float) $coordsMegareporte['lat'],
-                        'lng' => (float) $coordsMegareporte['lng'],
-                        'direccion' => $domicilioCompleto,
-                    ];
+                    $domicilioMegareporte['lat'] = (float) $coordsMegareporte['lat'];
+                    $domicilioMegareporte['lng'] = (float) $coordsMegareporte['lng'];
                     if (!$modoRapido && !empty($puntosMapa)) {
                         $domicilio = [
                             'id' => 'megareporte',

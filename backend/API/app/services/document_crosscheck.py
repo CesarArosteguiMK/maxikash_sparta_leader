@@ -201,6 +201,59 @@ def _parsear_fecha_sat_emision(texto: str) -> Optional[datetime]:
     normal = _normalizar_texto_sat(texto)
     compacto = _compactar_texto_sat(texto)
     meses = {k.upper(): v for k, v in MESES_ES.items()}
+
+    # Primero priorizar el bloque visible "Lugar y Fecha de Emision". En algunos
+    # PDFs la cadena original puede conservar una fecha anterior, mientras que el
+    # bloque visible trae la constancia generada para el candidato.
+    candidatas_lugar: List[datetime] = []
+    ventanas_lugar = []
+    idx_lugar = normal.find("LUGAR Y FECHA DE EMISION")
+    if idx_lugar >= 0:
+        ventanas_lugar.append(normal[idx_lugar:idx_lugar + 350])
+    idx_lugar_compacto = compacto.find("LUGARYFECHADEEMISION")
+    if idx_lugar_compacto >= 0:
+        ventanas_lugar.append(compacto[idx_lugar_compacto:idx_lugar_compacto + 450])
+    for ventana in ventanas_lugar:
+        for mes_nombre, mes_num in meses.items():
+            patron_normal = rf"\bA\s+([0-3O]?\d)\s+DE\s+{mes_nombre}\s+DE\s+(\d{{4}})\b"
+            for m in re.finditer(patron_normal, ventana):
+                dia_txt = m.group(1).replace("O", "0")
+                try:
+                    fecha = datetime(int(m.group(2)), mes_num, int(dia_txt))
+                    if 2000 <= fecha.year <= datetime.now().year + 1:
+                        candidatas_lugar.append(fecha)
+                except ValueError:
+                    continue
+            patron_compacto = rf"A([0-3O]?\d)DE{mes_nombre}DE(\d{{4}})"
+            for m in re.finditer(patron_compacto, ventana):
+                dia_txt = m.group(1).replace("O", "0")
+                try:
+                    fecha = datetime(int(m.group(2)), mes_num, int(dia_txt))
+                    if 2000 <= fecha.year <= datetime.now().year + 1:
+                        candidatas_lugar.append(fecha)
+                except ValueError:
+                    continue
+    if candidatas_lugar:
+        hoy = datetime.now()
+        no_futuras = [f for f in candidatas_lugar if f <= hoy + timedelta(days=1)]
+        return max(no_futuras or candidatas_lugar)
+
+    # La cadena original del SAT suele traer la fecha como YYYY/MM/DD HH:MM:SS.
+    # En escaneos pobres es mas confiable que fechas del cuerpo como inicio de
+    # operaciones o inicio de regimen, pero solo se usa si no se leyo el bloque visible.
+    fechas_cadena: List[datetime] = []
+    for m in re.finditer(r"(20\d{2})[/-]([01]\d)[/-]([0-3]\d)", normal):
+        try:
+            fecha = datetime(int(m.group(1)), int(m.group(2)), int(m.group(3)))
+            if 2000 <= fecha.year <= datetime.now().year + 1:
+                fechas_cadena.append(fecha)
+        except ValueError:
+            continue
+    if fechas_cadena:
+        hoy = datetime.now()
+        no_futuras = [f for f in fechas_cadena if f <= hoy + timedelta(days=1)]
+        return max(no_futuras or fechas_cadena)
+
     candidatas: List[datetime] = []
     for mes_nombre, mes_num in meses.items():
         patron_normal = rf"\bA\s+([0-3O]?\d)\s+DE\s+{mes_nombre}\s+DE\s+[^0-9]{{0,55}}(\d{{4}})"

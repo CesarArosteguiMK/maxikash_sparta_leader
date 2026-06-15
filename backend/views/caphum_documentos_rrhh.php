@@ -1137,32 +1137,8 @@
             if (text) chips.push([label, text]);
         };
         const fechaMovimiento = item?.fecha_movimiento || item?.creado_at || '';
-        const fechaAsignacionNueva = item?.fecha_asignacion_nueva || '';
-        const fechaAsignacionAnterior = item?.fecha_asignacion_anterior || '';
-        const origenRaw = String(item?.origen || '').toLowerCase();
-        const esLineaBase = origenRaw === 'semilla_estado_actual' || origenRaw === 'estado_actual';
-        const mismaFechaNueva = fechaMovimiento && fechaAsignacionNueva
-            && String(fechaMovimiento).slice(0, 19) === String(fechaAsignacionNueva).slice(0, 19);
-        const origen = origenTrayectoria(item?.origen || '');
-        const nivelAnterior = item?.nivel_anterior;
-        const nivelNuevo = item?.nivel_nuevo;
 
         add('Fecha movimiento', formatoFechaTrayectoria(fechaMovimiento));
-        if (fechaAsignacionNueva && !mismaFechaNueva) {
-            add('Asignaci\u00f3n nuevo puesto', formatoFechaTrayectoria(fechaAsignacionNueva));
-        }
-        if (fechaAsignacionAnterior) {
-            add('Asignaci\u00f3n puesto anterior', formatoFechaTrayectoria(fechaAsignacionAnterior));
-        }
-        if (!esLineaBase) {
-            if (nivelAnterior !== null && nivelAnterior !== undefined && nivelAnterior !== '' && nivelNuevo !== null && nivelNuevo !== undefined && nivelNuevo !== '' && String(nivelAnterior) !== String(nivelNuevo)) {
-                add('Nivel', `${nivelAnterior} -> ${nivelNuevo}`);
-            } else if (nivelNuevo !== null && nivelNuevo !== undefined && nivelNuevo !== '') {
-                add('Nivel', nivelNuevo);
-            }
-            add('Origen', origen);
-            add('Motivo', item?.motivo || '');
-        }
 
         return chips;
     }
