@@ -112,11 +112,61 @@ SCRIPT;
             var lng = parseFloat(ref.lng);
             return !isNaN(lat) && !isNaN(lng);
         }
+        function rastreoNormalizarDireccionReferencia(s) {
+            s = (s == null || s === undefined) ? '' : (s + '');
+            try { s = s.normalize('NFD').replace(/[\u0300-\u036f]/g, ''); } catch (e) {}
+            return s.toUpperCase().replace(/[^A-Z0-9]+/g, ' ').replace(/\s+/g, ' ').trim();
+        }
+        function rastreoRefsMismoPuntoCliente(a, b) {
+            var na = rastreoNormalizarDireccionReferencia(a && a.direccion);
+            var nb = rastreoNormalizarDireccionReferencia(b && b.direccion);
+            if (na && nb && na === nb) return true;
+            if (!rastreoReferenciaTieneCoords(a) || !rastreoReferenciaTieneCoords(b)) return false;
+            var dist = haversineMetrosMapa(parseFloat(a.lat), parseFloat(a.lng), parseFloat(b.lat), parseFloat(b.lng));
+            return dist <= 100;
+        }
+        function rastreoFusionarReferenciasPorPuntoCliente() {
+            var refs = Array.isArray(rastreoDomiciliosReferencia) ? rastreoDomiciliosReferencia : [];
+            var fusionadas = [];
+            refs.forEach(function(ref) {
+                if (!ref) return;
+                var idx = -1;
+                for (var i = 0; i < fusionadas.length; i++) {
+                    if (rastreoRefsMismoPuntoCliente(fusionadas[i], ref)) { idx = i; break; }
+                }
+                if (idx === -1) {
+                    var fuentesBase = Array.isArray(ref.fuentes) ? ref.fuentes.slice() : [];
+                    fusionadas.push(Object.assign({}, ref, { fuentes: fuentesBase }));
+                    return;
+                }
+                var actual = fusionadas[idx];
+                var fuentes = Array.isArray(actual.fuentes) ? actual.fuentes : [];
+                (Array.isArray(ref.fuentes) ? ref.fuentes : []).forEach(function(f) {
+                    if (fuentes.indexOf(f) === -1) fuentes.push(f);
+                });
+                actual.fuentes = fuentes;
+                actual.label = fuentes.join(' / ');
+                if (fuentes.indexOf('Megareporte') !== -1 && Array.isArray(ref.fuentes) && ref.fuentes.indexOf('Megareporte') !== -1) {
+                    actual.id = ref.id || 'megareporte';
+                    actual.tipo = ref.tipo || 'megareporte';
+                    actual.direccion = ref.direccion || actual.direccion;
+                    actual.lat = ref.lat != null ? ref.lat : actual.lat;
+                    actual.lng = ref.lng != null ? ref.lng : actual.lng;
+                }
+            });
+            rastreoDomiciliosReferencia = fusionadas;
+            fusionadas.forEach(function(ref) {
+                if (rastreoFuentesReferencia(ref).indexOf('Megareporte') !== -1) {
+                    rastreoDomicilioMegareporte = Object.assign({}, rastreoDomicilioMegareporte || {}, ref);
+                }
+            });
+        }
         function rastreoGeocodificarReferenciasSinCoords(callback) {
             var refs = (rastreoDomiciliosReferencia || []).filter(function(ref) {
                 return ref && !rastreoReferenciaTieneCoords(ref) && ((ref.direccion || '') + '').trim() !== '';
             });
             if (!refs.length || typeof google === 'undefined' || !google.maps || typeof google.maps.Geocoder === 'undefined') {
+                rastreoFusionarReferenciasPorPuntoCliente();
                 if (typeof callback === 'function') callback();
                 return;
             }
@@ -133,6 +183,7 @@ SCRIPT;
                             }
                         });
                     }
+                    rastreoFusionarReferenciasPorPuntoCliente();
                     if (typeof callback === 'function') callback();
                     return;
                 }
@@ -2101,6 +2152,7 @@ JS;
                     rastreoPuntosGeo = [];
                     rastreoDomicilioMegareporte = (r.domicilio_megareporte && (r.domicilio_megareporte.direccion || (r.domicilio_megareporte.lat != null && r.domicilio_megareporte.lng != null))) ? r.domicilio_megareporte : null;
                     rastreoDomiciliosReferencia = Array.isArray(r.domicilios_referencia) ? r.domicilios_referencia : (rastreoDomicilioMegareporte ? [rastreoDomicilioMegareporte] : []);
+                    rastreoFusionarReferenciasPorPuntoCliente();
                     rastreoIndiceCasa = (r.indice_casa !== undefined && r.indice_casa !== null && Number.isInteger(r.indice_casa)) ? r.indice_casa : null;
                     $(\'#rastreoDireccionesAlternasContenido\').removeClass(\'rastreo-contenido-cargando\').html(\'<span class="text-muted small">Cargando direcciones alternas...</span>\');
                     $(\'#rastreoDireccionesAlternas .rastreo-mapa-wrap\').show();

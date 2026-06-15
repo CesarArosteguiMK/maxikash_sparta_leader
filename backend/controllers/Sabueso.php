@@ -4540,32 +4540,73 @@ class Sabueso extends Controller
         ];
     }
 
+    private function distanciaMetrosDomicilioReferencia(float $lat1, float $lng1, float $lat2, float $lng2): float
+    {
+        $radioTierra = 6371000;
+        $dLat = deg2rad($lat2 - $lat1);
+        $dLng = deg2rad($lng2 - $lng1);
+        $a = sin($dLat / 2) ** 2
+            + cos(deg2rad($lat1)) * cos(deg2rad($lat2)) * sin($dLng / 2) ** 2;
+        return $radioTierra * 2 * atan2(sqrt($a), sqrt(1 - $a));
+    }
+
+    private function domiciliosReferenciaMismoPunto(array $a, array $b): bool
+    {
+        $normA = (string) ($a['_norm'] ?? $this->normalizarDireccionReferencia((string) ($a['direccion'] ?? '')));
+        $normB = (string) ($b['_norm'] ?? $this->normalizarDireccionReferencia((string) ($b['direccion'] ?? '')));
+        if ($normA !== '' && $normB !== '' && $normA === $normB) {
+            return true;
+        }
+
+        if (!isset($a['lat'], $a['lng'], $b['lat'], $b['lng'])) {
+            return false;
+        }
+
+        $latA = (float) $a['lat'];
+        $lngA = (float) $a['lng'];
+        $latB = (float) $b['lat'];
+        $lngB = (float) $b['lng'];
+        if (($latA === 0.0 && $lngA === 0.0) || ($latB === 0.0 && $lngB === 0.0)) {
+            return false;
+        }
+
+        return $this->distanciaMetrosDomicilioReferencia($latA, $lngA, $latB, $lngB) <= self::RANGO_CASA_M;
+    }
+
     private function fusionarDomiciliosReferenciaPorCoordenada(array $domicilios): array
     {
         $fusionados = [];
         foreach ($domicilios as $domicilio) {
-            $lat = isset($domicilio['lat']) ? (float) $domicilio['lat'] : null;
-            $lng = isset($domicilio['lng']) ? (float) $domicilio['lng'] : null;
-            $key = ($lat !== null && $lng !== null)
-                ? number_format($lat, 5, '.', '') . ',' . number_format($lng, 5, '.', '')
-                : 'addr:' . ($domicilio['_norm'] ?? $this->normalizarDireccionReferencia((string) ($domicilio['direccion'] ?? '')));
+            $keyFusion = null;
+            foreach ($fusionados as $key => $fusionado) {
+                if ($this->domiciliosReferenciaMismoPunto($fusionado, $domicilio)) {
+                    $keyFusion = $key;
+                    break;
+                }
+            }
 
-            if (!isset($fusionados[$key])) {
-                $fusionados[$key] = $domicilio;
+            if ($keyFusion === null) {
+                $fusionados[] = $domicilio;
                 continue;
             }
 
             foreach (($domicilio['fuentes'] ?? []) as $fuente) {
-                if (!in_array($fuente, $fusionados[$key]['fuentes'], true)) {
-                    $fusionados[$key]['fuentes'][] = $fuente;
+                if (!in_array($fuente, $fusionados[$keyFusion]['fuentes'], true)) {
+                    $fusionados[$keyFusion]['fuentes'][] = $fuente;
                 }
             }
 
-            if (in_array('Megareporte', $fusionados[$key]['fuentes'], true)) {
-                $fusionados[$key]['id'] = 'megareporte';
-                $fusionados[$key]['tipo'] = 'megareporte';
+            if (in_array('Megareporte', $domicilio['fuentes'] ?? [], true)) {
+                $fusionados[$keyFusion]['id'] = 'megareporte';
+                $fusionados[$keyFusion]['tipo'] = 'megareporte';
+                $fusionados[$keyFusion]['direccion'] = $domicilio['direccion'] ?? ($fusionados[$keyFusion]['direccion'] ?? '');
+                $fusionados[$keyFusion]['lat'] = $domicilio['lat'] ?? ($fusionados[$keyFusion]['lat'] ?? null);
+                $fusionados[$keyFusion]['lng'] = $domicilio['lng'] ?? ($fusionados[$keyFusion]['lng'] ?? null);
+            } elseif (in_array('Megareporte', $fusionados[$keyFusion]['fuentes'], true)) {
+                $fusionados[$keyFusion]['id'] = 'megareporte';
+                $fusionados[$keyFusion]['tipo'] = 'megareporte';
             }
-            $fusionados[$key]['label'] = implode(' / ', $fusionados[$key]['fuentes']);
+            $fusionados[$keyFusion]['label'] = implode(' / ', $fusionados[$keyFusion]['fuentes']);
         }
 
         return array_values($fusionados);
@@ -4627,7 +4668,7 @@ class Sabueso extends Controller
     private function getUbicacionesCachePath(int $idCredito, bool $modoRapido = false): string
     {
         // Bump suffix when payload shape changes (ej. domicilio_megareporte con dirección aunque falten coords).
-        $sufijo = $modoRapido ? '_lite8' : '_v7';
+        $sufijo = $modoRapido ? '_lite9' : '_v8';
         return dirname(__DIR__) . '/storage/cache/sabueso_ubicaciones_' . $idCredito . $sufijo . '.json';
     }
 
