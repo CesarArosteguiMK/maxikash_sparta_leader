@@ -100,6 +100,14 @@ if (!function_exists('getRutasModulos')) {
         $rutas['analitica/postasignaciondireccion'] = [84];
         $rutas['analitica/postasignaciondireccionesorden'] = [84];
         $rutas['analitica/postasignaciondireccionessync'] = [84];
+        $rutas['atlas/accesosatlas'] = [137];
+        $rutas['atlas/creditosoperacion'] = [139];
+        $rutas['atlas/getaccesosatlas'] = [137];
+        $rutas['atlas/sincronizaraccesosatlas'] = [137];
+        $rutas['atlas/actualizarexclusionaccesosatlas'] = [137];
+        $rutas['atlas/getaccesoatlasdetalle'] = [137];
+        $rutas['atlas/guardarpermisosaccesoatlas'] = [137];
+        $rutas['atlas/restablecerpasswordaccesoatlas'] = [137];
         $rutas['gastoscobranza/getdashboardestadistica'] = [40];
         return $rutas;
     }

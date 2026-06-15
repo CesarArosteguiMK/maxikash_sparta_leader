@@ -1911,6 +1911,15 @@ class CapHum extends Controller
                 const switchPais = document.getElementById('perfilAccesoDirectoPaisSwitch');
                 const totalLbl = document.getElementById('perfilPuestosSeleccionadosTotal');
                 if (!rightTree || !leftPaises || !inputBuscar || !switchPais || !totalLbl) return;
+                const escPermisos = function(s) {
+                    if (s == null || s === undefined) return '';
+                    return String(s)
+                        .replace(/&/g, '&amp;')
+                        .replace(/</g, '&lt;')
+                        .replace(/>/g, '&gt;')
+                        .replace(/"/g, '&quot;')
+                        .replace(/'/g, '&#039;');
+                };
 
                 if (!permisosJerarquia || !Array.isArray(permisosJerarquia.paises)) {
                     rightTree.innerHTML = '<div class="text-muted small text-center py-4">No se pudo cargar la información de acceso.</div>';
@@ -1946,9 +1955,9 @@ class CapHum extends Controller
                     puesto: new Set((sel.puesto || []).map(v => String(v)))
                 };
 
-                const banderas = { mx: 'ðŸ‡²ðŸ‡½', gt: 'ðŸ‡¬ðŸ‡¹', co: 'ðŸ‡¨ðŸ‡´', sv: 'ðŸ‡¸ðŸ‡»', hn: 'ðŸ‡­ðŸ‡³', ni: 'ðŸ‡³ðŸ‡®', cr: 'ðŸ‡¨ðŸ‡·', pa: 'ðŸ‡µðŸ‡¦' };
                 const paises = (permisosJerarquia.paises || []).slice().sort(sortByName).map(p => {
                     const pid = String(p.id || 0);
+                    const iso = String((p.codigo_iso || '')).toLowerCase().replace(/[^a-z]/g, '').slice(0, 2);
                     const areas = (byPais[pid] || []).slice().sort(sortByName).map(a => {
                         const aid = String(a.id || 0);
                         const departamentos = (byArea[aid] || []).slice().sort(sortByName).map(d => {
@@ -1960,8 +1969,8 @@ class CapHum extends Controller
                     });
                     return {
                         id: pid,
+                        codigoIso: iso,
                         nombre: p.nombre || ('País ' + pid),
-                        bandera: banderas[String((p.codigo_iso || '')).toLowerCase()] || 'ðŸ³ï¸',
                         areas: areas
                     };
                 });
@@ -2032,7 +2041,10 @@ class CapHum extends Controller
 
                         const left = document.createElement('div');
                         left.className = 'd-flex align-items-center gap-2';
-                        left.innerHTML = '<span>' + pais.bandera + '</span><span class="small fw-semibold">' + pais.nombre + '</span><span class="badge text-bg-light border">' + st.selected + '</span>';
+                        const banderaHtml = pais.codigoIso
+                            ? '<span class="fi fi-' + pais.codigoIso + ' fis" style="font-size:1.05rem;border-radius:2px;box-shadow:0 1px 3px rgba(0,0,0,.15);" aria-hidden="true"></span>'
+                            : '<i class="fa fa-globe text-muted" aria-hidden="true"></i>';
+                        left.innerHTML = banderaHtml + '<span class="small fw-semibold">' + escPermisos(pais.nombre) + '</span><span class="badge text-bg-light border">' + st.selected + '</span>';
 
                         const cb = document.createElement('input');
                         cb.type = 'checkbox';
@@ -2281,18 +2293,18 @@ class CapHum extends Controller
                 const btn = document.getElementById('btn-permisos-esp-expandir-todos');
                 if (!btn) return;
                 if (!form) {
-                    btn.innerHTML = '<i class="fa fa-expand me-1"></i>Expandir todos';
+                    btn.innerHTML = '<i class="fa fa-expand me-1"></i>Desplegar todas las pestañas';
                     return;
                 }
                 const cols = form.querySelectorAll('.modal-perfil-modulo-grupo-collapse');
                 if (cols.length === 0) {
-                    btn.innerHTML = '<i class="fa fa-expand me-1"></i>Expandir todos';
+                    btn.innerHTML = '<i class="fa fa-expand me-1"></i>Desplegar todas las pestañas';
                     return;
                 }
                 const allExpanded = Array.from(cols).every(c => c.classList.contains('show'));
                 btn.innerHTML = allExpanded
-                    ? '<i class="fa fa-compress me-1"></i>Contraer todos'
-                    : '<i class="fa fa-expand me-1"></i>Expandir todos';
+                    ? '<i class="fa fa-compress me-1"></i>Contraer todas las pestañas'
+                    : '<i class="fa fa-expand me-1"></i>Desplegar todas las pestañas';
             }
 
             function actualizarBotonExpandirModulosSistema() {
@@ -2848,7 +2860,7 @@ class CapHum extends Controller
 
             /**
              * Tarjetas agrupadas por menu_grupo (misma UI en Â«Módulos del sistemaÂ» y Â«Permisos especialesÂ»).
-             * @param {{ masterIdPrefix: string, iconosMap: Object, emptyHtml: string, collapseGrupos?: boolean, collapseIdPrefix?: string, iconosCierreCreditoPorEtiquetaPermisosEsp?: boolean, actualizarBotonExpandir?: () => void }} opts
+             * @param {{ masterIdPrefix: string, iconosMap: Object, emptyHtml: string, collapseGrupos?: boolean, collapseIdPrefix?: string, iniciarContraido?: boolean, iconosCierreCreditoPorEtiquetaPermisosEsp?: boolean, actualizarBotonExpandir?: () => void }} opts
              */
             function renderAgrupadoPorMenuGrupo(perfiles, container, opts) {
                 const masterIdPrefix = opts.masterIdPrefix;
@@ -2856,6 +2868,7 @@ class CapHum extends Controller
                 const emptyHtml = opts.emptyHtml;
                 const useCollapseGrupos = !!opts.collapseGrupos;
                 const collapseIdPrefix = opts.collapseIdPrefix || 'modal-perfil-grupo';
+                const iniciarContraido = !!opts.iniciarContraido;
                 const iconosCierreCreditoPorEtiquetaPermisosEsp = !!opts.iconosCierreCreditoPorEtiquetaPermisosEsp;
                 const actualizarBotonExpandirFn = (typeof opts.actualizarBotonExpandir === 'function')
                     ? opts.actualizarBotonExpandir
@@ -2943,7 +2956,7 @@ class CapHum extends Controller
                         header.style.cursor = 'pointer';
                         header.setAttribute('role', 'button');
                         header.setAttribute('tabindex', '0');
-                        header.setAttribute('aria-expanded', 'true');
+                        header.setAttribute('aria-expanded', iniciarContraido ? 'false' : 'true');
                         header.setAttribute('aria-controls', collapseId);
                         header.setAttribute('data-bs-toggle', 'collapse');
                         header.setAttribute('data-bs-target', '#' + collapseId);
@@ -2957,7 +2970,7 @@ class CapHum extends Controller
                         chevron.style.flexShrink = '0';
                         chevron.style.fontSize = '0.75rem';
                         chevron.style.transition = 'transform 0.2s ease';
-                        chevron.style.transform = 'rotate(0deg)';
+                        chevron.style.transform = iniciarContraido ? 'rotate(-90deg)' : 'rotate(0deg)';
                         chevron.setAttribute('aria-hidden', 'true');
 
                         header.appendChild(chevron);
@@ -3052,7 +3065,7 @@ class CapHum extends Controller
                     if (useCollapseGrupos) {
                         const collapse = document.createElement('div');
                         collapse.id = collapseId;
-                        collapse.className = 'collapse show modal-perfil-modulo-grupo-collapse';
+                        collapse.className = 'collapse' + (iniciarContraido ? '' : ' show') + ' modal-perfil-modulo-grupo-collapse';
 
                         const syncChevron = (open) => {
                             header.setAttribute('aria-expanded', open ? 'true' : 'false');
@@ -3068,7 +3081,7 @@ class CapHum extends Controller
                             actualizarBotonExpandirFn();
                         });
 
-                        syncChevron(true);
+                        syncChevron(!iniciarContraido);
 
                         collapse.appendChild(table);
                         section.appendChild(header);
@@ -3090,8 +3103,17 @@ class CapHum extends Controller
                 const container = document.getElementById('modal-edit-perfil-permisos-especiales-form') || document.getElementById('permisos-especiales-form');
                 const iconosMap = Object.assign({}, iconosModulosSistemaPerfil, iconosPermisosEspeciales);
                 const idsPermisoEdicionCobranza = new Set(Array.from({ length: 21 }, (_, i) => 107 + i));
+                const idsPermisosAtlas = new Set([129, 130]);
                 const perfilesNormalizados = (Array.isArray(perfiles) ? perfiles : []).map(mod => {
                     const idMod = Number(mod.modulo_id ?? mod.id ?? 0);
+                    if (idsPermisosAtlas.has(idMod)) {
+                        return Object.assign({}, mod, {
+                            menu_grupo: 'Atlas',
+                            menu_grupo_icono: 'fa-solid fa-map-location-dot',
+                            menu_grupo_orden: 13,
+                            menu_item_orden: idMod
+                        });
+                    }
                     if (!idsPermisoEdicionCobranza.has(idMod)) {
                         return mod;
                     }
@@ -3108,6 +3130,7 @@ class CapHum extends Controller
                     emptyHtml: '<p class="text-muted small mb-0">No hay permisos especiales configurados.</p>',
                     collapseGrupos: true,
                     collapseIdPrefix: 'modal-perfil-perm-esp',
+                    iniciarContraido: true,
                     iconosCierreCreditoPorEtiquetaPermisosEsp: true,
                     actualizarBotonExpandir: actualizarBotonExpandirPermisosEspeciales,
                 });
