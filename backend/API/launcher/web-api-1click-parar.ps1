@@ -31,6 +31,15 @@ Write-Host ('=== Parar ejecución 1-click / API docs ===')
 Write-Host ('ApiDir: ' + $norm)
 Write-Host ('---')
 
+$taskName = 'Sparta API Verificacion Documentos'
+try {
+    schtasks /Query /TN $taskName 2>$null | Out-Null
+    if ($LASTEXITCODE -eq 0) {
+        schtasks /End /TN $taskName 2>$null | Out-Null
+        Write-Host ('[OK] Intentado terminar tarea programada: ' + $taskName)
+    }
+} catch {}
+
 # 1) Quitar UVICORN / lo que escuche en :8000 (solo esa API habitualmente usa 8000 en este stack)
 $p8000 = Join-Path $here 'cerrar-agente.ps1'
 if (Test-Path -LiteralPath $p8000) {
