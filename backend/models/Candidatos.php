@@ -35,6 +35,10 @@ class Candidatos extends Model
             'sueldo_neto' => "DECIMAL(12,2) NULL AFTER sueldo_bruto",
             'motivo_contratacion' => "VARCHAR(500) NULL AFTER sueldo_neto",
             'codigo_postal' => "VARCHAR(12) NULL AFTER domicilio_num_interior",
+            'proceso_cerrado' => "TINYINT(1) NOT NULL DEFAULT 0 AFTER notas",
+            'motivo_cierre' => "VARCHAR(100) NULL AFTER proceso_cerrado",
+            'descripcion_cierre' => "TEXT NULL AFTER motivo_cierre",
+            'fecha_cierre' => "DATETIME NULL AFTER descripcion_cierre",
         ];
 
         foreach ($columnas as $nombre => $definicion) {
@@ -89,13 +93,63 @@ class Candidatos extends Model
         return defined('RAIZ') ? (RAIZ . '/storage') : (__DIR__ . '/../storage');
     }
 
+    private static function storageRoots(): array
+    {
+        $candidatos = [];
+        if (defined('RAIZ')) {
+            $candidatos[] = RAIZ . '/storage';
+            $candidatos[] = dirname(RAIZ) . '/storage';
+        }
+        $candidatos[] = dirname(__DIR__) . '/storage';
+        $candidatos[] = dirname(__DIR__, 2) . '/storage';
+
+        $roots = [];
+        foreach ($candidatos as $ruta) {
+            $normalizada = rtrim(str_replace('\\', '/', (string) $ruta), '/');
+            if ($normalizada !== '' && !in_array($normalizada, $roots, true)) {
+                $roots[] = $normalizada;
+            }
+        }
+        return $roots;
+    }
+
+    private static function resolverRutaStorageDocumento(string $rutaRelativa): ?string
+    {
+        $rutaRelativa = str_replace('\\', '/', trim($rutaRelativa));
+        if ($rutaRelativa === '') {
+            return null;
+        }
+        if (preg_match('/^[A-Za-z]:\//', $rutaRelativa) || strpos($rutaRelativa, '/') === 0) {
+            return is_file($rutaRelativa) ? $rutaRelativa : null;
+        }
+        $rutaRelativa = ltrim($rutaRelativa, '/');
+        if (stripos($rutaRelativa, 'storage/') === 0) {
+            $rutaRelativa = substr($rutaRelativa, 8);
+        }
+        foreach (self::storageRoots() as $storageRoot) {
+            $posible = $storageRoot . '/' . $rutaRelativa;
+            if (is_file($posible)) {
+                return $posible;
+            }
+        }
+        return null;
+    }
+
+    private static function documentoTieneArchivoDisponible(array $doc): bool
+    {
+        $ruta = trim((string) ($doc['ruta_archivo'] ?? ''));
+        if ($ruta !== '' && self::resolverRutaStorageDocumento($ruta) !== null) {
+            return true;
+        }
+        return !empty($doc['tiene_contenido']);
+    }
+
     private static function filtrarDocumentosConArchivo(array $documentos): array
     {
-        $storageRoot = self::storageRoot();
         $filtrados = [];
         foreach ($documentos as $doc) {
             $ruta = trim((string) ($doc['ruta_archivo'] ?? ''));
-            if ($ruta !== '' && !is_file($storageRoot . '/' . $ruta)) {
+            if ($ruta !== '' && !self::documentoTieneArchivoDisponible($doc)) {
                 continue;
             }
             $filtrados[] = $doc;
@@ -259,6 +313,212 @@ class Candidatos extends Model
         return (new \DateTimeImmutable('now', new \DateTimeZone('America/Mexico_City')))->format('Y-m-d H:i:s');
     }
 
+    private static function ensureTablaBitacoraCandidato(): void
+    {
+        static $done = false;
+        if ($done) {
+            return;
+        }
+        $done = true;
+        try {
+            $db = new Database();
+            $db->CRUD(
+                "CREATE TABLE IF NOT EXISTS candidato_bitacora (
+                    id INT AUTO_INCREMENT PRIMARY KEY,
+                    id_candidato INT NOT NULL,
+                    evento VARCHAR(90) NOT NULL,
+                    titulo VARCHAR(180) NOT NULL,
+                    descripcion TEXT NULL,
+                    detalle_json LONGTEXT NULL,
+                    id_usuario INT NULL,
+                    fecha_registro DATETIME NOT NULL,
+                    INDEX idx_cb_candidato_fecha (id_candidato, fecha_registro),
+                    INDEX idx_cb_evento (evento),
+                    INDEX idx_cb_usuario (id_usuario)
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci"
+            );
+        } catch (\Exception $e) {
+        }
+    }
+
+    private static function ensureTablaHistoricoCandidato(): void
+    {
+        static $done = false;
+        if ($done) {
+            return;
+        }
+        $done = true;
+        try {
+            $db = new Database();
+            $db->CRUD(
+                "CREATE TABLE IF NOT EXISTS candidato_historico (
+                    id INT AUTO_INCREMENT PRIMARY KEY,
+                    id_candidato_original INT NOT NULL,
+                    nombre_completo VARCHAR(255) NULL,
+                    email VARCHAR(255) NULL,
+                    telefono VARCHAR(50) NULL,
+                    puesto VARCHAR(180) NULL,
+                    departamento VARCHAR(180) NULL,
+                    ubicacion VARCHAR(500) NULL,
+                    estatus_final VARCHAR(80) NOT NULL,
+                    motivo VARCHAR(180) NULL,
+                    descripcion TEXT NULL,
+                    snapshot_json LONGTEXT NULL,
+                    id_usuario_accion INT NULL,
+                    fecha_creacion DATETIME NULL,
+                    fecha_accion DATETIME NOT NULL,
+                    UNIQUE KEY uq_ch_candidato_estado (id_candidato_original, estatus_final),
+                    INDEX idx_ch_fecha (fecha_accion),
+                    INDEX idx_ch_estatus (estatus_final)
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci"
+            );
+        } catch (\Exception $e) {
+        }
+    }
+
+    private static function bitacoraEventoExiste($db, int $id_candidato, string $evento): bool
+    {
+        try {
+            $row = $db->queryOne(
+                "SELECT id FROM candidato_bitacora WHERE id_candidato = :id AND evento = :evento LIMIT 1",
+                ['id' => $id_candidato, 'evento' => $evento]
+            );
+            return !empty($row);
+        } catch (\Exception $e) {
+            return false;
+        }
+    }
+
+    public static function registrarBitacoraCandidato($id_candidato, $evento, $titulo, $descripcion = null, array $detalle = [], $id_usuario = null, $fechaHoraCdmxMysql = null): void
+    {
+        $id_candidato = (int) $id_candidato;
+        $evento = strtoupper(trim((string) $evento));
+        $titulo = trim((string) $titulo);
+        if ($id_candidato <= 0 || $evento === '' || $titulo === '') {
+            return;
+        }
+        self::ensureTablaBitacoraCandidato();
+        try {
+            $db = new Database();
+            $fecha = trim((string) ($fechaHoraCdmxMysql ?: self::fechaHoraActualMexicoCiudad()));
+            $db->CRUD(
+                "INSERT INTO candidato_bitacora
+                    (id_candidato, evento, titulo, descripcion, detalle_json, id_usuario, fecha_registro)
+                 VALUES
+                    (:id_candidato, :evento, :titulo, :descripcion, :detalle_json, :id_usuario, :fecha_registro)",
+                [
+                    'id_candidato' => $id_candidato,
+                    'evento' => substr($evento, 0, 90),
+                    'titulo' => substr($titulo, 0, 180),
+                    'descripcion' => $descripcion !== null ? trim((string) $descripcion) : null,
+                    'detalle_json' => !empty($detalle) ? json_encode($detalle, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) : null,
+                    'id_usuario' => $id_usuario !== null && (int) $id_usuario > 0 ? (int) $id_usuario : null,
+                    'fecha_registro' => $fecha !== '' ? $fecha : self::fechaHoraActualMexicoCiudad(),
+                ]
+            );
+        } catch (\Exception $e) {
+        }
+    }
+
+    public static function registrarBitacoraCandidatoUnaVez($id_candidato, $evento, $titulo, $descripcion = null, array $detalle = [], $id_usuario = null, $fechaHoraCdmxMysql = null): void
+    {
+        $id_candidato = (int) $id_candidato;
+        $evento = strtoupper(trim((string) $evento));
+        if ($id_candidato <= 0 || $evento === '') {
+            return;
+        }
+        self::ensureTablaBitacoraCandidato();
+        try {
+            $db = new Database();
+            if (self::bitacoraEventoExiste($db, $id_candidato, $evento)) {
+                return;
+            }
+        } catch (\Exception $e) {
+        }
+        self::registrarBitacoraCandidato($id_candidato, $evento, $titulo, $descripcion, $detalle, $id_usuario, $fechaHoraCdmxMysql);
+    }
+
+    public static function guardarSnapshotHistoricoCandidato($id_candidato, $estatus_final, $motivo = null, $descripcion = null, $id_usuario_accion = null, $fechaHoraCdmxMysql = null): void
+    {
+        $id_candidato = (int) $id_candidato;
+        $estatus_final = trim((string) $estatus_final);
+        if ($id_candidato <= 0 || $estatus_final === '') {
+            return;
+        }
+        self::ensureTablaHistoricoCandidato();
+        try {
+            $db = new Database();
+            self::asegurarColumnasFlujoIngreso($db);
+            $row = $db->queryOne(
+                "SELECT c.*, p.nombre AS nombre_puesto, d.nombre AS nombre_departamento,
+                        pais.nombre AS nombre_pais, div1.nombre AS nombre_div_nivel1,
+                        div2.nombre AS nombre_div_nivel2, div3.nombre AS nombre_div_nivel3
+                 FROM candidatos c
+                 LEFT JOIN puesto p ON p.id = c.id_puesto
+                 LEFT JOIN departamento d ON d.id = c.id_departamento
+                 LEFT JOIN paises pais ON pais.id = c.id_pais
+                 LEFT JOIN divisiones_administrativas div1 ON div1.id = c.id_div_nivel1
+                 LEFT JOIN divisiones_administrativas div2 ON div2.id = c.id_div_nivel2
+                 LEFT JOIN divisiones_administrativas div3 ON div3.id = c.id_div_nivel3
+                 WHERE c.id = :id
+                 LIMIT 1",
+                ['id' => $id_candidato]
+            );
+            if (!$row) {
+                return;
+            }
+            $nombre = trim(implode(' ', array_filter([
+                $row['nombres'] ?? '',
+                $row['segundo_nombre'] ?? '',
+                $row['apellidop'] ?? '',
+                $row['apellidom'] ?? '',
+            ])));
+            $ubicacion = implode(' / ', array_filter([
+                $row['nombre_pais'] ?? '',
+                $row['nombre_div_nivel1'] ?? '',
+                $row['nombre_div_nivel2'] ?? '',
+                $row['nombre_div_nivel3'] ?? '',
+            ]));
+            $fechaAccion = trim((string) ($fechaHoraCdmxMysql ?: self::fechaHoraActualMexicoCiudad()));
+            $db->CRUD(
+                "INSERT INTO candidato_historico
+                    (id_candidato_original, nombre_completo, email, telefono, puesto, departamento, ubicacion, estatus_final, motivo, descripcion, snapshot_json, id_usuario_accion, fecha_creacion, fecha_accion)
+                 VALUES
+                    (:id_candidato_original, :nombre_completo, :email, :telefono, :puesto, :departamento, :ubicacion, :estatus_final, :motivo, :descripcion, :snapshot_json, :id_usuario_accion, :fecha_creacion, :fecha_accion)
+                 ON DUPLICATE KEY UPDATE
+                    nombre_completo = VALUES(nombre_completo),
+                    email = VALUES(email),
+                    telefono = VALUES(telefono),
+                    puesto = VALUES(puesto),
+                    departamento = VALUES(departamento),
+                    ubicacion = VALUES(ubicacion),
+                    motivo = VALUES(motivo),
+                    descripcion = VALUES(descripcion),
+                    snapshot_json = VALUES(snapshot_json),
+                    id_usuario_accion = VALUES(id_usuario_accion),
+                    fecha_creacion = VALUES(fecha_creacion),
+                    fecha_accion = VALUES(fecha_accion)",
+                [
+                    'id_candidato_original' => $id_candidato,
+                    'nombre_completo' => $nombre !== '' ? $nombre : null,
+                    'email' => trim((string) ($row['email'] ?? '')) ?: null,
+                    'telefono' => trim((string) ($row['telefono'] ?? '')) ?: null,
+                    'puesto' => trim((string) ($row['nombre_puesto'] ?? '')) ?: null,
+                    'departamento' => trim((string) ($row['nombre_departamento'] ?? '')) ?: null,
+                    'ubicacion' => $ubicacion !== '' ? $ubicacion : null,
+                    'estatus_final' => substr($estatus_final, 0, 80),
+                    'motivo' => $motivo !== null ? substr(trim((string) $motivo), 0, 180) : null,
+                    'descripcion' => $descripcion !== null ? trim((string) $descripcion) : null,
+                    'snapshot_json' => json_encode($row, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
+                    'id_usuario_accion' => $id_usuario_accion !== null && (int) $id_usuario_accion > 0 ? (int) $id_usuario_accion : null,
+                    'fecha_creacion' => $row['fecha_registro'] ?? null,
+                    'fecha_accion' => $fechaAccion,
+                ]
+            );
+        } catch (\Exception $e) {
+        }
+    }
+
     /**
      * Registra el momento en que se envió por correo la postulación/enlace de documentos (hora CDMX).
      */
@@ -275,6 +535,7 @@ class Candidatos extends Model
                 'UPDATE candidatos SET fecha_postulacion_enviada = :fe, postulacion_enviada = 1, fecha_actualizacion = :fe WHERE id = :id',
                 ['id' => $id_candidato, 'fe' => $fe]
             );
+            self::registrarBitacoraCandidato($id_candidato, 'CORREO_DOCUMENTOS_ENVIADO', 'Correo de documentos enviado', 'Se envió el enlace para que el candidato cargue su documentación.', [], null, $fe);
         } catch (\Exception $e) {
         }
     }
@@ -320,6 +581,7 @@ class Candidatos extends Model
                  WHERE id = :id",
                 ['id' => $id_candidato, 'fecha_hora' => $fechaHora]
             );
+            self::registrarBitacoraCandidatoUnaVez($id_candidato, 'CONTRATO_FIRMADO', 'Contrato firmado', 'El candidato confirmó la firma/alta del proceso.', [], null, $fechaHora);
         } catch (\Exception $e) {
         }
     }
@@ -389,6 +651,12 @@ class Candidatos extends Model
             $db->CRUD($query, $params);
             $newId = $db->queryOne("SELECT LAST_INSERT_ID() AS id");
             $id = (int) ($newId['id'] ?? 0);
+            if ($id > 0) {
+                self::registrarBitacoraCandidatoUnaVez($id, 'CANDIDATO_CREADO', 'Candidato creado', 'Se dio de alta el candidato en Selección de Personal.', [], null, $params['fecha_registro']);
+                if ($fechaEnviada) {
+                    self::registrarBitacoraCandidato($id, 'CORREO_DOCUMENTOS_ENVIADO', 'Correo de documentos enviado', 'Se envió el enlace para que el candidato cargue su documentación.', [], null, $fechaEnviada);
+                }
+            }
             return self::resultado(true, 'Candidato registrado correctamente.', ['id' => $id]);
         } catch (\Exception $e) {
             return self::resultado(false, 'Error al registrar candidato.', null, $e->getMessage());
@@ -960,6 +1228,30 @@ class Candidatos extends Model
                 );
             }
             self::invalidateDocumentacionCache($id_candidato);
+            $tipoBit = trim((string) ($tipo_documento ?? ''));
+            self::registrarBitacoraCandidato($id_candidato, 'DOCUMENTO_CARGADO', 'Documento cargado', ($tipoBit !== '' ? $tipoBit : 'Documento') . ': ' . trim((string) $nombre_archivo), [
+                'tipo_documento' => $tipoBit,
+                'nombre_archivo' => trim((string) $nombre_archivo),
+                'origen' => 'candidato',
+            ]);
+            try {
+                $conteoDocs = $db->queryOne(
+                    "SELECT COUNT(*) AS total, MAX(fecha_carga) AS ultima_carga FROM candidato_documento WHERE id_candidato = :id",
+                    ['id' => $id_candidato]
+                );
+                if ((int) ($conteoDocs['total'] ?? 0) >= 10) {
+                    self::registrarBitacoraCandidatoUnaVez(
+                        $id_candidato,
+                        'EXPEDIENTE_COMPLETO',
+                        'Expediente completo',
+                        'El candidato cargó todos los documentos requeridos.',
+                        ['total_documentos' => (int) ($conteoDocs['total'] ?? 0)],
+                        null,
+                        $conteoDocs['ultima_carga'] ?? null
+                    );
+                }
+            } catch (\Exception $e) {
+            }
             return self::resultado(true, 'Documento guardado correctamente.');
         } catch (\Exception $e) {
             return self::resultado(false, 'Error al guardar documento.', null, $e->getMessage());
@@ -1014,6 +1306,11 @@ class Candidatos extends Model
                     'motivo' => $motivo !== null ? substr(trim((string) $motivo), 0, 500) : null,
                 ]
             );
+            self::registrarBitacoraCandidato($id_candidato, 'DOCUMENTO_SUBIDO_MANUALMENTE', 'Documento subido manualmente', trim((string) $tipo_documento) . ': ' . trim((string) $nombre_archivo), [
+                'tipo_documento' => trim((string) $tipo_documento),
+                'nombre_archivo' => trim((string) $nombre_archivo),
+                'motivo' => $motivo !== null ? substr(trim((string) $motivo), 0, 500) : null,
+            ], $id_usuario_rrhh);
             return self::resultado(true, 'Subida manual registrada.');
         } catch (\Exception $e) {
             return self::resultado(false, 'No se pudo registrar la subida manual.', null, $e->getMessage());
@@ -1102,7 +1399,7 @@ class Candidatos extends Model
         }
         try {
             $db = new Database();
-            $lista = $db->queryAll("SELECT id, id_candidato, tipo_documento, nombre_archivo, ruta_archivo, fecha_carga, validado, fecha_validado, verificacion_fiscal_json, verificacion_calidad_json FROM candidato_documento WHERE id_candidato = :id ORDER BY fecha_carga DESC", ['id' => $id_candidato]);
+            $lista = $db->queryAll("SELECT id, id_candidato, tipo_documento, nombre_archivo, ruta_archivo, fecha_carga, validado, fecha_validado, verificacion_fiscal_json, verificacion_calidad_json, CASE WHEN contenido IS NULL THEN 0 ELSE 1 END AS tiene_contenido FROM candidato_documento WHERE id_candidato = :id ORDER BY fecha_carga DESC", ['id' => $id_candidato]);
             return self::resultado(true, 'Documentos encontrados.', self::filtrarDocumentosConArchivo($lista ?: []));
         } catch (\Exception $e) {
             return self::resultado(false, 'Error al listar documentos.', [], $e->getMessage());
@@ -1448,14 +1745,12 @@ class Candidatos extends Model
             $db = new Database();
             self::asegurarColumnasFlujoIngreso($db);
             $documentos = $db->queryAll(
-                "SELECT id, id_candidato, tipo_documento, nombre_archivo, ruta_archivo, fecha_carga, validado, fecha_validado, verificacion_fiscal_json, verificacion_calidad_json FROM candidato_documento WHERE id_candidato = :id ORDER BY fecha_carga DESC",
+                "SELECT id, id_candidato, tipo_documento, nombre_archivo, ruta_archivo, fecha_carga, validado, fecha_validado, verificacion_fiscal_json, verificacion_calidad_json, CASE WHEN contenido IS NULL THEN 0 ELSE 1 END AS tiene_contenido FROM candidato_documento WHERE id_candidato = :id ORDER BY fecha_carga DESC",
                 ['id' => $id_candidato]
             );
             $documentos = $documentos ?: [];
-            $storageRoot = self::storageRoot();
             foreach ($documentos as &$d) {
-                $ruta = trim((string) ($d['ruta_archivo'] ?? ''));
-                $d['archivo_disponible'] = ($ruta === '' || is_file($storageRoot . '/' . $ruta)) ? 1 : 0;
+                $d['archivo_disponible'] = self::documentoTieneArchivoDisponible($d) ? 1 : 0;
                 if (!empty($d['verificacion_fiscal_json'])) {
                     $dec = json_decode($d['verificacion_fiscal_json'], true);
                     $d['verificacion_fiscal'] = is_array($dec) ? $dec : null;
@@ -1588,9 +1883,14 @@ class Candidatos extends Model
         }
         try {
             $db = new Database();
+            $fechaValidado = self::fechaHoraActualMexicoCiudad();
+            $paramsValidado = ['id' => $id_documento, 'v' => $validado];
+            if ($validado) {
+                $paramsValidado['fecha_validado'] = $fechaValidado;
+            }
             $db->CRUD(
-                "UPDATE candidato_documento SET validado = :v, fecha_validado = " . ($validado ? "NOW()" : "NULL") . " WHERE id = :id",
-                ['id' => $id_documento, 'v' => $validado]
+                "UPDATE candidato_documento SET validado = :v, fecha_validado = " . ($validado ? ":fecha_validado" : "NULL") . " WHERE id = :id",
+                $paramsValidado
             );
             return self::resultado(true, $validado ? 'Documento validado.' : 'Validación retirada.');
         } catch (\Exception $e) {
@@ -1616,6 +1916,338 @@ class Candidatos extends Model
             return ['total' => (int) ($r['total'] ?? 0), 'validados' => (int) ($r['validados'] ?? 0)];
         } catch (\Exception $e) {
             return ['total' => 0, 'validados' => 0];
+        }
+    }
+
+    private static function agregarEventoBitacora(array &$eventos, string $evento, string $titulo, ?string $descripcion, ?string $fecha, string $color = 'primary', array $detalle = []): void
+    {
+        $fecha = trim((string) $fecha);
+        if ($fecha === '' || $fecha === '0000-00-00 00:00:00' || $fecha === '0000-00-00') {
+            return;
+        }
+        $eventos[] = [
+            'evento' => strtoupper(trim($evento)),
+            'titulo' => trim($titulo),
+            'descripcion' => $descripcion !== null ? trim($descripcion) : '',
+            'fecha' => $fecha,
+            'color' => $color,
+            'detalle' => $detalle,
+        ];
+    }
+
+    public static function getHistoricoCandidatos(): array
+    {
+        try {
+            $db = new Database();
+            self::asegurarColumnasFlujoIngreso($db);
+            self::ensureTablaHistoricoCandidato();
+            $datos = $db->queryAll(
+                "SELECT
+                    candidato_historico.id,
+                    id_candidato_original AS id_candidato,
+                    nombre_completo,
+                    email,
+                    telefono,
+                    puesto,
+                    departamento,
+                    ubicacion,
+                    estatus_final AS estatus,
+                    motivo AS motivo_cierre,
+                    descripcion AS descripcion_cierre,
+                    fecha_accion AS fecha_cierre,
+                    fecha_creacion AS fecha_registro,
+                    fecha_accion AS fecha_actualizacion,
+                    1 AS eliminado,
+                    TRIM(CONCAT_WS(' ', per.nombres, per.segundo_nombre, per.apellidop, per.apellidom)) AS usuario_accion,
+                    'historico' AS fuente
+                 FROM candidato_historico
+                 LEFT JOIN persona per ON per.id = candidato_historico.id_usuario_accion
+                 WHERE estatus_final IN ('Contratado', 'Proceso cerrado', 'Eliminado')
+                 ORDER BY fecha_accion DESC, candidato_historico.id DESC"
+            );
+            return self::resultado(true, 'HistÃ³rico de candidatos encontrado.', $datos);
+
+            $actuales = $db->queryAll(
+                "SELECT
+                    c.id,
+                    TRIM(CONCAT_WS(' ', c.nombres, c.segundo_nombre, c.apellidop, c.apellidom)) AS nombre_completo,
+                    c.email,
+                    c.telefono,
+                    p.nombre AS puesto,
+                    d.nombre AS departamento,
+                    CONCAT_WS(' / ', pais.nombre, div1.nombre, div2.nombre, div3.nombre) AS ubicacion,
+                    COALESCE(c.estatus, 'Por evaluar') AS estatus,
+                    c.motivo_cierre,
+                    c.descripcion_cierre,
+                    c.fecha_cierre,
+                    c.fecha_registro,
+                    c.fecha_actualizacion,
+                    '' AS usuario_accion,
+                    0 AS eliminado
+                 FROM candidatos c
+                 LEFT JOIN puesto p ON p.id = c.id_puesto
+                 LEFT JOIN departamento d ON d.id = c.id_departamento
+                 LEFT JOIN paises pais ON pais.id = c.id_pais
+                 LEFT JOIN divisiones_administrativas div1 ON div1.id = c.id_div_nivel1
+                 LEFT JOIN divisiones_administrativas div2 ON div2.id = c.id_div_nivel2
+                 LEFT JOIN divisiones_administrativas div3 ON div3.id = c.id_div_nivel3
+                 ORDER BY c.fecha_registro DESC, c.id DESC"
+            );
+
+            $idsActuales = [];
+            foreach ($actuales as &$a) {
+                $a['id_candidato'] = (int) ($a['id'] ?? 0);
+                $a['fuente'] = 'actual';
+                $idsActuales[$a['id_candidato']] = true;
+            }
+            unset($a);
+
+            $eliminados = $db->queryAll(
+                "SELECT
+                    id_candidato_original AS id_candidato,
+                    nombre_completo,
+                    email,
+                    telefono,
+                    puesto,
+                    departamento,
+                    ubicacion,
+                    estatus_final AS estatus,
+                    motivo AS motivo_cierre,
+                    descripcion AS descripcion_cierre,
+                    fecha_accion AS fecha_cierre,
+                    fecha_creacion AS fecha_registro,
+                    fecha_accion AS fecha_actualizacion,
+                    1 AS eliminado,
+                    TRIM(CONCAT_WS(' ', per.nombres, per.segundo_nombre, per.apellidop, per.apellidom)) AS usuario_accion,
+                    'historico' AS fuente
+                 FROM candidato_historico
+                 LEFT JOIN persona per ON per.id = candidato_historico.id_usuario_accion
+                 ORDER BY fecha_accion DESC, id DESC"
+            );
+
+            $datos = $actuales;
+            foreach ($eliminados as $e) {
+                $idOrig = (int) ($e['id_candidato'] ?? 0);
+                if ($idOrig > 0 && isset($idsActuales[$idOrig])) {
+                    continue;
+                }
+                $datos[] = $e;
+            }
+
+            usort($datos, function ($a, $b) {
+                $fa = strtotime((string) ($a['fecha_registro'] ?? $a['fecha_actualizacion'] ?? '')) ?: 0;
+                $fb = strtotime((string) ($b['fecha_registro'] ?? $b['fecha_actualizacion'] ?? '')) ?: 0;
+                return $fb <=> $fa;
+            });
+
+            return self::resultado(true, 'Histórico de candidatos encontrado.', $datos);
+        } catch (\Exception $e) {
+            return self::resultado(false, 'No se pudo consultar el histórico de candidatos.', null, $e->getMessage());
+        }
+    }
+
+    public static function getBitacoraCandidato($id_candidato): array
+    {
+        $id_candidato = (int) $id_candidato;
+        if ($id_candidato <= 0) {
+            return self::resultado(false, 'ID de candidato inválido.', []);
+        }
+
+        try {
+            $db = new Database();
+            self::asegurarColumnasFlujoIngreso($db);
+            self::ensureTablaBitacoraCandidato();
+            self::ensureTablaEliminacionDocumentoCandidato();
+            $eventos = [];
+
+            $cRes = self::getById($id_candidato);
+            if (empty($cRes['success']) || empty($cRes['datos'])) {
+                self::ensureTablaHistoricoCandidato();
+                $hist = $db->queryOne(
+                    "SELECT * FROM candidato_historico WHERE id_candidato_original = :id ORDER BY fecha_accion DESC LIMIT 1",
+                    ['id' => $id_candidato]
+                );
+                if (!$hist) {
+                    return self::resultado(false, 'Candidato no encontrado.', []);
+                }
+                $snapshot = [];
+                if (!empty($hist['snapshot_json'])) {
+                    $tmpSnap = json_decode((string) $hist['snapshot_json'], true);
+                    if (is_array($tmpSnap)) {
+                        $snapshot = $tmpSnap;
+                    }
+                }
+                $c = array_merge($snapshot, [
+                    'id' => $id_candidato,
+                    'nombres' => $hist['nombre_completo'] ?? '',
+                    'segundo_nombre' => '',
+                    'apellidop' => '',
+                    'apellidom' => '',
+                    'email' => $hist['email'] ?? null,
+                    'telefono' => $hist['telefono'] ?? null,
+                    'nombre_puesto' => $hist['puesto'] ?? null,
+                    'nombre_departamento' => $hist['departamento'] ?? null,
+                    'estatus' => $hist['estatus_final'] ?? 'Eliminado',
+                    'fecha_registro' => $hist['fecha_creacion'] ?? null,
+                    'fecha_actualizacion' => $hist['fecha_accion'] ?? null,
+                ]);
+                self::agregarEventoBitacora(
+                    $eventos,
+                    strtoupper((string) ($hist['estatus_final'] ?? 'ELIMINADO')),
+                    ((string) ($hist['estatus_final'] ?? 'Eliminado') === 'Eliminado') ? 'Candidato eliminado' : 'Movimiento histórico',
+                    trim((string) ($hist['motivo'] ?? '')) . (trim((string) ($hist['descripcion'] ?? '')) !== '' ? ': ' . trim((string) $hist['descripcion']) : ''),
+                    $hist['fecha_accion'] ?? null,
+                    'danger',
+                    ['historico' => true]
+                );
+                $cRes = ['success' => true, 'datos' => $c];
+            }
+            $c = $cRes['datos'];
+            $nombre = trim(implode(' ', array_filter([
+                $c['nombres'] ?? '',
+                $c['segundo_nombre'] ?? '',
+                $c['apellidop'] ?? '',
+                $c['apellidom'] ?? '',
+            ])));
+
+            $explicit = $db->queryAll(
+                "SELECT cb.id, cb.evento, cb.titulo, cb.descripcion, cb.detalle_json, cb.id_usuario, cb.fecha_registro,
+                        TRIM(CONCAT_WS(' ', per.nombres, per.segundo_nombre, per.apellidop, per.apellidom)) AS usuario_accion
+                 FROM candidato_bitacora cb
+                 LEFT JOIN persona per ON per.id = cb.id_usuario
+                 WHERE id_candidato = :id
+                 ORDER BY cb.fecha_registro ASC, cb.id ASC",
+                ['id' => $id_candidato]
+            );
+            $eventosExplicitos = [];
+            foreach ($explicit as $ev) {
+                $evento = strtoupper(trim((string) ($ev['evento'] ?? '')));
+                if ($evento !== '') {
+                    $eventosExplicitos[$evento] = true;
+                }
+                if ($evento === 'DOCUMENTO_CARGADO') {
+                    continue;
+                }
+                $detalle = [];
+                if (!empty($ev['detalle_json'])) {
+                    $tmp = json_decode((string) $ev['detalle_json'], true);
+                    if (is_array($tmp)) {
+                        $detalle = $tmp;
+                    }
+                }
+                if (!empty($ev['usuario_accion'])) {
+                    $detalle['usuario_accion'] = $ev['usuario_accion'];
+                } elseif (!empty($ev['id_usuario'])) {
+                    $detalle['usuario_accion'] = 'Usuario ID ' . (int) $ev['id_usuario'];
+                }
+                self::agregarEventoBitacora(
+                    $eventos,
+                    $evento ?: 'MOVIMIENTO',
+                    (string) ($ev['titulo'] ?? 'Movimiento'),
+                    $ev['descripcion'] ?? '',
+                    $ev['fecha_registro'] ?? null,
+                    $detalle['color'] ?? 'primary',
+                    $detalle
+                );
+            }
+
+            if (empty($eventosExplicitos['CANDIDATO_CREADO'])) {
+                self::agregarEventoBitacora($eventos, 'CANDIDATO_CREADO', 'Candidato creado', $nombre !== '' ? $nombre : 'Se dio de alta el candidato.', $c['fecha_registro'] ?? null, 'info');
+            }
+            if (empty($eventosExplicitos['CORREO_DOCUMENTOS_ENVIADO'])) {
+                self::agregarEventoBitacora($eventos, 'CORREO_DOCUMENTOS_ENVIADO', 'Correo de documentos enviado', 'Se envió el enlace para la carga de documentos.', $c['fecha_postulacion_enviada'] ?? null, 'purple');
+            }
+            if (!empty($c['fecha_ingreso_notificada_en']) && empty($eventosExplicitos['FECHA_INGRESO_NOTIFICADA'])) {
+                self::agregarEventoBitacora($eventos, 'FECHA_INGRESO_NOTIFICADA', 'Fecha de ingreso notificada', 'Se envió la fecha de ingreso al candidato y al jefe correspondiente.', $c['fecha_ingreso_notificada_en'], 'success', [
+                    'fecha_ingreso' => $c['fecha_ingreso_programada'] ?? null,
+                    'correo_jefe' => $c['correo_jefe'] ?? null,
+                ]);
+            }
+            if (!empty($c['contrato_firmado_en']) && empty($eventosExplicitos['CONTRATO_FIRMADO'])) {
+                self::agregarEventoBitacora($eventos, 'CONTRATO_FIRMADO', 'Contrato firmado', 'El candidato confirmó la firma/alta del proceso.', $c['contrato_firmado_en'], 'success');
+            }
+
+            $docs = $db->queryAll(
+                "SELECT id, tipo_documento, nombre_archivo, fecha_carga, validado, fecha_validado
+                 FROM candidato_documento
+                 WHERE id_candidato = :id
+                 ORDER BY fecha_carga ASC, id ASC",
+                ['id' => $id_candidato]
+            );
+            $totalDocs = count($docs);
+            if ($totalDocs > 0) {
+                $ultimaCarga = null;
+                $ultimaValidacion = null;
+                $validados = 0;
+                foreach ($docs as $d) {
+                    $ultimaCarga = max($ultimaCarga ?: (string) ($d['fecha_carga'] ?? ''), (string) ($d['fecha_carga'] ?? ''));
+                    if ((int) ($d['validado'] ?? 0) === 1) {
+                        $validados++;
+                        $fv = trim((string) ($d['fecha_validado'] ?? ''));
+                        if ($fv !== '') {
+                            $ultimaValidacion = max($ultimaValidacion ?: $fv, $fv);
+                        }
+                    }
+                }
+                if ($totalDocs >= 10 && empty($eventosExplicitos['EXPEDIENTE_COMPLETO'])) {
+                    self::agregarEventoBitacora($eventos, 'EXPEDIENTE_COMPLETO', 'Expediente completo', 'Se cargaron ' . $totalDocs . ' documentos del candidato.', $ultimaCarga, 'success', ['total_documentos' => $totalDocs]);
+                }
+                if ($totalDocs >= 10 && $validados >= 10 && empty($eventosExplicitos['DOCUMENTOS_VALIDADOS'])) {
+                    self::agregarEventoBitacora($eventos, 'DOCUMENTOS_VALIDADOS', 'Documentos validados', 'Capital Humano validó todos los documentos requeridos.', $ultimaValidacion ?: ($c['fecha_actualizacion'] ?? null), 'success', ['validados' => $validados, 'total_documentos' => $totalDocs]);
+                }
+            }
+
+            $estatus = trim((string) ($c['estatus'] ?? ''));
+            if (strcasecmp($estatus, 'Pendiente de validacion final') === 0 && empty($eventosExplicitos['ENVIADO_VALIDACION_FINAL'])) {
+                self::agregarEventoBitacora($eventos, 'ENVIADO_VALIDACION_FINAL', 'Enviado a validación final', 'El expediente fue enviado al validador final.', $c['fecha_actualizacion'] ?? null, 'warning');
+            }
+
+            $faseSelect = self::columnaExiste($db, 'candidato_documento_eliminacion', 'fase_revision')
+                ? "COALESCE(fase_revision, '') AS fase_revision"
+                : "'' AS fase_revision";
+            $eliminados = $db->queryAll(
+                "SELECT id_documento_eliminado, tipo_documento, nombre_archivo, comentario, id_usuario_rrhh, fecha_registro, {$faseSelect}
+                 FROM candidato_documento_eliminacion
+                 WHERE id_candidato = :id
+                 ORDER BY fecha_registro ASC",
+                ['id' => $id_candidato]
+            );
+            foreach ($eliminados as $del) {
+                $fase = trim((string) ($del['fase_revision'] ?? ''));
+                $esFinal = $fase === 'validacion_final';
+                $tipo = trim((string) ($del['tipo_documento'] ?? 'Documento'));
+                $archivo = trim((string) ($del['nombre_archivo'] ?? ''));
+                self::agregarEventoBitacora(
+                    $eventos,
+                    $esFinal ? 'DOCUMENTO_RECHAZADO_VALIDACION_FINAL' : 'DOCUMENTO_ELIMINADO',
+                    $esFinal ? 'Documento rechazado en validación final' : 'Documento eliminado/rechazado',
+                    $tipo . ($archivo !== '' ? ' - ' . $archivo : '') . '. Motivo: ' . trim((string) ($del['comentario'] ?? '')),
+                    $del['fecha_registro'] ?? null,
+                    $esFinal ? 'danger' : 'warning',
+                    [
+                        'tipo_documento' => $tipo,
+                        'nombre_archivo' => $archivo,
+                        'fase' => $fase,
+                    ]
+                );
+            }
+
+            usort($eventos, function ($a, $b) {
+                $ta = strtotime((string) ($a['fecha'] ?? '')) ?: 0;
+                $tb = strtotime((string) ($b['fecha'] ?? '')) ?: 0;
+                if ($ta === $tb) {
+                    return strcmp((string) ($a['titulo'] ?? ''), (string) ($b['titulo'] ?? ''));
+                }
+                return $ta <=> $tb;
+            });
+
+            return self::resultado(true, 'Bitácora encontrada.', [
+                'id_candidato' => $id_candidato,
+                'candidato' => $nombre,
+                'eventos' => $eventos,
+            ]);
+        } catch (\Exception $e) {
+            return self::resultado(false, 'No se pudo consultar la bitácora.', null, $e->getMessage());
         }
     }
 
@@ -1645,7 +2277,7 @@ class Candidatos extends Model
      * @param string|null $descripcion Descripción opcional
      * @return array { success, mensaje, datos?, error? }
      */
-    public static function cerrarProceso($id_candidato, $motivo, $descripcion = null)
+    public static function cerrarProceso($id_candidato, $motivo, $descripcion = null, $id_usuario = null)
     {
         $id_candidato = (int) $id_candidato;
         if ($id_candidato <= 0) {
@@ -1658,10 +2290,22 @@ class Candidatos extends Model
         $descripcion = trim($descripcion ?? '') ?: null;
         try {
             $db = new Database();
+            self::asegurarColumnasFlujoIngreso($db);
+            $fechaCierre = self::fechaHoraActualMexicoCiudad();
             $db->CRUD(
-                "UPDATE candidatos SET proceso_cerrado = 1, motivo_cierre = :motivo, descripcion_cierre = :descripcion, fecha_cierre = NOW(), estatus = 'Proceso cerrado', fecha_actualizacion = NOW() WHERE id = :id",
-                ['id' => $id_candidato, 'motivo' => $motivo, 'descripcion' => $descripcion]
+                "UPDATE candidatos SET proceso_cerrado = 1, motivo_cierre = :motivo, descripcion_cierre = :descripcion, fecha_cierre = :fecha_cierre, estatus = 'Proceso cerrado', fecha_actualizacion = :fecha_cierre WHERE id = :id",
+                ['id' => $id_candidato, 'motivo' => $motivo, 'descripcion' => $descripcion, 'fecha_cierre' => $fechaCierre]
             );
+            self::registrarBitacoraCandidato(
+                $id_candidato,
+                'PROCESO_CERRADO',
+                'Proceso cerrado',
+                'Motivo: ' . $motivo . ($descripcion !== null && $descripcion !== '' ? '. ' . $descripcion : ''),
+                ['motivo' => $motivo, 'descripcion' => $descripcion],
+                $id_usuario,
+                $fechaCierre
+            );
+            self::guardarSnapshotHistoricoCandidato($id_candidato, 'Proceso cerrado', $motivo, $descripcion, $id_usuario, $fechaCierre);
             return self::resultado(true, 'Proceso cerrado correctamente.', ['id' => $id_candidato]);
         } catch (\Exception $e) {
             return self::resultado(false, 'Error al cerrar el proceso.', null, $e->getMessage());
@@ -1688,12 +2332,16 @@ class Candidatos extends Model
                     tipo_documento VARCHAR(255) NULL,
                     nombre_archivo VARCHAR(500) NULL,
                     comentario TEXT NOT NULL,
+                    fase_revision VARCHAR(40) NULL,
                     id_usuario_rrhh INT NULL,
                     fecha_registro DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
                     INDEX idx_candidato (id_candidato),
                     INDEX idx_fecha (fecha_registro)
                 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci'
             );
+            if (!self::columnaExiste($db, 'candidato_documento_eliminacion', 'fase_revision')) {
+                $db->CRUD("ALTER TABLE candidato_documento_eliminacion ADD COLUMN fase_revision VARCHAR(40) NULL AFTER comentario");
+            }
         } catch (\Exception $e) {
         }
     }
@@ -1707,7 +2355,8 @@ class Candidatos extends Model
         $tipo_documento,
         $nombre_archivo,
         $comentario,
-        $id_usuario_rrhh = null
+        $id_usuario_rrhh = null,
+        $fase_revision = null
     ) {
         $id_candidato = (int) $id_candidato;
         if ($id_candidato <= 0 || trim($comentario ?? '') === '') {
@@ -1718,15 +2367,17 @@ class Candidatos extends Model
             $db = new Database();
             $db->CRUD(
                 'INSERT INTO candidato_documento_eliminacion
-                    (id_candidato, id_documento_eliminado, tipo_documento, nombre_archivo, comentario, id_usuario_rrhh, fecha_registro)
-                 VALUES (:idc, :idd, :tipo, :nom, :com, :usr, NOW())',
+                    (id_candidato, id_documento_eliminado, tipo_documento, nombre_archivo, comentario, fase_revision, id_usuario_rrhh, fecha_registro)
+                 VALUES (:idc, :idd, :tipo, :nom, :com, :fase, :usr, :fecha_registro)',
                 [
                     'idc' => $id_candidato,
                     'idd' => $id_documento_eliminado > 0 ? $id_documento_eliminado : null,
                     'tipo' => $tipo_documento !== null && $tipo_documento !== '' ? substr(trim((string) $tipo_documento), 0, 255) : null,
                     'nom' => $nombre_archivo !== null && $nombre_archivo !== '' ? substr(trim((string) $nombre_archivo), 0, 500) : null,
                     'com' => trim((string) $comentario),
+                    'fase' => $fase_revision !== null && trim((string) $fase_revision) !== '' ? substr(trim((string) $fase_revision), 0, 40) : null,
                     'usr' => $id_usuario_rrhh !== null && (int) $id_usuario_rrhh > 0 ? (int) $id_usuario_rrhh : null,
+                    'fecha_registro' => self::fechaHoraActualMexicoCiudad(),
                 ]
             );
             return self::resultado(true, 'Registro guardado.');

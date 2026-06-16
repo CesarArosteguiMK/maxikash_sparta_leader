@@ -78,7 +78,6 @@ if ($extension !== '' && strtolower($extension) !== 'php') {
 spl_autoload_register(function ($archivo) {
     $archivo = str_replace('\\', '/', $archivo);
     $ruta = RAIZ . "/$archivo.php";
-
     if (is_readable($ruta)) {
         require_once $ruta;
     }

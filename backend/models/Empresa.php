@@ -83,6 +83,39 @@ class Empresa extends Model
         }
     }
 
+    public static function getDireccionesMaxiProdCredito($id_credito)
+    {
+        $query = <<<SQL
+            SELECT
+                o.id_oferta,
+                pe.codigo_postal AS codigo_postal_ine,
+                pe.calle_numero AS calle_numero_ine,
+                pe.direccion AS direccion_ine,
+                pe.colonia AS colonia_ine,
+                pe.ciudad AS ciudad_ine,
+                pe.estado AS estado_ine,
+                pa.codigo_postal_adic AS codigo_postal_solicitud,
+                pa.calle_numero_adic AS calle_numero_solicitud,
+                pa.calle AS direccion_solicitud,
+                pa.adicionales_colonia AS colonia_solicitud,
+                pa.municipio_delegacion AS ciudad_solicitud,
+                pa.entidad AS estado_solicitud
+            FROM oferta o
+            LEFT JOIN persona pe ON pe.id_persona = o.fk_persona
+            LEFT JOIN persona_adicionales pa ON pa.fk_persona = o.fk_persona
+            WHERE o.id_oferta = :id_credito
+            LIMIT 1
+        SQL;
+
+        try {
+            $db = new \core\DatabaseMaxiProd();
+            $row = $db->queryOne($query, ['id_credito' => $id_credito]);
+            return self::resultado(true, 'Direcciones MaxiProd encontradas.', $row ? [$row] : []);
+        } catch (\Exception $e) {
+            return self::resultado(false, 'Error al consultar direcciones MaxiProd.', [], $e->getMessage());
+        }
+    }
+
     /**
      * Consulta mínima (solo existe en oferta MX) para precheck sin JOIN a persona/referencias.
      * Evita esperar al usuario en la carga inicial; el detalle va por getComplementos async.

@@ -238,6 +238,32 @@ class CapHum extends Controller
             || self::tieneModuloWeb(self::MODULO_VALIDADOR_FINAL_CANDIDATOS);
     }
 
+    private static function esSoloValidadorFinalCandidatos(): bool
+    {
+        return (int) ($_SESSION['usuario_id'] ?? 0) !== 1
+            && self::puedeValidarFinalCandidatos()
+            && !self::puedeValidarDocumentalCandidatos();
+    }
+
+    private static function estatusCandidatoEsValidacionFinal($estatus): bool
+    {
+        $estatus = mb_strtolower(trim((string) $estatus), 'UTF-8');
+        $estatus = str_replace(['á', 'é', 'í', 'ó', 'ú'], ['a', 'e', 'i', 'o', 'u'], $estatus);
+        return $estatus === 'pendiente de validacion final';
+    }
+
+    private static function candidatoVisibleParaSesionSeleccion($idCandidato): bool
+    {
+        if (!self::esSoloValidadorFinalCandidatos()) {
+            return true;
+        }
+        $res = CandidatosDAO::getById((int) $idCandidato);
+        if (empty($res['success']) || empty($res['datos'])) {
+            return false;
+        }
+        return self::estatusCandidatoEsValidacionFinal($res['datos']['estatus'] ?? '');
+    }
+
     private static function getDepartamentosGestionPersonal()
     {
         if (self::tieneAccesoTotalGestionPersonal()) {
@@ -415,7 +441,7 @@ class CapHum extends Controller
                                 <div class="d-flex flex-column align-items-start gap-1" style="min-width: fit-content;">
                                     <div class="d-flex flex-wrap gap-1">
                                     ${mostrarEditar
-                                        ? `<button class="btn btn-sm btn-primary ${tienePuestos ? 'btn-with-indicator' : ''}" onclick="editar(${p.id})" title="${tienePuestos ? 'Editar (Múltiples puestos)' : 'Editar'}">
+                                        ? `<button class="btn btn-sm btn-primary ${tienePuestos ? 'btn-with-indicator' : ''}" onclick="editar(${p.id})" title="${tienePuestos ? 'Editar (M&uacute;ltiples puestos)' : 'Editar'}">
                                         ${tienePuestos ? '<span class="indicator-multiples-puestos">' + p.puestos.length + '</span>' : ''}
                                         <i class="fa fa-edit"></i>
                                     </button>`
@@ -439,7 +465,7 @@ class CapHum extends Controller
                                     ${puedeDarBaja ? `<button class="btn btn-sm btn-danger" onclick="baja_gestor(${p.id})" title="Dar de baja">
                                         <i class="fa fa-user-slash"></i>
                                     </button>` : ''}
-                                    ${puedePermisos ? `<button class="btn btn-sm" style="background-color: #D2D755; color: white;" onclick="edit_perfil(${p.id})" title="${tienePuestos ? 'Permisos (Gestionar múltiples puestos)' : 'Permisos'}">
+                                    ${puedePermisos ? `<button class="btn btn-sm" style="background-color: #D2D755; color: white;" onclick="edit_perfil(${p.id})" title="${tienePuestos ? 'Permisos (Gestionar m&uacute;ltiples puestos)' : 'Permisos'}">
                                         <i class="fa fa-lock" style="color: #007bff;"></i>
                                     </button>` : ''}
                                     </div>
@@ -530,7 +556,7 @@ class CapHum extends Controller
                                 `.trim(),
                                 estatus: `
                                     <div class="fw-semibold d-flex align-items-center gap-2" style="color: #dc3545 !important;">
-                                        <span class="bajas-easter-ghost-trigger" style="cursor:pointer;display:inline-flex;align-items:center;" title="Mantén pulsado 1,5 s"><i class="fa fa-ban" style="color: #dc3545 !important;"></i></span>
+                                        <span class="bajas-easter-ghost-trigger" style="cursor:pointer;display:inline-flex;align-items:center;" title="Mant&eacute;n pulsado 1,5 s"><i class="fa fa-ban" style="color: #dc3545 !important;"></i></span>
                                         <span style="color: #dc3545 !important;">Baja</span>
                                     </div>
                                     <div class="text-muted small d-flex align-items-center gap-2 mt-1">
@@ -1911,6 +1937,15 @@ class CapHum extends Controller
                 const switchPais = document.getElementById('perfilAccesoDirectoPaisSwitch');
                 const totalLbl = document.getElementById('perfilPuestosSeleccionadosTotal');
                 if (!rightTree || !leftPaises || !inputBuscar || !switchPais || !totalLbl) return;
+                const escPermisos = function(s) {
+                    if (s == null || s === undefined) return '';
+                    return String(s)
+                        .replace(/&/g, '&amp;')
+                        .replace(/</g, '&lt;')
+                        .replace(/>/g, '&gt;')
+                        .replace(/"/g, '&quot;')
+                        .replace(/'/g, '&#039;');
+                };
 
                 if (!permisosJerarquia || !Array.isArray(permisosJerarquia.paises)) {
                     rightTree.innerHTML = '<div class="text-muted small text-center py-4">No se pudo cargar la información de acceso.</div>';
@@ -1946,9 +1981,9 @@ class CapHum extends Controller
                     puesto: new Set((sel.puesto || []).map(v => String(v)))
                 };
 
-                const banderas = { mx: 'ðŸ‡²ðŸ‡½', gt: 'ðŸ‡¬ðŸ‡¹', co: 'ðŸ‡¨ðŸ‡´', sv: 'ðŸ‡¸ðŸ‡»', hn: 'ðŸ‡­ðŸ‡³', ni: 'ðŸ‡³ðŸ‡®', cr: 'ðŸ‡¨ðŸ‡·', pa: 'ðŸ‡µðŸ‡¦' };
                 const paises = (permisosJerarquia.paises || []).slice().sort(sortByName).map(p => {
                     const pid = String(p.id || 0);
+                    const iso = String((p.codigo_iso || '')).toLowerCase().replace(/[^a-z]/g, '').slice(0, 2);
                     const areas = (byPais[pid] || []).slice().sort(sortByName).map(a => {
                         const aid = String(a.id || 0);
                         const departamentos = (byArea[aid] || []).slice().sort(sortByName).map(d => {
@@ -1960,8 +1995,8 @@ class CapHum extends Controller
                     });
                     return {
                         id: pid,
+                        codigoIso: iso,
                         nombre: p.nombre || ('País ' + pid),
-                        bandera: banderas[String((p.codigo_iso || '')).toLowerCase()] || 'ðŸ³ï¸',
                         areas: areas
                     };
                 });
@@ -2032,7 +2067,10 @@ class CapHum extends Controller
 
                         const left = document.createElement('div');
                         left.className = 'd-flex align-items-center gap-2';
-                        left.innerHTML = '<span>' + pais.bandera + '</span><span class="small fw-semibold">' + pais.nombre + '</span><span class="badge text-bg-light border">' + st.selected + '</span>';
+                        const banderaHtml = pais.codigoIso
+                            ? '<span class="fi fi-' + pais.codigoIso + ' fis" style="font-size:1.05rem;border-radius:2px;box-shadow:0 1px 3px rgba(0,0,0,.15);" aria-hidden="true"></span>'
+                            : '<i class="fa fa-globe text-muted" aria-hidden="true"></i>';
+                        left.innerHTML = banderaHtml + '<span class="small fw-semibold">' + escPermisos(pais.nombre) + '</span><span class="badge text-bg-light border">' + st.selected + '</span>';
 
                         const cb = document.createElement('input');
                         cb.type = 'checkbox';
@@ -2281,18 +2319,18 @@ class CapHum extends Controller
                 const btn = document.getElementById('btn-permisos-esp-expandir-todos');
                 if (!btn) return;
                 if (!form) {
-                    btn.innerHTML = '<i class="fa fa-expand me-1"></i>Expandir todos';
+                    btn.innerHTML = '<i class="fa fa-expand me-1"></i>Desplegar todas las pestañas';
                     return;
                 }
                 const cols = form.querySelectorAll('.modal-perfil-modulo-grupo-collapse');
                 if (cols.length === 0) {
-                    btn.innerHTML = '<i class="fa fa-expand me-1"></i>Expandir todos';
+                    btn.innerHTML = '<i class="fa fa-expand me-1"></i>Desplegar todas las pestañas';
                     return;
                 }
                 const allExpanded = Array.from(cols).every(c => c.classList.contains('show'));
                 btn.innerHTML = allExpanded
-                    ? '<i class="fa fa-compress me-1"></i>Contraer todos'
-                    : '<i class="fa fa-expand me-1"></i>Expandir todos';
+                    ? '<i class="fa fa-compress me-1"></i>Contraer todas las pestañas'
+                    : '<i class="fa fa-expand me-1"></i>Desplegar todas las pestañas';
             }
 
             function actualizarBotonExpandirModulosSistema() {
@@ -2848,7 +2886,7 @@ class CapHum extends Controller
 
             /**
              * Tarjetas agrupadas por menu_grupo (misma UI en Â«Módulos del sistemaÂ» y Â«Permisos especialesÂ»).
-             * @param {{ masterIdPrefix: string, iconosMap: Object, emptyHtml: string, collapseGrupos?: boolean, collapseIdPrefix?: string, iconosCierreCreditoPorEtiquetaPermisosEsp?: boolean, actualizarBotonExpandir?: () => void }} opts
+             * @param {{ masterIdPrefix: string, iconosMap: Object, emptyHtml: string, collapseGrupos?: boolean, collapseIdPrefix?: string, iniciarContraido?: boolean, iconosCierreCreditoPorEtiquetaPermisosEsp?: boolean, actualizarBotonExpandir?: () => void }} opts
              */
             function renderAgrupadoPorMenuGrupo(perfiles, container, opts) {
                 const masterIdPrefix = opts.masterIdPrefix;
@@ -2856,6 +2894,7 @@ class CapHum extends Controller
                 const emptyHtml = opts.emptyHtml;
                 const useCollapseGrupos = !!opts.collapseGrupos;
                 const collapseIdPrefix = opts.collapseIdPrefix || 'modal-perfil-grupo';
+                const iniciarContraido = !!opts.iniciarContraido;
                 const iconosCierreCreditoPorEtiquetaPermisosEsp = !!opts.iconosCierreCreditoPorEtiquetaPermisosEsp;
                 const actualizarBotonExpandirFn = (typeof opts.actualizarBotonExpandir === 'function')
                     ? opts.actualizarBotonExpandir
@@ -2943,7 +2982,7 @@ class CapHum extends Controller
                         header.style.cursor = 'pointer';
                         header.setAttribute('role', 'button');
                         header.setAttribute('tabindex', '0');
-                        header.setAttribute('aria-expanded', 'true');
+                        header.setAttribute('aria-expanded', iniciarContraido ? 'false' : 'true');
                         header.setAttribute('aria-controls', collapseId);
                         header.setAttribute('data-bs-toggle', 'collapse');
                         header.setAttribute('data-bs-target', '#' + collapseId);
@@ -2957,7 +2996,7 @@ class CapHum extends Controller
                         chevron.style.flexShrink = '0';
                         chevron.style.fontSize = '0.75rem';
                         chevron.style.transition = 'transform 0.2s ease';
-                        chevron.style.transform = 'rotate(0deg)';
+                        chevron.style.transform = iniciarContraido ? 'rotate(-90deg)' : 'rotate(0deg)';
                         chevron.setAttribute('aria-hidden', 'true');
 
                         header.appendChild(chevron);
@@ -3052,7 +3091,7 @@ class CapHum extends Controller
                     if (useCollapseGrupos) {
                         const collapse = document.createElement('div');
                         collapse.id = collapseId;
-                        collapse.className = 'collapse show modal-perfil-modulo-grupo-collapse';
+                        collapse.className = 'collapse' + (iniciarContraido ? '' : ' show') + ' modal-perfil-modulo-grupo-collapse';
 
                         const syncChevron = (open) => {
                             header.setAttribute('aria-expanded', open ? 'true' : 'false');
@@ -3068,7 +3107,7 @@ class CapHum extends Controller
                             actualizarBotonExpandirFn();
                         });
 
-                        syncChevron(true);
+                        syncChevron(!iniciarContraido);
 
                         collapse.appendChild(table);
                         section.appendChild(header);
@@ -3090,8 +3129,17 @@ class CapHum extends Controller
                 const container = document.getElementById('modal-edit-perfil-permisos-especiales-form') || document.getElementById('permisos-especiales-form');
                 const iconosMap = Object.assign({}, iconosModulosSistemaPerfil, iconosPermisosEspeciales);
                 const idsPermisoEdicionCobranza = new Set(Array.from({ length: 21 }, (_, i) => 107 + i));
+                const idsPermisosAtlas = new Set([129, 130]);
                 const perfilesNormalizados = (Array.isArray(perfiles) ? perfiles : []).map(mod => {
                     const idMod = Number(mod.modulo_id ?? mod.id ?? 0);
+                    if (idsPermisosAtlas.has(idMod)) {
+                        return Object.assign({}, mod, {
+                            menu_grupo: 'Atlas',
+                            menu_grupo_icono: 'fa-solid fa-map-location-dot',
+                            menu_grupo_orden: 13,
+                            menu_item_orden: idMod
+                        });
+                    }
                     if (!idsPermisoEdicionCobranza.has(idMod)) {
                         return mod;
                     }
@@ -3108,6 +3156,7 @@ class CapHum extends Controller
                     emptyHtml: '<p class="text-muted small mb-0">No hay permisos especiales configurados.</p>',
                     collapseGrupos: true,
                     collapseIdPrefix: 'modal-perfil-perm-esp',
+                    iniciarContraido: true,
                     iconosCierreCreditoPorEtiquetaPermisosEsp: true,
                     actualizarBotonExpandir: actualizarBotonExpandirPermisosEspeciales,
                 });
@@ -6179,38 +6228,63 @@ class CapHum extends Controller
                 setTimeout(function() { el.style.width = (pct != null ? pct : 0) + '%'; }, (delay || 0) + 80);
             }
 
+            function aplicarVisibilidadIndicadoresCandidatos() {
+                var soloValidacionFinal = !!window.candidatosSoloValidacionFinal;
+                var row = document.getElementById("kpiRowNewCand");
+                var cardEvaluar = document.getElementById("kpi-cell-cand-evaluar");
+                if (row) row.classList.toggle("kpi-solo-final", soloValidacionFinal);
+                if (cardEvaluar) cardEvaluar.classList.toggle("d-none", soloValidacionFinal);
+            }
+
             function actualizarIndicadoresCandidatos(datos) {
+                aplicarVisibilidadIndicadoresCandidatos();
                 var total = (datos && datos.length) || 0;
-                var porEvaluar = (datos && datos.filter(function(c){ return (c.estatus || "") === "Por evaluar"; }).length) || 0;
-                var enviadas = (datos && datos.filter(function(c){ return c.postulacion_enviada == 1; }).length) || 0;
+                var porEvaluar = (datos && datos.filter(function(c){
+                    return (c.estatus || "").trim() === "Por evaluar";
+                }).length) || 0;
+                var validacionFinal = (datos && datos.filter(function(c){
+                    return (c.estatus || "").trim() === "Pendiente de validacion final";
+                }).length) || 0;
+                var enviadas = (datos && datos.filter(function(c){
+                    return Array.isArray(c.documentos) && c.documentos.length >= 10;
+                }).length) || 0;
                 var elTotal = document.getElementById("kpi-total-candidatos");
                 var elPorEval = document.getElementById("kpi-por-evaluar");
+                var elFinal = document.getElementById("kpi-validacion-final-candidatos");
                 var elEnviadas = document.getElementById("kpi-postulaciones-enviadas");
                 if (elTotal) kpiAnimateCounterCand(elTotal, total, 600, 0);
                 if (elPorEval) kpiAnimateCounterCand(elPorEval, porEvaluar, 600, 60);
-                if (elEnviadas) kpiAnimateCounterCand(elEnviadas, enviadas, 600, 120);
+                if (elFinal) kpiAnimateCounterCand(elFinal, validacionFinal, 600, 120);
+                if (elEnviadas) kpiAnimateCounterCand(elEnviadas, enviadas, 600, 180);
                 var pctTotal = total > 0 ? 100 : 0;
                 var pctEvaluar = total > 0 ? Math.min(100, Math.round((porEvaluar / total) * 100)) : 0;
+                var pctFinal = total > 0 ? Math.min(100, Math.round((validacionFinal / total) * 100)) : 0;
                 var pctEnviadas = total > 0 ? Math.min(100, Math.round((enviadas / total) * 100)) : 0;
                 kpiAnimateBarCand("kpi-bar-cand-total",    pctTotal,   80);
                 kpiAnimateBarCand("kpi-bar-cand-evaluar",  pctEvaluar, 160);
-                kpiAnimateBarCand("kpi-bar-cand-enviadas", pctEnviadas, 240);
+                kpiAnimateBarCand("kpi-bar-cand-final",    pctFinal,   240);
+                kpiAnimateBarCand("kpi-bar-cand-enviadas", pctEnviadas, 320);
                 var msTotal = document.getElementById("kpi-ms-cand-total");
                 var msEval = document.getElementById("kpi-ms-cand-evaluar");
+                var msFinal = document.getElementById("kpi-ms-cand-final");
                 var msEnv = document.getElementById("kpi-ms-cand-enviadas");
                 var dvTotal = document.getElementById("kpi-dv-cand-total");
                 var dvEval = document.getElementById("kpi-dv-cand-evaluar");
+                var dvFinal = document.getElementById("kpi-dv-cand-final");
                 var dvEnv = document.getElementById("kpi-dv-cand-enviadas");
                 if (msTotal) msTotal.textContent = total;
                 if (msEval) msEval.textContent = porEvaluar;
+                if (msFinal) msFinal.textContent = validacionFinal;
                 if (msEnv) msEnv.textContent = enviadas;
                 if (dvTotal) dvTotal.textContent = total;
                 if (dvEval) dvEval.textContent = porEvaluar;
+                if (dvFinal) dvFinal.textContent = validacionFinal;
                 if (dvEnv) dvEnv.textContent = enviadas;
                 if (kpiCandCurrentMode === "vision") {
                     kpiAnimateDonutCand("kpi-arc-cand-total", pctTotal, 80);
                     kpiAnimateDonutCand("kpi-arc-cand-evaluar", pctEvaluar, 160);
-                    kpiAnimateDonutCand("kpi-arc-cand-enviadas", pctEnviadas, 240);
+                    kpiAnimateDonutCand("kpi-arc-cand-final", pctFinal, 240);
+                    kpiAnimateDonutCand("kpi-arc-cand-enviadas", pctEnviadas, 320);
                 }
             }
 
@@ -6219,7 +6293,15 @@ class CapHum extends Controller
                 var selPuesto = document.getElementById("UserPlan");
                 var selEstatus = document.getElementById("FilterTransaction");
                 var data = {};
-                if (selEstatus && selEstatus.value) data.estatus = selEstatus.value;
+                if (window.candidatosSoloValidacionFinal) {
+                    data.estatus = "Pendiente de validacion final";
+                    if (selEstatus) {
+                        selEstatus.value = data.estatus;
+                        selEstatus.disabled = true;
+                    }
+                } else if (selEstatus && selEstatus.value) {
+                    data.estatus = selEstatus.value;
+                }
                 if (selDepto && selDepto.value) data.id_departamento = selDepto.value;
                 if (selPuesto && selPuesto.value) data.id_puesto = selPuesto.value;
 
@@ -6421,8 +6503,10 @@ class CapHum extends Controller
                                 var acciones = '<div class="d-flex flex-wrap gap-1 align-items-center">' +
                                     '<button type="button" class="btn btn-sm btn-primary btn-editar-candidato" data-id="' + id + '" title="Editar"><i class="fa fa-edit"></i></button>' +
                                     '<button type="button" class="btn btn-sm btn-info text-white btn-reenviar-candidato" data-id="' + id + '" title="Reenviar correo"><i class="fa fa-envelope"></i></button>' +
-                                    '<button type="button" class="btn btn-sm btn-secondary btn-documentacion-candidato" data-id="' + id + '" data-nombre="' + (nombre || "").replace(/"/g, "&quot;") + '" title="Documentación"><i class="fa fa-folder-open"></i></button>' +
+                                    '<button type="button" class="btn btn-sm btn-secondary btn-documentacion-candidato" data-id="' + id + '" data-nombre="' + (nombre || "").replace(/"/g, "&quot;") + '" title="Documentaci&oacute;n"><i class="fa fa-folder-open"></i></button>' +
+                                    '<button type="button" class="btn btn-sm btn-dark btn-bitacora-candidato" data-id="' + id + '" data-nombre="' + (nombre || "").replace(/"/g, "&quot;") + '" title="Bit&aacute;cora"><i class="fa fa-clock-rotate-left"></i></button>' +
                                     '<button type="button" class="btn btn-sm btn-danger btn-eliminar-candidato" data-id="' + id + '" title="Eliminar"><i class="fa fa-trash"></i></button></div>';
+
 
                                 return {
                                     nombreContacto: nombreContacto,
@@ -6517,8 +6601,8 @@ class CapHum extends Controller
 
             var KPI_CAND_STORAGE_MODE = "kpi_cand_mode";
             var KPI_CAND_STORAGE_OPEN = "kpi_cand_open";
-            var kpiCandCurrentMode = (typeof localStorage !== "undefined" && localStorage.getItem(KPI_CAND_STORAGE_MODE)) || "default";
-            var kpiCandPanelOpen = (typeof localStorage !== "undefined" && localStorage.getItem(KPI_CAND_STORAGE_OPEN) !== "false");
+            var kpiCandCurrentMode = "default";
+            var kpiCandPanelOpen = true;
 
             function kpiAnimateDonutCand(arcId, pct, delay) {
                 var el = document.getElementById(arcId);
@@ -6534,6 +6618,7 @@ class CapHum extends Controller
             function kpiApplyModeCand(mode, animate) {
                 var row = document.getElementById("kpiRowNewCand");
                 if (!row) return;
+                aplicarVisibilidadIndicadoresCandidatos();
                 row.classList.remove("mode-default", "mode-vision", "mode-ministat");
                 row.classList.add("mode-" + mode);
                 ["default", "vision", "ministat"].forEach(function(m) {
@@ -6543,13 +6628,16 @@ class CapHum extends Controller
                 if (animate && mode === "vision") {
                     var total = parseInt(document.getElementById("kpi-total-candidatos").textContent, 10) || 0;
                     var porEval = parseInt(document.getElementById("kpi-por-evaluar").textContent, 10) || 0;
+                    var final = parseInt(document.getElementById("kpi-validacion-final-candidatos").textContent, 10) || 0;
                     var enviadas = parseInt(document.getElementById("kpi-postulaciones-enviadas").textContent, 10) || 0;
                     var pctTotal = total > 0 ? 100 : 0;
                     var pctEval = total > 0 ? Math.min(100, Math.round((porEval / total) * 100)) : 0;
+                    var pctFinal = total > 0 ? Math.min(100, Math.round((final / total) * 100)) : 0;
                     var pctEnv = total > 0 ? Math.min(100, Math.round((enviadas / total) * 100)) : 0;
                     kpiAnimateDonutCand("kpi-arc-cand-total", pctTotal, 80);
                     kpiAnimateDonutCand("kpi-arc-cand-evaluar", pctEval, 160);
-                    kpiAnimateDonutCand("kpi-arc-cand-enviadas", pctEnv, 240);
+                    kpiAnimateDonutCand("kpi-arc-cand-final", pctFinal, 240);
+                    kpiAnimateDonutCand("kpi-arc-cand-enviadas", pctEnv, 320);
                 }
             }
 
@@ -6577,6 +6665,7 @@ class CapHum extends Controller
                     if (btn) btn.classList.toggle("open", kpiCandPanelOpen);
                     if (controls) controls.classList.toggle("kpi-vc-hidden", !kpiCandPanelOpen);
                     if (sep) sep.classList.toggle("kpi-sep-hidden", !kpiCandPanelOpen);
+                    aplicarVisibilidadIndicadoresCandidatos();
                     kpiApplyModeCand(kpiCandCurrentMode, false);
                 }
                 if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", run);
@@ -6953,6 +7042,193 @@ class CapHum extends Controller
                 if (!chk.checked) document.getElementById("candidato_id_legion").value = "";
             }
 
+            function bitacoraCandidatoEsc(s) {
+                return String(s === null || s === undefined ? "" : s)
+                    .replace(/&/g, "&amp;")
+                    .replace(/</g, "&lt;")
+                    .replace(/>/g, "&gt;")
+                    .replace(/"/g, "&quot;")
+                    .replace(/'/g, "&#039;");
+            }
+
+            function bitacoraCandidatoFecha(valor) {
+                var raw = String(valor || "").trim();
+                var m = raw.match(/^(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2})(?::(\d{2}))?/);
+                if (!m) return raw;
+                return m[3] + "/" + m[2] + "/" + m[1] + " " + m[4] + ":" + m[5] + ":" + (m[6] || "00");
+            }
+
+            function bitacoraCandidatoColor(color) {
+                var map = {
+                    primary: "#2563eb",
+                    info: "#0891b2",
+                    success: "#22c55e",
+                    warning: "#f59e0b",
+                    danger: "#ef4444",
+                    purple: "#7c3aed",
+                    secondary: "#64748b"
+                };
+                return map[color] || map.primary;
+            }
+
+            function renderBitacoraCandidato(eventos) {
+                if (!eventos || !eventos.length) return "";
+                return eventos.map(function(ev) {
+                    var titulo = bitacoraCandidatoEsc(ev.titulo || ev.evento || "Movimiento");
+                    var desc = bitacoraCandidatoEsc(ev.descripcion || "");
+                    var fecha = bitacoraCandidatoFecha(ev.fecha || "");
+                    var color = bitacoraCandidatoColor(ev.color || "primary");
+                    var usuarioAccion = ev.detalle && ev.detalle.usuario_accion ? String(ev.detalle.usuario_accion) : "";
+                    var chip = fecha ? '<span class="timeline-chip">Fecha movimiento: ' + bitacoraCandidatoEsc(fecha) + '</span>' : '';
+                    if (usuarioAccion) chip += ' <span class="timeline-chip">Responsable: ' + bitacoraCandidatoEsc(usuarioAccion) + '</span>';
+                    return '<div class="timeline-item" style="--timeline-color:' + color + '">' +
+                        '<span class="timeline-dot"></span>' +
+                        '<div class="d-flex gap-3 justify-content-between align-items-start">' +
+                            '<div class="pe-2">' +
+                                '<div class="timeline-title">' + titulo + '</div>' +
+                                (desc ? '<div class="timeline-desc">' + desc + '</div>' : '') +
+                                chip +
+                            '</div>' +
+                            '<div class="timeline-date">' + bitacoraCandidatoEsc(fecha) + '</div>' +
+                        '</div>' +
+                    '</div>';
+                }).join("");
+            }
+
+            var historicoCandidatosCache = [];
+
+            function historicoBadgeClass(estatus, eliminado) {
+                estatus = String(estatus || "").toLowerCase();
+                if (eliminado || estatus.indexOf("eliminado") !== -1) return "bg-danger";
+                if (estatus.indexOf("contratado") !== -1) return "bg-success";
+                if (estatus.indexOf("cerrado") !== -1) return "bg-dark";
+                if (estatus.indexOf("validacion final") !== -1) return "bg-info text-dark";
+                if (estatus.indexOf("validado") !== -1) return "bg-primary";
+                return "bg-warning text-dark";
+            }
+
+            function renderHistoricoCandidatos(filtro) {
+                var lista = document.getElementById("modalHistoricoCandidatosLista");
+                var vacio = document.getElementById("modalHistoricoCandidatosVacio");
+                if (!lista) return;
+                filtro = String(filtro || "").trim().toLowerCase();
+                var datos = historicoCandidatosCache.filter(function(c) {
+                    if (!filtro) return true;
+                    return [
+                        c.nombre_completo,
+                        c.email,
+                        c.telefono,
+                        c.puesto,
+                        c.departamento,
+                        c.ubicacion,
+                        c.estatus,
+                        c.usuario_accion,
+                        c.motivo_cierre,
+                        c.descripcion_cierre
+                    ].join(" ").toLowerCase().indexOf(filtro) !== -1;
+                });
+                if (!datos.length) {
+                    lista.classList.add("d-none");
+                    if (vacio) {
+                        vacio.textContent = filtro ? "No hay resultados para la búsqueda." : "No hay candidatos en el histórico.";
+                        vacio.classList.remove("d-none");
+                    }
+                    return;
+                }
+                if (vacio) vacio.classList.add("d-none");
+                lista.innerHTML = datos.map(function(c) {
+                    var id = c.id_candidato || c.id || "";
+                    var nombre = c.nombre_completo || "Sin nombre";
+                    var estatus = c.estatus || "Por evaluar";
+                    var badge = historicoBadgeClass(estatus, parseInt(c.eliminado || 0, 10) === 1);
+                    var creado = bitacoraCandidatoFecha(c.fecha_registro || "");
+                    var actualizado = bitacoraCandidatoFecha(c.fecha_actualizacion || c.fecha_cierre || "");
+                    var motivo = c.motivo_cierre ? String(c.motivo_cierre) : "";
+                    var desc = c.descripcion_cierre ? String(c.descripcion_cierre) : "";
+                    var responsable = c.usuario_accion ? String(c.usuario_accion) : "";
+                    var ubicacion = c.ubicacion || "";
+                    return '<div class="historico-item" data-text="' + bitacoraCandidatoEsc([nombre, c.email, c.telefono, c.puesto, c.departamento, ubicacion, estatus, motivo, desc].join(" ")) + '">' +
+                        '<div class="d-flex flex-wrap gap-2 justify-content-between align-items-start">' +
+                            '<div class="pe-2">' +
+                                '<div class="historico-title">' + bitacoraCandidatoEsc(nombre) + '</div>' +
+                                '<div class="historico-meta">' + bitacoraCandidatoEsc(c.email || "Sin correo") + (c.telefono ? ' · ' + bitacoraCandidatoEsc(c.telefono) : '') + '</div>' +
+                                '<div class="historico-meta">' + bitacoraCandidatoEsc([c.puesto, c.departamento].filter(Boolean).join(" / ") || "Sin puesto asignado") + '</div>' +
+                                (ubicacion ? '<div class="historico-meta">' + bitacoraCandidatoEsc(ubicacion) + '</div>' : '') +
+                                '<div class="historico-meta mt-1">' + (creado ? '<i class="fa fa-calendar-plus me-1"></i>Creado: ' + bitacoraCandidatoEsc(creado) : '') + (actualizado ? ' <span class="ms-2"><i class="fa fa-clock me-1"></i>Último movimiento: ' + bitacoraCandidatoEsc(actualizado) + '</span>' : '') + '</div>' +
+                                (responsable ? '<div class="historico-meta"><i class="fa fa-user-check me-1"></i>Responsable: ' + bitacoraCandidatoEsc(responsable) + '</div>' : '') +
+                                ((motivo || desc) ? '<div class="historico-motivo mt-2"><strong>Motivo:</strong> ' + bitacoraCandidatoEsc(motivo || "Sin motivo") + (desc ? '<br><strong>Detalle:</strong> ' + bitacoraCandidatoEsc(desc) : '') + '</div>' : '') +
+                            '</div>' +
+                            '<div class="d-flex flex-column align-items-end gap-2">' +
+                                '<span class="badge ' + badge + '">' + bitacoraCandidatoEsc(estatus) + '</span>' +
+                                '<button type="button" class="btn btn-sm btn-dark btn-historico-ver-bitacora" data-id="' + bitacoraCandidatoEsc(id) + '" data-nombre="' + bitacoraCandidatoEsc(nombre) + '"><i class="fa fa-clock-rotate-left me-1"></i>Bit&aacute;cora</button>' +
+                            '</div>' +
+                        '</div>' +
+                    '</div>';
+                }).join("");
+                lista.classList.remove("d-none");
+            }
+
+            function abrirModalHistoricoCandidatos() {
+                var modal = document.getElementById("modalHistoricoCandidatos");
+                var cargando = document.getElementById("modalHistoricoCandidatosCargando");
+                var lista = document.getElementById("modalHistoricoCandidatosLista");
+                var vacio = document.getElementById("modalHistoricoCandidatosVacio");
+                var buscar = document.getElementById("modalHistoricoCandidatosBuscar");
+                if (!modal) return;
+                if (buscar) buscar.value = "";
+                if (cargando) cargando.classList.remove("d-none");
+                if (lista) { lista.classList.add("d-none"); lista.innerHTML = ""; }
+                if (vacio) vacio.classList.add("d-none");
+                bootstrap.Modal.getOrCreateInstance(modal).show();
+                fetch("/caphum/getHistoricoCandidatos", { headers: { "Accept": "application/json", "X-Requested-With": "XMLHttpRequest" } })
+                    .then(function(r) { return r.json(); })
+                    .then(function(res) {
+                        if (cargando) cargando.classList.add("d-none");
+                        historicoCandidatosCache = res && res.success && Array.isArray(res.datos) ? res.datos : [];
+                        renderHistoricoCandidatos("");
+                    })
+                    .catch(function() {
+                        if (cargando) cargando.classList.add("d-none");
+                        if (vacio) { vacio.textContent = "No se pudo cargar el histórico."; vacio.classList.remove("d-none"); }
+                    });
+            }
+
+            function abrirModalBitacoraCandidato(idCandidato, nombre) {
+                var modal = document.getElementById("modalBitacoraCandidato");
+                var label = document.getElementById("modalBitacoraCandidatoNombre");
+                var cargando = document.getElementById("modalBitacoraCandidatoCargando");
+                var lista = document.getElementById("modalBitacoraCandidatoLista");
+                var vacio = document.getElementById("modalBitacoraCandidatoVacio");
+                if (!modal || !idCandidato) return;
+                if (label) label.textContent = nombre ? ("Candidato: " + nombre) : "";
+                if (cargando) cargando.classList.remove("d-none");
+                if (lista) { lista.classList.add("d-none"); lista.innerHTML = ""; }
+                if (vacio) vacio.classList.add("d-none");
+
+                bootstrap.Modal.getOrCreateInstance(modal).show();
+                fetch("/caphum/getBitacoraCandidato?id_candidato=" + encodeURIComponent(String(idCandidato)), {
+                    headers: { "Accept": "application/json", "X-Requested-With": "XMLHttpRequest" }
+                })
+                    .then(function(r) { return r.json(); })
+                    .then(function(res) {
+                        var eventos = res && res.success && res.datos ? (res.datos.eventos || []) : [];
+                        if (cargando) cargando.classList.add("d-none");
+                        if (eventos.length && lista) {
+                            lista.innerHTML = renderBitacoraCandidato(eventos);
+                            lista.classList.remove("d-none");
+                        } else if (vacio) {
+                            vacio.classList.remove("d-none");
+                        }
+                    })
+                    .catch(function() {
+                        if (cargando) cargando.classList.add("d-none");
+                        if (vacio) {
+                            vacio.textContent = "No se pudo cargar la bitácora.";
+                            vacio.classList.remove("d-none");
+                        }
+                    });
+            }
+
             function candidatosTableClick(e) {
                 var target = e.target; var tabla = document.getElementById("tablaCandidatos");
                 if (!tabla || !tabla.contains(target)) return;
@@ -6962,6 +7238,8 @@ class CapHum extends Controller
                 if (btn) { e.preventDefault(); e.stopPropagation(); var id = btn.getAttribute("data-id"); if (id) abrirModalReenviarPostulacion(parseInt(id, 10)); return; }
                 btn = target.closest(".btn-documentacion-candidato");
                 if (btn) { e.preventDefault(); e.stopPropagation(); var id = btn.getAttribute("data-id"); var nombre = btn.getAttribute("data-nombre") || ""; if (id) abrirModalDocumentacionCandidato(parseInt(id, 10), nombre); return; }
+                btn = target.closest(".btn-bitacora-candidato");
+                if (btn) { e.preventDefault(); e.stopPropagation(); var id = btn.getAttribute("data-id"); var nombre = btn.getAttribute("data-nombre") || ""; if (id) abrirModalBitacoraCandidato(parseInt(id, 10), nombre); return; }
                 btn = target.closest(".btn-eliminar-candidato");
                 if (btn) { e.preventDefault(); e.stopPropagation(); var id = btn.getAttribute("data-id"); if (id) eliminarCandidato(parseInt(id, 10)); }
             }
@@ -7666,7 +7944,7 @@ class CapHum extends Controller
                 var listHtml = "<div class=\"text-start\"><strong>" + escHtml(tit) + "</strong><ul class=\"mb-0 ps-3 small\">";
                 notasCalidad.forEach(function(n) { listHtml += "<li>" + escHtml(typeof n === "string" ? n : String(n)) + "</li>"; });
                 listHtml += "</ul></div>";
-                tooltipCalidadHtml = " <span class=\"ms-1\" data-bs-toggle=\"tooltip\" data-bs-html=\"true\" data-bs-title=\"" + listHtml.replace(/"/g, "&quot;") + "\"><i class=\"fa fa-exclamation-triangle text-warning\" title=\"Notas de revisión\"></i></span>";
+                tooltipCalidadHtml = " <span class=\"ms-1\" data-bs-toggle=\"tooltip\" data-bs-html=\"true\" data-bs-title=\"" + listHtml.replace(/"/g, "&quot;") + "\"><i class=\"fa fa-exclamation-triangle text-warning\" title=\"Notas de revisi&oacute;n\"></i></span>";
             }
             var tooltipEstadoCuentaHtml = "";
             if ((tipoNorm.indexOf("ESTADO") !== -1 && tipoNorm.indexOf("CUENTA") !== -1) && vc && typeof vc === "object" && (vc.banco_detectado || vc.nombre_propietario || vc.clabe || vc.clabe_interbancaria || vc.cuenta_clabe)) {
@@ -8329,10 +8607,75 @@ class CapHum extends Controller
                 });
             }
 
+            function descargarExpedienteCandidatoZip(btn) {
+                var modal = document.getElementById("modalDocumentacionCandidato");
+                var idCandidato = btn && btn.dataset.idCandidato ? parseInt(btn.dataset.idCandidato, 10) : 0;
+                if (!idCandidato && modal && modal.dataset.idCandidato) {
+                    idCandidato = parseInt(modal.dataset.idCandidato, 10);
+                }
+                if (!idCandidato) {
+                    if (typeof Swal !== "undefined") {
+                        Swal.fire({ icon: "warning", title: "Sin candidato", text: "No se pudo identificar el expediente." });
+                    }
+                    return;
+                }
+                var prevHtml = btn ? btn.innerHTML : "";
+                if (btn) {
+                    btn.disabled = true;
+                    btn.innerHTML = "<i class=\"fa fa-spinner fa-spin me-1\"></i> Preparando...";
+                }
+                fetch("/caphum/descargarExpedienteCandidatoZip?id_candidato=" + encodeURIComponent(String(idCandidato)), {
+                    headers: { "Accept": "application/zip, application/json", "X-Requested-With": "XMLHttpRequest" }
+                }).then(function(r) {
+                    var contentType = r.headers.get("content-type") || "";
+                    if (!r.ok || contentType.indexOf("application/json") !== -1) {
+                        return r.text().then(function(texto) {
+                            var msg = "No se pudo descargar el expediente.";
+                            try {
+                                var json = JSON.parse(texto);
+                                msg = json.mensaje || json.error || msg;
+                                if (json.error) msg += " " + json.error;
+                            } catch (e) {
+                                if (texto) msg = texto.slice(0, 500);
+                            }
+                            throw new Error(msg);
+                        });
+                    }
+                    var disposition = r.headers.get("content-disposition") || "";
+                    var nombre = "expediente_candidato.zip";
+                    var match = disposition.match(/filename\*=UTF-8''([^;]+)|filename=\"?([^\";]+)\"?/i);
+                    if (match) {
+                        nombre = decodeURIComponent((match[1] || match[2] || nombre).replace(/\"/g, ""));
+                    }
+                    return r.blob().then(function(blob) { return { blob: blob, nombre: nombre }; });
+                }).then(function(descarga) {
+                    var url = URL.createObjectURL(descarga.blob);
+                    var a = document.createElement("a");
+                    a.href = url;
+                    a.download = descarga.nombre || "expediente_candidato.zip";
+                    document.body.appendChild(a);
+                    a.click();
+                    a.remove();
+                    setTimeout(function() { URL.revokeObjectURL(url); }, 1500);
+                }).catch(function(error) {
+                    if (typeof Swal !== "undefined") {
+                        Swal.fire({ icon: "error", title: "No se pudo descargar", text: error.message || "Revise el expediente." });
+                    } else {
+                        alert(error.message || "No se pudo descargar.");
+                    }
+                }).finally(function() {
+                    if (btn) {
+                        btn.disabled = false;
+                        btn.innerHTML = prevHtml || "<i class=\"fa fa-file-zipper me-1\"></i> Descargar ZIP";
+                    }
+                });
+            }
+
             function abrirModalDocumentacionCandidato(idCandidato, nombreCandidato) {
                 disposeDocModalTooltips();
                 var modal = document.getElementById("modalDocumentacionCandidato");
                 var label = document.getElementById("modalDocumentacionCandidatoNombre");
+                var btnDescargarZip = document.getElementById("btnDescargarExpedienteCandidatoZip");
                 var bloqueVerif = document.getElementById("modalDocumentacionCandidatoVerificacion");
                 var bloqueComp = document.getElementById("modalDocumentacionCandidatoComparaciones");
                 var bloqueMetricas = document.getElementById("modalDocumentacionCandidatoMetricas");
@@ -8345,6 +8688,12 @@ class CapHum extends Controller
                 if (modal) {
                     modal.dataset.nombreCandidato = (nombreCandidato != null && nombreCandidato !== undefined) ? String(nombreCandidato) : "";
                     modal.dataset.idCandidato = String(idCandidato);
+                }
+                if (btnDescargarZip) {
+                    btnDescargarZip.dataset.idCandidato = String(idCandidato);
+                    btnDescargarZip.disabled = false;
+                    btnDescargarZip.innerHTML = "<i class=\"fa fa-file-zipper me-1\"></i> Descargar ZIP";
+                    btnDescargarZip.onclick = function() { descargarExpedienteCandidatoZip(btnDescargarZip); };
                 }
                 if (label) label.textContent = nombreCandidato ? "Candidato: " + nombreCandidato : "";
                 if (bloqueVerif) { bloqueVerif.classList.add("d-none"); bloqueVerif.innerHTML = ""; }
@@ -8853,9 +9202,38 @@ class CapHum extends Controller
         if (selDepto) selDepto.addEventListener("change", function() { getCandidatos(); });
         if (selPuesto) selPuesto.addEventListener("change", function() { getCandidatos(); });
         if (selEstatus) selEstatus.addEventListener("change", function() { getCandidatos(); });
+        var btnLimpiarFiltros = document.getElementById("btnLimpiarFiltrosCandidatos");
+        if (btnLimpiarFiltros) {
+            btnLimpiarFiltros.addEventListener("click", function() {
+                if (selDepto) selDepto.value = "";
+                if (selPuesto) selPuesto.value = "";
+                if (selEstatus) selEstatus.value = "";
+                getCandidatos();
+            });
+        }
         var form = document.getElementById("formAgregarCandidato");
         if (form) { form.addEventListener("submit", function(e) { e.preventDefault(); if (candidatoEditId) guardarCandidatoEdicion(); else guardarCandidatoAbrirResumen(); }); }
+        var btnHistoricoCandidatos = document.getElementById("btnHistoricoCandidatos");
+        if (btnHistoricoCandidatos) btnHistoricoCandidatos.addEventListener("click", abrirModalHistoricoCandidatos);
+        var inputHistoricoCandidatos = document.getElementById("modalHistoricoCandidatosBuscar");
+        if (inputHistoricoCandidatos) inputHistoricoCandidatos.addEventListener("input", function() { renderHistoricoCandidatos(this.value); });
         document.addEventListener("click", candidatosTableClick);
+        document.addEventListener("click", function(e) {
+            var btnHistBit = e.target.closest(".btn-historico-ver-bitacora");
+            if (!btnHistBit) return;
+            e.preventDefault();
+            e.stopPropagation();
+            var id = btnHistBit.getAttribute("data-id");
+            var nombre = btnHistBit.getAttribute("data-nombre") || "";
+            if (id) {
+                var modalHist = document.getElementById("modalHistoricoCandidatos");
+                if (modalHist) {
+                    var instHist = bootstrap.Modal.getInstance(modalHist);
+                    if (instHist) instHist.hide();
+                }
+                setTimeout(function() { abrirModalBitacoraCandidato(parseInt(id, 10), nombre); }, 180);
+            }
+        });
         var modalDocPollEl = document.getElementById("modalDocumentacionCandidato");
         if (modalDocPollEl) modalDocPollEl.addEventListener("hidden.bs.modal", function() { clearDocModalPoll(); disposeDocModalTooltips(); });
         ["modalResumenPostulacion", "modalDocumentacionCandidato"].forEach(function(mid) {
@@ -9432,7 +9810,8 @@ class CapHum extends Controller
             'documental' => self::puedeValidarDocumentalCandidatos(),
             'final' => self::puedeValidarFinalCandidatos(),
         ];
-        $script = '<script>window.miUsuarioId = ' . json_encode($miUsuarioId) . '; window.candidatosPermisos = ' . json_encode($permisosCandidatos) . ';</script>' . "\n" . $script;
+        $soloValidacionFinalCandidatos = self::esSoloValidadorFinalCandidatos();
+        $script = '<script>window.miUsuarioId = ' . json_encode($miUsuarioId) . '; window.candidatosPermisos = ' . json_encode($permisosCandidatos) . '; window.candidatosSoloValidacionFinal = ' . json_encode($soloValidacionFinalCandidatos) . ';</script>' . "\n" . $script;
 
         $departamento = CapHumDAO::getTodosDepartamentosGestion();
         $modulos = $_SESSION['modulos'] ?? [];
@@ -9445,6 +9824,7 @@ class CapHum extends Controller
         self::set("paisesActivos", \Models\Paises::getPaisesActivos());
         self::set("miUsuarioId", $miUsuarioId);
         self::set("permisosCandidatos", $permisosCandidatos);
+        self::set("candidatosSoloValidacionFinal", $soloValidacionFinalCandidatos);
         self::set("listaJefes", CapHumDAO::getListaPersonasParaJefe());
         self::render("candidatos");
     }
@@ -9455,6 +9835,9 @@ class CapHum extends Controller
         $estatus = isset($_GET["estatus"]) ? trim($_GET["estatus"]) : null;
         $id_departamento = isset($_GET["id_departamento"]) ? (int) $_GET["id_departamento"] : null;
         $id_puesto = isset($_GET["id_puesto"]) ? (int) $_GET["id_puesto"] : null;
+        if (self::esSoloValidadorFinalCandidatos()) {
+            $estatus = 'Pendiente de validacion final';
+        }
         $resultado = CandidatosDAO::getAll($estatus, $id_departamento, $id_puesto);
 
         // Eager Loading: Incluir documentos, verificación y métricas de cada candidato
@@ -9511,6 +9894,10 @@ class CapHum extends Controller
             echo json_encode(self::respuesta(false, 'ID inválido.', null));
             exit;
         }
+        if (!self::candidatoVisibleParaSesionSeleccion($id)) {
+            echo json_encode(self::respuesta(false, 'No tienes permiso para consultar este candidato.', null));
+            exit;
+        }
         $resultado = CandidatosDAO::getById($id);
         echo json_encode($resultado);
         exit;
@@ -9539,6 +9926,22 @@ class CapHum extends Controller
             echo json_encode(self::respuesta(false, 'ID inválido.', null));
             exit;
         }
+        if (!self::candidatoVisibleParaSesionSeleccion($id)) {
+            echo json_encode(self::respuesta(false, 'No tienes permiso para eliminar este candidato.', null));
+            exit;
+        }
+        $idUsuarioAccion = (int) ($_SESSION['usuario_id'] ?? 0);
+        $fechaEliminacion = (new \DateTimeImmutable('now', new \DateTimeZone('America/Mexico_City')))->format('Y-m-d H:i:s');
+        CandidatosDAO::guardarSnapshotHistoricoCandidato($id, 'Eliminado', 'Eliminado desde Selección de Personal', null, $idUsuarioAccion > 0 ? $idUsuarioAccion : null, $fechaEliminacion);
+        CandidatosDAO::registrarBitacoraCandidato(
+            $id,
+            'CANDIDATO_ELIMINADO',
+            'Candidato eliminado',
+            'El candidato fue eliminado desde Selección de Personal.',
+            ['motivo' => 'Eliminado desde Selección de Personal'],
+            $idUsuarioAccion > 0 ? $idUsuarioAccion : null,
+            $fechaEliminacion
+        );
         $storageRoot = defined('RAIZ') ? (RAIZ . '/storage') : (__DIR__ . '/../storage');
         $resDocs = CandidatosDAO::getDocumentosCandidato($id);
         if ($resDocs['success'] && !empty($resDocs['datos'])) {
@@ -9600,6 +10003,10 @@ class CapHum extends Controller
             echo json_encode(self::respuesta(false, 'ID de candidato requerido.', null));
             exit;
         }
+        if (!self::candidatoVisibleParaSesionSeleccion($id)) {
+            echo json_encode(self::respuesta(false, 'No tienes permiso para editar este candidato.', null));
+            exit;
+        }
         $resultado = CandidatosDAO::update($id, $data);
         echo json_encode($resultado);
         exit;
@@ -9615,6 +10022,10 @@ class CapHum extends Controller
         $email = isset($body["email"]) ? trim($body["email"]) : "";
         if ($id <= 0) {
             echo json_encode(self::respuesta(false, "Datos insuficientes.", null));
+            return;
+        }
+        if (!self::candidatoVisibleParaSesionSeleccion($id)) {
+            echo json_encode(self::respuesta(false, 'No tienes permiso para reenviar la postulacion de este candidato.', null));
             return;
         }
         $candidatoRes = CandidatosDAO::getById($id);
@@ -10738,6 +11149,35 @@ class CapHum extends Controller
      * GET: id_candidato (query).
      * Optimizado: una sola conexión DB, caché 45s (file o APCu), invalidación al subir/eliminar/verificar.
      */
+    public function getBitacoraCandidato()
+    {
+        header('Content-Type: application/json; charset=utf-8');
+        if (!self::tieneModuloWeb(self::MODULO_AGREGAR_USUARIO_RRHH) && !self::puedeValidarDocumentalCandidatos() && !self::puedeValidarFinalCandidatos()) {
+            echo json_encode(self::respuesta(false, 'No tienes permiso para consultar la bitácora del candidato.'));
+            return;
+        }
+        $id_candidato = (int) ($_GET['id_candidato'] ?? $_POST['id_candidato'] ?? $_GET['id'] ?? $_POST['id'] ?? 0);
+        if ($id_candidato <= 0) {
+            echo json_encode(self::respuesta(false, 'ID de candidato inválido.'));
+            return;
+        }
+        if (!self::candidatoVisibleParaSesionSeleccion($id_candidato)) {
+            echo json_encode(self::respuesta(false, 'No tienes permiso para consultar la bitacora de este candidato.'));
+            return;
+        }
+        echo json_encode(CandidatosDAO::getBitacoraCandidato($id_candidato));
+    }
+
+    public function getHistoricoCandidatos()
+    {
+        header('Content-Type: application/json; charset=utf-8');
+        if (!self::tieneModuloWeb(self::MODULO_AGREGAR_USUARIO_RRHH) && !self::puedeValidarDocumentalCandidatos() && !self::puedeValidarFinalCandidatos()) {
+            echo json_encode(self::respuesta(false, 'No tienes permiso para consultar el histórico de candidatos.'));
+            return;
+        }
+        echo json_encode(CandidatosDAO::getHistoricoCandidatos());
+    }
+
     public function getDocumentosCandidatoList()
     {
         header('Content-Type: application/json; charset=utf-8');
@@ -10747,8 +11187,13 @@ class CapHum extends Controller
             return;
         }
 
+        if (!self::candidatoVisibleParaSesionSeleccion($id_candidato)) {
+            echo json_encode(self::respuesta(false, 'No tienes permiso para consultar documentos de este candidato.'));
+            return;
+        }
+
         $cacheDir = defined('RAIZ') ? (RAIZ . '/storage/cache') : (__DIR__ . '/../storage/cache');
-        $cacheKey = 'doc_candidato_v3_' . $id_candidato;
+        $cacheKey = 'doc_candidato_v5_' . $id_candidato;
         $ttl = 45;
 
         if (function_exists('apcu_fetch')) {
@@ -11310,6 +11755,42 @@ class CapHum extends Controller
      * GET: id (id del registro candidato_documento).
      * Sirve desde disco (rápido, con caché) si existe ruta_archivo; si no, desde BD (contenido LONGBLOB).
      */
+    private function resolverRutaStorageCandidato(string $rutaRelativa): ?string
+    {
+        $rutaRelativa = str_replace('\\', '/', trim($rutaRelativa));
+        if ($rutaRelativa === '') {
+            return null;
+        }
+        if (preg_match('/^[A-Za-z]:\//', $rutaRelativa) || strpos($rutaRelativa, '/') === 0) {
+            return is_file($rutaRelativa) ? $rutaRelativa : null;
+        }
+        $rutaRelativa = ltrim($rutaRelativa, '/');
+        if (stripos($rutaRelativa, 'storage/') === 0) {
+            $rutaRelativa = substr($rutaRelativa, 8);
+        }
+        $candidatos = [];
+        if (defined('RAIZ')) {
+            $candidatos[] = RAIZ . '/storage';
+            $candidatos[] = dirname(RAIZ) . '/storage';
+        }
+        $candidatos[] = dirname(__DIR__) . '/storage';
+        $candidatos[] = dirname(__DIR__, 2) . '/storage';
+
+        $vistos = [];
+        foreach ($candidatos as $storageRoot) {
+            $storageRoot = rtrim(str_replace('\\', '/', (string) $storageRoot), '/');
+            if ($storageRoot === '' || isset($vistos[$storageRoot])) {
+                continue;
+            }
+            $vistos[$storageRoot] = true;
+            $posible = $storageRoot . '/' . $rutaRelativa;
+            if (is_file($posible)) {
+                return $posible;
+            }
+        }
+        return null;
+    }
+
     public function verDocumentoCandidato($id = null)
     {
         $id_doc = (int) ($id ?? $_GET['id'] ?? 0);
@@ -11319,14 +11800,12 @@ class CapHum extends Controller
             return;
         }
 
-        $storageRoot = defined('RAIZ') ? (RAIZ . '/storage') : (__DIR__ . '/../storage');
-
         // Ruta rápida: solo nombre y ruta (sin cargar LONGBLOB). Casi siempre el archivo está en disco.
         $resRuta = CandidatosDAO::getDocumentoRutaSolo($id_doc);
         if ($resRuta['success'] && !empty($resRuta['datos']['ruta_archivo'])) {
             $rutaRel = trim($resRuta['datos']['ruta_archivo']);
-            $path = $storageRoot . '/' . $rutaRel;
-            if (is_file($path)) {
+            $path = $this->resolverRutaStorageCandidato($rutaRel);
+            if ($path !== null && is_file($path)) {
                 $nombre = $resRuta['datos']['nombre_archivo'] ?? 'documento';
                 $ext = strtolower(pathinfo($nombre, PATHINFO_EXTENSION));
                 $mimes = ['pdf' => 'application/pdf', 'jpg' => 'image/jpeg', 'jpeg' => 'image/jpeg', 'png' => 'image/png', 'doc' => 'application/msword', 'docx' => 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'];
@@ -11376,8 +11855,8 @@ class CapHum extends Controller
         }
 
         $rutaRel = trim($doc['ruta_archivo'] ?? '');
-        $path = $storageRoot . '/' . $rutaRel;
-        if (!is_file($path)) {
+        $path = $this->resolverRutaStorageCandidato($rutaRel);
+        if ($path === null || !is_file($path)) {
             header('HTTP/1.0 404 Not Found');
             echo 'Archivo no encontrado';
             return;
@@ -11394,6 +11873,115 @@ class CapHum extends Controller
     /**
      * Eliminar un documento del expediente. Requiere módulo Candidatos.
      * POST JSON o form: id (id del registro candidato_documento), comentario (obligatorio, motivo visible para el candidato por correo).
+     */
+    /**
+     * Descargar todo el expediente del candidato en ZIP.
+     * GET: id_candidato.
+     */
+    public function descargarExpedienteCandidatoZip()
+    {
+        if (!self::tieneModuloWeb(self::MODULO_AGREGAR_USUARIO_RRHH) && !self::puedeValidarDocumentalCandidatos() && !self::puedeValidarFinalCandidatos()) {
+            header('HTTP/1.1 403 Forbidden');
+            header('Content-Type: application/json; charset=utf-8');
+            echo json_encode(self::respuesta(false, 'No tienes permiso para descargar expedientes de candidatos.'));
+            return;
+        }
+
+        $id_candidato = (int) ($_GET['id_candidato'] ?? $_GET['id'] ?? 0);
+        if ($id_candidato <= 0) {
+            header('HTTP/1.1 400 Bad Request');
+            header('Content-Type: application/json; charset=utf-8');
+            echo json_encode(self::respuesta(false, 'ID de candidato inválido.'));
+            return;
+        }
+
+        if (!self::candidatoVisibleParaSesionSeleccion($id_candidato)) {
+            header('HTTP/1.1 403 Forbidden');
+            header('Content-Type: application/json; charset=utf-8');
+            echo json_encode(self::respuesta(false, 'No tienes permiso para descargar este expediente.'));
+            return;
+        }
+
+        $temporales = [];
+        try {
+            if (!class_exists('\ZipArchive')) {
+                throw new \RuntimeException('La extensión ZIP no está disponible en el servidor.');
+            }
+
+            $candidatoRes = CandidatosDAO::getById($id_candidato);
+            if (empty($candidatoRes['success']) || empty($candidatoRes['datos'])) {
+                throw new \RuntimeException('Candidato no encontrado.');
+            }
+
+            $docsData = CandidatosDAO::getDocumentosYVerificacion($id_candidato);
+            $documentos = is_array($docsData['documentos'] ?? null) ? $docsData['documentos'] : [];
+            if (!$documentos) {
+                throw new \RuntimeException('El candidato no tiene documentos para descargar.');
+            }
+
+            $archivosZip = [];
+
+            foreach ($documentos as $doc) {
+                $idDoc = (int) ($doc['id'] ?? 0);
+                $nombreOriginal = trim((string) ($doc['nombre_archivo'] ?? 'documento.pdf'));
+                $tipoDocumento = trim((string) ($doc['tipo_documento'] ?? 'Documento'));
+                $nombreZip = $this->nombreSeguroDescarga($tipoDocumento . ' - ' . ($nombreOriginal !== '' ? $nombreOriginal : ('documento_' . $idDoc . '.pdf')));
+                $rutaFisica = '';
+
+                $rutaRel = trim((string) ($doc['ruta_archivo'] ?? ''));
+                if ($rutaRel !== '') {
+                    $resuelta = $this->resolverRutaStorageCandidato($rutaRel);
+                    if ($resuelta !== null) {
+                        $rutaFisica = $resuelta;
+                    }
+                }
+
+                if ($rutaFisica === '' && $idDoc > 0) {
+                    $contenidoRes = CandidatosDAO::getDocumentoContenidoParaVer($idDoc);
+                    $contenido = $contenidoRes['datos']['contenido'] ?? null;
+                    if (!empty($contenido)) {
+                        $tmp = tempnam(sys_get_temp_dir(), 'exp_cand_');
+                        if ($tmp !== false) {
+                            file_put_contents($tmp, $contenido);
+                            $temporales[] = $tmp;
+                            $rutaFisica = $tmp;
+                        }
+                    }
+                }
+
+                if ($rutaFisica !== '' && is_file($rutaFisica)) {
+                    $archivosZip[] = ['ruta' => $rutaFisica, 'nombre' => $nombreZip];
+                }
+            }
+
+            if (!$archivosZip) {
+                throw new \RuntimeException('No se encontraron archivos físicos para descargar.');
+            }
+
+            $c = $candidatoRes['datos'];
+            $nombreCandidato = trim(implode(' ', [
+                $c['nombres'] ?? '',
+                $c['segundo_nombre'] ?? '',
+                $c['apellidop'] ?? '',
+                $c['apellidom'] ?? '',
+            ]));
+            $baseDescarga = $this->nombreSeguroDescarga('Expediente_' . ($nombreCandidato !== '' ? $nombreCandidato : ('candidato_' . $id_candidato)));
+            $tmpZip = $this->crearZipTemporalDocumentos($archivosZip, $baseDescarga);
+            $this->enviarArchivoDescarga($tmpZip, $baseDescarga . '.zip', 'application/zip', array_merge([$tmpZip], $temporales));
+        } catch (\Throwable $e) {
+            foreach ($temporales as $tmp) {
+                if (is_string($tmp) && is_file($tmp)) {
+                    @unlink($tmp);
+                }
+            }
+            header('HTTP/1.1 500 Internal Server Error');
+            header('Content-Type: application/json; charset=utf-8');
+            echo json_encode(self::respuesta(false, 'No se pudo descargar el expediente.', null, $e->getMessage()));
+        }
+    }
+
+    /**
+     * Eliminar un documento del expediente de un candidato.
      */
     public function eliminarDocumentoCandidato()
     {
@@ -11459,7 +12047,8 @@ class CapHum extends Controller
             $tipoDoc !== '' ? $tipoDoc : null,
             $nombreArch !== '' ? $nombreArch : null,
             $comentario,
-            $idUsuarioRrhh > 0 ? $idUsuarioRrhh : null
+            $idUsuarioRrhh > 0 ? $idUsuarioRrhh : null,
+            $rechazoEnFlujoFinal ? 'validacion_final' : 'revision_documental'
         );
         if (!$logRes['success']) {
             echo json_encode(self::respuesta(false, $logRes['mensaje'] ?? 'No se pudo registrar el motivo. Revise permisos de BD o ejecute la migración de la tabla candidato_documento_eliminacion.', null, $logRes['error'] ?? null));
@@ -11673,6 +12262,14 @@ class CapHum extends Controller
         $requeridos = 10;
         $todosValidados = ($conteo['total'] >= $requeridos && $conteo['validados'] >= $requeridos);
         if ($todosValidados) {
+            CandidatosDAO::registrarBitacoraCandidatoUnaVez(
+                $idCand,
+                $enFlujoFinal ? 'DOCUMENTOS_VALIDADOS_FINAL' : 'DOCUMENTOS_VALIDADOS',
+                $enFlujoFinal ? 'Documentos validados en fase final' : 'Documentos validados',
+                $enFlujoFinal ? 'El validador final revisó y validó los documentos requeridos.' : 'Capital Humano validó todos los documentos requeridos.',
+                ['validados' => (int) ($conteo['validados'] ?? 0), 'total_documentos' => (int) ($conteo['total'] ?? 0)],
+                (int) ($_SESSION['usuario_id'] ?? 0)
+            );
             CandidatosDAO::updateEstatus($idCand, $enFlujoFinal ? ($estatusActual === 'Ingreso programado' ? 'Ingreso programado' : 'Pendiente de validacion final') : 'Validado');
         } else {
             CandidatosDAO::updateEstatus($idCand, $enFlujoFinal ? 'Pendiente de validacion final' : 'Por evaluar');
@@ -11759,6 +12356,14 @@ class CapHum extends Controller
             return;
         }
         CandidatosDAO::updateEstatus($id_candidato, 'Pendiente de validacion final');
+        CandidatosDAO::registrarBitacoraCandidatoUnaVez(
+            $id_candidato,
+            'ENVIADO_VALIDACION_FINAL',
+            'Enviado a validación final',
+            'El expediente fue enviado al validador final para continuar el proceso.',
+            ['sueldo' => $guardarSueldo['datos'] ?? null],
+            (int) ($_SESSION['usuario_id'] ?? 0)
+        );
         CandidatosDAO::invalidateDocumentacionCache($id_candidato);
         echo json_encode(self::respuesta(true, 'Expediente enviado a validacion final.', [
             'id_candidato' => $id_candidato,
@@ -11824,12 +12429,16 @@ class CapHum extends Controller
             echo json_encode(self::respuesta(false, 'ID de candidato inválido.'));
             return;
         }
+        if (!self::candidatoVisibleParaSesionSeleccion($id_candidato)) {
+            echo json_encode(self::respuesta(false, 'No tienes permiso para cerrar este proceso.'));
+            return;
+        }
         $motivosPermitidos = ['no_cubre_perfil', 'desistio', 'sin_info_a_tiempo', 'otro'];
         if ($motivo === '' || !in_array($motivo, $motivosPermitidos, true)) {
             echo json_encode(self::respuesta(false, 'Selecciona un motivo válido para el cierre.'));
             return;
         }
-        $resultado = CandidatosDAO::cerrarProceso($id_candidato, $motivo, $descripcion);
+        $resultado = CandidatosDAO::cerrarProceso($id_candidato, $motivo, $descripcion, (int) ($_SESSION['usuario_id'] ?? 0));
         if ($resultado['success']) {
             CandidatosDAO::invalidateDocumentacionCache($id_candidato);
         }
@@ -12010,6 +12619,21 @@ class CapHum extends Controller
             }
             $fechaNotificada = (new \DateTimeImmutable('now', new \DateTimeZone('America/Mexico_City')))->format('Y-m-d H:i:s');
             CandidatosDAO::registrarIngresoProgramado($id_candidato, $fechaIngresoNormalizada, $fechaNotificada);
+            CandidatosDAO::registrarBitacoraCandidato(
+                $id_candidato,
+                'FECHA_INGRESO_NOTIFICADA',
+                'Fecha de ingreso notificada',
+                'Se envió la fecha de ingreso al candidato' . ($correoJefeIntentado ? ' y al jefe correspondiente.' : '.'),
+                [
+                    'fecha_ingreso' => $fechaIngresoNormalizada,
+                    'correo_candidato_enviado' => true,
+                    'correo_jefe_intentado' => $correoJefeIntentado,
+                    'correo_jefe_enviado' => $correoJefeEnviado,
+                    'correo_jefe_fuente' => $correoJefeInfo['fuente'],
+                ],
+                (int) ($_SESSION['usuario_id'] ?? 0),
+                $fechaNotificada
+            );
             echo json_encode(self::respuesta(true, 'Notificaciones enviadas. Queda pendiente confirmar la firma del contrato.', [
                 'id_candidato' => $id_candidato,
                 'fecha_ingreso' => $fechaIngresoNormalizada,
@@ -12168,8 +12792,19 @@ class CapHum extends Controller
         }
         $id_persona = isset($resInsert['datos']['id']) ? (int) $resInsert['datos']['id'] : 0;
         $documentosCopiados = $this->copiarDocumentosCandidatoAGestion($id_candidato, $id_persona);
-        CandidatosDAO::marcarContratoFirmado($id_candidato, (new \DateTimeImmutable('now', new \DateTimeZone('America/Mexico_City')))->format('Y-m-d H:i:s'));
+        $fechaContratado = (new \DateTimeImmutable('now', new \DateTimeZone('America/Mexico_City')))->format('Y-m-d H:i:s');
+        CandidatosDAO::marcarContratoFirmado($id_candidato, $fechaContratado);
         CandidatosDAO::updateEstatus($id_candidato, 'Contratado');
+        CandidatosDAO::registrarBitacoraCandidatoUnaVez(
+            $id_candidato,
+            'PASO_A_PLANTILLA',
+            'Pasó a plantilla',
+            'El candidato fue dado de alta en Gestión correctamente.',
+            ['id_persona' => $id_persona, 'documentos_copiados' => $documentosCopiados],
+            (int) ($_SESSION['usuario_id'] ?? 0),
+            $fechaContratado
+        );
+        CandidatosDAO::guardarSnapshotHistoricoCandidato($id_candidato, 'Contratado', 'Pasó a plantilla', null, (int) ($_SESSION['usuario_id'] ?? 0), $fechaContratado);
         $nombreCompleto = trim(implode(' ', [$c['nombres'] ?? '', $c['segundo_nombre'] ?? '', $c['apellidop'] ?? '', $c['apellidom'] ?? '']));
         $destino = trim($c['email'] ?? '');
         if ($destino !== '' && filter_var($destino, FILTER_VALIDATE_EMAIL)) {
@@ -14611,7 +15246,7 @@ class CapHum extends Controller
                             `.trim(),
                             estatus: `
                                 <div class="fw-semibold d-flex align-items-center gap-2" style="color: #dc3545 !important;">
-                                    <span class="bajas-easter-ghost-trigger" style="cursor:pointer;display:inline-flex;align-items:center;" title="Mantén pulsado 1,5 s"> <i class="fa fa-ban" style="color: #dc3545 !important;"></i></span>
+                                    <span class="bajas-easter-ghost-trigger" style="cursor:pointer;display:inline-flex;align-items:center;" title="Mant&eacute;n pulsado 1,5 s"> <i class="fa fa-ban" style="color: #dc3545 !important;"></i></span>
                                     <span style="color: #dc3545 !important;">Baja</span>
                                 </div>
                                 <div class="text-muted small d-flex align-items-center gap-2 mt-1">
@@ -19316,9 +19951,11 @@ public function getEstadosMunicipiosMexico()
             }
             $fiCal = trim((string) ($body['fecha_inicio'] ?? ''));
             $ffCal = trim((string) ($body['fecha_fin'] ?? ''));
+            $idDireccion = (int) ($body['id_direccion'] ?? 0);
             $idArea = (int) ($body['id_area'] ?? 0);
             $idDepartamento = (int) ($body['id_departamento'] ?? 0);
             $idPuesto = (int) ($body['id_puesto'] ?? 0);
+            $idDireccion = $idDireccion > 0 ? $idDireccion : null;
             $idArea = $idArea > 0 ? $idArea : null;
             $idDepartamento = $idDepartamento > 0 ? $idDepartamento : null;
             $idPuesto = $idPuesto > 0 ? $idPuesto : null;
@@ -19329,8 +19966,8 @@ public function getEstadosMunicipiosMexico()
                 [$fiCal, $ffCal] = self::capFechasEstadisticasChHastaHoy($fiCal, $ffCal);
             }
             $res = $usaCal
-                ? \Models\CapHumEstadisticas::getDatosPanel($anio, $mes, $semana, $fiCal, $ffCal, $idArea, $idDepartamento, $idPuesto)
-                : \Models\CapHumEstadisticas::getDatosPanel($anio, $mes, $semana, null, null, $idArea, $idDepartamento, $idPuesto);
+                ? \Models\CapHumEstadisticas::getDatosPanel($anio, $mes, $semana, $fiCal, $ffCal, $idDireccion, $idArea, $idDepartamento, $idPuesto)
+                : \Models\CapHumEstadisticas::getDatosPanel($anio, $mes, $semana, null, null, $idDireccion, $idArea, $idDepartamento, $idPuesto);
             echo json_encode($res, JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE);
         } catch (\Throwable $e) {
             http_response_code(500);
@@ -19355,12 +19992,14 @@ public function getEstadosMunicipiosMexico()
             if (!is_array($body)) {
                 $body = [];
             }
+            $idDireccion = (int) ($body['id_direccion'] ?? 0);
             $idArea = (int) ($body['id_area'] ?? 0);
             $idDepartamento = (int) ($body['id_departamento'] ?? 0);
+            $idDireccion = $idDireccion > 0 ? $idDireccion : null;
             $idArea = $idArea > 0 ? $idArea : null;
             $idDepartamento = $idDepartamento > 0 ? $idDepartamento : null;
 
-            $res = \Models\CapHumEstadisticas::getFiltrosEstructura($idArea, $idDepartamento);
+            $res = \Models\CapHumEstadisticas::getFiltrosEstructura($idDireccion, $idArea, $idDepartamento);
             echo json_encode($res, JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE);
         } catch (\Throwable $e) {
             http_response_code(500);
@@ -19398,9 +20037,11 @@ public function getEstadosMunicipiosMexico()
             }
             $fiCal = trim((string) ($body['fecha_inicio'] ?? ''));
             $ffCal = trim((string) ($body['fecha_fin'] ?? ''));
+            $idDireccion = (int) ($body['id_direccion'] ?? 0);
             $idArea = (int) ($body['id_area'] ?? 0);
             $idDepartamento = (int) ($body['id_departamento'] ?? 0);
             $idPuesto = (int) ($body['id_puesto'] ?? 0);
+            $idDireccion = $idDireccion > 0 ? $idDireccion : null;
             $idArea = $idArea > 0 ? $idArea : null;
             $idDepartamento = $idDepartamento > 0 ? $idDepartamento : null;
             $idPuesto = $idPuesto > 0 ? $idPuesto : null;
@@ -19411,8 +20052,8 @@ public function getEstadosMunicipiosMexico()
                 [$fiCal, $ffCal] = self::capFechasEstadisticasChHastaHoy($fiCal, $ffCal);
             }
             $res = $usaCal
-                ? \Models\CapHumEstadisticas::getMovimientoPorDepartamento($tipo, $anio, $mes, $semana, $fiCal, $ffCal, $idArea, $idDepartamento, $idPuesto)
-                : \Models\CapHumEstadisticas::getMovimientoPorDepartamento($tipo, $anio, $mes, $semana, null, null, $idArea, $idDepartamento, $idPuesto);
+                ? \Models\CapHumEstadisticas::getMovimientoPorDepartamento($tipo, $anio, $mes, $semana, $fiCal, $ffCal, $idDireccion, $idArea, $idDepartamento, $idPuesto)
+                : \Models\CapHumEstadisticas::getMovimientoPorDepartamento($tipo, $anio, $mes, $semana, null, null, $idDireccion, $idArea, $idDepartamento, $idPuesto);
             echo json_encode($res, JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE);
         } catch (\Throwable $e) {
             http_response_code(500);

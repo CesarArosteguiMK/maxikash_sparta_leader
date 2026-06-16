@@ -1,0 +1,956 @@
+[
+    {
+        "fk_sucursal": 1206,
+        "sucursal": "SAN LUIS LA LOMA",
+        "estatus": "incompleto",
+        "calle": "Calle Altamirano",
+        "numero_exterior": "S\/N",
+        "colonia": "",
+        "formatted": "7495+XP, 40906 San Luis de la Loma, Gro., México"
+    },
+    {
+        "fk_sucursal": 1207,
+        "sucursal": "ATOYAC DE ALVAREZ",
+        "estatus": "incompleto",
+        "calle": "Ahuacuotzingo",
+        "numero_exterior": "S\/N",
+        "colonia": "",
+        "formatted": "M288+CF Oxtotitlán, Gro., México"
+    },
+    {
+        "fk_sucursal": 1204,
+        "sucursal": "TECPAN DE GALEANA",
+        "estatus": "incompleto",
+        "calle": "Colonia Piedra Parada",
+        "numero_exterior": "S\/N",
+        "colonia": "",
+        "formatted": "6FHF+G4RP Los Llanos de Zintapala, Guerrero, México"
+    },
+    {
+        "fk_sucursal": 1203,
+        "sucursal": "PETATLAN",
+        "estatus": "incompleto",
+        "calle": "Petatlán",
+        "numero_exterior": "S\/N",
+        "colonia": "",
+        "formatted": "HR28+J2 Cacánicua, Gro., México"
+    },
+    {
+        "fk_sucursal": 2129,
+        "sucursal": "SERVIMORS PEREZ",
+        "estatus": "incompleto",
+        "calle": "Benito Juárez",
+        "numero_exterior": "164",
+        "colonia": "",
+        "formatted": "Benito Juárez 164, 96950 Jesús Carranza, Ver., México"
+    },
+    {
+        "fk_sucursal": 1046,
+        "sucursal": "BAJAJ TLAPA",
+        "estatus": "incompleto",
+        "calle": "Av. Aeropuerto 5",
+        "numero_exterior": "S\/N",
+        "colonia": "",
+        "formatted": "H787+73 Chiepetepec, Gro., México"
+    },
+    {
+        "fk_sucursal": 1271,
+        "sucursal": "QJ MOTOR BENDA DURANGO",
+        "estatus": "incompleto",
+        "calle": "Boulevard Felipe Pescador",
+        "numero_exterior": "3171",
+        "colonia": "",
+        "formatted": "Blvd. Felipe Pescador 3171, 34000 Durango, Dgo., México"
+    },
+    {
+        "fk_sucursal": 2145,
+        "sucursal": "ITALIKA JUAN RODRIGUEZ CLARA",
+        "estatus": "incompleto",
+        "calle": "Solerilla",
+        "numero_exterior": "S\/N",
+        "colonia": "",
+        "formatted": "5H9M+7H Solerilla, Ver., México"
+    },
+    {
+        "fk_sucursal": 1672,
+        "sucursal": "141 VENTO TEPEXPAN",
+        "estatus": "incompleto",
+        "calle": "Paseo Real del Valle",
+        "numero_exterior": "S\/N",
+        "colonia": "",
+        "formatted": "Paseo Real del Valle, 55883 Tepexpan, Méx., México"
+    },
+    {
+        "fk_sucursal": 2480,
+        "sucursal": "CF MOTO TEZONTEPEC",
+        "estatus": "incompleto",
+        "calle": "Avenida Ignacio Zaragoza",
+        "numero_exterior": "S\/N",
+        "colonia": "",
+        "formatted": "5PGH+8X Tezontepec de Aldama, Hgo., México"
+    },
+    {
+        "fk_sucursal": 1111,
+        "sucursal": "HIPERBIKES AJUSCO",
+        "estatus": "incompleto",
+        "calle": "FLACSO",
+        "numero_exterior": "S\/N",
+        "colonia": "",
+        "formatted": "7QXM+P8 Ciudad de México, CDMX, México"
+    },
+    {
+        "fk_sucursal": 1338,
+        "sucursal": "NOVAMOTOS ALMOLOYA",
+        "estatus": "incompleto",
+        "calle": "México 46",
+        "numero_exterior": "1600",
+        "colonia": "",
+        "formatted": "MEX 46 1600, 51355 Santiaguito Tlalcilalcalli, Méx., México"
+    },
+    {
+        "fk_sucursal": 1877,
+        "sucursal": "JAVA MOTORS",
+        "estatus": "incompleto",
+        "calle": "Calle Libramiento Oriente Tejupilco-Amatepec",
+        "numero_exterior": "S\/N",
+        "colonia": "",
+        "formatted": "VVM5+6F Tejupilco de Hidalgo, Méx., México"
+    },
+    {
+        "fk_sucursal": 539,
+        "sucursal": "ZMOTO YAUTEPEC",
+        "estatus": "incompleto",
+        "calle": "Cuautla - Yautepec de Zaragoza",
+        "numero_exterior": "219",
+        "colonia": "",
+        "formatted": "Cuautla - Yautepec de Zaragoza 219, 62736 Cocoyoc, Mor., México"
+    },
+    {
+        "fk_sucursal": 893,
+        "sucursal": "MOTOCARROS ISRAEL",
+        "estatus": "incompleto",
+        "calle": "Carretera Federal México-Cuautla",
+        "numero_exterior": "97",
+        "colonia": "",
+        "formatted": "Carr Federal México-Cuautla 97, 62820 Yecapixtla, Mor., México"
+    },
+    {
+        "fk_sucursal": 1252,
+        "sucursal": "ITALIKA OCUITUCO",
+        "estatus": "incompleto",
+        "calle": "Calle Agrarismo",
+        "numero_exterior": "638",
+        "colonia": "",
+        "formatted": "Calle Agrarismo 638, 62850 Ocuituco, Mor., México"
+    },
+    {
+        "fk_sucursal": 1460,
+        "sucursal": "PARA MOTO DRM ATLACHOLOAYA 3R",
+        "estatus": "incompleto",
+        "calle": "Taxco - Cuernavaca",
+        "numero_exterior": "19",
+        "colonia": "",
+        "formatted": "Taxco - Cuernavaca 19, 62797 Atlacholoaya, Mor., México"
+    },
+    {
+        "fk_sucursal": 1553,
+        "sucursal": "ITALIKA GALEANA",
+        "estatus": "incompleto",
+        "calle": "Paseo del Río",
+        "numero_exterior": "38",
+        "colonia": "",
+        "formatted": "P.º del Río 38, 62767 Tezoyuca, Mor., México"
+    },
+    {
+        "fk_sucursal": 1554,
+        "sucursal": "YAMAHA XOCHITEPEC",
+        "estatus": "incompleto",
+        "calle": "Paseo del Río",
+        "numero_exterior": "38",
+        "colonia": "",
+        "formatted": "P.º del Río 38, 62767 Tezoyuca, Mor., México"
+    },
+    {
+        "fk_sucursal": 1619,
+        "sucursal": "ITALIKA XOCHITEPEC-C",
+        "estatus": "incompleto",
+        "calle": "Paseo del Río",
+        "numero_exterior": "38",
+        "colonia": "",
+        "formatted": "P.º del Río 38, 62767 Tezoyuca, Mor., México"
+    },
+    {
+        "fk_sucursal": 1164,
+        "sucursal": "BAJAJ SALAGUA",
+        "estatus": "incompleto",
+        "calle": "Avenida Elías Zamora",
+        "numero_exterior": "5246",
+        "colonia": "",
+        "formatted": "Av Elías Zamora 5246, 28869 Manzanillo, Col., México"
+    },
+    {
+        "fk_sucursal": 1872,
+        "sucursal": "VENTO COLIMA",
+        "estatus": "incompleto",
+        "calle": "Escobedo Oriente",
+        "numero_exterior": "84",
+        "colonia": "",
+        "formatted": "Escobedo Ote. 84, 45640 Tlajomulco de Zúñiga, Jal., México"
+    },
+    {
+        "fk_sucursal": 1742,
+        "sucursal": "BAJAJ SALAGUA-1",
+        "estatus": "incompleto",
+        "calle": "Avenida Elías Zamora",
+        "numero_exterior": "5234",
+        "colonia": "",
+        "formatted": "Av Elías Zamora 5234, 28869 Manzanillo, Col., México"
+    },
+    {
+        "fk_sucursal": 1454,
+        "sucursal": "CFLITE PUERTO VALLARTA",
+        "estatus": "incompleto",
+        "calle": "Las Jarretaderas",
+        "numero_exterior": "S\/N",
+        "colonia": "",
+        "formatted": "JPWP+X9 Puerto Vallarta, Jal., México"
+    },
+    {
+        "fk_sucursal": 1653,
+        "sucursal": "CFLITE TESISTAN",
+        "estatus": "incompleto",
+        "calle": "Avenida Juan Gil Preciado",
+        "numero_exterior": "622",
+        "colonia": "",
+        "formatted": "Av. Juan Gil Preciado 622, 45138 Nuevo México, Jal., México"
+    },
+    {
+        "fk_sucursal": 1520,
+        "sucursal": "BAJAJ BASE AEREA ZAPOPAN",
+        "estatus": "incompleto",
+        "calle": "Calle Paseo del Serenero",
+        "numero_exterior": "S\/N",
+        "colonia": "",
+        "formatted": "QF8Q+79 Nextipac, Jal., México"
+    },
+    {
+        "fk_sucursal": 1212,
+        "sucursal": "CF MOTO ESTAMPIDA",
+        "estatus": "incompleto",
+        "calle": "Camino a las Moras",
+        "numero_exterior": "117",
+        "colonia": "",
+        "formatted": "Cam. a las Moras 117, 45640 San Agustín, Jal., México"
+    },
+    {
+        "fk_sucursal": 701,
+        "sucursal": "MINERVA",
+        "estatus": "incompleto",
+        "calle": "Avenida Ignacio L Vallarta",
+        "numero_exterior": "3162",
+        "colonia": "",
+        "formatted": "Av. Ignacio L Vallarta 3162, 44690 Guadalajara, Jal., México"
+    },
+    {
+        "fk_sucursal": 848,
+        "sucursal": "VENTO ZAPOPAN OCEAN",
+        "estatus": "incompleto",
+        "calle": "Avenida Hidalgo",
+        "numero_exterior": "280",
+        "colonia": "",
+        "formatted": "Av. Hidalgo 280, 45100 Zapopan, Jal., México"
+    },
+    {
+        "fk_sucursal": 1147,
+        "sucursal": "HONDA LA CIMA",
+        "estatus": "incompleto",
+        "calle": "74GWR6X2+5J",
+        "numero_exterior": "S\/N",
+        "colonia": "",
+        "formatted": "74GWR6X2+5J"
+    },
+    {
+        "fk_sucursal": 482,
+        "sucursal": "SUZUKI ATLIXCO",
+        "estatus": "incompleto",
+        "calle": "CARR. LIBRAMIENTO IZUCAR DE MATAMOROS",
+        "numero_exterior": "S\/N",
+        "colonia": "",
+        "formatted": "VHVF+WQ Atlixco, Pue., México"
+    },
+    {
+        "fk_sucursal": 2345,
+        "sucursal": "CFMOTO TESISTAN",
+        "estatus": "incompleto",
+        "calle": "Avenida Juan Gil Preciado",
+        "numero_exterior": "4045",
+        "colonia": "",
+        "formatted": "Av. Juan Gil Preciado 4045, 45138 Nuevo México, Jal., México"
+    },
+    {
+        "fk_sucursal": 2245,
+        "sucursal": "ELEKTRA MOTOS EG",
+        "estatus": "incompleto",
+        "calle": "Carretera salida a Comburindio",
+        "numero_exterior": "S\/N",
+        "colonia": "",
+        "formatted": "Carretera salida a Comburindio, 61940 Huetamo de Núñez, Mich., México"
+    },
+    {
+        "fk_sucursal": 2275,
+        "sucursal": "VENTO PASEO PONIENTE",
+        "estatus": "incompleto",
+        "calle": "Calle José Ignacio Arciga",
+        "numero_exterior": "S\/N",
+        "colonia": "",
+        "formatted": "MPQ4+33 Morelia, Mich., México"
+    },
+    {
+        "fk_sucursal": 2364,
+        "sucursal": "BEINO PEDREGAL",
+        "estatus": "incompleto",
+        "calle": "Avenida Pedregal",
+        "numero_exterior": "71",
+        "colonia": "",
+        "formatted": "Av Pedregal 71, 58140 Morelia, Mich., México"
+    },
+    {
+        "fk_sucursal": 1327,
+        "sucursal": "TRIUMPH MORELIA",
+        "estatus": "incompleto",
+        "calle": "Avenida Tres Marias",
+        "numero_exterior": "455",
+        "colonia": "",
+        "formatted": "Av. Tres Marias 455, 58254 Morelia, Mich., México"
+    },
+    {
+        "fk_sucursal": 1886,
+        "sucursal": "CF MOTO ESTADIO",
+        "estatus": "incompleto",
+        "calle": "Zurumbeneo",
+        "numero_exterior": "S\/N",
+        "colonia": "",
+        "formatted": "P242+M2 Los Triguillos, Mich., México"
+    },
+    {
+        "fk_sucursal": 2390,
+        "sucursal": "TVS MOTOS MARIA LOMBARDO",
+        "estatus": "incompleto",
+        "calle": "Independencia",
+        "numero_exterior": "1080",
+        "colonia": "",
+        "formatted": "Independencia 1080, 70215 María Lombardo de Caso, Oax., México"
+    },
+    {
+        "fk_sucursal": 1210,
+        "sucursal": "IGUALA",
+        "estatus": "incompleto",
+        "calle": "Huitzuco de los Figueroa",
+        "numero_exterior": "S\/N",
+        "colonia": "",
+        "formatted": "9PGG+J2 Tuchimilco, Gro., México"
+    },
+    {
+        "fk_sucursal": 1258,
+        "sucursal": "ITALIKA IGUALA",
+        "estatus": "incompleto",
+        "calle": "Platanillo",
+        "numero_exterior": "S\/N",
+        "colonia": "",
+        "formatted": "9F8R+X5 Iguala de la Independencia, Gro., México"
+    },
+    {
+        "fk_sucursal": 2218,
+        "sucursal": "VENTO HUEJUTLA",
+        "estatus": "incompleto",
+        "calle": "Contépec",
+        "numero_exterior": "S\/N",
+        "colonia": "",
+        "formatted": "4GQ7+R7 Contépec, Hgo., México"
+    },
+    {
+        "fk_sucursal": 2459,
+        "sucursal": "ITALIKA VILLAHERMOSA SURTIMOTO",
+        "estatus": "incompleto",
+        "calle": "Carretera Principal a Anacleto Canabal 1a. Sección",
+        "numero_exterior": "200",
+        "colonia": "",
+        "formatted": "Carr. Principal a Anacleto Canabal 1a. Secc. 200, 86287 Ranchería Emiliano Zapata, Tab., México"
+    },
+    {
+        "fk_sucursal": 901,
+        "sucursal": "TVS TEZONTEPEC",
+        "estatus": "incompleto",
+        "calle": "Plaza Cívica Centro",
+        "numero_exterior": "S\/N",
+        "colonia": "",
+        "formatted": "Plaza Cívica Centro 42760, 42760, 42760 Tezontepec de Aldama, Hgo., México"
+    },
+    {
+        "fk_sucursal": 1057,
+        "sucursal": "YAMAHA CAMPECHE",
+        "estatus": "incompleto",
+        "calle": "Carretera Costera del Golfo",
+        "numero_exterior": "116",
+        "colonia": "",
+        "formatted": "Carr. Costera del Golfo 116, 24030 San Francisco de Campeche, Camp., México"
+    },
+    {
+        "fk_sucursal": 210,
+        "sucursal": "VENTO OCEANIA",
+        "estatus": "incompleto",
+        "calle": "AV",
+        "numero_exterior": "S\/N",
+        "colonia": "",
+        "formatted": "CWX9+4G Ciudad de México, CDMX, México"
+    },
+    {
+        "fk_sucursal": 1248,
+        "sucursal": "VENTO CUAUTZINGO",
+        "estatus": "incompleto",
+        "calle": "Chalco- San Gregorio Cuautzingo",
+        "numero_exterior": "27",
+        "colonia": "",
+        "formatted": "Chalco- San Gregorio Cuautzingo 27, 56640 Santa María Huexoculco, Méx., México"
+    },
+    {
+        "fk_sucursal": 253,
+        "sucursal": "TVS SIERRA MONTERREY",
+        "estatus": "incompleto",
+        "calle": "Avenida Abraham Lincoln",
+        "numero_exterior": "S\/N",
+        "colonia": "",
+        "formatted": "X995+HQ Colonia L. Rabasa, Chis., México"
+    },
+    {
+        "fk_sucursal": 1215,
+        "sucursal": "EL ARCO ALLENDE CARRETERA",
+        "estatus": "incompleto",
+        "calle": "México 36",
+        "numero_exterior": "S\/N",
+        "colonia": "",
+        "formatted": "MEX 36, 50783 Méx., México"
+    },
+    {
+        "fk_sucursal": 2526,
+        "sucursal": "H&S SPORT",
+        "estatus": "incompleto",
+        "calle": "Jilotlán de los Dolores",
+        "numero_exterior": "S\/N",
+        "colonia": "",
+        "formatted": "645V+VH Los Olivos, Jal., México"
+    },
+    {
+        "fk_sucursal": 1225,
+        "sucursal": "TVS LOS REYES",
+        "estatus": "incompleto",
+        "calle": "Uruapan-Los Reyes",
+        "numero_exterior": "S\/N",
+        "colonia": "",
+        "formatted": "HG8R+JM, 60443 Huatarillo, Mich., México"
+    },
+    {
+        "fk_sucursal": 1539,
+        "sucursal": "HONDA LOS REYES",
+        "estatus": "incompleto",
+        "calle": "75F2H2H2+H2",
+        "numero_exterior": "S\/N",
+        "colonia": "",
+        "formatted": "75F2H2H2+H2"
+    },
+    {
+        "fk_sucursal": 1420,
+        "sucursal": "DINAMO APODACA",
+        "estatus": "incompleto",
+        "calle": "Avenida Orquídea",
+        "numero_exterior": "858",
+        "colonia": "",
+        "formatted": "Av. Orquídea 858, 66647 Cdad. Apodaca, N.L., México"
+    },
+    {
+        "fk_sucursal": 1169,
+        "sucursal": "DYMOTO GL",
+        "estatus": "incompleto",
+        "calle": "Tochtepec",
+        "numero_exterior": "S\/N",
+        "colonia": "",
+        "formatted": "V54G+2F Tochtepec, Pue., México"
+    },
+    {
+        "fk_sucursal": 672,
+        "sucursal": "SUZUKI IRAPUATO",
+        "estatus": "incompleto",
+        "calle": "Av. Manuel Gomez Morín No",
+        "numero_exterior": "S\/N",
+        "colonia": "",
+        "formatted": "Av. Manuel Gomez Morín No 3377 Local 1 Col. Ejido de, 36643 Irapuato, Gto., México"
+    },
+    {
+        "fk_sucursal": 802,
+        "sucursal": "EL BODEGON DEL HOGAR",
+        "estatus": "incompleto",
+        "calle": "San Elias",
+        "numero_exterior": "S\/N",
+        "colonia": "",
+        "formatted": "J5V4+WR San Elías, Gto., México"
+    },
+    {
+        "fk_sucursal": 96,
+        "sucursal": "HONDA SAN LUIS GTO",
+        "estatus": "incompleto",
+        "calle": "San Luis de la Paz - Dolores Hidalgo",
+        "numero_exterior": "S\/N",
+        "colonia": "",
+        "formatted": "94PP+R2 El Desmonte, Gto., México"
+    },
+    {
+        "fk_sucursal": 1068,
+        "sucursal": "MOTOMAX TAMAZULA",
+        "estatus": "incompleto",
+        "calle": "Morelos",
+        "numero_exterior": "364",
+        "colonia": "",
+        "formatted": "Morelos 364, 34580 Tamazula de Victoria, Dgo., México"
+    },
+    {
+        "fk_sucursal": 2436,
+        "sucursal": "BGB MOTOS BAJIO",
+        "estatus": "incompleto",
+        "calle": "Carretera Federal 45",
+        "numero_exterior": "KM 7.5",
+        "colonia": "",
+        "formatted": "México 45 KM 7.5, 38260 Villagrán, Gto., México"
+    },
+    {
+        "fk_sucursal": 2012,
+        "sucursal": "AODES MOTORSPORTS LA CALERA",
+        "estatus": "incompleto",
+        "calle": "Carretera Guadalajara - Chapala",
+        "numero_exterior": "21",
+        "colonia": "",
+        "formatted": "Carr. Guadalajara - Chapala 21, 45678 Jardines de la Calera, Jal., México"
+    },
+    {
+        "fk_sucursal": 1325,
+        "sucursal": "RYSE SAN FRANCISCO",
+        "estatus": "incompleto",
+        "calle": "Joséfa Ortiz de Domínguez",
+        "numero_exterior": "S\/N",
+        "colonia": "",
+        "formatted": "25PH+4P, 36365 Estación de San Francisco, Gto., México"
+    },
+    {
+        "fk_sucursal": 440,
+        "sucursal": "BAJAJ CHETUMAL",
+        "estatus": "incompleto",
+        "calle": "Avenida de los Héroes",
+        "numero_exterior": "222",
+        "colonia": "",
+        "formatted": "Av de los Héroes 222, 77010 Chetumal, Q.R., México"
+    },
+    {
+        "fk_sucursal": 1510,
+        "sucursal": "TVS PLAYA DEL CARMEN",
+        "estatus": "incompleto",
+        "calle": "Puerto Morelos",
+        "numero_exterior": "S\/N",
+        "colonia": "",
+        "formatted": "VVV8+9C Leona Vicario, Q.R., México"
+    },
+    {
+        "fk_sucursal": 1981,
+        "sucursal": "MOTO 360",
+        "estatus": "incompleto",
+        "calle": "Paseo de la República",
+        "numero_exterior": "S\/N",
+        "colonia": "",
+        "formatted": "Paseo de la República 10874, El Salitre, 76127 Santiago de Querétaro, Qro., México"
+    },
+    {
+        "fk_sucursal": 1128,
+        "sucursal": "MAQSA QRO MULTIMARCA",
+        "estatus": "incompleto",
+        "calle": "Avenida de las Fuentes",
+        "numero_exterior": "60",
+        "colonia": "",
+        "formatted": "Av. de las Fuentes 60, 76240 Parque Industrial Bernardo Quintana, Qro., México"
+    },
+    {
+        "fk_sucursal": 1829,
+        "sucursal": "VENTO RIO VERDE",
+        "estatus": "incompleto",
+        "calle": "Carlos Jonguitud Barrios",
+        "numero_exterior": "822",
+        "colonia": "",
+        "formatted": "Carlos Jonguitud Barrios 822, 79626 Rioverde, S.L.P., México"
+    },
+    {
+        "fk_sucursal": 1303,
+        "sucursal": "TVS MATLAPA",
+        "estatus": "incompleto",
+        "calle": "Francisco I. Madero Sur",
+        "numero_exterior": "55",
+        "colonia": "",
+        "formatted": "Francisco I. Madero Sur 55, 79970 Matlapa, S.L.P., México"
+    },
+    {
+        "fk_sucursal": 1464,
+        "sucursal": "BAJAJ POZOS",
+        "estatus": "incompleto",
+        "calle": "Carretera a Matehuala",
+        "numero_exterior": "KM 9 S\/N",
+        "colonia": "",
+        "formatted": "Carr. a Matehuala KM 9 S\/N, 78430 Soledad de Graciano Sánchez, S.L.P., México"
+    },
+    {
+        "fk_sucursal": 2525,
+        "sucursal": "ITALIKA SANTA LUCIA",
+        "estatus": "incompleto",
+        "calle": "Santiago Laxopa",
+        "numero_exterior": "S\/N",
+        "colonia": "",
+        "formatted": "4MXC+CX Viejo, Oax., México"
+    },
+    {
+        "fk_sucursal": 1019,
+        "sucursal": "BAJAJ MARIA LOMBARDO",
+        "estatus": "incompleto",
+        "calle": "Independencia",
+        "numero_exterior": "1449",
+        "colonia": "",
+        "formatted": "Independencia 1449, 70215 María Lombardo de Caso, Oax., México"
+    },
+    {
+        "fk_sucursal": 903,
+        "sucursal": "CF MOTO GYG",
+        "estatus": "incompleto",
+        "calle": "Anillo Periférico",
+        "numero_exterior": "375",
+        "colonia": "",
+        "formatted": "Anillo Perif. 375, 34423 Campo de Gracia, Dgo., México"
+    },
+    {
+        "fk_sucursal": 1017,
+        "sucursal": "BAJAJ TLACOMULCO",
+        "estatus": "incompleto",
+        "calle": "Calle Porfirio Díaz",
+        "numero_exterior": "80",
+        "colonia": "",
+        "formatted": "C. Porfirio Díaz 80, 45640 Tlajomulco de Zúñiga, Jal., México"
+    },
+    {
+        "fk_sucursal": 1054,
+        "sucursal": "JASA MOTOS TLAJOMULCO",
+        "estatus": "incompleto",
+        "calle": "Nicolás Bravo",
+        "numero_exterior": "47",
+        "colonia": "",
+        "formatted": "Nicolás Bravo 47, 45640 Tlajomulco de Zúñiga, Jal., México"
+    },
+    {
+        "fk_sucursal": 595,
+        "sucursal": "BAJAJ TLAJOMULCO",
+        "estatus": "incompleto",
+        "calle": "Calle Porfirio Díaz",
+        "numero_exterior": "80",
+        "colonia": "",
+        "formatted": "C. Porfirio Díaz 80, 45640 Tlajomulco de Zúñiga, Jal., México"
+    },
+    {
+        "fk_sucursal": 2228,
+        "sucursal": "CF MOTOS XALAPA",
+        "estatus": "incompleto",
+        "calle": "Carretera Xalapa - Veracruz",
+        "numero_exterior": "S\/N",
+        "colonia": "",
+        "formatted": "G44W+PM, 91642 San Lorenzo, Ver., México"
+    },
+    {
+        "fk_sucursal": 858,
+        "sucursal": "ZMOTOS YAVEO OAXACA",
+        "estatus": "incompleto",
+        "calle": "CARRETERA FEDERAL TUXTEPEC-PALOMARES KM 106+406",
+        "numero_exterior": "S\/N",
+        "colonia": "",
+        "formatted": "FGCV+H2 Francisco Villa, Oax., México"
+    },
+    {
+        "fk_sucursal": 1598,
+        "sucursal": "ZMOTO MANLIO FABIO ALTAMIRANO",
+        "estatus": "incompleto",
+        "calle": "Calle Hidalgo",
+        "numero_exterior": "512",
+        "colonia": "",
+        "formatted": "Calle Hidalgo 512, 94250 Manlio Fabio Altamirano, Ver., México"
+    },
+    {
+        "fk_sucursal": 2252,
+        "sucursal": "JL RACING TEJERIA",
+        "estatus": "incompleto",
+        "calle": "Autopista a Veracruz",
+        "numero_exterior": "13",
+        "colonia": "",
+        "formatted": "Autop. a Veracruz 13, 91697 Valente Díaz, Ver., México"
+    },
+    {
+        "fk_sucursal": 2485,
+        "sucursal": "BAJAJ TEJERIA",
+        "estatus": "incompleto",
+        "calle": "Calle Uno",
+        "numero_exterior": "8338 esquina",
+        "colonia": "",
+        "formatted": "Carretera Federal a Xalapa, C. Uno 8338 esquina, 91697 Valente Díaz, Ver., México"
+    },
+    {
+        "fk_sucursal": 1475,
+        "sucursal": "ITALIKA ALTAMIRA",
+        "estatus": "incompleto",
+        "calle": "Fundo Legal",
+        "numero_exterior": "336",
+        "colonia": "",
+        "formatted": "Fundo Legal 336, 89600 Altamira, Tamps., México"
+    },
+    {
+        "fk_sucursal": 2255,
+        "sucursal": "VENTO CHAMPOTON",
+        "estatus": "incompleto",
+        "calle": "76FFH2HV+42",
+        "numero_exterior": "S\/N",
+        "colonia": "",
+        "formatted": "76FFH2HV+42"
+    },
+    {
+        "fk_sucursal": 2415,
+        "sucursal": "ANC MOTOS",
+        "estatus": "incompleto",
+        "calle": "Calle 20",
+        "numero_exterior": "S\/N",
+        "colonia": "",
+        "formatted": "GRH9+7P, 24570 Alfredo V. Bonfil, Camp., México"
+    },
+    {
+        "fk_sucursal": 871,
+        "sucursal": "HONDA BOCA DEL RIO",
+        "estatus": "incompleto",
+        "calle": "Boulevard Riviera Veracruzana",
+        "numero_exterior": "4405",
+        "colonia": "",
+        "formatted": "Blvd. Riviera Veracruzana 4405, 94290 Residencial el Dorado, Ver., México"
+    },
+    {
+        "fk_sucursal": 2277,
+        "sucursal": "VENTO ALTAMIRA TAMAULIPAS",
+        "estatus": "incompleto",
+        "calle": "Calle Capitán Pérez",
+        "numero_exterior": "307",
+        "colonia": "",
+        "formatted": "C. Capitán Pérez 307, 89600 Altamira, Tamps., México"
+    },
+    {
+        "fk_sucursal": 1097,
+        "sucursal": "HONDA RODEO TEPIC",
+        "estatus": "incompleto",
+        "calle": "75HMGV96+RR",
+        "numero_exterior": "S\/N",
+        "colonia": "",
+        "formatted": "75HMGV96+RR"
+    },
+    {
+        "fk_sucursal": 1144,
+        "sucursal": "HONDA SANTIAGO",
+        "estatus": "incompleto",
+        "calle": "Colonia Emiliano Zapata",
+        "numero_exterior": "S\/N",
+        "colonia": "",
+        "formatted": "RQQ3+C6 El Puente, Nay., México"
+    },
+    {
+        "fk_sucursal": 1326,
+        "sucursal": "BAJAJ MACEPALA",
+        "estatus": "incompleto",
+        "calle": "Club Campestre",
+        "numero_exterior": "S\/N",
+        "colonia": "",
+        "formatted": "G389+VG Tepic, Nay., México"
+    },
+    {
+        "fk_sucursal": 1240,
+        "sucursal": "BAJAJ OMETEPEC",
+        "estatus": "incompleto",
+        "calle": "José Agustín Ramirez",
+        "numero_exterior": "S\/N",
+        "colonia": "",
+        "formatted": "MHRF+C4 Ometepec, Gro., México"
+    },
+    {
+        "fk_sucursal": 2118,
+        "sucursal": "VENTO SAN PEDRO POCHUTLA",
+        "estatus": "incompleto",
+        "calle": "CARRETERA OAXACA- PUERTO ANGEL",
+        "numero_exterior": "S\/N",
+        "colonia": "",
+        "formatted": "PGVG+CJ Barrio Mendillo, Oax., México"
+    },
+    {
+        "fk_sucursal": 922,
+        "sucursal": "VENTO ARANDAS",
+        "estatus": "incompleto",
+        "calle": "Jalisco 314",
+        "numero_exterior": "920",
+        "colonia": "",
+        "formatted": "JAL 314 920, 47185 Arandas, Jal., México"
+    },
+    {
+        "fk_sucursal": 1105,
+        "sucursal": "CF MOTO ARANDAS",
+        "estatus": "incompleto",
+        "calle": "Jalisco 314",
+        "numero_exterior": "19",
+        "colonia": "",
+        "formatted": "JAL 314 19, 47188 Bajío Seco, Jal., México"
+    },
+    {
+        "fk_sucursal": 1865,
+        "sucursal": "BAJAJ SANTA FE TLAJOMULCO",
+        "estatus": "incompleto",
+        "calle": "Lomas de San Agustín",
+        "numero_exterior": "S\/N",
+        "colonia": "",
+        "formatted": "GG2J+PH Santa Cruz de las Flores, Jal., México"
+    },
+    {
+        "fk_sucursal": 184,
+        "sucursal": "HONDA LERMA",
+        "estatus": "incompleto",
+        "calle": "Cerrada de Juárez",
+        "numero_exterior": "2",
+        "colonia": "",
+        "formatted": "Cda. de Juárez 2, 52030 San Pedro Tultepec, Méx., México"
+    },
+    {
+        "fk_sucursal": 1039,
+        "sucursal": "NOVAMOTOS SANTIAGO TIANGUISTENCO",
+        "estatus": "incompleto",
+        "calle": "Avenida Belisario Domínguez",
+        "numero_exterior": "427",
+        "colonia": "",
+        "formatted": "Av. Belisario Domínguez 427, 52660 San Nicolás Coatepec De Las Bateas, Méx., México"
+    },
+    {
+        "fk_sucursal": 2598,
+        "sucursal": "HONDA CHALCO",
+        "estatus": "incompleto",
+        "calle": "Cuautla",
+        "numero_exterior": "208",
+        "colonia": "",
+        "formatted": "CARR FED MEX, Cuautla 208, 56640 Chalco de Díaz Covarrubias, Méx., México"
+    },
+    {
+        "fk_sucursal": 2555,
+        "sucursal": "CFMOTO ESTAMPIDA",
+        "estatus": "incompleto",
+        "calle": "Avenida Adolfo López Mateos Sur",
+        "numero_exterior": "9020",
+        "colonia": "",
+        "formatted": "Av. Adolfo López Mateos Sur 9020-A, 45645 San Agustín, Jal., México"
+    },
+    {
+        "fk_sucursal": 2536,
+        "sucursal": "YAMAHA VALLARTA-KY",
+        "estatus": "incompleto",
+        "calle": "La Cruz de Huanacaxtle",
+        "numero_exterior": "S\/N",
+        "colonia": "",
+        "formatted": "PM94+8W Flamingos, Nay., México"
+    },
+    {
+        "fk_sucursal": 2620,
+        "sucursal": "VENTO TIZARA",
+        "estatus": "incompleto",
+        "calle": "Haciendas de Tizayuca",
+        "numero_exterior": "S\/N",
+        "colonia": "",
+        "formatted": "VXC5+F7 Ponparkyin, Myanmar (Birmania)"
+    },
+    {
+        "fk_sucursal": 2313,
+        "sucursal": "PPB MOTOS",
+        "estatus": "incompleto",
+        "calle": "Av Abraham Lincoln 5741 Valle verde 2sector Monterrey NL. Cp",
+        "numero_exterior": "S\/N",
+        "colonia": "",
+        "formatted": "FXCW+MX Rosendo Salazar, Chis., México"
+    },
+    {
+        "fk_sucursal": 2368,
+        "sucursal": "AODES PUNTO BAHÍA",
+        "estatus": "incompleto",
+        "calle": "México",
+        "numero_exterior": "109",
+        "colonia": "",
+        "formatted": "México 109, 63732 Bucerías, Nay., México"
+    },
+    {
+        "fk_sucursal": 2625,
+        "sucursal": "LIFAN TECAMACHALCO",
+        "estatus": "incompleto",
+        "calle": "Calle Ignacio Ramírez",
+        "numero_exterior": "S\/N",
+        "colonia": "",
+        "formatted": "P8VV+X3 San Miguel Zozutla, Pue., México"
+    },
+    {
+        "fk_sucursal": 2632,
+        "sucursal": "RGH MOTOS COACOATZINTLA",
+        "estatus": "incompleto",
+        "calle": "La Gloria",
+        "numero_exterior": "28",
+        "colonia": "",
+        "formatted": "La Gloria 28, 91370 Coacoatzintla, Ver., México"
+    },
+    {
+        "fk_sucursal": 2269,
+        "sucursal": "CAVIMOTO",
+        "estatus": "incompleto",
+        "calle": "Avenida Ramon Corona",
+        "numero_exterior": "701-L",
+        "colonia": "",
+        "formatted": "Av. Ramon Corona 701-L, 45600 Santa Anita, Jal., México"
+    },
+    {
+        "fk_sucursal": 2641,
+        "sucursal": "HONDA COMOTO LAS JUNTAS",
+        "estatus": "incompleto",
+        "calle": "Ricardo Flores Magón",
+        "numero_exterior": "445",
+        "colonia": "",
+        "formatted": "Ricardo Flores Magón 445, 48291 Las Juntas, Jal., México"
+    },
+    {
+        "fk_sucursal": 2496,
+        "sucursal": "MULTIMARCAS PLAYA VICENTE",
+        "estatus": "incompleto",
+        "calle": "Carretera Federal Playa Vicente - Santiago Tuxtla",
+        "numero_exterior": "S\/N",
+        "colonia": "",
+        "formatted": "R57H+GP, 95600 Col. del Carmen, Ver., México"
+    },
+    {
+        "fk_sucursal": 2600,
+        "sucursal": "BAJAJ OAXTEPEC",
+        "estatus": "incompleto",
+        "calle": "Calle Estación Vieja",
+        "numero_exterior": "S\/N",
+        "colonia": "",
+        "formatted": "WX48+X36, Rim Tai, Mae Rim District, Chiang Mai 50180, Tailandia"
+    },
+    {
+        "fk_sucursal": 2675,
+        "sucursal": "RUTA BIKER HUEHUETOCA",
+        "estatus": "incompleto",
+        "calle": "Coppel Blvr. Huehuetoca-Jorobas",
+        "numero_exterior": "S\/N",
+        "colonia": "",
+        "formatted": "Coppel Blvr. Huehuetoca-Jorobas, 54685 Salitrillo, Méx., México"
+    }
+]

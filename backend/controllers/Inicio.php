@@ -814,7 +814,14 @@ class Inicio extends Controller
         if (!is_string($body) || $body === '') {
             return false;
         }
-        return stripos($body, '"status"') !== false && stripos($body, '"ok"') !== false;
+        $code = 0;
+        foreach (($http_response_header ?? []) as $header) {
+            if (preg_match('/^HTTP\/\S+\s+(\d{3})/', (string) $header, $m)) {
+                $code = (int) $m[1];
+                break;
+            }
+        }
+        return $code >= 200 && $code < 300;
     }
 
     /**

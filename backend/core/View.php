@@ -25,6 +25,18 @@ function getMenu(): string
 {
     $modulosUsuario = $_SESSION['modulos'] ?? [];
     if (!is_array($modulosUsuario)) $modulosUsuario = [];
+    $personaIdMenu = (int) ($_SESSION['persona_id'] ?? $_SESSION['usuario_id'] ?? 0);
+    if ($personaIdMenu > 0 && class_exists('\\Models\\Login')) {
+        try {
+            $modulosDb = \Models\Login::getModulosUsuario($personaIdMenu);
+            if (is_array($modulosDb) && $modulosDb) {
+                $modulosUsuario = array_values(array_unique(array_map('intval', array_merge($modulosUsuario, $modulosDb))));
+                $_SESSION['modulos'] = $modulosUsuario;
+            }
+        } catch (\Throwable $e) {
+            // Si la base no responde, conserva los modulos ya cargados en sesion.
+        }
+    }
 
     /** Ruta normalizada (sin query, minúsculas, sin barra final) para comparar con enlaces del menú. */
     $normalizeMenuPath = static function (string $raw): string {
@@ -216,9 +228,13 @@ function getMenu(): string
         'Atlas' => [
             'icono'    => 'fa-solid fa-map-location-dot',
             'subItems' => [
-                ['label' => 'Catálogos', 'url' => '/Atlas/catalogos', 'modulos' => [102]],
-                ['label' => 'Catálogos comerciales', 'url' => '/Atlas/catalogosComerciales', 'modulos' => [102]],
-                ['label' => 'Notificaciones App', 'url' => '/Atlas/notificacionesApp', 'modulos' => [102]],
+                ['label' => 'Rutas y seguimiento', 'url' => '/Atlas/rutasGestores', 'modulos' => [132]],
+                ['label' => 'Presupuestos', 'url' => '/Atlas/presupuestos', 'modulos' => [135]],
+                ['label' => 'Créditos en operación', 'url' => '/Atlas/creditosOperacion', 'modulos' => [139]],
+                ['label' => 'Catálogos Operativos', 'url' => '/Atlas/catalogos', 'modulos' => [133]],
+                ['label' => 'Catálogos Comerciales', 'url' => '/Atlas/catalogosComerciales', 'modulos' => [134]],
+                ['label' => 'Notificaciones App', 'url' => '/Atlas/notificacionesApp', 'modulos' => [136]],
+                ['label' => 'Accesos Atlas', 'url' => '/Atlas/accesosAtlas', 'modulos' => [137]],
             ],
         ],
         'Tickets' => [

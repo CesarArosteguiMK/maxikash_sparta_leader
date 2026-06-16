@@ -40,6 +40,18 @@
     #modalRastreoCredito .rastreo-col-bitacora-wrap .rastreo-seccion-dictamen { grid-row: 2; min-height: 0; display: flex; flex-direction: column; overflow: hidden; }
     #modalRastreoCredito .rastreo-block-full { grid-column: 1 / -1; }
     #modalRastreoCredito.modal .modal-dialog { max-width: 95vw; width: 95vw; height: 90vh; max-height: 90vh; margin: 2rem auto; }
+    body .modal-backdrop.rastreo-modal-backdrop,
+    body .modal-backdrop.rastreo-modal-backdrop.show {
+        background-color: #020617 !important;
+        opacity: 0.62 !important;
+        pointer-events: auto !important;
+    }
+    body.dark-mode .modal-backdrop.rastreo-modal-backdrop,
+    body.dark-mode .modal-backdrop.rastreo-modal-backdrop.show {
+        background-color: #000 !important;
+        opacity: 0.68 !important;
+        pointer-events: auto !important;
+    }
     /* Liquid Glass: mismo criterio que modal-content-glass + departamentos (blur + rgba). Antes era #F1F5F9 sólido. */
     /* Modal Consultar por ID crédito: no recortar el botón cerrar */
     #modalConsultaCreditoPaso1 .modal-dialog,
@@ -1655,6 +1667,22 @@ window.actualizarDictamenCamposPorTipo = function() {
             if (m) m.classList.remove('modal-nested-open');
         });
     }
+    function ensureRastreoModalBackdrop() {
+        parentModal = document.getElementById('modalRastreoCredito');
+        if (!parentModal || !parentModal.classList.contains('show')) return;
+
+        var rastreoBackdrop = document.querySelector('.modal-backdrop.rastreo-modal-backdrop');
+        if (!rastreoBackdrop) {
+            var backdrops = document.querySelectorAll('.modal-backdrop');
+            rastreoBackdrop = backdrops.length ? backdrops[0] : document.createElement('div');
+            if (!backdrops.length) document.body.appendChild(rastreoBackdrop);
+        }
+
+        rastreoBackdrop.classList.add('modal-backdrop', 'fade', 'show', 'rastreo-modal-backdrop');
+        rastreoBackdrop.style.removeProperty('pointer-events');
+        rastreoBackdrop.style.removeProperty('z-index');
+        document.body.classList.add('modal-open', 'rastreo-modal-open');
+    }
     function onChildModalShown(ev) {
         var childModal = ev.target;
         parentModal = document.getElementById('modalRastreoCredito');
@@ -1719,7 +1747,12 @@ window.actualizarDictamenCamposPorTipo = function() {
             // Evitar scrim/backdrop colgado: si no queda ningún modal hijo, quitar backdrops sobrantes
             var openModals = document.querySelectorAll('.modal.show');
             if (openModals.length <= 1) {
-                document.querySelectorAll('.modal-backdrop').forEach(function(b) { b.remove(); });
+                if (parentModal && parentModal.classList.contains('show')) {
+                    document.querySelectorAll('.modal-backdrop:not(.rastreo-modal-backdrop)').forEach(function(b) { b.remove(); });
+                    ensureRastreoModalBackdrop();
+                } else {
+                    document.querySelectorAll('.modal-backdrop').forEach(function(b) { b.remove(); });
+                }
             }
         }
     }

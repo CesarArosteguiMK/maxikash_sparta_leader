@@ -23,29 +23,38 @@ window.departamentosCandidatoBackend = <?= json_encode($departamentosCandidatoCa
 
     <div class="card">
 
-        <div class="card-header border-bottom">
+        <div class="card-header border-bottom filtros-candidatos-header">
+            <div class="d-flex flex-wrap align-items-center justify-content-between gap-2">
+                <div>
+                    <h4 class="card-title mb-0">Selección de personal</h4>
+                </div>
+                <button type="button" class="btn btn-sm btn-outline-secondary" id="btnLimpiarFiltrosCandidatos">
+                    <i class="bx bx-rotate-left me-1"></i> Limpiar
+                </button>
+            </div>
+            <div class="filtros-candidatos-label">Filtros</div>
             <h5 class="card-title mb-0">Filtros de búsqueda</h5>
-            <div class="row pt-4 g-6">
+            <div class="row pt-4 g-3">
                 <div class="col-md-3">
+                    <label class="form-label small fw-semibold text-muted" for="UserRole">Departamento</label>
                     <select id="UserRole" class="form-select text-capitalize">
-                        <option value="">Selecciona Departamento</option>
+                        <option value="">Departamento</option>
                     </select>
                 </div>
                 <div class="col-md-3">
+                    <label class="form-label small fw-semibold text-muted" for="UserPlan">Puesto</label>
                     <select id="UserPlan" class="form-select text-capitalize">
-                        <option value="">Selecciona Puesto</option>
+                        <option value="">Puesto</option>
                     </select>
                 </div>
                 <div class="col-md-3">
+                    <label class="form-label small fw-semibold text-muted" for="FilterTransaction">Etapa</label>
                     <select id="FilterTransaction" class="form-select text-capitalize">
-                        <option value="">Selecciona Estatus</option>
+                        <option value="">Etapa</option>
                         <option value="Por evaluar">Por evaluar</option>
-                        <option value="En entrevista">En entrevista</option>
-                        <option value="Descartado">Descartado</option>
                         <option value="Validado">Validado</option>
-                        <option value="Pendiente de validacion final">Pendiente de validacion final</option>
+                        <option value="Pendiente de validacion final">Pendiente de validación final</option>
                         <option value="Ingreso programado">Ingreso programado</option>
-                        <option value="Proceso cerrado">Proceso cerrado</option>
                     </select>
                 </div>
             </div>
@@ -81,24 +90,24 @@ window.departamentosCandidatoBackend = <?= json_encode($departamentosCandidatoCa
             </div>
             <div class="kpi-collapsible open" id="kpiCollapsibleCandidatos">
                 <div class="kpi-collapsible-inner">
-                    <div class="kpi-row-new mode-default" id="kpiRowNewCand">
+                    <div class="kpi-row-new mode-default<?= !empty($candidatosSoloValidacionFinal ?? false) ? ' kpi-solo-final' : '' ?>" id="kpiRowNewCand">
                         <div class="kpi-cell tipo-total revealed" id="kpi-cell-cand-total">
                             <span class="kpi-corner-icon"><i class="bx bx-group"></i></span>
                             <div class="kpi-cell-top">
                                 <div class="kpi-icon-wrap"><i class="bx bx-group"></i></div>
-                                <span class="kpi-cell-status">Total</span>
+                                <span class="kpi-cell-status">Bandeja</span>
                             </div>
                             <div class="kpi-num" id="kpi-total-candidatos">0</div>
-                            <div class="kpi-lbl">Total Candidatos</div>
+                            <div class="kpi-lbl">Candidatos en bandeja</div>
                             <div class="kpi-bar-track"><div class="kpi-bar-fill" id="kpi-bar-cand-total"></div></div>
-                            <span class="kpi-cell-title">Total Candidatos</span>
+                            <span class="kpi-cell-title">Candidatos en bandeja</span>
                             <div class="kpi-stats-grid-new">
                                 <div class="kpi-stat-item"><div class="kpi-stat-val" id="kpi-ms-cand-total">0</div><div class="kpi-stat-lbl">Total</div></div>
                             </div>
                             <div class="donut-block">
                                 <div class="donut-header">
-                                    <span class="donut-title">Total Candidatos</span>
-                                    <span class="kpi-cell-status">Total</span>
+                                    <span class="donut-title">Candidatos en bandeja</span>
+                                    <span class="kpi-cell-status">Filtrado</span>
                                 </div>
                                 <div class="donut-svg-wrap">
                                     <svg class="donut-svg" viewBox="0 0 88 88">
@@ -108,15 +117,15 @@ window.departamentosCandidatoBackend = <?= json_encode($departamentosCandidatoCa
                                     <div class="donut-center-icon"><i class="bx bx-group"></i></div>
                                 </div>
                                 <div class="donut-stats">
-                                    <div class="kpi-stat-item"><div class="kpi-stat-val" id="kpi-dv-cand-total">0</div><div class="kpi-stat-lbl">Total</div></div>
+                                <div class="kpi-stat-item"><div class="kpi-stat-val" id="kpi-dv-cand-total">0</div><div class="kpi-stat-lbl">Bandeja</div></div>
                                 </div>
                             </div>
                         </div>
-                        <div class="kpi-cell tipo-puesto revealed" id="kpi-cell-cand-evaluar">
+                        <div class="kpi-cell tipo-puesto revealed<?= !empty($candidatosSoloValidacionFinal ?? false) ? ' d-none' : '' ?>" id="kpi-cell-cand-evaluar">
                             <span class="kpi-corner-icon"><i class="bx bx-user-plus"></i></span>
                             <div class="kpi-cell-top">
                                 <div class="kpi-icon-wrap"><i class="bx bx-user-plus"></i></div>
-                                <span class="kpi-cell-status">Por evaluar</span>
+                                <span class="kpi-cell-status">Evaluación</span>
                             </div>
                             <div class="kpi-num" id="kpi-por-evaluar">0</div>
                             <div class="kpi-lbl">Por evaluar</div>
@@ -128,7 +137,7 @@ window.departamentosCandidatoBackend = <?= json_encode($departamentosCandidatoCa
                             <div class="donut-block">
                                 <div class="donut-header">
                                     <span class="donut-title">Por evaluar</span>
-                                    <span class="kpi-cell-status">Por evaluar</span>
+                                    <span class="kpi-cell-status">Evaluación</span>
                                 </div>
                                 <div class="donut-svg-wrap">
                                     <svg class="donut-svg" viewBox="0 0 88 88">
@@ -142,23 +151,53 @@ window.departamentosCandidatoBackend = <?= json_encode($departamentosCandidatoCa
                                 </div>
                             </div>
                         </div>
+                        <div class="kpi-cell tipo-final revealed" id="kpi-cell-cand-final">
+                            <span class="kpi-corner-icon"><i class="bx bx-check-shield"></i></span>
+                            <div class="kpi-cell-top">
+                                <div class="kpi-icon-wrap"><i class="bx bx-check-shield"></i></div>
+                                <span class="kpi-cell-status">Final</span>
+                            </div>
+                            <div class="kpi-num" id="kpi-validacion-final-candidatos">0</div>
+                            <div class="kpi-lbl">Validación final</div>
+                            <div class="kpi-bar-track"><div class="kpi-bar-fill" id="kpi-bar-cand-final"></div></div>
+                            <span class="kpi-cell-title">Validación final</span>
+                            <div class="kpi-stats-grid-new">
+                                <div class="kpi-stat-item"><div class="kpi-stat-val" id="kpi-ms-cand-final">0</div><div class="kpi-stat-lbl">Final</div></div>
+                            </div>
+                            <div class="donut-block">
+                                <div class="donut-header">
+                                    <span class="donut-title">Validación final</span>
+                                    <span class="kpi-cell-status">Final</span>
+                                </div>
+                                <div class="donut-svg-wrap">
+                                    <svg class="donut-svg" viewBox="0 0 88 88">
+                                        <circle class="donut-track" cx="44" cy="44" r="36"/>
+                                        <circle class="donut-arc" id="kpi-arc-cand-final" cx="44" cy="44" r="36"/>
+                                    </svg>
+                                    <div class="donut-center-icon"><i class="bx bx-check-shield"></i></div>
+                                </div>
+                                <div class="donut-stats">
+                                    <div class="kpi-stat-item"><div class="kpi-stat-val" id="kpi-dv-cand-final">0</div><div class="kpi-stat-lbl">Final</div></div>
+                                </div>
+                            </div>
+                        </div>
                         <div class="kpi-cell tipo-dep revealed" id="kpi-cell-cand-enviadas">
                             <span class="kpi-corner-icon"><i class="bx bx-send"></i></span>
                             <div class="kpi-cell-top">
                                 <div class="kpi-icon-wrap"><i class="bx bx-send"></i></div>
-                                <span class="kpi-cell-status">Enviadas</span>
+                                <span class="kpi-cell-status">Docs</span>
                             </div>
                             <div class="kpi-num" id="kpi-postulaciones-enviadas">0</div>
-                            <div class="kpi-lbl">Postulaciones enviadas</div>
+                            <div class="kpi-lbl">Expedientes completos</div>
                             <div class="kpi-bar-track"><div class="kpi-bar-fill" id="kpi-bar-cand-enviadas"></div></div>
-                            <span class="kpi-cell-title">Postulaciones enviadas</span>
+                            <span class="kpi-cell-title">Expedientes completos</span>
                             <div class="kpi-stats-grid-new">
-                                <div class="kpi-stat-item"><div class="kpi-stat-val" id="kpi-ms-cand-enviadas">0</div><div class="kpi-stat-lbl">Enviadas</div></div>
+                                <div class="kpi-stat-item"><div class="kpi-stat-val" id="kpi-ms-cand-enviadas">0</div><div class="kpi-stat-lbl">Completos</div></div>
                             </div>
                             <div class="donut-block">
                                 <div class="donut-header">
-                                    <span class="donut-title">Enviadas</span>
-                                    <span class="kpi-cell-status">Enviadas</span>
+                                    <span class="donut-title">Expedientes completos</span>
+                                    <span class="kpi-cell-status">Docs</span>
                                 </div>
                                 <div class="donut-svg-wrap">
                                     <svg class="donut-svg" viewBox="0 0 88 88">
@@ -168,7 +207,7 @@ window.departamentosCandidatoBackend = <?= json_encode($departamentosCandidatoCa
                                     <div class="donut-center-icon"><i class="bx bx-send"></i></div>
                                 </div>
                                 <div class="donut-stats">
-                                    <div class="kpi-stat-item"><div class="kpi-stat-val" id="kpi-dv-cand-enviadas">0</div><div class="kpi-stat-lbl">Enviadas</div></div>
+                                    <div class="kpi-stat-item"><div class="kpi-stat-val" id="kpi-dv-cand-enviadas">0</div><div class="kpi-stat-lbl">Completos</div></div>
                                 </div>
                             </div>
                         </div>
@@ -180,6 +219,10 @@ window.departamentosCandidatoBackend = <?= json_encode($departamentosCandidatoCa
         <div class="row justify-content-between m-4">
             <div class="col-8"></div>
             <div class="col-4 d-flex align-items-end justify-content-end gap-2">
+                <button type="button" class="btn btn-outline-secondary btn-action-size" id="btnHistoricoCandidatos">
+                    <i class="fa fa-clock-rotate-left icon-sm me-sm-2"></i>
+                    <span class="d-inline-block">Histórico</span>
+                </button>
                 <button type="button" class="btn btn-primary add-new btn-action-size" data-bs-toggle="offcanvas" data-bs-target="#offcanvasAddCandidato">
                     <i class="fa fa-user-plus icon-sm me-sm-2"></i>
                     <span class="d-inline-block">Agregar Candidato</span>
@@ -214,7 +257,12 @@ window.departamentosCandidatoBackend = <?= json_encode($departamentosCandidatoCa
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
             </div>
             <div class="modal-body">
-                <p class="text-muted small mb-3" id="modalDocumentacionCandidatoNombre"></p>
+                <div class="modal-doc-toolbar">
+                    <p class="text-muted small mb-0" id="modalDocumentacionCandidatoNombre"></p>
+                    <button type="button" class="btn btn-sm btn-outline-primary" id="btnDescargarExpedienteCandidatoZip">
+                        <i class="fa fa-file-zipper me-1"></i> Descargar ZIP
+                    </button>
+                </div>
                 <div id="modalDocumentacionCandidatoApiTrace" class="alert alert-secondary small py-2 mb-2 d-none" role="status" aria-live="polite"></div>
                 <div id="modalDocumentacionCandidatoCargando" class="text-center py-4 text-muted">Cargando…</div>
                 <div class="row g-3 align-items-stretch">
@@ -234,6 +282,53 @@ window.departamentosCandidatoBackend = <?= json_encode($departamentosCandidatoCa
                 <div id="modalDocumentacionCandidatoComparaciones" class="mt-3 d-none"></div>
             </div>
             <div class="modal-footer flex-column align-items-stretch border-top py-3 d-none text-lg-end" id="modalDocumentacionCandidatoAccionesProceso"></div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Histórico de candidatos -->
+<div class="modal fade" id="modalHistoricoCandidatos" tabindex="-1" aria-labelledby="modalHistoricoCandidatosLabel" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="modalHistoricoCandidatosLabel"><i class="fa fa-clock-rotate-left me-2"></i>Histórico de candidatos</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <div class="modal-body">
+                <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
+                    <p class="text-muted small mb-0">Consulta candidatos que ya salieron de la bandeja y abre su bitácora completa.</p>
+                    <div class="historico-search">
+                        <input type="text" class="form-control" id="modalHistoricoCandidatosBuscar" placeholder="Buscar candidato">
+                    </div>
+                </div>
+                <div id="modalHistoricoCandidatosCargando" class="text-center py-4 text-muted">Cargando histórico…</div>
+                <div id="modalHistoricoCandidatosLista" class="historico-list d-none"></div>
+                <div id="modalHistoricoCandidatosVacio" class="text-center py-4 text-muted d-none">No hay candidatos fuera de la bandeja todavía.</div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-warning" data-bs-dismiss="modal">Cerrar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Bitácora del candidato -->
+<div class="modal fade" id="modalBitacoraCandidato" tabindex="-1" aria-labelledby="modalBitacoraCandidatoLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="modalBitacoraCandidatoLabel"><i class="fa fa-clock-rotate-left me-2"></i>Bitácora</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <div class="modal-body">
+                <p class="text-muted small mb-3" id="modalBitacoraCandidatoNombre"></p>
+                <div id="modalBitacoraCandidatoCargando" class="text-center py-4 text-muted">Cargando bitácora…</div>
+                <div id="modalBitacoraCandidatoLista" class="candidate-timeline d-none"></div>
+                <div id="modalBitacoraCandidatoVacio" class="text-center py-4 text-muted d-none">Sin movimientos registrados.</div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-warning" data-bs-dismiss="modal">Cerrar</button>
+            </div>
         </div>
     </div>
 </div>
@@ -809,6 +904,97 @@ body.dark-mode #panelIndicadoresCandidatos .kpi-cell-title { color:#8b90b0; }
 body.dark-mode #panelIndicadoresCandidatos .kpi-stat-lbl { color:#8b90b0; }
 body.dark-mode #panelIndicadoresCandidatos .kpi-row-new.mode-ministat .kpi-cell-title { color:#94a3b8; }
 body.dark-mode #panelIndicadoresCandidatos .kpi-row-new.mode-ministat .kpi-stat-lbl { color:#94a3b8; }
+.filtros-candidatos-header > h5.card-title { display:none; }
+.filtros-candidatos-header > .d-flex {
+    display:flex !important;
+    margin-bottom:.85rem;
+}
+.filtros-candidatos-header .card-title {
+    font-size:1.25rem;
+    font-weight:800;
+    color:#26364b;
+}
+.filtros-candidatos-label {
+    margin:.9rem 0 .45rem;
+    font-size:.72rem;
+    font-weight:800;
+    color:#64748b;
+    text-transform:uppercase;
+    letter-spacing:.06em;
+}
+.filtros-candidatos-header .form-label { margin-bottom:.35rem; letter-spacing:0; }
+.filtros-candidatos-header .form-select { min-height:38px; }
+.filtros-candidatos-header { padding:1.05rem 1.25rem 1rem !important; }
+.filtros-candidatos-header .row { padding-top:0 !important; }
+.filtros-candidatos-header .form-label { display:none; }
+.filtros-candidatos-header .form-select {
+    height:38px;
+    font-size:.88rem;
+    border-radius:8px;
+}
+.filtros-candidatos-header #btnLimpiarFiltrosCandidatos {
+    height:32px;
+    min-width:86px;
+    border-radius:8px;
+    font-size:.78rem;
+    font-weight:700;
+    padding:0 .8rem;
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    gap:.2rem;
+}
+.filtros-clear-btn {
+    width:38px;
+    height:38px;
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    border-radius:8px;
+    padding:0;
+}
+#panelIndicadoresCandidatos .kpi-toolbar { display:none !important; }
+#panelIndicadoresCandidatos { padding-top:.75rem !important; padding-bottom:.35rem !important; }
+#panelIndicadoresCandidatos .kpi-row-new { grid-template-columns:repeat(4,minmax(0,1fr)); gap:.7rem; }
+#panelIndicadoresCandidatos .kpi-row-new.kpi-solo-final { grid-template-columns:repeat(3,minmax(0,1fr)); }
+#panelIndicadoresCandidatos .kpi-row-new.mode-default .kpi-cell {
+    min-height:94px;
+    padding:.8rem .95rem;
+    border-radius:8px;
+    box-shadow:0 1px 6px rgba(15,23,42,.06), inset 3px 0 0 var(--cell-accent);
+    cursor:default;
+}
+#panelIndicadoresCandidatos .kpi-row-new.mode-default .kpi-icon-wrap {
+    display:flex !important;
+    width:auto;
+    height:auto;
+    font-size:1.2rem;
+    background:transparent !important;
+    border:0 !important;
+    box-shadow:none !important;
+}
+#panelIndicadoresCandidatos .kpi-row-new.mode-default .kpi-cell-top { align-items:center; margin-bottom:.55rem; }
+#panelIndicadoresCandidatos .kpi-row-new.mode-default .kpi-bar-track { display:none; }
+#panelIndicadoresCandidatos .kpi-row-new.mode-default .kpi-num { font-size:1.65rem; line-height:1; }
+#panelIndicadoresCandidatos .kpi-row-new.mode-default .kpi-lbl {
+    font-size:.78rem;
+    font-weight:700;
+    color:#4b5563;
+    margin-top:.28rem;
+}
+#panelIndicadoresCandidatos .kpi-cell-status {
+    font-size:.58rem;
+    padding:.14rem .48rem;
+    letter-spacing:.06em;
+}
+#panelIndicadoresCandidatos .kpi-cell:hover {
+    transform:none;
+    box-shadow:0 1px 6px rgba(15,23,42,.06), inset 3px 0 0 var(--cell-accent);
+}
+#panelIndicadoresCandidatos .kpi-cell.tipo-final { --cell-accent:#8b5cf6; --cell-glow:rgba(139,92,246,0.06); --cell-icon:#8b5cf6; --cell-num:#7c3aed; }
+@media (max-width: 991px) {
+    #panelIndicadoresCandidatos .kpi-row-new { grid-template-columns:repeat(2,minmax(0,1fr)); }
+}
 /* Modo oscuro - Offcanvas Nuevo Candidato */
 body.dark-mode #offcanvasAddCandidato { background: #1e293b; border-left: 1px solid rgba(148, 163, 184, 0.2); }
 body.dark-mode #offcanvasAddCandidato .offcanvas-header { border-bottom-color: rgba(148, 163, 184, 0.2); }
@@ -839,6 +1025,121 @@ body.dark-mode #modalCerrarProcesoCandidato.modal.show { z-index: 99999 !importa
 #modalDocumentacionCandidato .doc-sueldo-card .input-group-text { min-width: 38px; justify-content: center; }
 #modalDocumentacionCandidato .doc-sueldo-card .btn-eye-sueldo { width: 38px; }
 #modalDocumentacionCandidato .doc-sueldo-card input[disabled] { background-color: #f8fafc; }
+#modalDocumentacionCandidato .modal-doc-toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    margin-bottom: 1rem;
+}
+#modalDocumentacionCandidato .modal-doc-toolbar #modalDocumentacionCandidatoNombre {
+    min-width: 0;
+}
+#modalDocumentacionCandidato .modal-doc-toolbar #btnDescargarExpedienteCandidatoZip {
+    flex-shrink: 0;
+}
+@media (max-width: 576px) {
+    #modalDocumentacionCandidato .modal-doc-toolbar {
+        align-items: flex-start;
+        flex-direction: column;
+    }
+}
+#modalHistoricoCandidatos .historico-search {
+    width: min(320px, 100%);
+    border: 0 !important;
+    box-shadow: none !important;
+    background: transparent;
+}
+#modalHistoricoCandidatos .historico-search .form-control {
+    width: 100%;
+    height:34px;
+    border-radius:8px !important;
+    border:1px solid #cbd5e1;
+    padding-left:.85rem;
+    box-shadow:none;
+}
+#modalHistoricoCandidatos .historico-search .form-control:focus {
+    border-color:#26364b;
+}
+#modalHistoricoCandidatos .historico-list { display: flex; flex-direction: column; gap: .65rem; }
+#modalHistoricoCandidatos .historico-item {
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    padding: .85rem 1rem;
+    background: #fff;
+}
+#modalHistoricoCandidatos .historico-title {
+    color: #334155;
+    font-size: .9rem;
+    font-weight: 800;
+    text-transform: uppercase;
+}
+#modalHistoricoCandidatos .historico-meta {
+    color: #64748b;
+    font-size: .8rem;
+    font-weight: 600;
+}
+#modalHistoricoCandidatos .historico-motivo {
+    color: #475569;
+    font-size: .8rem;
+    background: #f8fafc;
+    border-radius: 6px;
+    padding: .35rem .5rem;
+}
+#modalBitacoraCandidato .candidate-timeline { position: relative; padding-left: 1.35rem; }
+#modalBitacoraCandidato .candidate-timeline::before {
+    content: "";
+    position: absolute;
+    left: .45rem;
+    top: .35rem;
+    bottom: .35rem;
+    border-left: 2px dashed #cbd5e1;
+}
+#modalBitacoraCandidato .timeline-item {
+    position: relative;
+    padding: 0 0 1.25rem 1rem;
+}
+#modalBitacoraCandidato .timeline-dot {
+    position: absolute;
+    left: -.98rem;
+    top: .28rem;
+    width: .82rem;
+    height: .82rem;
+    border-radius: 50%;
+    background: #fff;
+    border: 3px solid var(--timeline-color, #0ea5e9);
+}
+#modalBitacoraCandidato .timeline-title {
+    color: #253244;
+    font-size: .88rem;
+    font-weight: 800;
+    letter-spacing: 0;
+    text-transform: uppercase;
+}
+#modalBitacoraCandidato .timeline-date {
+    color: #64748b;
+    font-size: .78rem;
+    font-weight: 700;
+    white-space: nowrap;
+}
+#modalBitacoraCandidato .timeline-desc {
+    color: #64748b;
+    font-size: .82rem;
+    font-weight: 600;
+    line-height: 1.35;
+}
+#modalBitacoraCandidato .timeline-chip {
+    display: inline-flex;
+    align-items: center;
+    border: 1px solid #e2e8f0;
+    background: #f8fafc;
+    border-radius: 999px;
+    color: #334155;
+    font-size: .76rem;
+    font-weight: 700;
+    padding: .25rem .55rem;
+    margin-top: .45rem;
+}
 
 /* Modal Cerrar proceso: identidad visual distinta al de Documentación (diálogo de acción, no panel) */
 #modalCerrarProcesoCandidato.modal-cerrar-proceso .modal-dialog { max-width: 420px; }
@@ -980,7 +1281,7 @@ body:not(.dark-mode) .flatpickr-calendar .flatpickr-weekdays { color: #6b7280 !i
 .flatpickr-calendar .flatpickr-day.today { border-color: #696cff !important; border-width: 2px !important; font-weight: 600 !important; background-color: #f0f0ff !important; }
 .flatpickr-calendar .flatpickr-day.today:hover { background-color: #e0e0ff !important; border-color: #696cff !important; }
 #tablaCandidatos thead th { background-color: rgba(105, 108, 255, 0.1); font-weight: 600; }
-#tablaCandidatos th.col-acciones-candidatos { min-width: 220px; }
+#tablaCandidatos th.col-acciones-candidatos { min-width: 270px; }
 #tablaCandidatos .btn-accion-candidato { white-space: nowrap; }
 </style>
 

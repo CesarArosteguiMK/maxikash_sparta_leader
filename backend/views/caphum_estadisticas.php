@@ -57,21 +57,27 @@ if (isset($chEstRangoIni, $chEstRangoFin) && is_string($chEstRangoIni) && is_str
                     </button>
                 </div>
                 <div class="row g-2 mt-2">
-                    <div class="col-12 col-md-4">
+                    <div class="col-12 col-md-3">
+                        <label for="chEstFiltroDireccion" class="form-label text-muted mb-1 fw-semibold" style="font-size:.8rem;">Direcci&oacute;n</label>
+                        <select id="chEstFiltroDireccion" class="form-select shadow-none" style="min-height: 2.35rem;">
+                            <option value="">Todas las direcciones</option>
+                        </select>
+                    </div>
+                    <div class="col-12 col-md-3 d-none" id="chEstWrapFiltroArea">
                         <label for="chEstFiltroArea" class="form-label text-muted mb-1 fw-semibold" style="font-size:.8rem;">Área</label>
-                        <select id="chEstFiltroArea" class="form-select shadow-none" style="min-height: 2.35rem;">
+                        <select id="chEstFiltroArea" class="form-select shadow-none" style="min-height: 2.35rem;" disabled>
                             <option value="">Todas las áreas</option>
                         </select>
                     </div>
-                    <div class="col-12 col-md-4 d-none" id="chEstWrapFiltroDepto">
+                    <div class="col-12 col-md-3 d-none" id="chEstWrapFiltroDepto">
                         <label for="chEstFiltroDepartamento" class="form-label text-muted mb-1 fw-semibold" style="font-size:.8rem;">Departamento</label>
-                        <select id="chEstFiltroDepartamento" class="form-select shadow-none" style="min-height: 2.35rem;">
+                        <select id="chEstFiltroDepartamento" class="form-select shadow-none" style="min-height: 2.35rem;" disabled>
                             <option value="">Todos los departamentos</option>
                         </select>
                     </div>
-                    <div class="col-12 col-md-4 d-none" id="chEstWrapFiltroPuesto">
+                    <div class="col-12 col-md-3 d-none" id="chEstWrapFiltroPuesto">
                         <label for="chEstFiltroPuesto" class="form-label text-muted mb-1 fw-semibold" style="font-size:.8rem;">Puesto</label>
-                        <select id="chEstFiltroPuesto" class="form-select shadow-none" style="min-height: 2.35rem;">
+                        <select id="chEstFiltroPuesto" class="form-select shadow-none" style="min-height: 2.35rem;" disabled>
                             <option value="">Todos los puestos</option>
                         </select>
                     </div>
@@ -127,27 +133,34 @@ if (isset($chEstRangoIni, $chEstRangoFin) && is_string($chEstRangoIni) && is_str
                         </div>
                         <div class="ch-kpi-period-badge mb-2 text-start align-self-start w-100" style="font-size:.62rem;font-weight:700;letter-spacing:.04em;color:var(--bs-secondary-color);line-height:1.25">—</div>
                         <div class="row g-1 flex-grow-1 align-items-center">
-                            <div class="col-4 text-center border-end">
+                            <div class="col-3 text-center border-end">
+                                <div class="small text-muted mb-1 fw-semibold" style="font-size:.72rem;">Direcci&oacute;n</div>
+                                <div id="chKpiDirecciones" class="fw-bold text-body" style="font-size:1.8rem;line-height:1;">0</div>
+                            </div>
+                            <div class="col-3 text-center border-end">
                                 <div class="small text-muted mb-1 fw-semibold" style="font-size:.72rem;">Áreas</div>
                                 <div id="chKpiAreas" class="fw-bold text-body" style="font-size:1.8rem;line-height:1;">0</div>
                             </div>
-                            <div class="col-4 text-center border-end">
+                            <div class="col-3 text-center border-end">
                                 <div class="small text-muted mb-1 fw-semibold" style="font-size:.72rem;">Deptos</div>
                                 <div id="chKpiDeptos" class="fw-bold text-body" style="font-size:1.8rem;line-height:1;">0</div>
                             </div>
-                            <div class="col-4 text-center">
+                            <div class="col-3 text-center">
                                 <div class="small text-muted mb-1 fw-semibold" style="font-size:.72rem;">Puestos</div>
                                 <div id="chKpiPuestos" class="fw-bold text-body" style="font-size:1.8rem;line-height:1;">0</div>
                             </div>
                         </div>
                         <div class="row gx-1 mt-auto pt-2">
-                            <div class="col-4 text-center">
+                            <div class="col-3 text-center">
+                                <span class="badge rounded-pill bg-label-secondary text-secondary" id="chKpiDireccionesPctBadge">â€”</span>
+                            </div>
+                            <div class="col-3 text-center">
                                 <span class="badge rounded-pill bg-label-secondary text-secondary" id="chKpiAreasPctBadge">—</span>
                             </div>
-                            <div class="col-4 text-center">
+                            <div class="col-3 text-center">
                                 <span class="badge rounded-pill bg-label-secondary text-secondary" id="chKpiDeptosPctBadge">—</span>
                             </div>
-                            <div class="col-4 text-center">
+                            <div class="col-3 text-center">
                                 <span class="badge rounded-pill bg-label-secondary text-secondary" id="chKpiPuestosPctBadge">—</span>
                             </div>
                         </div>
@@ -362,7 +375,7 @@ if (isset($chEstRangoIni, $chEstRangoFin) && is_string($chEstRangoIni) && is_str
     var chEstRangoIniDefault = <?php echo json_encode($chEstRangoIni, JSON_UNESCAPED_UNICODE); ?>;
     var chEstRangoFinDefault = <?php echo json_encode($chEstRangoFin, JSON_UNESCAPED_UNICODE); ?>;
     var chEstRango = { inicio: chEstRangoIniDefault, fin: chEstRangoFinDefault };
-    var chEstFiltroEstructura = { id_area: '', id_departamento: '', id_puesto: '' };
+    var chEstFiltroEstructura = { id_direccion: '', id_area: '', id_departamento: '', id_puesto: '' };
     var datosIni = <?php echo $datosInicialesJson; ?>;
 
     var ST_BADGE_VERDE = 'background: #d4f5e7; color: #0d5c3a; font-size: 11px; font-weight: 700; padding: 3px 10px; border-radius: 10px; display: inline-block;';
@@ -413,6 +426,7 @@ if (isset($chEstRangoIni, $chEstRangoFin) && is_string($chEstRangoIni) && is_str
             anio: y,
             mes: m,
             semana: 0,
+            id_direccion: chEstFiltroEstructura.id_direccion ? parseInt(chEstFiltroEstructura.id_direccion, 10) : null,
             id_area: chEstFiltroEstructura.id_area ? parseInt(chEstFiltroEstructura.id_area, 10) : null,
             id_departamento: chEstFiltroEstructura.id_departamento ? parseInt(chEstFiltroEstructura.id_departamento, 10) : null,
             id_puesto: chEstFiltroEstructura.id_puesto ? parseInt(chEstFiltroEstructura.id_puesto, 10) : null
@@ -610,6 +624,55 @@ if (isset($chEstRangoIni, $chEstRangoFin) && is_string($chEstRangoIni) && is_str
     }
 
     /** Evita mostrar fechas/cifras de un filtro anterior mientras llega la respuesta o si falla la petición. */
+    function chEstCargarFiltrosEstructura(opts) {
+        opts = opts || {};
+        var payload = {
+            id_direccion: opts.id_direccion != null && opts.id_direccion !== '' ? parseInt(String(opts.id_direccion), 10) : null,
+            id_area: opts.id_area != null && opts.id_area !== '' ? parseInt(String(opts.id_area), 10) : null,
+            id_departamento: opts.id_departamento != null && opts.id_departamento !== '' ? parseInt(String(opts.id_departamento), 10) : null
+        };
+        return fetch('/caphum/getEstadisticasFiltrosEstructura', {
+            method: 'POST',
+            credentials: 'same-origin',
+            headers: { 'Content-Type': 'application/json', 'Front-Request': 'true' },
+            body: JSON.stringify(payload)
+        })
+            .then(function (r) { return r.json(); })
+            .then(function (resp) {
+                if (!resp || !resp.success || !resp.datos) return;
+                var data = resp.datos;
+                chEstSetSelectOptions('chEstFiltroDireccion', data.direcciones || [], 'Todas las direcciones');
+                chEstSetSelectOptions('chEstFiltroArea', data.areas || [], 'Todas las áreas');
+                var selDir = document.getElementById('chEstFiltroDireccion');
+                var selArea = document.getElementById('chEstFiltroArea');
+                var selDep = document.getElementById('chEstFiltroDepartamento');
+                var selPue = document.getElementById('chEstFiltroPuesto');
+                chEstToggleFiltroWrap('chEstWrapFiltroArea', !!payload.id_direccion);
+                chEstToggleFiltroWrap('chEstWrapFiltroDepto', !!payload.id_area);
+                chEstToggleFiltroWrap('chEstWrapFiltroPuesto', !!payload.id_departamento);
+                if (selArea) selArea.disabled = !payload.id_direccion;
+                if (payload.id_area) {
+                    chEstSetSelectOptions('chEstFiltroDepartamento', data.departamentos || [], 'Todos los departamentos');
+                    if (selDep) selDep.disabled = false;
+                } else {
+                    chEstSetSelectOptions('chEstFiltroDepartamento', [], 'Todos los departamentos');
+                    if (selDep) selDep.disabled = true;
+                }
+                if (payload.id_departamento) {
+                    chEstSetSelectOptions('chEstFiltroPuesto', data.puestos || [], 'Todos los puestos');
+                    if (selPue) selPue.disabled = false;
+                } else {
+                    chEstSetSelectOptions('chEstFiltroPuesto', [], 'Todos los puestos');
+                    if (selPue) selPue.disabled = true;
+                }
+                if (selDir) selDir.value = chEstFiltroEstructura.id_direccion || '';
+                if (selArea) selArea.value = chEstFiltroEstructura.id_area || '';
+                if (selDep) selDep.value = chEstFiltroEstructura.id_departamento || '';
+                if (selPue) selPue.value = chEstFiltroEstructura.id_puesto || '';
+            })
+            .catch(function () { /* ignorar errores de carga de filtros */ });
+    }
+
     function marcarTextosContextoFiltroPendiente(mensaje) {
         var m = mensaje || 'Actualizando según el filtro…';
         setText('chMovClicAviso', m);
@@ -1336,15 +1399,19 @@ if (isset($chEstRangoIni, $chEstRangoFin) && is_string($chEstRangoIni) && is_str
         var elBjPct = document.getElementById('chKpiBajasPctBadge');
         if (elBjPct) elBjPct.textContent = totEmp > 0 ? (Math.round((bjEmp / totEmp) * 100) + '%') : '—';
 
+        setText('chKpiDirecciones', String(d.total_direcciones ?? 0));
         setText('chKpiAreas', String(d.total_areas ?? 0));
         setText('chKpiDeptos', String(d.total_departamentos ?? 0));
         setText('chKpiPuestos', String(d.puestos_unicos ?? 0));
+        var ndi = n(d.total_direcciones);
         var nd = n(d.total_departamentos);
         var na = n(d.total_areas);
         var np = n(d.puestos_unicos);
+        var elDipb = document.getElementById('chKpiDireccionesPctBadge');
         var elDpb = document.getElementById('chKpiDeptosPctBadge');
         var elApb = document.getElementById('chKpiAreasPctBadge');
         var elPpb = document.getElementById('chKpiPuestosPctBadge');
+        if (elDipb) elDipb.textContent = actEmp > 0 ? (Math.round((ndi / actEmp) * 1000) / 10).toFixed(1).replace(/\.0$/, '') + '%' : '-';
         if (elApb) elApb.textContent = actEmp > 0 ? (Math.round((na / actEmp) * 1000) / 10).toFixed(1).replace(/\.0$/, '') + '%' : '—';
         if (elDpb) elDpb.textContent = actEmp > 0 ? (Math.round((nd / actEmp) * 1000) / 10).toFixed(1).replace(/\.0$/, '') + '%' : '—';
         if (elPpb) elPpb.textContent = actEmp > 0 ? (Math.round((np / actEmp) * 1000) / 10).toFixed(1).replace(/\.0$/, '') + '%' : '—';
@@ -1509,15 +1576,33 @@ if (isset($chEstRangoIni, $chEstRangoFin) && is_string($chEstRangoIni) && is_str
         });
     }
 
+    var selDireccion = document.getElementById('chEstFiltroDireccion');
     var selArea = document.getElementById('chEstFiltroArea');
     var selDepartamento = document.getElementById('chEstFiltroDepartamento');
     var selPuesto = document.getElementById('chEstFiltroPuesto');
+    if (selDireccion) {
+        selDireccion.addEventListener('change', function () {
+            chEstFiltroEstructura.id_direccion = this.value || '';
+            chEstFiltroEstructura.id_area = '';
+            chEstFiltroEstructura.id_departamento = '';
+            chEstFiltroEstructura.id_puesto = '';
+            chEstCargarFiltrosEstructura({
+                id_direccion: chEstFiltroEstructura.id_direccion,
+                id_area: null,
+                id_departamento: null
+            }).then(refrescar);
+        });
+    }
     if (selArea) {
         selArea.addEventListener('change', function () {
             chEstFiltroEstructura.id_area = this.value || '';
             chEstFiltroEstructura.id_departamento = '';
             chEstFiltroEstructura.id_puesto = '';
-            chEstCargarFiltrosEstructura({ id_area: chEstFiltroEstructura.id_area, id_departamento: null }).then(refrescar);
+            chEstCargarFiltrosEstructura({
+                id_direccion: chEstFiltroEstructura.id_direccion,
+                id_area: chEstFiltroEstructura.id_area,
+                id_departamento: null
+            }).then(refrescar);
         });
     }
     if (selDepartamento) {
@@ -1525,6 +1610,7 @@ if (isset($chEstRangoIni, $chEstRangoFin) && is_string($chEstRangoIni) && is_str
             chEstFiltroEstructura.id_departamento = this.value || '';
             chEstFiltroEstructura.id_puesto = '';
             chEstCargarFiltrosEstructura({
+                id_direccion: chEstFiltroEstructura.id_direccion,
                 id_area: chEstFiltroEstructura.id_area,
                 id_departamento: chEstFiltroEstructura.id_departamento
             }).then(refrescar);
@@ -1536,7 +1622,7 @@ if (isset($chEstRangoIni, $chEstRangoFin) && is_string($chEstRangoIni) && is_str
             refrescar();
         });
     }
-    chEstCargarFiltrosEstructura({ id_area: null, id_departamento: null });
+    chEstCargarFiltrosEstructura({ id_direccion: null, id_area: null, id_departamento: null });
 
     document.querySelectorAll('input[name="chMovDetChartTipo"]').forEach(function (radio) {
         radio.addEventListener('change', function () {

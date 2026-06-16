@@ -1659,6 +1659,8 @@ class Sabueso extends Controller
             });
         }
         function abrirReporteSemanalGlobal(semanaInicio) {
+            window._reporteSemanalGlobalReqId = (window._reporteSemanalGlobalReqId || 0) + 1;
+            var reporteSemanalReqId = window._reporteSemanalGlobalReqId;
             var modalEl = document.getElementById('modalReporteSemanalGlobal');
             var bodyEl = document.getElementById('modalReporteSemanalGlobalBody');
             if (!modalEl || !bodyEl) {
@@ -1682,6 +1684,9 @@ class Sabueso extends Controller
                 showLoader: false,
                 timeout: 900000,
                 onSuccess: function(r) {
+                    if (reporteSemanalReqId !== window._reporteSemanalGlobalReqId) {
+                        return;
+                    }
                     if (typeof Swal !== 'undefined' && Swal.close) Swal.close();
                     var bodyEl2 = document.getElementById('modalReporteSemanalGlobalBody');
                     if (!bodyEl2) return;
@@ -1692,6 +1697,30 @@ class Sabueso extends Controller
                     }
                     var filas = r.filas || [];
                     var semanas = r.semanas || [];
+                    window._reporteSemanalSemanasCache = window._reporteSemanalSemanasCache || [];
+                    if (Array.isArray(semanas) && semanas.length) {
+                        var semanasMap = {};
+                        window._reporteSemanalSemanasCache.forEach(function(s) {
+                            if (s && s.inicio) semanasMap[String(s.inicio)] = Object.assign({}, s, { selected: false });
+                        });
+                        semanas.forEach(function(s) {
+                            if (s && s.inicio) semanasMap[String(s.inicio)] = Object.assign({}, s, { selected: false });
+                        });
+                        semanas = Object.keys(semanasMap).sort().reverse().map(function(k) {
+                            var s = semanasMap[k];
+                            s.selected = String(s.inicio || '') === String(r.semana_inicio || semanaInicio || '');
+                            return s;
+                        });
+                        window._reporteSemanalSemanasCache = semanas.map(function(s) {
+                            return Object.assign({}, s, { selected: false });
+                        });
+                    } else if (window._reporteSemanalSemanasCache.length) {
+                        semanas = window._reporteSemanalSemanasCache.map(function(s) {
+                            var c = Object.assign({}, s);
+                            c.selected = String(c.inicio || '') === String(r.semana_inicio || semanaInicio || '');
+                            return c;
+                        });
+                    }
                     var res = r.resumen || {};
                     function boolTxt(v) {
                         if (v === true || v === 1 || v === '1' || v === 'Sí' || v === 'Si') return '<span class="text-success fw-semibold">Sí</span>';
@@ -2391,6 +2420,9 @@ class Sabueso extends Controller
                     if (btnGraf) btnGraf.onclick = vistaGraficas;
                 },
                 onError: function() {
+                    if (reporteSemanalReqId !== window._reporteSemanalGlobalReqId) {
+                        return;
+                    }
                     if (typeof Swal !== 'undefined' && Swal.close) Swal.close();
                     var bodyErr = document.getElementById('modalReporteSemanalGlobalBody');
                     var modalErr = document.getElementById('modalReporteSemanalGlobal');
@@ -3003,6 +3035,24 @@ class Sabueso extends Controller
         $semanaInicio = trim((string)($body['semana_inicio'] ?? $_POST['semana_inicio'] ?? ''));
         $modo = (string)($body['modo'] ?? $_POST['modo'] ?? 'auto');
         $res = TicketDAO::guardarIlocalizableReporteSemanal($semanaInicio, $idTicket, $modo);
+        self::respuestaJSON($res);
+    }
+
+    /**
+     * API: historico general de creditos ilocalizables, sin depender de una semana.
+     */
+    public function getHistoricoIlocalizables()
+    {
+        $raw = file_get_contents('php://input');
+        $body = $raw ? json_decode($raw, true) : [];
+        if (!is_array($body)) {
+            $body = [];
+        }
+        $filtros = [
+            'q' => trim((string)($body['q'] ?? $_POST['q'] ?? '')),
+            'limit' => (int)($body['limit'] ?? $_POST['limit'] ?? 500),
+        ];
+        $res = TicketDAO::getHistoricoIlocalizables($filtros);
         self::respuestaJSON($res);
     }
 
@@ -4430,10 +4480,195 @@ class Sabueso extends Controller
     /** Cache corta para payload de rastreo de ubicaciones. */
     private const UBICACIONES_CACHE_TTL = 1800;
 
+    private function normalizarDireccionReferencia(string $direccion): string
+    {
+        $direccion = trim(preg_replace('/\s+/', ' ', $direccion));
+        if ($direccion === '') {
+            return '';
+        }
+        $ascii = @iconv('UTF-8', 'ASCII//TRANSLIT//IGNORE', $direccion);
+        if (is_string($ascii) && $ascii !== '') {
+            $direccion = $ascii;
+        }
+        $direccion = strtoupper($direccion);
+        $direccion = preg_replace('/[^A-Z0-9]+/', ' ', $direccion);
+        return trim(preg_replace('/\s+/', ' ', $direccion));
+    }
+
+    private function unirPartesDireccion(array $partes): string
+    {
+        $limpias = [];
+        foreach ($partes as $parte) {
+            $valor = trim((string) ($parte ?? ''));
+            if ($valor === '' || in_array(strtoupper($valor), ['N/A', 'NA', 'NULL', '0', '-'], true)) {
+                continue;
+            }
+            $limpias[] = $valor;
+        }
+        return trim(preg_replace('/\s+/', ' ', implode(', ', $limpias)));
+    }
+
+    private function agregarDomicilioReferencia(array &$domicilios, string $id, string $fuente, string $direccion): void
+    {
+        $direccion = trim(preg_replace('/\s+/', ' ', $direccion));
+        if ($direccion === '') {
+            return;
+        }
+        $norm = $this->normalizarDireccionReferencia($direccion);
+        if ($norm === '') {
+            return;
+        }
+        foreach ($domicilios as &$domicilio) {
+            if (($domicilio['_norm'] ?? '') === $norm) {
+                if (!in_array($fuente, $domicilio['fuentes'], true)) {
+                    $domicilio['fuentes'][] = $fuente;
+                    $domicilio['label'] = implode(' / ', $domicilio['fuentes']);
+                }
+                return;
+            }
+        }
+        unset($domicilio);
+        $domicilios[] = [
+            'id' => $id,
+            'tipo' => $id,
+            'label' => $fuente,
+            'fuentes' => [$fuente],
+            'direccion' => $direccion,
+            'lat' => null,
+            'lng' => null,
+            '_norm' => $norm,
+        ];
+    }
+
+    private function distanciaMetrosDomicilioReferencia(float $lat1, float $lng1, float $lat2, float $lng2): float
+    {
+        $radioTierra = 6371000;
+        $dLat = deg2rad($lat2 - $lat1);
+        $dLng = deg2rad($lng2 - $lng1);
+        $a = sin($dLat / 2) ** 2
+            + cos(deg2rad($lat1)) * cos(deg2rad($lat2)) * sin($dLng / 2) ** 2;
+        return $radioTierra * 2 * atan2(sqrt($a), sqrt(1 - $a));
+    }
+
+    private function domiciliosReferenciaMismoPunto(array $a, array $b): bool
+    {
+        $normA = (string) ($a['_norm'] ?? $this->normalizarDireccionReferencia((string) ($a['direccion'] ?? '')));
+        $normB = (string) ($b['_norm'] ?? $this->normalizarDireccionReferencia((string) ($b['direccion'] ?? '')));
+        if ($normA !== '' && $normB !== '' && $normA === $normB) {
+            return true;
+        }
+
+        if (!isset($a['lat'], $a['lng'], $b['lat'], $b['lng'])) {
+            return false;
+        }
+
+        $latA = (float) $a['lat'];
+        $lngA = (float) $a['lng'];
+        $latB = (float) $b['lat'];
+        $lngB = (float) $b['lng'];
+        if (($latA === 0.0 && $lngA === 0.0) || ($latB === 0.0 && $lngB === 0.0)) {
+            return false;
+        }
+
+        return $this->distanciaMetrosDomicilioReferencia($latA, $lngA, $latB, $lngB) <= self::RANGO_CASA_M;
+    }
+
+    private function fusionarDomiciliosReferenciaPorCoordenada(array $domicilios): array
+    {
+        $fusionados = [];
+        foreach ($domicilios as $domicilio) {
+            $keyFusion = null;
+            foreach ($fusionados as $key => $fusionado) {
+                if ($this->domiciliosReferenciaMismoPunto($fusionado, $domicilio)) {
+                    $keyFusion = $key;
+                    break;
+                }
+            }
+
+            if ($keyFusion === null) {
+                $fusionados[] = $domicilio;
+                continue;
+            }
+
+            foreach (($domicilio['fuentes'] ?? []) as $fuente) {
+                if (!in_array($fuente, $fusionados[$keyFusion]['fuentes'], true)) {
+                    $fusionados[$keyFusion]['fuentes'][] = $fuente;
+                }
+            }
+
+            if (in_array('Megareporte', $domicilio['fuentes'] ?? [], true)) {
+                $fusionados[$keyFusion]['id'] = 'megareporte';
+                $fusionados[$keyFusion]['tipo'] = 'megareporte';
+                $fusionados[$keyFusion]['direccion'] = $domicilio['direccion'] ?? ($fusionados[$keyFusion]['direccion'] ?? '');
+                $fusionados[$keyFusion]['lat'] = $domicilio['lat'] ?? ($fusionados[$keyFusion]['lat'] ?? null);
+                $fusionados[$keyFusion]['lng'] = $domicilio['lng'] ?? ($fusionados[$keyFusion]['lng'] ?? null);
+            } elseif (in_array('Megareporte', $fusionados[$keyFusion]['fuentes'], true)) {
+                $fusionados[$keyFusion]['id'] = 'megareporte';
+                $fusionados[$keyFusion]['tipo'] = 'megareporte';
+            }
+            $fusionados[$keyFusion]['label'] = implode(' / ', $fusionados[$keyFusion]['fuentes']);
+        }
+
+        return array_values($fusionados);
+    }
+
+    private function obtenerDomiciliosReferenciaCredito(int $idCredito, string $domicilioMegareporte, GeocodingService $geocoding): array
+    {
+        $domicilios = [];
+        $this->agregarDomicilioReferencia($domicilios, 'megareporte', 'Megareporte', $domicilioMegareporte);
+
+        $direccionesMaxiProd = EmpresaDAO::getDireccionesMaxiProdCredito($idCredito);
+        $row = ($direccionesMaxiProd['success'] ?? false) && !empty($direccionesMaxiProd['datos'][0])
+            ? $direccionesMaxiProd['datos'][0]
+            : [];
+
+        if (!empty($row)) {
+            $direccionIne = $this->unirPartesDireccion([
+                $row['direccion_ine'] ?? '',
+                $row['calle_numero_ine'] ?? '',
+                $row['colonia_ine'] ?? '',
+                $row['ciudad_ine'] ?? '',
+                $row['estado_ine'] ?? '',
+                $row['codigo_postal_ine'] ?? '',
+            ]);
+            $direccionSolicitud = $this->unirPartesDireccion([
+                $row['direccion_solicitud'] ?? '',
+                $row['calle_numero_solicitud'] ?? '',
+                $row['colonia_solicitud'] ?? '',
+                $row['ciudad_solicitud'] ?? '',
+                $row['estado_solicitud'] ?? '',
+                $row['codigo_postal_solicitud'] ?? '',
+            ]);
+
+            $this->agregarDomicilioReferencia($domicilios, 'ine_persona', 'INE / persona', $direccionIne);
+            $this->agregarDomicilioReferencia($domicilios, 'solicitud_actual', 'Solicitud / domicilio actual', $direccionSolicitud);
+        }
+
+        foreach ($domicilios as &$domicilio) {
+            $coords = [];
+            if (in_array('Megareporte', $domicilio['fuentes'], true)) {
+                $coords = $geocoding->getDomicilioCoordsForCredito($idCredito, $domicilio['direccion']);
+            }
+            if (empty($coords)) {
+                $coords = $geocoding->geocode($domicilio['direccion']);
+            }
+            if (!empty($coords)) {
+                $domicilio['lat'] = (float) $coords['lat'];
+                $domicilio['lng'] = (float) $coords['lng'];
+            }
+            unset($domicilio['_norm']);
+        }
+        unset($domicilio);
+
+        $domicilios = $this->fusionarDomiciliosReferenciaPorCoordenada($domicilios);
+
+        return $domicilios;
+    }
+
     private function getUbicacionesCachePath(int $idCredito, bool $modoRapido = false): string
     {
         // Bump suffix when payload shape changes (ej. domicilio_megareporte con dirección aunque falten coords).
-        $sufijo = $modoRapido ? '_lite3' : '_v2';
+        $sufijo = $modoRapido ? '_lite9' : '_v8';
         return dirname(__DIR__) . '/storage/cache/sabueso_ubicaciones_' . $idCredito . $sufijo . '.json';
     }
 
@@ -4466,6 +4701,7 @@ class Sabueso extends Controller
             $puntosMapa = $resultado['puntos_mapa'] ?? [];
             $puntosGeo = $modoRapido ? [] : OfertaCoordenada::getPorIdCredito($idCredito);
             $domicilioMegareporte = null;
+            $domiciliosReferencia = [];
             $indiceCasa = null;
 
             // En modo rápido seguimos omitiendo puntos_geo (BD alternas) pero sí devolvemos coords de megareporte
@@ -4515,6 +4751,22 @@ class Sabueso extends Controller
                     }
                 }
             }
+            $geocodingReferencias = new GeocodingService();
+            $domiciliosReferencia = $this->obtenerDomiciliosReferenciaCredito($idCredito, $domicilioCompleto, $geocodingReferencias);
+            foreach ($domiciliosReferencia as $domicilioReferencia) {
+                if (in_array('Megareporte', $domicilioReferencia['fuentes'] ?? [], true)) {
+                    $domicilioMegareporte = [
+                        'id' => $domicilioReferencia['id'] ?? 'megareporte',
+                        'tipo' => $domicilioReferencia['tipo'] ?? 'megareporte',
+                        'lat' => $domicilioReferencia['lat'] ?? null,
+                        'lng' => $domicilioReferencia['lng'] ?? null,
+                        'direccion' => $domicilioReferencia['direccion'] ?? $domicilioCompleto,
+                        'label' => $domicilioReferencia['label'] ?? 'Megareporte',
+                        'fuentes' => $domicilioReferencia['fuentes'] ?? ['Megareporte'],
+                    ];
+                    break;
+                }
+            }
 
             $payload = [
                 'success' => $resultado['success'] ?? true,
@@ -4524,6 +4776,7 @@ class Sabueso extends Controller
                 'puntos_mapa' => $puntosMapa,
                 'puntos_geo' => $puntosGeo,
                 'domicilio_megareporte' => $domicilioMegareporte,
+                'domicilios_referencia' => $domiciliosReferencia,
                 'indice_casa' => $indiceCasa,
             ];
             $cacheDir = dirname($cachePath);
