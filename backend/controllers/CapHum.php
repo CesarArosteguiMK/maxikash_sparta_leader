@@ -10349,7 +10349,7 @@ class CapHum extends Controller
         $id_candidato = (int) $res['datos']['id_candidato'];
         $candidatoRes = CandidatosDAO::getById($id_candidato);
         $c = ($candidatoRes['success'] && !empty($candidatoRes['datos'])) ? $candidatoRes['datos'] : $res['datos'];
-        $fechaYmd = date('Y-m-d');
+        $fechaYmd = self::ahoraMexicoCiudad()->format('Y-m-d');
         $datosParaForm = [
             'fecha'      => $fechaYmd,
             'puesto'     => trim($c['nombre_puesto'] ?? ''),
@@ -10481,7 +10481,7 @@ class CapHum extends Controller
             'telefono'        => trim($c['telefono'] ?? ''),
             'puesto'          => trim($c['nombre_puesto'] ?? ''),
             'departamento'    => trim($c['nombre_departamento'] ?? ''),
-            'fecha'           => date('d/m/Y'),
+            'fecha'           => self::ahoraMexicoCiudad()->format('d/m/Y'),
             'curp'            => trim($c['curp'] ?? ''),
         ];
     }
@@ -11313,7 +11313,7 @@ class CapHum extends Controller
                     'api_pendiente' => false,
                     'error_api' => null,
                     'job_id' => (int) ($resCola['datos']['id_job'] ?? 0),
-                    'iniciado_en' => date('Y-m-d H:i:s'),
+                    'iniciado_en' => self::ahoraMexicoCiudad()->format('Y-m-d H:i:s'),
                 ];
                 $verificacion = $payloadEnProceso;
                 $payload['verificacion_expediente'] = $payloadEnProceso;
@@ -11359,7 +11359,7 @@ class CapHum extends Controller
                 'api_pendiente' => false,
                 'error_api' => null,
                 'job_id' => (int) ($res['datos']['id_job'] ?? 0),
-                'iniciado_en' => date('Y-m-d H:i:s'),
+                'iniciado_en' => self::ahoraMexicoCiudad()->format('Y-m-d H:i:s'),
             ];
             CandidatosDAO::updateVerificacionExpediente((int) $id_candidato, json_encode($payloadEnProceso));
         }
@@ -11414,7 +11414,7 @@ class CapHum extends Controller
         if (!is_dir($logDir)) {
             @mkdir($logDir, 0775, true);
         }
-        $logSuffix = date('Ymd-His') . '-' . getmypid() . '-' . substr(str_replace('.', '', uniqid('', true)), -6);
+        $logSuffix = self::ahoraMexicoCiudad()->format('Ymd-His') . '-' . getmypid() . '-' . substr(str_replace('.', '', uniqid('', true)), -6);
         $outLog = $logDir . DIRECTORY_SEPARATOR . 'verificacion_documental_worker-' . $logSuffix . '.log';
         $errLog = $logDir . DIRECTORY_SEPARATOR . 'verificacion_documental_worker-' . $logSuffix . '.err.log';
         $cmdQuote = function ($value) {
@@ -11548,7 +11548,7 @@ class CapHum extends Controller
         if ($nombreSeguro === '') {
             $nombreSeguro = $slug;
         }
-        $nombreArchivo = $slug . '_manual_' . date('Ymd_His') . '_' . substr(md5($nombreSeguro . microtime(true)), 0, 8) . '.pdf';
+        $nombreArchivo = $slug . '_manual_' . self::ahoraMexicoCiudad()->format('Ymd_His') . '_' . substr(md5($nombreSeguro . microtime(true)), 0, 8) . '.pdf';
         $rutaDestino = $dirExpediente . '/' . $nombreArchivo;
         if (!move_uploaded_file($tmp, $rutaDestino)) {
             echo json_encode(self::respuesta(false, 'No se pudo guardar el PDF en el expediente.'));
@@ -11562,7 +11562,7 @@ class CapHum extends Controller
             'revision_manual' => true,
             'pendiente_revision_manual' => true,
             'id_usuario_rrhh' => (int) ($_SESSION['usuario_id'] ?? 0),
-            'fecha_subida_manual' => date('Y-m-d H:i:s'),
+            'fecha_subida_manual' => self::ahoraMexicoCiudad()->format('Y-m-d H:i:s'),
             'notas' => ['Documento subido manualmente por Capital Humano.'],
         ];
         $verificacionFiscalJson = $tipoNum === 7 ? json_encode($marcaManual) : null;
@@ -11662,7 +11662,7 @@ class CapHum extends Controller
                 'comparaciones' => null,
                 'modo_verificacion' => 'completo',
                 'error_api' => null,
-                'iniciado_en' => date('Y-m-d H:i:s'),
+                'iniciado_en' => self::ahoraMexicoCiudad()->format('Y-m-d H:i:s'),
             ];
             CandidatosDAO::updateVerificacionExpediente($id_candidato, json_encode($payloadEnProceso));
             $respuestaAsync = self::respuesta(true, 'Verificación iniciada en segundo plano. La documentación se actualizará automáticamente.', [
@@ -12409,7 +12409,7 @@ class CapHum extends Controller
         if (!is_array($resultado)) {
             $resultado = ['valido' => false, 'mensaje' => 'No se pudo contactar la API de verificación.'];
         }
-        $resultado['validado_en'] = date('Y-m-d H:i:s');
+        $resultado['validado_en'] = self::ahoraMexicoCiudad()->format('Y-m-d H:i:s');
         CandidatosDAO::updateVerificacionDocumento($id_doc, null, json_encode($resultado));
         CandidatosDAO::invalidateDocumentacionCache((int) ($doc['id_candidato'] ?? 0));
         echo json_encode(self::respuesta(!empty($resultado['valido']), $resultado['mensaje'] ?? 'Validación de acta finalizada.', [

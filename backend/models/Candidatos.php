@@ -703,7 +703,8 @@ class Candidatos extends Model
                 usuario = :usuario,
                 contrasena = :contrasena,
                 estatus = :estatus,
-                notas = :notas
+                notas = :notas,
+                fecha_actualizacion = :fecha_actualizacion
             WHERE id = :id
         SQL;
         $params = [
@@ -731,6 +732,7 @@ class Candidatos extends Model
             'contrasena' => isset($data['contrasena']) ? (trim($data['contrasena']) ?: null) : null,
             'estatus' => trim($data['estatus'] ?? '') ?: 'Por evaluar',
             'notas' => trim($data['notas'] ?? '') ?: null,
+            'fecha_actualizacion' => self::fechaHoraActualMexicoCiudad(),
         ];
 
         try {
@@ -1122,9 +1124,10 @@ class Candidatos extends Model
         try {
             $db = new Database();
             $token = bin2hex(random_bytes(32));
+            $expira = self::ahoraMexicoCiudadImmutable()->modify('+7 days')->format('Y-m-d H:i:s');
             $db->CRUD(
-                "INSERT INTO candidato_confirmacion_alta_token (token, id_candidato, expira) VALUES (:token, :id_candidato, DATE_ADD(NOW(), INTERVAL 7 DAY))",
-                ['token' => $token, 'id_candidato' => $id_candidato]
+                "INSERT INTO candidato_confirmacion_alta_token (token, id_candidato, expira) VALUES (:token, :id_candidato, :expira)",
+                ['token' => $token, 'id_candidato' => $id_candidato, 'expira' => $expira]
             );
             return self::resultado(true, 'Token creado.', $token);
         } catch (\Exception $e) {
@@ -1143,9 +1146,10 @@ class Candidatos extends Model
         }
         try {
             $db = new Database();
+            $ahora = self::fechaHoraActualMexicoCiudad();
             $row = $db->queryOne(
-                "SELECT id_candidato FROM candidato_confirmacion_alta_token WHERE token = :token AND usado = 0 AND expira > NOW() LIMIT 1",
-                ['token' => $token]
+                "SELECT id_candidato FROM candidato_confirmacion_alta_token WHERE token = :token AND usado = 0 AND expira > :ahora LIMIT 1",
+                ['token' => $token, 'ahora' => $ahora]
             );
             if (!$row) {
                 return self::resultado(false, 'Enlace no válido, ya usado o expirado.', null);
@@ -1168,9 +1172,10 @@ class Candidatos extends Model
         }
         try {
             $db = new Database();
+            $fechaUso = self::fechaHoraActualMexicoCiudad();
             $db->CRUD(
-                "UPDATE candidato_confirmacion_alta_token SET usado = 1, respuesta = :respuesta, fecha_uso = NOW() WHERE token = :token",
-                ['respuesta' => $respuesta, 'token' => $token]
+                "UPDATE candidato_confirmacion_alta_token SET usado = 1, respuesta = :respuesta, fecha_uso = :fecha_uso WHERE token = :token",
+                ['respuesta' => $respuesta, 'fecha_uso' => $fechaUso, 'token' => $token]
             );
             return true;
         } catch (\Exception $e) {
@@ -1200,9 +1205,10 @@ class Candidatos extends Model
         }
         try {
             $db = new Database();
+            $fechaCarga = self::fechaHoraActualMexicoCiudad();
             if ($contenido !== null) {
                 $ruta = trim($ruta_archivo ?? '');
-                $sql = "INSERT INTO candidato_documento (id_candidato, tipo_documento, nombre_archivo, ruta_archivo, contenido, mime_type, verificacion_fiscal_json, verificacion_calidad_json) VALUES (:id_candidato, :tipo_documento, :nombre_archivo, :ruta_archivo, :contenido, :mime_type, :verificacion_fiscal_json, :verificacion_calidad_json)";
+                $sql = "INSERT INTO candidato_documento (id_candidato, tipo_documento, nombre_archivo, ruta_archivo, contenido, mime_type, verificacion_fiscal_json, verificacion_calidad_json, fecha_carga) VALUES (:id_candidato, :tipo_documento, :nombre_archivo, :ruta_archivo, :contenido, :mime_type, :verificacion_fiscal_json, :verificacion_calidad_json, :fecha_carga)";
                 $params = [
                     'id_candidato' => $id_candidato,
                     'tipo_documento' => trim($tipo_documento ?? ''),
@@ -1212,18 +1218,20 @@ class Candidatos extends Model
                     'mime_type' => $mime_type !== null ? trim($mime_type) : null,
                     'verificacion_fiscal_json' => $verificacion_fiscal_json,
                     'verificacion_calidad_json' => $verificacion_calidad_json,
+                    'fecha_carga' => $fechaCarga,
                 ];
                 $db->queryOne($sql, $params);
             } else {
                 $db->CRUD(
-                    "INSERT INTO candidato_documento (id_candidato, tipo_documento, nombre_archivo, ruta_archivo, verificacion_fiscal_json, verificacion_calidad_json) VALUES (:id_candidato, :tipo_documento, :nombre_archivo, :ruta_archivo, :verificacion_fiscal_json, :verificacion_calidad_json)",
+                    "INSERT INTO candidato_documento (id_candidato, tipo_documento, nombre_archivo, ruta_archivo, verificacion_fiscal_json, verificacion_calidad_json, fecha_carga) VALUES (:id_candidato, :tipo_documento, :nombre_archivo, :ruta_archivo, :verificacion_fiscal_json, :verificacion_calidad_json, :fecha_carga)",
                     [
                         'id_candidato' => $id_candidato,
                         'tipo_documento' => trim($tipo_documento ?? ''),
                         'nombre_archivo' => $nombre_archivo,
                         'ruta_archivo' => $ruta_archivo,
                         'verificacion_fiscal_json' => $verificacion_fiscal_json,
-                        'verificacion_calidad_json' => $verificacion_calidad_json
+                        'verificacion_calidad_json' => $verificacion_calidad_json,
+                        'fecha_carga' => $fechaCarga,
                     ]
                 );
             }
@@ -1233,7 +1241,7 @@ class Candidatos extends Model
                 'tipo_documento' => $tipoBit,
                 'nombre_archivo' => trim((string) $nombre_archivo),
                 'origen' => 'candidato',
-            ]);
+            ], null, $fechaCarga);
             try {
                 $conteoDocs = $db->queryOne(
                     "SELECT COUNT(*) AS total, MAX(fecha_carga) AS ultima_carga FROM candidato_documento WHERE id_candidato = :id",
@@ -1274,7 +1282,7 @@ class Candidatos extends Model
                     ruta_archivo VARCHAR(500) NULL,
                     id_usuario_rrhh INT NULL,
                     motivo VARCHAR(500) NULL,
-                    fecha_registro DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                    fecha_registro DATETIME NOT NULL,
                     INDEX idx_cdsm_candidato (id_candidato),
                     INDEX idx_cdsm_usuario (id_usuario_rrhh)
                 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci"
@@ -1292,11 +1300,12 @@ class Candidatos extends Model
         self::ensureTablaSubidaManualDocumentoCandidato();
         try {
             $db = new Database();
+            $fechaRegistro = self::fechaHoraActualMexicoCiudad();
             $db->CRUD(
                 "INSERT INTO candidato_documento_subida_manual
-                    (id_candidato, tipo_documento, nombre_archivo, ruta_archivo, id_usuario_rrhh, motivo)
+                    (id_candidato, tipo_documento, nombre_archivo, ruta_archivo, id_usuario_rrhh, motivo, fecha_registro)
                  VALUES
-                    (:id_candidato, :tipo_documento, :nombre_archivo, :ruta_archivo, :id_usuario_rrhh, :motivo)",
+                    (:id_candidato, :tipo_documento, :nombre_archivo, :ruta_archivo, :id_usuario_rrhh, :motivo, :fecha_registro)",
                 [
                     'id_candidato' => $id_candidato,
                     'tipo_documento' => trim((string) $tipo_documento),
@@ -1304,13 +1313,14 @@ class Candidatos extends Model
                     'ruta_archivo' => trim((string) $ruta_archivo),
                     'id_usuario_rrhh' => $id_usuario_rrhh ? (int) $id_usuario_rrhh : null,
                     'motivo' => $motivo !== null ? substr(trim((string) $motivo), 0, 500) : null,
+                    'fecha_registro' => $fechaRegistro,
                 ]
             );
             self::registrarBitacoraCandidato($id_candidato, 'DOCUMENTO_SUBIDO_MANUALMENTE', 'Documento subido manualmente', trim((string) $tipo_documento) . ': ' . trim((string) $nombre_archivo), [
                 'tipo_documento' => trim((string) $tipo_documento),
                 'nombre_archivo' => trim((string) $nombre_archivo),
                 'motivo' => $motivo !== null ? substr(trim((string) $motivo), 0, 500) : null,
-            ], $id_usuario_rrhh);
+            ], $id_usuario_rrhh, $fechaRegistro);
             return self::resultado(true, 'Subida manual registrada.');
         } catch (\Exception $e) {
             return self::resultado(false, 'No se pudo registrar la subida manual.', null, $e->getMessage());
@@ -1543,10 +1553,10 @@ class Candidatos extends Model
                     locked_at DATETIME NULL,
                     started_at DATETIME NULL,
                     finished_at DATETIME NULL,
-                    next_run_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                    next_run_at DATETIME NOT NULL,
                     last_error TEXT NULL,
-                    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-                    updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                    created_at DATETIME NOT NULL,
+                    updated_at DATETIME NOT NULL,
                     INDEX idx_cvdj_estado_next (estado, next_run_at),
                     INDEX idx_cvdj_candidato_estado (id_candidato, estado),
                     INDEX idx_cvdj_locked (locked_at)
@@ -1575,6 +1585,7 @@ class Candidatos extends Model
         try {
             $db = new Database();
             self::asegurarTablaJobsVerificacionDocumental($db);
+            $ahora = self::fechaHoraActualMexicoCiudad();
 
             $existente = $db->queryOne(
                 "SELECT id, tipos_subidos_json, expediente_completo
@@ -1610,15 +1621,16 @@ class Candidatos extends Model
                          tipos_subidos_json = :tipos,
                          expediente_completo = :expediente,
                          origen = :origen,
-                         next_run_at = NOW(),
+                         next_run_at = :ahora,
                          last_error = NULL,
-                         updated_at = NOW()
+                         updated_at = :ahora
                      WHERE id = :job",
                     [
                         'job' => (int) $existente['id'],
                         'tipos' => json_encode(array_keys($tipos)),
                         'expediente' => $expedienteFinal,
                         'origen' => substr($origen, 0, 40),
+                        'ahora' => $ahora,
                     ]
                 );
                 return self::resultado(true, 'Verificacion documental encolada.', ['id_job' => (int) $existente['id']]);
@@ -1626,15 +1638,16 @@ class Candidatos extends Model
 
             $db->CRUD(
                 "INSERT INTO candidato_verificacion_documental_job
-                    (id_candidato, estado, prioridad, origen, tipos_subidos_json, expediente_completo, next_run_at)
+                    (id_candidato, estado, prioridad, origen, tipos_subidos_json, expediente_completo, next_run_at, created_at, updated_at)
                  VALUES
-                    (:id, 'pendiente', :prioridad, :origen, :tipos, :expediente, NOW())",
+                    (:id, 'pendiente', :prioridad, :origen, :tipos, :expediente, :ahora, :ahora, :ahora)",
                 [
                     'id' => $id_candidato,
                     'prioridad' => $expedienteCompleto ? 9 : 5,
                     'origen' => substr($origen, 0, 40),
                     'tipos' => json_encode(array_keys($tipos)),
                     'expediente' => $expedienteValor,
+                    'ahora' => $ahora,
                 ]
             );
             return self::resultado(true, 'Verificacion documental encolada.', ['id_job' => $db->lastInsertId()]);
@@ -1649,22 +1662,25 @@ class Candidatos extends Model
         try {
             $db = new Database();
             self::asegurarTablaJobsVerificacionDocumental($db);
+            $ahora = self::fechaHoraActualMexicoCiudad();
+            $staleAntesDe = self::ahoraMexicoCiudadImmutable()->modify('-' . $staleMinutes . ' minutes')->format('Y-m-d H:i:s');
             $db->beginTransaction();
             $job = $db->queryOne(
                 "SELECT *
                  FROM candidato_verificacion_documental_job
                  WHERE (
                         estado = 'pendiente'
-                        AND next_run_at <= NOW()
+                        AND next_run_at <= :ahora
                        )
                     OR (
                         estado = 'procesando'
                         AND locked_at IS NOT NULL
-                        AND locked_at < DATE_SUB(NOW(), INTERVAL {$staleMinutes} MINUTE)
+                        AND locked_at < :stale_antes_de
                        )
                  ORDER BY prioridad DESC, id ASC
                  LIMIT 1
-                 FOR UPDATE"
+                 FOR UPDATE",
+                ['ahora' => $ahora, 'stale_antes_de' => $staleAntesDe]
             );
             if (!$job) {
                 $db->commit();
@@ -1674,12 +1690,12 @@ class Candidatos extends Model
                 "UPDATE candidato_verificacion_documental_job
                  SET estado = 'procesando',
                      intentos = intentos + 1,
-                     locked_at = NOW(),
-                     started_at = COALESCE(started_at, NOW()),
+                     locked_at = :ahora,
+                     started_at = COALESCE(started_at, :ahora),
                      last_error = NULL,
-                     updated_at = NOW()
+                     updated_at = :ahora
                  WHERE id = :id",
-                ['id' => (int) $job['id']]
+                ['id' => (int) $job['id'], 'ahora' => $ahora]
             );
             $db->commit();
             $job['intentos'] = (int) ($job['intentos'] ?? 0) + 1;
@@ -1704,31 +1720,35 @@ class Candidatos extends Model
         try {
             $db = new Database();
             self::asegurarTablaJobsVerificacionDocumental($db);
+            $ahora = self::fechaHoraActualMexicoCiudad();
             if ($ok) {
                 $db->CRUD(
                     "UPDATE candidato_verificacion_documental_job
                      SET estado = 'terminado',
-                         finished_at = NOW(),
+                         finished_at = :ahora,
                          locked_at = NULL,
                          last_error = NULL,
-                         updated_at = NOW()
+                         updated_at = :ahora
                      WHERE id = :id",
-                    ['id' => $id_job]
+                    ['id' => $id_job, 'ahora' => $ahora]
                 );
                 return;
             }
+            $siguienteIntento = self::ahoraMexicoCiudadImmutable()->modify('+5 minutes')->format('Y-m-d H:i:s');
             $db->CRUD(
                 "UPDATE candidato_verificacion_documental_job
                  SET estado = CASE WHEN intentos >= max_intentos THEN 'error' ELSE 'pendiente' END,
-                     next_run_at = CASE WHEN intentos >= max_intentos THEN next_run_at ELSE DATE_ADD(NOW(), INTERVAL 5 MINUTE) END,
-                     finished_at = CASE WHEN intentos >= max_intentos THEN NOW() ELSE finished_at END,
+                     next_run_at = CASE WHEN intentos >= max_intentos THEN next_run_at ELSE :siguiente_intento END,
+                     finished_at = CASE WHEN intentos >= max_intentos THEN :ahora ELSE finished_at END,
                      locked_at = NULL,
                      last_error = :error,
-                     updated_at = NOW()
+                     updated_at = :ahora
                  WHERE id = :id",
                 [
                     'id' => $id_job,
                     'error' => $error !== null ? substr($error, 0, 2000) : null,
+                    'ahora' => $ahora,
+                    'siguiente_intento' => $siguienteIntento,
                 ]
             );
         } catch (\Exception $e) {
@@ -2334,7 +2354,7 @@ class Candidatos extends Model
                     comentario TEXT NOT NULL,
                     fase_revision VARCHAR(40) NULL,
                     id_usuario_rrhh INT NULL,
-                    fecha_registro DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                    fecha_registro DATETIME NOT NULL,
                     INDEX idx_candidato (id_candidato),
                     INDEX idx_fecha (fecha_registro)
                 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci'

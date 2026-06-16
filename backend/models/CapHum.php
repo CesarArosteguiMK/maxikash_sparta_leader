@@ -9,12 +9,61 @@ use Core\UsuarioFantasmaReporteria;
 class CapHum extends Model
 {
     private static $trayectoriaPuestoTablaAsegurada = false;
+    public const MODULO_ACCESOS_CAPITAL_HUMANO = 140;
+    private const MODULOS_ACCESOS_CAPITAL_HUMANO_IDS = [
+        4, 5, 13, 34, 38, 42, 44, 82, 83, 86, 87, 88, 89, 91, 92, 93,
+        94, 95, 96, 97, 98, 99, 101, 103, 104, 105,
+        107, 108, 109, 110, 111, 112, 113, 114, 115, 116, 117, 118,
+        119, 120, 121, 122, 123, 124, 125, 126, 127,
+        140,
+    ];
     private const MODULO_CONVENIOS_DESCARGAR_EXCEL = 92;
     private const MODULO_CONVENIOS_DESCARGAR_EXCEL_NOMBRE = 'Descargar Excel';
     private const MODULO_CONVENIOS_DESCARGAR_EXCEL_DESC = 'Convenios - Cierre de Credito - Descargar Excel';
     private const MODULO_TRACKING_CANCELAR_RUTA = 102;
     private const MODULO_TRACKING_CANCELAR_RUTA_NOMBRE = 'Cancelar rutas Tracking';
     private const MODULO_TRACKING_CANCELAR_RUTA_DESC = 'Tracking Recoleccion - Cancelar rutas registradas';
+
+    public static function asegurarModuloAccesosCapitalHumano(): void
+    {
+        try {
+            $db = new Database();
+            self::asegurarModuloAccesosCapitalHumanoDb($db);
+        } catch (\Throwable $e) {
+            error_log('CapHum::asegurarModuloAccesosCapitalHumano -> ' . $e->getMessage());
+        }
+    }
+
+    private static function asegurarModuloAccesosCapitalHumanoDb(Database $db): void
+    {
+        $datos = [
+            'id' => self::MODULO_ACCESOS_CAPITAL_HUMANO,
+            'nombre' => 'Capital Humano Accesos Capital Humano',
+            'pestana' => 'Capital Humano',
+            'descripcion' => 'Acceso al modulo de administracion de permisos de Capital Humano.',
+        ];
+        $existe = $db->queryOne(
+            'SELECT id FROM modulos_web WHERE id = :id LIMIT 1',
+            ['id' => self::MODULO_ACCESOS_CAPITAL_HUMANO]
+        );
+        if ($existe) {
+            $db->CRUD(
+                'UPDATE modulos_web
+                    SET nombre = :nombre,
+                        pestana = :pestana,
+                        descripcion = :descripcion,
+                        activo = 1
+                  WHERE id = :id',
+                $datos
+            );
+            return;
+        }
+        $db->CRUD(
+            'INSERT INTO modulos_web (id, nombre, pestana, descripcion, activo)
+             VALUES (:id, :nombre, :pestana, :descripcion, 1)',
+            $datos
+        );
+    }
 
     private static function asegurarModuloConveniosDescargarExcel(Database $db): void
     {
