@@ -14,7 +14,7 @@ class OfertaCoordenada
 
     private static function getCachePath(int $idCredito): string
     {
-        return dirname(__DIR__) . '/storage/cache/oferta_coordenada_dynamo_v2_' . $idCredito . '.json';
+        return dirname(__DIR__) . '/storage/cache/oferta_coordenada_dynamo_v3_' . $idCredito . '.json';
     }
 
     private static function readCache(int $idCredito): ?array
@@ -128,7 +128,6 @@ class OfertaCoordenada
             $service = new MkValidationsService();
             $result = $service->getCoordenadasFirma($idCredito);
             if (empty($result['success']) || empty($result['datos'][0]['firma'])) {
-                self::writeCache($idCredito, []);
                 return [];
             }
 
