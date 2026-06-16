@@ -272,6 +272,7 @@ class CapHumEstadisticas extends Model
         int $semana,
         ?string $fechaIniCal = null,
         ?string $fechaFinCal = null,
+        ?int $idDireccion = null,
         ?int $idArea = null,
         ?int $idDepartamento = null,
         ?int $idPuesto = null
@@ -309,6 +310,7 @@ class CapHumEstadisticas extends Model
             $tpu = self::tblBd('puesto');
             $td = self::tblBd('departamento');
             $tdo = self::tblBd('departamento_organizacional');
+            $tad = self::tblBd('asigna_direcciones');
             $tbp = self::tblBd('baja_persona');
             $tcnd = self::tblBd('candidatos');
             $tmw = self::tblBd('asigna_modulo_web');
@@ -323,11 +325,12 @@ class CapHumEstadisticas extends Model
             $sqlIngEnRango = '(p.fecha_ingreso IS NOT NULL
                 AND p.fecha_ingreso NOT IN (\'0000-00-00\',\'0000-00-00 00:00:00\')
                 AND DATE(p.fecha_ingreso) BETWEEN :fi AND :ff)';
+            $idDireccion = ($idDireccion !== null && $idDireccion > 0) ? (int) $idDireccion : null;
             $idArea = ($idArea !== null && $idArea > 0) ? (int) $idArea : null;
             $idDepartamento = ($idDepartamento !== null && $idDepartamento > 0) ? (int) $idDepartamento : null;
             $idPuesto = ($idPuesto !== null && $idPuesto > 0) ? (int) $idPuesto : null;
             $sqlFiltroPersona = '';
-            if ($idArea !== null || $idDepartamento !== null || $idPuesto !== null) {
+            if ($idDireccion !== null || $idArea !== null || $idDepartamento !== null || $idPuesto !== null) {
                 $sqlFiltroPersona = '
                   AND EXISTS (
                       SELECT 1
@@ -340,7 +343,12 @@ class CapHumEstadisticas extends Model
                       INNER JOIN ' . $tpu . ' puf ON puf.id = apf.id_puesto
                       LEFT JOIN ' . $td . ' df ON df.id = puf.departamento_id
                       LEFT JOIN ' . $tdo . ' af ON af.id = df.id_departamento_organizacional
+                      LEFT JOIN ' . $tad . ' adf ON adf.id_departamento_organizacional = af.id AND COALESCE(adf.activo, 1) = 1
                       WHERE apf.id_persona = p.id';
+                if ($idDireccion !== null) {
+                    $sqlFiltroPersona .= ' AND adf.id_direccion = :f_id_direccion';
+                    $paramsRango['f_id_direccion'] = $idDireccion;
+                }
                 if ($idArea !== null) {
                     $sqlFiltroPersona .= ' AND af.id = :f_id_area';
                     $paramsRango['f_id_area'] = $idArea;
@@ -385,18 +393,21 @@ class CapHumEstadisticas extends Model
                  ) ap ON ap.id_persona = p.id
                  INNER JOIN ' . $tpu . ' pu ON pu.id = ap.id_puesto
                  LEFT JOIN ' . $td . ' d ON d.id = pu.departamento_id
-                 LEFT JOIN ' . $tdo . ' a ON a.id = d.id_departamento_organizacional';
+                 LEFT JOIN ' . $tdo . ' a ON a.id = d.id_departamento_organizacional
+                 LEFT JOIN ' . $tad . ' ad ON ad.id_departamento_organizacional = a.id AND COALESCE(ad.activo, 1) = 1';
             $sqlFiltroEstructuraJoin = '';
-            if ($idArea !== null) {
-                $sqlFiltroEstructuraJoin .= ' AND a.id = :f_id_area';
-            }
-            if ($idDepartamento !== null) {
-                $sqlFiltroEstructuraJoin .= ' AND d.id = :f_id_departamento';
-            }
-            if ($idPuesto !== null) {
-                $sqlFiltroEstructuraJoin .= ' AND pu.id = :f_id_puesto';
-            }
+            // El filtro estructural ya se aplica en $sqlExFantasma con el puesto actual.
+            // Repetir los mismos placeholders aquÃ­ puede romper PDO con prepares nativos.
 
+            $totalDirecciones = self::scalarInt(
+                $db,
+                'SELECT COUNT(DISTINCT ad.id_direccion) AS c
+                 FROM ' . $tp . ' p' . $sqlApActivoUltimo . '
+                 WHERE ' . $sqlActivo . '
+                   AND ' . $sqlIngHastaFfHi . $sqlExFantasma . $sqlFiltroEstructuraJoin . '
+                   AND ad.id_direccion IS NOT NULL',
+                $paramsRango
+            );
             $totalAreas = self::scalarInt(
                 $db,
                 'SELECT COUNT(DISTINCT a.id) AS c
@@ -852,6 +863,7 @@ class CapHumEstadisticas extends Model
                 'plantilla_cierre_total' => $headcountPlantillaCierre,
                 'empleados_activos' => $empleadosActivosCierre,
                 'empleados_baja' => $bajas,
+                'total_direcciones' => $totalDirecciones,
                 'total_departamentos' => $totalDepartamentos,
                 'total_areas' => $totalAreas,
                 'puestos_unicos' => $puestosUnicos,
@@ -958,24 +970,46 @@ class CapHumEstadisticas extends Model
      *
      * @return array{success: bool, datos?: array<string, mixed>, error?: string}
      */
-    public static function getFiltrosEstructura(?int $idArea = null, ?int $idDepartamento = null): array
+    public static function getFiltrosEstructura(?int $idDireccion = null, ?int $idArea = null, ?int $idDepartamento = null): array
     {
         try {
             $db = new Database();
+            $tdir = self::tblBd('direcciones_organizacion');
+            $tad = self::tblBd('asigna_direcciones');
             $tdo = self::tblBd('departamento_organizacional');
             $td = self::tblBd('departamento');
             $tpu = self::tblBd('puesto');
 
+            $idDireccion = ($idDireccion !== null && $idDireccion > 0) ? (int) $idDireccion : null;
             $idArea = ($idArea !== null && $idArea > 0) ? (int) $idArea : null;
             $idDepartamento = ($idDepartamento !== null && $idDepartamento > 0) ? (int) $idDepartamento : null;
+
+            $direcciones = self::queryAllSafe(
+                $db,
+                'SELECT dir.id, TRIM(dir.nombre) AS nombre
+                 FROM ' . $tdir . ' dir
+                 WHERE IFNULL(dir.activo, 1) = 1
+                   AND NULLIF(TRIM(dir.nombre), \'\') IS NOT NULL
+                 ORDER BY dir.nombre ASC',
+                []
+            );
+
+            $sqlAreasFiltroDireccion = '';
+            $paramsAreas = [];
+            if ($idDireccion !== null) {
+                $sqlAreasFiltroDireccion = ' AND ad.id_direccion = :id_direccion';
+                $paramsAreas['id_direccion'] = $idDireccion;
+            }
 
             $areas = self::queryAllSafe(
                 $db,
                 'SELECT a.id, TRIM(a.nombre) AS nombre
                  FROM ' . $tdo . ' a
+                 INNER JOIN ' . $tad . ' ad ON ad.id_departamento_organizacional = a.id AND COALESCE(ad.activo, 1) = 1
                  WHERE IFNULL(a.activo, 1) = 1
+                   ' . $sqlAreasFiltroDireccion . '
                  ORDER BY a.nombre ASC',
-                []
+                $paramsAreas
             );
 
             $departamentos = [];
@@ -1003,6 +1037,7 @@ class CapHumEstadisticas extends Model
             }
 
             return self::resultado(true, 'OK', [
+                'direcciones' => $direcciones,
                 'areas' => $areas,
                 'departamentos' => $departamentos,
                 'puestos' => $puestos,
@@ -1025,6 +1060,7 @@ class CapHumEstadisticas extends Model
         int $semana,
         ?string $fechaIniCal = null,
         ?string $fechaFinCal = null,
+        ?int $idDireccion = null,
         ?int $idArea = null,
         ?int $idDepartamento = null,
         ?int $idPuesto = null
@@ -1041,6 +1077,7 @@ class CapHumEstadisticas extends Model
             $fi = $rango['fecha_ini'];
             $ff = $rango['fecha_fin'];
             $params = ['fi' => $fi, 'ff' => $ff];
+            $idDireccion = ($idDireccion !== null && $idDireccion > 0) ? (int) $idDireccion : null;
             $idArea = ($idArea !== null && $idArea > 0) ? (int) $idArea : null;
             $idDepartamento = ($idDepartamento !== null && $idDepartamento > 0) ? (int) $idDepartamento : null;
             $idPuesto = ($idPuesto !== null && $idPuesto > 0) ? (int) $idPuesto : null;
@@ -1049,10 +1086,16 @@ class CapHumEstadisticas extends Model
             $tap = self::tblBd('asigna_puesto');
             $tpu = self::tblBd('puesto');
             $td = self::tblBd('departamento');
+            $tdo = self::tblBd('departamento_organizacional');
+            $tad = self::tblBd('asigna_direcciones');
             $tbp = self::tblBd('baja_persona');
             $trg = self::tblBd('reingresos');
             $sqlExFantasma = UsuarioFantasmaReporteria::sqlExcluirPersona('p');
             $sqlFiltroEstructura = '';
+            if ($idDireccion !== null) {
+                $sqlFiltroEstructura .= ' AND ad.id_direccion = :f_id_direccion';
+                $params['f_id_direccion'] = $idDireccion;
+            }
             if ($idArea !== null) {
                 $sqlFiltroEstructura .= ' AND d.id_departamento_organizacional = :f_id_area';
                 $params['f_id_area'] = $idArea;
@@ -1077,7 +1120,9 @@ class CapHumEstadisticas extends Model
                      ) apm ON apm.id_persona = apx.id_persona AND apm.mid = apx.id
                  ) ap ON ap.id_persona = p.id
                  LEFT JOIN ' . $tpu . ' pu ON pu.id = ap.id_puesto
-                 LEFT JOIN ' . $td . ' d ON d.id = pu.departamento_id';
+                 LEFT JOIN ' . $td . ' d ON d.id = pu.departamento_id
+                 LEFT JOIN ' . $tdo . ' a ON a.id = d.id_departamento_organizacional
+                 LEFT JOIN ' . $tad . ' ad ON ad.id_departamento_organizacional = a.id AND COALESCE(ad.activo, 1) = 1';
 
             if ($tipo === 'ingresos') {
                 $sql = 'SELECT COALESCE(NULLIF(TRIM(d.nombre), \'\'), \'Sin departamento\') AS nombre, COUNT(DISTINCT p.id) AS cnt

@@ -11,24 +11,25 @@ rem ---------------------------------------------------------------------
 
 set "TASK_NAME=Sparta API Verificacion Documentos"
 set "TASK_INSTALLER=%~dp0instalar-tarea-api-documentos.ps1"
+set "TASK_USABLE=0"
 
-schtasks /Query /TN "%TASK_NAME%" >nul 2>nul
-if not "!ERRORLEVEL!"=="0" (
+call :RefreshTaskUsable
+if not "!TASK_USABLE!"=="1" (
     if exist "%TASK_INSTALLER%" (
-        echo [TASK] No existe tarea programada. Intentando instalarla desde el boton 1-click...
+        echo [TASK] No existe tarea programada utilizable o apunta al arranque anterior. Intentando instalar/actualizar desde el boton 1-click...
         powershell -NoProfile -ExecutionPolicy Bypass -File "%TASK_INSTALLER%"
         if "!ERRORLEVEL!"=="0" (
-            echo [TASK] Tarea programada instalada correctamente desde el boton 1-click.
+            echo [TASK] Tarea programada instalada/actualizada correctamente desde el boton 1-click.
         ) else (
-            echo [TASK] No se pudo instalar la tarea programada desde este proceso web. Se usara flujo directo como respaldo.
+            echo [TASK] No se pudo instalar/actualizar la tarea programada desde este proceso web. Se usara flujo directo como respaldo.
         )
     ) else (
         echo [TASK] No existe instalador de tarea programada. Se usara flujo directo como respaldo.
     )
 )
 
-schtasks /Query /TN "%TASK_NAME%" >nul 2>nul
-if "!ERRORLEVEL!"=="0" (
+call :RefreshTaskUsable
+if "!TASK_USABLE!"=="1" (
     echo [TASK] Tarea programada detectada: %TASK_NAME%
     echo [TASK] Se intenta reinicio limpio por tarea para que no dependa de la sesion del usuario.
     powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0cerrar-agente.ps1" -Silent
@@ -50,3 +51,10 @@ call "%~dp0Iniciar-API-Verificacion.bat"
 set "RC=%ERRORLEVEL%"
 echo __FIN__:%RC%
 exit /b %RC%
+
+:RefreshTaskUsable
+set "TASK_USABLE=0"
+schtasks /Query /TN "%TASK_NAME%" >nul 2>nul
+if not "!ERRORLEVEL!"=="0" exit /b 0
+for /f "delims=" %%L in ('schtasks /Query /TN "%TASK_NAME%" /XML 2^>nul ^| findstr /I "iniciar-agente-tarea.bat"') do set "TASK_USABLE=1"
+exit /b 0

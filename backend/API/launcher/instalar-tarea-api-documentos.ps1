@@ -6,7 +6,7 @@ $ErrorActionPreference = 'Stop'
 $here = $PSScriptRoot
 if (-not $here) { $here = Split-Path -Parent $MyInvocation.MyCommand.Path }
 $apiDir = Split-Path -Parent $here
-$bat = Join-Path $here 'iniciar-agente.bat'
+$bat = Join-Path $here 'iniciar-agente-tarea.bat'
 $taskName = 'Sparta API Verificacion Documentos'
 
 if (-not (Test-Path -LiteralPath $bat)) {

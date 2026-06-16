@@ -1,21 +1,36 @@
 <?php
 namespace core;
+
 use PDO;
 
 class DatabaseMaxiProd
 {
     private $db;
+    private static ?array $configApiCache = null;
 
     function __construct()
     {
-        // 🔧 Ajusta tus valores aquí
-        $servidor = "__SPARTA_HOST_REDACTED__";   // tu host
-        $puerto   = "3306";        // puerto MySQL
-        $esquema  = "__SPARTA_SECRET_REDACTED__";     // nombre de tu BD
-        $usuario  = "__SPARTA_SECRET_REDACTED__";        // usuario
-        $password = "__SPARTA_PASSWORD_REDACTED__";            // contraseña
+        $servidor = $this->envValue(['DB_MAXI_HOST', 'MAXI_PROD_DB_HOST']);
+        $puerto   = $this->envValue(['DB_MAXI_PORT', 'MAXI_PROD_DB_PORT'], '3306');
+        $esquema  = $this->envValue(['DB_MAXI_DATABASE', 'DB_MAXI_NAME', 'MAXI_PROD_DB_NAME']);
+        $usuario  = $this->envValue(['DB_MAXI_USER', 'MAXI_PROD_DB_USER']);
+        $password = $this->envValue(['DB_MAXI_PASSWORD', 'DB_MAXI_PASS', 'MAXI_PROD_DB_PASSWORD']);
 
-        // Cadena MySQL
+        $faltantes = [];
+        foreach ([
+            'DB_MAXI_HOST' => $servidor,
+            'DB_MAXI_DATABASE' => $esquema,
+            'DB_MAXI_USER' => $usuario,
+            'DB_MAXI_PASSWORD' => $password,
+        ] as $nombre => $valor) {
+            if ($valor === null || trim((string)$valor) === '') {
+                $faltantes[] = $nombre;
+            }
+        }
+        if ($faltantes) {
+            $this->configuracionNoDisponible($faltantes);
+        }
+
         $cadena = "mysql:host=$servidor;port=$puerto;dbname=$esquema;charset=utf8mb4";
 
         try {
@@ -37,28 +52,82 @@ class DatabaseMaxiProd
                 $esquema,
                 $servidor,
                 $_SERVER['REQUEST_URI'] ?? 'CLI',
-                $e->getMessage()
+                $this->mensajeSeguro($e)
             ));
-            if (\Core\DatabaseCliSupport::isCli()) {
+            if (\Core\DatabaseCliSupport::isCli() || \Core\DatabaseCliSupport::esEstadoCuentaValidarCreditoRequest()) {
                 throw new \RuntimeException(
-                    'No se pudo conectar a MySQL (__SPARTA_SECRET_REDACTED__): ' . $e->getMessage(),
+                    'No se pudo conectar a Maxi para lectura; no se ejecutó sincronización.',
                     0,
                     $e
                 );
             }
-            if (\Core\DatabaseCliSupport::esEstadoCuentaValidarCreditoRequest()) {
-                throw new \RuntimeException(
-                    'No se pudo conectar a MySQL (__SPARTA_SECRET_REDACTED__): ' . $e->getMessage(),
-                    0,
-                    $e
-                );
-            }
-            $this->baseNoDisponible("{$e->getMessage()}\nDatos de conexión: $cadena");
+            $this->baseNoDisponible();
             $this->db = null;
         }
     }
 
-    private function baseNoDisponible($mensaje)
+    private function envValue(array $names, ?string $default = null): ?string
+    {
+        foreach ($names as $name) {
+            $value = getenv($name);
+            if ($value !== false && trim((string)$value) !== '') {
+                return (string)$value;
+            }
+            if (isset($_ENV[$name]) && trim((string)$_ENV[$name]) !== '') {
+                return (string)$_ENV[$name];
+            }
+            if (isset($_SERVER[$name]) && trim((string)$_SERVER[$name]) !== '') {
+                return (string)$_SERVER[$name];
+            }
+        }
+
+        $configApi = $this->configApiValues();
+        foreach ($names as $name) {
+            if (isset($configApi[$name]) && trim((string)$configApi[$name]) !== '') {
+                return (string)$configApi[$name];
+            }
+        }
+
+        return $default;
+    }
+
+    private function configApiValues(): array
+    {
+        if (self::$configApiCache !== null) {
+            return self::$configApiCache;
+        }
+
+        self::$configApiCache = [];
+        $configPath = dirname(__DIR__) . DIRECTORY_SEPARATOR . 'config' . DIRECTORY_SEPARATOR . 'ConfigApi.php';
+        if (!function_exists('config_api_load_from_db') && is_file($configPath)) {
+            require_once $configPath;
+        }
+
+        if (function_exists('config_api_load_from_db')) {
+            $values = config_api_load_from_db();
+            if (is_array($values)) {
+                self::$configApiCache = $values;
+            }
+        }
+
+        return self::$configApiCache;
+    }
+
+    private function configuracionNoDisponible(array $faltantes): void
+    {
+        error_log('[DatabaseMaxiProd] Missing environment variables: ' . implode(', ', $faltantes));
+        if (\Core\DatabaseCliSupport::isCli() || \Core\DatabaseCliSupport::esEstadoCuentaValidarCreditoRequest()) {
+            throw new \RuntimeException('No se pudo conectar a Maxi para lectura; configuración incompleta.');
+        }
+        $this->baseNoDisponible();
+    }
+
+    private function mensajeSeguro(\Throwable $e): string
+    {
+        return preg_replace('/password\s*=\s*[^;\s]+/i', 'password=***', $e->getMessage()) ?: 'Error de conexión';
+    }
+
+    private function baseNoDisponible()
     {
         http_response_code(503);
         echo <<<HTML

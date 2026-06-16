@@ -101,6 +101,12 @@ if (!function_exists('getMenuSidebarModulosStructure')) {
                     ['label' => 'Administracion de transportistas', 'url' => '/TrackingRecoleccion/administracionTransportistas', 'modulos' => [74]],
                 ],
             ],
+            'Almacen Virtual' => [
+                'icono' => 'fa-solid fa-warehouse',
+                'subItems' => [
+                    ['label' => 'Inventario', 'url' => '/AlmacenVirtual/inventario', 'modulos' => [139]],
+                ],
+            ],
             'Direcciones' => [
                 'icono' => 'fa-solid fa-route',
                 'subItems' => [
@@ -116,9 +122,13 @@ if (!function_exists('getMenuSidebarModulosStructure')) {
             'Atlas' => [
                 'icono' => 'fa-solid fa-map-location-dot',
                 'subItems' => [
-                    ['label' => 'Catálogos', 'url' => '/Atlas/catalogos', 'modulos' => [102]],
-                    ['label' => 'Catálogos comerciales', 'url' => '/Atlas/catalogosComerciales', 'modulos' => [102]],
-                    ['label' => 'Notificaciones App', 'url' => '/Atlas/notificacionesApp', 'modulos' => [102]],
+                    ['label' => 'Rutas y seguimiento', 'url' => '/Atlas/rutasGestores', 'modulos' => [132]],
+                    ['label' => 'Presupuestos', 'url' => '/Atlas/presupuestos', 'modulos' => [135]],
+                    ['label' => 'Créditos en operación', 'url' => '/Atlas/creditosOperacion', 'modulos' => [139]],
+                    ['label' => 'Catálogos Operativos', 'url' => '/Atlas/catalogos', 'modulos' => [133]],
+                    ['label' => 'Catálogos Comerciales', 'url' => '/Atlas/catalogosComerciales', 'modulos' => [134]],
+                    ['label' => 'Notificaciones App', 'url' => '/Atlas/notificacionesApp', 'modulos' => [136]],
+                    ['label' => 'Accesos Atlas', 'url' => '/Atlas/accesosAtlas', 'modulos' => [137]],
                 ],
             ],
             'Gastos Cobranza' => [

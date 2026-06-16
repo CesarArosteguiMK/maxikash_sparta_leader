@@ -338,6 +338,96 @@ body.dark-mode .trk-admin-table thead th,
 body.dark-mode .trk-admin-table td {
     border-color: #2d4444;
 }
+
+.trk-driver-assist {
+    border: 1px solid #c7d2fe;
+    background: #eef6ff;
+    border-radius: .65rem;
+    padding: .75rem;
+}
+.trk-driver-assist-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: .75rem;
+    margin-bottom: .55rem;
+}
+.trk-driver-assist-title {
+    color: #25364f;
+    font-size: .76rem;
+    font-weight: 900;
+    text-transform: uppercase;
+}
+.trk-driver-suggestions {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: .55rem;
+}
+.trk-driver-suggestion {
+    border: 1px solid #dbe3ef;
+    background: #fff;
+    border-radius: .6rem;
+    padding: .6rem;
+    min-width: 0;
+}
+.trk-driver-suggestion .name {
+    color: #25364f;
+    font-size: .78rem;
+    font-weight: 900;
+    line-height: 1.15;
+}
+.trk-driver-score {
+    display: inline-flex;
+    align-items: center;
+    gap: .25rem;
+    border-radius: 999px;
+    padding: .18rem .5rem;
+    font-size: .64rem;
+    font-weight: 900;
+    white-space: nowrap;
+}
+.trk-driver-score.success { background: #dcfce7; color: #166534; }
+.trk-driver-score.info { background: #dbeafe; color: #1d4ed8; }
+.trk-driver-score.warning { background: #fef3c7; color: #92400e; }
+.trk-driver-score.danger { background: #fee2e2; color: #b91c1c; }
+.trk-driver-mini {
+    color: #64748b;
+    font-size: .7rem;
+}
+.trk-driver-reasons {
+    color: #64748b;
+    font-size: .68rem;
+    line-height: 1.25;
+    margin-top: .35rem;
+}
+.trk-driver-select2 {
+    display: grid;
+    gap: .2rem;
+    line-height: 1.15;
+}
+.trk-driver-select2-main {
+    display: flex;
+    align-items: center;
+    gap: .35rem;
+    flex-wrap: wrap;
+}
+.trk-quick-driver-hint {
+    border-top: 1px dashed #dbe3ef;
+    margin-top: .45rem;
+    padding-top: .45rem;
+}
+body.dark-mode .trk-driver-assist {
+    background: #101818;
+    border-color: #2d4444;
+}
+body.dark-mode .trk-driver-suggestion {
+    background: #172121;
+    border-color: #2d4444;
+}
+body.dark-mode .trk-driver-assist-title,
+body.dark-mode .trk-driver-suggestion .name { color: #e2e8f0; }
+body.dark-mode .trk-driver-mini,
+body.dark-mode .trk-driver-reasons { color: #94a3b8; }
 @media (max-width: 991.98px) {
     .trk-admin-toolbar { grid-template-columns: 1fr 1fr; }
     .trk-admin-grid.is-list .trk-admin-card { grid-template-columns: 1fr; }
@@ -3536,6 +3626,7 @@ $trackingIsPlaneacion = $trackingShowMainTabs
                     </div>
                     <div id="rutaTransportistaInfo" class="trk-transport-info mt-2 d-none"></div>
                     <div id="rutaCedisDestinoInfo" class="trk-transport-info mt-2 d-none"></div>
+                    <div id="rutaTransportistaAssist" class="trk-driver-assist mt-2 d-none"></div>
                 </div>
 
                 <div class="mb-2" id="secAgregarCredito">
@@ -5584,6 +5675,26 @@ function _trkPoblarQuickFiltroEstados(rutas) {
     }
 }
 
+function _trkQuickDriverHintHtml(ruta, cred) {
+    const idTransportista = ruta?.id_transportista || ruta?.transportista?.id_transportista || '';
+    const t = idTransportista ? _trkTransportistaConOperacion(idTransportista) : null;
+    if (!t || !t.id_transportista) {
+        return `<div class="trk-quick-driver-hint small text-muted">
+            <i class="fa-solid fa-user-slash me-1"></i>Sin transportista asignado para evaluar capacidad.
+        </div>`;
+    }
+    const evalInfo = _trkEvaluarTransportistaAsignacion(t, { credito: cred });
+    const razones = evalInfo.razones.slice(0, 2).map(r => `<span>${_trkChatEscapeHtml(r)}</span>`).join('<span class="mx-1">|</span>');
+    return `<div class="trk-quick-driver-hint">
+        <div class="d-flex align-items-center gap-2 flex-wrap">
+            ${_trkDriverScoreHtml(evalInfo)}
+            <span class="small fw-semibold">${_trkChatEscapeHtml(t.nombre_transportista || 'Sin transportista')}</span>
+            <span class="small text-muted">${evalInfo.capacidad > 0 ? `${_trkChatEscapeHtml(evalInfo.disponible)} espacios libres` : 'capacidad sin configurar'}</span>
+        </div>
+        <div class="small text-muted mt-1">${razones}</div>
+    </div>`;
+}
+
 function _trkQuickRutaHtml(ruta, cred) {
     const idRuta = Number(ruta.id_ruta || ruta.id || 0);
     const nombre = _trkSanitizarNombreRuta(ruta.nombre_ruta || `Ruta #${idRuta}`) || `Ruta #${idRuta}`;
@@ -5614,6 +5725,7 @@ function _trkQuickRutaHtml(ruta, cred) {
                     <i class="fa-solid fa-truck me-1"></i>${_trkChatEscapeHtml(transportista)}
                     ${destino ? `<span class="mx-1">|</span><i class="fa-solid fa-warehouse me-1"></i>${_trkChatEscapeHtml(destino)}` : ''}
                 </div>
+                ${_trkQuickDriverHintHtml(ruta, cred)}
             </div>
             <button type="button" class="btn btn-sm btn-primary btn-quick-add-ruta" data-id="${idRuta}">
                 <i class="fa-solid fa-plus me-1"></i>Agregar
@@ -5626,9 +5738,16 @@ function _trkRenderQuickRutas() {
     const filtroEstado = _trk.quickAddEstado || '';
     if (!cred) return;
     const rutasBase = _trkRutasQuickDisponibles(cred);
-    const rutas = filtroEstado
+    const rutas = (filtroEstado
         ? rutasBase.filter(r => _trkEstadosRutaQuick(r).some(e => _trkMismaUbicacion(e, filtroEstado)))
-        : rutasBase;
+        : rutasBase)
+        .map(r => {
+            const idTransportista = r?.id_transportista || r?.transportista?.id_transportista || '';
+            const evalInfo = idTransportista ? _trkEvaluarTransportistaAsignacion(_trkTransportistaConOperacion(idTransportista), { credito: cred }) : null;
+            return { ruta: r, score: evalInfo?.score ?? 0 };
+        })
+        .sort((a, b) => b.score - a.score)
+        .map(x => x.ruta);
     $('#trkQuickRoutesCount').text(rutas.length);
     if (!rutas.length) {
         $('#trkQuickRoutesList').html(`<div class="alert alert-warning small mb-0">
@@ -5662,6 +5781,7 @@ async function _trkAbrirModalAgregarCreditoRuta(cred) {
     await Promise.allSettled([
         _trkCargarRutasSiHaceFalta(true),
         _trkCargarBorradoresSiHaceFalta(true),
+        _trkCargarOperacionTransportistasSiHaceFalta(true),
     ]);
     const rutas = _trkRutasQuickDisponibles(cred);
     _trkPoblarQuickFiltroEstados(rutas);
@@ -5673,12 +5793,21 @@ async function _trkConfirmarAgregarCreditoRuta(idRuta) {
     if (!cred || !idRuta) return;
     const ruta = _trkRutasQuickDisponibles(cred).find(r => Number(r.id_ruta || r.id || 0) === Number(idRuta));
     const nombreRuta = ruta?.nombre_ruta || `Ruta #${idRuta}`;
+    const idTransportista = ruta?.id_transportista || ruta?.transportista?.id_transportista || '';
+    const evalInfo = idTransportista ? _trkEvaluarTransportistaAsignacion(_trkTransportistaConOperacion(idTransportista), { credito: cred }) : null;
+    const dictamen = evalInfo ? `
+        <div class="mt-2 p-2 rounded border">
+            <div class="fw-semibold mb-1">Dictamen preventivo</div>
+            <div>${_trkDriverScoreHtml(evalInfo)}</div>
+            <div class="text-muted mt-1">${evalInfo.razones.map(r => _trkChatEscapeHtml(r)).join(' | ')}</div>
+        </div>` : '';
     const res = await Swal.fire({
         icon: 'question',
         title: 'Agregar credito a ruta?',
         html: `<div class="text-start small">
             <div><b>Credito:</b> #${_trkChatEscapeHtml(cred.id_credito)} - ${_trkChatEscapeHtml(cred.nombre_cliente || '')}</div>
             <div><b>Ruta:</b> ${_trkChatEscapeHtml(nombreRuta)}</div>
+            ${dictamen}
             <div class="mt-2 text-muted">Se agregara al final de la ruta y quedara marcado como <b>NUEVO</b>.</div>
         </div>`,
         showCancelButton: true,
@@ -5707,7 +5836,8 @@ async function _trkConfirmarAgregarCreditoRuta(idRuta) {
         bootstrap.Modal.getOrCreateInstance(document.getElementById('modalAgregarCreditoRuta')).hide();
         _trk.cargadoRutas = false;
         _trk.cargadoBorradores = false;
-        await Promise.allSettled([_trkCargarCreditosPaso2(), _trkCargarRutas(), _trkCargarBorradores()]);
+        _trk.cargadoOperacion = false;
+        await Promise.allSettled([_trkCargarCreditosPaso2(), _trkCargarRutas(), _trkCargarBorradores(), _trkCargarOperacionTransportistas(true)]);
         const fechaRegistro = _trkFormatFechaHora(r.fecha_agregado) || 'ahora';
         Swal.fire({
             icon: 'success',
@@ -6585,6 +6715,259 @@ function _trkOperacionTransportistaPorId(id) {
     return (_trk.operacionTransportistas || []).find(t => String(t.id_transportista) === String(id)) || null;
 }
 
+function _trkTransportistaConOperacion(tOrId) {
+    const id = typeof tOrId === 'object'
+        ? (tOrId?.id_transportista || tOrId?.id)
+        : tOrId;
+    const base = typeof tOrId === 'object' ? (tOrId || {}) : (_trkTransportistaPorId(id) || {});
+    const op = _trkOperacionTransportistaPorId(id) || {};
+    return {
+        ...base,
+        ...op,
+        cedis_base: { ...(base.cedis_base || {}), ...(op.cedis_base || {}) },
+        unidad: { ...(base.unidad || {}), ...(op.unidad || {}) },
+    };
+}
+
+function _trkEstadosDesdeCreditos(creditos = []) {
+    return [...new Set((creditos || [])
+        .map(c => _trkEstadoMayus(c.estado, c.municipio))
+        .filter(Boolean))];
+}
+
+function _trkEstadosDesdeRutaOperacion(ruta) {
+    if (!ruta) return [];
+    const estados = new Set();
+    const agregar = (estado, municipio = '') => {
+        const canon = _trkEstadoMayus(estado, municipio);
+        if (canon) estados.add(canon);
+    };
+    agregar(ruta.estado, ruta.municipio);
+    const raw = String(ruta.ubicaciones_lista || '');
+    if (raw.includes('@@')) {
+        raw.split('@@').forEach(par => {
+            const [estado, municipio] = par.split('|||');
+            agregar(estado, municipio);
+        });
+    }
+    if (ruta.cedis_destino_estado) agregar(ruta.cedis_destino_estado, ruta.cedis_destino_municipio);
+    return [...estados];
+}
+
+function _trkEstadosOperacionTransportista(t) {
+    const estados = new Set();
+    (t?.rutas || []).forEach(r => _trkEstadosDesdeRutaOperacion(r).forEach(e => estados.add(e)));
+    const baseEstado = _trkEstadoMayus(t?.cedis_base?.estado, t?.cedis_base?.municipio);
+    if (baseEstado) estados.add(baseEstado);
+    return [...estados];
+}
+
+function _trkCruceEstados(estadosA, estadosB) {
+    const b = new Set((estadosB || []).map(e => _trkNormTxt(e)));
+    return (estadosA || []).filter(e => b.has(_trkNormTxt(e)));
+}
+
+function _trkEvaluarTransportistaAsignacion(tRaw, opts = {}) {
+    const t = _trkTransportistaConOperacion(tRaw);
+    const creditos = Array.isArray(opts.creditos) ? opts.creditos : (_trk.creditosEnRuta || []);
+    const creditoExtra = opts.credito ? [opts.credito] : [];
+    const creditosPlan = [...creditos, ...creditoExtra].filter(Boolean);
+    const cargaNueva = Math.max(0, creditosPlan.length + Number(opts.creditosExtra || 0));
+    const capacidad = Number(t.capacidad_total || 0);
+    const proyectada = Number(t.capacidad_proyectada || 0);
+    const disponible = capacidad > 0
+        ? Math.max(0, Number(t.capacidad_disponible ?? (capacidad - proyectada)))
+        : null;
+    const estatus = String(t.estatus_operativo || (t.rutas_activas > 0 ? 'en_ruta' : 'disponible')).toLowerCase();
+    const razones = [];
+    let score = 55;
+    let bloqueo = false;
+
+    if (Number(t.activo ?? 1) !== 1) {
+        score = 0;
+        bloqueo = true;
+        razones.push('Transportista inactivo.');
+    }
+
+    if (capacidad <= 0) {
+        score -= 18;
+        razones.push('Capacidad de unidad no configurada.');
+    } else if (cargaNueva > 0 && disponible < cargaNueva) {
+        score -= 45;
+        bloqueo = true;
+        razones.push(`Sin cupo suficiente: disponible ${disponible} / requerido ${cargaNueva}.`);
+    } else if (cargaNueva > 0 && disponible - cargaNueva <= 2) {
+        score -= 12;
+        razones.push(`Cupo ajustado: quedarian ${Math.max(0, disponible - cargaNueva)} espacios.`);
+    } else if (capacidad > 0) {
+        score += 18;
+        razones.push(`Cupo disponible ${disponible}${cargaNueva ? ` / requerido ${cargaNueva}` : ''}.`);
+    }
+
+    if (estatus === 'disponible') {
+        score += 18;
+        razones.push('Sin ruta activa/programada.');
+    } else if (estatus === 'en_ruta') {
+        score += 10;
+        razones.push('En ruta: evaluar si la recoleccion queda al paso.');
+    } else if (estatus === 'programado') {
+        score -= 8;
+        razones.push('Tiene ruta programada.');
+    } else if (estatus === 'advertencia') {
+        score -= 14;
+        razones.push('Operacion en advertencia.');
+    } else if (estatus === 'saturado') {
+        score -= 35;
+        bloqueo = true;
+        razones.push('Capacidad proyectada al limite.');
+    }
+
+    const tipo = String(t.tipo_transportista || '').toLowerCase();
+    const creditosFueraZona = creditosPlan.filter(c => !_trkEsZonaInterna(c.estado, c.municipio));
+    if (tipo === 'interno' && creditosFueraZona.length) {
+        score -= 45;
+        bloqueo = true;
+        razones.push('Interno fuera de CDMX/zona metropolitana.');
+    }
+
+    const idDestino = opts.idCedisDestino || $('#rutaCedisDestino').val();
+    const cedisDestino = idDestino ? _trkCedisPorId(idDestino) : null;
+    if (tipo === 'interno' && cedisDestino && !_trkEsCedisDestinoInternoPermitido(cedisDestino)) {
+        score -= 35;
+        bloqueo = true;
+        razones.push('Destino no permitido para transportista interno.');
+    }
+
+    const estadosPlan = opts.estadosPlan || _trkEstadosDesdeCreditos(creditosPlan);
+    const estadosOperacion = _trkEstadosOperacionTransportista(t);
+    const cruce = _trkCruceEstados(estadosPlan, estadosOperacion);
+    if (cruce.length) {
+        score += 10;
+        razones.push(`Coincide con zona operativa: ${cruce.slice(0, 2).join(', ')}.`);
+    }
+
+    const rutaActiva = t.ruta_activa || (t.rutas || []).find(r => String(r.estatus_ruta || '').toLowerCase() === 'en_proceso') || null;
+    if (rutaActiva?.cedis_destino_nombre) {
+        razones.push(`Destino actual: ${rutaActiva.cedis_destino_nombre}.`);
+    } else if (t.cedis_base?.nombre) {
+        razones.push(`CEDIS base: ${t.cedis_base.nombre}.`);
+    }
+
+    score = Math.max(0, Math.min(100, Math.round(score)));
+    let nivel = 'warning';
+    let etiqueta = 'Revisar';
+    if (bloqueo || score < 45) {
+        nivel = 'danger';
+        etiqueta = 'No ideal';
+    } else if (score >= 80) {
+        nivel = 'success';
+        etiqueta = 'Recomendado';
+    } else if (score >= 65) {
+        nivel = 'info';
+        etiqueta = 'Viable';
+    }
+
+    return {
+        t,
+        score,
+        nivel,
+        etiqueta,
+        razones: [...new Set(razones)].slice(0, 4),
+        capacidad,
+        disponible,
+        cargaNueva,
+        estatus,
+    };
+}
+
+function _trkDriverScoreHtml(evalInfo) {
+    const icon = evalInfo.nivel === 'success' ? 'circle-check'
+        : evalInfo.nivel === 'danger' ? 'triangle-exclamation'
+        : evalInfo.nivel === 'info' ? 'circle-info'
+        : 'clock';
+    return `<span class="trk-driver-score ${_trkChatEscapeHtml(evalInfo.nivel)}">
+        <i class="fa-solid fa-${icon}"></i>${_trkChatEscapeHtml(evalInfo.etiqueta)} ${_trkChatEscapeHtml(evalInfo.score)}
+    </span>`;
+}
+
+function _trkDriverMiniHtml(evalInfo) {
+    const t = evalInfo.t || {};
+    const status = _trkOperacionStatusLabel(evalInfo.estatus);
+    const capacidad = evalInfo.capacidad > 0
+        ? `${evalInfo.disponible} libres de ${evalInfo.capacidad}`
+        : 'capacidad sin configurar';
+    const rutas = `${Number(t.rutas_activas || 0)} activas / ${Number(t.rutas_programadas || 0)} programadas`;
+    return `<div class="trk-driver-mini">
+        <i class="fa-solid fa-truck me-1"></i>${_trkChatEscapeHtml(status)}
+        <span class="mx-1">|</span>${_trkChatEscapeHtml(capacidad)}
+        <span class="mx-1">|</span>${_trkChatEscapeHtml(rutas)}
+    </div>`;
+}
+
+function _trkTransportistasSugeridosRuta() {
+    const candidatos = _trkTransportistasFiltrados()
+        .map(t => _trkEvaluarTransportistaAsignacion(t, { creditos: _trk.creditosEnRuta }))
+        .sort((a, b) => {
+            if (b.score !== a.score) return b.score - a.score;
+            return String(a.t.nombre_transportista || '').localeCompare(String(b.t.nombre_transportista || ''));
+        });
+    return candidatos;
+}
+
+function _trkRenderSugerenciasTransportistasRuta() {
+    const $box = $('#rutaTransportistaAssist');
+    if (!$box.length || _trk.soloLectura || _trkRutaEstaCancelada()) {
+        $box.addClass('d-none').empty();
+        return;
+    }
+    if (!_trk.operacionTransportistas.length) {
+        $box.removeClass('d-none').html(`
+            <div class="small text-muted">
+                <span class="spinner-border spinner-border-sm me-1"></span>
+                Consultando disponibilidad de transportistas...
+            </div>`);
+        return;
+    }
+    const sugeridos = _trkTransportistasSugeridosRuta().slice(0, 3);
+    const carga = _trk.creditosEnRuta.length;
+    if (!sugeridos.length) {
+        $box.removeClass('d-none').html('<div class="small text-muted">Sin transportistas activos para sugerir.</div>');
+        return;
+    }
+    const cards = sugeridos.map(evalInfo => {
+        const t = evalInfo.t || {};
+        const empresa = t.cedis_base?.nombre || t.nombre_agencia || t.empresa_origen || 'Sin CEDIS';
+        const razones = evalInfo.razones.map(r => `<div>${_trkChatEscapeHtml(r)}</div>`).join('');
+        return `<div class="trk-driver-suggestion">
+            <div class="d-flex align-items-start justify-content-between gap-2">
+                <div style="min-width:0;">
+                    <div class="name">${_trkChatEscapeHtml(t.nombre_transportista || 'Sin nombre')}</div>
+                    <div class="trk-driver-mini">${_trkTipoTransportistaBadge(t.tipo_transportista)} ${_trkChatEscapeHtml(empresa)}</div>
+                </div>
+                ${_trkDriverScoreHtml(evalInfo)}
+            </div>
+            ${_trkDriverMiniHtml(evalInfo)}
+            <div class="trk-driver-reasons">${razones}</div>
+            <button type="button" class="btn btn-xs btn-label-primary mt-2 btn-usar-transportista-sugerido"
+                    data-id="${_trkChatEscapeHtml(t.id_transportista || '')}">
+                <i class="fa-solid fa-user-check me-1"></i>Usar
+            </button>
+        </div>`;
+    }).join('');
+    $box.removeClass('d-none').html(`
+        <div class="trk-driver-assist-head">
+            <div>
+                <div class="trk-driver-assist-title">
+                    <i class="fa-solid fa-shield-halved me-1"></i>Asistente preventivo
+                </div>
+                <div class="small text-muted">Sugerencias con capacidad, rutas activas, destino y zona operativa.</div>
+            </div>
+            <span class="badge bg-label-primary">${_trkChatEscapeHtml(carga)} credito${carga === 1 ? '' : 's'}</span>
+        </div>
+        <div class="trk-driver-suggestions">${cards}</div>
+    `);
+}
+
 function _trkTransportistasUnidadBase() {
     const map = new Map();
     (_trk.transportistasTracking || []).forEach(t => {
@@ -6983,6 +7366,9 @@ function _trkCargarOperacionTransportistas(silent = false) {
             _trk.operacionLiveInfo = {};
             _trkSetBadge('badgeOperacionTransportistas', _trk.operacionTransportistas.length);
             _trkRenderOperacionTransportistas();
+            _trkRefrescarSelectTransportistas($('#rutaTransportistaTracking').val());
+            _trkRenderTransportistaInfo();
+            _trkRenderSugerenciasTransportistasRuta();
             _trk.cargadoOperacion = true;
             _trkCargarUbicacionesOperacion();
         })
@@ -7305,7 +7691,7 @@ function _trkActualizarOperacionLive(idTransportista, html) {
 }
 
 function _trkTransportistasFiltrados() {
-    return (_trk.transportistasTracking || []).filter(t => Number(t.activo ?? 1) === 1);
+    return _trkTransportistasUnidadBase().filter(t => Number(t.activo ?? 1) === 1);
 }
 
 function _trkTransportistaOptionHtml(t) {
@@ -7319,7 +7705,7 @@ function _trkTransportistaOptionHtml(t) {
 
 function _trkTransportistaTexto(t) {
     if (!t) return '';
-    const empresa = t.nombre_agencia || t.empresa_origen || '';
+    const empresa = t.nombre_agencia || t.empresa_origen || t.cedis_base?.nombre || '';
     return `${t.nombre_transportista || ''}${empresa ? ' - ' + empresa : ''}`;
 }
 
@@ -7330,21 +7716,25 @@ function _trkTransportistaPorId(id) {
 
 function _trkTemplateTransportistaSelect2(item) {
     if (!item.id) return _trkChatEscapeHtml(item.text || '');
-    const t = _trkTransportistaPorId(item.id);
+    const t = _trkTransportistaConOperacion(item.id);
     if (!t) return _trkChatEscapeHtml(item.text || '');
     const empresa = t.nombre_agencia || t.empresa_origen || 'Sin CEDIS';
     const contacto = [t.telefono, t.email].filter(Boolean).join('  -  ');
-    return `<div class="d-flex align-items-center gap-2 flex-wrap">
-        ${_trkTipoTransportistaBadge(t.tipo_transportista)}
-        <span class="fw-semibold">${_trkChatEscapeHtml(t.nombre_transportista || '')}</span>
-        <span class="text-muted">${_trkChatEscapeHtml(empresa)}</span>
-        ${contacto ? `<span class="text-muted">${_trkChatEscapeHtml(contacto)}</span>` : ''}
+    const evalInfo = _trkEvaluarTransportistaAsignacion(t, { creditos: _trk.creditosEnRuta });
+    return `<div class="trk-driver-select2">
+        <div class="trk-driver-select2-main">
+            ${_trkTipoTransportistaBadge(t.tipo_transportista)}
+            <span class="fw-semibold">${_trkChatEscapeHtml(t.nombre_transportista || '')}</span>
+            ${_trkDriverScoreHtml(evalInfo)}
+        </div>
+        <small class="text-muted">${_trkChatEscapeHtml(empresa)}${contacto ? ' - ' + _trkChatEscapeHtml(contacto) : ''}</small>
+        ${_trkDriverMiniHtml(evalInfo)}
     </div>`;
 }
 
 function _trkTemplateTransportistaSeleccionado(item) {
     if (!item.id) return _trkChatEscapeHtml(item.text || '');
-    const t = _trkTransportistaPorId(item.id);
+    const t = _trkTransportistaConOperacion(item.id);
     return _trkChatEscapeHtml(_trkTransportistaTexto(t) || item.text || '');
 }
 
@@ -7391,6 +7781,13 @@ function _trkRefrescarSelectTransportistas(preselectedId = null) {
             t.tipo_transportista,
             t.nombre_agencia,
             t.empresa_origen,
+            t.cedis_base?.nombre,
+            t.estatus_operativo,
+            t.recomendacion,
+            t.unidad?.tipo_unidad,
+            t.unidad?.marca,
+            t.unidad?.modelo,
+            t.unidad?.placa,
             t.telefono,
             t.email,
             t.curp_rfc,
@@ -7416,7 +7813,7 @@ function _trkRefrescarSelectTransportistas(preselectedId = null) {
 function _trkTransportistaSeleccionado() {
     const id = $('#rutaTransportistaTracking').val();
     if (!id) return null;
-    return (_trk.transportistasTracking || []).find(t => String(t.id_transportista) === String(id)) || null;
+    return _trkTransportistaConOperacion(id);
 }
 
 function _trkSincronizarTransportistaSeleccionado() {
@@ -7426,6 +7823,7 @@ function _trkSincronizarTransportistaSeleccionado() {
     _trkPoblarAgenciasTrackingSelect();
     _trkActualizarBadgeTransportista();
     _trkRenderCedisDestinoInfo();
+    _trkRenderSugerenciasTransportistasRuta();
 }
 
 function _trkCedisPorId(id) {
@@ -7677,16 +8075,28 @@ function _trkRenderTransportistaInfo() {
     const $box = $('#rutaTransportistaInfo');
     if (!t) {
         $box.addClass('d-none').empty();
+        _trkRenderSugerenciasTransportistasRuta();
         return;
     }
-    const agencia = t.nombre_agencia || t.empresa_origen || 'Sin CEDIS asignado';
+    const agencia = t.nombre_agencia || t.empresa_origen || t.cedis_base?.nombre || 'Sin CEDIS asignado';
     const contacto = [t.telefono, t.email].filter(Boolean).join('  -  ') || 'Sin contacto';
+    const evalInfo = _trkEvaluarTransportistaAsignacion(t, { creditos: _trk.creditosEnRuta });
+    const razones = evalInfo.razones.map(r => `<div>${_trkChatEscapeHtml(r)}</div>`).join('');
+    const unidad = _trkOperacionUnidadTexto(t);
     $box.removeClass('d-none').html(`
-        <div class="d-flex flex-wrap align-items-center gap-2">
-            <span class="text-muted">${_trkChatEscapeHtml(agencia)}</span>
-            <span class="text-muted">${_trkChatEscapeHtml(contacto)}</span>
+        <div class="d-flex flex-wrap align-items-start justify-content-between gap-2">
+            <div style="min-width:0;">
+                <div class="d-flex flex-wrap align-items-center gap-2 mb-1">
+                    <span class="text-muted">${_trkChatEscapeHtml(agencia)}</span>
+                    <span class="text-muted">${_trkChatEscapeHtml(contacto)}</span>
+                </div>
+                <div class="trk-driver-mini"><i class="fa-solid fa-truck me-1"></i>${_trkChatEscapeHtml(unidad)}</div>
+                <div class="trk-driver-reasons">${razones}</div>
+            </div>
+            ${_trkDriverScoreHtml(evalInfo)}
         </div>
     `);
+    _trkRenderSugerenciasTransportistasRuta();
 }
 
 function _trkRenderCedisDestinoInfo() {
@@ -7922,7 +8332,14 @@ async function _trkCargarDetalleCedisDestino(idRuta, estatus) {
     try {
         await _trkConsultarCedisDestinoRuta(idRuta);
     } catch (err) {
-        $('#trkDetalleCedisDestinoWrap').html(`<div class="alert alert-warning py-2 small mb-0">${_trkChatEscapeHtml(err.message || 'No se pudo consultar CEDIS destino.')}</div>`);
+        const cedisFallback = _trk.cedisDestinoPorRuta[idRuta] || null;
+        $('#trkDetalleCedisDestinoWrap').html(
+            _trkCedisDestinoHtml(cedisFallback, { idRuta, estatus })
+            + `<div class="alert alert-warning py-1 px-2 small mt-2 mb-0">
+                <i class="fa-solid fa-triangle-exclamation me-1"></i>
+                ${_trkChatEscapeHtml(err.message || 'No se pudo consultar CEDIS destino.')}
+            </div>`
+        );
         return;
     }
     _trkRenderDetalleCedisDestino(idRuta, estatus);
@@ -8201,6 +8618,7 @@ function _trkPrepararModalRuta() {
     return Promise.all([
         _trkCargarCatalogosSiHaceFalta(),
         _trkCargarCreditosInicialSiHaceFalta(),
+        _trkCargarOperacionTransportistasSiHaceFalta(true),
     ]);
 }
 
@@ -8208,6 +8626,7 @@ function _trkPrepararModalRutaDetalle(soloLectura = false) {
     return Promise.all([
         _trkCargarCatalogosSiHaceFalta(),
         soloLectura ? Promise.resolve() : _trkCargarCreditosInicialSiHaceFalta(),
+        _trkCargarOperacionTransportistasSiHaceFalta(true),
     ]);
 }
 
@@ -8293,6 +8712,10 @@ function _trkInicializarModal() {
         _trkSeleccionarTransportista($(this).data('id'));
         _trkMarcarCambio();
     });
+    $('#rutaTransportistaAssist').on('click', '.btn-usar-transportista-sugerido', function () {
+        _trkSeleccionarTransportista($(this).data('id'));
+        _trkMarcarCambio();
+    });
     $(document).on('mousedown', function (e) {
         if (!$(e.target).closest('#rutaTransportistaPicker').length) {
             $('#rutaTransportistaResults').addClass('d-none');
@@ -8300,6 +8723,7 @@ function _trkInicializarModal() {
     });
     $('#rutaCedisDestino').on('change', function () {
         _trkRenderCedisDestinoInfo();
+        _trkRenderTransportistaInfo();
         _trkRenderizarMapa();
         _trkMarcarCambio();
     });
@@ -8468,6 +8892,7 @@ function _trkResetModal() {
     $('#rutaTransportistaTipoBadge').addClass('d-none').empty();
     $('#rutaCedisDestino').val('');
     $('#rutaCedisDestinoInfo').addClass('d-none').empty();
+    $('#rutaTransportistaAssist').addClass('d-none').empty();
     $('#trkListaFiltroEstado, #trkListaFiltroMunicipio, #trkListaBuscar').val('');
     $('#trkListaFiltroMunicipio').prop('disabled', true);
     _trkRefrescarSelectTransportistas();
@@ -8722,6 +9147,7 @@ function _trkRenderListaCreditos() {
     $('#rutaCreditosCount').text(_trk.creditosEnRuta.length);
     if (_trk.sortableInstance) _trk.sortableInstance.option('disabled', filaLectura);
     _trkRenderPlaneadorPanel();
+    _trkRenderSugerenciasTransportistasRuta();
 
     if (isEmpty) {
         $list.html(`<div class="text-center text-muted py-3 small" id="rutaCreditosEmpty">
@@ -10648,6 +11074,28 @@ async function _trkGuardarRuta(modo, opts = {}) {
         return;
     }
 
+    if (modo !== 'borrador') {
+        const evalInfo = _trkEvaluarTransportistaAsignacion(transportistaSel, { creditos: _trk.creditosEnRuta });
+        if (['warning', 'danger'].includes(evalInfo.nivel)) {
+            const continuarAsignacion = await Swal.fire({
+                icon: evalInfo.nivel === 'danger' ? 'warning' : 'info',
+                title: 'Revisar transportista asignado',
+                html: `<div class="text-start small">
+                    <div class="mb-2">${_trkDriverScoreHtml(evalInfo)}</div>
+                    <div><b>Transportista:</b> ${_trkChatEscapeHtml(transportistaSel?.nombre_transportista || 'Sin transportista')}</div>
+                    <div><b>Capacidad:</b> ${evalInfo.capacidad > 0 ? `${_trkChatEscapeHtml(evalInfo.disponible)} disponibles / ${_trkChatEscapeHtml(evalInfo.capacidad)} total` : 'Sin configurar'}</div>
+                    <div class="mt-2 text-muted">${evalInfo.razones.map(r => `<div>${_trkChatEscapeHtml(r)}</div>`).join('')}</div>
+                    <div class="alert alert-warning py-2 mt-2 mb-0">Puedes continuar si operativamente ya fue autorizado.</div>
+                </div>`,
+                showCancelButton: true,
+                confirmButtonText: 'Continuar de todos modos',
+                cancelButtonText: 'Cambiar transportista',
+                confirmButtonColor: '#0d9488',
+            });
+            if (!continuarAsignacion.isConfirmed) return;
+        }
+    }
+
     if (modo !== 'borrador' && modo !== 'actualizar') {
         if (!tipoTransportista || !idTransportista) {
             Swal.fire({ icon: 'warning', title: 'Campo requerido', text: 'Selecciona transportista antes de enviar la ruta.', confirmButtonText: 'Aceptar' });
@@ -10716,9 +11164,11 @@ async function _trkGuardarRuta(modo, opts = {}) {
             if (modo === 'enviar' && idRutaGuardada) _trkDescargarPdfEvidenciaRuta(idRutaGuardada);
             Swal.fire({ icon: 'success', title: 'Listo!', text: modo === 'borrador' ? 'Borrador guardado correctamente.' : 'Ruta enviada correctamente.', timer: 2000, showConfirmButton: false });
             bootstrap.Modal.getInstance(document.getElementById('modalRegistrarRuta'))?.hide();
+            _trk.cargadoOperacion = false;
             _trkCargarCreditosPaso2();
             _trkCargarBorradores();
             _trkCargarRutas();
+            _trkCargarOperacionTransportistas(true);
         } else {
             if (r.tipo === 'conflictos_ruta' || Array.isArray(r.errores)) {
                 _trkMostrarConflictosRuta(r);
