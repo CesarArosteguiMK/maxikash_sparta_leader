@@ -31,6 +31,7 @@ class CapHum extends Controller
     private const MODULO_PERMISOS_POR_PUESTO = 103;
     private const MODULO_VALIDADOR_DOCUMENTAL_CANDIDATOS = 104;
     private const MODULO_VALIDADOR_FINAL_CANDIDATOS = 105;
+    private const MODULO_ACCESOS_CAPITAL_HUMANO = 140;
     private const MODULOS_EDICION_COBRANZA = [
         'numero_empleado' => 107,
         'nombres' => 108,
@@ -224,6 +225,12 @@ class CapHum extends Controller
     private static function puedeConfigurarPermisosPorPuesto(): bool
     {
         return self::tieneModuloWeb(self::MODULO_PERMISOS_POR_PUESTO);
+    }
+
+    private static function puedeGestionarAccesosCapitalHumano(): bool
+    {
+        return (int) ($_SESSION['usuario_id'] ?? 0) === 1
+            || self::tieneModuloWeb(self::MODULO_ACCESOS_CAPITAL_HUMANO);
     }
 
     private static function puedeValidarDocumentalCandidatos(): bool
@@ -17297,6 +17304,55 @@ class CapHum extends Controller
         self::set("solicitudesActualizacionInfo", $resultado['datos'] ?? []);
         self::set("errorActualizacionInfo", $resultado['success'] ? '' : ($resultado['mensaje'] ?? 'No se pudo cargar la informacion.'));
         self::render("actualizaciones_info_rrhh");
+    }
+
+    public function accesosCapitalHumano()
+    {
+        if (!self::puedeGestionarAccesosCapitalHumano()) {
+            header('Location: /' . VISTA_DEFECTO);
+            return;
+        }
+
+        CapHumDAO::asegurarModuloAccesosCapitalHumano();
+        self::set('titulo', 'Accesos Capital Humano | ' . CONFIGURACION['EMPRESA']);
+        self::render('caphum_accesos');
+    }
+
+    public function getAccesosCapitalHumano()
+    {
+        if (!self::puedeGestionarAccesosCapitalHumano()) {
+            self::respuestaJSON(['success' => false, 'mensaje' => 'No tienes permiso para administrar accesos de Capital Humano.']);
+            return;
+        }
+
+        self::respuestaJSON(CapHumDAO::getAccesosCapitalHumano());
+    }
+
+    public function getAccesoCapitalHumanoDetalle()
+    {
+        if (!self::puedeGestionarAccesosCapitalHumano()) {
+            self::respuestaJSON(['success' => false, 'mensaje' => 'No tienes permiso para consultar accesos de Capital Humano.']);
+            return;
+        }
+
+        self::respuestaJSON(CapHumDAO::getAccesoCapitalHumanoDetalle((int) ($_GET['id_persona'] ?? 0)));
+    }
+
+    public function guardarPermisosAccesoCapitalHumano()
+    {
+        if (!self::puedeGestionarAccesosCapitalHumano()) {
+            self::respuestaJSON(['success' => false, 'mensaje' => 'No tienes permiso para guardar accesos de Capital Humano.']);
+            return;
+        }
+
+        $payload = json_decode(file_get_contents('php://input'), true) ?: [];
+        $res = CapHumDAO::guardarPermisosAccesoCapitalHumano($payload);
+        if (!empty($res['success']) && (int)($payload['id_persona'] ?? 0) === (int)($_SESSION['usuario_id'] ?? 0)) {
+            $_SESSION['modulos'] = array_values(
+                array_map('intval', (array) LoginDao::getModulosUsuario((int) ($_SESSION['usuario_id'] ?? 0)))
+            );
+        }
+        self::respuestaJSON($res);
     }
 
     public function getDetalles()

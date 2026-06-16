@@ -4785,7 +4785,7 @@ class Sabueso extends Controller
     private function getUbicacionesCachePath(int $idCredito, bool $modoRapido = false): string
     {
         // Bump suffix when payload shape changes (ej. domicilio_megareporte con dirección aunque falten coords).
-        $sufijo = $modoRapido ? '_lite9' : '_v8';
+        $sufijo = $modoRapido ? '_lite9' : '_v9';
         return dirname(__DIR__) . '/storage/cache/sabueso_ubicaciones_' . $idCredito . $sufijo . '.json';
     }
 

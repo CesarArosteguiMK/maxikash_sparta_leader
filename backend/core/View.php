@@ -166,6 +166,7 @@ function getMenu(): string
             'icono'    => 'fa-solid fa-users',
             'subItems' => [
                 ['label' => 'Gestión de Personal',          'url' => '/caphum/gestion',                  'modulos' => [4]],
+                ['label' => 'Accesos Capital Humano',        'url' => '/caphum/accesosCapitalHumano',     'modulos' => [140]],
                 ['label' => 'Mis documentos',               'url' => '/caphum/documentosColaborador',    'modulos' => [92]],
                 ['label' => 'Vacaciones',                   'url' => '/caphum/vacaciones',               'modulos' => [4, 92]],
                 ['label' => 'Panel vacaciones',             'url' => '/caphum/vacacionesAdmin',          'modulos' => [4]],
