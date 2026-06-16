@@ -88,14 +88,13 @@ class AlmacenVirtual extends Model
                 'message' => 'Faltan tablas base de Almacen Virtual. Ejecuta la migracion inicial av_*.',
                 'rows' => [],
                 'total' => 0,
-                'limit' => 25,
+                'limit' => 8,
                 'page' => 1,
             ];
         }
 
         $page = max(1, (int) ($filtros['page'] ?? 1));
-        $limit = max(10, min(100, (int) ($filtros['limit'] ?? 25)));
-        $offset = ($page - 1) * $limit;
+        $limit = max(1, min(100, (int) ($filtros['limit'] ?? 8)));
 
         $where = ['u.deleted_at IS NULL'];
         $params = [];
@@ -140,6 +139,10 @@ class AlmacenVirtual extends Model
              {$whereSql}",
             $params
         ) ?: [];
+        $total = (int) ($totalRow['total'] ?? 0);
+        $pages = max(1, (int) ceil($total / $limit));
+        $page = min($page, $pages);
+        $offset = ($page - 1) * $limit;
 
         $sql = <<<SQL
         SELECT
@@ -184,10 +187,10 @@ class AlmacenVirtual extends Model
         return [
             'success' => true,
             'rows' => $rows,
-            'total' => (int) ($totalRow['total'] ?? 0),
+            'total' => $total,
             'limit' => $limit,
             'page' => $page,
-            'pages' => max(1, (int) ceil(((int) ($totalRow['total'] ?? 0)) / $limit)),
+            'pages' => $pages,
         ];
     }
 
@@ -203,6 +206,121 @@ class AlmacenVirtual extends Model
              WHERE activo = 1
              ORDER BY tipo_ubicacion ASC, nombre_ubicacion ASC"
         ) ?: [];
+    }
+
+    public function listarPendientesMotosAdjudicadas(array $filtros = []): array
+    {
+        if (!$this->tablaExiste('adj_operacion')) {
+            return ['success' => false, 'message' => 'No existe la tabla adj_operacion.', 'rows' => [], 'total' => 0];
+        }
+        if (!$this->tablaExiste('av_unidades')) {
+            return ['success' => false, 'message' => 'No existe la tabla av_unidades.', 'rows' => [], 'total' => 0];
+        }
+
+        $limit = max(1, min(100, (int) ($filtros['limit'] ?? 8)));
+        $page = max(1, (int) ($filtros['page'] ?? 1));
+        $q = trim((string) ($filtros['q'] ?? ''));
+
+        $selectCols = [
+            $this->adjOperacionSelectColumnaONull('moto_marca', 'ao'),
+            $this->adjOperacionSelectColumnaONull('moto_modelo', 'ao'),
+            $this->adjOperacionSelectColumnaONull('moto_anio', 'ao'),
+            $this->adjOperacionSelectColumnaONull('moto_color', 'ao'),
+            $this->adjOperacionSelectColumnaONull('moto_no_serie', 'ao'),
+            $this->adjOperacionSelectColumnaONull('moto_no_motor', 'ao'),
+            $this->adjOperacionSelectColumnaONull('moto_placas', 'ao'),
+            $this->adjOperacionSelectColumnaONull('marca', 'ao'),
+            $this->adjOperacionSelectColumnaONull('modelo', 'ao'),
+            $this->adjOperacionSelectColumnaONull('serie', 'ao'),
+            $this->adjOperacionSelectColumnaONull('num_motor', 'ao'),
+            $this->adjOperacionSelectColumnaONull('placas', 'ao'),
+            $this->adjOperacionSelectColumnaONull('fecha_llegada_almacen', 'ao'),
+            $this->adjOperacionSelectColumnaONull('recepcion_confirmada_at', 'ao'),
+        ];
+
+        $where = [
+            'av.id_unidad IS NULL',
+            "COALESCE(ao.estatus, '') NOT IN ('cancelado', 'Cancelado')",
+        ];
+        $params = [];
+
+        $stage = [
+            "ao.estatus IN ('Cierre Documentado', 'Retenciones')",
+            "ao.estatus LIKE 'Recepci%'",
+        ];
+        if ($this->adjOperacionTieneColumna('fecha_llegada_almacen')) {
+            $stage[] = 'ao.fecha_llegada_almacen IS NOT NULL';
+        }
+        if ($this->adjOperacionTieneColumna('recepcion_confirmada_at')) {
+            $stage[] = 'ao.recepcion_confirmada_at IS NOT NULL';
+        }
+        $where[] = '(' . implode(' OR ', $stage) . ')';
+
+        if ($q !== '') {
+            $where[] = "(
+                CAST(ao.id AS CHAR) LIKE :q
+                OR CAST(ao.id_credito AS CHAR) LIKE :q
+                OR ao.nombre_cliente LIKE :q
+                OR ao.folio LIKE :q
+            )";
+            $params['q'] = '%' . $q . '%';
+        }
+
+        $whereSql = 'WHERE ' . implode(' AND ', $where);
+        $totalRow = $this->db->queryOne(
+            "SELECT COUNT(*) AS total
+             FROM adj_operacion ao
+             LEFT JOIN av_unidades av
+               ON av.id_celula = :celula_total
+              AND av.id_origen = ao.id
+              AND av.deleted_at IS NULL
+             {$whereSql}",
+            ['celula_total' => self::CELULA_MOTOS_ADJUDICADAS] + $params
+        ) ?: [];
+        $total = (int) ($totalRow['total'] ?? 0);
+        $pages = max(1, (int) ceil($total / $limit));
+        $page = min($page, $pages);
+        $offset = ($page - 1) * $limit;
+
+        $rows = $this->db->queryAll(
+            "SELECT
+                ao.id AS id_operacion,
+                ao.folio,
+                ao.id_credito,
+                ao.nombre_cliente,
+                ao.estatus,
+                DATE_FORMAT(ao.fecha_alta, '%d/%m/%Y %H:%i') AS fecha_alta_fmt,
+                DATE_FORMAT(ao.fecha_actualizacion, '%d/%m/%Y %H:%i') AS fecha_actualizacion_fmt,
+                " . implode(",\n                ", $selectCols) . "
+             FROM adj_operacion ao
+             LEFT JOIN av_unidades av
+               ON av.id_celula = :celula_rows
+              AND av.id_origen = ao.id
+              AND av.deleted_at IS NULL
+             {$whereSql}
+             ORDER BY ao.fecha_actualizacion DESC, ao.id DESC
+             LIMIT {$limit} OFFSET {$offset}",
+            ['celula_rows' => self::CELULA_MOTOS_ADJUDICADAS] + $params
+        ) ?: [];
+
+        foreach ($rows as &$row) {
+            $row['vin'] = $this->primerValor($row, ['moto_no_serie', 'serie']);
+            $row['no_motor'] = $this->primerValor($row, ['moto_no_motor', 'num_motor']);
+            $row['placas_unidad'] = $this->primerValor($row, ['moto_placas', 'placas']);
+            $row['marca_unidad'] = $this->primerValor($row, ['moto_marca', 'marca']);
+            $row['modelo_unidad'] = $this->primerValor($row, ['moto_modelo', 'modelo']);
+            $row['estatus_inventario_sugerido'] = $this->estatusInventarioInicialDesdeOperacion($row);
+        }
+        unset($row);
+
+        return [
+            'success' => true,
+            'rows' => $rows,
+            'total' => $total,
+            'limit' => $limit,
+            'page' => $page,
+            'pages' => $pages,
+        ];
     }
 
     public function crearDesdeMotosAdjudicadas(int $idOperacion, int $idUsuario = 0, string $nombreUsuario = ''): array

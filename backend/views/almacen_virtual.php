@@ -69,6 +69,31 @@
         color: #64748b;
         font-size: .76rem;
     }
+    .av-pending {
+        border: 1px solid #e2e8f0;
+        background: #fff;
+        border-radius: .5rem;
+        overflow: hidden;
+    }
+    .av-pending-head {
+        display: flex;
+        align-items: flex-end;
+        justify-content: space-between;
+        gap: .75rem;
+        flex-wrap: wrap;
+        padding: .85rem;
+        border-bottom: 1px solid #e2e8f0;
+        background: #f8fafc;
+    }
+    .av-pending-title {
+        color: #0f172a;
+        font-weight: 800;
+        margin-bottom: .15rem;
+    }
+    .av-pending-sub {
+        color: #64748b;
+        font-size: .76rem;
+    }
     .av-table-wrap {
         border: 1px solid #e2e8f0;
         background: #fff;
@@ -76,19 +101,49 @@
         overflow: hidden;
     }
     .av-table {
-        margin: 0;
-        font-size: .84rem;
+        margin-bottom: 0;
     }
     .av-table th {
-        color: #64748b;
-        font-size: .7rem;
-        font-weight: 800;
-        text-transform: uppercase;
         white-space: nowrap;
-        background: #f8fafc;
     }
     .av-table td {
         vertical-align: middle;
+    }
+    .av-datatable-controls {
+        padding: .85rem 1rem .35rem;
+        background: #fff;
+    }
+    .av-datatable-controls .dataTables_length label {
+        display: inline-flex;
+        align-items: center;
+        gap: .5rem;
+        color: #697a8d;
+        font-size: .875rem;
+        margin: 0;
+    }
+    .av-datatable-controls .dataTables_length select {
+        width: auto;
+        min-width: 4.75rem;
+    }
+    .av-datatable-footer {
+        border-top: 1px solid #d9dee3;
+        padding: .75rem 1rem;
+        background: #fff;
+    }
+    .av-datatable-footer .dataTables_info {
+        color: #697a8d;
+        font-size: .875rem;
+        padding-top: .45rem;
+    }
+    .av-datatable-footer .pagination {
+        justify-content: flex-end;
+        margin: 0;
+        gap: .25rem;
+    }
+    .av-datatable-footer .page-link {
+        min-width: 2rem;
+        text-align: center;
+        border-radius: .375rem;
     }
     .av-unit-main {
         color: #1e293b;
@@ -129,16 +184,6 @@
         opacity: .35;
         margin-bottom: .65rem;
     }
-    .av-pager {
-        border-top: 1px solid #e2e8f0;
-        padding: .75rem .85rem;
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        gap: .75rem;
-        flex-wrap: wrap;
-        background: #fff;
-    }
     @media (max-width: 992px) {
         .av-kpi-grid {
             grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -150,6 +195,15 @@
         }
         .av-head {
             padding: .9rem;
+        }
+        .av-datatable-controls .dataTables_length label {
+            width: 100%;
+            justify-content: space-between;
+        }
+        .av-datatable-footer .dataTables_info,
+        .av-datatable-footer .pagination {
+            justify-content: center;
+            text-align: center;
         }
     }
 </style>
@@ -207,6 +261,74 @@
         </div>
     </section>
 
+    <section class="av-pending">
+        <div class="av-pending-head">
+            <div>
+                <div class="av-pending-title">
+                    <i class="fa-solid fa-list-check me-1 text-primary"></i>Pendientes de Motos Adjudicadas
+                </div>
+                <div class="av-pending-sub">Operaciones listas para crear unidad fisica en Almacen Virtual.</div>
+            </div>
+            <div class="d-flex align-items-end gap-2 flex-wrap">
+                <div>
+                    <label class="form-label small fw-bold" for="av-pending-q">Buscar pendiente</label>
+                    <input type="text" class="form-control form-control-sm" id="av-pending-q" placeholder="Operacion, credito, cliente">
+                </div>
+                <button type="button" class="btn btn-outline-secondary btn-sm" id="av-btn-pending-refresh">
+                    <i class="fa-solid fa-rotate-right me-1"></i>Actualizar
+                </button>
+            </div>
+        </div>
+        <div class="av-datatable-controls row mx-0 align-items-center">
+            <div class="col-sm-12 col-md-6">
+                <div class="dataTables_length">
+                    <label>
+                        Mostrar
+                        <select id="av-pending-limit" class="form-select form-select-sm">
+                            <option value="8" selected>8</option>
+                            <option value="16">16</option>
+                            <option value="32">32</option>
+                            <option value="64">64</option>
+                        </select>
+                        registros
+                    </label>
+                </div>
+            </div>
+        </div>
+        <div class="card-datatable table-responsive">
+            <table class="dt-responsive table border-top av-table">
+                <thead>
+                    <tr>
+                        <th>Operacion</th>
+                        <th>Cliente</th>
+                        <th>Unidad origen</th>
+                        <th>Estatus origen</th>
+                        <th>Sugerido</th>
+                        <th class="text-end">Accion</th>
+                    </tr>
+                </thead>
+                <tbody id="av-pendientes-body">
+                    <tr>
+                        <td colspan="6" class="av-empty">
+                            <i class="fa-solid fa-spinner fa-spin"></i>
+                            Cargando pendientes...
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+        <div class="av-datatable-footer row mx-0 align-items-center">
+            <div class="col-sm-12 col-md-5">
+                <div class="dataTables_info" id="av-pending-pager-info">Mostrando 0 a 0 de 0 pendientes</div>
+            </div>
+            <div class="col-sm-12 col-md-7">
+                <div class="dataTables_paginate paging_simple_numbers">
+                    <ul class="pagination" id="av-pending-pagination"></ul>
+                </div>
+            </div>
+        </div>
+    </section>
+
     <section class="av-toolbar">
         <div class="row g-2 align-items-end">
             <div class="col-12 col-lg-4">
@@ -252,8 +374,24 @@
     </section>
 
     <section class="av-table-wrap">
-        <div class="table-responsive">
-            <table class="table table-hover av-table">
+        <div class="av-datatable-controls row mx-0 align-items-center">
+            <div class="col-sm-12 col-md-6">
+                <div class="dataTables_length">
+                    <label>
+                        Mostrar
+                        <select id="av-limit" class="form-select form-select-sm">
+                            <option value="8" selected>8</option>
+                            <option value="16">16</option>
+                            <option value="32">32</option>
+                            <option value="64">64</option>
+                        </select>
+                        registros
+                    </label>
+                </div>
+            </div>
+        </div>
+        <div class="card-datatable table-responsive">
+            <table class="dt-responsive table border-top av-table">
                 <thead>
                     <tr>
                         <th>Unidad</th>
@@ -274,15 +412,14 @@
                 </tbody>
             </table>
         </div>
-        <div class="av-pager">
-            <div class="small text-muted" id="av-pager-info">0 unidades</div>
-            <div class="btn-group btn-group-sm">
-                <button type="button" class="btn btn-outline-secondary" id="av-prev">
-                    <i class="fa-solid fa-chevron-left"></i>
-                </button>
-                <button type="button" class="btn btn-outline-secondary" id="av-next">
-                    <i class="fa-solid fa-chevron-right"></i>
-                </button>
+        <div class="av-datatable-footer row mx-0 align-items-center">
+            <div class="col-sm-12 col-md-5">
+                <div class="dataTables_info" id="av-pager-info">Mostrando 0 a 0 de 0 unidades</div>
+            </div>
+            <div class="col-sm-12 col-md-7">
+                <div class="dataTables_paginate paging_simple_numbers">
+                    <ul class="pagination" id="av-pagination"></ul>
+                </div>
             </div>
         </div>
     </section>
@@ -292,10 +429,15 @@
 (function () {
     const state = {
         page: 1,
-        limit: 25,
+        limit: 8,
         pages: 1,
         total: 0,
         timer: null,
+        pendingTimer: null,
+        pendingPage: 1,
+        pendingLimit: 8,
+        pendingPages: 1,
+        pendingTotal: 0,
     };
 
     const $ = (id) => document.getElementById(id);
@@ -334,12 +476,61 @@
 
     function statusHtml(value) {
         const key = String(value || 'default').replace(/[^a-z0-9_]/gi, '_');
-        const cls = document.createElement('span');
-        cls.className = 'av-status av-status-' + key;
         const safeClass = ['pendiente_recepcion','en_recepcion','pendiente_revision','en_revision','reparada','fuera_presupuesto','irreparable','lista_venta','en_traspaso'].includes(key)
             ? 'av-status-' + key
             : 'av-status-default';
         return '<span class="av-status ' + safeClass + '"><i class="fa-solid fa-circle"></i>' + esc(statusLabel(value)) + '</span>';
+    }
+
+    function rangeInfo(total, page, limit, label) {
+        const start = total > 0 ? ((page - 1) * limit) + 1 : 0;
+        const end = total > 0 ? Math.min(page * limit, total) : 0;
+        return 'Mostrando ' + start + ' a ' + end + ' de ' + total + ' ' + label;
+    }
+
+    function pageNumbers(current, pages) {
+        const totalPages = Math.max(1, Number(pages || 1));
+        const activePage = Math.max(1, Math.min(Number(current || 1), totalPages));
+        if (totalPages <= 7) {
+            return Array.from({ length: totalPages }, (_, index) => index + 1);
+        }
+
+        const numbers = [1];
+        const start = Math.max(2, activePage - 1);
+        const end = Math.min(totalPages - 1, activePage + 1);
+        if (start > 2) numbers.push('ellipsis-start');
+        for (let page = start; page <= end; page++) numbers.push(page);
+        if (end < totalPages - 1) numbers.push('ellipsis-end');
+        numbers.push(totalPages);
+        return numbers;
+    }
+
+    function renderPagination(targetId, page, pages) {
+        const target = $(targetId);
+        if (!target) return;
+        const current = Math.max(1, Number(page || 1));
+        const totalPages = Math.max(1, Number(pages || 1));
+
+        const item = (label, targetPage, disabled, active, extraClass) => {
+            const classes = ['paginate_button', 'page-item'];
+            if (extraClass) classes.push(extraClass);
+            if (disabled) classes.push('disabled');
+            if (active) classes.push('active');
+            const attrs = disabled ? 'tabindex="-1" aria-disabled="true"' : 'href="#" data-page="' + esc(targetPage) + '"';
+            return '<li class="' + classes.join(' ') + '"><a class="page-link" ' + attrs + '>' + label + '</a></li>';
+        };
+
+        const html = [
+            item('Anterior', Math.max(1, current - 1), current <= 1, false, 'previous'),
+            ...pageNumbers(current, totalPages).map((value) => {
+                if (typeof value === 'string') {
+                    return item('...', current, true, false, '');
+                }
+                return item(String(value), value, false, value === current, '');
+            }),
+            item('Siguiente', Math.min(totalPages, current + 1), current >= totalPages, false, 'next'),
+        ];
+        target.innerHTML = html.join('');
     }
 
     function params() {
@@ -454,16 +645,106 @@
         state.total = Number(json.total || 0);
         state.pages = Number(json.pages || 1);
         state.page = Number(json.page || 1);
+        state.limit = Number(json.limit || state.limit);
         renderRows(json.rows || []);
-        $('av-pager-info').textContent = state.total + ' unidades | Pagina ' + state.page + ' de ' + state.pages;
-        $('av-prev').disabled = state.page <= 1;
-        $('av-next').disabled = state.page >= state.pages;
+        actualizarPagerUnidades();
     }
 
-    async function importarDesdeMotosAdjudicadas() {
+    function actualizarPagerUnidades() {
+        const info = $('av-pager-info');
+        if (info) {
+            info.textContent = rangeInfo(state.total, state.page, state.limit, 'unidades');
+        }
+        renderPagination('av-pagination', state.page, state.pages);
+    }
+
+    function renderPendientes(rows) {
+        const body = $('av-pendientes-body');
+        if (!body) return;
+        if (!rows || rows.length === 0) {
+            body.innerHTML = '<tr><td colspan="6" class="av-empty"><i class="fa-solid fa-circle-check"></i>No hay operaciones pendientes por importar.</td></tr>';
+            return;
+        }
+
+        body.innerHTML = rows.map((row) => {
+            const moto = [row.marca_unidad, row.modelo_unidad, row.moto_anio].filter(Boolean).join(' ');
+            const ids = [
+                row.vin ? 'VIN ' + row.vin : '',
+                row.no_motor ? 'Motor ' + row.no_motor : '',
+                row.placas_unidad ? 'Placa ' + row.placas_unidad : '',
+            ].filter(Boolean).join(' | ');
+            return `
+                <tr>
+                    <td>
+                        <div class="av-unit-main">#${esc(row.id_operacion)}</div>
+                        ${row.id_credito ? `<div class="av-unit-sub">Credito hist.: ${esc(row.id_credito)}</div>` : ''}
+                    </td>
+                    <td>
+                        <div>${esc(row.nombre_cliente || 'Sin cliente')}</div>
+                        <div class="av-unit-sub">${esc(row.fecha_actualizacion_fmt || '')}</div>
+                    </td>
+                    <td>
+                        <div>${esc(moto || 'Sin datos de moto')}</div>
+                        <div class="av-unit-sub">${esc(ids || 'Sin identificadores')}</div>
+                    </td>
+                    <td>${esc(row.estatus || '')}</td>
+                    <td>${statusHtml(row.estatus_inventario_sugerido)}</td>
+                    <td class="text-end">
+                        <button type="button" class="btn btn-primary btn-sm av-pending-create" data-id-operacion="${esc(row.id_operacion)}">
+                            <i class="fa-solid fa-file-import me-1"></i>Crear
+                        </button>
+                    </td>
+                </tr>
+            `;
+        }).join('');
+    }
+
+    function actualizarPagerPendientes() {
+        const info = $('av-pending-pager-info');
+        if (info) {
+            info.textContent = rangeInfo(state.pendingTotal, state.pendingPage, state.pendingLimit, 'pendientes');
+        }
+        renderPagination('av-pending-pagination', state.pendingPage, state.pendingPages);
+    }
+
+    async function cargarPendientesMotosAdjudicadas(resetPage = false) {
+        if (resetPage) state.pendingPage = 1;
+        const body = $('av-pendientes-body');
+        if (body) {
+            body.innerHTML = '<tr><td colspan="6" class="av-empty"><i class="fa-solid fa-spinner fa-spin"></i>Cargando pendientes...</td></tr>';
+        }
+        const p = new URLSearchParams({
+            limit: String(state.pendingLimit),
+            page: String(state.pendingPage),
+        });
+        const q = $('av-pending-q')?.value.trim() || '';
+        if (q) p.set('q', q);
+        try {
+            const res = await fetch('/AlmacenVirtual/pendientesMotosAdjudicadas?' + p.toString(), { headers: { Accept: 'application/json' } });
+            const json = await res.json();
+            if (!json.success) {
+                if (body) {
+                    body.innerHTML = '<tr><td colspan="6" class="av-empty"><i class="fa-solid fa-triangle-exclamation"></i>' + esc(json.message || 'No se pudieron cargar pendientes.') + '</td></tr>';
+                }
+                return;
+            }
+            state.pendingTotal = Number(json.total || 0);
+            state.pendingPages = Number(json.pages || 1);
+            state.pendingPage = Number(json.page || 1);
+            state.pendingLimit = Number(json.limit || state.pendingLimit);
+            renderPendientes(json.rows || []);
+            actualizarPagerPendientes();
+        } catch (err) {
+            if (body) {
+                body.innerHTML = '<tr><td colspan="6" class="av-empty"><i class="fa-solid fa-triangle-exclamation"></i>' + esc(err.message || 'Error al cargar pendientes.') + '</td></tr>';
+            }
+        }
+    }
+
+    async function importarDesdeMotosAdjudicadas(idOperacionArg) {
         const input = $('av-import-id-operacion');
         const btn = $('av-btn-import-madj');
-        const idOperacion = Number(input?.value || 0);
+        const idOperacion = Number(idOperacionArg || input?.value || 0);
         if (!idOperacion || idOperacion <= 0) {
             notify('warning', 'ID requerido', 'Indica un id_operacion valido.');
             input?.focus();
@@ -493,6 +774,7 @@
 
             input.value = '';
             reloadAll(true);
+            cargarPendientesMotosAdjudicadas();
             const folio = json.unidad && json.unidad.folio_unidad ? json.unidad.folio_unidad : '';
             notify(
                 json.ya_existe ? 'info' : 'success',
@@ -523,6 +805,30 @@
     function init() {
         $('av-btn-refresh')?.addEventListener('click', () => reloadAll(false));
         $('av-btn-filtrar')?.addEventListener('click', () => reloadAll(true));
+        $('av-btn-pending-refresh')?.addEventListener('click', () => cargarPendientesMotosAdjudicadas());
+        $('av-pending-q')?.addEventListener('input', () => {
+            window.clearTimeout(state.pendingTimer);
+            state.pendingTimer = window.setTimeout(() => cargarPendientesMotosAdjudicadas(true), 350);
+        });
+        $('av-pendientes-body')?.addEventListener('click', (ev) => {
+            const btn = ev.target.closest('.av-pending-create');
+            if (!btn) return;
+            importarDesdeMotosAdjudicadas(btn.dataset.idOperacion);
+        });
+        $('av-pending-limit')?.addEventListener('change', () => {
+            state.pendingLimit = Number($('av-pending-limit')?.value || 8) || 8;
+            cargarPendientesMotosAdjudicadas(true);
+        });
+        $('av-pending-pagination')?.addEventListener('click', (ev) => {
+            const link = ev.target.closest('[data-page]');
+            if (!link) return;
+            ev.preventDefault();
+            const nextPage = Number(link.dataset.page || 1);
+            if (nextPage && nextPage !== state.pendingPage) {
+                state.pendingPage = nextPage;
+                cargarPendientesMotosAdjudicadas();
+            }
+        });
         $('av-btn-import-madj')?.addEventListener('click', importarDesdeMotosAdjudicadas);
         $('av-import-id-operacion')?.addEventListener('keydown', (ev) => {
             if (ev.key === 'Enter') {
@@ -530,15 +836,17 @@
                 importarDesdeMotosAdjudicadas();
             }
         });
-        $('av-prev')?.addEventListener('click', () => {
-            if (state.page > 1) {
-                state.page--;
-                cargarUnidades();
-            }
+        $('av-limit')?.addEventListener('change', () => {
+            state.limit = Number($('av-limit')?.value || 8) || 8;
+            reloadAll(true);
         });
-        $('av-next')?.addEventListener('click', () => {
-            if (state.page < state.pages) {
-                state.page++;
+        $('av-pagination')?.addEventListener('click', (ev) => {
+            const link = ev.target.closest('[data-page]');
+            if (!link) return;
+            ev.preventDefault();
+            const nextPage = Number(link.dataset.page || 1);
+            if (nextPage && nextPage !== state.page) {
+                state.page = nextPage;
                 cargarUnidades();
             }
         });
@@ -552,7 +860,10 @@
 
         cargarCatalogos()
             .catch(() => {})
-            .finally(() => reloadAll(true));
+            .finally(() => {
+                reloadAll(true);
+                cargarPendientesMotosAdjudicadas();
+            });
     }
 
     if (document.readyState === 'loading') {
