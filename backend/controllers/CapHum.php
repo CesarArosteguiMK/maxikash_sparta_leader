@@ -256,7 +256,7 @@ class CapHum extends Controller
     {
         $estatus = mb_strtolower(trim((string) $estatus), 'UTF-8');
         $estatus = str_replace(['á', 'é', 'í', 'ó', 'ú'], ['a', 'e', 'i', 'o', 'u'], $estatus);
-        return $estatus === 'pendiente de validacion final';
+        return in_array($estatus, ['pendiente de validacion final', 'ingreso programado'], true);
     }
 
     private static function candidatoVisibleParaSesionSeleccion($idCandidato): bool
@@ -6250,7 +6250,8 @@ class CapHum extends Controller
                     return (c.estatus || "").trim() === "Por evaluar";
                 }).length) || 0;
                 var validacionFinal = (datos && datos.filter(function(c){
-                    return (c.estatus || "").trim() === "Pendiente de validacion final";
+                    var est = (c.estatus || "").trim();
+                    return est === "Pendiente de validacion final" || est === "Ingreso programado";
                 }).length) || 0;
                 var enviadas = (datos && datos.filter(function(c){
                     return Array.isArray(c.documentos) && c.documentos.length >= 10;
@@ -6301,9 +6302,8 @@ class CapHum extends Controller
                 var selEstatus = document.getElementById("FilterTransaction");
                 var data = {};
                 if (window.candidatosSoloValidacionFinal) {
-                    data.estatus = "Pendiente de validacion final";
                     if (selEstatus) {
-                        selEstatus.value = data.estatus;
+                        selEstatus.value = "";
                         selEstatus.disabled = true;
                     }
                 } else if (selEstatus && selEstatus.value) {
@@ -9843,9 +9843,14 @@ class CapHum extends Controller
         $id_departamento = isset($_GET["id_departamento"]) ? (int) $_GET["id_departamento"] : null;
         $id_puesto = isset($_GET["id_puesto"]) ? (int) $_GET["id_puesto"] : null;
         if (self::esSoloValidadorFinalCandidatos()) {
-            $estatus = 'Pendiente de validacion final';
+            $estatus = ['Pendiente de validacion final', 'Ingreso programado'];
         }
         $resultado = CandidatosDAO::getAll($estatus, $id_departamento, $id_puesto);
+        if (self::esSoloValidadorFinalCandidatos() && $resultado['success'] && !empty($resultado['datos']) && is_array($resultado['datos'])) {
+            $resultado['datos'] = array_values(array_filter($resultado['datos'], static function ($candidato): bool {
+                return self::estatusCandidatoEsValidacionFinal($candidato['estatus'] ?? '');
+            }));
+        }
 
         // Eager Loading: Incluir documentos, verificación y métricas de cada candidato
         if ($resultado['success'] && !empty($resultado['datos']) && is_array($resultado['datos'])) {

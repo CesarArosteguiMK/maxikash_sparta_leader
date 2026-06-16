@@ -212,7 +212,20 @@ class Candidatos extends Model
         $params = [];
 
         $query .= " AND COALESCE(c.estatus, '') <> 'Contratado'";
-        if ($estatus !== null && $estatus !== '' && $estatus !== 'Contratado') {
+        if (is_array($estatus)) {
+            $estatusPermitidos = array_values(array_filter(array_unique(array_map('trim', $estatus)), static function ($valor) {
+                return $valor !== '' && $valor !== 'Contratado';
+            }));
+            if (!empty($estatusPermitidos)) {
+                $ph = [];
+                foreach ($estatusPermitidos as $i => $valor) {
+                    $key = 'estatus_' . $i;
+                    $ph[] = ':' . $key;
+                    $params[$key] = $valor;
+                }
+                $query .= " AND c.estatus IN (" . implode(',', $ph) . ")";
+            }
+        } elseif ($estatus !== null && $estatus !== '' && $estatus !== 'Contratado') {
             $query .= " AND c.estatus = :estatus";
             $params['estatus'] = $estatus;
         }

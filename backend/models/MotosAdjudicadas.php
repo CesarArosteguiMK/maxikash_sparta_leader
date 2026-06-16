@@ -81,6 +81,19 @@ class MotosAdjudicadas extends Model
         $this->db = new Database();
     }
 
+    private function sqlExisteEnvioEvidenciasAdjudicacion(string $aliasOperacion = 'o'): string
+    {
+        return "EXISTS (
+            SELECT 1
+            FROM adj_bitacora b_env
+            WHERE b_env.id_operacion = {$aliasOperacion}.id
+              AND (
+                  b_env.accion LIKE '%AL PIPELINE%'
+                  OR b_env.accion LIKE '%EVIDENCIAS DE LA ADJUDICACION%'
+              )
+        )";
+    }
+
     private function adjOperacionTieneColumna(string $columna): bool
     {
         if (self::$adjOperacionColumnas === null) {
@@ -2949,6 +2962,7 @@ SQL;
         $filtro = trim($filtro);
         $where = [
             "o.estatus NOT IN ('Retenciones', 'cancelado')",
+            "(o.estatus NOT IN ('Recibido', 'en_transito') OR {$this->sqlExisteEnvioEvidenciasAdjudicacion('o')})",
         ];
         $params = [];
         if ($filtro !== '') {

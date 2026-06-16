@@ -1693,7 +1693,7 @@ class Sabueso extends Controller
             http.request({
                 endpoint: '/sabueso/getHistoricoIlocalizables',
                 metodo: 'POST',
-                data: JSON.stringify({ q: q || '', limit: 1000 }),
+                data: JSON.stringify({ q: q || '', limit: 1000, origen: 'manual' }),
                 contentType: 'application/json',
                 processData: false,
                 showLoader: false,
@@ -1705,7 +1705,7 @@ class Sabueso extends Controller
                         return;
                     }
                     if (!filas.length) {
-                        tbody.innerHTML = '<tr><td colspan="10" class="text-center text-muted py-4">No hay creditos ilocalizables registrados con ese filtro.</td></tr>';
+                        tbody.innerHTML = '<tr><td colspan="10" class="text-center text-muted py-4">No hay creditos ilocalizables manuales con ese filtro.</td></tr>';
                         if (resumen) resumen.textContent = 'Sin resultados.';
                         return;
                     }
@@ -3168,6 +3168,7 @@ class Sabueso extends Controller
         $filtros = [
             'q' => trim((string)($body['q'] ?? $_POST['q'] ?? '')),
             'limit' => (int)($body['limit'] ?? $_POST['limit'] ?? 500),
+            'origen' => 'manual',
         ];
         $res = TicketDAO::getHistoricoIlocalizables($filtros);
         self::respuestaJSON($res);
