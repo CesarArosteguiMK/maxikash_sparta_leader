@@ -713,6 +713,37 @@
             width: var(--estad-col-right);
         }
     }
+    #modalHistoricoIlocalizable .estad-hist-iloc-toolbar {
+        border-top: 1px solid var(--bs-border-color, #dee2e6);
+        border-bottom: 1px solid var(--bs-border-color, #dee2e6);
+        background: linear-gradient(180deg, rgba(248,249,250,0.92) 0%, rgba(255,255,255,1) 100%);
+        padding: 0.75rem 1rem;
+    }
+    #modalHistoricoIlocalizable .estad-hist-iloc-table-wrap {
+        max-height: 62vh;
+        overflow: auto;
+    }
+    #modalHistoricoIlocalizable .estad-hist-iloc-table-wrap thead th {
+        position: sticky;
+        top: 0;
+        z-index: 1;
+        background: var(--bs-body-bg, #fff);
+        box-shadow: inset 0 -1px 0 var(--bs-border-color, #dee2e6);
+    }
+    #modalHistoricoIlocalizable .estad-hist-id {
+        font-size: 1rem;
+        font-weight: 800;
+        color: #0f5132;
+    }
+    [data-bs-theme="dark"] #modalHistoricoIlocalizable .estad-hist-iloc-toolbar,
+    .dark-style #modalHistoricoIlocalizable .estad-hist-iloc-toolbar {
+        background: linear-gradient(180deg, #2d3344 0%, #232836 100%) !important;
+        border-color: rgba(255, 255, 255, 0.12) !important;
+    }
+    [data-bs-theme="dark"] #modalHistoricoIlocalizable .estad-hist-id,
+    .dark-style #modalHistoricoIlocalizable .estad-hist-id {
+        color: #86efac;
+    }
 </style>
 <?php
 $seccionesEstadisticas = isset($seccionesEstadisticas) && is_array($seccionesEstadisticas) ? $seccionesEstadisticas : ['sabueso' => true];
@@ -1009,7 +1040,10 @@ $seccionesEstadisticas = isset($seccionesEstadisticas) && is_array($seccionesEst
                                 </div>
                                 <div class="text-muted mt-1" style="font-size:0.65rem" id="tileCumplimientoLeyenda">—</div>
                             </div>
-                            <div class="d-flex justify-content-end mt-2">
+                            <div class="d-flex flex-wrap justify-content-end gap-2 mt-2">
+                                <button type="button" class="btn btn-sm btn-outline-secondary" id="btnHistoricoIlocalizable">
+                                    <i class="fa-solid fa-location-crosshairs me-1"></i>Historico Ilocalizable
+                                </button>
                                 <button type="button" class="btn btn-sm btn-outline-primary" id="btnReporteSemanalGlobal">
                                     <i class="fa-solid fa-calendar-week me-1"></i>Reporte semanal
                                 </button>
@@ -1266,6 +1300,60 @@ $seccionesEstadisticas = isset($seccionesEstadisticas) && is_array($seccionesEst
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
             </div>
             <div class="modal-body p-0" id="modalReporteSemanalGlobalBody"></div>
+        </div>
+    </div>
+</div>
+
+<!-- Historico Ilocalizable: consulta general de creditos marcados previamente -->
+<div class="modal fade" id="modalHistoricoIlocalizable" tabindex="-1" aria-labelledby="modalHistoricoIlocalizableLabel" aria-hidden="true">
+    <div class="modal-dialog modal-fullscreen-sm-down modal-xl modal-dialog-centered modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title mb-0" id="modalHistoricoIlocalizableLabel">
+                    <i class="fa-solid fa-location-crosshairs me-2 text-success"></i>Historico Ilocalizable
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <div class="modal-body p-0">
+                <div class="estad-hist-iloc-toolbar d-flex flex-wrap align-items-center justify-content-between gap-2">
+                    <div>
+                        <div class="fw-semibold small">Creditos detectados o marcados como ilocalizables</div>
+                        <div class="text-muted small" id="historicoIlocalizableResumen">Use el buscador para filtrar por ID credito, folio, cliente o gestor.</div>
+                    </div>
+                    <div class="d-flex flex-wrap align-items-center gap-2">
+                        <input type="search" class="form-control form-control-sm" id="inputHistoricoIlocalizableBuscar" placeholder="Buscar ID credito, folio, cliente o gestor" style="min-width: min(360px, 72vw);">
+                        <button type="button" class="btn btn-sm btn-primary" id="btnHistoricoIlocalizableBuscar">
+                            <i class="fa-solid fa-magnifying-glass me-1"></i>Buscar
+                        </button>
+                        <button type="button" class="btn btn-sm btn-outline-secondary" id="btnHistoricoIlocalizableLimpiar">
+                            <i class="fa-solid fa-rotate-left me-1"></i>Limpiar
+                        </button>
+                    </div>
+                </div>
+                <div class="table-responsive estad-hist-iloc-table-wrap">
+                    <table class="table table-sm table-hover mb-0 align-middle">
+                        <thead class="small text-uppercase text-muted">
+                            <tr>
+                                <th class="ps-3">ID credito</th>
+                                <th>Folio</th>
+                                <th>Cliente</th>
+                                <th>Gestor</th>
+                                <th>Semana</th>
+                                <th>Motivo</th>
+                                <th>Origen</th>
+                                <th>Dictamen</th>
+                                <th>Pago sem.</th>
+                                <th class="pe-3">Actualizado</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tbodyHistoricoIlocalizable">
+                            <tr>
+                                <td colspan="10" class="text-center text-muted py-4">Abra el historico para cargar datos.</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
         </div>
     </div>
 </div>

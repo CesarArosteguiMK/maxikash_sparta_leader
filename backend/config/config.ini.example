@@ -47,3 +47,12 @@ validar_expediente_solo_identificacion = 0
 [correos_primeros_pagos_agent]
 enabled = 1
 url = "http://127.0.0.1:3110"
+
+; DynamoDB mk-validations. En producción es mejor usar IAM Role o variables de entorno.
+; Si usas Access Keys, NO las subas al repositorio; config.ini real está en .gitignore.
+[dynamodb]
+region = "us-east-1"
+table = "mk-validations"
+aws_access_key_id = ""
+aws_secret_access_key = ""
+aws_session_token = ""

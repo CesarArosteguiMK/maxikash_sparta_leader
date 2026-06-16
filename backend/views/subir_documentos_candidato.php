@@ -19,6 +19,18 @@ $documentos = [
     9  => 'HOJA DE RETENCION FONACOT O INFONAVIT',
     10 => 'ESTADO DE CUENTA',
 ];
+$documentos_ayuda = [
+    1  => 'Solicitud interna de MaxiKash. Llénala, fírmala y súbela en PDF.',
+    2  => 'CV o solicitud de trabajo actualizada.',
+    3  => 'Acta legible, digital y actualizada.',
+    4  => 'CURP no mayor a 2 meses. Puedes descargarla en <a href="https://www.gob.mx/curp/" target="_blank" rel="noopener">gob.mx/curp</a>.',
+    5  => 'INE, residencia o pasaporte vigente. Sube un solo PDF con frente y reverso.',
+    6  => 'No mayor a 3 meses: luz, agua, gas o predial. Debe ser digital.',
+    7  => 'Constancia de situación fiscal no mayor a 2 meses.',
+    8  => 'Documento oficial digital del IMSS. Puedes obtenerlo en <a href="https://www.imss.gob.mx/tramites/imss02008" target="_blank" rel="noopener">imss.gob.mx</a>.',
+    9  => 'Hoja de retención FONACOT o INFONAVIT. Si no tienes adeudo, firma la carta que enviará Talento Humano.',
+    10 => 'Solo bancos físicos: BBVA, Banorte, Santander, Banamex, entre otros. No se aceptan bancos digitales como Nu, Mercado Pago o Klar.',
+];
 ?>
 <!DOCTYPE html>
 <html lang="es">
@@ -141,6 +153,25 @@ $documentos = [
             color: #2d3748;
             margin-bottom: 0.35rem;
             font-size: 0.85rem;
+        }
+        .doc-help {
+            display: flex;
+            align-items: flex-start;
+            gap: 0.4rem;
+            margin: -0.1rem 0 0.55rem;
+            color: #475569;
+            font-size: 0.8rem;
+            line-height: 1.35;
+        }
+        .doc-help i {
+            color: #2b6cb0;
+            margin-top: 0.12rem;
+            flex: 0 0 auto;
+        }
+        .doc-help a {
+            color: #2b6cb0;
+            font-weight: 600;
+            text-decoration: underline;
         }
         .form-group .form-control-file {
             width: 100%;
@@ -437,6 +468,7 @@ $documentos = [
             .d-flex.flex-wrap { flex-direction: column; align-items: stretch; }
             .btn-tomar-foto { align-self: flex-start; }
             .btn-submit { padding: 0.8rem 1rem; font-size: 0.95rem; }
+            .doc-help { font-size: 0.76rem; }
             .small-text { font-size: 0.75rem; }
         }
         @media (max-width: 480px) {
@@ -598,7 +630,10 @@ $documentos = [
                         $yaSubido = isset($documentos_subidos[$num]);
                     ?>
                     <div class="form-group<?= $yaSubido ? '' : ' doc-pendiente' ?>" data-doc-num="<?= $num ?>">
-                        <label for="archivo_<?= $num ?>"><?= $num ?>. <?= htmlspecialchars($nombreDoc) ?><?= $num === 5 ? ' <span class="text-muted" style="font-weight:400;">(un solo archivo PDF con frente y reverso)</span>' : '' ?><span id="doc-check-<?= (int)$num ?>" class="doc-palomita<?= $yaSubido ? ' visible' : '' ?>"<?= $yaSubido ? ' aria-label="Documento ya recibido"' : ' aria-hidden="true"' ?> title="<?= $yaSubido ? 'Documento ya recibido' : 'Archivo listo' ?>"><i class="fa fa-check-circle" aria-hidden="true"></i></span></label>
+                        <label for="archivo_<?= $num ?>"><?= $num ?>. <?= htmlspecialchars($nombreDoc) ?><span id="doc-check-<?= (int)$num ?>" class="doc-palomita<?= $yaSubido ? ' visible' : '' ?>"<?= $yaSubido ? ' aria-label="Documento ya recibido"' : ' aria-hidden="true"' ?> title="<?= $yaSubido ? 'Documento ya recibido' : 'Archivo listo' ?>"><i class="fa fa-check-circle" aria-hidden="true"></i></span></label>
+                        <?php if (!empty($documentos_ayuda[$num])): ?>
+                        <div class="doc-help"><i class="fa fa-info-circle" aria-hidden="true"></i><span><?= $documentos_ayuda[$num] ?></span></div>
+                        <?php endif; ?>
                         <?php if ($yaSubido): ?>
                         <div class="doc-ya-subido py-2 px-3 rounded" style="background:#e8f5e9;color:#2e7d32;">
                             <i class="fa fa-check-circle me-1"></i> Ya subido: <?= htmlspecialchars($documentos_subidos[$num]['nombre_archivo'] ?? 'documento') ?>
@@ -613,7 +648,7 @@ $documentos = [
                         <?php elseif ($esCartaAdeudo): ?>
                         <div class="descarga-doc mb-2">
                             <a href="<?= htmlspecialchars($urlBaseDescarga) ?>/carta_no_adeudo" class="btn-descarga" target="_blank" rel="noopener"><i class="fa fa-download me-1"></i> Descargar carta de no adeudo</a>
-                            <p class="small-text mt-2 mb-1">Si tienes crédito INFONAVIT o FONACOT y no tienes la hoja de retención: descarga la carta, llénala, fírmala y copia <strong>a mano</strong> en ella el texto que se indica abajo. Luego súbela aquí.</p>
+                            <p class="small-text mt-2 mb-1">Si no tienes hoja de retención FONACOT o INFONAVIT, descarga la carta de no adeudo, llénala, fírmala y súbela aquí.</p>
                             <details class="carta-parrafo-mano mt-2" style="border:1px solid #dee2e6;border-radius:8px;background:#fafafa;">
                                 <summary style="padding:0.5rem 0.75rem;cursor:pointer;font-size:0.9rem;list-style:none;display:flex;align-items:center;gap:0.35rem;">
                                     <i class="fa fa-chevron-right" style="transition:transform 0.2s;"></i>
@@ -650,7 +685,7 @@ $documentos = [
                         <?php endif; ?>
                     </div>
                     <?php endforeach; ?>
-                    <p class="small-text">Puedes subir los documentos por partes: envía los que tengas ahora y el resto después. Los que ya enviaste no se pueden cambiar. Formato permitido: PDF.</p>
+                    <p class="small-text">Todos los documentos son obligatorios para continuar con su contratación. Formato permitido: PDF.</p>
                     <button type="submit" class="btn-submit" id="btnEnviar">Subir documentos</button>
                 </form>
                 <div id="mensajeResultado"></div>

@@ -7,10 +7,11 @@ $here = $PSScriptRoot
 if (-not $here) { $here = Split-Path -Parent $MyInvocation.MyCommand.Path }
 $apiDir = Split-Path -Parent $here
 $bat = Join-Path $here 'iniciar-agente-tarea.bat'
+$supervisor = Join-Path $here 'supervisar-api-documentos.ps1'
 $taskName = 'Sparta API Verificacion Documentos'
 
-if (-not (Test-Path -LiteralPath $bat)) {
-    throw "No existe $bat"
+if (-not (Test-Path -LiteralPath $supervisor)) {
+    throw "No existe $supervisor"
 }
 
 $isAdmin = $false
@@ -27,20 +28,65 @@ if (-not $isAdmin) {
     exit 1
 }
 
-$cmd = 'cmd.exe'
-$args = '/d /c ""' + $bat + '""'
+$cmd = Join-Path $env:SystemRoot 'System32\WindowsPowerShell\v1.0\powershell.exe'
+$args = '-NoProfile -ExecutionPolicy Bypass -File "' + $supervisor + '"'
+
+function Grant-WebUserTaskAccess {
+    param([Parameter(Mandatory)][string]$Name)
+
+    $taskFile = Join-Path $env:WINDIR ('System32\Tasks\' + $Name)
+    if (Test-Path -LiteralPath $taskFile) {
+        Write-Host '[INFO] Concediendo lectura/ejecucion de la tarea a usuarios autenticados...'
+        & icacls.exe $taskFile /grant '*S-1-5-11:RX' '*S-1-5-32-545:RX' | Out-Host
+    }
+
+    try {
+        $svc = New-Object -ComObject Schedule.Service
+        $svc.Connect()
+        $root = $svc.GetFolder('\')
+        $task = $root.GetTask($Name)
+        $sddl = [string]$task.GetSecurityDescriptor(0)
+        $aces = '(A;;GRGX;;;AU)(A;;GRGX;;;BU)'
+        if ($sddl -and $sddl -notmatch ';;;AU' -and $sddl -match '^(.*?D:[A-Z]*)(.*)$') {
+            $newSddl = $Matches[1] + $aces + $Matches[2]
+            $task.SetSecurityDescriptor($newSddl, 0)
+            Write-Host '[OK] Descriptor de seguridad de la tarea actualizado para el boton web.' -ForegroundColor Green
+        } elseif ($sddl -match ';;;AU') {
+            Write-Host '[OK] La tarea ya tenia permisos para usuarios autenticados.'
+        } else {
+            Write-Host '[WARN] No se pudo interpretar el SDDL de la tarea para anadir permisos.' -ForegroundColor Yellow
+        }
+    } catch {
+        Write-Host ('[WARN] No se pudo ajustar el descriptor COM de la tarea: ' + $_.Exception.Message) -ForegroundColor Yellow
+    }
+}
 
 Write-Host ('[INFO] Instalando tarea: ' + $taskName)
 Write-Host ('[INFO] API_DIR: ' + $apiDir)
 Write-Host ('[INFO] Accion : ' + $cmd + ' ' + $args)
 
-$create = schtasks /Create /F /TN $taskName /TR "$cmd $args" /SC ONSTART /RU SYSTEM /RL HIGHEST 2>&1
+try {
+    schtasks /End /TN $taskName 2>$null | Out-Null
+} catch {}
+
+$create = schtasks /Create /F /TN $taskName /TR "`"$cmd`" $args" /SC ONSTART /RU SYSTEM /RL HIGHEST 2>&1
 if ($LASTEXITCODE -ne 0) {
     Write-Host $create
     throw 'No se pudo crear la tarea programada.'
 }
 
+Grant-WebUserTaskAccess -Name $taskName
+
 Write-Host '[OK] Tarea instalada. Probando arranque...' -ForegroundColor Green
+$stopper = Join-Path $here 'cerrar-agente.ps1'
+if (Test-Path -LiteralPath $stopper) {
+    Write-Host '[INFO] Liberando puerto 8000 antes de probar la tarea...'
+    try {
+        & $stopper -Silent
+    } catch {
+        Write-Host ('[WARN] No se pudo ejecutar cerrar-agente.ps1: ' + $_.Exception.Message) -ForegroundColor Yellow
+    }
+}
 schtasks /Run /TN $taskName | Out-Host
 
 $ok = $false
