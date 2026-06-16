@@ -81,7 +81,7 @@ class AlmacenVirtual extends Controller
                 'estatus' => trim((string) ($_GET['estatus'] ?? '')),
                 'id_ubicacion' => (int) ($_GET['id_ubicacion'] ?? 0),
                 'page' => (int) ($_GET['page'] ?? 1),
-                'limit' => (int) ($_GET['limit'] ?? 25),
+                'limit' => (int) ($_GET['limit'] ?? 8),
             ];
 
             echo json_encode($this->model->listarUnidades($filtros), JSON_UNESCAPED_UNICODE);
@@ -89,6 +89,25 @@ class AlmacenVirtual extends Controller
             echo json_encode([
                 'success' => false,
                 'message' => 'No se pudieron cargar las unidades.',
+                'error' => $e->getMessage(),
+            ], JSON_UNESCAPED_UNICODE);
+        }
+    }
+
+    public function pendientesMotosAdjudicadas()
+    {
+        header('Content-Type: application/json; charset=utf-8');
+        try {
+            $filtros = [
+                'q' => trim((string) ($_GET['q'] ?? '')),
+                'limit' => (int) ($_GET['limit'] ?? 8),
+                'page' => (int) ($_GET['page'] ?? 1),
+            ];
+            echo json_encode($this->model->listarPendientesMotosAdjudicadas($filtros), JSON_UNESCAPED_UNICODE);
+        } catch (\Throwable $e) {
+            echo json_encode([
+                'success' => false,
+                'message' => 'No se pudieron cargar pendientes de Motos Adjudicadas.',
                 'error' => $e->getMessage(),
             ], JSON_UNESCAPED_UNICODE);
         }

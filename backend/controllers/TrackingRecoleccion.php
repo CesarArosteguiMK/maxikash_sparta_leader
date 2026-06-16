@@ -892,6 +892,55 @@ class TrackingRecoleccion extends Controller
     }
 
     /**
+     * GET /TrackingRecoleccion/trackingCreditosSobreRuta?id_ruta=N
+     * Proxy seguro: GET /api/tracking/rutas/{id_ruta}/creditos-sobre-ruta
+     */
+    public function trackingCreditosSobreRuta()
+    {
+        $idRuta = (int)($_GET['id_ruta'] ?? 0);
+        if ($idRuta <= 0) {
+            self::respuestaJSON(['success' => false, 'mensaje' => 'id_ruta requerido.']);
+            return;
+        }
+
+        $cfg   = $this->_trkChatConfig();
+        $token = $this->_trkChatObtenerJwt();
+        if ($cfg['base_url'] === '' || $cfg['api_key'] === '' || $token === '') {
+            self::respuestaJSON(['success' => false, 'mensaje' => 'Tracking no disponible.']);
+            return;
+        }
+
+        $params = [];
+        $allowed = [
+            'radio_km',
+            'limit',
+            'usar_ubicacion_actual',
+            'incluir_detour',
+            'estado',
+            'municipio',
+            'solo_con_coordenadas',
+        ];
+        foreach ($allowed as $key) {
+            if (!array_key_exists($key, $_GET)) {
+                continue;
+            }
+            $value = trim((string)$_GET[$key]);
+            if ($value !== '') {
+                $params[$key] = $value;
+            }
+        }
+
+        $qs = $params ? ('?' . http_build_query($params)) : '';
+        $url = $this->_trkTrackingBuildUrl($cfg['base_url'], "/api/tracking/rutas/{$idRuta}/creditos-sobre-ruta{$qs}");
+        $resp = $this->_trkChatCurl($url, 'GET', '', [
+            'X-API-Key: ' . $cfg['api_key'],
+            'Authorization: Bearer ' . $token,
+        ]);
+
+        $this->_trkChatRelayResponse($resp);
+    }
+
+    /**
      * PATCH /TrackingRecoleccion/trackingCambiarCedisDestino
      * Body JSON: { id_ruta, id_cedis_destino, motivo }
      * Proxy seguro: PATCH /api/tracking/rutas/{id_ruta}/cedis-destino
