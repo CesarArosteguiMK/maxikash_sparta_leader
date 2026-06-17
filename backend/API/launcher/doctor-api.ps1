@@ -12,10 +12,10 @@
 #
 #  Parametros:
 #     -Fix              Aplica auto-fix simples (.env, carpeta logs, libera
-#                       puerto 8000 si lo tiene un python colgado, etc.)
+#                       el puerto configurado si lo tiene un python colgado, etc.)
 #     -InstallMissing   Reinstala con pip los paquetes que no se pudieron
 #                       importar (uno por uno, log detallado).
-#     -KillPort         Mata cualquier proceso en :8000 antes de seguir.
+#     -KillPort         Mata cualquier proceso en el puerto configurado antes de seguir.
 #     -Quiet            Reduce salida a consola (siempre escribe log).
 #
 #  Salida:
@@ -50,6 +50,8 @@ $LogsDir = Join-Path $ApiDir 'logs'
 if (-not (Test-Path -LiteralPath $LogsDir)) {
     try { New-Item -ItemType Directory -Path $LogsDir -Force | Out-Null } catch {}
 }
+$RuntimeDir = Join-Path $ApiDir 'runtime'
+$PortFile = Join-Path $RuntimeDir 'api-port.txt'
 $stamp   = Get-Date -Format 'yyyyMMdd-HHmmss'
 $LogFile = Join-Path $LogsDir "doctor-$stamp.log"
 
@@ -236,12 +238,36 @@ function Test-PortListening {
     return ($found | Select-Object -Unique)
 }
 
+function Get-ConfiguredApiPort {
+    $port = 8000
+    try {
+        if ($env:SPARTA_API_PORT) {
+            $candidate = [int]$env:SPARTA_API_PORT
+            if ($candidate -gt 0) { return $candidate }
+        }
+    } catch {}
+    try {
+        if (Test-Path -LiteralPath $PortFile) {
+            $raw = (Get-Content -LiteralPath $PortFile -Raw -ErrorAction SilentlyContinue).Trim()
+            if ($raw -match '^\d+$') {
+                $candidate = [int]$raw
+                if ($candidate -gt 0) { return $candidate }
+            }
+        }
+    } catch {}
+    return $port
+}
+
+$ApiPort = Get-ConfiguredApiPort
+$env:SPARTA_API_PORT = [string]$ApiPort
+
 # ---------- Cabecera ----------
 Out-Log ('=' * 75) 'Cyan'
 Out-Log "  DOCTOR API verificacion documentos  ($(Get-Date -Format 'yyyy-MM-dd HH:mm:ss'))" 'Cyan'
 Out-Log ('=' * 75) 'Cyan'
 Out-Log "  API_DIR : $ApiDir"
 Out-Log "  LogFile : $LogFile"
+Out-Log "  Puerto  : $ApiPort"
 Out-Log "  Modo    : Fix=$Fix  InstallMissing=$InstallMissing  KillPort=$KillPort"
 
 # =====================================================================
@@ -728,26 +754,26 @@ if (-not (Test-Path -LiteralPath $envFile)) {
 }
 
 # =====================================================================
-# 11) Puerto 8000
+# 11) Puerto configurado
 # =====================================================================
-Section '11. Puerto 8000'
-$pidsOnPort = Test-PortListening -Port 8000
+Section "11. Puerto $ApiPort"
+$pidsOnPort = Test-PortListening -Port $ApiPort
 if ($pidsOnPort -and $pidsOnPort.Count -gt 0) {
     foreach ($pidPort in $pidsOnPort) {
         $procName = ''
         try { $procName = (Get-Process -Id $pidPort -ErrorAction Stop).ProcessName } catch {}
-        Info ("Puerto 8000 ocupado por PID $pidPort  ($procName)")
+        Info ("Puerto $ApiPort ocupado por PID $pidPort  ($procName)")
     }
     if ($KillPort -or $Fix) {
         foreach ($pidPort in $pidsOnPort) {
-            try { Stop-Process -Id $pidPort -Force -ErrorAction Stop; Fix "Proceso PID $pidPort terminado (puerto 8000 liberado)." } catch { Err "No se pudo matar PID $pidPort : $($_.Exception.Message)" }
+            try { Stop-Process -Id $pidPort -Force -ErrorAction Stop; Fix "Proceso PID $pidPort terminado (puerto $ApiPort liberado)." } catch { Err "No se pudo matar PID $pidPort : $($_.Exception.Message)" }
         }
     } else {
-        Warn "Puerto 8000 ya esta en uso. Use -KillPort (o -Fix) para liberarlo."
+        Warn "Puerto $ApiPort ya esta en uso. Use -KillPort (o -Fix) para liberarlo."
         Rec "Si es uvicorn antiguo: ejecute launcher\\cerrar-agente.bat antes de arrancar."
     }
 } else {
-    Ok "Puerto 8000 libre."
+    Ok "Puerto $ApiPort libre."
 }
 
 # =====================================================================
@@ -755,26 +781,26 @@ if ($pidsOnPort -and $pidsOnPort.Count -gt 0) {
 # =====================================================================
 Section '12. Firewall de Windows (informativo)'
 try {
-    $fwRule = Get-NetFirewallRule -DisplayName 'API verificacion documentos 8000' -ErrorAction SilentlyContinue
+    $fwRule = Get-NetFirewallRule -DisplayName "API verificacion documentos $ApiPort" -ErrorAction SilentlyContinue
     if ($fwRule) {
-        Ok "Regla de firewall encontrada para 8000."
+        Ok "Regla de firewall encontrada para $ApiPort."
     } else {
-        Warn "No hay regla de firewall para puerto 8000 (no afecta arranque local; puede afectar acceso desde otra maquina)."
-        Rec  "En PowerShell admin:  New-NetFirewallRule -DisplayName 'API verificacion documentos 8000' -Direction Inbound -Protocol TCP -LocalPort 8000 -Action Allow"
+        Warn "No hay regla de firewall para puerto $ApiPort (no afecta arranque local; puede afectar acceso desde otra maquina)."
+        Rec  "En PowerShell admin:  New-NetFirewallRule -DisplayName 'API verificacion documentos $ApiPort' -Direction Inbound -Protocol TCP -LocalPort $ApiPort -Action Allow"
     }
 } catch { Info "No se pudo consultar reglas de firewall (no es bloqueante)." }
 
 # =====================================================================
 # 13) Test localhost (si la API ya esta arriba)
 # =====================================================================
-Section '13. Test HTTP a localhost:8000 (si esta arriba)'
+Section "13. Test HTTP a localhost:$ApiPort (si esta arriba)"
 try {
-    $resp = Invoke-WebRequest -Uri 'http://127.0.0.1:8000/docs' -UseBasicParsing -TimeoutSec 4 -ErrorAction Stop
+    $resp = Invoke-WebRequest -Uri "http://127.0.0.1:$ApiPort/docs" -UseBasicParsing -TimeoutSec 4 -ErrorAction Stop
     if ($resp.StatusCode -eq 200) {
         Ok "GET /docs respondio 200 (API operativa)."
         $cleanSummary = New-Object System.Collections.Generic.List[string]
         foreach ($s in $Script:Summary) {
-            if ($s -match 'Puerto 8000 ya esta en uso') { continue }
+            if ($s -match ('Puerto ' + [regex]::Escape([string]$ApiPort) + ' ya esta en uso')) { continue }
             $cleanSummary.Add($s) | Out-Null
         }
         $Script:Summary = $cleanSummary

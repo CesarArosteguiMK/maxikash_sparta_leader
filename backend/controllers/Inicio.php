@@ -658,10 +658,13 @@ class Inicio extends Controller
 
         $runCmdName = 'web-api-1click-runner-' . date('Ymd-His') . '.cmd';
         $runCmdPath = $logsDir . DIRECTORY_SEPARATOR . $runCmdName;
+        $apiRuntimeDir = dirname(__DIR__) . DIRECTORY_SEPARATOR . 'API' . DIRECTORY_SEPARATOR . 'runtime';
+        $apiPortFile = $apiRuntimeDir . DIRECTORY_SEPARATOR . 'api-port.txt';
         $runCmd = "@echo off\r\n"
             . "chcp 65001 >nul\r\n"
-            . 'set "SPARTA_API_DIRECT_START=1"' . "\r\n"
             . 'set "SPARTA_API_PORT=' . $docApiPort . '"' . "\r\n"
+            . 'if not exist "' . str_replace('"', '""', $apiRuntimeDir) . '" mkdir "' . str_replace('"', '""', $apiRuntimeDir) . '"' . "\r\n"
+            . '> "' . str_replace('"', '""', $apiPortFile) . '" echo ' . $docApiPort . "\r\n"
             . 'cd /d "' . str_replace('"', '""', $launcherDir) . '"' . "\r\n"
             . 'call "' . str_replace('"', '""', $runner) . '" > "' . str_replace('"', '""', $logPath) . '" 2>&1' . "\r\n";
         @file_put_contents($runCmdPath, $runCmd);
@@ -1741,8 +1744,8 @@ class Inicio extends Controller
                 ],
                 'url_browser' => null,
                 'browser_note' => 'Docs externos dependen de firewall. Verde exige health y POST minimo a validar-expediente desde PHP.',
-                'hint' => 'Si está caída: backend/API/launcher/iniciar-agente.bat',
-                'start_bat' => $backendRoot . DIRECTORY_SEPARATOR . 'API' . DIRECTORY_SEPARATOR . 'launcher' . DIRECTORY_SEPARATOR . 'iniciar-agente.bat',
+                'hint' => 'Si está caída: backend/API/launcher/web-api-1click-runner.bat',
+                'start_bat' => $backendRoot . DIRECTORY_SEPARATOR . 'API' . DIRECTORY_SEPARATOR . 'launcher' . DIRECTORY_SEPARATOR . 'web-api-1click-runner.bat',
                 'stop_ps1'  => $backendRoot . DIRECTORY_SEPARATOR . 'API' . DIRECTORY_SEPARATOR . 'launcher' . DIRECTORY_SEPARATOR . 'cerrar-agente.ps1',
                 'env' => [
                     'SPARTA_API_PORT' => (string)$docApiPort,

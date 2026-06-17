@@ -5818,7 +5818,13 @@ class CapHum extends Controller
                     13: 'Certificado de Estudios',
                     14: 'Referencias Laborales',
                     15: 'Documento baja',
-                    16: 'Documento reingreso'
+                    16: 'Documento reingreso',
+                    17: 'Solicitud de empleo Maxikash',
+                    18: 'CV',
+                    22: 'Constancia de situacion fiscal (RFC)',
+                    23: 'NSS',
+                    24: 'Carta de no adeudo',
+                    25: 'Estado de cuenta'
                 };
                 return mapeo[idDocumento] || 'Documento';
             }
@@ -5836,6 +5842,9 @@ class CapHum extends Controller
                     const nombreDoc = obtenerNombreDocumento(idDoc);
                     if (nombreDoc && !permiteMultiplesArchivos(nombreDoc)) {
                         documentosUnicosSubidos.add(nombreDoc);
+                    }
+                    if (Number(idDoc) === 22) {
+                        documentosUnicosSubidos.add('RFC');
                     }
                 });
 
@@ -6213,6 +6222,7 @@ class CapHum extends Controller
 
             var docModalPollTimer = null;
             var docModalFetchInFlight = false;
+            var docModalPendingRefresh = null;
             window.SPARTA_DOC_DEBUG = window.SPARTA_DOC_DEBUG === true;
 
             function clearDocModalPoll() {
@@ -6370,6 +6380,7 @@ class CapHum extends Controller
                     endpoint: "/caphum/getCandidatos",
                     metodo: "GET",
                     data: data,
+                    showLoader: false,
                     onSuccess: function(resp) {
                         try {
                             if (!resp || !resp.success || !resp.datos) {
@@ -8239,12 +8250,51 @@ class CapHum extends Controller
                 fetch("/caphum/eliminarDocumentoCandidato", { method: "POST", headers: { "Content-Type": "application/json", "Accept": "application/json", "X-Requested-With": "XMLHttpRequest" }, body: JSON.stringify({ id: idDoc, comentario: comentario || "" }) })
                 .then(function(r){ return r.json(); }).then(function(res) {
                     if (typeof Swal !== "undefined") Swal.close();
-                    if (res.success) { if (typeof Swal !== "undefined") Swal.fire({ icon: "success", title: "Eliminado", text: res.mensaje || "Documento eliminado." }); cargarDocumentosModal(idCandidato); }
+                    if (res.success) {
+                        var itemDocEliminado = document.querySelector("#modalDocumentacionCandidatoLista [data-doc-candidato-id=\"" + String(idDoc) + "\"]");
+                        if (itemDocEliminado && itemDocEliminado.parentNode) itemDocEliminado.parentNode.removeChild(itemDocEliminado);
+                        if (typeof Swal !== "undefined") Swal.fire({ icon: "success", title: "Eliminado", text: res.mensaje || "Documento eliminado.", timer: 1800, showConfirmButton: false });
+                        cargarDocumentosModal(idCandidato, { forceRefresh: true });
+                        if (typeof getCandidatos === "function") getCandidatos();
+                    }
                     else { if (typeof Swal !== "undefined") Swal.fire({ icon: "error", title: "Error", text: res.mensaje || "No se pudo eliminar." }); }
                 }).catch(function() {
                     if (typeof Swal !== "undefined") Swal.close();
                     if (typeof Swal !== "undefined") Swal.fire({ icon: "error", title: "Error", text: "Error de conexión." });
                 });
+            }
+
+            function abrirVisorDocumentoCandidato(url, titulo) {
+                var modalEl = document.getElementById("modalVisorDocumentoCandidato");
+                var frame = document.getElementById("modalVisorDocumentoCandidatoFrame");
+                var label = document.getElementById("modalVisorDocumentoCandidatoLabel");
+                var loading = document.getElementById("modalVisorDocumentoCandidatoLoading");
+                if (!modalEl || !frame) {
+                    window.open(url, "_blank", "noopener,noreferrer");
+                    return;
+                }
+                if (label) {
+                    var tituloSeguro = String(titulo || "Documento").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+                    label.innerHTML = "<i class=\"fa fa-file-pdf me-2 text-danger\"></i>" + tituloSeguro;
+                }
+                if (loading) loading.classList.remove("d-none");
+                frame.classList.add("d-none");
+                frame.onload = function() {
+                    if (loading) loading.classList.add("d-none");
+                    frame.classList.remove("d-none");
+                };
+                frame.src = url;
+                if (!modalEl._visorDocCleanBound) {
+                    modalEl._visorDocCleanBound = true;
+                    modalEl.addEventListener("hidden.bs.modal", function() {
+                        frame.removeAttribute("src");
+                        frame.classList.add("d-none");
+                        if (loading) loading.classList.remove("d-none");
+                    });
+                }
+                if (window.bootstrap && bootstrap.Modal) {
+                    bootstrap.Modal.getOrCreateInstance(modalEl).show();
+                }
             }
 
             function subirDocumentoManualCandidato(idCandidato, tipoNum, tipoNombre) {
@@ -8290,7 +8340,7 @@ class CapHum extends Controller
                             if (typeof Swal !== "undefined") {
                                 Swal.fire({ icon: "success", title: "Documento agregado", text: res.mensaje || "Documento subido manualmente.", timer: 2400, showConfirmButton: false });
                             }
-                            cargarDocumentosModal(idCandidato);
+                            cargarDocumentosModal(idCandidato, { forceRefresh: true, afterUpload: true });
                             if (typeof getCandidatos === "function") getCandidatos();
                         } else if (typeof Swal !== "undefined") {
                             Swal.fire({ icon: "error", title: "No se pudo subir", text: (res && res.mensaje) ? res.mensaje : "No se pudo guardar el documento." });
@@ -8395,6 +8445,7 @@ class CapHum extends Controller
                 datos.forEach(function(d) {
                     var item = document.createElement("div");
             item.className = "list-group-item list-group-item-action d-flex justify-content-between align-items-center";
+            item.setAttribute("data-doc-candidato-id", String(d.id || ""));
             var fecha = d.fecha_carga ? new Date(d.fecha_carga).toLocaleDateString("es-MX") : "";
             var tipoDocTexto = normalizarTextoDocModal(d.tipo_documento || "Documento");
             var nombreArchivoTexto = normalizarTextoDocModal(d.nombre_archivo || "");
@@ -8624,7 +8675,7 @@ class CapHum extends Controller
                 : "<button type=\"button\" class=\"btn btn-sm btn-outline-danger btn-eliminar-doc-candidato\" data-id=\"" + d.id + "\" title=\"Eliminar\"><i class=\"fa fa-trash\"></i></button>";
             var archivoDisponible = String(d.archivo_disponible == null ? "1" : d.archivo_disponible) !== "0";
             var btnAbrirHtml = archivoDisponible
-                ? "<a href=\"/caphum/verDocumentoCandidato/" + d.id + "\" target=\"_blank\" class=\"btn btn-sm btn-outline-primary\" title=\"Abrir\"><i class=\"fa fa-eye\"></i></a>"
+                ? "<button type=\"button\" class=\"btn btn-sm btn-outline-primary btn-ver-doc-candidato\" data-url=\"/caphum/verDocumentoCandidato/" + d.id + "\" data-title=\"" + escHtml(tipoDocTexto).replace(/"/g, "&quot;") + "\" title=\"Abrir\"><i class=\"fa fa-eye\"></i></button>"
                 : "<span class=\"btn btn-sm btn-outline-secondary disabled\" title=\"El registro existe, pero el PDF no est&aacute; en storage\"><i class=\"fa fa-eye-slash\"></i></span>";
             item.innerHTML = "<div class=\"d-flex align-items-center flex-wrap\"><div><strong>" + escHtml(tipoDocTexto) + "</strong>" + tooltipFiscalHtml + tooltipIdHtml + tooltipCalidadHtml + tooltipEstadoCuentaHtml + tooltipNssHtml + tooltipCurpHtml + tooltipActaHtml + revisionManualHtml + (esValidado ? " <span class=\"badge bg-success ms-1\">Validado</span>" : "") + "<br><small class=\"text-muted\">" + escHtml(nombreArchivoTexto) + (fecha ? " &middot; " + fecha : "") + "</small></div>" + badge + "</div>" +
                 "<div class=\"d-flex gap-1 align-items-center\">" +
@@ -8689,6 +8740,11 @@ class CapHum extends Controller
             }
             return mensaje || "Proceso terminado.";
         }
+        lista.querySelectorAll(".btn-ver-doc-candidato").forEach(function(btn) {
+            btn.addEventListener("click", function() {
+                abrirVisorDocumentoCandidato(btn.getAttribute("data-url") || "", btn.getAttribute("data-title") || "Documento");
+            });
+        });
         lista.querySelectorAll(".btn-validar-acta-candidato").forEach(function(btn) {
             btn.addEventListener("click", function() {
                 var idDoc = parseInt(btn.getAttribute("data-id"), 10);
@@ -8940,6 +8996,10 @@ class CapHum extends Controller
                     if (opts.fromPoll) {
                         return;
                     }
+                    docModalPendingRefresh = {
+                        idCandidato: idCandidato,
+                        opts: Object.assign({}, opts, { forceRefresh: true, fromQueuedRefresh: true })
+                    };
                     clearDocModalPoll();
                     return;
                 }
@@ -8962,13 +9022,16 @@ class CapHum extends Controller
                     cargando.classList.remove("d-none");
                 }
                 var urlList = "/caphum/getDocumentosCandidatoList?id_candidato=" + encodeURIComponent(String(idCandidato));
+                if (opts.forceRefresh) {
+                    urlList += "&_=" + Date.now();
+                }
                 var t0List = (typeof performance !== "undefined" && performance.now) ? performance.now() : Date.now();
                 if (!opts.fromPoll) {
                     clearDocModalApiTrace();
                     registrarTrazaDocModalTecnico("getDocumentosCandidatoList - GET (técnico)", { id_candidato: idCandidato, url: urlList });
                 }
                 candidatosDocConsola("info", "getDocumentosCandidatoList - inicio", { id_candidato: idCandidato, fromPoll: !!opts.fromPoll, url: urlList });
-                fetch(urlList, { headers: { "X-Requested-With": "XMLHttpRequest" } }).then(function(r) {
+                fetch(urlList, { headers: { "X-Requested-With": "XMLHttpRequest" }, cache: opts.forceRefresh ? "no-store" : "default" }).then(function(r) {
                     var ms = (typeof performance !== "undefined" && performance.now) ? Math.round(performance.now() - t0List) : null;
                     var cacheHdr = r.headers.get("X-Doc-List-Cache") || "";
                     return r.text().then(function(body) {
@@ -9124,6 +9187,16 @@ class CapHum extends Controller
                     }
                 }).finally(function() {
                     docModalFetchInFlight = false;
+                    if (docModalPendingRefresh) {
+                        var pendiente = docModalPendingRefresh;
+                        docModalPendingRefresh = null;
+                        var modalPendiente = document.getElementById("modalDocumentacionCandidato");
+                        if (!modalPendiente || !modalPendiente.dataset.idCandidato || String(modalPendiente.dataset.idCandidato) === String(pendiente.idCandidato)) {
+                            setTimeout(function() {
+                                cargarDocumentosModal(pendiente.idCandidato, pendiente.opts || { forceRefresh: true });
+                            }, 80);
+                        }
+                    }
                 });
             }
 
@@ -17103,7 +17176,13 @@ class CapHum extends Controller
                     13: 'Certificado de Estudios',
                     14: 'Referencias Laborales',
                     15: 'Documento baja',
-                    16: 'Documento reingreso'
+                    16: 'Documento reingreso',
+                    17: 'Solicitud de empleo Maxikash',
+                    18: 'CV',
+                    22: 'Constancia de situacion fiscal (RFC)',
+                    23: 'NSS',
+                    24: 'Carta de no adeudo',
+                    25: 'Estado de cuenta'
                 };
                 return mapeo[idDocumento] || 'Documento';
             }
@@ -17121,6 +17200,9 @@ class CapHum extends Controller
                     const nombreDoc = obtenerNombreDocumento(idDoc);
                     if (nombreDoc && !permiteMultiplesArchivos(nombreDoc)) {
                         documentosUnicosSubidos.add(nombreDoc);
+                    }
+                    if (Number(idDoc) === 22) {
+                        documentosUnicosSubidos.add('RFC');
                     }
                 });
 
@@ -19876,15 +19958,33 @@ public function getEstadosMunicipiosMexico()
             8 => 'CURP',
             9 => 'INE',
             10 => 'RFC',
-            11 => 'Comprobante_Domicilio',
-            12 => 'Acta_Nacimiento',
-            13 => 'Certificado_Estudios',
-            14 => 'Referencias_Laborales',
-            15 => 'Documento_Baja',
-            16 => 'Documento_Reingreso',
+            11 => 'Comprobante_de_domicilio',
+            12 => 'Acta_de_nacimiento',
+            13 => 'Certificado_de_estudios',
+            14 => 'Referencias_laborales',
+            15 => 'Documento_de_baja',
+            16 => 'Documento_de_reingreso',
+            17 => 'Solicitud_de_empleo_Maxikash',
+            18 => 'CV',
+            22 => 'Constancia_de_situacion_fiscal_RFC',
+            23 => 'NSS',
+            24 => 'Carta_de_no_adeudo',
+            25 => 'Estado_de_cuenta',
         ];
 
         return $nombres[$idDocumento] ?? 'Documento';
+    }
+
+    private function nombreArchivoDocumentoPersona(int $idDocumento, array &$nombresUsados, string $extension = 'pdf'): string
+    {
+        $base = $this->nombreSeguroDescarga($this->nombreDocumentoPersona($idDocumento));
+        $extension = strtolower(trim($extension, '. '));
+        $extension = $extension !== '' ? $extension : 'pdf';
+
+        $contador = ($nombresUsados[$base] ?? 0) + 1;
+        $nombresUsados[$base] = $contador;
+
+        return $base . ($contador > 1 ? '_' . $contador : '') . '.' . $extension;
     }
 
     private function nombreSeguroDescarga(string $nombre): string
@@ -20195,6 +20295,7 @@ public function getEstadosMunicipiosMexico()
 
             $archivos = [];
             $nombrePersonaDescarga = '';
+            $nombresUsados = [];
             foreach ($documentos as $doc) {
                 $idCarga = (int)($doc['id'] ?? 0);
                 $idDocumento = (int)($doc['id_documento'] ?? 0);
@@ -20210,11 +20311,10 @@ public function getEstadosMunicipiosMexico()
                     continue;
                 }
                 $formatoDoc = $formatosPorId[$idCarga] ?? $formato;
-                $base = $this->nombreDocumentoPersona($idDocumento) . '_' . basename((string)$doc['archivo']);
                 $archivos[] = [
                     'id' => $idCarga,
                     'ruta' => $ruta,
-                    'nombre' => $this->nombreSeguroDescarga($base),
+                    'nombre' => $this->nombreArchivoDocumentoPersona($idDocumento, $nombresUsados, pathinfo($ruta, PATHINFO_EXTENSION) ?: 'pdf'),
                     'formato' => $formatoDoc,
                 ];
             }

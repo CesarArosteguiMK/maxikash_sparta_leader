@@ -9,6 +9,27 @@ $apiDir = Split-Path -Parent $here
 $bat = Join-Path $here 'iniciar-agente-tarea.bat'
 $supervisor = Join-Path $here 'supervisar-api-documentos.ps1'
 $taskName = 'Sparta API Verificacion Documentos'
+$runtimeDir = Join-Path $apiDir 'runtime'
+$portFile = Join-Path $runtimeDir 'api-port.txt'
+$apiPort = 8000
+try {
+    if ($env:SPARTA_API_PORT) {
+        $candidate = [int]$env:SPARTA_API_PORT
+        if ($candidate -gt 0) { $apiPort = $candidate }
+    } elseif (Test-Path -LiteralPath $portFile) {
+        $raw = (Get-Content -LiteralPath $portFile -Raw -ErrorAction SilentlyContinue).Trim()
+        if ($raw -match '^\d+$') {
+            $candidate = [int]$raw
+            if ($candidate -gt 0) { $apiPort = $candidate }
+        }
+    }
+} catch {
+    $apiPort = 8000
+}
+try {
+    New-Item -ItemType Directory -Path $runtimeDir -Force | Out-Null
+    Set-Content -LiteralPath $portFile -Value ([string]$apiPort) -Encoding ASCII
+} catch {}
 
 if (-not (Test-Path -LiteralPath $supervisor)) {
     throw "No existe $supervisor"
@@ -63,6 +84,7 @@ function Grant-WebUserTaskAccess {
 
 Write-Host ('[INFO] Instalando tarea: ' + $taskName)
 Write-Host ('[INFO] API_DIR: ' + $apiDir)
+Write-Host ('[INFO] Puerto : ' + $apiPort)
 Write-Host ('[INFO] Accion : ' + $cmd + ' ' + $args)
 
 try {
@@ -80,8 +102,9 @@ Grant-WebUserTaskAccess -Name $taskName
 Write-Host '[OK] Tarea instalada. Probando arranque...' -ForegroundColor Green
 $stopper = Join-Path $here 'cerrar-agente.ps1'
 if (Test-Path -LiteralPath $stopper) {
-    Write-Host '[INFO] Liberando puerto 8000 antes de probar la tarea...'
+    Write-Host ("[INFO] Liberando puerto $apiPort antes de probar la tarea...")
     try {
+        $env:SPARTA_API_PORT = [string]$apiPort
         & $stopper -Silent
     } catch {
         Write-Host ('[WARN] No se pudo ejecutar cerrar-agente.ps1: ' + $_.Exception.Message) -ForegroundColor Yellow
@@ -92,7 +115,7 @@ schtasks /Run /TN $taskName | Out-Host
 $ok = $false
 for ($i = 0; $i -lt 90; $i++) {
     try {
-        $r = Invoke-WebRequest -Uri 'http://127.0.0.1:8000/api/v1/health' -UseBasicParsing -TimeoutSec 2
+        $r = Invoke-WebRequest -Uri "http://127.0.0.1:$apiPort/api/v1/health" -UseBasicParsing -TimeoutSec 2
         if ($r.StatusCode -ge 200 -and $r.StatusCode -lt 500) {
             $ok = $true
             break
@@ -102,7 +125,7 @@ for ($i = 0; $i -lt 90; $i++) {
 }
 
 if ($ok) {
-    Write-Host '[OK] API responde en http://127.0.0.1:8000/api/v1/health' -ForegroundColor Green
+    Write-Host "[OK] API responde en http://127.0.0.1:$apiPort/api/v1/health" -ForegroundColor Green
     Write-Host '[OK] Desde ahora el boton web usara esta tarea si la detecta.'
     exit 0
 }

@@ -292,6 +292,26 @@ window.departamentosCandidatoBackend = <?= json_encode($departamentosCandidatoCa
     </div>
 </div>
 
+<!-- Modal Visor de documento del candidato -->
+<div class="modal fade" id="modalVisorDocumentoCandidato" tabindex="-1" aria-labelledby="modalVisorDocumentoCandidatoLabel" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-dialog-centered" style="max-width: 92vw;">
+        <div class="modal-content visor-doc-candidato-content">
+            <div class="modal-header py-2">
+                <h5 class="modal-title text-truncate" id="modalVisorDocumentoCandidatoLabel">
+                    <i class="fa fa-file-pdf me-2 text-danger"></i>Documento
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <div class="modal-body p-0 position-relative">
+                <div id="modalVisorDocumentoCandidatoLoading" class="visor-doc-candidato-loading">
+                    <i class="fa fa-spinner fa-spin me-2"></i>Cargando documento...
+                </div>
+                <iframe id="modalVisorDocumentoCandidatoFrame" class="visor-doc-candidato-frame" title="Vista previa del documento"></iframe>
+            </div>
+        </div>
+    </div>
+</div>
+
 <!-- Modal Histórico de candidatos -->
 <div class="modal fade" id="modalHistoricoCandidatos" tabindex="-1" aria-labelledby="modalHistoricoCandidatosLabel" aria-hidden="true">
     <div class="modal-dialog modal-xl modal-dialog-scrollable">
@@ -1068,6 +1088,70 @@ body.dark-mode #modalCerrarProcesoCandidato.modal.show { z-index: 99999 !importa
 #modalCerrarProcesoCandidato .modal-dialog { position: relative; z-index: 1 !important; }
 /* Mantener Documentación por debajo del scrim de Cerrar cuando hay dos modales */
 #modalDocumentacionCandidato.modal.show { z-index: 1090 !important; }
+#modalVisorDocumentoCandidato.modal.show { z-index: 1110 !important; }
+#modalVisorDocumentoCandidato .visor-doc-candidato-content {
+    height: min(88vh, 900px);
+    overflow: visible;
+}
+#modalVisorDocumentoCandidato .modal-header .btn-close {
+    position: absolute;
+    top: 10px;
+    right: 12px;
+    z-index: 4;
+    width: 30px;
+    height: 30px;
+    margin: 0;
+    padding: 0;
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #eef1f5 none !important;
+    border: 1px solid #d8dee8;
+    box-shadow: none;
+    opacity: 0.9;
+    filter: none;
+    color: #64748b;
+}
+#modalVisorDocumentoCandidato .modal-header .btn-close::before {
+    content: "\00d7";
+    display: block;
+    font-size: 21px;
+    font-weight: 500;
+    line-height: 1;
+    transform: translateY(-1px);
+}
+#modalVisorDocumentoCandidato .modal-header .btn-close:hover {
+    background-color: #e2e8f0;
+    opacity: 1;
+}
+#modalVisorDocumentoCandidato .modal-body {
+    height: calc(100% - 48px);
+    overflow: hidden;
+    background: #f8fafc;
+}
+#modalVisorDocumentoCandidato .visor-doc-candidato-frame {
+    display: block;
+    width: 100%;
+    height: 100%;
+    min-height: 68vh;
+    border: 0;
+    background: #fff;
+}
+#modalVisorDocumentoCandidato .visor-doc-candidato-loading {
+    position: absolute;
+    inset: 0;
+    z-index: 2;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(248, 250, 252, 0.92);
+    color: #24324a;
+    font-weight: 600;
+}
+body.dark-mode #modalVisorDocumentoCandidato .modal-content { background: #111827; color: #e5e7eb; }
+body.dark-mode #modalVisorDocumentoCandidato .modal-body { background: #0f172a; }
+body.dark-mode #modalVisorDocumentoCandidato .visor-doc-candidato-loading { background: rgba(15, 23, 42, 0.92); color: #e5e7eb; }
 #modalDocumentacionCandidato .doc-sueldo-card .input-group-text { min-width: 38px; justify-content: center; }
 #modalDocumentacionCandidato .doc-sueldo-card .btn-eye-sueldo { width: 38px; }
 #modalDocumentacionCandidato .doc-sueldo-card input[disabled] { background-color: #f8fafc; }

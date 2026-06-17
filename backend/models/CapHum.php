@@ -11,6 +11,7 @@ class CapHum extends Model
     private static $trayectoriaPuestoTablaAsegurada = false;
     public const MODULO_ACCESOS_CAPITAL_HUMANO = 140;
     private const MODULO_MIS_DOCUMENTOS = 141;
+    private const MODULO_VALIDADOR_DOCUMENTAL_CANDIDATOS = 104;
     private const MODULOS_ACCESOS_CAPITAL_HUMANO_IDS = [
         4, 5, 13, 34, 38, 42, 44, 82, 83, 86, 87, 88, 91, 93,
         94, 95, 96, 97, 98, 99, 101, 104, 105,
@@ -2829,6 +2830,8 @@ class CapHum extends Model
             $totalCargadosGlobal = 0;
             $colaboradoresCompletos = 0;
             $colaboradoresConFaltantes = 0;
+            $colaboradoresSinDocumentos = 0;
+            $colaboradoresParciales = 0;
 
             foreach ($personas as $persona) {
                 $idPersona = (int) ($persona['id'] ?? 0);
@@ -2868,6 +2871,11 @@ class CapHum extends Model
                 $porcentajeLocal = $totalTipos > 0 ? round(($cargadosLocal / $totalTipos) * 100, 1) : 0;
                 if ($faltantesLocal > 0) {
                     $colaboradoresConFaltantes++;
+                    if ($cargadosLocal === 0) {
+                        $colaboradoresSinDocumentos++;
+                    } else {
+                        $colaboradoresParciales++;
+                    }
                 } else {
                     $colaboradoresCompletos++;
                 }
@@ -2913,6 +2921,8 @@ class CapHum extends Model
                     'porcentaje_global' => $porcentajeGlobal,
                     'colaboradores_completos' => $colaboradoresCompletos,
                     'colaboradores_con_faltantes' => $colaboradoresConFaltantes,
+                    'colaboradores_sin_documentos' => $colaboradoresSinDocumentos,
+                    'colaboradores_parciales' => $colaboradoresParciales,
                 ],
                 'colaboradores' => $colaboradores,
             ]);
@@ -3182,6 +3192,19 @@ class CapHum extends Model
         return implode(',', array_map('intval', self::MODULOS_ACCESOS_CAPITAL_HUMANO_IDS));
     }
 
+    private static function modulosGestionablesAccesoCapitalHumano(): array
+    {
+        return array_values(array_filter(
+            self::MODULOS_ACCESOS_CAPITAL_HUMANO_IDS,
+            static fn ($id) => (int) $id !== self::MODULO_VALIDADOR_DOCUMENTAL_CANDIDATOS
+        ));
+    }
+
+    private static function idsGestionablesAccesosCapitalHumanoSql(): string
+    {
+        return implode(',', array_map('intval', self::modulosGestionablesAccesoCapitalHumano()));
+    }
+
     private static function grupoModuloAccesoCapitalHumano(int $id, string $pestana, string $nombre): array
     {
         if ($id >= 107 && $id <= 127) {
@@ -3208,7 +3231,7 @@ class CapHum extends Model
         try {
             $db = new Database();
             self::asegurarModuloAccesosCapitalHumanoDb($db);
-            $idsSql = self::idsAccesosCapitalHumanoSql();
+            $idsSql = self::idsGestionablesAccesosCapitalHumanoSql();
 
             $usuarios = $db->queryAll("
                 SELECT
@@ -3310,7 +3333,7 @@ class CapHum extends Model
             }
             $db = new Database();
             self::asegurarModuloAccesosCapitalHumanoDb($db);
-            $idsSql = self::idsAccesosCapitalHumanoSql();
+            $idsSql = self::idsGestionablesAccesosCapitalHumanoSql();
 
             $usuario = $db->queryOne("
                 SELECT
@@ -3393,14 +3416,14 @@ class CapHum extends Model
             if (!is_array($modulos)) {
                 $modulos = [];
             }
-            $permitidos = array_fill_keys(self::MODULOS_ACCESOS_CAPITAL_HUMANO_IDS, true);
+            $permitidos = array_fill_keys(self::modulosGestionablesAccesoCapitalHumano(), true);
             $modulos = array_values(array_unique(array_filter(array_map('intval', $modulos), static function ($mid) use ($permitidos) {
                 return isset($permitidos[$mid]);
             })));
 
             $db = new Database();
             self::asegurarModuloAccesosCapitalHumanoDb($db);
-            $idsSql = self::idsAccesosCapitalHumanoSql();
+            $idsSql = self::idsGestionablesAccesosCapitalHumanoSql();
 
             $usuario = $db->queryOne(
                 "SELECT id FROM persona WHERE id = :id AND COALESCE(estatus, '') <> 'Baja' LIMIT 1",
