@@ -1768,7 +1768,7 @@ class Candidatos extends Model
         }
     }
 
-    public static function getDocumentosYVerificacion($id_candidato)
+    public static function getDocumentosYVerificacion($id_candidato, bool $verificarDisponibilidadArchivos = true, bool $asegurarColumnas = true)
     {
         $id_candidato = (int) $id_candidato;
         if ($id_candidato <= 0) {
@@ -1776,14 +1776,18 @@ class Candidatos extends Model
         }
         try {
             $db = new Database();
-            self::asegurarColumnasFlujoIngreso($db);
+            if ($asegurarColumnas) {
+                self::asegurarColumnasFlujoIngreso($db);
+            }
             $documentos = $db->queryAll(
                 "SELECT id, id_candidato, tipo_documento, nombre_archivo, ruta_archivo, fecha_carga, validado, fecha_validado, verificacion_fiscal_json, verificacion_calidad_json, CASE WHEN contenido IS NULL THEN 0 ELSE 1 END AS tiene_contenido FROM candidato_documento WHERE id_candidato = :id ORDER BY fecha_carga DESC",
                 ['id' => $id_candidato]
             );
             $documentos = $documentos ?: [];
             foreach ($documentos as &$d) {
-                $d['archivo_disponible'] = self::documentoTieneArchivoDisponible($d) ? 1 : 0;
+                $d['archivo_disponible'] = $verificarDisponibilidadArchivos
+                    ? (self::documentoTieneArchivoDisponible($d) ? 1 : 0)
+                    : (!empty($d['ruta_archivo']) || !empty($d['tiene_contenido']) ? 1 : 0);
                 if (!empty($d['verificacion_fiscal_json'])) {
                     $dec = json_decode($d['verificacion_fiscal_json'], true);
                     $d['verificacion_fiscal'] = is_array($dec) ? $dec : null;
@@ -1816,6 +1820,97 @@ class Candidatos extends Model
         } catch (\Exception $e) {
             return ['documentos' => [], 'verificacion' => null, 'sueldo' => ['bruto' => '', 'neto' => '']];
         }
+    }
+
+    public static function getDocumentosYVerificacionMultiple(array $idsCandidatos, bool $verificarDisponibilidadArchivos = false): array
+    {
+        $ids = [];
+        foreach ($idsCandidatos as $id) {
+            $id = (int) $id;
+            if ($id > 0) {
+                $ids[$id] = $id;
+            }
+        }
+        if (empty($ids)) {
+            return [];
+        }
+
+        $resultado = [];
+        foreach ($ids as $id) {
+            $resultado[$id] = [
+                'documentos' => [],
+                'verificacion' => null,
+                'sueldo' => ['bruto' => '', 'neto' => '', 'motivo_contratacion' => ''],
+            ];
+        }
+
+        try {
+            $db = new Database();
+            $params = [];
+            $placeholders = [];
+            $i = 0;
+            foreach ($ids as $id) {
+                $key = 'id' . $i++;
+                $params[$key] = $id;
+                $placeholders[] = ':' . $key;
+            }
+            $in = implode(',', $placeholders);
+
+            $documentos = $db->queryAll(
+                "SELECT id, id_candidato, tipo_documento, nombre_archivo, ruta_archivo, fecha_carga, validado, fecha_validado, verificacion_fiscal_json, verificacion_calidad_json, CASE WHEN contenido IS NULL THEN 0 ELSE 1 END AS tiene_contenido
+                 FROM candidato_documento
+                 WHERE id_candidato IN ({$in})
+                 ORDER BY id_candidato ASC, fecha_carga DESC",
+                $params
+            );
+            foreach (($documentos ?: []) as $d) {
+                $idCandidato = (int) ($d['id_candidato'] ?? 0);
+                if (!isset($resultado[$idCandidato])) {
+                    continue;
+                }
+                $d['archivo_disponible'] = $verificarDisponibilidadArchivos
+                    ? (self::documentoTieneArchivoDisponible($d) ? 1 : 0)
+                    : (!empty($d['ruta_archivo']) || !empty($d['tiene_contenido']) ? 1 : 0);
+                if (!empty($d['verificacion_fiscal_json'])) {
+                    $dec = json_decode($d['verificacion_fiscal_json'], true);
+                    $d['verificacion_fiscal'] = is_array($dec) ? $dec : null;
+                } else {
+                    $d['verificacion_fiscal'] = null;
+                }
+                if (!empty($d['verificacion_calidad_json'])) {
+                    $dec = json_decode($d['verificacion_calidad_json'], true);
+                    $d['verificacion_calidad'] = is_array($dec) ? $dec : null;
+                } else {
+                    $d['verificacion_calidad'] = null;
+                }
+                $resultado[$idCandidato]['documentos'][] = $d;
+            }
+
+            $rows = $db->queryAll(
+                "SELECT id, ultima_verificacion_expediente, sueldo_bruto, sueldo_neto, motivo_contratacion
+                 FROM candidatos
+                 WHERE id IN ({$in})",
+                $params
+            );
+            foreach (($rows ?: []) as $row) {
+                $idCandidato = (int) ($row['id'] ?? 0);
+                if (!isset($resultado[$idCandidato])) {
+                    continue;
+                }
+                if (!empty($row['ultima_verificacion_expediente'])) {
+                    $decoded = json_decode($row['ultima_verificacion_expediente'], true);
+                    $resultado[$idCandidato]['verificacion'] = is_array($decoded) ? $decoded : null;
+                }
+                $resultado[$idCandidato]['sueldo'] = [
+                    'bruto' => $row['sueldo_bruto'] !== null ? (string) $row['sueldo_bruto'] : '',
+                    'neto' => $row['sueldo_neto'] !== null ? (string) $row['sueldo_neto'] : '',
+                    'motivo_contratacion' => $row['motivo_contratacion'] !== null ? (string) $row['motivo_contratacion'] : '',
+                ];
+            }
+        } catch (\Exception $e) {
+        }
+
+        return $resultado;
     }
 
     private static function normalizarSueldo($valor): ?float

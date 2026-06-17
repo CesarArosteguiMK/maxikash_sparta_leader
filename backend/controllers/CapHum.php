@@ -9854,6 +9854,10 @@ class CapHum extends Controller
 
         // Eager Loading: Incluir documentos, verificación y métricas de cada candidato
         if ($resultado['success'] && !empty($resultado['datos']) && is_array($resultado['datos'])) {
+            $idsCandidatos = array_values(array_filter(array_map(static function ($candidato) {
+                return (int) ($candidato['id'] ?? 0);
+            }, $resultado['datos'])));
+            $documentosPorCandidato = CandidatosDAO::getDocumentosYVerificacionMultiple($idsCandidatos, false);
             $tiposRequeridos = [
                 'SOLICITUD INTERNA' => 1, 'CV O SOLICITUD DE TRABAJO' => 2, 'ACTA DE NACIMIENTO' => 3, 'ACTA DE NACIMIENTO Certificada' => 3,
                 'CURP' => 4, 'IDENTIFICACIÃ“N OFICIAL' => 5,
@@ -9869,7 +9873,7 @@ class CapHum extends Controller
             foreach ($resultado['datos'] as &$candidato) {
                 $id_candidato = (int) ($candidato['id'] ?? 0);
                 if ($id_candidato > 0) {
-                    $docData = CandidatosDAO::getDocumentosYVerificacion($id_candidato);
+                    $docData = $documentosPorCandidato[$id_candidato] ?? ['documentos' => [], 'verificacion' => null];
                     $documentos = $docData['documentos'] ?? [];
                     $candidato['documentos'] = $documentos;
 
