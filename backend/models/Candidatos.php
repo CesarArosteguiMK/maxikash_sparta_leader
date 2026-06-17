@@ -1991,16 +1991,16 @@ class Candidatos extends Model
             return;
         }
         $cacheDir = defined('RAIZ') ? (RAIZ . '/storage/cache') : (__DIR__ . '/../storage/cache');
-        foreach (['doc_candidato_', 'doc_candidato_v2_', 'doc_candidato_v3_'] as $prefix) {
+        foreach (['doc_candidato_', 'doc_candidato_v2_', 'doc_candidato_v3_', 'doc_candidato_v4_', 'doc_candidato_v5_'] as $prefix) {
             $file = $cacheDir . '/' . $prefix . $id_candidato . '.json';
             if (is_file($file)) {
                 @unlink($file);
             }
         }
         if (function_exists('apcu_delete')) {
-            @apcu_delete('doc_candidato_' . $id_candidato);
-            @apcu_delete('doc_candidato_v2_' . $id_candidato);
-            @apcu_delete('doc_candidato_v3_' . $id_candidato);
+            foreach (['doc_candidato_', 'doc_candidato_v2_', 'doc_candidato_v3_', 'doc_candidato_v4_', 'doc_candidato_v5_'] as $prefix) {
+                @apcu_delete($prefix . $id_candidato);
+            }
         }
     }
 
