@@ -9,6 +9,7 @@ __pycache__/
 .paddle_home/
 .paddlex_cache/
 .paddlex_cache_runtime/
+runtime/
 .venv/
 venv/
 *.egg-info/
