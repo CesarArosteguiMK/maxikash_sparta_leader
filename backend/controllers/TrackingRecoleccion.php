@@ -1197,6 +1197,56 @@ class TrackingRecoleccion extends Controller
     }
 
     /**
+     * GET /TrackingRecoleccion/obtenerPlaneacionRuta?id_ruta=N
+     */
+    public function obtenerPlaneacionRuta()
+    {
+        $idRuta = (int) ($_GET['id_ruta'] ?? $_POST['id_ruta'] ?? 0);
+        if ($idRuta <= 0) {
+            self::respuestaJSON(self::respuesta(false, 'ID de ruta requerido.'));
+            return;
+        }
+        try {
+            $model = new TrackingModel();
+            self::respuestaJSON($model->obtenerPlaneacionRuta($idRuta));
+        } catch (\Throwable $e) {
+            self::respuestaJSON(self::respuesta(false, 'Error al obtener planeacion de ruta.', null, $e->getMessage()));
+        }
+    }
+
+    /**
+     * POST /TrackingRecoleccion/guardarPlaneacionRuta
+     * Body JSON: { id_ruta, items:[{id_detalle, fecha_recoleccion, orden_dia}], motivo? }
+     */
+    public function guardarPlaneacionRuta()
+    {
+        $idUsuario = (int) ($_SESSION['persona_id'] ?? $_SESSION['usuario_id'] ?? 0);
+        $data = $this->leerBodyTracking();
+        try {
+            $model = new TrackingModel();
+            self::respuestaJSON($model->guardarPlaneacionRuta($data, $idUsuario));
+        } catch (\Throwable $e) {
+            self::respuestaJSON(self::respuesta(false, 'Error al guardar planeacion de ruta.', null, $e->getMessage()));
+        }
+    }
+
+    /**
+     * POST /TrackingRecoleccion/actualizarPlaneacionPunto
+     * Body JSON: { id_ruta, id_detalle, fecha_recoleccion, orden_dia?, tipo_evento?, motivo }
+     */
+    public function actualizarPlaneacionPunto()
+    {
+        $idUsuario = (int) ($_SESSION['persona_id'] ?? $_SESSION['usuario_id'] ?? 0);
+        $data = $this->leerBodyTracking();
+        try {
+            $model = new TrackingModel();
+            self::respuestaJSON($model->actualizarPlaneacionPunto($data, $idUsuario));
+        } catch (\Throwable $e) {
+            self::respuestaJSON(self::respuesta(false, 'Error al actualizar planeacion del punto.', null, $e->getMessage()));
+        }
+    }
+
+    /**
      * POST /TrackingRecoleccion/eliminarBorrador
      * Body JSON: { id_ruta }
      */
