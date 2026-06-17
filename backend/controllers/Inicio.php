@@ -1985,13 +1985,14 @@ class Inicio extends Controller
     {
         $configFile = defined('RAIZ') ? (RAIZ . '/config/config.ini') : (dirname(__DIR__) . '/config/config.ini');
         if (!is_file($configFile)) {
-            return '';
+            return 'sparta-__SPARTA_SECRET_REDACTED__-doc-verificacion-key';
         }
         $config = @parse_ini_file($configFile, true);
         if (!is_array($config) || !is_array($config['doc_verificacion'] ?? null)) {
-            return '';
+            return 'sparta-__SPARTA_SECRET_REDACTED__-doc-verificacion-key';
         }
-        return trim((string)($config['doc_verificacion']['api_key'] ?? ''));
+        $apiKey = trim((string)($config['doc_verificacion']['api_key'] ?? ''));
+        return $apiKey !== '' ? $apiKey : 'sparta-__SPARTA_SECRET_REDACTED__-doc-verificacion-key';
     }
 
     private function serviciosLocalesProbarFuncional(array $srv, int $timeoutMs = 8000): ?array

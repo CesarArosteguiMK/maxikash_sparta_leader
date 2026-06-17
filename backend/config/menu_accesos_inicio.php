@@ -13,7 +13,7 @@ if (!function_exists('getMenuItemsConfig')) {
             ['url' => '/gestiones/seguimiento', 'label' => 'Histórico Gestiones', 'icon' => 'fa-solid fa-screwdriver-wrench', 'bg' => 'bg-green', 'modulos' => [3]],
             ['url' => '/caphum/gestion', 'label' => 'Capital Humano - Gestión', 'icon' => 'fa-solid fa-users', 'bg' => 'bg-purple', 'modulos' => [4]],
             ['url' => '/caphum/accesosCapitalHumano', 'label' => 'Accesos Capital Humano', 'icon' => 'fa-solid fa-user-shield', 'bg' => 'bg-purple', 'modulos' => [140]],
-            ['url' => '/caphum/documentosColaborador', 'label' => 'Mis documentos', 'icon' => 'fa-solid fa-folder-open', 'bg' => 'bg-purple', 'modulos' => [92]],
+            ['url' => '/caphum/documentosColaborador', 'label' => 'Mis documentos', 'icon' => 'fa-solid fa-folder-open', 'bg' => 'bg-purple', 'modulos' => [141]],
             ['url' => '/caphum/vacaciones', 'label' => 'Vacaciones', 'icon' => 'fa-solid fa-umbrella-beach', 'bg' => 'bg-purple', 'modulos' => [4, 92]],
             ['url' => '/caphum/vacacionesAdmin', 'label' => 'Panel vacaciones', 'icon' => 'fa-solid fa-clipboard-check', 'bg' => 'bg-purple', 'modulos' => [4]],
             ['url' => '/caphum/documentosRrhh', 'label' => 'Expedientes RR.HH.', 'icon' => 'fa-solid fa-folder-tree', 'bg' => 'bg-purple', 'modulos' => [93]],

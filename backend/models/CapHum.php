@@ -10,12 +10,11 @@ class CapHum extends Model
 {
     private static $trayectoriaPuestoTablaAsegurada = false;
     public const MODULO_ACCESOS_CAPITAL_HUMANO = 140;
+    private const MODULO_MIS_DOCUMENTOS = 141;
     private const MODULOS_ACCESOS_CAPITAL_HUMANO_IDS = [
         4, 5, 13, 34, 38, 42, 44, 82, 83, 86, 87, 88, 91, 93,
         94, 95, 96, 97, 98, 99, 101, 104, 105,
-        107, 108, 109, 110, 111, 112, 113, 114, 115, 116, 117, 118,
-        119, 120, 121, 122, 123, 124, 125, 126, 127,
-        140,
+        140, 141,
     ];
     private const MODULO_CONVENIOS_DESCARGAR_EXCEL = 92;
     private const MODULO_CONVENIOS_DESCARGAR_EXCEL_NOMBRE = 'Descargar Excel';
@@ -36,33 +35,44 @@ class CapHum extends Model
 
     private static function asegurarModuloAccesosCapitalHumanoDb(Database $db): void
     {
-        $datos = [
-            'id' => self::MODULO_ACCESOS_CAPITAL_HUMANO,
-            'nombre' => 'Accesos Capital Humano',
-            'pestana' => 'Capital Humano',
-            'descripcion' => 'Acceso al modulo de administracion de permisos de Capital Humano.',
+        $modulos = [
+            [
+                'id' => self::MODULO_ACCESOS_CAPITAL_HUMANO,
+                'nombre' => 'Accesos Capital Humano',
+                'pestana' => 'Capital Humano',
+                'descripcion' => 'Acceso al modulo de administracion de permisos de Capital Humano.',
+            ],
+            [
+                'id' => self::MODULO_MIS_DOCUMENTOS,
+                'nombre' => 'Mis documentos',
+                'pestana' => 'Capital Humano',
+                'descripcion' => 'Capital Humano > Mis documentos',
+            ],
         ];
-        $existe = $db->queryOne(
-            'SELECT id FROM modulos_web WHERE id = :id LIMIT 1',
-            ['id' => self::MODULO_ACCESOS_CAPITAL_HUMANO]
-        );
-        if ($existe) {
+
+        foreach ($modulos as $datos) {
+            $existe = $db->queryOne(
+                'SELECT id FROM modulos_web WHERE id = :id LIMIT 1',
+                ['id' => $datos['id']]
+            );
+            if ($existe) {
+                $db->CRUD(
+                    'UPDATE modulos_web
+                        SET nombre = :nombre,
+                            pestana = :pestana,
+                            descripcion = :descripcion,
+                            activo = 1
+                      WHERE id = :id',
+                    $datos
+                );
+                continue;
+            }
             $db->CRUD(
-                'UPDATE modulos_web
-                    SET nombre = :nombre,
-                        pestana = :pestana,
-                        descripcion = :descripcion,
-                        activo = 1
-                  WHERE id = :id',
+                'INSERT INTO modulos_web (id, nombre, pestana, descripcion, activo)
+                 VALUES (:id, :nombre, :pestana, :descripcion, 1)',
                 $datos
             );
-            return;
         }
-        $db->CRUD(
-            'INSERT INTO modulos_web (id, nombre, pestana, descripcion, activo)
-             VALUES (:id, :nombre, :pestana, :descripcion, 1)',
-            $datos
-        );
     }
 
     private static function asegurarModuloConveniosDescargarExcel(Database $db): void
@@ -605,6 +615,7 @@ class CapHum extends Model
 
     public static function getConsultaGestoresAll($id_gestor_sesion, $tieneDepartamento = true)
     {
+        $id_gestor_sesion = (int)$id_gestor_sesion;
         $sqlExP = UsuarioFantasmaReporteria::sqlExcluirPersona('p');
         $sqlExP2 = UsuarioFantasmaReporteria::sqlExcluirPersona('p2');
 
@@ -612,9 +623,16 @@ class CapHum extends Model
         // VER TODOS: admin O sin departamento asignado (módulo 10)
         // Si no tiene "Organización > Departamentos" asignado → ver todos los usuarios.
         // =========================
-        $verTodos = in_array($id_gestor_sesion, [1, 2, 3, 396, 797]) || !$tieneDepartamento;
+        $verTodos = in_array($id_gestor_sesion, [1, 2, 3, 396, 797], true);
+        $filtroPuestosSesion = $verTodos ? '' : "
+        AND EXISTS (
+            SELECT 1
+            FROM privilegios_departamento pd_perm
+            WHERE pd_perm.idPersona = $id_gestor_sesion
+              AND pd_perm.idPuesto = ap.id_puesto
+        )";
 
-        if ($verTodos) {
+        if (true) {
 
             $query = <<<SQL
             SELECT
@@ -704,6 +722,7 @@ class CapHum extends Model
 
         WHERE p.estatus != 'Baja'
         {$sqlExP}
+        {$filtroPuestosSesion}
 
         ORDER BY pp.nivel ASC;
 
@@ -966,6 +985,7 @@ class CapHum extends Model
                 id INT AUTO_INCREMENT PRIMARY KEY,
                 id_departamento INT NOT NULL,
                 id_puesto INT NOT NULL,
+                nombre_vacante VARCHAR(180) NULL,
                 id_jefe INT NULL,
                 id_persona_baja INT NULL,
                 id_persona_cubre INT NULL,
@@ -993,6 +1013,18 @@ class CapHum extends Model
         if (!$columnaCubre) {
             $db->CRUD("ALTER TABLE __SPARTA_SECRET_REDACTED__.vacantes_personal ADD COLUMN id_persona_cubre INT NULL AFTER id_persona_baja");
             $db->CRUD("ALTER TABLE __SPARTA_SECRET_REDACTED__.vacantes_personal ADD INDEX idx_vacantes_personal_persona_cubre (id_persona_cubre)");
+        }
+
+        $columnaNombreVacante = $db->queryOne("
+            SELECT COLUMN_NAME
+            FROM INFORMATION_SCHEMA.COLUMNS
+            WHERE TABLE_SCHEMA = DATABASE()
+              AND TABLE_NAME = 'vacantes_personal'
+              AND COLUMN_NAME = 'nombre_vacante'
+            LIMIT 1
+        ");
+        if (!$columnaNombreVacante) {
+            $db->CRUD("ALTER TABLE __SPARTA_SECRET_REDACTED__.vacantes_personal ADD COLUMN nombre_vacante VARCHAR(180) NULL AFTER id_puesto");
         }
     }
 
@@ -1169,9 +1201,11 @@ class CapHum extends Model
                     v.id_departamento,
                     v.id_puesto,
                     v.id_jefe,
+                    v.nombre_vacante,
                     v.origen,
                     v.fecha_creacion,
-                    pp.nombre AS nombre_puesto,
+                    COALESCE(NULLIF(TRIM(v.nombre_vacante), ''), pp.nombre) AS nombre_puesto,
+                    pp.nombre AS nombre_puesto_base,
                     d.nombre AS nombre_departamento,
                     CONCAT_WS(' ', pj.nombres, pj.segundo_nombre, pj.apellidop, pj.apellidom) AS nombre_jefe,
                     COUNT(DISTINCT ps.id) AS subordinados
@@ -1184,7 +1218,7 @@ class CapHum extends Model
                 WHERE v.id_departamento = :id_departamento
                   AND v.id_puesto = :id_puesto
                   AND UPPER(TRIM(v.estatus)) = 'ACTIVA'
-                GROUP BY v.id, v.id_departamento, v.id_puesto, v.id_jefe, v.origen, v.fecha_creacion, pp.nombre, d.nombre, nombre_jefe
+                GROUP BY v.id, v.id_departamento, v.id_puesto, v.id_jefe, v.nombre_vacante, v.origen, v.fecha_creacion, pp.nombre, d.nombre, nombre_jefe
                 ORDER BY v.fecha_creacion ASC, v.id ASC
             ", [
                 'id_departamento' => $idDepartamento,
@@ -1228,7 +1262,9 @@ class CapHum extends Model
                     v.id,
                     v.id_departamento,
                     v.id_puesto,
-                    pp.nombre AS nombre_puesto,
+                    v.nombre_vacante,
+                    COALESCE(NULLIF(TRIM(v.nombre_vacante), ''), pp.nombre) AS nombre_puesto,
+                    pp.nombre AS nombre_puesto_base,
                     d.nombre AS nombre_departamento,
                     COUNT(DISTINCT ps.id) AS subordinados
                 FROM __SPARTA_SECRET_REDACTED__.vacantes_personal v
@@ -1239,7 +1275,7 @@ class CapHum extends Model
                 WHERE v.id_departamento = :id_departamento
                   AND UPPER(TRIM(v.estatus)) = 'ACTIVA'
                   $whereNivel
-                GROUP BY v.id, v.id_departamento, v.id_puesto, pp.nombre, d.nombre
+                GROUP BY v.id, v.id_departamento, v.id_puesto, v.nombre_vacante, pp.nombre, d.nombre
                 ORDER BY pp.nivel ASC, v.fecha_creacion ASC, v.id ASC
             ", $params);
 
@@ -1301,6 +1337,170 @@ class CapHum extends Model
             ]);
         } catch (\Exception $e) {
             return self::resultado(false, 'Error al actualizar el jefe de la vacante.', null, $e->getMessage());
+        }
+    }
+
+    public static function actualizarNombreVacantePersonal($idVacante, $nombreVacante)
+    {
+        try {
+            $db = new Database();
+            self::asegurarTablaVacantesPersonal($db);
+
+            $idVacante = (int)$idVacante;
+            $nombreVacante = trim(preg_replace('/\s+/', ' ', (string)$nombreVacante));
+            $nombreVacante = trim(preg_replace('/\s*\(\s*vacante\s*\)\s*$/iu', '', $nombreVacante));
+
+            if ($idVacante <= 0) {
+                return self::resultado(false, 'Seleccione la vacante.');
+            }
+            if ($nombreVacante === '' || mb_strlen($nombreVacante) < 3) {
+                return self::resultado(false, 'Escribe un nombre valido para la vacante.');
+            }
+            if (mb_strlen($nombreVacante) > 180) {
+                return self::resultado(false, 'El nombre de la vacante no debe superar 180 caracteres.');
+            }
+
+            $vacante = $db->queryOne("
+                SELECT id, estatus
+                FROM __SPARTA_SECRET_REDACTED__.vacantes_personal
+                WHERE id = :id
+                LIMIT 1
+            ", ['id' => $idVacante]);
+
+            if (!$vacante || strtoupper(trim((string)($vacante['estatus'] ?? ''))) !== 'ACTIVA') {
+                return self::resultado(false, 'La vacante ya no esta activa.');
+            }
+
+            $db->CRUD("
+                UPDATE __SPARTA_SECRET_REDACTED__.vacantes_personal
+                SET nombre_vacante = :nombre_vacante
+                WHERE id = :id_vacante
+                LIMIT 1
+            ", [
+                'nombre_vacante' => $nombreVacante,
+                'id_vacante' => $idVacante,
+            ]);
+
+            return self::resultado(true, 'Nombre de vacante actualizado correctamente.', [
+                'id_vacante' => $idVacante,
+                'nombre_vacante' => $nombreVacante,
+            ]);
+        } catch (\Exception $e) {
+            return self::resultado(false, 'Error al actualizar el nombre de la vacante.', null, $e->getMessage());
+        }
+    }
+
+    public static function eliminarVacantePersonal($idVacante, $modoMovimiento, $idJefeDestino = 0)
+    {
+        $db = null;
+        try {
+            $db = new Database();
+            self::asegurarTablaVacantesPersonal($db);
+            self::asegurarAsignaJefeSoportaVacante($db);
+
+            $idVacante = (int)$idVacante;
+            $modoMovimiento = trim((string)$modoMovimiento);
+            $idJefeDestino = (int)$idJefeDestino;
+
+            if ($idVacante <= 0) {
+                return self::resultado(false, 'Seleccione la vacante a eliminar.');
+            }
+            if (!in_array($modoMovimiento, ['jefe_superior', 'jefe_destino'], true)) {
+                return self::resultado(false, 'Seleccione como se moveran los subordinados.');
+            }
+
+            $vacante = $db->queryOne("
+                SELECT v.id, v.id_jefe, v.id_departamento, v.id_puesto, v.estatus,
+                       COALESCE(NULLIF(TRIM(v.nombre_vacante), ''), pp.nombre) AS nombre_puesto
+                FROM __SPARTA_SECRET_REDACTED__.vacantes_personal v
+                INNER JOIN __SPARTA_SECRET_REDACTED__.puesto pp ON pp.id = v.id_puesto
+                WHERE v.id = :id
+                LIMIT 1
+            ", ['id' => $idVacante]);
+
+            if (!$vacante || strtoupper(trim((string)($vacante['estatus'] ?? ''))) !== 'ACTIVA') {
+                return self::resultado(false, 'La vacante ya no esta activa.');
+            }
+
+            $jefeDestino = $modoMovimiento === 'jefe_superior' ? (int)($vacante['id_jefe'] ?? 0) : $idJefeDestino;
+            if ($jefeDestino <= 0) {
+                return self::resultado(false, 'Seleccione un jefe destino para mover los subordinados.');
+            }
+
+            $jefe = $db->queryOne("
+                SELECT id
+                FROM __SPARTA_SECRET_REDACTED__.persona
+                WHERE id = :id_jefe
+                  AND COALESCE(estatus, '') != 'Baja'
+                LIMIT 1
+            ", ['id_jefe' => $jefeDestino]);
+
+            if (!$jefe) {
+                return self::resultado(false, 'El jefe destino no esta activo.');
+            }
+
+            $subordinadosDirectos = $db->queryAll("
+                SELECT aj.id_persona
+                FROM __SPARTA_SECRET_REDACTED__.asigna_jefe aj
+                INNER JOIN (
+                    SELECT id_persona, MAX(id) AS mid
+                    FROM __SPARTA_SECRET_REDACTED__.asigna_jefe
+                    GROUP BY id_persona
+                ) ult ON ult.id_persona = aj.id_persona AND ult.mid = aj.id
+                INNER JOIN __SPARTA_SECRET_REDACTED__.persona p
+                        ON p.id = aj.id_persona
+                       AND COALESCE(p.estatus, '') != 'Baja'
+                WHERE aj.id_vacante_jefe = :id_vacante
+            ", ['id_vacante' => $idVacante]);
+
+            foreach ($subordinadosDirectos as $sub) {
+                if ((int)($sub['id_persona'] ?? 0) === $jefeDestino) {
+                    return self::resultado(false, 'No puedes mover la vacante a una persona que depende directamente de esa misma vacante.');
+                }
+            }
+
+            $db->beginTransaction();
+            $subordinadosMovidos = $db->CRUD("
+                UPDATE __SPARTA_SECRET_REDACTED__.asigna_jefe aj
+                INNER JOIN (
+                    SELECT ult.mid
+                    FROM (
+                        SELECT id_persona, MAX(id) AS mid
+                        FROM __SPARTA_SECRET_REDACTED__.asigna_jefe
+                        GROUP BY id_persona
+                    ) ult
+                ) vigente ON vigente.mid = aj.id
+                SET aj.id_jefe = :id_jefe,
+                    aj.id_vacante_jefe = NULL
+                WHERE aj.id_vacante_jefe = :id_vacante
+            ", [
+                'id_jefe' => $jefeDestino,
+                'id_vacante' => $idVacante,
+            ]);
+
+            $db->CRUD("
+                UPDATE __SPARTA_SECRET_REDACTED__.vacantes_personal
+                SET estatus = 'Eliminada',
+                    fecha_cierre = NOW()
+                WHERE id = :id_vacante
+                  AND UPPER(TRIM(estatus)) = 'ACTIVA'
+                LIMIT 1
+            ", [
+                'id_vacante' => $idVacante,
+            ]);
+            $db->commit();
+
+            return self::resultado(true, 'Vacante eliminada y subordinados reasignados correctamente.', [
+                'id_vacante' => $idVacante,
+                'jefe_destino' => $jefeDestino,
+                'subordinados_movidos' => $subordinadosMovidos,
+                'modo_movimiento' => $modoMovimiento,
+            ]);
+        } catch (\Exception $e) {
+            if ($db) {
+                try { $db->rollback(); } catch (\Exception $rollbackError) {}
+            }
+            return self::resultado(false, 'Error al eliminar la vacante.', null, $e->getMessage());
         }
     }
 
@@ -1500,7 +1700,9 @@ class CapHum extends Model
                     v.id_departamento,
                     v.id_puesto,
                     v.origen,
-                    pp.nombre AS nombre_puesto,
+                    v.nombre_vacante,
+                    COALESCE(NULLIF(TRIM(v.nombre_vacante), ''), pp.nombre) AS nombre_puesto,
+                    pp.nombre AS nombre_puesto_base,
                     d.nombre AS nombre_departamento
                 FROM __SPARTA_SECRET_REDACTED__.vacantes_personal v
                 INNER JOIN __SPARTA_SECRET_REDACTED__.puesto pp ON pp.id = v.id_puesto
