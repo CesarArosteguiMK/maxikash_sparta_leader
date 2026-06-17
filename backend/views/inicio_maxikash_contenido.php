@@ -913,7 +913,7 @@ body.dark-mode .api1click-tbtn--danger { color: #fecaca; }
           <button type="button" class="estado-srv-tbtn" id="estadoSrvBtnRefresh" title="Refrescar ahora">Refrescar</button>
         </span>
       </div>
-      <p class="estado-srv-help">Verde = PHP en el servidor pudo hablar con el servicio por <code>127.0.0.1</code>. Eso es lo que necesita Capital Humano. Abrir <code>34.51.95.211:8000</code> desde tu navegador es una prueba externa aparte y depende del firewall.</p>
+      <p class="estado-srv-help">Verde = PHP en el servidor pudo hablar con el servicio por <code>127.0.0.1</code>. En la API Python de documentos tambien valida un POST minimo a <code>/validar-expediente</code>; si solo responde health, queda en revisar.</p>
       <div class="estado-srv-grid" id="estadoSrvGrid">
         <div class="estado-srv-loading">Cargando estado…</div>
       </div>
@@ -1794,7 +1794,7 @@ body.dark-mode .api1click-tbtn--danger { color: #fecaca; }
         var ok = data && (data.success === true || data.success === 'true');
         var estado = data && data.estado;
         var arriba = estado === 'up';
-        var semi = estado === 'listen_no_http';
+        var semi = estado === 'listen_no_http' || estado === 'degraded';
         var line = m + hint;
         if (arriba) {
           srvSetActionFoot('✓ ' + line, 'estado-srv-foot-action--ok');
@@ -1837,6 +1837,7 @@ body.dark-mode .api1click-tbtn--danger { color: #fecaca; }
     services.forEach(function(srv){
       var cls, tag;
       if (srv.estado === 'up') { cls = 'up'; tag = 'ARRIBA'; }
+      else if (srv.estado === 'degraded') { cls = 'warn'; tag = 'REVISA'; }
       else if (srv.estado === 'listen_no_http') { cls = 'warn'; tag = 'EN PUERTO'; }
       else { cls = 'down'; tag = 'CAÍDA'; }
       var lat = (srv.latency_ms != null) ? (srv.latency_ms + ' ms') : '—';
@@ -1851,6 +1852,15 @@ body.dark-mode .api1click-tbtn--danger { color: #fecaca; }
       html += '    <div class="estado-srv-name">' + escapeHtml(srv.name) + '</div>';
       html += '    <div class="estado-srv-meta">Puerto <strong>' + srv.port + '</strong>' + pid + ' · HTTP ' + escapeHtml(status) + ' · ' + escapeHtml(lat) + '</div>';
       html += '    <div class="estado-srv-meta">' + escapeHtml(srv.role || '') + '</div>';
+      if (srv.functional_check) {
+        var fc = srv.functional_check || {};
+        var fcStatus = fc.status != null ? fc.status : '---';
+        var fcMs = fc.ms != null ? (fc.ms + ' ms') : '---';
+        html += '    <div class="estado-srv-meta">Check funcional: <strong>' + (fc.ok ? 'OK' : 'FALLA') + '</strong> - HTTP ' + escapeHtml(fcStatus) + ' - ' + escapeHtml(fcMs) + '</div>';
+        if (!fc.ok && fc.message) {
+          html += '    <div class="estado-srv-meta">' + escapeHtml(fc.message) + '</div>';
+        }
+      }
       if (cls === 'up') {
         html += '    <div class="estado-srv-meta">Check interno: <code>' + escapeHtml(srv.url_check || '') + '</code></div>';
         html += '    <div class="estado-srv-meta">' + browseLine + '</div>';

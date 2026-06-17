@@ -12,6 +12,8 @@ rem =====================================================================
 
 for %%I in ("%~dp0..") do set "API_DIR=%%~fI"
 if "%API_DIR:~-1%"=="\" set "API_DIR=%API_DIR:~0,-1%"
+set "API_PORT=%SPARTA_API_PORT%"
+if "%API_PORT%"=="" set "API_PORT=8000"
 cd /d "%API_DIR%"
 
 if not exist "%API_DIR%\app\main.py" (
@@ -23,7 +25,7 @@ if not exist "%API_DIR%\app\main.py" (
 echo [START] Comprobando health actual de la API...
 call :ApiReady 3
 if !errorlevel! EQU 0 (
-    echo La API ya responde en el puerto 8000.
+    echo La API ya responde en el puerto !API_PORT!.
     ping 127.0.0.1 -n 2 >nul
     exit /b 0
 )
@@ -38,7 +40,7 @@ ping 127.0.0.1 -n 2 >nul
 call :ApiReady 5
 if !errorlevel! NEQ 0 goto :failed
 
-echo API verificacion documentos iniciada: http://127.0.0.1:8000  ^(docs: /docs^)
+echo API verificacion documentos iniciada: http://127.0.0.1:!API_PORT!  ^(docs: /docs^)
 echo Log de arranque: %API_DIR%\logs\api_oculto_startup.log
 echo Log de uvicorn : %API_DIR%\logs\uvicorn-stderr.log
 echo Para detener   : launcher\cerrar-agente.bat
@@ -65,5 +67,6 @@ exit /b %RC%
 :ApiReady
 set "API_READY_TIMEOUT=%~1"
 if "%API_READY_TIMEOUT%"=="" set "API_READY_TIMEOUT=4"
-powershell -NoProfile -ExecutionPolicy Bypass -Command "try { $t=[int]$env:API_READY_TIMEOUT; $r = Invoke-WebRequest -Uri 'http://127.0.0.1:8000/api/v1/health' -UseBasicParsing -TimeoutSec $t; if ($r.StatusCode -ge 200 -and $r.StatusCode -lt 500) { exit 0 } else { exit 1 } } catch { try { $r = Invoke-WebRequest -Uri 'http://127.0.0.1:8000/docs' -UseBasicParsing -TimeoutSec $t; if ($r.StatusCode -ge 200 -and $r.StatusCode -lt 500) { exit 0 } else { exit 1 } } catch { exit 1 } }" >nul 2>nul
+set "API_READY_PORT=%API_PORT%"
+powershell -NoProfile -ExecutionPolicy Bypass -Command "try { $t=[int]$env:API_READY_TIMEOUT; $p=[int]$env:API_READY_PORT; $r = Invoke-WebRequest -Uri ('http://127.0.0.1:' + $p + '/api/v1/health') -UseBasicParsing -TimeoutSec $t; if ($r.StatusCode -ge 200 -and $r.StatusCode -lt 500) { exit 0 } else { exit 1 } } catch { try { $r = Invoke-WebRequest -Uri ('http://127.0.0.1:' + $p + '/docs') -UseBasicParsing -TimeoutSec $t; if ($r.StatusCode -ge 200 -and $r.StatusCode -lt 500) { exit 0 } else { exit 1 } } catch { exit 1 } }" >nul 2>nul
 exit /b !ERRORLEVEL!

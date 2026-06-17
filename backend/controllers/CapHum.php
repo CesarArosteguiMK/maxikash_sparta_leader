@@ -31,6 +31,7 @@ class CapHum extends Controller
     private const MODULO_PERMISOS_POR_PUESTO = 103;
     private const MODULO_VALIDADOR_DOCUMENTAL_CANDIDATOS = 104;
     private const MODULO_VALIDADOR_FINAL_CANDIDATOS = 105;
+    private const MODULO_ACCESOS_CAPITAL_HUMANO = 140;
     private const MODULOS_EDICION_COBRANZA = [
         'numero_empleado' => 107,
         'nombres' => 108,
@@ -226,6 +227,12 @@ class CapHum extends Controller
         return self::tieneModuloWeb(self::MODULO_PERMISOS_POR_PUESTO);
     }
 
+    private static function puedeGestionarAccesosCapitalHumano(): bool
+    {
+        return (int) ($_SESSION['usuario_id'] ?? 0) === 1
+            || self::tieneModuloWeb(self::MODULO_ACCESOS_CAPITAL_HUMANO);
+    }
+
     private static function puedeValidarDocumentalCandidatos(): bool
     {
         return (int) ($_SESSION['usuario_id'] ?? 0) === 1
@@ -249,7 +256,7 @@ class CapHum extends Controller
     {
         $estatus = mb_strtolower(trim((string) $estatus), 'UTF-8');
         $estatus = str_replace(['á', 'é', 'í', 'ó', 'ú'], ['a', 'e', 'i', 'o', 'u'], $estatus);
-        return $estatus === 'pendiente de validacion final';
+        return in_array($estatus, ['pendiente de validacion final', 'ingreso programado'], true);
     }
 
     private static function candidatoVisibleParaSesionSeleccion($idCandidato): bool
@@ -2046,6 +2053,49 @@ class CapHum extends Controller
                     });
                 }
 
+                function seleccionJerarquiaActualPuestos() {
+                    return {
+                        pais: Array.from(perfilPuestosState.selected.pais).map(Number).filter(Boolean),
+                        area: Array.from(perfilPuestosState.selected.area).map(Number).filter(Boolean),
+                        departamento: Array.from(perfilPuestosState.selected.departamento).map(Number).filter(Boolean),
+                        puesto: Array.from(perfilPuestosState.selected.puesto).map(Number).filter(Boolean)
+                    };
+                }
+
+                function guardarPuestosAutoPerfil() {
+                    if (!currentPersonaId) return Promise.resolve(false);
+                    return fetch('/caphum/guardarPermisosPuestos', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Accept': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            idPersona: parseInt(currentPersonaId, 10),
+                            puestos: Array.from(perfilPuestosState.selected.puesto).map(Number).filter(Boolean),
+                            jerarquia: seleccionJerarquiaActualPuestos()
+                        })
+                    })
+                    .then(res => res.json())
+                    .then(data => {
+                        if (!data.success) {
+                            throw new Error(data.mensaje || 'No se pudieron guardar los accesos a puestos.');
+                        }
+                        if (typeof getUsuarios === 'function') getUsuarios({ showLoader: false });
+                        return true;
+                    })
+                    .catch(err => {
+                        console.error('guardarPuestosAutoPerfil:', err);
+                        Swal.fire({
+                            icon: 'error',
+                            title: 'No se guardó',
+                            text: err && err.message ? err.message : 'No se pudieron guardar los accesos a puestos.',
+                            customClass: { container: 'swal-sobre-modal-perfil' }
+                        });
+                        return false;
+                    });
+                }
+
                 function actualizarTotalesFooter(paisObj) {
                     const ids = puestosDePais(paisObj);
                     const st = estadoMaster(ids);
@@ -2082,6 +2132,7 @@ class CapHum extends Controller
                             aplicarSeleccionPuestos(idsPais, cb.checked);
                             renderSidebar();
                             renderPaisActivo();
+                            guardarPuestosAutoPerfil();
                         });
 
                         item.append(left, cb);
@@ -2137,6 +2188,7 @@ class CapHum extends Controller
                     switchPais.onchange = function () {
                         if (switchPais.checked) perfilPuestosState.selected.pais.add(String(pais.id));
                         else perfilPuestosState.selected.pais.delete(String(pais.id));
+                        guardarPuestosAutoPerfil();
                     };
 
                     const q = String(inputBuscar.value || '').trim().toLowerCase();
@@ -2174,6 +2226,7 @@ class CapHum extends Controller
                             aplicarSeleccionPuestos(idsArea, true);
                             renderSidebar();
                             renderPaisActivo();
+                            guardarPuestosAutoPerfil();
                         });
                         const areaMaster = document.createElement('input');
                         areaMaster.type = 'checkbox';
@@ -2188,6 +2241,7 @@ class CapHum extends Controller
                             if (areaMaster.checked) perfilPuestosState.selected.area.add(areaId); else perfilPuestosState.selected.area.delete(areaId);
                             renderSidebar();
                             renderPaisActivo();
+                            guardarPuestosAutoPerfil();
                         });
                         rightActions.append(btnMarkAll, areaMaster);
                         areaHeader.appendChild(rightActions);
@@ -2213,6 +2267,7 @@ class CapHum extends Controller
                         swArea.addEventListener('change', function () {
                             if (swArea.checked) perfilPuestosState.selected.area.add(areaId);
                             else perfilPuestosState.selected.area.delete(areaId);
+                            guardarPuestosAutoPerfil();
                         });
                         swWrap.appendChild(swArea);
                         directArea.appendChild(swWrap);
@@ -2241,6 +2296,7 @@ class CapHum extends Controller
                                 aplicarSeleccionPuestos(depIds, true);
                                 renderSidebar();
                                 renderPaisActivo();
+                                guardarPuestosAutoPerfil();
                             });
                             const depMaster = document.createElement('input');
                             depMaster.type = 'checkbox';
@@ -2255,6 +2311,7 @@ class CapHum extends Controller
                                 if (depMaster.checked) perfilPuestosState.selected.departamento.add(depId); else perfilPuestosState.selected.departamento.delete(depId);
                                 renderSidebar();
                                 renderPaisActivo();
+                                guardarPuestosAutoPerfil();
                             });
                             depActions.append(depMark, depMaster);
                             depHeader.appendChild(depActions);
@@ -2285,6 +2342,7 @@ class CapHum extends Controller
                                     else perfilPuestosState.selected.puesto.delete(String(pu.id));
                                     renderSidebar();
                                     renderPaisActivo();
+                                    guardarPuestosAutoPerfil();
                                 });
                                 row.append(lbl, cb);
                                 puestosWrap.appendChild(row);
@@ -6144,6 +6202,7 @@ class CapHum extends Controller
             var candidatoReenviarId = null;
             var candidatoReenviarEmail = null;
             var candidatoDatosEnvio = null;
+            var candidatoEdicionOriginal = {};
             var candidatosFiltrosLlenos = false;
             window.miUsuarioId = Number(window.miUsuarioId || 0);
 
@@ -6243,7 +6302,8 @@ class CapHum extends Controller
                     return (c.estatus || "").trim() === "Por evaluar";
                 }).length) || 0;
                 var validacionFinal = (datos && datos.filter(function(c){
-                    return (c.estatus || "").trim() === "Pendiente de validacion final";
+                    var est = (c.estatus || "").trim();
+                    return est === "Pendiente de validacion final" || est === "Ingreso programado";
                 }).length) || 0;
                 var enviadas = (datos && datos.filter(function(c){
                     return Array.isArray(c.documentos) && c.documentos.length >= 10;
@@ -6292,11 +6352,11 @@ class CapHum extends Controller
                 var selDepto = document.getElementById("UserRole");
                 var selPuesto = document.getElementById("UserPlan");
                 var selEstatus = document.getElementById("FilterTransaction");
+                var selJefe = document.getElementById("FilterJefeCandidato");
                 var data = {};
                 if (window.candidatosSoloValidacionFinal) {
-                    data.estatus = "Pendiente de validacion final";
                     if (selEstatus) {
-                        selEstatus.value = data.estatus;
+                        selEstatus.value = "";
                         selEstatus.disabled = true;
                     }
                 } else if (selEstatus && selEstatus.value) {
@@ -6304,6 +6364,7 @@ class CapHum extends Controller
                 }
                 if (selDepto && selDepto.value) data.id_departamento = selDepto.value;
                 if (selPuesto && selPuesto.value) data.id_puesto = selPuesto.value;
+                if (selJefe && selJefe.value) data.id_posible_jefe = selJefe.value;
 
                 http.request({
                     endpoint: "/caphum/getCandidatos",
@@ -6362,6 +6423,8 @@ class CapHum extends Controller
                                         nombre_puesto: candidato.nombre_puesto,
                                         nombre_departamento: candidato.nombre_departamento,
                                         id_departamento: candidato.id_departamento,
+                                        id_posible_jefe: candidato.id_posible_jefe,
+                                        nombre_jefe: candidato.nombre_jefe,
                                         estatus: candidato.estatus,
                                         postulacion_enviada: candidato.postulacion_enviada,
                                         fecha_ingreso_programada: candidato.fecha_ingreso_programada,
@@ -6534,12 +6597,15 @@ class CapHum extends Controller
                                 candidatosFiltrosLlenos = true;
                                 var deptMap = {};
                                 var puestoMap = {};
+                                var jefeMap = {};
                                 candidatosConsolidados.forEach(function(c) {
                                     if (c.id_departamento && c.nombre_departamento) deptMap[c.id_departamento] = c.nombre_departamento;
                                     if (c.id_puesto && c.nombre_puesto) puestoMap[c.id_puesto] = c.nombre_puesto;
+                                    if (c.id_posible_jefe && c.nombre_jefe) jefeMap[c.id_posible_jefe] = c.nombre_jefe;
                                 });
                                 var selD = document.getElementById("UserRole");
                                 var selP = document.getElementById("UserPlan");
+                                var selJ = document.getElementById("FilterJefeCandidato");
                                 if (selD) {
                                     var opts = selD.querySelectorAll("option");
                                     for (var i = opts.length - 1; i >= 1; i--) opts[i].remove();
@@ -6558,6 +6624,16 @@ class CapHum extends Controller
                                         o.value = k;
                                         o.textContent = puestoMap[k];
                                         selP.appendChild(o);
+                                    }
+                                }
+                                if (selJ) {
+                                    var opts = selJ.querySelectorAll("option");
+                                    for (var i = opts.length - 1; i >= 1; i--) opts[i].remove();
+                                    for (var k in jefeMap) {
+                                        var o = document.createElement("option");
+                                        o.value = k;
+                                        o.textContent = jefeMap[k];
+                                        selJ.appendChild(o);
                                     }
                                 }
                             }
@@ -6706,6 +6782,70 @@ class CapHum extends Controller
                 }
             }
 
+            function setRequiredOrganizacionCandidato(requerido) {
+                [
+                    "candidato_id_direccion",
+                    "candidato_id_area",
+                    "candidato_id_departamento",
+                    "candidato_id_puesto",
+                    "candidato_id_posible_jefe"
+                ].forEach(function(id) {
+                    var el = document.getElementById(id);
+                    if (!el) return;
+                    if (requerido) el.setAttribute("required", "required");
+                    else el.removeAttribute("required");
+                });
+            }
+
+            function valorOriginalCandidatoEdicion(campo) {
+                if (!candidatoEditId || !candidatoEdicionOriginal) return "";
+                return candidatoEdicionOriginal[campo] ? String(candidatoEdicionOriginal[campo]) : "";
+            }
+
+            function valorCandidatoConRespaldo(form, campo) {
+                var valor = form && form[campo] ? String(form[campo].value || "") : "";
+                if (valor) return valor;
+                return valorOriginalCandidatoEdicion(campo);
+            }
+
+            function asegurarOpcionSelectCandidato(select, valor, texto) {
+                if (!select || valor === undefined || valor === null || String(valor) === "") return;
+                var valorStr = String(valor);
+                var existe = Array.from(select.options || []).some(function(opt) {
+                    return String(opt.value) === valorStr;
+                });
+                if (!existe) {
+                    var opt = document.createElement("option");
+                    opt.value = valorStr;
+                    opt.textContent = texto || ("ID " + valorStr);
+                    select.appendChild(opt);
+                }
+                select.value = valorStr;
+            }
+
+            function validarOrganizacionEdicionCandidato() {
+                if (!candidatoEditId) return true;
+                var depto = document.getElementById("candidato_id_departamento");
+                var puesto = document.getElementById("candidato_id_puesto");
+                var jefe = document.getElementById("candidato_id_posible_jefe");
+                var idDepto = depto ? String(depto.value || "") : "";
+                var idPuesto = puesto ? String(puesto.value || "") : "";
+                var idJefe = jefe ? String(jefe.value || "") : "";
+                var cambioOrganizacion = (idDepto && idDepto !== valorOriginalCandidatoEdicion("id_departamento")) ||
+                    (idPuesto && idPuesto !== valorOriginalCandidatoEdicion("id_puesto")) ||
+                    (idJefe && idJefe !== valorOriginalCandidatoEdicion("id_posible_jefe"));
+                if (!cambioOrganizacion) return true;
+                if (!idDepto || !idPuesto || !idJefe) {
+                    if (typeof Swal !== "undefined") {
+                        Swal.fire({ icon: "warning", title: "Completa la estructura", text: "Si vas a cambiar departamento, puesto o jefe, selecciona los tres datos." });
+                    } else {
+                        alert("Si vas a cambiar departamento, puesto o jefe, selecciona los tres datos.");
+                    }
+                    return false;
+                }
+                return true;
+            }
+
             function catalogoOrganizacionCandidato() {
                 return Array.isArray(window.departamentosCandidatoBackend) ? window.departamentosCandidatoBackend : [];
             }
@@ -6776,7 +6916,7 @@ class CapHum extends Controller
                 var select = document.getElementById("candidato_id_area");
                 var depto = document.getElementById("candidato_id_departamento");
                 if (!select) return;
-                var direccionSeleccionada = String(idDireccion || "");
+                var direccionSeleccionada = (idDireccion === undefined || idDireccion === null) ? "" : String(idDireccion);
                 var mapa = new Map();
                 catalogoOrganizacionCandidato().forEach(function(dep) {
                     if (String(dep.id_direccion || 0) !== direccionSeleccionada) return;
@@ -6807,7 +6947,7 @@ class CapHum extends Controller
             function renderDepartamentosCandidato(idArea, valorSeleccionado) {
                 var select = document.getElementById("candidato_id_departamento");
                 if (!select) return;
-                var areaSeleccionada = String(idArea || "");
+                var areaSeleccionada = (idArea === undefined || idArea === null) ? "" : String(idArea);
                 var mapa = new Map();
                 catalogoOrganizacionCandidato().forEach(function(dep) {
                     if (String(dep.id_departamento_organizacional || 0) !== areaSeleccionada) return;
@@ -6830,14 +6970,24 @@ class CapHum extends Controller
                 refreshSelectBuscadorCandidato(select.id);
             }
 
-            function seleccionarOrganizacionPorDepartamentoCandidato(idDepartamento) {
+            function seleccionarOrganizacionPorDepartamentoCandidato(idDepartamento, candidato) {
                 var dep = catalogoOrganizacionCandidato().find(function(item) {
                     return String(item.id || item.departamento_id || "") === String(idDepartamento || "");
                 });
                 renderDireccionesCandidato(dep ? (dep.id_direccion || 0) : "");
                 if (!dep) {
-                    renderAreasCandidato("", "");
-                    renderDepartamentosCandidato("", "");
+                    renderAreasCandidato("0", "0");
+                    renderDepartamentosCandidato("0", idDepartamento);
+                    var direccionFallback = document.getElementById("candidato_id_direccion");
+                    var areaFallback = document.getElementById("candidato_id_area");
+                    var deptoFallback = document.getElementById("candidato_id_departamento");
+                    asegurarOpcionSelectCandidato(direccionFallback, "0", "Sin direcciÃ³n");
+                    asegurarOpcionSelectCandidato(areaFallback, "0", "Sin Ã¡rea");
+                    asegurarOpcionSelectCandidato(deptoFallback, idDepartamento, (candidato && candidato.nombre_departamento) || "Departamento actual");
+                    if (direccionFallback) direccionFallback.disabled = false;
+                    if (areaFallback) areaFallback.disabled = false;
+                    if (deptoFallback) deptoFallback.disabled = false;
+                    ["candidato_id_direccion", "candidato_id_area", "candidato_id_departamento"].forEach(refreshSelectBuscadorCandidato);
                     return;
                 }
                 renderAreasCandidato(dep.id_direccion || 0, dep.id_departamento_organizacional || 0);
@@ -7095,16 +7245,369 @@ class CapHum extends Controller
                 }).join("");
             }
 
+            function bitacoraCandidatoParseFecha(valor) {
+                var raw = String(valor || "").trim();
+                var m = raw.match(/^(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2})(?::(\d{2}))?/);
+                if (!m) return null;
+                var dt = new Date(
+                    parseInt(m[1], 10),
+                    parseInt(m[2], 10) - 1,
+                    parseInt(m[3], 10),
+                    parseInt(m[4], 10),
+                    parseInt(m[5], 10),
+                    parseInt(m[6] || "0", 10)
+                );
+                return isNaN(dt.getTime()) ? null : dt;
+            }
+
+            function bitacoraCandidatoDuracion(ms) {
+                ms = Math.max(0, Number(ms || 0));
+                var min = Math.floor(ms / 60000);
+                if (min < 1) return "menos de 1 min";
+                var dias = Math.floor(min / 1440);
+                var horas = Math.floor((min % 1440) / 60);
+                var mins = min % 60;
+                var partes = [];
+                if (dias) partes.push(dias + " d");
+                if (horas) partes.push(horas + " h");
+                if (!dias && mins) partes.push(mins + " min");
+                return partes.join(" ") || "0 min";
+            }
+
+            function bitacoraCandidatoEventoFinal(evento) {
+                evento = String(evento || "").toUpperCase();
+                return ["CONTRATO_FIRMADO", "CONTRATADO", "PROCESO CERRADO", "PROCESO_CERRADO", "ELIMINADO"].indexOf(evento) !== -1;
+            }
+
+            function bitacoraCandidatoNombreEtapa(ev) {
+                var evento = String(ev && ev.evento ? ev.evento : "").toUpperCase();
+                var mapa = {
+                    CANDIDATO_CREADO: "Inicio del candidato",
+                    CORREO_DOCUMENTOS_ENVIADO: "Envio de documentos",
+                    EXPEDIENTE_COMPLETO: "Carga documental completa",
+                    DOCUMENTOS_VALIDADOS: "Validacion documental",
+                    ENVIADO_VALIDACION_FINAL: "Envio a validacion final",
+                    FECHA_INGRESO_NOTIFICADA: "Programacion de ingreso",
+                    INGRESO_PROGRAMADO: "Ingreso programado",
+                    CONTRATO_FIRMADO: "Contrato firmado",
+                    CONTRATADO: "Contratado",
+                    DOCUMENTO_RECHAZADO_VALIDACION_FINAL: "Rechazo en validacion final",
+                    DOCUMENTO_ELIMINADO: "Documento rechazado",
+                    PROCESO_CERRADO: "Proceso cerrado",
+                    ELIMINADO: "Proceso eliminado"
+                };
+                return mapa[evento] || String((ev && (ev.titulo || ev.evento)) || "Movimiento");
+            }
+
+            function bitacoraCandidatoEventosMetricos(eventos) {
+                var vistos = {};
+                return (eventos || []).map(function(ev) {
+                    var fecha = bitacoraCandidatoParseFecha(ev.fecha || "");
+                    if (!fecha) return null;
+                    var evento = String(ev.evento || ev.titulo || "MOVIMIENTO").toUpperCase();
+                    var key = evento + "|" + fecha.getTime();
+                    if (vistos[key]) return null;
+                    vistos[key] = true;
+                    return {
+                        evento: evento,
+                        titulo: bitacoraCandidatoNombreEtapa(ev),
+                        fecha: fecha,
+                        fechaTxt: bitacoraCandidatoFecha(ev.fecha || ""),
+                        color: bitacoraCandidatoColor(ev.color || "primary")
+                    };
+                }).filter(Boolean).sort(function(a, b) {
+                    return a.fecha.getTime() - b.fecha.getTime();
+                });
+            }
+
+            function renderMetricaBitacoraCandidato(eventos) {
+                var items = bitacoraCandidatoEventosMetricos(eventos);
+                if (!items.length) {
+                    return '<div class="text-center text-muted fw-semibold py-4">Sin fechas suficientes para calcular metrica.</div>';
+                }
+                var inicio = items[0];
+                var ultimo = items[items.length - 1];
+                var procesoTerminado = bitacoraCandidatoEventoFinal(ultimo.evento);
+                var fin = procesoTerminado ? ultimo.fecha : new Date();
+                var totalMs = Math.max(0, fin.getTime() - inicio.fecha.getTime());
+                var tramos = [];
+                for (var i = 1; i < items.length; i++) {
+                    tramos.push({
+                        desde: items[i - 1],
+                        hasta: items[i],
+                        ms: Math.max(0, items[i].fecha.getTime() - items[i - 1].fecha.getTime())
+                    });
+                }
+                if (!procesoTerminado && ultimo.fecha.getTime() < fin.getTime()) {
+                    tramos.push({ desde: ultimo, hasta: { titulo: "Tiempo en etapa actual", fecha: fin, fechaTxt: "Ahora", color: "#64748b" }, ms: Math.max(0, fin.getTime() - ultimo.fecha.getTime()), actual: true });
+                }
+                var masLento = tramos.reduce(function(acc, t) {
+                    return !acc || t.ms > acc.ms ? t : acc;
+                }, null);
+                var promedio = tramos.length ? tramos.reduce(function(sum, t) { return sum + t.ms; }, 0) / tramos.length : 0;
+                var inmediatos = tramos.filter(function(t) { return t.ms < 60000; }).length;
+                var insight = "El proceso lleva " + bitacoraCandidatoDuracion(totalMs) + (procesoTerminado ? " y ya esta cerrado." : " y sigue abierto.");
+                if (masLento && masLento.ms > 0) {
+                    insight += " El mayor tiempo esta entre " + masLento.desde.titulo + " y " + masLento.hasta.titulo + " (" + bitacoraCandidatoDuracion(masLento.ms) + ").";
+                }
+                if (inmediatos > 0) {
+                    insight += " Hay " + inmediatos + " movimiento(s) practicamente inmediatos; esos no representan espera real.";
+                }
+                var cards = [
+                    { label: "Tiempo total", value: bitacoraCandidatoDuracion(totalMs), sub: procesoTerminado ? "Proceso terminado" : "Proceso en curso" },
+                    { label: "Movimientos", value: String(items.length), sub: "Eventos con fecha" },
+                    { label: "Tramo mas lento", value: masLento ? bitacoraCandidatoDuracion(masLento.ms) : "Sin tramo", sub: masLento ? (masLento.desde.titulo + " -> " + masLento.hasta.titulo) : "Faltan movimientos" },
+                    { label: "Promedio por tramo", value: tramos.length ? bitacoraCandidatoDuracion(promedio) : "Sin tramo", sub: tramos.length + " tramo(s)" }
+                ].map(function(c) {
+                    return '<div class="metric-card">' +
+                        '<div class="metric-label">' + bitacoraCandidatoEsc(c.label) + '</div>' +
+                        '<div class="metric-value">' + bitacoraCandidatoEsc(c.value) + '</div>' +
+                        '<div class="metric-sub">' + bitacoraCandidatoEsc(c.sub) + '</div>' +
+                    '</div>';
+                }).join("");
+                var listaTramos = tramos.length ? tramos.map(function(t) {
+                    var slow = masLento && t === masLento ? " slowest" : "";
+                    var titulo = t.desde.titulo + " -> " + t.hasta.titulo;
+                    var meta = bitacoraCandidatoDuracion(t.ms) + " | " + t.desde.fechaTxt + " a " + t.hasta.fechaTxt + (t.actual ? " | etapa actual" : "");
+                    return '<div class="metric-step' + slow + '" style="--metric-color:' + bitacoraCandidatoEsc(t.hasta.color || "#2563eb") + '">' +
+                        '<div class="d-flex justify-content-between gap-2 align-items-start">' +
+                            '<div class="metric-step-title">' + bitacoraCandidatoEsc(titulo) + '</div>' +
+                            '<span class="badge ' + (slow ? 'bg-warning text-dark' : 'bg-light text-dark') + '">' + bitacoraCandidatoEsc(bitacoraCandidatoDuracion(t.ms)) + '</span>' +
+                        '</div>' +
+                        '<div class="metric-step-meta">' + bitacoraCandidatoEsc(meta) + '</div>' +
+                    '</div>';
+                }).join("") : '<div class="text-muted fw-semibold small">Aun no hay tramos para comparar.</div>';
+
+                return '<div class="metric-grid">' + cards + '</div>' +
+                    '<div class="metric-insight"><i class="fa fa-lightbulb me-1"></i>' + bitacoraCandidatoEsc(insight) + '</div>' +
+                    '<div class="metric-section-title">Tiempos por etapa</div>' +
+                    listaTramos;
+            }
+
             var historicoCandidatosCache = [];
 
             function historicoBadgeClass(estatus, eliminado) {
                 estatus = String(estatus || "").toLowerCase();
-                if (eliminado || estatus.indexOf("eliminado") !== -1) return "bg-danger";
                 if (estatus.indexOf("contratado") !== -1) return "bg-success";
                 if (estatus.indexOf("cerrado") !== -1) return "bg-dark";
+                if (estatus.indexOf("eliminado") !== -1 || eliminado) return "bg-danger";
                 if (estatus.indexOf("validacion final") !== -1) return "bg-info text-dark";
                 if (estatus.indexOf("validado") !== -1) return "bg-primary";
                 return "bg-warning text-dark";
+            }
+
+            function historicoSalidaKey(c) {
+                var estatus = String((c && c.estatus) || "").toLowerCase();
+                var eliminado = parseInt((c && c.eliminado) || 0, 10) === 1;
+                if (estatus.indexOf("contratado") !== -1 || estatus.indexOf("plantilla") !== -1) return "contratados";
+                if (estatus.indexOf("cerrado") !== -1) return "cerrados";
+                if (estatus.indexOf("eliminado") !== -1 || (eliminado && !estatus)) return "eliminados";
+                return "otros";
+            }
+
+            function historicoSalidaLabel(key) {
+                return {
+                    contratados: "Pasaron a plantilla",
+                    cerrados: "Procesos cerrados",
+                    eliminados: "Eliminados",
+                    otros: "Otros"
+                }[key] || "Otros";
+            }
+
+            function historicoSalidaColor(key) {
+                return {
+                    contratados: "#22c55e",
+                    cerrados: "#334155",
+                    eliminados: "#ef4444",
+                    otros: "#f59e0b"
+                }[key] || "#2563eb";
+            }
+
+            function renderHistoricoMetricasGlobal(datos) {
+                datos = Array.isArray(datos) ? datos : [];
+                var total = datos.length;
+                if (!total) {
+                    return '<div class="text-center text-muted fw-semibold py-4">Sin candidatos finalizados para calcular metrica global.</div>';
+                }
+                var grupos = {
+                    contratados: { count: 0, duraciones: [] },
+                    cerrados: { count: 0, duraciones: [] },
+                    eliminados: { count: 0, duraciones: [] },
+                    otros: { count: 0, duraciones: [] }
+                };
+                var duraciones = [];
+                var motivos = {};
+                var responsables = {};
+                var departamentos = {};
+                var puestos = {};
+                var meses = {};
+                var bucketsDuracion = {
+                    mismoDia: { label: "Menos de 24 h", total: 0 },
+                    unoTres: { label: "1 a 3 dias", total: 0 },
+                    cuatroSiete: { label: "4 a 7 dias", total: 0 },
+                    masSiete: { label: "Mas de 7 dias", total: 0 }
+                };
+                var conMotivo = 0;
+                var sinMotivo = 0;
+                var addAgg = function(map, label, key, ms) {
+                    label = String(label || "Sin dato").trim() || "Sin dato";
+                    if (!map[label]) {
+                        map[label] = { label: label, total: 0, contratados: 0, cerrados: 0, eliminados: 0, otros: 0, duraciones: [] };
+                    }
+                    map[label].total++;
+                    map[label][key] = (map[label][key] || 0) + 1;
+                    if (ms !== null && ms !== undefined) map[label].duraciones.push(ms);
+                };
+                datos.forEach(function(c) {
+                    var key = historicoSalidaKey(c);
+                    grupos[key].count++;
+                    var ini = bitacoraCandidatoParseFecha(c.fecha_registro || "");
+                    var fin = bitacoraCandidatoParseFecha(c.fecha_actualizacion || c.fecha_cierre || "");
+                    var msSalida = null;
+                    if (ini && fin && fin.getTime() >= ini.getTime()) {
+                        var ms = fin.getTime() - ini.getTime();
+                        msSalida = ms;
+                        grupos[key].duraciones.push(ms);
+                        duraciones.push({ row: c, key: key, ms: ms });
+                        if (ms < 86400000) bucketsDuracion.mismoDia.total++;
+                        else if (ms < 259200000) bucketsDuracion.unoTres.total++;
+                        else if (ms < 604800000) bucketsDuracion.cuatroSiete.total++;
+                        else bucketsDuracion.masSiete.total++;
+                    }
+                    var motivo = String(c.motivo_cierre || c.descripcion_cierre || "").trim();
+                    if (motivo) { motivos[motivo] = (motivos[motivo] || 0) + 1; conMotivo++; }
+                    else sinMotivo++;
+                    var resp = String(c.usuario_accion || "").trim();
+                    if (resp) responsables[resp] = (responsables[resp] || 0) + 1;
+                    addAgg(departamentos, c.departamento || "Sin departamento", key, msSalida);
+                    addAgg(puestos, c.puesto || "Sin puesto", key, msSalida);
+                    if (fin) {
+                        var mesKey = fin.getFullYear() + "-" + String(fin.getMonth() + 1).padStart(2, "0");
+                        addAgg(meses, mesKey, key, msSalida);
+                    }
+                });
+                var promedio = function(arr) {
+                    return arr.length ? arr.reduce(function(a, b) { return a + b; }, 0) / arr.length : 0;
+                };
+                var promedioGlobal = promedio(duraciones.map(function(d) { return d.ms; }));
+                var masLento = duraciones.reduce(function(acc, d) { return !acc || d.ms > acc.ms ? d : acc; }, null);
+                var masRapido = duraciones.reduce(function(acc, d) { return !acc || d.ms < acc.ms ? d : acc; }, null);
+                var cards = [
+                    { label: "Finalizados", value: String(total), sub: "Fuera de bandeja" },
+                    { label: "Pasaron", value: String(grupos.contratados.count), sub: Math.round((grupos.contratados.count / total) * 100) + "% del total" },
+                    { label: "Cerrados", value: String(grupos.cerrados.count), sub: Math.round((grupos.cerrados.count / total) * 100) + "% del total" },
+                    { label: "Eliminados", value: String(grupos.eliminados.count), sub: Math.round((grupos.eliminados.count / total) * 100) + "% del total" }
+                ].map(function(c) {
+                    return '<div class="metric-card">' +
+                        '<div class="metric-label">' + bitacoraCandidatoEsc(c.label) + '</div>' +
+                        '<div class="metric-value">' + bitacoraCandidatoEsc(c.value) + '</div>' +
+                        '<div class="metric-sub">' + bitacoraCandidatoEsc(c.sub) + '</div>' +
+                    '</div>';
+                }).join("");
+                var insight = "De " + total + " candidatos finalizados, " + grupos.contratados.count + " pasaron a plantilla, " + grupos.cerrados.count + " se cerraron y " + grupos.eliminados.count + " se eliminaron.";
+                if (promedioGlobal > 0) insight += " El tiempo promedio de salida es " + bitacoraCandidatoDuracion(promedioGlobal) + ".";
+                if (masLento) insight += " El proceso mas largo fue " + (masLento.row.nombre_completo || "sin nombre") + " con " + bitacoraCandidatoDuracion(masLento.ms) + ".";
+                var barras = ["contratados", "cerrados", "eliminados", "otros"].filter(function(k) {
+                    return grupos[k].count > 0;
+                }).map(function(k) {
+                    var pct = total ? Math.round((grupos[k].count / total) * 100) : 0;
+                    return '<div class="metric-step" style="--metric-color:' + historicoSalidaColor(k) + '">' +
+                        '<div class="d-flex justify-content-between gap-2 align-items-center">' +
+                            '<div class="metric-step-title">' + bitacoraCandidatoEsc(historicoSalidaLabel(k)) + '</div>' +
+                            '<span class="badge bg-light text-dark">' + grupos[k].count + ' (' + pct + '%)</span>' +
+                        '</div>' +
+                        '<div class="metric-step-meta">Promedio: ' + bitacoraCandidatoEsc(grupos[k].duraciones.length ? bitacoraCandidatoDuracion(promedio(grupos[k].duraciones)) : "sin datos") + '</div>' +
+                        '<div class="metric-bar"><div class="metric-bar-fill" style="--metric-width:' + pct + '%;--metric-color:' + historicoSalidaColor(k) + '"></div></div>' +
+                    '</div>';
+                }).join("");
+                var topMap = function(map, titulo, icono) {
+                    var rows = Object.keys(map).map(function(k) { return { label: k, total: map[k] }; }).sort(function(a, b) { return b.total - a.total; }).slice(0, 5);
+                    if (!rows.length) return "";
+                    return '<div class="metric-section-title"><i class="' + icono + ' me-1"></i>' + bitacoraCandidatoEsc(titulo) + '</div>' +
+                        rows.map(function(r) {
+                            return '<div class="metric-step" style="--metric-color:#64748b">' +
+                                '<div class="d-flex justify-content-between gap-2 align-items-start">' +
+                                    '<div class="metric-step-title">' + bitacoraCandidatoEsc(r.label) + '</div>' +
+                                    '<span class="badge bg-light text-dark">' + r.total + '</span>' +
+                                '</div>' +
+                            '</div>';
+                        }).join("");
+                };
+                var renderAggRows = function(map, titulo, icono, limit) {
+                    var rows = Object.keys(map).map(function(k) { return map[k]; }).sort(function(a, b) {
+                        if (b.total !== a.total) return b.total - a.total;
+                        return a.label.localeCompare(b.label);
+                    }).slice(0, limit || 6);
+                    if (!rows.length) return "";
+                    return '<div class="metric-section-title"><i class="' + icono + ' me-1"></i>' + bitacoraCandidatoEsc(titulo) + '</div>' +
+                        rows.map(function(r) {
+                            var pct = total ? Math.round((r.total / total) * 100) : 0;
+                            var avg = promedio(r.duraciones || []);
+                            return '<div class="metric-step" style="--metric-color:#2563eb">' +
+                                '<div class="d-flex justify-content-between gap-2 align-items-start">' +
+                                    '<div class="metric-step-title">' + bitacoraCandidatoEsc(r.label) + '</div>' +
+                                    '<span class="badge bg-light text-dark">' + r.total + ' (' + pct + '%)</span>' +
+                                '</div>' +
+                                '<div class="metric-step-meta">Pasaron: ' + (r.contratados || 0) + ' | Cerrados: ' + (r.cerrados || 0) + ' | Eliminados: ' + (r.eliminados || 0) + ' | Promedio: ' + bitacoraCandidatoEsc(avg ? bitacoraCandidatoDuracion(avg) : "sin datos") + '</div>' +
+                                '<div class="metric-bar"><div class="metric-bar-fill" style="--metric-width:' + pct + '%;--metric-color:#2563eb"></div></div>' +
+                            '</div>';
+                        }).join("");
+                };
+                var renderMeses = function() {
+                    var rows = Object.keys(meses).sort().reverse().slice(0, 8).map(function(k) { return meses[k]; });
+                    if (!rows.length) return "";
+                    return '<div class="metric-section-title"><i class="fa fa-calendar-days me-1"></i>Tendencia mensual</div>' +
+                        rows.map(function(r) {
+                            var avg = promedio(r.duraciones || []);
+                            var label = r.label.replace(/^(\d{4})-(\d{2})$/, "$2/$1");
+                            return '<div class="metric-step" style="--metric-color:#7c3aed">' +
+                                '<div class="d-flex justify-content-between gap-2 align-items-start">' +
+                                    '<div class="metric-step-title">' + bitacoraCandidatoEsc(label) + '</div>' +
+                                    '<span class="badge bg-light text-dark">' + r.total + '</span>' +
+                                '</div>' +
+                                '<div class="metric-step-meta">Pasaron: ' + (r.contratados || 0) + ' | Cerrados: ' + (r.cerrados || 0) + ' | Eliminados: ' + (r.eliminados || 0) + ' | Promedio: ' + bitacoraCandidatoEsc(avg ? bitacoraCandidatoDuracion(avg) : "sin datos") + '</div>' +
+                            '</div>';
+                        }).join("");
+                };
+                var renderBuckets = function() {
+                    var rows = Object.keys(bucketsDuracion).map(function(k) { return bucketsDuracion[k]; });
+                    return '<div class="metric-section-title"><i class="fa fa-hourglass-half me-1"></i>Rangos de duracion</div>' +
+                        rows.map(function(r) {
+                            var pct = duraciones.length ? Math.round((r.total / duraciones.length) * 100) : 0;
+                            return '<div class="metric-step" style="--metric-color:#0891b2">' +
+                                '<div class="d-flex justify-content-between gap-2 align-items-start">' +
+                                    '<div class="metric-step-title">' + bitacoraCandidatoEsc(r.label) + '</div>' +
+                                    '<span class="badge bg-light text-dark">' + r.total + ' (' + pct + '%)</span>' +
+                                '</div>' +
+                                '<div class="metric-bar"><div class="metric-bar-fill" style="--metric-width:' + pct + '%;--metric-color:#0891b2"></div></div>' +
+                            '</div>';
+                        }).join("");
+                };
+                var renderCalidad = function() {
+                    var pctMotivo = total ? Math.round((conMotivo / total) * 100) : 0;
+                    var pctSin = total ? Math.round((sinMotivo / total) * 100) : 0;
+                    return '<div class="metric-section-title"><i class="fa fa-clipboard-check me-1"></i>Calidad de cierre</div>' +
+                        '<div class="metric-step" style="--metric-color:#22c55e"><div class="d-flex justify-content-between gap-2"><div class="metric-step-title">Con motivo o detalle</div><span class="badge bg-light text-dark">' + conMotivo + ' (' + pctMotivo + '%)</span></div><div class="metric-bar"><div class="metric-bar-fill" style="--metric-width:' + pctMotivo + '%;--metric-color:#22c55e"></div></div></div>' +
+                        '<div class="metric-step" style="--metric-color:#ef4444"><div class="d-flex justify-content-between gap-2"><div class="metric-step-title">Sin motivo capturado</div><span class="badge bg-light text-dark">' + sinMotivo + ' (' + pctSin + '%)</span></div><div class="metric-bar"><div class="metric-bar-fill" style="--metric-width:' + pctSin + '%;--metric-color:#ef4444"></div></div></div>';
+                };
+                var extremos = "";
+                if (masRapido || masLento) {
+                    extremos = '<div class="metric-section-title">Extremos de tiempo</div>' +
+                        (masRapido ? '<div class="metric-step" style="--metric-color:#22c55e"><div class="metric-step-title">Mas rapido: ' + bitacoraCandidatoEsc(masRapido.row.nombre_completo || "Sin nombre") + '</div><div class="metric-step-meta">' + bitacoraCandidatoEsc(bitacoraCandidatoDuracion(masRapido.ms) + " | " + historicoSalidaLabel(masRapido.key)) + '</div></div>' : '') +
+                        (masLento ? '<div class="metric-step" style="--metric-color:#f59e0b"><div class="metric-step-title">Mas lento: ' + bitacoraCandidatoEsc(masLento.row.nombre_completo || "Sin nombre") + '</div><div class="metric-step-meta">' + bitacoraCandidatoEsc(bitacoraCandidatoDuracion(masLento.ms) + " | " + historicoSalidaLabel(masLento.key)) + '</div></div>' : '');
+                }
+                return '<div class="metric-grid">' + cards + '</div>' +
+                    '<div class="metric-insight"><i class="fa fa-lightbulb me-1"></i>' + bitacoraCandidatoEsc(insight) + '</div>' +
+                    '<div class="metric-section-title">Distribucion de salidas</div>' +
+                    barras +
+                    extremos +
+                    renderBuckets() +
+                    renderCalidad() +
+                    renderMeses() +
+                    renderAggRows(departamentos, "Departamentos con mas salidas", "fa fa-building", 8) +
+                    renderAggRows(puestos, "Puestos con mas salidas", "fa fa-briefcase", 8) +
+                    topMap(motivos, "Motivos mas repetidos", "fa fa-comment-dots") +
+                    topMap(responsables, "Responsables con mas salidas", "fa fa-user-check");
             }
 
             function renderHistoricoCandidatos(filtro) {
@@ -7174,21 +7677,29 @@ class CapHum extends Controller
                 var lista = document.getElementById("modalHistoricoCandidatosLista");
                 var vacio = document.getElementById("modalHistoricoCandidatosVacio");
                 var buscar = document.getElementById("modalHistoricoCandidatosBuscar");
+                var metrica = document.getElementById("modalHistoricoCandidatosMetrica");
                 if (!modal) return;
                 if (buscar) buscar.value = "";
                 if (cargando) cargando.classList.remove("d-none");
                 if (lista) { lista.classList.add("d-none"); lista.innerHTML = ""; }
+                if (metrica) metrica.innerHTML = '<div class="text-center py-4 text-muted">Cargando metrica global...</div>';
                 if (vacio) vacio.classList.add("d-none");
+                var tabLista = document.getElementById("historico-tab-lista");
+                if (tabLista && typeof bootstrap !== "undefined" && bootstrap.Tab) {
+                    bootstrap.Tab.getOrCreateInstance(tabLista).show();
+                }
                 bootstrap.Modal.getOrCreateInstance(modal).show();
                 fetch("/caphum/getHistoricoCandidatos", { headers: { "Accept": "application/json", "X-Requested-With": "XMLHttpRequest" } })
                     .then(function(r) { return r.json(); })
                     .then(function(res) {
                         if (cargando) cargando.classList.add("d-none");
                         historicoCandidatosCache = res && res.success && Array.isArray(res.datos) ? res.datos : [];
+                        if (metrica) metrica.innerHTML = renderHistoricoMetricasGlobal(historicoCandidatosCache);
                         renderHistoricoCandidatos("");
                     })
                     .catch(function() {
                         if (cargando) cargando.classList.add("d-none");
+                        if (metrica) metrica.innerHTML = '<div class="text-center py-4 text-muted">No se pudo cargar la metrica global.</div>';
                         if (vacio) { vacio.textContent = "No se pudo cargar el histórico."; vacio.classList.remove("d-none"); }
                     });
             }
@@ -7197,13 +7708,21 @@ class CapHum extends Controller
                 var modal = document.getElementById("modalBitacoraCandidato");
                 var label = document.getElementById("modalBitacoraCandidatoNombre");
                 var cargando = document.getElementById("modalBitacoraCandidatoCargando");
+                var contenido = document.getElementById("modalBitacoraCandidatoContenido");
                 var lista = document.getElementById("modalBitacoraCandidatoLista");
+                var metrica = document.getElementById("modalBitacoraCandidatoMetrica");
                 var vacio = document.getElementById("modalBitacoraCandidatoVacio");
                 if (!modal || !idCandidato) return;
                 if (label) label.textContent = nombre ? ("Candidato: " + nombre) : "";
                 if (cargando) cargando.classList.remove("d-none");
-                if (lista) { lista.classList.add("d-none"); lista.innerHTML = ""; }
+                if (contenido) contenido.classList.add("d-none");
+                if (lista) lista.innerHTML = "";
+                if (metrica) metrica.innerHTML = "";
                 if (vacio) vacio.classList.add("d-none");
+                var tabLinea = document.getElementById("bitacora-tab-linea");
+                if (tabLinea && typeof bootstrap !== "undefined" && bootstrap.Tab) {
+                    bootstrap.Tab.getOrCreateInstance(tabLinea).show();
+                }
 
                 bootstrap.Modal.getOrCreateInstance(modal).show();
                 fetch("/caphum/getBitacoraCandidato?id_candidato=" + encodeURIComponent(String(idCandidato)), {
@@ -7215,7 +7734,8 @@ class CapHum extends Controller
                         if (cargando) cargando.classList.add("d-none");
                         if (eventos.length && lista) {
                             lista.innerHTML = renderBitacoraCandidato(eventos);
-                            lista.classList.remove("d-none");
+                            if (metrica) metrica.innerHTML = renderMetricaBitacoraCandidato(eventos);
+                            if (contenido) contenido.classList.remove("d-none");
                         } else if (vacio) {
                             vacio.classList.remove("d-none");
                         }
@@ -8952,13 +9472,20 @@ class CapHum extends Controller
 
             function editarCandidato(id) {
         candidatoEditId = id;
+        candidatoEdicionOriginal = {};
         var titulo = document.getElementById("offcanvasCandidatoTitulo");
         if (titulo) titulo.textContent = "Editar Candidato";
         var btnSubmit = document.getElementById("btnSubmitCandidato");
         if (btnSubmit) { btnSubmit.innerHTML = "<i class=\"bx bx-edit-alt me-1\"></i> Actualizar"; btnSubmit.className = "btn btn-success me-2"; }
+        setRequiredOrganizacionCandidato(false);
         fetch("/caphum/getCandidato/" + id).then(function(r){ return r.json(); }).then(function(res){
             if (!res.success || !res.datos) { if (typeof Swal !== "undefined") Swal.fire({ icon: "error", title: "Error", text: "No se encontró el candidato." }); return; }
             var c = res.datos;
+            candidatoEdicionOriginal = {
+                id_departamento: c.id_departamento || "",
+                id_puesto: c.id_puesto || "",
+                id_posible_jefe: c.id_posible_jefe || ""
+            };
             var form = document.getElementById("formAgregarCandidato");
             if (!form) return;
             if (form.nombres) form.nombres.value = c.nombres || "";
@@ -8978,7 +9505,7 @@ class CapHum extends Controller
             if (form.domicilio_num_interior) form.domicilio_num_interior.value = c.domicilio_num_interior || "";
             if (form.codigo_postal) form.codigo_postal.value = c.codigo_postal || "";
             if (form.id_departamento) form.id_departamento.value = c.id_departamento || "";
-            seleccionarOrganizacionPorDepartamentoCandidato(c.id_departamento || "");
+            seleccionarOrganizacionPorDepartamentoCandidato(c.id_departamento || "", c);
             if (form.usuario) form.usuario.value = c.usuario || "";
             if (form.contrasena) form.contrasena.value = c.contrasena || "";
             var fpInput = document.getElementById("candidato_fecha_postulacion");
@@ -8999,7 +9526,9 @@ class CapHum extends Controller
             .then(function(r){ return r.json(); })
             .then(function(rPuestos){
                 if (rPuestos.success && rPuestos.datos) rPuestos.datos.forEach(function(p){ var opt = document.createElement("option"); opt.value = p.id; opt.textContent = p.nombre || ""; selPuesto.appendChild(opt); });
-                selPuesto.value = c.id_puesto || "";
+                asegurarOpcionSelectCandidato(selPuesto, c.id_puesto || "", c.nombre_puesto || "Puesto actual");
+                selPuesto.disabled = false;
+                refreshSelectBuscadorCandidato("candidato_id_puesto");
                 return fetch("/caphum/getJefeDirecto", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id_departamento: c.id_departamento, id_puesto: c.id_puesto || null }) });
             })
             .then(function(r){ return r.json(); })
@@ -9007,7 +9536,9 @@ class CapHum extends Controller
                 if (!selJefe) return;
                 selJefe.innerHTML = "<option value=''>Seleccione posible jefe</option>";
                 if (rJefes && rJefes.success && rJefes.datos) rJefes.datos.forEach(function(j){ var opt = document.createElement("option"); opt.value = j.id; opt.textContent = (j.nombre_completo || "").trim() || "ID " + j.id; selJefe.appendChild(opt); });
-                selJefe.value = c.id_posible_jefe || "";
+                asegurarOpcionSelectCandidato(selJefe, c.id_posible_jefe || "", c.nombre_jefe || "Jefe actual");
+                selJefe.disabled = false;
+                refreshSelectBuscadorCandidato("candidato_id_posible_jefe");
             })
             .catch(function(){ if (selJefe) selJefe.innerHTML = "<option value=''>Seleccione posible jefe</option>"; });
         }).catch(function(){ if (typeof Swal !== "undefined") Swal.fire({ icon: "error", title: "Error", text: "No se pudo cargar el candidato." }); });
@@ -9023,7 +9554,9 @@ class CapHum extends Controller
 
             function guardarCandidatoEdicion() {
         var form = document.getElementById("formAgregarCandidato");
+        setRequiredOrganizacionCandidato(false);
         if (!form || !form.checkValidity()) { form.reportValidity(); return; }
+        if (!validarOrganizacionEdicionCandidato()) return;
         if (!validarDomicilioCandidato()) return;
         var id = candidatoEditId; if (!id) return;
         var data = buildCandidatoPayloadFromForm(); data.id = id;
@@ -9032,9 +9565,11 @@ class CapHum extends Controller
             if (res.success) {
                 if (typeof Swal !== "undefined") Swal.fire({ icon: "success", title: "Listo", text: "Candidato actualizado correctamente." });
                 candidatoEditId = null;
+                candidatoEdicionOriginal = {};
                 document.getElementById("offcanvasCandidatoTitulo").textContent = "Nuevo Candidato";
                 var btnSubmit = document.getElementById("btnSubmitCandidato");
                 if (btnSubmit) { btnSubmit.innerHTML = "<i class=\"bx bx-save me-1\"></i> Guardar"; btnSubmit.className = "btn btn-primary me-2"; }
+                setRequiredOrganizacionCandidato(true);
                 form.reset();
                 var fpInput = document.getElementById("candidato_fecha_postulacion");
                 if (fpInput && fpInput._flatpickr) fpInput._flatpickr.setDate(new Date(), true);
@@ -9047,9 +9582,13 @@ class CapHum extends Controller
 
             function guardarCandidatoAbrirResumen() {
         var form = document.getElementById("formAgregarCandidato");
+        setRequiredOrganizacionCandidato(true);
         if (!form || !form.checkValidity()) { form.reportValidity(); return; }
         if (!validarDomicilioCandidato()) return;
         var data = buildCandidatoPayloadFromForm();
+        data.estatus = "Por evaluar";
+        data.notas = null;
+        data.postulacion_enviada = 1;
         if (!data.nombres || !data.apellidop) { if (typeof Swal !== "undefined") Swal.fire({ icon: "warning", title: "Faltan datos", text: "Nombre y apellido paterno son obligatorios." }); return; }
         var btnSubmit = document.getElementById("btnSubmitCandidato");
         if (btnSubmit) { btnSubmit.disabled = true; }
@@ -9100,14 +9639,13 @@ class CapHum extends Controller
             domicilio_num_exterior: (form.domicilio_num_exterior && form.domicilio_num_exterior.value.trim()) || null,
             domicilio_num_interior: (form.domicilio_num_interior && form.domicilio_num_interior.value.trim()) || null,
             codigo_postal: (form.codigo_postal && form.codigo_postal.value.trim()) || null,
-            id_departamento: (form.id_departamento && form.id_departamento.value) || null,
-            id_puesto: (form.id_puesto && form.id_puesto.value) || null,
-            id_posible_jefe: (form.id_posible_jefe && form.id_posible_jefe.value) || null,
+            id_departamento: valorCandidatoConRespaldo(form, "id_departamento") || null,
+            id_puesto: valorCandidatoConRespaldo(form, "id_puesto") || null,
+            id_posible_jefe: valorCandidatoConRespaldo(form, "id_posible_jefe") || null,
             fecha_postulacion: (form.fecha_postulacion && form.fecha_postulacion.value) || null,
             id_legion: document.getElementById("candidato_asignar_legion") && document.getElementById("candidato_asignar_legion").checked && document.getElementById("candidato_id_legion") && document.getElementById("candidato_id_legion").value ? document.getElementById("candidato_id_legion").value : null,
             usuario: (form.usuario && form.usuario.value.trim()) || "",
-            contrasena: (form.contrasena && form.contrasena.value.trim()) || "",
-            estatus: "Por evaluar", notas: null, postulacion_enviada: 1
+            contrasena: (form.contrasena && form.contrasena.value.trim()) || ""
         };
         }
 
@@ -9199,15 +9737,18 @@ class CapHum extends Controller
         var selDepto = document.getElementById("UserRole");
         var selPuesto = document.getElementById("UserPlan");
         var selEstatus = document.getElementById("FilterTransaction");
+        var selJefeFiltro = document.getElementById("FilterJefeCandidato");
         if (selDepto) selDepto.addEventListener("change", function() { getCandidatos(); });
         if (selPuesto) selPuesto.addEventListener("change", function() { getCandidatos(); });
         if (selEstatus) selEstatus.addEventListener("change", function() { getCandidatos(); });
+        if (selJefeFiltro) selJefeFiltro.addEventListener("change", function() { getCandidatos(); });
         var btnLimpiarFiltros = document.getElementById("btnLimpiarFiltrosCandidatos");
         if (btnLimpiarFiltros) {
             btnLimpiarFiltros.addEventListener("click", function() {
                 if (selDepto) selDepto.value = "";
                 if (selPuesto) selPuesto.value = "";
                 if (selEstatus) selEstatus.value = "";
+                if (selJefeFiltro) selJefeFiltro.value = "";
                 getCandidatos();
             });
         }
@@ -9466,7 +10007,7 @@ class CapHum extends Controller
                     .then(function(res) {
                         if (res.success) {
                             cerrarModalYRefrescar();
-                            alert("Listo. El colaborador pasó a Gestión y se envió el correo de bienvenida.");
+                            alert(res.mensaje || "Listo. El colaborador pasó a Gestión.");
                         } else {
                             alert(res.mensaje || "No se pudo pasar a Gestión.");
                         }
@@ -9487,7 +10028,8 @@ class CapHum extends Controller
                     Swal.close();
                     if (res.success) {
                         cerrarModalYRefrescar();
-                        Swal.fire({ icon: "success", title: "Listo", text: res.mensaje || "El colaborador pasó a Gestión y se envió el correo de bienvenida." });
+                        var warningCorreoAlta = !!(res.datos && res.datos.warning_correo);
+                        Swal.fire({ icon: warningCorreoAlta ? "warning" : "success", title: warningCorreoAlta ? "Alta realizada" : "Listo", text: res.mensaje || "El colaborador pasó a Gestión." });
                     } else {
                         Swal.fire({ icon: "error", title: "Error", text: res.mensaje || "No se pudo pasar a Gestión." });
                     }
@@ -9582,7 +10124,8 @@ class CapHum extends Controller
                         detalle += " Revisa el correo del jefe; no se pudo enviar esa notificación.";
                     }
                     marcarIngresoProgramadoLocal(idCandidato, fechaIngreso, res.datos || null);
-                    Swal.fire({ icon: "success", title: "Notificaciones enviadas", text: detalle + " Ahora confirma la firma del contrato para pasarlo a Gestión.", timer: 2200, showConfirmButton: false });
+                    var warningCorreo = !!(res.datos && res.datos.warning_correo);
+                    Swal.fire({ icon: warningCorreo ? "warning" : "success", title: warningCorreo ? "Fecha guardada" : "Notificaciones enviadas", text: detalle + " Ahora confirma la firma del contrato para pasarlo a Gestión.", timer: warningCorreo ? undefined : 2200, showConfirmButton: warningCorreo });
                 })
                 .catch(function() {
                     Swal.close();
@@ -9614,7 +10157,7 @@ class CapHum extends Controller
         }
         var offcanvasEl = document.getElementById("offcanvasAddCandidato");
         if (offcanvasEl) {
-            offcanvasEl.addEventListener("show.bs.offcanvas", function() { var btnSubmit = document.getElementById("btnSubmitCandidato"); if (!btnSubmit) return; if (candidatoEditId) { btnSubmit.innerHTML = "<i class=\"bx bx-edit-alt me-1\"></i> Actualizar"; btnSubmit.className = "btn btn-success me-2"; } else { btnSubmit.innerHTML = "<i class=\"bx bx-save me-1\"></i> Guardar"; btnSubmit.className = "btn btn-primary me-2"; } });
+            offcanvasEl.addEventListener("show.bs.offcanvas", function() { var btnSubmit = document.getElementById("btnSubmitCandidato"); setRequiredOrganizacionCandidato(!candidatoEditId); if (!btnSubmit) return; if (candidatoEditId) { btnSubmit.innerHTML = "<i class=\"bx bx-edit-alt me-1\"></i> Actualizar"; btnSubmit.className = "btn btn-success me-2"; } else { btnSubmit.innerHTML = "<i class=\"bx bx-save me-1\"></i> Guardar"; btnSubmit.className = "btn btn-primary me-2"; } });
             offcanvasEl.addEventListener("shown.bs.offcanvas", function() {
                 [
                     "candidato_id_pais",
@@ -9644,9 +10187,10 @@ class CapHum extends Controller
                 }
             });
             offcanvasEl.addEventListener("hidden.bs.offcanvas", function() {
-                var form = document.getElementById("formAgregarCandidato"); if (form) { form.reset(); candidatoEditId = null; }
+                var form = document.getElementById("formAgregarCandidato"); if (form) { form.reset(); candidatoEditId = null; candidatoEdicionOriginal = {}; }
                 var titulo = document.getElementById("offcanvasCandidatoTitulo"); if (titulo) titulo.textContent = "Nuevo Candidato";
                 var btnSubmit = document.getElementById("btnSubmitCandidato"); if (btnSubmit) { btnSubmit.innerHTML = "<i class=\"bx bx-save me-1\"></i> Guardar"; btnSubmit.className = "btn btn-primary me-2"; }
+                setRequiredOrganizacionCandidato(true);
                 var fpInput = document.getElementById("candidato_fecha_postulacion"); if (fpInput && fpInput._flatpickr) fpInput._flatpickr.setDate(new Date(), true);
                 var divLegion = document.getElementById("div_candidato_legion"); var chkLegion = document.getElementById("candidato_asignar_legion"); var selLegion = document.getElementById("candidato_id_legion");
                 if (divLegion) divLegion.style.display = "none"; if (chkLegion) chkLegion.checked = false; if (selLegion) selLegion.value = "";
@@ -9798,7 +10342,7 @@ class CapHum extends Controller
                 .catch(function(){ selJefe.innerHTML = "<option value=''>Seleccione posible jefe</option>"; selJefe.disabled = false; refreshSelectBuscadorCandidato("candidato_id_posible_jefe"); });
         });
         var btnAddCandidato = document.querySelector("[data-bs-target=\"#offcanvasAddCandidato\"]");
-        if (btnAddCandidato) btnAddCandidato.addEventListener("click", function() { candidatoEditId = null; document.getElementById("offcanvasCandidatoTitulo").textContent = "Nuevo Candidato"; });
+        if (btnAddCandidato) btnAddCandidato.addEventListener("click", function() { candidatoEditId = null; candidatoEdicionOriginal = {}; setRequiredOrganizacionCandidato(true); document.getElementById("offcanvasCandidatoTitulo").textContent = "Nuevo Candidato"; });
         initFlatpickrFechaPostulacion();
         initCopiarUrlDocumentos();
         });
@@ -9835,13 +10379,23 @@ class CapHum extends Controller
         $estatus = isset($_GET["estatus"]) ? trim($_GET["estatus"]) : null;
         $id_departamento = isset($_GET["id_departamento"]) ? (int) $_GET["id_departamento"] : null;
         $id_puesto = isset($_GET["id_puesto"]) ? (int) $_GET["id_puesto"] : null;
+        $id_posible_jefe = isset($_GET["id_posible_jefe"]) ? (int) $_GET["id_posible_jefe"] : null;
         if (self::esSoloValidadorFinalCandidatos()) {
-            $estatus = 'Pendiente de validacion final';
+            $estatus = ['Pendiente de validacion final', 'Ingreso programado'];
         }
-        $resultado = CandidatosDAO::getAll($estatus, $id_departamento, $id_puesto);
+        $resultado = CandidatosDAO::getAll($estatus, $id_departamento, $id_puesto, $id_posible_jefe);
+        if (self::esSoloValidadorFinalCandidatos() && $resultado['success'] && !empty($resultado['datos']) && is_array($resultado['datos'])) {
+            $resultado['datos'] = array_values(array_filter($resultado['datos'], static function ($candidato): bool {
+                return self::estatusCandidatoEsValidacionFinal($candidato['estatus'] ?? '');
+            }));
+        }
 
         // Eager Loading: Incluir documentos, verificación y métricas de cada candidato
         if ($resultado['success'] && !empty($resultado['datos']) && is_array($resultado['datos'])) {
+            $idsCandidatos = array_values(array_filter(array_map(static function ($candidato) {
+                return (int) ($candidato['id'] ?? 0);
+            }, $resultado['datos'])));
+            $documentosPorCandidato = CandidatosDAO::getDocumentosYVerificacionMultiple($idsCandidatos, false);
             $tiposRequeridos = [
                 'SOLICITUD INTERNA' => 1, 'CV O SOLICITUD DE TRABAJO' => 2, 'ACTA DE NACIMIENTO' => 3, 'ACTA DE NACIMIENTO Certificada' => 3,
                 'CURP' => 4, 'IDENTIFICACIÃ“N OFICIAL' => 5,
@@ -9857,7 +10411,7 @@ class CapHum extends Controller
             foreach ($resultado['datos'] as &$candidato) {
                 $id_candidato = (int) ($candidato['id'] ?? 0);
                 if ($id_candidato > 0) {
-                    $docData = CandidatosDAO::getDocumentosYVerificacion($id_candidato);
+                    $docData = $documentosPorCandidato[$id_candidato] ?? ['documentos' => [], 'verificacion' => null];
                     $documentos = $docData['documentos'] ?? [];
                     $candidato['documentos'] = $documentos;
 
@@ -10349,7 +10903,7 @@ class CapHum extends Controller
         $id_candidato = (int) $res['datos']['id_candidato'];
         $candidatoRes = CandidatosDAO::getById($id_candidato);
         $c = ($candidatoRes['success'] && !empty($candidatoRes['datos'])) ? $candidatoRes['datos'] : $res['datos'];
-        $fechaYmd = date('Y-m-d');
+        $fechaYmd = self::ahoraMexicoCiudad()->format('Y-m-d');
         $datosParaForm = [
             'fecha'      => $fechaYmd,
             'puesto'     => trim($c['nombre_puesto'] ?? ''),
@@ -10481,7 +11035,7 @@ class CapHum extends Controller
             'telefono'        => trim($c['telefono'] ?? ''),
             'puesto'          => trim($c['nombre_puesto'] ?? ''),
             'departamento'    => trim($c['nombre_departamento'] ?? ''),
-            'fecha'           => date('d/m/Y'),
+            'fecha'           => self::ahoraMexicoCiudad()->format('d/m/Y'),
             'curp'            => trim($c['curp'] ?? ''),
         ];
     }
@@ -11099,6 +11653,9 @@ class CapHum extends Controller
         if (!is_array($verificacion)) {
             return false;
         }
+        if (($verificacion['modo_verificacion'] ?? null) === 'archivos_no_disponibles') {
+            return false;
+        }
         if (!empty($verificacion['verificacion_en_proceso']) || !empty($verificacion['api_pendiente'])) {
             return true;
         }
@@ -11313,7 +11870,7 @@ class CapHum extends Controller
                     'api_pendiente' => false,
                     'error_api' => null,
                     'job_id' => (int) ($resCola['datos']['id_job'] ?? 0),
-                    'iniciado_en' => date('Y-m-d H:i:s'),
+                    'iniciado_en' => self::ahoraMexicoCiudad()->format('Y-m-d H:i:s'),
                 ];
                 $verificacion = $payloadEnProceso;
                 $payload['verificacion_expediente'] = $payloadEnProceso;
@@ -11359,7 +11916,7 @@ class CapHum extends Controller
                 'api_pendiente' => false,
                 'error_api' => null,
                 'job_id' => (int) ($res['datos']['id_job'] ?? 0),
-                'iniciado_en' => date('Y-m-d H:i:s'),
+                'iniciado_en' => self::ahoraMexicoCiudad()->format('Y-m-d H:i:s'),
             ];
             CandidatosDAO::updateVerificacionExpediente((int) $id_candidato, json_encode($payloadEnProceso));
         }
@@ -11414,7 +11971,7 @@ class CapHum extends Controller
         if (!is_dir($logDir)) {
             @mkdir($logDir, 0775, true);
         }
-        $logSuffix = date('Ymd-His') . '-' . getmypid() . '-' . substr(str_replace('.', '', uniqid('', true)), -6);
+        $logSuffix = self::ahoraMexicoCiudad()->format('Ymd-His') . '-' . getmypid() . '-' . substr(str_replace('.', '', uniqid('', true)), -6);
         $outLog = $logDir . DIRECTORY_SEPARATOR . 'verificacion_documental_worker-' . $logSuffix . '.log';
         $errLog = $logDir . DIRECTORY_SEPARATOR . 'verificacion_documental_worker-' . $logSuffix . '.err.log';
         $cmdQuote = function ($value) {
@@ -11463,7 +12020,14 @@ class CapHum extends Controller
 
         try {
             $ok = $this->ejecutarVerificacionBackground($idCandidato, $tipos, $expedienteCompleto);
-            CandidatosDAO::finalizarJobVerificacionDocumental($idJob, (bool) $ok, $ok ? null : 'La verificacion documental no pudo completarse.');
+            $errorJob = null;
+            if (!$ok) {
+                $verificacion = CandidatosDAO::getVerificacionExpediente($idCandidato);
+                if (is_array($verificacion) && !empty($verificacion['error_api'])) {
+                    $errorJob = (string) $verificacion['error_api'];
+                }
+            }
+            CandidatosDAO::finalizarJobVerificacionDocumental($idJob, (bool) $ok, $ok ? null : ($errorJob ?: 'La verificacion documental no pudo completarse.'));
             return ['procesado' => true, 'ok' => (bool) $ok, 'id_job' => $idJob, 'id_candidato' => $idCandidato];
         } catch (\Throwable $e) {
             CandidatosDAO::finalizarJobVerificacionDocumental($idJob, false, $e->getMessage());
@@ -11548,7 +12112,7 @@ class CapHum extends Controller
         if ($nombreSeguro === '') {
             $nombreSeguro = $slug;
         }
-        $nombreArchivo = $slug . '_manual_' . date('Ymd_His') . '_' . substr(md5($nombreSeguro . microtime(true)), 0, 8) . '.pdf';
+        $nombreArchivo = $slug . '_manual_' . self::ahoraMexicoCiudad()->format('Ymd_His') . '_' . substr(md5($nombreSeguro . microtime(true)), 0, 8) . '.pdf';
         $rutaDestino = $dirExpediente . '/' . $nombreArchivo;
         if (!move_uploaded_file($tmp, $rutaDestino)) {
             echo json_encode(self::respuesta(false, 'No se pudo guardar el PDF en el expediente.'));
@@ -11562,7 +12126,7 @@ class CapHum extends Controller
             'revision_manual' => true,
             'pendiente_revision_manual' => true,
             'id_usuario_rrhh' => (int) ($_SESSION['usuario_id'] ?? 0),
-            'fecha_subida_manual' => date('Y-m-d H:i:s'),
+            'fecha_subida_manual' => self::ahoraMexicoCiudad()->format('Y-m-d H:i:s'),
             'notas' => ['Documento subido manualmente por Capital Humano.'],
         ];
         $verificacionFiscalJson = $tipoNum === 7 ? json_encode($marcaManual) : null;
@@ -11608,7 +12172,6 @@ class CapHum extends Controller
             echo json_encode(self::respuesta(false, 'id_candidato inválido.'));
             return;
         }
-        $storageRoot = defined('RAIZ') ? (RAIZ . '/storage') : (__DIR__ . '/../storage');
         $rutasParaValidar = ['identificacion_pdf' => null, 'curp' => null, 'nss' => null, 'constancia_fiscal' => null, 'acta_nacimiento' => null];
         $resDocs = CandidatosDAO::getDocumentosCandidato($id_candidato);
         if (!$resDocs['success'] || empty($resDocs['datos'])) {
@@ -11617,10 +12180,10 @@ class CapHum extends Controller
         }
         foreach ($resDocs['datos'] as $d) {
             $rutaRel = trim($d['ruta_archivo'] ?? '');
-            if ($rutaRel === '' || !is_file($storageRoot . '/' . $rutaRel)) {
+            $pathAbs = $this->resolverRutaStorageCandidato($rutaRel);
+            if ($pathAbs === null) {
                 continue;
             }
-            $pathAbs = $storageRoot . '/' . $rutaRel;
             $tipo = trim($d['tipo_documento'] ?? '');
             if (in_array($tipo, ['IDENTIFICACIÓN OFICIAL', 'IDENTIFICACION OFICIAL', 'IDENTIFICACIÃ“N OFICIAL'], true)) {
                 $rutasParaValidar['identificacion_pdf'] = $pathAbs;
@@ -11662,7 +12225,7 @@ class CapHum extends Controller
                 'comparaciones' => null,
                 'modo_verificacion' => 'completo',
                 'error_api' => null,
-                'iniciado_en' => date('Y-m-d H:i:s'),
+                'iniciado_en' => self::ahoraMexicoCiudad()->format('Y-m-d H:i:s'),
             ];
             CandidatosDAO::updateVerificacionExpediente($id_candidato, json_encode($payloadEnProceso));
             $respuestaAsync = self::respuesta(true, 'Verificación iniciada en segundo plano. La documentación se actualizará automáticamente.', [
@@ -11789,6 +12352,30 @@ class CapHum extends Controller
             }
         }
         return null;
+    }
+
+    private function guardarErrorArchivosVerificacionExpediente(int $idCandidato, string $mensaje): void
+    {
+        if ($idCandidato <= 0) {
+            return;
+        }
+        CandidatosDAO::updateVerificacionExpediente($idCandidato, json_encode([
+            'todo_coincide' => null,
+            'foto_rechazada' => false,
+            'curp_definitivo' => null,
+            'checks_ok' => 0,
+            'checks_totales' => 0,
+            'alertas' => [$mensaje],
+            'identificacion_frente_score' => null,
+            'identificacion_reverso_score' => null,
+            'comparaciones' => null,
+            'nombre_ocr' => null,
+            'anio_nacimiento' => null,
+            'tipo_documento' => null,
+            'modo_verificacion' => 'archivos_no_disponibles',
+            'api_pendiente' => false,
+            'error_api' => $mensaje,
+        ], JSON_UNESCAPED_UNICODE));
     }
 
     public function verDocumentoCandidato($id = null)
@@ -12409,7 +12996,7 @@ class CapHum extends Controller
         if (!is_array($resultado)) {
             $resultado = ['valido' => false, 'mensaje' => 'No se pudo contactar la API de verificación.'];
         }
-        $resultado['validado_en'] = date('Y-m-d H:i:s');
+        $resultado['validado_en'] = self::ahoraMexicoCiudad()->format('Y-m-d H:i:s');
         CandidatosDAO::updateVerificacionDocumento($id_doc, null, json_encode($resultado));
         CandidatosDAO::invalidateDocumentacionCache((int) ($doc['id_candidato'] ?? 0));
         echo json_encode(self::respuesta(!empty($resultado['valido']), $resultado['mensaje'] ?? 'Validación de acta finalizada.', [
@@ -12592,6 +13179,9 @@ class CapHum extends Controller
 <tr><td style="padding:16px 32px 24px; background:#f7fafc; border-radius:0 0 8px 8px; border-top:1px solid #e2e8f0;"><p style="margin:0; color:#718096; font-size:12px;">Este correo fue generado automáticamente.</p></td></tr>
 </table></td></tr></table></body></html>';
 
+        $fechaProgramadaGuardada = (new \DateTimeImmutable('now', new \DateTimeZone('America/Mexico_City')))->format('Y-m-d H:i:s');
+        CandidatosDAO::registrarIngresoProgramado($id_candidato, $fechaIngresoNormalizada, $fechaProgramadaGuardada);
+
         $enviado = $this->enviarCorreo($destino, $asunto, $mensajeHtml, $nombreCompleto, $rutaLogoInline);
         if ($enviado) {
             $nombreJefe = trim($c['nombre_jefe'] ?? '') ?: 'Jefe directo';
@@ -12645,7 +13235,29 @@ class CapHum extends Controller
             ]));
         } else {
             $msg = $this->enviarCorreoUltimoError ?: 'No se pudo enviar el correo.';
-            echo json_encode(self::respuesta(false, $msg, null));
+            CandidatosDAO::registrarBitacoraCandidato(
+                $id_candidato,
+                'FECHA_INGRESO_PROGRAMADA_SIN_CORREO',
+                'Fecha de ingreso programada sin correo',
+                'Se guardo la fecha de ingreso, pero no se pudo enviar la notificacion por correo.',
+                [
+                    'fecha_ingreso' => $fechaIngresoNormalizada,
+                    'correo_candidato_enviado' => false,
+                    'correo_error' => $msg,
+                ],
+                (int) ($_SESSION['usuario_id'] ?? 0),
+                $fechaProgramadaGuardada
+            );
+            echo json_encode(self::respuesta(true, 'Fecha de ingreso guardada, pero no se pudo enviar el correo. Revisa la configuracion de correo.', [
+                'id_candidato' => $id_candidato,
+                'fecha_ingreso' => $fechaIngresoNormalizada,
+                'fecha_ingreso_notificada_en' => $fechaProgramadaGuardada,
+                'correo_candidato_enviado' => false,
+                'correo_candidato_error' => $msg,
+                'correo_jefe_intentado' => false,
+                'correo_jefe_enviado' => false,
+                'warning_correo' => true,
+            ]));
         }
         exit;
     }
@@ -12672,7 +13284,10 @@ class CapHum extends Controller
         $fechaIngreso = trim((string) ($body['fecha_ingreso'] ?? ''));
         $result = $this->ejecutarAltaCandidatoEnGestion($id_candidato, $fechaIngreso);
         if ($result['success']) {
-            echo json_encode(self::respuesta(true, 'Colaborador dado de alta en Gestión correctamente. Se envió el correo de bienvenida.', ['id_persona' => $result['id_persona'] ?? 0, 'id_candidato' => $result['id_candidato'], 'documentos_copiados' => $result['documentos_copiados'] ?? null]));
+            $mensajeAlta = !empty($result['warning_correo'])
+                ? 'Colaborador dado de alta en Gestión correctamente, pero no se pudo enviar el correo de bienvenida.'
+                : 'Colaborador dado de alta en Gestión correctamente. Se envió el correo de bienvenida.';
+            echo json_encode(self::respuesta(true, $mensajeAlta, $result));
         } else {
             echo json_encode(self::respuesta(false, $result['mensaje'] ?? 'Error al dar de alta en Gestión.'));
         }
@@ -12705,7 +13320,10 @@ class CapHum extends Controller
         }
         $result = $this->ejecutarAltaCandidatoEnGestion($id_candidato);
         if ($result['success']) {
-            $this->mostrarPaginaConfirmacionAlta(true, 'El colaborador ha sido dado de alta en Gestion correctamente. Se envio el correo de bienvenida.');
+            $mensajeAlta = !empty($result['warning_correo'])
+                ? 'El colaborador ha sido dado de alta en Gestion correctamente. No se pudo enviar el correo de bienvenida; Capital Humano debe notificarlo manualmente.'
+                : 'El colaborador ha sido dado de alta en Gestion correctamente. Se envio el correo de bienvenida.';
+            $this->mostrarPaginaConfirmacionAlta(true, $mensajeAlta);
         } else {
             $this->mostrarPaginaConfirmacionAlta(false, $result['mensaje'] ?? 'Error al dar de alta en Gestión.');
         }
@@ -12807,6 +13425,8 @@ class CapHum extends Controller
         CandidatosDAO::guardarSnapshotHistoricoCandidato($id_candidato, 'Contratado', 'Pasó a plantilla', null, (int) ($_SESSION['usuario_id'] ?? 0), $fechaContratado);
         $nombreCompleto = trim(implode(' ', [$c['nombres'] ?? '', $c['segundo_nombre'] ?? '', $c['apellidop'] ?? '', $c['apellidom'] ?? '']));
         $destino = trim($c['email'] ?? '');
+        $correoBienvenidaEnviado = false;
+        $correoBienvenidaError = null;
         if ($destino !== '' && filter_var($destino, FILTER_VALIDATE_EMAIL)) {
             $base = $this->obtenerBaseUrlApp();
             $dirPublic = defined('RAIZ') ? dirname(RAIZ) . '/public' : (__DIR__ . '/../../public');
@@ -12834,9 +13454,28 @@ class CapHum extends Controller
     </table>
   </td></tr></table>
 </body></html>';
-            $this->enviarCorreo($destino, 'Bienvenido(a) a Maxikash', $cuerpoBienvenida, $nombreCompleto, $rutaLogoInline);
+            try {
+                $correoBienvenidaEnviado = $this->enviarCorreo($destino, 'Bienvenido(a) a Maxikash', $cuerpoBienvenida, $nombreCompleto, $rutaLogoInline);
+                if (!$correoBienvenidaEnviado) {
+                    $correoBienvenidaError = $this->enviarCorreoUltimoError ?: 'No se pudo enviar el correo de bienvenida.';
+                }
+            } catch (\Throwable $e) {
+                $correoBienvenidaEnviado = false;
+                $correoBienvenidaError = $e->getMessage();
+            }
+        } else {
+            $correoBienvenidaError = 'El candidato no tiene correo valido para enviar bienvenida.';
         }
-        return ['success' => true, 'mensaje' => 'OK', 'id_persona' => $id_persona, 'id_candidato' => $id_candidato, 'documentos_copiados' => $documentosCopiados];
+        return [
+            'success' => true,
+            'mensaje' => 'OK',
+            'id_persona' => $id_persona,
+            'id_candidato' => $id_candidato,
+            'documentos_copiados' => $documentosCopiados,
+            'correo_bienvenida_enviado' => $correoBienvenidaEnviado,
+            'correo_bienvenida_error' => $correoBienvenidaError,
+            'warning_correo' => !$correoBienvenidaEnviado,
+        ];
     }
 
     private function copiarDocumentosCandidatoAGestion(int $idCandidato, int $idPersona): array
@@ -13509,8 +14148,8 @@ class CapHum extends Controller
         if ($timeoutExp < 10) {
             $timeoutExp = 10;
         }
-        if ($timeoutExp > 90) {
-            $timeoutExp = 90;
+        if ($timeoutExp > 240) {
+            $timeoutExp = 240;
         }
         $maxExtraRetries = isset($docCfg['validar_expediente_retries']) ? (int) $docCfg['validar_expediente_retries'] : 0;
         if ($maxExtraRetries < 0) {
@@ -17299,6 +17938,55 @@ class CapHum extends Controller
         self::render("actualizaciones_info_rrhh");
     }
 
+    public function accesosCapitalHumano()
+    {
+        if (!self::puedeGestionarAccesosCapitalHumano()) {
+            header('Location: /' . VISTA_DEFECTO);
+            return;
+        }
+
+        CapHumDAO::asegurarModuloAccesosCapitalHumano();
+        self::set('titulo', 'Accesos Capital Humano | ' . CONFIGURACION['EMPRESA']);
+        self::render('caphum_accesos');
+    }
+
+    public function getAccesosCapitalHumano()
+    {
+        if (!self::puedeGestionarAccesosCapitalHumano()) {
+            self::respuestaJSON(['success' => false, 'mensaje' => 'No tienes permiso para administrar accesos de Capital Humano.']);
+            return;
+        }
+
+        self::respuestaJSON(CapHumDAO::getAccesosCapitalHumano());
+    }
+
+    public function getAccesoCapitalHumanoDetalle()
+    {
+        if (!self::puedeGestionarAccesosCapitalHumano()) {
+            self::respuestaJSON(['success' => false, 'mensaje' => 'No tienes permiso para consultar accesos de Capital Humano.']);
+            return;
+        }
+
+        self::respuestaJSON(CapHumDAO::getAccesoCapitalHumanoDetalle((int) ($_GET['id_persona'] ?? 0)));
+    }
+
+    public function guardarPermisosAccesoCapitalHumano()
+    {
+        if (!self::puedeGestionarAccesosCapitalHumano()) {
+            self::respuestaJSON(['success' => false, 'mensaje' => 'No tienes permiso para guardar accesos de Capital Humano.']);
+            return;
+        }
+
+        $payload = json_decode(file_get_contents('php://input'), true) ?: [];
+        $res = CapHumDAO::guardarPermisosAccesoCapitalHumano($payload);
+        if (!empty($res['success']) && (int)($payload['id_persona'] ?? 0) === (int)($_SESSION['usuario_id'] ?? 0)) {
+            $_SESSION['modulos'] = array_values(
+                array_map('intval', (array) LoginDao::getModulosUsuario((int) ($_SESSION['usuario_id'] ?? 0)))
+            );
+        }
+        self::respuestaJSON($res);
+    }
+
     public function getDetalles()
     {
         if (!self::puedeConsultarDetalleGestionPersonal()) {
@@ -17631,6 +18319,43 @@ public function getEstadosMunicipiosMexico()
         self::respuestaJSON(CapHumDAO::actualizarJefeVacantePersonal($idVacante, $idJefe));
     }
 
+    public function actualizarNombreVacante()
+    {
+        $input = json_decode(file_get_contents("php://input"), true) ?: [];
+
+        if (!self::tieneAccesoTotalGestionPersonal()) {
+            self::respuestaJSON([
+                'success' => false,
+                'mensaje' => 'No tiene permiso para modificar vacantes.'
+            ]);
+            return;
+        }
+
+        $idVacante = (int)($input['id_vacante'] ?? 0);
+        $nombreVacante = (string)($input['nombre_vacante'] ?? '');
+
+        self::respuestaJSON(CapHumDAO::actualizarNombreVacantePersonal($idVacante, $nombreVacante));
+    }
+
+    public function eliminarVacanteOrganigrama()
+    {
+        $input = json_decode(file_get_contents("php://input"), true) ?: [];
+
+        if (!self::tieneAccesoTotalGestionPersonal()) {
+            self::respuestaJSON([
+                'success' => false,
+                'mensaje' => 'No tiene permiso para eliminar vacantes.'
+            ]);
+            return;
+        }
+
+        $idVacante = (int)($input['id_vacante'] ?? 0);
+        $modoMovimiento = (string)($input['modo_movimiento'] ?? '');
+        $idJefeDestino = (int)($input['id_jefe_destino'] ?? 0);
+
+        self::respuestaJSON(CapHumDAO::eliminarVacantePersonal($idVacante, $modoMovimiento, $idJefeDestino));
+    }
+
     public function actualizarJefePersonaOrganigrama()
     {
         $input = json_decode(file_get_contents("php://input"), true) ?: [];
@@ -17897,14 +18622,22 @@ public function getEstadosMunicipiosMexico()
             </script>
         HTML;
 
-        // Organigrama: mostrar todos los departamentos para que cualquier usuario pueda elegir uno
-        $departamentos = CapHumDAO::getTodosDepartamentos();
+        // Organigrama: estructura completa Direccion -> Area -> Departamento.
+        $departamentos = CapHumDAO::getTodosDepartamentosGestion();
 
-        $getDepartamentos = '<option disabled selected>Seleccione una opción</option>';
+        $getDepartamentos = '<option value="">Seleccione un area primero</option>';
+        $departamentosOrganigrama = [];
 
         if (!empty($departamentos['datos'])) {
-            foreach ($departamentos['datos'] as $val2) {
-                $getDepartamentos .= '<option value="' . (int)$val2['id'] . '">' . htmlspecialchars($val2['nombre'], ENT_QUOTES, 'UTF-8') . '</option>';
+            foreach ($departamentos['datos'] as $depOrg) {
+                $departamentosOrganigrama[] = [
+                    'id' => (int)($depOrg['id'] ?? 0),
+                    'nombre' => (string)($depOrg['nombre'] ?? ''),
+                    'id_area' => (int)($depOrg['id_departamento_organizacional'] ?? 0),
+                    'nombre_area' => (string)($depOrg['departamento_organizacional_nombre'] ?? 'Sin area'),
+                    'id_direccion' => (int)($depOrg['id_direccion'] ?? 0),
+                    'nombre_direccion' => (string)($depOrg['direccion_nombre'] ?? 'Sin direccion'),
+                ];
             }
         }
 
@@ -17913,6 +18646,7 @@ public function getEstadosMunicipiosMexico()
         self::set("titulo", "Organigrama Cobranza");
         self::set("script", $script);
         self::set("Departamentos", $getDepartamentos);
+        self::set("DepartamentosOrganigrama", $departamentosOrganigrama);
         self::set("puedeEditarTodos", $puedeEditarTodos);
         self::render("organigrama");
     }
@@ -18060,14 +18794,22 @@ public function getEstadosMunicipiosMexico()
                 if (isset($idsExistentes[$idVacante])) continue;
                 $idsExistentes[$idVacante] = true;
                 $vacantesAgregadas[$idVacanteReal] = $idVacante;
+                $nombreVacanteBase = trim((string)($vac['nombre_vacante'] ?? ''));
+                if ($nombreVacanteBase === '') {
+                    $nombreVacanteBase = trim((string)($vac['nombre_puesto'] ?? 'Vacante'));
+                }
+                $nombreVacanteBase = preg_replace('/\s*\(\s*vacante\s*\)\s*$/iu', '', $nombreVacanteBase);
+                $nombreVacanteVisible = trim($nombreVacanteBase) !== '' ? trim($nombreVacanteBase) . ' (Vacante)' : 'Vacante';
                 $rows[] = [
                     'id' => $idVacante,
                     'id_vacante' => $idVacanteReal,
                     'id_departamento' => isset($vac['id_departamento']) ? (int)$vac['id_departamento'] : null,
                     'id_puesto' => isset($vac['id_puesto']) ? (int)$vac['id_puesto'] : null,
                     'id_jefe' => !empty($vac['id_jefe']) ? (int)$vac['id_jefe'] : null,
-                    'nombre' => 'Vacante',
-                    'puesto' => $vac['nombre_puesto'] ?? 'Sin puesto',
+                    'nombre_vacante' => $vac['nombre_vacante'] ?? '',
+                    'nombre_puesto_base' => $vac['nombre_puesto_base'] ?? '',
+                    'nombre' => $nombreVacanteVisible,
+                    'puesto' => $vac['nombre_puesto_base'] ?? $vac['nombre_puesto'] ?? 'Sin puesto',
                     'jefe' => $jefeVac,
                     'tipo_estado' => 'vacante',
                     'estado_label' => 'Vacante',

@@ -205,6 +205,20 @@
     }
     #modalRastreoCredito .rastreo-geo-otro .rastreo-geo-icon { color: #15803d; }
     #modalRastreoCredito .rastreo-geo-otro .rastreo-geo-link { color: #15803d; }
+    /* Pin turquesa (FIRMA FAD) */
+    #modalRastreoCredito .rastreo-pin-firma {
+        display: inline-block;
+        width: 14px;
+        height: 20px;
+        background: linear-gradient(180deg, #14b8a6 0%, #0f766e 100%);
+        border-radius: 50% 50% 50% 0;
+        transform: rotate(-45deg);
+        margin-right: 6px;
+        vertical-align: middle;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+    }
+    #modalRastreoCredito .rastreo-geo-firma .rastreo-geo-icon { color: #0f766e; margin-right: 4px; }
+    #modalRastreoCredito .rastreo-geo-firma .rastreo-geo-link { color: #0f766e; }
     /* Pin carmelita (AGENCIA) */
     #modalRastreoCredito .rastreo-pin-carmelita {
         display: inline-block;

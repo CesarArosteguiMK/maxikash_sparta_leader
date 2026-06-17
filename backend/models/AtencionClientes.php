@@ -195,13 +195,40 @@ SQL;
 
         return <<<SQL
             (
-                SELECT DATE_FORMAT(MIN(bt.fecha_alta), '%d/%m/%Y %H:%i')
+                SELECT DATE_FORMAT(
+                    COALESCE(
+                        MIN(bt.fecha_alta),
+                        (
+                            SELECT MAX(ht.fecha)
+                            FROM adj_historial_estatus ht
+                            WHERE ht.id_operacion = {$aliasOperacion}.id
+                              AND ht.estatus_nuevo = {$aliasOperacion}.estatus
+                        ),
+                        {$aliasOperacion}.fecha_actualizacion,
+                        {$aliasOperacion}.fecha_alta
+                    ),
+                    '%d/%m/%Y %H:%i'
+                )
                 FROM adj_bitacora bt
                 WHERE bt.id_operacion = {$aliasOperacion}.id
                   AND {$condEnvio}
             ) AS fecha_entrada_bandeja_evidencias,
             (
-                SELECT GREATEST(0, TIMESTAMPDIFF(MINUTE, MIN(bt.fecha_alta), {$ahoraCdmx}))
+                SELECT GREATEST(0, TIMESTAMPDIFF(
+                    MINUTE,
+                    COALESCE(
+                        MIN(bt.fecha_alta),
+                        (
+                            SELECT MAX(ht.fecha)
+                            FROM adj_historial_estatus ht
+                            WHERE ht.id_operacion = {$aliasOperacion}.id
+                              AND ht.estatus_nuevo = {$aliasOperacion}.estatus
+                        ),
+                        {$aliasOperacion}.fecha_actualizacion,
+                        {$aliasOperacion}.fecha_alta
+                    ),
+                    {$ahoraCdmx}
+                ))
                 FROM adj_bitacora bt
                 WHERE bt.id_operacion = {$aliasOperacion}.id
                   AND {$condEnvio}
@@ -522,15 +549,6 @@ SQL;
           )
       )
 )
-  AND EXISTS (
-      SELECT 1
-      FROM adj_bitacora b
-      WHERE b.id_operacion = o.id
-        AND (
-            b.accion LIKE '%AL PIPELINE%'
-            OR b.accion LIKE '%EVIDENCIAS DE LA ADJUDICACION%'
-        )
-  )
 SQL;
     }
 

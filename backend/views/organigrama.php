@@ -215,6 +215,8 @@
     }
 
     /* Selects: mismo ancho máximo (departamento/puesto usan el mismo wrapper con búsqueda que persona/niveles) */
+    #dirSelect,
+    #areaSelect,
     #depSelect,
     #personaPuestoSelect,
     #personaSelect,
@@ -363,19 +365,31 @@
     @keyframes orgEasterFwBurst { 0% { opacity: 1; transform: translate(-50%, -50%) scale(1); } 100% { opacity: 0; transform: translate(calc(-50% + var(--ofw-tx)), calc(-50% + var(--ofw-ty))) scale(0.3); } }
 </style>
 
-<h4 class="mb-4" id="organigramaEasterTitle">Organigrama por Departamento</h4>
+<h4 class="mb-4" id="organigramaEasterTitle">Organigrama por Estructura</h4>
 
 <div class="card min-vh-100">
     <div class="card-body p-4">
         <!-- Fila 1: Departamento, Persona (máx rango), Puesto (si tiene varios), Nivel 1 (dinámico) -->
         <div class="row mb-3 align-items-end">
-            <div class="col-md-3 mb-3">
+            <div class="col-md-3 mb-3" id="dirSelectSlot">
+                <label for="dirSelect" class="form-label"><strong>Direccion:</strong></label>
+                <select id="dirSelect" class="form-select">
+                    <option value="">Seleccione direccion</option>
+                </select>
+            </div>
+            <div class="col-md-3 mb-3 d-none" id="areaSelectSlot">
+                <label for="areaSelect" class="form-label"><strong>Area:</strong></label>
+                <select id="areaSelect" class="form-select" disabled>
+                    <option value="">Seleccione direccion primero</option>
+                </select>
+            </div>
+            <div class="col-md-3 mb-3 d-none" id="depSelectSlot">
                 <label for="depSelect" class="form-label"><strong>Departamento:</strong></label>
-                <select id="depSelect" class="form-select">
+                <select id="depSelect" class="form-select" disabled>
                     <?php echo $Departamentos; ?>
                 </select>
             </div>
-            <div class="col-md-3 mb-3">
+            <div class="col-md-3 mb-3 d-none" id="personaSelectSlot">
                 <label for="personaSelect" class="form-label"><strong>Selecciona persona (máximo rango):</strong></label>
                 <select id="personaSelect" class="form-select" disabled>
                     <option value="">-- Selecciona un departamento primero --</option>
@@ -519,25 +533,63 @@
         <div class="modal-content">
             <div class="modal-header">
                 <h5 class="modal-title" id="modalCambiarJefeVacanteLabel">
-                    <i class="fa fa-user-tie me-2"></i>Cambiar jefe de vacante
+                    <i class="fa fa-briefcase me-2"></i>Gestionar vacante
                 </h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
             </div>
             <div class="modal-body">
                 <input type="hidden" id="vacante_jefe_id_vacante">
+                <input type="hidden" id="vacante_jefe_id_departamento">
+                <input type="hidden" id="vacante_jefe_id_puesto">
+                <input type="hidden" id="vacante_jefe_id_superior">
                 <div class="alert alert-warning bg-warning-subtle border border-warning-subtle text-warning-emphasis small mb-3">
                     <div class="fw-semibold" id="vacante_jefe_resumen">Vacante</div>
-                    <div>Selecciona el jefe al que quedara ligada esta vacante.</div>
+                    <div>Actualiza el nombre, cambia su jefe o elimina la vacante reasignando su equipo.</div>
                 </div>
-                <label class="form-label">Jefe destino *</label>
-                <select id="vacante_jefe_id_jefe" class="form-select">
-                    <option value="">Seleccione un jefe</option>
-                </select>
+                <div class="mb-3">
+                    <label class="form-label">Nombre de la vacante *</label>
+                    <div class="d-flex gap-2">
+                        <input type="text" id="vacante_nombre_vacante" class="form-control" maxlength="180" placeholder="Nombre de la vacante">
+                        <button type="button" class="btn btn-outline-primary flex-shrink-0" onclick="guardarNombreVacanteOrganigrama()">
+                            <i class="fa fa-save me-1"></i>Nombre
+                        </button>
+                    </div>
+                </div>
+                <div class="border-top pt-3 mb-3">
+                    <label class="form-label">Jefe destino *</label>
+                    <div class="d-flex gap-2">
+                        <select id="vacante_jefe_id_jefe" class="form-select">
+                            <option value="">Seleccione un jefe</option>
+                        </select>
+                        <button type="button" class="btn btn-outline-primary flex-shrink-0" onclick="guardarJefeVacanteOrganigrama()">
+                            <i class="fa fa-save me-1"></i>Jefe
+                        </button>
+                    </div>
+                </div>
+                <div class="border-top pt-3">
+                    <div class="fw-semibold text-danger mb-2">Eliminar vacante</div>
+                    <div class="form-check mb-2">
+                        <input class="form-check-input" type="radio" name="vacante_modo_eliminar" id="vacante_modo_jefe_superior" value="jefe_superior" checked>
+                        <label class="form-check-label" for="vacante_modo_jefe_superior">
+                            Mover sus subordinados al jefe superior actual
+                        </label>
+                        <div class="form-text" id="vacante_jefe_superior_hint">Se usara el jefe al que esta ligada esta vacante.</div>
+                    </div>
+                    <div class="form-check mb-2">
+                        <input class="form-check-input" type="radio" name="vacante_modo_eliminar" id="vacante_modo_jefe_destino" value="jefe_destino">
+                        <label class="form-check-label" for="vacante_modo_jefe_destino">
+                            Mover sus subordinados a otra persona
+                        </label>
+                    </div>
+                    <select id="vacante_eliminar_id_jefe" class="form-select d-none">
+                        <option value="">Seleccione un jefe destino</option>
+                    </select>
+                </div>
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-label-secondary" data-bs-dismiss="modal">Cancelar</button>
-                <button type="button" class="btn btn-primary" onclick="guardarJefeVacanteOrganigrama()">
-                    <i class="fa fa-save me-1"></i>Guardar
+                <button type="button" class="btn btn-danger" onclick="eliminarVacanteOrganigrama()">
+                    <i class="fa fa-trash me-1"></i>Eliminar vacante
                 </button>
             </div>
         </div>
@@ -579,6 +631,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <script>
     window.puedeEditarTodosOrganigrama = <?= json_encode(!empty($puedeEditarTodos ?? false)) ?>;
+    window.organigramaDepartamentosCatalogo = <?= json_encode($DepartamentosOrganigrama ?? [], JSON_UNESCAPED_UNICODE) ?>;
 
     function setModoEdicionOrganigrama() {
         var rowContrasena = document.getElementById('edit_row_contrasena');
@@ -778,6 +831,8 @@
         let organigramaRows = [];
         let organigramaRowsBase = [];
         var personaSearchSelect = null;
+        var dirSearchSelect = null;
+        var areaSearchSelect = null;
         var depSearchSelect = null;
         var puestoSearchSelect = null;
 
@@ -792,6 +847,152 @@
                 puestoSearchSelect.destroy();
                 puestoSearchSelect = null;
             }
+        }
+
+        function normalizarTextoOrg(valor, fallback) {
+            var texto = String(valor || '').replace(/\s+/g, ' ').trim();
+            return texto || fallback || '';
+        }
+
+        function refrescarSelectBuscadorOrg(instance) {
+            if (instance && typeof instance.refresh === 'function') {
+                instance.refresh();
+            }
+        }
+
+        function setVisibleOrgSlot(id, visible) {
+            var el = document.getElementById(id);
+            if (!el) return;
+            el.classList.toggle('d-none', !visible);
+        }
+
+        function actualizarVisibilidadFiltrosOrganigrama() {
+            var dirValue = document.getElementById("dirSelect")?.value || "";
+            var areaValue = document.getElementById("areaSelect")?.value || "";
+            var depValue = document.getElementById("depSelect")?.value || "";
+
+            setVisibleOrgSlot("areaSelectSlot", !!dirValue);
+            setVisibleOrgSlot("depSelectSlot", !!dirValue && !!areaValue);
+            setVisibleOrgSlot("personaSelectSlot", !!dirValue && !!areaValue && !!depValue);
+        }
+
+        function resetSeleccionOrganigrama(mensajePersona) {
+            var personaSelect = document.getElementById("personaSelect");
+            var puestoSlot = document.getElementById("personaPuestoSlot");
+            var puestoSelect = document.getElementById("personaPuestoSelect");
+
+            if (puestoSlot) puestoSlot.style.display = "none";
+            destroyPuestoSearchIfAny();
+            if (puestoSelect) {
+                puestoSelect.innerHTML = "<option value=\"\">-- Selecciona un puesto --</option>";
+                puestoSelect.value = "";
+            }
+            destroyPersonaSearchIfAny();
+            if (personaSelect) {
+                personaSelect.innerHTML = "<option value=\"\">" + (mensajePersona || "-- Selecciona un departamento primero --") + "</option>";
+                personaSelect.disabled = true;
+                personaSelect.value = "";
+            }
+
+            document.getElementById("resultado").innerHTML = "";
+            document.getElementById("orgTituloSeleccion").textContent = "";
+            document.getElementById("chart").innerHTML = "";
+            document.getElementById("personaLevel1Slot").innerHTML = "";
+            document.getElementById("personaLevelsContainer").innerHTML = "";
+            organigramaRows = [];
+            organigramaRowsBase = [];
+            mostrarLoadingOrganigrama(false);
+            actualizarHistorialPuestos();
+            document.getElementById("btnGuardarOrganigrama").disabled = true;
+            actualizarVisibilidadFiltrosOrganigrama();
+        }
+
+        function renderDireccionesOrganigrama() {
+            var dirSelect = document.getElementById("dirSelect");
+            var areaSelect = document.getElementById("areaSelect");
+            var depSelect = document.getElementById("depSelect");
+            depSelect.innerHTML = "<option value=\"\">Seleccione area primero</option>";
+            depSelect.disabled = true;
+            var catalogo = Array.isArray(window.organigramaDepartamentosCatalogo) ? window.organigramaDepartamentosCatalogo : [];
+            var mapa = new Map();
+
+            catalogo.forEach(function (dep) {
+                var id = String(dep.id_direccion || 0);
+                var nombre = normalizarTextoOrg(dep.nombre_direccion, "Sin direccion");
+                if (!mapa.has(id)) mapa.set(id, nombre);
+            });
+
+            dirSelect.innerHTML = '<option value="">Seleccione direccion</option>';
+            Array.from(mapa.entries()).sort(function (a, b) { return a[1].localeCompare(b[1]); }).forEach(function (row) {
+                var opt = document.createElement("option");
+                opt.value = row[0];
+                opt.textContent = row[1];
+                dirSelect.appendChild(opt);
+            });
+            dirSelect.disabled = mapa.size === 0;
+
+            areaSelect.innerHTML = '<option value="">Seleccione direccion primero</option>';
+            areaSelect.disabled = true;
+            depSelect.innerHTML = '<option value="">Seleccione area primero</option>';
+            depSelect.disabled = true;
+
+            refrescarSelectBuscadorOrg(dirSearchSelect);
+            refrescarSelectBuscadorOrg(areaSearchSelect);
+            refrescarSelectBuscadorOrg(depSearchSelect);
+        }
+
+        function renderAreasOrganigrama(idDireccion) {
+            var areaSelect = document.getElementById("areaSelect");
+            var depSelect = document.getElementById("depSelect");
+            var catalogo = Array.isArray(window.organigramaDepartamentosCatalogo) ? window.organigramaDepartamentosCatalogo : [];
+            var mapa = new Map();
+            var idDir = String(idDireccion || "");
+
+            catalogo.forEach(function (dep) {
+                if (String(dep.id_direccion || 0) !== idDir) return;
+                var id = String(dep.id_area || 0);
+                var nombre = normalizarTextoOrg(dep.nombre_area, "Sin area");
+                if (!mapa.has(id)) mapa.set(id, nombre);
+            });
+
+            areaSelect.innerHTML = '<option value="">Seleccione area</option>';
+            Array.from(mapa.entries()).sort(function (a, b) { return a[1].localeCompare(b[1]); }).forEach(function (row) {
+                var opt = document.createElement("option");
+                opt.value = row[0];
+                opt.textContent = row[1];
+                areaSelect.appendChild(opt);
+            });
+            areaSelect.disabled = !idDir || mapa.size === 0;
+
+            depSelect.innerHTML = '<option value="">Seleccione area primero</option>';
+            depSelect.disabled = true;
+            refrescarSelectBuscadorOrg(areaSearchSelect);
+            refrescarSelectBuscadorOrg(depSearchSelect);
+        }
+
+        function renderDepartamentosOrganigrama(idArea) {
+            var depSelect = document.getElementById("depSelect");
+            var catalogo = Array.isArray(window.organigramaDepartamentosCatalogo) ? window.organigramaDepartamentosCatalogo : [];
+            var mapa = new Map();
+            var idAreaStr = String(idArea || "");
+
+            catalogo.forEach(function (dep) {
+                if (String(dep.id_area || 0) !== idAreaStr) return;
+                var id = String(dep.id || "");
+                if (!id) return;
+                var nombre = normalizarTextoOrg(dep.nombre, "Departamento");
+                if (!mapa.has(id)) mapa.set(id, nombre);
+            });
+
+            depSelect.innerHTML = '<option value="">Seleccione departamento</option>';
+            Array.from(mapa.entries()).sort(function (a, b) { return a[1].localeCompare(b[1]); }).forEach(function (row) {
+                var opt = document.createElement("option");
+                opt.value = row[0];
+                opt.textContent = row[1];
+                depSelect.appendChild(opt);
+            });
+            depSelect.disabled = !idAreaStr || mapa.size === 0;
+            refrescarSelectBuscadorOrg(depSearchSelect);
         }
 
         function getSubordinadosDirectos(idJefe) {
@@ -835,6 +1036,12 @@
                 visited[key] = true;
                 result.push({
                     id: row.id,
+                    id_vacante: row.id_vacante || null,
+                    id_departamento: row.id_departamento || null,
+                    id_puesto: row.id_puesto || null,
+                    id_jefe: row.id_jefe || null,
+                    nombre_vacante: row.nombre_vacante || '',
+                    nombre_puesto_base: row.nombre_puesto_base || '',
                     nombre: row.nombre || '',
                     puesto: row.puesto || row.nombre_puesto || '',
                     jefe: parentForResult,
@@ -1282,12 +1489,18 @@
 
         function buscarVacanteOrganigrama(rawId) {
             var id = String(rawId || '');
-            return (organigramaRows || []).find(function (r) {
+            var matcher = function (r) {
                 if (!r) return false;
                 return String(r.id) === id
                     || String(r.id) === ('vacante-' + id)
                     || String(r.id_vacante || '') === id;
-            }) || null;
+            };
+            var actual = (organigramaRows || []).find(matcher) || null;
+            var base = (organigramaRowsBase || []).find(matcher) || null;
+            if (actual && base) {
+                return Object.assign({}, base, actual);
+            }
+            return actual || base || null;
         }
 
         function llenarJefesOrganigrama(select, opciones) {
@@ -1352,8 +1565,14 @@
             var idDepartamento = vacante.id_departamento || document.getElementById('depSelect')?.value || '';
             var idPuesto = vacante.id_puesto || '';
             var select = document.getElementById('vacante_jefe_id_jefe');
+            var selectEliminar = document.getElementById('vacante_eliminar_id_jefe');
             var input = document.getElementById('vacante_jefe_id_vacante');
+            var inputDepto = document.getElementById('vacante_jefe_id_departamento');
+            var inputPuesto = document.getElementById('vacante_jefe_id_puesto');
+            var inputSuperior = document.getElementById('vacante_jefe_id_superior');
+            var inputNombre = document.getElementById('vacante_nombre_vacante');
             var resumen = document.getElementById('vacante_jefe_resumen');
+            var hintSuperior = document.getElementById('vacante_jefe_superior_hint');
 
             if (!idVacante || !idDepartamento) {
                 Swal.fire('Atencion', 'La vacante no tiene informacion suficiente para cambiar el jefe.', 'warning');
@@ -1361,9 +1580,26 @@
             }
 
             input.value = idVacante;
-            resumen.textContent = 'Vacante #' + idVacante + ' - ' + (vacante.puesto || 'Sin puesto');
+            if (inputDepto) inputDepto.value = idDepartamento;
+            if (inputPuesto) inputPuesto.value = idPuesto;
+            if (inputSuperior) inputSuperior.value = vacante.id_jefe || '';
+            var nombreEditableVacante = (vacante.nombre_vacante || vacante.nombre || vacante.puesto || '').replace(/\s*\(\s*vacante\s*\)\s*$/i, '').trim();
+            if (inputNombre) inputNombre.value = nombreEditableVacante;
+            resumen.textContent = 'Vacante #' + idVacante + ' - ' + (nombreEditableVacante ? (nombreEditableVacante + ' (Vacante)') : (vacante.puesto || 'Sin puesto'));
+            if (hintSuperior) {
+                hintSuperior.textContent = vacante.id_jefe
+                    ? 'Los subordinados quedaran ligados al jefe superior actual de esta vacante.'
+                    : 'Esta vacante no tiene jefe superior; elige otra persona antes de eliminar.';
+            }
             select.innerHTML = '<option value="">Cargando jefes...</option>';
             select.disabled = true;
+            if (selectEliminar) {
+                selectEliminar.classList.add('d-none');
+                selectEliminar.innerHTML = '<option value="">Cargando jefes...</option>';
+                selectEliminar.disabled = true;
+            }
+            var radioSuperior = document.getElementById('vacante_modo_jefe_superior');
+            if (radioSuperior) radioSuperior.checked = true;
 
             bootstrap.Modal.getOrCreateInstance(document.getElementById('modalCambiarJefeVacante')).show();
 
@@ -1373,12 +1609,99 @@
                 seleccionado: vacante.id_jefe || '',
                 soloPersonas: true
             });
+            if (selectEliminar) {
+                llenarJefesOrganigrama(selectEliminar, {
+                    id_departamento: idDepartamento,
+                    id_puesto: idPuesto,
+                    soloPersonas: true
+                });
+            }
+        }
+
+        document.querySelectorAll('input[name="vacante_modo_eliminar"]').forEach(function (radio) {
+            radio.addEventListener('change', function () {
+                var selectEliminar = document.getElementById('vacante_eliminar_id_jefe');
+                if (!selectEliminar) return;
+                selectEliminar.classList.toggle('d-none', this.value !== 'jefe_destino');
+            });
+        });
+
+        function manejarRespuestaJsonOrganigrama(res, fallbackError) {
+            return res.text().then(function (txt) {
+                var data = null;
+                try {
+                    data = txt ? JSON.parse(txt) : null;
+                } catch (e) {
+                    throw new Error(res.status === 401 || res.redirected
+                        ? 'Sesion expirada. Vuelve a iniciar sesion.'
+                        : (fallbackError || 'Respuesta no valida del servidor.'));
+                }
+                if (!res.ok) {
+                    throw new Error((data && (data.mensaje || data.message || data.error)) || fallbackError || 'No se pudo completar la accion.');
+                }
+                return data || {};
+            });
+        }
+
+        function refrescarOrganigramaActual() {
+            var rootId = obtenerIdRootActual();
+            if (rootId) {
+                cargarOrganigramaDesdeRoot(rootId);
+            }
+        }
+
+        function guardarNombreVacanteOrganigrama() {
+            var idVacante = document.getElementById('vacante_jefe_id_vacante')?.value || '';
+            var nombreVacante = (document.getElementById('vacante_nombre_vacante')?.value || '').replace(/\s*\(\s*vacante\s*\)\s*$/i, '').trim();
+            var btnGuardar = document.querySelector('#modalCambiarJefeVacante button[onclick="guardarNombreVacanteOrganigrama()"]');
+
+            if (!idVacante || nombreVacante.length < 3) {
+                Swal.fire('Falta informacion', 'Escribe un nombre valido para la vacante.', 'warning');
+                return;
+            }
+
+            if (btnGuardar) {
+                btnGuardar.disabled = true;
+                btnGuardar.dataset.originalText = btnGuardar.innerHTML;
+                btnGuardar.innerHTML = '<span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>Guardando...';
+            }
+
+            fetch('/CapHum/actualizarNombreVacante', {
+                method: 'POST',
+                credentials: 'same-origin',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'Front-Request': 'true'
+                },
+                body: JSON.stringify({ id_vacante: idVacante, nombre_vacante: nombreVacante })
+            })
+                .then(function (res) { return manejarRespuestaJsonOrganigrama(res, 'No se pudo actualizar el nombre de la vacante.'); })
+                .then(function (data) {
+                    if (!data.success) {
+                        Swal.fire('Error', data.mensaje || 'No se pudo actualizar el nombre.', 'error');
+                        return;
+                    }
+                    Swal.fire('Listo', data.mensaje || 'Nombre actualizado.', 'success');
+                    refrescarOrganigramaActual();
+                })
+                .catch(function (err) {
+                    console.error('actualizarNombreVacante:', err);
+                    Swal.fire('Error', err && err.message ? err.message : 'No se pudo actualizar el nombre.', 'error');
+                })
+                .finally(function () {
+                    if (btnGuardar) {
+                        btnGuardar.disabled = false;
+                        btnGuardar.innerHTML = btnGuardar.dataset.originalText || '<i class="fa fa-save me-1"></i>Nombre';
+                    }
+                });
         }
 
         function guardarJefeVacanteOrganigrama() {
             var idVacante = document.getElementById('vacante_jefe_id_vacante')?.value || '';
             var idJefe = document.getElementById('vacante_jefe_id_jefe')?.value || '';
-            var btnGuardar = document.querySelector('#modalCambiarJefeVacante .btn.btn-primary');
+            var btnGuardar = document.querySelector('#modalCambiarJefeVacante button[onclick="guardarJefeVacanteOrganigrama()"]');
 
             if (!idVacante || !idJefe) {
                 Swal.fire('Falta informacion', 'Selecciona el jefe destino.', 'warning');
@@ -1402,33 +1725,14 @@
                 },
                 body: JSON.stringify({ id_vacante: idVacante, id_jefe: idJefe })
             })
-                .then(function (res) {
-                    return res.text().then(function (txt) {
-                        var data = null;
-                        try {
-                            data = txt ? JSON.parse(txt) : null;
-                        } catch (e) {
-                            throw new Error(res.status === 401 || res.redirected
-                                ? 'Sesion expirada. Vuelve a iniciar sesion.'
-                                : 'Respuesta no valida del servidor al actualizar la vacante.');
-                        }
-                        if (!res.ok) {
-                            throw new Error((data && (data.mensaje || data.message || data.error)) || 'No se pudo actualizar la vacante.');
-                        }
-                        return data || {};
-                    });
-                })
+                .then(function (res) { return manejarRespuestaJsonOrganigrama(res, 'No se pudo actualizar la vacante.'); })
                 .then(function (data) {
                     if (!data.success) {
                         Swal.fire('Error', data.mensaje || 'No se pudo actualizar la vacante.', 'error');
                         return;
                     }
-                    bootstrap.Modal.getOrCreateInstance(document.getElementById('modalCambiarJefeVacante')).hide();
                     Swal.fire('Listo', data.mensaje || 'Jefe actualizado.', 'success');
-                    var rootId = obtenerIdRootActual();
-                    if (rootId) {
-                        cargarOrganigramaDesdeRoot(rootId);
-                    }
+                    refrescarOrganigramaActual();
                 })
                 .catch(function (err) {
                     console.error('actualizarJefeVacante:', err);
@@ -1437,10 +1741,87 @@
                 .finally(function () {
                     if (btnGuardar) {
                         btnGuardar.disabled = false;
-                        btnGuardar.innerHTML = btnGuardar.dataset.originalText || '<i class="fa fa-save me-1"></i>Guardar';
+                        btnGuardar.innerHTML = btnGuardar.dataset.originalText || '<i class="fa fa-save me-1"></i>Jefe';
                     }
                 });
         }
+
+        function eliminarVacanteOrganigrama() {
+            var idVacante = document.getElementById('vacante_jefe_id_vacante')?.value || '';
+            var modoRadio = document.querySelector('input[name="vacante_modo_eliminar"]:checked');
+            var modo = modoRadio ? modoRadio.value : '';
+            var idJefeDestino = modo === 'jefe_superior'
+                ? (document.getElementById('vacante_jefe_id_superior')?.value || '')
+                : (document.getElementById('vacante_eliminar_id_jefe')?.value || '');
+            var btnEliminar = document.querySelector('#modalCambiarJefeVacante .btn.btn-danger');
+
+            if (!idVacante || !modo) {
+                Swal.fire('Falta informacion', 'Selecciona la vacante y el modo de movimiento.', 'warning');
+                return;
+            }
+            if (!idJefeDestino) {
+                Swal.fire('Falta informacion', 'Selecciona un jefe destino para mover los subordinados.', 'warning');
+                return;
+            }
+
+            Swal.fire({
+                title: 'Eliminar vacante',
+                text: 'Los subordinados se moveran al jefe destino seleccionado. Esta accion dejara la vacante como eliminada.',
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonText: 'Si, eliminar',
+                cancelButtonText: 'Cancelar',
+                confirmButtonColor: '#d33'
+            }).then(function (result) {
+                if (!result.isConfirmed) return;
+
+                if (btnEliminar) {
+                    btnEliminar.disabled = true;
+                    btnEliminar.dataset.originalText = btnEliminar.innerHTML;
+                    btnEliminar.innerHTML = '<span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>Eliminando...';
+                }
+
+                fetch('/CapHum/eliminarVacanteOrganigrama', {
+                    method: 'POST',
+                    credentials: 'same-origin',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json',
+                        'X-Requested-With': 'XMLHttpRequest',
+                        'Front-Request': 'true'
+                    },
+                    body: JSON.stringify({
+                        id_vacante: idVacante,
+                        modo_movimiento: modo,
+                        id_jefe_destino: idJefeDestino
+                    })
+                })
+                    .then(function (res) { return manejarRespuestaJsonOrganigrama(res, 'No se pudo eliminar la vacante.'); })
+                    .then(function (data) {
+                        if (!data.success) {
+                            Swal.fire('Error', data.mensaje || 'No se pudo eliminar la vacante.', 'error');
+                            return;
+                        }
+                        bootstrap.Modal.getOrCreateInstance(document.getElementById('modalCambiarJefeVacante')).hide();
+                        Swal.fire('Listo', data.mensaje || 'Vacante eliminada.', 'success');
+                        refrescarOrganigramaActual();
+                    })
+                    .catch(function (err) {
+                        console.error('eliminarVacanteOrganigrama:', err);
+                        Swal.fire('Error', err && err.message ? err.message : 'No se pudo eliminar la vacante.', 'error');
+                    })
+                    .finally(function () {
+                        if (btnEliminar) {
+                            btnEliminar.disabled = false;
+                            btnEliminar.innerHTML = btnEliminar.dataset.originalText || '<i class="fa fa-trash me-1"></i>Eliminar vacante';
+                        }
+                });
+            });
+        }
+
+        window.guardarNombreVacanteOrganigrama = guardarNombreVacanteOrganigrama;
+        window.guardarJefeVacanteOrganigrama = guardarJefeVacanteOrganigrama;
+        window.eliminarVacanteOrganigrama = eliminarVacanteOrganigrama;
 
         function abrirModalPersonaJefeOrganigrama(rawId) {
             if (!window.puedeEditarTodosOrganigrama) {
@@ -1546,6 +1927,21 @@
         window.guardarJefePersonaOrganigrama = guardarJefePersonaOrganigrama;
 
         /* ============================= */
+        /*   SELECT DIRECCION / AREA      */
+        /* ============================= */
+        document.getElementById("dirSelect").addEventListener("change", function () {
+            renderAreasOrganigrama(this.value);
+            resetSeleccionOrganigrama("-- Selecciona un departamento primero --");
+            actualizarVisibilidadFiltrosOrganigrama();
+        });
+
+        document.getElementById("areaSelect").addEventListener("change", function () {
+            renderDepartamentosOrganigrama(this.value);
+            resetSeleccionOrganigrama("-- Selecciona un departamento primero --");
+            actualizarVisibilidadFiltrosOrganigrama();
+        });
+
+        /* ============================= */
         /*   SELECT DEPARTAMENTO          */
         /* ============================= */
         document.getElementById("depSelect").addEventListener("change", function () {
@@ -1570,6 +1966,7 @@
             mostrarLoadingOrganigrama(false);
             actualizarHistorialPuestos();
             document.getElementById("btnGuardarOrganigrama").disabled = true;
+            actualizarVisibilidadFiltrosOrganigrama();
 
             if (!dep_id) {
                 destroyPersonaSearchIfAny();
@@ -1714,8 +2111,17 @@
         /*   BOTÓN LIMPIAR               */
         /* ============================= */
         document.getElementById("btnLimpiarOrganigrama").addEventListener("click", function () {
+            var dirSelect = document.getElementById("dirSelect");
+            var areaSelect = document.getElementById("areaSelect");
+            dirSelect.value = "";
+            if (dirSearchSelect) dirSearchSelect.refresh();
+            areaSelect.innerHTML = "<option value=\"\">Seleccione direccion primero</option>";
+            areaSelect.disabled = true;
+            if (areaSearchSelect) areaSearchSelect.refresh();
             var depSelect = document.getElementById("depSelect");
             depSelect.selectedIndex = 0; // "Seleccione una opción"
+            depSelect.innerHTML = "<option value=\"\">Seleccione area primero</option>";
+            depSelect.disabled = true;
             if (depSearchSelect) depSearchSelect.refresh();
             var personaSelect = document.getElementById("personaSelect");
             destroyPersonaSearchIfAny();
@@ -1742,6 +2148,7 @@
                 var chartLimpiar = document.getElementById("chart");
                 if (chartLimpiar) chartLimpiar.style.transform = `scale(${scale})`;
             } catch (eLim) {}
+            actualizarVisibilidadFiltrosOrganigrama();
         });
 
         /* ============================= */
@@ -2104,7 +2511,11 @@
             }, true);
         }
 
+        dirSearchSelect = new SearchableSelect(document.getElementById("dirSelect"));
+        areaSearchSelect = new SearchableSelect(document.getElementById("areaSelect"));
         depSearchSelect = new SearchableSelect(document.getElementById("depSelect"));
+        renderDireccionesOrganigrama();
+        actualizarVisibilidadFiltrosOrganigrama();
         inicializarPanOrganigrama();
 
         window.addEventListener('resize', ajustarEscalaChart);

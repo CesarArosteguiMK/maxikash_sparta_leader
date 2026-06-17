@@ -651,6 +651,8 @@ class Inicio extends Controller
 
         $logName = 'web-api-1click-' . date('Ymd-His') . '.log';
         $logPath = $logsDir . DIRECTORY_SEPARATOR . $logName;
+        $docApiBase = $this->docVerificacionApiBaseUrl();
+        $docApiPort = $this->docVerificacionApiPort($docApiBase);
         $_SESSION['api_doc_1click_log'] = $logPath;
         $_SESSION['api_doc_1click_started_at'] = time();
 
@@ -658,6 +660,8 @@ class Inicio extends Controller
         $runCmdPath = $logsDir . DIRECTORY_SEPARATOR . $runCmdName;
         $runCmd = "@echo off\r\n"
             . "chcp 65001 >nul\r\n"
+            . 'set "SPARTA_API_DIRECT_START=1"' . "\r\n"
+            . 'set "SPARTA_API_PORT=' . $docApiPort . '"' . "\r\n"
             . 'cd /d "' . str_replace('"', '""', $launcherDir) . '"' . "\r\n"
             . 'call "' . str_replace('"', '""', $runner) . '" > "' . str_replace('"', '""', $logPath) . '" 2>&1' . "\r\n";
         @file_put_contents($runCmdPath, $runCmd);
@@ -804,13 +808,15 @@ class Inicio extends Controller
 
     private function apiDocOneClickApiEstaArriba(): bool
     {
+        $baseUrl = $this->docVerificacionApiBaseUrl();
+        $healthUrl = rtrim($baseUrl, '/') . '/health';
         $ctx = stream_context_create([
             'http' => [
                 'timeout' => 2,
                 'ignore_errors' => true,
             ],
         ]);
-        $body = @file_get_contents('http://127.0.0.1:8000/api/v1/health', false, $ctx);
+        $body = @file_get_contents($healthUrl, false, $ctx);
         if (!is_string($body) || $body === '') {
             return false;
         }
@@ -822,6 +828,34 @@ class Inicio extends Controller
             }
         }
         return $code >= 200 && $code < 300;
+    }
+
+    private function docVerificacionApiBaseUrl(): string
+    {
+        $configFile = defined('RAIZ') ? (RAIZ . '/config/config.ini') : (dirname(__DIR__) . '/config/config.ini');
+        $apiUrl = '';
+        if (is_file($configFile)) {
+            $config = @parse_ini_file($configFile, true);
+            if (is_array($config) && is_array($config['doc_verificacion'] ?? null)) {
+                $apiUrl = trim((string)($config['doc_verificacion']['api_url'] ?? ''));
+            }
+        }
+        if ($apiUrl === '') {
+            $apiUrl = 'http://127.0.0.1:8000/api/v1/verificar';
+        }
+        $base = preg_replace('#/verificar\s*$#i', '', $apiUrl);
+        return rtrim($base ?: 'http://127.0.0.1:8000/api/v1', '/');
+    }
+
+    private function docVerificacionApiPort(?string $baseUrl = null): int
+    {
+        $baseUrl = $baseUrl ?: $this->docVerificacionApiBaseUrl();
+        $port = (int)(parse_url($baseUrl, PHP_URL_PORT) ?: 0);
+        if ($port > 0) {
+            return $port;
+        }
+        $scheme = strtolower((string)(parse_url($baseUrl, PHP_URL_SCHEME) ?: 'http'));
+        return $scheme === 'https' ? 443 : 80;
     }
 
     /**
@@ -881,10 +915,17 @@ class Inicio extends Controller
         }
         $logName = 'web-api-1click-parar-' . date('Ymd-His') . '.log';
         $logPath = $logsDir . DIRECTORY_SEPARATOR . $logName;
+        $docApiPort = $this->docVerificacionApiPort($this->docVerificacionApiBaseUrl());
+        $runCmdName = 'web-api-1click-parar-runner-' . date('Ymd-His') . '.cmd';
+        $runCmdPath = $logsDir . DIRECTORY_SEPARATOR . $runCmdName;
+        $runCmd = "@echo off\r\n"
+            . "chcp 65001 >nul\r\n"
+            . 'set "SPARTA_API_PORT=' . $docApiPort . '"' . "\r\n"
+            . 'cd /d "' . str_replace('"', '""', $launcherDir) . '"' . "\r\n"
+            . 'call "' . str_replace('"', '""', $stopper) . '" > "' . str_replace('"', '""', $logPath) . '" 2>&1' . "\r\n";
+        @file_put_contents($runCmdPath, $runCmd);
 
-        $cmd = 'start "" /b cmd /c ""'
-            . str_replace('"', '""', $stopper) . '" > "'
-            . str_replace('"', '""', $logPath) . '" 2>&1"';
+        $cmd = 'start "" /b cmd /c ""' . str_replace('"', '""', $runCmdPath) . '""';
         @pclose(@popen($cmd, 'r'));
         usleep(200000);
 
@@ -1267,9 +1308,15 @@ class Inicio extends Controller
             if ($isListen) {
                 $http = $this->serviciosLocalesProbarHttp($s['url_check'], 1500);
             }
-            if ($isListen && $http['ok']) {
+            $funcional = ($isListen && !empty($s['functional_check']))
+                ? $this->serviciosLocalesProbarFuncional($s, 8000)
+                : null;
+            $funcionalOk = $funcional === null || !empty($funcional['ok']);
+            if ($isListen && $http['ok'] && $funcionalOk) {
                 $up++;
                 $estado = 'up';
+            } elseif ($isListen && $http['ok'] && !$funcionalOk) {
+                $estado = 'degraded';
             } elseif ($isListen) {
                 $estado = 'listen_no_http';
             } else {
@@ -1288,6 +1335,7 @@ class Inicio extends Controller
                 'http_ok'    => $http['ok'],
                 'http_status'=> $http['status'],
                 'latency_ms' => $http['ms'],
+                'functional_check' => $funcional,
                 'estado'     => $estado, // up | listen_no_http | down
                 'hint'       => $s['hint'],
                 'can_control'=> true,
@@ -1578,10 +1626,17 @@ class Inicio extends Controller
             'body_snip'  => is_string($pBody) ? substr(preg_replace('/\s+/', ' ', $pBody), 0, 320) : '',
         ];
 
+        $postMinimoOk = $pErrno === 0 && in_array($pCode, [400, 422], true);
+        $out['api_operativa_basica'] = $healthOk && $tcp['ok'] && $postMinimoOk;
+        if (!$out['api_operativa_basica']) {
+            $out['success'] = false;
+            $out['message'] = 'La API no paso el check funcional minimo de documentos.';
+        }
+
         $interpretacion = [];
-        $patronSinFalloRed = $healthOk && $tcp['ok'] && $gErrno === 0 && $pErrno === 0
+        $patronSinFalloRed = $healthOk && $tcp['ok'] && $gErrno === 0 && $postMinimoOk
             && in_array($gCode, [200, 204, 301, 302, 303, 307, 308, 400, 401, 403, 404, 405], true)
-            && in_array($pCode, [400, 401, 403, 404, 422], true);
+            && in_array($pCode, [400, 422], true);
         if ($patronSinFalloRed) {
             $interpretacion[] = 'Buenas noticias: en estas pruebas no hay fallo de red ni de ruta. HTTP 405 en GET /validar-expediente (solo POST) y HTTP 400 sin PDF son respuestas esperadas de una API viva; PHP y la API en 127.0.0.1:8000 se entienden en milisegundos.';
         }
@@ -1623,6 +1678,8 @@ class Inicio extends Controller
     private function serviciosLocalesCatalogo(): array
     {
         $backendRoot = dirname(__DIR__);
+        $docApiBase = $this->docVerificacionApiBaseUrl();
+        $docApiPort = $this->docVerificacionApiPort($docApiBase);
         return [
             [
                 'id'   => 'doc_candidato',
@@ -1675,14 +1732,21 @@ class Inicio extends Controller
             [
                 'id'   => 'api_doc_python',
                 'name' => 'API verificación documentos (Python · uvicorn)',
-                'port' => 8000,
+                'port' => $docApiPort,
                 'role' => 'OCR + verificación documental (FastAPI 1-click)',
-                'url_check'   => 'http://127.0.0.1:8000/api/v1/health',
+                'url_check'   => rtrim($docApiBase, '/') . '/health',
+                'functional_check' => [
+                    'type' => 'doc_api_validar_minimo',
+                    'url' => rtrim($docApiBase, '/') . '/validar-expediente',
+                ],
                 'url_browser' => null,
-                'browser_note' => 'Docs externos dependen de firewall. Para validar candidatos basta que esta prueba interna este verde.',
+                'browser_note' => 'Docs externos dependen de firewall. Verde exige health y POST minimo a validar-expediente desde PHP.',
                 'hint' => 'Si está caída: backend/API/launcher/iniciar-agente.bat',
                 'start_bat' => $backendRoot . DIRECTORY_SEPARATOR . 'API' . DIRECTORY_SEPARATOR . 'launcher' . DIRECTORY_SEPARATOR . 'iniciar-agente.bat',
                 'stop_ps1'  => $backendRoot . DIRECTORY_SEPARATOR . 'API' . DIRECTORY_SEPARATOR . 'launcher' . DIRECTORY_SEPARATOR . 'cerrar-agente.ps1',
+                'env' => [
+                    'SPARTA_API_PORT' => (string)$docApiPort,
+                ],
             ],
         ];
     }
@@ -1693,7 +1757,25 @@ class Inicio extends Controller
         if ($bat === '' || !is_file($bat)) {
             return false;
         }
-        $cmd = 'start "" /b cmd /c ""' . str_replace('"', '""', $bat) . '""';
+        $env = is_array($srv['env'] ?? null) ? $srv['env'] : [];
+        if ($env) {
+            $runCmdPath = rtrim(sys_get_temp_dir(), DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR
+                . 'sparta-servicio-' . preg_replace('/[^a-z0-9_-]+/i', '-', (string)($srv['id'] ?? 'local')) . '-' . date('Ymd-His') . '.cmd';
+            $runCmd = "@echo off\r\n";
+            foreach ($env as $key => $value) {
+                $key = preg_replace('/[^A-Z0-9_]+/i', '', (string)$key);
+                if ($key === '') {
+                    continue;
+                }
+                $runCmd .= 'set "' . $key . '=' . str_replace('"', '', (string)$value) . '"' . "\r\n";
+            }
+            $runCmd .= 'cd /d "' . str_replace('"', '""', dirname($bat)) . '"' . "\r\n";
+            $runCmd .= 'call "' . str_replace('"', '""', $bat) . '"' . "\r\n";
+            @file_put_contents($runCmdPath, $runCmd);
+            $cmd = 'start "" /b cmd /c ""' . str_replace('"', '""', $runCmdPath) . '""';
+        } else {
+            $cmd = 'start "" /b cmd /c ""' . str_replace('"', '""', $bat) . '""';
+        }
         @pclose(@popen($cmd, 'r'));
         return true;
     }
@@ -1707,7 +1789,17 @@ class Inicio extends Controller
         if ($isListen && !empty($srv['url_check'])) {
             $http = $this->serviciosLocalesProbarHttp((string)$srv['url_check'], $httpTimeoutMs);
         }
-        $estado = ($isListen && $http['ok']) ? 'up' : ($isListen ? 'listen_no_http' : 'down');
+        $funcional = ($isListen && !empty($srv['functional_check']))
+            ? $this->serviciosLocalesProbarFuncional($srv, max(8000, $httpTimeoutMs))
+            : null;
+        $funcionalOk = $funcional === null || !empty($funcional['ok']);
+        if ($isListen && $http['ok'] && $funcionalOk) {
+            $estado = 'up';
+        } elseif ($isListen && $http['ok'] && !$funcionalOk) {
+            $estado = 'degraded';
+        } else {
+            $estado = $isListen ? 'listen_no_http' : 'down';
+        }
 
         return [
             'estado' => $estado,
@@ -1716,6 +1808,7 @@ class Inicio extends Controller
             'http_ok' => (bool)($http['ok'] ?? false),
             'http_status' => $http['status'] ?? null,
             'latency_ms' => $http['ms'] ?? null,
+            'functional_check' => $funcional,
         ];
     }
 
@@ -1743,9 +1836,26 @@ class Inicio extends Controller
         $ok = false;
         $stopPs1 = (string)($srv['stop_ps1'] ?? '');
         $stopBat = (string)($srv['stop_bat'] ?? '');
+        $env = is_array($srv['env'] ?? null) ? $srv['env'] : [];
         if ($stopPs1 !== '' && is_file($stopPs1)) {
             $ps = '"' . str_replace('"', '""', $stopPs1) . '"';
-            $cmd = 'powershell -NoProfile -ExecutionPolicy Bypass -File ' . $ps . ' -Silent';
+            if ($env) {
+                $runCmdPath = rtrim(sys_get_temp_dir(), DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR
+                    . 'sparta-servicio-stop-' . preg_replace('/[^a-z0-9_-]+/i', '-', (string)($srv['id'] ?? 'local')) . '-' . date('Ymd-His') . '.cmd';
+                $runCmd = "@echo off\r\n";
+                foreach ($env as $key => $value) {
+                    $key = preg_replace('/[^A-Z0-9_]+/i', '', (string)$key);
+                    if ($key === '') {
+                        continue;
+                    }
+                    $runCmd .= 'set "' . $key . '=' . str_replace('"', '', (string)$value) . '"' . "\r\n";
+                }
+                $runCmd .= 'powershell -NoProfile -ExecutionPolicy Bypass -File ' . $ps . " -Silent\r\n";
+                @file_put_contents($runCmdPath, $runCmd);
+                $cmd = 'cmd /c "' . str_replace('"', '""', $runCmdPath) . '"';
+            } else {
+                $cmd = 'powershell -NoProfile -ExecutionPolicy Bypass -File ' . $ps . ' -Silent';
+            }
             @shell_exec($cmd);
             $ok = true;
         } elseif ($stopBat !== '' && is_file($stopBat)) {
@@ -1869,6 +1979,94 @@ class Inicio extends Controller
         }
         $ok = ($status >= 200 && $status < 500); // 4xx aún cuenta como "responde HTTP"
         return ['ok' => $ok, 'status' => $status > 0 ? $status : null, 'ms' => $ms];
+    }
+
+    private function serviciosLocalesDocApiKey(): string
+    {
+        $configFile = defined('RAIZ') ? (RAIZ . '/config/config.ini') : (dirname(__DIR__) . '/config/config.ini');
+        if (!is_file($configFile)) {
+            return 'sparta-__SPARTA_SECRET_REDACTED__-doc-verificacion-key';
+        }
+        $config = @parse_ini_file($configFile, true);
+        if (!is_array($config) || !is_array($config['doc_verificacion'] ?? null)) {
+            return 'sparta-__SPARTA_SECRET_REDACTED__-doc-verificacion-key';
+        }
+        $apiKey = trim((string)($config['doc_verificacion']['api_key'] ?? ''));
+        return $apiKey !== '' ? $apiKey : 'sparta-__SPARTA_SECRET_REDACTED__-doc-verificacion-key';
+    }
+
+    private function serviciosLocalesProbarFuncional(array $srv, int $timeoutMs = 8000): ?array
+    {
+        $check = $srv['functional_check'] ?? null;
+        if (!is_array($check) || ($check['type'] ?? '') !== 'doc_api_validar_minimo') {
+            return null;
+        }
+
+        $apiKey = $this->serviciosLocalesDocApiKey();
+        if ($apiKey === '') {
+            return [
+                'type' => 'doc_api_validar_minimo',
+                'ok' => false,
+                'status' => null,
+                'ms' => null,
+                'message' => 'Falta api_key en [doc_verificacion].',
+            ];
+        }
+
+        $url = rtrim((string)($check['url'] ?? ''), '/');
+        if ($url === '') {
+            return [
+                'type' => 'doc_api_validar_minimo',
+                'ok' => false,
+                'status' => null,
+                'ms' => null,
+                'message' => 'Falta URL funcional.',
+            ];
+        }
+        $url .= '?' . http_build_query(['tipo_documento' => 'INE_NUEVA']);
+
+        $ch = @curl_init($url);
+        if (!$ch) {
+            return [
+                'type' => 'doc_api_validar_minimo',
+                'ok' => false,
+                'status' => null,
+                'ms' => null,
+                'message' => 'No se pudo inicializar cURL.',
+            ];
+        }
+
+        @curl_setopt_array($ch, [
+            CURLOPT_POST => true,
+            CURLOPT_POSTFIELDS => ['tipo_documento' => 'INE_NUEVA'],
+            CURLOPT_HTTPHEADER => ['X-API-Key: ' . $apiKey, 'Expect:'],
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_TIMEOUT_MS => $timeoutMs,
+            CURLOPT_CONNECTTIMEOUT_MS => min(3000, $timeoutMs),
+            CURLOPT_USERAGENT => 'SpartaLedger/ServiciosLocalesEstadoDocApi',
+        ]);
+        $t0 = microtime(true);
+        $body = @curl_exec($ch);
+        $ms = (int)round((microtime(true) - $t0) * 1000);
+        $status = (int)@curl_getinfo($ch, CURLINFO_RESPONSE_CODE);
+        $errno = (int)@curl_errno($ch);
+        $err = (string)@curl_error($ch);
+        @curl_close($ch);
+
+        $ok = $errno === 0 && in_array($status, [400, 422], true);
+        $message = $ok
+            ? 'validar-expediente responde y rechaza el payload vacio como se espera.'
+            : ($err !== '' ? $err : 'Respuesta inesperada del check funcional.');
+
+        return [
+            'type' => 'doc_api_validar_minimo',
+            'ok' => $ok,
+            'status' => $status > 0 ? $status : null,
+            'ms' => $ms,
+            'curl_errno' => $errno,
+            'message' => $message,
+            'body_snip' => is_string($body) ? substr(preg_replace('/\s+/', ' ', $body), 0, 180) : '',
+        ];
     }
 
     private function validarActualizacionPassword()

@@ -7,6 +7,11 @@ param(
 
 $ErrorActionPreference = 'SilentlyContinue'
 $port = 8000
+try {
+    if ($env:SPARTA_API_PORT) { $port = [int]$env:SPARTA_API_PORT }
+} catch {
+    $port = 8000
+}
 $here = Split-Path -Parent $MyInvocation.MyCommand.Path
 $apiDir = Resolve-Path (Join-Path $here '..') -ErrorAction SilentlyContinue
 $apiDirText = if ($apiDir) { $apiDir.Path } else { (Join-Path $here '..') }
@@ -63,10 +68,10 @@ try {
         $isThisApiPython = $cmd -like "*$apiDirText*" -or $cmd -like "*backend\API\tools\PythonPortable\python.exe*" -or $cmd -like "*backend\API\venv\Scripts\python.exe*"
         $isPythonProcess = ([string]$_.Name) -match '^python'
         $isUvicornDocApi = $cmd -match 'uvicorn\s+app\.main:app' -or $cmd -match 'uvicorn.*app\.main:app' -or $cmd -match 'run-uvicorn-hidden\.cmd'
-        $isPort8000Api = $cmd -match '--port\s+8000'
+        $isPortApi = $cmd -match ('--port\s+' + [regex]::Escape([string]$port))
         $isLauncherCmd = $cmd -match 'iniciar-agente-foreground\.bat' -or $cmd -match 'run-uvicorn-hidden\.cmd'
 
-        return ($isThisApiPython -and ($isPythonProcess -or $isUvicornDocApi -or $isPort8000Api)) -or ($cmd -like "*$apiDirText*" -and $isLauncherCmd)
+        return ($isThisApiPython -and ($isPythonProcess -or $isUvicornDocApi -or $isPortApi)) -or ($cmd -like "*$apiDirText*" -and $isLauncherCmd)
     } | ForEach-Object {
         if ($_.ProcessId -gt 0) { [void]$pids.Add([int]$_.ProcessId) }
     }
@@ -199,7 +204,7 @@ if ($stillListening.Count -gt 0) {
 
 $healthStillUp = $false
 try {
-    $resp = Invoke-WebRequest -Uri 'http://127.0.0.1:8000/api/v1/health' -UseBasicParsing -TimeoutSec 3 -ErrorAction Stop
+    $resp = Invoke-WebRequest -Uri "http://127.0.0.1:$port/api/v1/health" -UseBasicParsing -TimeoutSec 3 -ErrorAction Stop
     if ($resp.StatusCode -ge 200 -and $resp.StatusCode -lt 500) { $healthStillUp = $true }
 } catch {}
 

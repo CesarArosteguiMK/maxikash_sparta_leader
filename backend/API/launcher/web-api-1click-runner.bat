@@ -1,60 +1,136 @@
 @echo off
 chcp 65001 >nul
 setlocal EnableDelayedExpansion
+set "API_PORT=%SPARTA_API_PORT%"
+if "%API_PORT%"=="" set "API_PORT=8000"
 
 rem ---------------------------------------------------------------------
-rem Punto de entrada cuando el usuario 878 pulsa «API» en Inicio:
-rem   Controller\Inicio::apiDocOneClickIniciar → este .bat →
-rem   Iniciar-API-Verificacion.bat (doctor + install si falta + arranque oculto).
-rem No bifurcar otro camino desde la UI; así el polling y logs web-api-1click-*.log cuadran.
+rem Entrada del boton "API" de Inicio.
+rem La tarea programada corre un supervisor como SYSTEM. Este runner no
+rem necesita llamar schtasks /Run; solo deja una bandera de reinicio que el
+rem supervisor consume desde backend/API/runtime.
 rem ---------------------------------------------------------------------
 
 set "TASK_NAME=Sparta API Verificacion Documentos"
 set "TASK_INSTALLER=%~dp0instalar-tarea-api-documentos.ps1"
+set "TASK_FILE=%SystemRoot%\System32\Tasks\%TASK_NAME%"
 set "TASK_USABLE=0"
+
+if /I "%SPARTA_API_DIRECT_START%"=="1" (
+    echo [MODE] Arranque directo solicitado por el panel web ^(modo servicios locales^).
+    call :RunDependencyPreflight
+    if errorlevel 1 (
+        set "RC=!ERRORLEVEL!"
+        echo __FIN__:!RC!
+        exit /b !RC!
+    )
+    call :DirectFallback
+    exit /b !ERRORLEVEL!
+)
 
 call :RefreshTaskUsable
 if not "!TASK_USABLE!"=="1" (
     if exist "%TASK_INSTALLER%" (
-        echo [TASK] No existe tarea programada utilizable o apunta al arranque anterior. Intentando instalar/actualizar desde el boton 1-click...
+        echo [TASK] No existe tarea supervisor utilizable o apunta al arranque anterior.
+        echo [TASK] Intentando instalar/actualizar la tarea persistente desde el boton 1-click...
         powershell -NoProfile -ExecutionPolicy Bypass -File "%TASK_INSTALLER%"
         if "!ERRORLEVEL!"=="0" (
-            echo [TASK] Tarea programada instalada/actualizada correctamente desde el boton 1-click.
+            echo [TASK] Tarea programada instalada/actualizada correctamente.
         ) else (
-            echo [TASK] No se pudo instalar/actualizar la tarea programada desde este proceso web. Se usara flujo directo como respaldo.
+            echo [TASK][ERROR] No se pudo instalar/actualizar la tarea desde este proceso web.
+            echo [TASK][ERROR] Normalmente falta ejecutar como Administrador para crear la tarea SYSTEM.
         )
     ) else (
-        echo [TASK] No existe instalador de tarea programada. Se usara flujo directo como respaldo.
+        echo [TASK][ERROR] No existe instalador de tarea programada: %TASK_INSTALLER%
     )
 )
 
 call :RefreshTaskUsable
-if "!TASK_USABLE!"=="1" (
-    echo [TASK] Tarea programada detectada: %TASK_NAME%
-    echo [TASK] Se intenta reinicio limpio por tarea para que no dependa de la sesion del usuario.
-    powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0cerrar-agente.ps1" -Silent
-    schtasks /Run /TN "%TASK_NAME%"
-    if "!ERRORLEVEL!"=="0" (
-        powershell -NoProfile -ExecutionPolicy Bypass -Command "$ok=$false; for($i=0;$i -lt 90;$i++){ try { $r=Invoke-WebRequest -Uri 'http://127.0.0.1:8000/api/v1/health' -UseBasicParsing -TimeoutSec 2; if($r.StatusCode -ge 200 -and $r.StatusCode -lt 500){ $ok=$true; break } } catch {}; Start-Sleep -Milliseconds 500 }; if($ok){ exit 0 } exit 1"
-        if "!ERRORLEVEL!"=="0" (
-            echo [TASK] API levantada por tarea programada: http://127.0.0.1:8000
-            echo __FIN__:0
-            exit /b 0
-        )
-        echo [TASK] La tarea se ejecuto, pero no confirmo health. Se usara flujo directo como respaldo.
-    ) else (
-        echo [TASK] No se pudo ejecutar la tarea. Se usara flujo directo como respaldo.
-    )
+if not "!TASK_USABLE!"=="1" (
+    echo [TASK][WARN] No hay tarea supervisor utilizable. El arranque directo puede apagarse al cerrar sesion.
+    echo [TASK][WARN] Para dejarlo persistente, instale una vez como Administrador:
+    echo [TASK][WARN]   powershell -NoProfile -ExecutionPolicy Bypass -File "%TASK_INSTALLER%"
+    echo [TASK][WARN] Usando arranque directo temporal para no dejar el boton colgado.
+    call :DirectFallback
+    exit /b !ERRORLEVEL!
 )
 
+call :RunDependencyPreflight
+if errorlevel 1 (
+    set "RC=!ERRORLEVEL!"
+    echo __FIN__:!RC!
+    exit /b !RC!
+)
+
+call :RequestSupervisorRestart
+set "RC=!ERRORLEVEL!"
+echo __FIN__:!RC!
+exit /b !RC!
+
+:DirectFallback
+for %%I in ("%~dp0..") do set "API_DIR=%%~fI"
+if "!API_DIR:~-1!"=="\" set "API_DIR=!API_DIR:~0,-1!"
+set "RESTART_FLAG=!API_DIR!\runtime\api-restart-request.flag"
+if exist "!RESTART_FLAG!" (
+    echo [TASK][WARN] Limpiando bandera de supervisor pendiente antes del arranque directo: !RESTART_FLAG!
+    del /f /q "!RESTART_FLAG!" >nul 2>nul
+)
 call "%~dp0Iniciar-API-Verificacion.bat"
-set "RC=%ERRORLEVEL%"
-echo __FIN__:%RC%
-exit /b %RC%
+set "RC=!ERRORLEVEL!"
+echo __FIN__:!RC!
+exit /b !RC!
+
+:RunDependencyPreflight
+echo [CHECK] Verificando dependencias criticas antes del arranque por tarea...
+powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0doctor-api.ps1"
+set "DOC_RC=!ERRORLEVEL!"
+if "!DOC_RC!"=="1" (
+    echo [CHECK] Hay errores bloqueantes. Intentando reparacion automatica de dependencias...
+    powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0doctor-api.ps1" -Fix -InstallMissing
+    set "DOC_FIX_RC=!ERRORLEVEL!"
+    if "!DOC_FIX_RC!"=="1" (
+        echo [CHECK][ERROR] No se pudieron reparar todas las dependencias criticas.
+        echo [CHECK][ERROR] Revise el ultimo doctor-*.log en backend\API\logs.
+        exit /b 1
+    )
+    echo [CHECK] Reparacion terminada con codigo !DOC_FIX_RC!. Continuando.
+    exit /b 0
+)
+if "!DOC_RC!"=="2" (
+    echo [CHECK] Doctor termino con avisos, sin errores bloqueantes. Continuando.
+) else (
+    echo [CHECK] Dependencias criticas OK.
+)
+exit /b 0
+
+:RequestSupervisorRestart
+for %%I in ("%~dp0..") do set "API_DIR=%%~fI"
+if "!API_DIR:~-1!"=="\" set "API_DIR=!API_DIR:~0,-1!"
+set "RUNTIME_DIR=!API_DIR!\runtime"
+set "RESTART_FLAG=!RUNTIME_DIR!\api-restart-request.flag"
+if not exist "!RUNTIME_DIR!" mkdir "!RUNTIME_DIR!" >nul 2>&1
+
+echo [TASK] Supervisor detectado en Task Scheduler.
+echo [TASK] Solicitando reinicio persistente por bandera: !RESTART_FLAG!
+> "!RESTART_FLAG!" echo requested_at=%DATE% %TIME%
+>> "!RESTART_FLAG!" echo requested_by=web-api-1click-runner
+set "SPARTA_API_RESTART_FLAG=!RESTART_FLAG!"
+
+powershell -NoProfile -ExecutionPolicy Bypass -Command "$flag=$env:SPARTA_API_RESTART_FLAG; $port=[int]$env:API_PORT; $ok=$false; for($i=0;$i -lt 120;$i++){ $gone=-not (Test-Path -LiteralPath $flag); if($gone){ try { $r=Invoke-WebRequest -Uri ('http://127.0.0.1:' + $port + '/api/v1/health') -UseBasicParsing -TimeoutSec 2; if($r.StatusCode -ge 200 -and $r.StatusCode -lt 500){ $ok=$true; break } } catch {} }; Start-Sleep -Milliseconds 500 }; if($ok){ exit 0 } exit 1"
+if "!ERRORLEVEL!"=="0" (
+    echo [TASK] Supervisor consumio la solicitud y la API responde: http://127.0.0.1:!API_PORT!
+    exit /b 0
+)
+
+echo [TASK][ERROR] El supervisor no consumio la solicitud o la API no confirmo health.
+echo [TASK][ERROR] Revise logs\api-supervisor.log, logs\api_oculto_startup.log y logs\uvicorn-stderr.log.
+exit /b 1
 
 :RefreshTaskUsable
 set "TASK_USABLE=0"
 schtasks /Query /TN "%TASK_NAME%" >nul 2>nul
 if not "!ERRORLEVEL!"=="0" exit /b 0
-for /f "delims=" %%L in ('schtasks /Query /TN "%TASK_NAME%" /XML 2^>nul ^| findstr /I "iniciar-agente-tarea.bat"') do set "TASK_USABLE=1"
+set "SPARTA_TASK_FILE=%TASK_FILE%"
+powershell -NoProfile -ExecutionPolicy Bypass -Command "$p=$env:SPARTA_TASK_FILE; try { $c=Get-Content -LiteralPath $p -Raw -ErrorAction Stop; if($c -like '*supervisar-api-documentos.ps1*'){ exit 0 } } catch {}; exit 1" >nul 2>nul
+if "!ERRORLEVEL!"=="0" set "TASK_USABLE=1"
 exit /b 0

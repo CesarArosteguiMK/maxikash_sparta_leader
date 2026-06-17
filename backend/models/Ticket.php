@@ -4194,17 +4194,49 @@ public static function getNombresClienteParaReporte(array $idsCredito): array
         }
     }
 
+    private static function sincronizarHistoricoIlocalizablesDesdeArchivos(Database $db): void
+    {
+        $paths = glob(self::reporteSemanalGlobalArchivoDir() . DIRECTORY_SEPARATOR . 'reporte_semanal_global_v3_*.json');
+        if (!is_array($paths) || empty($paths)) {
+            return;
+        }
+        foreach ($paths as $path) {
+            if (!is_file($path) || !preg_match('/reporte_semanal_global_v3_(\d{4}-\d{2}-\d{2})\.json$/', basename($path), $m)) {
+                continue;
+            }
+            $semanaInicio = $m[1];
+            $raw = @file_get_contents($path);
+            if (!is_string($raw) || $raw === '') {
+                continue;
+            }
+            $data = json_decode($raw, true);
+            if (!is_array($data) || empty($data['filas']) || !is_array($data['filas'])) {
+                continue;
+            }
+            $semanaFin = (new \DateTimeImmutable($semanaInicio . ' 00:00:00', new \DateTimeZone('America/Mexico_City')))
+                ->modify('+6 days')
+                ->format('Y-m-d');
+            self::sincronizarHistoricoIlocalizables($db, $data['filas'], $semanaInicio, $semanaFin);
+        }
+    }
+
     public static function getHistoricoIlocalizables(array $filtros = []): array
     {
         $db = new Database();
         try {
             self::asegurarHistoricoIlocalizablesSchema($db);
+            self::sincronizarHistoricoIlocalizablesDesdeArchivos($db);
             $where = ["activo = 1"];
             $params = [];
             $q = trim((string)($filtros['q'] ?? ''));
             if ($q !== '') {
                 $where[] = "(CAST(id_credito AS CHAR) LIKE :q OR folio LIKE :q OR nombre_cliente LIKE :q OR nombre_gestor LIKE :q)";
                 $params['q'] = '%' . $q . '%';
+            }
+            $origen = trim((string)($filtros['origen'] ?? ''));
+            if ($origen !== '') {
+                $where[] = "LOWER(COALESCE(origen, '')) = :origen";
+                $params['origen'] = strtolower($origen);
             }
             $limit = (int)($filtros['limit'] ?? 500);
             if ($limit < 1 || $limit > 2000) {
@@ -4217,10 +4249,22 @@ public static function getNombresClienteParaReporte(array $idsCredito): array
                  LIMIT " . $limit,
                 $params
             );
-            return ['success' => true, 'mensaje' => 'OK', 'datos' => $rows, 'total' => count($rows)];
+            $creditos = [];
+            foreach ($rows as $row) {
+                if (!empty($row['id_credito'])) {
+                    $creditos[(string)$row['id_credito']] = true;
+                }
+            }
+            return [
+                'success' => true,
+                'mensaje' => 'OK',
+                'datos' => $rows,
+                'total' => count($rows),
+                'total_creditos' => count($creditos),
+            ];
         } catch (\Throwable $e) {
             error_log('getHistoricoIlocalizables error: ' . $e->getMessage());
-            return ['success' => false, 'mensaje' => $e->getMessage(), 'datos' => [], 'total' => 0];
+            return ['success' => false, 'mensaje' => $e->getMessage(), 'datos' => [], 'total' => 0, 'total_creditos' => 0];
         }
     }
 

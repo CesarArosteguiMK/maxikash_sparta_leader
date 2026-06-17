@@ -42,6 +42,7 @@
         var rastreoTotalGestiones = 0;
         var rastreoConUbicacion = 0;
         var rastreoPuntosGeo = [];
+        var rastreoPuntosGeoCargados = false;
         var rastreoCentrarEnGeoAlternasIndice = null;
         var rastreoMarkersGeoAlternasGrande = [];
         var rastreoInfoWindowsGeoAlternasGrande = [];
@@ -524,13 +525,17 @@ JS;
                 rastreoGestionesCargadas = true;
                 rastreoTotalGestiones = (r.datos || []).length;
                 rastreoConUbicacion = rastreoGestionesParaMapa.length;
-                var htmlGeoPart = buildGeoListHtml(rastreoPuntosGeo);
-                $(\'#rastreoDireccionesAlternasContenido\').removeClass(\'rastreo-contenido-cargando\').html(htmlGeoPart || \'<span class="text-muted small">Sin direcciones alternas para este crédito.</span>\');
+                if (rastreoPuntosGeoCargados || (rastreoPuntosGeo && rastreoPuntosGeo.length)) {
+                    var htmlGeoPart = buildGeoListHtml(rastreoPuntosGeo);
+                    $(\'#rastreoDireccionesAlternasContenido\').removeClass(\'rastreo-contenido-cargando\').html(htmlGeoPart || \'<span class="text-muted small">Sin coordenada de firma para este crédito.</span>\');
+                }
                 $(\'#rastreoDireccionesAlternas .rastreo-mapa-wrap\').show();
                 maybeInitMapaAlternas();
             }, onError: function() {
-                var htmlGeoErr = buildGeoListHtml(rastreoPuntosGeo);
-                $(\'#rastreoDireccionesAlternasContenido\').removeClass(\'rastreo-contenido-cargando\').html(htmlGeoErr + \'<span class="text-muted small">Sin datos de gestiones para el mapa.</span>\');
+                if (rastreoPuntosGeoCargados || (rastreoPuntosGeo && rastreoPuntosGeo.length)) {
+                    var htmlGeoErr = buildGeoListHtml(rastreoPuntosGeo);
+                    $(\'#rastreoDireccionesAlternasContenido\').removeClass(\'rastreo-contenido-cargando\').html(htmlGeoErr || \'<span class="text-muted small">Sin coordenada de firma para este crédito.</span>\');
+                }
                 $(\'#rastreoDireccionesAlternas .rastreo-mapa-wrap\').show();
                 rastreoGestionesParaMapa = [];
                 rastreoGestionesCargadas = true;
@@ -550,15 +555,18 @@ JS;
                 processData: false,
                 onSuccess: function(respGeo) {
                     if (idCreditoRastreoActual !== idCreditoCargaGeo) return;
+                    rastreoPuntosGeoCargados = true;
                     rastreoPuntosGeo = (respGeo.puntos_geo && respGeo.puntos_geo.length) ? respGeo.puntos_geo : [];
                     var htmlGeo = buildGeoListHtml(rastreoPuntosGeo);
-                    $(\'#rastreoDireccionesAlternasContenido\').removeClass(\'rastreo-contenido-cargando\').html(htmlGeo || \'<span class="text-muted small">Sin direcciones alternas para este crédito.</span>\');
+                    $(\'#rastreoDireccionesAlternasContenido\').removeClass(\'rastreo-contenido-cargando\').html(htmlGeo || \'<span class="text-muted small">Sin coordenada de firma para este crédito.</span>\');
                     $(\'#rastreoDireccionesAlternas .rastreo-mapa-wrap\').show();
                     maybeInitMapaAlternas();
                 },
                 onError: function() {
                     if (idCreditoRastreoActual !== idCreditoCargaGeo) return;
-                    $(\'#rastreoDireccionesAlternasContenido\').removeClass(\'rastreo-contenido-cargando\').html(\'<span class="text-muted small">No se pudieron cargar las direcciones alternas. Revisa la conexión o intenta de nuevo.</span>\');
+                    rastreoPuntosGeoCargados = true;
+                    var htmlGeoError = buildGeoListHtml(rastreoPuntosGeo);
+                    $(\'#rastreoDireccionesAlternasContenido\').removeClass(\'rastreo-contenido-cargando\').html(htmlGeoError || \'<span class="text-muted small">No se pudo cargar la coordenada de firma. Intenta de nuevo.</span>\');
                     $(\'#rastreoDireccionesAlternas .rastreo-mapa-wrap\').show();
                 }
             });
@@ -586,6 +594,7 @@ JS;
         function iconoFlotanteGestor(esCampo) { return esCampo ? \'fa-motorcycle\' : \'fa-phone\'; }
         function iconoFlotanteGeo(dondeFirma) {
             var d = (dondeFirma || \'\').toString().trim().toUpperCase();
+            if (d.indexOf(\'FIRMA\') !== -1 || d.indexOf(\'FAD\') !== -1) return \'fa-file-signature\';
             if (d.indexOf(\'CASA\') !== -1) return \'fa-house\';           /* casa → 🏠 */
             if (d.indexOf(\'AGENCIA\') !== -1) return \'fa-landmark\';     /* agencia → 🏢 */
             return \'fa-map-marker-alt\';                                   /* otro domicilio → 🏘️ */
@@ -715,6 +724,7 @@ JS;
         }
         function getGeoItemClaseYIcon(dondeFirma) {
             var d = (dondeFirma || \'\').toString().trim().toUpperCase();
+            if (d.indexOf(\'FIRMA\') !== -1 || d.indexOf(\'FAD\') !== -1) return { clase: \'rastreo-geo-firma\', pinClass: \'rastreo-pin-firma\', iconHtml: \'<i class="fa-solid fa-file-signature rastreo-geo-icon"></i>\' };
             if (d.indexOf(\'CASA\') !== -1) return { clase: \'rastreo-geo-casa\', pinClass: \'rastreo-pin-casa\', iconHtml: \'<i class="fa-solid fa-house rastreo-geo-icon"></i>\' };
             if (d.indexOf(\'AGENCIA\') !== -1) return { clase: \'rastreo-geo-agencia\', pinClass: \'rastreo-pin-carmelita\', iconHtml: \'\' };
             return { clase: \'rastreo-geo-otro\', pinClass: \'rastreo-pin-verde\', iconHtml: \'\' };
@@ -722,11 +732,13 @@ JS;
         function buildGeoListHtml(puntosGeo) {
             if (!puntosGeo || !puntosGeo.length) return \'\';
             function escG(s) { if (s==null||s===undefined) return \'\'; return (s+\'\').replace(/&/g, \'&amp;\').replace(/</g, \'&lt;\').replace(/>/g, \'&gt;\').replace(/\"/g, \'&quot;\'); }
-            var html = \'<div class="rastreo-donde-firma-titulo">Donde firma:</div>\';
+            var html = \'<div class="rastreo-donde-firma-titulo">Donde firmó:</div>\';
             puntosGeo.forEach(function(p, i) {
                 var donde = escG(p.donde_firma || \'Dirección\');
-                var dir = escG(p.direccion_maps || \'\');
-                var q = encodeURIComponent(p.direccion_maps || p.lat + \',\' + p.lng);
+                var latGeo = parseFloat(p.lat), lngGeo = parseFloat(p.lng);
+                var tieneCoordGeo = !isNaN(latGeo) && !isNaN(lngGeo);
+                var dir = escG(p.direccion_label || \'Ubicación donde firmó el cliente\');
+                var q = encodeURIComponent(tieneCoordGeo ? (latGeo + \',\' + lngGeo) : (p.direccion_maps || \'\'));
                 var est = getGeoItemClaseYIcon(p.donde_firma);
                 var linkPart = dir ? \' — <a href="https://www.google.com/maps/search/?api=1&query=\' + q + \'" target="_blank" rel="noopener" class="rastreo-geo-link">\' + (dir.length > 40 ? dir.substring(0,40)+\'...\' : dir) + \'</a>\' : \'\';
                 html += \'<div class="rastreo-geo-item \' + est.clase + \' small mb-2" data-indice-geo="\' + i + \'" title="Clic para ver en mapa"><span class="\' + est.pinClass + \'"></span>\' + est.iconHtml + \' <strong>\' + donde + \'</strong>\' + linkPart + \'</div>\';
@@ -793,7 +805,7 @@ JS;
                             var latP = parseFloat(p.lat), lngP = parseFloat(p.lng);
                             if (isNaN(latP) || isNaN(lngP) || !enBounds(latP, lngP)) return;
                             var d = (p.donde_firma || \'\').toString().trim().toUpperCase();
-                            var colorP = (d.indexOf(\'AGENCIA\') !== -1) ? \'#d4a574\' : (d.indexOf(\'CASA\') !== -1) ? \'#ec4899\' : \'#22c55e\';
+                            var colorP = (d.indexOf(\'FIRMA\') !== -1 || d.indexOf(\'FAD\') !== -1) ? \'#14b8a6\' : (d.indexOf(\'AGENCIA\') !== -1) ? \'#d4a574\' : (d.indexOf(\'CASA\') !== -1) ? \'#ec4899\' : \'#22c55e\';
                             new google.maps.Marker({ position: { lat: latP, lng: lngP }, map: mini, icon: pinCirculoIcon(colorP), zIndex: 1 });
                         });
                         (rastreoDireccionesParaMapa || []).forEach(function(p) {
@@ -1038,11 +1050,11 @@ JS;
                     var pos = { lat: lat, lng: lon };
                     bounds.extend(pos);
                     var donde = (p.donde_firma || \'\').replace(/</g, \'&lt;\').replace(/>/g, \'&gt;\');
-                    var dir = (p.direccion_maps || \'\').replace(/</g, \'&lt;\').replace(/>/g, \'&gt;\');
+                    var dir = (p.direccion_label || p.direccion_maps || \'\').replace(/</g, \'&lt;\').replace(/>/g, \'&gt;\');
                     var q = encodeURIComponent(p.direccion_maps || lat + \',\' + lon);
-                    var infoHtml = \'<strong>Donde firma:</strong> \' + (donde || \'—\') + \'<br><strong>Dirección</strong>: \' + (dir || \'—\') + \'<br><strong>Cliente</strong>: \' + (rastreoDatosClienteActual.nombre || \'—\') + \'<br><strong>Crédito</strong>: \' + (rastreoDatosClienteActual.credito || \'—\') + \'<br><a href="https://www.google.com/maps/search/?api=1&query=\' + q + \'" target="_blank" rel="noopener">Abrir en Google Maps</a>\';
+                    var infoHtml = \'<strong>Donde firmó:</strong> \' + (donde || \'—\') + \'<br><strong>Dirección</strong>: \' + (dir || \'—\') + \'<br><strong>Cliente</strong>: \' + (rastreoDatosClienteActual.nombre || \'—\') + \'<br><strong>Crédito</strong>: \' + (rastreoDatosClienteActual.credito || \'—\') + \'<br><a href="https://www.google.com/maps/search/?api=1&query=\' + q + \'" target="_blank" rel="noopener">Abrir en Google Maps</a>\';
                     var d = (p.donde_firma || \'\').toString().trim().toUpperCase();
-                    var colorGeo = (d.indexOf(\'AGENCIA\') !== -1) ? \'#d4a574\' : (d.indexOf(\'CASA\') !== -1) ? \'#ec4899\' : \'#22c55e\';
+                    var colorGeo = (d.indexOf(\'FIRMA\') !== -1 || d.indexOf(\'FAD\') !== -1) ? \'#14b8a6\' : (d.indexOf(\'AGENCIA\') !== -1) ? \'#d4a574\' : (d.indexOf(\'CASA\') !== -1) ? \'#ec4899\' : \'#22c55e\';
                     crearPuntoConIconoFlotante(rastreoMapaAlternas, pos, colorGeo, iconoFlotanteGeo(p.donde_firma), donde || \'Dirección geo \' + (i+1), infoHtml);
                 });
             }
@@ -1351,11 +1363,11 @@ JS;
                     var pos = { lat: lat, lng: lon };
                     bounds.extend(pos);
                     var donde = (p.donde_firma || \'\').replace(/</g, \'&lt;\').replace(/>/g, \'&gt;\');
-                    var dir = (p.direccion_maps || \'\').replace(/</g, \'&lt;\').replace(/>/g, \'&gt;\');
+                    var dir = (p.direccion_label || p.direccion_maps || \'\').replace(/</g, \'&lt;\').replace(/>/g, \'&gt;\');
                     var q = encodeURIComponent(p.direccion_maps || lat + \',\' + lon);
-                    var infoHtml = \'<strong>Donde firma:</strong> \' + (donde || \'—\') + \'<br><strong>Dirección</strong>: \' + (dir || \'—\') + \'<br><strong>Cliente</strong>: \' + (rastreoDatosClienteActual.nombre || \'—\') + \'<br><strong>Crédito</strong>: \' + (rastreoDatosClienteActual.credito || \'—\') + \'<br><a href="https://www.google.com/maps/search/?api=1&query=\' + q + \'" target="_blank" rel="noopener">Abrir en Google Maps</a>\';
+                    var infoHtml = \'<strong>Donde firmó:</strong> \' + (donde || \'—\') + \'<br><strong>Dirección</strong>: \' + (dir || \'—\') + \'<br><strong>Cliente</strong>: \' + (rastreoDatosClienteActual.nombre || \'—\') + \'<br><strong>Crédito</strong>: \' + (rastreoDatosClienteActual.credito || \'—\') + \'<br><a href="https://www.google.com/maps/search/?api=1&query=\' + q + \'" target="_blank" rel="noopener">Abrir en Google Maps</a>\';
                     var d = (p.donde_firma || \'\').toString().trim().toUpperCase();
-                    var colorGeo = (d.indexOf(\'AGENCIA\') !== -1) ? \'#d4a574\' : (d.indexOf(\'CASA\') !== -1) ? \'#ec4899\' : \'#22c55e\';
+                    var colorGeo = (d.indexOf(\'FIRMA\') !== -1 || d.indexOf(\'FAD\') !== -1) ? \'#14b8a6\' : (d.indexOf(\'AGENCIA\') !== -1) ? \'#d4a574\' : (d.indexOf(\'CASA\') !== -1) ? \'#ec4899\' : \'#22c55e\';
                     var resGeo = crearPuntoConIconoFlotante(rastreoMapaAlternasGrande, pos, colorGeo, iconoFlotanteGeo(p.donde_firma), donde || \'Dirección geo \' + (i+1), infoHtml);
                     rastreoMarkersGeoAlternasGrande.push(resGeo.marker);
                     rastreoInfoWindowsGeoAlternasGrande.push(resGeo.infow);
@@ -1400,11 +1412,12 @@ JS;
             }
             var conU = (typeof rastreoConUbicacion !== \'undefined\' ? rastreoConUbicacion : (puntosGestores && puntosGestores.length) ? puntosGestores.length : 0);
             var totG = (typeof rastreoTotalGestiones !== \'undefined\' ? rastreoTotalGestiones : 0) || conU;
-            var tiposPresentes = { casa: false, otroDomicilio: false, agencia: false, maxiApp: false, gestores: false };
+            var tiposPresentes = { firmaFad: false, casa: false, otroDomicilio: false, agencia: false, maxiApp: false, gestores: false };
             if (puntosGeo && puntosGeo.length) {
                 puntosGeo.forEach(function(p) {
                     var d = (p.donde_firma || \'\').toString().trim().toUpperCase();
-                    if (d.indexOf(\'CASA\') !== -1) tiposPresentes.casa = true;
+                    if (d.indexOf(\'FIRMA\') !== -1 || d.indexOf(\'FAD\') !== -1) tiposPresentes.firmaFad = true;
+                    else if (d.indexOf(\'CASA\') !== -1) tiposPresentes.casa = true;
                     else if (d.indexOf(\'AGENCIA\') !== -1) tiposPresentes.agencia = true;
                     else tiposPresentes.otroDomicilio = true;
                 });
@@ -1415,6 +1428,7 @@ JS;
             }
             if (puntosGestores && puntosGestores.length) tiposPresentes.gestores = true;
             var leyendaGrandeHtml = \'\';
+            if (tiposPresentes.firmaFad) leyendaGrandeHtml += \'<span class="d-block rastreo-leyenda-item cursor-pointer d-flex align-items-center gap-1" data-tipo-leyenda="firmaFad" style="cursor:pointer;padding:2px 4px;border-radius:4px;" onmouseover="this.style.background=\\\'rgba(20,184,166,0.1)\\\'" onmouseout="this.style.background=\\\'transparent\\\'"><span class="rounded-circle d-inline-block" style="width:10px;height:10px;background:#14b8a6;flex-shrink:0;"></span> ✍ = <span style="color:#0f766e !important;font-weight:600 !important;">Firma FAD.</span></span>\';
             if (tiposPresentes.casa) leyendaGrandeHtml += \'<span class="d-block rastreo-leyenda-item cursor-pointer d-flex align-items-center gap-1" data-tipo-leyenda="casa" style="cursor:pointer;padding:2px 4px;border-radius:4px;" onmouseover="this.style.background=\\\'rgba(236,72,153,0.1)\\\'" onmouseout="this.style.background=\\\'transparent\\\'"><span class="rounded-circle d-inline-block" style="width:10px;height:10px;background:#ec4899;flex-shrink:0;"></span> 🏠 = <span style="color:#ec4899 !important;font-weight:600 !important;">CASA.</span></span>\';
             if (tiposPresentes.otroDomicilio) leyendaGrandeHtml += \'<span class="d-block rastreo-leyenda-item cursor-pointer d-flex align-items-center gap-1" data-tipo-leyenda="otroDomicilio" style="cursor:pointer;padding:2px 4px;border-radius:4px;" onmouseover="this.style.background=\\\'rgba(34,197,94,0.1)\\\'" onmouseout="this.style.background=\\\'transparent\\\'"><span class="rounded-circle d-inline-block" style="width:10px;height:10px;background:#22c55e;flex-shrink:0;"></span> 🏘️ = <span style="color:#22c55e !important;font-weight:600 !important;">Otro domicilio.</span></span>\';
             if (tiposPresentes.agencia) leyendaGrandeHtml += \'<span class="d-block rastreo-leyenda-item cursor-pointer d-flex align-items-center gap-1" data-tipo-leyenda="agencia" style="cursor:pointer;padding:2px 4px;border-radius:4px;" onmouseover="this.style.background=\\\'rgba(184,134,11,0.1)\\\'" onmouseout="this.style.background=\\\'transparent\\\'"><span class="rounded-circle d-inline-block" style="width:10px;height:10px;background:#b8860b;flex-shrink:0;"></span> 🏢 = <span style="color:#b8860b !important;font-weight:600 !important;">Agencia.</span></span>\';
@@ -1425,7 +1439,7 @@ JS;
                 var keyRef = rastreoEscHtml(rastreoReferenciaFiltroKey(ref));
                 leyendaGrandeHtml += \'<span class="d-block rastreo-leyenda-item cursor-pointer d-flex align-items-center gap-1" data-tipo-leyenda="referencia" data-ref-key="\' + keyRef + \'" style="cursor:pointer;padding:2px 4px;border-radius:4px;" onmouseover="this.style.background=\\\'rgba(17,24,39,0.1)\\\'" onmouseout="this.style.background=\\\'transparent\\\'"><span class="rounded-circle d-inline-block" style="width:10px;height:10px;background:\' + colorRef + \';border:1px solid #333;flex-shrink:0;"></span> 🏡 = <span style="color:#111827 !important;font-weight:600 !important;">\' + labelRef + \'.</span></span>\';
             });            if (tiposPresentes.gestores) leyendaGrandeHtml += \'<span class="d-block">Gestores = <span style="font-weight:600">cada asesor con su color.</span></span>\';
-            leyendaGrandeHtml += \'<span class="d-block rastreo-leyenda-conteo" style="color:#0f172a !important;font-weight:700 !important;">\' + conU + \' de \' + totG + \' con ubicación (máx. 16 gestores en mapa).</span><span class="d-block small text-muted mt-1">Use el botón 🔍 Lupa y luego clic en el mapa para ampliar una zona.</span>\';
+            if (tiposPresentes.gestores) leyendaGrandeHtml += \'<span class="d-block rastreo-leyenda-conteo" style="color:#0f172a !important;font-weight:700 !important;">\' + conU + \' de \' + totG + \' con ubicación (máx. 16 gestores en mapa).</span><span class="d-block small text-muted mt-1">Use el botón 🔍 Lupa y luego clic en el mapa para ampliar una zona.</span>\';
             var seenGG = {}, nombresGG = [];
             if (puntosGestores && puntosGestores.length) {
                 puntosGestores.forEach(function(g) { var n = (g.nombre || \'—\').trim() || \'—\'; if (!seenGG[n]) { seenGG[n] = true; nombresGG.push(n); } });
@@ -1454,7 +1468,18 @@ JS;
                             var tipo = this.getAttribute(\'data-tipo-leyenda\');
                             var boundsLeyenda = new google.maps.LatLngBounds();
                             var tienePuntos = false;
-                            if (tipo === \'casa\' && puntosGeo && puntosGeo.length) {
+                            if (tipo === \'firmaFad\' && puntosGeo && puntosGeo.length) {
+                                puntosGeo.forEach(function(p) {
+                                    var d = (p.donde_firma || \'\').toString().trim().toUpperCase();
+                                    if (d.indexOf(\'FIRMA\') !== -1 || d.indexOf(\'FAD\') !== -1) {
+                                        var lat = parseFloat(p.lat), lon = parseFloat(p.lng);
+                                        if (!isNaN(lat) && !isNaN(lon)) {
+                                            boundsLeyenda.extend({ lat: lat, lng: lon });
+                                            tienePuntos = true;
+                                        }
+                                    }
+                                });
+                            } else if (tipo === \'casa\' && puntosGeo && puntosGeo.length) {
                                 puntosGeo.forEach(function(p) {
                                     var d = (p.donde_firma || \'\').toString().trim().toUpperCase();
                                     if (d.indexOf(\'CASA\') !== -1) {
@@ -1468,7 +1493,7 @@ JS;
                             } else if (tipo === \'otroDomicilio\' && puntosGeo && puntosGeo.length) {
                                 puntosGeo.forEach(function(p) {
                                     var d = (p.donde_firma || \'\').toString().trim().toUpperCase();
-                                    if (d.indexOf(\'CASA\') === -1 && d.indexOf(\'AGENCIA\') === -1) {
+                                    if (d.indexOf(\'FIRMA\') === -1 && d.indexOf(\'FAD\') === -1 && d.indexOf(\'CASA\') === -1 && d.indexOf(\'AGENCIA\') === -1) {
                                         var lat = parseFloat(p.lat), lon = parseFloat(p.lng);
                                         if (!isNaN(lat) && !isNaN(lon)) {
                                             boundsLeyenda.extend({ lat: lat, lng: lon });
@@ -1529,7 +1554,18 @@ JS;
                             var tipo = this.getAttribute(\'data-tipo-leyenda\');
                             var boundsLeyenda = new google.maps.LatLngBounds();
                             var tienePuntos = false;
-                            if (tipo === \'casa\' && puntosGeo && puntosGeo.length) {
+                            if (tipo === \'firmaFad\' && puntosGeo && puntosGeo.length) {
+                                puntosGeo.forEach(function(p) {
+                                    var d = (p.donde_firma || \'\').toString().trim().toUpperCase();
+                                    if (d.indexOf(\'FIRMA\') !== -1 || d.indexOf(\'FAD\') !== -1) {
+                                        var lat = parseFloat(p.lat), lon = parseFloat(p.lng);
+                                        if (!isNaN(lat) && !isNaN(lon)) {
+                                            boundsLeyenda.extend({ lat: lat, lng: lon });
+                                            tienePuntos = true;
+                                        }
+                                    }
+                                });
+                            } else if (tipo === \'casa\' && puntosGeo && puntosGeo.length) {
                                 puntosGeo.forEach(function(p) {
                                     var d = (p.donde_firma || \'\').toString().trim().toUpperCase();
                                     if (d.indexOf(\'CASA\') !== -1) {
@@ -1543,7 +1579,7 @@ JS;
                             } else if (tipo === \'otroDomicilio\' && puntosGeo && puntosGeo.length) {
                                 puntosGeo.forEach(function(p) {
                                     var d = (p.donde_firma || \'\').toString().trim().toUpperCase();
-                                    if (d.indexOf(\'CASA\') === -1 && d.indexOf(\'AGENCIA\') === -1) {
+                                    if (d.indexOf(\'FIRMA\') === -1 && d.indexOf(\'FAD\') === -1 && d.indexOf(\'CASA\') === -1 && d.indexOf(\'AGENCIA\') === -1) {
                                         var lat = parseFloat(p.lat), lon = parseFloat(p.lng);
                                         if (!isNaN(lat) && !isNaN(lon)) {
                                             boundsLeyenda.extend({ lat: lat, lng: lon });
@@ -1635,6 +1671,7 @@ JS;
             if (googleMapsApiKey && googleMapsApiKey.length > 0) {
                 function initGoogleMap() {
                     if (typeof google === \'undefined\' || !google.maps) return;
+                    if (typeof google.maps.Map !== \'function\') { setTimeout(initGoogleMap, 250); return; }
                     rastreoMapaLeaflet = new google.maps.Map(cont, { center: { lat: 19.43, lng: -99.13 }, zoom: 10, mapTypeControl: true, streetViewControl: true, fullscreenControl: true, zoomControl: true });
                     var bounds = new google.maps.LatLngBounds();
                     var hasPoints = false;
@@ -2150,6 +2187,7 @@ JS;
                     $(\'#rastreoResumenIAContenido\').empty();
                     rastreoDireccionesParaMapa = (r.puntos_mapa && r.puntos_mapa.length) ? r.puntos_mapa : [];
                     rastreoPuntosGeo = [];
+                    rastreoPuntosGeoCargados = false;
                     rastreoDomicilioMegareporte = (r.domicilio_megareporte && (r.domicilio_megareporte.direccion || (r.domicilio_megareporte.lat != null && r.domicilio_megareporte.lng != null))) ? r.domicilio_megareporte : null;
                     rastreoDomiciliosReferencia = Array.isArray(r.domicilios_referencia) ? r.domicilios_referencia : (rastreoDomicilioMegareporte ? [rastreoDomicilioMegareporte] : []);
                     rastreoFusionarReferenciasPorPuntoCliente();
@@ -2216,9 +2254,13 @@ JS;
                                     if (!elm || !elm.getAttribute) return;
                                     var lat = parseFloat(elm.getAttribute(\'data-lat\')), lng = parseFloat(elm.getAttribute(\'data-lng\'));
                                     if (isNaN(lat) || isNaN(lng) || lat < -90 || lat > 90 || lng < -180 || lng > 180) { setAddr(elm, \'Sin coordenadas\'); return; }
+                                    var fallbackCoord = lat.toFixed(6) + \', \' + lng.toFixed(6);
                                     var url = \'https://nominatim.openstreetmap.org/reverse?lat=\' + lat + \'&lon=\' + lng + \'&format=json\';
-                                    fetch(url, { headers: { \'Accept\': \'application/json\', \'User-Agent\': \'SpartaLedger/1.0 (cobranza)\' } }).then(function(r) { return r.json(); }).then(function(data) { setAddr(elm, (data && data.display_name) ? data.display_name : \'Sin dirección\'); }).catch(function() {
-                                        if (!isRetry) { setTimeout(function() { fetchOne(elm, true); }, 2000); } else { setAddr(elm, \'Sin dirección\'); }
+                                    var controller = (typeof AbortController !== \'undefined\') ? new AbortController() : null;
+                                    var timeoutId = setTimeout(function() { if (controller) controller.abort(); else setAddr(elm, fallbackCoord); }, 6000);
+                                    fetch(url, { headers: { \'Accept\': \'application/json\', \'User-Agent\': \'SpartaLedger/1.0 (cobranza)\' }, signal: controller ? controller.signal : undefined }).then(function(r) { return r.json(); }).then(function(data) { clearTimeout(timeoutId); setAddr(elm, (data && data.display_name) ? data.display_name : fallbackCoord); }).catch(function() {
+                                        clearTimeout(timeoutId);
+                                        if (!isRetry) { setTimeout(function() { fetchOne(elm, true); }, 1000); } else { setAddr(elm, fallbackCoord); }
                                     });
                                 }
                                 function scheduleFetch(elm) {
@@ -2258,9 +2300,13 @@ JS;
                                     if (!elm || !elm.getAttribute) return;
                                     var lat = parseFloat(elm.getAttribute(\'data-lat\')), lng = parseFloat(elm.getAttribute(\'data-lng\'));
                                     if (isNaN(lat) || isNaN(lng) || lat < -90 || lat > 90 || lng < -180 || lng > 180) { setAddr(elm, \'Sin coordenadas\'); return; }
+                                    var fallbackCoord = lat.toFixed(6) + \', \' + lng.toFixed(6);
                                     var url = \'https://nominatim.openstreetmap.org/reverse?lat=\' + lat + \'&lon=\' + lng + \'&format=json\';
-                                    fetch(url, { headers: { \'Accept\': \'application/json\', \'User-Agent\': \'SpartaLedger/1.0 (cobranza)\' } }).then(function(r) { return r.json(); }).then(function(data) { setAddr(elm, (data && data.display_name) ? data.display_name : \'Sin dirección\'); }).catch(function() {
-                                        if (!isRetry) { setTimeout(function() { fetchOne(elm, true); }, 2000); } else { setAddr(elm, \'Sin dirección\'); }
+                                    var controller = (typeof AbortController !== \'undefined\') ? new AbortController() : null;
+                                    var timeoutId = setTimeout(function() { if (controller) controller.abort(); else setAddr(elm, fallbackCoord); }, 6000);
+                                    fetch(url, { headers: { \'Accept\': \'application/json\', \'User-Agent\': \'SpartaLedger/1.0 (cobranza)\' }, signal: controller ? controller.signal : undefined }).then(function(r) { return r.json(); }).then(function(data) { clearTimeout(timeoutId); setAddr(elm, (data && data.display_name) ? data.display_name : fallbackCoord); }).catch(function() {
+                                        clearTimeout(timeoutId);
+                                        if (!isRetry) { setTimeout(function() { fetchOne(elm, true); }, 1000); } else { setAddr(elm, fallbackCoord); }
                                     });
                                 }
                                 function scheduleFetch(elm) {
@@ -2314,8 +2360,9 @@ JS;
                     rastreoDomicilioMegareporte = null; rastreoIndiceCasa = null;
                     rastreoDomiciliosReferencia = [];
                     rastreoPuntosGeo = [];
+                    rastreoPuntosGeoCargados = true;
                     $(\'#rastreoDireccionesContenido\').removeClass(\'rastreo-contenido-cargando\').html(\'<span class="text-muted">Sin ubicaciones en maxi app para este crédito.</span>\');
-                    $(\'#rastreoDireccionesAlternasContenido\').removeClass(\'rastreo-contenido-cargando\').html(\'<span class="text-muted small">No se pudieron cargar las direcciones alternas. Revisa la conexión o intenta de nuevo.</span>\');
+                    $(\'#rastreoDireccionesAlternasContenido\').removeClass(\'rastreo-contenido-cargando\').html(\'<span class="text-muted small">Cargando coordenada de firma...</span>\');
                     $(\'#rastreoDirecciones .rastreo-mapa-wrap\').show();
                     $(\'#rastreoDireccionesAlternas .rastreo-mapa-wrap\').show();
                     requestAnimationFrame(function() {
@@ -2323,6 +2370,7 @@ JS;
                             try { initMapaRastreo([]); maybeInitMapaAlternas(); } catch (e) {}
                         });
                     });
+                    cargarPuntosGeoRastreoDiferido();
                 } });
             });
             $(\'#modalRastreoCredito\').on(\'hidden.bs.modal\', function() {
@@ -2333,7 +2381,7 @@ JS;
                 if (rastreoMapaAlternas) { try { if (typeof rastreoMapaAlternas.remove === \'function\') rastreoMapaAlternas.remove(); } catch (e) {} rastreoMapaAlternas = null; }
                 if (rastreoMapaAlternasGrande) { try { if (typeof rastreoMapaAlternasGrande.remove === \'function\') rastreoMapaAlternasGrande.remove(); } catch (e) {} rastreoMapaAlternasGrande = null; }
                 rastreoGestionesParaMapa = []; rastreoGestionesCargadas = false;
-                rastreoPuntosGeo = []; rastreoMarkersGeoAlternasGrande = []; rastreoInfoWindowsGeoAlternasGrande = []; rastreoMarkersReferenciaAlternas = []; rastreoOverlaysReferenciaAlternas = []; rastreoMarkersReferenciaAlternasGrande = []; rastreoOverlaysReferenciaAlternasGrande = []; rastreoCentrarEnGeoAlternasIndice = null;
+                rastreoPuntosGeo = []; rastreoPuntosGeoCargados = false; rastreoMarkersGeoAlternasGrande = []; rastreoInfoWindowsGeoAlternasGrande = []; rastreoMarkersReferenciaAlternas = []; rastreoOverlaysReferenciaAlternas = []; rastreoMarkersReferenciaAlternasGrande = []; rastreoOverlaysReferenciaAlternasGrande = []; rastreoCentrarEnGeoAlternasIndice = null;
             });
             $(\'#inputEvidenciaRastreo\').on(\'change\', function() {
                 var f = this.files && this.files[0];

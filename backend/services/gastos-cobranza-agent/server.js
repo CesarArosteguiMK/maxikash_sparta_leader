@@ -37,7 +37,8 @@
  *
  * Flujo automatico martes 08:00 CDMX: GASTOS_GC_AUTO_CRONJOBS_MARTES_ENABLED=1 ejecuta en cadena
  * insertar_moras_martes.php -> detectar_gdc_liquidados.php -> eliminar_gastos_despachos.php.
- * Por defecto sincroniza hora remota y no dispara si no hay reloj CDMX fresco.
+ * Por defecto usa el reloj local del servidor formateado en America/Mexico_City; si el servidor va
+ * desfasado, active GASTOS_GC_AUTO_CRONJOBS_MARTES_SYNC_REMOTE_CLOCK=1.
  */
 const path = require('path');
 const fs = require('fs');
@@ -1123,11 +1124,11 @@ function autoCronjobsMartesTickMs() {
 }
 
 function autoCronjobsMartesSyncRemoteClockForTick() {
-  return String(process.env.GASTOS_GC_AUTO_CRONJOBS_MARTES_SYNC_REMOTE_CLOCK ?? '1').trim() !== '0';
+  return String(process.env.GASTOS_GC_AUTO_CRONJOBS_MARTES_SYNC_REMOTE_CLOCK ?? '0').trim() !== '0';
 }
 
 function autoCronjobsMartesRequireFreshRemoteClock() {
-  return String(process.env.GASTOS_GC_AUTO_CRONJOBS_MARTES_REQUIRE_REMOTE_CLOCK ?? '1').trim() !== '0';
+  return String(process.env.GASTOS_GC_AUTO_CRONJOBS_MARTES_REQUIRE_REMOTE_CLOCK ?? '0').trim() !== '0';
 }
 
 function autoCronjobsMartesStateFilePath() {
@@ -3100,7 +3101,7 @@ app.listen(PORT, () => {
   }, autoRunTickMs());
   tickAutoRunReporteCdmx().catch((e) => appendLog(`[auto-run] error tick: ${e?.message || e}`));
   appendLog(
-    `[auto-cronjobs-martes] Tick cada ${autoCronjobsMartesTickMs()} ms | enabled=${autoCronjobsMartesEnabled() ? '1' : '0'} | objetivo=${pad2Seg(autoCronjobsMartesTargetHour())}:${pad2Seg(autoCronjobsMartesTargetMinute())} CDMX martes`,
+    `[auto-cronjobs-martes] Tick cada ${autoCronjobsMartesTickMs()} ms | enabled=${autoCronjobsMartesEnabled() ? '1' : '0'} | objetivo=${pad2Seg(autoCronjobsMartesTargetHour())}:${pad2Seg(autoCronjobsMartesTargetMinute())} CDMX martes | sync_remote=${autoCronjobsMartesSyncRemoteClockForTick() ? '1' : '0'} | require_remote=${autoCronjobsMartesRequireFreshRemoteClock() ? '1' : '0'}`,
   );
   setInterval(() => {
     tickAutoCronjobsMartesCdmx().catch((e) => appendLog(`[auto-cronjobs-martes] error tick: ${e?.message || e}`));

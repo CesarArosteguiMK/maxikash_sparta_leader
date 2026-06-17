@@ -2,19 +2,19 @@
 
 namespace Models;
 
-use Core\DatabaseGeo;
+use Services\MkValidationsService;
 
 /**
- * Direcciones alternas desde __SPARTA_SECRET_REDACTED__.oferta_coordenada.
- * fk_oferta = id_credito; columnas: coordenada_fat (DMS), direccion_maps, donde_firma.
+ * Coordenada de firma desde DynamoDB mk-validations.
+ * Mantiene el formato esperado por el mapa de direcciones alternas.
  */
 class OfertaCoordenada
 {
-    private const CACHE_TTL = 21600; // 6 horas
+    private const CACHE_TTL = 120; // La tabla cambia constantemente; cache muy corto solo para doble clic/recarga inmediata.
 
     private static function getCachePath(int $idCredito): string
     {
-        return dirname(__DIR__) . '/storage/cache/oferta_coordenada_v2_' . $idCredito . '.json';
+        return dirname(__DIR__) . '/storage/cache/oferta_coordenada_dynamo_v3_' . $idCredito . '.json';
     }
 
     private static function readCache(int $idCredito): ?array
@@ -109,7 +109,7 @@ class OfertaCoordenada
     }
 
     /**
-     * Obtiene filas de oferta_coordenada por id_credito (fk_oferta).
+     * Obtiene la coordenada donde se firmo por id_credito/id_oferta.
      * Devuelve array de [ 'lat' => float, 'lng' => float, 'direccion_maps' => string, 'donde_firma' => string ].
      */
     public static function getPorIdCredito($idCredito)
@@ -123,35 +123,57 @@ class OfertaCoordenada
             return $cached;
         }
         try {
-            $db = new DatabaseGeo();
-            $sql = "SELECT coordenada_fat, direccion_maps, donde_firma FROM oferta_coordenada WHERE fk_oferta = :id ORDER BY idoferta_coordenada ASC";
-            $rows = $db->queryAll($sql, ['id' => $idCredito]);
-            if (empty($rows)) {
+            self::ensureComposerAutoload();
+
+            $service = new MkValidationsService();
+            $result = $service->getCoordenadasFirma($idCredito);
+            if (empty($result['success']) || empty($result['datos'][0]['firma'])) {
+                return [];
+            }
+
+            $row = $result['datos'][0];
+            $firma = $row['firma'];
+            $lat = isset($firma['lat']) ? (float) $firma['lat'] : null;
+            $lng = isset($firma['lng']) ? (float) $firma['lng'] : null;
+            if ($lat === null || $lng === null || $lat < -90 || $lat > 90 || $lng < -180 || $lng > 180) {
                 self::writeCache($idCredito, []);
                 return [];
             }
-            $out = [];
-            foreach ($rows as $row) {
-                $coords = self::dmsToDecimal($row['coordenada_fat'] ?? '');
-                if ($coords === null) {
-                    continue;
-                }
-                $out[] = [
-                    'lat' => $coords['lat'],
-                    'lng' => $coords['lng'],
-                    'direccion_maps' => trim((string) ($row['direccion_maps'] ?? '')),
-                    'donde_firma' => trim((string) ($row['donde_firma'] ?? '')),
-                ];
-            }
+
+            $out = [[
+                'lat' => $lat,
+                'lng' => $lng,
+                'direccion_maps' => $lat . ',' . $lng,
+                'direccion_label' => 'Ubicación donde firmó el cliente',
+                'donde_firma' => 'Lugar de firma FAD',
+                'fuente' => 'dynamodb_mk_validations',
+                'fecha_validacion' => $row['fecha_validacion'] ?? null,
+                'is_valid' => (bool)($row['is_valid'] ?? false),
+            ]];
             self::writeCache($idCredito, $out);
             return $out;
         } catch (\Exception $e) {
-            error_log('[OfertaCoordenada] Error al consultar fk_oferta=' . $idCredito . ': ' . $e->getMessage());
+            error_log('[OfertaCoordenada] Error al consultar DynamoDB id_oferta=' . $idCredito . ': ' . $e->getMessage());
             $stale = self::readCache($idCredito);
             if ($stale !== null) {
                 return $stale;
             }
             return [];
+        }
+    }
+
+    private static function ensureComposerAutoload(): void
+    {
+        if (!defined('RAIZ')) {
+            return;
+        }
+
+        $bootstrap = RAIZ . '/bootstrap_composer.php';
+        if (is_file($bootstrap)) {
+            require_once $bootstrap;
+            if (function_exists('sparta_require_composer_autoload')) {
+                sparta_require_composer_autoload();
+            }
         }
     }
 }

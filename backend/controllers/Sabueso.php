@@ -1658,6 +1658,105 @@ class Sabueso extends Controller
                 }
             });
         }
+        function motivoHistoricoIlocalizableTxt(motivo) {
+            var m = String(motivo || '').toLowerCase();
+            if (m === 'manual') return 'Manual';
+            if (m === 'dictamen_sabueso') return 'Dictamen Sabueso';
+            if (m === 'dictamen_sistema') return 'Dictamen sistema';
+            if (m === 'todas_direcciones_sin_pago') return 'Todas direcciones / sin pago';
+            return motivo ? String(motivo).replace(/_/g, ' ') : 'Ilocalizable';
+        }
+        function origenHistoricoIlocalizableBadge(origen) {
+            var o = String(origen || '').toLowerCase();
+            var label = origen ? String(origen).replace(/_/g, ' ') : 'sistema';
+            var cls = 'bg-secondary';
+            if (o.indexOf('manual') !== -1) cls = 'bg-warning text-dark';
+            else if (o.indexOf('sabueso') !== -1) cls = 'bg-info text-dark';
+            else if (o.indexOf('sistema') !== -1) cls = 'bg-primary';
+            else if (o.indexOf('operativo') !== -1) cls = 'bg-success';
+            return '<span class="badge ' + cls + '">' + attrEsc(label) + '</span>';
+        }
+        function pagoHistoricoIlocalizableTxt(f) {
+            var si = f && (f.pago_semana_si === true || f.pago_semana_si === 1 || f.pago_semana_si === '1');
+            var consultado = f && (f.pago_semana_consultado === true || f.pago_semana_consultado === 1 || f.pago_semana_consultado === '1');
+            var n = parseInt((f && f.pago_semana_count) || 0, 10) || 0;
+            if (si) return '<span class="text-success fw-semibold">Si</span>' + (n ? ' <span class="text-muted small">(' + n + ')</span>' : '');
+            if (consultado) return '<span class="text-muted">No</span>';
+            return '<span class="text-warning">Sin verificar</span>';
+        }
+        function cargarHistoricoIlocalizable(q) {
+            var tbody = document.getElementById('tbodyHistoricoIlocalizable');
+            var resumen = document.getElementById('historicoIlocalizableResumen');
+            if (!tbody) return;
+            tbody.innerHTML = '<tr><td colspan="10" class="text-center text-muted py-4"><i class="fa-solid fa-spinner fa-spin me-2"></i>Cargando historico...</td></tr>';
+            if (resumen) resumen.textContent = 'Consultando historico ilocalizable...';
+            http.request({
+                endpoint: '/sabueso/getHistoricoIlocalizables',
+                metodo: 'POST',
+                data: JSON.stringify({ q: q || '', limit: 1000, origen: 'manual' }),
+                contentType: 'application/json',
+                processData: false,
+                showLoader: false,
+                onSuccess: function(r) {
+                    var filas = (r && (r.datos || r.filas)) || [];
+                    if (!r || !r.success) {
+                        tbody.innerHTML = '<tr><td colspan="10" class="text-center text-warning py-4"><i class="fa-solid fa-triangle-exclamation me-1"></i>' + attrEsc((r && r.mensaje) || 'No se pudo cargar el historico.') + '</td></tr>';
+                        if (resumen) resumen.textContent = 'No se pudo cargar el historico.';
+                        return;
+                    }
+                    if (!filas.length) {
+                        tbody.innerHTML = '<tr><td colspan="10" class="text-center text-muted py-4">No hay creditos ilocalizables manuales con ese filtro.</td></tr>';
+                        if (resumen) resumen.textContent = 'Sin resultados.';
+                        return;
+                    }
+                    var html = '';
+                    filas.forEach(function(f) {
+                        var semana = (f.semana_inicio || f.semana_fin) ? (attrEsc(f.semana_inicio || '---') + '<div class="text-muted small">' + attrEsc(f.semana_fin || '') + '</div>') : '<span class="text-muted">---</span>';
+                        var gestor = attrEsc(f.nombre_gestor || '---');
+                        if (f.id_gestor) gestor += '<div class="text-muted small">ID ' + attrEsc(f.id_gestor) + '</div>';
+                        var dictamen = f.dictamen_tipo_sabueso || f.resultado_ds || '';
+                        html += '<tr>' +
+                            '<td class="ps-3"><span class="estad-hist-id">' + attrEsc(f.id_credito != null ? f.id_credito : '---') + '</span></td>' +
+                            '<td class="fw-medium">' + attrEsc(f.folio || '---') + '</td>' +
+                            '<td>' + attrEsc(f.nombre_cliente || '---') + '</td>' +
+                            '<td>' + gestor + '</td>' +
+                            '<td>' + semana + '</td>' +
+                            '<td>' + attrEsc(motivoHistoricoIlocalizableTxt(f.motivo)) + '</td>' +
+                            '<td>' + origenHistoricoIlocalizableBadge(f.origen) + '</td>' +
+                            '<td><small>' + (dictamen ? attrEsc(dictamen) : '<span class="text-muted">---</span>') + '</small></td>' +
+                            '<td>' + pagoHistoricoIlocalizableTxt(f) + '</td>' +
+                            '<td class="pe-3">' + fmtFecha(f.actualizado_en || f.detectado_en || f.dictamen_envio) + '</td>' +
+                            '</tr>';
+                    });
+                    tbody.innerHTML = html;
+                    if (resumen) {
+                        var total = r.total != null ? parseInt(r.total, 10) || filas.length : filas.length;
+                        var totalCreditos = r.total_creditos != null ? parseInt(r.total_creditos, 10) || 0 : 0;
+                        var extraCreditos = totalCreditos ? ' (' + totalCreditos + ' credito(s) unico(s))' : '';
+                        resumen.textContent = 'Mostrando ' + filas.length + ' de ' + total + ' registro(s)' + extraCreditos + (q ? ' filtrados.' : '.');
+                    }
+                },
+                onError: function() {
+                    tbody.innerHTML = '<tr><td colspan="10" class="text-center text-danger py-4"><i class="fa-solid fa-circle-xmark me-1"></i>No se pudo cargar el historico.</td></tr>';
+                    if (resumen) resumen.textContent = 'No se pudo cargar el historico.';
+                }
+            });
+        }
+        function abrirHistoricoIlocalizable() {
+            var modalEl = document.getElementById('modalHistoricoIlocalizable');
+            var input = document.getElementById('inputHistoricoIlocalizableBuscar');
+            var q = input ? input.value.trim() : '';
+            if (!modalEl) {
+                if (typeof Swal !== 'undefined') Swal.fire('Error', 'No se encontro el modal de historico en la pagina.', 'error');
+                return;
+            }
+            if (typeof bootstrap !== 'undefined' && bootstrap.Modal) {
+                bootstrap.Modal.getOrCreateInstance(modalEl).show();
+            } else if (typeof $ !== 'undefined' && $(modalEl).modal) {
+                $(modalEl).modal('show');
+            }
+            cargarHistoricoIlocalizable(q);
+        }
         function abrirReporteSemanalGlobal(semanaInicio) {
             window._reporteSemanalGlobalReqId = (window._reporteSemanalGlobalReqId || 0) + 1;
             var reporteSemanalReqId = window._reporteSemanalGlobalReqId;
@@ -2648,6 +2747,24 @@ class Sabueso extends Controller
             $(document).on('click', '#btnReporteSemanalGlobal', function() {
                 abrirReporteSemanalGlobal('');
             });
+            $(document).on('click', '#btnHistoricoIlocalizable', function() {
+                abrirHistoricoIlocalizable();
+            });
+            $(document).on('click', '#btnHistoricoIlocalizableBuscar', function() {
+                var input = document.getElementById('inputHistoricoIlocalizableBuscar');
+                cargarHistoricoIlocalizable(input ? input.value.trim() : '');
+            });
+            $(document).on('keydown', '#inputHistoricoIlocalizableBuscar', function(e) {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    cargarHistoricoIlocalizable(this.value.trim());
+                }
+            });
+            $(document).on('click', '#btnHistoricoIlocalizableLimpiar', function() {
+                var input = document.getElementById('inputHistoricoIlocalizableBuscar');
+                if (input) input.value = '';
+                cargarHistoricoIlocalizable('');
+            });
             var modalRepSemanal = document.getElementById('modalReporteSemanalGlobal');
             if (modalRepSemanal) {
                 modalRepSemanal.addEventListener('hidden.bs.modal', function() {
@@ -3051,6 +3168,7 @@ class Sabueso extends Controller
         $filtros = [
             'q' => trim((string)($body['q'] ?? $_POST['q'] ?? '')),
             'limit' => (int)($body['limit'] ?? $_POST['limit'] ?? 500),
+            'origen' => 'manual',
         ];
         $res = TicketDAO::getHistoricoIlocalizables($filtros);
         self::respuestaJSON($res);
@@ -4668,7 +4786,7 @@ class Sabueso extends Controller
     private function getUbicacionesCachePath(int $idCredito, bool $modoRapido = false): string
     {
         // Bump suffix when payload shape changes (ej. domicilio_megareporte con dirección aunque falten coords).
-        $sufijo = $modoRapido ? '_lite9' : '_v8';
+        $sufijo = $modoRapido ? '_lite9' : '_v9';
         return dirname(__DIR__) . '/storage/cache/sabueso_ubicaciones_' . $idCredito . $sufijo . '.json';
     }
 

@@ -9,12 +9,71 @@ use Core\UsuarioFantasmaReporteria;
 class CapHum extends Model
 {
     private static $trayectoriaPuestoTablaAsegurada = false;
+    public const MODULO_ACCESOS_CAPITAL_HUMANO = 140;
+    private const MODULO_MIS_DOCUMENTOS = 141;
+    private const MODULOS_ACCESOS_CAPITAL_HUMANO_IDS = [
+        4, 5, 13, 34, 38, 42, 44, 82, 83, 86, 87, 88, 91, 93,
+        94, 95, 96, 97, 98, 99, 101, 104, 105,
+        140, 141,
+    ];
     private const MODULO_CONVENIOS_DESCARGAR_EXCEL = 92;
     private const MODULO_CONVENIOS_DESCARGAR_EXCEL_NOMBRE = 'Descargar Excel';
     private const MODULO_CONVENIOS_DESCARGAR_EXCEL_DESC = 'Convenios - Cierre de Credito - Descargar Excel';
     private const MODULO_TRACKING_CANCELAR_RUTA = 102;
     private const MODULO_TRACKING_CANCELAR_RUTA_NOMBRE = 'Cancelar rutas Tracking';
     private const MODULO_TRACKING_CANCELAR_RUTA_DESC = 'Tracking Recoleccion - Cancelar rutas registradas';
+
+    public static function asegurarModuloAccesosCapitalHumano(): void
+    {
+        try {
+            $db = new Database();
+            self::asegurarModuloAccesosCapitalHumanoDb($db);
+        } catch (\Throwable $e) {
+            error_log('CapHum::asegurarModuloAccesosCapitalHumano -> ' . $e->getMessage());
+        }
+    }
+
+    private static function asegurarModuloAccesosCapitalHumanoDb(Database $db): void
+    {
+        $modulos = [
+            [
+                'id' => self::MODULO_ACCESOS_CAPITAL_HUMANO,
+                'nombre' => 'Accesos Capital Humano',
+                'pestana' => 'Capital Humano',
+                'descripcion' => 'Acceso al modulo de administracion de permisos de Capital Humano.',
+            ],
+            [
+                'id' => self::MODULO_MIS_DOCUMENTOS,
+                'nombre' => 'Mis documentos',
+                'pestana' => 'Capital Humano',
+                'descripcion' => 'Capital Humano > Mis documentos',
+            ],
+        ];
+
+        foreach ($modulos as $datos) {
+            $existe = $db->queryOne(
+                'SELECT id FROM modulos_web WHERE id = :id LIMIT 1',
+                ['id' => $datos['id']]
+            );
+            if ($existe) {
+                $db->CRUD(
+                    'UPDATE modulos_web
+                        SET nombre = :nombre,
+                            pestana = :pestana,
+                            descripcion = :descripcion,
+                            activo = 1
+                      WHERE id = :id',
+                    $datos
+                );
+                continue;
+            }
+            $db->CRUD(
+                'INSERT INTO modulos_web (id, nombre, pestana, descripcion, activo)
+                 VALUES (:id, :nombre, :pestana, :descripcion, 1)',
+                $datos
+            );
+        }
+    }
 
     private static function asegurarModuloConveniosDescargarExcel(Database $db): void
     {
@@ -556,6 +615,7 @@ class CapHum extends Model
 
     public static function getConsultaGestoresAll($id_gestor_sesion, $tieneDepartamento = true)
     {
+        $id_gestor_sesion = (int)$id_gestor_sesion;
         $sqlExP = UsuarioFantasmaReporteria::sqlExcluirPersona('p');
         $sqlExP2 = UsuarioFantasmaReporteria::sqlExcluirPersona('p2');
 
@@ -563,9 +623,16 @@ class CapHum extends Model
         // VER TODOS: admin O sin departamento asignado (módulo 10)
         // Si no tiene "Organización > Departamentos" asignado → ver todos los usuarios.
         // =========================
-        $verTodos = in_array($id_gestor_sesion, [1, 2, 3, 396, 797]) || !$tieneDepartamento;
+        $verTodos = in_array($id_gestor_sesion, [1, 2, 3, 396, 797], true);
+        $filtroPuestosSesion = $verTodos ? '' : "
+        AND EXISTS (
+            SELECT 1
+            FROM privilegios_departamento pd_perm
+            WHERE pd_perm.idPersona = $id_gestor_sesion
+              AND pd_perm.idPuesto = ap.id_puesto
+        )";
 
-        if ($verTodos) {
+        if (true) {
 
             $query = <<<SQL
             SELECT
@@ -655,6 +722,7 @@ class CapHum extends Model
 
         WHERE p.estatus != 'Baja'
         {$sqlExP}
+        {$filtroPuestosSesion}
 
         ORDER BY pp.nivel ASC;
 
@@ -917,6 +985,7 @@ class CapHum extends Model
                 id INT AUTO_INCREMENT PRIMARY KEY,
                 id_departamento INT NOT NULL,
                 id_puesto INT NOT NULL,
+                nombre_vacante VARCHAR(180) NULL,
                 id_jefe INT NULL,
                 id_persona_baja INT NULL,
                 id_persona_cubre INT NULL,
@@ -944,6 +1013,18 @@ class CapHum extends Model
         if (!$columnaCubre) {
             $db->CRUD("ALTER TABLE __SPARTA_SECRET_REDACTED__.vacantes_personal ADD COLUMN id_persona_cubre INT NULL AFTER id_persona_baja");
             $db->CRUD("ALTER TABLE __SPARTA_SECRET_REDACTED__.vacantes_personal ADD INDEX idx_vacantes_personal_persona_cubre (id_persona_cubre)");
+        }
+
+        $columnaNombreVacante = $db->queryOne("
+            SELECT COLUMN_NAME
+            FROM INFORMATION_SCHEMA.COLUMNS
+            WHERE TABLE_SCHEMA = DATABASE()
+              AND TABLE_NAME = 'vacantes_personal'
+              AND COLUMN_NAME = 'nombre_vacante'
+            LIMIT 1
+        ");
+        if (!$columnaNombreVacante) {
+            $db->CRUD("ALTER TABLE __SPARTA_SECRET_REDACTED__.vacantes_personal ADD COLUMN nombre_vacante VARCHAR(180) NULL AFTER id_puesto");
         }
     }
 
@@ -1120,9 +1201,11 @@ class CapHum extends Model
                     v.id_departamento,
                     v.id_puesto,
                     v.id_jefe,
+                    v.nombre_vacante,
                     v.origen,
                     v.fecha_creacion,
-                    pp.nombre AS nombre_puesto,
+                    COALESCE(NULLIF(TRIM(v.nombre_vacante), ''), pp.nombre) AS nombre_puesto,
+                    pp.nombre AS nombre_puesto_base,
                     d.nombre AS nombre_departamento,
                     CONCAT_WS(' ', pj.nombres, pj.segundo_nombre, pj.apellidop, pj.apellidom) AS nombre_jefe,
                     COUNT(DISTINCT ps.id) AS subordinados
@@ -1135,7 +1218,7 @@ class CapHum extends Model
                 WHERE v.id_departamento = :id_departamento
                   AND v.id_puesto = :id_puesto
                   AND UPPER(TRIM(v.estatus)) = 'ACTIVA'
-                GROUP BY v.id, v.id_departamento, v.id_puesto, v.id_jefe, v.origen, v.fecha_creacion, pp.nombre, d.nombre, nombre_jefe
+                GROUP BY v.id, v.id_departamento, v.id_puesto, v.id_jefe, v.nombre_vacante, v.origen, v.fecha_creacion, pp.nombre, d.nombre, nombre_jefe
                 ORDER BY v.fecha_creacion ASC, v.id ASC
             ", [
                 'id_departamento' => $idDepartamento,
@@ -1179,7 +1262,9 @@ class CapHum extends Model
                     v.id,
                     v.id_departamento,
                     v.id_puesto,
-                    pp.nombre AS nombre_puesto,
+                    v.nombre_vacante,
+                    COALESCE(NULLIF(TRIM(v.nombre_vacante), ''), pp.nombre) AS nombre_puesto,
+                    pp.nombre AS nombre_puesto_base,
                     d.nombre AS nombre_departamento,
                     COUNT(DISTINCT ps.id) AS subordinados
                 FROM __SPARTA_SECRET_REDACTED__.vacantes_personal v
@@ -1190,7 +1275,7 @@ class CapHum extends Model
                 WHERE v.id_departamento = :id_departamento
                   AND UPPER(TRIM(v.estatus)) = 'ACTIVA'
                   $whereNivel
-                GROUP BY v.id, v.id_departamento, v.id_puesto, pp.nombre, d.nombre
+                GROUP BY v.id, v.id_departamento, v.id_puesto, v.nombre_vacante, pp.nombre, d.nombre
                 ORDER BY pp.nivel ASC, v.fecha_creacion ASC, v.id ASC
             ", $params);
 
@@ -1252,6 +1337,170 @@ class CapHum extends Model
             ]);
         } catch (\Exception $e) {
             return self::resultado(false, 'Error al actualizar el jefe de la vacante.', null, $e->getMessage());
+        }
+    }
+
+    public static function actualizarNombreVacantePersonal($idVacante, $nombreVacante)
+    {
+        try {
+            $db = new Database();
+            self::asegurarTablaVacantesPersonal($db);
+
+            $idVacante = (int)$idVacante;
+            $nombreVacante = trim(preg_replace('/\s+/', ' ', (string)$nombreVacante));
+            $nombreVacante = trim(preg_replace('/\s*\(\s*vacante\s*\)\s*$/iu', '', $nombreVacante));
+
+            if ($idVacante <= 0) {
+                return self::resultado(false, 'Seleccione la vacante.');
+            }
+            if ($nombreVacante === '' || mb_strlen($nombreVacante) < 3) {
+                return self::resultado(false, 'Escribe un nombre valido para la vacante.');
+            }
+            if (mb_strlen($nombreVacante) > 180) {
+                return self::resultado(false, 'El nombre de la vacante no debe superar 180 caracteres.');
+            }
+
+            $vacante = $db->queryOne("
+                SELECT id, estatus
+                FROM __SPARTA_SECRET_REDACTED__.vacantes_personal
+                WHERE id = :id
+                LIMIT 1
+            ", ['id' => $idVacante]);
+
+            if (!$vacante || strtoupper(trim((string)($vacante['estatus'] ?? ''))) !== 'ACTIVA') {
+                return self::resultado(false, 'La vacante ya no esta activa.');
+            }
+
+            $db->CRUD("
+                UPDATE __SPARTA_SECRET_REDACTED__.vacantes_personal
+                SET nombre_vacante = :nombre_vacante
+                WHERE id = :id_vacante
+                LIMIT 1
+            ", [
+                'nombre_vacante' => $nombreVacante,
+                'id_vacante' => $idVacante,
+            ]);
+
+            return self::resultado(true, 'Nombre de vacante actualizado correctamente.', [
+                'id_vacante' => $idVacante,
+                'nombre_vacante' => $nombreVacante,
+            ]);
+        } catch (\Exception $e) {
+            return self::resultado(false, 'Error al actualizar el nombre de la vacante.', null, $e->getMessage());
+        }
+    }
+
+    public static function eliminarVacantePersonal($idVacante, $modoMovimiento, $idJefeDestino = 0)
+    {
+        $db = null;
+        try {
+            $db = new Database();
+            self::asegurarTablaVacantesPersonal($db);
+            self::asegurarAsignaJefeSoportaVacante($db);
+
+            $idVacante = (int)$idVacante;
+            $modoMovimiento = trim((string)$modoMovimiento);
+            $idJefeDestino = (int)$idJefeDestino;
+
+            if ($idVacante <= 0) {
+                return self::resultado(false, 'Seleccione la vacante a eliminar.');
+            }
+            if (!in_array($modoMovimiento, ['jefe_superior', 'jefe_destino'], true)) {
+                return self::resultado(false, 'Seleccione como se moveran los subordinados.');
+            }
+
+            $vacante = $db->queryOne("
+                SELECT v.id, v.id_jefe, v.id_departamento, v.id_puesto, v.estatus,
+                       COALESCE(NULLIF(TRIM(v.nombre_vacante), ''), pp.nombre) AS nombre_puesto
+                FROM __SPARTA_SECRET_REDACTED__.vacantes_personal v
+                INNER JOIN __SPARTA_SECRET_REDACTED__.puesto pp ON pp.id = v.id_puesto
+                WHERE v.id = :id
+                LIMIT 1
+            ", ['id' => $idVacante]);
+
+            if (!$vacante || strtoupper(trim((string)($vacante['estatus'] ?? ''))) !== 'ACTIVA') {
+                return self::resultado(false, 'La vacante ya no esta activa.');
+            }
+
+            $jefeDestino = $modoMovimiento === 'jefe_superior' ? (int)($vacante['id_jefe'] ?? 0) : $idJefeDestino;
+            if ($jefeDestino <= 0) {
+                return self::resultado(false, 'Seleccione un jefe destino para mover los subordinados.');
+            }
+
+            $jefe = $db->queryOne("
+                SELECT id
+                FROM __SPARTA_SECRET_REDACTED__.persona
+                WHERE id = :id_jefe
+                  AND COALESCE(estatus, '') != 'Baja'
+                LIMIT 1
+            ", ['id_jefe' => $jefeDestino]);
+
+            if (!$jefe) {
+                return self::resultado(false, 'El jefe destino no esta activo.');
+            }
+
+            $subordinadosDirectos = $db->queryAll("
+                SELECT aj.id_persona
+                FROM __SPARTA_SECRET_REDACTED__.asigna_jefe aj
+                INNER JOIN (
+                    SELECT id_persona, MAX(id) AS mid
+                    FROM __SPARTA_SECRET_REDACTED__.asigna_jefe
+                    GROUP BY id_persona
+                ) ult ON ult.id_persona = aj.id_persona AND ult.mid = aj.id
+                INNER JOIN __SPARTA_SECRET_REDACTED__.persona p
+                        ON p.id = aj.id_persona
+                       AND COALESCE(p.estatus, '') != 'Baja'
+                WHERE aj.id_vacante_jefe = :id_vacante
+            ", ['id_vacante' => $idVacante]);
+
+            foreach ($subordinadosDirectos as $sub) {
+                if ((int)($sub['id_persona'] ?? 0) === $jefeDestino) {
+                    return self::resultado(false, 'No puedes mover la vacante a una persona que depende directamente de esa misma vacante.');
+                }
+            }
+
+            $db->beginTransaction();
+            $subordinadosMovidos = $db->CRUD("
+                UPDATE __SPARTA_SECRET_REDACTED__.asigna_jefe aj
+                INNER JOIN (
+                    SELECT ult.mid
+                    FROM (
+                        SELECT id_persona, MAX(id) AS mid
+                        FROM __SPARTA_SECRET_REDACTED__.asigna_jefe
+                        GROUP BY id_persona
+                    ) ult
+                ) vigente ON vigente.mid = aj.id
+                SET aj.id_jefe = :id_jefe,
+                    aj.id_vacante_jefe = NULL
+                WHERE aj.id_vacante_jefe = :id_vacante
+            ", [
+                'id_jefe' => $jefeDestino,
+                'id_vacante' => $idVacante,
+            ]);
+
+            $db->CRUD("
+                UPDATE __SPARTA_SECRET_REDACTED__.vacantes_personal
+                SET estatus = 'Eliminada',
+                    fecha_cierre = NOW()
+                WHERE id = :id_vacante
+                  AND UPPER(TRIM(estatus)) = 'ACTIVA'
+                LIMIT 1
+            ", [
+                'id_vacante' => $idVacante,
+            ]);
+            $db->commit();
+
+            return self::resultado(true, 'Vacante eliminada y subordinados reasignados correctamente.', [
+                'id_vacante' => $idVacante,
+                'jefe_destino' => $jefeDestino,
+                'subordinados_movidos' => $subordinadosMovidos,
+                'modo_movimiento' => $modoMovimiento,
+            ]);
+        } catch (\Exception $e) {
+            if ($db) {
+                try { $db->rollback(); } catch (\Exception $rollbackError) {}
+            }
+            return self::resultado(false, 'Error al eliminar la vacante.', null, $e->getMessage());
         }
     }
 
@@ -1451,7 +1700,9 @@ class CapHum extends Model
                     v.id_departamento,
                     v.id_puesto,
                     v.origen,
-                    pp.nombre AS nombre_puesto,
+                    v.nombre_vacante,
+                    COALESCE(NULLIF(TRIM(v.nombre_vacante), ''), pp.nombre) AS nombre_puesto,
+                    pp.nombre AS nombre_puesto_base,
                     d.nombre AS nombre_departamento
                 FROM __SPARTA_SECRET_REDACTED__.vacantes_personal v
                 INNER JOIN __SPARTA_SECRET_REDACTED__.puesto pp ON pp.id = v.id_puesto
@@ -1529,6 +1780,7 @@ class CapHum extends Model
             $db = new Database();
             self::asegurarTablaPermisosPuesto($db);
             self::asegurarModuloConveniosDescargarExcel($db);
+            self::asegurarModuloAccesosCapitalHumanoDb($db);
 
             $puestos = $db->queryAll("
                 SELECT
@@ -1609,6 +1861,7 @@ class CapHum extends Model
             $db = new Database();
             self::asegurarTablaPermisosPuesto($db);
             self::asegurarModuloConveniosDescargarExcel($db);
+            self::asegurarModuloAccesosCapitalHumanoDb($db);
 
             $idPuesto = (int) $idPuesto;
             if ($idPuesto <= 0) {
@@ -1921,6 +2174,9 @@ class CapHum extends Model
             $db = new Database();
             if ((int) $moduloId === self::MODULO_CONVENIOS_DESCARGAR_EXCEL) {
                 self::asegurarModuloConveniosDescargarExcel($db);
+            }
+            if ((int) $moduloId === self::MODULO_ACCESOS_CAPITAL_HUMANO) {
+                self::asegurarModuloAccesosCapitalHumanoDb($db);
             }
             if ((int) $moduloId === self::MODULO_TRACKING_CANCELAR_RUTA) {
                 self::asegurarModuloTrackingCancelarRuta($db);
@@ -2796,6 +3052,7 @@ class CapHum extends Model
         try {
             $db = new Database();
             self::asegurarModuloConveniosDescargarExcel($db);
+            self::asegurarModuloAccesosCapitalHumanoDb($db);
 
             $query = <<<SQL
             SELECT
@@ -2917,6 +3174,285 @@ class CapHum extends Model
 
         } catch (\Exception $e) {
             return self::resultado(false, 'Error al procesar la solicitud.', null, $e->getMessage());
+        }
+    }
+
+    private static function idsAccesosCapitalHumanoSql(): string
+    {
+        return implode(',', array_map('intval', self::MODULOS_ACCESOS_CAPITAL_HUMANO_IDS));
+    }
+
+    private static function grupoModuloAccesoCapitalHumano(int $id, string $pestana, string $nombre): array
+    {
+        if ($id >= 107 && $id <= 127) {
+            return ['grupo' => 'Edicion cobranza', 'icono' => 'fa-solid fa-pen-to-square', 'orden' => 30];
+        }
+        if (in_array($id, [94, 95, 96, 97, 98, 99, 101, 103], true)) {
+            return ['grupo' => 'Gestiones de personal', 'icono' => 'fa-solid fa-users-gear', 'orden' => 20];
+        }
+        if (in_array($id, [104, 105], true)) {
+            return ['grupo' => 'Seleccion de personal', 'icono' => 'fa-solid fa-user-check', 'orden' => 25];
+        }
+        if ($id === self::MODULO_ACCESOS_CAPITAL_HUMANO) {
+            return ['grupo' => 'Administracion de accesos', 'icono' => 'fa-solid fa-user-shield', 'orden' => 40];
+        }
+        if (strcasecmp(trim($pestana), 'Permisos especiales') === 0) {
+            return ['grupo' => 'Permisos especiales', 'icono' => 'fa-solid fa-shield-halved', 'orden' => 35];
+        }
+
+        return ['grupo' => 'Modulos Capital Humano', 'icono' => 'fa-solid fa-users', 'orden' => 10];
+    }
+
+    public static function getAccesosCapitalHumano(): array
+    {
+        try {
+            $db = new Database();
+            self::asegurarModuloAccesosCapitalHumanoDb($db);
+            $idsSql = self::idsAccesosCapitalHumanoSql();
+
+            $usuarios = $db->queryAll("
+                SELECT
+                    p.id AS persona_id,
+                    p.numero_empleado,
+                    TRIM(CONCAT_WS(' ',
+                        NULLIF(TRIM(p.nombres), ''),
+                        NULLIF(TRIM(p.segundo_nombre), ''),
+                        NULLIF(TRIM(p.apellidop), ''),
+                        NULLIF(TRIM(p.apellidom), '')
+                    )) AS nombre,
+                    p.correo,
+                    p.user_name,
+                    p.estatus,
+                    CONVERT(COALESCE(NULLIF(TRIM(p.telefono_uno), ''), NULLIF(TRIM(p.telefono_dos), ''), '') USING utf8mb4) COLLATE utf8mb4_general_ci AS telefono,
+                    pf.foto AS foto_perfil,
+                    COALESCE(NULLIF(TRIM(pdr.puesto_texto), ''), pu.nombre, '') AS puesto,
+                    COALESCE(NULLIF(TRIM(pdr.departamento_texto), ''), dep.nombre, '') AS departamento,
+                    COALESCE(NULLIF(TRIM(pdr.area_texto), ''), dorg.nombre, '') AS area,
+                    COALESCE(NULLIF(TRIM(pdr.direccion_organizacional), ''), dir.nombre, '') AS direccion,
+                    COALESCE(pa.nombre, '') AS pais,
+                    COALESCE(pa.codigo_iso, 'mx') AS codigo_iso_pais,
+                    COALESCE(TRIM(CONCAT_WS(' ', pj.nombres, pj.segundo_nombre, pj.apellidop, pj.apellidom)), '') AS jefe_nombre,
+                    COALESCE(am.total_modulos_ch, 0) AS total_modulos_ch,
+                    COALESCE(am.tiene_accesos_ch, 0) AS tiene_accesos_ch
+                FROM persona p
+                LEFT JOIN perfil pf ON pf.id_persona = p.id
+                LEFT JOIN persona_datos_rrhh pdr ON pdr.id_persona = p.id
+                LEFT JOIN asigna_puesto ap ON ap.id_persona = p.id AND COALESCE(ap.activo, 1) = 1
+                LEFT JOIN puesto pu ON pu.id = COALESCE(pdr.id_puesto, ap.id_puesto)
+                LEFT JOIN departamento dep ON dep.id = COALESCE(pdr.id_departamento, pu.departamento_id)
+                LEFT JOIN departamento_organizacional dorg ON dorg.id = COALESCE(pdr.id_area, dep.id_departamento_organizacional)
+                LEFT JOIN asigna_direcciones ad ON ad.id_departamento_organizacional = COALESCE(pdr.id_area, dep.id_departamento_organizacional)
+                   AND COALESCE(ad.activo, 1) = 1
+                LEFT JOIN direcciones_organizacion dir ON dir.id = ad.id_direccion
+                LEFT JOIN paises pa ON pa.id = p.id_pais
+                LEFT JOIN (
+                    SELECT id_persona, MAX(id) AS id_ultimo
+                    FROM asigna_jefe
+                    GROUP BY id_persona
+                ) aj_ult ON aj_ult.id_persona = p.id
+                LEFT JOIN asigna_jefe aj ON aj.id = aj_ult.id_ultimo
+                LEFT JOIN vacantes_personal vp ON vp.id = aj.id_vacante_jefe
+                LEFT JOIN persona pj ON pj.id = COALESCE(aj.id_jefe, vp.id_jefe)
+                LEFT JOIN (
+                    SELECT
+                        usuario_id,
+                        COUNT(*) AS total_modulos_ch,
+                        MAX(CASE WHEN modulo_web_id = " . (int) self::MODULO_ACCESOS_CAPITAL_HUMANO . " THEN 1 ELSE 0 END) AS tiene_accesos_ch
+                    FROM asigna_modulo_web
+                    WHERE modulo_web_id IN ($idsSql)
+                    GROUP BY usuario_id
+                ) am ON am.usuario_id = p.id
+                WHERE COALESCE(p.estatus, '') <> 'Baja'
+                ORDER BY CASE WHEN p.estatus = 'Activo' THEN 0 ELSE 1 END, nombre ASC
+            ");
+
+            $totales = [
+                'total' => count($usuarios),
+                'activos' => 0,
+                'inactivos' => 0,
+                'con_permisos_ch' => 0,
+                'sin_permisos_ch' => 0,
+                'con_acceso_panel' => 0,
+            ];
+            foreach ($usuarios as $u) {
+                if (strcasecmp((string)($u['estatus'] ?? ''), 'Activo') === 0) {
+                    $totales['activos']++;
+                } else {
+                    $totales['inactivos']++;
+                }
+                if ((int)($u['total_modulos_ch'] ?? 0) > 0) {
+                    $totales['con_permisos_ch']++;
+                } else {
+                    $totales['sin_permisos_ch']++;
+                }
+                if ((int)($u['tiene_accesos_ch'] ?? 0) === 1) {
+                    $totales['con_acceso_panel']++;
+                }
+            }
+
+            return self::resultado(true, 'Usuarios cargados.', [
+                'usuarios' => $usuarios,
+                'totales' => $totales,
+            ]);
+        } catch (\Throwable $e) {
+            return self::resultado(false, 'No se pudieron cargar los accesos de Capital Humano.', [
+                'usuarios' => [],
+                'totales' => ['total' => 0, 'activos' => 0, 'inactivos' => 0, 'con_permisos_ch' => 0, 'sin_permisos_ch' => 0, 'con_acceso_panel' => 0],
+            ], $e->getMessage());
+        }
+    }
+
+    public static function getAccesoCapitalHumanoDetalle(int $idPersona): array
+    {
+        try {
+            if ($idPersona <= 0) {
+                return self::resultado(false, 'Usuario invalido.');
+            }
+            $db = new Database();
+            self::asegurarModuloAccesosCapitalHumanoDb($db);
+            $idsSql = self::idsAccesosCapitalHumanoSql();
+
+            $usuario = $db->queryOne("
+                SELECT
+                    p.id AS persona_id,
+                    p.numero_empleado,
+                    TRIM(CONCAT_WS(' ', p.nombres, p.segundo_nombre, p.apellidop, p.apellidom)) AS nombre,
+                    p.correo,
+                    p.user_name,
+                    p.password,
+                    p.estatus,
+                    COALESCE(NULLIF(TRIM(pdr.puesto_texto), ''), pu.nombre, '') AS puesto,
+                    COALESCE(NULLIF(TRIM(pdr.departamento_texto), ''), dep.nombre, '') AS departamento
+                FROM persona p
+                LEFT JOIN persona_datos_rrhh pdr ON pdr.id_persona = p.id
+                LEFT JOIN asigna_puesto ap ON ap.id_persona = p.id AND COALESCE(ap.activo, 1) = 1
+                LEFT JOIN puesto pu ON pu.id = COALESCE(pdr.id_puesto, ap.id_puesto)
+                LEFT JOIN departamento dep ON dep.id = COALESCE(pdr.id_departamento, pu.departamento_id)
+                WHERE p.id = :id
+                  AND COALESCE(p.estatus, '') <> 'Baja'
+                LIMIT 1
+            ", ['id' => $idPersona]);
+            if (!$usuario) {
+                return self::resultado(false, 'No se encontro el usuario en Capital Humano.');
+            }
+
+            $modulos = $db->queryAll("
+                SELECT
+                    m.id,
+                    m.nombre,
+                    m.pestana,
+                    m.descripcion,
+                    CASE WHEN am.usuario_id IS NULL THEN 0 ELSE 1 END AS asignado
+                FROM modulos_web m
+                LEFT JOIN asigna_modulo_web am
+                       ON am.modulo_web_id = m.id
+                      AND am.usuario_id = :persona_id
+                WHERE COALESCE(m.activo, 1) = 1
+                  AND m.id IN ($idsSql)
+                ORDER BY FIELD(m.id, $idsSql), m.nombre ASC
+            ", ['persona_id' => $idPersona]);
+
+            foreach ($modulos as &$m) {
+                $meta = self::grupoModuloAccesoCapitalHumano(
+                    (int)($m['id'] ?? 0),
+                    (string)($m['pestana'] ?? ''),
+                    (string)($m['nombre'] ?? '')
+                );
+                $m['grupo_ch'] = $meta['grupo'];
+                $m['grupo_icono'] = $meta['icono'];
+                $m['grupo_orden'] = $meta['orden'];
+            }
+            unset($m);
+            usort($modulos, static function (array $a, array $b): int {
+                $ga = (int)($a['grupo_orden'] ?? 999);
+                $gb = (int)($b['grupo_orden'] ?? 999);
+                if ($ga !== $gb) {
+                    return $ga <=> $gb;
+                }
+                return ((int)($a['id'] ?? 0)) <=> ((int)($b['id'] ?? 0));
+            });
+
+            return self::resultado(true, 'Detalle cargado.', [
+                'usuario' => $usuario,
+                'modulos' => $modulos,
+            ]);
+        } catch (\Throwable $e) {
+            return self::resultado(false, 'No se pudo cargar el detalle del acceso Capital Humano.', null, $e->getMessage());
+        }
+    }
+
+    public static function guardarPermisosAccesoCapitalHumano(array $input): array
+    {
+        $db = null;
+        try {
+            $idPersona = (int)($input['id_persona'] ?? 0);
+            if ($idPersona <= 0) {
+                return self::resultado(false, 'Usuario invalido.');
+            }
+            $modulos = $input['modulos'] ?? [];
+            if (!is_array($modulos)) {
+                $modulos = [];
+            }
+            $permitidos = array_fill_keys(self::MODULOS_ACCESOS_CAPITAL_HUMANO_IDS, true);
+            $modulos = array_values(array_unique(array_filter(array_map('intval', $modulos), static function ($mid) use ($permitidos) {
+                return isset($permitidos[$mid]);
+            })));
+
+            $db = new Database();
+            self::asegurarModuloAccesosCapitalHumanoDb($db);
+            $idsSql = self::idsAccesosCapitalHumanoSql();
+
+            $usuario = $db->queryOne(
+                "SELECT id FROM persona WHERE id = :id AND COALESCE(estatus, '') <> 'Baja' LIMIT 1",
+                ['id' => $idPersona]
+            );
+            if (!$usuario) {
+                return self::resultado(false, 'No se encontro el usuario en Capital Humano.');
+            }
+
+            if (!empty($modulos)) {
+                $modulosActivos = $db->queryAll("
+                    SELECT id
+                    FROM modulos_web
+                    WHERE COALESCE(activo, 1) = 1
+                      AND id IN ($idsSql)
+                      AND id IN (" . implode(',', array_map('intval', $modulos)) . ")
+                ");
+                $activos = array_fill_keys(array_map('intval', array_column($modulosActivos, 'id')), true);
+                $modulos = array_values(array_filter($modulos, static function ($mid) use ($activos) {
+                    return isset($activos[(int)$mid]);
+                }));
+            }
+
+            $db->beginTransaction();
+            $db->CRUD(
+                "DELETE FROM asigna_modulo_web
+                 WHERE usuario_id = :uid
+                   AND modulo_web_id IN ($idsSql)",
+                ['uid' => $idPersona]
+            );
+            foreach ($modulos as $moduloId) {
+                $db->CRUD(
+                    "INSERT INTO asigna_modulo_web (usuario_id, modulo_web_id)
+                     VALUES (:uid, :mid)",
+                    ['uid' => $idPersona, 'mid' => $moduloId]
+                );
+            }
+            $db->CRUD(
+                "UPDATE persona SET session_version = COALESCE(session_version, 1) + 1 WHERE id = :id",
+                ['id' => $idPersona]
+            );
+            $db->commit();
+
+            return self::resultado(true, 'Permisos de Capital Humano guardados.', [
+                'persona_id' => $idPersona,
+                'modulos' => $modulos,
+            ]);
+        } catch (\Throwable $e) {
+            if ($db && $db->inTransaction()) {
+                $db->rollback();
+            }
+            return self::resultado(false, 'No se pudieron guardar los permisos de Capital Humano.', null, $e->getMessage());
         }
     }
 

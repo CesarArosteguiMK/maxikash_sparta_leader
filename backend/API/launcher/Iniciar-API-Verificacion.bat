@@ -19,6 +19,8 @@ rem =====================================================================
 cd /d "%~dp0"
 for %%I in ("%~dp0..") do set "API_DIR=%%~fI"
 if "%API_DIR:~-1%"=="\" set "API_DIR=%API_DIR:~0,-1%"
+set "API_PORT=%SPARTA_API_PORT%"
+if "%API_PORT%"=="" set "API_PORT=8000"
 if not exist "%API_DIR%\logs" mkdir "%API_DIR%\logs" >nul 2>&1
 
 if /i "%~1"=="/CONSOLA" (
@@ -40,7 +42,7 @@ echo ============================================================
 echo.
 
 rem Si ya esta levantada, no hacer nada mas.
-echo [PRECHECK] Probando si la API ya responde en 127.0.0.1:8000...
+echo [PRECHECK] Probando si la API ya responde en 127.0.0.1:!API_PORT!...
 call :ApiReady 4
 if !errorlevel! EQU 0 (
     set "API_READY=1"
@@ -50,8 +52,8 @@ if !errorlevel! EQU 0 (
 echo [PRECHECK] API_READY=!API_READY!
 
 if "!API_READY!"=="1" (
-    echo [OK] La API ya esta en marcha en el puerto 8000.
-    echo      URL: http://127.0.0.1:8000/docs
+    echo [OK] La API ya esta en marcha en el puerto !API_PORT!.
+    echo      URL: http://127.0.0.1:!API_PORT!/docs
     echo.
     echo [CHECK] Verificando dependencias criticas por si el servidor quedo a medias...
     powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0doctor-api.ps1"
@@ -198,7 +200,7 @@ if !errorlevel! EQU 0 (
     echo.
     echo ============================================================
     echo   [OK] API levantada correctamente
-    echo   URL:  http://127.0.0.1:8000/api/v1/health
+    echo   URL:  http://127.0.0.1:!API_PORT!/api/v1/health
     echo ============================================================
     echo.
     ping 127.0.0.1 -n 4 >nul
@@ -225,5 +227,6 @@ exit /b %START_RC%
 :ApiReady
 set "API_READY_TIMEOUT=%~1"
 if "%API_READY_TIMEOUT%"=="" set "API_READY_TIMEOUT=4"
-powershell -NoProfile -ExecutionPolicy Bypass -Command "try { $t=[int]$env:API_READY_TIMEOUT; $r = Invoke-WebRequest -Uri 'http://127.0.0.1:8000/api/v1/health' -UseBasicParsing -TimeoutSec $t; if ($r.StatusCode -ge 200 -and $r.StatusCode -lt 500) { exit 0 } else { exit 1 } } catch { try { $r = Invoke-WebRequest -Uri 'http://127.0.0.1:8000/docs' -UseBasicParsing -TimeoutSec $t; if ($r.StatusCode -ge 200 -and $r.StatusCode -lt 500) { exit 0 } else { exit 1 } } catch { exit 1 } }" >nul 2>nul
+set "API_READY_PORT=%API_PORT%"
+powershell -NoProfile -ExecutionPolicy Bypass -Command "try { $t=[int]$env:API_READY_TIMEOUT; $p=[int]$env:API_READY_PORT; $r = Invoke-WebRequest -Uri ('http://127.0.0.1:' + $p + '/api/v1/health') -UseBasicParsing -TimeoutSec $t; if ($r.StatusCode -ge 200 -and $r.StatusCode -lt 500) { exit 0 } else { exit 1 } } catch { try { $r = Invoke-WebRequest -Uri ('http://127.0.0.1:' + $p + '/docs') -UseBasicParsing -TimeoutSec $t; if ($r.StatusCode -ge 200 -and $r.StatusCode -lt 500) { exit 0 } else { exit 1 } } catch { exit 1 } }" >nul 2>nul
 exit /b !ERRORLEVEL!
