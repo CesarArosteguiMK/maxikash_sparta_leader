@@ -11,6 +11,13 @@ rem =====================================================================
 
 for %%I in ("%~dp0..") do set "API_DIR=%%~fI"
 if "%API_DIR:~-1%"=="\" set "API_DIR=%API_DIR:~0,-1%"
+set "API_PORT=%SPARTA_API_PORT%"
+if "%API_PORT%"=="" (
+    if exist "%API_DIR%\runtime\api-port.txt" (
+        set /p API_PORT=<"%API_DIR%\runtime\api-port.txt"
+    )
+)
+if "%API_PORT%"=="" set "API_PORT=8000"
 cd /d "%API_DIR%"
 
 rem -------- Resolver Python: venv > portable sin PATH > py -3 > python --------
@@ -84,9 +91,9 @@ if not exist "%API_DIR%\app\main.py" (
     exit /b 1
 )
 
-netstat -ano 2>nul | findstr ":8000" | findstr "LISTENING" >nul
+netstat -ano 2>nul | findstr ":%API_PORT%" | findstr "LISTENING" >nul
 if !errorlevel! EQU 0 (
-    echo [AVISO] Puerto 8000 ya esta en LISTEN.
+    echo [AVISO] Puerto %API_PORT% ya esta en LISTEN.
     echo         Si quiere reiniciar, ejecute primero  launcher\cerrar-agente.bat
     echo.
     if not "%SPARTA_API_NO_PAUSE%"=="1" pause
@@ -98,7 +105,7 @@ echo ============================================
 echo   API verificacion documentos -- FOREGROUND
 echo   Carpeta : %API_DIR%
 echo   Python  : %PY_SRC%
-echo   URL     : http://127.0.0.1:8000   docs en /docs
+echo   URL     : http://127.0.0.1:%API_PORT%   docs en /docs
 echo   Detener : Ctrl+C  o cerrar esta ventana
 echo ============================================
 echo.
@@ -121,7 +128,7 @@ if errorlevel 1 (
 echo [doctor] OK -- arrancando uvicorn (Ctrl+C para detener).
 echo.
 
-"%PY_EXE%" %PY_ARG% -m uvicorn app.main:app --host 0.0.0.0 --port 8000 --workers 1
+"%PY_EXE%" %PY_ARG% -m uvicorn app.main:app --host 0.0.0.0 --port %API_PORT% --workers 1
 set "RC=%ERRORLEVEL%"
 
 echo.

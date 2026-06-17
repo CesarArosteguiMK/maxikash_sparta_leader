@@ -18,6 +18,7 @@ $runtimeDir = Join-Path $ApiDir 'runtime'
 $logPath = Join-Path $logsDir 'api-supervisor.log'
 $restartFlag = Join-Path $runtimeDir 'api-restart-request.flag'
 $stopFlag = Join-Path $runtimeDir 'api-supervisor-stop.flag'
+$portFile = Join-Path $runtimeDir 'api-port.txt'
 
 foreach ($p in @($logsDir, $runtimeDir)) {
     try { New-Item -ItemType Directory -Path $p -Force | Out-Null } catch {}
@@ -56,9 +57,30 @@ function Write-SupervisorLog {
     } catch {}
 }
 
-function Test-ApiHealth {
+function Get-ApiPort {
+    $port = 8000
     try {
-        $r = Invoke-WebRequest -Uri 'http://127.0.0.1:8000/api/v1/health' -UseBasicParsing -TimeoutSec 3 -ErrorAction Stop
+        if ($env:SPARTA_API_PORT) {
+            $candidate = [int]$env:SPARTA_API_PORT
+            if ($candidate -gt 0) { return $candidate }
+        }
+    } catch {}
+    try {
+        if (Test-Path -LiteralPath $portFile) {
+            $raw = (Get-Content -LiteralPath $portFile -Raw -ErrorAction SilentlyContinue).Trim()
+            if ($raw -match '^\d+$') {
+                $candidate = [int]$raw
+                if ($candidate -gt 0) { return $candidate }
+            }
+        }
+    } catch {}
+    return $port
+}
+
+function Test-ApiHealth {
+    $port = Get-ApiPort
+    try {
+        $r = Invoke-WebRequest -Uri "http://127.0.0.1:$port/api/v1/health" -UseBasicParsing -TimeoutSec 3 -ErrorAction Stop
         return ($r.StatusCode -ge 200 -and $r.StatusCode -lt 500)
     } catch {
         return $false
@@ -68,7 +90,8 @@ function Test-ApiHealth {
 function Stop-Api {
     $stopper = Join-Path $here 'cerrar-agente.ps1'
     if (Test-Path -LiteralPath $stopper) {
-        Write-SupervisorLog 'Deteniendo API actual...'
+        $env:SPARTA_API_PORT = [string](Get-ApiPort)
+        Write-SupervisorLog ('Deteniendo API actual en puerto ' + $env:SPARTA_API_PORT + '...')
         try { & $stopper -Silent | Out-Null } catch { Write-SupervisorLog ('WARN cerrar-agente: ' + $_.Exception.Message) }
     }
 }
@@ -92,10 +115,12 @@ function Start-Api {
 
     $argList = @()
     if ($resolved.Args) { $argList += [string[]]$resolved.Args }
-    $argList += @('-m', 'uvicorn', 'app.main:app', '--host', '0.0.0.0', '--port', '8000', '--workers', '1')
+    $port = Get-ApiPort
+    $env:SPARTA_API_PORT = [string]$port
+    $argList += @('-m', 'uvicorn', 'app.main:app', '--host', '0.0.0.0', '--port', ([string]$port), '--workers', '1')
     $env:PYTHONUNBUFFERED = '1'
 
-    Write-SupervisorLog ('Arrancando API directo. Python=' + $resolved.Source + ' Exe=' + $resolved.Exe)
+    Write-SupervisorLog ('Arrancando API directo. Puerto=' + $port + ' Python=' + $resolved.Source + ' Exe=' + $resolved.Exe)
     try {
         $proc = Start-Process -FilePath $resolved.Exe `
             -ArgumentList $argList `
@@ -112,7 +137,7 @@ function Start-Api {
 
     for ($i = 0; $i -lt 90; $i++) {
         if (Test-ApiHealth) {
-            Write-SupervisorLog 'API saludable en http://127.0.0.1:8000/api/v1/health'
+            Write-SupervisorLog ('API saludable en http://127.0.0.1:' + $port + '/api/v1/health')
             return $true
         }
         Start-Sleep -Milliseconds 500
@@ -129,7 +154,7 @@ function Ensure-Api {
     return (Start-Api)
 }
 
-Write-SupervisorLog ('Supervisor iniciado. PID=' + $PID + ' ApiDir=' + $ApiDir)
+Write-SupervisorLog ('Supervisor iniciado. PID=' + $PID + ' ApiDir=' + $ApiDir + ' Puerto=' + (Get-ApiPort))
 [void](Ensure-Api -Reason 'startup')
 
 $failures = 0

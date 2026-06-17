@@ -6222,6 +6222,7 @@ class CapHum extends Controller
 
             var docModalPollTimer = null;
             var docModalFetchInFlight = false;
+            var docModalPendingRefresh = null;
             window.SPARTA_DOC_DEBUG = window.SPARTA_DOC_DEBUG === true;
 
             function clearDocModalPoll() {
@@ -8339,7 +8340,7 @@ class CapHum extends Controller
                             if (typeof Swal !== "undefined") {
                                 Swal.fire({ icon: "success", title: "Documento agregado", text: res.mensaje || "Documento subido manualmente.", timer: 2400, showConfirmButton: false });
                             }
-                            cargarDocumentosModal(idCandidato);
+                            cargarDocumentosModal(idCandidato, { forceRefresh: true, afterUpload: true });
                             if (typeof getCandidatos === "function") getCandidatos();
                         } else if (typeof Swal !== "undefined") {
                             Swal.fire({ icon: "error", title: "No se pudo subir", text: (res && res.mensaje) ? res.mensaje : "No se pudo guardar el documento." });
@@ -8995,6 +8996,10 @@ class CapHum extends Controller
                     if (opts.fromPoll) {
                         return;
                     }
+                    docModalPendingRefresh = {
+                        idCandidato: idCandidato,
+                        opts: Object.assign({}, opts, { forceRefresh: true, fromQueuedRefresh: true })
+                    };
                     clearDocModalPoll();
                     return;
                 }
@@ -9182,6 +9187,16 @@ class CapHum extends Controller
                     }
                 }).finally(function() {
                     docModalFetchInFlight = false;
+                    if (docModalPendingRefresh) {
+                        var pendiente = docModalPendingRefresh;
+                        docModalPendingRefresh = null;
+                        var modalPendiente = document.getElementById("modalDocumentacionCandidato");
+                        if (!modalPendiente || !modalPendiente.dataset.idCandidato || String(modalPendiente.dataset.idCandidato) === String(pendiente.idCandidato)) {
+                            setTimeout(function() {
+                                cargarDocumentosModal(pendiente.idCandidato, pendiente.opts || { forceRefresh: true });
+                            }, 80);
+                        }
+                    }
                 });
             }
 

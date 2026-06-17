@@ -3,6 +3,7 @@ chcp 65001 >nul
 setlocal EnableDelayedExpansion
 set "API_PORT=%SPARTA_API_PORT%"
 if "%API_PORT%"=="" set "API_PORT=8000"
+call :PersistApiPort
 
 rem ---------------------------------------------------------------------
 rem Entrada del boton "API" de Inicio.
@@ -70,6 +71,7 @@ exit /b !RC!
 :DirectFallback
 for %%I in ("%~dp0..") do set "API_DIR=%%~fI"
 if "!API_DIR:~-1!"=="\" set "API_DIR=!API_DIR:~0,-1!"
+call :PersistApiPort
 set "RESTART_FLAG=!API_DIR!\runtime\api-restart-request.flag"
 if exist "!RESTART_FLAG!" (
     echo [TASK][WARN] Limpiando bandera de supervisor pendiente antes del arranque directo: !RESTART_FLAG!
@@ -133,4 +135,12 @@ if not "!ERRORLEVEL!"=="0" exit /b 0
 set "SPARTA_TASK_FILE=%TASK_FILE%"
 powershell -NoProfile -ExecutionPolicy Bypass -Command "$p=$env:SPARTA_TASK_FILE; try { $c=Get-Content -LiteralPath $p -Raw -ErrorAction Stop; if($c -like '*supervisar-api-documentos.ps1*'){ exit 0 } } catch {}; exit 1" >nul 2>nul
 if "!ERRORLEVEL!"=="0" set "TASK_USABLE=1"
+exit /b 0
+
+:PersistApiPort
+for %%I in ("%~dp0..") do set "API_DIR=%%~fI"
+if "!API_DIR:~-1!"=="\" set "API_DIR=!API_DIR:~0,-1!"
+set "RUNTIME_DIR=!API_DIR!\runtime"
+if not exist "!RUNTIME_DIR!" mkdir "!RUNTIME_DIR!" >nul 2>&1
+> "!RUNTIME_DIR!\api-port.txt" echo !API_PORT!
 exit /b 0
