@@ -4233,6 +4233,11 @@ public static function getNombresClienteParaReporte(array $idsCredito): array
                 $where[] = "(CAST(id_credito AS CHAR) LIKE :q OR folio LIKE :q OR nombre_cliente LIKE :q OR nombre_gestor LIKE :q)";
                 $params['q'] = '%' . $q . '%';
             }
+            $origen = trim((string)($filtros['origen'] ?? ''));
+            if ($origen !== '') {
+                $where[] = "LOWER(COALESCE(origen, '')) = :origen";
+                $params['origen'] = strtolower($origen);
+            }
             $limit = (int)($filtros['limit'] ?? 500);
             if ($limit < 1 || $limit > 2000) {
                 $limit = 500;

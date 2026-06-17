@@ -26,9 +26,9 @@ $documentos_ayuda = [
     4  => 'CURP no mayor a 2 meses. Puedes descargarla en <a href="https://www.gob.mx/curp/" target="_blank" rel="noopener">gob.mx/curp</a>.',
     5  => 'INE, residencia o pasaporte vigente. Sube un solo PDF con frente y reverso.',
     6  => 'No mayor a 3 meses: luz, agua, gas o predial. Debe ser digital.',
-    7  => 'Constancia de situación fiscal no mayor a 2 meses.',
+    7  => 'Constancia de situación fiscal no mayor a 2 meses, con régimen de sueldos y salarios.',
     8  => 'Documento oficial digital del IMSS. Puedes obtenerlo en <a href="https://www.imss.gob.mx/tramites/imss02008" target="_blank" rel="noopener">imss.gob.mx</a>.',
-    9  => 'Hoja de retención FONACOT o INFONAVIT. Si no tienes adeudo, firma la carta que enviará Talento Humano.',
+    9  => 'Hoja de retención FONACOT o INFONAVIT. Si no tienes adeudo, descarga la carta de no adeudo desde aquí, llénala, fírmala y súbela en este apartado.',
     10 => 'Solo bancos físicos: BBVA, Banorte, Santander, Banamex, entre otros. No se aceptan bancos digitales como Nu, Mercado Pago o Klar.',
 ];
 ?>
