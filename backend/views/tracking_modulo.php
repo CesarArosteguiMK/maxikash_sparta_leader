@@ -339,43 +339,7 @@ body.dark-mode .trk-admin-table td {
     border-color: #2d4444;
 }
 
-.trk-driver-assist {
-    border: 1px solid #c7d2fe;
-    background: #eef6ff;
-    border-radius: .65rem;
-    padding: .75rem;
-}
-.trk-driver-assist-head {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: .75rem;
-    margin-bottom: .55rem;
-}
-.trk-driver-assist-title {
-    color: #25364f;
-    font-size: .76rem;
-    font-weight: 900;
-    text-transform: uppercase;
-}
-.trk-driver-suggestions {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-    gap: .55rem;
-}
-.trk-driver-suggestion {
-    border: 1px solid #dbe3ef;
-    background: #fff;
-    border-radius: .6rem;
-    padding: .6rem;
-    min-width: 0;
-}
-.trk-driver-suggestion .name {
-    color: #25364f;
-    font-size: .78rem;
-    font-weight: 900;
-    line-height: 1.15;
-}
+/* -- Evaluacion de transportista (score/mini) -- */
 .trk-driver-score {
     display: inline-flex;
     align-items: center;
@@ -394,40 +358,9 @@ body.dark-mode .trk-admin-table td {
     color: #64748b;
     font-size: .7rem;
 }
-.trk-driver-reasons {
-    color: #64748b;
-    font-size: .68rem;
-    line-height: 1.25;
-    margin-top: .35rem;
-}
-.trk-driver-select2 {
-    display: grid;
-    gap: .2rem;
-    line-height: 1.15;
-}
-.trk-driver-select2-main {
-    display: flex;
-    align-items: center;
-    gap: .35rem;
-    flex-wrap: wrap;
-}
-.trk-quick-driver-hint {
-    border-top: 1px dashed #dbe3ef;
-    margin-top: .45rem;
-    padding-top: .45rem;
-}
-body.dark-mode .trk-driver-assist {
-    background: #101818;
-    border-color: #2d4444;
-}
-body.dark-mode .trk-driver-suggestion {
-    background: #172121;
-    border-color: #2d4444;
-}
-body.dark-mode .trk-driver-assist-title,
-body.dark-mode .trk-driver-suggestion .name { color: #e2e8f0; }
-body.dark-mode .trk-driver-mini,
-body.dark-mode .trk-driver-reasons { color: #94a3b8; }
+body.dark-mode .trk-driver-mini { color: #94a3b8; }
+
+
 @media (max-width: 991.98px) {
     .trk-admin-toolbar { grid-template-columns: 1fr 1fr; }
     .trk-admin-grid.is-list .trk-admin-card { grid-template-columns: 1fr; }
@@ -1374,7 +1307,7 @@ body.dark-mode .trk-map-driver-meta {
     color: #94a3b8;
 }
 .trk-operaciones-drawer {
-    width: min(94vw, 1680px) !important;
+    width: min(98vw, 1880px) !important;
     border-left: 0;
     box-shadow: -1rem 0 2.5rem rgba(15, 23, 42, .18);
 }
@@ -1389,19 +1322,22 @@ body.dark-mode .trk-map-driver-meta {
 .trk-operaciones-body {
     background: #f5f7fb;
     height: 100%;
-    overflow: hidden;
+    overflow-y: auto;
+    overflow-x: hidden;
     padding: .85rem;
 }
 .trk-ops-shell {
     display: grid;
-    grid-template-columns: minmax(310px, 360px) minmax(0, 1fr) minmax(315px, 390px);
-    grid-template-rows: auto minmax(0, 1fr);
+    grid-template-columns: minmax(310px, 380px) minmax(0, 1fr);
+    grid-template-rows: auto minmax(260px, auto) minmax(560px, auto) minmax(270px, auto) minmax(260px, auto);
     grid-template-areas:
-        "summary map ops"
-        "timeline map ops";
+        "summary ops"
+        "planner map"
+        "cedis map"
+        "timeline timeline"
+        "opportunities opportunities";
     gap: .85rem;
-    height: 100%;
-    min-height: 0;
+    min-height: 100%;
 }
 .trk-ops-panel {
     background: #fff;
@@ -1413,12 +1349,32 @@ body.dark-mode .trk-map-driver-meta {
 .trk-ops-summary {
     grid-area: summary;
     padding: .9rem;
+    align-self: start;
+    height: fit-content;
+}
+.trk-ops-planner-panel {
+    grid-area: planner;
+    padding: .9rem;
+    overflow: auto;
+    min-height: 260px;
+}
+.trk-ops-cedis-panel {
+    grid-area: cedis;
+    padding: .9rem;
+    overflow: auto;
+    min-height: 260px;
+}
+.trk-ops-opportunities-panel {
+    grid-area: opportunities;
+    padding: .85rem;
+    overflow: hidden;
+    min-height: 260px;
 }
 .trk-ops-map-panel {
     grid-area: map;
     display: flex;
     flex-direction: column;
-    min-height: 0;
+    min-height: 560px;
     overflow: hidden;
 }
 .trk-ops-operator-panel {
@@ -1433,7 +1389,7 @@ body.dark-mode .trk-map-driver-meta {
     grid-area: timeline;
     padding: .85rem;
     overflow: hidden;
-    min-height: 0;
+    min-height: 270px;
 }
 .trk-ops-title {
     color: #23304d;
@@ -1495,6 +1451,32 @@ body.dark-mode .trk-map-driver-meta {
     gap: .45rem;
     margin-top: .75rem;
 }
+.trk-ops-route-fields {
+    display: grid;
+    grid-template-columns: minmax(0, 1.15fr) minmax(110px, .85fr) minmax(100px, .75fr);
+    gap: .45rem;
+}
+.trk-ops-route-field {
+    border: 1px solid #e2e8f0;
+    background: #f8fafc;
+    border-radius: .55rem;
+    padding: .55rem;
+    min-width: 0;
+}
+.trk-ops-route-field span {
+    display: block;
+    color: #64748b;
+    font-size: .6rem;
+    font-weight: 900;
+    text-transform: uppercase;
+}
+.trk-ops-route-field b {
+    display: block;
+    color: #23304d;
+    font-size: .78rem;
+    line-height: 1.2;
+    overflow-wrap: anywhere;
+}
 .trk-ops-map-head {
     display: flex;
     align-items: center;
@@ -1515,13 +1497,13 @@ body.dark-mode .trk-map-driver-meta {
 .trk-ops-map-wrap {
     position: relative;
     flex: 1 1 auto;
-    min-height: 420px;
+    min-height: 500px;
     background: #dbeafe;
 }
 #trkOperacionMap {
     width: 100%;
     height: 100%;
-    min-height: 420px;
+    min-height: 500px;
 }
 .trk-ops-map-empty {
     position: absolute;
@@ -1568,7 +1550,7 @@ body.dark-mode .trk-map-driver-meta {
     overflow-x: auto;
     overflow-y: hidden;
     padding: 1.1rem .2rem .2rem;
-    height: calc(100% - 2rem);
+    min-height: 205px;
     scroll-snap-type: x proximity;
     position: relative;
 }
@@ -1582,7 +1564,7 @@ body.dark-mode .trk-map-driver-meta {
     background: #dbeafe;
 }
 .trk-ops-step {
-    flex: 0 0 270px;
+    flex: 0 0 320px;
     border: 1px solid #e2e8f0;
     background: #fff;
     border-radius: .7rem;
@@ -1703,13 +1685,88 @@ body.dark-mode .trk-map-driver-meta {
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: .45rem;
 }
+.trk-ops-group-search {
+    margin: .65rem 0 .75rem;
+}
+.trk-ops-groups {
+    display: grid;
+    gap: .55rem;
+}
+.trk-ops-group {
+    border: 1px solid #e2e8f0;
+    border-radius: .7rem;
+    background: #f8fafc;
+    overflow: hidden;
+}
+.trk-ops-group-head,
+.trk-ops-group-mun {
+    display: flex;
+    width: 100%;
+    align-items: center;
+    justify-content: space-between;
+    gap: .65rem;
+    border: 0;
+    background: transparent;
+    color: #23304d;
+    font-size: .78rem;
+    font-weight: 900;
+    padding: .6rem .72rem;
+    text-align: left;
+}
+.trk-ops-group-mun {
+    color: #475569;
+    font-size: .74rem;
+    font-weight: 700;
+    border-top: 1px solid #e2e8f0;
+    padding-left: 1.25rem;
+}
+.trk-ops-opp-list {
+    display: flex;
+    gap: .6rem;
+    overflow-x: auto;
+    overflow-y: hidden;
+    min-height: 190px;
+    padding-bottom: .25rem;
+}
+.trk-ops-opp-card {
+    flex: 0 0 330px;
+    border: 1px solid #e2e8f0;
+    border-radius: .75rem;
+    background: #f8fafc;
+    padding: .7rem;
+    min-height: 105px;
+}
+.trk-ops-edit-workspace {
+    grid-column: 2;
+    grid-row: 2 / -1;
+    display: grid;
+    grid-template-rows: auto minmax(0, 1fr);
+    min-height: 0;
+    overflow: hidden;
+}
+.trk-ops-shell.is-edit-mode .trk-ops-map-panel,
+.trk-ops-shell.is-edit-mode .trk-ops-operator-panel,
+.trk-ops-shell.is-edit-mode .trk-ops-opportunities-panel,
+.trk-ops-shell.is-edit-mode .trk-ops-timeline-panel {
+    display: none;
+}
+.trk-ops-edit-placeholder {
+    display: grid;
+    place-items: center;
+    min-height: 360px;
+    color: #64748b;
+    text-align: center;
+}
 body.dark-mode .trk-operaciones-body {
     background: #111827;
 }
 body.dark-mode .trk-ops-panel,
 body.dark-mode .trk-ops-step,
 body.dark-mode .trk-ops-mini-card,
-body.dark-mode .trk-ops-block {
+body.dark-mode .trk-ops-block,
+body.dark-mode .trk-ops-route-field,
+body.dark-mode .trk-ops-group,
+body.dark-mode .trk-ops-opp-card {
     background: #172121;
     border-color: #2d4444;
 }
@@ -1722,6 +1779,8 @@ body.dark-mode .trk-ops-operator-title,
 body.dark-mode .trk-ops-mini-card b,
 body.dark-mode .trk-ops-block-title,
 body.dark-mode .trk-ops-validation-item,
+body.dark-mode .trk-ops-route-field b,
+body.dark-mode .trk-ops-group-head,
 body.dark-mode .trk-ops-live-card .live-main {
     color: #e2e8f0;
 }
@@ -1731,8 +1790,13 @@ body.dark-mode .trk-ops-step-meta,
 body.dark-mode .trk-ops-map-sub,
 body.dark-mode .trk-ops-mini-card span,
 body.dark-mode .trk-ops-block-label,
-body.dark-mode .trk-ops-block-text {
+body.dark-mode .trk-ops-block-text,
+body.dark-mode .trk-ops-route-field span,
+body.dark-mode .trk-ops-group-mun {
     color: #94a3b8;
+}
+body.dark-mode .trk-ops-group-mun {
+    border-top-color: #2d4444;
 }
 body.dark-mode .trk-ops-kpi,
 body.dark-mode .trk-ops-info-card,
@@ -1750,15 +1814,14 @@ body.dark-mode .trk-ops-live-card {
 @media (max-width: 1199.98px) {
     .trk-ops-shell {
         grid-template-columns: minmax(280px, 340px) minmax(0, 1fr);
+        grid-template-rows: auto auto minmax(500px, auto) auto auto auto;
         grid-template-areas:
-            "summary map"
+            "summary ops"
+            "planner planner"
+            "map map"
+            "cedis cedis"
             "timeline timeline"
-            "ops ops";
-        overflow: auto;
-        height: auto;
-    }
-    .trk-operaciones-body {
-        overflow: auto;
+            "opportunities opportunities";
     }
 }
 @media (max-width: 767.98px) {
@@ -2158,6 +2221,219 @@ body.dark-mode .trk-moto-model-pill {
     justify-content: flex-end;
 }
 .trk-planner-counts .badge { font-size: .62rem; }
+.trk-route-day-planner {
+    border: 1px solid #bfdbfe;
+    background: #f8fbff;
+    border-radius: .65rem;
+    padding: .72rem;
+    margin-top: .75rem;
+    display: none;
+}
+#modalRegistrarRuta.trk-planner-active .trk-route-day-planner {
+    display: block;
+}
+.trk-route-day-head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: .7rem;
+    margin-bottom: .6rem;
+}
+.trk-route-day-title {
+    color: #172554;
+    font-weight: 900;
+    font-size: .82rem;
+}
+.trk-route-day-sub {
+    color: #64748b;
+    font-size: .7rem;
+    line-height: 1.25;
+}
+.trk-route-day-tools {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(90px, 1fr)) minmax(90px, auto) minmax(90px, auto);
+    gap: .38rem;
+    align-items: end;
+    margin-bottom: .58rem;
+}
+.trk-route-day-tools label {
+    color: #64748b;
+    font-size: .62rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    margin-bottom: .12rem;
+}
+.trk-route-day-tools .form-control {
+    font-size: .72rem;
+    min-height: 2rem;
+}
+.trk-route-day-tools .btn {
+    min-height: 2rem;
+    white-space: nowrap;
+}
+.trk-route-day-list {
+    display: grid;
+    gap: .45rem;
+    max-height: 360px;
+    overflow-y: auto;
+    padding-right: .12rem;
+}
+.trk-route-day-card {
+    border: 1px solid #dbeafe;
+    background: #fff;
+    border-radius: .55rem;
+    padding: .58rem;
+}
+.trk-route-day-card.is-overloaded {
+    border-color: #f59e0b;
+    box-shadow: inset 4px 0 0 #f59e0b;
+}
+.trk-route-day-card-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: .45rem;
+    margin-bottom: .45rem;
+}
+.trk-route-day-date {
+    color: #25364f;
+    font-size: .78rem;
+    font-weight: 900;
+}
+.trk-route-day-items {
+    display: grid;
+    gap: .35rem;
+}
+.trk-route-day-item {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    align-items: start;
+    gap: .45rem;
+    border: 1px solid #e2e8f0;
+    background: #f8fafc;
+    border-radius: .48rem;
+    padding: .45rem .5rem;
+    min-width: 0;
+}
+.trk-route-day-item.is-overflow {
+    border-color: #f59e0b;
+    background: #fff7ed;
+}
+.trk-route-day-timebar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: .25rem .4rem;
+    margin-top: .25rem;
+}
+.trk-route-day-timechip {
+    display: inline-flex;
+    align-items: center;
+    gap: .18rem;
+    border: 1px solid #dbeafe;
+    background: #fff;
+    color: #334155;
+    border-radius: 999px;
+    padding: .12rem .42rem;
+    font-size: .62rem;
+    font-weight: 800;
+}
+.trk-route-day-timechip.is-pinned {
+    border-color: #c4b5fd;
+    background: #f5f3ff;
+    color: #5b21b6;
+}
+.trk-route-day-timechip.is-warning {
+    border-color: #fcd34d;
+    background: #fffbeb;
+    color: #92400e;
+}
+.trk-route-day-actions {
+    display: inline-flex;
+    gap: .25rem;
+    align-items: center;
+}
+.trk-route-day-num {
+    width: 1.45rem;
+    height: 1.45rem;
+    display: inline-grid;
+    place-items: center;
+    border-radius: 999px;
+    background: var(--track-color);
+    color: #fff;
+    font-size: .72rem;
+    font-weight: 900;
+    box-shadow: 0 6px 14px rgba(13, 148, 136, .22);
+}
+.trk-route-day-item-title {
+    color: #25364f;
+    font-size: .74rem;
+    font-weight: 900;
+    line-height: 1.15;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.trk-route-day-item-meta {
+    color: #64748b;
+    font-size: .64rem;
+    line-height: 1.25;
+}
+.trk-route-event-list {
+    display: grid;
+    gap: .35rem;
+    margin-top: .55rem;
+}
+.trk-route-event-item {
+    border: 1px dashed #bfdbfe;
+    background: #eef6ff;
+    border-radius: .5rem;
+    padding: .45rem .55rem;
+    font-size: .68rem;
+    color: #334155;
+}
+body.dark-mode .trk-route-day-planner {
+    background: #101c24;
+    border-color: #1e3a5f;
+}
+body.dark-mode .trk-route-day-title,
+body.dark-mode .trk-route-day-date,
+body.dark-mode .trk-route-day-item-title {
+    color: #e2e8f0;
+}
+body.dark-mode .trk-route-day-sub,
+body.dark-mode .trk-route-day-tools label,
+body.dark-mode .trk-route-day-item-meta {
+    color: #b0cece;
+}
+body.dark-mode .trk-route-day-card,
+body.dark-mode .trk-route-day-item {
+    background: #172121;
+    border-color: #2d4444;
+}
+body.dark-mode .trk-route-day-item.is-overflow {
+    background: #2b2414;
+    border-color: #b45309;
+}
+body.dark-mode .trk-route-day-timechip {
+    background: #111827;
+    border-color: #334155;
+    color: #d8eeee;
+}
+body.dark-mode .trk-route-day-timechip.is-pinned {
+    background: #221b38;
+    border-color: #7c3aed;
+    color: #ddd6fe;
+}
+body.dark-mode .trk-route-day-timechip.is-warning {
+    background: #2b2414;
+    border-color: #b45309;
+    color: #fde68a;
+}
+body.dark-mode .trk-route-event-item {
+    background: #102231;
+    border-color: #1e3a5f;
+    color: #cbd5e1;
+}
 .trk-route-opportunities {
     border: 1px solid #bfdbfe;
     background: #f8fbff;
@@ -2314,26 +2590,46 @@ body.dark-mode .trk-route-opportunities-summary .mini-kpi b {
 }
 #modalRegistrarRuta.trk-planner-active .modal-body {
     display: grid;
-    grid-template-columns: minmax(310px, 380px) minmax(390px, 500px) minmax(560px, 1fr);
-    grid-template-rows: auto auto minmax(0, 1fr) minmax(210px, 290px);
+    grid-template-columns: minmax(420px, 580px) minmax(680px, 1fr);
+    grid-template-rows: auto auto auto auto auto minmax(320px, auto);
     grid-template-areas:
-        "header header map"
-        "transport add map"
-        "planner tracking map"
-        "list list list";
+        "header    header"
+        "transport map"
+        "add       map"
+        "planner   map"
+        "planner   tracking"
+        "planner   list";
     align-items: start;
     gap: .75rem;
     height: calc(100vh - 8.25rem);
     min-height: 0;
-    overflow: hidden;
+    overflow-x: hidden;
+    overflow-y: auto;
     padding: .75rem;
+    scrollbar-gutter: stable;
 }
 #modalRegistrarRuta.trk-planner-active #rutaCancelacionInfo {
-    grid-column: 1 / 3;
+    grid-column: 1 / -1;
 }
 #modalRegistrarRuta.trk-planner-active #trkRouteHeaderSection {
     grid-area: header;
+    display: grid !important;
+    grid-template-columns: minmax(260px, 1.4fr) repeat(3, minmax(160px, .85fr));
+    gap: .75rem;
+    border: 1px solid #dbeafe;
+    background: #f8fafc;
+    border-radius: .75rem;
+    padding: .85rem;
     margin-bottom: 0 !important;
+}
+#modalRegistrarRuta.trk-planner-active #trkRouteHeaderSection > [class*="col-"] {
+    width: 100%;
+    max-width: 100%;
+    padding: 0;
+}
+body.dark-mode #modalRegistrarRuta.trk-planner-active #trkRouteHeaderSection {
+    background: #172121;
+    border-color: #2d4444;
 }
 #modalRegistrarRuta.trk-planner-active #secTransportistaRuta {
     grid-area: transport;
@@ -2343,43 +2639,78 @@ body.dark-mode .trk-route-opportunities-summary .mini-kpi b {
     grid-area: add;
     margin-bottom: 0 !important;
 }
+#modalRegistrarRuta.trk-planner-active #secAgregarCredito,
+#modalRegistrarRuta.trk-planner-active #trkPlannerPanel,
+#modalRegistrarRuta.trk-planner-active #trkTrackingSection,
+#modalRegistrarRuta.trk-planner-active #trkRouteListSection {
+    border: 1px solid #dbeafe;
+    background: #fff;
+    border-radius: .75rem;
+    padding: .85rem;
+}
+body.dark-mode #modalRegistrarRuta.trk-planner-active #secAgregarCredito,
+body.dark-mode #modalRegistrarRuta.trk-planner-active #trkPlannerPanel,
+body.dark-mode #modalRegistrarRuta.trk-planner-active #trkTrackingSection,
+body.dark-mode #modalRegistrarRuta.trk-planner-active #trkRouteListSection {
+    background: #172121;
+    border-color: #2d4444;
+}
 #modalRegistrarRuta.trk-planner-active #trkPlannerPanel {
     grid-area: planner;
+    align-self: stretch;
     min-height: 0;
-    max-height: 100%;
-    overflow-y: auto;
+    overflow: visible;
     margin-bottom: 0 !important;
 }
 #modalRegistrarRuta.trk-planner-active #trkRouteListSection {
     grid-area: list;
+    align-self: stretch;
     display: flex;
     flex-direction: column;
     min-height: 0;
-    height: 100%;
+    margin-top: 11rem !important;
     margin-bottom: 0 !important;
+    min-width: 0;
+    padding-top: 1.25rem;
 }
 #modalRegistrarRuta.trk-planner-active #trkTrackingSection {
     grid-area: tracking;
     min-height: 0;
-    max-height: 240px;
-    overflow-y: auto;
+    max-height: none;
+    overflow: hidden;
     margin-bottom: 0 !important;
+    min-width: 0;
+    padding-bottom: 1rem;
 }
 #modalRegistrarRuta.trk-planner-active #trkMapSection {
     grid-area: map;
+    align-self: stretch;
     position: relative;
+    top: auto;
     display: flex;
     flex-direction: column;
-    min-height: 0;
-    height: 100%;
+    height: clamp(620px, calc(100vh - 10rem), 760px);
+    min-height: 620px;
+    max-height: 760px;
     margin-top: 0;
     margin-bottom: 0 !important;
 }
-#modalRegistrarRuta:not(.trk-planner-active) #trkMapTransportSummary {
-    display: none !important;
+#modalRegistrarRuta.trk-planner-active #trkPlannerCedisBox {
+    grid-area: cedis;
+    align-self: stretch;
+    border: 1px solid #dbeafe;
+    background: #f8fafc;
+    border-radius: .55rem;
+    padding: .75rem;
+    min-height: 0;
+    overflow-y: auto;
+    margin-bottom: 0 !important;
 }
-#modalRegistrarRuta.trk-planner-active #rutaTransportistaInfo,
-#modalRegistrarRuta.trk-planner-active #rutaCedisDestinoInfo {
+body.dark-mode #modalRegistrarRuta.trk-planner-active #trkPlannerCedisBox {
+    background: #172121;
+    border-color: #2d4444;
+}
+#modalRegistrarRuta:not(.trk-planner-active) #trkMapTransportSummary {
     display: none !important;
 }
 #modalRegistrarRuta.trk-planner-active #secTransportistaRuta .row > [class*="col-"] {
@@ -2389,6 +2720,17 @@ body.dark-mode .trk-route-opportunities-summary .mini-kpi b {
 }
 #modalRegistrarRuta.trk-planner-active #trkRouteListTools {
     grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    flex-shrink: 0;
+    margin-bottom: .75rem;
+}
+#modalRegistrarRuta.trk-planner-active #trkRouteListSection > .d-flex:first-child {
+    flex-shrink: 0;
+    border-bottom: 1px solid #e2e8f0;
+    padding-bottom: .65rem;
+    margin-bottom: .65rem !important;
+}
+body.dark-mode #modalRegistrarRuta.trk-planner-active #trkRouteListSection > .d-flex:first-child {
+    border-bottom-color: #2d4444;
 }
 #modalRegistrarRuta.trk-planner-active #trkRouteListTools .input-group {
     grid-column: 1 / -1;
@@ -2396,7 +2738,7 @@ body.dark-mode .trk-route-opportunities-summary .mini-kpi b {
 #modalRegistrarRuta.trk-planner-active #trackMapContainer,
 #modalRegistrarRuta.trk-planner-active #trackMap {
     height: 100%;
-    min-height: 360px;
+    min-height: 560px;
 }
 #modalRegistrarRuta.trk-planner-active #trackMapContainer {
     flex: 1 1 auto;
@@ -2404,48 +2746,41 @@ body.dark-mode .trk-route-opportunities-summary .mini-kpi b {
 }
 #modalRegistrarRuta.trk-planner-active #rutaCreditosList {
     flex: 1 1 auto;
-    min-height: 180px;
-    max-height: none !important;
-    display: flex;
-    align-items: stretch;
-    gap: .75rem;
-    overflow-x: auto;
-    overflow-y: hidden;
-    padding: .85rem .75rem .75rem;
-    scroll-snap-type: x proximity;
+    min-height: 260px;
+    max-height: 420px !important;
+    display: block;
+    overflow-x: hidden;
+    overflow-y: auto;
+    padding: .5rem;
     position: relative;
 }
 #modalRegistrarRuta.trk-planner-active #rutaCreditosList::before {
-    content: "";
-    position: absolute;
-    left: 1rem;
-    right: 1rem;
-    top: 2.15rem;
-    height: 2px;
-    background: #dbeafe;
+    content: none;
 }
 #modalRegistrarRuta.trk-planner-active #rutaCreditosList .track-credito-row {
-    flex: 0 0 340px;
-    max-width: 340px;
-    min-height: 155px;
-    margin-bottom: 0;
+    max-width: none;
+    min-height: 0;
+    margin-bottom: .45rem;
     align-items: flex-start;
-    gap: .35rem;
-    flex-direction: column;
-    position: relative;
+    gap: .5rem;
+    flex-direction: row;
+    flex-wrap: wrap;
+    position: static;
     z-index: 1;
-    scroll-snap-align: start;
-    padding: 1.15rem .75rem 2.75rem;
+    padding: .7rem .75rem;
+}
+#modalRegistrarRuta.trk-planner-active #rutaCreditosList .track-credito-row > .d-flex.flex-column {
+    flex: 1 1 420px;
+}
+#modalRegistrarRuta.trk-planner-active #rutaCreditosList .track-credito-row .fw-semibold {
+    white-space: normal !important;
 }
 #modalRegistrarRuta.trk-planner-active #rutaCreditosList .track-credito-row .drag-handle {
-    position: absolute;
-    top: .7rem;
-    right: .75rem;
+    position: static;
+    padding-top: .35rem;
 }
 #modalRegistrarRuta.trk-planner-active #rutaCreditosList .track-credito-row .orden-num {
-    position: absolute;
-    top: -.72rem;
-    left: .75rem;
+    position: static;
     min-width: 1.8rem;
     width: 1.8rem;
     height: 1.8rem;
@@ -2459,23 +2794,18 @@ body.dark-mode .trk-route-opportunities-summary .mini-kpi b {
     border: 2px solid #fff;
 }
 #modalRegistrarRuta.trk-planner-active #rutaCreditosList .track-credito-row .select-conf-gestor {
-    width: 100%;
-    max-width: 100% !important;
-    margin-left: 0 !important;
+    width: auto;
+    max-width: 130px !important;
+    margin-left: .25rem !important;
+    margin-top: .2rem;
 }
 #modalRegistrarRuta.trk-planner-active #rutaCreditosList .track-credito-row .btn-remove-cred {
-    margin-left: 0;
+    margin-left: .25rem;
 }
 #modalRegistrarRuta.trk-planner-active #rutaCreditosList .track-credito-row > .btn-pin-ubicacion,
 #modalRegistrarRuta.trk-planner-active #rutaCreditosList .track-credito-row > .btn-remove-cred {
-    position: absolute;
-    bottom: .75rem;
-}
-#modalRegistrarRuta.trk-planner-active #rutaCreditosList .track-credito-row > .btn-pin-ubicacion {
-    right: 2.75rem;
-}
-#modalRegistrarRuta.trk-planner-active #rutaCreditosList .track-credito-row > .btn-remove-cred {
-    right: .75rem;
+    position: static;
+    margin-top: .2rem;
 }
 #modalRegistrarRuta.trk-planner-active .trk-route-opportunities-list {
     max-height: 260px;
@@ -2526,7 +2856,9 @@ body.dark-mode #modalRegistrarRuta.trk-planner-active #rutaCreditosList::before 
     .trk-route-list-tools {
         grid-template-columns: 1fr;
     }
+    .trk-route-day-tools,
     .trk-route-opportunities-tools,
+    .trk-route-day-list,
     .trk-route-opportunities-summary {
         grid-template-columns: 1fr;
     }
@@ -2537,6 +2869,9 @@ body.dark-mode #modalRegistrarRuta.trk-planner-active #rutaCreditosList::before 
     padding: .1rem .3rem;
     height: auto;
     line-height: 1.4;
+}
+.eta-row {
+    display: none !important;
 }
 body.dark-mode .eta-row .form-control,
 body.dark-mode .eta-row .form-select {
@@ -2705,7 +3040,8 @@ body.dark-mode .trk-step-nombre { color: #e2e8f0; }
     gap: .7rem;
     overflow-x: auto;
     overflow-y: hidden;
-    padding: .9rem .25rem .25rem;
+    padding: 1.05rem .25rem .9rem;
+    margin-bottom: .25rem;
     scroll-snap-type: x proximity;
 }
 #modalRegistrarRuta.trk-planner-active .trk-timeline::before {
@@ -3556,7 +3892,7 @@ $trackingHeaderTitle = isset($tracking_header_title) && $tracking_header_title !
     : 'Tracking Recoleccion - Motos Adjudicadas';
 $trackingHeaderSubtitle = isset($tracking_header_subtitle) && $tracking_header_subtitle !== ''
     ? (string) $tracking_header_subtitle
-    : 'Creditos disponibles para planeacion de ruta fisica';
+    : 'Créditos disponibles para planeación de ruta física';
 $trackingInitialSection = isset($tracking_initial_section) && $tracking_initial_section !== ''
     ? (string) $tracking_initial_section
     : 'creditos';
@@ -3630,11 +3966,11 @@ $trackingIsPlaneacion = $trackingShowMainTabs
         <button type="button" class="trk-section-card<?= $trackingInitialSection === 'creditos' ? ' active' : ''; ?>" data-section-target="#tabCreditos" data-section-load="creditos">
             <div>
                 <span class="trk-section-icon"><i class="fa-solid fa-motorcycle"></i></span>
-                <div class="trk-section-title">Creditos disponibles</div>
+                <div class="trk-section-title">Créditos disponibles</div>
                 <div class="trk-section-desc">Consulta y filtra motos listas para planear rutas.</div>
             </div>
             <div class="trk-section-footer">
-                <span>Ver creditos</span>
+                <span>Ver créditos</span>
                 <span class="trk-section-count" data-section-count="badgeCreditos">0</span>
             </div>
         </button>
@@ -3667,7 +4003,7 @@ $trackingIsPlaneacion = $trackingShowMainTabs
                 <div class="trk-section-desc">Directorio operativo para asignacion de rutas.</div>
             </div>
             <div class="trk-section-footer">
-                <span>Ver catalogos</span>
+                <span>Ver catálogos</span>
                 <span class="trk-section-count" data-section-count="badgeCatalogos">0</span>
             </div>
         </button>
@@ -3678,7 +4014,7 @@ $trackingIsPlaneacion = $trackingShowMainTabs
                 <div class="trk-section-desc">Disponibilidad, capacidad, rutas activas y alertas operativas.</div>
             </div>
             <div class="trk-section-footer">
-                <span>Ver operacion</span>
+                <span>Ver operación</span>
                 <span class="trk-section-count" data-section-count="badgeOperacionTransportistas">0</span>
             </div>
         </button>
@@ -3689,7 +4025,7 @@ $trackingIsPlaneacion = $trackingShowMainTabs
     <ul class="nav nav-tabs track-tabs mb-3 d-none" id="trackMainTabs">
         <li class="nav-item">
             <button class="nav-link<?= $trackingInitialSection === 'creditos' ? ' active' : ''; ?>" id="tabCreditosBtn" data-bs-toggle="tab" data-bs-target="#tabCreditos">
-                <i class="fa-solid fa-motorcycle me-1"></i>Pendientes de recoleccion
+                <i class="fa-solid fa-motorcycle me-1"></i>Pendientes de recolección
                 <span id="badgeCreditos" class="badge rounded-pill ms-1"
                       style="background:var(--track-color);font-size:.7rem;">0</span>
             </button>
@@ -3819,7 +4155,7 @@ $trackingIsPlaneacion = $trackingShowMainTabs
                                 <tr>
                                     <th>Ruta</th>
                                     <th>Planeacion</th>
-                                    <th>Creditos</th>
+                                    <th>Créditos</th>
                                     <th>Acciones</th>
                                 </tr>
                             </thead>
@@ -3882,7 +4218,7 @@ $trackingIsPlaneacion = $trackingShowMainTabs
                                 <tr>
                                     <th>Ruta</th>
                                     <th>Seguimiento</th>
-                                    <th>Creditos</th>
+                                    <th>Créditos</th>
                                     <th>Acciones</th>
                                 </tr>
                             </thead>
@@ -3940,7 +4276,7 @@ $trackingIsPlaneacion = $trackingShowMainTabs
                         <input type="search" class="form-control" id="trkCatalogoBuscar"
                                placeholder="Buscar CEDIS, transportista, empresa, estado..." autocomplete="off">
                     </div>
-                    <div class="btn-group" role="group" aria-label="Vista catalogos">
+                    <div class="btn-group" role="group" aria-label="Vista catálogos">
                         <button type="button" class="btn btn-sm <?= $trackingCatalogoDefaultView === 'directorio' ? 'btn-label-primary active' : 'btn-label-secondary'; ?> trk-catalog-view" data-view="directorio">
                             <i class="fa-solid fa-table-cells-large me-1"></i>Directorio
                         </button>
@@ -4057,7 +4393,7 @@ $trackingIsPlaneacion = $trackingShowMainTabs
                                     <th>Operacion</th>
                                     <th>Capacidad</th>
                                     <th>Rutas</th>
-                                    <th>CEDIS / ubicacion</th>
+                                    <th>CEDIS / ubicación</th>
                                     <th>Alertas</th>
                                 </tr>
                             </thead>
@@ -4346,7 +4682,7 @@ $trackingIsPlaneacion = $trackingShowMainTabs
 
             <div class="modal-header">
                 <h5 class="modal-title" id="modalRegistrarRutaLabel">
-                    <i class="fa-solid fa-route me-2"></i>Registrar ruta de recoleccion
+                    <i class="fa-solid fa-route me-2"></i>Registrar ruta de recolección
                 </h5>
                 <button type="button" class="btn-close" id="btnCerrarModal"></button>
             </div>
@@ -4356,7 +4692,7 @@ $trackingIsPlaneacion = $trackingShowMainTabs
 
                 <!-- -- Seccion 1: Datos de la ruta -- -->
                 <div class="row g-3 mb-3" id="trkRouteHeaderSection">
-                    <div class="col-12 col-md-4">
+                    <div class="col-12 col-md-3">
                         <label class="form-label small fw-semibold">
                             Nombre de ruta <span class="text-danger">*</span>
                         </label>
@@ -4364,17 +4700,27 @@ $trackingIsPlaneacion = $trackingShowMainTabs
                                id="rutaNombre" maxlength="100" placeholder="Ej. Ruta GDL Norte Junio" style="text-transform:uppercase;">
                         <div class="form-text small mt-1" id="rutaNombreStatus"></div>
                     </div>
-                    <div class="col-12 col-md-4">
+                    <div class="col-12 col-md-3">
                         <label class="form-label small fw-semibold">
-                            Fecha programada <span class="text-danger">*</span>
+                            Fecha de inicio <span class="text-danger">*</span>
                         </label>
                         <input type="date" class="form-control form-control-sm"
                                id="rutaFecha" min="">
                         <div class="form-text text-muted" style="font-size:.72rem;">
-                            Minimo <span id="rutaDiasMinimosTxt">2</span> dia(s) desde hoy - Deja una fecha tentativa si aun no esta definida para que puedas guardar correctamente el borrador de la ruta.
+                            Mínimo <span id="rutaDiasMinimosTxt">2</span> día(s) desde hoy - Deja una fecha tentativa si aún no está definida para que puedas guardar correctamente el borrador de la ruta.
                         </div>
                     </div>
-                    <div class="col-12 col-md-4">
+                    <div class="col-12 col-md-3">
+                        <label class="form-label small fw-semibold">
+                            Fecha final <span class="text-danger">*</span>
+                        </label>
+                        <input type="date" class="form-control form-control-sm"
+                               id="rutaFechaFin" min="">
+                        <div class="form-text text-muted" style="font-size:.72rem;">
+                            Sin límite máximo; no puede ser anterior a la fecha de inicio.
+                        </div>
+                    </div>
+                    <div class="col-12 col-md-3">
                         <label class="form-label small fw-semibold">
                             Hora de salida
                         </label>
@@ -4420,14 +4766,13 @@ $trackingIsPlaneacion = $trackingShowMainTabs
                     </div>
                     <div id="rutaTransportistaInfo" class="trk-transport-info mt-2 d-none"></div>
                     <div id="rutaCedisDestinoInfo" class="trk-transport-info mt-2 d-none"></div>
-                    <div id="rutaTransportistaAssist" class="trk-driver-assist mt-2 d-none"></div>
                 </div>
 
                 <div class="mb-2" id="secAgregarCredito">
                     <label class="form-label small fw-semibold">
-                        Agregar credito a la ruta
+                        Agregar crédito a la ruta
                     </label>
-                    <!-- Filtros de ubicacion para creditos -->
+                    <!-- Filtros de ubicación para créditos -->
                     <div class="row g-2 mb-2" id="crdFiltrosUbicacion">
                         <div class="col-12 col-md-4">
                             <label class="form-label mb-1 small">Estado</label>
@@ -4441,10 +4786,16 @@ $trackingIsPlaneacion = $trackingShowMainTabs
                                 <option value=""> -  Todos los municipios  - </option>
                             </select>
                         </div>
+                        <div class="col-12 col-md-4 d-flex align-items-end">
+                            <button type="button" class="btn btn-sm btn-label-primary w-100" id="btnAgregarTodosUbicacion" disabled
+                                    title="Agrega todos los créditos restantes del estado o municipio seleccionado">
+                                <i class="fa-solid fa-layer-group me-1"></i>Agregar todos
+                            </button>
+                        </div>
                     </div>
                     <div class="input-group input-group-sm">
                         <select class="form-select trk-select-buscable" id="rutaCreditoSelect">
-                            <option value="">Buscar por credito, modelo, VIN...</option>
+                            <option value="">Buscar por crédito, modelo, VIN...</option>
                         </select>
                         <button class="btn" id="btnAgregarCredito"
                                 style="background:var(--track-color);color:#fff;">
@@ -4469,7 +4820,7 @@ $trackingIsPlaneacion = $trackingShowMainTabs
                             <div>
                                 <div class="trk-route-opportunities-title">
                                     <i class="fa-solid fa-road-circle-check me-1" style="color:var(--track-color);"></i>
-                                    Creditos sobre la ruta
+                                    Créditos sobre la ruta
                                 </div>
                                 <div class="trk-route-opportunities-sub">
                                     Candidatos cercanos al recorrido, capacidad y destino del transportista.
@@ -4510,10 +4861,13 @@ $trackingIsPlaneacion = $trackingShowMainTabs
                     </div>
                 </div>
 
+                <!-- CEDIS destino en modo planeador (columna izquierda) -->
+                <div class="d-none" id="trkPlannerCedisBox"></div>
+
                 <div class="mb-3" id="trkRouteListSection">
                     <div class="d-flex align-items-center justify-content-between mb-1">
                         <span class="small fw-semibold text-muted">
-                            Creditos en la ruta
+                            Créditos en la ruta
                             (<span id="rutaCreditosCount">0</span>)
                         </span>
                         <span class="small text-muted" id="reorderHint">
@@ -4531,15 +4885,65 @@ $trackingIsPlaneacion = $trackingShowMainTabs
                         <div class="input-group input-group-sm">
                             <span class="input-group-text"><i class="fa-solid fa-magnifying-glass"></i></span>
                             <input type="search" class="form-control" id="trkListaBuscar"
-                                   placeholder="Buscar en creditos de la ruta...">
+                                   placeholder="Buscar en créditos de la ruta...">
                         </div>
                     </div>
                     <div id="rutaCreditosList" style="max-height:280px;overflow-y:auto;border:1px dashed var(--track-border);border-radius:.5rem;padding:.5rem;">
                         <div class="text-center text-muted py-3 small" id="rutaCreditosEmpty">
                             <i class="fa-solid fa-motorcycle opacity-25 fa-2x mb-1 d-block"></i>
-                            Aun no hay creditos en esta ruta
+                            Aún no hay créditos en esta ruta
                         </div>
                     </div>
+
+                <div class="trk-route-day-planner" id="trkRouteDayPlanner">
+                    <div class="trk-route-day-head">
+                        <div>
+                            <div class="trk-route-day-title">
+                                <i class="fa-solid fa-calendar-days me-1" style="color:var(--track-color);"></i>
+                                Planeacion auditada por dia
+                            </div>
+                            <div class="trk-route-day-sub">
+                                Distribuye, reprograma o adelanta paradas dejando motivo y auditoria.
+                            </div>
+                        </div>
+                        <span class="badge bg-label-primary" id="trkRouteDayCount">0 dias</span>
+                    </div>
+                    <div class="trk-route-day-tools">
+                        <div>
+                            <label for="trkPlanInicioJornada">Inicio jornada</label>
+                            <input type="time" class="form-control form-control-sm" id="trkPlanInicioJornada"
+                                   value="10:00">
+                        </div>
+                        <div>
+                            <label for="trkPlanFinJornada">Fin jornada</label>
+                            <input type="time" class="form-control form-control-sm" id="trkPlanFinJornada"
+                                   value="19:00">
+                        </div>
+                        <div>
+                            <label for="trkPlanMinParada">Min por parada</label>
+                            <input type="number" class="form-control form-control-sm" id="trkPlanMinParada"
+                                   min="5" max="240" step="5" value="45">
+                        </div>
+                        <div>
+                            <label for="trkPlanDiasTrasladoEstado">Traslado entre estados</label>
+                            <input type="number" class="form-control form-control-sm" id="trkPlanDiasTrasladoEstado"
+                                   min="0" max="2" step="1" value="1">
+                        </div>
+                        <button type="button" class="btn btn-sm btn-label-primary" id="trkPlanDistribuir">
+                            <i class="fa-solid fa-wand-magic-sparkles me-1"></i>Proponer
+                        </button>
+                        <button type="button" class="btn btn-sm btn-primary" id="trkPlanGuardar">
+                            <i class="fa-solid fa-floppy-disk me-1"></i>Guardar
+                        </button>
+                    </div>
+                    <div class="trk-route-day-list" id="trkRouteDayList">
+                        <div class="text-center text-muted small py-2">
+                            Agrega creditos para generar una propuesta por dia.
+                        </div>
+                    </div>
+                    <div class="trk-route-event-list" id="trkRouteEventList"></div>
+                </div>
+
                 </div>
 
                 <!-- -- Seccion 3.5: Tracking en tiempo real -- -->
@@ -4547,9 +4951,9 @@ $trackingIsPlaneacion = $trackingShowMainTabs
                     <div class="d-flex align-items-center justify-content-between mb-1">
                         <span class="small fw-semibold">
                             <i class="fa-solid fa-route me-1" style="color:var(--track-color);"></i>
-                            Estado del recorrido
+                            Timeline de recolección
                         </span>
-                        <span id="trkWsDot" title="Sin conexion en tiempo real"
+                        <span id="trkWsDot" title="Sin conexión en tiempo real"
                               style="width:.55rem;height:.55rem;border-radius:50%;background:#cbd5e1;display:inline-block;"></span>
                     </div>
                     <!-- Barra de progreso -->
@@ -4561,7 +4965,7 @@ $trackingIsPlaneacion = $trackingShowMainTabs
                         <span id="trkProgressText"> -  /  -  puntos</span>
                         <span id="trkPorcentaje">0%</span>
                     </div>
-                    <!-- Ultima ubicacion del conductor -->
+                    <!-- Última ubicación del conductor -->
                     <div id="trkUltimaUbicacion" class="trk-location-pill d-none mb-2">
                         <i class="fa-solid fa-location-arrow" style="color:var(--track-color);"></i>
                         <span id="trkUbicacionText"> - </span>
@@ -4595,7 +4999,7 @@ $trackingIsPlaneacion = $trackingShowMainTabs
                     <div id="trackMapContainer">
                         <div class="map-placeholder" id="mapPlaceholder">
                             <i class="fa-solid fa-map fa-2x opacity-30"></i>
-                            <span>Agrega creditos para visualizar la ruta</span>
+                            <span>Agrega créditos para visualizar la ruta</span>
                         </div>
                         <div id="trackMap" style="display:none;"></div>
                         <div id="trkLiveMapInfo" class="trk-live-map-card d-none">
@@ -4613,7 +5017,7 @@ $trackingIsPlaneacion = $trackingShowMainTabs
                     </div>
                     <div class="alert alert-warning py-1 px-2 mt-1 small d-none" id="mapAlertCoords">
                         <i class="fa-solid fa-triangle-exclamation me-1"></i>
-                        Algunos creditos no tienen coordenadas ni direccion registrada.
+                        Algunos créditos no tienen coordenadas ni dirección registrada.
                         La ruta en el mapa puede estar incompleta.
                     </div>
                 </div>
@@ -4659,32 +5063,6 @@ $trackingIsPlaneacion = $trackingShowMainTabs
                 <div class="text-center py-4">
                     <div class="spinner-border" style="color:var(--track-color);"></div>
                 </div>
-            </div>
-        </div>
-    </div>
-</div>
-
-<!-- ==========================================================
-     Panel lateral - Operaciones de ruta
-========================================================== -->
-<div class="offcanvas offcanvas-end trk-operaciones-drawer" tabindex="-1" id="trkOperacionDrawer"
-     aria-labelledby="trkOperacionDrawerLabel" data-bs-scroll="true" data-bs-backdrop="false">
-    <div class="offcanvas-header">
-        <div>
-            <h5 class="offcanvas-title mb-0" id="trkOperacionDrawerLabel">
-                <i class="fa-solid fa-route me-2"></i>Operaciones de ruta
-            </h5>
-            <div class="small opacity-75" id="trkOperacionDrawerSubtitle">
-                Seguimiento operativo sin salir de rutas registradas
-            </div>
-        </div>
-        <button type="button" class="btn-close text-reset" data-bs-dismiss="offcanvas" aria-label="Cerrar"></button>
-    </div>
-    <div class="offcanvas-body trk-operaciones-body" id="trkOperacionBody">
-        <div class="h-100 d-flex align-items-center justify-content-center text-muted">
-            <div class="text-center">
-                <div class="spinner-border mb-2" style="color:var(--track-color);"></div>
-                <div class="fw-semibold">Cargando operaciones...</div>
             </div>
         </div>
     </div>
@@ -4740,22 +5118,22 @@ $trackingIsPlaneacion = $trackingShowMainTabs
             <div class="modal-header py-2" style="background:var(--track-color-dark);color:#fff;">
                 <h6 class="modal-title mb-0">
                     <i class="fa-solid fa-map-pin me-2"></i>
-                    Asignar ubicacion manual del credito
+                    Asignar ubicación manual del crédito
                 </h6>
                 <button type="button" class="btn-close" id="btnCerrarMapPicker" style="filter:invert(1);"></button>
             </div>
             <div class="modal-body p-2">
                 <p class="small text-muted mb-2 px-1">
                     <i class="fa-solid fa-circle-info me-1"></i>
-                    Busca una direccion o haz clic en el mapa para colocar el pin del credito
-                    <strong id="mapPickerCreditoLabel"></strong>. Al confirmar o cancelar volveras a la ruta.
+                    Busca una dirección o haz clic en el mapa para colocar el pin del crédito
+                    <strong id="mapPickerCreditoLabel"></strong>. Al confirmar o cancelar volverás a la ruta.
                 </p>
                 <div class="input-group input-group-sm mb-2" id="mapPickerSearchWrap">
                     <span class="input-group-text bg-white">
                         <i class="fa-solid fa-magnifying-glass" style="color:var(--track-color);"></i>
                     </span>
                     <input type="text" class="form-control" id="mapPickerSearch"
-                           placeholder="Buscar direccion, colonia, municipio..." autocomplete="off">
+                           placeholder="Buscar dirección, colonia, municipio..." autocomplete="off">
                     <button class="btn btn-outline-secondary" type="button" id="btnLimpiarMapSearch" title="Limpiar busqueda">
                         <i class="fa-solid fa-xmark"></i>
                     </button>
@@ -4783,7 +5161,7 @@ $trackingIsPlaneacion = $trackingShowMainTabs
                 </button>
                 <button type="button" class="btn btn-sm" id="btnConfirmarMapPicker"
                         style="background:var(--track-color);color:#fff;" disabled>
-                    <i class="fa-solid fa-check me-1"></i>Confirmar ubicacion
+                    <i class="fa-solid fa-check me-1"></i>Confirmar ubicación
                 </button>
             </div>
         </div>
@@ -4791,7 +5169,7 @@ $trackingIsPlaneacion = $trackingShowMainTabs
 </div>
 
 <!-- ==========================================================
-     Modal  -  Agregar credito a ruta existente
+     Modal  -  Agregar crédito a ruta existente
 ========================================================== -->
 <div class="modal fade" id="modalAgregarCreditoRuta" tabindex="-1" aria-labelledby="modalAgregarCreditoRutaLabel">
     <div class="modal-dialog modal-lg modal-dialog-scrollable">
@@ -4799,7 +5177,7 @@ $trackingIsPlaneacion = $trackingShowMainTabs
             <div class="modal-header py-2">
                 <h6 class="modal-title mb-0" id="modalAgregarCreditoRutaLabel">
                     <i class="fa-solid fa-plus me-2" style="color:var(--track-color);"></i>
-                    Agregar credito a ruta existente
+                    Agregar crédito a ruta existente
                 </h6>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
             </div>
@@ -4859,7 +5237,7 @@ $trackingIsPlaneacion = $trackingShowMainTabs
                     <section class="chat-conversation-panel">
                         <div class="chat-tabs-wrap" id="chatTabsWrap" style="display:none;">
                             <ul class="nav d-flex" id="chatTabList" role="tablist"></ul>
-                            <span class="chat-connection-status" id="chatConnectionStatus">Sin conexion registrada</span>
+                            <span class="chat-connection-status" id="chatConnectionStatus">Sin conexión registrada</span>
                         </div>
 
                         <div id="chatPanesContainer" class="flex-grow-1 d-flex flex-column" style="overflow:hidden;"></div>
@@ -4868,7 +5246,7 @@ $trackingIsPlaneacion = $trackingShowMainTabs
                              style="color:#94a3b8;">
                             <div>
                                 <i class="fa-solid fa-comments fa-2x mb-2 opacity-25 d-block"></i>
-                                <span class="small">No hay puntos de recoleccion disponibles</span>
+                                <span class="small">No hay puntos de recolección disponibles</span>
                             </div>
                         </div>
                     </section>
@@ -4880,7 +5258,7 @@ $trackingIsPlaneacion = $trackingShowMainTabs
                                     <i class="fa-solid fa-truck-fast me-1" style="color:var(--track-color);"></i>
                                     Ubicacion en tiempo real
                                 </div>
-                                <span class="chat-live-subtitle" id="chatLiveRutaNombre">Esperando ubicacion del transportista</span>
+                                <span class="chat-live-subtitle" id="chatLiveRutaNombre">Esperando ubicación del transportista</span>
                             </div>
                             <span class="d-inline-flex align-items-center gap-1 small text-muted">
                                 <span id="chatLiveWsDot" class="chat-ws-dot chat-ws-off"></span>
@@ -4891,10 +5269,10 @@ $trackingIsPlaneacion = $trackingShowMainTabs
                             <div id="chatLiveMap"></div>
                             <div id="chatLivePlaceholder" class="chat-live-placeholder">
                                 <i class="fa-solid fa-location-dot fa-2x opacity-25"></i>
-                                <span class="small">Esperando primera ubicacion GPS</span>
+                                <span class="small">Esperando primera ubicación GPS</span>
                             </div>
                             <div id="chatLiveMapInfo" class="chat-live-info-card d-none">
-                                <div class="fw-semibold mb-1" id="chatLiveUpdated">Sin ubicacion</div>
+                                <div class="fw-semibold mb-1" id="chatLiveUpdated">Sin ubicación</div>
                                 <div class="chat-live-info-grid">
                                     <span id="chatLiveSpeed">Vel. -</span>
                                     <span id="chatLiveAccuracy">Prec. -</span>
@@ -4970,6 +5348,11 @@ const _trk = {
     oportunidadesLoading: false,
     oportunidadesSeq:     0,
     oportunidadesFiltroNivel: '',
+    planeacionRuta:       [],
+    planeacionEventos:    [],
+    planeacionLoading:    false,
+    planeacionMaxParadas: 6,
+    planeacionTrasladoEstados: 1,
     detalleRutaActualId:   null,
     cedisDestinoPorRuta:   {},
     cedisDestinoHistorial: {},
@@ -5032,6 +5415,7 @@ const _trk = {
     chatUltimaConexionAt: null,
     chatConnectionTimer:  null,
     opsRutaActualId:      null,
+    opsRutaActualData:    null,
     opsMapInstance:       null,
     opsMapMarkers:        [],
     opsMapPolyline:       null,
@@ -5042,6 +5426,49 @@ const _trk = {
 };
 
 // --- Utilidades -----------------------------------------
+function _trkSuspenderFocusModalRuta() {
+    const modalEl = document.getElementById('modalRegistrarRuta');
+    const modal = modalEl && window.bootstrap?.Modal
+        ? bootstrap.Modal.getInstance(modalEl)
+        : null;
+    const focusTrap = modal?._focustrap;
+    let reactivate = false;
+    if (focusTrap && typeof focusTrap.deactivate === 'function') {
+        try {
+            focusTrap.deactivate();
+            reactivate = true;
+        } catch (_) {}
+    }
+    return () => {
+        if (!reactivate || !modalEl?.classList.contains('show')) return;
+        try {
+            focusTrap.activate();
+        } catch (_) {}
+    };
+}
+
+function _trkSwalConFocoModalRuta(options = {}) {
+    const didOpen = options.didOpen;
+    const willClose = options.willClose;
+    let restoreFocus = null;
+    return Swal.fire({
+        returnFocus: false,
+        ...options,
+        didOpen: (popup) => {
+            restoreFocus = _trkSuspenderFocusModalRuta();
+            if (typeof didOpen === 'function') didOpen(popup);
+        },
+        willClose: (popup) => {
+            if (typeof willClose === 'function') willClose(popup);
+            if (restoreFocus) {
+                const restore = restoreFocus;
+                restoreFocus = null;
+                setTimeout(restore, 0);
+            }
+        },
+    });
+}
+
 const trkFetch = (url, opts = {}) =>
     fetch(url, { credentials: 'same-origin', ...opts })
         .then(r => r.json());
@@ -5055,7 +5482,7 @@ const trkConfirm = (msg) => new Promise(resolve => {
             text: msg,
             icon: 'warning',
             showCancelButton: true,
-            confirmButtonText: 'Si, salir',
+            confirmButtonText: 'Sí, salir',
             cancelButtonText: 'Quedarme',
             confirmButtonColor: '#ef4444',
         }).then(r => resolve(r.isConfirmed));
@@ -5073,7 +5500,7 @@ const CONF_LABEL = {
 };
 const RUTA_LABEL = {
     borrador:               '<span class="badge badge-ruta-borrador">Borrador</span>',
-    pendiente_confirmacion: '<span class="badge badge-ruta-pendiente_confirmacion">Pend. confirmacion</span>',
+    pendiente_confirmacion: '<span class="badge badge-ruta-pendiente_confirmacion">Pend. confirmación</span>',
     lista_envio:            '<span class="badge badge-ruta-lista_envio">Lista para enviar</span>',
     enviada:                '<span class="badge badge-ruta-enviada">Enviada</span>',
     en_proceso:             '<span class="badge badge-ruta-en_proceso">En proceso</span>',
@@ -5122,7 +5549,7 @@ function _trkInicializarSelectsBuscables() {
         dropdownParent: '#modalRegistrarRuta',
     });
     _trkInicializarSelectBuscable('#rutaCreditoSelect', {
-        placeholder: 'Buscar por credito, modelo, VIN...',
+        placeholder: 'Buscar por crédito, modelo, VIN...',
         allowClear: true,
         dropdownParent: '#modalRegistrarRuta',
     });
@@ -5211,7 +5638,7 @@ function _trkAbrirLoaderSincronizacion() {
     _trk.syncLoaderActivo = true;
     Swal.fire({
         title: 'Sincronizando tracking...',
-        html: '<span style="font-size:.875rem;color:#64748b;">Cargando pestanas, contadores y datos recientes del modulo.</span>',
+        html: '<span style="font-size:.875rem;color:#64748b;">Cargando pestañas, contadores y datos recientes del módulo.</span>',
         allowOutsideClick: false,
         allowEscapeKey: false,
         showConfirmButton: false,
@@ -5378,11 +5805,16 @@ document.addEventListener('DOMContentLoaded', function () {
             this.classList.remove('is-invalid');
         }
     });
-    ['rutaFecha', 'rutaHoraH', 'rutaHoraM', 'rutaHoraAmPm'].forEach(id => {
+    ['rutaFecha', 'rutaFechaFin', 'rutaHoraH', 'rutaHoraM', 'rutaHoraAmPm'].forEach(id => {
         const el = document.getElementById(id);
         if (!el) return;
         el.addEventListener('change', () => {
-            if (id === 'rutaFecha') _trkAsegurarEtasFechaMinima();
+            if (id === 'rutaFecha') {
+                _trkSincronizarFechaFinalizacion();
+                _trkAsegurarEtasFechaMinima();
+                _trkPlanCascadeCurrent();
+            }
+            if (id === 'rutaFechaFin') _trkSincronizarFechaFinalizacion();
             _trkAplicarEtasAutomaticas();
             _trkRenderListaCreditos();
             _trkMarcarCambio();
@@ -5532,7 +5964,7 @@ function _trkRenderDireccionCredito(c) {
     if (!direccion || !tieneCoords) return '';
     return `<span class="trk-credit-address mt-1" title="${_trkChatEscapeHtml(direccion)}">
         <i class="fa-solid fa-location-dot" style="color:var(--track-color);"></i>
-        <span>Direccion: ${_trkChatEscapeHtml(direccion)}</span>
+        <span>Dirección: ${_trkChatEscapeHtml(direccion)}</span>
     </span>`;
 }
 
@@ -5589,7 +6021,7 @@ function _trkRenderCreditoUnidad(r, type) {
 function _trkInicializarTablaCreditosDT() {
     _trk.tablaCreditosDT = $('#tablaCreditos').DataTable({
         language: {
-            emptyTable:  'No hay creditos disponibles',
+            emptyTable:  'No hay créditos disponibles',
             info:        'Mostrando de _START_ a _END_ de _TOTAL_ registros',
             infoEmpty:   'Sin registros para mostrar',
             zeroRecords: 'No se encontraron registros',
@@ -5653,21 +6085,9 @@ function _trkInicializarTablaCreditosDT() {
     $('#detalleRutaBody').on('click', '.btn-generar-otp', function () {
         _trkGenerarOtpDetalle(Number($(this).data('id')));
     });
-    $('#trkOperacionBody').on('click', '.btn-ops-editar-ruta', function () {
-        const idRuta = Number($(this).data('id'));
-        bootstrap.Offcanvas.getInstance(document.getElementById('trkOperacionDrawer'))?.hide();
-        _trkCargarRutaEnModal(idRuta, false);
-    });
-    $('#trkOperacionBody').on('click', '.btn-ops-chat-ruta', function () {
-        _trkChatCargarYAbrir(Number($(this).data('id')));
-    });
-    $('#trkOperacionBody').on('click', '.btn-cambiar-cedis-destino', function () {
-        _trkAbrirModalCambiarCedisDestino(Number($(this).data('id')));
-    });
     $('#rutaCedisDestinoInfo, #trkMapTransportSummary').on('click', '.btn-cambiar-cedis-destino', function () {
         _trkAbrirModalCambiarCedisDestino(Number($(this).data('id')));
     });
-    document.getElementById('trkOperacionDrawer')?.addEventListener('hidden.bs.offcanvas', _trkOpsLimpiarMapa);
     $('#trkCambiarCedisMotivo').on('input', function () {
         $('#trkCambiarCedisMotivoCount').text(`${String(this.value || '').length}/200`);
     });
@@ -5694,7 +6114,7 @@ function _trkCargarCreditosPaso2(silent = false) {
         })
         .catch(() => {
             if (!silent) {
-                Swal.fire({ icon: 'error', title: 'Error', text: 'Error al cargar creditos.', confirmButtonText: 'Aceptar' });
+                Swal.fire({ icon: 'error', title: 'Error', text: 'Error al cargar créditos.', confirmButtonText: 'Aceptar' });
             }
         });
 }
@@ -5817,7 +6237,7 @@ function _trkInicializarRutasVista() {
         if (!btn) return;
         const idRuta = Number(btn.dataset.id);
         if (btn.classList.contains('btn-editar-ruta')) _trkCargarRutaEnModal(idRuta, false);
-        if (btn.classList.contains('btn-ver-ruta')) _trkAbrirOperacionesRuta(idRuta);
+        if (btn.classList.contains('btn-ver-ruta')) _trkCargarRutaEnModal(idRuta, false);
         if (btn.classList.contains('btn-abrir-chat')) _trkChatCargarYAbrir(idRuta);
         if (btn.classList.contains('btn-cancelar-ruta')) _trkCancelarRuta(idRuta, String(btn.dataset.nombre || ''));
     });
@@ -6109,14 +6529,14 @@ function _trkRenderRutaCard(r) {
                <i class="fa-solid fa-pen-to-square"></i>
            </button>`
         : `<button class="btn btn-icon btn-sm rounded-pill btn-label-primary trk-action-btn btn-ver-ruta"
-               data-id="${id}" title="Operaciones" aria-label="Operaciones">
-               <i class="fa-solid fa-route"></i>
+               data-id="${id}" title="Ver ruta" aria-label="Ver ruta">
+               <i class="fa-solid fa-eye"></i>
            </button>`;
     return `<article class="trk-ruta-card" data-estatus="${_trkChatEscapeHtml(estatus)}">
         <div class="trk-ruta-card-header">
             <span class="trk-route-folio">#${_trkChatEscapeHtml(id)}</span>
             <div class="trk-ruta-title">${_trkChatEscapeHtml(nombreLimpio)}</div>
-            <div class="trk-ruta-subtitle">${ubicacion || 'Sin ubicacion'}</div>
+            <div class="trk-ruta-subtitle">${ubicacion || 'Sin ubicación'}</div>
             <div class="trk-ruta-status">
                 ${estatusBadge}
                 ${statusLive}
@@ -6147,7 +6567,7 @@ function _trkRenderRutaCard(r) {
             </div>
             <div class="trk-ruta-progress" title="${pct}% avance"><span style="width:${pct}%;"></span></div>
             <div class="trk-ruta-creditos">
-                <span>${total} credito${total !== 1 ? 's' : ''}</span>
+                <span>${total} crédito${total !== 1 ? 's' : ''}</span>
                 <span>${conf} conf. / ${pend} pend. / ${rech} rech.</span>
             </div>
         </div>
@@ -6221,7 +6641,7 @@ function _trkInicializarTablaRutasDTLegacy() {
                     const lista = (r.creditos_lista || '').split('||').filter(Boolean).join('<br>');
                     const ttAttr = lista ? ` data-bs-toggle="tooltip" data-bs-placement="right" data-bs-html="true" data-bs-title="${lista}"` : '';
                     let html = `<div class="d-flex flex-column gap-1 align-items-start">`;
-                    html += `<span class="badge bg-secondary trk-cred-badge"${ttAttr} style="cursor:default;white-space:nowrap;">${total} credito${total !== 1 ? 's' : ''}</span>`;
+                    html += `<span class="badge bg-secondary trk-cred-badge"${ttAttr} style="cursor:default;white-space:nowrap;">${total} crédito${total !== 1 ? 's' : ''}</span>`;
                     if (conf > 0) html += `<small class="text-success fw-semibold" style="white-space:nowrap;">${conf} confirmado${conf !== 1 ? 's' : ''}</small>`;
                     if (pend > 0) html += `<small class="text-warning fw-semibold" style="white-space:nowrap;">${pend} pendiente${pend !== 1 ? 's' : ''}</small>`;
                     if (rech > 0) html += `<small class="text-danger  fw-semibold" style="white-space:nowrap;">${rech} rechazado${rech !== 1 ? 's' : ''}</small>`;
@@ -6252,8 +6672,8 @@ function _trkInicializarTablaRutasDTLegacy() {
                         : '';
                     return `<div class="d-flex gap-1 align-items-center">
                            <button class="btn btn-icon btn-sm rounded-pill btn-label-primary trk-action-btn btn-ver-ruta"
-                               data-id="${r.id_ruta}" title="Operaciones" aria-label="Operaciones">
-                               <i class="fa-solid fa-route"></i>
+                               data-id="${r.id_ruta}" title="Ver ruta" aria-label="Ver ruta">
+                               <i class="fa-solid fa-eye"></i>
                            </button>
                            <button class="btn btn-icon btn-sm rounded-pill btn-label-success trk-action-btn btn-abrir-chat"
                                data-id="${r.id_ruta}" title="Chat operativo">
@@ -6276,7 +6696,7 @@ function _trkInicializarTablaRutasDTLegacy() {
         _trkCargarRutaEnModal($(this).data('id'), false);
     });
     $('#tablaRutas').on('click', '.btn-ver-ruta', function () {
-        _trkAbrirOperacionesRuta(Number($(this).data('id')));
+        _trkCargarRutaEnModal($(this).data('id'), false);
     });
     $('#tablaRutas').on('click', '.btn-abrir-chat', function () {
         _trkChatCargarYAbrir(Number($(this).data('id')));
@@ -6299,7 +6719,7 @@ function _trkRenderRutaTablaRuta(r, type) {
     return `<div class="trk-borrador-cell">
         <span class="trk-borrador-chip trk-borrador-chip-info">RUTA-${_trkChatEscapeHtml(id)}</span>
         <div class="trk-borrador-main">${_trkChatEscapeHtml(nombre)}</div>
-        <div class="trk-borrador-sub"><i class="fa-solid fa-location-dot me-1"></i>${ubicacion || 'Sin ubicacion'}</div>
+        <div class="trk-borrador-sub"><i class="fa-solid fa-location-dot me-1"></i>${ubicacion || 'Sin ubicación'}</div>
         <div class="d-flex flex-wrap align-items-center gap-1 mt-1">${estatusBadge}${pctBadge}</div>
     </div>`;
 }
@@ -6334,13 +6754,13 @@ function _trkRenderRutaTablaCreditos(r, type) {
     const pend = parseInt(r?.pendientes, 10) || 0;
     const rech = parseInt(r?.rechazados, 10) || 0;
     if (type === 'sort' || type === 'type') return total;
-    if (type !== 'display') return `${total} creditos ${conf} confirmados ${pend} pendientes ${rech} rechazados ${r?.creditos_lista || ''}`;
+    if (type !== 'display') return `${total} créditos ${conf} confirmados ${pend} pendientes ${rech} rechazados ${r?.creditos_lista || ''}`;
     const lista = (r?.creditos_lista || '').split('||').filter(Boolean).join('<br>');
     const listaAttr = _trkChatEscapeHtml(lista).replace(/&lt;br&gt;/g, '<br>');
     const ttAttr = lista ? ` data-bs-toggle="tooltip" data-bs-placement="right" data-bs-html="true" data-bs-title="${listaAttr}"` : '';
     return `<div class="trk-borrador-cell">
         <span class="trk-borrador-chip trk-borrador-chip-success"${ttAttr}>
-            <i class="fa-solid fa-motorcycle me-1"></i>${total} credito${total !== 1 ? 's' : ''}
+            <i class="fa-solid fa-motorcycle me-1"></i>${total} crédito${total !== 1 ? 's' : ''}
         </span>
         <div class="trk-borrador-divider">
             <div class="trk-borrador-sub"><i class="fa-solid fa-circle-check me-1 text-success"></i>${conf} confirmado${conf !== 1 ? 's' : ''}</div>
@@ -6365,8 +6785,8 @@ function _trkRenderRutaTablaAcciones(r) {
         : '';
     return `<div class="d-flex gap-1 align-items-center justify-content-center">
         <button class="btn btn-icon btn-sm rounded-pill btn-label-primary trk-action-btn btn-ver-ruta"
-            data-id="${r.id_ruta}" title="Operaciones" aria-label="Operaciones">
-            <i class="fa-solid fa-route"></i>
+            data-id="${r.id_ruta}" title="Ver ruta" aria-label="Ver ruta">
+            <i class="fa-solid fa-eye"></i>
         </button>
         <button class="btn btn-icon btn-sm rounded-pill btn-label-success trk-action-btn btn-abrir-chat"
             data-id="${r.id_ruta}" title="Chat operativo">
@@ -6430,7 +6850,7 @@ function _trkInicializarTablaRutasDT() {
         _trkCargarRutaEnModal($(this).data('id'), false);
     });
     $('#tablaRutas').on('click', '.btn-ver-ruta', function () {
-        _trkAbrirOperacionesRuta(Number($(this).data('id')));
+        _trkCargarRutaEnModal($(this).data('id'), false);
     });
     $('#tablaRutas').on('click', '.btn-abrir-chat', function () {
         _trkChatCargarYAbrir(Number($(this).data('id')));
@@ -6604,7 +7024,7 @@ function _trkQuickRutaHtml(ruta, cred) {
                 <div class="d-flex align-items-center gap-1 flex-wrap mb-1">
                     ${estatusBadge}
                     ${tipoBadge}
-                    <span class="badge bg-label-primary">${total} credito${total === 1 ? '' : 's'}</span>
+                    <span class="badge bg-label-primary">${total} crédito${total === 1 ? '' : 's'}</span>
                 </div>
                 <span class="trk-route-folio">#${_trkChatEscapeHtml(idRuta)}</span>
                 <div class="trk-quick-route-title">${_trkChatEscapeHtml(nombre)}</div>
@@ -6690,9 +7110,9 @@ async function _trkConfirmarAgregarCreditoRuta(idRuta) {
             <div>${_trkDriverScoreHtml(evalInfo)}</div>
             <div class="text-muted mt-1">${evalInfo.razones.map(r => _trkChatEscapeHtml(r)).join(' | ')}</div>
         </div>` : '';
-    const res = await Swal.fire({
+    const res = await _trkSwalConFocoModalRuta({
         icon: 'question',
-        title: 'Agregar credito a ruta?',
+        title: 'Agregar crédito a ruta?',
         html: `<div class="text-start small">
             <div><b>Credito:</b> #${_trkChatEscapeHtml(cred.id_credito)} - ${_trkChatEscapeHtml(cred.nombre_cliente || '')}</div>
             <div><b>Ruta:</b> ${_trkChatEscapeHtml(nombreRuta)}</div>
@@ -6700,13 +7120,13 @@ async function _trkConfirmarAgregarCreditoRuta(idRuta) {
             <div class="mt-2 text-muted">Se agregara al final de la ruta y quedara marcado como <b>NUEVO</b>.</div>
         </div>`,
         showCancelButton: true,
-        confirmButtonText: 'Si, agregar',
+        confirmButtonText: 'Sí, agregar',
         cancelButtonText: 'Cancelar',
         confirmButtonColor: '#0d9488',
     });
     if (!res.isConfirmed) return;
     Swal.fire({
-        title: 'Agregando credito...',
+        title: 'Agregando crédito...',
         allowOutsideClick: false,
         allowEscapeKey: false,
         showConfirmButton: false,
@@ -6730,7 +7150,7 @@ async function _trkConfirmarAgregarCreditoRuta(idRuta) {
         const fechaRegistro = _trkFormatFechaHora(r.fecha_agregado) || 'ahora';
         Swal.fire({
             icon: 'success',
-            title: 'Credito agregado',
+            title: 'Crédito agregado',
             html: `<div class="small">
                 ${_trkChatEscapeHtml(r.message || r.mensaje || 'Se agrego al final de la ruta.')}<br>
                 <span class="badge bg-warning text-dark mt-2">NUEVO</span>
@@ -6740,7 +7160,7 @@ async function _trkConfirmarAgregarCreditoRuta(idRuta) {
             showConfirmButton: false,
         });
     } catch {
-        Swal.fire({ icon: 'error', title: 'Error de conexion', text: 'No se pudo agregar el credito a la ruta.', confirmButtonText: 'Aceptar' });
+        Swal.fire({ icon: 'error', title: 'Error de conexión', text: 'No se pudo agregar el crédito a la ruta.', confirmButtonText: 'Aceptar' });
     }
 }
 
@@ -6767,7 +7187,7 @@ async function _trkCancelarRuta(idRuta, nombreRuta = '') {
             rows: 4,
         },
         showCancelButton: true,
-        confirmButtonText: 'Si, cancelar ruta',
+        confirmButtonText: 'Sí, cancelar ruta',
         cancelButtonText: 'Regresar',
         confirmButtonColor: '#ef4444',
         inputValidator: value => {
@@ -6816,7 +7236,7 @@ async function _trkCancelarRuta(idRuta, nombreRuta = '') {
             Swal.fire({ icon: 'error', title: 'Error', text: r.mensaje || r.message || 'No se pudo cancelar la ruta.', confirmButtonText: 'Aceptar' });
         }
     } catch {
-        Swal.fire({ icon: 'error', title: 'Error de conexion', text: 'No se pudo cancelar la ruta.', confirmButtonText: 'Aceptar' });
+        Swal.fire({ icon: 'error', title: 'Error de conexión', text: 'No se pudo cancelar la ruta.', confirmButtonText: 'Aceptar' });
     }
 }
 
@@ -7119,7 +7539,7 @@ async function _trkEliminarBorrador(idRuta, nombre = 'Borrador') {
             <div class="fw-semibold">${_trkChatEscapeHtml(nombre)}</div>
         </div>`,
         showCancelButton: true,
-        confirmButtonText: 'Si, borrar',
+        confirmButtonText: 'Sí, borrar',
         cancelButtonText: 'Cancelar',
         confirmButtonColor: '#ef4444',
     });
@@ -7151,7 +7571,7 @@ async function _trkEliminarBorrador(idRuta, nombre = 'Borrador') {
         _trkCargarBorradores();
         _trkCargarRutas();
     }).catch(() => {
-        Swal.fire({ icon: 'error', title: 'Error de conexion', text: 'No se pudo borrar el borrador.', confirmButtonText: 'Aceptar' });
+        Swal.fire({ icon: 'error', title: 'Error de conexión', text: 'No se pudo borrar el borrador.', confirmButtonText: 'Aceptar' });
     });
 }
 
@@ -7384,7 +7804,7 @@ function _trkCatalogoAccionesTransportista(t) {
 }
 
 function _trkCatalogoCedisCard(a, compacto = false) {
-    const ubicacion = [a.estado, a.municipio, a.codigo_postal ? `CP ${a.codigo_postal}` : ''].filter(Boolean).join(' / ') || 'Sin ubicacion';
+    const ubicacion = [a.estado, a.municipio, a.codigo_postal ? `CP ${a.codigo_postal}` : ''].filter(Boolean).join(' / ') || 'Sin ubicación';
     const contacto = [a.telefono, a.email].filter(Boolean).join(' - ') || 'Sin contacto';
     return `<article class="trk-catalog-card">
         <div class="d-flex align-items-start justify-content-between gap-2">
@@ -7396,7 +7816,7 @@ function _trkCatalogoCedisCard(a, compacto = false) {
             ${_trkCatalogoEstadoBadge(a.activo)}
         </div>
         <div class="trk-catalog-card-sub"><strong>Ubicacion:</strong> ${_trkChatEscapeHtml(ubicacion)}</div>
-        ${compacto ? '' : `<div class="trk-catalog-card-sub"><strong>Direccion:</strong> ${_trkChatEscapeHtml(a.direccion || 'No disponible')}</div>`}
+        ${compacto ? '' : `<div class="trk-catalog-card-sub"><strong>Dirección:</strong> ${_trkChatEscapeHtml(a.direccion || 'No disponible')}</div>`}
         <div class="trk-catalog-card-sub"><strong>Contacto:</strong> ${_trkChatEscapeHtml(contacto)}</div>
         ${compacto ? '' : `<div class="trk-catalog-card-sub"><strong>Encargado:</strong> ${_trkChatEscapeHtml(a.encargado || 'Sin encargado')}</div>`}
         <div class="trk-catalog-card-actions">${_trkCatalogoAccionesCedis(a)}</div>
@@ -7698,7 +8118,7 @@ function _trkEvaluarTransportistaAsignacion(tRaw, opts = {}) {
         razones.push('Sin ruta activa/programada.');
     } else if (estatus === 'en_ruta') {
         score += 10;
-        razones.push('En ruta: evaluar si la recoleccion queda al paso.');
+        razones.push('En ruta: evaluar si la recolección queda al paso.');
     } else if (estatus === 'programado') {
         score -= 8;
         razones.push('Tiene ruta programada.');
@@ -7791,70 +8211,6 @@ function _trkDriverMiniHtml(evalInfo) {
         <span class="mx-1">|</span>${_trkChatEscapeHtml(capacidad)}
         <span class="mx-1">|</span>${_trkChatEscapeHtml(rutas)}
     </div>`;
-}
-
-function _trkTransportistasSugeridosRuta() {
-    const candidatos = _trkTransportistasFiltrados()
-        .map(t => _trkEvaluarTransportistaAsignacion(t, { creditos: _trk.creditosEnRuta }))
-        .sort((a, b) => {
-            if (b.score !== a.score) return b.score - a.score;
-            return String(a.t.nombre_transportista || '').localeCompare(String(b.t.nombre_transportista || ''));
-        });
-    return candidatos;
-}
-
-function _trkRenderSugerenciasTransportistasRuta() {
-    const $box = $('#rutaTransportistaAssist');
-    if (!$box.length || _trk.soloLectura || _trkRutaEstaCancelada()) {
-        $box.addClass('d-none').empty();
-        return;
-    }
-    if (!_trk.operacionTransportistas.length) {
-        $box.removeClass('d-none').html(`
-            <div class="small text-muted">
-                <span class="spinner-border spinner-border-sm me-1"></span>
-                Consultando disponibilidad de transportistas...
-            </div>`);
-        return;
-    }
-    const sugeridos = _trkTransportistasSugeridosRuta().slice(0, 3);
-    const carga = _trk.creditosEnRuta.length;
-    if (!sugeridos.length) {
-        $box.removeClass('d-none').html('<div class="small text-muted">Sin transportistas activos para sugerir.</div>');
-        return;
-    }
-    const cards = sugeridos.map(evalInfo => {
-        const t = evalInfo.t || {};
-        const empresa = t.cedis_base?.nombre || t.nombre_agencia || t.empresa_origen || 'Sin CEDIS';
-        const razones = evalInfo.razones.map(r => `<div>${_trkChatEscapeHtml(r)}</div>`).join('');
-        return `<div class="trk-driver-suggestion">
-            <div class="d-flex align-items-start justify-content-between gap-2">
-                <div style="min-width:0;">
-                    <div class="name">${_trkChatEscapeHtml(t.nombre_transportista || 'Sin nombre')}</div>
-                    <div class="trk-driver-mini">${_trkTipoTransportistaBadge(t.tipo_transportista)} ${_trkChatEscapeHtml(empresa)}</div>
-                </div>
-                ${_trkDriverScoreHtml(evalInfo)}
-            </div>
-            ${_trkDriverMiniHtml(evalInfo)}
-            <div class="trk-driver-reasons">${razones}</div>
-            <button type="button" class="btn btn-xs btn-label-primary mt-2 btn-usar-transportista-sugerido"
-                    data-id="${_trkChatEscapeHtml(t.id_transportista || '')}">
-                <i class="fa-solid fa-user-check me-1"></i>Usar
-            </button>
-        </div>`;
-    }).join('');
-    $box.removeClass('d-none').html(`
-        <div class="trk-driver-assist-head">
-            <div>
-                <div class="trk-driver-assist-title">
-                    <i class="fa-solid fa-shield-halved me-1"></i>Asistente preventivo
-                </div>
-                <div class="small text-muted">Sugerencias con capacidad, rutas activas, destino y zona operativa.</div>
-            </div>
-            <span class="badge bg-label-primary">${_trkChatEscapeHtml(carga)} credito${carga === 1 ? '' : 's'}</span>
-        </div>
-        <div class="trk-driver-suggestions">${cards}</div>
-    `);
 }
 
 function _trkTransportistasUnidadBase() {
@@ -8060,7 +8416,7 @@ function _trkGuardarCatalogo(url, payload, btn, modalId) {
         _trk.cargadoCatalogos = false;
         _trkCargarSeccion('catalogos', { force: true, silent: true });
     }).catch(() => {
-        Swal.fire({ icon: 'error', title: 'Error de conexion', text: 'No se pudo guardar el registro.', confirmButtonText: 'Aceptar' });
+        Swal.fire({ icon: 'error', title: 'Error de conexión', text: 'No se pudo guardar el registro.', confirmButtonText: 'Aceptar' });
     }).finally(() => $btn.prop('disabled', false));
 }
 
@@ -8114,7 +8470,7 @@ function _trkGuardarUnidadTransportistaTracking() {
         _trk.cargadoOperacion = false;
         _trkCargarSeccion('operacion', { force: true, silent: true });
     }).catch(() => {
-        Swal.fire({ icon: 'error', title: 'Error de conexion', text: 'No se pudo guardar la unidad.', confirmButtonText: 'Aceptar' });
+        Swal.fire({ icon: 'error', title: 'Error de conexión', text: 'No se pudo guardar la unidad.', confirmButtonText: 'Aceptar' });
     }).finally(() => $btn.prop('disabled', false));
 }
 
@@ -8139,7 +8495,7 @@ function _trkCambiarEstadoCatalogo(url, payload) {
         _trk.cargadoCatalogos = false;
         _trkCargarSeccion('catalogos', { force: true, silent: true });
     }).catch(() => {
-        Swal.fire({ icon: 'error', title: 'Error de conexion', text: 'No se pudo actualizar el registro.', confirmButtonText: 'Aceptar' });
+        Swal.fire({ icon: 'error', title: 'Error de conexión', text: 'No se pudo actualizar el registro.', confirmButtonText: 'Aceptar' });
     });
 }
 
@@ -8162,7 +8518,7 @@ function _trkCargarCatalogoAgenciasTransportistas(silent = false) {
             _trk.cargadoCatalogos = true;
         })
         .catch(err => {
-            if (!silent) console.warn('[Tracking Recoleccion] Error al cargar catalogos', err);
+            if (!silent) console.warn('[Tracking Recolección] Error al cargar catálogos', err);
         });
 }
 
@@ -8257,7 +8613,6 @@ function _trkCargarOperacionTransportistas(silent = false) {
             _trkRenderOperacionTransportistas();
             _trkRefrescarSelectTransportistas($('#rutaTransportistaTracking').val());
             _trkRenderTransportistaInfo();
-            _trkRenderSugerenciasTransportistasRuta();
             _trk.cargadoOperacion = true;
             _trkCargarUbicacionesOperacion();
         })
@@ -8522,7 +8877,7 @@ function _trkOperacionRutaMini(r) {
         <div class="trk-admin-route-meta">
             <span>${_trkChatEscapeHtml(r.recolectadas || 0)} rec.</span>
             <span>${_trkChatEscapeHtml(r.confirmados || 0)} confirm.</span>
-            <span>${_trkChatEscapeHtml(ubicaciones || 'Sin ubicacion')}</span>
+            <span>${_trkChatEscapeHtml(ubicaciones || 'Sin ubicación')}</span>
         </div>
     </div>`;
 }
@@ -8550,7 +8905,7 @@ function _trkCargarUbicacionesOperacion() {
             .then(r => {
                 const ubi = r.ubicacion || r.datos?.ubicacion || null;
                 if (!ubi) {
-                    _trkActualizarOperacionLive(idTransportista, '<i class="fa-solid fa-location-dot me-1"></i>Sin ubicacion live reportada');
+                    _trkActualizarOperacionLive(idTransportista, '<i class="fa-solid fa-location-dot me-1"></i>Sin ubicación live reportada');
                     return;
                 }
                 const fecha = ubi.created_at || ubi.updated_at || '';
@@ -8560,7 +8915,7 @@ function _trkCargarUbicacionesOperacion() {
                 const coords = Number.isFinite(lat) && Number.isFinite(lng)
                     ? `${lat.toFixed(5)}, ${lng.toFixed(5)}`
                     : 'Coordenadas no disponibles';
-                _trkActualizarOperacionLive(idTransportista, `<i class="fa-solid fa-location-arrow me-1"></i>Ultima ubicacion ${_trkChatEscapeHtml(hora)} - ${_trkChatEscapeHtml(coords)}`);
+                _trkActualizarOperacionLive(idTransportista, `<i class="fa-solid fa-location-arrow me-1"></i>Última ubicación ${_trkChatEscapeHtml(hora)} - ${_trkChatEscapeHtml(coords)}`);
             })
             .catch(() => {
                 _trkActualizarOperacionLive(idTransportista, '<i class="fa-solid fa-location-dot me-1"></i>Ubicacion live no disponible');
@@ -8712,7 +9067,6 @@ function _trkSincronizarTransportistaSeleccionado() {
     _trkPoblarAgenciasTrackingSelect();
     _trkActualizarBadgeTransportista();
     _trkRenderCedisDestinoInfo();
-    _trkRenderSugerenciasTransportistasRuta();
 }
 
 function _trkCedisPorId(id) {
@@ -8952,7 +9306,7 @@ function _trkValidarReglasTransportista() {
         if (fueraZona) {
             return {
                 ok: false,
-                mensaje: `El credito #${fueraZona.id_credito} esta fuera de CDMX/zona metropolitana. Asigna un transportista externo para esta ruta.`,
+                mensaje: `El crédito #${fueraZona.id_credito} está fuera de CDMX/zona metropolitana. Asigna un transportista externo para esta ruta.`,
             };
         }
     }
@@ -8965,7 +9319,6 @@ function _trkRenderTransportistaInfo() {
     if (!t) {
         $box.addClass('d-none').empty();
         _trkRenderMapTransportSummary();
-        _trkRenderSugerenciasTransportistasRuta();
         return;
     }
     const agencia = t.nombre_agencia || t.empresa_origen || t.cedis_base?.nombre || 'Sin CEDIS asignado';
@@ -8987,7 +9340,6 @@ function _trkRenderTransportistaInfo() {
         </div>
     `);
     _trkRenderMapTransportSummary();
-    _trkRenderSugerenciasTransportistasRuta();
 }
 
 function _trkRenderCedisDestinoInfo() {
@@ -9018,7 +9370,7 @@ function _trkRenderCedisDestinoInfo() {
     const avisoUbicacion = ubicacionOperativa ? '' : `
         <div class="alert alert-warning py-1 px-2 mb-0 mt-1 small">
             <i class="fa-solid fa-triangle-exclamation me-1"></i>
-            Sin ubicacion operativa. No se puede asignar como destino hasta completar coordenadas o Estado/Municipio.
+            Sin ubicación operativa. No se puede asignar como destino hasta completar coordenadas o Estado/Municipio.
         </div>`;
     const mapsBtn = mapsUrl
         ? `<a class="trk-cedis-map-btn" href="${_trkChatEscapeHtml(mapsUrl)}" target="_blank" rel="noopener noreferrer" title="Abrir CEDIS en Google Maps">
@@ -9039,7 +9391,7 @@ function _trkRenderCedisDestinoInfo() {
                     <span><strong>Recibe:</strong> ${_trkChatEscapeHtml(encargado)}</span>
                     <span><strong>Ubicacion:</strong> ${_trkChatEscapeHtml(ubicacion)}</span>
                 </div>
-                <div class="text-muted"><strong>Direccion:</strong> ${_trkChatEscapeHtml(direccion)}</div>
+                <div class="text-muted"><strong>Dirección:</strong> ${_trkChatEscapeHtml(direccion)}</div>
                 <div class="d-flex flex-wrap gap-2 text-muted">
                     <span><strong>Contacto:</strong> ${_trkChatEscapeHtml(contacto)}</span>
                     <span><strong>Horario:</strong> ${_trkChatEscapeHtml(horario)}</span>
@@ -9055,6 +9407,7 @@ function _trkRenderCedisDestinoInfo() {
         </div>
     `);
     _trkRenderMapTransportSummary();
+    $('#trkPlannerCedisBox').addClass('d-none').empty();
 }
 
 function _trkRenderMapTransportSummary() {
@@ -9102,7 +9455,7 @@ function _trkRenderMapTransportSummary() {
             <div class="trk-map-driver-meta">
                 <strong>Recibe:</strong> ${_trkChatEscapeHtml(recibe)}<br>
                 <strong>Ubicacion:</strong> ${_trkChatEscapeHtml(ubicacionCedis)}<br>
-                ${cedis?.direccion ? `<strong>Direccion:</strong> ${_trkChatEscapeHtml(cedis.direccion)}` : '<strong>Direccion:</strong> No disponible'}
+                ${cedis?.direccion ? `<strong>Dirección:</strong> ${_trkChatEscapeHtml(cedis.direccion)}` : '<strong>Dirección:</strong> No disponible'}
             </div>
         </div>
         <div class="trk-map-driver-actions">
@@ -9186,7 +9539,7 @@ function _trkCedisDestinoHtml(cedis, opts = {}) {
     const avisoUbicacion = ubicacionOperativa ? '' : `
         <div class="alert alert-warning py-1 px-2 mb-0 mt-1 small">
             <i class="fa-solid fa-triangle-exclamation me-1"></i>
-            Sin ubicacion operativa. No se puede asignar como destino hasta completar coordenadas o Estado/Municipio.
+            Sin ubicación operativa. No se puede asignar como destino hasta completar coordenadas o Estado/Municipio.
         </div>`;
     const mapsBtn = mapsUrl
         ? `<a class="trk-cedis-map-btn" href="${_trkChatEscapeHtml(mapsUrl)}" target="_blank" rel="noopener noreferrer" title="Abrir en Google Maps">
@@ -9204,7 +9557,7 @@ function _trkCedisDestinoHtml(cedis, opts = {}) {
                     <span><strong>Recibe:</strong> ${_trkChatEscapeHtml(cedis.encargado || 'No disponible')}</span>
                     <span><strong>Ubicacion:</strong> ${_trkChatEscapeHtml(ubicacion)}</span>
                 </div>
-                <div class="text-muted"><strong>Direccion:</strong> ${_trkChatEscapeHtml(cedis.direccion || 'No disponible')}</div>
+                <div class="text-muted"><strong>Dirección:</strong> ${_trkChatEscapeHtml(cedis.direccion || 'No disponible')}</div>
                 <div class="d-flex flex-wrap gap-2 text-muted">
                     <span><strong>Coordenadas:</strong> ${_trkChatEscapeHtml(coords)}</span>
                     <span><strong>Contacto:</strong> ${_trkChatEscapeHtml(contacto)}</span>
@@ -9364,7 +9717,7 @@ async function _trkConfirmarCambioCedisDestino() {
         title: 'Confirmar cambio de CEDIS?',
         text: 'La ruta puede estar en operacion. El transportista recibira el nuevo destino.',
         showCancelButton: true,
-        confirmButtonText: 'Si, cambiar',
+        confirmButtonText: 'Sí, cambiar',
         cancelButtonText: 'Cancelar',
         confirmButtonColor: '#0d9488',
     });
@@ -9397,9 +9750,6 @@ async function _trkConfirmarCambioCedisDestino() {
             const ruta = [...(_trk.rutasRegistradas || []), ...(_trk.borradoresData || [])].find(x => String(x.id_ruta || x.id || '') === String(idRuta));
             _trkRenderDetalleCedisDestino(idRuta, ruta?.estatus_ruta || '');
         }
-        if (_trk.opsRutaActualId && String(_trk.opsRutaActualId) === String(idRuta)) {
-            _trkAbrirOperacionesRuta(idRuta);
-        }
         bootstrap.Modal.getOrCreateInstance(document.getElementById('modalCambiarCedisDestino')).hide();
         Swal.fire({
             icon: informativo ? 'info' : 'success',
@@ -9409,7 +9759,7 @@ async function _trkConfirmarCambioCedisDestino() {
             showConfirmButton: false,
         });
     } catch {
-        Swal.fire({ icon: 'error', title: 'Error de conexion', text: 'No se pudo cambiar el CEDIS destino.', confirmButtonText: 'Aceptar' });
+        Swal.fire({ icon: 'error', title: 'Error de conexión', text: 'No se pudo cambiar el CEDIS destino.', confirmButtonText: 'Aceptar' });
     }
 }
 
@@ -9432,9 +9782,6 @@ function _trkAplicarEventoCambioCedisDestino(data) {
         _trkConsultarCedisDestinoRuta(idRuta)
             .then(() => _trkRenderDetalleCedisDestino(idRuta, ''))
             .catch(() => _trkRenderDetalleCedisDestino(idRuta, ''));
-    }
-    if (_trk.opsRutaActualId && String(_trk.opsRutaActualId) === String(idRuta)) {
-        _trkAbrirOperacionesRuta(idRuta);
     }
 }
 
@@ -9551,7 +9898,7 @@ async function _trkGenerarOtpDetalle(idDetalle) {
             confirmButtonText: 'Entendido',
         });
     } catch {
-        Swal.fire({ icon: 'error', title: 'Error de conexion', text: 'No se pudo generar el OTP.', confirmButtonText: 'Aceptar' });
+        Swal.fire({ icon: 'error', title: 'Error de conexión', text: 'No se pudo generar el OTP.', confirmButtonText: 'Aceptar' });
     }
 }
 
@@ -9618,10 +9965,31 @@ function _trkFechaMinimaProgramacion() {
     return d.toISOString().split('T')[0];
 }
 
+function _trkFechaSumarDias(fecha, dias) {
+    if (!fecha) return '';
+    const d = new Date(`${fecha}T00:00:00`);
+    if (isNaN(d.getTime())) return '';
+    d.setDate(d.getDate() + (parseInt(dias, 10) || 0));
+    return d.toISOString().split('T')[0];
+}
+
+function _trkSincronizarFechaFinalizacion(force = false) {
+    const $fin = $('#rutaFechaFin');
+    if (!$fin.length) return;
+    const inicio = $('#rutaFecha').val() || _trkFechaMinimaProgramacion();
+    $fin.attr('min', inicio).removeAttr('max');
+    const actual = $fin.val();
+    if (force || !actual || _trkCompararFecha(actual, inicio) < 0) {
+        $fin.val(force ? inicio : '');
+    }
+}
+
 function _trkInicializarModal() {
     // Fecha minima
     const minDate = _trkFechaMinimaProgramacion();
     document.getElementById('rutaFecha').min = minDate;
+    document.getElementById('rutaFechaFin').min = minDate;
+    document.getElementById('rutaFechaFin').removeAttribute('max');
     $('#rutaDiasMinimosTxt').text(_trkDiasMinimosProgramacion());
 
     $('#rutaNombre').on('input paste blur', function (e) {
@@ -9642,6 +10010,9 @@ function _trkInicializarModal() {
         _trkMarcarCambio();
         _trkProgramarValidacionNombreRuta(e.type === 'blur' ? 80 : 650);
     });
+
+    $('#rutaFecha').val(minDate);
+    _trkSincronizarFechaFinalizacion(false);
 
     $('#rutaTransportistaTracking').on('change', function () {
         $('#rutaCedisDestino').val('');
@@ -9670,10 +10041,6 @@ function _trkInicializarModal() {
         _trkSeleccionarTransportista($(this).data('id'));
         _trkMarcarCambio();
     });
-    $('#rutaTransportistaAssist').on('click', '.btn-usar-transportista-sugerido', function () {
-        _trkSeleccionarTransportista($(this).data('id'));
-        _trkMarcarCambio();
-    });
     $(document).on('mousedown', function (e) {
         if (!$(e.target).closest('#rutaTransportistaPicker').length) {
             $('#rutaTransportistaResults').addClass('d-none');
@@ -9697,6 +10064,8 @@ function _trkInicializarModal() {
         _trkMarcarCambio();
     });
 
+    $('#btnAgregarTodosUbicacion').on('click', _trkAgregarTodosCreditosUbicacion);
+
     // Filtro de creditos por estado
     $('#crdFiltroEstado').on('change', function () {
         const est = $(this).val();
@@ -9718,6 +10087,18 @@ function _trkInicializarModal() {
     $('#trkPlannerGroups').on('click', '.trk-planner-group-head, .trk-planner-mun', function () {
         _trkPlannerEnfocarGrupo(this.dataset.estado || '', this.dataset.municipio || '');
     });
+    $('#trkPlanDistribuir').on('click', _trkDistribuirPlaneacionLocal);
+    $('#trkPlanGuardar').on('click', _trkGuardarPlaneacionRuta);
+    $('#trkRouteDayList').on('click', '.btn-trk-plan-editar-hora', function () {
+        const idCredito = Number($(this).data('credito') || 0);
+        const credito = (_trk.creditosEnRuta || []).find(c =>
+            idCredito && Number(c.id_credito || 0) === idCredito
+        );
+        if (credito) _trkAbrirEditarHorarioPlaneacion(credito);
+    });
+    $('#trkRouteDayList').on('change', '.trk-route-day-date-input', function () {
+        _trkPlanCambiarFechaDia(Number($(this).data('day') || 0), this.value || '');
+    });
     $('#trkOppRefresh').on('click', () => _trkCargarOportunidadesRuta(true));
     $('#trkOppRadioKm, #trkOppLimit').on('change', () => _trkCargarOportunidadesRuta(true));
     $('#trkOppNivel').on('change', function () {
@@ -9738,7 +10119,7 @@ function _trkInicializarModal() {
             title: 'Guardar cambios?',
             text: 'Se actualizaran los datos de esta ruta.',
             showCancelButton: true,
-            confirmButtonText: 'Si, actualizar',
+            confirmButtonText: 'Sí, actualizar',
             cancelButtonText: 'No, regresar',
             confirmButtonColor: '#0d6efd',
         });
@@ -9750,7 +10131,7 @@ function _trkInicializarModal() {
         if (!_trk.soloLectura && _trk.haychangios) {
             const okAuto = await _trkForzarAutosaveBorrador();
             if (!okAuto) {
-                const ok = await trkConfirm('Tienes cambios sin guardar. Deseas salir sin guardar?');
+                const ok = await trkConfirm('Tienes cambios sin guardar. ¿Deseas salir sin guardar?');
                 if (!ok) return;
             }
         }
@@ -9782,7 +10163,7 @@ function _trkInicializarModal() {
 async function _trkAbrirModalNuevo() {
     Swal.fire({
         title: 'Preparando ruta...',
-        html: '<span style="font-size:.875rem;color:#64748b;">Cargando catalogos necesarios</span>',
+        html: '<span style="font-size:.875rem;color:#64748b;">Cargando catálogos necesarios</span>',
         allowOutsideClick: false,
         allowEscapeKey: false,
         showConfirmButton: false,
@@ -9798,7 +10179,7 @@ async function _trkAbrirModalNuevo() {
 async function _trkAbrirModalConCredito(cred) {
     Swal.fire({
         title: 'Preparando ruta...',
-        html: '<span style="font-size:.875rem;color:#64748b;">Cargando catalogos necesarios</span>',
+        html: '<span style="font-size:.875rem;color:#64748b;">Cargando catálogos necesarios</span>',
         allowOutsideClick: false,
         allowEscapeKey: false,
         showConfirmButton: false,
@@ -9840,6 +10221,9 @@ function _trkResetModal() {
     _trk.oportunidadesRutaId   = null;
     _trk.oportunidadesLoading  = false;
     _trk.oportunidadesFiltroNivel = '';
+    _trk.planeacionRuta        = [];
+    _trk.planeacionEventos     = [];
+    _trk.planeacionLoading     = false;
     if (_trk.nombreRutaCheckTimer) {
         clearTimeout(_trk.nombreRutaCheckTimer);
         _trk.nombreRutaCheckTimer = null;
@@ -9849,7 +10233,8 @@ function _trkResetModal() {
     _trkDesbloquearModal();
     $('#rutaNombre').val('');
     const minDate = _trkFechaMinimaProgramacion();
-    $('#rutaFecha').val('').attr('min', minDate);
+    $('#rutaFecha').val(minDate).attr('min', minDate);
+    $('#rutaFechaFin').val('').attr('min', minDate).removeAttr('max');
     // Reset hora a 8:00 AM
     $('#rutaHoraH').val('8');
     $('#rutaHoraM').val('00');
@@ -9866,12 +10251,15 @@ function _trkResetModal() {
     $('#rutaCedisDestino').val('');
     $('#rutaCedisDestinoInfo').addClass('d-none').empty();
     $('#trkMapTransportSummary').addClass('d-none').empty();
-    $('#rutaTransportistaAssist').addClass('d-none').empty();
     $('#trkListaFiltroEstado, #trkListaFiltroMunicipio, #trkListaBuscar').val('');
     $('#trkListaFiltroMunicipio').prop('disabled', true);
     $('#trkOppRadioKm').val('10');
     $('#trkOppLimit').val('30');
     $('#trkOppNivel').val('');
+    $('#trkPlanInicioJornada').val('10:00');
+    $('#trkPlanFinJornada').val('19:00');
+    $('#trkPlanMinParada').val('45');
+    $('#trkPlanDiasTrasladoEstado').val(Math.min(TRK_PLAN_MAX_GAP_DAYS, Number(_trk.planeacionTrasladoEstados || 1)));
     _trkRefrescarSelectTransportistas();
     // Reset filtros de creditos
     $('#crdFiltroEstado').val('').trigger('change.select2');
@@ -9880,13 +10268,15 @@ function _trkResetModal() {
     _trkPoblarFiltroEstadosCrd();
     $('#modalRegistrarRuta').removeClass('trk-planner-active');
     $('#trkPlannerPanel').addClass('d-none');
+    $('#trkPlannerCedisBox').addClass('d-none').empty();
     $('#btnTogglePlanner').removeClass('btn-primary').addClass('btn-outline-primary')
         .html('<i class="fa-solid fa-up-right-and-down-left-from-center me-1"></i>Planeador');
     _trkRenderPlaneadorPanel();
+    _trkRenderPlaneacionDias();
     document.getElementById('rutaCreditosList').innerHTML =
         `<div class="text-center text-muted py-3 small" id="rutaCreditosEmpty">
             <i class="fa-solid fa-motorcycle opacity-25 fa-2x mb-1 d-block"></i>
-            Aun no hay creditos en esta ruta
+            Aún no hay créditos en esta ruta
         </div>`;
     $('#rutaCreditosCount').text(0);
     _trkRefrescarSelectCreditos();
@@ -10062,7 +10452,7 @@ function _trkRefrescarSelectCreditos() {
     const munFiltro = $('#crdFiltroMunicipio').val();
     const $sel = $('#rutaCreditoSelect');
     const idsEnRuta = new Set(_trk.creditosEnRuta.map(c => String(c.id_credito)));
-    $sel.html('<option value="">Buscar por credito, modelo, VIN...</option>');
+    $sel.html('<option value="">Buscar por crédito, modelo, VIN...</option>');
     _trk.creditosDisponibles.forEach(c => {
         if (idsEnRuta.has(String(c.id_credito))) return;
         if (estFiltro && !_trkMismaUbicacionEstado(c.estado, estFiltro, c.municipio)) return;
@@ -10072,12 +10462,119 @@ function _trkRefrescarSelectCreditos() {
         $sel.append(`<option value="${c.id_credito}">${label}</option>`);
     });
     _trkRefrescarSelectBuscable('#rutaCreditoSelect');
+    _trkActualizarBotonAgregarTodosUbicacion();
+}
+
+function _trkCreditosMasivosUbicacion(estado, municipio = '') {
+    if (!estado) return [];
+    const idsEnRuta = _trkIdsCreditosEnRutaSet();
+    return (_trk.creditosDisponibles || []).filter(c => {
+        if (idsEnRuta.has(String(c.id_credito))) return false;
+        if (!_trkMismaUbicacionEstado(c.estado, estado, c.municipio)) return false;
+        if (municipio && !_trkMismaUbicacionMunicipio(_trkMunicipioMayus(c.municipio, c.estado), municipio)) return false;
+        return true;
+    });
+}
+
+function _trkActualizarBotonAgregarTodosUbicacion() {
+    const $btn = $('#btnAgregarTodosUbicacion');
+    if (!$btn.length) return;
+    const estado = $('#crdFiltroEstado').val();
+    const municipio = $('#crdFiltroMunicipio').val();
+    const total = _trkCreditosMasivosUbicacion(estado, municipio).length;
+    const label = municipio ? 'Agregar municipio' : 'Agregar estado';
+    const disabled = !estado || total <= 0 || _trkRutaEstaCancelada() || _trk.soloLectura;
+    $btn.prop('disabled', disabled);
+    $btn.html(total > 0
+        ? `<i class="fa-solid fa-layer-group me-1"></i>${label} (${total})`
+        : '<i class="fa-solid fa-layer-group me-1"></i>Agregar todos');
+}
+
+async function _trkAgregarTodosCreditosUbicacion() {
+    const estado = $('#crdFiltroEstado').val();
+    const municipio = $('#crdFiltroMunicipio').val();
+    if (!estado) {
+        Swal.fire({
+            icon: 'info',
+            title: 'Selecciona un estado',
+            text: 'Primero elige un estado para agregar créditos de forma masiva.',
+            confirmButtonText: 'Aceptar',
+        });
+        return;
+    }
+
+    const candidatos = _trkCreditosMasivosUbicacion(estado, municipio);
+    if (!candidatos.length) {
+        Swal.fire({
+            icon: 'info',
+            title: 'Sin créditos disponibles',
+            text: 'No hay créditos restantes para agregar con este filtro.',
+            confirmButtonText: 'Aceptar',
+        });
+        return;
+    }
+
+    const tipoSeleccionado = _trkTransportistaSeleccionado()?.tipo_transportista || $('#rutaTipoTransportista').val();
+    const fueraZonaInterna = tipoSeleccionado === 'interno'
+        ? candidatos.filter(c => !_trkEsZonaInterna(_trkEstadoMayus(c.estado, c.municipio), _trkMunicipioMayus(c.municipio, c.estado)))
+        : [];
+    if (fueraZonaInterna.length) {
+        Swal.fire({
+            icon: 'warning',
+            title: 'Zona no permitida',
+            text: `Hay ${fueraZonaInterna.length} crédito(s) fuera de CDMX/zona metropolitana. Para esta ubicación usa transportista externo.`,
+            confirmButtonText: 'Aceptar',
+        });
+        return;
+    }
+
+    const alcance = municipio ? `${estado} / ${municipio}` : `${estado} / todos los municipios`;
+    const ok = await Swal.fire({
+        icon: 'question',
+        title: 'Agregar créditos a la ruta',
+        html: `<div class="text-start">
+            <div><b>Ubicación:</b> ${_trkChatEscapeHtml(alcance)}</div>
+            <div><b>Créditos a agregar:</b> ${candidatos.length}</div>
+            <div class="text-muted small mt-2">Se agregarán al final de la ruta y se recalculará el orden.</div>
+        </div>`,
+        showCancelButton: true,
+        confirmButtonText: 'Sí, agregar',
+        cancelButtonText: 'Revisar',
+        confirmButtonColor: '#0f9488',
+    });
+    if (!ok.isConfirmed) return;
+
+    candidatos.forEach(cred => {
+        const normalizado = {
+            ...cred,
+            estado_raw: cred.estado || '',
+            estado: _trkEstadoMayus(cred.estado, cred.municipio),
+            municipio: _trkMunicipioMayus(cred.municipio, cred.estado),
+            orden_ruta: _trk.creditosEnRuta.length + 1,
+            estatus_confirmacion_gestor: cred.estatus_confirmacion_gestor || 'pendiente',
+        };
+        _trk.creditosEnRuta.push(normalizado);
+    });
+
+    _trkRecalcularOrden();
+    _trkAplicarEtasAutomaticas();
+    _trkRenderListaCreditos();
+    _trkRefrescarFiltrosCreditoUbicacion();
+    _trkRenderizarMapa();
+    _trkMarcarCambio();
+    Swal.fire({
+        icon: 'success',
+        title: 'Créditos agregados',
+        text: `${candidatos.length} crédito(s) fueron agregados a la ruta.`,
+        timer: 1600,
+        showConfirmButton: false,
+    });
 }
 
 function _trkAgregarCreditoALista(cred) {
     // RN-03: no duplicados
     if (_trk.creditosEnRuta.find(c => String(c.id_credito) === String(cred.id_credito))) {
-        Swal.fire({ icon: 'warning', title: 'Aviso', text: 'Este credito ya esta en la ruta.', confirmButtonText: 'Aceptar' });
+        Swal.fire({ icon: 'warning', title: 'Aviso', text: 'Este crédito ya está en la ruta.', confirmButtonText: 'Aceptar' });
         return;
     }
     cred = {
@@ -10091,7 +10588,7 @@ function _trkAgregarCreditoALista(cred) {
         Swal.fire({
             icon: 'warning',
             title: 'Zona no permitida',
-            text: 'Este credito esta fuera de CDMX/zona metropolitana. Para esta ubicacion usa transportista externo.',
+            text: 'Este crédito está fuera de CDMX/zona metropolitana. Para esta ubicación usa transportista externo.',
             confirmButtonText: 'Aceptar',
         });
         return;
@@ -10124,12 +10621,12 @@ function _trkRenderListaCreditos() {
     $('#rutaCreditosCount').text(_trk.creditosEnRuta.length);
     if (_trk.sortableInstance) _trk.sortableInstance.option('disabled', filaLectura);
     _trkRenderPlaneadorPanel();
-    _trkRenderSugerenciasTransportistasRuta();
+    _trkRenderPlaneacionDias();
 
     if (isEmpty) {
         $list.html(`<div class="text-center text-muted py-3 small" id="rutaCreditosEmpty">
             <i class="fa-solid fa-motorcycle opacity-25 fa-2x mb-1 d-block"></i>
-            Aun no hay creditos en esta ruta
+            Aún no hay créditos en esta ruta
         </div>`);
         return;
     }
@@ -10693,7 +11190,7 @@ function _trkEnfocarCreditoEnMapa(idCredito, opts = {}) {
 
     const enfocar = (pos) => {
         if (!_trk.mapInstance || !pos) {
-            Swal.fire({ icon: 'info', title: 'Sin ubicacion', text: 'Este credito todavia no tiene una ubicacion valida para mostrar en el mapa.', confirmButtonText: 'Aceptar' });
+            Swal.fire({ icon: 'info', title: 'Sin ubicación', text: 'Este crédito todavía no tiene una ubicación válida para mostrar en el mapa.', confirmButtonText: 'Aceptar' });
             return;
         }
         const latLng = new google.maps.LatLng(pos.lat, pos.lng);
@@ -10712,7 +11209,7 @@ function _trkEnfocarCreditoEnMapa(idCredito, opts = {}) {
     }
     if (!_trk.mapInstance || typeof google === 'undefined' || !google.maps) {
         if ((opts.retry || 0) >= 4) {
-            Swal.fire({ icon: 'info', title: 'Mapa cargando', text: 'No se pudo enfocar el credito todavia. Intenta de nuevo en unos segundos.', confirmButtonText: 'Aceptar' });
+            Swal.fire({ icon: 'info', title: 'Mapa cargando', text: 'No se pudo enfocar el crédito todavía. Intenta de nuevo en unos segundos.', confirmButtonText: 'Aceptar' });
             return;
         }
         _trkRenderizarMapa();
@@ -11265,6 +11762,7 @@ function _trkMinutesToHora(totalMin) {
 }
 
 const TRK_ETA_MIN_MINUTES = 240;
+const TRK_PLAN_MAX_GAP_DAYS = 2;
 
 function _trkFechaRutaBase() {
     return $('#rutaFecha').val() || new Date().toISOString().split('T')[0];
@@ -11349,29 +11847,8 @@ function _trkEstadoEta(c, estatusReal = null) {
 }
 
 function _trkAplicarEtasAutomaticas(force = false) {
-    if (!_trk.creditosEnRuta.length) return;
-    const fecha = _trkFechaRutaBase();
-    const salida = _trkHoraToMinutes(_trkHoraToPayload());
-    if (!fecha || salida === null) return;
-
-    const ordenados = [..._trk.creditosEnRuta]
-        .sort((a, b) => (a.orden_ruta || 99) - (b.orden_ruta || 99));
-    let etaIni = salida + 30; // colchon operativo para carga/salida hacia primer punto
-    ordenados.forEach((c, idx) => {
-        if (idx > 0) {
-            const travelMin = _trk.routeLegDurations[idx - 1]
-                ? Math.ceil(_trk.routeLegDurations[idx - 1] / 60)
-                : 30;
-            etaIni += travelMin + 15; // traslado + margen de servicio/maniobra
-        }
-        const debeActualizar = force || c.eta_auto || !c.eta_manual || !c.fecha_eta || !c.hora_eta_ini || !c.hora_eta_fin;
-        if (!debeActualizar) return;
-        c.fecha_eta    = fecha;
-        c.hora_eta_ini = _trkMinutesToHora(etaIni);
-        c.hora_eta_fin = _trkMinutesToHora(etaIni + TRK_ETA_MIN_MINUTES);
-        c.eta_auto     = true;
-        c.eta_manual   = false;
-    });
+    // ETA por credito queda deprecado: la ruta opera con fecha inicio, fecha final y hora de salida.
+    return;
 }
 
 function _trkDistanciaKm(a, b) {
@@ -11456,9 +11933,9 @@ async function _trkConfirmarRutaNoOptimaSiAplica(modo) {
     const r = await Swal.fire({
         icon: 'warning',
         title: 'Ruta no optima',
-        text: 'Tu ruta no es la mas optima para el recorrido, implicarian mayor inversion de recursos, estas seguro de que quieres enviarla asi?',
+        text: 'Tu ruta no es la más óptima para el recorrido, implicaría mayor inversión de recursos. ¿Estás seguro de que quieres enviarla así?',
         showCancelButton: true,
-        confirmButtonText: 'Si, enviarla asi',
+        confirmButtonText: 'Sí, enviarla así',
         cancelButtonText: 'Revisar ruta',
         confirmButtonColor: '#0d9488',
     });
@@ -11520,7 +11997,7 @@ function _trkRenderResumenUbicacionesNormal(ubicaciones) {
     return `
         <div class="border rounded overflow-hidden">
             <div class="d-grid gap-2 small text-muted fw-semibold text-uppercase bg-light px-2 py-1" style="grid-template-columns:1fr 1fr 1.25fr;">
-                <span>Estado</span><span>Municipio</span><span>Creditos</span>
+                <span>Estado</span><span>Municipio</span><span>Créditos</span>
             </div>
             ${rows}
         </div>`;
@@ -11536,7 +12013,7 @@ function _trkRenderResumenUbicacionesVolumen(ubicaciones) {
                 <details class="border rounded mb-2" ${idx < 2 ? 'open' : ''}>
                     <summary class="d-flex align-items-center justify-content-between gap-2 px-2 py-2" style="cursor:pointer;">
                         <span class="fw-semibold">${_trkChatEscapeHtml(estado.estado)}</span>
-                        <span class="badge bg-label-primary">${estado.total} credito${estado.total !== 1 ? 's' : ''}</span>
+                        <span class="badge bg-label-primary">${estado.total} crédito${estado.total !== 1 ? 's' : ''}</span>
                     </summary>
                     <div class="px-2 pb-2">
                         ${estado.municipios.map(u => `
@@ -11552,7 +12029,7 @@ function _trkRenderResumenUbicacionesVolumen(ubicaciones) {
         </div>`;
 }
 
-async function _trkConfirmarResumenEnvioRuta({ nombre, fecha }) {
+async function _trkConfirmarResumenEnvioRuta({ nombre, fecha, fechaFinalizacion }) {
     const total = _trk.creditosEnRuta.length;
     const confirmados = _trk.creditosEnRuta.filter(c => c.estatus_confirmacion_gestor === 'confirmado').length;
     const ubicaciones = _trkUbicacionesResumenEnvio();
@@ -11573,16 +12050,20 @@ async function _trkConfirmarResumenEnvioRuta({ nombre, fecha }) {
                 </div>
                 <div class="row g-2 mb-2">
                     <div class="col-6">
-                        <div class="small text-muted fw-semibold text-uppercase">FECHA DE SALIDA</div>
+                        <div class="small text-muted fw-semibold text-uppercase">Fecha de inicio</div>
                         <div>${_trkChatEscapeHtml(fecha || 'Sin fecha')}</div>
                     </div>
                     <div class="col-6">
+                        <div class="small text-muted fw-semibold text-uppercase">Fecha final</div>
+                        <div>${_trkChatEscapeHtml(fechaFinalizacion || fecha || 'Sin fecha')}</div>
+                    </div>
+                    <div class="col-12">
                         <div class="small text-muted fw-semibold text-uppercase">Hora de salida</div>
                         <div>${_trkChatEscapeHtml(_trkFormatHora(horaSalida))}</div>
                     </div>
                 </div>
                 <div class="mb-2">
-                    <div class="small text-muted fw-semibold text-uppercase">Creditos confirmados</div>
+                    <div class="small text-muted fw-semibold text-uppercase">Créditos confirmados</div>
                     <span class="badge bg-success">${confirmados}</span>
                 </div>
                 <div>
@@ -11590,11 +12071,11 @@ async function _trkConfirmarResumenEnvioRuta({ nombre, fecha }) {
                     ${ubicacionesHtml}
                 </div>
                 <div class="alert alert-info py-2 px-3 mt-3 mb-0">
-                    Deseas confirmar la ruta?
+                    ¿Deseas confirmar la ruta?
                 </div>
             </div>`,
         showCancelButton: true,
-        confirmButtonText: 'Si, confirmar ruta',
+        confirmButtonText: 'Sí, confirmar ruta',
         cancelButtonText: 'Revisar',
         confirmButtonColor: '#0d9488',
         width: 640,
@@ -11635,16 +12116,18 @@ function _trkAutosaveHash() {
         id_ruta: _trk.idRutaEditando || 0,
         nombre: _trkSanitizarNombreRuta($('#rutaNombre').val()),
         fecha: $('#rutaFecha').val() || '',
+        fecha_finalizacion: $('#rutaFechaFin').val() || '',
         hora: _trkHoraToPayload(),
         id_transportista: $('#rutaTransportistaTracking').val() || '',
         id_cedis_destino: $('#rutaCedisDestino').val() || '',
         creditos: _trk.creditosEnRuta.map(c => ({
             id_credito: c.id_credito,
             orden_ruta: c.orden_ruta,
+            fecha_planeacion: c.fecha_planeacion || null,
+            orden_dia: c.orden_dia || null,
+            estatus_planeacion: c.estatus_planeacion || 'programado',
+            ..._trkPlanCamposPayload(c),
             estatus_confirmacion_gestor: c.estatus_confirmacion_gestor || 'pendiente',
-            fecha_eta: c.fecha_eta || null,
-            hora_eta_ini: c.hora_eta_ini || null,
-            hora_eta_fin: c.hora_eta_fin || null,
             latitud: c.latitud || null,
             longitud: c.longitud || null,
         })),
@@ -11816,7 +12299,7 @@ function _trkProgramarValidacionNombreRuta(delay = 650) {
     }
     _trkSetNombreRutaStatus('loading', 'Consultando disponibilidad del nombre...');
     _trk.nombreRutaCheckTimer = setTimeout(() => {
-        _trkValidarNombreRutaDisponible(false);
+        _trkValidarNombreRutaDisponible(true);
     }, delay);
 }
 
@@ -11831,6 +12314,11 @@ async function _trkValidarNombreRutaDisponible(mostrarDisponible = true) {
     }
 
     if (_trk.nombreRutaUltimoValor === nombre && _trk.nombreRutaDisponible !== null && !_trk.nombreRutaValidando) {
+        if (_trk.nombreRutaDisponible) {
+            _trkSetNombreRutaStatus('ok', 'Nombre disponible.');
+        } else {
+            _trkSetNombreRutaStatus('error', 'Nombre no permitido, ya existe una ruta con este nombre.');
+        }
         return _trk.nombreRutaDisponible;
     }
 
@@ -11854,7 +12342,7 @@ async function _trkValidarNombreRutaDisponible(mostrarDisponible = true) {
             $('#rutaNombre').val(r.nombre_limpio);
         }
         if (_trk.nombreRutaDisponible) {
-            _trkSetNombreRutaStatus(mostrarDisponible ? 'ok' : '', mostrarDisponible ? 'Nombre disponible.' : '');
+            _trkSetNombreRutaStatus('ok', r.message || r.mensaje || 'Nombre disponible.');
             if (_trk.haychangios && _trkPuedeAutosaveBorrador()) {
                 _trkProgramarAutosaveBorrador(250);
             }
@@ -11926,6 +12414,8 @@ async function _trkGuardarBorradorAutomatico() {
     if (nombre && nombre !== $('#rutaNombre').val().trim()) $('#rutaNombre').val(nombre);
     const fecha = $('#rutaFecha').val() || _trkFechaMinimaProgramacion();
     if (!$('#rutaFecha').val()) $('#rutaFecha').val(fecha);
+    _trkSincronizarFechaFinalizacion();
+    const fechaFinalizacion = $('#rutaFechaFin').val() || fecha;
     const idTransportista = $('#rutaTransportistaTracking').val();
     const transportistaSel = _trkTransportistaSeleccionado();
     const tipoTransportista = transportistaSel?.tipo_transportista || '';
@@ -11935,18 +12425,13 @@ async function _trkGuardarBorradorAutomatico() {
     const municipio = _trkMunicipioMayus($('#crdFiltroMunicipio').val() || geoRuta.municipio, $('#crdFiltroEstado').val() || geoRuta.estado);
     const estado = _trkEstadoMayus($('#crdFiltroEstado').val() || geoRuta.estado, municipio);
 
-    if (_trk.creditosEnRuta.some(c => c.fecha_eta && _trkCompararFecha(c.fecha_eta, fecha) < 0)) {
-        return false;
-    }
-
-    _trk.creditosEnRuta.forEach(c => _trkAsegurarEtaMinima(c));
-
     const payload = {
         id_ruta: _trk.idRutaEditando || 0,
         nombre_ruta: nombre,
         estado,
         municipio,
         fecha_programada: fecha,
+        fecha_finalizacion: fechaFinalizacion,
         hora_salida: _trkHoraToPayload(),
         tipo_transportista: tipoTransportista || null,
         id_transportista: idTransportista || null,
@@ -11964,9 +12449,13 @@ async function _trkGuardarBorradorAutomatico() {
             longitud: c.longitud || null,
             orden_ruta: c.orden_ruta,
             estatus_confirmacion_gestor: c.estatus_confirmacion_gestor || 'pendiente',
-            fecha_eta: c.fecha_eta || null,
-            hora_eta_ini: c.hora_eta_ini || null,
-            hora_eta_fin: c.hora_eta_fin || null,
+            fecha_eta: null,
+            hora_eta_ini: null,
+            hora_eta_fin: null,
+            fecha_planeacion: c.fecha_planeacion || null,
+            orden_dia: c.orden_dia || null,
+            estatus_planeacion: c.estatus_planeacion || 'programado',
+            ..._trkPlanCamposPayload(c),
         })),
     };
 
@@ -12004,6 +12493,8 @@ async function _trkGuardarRuta(modo, opts = {}) {
     const nombre    = _trkSanitizarNombreRuta($('#rutaNombre').val());
     if (nombre && nombre !== $('#rutaNombre').val().trim()) $('#rutaNombre').val(nombre);
     const fecha     = $('#rutaFecha').val();
+    _trkSincronizarFechaFinalizacion();
+    const fechaFinalizacion = $('#rutaFechaFin').val();
     const idTransportista   = $('#rutaTransportistaTracking').val();
     const transportistaSel  = _trkTransportistaSeleccionado();
     const tipoTransportista = transportistaSel?.tipo_transportista || '';
@@ -12024,19 +12515,22 @@ async function _trkGuardarRuta(modo, opts = {}) {
         return _trkGuardarRutaError('Nombre no permitido, ya existe una ruta con este nombre.', opts);
     }
     if (_trk.creditosEnRuta.length === 0) {
-        Swal.fire({ icon: 'warning', title: 'Campo requerido', text: 'Debe agregar al menos un credito a la ruta.', confirmButtonText: 'Aceptar' });
+        Swal.fire({ icon: 'warning', title: 'Campo requerido', text: 'Debe agregar al menos un crédito a la ruta.', confirmButtonText: 'Aceptar' });
         return;
     }
     if (!fecha) {
         Swal.fire({ icon: 'warning', title: 'Campo requerido', text: 'La fecha programada es obligatoria.', confirmButtonText: 'Aceptar' });
         return;
     }
-    const etaInvalida = _trk.creditosEnRuta.find(c => c.fecha_eta && _trkCompararFecha(c.fecha_eta, fecha) < 0);
-    if (etaInvalida) {
+    if (!fechaFinalizacion) {
+        Swal.fire({ icon: 'warning', title: 'Campo requerido', text: 'La fecha final es obligatoria.', confirmButtonText: 'Aceptar' });
+        return;
+    }
+    if (_trkCompararFecha(fechaFinalizacion, fecha) < 0) {
         Swal.fire({
             icon: 'warning',
-            title: 'Horas estimadas invalidas',
-            text: `Las horas estimadas del credito #${etaInvalida.id_credito} no pueden ser anteriores a la fecha de salida de la ruta.`,
+            title: 'Fecha final invalida',
+            text: 'La fecha final no puede ser anterior a la fecha de inicio.',
             confirmButtonText: 'Aceptar',
         });
         return;
@@ -12080,16 +12574,15 @@ async function _trkGuardarRuta(modo, opts = {}) {
         }
         const noConfirmados = _trk.creditosEnRuta.filter(c => c.estatus_confirmacion_gestor !== 'confirmado');
         if (noConfirmados.length > 0) {
-            Swal.fire({ icon: 'warning', title: 'Pendiente', text: 'Todos los creditos deben tener confirmacion del gestor para enviar la ruta.', confirmButtonText: 'Aceptar' });
+            Swal.fire({ icon: 'warning', title: 'Pendiente', text: 'Todos los créditos deben tener confirmación del gestor para enviar la ruta.', confirmButtonText: 'Aceptar' });
             return;
         }
     }
 
-    _trk.creditosEnRuta.forEach(c => _trkAsegurarEtaMinima(c));
     const continuarRuta = await _trkConfirmarRutaNoOptimaSiAplica(modo);
     if (!continuarRuta) return;
     if (modo === 'enviar') {
-        const confirmarEnvio = await _trkConfirmarResumenEnvioRuta({ nombre, fecha });
+        const confirmarEnvio = await _trkConfirmarResumenEnvioRuta({ nombre, fecha, fechaFinalizacion });
         if (!confirmarEnvio) return;
     }
 
@@ -12099,6 +12592,7 @@ async function _trkGuardarRuta(modo, opts = {}) {
         estado,
         municipio,
         fecha_programada: fecha,
+        fecha_finalizacion: fechaFinalizacion,
         hora_salida:      _trkHoraToPayload(),
         tipo_transportista:  tipoTransportista || null,
         id_transportista:    idTransportista || null,
@@ -12116,13 +12610,17 @@ async function _trkGuardarRuta(modo, opts = {}) {
             longitud:                    c.longitud || null,
             orden_ruta:                  c.orden_ruta,
             estatus_confirmacion_gestor: c.estatus_confirmacion_gestor || 'pendiente',
-            fecha_eta:                   c.fecha_eta    || null,
-            hora_eta_ini:                c.hora_eta_ini || null,
-            hora_eta_fin:                c.hora_eta_fin || null,
+            fecha_eta:                   null,
+            hora_eta_ini:                null,
+            hora_eta_fin:                null,
+            fecha_planeacion:            c.fecha_planeacion || null,
+            orden_dia:                   c.orden_dia || null,
+            estatus_planeacion:          c.estatus_planeacion || 'programado',
+            ..._trkPlanCamposPayload(c),
         })),
     };
 
-    const $btnGuardar = $('#btnGuardarBorrador, #btnEnviarRuta');
+    const $btnGuardar = $('#btnGuardarBorrador, #btnEnviarRuta, #btnActualizarRuta');
     $btnGuardar.prop('disabled', true);
 
     trkFetch('/TrackingRecoleccion/guardarRuta', {
@@ -12139,7 +12637,10 @@ async function _trkGuardarRuta(modo, opts = {}) {
             _trk.haychangios = false;
             _trk.autosaveLastHash = _trkAutosaveHash();
             if (modo === 'enviar' && idRutaGuardada) _trkDescargarPdfEvidenciaRuta(idRutaGuardada);
-            Swal.fire({ icon: 'success', title: 'Listo!', text: modo === 'borrador' ? 'Borrador guardado correctamente.' : 'Ruta enviada correctamente.', timer: 2000, showConfirmButton: false });
+            const mensajeOk = modo === 'borrador'
+                ? 'Borrador guardado correctamente.'
+                : (modo === 'actualizar' ? 'Ruta actualizada correctamente.' : 'Ruta enviada correctamente.');
+            Swal.fire({ icon: 'success', title: 'Listo!', text: mensajeOk, timer: 2000, showConfirmButton: false });
             bootstrap.Modal.getInstance(document.getElementById('modalRegistrarRuta'))?.hide();
             _trk.cargadoOperacion = false;
             _trkCargarCreditosPaso2();
@@ -12155,7 +12656,7 @@ async function _trkGuardarRuta(modo, opts = {}) {
         }
     })
     .catch(() => {
-        Swal.fire({ icon: 'error', title: 'Error de conexion', text: 'Error de conexion al guardar.', confirmButtonText: 'Aceptar' });
+        Swal.fire({ icon: 'error', title: 'Error de conexión', text: 'Error de conexión al guardar.', confirmButtonText: 'Aceptar' });
     })
     .finally(() => $btnGuardar.prop('disabled', false));
 }
@@ -12240,12 +12741,12 @@ function _trkOpsLimpiarMapa() {
 
 function _trkOpsRenderTimeline(detalle) {
     if (!detalle?.length) {
-        return '<div class="text-center text-muted small py-3">Sin creditos registrados en esta ruta.</div>';
+        return '<div class="text-center text-muted small py-3">Sin créditos registrados en esta ruta.</div>';
     }
     return `<div class="trk-ops-timeline">${detalle.map((det, i) => {
         const orden = det.orden_ruta || (i + 1);
         const modelo = [det.moto_marca, det.modelo || det.moto_modelo].filter(Boolean).join(' ') || 'Unidad no disponible';
-        const lugar = [_trkEstadoMayus(det.estado, det.municipio), _trkMunicipioMayus(det.municipio, det.estado)].filter(Boolean).join(' / ') || 'Sin ubicacion';
+        const lugar = [_trkEstadoMayus(det.estado, det.municipio), _trkMunicipioMayus(det.municipio, det.estado)].filter(Boolean).join(' / ') || 'Sin ubicación';
         const eta = (det.fecha_eta || det.hora_eta_ini || det.hora_eta_fin)
             ? `<div class="trk-ops-step-meta"><i class="fa-solid fa-clock me-1"></i>${_trkChatEscapeHtml(det.fecha_eta || 'Sin fecha')} ${det.hora_eta_ini ? 'Inicio ' + _trkFormatHora(det.hora_eta_ini) : ''} ${det.hora_eta_fin ? 'Llegada ' + _trkFormatHora(det.hora_eta_fin) : ''}</div>`
             : '';
@@ -12263,29 +12764,138 @@ function _trkOpsRenderTimeline(detalle) {
     }).join('')}</div>`;
 }
 
-function _trkOpsRenderOperativo(d) {
-    const detalle = d?.detalle || [];
-    const m = _trkOpsMetricas(d);
-    const actual = detalle.find(x => !['recolectada', 'completado'].includes(String(x.estatus_recoleccion || ''))) || detalle[0] || null;
-    const modelo = actual ? [actual.moto_marca, actual.modelo || actual.moto_modelo].filter(Boolean).join(' ') : '';
+function _trkOpsCountsHtml(data) {
+    return `<span class="d-inline-flex align-items-center gap-1">
+        <span class="badge bg-warning text-dark">${_trkChatEscapeHtml(data.pendientes || 0)}</span>
+        <span class="badge bg-success">${_trkChatEscapeHtml(data.confirmados || 0)}</span>
+    </span>`;
+}
+
+function _trkOpsRenderPlannerGroups(detalle) {
+    if (!detalle?.length) {
+        return '<div class="text-center text-muted small py-3">Sin créditos para agrupar por estado.</div>';
+    }
+    const tree = {};
+    detalle.forEach(det => {
+        const estado = _trkEstadoMayus(det.estado, det.municipio) || 'SIN ESTADO';
+        const municipio = _trkMunicipioMayus(det.municipio, det.estado) || 'SIN MUNICIPIO';
+        tree[estado] ??= { total: 0, confirmados: 0, pendientes: 0, municipios: {} };
+        tree[estado].municipios[municipio] ??= { total: 0, confirmados: 0, pendientes: 0 };
+        [tree[estado], tree[estado].municipios[municipio]].forEach(bucket => {
+            bucket.total++;
+            if (String(det.estatus_confirmacion_gestor || '') === 'confirmado') bucket.confirmados++;
+            else bucket.pendientes++;
+        });
+    });
+    const groups = Object.entries(tree)
+        .sort((a, b) => b[1].total - a[1].total || a[0].localeCompare(b[0]))
+        .map(([estado, data]) => {
+            const municipios = Object.entries(data.municipios)
+                .sort((a, b) => b[1].total - a[1].total || a[0].localeCompare(b[0]))
+                .map(([municipio, m]) => `
+                    <button type="button" class="trk-ops-group-mun" data-ops-filter="${_trkChatEscapeHtml(`${estado} ${municipio}`)}">
+                        <span>${_trkChatEscapeHtml(municipio)}</span>
+                        ${_trkOpsCountsHtml(m)}
+                    </button>
+                `).join('');
+            return `<div class="trk-ops-group" data-ops-filter="${_trkChatEscapeHtml(estado)}">
+                <button type="button" class="trk-ops-group-head">
+                    <span>${_trkChatEscapeHtml(estado)}</span>
+                    ${_trkOpsCountsHtml(data)}
+                </button>
+                ${municipios}
+            </div>`;
+        }).join('');
+    return `<input type="search" class="form-control form-control-sm trk-ops-group-search" placeholder="Buscar estado o municipio...">
+        <div class="trk-ops-groups">${groups}</div>`;
+}
+
+function _trkOpsRenderCedisPanel(d) {
     const cedis = _trkOpsCedisFromDetalle(d);
     const mapsUrl = cedis ? _trkCedisMapsUrl(cedis) : '';
     const permiteCambiarCedis = _trkRutaPermiteCambioCedis(d.estatus_ruta);
-    const cedisCoords = !!_trkCedisDestinoPosicion(cedis);
-    const creditosConCoords = detalle.filter(_trkOpsCreditoPos).length;
-    const todosConfirmados = m.total > 0 && m.confirmados === m.total;
-    const siguienteEta = actual && (actual.fecha_eta || actual.hora_eta_ini || actual.hora_eta_fin)
-        ? `${actual.fecha_eta || 'Sin fecha'} ${actual.hora_eta_ini ? 'Inicio ' + _trkFormatHora(actual.hora_eta_ini) : ''} ${actual.hora_eta_fin ? 'Llegada ' + _trkFormatHora(actual.hora_eta_fin) : ''}`.trim()
-        : 'Sin horas estimadas';
+    return `<section class="trk-ops-panel trk-ops-cedis-panel">
+        <div class="d-flex align-items-start justify-content-between gap-2">
+            <div>
+                <div class="trk-ops-operator-title"><i class="fa-solid fa-warehouse me-1" style="color:var(--track-color);"></i>CEDIS destino</div>
+                <div class="trk-ops-block-text">Datos de entrega y recepción del vehículo.</div>
+            </div>
+            ${cedis ? '<span class="badge bg-label-primary">Destino</span>' : '<span class="badge bg-label-warning">Sin destino</span>'}
+        </div>
+        <div class="trk-ops-block mt-3">
+            <span class="trk-ops-block-label">CEDIS</span>
+            <div class="trk-ops-block-title mt-1">${_trkChatEscapeHtml(cedis?.nombre_agencia || 'Sin destino asignado')}</div>
+            <div class="trk-ops-block-text mt-1">${_trkChatEscapeHtml([cedis?.municipio, cedis?.estado, cedis?.codigo_postal ? 'CP ' + cedis.codigo_postal : ''].filter(Boolean).join(' / ') || 'Sin ubicación')}</div>
+            ${cedis?.direccion ? `<div class="trk-ops-block-text mt-1">${_trkChatEscapeHtml(cedis.direccion)}</div>` : ''}
+        </div>
+        <div class="trk-ops-block mt-2">
+            <span class="trk-ops-block-label">Recepcion</span>
+            <div class="trk-ops-block-text mt-1"><b>Recibe:</b> ${_trkChatEscapeHtml(cedis?.encargado || 'No disponible')}</div>
+            <div class="trk-ops-block-text"><b>Contacto:</b> ${_trkChatEscapeHtml([cedis?.telefono, cedis?.email].filter(Boolean).join(' / ') || 'No disponible')}</div>
+            <div class="trk-ops-block-text"><b>Horario:</b> ${_trkChatEscapeHtml(cedis?.horario || 'No disponible')}</div>
+        </div>
+        <div class="trk-ops-action-grid mt-3">
+            ${permiteCambiarCedis ? `<button type="button" class="btn btn-sm btn-label-info btn-cambiar-cedis-destino" data-id="${_trkChatEscapeHtml(d.id_ruta || '')}">
+                <i class="fa-solid fa-warehouse me-1"></i>Cambiar CEDIS
+            </button>` : ''}
+            ${mapsUrl ? `<a class="btn btn-sm btn-label-secondary" href="${_trkChatEscapeHtml(mapsUrl)}" target="_blank" rel="noopener noreferrer">
+                <i class="fa-solid fa-map-location-dot me-1"></i>Maps
+            </a>` : ''}
+        </div>
+    </section>`;
+}
 
-    const validationBadge = (ok, textOk = 'Listo', textBad = 'Pendiente') =>
-        ok ? `<span class="badge bg-label-success">${textOk}</span>` : `<span class="badge bg-label-warning">${textBad}</span>`;
+function _trkOpsRenderOpportunitiesPanel(d) {
+    return `<section class="trk-ops-panel trk-ops-opportunities-panel">
+        <div class="d-flex align-items-center justify-content-between mb-2">
+            <div class="fw-bold text-uppercase" style="color:#23304d;">
+                <i class="fa-solid fa-road-circle-check me-1" style="color:var(--track-color);"></i>
+                Créditos sobre la ruta
+            </div>
+            <span class="badge bg-label-primary" id="trkOpsOppCount">...</span>
+        </div>
+        <div class="trk-ops-opp-list" id="trkOpsOppList">
+            <div class="text-center text-muted small py-3 w-100">
+                <span class="spinner-border spinner-border-sm me-2"></span>Consultando candidatos cercanos...
+            </div>
+        </div>
+    </section>`;
+}
+
+function _trkOpsRenderOpportunityCard(c) {
+    const nivel = String(c.nivel || '').toLowerCase();
+    const cliente = c.cliente || c.nombre_cliente || 'Sin cliente';
+    const moto = c.moto || c.modelo || [c.moto_marca, c.moto_modelo].filter(Boolean).join(' ') || 'Sin modelo';
+    const estado = _trkEstadoMayus(c.estado, c.municipio);
+    const municipio = _trkMunicipioMayus(c.municipio, c.estado);
+    const distancia = _trkNumFmt(c.distancia_corredor_km, 1);
+    const posicion = Number(c.posicion_sugerida || 0);
+    return `<article class="trk-ops-opp-card">
+        <div class="d-flex align-items-start justify-content-between gap-2">
+            <div class="fw-bold" style="color:#23304d;">#${_trkChatEscapeHtml(c.id_credito || '-')}</div>
+            ${_trkOportunidadNivelBadge(nivel)}
+        </div>
+        <div class="small fw-semibold mt-1 text-truncate" title="${_trkChatEscapeHtml(cliente)}">${_trkChatEscapeHtml(cliente)}</div>
+        <div class="trk-ops-block-text"><i class="fa-solid fa-motorcycle me-1" style="color:var(--track-color);"></i>${_trkChatEscapeHtml(moto)}</div>
+        <div class="mt-1">${_trkRenderLocationBadges(estado, municipio)}</div>
+        <div class="trk-ops-block-text mt-1">
+            ${distancia !== null ? `${_trkChatEscapeHtml(distancia)} km corredor` : 'Sin distancia'}
+            ${posicion ? ` | Pos. ${_trkChatEscapeHtml(posicion)}` : ''}
+        </div>
+    </article>`;
+}
+
+function _trkOpsRenderOperativo(d) {
+    const detalle = d?.detalle || [];
+    const m = _trkOpsMetricas(d);
+    const creditosConCoords = detalle.filter(_trkOpsCreditoPos).length;
+    const infoTransportista = _trkTransportistaRutaData(d);
 
     return `<section class="trk-ops-panel trk-ops-operator-panel">
         <div class="trk-ops-operator-head">
             <div>
-                <div class="trk-ops-operator-title"><i class="fa-solid fa-tower-broadcast me-1" style="color:var(--track-color);"></i>Centro operativo</div>
-                <div class="trk-ops-block-text">Control rapido de ruta, GPS, CEDIS y siguiente recoleccion.</div>
+                <div class="trk-ops-operator-title"><i class="fa-solid fa-truck-fast me-1" style="color:var(--track-color);"></i>Datos del transportista</div>
+                <div class="trk-ops-block-text">Unidad asignada, base y estado operativo de la ruta.</div>
             </div>
             <span class="badge bg-label-primary">Operacion</span>
         </div>
@@ -12297,63 +12907,29 @@ function _trkOpsRenderOperativo(d) {
             <div class="trk-ops-mini-card"><span>Con coordenadas</span><b>${_trkChatEscapeHtml(creditosConCoords)}/${_trkChatEscapeHtml(m.total)}</b></div>
         </div>
 
+        <div class="trk-ops-block">
+            <span class="trk-ops-block-label">Transportista</span>
+            <div class="trk-ops-block-title mt-1">${_trkChatEscapeHtml(infoTransportista.nombre || 'Sin transportista')}</div>
+            <div class="trk-ops-block-text mt-1">
+                ${infoTransportista.tipo ? _trkTipoTransportistaBadge(infoTransportista.tipo) : ''}
+                ${_trkChatEscapeHtml(infoTransportista.agencia || infoTransportista.direccion || 'Sin CEDIS base')}
+            </div>
+        </div>
+
         <div class="trk-ops-block trk-ops-live-status is-waiting" id="trkOpsSideLiveStatus">
             <span class="trk-ops-block-label">GPS transportista</span>
-            <div class="trk-ops-block-title" id="trkOpsSideLiveUpdated">Esperando ubicacion live</div>
+            <div class="trk-ops-block-title" id="trkOpsSideLiveUpdated">Esperando ubicación live</div>
             <div class="trk-ops-block-text mt-1" id="trkOpsSideLiveData">Vel. - | Prec. - | Bat. -</div>
             <div class="trk-ops-block-text" id="trkOpsSideLiveCoords">Coord. -</div>
         </div>
 
-        <div class="trk-ops-block">
-            <span class="trk-ops-block-label">Siguiente punto operativo</span>
-            ${actual ? `
-                <div class="trk-ops-block-title mt-1">#${_trkChatEscapeHtml(actual.id_credito || '-')} - ${_trkChatEscapeHtml(actual.nombre_cliente || 'Sin cliente')}</div>
-                <div class="trk-ops-block-text mt-1">
-                    <i class="fa-solid fa-motorcycle me-1" style="color:var(--track-color);"></i>${_trkChatEscapeHtml(modelo || 'Unidad no disponible')}
-                </div>
-                <div class="mt-2">${_trkRenderLocationBadges(actual.estado, actual.municipio)}</div>
-                <div class="trk-ops-block-text mt-2"><i class="fa-solid fa-clock me-1"></i>${_trkChatEscapeHtml(siguienteEta)}</div>
-                ${actual.direccion ? `<div class="trk-ops-block-text mt-1"><i class="fa-solid fa-location-dot me-1"></i>${_trkChatEscapeHtml(actual.direccion)}</div>` : ''}
-                <div class="mt-2">${_trkRenderEstatusRecoleccionDetalle(actual.estatus_recoleccion)}</div>
-            ` : '<div class="trk-ops-block-text mt-1">No hay puntos pendientes.</div>'}
-        </div>
-
-        <div class="trk-ops-block">
-            <span class="trk-ops-block-label">CEDIS destino</span>
-            <div class="trk-ops-block-title mt-1">${_trkChatEscapeHtml(cedis?.nombre_agencia || 'Sin destino asignado')}</div>
-            <div class="trk-ops-block-text mt-1">${_trkChatEscapeHtml([cedis?.municipio, cedis?.estado, cedis?.codigo_postal ? 'CP ' + cedis.codigo_postal : ''].filter(Boolean).join(' / ') || 'Sin ubicacion')}</div>
-            ${cedis?.direccion ? `<div class="trk-ops-block-text mt-1">${_trkChatEscapeHtml(cedis.direccion)}</div>` : ''}
-            <div class="trk-ops-block-text mt-1"><b>Recibe:</b> ${_trkChatEscapeHtml(cedis?.encargado || 'No disponible')}</div>
-            <div class="trk-ops-block-text"><b>Contacto:</b> ${_trkChatEscapeHtml([cedis?.telefono, cedis?.email].filter(Boolean).join(' / ') || 'No disponible')}</div>
-            <div class="trk-ops-block-text"><b>Horario:</b> ${_trkChatEscapeHtml(cedis?.horario || 'No disponible')}</div>
-        </div>
-
-        <div class="trk-ops-block">
-            <span class="trk-ops-block-label">Validaciones operativas</span>
-            <div class="trk-ops-validation-list">
-                <div class="trk-ops-validation-item"><span>Creditos confirmados</span>${validationBadge(todosConfirmados, 'Completo', 'Incompleto')}</div>
-                <div class="trk-ops-validation-item"><span>Coordenadas de puntos</span>${validationBadge(creditosConCoords === m.total && m.total > 0, `${creditosConCoords}/${m.total}`, `${creditosConCoords}/${m.total}`)}</div>
-                <div class="trk-ops-validation-item"><span>CEDIS enrutable</span>${validationBadge(cedisCoords, 'Con GPS', 'Sin GPS')}</div>
-                <div class="trk-ops-validation-item"><span>Estatus ruta</span>${RUTA_LABEL[d.estatus_ruta] || `<span class="badge bg-secondary">${_trkChatEscapeHtml(d.estatus_ruta || 'Sin estatus')}</span>`}</div>
-            </div>
-        </div>
-
-        <div class="trk-ops-block">
-            <span class="trk-ops-block-label">Acciones operativas</span>
-            <div class="trk-ops-action-grid mt-2">
-                <button type="button" class="btn btn-sm btn-primary btn-ops-chat-ruta" data-id="${_trkChatEscapeHtml(d.id_ruta || '')}">
-                    <i class="fa-solid fa-comments me-1"></i>Chat
-                </button>
-                <button type="button" class="btn btn-sm btn-label-primary btn-ops-editar-ruta" data-id="${_trkChatEscapeHtml(d.id_ruta || '')}">
-                    <i class="fa-solid fa-pen-to-square me-1"></i>Editar
-                </button>
-                ${permiteCambiarCedis ? `<button type="button" class="btn btn-sm btn-label-info btn-cambiar-cedis-destino" data-id="${_trkChatEscapeHtml(d.id_ruta || '')}">
-                    <i class="fa-solid fa-warehouse me-1"></i>Cambiar CEDIS
-                </button>` : ''}
-                ${mapsUrl ? `<a class="btn btn-sm btn-label-secondary" href="${_trkChatEscapeHtml(mapsUrl)}" target="_blank" rel="noopener noreferrer">
-                    <i class="fa-solid fa-map-location-dot me-1"></i>Maps
-                </a>` : ''}
-            </div>
+        <div class="trk-ops-action-grid">
+            <button type="button" class="btn btn-sm btn-primary btn-ops-chat-ruta" data-id="${_trkChatEscapeHtml(d.id_ruta || '')}">
+                <i class="fa-solid fa-comments me-1"></i>Chat
+            </button>
+            <button type="button" class="btn btn-sm btn-label-primary btn-ops-editar-ruta" data-id="${_trkChatEscapeHtml(d.id_ruta || '')}">
+                <i class="fa-solid fa-pen-to-square me-1"></i>Editar
+            </button>
         </div>
     </section>`;
 }
@@ -12361,72 +12937,57 @@ function _trkOpsRenderOperativo(d) {
 function _trkOpsRenderHtml(d) {
     const m = _trkOpsMetricas(d);
     const estatusBadge = RUTA_LABEL[d.estatus_ruta] || `<span class="badge bg-secondary">${_trkChatEscapeHtml(d.estatus_ruta || 'Sin estatus')}</span>`;
-    const infoTransportista = _trkTransportistaRutaData(d);
     const cedis = _trkOpsCedisFromDetalle(d);
     if (cedis && !_trk.cedisDestinoPorRuta[d.id_ruta]) _trk.cedisDestinoPorRuta[d.id_ruta] = cedis;
-    const cedisNombre = cedis?.nombre_agencia || 'Sin destino asignado';
-    const cedisUbicacion = cedis ? [cedis.municipio, cedis.estado, cedis.codigo_postal ? `CP ${cedis.codigo_postal}` : ''].filter(Boolean).join(' / ') : '';
-    const mapsUrl = cedis ? _trkCedisMapsUrl(cedis) : '';
-    const permiteCambiarCedis = _trkRutaPermiteCambioCedis(d.estatus_ruta);
     const cancelada = String(d.estatus_ruta || '') === 'cancelada';
+    const fechaSalida = d.fecha_programada_fmt || d.fecha_programada || 'Sin fecha';
+    const horaSalida = _trkOpsHoraRuta(d);
 
     return `<div class="trk-ops-shell">
         <section class="trk-ops-panel trk-ops-summary">
-            <div class="d-flex align-items-start justify-content-between gap-2">
-                <div style="min-width:0;">
-                    <div class="trk-ops-title">#${_trkChatEscapeHtml(d.id_ruta || '')} ${_trkChatEscapeHtml(_trkSanitizarNombreRuta(d.nombre_ruta || 'Ruta sin nombre'))}</div>
-                    <div class="trk-ops-sub mt-1">${estatusBadge}</div>
+            <div class="trk-ops-route-fields">
+                <div class="trk-ops-route-field">
+                    <span>Nombre de ruta</span>
+                    <b>#${_trkChatEscapeHtml(d.id_ruta || '')} ${_trkChatEscapeHtml(_trkSanitizarNombreRuta(d.nombre_ruta || 'Ruta sin nombre'))}</b>
                 </div>
-                <span class="badge bg-light text-dark border">${_trkChatEscapeHtml(m.pct)}%</span>
-            </div>
-            <div class="trk-ops-kpis">
-                <div class="trk-ops-kpi"><span>Creditos</span><b>${m.total}</b></div>
-                <div class="trk-ops-kpi"><span>Recolectadas</span><b>${m.recolectados}</b></div>
-                <div class="trk-ops-kpi"><span>Pendientes</span><b>${m.pendientes}</b></div>
-            </div>
-            <div class="trk-ops-info-card">
-                <div class="label">Salida</div>
-                <div class="value">${_trkChatEscapeHtml(d.fecha_programada_fmt || d.fecha_programada || 'Sin fecha')} - ${_trkChatEscapeHtml(_trkOpsHoraRuta(d))}</div>
-            </div>
-            <div class="trk-ops-info-card">
-                <div class="label">Transportista</div>
-                <div class="value">${_trkChatEscapeHtml(infoTransportista.nombre || 'Sin transportista')}</div>
-                <div class="trk-ops-sub mt-1">
-                    ${infoTransportista.tipo ? _trkTipoTransportistaBadge(infoTransportista.tipo) : ''}
-                    ${_trkChatEscapeHtml(infoTransportista.agencia || infoTransportista.direccion || 'Sin CEDIS base')}
+                <div class="trk-ops-route-field">
+                    <span>Fecha programada</span>
+                    <b>${_trkChatEscapeHtml(fechaSalida)}</b>
+                </div>
+                <div class="trk-ops-route-field">
+                    <span>Hora de salida</span>
+                    <b>${_trkChatEscapeHtml(horaSalida)}</b>
                 </div>
             </div>
-            <div class="trk-ops-info-card">
-                <div class="label">CEDIS destino</div>
-                <div class="value">${_trkChatEscapeHtml(cedisNombre)}</div>
-                <div class="trk-ops-sub mt-1">${_trkChatEscapeHtml(cedisUbicacion || 'Sin ubicacion')}</div>
-                ${cedis?.direccion ? `<div class="trk-ops-sub mt-1">${_trkChatEscapeHtml(cedis.direccion)}</div>` : ''}
+            <div class="d-flex align-items-center justify-content-between gap-2 mt-2">
+                <div>${estatusBadge}</div>
+                <span class="badge bg-light text-dark border">${_trkChatEscapeHtml(m.pct)}% avance</span>
             </div>
             ${cancelada ? `<div class="alert alert-danger py-2 px-3 small mt-3 mb-0">
                 <div class="fw-semibold"><i class="fa-solid fa-ban me-1"></i>Ruta cancelada</div>
                 <div>${_trkChatEscapeHtml(d.motivo_cancelacion || 'Sin motivo registrado')}</div>
             </div>` : ''}
-            <div class="trk-ops-actions">
-                <button type="button" class="btn btn-sm btn-primary btn-ops-chat-ruta" data-id="${_trkChatEscapeHtml(d.id_ruta || '')}">
-                    <i class="fa-solid fa-comments me-1"></i>Chat
-                </button>
-                <button type="button" class="btn btn-sm btn-label-primary btn-ops-editar-ruta" data-id="${_trkChatEscapeHtml(d.id_ruta || '')}">
-                    <i class="fa-solid fa-pen-to-square me-1"></i>Editar
-                </button>
-                ${permiteCambiarCedis ? `<button type="button" class="btn btn-sm btn-label-info btn-cambiar-cedis-destino" data-id="${_trkChatEscapeHtml(d.id_ruta || '')}">
-                    <i class="fa-solid fa-warehouse me-1"></i>Cambiar CEDIS
-                </button>` : ''}
-                ${mapsUrl ? `<a class="btn btn-sm btn-label-secondary" href="${_trkChatEscapeHtml(mapsUrl)}" target="_blank" rel="noopener noreferrer">
-                    <i class="fa-solid fa-location-dot me-1"></i>Maps
-                </a>` : ''}
-            </div>
         </section>
+
+        <section class="trk-ops-panel trk-ops-planner-panel">
+            <div class="d-flex align-items-center justify-content-between">
+                <div>
+                    <div class="trk-ops-operator-title"><i class="fa-solid fa-layer-group me-1" style="color:var(--track-color);"></i>Listado de créditos por estado</div>
+                    <div class="trk-ops-block-text">Ubicaciones agrupadas para rutas con volumen alto.</div>
+                </div>
+                <span class="badge bg-label-primary">${_trkChatEscapeHtml(m.total)} créditos</span>
+            </div>
+            ${_trkOpsRenderPlannerGroups(d.detalle || [])}
+        </section>
+
+        ${_trkOpsRenderCedisPanel(d)}
+        ${_trkOpsRenderOperativo(d)}
 
         <section class="trk-ops-panel trk-ops-map-panel">
             <div class="trk-ops-map-head">
                 <div>
                     <div class="trk-ops-map-title"><i class="fa-solid fa-map-location-dot me-1" style="color:var(--track-color);"></i>Mapa operativo</div>
-                    <div class="trk-ops-map-sub">Ruta, trafico y ultima ubicacion GPS del transportista.</div>
+                    <div class="trk-ops-map-sub">Ruta, tráfico y última ubicación GPS del transportista.</div>
                 </div>
                 <span class="badge bg-label-success"><i class="fa-solid fa-satellite-dish me-1"></i>Live</span>
             </div>
@@ -12435,10 +12996,10 @@ function _trkOpsRenderHtml(d) {
                 <div class="trk-ops-map-empty" id="trkOperacionMapEmpty">
                     <i class="fa-solid fa-map fa-2x opacity-50"></i>
                     <span class="fw-semibold">Preparando mapa operativo...</span>
-                    <span class="small">Si no hay coordenadas, se mostrara solo la operacion.</span>
+                    <span class="small">Si no hay coordenadas, se mostrará solo la operación.</span>
                 </div>
                 <div class="trk-ops-live-card d-none" id="trkOpsLiveInfo">
-                    <div class="live-main" id="trkOpsLiveUpdated">Sin ubicacion live</div>
+                    <div class="live-main" id="trkOpsLiveUpdated">Sin ubicación live</div>
                     <div class="live-grid">
                         <span id="trkOpsLiveSpeed">Vel. -</span>
                         <span id="trkOpsLiveAccuracy">Prec. -</span>
@@ -12451,50 +13012,131 @@ function _trkOpsRenderHtml(d) {
 
         <section class="trk-ops-panel trk-ops-timeline-panel">
             <div class="d-flex align-items-center justify-content-between mb-2">
-                <div class="fw-bold text-uppercase" style="color:#23304d;">Timeline de motos</div>
+                <div class="fw-bold text-uppercase" style="color:#23304d;">Timeline de recolección</div>
                 <span class="badge bg-label-primary">${m.confirmados} confirmados</span>
             </div>
             ${_trkOpsRenderTimeline(d.detalle || [])}
         </section>
 
-        ${_trkOpsRenderOperativo(d)}
+        ${_trkOpsRenderOpportunitiesPanel(d)}
     </div>`;
 }
 
 async function _trkAbrirOperacionesRuta(idRuta) {
-    const drawerEl = document.getElementById('trkOperacionDrawer');
-    const body = document.getElementById('trkOperacionBody');
-    if (!drawerEl || !body) return;
-    _trkOpsLimpiarMapa();
-    _trk.opsMapInstance = null;
-    _trk.opsRutaActualId = idRuta;
-    $('#trkOperacionDrawerLabel').html('<i class="fa-solid fa-route me-2"></i>Operaciones de ruta');
-    $('#trkOperacionDrawerSubtitle').text(`Ruta #${idRuta}`);
-    body.innerHTML = `<div class="h-100 d-flex align-items-center justify-content-center text-muted">
-        <div class="text-center">
-            <div class="spinner-border mb-2" style="color:var(--track-color);"></div>
-            <div class="fw-semibold">Cargando operaciones...</div>
-        </div>
-    </div>`;
-    bootstrap.Offcanvas.getOrCreateInstance(drawerEl).show();
+    _trkCargarRutaEnModal(idRuta, false);
+}
 
+async function _trkOpsCargarOportunidadesRuta(idRuta) {
+    const $list = $('#trkOpsOppList');
+    const $count = $('#trkOpsOppCount');
+    if (!idRuta || !$list.length) return;
+    $count.text('...');
+    $list.html(`<div class="text-center text-muted small py-3 w-100">
+        <span class="spinner-border spinner-border-sm me-2"></span>Consultando candidatos cercanos...
+    </div>`);
+    const qs = new URLSearchParams({
+        id_ruta: String(idRuta),
+        radio_km: '10',
+        limit: '12',
+        usar_ubicacion_actual: 'true',
+        incluir_detour: 'true',
+        solo_con_coordenadas: 'true',
+    });
     try {
-        const r = await trkFetch(`/TrackingRecoleccion/obtenerDetalleRuta?id_ruta=${encodeURIComponent(idRuta)}`);
-        if (!r.success || !r.datos) {
-            body.innerHTML = '<div class="alert alert-danger m-3">No se pudo cargar la operacion de esta ruta.</div>';
+        const r = await trkFetch(`/TrackingRecoleccion/trackingCreditosSobreRuta?${qs.toString()}`);
+        if (!r.success) {
+            $count.text('0');
+            $list.html(`<div class="alert alert-warning small mb-0 w-100">
+                ${_trkChatEscapeHtml(r.mensaje || r.message || r.detail || 'No se pudieron cargar créditos sobre la ruta.')}
+            </div>`);
             return;
         }
-        const d = r.datos;
-        $('#trkOperacionDrawerLabel').html(`<i class="fa-solid fa-route me-2"></i>${_trkChatEscapeHtml(_trkSanitizarNombreRuta(d.nombre_ruta || 'Operaciones'))}`);
-        $('#trkOperacionDrawerSubtitle').text(`Ruta #${d.id_ruta || idRuta} - ${d.fecha_programada_fmt || d.fecha_programada || 'Sin fecha'}`);
-        body.innerHTML = _trkOpsRenderHtml(d);
-        setTimeout(() => _trkOpsRenderMapa(d), 180);
-        _trkConsultarCedisDestinoRuta(idRuta).then(({ cedis }) => {
-            if (cedis) _trkActualizarCedisDestinoEnMemoria(idRuta, cedis);
-        }).catch(() => {});
+        const data = _trkOportunidadesNormalizarRespuesta(r);
+        const idsEnRuta = new Set((_trk.opsRutaActualData?.detalle || []).map(x => String(x.id_credito)));
+        const candidatos = (data.candidatos || []).filter(c => !idsEnRuta.has(String(c.id_credito))).slice(0, 12);
+        $count.text(candidatos.length);
+        if (!candidatos.length) {
+            $list.html('<div class="text-center text-muted small py-3 w-100">Sin candidatos cercanos con los filtros actuales.</div>');
+            return;
+        }
+        $list.html(candidatos.map(_trkOpsRenderOpportunityCard).join(''));
     } catch {
-        body.innerHTML = '<div class="alert alert-danger m-3">Error de conexion al cargar operaciones.</div>';
+        $count.text('0');
+        $list.html('<div class="alert alert-warning small mb-0 w-100">Error de conexión al consultar candidatos.</div>');
     }
+}
+
+function _trkOpsMostrarEdicionRuta(idRuta) {
+    const shell = document.querySelector('#trkOperacionBody .trk-ops-shell');
+    const d = _trk.opsRutaActualData || {};
+    if (!shell) {
+        _trkCargarRutaEnModal(idRuta, false);
+        return;
+    }
+    _trkOpsLimpiarMapa();
+    shell.classList.add('is-edit-mode');
+    shell.querySelector('.trk-ops-edit-workspace')?.remove();
+    const infoTransportista = _trkTransportistaRutaData(d);
+    const creditos = d.detalle || [];
+    const cedis = _trkOpsCedisFromDetalle(d);
+    shell.insertAdjacentHTML('beforeend', `<section class="trk-ops-panel trk-ops-edit-workspace">
+        <div class="trk-ops-map-head">
+            <div>
+                <div class="trk-ops-map-title">
+                    <i class="fa-solid fa-pen-to-square me-1" style="color:var(--track-color);"></i>
+                    Edicion operativa
+                </div>
+                <div class="trk-ops-map-sub">Cambios controlados sin reenviar la ruta ni modificar su estatus.</div>
+            </div>
+            <div class="d-flex gap-1">
+                <button type="button" class="btn btn-sm btn-label-secondary btn-ops-volver-planeador" data-id="${_trkChatEscapeHtml(idRuta)}">
+                    <i class="fa-solid fa-arrow-left me-1"></i>Planeador
+                </button>
+            </div>
+        </div>
+        <div class="p-3" style="overflow:auto;min-height:0;">
+            <div class="row g-3">
+                <div class="col-12 col-xl-4">
+                    <div class="trk-ops-block h-100">
+                        <span class="trk-ops-block-label">Ruta</span>
+                        <div class="trk-ops-block-title mt-1">${_trkChatEscapeHtml(_trkSanitizarNombreRuta(d.nombre_ruta || 'Ruta sin nombre'))}</div>
+                        <div class="trk-ops-block-text mt-2"><b>Fecha:</b> ${_trkChatEscapeHtml(d.fecha_programada_fmt || d.fecha_programada || 'Sin fecha')}</div>
+                        <div class="trk-ops-block-text"><b>Hora de salida:</b> ${_trkChatEscapeHtml(_trkOpsHoraRuta(d))}</div>
+                        <div class="trk-ops-block-text"><b>Estatus:</b> ${_trkChatEscapeHtml(d.estatus_ruta || 'Sin estatus')}</div>
+                    </div>
+                </div>
+                <div class="col-12 col-xl-4">
+                    <div class="trk-ops-block h-100">
+                        <span class="trk-ops-block-label">Transportista</span>
+                        <div class="trk-ops-block-title mt-1">${_trkChatEscapeHtml(infoTransportista.nombre || 'Sin transportista')}</div>
+                        <div class="trk-ops-block-text mt-2">${infoTransportista.tipo ? _trkTipoTransportistaBadge(infoTransportista.tipo) : ''}</div>
+                        <div class="trk-ops-block-text mt-1">${_trkChatEscapeHtml(infoTransportista.agencia || infoTransportista.direccion || 'Sin CEDIS base')}</div>
+                    </div>
+                </div>
+                <div class="col-12 col-xl-4">
+                    <div class="trk-ops-block h-100">
+                        <span class="trk-ops-block-label">CEDIS destino</span>
+                        <div class="trk-ops-block-title mt-1">${_trkChatEscapeHtml(cedis?.nombre_agencia || 'Sin destino asignado')}</div>
+                        <div class="trk-ops-block-text mt-2">${_trkChatEscapeHtml([cedis?.municipio, cedis?.estado].filter(Boolean).join(' / ') || 'Sin ubicación')}</div>
+                        <button type="button" class="btn btn-sm btn-label-info mt-2 btn-cambiar-cedis-destino" data-id="${_trkChatEscapeHtml(idRuta)}">
+                            <i class="fa-solid fa-warehouse me-1"></i>Cambiar CEDIS
+                        </button>
+                    </div>
+                </div>
+            </div>
+            <div class="trk-ops-block mt-3">
+                <span class="trk-ops-block-label">Créditos en ruta</span>
+                <div class="trk-ops-opp-list mt-2" style="height:auto;max-height:300px;">
+                    ${creditos.length ? creditos.map(det => `<article class="trk-ops-opp-card">
+                        <div class="fw-bold" style="color:#23304d;">#${_trkChatEscapeHtml(det.id_credito || '-')}</div>
+                        <div class="small fw-semibold mt-1">${_trkChatEscapeHtml(det.nombre_cliente || 'Sin cliente')}</div>
+                        <div class="mt-1">${_trkRenderLocationBadges(det.estado, det.municipio)}</div>
+                        <div class="trk-ops-block-text mt-1">${_trkRenderEstatusRecoleccionDetalle(det.estatus_recoleccion)}</div>
+                    </article>`).join('') : '<div class="text-muted small">Sin créditos registrados.</div>'}
+                </div>
+            </div>
+        </div>
+    </section>`);
 }
 
 function _trkOpsRenderMapa(d) {
@@ -12575,7 +13217,7 @@ function _trkOpsRenderMapa(d) {
             map.fitBounds(bounds);
             empty?.classList.add('d-none');
         } else if (empty) {
-            empty.innerHTML = '<i class="fa-solid fa-location-dot fa-2x opacity-50"></i><span class="fw-semibold">Sin coordenadas para pintar ruta</span><span class="small">Completa ubicaciones de creditos o CEDIS.</span>';
+            empty.innerHTML = '<i class="fa-solid fa-location-dot fa-2x opacity-50"></i><span class="fw-semibold">Sin coordenadas para pintar ruta</span><span class="small">Completa ubicaciones de créditos o CEDIS.</span>';
             empty.classList.remove('d-none');
         }
         _trkOpsCargarLiveMapa(d.id_ruta || _trk.opsRutaActualId);
@@ -12629,7 +13271,7 @@ function _trkOpsActualizarLiveInfo(ubi) {
     if (!card) return;
     const ts = ubi.updated_at ? new Date(String(ubi.updated_at).endsWith('Z') ? ubi.updated_at : ubi.updated_at + 'Z') : new Date();
     const timeTxt = isNaN(ts.getTime()) ? 'Sin fecha' : ts.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-    document.getElementById('trkOpsLiveUpdated').textContent = `Ultima ubicacion ${timeTxt}`;
+    document.getElementById('trkOpsLiveUpdated').textContent = `Última ubicación ${timeTxt}`;
     document.getElementById('trkOpsLiveSpeed').textContent = ubi.speed !== null && !isNaN(ubi.speed) ? `Vel. ${Math.round(ubi.speed)} km/h` : 'Vel. -';
     document.getElementById('trkOpsLiveAccuracy').textContent = ubi.accuracy !== null && !isNaN(ubi.accuracy) ? `Prec. ${Math.round(ubi.accuracy)} m` : 'Prec. -';
     document.getElementById('trkOpsLiveBattery').textContent = ubi.battery !== null && !isNaN(ubi.battery) ? `Bat. ${ubi.battery}%` : 'Bat. -';
@@ -12639,7 +13281,7 @@ function _trkOpsActualizarLiveInfo(ubi) {
     const sideStatus = document.getElementById('trkOpsSideLiveStatus');
     if (sideStatus) {
         sideStatus.classList.remove('is-waiting');
-        document.getElementById('trkOpsSideLiveUpdated').textContent = `Ultima ubicacion ${timeTxt}`;
+        document.getElementById('trkOpsSideLiveUpdated').textContent = `Última ubicación ${timeTxt}`;
         document.getElementById('trkOpsSideLiveData').textContent = [
             ubi.speed !== null && !isNaN(ubi.speed) ? `Vel. ${Math.round(ubi.speed)} km/h` : 'Vel. -',
             ubi.accuracy !== null && !isNaN(ubi.accuracy) ? `Prec. ${Math.round(ubi.accuracy)} m` : 'Prec. -',
@@ -12741,19 +13383,19 @@ function _trkVerDetalleRuta(idRuta) {
                     <table class="table table-sm table-bordered" style="font-size:.8rem;">
                         <thead style="background:var(--track-color);color:#fff;">
                             <tr>
-                                <th>#</th><th>Credito</th><th>Cliente</th><th>Modelo</th>
+                                <th>#</th><th>Crédito</th><th>Cliente</th><th>Modelo</th>
                                 <th>VIN</th><th>Estado / Municipio</th>
                                 <th>Proceso</th><th>Recoleccion</th><th>Confirmacion</th><th>OTP</th>
                             </tr>
                         </thead>
-                        <tbody>${rowsHtml || '<tr><td colspan="10" class="text-center text-muted">Sin creditos</td></tr>'}</tbody>
+                        <tbody>${rowsHtml || '<tr><td colspan="10" class="text-center text-muted">Sin créditos</td></tr>'}</tbody>
                     </table>
                 </div>
             `);
             _trkCargarDetalleCedisDestino(idRuta, d.estatus_ruta);
             _trkConsultarOtpsActivosDetalle(d.detalle || []);
         })
-        .catch(() => $body.html('<div class="alert alert-danger">Error de conexion.</div>'));
+        .catch(() => $body.html('<div class="alert alert-danger">Error de conexión.</div>'));
 }
 
 // --- Marcar cambios pendientes ------------------------
@@ -12785,7 +13427,7 @@ function _trkBloquearModalCancelada(d) {
     _trk.rutaCancelada = true;
     _trk.soloLectura = true;
     _trkMostrarCancelacionRuta(d || {});
-    $('#rutaNombre, #rutaFecha, #rutaHoraH, #rutaHoraM, #rutaHoraAmPm, #rutaTipoTransportista, #rutaAgenciaTracking, #rutaTransportistaTracking, #rutaTransportistaSearch, #rutaCedisDestino, #crdFiltroEstado, #crdFiltroMunicipio, #rutaCreditoSelect, #btnAgregarCredito')
+    $('#rutaNombre, #rutaFecha, #rutaFechaFin, #rutaHoraH, #rutaHoraM, #rutaHoraAmPm, #rutaTipoTransportista, #rutaAgenciaTracking, #rutaTransportistaTracking, #rutaTransportistaSearch, #rutaCedisDestino, #crdFiltroEstado, #crdFiltroMunicipio, #rutaCreditoSelect, #btnAgregarCredito, #btnAgregarTodosUbicacion')
         .prop('disabled', true);
     $('#secAgregarCredito, #reorderHint, #btnActualizarRuta, #btnGuardarBorrador, #btnEnviarRuta, #btnRefreshMap').hide();
     if (_trk.sortableInstance) _trk.sortableInstance.option('disabled', true);
@@ -12795,10 +13437,11 @@ function _trkBloquearModalCancelada(d) {
     }
 }
 
-function _trkBloquearModal() {
+function _trkBloquearModal(etiqueta = 'Ver ruta') {
     _trk.soloLectura = true;
     // Solo bloquear campos de cabecera de la ruta
     $('#rutaNombre, #rutaFecha, #rutaHoraH, #rutaHoraM, #rutaHoraAmPm, #rutaTipoTransportista, #rutaAgenciaTracking, #rutaTransportistaTracking, #rutaTransportistaSearch, #rutaCedisDestino').prop('disabled', true);
+    $('#rutaFechaFin').prop('disabled', false);
     // Ocultar seccion de agregar nuevos creditos (no anadir, solo editar existentes)
     $('#secAgregarCredito').hide();
     $('#reorderHint').hide();
@@ -12811,14 +13454,14 @@ function _trkBloquearModal() {
     // Badge en titulo
     const $label = $('#modalRegistrarRutaLabel');
     if (!$label.find('.badge-solo-lectura').length) {
-        $label.append('<span class="badge bg-secondary badge-solo-lectura ms-2" style="font-size:.63rem;vertical-align:middle;">Ver ruta</span>');
+        $label.append(`<span class="badge bg-secondary badge-solo-lectura ms-2" style="font-size:.63rem;vertical-align:middle;">${_trkChatEscapeHtml(etiqueta)}</span>`);
     }
 }
 
 function _trkDesbloquearModal() {
     _trk.soloLectura = false;
     _trk.rutaCancelada = false;
-    $('#rutaNombre, #rutaFecha, #rutaHoraH, #rutaHoraM, #rutaHoraAmPm, #rutaTipoTransportista, #rutaAgenciaTracking, #rutaTransportistaTracking, #rutaTransportistaSearch, #rutaCedisDestino, #crdFiltroEstado').prop('disabled', false);
+    $('#rutaNombre, #rutaFecha, #rutaFechaFin, #rutaHoraH, #rutaHoraM, #rutaHoraAmPm, #rutaTipoTransportista, #rutaAgenciaTracking, #rutaTransportistaTracking, #rutaTransportistaSearch, #rutaCedisDestino, #crdFiltroEstado, #btnAgregarCredito, #btnAgregarTodosUbicacion').prop('disabled', false);
     _trkRefrescarSelectTransportistas($('#rutaTransportistaTracking').val());
     $('#btnGuardarBorrador, #btnEnviarRuta').show();
     $('#btnActualizarRuta').hide();
@@ -12846,7 +13489,7 @@ function _trkCargarRutaEnModal(idRuta, soloLectura) {
 
     Swal.fire({
         title: 'Cargando ruta...',
-        html: '<span style="font-size:.875rem;color:#64748b;">Consultando datos, creditos y mapa de la ruta</span>',
+        html: '<span style="font-size:.875rem;color:#64748b;">Consultando datos, créditos y mapa de la ruta</span>',
         allowOutsideClick: false,
         allowEscapeKey: false,
         showConfirmButton: false,
@@ -12873,6 +13516,8 @@ function _trkCargarRutaEnModal(idRuta, soloLectura) {
             // Campos basicos
             $('#rutaNombre').val(nombreRutaLimpio);
             $('#rutaFecha').val(d.fecha_programada || '');
+            $('#rutaFechaFin').val(d.fecha_finalizacion || '');
+            _trkSincronizarFechaFinalizacion(false);
             $('#rutaTipoTransportista').val(d.tipo_transportista || '');
             _trkPoblarAgenciasTrackingSelect();
             $('#rutaAgenciaTracking').val(d.id_agencia_tracking ? String(d.id_agencia_tracking) : '');
@@ -12910,6 +13555,17 @@ function _trkCargarRutaEnModal(idRuta, soloLectura) {
                 fecha_eta:                   det.fecha_eta    || null,
                 hora_eta_ini:                det.hora_eta_ini || null,
                 hora_eta_fin:                det.hora_eta_fin || null,
+                fecha_planeacion:            det.fecha_planeacion || det.fecha_recoleccion || null,
+                fecha_planeacion_fmt:        det.fecha_planeacion_fmt || det.fecha_recoleccion_fmt || '',
+                orden_dia:                   det.orden_dia || null,
+                estatus_planeacion:          det.estatus_planeacion || 'programado',
+                day_index:                   Number(det.day_index || 0),
+                arrival_minutes:             det.arrival_minutes !== null && det.arrival_minutes !== undefined ? Number(det.arrival_minutes) : null,
+                departure_minutes:           det.departure_minutes !== null && det.departure_minutes !== undefined ? Number(det.departure_minutes) : null,
+                travel_from_prev_minutes:    det.travel_from_prev_minutes !== null && det.travel_from_prev_minutes !== undefined ? Number(det.travel_from_prev_minutes) : null,
+                operation_minutes:           det.operation_minutes !== null && det.operation_minutes !== undefined ? Number(det.operation_minutes) : null,
+                pinned:                      Number(det.pinned || 0),
+                edited:                      Number(det.edited || 0),
                 fecha_agregado:              det.fecha_agregado || null,
                 fecha_agregado_fmt:          det.fecha_agregado_fmt || '',
                 eta_manual:                  !!(det.fecha_eta || det.hora_eta_ini || det.hora_eta_fin),
@@ -12920,6 +13576,7 @@ function _trkCargarRutaEnModal(idRuta, soloLectura) {
             _trkRenderListaCreditos();
             _trkRefrescarSelectCreditos();
             _trkRenderizarMapa();
+            _trkCargarPlaneacionRuta(idRuta);
 
             // Estado + Municipio via filtros de creditos
             $('#crdFiltroEstado').val(_trkEstadoMayus(d.estado, d.municipio)).trigger('change');
@@ -12959,6 +13616,11 @@ function _trkCargarRutaEnModal(idRuta, soloLectura) {
 
             // Iniciar tracking en tiempo real si la ruta esta activa o completada
             _trk.autosaveLastHash = _trkAutosaveHash();
+            const esBorradorCargado = String(d.estatus_ruta || '') === 'borrador';
+            const modoActualizacionOperativa = !soloLectura && !esBorradorCargado;
+            if (!_trkRutaEstaCancelada() && modoActualizacionOperativa) {
+                _trkBloquearModal('Actualizacion operativa');
+            }
             const esActiva = _trkRutaDebeConsultarEstadoLive(d.estatus_ruta) || ['completado', 'concluida'].includes(String(d.estatus_ruta || ''));
             if (esActiva) {
                 _trkRTIniciar(idRuta);
@@ -12969,7 +13631,7 @@ function _trkCargarRutaEnModal(idRuta, soloLectura) {
         })
         .catch(() => {
             _trk.cargando = false;
-            Swal.fire({ icon: 'error', title: 'Error', text: 'Error de conexion.', confirmButtonText: 'Aceptar' });
+            Swal.fire({ icon: 'error', title: 'Error', text: 'Error de conexión.', confirmButtonText: 'Aceptar' });
             modal.hide();
         });
 }
@@ -13040,13 +13702,19 @@ function _trkTogglePlaneador() {
     const active = !modal.classList.contains('trk-planner-active');
     modal.classList.toggle('trk-planner-active', active);
     $('#trkPlannerPanel').toggleClass('d-none', !active);
+    if (!active) {
+        $('#trkPlannerCedisBox').addClass('d-none').empty();
+    }
     $('#btnTogglePlanner').toggleClass('btn-primary', active).toggleClass('btn-outline-primary', !active)
         .html(active
             ? '<i class="fa-solid fa-down-left-and-up-right-to-center me-1"></i>Vista normal'
             : '<i class="fa-solid fa-up-right-and-down-left-from-center me-1"></i>Planeador');
     _trkRenderMapTransportSummary();
     _trkRenderPlaneadorPanel();
-    if (active) _trkCargarOportunidadesRuta(false);
+    if (active) {
+        _trkRenderCedisDestinoInfo();
+        _trkCargarOportunidadesRuta(false);
+    }
     setTimeout(() => {
         if (_trk.mapInstance && window.google?.maps) {
             google.maps.event.trigger(_trk.mapInstance, 'resize');
@@ -13070,12 +13738,12 @@ function _trkRenderPlaneadorPanel() {
     const pendientes = creditos.filter(c => ['pendiente', 'en_revision'].includes(c.estatus_confirmacion_gestor || 'pendiente')).length;
     const rechazados = creditos.filter(c => c.estatus_confirmacion_gestor === 'rechazado').length;
     $summary.html(`
-        <div class="trk-planner-kpi"><span>Creditos</span><b>${creditos.length}</b></div>
+        <div class="trk-planner-kpi"><span>Créditos</span><b>${creditos.length}</b></div>
         <div class="trk-planner-kpi"><span>Estados</span><b>${estados.size}</b></div>
         <div class="trk-planner-kpi"><span>Municipios</span><b>${municipios.size}</b></div>
     `);
     if (!creditos.length) {
-        $groups.html('<div class="text-center text-muted small py-3">Agrega creditos para ver la planeacion por volumen.</div>');
+        $groups.html('<div class="text-center text-muted small py-3">Agrega créditos para ver la planeación por volumen.</div>');
         _trkRenderOportunidadesRuta();
         return;
     }
@@ -13114,11 +13782,734 @@ function _trkRenderPlaneadorPanel() {
     const alert = (creditos.length >= 25 || estados.size >= 3)
         ? `<div class="alert alert-warning py-2 px-2 small mb-2">
             <i class="fa-solid fa-triangle-exclamation me-1"></i>
-            Ruta pesada: ${creditos.length} creditos en ${estados.size} estado(s). Revisa agrupacion antes de enviar.
+            Ruta pesada: ${creditos.length} créditos en ${estados.size} estado(s). Revisa agrupación antes de enviar.
         </div>`
         : '';
     $groups.html(alert + estadoHtml);
+    _trkRenderPlaneacionDias();
     _trkRenderOportunidadesRuta();
+}
+
+function _trkFechaCorta(fecha) {
+    if (!fecha) return 'Sin fecha';
+    const parts = String(fecha).split('-');
+    if (parts.length !== 3) return fecha;
+    return `${parts[2]}/${parts[1]}/${parts[0]}`;
+}
+
+function _trkPlaneacionFechaCredito(c) {
+    return c?.fecha_planeacion || c?.fecha_recoleccion || c?.fecha_eta || $('#rutaFecha').val() || _trkFechaMinimaProgramacion();
+}
+
+function _trkPlanTimeToMinutes(value, fallback = 600) {
+    const n = _trkHoraToMinutes(String(value || ''));
+    return Number.isFinite(n) ? n : fallback;
+}
+
+function _trkPlanMinutesLabel(minutes) {
+    return _trkFormatHora(_trkMinutesToHora(Number(minutes || 0)));
+}
+
+function _trkPlanClamp(value, min, max, fallback) {
+    const n = Number(value);
+    if (!Number.isFinite(n)) return fallback;
+    return Math.max(min, Math.min(max, Math.round(n)));
+}
+
+function _trkPlanHasNumber(value) {
+    return value !== null && value !== undefined && value !== '' && Number.isFinite(Number(value));
+}
+
+function _trkPlanOptionalNumber(value) {
+    return _trkPlanHasNumber(value) ? Number(value) : null;
+}
+
+function _trkPlanConfig() {
+    let inicio = _trkPlanTimeToMinutes($('#trkPlanInicioJornada').val(), 600);
+    let fin = _trkPlanTimeToMinutes($('#trkPlanFinJornada').val(), 1140);
+    if (fin <= inicio) fin = inicio + 60;
+    return {
+        inicio,
+        fin,
+        operacion: _trkPlanClamp($('#trkPlanMinParada').val(), 5, 240, 45),
+        trasladoEstados: _trkPlanClamp($('#trkPlanDiasTrasladoEstado').val(), 0, TRK_PLAN_MAX_GAP_DAYS, 1),
+    };
+}
+
+function _trkPlanCreditoNombre(c) {
+    return [
+        c?.id_credito || '',
+        c?.nombre_cliente || '',
+        c?.direccion || '',
+        _trkMunicipioMayus(c?.municipio, c?.estado) || '',
+        _trkEstadoMayus(c?.estado, c?.municipio) || '',
+    ].filter(Boolean).join(' | ') || 'PUNTO';
+}
+
+function _trkPlanTravel(from, to) {
+    const a = _trkPlanCreditoNombre(from);
+    const b = _trkPlanCreditoNombre(to);
+    if (!a || !b || a === b) return 0;
+    const pair = [a, b].map(v => _trkNormTxt(v)).sort().join('|');
+    let hash = 0;
+    for (let i = 0; i < pair.length; i++) {
+        hash = ((hash * 31) + pair.charCodeAt(i)) >>> 0;
+    }
+    return 15 + (hash % 45);
+}
+
+function _trkPlanEstado(c) {
+    return _trkEstadoMayus(c?.estado, c?.municipio) || 'SIN ESTADO';
+}
+
+function _trkPlanMunicipio(c) {
+    return _trkMunicipioMayus(c?.municipio, c?.estado) || 'SIN MUNICIPIO';
+}
+
+function _trkPlanSortCreditos(creditos) {
+    return [...creditos].sort((a, b) => {
+        const pa = Number(a.pinned || 0);
+        const pb = Number(b.pinned || 0);
+        const fa = _trkPlaneacionFechaCredito(a);
+        const fb = _trkPlaneacionFechaCredito(b);
+        if (pa && pb && fa !== fb) return _trkCompararFecha(fa, fb);
+        const ea = _trkPlanEstado(a);
+        const eb = _trkPlanEstado(b);
+        if (ea !== eb) return ea.localeCompare(eb);
+        const ma = _trkPlanMunicipio(a);
+        const mb = _trkPlanMunicipio(b);
+        if (ma !== mb) return ma.localeCompare(mb);
+        return Number(a.orden_ruta || 0) - Number(b.orden_ruta || 0);
+    });
+}
+
+function _trkPlanSeedDays(creditos, config) {
+    const inicio = $('#rutaFecha').val() || _trkFechaMinimaProgramacion();
+    const days = [];
+    let fecha = inicio;
+    let estadoAnterior = '';
+    _trkPlanSortCreditos(creditos).forEach(c => {
+        const estado = _trkPlanEstado(c);
+        if (c.pinned && c.fecha_planeacion) {
+            fecha = c.fecha_planeacion;
+        } else if (estadoAnterior && estado !== estadoAnterior && config.trasladoEstados > 0) {
+            fecha = _trkFechaSumarDias(fecha, config.trasladoEstados);
+        }
+        let day = days.find(d => d.date === fecha);
+        if (!day) {
+            day = { date: fecha, stops: [] };
+            days.push(day);
+        }
+        day.stops.push(c);
+        estadoAnterior = estado;
+    });
+    return days.sort((a, b) => _trkCompararFecha(a.date, b.date));
+}
+
+function _trkPlanApplyCascade(days, config) {
+    let guard = 0;
+    for (let d = 0; d < days.length && guard < 120; d++, guard++) {
+        const day = days[d];
+        day.index = d;
+        if (!day.date) day.date = _trkFechaSumarDias($('#rutaFecha').val() || _trkFechaMinimaProgramacion(), d);
+        let cursor = config.inicio;
+        let prev = null;
+        const keep = [];
+        const overflow = [];
+        day.stops.forEach(c => {
+            const travel = _trkPlanTravel(prev, c);
+            const opBase = _trkPlanClamp(c.operation_minutes, 5, 240, config.operacion);
+            let llegada;
+            let salida;
+            const hasPinnedTime = Number(c.pinned || 0) === 1
+                && _trkPlanHasNumber(c.arrival_minutes)
+                && _trkPlanHasNumber(c.departure_minutes);
+            if (hasPinnedTime) {
+                llegada = Number(c.arrival_minutes);
+                salida = Number(c.departure_minutes);
+                if (salida <= llegada) salida = llegada + opBase;
+            } else {
+                llegada = Math.max(config.inicio, cursor + travel);
+                salida = llegada + opBase;
+            }
+            const rebasa = salida > config.fin;
+            if (rebasa && keep.length > 0 && !hasPinnedTime) {
+                c._plan_overflow = true;
+                overflow.push(c);
+                return;
+            }
+            c.day_index = d;
+            c.fecha_planeacion = day.date;
+            c.orden_dia = keep.length + 1;
+            c.arrival_minutes = llegada;
+            c.departure_minutes = salida;
+            c.travel_from_prev_minutes = travel;
+            c.operation_minutes = Math.max(5, salida - llegada);
+            c.estatus_planeacion = c.estatus_planeacion || 'programado';
+            c._plan_warning = salida > config.fin;
+            keep.push(c);
+            cursor = salida;
+            prev = c;
+        });
+        day.stops = keep;
+        if (overflow.length) {
+            const nextDate = _trkFechaSumarDias(day.date, 1);
+            if (!days[d + 1]) {
+                days.splice(d + 1, 0, { date: nextDate, stops: overflow });
+            } else {
+                days[d + 1].date = days[d + 1].date || nextDate;
+                days[d + 1].stops = overflow.concat(days[d + 1].stops || []);
+            }
+        }
+    }
+    return days.filter(d => (d.stops || []).length);
+}
+
+function _trkPlanApplyDaysToRoute(days) {
+    const ordered = [];
+    days.forEach((day, dayIndex) => {
+        (day.stops || []).forEach((c, stopIndex) => {
+            c.day_index = dayIndex;
+            c.fecha_planeacion = day.date;
+            c.orden_dia = stopIndex + 1;
+            ordered.push(c);
+        });
+    });
+    ordered.forEach((c, i) => { c.orden_ruta = i + 1; });
+    _trk.creditosEnRuta = ordered;
+}
+
+function _trkPlanBuildDaysFromCurrent() {
+    const buckets = new Map();
+    (_trk.creditosEnRuta || []).forEach((c, idx) => {
+        const dayIndex = Number.isFinite(Number(c.day_index)) ? Number(c.day_index) : 0;
+        const fecha = _trkPlaneacionFechaCredito(c);
+        const key = `${String(dayIndex).padStart(4, '0')}|${fecha}`;
+        if (!buckets.has(key)) buckets.set(key, { index: dayIndex, date: fecha, stops: [] });
+        buckets.get(key).stops.push(c);
+    });
+    return [...buckets.values()]
+        .sort((a, b) => a.index - b.index || _trkCompararFecha(a.date, b.date))
+        .map((d, i) => ({
+            ...d,
+            index: i,
+            stops: d.stops.sort((a, b) => Number(a.orden_dia || a.orden_ruta || 0) - Number(b.orden_dia || b.orden_ruta || 0)),
+        }));
+}
+
+function _trkPlanFechaBaseRuta() {
+    return $('#rutaFecha').val() || _trkFechaMinimaProgramacion();
+}
+
+function _trkPlanPoliticaFechaDia(days, dayIndex) {
+    const base = _trkPlanFechaBaseRuta();
+    if (dayIndex <= 0) {
+        return { min: base, max: base, locked: true };
+    }
+    const prev = days?.[dayIndex - 1]?.date || _trkFechaSumarDias(base, dayIndex - 1);
+    return {
+        min: _trkFechaSumarDias(prev, 1),
+        max: _trkFechaSumarDias(prev, TRK_PLAN_MAX_GAP_DAYS),
+        locked: false,
+    };
+}
+
+function _trkPlanNormalizarFechasPolitica(days) {
+    if (!Array.isArray(days) || !days.length) return days || [];
+    days.forEach((day, dayIndex) => {
+        const policy = _trkPlanPoliticaFechaDia(days, dayIndex);
+        let fecha = day.date || policy.min;
+        if (policy.locked) {
+            fecha = policy.min;
+        } else {
+            if (_trkCompararFecha(fecha, policy.min) < 0) fecha = policy.min;
+            if (_trkCompararFecha(fecha, policy.max) > 0) fecha = policy.max;
+        }
+        day.index = dayIndex;
+        day.date = fecha;
+        (day.stops || []).forEach(c => {
+            c.day_index = dayIndex;
+            c.fecha_planeacion = fecha;
+        });
+    });
+    return days;
+}
+
+function _trkPlanCascadeCurrent() {
+    const config = _trkPlanConfig();
+    const days = _trkPlanNormalizarFechasPolitica(
+        _trkPlanApplyCascade(_trkPlanNormalizarFechasPolitica(_trkPlanBuildDaysFromCurrent()), config)
+    );
+    _trkPlanApplyDaysToRoute(days);
+}
+
+function _trkPlanCambiarFechaDia(dayIndex, fecha) {
+    if (!fecha) return;
+    let days = _trkPlanNormalizarFechasPolitica(_trkPlanBuildDaysFromCurrent());
+    if (!days.length || !days[dayIndex]) return;
+    const policy = _trkPlanPoliticaFechaDia(days, dayIndex);
+    if (policy.locked) {
+        Swal.fire({
+            icon: 'info',
+            title: 'Dia 1 bloqueado',
+            text: 'El Dia 1 siempre usa la fecha de salida de la ruta para evitar dias sin operacion.',
+            confirmButtonText: 'Aceptar',
+        });
+        _trkPlanApplyDaysToRoute(days);
+        _trkRenderPlaneacionDias();
+        return;
+    }
+    if (_trkCompararFecha(fecha, policy.min) < 0 || _trkCompararFecha(fecha, policy.max) > 0) {
+        Swal.fire({
+            icon: 'warning',
+            title: 'Fecha fuera de rango',
+            html: `El Dia ${dayIndex + 1} solo puede programarse del <b>${_trkFechaCorta(policy.min)}</b> al <b>${_trkFechaCorta(policy.max)}</b>.`,
+            confirmButtonText: 'Aceptar',
+        });
+        _trkRenderPlaneacionDias();
+        return;
+    }
+    days[dayIndex].date = fecha;
+    (days[dayIndex].stops || []).forEach(c => {
+        c.fecha_planeacion = fecha;
+        c.fecha_independiente = 1;
+    });
+    days = _trkPlanNormalizarFechasPolitica(days);
+    _trkPlanApplyDaysToRoute(days);
+    _trkPlanCascadeCurrent();
+    _trkRenderListaCreditos();
+    _trkRenderizarMapa();
+    _trkMarcarCambio();
+}
+
+function _trkPlanCamposPayload(c) {
+    return {
+        day_index: Number(c?.day_index || 0),
+        arrival_minutes: _trkPlanOptionalNumber(c?.arrival_minutes),
+        departure_minutes: _trkPlanOptionalNumber(c?.departure_minutes),
+        travel_from_prev_minutes: _trkPlanOptionalNumber(c?.travel_from_prev_minutes),
+        operation_minutes: _trkPlanOptionalNumber(c?.operation_minutes),
+        pinned: Number(c?.pinned || 0),
+        edited: Number(c?.edited || 0),
+    };
+}
+
+function _trkValidarMotivoPlaneacion(valor, max = 300) {
+    const motivo = String(valor || '').replace(/\s+/g, ' ').trim();
+    const compacto = motivo.replace(/\s+/g, '').toLowerCase();
+    const palabras = motivo.toLowerCase().match(/[a-z0-9áéíóúüñ]+/gi) || [];
+    const caracteresUnicos = new Set(compacto.split('')).size;
+
+    if (!motivo) return { ok: false, message: 'El motivo es obligatorio.', value: '' };
+    if (motivo.length < 8) return { ok: false, message: 'Describe un motivo mas claro.', value: motivo };
+    if (motivo.length > max) return { ok: false, message: `Maximo ${max} caracteres.`, value: motivo };
+    if (!/[a-záéíóúüñ]/i.test(motivo)) return { ok: false, message: 'El motivo debe incluir texto descriptivo.', value: motivo };
+    if (compacto.length >= 8 && /^(.)(\1)+$/i.test(compacto)) {
+        return { ok: false, message: 'Evita caracteres repetidos sin descripcion.', value: motivo };
+    }
+    if (compacto.length >= 10 && /^(.{2,5})\1{3,}$/i.test(compacto)) {
+        return { ok: false, message: 'Evita patrones repetidos como 101010 o textos duplicados.', value: motivo };
+    }
+    if (compacto.length >= 14 && caracteresUnicos <= 2) {
+        return { ok: false, message: 'El motivo parece un patron repetitivo. Escribe una descripcion real.', value: motivo };
+    }
+    if (palabras.length >= 4 && new Set(palabras).size === 1) {
+        return { ok: false, message: 'Evita repetir la misma palabra como motivo.', value: motivo };
+    }
+    return { ok: true, message: '', value: motivo };
+}
+
+function _trkPlaneacionStatusBadge(status) {
+    const s = String(status || 'programado').toLowerCase();
+    if (s === 'adelantado') return '<span class="badge bg-success">Adelantado</span>';
+    if (s === 'reprogramado') return '<span class="badge bg-warning text-dark">Reprogramado</span>';
+    if (s === 'omitido') return '<span class="badge bg-secondary">Omitido</span>';
+    return '<span class="badge bg-label-primary">Programado</span>';
+}
+
+function _trkPlaneacionEventoLabel(tipo) {
+    const labels = {
+        reprogramacion_por_descanso: 'Descanso autorizado',
+        adelanto_operativo: 'Adelanto operativo',
+        reprogramacion_manual: 'Reprogramacion manual',
+        reprogramacion_por_cliente: 'Cambio por cliente',
+        reprogramacion_por_trafico: 'Cambio por trafico',
+        reprogramacion_por_seguridad: 'Cambio por seguridad',
+        reprogramacion_por_capacidad: 'Cambio por capacidad',
+        distribucion_automatica: 'Distribucion guardada',
+    };
+    return labels[String(tipo || '').toLowerCase()] || 'Evento operativo';
+}
+
+function _trkRenderPlaneacionEventos() {
+    const $events = $('#trkRouteEventList');
+    if (!$events.length) return;
+    const eventos = Array.isArray(_trk.planeacionEventos) ? _trk.planeacionEventos.slice(0, 4) : [];
+    if (!eventos.length) {
+        $events.empty();
+        return;
+    }
+    $events.html(eventos.map(ev => {
+        const usuario = ev.usuario_nombre || ev.id_usuario || 'Sparta';
+        const motivo = ev.motivo || 'Sin motivo registrado';
+        return `<div class="trk-route-event-item">
+            <b>${_trkChatEscapeHtml(_trkPlaneacionEventoLabel(ev.tipo_evento))}</b>
+            <span class="text-muted"> ${_trkChatEscapeHtml(ev.fecha_evento_fmt || ev.fecha_evento || '')}</span>
+            <div>${_trkChatEscapeHtml(motivo)}</div>
+            <div class="text-muted">Por: ${_trkChatEscapeHtml(usuario)}</div>
+        </div>`;
+    }).join(''));
+}
+
+function _trkRenderPlaneacionDias() {
+    const $list = $('#trkRouteDayList');
+    if (!$list.length) return;
+    const creditos = _trk.creditosEnRuta || [];
+    if (!creditos.length) {
+        $('#trkRouteDayCount').text('0 dias');
+        $list.html('<div class="text-center text-muted small py-2">Agrega creditos para generar una propuesta por dia.</div>');
+        _trkRenderPlaneacionEventos();
+        return;
+    }
+    const config = _trkPlanConfig();
+    const days = _trkPlanNormalizarFechasPolitica(_trkPlanBuildDaysFromCurrent());
+    _trkPlanApplyDaysToRoute(days);
+    $('#trkRouteDayCount').text(`${days.length} dia${days.length === 1 ? '' : 's'}`);
+    $list.html(days.map((day, dayIndex) => {
+        const items = day.stops || [];
+        const policy = _trkPlanPoliticaFechaDia(days, dayIndex);
+        const hasWarning = items.some(c => c._plan_warning || Number(c.departure_minutes || 0) > config.fin);
+        const totalTraslado = items.reduce((acc, c) => acc + Number(c.travel_from_prev_minutes || 0), 0);
+        const totalOperacion = items.reduce((acc, c) => acc + Number(c.operation_minutes || config.operacion), 0);
+        const itemsHtml = items.map((c, i) => {
+            const estado = _trkPlanEstado(c);
+            const municipio = _trkPlanMunicipio(c);
+            const puedeEditar = !_trkRutaEstaCancelada();
+            const llegada = _trkPlanHasNumber(c.arrival_minutes) ? Number(c.arrival_minutes) : config.inicio;
+            const salida = _trkPlanHasNumber(c.departure_minutes) ? Number(c.departure_minutes) : llegada + config.operacion;
+            const warning = salida > config.fin;
+            const pinned = Number(c.pinned || 0) === 1;
+            return `<div class="trk-route-day-item">
+                <span class="trk-route-day-num">${_trkChatEscapeHtml(c.orden_dia || (i + 1))}</span>
+                <div style="min-width:0;">
+                    <div class="trk-route-day-item-title">#${_trkChatEscapeHtml(c.id_credito || '-')} - ${_trkChatEscapeHtml(c.nombre_cliente || 'Sin cliente')}</div>
+                    <div class="trk-route-day-item-meta">
+                        ${_trkChatEscapeHtml(estado)} / ${_trkChatEscapeHtml(municipio)}
+                        &middot; ${_trkPlaneacionStatusBadge(c.estatus_planeacion)}
+                    </div>
+                    <div class="trk-route-day-timebar">
+                        <span class="trk-route-day-timechip${pinned ? ' is-pinned' : ''}">
+                            <i class="fa-solid fa-thumbtack"></i>${pinned ? 'Fijada' : 'Auto'}
+                        </span>
+                        <span class="trk-route-day-timechip">
+                            <i class="fa-solid fa-right-to-bracket"></i>Llega ${_trkPlanMinutesLabel(llegada)}
+                        </span>
+                        <span class="trk-route-day-timechip${warning ? ' is-warning' : ''}">
+                            <i class="fa-solid fa-right-from-bracket"></i>Sale ${_trkPlanMinutesLabel(salida)}
+                        </span>
+                        <span class="trk-route-day-timechip">
+                            <i class="fa-solid fa-truck-ramp-box"></i>${_trkChatEscapeHtml(c.operation_minutes || config.operacion)} min
+                        </span>
+                        <span class="trk-route-day-timechip">
+                            <i class="fa-solid fa-road"></i>${_trkChatEscapeHtml(c.travel_from_prev_minutes || 0)} min
+                        </span>
+                    </div>
+                </div>
+                <div class="trk-route-day-actions">
+                    ${warning ? '<span class="badge bg-warning text-dark">Rebasa 19:00</span>' : ''}
+                    ${puedeEditar
+                        ? `<button type="button" class="btn btn-xs btn-label-primary btn-trk-plan-editar-hora"
+                                data-credito="${_trkChatEscapeHtml(c.id_credito)}"
+                                title="Editar horario y fijar parada">
+                                <i class="fa-solid fa-clock"></i>
+                           </button>`
+                        : '<span class="badge bg-label-secondary">Lectura</span>'}
+                </div>
+            </div>`;
+        }).join('');
+        return `<div class="trk-route-day-card${hasWarning ? ' is-overloaded' : ''}">
+            <div class="trk-route-day-card-head">
+                <div>
+                    <div class="trk-route-day-date">Dia ${dayIndex + 1}</div>
+                    <input type="date" class="form-control form-control-sm trk-route-day-date-input mt-1"
+                           data-day="${dayIndex}"
+                           min="${_trkChatEscapeHtml(policy.min)}"
+                           max="${_trkChatEscapeHtml(policy.max)}"
+                           value="${_trkChatEscapeHtml(day.date || '')}"
+                           ${policy.locked ? 'disabled' : ''}>
+                    <div class="trk-route-day-item-meta">
+                        ${items.length} parada${items.length === 1 ? '' : 's'} &middot;
+                        traslado ${totalTraslado} min &middot; operacion ${totalOperacion} min
+                    </div>
+                    <div class="trk-route-day-item-meta">
+                        ${policy.locked
+                            ? 'Amarrado a la fecha de salida'
+                            : `Rango permitido ${_trkFechaCorta(policy.min)} - ${_trkFechaCorta(policy.max)}`}
+                    </div>
+                </div>
+                <span class="badge ${hasWarning ? 'bg-warning text-dark' : 'bg-label-success'}">${_trkChatEscapeHtml(_trkFechaCorta(day.date))}</span>
+            </div>
+            <div class="trk-route-day-items">${itemsHtml}</div>
+        </div>`;
+    }).join(''));
+    _trkRenderPlaneacionEventos();
+}
+
+function _trkDistribuirPlaneacionLocal() {
+    const creditos = _trk.creditosEnRuta || [];
+    if (!creditos.length) {
+        Swal.fire({ icon: 'info', title: 'Sin creditos', text: 'Agrega creditos antes de generar una propuesta.', confirmButtonText: 'Aceptar' });
+        return;
+    }
+    const config = _trkPlanConfig();
+    _trk.planeacionTrasladoEstados = config.trasladoEstados;
+    const days = _trkPlanNormalizarFechasPolitica(_trkPlanApplyCascade(_trkPlanSeedDays(creditos, config), config));
+    _trkPlanApplyDaysToRoute(days);
+    _trkRenderListaCreditos();
+    _trkRenderizarMapa();
+    _trkMarcarCambio();
+    Swal.fire({
+        icon: 'success',
+        title: 'Propuesta generada',
+        text: 'Revisa la distribucion por dia y guarda la planeacion si estas de acuerdo.',
+        timer: 15000,
+        timerProgressBar: true,
+        allowOutsideClick: false,
+        allowEscapeKey: false,
+        showConfirmButton: true,
+        confirmButtonText: 'Entendido',
+        confirmButtonColor: '#0d9488',
+    });
+}
+
+function _trkMergePlaneacionRuta(items) {
+    const porDetalle = new Map((items || []).map(i => [String(i.id_detalle), i]));
+    (_trk.creditosEnRuta || []).forEach(c => {
+        const item = porDetalle.get(String(c.id_detalle || ''));
+        if (!item) return;
+        c.fecha_planeacion = item.fecha_recoleccion || c.fecha_planeacion || null;
+        c.fecha_planeacion_fmt = item.fecha_recoleccion_fmt || c.fecha_planeacion_fmt || '';
+        c.orden_dia = item.orden_dia || c.orden_dia || c.orden_ruta || 1;
+        c.estatus_planeacion = item.estatus_planeacion || c.estatus_planeacion || 'programado';
+        c.day_index = Number(item.day_index || 0);
+        c.arrival_minutes = item.arrival_minutes !== null && item.arrival_minutes !== undefined ? Number(item.arrival_minutes) : c.arrival_minutes;
+        c.departure_minutes = item.departure_minutes !== null && item.departure_minutes !== undefined ? Number(item.departure_minutes) : c.departure_minutes;
+        c.travel_from_prev_minutes = item.travel_from_prev_minutes !== null && item.travel_from_prev_minutes !== undefined ? Number(item.travel_from_prev_minutes) : c.travel_from_prev_minutes;
+        c.operation_minutes = item.operation_minutes !== null && item.operation_minutes !== undefined ? Number(item.operation_minutes) : c.operation_minutes;
+        c.pinned = Number(item.pinned || 0);
+        c.edited = Number(item.edited || 0);
+    });
+}
+
+async function _trkCargarPlaneacionRuta(idRuta) {
+    if (!idRuta) {
+        _trkRenderPlaneacionDias();
+        return;
+    }
+    _trk.planeacionLoading = true;
+    try {
+        const r = await trkFetch(`/TrackingRecoleccion/obtenerPlaneacionRuta?id_ruta=${encodeURIComponent(idRuta)}`);
+        if (!r.success) return;
+        _trk.planeacionRuta = Array.isArray(r.items) ? r.items : [];
+        _trk.planeacionEventos = Array.isArray(r.eventos) ? r.eventos : [];
+        _trkMergePlaneacionRuta(_trk.planeacionRuta);
+    } catch (_) {
+        // No bloquear apertura de ruta por el historial de planeacion.
+    } finally {
+        _trk.planeacionLoading = false;
+        _trkRenderPlaneacionDias();
+    }
+}
+
+async function _trkGuardarPlaneacionRuta() {
+    const idRuta = Number(_trk.idRutaEditando || 0);
+    if (!idRuta) {
+        Swal.fire({ icon: 'info', title: 'Guarda la ruta primero', text: 'La auditoria por dia se guarda cuando la ruta ya existe.', confirmButtonText: 'Aceptar' });
+        return;
+    }
+    _trkPlanCascadeCurrent();
+    const items = (_trk.creditosEnRuta || [])
+        .filter(c => Number(c.id_detalle || 0) > 0)
+        .map(c => ({
+            id_detalle: Number(c.id_detalle),
+            fecha_recoleccion: _trkPlaneacionFechaCredito(c),
+            orden_dia: Number(c.orden_dia || c.orden_ruta || 1),
+            estatus_planeacion: c.estatus_planeacion || 'programado',
+            day_index: Number(c.day_index || 0),
+            arrival_minutes: _trkPlanOptionalNumber(c.arrival_minutes),
+            departure_minutes: _trkPlanOptionalNumber(c.departure_minutes),
+            travel_from_prev_minutes: _trkPlanOptionalNumber(c.travel_from_prev_minutes),
+            operation_minutes: _trkPlanOptionalNumber(c.operation_minutes),
+            pinned: Number(c.pinned || 0),
+            edited: Number(c.edited || 0),
+        }));
+    if (!items.length) {
+        Swal.fire({ icon: 'warning', title: 'Sin puntos auditables', text: 'No hay puntos guardados para auditar.', confirmButtonText: 'Aceptar' });
+        return;
+    }
+    const motivoRes = await _trkSwalConFocoModalRuta({
+        icon: 'question',
+        title: 'Guardar planeacion?',
+        html: `<div class="text-start">
+            <label for="swalPlanMotivoDistribucion" class="form-label fw-semibold">Motivo de la distribucion</label>
+            <textarea id="swalPlanMotivoDistribucion" class="form-control" rows="4" maxlength="300"
+                placeholder="Ej. Distribucion operativa por descanso, capacidad o cambio de zona.">Distribucion operativa de paradas por dia.</textarea>
+            <div class="d-flex justify-content-between align-items-center mt-1">
+                <span class="text-muted small">Evita texto repetitivo o sin descripcion.</span>
+                <span class="text-muted small"><span id="swalPlanMotivoDistribucionCount">0</span>/300</span>
+            </div>
+        </div>`,
+        showCancelButton: true,
+        confirmButtonText: 'Guardar planeacion',
+        cancelButtonText: 'Cancelar',
+        confirmButtonColor: '#0d9488',
+        focusConfirm: false,
+        didOpen: () => {
+            const textarea = document.getElementById('swalPlanMotivoDistribucion');
+            const counter = document.getElementById('swalPlanMotivoDistribucionCount');
+            if (textarea) {
+                textarea.disabled = false;
+                textarea.readOnly = false;
+                textarea.style.pointerEvents = 'auto';
+            }
+            const syncCounter = () => {
+                if (counter && textarea) counter.textContent = String(textarea.value.length);
+            };
+            textarea?.addEventListener('input', syncCounter);
+            syncCounter();
+            setTimeout(() => {
+                textarea?.focus();
+                textarea?.setSelectionRange(textarea.value.length, textarea.value.length);
+            }, 50);
+        },
+        preConfirm: () => {
+            const validacion = _trkValidarMotivoPlaneacion(document.getElementById('swalPlanMotivoDistribucion')?.value, 300);
+            if (!validacion.ok) {
+                Swal.showValidationMessage(validacion.message);
+                return false;
+            }
+            return validacion.value;
+        },
+    });
+    if (!motivoRes.isConfirmed) return;
+
+    Swal.fire({ title: 'Guardando planeacion...', allowOutsideClick: false, showConfirmButton: false, didOpen: () => Swal.showLoading() });
+    try {
+        const r = await trkFetch('/TrackingRecoleccion/guardarPlaneacionRuta', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ id_ruta: idRuta, items, motivo: motivoRes.value }),
+        });
+        if (!r.success) {
+            Swal.fire({ icon: 'error', title: 'No se pudo guardar', text: r.message || r.mensaje || 'Intenta nuevamente.', confirmButtonText: 'Aceptar' });
+            return;
+        }
+        await _trkCargarPlaneacionRuta(idRuta);
+        Swal.fire({ icon: 'success', title: 'Planeacion guardada', text: r.message || 'Auditoria registrada correctamente.', timer: 1600, showConfirmButton: false });
+    } catch (_) {
+        Swal.fire({ icon: 'error', title: 'Error de conexion', text: 'No se pudo guardar la planeacion.', confirmButtonText: 'Aceptar' });
+    }
+}
+
+async function _trkAbrirEditarHorarioPlaneacion(c) {
+    if (!c) return;
+    const config = _trkPlanConfig();
+    const llegadaActual = _trkPlanHasNumber(c.arrival_minutes) ? Number(c.arrival_minutes) : config.inicio;
+    const salidaActual = _trkPlanHasNumber(c.departure_minutes) ? Number(c.departure_minutes) : llegadaActual + (Number(c.operation_minutes) || config.operacion);
+    const res = await Swal.fire({
+        icon: 'question',
+        title: 'Fijar horario del punto',
+        html: `<div class="text-start small">
+            <div class="mb-2"><b>Credito:</b> #${_trkChatEscapeHtml(c.id_credito || '-')} - ${_trkChatEscapeHtml(c.nombre_cliente || '')}</div>
+            <label class="form-label">Tipo de ajuste</label>
+            <select id="swalPlanTipo" class="form-select form-select-sm mb-2">
+                <option value="reprogramacion_por_descanso">Descanso autorizado</option>
+                <option value="adelanto_operativo">Adelanto operativo</option>
+                <option value="reprogramacion_manual">Reprogramacion manual</option>
+                <option value="reprogramacion_por_cliente">Cambio por cliente</option>
+                <option value="reprogramacion_por_trafico">Cambio por trafico</option>
+                <option value="reprogramacion_por_seguridad">Cambio por seguridad</option>
+                <option value="reprogramacion_por_capacidad">Cambio por capacidad</option>
+            </select>
+            <div class="row g-2">
+                <div class="col-12">
+                    <label class="form-label">Fecha</label>
+                    <input type="date" id="swalPlanFecha" class="form-control form-control-sm mb-2"
+                   min="${_trkChatEscapeHtml($('#rutaFecha').val() || _trkFechaMinimaProgramacion())}"
+                   value="${_trkChatEscapeHtml(_trkPlaneacionFechaCredito(c))}">
+                </div>
+                <div class="col-6">
+                    <label class="form-label">Llegada</label>
+                    <input type="time" id="swalPlanLlegada" class="form-control form-control-sm mb-2"
+                           value="${_trkChatEscapeHtml(_trkMinutesToHora(llegadaActual))}">
+                </div>
+                <div class="col-6">
+                    <label class="form-label">Salida</label>
+                    <input type="time" id="swalPlanSalida" class="form-control form-control-sm mb-2"
+                           value="${_trkChatEscapeHtml(_trkMinutesToHora(salidaActual))}">
+                </div>
+            </div>
+            <label class="form-label">Motivo <span class="text-muted">(max. 300)</span></label>
+            <textarea id="swalPlanMotivo" class="form-control form-control-sm" rows="3" maxlength="300"
+                      placeholder="Ej. El transportista descansara y retoma a las 5 AM."></textarea>
+        </div>`,
+        showCancelButton: true,
+        confirmButtonText: 'Guardar ajuste',
+        cancelButtonText: 'Cancelar',
+        confirmButtonColor: '#0d9488',
+        focusConfirm: false,
+        didOpen: () => {
+            const textarea = document.getElementById('swalPlanMotivo');
+            if (textarea) {
+                textarea.disabled = false;
+                textarea.readOnly = false;
+                textarea.style.pointerEvents = 'auto';
+            }
+            setTimeout(() => textarea?.focus(), 50);
+        },
+        preConfirm: () => {
+            const tipo = document.getElementById('swalPlanTipo')?.value || 'reprogramacion_manual';
+            const fecha = document.getElementById('swalPlanFecha')?.value || '';
+            const llegada = _trkPlanTimeToMinutes(document.getElementById('swalPlanLlegada')?.value, NaN);
+            const salida = _trkPlanTimeToMinutes(document.getElementById('swalPlanSalida')?.value, NaN);
+            const motivoValidado = _trkValidarMotivoPlaneacion(document.getElementById('swalPlanMotivo')?.value, 300);
+            if (!fecha) return Swal.showValidationMessage('La fecha es obligatoria.');
+            if (_trkCompararFecha(fecha, $('#rutaFecha').val() || _trkFechaMinimaProgramacion()) < 0) {
+                return Swal.showValidationMessage('La fecha no puede ser anterior al inicio de la ruta.');
+            }
+            if (!Number.isFinite(llegada) || !Number.isFinite(salida)) {
+                return Swal.showValidationMessage('Captura hora de llegada y salida.');
+            }
+            if (salida <= llegada) {
+                return Swal.showValidationMessage('La salida debe ser posterior a la llegada.');
+            }
+            if (!motivoValidado.ok) {
+                return Swal.showValidationMessage(motivoValidado.message);
+            }
+            return { tipo, fecha, llegada, salida, motivo: motivoValidado.value };
+        },
+    });
+    if (!res.isConfirmed) return;
+    c.fecha_planeacion = res.value.fecha;
+    c.arrival_minutes = res.value.llegada;
+    c.departure_minutes = res.value.salida;
+    c.operation_minutes = res.value.salida - res.value.llegada;
+    c.pinned = 1;
+    c.edited = 1;
+    c.estatus_planeacion = res.value.tipo === 'adelanto_operativo' ? 'adelantado' : 'reprogramado';
+    c._plan_motivo = res.value.motivo;
+    _trkPlanCascadeCurrent();
+    _trkRenderListaCreditos();
+    _trkRenderizarMapa();
+    _trkMarcarCambio();
+    Swal.fire({
+        icon: 'success',
+        title: 'Horario fijado',
+        text: 'La parada quedo fijada y las posteriores fueron recalculadas. Guarda la planeacion para auditar.',
+        timer: 3500,
+        showConfirmButton: true,
+        confirmButtonText: 'Entendido',
+    });
 }
 
 function _trkOportunidadesRutaIdActual() {
@@ -13211,7 +14602,7 @@ async function _trkCargarOportunidadesRuta(force = false) {
         if (seq !== _trk.oportunidadesSeq) return;
         _trk.oportunidadesRuta = {
             success: false,
-            error: 'Error de conexion al consultar creditos sobre la ruta.',
+            error: 'Error de conexión al consultar créditos sobre la ruta.',
             candidatos: [],
             resumen: {},
         };
@@ -13307,7 +14698,7 @@ function _trkRenderOportunidadesRuta() {
     if (_trk.oportunidadesLoading) {
         $('#trkRouteOppCount').text('...');
         $('#trkRouteOppSummary').addClass('d-none').empty();
-        $list.html('<div class="text-center text-muted small py-3"><span class="spinner-border spinner-border-sm me-2"></span>Consultando creditos sobre la ruta...</div>');
+        $list.html('<div class="text-center text-muted small py-3"><span class="spinner-border spinner-border-sm me-2"></span>Consultando créditos sobre la ruta...</div>');
         return;
     }
     const data = _trk.oportunidadesRuta;
@@ -13343,24 +14734,24 @@ async function _trkAgregarOportunidadARuta(candidato) {
     const nivel = String(candidato.nivel || '').toLowerCase();
     const res = await Swal.fire({
         icon: nivel === 'no_recomendado' ? 'warning' : 'question',
-        title: 'Agregar credito sugerido?',
+        title: 'Agregar crédito sugerido?',
         html: `<div class="text-start small">
-            <div><b>Credito:</b> #${_trkChatEscapeHtml(idCredito)} - ${_trkChatEscapeHtml(candidato.cliente || candidato.nombre_cliente || '')}</div>
+            <div><b>Crédito:</b> #${_trkChatEscapeHtml(idCredito)} - ${_trkChatEscapeHtml(candidato.cliente || candidato.nombre_cliente || '')}</div>
             <div><b>Nivel:</b> ${_trkOportunidadNivelBadge(nivel)}</div>
-            ${posicion ? `<div><b>Posicion sugerida:</b> ${_trkChatEscapeHtml(posicion)}</div>` : ''}
+            ${posicion ? `<div><b>Posición sugerida:</b> ${_trkChatEscapeHtml(posicion)}</div>` : ''}
             <div class="alert alert-info py-2 mt-2 mb-0">
                 La API actual de asignacion lo agregara al final. Cuando exista el endpoint inteligente se insertara en la posicion sugerida.
             </div>
         </div>`,
         showCancelButton: true,
-        confirmButtonText: 'Si, agregar',
+        confirmButtonText: 'Sí, agregar',
         cancelButtonText: 'Cancelar',
         confirmButtonColor: '#0d9488',
     });
     if (!res.isConfirmed) return;
 
     Swal.fire({
-        title: 'Agregando credito...',
+        title: 'Agregando crédito...',
         allowOutsideClick: false,
         allowEscapeKey: false,
         showConfirmButton: false,
@@ -13388,10 +14779,10 @@ async function _trkAgregarOportunidadARuta(candidato) {
             _trkCargarBorradores(true),
             _trkCargarOperacionTransportistas(true),
         ]);
-        await Swal.fire({ icon: 'success', title: 'Credito agregado', text: r.message || 'Se agrego correctamente a la ruta.', timer: 1400, showConfirmButton: false });
+        await Swal.fire({ icon: 'success', title: 'Crédito agregado', text: r.message || 'Se agregó correctamente a la ruta.', timer: 1400, showConfirmButton: false });
         _trkCargarRutaEnModal(idRuta, _trk.soloLectura);
     } catch {
-        Swal.fire({ icon: 'error', title: 'Error de conexion', text: 'No se pudo agregar el credito a la ruta.', confirmButtonText: 'Aceptar' });
+        Swal.fire({ icon: 'error', title: 'Error de conexión', text: 'No se pudo agregar el crédito a la ruta.', confirmButtonText: 'Aceptar' });
     }
 }
 
@@ -13598,21 +14989,12 @@ function _trkRTRenderizar(ruta) {
 
     let html = '';
     creditos.forEach(c => {
-        const localEta = _trk.creditosEnRuta.find(x =>
-            (x.id_detalle && c.id_detalle && Number(x.id_detalle) === Number(c.id_detalle)) ||
-            (x.id_credito && c.id_credito && Number(x.id_credito) === Number(c.id_credito))
-        ) || {};
-        const cEta = { ...c, ...localEta };
         const est     = c.estatus_recoleccion || 'pendiente';
         const esAct   = puntoAct && puntoAct.id_detalle === c.id_detalle;
         const esDone  = est === 'recolectada' || est === 'completado';
         const stepCls = esDone ? 'done' : (esAct ? 'activo' : (est === 'en_sitio' ? 'en_sitio' : (est === 'incidencia' ? 'incidencia' : '')));
         const icon    = ICONS[est] || ICONS.pendiente;
         const label   = LABELS[est] || est;
-        const etaInfo = _trkEstadoEta(cEta, est);
-        const etaTxt  = (cEta.fecha_eta && cEta.hora_eta_ini && cEta.hora_eta_fin)
-            ? `Inicio: ${_trkFormatHora(cEta.hora_eta_ini)} / Llegada: ${_trkFormatHora(cEta.hora_eta_fin)}`
-            : '';
 
         // Linea 1: Credito #XXXXX  -  MARCA MODELO | Estado, Municipio
         const moto    = [c.moto_marca, c.moto_modelo].filter(Boolean).join(' ');
@@ -13630,10 +15012,8 @@ function _trkRTRenderizar(ruta) {
                 <div class="d-flex align-items-center gap-1 flex-wrap">
                     <span class="trk-step-nombre" style="font-weight:600;">${_trkChatEscapeHtml(linea1)}</span>
                     <span class="trk-step-badge trk-badge-${est}">${label}</span>
-                    ${etaInfo.html}
                 </div>
                 ${cliente ? `<span class="trk-step-dir">${cliente}</span>` : ''}
-                ${etaTxt ? `<span class="trk-step-dir">Horas estimadas ${_trkChatEscapeHtml(etaTxt)}  -  ${_trkChatEscapeHtml(etaInfo.label)}</span>` : ''}
             </div>
         </div>`;
     });
@@ -13768,14 +15148,14 @@ function _trkRTIconoVehiculo(heading = 0) {
 }
 
 function _trkChatFormatearConexion(ts) {
-    if (!ts || isNaN(ts.getTime())) return 'Sin conexion registrada';
+    if (!ts || isNaN(ts.getTime())) return 'Sin conexión registrada';
     const diffMs = Math.max(0, Date.now() - ts.getTime());
     const min = Math.floor(diffMs / 60000);
-    if (min < 1) return 'Ultima conexion hace menos de 1 min';
-    if (min < 60) return `Ultima conexion hace ${min} min`;
+    if (min < 1) return 'Última conexión hace menos de 1 min';
+    if (min < 60) return `Última conexión hace ${min} min`;
     const horas = Math.floor(min / 60);
-    if (horas < 24) return `Ultima conexion hace ${horas} hora${horas === 1 ? '' : 's'}`;
-    return `Ultima conexion ${ts.toLocaleDateString('es-MX', {
+    if (horas < 24) return `Última conexión hace ${horas} hora${horas === 1 ? '' : 's'}`;
+    return `Última conexión ${ts.toLocaleDateString('es-MX', {
         day: '2-digit',
         month: '2-digit',
         year: 'numeric',
@@ -13989,13 +15369,13 @@ function _trkRTActualizarWsDot(conectado) {
     const dot = document.getElementById('trkWsDot');
     if (dot) {
         dot.style.background = conectado ? '#16a34a' : '#cbd5e1';
-        dot.title = conectado ? 'En tiempo real' : 'Sin conexion en tiempo real';
+        dot.title = conectado ? 'En tiempo real' : 'Sin conexión en tiempo real';
     }
     const chatDot = document.getElementById('chatLiveWsDot');
     if (chatDot) {
         chatDot.classList.toggle('chat-ws-on', conectado);
         chatDot.classList.toggle('chat-ws-off', !conectado);
-        chatDot.title = conectado ? 'En tiempo real' : 'Sin conexion en tiempo real';
+        chatDot.title = conectado ? 'En tiempo real' : 'Sin conexión en tiempo real';
     }
 }
 
@@ -14043,7 +15423,7 @@ function _trkRTConectarWS(cfg) {
             Swal.fire({
                 icon: 'warning',
                 title: ev.code === 4001 ? 'Sesion expirada' : 'Sin acceso',
-                text: ev.reason || (ev.code === 4001 ? 'Recarga la pagina para renovar el tracking en vivo.' : 'No tienes permiso para visualizar esta ruta en vivo.'),
+                text: ev.reason || (ev.code === 4001 ? 'Recarga la página para renovar el tracking en vivo.' : 'No tienes permiso para visualizar esta ruta en vivo.'),
                 confirmButtonText: 'Aceptar',
             });
             return;
@@ -14120,7 +15500,7 @@ function _trkRTProcesarEvento(data) {
                 _trkRT.liveCfg = null;
                 _trkRT.wsRetries = 5;
                 _trkRTActualizarWsDot(false);
-                Swal.fire({ icon: 'warning', title: 'Sesion expirada', text: 'Recarga la pagina para renovar el tracking en vivo.', confirmButtonText: 'Aceptar' });
+                Swal.fire({ icon: 'warning', title: 'Sesión expirada', text: 'Recarga la página para renovar el tracking en vivo.', confirmButtonText: 'Aceptar' });
             } else if (code === '4003') {
                 _trkRT.wsRetries = 5;
                 _trkRTActualizarWsDot(false);
@@ -14178,27 +15558,27 @@ function _trkChatCargarYAbrir(idRuta) {
             }));
             _trkChatAbrir(idRuta, r.datos.nombre_ruta || `Ruta #${idRuta}`, detalle);
         })
-        .catch(() => Swal.fire({ icon: 'error', title: 'Error', text: 'Error de conexion.', confirmButtonText: 'Aceptar' }));
+        .catch(() => Swal.fire({ icon: 'error', title: 'Error', text: 'Error de conexión.', confirmButtonText: 'Aceptar' }));
 }
 
 function _trkChatRenderContextoDetalle(det) {
     const idDetalle = det?.id_detalle || '';
-    const idCredito = det?.id_credito || 'Sin credito';
+    const idCredito = det?.id_credito || 'Sin crédito';
     const orden = parseInt(det?.orden_ruta, 10) || 0;
     const cliente = det?.nombre_cliente || 'Sin cliente';
     const modelo = det?.modelo || 'Unidad no disponible';
     const vin = det?.bin || 'VIN no disponible';
     const estado = det?.estado || 'Sin estado';
     const municipio = det?.municipio || 'Sin municipio';
-    const direccion = det?.direccion || 'Sin direccion registrada';
-    const confirmacion = det?.estatus_confirmacion_gestor || 'Sin confirmacion';
+    const direccion = det?.direccion || 'Sin dirección registrada';
+    const confirmacion = det?.estatus_confirmacion_gestor || 'Sin confirmación';
     const recoleccion = det?.estatus_recoleccion || 'Sin avance';
     return `<div class="chat-detail-context-main">
             <span class="chat-detail-context-chip">
                 <i class="fa-solid fa-location-dot"></i>Punto ${orden || '-'}
             </span>
             <span class="chat-detail-context-title">${_trkChatEscapeHtml(cliente)}</span>
-            <span class="chat-detail-context-chip">Credito #${_trkChatEscapeHtml(idCredito)}</span>
+            <span class="chat-detail-context-chip">Crédito #${_trkChatEscapeHtml(idCredito)}</span>
             <span class="chat-detail-context-chip">Detalle #${_trkChatEscapeHtml(idDetalle)}</span>
         </div>
         <div class="chat-detail-context-grid">
@@ -14206,9 +15586,9 @@ function _trkChatRenderContextoDetalle(det) {
             <span class="chat-detail-context-item"><b>VIN:</b> ${_trkChatEscapeHtml(vin)}</span>
             <span class="chat-detail-context-item"><b>Estado:</b> ${_trkChatEscapeHtml(estado)}</span>
             <span class="chat-detail-context-item"><b>Municipio:</b> ${_trkChatEscapeHtml(municipio)}</span>
-            <span class="chat-detail-context-item"><b>Confirmacion:</b> ${_trkChatEscapeHtml(confirmacion)}</span>
-            <span class="chat-detail-context-item"><b>Recoleccion:</b> ${_trkChatEscapeHtml(recoleccion)}</span>
-            <span class="chat-detail-context-item chat-detail-context-address"><b>Direccion:</b> ${_trkChatEscapeHtml(direccion)}</span>
+            <span class="chat-detail-context-item"><b>Confirmación:</b> ${_trkChatEscapeHtml(confirmacion)}</span>
+            <span class="chat-detail-context-item"><b>Recolección:</b> ${_trkChatEscapeHtml(recoleccion)}</span>
+            <span class="chat-detail-context-item chat-detail-context-address"><b>Dirección:</b> ${_trkChatEscapeHtml(direccion)}</span>
         </div>`;
 }
 
@@ -14220,7 +15600,7 @@ function _trkChatDetalleActivoValido(idDetalle, accion = 'continuar') {
         Swal.fire({
             icon: 'warning',
             title: 'Punto no disponible',
-            text: 'No se encontro el punto de recoleccion para esta accion.',
+            text: 'No se encontró el punto de recolección para esta acción.',
             confirmButtonText: 'Aceptar',
         });
         return false;
@@ -14229,7 +15609,7 @@ function _trkChatDetalleActivoValido(idDetalle, accion = 'continuar') {
         Swal.fire({
             icon: 'warning',
             title: 'Revisa el punto activo',
-            text: `Para ${accion}, primero abre la pestana correcta del punto de recoleccion.`,
+            text: `Para ${accion}, primero abre la pestaña correcta del punto de recolección.`,
             confirmButtonText: 'Aceptar',
         });
         return false;
@@ -14247,7 +15627,7 @@ function _trkChatResumenDetalle(idDetalle) {
     const partes = [
         det.orden_ruta ? `Punto ${det.orden_ruta}` : '',
         det.id_detalle ? `Detalle #${det.id_detalle}` : '',
-        det.id_credito ? `Credito #${det.id_credito}` : '',
+        det.id_credito ? `Crédito #${det.id_credito}` : '',
         det.nombre_cliente || '',
     ].filter(Boolean);
     return partes.join(' | ') || `Detalle #${idDetalle}`;
@@ -14472,7 +15852,7 @@ async function _trkChatCargarInfo(idDetalle) {
             if (token) _trkChatConectarWS(idDetalle, token);
         }
     } catch {
-        _trkChatMostrarError(idDetalle, 'Error de conexion al cargar el chat.');
+        _trkChatMostrarError(idDetalle, 'Error de conexión al cargar el chat.');
     }
 }
 
@@ -14787,7 +16167,7 @@ function _trkChatConectarWS(idDetalle, token) {
         // Codigos de cierre definitivo (no reintentar)
         if (evt.code === 4001) { // token invalido/expirado
             _trkChat.jwtToken = null;
-            _trkChatMostrarNotice(idDetalle, 'Sesion expirada. Recarga la pagina.', 'cerrado');
+        _trkChatMostrarNotice(idDetalle, 'Sesión expirada. Recarga la página.', 'cerrado');
             return;
         }
         if (evt.code === 4003) { // sin acceso
@@ -14809,7 +16189,7 @@ function _trkChatConectarWS(idDetalle, token) {
         } else {
             _trkChatMostrarNotice(
                 idDetalle,
-                'Sin conexion en tiempo real  -  los mensajes se actualizan al enviar.',
+                'Sin conexión en tiempo real  -  los mensajes se actualizan al enviar.',
                 'cerrado'
             );
         }
@@ -14903,7 +16283,7 @@ function _trkChatActualizarUI(idDetalle) {
         if (sendBtn)  sendBtn.disabled  = false;
         attachBtns.forEach(btn => { btn.disabled = false; });
     } else if (state.estatus === 'bloqueado') {
-        _trkChatMostrarNotice(idDetalle, ' El chat aun no esta disponible  -  la ruta no ha iniciado.', 'bloqueado');
+            _trkChatMostrarNotice(idDetalle, ' El chat aún no está disponible  -  la ruta no ha iniciado.', 'bloqueado');
         if (textarea) textarea.disabled = true;
         if (sendBtn)  sendBtn.disabled  = true;
         attachBtns.forEach(btn => { btn.disabled = true; });
@@ -15093,7 +16473,7 @@ async function _trkChatSubirArchivo(idDetalle, file, mensaje = '') {
         }
         _trkChatAgregarMensaje(idDetalle, r.mensaje);
     } catch {
-        Swal.fire({ icon: 'error', title: 'Error', text: 'Error de conexion al subir el archivo.', confirmButtonText: 'Aceptar' });
+        Swal.fire({ icon: 'error', title: 'Error', text: 'Error de conexión al subir el archivo.', confirmButtonText: 'Aceptar' });
     } finally {
         if (sendBtn) sendBtn.innerHTML = oldHtml || '<i class="fa-solid fa-paper-plane"></i>';
         _trkChatActualizarUI(idDetalle);

@@ -107,6 +107,430 @@ class TrackingRecoleccion extends Model
         return $expr;
     }
 
+    private function fechaPlaneacionDesdeCredito(array $det, string $fechaDefault): string
+    {
+        foreach (['fecha_recoleccion', 'fecha_planeacion', 'fecha_programada_recoleccion'] as $campo) {
+            $fecha = trim((string) ($det[$campo] ?? ''));
+            if (preg_match('/^\d{4}-\d{2}-\d{2}$/', $fecha)) {
+                return $fecha;
+            }
+        }
+        return $fechaDefault;
+    }
+
+    private function jsonEventoTracking($valor): ?string
+    {
+        if ($valor === null) {
+            return null;
+        }
+        $json = json_encode($valor, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+        return $json === false ? null : $json;
+    }
+
+    private function validarMotivoPlaneacion($valor, int $max = 300): array
+    {
+        $motivo = trim(preg_replace('/\s+/u', ' ', (string) $valor));
+        $compacto = mb_strtolower(preg_replace('/\s+/u', '', $motivo), 'UTF-8');
+        $chars = preg_split('//u', $compacto, -1, PREG_SPLIT_NO_EMPTY) ?: [];
+        $palabras = [];
+        if (preg_match_all('/[a-z0-9áéíóúüñ]+/iu', mb_strtolower($motivo, 'UTF-8'), $matches)) {
+            $palabras = $matches[0] ?? [];
+        }
+
+        if ($motivo === '') {
+            return ['ok' => false, 'message' => 'El motivo es obligatorio.', 'value' => ''];
+        }
+        if (mb_strlen($motivo, 'UTF-8') < 8) {
+            return ['ok' => false, 'message' => 'Describe un motivo mas claro.', 'value' => $motivo];
+        }
+        if (mb_strlen($motivo, 'UTF-8') > $max) {
+            return ['ok' => false, 'message' => 'El motivo no puede exceder ' . $max . ' caracteres.', 'value' => $motivo];
+        }
+        if (!preg_match('/[a-záéíóúüñ]/iu', $motivo)) {
+            return ['ok' => false, 'message' => 'El motivo debe incluir texto descriptivo.', 'value' => $motivo];
+        }
+        if (mb_strlen($compacto, 'UTF-8') >= 8 && preg_match('/^(.)\1+$/u', $compacto)) {
+            return ['ok' => false, 'message' => 'Evita caracteres repetidos sin descripcion.', 'value' => $motivo];
+        }
+        if (mb_strlen($compacto, 'UTF-8') >= 10 && preg_match('/^(.{2,5})\1{3,}$/u', $compacto)) {
+            return ['ok' => false, 'message' => 'Evita patrones repetidos como 101010 o textos duplicados.', 'value' => $motivo];
+        }
+        if (mb_strlen($compacto, 'UTF-8') >= 14 && count(array_unique($chars)) <= 2) {
+            return ['ok' => false, 'message' => 'El motivo parece un patron repetitivo. Escribe una descripcion real.', 'value' => $motivo];
+        }
+        if (count($palabras) >= 4 && count(array_unique($palabras)) === 1) {
+            return ['ok' => false, 'message' => 'Evita repetir la misma palabra como motivo.', 'value' => $motivo];
+        }
+        return ['ok' => true, 'message' => '', 'value' => $motivo];
+    }
+
+    private function registrarEventoRuta(
+        int $idRuta,
+        ?int $idDetalle,
+        string $tipoEvento,
+        string $accion,
+        $valorAnterior,
+        $valorNuevo,
+        ?string $motivo,
+        string $origen,
+        int $idUsuario = 0,
+        int $idTransportista = 0
+    ): void {
+        try {
+            $this->db->CRUD(
+                "INSERT INTO tracking_ruta_eventos
+                    (id_ruta, id_detalle, tipo_evento, accion, valor_anterior, valor_nuevo, motivo, origen, id_usuario, id_transportista, fecha_evento)
+                 VALUES
+                    (:id_ruta, :id_detalle, :tipo_evento, :accion, :valor_anterior, :valor_nuevo, :motivo, :origen, :id_usuario, :id_transportista, NOW())",
+                [
+                    'id_ruta' => $idRuta,
+                    'id_detalle' => $idDetalle ?: null,
+                    'tipo_evento' => mb_substr(trim($tipoEvento), 0, 80),
+                    'accion' => mb_substr(trim($accion), 0, 100),
+                    'valor_anterior' => $this->jsonEventoTracking($valorAnterior),
+                    'valor_nuevo' => $this->jsonEventoTracking($valorNuevo),
+                    'motivo' => $motivo !== null ? mb_substr(trim($motivo), 0, 300) : null,
+                    'origen' => in_array($origen, ['sparta', 'android', 'api', 'sistema'], true) ? $origen : 'sparta',
+                    'id_usuario' => $idUsuario > 0 ? $idUsuario : null,
+                    'id_transportista' => $idTransportista > 0 ? $idTransportista : null,
+                ]
+            );
+        } catch (\Throwable $e) {
+            // La auditoria no debe romper el guardado operativo.
+        }
+    }
+
+    private function upsertPlaneacionDetalle(
+        int $idRuta,
+        int $idDetalle,
+        string $fecha,
+        int $ordenDia,
+        string $estatusPlaneacion,
+        array $extra = []
+    ): void
+    {
+        $estatus = in_array($estatusPlaneacion, ['programado', 'reprogramado', 'adelantado', 'omitido'], true)
+            ? $estatusPlaneacion
+            : 'programado';
+        $arrival = isset($extra['arrival_minutes']) ? max(0, (int) $extra['arrival_minutes']) : null;
+        $departure = isset($extra['departure_minutes']) ? max(0, (int) $extra['departure_minutes']) : null;
+        $travel = isset($extra['travel_from_prev_minutes']) ? max(0, (int) $extra['travel_from_prev_minutes']) : null;
+        $operation = isset($extra['operation_minutes']) ? max(0, (int) $extra['operation_minutes']) : null;
+        $dayIndex = isset($extra['day_index']) ? max(0, (int) $extra['day_index']) : 0;
+        $pinned = !empty($extra['pinned']) ? 1 : 0;
+        $edited = !empty($extra['edited']) ? 1 : 0;
+        $this->db->CRUD(
+            "INSERT INTO tracking_ruta_planeacion_dias
+                (id_ruta, id_detalle, fecha_recoleccion, orden_dia, estatus_planeacion,
+                 day_index, arrival_minutes, departure_minutes, travel_from_prev_minutes, operation_minutes, pinned, edited,
+                 fecha_alta, fecha_actualizacion)
+             VALUES
+                (:id_ruta, :id_detalle, :fecha, :orden_dia, :estatus,
+                 :day_index, :arrival_minutes, :departure_minutes, :travel_from_prev_minutes, :operation_minutes, :pinned, :edited,
+                 NOW(), NOW())
+             ON DUPLICATE KEY UPDATE
+                id_ruta = VALUES(id_ruta),
+                fecha_recoleccion = VALUES(fecha_recoleccion),
+                orden_dia = VALUES(orden_dia),
+                estatus_planeacion = VALUES(estatus_planeacion),
+                day_index = VALUES(day_index),
+                arrival_minutes = VALUES(arrival_minutes),
+                departure_minutes = VALUES(departure_minutes),
+                travel_from_prev_minutes = VALUES(travel_from_prev_minutes),
+                operation_minutes = VALUES(operation_minutes),
+                pinned = VALUES(pinned),
+                edited = VALUES(edited),
+                fecha_actualizacion = NOW()",
+            [
+                'id_ruta' => $idRuta,
+                'id_detalle' => $idDetalle,
+                'fecha' => $fecha,
+                'orden_dia' => max(1, $ordenDia),
+                'estatus' => $estatus,
+                'day_index' => $dayIndex,
+                'arrival_minutes' => $arrival,
+                'departure_minutes' => $departure,
+                'travel_from_prev_minutes' => $travel,
+                'operation_minutes' => $operation,
+                'pinned' => $pinned,
+                'edited' => $edited,
+            ]
+        );
+    }
+
+    private function sincronizarPlaneacionDesdeCreditos(int $idRuta, array $detalles, string $fechaDefault, int $idUsuario = 0, int $idTransportista = 0): void
+    {
+        foreach ($detalles as $i => $item) {
+            $idDetalle = (int) ($item['id_detalle'] ?? 0);
+            if ($idDetalle <= 0) {
+                continue;
+            }
+            $credito = is_array($item['credito'] ?? null) ? $item['credito'] : [];
+            $fecha = $this->fechaPlaneacionDesdeCredito($credito, $fechaDefault);
+            $ordenDia = (int) ($credito['orden_dia'] ?? $credito['orden_planeacion'] ?? ($i + 1));
+            $estatus = (string) ($credito['estatus_planeacion'] ?? 'programado');
+            $this->upsertPlaneacionDetalle($idRuta, $idDetalle, $fecha, $ordenDia, $estatus, $credito);
+        }
+        if (!empty($detalles)) {
+            $this->registrarEventoRuta(
+                $idRuta,
+                null,
+                'planeacion_inicial',
+                'sincronizar_planeacion',
+                null,
+                ['total_puntos' => count($detalles), 'fecha_base' => $fechaDefault],
+                'Planeacion base generada al guardar la ruta.',
+                'sistema',
+                $idUsuario,
+                $idTransportista
+            );
+        }
+    }
+
+    private function asegurarPlaneacionBaseRuta(int $idRuta): void
+    {
+        try {
+            $ruta = $this->db->queryOne(
+                "SELECT id_ruta, fecha_programada, id_transportista
+                 FROM asigna_horas_tracking
+                 WHERE id_ruta = :id
+                 LIMIT 1",
+                ['id' => $idRuta]
+            );
+            if (!$ruta) {
+                return;
+            }
+            $detallesSinPlan = $this->db->queryAll(
+                "SELECT atd.id_detalle, atd.orden_ruta
+                 FROM asigna_horas_tracking_detalle atd
+                 LEFT JOIN tracking_ruta_planeacion_dias pd ON pd.id_detalle = atd.id_detalle
+                 WHERE atd.id_ruta = :id AND pd.id_planeacion IS NULL
+                 ORDER BY atd.orden_ruta ASC, atd.id_detalle ASC",
+                ['id' => $idRuta]
+            ) ?: [];
+            foreach ($detallesSinPlan as $i => $det) {
+                $this->upsertPlaneacionDetalle(
+                    $idRuta,
+                    (int) $det['id_detalle'],
+                    (string) $ruta['fecha_programada'],
+                    (int) ($det['orden_ruta'] ?? ($i + 1)),
+                    'programado'
+                );
+            }
+        } catch (\Throwable $e) {
+            // No bloquear consulta de detalle.
+        }
+    }
+
+    public function obtenerPlaneacionRuta(int $idRuta): array
+    {
+        if ($idRuta <= 0) {
+            return ['success' => false, 'message' => 'Ruta requerida.'];
+        }
+        $this->asegurarPlaneacionBaseRuta($idRuta);
+        $items = $this->db->queryAll(
+            "SELECT
+                pd.*,
+                DATE_FORMAT(pd.fecha_recoleccion, '%d/%m/%Y') AS fecha_recoleccion_fmt,
+                atd.id_credito,
+                atd.orden_ruta,
+                atd.estado,
+                atd.municipio,
+                atd.estatus_confirmacion_gestor,
+                atd.estatus_recoleccion,
+                ao.nombre_cliente
+             FROM tracking_ruta_planeacion_dias pd
+             INNER JOIN asigna_horas_tracking_detalle atd ON atd.id_detalle = pd.id_detalle
+             LEFT JOIN adj_operacion ao ON ao.id_credito = atd.id_credito
+             WHERE pd.id_ruta = :id
+             ORDER BY pd.fecha_recoleccion ASC, pd.orden_dia ASC, atd.orden_ruta ASC",
+            ['id' => $idRuta]
+        ) ?: [];
+        $eventos = $this->db->queryAll(
+            "SELECT
+                ev.*,
+                DATE_FORMAT(ev.fecha_evento, '%d/%m/%Y %H:%i') AS fecha_evento_fmt,
+                TRIM(CONCAT_WS(' ', per.nombres, per.segundo_nombre, per.apellidop, per.apellidom)) AS usuario_nombre
+             FROM tracking_ruta_eventos ev
+             LEFT JOIN persona per ON per.id = ev.id_usuario
+             WHERE ev.id_ruta = :id
+             ORDER BY ev.fecha_evento DESC, ev.id_evento DESC
+             LIMIT 80",
+            ['id' => $idRuta]
+        ) ?: [];
+
+        return ['success' => true, 'items' => $items, 'eventos' => $eventos];
+    }
+
+    public function actualizarPlaneacionPunto(array $data, int $idUsuario): array
+    {
+        $idRuta = (int) ($data['id_ruta'] ?? 0);
+        $idDetalle = (int) ($data['id_detalle'] ?? 0);
+        $fecha = trim((string) ($data['fecha_recoleccion'] ?? $data['fecha_planeacion'] ?? ''));
+        $ordenDia = max(1, (int) ($data['orden_dia'] ?? 1));
+        $motivo = trim((string) ($data['motivo'] ?? ''));
+        $tipoEvento = trim((string) ($data['tipo_evento'] ?? 'reprogramacion_manual'));
+        $extraPlaneacion = [
+            'day_index' => (int) ($data['day_index'] ?? 0),
+            'arrival_minutes' => isset($data['arrival_minutes']) ? (int) $data['arrival_minutes'] : null,
+            'departure_minutes' => isset($data['departure_minutes']) ? (int) $data['departure_minutes'] : null,
+            'travel_from_prev_minutes' => isset($data['travel_from_prev_minutes']) ? (int) $data['travel_from_prev_minutes'] : null,
+            'operation_minutes' => isset($data['operation_minutes']) ? (int) $data['operation_minutes'] : null,
+            'pinned' => !empty($data['pinned']) ? 1 : 0,
+            'edited' => !empty($data['edited']) ? 1 : 0,
+        ];
+        $motivoValidado = $this->validarMotivoPlaneacion($motivo, 300);
+        $permitidos = [
+            'reprogramacion_por_descanso',
+            'adelanto_operativo',
+            'reprogramacion_manual',
+            'reprogramacion_por_cliente',
+            'reprogramacion_por_trafico',
+            'reprogramacion_por_seguridad',
+            'reprogramacion_por_capacidad',
+        ];
+        if (!in_array($tipoEvento, $permitidos, true)) {
+            $tipoEvento = 'reprogramacion_manual';
+        }
+        if ($idRuta <= 0 || $idDetalle <= 0) {
+            return ['success' => false, 'message' => 'Ruta y punto son requeridos.'];
+        }
+        if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $fecha)) {
+            return ['success' => false, 'message' => 'Fecha de recoleccion invalida.'];
+        }
+        if (!$motivoValidado['ok']) {
+            return ['success' => false, 'message' => $motivoValidado['message']];
+        }
+        $motivo = $motivoValidado['value'];
+
+        try {
+            $punto = $this->db->queryOne(
+                "SELECT
+                    atd.id_detalle,
+                    atd.id_ruta,
+                    atr.fecha_programada,
+                    atr.id_transportista,
+                    pd.fecha_recoleccion,
+                    pd.orden_dia,
+                    pd.estatus_planeacion,
+                    pd.day_index,
+                    pd.arrival_minutes,
+                    pd.departure_minutes,
+                    pd.travel_from_prev_minutes,
+                    pd.operation_minutes,
+                    pd.pinned,
+                    pd.edited
+                 FROM asigna_horas_tracking_detalle atd
+                 INNER JOIN asigna_horas_tracking atr ON atr.id_ruta = atd.id_ruta
+                 LEFT JOIN tracking_ruta_planeacion_dias pd ON pd.id_detalle = atd.id_detalle
+                 WHERE atd.id_ruta = :id_ruta AND atd.id_detalle = :id_detalle
+                 LIMIT 1",
+                ['id_ruta' => $idRuta, 'id_detalle' => $idDetalle]
+            );
+            if (!$punto) {
+                return ['success' => false, 'message' => 'Punto de ruta no encontrado.'];
+            }
+            if (strtotime($fecha) < strtotime((string) $punto['fecha_programada'])) {
+                return ['success' => false, 'message' => 'La planeacion no puede ser anterior a la fecha de inicio de la ruta.'];
+            }
+            $anterior = [
+                'fecha_recoleccion' => $punto['fecha_recoleccion'] ?? null,
+                'orden_dia' => $punto['orden_dia'] ?? null,
+                'estatus_planeacion' => $punto['estatus_planeacion'] ?? null,
+                'day_index' => $punto['day_index'] ?? null,
+                'arrival_minutes' => $punto['arrival_minutes'] ?? null,
+                'departure_minutes' => $punto['departure_minutes'] ?? null,
+                'travel_from_prev_minutes' => $punto['travel_from_prev_minutes'] ?? null,
+                'operation_minutes' => $punto['operation_minutes'] ?? null,
+                'pinned' => $punto['pinned'] ?? null,
+                'edited' => $punto['edited'] ?? null,
+            ];
+            $estatus = $tipoEvento === 'adelanto_operativo' ? 'adelantado' : 'reprogramado';
+            $this->upsertPlaneacionDetalle($idRuta, $idDetalle, $fecha, $ordenDia, $estatus, $extraPlaneacion);
+            $nuevo = [
+                'fecha_recoleccion' => $fecha,
+                'orden_dia' => $ordenDia,
+                'estatus_planeacion' => $estatus,
+                'day_index' => $extraPlaneacion['day_index'],
+                'arrival_minutes' => $extraPlaneacion['arrival_minutes'],
+                'departure_minutes' => $extraPlaneacion['departure_minutes'],
+                'travel_from_prev_minutes' => $extraPlaneacion['travel_from_prev_minutes'],
+                'operation_minutes' => $extraPlaneacion['operation_minutes'],
+                'pinned' => $extraPlaneacion['pinned'],
+                'edited' => $extraPlaneacion['edited'],
+            ];
+            $this->registrarEventoRuta(
+                $idRuta,
+                $idDetalle,
+                $tipoEvento,
+                'actualizar_planeacion_punto',
+                $anterior,
+                $nuevo,
+                $motivo,
+                'sparta',
+                $idUsuario,
+                (int) ($punto['id_transportista'] ?? 0)
+            );
+            return ['success' => true, 'message' => 'Planeacion actualizada.', 'planeacion' => $nuevo];
+        } catch (\Throwable $e) {
+            return ['success' => false, 'message' => 'Error al actualizar planeacion: ' . $e->getMessage()];
+        }
+    }
+
+    public function guardarPlaneacionRuta(array $data, int $idUsuario): array
+    {
+        $idRuta = (int) ($data['id_ruta'] ?? 0);
+        $items = is_array($data['items'] ?? null) ? $data['items'] : [];
+        $motivo = trim((string) ($data['motivo'] ?? 'Distribucion automatica de paradas por dia.'));
+        $motivoValidado = $this->validarMotivoPlaneacion($motivo, 300);
+        if ($idRuta <= 0 || empty($items)) {
+            return ['success' => false, 'message' => 'Ruta e items de planeacion son requeridos.'];
+        }
+        if (!$motivoValidado['ok']) {
+            return ['success' => false, 'message' => $motivoValidado['message']];
+        }
+        $motivo = $motivoValidado['value'];
+        try {
+            $this->db->beginTransaction();
+            $total = 0;
+            foreach ($items as $item) {
+                $idDetalle = (int) ($item['id_detalle'] ?? 0);
+                $fecha = trim((string) ($item['fecha_recoleccion'] ?? ''));
+                $ordenDia = max(1, (int) ($item['orden_dia'] ?? 1));
+                if ($idDetalle <= 0 || !preg_match('/^\d{4}-\d{2}-\d{2}$/', $fecha)) {
+                    continue;
+                }
+                $estatus = (string) ($item['estatus_planeacion'] ?? 'programado');
+                $this->upsertPlaneacionDetalle($idRuta, $idDetalle, $fecha, $ordenDia, $estatus, [
+                    'day_index' => (int) ($item['day_index'] ?? 0),
+                    'arrival_minutes' => isset($item['arrival_minutes']) ? (int) $item['arrival_minutes'] : null,
+                    'departure_minutes' => isset($item['departure_minutes']) ? (int) $item['departure_minutes'] : null,
+                    'travel_from_prev_minutes' => isset($item['travel_from_prev_minutes']) ? (int) $item['travel_from_prev_minutes'] : null,
+                    'operation_minutes' => isset($item['operation_minutes']) ? (int) $item['operation_minutes'] : null,
+                    'pinned' => !empty($item['pinned']) ? 1 : 0,
+                    'edited' => !empty($item['edited']) ? 1 : 0,
+                ]);
+                $total++;
+            }
+            $this->registrarEventoRuta(
+                $idRuta,
+                null,
+                'distribucion_automatica',
+                'guardar_planeacion_ruta',
+                null,
+                ['total_puntos' => $total],
+                $motivo,
+                'sparta',
+                $idUsuario
+            );
+            $this->db->commit();
+            return ['success' => true, 'message' => 'Planeacion guardada.', 'total' => $total];
+        } catch (\Throwable $e) {
+            $this->db->rollback();
+            return ['success' => false, 'message' => 'Error al guardar planeacion: ' . $e->getMessage()];
+        }
+    }
+
     // =========================================================================
     // BOOTSTRAP: crear tablas si no existen (mismo patrón que adj_s2_cache_dictamen)
     // =========================================================================
@@ -126,6 +550,7 @@ class TrackingRecoleccion extends Model
                     `estado`              VARCHAR(100)  NULL,
                     `municipio`           VARCHAR(100)  NULL,
                     `fecha_programada`    DATE          NOT NULL,
+                    `fecha_finalizacion`  DATE          NULL,
                     `estatus_ruta`        ENUM('borrador','pendiente_confirmacion','lista_envio','enviada','en_proceso','concluida','cancelada')
                                           NOT NULL DEFAULT 'borrador',
                     `motivo_cancelacion`  VARCHAR(200)  NULL,
@@ -195,7 +620,9 @@ class TrackingRecoleccion extends Model
             $this->asegurarCatalogosTracking();
             $this->asegurarColumnasTransportistaRuta();
             $this->asegurarColumnasCancelacionRuta();
+            $this->asegurarColumnasFechaFinalizacionRuta();
             $this->asegurarColumnasDetalleRuta();
+            $this->asegurarTablasPlaneacionAuditoria();
             $this->asegurarPermisoCancelarRutaTracking();
             self::$tablasOk = true;
         } catch (\Throwable $e) {
@@ -339,6 +766,74 @@ class TrackingRecoleccion extends Model
         }
     }
 
+    private function asegurarTablasPlaneacionAuditoria(): void
+    {
+        try {
+            $this->db->CRUD(
+                "CREATE TABLE IF NOT EXISTS `tracking_ruta_planeacion_dias` (
+                    `id_planeacion` INT NOT NULL AUTO_INCREMENT,
+                    `id_ruta` INT NOT NULL,
+                    `id_detalle` INT NOT NULL,
+                    `fecha_recoleccion` DATE NOT NULL,
+                    `orden_dia` INT NOT NULL DEFAULT 0,
+                    `estatus_planeacion` ENUM('programado','reprogramado','adelantado','omitido') NOT NULL DEFAULT 'programado',
+                    `day_index` INT NOT NULL DEFAULT 0,
+                    `arrival_minutes` INT NULL,
+                    `departure_minutes` INT NULL,
+                    `travel_from_prev_minutes` INT NULL,
+                    `operation_minutes` INT NULL,
+                    `pinned` TINYINT(1) NOT NULL DEFAULT 0,
+                    `edited` TINYINT(1) NOT NULL DEFAULT 0,
+                    `fecha_alta` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                    `fecha_actualizacion` DATETIME NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
+                    PRIMARY KEY (`id_planeacion`),
+                    UNIQUE KEY `ux_tracking_planeacion_detalle` (`id_detalle`),
+                    KEY `idx_tracking_planeacion_ruta_fecha` (`id_ruta`, `fecha_recoleccion`, `orden_dia`),
+                    KEY `idx_tracking_planeacion_day` (`id_ruta`, `day_index`, `orden_dia`),
+                    KEY `idx_tracking_planeacion_ruta` (`id_ruta`)
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci"
+            );
+            $cols = [
+                'day_index' => "ALTER TABLE `tracking_ruta_planeacion_dias` ADD COLUMN `day_index` INT NOT NULL DEFAULT 0 AFTER `estatus_planeacion`",
+                'arrival_minutes' => "ALTER TABLE `tracking_ruta_planeacion_dias` ADD COLUMN `arrival_minutes` INT NULL AFTER `day_index`",
+                'departure_minutes' => "ALTER TABLE `tracking_ruta_planeacion_dias` ADD COLUMN `departure_minutes` INT NULL AFTER `arrival_minutes`",
+                'travel_from_prev_minutes' => "ALTER TABLE `tracking_ruta_planeacion_dias` ADD COLUMN `travel_from_prev_minutes` INT NULL AFTER `departure_minutes`",
+                'operation_minutes' => "ALTER TABLE `tracking_ruta_planeacion_dias` ADD COLUMN `operation_minutes` INT NULL AFTER `travel_from_prev_minutes`",
+                'pinned' => "ALTER TABLE `tracking_ruta_planeacion_dias` ADD COLUMN `pinned` TINYINT(1) NOT NULL DEFAULT 0 AFTER `operation_minutes`",
+                'edited' => "ALTER TABLE `tracking_ruta_planeacion_dias` ADD COLUMN `edited` TINYINT(1) NOT NULL DEFAULT 0 AFTER `pinned`",
+            ];
+            foreach ($cols as $col => $sql) {
+                if (!$this->columnaExiste('tracking_ruta_planeacion_dias', $col)) {
+                    try { $this->db->CRUD($sql); } catch (\Throwable $e) {}
+                }
+            }
+            try { $this->db->CRUD("ALTER TABLE `tracking_ruta_planeacion_dias` ADD KEY `idx_tracking_planeacion_day` (`id_ruta`, `day_index`, `orden_dia`)"); } catch (\Throwable $e) {}
+            $this->db->CRUD(
+                "CREATE TABLE IF NOT EXISTS `tracking_ruta_eventos` (
+                    `id_evento` INT NOT NULL AUTO_INCREMENT,
+                    `id_ruta` INT NOT NULL,
+                    `id_detalle` INT NULL,
+                    `tipo_evento` VARCHAR(80) NOT NULL,
+                    `accion` VARCHAR(100) NOT NULL,
+                    `valor_anterior` LONGTEXT NULL,
+                    `valor_nuevo` LONGTEXT NULL,
+                    `motivo` VARCHAR(300) NULL,
+                    `origen` ENUM('sparta','android','api','sistema') NOT NULL DEFAULT 'sparta',
+                    `id_usuario` INT NULL,
+                    `id_transportista` INT NULL,
+                    `fecha_evento` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                    PRIMARY KEY (`id_evento`),
+                    KEY `idx_tracking_eventos_ruta` (`id_ruta`, `fecha_evento`),
+                    KEY `idx_tracking_eventos_detalle` (`id_detalle`),
+                    KEY `idx_tracking_eventos_tipo` (`tipo_evento`)
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci"
+            );
+            try { $this->db->CRUD("ALTER TABLE `tracking_ruta_eventos` MODIFY COLUMN `motivo` VARCHAR(300) NULL"); } catch (\Throwable $e) {}
+        } catch (\Throwable $e) {
+            // La migracion puede ejecutarse manualmente en producción; no bloquear el modulo.
+        }
+    }
+
     private function asegurarCatalogosTracking(): void
     {
         try {
@@ -423,6 +918,21 @@ class TrackingRecoleccion extends Model
             if (!$this->columnaExiste('asigna_horas_tracking', $col)) {
                 try { $this->db->CRUD($sql); } catch (\Throwable $e) {}
             }
+        }
+    }
+
+    private function asegurarColumnasFechaFinalizacionRuta(): void
+    {
+        try {
+            if (!$this->columnaExiste('asigna_horas_tracking', 'fecha_finalizacion')) {
+                $this->db->CRUD(
+                    "ALTER TABLE `asigna_horas_tracking`
+                     ADD COLUMN `fecha_finalizacion` DATE NULL AFTER `fecha_programada`"
+                );
+            }
+            try { $this->db->CRUD("ALTER TABLE `asigna_horas_tracking` ADD KEY `idx_tracking_fecha_finalizacion` (`fecha_finalizacion`)"); } catch (\Throwable $e) {}
+        } catch (\Throwable $e) {
+            // No bloquear si el usuario de BD no tiene permisos DDL.
         }
     }
 
@@ -816,6 +1326,8 @@ class TrackingRecoleccion extends Model
                 atr.estado,
                 atr.municipio,
                 atr.fecha_programada,
+                atr.fecha_finalizacion,
+                DATE_FORMAT(atr.fecha_finalizacion, '%d/%m/%Y') AS fecha_finalizacion_fmt,
                 CONCAT(DATE_FORMAT(atr.fecha_programada, '%d/'), ELT(MONTH(atr.fecha_programada), 'Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'), DATE_FORMAT(atr.fecha_programada, '/%Y')) AS fecha_programada_fmt,
                 TIME_FORMAT(atr.hora_inicial, '%H:%i') AS hora_inicial,
                 atr.estatus_ruta,
@@ -847,6 +1359,7 @@ class TrackingRecoleccion extends Model
                 atr.estado,
                 atr.municipio,
                 atr.fecha_programada,
+                atr.fecha_finalizacion,
                 atr.hora_inicial,
                 atr.estatus_ruta,
                 atr.id_transportista,
@@ -929,6 +1442,8 @@ class TrackingRecoleccion extends Model
                 'estatus_ruta' => $estatus,
                 'fecha_programada' => (string) ($r['fecha_programada'] ?? ''),
                 'fecha_programada_fmt' => (string) ($r['fecha_programada_fmt'] ?? ''),
+                'fecha_finalizacion' => (string) ($r['fecha_finalizacion'] ?? ''),
+                'fecha_finalizacion_fmt' => (string) ($r['fecha_finalizacion_fmt'] ?? ''),
                 'hora_inicial' => (string) ($r['hora_inicial'] ?? ''),
                 'estado' => (string) ($r['estado'] ?? ''),
                 'municipio' => (string) ($r['municipio'] ?? ''),
@@ -1684,6 +2199,7 @@ class TrackingRecoleccion extends Model
         $estado    = $this->sanitizarUbicacionMayus($data['estado'] ?? '', 100);
         $municipio = $this->sanitizarUbicacionMayus($data['municipio'] ?? '', 100);
         $fechaStr  = trim((string) ($data['fecha_programada'] ?? ''));
+        $fechaFinalStr = trim((string) ($data['fecha_finalizacion'] ?? ''));
         $creditos  = is_array($data['creditos'] ?? null) ? $data['creditos'] : [];
         $tipoTransportista = strtolower(trim((string) ($data['tipo_transportista'] ?? '')));
         $idTransportista   = (int) ($data['id_transportista'] ?? 0);
@@ -1720,6 +2236,9 @@ class TrackingRecoleccion extends Model
             $diasMinimosBorrador = ConfigMotosAdj::obtenerDiasMinimosRuta();
             $fechaStr = (new \DateTime('today'))->modify('+' . $diasMinimosBorrador . ' days')->format('Y-m-d');
         }
+        if ($fechaFinalStr === '' && $fechaStr !== '') {
+            $fechaFinalStr = $fechaStr;
+        }
         if ($modo !== 'borrador' && empty($creditos)) {
             return ['success' => false, 'message' => 'Debe agregar al menos un crédito a la ruta.'];
         }
@@ -1743,6 +2262,10 @@ class TrackingRecoleccion extends Model
         $fechaOk = $this->validarFechaProgramada($fechaStr);
         if ($fechaOk !== null) {
             return ['success' => false, 'message' => $fechaOk];
+        }
+        $fechaFinalOk = $this->validarFechaFinalizacion($fechaStr, $fechaFinalStr);
+        if ($fechaFinalOk !== null) {
+            return ['success' => false, 'message' => $fechaFinalOk];
         }
 
         // Validaciones adicionales para enviar (no borrador, no actualizar)
@@ -1900,7 +2423,7 @@ class TrackingRecoleccion extends Model
                 $this->db->CRUD(
                     "UPDATE asigna_horas_tracking
                      SET nombre_ruta = :n, estado = :e, municipio = :m,
-                         fecha_programada = :f, estatus_ruta = :er,
+                         fecha_programada = :f, fecha_finalizacion = :ff, estatus_ruta = :er,
                          tipo_transportista = :tt, id_transportista = :it, id_agencia_tracking = :iat, id_cedis_destino = :icd,
                          fecha_actualizacion = :fa{$setHora}
                      WHERE id_ruta = :id",
@@ -1910,6 +2433,7 @@ class TrackingRecoleccion extends Model
                             'e'  => $estado,
                             'm'  => $municipio,
                             'f'  => $fechaStr,
+                            'ff' => $fechaFinalStr,
                             'er' => $estatusRuta,
                             'tt' => $tipoTransportista !== '' ? $tipoTransportista : null,
                             'it' => $idTransportista > 0 ? $idTransportista : null,
@@ -1922,18 +2446,20 @@ class TrackingRecoleccion extends Model
                     )
                 );
                 // Limpiar y reinsertar detalle; se purgan asignaciones legacy de usuarios.
+                try { $this->db->CRUD('DELETE FROM tracking_ruta_planeacion_dias WHERE id_ruta = :id', ['id' => $idRuta]); } catch (\Throwable $e) {}
                 $this->db->CRUD('DELETE FROM asigna_horas_tracking_detalle WHERE id_ruta = :id', ['id' => $idRuta]);
                 $this->db->CRUD('DELETE FROM asigna_horas_tracking_usuarios WHERE id_ruta = :id', ['id' => $idRuta]);
             } else {
                 $this->db->CRUD(
                     'INSERT INTO asigna_horas_tracking
-                         (nombre_ruta, estado, municipio, fecha_programada, hora_inicial, tipo_transportista, id_transportista, id_agencia_tracking, id_cedis_destino, estatus_ruta, creado_por, fecha_creacion, fecha_actualizacion)
-                     VALUES (:n, :e, :m, :f, :hi, :tt, :it, :iat, :icd, :er, :cp, :fc, :fa)',
+                         (nombre_ruta, estado, municipio, fecha_programada, fecha_finalizacion, hora_inicial, tipo_transportista, id_transportista, id_agencia_tracking, id_cedis_destino, estatus_ruta, creado_por, fecha_creacion, fecha_actualizacion)
+                     VALUES (:n, :e, :m, :f, :ff, :hi, :tt, :it, :iat, :icd, :er, :cp, :fc, :fa)',
                     [
                         'n'  => $nombre,
                         'e'  => $estado,
                         'm'  => $municipio,
                         'f'  => $fechaStr,
+                        'ff' => $fechaFinalStr,
                         'hi' => $horaFmt,
                         'tt' => $tipoTransportista !== '' ? $tipoTransportista : null,
                         'it' => $idTransportista > 0 ? $idTransportista : null,
@@ -1953,6 +2479,7 @@ class TrackingRecoleccion extends Model
             }
 
             // Insertar detalle de créditos
+            $detallesInsertadosPlaneacion = [];
             foreach ($creditos as $i => $det) {
                 $idCredito = (int) ($det['id_credito'] ?? 0);
                 if ($idCredito <= 0) {
@@ -2004,7 +2531,17 @@ class TrackingRecoleccion extends Model
                         'hf' => $horaEtaFin,
                     ]
                 );
+                $idDetalleNuevo = (int) $this->db->lastInsertId();
+                if ($idDetalleNuevo > 0) {
+                    $detallesInsertadosPlaneacion[] = [
+                        'id_detalle' => $idDetalleNuevo,
+                        'orden_ruta' => (int) ($det['orden_ruta'] ?? ($i + 1)),
+                        'credito' => $det,
+                    ];
+                }
             }
+
+            $this->sincronizarPlaneacionDesdeCreditos($idRuta, $detallesInsertadosPlaneacion, $fechaStr, $idUsuario, $idTransportista);
 
             $this->db->commit();
             return ['success' => true, 'id_ruta' => $idRuta, 'estatus_ruta' => $estatusRuta];
@@ -2052,6 +2589,8 @@ class TrackingRecoleccion extends Model
             atr.municipio,
             CONCAT(DATE_FORMAT(atr.fecha_programada, \'%d/\'), ELT(MONTH(atr.fecha_programada), \'Enero\',\'Febrero\',\'Marzo\',\'Abril\',\'Mayo\',\'Junio\',\'Julio\',\'Agosto\',\'Septiembre\',\'Octubre\',\'Noviembre\',\'Diciembre\'), DATE_FORMAT(atr.fecha_programada, \'/%Y\')) AS fecha_programada_fmt,
             atr.fecha_programada,
+            atr.fecha_finalizacion,
+            DATE_FORMAT(atr.fecha_finalizacion, \'%d/%m/%Y\') AS fecha_finalizacion_fmt,
             atr.estatus_ruta,
             atr.creado_por,
             atr.fecha_creacion,
@@ -2121,6 +2660,8 @@ class TrackingRecoleccion extends Model
             atr.municipio,
             CONCAT(DATE_FORMAT(atr.fecha_programada, \'%d/\'), ELT(MONTH(atr.fecha_programada), \'Enero\',\'Febrero\',\'Marzo\',\'Abril\',\'Mayo\',\'Junio\',\'Julio\',\'Agosto\',\'Septiembre\',\'Octubre\',\'Noviembre\',\'Diciembre\'), DATE_FORMAT(atr.fecha_programada, \'/%Y\')) AS fecha_programada_fmt,
             atr.fecha_programada,
+            atr.fecha_finalizacion,
+            DATE_FORMAT(atr.fecha_finalizacion, \'%d/%m/%Y\') AS fecha_finalizacion_fmt,
             atr.estatus_ruta,
             atr.creado_por,
             atr.fecha_creacion,
@@ -2215,6 +2756,7 @@ class TrackingRecoleccion extends Model
                     cedis_dest.link_ubicacion AS cedis_destino_link_ubicacion,
                     TRIM(CONCAT_WS(' ', creador.nombres, creador.segundo_nombre, creador.apellidop, creador.apellidom)) AS creado_por_nombre,
                     CONCAT(DATE_FORMAT(atr.fecha_programada, '%d/'), ELT(MONTH(atr.fecha_programada), 'Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'), DATE_FORMAT(atr.fecha_programada, '/%Y')) AS fecha_programada_fmt,
+                    DATE_FORMAT(atr.fecha_finalizacion, '%d/%m/%Y') AS fecha_finalizacion_fmt,
                     DATE_FORMAT(atr.fecha_creacion,   '%d/%m/%Y %H:%i') AS fecha_creacion_fmt,
                     DATE_FORMAT(atr.fecha_actualizacion, '%d/%m/%Y %H:%i') AS fecha_actualizacion_fmt,
                     DATE_FORMAT(atr.fecha_cancelacion, '%d/%m/%Y %H:%i') AS fecha_cancelacion_fmt
@@ -2230,14 +2772,27 @@ class TrackingRecoleccion extends Model
             if (!$cabecera) {
                 return null;
             }
+            $this->asegurarPlaneacionBaseRuta($idRuta);
             $detalles = $this->db->queryAll(
                 "SELECT
                     atd.*,
                     DATE_FORMAT(atd.fecha_agregado, '%d/%m/%Y %H:%i') AS fecha_agregado_fmt,
+                    pd.fecha_recoleccion AS fecha_planeacion,
+                    pd.orden_dia AS orden_dia,
+                    pd.estatus_planeacion,
+                    pd.day_index,
+                    pd.arrival_minutes,
+                    pd.departure_minutes,
+                    pd.travel_from_prev_minutes,
+                    pd.operation_minutes,
+                    pd.pinned,
+                    pd.edited,
+                    DATE_FORMAT(pd.fecha_recoleccion, '%d/%m/%Y') AS fecha_planeacion_fmt,
                     ao.nombre_cliente,
                     ao.estatus AS estatus_proceso,
                     TRIM(CONCAT_WS(' ', per.nombres, per.apellidop)) AS gestor_nombre
                  FROM asigna_horas_tracking_detalle atd
+                 LEFT JOIN tracking_ruta_planeacion_dias pd ON pd.id_detalle = atd.id_detalle
                  LEFT JOIN adj_operacion ao ON ao.id_credito = atd.id_credito
                  LEFT JOIN asigna_creditos_adjudicacion aca
                      ON aca.id_credito = atd.id_credito AND aca.estatus = '1'
@@ -2553,6 +3108,22 @@ class TrackingRecoleccion extends Model
         $minFecha = (clone $hoy)->modify('+' . $diasMinimos . ' days');
         if ($fecha < $minFecha) {
             return 'La fecha programada debe ser al menos ' . $diasMinimos . ' dia(s) despues de hoy.';
+        }
+        return null;
+    }
+
+    private function validarFechaFinalizacion(string $fechaInicioStr, string $fechaFinalStr): ?string
+    {
+        if ($fechaFinalStr === '') {
+            return 'La fecha final es obligatoria.';
+        }
+        $fechaInicio = \DateTime::createFromFormat('Y-m-d', $fechaInicioStr);
+        $fechaFinal = \DateTime::createFromFormat('Y-m-d', $fechaFinalStr);
+        if ($fechaInicio === false || $fechaFinal === false) {
+            return 'Formato de fecha final no valido. Use YYYY-MM-DD.';
+        }
+        if ($fechaFinal < $fechaInicio) {
+            return 'La fecha final no puede ser anterior a la fecha de inicio.';
         }
         return null;
     }

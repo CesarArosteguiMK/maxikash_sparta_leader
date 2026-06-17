@@ -620,7 +620,7 @@ public static function getConvenioActivo($id_credito)
                     $filaC['pagos_secundarios'] = $mapaSecundariosC[$numSemC] ?? [];
 
                     // Solo conciliar filas que aún no están pagadas/canceladas
-                    if (!in_array($filaC['estatus_pago'], ['pendiente_conciliar', 'pendiente', 'vencido'])) {
+                    if (!in_array($filaC['estatus_pago'], ['pendiente_conciliar', 'pendiente', 'vencido', 'parcial'])) {
                         // Backfill monto_secundario en filas ya pagadas
                         if ($filaC['estatus_pago'] === 'pagado'
                             && !empty($mapaSecundariosC[$numSemC])
@@ -850,7 +850,7 @@ public static function getConvenioActivo($id_credito)
             $idPago = $mapaCuotas[$numSem] ?? null;
 
             if ($idPago !== null
-                && in_array($fila['estatus_pago'], ['pendiente', 'vencido', 'pendiente_conciliar'])
+                && in_array($fila['estatus_pago'], ['pendiente', 'vencido', 'pendiente_conciliar', 'parcial'])
             ) {
                 // S2 confirma pago → registrar monto real y determinar estatus.
                 // mapaMontos puede contener el monto acumulado de varios pagos S2 combinados
