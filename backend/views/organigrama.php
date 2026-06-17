@@ -215,6 +215,8 @@
     }
 
     /* Selects: mismo ancho máximo (departamento/puesto usan el mismo wrapper con búsqueda que persona/niveles) */
+    #dirSelect,
+    #areaSelect,
     #depSelect,
     #personaPuestoSelect,
     #personaSelect,
@@ -363,19 +365,31 @@
     @keyframes orgEasterFwBurst { 0% { opacity: 1; transform: translate(-50%, -50%) scale(1); } 100% { opacity: 0; transform: translate(calc(-50% + var(--ofw-tx)), calc(-50% + var(--ofw-ty))) scale(0.3); } }
 </style>
 
-<h4 class="mb-4" id="organigramaEasterTitle">Organigrama por Departamento</h4>
+<h4 class="mb-4" id="organigramaEasterTitle">Organigrama por Estructura</h4>
 
 <div class="card min-vh-100">
     <div class="card-body p-4">
         <!-- Fila 1: Departamento, Persona (máx rango), Puesto (si tiene varios), Nivel 1 (dinámico) -->
         <div class="row mb-3 align-items-end">
-            <div class="col-md-3 mb-3">
+            <div class="col-md-3 mb-3" id="dirSelectSlot">
+                <label for="dirSelect" class="form-label"><strong>Direccion:</strong></label>
+                <select id="dirSelect" class="form-select">
+                    <option value="">Seleccione direccion</option>
+                </select>
+            </div>
+            <div class="col-md-3 mb-3 d-none" id="areaSelectSlot">
+                <label for="areaSelect" class="form-label"><strong>Area:</strong></label>
+                <select id="areaSelect" class="form-select" disabled>
+                    <option value="">Seleccione direccion primero</option>
+                </select>
+            </div>
+            <div class="col-md-3 mb-3 d-none" id="depSelectSlot">
                 <label for="depSelect" class="form-label"><strong>Departamento:</strong></label>
-                <select id="depSelect" class="form-select">
+                <select id="depSelect" class="form-select" disabled>
                     <?php echo $Departamentos; ?>
                 </select>
             </div>
-            <div class="col-md-3 mb-3">
+            <div class="col-md-3 mb-3 d-none" id="personaSelectSlot">
                 <label for="personaSelect" class="form-label"><strong>Selecciona persona (máximo rango):</strong></label>
                 <select id="personaSelect" class="form-select" disabled>
                     <option value="">-- Selecciona un departamento primero --</option>
@@ -617,6 +631,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <script>
     window.puedeEditarTodosOrganigrama = <?= json_encode(!empty($puedeEditarTodos ?? false)) ?>;
+    window.organigramaDepartamentosCatalogo = <?= json_encode($DepartamentosOrganigrama ?? [], JSON_UNESCAPED_UNICODE) ?>;
 
     function setModoEdicionOrganigrama() {
         var rowContrasena = document.getElementById('edit_row_contrasena');
@@ -816,6 +831,8 @@
         let organigramaRows = [];
         let organigramaRowsBase = [];
         var personaSearchSelect = null;
+        var dirSearchSelect = null;
+        var areaSearchSelect = null;
         var depSearchSelect = null;
         var puestoSearchSelect = null;
 
@@ -830,6 +847,152 @@
                 puestoSearchSelect.destroy();
                 puestoSearchSelect = null;
             }
+        }
+
+        function normalizarTextoOrg(valor, fallback) {
+            var texto = String(valor || '').replace(/\s+/g, ' ').trim();
+            return texto || fallback || '';
+        }
+
+        function refrescarSelectBuscadorOrg(instance) {
+            if (instance && typeof instance.refresh === 'function') {
+                instance.refresh();
+            }
+        }
+
+        function setVisibleOrgSlot(id, visible) {
+            var el = document.getElementById(id);
+            if (!el) return;
+            el.classList.toggle('d-none', !visible);
+        }
+
+        function actualizarVisibilidadFiltrosOrganigrama() {
+            var dirValue = document.getElementById("dirSelect")?.value || "";
+            var areaValue = document.getElementById("areaSelect")?.value || "";
+            var depValue = document.getElementById("depSelect")?.value || "";
+
+            setVisibleOrgSlot("areaSelectSlot", !!dirValue);
+            setVisibleOrgSlot("depSelectSlot", !!dirValue && !!areaValue);
+            setVisibleOrgSlot("personaSelectSlot", !!dirValue && !!areaValue && !!depValue);
+        }
+
+        function resetSeleccionOrganigrama(mensajePersona) {
+            var personaSelect = document.getElementById("personaSelect");
+            var puestoSlot = document.getElementById("personaPuestoSlot");
+            var puestoSelect = document.getElementById("personaPuestoSelect");
+
+            if (puestoSlot) puestoSlot.style.display = "none";
+            destroyPuestoSearchIfAny();
+            if (puestoSelect) {
+                puestoSelect.innerHTML = "<option value=\"\">-- Selecciona un puesto --</option>";
+                puestoSelect.value = "";
+            }
+            destroyPersonaSearchIfAny();
+            if (personaSelect) {
+                personaSelect.innerHTML = "<option value=\"\">" + (mensajePersona || "-- Selecciona un departamento primero --") + "</option>";
+                personaSelect.disabled = true;
+                personaSelect.value = "";
+            }
+
+            document.getElementById("resultado").innerHTML = "";
+            document.getElementById("orgTituloSeleccion").textContent = "";
+            document.getElementById("chart").innerHTML = "";
+            document.getElementById("personaLevel1Slot").innerHTML = "";
+            document.getElementById("personaLevelsContainer").innerHTML = "";
+            organigramaRows = [];
+            organigramaRowsBase = [];
+            mostrarLoadingOrganigrama(false);
+            actualizarHistorialPuestos();
+            document.getElementById("btnGuardarOrganigrama").disabled = true;
+            actualizarVisibilidadFiltrosOrganigrama();
+        }
+
+        function renderDireccionesOrganigrama() {
+            var dirSelect = document.getElementById("dirSelect");
+            var areaSelect = document.getElementById("areaSelect");
+            var depSelect = document.getElementById("depSelect");
+            depSelect.innerHTML = "<option value=\"\">Seleccione area primero</option>";
+            depSelect.disabled = true;
+            var catalogo = Array.isArray(window.organigramaDepartamentosCatalogo) ? window.organigramaDepartamentosCatalogo : [];
+            var mapa = new Map();
+
+            catalogo.forEach(function (dep) {
+                var id = String(dep.id_direccion || 0);
+                var nombre = normalizarTextoOrg(dep.nombre_direccion, "Sin direccion");
+                if (!mapa.has(id)) mapa.set(id, nombre);
+            });
+
+            dirSelect.innerHTML = '<option value="">Seleccione direccion</option>';
+            Array.from(mapa.entries()).sort(function (a, b) { return a[1].localeCompare(b[1]); }).forEach(function (row) {
+                var opt = document.createElement("option");
+                opt.value = row[0];
+                opt.textContent = row[1];
+                dirSelect.appendChild(opt);
+            });
+            dirSelect.disabled = mapa.size === 0;
+
+            areaSelect.innerHTML = '<option value="">Seleccione direccion primero</option>';
+            areaSelect.disabled = true;
+            depSelect.innerHTML = '<option value="">Seleccione area primero</option>';
+            depSelect.disabled = true;
+
+            refrescarSelectBuscadorOrg(dirSearchSelect);
+            refrescarSelectBuscadorOrg(areaSearchSelect);
+            refrescarSelectBuscadorOrg(depSearchSelect);
+        }
+
+        function renderAreasOrganigrama(idDireccion) {
+            var areaSelect = document.getElementById("areaSelect");
+            var depSelect = document.getElementById("depSelect");
+            var catalogo = Array.isArray(window.organigramaDepartamentosCatalogo) ? window.organigramaDepartamentosCatalogo : [];
+            var mapa = new Map();
+            var idDir = String(idDireccion || "");
+
+            catalogo.forEach(function (dep) {
+                if (String(dep.id_direccion || 0) !== idDir) return;
+                var id = String(dep.id_area || 0);
+                var nombre = normalizarTextoOrg(dep.nombre_area, "Sin area");
+                if (!mapa.has(id)) mapa.set(id, nombre);
+            });
+
+            areaSelect.innerHTML = '<option value="">Seleccione area</option>';
+            Array.from(mapa.entries()).sort(function (a, b) { return a[1].localeCompare(b[1]); }).forEach(function (row) {
+                var opt = document.createElement("option");
+                opt.value = row[0];
+                opt.textContent = row[1];
+                areaSelect.appendChild(opt);
+            });
+            areaSelect.disabled = !idDir || mapa.size === 0;
+
+            depSelect.innerHTML = '<option value="">Seleccione area primero</option>';
+            depSelect.disabled = true;
+            refrescarSelectBuscadorOrg(areaSearchSelect);
+            refrescarSelectBuscadorOrg(depSearchSelect);
+        }
+
+        function renderDepartamentosOrganigrama(idArea) {
+            var depSelect = document.getElementById("depSelect");
+            var catalogo = Array.isArray(window.organigramaDepartamentosCatalogo) ? window.organigramaDepartamentosCatalogo : [];
+            var mapa = new Map();
+            var idAreaStr = String(idArea || "");
+
+            catalogo.forEach(function (dep) {
+                if (String(dep.id_area || 0) !== idAreaStr) return;
+                var id = String(dep.id || "");
+                if (!id) return;
+                var nombre = normalizarTextoOrg(dep.nombre, "Departamento");
+                if (!mapa.has(id)) mapa.set(id, nombre);
+            });
+
+            depSelect.innerHTML = '<option value="">Seleccione departamento</option>';
+            Array.from(mapa.entries()).sort(function (a, b) { return a[1].localeCompare(b[1]); }).forEach(function (row) {
+                var opt = document.createElement("option");
+                opt.value = row[0];
+                opt.textContent = row[1];
+                depSelect.appendChild(opt);
+            });
+            depSelect.disabled = !idAreaStr || mapa.size === 0;
+            refrescarSelectBuscadorOrg(depSearchSelect);
         }
 
         function getSubordinadosDirectos(idJefe) {
@@ -1764,6 +1927,21 @@
         window.guardarJefePersonaOrganigrama = guardarJefePersonaOrganigrama;
 
         /* ============================= */
+        /*   SELECT DIRECCION / AREA      */
+        /* ============================= */
+        document.getElementById("dirSelect").addEventListener("change", function () {
+            renderAreasOrganigrama(this.value);
+            resetSeleccionOrganigrama("-- Selecciona un departamento primero --");
+            actualizarVisibilidadFiltrosOrganigrama();
+        });
+
+        document.getElementById("areaSelect").addEventListener("change", function () {
+            renderDepartamentosOrganigrama(this.value);
+            resetSeleccionOrganigrama("-- Selecciona un departamento primero --");
+            actualizarVisibilidadFiltrosOrganigrama();
+        });
+
+        /* ============================= */
         /*   SELECT DEPARTAMENTO          */
         /* ============================= */
         document.getElementById("depSelect").addEventListener("change", function () {
@@ -1788,6 +1966,7 @@
             mostrarLoadingOrganigrama(false);
             actualizarHistorialPuestos();
             document.getElementById("btnGuardarOrganigrama").disabled = true;
+            actualizarVisibilidadFiltrosOrganigrama();
 
             if (!dep_id) {
                 destroyPersonaSearchIfAny();
@@ -1932,8 +2111,17 @@
         /*   BOTÓN LIMPIAR               */
         /* ============================= */
         document.getElementById("btnLimpiarOrganigrama").addEventListener("click", function () {
+            var dirSelect = document.getElementById("dirSelect");
+            var areaSelect = document.getElementById("areaSelect");
+            dirSelect.value = "";
+            if (dirSearchSelect) dirSearchSelect.refresh();
+            areaSelect.innerHTML = "<option value=\"\">Seleccione direccion primero</option>";
+            areaSelect.disabled = true;
+            if (areaSearchSelect) areaSearchSelect.refresh();
             var depSelect = document.getElementById("depSelect");
             depSelect.selectedIndex = 0; // "Seleccione una opción"
+            depSelect.innerHTML = "<option value=\"\">Seleccione area primero</option>";
+            depSelect.disabled = true;
             if (depSearchSelect) depSearchSelect.refresh();
             var personaSelect = document.getElementById("personaSelect");
             destroyPersonaSearchIfAny();
@@ -1960,6 +2148,7 @@
                 var chartLimpiar = document.getElementById("chart");
                 if (chartLimpiar) chartLimpiar.style.transform = `scale(${scale})`;
             } catch (eLim) {}
+            actualizarVisibilidadFiltrosOrganigrama();
         });
 
         /* ============================= */
@@ -2322,7 +2511,11 @@
             }, true);
         }
 
+        dirSearchSelect = new SearchableSelect(document.getElementById("dirSelect"));
+        areaSearchSelect = new SearchableSelect(document.getElementById("areaSelect"));
         depSearchSelect = new SearchableSelect(document.getElementById("depSelect"));
+        renderDireccionesOrganigrama();
+        actualizarVisibilidadFiltrosOrganigrama();
         inicializarPanOrganigrama();
 
         window.addEventListener('resize', ajustarEscalaChart);

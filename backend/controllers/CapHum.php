@@ -2053,6 +2053,49 @@ class CapHum extends Controller
                     });
                 }
 
+                function seleccionJerarquiaActualPuestos() {
+                    return {
+                        pais: Array.from(perfilPuestosState.selected.pais).map(Number).filter(Boolean),
+                        area: Array.from(perfilPuestosState.selected.area).map(Number).filter(Boolean),
+                        departamento: Array.from(perfilPuestosState.selected.departamento).map(Number).filter(Boolean),
+                        puesto: Array.from(perfilPuestosState.selected.puesto).map(Number).filter(Boolean)
+                    };
+                }
+
+                function guardarPuestosAutoPerfil() {
+                    if (!currentPersonaId) return Promise.resolve(false);
+                    return fetch('/caphum/guardarPermisosPuestos', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Accept': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            idPersona: parseInt(currentPersonaId, 10),
+                            puestos: Array.from(perfilPuestosState.selected.puesto).map(Number).filter(Boolean),
+                            jerarquia: seleccionJerarquiaActualPuestos()
+                        })
+                    })
+                    .then(res => res.json())
+                    .then(data => {
+                        if (!data.success) {
+                            throw new Error(data.mensaje || 'No se pudieron guardar los accesos a puestos.');
+                        }
+                        if (typeof getUsuarios === 'function') getUsuarios({ showLoader: false });
+                        return true;
+                    })
+                    .catch(err => {
+                        console.error('guardarPuestosAutoPerfil:', err);
+                        Swal.fire({
+                            icon: 'error',
+                            title: 'No se guardó',
+                            text: err && err.message ? err.message : 'No se pudieron guardar los accesos a puestos.',
+                            customClass: { container: 'swal-sobre-modal-perfil' }
+                        });
+                        return false;
+                    });
+                }
+
                 function actualizarTotalesFooter(paisObj) {
                     const ids = puestosDePais(paisObj);
                     const st = estadoMaster(ids);
@@ -2089,6 +2132,7 @@ class CapHum extends Controller
                             aplicarSeleccionPuestos(idsPais, cb.checked);
                             renderSidebar();
                             renderPaisActivo();
+                            guardarPuestosAutoPerfil();
                         });
 
                         item.append(left, cb);
@@ -2144,6 +2188,7 @@ class CapHum extends Controller
                     switchPais.onchange = function () {
                         if (switchPais.checked) perfilPuestosState.selected.pais.add(String(pais.id));
                         else perfilPuestosState.selected.pais.delete(String(pais.id));
+                        guardarPuestosAutoPerfil();
                     };
 
                     const q = String(inputBuscar.value || '').trim().toLowerCase();
@@ -2181,6 +2226,7 @@ class CapHum extends Controller
                             aplicarSeleccionPuestos(idsArea, true);
                             renderSidebar();
                             renderPaisActivo();
+                            guardarPuestosAutoPerfil();
                         });
                         const areaMaster = document.createElement('input');
                         areaMaster.type = 'checkbox';
@@ -2195,6 +2241,7 @@ class CapHum extends Controller
                             if (areaMaster.checked) perfilPuestosState.selected.area.add(areaId); else perfilPuestosState.selected.area.delete(areaId);
                             renderSidebar();
                             renderPaisActivo();
+                            guardarPuestosAutoPerfil();
                         });
                         rightActions.append(btnMarkAll, areaMaster);
                         areaHeader.appendChild(rightActions);
@@ -2220,6 +2267,7 @@ class CapHum extends Controller
                         swArea.addEventListener('change', function () {
                             if (swArea.checked) perfilPuestosState.selected.area.add(areaId);
                             else perfilPuestosState.selected.area.delete(areaId);
+                            guardarPuestosAutoPerfil();
                         });
                         swWrap.appendChild(swArea);
                         directArea.appendChild(swWrap);
@@ -2248,6 +2296,7 @@ class CapHum extends Controller
                                 aplicarSeleccionPuestos(depIds, true);
                                 renderSidebar();
                                 renderPaisActivo();
+                                guardarPuestosAutoPerfil();
                             });
                             const depMaster = document.createElement('input');
                             depMaster.type = 'checkbox';
@@ -2262,6 +2311,7 @@ class CapHum extends Controller
                                 if (depMaster.checked) perfilPuestosState.selected.departamento.add(depId); else perfilPuestosState.selected.departamento.delete(depId);
                                 renderSidebar();
                                 renderPaisActivo();
+                                guardarPuestosAutoPerfil();
                             });
                             depActions.append(depMark, depMaster);
                             depHeader.appendChild(depActions);
@@ -2292,6 +2342,7 @@ class CapHum extends Controller
                                     else perfilPuestosState.selected.puesto.delete(String(pu.id));
                                     renderSidebar();
                                     renderPaisActivo();
+                                    guardarPuestosAutoPerfil();
                                 });
                                 row.append(lbl, cb);
                                 puestosWrap.appendChild(row);
@@ -6301,6 +6352,7 @@ class CapHum extends Controller
                 var selDepto = document.getElementById("UserRole");
                 var selPuesto = document.getElementById("UserPlan");
                 var selEstatus = document.getElementById("FilterTransaction");
+                var selJefe = document.getElementById("FilterJefeCandidato");
                 var data = {};
                 if (window.candidatosSoloValidacionFinal) {
                     if (selEstatus) {
@@ -6312,6 +6364,7 @@ class CapHum extends Controller
                 }
                 if (selDepto && selDepto.value) data.id_departamento = selDepto.value;
                 if (selPuesto && selPuesto.value) data.id_puesto = selPuesto.value;
+                if (selJefe && selJefe.value) data.id_posible_jefe = selJefe.value;
 
                 http.request({
                     endpoint: "/caphum/getCandidatos",
@@ -6370,6 +6423,8 @@ class CapHum extends Controller
                                         nombre_puesto: candidato.nombre_puesto,
                                         nombre_departamento: candidato.nombre_departamento,
                                         id_departamento: candidato.id_departamento,
+                                        id_posible_jefe: candidato.id_posible_jefe,
+                                        nombre_jefe: candidato.nombre_jefe,
                                         estatus: candidato.estatus,
                                         postulacion_enviada: candidato.postulacion_enviada,
                                         fecha_ingreso_programada: candidato.fecha_ingreso_programada,
@@ -6542,12 +6597,15 @@ class CapHum extends Controller
                                 candidatosFiltrosLlenos = true;
                                 var deptMap = {};
                                 var puestoMap = {};
+                                var jefeMap = {};
                                 candidatosConsolidados.forEach(function(c) {
                                     if (c.id_departamento && c.nombre_departamento) deptMap[c.id_departamento] = c.nombre_departamento;
                                     if (c.id_puesto && c.nombre_puesto) puestoMap[c.id_puesto] = c.nombre_puesto;
+                                    if (c.id_posible_jefe && c.nombre_jefe) jefeMap[c.id_posible_jefe] = c.nombre_jefe;
                                 });
                                 var selD = document.getElementById("UserRole");
                                 var selP = document.getElementById("UserPlan");
+                                var selJ = document.getElementById("FilterJefeCandidato");
                                 if (selD) {
                                     var opts = selD.querySelectorAll("option");
                                     for (var i = opts.length - 1; i >= 1; i--) opts[i].remove();
@@ -6566,6 +6624,16 @@ class CapHum extends Controller
                                         o.value = k;
                                         o.textContent = puestoMap[k];
                                         selP.appendChild(o);
+                                    }
+                                }
+                                if (selJ) {
+                                    var opts = selJ.querySelectorAll("option");
+                                    for (var i = opts.length - 1; i >= 1; i--) opts[i].remove();
+                                    for (var k in jefeMap) {
+                                        var o = document.createElement("option");
+                                        o.value = k;
+                                        o.textContent = jefeMap[k];
+                                        selJ.appendChild(o);
                                     }
                                 }
                             }
@@ -9669,15 +9737,18 @@ class CapHum extends Controller
         var selDepto = document.getElementById("UserRole");
         var selPuesto = document.getElementById("UserPlan");
         var selEstatus = document.getElementById("FilterTransaction");
+        var selJefeFiltro = document.getElementById("FilterJefeCandidato");
         if (selDepto) selDepto.addEventListener("change", function() { getCandidatos(); });
         if (selPuesto) selPuesto.addEventListener("change", function() { getCandidatos(); });
         if (selEstatus) selEstatus.addEventListener("change", function() { getCandidatos(); });
+        if (selJefeFiltro) selJefeFiltro.addEventListener("change", function() { getCandidatos(); });
         var btnLimpiarFiltros = document.getElementById("btnLimpiarFiltrosCandidatos");
         if (btnLimpiarFiltros) {
             btnLimpiarFiltros.addEventListener("click", function() {
                 if (selDepto) selDepto.value = "";
                 if (selPuesto) selPuesto.value = "";
                 if (selEstatus) selEstatus.value = "";
+                if (selJefeFiltro) selJefeFiltro.value = "";
                 getCandidatos();
             });
         }
@@ -10308,10 +10379,11 @@ class CapHum extends Controller
         $estatus = isset($_GET["estatus"]) ? trim($_GET["estatus"]) : null;
         $id_departamento = isset($_GET["id_departamento"]) ? (int) $_GET["id_departamento"] : null;
         $id_puesto = isset($_GET["id_puesto"]) ? (int) $_GET["id_puesto"] : null;
+        $id_posible_jefe = isset($_GET["id_posible_jefe"]) ? (int) $_GET["id_posible_jefe"] : null;
         if (self::esSoloValidadorFinalCandidatos()) {
             $estatus = ['Pendiente de validacion final', 'Ingreso programado'];
         }
-        $resultado = CandidatosDAO::getAll($estatus, $id_departamento, $id_puesto);
+        $resultado = CandidatosDAO::getAll($estatus, $id_departamento, $id_puesto, $id_posible_jefe);
         if (self::esSoloValidadorFinalCandidatos() && $resultado['success'] && !empty($resultado['datos']) && is_array($resultado['datos'])) {
             $resultado['datos'] = array_values(array_filter($resultado['datos'], static function ($candidato): bool {
                 return self::estatusCandidatoEsValidacionFinal($candidato['estatus'] ?? '');
@@ -18550,14 +18622,22 @@ public function getEstadosMunicipiosMexico()
             </script>
         HTML;
 
-        // Organigrama: mostrar todos los departamentos para que cualquier usuario pueda elegir uno
-        $departamentos = CapHumDAO::getTodosDepartamentos();
+        // Organigrama: estructura completa Direccion -> Area -> Departamento.
+        $departamentos = CapHumDAO::getTodosDepartamentosGestion();
 
-        $getDepartamentos = '<option disabled selected>Seleccione una opción</option>';
+        $getDepartamentos = '<option value="">Seleccione un area primero</option>';
+        $departamentosOrganigrama = [];
 
         if (!empty($departamentos['datos'])) {
-            foreach ($departamentos['datos'] as $val2) {
-                $getDepartamentos .= '<option value="' . (int)$val2['id'] . '">' . htmlspecialchars($val2['nombre'], ENT_QUOTES, 'UTF-8') . '</option>';
+            foreach ($departamentos['datos'] as $depOrg) {
+                $departamentosOrganigrama[] = [
+                    'id' => (int)($depOrg['id'] ?? 0),
+                    'nombre' => (string)($depOrg['nombre'] ?? ''),
+                    'id_area' => (int)($depOrg['id_departamento_organizacional'] ?? 0),
+                    'nombre_area' => (string)($depOrg['departamento_organizacional_nombre'] ?? 'Sin area'),
+                    'id_direccion' => (int)($depOrg['id_direccion'] ?? 0),
+                    'nombre_direccion' => (string)($depOrg['direccion_nombre'] ?? 'Sin direccion'),
+                ];
             }
         }
 
@@ -18566,6 +18646,7 @@ public function getEstadosMunicipiosMexico()
         self::set("titulo", "Organigrama Cobranza");
         self::set("script", $script);
         self::set("Departamentos", $getDepartamentos);
+        self::set("DepartamentosOrganigrama", $departamentosOrganigrama);
         self::set("puedeEditarTodos", $puedeEditarTodos);
         self::render("organigrama");
     }

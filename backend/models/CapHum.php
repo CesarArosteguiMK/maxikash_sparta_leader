@@ -615,6 +615,7 @@ class CapHum extends Model
 
     public static function getConsultaGestoresAll($id_gestor_sesion, $tieneDepartamento = true)
     {
+        $id_gestor_sesion = (int)$id_gestor_sesion;
         $sqlExP = UsuarioFantasmaReporteria::sqlExcluirPersona('p');
         $sqlExP2 = UsuarioFantasmaReporteria::sqlExcluirPersona('p2');
 
@@ -622,9 +623,16 @@ class CapHum extends Model
         // VER TODOS: admin O sin departamento asignado (módulo 10)
         // Si no tiene "Organización > Departamentos" asignado → ver todos los usuarios.
         // =========================
-        $verTodos = in_array($id_gestor_sesion, [1, 2, 3, 396, 797]) || !$tieneDepartamento;
+        $verTodos = in_array($id_gestor_sesion, [1, 2, 3, 396, 797], true);
+        $filtroPuestosSesion = $verTodos ? '' : "
+        AND EXISTS (
+            SELECT 1
+            FROM privilegios_departamento pd_perm
+            WHERE pd_perm.idPersona = $id_gestor_sesion
+              AND pd_perm.idPuesto = ap.id_puesto
+        )";
 
-        if ($verTodos) {
+        if (true) {
 
             $query = <<<SQL
             SELECT
@@ -714,6 +722,7 @@ class CapHum extends Model
 
         WHERE p.estatus != 'Baja'
         {$sqlExP}
+        {$filtroPuestosSesion}
 
         ORDER BY pp.nivel ASC;
 

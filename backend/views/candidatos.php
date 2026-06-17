@@ -57,6 +57,12 @@ window.departamentosCandidatoBackend = <?= json_encode($departamentosCandidatoCa
                         <option value="Ingreso programado">Ingreso programado</option>
                     </select>
                 </div>
+                <div class="col-md-3">
+                    <label class="form-label small fw-semibold text-muted" for="FilterJefeCandidato">Jefe</label>
+                    <select id="FilterJefeCandidato" class="form-select text-capitalize">
+                        <option value="">Jefe</option>
+                    </select>
+                </div>
             </div>
         </div>
 

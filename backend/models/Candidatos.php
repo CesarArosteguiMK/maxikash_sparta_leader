@@ -161,7 +161,7 @@ class Candidatos extends Model
     /**
      * Listar todos los candidatos con puesto y departamento de interés.
      */
-    public static function getAll($estatus = null, $id_departamento = null, $id_puesto = null)
+    public static function getAll($estatus = null, $id_departamento = null, $id_puesto = null, $id_posible_jefe = null)
     {
         $query = <<<SQL
             SELECT
@@ -181,6 +181,7 @@ class Candidatos extends Model
                 c.codigo_postal,
                 c.id_puesto,
                 c.id_departamento,
+                c.id_posible_jefe,
                 c.estatus,
                 c.notas,
                 c.estatus,
@@ -199,7 +200,8 @@ class Candidatos extends Model
                 div2.nombre AS nombre_div_nivel2,
                 div3.nombre AS nombre_div_nivel3,
                 p.nombre AS nombre_puesto,
-                d.nombre AS nombre_departamento
+                d.nombre AS nombre_departamento,
+                TRIM(CONCAT_WS(' ', jefe.nombres, jefe.segundo_nombre, jefe.apellidop, jefe.apellidom)) AS nombre_jefe
             FROM candidatos c
             LEFT JOIN paises pais ON pais.id = c.id_pais
             LEFT JOIN divisiones_administrativas div1 ON div1.id = c.id_div_nivel1
@@ -207,6 +209,7 @@ class Candidatos extends Model
             LEFT JOIN divisiones_administrativas div3 ON div3.id = c.id_div_nivel3
             LEFT JOIN puesto p ON p.id = c.id_puesto
             LEFT JOIN departamento d ON d.id = c.id_departamento
+            LEFT JOIN persona jefe ON jefe.id = c.id_posible_jefe
             WHERE 1=1
         SQL;
         $params = [];
@@ -236,6 +239,10 @@ class Candidatos extends Model
         if ($id_puesto !== null && $id_puesto !== '') {
             $query .= " AND c.id_puesto = :id_puesto";
             $params['id_puesto'] = (int) $id_puesto;
+        }
+        if ($id_posible_jefe !== null && $id_posible_jefe !== '') {
+            $query .= " AND c.id_posible_jefe = :id_posible_jefe";
+            $params['id_posible_jefe'] = (int) $id_posible_jefe;
         }
 
         $query .= " ORDER BY c.fecha_registro DESC";

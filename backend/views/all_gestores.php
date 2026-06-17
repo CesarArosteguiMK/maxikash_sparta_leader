@@ -254,6 +254,18 @@
         overflow: hidden;
     }
 
+    #modalEditPerfil .modal-header {
+        background: #fff !important;
+        border-bottom: 1px solid #e9ecef !important;
+    }
+    #modalEditPerfilLabel,
+    #modalEditPerfilLabel i {
+        color: #24364b !important;
+    }
+    #modalEditPerfil_subtitle {
+        color: #64748b !important;
+    }
+
     /* DARK MODE: Modal de Permisos */
     body.dark-mode #modalEditPerfil .modal-content {
       background: rgba(30, 41, 59, 0.92) !important;
