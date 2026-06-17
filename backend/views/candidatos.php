@@ -295,6 +295,20 @@ window.departamentosCandidatoBackend = <?= json_encode($departamentosCandidatoCa
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
             </div>
             <div class="modal-body">
+                <ul class="nav nav-tabs candidate-detail-tabs mb-3" id="modalHistoricoCandidatosTabs" role="tablist">
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link active" id="historico-tab-lista" data-bs-toggle="tab" data-bs-target="#historicoPaneLista" type="button" role="tab">
+                            <i class="fa fa-list me-1"></i>Listado
+                        </button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="historico-tab-metrica" data-bs-toggle="tab" data-bs-target="#historicoPaneMetrica" type="button" role="tab">
+                            <i class="fa fa-chart-line me-1"></i>Metrica global
+                        </button>
+                    </li>
+                </ul>
+                <div class="tab-content">
+                    <div class="tab-pane fade show active" id="historicoPaneLista" role="tabpanel" aria-labelledby="historico-tab-lista">
                 <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
                     <p class="text-muted small mb-0">Consulta candidatos que ya salieron de la bandeja y abre su bitácora completa.</p>
                     <div class="historico-search">
@@ -304,6 +318,11 @@ window.departamentosCandidatoBackend = <?= json_encode($departamentosCandidatoCa
                 <div id="modalHistoricoCandidatosCargando" class="text-center py-4 text-muted">Cargando histórico…</div>
                 <div id="modalHistoricoCandidatosLista" class="historico-list d-none"></div>
                 <div id="modalHistoricoCandidatosVacio" class="text-center py-4 text-muted d-none">No hay candidatos fuera de la bandeja todavía.</div>
+                    </div>
+                    <div class="tab-pane fade" id="historicoPaneMetrica" role="tabpanel" aria-labelledby="historico-tab-metrica">
+                        <div id="modalHistoricoCandidatosMetrica" class="historico-global-metrics"></div>
+                    </div>
+                </div>
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-outline-warning" data-bs-dismiss="modal">Cerrar</button>
@@ -323,7 +342,28 @@ window.departamentosCandidatoBackend = <?= json_encode($departamentosCandidatoCa
             <div class="modal-body">
                 <p class="text-muted small mb-3" id="modalBitacoraCandidatoNombre"></p>
                 <div id="modalBitacoraCandidatoCargando" class="text-center py-4 text-muted">Cargando bitácora…</div>
-                <div id="modalBitacoraCandidatoLista" class="candidate-timeline d-none"></div>
+                <div id="modalBitacoraCandidatoContenido" class="d-none">
+                    <ul class="nav nav-tabs candidate-detail-tabs mb-3" id="modalBitacoraCandidatoTabs" role="tablist">
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link active" id="bitacora-tab-linea" data-bs-toggle="tab" data-bs-target="#bitacoraPaneLinea" type="button" role="tab">
+                                <i class="fa fa-clock-rotate-left me-1"></i>Bitacora
+                            </button>
+                        </li>
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link" id="bitacora-tab-metrica" data-bs-toggle="tab" data-bs-target="#bitacoraPaneMetrica" type="button" role="tab">
+                                <i class="fa fa-chart-line me-1"></i>Metrica
+                            </button>
+                        </li>
+                    </ul>
+                    <div class="tab-content">
+                        <div class="tab-pane fade show active" id="bitacoraPaneLinea" role="tabpanel" aria-labelledby="bitacora-tab-linea">
+                            <div id="modalBitacoraCandidatoLista" class="candidate-timeline"></div>
+                        </div>
+                        <div class="tab-pane fade" id="bitacoraPaneMetrica" role="tabpanel" aria-labelledby="bitacora-tab-metrica">
+                            <div id="modalBitacoraCandidatoMetrica"></div>
+                        </div>
+                    </div>
+                </div>
                 <div id="modalBitacoraCandidatoVacio" class="text-center py-4 text-muted d-none">Sin movimientos registrados.</div>
             </div>
             <div class="modal-footer">
@@ -1139,6 +1179,177 @@ body.dark-mode #modalCerrarProcesoCandidato.modal.show { z-index: 99999 !importa
     font-weight: 700;
     padding: .25rem .55rem;
     margin-top: .45rem;
+}
+
+#modalBitacoraCandidato .candidate-detail-tabs .nav-link {
+    color: #64748b;
+    font-size: .84rem;
+    font-weight: 800;
+}
+#modalBitacoraCandidato .candidate-detail-tabs .nav-link.active { color: #25324a; }
+#modalBitacoraCandidato .metric-grid {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: .7rem;
+    margin-bottom: .9rem;
+}
+#modalBitacoraCandidato .metric-card {
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    background: #fff;
+    padding: .75rem;
+    min-height: 88px;
+}
+#modalBitacoraCandidato .metric-label {
+    color: #64748b;
+    font-size: .72rem;
+    font-weight: 800;
+    text-transform: uppercase;
+}
+#modalBitacoraCandidato .metric-value {
+    color: #253244;
+    font-size: 1.05rem;
+    font-weight: 900;
+    margin-top: .25rem;
+    line-height: 1.15;
+}
+#modalBitacoraCandidato .metric-sub {
+    color: #64748b;
+    font-size: .74rem;
+    font-weight: 700;
+    margin-top: .2rem;
+}
+#modalBitacoraCandidato .metric-section-title {
+    color: #334155;
+    font-size: .82rem;
+    font-weight: 900;
+    text-transform: uppercase;
+    margin: .95rem 0 .45rem;
+}
+#modalBitacoraCandidato .metric-step {
+    border: 1px solid #e2e8f0;
+    border-left: 4px solid var(--metric-color, #2563eb);
+    border-radius: 8px;
+    padding: .65rem .75rem;
+    margin-bottom: .55rem;
+    background: #fff;
+}
+#modalBitacoraCandidato .metric-step.slowest {
+    background: #fff7ed;
+    border-color: #fed7aa;
+    border-left-color: #f59e0b;
+}
+#modalBitacoraCandidato .metric-step-title {
+    color: #253244;
+    font-size: .82rem;
+    font-weight: 900;
+}
+#modalBitacoraCandidato .metric-step-meta {
+    color: #64748b;
+    font-size: .76rem;
+    font-weight: 700;
+    margin-top: .2rem;
+}
+#modalBitacoraCandidato .metric-insight {
+    border: 1px solid #bfdbfe;
+    background: #eff6ff;
+    border-radius: 8px;
+    color: #1e3a8a;
+    font-size: .8rem;
+    font-weight: 700;
+    padding: .65rem .75rem;
+}
+@media (max-width: 768px) {
+    #modalBitacoraCandidato .metric-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 480px) {
+    #modalBitacoraCandidato .metric-grid { grid-template-columns: 1fr; }
+}
+#modalHistoricoCandidatos .candidate-detail-tabs .nav-link {
+    color: #64748b;
+    font-size: .84rem;
+    font-weight: 800;
+}
+#modalHistoricoCandidatos .candidate-detail-tabs .nav-link.active { color: #25324a; }
+#modalHistoricoCandidatos .metric-grid {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: .7rem;
+    margin-bottom: .9rem;
+}
+#modalHistoricoCandidatos .metric-card,
+#modalHistoricoCandidatos .metric-step {
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    background: #fff;
+}
+#modalHistoricoCandidatos .metric-card {
+    padding: .75rem;
+    min-height: 88px;
+}
+#modalHistoricoCandidatos .metric-label {
+    color: #64748b;
+    font-size: .72rem;
+    font-weight: 800;
+    text-transform: uppercase;
+}
+#modalHistoricoCandidatos .metric-value {
+    color: #253244;
+    font-size: 1.05rem;
+    font-weight: 900;
+    margin-top: .25rem;
+    line-height: 1.15;
+}
+#modalHistoricoCandidatos .metric-sub,
+#modalHistoricoCandidatos .metric-step-meta {
+    color: #64748b;
+    font-size: .74rem;
+    font-weight: 700;
+    margin-top: .2rem;
+}
+#modalHistoricoCandidatos .metric-section-title {
+    color: #334155;
+    font-size: .82rem;
+    font-weight: 900;
+    text-transform: uppercase;
+    margin: .95rem 0 .45rem;
+}
+#modalHistoricoCandidatos .metric-step {
+    border-left: 4px solid var(--metric-color, #2563eb);
+    padding: .65rem .75rem;
+    margin-bottom: .55rem;
+}
+#modalHistoricoCandidatos .metric-step-title {
+    color: #253244;
+    font-size: .82rem;
+    font-weight: 900;
+}
+#modalHistoricoCandidatos .metric-insight {
+    border: 1px solid #bfdbfe;
+    background: #eff6ff;
+    border-radius: 8px;
+    color: #1e3a8a;
+    font-size: .8rem;
+    font-weight: 700;
+    padding: .65rem .75rem;
+}
+#modalHistoricoCandidatos .metric-bar {
+    height: 8px;
+    border-radius: 999px;
+    background: #e2e8f0;
+    overflow: hidden;
+    margin-top: .45rem;
+}
+#modalHistoricoCandidatos .metric-bar-fill {
+    height: 100%;
+    width: var(--metric-width, 0%);
+    background: var(--metric-color, #2563eb);
+}
+@media (max-width: 768px) {
+    #modalHistoricoCandidatos .metric-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 480px) {
+    #modalHistoricoCandidatos .metric-grid { grid-template-columns: 1fr; }
 }
 
 /* Modal Cerrar proceso: identidad visual distinta al de Documentación (diálogo de acción, no panel) */
