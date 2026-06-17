@@ -1,6 +1,8 @@
 @echo off
 chcp 65001 >nul
 setlocal EnableDelayedExpansion
+set "API_PORT=%SPARTA_API_PORT%"
+if "%API_PORT%"=="" set "API_PORT=8000"
 
 rem ---------------------------------------------------------------------
 rem Entrada del boton "API" de Inicio.
@@ -13,6 +15,18 @@ set "TASK_NAME=Sparta API Verificacion Documentos"
 set "TASK_INSTALLER=%~dp0instalar-tarea-api-documentos.ps1"
 set "TASK_FILE=%SystemRoot%\System32\Tasks\%TASK_NAME%"
 set "TASK_USABLE=0"
+
+if /I "%SPARTA_API_DIRECT_START%"=="1" (
+    echo [MODE] Arranque directo solicitado por el panel web ^(modo servicios locales^).
+    call :RunDependencyPreflight
+    if errorlevel 1 (
+        set "RC=!ERRORLEVEL!"
+        echo __FIN__:!RC!
+        exit /b !RC!
+    )
+    call :DirectFallback
+    exit /b !ERRORLEVEL!
+)
 
 call :RefreshTaskUsable
 if not "!TASK_USABLE!"=="1" (
@@ -33,16 +47,12 @@ if not "!TASK_USABLE!"=="1" (
 
 call :RefreshTaskUsable
 if not "!TASK_USABLE!"=="1" (
-    echo [TASK][ERROR] El boton no hara arranque directo porque ese modo se cae al cerrar sesion.
-    echo [TASK][ERROR] Instale una vez la tarea programada como Administrador:
-    echo [TASK][ERROR]   powershell -NoProfile -ExecutionPolicy Bypass -File "%TASK_INSTALLER%"
-    if /I "%SPARTA_API_ALLOW_DIRECT_FALLBACK%"=="1" (
-        echo [TASK][WARN] SPARTA_API_ALLOW_DIRECT_FALLBACK=1 detectado; usando arranque directo temporal.
-        call :DirectFallback
-        exit /b !ERRORLEVEL!
-    )
-    echo __FIN__:2
-    exit /b 2
+    echo [TASK][WARN] No hay tarea supervisor utilizable. El arranque directo puede apagarse al cerrar sesion.
+    echo [TASK][WARN] Para dejarlo persistente, instale una vez como Administrador:
+    echo [TASK][WARN]   powershell -NoProfile -ExecutionPolicy Bypass -File "%TASK_INSTALLER%"
+    echo [TASK][WARN] Usando arranque directo temporal para no dejar el boton colgado.
+    call :DirectFallback
+    exit /b !ERRORLEVEL!
 )
 
 call :RunDependencyPreflight
@@ -58,6 +68,13 @@ echo __FIN__:!RC!
 exit /b !RC!
 
 :DirectFallback
+for %%I in ("%~dp0..") do set "API_DIR=%%~fI"
+if "!API_DIR:~-1!"=="\" set "API_DIR=!API_DIR:~0,-1!"
+set "RESTART_FLAG=!API_DIR!\runtime\api-restart-request.flag"
+if exist "!RESTART_FLAG!" (
+    echo [TASK][WARN] Limpiando bandera de supervisor pendiente antes del arranque directo: !RESTART_FLAG!
+    del /f /q "!RESTART_FLAG!" >nul 2>nul
+)
 call "%~dp0Iniciar-API-Verificacion.bat"
 set "RC=!ERRORLEVEL!"
 echo __FIN__:!RC!
@@ -99,9 +116,9 @@ echo [TASK] Solicitando reinicio persistente por bandera: !RESTART_FLAG!
 >> "!RESTART_FLAG!" echo requested_by=web-api-1click-runner
 set "SPARTA_API_RESTART_FLAG=!RESTART_FLAG!"
 
-powershell -NoProfile -ExecutionPolicy Bypass -Command "$flag=$env:SPARTA_API_RESTART_FLAG; $ok=$false; for($i=0;$i -lt 120;$i++){ $gone=-not (Test-Path -LiteralPath $flag); if($gone){ try { $r=Invoke-WebRequest -Uri 'http://127.0.0.1:8000/api/v1/health' -UseBasicParsing -TimeoutSec 2; if($r.StatusCode -ge 200 -and $r.StatusCode -lt 500){ $ok=$true; break } } catch {} }; Start-Sleep -Milliseconds 500 }; if($ok){ exit 0 } exit 1"
+powershell -NoProfile -ExecutionPolicy Bypass -Command "$flag=$env:SPARTA_API_RESTART_FLAG; $port=[int]$env:API_PORT; $ok=$false; for($i=0;$i -lt 120;$i++){ $gone=-not (Test-Path -LiteralPath $flag); if($gone){ try { $r=Invoke-WebRequest -Uri ('http://127.0.0.1:' + $port + '/api/v1/health') -UseBasicParsing -TimeoutSec 2; if($r.StatusCode -ge 200 -and $r.StatusCode -lt 500){ $ok=$true; break } } catch {} }; Start-Sleep -Milliseconds 500 }; if($ok){ exit 0 } exit 1"
 if "!ERRORLEVEL!"=="0" (
-    echo [TASK] Supervisor consumio la solicitud y la API responde: http://127.0.0.1:8000
+    echo [TASK] Supervisor consumio la solicitud y la API responde: http://127.0.0.1:!API_PORT!
     exit /b 0
 )
 
@@ -111,6 +128,8 @@ exit /b 1
 
 :RefreshTaskUsable
 set "TASK_USABLE=0"
+schtasks /Query /TN "%TASK_NAME%" >nul 2>nul
+if not "!ERRORLEVEL!"=="0" exit /b 0
 set "SPARTA_TASK_FILE=%TASK_FILE%"
 powershell -NoProfile -ExecutionPolicy Bypass -Command "$p=$env:SPARTA_TASK_FILE; try { $c=Get-Content -LiteralPath $p -Raw -ErrorAction Stop; if($c -like '*supervisar-api-documentos.ps1*'){ exit 0 } } catch {}; exit 1" >nul 2>nul
 if "!ERRORLEVEL!"=="0" set "TASK_USABLE=1"

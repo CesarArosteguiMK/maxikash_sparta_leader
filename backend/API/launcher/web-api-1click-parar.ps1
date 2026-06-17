@@ -4,6 +4,12 @@
 param([string]$ApiDir = '')
 
 $ErrorActionPreference = 'SilentlyContinue'
+$port = 8000
+try {
+    if ($env:SPARTA_API_PORT) { $port = [int]$env:SPARTA_API_PORT }
+} catch {
+    $port = 8000
+}
 
 $here = $PSScriptRoot
 if (-not $here) {
@@ -40,12 +46,12 @@ try {
     }
 } catch {}
 
-# 1) Quitar UVICORN / lo que escuche en :8000 (solo esa API habitualmente usa 8000 en este stack)
+# 1) Quitar UVICORN / lo que escuche en el puerto configurado.
 $p8000 = Join-Path $here 'cerrar-agente.ps1'
 if (Test-Path -LiteralPath $p8000) {
     try {
         & $p8000
-        Write-Host '[OK] Intentado liberar puerto 8000 (cerrar-agente).'
+        Write-Host "[OK] Intentado liberar puerto $port (cerrar-agente)."
     } catch {
         Write-Host '[WARN] cerrar-agente: ' + $_.Exception.Message
     }
@@ -153,16 +159,16 @@ Get-Process -ErrorAction SilentlyContinue |
     ForEach-Object { Invoke-TaskKillTree -ProcessId ([int]$_.Id) -Label 'Python API por ruta' }
 
 # 6) Confirmacion visible para el panel web.
-$still8000 = $false
+$stillPort = $false
 foreach ($line in (netstat -ano 2>$null)) {
-    if ($line -match 'LISTENING' -and $line -match ':8000\s') {
-        $still8000 = $true
-        Write-Host ('[WARN] Puerto 8000 sigue en LISTEN: ' + $line.Trim())
+    if ($line -match 'LISTENING' -and $line -match (':' + [regex]::Escape([string]$port) + '\s')) {
+        $stillPort = $true
+        Write-Host ("[WARN] Puerto $port sigue en LISTEN: " + $line.Trim())
     }
 }
 
 Write-Host '---'
-if ($still8000) {
+if ($stillPort) {
     Write-Host '__FIN_PARAR__:1'
     exit 1
 }
