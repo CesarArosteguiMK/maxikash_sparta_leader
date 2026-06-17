@@ -715,7 +715,6 @@ class Candidatos extends Model
                 id_legion = :id_legion,
                 usuario = :usuario,
                 contrasena = :contrasena,
-                estatus = :estatus,
                 notas = :notas,
                 fecha_actualizacion = :fecha_actualizacion
             WHERE id = :id
@@ -743,7 +742,6 @@ class Candidatos extends Model
             'id_legion' => !empty($data['id_legion']) ? (int) $data['id_legion'] : null,
             'usuario' => isset($data['usuario']) ? (trim($data['usuario']) ?: null) : null,
             'contrasena' => isset($data['contrasena']) ? (trim($data['contrasena']) ?: null) : null,
-            'estatus' => trim($data['estatus'] ?? '') ?: 'Por evaluar',
             'notas' => trim($data['notas'] ?? '') ?: null,
             'fecha_actualizacion' => self::fechaHoraActualMexicoCiudad(),
         ];

@@ -23,6 +23,12 @@ $logsDir   = Join-Path $ApiDir 'logs'
 $startLog  = Join-Path $logsDir 'api_oculto_startup.log'
 $outLog    = Join-Path $logsDir 'uvicorn-stdout.log'
 $errLog    = Join-Path $logsDir 'uvicorn-stderr.log'
+$apiPort = 8000
+try {
+    if ($env:SPARTA_API_PORT) { $apiPort = [int]$env:SPARTA_API_PORT }
+} catch {
+    $apiPort = 8000
+}
 
 if (-not (Test-Path -LiteralPath $logsDir)) {
     try { New-Item -ItemType Directory -Path $logsDir -Force | Out-Null } catch {}
@@ -81,16 +87,16 @@ function Invoke-ExeCapture {
 
 function Test-ApiReady {
     try {
-        $resp = Invoke-WebRequest -Uri 'http://127.0.0.1:8000/docs' -UseBasicParsing -TimeoutSec 2 -ErrorAction Stop
+        $resp = Invoke-WebRequest -Uri "http://127.0.0.1:$apiPort/docs" -UseBasicParsing -TimeoutSec 2 -ErrorAction Stop
         if ($resp.StatusCode -eq 200) { return $true }
     } catch {}
     try {
-        $c = Get-NetTCPConnection -LocalPort 8000 -State Listen -ErrorAction SilentlyContinue
+        $c = Get-NetTCPConnection -LocalPort $apiPort -State Listen -ErrorAction SilentlyContinue
         if ($c) { return $true }
     } catch {}
     try {
         foreach ($line in (netstat -ano 2>$null)) {
-            if ($line -match 'LISTENING' -and $line -match ':8000\s') { return $true }
+            if ($line -match 'LISTENING' -and $line -match (':' + [regex]::Escape([string]$apiPort) + '\s')) { return $true }
         }
     } catch {}
     return $false
@@ -102,7 +108,8 @@ function Start-UvicornDirect {
         [string[]] $PyArgs = @(),
         [Parameter(Mandatory)] [string] $ApiDir,
         [Parameter(Mandatory)] [string] $OutLog,
-        [Parameter(Mandatory)] [string] $ErrLog
+        [Parameter(Mandatory)] [string] $ErrLog,
+        [Parameter(Mandatory)] [int] $Port
     )
     $PyExe = ([string]::Join('', @($PyExe)) -replace '[\r\n]+', '').Trim()
     $ApiDir = ([string]::Join('', @($ApiDir)) -replace '[\r\n]+', '').Trim()
@@ -110,7 +117,7 @@ function Start-UvicornDirect {
     $ErrLog = ([string]::Join('', @($ErrLog)) -replace '[\r\n]+', '').Trim()
     $argList = @()
     if ($PyArgs.Count -gt 0) { $argList += $PyArgs }
-    $argList += @('-m', 'uvicorn', 'app.main:app', '--host', '0.0.0.0', '--port', '8000', '--workers', '1')
+    $argList += @('-m', 'uvicorn', 'app.main:app', '--host', '0.0.0.0', '--port', ([string]$Port), '--workers', '1')
     $env:PYTHONUNBUFFERED = '1'
     $p = Start-Process -FilePath $PyExe `
         -ArgumentList $argList `
@@ -127,6 +134,7 @@ Repair-ProcessPathEnvironment
 Write-Start ('=' * 50)
 Write-Start "Inicio (PID host PowerShell: $PID)"
 Write-Start "ApiDir: $ApiDir"
+Write-Start "Puerto: $apiPort"
 
 # ---- 1) Verificar app/main.py ----
 $mainPy = Join-Path $ApiDir 'app\main.py'
@@ -155,7 +163,7 @@ if (-not $pyExe) {
 # ---- 3) Si ya hay algo escuchando en 8000, no relanzar ----
 $alreadyListening = Test-ApiReady
 if ($alreadyListening) {
-    Write-Start 'OK: Puerto 8000 ya esta en LISTEN; no se inicia de nuevo.'
+    Write-Start "OK: Puerto $apiPort ya esta en LISTEN; no se inicia de nuevo."
     exit 0
 }
 
@@ -192,14 +200,14 @@ Write-Start 'OK: smoke import correcto.'
 # ---- 5) Lanzar uvicorn capturando stdout y stderr ----
 $argList = @()
 if ($pyArgs.Count -gt 0) { $argList += $pyArgs }
-$argList += @('-m','uvicorn','app.main:app','--host','0.0.0.0','--port','8000','--workers','1')
+$argList += @('-m','uvicorn','app.main:app','--host','0.0.0.0','--port',([string]$apiPort),'--workers','1')
 
 # Truncar logs anteriores (mantener historial seria sumar tamano sin control).
 try { Set-Content -LiteralPath $outLog -Value '' -Encoding UTF8 } catch {}
 try { Set-Content -LiteralPath $errLog -Value '' -Encoding UTF8 } catch {}
 
 try {
-    $proc = Start-UvicornDirect -PyExe $pyExe -PyArgs $pyArgs -ApiDir $ApiDir -OutLog $outLog -ErrLog $errLog
+    $proc = Start-UvicornDirect -PyExe $pyExe -PyArgs $pyArgs -ApiDir $ApiDir -OutLog $outLog -ErrLog $errLog -Port $apiPort
     Write-Start "OK: arranque enviado directo a Python (PID $($proc.Id)). stdout=$outLog stderr=$errLog"
     $usedFallback = $false
 } catch {
@@ -219,7 +227,7 @@ for ($i = 0; $i -lt 90; $i++) {
 }
 
 if (-not $ok) {
-    Write-Start 'ERROR: uvicorn no quedo escuchando en :8000 tras 45s.'
+    Write-Start "ERROR: uvicorn no quedo escuchando en :$apiPort tras 45s."
     if ($proc.HasExited) {
         Write-Start "  ProcessExitCode: $($proc.ExitCode)"
     } else {
@@ -254,5 +262,5 @@ if (-not (Test-ApiReady)) {
     exit 1
 }
 
-Write-Start 'OK: API escuchando en http://127.0.0.1:8000  (docs: /docs).'
+Write-Start "OK: API escuchando en http://127.0.0.1:$apiPort  (docs: /docs)."
 exit 0

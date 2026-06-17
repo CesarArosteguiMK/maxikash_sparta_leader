@@ -9057,6 +9057,9 @@ class CapHum extends Controller
         if (!form || !form.checkValidity()) { form.reportValidity(); return; }
         if (!validarDomicilioCandidato()) return;
         var data = buildCandidatoPayloadFromForm();
+        data.estatus = "Por evaluar";
+        data.notas = null;
+        data.postulacion_enviada = 1;
         if (!data.nombres || !data.apellidop) { if (typeof Swal !== "undefined") Swal.fire({ icon: "warning", title: "Faltan datos", text: "Nombre y apellido paterno son obligatorios." }); return; }
         var btnSubmit = document.getElementById("btnSubmitCandidato");
         if (btnSubmit) { btnSubmit.disabled = true; }
@@ -9113,8 +9116,7 @@ class CapHum extends Controller
             fecha_postulacion: (form.fecha_postulacion && form.fecha_postulacion.value) || null,
             id_legion: document.getElementById("candidato_asignar_legion") && document.getElementById("candidato_asignar_legion").checked && document.getElementById("candidato_id_legion") && document.getElementById("candidato_id_legion").value ? document.getElementById("candidato_id_legion").value : null,
             usuario: (form.usuario && form.usuario.value.trim()) || "",
-            contrasena: (form.contrasena && form.contrasena.value.trim()) || "",
-            estatus: "Por evaluar", notas: null, postulacion_enviada: 1
+            contrasena: (form.contrasena && form.contrasena.value.trim()) || ""
         };
         }
 
@@ -9473,7 +9475,7 @@ class CapHum extends Controller
                     .then(function(res) {
                         if (res.success) {
                             cerrarModalYRefrescar();
-                            alert("Listo. El colaborador pasó a Gestión y se envió el correo de bienvenida.");
+                            alert(res.mensaje || "Listo. El colaborador pasó a Gestión.");
                         } else {
                             alert(res.mensaje || "No se pudo pasar a Gestión.");
                         }
@@ -9494,7 +9496,8 @@ class CapHum extends Controller
                     Swal.close();
                     if (res.success) {
                         cerrarModalYRefrescar();
-                        Swal.fire({ icon: "success", title: "Listo", text: res.mensaje || "El colaborador pasó a Gestión y se envió el correo de bienvenida." });
+                        var warningCorreoAlta = !!(res.datos && res.datos.warning_correo);
+                        Swal.fire({ icon: warningCorreoAlta ? "warning" : "success", title: warningCorreoAlta ? "Alta realizada" : "Listo", text: res.mensaje || "El colaborador pasó a Gestión." });
                     } else {
                         Swal.fire({ icon: "error", title: "Error", text: res.mensaje || "No se pudo pasar a Gestión." });
                     }
@@ -9589,7 +9592,8 @@ class CapHum extends Controller
                         detalle += " Revisa el correo del jefe; no se pudo enviar esa notificación.";
                     }
                     marcarIngresoProgramadoLocal(idCandidato, fechaIngreso, res.datos || null);
-                    Swal.fire({ icon: "success", title: "Notificaciones enviadas", text: detalle + " Ahora confirma la firma del contrato para pasarlo a Gestión.", timer: 2200, showConfirmButton: false });
+                    var warningCorreo = !!(res.datos && res.datos.warning_correo);
+                    Swal.fire({ icon: warningCorreo ? "warning" : "success", title: warningCorreo ? "Fecha guardada" : "Notificaciones enviadas", text: detalle + " Ahora confirma la firma del contrato para pasarlo a Gestión.", timer: warningCorreo ? undefined : 2200, showConfirmButton: warningCorreo });
                 })
                 .catch(function() {
                     Swal.close();
@@ -11115,6 +11119,9 @@ class CapHum extends Controller
         if (!is_array($verificacion)) {
             return false;
         }
+        if (($verificacion['modo_verificacion'] ?? null) === 'archivos_no_disponibles') {
+            return false;
+        }
         if (!empty($verificacion['verificacion_en_proceso']) || !empty($verificacion['api_pendiente'])) {
             return true;
         }
@@ -11479,7 +11486,14 @@ class CapHum extends Controller
 
         try {
             $ok = $this->ejecutarVerificacionBackground($idCandidato, $tipos, $expedienteCompleto);
-            CandidatosDAO::finalizarJobVerificacionDocumental($idJob, (bool) $ok, $ok ? null : 'La verificacion documental no pudo completarse.');
+            $errorJob = null;
+            if (!$ok) {
+                $verificacion = CandidatosDAO::getVerificacionExpediente($idCandidato);
+                if (is_array($verificacion) && !empty($verificacion['error_api'])) {
+                    $errorJob = (string) $verificacion['error_api'];
+                }
+            }
+            CandidatosDAO::finalizarJobVerificacionDocumental($idJob, (bool) $ok, $ok ? null : ($errorJob ?: 'La verificacion documental no pudo completarse.'));
             return ['procesado' => true, 'ok' => (bool) $ok, 'id_job' => $idJob, 'id_candidato' => $idCandidato];
         } catch (\Throwable $e) {
             CandidatosDAO::finalizarJobVerificacionDocumental($idJob, false, $e->getMessage());
@@ -11624,7 +11638,6 @@ class CapHum extends Controller
             echo json_encode(self::respuesta(false, 'id_candidato inválido.'));
             return;
         }
-        $storageRoot = defined('RAIZ') ? (RAIZ . '/storage') : (__DIR__ . '/../storage');
         $rutasParaValidar = ['identificacion_pdf' => null, 'curp' => null, 'nss' => null, 'constancia_fiscal' => null, 'acta_nacimiento' => null];
         $resDocs = CandidatosDAO::getDocumentosCandidato($id_candidato);
         if (!$resDocs['success'] || empty($resDocs['datos'])) {
@@ -11633,10 +11646,10 @@ class CapHum extends Controller
         }
         foreach ($resDocs['datos'] as $d) {
             $rutaRel = trim($d['ruta_archivo'] ?? '');
-            if ($rutaRel === '' || !is_file($storageRoot . '/' . $rutaRel)) {
+            $pathAbs = $this->resolverRutaStorageCandidato($rutaRel);
+            if ($pathAbs === null) {
                 continue;
             }
-            $pathAbs = $storageRoot . '/' . $rutaRel;
             $tipo = trim($d['tipo_documento'] ?? '');
             if (in_array($tipo, ['IDENTIFICACIÓN OFICIAL', 'IDENTIFICACION OFICIAL', 'IDENTIFICACIÃ“N OFICIAL'], true)) {
                 $rutasParaValidar['identificacion_pdf'] = $pathAbs;
@@ -11805,6 +11818,30 @@ class CapHum extends Controller
             }
         }
         return null;
+    }
+
+    private function guardarErrorArchivosVerificacionExpediente(int $idCandidato, string $mensaje): void
+    {
+        if ($idCandidato <= 0) {
+            return;
+        }
+        CandidatosDAO::updateVerificacionExpediente($idCandidato, json_encode([
+            'todo_coincide' => null,
+            'foto_rechazada' => false,
+            'curp_definitivo' => null,
+            'checks_ok' => 0,
+            'checks_totales' => 0,
+            'alertas' => [$mensaje],
+            'identificacion_frente_score' => null,
+            'identificacion_reverso_score' => null,
+            'comparaciones' => null,
+            'nombre_ocr' => null,
+            'anio_nacimiento' => null,
+            'tipo_documento' => null,
+            'modo_verificacion' => 'archivos_no_disponibles',
+            'api_pendiente' => false,
+            'error_api' => $mensaje,
+        ], JSON_UNESCAPED_UNICODE));
     }
 
     public function verDocumentoCandidato($id = null)
@@ -12608,6 +12645,9 @@ class CapHum extends Controller
 <tr><td style="padding:16px 32px 24px; background:#f7fafc; border-radius:0 0 8px 8px; border-top:1px solid #e2e8f0;"><p style="margin:0; color:#718096; font-size:12px;">Este correo fue generado automáticamente.</p></td></tr>
 </table></td></tr></table></body></html>';
 
+        $fechaProgramadaGuardada = (new \DateTimeImmutable('now', new \DateTimeZone('America/Mexico_City')))->format('Y-m-d H:i:s');
+        CandidatosDAO::registrarIngresoProgramado($id_candidato, $fechaIngresoNormalizada, $fechaProgramadaGuardada);
+
         $enviado = $this->enviarCorreo($destino, $asunto, $mensajeHtml, $nombreCompleto, $rutaLogoInline);
         if ($enviado) {
             $nombreJefe = trim($c['nombre_jefe'] ?? '') ?: 'Jefe directo';
@@ -12661,7 +12701,29 @@ class CapHum extends Controller
             ]));
         } else {
             $msg = $this->enviarCorreoUltimoError ?: 'No se pudo enviar el correo.';
-            echo json_encode(self::respuesta(false, $msg, null));
+            CandidatosDAO::registrarBitacoraCandidato(
+                $id_candidato,
+                'FECHA_INGRESO_PROGRAMADA_SIN_CORREO',
+                'Fecha de ingreso programada sin correo',
+                'Se guardo la fecha de ingreso, pero no se pudo enviar la notificacion por correo.',
+                [
+                    'fecha_ingreso' => $fechaIngresoNormalizada,
+                    'correo_candidato_enviado' => false,
+                    'correo_error' => $msg,
+                ],
+                (int) ($_SESSION['usuario_id'] ?? 0),
+                $fechaProgramadaGuardada
+            );
+            echo json_encode(self::respuesta(true, 'Fecha de ingreso guardada, pero no se pudo enviar el correo. Revisa la configuracion de correo.', [
+                'id_candidato' => $id_candidato,
+                'fecha_ingreso' => $fechaIngresoNormalizada,
+                'fecha_ingreso_notificada_en' => $fechaProgramadaGuardada,
+                'correo_candidato_enviado' => false,
+                'correo_candidato_error' => $msg,
+                'correo_jefe_intentado' => false,
+                'correo_jefe_enviado' => false,
+                'warning_correo' => true,
+            ]));
         }
         exit;
     }
@@ -12688,7 +12750,10 @@ class CapHum extends Controller
         $fechaIngreso = trim((string) ($body['fecha_ingreso'] ?? ''));
         $result = $this->ejecutarAltaCandidatoEnGestion($id_candidato, $fechaIngreso);
         if ($result['success']) {
-            echo json_encode(self::respuesta(true, 'Colaborador dado de alta en Gestión correctamente. Se envió el correo de bienvenida.', ['id_persona' => $result['id_persona'] ?? 0, 'id_candidato' => $result['id_candidato'], 'documentos_copiados' => $result['documentos_copiados'] ?? null]));
+            $mensajeAlta = !empty($result['warning_correo'])
+                ? 'Colaborador dado de alta en Gestión correctamente, pero no se pudo enviar el correo de bienvenida.'
+                : 'Colaborador dado de alta en Gestión correctamente. Se envió el correo de bienvenida.';
+            echo json_encode(self::respuesta(true, $mensajeAlta, $result));
         } else {
             echo json_encode(self::respuesta(false, $result['mensaje'] ?? 'Error al dar de alta en Gestión.'));
         }
@@ -12721,7 +12786,10 @@ class CapHum extends Controller
         }
         $result = $this->ejecutarAltaCandidatoEnGestion($id_candidato);
         if ($result['success']) {
-            $this->mostrarPaginaConfirmacionAlta(true, 'El colaborador ha sido dado de alta en Gestion correctamente. Se envio el correo de bienvenida.');
+            $mensajeAlta = !empty($result['warning_correo'])
+                ? 'El colaborador ha sido dado de alta en Gestion correctamente. No se pudo enviar el correo de bienvenida; Capital Humano debe notificarlo manualmente.'
+                : 'El colaborador ha sido dado de alta en Gestion correctamente. Se envio el correo de bienvenida.';
+            $this->mostrarPaginaConfirmacionAlta(true, $mensajeAlta);
         } else {
             $this->mostrarPaginaConfirmacionAlta(false, $result['mensaje'] ?? 'Error al dar de alta en Gestión.');
         }
@@ -12823,6 +12891,8 @@ class CapHum extends Controller
         CandidatosDAO::guardarSnapshotHistoricoCandidato($id_candidato, 'Contratado', 'Pasó a plantilla', null, (int) ($_SESSION['usuario_id'] ?? 0), $fechaContratado);
         $nombreCompleto = trim(implode(' ', [$c['nombres'] ?? '', $c['segundo_nombre'] ?? '', $c['apellidop'] ?? '', $c['apellidom'] ?? '']));
         $destino = trim($c['email'] ?? '');
+        $correoBienvenidaEnviado = false;
+        $correoBienvenidaError = null;
         if ($destino !== '' && filter_var($destino, FILTER_VALIDATE_EMAIL)) {
             $base = $this->obtenerBaseUrlApp();
             $dirPublic = defined('RAIZ') ? dirname(RAIZ) . '/public' : (__DIR__ . '/../../public');
@@ -12850,9 +12920,28 @@ class CapHum extends Controller
     </table>
   </td></tr></table>
 </body></html>';
-            $this->enviarCorreo($destino, 'Bienvenido(a) a Maxikash', $cuerpoBienvenida, $nombreCompleto, $rutaLogoInline);
+            try {
+                $correoBienvenidaEnviado = $this->enviarCorreo($destino, 'Bienvenido(a) a Maxikash', $cuerpoBienvenida, $nombreCompleto, $rutaLogoInline);
+                if (!$correoBienvenidaEnviado) {
+                    $correoBienvenidaError = $this->enviarCorreoUltimoError ?: 'No se pudo enviar el correo de bienvenida.';
+                }
+            } catch (\Throwable $e) {
+                $correoBienvenidaEnviado = false;
+                $correoBienvenidaError = $e->getMessage();
+            }
+        } else {
+            $correoBienvenidaError = 'El candidato no tiene correo valido para enviar bienvenida.';
         }
-        return ['success' => true, 'mensaje' => 'OK', 'id_persona' => $id_persona, 'id_candidato' => $id_candidato, 'documentos_copiados' => $documentosCopiados];
+        return [
+            'success' => true,
+            'mensaje' => 'OK',
+            'id_persona' => $id_persona,
+            'id_candidato' => $id_candidato,
+            'documentos_copiados' => $documentosCopiados,
+            'correo_bienvenida_enviado' => $correoBienvenidaEnviado,
+            'correo_bienvenida_error' => $correoBienvenidaError,
+            'warning_correo' => !$correoBienvenidaEnviado,
+        ];
     }
 
     private function copiarDocumentosCandidatoAGestion(int $idCandidato, int $idPersona): array
@@ -13525,8 +13614,8 @@ class CapHum extends Controller
         if ($timeoutExp < 10) {
             $timeoutExp = 10;
         }
-        if ($timeoutExp > 90) {
-            $timeoutExp = 90;
+        if ($timeoutExp > 240) {
+            $timeoutExp = 240;
         }
         $maxExtraRetries = isset($docCfg['validar_expediente_retries']) ? (int) $docCfg['validar_expediente_retries'] : 0;
         if ($maxExtraRetries < 0) {

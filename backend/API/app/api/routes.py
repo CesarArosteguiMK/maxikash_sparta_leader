@@ -2127,8 +2127,10 @@ async def validar_expediente(
     reverso_bytes: Optional[bytes] = None
     tiempos_fase: Dict[str, int] = {}
 
+    identificacion_pdf_bytes: Optional[bytes] = None
     if identificacion_pdf and identificacion_pdf.filename and identificacion_pdf.filename.lower().endswith(".pdf"):
         pdf_bytes = await identificacion_pdf.read()
+        identificacion_pdf_bytes = pdf_bytes
         if pdf_bytes and len(pdf_bytes) >= 100:
             t_pdf = time.time()
             imagenes = await asyncio.to_thread(pdf_paginas_a_png_bytes, pdf_bytes, 150, 2)
@@ -2162,6 +2164,55 @@ async def validar_expediente(
     try:
         inicio = time.time()
         service = VerificacionService()
+        ocr_fallback_pdf_cache: Optional[CheckOCR] = None
+
+        def _ocr_fallback_desde_pdf() -> Optional[CheckOCR]:
+            """Rescate sin threadpool para PDFs de ID que el precheck rapido si puede leer."""
+            nonlocal ocr_fallback_pdf_cache
+            if ocr_fallback_pdf_cache is not None:
+                return ocr_fallback_pdf_cache
+            if not identificacion_pdf_bytes:
+                return None
+            extraido = _extraer_texto_pdf_rapido(identificacion_pdf_bytes, max_paginas=2)
+            texto = extraido.get("texto") or ""
+            if not _parece_identificacion_oficial(texto):
+                rotado = _extraer_texto_identificacion_rotada_pdf(identificacion_pdf_bytes)
+                texto_rotado = rotado.get("texto") or ""
+                if _parece_identificacion_oficial(texto_rotado):
+                    texto = texto_rotado
+                    extraido = rotado
+            if not _parece_identificacion_oficial(texto):
+                return None
+
+            texto_norm = service.ocr_analyzer._normalizar(texto)
+            if tipo_documento in [TipoDocumento.INE_NUEVA, TipoDocumento.INE_ANTERIOR]:
+                ocr = service.ocr_analyzer._validar_ine(texto_norm)
+            elif tipo_documento in [
+                TipoDocumento.RESIDENCIA_TEMPORAL,
+                TipoDocumento.RESIDENCIA_TEMPORAL_ACUMULATIVA,
+                TipoDocumento.RESIDENCIA_PERMANENTE,
+            ]:
+                ocr = service.ocr_analyzer._validar_residencia(texto_norm, tipo_documento)
+            else:
+                ocr = service.ocr_analyzer._validacion_generica(texto_norm)
+
+            mrz = service.ocr_analyzer._parsear_mrz(texto_norm)
+            alertas = list(ocr.alertas or [])
+            alertas.append(
+                "OCR profundo agoto el tiempo; se uso lectura rapida del PDF "
+                f"({extraido.get('modo') or 'sin_modo'})."
+            )
+            update = {
+                "alertas": alertas,
+                "score": max(float(ocr.score or 0.0), 0.55),
+                "ok": True,
+            }
+            if mrz.get("nombre_completo") and not ocr.mrz_nombre_completo:
+                update["mrz_nombre_completo"] = mrz["nombre_completo"]
+            if mrz.get("fecha_nacimiento") and not ocr.mrz_fecha_nacimiento:
+                update["mrz_fecha_nacimiento"] = mrz["fecha_nacimiento"]
+            ocr_fallback_pdf_cache = ocr.model_copy(update=update)
+            return ocr_fallback_pdf_cache
 
         async def _analizar_identificacion_para_cruce(img_bytes: bytes) -> Dict[str, Any]:
             """Analisis acotado para validacion cruzada: calidad + OCR de campos."""
@@ -2176,6 +2227,17 @@ async def validar_expediente(
                 score = round(((forense.score or 0.0) * 0.4 + (ocr.score or 0.0) * 0.6) * 100)
                 return {"score": score, "forense": forense, "ocr": ocr, "timeout": False}
             except asyncio.TimeoutError:
+                ocr_rescate = _ocr_fallback_desde_pdf()
+                if ocr_rescate is not None:
+                    forense_rescate = CheckForense(
+                        ok=False,
+                        ela_score=0.0,
+                        calidad_foto="revision_manual",
+                        alertas=["Forense profundo no termino antes del timeout; revisar calidad manualmente."],
+                        score=0.5,
+                    )
+                    score = round(((forense_rescate.score or 0.0) * 0.4 + (ocr_rescate.score or 0.0) * 0.6) * 100)
+                    return {"score": score, "forense": forense_rescate, "ocr": ocr_rescate, "timeout": False}
                 return {
                     "score": 0,
                     "forense": CheckForense(

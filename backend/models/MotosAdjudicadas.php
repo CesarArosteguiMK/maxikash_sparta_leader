@@ -3433,11 +3433,27 @@ SQL;
             }
 
             $this->db->commit();
+
+            $taskLegacy = null;
+            $advertenciaLegacy = '';
+            try {
+                $taskLegacy = $this->crearTaskLegacyMotoAutorizada($idCredito, $idPersonaDestino);
+                if (!empty($taskLegacy['success'])) {
+                    $this->sincronizarDictumAppCreditoOperacion($idCredito, $idOperacion, $idPersonaDestino, 'APP MOVIL');
+                } else {
+                    $advertenciaLegacy = ' Asignacion local OK, pero no se pudo preparar la tarea Legacy: '
+                        . (string) ($taskLegacy['message'] ?? 'sin detalle.');
+                }
+            } catch (\Throwable $e) {
+                $advertenciaLegacy = ' Asignacion local OK, pero no se pudo preparar la tarea Legacy: '
+                    . $e->getMessage();
+            }
             return [
                 'success' => true,
-                'message' => $yaAsignado
+                'message' => ($yaAsignado
                     ? 'El responsable seleccionado ya está asignado a este crédito.'
-                    : 'Responsable actualizado correctamente.',
+                    : 'Responsable actualizado correctamente.') . $advertenciaLegacy,
+                'task_legacy' => $taskLegacy,
             ];
         } catch (\Throwable $e) {
             $this->db->rollback();
