@@ -13,10 +13,11 @@ class CapHum extends Model
     private const MODULO_MIS_DOCUMENTOS = 141;
     private const MODULO_VALIDADOR_DOCUMENTAL_CANDIDATOS = 104;
     private const MODULO_VALIDADOR_DOCUMENTAL_RRHH_CANDIDATOS = 142;
+    private const MODULO_GESTION_REGISTRAR_PERSONA = 143;
     private const MODULOS_ACCESOS_CAPITAL_HUMANO_IDS = [
         4, 5, 13, 34, 38, 42, 44, 82, 83, 86, 87, 88, 91, 93,
         94, 95, 96, 97, 98, 99, 101, 104, 105,
-        140, 141, 142,
+        140, 141, 142, 143,
     ];
     private const MODULO_CONVENIOS_DESCARGAR_EXCEL = 92;
     private const MODULO_CONVENIOS_DESCARGAR_EXCEL_NOMBRE = 'Descargar Excel';
@@ -52,9 +53,15 @@ class CapHum extends Model
             ],
             [
                 'id' => self::MODULO_VALIDADOR_DOCUMENTAL_RRHH_CANDIDATOS,
-                'nombre' => 'validador documental RRHH',
+                'nombre' => 'Validador documental RRHH',
                 'pestana' => 'Permisos especiales',
                 'descripcion' => 'Permite validar documentos de candidatos que no pertenecen a la direccion Cobranza',
+            ],
+            [
+                'id' => self::MODULO_GESTION_REGISTRAR_PERSONA,
+                'nombre' => 'Registrar persona en Gestion de Personal',
+                'pestana' => 'Permisos especiales',
+                'descripcion' => 'Permite ver y usar la opcion Persona al agregar usuarios en Gestion de Personal.',
             ],
         ];
 
@@ -3217,7 +3224,7 @@ class CapHum extends Model
         if ($id >= 107 && $id <= 127) {
             return ['grupo' => 'Edicion cobranza', 'icono' => 'fa-solid fa-pen-to-square', 'orden' => 30];
         }
-        if (in_array($id, [94, 95, 96, 97, 98, 99, 101, 103], true)) {
+        if (in_array($id, [94, 95, 96, 97, 98, 99, 101, 103, 143], true)) {
             return ['grupo' => 'Gestiones de personal', 'icono' => 'fa-solid fa-users-gear', 'orden' => 20];
         }
         if (in_array($id, [104, 105, 142], true)) {

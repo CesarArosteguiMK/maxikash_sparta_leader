@@ -32,6 +32,7 @@ class CapHum extends Controller
     private const MODULO_VALIDADOR_DOCUMENTAL_CANDIDATOS = 104;
     private const MODULO_VALIDADOR_FINAL_CANDIDATOS = 105;
     private const MODULO_VALIDADOR_DOCUMENTAL_RRHH_CANDIDATOS = 142;
+    private const MODULO_GESTION_REGISTRAR_PERSONA = 143;
     private const MODULO_ACCESOS_CAPITAL_HUMANO = 140;
     private const DIRECCION_COBRANZA_ID = 12;
     private const MODULOS_EDICION_COBRANZA = [
@@ -95,6 +96,11 @@ class CapHum extends Controller
     private static function puedeAccionGestion(int $moduloId): bool
     {
         return self::tieneModuloWeb($moduloId);
+    }
+
+    private static function puedeRegistrarPersonaGestion(): bool
+    {
+        return self::tieneModuloWeb(self::MODULO_GESTION_REGISTRAR_PERSONA);
     }
 
     private static function permisosEdicionCobranzaSesion(): array
@@ -4859,11 +4865,18 @@ class CapHum extends Controller
             }
 
             function getTipoRegistroAdd() {
+                if (!window.puedeRegistrarPersonaGestion) {
+                    return 'vacante';
+                }
                 const seleccionado = document.querySelector('input[name="add_tipo_registro"]:checked');
                 return seleccionado ? seleccionado.value : 'persona';
             }
 
             function aplicarTipoRegistroAdd() {
+                if (!window.puedeRegistrarPersonaGestion) {
+                    const radioVacante = document.getElementById('add_tipo_vacante');
+                    if (radioVacante) radioVacante.checked = true;
+                }
                 const esVacante = getTipoRegistroAdd() === 'vacante';
                 document.querySelectorAll('#offcanvasAddUser .add-persona-only').forEach(function (el) {
                     el.style.display = esVacante ? 'none' : '';
@@ -5179,6 +5192,10 @@ class CapHum extends Controller
                 const addPuesto = document.getElementById('add_id_puesto');
                 if (addPuesto) { addPuesto.value = ''; addPuesto.disabled = true; addPuesto.innerHTML = '<option value="">Seleccione un puesto</option>'; }
                 if (typeof resetVacantesAsignablesAdd === 'function') resetVacantesAsignablesAdd();
+                const tipoDefault = window.puedeRegistrarPersonaGestion ? 'add_tipo_persona' : 'add_tipo_vacante';
+                const radioTipoDefault = document.getElementById(tipoDefault);
+                if (radioTipoDefault) radioTipoDefault.checked = true;
+                if (typeof aplicarTipoRegistroAdd === 'function') aplicarTipoRegistroAdd();
                 const addJefe = document.getElementById('add_id_jefe');
                 if (addJefe) { addJefe.value = ''; addJefe.disabled = true; addJefe.innerHTML = '<option value="">Seleccione un jefe</option>'; }
                 const addLegion = document.getElementById('add_id_legion');
@@ -6194,6 +6211,7 @@ class CapHum extends Controller
         $puedeRegistrarAusenciaGestion = in_array(self::MODULO_GESTION_AUSENCIAS, $modulos);
         $puedeDarBajaGestion = in_array(self::MODULO_GESTION_DAR_BAJA, $modulos);
         $puedeVisualizarContrasenaGestion = in_array(self::MODULO_GESTION_VISUALIZAR_CONTRASENA, $modulos);
+        $puedeRegistrarPersonaGestion = self::puedeRegistrarPersonaGestion();
         $permisosEdicionCobranzaGestion = self::permisosEdicionCobranzaSesion();
         $puedeEditarTodos = $puedeEditarUsuarioGestion;
         $puedeGestionarPermisos = self::puedeGestionarPermisosEspeciales();
@@ -6218,6 +6236,7 @@ class CapHum extends Controller
         self::set("puedeRegistrarAusenciaGestion", $puedeRegistrarAusenciaGestion);
         self::set("puedeDarBajaGestion", $puedeDarBajaGestion);
         self::set("puedeVisualizarContrasenaGestion", $puedeVisualizarContrasenaGestion);
+        self::set("puedeRegistrarPersonaGestion", $puedeRegistrarPersonaGestion);
         self::set("permisosEdicionCobranzaGestion", $permisosEdicionCobranzaGestion);
         self::set("puedeActualizarInfo", $puedeActualizarInfo);
         self::set("puedeAgregarUsuarioRrhh", $puedeAgregarUsuarioRrhh);
@@ -10254,6 +10273,12 @@ class CapHum extends Controller
                     .then(function(res) {
                         if (!res.success) return alert(res.mensaje || "No se pudo continuar el proceso.");
                         marcarIngresoProgramadoLocal(idCandidato, fechaIngreso, res.datos || null);
+                        var fallas = (res.datos && Array.isArray(res.datos.correos_jefes_fallidos)) ? res.datos.correos_jefes_fallidos : [];
+                        if (fallas.length) {
+                            var nombres = fallas.map(function(f) { return (f.tipo || "Jefe") + ": " + (f.nombre || f.correo || "Sin destinatario"); }).join(", ");
+                            alert("Fecha guardada, pero no se pudo notificar a: " + nombres + ".");
+                            return;
+                        }
                         alert(res.mensaje || "Notificaciones enviadas. Ahora confirma la firma del contrato.");
                     })
                     .catch(function() { alert("Error de conexión."); });
@@ -10275,11 +10300,20 @@ class CapHum extends Controller
                         return;
                     }
                     var detalle = res.mensaje || "Se notificó al candidato correctamente.";
-                    if (res.datos && res.datos.correo_jefe_intentado && !res.datos.correo_jefe_enviado) {
+                    var fallasJefes = (res.datos && Array.isArray(res.datos.correos_jefes_fallidos)) ? res.datos.correos_jefes_fallidos : [];
+                    if (fallasJefes.length) {
+                        var nombresFallas = fallasJefes.map(function(f) {
+                            var nombre = f.nombre || f.correo || "Sin destinatario";
+                            var motivo = f.motivo ? " (" + f.motivo + ")" : "";
+                            return (f.tipo || "Jefe") + ": " + nombre + motivo;
+                        }).join("; ");
+                        detalle += " No se pudo notificar a: " + nombresFallas + ".";
+                    }
+                    if (!fallasJefes.length && res.datos && res.datos.correo_jefe_intentado && !res.datos.correo_jefe_enviado) {
                         detalle += " Revisa el correo del jefe; no se pudo enviar esa notificación.";
                     }
                     marcarIngresoProgramadoLocal(idCandidato, fechaIngreso, res.datos || null);
-                    var warningCorreo = !!(res.datos && res.datos.warning_correo);
+                    var warningCorreo = !!(res.datos && res.datos.warning_correo) || fallasJefes.length > 0;
                     Swal.fire({ icon: warningCorreo ? "warning" : "success", title: warningCorreo ? "Fecha guardada" : "Notificaciones enviadas", text: detalle + " Ahora confirma la firma del contrato para pasarlo a Gestión.", timer: warningCorreo ? undefined : 2200, showConfirmButton: warningCorreo });
                 })
                 .catch(function() {
@@ -13400,21 +13434,84 @@ class CapHum extends Controller
             $departamento = trim($c['nombre_departamento'] ?? '');
             $correoJefeIntentado = $correoJefe !== '' && filter_var($correoJefe, FILTER_VALIDATE_EMAIL);
             $correoJefeEnviado = false;
+            $destinatariosJefes = [];
+            $correosJefesFallidos = [];
             if ($correoJefeIntentado) {
-                $asuntoJefe = 'Nuevo ingreso programado - ' . $nombreCompleto;
-                $mensajeJefeHtml = '<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Nuevo ingreso programado</title></head>
-<body style="margin:0; padding:0; background-color:#e8eef4; font-family:\'Segoe UI\', Tahoma, Geneva, Verdana, sans-serif;">
-<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background-color:#e8eef4;"><tr><td align="center" style="padding:32px 16px;">
-<table role="presentation" width="600" cellspacing="0" cellpadding="0" style="max-width:600px; width:100%; background:#ffffff; border-radius:8px; box-shadow:0 2px 12px rgba(0,0,0,0.08);">
-<tr><td style="background-color:#1e3a5f; padding:24px 12px 24px 32px; border-radius:8px 8px 0 0;"><table role="presentation" width="100%"><tr><td><h1 style="margin:0; color:#ffffff; font-size:22px; font-weight:600;">MaxiKash - Capital Humano</h1><p style="margin:6px 0 0 0; color:rgba(255,255,255,0.9); font-size:14px;">Nuevo ingreso programado</p></td><td style="text-align:right; width:160px;"><img src="' . htmlspecialchars($logoSrc) . '" alt="MaxiKash" width="160" style="max-height:70px; width:auto;" /></td></tr></table></td></tr>
-<tr><td style="padding:32px;"><p style="margin:0 0 16px 0; color:#1a202c; font-size:16px;">Hola ' . htmlspecialchars($nombreJefe) . ',</p>
-<p style="margin:0 0 16px 0; color:#2d3748; font-size:15px; line-height:1.6;">Te informamos que <strong>' . htmlspecialchars($nombreCompleto) . '</strong> tiene programada su incorporación al equipo.</p>
-<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin:20px 0; background:#f7fafc; border:1px solid #d8e1ec; border-radius:8px;"><tr><td style="padding:18px 20px;"><p style="margin:0 0 8px 0; color:#1e3a5f; font-size:13px; font-weight:700; text-transform:uppercase;">Fecha de ingreso</p><p style="margin:0; color:#1a202c; font-size:20px; font-weight:700;">' . htmlspecialchars($fechaIngresoTexto) . '</p>' . ($puesto !== '' ? '<p style="margin:12px 0 0 0; color:#4a5568; font-size:14px;"><strong>Puesto:</strong> ' . htmlspecialchars($puesto) . '</p>' : '') . ($departamento !== '' ? '<p style="margin:4px 0 0 0; color:#4a5568; font-size:14px;"><strong>Departamento:</strong> ' . htmlspecialchars($departamento) . '</p>' : '') . '</td></tr></table>
-<p style="margin:0 0 16px 0; color:#2d3748; font-size:15px; line-height:1.6;">Por favor considera esta fecha para preparar su recepción, inducción operativa y cualquier actividad necesaria para su integración.</p>
-<p style="margin:24px 0 0 0; color:#1a202c; font-size:15px; font-weight:600;">Equipo de Capital Humano - Maxikash</p></td></tr>
-<tr><td style="padding:16px 32px 24px; background:#f7fafc; border-radius:0 0 8px 8px; border-top:1px solid #e2e8f0;"><p style="margin:0; color:#718096; font-size:12px;">Correo generado automáticamente.</p></td></tr>
-</table></td></tr></table></body></html>';
-                $correoJefeEnviado = $this->enviarCorreo($correoJefe, $asuntoJefe, $mensajeJefeHtml, $nombreJefe, $rutaLogoInline);
+                $destinatariosJefes[strtolower($correoJefe)] = [
+                    'tipo' => 'Jefe directo',
+                    'nombre' => $nombreJefe,
+                    'correo' => $correoJefe,
+                    'fuente' => $correoJefeInfo['fuente'],
+                ];
+            } else {
+                $correosJefesFallidos[] = [
+                    'tipo' => 'Jefe directo',
+                    'nombre' => $nombreJefe,
+                    'correo' => '',
+                    'motivo' => 'No se encontro correo valido.',
+                ];
+            }
+            $esGestorCobranza = $this->candidatoEsGestorCobranzaIngreso($c);
+            $gerentesDivisionales = $esGestorCobranza ? $this->obtenerGerentesDivisionalesParaIngreso($c) : [];
+            foreach ($gerentesDivisionales as $gerente) {
+                $correoGerente = strtolower(trim((string) ($gerente['correo'] ?? '')));
+                if ($correoGerente === '' || !filter_var($correoGerente, FILTER_VALIDATE_EMAIL)) {
+                    $correosJefesFallidos[] = [
+                        'tipo' => 'Gerente Divisional',
+                        'nombre' => (string) ($gerente['nombre'] ?? 'Gerente Divisional'),
+                        'correo' => '',
+                        'motivo' => 'No se encontro correo valido.',
+                    ];
+                    continue;
+                }
+                if (!isset($destinatariosJefes[$correoGerente])) {
+                    $destinatariosJefes[$correoGerente] = [
+                        'tipo' => 'Gerente Divisional',
+                        'nombre' => (string) ($gerente['nombre'] ?? 'Gerente Divisional'),
+                        'correo' => $correoGerente,
+                        'fuente' => (string) ($gerente['fuente'] ?? 'persona_correo'),
+                    ];
+                }
+            }
+            if ($esGestorCobranza && empty($gerentesDivisionales)) {
+                $correosJefesFallidos[] = [
+                    'tipo' => 'Gerente Divisional',
+                    'nombre' => 'Gerente Divisional',
+                    'correo' => '',
+                    'motivo' => 'No se encontraron gerentes divisionales para el puesto del candidato.',
+                ];
+            }
+            $asuntoJefe = 'Nuevo ingreso programado - ' . $nombreCompleto;
+            $correosJefesEnviados = 0;
+            foreach ($destinatariosJefes as $destinatarioJefe) {
+                $mensajeJefeHtml = $this->construirCorreoIngresoJefeHtml(
+                    (string) ($destinatarioJefe['nombre'] ?? 'Jefe'),
+                    $nombreCompleto,
+                    $fechaIngresoTexto,
+                    $puesto,
+                    $departamento,
+                    $logoSrc
+                );
+                $enviadoJefeActual = $this->enviarCorreo(
+                    (string) $destinatarioJefe['correo'],
+                    $asuntoJefe,
+                    $mensajeJefeHtml,
+                    (string) ($destinatarioJefe['nombre'] ?? ''),
+                    $rutaLogoInline
+                );
+                if ($enviadoJefeActual) {
+                    $correosJefesEnviados++;
+                    if (($destinatarioJefe['tipo'] ?? '') === 'Jefe directo') {
+                        $correoJefeEnviado = true;
+                    }
+                } else {
+                    $correosJefesFallidos[] = [
+                        'tipo' => (string) ($destinatarioJefe['tipo'] ?? 'Jefe'),
+                        'nombre' => (string) ($destinatarioJefe['nombre'] ?? 'Jefe'),
+                        'correo' => (string) ($destinatarioJefe['correo'] ?? ''),
+                        'motivo' => $this->enviarCorreoUltimoError ?: 'No se pudo enviar.',
+                    ];
+                }
             }
             $fechaNotificada = (new \DateTimeImmutable('now', new \DateTimeZone('America/Mexico_City')))->format('Y-m-d H:i:s');
             CandidatosDAO::registrarIngresoProgramado($id_candidato, $fechaIngresoNormalizada, $fechaNotificada);
@@ -13429,6 +13526,10 @@ class CapHum extends Controller
                     'correo_jefe_intentado' => $correoJefeIntentado,
                     'correo_jefe_enviado' => $correoJefeEnviado,
                     'correo_jefe_fuente' => $correoJefeInfo['fuente'],
+                    'correos_jefes_intentados' => count($destinatariosJefes),
+                    'correos_jefes_enviados' => $correosJefesEnviados,
+                    'correos_jefes_fallidos' => $correosJefesFallidos,
+                    'gerente_divisional_aplica' => $esGestorCobranza,
                 ],
                 (int) ($_SESSION['usuario_id'] ?? 0),
                 $fechaNotificada
@@ -13440,7 +13541,12 @@ class CapHum extends Controller
                 'correo_candidato_enviado' => true,
                 'correo_jefe_intentado' => $correoJefeIntentado,
                 'correo_jefe_enviado' => $correoJefeEnviado,
-                'correo_jefe_fuente' => $correoJefeInfo['fuente']
+                'correo_jefe_fuente' => $correoJefeInfo['fuente'],
+                'correos_jefes_intentados' => count($destinatariosJefes),
+                'correos_jefes_enviados' => $correosJefesEnviados,
+                'correos_jefes_fallidos' => $correosJefesFallidos,
+                'gerente_divisional_aplica' => $esGestorCobranza,
+                'warning_correo' => !empty($correosJefesFallidos),
             ]));
         } else {
             $msg = $this->enviarCorreoUltimoError ?: 'No se pudo enviar el correo.';
@@ -13494,8 +13600,8 @@ class CapHum extends Controller
         $result = $this->ejecutarAltaCandidatoEnGestion($id_candidato, $fechaIngreso);
         if ($result['success']) {
             $mensajeAlta = !empty($result['warning_correo'])
-                ? 'Colaborador dado de alta en Gestión correctamente, pero no se pudo enviar el correo de bienvenida.'
-                : 'Colaborador dado de alta en Gestión correctamente. Se envió el correo de bienvenida.';
+                ? 'Colaborador dado de alta en Gestión correctamente, pero una o más notificaciones por correo no se pudieron enviar.'
+                : 'Colaborador dado de alta en Gestión correctamente. Se enviaron las notificaciones por correo.';
             echo json_encode(self::respuesta(true, $mensajeAlta, $result));
         } else {
             echo json_encode(self::respuesta(false, $result['mensaje'] ?? 'Error al dar de alta en Gestión.'));
@@ -13530,8 +13636,8 @@ class CapHum extends Controller
         $result = $this->ejecutarAltaCandidatoEnGestion($id_candidato);
         if ($result['success']) {
             $mensajeAlta = !empty($result['warning_correo'])
-                ? 'El colaborador ha sido dado de alta en Gestion correctamente. No se pudo enviar el correo de bienvenida; Capital Humano debe notificarlo manualmente.'
-                : 'El colaborador ha sido dado de alta en Gestion correctamente. Se envio el correo de bienvenida.';
+                ? 'El colaborador ha sido dado de alta en Gestion correctamente. Una o mas notificaciones por correo no se pudieron enviar; Capital Humano debe revisarlo manualmente.'
+                : 'El colaborador ha sido dado de alta en Gestion correctamente. Se enviaron las notificaciones por correo.';
             $this->mostrarPaginaConfirmacionAlta(true, $mensajeAlta);
         } else {
             $this->mostrarPaginaConfirmacionAlta(false, $result['mensaje'] ?? 'Error al dar de alta en Gestión.');
@@ -13720,7 +13826,7 @@ class CapHum extends Controller
             'correo_revision_documental_enviado' => $correoRevision['enviado'],
             'correo_revision_documental_error' => $correoRevision['error'],
             'correo_revision_documental_destinatarios' => $correoRevision['destinatarios'],
-            'warning_correo' => !$correoBienvenidaEnviado,
+            'warning_correo' => !$correoBienvenidaEnviado || !$correoRevision['enviado'] || !empty($correoRevision['error']),
         ];
     }
 
@@ -13752,6 +13858,9 @@ class CapHum extends Controller
         $validos = [];
         foreach ($rows as $row) {
             $correo = trim((string) ($row['correo'] ?? ''));
+            if (strcasecmp($correo, 'erika.sachez@__SPARTA_SECRET_REDACTED__.mx') === 0) {
+                $correo = 'erika.ortiz@__SPARTA_SECRET_REDACTED__.mx';
+            }
             if ($correo === '' || !filter_var($correo, FILTER_VALIDATE_EMAIL)) {
                 continue;
             }
@@ -13762,12 +13871,14 @@ class CapHum extends Controller
                 'user_name' => trim((string) ($row['user_name'] ?? '')),
             ];
         }
-        $validos['sabuesos@__SPARTA_SECRET_REDACTED__.mx'] = [
-            'id' => 0,
-            'nombre' => 'Sabuesos',
-            'correo' => 'sabuesos@__SPARTA_SECRET_REDACTED__.mx',
-            'user_name' => 'SABUESOS',
-        ];
+        if ($direccionCobranza) {
+            $validos['sabuesos@__SPARTA_SECRET_REDACTED__.mx'] = [
+                'id' => 0,
+                'nombre' => 'Sabuesos',
+                'correo' => 'sabuesos@__SPARTA_SECRET_REDACTED__.mx',
+                'user_name' => 'SABUESOS',
+            ];
+        }
 
         $institucionales = array_filter($validos, static function ($row) {
             return preg_match('/@__SPARTA_SECRET_REDACTED__\.mx$/i', (string) ($row['correo'] ?? '')) === 1;
@@ -14285,6 +14396,107 @@ class CapHum extends Controller
             12 => 'diciembre',
         ];
         return (int) $dt->format('d') . ' de ' . $meses[(int) $dt->format('m')] . ' de ' . $dt->format('Y');
+    }
+
+    private function candidatoEsGestorCobranzaIngreso(array $candidato): bool
+    {
+        $puesto = $this->normalizarNombreParaCorreoInstitucional((string) ($candidato['nombre_puesto'] ?? ''));
+        if ($puesto === '') {
+            return false;
+        }
+        $puesto = str_replace(['-', '_'], ' ', $puesto);
+        return (bool) preg_match('/\bGESTOR\s*(1\s*7|8\s*(21|30))\b/', $puesto);
+    }
+
+    private function segmentoGestorCobranzaIngreso(array $candidato): string
+    {
+        $puesto = $this->normalizarNombreParaCorreoInstitucional((string) ($candidato['nombre_puesto'] ?? ''));
+        $puesto = str_replace(['-', '_'], ' ', $puesto);
+        if (preg_match('/\bGESTOR\s*1\s*7\b/', $puesto)) {
+            return '1_7';
+        }
+        if (preg_match('/\bGESTOR\s*8\s*(21|30)\b/', $puesto)) {
+            return '8_30';
+        }
+        return '';
+    }
+
+    private function obtenerGerentesDivisionalesParaIngreso(array $candidato): array
+    {
+        $idDepartamento = (int) ($candidato['id_departamento'] ?? 0);
+        if ($idDepartamento <= 0 || !$this->candidatoEsGestorCobranzaIngreso($candidato)) {
+            return [];
+        }
+
+        try {
+            $db = new \Core\Database();
+            $rows = $db->queryAll(
+                "SELECT
+                    p.id,
+                    TRIM(CONCAT_WS(' ', p.nombres, p.segundo_nombre, p.apellidop, p.apellidom)) AS nombre,
+                    p.correo,
+                    pu.nombre AS nombre_puesto
+                 FROM __SPARTA_SECRET_REDACTED__.persona p
+                 INNER JOIN __SPARTA_SECRET_REDACTED__.asigna_puesto ap ON ap.id_persona = p.id AND COALESCE(ap.activo, 1) = 1
+                 INNER JOIN __SPARTA_SECRET_REDACTED__.puesto pu ON pu.id = ap.id_puesto
+                 WHERE pu.departamento_id = :id_departamento
+                   AND UPPER(pu.nombre) LIKE 'GERENTE DIVISIONAL%'
+                   AND UPPER(pu.nombre) NOT LIKE '%PRUEBA%'
+                   AND COALESCE(p.estatus, '') <> 'Baja'
+                 ORDER BY pu.nivel DESC, p.nombres, p.apellidop",
+                ['id_departamento' => $idDepartamento]
+            );
+        } catch (\Throwable $e) {
+            error_log('CapHum::obtenerGerentesDivisionalesParaIngreso -> ' . $e->getMessage());
+            return [];
+        }
+
+        $segmento = $this->segmentoGestorCobranzaIngreso($candidato);
+        $destinatarios = [];
+        foreach ($rows as $row) {
+            $puestoGerente = str_replace(['-', '_'], ' ', $this->normalizarNombreParaCorreoInstitucional((string) ($row['nombre_puesto'] ?? '')));
+            if ($segmento === '1_7' && !preg_match('/\b1\s*7\b/', $puestoGerente)) {
+                continue;
+            }
+            if ($segmento === '8_30' && !preg_match('/\b8\s*(21|30)\b/', $puestoGerente)) {
+                continue;
+            }
+            $nombre = trim((string) ($row['nombre'] ?? ''));
+            $correoInfo = $this->resolverCorreoInstitucionalJefe($nombre, trim((string) ($row['correo'] ?? '')));
+            $correo = strtolower(trim((string) ($correoInfo['email'] ?? '')));
+            $key = $correo !== '' ? $correo : ('persona_' . (int) ($row['id'] ?? 0));
+            $destinatarios[$key] = [
+                'id' => (int) ($row['id'] ?? 0),
+                'nombre' => $nombre !== '' ? $nombre : 'Gerente Divisional',
+                'correo' => $correo,
+                'fuente' => (string) ($correoInfo['fuente'] ?? 'no_encontrado'),
+                'nombre_puesto' => (string) ($row['nombre_puesto'] ?? ''),
+            ];
+        }
+
+        return array_values($destinatarios);
+    }
+
+    private function construirCorreoIngresoJefeHtml(
+        string $nombreDestinatario,
+        string $nombreCompleto,
+        string $fechaIngresoTexto,
+        string $puesto,
+        string $departamento,
+        string $logoSrc
+    ): string {
+        return '<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Nuevo ingreso programado</title></head>
+<body style="margin:0; padding:0; background-color:#e8eef4; font-family:\'Segoe UI\', Tahoma, Geneva, Verdana, sans-serif;">
+<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background-color:#e8eef4;"><tr><td align="center" style="padding:32px 16px;">
+<table role="presentation" width="600" cellspacing="0" cellpadding="0" style="max-width:600px; width:100%; background:#ffffff; border-radius:8px; box-shadow:0 2px 12px rgba(0,0,0,0.08);">
+<tr><td style="background-color:#1e3a5f; padding:24px 12px 24px 32px; border-radius:8px 8px 0 0;"><table role="presentation" width="100%"><tr><td><h1 style="margin:0; color:#ffffff; font-size:22px; font-weight:600;">MaxiKash - Capital Humano</h1><p style="margin:6px 0 0 0; color:rgba(255,255,255,0.9); font-size:14px;">Nuevo ingreso programado</p></td><td style="text-align:right; width:160px;"><img src="' . htmlspecialchars($logoSrc) . '" alt="MaxiKash" width="160" style="max-height:70px; width:auto;" /></td></tr></table></td></tr>
+<tr><td style="padding:32px;"><p style="margin:0 0 16px 0; color:#1a202c; font-size:16px;">Hola ' . htmlspecialchars($nombreDestinatario) . ',</p>
+<p style="margin:0 0 16px 0; color:#2d3748; font-size:15px; line-height:1.6;">Te informamos que <strong>' . htmlspecialchars($nombreCompleto) . '</strong> tiene programada su incorporacion al equipo.</p>
+<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin:20px 0; background:#f7fafc; border:1px solid #d8e1ec; border-radius:8px;"><tr><td style="padding:18px 20px;"><p style="margin:0 0 8px 0; color:#1e3a5f; font-size:13px; font-weight:700; text-transform:uppercase;">Fecha de ingreso</p><p style="margin:0; color:#1a202c; font-size:20px; font-weight:700;">' . htmlspecialchars($fechaIngresoTexto) . '</p>' . ($puesto !== '' ? '<p style="margin:12px 0 0 0; color:#4a5568; font-size:14px;"><strong>Puesto:</strong> ' . htmlspecialchars($puesto) . '</p>' : '') . ($departamento !== '' ? '<p style="margin:4px 0 0 0; color:#4a5568; font-size:14px;"><strong>Departamento:</strong> ' . htmlspecialchars($departamento) . '</p>' : '') . '</td></tr></table>
+<p style="margin:0 0 16px 0; color:#2d3748; font-size:15px; line-height:1.6;">Por favor considera esta fecha para preparar su recepcion, induccion operativa y cualquier actividad necesaria para su integracion.</p>
+<p style="margin:24px 0 0 0; color:#1a202c; font-size:15px; font-weight:600;">Equipo de Capital Humano - Maxikash</p></td></tr>
+<tr><td style="padding:16px 32px 24px; background:#f7fafc; border-radius:0 0 8px 8px; border-top:1px solid #e2e8f0;"><p style="margin:0; color:#718096; font-size:12px;">Correo generado automaticamente.</p></td></tr>
+</table></td></tr></table></body></html>';
     }
 
     private function normalizarNombreParaCorreoInstitucional($valor): string
@@ -17877,6 +18089,7 @@ class CapHum extends Controller
         self::set("puedeRegistrarAusenciaGestion", in_array(self::MODULO_GESTION_AUSENCIAS, $modulos));
         self::set("puedeDarBajaGestion", in_array(self::MODULO_GESTION_DAR_BAJA, $modulos));
         self::set("puedeVisualizarContrasenaGestion", in_array(self::MODULO_GESTION_VISUALIZAR_CONTRASENA, $modulos));
+        self::set("puedeRegistrarPersonaGestion", self::puedeRegistrarPersonaGestion());
         self::set("puedeEditarTodos", in_array(self::MODULO_GESTION_EDITAR_USUARIO, $modulos));
         self::set("puedeGestionarPermisos", self::puedeGestionarPermisosEspeciales());
         self::set("puedeActualizarInfo", in_array(self::MODULO_ACTUALIZAR_DATOS_RRHH, $modulos));
@@ -19383,6 +19596,14 @@ public function getEstadosMunicipiosMexico()
 
         // Validaciones básicas (todos los campos de registro obligatorios; id_jefe puede estar vacío si es máximo rango)
         $tipoRegistro = strtolower(trim((string)($data['tipo_registro'] ?? 'persona')));
+        if ($tipoRegistro !== 'vacante' && !self::puedeRegistrarPersonaGestion()) {
+            header('Content-Type: application/json; charset=utf-8');
+            echo json_encode([
+                'success' => false,
+                'mensaje' => 'No tienes permiso para registrar personas. Solo puedes registrar vacantes.'
+            ]);
+            return;
+        }
         if ($tipoRegistro === 'vacante') {
             foreach (['departamento_id' => 'Departamento', 'id_puesto' => 'Puesto'] as $field => $nombre) {
                 if (empty($data[$field])) {
