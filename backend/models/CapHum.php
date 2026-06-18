@@ -12,10 +12,11 @@ class CapHum extends Model
     public const MODULO_ACCESOS_CAPITAL_HUMANO = 140;
     private const MODULO_MIS_DOCUMENTOS = 141;
     private const MODULO_VALIDADOR_DOCUMENTAL_CANDIDATOS = 104;
+    private const MODULO_VALIDADOR_DOCUMENTAL_RRHH_CANDIDATOS = 142;
     private const MODULOS_ACCESOS_CAPITAL_HUMANO_IDS = [
         4, 5, 13, 34, 38, 42, 44, 82, 83, 86, 87, 88, 91, 93,
         94, 95, 96, 97, 98, 99, 101, 104, 105,
-        140, 141,
+        140, 141, 142,
     ];
     private const MODULO_CONVENIOS_DESCARGAR_EXCEL = 92;
     private const MODULO_CONVENIOS_DESCARGAR_EXCEL_NOMBRE = 'Descargar Excel';
@@ -48,6 +49,12 @@ class CapHum extends Model
                 'nombre' => 'Mis documentos',
                 'pestana' => 'Capital Humano',
                 'descripcion' => 'Capital Humano > Mis documentos',
+            ],
+            [
+                'id' => self::MODULO_VALIDADOR_DOCUMENTAL_RRHH_CANDIDATOS,
+                'nombre' => 'validador documental RRHH',
+                'pestana' => 'Permisos especiales',
+                'descripcion' => 'Permite validar documentos de candidatos que no pertenecen a la direccion Cobranza',
             ],
         ];
 
@@ -3213,7 +3220,7 @@ class CapHum extends Model
         if (in_array($id, [94, 95, 96, 97, 98, 99, 101, 103], true)) {
             return ['grupo' => 'Gestiones de personal', 'icono' => 'fa-solid fa-users-gear', 'orden' => 20];
         }
-        if (in_array($id, [104, 105], true)) {
+        if (in_array($id, [104, 105, 142], true)) {
             return ['grupo' => 'Seleccion de personal', 'icono' => 'fa-solid fa-user-check', 'orden' => 25];
         }
         if ($id === self::MODULO_ACCESOS_CAPITAL_HUMANO) {
@@ -4733,7 +4740,10 @@ class CapHum extends Model
         $apellidop = addslashes((string) ($data['apellidop'] ?? ''));
         $apellidom = addslashes((string) ($data['apellidom'] ?? ''));
         // Si no viene número de empleado, se genera en BD (max numérico + 1, sin colisiones).
-        $autoNumeroEmpleado = trim((string) ($data['numero_empleado'] ?? '')) === '';
+        $numeroEmpleadoEntrada = trim((string) ($data['numero_empleado'] ?? ''));
+        $autoNumeroEmpleado = $numeroEmpleadoEntrada === ''
+            || strcasecmp($numeroEmpleadoEntrada, 'PEND') === 0
+            || strcasecmp($numeroEmpleadoEntrada, 'PENDIENTE') === 0;
         $correo = addslashes((string) ($data['correo'] ?? ''));
         $telefono_uno = addslashes((string) ($data['telefono'] ?? $data['telefono_uno'] ?? ''));
         $telefono_dos = addslashes((string) ($data['telefono_dos'] ?? ''));
@@ -4787,7 +4797,7 @@ class CapHum extends Model
             if ($autoNumeroEmpleado) {
                 $numero_raw = self::siguienteNumeroEmpleadoLibre($db);
             } else {
-                $numero_raw = trim((string) ($data['numero_empleado'] ?? ''));
+                $numero_raw = $numeroEmpleadoEntrada;
             }
             $numero_empleado = addslashes($numero_raw);
 
@@ -4821,6 +4831,9 @@ class CapHum extends Model
 
             // 2️⃣ Obtenemos el ID insertado con queryOne()
             $result = $db->queryOne("SELECT LAST_INSERT_ID() AS id");
+            if (is_array($result)) {
+                $result['numero_empleado'] = $numero_raw;
+            }
 
             $id_persona = isset($result['id']) ? intval($result['id']) : null;
 

@@ -201,6 +201,8 @@ class Candidatos extends Model
                 div3.nombre AS nombre_div_nivel3,
                 p.nombre AS nombre_puesto,
                 d.nombre AS nombre_departamento,
+                COALESCE(dir.id, 0) AS id_direccion,
+                COALESCE(dir.nombre, '') AS nombre_direccion,
                 TRIM(CONCAT_WS(' ', jefe.nombres, jefe.segundo_nombre, jefe.apellidop, jefe.apellidom)) AS nombre_jefe
             FROM candidatos c
             LEFT JOIN paises pais ON pais.id = c.id_pais
@@ -209,6 +211,9 @@ class Candidatos extends Model
             LEFT JOIN divisiones_administrativas div3 ON div3.id = c.id_div_nivel3
             LEFT JOIN puesto p ON p.id = c.id_puesto
             LEFT JOIN departamento d ON d.id = c.id_departamento
+            LEFT JOIN departamento_organizacional dorg ON dorg.id = d.id_departamento_organizacional
+            LEFT JOIN asigna_direcciones ad ON ad.id_departamento_organizacional = d.id_departamento_organizacional AND COALESCE(ad.activo, 1) = 1
+            LEFT JOIN direcciones_organizacion dir ON dir.id = ad.id_direccion
             LEFT JOIN persona jefe ON jefe.id = c.id_posible_jefe
             WHERE 1=1
         SQL;
@@ -304,11 +309,16 @@ class Candidatos extends Model
                 c.fecha_actualizacion,
                 p.nombre AS nombre_puesto,
                 d.nombre AS nombre_departamento,
+                COALESCE(dir.id, 0) AS id_direccion,
+                COALESCE(dir.nombre, '') AS nombre_direccion,
                 TRIM(CONCAT_WS(' ', jefe.nombres, jefe.segundo_nombre, jefe.apellidop, jefe.apellidom)) AS nombre_jefe,
                 jefe.correo AS correo_jefe
             FROM candidatos c
             LEFT JOIN puesto p ON p.id = c.id_puesto
             LEFT JOIN departamento d ON d.id = c.id_departamento
+            LEFT JOIN departamento_organizacional dorg ON dorg.id = d.id_departamento_organizacional
+            LEFT JOIN asigna_direcciones ad ON ad.id_departamento_organizacional = d.id_departamento_organizacional AND COALESCE(ad.activo, 1) = 1
+            LEFT JOIN direcciones_organizacion dir ON dir.id = ad.id_direccion
             LEFT JOIN persona jefe ON jefe.id = c.id_posible_jefe
             WHERE c.id = :id
         SQL;
@@ -1384,7 +1394,7 @@ class Candidatos extends Model
         try {
             $db = new Database();
             $row = $db->queryOne(
-                "SELECT nombre_archivo, ruta_archivo FROM candidato_documento WHERE id = :id",
+                "SELECT id, id_candidato, nombre_archivo, ruta_archivo FROM candidato_documento WHERE id = :id",
                 ['id' => $id_documento]
             );
             return self::resultado(true, $row ? 'OK' : 'No encontrado.', $row);
@@ -1407,7 +1417,7 @@ class Candidatos extends Model
         try {
             $db = new Database();
             $row = $db->queryOne(
-                "SELECT id, nombre_archivo, contenido, mime_type, ruta_archivo FROM candidato_documento WHERE id = :id",
+                "SELECT id, id_candidato, nombre_archivo, contenido, mime_type, ruta_archivo FROM candidato_documento WHERE id = :id",
                 ['id' => $id_documento]
             );
             return self::resultado(true, $row ? 'OK' : 'No encontrado.', $row);

@@ -44,6 +44,7 @@
         var rastreoPuntosGeo = [];
         var rastreoPuntosGeoCargados = false;
         var rastreoCentrarEnGeoAlternasIndice = null;
+        var rastreoCentrarEnReferenciaKey = null;
         var rastreoMarkersGeoAlternasGrande = [];
         var rastreoInfoWindowsGeoAlternasGrande = [];
         var rastreoMarkersPorGestorAlternas = {};
@@ -66,6 +67,7 @@
         var rastreoMegareporteOverlayAlternas = null;
         var rastreoMegareporteMarkerAlternasGrande = null;
         var rastreoMegareporteOverlayAlternasGrande = null;
+        var rastreoMegareporteInfoWindowAlternasGrande = null;
         var rastreoMarkersReferenciaAlternas = [];
         var rastreoOverlaysReferenciaAlternas = [];
         var rastreoMarkersReferenciaAlternasGrande = [];
@@ -225,6 +227,20 @@ SCRIPT;
         function rastreoReferenciasConCoords() {
             return (rastreoDomiciliosReferencia || []).filter(rastreoReferenciaTieneCoords);
         }
+        function rastreoReferenciasAlternasParaLista() {
+            var refs = [];
+            var vistos = {};
+            (rastreoDomiciliosReferencia || []).forEach(function(ref) {
+                if (!ref) return;
+                var direccion = ((ref.direccion || '') + '').trim();
+                if (!direccion && !rastreoReferenciaTieneCoords(ref)) return;
+                var key = rastreoReferenciaFiltroKey(ref);
+                if (vistos[key]) return;
+                vistos[key] = true;
+                refs.push(ref);
+            });
+            return refs;
+        }
         function rastreoExtenderBoundsReferencias(bounds, incluirMegareporte) {
             var tienePuntos = false;
             rastreoReferenciasConCoords().forEach(function(ref) {
@@ -263,7 +279,7 @@ SCRIPT;
                 ensureIconoFlotanteOverlayReady();
                 var overlay = new IconoFlotanteOverlay(pos, 'fa-megareporte', color);
                 overlay.setMap(mapa);
-                var itemReferencia = { marker: marker, overlay: overlay, refKey: rastreoReferenciaFiltroKey(ref) };
+                var itemReferencia = { marker: marker, overlay: overlay, infow: infow, refKey: rastreoReferenciaFiltroKey(ref) };
                 if (esGrande) {
                     rastreoMarkersReferenciaAlternasGrande.push(itemReferencia);
                     rastreoOverlaysReferenciaAlternasGrande.push(overlay);
@@ -527,14 +543,14 @@ JS;
                 rastreoConUbicacion = rastreoGestionesParaMapa.length;
                 if (rastreoPuntosGeoCargados || (rastreoPuntosGeo && rastreoPuntosGeo.length)) {
                     var htmlGeoPart = buildGeoListHtml(rastreoPuntosGeo);
-                    $(\'#rastreoDireccionesAlternasContenido\').removeClass(\'rastreo-contenido-cargando\').html(htmlGeoPart || \'<span class="text-muted small">Sin coordenada de firma para este crédito.</span>\');
+                    $(\'#rastreoDireccionesAlternasContenido\').removeClass(\'rastreo-contenido-cargando\').html(htmlGeoPart || \'<span class="text-muted small">Sin coordenada de firma ni dirección de solicitud/INE para este crédito.</span>\');
                 }
                 $(\'#rastreoDireccionesAlternas .rastreo-mapa-wrap\').show();
                 maybeInitMapaAlternas();
             }, onError: function() {
                 if (rastreoPuntosGeoCargados || (rastreoPuntosGeo && rastreoPuntosGeo.length)) {
                     var htmlGeoErr = buildGeoListHtml(rastreoPuntosGeo);
-                    $(\'#rastreoDireccionesAlternasContenido\').removeClass(\'rastreo-contenido-cargando\').html(htmlGeoErr || \'<span class="text-muted small">Sin coordenada de firma para este crédito.</span>\');
+                    $(\'#rastreoDireccionesAlternasContenido\').removeClass(\'rastreo-contenido-cargando\').html(htmlGeoErr || \'<span class="text-muted small">Sin coordenada de firma ni dirección de solicitud/INE para este crédito.</span>\');
                 }
                 $(\'#rastreoDireccionesAlternas .rastreo-mapa-wrap\').show();
                 rastreoGestionesParaMapa = [];
@@ -556,9 +572,14 @@ JS;
                 onSuccess: function(respGeo) {
                     if (idCreditoRastreoActual !== idCreditoCargaGeo) return;
                     rastreoPuntosGeoCargados = true;
+                    var refsActuales = rastreoReferenciasAlternasParaLista();
+                    if (respGeo.domicilios_referencia && respGeo.domicilios_referencia.length && (!refsActuales.length || respGeo.domicilios_referencia.length > refsActuales.length)) {
+                        rastreoDomiciliosReferencia = respGeo.domicilios_referencia;
+                        rastreoFusionarReferenciasPorPuntoCliente();
+                    }
                     rastreoPuntosGeo = (respGeo.puntos_geo && respGeo.puntos_geo.length) ? respGeo.puntos_geo : [];
                     var htmlGeo = buildGeoListHtml(rastreoPuntosGeo);
-                    $(\'#rastreoDireccionesAlternasContenido\').removeClass(\'rastreo-contenido-cargando\').html(htmlGeo || \'<span class="text-muted small">Sin coordenada de firma para este crédito.</span>\');
+                    $(\'#rastreoDireccionesAlternasContenido\').removeClass(\'rastreo-contenido-cargando\').html(htmlGeo || \'<span class="text-muted small">Sin coordenada de firma ni dirección de solicitud/INE para este crédito.</span>\');
                     $(\'#rastreoDireccionesAlternas .rastreo-mapa-wrap\').show();
                     maybeInitMapaAlternas();
                 },
@@ -566,7 +587,7 @@ JS;
                     if (idCreditoRastreoActual !== idCreditoCargaGeo) return;
                     rastreoPuntosGeoCargados = true;
                     var htmlGeoError = buildGeoListHtml(rastreoPuntosGeo);
-                    $(\'#rastreoDireccionesAlternasContenido\').removeClass(\'rastreo-contenido-cargando\').html(htmlGeoError || \'<span class="text-muted small">No se pudo cargar la coordenada de firma. Intenta de nuevo.</span>\');
+                    $(\'#rastreoDireccionesAlternasContenido\').removeClass(\'rastreo-contenido-cargando\').html(htmlGeoError || \'<span class="text-muted small">No se pudo cargar la coordenada de firma o direcciones de referencia. Intenta de nuevo.</span>\');
                     $(\'#rastreoDireccionesAlternas .rastreo-mapa-wrap\').show();
                 }
             });
@@ -730,9 +751,15 @@ JS;
             return { clase: \'rastreo-geo-otro\', pinClass: \'rastreo-pin-verde\', iconHtml: \'\' };
         }
         function buildGeoListHtml(puntosGeo) {
-            if (!puntosGeo || !puntosGeo.length) return \'\';
+            puntosGeo = puntosGeo || [];
+            var refsAlternas = rastreoReferenciasAlternasParaLista();
+            if (!puntosGeo.length && !refsAlternas.length) return \'\';
             function escG(s) { if (s==null||s===undefined) return \'\'; return (s+\'\').replace(/&/g, \'&amp;\').replace(/</g, \'&lt;\').replace(/>/g, \'&gt;\').replace(/\"/g, \'&quot;\'); }
             var html = \'<div class="rastreo-donde-firma-titulo">Donde firmó:</div>\';
+            if (!puntosGeo.length) {
+                html = \'<div class="rastreo-donde-firma-titulo">Direcciones de referencia:</div>\';
+                html += \'<div class="text-muted small mb-2">Sin coordenada de firma FAD. Se muestra solicitud/INE/megareporte cuando existe.</div>\';
+            }
             puntosGeo.forEach(function(p, i) {
                 var donde = escG(p.donde_firma || \'Dirección\');
                 var latGeo = parseFloat(p.lat), lngGeo = parseFloat(p.lng);
@@ -743,6 +770,20 @@ JS;
                 var linkPart = dir ? \' — <a href="https://www.google.com/maps/search/?api=1&query=\' + q + \'" target="_blank" rel="noopener" class="rastreo-geo-link">\' + (dir.length > 40 ? dir.substring(0,40)+\'...\' : dir) + \'</a>\' : \'\';
                 html += \'<div class="rastreo-geo-item \' + est.clase + \' small mb-2" data-indice-geo="\' + i + \'" title="Clic para ver en mapa"><span class="\' + est.pinClass + \'"></span>\' + est.iconHtml + \' <strong>\' + donde + \'</strong>\' + linkPart + \'</div>\';
             });
+            if (refsAlternas.length) {
+                if (puntosGeo.length) html += \'<div class="rastreo-donde-firma-titulo mt-2">Direcciones de referencia:</div>\';
+                refsAlternas.forEach(function(ref) {
+                    var label = escG(rastreoEtiquetaReferencia(ref));
+                    var direccionRaw = ((ref.direccion || \'\') + \'\').trim();
+                    var direccion = escG(direccionRaw || \'Direccion sin texto\');
+                    var qRef = encodeURIComponent(direccionRaw || ((ref.lat != null && ref.lng != null) ? (ref.lat + \',\' + ref.lng) : \'\'));
+                    var estRef = getGeoItemClaseYIcon(label);
+                    var refKey = escG(rastreoReferenciaFiltroKey(ref));
+                    var titleRef = rastreoReferenciaTieneCoords(ref) ? \'Clic para ver en mapa\' : \'Clic para intentar ubicar en mapa\';
+                    var linkRef = qRef ? \' - <a href="https://www.google.com/maps/search/?api=1&query=\' + qRef + \'" target="_blank" rel="noopener" class="rastreo-geo-link">\' + (direccion.length > 44 ? direccion.substring(0,44)+\'...\' : direccion) + \'</a>\' : \'\';
+                    html += \'<div class="rastreo-geo-item rastreo-ref-item \' + estRef.clase + \' small mb-2" data-ref-key="\' + refKey + \'" title="\' + titleRef + \'"><span class="\' + estRef.pinClass + \'"></span>\' + estRef.iconHtml + \' <strong>\' + label + \'</strong>\' + linkRef + \'</div>\';
+                });
+            }
             return html;
         }
         function labelDistanciaIcon(txt) {
@@ -1093,7 +1134,7 @@ JS;
                         if (obj && obj.poly && obj.pathRaw && obj.pathRaw.length >= 2) obj.poly.setPath(pathConArcosParaSegmentosCortos(obj.pathRaw, 0.09, z));
                     });
                 });
-                google.maps.event.addDomListener(window, \'resize\', function() { if (rastreoMapaAlternas) addClusterLabelsToMap(rastreoMapaAlternas, rastreoPuntosClusterActual); });
+                window.addEventListener(\'resize\', function() { if (rastreoMapaAlternas) addClusterLabelsToMap(rastreoMapaAlternas, rastreoPuntosClusterActual); });
             }
             if (hasPoints) rastreoMapaAlternas.fitBounds(bounds, 50);
             filtrarMapaPorGestor(rastreoFiltroGestoresSeleccionados.length ? rastreoFiltroGestoresSeleccionados : null);
@@ -1273,6 +1314,7 @@ JS;
             rastreoMarkersPorGestorAlternasGrande = {};
             rastreoMarkersReferenciaAlternasGrande = [];
             rastreoOverlaysReferenciaAlternasGrande = [];
+            rastreoMegareporteInfoWindowAlternasGrande = null;
             var cont = document.getElementById(\'rastreoMapaAlternasGrandeContenedor\');
             if (!cont) return;
             var oldOverlayG = cont.querySelector(\'.rastreo-filtro-gestor-overlay\');
@@ -1385,7 +1427,8 @@ JS;
                     rastreoMegareporteMarkerAlternasGrande = new google.maps.Marker({ position: posMegareporteGrande, map: rastreoMapaAlternasGrande, icon: iconNegroGrande, title: \'Dirección megareporte (casa)\', zIndex: 10 });
                     infoHtmlMegareporteGrande = \'<strong>\' + labelMegareporteGrande + \'</strong><br><strong>Direcci\\u00f3n</strong>: \' + dirMegareporteGrande + \'<br><strong>Cliente</strong>: \' + (rastreoDatosClienteActual.nombre || \'â€”\') + \'<br><strong>Cr\\u00e9dito</strong>: \' + (rastreoDatosClienteActual.credito || \'â€”\') + \'<br><a href="https://www.google.com/maps/search/?api=1&query=\' + qMegareporteGrande + \'" target="_blank" rel="noopener">Abrir en Google Maps</a>\';
                     if (rastreoMegareporteMarkerAlternasGrande && rastreoMegareporteMarkerAlternasGrande.setTitle) rastreoMegareporteMarkerAlternasGrande.setTitle(rastreoEtiquetaReferencia(rastreoDomicilioMegareporte));
-                    var infowMegareporteGrande = new google.maps.InfoWindow({ content: infoHtmlMegareporteGrande });
+                    rastreoMegareporteInfoWindowAlternasGrande = new google.maps.InfoWindow({ content: infoHtmlMegareporteGrande });
+                    var infowMegareporteGrande = rastreoMegareporteInfoWindowAlternasGrande;
                     rastreoMegareporteMarkerAlternasGrande.addListener(\'click\', function() { infowMegareporteGrande.open(rastreoMapaAlternasGrande, rastreoMegareporteMarkerAlternasGrande); });
                     var idxMegG = (typeof window !== \'undefined\' && window.rastreoIconoPosiciones && Array.isArray(window.rastreoIconoPosiciones)) ? window.rastreoIconoPosiciones.length : 0;
                     if (typeof window !== \'undefined\' && window.rastreoIconoPosiciones && Array.isArray(window.rastreoIconoPosiciones)) window.rastreoIconoPosiciones.push({ lat: posMegareporteGrande.lat, lng: posMegareporteGrande.lng, idx: idxMegG });
@@ -1408,7 +1451,7 @@ JS;
                         if (obj && obj.poly && obj.pathRaw && obj.pathRaw.length >= 2) obj.poly.setPath(pathConArcosParaSegmentosCortos(obj.pathRaw, 0.09, zG));
                     });
                 });
-                google.maps.event.addDomListener(window, \'resize\', function() { if (rastreoMapaAlternasGrande) addClusterLabelsToMap(rastreoMapaAlternasGrande, rastreoPuntosClusterActual); });
+                window.addEventListener(\'resize\', function() { if (rastreoMapaAlternasGrande) addClusterLabelsToMap(rastreoMapaAlternasGrande, rastreoPuntosClusterActual); });
             }
             var conU = (typeof rastreoConUbicacion !== \'undefined\' ? rastreoConUbicacion : (puntosGestores && puntosGestores.length) ? puntosGestores.length : 0);
             var totG = (typeof rastreoTotalGestiones !== \'undefined\' ? rastreoTotalGestiones : 0) || conU;
@@ -1757,7 +1800,7 @@ JS;
                 if (typeof google !== \'undefined\' && google.maps) { initGoogleMap(); return; }
                 if (document.querySelector(\'script[src*="maps.googleapis.com"]\')) { setTimeout(initGoogleMap, 500); return; }
                 var s = document.createElement(\'script\');
-                s.src = \'https://maps.googleapis.com/maps/api/js?key=\' + googleMapsApiKey;
+                s.src = \'https://maps.googleapis.com/maps/api/js?key=\' + googleMapsApiKey + \'&loading=async\';
                 s.async = true; s.defer = true;
                 s.onload = function() { initGoogleMap(); };
                 document.head.appendChild(s);
@@ -2114,7 +2157,24 @@ JS;
             $(\'#modalMapaGrande\').on(\'hidden.bs.modal\', function() {
                 if (rastreoMapaGrande) { if (typeof rastreoMapaGrande.remove === \'function\') rastreoMapaGrande.remove(); rastreoMapaGrande = null; }
             });
-            $(\'#rastreoMapaAlternasWrap\').on(\'click\', function() { rastreoCentrarEnGeoAlternasIndice = null; $(\'#rastreoGeoSeleccionadaCard\').hide(); $(\'#modalMapaAlternasGrande\').modal(\'show\'); });
+            function rastreoCentrarReferenciaAlternasGrande(refKey) {
+                if (!refKey || !rastreoMapaAlternasGrande) return;
+                var itemRef = null;
+                (rastreoMarkersReferenciaAlternasGrande || []).some(function(item) {
+                    if (item && item.refKey === refKey) { itemRef = item; return true; }
+                    return false;
+                });
+                if (!itemRef && rastreoDomicilioMegareporte && rastreoReferenciaFiltroKey(rastreoDomicilioMegareporte) === refKey && rastreoMegareporteMarkerAlternasGrande) {
+                    itemRef = { marker: rastreoMegareporteMarkerAlternasGrande, infow: rastreoMegareporteInfoWindowAlternasGrande };
+                }
+                if (!itemRef || !itemRef.marker || typeof itemRef.marker.getPosition !== \'function\') return;
+                var marker = itemRef.marker;
+                rastreoMapaAlternasGrande.panTo(marker.getPosition());
+                rastreoMapaAlternasGrande.setZoom(16);
+                if (itemRef.infow) { try { itemRef.infow.close(); } catch (e) {} itemRef.infow.open(rastreoMapaAlternasGrande, marker); }
+                if (typeof marker.setAnimation === \'function\') { marker.setAnimation(google.maps.Animation.BOUNCE); setTimeout(function() { if (marker.setAnimation) marker.setAnimation(null); }, 2200); }
+            }
+            $(\'#rastreoMapaAlternasWrap\').on(\'click\', function() { rastreoCentrarEnGeoAlternasIndice = null; rastreoCentrarEnReferenciaKey = null; $(\'#rastreoGeoSeleccionadaCard\').hide(); $(\'#modalMapaAlternasGrande\').modal(\'show\'); });
             $(\'#rastreoDireccionesAlternasContenido\').on(\'click\', \'.rastreo-geo-item[data-indice-geo]\', function(e) {
                 e.preventDefault();
                 var $item = $(this).closest(\'.rastreo-geo-item[data-indice-geo]\');
@@ -2123,6 +2183,19 @@ JS;
                 rastreoCentrarEnGeoAlternasIndice = idx;
                 $(\'#rastreoGeoSeleccionadaCard\').hide();
                 $(\'.rastreo-geo-item[data-indice-geo]\').removeClass(\'rastreo-geo-item-parpadeo\');
+                $item.addClass(\'rastreo-geo-item-parpadeo\');
+                setTimeout(function() { $item.removeClass(\'rastreo-geo-item-parpadeo\'); }, 2400);
+                $(\'#modalMapaAlternasGrande\').modal(\'show\');
+            });
+            $(\'#rastreoDireccionesAlternasContenido\').on(\'click\', \'.rastreo-ref-item[data-ref-key]\', function(e) {
+                e.preventDefault();
+                var $item = $(this).closest(\'.rastreo-ref-item[data-ref-key]\');
+                var refKey = ($item.attr(\'data-ref-key\') || \'\').toString();
+                if (!refKey) return;
+                rastreoCentrarEnReferenciaKey = refKey;
+                rastreoCentrarEnGeoAlternasIndice = null;
+                $(\'#rastreoGeoSeleccionadaCard\').hide();
+                $(\'.rastreo-ref-item[data-ref-key]\').removeClass(\'rastreo-geo-item-parpadeo\');
                 $item.addClass(\'rastreo-geo-item-parpadeo\');
                 setTimeout(function() { $item.removeClass(\'rastreo-geo-item-parpadeo\'); }, 2400);
                 $(\'#modalMapaAlternasGrande\').modal(\'show\');
@@ -2146,9 +2219,14 @@ JS;
                 filtrarMapaPorGestor(selected);
             });
             $(\'#modalMapaAlternasGrande\').on(\'shown.bs.modal\', function() {
+                var refKeyCentrar = rastreoCentrarEnReferenciaKey;
+                rastreoCentrarEnReferenciaKey = null;
                 rastreoIntentarGeocodificarMegareporte(function() {
                     rastreoGeocodificarReferenciasSinCoords(function() {
                         initMapaRastreoAlternasGrande(rastreoDireccionesParaMapa, rastreoGestionesParaMapa, rastreoPuntosGeo || []);
+                        if (refKeyCentrar) {
+                            setTimeout(function() { rastreoCentrarReferenciaAlternasGrande(refKeyCentrar); }, 120);
+                        }
                     });
                 });
                 var idxGeo = rastreoCentrarEnGeoAlternasIndice;
@@ -2168,7 +2246,7 @@ JS;
             });
             $(\'#modalMapaAlternasGrande\').on(\'hidden.bs.modal\', function() {
                 if (rastreoMapaAlternasGrande) { try { if (typeof rastreoMapaAlternasGrande.remove === \'function\') rastreoMapaAlternasGrande.remove(); } catch (e) {} rastreoMapaAlternasGrande = null; }
-                rastreoMarkersGeoAlternasGrande = []; rastreoInfoWindowsGeoAlternasGrande = []; rastreoMarkersReferenciaAlternasGrande = []; rastreoOverlaysReferenciaAlternasGrande = []; rastreoCentrarEnGeoAlternasIndice = null;
+                rastreoMarkersGeoAlternasGrande = []; rastreoInfoWindowsGeoAlternasGrande = []; rastreoMarkersReferenciaAlternasGrande = []; rastreoOverlaysReferenciaAlternasGrande = []; rastreoCentrarEnGeoAlternasIndice = null; rastreoCentrarEnReferenciaKey = null; rastreoMegareporteInfoWindowAlternasGrande = null;
             });
             $(\'#modalRastreoCredito\').on(\'shown.bs.modal\', function() {
                 $(\'.modal-backdrop\').last().addClass(\'rastreo-modal-backdrop\');
@@ -2381,7 +2459,7 @@ JS;
                 if (rastreoMapaAlternas) { try { if (typeof rastreoMapaAlternas.remove === \'function\') rastreoMapaAlternas.remove(); } catch (e) {} rastreoMapaAlternas = null; }
                 if (rastreoMapaAlternasGrande) { try { if (typeof rastreoMapaAlternasGrande.remove === \'function\') rastreoMapaAlternasGrande.remove(); } catch (e) {} rastreoMapaAlternasGrande = null; }
                 rastreoGestionesParaMapa = []; rastreoGestionesCargadas = false;
-                rastreoPuntosGeo = []; rastreoPuntosGeoCargados = false; rastreoMarkersGeoAlternasGrande = []; rastreoInfoWindowsGeoAlternasGrande = []; rastreoMarkersReferenciaAlternas = []; rastreoOverlaysReferenciaAlternas = []; rastreoMarkersReferenciaAlternasGrande = []; rastreoOverlaysReferenciaAlternasGrande = []; rastreoCentrarEnGeoAlternasIndice = null;
+                rastreoPuntosGeo = []; rastreoPuntosGeoCargados = false; rastreoMarkersGeoAlternasGrande = []; rastreoInfoWindowsGeoAlternasGrande = []; rastreoMarkersReferenciaAlternas = []; rastreoOverlaysReferenciaAlternas = []; rastreoMarkersReferenciaAlternasGrande = []; rastreoOverlaysReferenciaAlternasGrande = []; rastreoCentrarEnGeoAlternasIndice = null; rastreoCentrarEnReferenciaKey = null; rastreoMegareporteInfoWindowAlternasGrande = null;
             });
             $(\'#inputEvidenciaRastreo\').on(\'change\', function() {
                 var f = this.files && this.files[0];

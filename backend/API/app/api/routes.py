@@ -39,7 +39,7 @@ except ImportError:
 
 router = APIRouter()
 settings = get_settings()
-API_BUILD = "doc-precheck-2026-06-12-comprobante-fast-manual"
+API_BUILD = "doc-precheck-2026-06-18-comprobante-content-first"
 
 api_key_header = APIKeyHeader(name=settings.api_key_header, auto_error=False)
 
@@ -871,23 +871,9 @@ def _rechazo_comprobante_domicilio_rapido(pdf_bytes: bytes, inicio: float) -> Op
     for patron, mensaje in reglas:
         if re.search(patron, texto_upper):
             return _respuesta_comprobante_rechazo(mensaje, inicio)
-    try:
-        indicadores = _indicadores_identificacion(texto_upper)
-        if any(indicadores.get(k) for k in ("ine", "elector", "inm_residencia", "pasaporte", "mrz")):
-            return _respuesta_comprobante_rechazo(
-                "Este documento es una identificación oficial, no un comprobante de domicilio. Sube un recibo de luz, agua, gas, teléfono, banco o predial.",
-                inicio,
-            )
-        if len(texto_upper) < 80 or not any(indicadores.get(k) for k in ("ine", "elector", "inm_residencia", "pasaporte", "mrz")):
-            texto_id = _extraer_texto_identificacion_pdf(pdf_bytes, max_paginas=1, max_chars=2500, timeout_s=2.5)
-            indicadores_id = _indicadores_identificacion(texto_id)
-            if any(indicadores_id.get(k) for k in ("ine", "elector", "inm_residencia", "pasaporte", "mrz")):
-                return _respuesta_comprobante_rechazo(
-                    "Este documento es una identificación oficial, no un comprobante de domicilio. Sube un recibo de luz, agua, gas, teléfono, banco o predial.",
-                    inicio,
-                )
-    except Exception as e:
-        logger.debug(f"rechazo comprobante rapido fallo: {e}")
+    # En comprobante de domicilio no rechazamos por precheck de identificacion.
+    # Algunos comprobantes reales mencionan INE/identificacion o el OCR los mezcla;
+    # el analizador completo decidira por contenido y, si hay duda, lo manda a revision.
     return None
 
 
@@ -1074,9 +1060,8 @@ async def verificar_comprobante(
     logger.info(f"Verificando comprobante - archivo: {documento.filename} - tamaño: {len(file_bytes)/1024:.1f}KB")
 
     inicio = time.time()
-    rechazo_nombre = _nombre_archivo_rechazo_comprobante(documento.filename or "", inicio)
-    if rechazo_nombre:
-        return rechazo_nombre
+    # No rechazar comprobantes por nombre de archivo: candidatos suelen reutilizar
+    # nombres como "INE.pdf" o "documento.pdf". La decision debe salir del contenido.
     if extension == "pdf":
         rechazo_rapido = _rechazo_comprobante_domicilio_rapido(file_bytes, inicio)
         if rechazo_rapido:
@@ -1357,6 +1342,13 @@ async def verificar_constancia_fiscal_documento(
     )
     if rechazo_rapido:
         return rechazo_rapido
+    paginas_pdf = int(info_rapida.get("paginas") or 0)
+    if paginas_pdf == 1:
+        return _respuesta_rechazo(
+            "constancia_fiscal_incompleta",
+            "La constancia de situación fiscal debe incluir sus 2 hojas. Descarga la constancia completa del portal del SAT y vuelve a subirla.",
+            paginas=paginas_pdf,
+        )
     try:
         datos = await asyncio.wait_for(
             asyncio.to_thread(extraer_datos_constancia_fiscal, file_bytes),
@@ -1460,6 +1452,47 @@ async def verificar_constancia_fiscal_documento(
         "actividad_asalariado": bool(datos.get("actividad_economica_asalariado")),
         "regimen_sueldos_salarios": True,
         "tiempo_ms": int((time.time() - inicio) * 1000),
+    }
+
+
+@router.post(
+    "/validar-paginas-pdf",
+    summary="Validar cantidad mínima de páginas de un PDF",
+    description="Devuelve el número de páginas de un PDF y permite validar mínimos simples por documento.",
+    tags=["Utilidades"]
+)
+async def validar_paginas_pdf(
+    documento: UploadFile = File(..., description="PDF a revisar"),
+    minimo_paginas: int = Form(1, description="Cantidad mínima de páginas requerida"),
+    nombre_documento: Optional[str] = Form(None, description="Nombre del documento para el mensaje"),
+    api_key: str = Depends(verificar_api_key)
+):
+    if not documento.filename or not documento.filename.lower().endswith(".pdf"):
+        raise HTTPException(status_code=400, detail="Se requiere un archivo PDF")
+    file_bytes = await documento.read()
+    if len(file_bytes) == 0:
+        raise HTTPException(status_code=400, detail="Documento vacío")
+    paginas = 0
+    if PYMUPDF_AVAILABLE:
+        try:
+            doc = fitz.open(stream=file_bytes, filetype="pdf")
+            paginas = int(doc.page_count or 0)
+            doc.close()
+        except Exception as e:
+            logger.warning(f"validar_paginas_pdf: error leyendo PDF: {e}")
+    minimo = max(1, int(minimo_paginas or 1))
+    nombre = (nombre_documento or "El documento").strip() or "El documento"
+    valido = paginas >= minimo if paginas > 0 else False
+    return {
+        "valido": valido,
+        "paginas": paginas,
+        "minimo_paginas": minimo,
+        "mensaje": (
+            f"{nombre} tiene {paginas} hoja(s)."
+            if valido
+            else f"{nombre} debe tener al menos {minimo} hojas. Vuelve a subir el PDF completo."
+        ),
+        "rechazado": paginas > 0 and not valido,
     }
 
 
