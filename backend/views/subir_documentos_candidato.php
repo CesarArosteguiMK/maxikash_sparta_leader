@@ -1105,7 +1105,7 @@ $documentos_ayuda = [
                 if (base.indexOf('ACTA') !== -1 || base.indexOf('NACIMIENTO') !== -1) return 3;
                 if (base.indexOf('CURP') !== -1) return 4;
                 if (base.indexOf('IDENTIFIC') !== -1 || base.indexOf('INE') !== -1 || base.indexOf('IFE') !== -1) return 5;
-                if (base.indexOf('DOMICILIO') !== -1 || base.indexOf('COMPROBANTE') !== -1) return 6;
+                if (base.indexOf('DOMICILIO') !== -1 || base.indexOf('COMPROBANTE DE DOMICILIO') !== -1) return 6;
                 if (base.indexOf('FISCAL') !== -1 || base.indexOf('RFC') !== -1 || base.indexOf('SAT') !== -1) return 7;
                 if (base.indexOf('NSS') !== -1 || base.indexOf('SEGURIDAD SOCIAL') !== -1 || base.indexOf('IMSS') !== -1) return 8;
                 if (base.indexOf('RETENCION') !== -1 || base.indexOf('FONACOT') !== -1 || base.indexOf('INFONAVIT') !== -1) return 9;
@@ -1135,6 +1135,14 @@ $documentos_ayuda = [
                 if (tipoDetectado <= 0) return true;
                 if (tipoDetectado === numCampo) return true;
                 return numCampo === 6 && tipoDetectado === 10;
+            }
+
+            function documentoValidadoPorContenido(numCampo) {
+                var ids = { 4: 'curp-verificado', 5: 'id-verificado-frente', 6: 'comp-verificado', 7: 'fiscal-verificado', 8: 'nss-verificado', 10: 'estado-verificado' };
+                var el = ids[numCampo] ? document.getElementById(ids[numCampo]) : null;
+                if (!el) return false;
+                var display = window.getComputedStyle ? window.getComputedStyle(el).display : el.style.display;
+                return display !== 'none' && display !== '';
             }
 
             function rechazarArchivoCampo(input, numCampo, mensaje) {
@@ -2410,6 +2418,7 @@ $documentos_ayuda = [
                 var inputDoc = document.getElementById('archivo_' + j);
                 if (!inputDoc || !inputDoc.files || inputDoc.files.length === 0) continue;
                 var fileDoc = inputDoc.files[0];
+                if (documentoValidadoPorContenido(j)) continue;
                 if (!archivoCorrespondeCampoPorNombre(fileDoc, j)) {
                     var tipoDetectadoSubmit = tipoSugeridoPorNombreArchivo(fileDoc.name);
                     rechazarArchivoCampo(inputDoc, j, 'El archivo "' + fileDoc.name + '" parece corresponder a ' + nombreDocumentoEsperado(tipoDetectadoSubmit) + '. Súbelo en su campo correspondiente.');

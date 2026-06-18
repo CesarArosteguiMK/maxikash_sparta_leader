@@ -13500,27 +13500,36 @@ class CapHum extends Controller
         $destino = trim($c['email'] ?? '');
         $correoBienvenidaEnviado = false;
         $correoBienvenidaError = null;
+        $base = $this->obtenerBaseUrlApp();
+        $dirPublic = defined('RAIZ') ? dirname(RAIZ) . '/public' : (__DIR__ . '/../../public');
+        $rutaLogoInline = null;
+        if (is_file($dirPublic . '/assets/img/logo_correo.png')) {
+            $rutaLogoInline = realpath($dirPublic . '/assets/img/logo_correo.png');
+        } elseif (is_file($dirPublic . '/assets/img/logo___SPARTA_SECRET_REDACTED__.png')) {
+            $rutaLogoInline = realpath($dirPublic . '/assets/img/logo___SPARTA_SECRET_REDACTED__.png');
+        }
+        $logoSrc = $rutaLogoInline ? 'cid:logo__SPARTA_SECRET_REDACTED__' : (rtrim($base, '/') . '/assets/img/logo_correo.png');
+        $urlPlataforma = rtrim($base, '/') . '/';
+        $usuarioSparta = trim((string) ($dataPersona['usuario'] ?? ''));
+        $contrasenaSparta = trim((string) ($dataPersona['contrasena'] ?? ''));
+        $usuarioSpartaHtml = $usuarioSparta !== '' ? htmlspecialchars($usuarioSparta) : 'Pendiente por confirmar';
+        $contrasenaSpartaHtml = $contrasenaSparta !== '' ? htmlspecialchars($contrasenaSparta) : 'Pendiente por confirmar';
         if ($destino !== '' && filter_var($destino, FILTER_VALIDATE_EMAIL)) {
-            $base = $this->obtenerBaseUrlApp();
-            $dirPublic = defined('RAIZ') ? dirname(RAIZ) . '/public' : (__DIR__ . '/../../public');
-            $rutaLogoInline = null;
-            if (is_file($dirPublic . '/assets/img/logo_correo.png')) {
-                $rutaLogoInline = realpath($dirPublic . '/assets/img/logo_correo.png');
-            } elseif (is_file($dirPublic . '/assets/img/logo___SPARTA_SECRET_REDACTED__.png')) {
-                $rutaLogoInline = realpath($dirPublic . '/assets/img/logo___SPARTA_SECRET_REDACTED__.png');
-            }
-            $logoSrc = $rutaLogoInline ? 'cid:logo__SPARTA_SECRET_REDACTED__' : (rtrim($base, '/') . '/assets/img/logo_correo.png');
-            $urlPlataforma = rtrim($base, '/') . '/';
             $cuerpoBienvenida = '<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><title>Bienvenida</title></head><body style="margin:0; padding:0; background-color:#e8eef4; font-family: \'Segoe UI\', Tahoma, sans-serif;">
   <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background-color:#e8eef4;"><tr><td align="center" style="padding: 32px 16px;">
     <table role="presentation" width="600" cellspacing="0" cellpadding="0" style="max-width:600px; background-color:#ffffff; border-radius:8px; box-shadow: 0 2px 12px rgba(0,0,0,0.08);">
-      <tr><td style="background-color:#1e3a5f; padding: 24px 32px; border-radius: 8px 8px 0 0;"><h1 style="margin:0; color:#ffffff; font-size: 22px;">Bienvenido(a) a MaxiKash</h1><p style="margin: 6px 0 0 0; color: rgba(255,255,255,0.9); font-size: 14px;">Ya formas parte del equipo</p></td></tr>
+      <tr><td style="background-color:#1e3a5f; padding: 28px 32px 30px; border-radius: 8px 8px 0 0; text-align:center;"><img src="' . htmlspecialchars($logoSrc) . '" alt="Maxikash" width="84" style="display:block; margin:0 auto 18px auto; width:84px; max-width:84px; height:auto; border:0;"><h1 style="margin:0; color:#ffffff; font-size: 28px; line-height:1.2; font-weight:800;">Bienvenido(a) a MaxiKash</h1><p style="margin: 10px 0 0 0; color: rgba(255,255,255,0.92); font-size: 15px;">Ya formas parte del equipo</p></td></tr>
       <tr><td style="padding: 32px;">
         <p style="margin:0 0 16px 0; color:#1a202c; font-size: 16px;">Hola <strong>' . htmlspecialchars($nombreCompleto) . '</strong>,</p>
         <p style="margin:0 0 16px 0; color:#2d3748; font-size: 15px; line-height: 1.6;">Nos da mucho gusto darte la bienvenida a Maxikash. Ya formas parte del equipo.</p>
-        <p style="margin:0 0 20px 0; color:#2d3748; font-size: 15px; line-height: 1.6;">Tu usuario quedo registrado en la plataforma. Capital Humano te compartira los siguientes pasos de incorporacion.</p>
+        <p style="margin:0 0 20px 0; color:#2d3748; font-size: 15px; line-height: 1.6;">Tu usuario quedo registrado en Sparta. Con estos accesos podras ingresar a la plataforma:</p>
+        <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin: 0 0 22px 0; border:1px solid #c8d6e5; border-radius:8px; overflow:hidden; box-shadow:0 1px 6px rgba(30,58,95,0.08);">
+          <tr><td colspan="2" style="padding:12px 16px; background:#f0f6fc; color:#1e3a5f; font-size:13px; font-weight:800; text-transform:uppercase;">Accesos a Sparta</td></tr>
+          <tr><td style="padding:14px 16px; background:#f8fafc; color:#4a5568; font-size:13px; width:38%; font-weight:600; border-top:1px solid #d9e2ec;">Usuario Sparta</td><td style="padding:14px 16px; color:#1a202c; font-size:16px; font-weight:800; border-top:1px solid #d9e2ec;">' . $usuarioSpartaHtml . '</td></tr>
+          <tr><td style="padding:14px 16px; background:#f8fafc; color:#4a5568; font-size:13px; width:38%; font-weight:600; border-top:1px solid #d9e2ec;">Contrase&ntilde;a</td><td style="padding:14px 16px; color:#1a202c; font-size:16px; font-weight:800; border-top:1px solid #d9e2ec;">' . $contrasenaSpartaHtml . '</td></tr>
+        </table>
+        <p style="margin:0 0 20px 0; color:#2d3748; font-size: 15px; line-height: 1.6;">Te recomendamos ingresar lo antes posible y mantener tus accesos en un lugar seguro. Capital Humano te compartira cualquier siguiente paso de incorporacion.</p>
         <p style="margin: 24px 0 16px 0;"><a href="' . htmlspecialchars($urlPlataforma) . '" style="display:inline-block; padding: 14px 28px; background-color:#1e3a5f; color:#ffffff !important; text-decoration:none; border-radius: 8px; font-weight: 600; font-size: 16px;">Entrar a la plataforma</a></p>
-        <p style="margin:0 0 8px 0; color:#718096; font-size: 14px;">También puedes <a href="' . htmlspecialchars($urlPlataforma) . '" style="color:#2c5282;">acceder a la plataforma</a> con tu usuario y contraseña.</p>
         <p style="margin: 24px 0 0 0; color:#1a202c; font-size: 15px; font-weight: 600;">¡Bienvenido(a)!<br>Equipo de Capital Humano – Maxikash</p>
       </td></tr>
       <tr><td style="padding: 16px 32px 24px; background-color:#f7fafc; border-radius: 0 0 8px 8px; border-top: 1px solid #e2e8f0;"><p style="margin:0; color:#718096; font-size: 12px;">Correo generado automáticamente.</p></td></tr>
@@ -13539,6 +13548,14 @@ class CapHum extends Controller
         } else {
             $correoBienvenidaError = 'El candidato no tiene correo valido para enviar bienvenida.';
         }
+        $correoRevision = $this->enviarCorreoRevisionDocumentalCandidatoIncorporado(
+            $c,
+            $nombreCompleto,
+            $fechaIngreso,
+            $fechaContratado,
+            $urlPlataforma,
+            $rutaLogoInline
+        );
         return [
             'success' => true,
             'mensaje' => 'OK',
@@ -13547,7 +13564,137 @@ class CapHum extends Controller
             'documentos_copiados' => $documentosCopiados,
             'correo_bienvenida_enviado' => $correoBienvenidaEnviado,
             'correo_bienvenida_error' => $correoBienvenidaError,
+            'correo_revision_documental_enviado' => $correoRevision['enviado'],
+            'correo_revision_documental_error' => $correoRevision['error'],
+            'correo_revision_documental_destinatarios' => $correoRevision['destinatarios'],
             'warning_correo' => !$correoBienvenidaEnviado,
+        ];
+    }
+
+    private function obtenerDestinatariosRevisionDocumental(): array
+    {
+        try {
+            $db = new \Core\Database();
+            $rows = $db->queryAll(
+                "SELECT
+                    p.id,
+                    TRIM(CONCAT_WS(' ', p.nombres, p.segundo_nombre, p.apellidop, p.apellidom)) AS nombre,
+                    p.correo,
+                    p.user_name
+                 FROM asigna_modulo_web am
+                 INNER JOIN persona p ON p.id = am.usuario_id
+                 WHERE am.modulo_web_id = :modulo
+                   AND COALESCE(p.estatus, '') <> 'Baja'
+                 ORDER BY p.nombres, p.apellidop",
+                ['modulo' => self::MODULO_VALIDADOR_DOCUMENTAL_CANDIDATOS]
+            );
+        } catch (\Throwable $e) {
+            error_log('CapHum::obtenerDestinatariosRevisionDocumental -> ' . $e->getMessage());
+            return [];
+        }
+
+        $validos = [];
+        foreach ($rows as $row) {
+            $correo = trim((string) ($row['correo'] ?? ''));
+            if ($correo === '' || !filter_var($correo, FILTER_VALIDATE_EMAIL)) {
+                continue;
+            }
+            $validos[strtolower($correo)] = [
+                'id' => (int) ($row['id'] ?? 0),
+                'nombre' => trim((string) ($row['nombre'] ?? '')),
+                'correo' => $correo,
+                'user_name' => trim((string) ($row['user_name'] ?? '')),
+            ];
+        }
+        $validos['sabuesos@__SPARTA_SECRET_REDACTED__.mx'] = [
+            'id' => 0,
+            'nombre' => 'Sabuesos',
+            'correo' => 'sabuesos@__SPARTA_SECRET_REDACTED__.mx',
+            'user_name' => 'SABUESOS',
+        ];
+
+        $institucionales = array_filter($validos, static function ($row) {
+            return preg_match('/@__SPARTA_SECRET_REDACTED__\.mx$/i', (string) ($row['correo'] ?? '')) === 1;
+        });
+
+        return array_values(!empty($institucionales) ? $institucionales : $validos);
+    }
+
+    private function enviarCorreoRevisionDocumentalCandidatoIncorporado(
+        array $candidato,
+        string $nombreCompleto,
+        string $fechaIngreso,
+        string $fechaContratado,
+        string $urlPlataforma,
+        ?string $rutaLogoInline
+    ): array {
+        $destinatarios = $this->obtenerDestinatariosRevisionDocumental();
+        $correos = array_values(array_map(static function ($row) {
+            return (string) ($row['correo'] ?? '');
+        }, $destinatarios));
+
+        if (empty($destinatarios)) {
+            return [
+                'enviado' => false,
+                'error' => 'No hay destinatarios con correo valido para revision documental.',
+                'destinatarios' => [],
+            ];
+        }
+
+        $puesto = trim((string) ($candidato['nombre_puesto'] ?? ''));
+        $departamento = trim((string) ($candidato['nombre_departamento'] ?? ''));
+        $numeroEmpleado = trim((string) ($candidato['numero_empleado'] ?? ''));
+        $asunto = 'Candidato incorporado a plantilla - ' . $nombreCompleto;
+        $puestoDepartamento = trim(implode(' / ', array_filter([$departamento, $puesto])));
+        $fechaIngresoTxt = $fechaIngreso !== '' ? htmlspecialchars($fechaIngreso) : 'No especificada';
+        $fechaContratadoTxt = $fechaContratado !== '' ? htmlspecialchars($fechaContratado) : 'No especificada';
+        $numeroEmpleadoTxt = $numeroEmpleado !== '' ? htmlspecialchars($numeroEmpleado) : 'Pendiente';
+        $puestoDepartamentoTxt = $puestoDepartamento !== '' ? htmlspecialchars($puestoDepartamento) : 'No especificado';
+        $logoRevisionHtml = $rutaLogoInline
+            ? '<img src="cid:logo__SPARTA_SECRET_REDACTED__" alt="Maxikash" width="72" style="display:block; margin:0 auto 16px auto; width:72px; max-width:72px; height:auto; border:0;">'
+            : '';
+
+        $cuerpoHtml = '<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><title>Candidato incorporado</title></head><body style="margin:0; padding:0; background-color:#e8eef4; font-family:\'Segoe UI\', Tahoma, sans-serif;">
+  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background-color:#e8eef4;"><tr><td align="center" style="padding:32px 16px;">
+    <table role="presentation" width="620" cellspacing="0" cellpadding="0" style="max-width:620px; background:#ffffff; border-radius:8px; box-shadow:0 2px 12px rgba(0,0,0,0.08);">
+      <tr><td style="background:#1e3a5f; padding:26px 32px 28px; border-radius:8px 8px 0 0; text-align:center;">' . $logoRevisionHtml . '<h1 style="margin:0; color:#ffffff; font-size:24px; line-height:1.25; font-weight:800;">Candidato incorporado a plantilla</h1><p style="margin:8px 0 0 0; color:rgba(255,255,255,0.9); font-size:14px;">Proceso de seleccion completado</p></td></tr>
+      <tr><td style="padding:32px;">
+        <p style="margin:0 0 16px 0; color:#1a202c; font-size:16px;">Hola,</p>
+        <p style="margin:0 0 18px 0; color:#2d3748; font-size:15px; line-height:1.6;">Te informamos que el candidato <strong>' . htmlspecialchars($nombreCompleto) . '</strong> concluyo satisfactoriamente sus validaciones, confirmo la firma del contrato y ya fue incorporado a la plantilla de la empresa.</p>
+        <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin:0 0 20px 0; border:1px solid #d9e2ec; border-radius:8px; overflow:hidden;">
+          <tr><td style="padding:12px 16px; background:#f7fafc; color:#4a5568; font-size:13px; font-weight:600;">Colaborador</td><td style="padding:12px 16px; color:#1a202c; font-size:14px;">' . htmlspecialchars($nombreCompleto) . '</td></tr>
+          <tr><td style="padding:12px 16px; background:#f7fafc; color:#4a5568; font-size:13px; font-weight:600; border-top:1px solid #d9e2ec;">Numero de empleado</td><td style="padding:12px 16px; color:#1a202c; font-size:14px; border-top:1px solid #d9e2ec;">' . $numeroEmpleadoTxt . '</td></tr>
+          <tr><td style="padding:12px 16px; background:#f7fafc; color:#4a5568; font-size:13px; font-weight:600; border-top:1px solid #d9e2ec;">Area / puesto</td><td style="padding:12px 16px; color:#1a202c; font-size:14px; border-top:1px solid #d9e2ec;">' . $puestoDepartamentoTxt . '</td></tr>
+          <tr><td style="padding:12px 16px; background:#f7fafc; color:#4a5568; font-size:13px; font-weight:600; border-top:1px solid #d9e2ec;">Fecha de ingreso</td><td style="padding:12px 16px; color:#1a202c; font-size:14px; border-top:1px solid #d9e2ec;">' . $fechaIngresoTxt . '</td></tr>
+          <tr><td style="padding:12px 16px; background:#f7fafc; color:#4a5568; font-size:13px; font-weight:600; border-top:1px solid #d9e2ec;">Alta en Sparta</td><td style="padding:12px 16px; color:#1a202c; font-size:14px; border-top:1px solid #d9e2ec;">' . $fechaContratadoTxt . '</td></tr>
+        </table>
+        <p style="margin:0 0 4px 0; color:#2d3748; font-size:15px; line-height:1.6;">No se requiere accion adicional de revision documental para este expediente. El registro quedo cerrado como incorporado a plantilla.</p>
+      </td></tr>
+      <tr><td style="padding:16px 32px 24px; background:#f7fafc; border-radius:0 0 8px 8px; border-top:1px solid #e2e8f0;"><p style="margin:0; color:#718096; font-size:12px;">Correo generado automaticamente por Sparta.</p></td></tr>
+    </table>
+  </td></tr></table>
+</body></html>';
+
+        $enviados = 0;
+        $errores = [];
+        foreach ($destinatarios as $destinatario) {
+            $correo = (string) ($destinatario['correo'] ?? '');
+            $nombre = (string) ($destinatario['nombre'] ?? '');
+            try {
+                if ($this->enviarCorreo($correo, $asunto, $cuerpoHtml, $nombre, $rutaLogoInline)) {
+                    $enviados++;
+                } else {
+                    $errores[] = $correo . ': ' . ($this->enviarCorreoUltimoError ?: 'No se pudo enviar.');
+                }
+            } catch (\Throwable $e) {
+                $errores[] = $correo . ': ' . $e->getMessage();
+            }
+        }
+
+        return [
+            'enviado' => $enviados > 0,
+            'error' => empty($errores) ? null : implode(' | ', $errores),
+            'destinatarios' => $correos,
         ];
     }
 
