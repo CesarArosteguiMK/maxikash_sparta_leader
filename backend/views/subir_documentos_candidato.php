@@ -7,6 +7,19 @@ $documentos_subidos = $documentos_subidos ?? [];
 $tipo_documento_validado_rh = $tipo_documento_validado_rh ?? [];
 $expediente_completo = $expediente_completo ?? false;
 $api_verificacion_base = $api_verificacion_base ?? '/CapHum/docVerificacionProxy';
+$iniSizeToBytes = static function ($value): int {
+    $value = trim((string) $value);
+    if ($value === '') return 0;
+    $unit = strtolower(substr($value, -1));
+    $num = (float) $value;
+    if ($unit === 'g') return (int) ($num * 1024 * 1024 * 1024);
+    if ($unit === 'm') return (int) ($num * 1024 * 1024);
+    if ($unit === 'k') return (int) ($num * 1024);
+    return (int) $num;
+};
+$postMaxBytes = $iniSizeToBytes(ini_get('post_max_size'));
+$uploadMaxBytes = $iniSizeToBytes(ini_get('upload_max_filesize'));
+$maxUploadTotalBytes = $postMaxBytes > 0 ? max(1024 * 1024, $postMaxBytes - (1024 * 1024)) : 0;
 $documentos = [
     1  => 'SOLICITUD INTERNA',
     2  => 'CV O SOLICITUD DE TRABAJO',
@@ -900,6 +913,9 @@ $documentos_ayuda = [
             var VERIFICACION_ESTADO_CUENTA_TIMEOUT_MS = 12000;
             var VERIFICACION_IDENTIFICACION_TIMEOUT_MS = 15000;
             var VERIFICACION_CALIDAD_TIMEOUT_MS = 10000;
+            var MAX_UPLOAD_TOTAL_BYTES = <?= (int) $maxUploadTotalBytes ?>;
+            var SERVER_POST_MAX_BYTES = <?= (int) $postMaxBytes ?>;
+            var SERVER_UPLOAD_MAX_BYTES = <?= (int) $uploadMaxBytes ?>;
 
             var VERIFICACION_CURP_TIMEOUT_MS = 8000;
             var VERIFICACION_FISCAL_TIMEOUT_MS = 10000;
@@ -2472,6 +2488,27 @@ $documentos_ayuda = [
                 uploadAlertClose.onclick = cerrarAlertaSubida;
             }
 
+            function bytesToMb(bytes) {
+                return Math.round((Number(bytes || 0) / 1024 / 1024) * 10) / 10;
+            }
+
+            function leerRespuestaJsonSubida(response) {
+                return response.text().then(function(texto) {
+                    var textoLimpio = String(texto || '').trim();
+                    if (!response.ok) {
+                        if (response.status === 413) {
+                            throw new Error('Los archivos son demasiado pesados para enviarlos juntos. Sube menos documentos por tanda o comprime los PDFs.');
+                        }
+                        throw new Error('El servidor respondio con error HTTP ' + response.status + '. ' + (textoLimpio ? textoLimpio.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 180) : 'Intenta de nuevo.'));
+                    }
+                    try {
+                        return JSON.parse(textoLimpio || '{}');
+                    } catch (err) {
+                        throw new Error('El servidor no devolvio una respuesta valida. Intenta subir menos archivos por tanda o recarga la pagina.');
+                    }
+                });
+            }
+
             if (typeof window.puedeEnviarDocumentos === 'function' && !window.puedeEnviarDocumentos()) {
                 if (msg) (window.showResultado || function(){})(msg, null, 'Espera a que termine la verificación de los documentos antes de subir.', true);
                 return;
@@ -2487,6 +2524,28 @@ $documentos_ayuda = [
                 showResultado(msg, null, 'Selecciona al menos un documento para subir. Puedes enviar el resto más adelante.', true);
                 return;
             }
+            var totalBytesSeleccionados = 0;
+            var archivoMayorLimite = null;
+            for (var pesoIdx = 1; pesoIdx <= 10; pesoIdx++) {
+                var inputPeso = document.getElementById('archivo_' + pesoIdx);
+                if (!inputPeso || !inputPeso.files || inputPeso.files.length === 0) continue;
+                totalBytesSeleccionados += Number(inputPeso.files[0].size || 0);
+                if (SERVER_UPLOAD_MAX_BYTES > 0 && Number(inputPeso.files[0].size || 0) > SERVER_UPLOAD_MAX_BYTES) {
+                    archivoMayorLimite = inputPeso.files[0];
+                }
+            }
+            if (archivoMayorLimite) {
+                var textoArchivoGrande = 'El archivo "' + archivoMayorLimite.name + '" pesa ' + bytesToMb(archivoMayorLimite.size) + ' MB y el limite por archivo es de ' + bytesToMb(SERVER_UPLOAD_MAX_BYTES) + ' MB. Comprime el PDF e intenta de nuevo.';
+                mostrarAlertaSubida('error', 'Archivo demasiado pesado', textoArchivoGrande);
+                showResultado(msg, null, textoArchivoGrande, true);
+                return;
+            }
+            if (MAX_UPLOAD_TOTAL_BYTES > 0 && totalBytesSeleccionados > MAX_UPLOAD_TOTAL_BYTES) {
+                var textoPeso = 'Los documentos seleccionados pesan ' + bytesToMb(totalBytesSeleccionados) + ' MB. El limite por envio es de ' + bytesToMb(MAX_UPLOAD_TOTAL_BYTES) + ' MB. Sube menos documentos por tanda o comprime los PDFs.';
+                mostrarAlertaSubida('error', 'Archivos demasiado pesados', textoPeso);
+                showResultado(msg, null, textoPeso, true);
+                return;
+            }
             var inputSolicitudSubmit = document.getElementById('archivo_1');
             if (inputSolicitudSubmit && inputSolicitudSubmit.files && inputSolicitudSubmit.files.length > 0 && typeof window.validarPaginasPdfAPI === 'function') {
                 try {
@@ -2498,10 +2557,7 @@ $documentos_ayuda = [
                         return;
                     }
                 } catch (err) {
-                    showResultado(msg, null, 'No se pudo revisar la solicitud interna. Intenta de nuevo con el PDF completo.', true);
-                    inputSolicitudSubmit.value = '';
-                    if (typeof window.actualizarCheckmark === 'function') window.actualizarCheckmark(1, false);
-                    return;
+                    console.warn('Revision rapida de solicitud interna omitida:', err);
                 }
             }
             for (var j = 1; j <= 10; j++) {
@@ -2535,7 +2591,7 @@ $documentos_ayuda = [
                 method: 'POST',
                 body: formData,
                 signal: ctrl.signal
-            }).then(function(r) { clearTimeout(timeoutId); return r.json(); }).then(function(res) {
+            }).then(function(r) { clearTimeout(timeoutId); return leerRespuestaJsonSubida(r); }).then(function(res) {
                 btn.disabled = false;
                 btn.textContent = 'Subir documentos';
                 msg.innerHTML = '';
@@ -2601,7 +2657,7 @@ $documentos_ayuda = [
                     mostrarAlertaSubida('warning', 'Subida en revisión', textoTimeout);
                     showResultado(msg, null, textoTimeout, false);
                 } else {
-                    var textoConexion = 'Error de conexión. Intenta de nuevo.';
+                    var textoConexion = (errFinal && errFinal.message) ? errFinal.message : 'Error de conexión. Intenta de nuevo.';
                     mostrarAlertaSubida('error', 'No se pudo cargar la documentación', textoConexion);
                     showResultado(msg, null, textoConexion, true);
                 }
