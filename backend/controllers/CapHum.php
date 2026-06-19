@@ -14771,7 +14771,11 @@ class CapHum extends Controller
         } elseif ($tipoDocumento === 7) {
             $resultado = $this->verificarConstanciaFiscalApi($rutaPdf);
         } elseif ($tipoDocumento === 8) {
-            $resultado = $this->verificarNssApi($rutaPdf);
+            $resultado = [
+                'valido' => true,
+                'revision_manual' => true,
+                'nota_backend' => 'Validacion estricta de NSS deshabilitada temporalmente; documento aceptado para revision de Capital Humano.',
+            ];
         } elseif ($tipoDocumento === 10) {
             $resultado = $this->verificarEstadoCuentaApi($rutaPdf);
         }
@@ -16076,7 +16080,7 @@ class CapHum extends Controller
                 continue;
             }
             if ($i === 8 && $ext !== 'pdf') {
-                $errores[] = 'NÚMERO DE SEGURIDAD SOCIAL: solo se acepta el PDF de vigencia de derechos del IMSS (descargado desde imss.gob.mx).';
+                $errores[] = 'NÚMERO DE SEGURIDAD SOCIAL: por ahora solo se acepta archivo PDF.';
                 continue;
             }
             if ($i === 4 && $ext !== 'pdf') {
@@ -16399,14 +16403,10 @@ class CapHum extends Controller
                     $rutasParaValidar['nss'] = $pathAbs;
                     if ($idDoc > 0 && $esReciente) {
                         CandidatosDAO::updateVerificacionDocumento($idDoc, $prevFiscalJson, json_encode([
-                            'pendiente_revision_backend' => true,
-                            'notas' => ['NSS recibido; re-evaluando contra el expediente.'],
+                            'valido' => true,
+                            'revision_manual' => true,
+                            'notas' => ['NSS recibido; validacion estricta deshabilitada temporalmente.'],
                         ]));
-                        $resNss = $this->verificarNssApi($pathAbs);
-                        if (is_array($resNss)) {
-                            $resNssFinal = $this->docVerifDebeConservarAnterior($prevCalidadArr, $resNss) ? $prevCalidadArr : $resNss;
-                            CandidatosDAO::updateVerificacionDocumento($idDoc, $prevFiscalJson, json_encode($resNssFinal));
-                        }
                     }
                 } elseif ($tipo === 'CONSTANCIA DE SITUACION FISCAL') {
                     $rutasParaValidar['constancia_fiscal'] = $pathAbs;

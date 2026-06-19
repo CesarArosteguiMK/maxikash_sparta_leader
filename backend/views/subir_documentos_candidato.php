@@ -40,7 +40,7 @@ $documentos_ayuda = [
     5  => 'INE, residencia o pasaporte vigente. Sube un solo PDF con frente y reverso.',
     6  => 'No mayor a 3 meses: luz, agua, gas o predial. Debe ser digital.',
     7  => 'Constancia de situación fiscal no mayor a 2 meses, con régimen de sueldos y salarios.',
-    8  => 'Documento oficial digital del IMSS. Puedes obtenerlo en <a href="https://www.imss.gob.mx/tramites/imss02008" target="_blank" rel="noopener">imss.gob.mx</a>.',
+    8  => 'Documento de NSS en PDF. Por ahora se acepta constancia, vigencia o tarjeta para revision de Capital Humano.',
     9  => 'Hoja de retención FONACOT o INFONAVIT. Si no tienes adeudo, descarga la carta de no adeudo desde aquí, llénala, fírmala y súbela en este apartado.',
     10 => 'Solo bancos físicos: BBVA, Banorte, Santander, Banamex, entre otros. No se aceptan bancos digitales como Nu, Mercado Pago o Klar.',
 ];
@@ -1734,12 +1734,15 @@ $documentos_ayuda = [
                     var file = this.files && this.files[0];
                     if (!file) return;
                     if (file.name.split('.').pop().toLowerCase() !== 'pdf') {
-                        showResultado(document.getElementById('mensajeResultado'), null, 'Solo se acepta constancia de NSS en PDF (descargada del IMSS).', true);
+                        showResultado(document.getElementById('mensajeResultado'), null, 'Solo se acepta NSS en PDF.', true);
                         inputNSS.value = '';
                         actualizarCheckmark(8, false);
                         return;
                     }
                     var msg = document.getElementById('mensajeResultado');
+                    showResultado(msg, null, '<i class="fa fa-check-circle me-1"></i> NSS recibido. Capital Humano lo revisar\u00e1.', false);
+                    marcarDocumentoRecibido(8, 'nss-verificado');
+                    return;
                     var verificandoDiv = showVerificando(msg, 'Verificando número de seguro social...');
                     var formData = new FormData();
                     formData.append('documento', file, file.name);
