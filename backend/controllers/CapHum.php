@@ -14197,19 +14197,30 @@ class CapHum extends Controller
             ];
         }
         if ($direccionCobranza) {
-            $validos['sabuesos@__SPARTA_SECRET_REDACTED__.mx'] = [
-                'id' => 0,
-                'nombre' => 'Sabuesos',
-                'correo' => 'sabuesos@__SPARTA_SECRET_REDACTED__.mx',
-                'user_name' => 'SABUESOS',
+            $destinatariosFijosCobranza = [
+                'erika.ortiz@__SPARTA_SECRET_REDACTED__.mx' => [
+                    'id' => (int) ($validos['erika.ortiz@__SPARTA_SECRET_REDACTED__.mx']['id'] ?? 0),
+                    'nombre' => $validos['erika.ortiz@__SPARTA_SECRET_REDACTED__.mx']['nombre'] ?? 'Erika Ortiz',
+                    'correo' => 'erika.ortiz@__SPARTA_SECRET_REDACTED__.mx',
+                    'user_name' => $validos['erika.ortiz@__SPARTA_SECRET_REDACTED__.mx']['user_name'] ?? 'ERIKA.ORTIZ',
+                ],
+                'sabuesos@__SPARTA_SECRET_REDACTED__.mx' => [
+                    'id' => 0,
+                    'nombre' => 'Sabuesos',
+                    'correo' => 'sabuesos@__SPARTA_SECRET_REDACTED__.mx',
+                    'user_name' => 'SABUESOS',
+                ],
+                'owen.ruiz@__SPARTA_SECRET_REDACTED__.mx' => [
+                    'id' => 0,
+                    'nombre' => 'Owen Ruiz',
+                    'correo' => 'owen.ruiz@__SPARTA_SECRET_REDACTED__.mx',
+                    'user_name' => 'OWEN.RUIZ',
+                ],
             ];
+            foreach ($destinatariosFijosCobranza as $correoFijo => $datosFijos) {
+                $validos[$correoFijo] = $datosFijos;
+            }
         }
-        $validos['owen.ruiz@__SPARTA_SECRET_REDACTED__.mx'] = [
-            'id' => 0,
-            'nombre' => 'Owen Ruiz',
-            'correo' => 'owen.ruiz@__SPARTA_SECRET_REDACTED__.mx',
-            'user_name' => 'OWEN.RUIZ',
-        ];
 
         $institucionales = array_filter($validos, static function ($row) {
             return preg_match('/@__SPARTA_SECRET_REDACTED__\.mx$/i', (string) ($row['correo'] ?? '')) === 1;
