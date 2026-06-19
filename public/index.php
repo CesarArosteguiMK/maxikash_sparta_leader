@@ -43,6 +43,9 @@ $metodoRuta = strtolower((string) ($urlSolicitada[1] ?? METODO_DEFECTO));
 $rutasPublicasSinLogin = [
     'caphum' => [
         'subirdocumentoscandidato',
+        'subircartacompromisogestor',
+        'vistacartacompromisogestorprueba',
+        'descargarcartacompromisogestor',
         'llenarsolicitudenlinea',
         'obtenerplantillasolicitudpdf',
         'descargardocumentocandidato',
