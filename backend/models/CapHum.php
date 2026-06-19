@@ -220,11 +220,55 @@ class CapHum extends Model
     }
     private const DOCUMENTO_RFC_RRHH = 10;
     private const DOCUMENTO_CONSTANCIA_FISCAL_RRHH = 22;
+    public const DOCUMENTO_CARTA_COMPROMISO_GESTOR = 27;
     private const DOCUMENTOS_EXCLUIDOS_RRHH = [19, 20, 21];
     private const DOCUMENTOS_ALIAS_RRHH = [
         19 => 12, // Acta de nacimiento certificada -> Acta de Nacimiento
         20 => 9,  // Identificacion oficial duplicada -> Identificacion Oficial (INE)
     ];
+
+    public static function asegurarDocumentoCartaCompromisoGestor(): void
+    {
+        try {
+            $db = new Database();
+            $datos = [
+                'id' => self::DOCUMENTO_CARTA_COMPROMISO_GESTOR,
+                'clave' => 'CARTA_COMPROMISO_GESTOR',
+                'nombre' => 'Carta de compromiso del Gestor',
+                'obligatorio' => 0,
+                'activo' => 1,
+            ];
+            $existe = $db->queryOne(
+                'SELECT id FROM __SPARTA_SECRET_REDACTED__.documento WHERE id = :id OR clave = :clave LIMIT 1',
+                ['id' => $datos['id'], 'clave' => $datos['clave']]
+            );
+            if ($existe) {
+                $db->CRUD(
+                    'UPDATE __SPARTA_SECRET_REDACTED__.documento
+                        SET clave = :clave,
+                            nombre = :nombre,
+                            obligatorio = :obligatorio,
+                            activo = :activo
+                      WHERE id = :id_existente',
+                    [
+                        'id_existente' => (int) ($existe['id'] ?? $datos['id']),
+                        'clave' => $datos['clave'],
+                        'nombre' => $datos['nombre'],
+                        'obligatorio' => $datos['obligatorio'],
+                        'activo' => $datos['activo'],
+                    ]
+                );
+                return;
+            }
+            $db->CRUD(
+                'INSERT INTO __SPARTA_SECRET_REDACTED__.documento (id, clave, nombre, obligatorio, activo)
+                 VALUES (:id, :clave, :nombre, :obligatorio, :activo)',
+                $datos
+            );
+        } catch (\Throwable $e) {
+            error_log('CapHum::asegurarDocumentoCartaCompromisoGestor -> ' . $e->getMessage());
+        }
+    }
 
     public static function fechaHoraCdmx(): string
     {

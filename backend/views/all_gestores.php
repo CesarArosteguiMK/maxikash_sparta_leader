@@ -6585,6 +6585,7 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
                         <select class="form-select" id="cargarDocPersona_tipoDocumento">
                             <option value="">Seleccione un tipo de documento</option>
                             <option value="Acta de Nacimiento">Acta de Nacimiento</option>
+                            <option value="Carta de compromiso del Gestor">Carta de compromiso del Gestor</option>
                             <option value="Certificado de Estudios">Certificado de Estudios</option>
                             <option value="Comprobante de Domicilio">Comprobante de Domicilio</option>
                             <option value="CURP">CURP</option>
