@@ -1740,9 +1740,6 @@ $documentos_ayuda = [
                         return;
                     }
                     var msg = document.getElementById('mensajeResultado');
-                    showResultado(msg, null, '<i class="fa fa-check-circle me-1"></i> NSS recibido. Capital Humano lo revisar\u00e1.', false);
-                    marcarDocumentoRecibido(8, 'nss-verificado');
-                    return;
                     var verificandoDiv = showVerificando(msg, 'Verificando número de seguro social...');
                     var formData = new FormData();
                     formData.append('documento', file, file.name);
@@ -1759,10 +1756,15 @@ $documentos_ayuda = [
                     .then(function(res) {
                         var el = document.getElementById('nss-verificado');
                         if (res && res.rechazado === true) {
-                            showResultado(msg, verificandoDiv, res.mensaje || 'No se acepta tarjeta NSS. Sube constancia o vigencia de derechos del IMSS.', true);
-                            inputNSS.value = '';
-                            if (el) el.style.display = 'none';
-                            actualizarCheckmark(8, false);
+                            var motivoNss = String(res.motivo_rechazo || res.motivo || '').toLowerCase();
+                            if (motivoNss === 'tarjeta_nss_no_aceptada') {
+                                showResultado(msg, verificandoDiv, '<i class="fa fa-check-circle me-1"></i> NSS detectado. Capital Humano lo revisar\u00e1.', false);
+                                actualizarBadgeDocumento('nss-verificado', '<i class="fa fa-check-circle me-1"></i> NSS detectado');
+                                actualizarCheckmark(8, true);
+                                return;
+                            }
+                            showResultado(msg, verificandoDiv, res.mensaje || 'No se pudo validar el NSS. Capital Humano lo revisar\u00e1.', false);
+                            marcarDocumentoRecibido(8, 'nss-verificado');
                             return;
                         }
                         if (res.valido !== true) {

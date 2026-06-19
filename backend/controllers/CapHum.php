@@ -14696,6 +14696,26 @@ class CapHum extends Controller
         return false;
     }
 
+    private function permitirTarjetaNssParaRevisionManual($resultado)
+    {
+        if (!is_array($resultado)) {
+            return $resultado;
+        }
+        $motivo = strtolower(trim((string) ($resultado['motivo_rechazo'] ?? $resultado['motivo'] ?? $resultado['codigo'] ?? '')));
+        $mensaje = $this->normalizarTipoDocumentoCandidatoMetricas($resultado['mensaje'] ?? $resultado['recomendacion'] ?? '');
+        $esTarjetaNss = $motivo === 'tarjeta_nss_no_aceptada'
+            || (strpos($mensaje, 'TARJETA NSS') !== false && strpos($mensaje, 'NO SE ACEPTA') !== false);
+        if (!$esTarjetaNss) {
+            return $resultado;
+        }
+        $resultado['valido'] = true;
+        $resultado['revision_manual'] = true;
+        $resultado['rechazado'] = false;
+        $resultado['mensaje'] = 'NSS detectado. Capital Humano revisara el documento manualmente.';
+        $resultado['nota_backend'] = 'Tarjeta NSS aceptada temporalmente para revision manual; se conservan los datos leidos por la API.';
+        return $resultado;
+    }
+
     private function verificarComprobanteDomicilioApi($rutaPdf)
     {
         $configFile = defined('RAIZ') ? (RAIZ . '/config/config.ini') : (__DIR__ . '/../config/config.ini');
@@ -14771,11 +14791,7 @@ class CapHum extends Controller
         } elseif ($tipoDocumento === 7) {
             $resultado = $this->verificarConstanciaFiscalApi($rutaPdf);
         } elseif ($tipoDocumento === 8) {
-            $resultado = [
-                'valido' => true,
-                'revision_manual' => true,
-                'nota_backend' => 'Validacion estricta de NSS deshabilitada temporalmente; documento aceptado para revision de Capital Humano.',
-            ];
+            $resultado = $this->permitirTarjetaNssParaRevisionManual($this->verificarNssApi($rutaPdf));
         } elseif ($tipoDocumento === 10) {
             $resultado = $this->verificarEstadoCuentaApi($rutaPdf);
         }
@@ -16403,10 +16419,14 @@ class CapHum extends Controller
                     $rutasParaValidar['nss'] = $pathAbs;
                     if ($idDoc > 0 && $esReciente) {
                         CandidatosDAO::updateVerificacionDocumento($idDoc, $prevFiscalJson, json_encode([
-                            'valido' => true,
-                            'revision_manual' => true,
-                            'notas' => ['NSS recibido; validacion estricta deshabilitada temporalmente.'],
+                            'pendiente_revision_backend' => true,
+                            'notas' => ['NSS recibido; re-evaluando contra el expediente.'],
                         ]));
+                        $resNss = $this->permitirTarjetaNssParaRevisionManual($this->verificarNssApi($pathAbs));
+                        if (is_array($resNss)) {
+                            $resNssFinal = $this->docVerifDebeConservarAnterior($prevCalidadArr, $resNss) ? $prevCalidadArr : $resNss;
+                            CandidatosDAO::updateVerificacionDocumento($idDoc, $prevFiscalJson, json_encode($resNssFinal));
+                        }
                     }
                 } elseif ($tipo === 'CONSTANCIA DE SITUACION FISCAL') {
                     $rutasParaValidar['constancia_fiscal'] = $pathAbs;
