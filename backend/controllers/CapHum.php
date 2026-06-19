@@ -14696,6 +14696,26 @@ class CapHum extends Controller
         return false;
     }
 
+    private function permitirTarjetaNssParaRevisionManual($resultado)
+    {
+        if (!is_array($resultado)) {
+            return $resultado;
+        }
+        $motivo = strtolower(trim((string) ($resultado['motivo_rechazo'] ?? $resultado['motivo'] ?? $resultado['codigo'] ?? '')));
+        $mensaje = $this->normalizarTipoDocumentoCandidatoMetricas($resultado['mensaje'] ?? $resultado['recomendacion'] ?? '');
+        $esTarjetaNss = $motivo === 'tarjeta_nss_no_aceptada'
+            || (strpos($mensaje, 'TARJETA NSS') !== false && strpos($mensaje, 'NO SE ACEPTA') !== false);
+        if (!$esTarjetaNss) {
+            return $resultado;
+        }
+        $resultado['valido'] = true;
+        $resultado['revision_manual'] = true;
+        $resultado['rechazado'] = false;
+        $resultado['mensaje'] = 'NSS detectado. Capital Humano revisara el documento manualmente.';
+        $resultado['nota_backend'] = 'Tarjeta NSS aceptada temporalmente para revision manual; se conservan los datos leidos por la API.';
+        return $resultado;
+    }
+
     private function verificarComprobanteDomicilioApi($rutaPdf)
     {
         $configFile = defined('RAIZ') ? (RAIZ . '/config/config.ini') : (__DIR__ . '/../config/config.ini');
@@ -14771,7 +14791,7 @@ class CapHum extends Controller
         } elseif ($tipoDocumento === 7) {
             $resultado = $this->verificarConstanciaFiscalApi($rutaPdf);
         } elseif ($tipoDocumento === 8) {
-            $resultado = $this->verificarNssApi($rutaPdf);
+            $resultado = $this->permitirTarjetaNssParaRevisionManual($this->verificarNssApi($rutaPdf));
         } elseif ($tipoDocumento === 10) {
             $resultado = $this->verificarEstadoCuentaApi($rutaPdf);
         }
@@ -16076,7 +16096,7 @@ class CapHum extends Controller
                 continue;
             }
             if ($i === 8 && $ext !== 'pdf') {
-                $errores[] = 'NÚMERO DE SEGURIDAD SOCIAL: solo se acepta el PDF de vigencia de derechos del IMSS (descargado desde imss.gob.mx).';
+                $errores[] = 'NÚMERO DE SEGURIDAD SOCIAL: por ahora solo se acepta archivo PDF.';
                 continue;
             }
             if ($i === 4 && $ext !== 'pdf') {
@@ -16402,7 +16422,7 @@ class CapHum extends Controller
                             'pendiente_revision_backend' => true,
                             'notas' => ['NSS recibido; re-evaluando contra el expediente.'],
                         ]));
-                        $resNss = $this->verificarNssApi($pathAbs);
+                        $resNss = $this->permitirTarjetaNssParaRevisionManual($this->verificarNssApi($pathAbs));
                         if (is_array($resNss)) {
                             $resNssFinal = $this->docVerifDebeConservarAnterior($prevCalidadArr, $resNss) ? $prevCalidadArr : $resNss;
                             CandidatosDAO::updateVerificacionDocumento($idDoc, $prevFiscalJson, json_encode($resNssFinal));

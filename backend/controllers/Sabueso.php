@@ -3373,7 +3373,7 @@ class Sabueso extends Controller
     }
 
     /**
-     * Ventana cerrada: desde domingo 12:01 p.m. hasta lunes 7:00 a.m. (CDMX) no se puede levantar ticket.
+     * Ventana cerrada: desde sabado 2:00 p.m. hasta lunes 7:00 a.m. (CDMX) no se puede levantar ticket.
      * @return string|null null = permitido; string = mensaje para mostrar
      */
     private static function mensajeSiVentanaLevantarTicketCerrada(): ?string
@@ -3385,8 +3385,8 @@ class Sabueso extends Controller
             $h = (int) $now->format('G');
             $i = (int) $now->format('i');
             $minutes = $h * 60 + $i;
-            // Domingo desde las 12:01 p.m. en adelante
-            if ($dow === 7 && $minutes >= 12 * 60 + 1) {
+            // Sabado desde las 2:00 p.m. en adelante y todo el domingo
+            if (($dow === 6 && $minutes >= 14 * 60) || $dow === 7) {
                 return 'En este momento el registro de tickets no está disponible. Por política operativa, el levantamiento se reanuda el lunes a las 7:00 a.m. (hora CDMX). Agradecemos su comprensión.';
             }
             // Lunes antes de las 7:00 a.m.
@@ -3401,7 +3401,7 @@ class Sabueso extends Controller
 
     /**
      * API: indica si en este momento se permite levantar ticket.
-     * Body opcional: { "categoria": "sabueso" } — la ventana domingo 12:01–lunes 7:00 aplica solo a Sabueso.
+     * Body opcional: { "categoria": "sabueso" } - la ventana sabado 14:00-lunes 7:00 aplica solo a Sabueso.
      */
     public function ticketLevantarPermitido()
     {

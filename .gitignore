@@ -101,6 +101,9 @@ backend/services/segundometro-agent/keys/**
 # ========== Pruebas OCR (no subir; puedes copiar archivos nuevos, no se subirán) ==========
 pruebas_OCR/
 
+# ========== PoC IA documental Gemini (experimento local; no subir keys, documentos ni resultados) ==========
+experiments/gemini_document_poc/
+
 # ========== Python: bytecode y caché de tests (regenerable; no versionar) ==========
 **/__pycache__/
 *.py[cod]

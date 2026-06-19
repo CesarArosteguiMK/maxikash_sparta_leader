@@ -40,7 +40,7 @@ $documentos_ayuda = [
     5  => 'INE, residencia o pasaporte vigente. Sube un solo PDF con frente y reverso.',
     6  => 'No mayor a 3 meses: luz, agua, gas o predial. Debe ser digital.',
     7  => 'Constancia de situación fiscal no mayor a 2 meses, con régimen de sueldos y salarios.',
-    8  => 'Documento oficial digital del IMSS. Puedes obtenerlo en <a href="https://www.imss.gob.mx/tramites/imss02008" target="_blank" rel="noopener">imss.gob.mx</a>.',
+    8  => 'Documento de NSS en PDF. Por ahora se acepta constancia, vigencia o tarjeta para revision de Capital Humano.',
     9  => 'Hoja de retención FONACOT o INFONAVIT. Si no tienes adeudo, descarga la carta de no adeudo desde aquí, llénala, fírmala y súbela en este apartado.',
     10 => 'Solo bancos físicos: BBVA, Banorte, Santander, Banamex, entre otros. No se aceptan bancos digitales como Nu, Mercado Pago o Klar.',
 ];
@@ -1734,7 +1734,7 @@ $documentos_ayuda = [
                     var file = this.files && this.files[0];
                     if (!file) return;
                     if (file.name.split('.').pop().toLowerCase() !== 'pdf') {
-                        showResultado(document.getElementById('mensajeResultado'), null, 'Solo se acepta constancia de NSS en PDF (descargada del IMSS).', true);
+                        showResultado(document.getElementById('mensajeResultado'), null, 'Solo se acepta NSS en PDF.', true);
                         inputNSS.value = '';
                         actualizarCheckmark(8, false);
                         return;
@@ -1756,10 +1756,15 @@ $documentos_ayuda = [
                     .then(function(res) {
                         var el = document.getElementById('nss-verificado');
                         if (res && res.rechazado === true) {
-                            showResultado(msg, verificandoDiv, res.mensaje || 'No se acepta tarjeta NSS. Sube constancia o vigencia de derechos del IMSS.', true);
-                            inputNSS.value = '';
-                            if (el) el.style.display = 'none';
-                            actualizarCheckmark(8, false);
+                            var motivoNss = String(res.motivo_rechazo || res.motivo || '').toLowerCase();
+                            if (motivoNss === 'tarjeta_nss_no_aceptada') {
+                                showResultado(msg, verificandoDiv, '<i class="fa fa-check-circle me-1"></i> NSS detectado. Capital Humano lo revisar\u00e1.', false);
+                                actualizarBadgeDocumento('nss-verificado', '<i class="fa fa-check-circle me-1"></i> NSS detectado');
+                                actualizarCheckmark(8, true);
+                                return;
+                            }
+                            showResultado(msg, verificandoDiv, res.mensaje || 'No se pudo validar el NSS. Capital Humano lo revisar\u00e1.', false);
+                            marcarDocumentoRecibido(8, 'nss-verificado');
                             return;
                         }
                         if (res.valido !== true) {
