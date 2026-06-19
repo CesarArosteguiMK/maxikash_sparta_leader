@@ -45,6 +45,67 @@
 .oferta-card .desc-oferta   { font-size: 0.82rem; color: #64748b; margin-bottom: 0.8rem; }
 .oferta-card .detalle-item  { font-size: 0.8rem; color: #475569; margin-bottom: 0.25rem; }
 .oferta-card .detalle-item i { color: #22c55e; margin-right: 4px; }
+.oferta-card.oferta-bloqueada-permanente {
+    border-color: #ef4444 !important;
+    background: #fff7f7;
+    cursor: default;
+    pointer-events: none;
+}
+.oferta-card.oferta-bloqueada-permanente:hover {
+    transform: none;
+    box-shadow: none;
+    border-color: #ef4444;
+}
+.oferta-card.oferta-bloqueada-permanente .titulo-oferta { color: #991b1b; }
+.oferta-card.oferta-bloqueada-permanente .porcentaje { color: #b91c1c; }
+.oferta-card.oferta-bloqueada-permanente .detalle-item i { color: #ef4444; }
+.badge-bloqueado-permanente {
+    background: #ef4444;
+    color: #fff;
+}
+.reactivar-modal-layout {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 300px;
+    gap: 1rem;
+    align-items: stretch;
+    text-align: left;
+}
+.reactivar-ofertas-grid { display:grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap:.85rem; text-align:left; }
+.reactivar-ofertas-grid .oferta-card { padding:1rem; border-radius:.85rem; min-height:100%; }
+.reactivar-ofertas-grid .oferta-card:hover { transform: translateY(-2px); }
+.reactivar-ofertas-grid .oferta-card.reactivacion-modal-selected {
+    border-color:#22c55e;
+    background:#f0fdf4;
+    box-shadow:0 8px 20px rgba(34,197,94,.18);
+}
+.reactivar-select-badge {
+    position:absolute; top:10px; right:10px; width:26px; height:26px;
+    border-radius:50%; display:flex; align-items:center; justify-content:center;
+    border:1px solid #cbd5e1; color:#94a3b8; background:#fff; font-size:.78rem;
+}
+.reactivacion-modal-selected .reactivar-select-badge { border-color:#22c55e; color:#fff; background:#22c55e; }
+.reactivar-motivo-panel {
+    border: 1px solid #e2e8f0;
+    border-radius: .85rem;
+    background: #f8fafc;
+    padding: 1rem;
+    min-height: 100%;
+}
+.reactivar-motivo-panel textarea {
+    resize: vertical;
+    min-height: 150px;
+}
+.reactivar-motivo-hint {
+    color: #64748b;
+    font-size: .8rem;
+    line-height: 1.35;
+    margin-bottom: .75rem;
+}
+@media (max-width: 900px) {
+    .reactivar-modal-layout {
+        grid-template-columns: 1fr;
+    }
+}
 
 /* ── Cards congeladas (convenio activo) ── */
 .oferta-card.congelada {
@@ -304,6 +365,17 @@ body.dark-mode .oferta-card .titulo-oferta { color: #f1f5f9; }
 body.dark-mode .oferta-card .desc-oferta   { color: #94a3b8; }
 body.dark-mode .oferta-card .detalle-item  { color: #94a3b8; }
 body.dark-mode .oferta-card .porcentaje    { color: #c084fc; }
+body.dark-mode .oferta-card.oferta-bloqueada-permanente {
+    background: #3b1010;
+    border-color: #ef4444 !important;
+}
+body.dark-mode .oferta-card.oferta-bloqueada-permanente .titulo-oferta { color: #fecaca; }
+body.dark-mode .oferta-card.oferta-bloqueada-permanente .porcentaje { color: #fca5a5; }
+body.dark-mode .reactivar-motivo-panel {
+    background: #0f172a;
+    border-color: #334155;
+}
+body.dark-mode .reactivar-motivo-hint { color: #94a3b8; }
 
 body.dark-mode .oferta-card.seleccionada-final {
     background: linear-gradient(135deg, #2d1b69 0%, #3b1f6e 100%);
@@ -750,7 +822,7 @@ body.dark-mode .manual-faq-modal .manual-pill { background: rgba(167,139,250,.16
                 <i class="fas fa-file-import"></i> Registrar Convenio Existente
             </button>
             <?php endif; ?>
-            <?php if (!empty($permisoReactivarOfertas)): ?>
+            <?php if (!empty($permisoSolicitarReactivacionOferta) || !empty($permisoReactivarOfertas)): ?>
             <button type="button" class="btn btn-outline-success"
                     id="btnReactivarOfertas"
                     style="display:none;"
@@ -1678,12 +1750,15 @@ body.dark-mode .manual-faq-modal .manual-pill { background: rgba(167,139,250,.16
 // ══════════════════════════════════════════════════════
 var _credito = null;
 var _ofertas = [];
+var _ofertasReactivables = [];
 var _ofertaActiva = null;
 var _semanasActual = 1;
 var _rayoModo = null; // 'unico' | 'quincenas' | 'semanal'
 // var _pollingInterval = null;
 var _estatusS2 = null;
 var _estatusConvenio = null;
+var _permSolicitarReactivacion = <?= !empty($permisoSolicitarReactivacionOferta) ? 'true' : 'false' ?>;
+var _permReactivarOfertas = <?= !empty($permisoReactivarOfertas) ? 'true' : 'false' ?>;
 
 // ── Helpers de badge para el banner ──
 function _renderS2Badge(s2) {
@@ -1728,6 +1803,7 @@ function actualizarColumnaS2() {
     }
 
     verificarSaldado();
+    _actualizarBotonReactivacion();
 }
 
 function verificarSaldado() {
@@ -1832,6 +1908,7 @@ function seleccionarCredito(idCredito) {
     // Resetear estado S2 y disparar consulta ligera (fire-and-forget)
     _estatusS2 = null;
     _estatusConvenio = null;
+    _ofertasReactivables = [];
     http.request({
         endpoint: '/convenios/getEstatusS2',
         method: 'POST',
@@ -1863,6 +1940,7 @@ function seleccionarCredito(idCredito) {
             var datos = respOfertas.datos;
             var credito = datos.credito;
             var ofertas = datos.ofertas;
+            _ofertasReactivables = datos.ofertas_reactivables || [];
             var elegible = datos.elegible;
             var razon = datos.razon;
             var estaReactivado = !!datos.reactivado;
@@ -2050,6 +2128,33 @@ function seleccionarCredito(idCredito) {
 // ══════════════════════════════════════════════════════
 //  BANNER DEL CRÉDITO
 // ══════════════════════════════════════════════════════
+function _convEsc(str) {
+    return String(str == null ? '' : str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+}
+
+function _fmtMonedaConv(v) {
+    return '$' + (parseFloat(v) || 0).toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+function _actualizarBotonReactivacion() {
+    var btn = document.getElementById('btnReactivarOfertas');
+    if (!btn) return;
+
+    var hayPermiso = _permSolicitarReactivacion || _permReactivarOfertas;
+    var hayOfertas = Array.isArray(_ofertasReactivables) && _ofertasReactivables.length > 0;
+    var estaSaldado = _estatusS2 && _estatusS2.statusCredito === 'Saldado';
+    var puedeMostrar = hayPermiso && hayOfertas && _estatusConvenio !== 'activo' && !estaSaldado;
+
+    btn.style.display = puedeMostrar ? 'inline-block' : 'none';
+    if (puedeMostrar) {
+        btn.innerHTML = '<i class="fa-solid fa-rotate-right me-1"></i> Reactivar Ofertas';
+    }
+}
+
 function renderCreditoBanner(c) {
     var bucketColor = function (b) {
         if (!b) return 'bg-secondary';
@@ -2077,8 +2182,7 @@ function renderCreditoBanner(c) {
     var _btnRegConvBanner = document.getElementById('btnRegistrarConvenioExistente');
     if (_btnRegConvBanner) _btnRegConvBanner.style.display = 'inline-block';
 
-    var _btnReact = document.getElementById('btnReactivarOfertas');
-    if (_btnReact) _btnReact.style.display = 'inline-block';
+    _actualizarBotonReactivacion();
 }
 
 // ══════════════════════════════════════════════════════
@@ -2094,6 +2198,7 @@ function renderOfertas(ofertas, productosBloqueados) {
     ofertas = ofertas.filter(function (o) {
         return o.nombre !== 'Convenio Pago Mixto';
     });
+    _ofertas = ofertas;
 
     // Construir mapa id_producto → nombre desde historial y ofertas actuales
     var _historialProductos = {};
@@ -2123,8 +2228,21 @@ function renderOfertas(ofertas, productosBloqueados) {
         });
     }
 
-    // Cards de ofertas disponibles
-    var htmlOfertas = ofertas.map(function (o, i) {
+    var ofertasPorProducto = {};
+    ofertas.forEach(function (o) {
+        ofertasPorProducto[o.id_producto] = o;
+    });
+
+    var reactivablesPorProducto = {};
+    (_ofertasReactivables || []).forEach(function (o) {
+        reactivablesPorProducto[o.id_producto] = o;
+        if (o.id_producto && o.nombre) {
+            _historialProductos[o.id_producto] = o.nombre;
+        }
+    });
+
+    function renderOfertaCard(o, i, opts) {
+        opts = opts || {};
         var icono = OFERTA_ICONOS[o.id_producto] || '📋';
         var primerPago = (o.pago_inicial === 'Si' && o.pago_inicial_monto)
             ? fmt(o.pago_inicial_monto)
@@ -2132,12 +2250,41 @@ function renderOfertas(ofertas, productosBloqueados) {
         var plazoLabel = parseInt(o.semanas_max) === 1
             ? '1 semana (pago único)'
             : o.periodo_inicio + ' a ' + o.semanas_max + ' semanas';
+        var clase = opts.clase || '';
+        var badge = opts.badge || '';
+        var puedeClick = opts.clickeable !== false && typeof i === 'number';
+        var cardId = typeof i === 'number' ? ' id="oferta-card-' + i + '"' : '';
+        var clickeable = puedeClick ? ' onclick="window.seleccionarOferta(' + i + ')"' : '';
+        var cursor = opts.cursor ? 'cursor:' + opts.cursor + ';' : (puedeClick ? '' : 'cursor:default;');
 
+        return '<div class="col-12 col-md-3">' +
+            '<div class="oferta-card ' + clase + '"' + cardId + clickeable + ' style="' + cursor + '">' +
+            badge +
+            '<div class="icono-oferta">' + icono + '</div>' +
+            '<div class="titulo-oferta">' + _convEsc(o.nombre) + '</div>' +
+            '<div class="porcentaje">' + parseInt(o.porcentaje_descuento) + '%</div>' +
+            '<div class="desc-oferta">Ahorro de ' + fmt(o.descuento_monto) + ' sobre ' + fmt(o.monto_base) + '</div>' +
+            '<div class="detalle-item"><i class="fa-solid fa-check"></i> Total a pagar: <strong>' + fmt(o.total_a_pagar) + '</strong></div>' +
+            '<div class="detalle-item"><i class="fa-solid fa-check"></i> Primer pago: <strong>' + primerPago + '</strong></div>' +
+            '<div class="detalle-item"><i class="fa-solid fa-check"></i> Plazos: <strong>' + plazoLabel + '</strong></div>' +
+            '</div>' +
+            '</div>';
+    }
+
+    // Cards de ofertas disponibles
+    var htmlOfertas = ofertas.map(function (o, i) {
         var estatusPrevio = productosUsados[o.id_producto] || null;
+        var estaReactivada = !!o.reactivado;
         var claseAdicional = '';
         var badgeHistorial = '';
 
-        if (estatusPrevio === 'completado') {
+        if (estaReactivada) {
+            claseAdicional = 'oferta-reactivada';
+            badgeHistorial =
+                '<div class="badge-historial-card" title="Este cliente ha tenido anteriormente una o mas ofertas reactivadas. Puedes consultar el historial para ver ofertas pasadas." style="background:#dcfce7;color:#166534;border:1px solid #86efac;">' +
+                '<i class="fa-solid fa-rotate-right me-1"></i>Reactivado' +
+                '</div>';
+        } else if (estatusPrevio === 'completado') {
             claseAdicional = 'oferta-completada';
             badgeHistorial =
                 '<div class="badge-historial-card badge-completado-card">' +
@@ -2151,21 +2298,13 @@ function renderOfertas(ofertas, productosBloqueados) {
                 '</div>';
         }
 
-        var clickeable = estatusPrevio ? '' : ' onclick="window.seleccionarOferta(' + i + ')"';
-        var cursor = estatusPrevio ? 'cursor:not-allowed;' : '';
-
-        return '<div class="col-12 col-md-3">' +
-            '<div class="oferta-card ' + claseAdicional + '" id="oferta-card-' + i + '"' + clickeable + ' style="' + cursor + '">' +
-            badgeHistorial +
-            '<div class="icono-oferta">' + icono + '</div>' +
-            '<div class="titulo-oferta">' + o.nombre + '</div>' +
-            '<div class="porcentaje">' + parseInt(o.porcentaje_descuento) + '%</div>' +
-            '<div class="desc-oferta">Ahorro de ' + fmt(o.descuento_monto) + ' sobre ' + fmt(o.monto_base) + '</div>' +
-            '<div class="detalle-item"><i class="fa-solid fa-check"></i> Total a pagar: <strong>' + fmt(o.total_a_pagar) + '</strong></div>' +
-            '<div class="detalle-item"><i class="fa-solid fa-check"></i> Primer pago: <strong>' + primerPago + '</strong></div>' +
-            '<div class="detalle-item"><i class="fa-solid fa-check"></i> Plazos: <strong>' + plazoLabel + '</strong></div>' +
-            '</div>' +
-            '</div>';
+        var bloqueadaPorHistorial = estatusPrevio && !estaReactivada;
+        return renderOfertaCard(o, i, {
+            clase: claseAdicional,
+            badge: badgeHistorial,
+            clickeable: !bloqueadaPorHistorial,
+            cursor: bloqueadaPorHistorial ? 'not-allowed' : ''
+        });
     }).join('');
 
     // Cards bloqueadas permanentemente por incumplimiento
@@ -2173,20 +2312,27 @@ function renderOfertas(ofertas, productosBloqueados) {
     if (productosBloqueados && productosBloqueados.length > 0) {
         productosBloqueados.forEach(function (idProd) {
             var nombre = _historialProductos[idProd] || 'Producto';
-            var icono = OFERTA_ICONOS[idProd] || '🚫';
+            var ofertaBloqueada = reactivablesPorProducto[idProd] || ofertasPorProducto[idProd] || null;
+            var badgeBloqueado =
+                '<div class="badge-historial-card badge-bloqueado-permanente">' +
+                '<i class="fas fa-ban me-1"></i>Bloqueado permanente' +
+                '</div>';
+
+            if (ofertaBloqueada) {
+                htmlBloqueados += renderOfertaCard(ofertaBloqueada, null, {
+                    clase: 'oferta-bloqueada-permanente',
+                    badge: badgeBloqueado,
+                    clickeable: false
+                });
+                return;
+            }
+
             htmlBloqueados +=
                 '<div class="col-12 col-md-3">' +
-                '<div class="oferta-card" style="border-color:#ef4444;background:#fff1f1;opacity:0.65;cursor:not-allowed;pointer-events:none;position:relative;">' +
-                '<div style="position:absolute;top:10px;right:10px;background:#ef4444;color:#fff;' +
-                'font-size:0.65rem;padding:3px 9px;border-radius:12px;font-weight:700;">' +
-                '<i class="fas fa-ban me-1"></i>Bloqueado permanente' +
-                '</div>' +
-                '<div class="icono-oferta">' + icono + '</div>' +
-                '<div class="titulo-oferta" style="color:#991b1b;">' + nombre + '</div>' +
-                '<div class="desc-oferta" style="color:#dc2626;font-size:0.8rem;margin-top:.5rem;">' +
-                '<i class="fas fa-triangle-exclamation me-1"></i>' +
-                'Convenio cancelado por incumplimiento.<br>No disponible permanentemente.' +
-                '</div>' +
+                '<div class="oferta-card oferta-bloqueada-permanente">' +
+                badgeBloqueado +
+                '<div class="icono-oferta">' + (OFERTA_ICONOS[idProd] || '🚫') + '</div>' +
+                '<div class="titulo-oferta">' + _convEsc(nombre) + '</div>' +
                 '</div>' +
                 '</div>';
         });
@@ -2194,27 +2340,7 @@ function renderOfertas(ofertas, productosBloqueados) {
 
     // ── Prohibición total: sin ofertas disponibles por bloqueo de incumplimiento ──
     if (ofertas.length === 0 && productosBloqueados && productosBloqueados.length > 0) {
-        cont.innerHTML =
-            '<div class="col-12">' +
-            '<div class="alert d-flex align-items-start gap-3 mb-0 p-4" ' +
-            'style="background:#fff1f2;border:2px solid #ef4444;border-radius:12px;">' +
-            '<div style="font-size:2.2rem;line-height:1;">🚫</div>' +
-            '<div>' +
-            '<div class="fw-bold mb-1" style="color:#991b1b;font-size:1.05rem;">' +
-            'Convenios Prohibidos — Crédito bloqueado por incumplimiento' +
-            '</div>' +
-            '<div style="color:#7f1d1d;font-size:0.9rem;line-height:1.5;">' +
-            'Este crédito tiene convenios cancelados por incumplimiento en todos los productos disponibles. ' +
-            'No es posible generar un nuevo convenio.<br>' +
-            '<span style="margin-top:.4rem;display:inline-block;">' +
-            '<i class="fas fa-circle-info me-1"></i>' +
-            'Para cualquier duda o excepción, consulta con el <strong>Administrador del sistema</strong>.' +
-            '</span>' +
-            '</div>' +
-            '</div>' +
-            '</div>' +
-            '</div>' +
-            htmlBloqueados;
+        cont.innerHTML = htmlBloqueados;
 
         document.getElementById('sliderSection').style.display = 'none';
         document.getElementById('adjuntarArchivoSection').style.display = 'none';
@@ -2222,10 +2348,12 @@ function renderOfertas(ofertas, productosBloqueados) {
         var _docAdjLimp2 = document.getElementById('docAdjuntoConvenio');
         if (_docAdjLimp2) _docAdjLimp2.remove();
         verificarSaldado();
+        _actualizarBotonReactivacion();
         return;
     }
 
     cont.innerHTML = htmlOfertas + htmlBloqueados;
+    _actualizarBotonReactivacion();
 
     // Si el crédito ya está saldado en S2, ocultar productos y mostrar info de cierre
     verificarSaldado();
@@ -4010,6 +4138,7 @@ window.guardarConvenio = function () {
                 fecha_acuerdo:                  hoy,
                 tipo_calendario:                'libre',
                 fechas_pagos:                   JSON.stringify(pagos),
+                id_peticion_reactivacion:       _ofertaActiva.id_peticion_reactivacion || '',
             };
 
             var _reqLibre = {
@@ -4107,6 +4236,7 @@ window.guardarConvenio = function () {
             numero_semanas: _numSemanasG,
             pago_semanal: semanal,
             fecha_acuerdo: hoy,
+            id_peticion_reactivacion: _ofertaActiva.id_peticion_reactivacion || '',
         };
 
         var _reqOpts = {
@@ -4634,21 +4764,99 @@ function _migOnBaseChange() {
 // ══════════════════════════════════════════════════════
 //  REACTIVAR OFERTAS
 // ══════════════════════════════════════════════════════
-window.reactivarOfertasCredito = function () {
+function _renderModalReactivacionOferta(o, seleccionado) {
+    var primerPago = (o.pago_inicial === 'Si' && o.pago_inicial_monto)
+        ? _fmtMonedaConv(o.pago_inicial_monto)
+        : 'No requiere primer pago';
+    var plazoLabel = parseInt(o.semanas_max, 10) === 1
+        ? '1 semana (pago unico)'
+        : o.periodo_inicio + ' a ' + o.semanas_max + ' semanas';
+    var icono = OFERTA_ICONOS[o.id_producto] || '<i class="fa-solid fa-tags"></i>';
+    var selectedClass = seleccionado ? ' reactivacion-modal-selected' : '';
+    var selectedIcon = seleccionado ? 'fa-check' : 'fa-plus';
+
+    return '<div class="oferta-card reactivar-modal-card' + selectedClass + '" data-id="' + o.id_producto + '">' +
+        '<span class="reactivar-select-badge"><i class="fa-solid ' + selectedIcon + '"></i></span>' +
+        '<div class="icono-oferta">' + icono + '</div>' +
+        '<div class="titulo-oferta">' + _convEsc(o.nombre) + '</div>' +
+        '<div class="porcentaje">' + parseInt(o.porcentaje_descuento || 0, 10) + '%</div>' +
+        '<div class="desc-oferta">Ahorro de ' + _fmtMonedaConv(o.descuento_monto) + ' sobre ' + _fmtMonedaConv(o.monto_base) + '</div>' +
+        '<div class="detalle-item"><i class="fa-solid fa-check"></i> Total a pagar: <strong>' + _fmtMonedaConv(o.total_a_pagar) + '</strong></div>' +
+        '<div class="detalle-item"><i class="fa-solid fa-check"></i> Primer pago: <strong>' + primerPago + '</strong></div>' +
+        '<div class="detalle-item"><i class="fa-solid fa-check"></i> Plazos: <strong>' + plazoLabel + '</strong></div>' +
+        '</div>';
+}
+
+function _actualizarResumenReactivacionModal() {
+    var hint = document.getElementById('reactivarMotivoHint');
+    if (!hint) return;
+
+    var seleccionadas = document.querySelectorAll('.reactivar-modal-card.reactivacion-modal-selected').length;
+    if (seleccionadas === 0) {
+        hint.textContent = 'Selecciona una o más ofertas y describe el motivo de la solicitud.';
+    } else if (seleccionadas === 1) {
+        hint.textContent = 'Seleccionaste 1 oferta. Explica por qué se debe reactivar.';
+    } else {
+        hint.textContent = 'Seleccionaste ' + seleccionadas + ' ofertas. Explica por qué se deben reactivar todas.';
+    }
+}
+
+window.reactivarOfertasCredito = function (preselectId, ev) {
+    if (ev) {
+        ev.preventDefault();
+        ev.stopPropagation();
+    }
     if (!_credito) return;
+
+    var ofertas = (_ofertasReactivables || []).filter(function (o) {
+        return o && o.nombre !== 'Convenio Pago Mixto';
+    });
+    if (!ofertas.length) {
+        _actualizarBotonReactivacion();
+        Swal.fire({
+            icon: 'info',
+            title: 'Sin ofertas por reactivar',
+            text: 'No hay ofertas con convenio cancelado vigente para iniciar este flujo.'
+        });
+        return;
+    }
+
     var idCredito = _credito.Id_credito;
     var nombre = _credito.Nombre_cliente || '';
+    var preId = parseInt(preselectId || 0, 10);
+    var htmlCards = ofertas.map(function (o) {
+        return _renderModalReactivacionOferta(o, preId > 0 && parseInt(o.id_producto, 10) === preId);
+    }).join('');
+    var requiereMotivo = !_permReactivarOfertas;
+    var panelDerecho = requiereMotivo
+        ? '<aside class="reactivar-motivo-panel">' +
+            '<div class="fw-bold mb-1" style="color:#5b2d8e;">Motivo de reactivación</div>' +
+            '<div id="reactivarMotivoHint" class="reactivar-motivo-hint">Selecciona una o más ofertas y describe el motivo de la solicitud.</div>' +
+            '<textarea id="reactivarMotivo" class="form-control" rows="6" maxlength="300" placeholder="Especifica por qué se deben reactivar las ofertas seleccionadas..."></textarea>' +
+          '</aside>'
+        : '<aside class="reactivar-motivo-panel">' +
+            '<div class="alert alert-success text-start mb-0 py-2">Se autorizarán directamente las ofertas seleccionadas y el historial anterior se conserva intacto.</div>' +
+          '</aside>';
 
     Swal.fire({
-        title: 'Reactivar Ofertas',
+        title: 'Reactivar ofertas',
         html:
-            '<p>Crédito <strong>#' + idCredito + '</strong> — ' + nombre + '</p>' +
-            '<p class="text-muted small mb-0">Se habilitarán todas las ofertas disponibles para este crédito, ' +
-            'ignorando convenios finalizados o cancelados anteriores. ' +
-            'El historial de convenios se conserva intacto.</p>',
-        icon: 'warning',
+            '<div class="text-start mb-3">' +
+                '<div class="fw-bold">Credito #' + _convEsc(idCredito) + '</div>' +
+                '<div class="text-muted small">' + _convEsc(nombre) + '</div>' +
+            '</div>' +
+            '<div class="reactivar-modal-layout">' +
+                '<div>' +
+                    '<div class="text-muted small mb-2">Selecciona las ofertas que quieres reactivar.</div>' +
+                    '<div class="reactivar-ofertas-grid">' + htmlCards + '</div>' +
+                '</div>' +
+                panelDerecho +
+            '</div>',
+        width: 980,
         showCancelButton: true,
-        confirmButtonText: '<i class="fa-solid fa-rotate-right me-1"></i>Sí, reactivar',
+        confirmButtonText: _permReactivarOfertas
+            ? '<i class="fa-solid fa-rotate-right me-1"></i>Reactivar seleccionadas'
+            : '<i class="fa-solid fa-paper-plane me-1"></i>Enviar solicitud',
         cancelButtonText: 'Cancelar',
         reverseButtons: true,
         buttonsStyling: false,
@@ -4656,40 +4864,83 @@ window.reactivarOfertasCredito = function () {
             actions: 'd-flex gap-2 justify-content-center',
             confirmButton: 'btn btn-success px-4',
             cancelButton: 'btn btn-outline-secondary px-4'
+        },
+        didOpen: function () {
+            document.querySelectorAll('.reactivar-modal-card').forEach(function (card) {
+                card.addEventListener('click', function () {
+                    card.classList.toggle('reactivacion-modal-selected');
+                    var icon = card.querySelector('.reactivar-select-badge i');
+                    if (icon) {
+                        icon.className = card.classList.contains('reactivacion-modal-selected')
+                            ? 'fa-solid fa-check'
+                            : 'fa-solid fa-plus';
+                    }
+                    _actualizarResumenReactivacionModal();
+                });
+            });
+            _actualizarResumenReactivacionModal();
+        },
+        preConfirm: function () {
+            var ids = Array.prototype.slice.call(document.querySelectorAll('.reactivar-modal-card.reactivacion-modal-selected'))
+                .map(function (card) { return parseInt(card.dataset.id || '0', 10); })
+                .filter(function (id) { return id > 0; });
+
+            if (!ids.length) {
+                Swal.showValidationMessage('Selecciona al menos una oferta.');
+                return false;
+            }
+
+            var motivo = '';
+            if (requiereMotivo) {
+                var motivoEl = document.getElementById('reactivarMotivo');
+                motivo = motivoEl ? motivoEl.value.trim() : '';
+                if (!motivo) {
+                    Swal.showValidationMessage('Captura el motivo de la reactivacion.');
+                    return false;
+                }
+            } else {
+                motivo = 'Reactivacion directa desde Convenios';
+            }
+
+            return { ids: ids, motivo: motivo };
         }
     }).then(function (res) {
-        if (!res.isConfirmed) return;
+        if (!res.isConfirmed || !res.value) return;
 
         var fd = new FormData();
         fd.append('id_credito', idCredito);
+        fd.append('id_productos_convenio', res.value.ids.join(','));
+        fd.append('motivo', res.value.motivo);
 
         Swal.fire({
-            title: 'Reactivando...',
+            title: _permReactivarOfertas ? 'Reactivando...' : 'Enviando solicitud...',
             allowOutsideClick: false,
             allowEscapeKey: false,
             showConfirmButton: false,
             didOpen: function () { Swal.showLoading(); }
         });
 
-        fetch('/convenios/reactivarOfertas', { method: 'POST', body: fd })
+        fetch(_permReactivarOfertas ? '/convenios/reactivarOfertas' : '/convenios/solicitarReactivacionOferta', {
+            method: 'POST',
+            body: fd
+        })
             .then(function (r) { return r.json(); })
             .then(function (data) {
                 if (data.success) {
                     Swal.fire({
                         icon: 'success',
-                        title: '¡Ofertas reactivadas!',
-                        text: data.mensaje || 'Ahora puedes generar un nuevo convenio.',
+                        title: _permReactivarOfertas ? 'Ofertas reactivadas' : 'Solicitud enviada',
+                        text: data.mensaje || (_permReactivarOfertas ? 'Ahora puedes generar un nuevo convenio.' : 'Un supervisor podra autorizarla desde Cierre de Credito > Peticiones.'),
                         confirmButtonText: 'Continuar'
                     }).then(function () {
-                        // Volver a cargar el crédito para mostrar las ofertas frescas
                         seleccionarCredito(idCredito);
                     });
                 } else {
-                    Swal.fire({ icon: 'error', title: 'Error', text: data.mensaje || 'Ocurrió un error.' });
+                    Swal.fire({ icon: 'error', title: 'Error', text: data.mensaje || 'No se pudo completar la operacion.' });
                 }
             })
             .catch(function () {
-                Swal.fire({ icon: 'error', title: 'Error de conexión', text: 'No se pudo contactar al servidor.' });
+                Swal.fire({ icon: 'error', title: 'Error de conexion', text: 'No se pudo contactar al servidor.' });
             });
     });
 };

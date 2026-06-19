@@ -170,18 +170,28 @@ class Convenios extends Model
             ]);
         }
 
-        // 2. Productos bloqueados permanentemente por incumplimiento
+        // 2. Productos con el ultimo flujo cancelado. Reactivar es una excepcion de negocio:
+        // no depende de quien cancelo, solo de que ya no exista convenio activo y el ultimo
+        // convenio de ese producto este cancelado.
         $bloqueadosRows = $db->queryAll(
-            "SELECT DISTINCT id_producto_convenio
-             FROM convenio_cliente
-             WHERE id_credito = :id
-               AND estatus = 'cancelado'
-               AND usuario_cancela = 'sistema_auto'",
-            ['id' => (int) $id_credito]
+            "SELECT cc.id_producto_convenio
+             FROM convenio_cliente cc
+             INNER JOIN (
+                SELECT id_producto_convenio, MAX(id) AS id_ultimo
+                FROM convenio_cliente
+                WHERE id_credito = :id_sub
+                  AND estatus <> 'activo'
+                GROUP BY id_producto_convenio
+             ) ult ON ult.id_ultimo = cc.id
+             WHERE cc.id_credito = :id_outer
+               AND cc.estatus = 'cancelado'",
+            ['id_sub' => (int) $id_credito, 'id_outer' => (int) $id_credito]
         );
         $productosBloqueados = $bloqueadosRows
-            ? array_column($bloqueadosRows, 'id_producto_convenio')
+            ? array_map('intval', array_column($bloqueadosRows, 'id_producto_convenio'))
             : [];
+        $reactivacionesAprobadas = self::_getReactivacionesAprobadasMap($db, (int) $id_credito);
+        $reactivacionesAbiertas = self::_getReactivacionesAbiertasMap($db, (int) $id_credito);
 
         // 3. Productos activos del catálogo
         $productos = $db->queryAll(
@@ -212,23 +222,26 @@ class Convenios extends Model
 
         // 4. Filtrar ofertas elegibles
         $ofertas = [];
+        $ofertasReactivables = [];
         foreach ($productos as $prod) {
 
             // Bloqueo permanente por incumplimiento
-            if (in_array($prod['id'], $productosBloqueados)) {
-                continue;
-            }
+            $idProdActual = (int) $prod['id'];
+            $reactivacion = $reactivacionesAprobadas[$idProdActual] ?? null;
+            $reactivacionAbierta = $reactivacionesAbiertas[$idProdActual] ?? null;
+            $estaBloqueado = in_array($idProdActual, $productosBloqueados, true);
 
             $bucketsProducto = array_map('trim', explode(',', $prod['buckets_aplicables']));
+            $cumpleReglasProducto = in_array($bucket, $bucketsProducto);
 
             // Validar bucket
             if (!in_array($bucket, $bucketsProducto)) {
-                continue;
+                $cumpleReglasProducto = false;
             }
 
             // Validar avance de pago mínimo
             if ($prod['avance_pago_minimo'] !== null && $avancePago < (float) $prod['avance_pago_minimo']) {
-                continue;
+                $cumpleReglasProducto = false;
             }
 
             // Calcular montos
@@ -253,8 +266,8 @@ class Convenios extends Model
 
             $semanasMax = self::calcularPlazoMaximo($db, $prod['id'], $adeudoTotal, $prod['periodo_fin']);
 
-            $ofertas[] = [
-                'id_producto'          => $prod['id'],
+            $oferta = [
+                'id_producto'          => $idProdActual,
                 'id_detalle'           => $prod['id_detalle'],
                 'nombre'               => $prod['nombre'],
                 'tipo_calendario'      => $prod['tipo_calendario'] ?? 'semanal',
@@ -270,14 +283,43 @@ class Convenios extends Model
                 'periodo_fin_producto' => (int) $prod['periodo_fin'],
                 'semanas_max'          => $semanasMax,
                 'buckets_aplicables'   => $bucketsProducto,
+                'reactivado'           => (bool) $reactivacion,
+                'id_peticion_reactivacion' => $reactivacion ? (int) $reactivacion['id'] : null,
+                'id_convenio_origen'   => $reactivacion ? (int) $reactivacion['id_convenio_origen'] : null,
+                'reactivacion_numero'  => $reactivacion ? (int) $reactivacion['reactivacion_numero'] : null,
+                'reactivacion_estado'  => $reactivacionAbierta ? (string) $reactivacionAbierta['estatus'] : null,
             ];
+
+            if ($estaBloqueado && !$reactivacion) {
+                if (!$reactivacionAbierta) {
+                    $oferta['reactivable'] = true;
+                    $ofertasReactivables[] = $oferta;
+                }
+                continue;
+            }
+
+            if (!$cumpleReglasProducto && !$reactivacion) {
+                continue;
+            }
+
+            $ofertas[] = $oferta;
         }
+
+        $productosBloqueadosVisibles = array_values(array_filter(
+            $productosBloqueados,
+            function ($idProd) use ($reactivacionesAbiertas) {
+                return !isset($reactivacionesAbiertas[(int) $idProd]);
+            }
+        ));
 
         return self::resultado(true, 'Ofertas calculadas.', [
             'credito'              => $credito,
             'ofertas'              => $ofertas,
+            'ofertas_reactivables' => $ofertasReactivables,
             'elegible'             => count($ofertas) > 0,
-            'productos_bloqueados' => $productosBloqueados,
+            'productos_bloqueados' => $productosBloqueadosVisibles,
+            'reactivado'           => count($reactivacionesAprobadas) > 0,
+            'reactivaciones'       => array_values($reactivacionesAprobadas),
         ]);
 
     } catch (\Exception $e) {
@@ -305,6 +347,301 @@ class Convenios extends Model
         return $row ? (int) $row['semanas_max'] : (int) $periodoFinProducto;
     }
 
+    private static function _getReactivacionesAprobadasMap(Database $db, int $idCredito): array
+    {
+        $rows = $db->queryAll(
+            "SELECT crp.*,
+                    (
+                        SELECT COUNT(*)
+                        FROM convenio_reactivacion_peticion crp2
+                        WHERE crp2.id_credito = crp.id_credito
+                          AND crp2.id_producto_convenio = crp.id_producto_convenio
+                          AND crp2.estatus IN ('aprobada', 'ejecutada')
+                          AND crp2.id <= crp.id
+                    ) AS reactivacion_numero
+             FROM convenio_reactivacion_peticion crp
+             WHERE crp.id_credito = :id
+               AND crp.estatus = 'aprobada'
+             ORDER BY crp.fecha_resolucion DESC, crp.fecha_solicitud DESC",
+            ['id' => $idCredito]
+        );
+
+        $map = [];
+        foreach ($rows ?: [] as $row) {
+            $prod = (int) $row['id_producto_convenio'];
+            if (!isset($map[$prod])) {
+                $map[$prod] = $row;
+            }
+        }
+        return $map;
+    }
+
+    private static function _getReactivacionesAbiertasMap(Database $db, int $idCredito): array
+    {
+        $rows = $db->queryAll(
+            "SELECT crp.*,
+                    (
+                        SELECT COUNT(*)
+                        FROM convenio_reactivacion_peticion crp2
+                        WHERE crp2.id_credito = crp.id_credito
+                          AND crp2.id_producto_convenio = crp.id_producto_convenio
+                          AND crp2.estatus IN ('aprobada', 'ejecutada')
+                          AND crp2.id <= crp.id
+                    ) AS reactivacion_numero
+             FROM convenio_reactivacion_peticion crp
+             WHERE crp.id_credito = :id
+               AND crp.estatus IN ('pendiente', 'aprobada')
+             ORDER BY crp.fecha_resolucion DESC, crp.fecha_solicitud DESC",
+            ['id' => $idCredito]
+        );
+
+        $map = [];
+        foreach ($rows ?: [] as $row) {
+            $prod = (int) $row['id_producto_convenio'];
+            if (!isset($map[$prod])) {
+                $map[$prod] = $row;
+            }
+        }
+        return $map;
+    }
+
+    private static function _getUltimoConvenioProducto(Database $db, int $idCredito, int $idProducto): ?array
+    {
+        return $db->queryOne(
+            "SELECT cc.*, pc.nombre AS nombre_producto
+             FROM convenio_cliente cc
+             INNER JOIN producto_convenio pc ON pc.id = cc.id_producto_convenio
+             WHERE cc.id_credito = :id
+               AND cc.id_producto_convenio = :prod
+               AND cc.estatus <> 'activo'
+             ORDER BY cc.fecha_alta DESC, cc.id DESC
+             LIMIT 1",
+            ['id' => $idCredito, 'prod' => $idProducto]
+        );
+    }
+
+    private static function _getUltimosConveniosPorProducto(Database $db, int $idCredito): array
+    {
+        $rows = $db->queryAll(
+            "SELECT cc.*, pc.nombre AS nombre_producto
+             FROM convenio_cliente cc
+             INNER JOIN producto_convenio pc ON pc.id = cc.id_producto_convenio
+             WHERE cc.id_credito = :id
+               AND cc.estatus <> 'activo'
+             ORDER BY cc.fecha_alta DESC, cc.id DESC",
+            ['id' => $idCredito]
+        );
+
+        $porProducto = [];
+        foreach ($rows ?: [] as $row) {
+            $prod = (int) $row['id_producto_convenio'];
+            if (!isset($porProducto[$prod])) {
+                $porProducto[$prod] = $row;
+            }
+        }
+        return array_values($porProducto);
+    }
+
+    private static function _resolverReactivacionAprobada(Database $db, array $datos): ?array
+    {
+        $idCredito = (int) ($datos['id_credito'] ?? 0);
+        $idProducto = (int) ($datos['id_producto_convenio'] ?? 0);
+        $idPeticion = (int) ($datos['id_peticion_reactivacion'] ?? 0);
+
+        if ($idCredito <= 0 || $idProducto <= 0) {
+            return null;
+        }
+        if (!self::_tablaTieneColumna($db, 'convenio_reactivacion_peticion', 'estatus')) {
+            return null;
+        }
+
+        $wherePeticion = '';
+        $params = ['id' => $idCredito, 'prod' => $idProducto];
+        if ($idPeticion > 0) {
+            $wherePeticion = ' AND crp.id = :peticion';
+            $params['peticion'] = $idPeticion;
+        }
+
+        return $db->queryOne(
+            "SELECT crp.*,
+                    (
+                        SELECT COUNT(*)
+                        FROM convenio_reactivacion_peticion crp2
+                        WHERE crp2.id_credito = crp.id_credito
+                          AND crp2.id_producto_convenio = crp.id_producto_convenio
+                          AND crp2.estatus IN ('aprobada', 'ejecutada')
+                          AND crp2.id <= crp.id
+                    ) AS reactivacion_numero
+             FROM convenio_reactivacion_peticion crp
+             WHERE crp.id_credito = :id
+               AND crp.id_producto_convenio = :prod
+               AND crp.estatus = 'aprobada'
+               $wherePeticion
+             ORDER BY crp.fecha_resolucion DESC, crp.fecha_solicitud DESC
+             LIMIT 1",
+            $params
+        );
+    }
+
+    private static function _tablaExiste(Database $db, string $tabla): bool
+    {
+        $row = $db->queryOne("SHOW TABLES LIKE :tabla", ['tabla' => $tabla]);
+        return (bool) $row;
+    }
+
+    private static function _tablaTieneColumna(Database $db, string $tabla, string $columna): bool
+    {
+        if (!self::_tablaExiste($db, $tabla)) {
+            return false;
+        }
+        $row = $db->queryOne("SHOW COLUMNS FROM {$tabla} LIKE :col", ['col' => $columna]);
+        return (bool) $row;
+    }
+
+    private static function _valoresEnumColumna(Database $db, string $tabla, string $columna): array
+    {
+        if (!self::_tablaTieneColumna($db, $tabla, $columna)) {
+            return [];
+        }
+
+        $row = $db->queryOne("SHOW COLUMNS FROM {$tabla} LIKE :col", ['col' => $columna]);
+        $tipo = (string) ($row['Type'] ?? $row['type'] ?? '');
+        if (!preg_match_all("/'((?:[^'\\\\]|\\\\.)*)'/", $tipo, $matches)) {
+            return [];
+        }
+
+        return array_map(
+            fn($v) => str_replace("\\'", "'", $v),
+            $matches[1]
+        );
+    }
+
+    private static function _resolverValorEnum(Database $db, string $tabla, string $columna, array $preferidos): ?string
+    {
+        $valores = self::_valoresEnumColumna($db, $tabla, $columna);
+        if (!$valores) {
+            return $preferidos[0] ?? null;
+        }
+
+        foreach ($preferidos as $valor) {
+            if (in_array($valor, $valores, true)) {
+                return $valor;
+            }
+        }
+
+        return null;
+    }
+
+    private static function _marcarConvenioReactivado(Database $db, int $idConvenio, ?array $reactivacion, array $datos): void
+    {
+        if (!$reactivacion) {
+            return;
+        }
+
+        $usuario = (string) ($datos['usuario_alta'] ?? 'sistema');
+        $motivo = (string) ($reactivacion['motivo_solicitud'] ?? $reactivacion['comentario_resolucion'] ?? '');
+        $reactivacionNumero = (int) ($reactivacion['reactivacion_numero'] ?? 1);
+
+        $setsConvenio = [];
+        $paramsConvenio = ['id' => $idConvenio];
+
+        if (self::_tablaTieneColumna($db, 'convenio_cliente', 'es_reactivado')) {
+            $setsConvenio[] = 'es_reactivado = 1';
+        }
+        if (self::_tablaTieneColumna($db, 'convenio_cliente', 'id_convenio_origen')) {
+            $setsConvenio[] = 'id_convenio_origen = :origen';
+            $paramsConvenio['origen'] = (int) $reactivacion['id_convenio_origen'];
+        }
+        if (self::_tablaTieneColumna($db, 'convenio_cliente', 'id_peticion_reactivacion')) {
+            $setsConvenio[] = 'id_peticion_reactivacion = :peticion_cc';
+            $paramsConvenio['peticion_cc'] = (int) $reactivacion['id'];
+        }
+        if (self::_tablaTieneColumna($db, 'convenio_cliente', 'reactivacion_numero')) {
+            $setsConvenio[] = 'reactivacion_numero = :numero';
+            $paramsConvenio['numero'] = $reactivacionNumero;
+        }
+        if (self::_tablaTieneColumna($db, 'convenio_cliente', 'motivo_reactivacion')) {
+            $setsConvenio[] = 'motivo_reactivacion = :motivo';
+            $paramsConvenio['motivo'] = mb_substr($motivo, 0, 300);
+        }
+        if (self::_tablaTieneColumna($db, 'convenio_cliente', 'usuario_reactiva')) {
+            $setsConvenio[] = 'usuario_reactiva = :usuario_cc';
+            $paramsConvenio['usuario_cc'] = $usuario;
+        }
+        if (self::_tablaTieneColumna($db, 'convenio_cliente', 'fecha_reactivacion')) {
+            $setsConvenio[] = 'fecha_reactivacion = NOW()';
+        }
+
+        if ($setsConvenio) {
+            $db->CRUD(
+                "UPDATE convenio_cliente SET " . implode(', ', $setsConvenio) . " WHERE id = :id",
+                $paramsConvenio
+            );
+        }
+
+        $setsPeticion = ["estatus = 'ejecutada'"];
+        $paramsPeticion = [
+            'peticion' => (int) $reactivacion['id'],
+        ];
+
+        if (self::_tablaTieneColumna($db, 'convenio_reactivacion_peticion', 'id_convenio_nuevo')) {
+            $setsPeticion[] = 'id_convenio_nuevo = :nuevo';
+            $paramsPeticion['nuevo'] = $idConvenio;
+        }
+        if (self::_tablaTieneColumna($db, 'convenio_reactivacion_peticion', 'usuario_resuelve')) {
+            $setsPeticion[] = 'usuario_resuelve = COALESCE(usuario_resuelve, :usuario)';
+            $paramsPeticion['usuario'] = $usuario;
+        }
+        if (self::_tablaTieneColumna($db, 'convenio_reactivacion_peticion', 'fecha_resolucion')) {
+            $setsPeticion[] = 'fecha_resolucion = COALESCE(fecha_resolucion, NOW())';
+        }
+        if (self::_tablaTieneColumna($db, 'convenio_reactivacion_peticion', 'comentario_resolucion')) {
+            $setsPeticion[] = "comentario_resolucion = COALESCE(comentario_resolucion, 'Reactivacion consumida al generar convenio')";
+        }
+
+        if (self::_tablaTieneColumna($db, 'convenio_reactivacion_peticion', 'estatus')) {
+            $db->CRUD(
+                "UPDATE convenio_reactivacion_peticion SET " . implode(', ', $setsPeticion) . "
+                 WHERE id = :peticion
+                   AND estatus = 'aprobada'",
+                $paramsPeticion
+            );
+        }
+    }
+
+    private static function _generarAmortizacionSemanal(Database $db, int $idConvenio, int $semanas, string $fechaPrimerPago, float $totalAPagar, float $pagoSemanal): array
+    {
+        $saldoActual = $totalAPagar;
+
+        for ($s = 1; $s <= $semanas; $s++) {
+            $fechaPago   = date('Y-m-d', strtotime($fechaPrimerPago . ' +' . (($s - 1) * 7) . ' days'));
+            $capital     = ($s < $semanas) ? $pagoSemanal : $saldoActual;
+            $saldoActual = round($saldoActual - $capital, 2);
+            if ($saldoActual < 0) $saldoActual = 0;
+
+            $db->CRUD(
+                "INSERT INTO convenio_cliente_amortizacion
+                    (id_convenio_cliente, numero_semana, fecha_pago, pago_semanal, capital, saldo_restante)
+                 VALUES (:id, :num, :fecha, :pago, :capital, :saldo)",
+                [
+                    'id'      => $idConvenio,
+                    'num'     => $s,
+                    'fecha'   => $fechaPago,
+                    'pago'    => $pagoSemanal,
+                    'capital' => $capital,
+                    'saldo'   => $saldoActual,
+                ]
+            );
+        }
+
+        return $db->queryAll(
+            "SELECT * FROM convenio_cliente_amortizacion
+             WHERE id_convenio_cliente = :id
+             ORDER BY numero_semana",
+            ['id' => $idConvenio]
+        );
+    }
+
     // ─────────────────────────────────────────────
     // GUARDAR CONVENIO
     // ─────────────────────────────────────────────
@@ -326,6 +663,7 @@ class Convenios extends Model
      */
     public static function guardarConvenio($datos)
     {
+        $db = null;
         try {
             $db = new Database(); // __SPARTA_SECRET_REDACTED__: tablas de convenios
 
@@ -340,6 +678,8 @@ class Convenios extends Model
             if ($activo) {
                 return self::resultado(false, 'Este crédito ya tiene un convenio activo.');
             }
+
+            $reactivacion = self::_resolverReactivacionAprobada($db, $datos);
 
             $tipoCalendario = isset($datos['tipo_calendario']) ? $datos['tipo_calendario'] : 'semanal';
             $fechaAcuerdo   = $datos['fecha_acuerdo'];
@@ -362,6 +702,8 @@ class Convenios extends Model
                 $pdfAdjunto = isset($datos['pdf_adjunto']) ? $datos['pdf_adjunto'] : null;
                 $baseCalculo = isset($datos['base_calculo']) && in_array($datos['base_calculo'], ['saldo_total_capital', 'interes', 'adeudo_total'])
                     ? $datos['base_calculo'] : null;
+
+                $db->beginTransaction();
 
                 $ok = $db->CRUD(
                     "INSERT INTO convenio_cliente (
@@ -406,10 +748,11 @@ class Convenios extends Model
                 );
 
                 if (!$ok) {
+                    $db->rollback();
                     return self::resultado(false, 'No se pudo guardar el convenio.');
                 }
 
-                $idConvenio  = (int) $db->queryOne("SELECT LAST_INSERT_ID() AS id")['id'];
+                $idConvenio  = $db->lastInsertId();
                 $saldoActual = $totalAPagar;
 
                 foreach ($pagos as $idx => $pago) {
@@ -433,6 +776,9 @@ class Convenios extends Model
                     );
                 }
 
+                self::_marcarConvenioReactivado($db, $idConvenio, $reactivacion, $datos);
+                $db->commit();
+
                 return self::resultado(true, 'Convenio guardado correctamente.', ['id_convenio' => $idConvenio]);
             }
 
@@ -445,6 +791,8 @@ class Convenios extends Model
             $pdfAdjunto = isset($datos['pdf_adjunto']) ? $datos['pdf_adjunto'] : null;
             $baseCalculo = isset($datos['base_calculo']) && in_array($datos['base_calculo'], ['saldo_total_capital', 'interes', 'adeudo_total'])
                 ? $datos['base_calculo'] : null;
+
+            $db->beginTransaction();
 
         $ok = $db->CRUD(
     "INSERT INTO convenio_cliente (
@@ -486,38 +834,23 @@ class Convenios extends Model
     ]
 );
             if (!$ok) {
+                $db->rollback();
                 return self::resultado(false, 'No se pudo guardar el convenio.');
             }
 
-            $idConvenio   = (int) $db->queryOne("SELECT LAST_INSERT_ID() AS id")['id'];
+            $idConvenio   = $db->lastInsertId();
             $totalAPagar  = (float) $datos['total_a_pagar'];
             $pagoSemanal  = (float) $datos['pago_semanal'];
-            $saldoActual  = $totalAPagar;
 
-            // Generar tabla de amortización
-            for ($s = 1; $s <= $semanas; $s++) {
-                $fechaPago   = date('Y-m-d', strtotime($fechaPrimerPago . ' +' . (($s - 1) * 7) . ' days'));
-                $capital     = ($s < $semanas) ? $pagoSemanal : $saldoActual; // última semana liquida saldo
-                $saldoActual = round($saldoActual - $capital, 2);
-                if ($saldoActual < 0) $saldoActual = 0;
-
-                $db->CRUD(
-                    "INSERT INTO convenio_cliente_amortizacion
-                        (id_convenio_cliente, numero_semana, fecha_pago, pago_semanal, capital, saldo_restante)
-                     VALUES (:id, :num, :fecha, :pago, :capital, :saldo)",
-                    [
-                        'id'      => $idConvenio,
-                        'num'     => $s,
-                        'fecha'   => $fechaPago,
-                        'pago'    => $pagoSemanal, // siempre el importe semanal uniforme del contrato
-                        'capital' => $capital,     // última semana: saldo residual (puede ≠ pagoSemanal)
-                        'saldo'   => $saldoActual,
-                    ]
-                );
-            }
+            self::_generarAmortizacionSemanal($db, $idConvenio, $semanas, $fechaPrimerPago, $totalAPagar, $pagoSemanal);
+            self::_marcarConvenioReactivado($db, $idConvenio, $reactivacion, $datos);
+            $db->commit();
 
             return self::resultado(true, 'Convenio guardado correctamente.', ['id_convenio' => $idConvenio]);
         } catch (\Exception $e) {
+            if ($db && $db->inTransaction()) {
+                $db->rollback();
+            }
             return self::resultado(false, 'Error al guardar convenio.', null, $e->getMessage());
         }
     }
@@ -785,6 +1118,40 @@ public static function getConvenioActivo($id_credito)
              ORDER BY numero_semana",
             ['id' => (int) $convenio['id']]
         );
+
+        if (empty($amortizacion)
+            && ($convenio['estatus'] ?? '') === 'activo'
+            && (($convenio['tipo_calendario'] ?? 'semanal') !== 'libre')
+            && (int) ($convenio['numero_semanas'] ?? 0) > 0
+            && !empty($convenio['fecha_primer_pago'])
+            && (float) ($convenio['total_a_pagar'] ?? 0) > 0
+            && (float) ($convenio['pago_semanal'] ?? 0) > 0
+        ) {
+            $db->beginTransaction();
+            try {
+                $amortizacion = self::_generarAmortizacionSemanal(
+                    $db,
+                    (int) $convenio['id'],
+                    (int) $convenio['numero_semanas'],
+                    (string) $convenio['fecha_primer_pago'],
+                    (float) $convenio['total_a_pagar'],
+                    (float) $convenio['pago_semanal']
+                );
+                $reactivacionPendiente = self::_resolverReactivacionAprobada($db, [
+                    'id_credito' => (int) $convenio['id_credito'],
+                    'id_producto_convenio' => (int) $convenio['id_producto_convenio'],
+                ]);
+                self::_marcarConvenioReactivado($db, (int) $convenio['id'], $reactivacionPendiente, [
+                    'usuario_alta' => $convenio['usuario_alta'] ?? 'sistema',
+                ]);
+                $db->commit();
+            } catch (\Exception $e) {
+                if ($db->inTransaction()) {
+                    $db->rollback();
+                }
+                throw $e;
+            }
+        }
 
         $convenio['amortizacion'] = $amortizacion ?: [];
 
@@ -1587,6 +1954,8 @@ public static function getPeticionesCancelamiento(?array $celulas = null)
 
         $rows = $db->queryAll(
             "SELECT cc.id,
+                    cc.id AS id_peticion,
+                    'cancelamiento' AS tipo_peticion,
                     cc.id_credito,
                     cc.nombre_cliente,
                     cc.motivo_cancelamiento,
@@ -1657,6 +2026,391 @@ public static function descartarCancelamiento($id_convenio, $usuario)
     }
 }
 
+public static function solicitarReactivacionOferta($id_credito, $id_producto, $usuario, $motivo)
+{
+    try {
+        $db = new Database();
+        $idCredito = (int) $id_credito;
+        $idProducto = (int) $id_producto;
+
+        $activo = $db->queryOne(
+            "SELECT id FROM convenio_cliente
+             WHERE id_credito = :id AND estatus = 'activo'
+             LIMIT 1",
+            ['id' => $idCredito]
+        );
+        if ($activo) {
+            return self::resultado(false, 'Este crÃ©dito ya tiene un convenio activo.');
+        }
+
+        $origen = self::_getUltimoConvenioProducto($db, $idCredito, $idProducto);
+        if (!$origen) {
+            return self::resultado(false, 'No existe un convenio anterior para reactivar este producto.');
+        }
+        if (($origen['estatus'] ?? '') !== 'cancelado') {
+            return self::resultado(false, 'Esta oferta no tiene un convenio cancelado vigente para reactivar.');
+        }
+
+        $pendiente = $db->queryOne(
+            "SELECT id, estatus
+             FROM convenio_reactivacion_peticion
+             WHERE id_credito = :id
+               AND id_producto_convenio = :prod
+               AND estatus IN ('pendiente', 'aprobada')
+             ORDER BY fecha_solicitud DESC
+             LIMIT 1",
+            ['id' => $idCredito, 'prod' => $idProducto]
+        );
+        if ($pendiente) {
+            $msg = $pendiente['estatus'] === 'aprobada'
+                ? 'Esta oferta ya fue reactivada y estÃ¡ pendiente de generar el nuevo convenio.'
+                : 'Ya existe una solicitud de reactivaciÃ³n pendiente para esta oferta.';
+            return self::resultado(false, $msg, ['id_peticion' => (int) $pendiente['id']]);
+        }
+
+        $db->CRUD(
+            "INSERT INTO convenio_reactivacion_peticion (
+                id_credito, id_convenio_origen, id_producto_convenio,
+                estatus, motivo_solicitud, usuario_solicita, fecha_solicitud
+             ) VALUES (
+                :id_credito, :id_origen, :id_producto,
+                'pendiente', :motivo, :usuario, NOW()
+             )",
+            [
+                'id_credito' => $idCredito,
+                'id_origen' => (int) $origen['id'],
+                'id_producto' => $idProducto,
+                'motivo' => mb_substr(strip_tags($motivo), 0, 300),
+                'usuario' => $usuario,
+            ]
+        );
+
+        $idPeticion = (int) $db->queryOne("SELECT LAST_INSERT_ID() AS id")['id'];
+        return self::resultado(true, 'Solicitud de reactivaciÃ³n enviada. Queda pendiente de autorizaciÃ³n.', [
+            'id_peticion' => $idPeticion,
+            'id_convenio_origen' => (int) $origen['id'],
+        ]);
+
+    } catch (\Exception $e) {
+        return self::resultado(false, 'Error al solicitar reactivaciÃ³n.', null, $e->getMessage());
+    }
+}
+
+public static function solicitarReactivacionOfertas($id_credito, array $id_productos, $usuario, $motivo)
+{
+    $ids = array_values(array_unique(array_filter(array_map('intval', $id_productos))));
+    if (!$ids) {
+        return self::resultado(false, 'Selecciona al menos una oferta para reactivar.');
+    }
+
+    $ok = [];
+    $errores = [];
+    foreach ($ids as $idProducto) {
+        $r = self::solicitarReactivacionOferta($id_credito, $idProducto, $usuario, $motivo);
+        if ($r['success']) {
+            $ok[] = [
+                'id_producto_convenio' => $idProducto,
+                'id_peticion' => (int) ($r['datos']['id_peticion'] ?? 0),
+            ];
+        } else {
+            $errores[] = [
+                'id_producto_convenio' => $idProducto,
+                'mensaje' => $r['mensaje'] ?? 'No se pudo solicitar la reactivacion.',
+            ];
+        }
+    }
+
+    if (!$ok) {
+        return self::resultado(false, $errores[0]['mensaje'] ?? 'No se pudo solicitar ninguna reactivacion.', [
+            'errores' => $errores,
+        ]);
+    }
+
+    $msg = count($ok) === 1
+        ? 'Solicitud de reactivacion enviada. Queda pendiente de autorizacion.'
+        : 'Solicitudes de reactivacion enviadas. Quedan pendientes de autorizacion.';
+
+    return self::resultado(true, $msg, [
+        'solicitudes' => $ok,
+        'errores' => $errores,
+    ]);
+}
+
+public static function reactivarOfertasCredito($id_credito, $usuario, $motivo = '', $id_producto = 0, array $id_productos = [])
+{
+    try {
+        $db = new Database();
+        $idCredito = (int) $id_credito;
+        $idProducto = (int) $id_producto;
+        $idsProductos = array_values(array_unique(array_filter(array_map('intval', $id_productos))));
+        if ($idProducto > 0 && !in_array($idProducto, $idsProductos, true)) {
+            $idsProductos[] = $idProducto;
+        }
+
+        $activo = $db->queryOne(
+            "SELECT id FROM convenio_cliente
+             WHERE id_credito = :id AND estatus = 'activo'
+             LIMIT 1",
+            ['id' => $idCredito]
+        );
+        if ($activo) {
+            return self::resultado(false, 'Este crÃ©dito ya tiene un convenio activo.');
+        }
+
+        if ($idsProductos) {
+            $origenes = [];
+            foreach ($idsProductos as $prodSeleccionado) {
+                $origen = self::_getUltimoConvenioProducto($db, $idCredito, $prodSeleccionado);
+                if ($origen) {
+                    $origenes[] = $origen;
+                }
+            }
+        } else {
+            $origenes = self::_getUltimosConveniosPorProducto($db, $idCredito);
+        }
+
+        if (!$origenes) {
+            return self::resultado(false, 'No hay convenios anteriores para reactivar.');
+        }
+
+        $aprobadas = [];
+        foreach ($origenes as $origen) {
+            $prod = (int) $origen['id_producto_convenio'];
+            if (($origen['estatus'] ?? '') !== 'cancelado') {
+                continue;
+            }
+            $existente = $db->queryOne(
+                "SELECT id, estatus
+                 FROM convenio_reactivacion_peticion
+                 WHERE id_credito = :id
+                   AND id_producto_convenio = :prod
+                   AND estatus IN ('pendiente', 'aprobada')
+                 ORDER BY fecha_solicitud DESC
+                 LIMIT 1",
+                ['id' => $idCredito, 'prod' => $prod]
+            );
+
+            if ($existente && $existente['estatus'] === 'aprobada') {
+                $aprobadas[] = ['id_peticion' => (int) $existente['id'], 'id_producto_convenio' => $prod];
+                continue;
+            }
+
+            if ($existente && $existente['estatus'] === 'pendiente') {
+                $db->CRUD(
+                    "UPDATE convenio_reactivacion_peticion SET
+                        estatus = 'aprobada',
+                        usuario_resuelve = :usuario,
+                        fecha_resolucion = NOW(),
+                        comentario_resolucion = :comentario
+                     WHERE id = :id",
+                    [
+                        'usuario' => $usuario,
+                        'comentario' => mb_substr($motivo ?: 'Reactivacion directa por permiso maestro', 0, 300),
+                        'id' => (int) $existente['id'],
+                    ]
+                );
+                $aprobadas[] = ['id_peticion' => (int) $existente['id'], 'id_producto_convenio' => $prod];
+                continue;
+            }
+
+            $db->CRUD(
+                "INSERT INTO convenio_reactivacion_peticion (
+                    id_credito, id_convenio_origen, id_producto_convenio,
+                    estatus, motivo_solicitud, usuario_solicita, fecha_solicitud,
+                    usuario_resuelve, fecha_resolucion, comentario_resolucion
+                 ) VALUES (
+                    :id_credito, :id_origen, :id_producto,
+                    'aprobada', :motivo, :usuario, NOW(),
+                    :usuario, NOW(), :comentario
+                 )",
+                [
+                    'id_credito' => $idCredito,
+                    'id_origen' => (int) $origen['id'],
+                    'id_producto' => $prod,
+                    'motivo' => mb_substr($motivo ?: 'Reactivacion directa por permiso maestro', 0, 300),
+                    'usuario' => $usuario,
+                    'comentario' => mb_substr($motivo ?: 'Reactivacion directa por permiso maestro', 0, 300),
+                ]
+            );
+            $aprobadas[] = [
+                'id_peticion' => (int) $db->queryOne("SELECT LAST_INSERT_ID() AS id")['id'],
+                'id_producto_convenio' => $prod,
+            ];
+        }
+
+        if (!$aprobadas) {
+            return self::resultado(false, 'No hay ofertas con convenio cancelado vigente para reactivar.');
+        }
+
+        return self::resultado(true, 'Oferta(s) reactivada(s). Ya puedes generar un nuevo convenio.', [
+            'reactivaciones' => $aprobadas,
+        ]);
+
+    } catch (\Exception $e) {
+        return self::resultado(false, 'Error al reactivar ofertas.', null, $e->getMessage());
+    }
+}
+
+public static function getPeticionesReactivacion(?array $celulas = null)
+{
+    try {
+        $db = new Database();
+        $where = "crp.estatus = 'pendiente'";
+        $params = [];
+
+        if (!empty($celulas)) {
+            $placeholders = implode(',', array_map(fn($i) => ":cel$i", array_keys($celulas)));
+            $where .= " AND cc.id_celula IN ($placeholders)";
+            foreach ($celulas as $i => $v) {
+                $params["cel$i"] = $v;
+            }
+        }
+
+        $rows = $db->queryAll(
+            "SELECT crp.id AS id,
+                    crp.id AS id_peticion,
+                    'reactivacion' AS tipo_peticion,
+                    crp.id_credito,
+                    cc.nombre_cliente,
+                    crp.id_producto_convenio,
+                    crp.id_convenio_origen,
+                    crp.motivo_solicitud,
+                    crp.motivo_solicitud AS motivo_cancelamiento,
+                    crp.usuario_solicita,
+                    crp.usuario_solicita AS usuario_cancela,
+                    crp.fecha_solicitud,
+                    crp.fecha_solicitud AS solicitud_cancelamiento_fecha,
+                    cc.fecha_acuerdo,
+                    cc.total_a_pagar,
+                    cc.numero_semanas,
+                    cc.id_celula,
+                    CONCAT(pc.nombre, ' - Reactivacion') AS nombre_producto
+             FROM convenio_reactivacion_peticion crp
+             INNER JOIN convenio_cliente cc ON cc.id = crp.id_convenio_origen
+             INNER JOIN producto_convenio pc ON pc.id = crp.id_producto_convenio
+             WHERE $where
+             ORDER BY crp.fecha_solicitud ASC",
+            $params
+        );
+
+        return self::resultado(true, 'OK', ['peticiones' => $rows ?: []]);
+
+    } catch (\Exception $e) {
+        return self::resultado(false, 'Error al obtener peticiones de reactivaciÃ³n.', null, $e->getMessage());
+    }
+}
+
+public static function getPeticionesConvenio(?array $celulas = null)
+{
+    $cancel = self::getPeticionesCancelamiento($celulas);
+    if (!$cancel['success']) {
+        return $cancel;
+    }
+
+    $react = self::getPeticionesReactivacion($celulas);
+    if (!$react['success']) {
+        return $react;
+    }
+
+    $rows = array_merge(
+        $cancel['datos']['peticiones'] ?? [],
+        $react['datos']['peticiones'] ?? []
+    );
+    usort($rows, function ($a, $b) {
+        $fa = $a['fecha_solicitud'] ?? $a['solicitud_cancelamiento_fecha'] ?? '';
+        $fb = $b['fecha_solicitud'] ?? $b['solicitud_cancelamiento_fecha'] ?? '';
+        return strcmp((string) $fa, (string) $fb);
+    });
+
+    return self::resultado(true, 'OK', ['peticiones' => $rows]);
+}
+
+public static function autorizarReactivacionOferta($id_peticion, $usuario, $comentario = '')
+{
+    try {
+        $db = new Database();
+        $pet = $db->queryOne(
+            "SELECT id FROM convenio_reactivacion_peticion
+             WHERE id = :id AND estatus = 'pendiente'
+             LIMIT 1",
+            ['id' => (int) $id_peticion]
+        );
+        if (!$pet) {
+            return self::resultado(false, 'La peticiÃ³n no existe o ya fue resuelta.');
+        }
+
+        $db->CRUD(
+            "UPDATE convenio_reactivacion_peticion SET
+                estatus = 'aprobada',
+                usuario_resuelve = :usuario,
+                fecha_resolucion = NOW(),
+                comentario_resolucion = :comentario
+             WHERE id = :id",
+            [
+                'usuario' => $usuario,
+                'comentario' => mb_substr($comentario ?: 'Reactivacion autorizada', 0, 300),
+                'id' => (int) $id_peticion,
+            ]
+        );
+
+        return self::resultado(true, 'ReactivaciÃ³n autorizada. La oferta ya puede usarse para crear un nuevo convenio.');
+
+    } catch (\Exception $e) {
+        return self::resultado(false, 'Error al autorizar reactivaciÃ³n.', null, $e->getMessage());
+    }
+}
+
+public static function descartarReactivacionOferta($id_peticion, $usuario, $comentario = '')
+{
+    try {
+        $db = new Database();
+        $pet = $db->queryOne(
+            "SELECT id FROM convenio_reactivacion_peticion
+             WHERE id = :id AND estatus = 'pendiente'
+             LIMIT 1",
+            ['id' => (int) $id_peticion]
+        );
+        if (!$pet) {
+            return self::resultado(false, 'La peticiÃ³n no existe o ya fue resuelta.');
+        }
+
+        $estatusDescarte = self::_resolverValorEnum(
+            $db,
+            'convenio_reactivacion_peticion',
+            'estatus',
+            ['descartada', 'descartado', 'rechazada', 'rechazado', 'cancelada', 'cancelado']
+        );
+        if (!$estatusDescarte) {
+            $valores = self::_valoresEnumColumna($db, 'convenio_reactivacion_peticion', 'estatus');
+            return self::resultado(
+                false,
+                'No hay un estatus de descarte configurado para reactivaciones.',
+                ['estatus_disponibles' => $valores]
+            );
+        }
+
+        $db->CRUD(
+            "UPDATE convenio_reactivacion_peticion SET
+                estatus = :estatus,
+                usuario_resuelve = :usuario,
+                fecha_resolucion = NOW(),
+                comentario_resolucion = :comentario
+             WHERE id = :id",
+            [
+                'estatus' => $estatusDescarte,
+                'usuario' => $usuario,
+                'comentario' => mb_substr($comentario ?: 'Reactivacion descartada', 0, 300),
+                'id' => (int) $id_peticion,
+            ]
+        );
+
+        return self::resultado(true, 'La solicitud de reactivaciÃ³n fue descartada.');
+
+    } catch (\Exception $e) {
+        return self::resultado(false, 'Error al descartar reactivaciÃ³n.', null, $e->getMessage());
+    }
+}
+
     /**
      * Detecta incumplimiento: devuelve true si existió convenio y el último pago
      * vencido tiene más de 30 días sin pagar.
@@ -1712,9 +2466,15 @@ public static function getHistorialConvenios($id_credito)
         cc.usuario_alta,
         cc.usuario_cancela,
         cc.pdf_adjunto,
+        CASE WHEN crp.id IS NULL THEN 0 ELSE 1 END AS es_reactivado,
+        crp.id_convenio_origen,
+        crp.id AS id_peticion_reactivacion,
         cc.usuario_cancela = 'sistema_auto' AS cancelado_por_incumplimiento  -- ← agregar esto
      FROM convenio_cliente cc
      INNER JOIN producto_convenio pc ON pc.id = cc.id_producto_convenio
+     LEFT JOIN convenio_reactivacion_peticion crp
+            ON crp.id_convenio_nuevo = cc.id
+           AND crp.estatus = 'ejecutada'
      WHERE cc.id_credito = :id
      ORDER BY cc.fecha_alta DESC",
     ['id' => (int) $id_credito]
@@ -2192,6 +2952,8 @@ public static function migrarConvenio($datos)
             return self::resultado(false, 'Este crédito ya tiene un convenio activo.');
         }
 
+        $reactivacion = self::_resolverReactivacionAprobada($db, $datos);
+
         // 2. Calcular montos y semanas
         $fechaInicio  = $datos['fecha_inicio'];
         $adeudoBase   = (float) $datos['adeudo_base'];
@@ -2273,6 +3035,7 @@ public static function migrarConvenio($datos)
         }
 
         $idConvenio  = (int) $db->queryOne("SELECT LAST_INSERT_ID() AS id")['id'];
+        self::_marcarConvenioReactivado($db, $idConvenio, $reactivacion, $datos);
         $saldoActual = $totalAPagar;
 
         // 4. Generar amortización
@@ -2884,6 +3647,9 @@ public static function registrarConvenioGlobo($datos)
         }
 
         // ── 2. Validar que los montos cuadren (CORREGIDO) ──────────────
+        $datos['id_producto_convenio'] = 6;
+        $reactivacion = self::_resolverReactivacionAprobada($db, $datos);
+
         $pagoInicial       = (float) ($datos['pago_inicial_monto'] ?? 0); // Capturamos el inicial
         $pagosIgualesCant  = (int)   $datos['pagos_iguales_cantidad'];
         $pagosIgualesMonto = (float) $datos['pagos_iguales_monto'];
@@ -2961,6 +3727,7 @@ public static function registrarConvenioGlobo($datos)
         );
 
         $idConvenio = (int) $db->queryOne("SELECT LAST_INSERT_ID() AS id")['id'];
+        self::_marcarConvenioReactivado($db, $idConvenio, $reactivacion, $datos);
 
         // ── 6. Generar tabla de amortización completa ─────────────────
         $saldoActual = $totalAPagar;

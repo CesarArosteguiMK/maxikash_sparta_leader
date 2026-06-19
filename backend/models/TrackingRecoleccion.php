@@ -2551,6 +2551,84 @@ class TrackingRecoleccion extends Model
         }
     }
 
+    public function actualizarCoordenadasRuta(array $data): array
+    {
+        $idRuta = (int) ($data['id_ruta'] ?? 0);
+        $creditos = is_array($data['creditos'] ?? null) ? $data['creditos'] : [];
+        if ($idRuta <= 0) {
+            return ['success' => false, 'message' => 'ID de ruta requerido.'];
+        }
+        if (empty($creditos)) {
+            return ['success' => true, 'message' => 'Sin coordenadas por actualizar.', 'actualizados' => 0];
+        }
+
+        $actualizados = 0;
+        foreach ($creditos as $item) {
+            $idDetalle = (int) ($item['id_detalle'] ?? 0);
+            $idCredito = (int) ($item['id_credito'] ?? 0);
+            $lat = isset($item['latitud']) && is_numeric($item['latitud']) ? (float) $item['latitud'] : null;
+            $lng = isset($item['longitud']) && is_numeric($item['longitud']) ? (float) $item['longitud'] : null;
+            if ($lat === null || $lng === null || $lat == 0.0 || $lng == 0.0) {
+                continue;
+            }
+
+            $params = [
+                'id_ruta' => $idRuta,
+                'latitud' => $lat,
+                'longitud' => $lng,
+                'direccion' => mb_substr(trim((string) ($item['direccion'] ?? '')), 0, 200),
+                'estado' => $this->sanitizarUbicacionMayus($item['estado'] ?? '', 100),
+                'municipio' => $this->sanitizarUbicacionMayus($item['municipio'] ?? '', 100),
+            ];
+            $where = 'id_ruta = :id_ruta';
+            if ($idDetalle > 0) {
+                $where .= ' AND id_detalle = :id_detalle';
+                $params['id_detalle'] = $idDetalle;
+            } elseif ($idCredito > 0) {
+                $where .= ' AND id_credito = :id_credito';
+                $params['id_credito'] = $idCredito;
+            } else {
+                continue;
+            }
+
+            $set = [
+                'latitud = :latitud',
+                'longitud = :longitud',
+            ];
+            if ($params['direccion'] !== '') {
+                $set[] = 'direccion = :direccion';
+            } else {
+                unset($params['direccion']);
+            }
+            if ($params['estado'] !== '') {
+                $set[] = 'estado = :estado';
+            } else {
+                unset($params['estado']);
+            }
+            if ($params['municipio'] !== '') {
+                $set[] = 'municipio = :municipio';
+            } else {
+                unset($params['municipio']);
+            }
+
+            $this->db->CRUD(
+                'UPDATE asigna_horas_tracking_detalle
+                 SET ' . implode(', ', $set) . '
+                 WHERE ' . $where,
+                $params
+            );
+            $actualizados++;
+        }
+
+        return [
+            'success' => true,
+            'message' => $actualizados > 0
+                ? 'Coordenadas actualizadas.'
+                : 'No hubo coordenadas validas para actualizar.',
+            'actualizados' => $actualizados,
+        ];
+    }
+
     // =========================================================================
     // RUTAS — LISTAR
     // =========================================================================

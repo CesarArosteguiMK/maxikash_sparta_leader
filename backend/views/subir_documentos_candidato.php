@@ -916,6 +916,9 @@ $documentos_ayuda = [
             var MAX_UPLOAD_TOTAL_BYTES = <?= (int) $maxUploadTotalBytes ?>;
             var SERVER_POST_MAX_BYTES = <?= (int) $postMaxBytes ?>;
             var SERVER_UPLOAD_MAX_BYTES = <?= (int) $uploadMaxBytes ?>;
+            window.MAX_UPLOAD_TOTAL_BYTES = MAX_UPLOAD_TOTAL_BYTES;
+            window.SERVER_POST_MAX_BYTES = SERVER_POST_MAX_BYTES;
+            window.SERVER_UPLOAD_MAX_BYTES = SERVER_UPLOAD_MAX_BYTES;
 
             var VERIFICACION_CURP_TIMEOUT_MS = 8000;
             var VERIFICACION_FISCAL_TIMEOUT_MS = 10000;
@@ -2530,18 +2533,18 @@ $documentos_ayuda = [
                 var inputPeso = document.getElementById('archivo_' + pesoIdx);
                 if (!inputPeso || !inputPeso.files || inputPeso.files.length === 0) continue;
                 totalBytesSeleccionados += Number(inputPeso.files[0].size || 0);
-                if (SERVER_UPLOAD_MAX_BYTES > 0 && Number(inputPeso.files[0].size || 0) > SERVER_UPLOAD_MAX_BYTES) {
+                if ((window.SERVER_UPLOAD_MAX_BYTES || 0) > 0 && Number(inputPeso.files[0].size || 0) > window.SERVER_UPLOAD_MAX_BYTES) {
                     archivoMayorLimite = inputPeso.files[0];
                 }
             }
             if (archivoMayorLimite) {
-                var textoArchivoGrande = 'El archivo "' + archivoMayorLimite.name + '" pesa ' + bytesToMb(archivoMayorLimite.size) + ' MB y el limite por archivo es de ' + bytesToMb(SERVER_UPLOAD_MAX_BYTES) + ' MB. Comprime el PDF e intenta de nuevo.';
+                var textoArchivoGrande = 'El archivo "' + archivoMayorLimite.name + '" pesa ' + bytesToMb(archivoMayorLimite.size) + ' MB y el limite por archivo es de ' + bytesToMb(window.SERVER_UPLOAD_MAX_BYTES || 0) + ' MB. Comprime el PDF e intenta de nuevo.';
                 mostrarAlertaSubida('error', 'Archivo demasiado pesado', textoArchivoGrande);
                 showResultado(msg, null, textoArchivoGrande, true);
                 return;
             }
-            if (MAX_UPLOAD_TOTAL_BYTES > 0 && totalBytesSeleccionados > MAX_UPLOAD_TOTAL_BYTES) {
-                var textoPeso = 'Los documentos seleccionados pesan ' + bytesToMb(totalBytesSeleccionados) + ' MB. El limite por envio es de ' + bytesToMb(MAX_UPLOAD_TOTAL_BYTES) + ' MB. Sube menos documentos por tanda o comprime los PDFs.';
+            if ((window.MAX_UPLOAD_TOTAL_BYTES || 0) > 0 && totalBytesSeleccionados > window.MAX_UPLOAD_TOTAL_BYTES) {
+                var textoPeso = 'Los documentos seleccionados pesan ' + bytesToMb(totalBytesSeleccionados) + ' MB. El limite por envio es de ' + bytesToMb(window.MAX_UPLOAD_TOTAL_BYTES || 0) + ' MB. Sube menos documentos por tanda o comprime los PDFs.';
                 mostrarAlertaSubida('error', 'Archivos demasiado pesados', textoPeso);
                 showResultado(msg, null, textoPeso, true);
                 return;
