@@ -11,10 +11,14 @@ class CapHum extends Model
     private static $trayectoriaPuestoTablaAsegurada = false;
     public const MODULO_ACCESOS_CAPITAL_HUMANO = 140;
     private const MODULO_MIS_DOCUMENTOS = 141;
+    private const MODULO_VALIDADOR_DOCUMENTAL_CANDIDATOS = 104;
+    private const MODULO_VALIDADOR_DOCUMENTAL_RRHH_CANDIDATOS = 142;
+    private const MODULO_GESTION_REGISTRAR_PERSONA = 143;
+    public const MODULO_VALIDAR_CARTA_COMPROMISO_GESTOR = 144;
     private const MODULOS_ACCESOS_CAPITAL_HUMANO_IDS = [
         4, 5, 13, 34, 38, 42, 44, 82, 83, 86, 87, 88, 91, 93,
         94, 95, 96, 97, 98, 99, 101, 104, 105,
-        140, 141,
+        140, 141, 142, 143, 144,
     ];
     private const MODULO_CONVENIOS_DESCARGAR_EXCEL = 92;
     private const MODULO_CONVENIOS_DESCARGAR_EXCEL_NOMBRE = 'Descargar Excel';
@@ -47,6 +51,24 @@ class CapHum extends Model
                 'nombre' => 'Mis documentos',
                 'pestana' => 'Capital Humano',
                 'descripcion' => 'Capital Humano > Mis documentos',
+            ],
+            [
+                'id' => self::MODULO_VALIDADOR_DOCUMENTAL_RRHH_CANDIDATOS,
+                'nombre' => 'Validador documental RRHH',
+                'pestana' => 'Permisos especiales',
+                'descripcion' => 'Permite validar documentos de candidatos que no pertenecen a la direccion Cobranza',
+            ],
+            [
+                'id' => self::MODULO_GESTION_REGISTRAR_PERSONA,
+                'nombre' => 'Registrar persona en Gestion de Personal',
+                'pestana' => 'Permisos especiales',
+                'descripcion' => 'Permite ver y usar la opcion Persona al agregar usuarios en Gestion de Personal.',
+            ],
+            [
+                'id' => self::MODULO_VALIDAR_CARTA_COMPROMISO_GESTOR,
+                'nombre' => 'Validar Documento de Compromiso del Gestor',
+                'pestana' => 'Capital Humano',
+                'descripcion' => 'Capital Humano > Validar Documento de Compromiso del Gestor',
             ],
         ];
 
@@ -205,11 +227,55 @@ class CapHum extends Model
     }
     private const DOCUMENTO_RFC_RRHH = 10;
     private const DOCUMENTO_CONSTANCIA_FISCAL_RRHH = 22;
+    public const DOCUMENTO_CARTA_COMPROMISO_GESTOR = 27;
     private const DOCUMENTOS_EXCLUIDOS_RRHH = [19, 20, 21];
     private const DOCUMENTOS_ALIAS_RRHH = [
         19 => 12, // Acta de nacimiento certificada -> Acta de Nacimiento
         20 => 9,  // Identificacion oficial duplicada -> Identificacion Oficial (INE)
     ];
+
+    public static function asegurarDocumentoCartaCompromisoGestor(): void
+    {
+        try {
+            $db = new Database();
+            $datos = [
+                'id' => self::DOCUMENTO_CARTA_COMPROMISO_GESTOR,
+                'clave' => 'CARTA_COMPROMISO_GESTOR',
+                'nombre' => 'Carta de compromiso del Gestor',
+                'obligatorio' => 0,
+                'activo' => 1,
+            ];
+            $existe = $db->queryOne(
+                'SELECT id FROM __SPARTA_SECRET_REDACTED__.documento WHERE id = :id OR clave = :clave LIMIT 1',
+                ['id' => $datos['id'], 'clave' => $datos['clave']]
+            );
+            if ($existe) {
+                $db->CRUD(
+                    'UPDATE __SPARTA_SECRET_REDACTED__.documento
+                        SET clave = :clave,
+                            nombre = :nombre,
+                            obligatorio = :obligatorio,
+                            activo = :activo
+                      WHERE id = :id_existente',
+                    [
+                        'id_existente' => (int) ($existe['id'] ?? $datos['id']),
+                        'clave' => $datos['clave'],
+                        'nombre' => $datos['nombre'],
+                        'obligatorio' => $datos['obligatorio'],
+                        'activo' => $datos['activo'],
+                    ]
+                );
+                return;
+            }
+            $db->CRUD(
+                'INSERT INTO __SPARTA_SECRET_REDACTED__.documento (id, clave, nombre, obligatorio, activo)
+                 VALUES (:id, :clave, :nombre, :obligatorio, :activo)',
+                $datos
+            );
+        } catch (\Throwable $e) {
+            error_log('CapHum::asegurarDocumentoCartaCompromisoGestor -> ' . $e->getMessage());
+        }
+    }
 
     public static function fechaHoraCdmx(): string
     {
@@ -2609,6 +2675,155 @@ class CapHum extends Model
         }
     }
 
+    public static function getGestoresPendientesCartaCompromiso(): array
+    {
+        try {
+            self::asegurarDocumentoCartaCompromisoGestor();
+            $db = new Database();
+
+            $rows = $db->queryAll("
+                SELECT
+                    p.id AS id_persona,
+                    p.numero_empleado,
+                    TRIM(CONCAT_WS(' ', p.nombres, p.segundo_nombre, p.apellidop, p.apellidom)) AS nombre_completo,
+                    p.correo,
+                    COALESCE(NULLIF(TRIM(p.telefono_uno), ''), NULLIF(TRIM(p.telefono_dos), ''), '') AS telefono,
+                    COALESCE(p.estatus, '') AS estatus,
+                    DATE_FORMAT(p.fecha_ingreso, '%Y-%m-%d') AS fecha_ingreso,
+                    COALESCE(org.puestos, 'Gestor') AS puestos,
+                    COALESCE(org.departamentos, 'Sin departamento') AS departamentos,
+                    COALESCE(org.areas, 'Sin area') AS areas,
+                    COALESCE(org.direcciones, 'Sin direccion') AS direcciones,
+                    CASE
+                        WHEN pj.id IS NOT NULL THEN TRIM(CONCAT_WS(' ', pj.nombres, pj.segundo_nombre, pj.apellidop, pj.apellidom))
+                        WHEN vj.id IS NOT NULL THEN CONCAT('Vacante #', vj.id, ' - ', COALESCE(pvj.nombre, 'Sin puesto'))
+                        ELSE 'Sin jefe asignado'
+                    END AS jefe
+                FROM __SPARTA_SECRET_REDACTED__.persona p
+                INNER JOIN (
+                    SELECT
+                        ap.id_persona,
+                        GROUP_CONCAT(DISTINCT pp.nombre ORDER BY COALESCE(pp.nivel, 999), pp.nombre SEPARATOR ', ') AS puestos,
+                        GROUP_CONCAT(DISTINCT d.nombre ORDER BY d.nombre SEPARATOR ', ') AS departamentos,
+                        GROUP_CONCAT(DISTINCT dorg.nombre ORDER BY dorg.nombre SEPARATOR ', ') AS areas,
+                        GROUP_CONCAT(DISTINCT dir.nombre ORDER BY dir.nombre SEPARATOR ', ') AS direcciones,
+                        MAX(CASE WHEN UPPER(COALESCE(pp.nombre, '')) LIKE '%GESTOR%' THEN 1 ELSE 0 END) AS tiene_gestor
+                    FROM __SPARTA_SECRET_REDACTED__.asigna_puesto ap
+                    INNER JOIN __SPARTA_SECRET_REDACTED__.puesto pp
+                        ON pp.id = ap.id_puesto
+                       AND COALESCE(pp.activo, 1) = 1
+                    LEFT JOIN __SPARTA_SECRET_REDACTED__.departamento d
+                        ON d.id = pp.departamento_id
+                    LEFT JOIN __SPARTA_SECRET_REDACTED__.departamento_organizacional dorg
+                        ON dorg.id = d.id_departamento_organizacional
+                    LEFT JOIN __SPARTA_SECRET_REDACTED__.asigna_direcciones ad
+                        ON ad.id_departamento_organizacional = d.id_departamento_organizacional
+                       AND COALESCE(ad.activo, 1) = 1
+                    LEFT JOIN __SPARTA_SECRET_REDACTED__.direcciones_organizacion dir
+                        ON dir.id = ad.id_direccion
+                    WHERE COALESCE(ap.activo, 1) = 1
+                    GROUP BY ap.id_persona
+                ) org
+                    ON org.id_persona = p.id
+                   AND org.tiene_gestor = 1
+                LEFT JOIN (
+                    SELECT aj1.id_persona, aj1.id_jefe, aj1.id_vacante_jefe
+                    FROM __SPARTA_SECRET_REDACTED__.asigna_jefe aj1
+                    INNER JOIN (
+                        SELECT id_persona, MAX(id) AS id_max
+                        FROM __SPARTA_SECRET_REDACTED__.asigna_jefe
+                        WHERE fecha_fin IS NULL OR fecha_fin >= CURDATE()
+                        GROUP BY id_persona
+                    ) ult ON ult.id_persona = aj1.id_persona AND ult.id_max = aj1.id
+                ) aj ON aj.id_persona = p.id
+                LEFT JOIN __SPARTA_SECRET_REDACTED__.persona pj ON pj.id = aj.id_jefe
+                LEFT JOIN __SPARTA_SECRET_REDACTED__.vacantes_personal vj ON vj.id = aj.id_vacante_jefe
+                LEFT JOIN __SPARTA_SECRET_REDACTED__.puesto pvj ON pvj.id = vj.id_puesto
+                WHERE COALESCE(p.estatus, '') <> 'Baja'
+                  AND NOT EXISTS (
+                      SELECT 1
+                      FROM __SPARTA_SECRET_REDACTED__.carga_documento_persona cdp
+                      WHERE cdp.id_persona = p.id
+                        AND cdp.id_documento = :id_documento
+                      LIMIT 1
+                  )
+                ORDER BY nombre_completo ASC
+            ", ['id_documento' => self::DOCUMENTO_CARTA_COMPROMISO_GESTOR]);
+
+            return self::resultado(true, 'Gestores pendientes encontrados.', $rows ?? []);
+        } catch (\Exception $e) {
+            return self::resultado(false, 'Error al obtener gestores pendientes.', [], $e->getMessage());
+        }
+    }
+
+    public static function getPersonaGestorCartaCompromiso(int $idPersona): array
+    {
+        try {
+            if ($idPersona <= 0) {
+                return self::resultado(false, 'ID de persona invalido.', null);
+            }
+
+            self::asegurarDocumentoCartaCompromisoGestor();
+            $db = new Database();
+            $row = $db->queryOne("
+                SELECT
+                    p.id AS id_persona,
+                    p.numero_empleado,
+                    TRIM(CONCAT_WS(' ', p.nombres, p.segundo_nombre, p.apellidop, p.apellidom)) AS nombre_completo,
+                    p.nombres,
+                    p.segundo_nombre,
+                    p.apellidop,
+                    p.apellidom,
+                    p.correo,
+                    COALESCE(NULLIF(TRIM(p.telefono_uno), ''), NULLIF(TRIM(p.telefono_dos), ''), '') AS telefono,
+                    COALESCE(p.estatus, '') AS estatus,
+                    COALESCE(org.puestos, 'Gestor') AS puestos,
+                    COALESCE(org.departamentos, 'Sin departamento') AS departamentos,
+                    CASE
+                        WHEN EXISTS (
+                            SELECT 1
+                            FROM __SPARTA_SECRET_REDACTED__.carga_documento_persona cdp
+                            WHERE cdp.id_persona = p.id
+                              AND cdp.id_documento = :id_documento
+                            LIMIT 1
+                        ) THEN 1 ELSE 0
+                    END AS carta_subida
+                FROM __SPARTA_SECRET_REDACTED__.persona p
+                INNER JOIN (
+                    SELECT
+                        ap.id_persona,
+                        GROUP_CONCAT(DISTINCT pp.nombre ORDER BY COALESCE(pp.nivel, 999), pp.nombre SEPARATOR ', ') AS puestos,
+                        GROUP_CONCAT(DISTINCT d.nombre ORDER BY d.nombre SEPARATOR ', ') AS departamentos,
+                        MAX(CASE WHEN UPPER(COALESCE(pp.nombre, '')) LIKE '%GESTOR%' THEN 1 ELSE 0 END) AS tiene_gestor
+                    FROM __SPARTA_SECRET_REDACTED__.asigna_puesto ap
+                    INNER JOIN __SPARTA_SECRET_REDACTED__.puesto pp
+                        ON pp.id = ap.id_puesto
+                       AND COALESCE(pp.activo, 1) = 1
+                    LEFT JOIN __SPARTA_SECRET_REDACTED__.departamento d
+                        ON d.id = pp.departamento_id
+                    WHERE COALESCE(ap.activo, 1) = 1
+                    GROUP BY ap.id_persona
+                ) org
+                    ON org.id_persona = p.id
+                   AND org.tiene_gestor = 1
+                WHERE p.id = :id_persona
+                  AND COALESCE(p.estatus, '') <> 'Baja'
+                LIMIT 1
+            ", [
+                'id_persona' => $idPersona,
+                'id_documento' => self::DOCUMENTO_CARTA_COMPROMISO_GESTOR,
+            ]);
+
+            if (!$row) {
+                return self::resultado(false, 'No se encontro un gestor activo con ese ID.', null);
+            }
+
+            return self::resultado(true, 'Gestor encontrado.', $row);
+        } catch (\Exception $e) {
+            return self::resultado(false, 'Error al obtener gestor.', null, $e->getMessage());
+        }
+    }
+
     private static function coberturaDocumentoRrhh(int $idDocumento, array $mapaCargados): array
     {
         $info = $mapaCargados[$idDocumento] ?? null;
@@ -2829,6 +3044,8 @@ class CapHum extends Model
             $totalCargadosGlobal = 0;
             $colaboradoresCompletos = 0;
             $colaboradoresConFaltantes = 0;
+            $colaboradoresSinDocumentos = 0;
+            $colaboradoresParciales = 0;
 
             foreach ($personas as $persona) {
                 $idPersona = (int) ($persona['id'] ?? 0);
@@ -2868,6 +3085,11 @@ class CapHum extends Model
                 $porcentajeLocal = $totalTipos > 0 ? round(($cargadosLocal / $totalTipos) * 100, 1) : 0;
                 if ($faltantesLocal > 0) {
                     $colaboradoresConFaltantes++;
+                    if ($cargadosLocal === 0) {
+                        $colaboradoresSinDocumentos++;
+                    } else {
+                        $colaboradoresParciales++;
+                    }
                 } else {
                     $colaboradoresCompletos++;
                 }
@@ -2913,6 +3135,8 @@ class CapHum extends Model
                     'porcentaje_global' => $porcentajeGlobal,
                     'colaboradores_completos' => $colaboradoresCompletos,
                     'colaboradores_con_faltantes' => $colaboradoresConFaltantes,
+                    'colaboradores_sin_documentos' => $colaboradoresSinDocumentos,
+                    'colaboradores_parciales' => $colaboradoresParciales,
                 ],
                 'colaboradores' => $colaboradores,
             ]);
@@ -3182,15 +3406,28 @@ class CapHum extends Model
         return implode(',', array_map('intval', self::MODULOS_ACCESOS_CAPITAL_HUMANO_IDS));
     }
 
+    private static function modulosGestionablesAccesoCapitalHumano(): array
+    {
+        return array_values(array_filter(
+            self::MODULOS_ACCESOS_CAPITAL_HUMANO_IDS,
+            static fn ($id) => (int) $id !== self::MODULO_VALIDADOR_DOCUMENTAL_CANDIDATOS
+        ));
+    }
+
+    private static function idsGestionablesAccesosCapitalHumanoSql(): string
+    {
+        return implode(',', array_map('intval', self::modulosGestionablesAccesoCapitalHumano()));
+    }
+
     private static function grupoModuloAccesoCapitalHumano(int $id, string $pestana, string $nombre): array
     {
         if ($id >= 107 && $id <= 127) {
             return ['grupo' => 'Edicion cobranza', 'icono' => 'fa-solid fa-pen-to-square', 'orden' => 30];
         }
-        if (in_array($id, [94, 95, 96, 97, 98, 99, 101, 103], true)) {
+        if (in_array($id, [94, 95, 96, 97, 98, 99, 101, 103, 143], true)) {
             return ['grupo' => 'Gestiones de personal', 'icono' => 'fa-solid fa-users-gear', 'orden' => 20];
         }
-        if (in_array($id, [104, 105], true)) {
+        if (in_array($id, [104, 105, 142], true)) {
             return ['grupo' => 'Seleccion de personal', 'icono' => 'fa-solid fa-user-check', 'orden' => 25];
         }
         if ($id === self::MODULO_ACCESOS_CAPITAL_HUMANO) {
@@ -3208,7 +3445,7 @@ class CapHum extends Model
         try {
             $db = new Database();
             self::asegurarModuloAccesosCapitalHumanoDb($db);
-            $idsSql = self::idsAccesosCapitalHumanoSql();
+            $idsSql = self::idsGestionablesAccesosCapitalHumanoSql();
 
             $usuarios = $db->queryAll("
                 SELECT
@@ -3310,7 +3547,7 @@ class CapHum extends Model
             }
             $db = new Database();
             self::asegurarModuloAccesosCapitalHumanoDb($db);
-            $idsSql = self::idsAccesosCapitalHumanoSql();
+            $idsSql = self::idsGestionablesAccesosCapitalHumanoSql();
 
             $usuario = $db->queryOne("
                 SELECT
@@ -3393,14 +3630,14 @@ class CapHum extends Model
             if (!is_array($modulos)) {
                 $modulos = [];
             }
-            $permitidos = array_fill_keys(self::MODULOS_ACCESOS_CAPITAL_HUMANO_IDS, true);
+            $permitidos = array_fill_keys(self::modulosGestionablesAccesoCapitalHumano(), true);
             $modulos = array_values(array_unique(array_filter(array_map('intval', $modulos), static function ($mid) use ($permitidos) {
                 return isset($permitidos[$mid]);
             })));
 
             $db = new Database();
             self::asegurarModuloAccesosCapitalHumanoDb($db);
-            $idsSql = self::idsAccesosCapitalHumanoSql();
+            $idsSql = self::idsGestionablesAccesosCapitalHumanoSql();
 
             $usuario = $db->queryOne(
                 "SELECT id FROM persona WHERE id = :id AND COALESCE(estatus, '') <> 'Baja' LIMIT 1",
@@ -4710,7 +4947,10 @@ class CapHum extends Model
         $apellidop = addslashes((string) ($data['apellidop'] ?? ''));
         $apellidom = addslashes((string) ($data['apellidom'] ?? ''));
         // Si no viene número de empleado, se genera en BD (max numérico + 1, sin colisiones).
-        $autoNumeroEmpleado = trim((string) ($data['numero_empleado'] ?? '')) === '';
+        $numeroEmpleadoEntrada = trim((string) ($data['numero_empleado'] ?? ''));
+        $autoNumeroEmpleado = $numeroEmpleadoEntrada === ''
+            || strcasecmp($numeroEmpleadoEntrada, 'PEND') === 0
+            || strcasecmp($numeroEmpleadoEntrada, 'PENDIENTE') === 0;
         $correo = addslashes((string) ($data['correo'] ?? ''));
         $telefono_uno = addslashes((string) ($data['telefono'] ?? $data['telefono_uno'] ?? ''));
         $telefono_dos = addslashes((string) ($data['telefono_dos'] ?? ''));
@@ -4764,7 +5004,7 @@ class CapHum extends Model
             if ($autoNumeroEmpleado) {
                 $numero_raw = self::siguienteNumeroEmpleadoLibre($db);
             } else {
-                $numero_raw = trim((string) ($data['numero_empleado'] ?? ''));
+                $numero_raw = $numeroEmpleadoEntrada;
             }
             $numero_empleado = addslashes($numero_raw);
 
@@ -4798,6 +5038,9 @@ class CapHum extends Model
 
             // 2️⃣ Obtenemos el ID insertado con queryOne()
             $result = $db->queryOne("SELECT LAST_INSERT_ID() AS id");
+            if (is_array($result)) {
+                $result['numero_empleado'] = $numero_raw;
+            }
 
             $id_persona = isset($result['id']) ? intval($result['id']) : null;
 

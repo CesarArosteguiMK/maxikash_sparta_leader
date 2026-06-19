@@ -7,6 +7,19 @@ $documentos_subidos = $documentos_subidos ?? [];
 $tipo_documento_validado_rh = $tipo_documento_validado_rh ?? [];
 $expediente_completo = $expediente_completo ?? false;
 $api_verificacion_base = $api_verificacion_base ?? '/CapHum/docVerificacionProxy';
+$iniSizeToBytes = static function ($value): int {
+    $value = trim((string) $value);
+    if ($value === '') return 0;
+    $unit = strtolower(substr($value, -1));
+    $num = (float) $value;
+    if ($unit === 'g') return (int) ($num * 1024 * 1024 * 1024);
+    if ($unit === 'm') return (int) ($num * 1024 * 1024);
+    if ($unit === 'k') return (int) ($num * 1024);
+    return (int) $num;
+};
+$postMaxBytes = $iniSizeToBytes(ini_get('post_max_size'));
+$uploadMaxBytes = $iniSizeToBytes(ini_get('upload_max_filesize'));
+$maxUploadTotalBytes = $postMaxBytes > 0 ? max(1024 * 1024, $postMaxBytes - (1024 * 1024)) : 0;
 $documentos = [
     1  => 'SOLICITUD INTERNA',
     2  => 'CV O SOLICITUD DE TRABAJO',
@@ -900,6 +913,9 @@ $documentos_ayuda = [
             var VERIFICACION_ESTADO_CUENTA_TIMEOUT_MS = 12000;
             var VERIFICACION_IDENTIFICACION_TIMEOUT_MS = 15000;
             var VERIFICACION_CALIDAD_TIMEOUT_MS = 10000;
+            var MAX_UPLOAD_TOTAL_BYTES = <?= (int) $maxUploadTotalBytes ?>;
+            var SERVER_POST_MAX_BYTES = <?= (int) $postMaxBytes ?>;
+            var SERVER_UPLOAD_MAX_BYTES = <?= (int) $uploadMaxBytes ?>;
 
             var VERIFICACION_CURP_TIMEOUT_MS = 8000;
             var VERIFICACION_FISCAL_TIMEOUT_MS = 10000;
@@ -1065,6 +1081,26 @@ $documentos_ayuda = [
                 });
             }
 
+            function validarPaginasPdfAPI(file, minimoPaginas, nombreDocumento) {
+                return new Promise(function(resolve, reject) {
+                    var formData = new FormData();
+                    formData.append('documento', file, file.name || 'documento.pdf');
+                    formData.append('minimo_paginas', String(minimoPaginas || 1));
+                    formData.append('nombre_documento', nombreDocumento || 'El documento');
+                    fetchWithTimeout(API_BASE + '/validar-paginas-pdf', { method: 'POST', headers: { 'X-API-Key': API_KEY }, body: formData }, 8000)
+                    .then(function(r) {
+                        if (!r.ok) {
+                            return r.json().catch(function() { return {}; }).then(function(body) {
+                                throw new Error((body && (body.detail || body.mensaje)) ? (body.detail || body.mensaje) : 'No se pudo revisar el PDF.');
+                            });
+                        }
+                        return r.json();
+                    })
+                    .then(resolve)
+                    .catch(reject);
+                });
+            }
+
             function actualizarCheckmark(docNum, aprobado) {
                 var el = document.getElementById('doc-check-' + docNum);
                 actualizarEstadoPendiente(docNum, !aprobado);
@@ -1105,7 +1141,7 @@ $documentos_ayuda = [
                 if (base.indexOf('ACTA') !== -1 || base.indexOf('NACIMIENTO') !== -1) return 3;
                 if (base.indexOf('CURP') !== -1) return 4;
                 if (base.indexOf('IDENTIFIC') !== -1 || base.indexOf('INE') !== -1 || base.indexOf('IFE') !== -1) return 5;
-                if (base.indexOf('DOMICILIO') !== -1 || base.indexOf('COMPROBANTE') !== -1) return 6;
+                if (base.indexOf('DOMICILIO') !== -1 || base.indexOf('COMPROBANTE DE DOMICILIO') !== -1) return 6;
                 if (base.indexOf('FISCAL') !== -1 || base.indexOf('RFC') !== -1 || base.indexOf('SAT') !== -1) return 7;
                 if (base.indexOf('NSS') !== -1 || base.indexOf('SEGURIDAD SOCIAL') !== -1 || base.indexOf('IMSS') !== -1) return 8;
                 if (base.indexOf('RETENCION') !== -1 || base.indexOf('FONACOT') !== -1 || base.indexOf('INFONAVIT') !== -1) return 9;
@@ -1137,6 +1173,14 @@ $documentos_ayuda = [
                 return numCampo === 6 && tipoDetectado === 10;
             }
 
+            function documentoValidadoPorContenido(numCampo) {
+                var ids = { 4: 'curp-verificado', 5: 'id-verificado-frente', 6: 'comp-verificado', 7: 'fiscal-verificado', 8: 'nss-verificado', 10: 'estado-verificado' };
+                var el = ids[numCampo] ? document.getElementById(ids[numCampo]) : null;
+                if (!el) return false;
+                var display = window.getComputedStyle ? window.getComputedStyle(el).display : el.style.display;
+                return display !== 'none' && display !== '';
+            }
+
             function rechazarArchivoCampo(input, numCampo, mensaje) {
                 var msg = document.getElementById('mensajeResultado');
                 showResultado(msg, null, mensaje || ('Este archivo parece corresponder a otro documento. Para ' + nombreDocumentoEsperado(numCampo) + ' sube el PDF correcto.'), true);
@@ -1146,6 +1190,12 @@ $documentos_ayuda = [
                 var el = ids[numCampo] ? document.getElementById(ids[numCampo]) : null;
                 if (el) el.style.display = 'none';
             }
+
+            window.tipoSugeridoPorNombreArchivo = tipoSugeridoPorNombreArchivo;
+            window.nombreDocumentoEsperado = nombreDocumentoEsperado;
+            window.archivoCorrespondeCampoPorNombre = archivoCorrespondeCampoPorNombre;
+            window.documentoValidadoPorContenido = documentoValidadoPorContenido;
+            window.rechazarArchivoCampo = rechazarArchivoCampo;
 
             var MSG_AUTO_OCULTAR_MS = 10000;
             var verificacionesPendientes = 0;
@@ -1178,6 +1228,9 @@ $documentos_ayuda = [
                 uploadAlert.setAttribute('aria-hidden', 'false');
                 if (uploadAlertClose) {
                     uploadAlertClose.onclick = function() {
+                        if (document.activeElement && uploadAlert.contains(document.activeElement) && typeof document.activeElement.blur === 'function') {
+                            document.activeElement.blur();
+                        }
                         uploadAlert.classList.remove('is-visible', 'is-success', 'is-error');
                         uploadAlert.setAttribute('aria-hidden', 'true');
                     };
@@ -1187,6 +1240,9 @@ $documentos_ayuda = [
             function cerrarAlertaDocumento() {
                 var uploadAlert = document.getElementById('docUploadAlert');
                 if (!uploadAlert) return;
+                if (document.activeElement && uploadAlert.contains(document.activeElement) && typeof document.activeElement.blur === 'function') {
+                    document.activeElement.blur();
+                }
                 uploadAlert.classList.remove('is-visible', 'is-success', 'is-error', 'is-warning');
                 uploadAlert.setAttribute('aria-hidden', 'true');
             }
@@ -1309,6 +1365,7 @@ $documentos_ayuda = [
             window.verificarDocumentoAPI = verificarDocumentoAPI;
             window.verificarCalidadDocumentoAPI = verificarCalidadDocumentoAPI;
             window.verificarComprobanteAPI = verificarComprobanteAPI;
+            window.validarPaginasPdfAPI = validarPaginasPdfAPI;
             window.actualizarCheckmark = actualizarCheckmark;
             window.tipoSugeridoPorNombreArchivo = tipoSugeridoPorNombreArchivo;
             window.nombreDocumentoEsperado = nombreDocumentoEsperado;
@@ -1643,8 +1700,10 @@ $documentos_ayuda = [
                             return;
                         }
                         if (res.valido !== true) {
-                            showResultado(msg, verificandoDiv, '<i class="fa fa-check-circle me-1"></i> RFC detectado' + (res.rfc ? ': ' + normalizarTextoInterfaz(res.rfc) : '') + '.', false);
-                            actualizarFiscalDesdeRespuesta(res);
+                            showResultado(msg, verificandoDiv, res.mensaje || 'No se pudo confirmar que la constancia fiscal sea vigente y completa. Sube la constancia fiscal actual descargada del SAT.', true);
+                            inputFiscal.value = '';
+                            if (el) el.style.display = 'none';
+                            actualizarCheckmark(7, false);
                             return;
                         }
                         showResultado(msg, verificandoDiv, '<i class="fa fa-check-circle me-1"></i> Constancia de situación fiscal verificada.', false);
@@ -1657,8 +1716,11 @@ $documentos_ayuda = [
                         actualizarCheckmark(7, true);
                     })
                     .catch(function(err) {
-                        showResultado(msg, verificandoDiv, '<i class="fa fa-check-circle me-1"></i> Constancia fiscal recibida.', false);
-                        marcarDocumentoRecibido(7, 'fiscal-verificado');
+                        var el = document.getElementById('fiscal-verificado');
+                        showResultado(msg, verificandoDiv, 'No se pudo confirmar la constancia fiscal. Intenta de nuevo o sube una constancia completa y reciente del SAT.', true);
+                        inputFiscal.value = '';
+                        if (el) el.style.display = 'none';
+                        actualizarCheckmark(7, false);
                     });
                 });
             }
@@ -1780,7 +1842,39 @@ $documentos_ayuda = [
                 });
             }
 
-            [1, 2, 3, 9].forEach(function(n) {
+            var inputSolicitudInterna = document.getElementById('archivo_1');
+            if (inputSolicitudInterna) {
+                inputSolicitudInterna.addEventListener('change', function() {
+                    var file = this.files && this.files[0];
+                    if (!file) return;
+                    if (file.name.split('.').pop().toLowerCase() !== 'pdf') {
+                        showResultado(document.getElementById('mensajeResultado'), null, 'Solo se acepta solicitud interna en PDF.', true);
+                        inputSolicitudInterna.value = '';
+                        actualizarCheckmark(1, false);
+                        return;
+                    }
+                    var msg = document.getElementById('mensajeResultado');
+                    var verificandoDiv = showVerificando(msg, 'Revisando solicitud interna...');
+                    validarPaginasPdfAPI(file, 2, 'La solicitud interna')
+                    .then(function(res) {
+                        if (!res || res.valido !== true) {
+                            showResultado(msg, verificandoDiv, (res && res.mensaje) ? res.mensaje : 'La solicitud interna debe tener más de 1 hoja. Sube el PDF completo.', true);
+                            inputSolicitudInterna.value = '';
+                            actualizarCheckmark(1, false);
+                            return;
+                        }
+                        showResultado(msg, verificandoDiv, '<i class="fa fa-check-circle me-1"></i> Solicitud interna completa.', false);
+                        actualizarCheckmark(1, true);
+                    })
+                    .catch(function() {
+                        showResultado(msg, verificandoDiv, 'No se pudo revisar la solicitud interna. Intenta de nuevo con el PDF completo.', true);
+                        inputSolicitudInterna.value = '';
+                        actualizarCheckmark(1, false);
+                    });
+                });
+            }
+
+            [2, 3, 9].forEach(function(n) {
                 var inpSimple = document.getElementById('archivo_' + n);
                 if (!inpSimple) return;
                 inpSimple.addEventListener('change', function() {
@@ -2354,7 +2448,7 @@ $documentos_ayuda = [
             });
         })();
         var formSubir = document.getElementById('formSubirDocumentos');
-        if (formSubir) formSubir.addEventListener('submit', function(e) {
+        if (formSubir) formSubir.addEventListener('submit', async function(e) {
             e.preventDefault();
             var btn = document.getElementById('btnEnviar');
             var msg = document.getElementById('mensajeResultado');
@@ -2383,12 +2477,36 @@ $documentos_ayuda = [
 
             function cerrarAlertaSubida() {
                 if (!uploadAlert) return;
+                if (document.activeElement && uploadAlert.contains(document.activeElement) && typeof document.activeElement.blur === 'function') {
+                    document.activeElement.blur();
+                }
                 uploadAlert.classList.remove('is-visible', 'is-success', 'is-error', 'is-warning');
                 uploadAlert.setAttribute('aria-hidden', 'true');
             }
 
             if (uploadAlertClose) {
                 uploadAlertClose.onclick = cerrarAlertaSubida;
+            }
+
+            function bytesToMb(bytes) {
+                return Math.round((Number(bytes || 0) / 1024 / 1024) * 10) / 10;
+            }
+
+            function leerRespuestaJsonSubida(response) {
+                return response.text().then(function(texto) {
+                    var textoLimpio = String(texto || '').trim();
+                    if (!response.ok) {
+                        if (response.status === 413) {
+                            throw new Error('Los archivos son demasiado pesados para enviarlos juntos. Sube menos documentos por tanda o comprime los PDFs.');
+                        }
+                        throw new Error('El servidor respondio con error HTTP ' + response.status + '. ' + (textoLimpio ? textoLimpio.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 180) : 'Intenta de nuevo.'));
+                    }
+                    try {
+                        return JSON.parse(textoLimpio || '{}');
+                    } catch (err) {
+                        throw new Error('El servidor no devolvio una respuesta valida. Intenta subir menos archivos por tanda o recarga la pagina.');
+                    }
+                });
             }
 
             if (typeof window.puedeEnviarDocumentos === 'function' && !window.puedeEnviarDocumentos()) {
@@ -2406,13 +2524,55 @@ $documentos_ayuda = [
                 showResultado(msg, null, 'Selecciona al menos un documento para subir. Puedes enviar el resto más adelante.', true);
                 return;
             }
+            var totalBytesSeleccionados = 0;
+            var archivoMayorLimite = null;
+            for (var pesoIdx = 1; pesoIdx <= 10; pesoIdx++) {
+                var inputPeso = document.getElementById('archivo_' + pesoIdx);
+                if (!inputPeso || !inputPeso.files || inputPeso.files.length === 0) continue;
+                totalBytesSeleccionados += Number(inputPeso.files[0].size || 0);
+                if (SERVER_UPLOAD_MAX_BYTES > 0 && Number(inputPeso.files[0].size || 0) > SERVER_UPLOAD_MAX_BYTES) {
+                    archivoMayorLimite = inputPeso.files[0];
+                }
+            }
+            if (archivoMayorLimite) {
+                var textoArchivoGrande = 'El archivo "' + archivoMayorLimite.name + '" pesa ' + bytesToMb(archivoMayorLimite.size) + ' MB y el limite por archivo es de ' + bytesToMb(SERVER_UPLOAD_MAX_BYTES) + ' MB. Comprime el PDF e intenta de nuevo.';
+                mostrarAlertaSubida('error', 'Archivo demasiado pesado', textoArchivoGrande);
+                showResultado(msg, null, textoArchivoGrande, true);
+                return;
+            }
+            if (MAX_UPLOAD_TOTAL_BYTES > 0 && totalBytesSeleccionados > MAX_UPLOAD_TOTAL_BYTES) {
+                var textoPeso = 'Los documentos seleccionados pesan ' + bytesToMb(totalBytesSeleccionados) + ' MB. El limite por envio es de ' + bytesToMb(MAX_UPLOAD_TOTAL_BYTES) + ' MB. Sube menos documentos por tanda o comprime los PDFs.';
+                mostrarAlertaSubida('error', 'Archivos demasiado pesados', textoPeso);
+                showResultado(msg, null, textoPeso, true);
+                return;
+            }
+            var inputSolicitudSubmit = document.getElementById('archivo_1');
+            if (inputSolicitudSubmit && inputSolicitudSubmit.files && inputSolicitudSubmit.files.length > 0 && typeof window.validarPaginasPdfAPI === 'function') {
+                try {
+                    var revisionSolicitud = await window.validarPaginasPdfAPI(inputSolicitudSubmit.files[0], 2, 'La solicitud interna');
+                    if (!revisionSolicitud || revisionSolicitud.valido !== true) {
+                        showResultado(msg, null, (revisionSolicitud && revisionSolicitud.mensaje) ? revisionSolicitud.mensaje : 'La solicitud interna debe tener más de 1 hoja. Sube el PDF completo.', true);
+                        inputSolicitudSubmit.value = '';
+                        if (typeof window.actualizarCheckmark === 'function') window.actualizarCheckmark(1, false);
+                        return;
+                    }
+                } catch (err) {
+                    console.warn('Revision rapida de solicitud interna omitida:', err);
+                }
+            }
             for (var j = 1; j <= 10; j++) {
                 var inputDoc = document.getElementById('archivo_' + j);
                 if (!inputDoc || !inputDoc.files || inputDoc.files.length === 0) continue;
                 var fileDoc = inputDoc.files[0];
-                if (!archivoCorrespondeCampoPorNombre(fileDoc, j)) {
-                    var tipoDetectadoSubmit = tipoSugeridoPorNombreArchivo(fileDoc.name);
-                    rechazarArchivoCampo(inputDoc, j, 'El archivo "' + fileDoc.name + '" parece corresponder a ' + nombreDocumentoEsperado(tipoDetectadoSubmit) + '. Súbelo en su campo correspondiente.');
+                if (typeof window.documentoValidadoPorContenido === 'function' && window.documentoValidadoPorContenido(j)) continue;
+                if (typeof window.archivoCorrespondeCampoPorNombre === 'function' && !window.archivoCorrespondeCampoPorNombre(fileDoc, j)) {
+                    var tipoDetectadoSubmit = typeof window.tipoSugeridoPorNombreArchivo === 'function' ? window.tipoSugeridoPorNombreArchivo(fileDoc.name) : 0;
+                    var nombreEsperadoSubmit = typeof window.nombreDocumentoEsperado === 'function' ? window.nombreDocumentoEsperado(tipoDetectadoSubmit) : 'otro documento';
+                    if (typeof window.rechazarArchivoCampo === 'function') {
+                        window.rechazarArchivoCampo(inputDoc, j, 'El archivo "' + fileDoc.name + '" parece corresponder a ' + nombreEsperadoSubmit + '. Súbelo en su campo correspondiente.');
+                    } else {
+                        showResultado(msg, null, 'El archivo "' + fileDoc.name + '" parece corresponder a ' + nombreEsperadoSubmit + '. Súbelo en su campo correspondiente.', true);
+                    }
                     return;
                 }
             }
@@ -2431,7 +2591,7 @@ $documentos_ayuda = [
                 method: 'POST',
                 body: formData,
                 signal: ctrl.signal
-            }).then(function(r) { clearTimeout(timeoutId); return r.json(); }).then(function(res) {
+            }).then(function(r) { clearTimeout(timeoutId); return leerRespuestaJsonSubida(r); }).then(function(res) {
                 btn.disabled = false;
                 btn.textContent = 'Subir documentos';
                 msg.innerHTML = '';
@@ -2497,7 +2657,7 @@ $documentos_ayuda = [
                     mostrarAlertaSubida('warning', 'Subida en revisión', textoTimeout);
                     showResultado(msg, null, textoTimeout, false);
                 } else {
-                    var textoConexion = 'Error de conexión. Intenta de nuevo.';
+                    var textoConexion = (errFinal && errFinal.message) ? errFinal.message : 'Error de conexión. Intenta de nuevo.';
                     mostrarAlertaSubida('error', 'No se pudo cargar la documentación', textoConexion);
                     showResultado(msg, null, textoConexion, true);
                 }

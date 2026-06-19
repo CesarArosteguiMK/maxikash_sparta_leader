@@ -90,22 +90,22 @@ if (isset($chEstRangoIni, $chEstRangoFin) && is_string($chEstRangoIni) && is_str
             <div class="col-6 col-md-4 col-xl">
                 <div class="card h-100 shadow-sm">
                     <div class="card-body py-2 d-flex flex-column">
-                        <span class="badge rounded-pill bg-label-warning text-warning fw-bold mb-2 py-2 px-2 w-100 text-center lh-sm" style="font-size:.88rem;letter-spacing:.06em;line-height:1.25;white-space:normal">Total empleados en plantilla</span>
+                        <span class="badge rounded-pill bg-label-warning text-warning fw-bold mb-2 py-2 px-2 w-100 text-center lh-sm" style="font-size:.88rem;letter-spacing:.06em;line-height:1.25;white-space:normal">Empleados activos</span>
                         <div class="ch-kpi-period-badge mb-2 text-start align-self-start w-100" style="font-size:.62rem;font-weight:700;letter-spacing:.04em;color:var(--bs-secondary-color);line-height:1.25">—</div>
-                        <div id="chKpiTotalEmp" class="fs-4 fw-bold text-body">0</div>
-                        <div class="small text-muted mt-1 flex-grow-1" id="chKpiTotalSub">—</div>
-                        <div class="mt-auto pt-2"><span class="badge rounded-pill bg-label-secondary text-secondary" id="chKpiTotalPctBadge">—</span></div>
+                        <div id="chKpiActivos" class="fs-4 fw-bold text-success">0</div>
+                        <div class="small text-muted mt-1" id="chKpiActivosSub">—</div>
+                        <div class="mt-auto pt-2"><span class="badge rounded-pill bg-label-success text-success" id="chKpiActivosPctBadge">—</span></div>
                     </div>
                 </div>
             </div>
             <div class="col-6 col-md-4 col-xl">
                 <div class="card h-100 shadow-sm">
                     <div class="card-body py-2 d-flex flex-column">
-                        <span class="badge rounded-pill bg-label-warning text-warning fw-bold mb-2 py-2 px-2 w-100 text-center lh-sm" style="font-size:.88rem;letter-spacing:.06em;line-height:1.25;white-space:normal">Empleados activos</span>
+                        <span class="badge rounded-pill bg-label-warning text-warning fw-bold mb-2 py-2 px-2 w-100 text-center lh-sm" style="font-size:.88rem;letter-spacing:.06em;line-height:1.25;white-space:normal">Ingresos del periodo</span>
                         <div class="ch-kpi-period-badge mb-2 text-start align-self-start w-100" style="font-size:.62rem;font-weight:700;letter-spacing:.04em;color:var(--bs-secondary-color);line-height:1.25">—</div>
-                        <div id="chKpiActivos" class="fs-4 fw-bold text-success">0</div>
-                        <div class="small text-muted mt-1" id="chKpiActivosSub">—</div>
-                        <div class="mt-auto pt-2"><span class="badge rounded-pill bg-label-success text-success" id="chKpiActivosPctBadge">—</span></div>
+                        <div id="chKpiTotalEmp" class="fs-4 fw-bold text-success">0</div>
+                        <div class="small text-muted mt-1 flex-grow-1" id="chKpiTotalSub">—</div>
+                        <div class="mt-auto pt-2"><span class="badge rounded-pill bg-label-success text-success" id="chKpiTotalPctBadge">—</span></div>
                     </div>
                 </div>
             </div>
@@ -1384,10 +1384,10 @@ if (isset($chEstRangoIni, $chEstRangoFin) && is_string($chEstRangoIni) && is_str
         var totEmp = n(d.total_empleados);
         var actEmp = n(d.empleados_activos);
         var bjEmp = n(d.empleados_baja);
-        setText('chKpiTotalEmp', String(d.total_empleados ?? 0));
-        setText('chKpiTotalSub', 'Plantilla al cierre del periodo');
+        setText('chKpiTotalEmp', String(d.ingresos ?? 0));
+        setText('chKpiTotalSub', 'Ingresos registrados en el periodo');
         var elTotPct = document.getElementById('chKpiTotalPctBadge');
-        if (elTotPct) elTotPct.textContent = totEmp > 0 ? '100%' : '—';
+        if (elTotPct) elTotPct.textContent = totEmp > 0 ? (Math.round((n(d.ingresos) / totEmp) * 100) + '%') : '—';
 
         setText('chKpiActivos', String(d.empleados_activos ?? 0));
         setText('chKpiActivosSub', 'Activos al cierre del periodo');

@@ -4778,6 +4778,7 @@ window.puedeCargarDocumentoGestion = <?= json_encode(!empty($puedeCargarDocument
 window.puedeRegistrarAusenciaGestion = <?= json_encode(!empty($puedeRegistrarAusenciaGestion ?? false)) ?>;
 window.puedeDarBajaGestion = <?= json_encode(!empty($puedeDarBajaGestion ?? false)) ?>;
 window.puedeVisualizarContrasenaGestion = <?= json_encode(!empty($puedeVisualizarContrasenaGestion ?? false)) ?>;
+window.puedeRegistrarPersonaGestion = <?= json_encode(!empty($puedeRegistrarPersonaGestion ?? false)) ?>;
 window.permisosEdicionCobranzaGestion = <?= json_encode(($permisosEdicionCobranzaGestion ?? [])) ?>;
 window.puedeActualizarInfo = <?= json_encode(!empty($puedeActualizarInfo ?? false)) ?>;
 window.puedeAgregarUsuarioRrhh = <?= json_encode(!empty($puedeAgregarUsuarioRrhh ?? false)) ?>;
@@ -6058,7 +6059,7 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
     <!-- =======================
          OFFCANVAS - AGREGAR
     ======================== -->
-    <div class="offcanvas offcanvas-end" id="offcanvasAddUser" tabindex="-1" data-bs-backdrop="static" data-bs-keyboard="false">
+    <div class="offcanvas offcanvas-end" id="offcanvasAddUser" tabindex="-1" data-bs-backdrop="true" data-bs-keyboard="true">
         <div class="offcanvas-header border-bottom">
             <h5 class="offcanvas-title">Registrar Nuevo Usuario</h5>
             <button type="button" class="btn-close" data-bs-dismiss="offcanvas"></button>
@@ -6070,11 +6071,13 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
                 <div class="mb-3">
                     <label class="form-label d-block">Tipo de registro *</label>
                     <div class="btn-group w-100" role="group" aria-label="Tipo de registro">
+                        <?php if (!empty($puedeRegistrarPersonaGestion ?? false)): ?>
                         <input type="radio" class="btn-check" name="add_tipo_registro" id="add_tipo_persona" value="persona" autocomplete="off" checked>
                         <label class="btn btn-outline-primary" for="add_tipo_persona">
                             <i class="fa fa-user me-1"></i>Persona
                         </label>
-                        <input type="radio" class="btn-check" name="add_tipo_registro" id="add_tipo_vacante" value="vacante" autocomplete="off">
+                        <?php endif; ?>
+                        <input type="radio" class="btn-check" name="add_tipo_registro" id="add_tipo_vacante" value="vacante" autocomplete="off" <?= empty($puedeRegistrarPersonaGestion ?? false) ? 'checked' : '' ?>>
                         <label class="btn btn-outline-warning" for="add_tipo_vacante">
                             <i class="fa fa-briefcase me-1"></i>Vacante
                         </label>
@@ -6582,6 +6585,7 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
                         <select class="form-select" id="cargarDocPersona_tipoDocumento">
                             <option value="">Seleccione un tipo de documento</option>
                             <option value="Acta de Nacimiento">Acta de Nacimiento</option>
+                            <option value="Carta de compromiso del Gestor">Carta de compromiso del Gestor</option>
                             <option value="Certificado de Estudios">Certificado de Estudios</option>
                             <option value="Comprobante de Domicilio">Comprobante de Domicilio</option>
                             <option value="CURP">CURP</option>
@@ -11600,8 +11604,8 @@ function ocultarBloquesDomicilio(prefix) {
         function configurarOffcanvasAddPersistente() {
             if (!addOc || !window.bootstrap || !bootstrap.Offcanvas) return;
             return bootstrap.Offcanvas.getInstance(addOc) || bootstrap.Offcanvas.getOrCreateInstance(addOc, {
-                backdrop: 'static',
-                keyboard: false
+                backdrop: true,
+                keyboard: true
             });
         }
         if (editOc) {

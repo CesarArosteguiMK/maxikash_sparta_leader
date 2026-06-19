@@ -4730,7 +4730,7 @@ class Sabueso extends Controller
         return array_values($fusionados);
     }
 
-    private function obtenerDomiciliosReferenciaCredito(int $idCredito, string $domicilioMegareporte, GeocodingService $geocoding): array
+    private function obtenerDomiciliosReferenciaCredito(int $idCredito, string $domicilioMegareporte, GeocodingService $geocoding, bool $geocodificar = true): array
     {
         $domicilios = [];
         $this->agregarDomicilioReferencia($domicilios, 'megareporte', 'Megareporte', $domicilioMegareporte);
@@ -4763,6 +4763,10 @@ class Sabueso extends Controller
         }
 
         foreach ($domicilios as &$domicilio) {
+            if (!$geocodificar) {
+                unset($domicilio['_norm']);
+                continue;
+            }
             $coords = [];
             if (in_array('Megareporte', $domicilio['fuentes'], true)) {
                 $coords = $geocoding->getDomicilioCoordsForCredito($idCredito, $domicilio['direccion']);
@@ -4921,21 +4925,33 @@ class Sabueso extends Controller
         $datos = json_decode($raw, true) ?: [];
         $idCredito = isset($datos['id_credito']) && $datos['id_credito'] !== '' ? (int) $datos['id_credito'] : 0;
         if ($idCredito < 1) {
-            self::respuestaJSON(['success' => false, 'mensaje' => 'ID de crédito requerido.', 'puntos_geo' => []]);
+            self::respuestaJSON(['success' => false, 'mensaje' => 'ID de crédito requerido.', 'puntos_geo' => [], 'domicilios_referencia' => []]);
             return;
         }
         try {
             $puntosGeo = OfertaCoordenada::getPorIdCredito($idCredito);
+            $domiciliosReferencia = [];
+            try {
+                $dirMegareporte = EmpresaDAO::getConsultaDireccionEstadoCuenta($idCredito);
+                $domicilioCompleto = ($dirMegareporte['success'] ?? false) && !empty($dirMegareporte['datos'][0]['Domicilio_Completo'])
+                    ? trim((string) $dirMegareporte['datos'][0]['Domicilio_Completo'])
+                    : '';
+                $domiciliosReferencia = $this->obtenerDomiciliosReferenciaCredito($idCredito, $domicilioCompleto, new GeocodingService(), false);
+            } catch (\Exception $eReferencia) {
+                $domiciliosReferencia = [];
+            }
             self::respuestaJSON([
                 'success' => true,
                 'mensaje' => '',
                 'puntos_geo' => $puntosGeo,
+                'domicilios_referencia' => $domiciliosReferencia,
             ]);
         } catch (\Exception $e) {
             self::respuestaJSON([
                 'success' => false,
                 'mensaje' => 'No se pudieron cargar las direcciones alternas.',
                 'puntos_geo' => [],
+                'domicilios_referencia' => [],
             ]);
         }
     }

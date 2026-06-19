@@ -3,12 +3,12 @@ chcp 65001 >nul
 setlocal EnableDelayedExpansion
 set "API_PORT=%SPARTA_API_PORT%"
 if "%API_PORT%"=="" set "API_PORT=8000"
+call :PersistApiPort
 
 rem ---------------------------------------------------------------------
 rem Entrada del boton "API" de Inicio.
-rem La tarea programada corre un supervisor como SYSTEM. Este runner no
-rem necesita llamar schtasks /Run; solo deja una bandera de reinicio que el
-rem supervisor consume desde backend/API/runtime.
+rem La tarea programada corre un supervisor como SYSTEM. Este runner deja una
+rem bandera de reinicio y ademas despierta la tarea por si no esta corriendo.
 rem ---------------------------------------------------------------------
 
 set "TASK_NAME=Sparta API Verificacion Documentos"
@@ -70,6 +70,7 @@ exit /b !RC!
 :DirectFallback
 for %%I in ("%~dp0..") do set "API_DIR=%%~fI"
 if "!API_DIR:~-1!"=="\" set "API_DIR=!API_DIR:~0,-1!"
+call :PersistApiPort
 set "RESTART_FLAG=!API_DIR!\runtime\api-restart-request.flag"
 if exist "!RESTART_FLAG!" (
     echo [TASK][WARN] Limpiando bandera de supervisor pendiente antes del arranque directo: !RESTART_FLAG!
@@ -116,14 +117,43 @@ echo [TASK] Solicitando reinicio persistente por bandera: !RESTART_FLAG!
 >> "!RESTART_FLAG!" echo requested_by=web-api-1click-runner
 set "SPARTA_API_RESTART_FLAG=!RESTART_FLAG!"
 
+call :WakeSupervisorTask
+
 powershell -NoProfile -ExecutionPolicy Bypass -Command "$flag=$env:SPARTA_API_RESTART_FLAG; $port=[int]$env:API_PORT; $ok=$false; for($i=0;$i -lt 120;$i++){ $gone=-not (Test-Path -LiteralPath $flag); if($gone){ try { $r=Invoke-WebRequest -Uri ('http://127.0.0.1:' + $port + '/api/v1/health') -UseBasicParsing -TimeoutSec 2; if($r.StatusCode -ge 200 -and $r.StatusCode -lt 500){ $ok=$true; break } } catch {} }; Start-Sleep -Milliseconds 500 }; if($ok){ exit 0 } exit 1"
 if "!ERRORLEVEL!"=="0" (
     echo [TASK] Supervisor consumio la solicitud y la API responde: http://127.0.0.1:!API_PORT!
     exit /b 0
 )
 
+powershell -NoProfile -ExecutionPolicy Bypass -Command "$port=[int]$env:API_PORT; try { $r=Invoke-WebRequest -Uri ('http://127.0.0.1:' + $port + '/api/v1/health') -UseBasicParsing -TimeoutSec 3; if($r.StatusCode -ge 200 -and $r.StatusCode -lt 500){ exit 0 } } catch {}; exit 1" >nul 2>nul
+if "!ERRORLEVEL!"=="0" (
+    echo [TASK][WARN] El supervisor no consumio la bandera, pero la API ya responde en http://127.0.0.1:!API_PORT!.
+    echo [TASK][WARN] Se limpia la bandera pendiente para que el panel no quede en error.
+    del /f /q "!RESTART_FLAG!" >nul 2>nul
+    exit /b 0
+)
+
 echo [TASK][ERROR] El supervisor no consumio la solicitud o la API no confirmo health.
 echo [TASK][ERROR] Revise logs\api-supervisor.log, logs\api_oculto_startup.log y logs\uvicorn-stderr.log.
+exit /b 1
+
+:WakeSupervisorTask
+echo [TASK] Despertando tarea programada: %TASK_NAME%
+schtasks /Run /TN "%TASK_NAME%" >nul 2>nul
+if "!ERRORLEVEL!"=="0" (
+    echo [TASK] Solicitud enviada a Task Scheduler.
+    exit /b 0
+)
+
+echo [TASK][WARN] schtasks /Run no pudo iniciar la tarea. Intentando con PowerShell...
+set "SPARTA_TASK_NAME=%TASK_NAME%"
+powershell -NoProfile -ExecutionPolicy Bypass -Command "$name=$env:SPARTA_TASK_NAME; try { Start-ScheduledTask -TaskName $name -ErrorAction Stop; exit 0 } catch { try { $svc=New-Object -ComObject Schedule.Service; $svc.Connect(); $task=$svc.GetFolder('\').GetTask($name); $null=$task.Run($null); exit 0 } catch { exit 1 } }" >nul 2>nul
+if "!ERRORLEVEL!"=="0" (
+    echo [TASK] Solicitud enviada a Task Scheduler por PowerShell.
+    exit /b 0
+)
+
+echo [TASK][WARN] No se pudo despertar la tarea desde este usuario; se esperara si ya estaba corriendo.
 exit /b 1
 
 :RefreshTaskUsable
@@ -133,4 +163,12 @@ if not "!ERRORLEVEL!"=="0" exit /b 0
 set "SPARTA_TASK_FILE=%TASK_FILE%"
 powershell -NoProfile -ExecutionPolicy Bypass -Command "$p=$env:SPARTA_TASK_FILE; try { $c=Get-Content -LiteralPath $p -Raw -ErrorAction Stop; if($c -like '*supervisar-api-documentos.ps1*'){ exit 0 } } catch {}; exit 1" >nul 2>nul
 if "!ERRORLEVEL!"=="0" set "TASK_USABLE=1"
+exit /b 0
+
+:PersistApiPort
+for %%I in ("%~dp0..") do set "API_DIR=%%~fI"
+if "!API_DIR:~-1!"=="\" set "API_DIR=!API_DIR:~0,-1!"
+set "RUNTIME_DIR=!API_DIR!\runtime"
+if not exist "!RUNTIME_DIR!" mkdir "!RUNTIME_DIR!" >nul 2>&1
+> "!RUNTIME_DIR!\api-port.txt" echo !API_PORT!
 exit /b 0

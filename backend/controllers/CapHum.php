@@ -31,7 +31,13 @@ class CapHum extends Controller
     private const MODULO_PERMISOS_POR_PUESTO = 103;
     private const MODULO_VALIDADOR_DOCUMENTAL_CANDIDATOS = 104;
     private const MODULO_VALIDADOR_FINAL_CANDIDATOS = 105;
+    private const MODULO_VALIDADOR_DOCUMENTAL_RRHH_CANDIDATOS = 142;
+    private const MODULO_GESTION_REGISTRAR_PERSONA = 143;
     private const MODULO_ACCESOS_CAPITAL_HUMANO = 140;
+    private const MODULO_VALIDAR_CARTA_COMPROMISO_GESTOR = 144;
+    private const DOCUMENTO_CARTA_COMPROMISO_GESTOR = 27;
+    private const TIPO_CARTA_COMPROMISO_GESTOR = 'Carta de compromiso del Gestor';
+    private const DIRECCION_COBRANZA_ID = 12;
     private const MODULOS_EDICION_COBRANZA = [
         'numero_empleado' => 107,
         'nombres' => 108,
@@ -93,6 +99,11 @@ class CapHum extends Controller
     private static function puedeAccionGestion(int $moduloId): bool
     {
         return self::tieneModuloWeb($moduloId);
+    }
+
+    private static function puedeRegistrarPersonaGestion(): bool
+    {
+        return self::tieneModuloWeb(self::MODULO_GESTION_REGISTRAR_PERSONA);
     }
 
     private static function permisosEdicionCobranzaSesion(): array
@@ -239,6 +250,24 @@ class CapHum extends Controller
             || self::tieneModuloWeb(self::MODULO_VALIDADOR_DOCUMENTAL_CANDIDATOS);
     }
 
+    private static function puedeValidarDocumentalRrhhCandidatos(): bool
+    {
+        return (int) ($_SESSION['usuario_id'] ?? 0) === 1
+            || self::tieneModuloWeb(self::MODULO_VALIDADOR_DOCUMENTAL_RRHH_CANDIDATOS);
+    }
+
+    private static function puedeValidarCartaCompromisoGestor(): bool
+    {
+        return (int) ($_SESSION['usuario_id'] ?? 0) === 1
+            || self::tieneModuloWeb(self::MODULO_VALIDAR_CARTA_COMPROMISO_GESTOR);
+    }
+
+    private static function puedeValidarDocumentalAlgunFlujoCandidatos(): bool
+    {
+        return self::puedeValidarDocumentalCandidatos()
+            || self::puedeValidarDocumentalRrhhCandidatos();
+    }
+
     private static function puedeValidarFinalCandidatos(): bool
     {
         return (int) ($_SESSION['usuario_id'] ?? 0) === 1
@@ -249,7 +278,7 @@ class CapHum extends Controller
     {
         return (int) ($_SESSION['usuario_id'] ?? 0) !== 1
             && self::puedeValidarFinalCandidatos()
-            && !self::puedeValidarDocumentalCandidatos();
+            && !self::puedeValidarDocumentalAlgunFlujoCandidatos();
     }
 
     private static function estatusCandidatoEsValidacionFinal($estatus): bool
@@ -259,16 +288,70 @@ class CapHum extends Controller
         return in_array($estatus, ['pendiente de validacion final', 'ingreso programado'], true);
     }
 
-    private static function candidatoVisibleParaSesionSeleccion($idCandidato): bool
+    private static function candidatoEsDireccionCobranza(array $candidato): bool
     {
-        if (!self::esSoloValidadorFinalCandidatos()) {
+        $idDireccion = (int) ($candidato['id_direccion'] ?? 0);
+        if ($idDireccion > 0) {
+            return $idDireccion === self::DIRECCION_COBRANZA_ID;
+        }
+
+        $nombreDireccion = trim(mb_strtolower((string) ($candidato['nombre_direccion'] ?? $candidato['direccion_nombre'] ?? ''), 'UTF-8'));
+        return $nombreDireccion === 'cobranza';
+    }
+
+    private static function puedeValidarDocumentalCandidato(array $candidato): bool
+    {
+        if ((int) ($_SESSION['usuario_id'] ?? 0) === 1) {
             return true;
         }
+
+        if (self::candidatoEsDireccionCobranza($candidato)) {
+            return self::puedeValidarDocumentalCandidatos();
+        }
+
+        return self::puedeValidarDocumentalRrhhCandidatos();
+    }
+
+    private static function candidatoVisibleParaSesionSeleccionDatos(array $candidato): bool
+    {
+        if ((int) ($_SESSION['usuario_id'] ?? 0) === 1) {
+            return true;
+        }
+
+        $tieneDocumental = self::puedeValidarDocumentalAlgunFlujoCandidatos();
+        $tieneFinal = self::puedeValidarFinalCandidatos();
+
+        if (!$tieneDocumental && !$tieneFinal) {
+            return true;
+        }
+
+        if ($tieneFinal && self::estatusCandidatoEsValidacionFinal($candidato['estatus'] ?? '')) {
+            return true;
+        }
+
+        return $tieneDocumental && self::puedeValidarDocumentalCandidato($candidato);
+    }
+
+    private static function puedeGestionarDocumentosCandidatoDatos(array $candidato): bool
+    {
+        if ((int) ($_SESSION['usuario_id'] ?? 0) === 1) {
+            return true;
+        }
+
+        if (self::estatusCandidatoEsValidacionFinal($candidato['estatus'] ?? '')) {
+            return self::puedeValidarFinalCandidatos();
+        }
+
+        return self::puedeValidarDocumentalCandidato($candidato);
+    }
+
+    private static function candidatoVisibleParaSesionSeleccion($idCandidato): bool
+    {
         $res = CandidatosDAO::getById((int) $idCandidato);
         if (empty($res['success']) || empty($res['datos'])) {
             return false;
         }
-        return self::estatusCandidatoEsValidacionFinal($res['datos']['estatus'] ?? '');
+        return self::candidatoVisibleParaSesionSeleccionDatos($res['datos']);
     }
 
     private static function getDepartamentosGestionPersonal()
@@ -282,6 +365,8 @@ class CapHum extends Controller
 
     public function gestion()
     {
+        CapHumDAO::asegurarDocumentoCartaCompromisoGestor();
+
         $script = <<<'HTML'
         <script>
 
@@ -4791,11 +4876,18 @@ class CapHum extends Controller
             }
 
             function getTipoRegistroAdd() {
+                if (!window.puedeRegistrarPersonaGestion) {
+                    return 'vacante';
+                }
                 const seleccionado = document.querySelector('input[name="add_tipo_registro"]:checked');
                 return seleccionado ? seleccionado.value : 'persona';
             }
 
             function aplicarTipoRegistroAdd() {
+                if (!window.puedeRegistrarPersonaGestion) {
+                    const radioVacante = document.getElementById('add_tipo_vacante');
+                    if (radioVacante) radioVacante.checked = true;
+                }
                 const esVacante = getTipoRegistroAdd() === 'vacante';
                 document.querySelectorAll('#offcanvasAddUser .add-persona-only').forEach(function (el) {
                     el.style.display = esVacante ? 'none' : '';
@@ -5111,6 +5203,10 @@ class CapHum extends Controller
                 const addPuesto = document.getElementById('add_id_puesto');
                 if (addPuesto) { addPuesto.value = ''; addPuesto.disabled = true; addPuesto.innerHTML = '<option value="">Seleccione un puesto</option>'; }
                 if (typeof resetVacantesAsignablesAdd === 'function') resetVacantesAsignablesAdd();
+                const tipoDefault = window.puedeRegistrarPersonaGestion ? 'add_tipo_persona' : 'add_tipo_vacante';
+                const radioTipoDefault = document.getElementById(tipoDefault);
+                if (radioTipoDefault) radioTipoDefault.checked = true;
+                if (typeof aplicarTipoRegistroAdd === 'function') aplicarTipoRegistroAdd();
                 const addJefe = document.getElementById('add_id_jefe');
                 if (addJefe) { addJefe.value = ''; addJefe.disabled = true; addJefe.innerHTML = '<option value="">Seleccione un jefe</option>'; }
                 const addLegion = document.getElementById('add_id_legion');
@@ -5452,6 +5548,7 @@ class CapHum extends Controller
             // Tipos de documentos que solo permiten un archivo
             const documentosUnicos = [
                 'Acta de Nacimiento',
+                'Carta de compromiso del Gestor',
                 'Certificado de Estudios',
                 'Comprobante de Domicilio',
                 'CURP',
@@ -5548,6 +5645,7 @@ class CapHum extends Controller
                     'RFC': 10,
                     'Comprobante de Domicilio': 11,
                     'Acta de Nacimiento': 12,
+                    'Carta de compromiso del Gestor': 27,
                     'Certificado de Estudios': 13,
                     'Referencias Laborales': 14,
                     'Documento baja': 15,
@@ -5815,10 +5913,17 @@ class CapHum extends Controller
                     10: 'RFC',
                     11: 'Comprobante de Domicilio',
                     12: 'Acta de Nacimiento',
+                    27: 'Carta de compromiso del Gestor',
                     13: 'Certificado de Estudios',
                     14: 'Referencias Laborales',
                     15: 'Documento baja',
-                    16: 'Documento reingreso'
+                    16: 'Documento reingreso',
+                    17: 'Solicitud de empleo Maxikash',
+                    18: 'CV',
+                    22: 'Constancia de situacion fiscal (RFC)',
+                    23: 'NSS',
+                    24: 'Carta de no adeudo',
+                    25: 'Estado de cuenta'
                 };
                 return mapeo[idDocumento] || 'Documento';
             }
@@ -5836,6 +5941,9 @@ class CapHum extends Controller
                     const nombreDoc = obtenerNombreDocumento(idDoc);
                     if (nombreDoc && !permiteMultiplesArchivos(nombreDoc)) {
                         documentosUnicosSubidos.add(nombreDoc);
+                    }
+                    if (Number(idDoc) === 22) {
+                        documentosUnicosSubidos.add('RFC');
                     }
                 });
 
@@ -5970,6 +6078,7 @@ class CapHum extends Controller
                 'RFC': 10,
                 'Comprobante de Domicilio': 11,
                 'Acta de Nacimiento': 12,
+                'Carta de compromiso del Gestor': 27,
                 'Certificado de Estudios': 13,
                 'Referencias Laborales': 14,
                 'Documento baja': 15,
@@ -6117,6 +6226,7 @@ class CapHum extends Controller
         $puedeRegistrarAusenciaGestion = in_array(self::MODULO_GESTION_AUSENCIAS, $modulos);
         $puedeDarBajaGestion = in_array(self::MODULO_GESTION_DAR_BAJA, $modulos);
         $puedeVisualizarContrasenaGestion = in_array(self::MODULO_GESTION_VISUALIZAR_CONTRASENA, $modulos);
+        $puedeRegistrarPersonaGestion = self::puedeRegistrarPersonaGestion();
         $permisosEdicionCobranzaGestion = self::permisosEdicionCobranzaSesion();
         $puedeEditarTodos = $puedeEditarUsuarioGestion;
         $puedeGestionarPermisos = self::puedeGestionarPermisosEspeciales();
@@ -6141,6 +6251,7 @@ class CapHum extends Controller
         self::set("puedeRegistrarAusenciaGestion", $puedeRegistrarAusenciaGestion);
         self::set("puedeDarBajaGestion", $puedeDarBajaGestion);
         self::set("puedeVisualizarContrasenaGestion", $puedeVisualizarContrasenaGestion);
+        self::set("puedeRegistrarPersonaGestion", $puedeRegistrarPersonaGestion);
         self::set("permisosEdicionCobranzaGestion", $permisosEdicionCobranzaGestion);
         self::set("puedeActualizarInfo", $puedeActualizarInfo);
         self::set("puedeAgregarUsuarioRrhh", $puedeAgregarUsuarioRrhh);
@@ -6213,6 +6324,7 @@ class CapHum extends Controller
 
             var docModalPollTimer = null;
             var docModalFetchInFlight = false;
+            var docModalPendingRefresh = null;
             window.SPARTA_DOC_DEBUG = window.SPARTA_DOC_DEBUG === true;
 
             function clearDocModalPoll() {
@@ -6370,6 +6482,7 @@ class CapHum extends Controller
                     endpoint: "/caphum/getCandidatos",
                     metodo: "GET",
                     data: data,
+                    showLoader: false,
                     onSuccess: function(resp) {
                         try {
                             if (!resp || !resp.success || !resp.datos) {
@@ -6423,6 +6536,10 @@ class CapHum extends Controller
                                         nombre_puesto: candidato.nombre_puesto,
                                         nombre_departamento: candidato.nombre_departamento,
                                         id_departamento: candidato.id_departamento,
+                                        id_direccion: candidato.id_direccion,
+                                        nombre_direccion: candidato.nombre_direccion,
+                                        es_direccion_cobranza: candidato.es_direccion_cobranza,
+                                        puede_validar_documental: candidato.puede_validar_documental,
                                         id_posible_jefe: candidato.id_posible_jefe,
                                         nombre_jefe: candidato.nombre_jefe,
                                         estatus: candidato.estatus,
@@ -6439,7 +6556,9 @@ class CapHum extends Controller
                                             id_puesto: candidato.id_puesto,
                                             nombre_puesto: candidato.nombre_puesto,
                                             nombre_departamento: candidato.nombre_departamento,
-                                            id_departamento: candidato.id_departamento
+                                            id_departamento: candidato.id_departamento,
+                                            id_direccion: candidato.id_direccion,
+                                            nombre_direccion: candidato.nombre_direccion
                                         }]
                                     };
                                     candidatosMap.set(id, candidatoConsolidado);
@@ -6457,7 +6576,9 @@ class CapHum extends Controller
                                                 id_puesto: candidato.id_puesto,
                                                 nombre_puesto: candidato.nombre_puesto,
                                                 nombre_departamento: candidato.nombre_departamento,
-                                                id_departamento: candidato.id_departamento
+                                                id_departamento: candidato.id_departamento,
+                                                id_direccion: candidato.id_direccion,
+                                                nombre_direccion: candidato.nombre_direccion
                                             });
                                         }
                                     }
@@ -7807,7 +7928,8 @@ class CapHum extends Controller
                 }
                 var candidato = obtenerCandidatoLocalPorId(idCandidato);
                 var estatus = candidato && candidato.estatus ? String(candidato.estatus) : "";
-                var editable = !!permisos.documental && estatus !== "Pendiente de validacion final" && estatus !== "Ingreso programado";
+                var puedeDocumentalCandidato = !!(candidato && candidato.puede_validar_documental);
+                var editable = puedeDocumentalCandidato && estatus !== "Pendiente de validacion final" && estatus !== "Ingreso programado";
                 var bruto = docSueldoValor(sueldo && (sueldo.bruto || sueldo.sueldo_bruto));
                 var neto = docSueldoValor(sueldo && (sueldo.neto || sueldo.sueldo_neto));
                 var motivo = sueldo && sueldo.motivo_contratacion ? String(sueldo.motivo_contratacion) : "";
@@ -7903,7 +8025,7 @@ class CapHum extends Controller
                     var candidato = obtenerCandidatoLocalPorId(idCandidato);
                     var estatus = candidato && candidato.estatus ? String(candidato.estatus) : "";
                     var permisosCand = window.candidatosPermisos || {};
-                    var puedeDocumental = !!permisosCand.documental;
+                    var puedeDocumental = !!(candidato && candidato.puede_validar_documental);
                     var puedeFinal = !!permisosCand.final;
                     var pendienteFinal = estatus === "Pendiente de validacion final";
                     var ingresoProgramado = !!(candidato && candidato.fecha_ingreso_programada) || estatus === "Ingreso programado";
@@ -8239,12 +8361,51 @@ class CapHum extends Controller
                 fetch("/caphum/eliminarDocumentoCandidato", { method: "POST", headers: { "Content-Type": "application/json", "Accept": "application/json", "X-Requested-With": "XMLHttpRequest" }, body: JSON.stringify({ id: idDoc, comentario: comentario || "" }) })
                 .then(function(r){ return r.json(); }).then(function(res) {
                     if (typeof Swal !== "undefined") Swal.close();
-                    if (res.success) { if (typeof Swal !== "undefined") Swal.fire({ icon: "success", title: "Eliminado", text: res.mensaje || "Documento eliminado." }); cargarDocumentosModal(idCandidato); }
+                    if (res.success) {
+                        var itemDocEliminado = document.querySelector("#modalDocumentacionCandidatoLista [data-doc-candidato-id=\"" + String(idDoc) + "\"]");
+                        if (itemDocEliminado && itemDocEliminado.parentNode) itemDocEliminado.parentNode.removeChild(itemDocEliminado);
+                        if (typeof Swal !== "undefined") Swal.fire({ icon: "success", title: "Eliminado", text: res.mensaje || "Documento eliminado.", timer: 1800, showConfirmButton: false });
+                        cargarDocumentosModal(idCandidato, { forceRefresh: true });
+                        if (typeof getCandidatos === "function") getCandidatos();
+                    }
                     else { if (typeof Swal !== "undefined") Swal.fire({ icon: "error", title: "Error", text: res.mensaje || "No se pudo eliminar." }); }
                 }).catch(function() {
                     if (typeof Swal !== "undefined") Swal.close();
                     if (typeof Swal !== "undefined") Swal.fire({ icon: "error", title: "Error", text: "Error de conexión." });
                 });
+            }
+
+            function abrirVisorDocumentoCandidato(url, titulo) {
+                var modalEl = document.getElementById("modalVisorDocumentoCandidato");
+                var frame = document.getElementById("modalVisorDocumentoCandidatoFrame");
+                var label = document.getElementById("modalVisorDocumentoCandidatoLabel");
+                var loading = document.getElementById("modalVisorDocumentoCandidatoLoading");
+                if (!modalEl || !frame) {
+                    window.open(url, "_blank", "noopener,noreferrer");
+                    return;
+                }
+                if (label) {
+                    var tituloSeguro = String(titulo || "Documento").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+                    label.innerHTML = "<i class=\"fa fa-file-pdf me-2 text-danger\"></i>" + tituloSeguro;
+                }
+                if (loading) loading.classList.remove("d-none");
+                frame.classList.add("d-none");
+                frame.onload = function() {
+                    if (loading) loading.classList.add("d-none");
+                    frame.classList.remove("d-none");
+                };
+                frame.src = url;
+                if (!modalEl._visorDocCleanBound) {
+                    modalEl._visorDocCleanBound = true;
+                    modalEl.addEventListener("hidden.bs.modal", function() {
+                        frame.removeAttribute("src");
+                        frame.classList.add("d-none");
+                        if (loading) loading.classList.remove("d-none");
+                    });
+                }
+                if (window.bootstrap && bootstrap.Modal) {
+                    bootstrap.Modal.getOrCreateInstance(modalEl).show();
+                }
             }
 
             function subirDocumentoManualCandidato(idCandidato, tipoNum, tipoNombre) {
@@ -8290,7 +8451,7 @@ class CapHum extends Controller
                             if (typeof Swal !== "undefined") {
                                 Swal.fire({ icon: "success", title: "Documento agregado", text: res.mensaje || "Documento subido manualmente.", timer: 2400, showConfirmButton: false });
                             }
-                            cargarDocumentosModal(idCandidato);
+                            cargarDocumentosModal(idCandidato, { forceRefresh: true, afterUpload: true });
                             if (typeof getCandidatos === "function") getCandidatos();
                         } else if (typeof Swal !== "undefined") {
                             Swal.fire({ icon: "error", title: "No se pudo subir", text: (res && res.mensaje) ? res.mensaje : "No se pudo guardar el documento." });
@@ -8395,6 +8556,7 @@ class CapHum extends Controller
                 datos.forEach(function(d) {
                     var item = document.createElement("div");
             item.className = "list-group-item list-group-item-action d-flex justify-content-between align-items-center";
+            item.setAttribute("data-doc-candidato-id", String(d.id || ""));
             var fecha = d.fecha_carga ? new Date(d.fecha_carga).toLocaleDateString("es-MX") : "";
             var tipoDocTexto = normalizarTextoDocModal(d.tipo_documento || "Documento");
             var nombreArchivoTexto = normalizarTextoDocModal(d.nombre_archivo || "");
@@ -8609,10 +8771,10 @@ class CapHum extends Controller
             var candidatoDocActual = obtenerCandidatoLocalPorId(idCandidato);
             var estatusDocActual = candidatoDocActual && candidatoDocActual.estatus ? String(candidatoDocActual.estatus) : "";
             var documentoEnFlujoFinal = estatusDocActual === "Pendiente de validacion final" || estatusDocActual === "Ingreso programado";
-            var puedeValidarDocumentalDoc = !!permisosCandDoc.documental;
+            var puedeValidarDocumentalDoc = !!(candidatoDocActual && candidatoDocActual.puede_validar_documental) && !documentoEnFlujoFinal;
             var puedeValidarFinalDoc = !!permisosCandDoc.final && documentoEnFlujoFinal;
             var puedeValidarDocActual = puedeValidarDocumentalDoc || puedeValidarFinalDoc;
-            var puedeRechazarFinalDoc = !!permisosCandDoc.final;
+            var puedeRechazarFinalDoc = !!permisosCandDoc.final && documentoEnFlujoFinal;
             var btnValidarClase = esValidado ? "btn-success" : "btn-outline-success";
             var btnValidarIcon = esValidado ? "fa-check-circle" : "fa-check";
             var btnValidarTitle = esValidado ? "Documento validado" : (puedeValidarDocActual ? "Marcar como validado" : "Requiere permiso de validador documental");
@@ -8624,7 +8786,7 @@ class CapHum extends Controller
                 : "<button type=\"button\" class=\"btn btn-sm btn-outline-danger btn-eliminar-doc-candidato\" data-id=\"" + d.id + "\" title=\"Eliminar\"><i class=\"fa fa-trash\"></i></button>";
             var archivoDisponible = String(d.archivo_disponible == null ? "1" : d.archivo_disponible) !== "0";
             var btnAbrirHtml = archivoDisponible
-                ? "<a href=\"/caphum/verDocumentoCandidato/" + d.id + "\" target=\"_blank\" class=\"btn btn-sm btn-outline-primary\" title=\"Abrir\"><i class=\"fa fa-eye\"></i></a>"
+                ? "<button type=\"button\" class=\"btn btn-sm btn-outline-primary btn-ver-doc-candidato\" data-url=\"/caphum/verDocumentoCandidato/" + d.id + "\" data-title=\"" + escHtml(tipoDocTexto).replace(/"/g, "&quot;") + "\" title=\"Abrir\"><i class=\"fa fa-eye\"></i></button>"
                 : "<span class=\"btn btn-sm btn-outline-secondary disabled\" title=\"El registro existe, pero el PDF no est&aacute; en storage\"><i class=\"fa fa-eye-slash\"></i></span>";
             item.innerHTML = "<div class=\"d-flex align-items-center flex-wrap\"><div><strong>" + escHtml(tipoDocTexto) + "</strong>" + tooltipFiscalHtml + tooltipIdHtml + tooltipCalidadHtml + tooltipEstadoCuentaHtml + tooltipNssHtml + tooltipCurpHtml + tooltipActaHtml + revisionManualHtml + (esValidado ? " <span class=\"badge bg-success ms-1\">Validado</span>" : "") + "<br><small class=\"text-muted\">" + escHtml(nombreArchivoTexto) + (fecha ? " &middot; " + fecha : "") + "</small></div>" + badge + "</div>" +
                 "<div class=\"d-flex gap-1 align-items-center\">" +
@@ -8635,7 +8797,12 @@ class CapHum extends Controller
             lista.appendChild(item);
         });
         var permisosManualDoc = window.candidatosPermisos || {};
-        var puedeSubirManualDoc = !!(permisosManualDoc.documental || permisosManualDoc.final);
+        var candidatoManualDoc = obtenerCandidatoLocalPorId(idCandidato);
+        var estatusManualDoc = candidatoManualDoc && candidatoManualDoc.estatus ? String(candidatoManualDoc.estatus) : "";
+        var manualEnFlujoFinal = estatusManualDoc === "Pendiente de validacion final" || estatusManualDoc === "Ingreso programado";
+        var puedeSubirManualDoc = manualEnFlujoFinal
+            ? !!permisosManualDoc.final
+            : !!(candidatoManualDoc && candidatoManualDoc.puede_validar_documental);
         documentosRequeridosManual.forEach(function(req) {
             if (tiposPresentesManual[req[0]]) return;
             var itemPend = document.createElement("div");
@@ -8689,6 +8856,11 @@ class CapHum extends Controller
             }
             return mensaje || "Proceso terminado.";
         }
+        lista.querySelectorAll(".btn-ver-doc-candidato").forEach(function(btn) {
+            btn.addEventListener("click", function() {
+                abrirVisorDocumentoCandidato(btn.getAttribute("data-url") || "", btn.getAttribute("data-title") || "Documento");
+            });
+        });
         lista.querySelectorAll(".btn-validar-acta-candidato").forEach(function(btn) {
             btn.addEventListener("click", function() {
                 var idDoc = parseInt(btn.getAttribute("data-id"), 10);
@@ -8940,6 +9112,10 @@ class CapHum extends Controller
                     if (opts.fromPoll) {
                         return;
                     }
+                    docModalPendingRefresh = {
+                        idCandidato: idCandidato,
+                        opts: Object.assign({}, opts, { forceRefresh: true, fromQueuedRefresh: true })
+                    };
                     clearDocModalPoll();
                     return;
                 }
@@ -8962,13 +9138,16 @@ class CapHum extends Controller
                     cargando.classList.remove("d-none");
                 }
                 var urlList = "/caphum/getDocumentosCandidatoList?id_candidato=" + encodeURIComponent(String(idCandidato));
+                if (opts.forceRefresh) {
+                    urlList += "&_=" + Date.now();
+                }
                 var t0List = (typeof performance !== "undefined" && performance.now) ? performance.now() : Date.now();
                 if (!opts.fromPoll) {
                     clearDocModalApiTrace();
                     registrarTrazaDocModalTecnico("getDocumentosCandidatoList - GET (técnico)", { id_candidato: idCandidato, url: urlList });
                 }
                 candidatosDocConsola("info", "getDocumentosCandidatoList - inicio", { id_candidato: idCandidato, fromPoll: !!opts.fromPoll, url: urlList });
-                fetch(urlList, { headers: { "X-Requested-With": "XMLHttpRequest" } }).then(function(r) {
+                fetch(urlList, { headers: { "X-Requested-With": "XMLHttpRequest" }, cache: opts.forceRefresh ? "no-store" : "default" }).then(function(r) {
                     var ms = (typeof performance !== "undefined" && performance.now) ? Math.round(performance.now() - t0List) : null;
                     var cacheHdr = r.headers.get("X-Doc-List-Cache") || "";
                     return r.text().then(function(body) {
@@ -9124,6 +9303,16 @@ class CapHum extends Controller
                     }
                 }).finally(function() {
                     docModalFetchInFlight = false;
+                    if (docModalPendingRefresh) {
+                        var pendiente = docModalPendingRefresh;
+                        docModalPendingRefresh = null;
+                        var modalPendiente = document.getElementById("modalDocumentacionCandidato");
+                        if (!modalPendiente || !modalPendiente.dataset.idCandidato || String(modalPendiente.dataset.idCandidato) === String(pendiente.idCandidato)) {
+                            setTimeout(function() {
+                                cargarDocumentosModal(pendiente.idCandidato, pendiente.opts || { forceRefresh: true });
+                            }, 80);
+                        }
+                    }
                 });
             }
 
@@ -10099,6 +10288,12 @@ class CapHum extends Controller
                     .then(function(res) {
                         if (!res.success) return alert(res.mensaje || "No se pudo continuar el proceso.");
                         marcarIngresoProgramadoLocal(idCandidato, fechaIngreso, res.datos || null);
+                        var fallas = (res.datos && Array.isArray(res.datos.correos_jefes_fallidos)) ? res.datos.correos_jefes_fallidos : [];
+                        if (fallas.length) {
+                            var nombres = fallas.map(function(f) { return (f.tipo || "Jefe") + ": " + (f.nombre || f.correo || "Sin destinatario"); }).join(", ");
+                            alert("Fecha guardada, pero no se pudo notificar a: " + nombres + ".");
+                            return;
+                        }
                         alert(res.mensaje || "Notificaciones enviadas. Ahora confirma la firma del contrato.");
                     })
                     .catch(function() { alert("Error de conexión."); });
@@ -10120,11 +10315,20 @@ class CapHum extends Controller
                         return;
                     }
                     var detalle = res.mensaje || "Se notificó al candidato correctamente.";
-                    if (res.datos && res.datos.correo_jefe_intentado && !res.datos.correo_jefe_enviado) {
+                    var fallasJefes = (res.datos && Array.isArray(res.datos.correos_jefes_fallidos)) ? res.datos.correos_jefes_fallidos : [];
+                    if (fallasJefes.length) {
+                        var nombresFallas = fallasJefes.map(function(f) {
+                            var nombre = f.nombre || f.correo || "Sin destinatario";
+                            var motivo = f.motivo ? " (" + f.motivo + ")" : "";
+                            return (f.tipo || "Jefe") + ": " + nombre + motivo;
+                        }).join("; ");
+                        detalle += " No se pudo notificar a: " + nombresFallas + ".";
+                    }
+                    if (!fallasJefes.length && res.datos && res.datos.correo_jefe_intentado && !res.datos.correo_jefe_enviado) {
                         detalle += " Revisa el correo del jefe; no se pudo enviar esa notificación.";
                     }
                     marcarIngresoProgramadoLocal(idCandidato, fechaIngreso, res.datos || null);
-                    var warningCorreo = !!(res.datos && res.datos.warning_correo);
+                    var warningCorreo = !!(res.datos && res.datos.warning_correo) || fallasJefes.length > 0;
                     Swal.fire({ icon: warningCorreo ? "warning" : "success", title: warningCorreo ? "Fecha guardada" : "Notificaciones enviadas", text: detalle + " Ahora confirma la firma del contrato para pasarlo a Gestión.", timer: warningCorreo ? undefined : 2200, showConfirmButton: warningCorreo });
                 })
                 .catch(function() {
@@ -10351,7 +10555,9 @@ class CapHum extends Controller
 
         $miUsuarioId = (int) ($_SESSION['usuario_id'] ?? 0);
         $permisosCandidatos = [
-            'documental' => self::puedeValidarDocumentalCandidatos(),
+            'documental' => self::puedeValidarDocumentalAlgunFlujoCandidatos(),
+            'documental_cobranza' => self::puedeValidarDocumentalCandidatos(),
+            'documental_rrhh' => self::puedeValidarDocumentalRrhhCandidatos(),
             'final' => self::puedeValidarFinalCandidatos(),
         ];
         $soloValidacionFinalCandidatos = self::esSoloValidadorFinalCandidatos();
@@ -10384,9 +10590,9 @@ class CapHum extends Controller
             $estatus = ['Pendiente de validacion final', 'Ingreso programado'];
         }
         $resultado = CandidatosDAO::getAll($estatus, $id_departamento, $id_puesto, $id_posible_jefe);
-        if (self::esSoloValidadorFinalCandidatos() && $resultado['success'] && !empty($resultado['datos']) && is_array($resultado['datos'])) {
+        if ($resultado['success'] && !empty($resultado['datos']) && is_array($resultado['datos'])) {
             $resultado['datos'] = array_values(array_filter($resultado['datos'], static function ($candidato): bool {
-                return self::estatusCandidatoEsValidacionFinal($candidato['estatus'] ?? '');
+                return self::candidatoVisibleParaSesionSeleccionDatos($candidato);
             }));
         }
 
@@ -10410,6 +10616,8 @@ class CapHum extends Controller
 
             foreach ($resultado['datos'] as &$candidato) {
                 $id_candidato = (int) ($candidato['id'] ?? 0);
+                $candidato['es_direccion_cobranza'] = self::candidatoEsDireccionCobranza($candidato);
+                $candidato['puede_validar_documental'] = self::puedeValidarDocumentalCandidato($candidato);
                 if ($id_candidato > 0) {
                     $docData = $documentosPorCandidato[$id_candidato] ?? ['documentos' => [], 'verificacion' => null];
                     $documentos = $docData['documentos'] ?? [];
@@ -10882,6 +11090,131 @@ class CapHum extends Controller
         $this->render('subir_documentos_candidato', true);
     }
 
+    public function subirCartaCompromisoGestor($token = null)
+    {
+        $token = $token ?: (isset($_GET['token']) ? trim($_GET['token']) : '');
+        if ($token === '') {
+            $this->subirCartaCompromisoGestorError('Enlace no valido.');
+            return;
+        }
+
+        $res = CandidatosDAO::getCandidatoPorToken($token);
+        if (!$res['success'] || empty($res['datos'])) {
+            $this->subirCartaCompromisoGestorError($res['mensaje'] ?? 'Enlace no valido o expirado.');
+            return;
+        }
+
+        $idCandidato = (int) ($res['datos']['id_candidato'] ?? 0);
+        $candidatoRes = CandidatosDAO::getById($idCandidato);
+        $candidato = ($candidatoRes['success'] && !empty($candidatoRes['datos'])) ? $candidatoRes['datos'] : $res['datos'];
+        if (!$this->candidatoEsPuestoGestor($candidato)) {
+            $this->subirCartaCompromisoGestorError('Este enlace solo aplica para puestos de Gestor.');
+            return;
+        }
+
+        CapHumDAO::asegurarDocumentoCartaCompromisoGestor();
+        $mensajeExito = '';
+        $mensajeError = '';
+        if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+            $procesado = $this->procesarCartaCompromisoGestor($token, $candidato);
+            if (!empty($procesado['success'])) {
+                $mensajeExito = $procesado['mensaje'] ?? 'Carta subida correctamente.';
+            } else {
+                $mensajeError = $procesado['mensaje'] ?? 'No se pudo subir la carta.';
+            }
+        }
+
+        $this->set('token', $token);
+        $this->set('nombre_candidato', trim(implode(' ', [
+            $candidato['nombres'] ?? '',
+            $candidato['segundo_nombre'] ?? '',
+            $candidato['apellidop'] ?? '',
+            $candidato['apellidom'] ?? '',
+        ])));
+        $this->set('puesto_candidato', trim((string) ($candidato['nombre_puesto'] ?? 'Gestor')));
+        $this->set('carta_pdf_url', $this->urlCartaCompromisoGestorPdf());
+        $this->set('mensaje_exito', $mensajeExito);
+        $this->set('mensaje_error', $mensajeError);
+        $this->set('carta_subida', $this->candidatoTieneCartaCompromisoGestor($idCandidato));
+        $this->set('modo_prueba', false);
+        $this->set('subida_bloqueada', false);
+        $this->set('base_url_app', rtrim($this->obtenerBaseUrlApp(), '/'));
+        $this->render('subir_carta_compromiso_gestor', true);
+    }
+
+    public function vistaCartaCompromisoGestorPrueba()
+    {
+        $this->set('token', '');
+        $this->set('nombre_candidato', 'Gestor de Prueba Maxikash');
+        $this->set('puesto_candidato', 'Gestor 1-7');
+        $this->set('carta_pdf_url', $this->urlCartaCompromisoGestorPdf());
+        $this->set('mensaje_exito', '');
+        $this->set('mensaje_error', '');
+        $this->set('carta_subida', false);
+        $this->set('modo_prueba', true);
+        $this->set('subida_bloqueada', true);
+        $this->set('base_url_app', rtrim($this->obtenerBaseUrlApp(), '/'));
+        $this->render('subir_carta_compromiso_gestor', true);
+    }
+
+    public function descargarCartaCompromisoGestor()
+    {
+        $ruta = dirname(RAIZ) . '/public/assets/docs/carta_compromiso_gestor.pdf';
+        if (!is_file($ruta)) {
+            http_response_code(404);
+            echo 'Carta no disponible.';
+            return;
+        }
+
+        while (ob_get_level() > 0) {
+            ob_end_clean();
+        }
+        header('Content-Type: application/pdf');
+        header('Content-Disposition: attachment; filename="carta_compromiso_gestor.pdf"');
+        header('Content-Length: ' . filesize($ruta));
+        header('Cache-Control: private, max-age=3600');
+        readfile($ruta);
+        exit;
+    }
+
+    public function subirCartaCompromisoGestorPersona($token = null)
+    {
+        $token = $token ?: (isset($_GET['token']) ? trim((string) $_GET['token']) : '');
+        $persona = $this->resolverPersonaCartaCompromisoDesdeToken($token);
+        if (!$persona) {
+            $this->subirCartaCompromisoGestorError('Enlace no valido o expirado.');
+            return;
+        }
+
+        CapHumDAO::asegurarDocumentoCartaCompromisoGestor();
+        $mensajeExito = '';
+        $mensajeError = '';
+        if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+            $procesado = $this->procesarCartaCompromisoGestorPersona($persona);
+            if (!empty($procesado['success'])) {
+                $mensajeExito = $procesado['mensaje'] ?? 'Carta subida correctamente.';
+                $personaRes = CapHumDAO::getPersonaGestorCartaCompromiso((int) ($persona['id_persona'] ?? 0));
+                if (!empty($personaRes['success']) && !empty($personaRes['datos'])) {
+                    $persona = $personaRes['datos'];
+                }
+            } else {
+                $mensajeError = $procesado['mensaje'] ?? 'No se pudo subir la carta.';
+            }
+        }
+
+        $this->set('token', $token);
+        $this->set('nombre_candidato', trim((string) ($persona['nombre_completo'] ?? 'Gestor')));
+        $this->set('puesto_candidato', trim((string) ($persona['puestos'] ?? 'Gestor')));
+        $this->set('carta_pdf_url', $this->urlCartaCompromisoGestorPdf());
+        $this->set('mensaje_exito', $mensajeExito);
+        $this->set('mensaje_error', $mensajeError);
+        $this->set('carta_subida', !empty($persona['carta_subida']));
+        $this->set('modo_prueba', false);
+        $this->set('subida_bloqueada', false);
+        $this->set('base_url_app', rtrim($this->obtenerBaseUrlApp(), '/'));
+        $this->render('subir_carta_compromiso_gestor', true);
+    }
+
     /**
      * Llenar solicitud en línea: muestra el formulario HTML (solicitud___SPARTA_SECRET_REDACTED___v3) con datos del candidato prellenados.
      * No requiere login. URL: /CapHum/llenarSolicitudEnLinea/{token}
@@ -11330,6 +11663,388 @@ class CapHum extends Controller
         $this->render('subir_documentos_candidato', true);
     }
 
+    private function subirCartaCompromisoGestorError(string $mensaje): void
+    {
+        $this->set('token', '');
+        $this->set('nombre_candidato', 'Carta de compromiso del Gestor');
+        $this->set('puesto_candidato', 'Gestor');
+        $this->set('carta_pdf_url', $this->urlCartaCompromisoGestorPdf());
+        $this->set('mensaje_exito', '');
+        $this->set('mensaje_error', $mensaje);
+        $this->set('carta_subida', false);
+        $this->set('modo_prueba', false);
+        $this->set('subida_bloqueada', true);
+        $this->set('base_url_app', rtrim($this->obtenerBaseUrlApp(), '/'));
+        $this->render('subir_carta_compromiso_gestor', true);
+    }
+
+    private function procesarCartaCompromisoGestor(string $token, array $candidato): array
+    {
+        $idCandidato = (int) ($candidato['id'] ?? $candidato['id_candidato'] ?? 0);
+        if ($idCandidato <= 0) {
+            return ['success' => false, 'mensaje' => 'Candidato no valido.'];
+        }
+        if ($this->candidatoTieneCartaCompromisoGestor($idCandidato)) {
+            return ['success' => false, 'mensaje' => 'La carta de compromiso del Gestor ya fue subida.'];
+        }
+
+        $archivo = $_FILES['archivo_carta'] ?? null;
+        if (!$archivo || ($archivo['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_OK || (int) ($archivo['size'] ?? 0) <= 0) {
+            return ['success' => false, 'mensaje' => 'Selecciona la carta firmada en PDF.'];
+        }
+
+        $nombreOriginal = basename((string) ($archivo['name'] ?? ''));
+        $tmp = (string) ($archivo['tmp_name'] ?? '');
+        $ext = strtolower(pathinfo($nombreOriginal, PATHINFO_EXTENSION));
+        if ($ext !== 'pdf' || !SecureUpload::validateMime($tmp, SecureUpload::MIME_PDF) || !$this->esPdfValidoBasico($tmp)) {
+            return ['success' => false, 'mensaje' => 'Solo se acepta la carta firmada en formato PDF.'];
+        }
+
+        $dirBase = defined('RAIZ') ? (RAIZ . '/storage/candidatos') : (__DIR__ . '/../storage/candidatos');
+        $dirExpediente = $dirBase . '/' . $idCandidato . '/expediente';
+        if (!is_dir($dirExpediente)) {
+            @mkdir($dirExpediente, 0755, true);
+        }
+        $nombreArchivo = 'carta_compromiso_gestor.pdf';
+        $rutaDestino = $dirExpediente . '/' . $nombreArchivo;
+        if (!move_uploaded_file($tmp, $rutaDestino)) {
+            return ['success' => false, 'mensaje' => 'No se pudo guardar la carta. Intenta nuevamente.'];
+        }
+
+        $rutaRelativa = 'candidatos/' . $idCandidato . '/expediente/' . $nombreArchivo;
+        $guardar = CandidatosDAO::guardarDocumento(
+            $idCandidato,
+            $nombreOriginal !== '' ? $nombreOriginal : $nombreArchivo,
+            $rutaRelativa,
+            self::TIPO_CARTA_COMPROMISO_GESTOR,
+            null,
+            null,
+            null,
+            json_encode(['origen' => 'link_gestor', 'token' => substr($token, 0, 12)])
+        );
+        if (empty($guardar['success'])) {
+            @unlink($rutaDestino);
+            return ['success' => false, 'mensaje' => $guardar['mensaje'] ?? 'No se pudo registrar la carta.'];
+        }
+
+        $idPersona = $this->resolverPersonaGestionDesdeCandidato($candidato);
+        if ($idPersona <= 0) {
+            $this->notificarCartaCompromisoGestorSubida($candidato);
+            return ['success' => true, 'mensaje' => 'Carta subida correctamente. Capital Humano la vinculara a Gestion.'];
+        }
+
+        $this->copiarCartaCompromisoGestorAGestion($idCandidato, $idPersona, $rutaDestino);
+        $this->notificarCartaCompromisoGestorSubida($candidato);
+        return ['success' => true, 'mensaje' => 'Carta subida correctamente.'];
+    }
+
+    private function procesarCartaCompromisoGestorPersona(array $persona): array
+    {
+        $idPersona = (int) ($persona['id_persona'] ?? 0);
+        if ($idPersona <= 0) {
+            return ['success' => false, 'mensaje' => 'Gestor no valido.'];
+        }
+        if ($this->personaTieneCartaCompromisoGestor($idPersona)) {
+            return ['success' => true, 'mensaje' => 'La carta de compromiso del Gestor ya fue subida.'];
+        }
+
+        $archivo = $_FILES['archivo_carta'] ?? null;
+        if (!$archivo || ($archivo['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_OK || (int) ($archivo['size'] ?? 0) <= 0) {
+            return ['success' => false, 'mensaje' => 'Selecciona la carta firmada en PDF.'];
+        }
+
+        $nombreOriginal = basename((string) ($archivo['name'] ?? ''));
+        $tmp = (string) ($archivo['tmp_name'] ?? '');
+        $ext = strtolower(pathinfo($nombreOriginal, PATHINFO_EXTENSION));
+        if ($ext !== 'pdf' || !SecureUpload::validateMime($tmp, SecureUpload::MIME_PDF) || !$this->esPdfValidoBasico($tmp)) {
+            return ['success' => false, 'mensaje' => 'Solo se acepta la carta firmada en formato PDF.'];
+        }
+
+        try {
+            $directorio = sparta_uploads_join('documentos') . DIRECTORY_SEPARATOR;
+            SecureUpload::ensureDir($directorio);
+            $nombreFinal = 'carta_gestor_p' . $idPersona . '_' . SecureUpload::generateSafeFilename('pdf');
+            if (!move_uploaded_file($tmp, $directorio . $nombreFinal)) {
+                return ['success' => false, 'mensaje' => 'No se pudo guardar la carta. Intenta nuevamente.'];
+            }
+
+            $db = new \Core\Database();
+            $fechaCarga = (new \DateTimeImmutable('now', new \DateTimeZone('America/Mexico_City')))->format('Y-m-d H:i:s');
+            $db->CRUD(
+                "INSERT INTO __SPARTA_SECRET_REDACTED__.carga_documento_persona
+                 (id_persona, id_documento, archivo, fecha_carga, valido)
+                 VALUES (:id_persona, :id_documento, :archivo, :fecha_carga, 1)",
+                [
+                    'id_persona' => $idPersona,
+                    'id_documento' => self::DOCUMENTO_CARTA_COMPROMISO_GESTOR,
+                    'archivo' => $nombreFinal,
+                    'fecha_carga' => $fechaCarga,
+                ]
+            );
+
+            $this->notificarCartaCompromisoGestorSubidaPersona($persona);
+            return ['success' => true, 'mensaje' => 'Carta subida correctamente. Gracias, ya quedo integrada a tu expediente.'];
+        } catch (\Throwable $e) {
+            error_log('CapHum::procesarCartaCompromisoGestorPersona -> ' . $e->getMessage());
+            return ['success' => false, 'mensaje' => 'No se pudo registrar la carta. Intenta nuevamente.'];
+        }
+    }
+
+    private function candidatoEsPuestoGestor(array $candidato): bool
+    {
+        $puesto = $this->normalizarTipoDocumentoCandidatoMetricas((string) ($candidato['nombre_puesto'] ?? ''));
+        return preg_match('/\bGESTOR\b/', $puesto) === 1;
+    }
+
+    private function candidatoTieneCartaCompromisoGestor(int $idCandidato): bool
+    {
+        $resDocs = CandidatosDAO::getDocumentosCandidato($idCandidato);
+        $docs = ($resDocs['success'] && is_array($resDocs['datos'] ?? null)) ? $resDocs['datos'] : [];
+        foreach ($docs as $doc) {
+            $tipo = $this->normalizarTipoDocumentoCandidatoMetricas((string) ($doc['tipo_documento'] ?? ''));
+            if (strpos($tipo, 'CARTA COMPROMISO GESTOR') !== false || strpos($tipo, 'CARTA DE COMPROMISO DEL GESTOR') !== false) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private function personaTieneCartaCompromisoGestor(int $idPersona): bool
+    {
+        $resDocs = CapHumDAO::getDocumentosPersona($idPersona, self::DOCUMENTO_CARTA_COMPROMISO_GESTOR);
+        return !empty($resDocs['success']) && !empty($resDocs['datos']);
+    }
+
+    private function resolverPersonaGestionDesdeCandidato(array $candidato): int
+    {
+        try {
+            $db = new \Core\Database();
+            $email = trim((string) ($candidato['email'] ?? ''));
+            $usuario = trim((string) ($candidato['usuario'] ?? ''));
+            if ($email !== '' || $usuario !== '') {
+                $row = $db->queryOne(
+                    "SELECT id
+                     FROM __SPARTA_SECRET_REDACTED__.persona
+                     WHERE COALESCE(estatus, '') <> 'Baja'
+                       AND ((:email <> '' AND correo = :email) OR (:usuario <> '' AND user_name = :usuario))
+                     ORDER BY id DESC
+                     LIMIT 1",
+                    ['email' => $email, 'usuario' => $usuario]
+                );
+                if (!empty($row['id'])) {
+                    return (int) $row['id'];
+                }
+            }
+
+            $nombres = trim((string) ($candidato['nombres'] ?? ''));
+            $segundo = trim((string) ($candidato['segundo_nombre'] ?? ''));
+            $apellidop = trim((string) ($candidato['apellidop'] ?? ''));
+            $apellidom = trim((string) ($candidato['apellidom'] ?? ''));
+            $row = $db->queryOne(
+                "SELECT id
+                 FROM __SPARTA_SECRET_REDACTED__.persona
+                 WHERE COALESCE(estatus, '') <> 'Baja'
+                   AND nombres = :nombres
+                   AND COALESCE(segundo_nombre, '') = :segundo
+                   AND apellidop = :apellidop
+                   AND apellidom = :apellidom
+                 ORDER BY id DESC
+                 LIMIT 1",
+                [
+                    'nombres' => $nombres,
+                    'segundo' => $segundo,
+                    'apellidop' => $apellidop,
+                    'apellidom' => $apellidom,
+                ]
+            );
+            return !empty($row['id']) ? (int) $row['id'] : 0;
+        } catch (\Throwable $e) {
+            error_log('CapHum::resolverPersonaGestionDesdeCandidato -> ' . $e->getMessage());
+            return 0;
+        }
+    }
+
+    private function copiarCartaCompromisoGestorAGestion(int $idCandidato, int $idPersona, string $rutaOrigen): bool
+    {
+        if ($idPersona <= 0 || !is_file($rutaOrigen)) {
+            return false;
+        }
+        try {
+            CapHumDAO::asegurarDocumentoCartaCompromisoGestor();
+            $db = new \Core\Database();
+            $existe = $db->queryOne(
+                "SELECT id FROM __SPARTA_SECRET_REDACTED__.carga_documento_persona
+                 WHERE id_persona = :id_persona AND id_documento = :id_documento
+                 LIMIT 1",
+                ['id_persona' => $idPersona, 'id_documento' => self::DOCUMENTO_CARTA_COMPROMISO_GESTOR]
+            );
+            if (!empty($existe['id'])) {
+                return true;
+            }
+
+            $directorio = sparta_uploads_join('documentos') . DIRECTORY_SEPARATOR;
+            SecureUpload::ensureDir($directorio);
+            $nombreFinal = 'carta_gestor_cand_' . $idCandidato . '_p' . $idPersona . '_' . SecureUpload::generateSafeFilename('pdf');
+            if (!@copy($rutaOrigen, $directorio . $nombreFinal)) {
+                return false;
+            }
+            $fechaCarga = (new \DateTimeImmutable('now', new \DateTimeZone('America/Mexico_City')))->format('Y-m-d H:i:s');
+            $db->CRUD(
+                "INSERT INTO __SPARTA_SECRET_REDACTED__.carga_documento_persona
+                 (id_persona, id_documento, archivo, fecha_carga, valido)
+                 VALUES (:id_persona, :id_documento, :archivo, :fecha_carga, 1)",
+                [
+                    'id_persona' => $idPersona,
+                    'id_documento' => self::DOCUMENTO_CARTA_COMPROMISO_GESTOR,
+                    'archivo' => $nombreFinal,
+                    'fecha_carga' => $fechaCarga,
+                ]
+            );
+            return true;
+        } catch (\Throwable $e) {
+            error_log('CapHum::copiarCartaCompromisoGestorAGestion -> ' . $e->getMessage());
+            return false;
+        }
+    }
+
+    private function urlCartaCompromisoGestorPdf(): string
+    {
+        return rtrim($this->obtenerBaseUrlApp(), '/') . '/CapHum/descargarCartaCompromisoGestor';
+    }
+
+    private function urlSubirCartaCompromisoGestorPersona(int $idPersona): string
+    {
+        return rtrim($this->obtenerBaseUrlApp(), '/') . '/CapHum/subirCartaCompromisoGestorPersona/' . rawurlencode($this->generarTokenCartaCompromisoPersona($idPersona));
+    }
+
+    private function enviarCorreoRecordatorioCartaCompromisoGestor(array $persona): bool
+    {
+        $nombreCompleto = trim((string) ($persona['nombre_completo'] ?? 'Gestor'));
+        $correo = trim((string) ($persona['correo'] ?? ''));
+        $puesto = trim((string) ($persona['puestos'] ?? 'Gestor'));
+        if ($correo === '' || !filter_var($correo, FILTER_VALIDATE_EMAIL)) {
+            $this->enviarCorreoUltimoError = 'Correo del gestor no valido.';
+            return false;
+        }
+
+        $base = $this->obtenerBaseUrlApp();
+        $dirPublic = defined('RAIZ') ? dirname(RAIZ) . '/public' : (__DIR__ . '/../../public');
+        $rutaLogoInline = null;
+        if (is_file($dirPublic . '/assets/img/logo_correo.png')) {
+            $rutaLogoInline = realpath($dirPublic . '/assets/img/logo_correo.png');
+        } elseif (is_file($dirPublic . '/assets/img/logo___SPARTA_SECRET_REDACTED__.png')) {
+            $rutaLogoInline = realpath($dirPublic . '/assets/img/logo___SPARTA_SECRET_REDACTED__.png');
+        }
+        $logoSrc = $rutaLogoInline ? 'cid:logo__SPARTA_SECRET_REDACTED__' : (rtrim($base, '/') . '/assets/img/logo_correo.png');
+        $urlCartaPdf = $this->urlCartaCompromisoGestorPdf();
+        $urlSubirCarta = $this->urlSubirCartaCompromisoGestorPersona((int) ($persona['id_persona'] ?? 0));
+
+        $cuerpo = '<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><title>Carta de compromiso pendiente</title></head><body style="margin:0; padding:0; background-color:#e8eef4; font-family:\'Segoe UI\', Tahoma, sans-serif;">
+  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background-color:#e8eef4;"><tr><td align="center" style="padding:32px 16px;">
+    <table role="presentation" width="600" cellspacing="0" cellpadding="0" style="max-width:600px; background-color:#ffffff; border-radius:8px; box-shadow:0 2px 12px rgba(0,0,0,0.08); overflow:hidden;">
+      <tr><td style="background-color:#1e3a5f; padding:28px 32px 30px; text-align:center;"><img src="' . htmlspecialchars($logoSrc) . '" alt="Maxikash" width="84" style="display:block; margin:0 auto 18px auto; width:84px; max-width:84px; height:auto; border:0;"><h1 style="margin:0; color:#ffffff; font-size:25px; line-height:1.25; font-weight:800;">Carta de compromiso pendiente</h1><p style="margin:10px 0 0 0; color:rgba(255,255,255,0.92); font-size:15px;">Expediente de Gestor</p></td></tr>
+      <tr><td style="padding:32px;">
+        <p style="margin:0 0 16px 0; color:#1a202c; font-size:16px;">Hola <strong>' . htmlspecialchars($nombreCompleto) . '</strong>,</p>
+        <p style="margin:0 0 16px 0; color:#2d3748; font-size:15px; line-height:1.6;">Detectamos que aun falta integrar tu <strong>Carta de compromiso del Gestor</strong> a tu expediente. Este documento es necesario para completar tu expediente correspondiente al puesto <strong>' . htmlspecialchars($puesto) . '</strong>.</p>
+        <p style="margin:0 0 20px 0; color:#2d3748; font-size:15px; line-height:1.6;">Por favor descarga el formato, llenalo, firmalo y sube el PDF firmado desde el enlace seguro. Si ya realizaste la carga recientemente, puedes omitir este mensaje.</p>
+        <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin:0 0 22px 0; border:1px solid #f6ad55; border-radius:8px; overflow:hidden; background:#fffaf0;">
+          <tr><td style="padding:14px 16px; color:#1a202c; font-size:14px; line-height:1.6;"><strong>Pasos:</strong><br>1. Descarga el formato.<br>2. Llena y firma la carta.<br>3. Sube el archivo final en PDF.</td></tr>
+          <tr><td style="padding:0 16px 16px 16px;"><a href="' . htmlspecialchars($urlCartaPdf) . '" style="display:inline-block; margin:0 10px 8px 0; padding:10px 16px; background-color:#d99a32; color:#ffffff !important; text-decoration:none; border-radius:8px; font-weight:700; font-size:14px;">Descargar formato</a><a href="' . htmlspecialchars($urlSubirCarta) . '" style="display:inline-block; margin:0 0 8px 0; padding:10px 16px; background-color:#1e3a5f; color:#ffffff !important; text-decoration:none; border-radius:8px; font-weight:700; font-size:14px;">Subir PDF firmado</a></td></tr>
+        </table>
+        <p style="margin:24px 0 0 0; color:#1a202c; font-size:15px; font-weight:600;">Equipo de Capital Humano - Maxikash</p>
+      </td></tr>
+      <tr><td style="padding:16px 32px 24px; background-color:#f7fafc; border-top:1px solid #e2e8f0;"><p style="margin:0; color:#718096; font-size:12px;">Correo generado automaticamente.</p></td></tr>
+    </table>
+  </td></tr></table>
+</body></html>';
+
+        return $this->enviarCorreo($correo, 'Carta de compromiso del Gestor pendiente', $cuerpo, $nombreCompleto, $rutaLogoInline);
+    }
+
+    private function generarTokenCartaCompromisoPersona(int $idPersona): string
+    {
+        $idPersona = max(0, $idPersona);
+        $payload = [
+            'v' => 1,
+            'id' => $idPersona,
+            'sig' => hash_hmac('sha256', (string) $idPersona, (string) TOKEN),
+        ];
+        return rtrim(strtr(base64_encode(json_encode($payload)), '+/', '-_'), '=');
+    }
+
+    private function resolverPersonaCartaCompromisoDesdeToken(string $token): ?array
+    {
+        $token = trim($token);
+        if ($token === '') {
+            return null;
+        }
+
+        $base64 = strtr($token, '-_', '+/');
+        $base64 .= str_repeat('=', (4 - strlen($base64) % 4) % 4);
+        $json = base64_decode($base64, true);
+        if ($json === false) {
+            return null;
+        }
+
+        $payload = json_decode($json, true);
+        if (!is_array($payload)) {
+            return null;
+        }
+
+        $idPersona = (int) ($payload['id'] ?? 0);
+        $sig = (string) ($payload['sig'] ?? '');
+        $esperada = hash_hmac('sha256', (string) $idPersona, (string) TOKEN);
+        if ($idPersona <= 0 || $sig === '' || !hash_equals($esperada, $sig)) {
+            return null;
+        }
+
+        $res = CapHumDAO::getPersonaGestorCartaCompromiso($idPersona);
+        return (!empty($res['success']) && !empty($res['datos'])) ? $res['datos'] : null;
+    }
+
+    private function notificarCartaCompromisoGestorSubida(array $candidato): void
+    {
+        try {
+            $idPersonas = Notificacion::getPersonasConModulos([self::MODULO_VALIDADOR_DOCUMENTAL_CANDIDATOS]);
+            if (empty($idPersonas)) {
+                error_log('CapHum: carta de compromiso gestor subida sin usuarios con modulo Validador documental.');
+                return;
+            }
+            $nombreCompleto = trim(implode(' ', [
+                $candidato['nombres'] ?? '',
+                $candidato['segundo_nombre'] ?? '',
+                $candidato['apellidop'] ?? '',
+                $candidato['apellidom'] ?? '',
+            ]));
+            if ($nombreCompleto === '') {
+                $nombreCompleto = 'Un gestor';
+            }
+            $mensaje = 'Gestor ' . $nombreCompleto . ' ya subio su carta de compromiso.';
+            Notificacion::crearParaPersonas($idPersonas, 'gestor_carta_compromiso_subida', $mensaje, null);
+        } catch (\Throwable $e) {
+            error_log('CapHum::notificarCartaCompromisoGestorSubida -> ' . $e->getMessage());
+        }
+    }
+
+    private function notificarCartaCompromisoGestorSubidaPersona(array $persona): void
+    {
+        try {
+            $idPersonas = Notificacion::getPersonasConModulos([self::MODULO_VALIDADOR_DOCUMENTAL_CANDIDATOS]);
+            if (empty($idPersonas)) {
+                error_log('CapHum: carta de compromiso gestor subida sin usuarios con modulo Validador documental.');
+                return;
+            }
+            $nombreCompleto = trim((string) ($persona['nombre_completo'] ?? ''));
+            if ($nombreCompleto === '') {
+                $nombreCompleto = 'Un gestor';
+            }
+            $mensaje = 'Gestor ' . $nombreCompleto . ' ya subio su carta de compromiso.';
+            Notificacion::crearParaPersonas($idPersonas, 'gestor_carta_compromiso_subida', $mensaje, null);
+        } catch (\Throwable $e) {
+            error_log('CapHum::notificarCartaCompromisoGestorSubidaPersona -> ' . $e->getMessage());
+        }
+    }
+
     /**
      * Base URL usada por la vista para validar documentos.
      * Importante: debe ser mismo origen (PHP) para evitar bloqueos CORS/PNA en navegador.
@@ -11379,6 +12094,7 @@ class CapHum extends Controller
             'verificar-constancia-fiscal-documento',
             'verificar-nss-documento',
             'verificar-estado-cuenta',
+            'validar-paginas-pdf',
         ];
         if (!in_array($endpoint, $permitidos, true)) {
             http_response_code(400);
@@ -11414,6 +12130,11 @@ class CapHum extends Controller
             $filename = basename((string) ($file['name'] ?? 'documento.bin'));
             $postFields[$name] = new \CURLFile($tmpName, $mime !== '' ? $mime : 'application/octet-stream', $filename);
         }
+        foreach ($_POST as $name => $value) {
+            if (is_scalar($value)) {
+                $postFields[$name] = (string) $value;
+            }
+        }
 
         if (empty($postFields)) {
             http_response_code(400);
@@ -11428,6 +12149,8 @@ class CapHum extends Controller
             $timeout = 30;
         } elseif ($endpoint === 'verificar-curp-documento' || $endpoint === 'verificar-constancia-fiscal-documento') {
             $timeout = 12;
+        } elseif ($endpoint === 'validar-paginas-pdf') {
+            $timeout = 8;
         }
 
         $ch = curl_init($targetUrl);
@@ -11709,7 +12432,7 @@ class CapHum extends Controller
     public function getBitacoraCandidato()
     {
         header('Content-Type: application/json; charset=utf-8');
-        if (!self::tieneModuloWeb(self::MODULO_AGREGAR_USUARIO_RRHH) && !self::puedeValidarDocumentalCandidatos() && !self::puedeValidarFinalCandidatos()) {
+        if (!self::tieneModuloWeb(self::MODULO_AGREGAR_USUARIO_RRHH) && !self::puedeValidarDocumentalAlgunFlujoCandidatos() && !self::puedeValidarFinalCandidatos()) {
             echo json_encode(self::respuesta(false, 'No tienes permiso para consultar la bitácora del candidato.'));
             return;
         }
@@ -11728,7 +12451,7 @@ class CapHum extends Controller
     public function getHistoricoCandidatos()
     {
         header('Content-Type: application/json; charset=utf-8');
-        if (!self::tieneModuloWeb(self::MODULO_AGREGAR_USUARIO_RRHH) && !self::puedeValidarDocumentalCandidatos() && !self::puedeValidarFinalCandidatos()) {
+        if (!self::tieneModuloWeb(self::MODULO_AGREGAR_USUARIO_RRHH) && !self::puedeValidarDocumentalAlgunFlujoCandidatos() && !self::puedeValidarFinalCandidatos()) {
             echo json_encode(self::respuesta(false, 'No tienes permiso para consultar el histórico de candidatos.'));
             return;
         }
@@ -12038,7 +12761,7 @@ class CapHum extends Controller
     public function subirDocumentoManualCandidato()
     {
         header('Content-Type: application/json; charset=utf-8');
-        if (!self::puedeValidarDocumentalCandidatos() && !self::puedeValidarFinalCandidatos()) {
+        if (!self::puedeValidarDocumentalAlgunFlujoCandidatos() && !self::puedeValidarFinalCandidatos()) {
             echo json_encode(self::respuesta(false, 'No tienes permiso para subir documentos manualmente.'));
             return;
         }
@@ -12067,6 +12790,15 @@ class CapHum extends Controller
             echo json_encode(self::respuesta(false, 'Datos incompletos para subir el documento.'));
             return;
         }
+        $resCandidato = CandidatosDAO::getById($idCandidato);
+        if (empty($resCandidato['success']) || empty($resCandidato['datos'])) {
+            echo json_encode(self::respuesta(false, 'Candidato no encontrado.'));
+            return;
+        }
+        if (!self::puedeGestionarDocumentosCandidatoDatos($resCandidato['datos'])) {
+            echo json_encode(self::respuesta(false, 'No tienes permiso para subir documentos de este candidato.'));
+            return;
+        }
         if (!isset($_FILES['archivo']) || ($_FILES['archivo']['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_OK) {
             echo json_encode(self::respuesta(false, 'Selecciona un PDF para subir.'));
             return;
@@ -12077,12 +12809,6 @@ class CapHum extends Controller
         $ext = strtolower(pathinfo($nombreOriginal, PATHINFO_EXTENSION));
         if ($tmp === '' || !is_uploaded_file($tmp) || $ext !== 'pdf' || !SecureUpload::validateMime($tmp, SecureUpload::MIME_PDF) || !$this->esPdfValidoBasico($tmp)) {
             echo json_encode(self::respuesta(false, 'Solo se acepta un archivo PDF valido.'));
-            return;
-        }
-
-        $resCandidato = CandidatosDAO::getById($idCandidato);
-        if (empty($resCandidato['success']) || empty($resCandidato['datos'])) {
-            echo json_encode(self::respuesta(false, 'Candidato no encontrado.'));
             return;
         }
 
@@ -12170,6 +12896,10 @@ class CapHum extends Controller
         $id_candidato = (int) ($_GET['id_candidato'] ?? $_POST['id_candidato'] ?? 0);
         if ($id_candidato <= 0) {
             echo json_encode(self::respuesta(false, 'id_candidato inválido.'));
+            return;
+        }
+        if (!self::candidatoVisibleParaSesionSeleccion($id_candidato)) {
+            echo json_encode(self::respuesta(false, 'No tienes permiso para verificar este expediente.'));
             return;
         }
         $rutasParaValidar = ['identificacion_pdf' => null, 'curp' => null, 'nss' => null, 'constancia_fiscal' => null, 'acta_nacimiento' => null];
@@ -12390,6 +13120,12 @@ class CapHum extends Controller
         // Ruta rápida: solo nombre y ruta (sin cargar LONGBLOB). Casi siempre el archivo está en disco.
         $resRuta = CandidatosDAO::getDocumentoRutaSolo($id_doc);
         if ($resRuta['success'] && !empty($resRuta['datos']['ruta_archivo'])) {
+            $idCandidatoDoc = (int) ($resRuta['datos']['id_candidato'] ?? 0);
+            if ($idCandidatoDoc <= 0 || !self::candidatoVisibleParaSesionSeleccion($idCandidatoDoc)) {
+                header('HTTP/1.0 403 Forbidden');
+                echo 'No tienes permiso para consultar este documento';
+                return;
+            }
             $rutaRel = trim($resRuta['datos']['ruta_archivo']);
             $path = $this->resolverRutaStorageCandidato($rutaRel);
             if ($path !== null && is_file($path)) {
@@ -12423,6 +13159,12 @@ class CapHum extends Controller
         if (!$res['success'] || empty($res['datos'])) {
             header('HTTP/1.0 404 Not Found');
             echo 'Documento no encontrado';
+            return;
+        }
+        $idCandidatoDoc = (int) ($res['datos']['id_candidato'] ?? 0);
+        if ($idCandidatoDoc <= 0 || !self::candidatoVisibleParaSesionSeleccion($idCandidatoDoc)) {
+            header('HTTP/1.0 403 Forbidden');
+            echo 'No tienes permiso para consultar este documento';
             return;
         }
         $doc = $res['datos'];
@@ -12467,7 +13209,7 @@ class CapHum extends Controller
      */
     public function descargarExpedienteCandidatoZip()
     {
-        if (!self::tieneModuloWeb(self::MODULO_AGREGAR_USUARIO_RRHH) && !self::puedeValidarDocumentalCandidatos() && !self::puedeValidarFinalCandidatos()) {
+        if (!self::tieneModuloWeb(self::MODULO_AGREGAR_USUARIO_RRHH) && !self::puedeValidarDocumentalAlgunFlujoCandidatos() && !self::puedeValidarFinalCandidatos()) {
             header('HTTP/1.1 403 Forbidden');
             header('Content-Type: application/json; charset=utf-8');
             echo json_encode(self::respuesta(false, 'No tienes permiso para descargar expedientes de candidatos.'));
@@ -12573,7 +13315,7 @@ class CapHum extends Controller
     public function eliminarDocumentoCandidato()
     {
         header('Content-Type: application/json; charset=utf-8');
-        $puedeDocumentalEliminar = self::puedeValidarDocumentalCandidatos();
+        $puedeDocumentalEliminar = self::puedeValidarDocumentalAlgunFlujoCandidatos();
         $puedeFinalEliminar = self::puedeValidarFinalCandidatos();
         if (!$puedeDocumentalEliminar && !$puedeFinalEliminar) {
             echo json_encode(self::respuesta(false, 'No tienes permiso para rechazar documentos de candidatos.'));
@@ -12625,6 +13367,10 @@ class CapHum extends Controller
             if ($candAntesRes['success'] && !empty($candAntesRes['datos'])) {
                 $estatusAntesRechazo = trim((string) ($candAntesRes['datos']['estatus'] ?? ''));
             }
+        }
+        if (empty($candAntesRes['success']) || empty($candAntesRes['datos']) || !self::puedeGestionarDocumentosCandidatoDatos($candAntesRes['datos'])) {
+            echo json_encode(self::respuesta(false, 'No tienes permiso para eliminar documentos de este candidato.'));
+            return;
         }
         $rechazoEnFlujoFinal = $puedeFinalEliminar && in_array($estatusAntesRechazo, ['Pendiente de validacion final', 'Ingreso programado'], true);
 
@@ -12809,7 +13555,7 @@ class CapHum extends Controller
     public function validarDocumentoCandidato()
     {
         header('Content-Type: application/json; charset=utf-8');
-        $puedeDocumentalValidar = self::puedeValidarDocumentalCandidatos();
+        $puedeDocumentalValidar = self::puedeValidarDocumentalAlgunFlujoCandidatos();
         $puedeFinalValidar = self::puedeValidarFinalCandidatos();
         if (!$puedeDocumentalValidar && !$puedeFinalValidar) {
             echo json_encode(self::respuesta(false, 'No tienes permiso para validar documentos.'));
@@ -12828,14 +13574,17 @@ class CapHum extends Controller
         $doc = $res['datos'];
         $idCand = (int) ($doc['id_candidato'] ?? 0);
         $estatusActual = '';
+        $candidatoDatos = [];
         if ($idCand > 0) {
             $candidatoRes = CandidatosDAO::getById($idCand);
             if ($candidatoRes['success'] && !empty($candidatoRes['datos'])) {
+                $candidatoDatos = $candidatoRes['datos'];
                 $estatusActual = trim((string) ($candidatoRes['datos']['estatus'] ?? ''));
             }
         }
         $enFlujoFinal = in_array($estatusActual, ['Pendiente de validacion final', 'Ingreso programado'], true);
-        if (!$puedeDocumentalValidar && !($puedeFinalValidar && $enFlujoFinal)) {
+        $puedeDocumentalEsteCandidato = !empty($candidatoDatos) && !$enFlujoFinal && self::puedeValidarDocumentalCandidato($candidatoDatos);
+        if (!$puedeDocumentalEsteCandidato && !($puedeFinalValidar && $enFlujoFinal)) {
             echo json_encode(self::respuesta(false, 'Este documento solo puede validarlo el validador documental antes de enviarlo a validacion final.'));
             return;
         }
@@ -12877,7 +13626,7 @@ class CapHum extends Controller
     public function guardarSueldoCandidatoDocumentacion()
     {
         header('Content-Type: application/json; charset=utf-8');
-        if (!self::puedeValidarDocumentalCandidatos()) {
+        if (!self::puedeValidarDocumentalAlgunFlujoCandidatos()) {
             echo json_encode(self::respuesta(false, 'No tienes permiso de validador documental.'));
             return;
         }
@@ -12887,6 +13636,11 @@ class CapHum extends Controller
         $id_candidato = (int) ($body['id_candidato'] ?? $body['id'] ?? $_POST['id_candidato'] ?? $_POST['id'] ?? 0);
         if ($id_candidato <= 0) {
             echo json_encode(self::respuesta(false, 'ID de candidato invalido.'));
+            return;
+        }
+        $candidatoRes = CandidatosDAO::getById($id_candidato);
+        if (empty($candidatoRes['success']) || empty($candidatoRes['datos']) || !self::puedeValidarDocumentalCandidato($candidatoRes['datos']) || self::estatusCandidatoEsValidacionFinal($candidatoRes['datos']['estatus'] ?? '')) {
+            echo json_encode(self::respuesta(false, 'No tienes permiso para actualizar sueldo de este candidato.'));
             return;
         }
 
@@ -12905,7 +13659,7 @@ class CapHum extends Controller
     public function enviarCandidatoValidacionFinal()
     {
         header('Content-Type: application/json; charset=utf-8');
-        if (!self::puedeValidarDocumentalCandidatos()) {
+        if (!self::puedeValidarDocumentalAlgunFlujoCandidatos()) {
             echo json_encode(self::respuesta(false, 'No tienes permiso de validador documental.'));
             return;
         }
@@ -12919,6 +13673,10 @@ class CapHum extends Controller
         $candidatoRes = CandidatosDAO::getById($id_candidato);
         if (!$candidatoRes['success'] || empty($candidatoRes['datos'])) {
             echo json_encode(self::respuesta(false, 'Candidato no encontrado.'));
+            return;
+        }
+        if (!self::puedeValidarDocumentalCandidato($candidatoRes['datos'])) {
+            echo json_encode(self::respuesta(false, 'No tienes permiso para enviar este candidato a validacion final.'));
             return;
         }
         $estatusActual = trim((string) ($candidatoRes['datos']['estatus'] ?? ''));
@@ -12973,6 +13731,12 @@ class CapHum extends Controller
             return;
         }
         $doc = $res['datos'];
+        $idCandActa = (int) ($doc['id_candidato'] ?? 0);
+        $candActaRes = $idCandActa > 0 ? CandidatosDAO::getById($idCandActa) : ['success' => false];
+        if (empty($candActaRes['success']) || empty($candActaRes['datos']) || !self::puedeGestionarDocumentosCandidatoDatos($candActaRes['datos'])) {
+            echo json_encode(self::respuesta(false, 'No tienes permiso para validar este documento.'));
+            return;
+        }
         $tipo = mb_strtoupper(trim((string) ($doc['tipo_documento'] ?? '')));
         if (strpos($tipo, 'ACTA') === false) {
             echo json_encode(self::respuesta(false, 'Este botón solo valida el acta de nacimiento.'));
@@ -13016,7 +13780,8 @@ class CapHum extends Controller
             echo json_encode(self::respuesta(false, 'ID de candidato inválido.'));
             return;
         }
-        if (!self::candidatoVisibleParaSesionSeleccion($id_candidato)) {
+        $candidatoCerrarRes = CandidatosDAO::getById($id_candidato);
+        if (empty($candidatoCerrarRes['success']) || empty($candidatoCerrarRes['datos']) || !self::puedeGestionarDocumentosCandidatoDatos($candidatoCerrarRes['datos'])) {
             echo json_encode(self::respuesta(false, 'No tienes permiso para cerrar este proceso.'));
             return;
         }
@@ -13191,21 +13956,84 @@ class CapHum extends Controller
             $departamento = trim($c['nombre_departamento'] ?? '');
             $correoJefeIntentado = $correoJefe !== '' && filter_var($correoJefe, FILTER_VALIDATE_EMAIL);
             $correoJefeEnviado = false;
+            $destinatariosJefes = [];
+            $correosJefesFallidos = [];
             if ($correoJefeIntentado) {
-                $asuntoJefe = 'Nuevo ingreso programado - ' . $nombreCompleto;
-                $mensajeJefeHtml = '<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Nuevo ingreso programado</title></head>
-<body style="margin:0; padding:0; background-color:#e8eef4; font-family:\'Segoe UI\', Tahoma, Geneva, Verdana, sans-serif;">
-<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background-color:#e8eef4;"><tr><td align="center" style="padding:32px 16px;">
-<table role="presentation" width="600" cellspacing="0" cellpadding="0" style="max-width:600px; width:100%; background:#ffffff; border-radius:8px; box-shadow:0 2px 12px rgba(0,0,0,0.08);">
-<tr><td style="background-color:#1e3a5f; padding:24px 12px 24px 32px; border-radius:8px 8px 0 0;"><table role="presentation" width="100%"><tr><td><h1 style="margin:0; color:#ffffff; font-size:22px; font-weight:600;">MaxiKash - Capital Humano</h1><p style="margin:6px 0 0 0; color:rgba(255,255,255,0.9); font-size:14px;">Nuevo ingreso programado</p></td><td style="text-align:right; width:160px;"><img src="' . htmlspecialchars($logoSrc) . '" alt="MaxiKash" width="160" style="max-height:70px; width:auto;" /></td></tr></table></td></tr>
-<tr><td style="padding:32px;"><p style="margin:0 0 16px 0; color:#1a202c; font-size:16px;">Hola ' . htmlspecialchars($nombreJefe) . ',</p>
-<p style="margin:0 0 16px 0; color:#2d3748; font-size:15px; line-height:1.6;">Te informamos que <strong>' . htmlspecialchars($nombreCompleto) . '</strong> tiene programada su incorporación al equipo.</p>
-<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin:20px 0; background:#f7fafc; border:1px solid #d8e1ec; border-radius:8px;"><tr><td style="padding:18px 20px;"><p style="margin:0 0 8px 0; color:#1e3a5f; font-size:13px; font-weight:700; text-transform:uppercase;">Fecha de ingreso</p><p style="margin:0; color:#1a202c; font-size:20px; font-weight:700;">' . htmlspecialchars($fechaIngresoTexto) . '</p>' . ($puesto !== '' ? '<p style="margin:12px 0 0 0; color:#4a5568; font-size:14px;"><strong>Puesto:</strong> ' . htmlspecialchars($puesto) . '</p>' : '') . ($departamento !== '' ? '<p style="margin:4px 0 0 0; color:#4a5568; font-size:14px;"><strong>Departamento:</strong> ' . htmlspecialchars($departamento) . '</p>' : '') . '</td></tr></table>
-<p style="margin:0 0 16px 0; color:#2d3748; font-size:15px; line-height:1.6;">Por favor considera esta fecha para preparar su recepción, inducción operativa y cualquier actividad necesaria para su integración.</p>
-<p style="margin:24px 0 0 0; color:#1a202c; font-size:15px; font-weight:600;">Equipo de Capital Humano - Maxikash</p></td></tr>
-<tr><td style="padding:16px 32px 24px; background:#f7fafc; border-radius:0 0 8px 8px; border-top:1px solid #e2e8f0;"><p style="margin:0; color:#718096; font-size:12px;">Correo generado automáticamente.</p></td></tr>
-</table></td></tr></table></body></html>';
-                $correoJefeEnviado = $this->enviarCorreo($correoJefe, $asuntoJefe, $mensajeJefeHtml, $nombreJefe, $rutaLogoInline);
+                $destinatariosJefes[strtolower($correoJefe)] = [
+                    'tipo' => 'Jefe directo',
+                    'nombre' => $nombreJefe,
+                    'correo' => $correoJefe,
+                    'fuente' => $correoJefeInfo['fuente'],
+                ];
+            } else {
+                $correosJefesFallidos[] = [
+                    'tipo' => 'Jefe directo',
+                    'nombre' => $nombreJefe,
+                    'correo' => '',
+                    'motivo' => 'No se encontro correo valido.',
+                ];
+            }
+            $esGestorCobranza = $this->candidatoEsGestorCobranzaIngreso($c);
+            $gerentesDivisionales = $esGestorCobranza ? $this->obtenerGerentesDivisionalesParaIngreso($c) : [];
+            foreach ($gerentesDivisionales as $gerente) {
+                $correoGerente = strtolower(trim((string) ($gerente['correo'] ?? '')));
+                if ($correoGerente === '' || !filter_var($correoGerente, FILTER_VALIDATE_EMAIL)) {
+                    $correosJefesFallidos[] = [
+                        'tipo' => 'Gerente Divisional',
+                        'nombre' => (string) ($gerente['nombre'] ?? 'Gerente Divisional'),
+                        'correo' => '',
+                        'motivo' => 'No se encontro correo valido.',
+                    ];
+                    continue;
+                }
+                if (!isset($destinatariosJefes[$correoGerente])) {
+                    $destinatariosJefes[$correoGerente] = [
+                        'tipo' => 'Gerente Divisional',
+                        'nombre' => (string) ($gerente['nombre'] ?? 'Gerente Divisional'),
+                        'correo' => $correoGerente,
+                        'fuente' => (string) ($gerente['fuente'] ?? 'persona_correo'),
+                    ];
+                }
+            }
+            if ($esGestorCobranza && empty($gerentesDivisionales)) {
+                $correosJefesFallidos[] = [
+                    'tipo' => 'Gerente Divisional',
+                    'nombre' => 'Gerente Divisional',
+                    'correo' => '',
+                    'motivo' => 'No se encontraron gerentes divisionales para el puesto del candidato.',
+                ];
+            }
+            $asuntoJefe = 'Nuevo ingreso programado - ' . $nombreCompleto;
+            $correosJefesEnviados = 0;
+            foreach ($destinatariosJefes as $destinatarioJefe) {
+                $mensajeJefeHtml = $this->construirCorreoIngresoJefeHtml(
+                    (string) ($destinatarioJefe['nombre'] ?? 'Jefe'),
+                    $nombreCompleto,
+                    $fechaIngresoTexto,
+                    $puesto,
+                    $departamento,
+                    $logoSrc
+                );
+                $enviadoJefeActual = $this->enviarCorreo(
+                    (string) $destinatarioJefe['correo'],
+                    $asuntoJefe,
+                    $mensajeJefeHtml,
+                    (string) ($destinatarioJefe['nombre'] ?? ''),
+                    $rutaLogoInline
+                );
+                if ($enviadoJefeActual) {
+                    $correosJefesEnviados++;
+                    if (($destinatarioJefe['tipo'] ?? '') === 'Jefe directo') {
+                        $correoJefeEnviado = true;
+                    }
+                } else {
+                    $correosJefesFallidos[] = [
+                        'tipo' => (string) ($destinatarioJefe['tipo'] ?? 'Jefe'),
+                        'nombre' => (string) ($destinatarioJefe['nombre'] ?? 'Jefe'),
+                        'correo' => (string) ($destinatarioJefe['correo'] ?? ''),
+                        'motivo' => $this->enviarCorreoUltimoError ?: 'No se pudo enviar.',
+                    ];
+                }
             }
             $fechaNotificada = (new \DateTimeImmutable('now', new \DateTimeZone('America/Mexico_City')))->format('Y-m-d H:i:s');
             CandidatosDAO::registrarIngresoProgramado($id_candidato, $fechaIngresoNormalizada, $fechaNotificada);
@@ -13220,6 +14048,10 @@ class CapHum extends Controller
                     'correo_jefe_intentado' => $correoJefeIntentado,
                     'correo_jefe_enviado' => $correoJefeEnviado,
                     'correo_jefe_fuente' => $correoJefeInfo['fuente'],
+                    'correos_jefes_intentados' => count($destinatariosJefes),
+                    'correos_jefes_enviados' => $correosJefesEnviados,
+                    'correos_jefes_fallidos' => $correosJefesFallidos,
+                    'gerente_divisional_aplica' => $esGestorCobranza,
                 ],
                 (int) ($_SESSION['usuario_id'] ?? 0),
                 $fechaNotificada
@@ -13231,7 +14063,12 @@ class CapHum extends Controller
                 'correo_candidato_enviado' => true,
                 'correo_jefe_intentado' => $correoJefeIntentado,
                 'correo_jefe_enviado' => $correoJefeEnviado,
-                'correo_jefe_fuente' => $correoJefeInfo['fuente']
+                'correo_jefe_fuente' => $correoJefeInfo['fuente'],
+                'correos_jefes_intentados' => count($destinatariosJefes),
+                'correos_jefes_enviados' => $correosJefesEnviados,
+                'correos_jefes_fallidos' => $correosJefesFallidos,
+                'gerente_divisional_aplica' => $esGestorCobranza,
+                'warning_correo' => !empty($correosJefesFallidos),
             ]));
         } else {
             $msg = $this->enviarCorreoUltimoError ?: 'No se pudo enviar el correo.';
@@ -13285,8 +14122,8 @@ class CapHum extends Controller
         $result = $this->ejecutarAltaCandidatoEnGestion($id_candidato, $fechaIngreso);
         if ($result['success']) {
             $mensajeAlta = !empty($result['warning_correo'])
-                ? 'Colaborador dado de alta en Gestión correctamente, pero no se pudo enviar el correo de bienvenida.'
-                : 'Colaborador dado de alta en Gestión correctamente. Se envió el correo de bienvenida.';
+                ? 'Colaborador dado de alta en Gestión correctamente, pero una o más notificaciones por correo no se pudieron enviar.'
+                : 'Colaborador dado de alta en Gestión correctamente. Se enviaron las notificaciones por correo.';
             echo json_encode(self::respuesta(true, $mensajeAlta, $result));
         } else {
             echo json_encode(self::respuesta(false, $result['mensaje'] ?? 'Error al dar de alta en Gestión.'));
@@ -13321,8 +14158,8 @@ class CapHum extends Controller
         $result = $this->ejecutarAltaCandidatoEnGestion($id_candidato);
         if ($result['success']) {
             $mensajeAlta = !empty($result['warning_correo'])
-                ? 'El colaborador ha sido dado de alta en Gestion correctamente. No se pudo enviar el correo de bienvenida; Capital Humano debe notificarlo manualmente.'
-                : 'El colaborador ha sido dado de alta en Gestion correctamente. Se envio el correo de bienvenida.';
+                ? 'El colaborador ha sido dado de alta en Gestion correctamente. Una o mas notificaciones por correo no se pudieron enviar; Capital Humano debe revisarlo manualmente.'
+                : 'El colaborador ha sido dado de alta en Gestion correctamente. Se enviaron las notificaciones por correo.';
             $this->mostrarPaginaConfirmacionAlta(true, $mensajeAlta);
         } else {
             $this->mostrarPaginaConfirmacionAlta(false, $result['mensaje'] ?? 'Error al dar de alta en Gestión.');
@@ -13375,9 +14212,9 @@ class CapHum extends Controller
         if (trim((string) ($c['estatus'] ?? '')) !== 'Ingreso programado') {
             return ['success' => false, 'mensaje' => 'Primero debe estar programado el ingreso desde validacion final.'];
         }
-        $numero_empleado = trim($c['numero_empleado'] ?? '');
-        if ($numero_empleado === '') {
-            $numero_empleado = 'PEND';
+        $numero_empleado = trim((string) ($c['numero_empleado'] ?? ''));
+        if (strcasecmp($numero_empleado, 'PEND') === 0 || strcasecmp($numero_empleado, 'PENDIENTE') === 0) {
+            $numero_empleado = '';
         }
         $fechaProgramada = trim((string) ($c['fecha_ingreso_programada'] ?? ''));
         $fechaIngreso = $this->normalizarFechaIngresoCandidato((string) ($fecha_ingreso ?: $fechaProgramada));
@@ -13409,6 +14246,22 @@ class CapHum extends Controller
             return ['success' => false, 'mensaje' => $resInsert['mensaje'] ?? 'Error al dar de alta en Gestión.'];
         }
         $id_persona = isset($resInsert['datos']['id']) ? (int) $resInsert['datos']['id'] : 0;
+        $numeroEmpleadoFinal = trim((string) ($resInsert['datos']['numero_empleado'] ?? $numero_empleado));
+        if ($numeroEmpleadoFinal === '' && $id_persona > 0) {
+            try {
+                $dbNumero = new \Core\Database();
+                $rowNumero = $dbNumero->queryOne(
+                    'SELECT numero_empleado FROM __SPARTA_SECRET_REDACTED__.persona WHERE id = :id LIMIT 1',
+                    ['id' => $id_persona]
+                );
+                $numeroEmpleadoFinal = trim((string) ($rowNumero['numero_empleado'] ?? ''));
+            } catch (\Throwable $e) {
+                error_log('CapHum::ejecutarAltaCandidatoEnGestion numero_empleado -> ' . $e->getMessage());
+            }
+        }
+        if ($numeroEmpleadoFinal !== '') {
+            $c['numero_empleado'] = $numeroEmpleadoFinal;
+        }
         $documentosCopiados = $this->copiarDocumentosCandidatoAGestion($id_candidato, $id_persona);
         $fechaContratado = (new \DateTimeImmutable('now', new \DateTimeZone('America/Mexico_City')))->format('Y-m-d H:i:s');
         CandidatosDAO::marcarContratoFirmado($id_candidato, $fechaContratado);
@@ -13418,7 +14271,7 @@ class CapHum extends Controller
             'PASO_A_PLANTILLA',
             'Pasó a plantilla',
             'El candidato fue dado de alta en Gestión correctamente.',
-            ['id_persona' => $id_persona, 'documentos_copiados' => $documentosCopiados],
+            ['id_persona' => $id_persona, 'numero_empleado' => $numeroEmpleadoFinal, 'documentos_copiados' => $documentosCopiados],
             (int) ($_SESSION['usuario_id'] ?? 0),
             $fechaContratado
         );
@@ -13427,27 +14280,51 @@ class CapHum extends Controller
         $destino = trim($c['email'] ?? '');
         $correoBienvenidaEnviado = false;
         $correoBienvenidaError = null;
-        if ($destino !== '' && filter_var($destino, FILTER_VALIDATE_EMAIL)) {
-            $base = $this->obtenerBaseUrlApp();
-            $dirPublic = defined('RAIZ') ? dirname(RAIZ) . '/public' : (__DIR__ . '/../../public');
-            $rutaLogoInline = null;
-            if (is_file($dirPublic . '/assets/img/logo_correo.png')) {
-                $rutaLogoInline = realpath($dirPublic . '/assets/img/logo_correo.png');
-            } elseif (is_file($dirPublic . '/assets/img/logo___SPARTA_SECRET_REDACTED__.png')) {
-                $rutaLogoInline = realpath($dirPublic . '/assets/img/logo___SPARTA_SECRET_REDACTED__.png');
+        $base = $this->obtenerBaseUrlApp();
+        $dirPublic = defined('RAIZ') ? dirname(RAIZ) . '/public' : (__DIR__ . '/../../public');
+        $rutaLogoInline = null;
+        if (is_file($dirPublic . '/assets/img/logo_correo.png')) {
+            $rutaLogoInline = realpath($dirPublic . '/assets/img/logo_correo.png');
+        } elseif (is_file($dirPublic . '/assets/img/logo___SPARTA_SECRET_REDACTED__.png')) {
+            $rutaLogoInline = realpath($dirPublic . '/assets/img/logo___SPARTA_SECRET_REDACTED__.png');
+        }
+        $logoSrc = $rutaLogoInline ? 'cid:logo__SPARTA_SECRET_REDACTED__' : (rtrim($base, '/') . '/assets/img/logo_correo.png');
+        $urlPlataforma = rtrim($base, '/') . '/';
+        $usuarioSparta = trim((string) ($dataPersona['usuario'] ?? ''));
+        $contrasenaSparta = trim((string) ($dataPersona['contrasena'] ?? ''));
+        $usuarioSpartaHtml = $usuarioSparta !== '' ? htmlspecialchars($usuarioSparta) : 'Pendiente por confirmar';
+        $contrasenaSpartaHtml = $contrasenaSparta !== '' ? htmlspecialchars($contrasenaSparta) : 'Pendiente por confirmar';
+        $bloqueCartaGestor = '';
+        if ($this->candidatoEsPuestoGestor($c)) {
+            $tokenCartaRes = CandidatosDAO::reactivarTokenDocumentos($id_candidato);
+            if (!empty($tokenCartaRes['success']) && !empty($tokenCartaRes['datos']['token'])) {
+                $urlCartaPdf = $this->urlCartaCompromisoGestorPdf();
+                $urlSubirCarta = rtrim($base, '/') . '/CapHum/subirCartaCompromisoGestor/' . rawurlencode((string) $tokenCartaRes['datos']['token']);
+                $bloqueCartaGestor = '<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin: 0 0 22px 0; border:1px solid #f6ad55; border-radius:8px; overflow:hidden; background:#fffaf0;">
+          <tr><td style="padding:14px 16px; color:#1a202c; font-size:15px; line-height:1.6;"><strong>Carta de compromiso del Gestor</strong><br>Descargalo, llenalo y firmalo. Cuando lo tengas listo, subelo en el siguiente enlace para integrarlo a tu expediente.</td></tr>
+          <tr><td style="padding:0 16px 16px 16px;"><a href="' . htmlspecialchars($urlCartaPdf) . '" style="display:inline-block; margin:0 10px 8px 0; padding: 10px 16px; background-color:#d99a32; color:#ffffff !important; text-decoration:none; border-radius: 8px; font-weight: 700; font-size: 14px;">Descargar carta</a><a href="' . htmlspecialchars($urlSubirCarta) . '" style="display:inline-block; margin:0 0 8px 0; padding: 10px 16px; background-color:#1e3a5f; color:#ffffff !important; text-decoration:none; border-radius: 8px; font-weight: 700; font-size: 14px;">Subir carta firmada</a></td></tr>
+        </table>';
+            } else {
+                error_log('CapHum::ejecutarAltaCandidatoEnGestion carta gestor token -> ' . ($tokenCartaRes['mensaje'] ?? 'No se pudo generar token'));
             }
-            $logoSrc = $rutaLogoInline ? 'cid:logo__SPARTA_SECRET_REDACTED__' : (rtrim($base, '/') . '/assets/img/logo_correo.png');
-            $urlPlataforma = rtrim($base, '/') . '/';
+        }
+        if ($destino !== '' && filter_var($destino, FILTER_VALIDATE_EMAIL)) {
             $cuerpoBienvenida = '<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><title>Bienvenida</title></head><body style="margin:0; padding:0; background-color:#e8eef4; font-family: \'Segoe UI\', Tahoma, sans-serif;">
   <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background-color:#e8eef4;"><tr><td align="center" style="padding: 32px 16px;">
     <table role="presentation" width="600" cellspacing="0" cellpadding="0" style="max-width:600px; background-color:#ffffff; border-radius:8px; box-shadow: 0 2px 12px rgba(0,0,0,0.08);">
-      <tr><td style="background-color:#1e3a5f; padding: 24px 32px; border-radius: 8px 8px 0 0;"><h1 style="margin:0; color:#ffffff; font-size: 22px;">Bienvenido(a) a MaxiKash</h1><p style="margin: 6px 0 0 0; color: rgba(255,255,255,0.9); font-size: 14px;">Ya formas parte del equipo</p></td></tr>
+      <tr><td style="background-color:#1e3a5f; padding: 28px 32px 30px; border-radius: 8px 8px 0 0; text-align:center;"><img src="' . htmlspecialchars($logoSrc) . '" alt="Maxikash" width="84" style="display:block; margin:0 auto 18px auto; width:84px; max-width:84px; height:auto; border:0;"><h1 style="margin:0; color:#ffffff; font-size: 28px; line-height:1.2; font-weight:800;">Bienvenido(a) a MaxiKash</h1><p style="margin: 10px 0 0 0; color: rgba(255,255,255,0.92); font-size: 15px;">Ya formas parte del equipo</p></td></tr>
       <tr><td style="padding: 32px;">
         <p style="margin:0 0 16px 0; color:#1a202c; font-size: 16px;">Hola <strong>' . htmlspecialchars($nombreCompleto) . '</strong>,</p>
         <p style="margin:0 0 16px 0; color:#2d3748; font-size: 15px; line-height: 1.6;">Nos da mucho gusto darte la bienvenida a Maxikash. Ya formas parte del equipo.</p>
-        <p style="margin:0 0 20px 0; color:#2d3748; font-size: 15px; line-height: 1.6;">Tu usuario quedo registrado en la plataforma. Capital Humano te compartira los siguientes pasos de incorporacion.</p>
+        <p style="margin:0 0 20px 0; color:#2d3748; font-size: 15px; line-height: 1.6;">Tu usuario quedo registrado en Sparta. Con estos accesos podras ingresar a la plataforma:</p>
+        <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin: 0 0 22px 0; border:1px solid #c8d6e5; border-radius:8px; overflow:hidden; box-shadow:0 1px 6px rgba(30,58,95,0.08);">
+          <tr><td colspan="2" style="padding:12px 16px; background:#f0f6fc; color:#1e3a5f; font-size:13px; font-weight:800; text-transform:uppercase;">Accesos a Sparta</td></tr>
+          <tr><td style="padding:14px 16px; background:#f8fafc; color:#4a5568; font-size:13px; width:38%; font-weight:600; border-top:1px solid #d9e2ec;">Usuario Sparta</td><td style="padding:14px 16px; color:#1a202c; font-size:16px; font-weight:800; border-top:1px solid #d9e2ec;">' . $usuarioSpartaHtml . '</td></tr>
+          <tr><td style="padding:14px 16px; background:#f8fafc; color:#4a5568; font-size:13px; width:38%; font-weight:600; border-top:1px solid #d9e2ec;">Contrase&ntilde;a</td><td style="padding:14px 16px; color:#1a202c; font-size:16px; font-weight:800; border-top:1px solid #d9e2ec;">' . $contrasenaSpartaHtml . '</td></tr>
+        </table>
+        ' . $bloqueCartaGestor . '
+        <p style="margin:0 0 20px 0; color:#2d3748; font-size: 15px; line-height: 1.6;">Te recomendamos ingresar lo antes posible y mantener tus accesos en un lugar seguro. Capital Humano te compartira cualquier siguiente paso de incorporacion.</p>
         <p style="margin: 24px 0 16px 0;"><a href="' . htmlspecialchars($urlPlataforma) . '" style="display:inline-block; padding: 14px 28px; background-color:#1e3a5f; color:#ffffff !important; text-decoration:none; border-radius: 8px; font-weight: 600; font-size: 16px;">Entrar a la plataforma</a></p>
-        <p style="margin:0 0 8px 0; color:#718096; font-size: 14px;">También puedes <a href="' . htmlspecialchars($urlPlataforma) . '" style="color:#2c5282;">acceder a la plataforma</a> con tu usuario y contraseña.</p>
         <p style="margin: 24px 0 0 0; color:#1a202c; font-size: 15px; font-weight: 600;">¡Bienvenido(a)!<br>Equipo de Capital Humano – Maxikash</p>
       </td></tr>
       <tr><td style="padding: 16px 32px 24px; background-color:#f7fafc; border-radius: 0 0 8px 8px; border-top: 1px solid #e2e8f0;"><p style="margin:0; color:#718096; font-size: 12px;">Correo generado automáticamente.</p></td></tr>
@@ -13466,20 +14343,185 @@ class CapHum extends Controller
         } else {
             $correoBienvenidaError = 'El candidato no tiene correo valido para enviar bienvenida.';
         }
+        $correoRevision = $this->enviarCorreoRevisionDocumentalCandidatoIncorporado(
+            $c,
+            $nombreCompleto,
+            $fechaIngreso,
+            $fechaContratado,
+            $urlPlataforma,
+            $rutaLogoInline
+        );
         return [
             'success' => true,
             'mensaje' => 'OK',
             'id_persona' => $id_persona,
             'id_candidato' => $id_candidato,
+            'numero_empleado' => $numeroEmpleadoFinal,
             'documentos_copiados' => $documentosCopiados,
             'correo_bienvenida_enviado' => $correoBienvenidaEnviado,
             'correo_bienvenida_error' => $correoBienvenidaError,
-            'warning_correo' => !$correoBienvenidaEnviado,
+            'correo_revision_documental_enviado' => $correoRevision['enviado'],
+            'correo_revision_documental_error' => $correoRevision['error'],
+            'correo_revision_documental_destinatarios' => $correoRevision['destinatarios'],
+            'warning_correo' => !$correoBienvenidaEnviado || !$correoRevision['enviado'] || !empty($correoRevision['error']),
+        ];
+    }
+
+    private function obtenerDestinatariosRevisionDocumental(bool $direccionCobranza): array
+    {
+        try {
+            $db = new \Core\Database();
+            $moduloRevision = $direccionCobranza
+                ? self::MODULO_VALIDADOR_DOCUMENTAL_CANDIDATOS
+                : self::MODULO_VALIDADOR_DOCUMENTAL_RRHH_CANDIDATOS;
+            $rows = $db->queryAll(
+                "SELECT
+                    p.id,
+                    TRIM(CONCAT_WS(' ', p.nombres, p.segundo_nombre, p.apellidop, p.apellidom)) AS nombre,
+                    p.correo,
+                    p.user_name
+                 FROM asigna_modulo_web am
+                 INNER JOIN persona p ON p.id = am.usuario_id
+                 WHERE am.modulo_web_id = :modulo
+                   AND COALESCE(p.estatus, '') <> 'Baja'
+                 ORDER BY p.nombres, p.apellidop",
+                ['modulo' => $moduloRevision]
+            );
+        } catch (\Throwable $e) {
+            error_log('CapHum::obtenerDestinatariosRevisionDocumental -> ' . $e->getMessage());
+            return [];
+        }
+
+        $validos = [];
+        foreach ($rows as $row) {
+            $correo = trim((string) ($row['correo'] ?? ''));
+            if (strcasecmp($correo, 'erika.sachez@__SPARTA_SECRET_REDACTED__.mx') === 0) {
+                $correo = 'erika.ortiz@__SPARTA_SECRET_REDACTED__.mx';
+            }
+            if ($correo === '' || !filter_var($correo, FILTER_VALIDATE_EMAIL)) {
+                continue;
+            }
+            $validos[strtolower($correo)] = [
+                'id' => (int) ($row['id'] ?? 0),
+                'nombre' => trim((string) ($row['nombre'] ?? '')),
+                'correo' => $correo,
+                'user_name' => trim((string) ($row['user_name'] ?? '')),
+            ];
+        }
+        if ($direccionCobranza) {
+            $destinatariosFijosCobranza = [
+                'erika.ortiz@__SPARTA_SECRET_REDACTED__.mx' => [
+                    'id' => (int) ($validos['erika.ortiz@__SPARTA_SECRET_REDACTED__.mx']['id'] ?? 0),
+                    'nombre' => $validos['erika.ortiz@__SPARTA_SECRET_REDACTED__.mx']['nombre'] ?? 'Erika Ortiz',
+                    'correo' => 'erika.ortiz@__SPARTA_SECRET_REDACTED__.mx',
+                    'user_name' => $validos['erika.ortiz@__SPARTA_SECRET_REDACTED__.mx']['user_name'] ?? 'ERIKA.ORTIZ',
+                ],
+                'sabuesos@__SPARTA_SECRET_REDACTED__.mx' => [
+                    'id' => 0,
+                    'nombre' => 'Sabuesos',
+                    'correo' => 'sabuesos@__SPARTA_SECRET_REDACTED__.mx',
+                    'user_name' => 'SABUESOS',
+                ],
+                'owen.ruiz@__SPARTA_SECRET_REDACTED__.mx' => [
+                    'id' => 0,
+                    'nombre' => 'Owen Ruiz',
+                    'correo' => 'owen.ruiz@__SPARTA_SECRET_REDACTED__.mx',
+                    'user_name' => 'OWEN.RUIZ',
+                ],
+            ];
+            foreach ($destinatariosFijosCobranza as $correoFijo => $datosFijos) {
+                $validos[$correoFijo] = $datosFijos;
+            }
+        }
+
+        $institucionales = array_filter($validos, static function ($row) {
+            return preg_match('/@__SPARTA_SECRET_REDACTED__\.mx$/i', (string) ($row['correo'] ?? '')) === 1;
+        });
+
+        return array_values(!empty($institucionales) ? $institucionales : $validos);
+    }
+
+    private function enviarCorreoRevisionDocumentalCandidatoIncorporado(
+        array $candidato,
+        string $nombreCompleto,
+        string $fechaIngreso,
+        string $fechaContratado,
+        string $urlPlataforma,
+        ?string $rutaLogoInline
+    ): array {
+        $destinatarios = $this->obtenerDestinatariosRevisionDocumental(self::candidatoEsDireccionCobranza($candidato));
+        $correos = array_values(array_map(static function ($row) {
+            return (string) ($row['correo'] ?? '');
+        }, $destinatarios));
+
+        if (empty($destinatarios)) {
+            return [
+                'enviado' => false,
+                'error' => 'No hay destinatarios con correo valido para revision documental.',
+                'destinatarios' => [],
+            ];
+        }
+
+        $puesto = trim((string) ($candidato['nombre_puesto'] ?? ''));
+        $departamento = trim((string) ($candidato['nombre_departamento'] ?? ''));
+        $numeroEmpleado = trim((string) ($candidato['numero_empleado'] ?? ''));
+        $asunto = 'Candidato incorporado a plantilla - ' . $nombreCompleto;
+        $puestoDepartamento = trim(implode(' / ', array_filter([$departamento, $puesto])));
+        $fechaIngresoTxt = $fechaIngreso !== '' ? htmlspecialchars($fechaIngreso) : 'No especificada';
+        $fechaContratadoTxt = $fechaContratado !== '' ? htmlspecialchars($fechaContratado) : 'No especificada';
+        $numeroEmpleadoTxt = $numeroEmpleado !== '' ? htmlspecialchars($numeroEmpleado) : 'Pendiente';
+        $puestoDepartamentoTxt = $puestoDepartamento !== '' ? htmlspecialchars($puestoDepartamento) : 'No especificado';
+        $logoRevisionHtml = $rutaLogoInline
+            ? '<img src="cid:logo__SPARTA_SECRET_REDACTED__" alt="Maxikash" width="72" style="display:block; margin:0 auto 16px auto; width:72px; max-width:72px; height:auto; border:0;">'
+            : '';
+
+        $cuerpoHtml = '<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><title>Candidato incorporado</title></head><body style="margin:0; padding:0; background-color:#e8eef4; font-family:\'Segoe UI\', Tahoma, sans-serif;">
+  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background-color:#e8eef4;"><tr><td align="center" style="padding:32px 16px;">
+    <table role="presentation" width="620" cellspacing="0" cellpadding="0" style="max-width:620px; background:#ffffff; border-radius:8px; box-shadow:0 2px 12px rgba(0,0,0,0.08);">
+      <tr><td style="background:#1e3a5f; padding:26px 32px 28px; border-radius:8px 8px 0 0; text-align:center;">' . $logoRevisionHtml . '<h1 style="margin:0; color:#ffffff; font-size:24px; line-height:1.25; font-weight:800;">Candidato incorporado a plantilla</h1><p style="margin:8px 0 0 0; color:rgba(255,255,255,0.9); font-size:14px;">Proceso de seleccion completado</p></td></tr>
+      <tr><td style="padding:32px;">
+        <p style="margin:0 0 16px 0; color:#1a202c; font-size:16px;">Hola,</p>
+        <p style="margin:0 0 18px 0; color:#2d3748; font-size:15px; line-height:1.6;">Te informamos que el candidato <strong>' . htmlspecialchars($nombreCompleto) . '</strong> concluyo satisfactoriamente sus validaciones, confirmo la firma del contrato y ya fue incorporado a la plantilla de la empresa.</p>
+        <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin:0 0 20px 0; border:1px solid #d9e2ec; border-radius:8px; overflow:hidden;">
+          <tr><td style="padding:12px 16px; background:#f7fafc; color:#4a5568; font-size:13px; font-weight:600;">Colaborador</td><td style="padding:12px 16px; color:#1a202c; font-size:14px;">' . htmlspecialchars($nombreCompleto) . '</td></tr>
+          <tr><td style="padding:12px 16px; background:#f7fafc; color:#4a5568; font-size:13px; font-weight:600; border-top:1px solid #d9e2ec;">Numero de empleado</td><td style="padding:12px 16px; color:#1a202c; font-size:14px; border-top:1px solid #d9e2ec;">' . $numeroEmpleadoTxt . '</td></tr>
+          <tr><td style="padding:12px 16px; background:#f7fafc; color:#4a5568; font-size:13px; font-weight:600; border-top:1px solid #d9e2ec;">Area / puesto</td><td style="padding:12px 16px; color:#1a202c; font-size:14px; border-top:1px solid #d9e2ec;">' . $puestoDepartamentoTxt . '</td></tr>
+          <tr><td style="padding:12px 16px; background:#f7fafc; color:#4a5568; font-size:13px; font-weight:600; border-top:1px solid #d9e2ec;">Fecha de ingreso</td><td style="padding:12px 16px; color:#1a202c; font-size:14px; border-top:1px solid #d9e2ec;">' . $fechaIngresoTxt . '</td></tr>
+          <tr><td style="padding:12px 16px; background:#f7fafc; color:#4a5568; font-size:13px; font-weight:600; border-top:1px solid #d9e2ec;">Alta en Sparta</td><td style="padding:12px 16px; color:#1a202c; font-size:14px; border-top:1px solid #d9e2ec;">' . $fechaContratadoTxt . '</td></tr>
+        </table>
+        <p style="margin:0 0 4px 0; color:#2d3748; font-size:15px; line-height:1.6;">No se requiere accion adicional de revision documental para este expediente. El registro quedo cerrado como incorporado a plantilla.</p>
+      </td></tr>
+      <tr><td style="padding:16px 32px 24px; background:#f7fafc; border-radius:0 0 8px 8px; border-top:1px solid #e2e8f0;"><p style="margin:0; color:#718096; font-size:12px;">Correo generado automaticamente por Sparta.</p></td></tr>
+    </table>
+  </td></tr></table>
+</body></html>';
+
+        $enviados = 0;
+        $errores = [];
+        foreach ($destinatarios as $destinatario) {
+            $correo = (string) ($destinatario['correo'] ?? '');
+            $nombre = (string) ($destinatario['nombre'] ?? '');
+            try {
+                if ($this->enviarCorreo($correo, $asunto, $cuerpoHtml, $nombre, $rutaLogoInline)) {
+                    $enviados++;
+                } else {
+                    $errores[] = $correo . ': ' . ($this->enviarCorreoUltimoError ?: 'No se pudo enviar.');
+                }
+            } catch (\Throwable $e) {
+                $errores[] = $correo . ': ' . $e->getMessage();
+            }
+        }
+
+        return [
+            'enviado' => $enviados > 0,
+            'error' => empty($errores) ? null : implode(' | ', $errores),
+            'destinatarios' => $correos,
         ];
     }
 
     private function copiarDocumentosCandidatoAGestion(int $idCandidato, int $idPersona): array
     {
+        CapHumDAO::asegurarDocumentoCartaCompromisoGestor();
         $resDocs = CandidatosDAO::getDocumentosCandidato($idCandidato);
         $docs = ($resDocs['success'] && is_array($resDocs['datos'] ?? null)) ? $resDocs['datos'] : [];
         $resultado = ['total' => count($docs), 'copiados' => 0, 'omitidos' => 0];
@@ -13551,6 +14593,7 @@ class CapHum extends Controller
         if (strpos($t, 'DOMICILIO') !== false) return 11;
         if (strpos($t, 'ACTA') !== false || strpos($t, 'NACIMIENTO') !== false) return 12;
         if (strpos($t, 'ESTUDIO') !== false || strpos($t, 'CERTIFICADO') !== false) return 13;
+        if (strpos($t, 'CARTA') !== false && strpos($t, 'COMPROMISO') !== false && strpos($t, 'GESTOR') !== false) return self::DOCUMENTO_CARTA_COMPROMISO_GESTOR;
         return 14;
     }
 
@@ -13690,6 +14733,32 @@ class CapHum extends Controller
 
     private function verificarContenidoDocumentoCandidatoAntesDeGuardar(int $tipoDocumento, string $rutaPdf): array
     {
+        if ($tipoDocumento === 1) {
+            $resultadoPaginasSolicitud = $this->validarPaginasPdfApi($rutaPdf, 2, 'La solicitud interna');
+            $paginasSolicitud = is_array($resultadoPaginasSolicitud)
+                ? (int) ($resultadoPaginasSolicitud['paginas'] ?? 0)
+                : $this->contarPaginasPdfCandidato($rutaPdf);
+            if (is_array($resultadoPaginasSolicitud) && ($resultadoPaginasSolicitud['valido'] ?? null) === false) {
+                return [
+                    'aceptar' => false,
+                    'mensaje' => trim((string) ($resultadoPaginasSolicitud['mensaje'] ?? 'La solicitud interna debe tener más de 1 hoja. Sube el PDF completo.')),
+                    'verificacion' => $resultadoPaginasSolicitud,
+                ];
+            }
+            if ($paginasSolicitud > 0 && $paginasSolicitud < 2) {
+                return [
+                    'aceptar' => false,
+                    'mensaje' => 'La solicitud interna debe tener más de 1 hoja. Sube el PDF completo.',
+                    'verificacion' => [
+                        'valido' => false,
+                        'rechazado' => true,
+                        'motivo_rechazo' => 'solicitud_interna_incompleta',
+                        'paginas' => $paginasSolicitud,
+                    ],
+                ];
+            }
+        }
+
         $resultado = null;
         if ($tipoDocumento === 3) {
             $resultado = $this->verificarActaApi($rutaPdf);
@@ -13751,6 +14820,59 @@ class CapHum extends Controller
             ];
         }
         return ['aceptar' => true, 'mensaje' => null, 'verificacion' => is_array($resultado) ? $resultado : null];
+    }
+
+    private function validarPaginasPdfApi(string $rutaPdf, int $minimoPaginas, string $nombreDocumento)
+    {
+        $configFile = defined('RAIZ') ? (RAIZ . '/config/config.ini') : (__DIR__ . '/../config/config.ini');
+        if (!is_file($configFile) || !is_file($rutaPdf)) {
+            return null;
+        }
+        $config = @parse_ini_file($configFile, true);
+        $apiUrl = trim($config['doc_verificacion']['api_url'] ?? '');
+        $apiKey = trim($config['doc_verificacion']['api_key'] ?? '');
+        if ($apiUrl === '' || $apiKey === '') {
+            return null;
+        }
+        $baseUrl = preg_replace('#/verificar\s*$#', '', $apiUrl);
+        $url = rtrim($baseUrl, '/') . '/validar-paginas-pdf';
+        $cfile = new \CURLFile($rutaPdf, 'application/pdf', basename($rutaPdf));
+        $ch = curl_init($url);
+        curl_setopt_array($ch, [
+            CURLOPT_POST => true,
+            CURLOPT_POSTFIELDS => [
+                'documento' => $cfile,
+                'minimo_paginas' => (string) max(1, $minimoPaginas),
+                'nombre_documento' => $nombreDocumento,
+            ],
+            CURLOPT_HTTPHEADER => ['X-API-Key: ' . $apiKey],
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_TIMEOUT => 8,
+            CURLOPT_CONNECTTIMEOUT => 3,
+        ]);
+        $body = curl_exec($ch);
+        $httpCode = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        curl_close($ch);
+        if ($body === false || $httpCode !== 200) {
+            return null;
+        }
+        $data = json_decode($body, true);
+        return is_array($data) ? $data : null;
+    }
+
+    private function contarPaginasPdfCandidato(string $rutaPdf): int
+    {
+        if (!is_file($rutaPdf)) {
+            return 0;
+        }
+        $contenido = @file_get_contents($rutaPdf);
+        if ($contenido === false || $contenido === '') {
+            return 0;
+        }
+        if (preg_match_all('/\/Type\s*\/Page\b/', $contenido, $coincidencias)) {
+            return count($coincidencias[0]);
+        }
+        return 0;
     }
 
     private function calcularMetricasDocumentosCandidato(array $documentos, int $idCandidato = 0): array
@@ -13830,6 +14952,107 @@ class CapHum extends Controller
             12 => 'diciembre',
         ];
         return (int) $dt->format('d') . ' de ' . $meses[(int) $dt->format('m')] . ' de ' . $dt->format('Y');
+    }
+
+    private function candidatoEsGestorCobranzaIngreso(array $candidato): bool
+    {
+        $puesto = $this->normalizarNombreParaCorreoInstitucional((string) ($candidato['nombre_puesto'] ?? ''));
+        if ($puesto === '') {
+            return false;
+        }
+        $puesto = str_replace(['-', '_'], ' ', $puesto);
+        return (bool) preg_match('/\bGESTOR\s*(1\s*7|8\s*(21|30))\b/', $puesto);
+    }
+
+    private function segmentoGestorCobranzaIngreso(array $candidato): string
+    {
+        $puesto = $this->normalizarNombreParaCorreoInstitucional((string) ($candidato['nombre_puesto'] ?? ''));
+        $puesto = str_replace(['-', '_'], ' ', $puesto);
+        if (preg_match('/\bGESTOR\s*1\s*7\b/', $puesto)) {
+            return '1_7';
+        }
+        if (preg_match('/\bGESTOR\s*8\s*(21|30)\b/', $puesto)) {
+            return '8_30';
+        }
+        return '';
+    }
+
+    private function obtenerGerentesDivisionalesParaIngreso(array $candidato): array
+    {
+        $idDepartamento = (int) ($candidato['id_departamento'] ?? 0);
+        if ($idDepartamento <= 0 || !$this->candidatoEsGestorCobranzaIngreso($candidato)) {
+            return [];
+        }
+
+        try {
+            $db = new \Core\Database();
+            $rows = $db->queryAll(
+                "SELECT
+                    p.id,
+                    TRIM(CONCAT_WS(' ', p.nombres, p.segundo_nombre, p.apellidop, p.apellidom)) AS nombre,
+                    p.correo,
+                    pu.nombre AS nombre_puesto
+                 FROM __SPARTA_SECRET_REDACTED__.persona p
+                 INNER JOIN __SPARTA_SECRET_REDACTED__.asigna_puesto ap ON ap.id_persona = p.id AND COALESCE(ap.activo, 1) = 1
+                 INNER JOIN __SPARTA_SECRET_REDACTED__.puesto pu ON pu.id = ap.id_puesto
+                 WHERE pu.departamento_id = :id_departamento
+                   AND UPPER(pu.nombre) LIKE 'GERENTE DIVISIONAL%'
+                   AND UPPER(pu.nombre) NOT LIKE '%PRUEBA%'
+                   AND COALESCE(p.estatus, '') <> 'Baja'
+                 ORDER BY pu.nivel DESC, p.nombres, p.apellidop",
+                ['id_departamento' => $idDepartamento]
+            );
+        } catch (\Throwable $e) {
+            error_log('CapHum::obtenerGerentesDivisionalesParaIngreso -> ' . $e->getMessage());
+            return [];
+        }
+
+        $segmento = $this->segmentoGestorCobranzaIngreso($candidato);
+        $destinatarios = [];
+        foreach ($rows as $row) {
+            $puestoGerente = str_replace(['-', '_'], ' ', $this->normalizarNombreParaCorreoInstitucional((string) ($row['nombre_puesto'] ?? '')));
+            if ($segmento === '1_7' && !preg_match('/\b1\s*7\b/', $puestoGerente)) {
+                continue;
+            }
+            if ($segmento === '8_30' && !preg_match('/\b8\s*(21|30)\b/', $puestoGerente)) {
+                continue;
+            }
+            $nombre = trim((string) ($row['nombre'] ?? ''));
+            $correoInfo = $this->resolverCorreoInstitucionalJefe($nombre, trim((string) ($row['correo'] ?? '')));
+            $correo = strtolower(trim((string) ($correoInfo['email'] ?? '')));
+            $key = $correo !== '' ? $correo : ('persona_' . (int) ($row['id'] ?? 0));
+            $destinatarios[$key] = [
+                'id' => (int) ($row['id'] ?? 0),
+                'nombre' => $nombre !== '' ? $nombre : 'Gerente Divisional',
+                'correo' => $correo,
+                'fuente' => (string) ($correoInfo['fuente'] ?? 'no_encontrado'),
+                'nombre_puesto' => (string) ($row['nombre_puesto'] ?? ''),
+            ];
+        }
+
+        return array_values($destinatarios);
+    }
+
+    private function construirCorreoIngresoJefeHtml(
+        string $nombreDestinatario,
+        string $nombreCompleto,
+        string $fechaIngresoTexto,
+        string $puesto,
+        string $departamento,
+        string $logoSrc
+    ): string {
+        return '<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Nuevo ingreso programado</title></head>
+<body style="margin:0; padding:0; background-color:#e8eef4; font-family:\'Segoe UI\', Tahoma, Geneva, Verdana, sans-serif;">
+<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background-color:#e8eef4;"><tr><td align="center" style="padding:32px 16px;">
+<table role="presentation" width="600" cellspacing="0" cellpadding="0" style="max-width:600px; width:100%; background:#ffffff; border-radius:8px; box-shadow:0 2px 12px rgba(0,0,0,0.08);">
+<tr><td style="background-color:#1e3a5f; padding:24px 12px 24px 32px; border-radius:8px 8px 0 0;"><table role="presentation" width="100%"><tr><td><h1 style="margin:0; color:#ffffff; font-size:22px; font-weight:600;">MaxiKash - Capital Humano</h1><p style="margin:6px 0 0 0; color:rgba(255,255,255,0.9); font-size:14px;">Nuevo ingreso programado</p></td><td style="text-align:right; width:160px;"><img src="' . htmlspecialchars($logoSrc) . '" alt="MaxiKash" width="160" style="max-height:70px; width:auto;" /></td></tr></table></td></tr>
+<tr><td style="padding:32px;"><p style="margin:0 0 16px 0; color:#1a202c; font-size:16px;">Hola ' . htmlspecialchars($nombreDestinatario) . ',</p>
+<p style="margin:0 0 16px 0; color:#2d3748; font-size:15px; line-height:1.6;">Te informamos que <strong>' . htmlspecialchars($nombreCompleto) . '</strong> tiene programada su incorporacion al equipo.</p>
+<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin:20px 0; background:#f7fafc; border:1px solid #d8e1ec; border-radius:8px;"><tr><td style="padding:18px 20px;"><p style="margin:0 0 8px 0; color:#1e3a5f; font-size:13px; font-weight:700; text-transform:uppercase;">Fecha de ingreso</p><p style="margin:0; color:#1a202c; font-size:20px; font-weight:700;">' . htmlspecialchars($fechaIngresoTexto) . '</p>' . ($puesto !== '' ? '<p style="margin:12px 0 0 0; color:#4a5568; font-size:14px;"><strong>Puesto:</strong> ' . htmlspecialchars($puesto) . '</p>' : '') . ($departamento !== '' ? '<p style="margin:4px 0 0 0; color:#4a5568; font-size:14px;"><strong>Departamento:</strong> ' . htmlspecialchars($departamento) . '</p>' : '') . '</td></tr></table>
+<p style="margin:0 0 16px 0; color:#2d3748; font-size:15px; line-height:1.6;">Por favor considera esta fecha para preparar su recepcion, induccion operativa y cualquier actividad necesaria para su integracion.</p>
+<p style="margin:24px 0 0 0; color:#1a202c; font-size:15px; font-weight:600;">Equipo de Capital Humano - Maxikash</p></td></tr>
+<tr><td style="padding:16px 32px 24px; background:#f7fafc; border-radius:0 0 8px 8px; border-top:1px solid #e2e8f0;"><p style="margin:0; color:#718096; font-size:12px;">Correo generado automaticamente.</p></td></tr>
+</table></td></tr></table></body></html>';
     }
 
     private function normalizarNombreParaCorreoInstitucional($valor): string
@@ -13975,8 +15198,17 @@ class CapHum extends Controller
                 return $base;
             }
         }
-        return (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? 'https' : 'http')
-            . '://' . ($_SERVER['HTTP_HOST'] ?? 'localhost');
+        $scheme = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on') ? 'https' : 'http';
+        $host = $_SERVER['HTTP_HOST'] ?? 'localhost';
+        $scriptName = str_replace('\\', '/', (string) ($_SERVER['SCRIPT_NAME'] ?? ''));
+        $basePath = '';
+        if ($scriptName !== '') {
+            $basePath = rtrim(str_replace('\\', '/', dirname($scriptName)), '/');
+            if ($basePath === '.' || $basePath === '/') {
+                $basePath = '';
+            }
+        }
+        return $scheme . '://' . $host . $basePath;
     }
 
     /**
@@ -14705,6 +15937,25 @@ class CapHum extends Controller
     private function subirDocumentosCandidatoProcesar($token)
     {
         header('Content-Type: application/json; charset=utf-8');
+        $iniSizeToBytes = static function ($value): int {
+            $value = trim((string) $value);
+            if ($value === '') return 0;
+            $unit = strtolower(substr($value, -1));
+            $num = (float) $value;
+            if ($unit === 'g') return (int) ($num * 1024 * 1024 * 1024);
+            if ($unit === 'm') return (int) ($num * 1024 * 1024);
+            if ($unit === 'k') return (int) ($num * 1024);
+            return (int) $num;
+        };
+        $contentLength = (int) ($_SERVER['CONTENT_LENGTH'] ?? 0);
+        $postMaxBytes = $iniSizeToBytes(ini_get('post_max_size'));
+        if ($postMaxBytes > 0 && $contentLength > $postMaxBytes) {
+            echo json_encode(self::respuesta(
+                false,
+                'Los archivos enviados pesan mas de lo permitido por el servidor. Sube menos documentos por tanda o comprime los PDFs antes de intentar de nuevo.'
+            ));
+            return;
+        }
         $res = CandidatosDAO::getCandidatoPorToken($token);
         if (!$res['success'] || empty($res['datos'])) {
             echo json_encode(self::respuesta(false, $res['mensaje'] ?? 'Enlace no válido.'));
@@ -16876,6 +18127,7 @@ class CapHum extends Controller
             // Tipos de documentos que solo permiten un archivo
             const documentosUnicos = [
                 'Acta de Nacimiento',
+                'Carta de compromiso del Gestor',
                 'Certificado de Estudios',
                 'Comprobante de Domicilio',
                 'CURP',
@@ -16972,6 +18224,7 @@ class CapHum extends Controller
                     'RFC': 10,
                     'Comprobante de Domicilio': 11,
                     'Acta de Nacimiento': 12,
+                    'Carta de compromiso del Gestor': 27,
                     'Certificado de Estudios': 13,
                     'Referencias Laborales': 14,
                     'Documento baja': 15,
@@ -17100,10 +18353,17 @@ class CapHum extends Controller
                     10: 'RFC',
                     11: 'Comprobante de Domicilio',
                     12: 'Acta de Nacimiento',
+                    27: 'Carta de compromiso del Gestor',
                     13: 'Certificado de Estudios',
                     14: 'Referencias Laborales',
                     15: 'Documento baja',
-                    16: 'Documento reingreso'
+                    16: 'Documento reingreso',
+                    17: 'Solicitud de empleo Maxikash',
+                    18: 'CV',
+                    22: 'Constancia de situacion fiscal (RFC)',
+                    23: 'NSS',
+                    24: 'Carta de no adeudo',
+                    25: 'Estado de cuenta'
                 };
                 return mapeo[idDocumento] || 'Documento';
             }
@@ -17121,6 +18381,9 @@ class CapHum extends Controller
                     const nombreDoc = obtenerNombreDocumento(idDoc);
                     if (nombreDoc && !permiteMultiplesArchivos(nombreDoc)) {
                         documentosUnicosSubidos.add(nombreDoc);
+                    }
+                    if (Number(idDoc) === 22) {
+                        documentosUnicosSubidos.add('RFC');
                     }
                 });
 
@@ -17255,6 +18518,7 @@ class CapHum extends Controller
                 'RFC': 10,
                 'Comprobante de Domicilio': 11,
                 'Acta de Nacimiento': 12,
+                'Carta de compromiso del Gestor': 27,
                 'Certificado de Estudios': 13,
                 'Referencias Laborales': 14,
                 'Documento baja': 15,
@@ -17413,6 +18677,7 @@ class CapHum extends Controller
         self::set("puedeRegistrarAusenciaGestion", in_array(self::MODULO_GESTION_AUSENCIAS, $modulos));
         self::set("puedeDarBajaGestion", in_array(self::MODULO_GESTION_DAR_BAJA, $modulos));
         self::set("puedeVisualizarContrasenaGestion", in_array(self::MODULO_GESTION_VISUALIZAR_CONTRASENA, $modulos));
+        self::set("puedeRegistrarPersonaGestion", self::puedeRegistrarPersonaGestion());
         self::set("puedeEditarTodos", in_array(self::MODULO_GESTION_EDITAR_USUARIO, $modulos));
         self::set("puedeGestionarPermisos", self::puedeGestionarPermisosEspeciales());
         self::set("puedeActualizarInfo", in_array(self::MODULO_ACTUALIZAR_DATOS_RRHH, $modulos));
@@ -17985,6 +19250,77 @@ class CapHum extends Controller
             );
         }
         self::respuestaJSON($res);
+    }
+
+    public function cartaCompromisoGestores()
+    {
+        if (!self::puedeValidarCartaCompromisoGestor()) {
+            header('Location: /' . VISTA_DEFECTO);
+            return;
+        }
+
+        CapHumDAO::asegurarModuloAccesosCapitalHumano();
+        CapHumDAO::asegurarDocumentoCartaCompromisoGestor();
+        self::set('titulo', 'Carta compromiso Gestor | ' . CONFIGURACION['EMPRESA']);
+        self::render('caphum_carta_compromiso_gestores');
+    }
+
+    public function getGestoresPendientesCartaCompromiso()
+    {
+        if (!self::puedeValidarCartaCompromisoGestor()) {
+            self::respuestaJSON(['success' => false, 'mensaje' => 'No tienes permiso para consultar este modulo.', 'datos' => []]);
+            return;
+        }
+
+        $res = CapHumDAO::getGestoresPendientesCartaCompromiso();
+        if (!empty($res['success']) && is_array($res['datos'] ?? null)) {
+            foreach ($res['datos'] as &$row) {
+                $idPersona = (int) ($row['id_persona'] ?? 0);
+                $row['url_subida'] = $idPersona > 0 ? $this->urlSubirCartaCompromisoGestorPersona($idPersona) : '';
+                $row['url_formato'] = $this->urlCartaCompromisoGestorPdf();
+            }
+            unset($row);
+        }
+        self::respuestaJSON($res);
+    }
+
+    public function enviarRecordatorioCartaCompromisoGestor()
+    {
+        if (!self::puedeValidarCartaCompromisoGestor()) {
+            self::respuestaJSON(['success' => false, 'mensaje' => 'No tienes permiso para enviar recordatorios.']);
+            return;
+        }
+
+        $payload = json_decode(file_get_contents('php://input'), true);
+        if (!is_array($payload)) {
+            $payload = $_POST;
+        }
+        $idPersona = (int) ($payload['id_persona'] ?? 0);
+        $resPersona = CapHumDAO::getPersonaGestorCartaCompromiso($idPersona);
+        if (empty($resPersona['success']) || empty($resPersona['datos'])) {
+            self::respuestaJSON(['success' => false, 'mensaje' => $resPersona['mensaje'] ?? 'No se encontro el gestor.']);
+            return;
+        }
+
+        $persona = $resPersona['datos'];
+        if (!empty($persona['carta_subida'])) {
+            self::respuestaJSON(['success' => true, 'mensaje' => 'El gestor ya tiene la carta cargada en su expediente.']);
+            return;
+        }
+
+        $correo = trim((string) ($persona['correo'] ?? ''));
+        if ($correo === '' || !filter_var($correo, FILTER_VALIDATE_EMAIL)) {
+            self::respuestaJSON(['success' => false, 'mensaje' => 'El gestor no tiene un correo valido registrado.']);
+            return;
+        }
+
+        $enviado = $this->enviarCorreoRecordatorioCartaCompromisoGestor($persona);
+        if (!$enviado) {
+            self::respuestaJSON(['success' => false, 'mensaje' => $this->enviarCorreoUltimoError ?: 'No se pudo enviar el correo.']);
+            return;
+        }
+
+        self::respuestaJSON(['success' => true, 'mensaje' => 'Recordatorio enviado correctamente a ' . $correo . '.']);
     }
 
     public function getDetalles()
@@ -18919,6 +20255,14 @@ public function getEstadosMunicipiosMexico()
 
         // Validaciones básicas (todos los campos de registro obligatorios; id_jefe puede estar vacío si es máximo rango)
         $tipoRegistro = strtolower(trim((string)($data['tipo_registro'] ?? 'persona')));
+        if ($tipoRegistro !== 'vacante' && !self::puedeRegistrarPersonaGestion()) {
+            header('Content-Type: application/json; charset=utf-8');
+            echo json_encode([
+                'success' => false,
+                'mensaje' => 'No tienes permiso para registrar personas. Solo puedes registrar vacantes.'
+            ]);
+            return;
+        }
         if ($tipoRegistro === 'vacante') {
             foreach (['departamento_id' => 'Departamento', 'id_puesto' => 'Puesto'] as $field => $nombre) {
                 if (empty($data[$field])) {
@@ -19665,6 +21009,8 @@ public function getEstadosMunicipiosMexico()
     public function subirDocumentosPersona()
     {
         try {
+            CapHumDAO::asegurarDocumentoCartaCompromisoGestor();
+
             if (!self::puedeAccionGestion(self::MODULO_GESTION_CARGAR_DOCUMENTO)) {
                 self::respuestaJSON([
                     'success' => false,
@@ -19876,15 +21222,33 @@ public function getEstadosMunicipiosMexico()
             8 => 'CURP',
             9 => 'INE',
             10 => 'RFC',
-            11 => 'Comprobante_Domicilio',
-            12 => 'Acta_Nacimiento',
-            13 => 'Certificado_Estudios',
-            14 => 'Referencias_Laborales',
-            15 => 'Documento_Baja',
-            16 => 'Documento_Reingreso',
+            11 => 'Comprobante_de_domicilio',
+            12 => 'Acta_de_nacimiento',
+            13 => 'Certificado_de_estudios',
+            14 => 'Referencias_laborales',
+            15 => 'Documento_de_baja',
+            16 => 'Documento_de_reingreso',
+            17 => 'Solicitud_de_empleo_Maxikash',
+            18 => 'CV',
+            22 => 'Constancia_de_situacion_fiscal_RFC',
+            23 => 'NSS',
+            24 => 'Carta_de_no_adeudo',
+            25 => 'Estado_de_cuenta',
         ];
 
         return $nombres[$idDocumento] ?? 'Documento';
+    }
+
+    private function nombreArchivoDocumentoPersona(int $idDocumento, array &$nombresUsados, string $extension = 'pdf'): string
+    {
+        $base = $this->nombreSeguroDescarga($this->nombreDocumentoPersona($idDocumento));
+        $extension = strtolower(trim($extension, '. '));
+        $extension = $extension !== '' ? $extension : 'pdf';
+
+        $contador = ($nombresUsados[$base] ?? 0) + 1;
+        $nombresUsados[$base] = $contador;
+
+        return $base . ($contador > 1 ? '_' . $contador : '') . '.' . $extension;
     }
 
     private function nombreSeguroDescarga(string $nombre): string
@@ -20195,6 +21559,7 @@ public function getEstadosMunicipiosMexico()
 
             $archivos = [];
             $nombrePersonaDescarga = '';
+            $nombresUsados = [];
             foreach ($documentos as $doc) {
                 $idCarga = (int)($doc['id'] ?? 0);
                 $idDocumento = (int)($doc['id_documento'] ?? 0);
@@ -20210,11 +21575,10 @@ public function getEstadosMunicipiosMexico()
                     continue;
                 }
                 $formatoDoc = $formatosPorId[$idCarga] ?? $formato;
-                $base = $this->nombreDocumentoPersona($idDocumento) . '_' . basename((string)$doc['archivo']);
                 $archivos[] = [
                     'id' => $idCarga,
                     'ruta' => $ruta,
-                    'nombre' => $this->nombreSeguroDescarga($base),
+                    'nombre' => $this->nombreArchivoDocumentoPersona($idDocumento, $nombresUsados, pathinfo($ruta, PATHINFO_EXTENSION) ?: 'pdf'),
                     'formato' => $formatoDoc,
                 ];
             }

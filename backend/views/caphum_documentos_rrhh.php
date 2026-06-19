@@ -220,7 +220,8 @@
                 <div class="d-flex flex-wrap align-items-center gap-2">
                     <select class="form-select form-select-sm" id="docsRrhhFiltro" style="width: 170px;">
                         <option value="">Todos</option>
-                        <option value="faltantes">Con faltantes</option>
+                        <option value="sin_documentos">Sin documentos</option>
+                        <option value="parcial">Parcial</option>
                         <option value="completos">Completos</option>
                     </select>
                     <label class="mb-0" for="docsRrhhBuscar">Buscar:</label>
@@ -886,8 +887,11 @@
             ].join(' ').toLowerCase();
             const coincideTexto = !q || texto.includes(q);
             const faltantes = Number(col.total_faltantes || 0);
+            const cargados = Number(col.total_cargados || 0);
+            const requeridos = Number(col.total_requeridos || 0);
             const coincideFiltro = !filtro
-                || (filtro === 'faltantes' && faltantes > 0)
+                || (filtro === 'sin_documentos' && cargados === 0)
+                || (filtro === 'parcial' && cargados > 0 && cargados < requeridos)
                 || (filtro === 'completos' && faltantes === 0);
             return coincideTexto && coincideFiltro;
         });

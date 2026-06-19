@@ -849,7 +849,7 @@ class CapHumRrhh extends Model
             self::completarPuestoRrhhDesdeTexto($db, $rrhh);
 
             $numeroEmpleado = self::texto($persona['numero_empleado'] ?? '', 40);
-            if (!$numeroEmpleado) {
+            if (!$numeroEmpleado || strcasecmp($numeroEmpleado, 'PEND') === 0 || strcasecmp($numeroEmpleado, 'PENDIENTE') === 0) {
                 $numeroEmpleado = self::siguienteNumeroEmpleadoLibre($db);
             } elseif ($db->queryOne('SELECT id FROM __SPARTA_SECRET_REDACTED__.persona WHERE numero_empleado = :numero LIMIT 1', ['numero' => $numeroEmpleado])) {
                 return self::resultado(false, 'Ya existe una persona con ese numero de empleado.');
