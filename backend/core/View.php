@@ -167,6 +167,7 @@ function getMenu(): string
             'subItems' => [
                 ['label' => 'Gestión de Personal',          'url' => '/caphum/gestion',                  'modulos' => [4]],
                 ['label' => 'Accesos Capital Humano',        'url' => '/caphum/accesosCapitalHumano',     'modulos' => [140]],
+                ['label' => 'Carta compromiso Gestor',       'url' => '/caphum/cartaCompromisoGestores',  'modulos' => [144]],
                 ['label' => 'Mis documentos',               'url' => '/caphum/documentosColaborador',    'modulos' => [92]],
                 ['label' => 'Vacaciones',                   'url' => '/caphum/vacaciones',               'modulos' => [4, 92]],
                 ['label' => 'Panel vacaciones',             'url' => '/caphum/vacacionesAdmin',          'modulos' => [4]],

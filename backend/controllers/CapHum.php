@@ -34,6 +34,7 @@ class CapHum extends Controller
     private const MODULO_VALIDADOR_DOCUMENTAL_RRHH_CANDIDATOS = 142;
     private const MODULO_GESTION_REGISTRAR_PERSONA = 143;
     private const MODULO_ACCESOS_CAPITAL_HUMANO = 140;
+    private const MODULO_VALIDAR_CARTA_COMPROMISO_GESTOR = 144;
     private const DOCUMENTO_CARTA_COMPROMISO_GESTOR = 27;
     private const TIPO_CARTA_COMPROMISO_GESTOR = 'Carta de compromiso del Gestor';
     private const DIRECCION_COBRANZA_ID = 12;
@@ -253,6 +254,12 @@ class CapHum extends Controller
     {
         return (int) ($_SESSION['usuario_id'] ?? 0) === 1
             || self::tieneModuloWeb(self::MODULO_VALIDADOR_DOCUMENTAL_RRHH_CANDIDATOS);
+    }
+
+    private static function puedeValidarCartaCompromisoGestor(): bool
+    {
+        return (int) ($_SESSION['usuario_id'] ?? 0) === 1
+            || self::tieneModuloWeb(self::MODULO_VALIDAR_CARTA_COMPROMISO_GESTOR);
     }
 
     private static function puedeValidarDocumentalAlgunFlujoCandidatos(): bool
@@ -11170,6 +11177,44 @@ class CapHum extends Controller
         exit;
     }
 
+    public function subirCartaCompromisoGestorPersona($token = null)
+    {
+        $token = $token ?: (isset($_GET['token']) ? trim((string) $_GET['token']) : '');
+        $persona = $this->resolverPersonaCartaCompromisoDesdeToken($token);
+        if (!$persona) {
+            $this->subirCartaCompromisoGestorError('Enlace no valido o expirado.');
+            return;
+        }
+
+        CapHumDAO::asegurarDocumentoCartaCompromisoGestor();
+        $mensajeExito = '';
+        $mensajeError = '';
+        if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+            $procesado = $this->procesarCartaCompromisoGestorPersona($persona);
+            if (!empty($procesado['success'])) {
+                $mensajeExito = $procesado['mensaje'] ?? 'Carta subida correctamente.';
+                $personaRes = CapHumDAO::getPersonaGestorCartaCompromiso((int) ($persona['id_persona'] ?? 0));
+                if (!empty($personaRes['success']) && !empty($personaRes['datos'])) {
+                    $persona = $personaRes['datos'];
+                }
+            } else {
+                $mensajeError = $procesado['mensaje'] ?? 'No se pudo subir la carta.';
+            }
+        }
+
+        $this->set('token', $token);
+        $this->set('nombre_candidato', trim((string) ($persona['nombre_completo'] ?? 'Gestor')));
+        $this->set('puesto_candidato', trim((string) ($persona['puestos'] ?? 'Gestor')));
+        $this->set('carta_pdf_url', $this->urlCartaCompromisoGestorPdf());
+        $this->set('mensaje_exito', $mensajeExito);
+        $this->set('mensaje_error', $mensajeError);
+        $this->set('carta_subida', !empty($persona['carta_subida']));
+        $this->set('modo_prueba', false);
+        $this->set('subida_bloqueada', false);
+        $this->set('base_url_app', rtrim($this->obtenerBaseUrlApp(), '/'));
+        $this->render('subir_carta_compromiso_gestor', true);
+    }
+
     /**
      * Llenar solicitud en línea: muestra el formulario HTML (solicitud___SPARTA_SECRET_REDACTED___v3) con datos del candidato prellenados.
      * No requiere login. URL: /CapHum/llenarSolicitudEnLinea/{token}
@@ -11693,6 +11738,58 @@ class CapHum extends Controller
         return ['success' => true, 'mensaje' => 'Carta subida correctamente.'];
     }
 
+    private function procesarCartaCompromisoGestorPersona(array $persona): array
+    {
+        $idPersona = (int) ($persona['id_persona'] ?? 0);
+        if ($idPersona <= 0) {
+            return ['success' => false, 'mensaje' => 'Gestor no valido.'];
+        }
+        if ($this->personaTieneCartaCompromisoGestor($idPersona)) {
+            return ['success' => true, 'mensaje' => 'La carta de compromiso del Gestor ya fue subida.'];
+        }
+
+        $archivo = $_FILES['archivo_carta'] ?? null;
+        if (!$archivo || ($archivo['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_OK || (int) ($archivo['size'] ?? 0) <= 0) {
+            return ['success' => false, 'mensaje' => 'Selecciona la carta firmada en PDF.'];
+        }
+
+        $nombreOriginal = basename((string) ($archivo['name'] ?? ''));
+        $tmp = (string) ($archivo['tmp_name'] ?? '');
+        $ext = strtolower(pathinfo($nombreOriginal, PATHINFO_EXTENSION));
+        if ($ext !== 'pdf' || !SecureUpload::validateMime($tmp, SecureUpload::MIME_PDF) || !$this->esPdfValidoBasico($tmp)) {
+            return ['success' => false, 'mensaje' => 'Solo se acepta la carta firmada en formato PDF.'];
+        }
+
+        try {
+            $directorio = sparta_uploads_join('documentos') . DIRECTORY_SEPARATOR;
+            SecureUpload::ensureDir($directorio);
+            $nombreFinal = 'carta_gestor_p' . $idPersona . '_' . SecureUpload::generateSafeFilename('pdf');
+            if (!move_uploaded_file($tmp, $directorio . $nombreFinal)) {
+                return ['success' => false, 'mensaje' => 'No se pudo guardar la carta. Intenta nuevamente.'];
+            }
+
+            $db = new \Core\Database();
+            $fechaCarga = (new \DateTimeImmutable('now', new \DateTimeZone('America/Mexico_City')))->format('Y-m-d H:i:s');
+            $db->CRUD(
+                "INSERT INTO __SPARTA_SECRET_REDACTED__.carga_documento_persona
+                 (id_persona, id_documento, archivo, fecha_carga, valido)
+                 VALUES (:id_persona, :id_documento, :archivo, :fecha_carga, 1)",
+                [
+                    'id_persona' => $idPersona,
+                    'id_documento' => self::DOCUMENTO_CARTA_COMPROMISO_GESTOR,
+                    'archivo' => $nombreFinal,
+                    'fecha_carga' => $fechaCarga,
+                ]
+            );
+
+            $this->notificarCartaCompromisoGestorSubidaPersona($persona);
+            return ['success' => true, 'mensaje' => 'Carta subida correctamente. Gracias, ya quedo integrada a tu expediente.'];
+        } catch (\Throwable $e) {
+            error_log('CapHum::procesarCartaCompromisoGestorPersona -> ' . $e->getMessage());
+            return ['success' => false, 'mensaje' => 'No se pudo registrar la carta. Intenta nuevamente.'];
+        }
+    }
+
     private function candidatoEsPuestoGestor(array $candidato): bool
     {
         $puesto = $this->normalizarTipoDocumentoCandidatoMetricas((string) ($candidato['nombre_puesto'] ?? ''));
@@ -11710,6 +11807,12 @@ class CapHum extends Controller
             }
         }
         return false;
+    }
+
+    private function personaTieneCartaCompromisoGestor(int $idPersona): bool
+    {
+        $resDocs = CapHumDAO::getDocumentosPersona($idPersona, self::DOCUMENTO_CARTA_COMPROMISO_GESTOR);
+        return !empty($resDocs['success']) && !empty($resDocs['datos']);
     }
 
     private function resolverPersonaGestionDesdeCandidato(array $candidato): int
@@ -11809,6 +11912,96 @@ class CapHum extends Controller
         return rtrim($this->obtenerBaseUrlApp(), '/') . '/CapHum/descargarCartaCompromisoGestor';
     }
 
+    private function urlSubirCartaCompromisoGestorPersona(int $idPersona): string
+    {
+        return rtrim($this->obtenerBaseUrlApp(), '/') . '/CapHum/subirCartaCompromisoGestorPersona/' . rawurlencode($this->generarTokenCartaCompromisoPersona($idPersona));
+    }
+
+    private function enviarCorreoRecordatorioCartaCompromisoGestor(array $persona): bool
+    {
+        $nombreCompleto = trim((string) ($persona['nombre_completo'] ?? 'Gestor'));
+        $correo = trim((string) ($persona['correo'] ?? ''));
+        $puesto = trim((string) ($persona['puestos'] ?? 'Gestor'));
+        if ($correo === '' || !filter_var($correo, FILTER_VALIDATE_EMAIL)) {
+            $this->enviarCorreoUltimoError = 'Correo del gestor no valido.';
+            return false;
+        }
+
+        $base = $this->obtenerBaseUrlApp();
+        $dirPublic = defined('RAIZ') ? dirname(RAIZ) . '/public' : (__DIR__ . '/../../public');
+        $rutaLogoInline = null;
+        if (is_file($dirPublic . '/assets/img/logo_correo.png')) {
+            $rutaLogoInline = realpath($dirPublic . '/assets/img/logo_correo.png');
+        } elseif (is_file($dirPublic . '/assets/img/logo___SPARTA_SECRET_REDACTED__.png')) {
+            $rutaLogoInline = realpath($dirPublic . '/assets/img/logo___SPARTA_SECRET_REDACTED__.png');
+        }
+        $logoSrc = $rutaLogoInline ? 'cid:logo__SPARTA_SECRET_REDACTED__' : (rtrim($base, '/') . '/assets/img/logo_correo.png');
+        $urlCartaPdf = $this->urlCartaCompromisoGestorPdf();
+        $urlSubirCarta = $this->urlSubirCartaCompromisoGestorPersona((int) ($persona['id_persona'] ?? 0));
+
+        $cuerpo = '<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><title>Carta de compromiso pendiente</title></head><body style="margin:0; padding:0; background-color:#e8eef4; font-family:\'Segoe UI\', Tahoma, sans-serif;">
+  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background-color:#e8eef4;"><tr><td align="center" style="padding:32px 16px;">
+    <table role="presentation" width="600" cellspacing="0" cellpadding="0" style="max-width:600px; background-color:#ffffff; border-radius:8px; box-shadow:0 2px 12px rgba(0,0,0,0.08); overflow:hidden;">
+      <tr><td style="background-color:#1e3a5f; padding:28px 32px 30px; text-align:center;"><img src="' . htmlspecialchars($logoSrc) . '" alt="Maxikash" width="84" style="display:block; margin:0 auto 18px auto; width:84px; max-width:84px; height:auto; border:0;"><h1 style="margin:0; color:#ffffff; font-size:25px; line-height:1.25; font-weight:800;">Carta de compromiso pendiente</h1><p style="margin:10px 0 0 0; color:rgba(255,255,255,0.92); font-size:15px;">Expediente de Gestor</p></td></tr>
+      <tr><td style="padding:32px;">
+        <p style="margin:0 0 16px 0; color:#1a202c; font-size:16px;">Hola <strong>' . htmlspecialchars($nombreCompleto) . '</strong>,</p>
+        <p style="margin:0 0 16px 0; color:#2d3748; font-size:15px; line-height:1.6;">Detectamos que aun falta integrar tu <strong>Carta de compromiso del Gestor</strong> a tu expediente. Este documento es necesario para completar tu expediente correspondiente al puesto <strong>' . htmlspecialchars($puesto) . '</strong>.</p>
+        <p style="margin:0 0 20px 0; color:#2d3748; font-size:15px; line-height:1.6;">Por favor descarga el formato, llenalo, firmalo y sube el PDF firmado desde el enlace seguro. Si ya realizaste la carga recientemente, puedes omitir este mensaje.</p>
+        <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin:0 0 22px 0; border:1px solid #f6ad55; border-radius:8px; overflow:hidden; background:#fffaf0;">
+          <tr><td style="padding:14px 16px; color:#1a202c; font-size:14px; line-height:1.6;"><strong>Pasos:</strong><br>1. Descarga el formato.<br>2. Llena y firma la carta.<br>3. Sube el archivo final en PDF.</td></tr>
+          <tr><td style="padding:0 16px 16px 16px;"><a href="' . htmlspecialchars($urlCartaPdf) . '" style="display:inline-block; margin:0 10px 8px 0; padding:10px 16px; background-color:#d99a32; color:#ffffff !important; text-decoration:none; border-radius:8px; font-weight:700; font-size:14px;">Descargar formato</a><a href="' . htmlspecialchars($urlSubirCarta) . '" style="display:inline-block; margin:0 0 8px 0; padding:10px 16px; background-color:#1e3a5f; color:#ffffff !important; text-decoration:none; border-radius:8px; font-weight:700; font-size:14px;">Subir PDF firmado</a></td></tr>
+        </table>
+        <p style="margin:24px 0 0 0; color:#1a202c; font-size:15px; font-weight:600;">Equipo de Capital Humano - Maxikash</p>
+      </td></tr>
+      <tr><td style="padding:16px 32px 24px; background-color:#f7fafc; border-top:1px solid #e2e8f0;"><p style="margin:0; color:#718096; font-size:12px;">Correo generado automaticamente.</p></td></tr>
+    </table>
+  </td></tr></table>
+</body></html>';
+
+        return $this->enviarCorreo($correo, 'Carta de compromiso del Gestor pendiente', $cuerpo, $nombreCompleto, $rutaLogoInline);
+    }
+
+    private function generarTokenCartaCompromisoPersona(int $idPersona): string
+    {
+        $idPersona = max(0, $idPersona);
+        $payload = [
+            'v' => 1,
+            'id' => $idPersona,
+            'sig' => hash_hmac('sha256', (string) $idPersona, (string) TOKEN),
+        ];
+        return rtrim(strtr(base64_encode(json_encode($payload)), '+/', '-_'), '=');
+    }
+
+    private function resolverPersonaCartaCompromisoDesdeToken(string $token): ?array
+    {
+        $token = trim($token);
+        if ($token === '') {
+            return null;
+        }
+
+        $base64 = strtr($token, '-_', '+/');
+        $base64 .= str_repeat('=', (4 - strlen($base64) % 4) % 4);
+        $json = base64_decode($base64, true);
+        if ($json === false) {
+            return null;
+        }
+
+        $payload = json_decode($json, true);
+        if (!is_array($payload)) {
+            return null;
+        }
+
+        $idPersona = (int) ($payload['id'] ?? 0);
+        $sig = (string) ($payload['sig'] ?? '');
+        $esperada = hash_hmac('sha256', (string) $idPersona, (string) TOKEN);
+        if ($idPersona <= 0 || $sig === '' || !hash_equals($esperada, $sig)) {
+            return null;
+        }
+
+        $res = CapHumDAO::getPersonaGestorCartaCompromiso($idPersona);
+        return (!empty($res['success']) && !empty($res['datos'])) ? $res['datos'] : null;
+    }
+
     private function notificarCartaCompromisoGestorSubida(array $candidato): void
     {
         try {
@@ -11830,6 +12023,25 @@ class CapHum extends Controller
             Notificacion::crearParaPersonas($idPersonas, 'gestor_carta_compromiso_subida', $mensaje, null);
         } catch (\Throwable $e) {
             error_log('CapHum::notificarCartaCompromisoGestorSubida -> ' . $e->getMessage());
+        }
+    }
+
+    private function notificarCartaCompromisoGestorSubidaPersona(array $persona): void
+    {
+        try {
+            $idPersonas = Notificacion::getPersonasConModulos([self::MODULO_VALIDADOR_DOCUMENTAL_CANDIDATOS]);
+            if (empty($idPersonas)) {
+                error_log('CapHum: carta de compromiso gestor subida sin usuarios con modulo Validador documental.');
+                return;
+            }
+            $nombreCompleto = trim((string) ($persona['nombre_completo'] ?? ''));
+            if ($nombreCompleto === '') {
+                $nombreCompleto = 'Un gestor';
+            }
+            $mensaje = 'Gestor ' . $nombreCompleto . ' ya subio su carta de compromiso.';
+            Notificacion::crearParaPersonas($idPersonas, 'gestor_carta_compromiso_subida', $mensaje, null);
+        } catch (\Throwable $e) {
+            error_log('CapHum::notificarCartaCompromisoGestorSubidaPersona -> ' . $e->getMessage());
         }
     }
 
@@ -14197,19 +14409,30 @@ class CapHum extends Controller
             ];
         }
         if ($direccionCobranza) {
-            $validos['sabuesos@__SPARTA_SECRET_REDACTED__.mx'] = [
-                'id' => 0,
-                'nombre' => 'Sabuesos',
-                'correo' => 'sabuesos@__SPARTA_SECRET_REDACTED__.mx',
-                'user_name' => 'SABUESOS',
+            $destinatariosFijosCobranza = [
+                'erika.ortiz@__SPARTA_SECRET_REDACTED__.mx' => [
+                    'id' => (int) ($validos['erika.ortiz@__SPARTA_SECRET_REDACTED__.mx']['id'] ?? 0),
+                    'nombre' => $validos['erika.ortiz@__SPARTA_SECRET_REDACTED__.mx']['nombre'] ?? 'Erika Ortiz',
+                    'correo' => 'erika.ortiz@__SPARTA_SECRET_REDACTED__.mx',
+                    'user_name' => $validos['erika.ortiz@__SPARTA_SECRET_REDACTED__.mx']['user_name'] ?? 'ERIKA.ORTIZ',
+                ],
+                'sabuesos@__SPARTA_SECRET_REDACTED__.mx' => [
+                    'id' => 0,
+                    'nombre' => 'Sabuesos',
+                    'correo' => 'sabuesos@__SPARTA_SECRET_REDACTED__.mx',
+                    'user_name' => 'SABUESOS',
+                ],
+                'owen.ruiz@__SPARTA_SECRET_REDACTED__.mx' => [
+                    'id' => 0,
+                    'nombre' => 'Owen Ruiz',
+                    'correo' => 'owen.ruiz@__SPARTA_SECRET_REDACTED__.mx',
+                    'user_name' => 'OWEN.RUIZ',
+                ],
             ];
+            foreach ($destinatariosFijosCobranza as $correoFijo => $datosFijos) {
+                $validos[$correoFijo] = $datosFijos;
+            }
         }
-        $validos['owen.ruiz@__SPARTA_SECRET_REDACTED__.mx'] = [
-            'id' => 0,
-            'nombre' => 'Owen Ruiz',
-            'correo' => 'owen.ruiz@__SPARTA_SECRET_REDACTED__.mx',
-            'user_name' => 'OWEN.RUIZ',
-        ];
 
         $institucionales = array_filter($validos, static function ($row) {
             return preg_match('/@__SPARTA_SECRET_REDACTED__\.mx$/i', (string) ($row['correo'] ?? '')) === 1;
@@ -19008,6 +19231,77 @@ class CapHum extends Controller
             );
         }
         self::respuestaJSON($res);
+    }
+
+    public function cartaCompromisoGestores()
+    {
+        if (!self::puedeValidarCartaCompromisoGestor()) {
+            header('Location: /' . VISTA_DEFECTO);
+            return;
+        }
+
+        CapHumDAO::asegurarModuloAccesosCapitalHumano();
+        CapHumDAO::asegurarDocumentoCartaCompromisoGestor();
+        self::set('titulo', 'Carta compromiso Gestor | ' . CONFIGURACION['EMPRESA']);
+        self::render('caphum_carta_compromiso_gestores');
+    }
+
+    public function getGestoresPendientesCartaCompromiso()
+    {
+        if (!self::puedeValidarCartaCompromisoGestor()) {
+            self::respuestaJSON(['success' => false, 'mensaje' => 'No tienes permiso para consultar este modulo.', 'datos' => []]);
+            return;
+        }
+
+        $res = CapHumDAO::getGestoresPendientesCartaCompromiso();
+        if (!empty($res['success']) && is_array($res['datos'] ?? null)) {
+            foreach ($res['datos'] as &$row) {
+                $idPersona = (int) ($row['id_persona'] ?? 0);
+                $row['url_subida'] = $idPersona > 0 ? $this->urlSubirCartaCompromisoGestorPersona($idPersona) : '';
+                $row['url_formato'] = $this->urlCartaCompromisoGestorPdf();
+            }
+            unset($row);
+        }
+        self::respuestaJSON($res);
+    }
+
+    public function enviarRecordatorioCartaCompromisoGestor()
+    {
+        if (!self::puedeValidarCartaCompromisoGestor()) {
+            self::respuestaJSON(['success' => false, 'mensaje' => 'No tienes permiso para enviar recordatorios.']);
+            return;
+        }
+
+        $payload = json_decode(file_get_contents('php://input'), true);
+        if (!is_array($payload)) {
+            $payload = $_POST;
+        }
+        $idPersona = (int) ($payload['id_persona'] ?? 0);
+        $resPersona = CapHumDAO::getPersonaGestorCartaCompromiso($idPersona);
+        if (empty($resPersona['success']) || empty($resPersona['datos'])) {
+            self::respuestaJSON(['success' => false, 'mensaje' => $resPersona['mensaje'] ?? 'No se encontro el gestor.']);
+            return;
+        }
+
+        $persona = $resPersona['datos'];
+        if (!empty($persona['carta_subida'])) {
+            self::respuestaJSON(['success' => true, 'mensaje' => 'El gestor ya tiene la carta cargada en su expediente.']);
+            return;
+        }
+
+        $correo = trim((string) ($persona['correo'] ?? ''));
+        if ($correo === '' || !filter_var($correo, FILTER_VALIDATE_EMAIL)) {
+            self::respuestaJSON(['success' => false, 'mensaje' => 'El gestor no tiene un correo valido registrado.']);
+            return;
+        }
+
+        $enviado = $this->enviarCorreoRecordatorioCartaCompromisoGestor($persona);
+        if (!$enviado) {
+            self::respuestaJSON(['success' => false, 'mensaje' => $this->enviarCorreoUltimoError ?: 'No se pudo enviar el correo.']);
+            return;
+        }
+
+        self::respuestaJSON(['success' => true, 'mensaje' => 'Recordatorio enviado correctamente a ' . $correo . '.']);
     }
 
     public function getDetalles()

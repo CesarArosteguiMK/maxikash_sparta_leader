@@ -14,10 +14,11 @@ class CapHum extends Model
     private const MODULO_VALIDADOR_DOCUMENTAL_CANDIDATOS = 104;
     private const MODULO_VALIDADOR_DOCUMENTAL_RRHH_CANDIDATOS = 142;
     private const MODULO_GESTION_REGISTRAR_PERSONA = 143;
+    public const MODULO_VALIDAR_CARTA_COMPROMISO_GESTOR = 144;
     private const MODULOS_ACCESOS_CAPITAL_HUMANO_IDS = [
         4, 5, 13, 34, 38, 42, 44, 82, 83, 86, 87, 88, 91, 93,
         94, 95, 96, 97, 98, 99, 101, 104, 105,
-        140, 141, 142, 143,
+        140, 141, 142, 143, 144,
     ];
     private const MODULO_CONVENIOS_DESCARGAR_EXCEL = 92;
     private const MODULO_CONVENIOS_DESCARGAR_EXCEL_NOMBRE = 'Descargar Excel';
@@ -62,6 +63,12 @@ class CapHum extends Model
                 'nombre' => 'Registrar persona en Gestion de Personal',
                 'pestana' => 'Permisos especiales',
                 'descripcion' => 'Permite ver y usar la opcion Persona al agregar usuarios en Gestion de Personal.',
+            ],
+            [
+                'id' => self::MODULO_VALIDAR_CARTA_COMPROMISO_GESTOR,
+                'nombre' => 'Validar Documento de Compromiso del Gestor',
+                'pestana' => 'Capital Humano',
+                'descripcion' => 'Capital Humano > Validar Documento de Compromiso del Gestor',
             ],
         ];
 
@@ -2665,6 +2672,155 @@ class CapHum extends Model
 
         } catch (\Exception $e) {
             return self::resultado(false, 'Error al obtener documentos.', [], $e->getMessage());
+        }
+    }
+
+    public static function getGestoresPendientesCartaCompromiso(): array
+    {
+        try {
+            self::asegurarDocumentoCartaCompromisoGestor();
+            $db = new Database();
+
+            $rows = $db->queryAll("
+                SELECT
+                    p.id AS id_persona,
+                    p.numero_empleado,
+                    TRIM(CONCAT_WS(' ', p.nombres, p.segundo_nombre, p.apellidop, p.apellidom)) AS nombre_completo,
+                    p.correo,
+                    COALESCE(NULLIF(TRIM(p.telefono_uno), ''), NULLIF(TRIM(p.telefono_dos), ''), '') AS telefono,
+                    COALESCE(p.estatus, '') AS estatus,
+                    DATE_FORMAT(p.fecha_ingreso, '%Y-%m-%d') AS fecha_ingreso,
+                    COALESCE(org.puestos, 'Gestor') AS puestos,
+                    COALESCE(org.departamentos, 'Sin departamento') AS departamentos,
+                    COALESCE(org.areas, 'Sin area') AS areas,
+                    COALESCE(org.direcciones, 'Sin direccion') AS direcciones,
+                    CASE
+                        WHEN pj.id IS NOT NULL THEN TRIM(CONCAT_WS(' ', pj.nombres, pj.segundo_nombre, pj.apellidop, pj.apellidom))
+                        WHEN vj.id IS NOT NULL THEN CONCAT('Vacante #', vj.id, ' - ', COALESCE(pvj.nombre, 'Sin puesto'))
+                        ELSE 'Sin jefe asignado'
+                    END AS jefe
+                FROM __SPARTA_SECRET_REDACTED__.persona p
+                INNER JOIN (
+                    SELECT
+                        ap.id_persona,
+                        GROUP_CONCAT(DISTINCT pp.nombre ORDER BY COALESCE(pp.nivel, 999), pp.nombre SEPARATOR ', ') AS puestos,
+                        GROUP_CONCAT(DISTINCT d.nombre ORDER BY d.nombre SEPARATOR ', ') AS departamentos,
+                        GROUP_CONCAT(DISTINCT dorg.nombre ORDER BY dorg.nombre SEPARATOR ', ') AS areas,
+                        GROUP_CONCAT(DISTINCT dir.nombre ORDER BY dir.nombre SEPARATOR ', ') AS direcciones,
+                        MAX(CASE WHEN UPPER(COALESCE(pp.nombre, '')) LIKE '%GESTOR%' THEN 1 ELSE 0 END) AS tiene_gestor
+                    FROM __SPARTA_SECRET_REDACTED__.asigna_puesto ap
+                    INNER JOIN __SPARTA_SECRET_REDACTED__.puesto pp
+                        ON pp.id = ap.id_puesto
+                       AND COALESCE(pp.activo, 1) = 1
+                    LEFT JOIN __SPARTA_SECRET_REDACTED__.departamento d
+                        ON d.id = pp.departamento_id
+                    LEFT JOIN __SPARTA_SECRET_REDACTED__.departamento_organizacional dorg
+                        ON dorg.id = d.id_departamento_organizacional
+                    LEFT JOIN __SPARTA_SECRET_REDACTED__.asigna_direcciones ad
+                        ON ad.id_departamento_organizacional = d.id_departamento_organizacional
+                       AND COALESCE(ad.activo, 1) = 1
+                    LEFT JOIN __SPARTA_SECRET_REDACTED__.direcciones_organizacion dir
+                        ON dir.id = ad.id_direccion
+                    WHERE COALESCE(ap.activo, 1) = 1
+                    GROUP BY ap.id_persona
+                ) org
+                    ON org.id_persona = p.id
+                   AND org.tiene_gestor = 1
+                LEFT JOIN (
+                    SELECT aj1.id_persona, aj1.id_jefe, aj1.id_vacante_jefe
+                    FROM __SPARTA_SECRET_REDACTED__.asigna_jefe aj1
+                    INNER JOIN (
+                        SELECT id_persona, MAX(id) AS id_max
+                        FROM __SPARTA_SECRET_REDACTED__.asigna_jefe
+                        WHERE fecha_fin IS NULL OR fecha_fin >= CURDATE()
+                        GROUP BY id_persona
+                    ) ult ON ult.id_persona = aj1.id_persona AND ult.id_max = aj1.id
+                ) aj ON aj.id_persona = p.id
+                LEFT JOIN __SPARTA_SECRET_REDACTED__.persona pj ON pj.id = aj.id_jefe
+                LEFT JOIN __SPARTA_SECRET_REDACTED__.vacantes_personal vj ON vj.id = aj.id_vacante_jefe
+                LEFT JOIN __SPARTA_SECRET_REDACTED__.puesto pvj ON pvj.id = vj.id_puesto
+                WHERE COALESCE(p.estatus, '') <> 'Baja'
+                  AND NOT EXISTS (
+                      SELECT 1
+                      FROM __SPARTA_SECRET_REDACTED__.carga_documento_persona cdp
+                      WHERE cdp.id_persona = p.id
+                        AND cdp.id_documento = :id_documento
+                      LIMIT 1
+                  )
+                ORDER BY nombre_completo ASC
+            ", ['id_documento' => self::DOCUMENTO_CARTA_COMPROMISO_GESTOR]);
+
+            return self::resultado(true, 'Gestores pendientes encontrados.', $rows ?? []);
+        } catch (\Exception $e) {
+            return self::resultado(false, 'Error al obtener gestores pendientes.', [], $e->getMessage());
+        }
+    }
+
+    public static function getPersonaGestorCartaCompromiso(int $idPersona): array
+    {
+        try {
+            if ($idPersona <= 0) {
+                return self::resultado(false, 'ID de persona invalido.', null);
+            }
+
+            self::asegurarDocumentoCartaCompromisoGestor();
+            $db = new Database();
+            $row = $db->queryOne("
+                SELECT
+                    p.id AS id_persona,
+                    p.numero_empleado,
+                    TRIM(CONCAT_WS(' ', p.nombres, p.segundo_nombre, p.apellidop, p.apellidom)) AS nombre_completo,
+                    p.nombres,
+                    p.segundo_nombre,
+                    p.apellidop,
+                    p.apellidom,
+                    p.correo,
+                    COALESCE(NULLIF(TRIM(p.telefono_uno), ''), NULLIF(TRIM(p.telefono_dos), ''), '') AS telefono,
+                    COALESCE(p.estatus, '') AS estatus,
+                    COALESCE(org.puestos, 'Gestor') AS puestos,
+                    COALESCE(org.departamentos, 'Sin departamento') AS departamentos,
+                    CASE
+                        WHEN EXISTS (
+                            SELECT 1
+                            FROM __SPARTA_SECRET_REDACTED__.carga_documento_persona cdp
+                            WHERE cdp.id_persona = p.id
+                              AND cdp.id_documento = :id_documento
+                            LIMIT 1
+                        ) THEN 1 ELSE 0
+                    END AS carta_subida
+                FROM __SPARTA_SECRET_REDACTED__.persona p
+                INNER JOIN (
+                    SELECT
+                        ap.id_persona,
+                        GROUP_CONCAT(DISTINCT pp.nombre ORDER BY COALESCE(pp.nivel, 999), pp.nombre SEPARATOR ', ') AS puestos,
+                        GROUP_CONCAT(DISTINCT d.nombre ORDER BY d.nombre SEPARATOR ', ') AS departamentos,
+                        MAX(CASE WHEN UPPER(COALESCE(pp.nombre, '')) LIKE '%GESTOR%' THEN 1 ELSE 0 END) AS tiene_gestor
+                    FROM __SPARTA_SECRET_REDACTED__.asigna_puesto ap
+                    INNER JOIN __SPARTA_SECRET_REDACTED__.puesto pp
+                        ON pp.id = ap.id_puesto
+                       AND COALESCE(pp.activo, 1) = 1
+                    LEFT JOIN __SPARTA_SECRET_REDACTED__.departamento d
+                        ON d.id = pp.departamento_id
+                    WHERE COALESCE(ap.activo, 1) = 1
+                    GROUP BY ap.id_persona
+                ) org
+                    ON org.id_persona = p.id
+                   AND org.tiene_gestor = 1
+                WHERE p.id = :id_persona
+                  AND COALESCE(p.estatus, '') <> 'Baja'
+                LIMIT 1
+            ", [
+                'id_persona' => $idPersona,
+                'id_documento' => self::DOCUMENTO_CARTA_COMPROMISO_GESTOR,
+            ]);
+
+            if (!$row) {
+                return self::resultado(false, 'No se encontro un gestor activo con ese ID.', null);
+            }
+
+            return self::resultado(true, 'Gestor encontrado.', $row);
+        } catch (\Exception $e) {
+            return self::resultado(false, 'Error al obtener gestor.', null, $e->getMessage());
         }
     }
 

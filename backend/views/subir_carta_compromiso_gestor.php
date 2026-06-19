@@ -19,7 +19,7 @@ $asset_base = $base_url_app !== '' ? $base_url_app : '';
     <title>Carta de compromiso del Gestor | Maxikash</title>
     <link rel="icon" type="image/svg+xml" href="<?php echo htmlspecialchars($asset_base . '/assets/img/logo_ico.svg'); ?>">
     <link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="/assets/vendor/fonts/fontawesome.css">
+    <link rel="stylesheet" href="<?php echo htmlspecialchars($asset_base . '/assets/vendor/fonts/fontawesome.css'); ?>">
     <style>
         * { box-sizing: border-box; }
         body {
@@ -161,11 +161,11 @@ $asset_base = $base_url_app !== '' ? $base_url_app : '';
                 <div class="alert alert-error"><?php echo htmlspecialchars($mensaje_error); ?></div>
             <?php endif; ?>
             <?php if ($modo_prueba): ?>
-                <div class="alert alert-success">Vista de prueba habilitada. Puedes revisar la pantalla y descargar la carta; la subida real requiere un enlace con token de candidato.</div>
+                <div class="alert alert-success">Vista de prueba habilitada. Puedes revisar la pantalla y descargar la carta; la subida real requiere un enlace seguro asignado.</div>
             <?php endif; ?>
 
             <div class="notice">
-                Primero descarga el formato, llenalo y firmalo. Despues regresa a esta pagina para subir el PDF firmado.
+                Primero descarga el formato, llenalo y firmalo. Despues regresa a esta pagina para subir el PDF firmado y completar tu expediente de Gestor.
             </div>
 
             <a class="download-btn" href="<?php echo htmlspecialchars($carta_pdf_url); ?>" target="_blank" rel="noopener">

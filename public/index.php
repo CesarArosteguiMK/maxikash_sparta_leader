@@ -44,6 +44,7 @@ $rutasPublicasSinLogin = [
     'caphum' => [
         'subirdocumentoscandidato',
         'subircartacompromisogestor',
+        'subircartacompromisogestorpersona',
         'vistacartacompromisogestorprueba',
         'descargarcartacompromisogestor',
         'llenarsolicitudenlinea',
