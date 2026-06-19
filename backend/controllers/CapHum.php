@@ -15937,6 +15937,25 @@ class CapHum extends Controller
     private function subirDocumentosCandidatoProcesar($token)
     {
         header('Content-Type: application/json; charset=utf-8');
+        $iniSizeToBytes = static function ($value): int {
+            $value = trim((string) $value);
+            if ($value === '') return 0;
+            $unit = strtolower(substr($value, -1));
+            $num = (float) $value;
+            if ($unit === 'g') return (int) ($num * 1024 * 1024 * 1024);
+            if ($unit === 'm') return (int) ($num * 1024 * 1024);
+            if ($unit === 'k') return (int) ($num * 1024);
+            return (int) $num;
+        };
+        $contentLength = (int) ($_SERVER['CONTENT_LENGTH'] ?? 0);
+        $postMaxBytes = $iniSizeToBytes(ini_get('post_max_size'));
+        if ($postMaxBytes > 0 && $contentLength > $postMaxBytes) {
+            echo json_encode(self::respuesta(
+                false,
+                'Los archivos enviados pesan mas de lo permitido por el servidor. Sube menos documentos por tanda o comprime los PDFs antes de intentar de nuevo.'
+            ));
+            return;
+        }
         $res = CandidatosDAO::getCandidatoPorToken($token);
         if (!$res['success'] || empty($res['datos'])) {
             echo json_encode(self::respuesta(false, $res['mensaje'] ?? 'Enlace no válido.'));
