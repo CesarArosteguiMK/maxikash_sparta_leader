@@ -28,6 +28,7 @@ class CierreCredito extends Controller
 
     /** Módulo 128 — Peticiones de cancelamiento de convenios (autorizar o denegar). */
     private const CC_PESTANA_PERM_PETICIONES = 128;
+    private const CC_PERM_REACTIVAR_OFERTA = 146;
 
     /** Filtro de célula: 58 = solo Despachos (célula 1), 57 = solo Call Center (célula 2). */
     private const CC_CELULA_DESPACHOS    = 58;
@@ -167,7 +168,9 @@ class CierreCredito extends Controller
         $ccPermVoBo = $this->cierreTieneModuloPermisoSesion(self::CC_PESTANA_PERM_VOBO);
         $ccPermHistorial = $this->cierreTieneModuloPermisoSesion(self::CC_PESTANA_PERM_HISTORIAL);
         $ccPermCartera     = $this->cierreTieneModuloPermisoSesion(self::CC_PESTANA_PERM_CARTERA);
-        $ccPermPeticiones  = $this->cierreTieneModuloPermisoSesion(self::CC_PESTANA_PERM_PETICIONES);
+        $ccPermPeticionesCancelamiento = $this->cierreTieneModuloPermisoSesion(self::CC_PESTANA_PERM_PETICIONES);
+        $ccPermReactivarOferta = $this->cierreTieneModuloPermisoSesion(self::CC_PERM_REACTIVAR_OFERTA);
+        $ccPermPeticiones  = $ccPermPeticionesCancelamiento || $ccPermReactivarOferta;
         $ccPermAlguno = $ccPermConvenios || $ccPermValidacion || $ccPermEnProceso || $ccPermVoBo || $ccPermHistorial || $ccPermCartera || $ccPermPeticiones;
 
         $ccDefaultTab = null;
@@ -196,6 +199,8 @@ class CierreCredito extends Controller
         $this->set('cc_perm_historial',   $ccPermHistorial);
         $this->set('cc_perm_cartera',     $ccPermCartera);
         $this->set('cc_perm_peticiones',  $ccPermPeticiones);
+        $this->set('cc_perm_autorizar_cancelamiento', $ccPermPeticionesCancelamiento);
+        $this->set('cc_perm_autorizar_reactivacion', $ccPermReactivarOferta);
         $this->set('cc_perm_alguno',      $ccPermAlguno);
         $this->set('cc_default_tab',      $ccDefaultTab);
         $this->set('cc_celulas_permitidas', $this->cierreGetCelulasPermitidas());
@@ -794,6 +799,16 @@ class CierreCredito extends Controller
         self::respuestaJSON($r);
     }
 
+    public function getPeticionesConvenio()
+    {
+        $this->cierreRequiereAlgunoDeModulos([
+            self::CC_PESTANA_PERM_PETICIONES,
+            self::CC_PERM_REACTIVAR_OFERTA,
+        ]);
+        $r = ConveniosDAO::getPeticionesConvenio($this->cierreGetCelulasPermitidas());
+        self::respuestaJSON($r);
+    }
+
     // ─────────────────────────────────────────────
     // API: AUTORIZAR CANCELAMIENTO DE CONVENIO
     // ─────────────────────────────────────────────
@@ -842,6 +857,40 @@ class CierreCredito extends Controller
 
         $usuario = $_SESSION['usuario_nombre'] ?? $_SESSION['usuario'] ?? 'sistema';
         $r = ConveniosDAO::descartarCancelamiento($idConvenio, $usuario);
+        self::respuestaJSON($r);
+    }
+
+    public function autorizarReactivacion()
+    {
+        $this->cierreRequiereModuloPermiso(self::CC_PERM_REACTIVAR_OFERTA);
+
+        $idPeticion = isset($_POST['id_peticion']) ? (int) $_POST['id_peticion'] : 0;
+        $comentario = mb_substr(trim(strip_tags($_POST['comentario'] ?? '')), 0, 300);
+
+        if ($idPeticion <= 0) {
+            self::respuestaJSON(self::respuesta(false, 'ID de peticiÃ³n invÃ¡lido.'));
+            return;
+        }
+
+        $usuario = $_SESSION['usuario_nombre'] ?? $_SESSION['usuario'] ?? 'sistema';
+        $r = ConveniosDAO::autorizarReactivacionOferta($idPeticion, $usuario, $comentario);
+        self::respuestaJSON($r);
+    }
+
+    public function descartarReactivacion()
+    {
+        $this->cierreRequiereModuloPermiso(self::CC_PERM_REACTIVAR_OFERTA);
+
+        $idPeticion = isset($_POST['id_peticion']) ? (int) $_POST['id_peticion'] : 0;
+        $comentario = mb_substr(trim(strip_tags($_POST['comentario'] ?? '')), 0, 300);
+
+        if ($idPeticion <= 0) {
+            self::respuestaJSON(self::respuesta(false, 'ID de peticiÃ³n invÃ¡lido.'));
+            return;
+        }
+
+        $usuario = $_SESSION['usuario_nombre'] ?? $_SESSION['usuario'] ?? 'sistema';
+        $r = ConveniosDAO::descartarReactivacionOferta($idPeticion, $usuario, $comentario);
         self::respuestaJSON($r);
     }
 }

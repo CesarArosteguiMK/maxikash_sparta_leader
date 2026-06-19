@@ -9,6 +9,8 @@ class Convenios extends Controller
 {
     /** Módulo web 32 — Permisos especiales: Registrar convenio existente */
     private const MODULO_REGISTRAR_CONVENIO_EXISTENTE = 32;
+    private const MODULO_SOLICITAR_REACTIVACION_OFERTA = 145;
+    private const MODULO_REACTIVAR_OFERTA = 146;
 
     /** Módulos de célula (mismos que CierreCredito): 58 = Despachos (1), 57 = Call Center (2) */
     private const MOD_CELULA_DESPACHOS   = 58;
@@ -31,16 +33,56 @@ class Convenios extends Controller
 
     private function usuarioTienePermisoRegistrarConvenioExistente(): bool
     {
+        return $this->usuarioTieneModulo(self::MODULO_REGISTRAR_CONVENIO_EXISTENTE);
+    }
+
+    private function usuarioTieneModulo(int $moduloId): bool
+    {
         $mods = $_SESSION['modulos'] ?? [];
         if (!is_array($mods)) {
             return false;
         }
         foreach ($mods as $m) {
-            if ((int) $m === self::MODULO_REGISTRAR_CONVENIO_EXISTENTE) {
+            if ((int) $m === $moduloId) {
                 return true;
             }
         }
         return false;
+    }
+
+    private function usuarioTienePermisoSolicitarReactivacion(): bool
+    {
+        return $this->usuarioTieneModulo(self::MODULO_SOLICITAR_REACTIVACION_OFERTA)
+            || $this->usuarioTienePermisoReactivarOferta();
+    }
+
+    private function usuarioTienePermisoReactivarOferta(): bool
+    {
+        return $this->usuarioTieneModulo(self::MODULO_REACTIVAR_OFERTA);
+    }
+
+    private function normalizarProductosReactivacion(): array
+    {
+        $ids = [];
+        $raw = $_POST['id_productos_convenio'] ?? [];
+
+        if (!is_array($raw)) {
+            $raw = explode(',', (string) $raw);
+        }
+
+        foreach ($raw as $id) {
+            $id = (int) $id;
+            if ($id > 0) {
+                $ids[] = $id;
+            }
+        }
+
+        $idProducto = isset($_POST['id_producto_convenio']) ? (int) $_POST['id_producto_convenio'] : 0;
+        if ($idProducto > 0) {
+            $ids[] = $idProducto;
+        }
+
+        return array_values(array_unique($ids));
     }
 
     // ─────────────────────────────────────────────
@@ -50,6 +92,8 @@ class Convenios extends Controller
     public function consulta()
     {
         $this->set('permisoRegistrarConvenioExistente', $this->usuarioTienePermisoRegistrarConvenioExistente());
+        $this->set('permisoSolicitarReactivacionOferta', $this->usuarioTienePermisoSolicitarReactivacion());
+        $this->set('permisoReactivarOfertas', $this->usuarioTienePermisoReactivarOferta());
         $emp = defined('CONFIGURACION') && isset(CONFIGURACION['EMPRESA']) ? (string) CONFIGURACION['EMPRESA'] : '';
         $this->set('titulo', 'Crear convenio ' . $emp);
         $this->render('convenios_consulta');
@@ -126,6 +170,9 @@ class Convenios extends Controller
         $datos['fechas_pagos'] = isset($_POST['fechas_pagos']) ? trim($_POST['fechas_pagos']) : '';
 
         $datos['base_calculo'] = isset($_POST['base_calculo']) ? $_POST['base_calculo'] : null;
+        $datos['id_peticion_reactivacion'] = isset($_POST['id_peticion_reactivacion'])
+            ? (int) $_POST['id_peticion_reactivacion']
+            : 0;
 
         $datos['usuario_alta'] = $_SESSION['usuario_nombre'] ?? $_SESSION['usuario'] ?? 'sistema';
         $datos['id_celula']    = $this->resolverIdCelulaUsuario();
@@ -249,6 +296,53 @@ class Convenios extends Controller
         self::respuestaJSON($r);
     }
 
+    public function solicitarReactivacionOferta()
+    {
+        if (!$this->usuarioTienePermisoSolicitarReactivacion()) {
+            self::respuestaJSON(self::respuesta(false, 'No tienes permiso para solicitar reactivaciÃ³n de ofertas.'));
+            return;
+        }
+
+        $idCredito  = isset($_POST['id_credito']) ? (int) $_POST['id_credito'] : 0;
+        $idsProductos = $this->normalizarProductosReactivacion();
+        $motivo     = mb_substr(trim(strip_tags($_POST['motivo'] ?? '')), 0, 300);
+
+        if ($idCredito <= 0 || !$idsProductos) {
+            self::respuestaJSON(self::respuesta(false, 'CrÃ©dito o producto invÃ¡lido.'));
+            return;
+        }
+
+        if ($motivo === '') {
+            self::respuestaJSON(self::respuesta(false, 'El motivo de reactivaciÃ³n es obligatorio.'));
+            return;
+        }
+
+        $usuario = $_SESSION['usuario_nombre'] ?? $_SESSION['usuario'] ?? 'sistema';
+        $r = ConveniosDAO::solicitarReactivacionOfertas($idCredito, $idsProductos, $usuario, $motivo);
+        self::respuestaJSON($r);
+    }
+
+    public function reactivarOfertas()
+    {
+        if (!$this->usuarioTienePermisoReactivarOferta()) {
+            self::respuestaJSON(self::respuesta(false, 'No tienes permiso para reactivar ofertas.'));
+            return;
+        }
+
+        $idCredito  = isset($_POST['id_credito']) ? (int) $_POST['id_credito'] : 0;
+        $idsProductos = $this->normalizarProductosReactivacion();
+        $motivo     = mb_substr(trim(strip_tags($_POST['motivo'] ?? 'ReactivaciÃ³n directa por permiso maestro')), 0, 300);
+
+        if ($idCredito <= 0) {
+            self::respuestaJSON(self::respuesta(false, 'ID de crÃ©dito invÃ¡lido.'));
+            return;
+        }
+
+        $usuario = $_SESSION['usuario_nombre'] ?? $_SESSION['usuario'] ?? 'sistema';
+        $r = ConveniosDAO::reactivarOfertasCredito($idCredito, $usuario, $motivo, 0, $idsProductos);
+        self::respuestaJSON($r);
+    }
+
     // ════════════════════════════════════════════════
     // API: VALIDAR CRÉDITO EN DESPACHO
     // Verifica que el crédito exista en asigna_creditos_despacho
@@ -351,6 +445,7 @@ class Convenios extends Controller
             'monto_adicional'            => isset($_POST['monto_adicional']) ? (float) $_POST['monto_adicional'] : 0.0,
             'total_final_con_adicional'  => isset($_POST['total_final_con_adicional']) ? (float) $_POST['total_final_con_adicional'] : null,
             'id_celula'                  => $this->resolverIdCelulaUsuario(),
+            'id_peticion_reactivacion'   => isset($_POST['id_peticion_reactivacion']) ? (int) $_POST['id_peticion_reactivacion'] : 0,
         ]);
 
         $r = ConveniosDAO::migrarConvenio($datos);
@@ -764,6 +859,7 @@ class Convenios extends Controller
         'frecuencia'            => $frecuencia,
         'fecha_primer_pago'     => $fechaPrimerPago,
         'usuario_alta'          => $usuarioAlta,
+        'id_peticion_reactivacion' => isset($_POST['id_peticion_reactivacion']) ? (int) $_POST['id_peticion_reactivacion'] : 0,
     ]);
 
     // ── 5. Respuesta JSON ─────────────────────────────────────────

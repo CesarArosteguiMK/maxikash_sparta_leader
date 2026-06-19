@@ -746,6 +746,80 @@ body.dark-mode .cc-amort-table td { border-color:#1e293b; }
 body.dark-mode .cc-amort-table tr.pagada td  { background: rgba(21,128,61,.12); }
 body.dark-mode .cc-amort-table tr.pendiente td { background: rgba(185,28,28,.1); }
 
+/* Peticiones: listado compacto tipo rutas */
+#tablaPeticiones { border-collapse: separate !important; border-spacing: 0 .55rem !important; }
+#tablaPeticiones > thead { display: none; }
+#tablaPeticiones > tbody > tr { background: transparent !important; }
+#tablaPeticiones > tbody > tr > td { padding: 0 !important; border: 0 !important; background: transparent !important; }
+#tablaPeticiones_wrapper .dataTables_length { padding: .35rem .25rem .1rem; }
+#tablaPeticiones_wrapper .dataTables_info { padding-left: .25rem; font-size: .78rem; color: #64748b; }
+.cc-pet-row {
+    display: grid;
+    grid-template-columns: minmax(220px, 1.15fr) minmax(220px, 1fr) minmax(180px, .82fr) auto;
+    align-items: center;
+    gap: 1.15rem;
+    padding: .78rem 1rem;
+    background: #fff;
+    border: 1px solid #e5e7eb;
+    border-radius: .35rem;
+    box-shadow: 0 1px 3px rgba(15,23,42,.04);
+    transition: box-shadow .15s ease, border-color .15s ease, transform .12s ease;
+}
+.cc-pet-row:hover { border-color: #cbd5e1; box-shadow: 0 5px 18px rgba(15,23,42,.08); transform: translateY(-1px); }
+.cc-pet-main, .cc-pet-meta, .cc-pet-money { min-width: 0; }
+.cc-pet-main { display: flex; flex-direction: column; gap: .22rem; }
+.cc-pet-chip { display: inline-flex; align-items: center; width: fit-content; padding: .15rem .5rem; border-radius: .35rem; font-size: .68rem; font-weight: 800; line-height: 1; }
+.cc-pet-chip-cancel { background: #fee2e2; color: #991b1b; }
+.cc-pet-chip-react { background: #dcfce7; color: #166534; }
+.cc-pet-title { color: #475569; font-size: .82rem; font-weight: 800; letter-spacing: .02em; text-transform: uppercase; line-height: 1.15; }
+.cc-pet-sub { color: #64748b; font-size: .72rem; font-weight: 700; line-height: 1.25; }
+.cc-pet-sub strong { color: #334155; }
+.cc-pet-meta { display: flex; flex-direction: column; gap: .2rem; color: #64748b; font-size: .74rem; font-weight: 700; }
+.cc-pet-meta-line { display: flex; align-items: center; gap: .28rem; min-width: 0; border-bottom: 1px solid #dbe3ef; padding-bottom: .18rem; }
+.cc-pet-meta-line:last-child { border-bottom: 0; padding-bottom: 0; }
+.cc-pet-meta-line i { color: #64748b; width: 1rem; text-align: center; }
+.cc-pet-meta-line span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cc-pet-date-strong { color: #475569; font-weight: 900; }
+.cc-pet-money { display: flex; flex-direction: column; gap: .18rem; color: #64748b; font-size: .74rem; font-weight: 800; }
+.cc-pet-money-pill { display: inline-flex; align-items: center; width: fit-content; gap: .25rem; padding: .16rem .55rem; border-radius: 999px; background: #dcfce7; color: #166534; font-size: .7rem; font-weight: 900; }
+.cc-pet-warn { color: #f59e0b; }
+.cc-pet-ok { color: #16a34a; }
+.cc-pet-actions { display: flex; align-items: center; gap: .45rem; justify-content: flex-end; }
+.cc-pet-action { width: 34px; height: 34px; border-radius: 50%; border: 0; display: inline-flex; align-items: center; justify-content: center; color: #475569; background: #e5e7eb; cursor: pointer; transition: transform .12s ease, filter .12s ease; }
+.cc-pet-action:hover { transform: translateY(-1px); filter: brightness(.98); }
+.cc-pet-action-view { background: #e5e7eb; color: #64748b; }
+.cc-pet-action-ok { background: #dcfce7; color: #166534; }
+.cc-pet-action-danger { background: #fee2e2; color: #991b1b; }
+.cc-pet-detail { padding: .85rem 1rem 1rem; background: #fafafa; border-top: 1px solid #eef2f7; }
+.cc-pet-amort-wrap { overflow-x: auto; }
+.cc-pet-amort-table { width: 100% !important; min-width: 680px; table-layout: fixed; }
+.cc-pet-amort-table th,
+.cc-pet-amort-table td { white-space: nowrap; }
+.cc-pet-amort-table th:nth-child(1),
+.cc-pet-amort-table td:nth-child(1) { width: 10%; }
+.cc-pet-amort-table th:nth-child(2),
+.cc-pet-amort-table td:nth-child(2) { width: 24%; }
+.cc-pet-amort-table th:nth-child(3),
+.cc-pet-amort-table td:nth-child(3) { width: 24%; }
+.cc-pet-amort-table th:nth-child(4),
+.cc-pet-amort-table td:nth-child(4) { width: 20%; }
+.cc-pet-amort-table th:nth-child(5),
+.cc-pet-amort-table td:nth-child(5) { width: 22%; }
+.cc-pet-detail-actions { margin-top: .75rem; }
+body.dark-mode #tablaPeticiones_wrapper .dataTables_info { color: #94a3b8; }
+body.dark-mode .cc-pet-row { background: #1e293b; border-color: #334155; box-shadow: none; }
+body.dark-mode .cc-pet-row:hover { border-color: #475569; box-shadow: 0 5px 18px rgba(0,0,0,.18); }
+body.dark-mode .cc-pet-title { color: #cbd5e1; }
+body.dark-mode .cc-pet-sub, body.dark-mode .cc-pet-meta, body.dark-mode .cc-pet-money { color: #94a3b8; }
+body.dark-mode .cc-pet-sub strong, body.dark-mode .cc-pet-date-strong { color: #e2e8f0; }
+body.dark-mode .cc-pet-meta-line { border-bottom-color: #334155; }
+body.dark-mode .cc-pet-action-view { background: #334155; color: #cbd5e1; }
+body.dark-mode .cc-pet-detail { background: #111827; border-top-color: #334155; }
+@media (max-width: 992px) {
+    .cc-pet-row { grid-template-columns: 1fr; gap: .7rem; }
+    .cc-pet-actions { justify-content: flex-start; }
+}
+
 /* Botón descartar rojo visible */
 .cc-btn-descartar {
     background: #dc2626;
@@ -1034,6 +1108,8 @@ if (!isset($cc_perm_alguno)) {
     $cc_perm_historial = false;
     $cc_perm_cartera   = false;
     $cc_perm_peticiones = false;                                                                            
+    $cc_perm_autorizar_cancelamiento = false;
+    $cc_perm_autorizar_reactivacion = false;
     $cc_perm_alguno = false;
     $cc_default_tab = null;
 }
@@ -1537,7 +1613,7 @@ $cc_perm_peticiones = $cc_perm_peticiones ?? false;
         </div>
         <div id="loader-peticiones" class="text-center py-5 text-muted<?= $ccActPet ? '' : ' d-none' ?>">
             <i class="fa-solid fa-spinner fa-spin fa-2x mb-2 d-block"></i>
-            Cargando peticiones de cancelamiento...
+            Cargando peticiones...
         </div>
         <div id="wrap-peticiones" class="d-none">
             <div class="card-datatable table-responsive">
@@ -1559,7 +1635,7 @@ $cc_perm_peticiones = $cc_perm_peticiones ?? false;
         </div>
         <div id="empty-peticiones" class="text-center py-5 text-muted d-none">
             <i class="fa-solid fa-inbox fa-2x mb-2 d-block opacity-50"></i>
-            Sin peticiones de cancelamiento pendientes.
+            Sin peticiones pendientes.
         </div>
     </div>
     <?php endif; ?>
@@ -1844,6 +1920,8 @@ window.__CC_PESTANAS_PERM__ = <?= json_encode([
     'historial'   => !empty($cc_perm_historial),
     'cartera'     => !empty($cc_perm_cartera),
     'peticiones'  => !empty($cc_perm_peticiones),
+    'autorizar_cancelamiento' => !empty($cc_perm_autorizar_cancelamiento),
+    'autorizar_reactivacion' => !empty($cc_perm_autorizar_reactivacion),
     'defaultTab'  => isset($cc_default_tab) ? $cc_default_tab : null,
     'ambas_celulas' => (isset($cc_celulas_permitidas) ? $cc_celulas_permitidas : null) === null,
 ], JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>;
@@ -1864,6 +1942,8 @@ window.__CC_PESTANAS_PERM__ = <?= json_encode([
         historial: true,
         cartera: true,
         peticiones: true,
+        autorizar_cancelamiento: true,
+        autorizar_reactivacion: true,
         defaultTab: 'validacion',
         ambas_celulas: false,
     };
@@ -3075,7 +3155,7 @@ window.__CC_PESTANAS_PERM__ = <?= json_encode([
                 {
                     data: null,
                     render: function(d, t, r) {
-                        if (t === 'filter' || t === 'sort') return String(r.id_credito || '') + ' ' + String(r.nombre_cliente || '');
+                        if (t === 'filter' || t === 'sort') return String(r.id_credito || '') + ' ' + String(r.nombre_cliente || '') + ' ' + String(r.tipo_peticion || '');
                         return `<span class="fw-bold ps-1" style="color:#1e293b;white-space:nowrap;">#${esc(r.id_credito)}</span>` +
                                (CC_AMBAS ? `<span style="display:inline-block;margin-left:.4rem;">${_celulaBadge(r)}</span>` : '');
                     }
@@ -4909,7 +4989,7 @@ window.__CC_PESTANAS_PERM__ = <?= json_encode([
 
     function cargarPeticiones() {
         if (!CC_P.peticiones) return Promise.resolve();
-        return fetch('/CierreCredito/getPeticionesCancelamiento', { method: 'POST', headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+        return fetch('/CierreCredito/getPeticionesConvenio', { method: 'POST', headers: { 'X-Requested-With': 'XMLHttpRequest' } })
             .then(function (res) { return res.json(); })
             .then(function (res) {
                 if (!res.success) throw new Error(res.mensaje);
@@ -4935,6 +5015,9 @@ window.__CC_PESTANAS_PERM__ = <?= json_encode([
     /* Construye el HTML del detalle expandido de una fila */
     function _buildPetDetalle(amort, rowData) {
         const fmtN = function(n) { return parseFloat(n || 0).toLocaleString('es-MX', { style: 'currency', currency: 'MXN' }); };
+        const esReactivacion = rowData.tipo_peticion === 'reactivacion';
+        const motivoPeticion = esReactivacion ? rowData.motivo_solicitud : rowData.motivo_cancelamiento;
+        const tituloMotivo = esReactivacion ? 'Motivo de reactivacion' : 'Motivo de cancelamiento';
 
         const badgeEstPago = function(e) {
             if (e === 'pagado')    return '<span class="badge" style="background:#dcfce7;color:#15803d;">Pagado</span>';
@@ -4961,22 +5044,52 @@ window.__CC_PESTANAS_PERM__ = <?= json_encode([
             }).join('');
         }
 
-        const motivoHtml = rowData.motivo_cancelamiento
-            ? `<div style="margin-bottom:.9rem;padding:.65rem .9rem;background:#fefce8;border:1px solid #fde68a;border-radius:.45rem;">
-                   <div style="font-size:.73rem;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:#92400e;margin-bottom:.3rem;">
-                       <i class="fa-solid fa-comment-dots me-1"></i>Motivo de cancelamiento
+        const motivoHtml = motivoPeticion
+            ? `<div style="margin-bottom:.7rem;padding:.55rem .75rem;background:#fefce8;border:1px solid #facc15;border-radius:.25rem;">
+                   <div style="font-size:.7rem;font-weight:800;text-transform:uppercase;letter-spacing:.03em;color:#92400e;margin-bottom:.25rem;">
+                       <i class="fa-solid fa-comment-dots me-1"></i>${esc(tituloMotivo)}
                    </div>
-                   <div style="font-size:.87rem;color:#78350f;">${esc(rowData.motivo_cancelamiento)}</div>
+                   <div style="font-size:.8rem;color:#78350f;">${esc(motivoPeticion)}</div>
                </div>`
             : '';
 
-        return `<div style="padding:.9rem 1.1rem 1rem 1.4rem;background:#fafafa;">
+        const accionesHtml = esReactivacion
+            ? (!CC_P.autorizar_reactivacion
+                ? '<div class="text-muted mt-3" style="font-size:.82rem;">Sin permiso para resolver reactivaciones.</div>'
+                : `<div class="cc-pet-detail-actions d-flex gap-2 flex-wrap">
+                <button class="btn btn-sm btn-success fw-bold cc-btn-autorizar-reactivacion"
+                        data-id="${esc(rowData.id_peticion || rowData.id)}" data-credito="${esc(rowData.id_credito)}" data-cliente="${esc(rowData.nombre_cliente)}"
+                        style="font-size:.82rem;white-space:nowrap;">
+                    <i class="fa-solid fa-rotate-right me-1"></i>Autorizar reactivacion
+                </button>
+                <button class="btn btn-sm btn-outline-secondary cc-pet-btn-descartar-reactivacion"
+                        data-id="${esc(rowData.id_peticion || rowData.id)}" data-credito="${esc(rowData.id_credito)}" data-cliente="${esc(rowData.nombre_cliente)}"
+                        style="font-size:.82rem;white-space:nowrap;">
+                    <i class="fa-solid fa-ban me-1"></i>Descartar reactivacion
+                </button>
+            </div>`)
+            : (!CC_P.autorizar_cancelamiento
+                ? '<div class="text-muted mt-3" style="font-size:.82rem;">Sin permiso para resolver cancelamientos.</div>'
+                : `<div class="cc-pet-detail-actions d-flex gap-2 flex-wrap">
+                <button class="btn btn-sm btn-danger fw-bold cc-btn-autorizar-cancelamiento"
+                        data-id="${esc(rowData.id)}" data-credito="${esc(rowData.id_credito)}" data-cliente="${esc(rowData.nombre_cliente)}"
+                        style="font-size:.82rem;white-space:nowrap;">
+                    <i class="fa-solid fa-circle-check me-1"></i>Si, autorizar cancelamiento
+                </button>
+                <button class="btn btn-sm btn-outline-secondary cc-pet-btn-descartar"
+                        data-id="${esc(rowData.id)}" data-credito="${esc(rowData.id_credito)}" data-cliente="${esc(rowData.nombre_cliente)}"
+                        style="font-size:.82rem;white-space:nowrap;">
+                    <i class="fa-solid fa-ban me-1"></i>No, descartar cancelamiento
+                </button>
+            </div>`);
+
+        return `<div class="cc-pet-detail">
             ${motivoHtml}
             <div style="font-size:.75rem;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:#1d4ed8;margin-bottom:.5rem;">
                 <i class="fa-solid fa-table-list me-1"></i>Amortización
             </div>
-            <div style="overflow-x:auto;">
-                <table class="cc-amort-table" style="width:100%;">
+            <div class="cc-pet-amort-wrap">
+                <table class="cc-amort-table cc-pet-amort-table">
                     <thead>
                         <tr>
                             <th class="text-center">#</th>
@@ -4989,7 +5102,8 @@ window.__CC_PESTANAS_PERM__ = <?= json_encode([
                     <tbody>${filas}</tbody>
                 </table>
             </div>
-            <div class="mt-3 d-flex gap-2 flex-wrap">
+            ${accionesHtml}
+            <div style="display:none;">
                 <button class="btn btn-sm btn-danger fw-bold cc-btn-autorizar-cancelamiento"
                         data-id="${esc(rowData.id)}" data-credito="${esc(rowData.id_credito)}" data-cliente="${esc(rowData.nombre_cliente)}"
                         style="font-size:.82rem;white-space:nowrap;">
@@ -5002,6 +5116,167 @@ window.__CC_PESTANAS_PERM__ = <?= json_encode([
                 </button>
             </div>
         </div>`;
+    }
+
+    function _petEsReactivacion(r) {
+        return r && r.tipo_peticion === 'reactivacion';
+    }
+
+    function _petFechaSolicitud(r) {
+        return _petEsReactivacion(r)
+            ? (r.fecha_solicitud || r.solicitud_cancelamiento_fecha || '')
+            : (r.solicitud_cancelamiento_fecha || r.fecha_solicitud || '');
+    }
+
+    function _petUsuarioSolicita(r) {
+        return _petEsReactivacion(r)
+            ? (r.usuario_solicita || r.usuario_cancela || '')
+            : (r.usuario_cancela || r.usuario_solicita || '');
+    }
+
+    function _petCelulaNombre(r) {
+        const cel = String(r.id_celula || '');
+        if (cel === '1') return 'Despachos';
+        if (cel === '2') return 'Call Center';
+        return 'Sin celula';
+    }
+
+    function _petSearchText(r) {
+        return [
+            r.id_credito,
+            r.nombre_cliente,
+            r.nombre_producto,
+            r.tipo_peticion,
+            _petUsuarioSolicita(r),
+            r.motivo_cancelamiento,
+            r.motivo_solicitud
+        ].map(function (v) { return String(v || ''); }).join(' ');
+    }
+
+    function _renderPeticionRow(r) {
+        const esReact = _petEsReactivacion(r);
+        const idPet = r.id_peticion || r.id || '';
+        const folio = (esReact ? 'REACT-' : 'CANCEL-') + idPet;
+        const chipClass = esReact ? 'cc-pet-chip-react' : 'cc-pet-chip-cancel';
+        const titulo = esReact ? 'Reactivacion de oferta' : 'Cancelamiento de convenio';
+        const usuario = _petUsuarioSolicita(r) || 'Sin usuario';
+        const fechaSolicitud = _petFechaSolicitud(r);
+        const semanas = parseInt(r.numero_semanas || 0, 10) || 0;
+        const origen = esReact && r.id_convenio_origen ? ('Convenio origen #' + r.id_convenio_origen) : ('Convenio #' + (r.id || ''));
+        const celula = _petCelulaNombre(r);
+
+        let acciones = `
+            <button type="button" class="cc-pet-action cc-pet-action-view cc-pet-btn-detalle" title="Ver detalle" aria-label="Ver detalle">
+                <i class="fa-solid fa-eye"></i>
+            </button>`;
+
+        if (esReact && CC_P.autorizar_reactivacion) {
+            acciones += `
+            <button type="button" class="cc-pet-action cc-pet-action-ok cc-btn-autorizar-reactivacion"
+                    title="Autorizar reactivacion" aria-label="Autorizar reactivacion"
+                    data-id="${esc(idPet)}" data-credito="${esc(r.id_credito)}" data-cliente="${esc(r.nombre_cliente)}">
+                <i class="fa-solid fa-rotate-right"></i>
+            </button>
+            <button type="button" class="cc-pet-action cc-pet-action-danger cc-pet-btn-descartar-reactivacion"
+                    title="Descartar reactivacion" aria-label="Descartar reactivacion"
+                    data-id="${esc(idPet)}" data-credito="${esc(r.id_credito)}" data-cliente="${esc(r.nombre_cliente)}">
+                <i class="fa-solid fa-ban"></i>
+            </button>`;
+        } else if (!esReact && CC_P.autorizar_cancelamiento) {
+            acciones += `
+            <button type="button" class="cc-pet-action cc-pet-action-ok cc-btn-autorizar-cancelamiento"
+                    title="Autorizar cancelamiento" aria-label="Autorizar cancelamiento"
+                    data-id="${esc(r.id)}" data-credito="${esc(r.id_credito)}" data-cliente="${esc(r.nombre_cliente)}">
+                <i class="fa-solid fa-circle-check"></i>
+            </button>
+            <button type="button" class="cc-pet-action cc-pet-action-danger cc-pet-btn-descartar"
+                    title="Descartar peticion" aria-label="Descartar peticion"
+                    data-id="${esc(r.id)}" data-credito="${esc(r.id_credito)}" data-cliente="${esc(r.nombre_cliente)}">
+                <i class="fa-solid fa-ban"></i>
+            </button>`;
+        }
+
+        return `<div class="cc-pet-row">
+            <div class="cc-pet-main">
+                <span class="cc-pet-chip ${chipClass}">${esc(folio)}</span>
+                <div class="cc-pet-title">${esc(titulo)}</div>
+                <div class="cc-pet-sub"><strong>#${esc(r.id_credito)}</strong> / ${esc(r.nombre_cliente || 'Cliente sin nombre')}</div>
+                <div class="cc-pet-sub">${esc(r.nombre_producto || 'Producto sin nombre')} - ${esc(origen)}</div>
+            </div>
+            <div class="cc-pet-meta">
+                <div class="cc-pet-meta-line">
+                    <i class="fa-solid fa-calendar-days"></i>
+                    <span><span class="cc-pet-date-strong">${fmtFecha(fechaSolicitud)}</span></span>
+                </div>
+                <div class="cc-pet-meta-line">
+                    <i class="fa-solid fa-user-clock"></i>
+                    <span>Solicita: ${esc(usuario)}</span>
+                </div>
+                <div class="cc-pet-meta-line">
+                    <i class="fa-solid fa-layer-group"></i>
+                    <span>${esc(celula)}</span>
+                </div>
+            </div>
+            <div class="cc-pet-money">
+                <span class="cc-pet-money-pill"><i class="fa-solid fa-coins"></i>${fmt(r.total_a_pagar)}</span>
+                <div><span class="cc-pet-ok">${esc(semanas)}</span> semana(s) del convenio</div>
+                <div><span class="cc-pet-warn">Acuerdo:</span> ${fmtFecha(r.fecha_acuerdo)}</div>
+            </div>
+            <div class="cc-pet-actions">${acciones}</div>
+        </div>`;
+    }
+
+    function _togglePetDetalle(triggerEl) {
+        if (!_tablaPeticiones) return;
+        const tr = $(triggerEl).closest('tr');
+        const row = _tablaPeticiones.row(tr);
+        const iconEl = triggerEl.querySelector('i');
+
+        if (row.child.isShown()) {
+            row.child.hide();
+            tr.removeClass('shown');
+            if (iconEl) iconEl.className = 'fa-solid fa-eye';
+            triggerEl.setAttribute('title', 'Ver detalle');
+            return;
+        }
+
+        if (iconEl) iconEl.className = 'fa-solid fa-spinner fa-spin';
+
+        const rowData = row.data();
+        const idConv = rowData.tipo_peticion === 'reactivacion'
+            ? (rowData.id_convenio_origen || rowData.id)
+            : rowData.id;
+
+        if (_petDetalleCache[idConv]) {
+            row.child(`<div>${_buildPetDetalle(_petDetalleCache[idConv], rowData)}</div>`).show();
+            tr.addClass('shown');
+            if (iconEl) iconEl.className = 'fa-solid fa-eye-slash';
+            triggerEl.setAttribute('title', 'Ocultar detalle');
+            return;
+        }
+
+        row.child('<div class="text-center py-3 text-muted"><i class="fa-solid fa-spinner fa-spin me-2"></i>Cargando detalle...</div>').show();
+
+        fetch('/CierreCredito/getDetalleConvenio', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: 'id=' + encodeURIComponent(idConv)
+        })
+        .then(function (r) { return r.json(); })
+        .then(function (res) {
+            if (!res.success) throw new Error(res.mensaje);
+            const amort = (res.datos && res.datos.amortizacion) ? res.datos.amortizacion : [];
+            _petDetalleCache[idConv] = amort;
+            row.child(`<div>${_buildPetDetalle(amort, rowData)}</div>`).show();
+            tr.addClass('shown');
+            if (iconEl) iconEl.className = 'fa-solid fa-eye-slash';
+            triggerEl.setAttribute('title', 'Ocultar detalle');
+        })
+        .catch(function (err) {
+            row.child(`<div class="alert alert-danger m-2 py-2">Error al cargar detalle: ${esc(err.message)}</div>`).show();
+            if (iconEl) iconEl.className = 'fa-solid fa-eye';
+            triggerEl.setAttribute('title', 'Ver detalle');
+        });
     }
 
     function renderPeticiones(rows) {
@@ -5027,9 +5302,9 @@ window.__CC_PESTANAS_PERM__ = <?= json_encode([
 
         _tablaPeticiones = $('#tablaPeticiones').DataTable({
             data: rows,
-            order: [[6, 'asc']],   // col 6 = solicitud_cancelamiento_fecha
+            order: [[6, 'asc']],
             language: {
-                emptyTable:   'Sin peticiones de cancelamiento',
+                emptyTable:   'Sin peticiones pendientes',
                 infoEmpty:    'Sin registros',
                 info:         'Mostrando _START_ a _END_ de _TOTAL_ peticiones',
                 infoFiltered: '(filtrado de _MAX_ totales)',
@@ -5041,36 +5316,45 @@ window.__CC_PESTANAS_PERM__ = <?= json_encode([
             columns: [
                 // col 0 — control expand
                 {
-                    data: null, orderable: false, searchable: false, className: 'dt-control text-center',
-                    defaultContent: '<i class="fa-solid fa-plus-circle" style="font-size:1rem;color:#7c3aed;cursor:pointer;"></i>'
+                    data: null,
+                    orderable: false,
+                    searchable: true,
+                    render: function (d, t, r) {
+                        if (t === 'filter') return _petSearchText(r);
+                        if (t === 'sort') return _petFechaSolicitud(r);
+                        return _renderPeticionRow(r);
+                    }
                 },
                 // col 1 — crédito / cliente
                 {
                     data: null,
+                    visible: false,
                     render: function (d, t, r) {
-                        if (t === 'filter' || t === 'sort') return String(r.id_credito || '') + ' ' + String(r.nombre_cliente || '');
-                        return `<strong style="color:#3b82f6;">#${esc(r.id_credito)}</strong><br>` +
-                               `<small class="text-muted">${esc(r.nombre_cliente)}</small>`;
+                        return String(r.id_credito || '') + ' ' + String(r.nombre_cliente || '');
                     }
                 },
                 // col 2 — producto
                 {
                     data: 'nombre_producto',
+                    visible: false,
                     render: function (d) { return esc(d || '—'); }
                 },
                 // col 3 — total
                 {
                     data: 'total_a_pagar', className: 'text-end',
+                    visible: false,
                     render: function (d) { return `<strong class="text-success">${fmt(d)}</strong>`; }
                 },
                 // col 4 — fecha acuerdo
                 {
                     data: 'fecha_acuerdo',
+                    visible: false,
                     render: function (d) { return esc(d || '—'); }
                 },
                 // col 5 — solicita (usuario)
                 {
                     data: 'usuario_cancela',
+                    visible: false,
                     render: function (d) {
                         return `<span class="badge" style="background:#e0e7ff;color:#3730a3;font-weight:600;white-space:normal;">` +
                                `<i class="fa-solid fa-user me-1"></i>${esc(d || '—')}</span>`;
@@ -5079,6 +5363,7 @@ window.__CC_PESTANAS_PERM__ = <?= json_encode([
                 // col 6 — fecha solicitud
                 {
                     data: 'solicitud_cancelamiento_fecha',
+                    visible: false,
                     render: function (d, t) {
                         if (t === 'sort') return d || '';
                         return fmtFecha(d);
@@ -5101,6 +5386,14 @@ window.__CC_PESTANAS_PERM__ = <?= json_encode([
         });
 
         /* ── Expandir/Colapsar fila con tabla de amortización ── */
+        $('#tablaPeticiones tbody')
+            .off('click.ccPetDetalle')
+            .on('click.ccPetDetalle', '.cc-pet-btn-detalle', function (e) {
+                e.preventDefault();
+                e.stopPropagation();
+                _togglePetDetalle(this);
+            });
+
         $('#tablaPeticiones tbody').on('click', 'td.dt-control', function () {
             const tr  = $(this).closest('tr');
             const row = _tablaPeticiones.row(tr);
@@ -5117,7 +5410,9 @@ window.__CC_PESTANAS_PERM__ = <?= json_encode([
             if (iconEl) { iconEl.className = 'fa-solid fa-spinner fa-spin'; iconEl.style.color = '#7c3aed'; }
 
             const rowData = row.data();
-            const idConv  = rowData.id;
+            const idConv  = rowData.tipo_peticion === 'reactivacion'
+                ? (rowData.id_convenio_origen || rowData.id)
+                : rowData.id;
 
             // Si ya está en caché, mostrar directo
             if (_petDetalleCache[idConv]) {
@@ -5151,9 +5446,90 @@ window.__CC_PESTANAS_PERM__ = <?= json_encode([
         });
 
         /* ── Botones de acción (autorizar / descartar) ── */
-        document.getElementById('tablaPeticiones').addEventListener('click', function (e) {
+        const tablaPeticionesEl = document.getElementById('tablaPeticiones');
+        if (tablaPeticionesEl && !tablaPeticionesEl.dataset.ccPetActionsBound) {
+            tablaPeticionesEl.dataset.ccPetActionsBound = '1';
+            tablaPeticionesEl.addEventListener('click', function (e) {
 
             /* ── Botón Descartar cancelamiento ── */
+            const btnDesReact = e.target.closest('.cc-pet-btn-descartar-reactivacion');
+            if (btnDesReact) {
+                const idPet = btnDesReact.dataset.id;
+                const credito = btnDesReact.dataset.credito;
+                const cliente = btnDesReact.dataset.cliente;
+
+                Swal.fire({
+                    title: 'Descartar reactivacion',
+                    html: `La oferta del credito <strong>${esc(credito)}</strong> - ${esc(cliente)} seguira bloqueada hasta nueva autorizacion.`,
+                    icon: 'question',
+                    showCancelButton: true,
+                    confirmButtonText: '<i class="fa-solid fa-ban me-1"></i>Descartar',
+                    cancelButtonText: 'No, revisar',
+                    confirmButtonColor: '#6b7280',
+                }).then(function (result) {
+                    if (!result.isConfirmed) return;
+                    const fd = new FormData();
+                    fd.append('id_peticion', idPet);
+                    fetch('/CierreCredito/descartarReactivacion', {
+                        method: 'POST',
+                        headers: { 'X-Requested-With': 'XMLHttpRequest' },
+                        body: fd
+                    })
+                    .then(function (r) { return r.json(); })
+                    .then(function (resp) {
+                        if (!resp.success) {
+                            Swal.fire({ icon: 'error', title: 'Error', text: resp.mensaje || 'No se pudo descartar.' });
+                            return;
+                        }
+                        Swal.fire({ icon: 'success', title: 'Reactivacion descartada', timer: 1600, showConfirmButton: false })
+                            .then(function () { _petRefrescar(); });
+                    })
+                    .catch(function () {
+                        Swal.fire({ icon: 'error', title: 'Error de conexion', text: 'No se pudo completar la operacion.' });
+                    });
+                });
+                return;
+            }
+
+            const btnReact = e.target.closest('.cc-btn-autorizar-reactivacion');
+            if (btnReact) {
+                const idPet = btnReact.dataset.id;
+                const credito = btnReact.dataset.credito;
+                const cliente = btnReact.dataset.cliente;
+
+                Swal.fire({
+                    title: 'Autorizar reactivacion',
+                    html: `Se habilitara la oferta para generar un nuevo convenio del credito <strong>${esc(credito)}</strong> - ${esc(cliente)}. El historial anterior se conserva intacto.`,
+                    icon: 'warning',
+                    showCancelButton: true,
+                    confirmButtonText: '<i class="fa-solid fa-rotate-right me-1"></i>Autorizar',
+                    cancelButtonText: 'No, volver',
+                    confirmButtonColor: '#22c55e',
+                }).then(function (result) {
+                    if (!result.isConfirmed) return;
+                    const fd = new FormData();
+                    fd.append('id_peticion', idPet);
+                    fetch('/CierreCredito/autorizarReactivacion', {
+                        method: 'POST',
+                        headers: { 'X-Requested-With': 'XMLHttpRequest' },
+                        body: fd
+                    })
+                    .then(function (r) { return r.json(); })
+                    .then(function (resp) {
+                        if (!resp.success) {
+                            Swal.fire({ icon: 'error', title: 'Error', text: resp.mensaje || 'No se pudo autorizar.' });
+                            return;
+                        }
+                        Swal.fire({ icon: 'success', title: 'Reactivacion autorizada', text: resp.mensaje || 'La oferta ya puede usarse.', timer: 2000, showConfirmButton: false })
+                            .then(function () { _petRefrescar(); });
+                    })
+                    .catch(function () {
+                        Swal.fire({ icon: 'error', title: 'Error de conexion', text: 'No se pudo completar la operacion.' });
+                    });
+                });
+                return;
+            }
+
             const btnDes = e.target.closest('.cc-pet-btn-descartar');
             if (btnDes) {
                 const idConv  = btnDes.dataset.id;
@@ -5248,7 +5624,8 @@ window.__CC_PESTANAS_PERM__ = <?= json_encode([
                     Swal.fire({ icon: 'error', title: 'Error de conexión', text: 'No se pudo completar la operación.' });
                 });
             });
-        });
+            });
+        }
     }
 
 })();

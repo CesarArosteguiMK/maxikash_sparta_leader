@@ -2251,7 +2251,7 @@ body.dark-mode .trk-moto-model-pill {
 }
 .trk-route-day-tools {
     display: grid;
-    grid-template-columns: repeat(4, minmax(90px, 1fr)) minmax(90px, auto) minmax(90px, auto);
+    grid-template-columns: repeat(4, minmax(90px, 1fr)) minmax(90px, auto) minmax(120px, auto) minmax(90px, auto);
     gap: .38rem;
     align-items: end;
     margin-bottom: .58rem;
@@ -2270,6 +2270,36 @@ body.dark-mode .trk-moto-model-pill {
 .trk-route-day-tools .btn {
     min-height: 2rem;
     white-space: nowrap;
+}
+.trk-route-real-summary {
+    border: 1px dashed #93c5fd;
+    background: #eff6ff;
+    color: #1e3a8a;
+    border-radius: .55rem;
+    padding: .45rem .55rem;
+    margin-bottom: .55rem;
+    font-size: .68rem;
+}
+.trk-route-real-summary .trk-real-kpis {
+    display: flex;
+    flex-wrap: wrap;
+    gap: .35rem;
+    margin-top: .28rem;
+}
+.trk-route-real-summary .trk-real-kpi {
+    border: 1px solid #bfdbfe;
+    background: #fff;
+    border-radius: .45rem;
+    padding: .22rem .45rem;
+    font-weight: 800;
+}
+.trk-route-real-summary .trk-real-warning {
+    color: #92400e;
+    background: #fffbeb;
+    border: 1px solid #fde68a;
+    border-radius: .4rem;
+    padding: .2rem .4rem;
+    margin-top: .25rem;
 }
 .trk-route-day-list {
     display: grid;
@@ -2429,6 +2459,21 @@ body.dark-mode .trk-route-day-timechip.is-warning {
     border-color: #b45309;
     color: #fde68a;
 }
+body.dark-mode .trk-route-real-summary {
+    background: #102231;
+    border-color: #1e3a5f;
+    color: #dbeafe;
+}
+body.dark-mode .trk-route-real-summary .trk-real-kpi {
+    background: #111827;
+    border-color: #334155;
+    color: #d8eeee;
+}
+body.dark-mode .trk-route-real-summary .trk-real-warning {
+    background: #2b2414;
+    border-color: #b45309;
+    color: #fde68a;
+}
 body.dark-mode .trk-route-event-item {
     background: #102231;
     border-color: #1e3a5f;
@@ -2569,7 +2614,7 @@ body.dark-mode .trk-route-opportunities-summary .mini-kpi b {
 }
 .trk-route-list-tools {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(180px, 1.25fr);
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(135px, .75fr) minmax(180px, 1.25fr);
     gap: .45rem;
     margin-bottom: .5rem;
 }
@@ -2577,16 +2622,34 @@ body.dark-mode .trk-route-opportunities-summary .mini-kpi b {
 .trk-route-list-tools .form-control {
     font-size: .75rem;
 }
+.trk-route-list-actions {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: .4rem;
+    margin: -.2rem 0 .5rem;
+    flex-wrap: wrap;
+}
+.trk-route-list-actions .btn {
+    font-size: .72rem;
+    font-weight: 800;
+    white-space: nowrap;
+}
 #rutaCreditosList {
     max-height: 420px !important;
 }
 #modalRegistrarRuta.trk-planner-active .modal-dialog {
     max-width: calc(100vw - 1rem);
-    margin: .5rem auto;
+    height: calc(100vh - .5rem);
+    margin: .25rem auto;
 }
 #modalRegistrarRuta.trk-planner-active .modal-content {
-    height: calc(100vh - 1rem);
+    height: 100%;
     min-height: 0;
+}
+#modalRegistrarRuta.trk-planner-active .modal-header,
+#modalRegistrarRuta.trk-planner-active .modal-footer {
+    flex-shrink: 0;
 }
 #modalRegistrarRuta.trk-planner-active .modal-body {
     display: grid;
@@ -2601,7 +2664,8 @@ body.dark-mode .trk-route-opportunities-summary .mini-kpi b {
         "planner   list";
     align-items: start;
     gap: .75rem;
-    height: calc(100vh - 8.25rem);
+    flex: 1 1 auto;
+    height: auto;
     min-height: 0;
     overflow-x: hidden;
     overflow-y: auto;
@@ -3881,6 +3945,62 @@ body.dark-mode .chat-send-btn:disabled { background: #2d4444; }
 .pac-container {
     z-index: 20000 !important;
 }
+
+.swal2-container.trk-swal-over-modal {
+    z-index: 30000 !important;
+}
+
+.swal2-container.trk-swal-over-modal input,
+.swal2-container.trk-swal-over-modal textarea,
+.swal2-container.trk-swal-over-modal select {
+    pointer-events: auto !important;
+    user-select: text !important;
+}
+
+.trk-plan-editor-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 30020;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 1rem;
+    background: rgba(15, 23, 42, .42);
+}
+.trk-plan-editor-card {
+    width: min(520px, calc(100vw - 2rem));
+    background: #fff;
+    border-radius: .75rem;
+    box-shadow: 0 1.5rem 4rem rgba(15, 23, 42, .28);
+    border: 1px solid var(--track-border);
+    overflow: hidden;
+}
+body.dark-mode .trk-plan-editor-card {
+    background: #182424;
+    color: #e8f0f0;
+    border-color: #334444;
+}
+.trk-plan-editor-head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 1rem 1.1rem .75rem;
+    border-bottom: 1px solid var(--track-border);
+}
+.trk-plan-editor-body {
+    padding: 1rem 1.1rem;
+}
+.trk-plan-editor-footer {
+    display: flex;
+    justify-content: flex-end;
+    gap: .65rem;
+    padding: .8rem 1.1rem 1rem;
+    background: rgba(15, 23, 42, .03);
+}
+body.dark-mode .trk-plan-editor-footer {
+    background: rgba(255,255,255,.03);
+}
 </style>
 <?php
 $trackingShowMainTabs = !empty($tracking_show_main_tabs);
@@ -4175,6 +4295,10 @@ $trackingIsPlaneacion = $trackingShowMainTabs
                         <div class="text-muted small">Seguimiento operativo por estatus, transportista y avance.</div>
                     </div>
                     <div class="trk-rutas-search">
+                        <select class="form-select form-select-sm" id="trkListaFiltroDireccion">
+                            <option value="">Todas las direcciones</option>
+                            <option value="sin_direccion">Sin direccion</option>
+                        </select>
                         <div class="input-group input-group-sm">
                             <span class="input-group-text"><i class="fa-solid fa-search"></i></span>
                             <input type="search" class="form-control" id="trkBuscarRutas"
@@ -4888,6 +5012,14 @@ $trackingIsPlaneacion = $trackingShowMainTabs
                                    placeholder="Buscar en créditos de la ruta...">
                         </div>
                     </div>
+                    <div class="trk-route-list-actions" id="trkRouteListActions">
+                        <button type="button" class="btn btn-sm btn-outline-danger" id="btnEliminarCreditosSinDireccion" disabled>
+                            <i class="fa-solid fa-trash-can me-1"></i>Eliminar creditos
+                        </button>
+                        <button type="button" class="btn btn-sm btn-primary" id="btnConfirmarCreditosFiltrados" disabled>
+                            <i class="fa-solid fa-circle-check me-1"></i>Confirmar todos
+                        </button>
+                    </div>
                     <div id="rutaCreditosList" style="max-height:280px;overflow-y:auto;border:1px dashed var(--track-border);border-radius:.5rem;padding:.5rem;">
                         <div class="text-center text-muted py-3 small" id="rutaCreditosEmpty">
                             <i class="fa-solid fa-motorcycle opacity-25 fa-2x mb-1 d-block"></i>
@@ -4932,10 +5064,14 @@ $trackingIsPlaneacion = $trackingShowMainTabs
                         <button type="button" class="btn btn-sm btn-label-primary" id="trkPlanDistribuir">
                             <i class="fa-solid fa-wand-magic-sparkles me-1"></i>Proponer
                         </button>
+                        <button type="button" class="btn btn-sm btn-label-info" id="trkPlanCalcularReal">
+                            <i class="fa-solid fa-route me-1"></i>Calcular tiempos reales
+                        </button>
                         <button type="button" class="btn btn-sm btn-primary" id="trkPlanGuardar">
                             <i class="fa-solid fa-floppy-disk me-1"></i>Guardar
                         </button>
                     </div>
+                    <div class="trk-route-real-summary d-none" id="trkRouteRealSummary"></div>
                     <div class="trk-route-day-list" id="trkRouteDayList">
                         <div class="text-center text-muted small py-2">
                             Agrega creditos para generar una propuesta por dia.
@@ -5023,6 +5159,65 @@ $trackingIsPlaneacion = $trackingShowMainTabs
                 </div>
 
             </div><!-- /modal-body -->
+
+            <div class="trk-plan-editor-overlay d-none" id="trkPlanHorarioOverlay" aria-hidden="true">
+                <div class="trk-plan-editor-card">
+                    <div class="trk-plan-editor-head">
+                        <div>
+                            <h5 class="mb-1">
+                                <i class="fa-solid fa-clock me-2" style="color:var(--track-color);"></i>
+                                Fijar horario del punto
+                            </h5>
+                            <div class="small text-muted" id="trkPlanHorarioCreditoLabel">Credito seleccionado</div>
+                        </div>
+                        <button type="button" class="btn-close" id="trkPlanHorarioCerrar" aria-label="Cerrar"></button>
+                    </div>
+                    <div class="trk-plan-editor-body">
+                        <div class="alert alert-danger py-2 px-3 small d-none" id="trkPlanHorarioError"></div>
+                        <div class="mb-2">
+                            <label class="form-label small fw-semibold">Tipo de ajuste</label>
+                            <select id="trkPlanHorarioTipo" class="form-select form-select-sm">
+                                <option value="reprogramacion_por_descanso">Descanso autorizado</option>
+                                <option value="adelanto_operativo">Adelanto operativo</option>
+                                <option value="reprogramacion_manual">Reprogramacion manual</option>
+                                <option value="reprogramacion_por_cliente">Cambio por cliente</option>
+                                <option value="reprogramacion_por_trafico">Cambio por trafico</option>
+                                <option value="reprogramacion_por_seguridad">Cambio por seguridad</option>
+                                <option value="reprogramacion_por_capacidad">Cambio por capacidad</option>
+                            </select>
+                        </div>
+                        <div class="mb-2">
+                            <label class="form-label small fw-semibold">Fecha</label>
+                            <input type="date" id="trkPlanHorarioFecha" class="form-control form-control-sm">
+                        </div>
+                        <div class="row g-2">
+                            <div class="col-6">
+                                <label class="form-label small fw-semibold">Llegada</label>
+                                <input type="time" id="trkPlanHorarioLlegada" class="form-control form-control-sm">
+                            </div>
+                            <div class="col-6">
+                                <label class="form-label small fw-semibold">Salida</label>
+                                <input type="time" id="trkPlanHorarioSalida" class="form-control form-control-sm">
+                            </div>
+                        </div>
+                        <div class="d-flex align-items-center justify-content-between mt-3 mb-1">
+                            <label class="form-label small fw-semibold mb-0">Motivo</label>
+                            <span class="small text-muted" id="trkPlanHorarioMotivoCount">0/300</span>
+                        </div>
+                        <textarea id="trkPlanHorarioMotivo" class="form-control" rows="4" maxlength="300"
+                                  placeholder="Ej. El transportista descansara y retoma a las 5 AM."></textarea>
+                        <div class="form-text small">Evita patrones repetidos o texto sin descripcion.</div>
+                    </div>
+                    <div class="trk-plan-editor-footer">
+                        <button type="button" class="btn btn-label-secondary btn-sm" id="trkPlanHorarioCancelar">
+                            Cancelar
+                        </button>
+                        <button type="button" class="btn btn-primary btn-sm" id="trkPlanHorarioGuardar">
+                            <i class="fa-solid fa-floppy-disk me-1"></i>Guardar ajuste
+                        </button>
+                    </div>
+                </div>
+            </div>
 
             <div class="modal-footer d-flex justify-content-between">
                 <button type="button" class="btn btn-label-secondary btn-sm" id="btnCerrarModalFooter">
@@ -5353,6 +5548,10 @@ const _trk = {
     planeacionLoading:    false,
     planeacionMaxParadas: 6,
     planeacionTrasladoEstados: 1,
+    planeacionRealResumen: null,
+    planeacionRealWarnings: [],
+    planeacionRealLegs:    [],
+    planeacionRealSource:  '',
     detalleRutaActualId:   null,
     cedisDestinoPorRuta:   {},
     cedisDestinoHistorial: {},
@@ -5423,6 +5622,8 @@ const _trk = {
     opsLivePolyline:      null,
     opsTrafficLayer:      null,
     routeLegDurations:    [],   // duraciones Google Maps entre puntos confirmados
+    routeLegMetrics:      [],   // distancia/duracion de tramos calculados en el mapa
+    planeacionCreditoEditando: null,
 };
 
 // --- Utilidades -----------------------------------------
@@ -5432,7 +5633,15 @@ function _trkSuspenderFocusModalRuta() {
         ? bootstrap.Modal.getInstance(modalEl)
         : null;
     const focusTrap = modal?._focustrap;
+    const $doc = window.jQuery ? window.jQuery(document) : null;
     let reactivate = false;
+    let reenforce = false;
+    if ($doc?.off) {
+        try {
+            $doc.off('focusin.bs.modal');
+            reenforce = !!modal && typeof modal._enforceFocus === 'function';
+        } catch (_) {}
+    }
     if (focusTrap && typeof focusTrap.deactivate === 'function') {
         try {
             focusTrap.deactivate();
@@ -5440,22 +5649,47 @@ function _trkSuspenderFocusModalRuta() {
         } catch (_) {}
     }
     return () => {
-        if (!reactivate || !modalEl?.classList.contains('show')) return;
-        try {
-            focusTrap.activate();
-        } catch (_) {}
+        if (!modalEl?.classList.contains('show')) return;
+        if (reactivate) {
+            try {
+                focusTrap.activate();
+            } catch (_) {}
+        }
+        if (reenforce) {
+            try {
+                modal._enforceFocus();
+            } catch (_) {}
+        }
     };
 }
 
 function _trkSwalConFocoModalRuta(options = {}) {
     const didOpen = options.didOpen;
     const willClose = options.willClose;
+    const modalEl = document.getElementById('modalRegistrarRuta');
+    const swalOptions = { ...options };
+    if (!swalOptions.target && modalEl?.classList.contains('show')) {
+        swalOptions.target = modalEl;
+    }
+    const customClass = swalOptions.customClass || {};
+    swalOptions.customClass = typeof customClass === 'object'
+        ? { ...customClass, container: `${customClass.container || ''} trk-swal-over-modal`.trim() }
+        : customClass;
     let restoreFocus = null;
     return Swal.fire({
         returnFocus: false,
-        ...options,
+        stopKeydownPropagation: false,
+        ...swalOptions,
         didOpen: (popup) => {
             restoreFocus = _trkSuspenderFocusModalRuta();
+            popup?.querySelectorAll('input, textarea, select').forEach(el => {
+                el.disabled = false;
+                el.readOnly = false;
+                el.style.pointerEvents = 'auto';
+                ['mousedown', 'mouseup', 'click', 'focus', 'keydown', 'keyup', 'input'].forEach(evt => {
+                    el.addEventListener(evt, ev => ev.stopPropagation());
+                });
+            });
             if (typeof didOpen === 'function') didOpen(popup);
         },
         willClose: (popup) => {
@@ -9822,14 +10056,14 @@ function _trkOtpExpiraInfo(expiraAt) {
 }
 
 function _trkRenderOtpEstado(otp) {
-    if (!otp) return '<span class="text-muted small">Sin OTP activo</span>';
+    if (!otp) return '<span class="text-muted small">Sin OTP de emergencia activo</span>';
     const exp = _trkOtpExpiraInfo(otp.expira_at);
     const intentosActuales = Number.isFinite(Number(otp.intentos)) ? Number(otp.intentos) : 0;
     const intentosMax = Number.isFinite(Number(otp.max_intentos)) ? Number(otp.max_intentos) : 3;
     const intentos = `${intentosActuales} / ${intentosMax}`;
     return `
         <div class="small ${exp.alerta ? 'text-danger fw-semibold' : 'text-muted'}">
-            <i class="fa-solid fa-key me-1"></i>${_trkChatEscapeHtml(otp.estatus || 'activo')}
+            <i class="fa-solid fa-key me-1"></i>Emergencia ${_trkChatEscapeHtml(otp.estatus || 'activo')}
             <span class="mx-1">|</span>${_trkChatEscapeHtml(exp.texto)}
             <span class="mx-1">|</span>Intentos ${_trkChatEscapeHtml(intentos)}
         </div>`;
@@ -9838,15 +10072,15 @@ function _trkRenderOtpEstado(otp) {
 function _trkOtpCellHtml(det) {
     const idDetalle = Number(det?.id_detalle || 0);
     if (!_trkPuntoPermiteOtp(det)) {
-        return '<span class="text-muted small">Disponible en sitio</span>';
+        return '<span class="text-muted small">Disponible cuando el punto este en sitio</span>';
     }
     return `
         <div class="d-flex flex-column gap-1">
             <div id="trkOtpEstado-${idDetalle}" class="trk-otp-status">
-                <span class="spinner-border spinner-border-sm me-1"></span>Consultando OTP...
+                <span class="spinner-border spinner-border-sm me-1"></span>Consultando OTP de emergencia...
             </div>
-            <button type="button" class="btn btn-sm btn-primary btn-generar-otp" data-id="${idDetalle}">
-                <i class="fa-solid fa-key me-1"></i>Generar OTP
+            <button type="button" class="btn btn-sm btn-warning btn-generar-otp" data-id="${idDetalle}">
+                <i class="fa-solid fa-key me-1"></i>OTP emergencia
             </button>
         </div>`;
 }
@@ -9861,15 +10095,32 @@ async function _trkConsultarOtpActivo(idDetalle) {
 function _trkConsultarOtpsActivosDetalle(detalles) {
     (detalles || []).filter(_trkPuntoPermiteOtp).forEach(det => {
         _trkConsultarOtpActivo(det.id_detalle).catch(() => {
-            $(`#trkOtpEstado-${det.id_detalle}`).html('<span class="text-muted small">Sin OTP activo</span>');
+            $(`#trkOtpEstado-${det.id_detalle}`).html('<span class="text-muted small">Sin OTP de emergencia activo</span>');
         });
     });
 }
 
 async function _trkGenerarOtpDetalle(idDetalle) {
     if (!idDetalle) return;
+    const confirmar = await Swal.fire({
+        icon: 'warning',
+        title: 'Generar OTP de emergencia?',
+        html: `<div class="text-start small">
+            <p class="mb-2">Este codigo es un respaldo operativo para que el transportista confirme la recoleccion cuando el gestor no puede completar el flujo normal.</p>
+            <ul class="mb-0 ps-3">
+                <li>Usalo solo para el punto seleccionado.</li>
+                <li>No lo compartas fuera de esta operacion.</li>
+                <li>Queda asociado al detalle de recoleccion.</li>
+            </ul>
+        </div>`,
+        showCancelButton: true,
+        confirmButtonText: 'Si, generar OTP',
+        cancelButtonText: 'Cancelar',
+        reverseButtons: true,
+    });
+    if (!confirmar.isConfirmed) return;
     Swal.fire({
-        title: 'Generando OTP...',
+        title: 'Generando OTP de emergencia...',
         allowOutsideClick: false,
         allowEscapeKey: false,
         showConfirmButton: false,
@@ -9882,23 +10133,26 @@ async function _trkGenerarOtpDetalle(idDetalle) {
             body: JSON.stringify({ id_detalle: idDetalle, canal: 'manual', telefono_destino: null }),
         });
         if (!r.success) {
-            Swal.fire({ icon: 'error', title: 'No se pudo generar OTP', text: r.mensaje || r.message || r.detail || 'Intenta nuevamente.', confirmButtonText: 'Aceptar' });
+            Swal.fire({ icon: 'error', title: 'No se pudo generar OTP de emergencia', text: r.mensaje || r.message || r.detail || 'Intenta nuevamente.', confirmButtonText: 'Aceptar' });
             return;
         }
         const otp = r.otp || r.datos?.otp || {};
         $(`#trkOtpEstado-${idDetalle}`).html(_trkRenderOtpEstado(otp));
         Swal.fire({
             icon: 'success',
-            title: 'OTP generado',
+            title: 'OTP de emergencia generado',
             html: `<div class="text-center">
-                <div class="small text-muted mb-2">Comparte este codigo con el transportista.</div>
+                <div class="small text-muted mb-2">Comparte este codigo solo con el transportista asignado.</div>
                 <div class="display-6 fw-bold" style="letter-spacing:.18em;">${_trkChatEscapeHtml(otp.codigo || '')}</div>
                 <div class="small text-muted mt-2">${_trkChatEscapeHtml(_trkOtpExpiraInfo(otp.expira_at).texto)}</div>
+                <div class="alert alert-warning py-2 px-3 mt-3 mb-0 small text-start">
+                    Uso excepcional: el transportista lo capturara en Android para cerrar la recoleccion por emergencia.
+                </div>
             </div>`,
             confirmButtonText: 'Entendido',
         });
     } catch {
-        Swal.fire({ icon: 'error', title: 'Error de conexión', text: 'No se pudo generar el OTP.', confirmButtonText: 'Aceptar' });
+        Swal.fire({ icon: 'error', title: 'Error de conexion', text: 'No se pudo generar el OTP de emergencia.', confirmButtonText: 'Aceptar' });
     }
 }
 
@@ -9908,7 +10162,7 @@ function _trkDetalleActualizarRecoleccion(idDetalle, estatus) {
     if ($cell.length) $cell.html(_trkRenderEstatusRecoleccionDetalle(estatus));
     const $otp = $(`.trk-det-otp[data-id="${idDetalle}"]`);
     if ($otp.length && String(estatus || '').toLowerCase() !== 'en_sitio') {
-        $otp.html('<span class="text-muted small">Disponible en sitio</span>');
+        $otp.html('<span class="text-muted small">Disponible cuando el punto este en sitio</span>');
     }
 }
 
@@ -10083,11 +10337,14 @@ function _trkInicializarModal() {
         _trkPoblarFiltroMunicipiosListaRuta();
         _trkRenderListaCreditos();
     });
-    $('#trkListaFiltroMunicipio, #trkListaBuscar').on('change input', _trkRenderListaCreditos);
+    $('#trkListaFiltroMunicipio, #trkListaFiltroDireccion, #trkListaBuscar').on('change input', _trkRenderListaCreditos);
+    $('#btnEliminarCreditosSinDireccion').on('click', _trkEliminarCreditosSinDireccionFiltrados);
+    $('#btnConfirmarCreditosFiltrados').on('click', _trkConfirmarCreditosFiltrados);
     $('#trkPlannerGroups').on('click', '.trk-planner-group-head, .trk-planner-mun', function () {
         _trkPlannerEnfocarGrupo(this.dataset.estado || '', this.dataset.municipio || '');
     });
     $('#trkPlanDistribuir').on('click', _trkDistribuirPlaneacionLocal);
+    $('#trkPlanCalcularReal').on('click', () => _trkCalcularTiemposPlaneacion(false));
     $('#trkPlanGuardar').on('click', _trkGuardarPlaneacionRuta);
     $('#trkRouteDayList').on('click', '.btn-trk-plan-editar-hora', function () {
         const idCredito = Number($(this).data('credito') || 0);
@@ -10098,6 +10355,11 @@ function _trkInicializarModal() {
     });
     $('#trkRouteDayList').on('change', '.trk-route-day-date-input', function () {
         _trkPlanCambiarFechaDia(Number($(this).data('day') || 0), this.value || '');
+    });
+    $('#trkPlanHorarioCerrar, #trkPlanHorarioCancelar').on('click', _trkCerrarEditorHorarioPlaneacion);
+    $('#trkPlanHorarioGuardar').on('click', _trkGuardarEditorHorarioPlaneacion);
+    $('#trkPlanHorarioMotivo').on('input', function () {
+        $('#trkPlanHorarioMotivoCount').text(`${String(this.value || '').length}/300`);
     });
     $('#trkOppRefresh').on('click', () => _trkCargarOportunidadesRuta(true));
     $('#trkOppRadioKm, #trkOppLimit').on('change', () => _trkCargarOportunidadesRuta(true));
@@ -10211,6 +10473,7 @@ function _trkResetModal() {
     _trk.cargando              = false;
     _trk.creditosEnRuta        = [];
     _trk.routeLegDurations     = [];
+    _trk.routeLegMetrics       = [];
     _trk.haychangios           = false;
     _trk.autosaveLastHash      = '';
     _trk.autosaveDirtyLists    = false;
@@ -10224,6 +10487,10 @@ function _trkResetModal() {
     _trk.planeacionRuta        = [];
     _trk.planeacionEventos     = [];
     _trk.planeacionLoading     = false;
+    _trk.planeacionRealResumen = null;
+    _trk.planeacionRealWarnings = [];
+    _trk.planeacionRealLegs    = [];
+    _trk.planeacionRealSource  = '';
     if (_trk.nombreRutaCheckTimer) {
         clearTimeout(_trk.nombreRutaCheckTimer);
         _trk.nombreRutaCheckTimer = null;
@@ -10251,7 +10518,7 @@ function _trkResetModal() {
     $('#rutaCedisDestino').val('');
     $('#rutaCedisDestinoInfo').addClass('d-none').empty();
     $('#trkMapTransportSummary').addClass('d-none').empty();
-    $('#trkListaFiltroEstado, #trkListaFiltroMunicipio, #trkListaBuscar').val('');
+    $('#trkListaFiltroEstado, #trkListaFiltroMunicipio, #trkListaFiltroDireccion, #trkListaBuscar').val('');
     $('#trkListaFiltroMunicipio').prop('disabled', true);
     $('#trkOppRadioKm').val('10');
     $('#trkOppLimit').val('30');
@@ -10612,6 +10879,137 @@ function _trkQuitarCredito(idCred) {
     _trkMarcarCambio();
 }
 
+async function _trkEliminarCreditosSinDireccionFiltrados() {
+    if (_trkRutaEstaCancelada() || _trk.soloLectura) return;
+    if (String($('#trkListaFiltroDireccion').val() || '') !== 'sin_direccion') {
+        Swal.fire({
+            icon: 'info',
+            title: 'Activa el filtro Sin direccion',
+            text: 'Primero filtra los creditos sin direccion para poder eliminarlos en bloque.',
+            confirmButtonText: 'Aceptar',
+        });
+        return;
+    }
+    const creditos = _trkCreditosRutaFiltrados().filter(_trkCreditoSinDireccionRuta);
+    if (!creditos.length) {
+        Swal.fire({
+            icon: 'info',
+            title: 'Sin creditos por eliminar',
+            text: 'No hay creditos visibles sin direccion.',
+            confirmButtonText: 'Aceptar',
+        });
+        return;
+    }
+    const muestra = creditos.slice(0, 8).map(c =>
+        `<div class="small text-start">#${_trkChatEscapeHtml(c.id_credito)} - ${_trkChatEscapeHtml(c.nombre_cliente || 'Sin cliente')}</div>`
+    ).join('');
+    const extra = creditos.length > 8
+        ? `<div class="small text-muted text-start mt-1">Y ${creditos.length - 8} credito(s) mas...</div>`
+        : '';
+    const resp = await Swal.fire({
+        icon: 'warning',
+        title: 'Eliminar creditos sin direccion?',
+        html: `<div class="text-start">
+            <p class="mb-2">Se eliminaran <b>${creditos.length}</b> credito(s) visibles sin direccion de esta ruta.</p>
+            <p class="mb-2 text-muted small">
+                Antes de eliminarlos, torre de control puede asignar coordenadas desde el icono de puntero que aparece junto al estatus y al boton de descartar credito.
+            </p>
+            <div class="border rounded p-2 bg-light">${muestra}${extra}</div>
+        </div>`,
+        showCancelButton: true,
+        confirmButtonText: 'Si, eliminar',
+        cancelButtonText: 'Cancelar',
+        confirmButtonColor: '#dc3545',
+    });
+    if (!resp.isConfirmed) return;
+
+    const ids = new Set(creditos.map(c => String(c.id_credito)));
+    _trk.creditosEnRuta = (_trk.creditosEnRuta || []).filter(c => !ids.has(String(c.id_credito)));
+    _trkRecalcularOrden();
+    _trkAplicarEtasAutomaticas();
+    _trkRenderListaCreditos();
+    _trkRefrescarFiltrosCreditoUbicacion();
+    _trkRenderizarMapa();
+    _trkMarcarCambio();
+    Swal.fire({
+        icon: 'success',
+        title: 'Creditos eliminados',
+        text: `Se quitaron ${creditos.length} credito(s) sin direccion de la ruta.`,
+        timer: 1800,
+        showConfirmButton: false,
+    });
+}
+
+async function _trkConfirmarCreditosFiltrados() {
+    if (_trkRutaEstaCancelada() || _trk.soloLectura) return;
+    const creditos = _trkCreditosRutaFiltrados();
+    const pendientes = creditos.filter(c => c.estatus_confirmacion_gestor !== 'confirmado');
+    if (!creditos.length) {
+        Swal.fire({
+            icon: 'info',
+            title: 'Sin creditos visibles',
+            text: 'No hay creditos con los filtros actuales.',
+            confirmButtonText: 'Aceptar',
+        });
+        return;
+    }
+    if (!pendientes.length) {
+        Swal.fire({
+            icon: 'success',
+            title: 'Todo confirmado',
+            text: 'Los creditos visibles ya estan confirmados.',
+            timer: 1600,
+            showConfirmButton: false,
+        });
+        return;
+    }
+
+    const estado = $('#trkListaFiltroEstado').val() || '';
+    const municipio = $('#trkListaFiltroMunicipio').val() || '';
+    const sinDireccion = String($('#trkListaFiltroDireccion').val() || '') === 'sin_direccion';
+    const q = String($('#trkListaBuscar').val() || '').trim();
+    const alcance = [
+        estado ? `Estado: ${estado}` : '',
+        municipio ? `Municipio: ${municipio}` : '',
+        sinDireccion ? 'Filtro: Sin direccion' : '',
+        q ? `Busqueda: ${q}` : '',
+    ].filter(Boolean).join('<br>') || 'Todos los creditos de la ruta';
+
+    const resp = await Swal.fire({
+        icon: 'question',
+        title: 'Confirmar creditos?',
+        html: `<div class="text-start">
+            <p class="mb-2">Se marcaran como <b>Confirmado</b> <b>${pendientes.length}</b> credito(s).</p>
+            <div class="alert alert-info py-2 px-3 small mb-0">
+                <b>Alcance:</b><br>${_trkChatEscapeHtml(alcance).replace(/&lt;br&gt;/g, '<br>')}
+            </div>
+        </div>`,
+        showCancelButton: true,
+        confirmButtonText: 'Si, confirmar',
+        cancelButtonText: 'Cancelar',
+        confirmButtonColor: '#0d9488',
+    });
+    if (!resp.isConfirmed) return;
+
+    const ids = new Set(pendientes.map(c => String(c.id_credito)));
+    (_trk.creditosEnRuta || []).forEach(c => {
+        if (ids.has(String(c.id_credito))) {
+            c.estatus_confirmacion_gestor = 'confirmado';
+        }
+    });
+    _trkAplicarEtasAutomaticas();
+    _trkRenderListaCreditos();
+    _trkRenderizarMapa();
+    _trkMarcarCambio();
+    Swal.fire({
+        icon: 'success',
+        title: 'Creditos confirmados',
+        text: `Se confirmaron ${pendientes.length} credito(s).`,
+        timer: 1600,
+        showConfirmButton: false,
+    });
+}
+
 function _trkRenderListaCreditos() {
     const $list = $('#rutaCreditosList');
     _trkPoblarFiltrosListaRuta();
@@ -10619,6 +11017,7 @@ function _trkRenderListaCreditos() {
     const isEmpty = _trk.creditosEnRuta.length === 0;
     const filaLectura = _trkRutaEstaCancelada();
     $('#rutaCreditosCount').text(_trk.creditosEnRuta.length);
+    _trkActualizarAccionesListaRuta();
     if (_trk.sortableInstance) _trk.sortableInstance.option('disabled', filaLectura);
     _trkRenderPlaneadorPanel();
     _trkRenderPlaneacionDias();
@@ -11139,6 +11538,10 @@ function _trkDibujarMapa(creditos) {
                 _trk.directionsRenderer.setDirections(result);
                 const legs = result.routes?.[0]?.legs || [];
                 _trk.routeLegDurations = legs.map(l => l.duration_in_traffic?.value || l.duration?.value || null);
+                _trk.routeLegMetrics = legs.map(l => ({
+                    duration_seconds: l.duration_in_traffic?.value || l.duration?.value || null,
+                    distance_meters: l.distance?.value || null,
+                }));
                 _trkAplicarEtasAutomaticas();
                 _trkRenderListaCreditos();
             }
@@ -13383,19 +13786,19 @@ function _trkVerDetalleRuta(idRuta) {
                     <table class="table table-sm table-bordered" style="font-size:.8rem;">
                         <thead style="background:var(--track-color);color:#fff;">
                             <tr>
-                                <th>#</th><th>Crédito</th><th>Cliente</th><th>Modelo</th>
+                                <th>#</th><th>Credito</th><th>Cliente</th><th>Modelo</th>
                                 <th>VIN</th><th>Estado / Municipio</th>
-                                <th>Proceso</th><th>Recoleccion</th><th>Confirmacion</th><th>OTP</th>
+                                <th>Proceso</th><th>Recoleccion</th><th>Confirmacion</th><th>OTP emergencia</th>
                             </tr>
                         </thead>
-                        <tbody>${rowsHtml || '<tr><td colspan="10" class="text-center text-muted">Sin créditos</td></tr>'}</tbody>
+                        <tbody>${rowsHtml || '<tr><td colspan="10" class="text-center text-muted">Sin creditos</td></tr>'}</tbody>
                     </table>
                 </div>
             `);
             _trkCargarDetalleCedisDestino(idRuta, d.estatus_ruta);
             _trkConsultarOtpsActivosDetalle(d.detalle || []);
         })
-        .catch(() => $body.html('<div class="alert alert-danger">Error de conexión.</div>'));
+        .catch(() => $body.html('<div class="alert alert-danger">Error de conexion.</div>'));
 }
 
 // --- Marcar cambios pendientes ------------------------
@@ -13639,10 +14042,12 @@ function _trkCargarRutaEnModal(idRuta, soloLectura) {
 function _trkCreditosRutaFiltrados() {
     const estado = _trkNormTxt($('#trkListaFiltroEstado').val());
     const municipio = _trkNormTxt($('#trkListaFiltroMunicipio').val());
+    const direccion = String($('#trkListaFiltroDireccion').val() || '');
     const q = _trkNormTxt($('#trkListaBuscar').val());
     return (_trk.creditosEnRuta || []).filter(c => {
         if (estado && _trkNormTxt(_trkEstadoMayus(c.estado, c.municipio)) !== estado) return false;
         if (municipio && _trkNormTxt(_trkMunicipioMayus(c.municipio, c.estado)) !== municipio) return false;
+        if (direccion === 'sin_direccion' && !_trkCreditoSinDireccionRuta(c)) return false;
         if (!q) return true;
         return _trkNormTxt([
             c.id_credito,
@@ -13656,6 +14061,36 @@ function _trkCreditosRutaFiltrados() {
             c.estatus_confirmacion_gestor,
         ].filter(Boolean).join(' ')).includes(q);
     });
+}
+
+function _trkCreditoSinDireccionRuta(c) {
+    return !_trkDireccionCreditoUtil(c?.direccion);
+}
+
+function _trkListaRutaTieneFiltroActivo() {
+    return Boolean(
+        $('#trkListaFiltroEstado').val()
+        || $('#trkListaFiltroMunicipio').val()
+        || $('#trkListaFiltroDireccion').val()
+        || String($('#trkListaBuscar').val() || '').trim()
+    );
+}
+
+function _trkActualizarAccionesListaRuta() {
+    const creditosVisibles = _trkCreditosRutaFiltrados();
+    const sinDireccionActivo = String($('#trkListaFiltroDireccion').val() || '') === 'sin_direccion';
+    const puedeEditar = !_trkRutaEstaCancelada() && !_trk.soloLectura;
+    const sinDireccionVisibles = creditosVisibles.filter(_trkCreditoSinDireccionRuta);
+    $('#btnEliminarCreditosSinDireccion')
+        .prop('disabled', !puedeEditar || !sinDireccionActivo || sinDireccionVisibles.length === 0)
+        .attr('title', sinDireccionActivo
+            ? 'Elimina los creditos visibles sin direccion'
+            : 'Activa el filtro Sin direccion para eliminar creditos');
+    $('#btnConfirmarCreditosFiltrados')
+        .prop('disabled', !puedeEditar || creditosVisibles.length === 0)
+        .attr('title', _trkListaRutaTieneFiltroActivo()
+            ? 'Confirma todos los creditos visibles por los filtros aplicados'
+            : 'Confirma todos los creditos de la ruta');
 }
 
 function _trkPoblarFiltrosListaRuta() {
@@ -13847,15 +14282,7 @@ function _trkPlanCreditoNombre(c) {
 }
 
 function _trkPlanTravel(from, to) {
-    const a = _trkPlanCreditoNombre(from);
-    const b = _trkPlanCreditoNombre(to);
-    if (!a || !b || a === b) return 0;
-    const pair = [a, b].map(v => _trkNormTxt(v)).sort().join('|');
-    let hash = 0;
-    for (let i = 0; i < pair.length; i++) {
-        hash = ((hash * 31) + pair.charCodeAt(i)) >>> 0;
-    }
-    return 15 + (hash % 45);
+    return 0;
 }
 
 function _trkPlanEstado(c) {
@@ -13917,13 +14344,19 @@ function _trkPlanApplyCascade(days, config) {
         const keep = [];
         const overflow = [];
         day.stops.forEach(c => {
-            const travel = _trkPlanTravel(prev, c);
-            const opBase = _trkPlanClamp(c.operation_minutes, 5, 240, config.operacion);
-            let llegada;
-            let salida;
+            const travelSource = String(c.travel_source || c.source || '').toLowerCase();
+            const hasRealTravel = !!(c._plan_real || ['google_routes', 'google_maps', 'google_maps_route', 'maps_directions'].includes(travelSource))
+                && _trkPlanHasNumber(c.travel_from_prev_minutes);
+            const travel = hasRealTravel ? Number(c.travel_from_prev_minutes) : 0;
+            c._plan_travel_pending = !hasRealTravel;
             const hasPinnedTime = Number(c.pinned || 0) === 1
                 && _trkPlanHasNumber(c.arrival_minutes)
                 && _trkPlanHasNumber(c.departure_minutes);
+            const opBase = hasPinnedTime
+                ? _trkPlanClamp(c.operation_minutes, 5, 240, config.operacion)
+                : config.operacion;
+            let llegada;
+            let salida;
             if (hasPinnedTime) {
                 llegada = Number(c.arrival_minutes);
                 salida = Number(c.departure_minutes);
@@ -14094,6 +14527,640 @@ function _trkPlanCamposPayload(c) {
     };
 }
 
+function _trkMetersLabel(value) {
+    const meters = Number(value || 0);
+    if (!Number.isFinite(meters) || meters <= 0) return '-';
+    if (meters < 1000) return `${Math.round(meters)} m`;
+    return `${(meters / 1000).toLocaleString('es-MX', { maximumFractionDigits: 1 })} km`;
+}
+
+function _trkSecondsLabel(value) {
+    const seconds = Number(value || 0);
+    if (!Number.isFinite(seconds) || seconds <= 0) return '-';
+    const minutes = Math.round(seconds / 60);
+    if (minutes < 60) return `${minutes} min`;
+    const hours = Math.floor(minutes / 60);
+    const rest = minutes % 60;
+    return rest ? `${hours} h ${rest} min` : `${hours} h`;
+}
+
+function _trkPlanSourceLabel(source) {
+    const key = String(source || '').trim().toLowerCase();
+    if (key === 'google_routes') return 'Google Routes';
+    if (key === 'google_maps') return 'Google Maps';
+    if (key === 'google_maps_route' || key === 'maps_directions') return 'Google Maps (ruta del mapa)';
+    if (key === 'local_fallback') return 'Propuesta estimada';
+    if (!key) return '';
+    return key
+        .split(/[_\s-]+/)
+        .filter(Boolean)
+        .map(p => p.charAt(0).toUpperCase() + p.slice(1))
+        .join(' ');
+}
+
+function _trkPlanOperacionResumenLabel(resumen) {
+    const total = Number(resumen?.operacion_total_min || 0);
+    const porParada = Number(_trkPlanConfig().operacion || 45);
+    if (!Number.isFinite(total) || total <= 0) return '-';
+    if (total > porParada && porParada > 0) {
+        return `${porParada} min por parada · ${total} min total`;
+    }
+    return `${total} min operacion`;
+}
+
+function _trkPlanBodyCalculoReal(persistir = false) {
+    const config = _trkPlanConfig();
+    return {
+        origen: 'cedis',
+        usar_gps_transportista: false,
+        fecha_salida: $('#rutaFecha').val() || _trkFechaMinimaProgramacion(),
+        hora_salida: _trkHoraToPayload(),
+        inicio_jornada: $('#trkPlanInicioJornada').val() || '10:00',
+        fin_jornada: $('#trkPlanFinJornada').val() || '19:00',
+        min_por_parada: Number(config.operacion || 45),
+        traslado_entre_estados: Number(config.trasladoEstados || 0),
+        persistir: !!persistir,
+    };
+}
+
+function _trkNormalizarCalculoTiemposRespuesta(r) {
+    const data = r?.datos || r?.data || r || {};
+    return {
+        ...data,
+        success: Boolean(r?.success ?? data?.success),
+        source: data?.source || r?.source || '',
+        resumen: data?.resumen || r?.resumen || null,
+        legs: Array.isArray(data?.legs) ? data.legs : (Array.isArray(r?.legs) ? r.legs : []),
+        planeacion: Array.isArray(data?.planeacion) ? data.planeacion : (Array.isArray(r?.planeacion) ? r.planeacion : []),
+        warnings: Array.isArray(data?.warnings) ? data.warnings : (Array.isArray(r?.warnings) ? r.warnings : []),
+        mensaje: r?.message || r?.mensaje || r?.detail || data?.message || data?.mensaje || data?.detail || '',
+        codigo_http: r?.codigo_http || data?.codigo_http || 200,
+    };
+}
+
+function _trkWarningTexto(warning) {
+    if (warning == null) return '';
+    let txt = '';
+    if (typeof warning === 'string') {
+        txt = warning;
+    } else {
+        txt = warning.message || warning.mensaje || warning.detail || JSON.stringify(warning);
+    }
+    return _trkWarningTextoOperativo(txt);
+}
+
+function _trkWarningCedisNombre(id) {
+    const cedis = _trkCedisPorId(id) || _trkCedisDestinoSeleccionado();
+    return cedis?.nombre_agencia ? `CEDIS ${cedis.nombre_agencia}` : 'CEDIS destino';
+}
+
+function _trkCreditoPorDetalle(idDetalle) {
+    const id = String(idDetalle || '').trim();
+    if (!id) return null;
+    return (_trk.creditosEnRuta || []).find(c => String(c.id_detalle || '') === id) || null;
+}
+
+function _trkWarningCreditoSinCoords(idDetalle) {
+    const cred = _trkCreditoPorDetalle(idDetalle);
+    const label = cred
+        ? `Credito #${cred.id_credito || idDetalle}${cred.nombre_cliente ? ` - ${cred.nombre_cliente}` : ''}`
+        : 'Un credito de la ruta';
+    const tieneDireccion = cred ? Boolean(_trkDireccionBusquedaCredito(cred)) : false;
+    if (cred?._geo_auto_resuelto) {
+        return `${label}: Google Maps encontro coordenadas, pero el servicio de tracking aun no las uso para el calculo. Intenta calcular nuevamente.`;
+    }
+    if (tieneDireccion) {
+        return `${label}: sin coordenadas. Se intento buscar en Google Maps con la direccion registrada, pero no se obtuvo una ubicacion confiable. Confirma el pin manualmente.`;
+    }
+    return `${label}: sin coordenadas ni direccion suficiente para buscar en Google Maps. Captura o confirma el pin manualmente.`;
+}
+
+function _trkWarningTextoOperativo(texto) {
+    let txt = String(texto || '').trim();
+    if (!txt) return '';
+
+    const warningSinCoords = txt.match(/credito\s+id_detalle\s*=\s*(\d+)\s+sin\s+latitud\s+o\s+longitud;\s*no\s+se\s+calcularon\s+tiempos/i);
+    if (warningSinCoords) {
+        return _trkWarningCreditoSinCoords(warningSinCoords[1]);
+    }
+
+    txt = txt.replace(/\bhora_salida\b/gi, 'hora de salida');
+    txt = txt.replace(/\binicio_jornada\b/gi, 'inicio de jornada');
+    txt = txt.replace(/\bfin_jornada\b/gi, 'fin de jornada');
+    txt = txt.replace(/\bday_index\s*=\s*(\d+)\b/gi, (_, n) => `Dia ${Number(n) + 1}`);
+    txt = txt.replace(/\bcedis\s+(\d+)\b/gi, (_, id) => _trkWarningCedisNombre(id));
+    txt = txt.replace(/\bcredito\s+(\d+)\b/gi, 'credito #$1');
+
+    txt = txt.replace(
+        /La planeacion rebasa la jornada inicial y llega hasta Dia\s+(\d+)/i,
+        'La planeacion se extiende hasta el Dia $1.'
+    );
+    txt = txt.replace(
+        /El tramo hacia (.+?) no cabe completo dentro de una jornada/i,
+        'El traslado hacia $1 no cabe completo dentro de una jornada.'
+    );
+    txt = txt.replace(
+        /hora de salida anterior a inicio de jornada;\s*se ajusto al inicio de jornada/i,
+        'La hora de salida era anterior al inicio de jornada; se ajusto automaticamente al horario de inicio.'
+    );
+
+    return txt;
+}
+
+function _trkWarningsBloqueantes(warnings) {
+    return (warnings || []).some(w => {
+        const txt = _trkNormTxt(_trkWarningTexto(w));
+        return /CEDIS|COORDENADA|COORDENADAS|UBICACION|GPS|LATITUD|LONGITUD/.test(txt);
+    });
+}
+
+function _trkCreditoTieneCoordenadasValidas(cred) {
+    return Boolean(_trkCreditoPosicionBasica(cred));
+}
+
+function _trkDireccionCreditoUtil(valor) {
+    const txt = _trkNormTxt(valor);
+    if (!txt) return false;
+    return !['NA', 'N/A', 'NO APLICA', 'SIN DATOS', 'NO DISPONIBLE', 'EN ESPERA DE DATOS', 'SIN UBICACION', 'SIN DIRECCION', 'NULL'].includes(txt);
+}
+
+function _trkDireccionBusquedaCredito(cred) {
+    if (!cred) return '';
+    const direccion = _trkDireccionCreditoUtil(cred.direccion_google)
+        ? cred.direccion_google
+        : (_trkDireccionCreditoUtil(cred.direccion) ? cred.direccion : '');
+    const estado = _trkEstadoMayus(cred.estado, cred.municipio);
+    const municipio = _trkMunicipioMayus(cred.municipio, estado);
+    if (!_trkDireccionCreditoUtil(direccion)) return '';
+    return [direccion, municipio, estado, 'Mexico']
+        .filter(v => _trkDireccionCreditoUtil(v))
+        .join(', ');
+}
+
+function _trkGeoComponente(result, tipos) {
+    const components = Array.isArray(result?.address_components) ? result.address_components : [];
+    const found = components.find(c => tipos.some(t => c.types?.includes(t)));
+    return found?.long_name || found?.short_name || '';
+}
+
+function _trkGeoZonaDesdeResultado(result) {
+    const estado = _trkGeoComponente(result, ['administrative_area_level_1']);
+    const localidad = _trkGeoComponente(result, ['locality']);
+    const alcaldia = _trkGeoComponente(result, ['administrative_area_level_2']);
+    const sublocalidad = _trkGeoComponente(result, ['sublocality_level_1']);
+    const barrio = _trkGeoComponente(result, ['neighborhood']);
+    const estadoCanonico = _trkEstadoCanonico(estado, alcaldia || sublocalidad || localidad || barrio);
+    const municipioBase = estadoCanonico === 'CIUDAD DE MEXICO'
+        ? (alcaldia || sublocalidad || localidad || barrio)
+        : (localidad || alcaldia || sublocalidad || barrio);
+    const estadoFinal = _trkEstadoMayus(estadoCanonico || estado, municipioBase);
+    return {
+        estado: estadoFinal,
+        municipio: _trkMunicipioMayus(municipioBase, estadoFinal),
+        direccion: result?.formatted_address || '',
+    };
+}
+
+function _trkGeocodificarCreditoAutomatico(cred) {
+    if (!cred || _trkCreditoTieneCoordenadasValidas(cred)) {
+        return Promise.resolve(null);
+    }
+    const address = _trkDireccionBusquedaCredito(cred);
+    if (!address) return Promise.resolve(null);
+    if (!window.google || !google.maps || !google.maps.Geocoder) {
+        return Promise.resolve(null);
+    }
+    if (!_trk.geocoder) _trk.geocoder = new google.maps.Geocoder();
+
+    return new Promise(resolve => {
+        _trk.geocoder.geocode({ address }, (results, status) => {
+            if (status !== 'OK' || !results || !results[0]) {
+                cred._geo_auto_fallo = true;
+                resolve(null);
+                return;
+            }
+            const loc = results[0].geometry?.location;
+            const lat = typeof loc?.lat === 'function' ? loc.lat() : null;
+            const lng = typeof loc?.lng === 'function' ? loc.lng() : null;
+            if (!Number.isFinite(lat) || !Number.isFinite(lng) || lat === 0 || lng === 0) {
+                cred._geo_auto_fallo = true;
+                resolve(null);
+                return;
+            }
+            const zona = _trkGeoZonaDesdeResultado(results[0]);
+            cred.latitud_manual = lat;
+            cred.longitud_manual = lng;
+            cred.latitud = lat;
+            cred.longitud = lng;
+            cred._geo_auto_resuelto = true;
+            cred._geo_auto_fallo = false;
+            if (zona.direccion) {
+                cred.direccion_google = zona.direccion;
+                cred.direccion = zona.direccion;
+            }
+            if (zona.estado) cred.estado = zona.estado;
+            if (zona.municipio) cred.municipio = zona.municipio;
+            _trk.creditoPosiciones[String(cred.id_credito || '')] = { lat, lng };
+            resolve({
+                id_detalle: Number(cred.id_detalle || 0),
+                id_credito: Number(cred.id_credito || 0),
+                latitud: lat,
+                longitud: lng,
+                direccion: cred.direccion_google || cred.direccion || '',
+                estado: cred.estado || '',
+                municipio: cred.municipio || '',
+            });
+        });
+    });
+}
+
+async function _trkPersistirCoordenadasRuta(creditos) {
+    const idRuta = Number(_trk.idRutaEditando || 0);
+    const items = Array.isArray(creditos) ? creditos.filter(Boolean) : [];
+    if (!idRuta || !items.length) return 0;
+    const r = await trkFetch('/TrackingRecoleccion/actualizarCoordenadasRuta', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id_ruta: idRuta, creditos: items }),
+    });
+    if (!r?.success) {
+        throw new Error(r?.message || r?.mensaje || 'No se pudieron guardar las coordenadas detectadas.');
+    }
+    return Number(r?.actualizados || 0);
+}
+
+function _trkEsperarGoogleMapsDisponible() {
+    if (window.google && google.maps && google.maps.Geocoder) {
+        return Promise.resolve(true);
+    }
+    if (!window._trackGoogleMapsKey) return Promise.resolve(false);
+    return new Promise(resolve => {
+        let done = false;
+        const finish = (ok) => {
+            if (done) return;
+            done = true;
+            resolve(!!ok);
+        };
+        try {
+            _trkAsegurarGoogleMaps(() => finish(Boolean(window.google && google.maps && google.maps.Geocoder)));
+        } catch (_) {
+            finish(false);
+        }
+        setTimeout(() => finish(Boolean(window.google && google.maps && google.maps.Geocoder)), 10000);
+    });
+}
+
+async function _trkResolverCoordenadasFaltantesRuta(opts = {}) {
+    const persistir = opts.persistir !== false;
+    const faltantes = (_trk.creditosEnRuta || [])
+        .filter(c => !_trkCreditoTieneCoordenadasValidas(c))
+        .filter(c => _trkDireccionBusquedaCredito(c));
+    if (!faltantes.length) {
+        const stats = { intentados: 0, resueltos: 0, persistidos: 0 };
+        _trk.ultimaGeoAuto = stats;
+        return stats;
+    }
+    const mapsOk = await _trkEsperarGoogleMapsDisponible();
+    if (!mapsOk) {
+        faltantes.forEach(c => {
+            c._geo_auto_fallo = true;
+            c._geo_auto_motivo = 'Google Maps no disponible';
+        });
+        const stats = { intentados: faltantes.length, resueltos: 0, persistidos: 0, sinGoogle: true };
+        _trk.ultimaGeoAuto = stats;
+        return stats;
+    }
+
+    const resueltos = [];
+    for (const cred of faltantes) {
+        const item = await _trkGeocodificarCreditoAutomatico(cred);
+        if (item) resueltos.push(item);
+        await _trkSleep(140);
+    }
+
+    let persistidos = 0;
+    if (persistir && resueltos.length) {
+        persistidos = await _trkPersistirCoordenadasRuta(resueltos);
+    }
+    if (resueltos.length) {
+        _trkRenderListaCreditos();
+        _trkRenderizarMapa();
+    }
+    const stats = {
+        intentados: faltantes.length,
+        resueltos: resueltos.length,
+        persistidos,
+    };
+    _trk.ultimaGeoAuto = stats;
+    return stats;
+}
+
+function _trkAplicarPlaneacionReal(data) {
+    const planeacion = Array.isArray(data?.planeacion) ? data.planeacion : [];
+    const legs = Array.isArray(data?.legs) ? data.legs : [];
+    const byDetalle = new Map(planeacion.map(p => [String(p.id_detalle || p.to_id_detalle || ''), p]));
+    const legByDetalle = new Map(legs.map(leg => [String(leg.to_id_detalle || leg.id_detalle || ''), leg]));
+    (_trk.creditosEnRuta || []).forEach(c => {
+        const key = String(c.id_detalle || '');
+        const p = byDetalle.get(key);
+        const leg = legByDetalle.get(key);
+        if (p) {
+            c.arrival_minutes = _trkPlanHasNumber(p.arrival_minutes) ? Number(p.arrival_minutes) : c.arrival_minutes;
+            c.departure_minutes = _trkPlanHasNumber(p.departure_minutes) ? Number(p.departure_minutes) : c.departure_minutes;
+            c.operation_minutes = _trkPlanHasNumber(p.operation_minutes) ? Number(p.operation_minutes) : c.operation_minutes;
+            c.travel_from_prev_minutes = _trkPlanHasNumber(p.travel_from_prev_minutes) ? Number(p.travel_from_prev_minutes) : c.travel_from_prev_minutes;
+            c.day_index = _trkPlanHasNumber(p.day_index) ? Number(p.day_index) : Number(c.day_index || 0);
+            c._plan_real = true;
+            c._plan_travel_pending = false;
+            c.travel_source = data?.source || 'google_routes';
+        }
+        if (leg) {
+            c.distance_from_prev_meters = _trkPlanHasNumber(leg.distance_meters) ? Number(leg.distance_meters) : c.distance_from_prev_meters;
+            c.duration_seconds = _trkPlanHasNumber(leg.duration_seconds) ? Number(leg.duration_seconds) : c.duration_seconds;
+            c.duration_in_traffic_seconds = _trkPlanHasNumber(leg.duration_in_traffic_seconds) ? Number(leg.duration_in_traffic_seconds) : c.duration_in_traffic_seconds;
+            c.travel_from_prev_minutes = _trkPlanHasNumber(leg.travel_minutes) ? Number(leg.travel_minutes) : c.travel_from_prev_minutes;
+            c._plan_real = true;
+            c._plan_travel_pending = false;
+            c.travel_source = data?.source || 'google_routes';
+        }
+    });
+    _trk.planeacionRealResumen = data?.resumen || null;
+    _trk.planeacionRealWarnings = Array.isArray(data?.warnings) ? data.warnings : [];
+    _trk.planeacionRealLegs = legs;
+    _trk.planeacionRealSource = data?.source || '';
+}
+
+function _trkCreditosOrdenRutaActual() {
+    return [...(_trk.creditosEnRuta || [])].sort((a, b) =>
+        Number(a.orden_ruta || 0) - Number(b.orden_ruta || 0)
+    );
+}
+
+async function _trkCalcularMetricasMapaPlaneacion() {
+    const mapsOk = await _trkEsperarGoogleMapsDisponible();
+    if (!mapsOk || !window.google?.maps?.DirectionsService) {
+        throw new Error('Google Maps no esta disponible para calcular tramos del mapa.');
+    }
+    const creditos = _trkCreditosOrdenRutaActual();
+    if (!creditos.length) throw new Error('No hay creditos para calcular tramos.');
+    if (creditos.length > 23) {
+        throw new Error('La ruta supera el limite de tramos del mapa para fallback.');
+    }
+
+    const cedisPos = _trkCedisDestinoPosicion(_trkCedisDestinoSeleccionado());
+    const puntos = [];
+    for (const c of creditos) {
+        const pos = await _trkResolverPosCredito(c);
+        if (!pos) throw new Error('Hay creditos sin coordenadas para calcular tramos del mapa.');
+        puntos.push({ c, pos });
+    }
+    if (!puntos.length || (!cedisPos && puntos.length < 2)) {
+        throw new Error('No hay suficientes puntos para calcular tramos del mapa.');
+    }
+
+    const useCedis = Boolean(cedisPos);
+    const origin = useCedis
+        ? new google.maps.LatLng(cedisPos.lat, cedisPos.lng)
+        : new google.maps.LatLng(puntos[0].pos.lat, puntos[0].pos.lng);
+    const destination = useCedis
+        ? new google.maps.LatLng(cedisPos.lat, cedisPos.lng)
+        : new google.maps.LatLng(puntos[puntos.length - 1].pos.lat, puntos[puntos.length - 1].pos.lng);
+    const waypoints = (useCedis ? puntos : puntos.slice(1, -1)).map(p => ({
+        location: new google.maps.LatLng(p.pos.lat, p.pos.lng),
+        stopover: true,
+    }));
+
+    const result = await new Promise((resolve, reject) => {
+        new google.maps.DirectionsService().route({
+            origin,
+            destination,
+            waypoints,
+            travelMode: google.maps.TravelMode.DRIVING,
+            drivingOptions: {
+                departureTime: new Date(),
+                trafficModel: google.maps.TrafficModel?.BEST_GUESS || 'bestguess',
+            },
+            provideRouteAlternatives: false,
+        }, (res, status) => {
+            if (status === 'OK' && res) resolve(res);
+            else reject(new Error(`Google Maps no pudo calcular tramos (${status || 'sin estado'}).`));
+        });
+    });
+
+    const legs = result.routes?.[0]?.legs || [];
+    if (!legs.length) throw new Error('Google Maps no regreso tramos de recorrido.');
+
+    let distanciaTotal = 0;
+    let duracionTotal = 0;
+    const porCredito = [];
+    puntos.forEach((p, idx) => {
+        const leg = useCedis ? legs[idx] : (idx === 0 ? null : legs[idx - 1]);
+        const duration = leg?.duration_in_traffic?.value || leg?.duration?.value || 0;
+        const distance = leg?.distance?.value || 0;
+        distanciaTotal += distance;
+        duracionTotal += duration;
+        porCredito.push({
+            id_credito: p.c.id_credito,
+            id_detalle: p.c.id_detalle,
+            travel_minutes: Math.max(0, Math.round(duration / 60)),
+            duration_seconds: duration || null,
+            duration_in_traffic_seconds: duration || null,
+            distance_meters: distance || null,
+        });
+    });
+    const finalLeg = useCedis ? legs[puntos.length] : null;
+    if (finalLeg) {
+        distanciaTotal += Number(finalLeg.distance?.value || 0);
+        duracionTotal += Number(finalLeg.duration_in_traffic?.value || finalLeg.duration?.value || 0);
+    }
+
+    return {
+        source: 'google_maps_route',
+        resumen: {
+            distancia_total_m: distanciaTotal,
+            duracion_total_seg: duracionTotal,
+            operacion_total_min: puntos.length * Number(_trkPlanConfig().operacion || 45),
+        },
+        porCredito,
+    };
+}
+
+async function _trkAplicarFallbackPlaneacion(motivo = '', opts = {}) {
+    const config = _trkPlanConfig();
+    const creditos = _trk.creditosEnRuta || [];
+    _trk.planeacionTrasladoEstados = config.trasladoEstados;
+
+    let metricas = null;
+    let source = 'local_fallback';
+    const esPropuestaManual = !!opts.proponer;
+    let warnings = esPropuestaManual
+        ? ['Se genero una propuesta operativa. Revisa los tiempos antes de guardar la auditoria.']
+        : [
+            motivo
+                ? `Google Routes no estuvo disponible: ${motivo}`
+                : 'Google Routes no estuvo disponible. Se genero una propuesta estimada.',
+        ];
+
+    try {
+        metricas = await _trkCalcularMetricasMapaPlaneacion();
+        source = metricas.source;
+        warnings.push('Se usaron los tramos calculados en el mapa para estimar traslados entre puntos.');
+    } catch (mapErr) {
+        warnings.push('No se pudo usar la ruta del mapa para tiempos/distancias. Se aplico la propuesta estimada anterior.');
+    }
+
+    const metricasPorCredito = new Map((metricas?.porCredito || []).map(m => [String(m.id_credito), m]));
+    creditos.forEach(c => {
+        const m = metricasPorCredito.get(String(c.id_credito || ''));
+        if (m) {
+            c._plan_real = true;
+            c._plan_travel_pending = false;
+            c.travel_source = source;
+            c.travel_from_prev_minutes = m.travel_minutes;
+            c.distance_from_prev_meters = m.distance_meters;
+            c.duration_seconds = m.duration_seconds;
+            c.duration_in_traffic_seconds = m.duration_in_traffic_seconds;
+        } else {
+            c._plan_real = false;
+            c._plan_travel_pending = true;
+            c.travel_source = 'local_fallback';
+            c.travel_from_prev_minutes = 0;
+            delete c.distance_from_prev_meters;
+            delete c.duration_seconds;
+            delete c.duration_in_traffic_seconds;
+        }
+    });
+
+    _trk.planeacionRealResumen = metricas?.resumen || {
+        distancia_total_m: 0,
+        duracion_total_seg: 0,
+        operacion_total_min: creditos.length * Number(config.operacion || 45),
+    };
+    _trk.planeacionRealWarnings = warnings;
+    _trk.planeacionRealLegs = [];
+    _trk.planeacionRealSource = source;
+
+    const days = _trkPlanNormalizarFechasPolitica(_trkPlanApplyCascade(_trkPlanSeedDays(creditos, config), config));
+    _trkPlanApplyDaysToRoute(days);
+    _trkRenderListaCreditos();
+    _trkRenderizarMapa();
+    _trkMarcarCambio();
+
+    if (opts.swal !== false) {
+        Swal.fire({
+            icon: 'warning',
+            title: source === 'google_maps_route' ? 'Fallback con ruta del mapa' : 'Propuesta estimada generada',
+            html: `<div class="text-start small">
+                ${warnings.map(w => `<div class="mb-1">${_trkChatEscapeHtml(w)}</div>`).join('')}
+            </div>`,
+            confirmButtonText: 'Entendido',
+        });
+    }
+
+    return {
+        success: true,
+        source,
+        resumen: _trk.planeacionRealResumen,
+        planeacion: creditos.map(c => ({
+            id_detalle: Number(c.id_detalle || 0),
+            arrival_minutes: _trkPlanOptionalNumber(c.arrival_minutes),
+            departure_minutes: _trkPlanOptionalNumber(c.departure_minutes),
+            operation_minutes: _trkPlanOptionalNumber(c.operation_minutes),
+            travel_from_prev_minutes: _trkPlanOptionalNumber(c.travel_from_prev_minutes),
+            day_index: Number(c.day_index || 0),
+        })),
+        warnings,
+        fallback: true,
+    };
+}
+
+function _trkRenderPlaneacionRealInfo() {
+    const $box = $('#trkRouteRealSummary');
+    if (!$box.length) return;
+    const resumen = _trk.planeacionRealResumen || null;
+    const warnings = Array.isArray(_trk.planeacionRealWarnings) ? _trk.planeacionRealWarnings : [];
+    if (!resumen && !warnings.length) {
+        $box.addClass('d-none').empty();
+        return;
+    }
+    const warningHtml = warnings.map(w => {
+        const txt = _trkWarningTexto(w);
+        if (!txt) return '';
+        return `<div class="trk-real-warning"><i class="fa-solid fa-triangle-exclamation me-1"></i>${_trkChatEscapeHtml(txt)}</div>`;
+    }).join('');
+    const kpis = resumen ? `
+        <div class="trk-real-kpis">
+            <span class="trk-real-kpi"><i class="fa-solid fa-road me-1"></i>${_trkChatEscapeHtml(_trkMetersLabel(resumen.distancia_total_m))}</span>
+            <span class="trk-real-kpi"><i class="fa-solid fa-clock me-1"></i>${_trkChatEscapeHtml(_trkSecondsLabel(resumen.duracion_total_seg))}</span>
+            <span class="trk-real-kpi"><i class="fa-solid fa-truck-ramp-box me-1"></i>${_trkChatEscapeHtml(_trkPlanOperacionResumenLabel(resumen))}</span>
+            <span class="trk-real-kpi"><i class="fa-solid fa-warehouse me-1"></i>Origen: CEDIS destino</span>
+            ${_trk.planeacionRealSource ? `<span class="trk-real-kpi"><i class="fa-solid fa-satellite-dish me-1"></i>${_trkChatEscapeHtml(_trkPlanSourceLabel(_trk.planeacionRealSource))}</span>` : ''}
+        </div>` : '';
+    $box.removeClass('d-none').html(`
+        <div class="fw-semibold"><i class="fa-solid fa-route me-1"></i>Calculo real de tiempos y distancias</div>
+        ${kpis}
+        ${warningHtml}
+    `);
+}
+
+async function _trkSolicitarCalculoTiemposPlaneacion(persistir = false) {
+    const idRuta = Number(_trk.idRutaEditando || 0);
+    if (!idRuta) {
+        throw new Error('Guarda la ruta primero para calcular tiempos reales.');
+    }
+    await _trkResolverCoordenadasFaltantesRuta({ persistir: true });
+    const r = await trkFetch(`/TrackingRecoleccion/calcularTiemposPlaneacionRuta?id_ruta=${encodeURIComponent(idRuta)}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(_trkPlanBodyCalculoReal(persistir)),
+    });
+    const data = _trkNormalizarCalculoTiemposRespuesta(r);
+    if (!data.success) {
+        throw new Error(data.mensaje || 'No se pudo calcular con Google Routes');
+    }
+    return data;
+}
+
+async function _trkCalcularTiemposPlaneacion(persistir = false) {
+    const idRuta = Number(_trk.idRutaEditando || 0);
+    if (!idRuta) {
+        Swal.fire({ icon: 'info', title: 'Guarda la ruta primero', text: 'El calculo real necesita una ruta existente.', confirmButtonText: 'Aceptar' });
+        return null;
+    }
+    Swal.fire({
+        title: persistir ? 'Guardando tiempos reales...' : 'Calculando tiempos reales...',
+        text: 'Buscando ubicaciones faltantes en Google Maps y consultando distancia con Google Routes.',
+        allowOutsideClick: false,
+        showConfirmButton: false,
+        didOpen: () => Swal.showLoading(),
+    });
+    try {
+        const data = await _trkSolicitarCalculoTiemposPlaneacion(persistir);
+        _trkAplicarPlaneacionReal(data);
+        _trkRenderListaCreditos();
+        _trkRenderizarMapa();
+        const warnings = Array.isArray(data.warnings) ? data.warnings : [];
+        const hasBlockers = _trkWarningsBloqueantes(warnings);
+        if (hasBlockers) {
+            return await _trkAplicarFallbackPlaneacion(
+                (warnings || []).map(_trkWarningTexto).filter(Boolean).join(' | ') || 'Calculo con advertencias.',
+                { swal: true }
+            );
+        } else {
+            Swal.fire({
+                icon: 'success',
+                title: persistir ? 'Tiempos reales guardados' : 'Tiempos reales calculados',
+                text: persistir ? 'La planeacion fue persistida en tracking.' : 'Revisa la propuesta antes de guardar.',
+                timer: 1800,
+                showConfirmButton: false,
+            });
+        }
+        return data;
+    } catch (err) {
+        return await _trkAplicarFallbackPlaneacion(err?.message || 'Servicio no disponible.', { swal: true });
+    }
+}
+
 function _trkValidarMotivoPlaneacion(valor, max = 300) {
     const motivo = String(valor || '').replace(/\s+/g, ' ').trim();
     const compacto = motivo.replace(/\s+/g, '').toLowerCase();
@@ -14168,6 +15235,7 @@ function _trkRenderPlaneacionDias() {
     if (!creditos.length) {
         $('#trkRouteDayCount').text('0 dias');
         $list.html('<div class="text-center text-muted small py-2">Agrega creditos para generar una propuesta por dia.</div>');
+        _trkRenderPlaneacionRealInfo();
         _trkRenderPlaneacionEventos();
         return;
     }
@@ -14189,6 +15257,13 @@ function _trkRenderPlaneacionDias() {
             const salida = _trkPlanHasNumber(c.departure_minutes) ? Number(c.departure_minutes) : llegada + config.operacion;
             const warning = salida > config.fin;
             const pinned = Number(c.pinned || 0) === 1;
+            const travelPending = !!c._plan_travel_pending;
+            const travelChip = travelPending
+                ? '<i class="fa-solid fa-triangle-exclamation"></i>Sin calculo real'
+                : `<i class="fa-solid fa-road"></i>${_trkChatEscapeHtml(c.travel_from_prev_minutes || 0)} min`;
+            const distanceChip = _trkPlanHasNumber(c.distance_from_prev_meters)
+                ? `<span class="trk-route-day-timechip"><i class="fa-solid fa-ruler-horizontal"></i>${_trkChatEscapeHtml(_trkMetersLabel(c.distance_from_prev_meters))}</span>`
+                : '';
             return `<div class="trk-route-day-item">
                 <span class="trk-route-day-num">${_trkChatEscapeHtml(c.orden_dia || (i + 1))}</span>
                 <div style="min-width:0;">
@@ -14210,9 +15285,8 @@ function _trkRenderPlaneacionDias() {
                         <span class="trk-route-day-timechip">
                             <i class="fa-solid fa-truck-ramp-box"></i>${_trkChatEscapeHtml(c.operation_minutes || config.operacion)} min
                         </span>
-                        <span class="trk-route-day-timechip">
-                            <i class="fa-solid fa-road"></i>${_trkChatEscapeHtml(c.travel_from_prev_minutes || 0)} min
-                        </span>
+                        <span class="trk-route-day-timechip${travelPending ? ' is-warning' : ''}">${travelChip}</span>
+                        ${distanceChip}
                     </div>
                 </div>
                 <div class="trk-route-day-actions">
@@ -14252,34 +15326,25 @@ function _trkRenderPlaneacionDias() {
             <div class="trk-route-day-items">${itemsHtml}</div>
         </div>`;
     }).join(''));
+    _trkRenderPlaneacionRealInfo();
     _trkRenderPlaneacionEventos();
 }
 
-function _trkDistribuirPlaneacionLocal() {
+async function _trkDistribuirPlaneacionLocal() {
     const creditos = _trk.creditosEnRuta || [];
     if (!creditos.length) {
         Swal.fire({ icon: 'info', title: 'Sin creditos', text: 'Agrega creditos antes de generar una propuesta.', confirmButtonText: 'Aceptar' });
         return;
     }
-    const config = _trkPlanConfig();
-    _trk.planeacionTrasladoEstados = config.trasladoEstados;
-    const days = _trkPlanNormalizarFechasPolitica(_trkPlanApplyCascade(_trkPlanSeedDays(creditos, config), config));
-    _trkPlanApplyDaysToRoute(days);
-    _trkRenderListaCreditos();
-    _trkRenderizarMapa();
-    _trkMarcarCambio();
+
     Swal.fire({
-        icon: 'success',
-        title: 'Propuesta generada',
-        text: 'Revisa la distribucion por dia y guarda la planeacion si estas de acuerdo.',
-        timer: 15000,
-        timerProgressBar: true,
+        title: 'Generando propuesta...',
+        text: 'Calculando tramos del mapa y distribucion por dia.',
         allowOutsideClick: false,
-        allowEscapeKey: false,
-        showConfirmButton: true,
-        confirmButtonText: 'Entendido',
-        confirmButtonColor: '#0d9488',
+        showConfirmButton: false,
+        didOpen: () => Swal.showLoading(),
     });
+    await _trkAplicarFallbackPlaneacion('Propuesta manual', { swal: true, proponer: true });
 }
 
 function _trkMergePlaneacionRuta(items) {
@@ -14296,6 +15361,11 @@ function _trkMergePlaneacionRuta(items) {
         c.departure_minutes = item.departure_minutes !== null && item.departure_minutes !== undefined ? Number(item.departure_minutes) : c.departure_minutes;
         c.travel_from_prev_minutes = item.travel_from_prev_minutes !== null && item.travel_from_prev_minutes !== undefined ? Number(item.travel_from_prev_minutes) : c.travel_from_prev_minutes;
         c.operation_minutes = item.operation_minutes !== null && item.operation_minutes !== undefined ? Number(item.operation_minutes) : c.operation_minutes;
+        if (item.travel_from_prev_minutes !== null && item.travel_from_prev_minutes !== undefined) {
+            c._plan_real = true;
+            c._plan_travel_pending = false;
+            c.travel_source = item.travel_source || item.source || c.travel_source || 'google_routes';
+        }
         c.pinned = Number(item.pinned || 0);
         c.edited = Number(item.edited || 0);
     });
@@ -14313,6 +15383,7 @@ async function _trkCargarPlaneacionRuta(idRuta) {
         _trk.planeacionRuta = Array.isArray(r.items) ? r.items : [];
         _trk.planeacionEventos = Array.isArray(r.eventos) ? r.eventos : [];
         _trkMergePlaneacionRuta(_trk.planeacionRuta);
+        _trkPlanCascadeCurrent();
     } catch (_) {
         // No bloquear apertura de ruta por el historial de planeacion.
     } finally {
@@ -14328,7 +15399,7 @@ async function _trkGuardarPlaneacionRuta() {
         return;
     }
     _trkPlanCascadeCurrent();
-    const items = (_trk.creditosEnRuta || [])
+    let items = (_trk.creditosEnRuta || [])
         .filter(c => Number(c.id_detalle || 0) > 0)
         .map(c => ({
             id_detalle: Number(c.id_detalle),
@@ -14393,8 +15464,54 @@ async function _trkGuardarPlaneacionRuta() {
     });
     if (!motivoRes.isConfirmed) return;
 
-    Swal.fire({ title: 'Guardando planeacion...', allowOutsideClick: false, showConfirmButton: false, didOpen: () => Swal.showLoading() });
+    Swal.fire({
+        title: 'Calculando y guardando planeacion...',
+        text: 'Buscando ubicaciones faltantes en Google Maps antes de guardar tiempos reales.',
+        allowOutsideClick: false,
+        showConfirmButton: false,
+        didOpen: () => Swal.showLoading()
+    });
     try {
+        let calculo = null;
+        try {
+            calculo = await _trkSolicitarCalculoTiemposPlaneacion(true);
+            _trkAplicarPlaneacionReal(calculo);
+            if (_trkWarningsBloqueantes(calculo.warnings || [])) {
+                calculo = await _trkAplicarFallbackPlaneacion(
+                    (calculo.warnings || []).map(_trkWarningTexto).filter(Boolean).join(' | ') || 'Calculo con advertencias.',
+                    { swal: false }
+                );
+            }
+        } catch (calcErr) {
+            calculo = await _trkAplicarFallbackPlaneacion(calcErr?.message || 'Servicio no disponible.', { swal: false });
+        }
+        _trkPlanCascadeCurrent();
+        _trkRenderListaCreditos();
+        _trkRenderizarMapa();
+        if (!calculo?.fallback && _trkWarningsBloqueantes(calculo.warnings || [])) {
+            Swal.fire({
+                icon: 'warning',
+                title: 'No se guardaron tiempos',
+                html: (calculo.warnings || []).map(w => `<div class="text-start small">${_trkChatEscapeHtml(_trkWarningTexto(w))}</div>`).join('') || 'Revisa CEDIS y coordenadas antes de guardar.',
+                confirmButtonText: 'Entendido',
+            });
+            return;
+        }
+        items = (_trk.creditosEnRuta || [])
+            .filter(c => Number(c.id_detalle || 0) > 0)
+            .map(c => ({
+                id_detalle: Number(c.id_detalle),
+                fecha_recoleccion: _trkPlaneacionFechaCredito(c),
+                orden_dia: Number(c.orden_dia || c.orden_ruta || 1),
+                estatus_planeacion: c.estatus_planeacion || 'programado',
+                day_index: Number(c.day_index || 0),
+                arrival_minutes: _trkPlanOptionalNumber(c.arrival_minutes),
+                departure_minutes: _trkPlanOptionalNumber(c.departure_minutes),
+                travel_from_prev_minutes: _trkPlanOptionalNumber(c.travel_from_prev_minutes),
+                operation_minutes: _trkPlanOptionalNumber(c.operation_minutes),
+                pinned: Number(c.pinned || 0),
+                edited: Number(c.edited || 0),
+            }));
         const r = await trkFetch('/TrackingRecoleccion/guardarPlaneacionRuta', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -14405,99 +15522,87 @@ async function _trkGuardarPlaneacionRuta() {
             return;
         }
         await _trkCargarPlaneacionRuta(idRuta);
-        Swal.fire({ icon: 'success', title: 'Planeacion guardada', text: r.message || 'Auditoria registrada correctamente.', timer: 1600, showConfirmButton: false });
-    } catch (_) {
-        Swal.fire({ icon: 'error', title: 'Error de conexion', text: 'No se pudo guardar la planeacion.', confirmButtonText: 'Aceptar' });
+        Swal.fire({
+            icon: calculo?.fallback ? 'warning' : 'success',
+            title: calculo?.fallback ? 'Planeacion guardada con fallback' : 'Planeacion guardada',
+            text: calculo?.fallback
+                ? 'Google Routes no estuvo disponible; se guardo la auditoria con tiempos estimados.'
+                : (r.message || 'Auditoria registrada correctamente.'),
+            timer: 2600,
+            showConfirmButton: false
+        });
+    } catch (err) {
+        Swal.fire({
+            icon: 'error',
+            title: 'No se pudo guardar',
+            text: err?.message || 'No se pudo guardar la planeacion.',
+            confirmButtonText: 'Aceptar',
+        });
     }
 }
 
-async function _trkAbrirEditarHorarioPlaneacion(c) {
+function _trkCerrarEditorHorarioPlaneacion() {
+    _trk.planeacionCreditoEditando = null;
+    $('#trkPlanHorarioOverlay').addClass('d-none').attr('aria-hidden', 'true');
+    $('#trkPlanHorarioError').addClass('d-none').text('');
+}
+
+function _trkMostrarErrorHorarioPlaneacion(message) {
+    $('#trkPlanHorarioError').removeClass('d-none').text(message || 'Revisa los datos capturados.');
+}
+
+function _trkAbrirEditarHorarioPlaneacion(c) {
     if (!c) return;
     const config = _trkPlanConfig();
     const llegadaActual = _trkPlanHasNumber(c.arrival_minutes) ? Number(c.arrival_minutes) : config.inicio;
     const salidaActual = _trkPlanHasNumber(c.departure_minutes) ? Number(c.departure_minutes) : llegadaActual + (Number(c.operation_minutes) || config.operacion);
-    const res = await Swal.fire({
-        icon: 'question',
-        title: 'Fijar horario del punto',
-        html: `<div class="text-start small">
-            <div class="mb-2"><b>Credito:</b> #${_trkChatEscapeHtml(c.id_credito || '-')} - ${_trkChatEscapeHtml(c.nombre_cliente || '')}</div>
-            <label class="form-label">Tipo de ajuste</label>
-            <select id="swalPlanTipo" class="form-select form-select-sm mb-2">
-                <option value="reprogramacion_por_descanso">Descanso autorizado</option>
-                <option value="adelanto_operativo">Adelanto operativo</option>
-                <option value="reprogramacion_manual">Reprogramacion manual</option>
-                <option value="reprogramacion_por_cliente">Cambio por cliente</option>
-                <option value="reprogramacion_por_trafico">Cambio por trafico</option>
-                <option value="reprogramacion_por_seguridad">Cambio por seguridad</option>
-                <option value="reprogramacion_por_capacidad">Cambio por capacidad</option>
-            </select>
-            <div class="row g-2">
-                <div class="col-12">
-                    <label class="form-label">Fecha</label>
-                    <input type="date" id="swalPlanFecha" class="form-control form-control-sm mb-2"
-                   min="${_trkChatEscapeHtml($('#rutaFecha').val() || _trkFechaMinimaProgramacion())}"
-                   value="${_trkChatEscapeHtml(_trkPlaneacionFechaCredito(c))}">
-                </div>
-                <div class="col-6">
-                    <label class="form-label">Llegada</label>
-                    <input type="time" id="swalPlanLlegada" class="form-control form-control-sm mb-2"
-                           value="${_trkChatEscapeHtml(_trkMinutesToHora(llegadaActual))}">
-                </div>
-                <div class="col-6">
-                    <label class="form-label">Salida</label>
-                    <input type="time" id="swalPlanSalida" class="form-control form-control-sm mb-2"
-                           value="${_trkChatEscapeHtml(_trkMinutesToHora(salidaActual))}">
-                </div>
-            </div>
-            <label class="form-label">Motivo <span class="text-muted">(max. 300)</span></label>
-            <textarea id="swalPlanMotivo" class="form-control form-control-sm" rows="3" maxlength="300"
-                      placeholder="Ej. El transportista descansara y retoma a las 5 AM."></textarea>
-        </div>`,
-        showCancelButton: true,
-        confirmButtonText: 'Guardar ajuste',
-        cancelButtonText: 'Cancelar',
-        confirmButtonColor: '#0d9488',
-        focusConfirm: false,
-        didOpen: () => {
-            const textarea = document.getElementById('swalPlanMotivo');
-            if (textarea) {
-                textarea.disabled = false;
-                textarea.readOnly = false;
-                textarea.style.pointerEvents = 'auto';
-            }
-            setTimeout(() => textarea?.focus(), 50);
-        },
-        preConfirm: () => {
-            const tipo = document.getElementById('swalPlanTipo')?.value || 'reprogramacion_manual';
-            const fecha = document.getElementById('swalPlanFecha')?.value || '';
-            const llegada = _trkPlanTimeToMinutes(document.getElementById('swalPlanLlegada')?.value, NaN);
-            const salida = _trkPlanTimeToMinutes(document.getElementById('swalPlanSalida')?.value, NaN);
-            const motivoValidado = _trkValidarMotivoPlaneacion(document.getElementById('swalPlanMotivo')?.value, 300);
-            if (!fecha) return Swal.showValidationMessage('La fecha es obligatoria.');
-            if (_trkCompararFecha(fecha, $('#rutaFecha').val() || _trkFechaMinimaProgramacion()) < 0) {
-                return Swal.showValidationMessage('La fecha no puede ser anterior al inicio de la ruta.');
-            }
-            if (!Number.isFinite(llegada) || !Number.isFinite(salida)) {
-                return Swal.showValidationMessage('Captura hora de llegada y salida.');
-            }
-            if (salida <= llegada) {
-                return Swal.showValidationMessage('La salida debe ser posterior a la llegada.');
-            }
-            if (!motivoValidado.ok) {
-                return Swal.showValidationMessage(motivoValidado.message);
-            }
-            return { tipo, fecha, llegada, salida, motivo: motivoValidado.value };
-        },
-    });
-    if (!res.isConfirmed) return;
-    c.fecha_planeacion = res.value.fecha;
-    c.arrival_minutes = res.value.llegada;
-    c.departure_minutes = res.value.salida;
-    c.operation_minutes = res.value.salida - res.value.llegada;
+    _trk.planeacionCreditoEditando = c;
+    $('#trkPlanHorarioCreditoLabel').text(`#${c.id_credito || '-'} - ${c.nombre_cliente || 'Sin cliente'}`);
+    $('#trkPlanHorarioTipo').val(c.estatus_planeacion === 'adelantado' ? 'adelanto_operativo' : 'reprogramacion_manual');
+    $('#trkPlanHorarioFecha')
+        .attr('min', $('#rutaFecha').val() || _trkFechaMinimaProgramacion())
+        .val(_trkPlaneacionFechaCredito(c));
+    $('#trkPlanHorarioLlegada').val(_trkMinutesToHora(llegadaActual));
+    $('#trkPlanHorarioSalida').val(_trkMinutesToHora(salidaActual));
+    $('#trkPlanHorarioMotivo').val(c._plan_motivo || '').trigger('input');
+    $('#trkPlanHorarioError').addClass('d-none').text('');
+    $('#trkPlanHorarioOverlay').removeClass('d-none').attr('aria-hidden', 'false');
+    setTimeout(() => document.getElementById('trkPlanHorarioMotivo')?.focus(), 60);
+}
+
+function _trkGuardarEditorHorarioPlaneacion() {
+    const c = _trk.planeacionCreditoEditando;
+    if (!c) {
+        _trkCerrarEditorHorarioPlaneacion();
+        return;
+    }
+    const tipo = $('#trkPlanHorarioTipo').val() || 'reprogramacion_manual';
+    const fecha = $('#trkPlanHorarioFecha').val() || '';
+    const llegada = _trkPlanTimeToMinutes($('#trkPlanHorarioLlegada').val(), NaN);
+    const salida = _trkPlanTimeToMinutes($('#trkPlanHorarioSalida').val(), NaN);
+    const motivoValidado = _trkValidarMotivoPlaneacion($('#trkPlanHorarioMotivo').val(), 300);
+    if (!fecha) return _trkMostrarErrorHorarioPlaneacion('La fecha es obligatoria.');
+    if (_trkCompararFecha(fecha, $('#rutaFecha').val() || _trkFechaMinimaProgramacion()) < 0) {
+        return _trkMostrarErrorHorarioPlaneacion('La fecha no puede ser anterior al inicio de la ruta.');
+    }
+    if (!Number.isFinite(llegada) || !Number.isFinite(salida)) {
+        return _trkMostrarErrorHorarioPlaneacion('Captura hora de llegada y salida.');
+    }
+    if (salida <= llegada) {
+        return _trkMostrarErrorHorarioPlaneacion('La salida debe ser posterior a la llegada.');
+    }
+    if (!motivoValidado.ok) {
+        return _trkMostrarErrorHorarioPlaneacion(motivoValidado.message);
+    }
+    c.fecha_planeacion = fecha;
+    c.arrival_minutes = llegada;
+    c.departure_minutes = salida;
+    c.operation_minutes = salida - llegada;
     c.pinned = 1;
     c.edited = 1;
-    c.estatus_planeacion = res.value.tipo === 'adelanto_operativo' ? 'adelantado' : 'reprogramado';
-    c._plan_motivo = res.value.motivo;
+    c.estatus_planeacion = tipo === 'adelanto_operativo' ? 'adelantado' : 'reprogramado';
+    c._plan_motivo = motivoValidado.value;
+    _trkCerrarEditorHorarioPlaneacion();
     _trkPlanCascadeCurrent();
     _trkRenderListaCreditos();
     _trkRenderizarMapa();

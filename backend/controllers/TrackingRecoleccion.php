@@ -131,7 +131,7 @@ class TrackingRecoleccion extends Controller
      * Realiza una petición HTTP con cURL a la API de tracking.
      * Devuelve ['http_code' => int, 'body' => string].
      */
-    private function _trkChatCurl(string $url, string $method, string $body, array $headers): array
+    private function _trkChatCurl(string $url, string $method, string $body, array $headers, int $timeout = 15): array
     {
         if (!function_exists('curl_init')) {
             return ['http_code' => 0, 'body' => '', 'error' => 'cURL no disponible.'];
@@ -139,7 +139,7 @@ class TrackingRecoleccion extends Controller
         $ch = curl_init($url);
         curl_setopt_array($ch, [
             CURLOPT_RETURNTRANSFER => true,
-            CURLOPT_TIMEOUT        => 15,
+            CURLOPT_TIMEOUT        => max(5, $timeout),
             CURLOPT_HTTPHEADER     => $headers,
             CURLOPT_SSL_VERIFYPEER => false, // ajustar según entorno
         ]);
@@ -549,12 +549,29 @@ class TrackingRecoleccion extends Controller
         http_response_code(200);
 
         if ($httpCode === 0 || $httpCode >= 500) {
+            $backendMsg = '';
+            if (is_array($data)) {
+                $rawMsg = $data['mensaje'] ?? $data['message'] ?? $data['detail'] ?? $data['error'] ?? '';
+                $backendMsg = is_scalar($rawMsg)
+                    ? trim((string)$rawMsg)
+                    : trim(json_encode($rawMsg, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
+            }
+            if ($backendMsg === '' && trim((string)($resp['error'] ?? '')) !== '') {
+                $backendMsg = trim((string)$resp['error']);
+            }
+            if ($backendMsg === '' && trim((string)($resp['body'] ?? '')) !== '') {
+                $backendMsg = mb_substr(trim((string)$resp['body']), 0, 500);
+            }
+
             self::respuestaJSON([
                 'success' => false,
-                'mensaje' => 'Servicio de tracking no disponible. Intenta de nuevo en unos minutos.',
+                'mensaje' => $backendMsg !== ''
+                    ? 'Servicio de tracking no disponible: ' . $backendMsg
+                    : 'Servicio de tracking no disponible. Intenta de nuevo en unos minutos.',
                 'codigo_http' => $httpCode,
                 'servicio_no_disponible' => true,
-                'error' => $resp['error'] ?? null,
+                'error' => $resp['error'] ?? ($data['error'] ?? null),
+                'detalle_tracking' => $backendMsg !== '' ? $backendMsg : null,
             ]);
         }
 
@@ -1197,6 +1214,53 @@ class TrackingRecoleccion extends Controller
     }
 
     /**
+     * POST /TrackingRecoleccion/calcularTiemposPlaneacionRuta?id_ruta=N
+     * Proxy seguro: POST /api/tracking/rutas/{id_ruta}/planeacion/calcular-tiempos
+     */
+    public function calcularTiemposPlaneacionRuta()
+    {
+        $idRuta = (int)($_GET['id_ruta'] ?? $_POST['id_ruta'] ?? 0);
+        if ($idRuta <= 0) {
+            self::respuestaJSON(['success' => false, 'mensaje' => 'id_ruta requerido.']);
+            return;
+        }
+
+        $raw  = (string)file_get_contents('php://input');
+        $data = json_decode($raw, true) ?: [];
+
+        $cfg   = $this->_trkChatConfig();
+        $token = $this->_trkChatObtenerJwt();
+        if ($cfg['base_url'] === '' || $cfg['api_key'] === '' || $token === '') {
+            self::respuestaJSON(['success' => false, 'mensaje' => 'Tracking no disponible.']);
+            return;
+        }
+
+        $body = json_encode([
+            'origen' => trim((string)($data['origen'] ?? 'cedis')) ?: 'cedis',
+            'usar_gps_transportista' => !empty($data['usar_gps_transportista']),
+            'fecha_salida' => trim((string)($data['fecha_salida'] ?? '')),
+            'hora_salida' => trim((string)($data['hora_salida'] ?? '')),
+            'inicio_jornada' => trim((string)($data['inicio_jornada'] ?? '10:00')),
+            'fin_jornada' => trim((string)($data['fin_jornada'] ?? '19:00')),
+            'min_por_parada' => max(1, (int)($data['min_por_parada'] ?? 45)),
+            'traslado_entre_estados' => max(0, (int)($data['traslado_entre_estados'] ?? 1)),
+            'persistir' => !empty($data['persistir']),
+        ]);
+
+        $url = $this->_trkTrackingBuildUrl(
+            $cfg['base_url'],
+            "/api/tracking/rutas/{$idRuta}/planeacion/calcular-tiempos"
+        );
+        $resp = $this->_trkChatCurl($url, 'POST', $body, [
+            'Content-Type: application/json',
+            'X-API-Key: ' . $cfg['api_key'],
+            'Authorization: Bearer ' . $token,
+        ], 90);
+
+        $this->_trkChatRelayResponse($resp);
+    }
+
+    /**
      * GET /TrackingRecoleccion/obtenerPlaneacionRuta?id_ruta=N
      */
     public function obtenerPlaneacionRuta()
@@ -1227,6 +1291,21 @@ class TrackingRecoleccion extends Controller
             self::respuestaJSON($model->guardarPlaneacionRuta($data, $idUsuario));
         } catch (\Throwable $e) {
             self::respuestaJSON(self::respuesta(false, 'Error al guardar planeacion de ruta.', null, $e->getMessage()));
+        }
+    }
+
+    /**
+     * POST /TrackingRecoleccion/actualizarCoordenadasRuta
+     * Body JSON: { id_ruta, creditos:[{id_detalle?, id_credito?, latitud, longitud, direccion?, estado?, municipio?}] }
+     */
+    public function actualizarCoordenadasRuta()
+    {
+        $data = $this->leerBodyTracking();
+        try {
+            $model = new TrackingModel();
+            self::respuestaJSON($model->actualizarCoordenadasRuta($data));
+        } catch (\Throwable $e) {
+            self::respuestaJSON(self::respuesta(false, 'Error al actualizar coordenadas de ruta.', null, $e->getMessage()));
         }
     }
 
