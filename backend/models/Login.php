@@ -8,6 +8,50 @@ use Core\UsuarioFantasmaReporteria;
 
 class Login extends Model
 {
+    private const MODULOS_PERSONALES_PLANTILLA = [
+        141 => [
+            'nombre' => 'Mis documentos',
+            'pestana' => 'Capital Humano',
+            'descripcion' => 'Capital Humano > Mis documentos',
+        ],
+        147 => [
+            'nombre' => 'Vacaciones',
+            'pestana' => 'Capital Humano',
+            'descripcion' => 'Capital Humano > Vacaciones',
+        ],
+    ];
+
+    private static function asegurarModulosPersonalesPlantilla(Database $db): void
+    {
+        foreach (self::MODULOS_PERSONALES_PLANTILLA as $moduloId => $datos) {
+            $existeModulo = $db->queryOne(
+                'SELECT id FROM modulos_web WHERE id = :id LIMIT 1',
+                ['id' => $moduloId]
+            );
+            if (!$existeModulo) {
+                $db->CRUD(
+                    'INSERT INTO modulos_web (id, nombre, pestana, descripcion, activo)
+                     VALUES (:id, :nombre, :pestana, :descripcion, 1)',
+                    ['id' => $moduloId] + $datos
+                );
+            }
+
+            $db->CRUD(
+                "INSERT INTO asigna_modulo_web (usuario_id, modulo_web_id)
+                 SELECT p.id, :modulo_web_id
+                   FROM persona p
+                  WHERE COALESCE(p.estatus, '') <> 'Baja'
+                    AND NOT EXISTS (
+                        SELECT 1
+                          FROM asigna_modulo_web am
+                         WHERE am.usuario_id = p.id
+                           AND am.modulo_web_id = :modulo_web_id_check
+                    )",
+                ['modulo_web_id' => $moduloId, 'modulo_web_id_check' => $moduloId]
+            );
+        }
+    }
+
     public static function validaUsuario($datos)
     {
         $usuario  = trim((string) ($datos['usuario'] ?? ''));
@@ -74,6 +118,7 @@ class Login extends Model
             if ($first && UsuarioFantasmaReporteria::matchUsername($first['user_name'] ?? $first['USER_NAME'] ?? null)) {
                 return [UsuarioFantasmaReporteria::MODULO_COMPARATIVAS];
             }
+            self::asegurarModulosPersonalesPlantilla($db);
         } catch (\Exception $e) {
             return [];
         }
@@ -90,6 +135,11 @@ class Login extends Model
         if (in_array(25, $ids, true) && !in_array(27, $ids, true)) {
             $ids[] = 27;
             $ids = array_values(array_unique($ids));
+        }
+        foreach ([141, 147] as $moduloPersonal) {
+            if (!in_array($moduloPersonal, $ids, true)) {
+                $ids[] = $moduloPersonal;
+            }
         }
         return $ids;
     }

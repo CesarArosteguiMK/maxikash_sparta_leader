@@ -135,6 +135,23 @@ $documentos_ayuda = [
             margin-left: auto;
             margin-right: auto;
         }
+        .expediente-completo-analisis {
+            margin: 0 auto 1rem;
+            max-width: 620px;
+            padding: 1rem 1.15rem;
+            border: 1px solid #c6f6d5;
+            border-radius: 12px;
+            background: #f0fff4;
+            color: #22543d;
+            font-size: 0.96rem;
+            line-height: 1.55;
+            text-align: left;
+        }
+        .expediente-completo-analisis strong {
+            display: block;
+            margin-bottom: 0.35rem;
+            color: #1c4532;
+        }
         .expediente-completo-agradecimiento {
             margin: 0;
             font-size: 0.95rem;
@@ -623,6 +640,7 @@ $documentos_ayuda = [
                     <div class="expediente-completo-icon" aria-hidden="true"><i class="fa fa-check-circle"></i></div>
                     <h2 class="expediente-completo-title">Documentación completa</h2>
                     <p class="expediente-completo-texto">Ha subido correctamente todos los documentos requeridos. El equipo de <strong>Capital Humano</strong> revisará su expediente y se pondrá en contacto con usted a la brevedad.</p>
+                    <p class="expediente-completo-analisis"><strong>Resultado del análisis documental</strong>La información de los documentos recibidos es consistente entre sí, cumple con las reglas documentales establecidas y corresponde al candidato registrado.</p>
                     <p class="expediente-completo-agradecimiento">Gracias por su interés en formar parte de nuestro equipo.</p>
                 </div>
             <?php else: ?>
@@ -2647,6 +2665,7 @@ $documentos_ayuda = [
                                 '<div class="expediente-completo-icon" aria-hidden="true"><i class="fa fa-check-circle"></i></div>' +
                                 '<h2 class="expediente-completo-title">Documentación completa</h2>' +
                                 '<p class="expediente-completo-texto">Ha subido correctamente todos los documentos requeridos. El equipo de <strong>Capital Humano</strong> revisará su expediente y se pondrá en contacto con usted a la brevedad.</p>' +
+                                '<p class="expediente-completo-analisis"><strong>Resultado del análisis documental</strong>La información de los documentos recibidos es consistente entre sí, cumple con las reglas documentales establecidas y corresponde al candidato registrado.</p>' +
                                 '<p class="expediente-completo-agradecimiento">Gracias por su interés en formar parte de nuestro equipo.</p></div>';
                         }
                     }

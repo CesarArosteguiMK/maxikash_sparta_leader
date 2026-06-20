@@ -11,6 +11,7 @@ class CapHum extends Model
     private static $trayectoriaPuestoTablaAsegurada = false;
     public const MODULO_ACCESOS_CAPITAL_HUMANO = 140;
     private const MODULO_MIS_DOCUMENTOS = 141;
+    private const MODULO_VACACIONES = 147;
     private const MODULO_VALIDADOR_DOCUMENTAL_CANDIDATOS = 104;
     private const MODULO_VALIDADOR_DOCUMENTAL_RRHH_CANDIDATOS = 142;
     private const MODULO_GESTION_REGISTRAR_PERSONA = 143;
@@ -18,7 +19,7 @@ class CapHum extends Model
     private const MODULOS_ACCESOS_CAPITAL_HUMANO_IDS = [
         4, 5, 13, 34, 38, 42, 44, 82, 83, 86, 87, 88, 91, 93,
         94, 95, 96, 97, 98, 99, 101, 104, 105,
-        140, 141, 142, 143, 144,
+        140, 141, 142, 143, 144, 147,
     ];
     private const MODULO_CONVENIOS_DESCARGAR_EXCEL = 92;
     private const MODULO_CONVENIOS_DESCARGAR_EXCEL_NOMBRE = 'Descargar Excel';
@@ -51,6 +52,12 @@ class CapHum extends Model
                 'nombre' => 'Mis documentos',
                 'pestana' => 'Capital Humano',
                 'descripcion' => 'Capital Humano > Mis documentos',
+            ],
+            [
+                'id' => self::MODULO_VACACIONES,
+                'nombre' => 'Vacaciones',
+                'pestana' => 'Capital Humano',
+                'descripcion' => 'Capital Humano > Vacaciones',
             ],
             [
                 'id' => self::MODULO_VALIDADOR_DOCUMENTAL_RRHH_CANDIDATOS,
