@@ -235,6 +235,14 @@ class CapHum extends Model
     private const DOCUMENTO_RFC_RRHH = 10;
     private const DOCUMENTO_CONSTANCIA_FISCAL_RRHH = 22;
     public const DOCUMENTO_CARTA_COMPROMISO_GESTOR = 27;
+    private const DOCUMENTOS_RRHH_EXTRA_CATALOGO = [
+        ['id' => 28, 'clave' => 'CONTRATO_FIRMADO', 'nombre' => 'Contrato firmado'],
+        ['id' => 29, 'clave' => 'ARCHIVO_FAD', 'nombre' => 'Archivo .FAD'],
+        ['id' => 30, 'clave' => 'VALIDACION_SAT', 'nombre' => 'Validacion SAT'],
+        ['id' => 31, 'clave' => 'LLAVE_VECTOR', 'nombre' => 'Llave vector'],
+        ['id' => 32, 'clave' => 'PRUEBA_CENTAVO', 'nombre' => 'Prueba centavo'],
+        ['id' => 33, 'clave' => 'SEMANAS_COTIZADAS_IMSS_SEGUNDOS_PATRONES', 'nombre' => 'Semanas cotizadas IMSS (segundos patrones)'],
+    ];
     private const DOCUMENTOS_EXCLUIDOS_RRHH = [19, 20, 21];
     private const DOCUMENTOS_ALIAS_RRHH = [
         19 => 12, // Acta de nacimiento certificada -> Acta de Nacimiento
@@ -245,40 +253,48 @@ class CapHum extends Model
     {
         try {
             $db = new Database();
-            $datos = [
+            $documentos = array_merge([[
                 'id' => self::DOCUMENTO_CARTA_COMPROMISO_GESTOR,
                 'clave' => 'CARTA_COMPROMISO_GESTOR',
                 'nombre' => 'Carta de compromiso del Gestor',
-                'obligatorio' => 0,
-                'activo' => 1,
-            ];
-            $existe = $db->queryOne(
-                'SELECT id FROM __SPARTA_SECRET_REDACTED__.documento WHERE id = :id OR clave = :clave LIMIT 1',
-                ['id' => $datos['id'], 'clave' => $datos['clave']]
-            );
-            if ($existe) {
-                $db->CRUD(
-                    'UPDATE __SPARTA_SECRET_REDACTED__.documento
-                        SET clave = :clave,
-                            nombre = :nombre,
-                            obligatorio = :obligatorio,
-                            activo = :activo
-                      WHERE id = :id_existente',
-                    [
-                        'id_existente' => (int) ($existe['id'] ?? $datos['id']),
-                        'clave' => $datos['clave'],
-                        'nombre' => $datos['nombre'],
-                        'obligatorio' => $datos['obligatorio'],
-                        'activo' => $datos['activo'],
-                    ]
+            ]], self::DOCUMENTOS_RRHH_EXTRA_CATALOGO);
+
+            foreach ($documentos as $doc) {
+                $datos = [
+                    'id' => (int) $doc['id'],
+                    'clave' => (string) $doc['clave'],
+                    'nombre' => (string) $doc['nombre'],
+                    'obligatorio' => 0,
+                    'activo' => 1,
+                ];
+                $existe = $db->queryOne(
+                    'SELECT id FROM __SPARTA_SECRET_REDACTED__.documento WHERE id = :id OR clave = :clave LIMIT 1',
+                    ['id' => $datos['id'], 'clave' => $datos['clave']]
                 );
-                return;
+                if ($existe) {
+                    $db->CRUD(
+                        'UPDATE __SPARTA_SECRET_REDACTED__.documento
+                            SET clave = :clave,
+                                nombre = :nombre,
+                                obligatorio = :obligatorio,
+                                activo = :activo
+                          WHERE id = :id_existente',
+                        [
+                            'id_existente' => (int) ($existe['id'] ?? $datos['id']),
+                            'clave' => $datos['clave'],
+                            'nombre' => $datos['nombre'],
+                            'obligatorio' => $datos['obligatorio'],
+                            'activo' => $datos['activo'],
+                        ]
+                    );
+                    continue;
+                }
+                $db->CRUD(
+                    'INSERT INTO __SPARTA_SECRET_REDACTED__.documento (id, clave, nombre, obligatorio, activo)
+                     VALUES (:id, :clave, :nombre, :obligatorio, :activo)',
+                    $datos
+                );
             }
-            $db->CRUD(
-                'INSERT INTO __SPARTA_SECRET_REDACTED__.documento (id, clave, nombre, obligatorio, activo)
-                 VALUES (:id, :clave, :nombre, :obligatorio, :activo)',
-                $datos
-            );
         } catch (\Throwable $e) {
             error_log('CapHum::asegurarDocumentoCartaCompromisoGestor -> ' . $e->getMessage());
         }
@@ -711,6 +727,7 @@ class CapHum extends Model
             SELECT
             p.id,
             p.numero_empleado,
+            p.codigo_contpac,
             p.nombres,
             p.segundo_nombre,
             p.apellidop,
@@ -815,6 +832,8 @@ class CapHum extends Model
             -- =====================
             SELECT
                 p.id,
+                p.numero_empleado,
+                p.codigo_contpac,
                 p.nombres,
                 p.segundo_nombre,
                 p.apellidop,
@@ -870,6 +889,8 @@ class CapHum extends Model
             -- =====================
             SELECT
                 p2.id,
+                p2.numero_empleado,
+                p2.codigo_contpac,
                 p2.nombres,
                 p2.segundo_nombre,
                 p2.apellidop,
@@ -2763,6 +2784,192 @@ class CapHum extends Model
         }
     }
 
+    private static function asegurarTablaSeguimientoCartaCompromisoGestor(Database $db): void
+    {
+        $db->CRUD("
+            CREATE TABLE IF NOT EXISTS __SPARTA_SECRET_REDACTED__.carta_compromiso_gestor_correo (
+                id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+                id_persona INT NOT NULL,
+                correo VARCHAR(180) NOT NULL,
+                enviado_por INT NULL,
+                fecha_envio DATETIME NOT NULL,
+                INDEX idx_carta_gestor_persona (id_persona),
+                INDEX idx_carta_gestor_fecha (fecha_envio)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+        ");
+    }
+
+    public static function registrarCorreoCartaCompromisoGestorEnviado(int $idPersona, string $correo, int $enviadoPor = 0): array
+    {
+        try {
+            if ($idPersona <= 0 || trim($correo) === '') {
+                return self::resultado(false, 'Datos invalidos para registrar el correo.', null);
+            }
+            $db = new Database();
+            self::asegurarTablaSeguimientoCartaCompromisoGestor($db);
+            $db->CRUD(
+                "INSERT INTO __SPARTA_SECRET_REDACTED__.carta_compromiso_gestor_correo
+                 (id_persona, correo, enviado_por, fecha_envio)
+                 VALUES (:id_persona, :correo, :enviado_por, :fecha_envio)",
+                [
+                    'id_persona' => $idPersona,
+                    'correo' => trim($correo),
+                    'enviado_por' => $enviadoPor > 0 ? $enviadoPor : null,
+                    'fecha_envio' => self::fechaHoraCdmx(),
+                ]
+            );
+            return self::resultado(true, 'Correo registrado.', null);
+        } catch (\Exception $e) {
+            return self::resultado(false, 'No se pudo registrar el envio del correo.', null, $e->getMessage());
+        }
+    }
+
+    public static function getSeguimientoCartaCompromisoGestor(string $estado = 'pendientes'): array
+    {
+        try {
+            self::asegurarDocumentoCartaCompromisoGestor();
+            $db = new Database();
+            self::asegurarTablaSeguimientoCartaCompromisoGestor($db);
+
+            $rows = $db->queryAll("
+                SELECT
+                    p.id AS id_persona,
+                    p.numero_empleado,
+                    TRIM(CONCAT_WS(' ', p.nombres, p.segundo_nombre, p.apellidop, p.apellidom)) AS nombre_completo,
+                    p.correo,
+                    COALESCE(NULLIF(TRIM(p.telefono_uno), ''), NULLIF(TRIM(p.telefono_dos), ''), '') AS telefono,
+                    COALESCE(p.estatus, '') AS estatus,
+                    DATE_FORMAT(p.fecha_ingreso, '%Y-%m-%d') AS fecha_ingreso,
+                    COALESCE(org.puestos, 'Gestor') AS puestos,
+                    COALESCE(org.departamentos, 'Sin departamento') AS departamentos,
+                    COALESCE(org.areas, 'Sin area') AS areas,
+                    COALESCE(org.direcciones, 'Sin direccion') AS direcciones,
+                    CASE
+                        WHEN pj.id IS NOT NULL THEN TRIM(CONCAT_WS(' ', pj.nombres, pj.segundo_nombre, pj.apellidop, pj.apellidom))
+                        WHEN vj.id IS NOT NULL THEN CONCAT('Vacante #', vj.id, ' - ', COALESCE(pvj.nombre, 'Sin puesto'))
+                        ELSE 'Sin jefe asignado'
+                    END AS jefe,
+                    doc.archivo AS carta_archivo,
+                    DATE_FORMAT(doc.fecha_carga, '%Y-%m-%d %H:%i') AS fecha_carta_subida,
+                    mail.correo AS correo_envio,
+                    DATE_FORMAT(mail.fecha_envio, '%Y-%m-%d %H:%i') AS fecha_correo_enviado,
+                    TRIM(CONCAT_WS(' ', pu.nombres, pu.segundo_nombre, pu.apellidop, pu.apellidom)) AS correo_enviado_por
+                FROM __SPARTA_SECRET_REDACTED__.persona p
+                INNER JOIN (
+                    SELECT
+                        ap.id_persona,
+                        GROUP_CONCAT(DISTINCT pp.nombre ORDER BY COALESCE(pp.nivel, 999), pp.nombre SEPARATOR ', ') AS puestos,
+                        GROUP_CONCAT(DISTINCT d.nombre ORDER BY d.nombre SEPARATOR ', ') AS departamentos,
+                        GROUP_CONCAT(DISTINCT dorg.nombre ORDER BY dorg.nombre SEPARATOR ', ') AS areas,
+                        GROUP_CONCAT(DISTINCT dir.nombre ORDER BY dir.nombre SEPARATOR ', ') AS direcciones,
+                        MAX(CASE WHEN UPPER(COALESCE(pp.nombre, '')) LIKE '%GESTOR%' THEN 1 ELSE 0 END) AS tiene_gestor
+                    FROM __SPARTA_SECRET_REDACTED__.asigna_puesto ap
+                    INNER JOIN __SPARTA_SECRET_REDACTED__.puesto pp
+                        ON pp.id = ap.id_puesto
+                       AND COALESCE(pp.activo, 1) = 1
+                    LEFT JOIN __SPARTA_SECRET_REDACTED__.departamento d
+                        ON d.id = pp.departamento_id
+                    LEFT JOIN __SPARTA_SECRET_REDACTED__.departamento_organizacional dorg
+                        ON dorg.id = d.id_departamento_organizacional
+                    LEFT JOIN __SPARTA_SECRET_REDACTED__.asigna_direcciones ad
+                        ON ad.id_departamento_organizacional = d.id_departamento_organizacional
+                       AND COALESCE(ad.activo, 1) = 1
+                    LEFT JOIN __SPARTA_SECRET_REDACTED__.direcciones_organizacion dir
+                        ON dir.id = ad.id_direccion
+                    WHERE COALESCE(ap.activo, 1) = 1
+                    GROUP BY ap.id_persona
+                ) org
+                    ON org.id_persona = p.id
+                   AND org.tiene_gestor = 1
+                LEFT JOIN (
+                    SELECT
+                        cdp.id_persona,
+                        SUBSTRING_INDEX(GROUP_CONCAT(cdp.archivo ORDER BY cdp.fecha_carga DESC, cdp.id DESC), ',', 1) AS archivo,
+                        MAX(cdp.fecha_carga) AS fecha_carga
+                    FROM __SPARTA_SECRET_REDACTED__.carga_documento_persona cdp
+                    WHERE cdp.id_documento = :id_documento
+                    GROUP BY cdp.id_persona
+                ) doc ON doc.id_persona = p.id
+                LEFT JOIN (
+                    SELECT m1.id_persona, m1.correo, m1.fecha_envio, m1.enviado_por
+                    FROM __SPARTA_SECRET_REDACTED__.carta_compromiso_gestor_correo m1
+                    INNER JOIN (
+                        SELECT id_persona, MAX(id) AS id_max
+                        FROM __SPARTA_SECRET_REDACTED__.carta_compromiso_gestor_correo
+                        GROUP BY id_persona
+                    ) mx ON mx.id_persona = m1.id_persona AND mx.id_max = m1.id
+                ) mail ON mail.id_persona = p.id
+                LEFT JOIN __SPARTA_SECRET_REDACTED__.persona pu ON pu.id = mail.enviado_por
+                LEFT JOIN (
+                    SELECT aj1.id_persona, aj1.id_jefe, aj1.id_vacante_jefe
+                    FROM __SPARTA_SECRET_REDACTED__.asigna_jefe aj1
+                    INNER JOIN (
+                        SELECT id_persona, MAX(id) AS id_max
+                        FROM __SPARTA_SECRET_REDACTED__.asigna_jefe
+                        WHERE fecha_fin IS NULL OR fecha_fin >= CURDATE()
+                        GROUP BY id_persona
+                    ) ult ON ult.id_persona = aj1.id_persona AND ult.id_max = aj1.id
+                ) aj ON aj.id_persona = p.id
+                LEFT JOIN __SPARTA_SECRET_REDACTED__.persona pj ON pj.id = aj.id_jefe
+                LEFT JOIN __SPARTA_SECRET_REDACTED__.vacantes_personal vj ON vj.id = aj.id_vacante_jefe
+                LEFT JOIN __SPARTA_SECRET_REDACTED__.puesto pvj ON pvj.id = vj.id_puesto
+                WHERE COALESCE(p.estatus, '') <> 'Baja'
+                ORDER BY nombre_completo ASC
+            ", ['id_documento' => self::DOCUMENTO_CARTA_COMPROMISO_GESTOR]);
+
+            $estado = strtolower(trim($estado));
+            $permitidos = ['todos', 'pendiente_subir', 'recibida', 'sin_correo_enviado', 'pendientes'];
+            if (!in_array($estado, $permitidos, true)) {
+                $estado = 'pendientes';
+            }
+
+            $filas = [];
+            $resumen = [
+                'total' => 0,
+                'pendiente_subir' => 0,
+                'recibida' => 0,
+                'sin_correo_enviado' => 0,
+                'pendientes' => 0,
+            ];
+            foreach ($rows ?? [] as $row) {
+                $tieneCarta = trim((string)($row['fecha_carta_subida'] ?? '')) !== '';
+                $tieneCorreo = trim((string)($row['fecha_correo_enviado'] ?? '')) !== '';
+                if ($tieneCarta) {
+                    $estadoCarta = 'recibida';
+                    $estadoLabel = 'Carta recibida';
+                } elseif ($tieneCorreo) {
+                    $estadoCarta = 'pendiente_subir';
+                    $estadoLabel = 'Pendiente de subir carta';
+                } else {
+                    $estadoCarta = 'sin_correo_enviado';
+                    $estadoLabel = 'Sin correo enviado';
+                }
+                $row['estado_carta'] = $estadoCarta;
+                $row['estado_carta_label'] = $estadoLabel;
+
+                $resumen['total']++;
+                $resumen[$estadoCarta]++;
+                if ($estadoCarta !== 'recibida') {
+                    $resumen['pendientes']++;
+                }
+
+                if ($estado === 'todos'
+                    || $estado === $estadoCarta
+                    || ($estado === 'pendientes' && $estadoCarta !== 'recibida')) {
+                    $filas[] = $row;
+                }
+            }
+
+            return self::resultado(true, 'Seguimiento encontrado.', [
+                'rows' => $filas,
+                'resumen' => $resumen,
+                'filtro' => $estado,
+            ]);
+        } catch (\Exception $e) {
+            return self::resultado(false, 'Error al obtener seguimiento de cartas.', ['rows' => [], 'resumen' => []], $e->getMessage());
+        }
+    }
+
     public static function getPersonaGestorCartaCompromiso(int $idPersona): array
     {
         try {
@@ -2865,6 +3072,7 @@ class CapHum extends Model
                 SELECT
                     p.id,
                     p.numero_empleado,
+                    p.codigo_contpac,
                     TRIM(CONCAT_WS(' ', p.nombres, p.segundo_nombre, p.apellidop, p.apellidom)) AS nombre_completo,
                     p.correo,
                     COALESCE(p.estatus, '') AS estatus
@@ -2988,6 +3196,7 @@ class CapHum extends Model
                 SELECT
                     p.id,
                     p.numero_empleado,
+                    p.codigo_contpac,
                     TRIM(CONCAT_WS(' ', p.nombres, p.segundo_nombre, p.apellidop, p.apellidom)) AS nombre_completo,
                     p.correo,
                     COALESCE(p.estatus, '') AS estatus,
@@ -3002,7 +3211,7 @@ class CapHum extends Model
                 LEFT JOIN __SPARTA_SECRET_REDACTED__.departamento d
                     ON d.id = pp.departamento_id
                 WHERE p.estatus != 'Baja'
-                GROUP BY p.id, p.numero_empleado, p.nombres, p.segundo_nombre, p.apellidop, p.apellidom, p.correo, p.estatus
+                GROUP BY p.id, p.numero_empleado, p.codigo_contpac, p.nombres, p.segundo_nombre, p.apellidop, p.apellidom, p.correo, p.estatus
                 ORDER BY nombre_completo ASC
             ");
 
@@ -3104,6 +3313,7 @@ class CapHum extends Model
                 $colaboradores[] = [
                     'id_persona' => $idPersona,
                     'numero_empleado' => $persona['numero_empleado'] ?? '',
+                    'codigo_contpac' => $persona['codigo_contpac'] ?? '',
                     'nombre_completo' => $persona['nombre_completo'] ?? '',
                     'correo' => $persona['correo'] ?? '',
                     'departamentos' => $persona['departamentos'] ?: 'Sin departamento',
@@ -5275,7 +5485,11 @@ class CapHum extends Model
         $segundo_nombre  = addslashes($data['segundo_nombre'] ?? '');
         $apellidop       = addslashes($data['apellidop']);
         $apellidom       = addslashes($data['apellidom']);
-        $correo          = addslashes($data['correo'] ?? '');
+        $correoRaw       = trim((string)($data['correo'] ?? ''));
+        if ($correoRaw !== '' && !filter_var($correoRaw, FILTER_VALIDATE_EMAIL)) {
+            return self::resultado(false, 'El correo electrÃ³nico no tiene un formato valido.');
+        }
+        $correo_sql      = $correoRaw !== '' ? "'" . addslashes($correoRaw) . "'" : 'NULL';
         $telefono_uno    = addslashes($data['telefono_uno'] ?? $data['telefono'] ?? '');
         $jefeRaw         = trim((string)($data['jefe_id'] ?? ''));
         $preservarJefeActual = $jefeRaw === '';
@@ -5527,7 +5741,7 @@ class CapHum extends Model
                 apellidop     = '$apellidop',
                 apellidom     = '$apellidom',
                 curp          = $curp_sql,
-                correo        = '$correo',
+                correo        = $correo_sql,
                 telefono_uno  = '$telefono_uno',
                 user_name     = '$user_name',
                 password      = '$password',
