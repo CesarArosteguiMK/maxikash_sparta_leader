@@ -1268,6 +1268,58 @@ class CapHum extends Controller
 
             let currentPersonaId = null;
             let perfilAbortController = null;
+            let perfilModalLazyRender = null;
+
+            function renderPerfilTabDiferida(tabId) {
+                if (!perfilModalLazyRender) return;
+                if (tabId === 'tabPuestos' && !perfilModalLazyRender.puestosRenderizados) {
+                    renderPuestos(perfilModalLazyRender.puestos || [], perfilModalLazyRender.permisosJerarquia || null);
+                    perfilModalLazyRender.puestosRenderizados = true;
+                }
+                if (tabId === 'tabPermisosEspeciales' && !perfilModalLazyRender.permisosRenderizados) {
+                    renderPermisosEspeciales(perfilModalLazyRender.permisosEspeciales || []);
+                    perfilModalLazyRender.permisosRenderizados = true;
+                }
+            }
+
+            document.getElementById('tabPuestos-tab')?.addEventListener('shown.bs.tab', function () {
+                renderPerfilTabDiferida('tabPuestos');
+            });
+            document.getElementById('tabPermisosEspeciales-tab')?.addEventListener('shown.bs.tab', function () {
+                renderPerfilTabDiferida('tabPermisosEspeciales');
+            });
+
+            function mostrarModalPerfilCargando(idPersona) {
+                const modalEl = document.getElementById('modalEditPerfil');
+                if (!modalEl) return;
+                perfilModalLazyRender = null;
+
+                const loadingHtml = '<div class="text-center text-muted py-4"><span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>Cargando informacion...</div>';
+                const modulosForm = document.getElementById('modal-edit-perfil-modulos-form');
+                const puestosForm = document.getElementById('modal-edit-perfil-puestos-form');
+                const paisesList = document.getElementById('perfilPuestosPaisList');
+                const permisosForm = document.getElementById('modal-edit-perfil-permisos-especiales-form');
+                const inputPerfilId = document.getElementById('edit_perfil_id');
+                const inputPerfilNombre = document.getElementById('edit_perfil_nombres');
+
+                if (inputPerfilId) inputPerfilId.value = idPersona || '';
+                if (inputPerfilNombre) inputPerfilNombre.value = '';
+                if (modulosForm) modulosForm.innerHTML = loadingHtml;
+                if (puestosForm) puestosForm.innerHTML = loadingHtml;
+                if (paisesList) paisesList.innerHTML = '<div class="text-muted small px-2 py-3">Cargando...</div>';
+                if (permisosForm) permisosForm.innerHTML = loadingHtml;
+
+                const titulo = document.getElementById("modalEditPerfilLabel");
+                const subtitulo = document.getElementById("modalEditPerfil_subtitle");
+                if (titulo) titulo.innerHTML = '<i class="fa fa-user-shield me-2 text-white"></i>Administrar puestos y módulos del usuario';
+                if (subtitulo) subtitulo.textContent = 'Cargando informacion del usuario...';
+
+                const tabModulosBtn = document.getElementById('tabModulos-tab');
+                if (tabModulosBtn && typeof bootstrap !== 'undefined' && bootstrap.Tab) {
+                    bootstrap.Tab.getOrCreateInstance(tabModulosBtn).show();
+                }
+                bootstrap.Modal.getOrCreateInstance(modalEl).show();
+            }
 
             function edit_perfil(id) {
                 var idPersonaRevisado = parseInt(id, 10);
@@ -1276,6 +1328,7 @@ class CapHum extends Controller
                     return;
                 }
                 currentPersonaId = idPersonaRevisado;
+                mostrarModalPerfilCargando(idPersonaRevisado);
 
                 if (perfilAbortController) {
                     perfilAbortController.abort();
@@ -1376,7 +1429,6 @@ class CapHum extends Controller
                     document.getElementById("modalEditPerfilLabel").innerHTML = '<i class="fa fa-user-shield me-2 text-white"></i>Administrar puestos y módulos del usuario';
                     document.getElementById("modalEditPerfil_subtitle").innerHTML = esc(nombreCompleto) + ' / ' + esc(nombreArea) + ' / ' + esc(nombrePuestoHeader);
 
-                    renderPuestos(puestos, permisosJerarquia);
                     // Cierre celulas / Cartera (ids 56-59 y 92): pestana Permisos especiales, tarjeta Convenios.
                     const MODULOS_WEB_CIERRE_CELULA_CARTERA_EC = new Set([56, 57, 59, 92]);
                     function esNombreModuloCierreCelulaCarteraEc(m) {
@@ -1405,13 +1457,22 @@ class CapHum extends Controller
                         if (esNombreModuloCierreCelulaCarteraEc(m)) return true;
                         return false;
                     }
-                    renderModulos(perfiles.filter(perfilEnPestanaModulosSistema));
-                    renderPermisosEspeciales(perfiles.filter(perfilEnPestanaPermisosEspeciales));
+                    const perfilesModulosSistema = perfiles.filter(perfilEnPestanaModulosSistema);
+                    const perfilesPermisosEspeciales = perfiles.filter(perfilEnPestanaPermisosEspeciales);
+                    perfilModalLazyRender = {
+                        puestos: puestos,
+                        permisosJerarquia: permisosJerarquia,
+                        permisosEspeciales: perfilesPermisosEspeciales,
+                        puestosRenderizados: false,
+                        permisosRenderizados: false
+                    };
+                    renderModulos(perfilesModulosSistema);
+                    renderPerfilTabDiferida(document.querySelector('#modalEditPerfil .tab-pane.active')?.id || 'tabModulos');
                     actualizarEstadoForceLogoutPanel(persona);
 
                     // Abrir modal en lugar de offcanvas
                     const modalEl = document.getElementById('modalEditPerfil');
-                    const modal = new bootstrap.Modal(modalEl);
+                    const modal = bootstrap.Modal.getOrCreateInstance(modalEl);
 
                     // Prevenir el warning de aria-hidden removiendo el focus del botón de cerrar antes de mostrar
                     modalEl.addEventListener('shown.bs.modal', function() {
@@ -1816,6 +1877,7 @@ class CapHum extends Controller
                 23: 'fa fa-calendar-alt',
                 24: 'fa fa-file-pdf',
                 '24': 'fa fa-file-pdf',
+                25: 'fa-solid fa-envelope-circle-check',
                 29: 'fa fa-id-card',
                 '29': 'fa fa-id-card',
                 30: 'fa fa-balance-scale',
@@ -1856,16 +1918,63 @@ class CapHum extends Controller
                 '56': 'fa-solid fa-building',
                 57: 'fa-solid fa-headset',
                 '57': 'fa-solid fa-headset',
+                58: 'fa-solid fa-building',
+                59: 'fa-solid fa-briefcase',
+                65: 'fa-solid fa-calendar-check',
+                66: 'fa-solid fa-table-list',
+                67: 'fa-solid fa-calendar-plus',
+                68: 'fa-solid fa-clock-rotate-left',
+                82: 'fa-solid fa-user-pen',
+                87: 'fa-solid fa-user-plus',
+                88: 'fa-solid fa-user-gear',
                 92: 'fa-solid fa-file-excel',
                 '92': 'fa-solid fa-file-excel',
+                94: 'fa-solid fa-file-arrow-down',
+                95: 'fa-solid fa-user-plus',
+                96: 'fa-solid fa-user-pen',
+                97: 'fa-solid fa-folder-arrow-up',
+                98: 'fa-solid fa-calendar-minus',
+                99: 'fa-solid fa-user-slash',
                 60: 'fa-solid fa-chart-column',
                 '60': 'fa-solid fa-chart-column',
                 79: 'fa-solid fa-file-pen',
                 '79': 'fa-solid fa-file-pen',
                 100: 'fa-solid fa-share-from-square',
                 '100': 'fa-solid fa-share-from-square',
+                101: 'fa-solid fa-eye',
+                104: 'fa-solid fa-clipboard-check',
+                105: 'fa-solid fa-user-check',
+                106: 'fa-solid fa-route',
+                107: 'fa-solid fa-hashtag',
+                108: 'fa-solid fa-id-badge',
+                109: 'fa-solid fa-id-badge',
+                110: 'fa-solid fa-signature',
+                111: 'fa-solid fa-signature',
+                112: 'fa-solid fa-address-card',
+                113: 'fa-solid fa-phone',
+                114: 'fa-solid fa-map',
+                115: 'fa-solid fa-map-location-dot',
+                116: 'fa-solid fa-location-dot',
+                117: 'fa-solid fa-road',
+                118: 'fa-solid fa-house',
+                119: 'fa-solid fa-door-open',
+                120: 'fa-solid fa-envelope',
+                121: 'fa-solid fa-briefcase',
+                122: 'fa-solid fa-building',
+                123: 'fa-solid fa-user-tie',
+                124: 'fa-solid fa-user-group',
+                125: 'fa-solid fa-user-tag',
+                126: 'fa-solid fa-lock',
+                127: 'fa-solid fa-people-arrows',
                 128: 'fa-solid fa-inbox',
                 '128': 'fa-solid fa-inbox',
+                129: 'fa-solid fa-store',
+                130: 'fa-solid fa-store',
+                138: 'fa-solid fa-layer-group',
+                142: 'fa-solid fa-file-shield',
+                143: 'fa-solid fa-user-plus',
+                145: 'fa-solid fa-rotate-right',
+                146: 'fa-solid fa-circle-check',
             };
 
             /** Mapa base de íconos (pestaña Módulos del sistema y filas agrupadas de permisos especiales). */
@@ -1901,7 +2010,14 @@ class CapHum extends Controller
                 60: 'fa-solid fa-chart-column',
                 79: 'fa-solid fa-file-pen',
                 100: 'fa-solid fa-share-from-square',
-                102: 'fa-solid fa-map-location-dot'
+                102: 'fa-solid fa-map-location-dot',
+                104: 'fa-solid fa-clipboard-check',
+                105: 'fa-solid fa-user-check',
+                141: 'fa-solid fa-folder-open',
+                142: 'fa-solid fa-file-shield',
+                143: 'fa-solid fa-user-plus',
+                144: 'fa-solid fa-file-signature',
+                147: 'fa-solid fa-umbrella-beach'
             };
 
             /* =========================
@@ -6690,6 +6806,9 @@ class CapHum extends Controller
 
                             // Guardar en variable global para otros usos
                             window.candidatosData = candidatosConsolidados;
+                            if (typeof abrirDocumentacionCandidatoDesdeNotificacion === "function") {
+                                setTimeout(abrirDocumentacionCandidatoDesdeNotificacion, 120);
+                            }
 
                             // Eager Loading: Guardar todos los candidatos con sus documentos en el Map global
                             if (window.candidatosDataMap) {
@@ -10023,7 +10142,20 @@ class CapHum extends Controller
                 { data: 'acciones', title: 'Acciones', orderable: false }
             ]
         });
+        function abrirDocumentacionCandidatoDesdeNotificacion() {
+            if (window.__notifCandidatoProcesada) return;
+            var params = new URLSearchParams(window.location.search || "");
+            var id = parseInt(params.get("abrir_documentos") || params.get("id_candidato") || "0", 10);
+            if (!id || !window.candidatosData || !Array.isArray(window.candidatosData)) return;
+            var candidato = window.candidatosData.find(function(c) { return parseInt(c.id, 10) === id; });
+            if (!candidato) return;
+            window.__notifCandidatoProcesada = true;
+            var nombre = [candidato.nombres, candidato.segundo_nombre, candidato.apellidop, candidato.apellidom].filter(Boolean).join(" ");
+            abrirModalDocumentacionCandidato(id, nombre);
+        }
         getCandidatos();
+        setTimeout(abrirDocumentacionCandidatoDesdeNotificacion, 900);
+        setTimeout(abrirDocumentacionCandidatoDesdeNotificacion, 1800);
         var selDepto = document.getElementById("UserRole");
         var selPuesto = document.getElementById("UserPlan");
         var selEstatus = document.getElementById("FilterTransaction");
@@ -12179,9 +12311,9 @@ class CapHum extends Controller
     private function notificarCartaCompromisoGestorSubida(array $candidato): void
     {
         try {
-            $idPersonas = Notificacion::getPersonasConModulos([self::MODULO_VALIDADOR_DOCUMENTAL_CANDIDATOS]);
+            $idPersonas = Notificacion::getPersonasConModulos([self::MODULO_VALIDAR_CARTA_COMPROMISO_GESTOR]);
             if (empty($idPersonas)) {
-                error_log('CapHum: carta de compromiso gestor subida sin usuarios con modulo Validador documental.');
+                error_log('CapHum: carta de compromiso gestor subida sin usuarios con modulo Validar Documento de Compromiso del Gestor.');
                 return;
             }
             $nombreCompleto = trim(implode(' ', [
@@ -12193,8 +12325,16 @@ class CapHum extends Controller
             if ($nombreCompleto === '') {
                 $nombreCompleto = 'Un gestor';
             }
-            $mensaje = 'Gestor ' . $nombreCompleto . ' ya subio su carta de compromiso.';
-            Notificacion::crearParaPersonas($idPersonas, 'gestor_carta_compromiso_subida', $mensaje, null);
+            $mensaje = 'El gestor ' . $nombreCompleto . ' ya subió su carta de compromiso.';
+            $idPersona = (int) ($candidato['id_persona'] ?? $candidato['persona_id'] ?? 0);
+            $payload = [
+                'url' => $idPersona > 0
+                    ? '/caphum/cartaCompromisoGestores?seguimiento=recibida&id_persona=' . $idPersona . '&ver=1'
+                    : '/caphum/cartaCompromisoGestores?seguimiento=recibida',
+                'id_persona' => $idPersona,
+                'accion' => 'ver_carta_compromiso_gestor',
+            ];
+            Notificacion::crearParaPersonas($idPersonas, 'gestor_carta_compromiso_subida', $mensaje, null, $payload);
         } catch (\Throwable $e) {
             error_log('CapHum::notificarCartaCompromisoGestorSubida -> ' . $e->getMessage());
         }
@@ -12203,17 +12343,23 @@ class CapHum extends Controller
     private function notificarCartaCompromisoGestorSubidaPersona(array $persona): void
     {
         try {
-            $idPersonas = Notificacion::getPersonasConModulos([self::MODULO_VALIDADOR_DOCUMENTAL_CANDIDATOS]);
+            $idPersonas = Notificacion::getPersonasConModulos([self::MODULO_VALIDAR_CARTA_COMPROMISO_GESTOR]);
             if (empty($idPersonas)) {
-                error_log('CapHum: carta de compromiso gestor subida sin usuarios con modulo Validador documental.');
+                error_log('CapHum: carta de compromiso gestor subida sin usuarios con modulo Validar Documento de Compromiso del Gestor.');
                 return;
             }
             $nombreCompleto = trim((string) ($persona['nombre_completo'] ?? ''));
             if ($nombreCompleto === '') {
                 $nombreCompleto = 'Un gestor';
             }
-            $mensaje = 'Gestor ' . $nombreCompleto . ' ya subio su carta de compromiso.';
-            Notificacion::crearParaPersonas($idPersonas, 'gestor_carta_compromiso_subida', $mensaje, null);
+            $mensaje = 'El gestor ' . $nombreCompleto . ' ya subió su carta de compromiso.';
+            $idPersona = (int) ($persona['id_persona'] ?? $persona['persona_id'] ?? $persona['id'] ?? 0);
+            $payload = [
+                'url' => '/caphum/cartaCompromisoGestores?seguimiento=recibida&id_persona=' . $idPersona . '&ver=1',
+                'id_persona' => $idPersona,
+                'accion' => 'ver_carta_compromiso_gestor',
+            ];
+            Notificacion::crearParaPersonas($idPersonas, 'gestor_carta_compromiso_subida', $mensaje, null, $payload);
         } catch (\Throwable $e) {
             error_log('CapHum::notificarCartaCompromisoGestorSubidaPersona -> ' . $e->getMessage());
         }
@@ -13883,6 +14029,26 @@ class CapHum extends Controller
             ['sueldo' => $guardarSueldo['datos'] ?? null],
             (int) ($_SESSION['usuario_id'] ?? 0)
         );
+        $nombreCompleto = trim(implode(' ', [
+            $candidatoRes['datos']['nombres'] ?? '',
+            $candidatoRes['datos']['segundo_nombre'] ?? '',
+            $candidatoRes['datos']['apellidop'] ?? '',
+            $candidatoRes['datos']['apellidom'] ?? '',
+        ]));
+        if ($nombreCompleto === '') {
+            $nombreCompleto = 'Candidato';
+        }
+        $idValidadoresFinales = Notificacion::getPersonasConModulos([self::MODULO_VALIDADOR_FINAL_CANDIDATOS]);
+        if (empty($idValidadoresFinales)) {
+            error_log('CapHum: candidato enviado a validacion final pero ningun usuario tiene modulo 105 (Validador final).');
+        } else {
+            $mensajeFinal = 'El candidato ' . $nombreCompleto . ' ha llegado a validación final. Revisa su expediente.';
+            Notificacion::crearParaPersonas($idValidadoresFinales, 'candidato_validacion_final', $mensajeFinal, null, [
+                'url' => '/caphum/candidatos?abrir_documentos=' . (int) $id_candidato,
+                'id_candidato' => (int) $id_candidato,
+                'accion' => 'abrir_documentos_candidato',
+            ]);
+        }
         CandidatosDAO::invalidateDocumentacionCache($id_candidato);
         echo json_encode(self::respuesta(true, 'Expediente enviado a validacion final.', [
             'id_candidato' => $id_candidato,
@@ -16420,25 +16586,31 @@ class CapHum extends Controller
             if ($expedienteCompleto) {
                 $candidatoRes = CandidatosDAO::getById($id_candidato);
                 $nombreCompleto = 'Candidato';
+                $esCobranza = false;
                 if ($candidatoRes['success'] && !empty($candidatoRes['datos'])) {
                     $c = $candidatoRes['datos'];
                     $nombreCompleto = trim(($c['nombres'] ?? '') . ' ' . ($c['apellidop'] ?? '') . ' ' . ($c['apellidom'] ?? ''));
                     if ($nombreCompleto === '') {
                         $nombreCompleto = 'Candidato';
                     }
+                    $esCobranza = self::candidatoEsDireccionCobranza($c);
                 }
-                $mensaje = 'El candidato ' . $nombreCompleto . ' ha cargado todos los documentos requeridos. Revisa su expediente.';
-                $idPersonas = Notificacion::getPersonasConModulos([42]);
-                error_log('CapHum::subirDocumentos: personas modulo 42: ' . json_encode($idPersonas));
-                if (empty($idPersonas)) {
-                    $idPersonas = Notificacion::getPersonasConModulos([4]);
-                    error_log('CapHum::subirDocumentos: personas modulo 4 (fallback): ' . json_encode($idPersonas));
-                }
-                if (empty($idPersonas)) {
-                    error_log('CapHum: expediente completo pero ningún usuario con módulo 42 (Candidatos) ni 4 (Capital Humano). Asigne el módulo 42 a al menos un usuario para recibir notificaciones.');
+                if (!$esCobranza) {
+                    error_log('CapHum::subirDocumentos: expediente completo de candidato RRHH/no Cobranza; no se envia notificacion de validador documental 104.');
                 } else {
-                    $ok = Notificacion::crearParaPersonas($idPersonas, 'candidato_expediente_completo', $mensaje, null);
-                    error_log('CapHum::subirDocumentos: notificación enviada a ' . count($idPersonas) . ' personas.');
+                    $mensaje = 'El candidato ' . $nombreCompleto . ' ha cargado todos los documentos requeridos. Revisa su expediente.';
+                    $idPersonas = Notificacion::getPersonasConModulos([self::MODULO_VALIDADOR_DOCUMENTAL_CANDIDATOS]);
+                    error_log('CapHum::subirDocumentos: personas modulo 104: ' . json_encode($idPersonas));
+                    if (empty($idPersonas)) {
+                        error_log('CapHum: expediente completo de Cobranza pero ningun usuario con modulo 104 (Validador documental candidatos).');
+                    } else {
+                        Notificacion::crearParaPersonas($idPersonas, 'candidato_expediente_completo', $mensaje, null, [
+                            'url' => '/caphum/candidatos?abrir_documentos=' . (int) $id_candidato,
+                            'id_candidato' => (int) $id_candidato,
+                            'accion' => 'abrir_documentos_candidato',
+                        ]);
+                        error_log('CapHum::subirDocumentos: notificacion enviada a ' . count($idPersonas) . ' personas.');
+                    }
                 }
             }
         }

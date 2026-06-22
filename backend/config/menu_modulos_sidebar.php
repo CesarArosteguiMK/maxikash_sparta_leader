@@ -27,6 +27,9 @@ if (!function_exists('getMenuSidebarModulosStructure')) {
                 'subItems' => [
                     ['label' => 'Gestión', 'url' => '/caphum/gestion', 'modulos' => [4, 94, 95, 96, 97, 98, 99]],
                     ['label' => 'Accesos Capital Humano', 'url' => '/caphum/accesosCapitalHumano', 'modulos' => [140]],
+                    ['label' => 'Mis documentos', 'url' => '/caphum/documentosColaborador', 'modulos' => [141]],
+                    ['label' => 'Validar Documento de Compromiso del Gestor', 'url' => '/caphum/cartaCompromisoGestores', 'modulos' => [144]],
+                    ['label' => 'Vacaciones', 'url' => '/caphum/vacaciones', 'modulos' => [147]],
                     ['label' => 'Panel vacaciones', 'url' => '/caphum/vacacionesAdmin', 'modulos' => [4]],
                     ['label' => 'Expedientes RR.HH.', 'url' => '/caphum/documentosRrhh', 'modulos' => [93]],
                     ['label' => 'Revisión RR.HH.', 'url' => '/caphum/actualizacionesInfo', 'modulos' => [83]],
@@ -307,6 +310,10 @@ if (!function_exists('mapPermisoEspecialToMenuMeta')) {
             99 => [4, 128],
             101 => [4, 130],
             103 => [4, 135],
+            104 => [4, 140],
+            105 => [4, 145],
+            142 => [4, 150],
+            143 => [4, 155],
             // Motos Adjudicadas - 1.- Evidencias
             79 => [70, 710],
             100 => [62, 640],

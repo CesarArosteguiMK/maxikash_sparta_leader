@@ -31,14 +31,18 @@ class ReporteCampoService
             $personaId = (int)($persona['persona_id'] ?? 0);
             $deptId = (int)($persona['dept_id'] ?? 0);
             if ($personaId > 0 && $deptId > 0) {
-                $deptMap[$personaId] = $deptId;
+                if (!isset($deptMap[$personaId])) {
+                    $deptMap[$personaId] = [];
+                }
+                $deptMap[$personaId][$deptId] = true;
             }
         }
 
         $rows = [];
         foreach ($personas as $persona) {
             $personaId = (int)($persona['persona_id'] ?? 0);
-            $jerarquia = $this->resolverJerarquia($personaId, $personasJerarquia, $jefes, $legacy, $ausencias, $deptMap);
+            $deptId = (int)($persona['dept_id'] ?? 0);
+            $jerarquia = $this->resolverJerarquia($personaId, $deptId, $personasJerarquia, $jefes, $legacy, $ausencias, $deptMap);
             $puestoLegacy = (string)($legacy[$personaId] ?? ($persona['puesto_legacy'] ?? ''));
 
             $rows[] = [
@@ -90,62 +94,60 @@ class ReporteCampoService
                    d.nombre AS dept_nombre,
                    LOWER(TRIM(COALESCE(pl.clave, ''))) AS puesto_legacy
             FROM persona p
-            LEFT JOIN (
-                SELECT activo.id_persona, COALESCE(activo.id_puesto, todos.id_puesto) AS id_puesto
+            INNER JOIN (
+                SELECT activo.id_persona, activo.dept_id, activo.id_puesto
                 FROM (
-                    SELECT ap.id_persona, MIN(ap.id_puesto) AS id_puesto
+                    SELECT ap.id_persona, pp.departamento_id AS dept_id, MIN(ap.id_puesto) AS id_puesto
                     FROM asigna_puesto ap
                     INNER JOIN puesto pp ON pp.id = ap.id_puesto
                     INNER JOIN departamento d ON d.id = pp.departamento_id
                     INNER JOIN (
-                        SELECT ap2.id_persona, MAX(pp2.nivel) AS max_nivel
+                        SELECT ap2.id_persona, pp2.departamento_id, MAX(pp2.nivel) AS max_nivel
                         FROM asigna_puesto ap2
                         INNER JOIN puesto pp2 ON pp2.id = ap2.id_puesto
                         INNER JOIN departamento d2 ON d2.id = pp2.departamento_id
                         WHERE ap2.activo = 1
-                          AND (d2.nombre LIKE 'Campo 1-7%' OR d2.nombre LIKE 'Campo 8-30%')
-                        GROUP BY ap2.id_persona
-                    ) sel ON sel.id_persona = ap.id_persona AND sel.max_nivel = pp.nivel
+                          AND (d2.nombre LIKE 'Campo 1-7%' OR d2.nombre LIKE 'Campo 8-30%' OR d2.nombre LIKE 'Campo 30+%')
+                        GROUP BY ap2.id_persona, pp2.departamento_id
+                    ) sel ON sel.id_persona = ap.id_persona
+                         AND sel.departamento_id = pp.departamento_id
+                         AND sel.max_nivel = pp.nivel
                     WHERE ap.activo = 1
-                      AND (d.nombre LIKE 'Campo 1-7%' OR d.nombre LIKE 'Campo 8-30%')
-                    GROUP BY ap.id_persona
+                      AND (d.nombre LIKE 'Campo 1-7%' OR d.nombre LIKE 'Campo 8-30%' OR d.nombre LIKE 'Campo 30+%')
+                    GROUP BY ap.id_persona, pp.departamento_id
                 ) activo
-                LEFT JOIN (
-                    SELECT ap.id_persona, MIN(ap.id_puesto) AS id_puesto
-                    FROM asigna_puesto ap
-                    INNER JOIN puesto pp ON pp.id = ap.id_puesto
-                    INNER JOIN departamento d ON d.id = pp.departamento_id
-                    INNER JOIN (
-                        SELECT ap2.id_persona, MAX(pp2.nivel) AS max_nivel
-                        FROM asigna_puesto ap2
-                        INNER JOIN puesto pp2 ON pp2.id = ap2.id_puesto
-                        INNER JOIN departamento d2 ON d2.id = pp2.departamento_id
-                        WHERE d2.nombre LIKE 'Campo 1-7%' OR d2.nombre LIKE 'Campo 8-30%'
-                        GROUP BY ap2.id_persona
-                    ) sel ON sel.id_persona = ap.id_persona AND sel.max_nivel = pp.nivel
-                    WHERE d.nombre LIKE 'Campo 1-7%' OR d.nombre LIKE 'Campo 8-30%'
-                    GROUP BY ap.id_persona
-                ) todos ON todos.id_persona = activo.id_persona
 
                 UNION
 
-                SELECT todos.id_persona, todos.id_puesto
+                SELECT todos.id_persona, todos.dept_id, todos.id_puesto
                 FROM (
-                    SELECT ap.id_persona, MIN(ap.id_puesto) AS id_puesto
+                    SELECT ap.id_persona, pp.departamento_id AS dept_id, MIN(ap.id_puesto) AS id_puesto
                     FROM asigna_puesto ap
                     INNER JOIN puesto pp ON pp.id = ap.id_puesto
                     INNER JOIN departamento d ON d.id = pp.departamento_id
                     INNER JOIN (
-                        SELECT ap2.id_persona, MAX(pp2.nivel) AS max_nivel
+                        SELECT ap2.id_persona, pp2.departamento_id, MAX(pp2.nivel) AS max_nivel
                         FROM asigna_puesto ap2
                         INNER JOIN puesto pp2 ON pp2.id = ap2.id_puesto
                         INNER JOIN departamento d2 ON d2.id = pp2.departamento_id
-                        WHERE d2.nombre LIKE 'Campo 1-7%' OR d2.nombre LIKE 'Campo 8-30%'
-                        GROUP BY ap2.id_persona
-                    ) sel ON sel.id_persona = ap.id_persona AND sel.max_nivel = pp.nivel
-                    WHERE d.nombre LIKE 'Campo 1-7%' OR d.nombre LIKE 'Campo 8-30%'
-                    GROUP BY ap.id_persona
+                        WHERE d2.nombre LIKE 'Campo 1-7%' OR d2.nombre LIKE 'Campo 8-30%' OR d2.nombre LIKE 'Campo 30+%'
+                        GROUP BY ap2.id_persona, pp2.departamento_id
+                    ) sel ON sel.id_persona = ap.id_persona
+                         AND sel.departamento_id = pp.departamento_id
+                         AND sel.max_nivel = pp.nivel
+                    WHERE d.nombre LIKE 'Campo 1-7%' OR d.nombre LIKE 'Campo 8-30%' OR d.nombre LIKE 'Campo 30+%'
+                    GROUP BY ap.id_persona, pp.departamento_id
                 ) todos
+                LEFT JOIN (
+                    SELECT DISTINCT ap.id_persona, pp.departamento_id AS dept_id
+                    FROM asigna_puesto ap
+                    INNER JOIN puesto pp ON pp.id = ap.id_puesto
+                    INNER JOIN departamento d ON d.id = pp.departamento_id
+                    WHERE ap.activo = 1
+                      AND (d.nombre LIKE 'Campo 1-7%' OR d.nombre LIKE 'Campo 8-30%' OR d.nombre LIKE 'Campo 30+%')
+                ) activo_keys ON activo_keys.id_persona = todos.id_persona
+                              AND activo_keys.dept_id = todos.dept_id
+                WHERE activo_keys.id_persona IS NULL
             ) puesto_sel ON puesto_sel.id_persona = p.id
             INNER JOIN puesto pp ON pp.id = puesto_sel.id_puesto
             INNER JOIN departamento d ON d.id = pp.departamento_id
@@ -153,7 +155,7 @@ class ReporteCampoService
             LEFT JOIN puestos_legacy pl ON pl.id = el.id_puesto_legacy
             WHERE p.estatus = 'Activo'
               AND UPPER(TRIM(COALESCE(p.user_name, ''))) <> 'REPORTERIA'
-              AND (d.nombre LIKE 'Campo 1-7%' OR d.nombre LIKE 'Campo 8-30%')
+              AND (d.nombre LIKE 'Campo 1-7%' OR d.nombre LIKE 'Campo 8-30%' OR d.nombre LIKE 'Campo 30+%')
             "
         );
     }
@@ -303,10 +305,10 @@ class ReporteCampoService
      * @param array<int, array{id_jefe:?int,id_jefe_vacante:?int}> $jefes
      * @param array<int, string> $legacy
      * @param array<int, string> $ausencias
-     * @param array<int, int> $deptMap
+     * @param array<int, array<int, bool>> $deptMap
      * @return array<string, string>
      */
-    private function resolverJerarquia(int $personaId, array $personas, array $jefes, array $legacy, array $ausencias, array $deptMap): array
+    private function resolverJerarquia(int $personaId, int $deptObjetivo, array $personas, array $jefes, array $legacy, array $ausencias, array $deptMap): array
     {
         $resultado = [];
         foreach (self::ROLES_JERARQUIA as $rol) {
@@ -316,7 +318,7 @@ class ReporteCampoService
 
         $actual = $personaId;
         $visitados = [];
-        $deptObjetivo = $deptMap[$personaId] ?? null;
+        $deptObjetivo = $deptObjetivo > 0 ? $deptObjetivo : null;
 
         for ($i = 0; $i < 8; $i++) {
             if ($actual < 1 || isset($visitados[$actual])) {
@@ -336,7 +338,7 @@ class ReporteCampoService
             if ($jefeId < 1 || !isset($personas[$jefeId])) {
                 break;
             }
-            if ($deptObjetivo !== null && (($deptMap[$jefeId] ?? null) !== $deptObjetivo)) {
+            if ($deptObjetivo !== null && empty($deptMap[$jefeId][$deptObjetivo])) {
                 break;
             }
 

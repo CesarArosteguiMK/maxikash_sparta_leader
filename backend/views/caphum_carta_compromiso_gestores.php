@@ -308,6 +308,13 @@
         sin_correo_enviado: 'Sin correo enviado',
         todos: 'Todos'
     };
+    const deepLinkCartaParams = new URLSearchParams(window.location.search || '');
+    const deepLinkCarta = {
+        idPersona: Number(deepLinkCartaParams.get('id_persona') || 0),
+        seguimiento: deepLinkCartaParams.get('seguimiento') || '',
+        ver: deepLinkCartaParams.get('ver') === '1',
+        procesado: false
+    };
 
     function escapeHtml(value) {
         return String(value || '').replace(/[&<>"']/g, function (ch) {
@@ -650,9 +657,29 @@
             const datos = data.datos || {};
             state.seguimientoRows = Array.isArray(datos.rows) ? datos.rows : [];
             renderSeguimiento(datos.resumen || {});
+            procesarDeepLinkCarta();
         } catch (err) {
             els.segRows.innerHTML = '<tr><td colspan="6" class="text-center text-danger fw-semibold py-4">No se pudo cargar el seguimiento.</td></tr>';
             els.segInfo.textContent = err.message || 'Error al cargar.';
+        }
+    }
+
+    function procesarDeepLinkCarta() {
+        if (deepLinkCarta.procesado || !deepLinkCarta.idPersona) return;
+        const row = (state.seguimientoRows || []).find(function (item) {
+            return Number(item.id_persona || 0) === deepLinkCarta.idPersona;
+        });
+        if (!row) return;
+        deepLinkCarta.procesado = true;
+        state.seguimientoFiltro = '';
+        state.seguimientoEstado = 'recibida';
+        state.seguimientoPagina = 1;
+        setEstadoSeguimiento('recibida', false);
+        if (deepLinkCarta.ver && row.carta_archivo) {
+            abrirDocumentoCarta(
+                '/caphum/verDocumentoPersona?archivo=' + encodeURIComponent(row.carta_archivo),
+                row.carta_archivo
+            );
         }
     }
 
@@ -795,5 +822,15 @@
     });
 
     cargar();
+    if (deepLinkCarta.idPersona || deepLinkCarta.seguimiento) {
+        if (els.seguimientoModal && window.bootstrap && bootstrap.Modal) {
+            bootstrap.Modal.getOrCreateInstance(els.seguimientoModal).show();
+        } else if (window.$ && $('#modalSeguimientoCartaGestor').modal) {
+            $('#modalSeguimientoCartaGestor').modal('show');
+        }
+        state.seguimientoEstado = deepLinkCarta.seguimiento || 'recibida';
+        setEstadoSeguimiento(state.seguimientoEstado, false);
+        cargarSeguimiento();
+    }
 })();
 </script>
