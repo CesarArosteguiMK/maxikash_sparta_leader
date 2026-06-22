@@ -92,6 +92,7 @@ if (!function_exists('getMenuSidebarModulosStructure')) {
                 'subItems' => [
                     ['label' => 'Administracion', 'url' => '/Adjudicacion/administracion', 'modulos' => [62, 80]],
                     ['label' => 'Operaciones', 'url' => '/MotosAdjudicadas/pipeline', 'modulos' => [63]],
+                    ['label' => 'Inventario', 'url' => '/MotosAdjudicadas/inventario', 'modulos' => [139]],
                     ['label' => 'Monitoreo', 'url' => '/MotosAdjudicadas/monitoreoAdjudicaciones', 'modulos' => [76]],
                     ['label' => 'Consulta REPUVE', 'url' => '/MotosAdjudicadas/repuveConsulta', 'modulos' => [78]],
                     ['label' => '1.- Evidencias', 'url' => '/AtencionClientes/evidencias', 'modulos' => [70]],
@@ -101,12 +102,6 @@ if (!function_exists('getMenuSidebarModulosStructure')) {
                     ['label' => 'Retenciones', 'url' => '/AtencionClientes/consulta', 'modulos' => [69]],
                     ['label' => 'Tracking Recolección', 'url' => '/TrackingRecoleccion/rutas', 'modulos' => [74]],
                     ['label' => 'Administracion de transportistas', 'url' => '/TrackingRecoleccion/administracionTransportistas', 'modulos' => [74]],
-                ],
-            ],
-            'Almacen Virtual' => [
-                'icono' => 'fa-solid fa-warehouse',
-                'subItems' => [
-                    ['label' => 'Inventario', 'url' => '/AlmacenVirtual/inventario', 'modulos' => [139]],
                 ],
             ],
             'Direcciones' => [
