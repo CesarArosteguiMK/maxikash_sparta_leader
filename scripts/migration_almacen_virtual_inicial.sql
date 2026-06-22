@@ -147,7 +147,7 @@ VALUES ('SIN_ASIGNAR', 'Sin asignar', 'otro')
 ON DUPLICATE KEY UPDATE nombre_ubicacion = VALUES(nombre_ubicacion);
 
 INSERT INTO modulos_web (id, nombre, pestana, descripcion, activo)
-VALUES (139, 'Almacen Virtual', 'Inventario', 'Almacen Virtual > Inventario', 1)
+VALUES (139, 'Inventario', 'Motos Adjudicadas', 'Motos Adjudicadas > Inventario', 1)
 ON DUPLICATE KEY UPDATE
   nombre = VALUES(nombre),
   pestana = VALUES(pestana),

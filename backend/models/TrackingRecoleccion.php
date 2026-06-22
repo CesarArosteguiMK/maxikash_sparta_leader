@@ -2393,6 +2393,13 @@ class TrackingRecoleccion extends Model
                     $this->db->rollback();
                     return ['success' => false, 'message' => 'Ruta no encontrada.'];
                 }
+                if (strtolower((string) ($existente['estatus_ruta'] ?? '')) !== 'borrador') {
+                    $this->db->rollback();
+                    return [
+                        'success' => false,
+                        'message' => 'Esta ruta ya esta en operacion. Usa actualizacion operativa para no reiniciar el progreso.',
+                    ];
+                }
                 // Sin restricción por estatus: cualquier ruta puede editarse
                 // Modo 'actualizar': preservar estatus actual de la ruta
                 if ($modo === 'actualizar') {
@@ -2549,6 +2556,175 @@ class TrackingRecoleccion extends Model
             $this->db->rollback();
             return ['success' => false, 'message' => 'Error al guardar la ruta: ' . $e->getMessage()];
         }
+    }
+
+    public function actualizarRutaOperativa(array $data, int $idUsuario): array
+    {
+        $idRuta = (int) ($data['id_ruta'] ?? 0);
+        if ($idRuta <= 0) {
+            return ['success' => false, 'message' => 'ID de ruta requerido.'];
+        }
+
+        $nombre = $this->sanitizarNombreRuta((string) ($data['nombre_ruta'] ?? ''));
+        $estado = $this->sanitizarUbicacionMayus($data['estado'] ?? '', 100);
+        $municipio = $this->sanitizarUbicacionMayus($data['municipio'] ?? '', 100);
+        $fechaStr = trim((string) ($data['fecha_programada'] ?? ''));
+        $fechaFinalStr = trim((string) ($data['fecha_finalizacion'] ?? ''));
+        $horaRaw = trim((string) ($data['hora_salida'] ?? ''));
+
+        if ($nombre === '') {
+            return ['success' => false, 'message' => 'El nombre de la ruta es obligatorio.'];
+        }
+        if (mb_strlen($nombre, 'UTF-8') > 100) {
+            return ['success' => false, 'message' => 'El nombre de la ruta no puede exceder 100 caracteres.'];
+        }
+        if ($fechaStr === '') {
+            return ['success' => false, 'message' => 'La fecha programada es obligatoria.'];
+        }
+        if (\DateTime::createFromFormat('Y-m-d', $fechaStr) === false) {
+            return ['success' => false, 'message' => 'Formato de fecha no valido. Use YYYY-MM-DD.'];
+        }
+        if ($fechaFinalStr === '') {
+            $fechaFinalStr = $fechaStr;
+        }
+        $fechaFinalOk = $this->validarFechaFinalizacion($fechaStr, $fechaFinalStr);
+        if ($fechaFinalOk !== null) {
+            return ['success' => false, 'message' => $fechaFinalOk];
+        }
+
+        $horaFmt = null;
+        if ($horaRaw !== '') {
+            if (preg_match('/^(\d{1,2}):(\d{2})(:\d{2})?$/', $horaRaw, $m)) {
+                $h = (int) $m[1];
+                $min = (int) $m[2];
+                if ($h >= 0 && $h <= 23 && $min >= 0 && $min <= 59) {
+                    $horaFmt = sprintf('%02d:%02d:00', $h, $min);
+                }
+            }
+            if ($horaFmt === null) {
+                return ['success' => false, 'message' => 'El formato de hora no es valido.'];
+            }
+        }
+
+        try {
+            $this->db->beginTransaction();
+
+            $ruta = $this->db->queryOne(
+                'SELECT id_ruta, estatus_ruta, nombre_ruta, estado, municipio, fecha_programada, fecha_finalizacion, hora_inicial, act_hora_1
+                 FROM asigna_horas_tracking
+                 WHERE id_ruta = :id
+                 LIMIT 1',
+                ['id' => $idRuta]
+            );
+            if (!$ruta) {
+                $this->db->rollback();
+                return ['success' => false, 'message' => 'Ruta no encontrada.'];
+            }
+
+            $estatus = strtolower((string) ($ruta['estatus_ruta'] ?? ''));
+            if ($estatus === 'borrador') {
+                $this->db->rollback();
+                return ['success' => false, 'message' => 'Esta ruta aun es borrador. Usa el guardado normal del borrador.'];
+            }
+            if (in_array($estatus, ['cancelada', 'concluida', 'completado', 'finalizada'], true)) {
+                $this->db->rollback();
+                return ['success' => false, 'message' => 'La ruta ya no permite actualizacion operativa.'];
+            }
+
+            $setHora = '';
+            $horaParams = [];
+            if ($horaFmt !== null) {
+                $horaInicialActual = $ruta['hora_inicial'] ?? null;
+                if ($horaInicialActual === null || $horaInicialActual === '') {
+                    $setHora = ', hora_inicial = :hi';
+                    $horaParams['hi'] = $horaFmt;
+                } elseif ($horaFmt !== $horaInicialActual) {
+                    $setHora = ', act_hora_1 = :ah1';
+                    $horaParams['ah1'] = $horaFmt;
+                }
+            }
+
+            $estadoFinal = $estado !== '' ? $estado : ($ruta['estado'] ?? null);
+            $municipioFinal = $municipio !== '' ? $municipio : ($ruta['municipio'] ?? null);
+
+            $this->db->CRUD(
+                "UPDATE asigna_horas_tracking
+                 SET nombre_ruta = :nombre,
+                     estado = :estado,
+                     municipio = :municipio,
+                     fecha_programada = :fecha_programada,
+                     fecha_finalizacion = :fecha_finalizacion,
+                     fecha_actualizacion = :fecha_actualizacion{$setHora}
+                 WHERE id_ruta = :id_ruta",
+                array_merge(
+                    [
+                        'nombre' => $nombre,
+                        'estado' => $estadoFinal,
+                        'municipio' => $municipioFinal,
+                        'fecha_programada' => $fechaStr,
+                        'fecha_finalizacion' => $fechaFinalStr,
+                        'fecha_actualizacion' => date('Y-m-d H:i:s'),
+                        'id_ruta' => $idRuta,
+                    ],
+                    $horaParams
+                )
+            );
+
+            $this->registrarEventoRuta(
+                $idRuta,
+                null,
+                'actualizacion_operativa',
+                'actualizar_encabezado_ruta',
+                [
+                    'nombre_ruta' => $ruta['nombre_ruta'] ?? null,
+                    'estado' => $ruta['estado'] ?? null,
+                    'municipio' => $ruta['municipio'] ?? null,
+                    'fecha_programada' => $ruta['fecha_programada'] ?? null,
+                    'fecha_finalizacion' => $ruta['fecha_finalizacion'] ?? null,
+                    'hora_vigente' => $ruta['act_hora_1'] ?: ($ruta['hora_inicial'] ?? null),
+                ],
+                [
+                    'nombre_ruta' => $nombre,
+                    'estado' => $estadoFinal,
+                    'municipio' => $municipioFinal,
+                    'fecha_programada' => $fechaStr,
+                    'fecha_finalizacion' => $fechaFinalStr,
+                    'hora_vigente' => $horaFmt ?: ($ruta['act_hora_1'] ?: ($ruta['hora_inicial'] ?? null)),
+                ],
+                'Actualizacion operativa sin reconstruir detalles de ruta.',
+                'sparta',
+                $idUsuario
+            );
+
+            $this->db->commit();
+            return [
+                'success' => true,
+                'id_ruta' => $idRuta,
+                'estatus_ruta' => $ruta['estatus_ruta'],
+                'message' => 'Ruta actualizada sin reiniciar el progreso operativo.',
+            ];
+        } catch (\Throwable $e) {
+            $this->db->rollback();
+            return ['success' => false, 'message' => 'Error al actualizar la ruta operativa: ' . $e->getMessage()];
+        }
+    }
+
+    public function obtenerEstatusRutaTracking(int $idRuta): ?string
+    {
+        if ($idRuta <= 0) {
+            return null;
+        }
+
+        $row = $this->db->queryOne(
+            'SELECT estatus_ruta FROM asigna_horas_tracking WHERE id_ruta = :id LIMIT 1',
+            ['id' => $idRuta]
+        );
+
+        if (!$row) {
+            return null;
+        }
+
+        return strtolower(trim((string) ($row['estatus_ruta'] ?? '')));
     }
 
     public function actualizarCoordenadasRuta(array $data): array

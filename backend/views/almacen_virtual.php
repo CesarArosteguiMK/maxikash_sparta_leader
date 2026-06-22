@@ -211,10 +211,10 @@
 <div class="av-shell">
     <section class="av-head d-flex align-items-start justify-content-between gap-3 flex-wrap">
         <div class="d-flex align-items-start gap-3">
-            <span class="av-head-icon"><i class="fa-solid fa-warehouse"></i></span>
+            <span class="av-head-icon"><i class="fa-solid fa-clipboard-list"></i></span>
             <div>
-                <h4 class="mb-1">Almacen Virtual</h4>
-                <div class="text-muted small">Inventario operativo de unidades por celula, ubicacion y estatus.</div>
+                <h4 class="mb-1">Inventario</h4>
+                <div class="text-muted small">Inventario operativo de Motos Adjudicadas por celula, ubicacion y estatus.</div>
             </div>
         </div>
         <button type="button" class="btn btn-outline-secondary btn-sm" id="av-btn-refresh">
@@ -247,7 +247,7 @@
                 <div class="av-import-title">
                     <i class="fa-solid fa-motorcycle me-1"></i>Importar desde Motos Adjudicadas
                 </div>
-                <div class="av-import-sub">Crea la unidad fisica en Almacen Virtual usando el expediente origen.</div>
+                <div class="av-import-sub">Crea la unidad fisica en inventario usando el expediente origen.</div>
             </div>
             <div class="col-12 col-sm-7 col-lg-4">
                 <label class="form-label small fw-bold" for="av-import-id-operacion">ID operacion</label>
@@ -267,7 +267,7 @@
                 <div class="av-pending-title">
                     <i class="fa-solid fa-list-check me-1 text-primary"></i>Pendientes de Motos Adjudicadas
                 </div>
-                <div class="av-pending-sub">Operaciones listas para crear unidad fisica en Almacen Virtual.</div>
+                <div class="av-pending-sub">Operaciones listas para crear unidad fisica en inventario.</div>
             </div>
             <div class="d-flex align-items-end gap-2 flex-wrap">
                 <div>
@@ -549,7 +549,7 @@
     }
 
     async function cargarResumen() {
-        const res = await fetch('/AlmacenVirtual/resumen', { headers: { Accept: 'application/json' } });
+        const res = await fetch('/MotosAdjudicadas/inventarioResumen', { headers: { Accept: 'application/json' } });
         const json = await res.json();
         if (!json.success || !json.datos) return;
         const d = json.datos;
@@ -567,8 +567,8 @@
 
     async function cargarCatalogos() {
         const [celulasRes, ubicacionesRes] = await Promise.all([
-            fetch('/AlmacenVirtual/celulas', { headers: { Accept: 'application/json' } }).then(r => r.json()).catch(() => null),
-            fetch('/AlmacenVirtual/ubicaciones', { headers: { Accept: 'application/json' } }).then(r => r.json()).catch(() => null),
+            fetch('/MotosAdjudicadas/inventarioCelulas', { headers: { Accept: 'application/json' } }).then(r => r.json()).catch(() => null),
+            fetch('/MotosAdjudicadas/inventarioUbicaciones', { headers: { Accept: 'application/json' } }).then(r => r.json()).catch(() => null),
         ]);
 
         const celulaSelect = $('av-celula');
@@ -596,7 +596,7 @@
         const body = $('av-unidades-body');
         if (!body) return;
         if (!rows || rows.length === 0) {
-            body.innerHTML = '<tr><td colspan="6" class="av-empty"><i class="fa-solid fa-warehouse"></i>Sin unidades para los filtros seleccionados.</td></tr>';
+            body.innerHTML = '<tr><td colspan="6" class="av-empty"><i class="fa-solid fa-clipboard-list"></i>Sin unidades para los filtros seleccionados.</td></tr>';
             return;
         }
 
@@ -634,7 +634,7 @@
         if (body) {
             body.innerHTML = '<tr><td colspan="6" class="av-empty"><i class="fa-solid fa-spinner fa-spin"></i>Cargando unidades...</td></tr>';
         }
-        const res = await fetch('/AlmacenVirtual/unidades?' + params().toString(), { headers: { Accept: 'application/json' } });
+        const res = await fetch('/MotosAdjudicadas/inventarioUnidades?' + params().toString(), { headers: { Accept: 'application/json' } });
         const json = await res.json();
         if (!json.success) {
             if (body) {
@@ -720,7 +720,7 @@
         const q = $('av-pending-q')?.value.trim() || '';
         if (q) p.set('q', q);
         try {
-            const res = await fetch('/AlmacenVirtual/pendientesMotosAdjudicadas?' + p.toString(), { headers: { Accept: 'application/json' } });
+            const res = await fetch('/MotosAdjudicadas/inventarioPendientesMotosAdjudicadas?' + p.toString(), { headers: { Accept: 'application/json' } });
             const json = await res.json();
             if (!json.success) {
                 if (body) {
@@ -758,7 +758,7 @@
         }
 
         try {
-            const res = await fetch('/AlmacenVirtual/crearDesdeMotosAdjudicadas', {
+            const res = await fetch('/MotosAdjudicadas/inventarioCrearDesdeMotosAdjudicadas', {
                 method: 'POST',
                 headers: {
                     'Accept': 'application/json',

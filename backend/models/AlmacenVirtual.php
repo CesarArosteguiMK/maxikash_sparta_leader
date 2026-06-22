@@ -85,7 +85,7 @@ class AlmacenVirtual extends Model
         if (!$this->tablasBaseDisponibles()) {
             return [
                 'success' => false,
-                'message' => 'Faltan tablas base de Almacen Virtual. Ejecuta la migracion inicial av_*.',
+                'message' => 'Faltan tablas base de Inventario. Ejecuta la migracion inicial av_*.',
                 'rows' => [],
                 'total' => 0,
                 'limit' => 8,
@@ -329,7 +329,7 @@ class AlmacenVirtual extends Model
             return ['success' => false, 'message' => 'Operacion invalida.'];
         }
         if (!$this->tablasBaseDisponibles()) {
-            return ['success' => false, 'message' => 'Faltan tablas base de Almacen Virtual. Ejecuta la migracion inicial av_*.'];
+            return ['success' => false, 'message' => 'Faltan tablas base de Inventario. Ejecuta la migracion inicial av_*.'];
         }
 
         $existente = $this->obtenerUnidadPorOrigen(self::CELULA_MOTOS_ADJUDICADAS, $idOperacion);
@@ -337,7 +337,7 @@ class AlmacenVirtual extends Model
             return [
                 'success' => true,
                 'ya_existe' => true,
-                'message' => 'La operacion ya existe en Almacen Virtual.',
+                'message' => 'La operacion ya existe en inventario.',
                 'unidad' => $existente,
             ];
         }
@@ -400,7 +400,7 @@ class AlmacenVirtual extends Model
             );
             $this->registrarBitacora(
                 $idUnidad,
-                'Almacen Virtual',
+                'Inventario Motos Adjudicadas',
                 'UNIDAD CREADA DESDE MOTOS ADJUDICADAS',
                 'Operacion #' . $idOperacion,
                 [
@@ -425,12 +425,12 @@ class AlmacenVirtual extends Model
                 return [
                     'success' => true,
                     'ya_existe' => true,
-                    'message' => 'La operacion ya existe en Almacen Virtual.',
+                    'message' => 'La operacion ya existe en inventario.',
                     'unidad' => $existente,
                 ];
             }
 
-            return ['success' => false, 'message' => 'No se pudo crear la unidad en Almacen Virtual.', 'error' => $e->getMessage()];
+            return ['success' => false, 'message' => 'No se pudo crear la unidad en inventario.', 'error' => $e->getMessage()];
         }
 
         $creada = $this->obtenerUnidadPorId($idUnidad);
@@ -438,7 +438,7 @@ class AlmacenVirtual extends Model
         return [
             'success' => true,
             'ya_existe' => false,
-            'message' => 'Unidad creada en Almacen Virtual.',
+            'message' => 'Unidad creada en inventario.',
             'unidad' => $creada,
         ];
     }
@@ -781,9 +781,9 @@ class AlmacenVirtual extends Model
         try {
             $datos = [
                 'id' => self::MODULO_ALMACEN_VIRTUAL,
-                'nombre' => 'Almacen Virtual',
-                'pestana' => 'Inventario',
-                'descripcion' => 'Almacen Virtual > Inventario',
+                'nombre' => 'Inventario',
+                'pestana' => 'Motos Adjudicadas',
+                'descripcion' => 'Motos Adjudicadas > Inventario',
             ];
 
             $existe = $this->db->queryOne(
