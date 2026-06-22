@@ -14,7 +14,7 @@ if (!function_exists('getMenuItemsConfig')) {
             ['url' => '/caphum/gestion', 'label' => 'Capital Humano - Gestión', 'icon' => 'fa-solid fa-users', 'bg' => 'bg-purple', 'modulos' => [4]],
             ['url' => '/caphum/accesosCapitalHumano', 'label' => 'Accesos Capital Humano', 'icon' => 'fa-solid fa-user-shield', 'bg' => 'bg-purple', 'modulos' => [140]],
             ['url' => '/caphum/documentosColaborador', 'label' => 'Mis documentos', 'icon' => 'fa-solid fa-folder-open', 'bg' => 'bg-purple', 'modulos' => [141]],
-            ['url' => '/caphum/vacaciones', 'label' => 'Vacaciones', 'icon' => 'fa-solid fa-umbrella-beach', 'bg' => 'bg-purple', 'modulos' => [4, 92]],
+            ['url' => '/caphum/vacaciones', 'label' => 'Vacaciones', 'icon' => 'fa-solid fa-umbrella-beach', 'bg' => 'bg-purple', 'modulos' => [147]],
             ['url' => '/caphum/vacacionesAdmin', 'label' => 'Panel vacaciones', 'icon' => 'fa-solid fa-clipboard-check', 'bg' => 'bg-purple', 'modulos' => [4]],
             ['url' => '/caphum/documentosRrhh', 'label' => 'Expedientes RR.HH.', 'icon' => 'fa-solid fa-folder-tree', 'bg' => 'bg-purple', 'modulos' => [93]],
             ['url' => '/caphum/actualizacionesInfo', 'label' => 'Revisión RR.HH.', 'icon' => 'fa-solid fa-user-check', 'bg' => 'bg-purple', 'modulos' => [83]],
@@ -93,6 +93,8 @@ if (!function_exists('getRutasModulos')) {
         $rutas['caphum/obtenerdatosactualizacioninfopersona'] = [82];
         $rutas['caphum/obtenerdatosactualizacioninfopersonas'] = [82];
         $rutas['caphum/guardaractualizacioninfopersona'] = [82];
+        $rutas['caphum/getconfiguracionsincronizalegacy'] = [89];
+        $rutas['caphum/guardarconfiguracionsincronizalegacy'] = [89];
         $rutas['reporteria/getasignaciondireccionescredito'] = [84];
         $rutas['reporteria/postasignaciondireccion'] = [84];
         $rutas['reporteria/postasignaciondireccionesorden'] = [84];
@@ -103,7 +105,14 @@ if (!function_exists('getRutasModulos')) {
         $rutas['analitica/postasignaciondireccionessync'] = [84];
         $rutas['atlas/accesosatlas'] = [137];
         $rutas['atlas/creditosoperacion'] = [139];
+        $rutas['atlas/riesgosoperativos'] = [148];
+        $rutas['atlas/abanderamiento30'] = [149];
+        $rutas['atlas/getriesgosoperativos'] = [148];
+        $rutas['atlas/eliminardivision'] = [133];
+        $rutas['atlas/fusionardivisiones'] = [133];
         $rutas['atlas/getaccesosatlas'] = [137];
+        $rutas['atlas/descargarplantillaaccesosatlas'] = [137];
+        $rutas['atlas/importarplantillaaccesosatlas'] = [137];
         $rutas['atlas/sincronizaraccesosatlas'] = [137];
         $rutas['atlas/actualizarexclusionaccesosatlas'] = [137];
         $rutas['atlas/getaccesoatlasdetalle'] = [137];

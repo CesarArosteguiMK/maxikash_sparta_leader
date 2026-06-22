@@ -27,8 +27,6 @@ if (!function_exists('getMenuSidebarModulosStructure')) {
                 'subItems' => [
                     ['label' => 'Gestión', 'url' => '/caphum/gestion', 'modulos' => [4, 94, 95, 96, 97, 98, 99]],
                     ['label' => 'Accesos Capital Humano', 'url' => '/caphum/accesosCapitalHumano', 'modulos' => [140]],
-                    ['label' => 'Mis documentos', 'url' => '/caphum/documentosColaborador', 'modulos' => [141]],
-                    ['label' => 'Vacaciones', 'url' => '/caphum/vacaciones', 'modulos' => [4, 92]],
                     ['label' => 'Panel vacaciones', 'url' => '/caphum/vacacionesAdmin', 'modulos' => [4]],
                     ['label' => 'Expedientes RR.HH.', 'url' => '/caphum/documentosRrhh', 'modulos' => [93]],
                     ['label' => 'Revisión RR.HH.', 'url' => '/caphum/actualizacionesInfo', 'modulos' => [83]],
@@ -124,6 +122,8 @@ if (!function_exists('getMenuSidebarModulosStructure')) {
                     ['label' => 'Catálogos Operativos', 'url' => '/Atlas/catalogos', 'modulos' => [133]],
                     ['label' => 'Catálogos Comerciales', 'url' => '/Atlas/catalogosComerciales', 'modulos' => [134]],
                     ['label' => 'Notificaciones App', 'url' => '/Atlas/notificacionesApp', 'modulos' => [136]],
+                    ['label' => 'Riesgos Operativos', 'url' => '/Atlas/riesgosOperativos', 'modulos' => [148]],
+                    ['label' => 'Abanderamiento 30+', 'url' => '/Atlas/abanderamiento30', 'modulos' => [149]],
                     ['label' => 'Accesos Atlas', 'url' => '/Atlas/accesosAtlas', 'modulos' => [137]],
                 ],
             ],

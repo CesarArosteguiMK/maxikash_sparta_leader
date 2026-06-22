@@ -510,6 +510,12 @@ class RrhhDocumentImportService
             23 => 'Numero de seguridad social',
             24 => 'Hoja de retencion FONACOT o INFONAVIT',
             25 => 'Estado de cuenta',
+            28 => 'Contrato firmado',
+            29 => 'Archivo .FAD',
+            30 => 'Validacion SAT',
+            31 => 'Llave vector',
+            32 => 'Prueba centavo',
+            33 => 'Semanas cotizadas IMSS (segundos patrones)',
         ];
         foreach ($fallback as $id => $nombre) {
             if (!isset($byId[$id])) {

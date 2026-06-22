@@ -61,7 +61,46 @@ class AtencionClientes
                         'fis_vin', 'fis_frontal', 'fis_lateral_der', 'fis_trasera', 'fis_lateral_izq',
                         'fis_tacometro', 'fis_video_cliente_acuerdo', 'fis_360_encendida',
                         'fis_video_vuelta_prueba', 'fis_checklist'
-                   ))";
+                    ))";
+    }
+
+    private function sqlExisteEvidenciaFisica(string $aliasOperacion = 'o'): string
+    {
+        return "EXISTS (
+            SELECT 1
+              FROM adj_evidencia e
+             WHERE e.id_operacion = {$aliasOperacion}.id
+               AND e.slot IN (
+                    'fis_dacion_hoja_1', 'fis_dacion_hoja_2',
+                    'fis_vin', 'fis_frontal', 'fis_lateral_der', 'fis_trasera', 'fis_lateral_izq',
+                    'fis_tacometro', 'fis_video_cliente_acuerdo', 'fis_360_encendida',
+                    'fis_video_vuelta_prueba', 'fis_checklist'
+               )
+             LIMIT 1
+        )";
+    }
+
+    private function sqlExisteFormularioEvidencias(string $aliasOperacion = 'o'): string
+    {
+        $a = $aliasOperacion;
+
+        return "(
+            NULLIF(TRIM(COALESCE({$a}.moto_marca, '')), '') IS NOT NULL
+            OR NULLIF(TRIM(COALESCE({$a}.moto_modelo, '')), '') IS NOT NULL
+            OR NULLIF(TRIM(COALESCE({$a}.moto_anio, '')), '') IS NOT NULL
+            OR NULLIF(TRIM(COALESCE({$a}.moto_color, '')), '') IS NOT NULL
+            OR NULLIF(TRIM(COALESCE({$a}.moto_no_serie, '')), '') IS NOT NULL
+            OR NULLIF(TRIM(COALESCE({$a}.moto_no_motor, '')), '') IS NOT NULL
+            OR NULLIF(TRIM(COALESCE({$a}.moto_placas, '')), '') IS NOT NULL
+            OR NULLIF(TRIM(COALESCE({$a}.log_direccion, '')), '') IS NOT NULL
+            OR NULLIF(TRIM(COALESCE({$a}.log_ciudad, '')), '') IS NOT NULL
+            OR NULLIF(TRIM(COALESCE({$a}.log_estado, '')), '') IS NOT NULL
+            OR NULLIF(TRIM(COALESCE({$a}.log_lugar_resguardo, '')), '') IS NOT NULL
+            OR NULLIF(TRIM(COALESCE({$a}.log_lugar_otro, '')), '') IS NOT NULL
+            OR NULLIF(TRIM(COALESCE({$a}.log_telefono, '')), '') IS NOT NULL
+            OR NULLIF(TRIM(COALESCE({$a}.responsable_entrega, '')), '') IS NOT NULL
+            OR {$a}.datos_moto_at IS NOT NULL
+        )";
     }
 
     private function adjEvidenciaTieneColumnasAtn(): bool
@@ -536,16 +575,30 @@ SQL;
 
     private function sqlWhereBandejaEvidencias(): string
     {
-        return <<<'SQL'
+        $condEnvio = $this->sqlCondicionBitacoraEnvioEvidencias('b_env');
+        $existeEvidencia = $this->sqlExisteEvidenciaFisica('o');
+        $existeFormulario = $this->sqlExisteFormularioEvidencias('o');
+
+        return <<<SQL
 (
-      o.estatus IN ('Recibido', 'en_transito')
-      OR (
-          o.estatus = 'Procesando IA'
-          AND NOT EXISTS (
-              SELECT 1
-              FROM adj_bitacora bv
-              WHERE bv.id_operacion = o.id
-                AND bv.accion LIKE :pat_validadas
+      {$existeEvidencia}
+      AND {$existeFormulario}
+      AND EXISTS (
+          SELECT 1
+          FROM adj_bitacora b_env
+          WHERE b_env.id_operacion = o.id
+            AND {$condEnvio}
+      )
+      AND (
+          o.estatus IN ('Recibido', 'en_transito')
+          OR (
+              o.estatus = 'Procesando IA'
+              AND NOT EXISTS (
+                  SELECT 1
+                  FROM adj_bitacora bv
+                  WHERE bv.id_operacion = o.id
+                    AND bv.accion LIKE :pat_validadas
+              )
           )
       )
 )

@@ -170,6 +170,7 @@ class CapHum extends Controller
         if (empty($permisos['apellidom'])) $preservar('apellidom');
         if (empty($permisos['curp'])) $preservar('curp');
         if (empty($permisos['telefono'])) $preservar('telefono', 'telefono');
+        $preservar('correo');
         if (empty($permisos['usuario'])) $preservar('usuario', 'user_name');
         if (empty($permisos['contrasena'])) $preservar('contrasena', 'password');
 
@@ -446,6 +447,9 @@ class CapHum extends Controller
                         const avatarHTML = fotoPerfil
                             ? `<img class="gestion-personal-avatar" src="${escaparAttr(fotoPerfil)}" alt="Foto de ${escaparAttr(nombreCompleto)}" loading="lazy" decoding="async" onerror="this.outerHTML='<span class=&quot;gestion-personal-avatar-fallback&quot;>${iniciales}</span>'">`
                             : `<span class="gestion-personal-avatar-fallback">${iniciales}</span>`;
+                        const puestosPersonaTexto = tienePuestos
+                            ? p.puestos.map(puesto => puesto.nombre_puesto || '').filter(Boolean).join(' | ')
+                            : (p.nombre_puesto || '');
 
                         // Generar badges para múltiples puestos con departamentos
                         let puestosHTML = '';
@@ -496,15 +500,20 @@ class CapHum extends Controller
                                 <div class="gestion-personal-name-cell">
                                     ${avatarHTML}
                                     <div class="gestion-personal-name-info">
-                                <div class="fw-semibold">
-                                   # ${p.numero_empleado}
+                                <div class="gestion-personal-employee-code">
+                                   <span>No. empleado:</span>
+                                   <span class="gestion-personal-code-value">${escaparAttr(p.codigo_contpac || 'Sin codigo')}</span>
                                 </div>
-                                <div class="fw-semibold">
-                                    ${nombreCompleto}
+                                <div class="gestion-personal-name-main text-uppercase">
+                                    ${escaparAttr(nombreCompleto)}
                                 </div>
-                                <small class="text-muted d-flex align-items-center gap-1">
+                                <div class="gestion-personal-external-id">
+                                    <span>External id:</span>
+                                    <strong>${escaparAttr(p.numero_empleado || 'Sin external id')}</strong>
+                                </div>
+                                <small class="gestion-personal-username d-flex align-items-center gap-1">
                                     <i class="fa fa-key"></i>
-                                    ${p.usuario}
+                                    ${escaparAttr(p.usuario)}
                                 </small>
                                 ${tienePuestos ? '<span class="badge bg-info mt-1" style="font-size: 0.65rem;"><i class="fa fa-layer-group me-1"></i>Múltiples puestos</span>' : ''}
                                     </div>
@@ -545,7 +554,7 @@ class CapHum extends Controller
                                     </button>`
                                         : ''
                                     }
-                                    ${puedeCargarDocumento ? `<button class="btn btn-sm btn-info" onclick="cargarDocumentoPersona(this)" data-id-persona="${p.id}" data-nombre="${nombreCompleto.replace(/"/g, '&quot;')}" title="Cargar documento">
+                                    ${puedeCargarDocumento ? `<button class="btn btn-sm btn-info" onclick="cargarDocumentoPersona(this)" data-id-persona="${p.id}" data-nombre="${nombreCompleto.replace(/"/g, '&quot;')}" data-puesto="${escaparAttr(puestosPersonaTexto)}" title="Cargar documento">
                                         <i class="fa fa-file"></i>
                                     </button>` : ''}
                                     ${puedeActualizarInfo ? `<button class="btn btn-sm btn-success" onclick="abrirActualizacionInfoPersona(${p.id})" title="Actualizar informaci&oacute;n" aria-label="Actualizar informaci&oacute;n">
@@ -902,6 +911,8 @@ class CapHum extends Controller
                     var elCurp = document.getElementById("edit_curp");
                     if (elCurp) elCurp.value = persona.curp ?? '';
                     document.getElementById("edit_telefono").value = persona.telefono ?? '';
+                    var elCorreo = document.getElementById("edit_correo");
+                    if (elCorreo) elCorreo.value = persona.correo ?? '';
                     document.getElementById("edit_usuario").value = persona.user_name ?? '';
                     document.getElementById("edit_contrasena").value = persona.password ?? '';
 
@@ -985,6 +996,8 @@ class CapHum extends Controller
                     var elCurpV = document.getElementById("edit_curp");
                     if (elCurpV) elCurpV.value = persona.curp ?? '';
                     document.getElementById("edit_telefono").value = persona.telefono ?? '';
+                    var elCorreoV = document.getElementById("edit_correo");
+                    if (elCorreoV) elCorreoV.value = persona.correo ?? '';
                     document.getElementById("edit_usuario").value = persona.user_name ?? '';
                     document.getElementById("edit_contrasena").value = (window.puedeVisualizarContrasenaGestion || tienePermisoEdicionCobranza('contrasena')) ? (persona.password ?? '') : '';
                     cargarDepartamentosCombo(null, persona.id_departamento);
@@ -4459,6 +4472,12 @@ class CapHum extends Controller
                 }
 
                 // ðŸ¹ Payload
+                const correoEdit = document.getElementById("edit_correo")?.value?.trim() || '';
+                if (correoEdit && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(correoEdit)) {
+                    Swal.fire("Correo invalido", "Revisa el formato del correo electronico o dejalo vacio.", "warning");
+                    return;
+                }
+
                 const payload = {
                     id: document.getElementById("edit_id").value,
                     numero_empleado: document.getElementById("edit_num_empleado").value,
@@ -4467,6 +4486,7 @@ class CapHum extends Controller
                     apellidop: document.getElementById("edit_apellidop").value,
                     apellidom: document.getElementById("edit_apellidom").value,
                     curp: document.getElementById("edit_curp")?.value?.trim() || null,
+                    correo: correoEdit,
                     telefono: document.getElementById("edit_telefono").value,
                     departamento_id: departamento,
                     puesto_id: puesto,
@@ -4967,8 +4987,8 @@ class CapHum extends Controller
                     panelClass = 'border-info bg-label-info';
                     iconClass = 'fa-circle-info text-info';
                 } else if (resultado === 'omitido') {
-                    estado = 'No aplica sincronizaci&oacute;n Legacy';
-                    estadoDetalle = 'El usuario no entra en alcance o no tiene un n&uacute;mero de empleado v&aacute;lido.';
+                    estado = 'Spartan actualizado; Legacy no aplica';
+                    estadoDetalle = 'No se sincroniz&oacute; con Legacy porque el puesto no est&aacute; seleccionado en Configuraci&oacute;n o el n&uacute;mero de empleado no es v&aacute;lido.';
                     badgeClass = 'bg-secondary';
                     panelClass = 'border-secondary bg-label-secondary';
                     iconClass = 'fa-circle-minus text-secondary';
@@ -5446,6 +5466,29 @@ class CapHum extends Controller
             // Array para almacenar archivos seleccionados (Gestión)
             let archivosSeleccionadosPersona = [];
             let archivosSubidosPersona = [];
+            let personaCargarDocumentoEsGestor = false;
+
+            function normalizarTextoDocumentoPersona(valor) {
+                return String(valor || '')
+                    .normalize('NFD')
+                    .replace(/[\u0300-\u036f]/g, '')
+                    .toUpperCase();
+            }
+
+            function esPuestoGestorDocumentoPersona(puestosTexto) {
+                return /\bGESTOR\b/.test(normalizarTextoDocumentoPersona(puestosTexto));
+            }
+
+            function obtenerPuestosTextoDesdeUsuariosData(idPersona) {
+                const persona = (window.usuariosData || []).find(item => String(item?.id || '') === String(idPersona || ''));
+                if (!persona) {
+                    return '';
+                }
+                if (Array.isArray(persona.puestos) && persona.puestos.length) {
+                    return persona.puestos.map(puesto => puesto?.nombre_puesto || '').filter(Boolean).join(' | ');
+                }
+                return persona.nombre_puesto || '';
+            }
 
             // Alias para el botón "Ver archivo" de la tabla (recibe id de persona)
             function verArchivo(idPersona) {
@@ -5454,12 +5497,17 @@ class CapHum extends Controller
 
             // Función para abrir modal de cargar documento de persona
             function cargarDocumentoPersona(button) {
-                let idPersona, nombreCompleto;
+                let idPersona, nombreCompleto, puestosPersonaTexto = '';
                 const esIdDirecto = typeof button === 'number' || (typeof button === 'string' && button !== '' && !isNaN(Number(button)));
 
                 if (esIdDirecto) {
                     idPersona = String(button);
                     nombreCompleto = 'N/A';
+                    const btnReferencia = document.querySelector(`[data-id-persona="${idPersona}"]`);
+                    if (btnReferencia) {
+                        nombreCompleto = btnReferencia.getAttribute('data-nombre') || nombreCompleto;
+                        puestosPersonaTexto = btnReferencia.getAttribute('data-puesto') || '';
+                    }
                 } else {
                     let btnElement = button;
                     if (!button || typeof button.getAttribute !== 'function') {
@@ -5475,11 +5523,16 @@ class CapHum extends Controller
                     }
                     idPersona = btnElement.getAttribute('data-id-persona');
                     nombreCompleto = btnElement.getAttribute('data-nombre') || '';
+                    puestosPersonaTexto = btnElement.getAttribute('data-puesto') || '';
                     if (!idPersona) {
                         console.error('No se encontró el ID de persona en el botón');
                         return;
                     }
                 }
+                if (!puestosPersonaTexto) {
+                    puestosPersonaTexto = obtenerPuestosTextoDesdeUsuariosData(idPersona);
+                }
+                personaCargarDocumentoEsGestor = esPuestoGestorDocumentoPersona(puestosPersonaTexto);
 
                 // Guardar el ID de persona en un campo oculto del modal
                 document.getElementById('cargarDocPersona_idPersona').value = idPersona || '';
@@ -5521,6 +5574,7 @@ class CapHum extends Controller
 
                 selectTipoActualizado.addEventListener('change', function() {
                     const tipoDoc = this.value;
+                    inputFile.setAttribute('accept', documentoPermiteFad(tipoDoc) ? (documentoSoloFad(tipoDoc) ? '.fad' : '.pdf,.fad') : '.pdf');
                     if (tipoDoc && !permiteMultiplesArchivos(tipoDoc)) {
                         inputFile.setAttribute('multiple', 'false');
                         inputFile.removeAttribute('multiple');
@@ -5548,17 +5602,31 @@ class CapHum extends Controller
             // Tipos de documentos que solo permiten un archivo
             const documentosUnicos = [
                 'Acta de Nacimiento',
+                'Archivo .FAD',
                 'Carta de compromiso del Gestor',
                 'Certificado de Estudios',
                 'Comprobante de Domicilio',
+                'Contrato firmado',
                 'CURP',
                 'Identificación Oficial (INE)',
+                'Llave vector',
+                'Prueba centavo',
+                'Semanas cotizadas IMSS (segundos patrones)',
+                'Validacion SAT',
                 'RFC'
             ];
 
             // Función para verificar si un tipo de documento permite múltiples archivos
             function permiteMultiplesArchivos(tipoDocumento) {
                 return !documentosUnicos.includes(tipoDocumento);
+            }
+
+            function documentoPermiteFad(tipoDocumento) {
+                return ['Archivo .FAD', 'Contrato firmado', 'Llave vector'].includes(tipoDocumento);
+            }
+
+            function documentoSoloFad(tipoDocumento) {
+                return tipoDocumento === 'Archivo .FAD';
             }
 
             // Función para agregar archivo a la lista
@@ -5608,7 +5676,13 @@ class CapHum extends Controller
                     const archivosValidos = [];
 
                     Array.from(input.files).forEach(file => {
-                        if (file.type === 'application/pdf') {
+                        const nombreArchivo = String(file.name || '').toLowerCase();
+                        const permiteFad = documentoPermiteFad(tipoDocumento);
+                        const soloFad = documentoSoloFad(tipoDocumento);
+                        const esPdf = file.type === 'application/pdf' || nombreArchivo.endsWith('.pdf');
+                        const esFad = nombreArchivo.endsWith('.fad');
+                        const archivoPermitido = soloFad ? esFad : (esPdf || (permiteFad && esFad));
+                        if (archivoPermitido) {
                             // Si es documento único, solo permitir un archivo
                             if (esUnico && archivosSeleccionadosPersona.length >= 1) {
                                 Swal.fire({
@@ -5646,6 +5720,12 @@ class CapHum extends Controller
                     'Comprobante de Domicilio': 11,
                     'Acta de Nacimiento': 12,
                     'Carta de compromiso del Gestor': 27,
+                    'Contrato firmado': 28,
+                    'Archivo .FAD': 29,
+                    'Validacion SAT': 30,
+                    'Llave vector': 31,
+                    'Prueba centavo': 32,
+                    'Semanas cotizadas IMSS (segundos patrones)': 33,
                     'Certificado de Estudios': 13,
                     'Referencias Laborales': 14,
                     'Documento baja': 15,
@@ -5808,17 +5888,21 @@ class CapHum extends Controller
                         const archivoEscapado = (doc.archivo || '').replace(/'/g, "\\'");
 
                         var contexto = obtenerContextoDocumento(doc.id_documento);
+                        var esDocFad = Number(doc.id_documento) === 29 || String(doc.archivo || '').toLowerCase().endsWith('.fad');
+                        var selectorFormato = esDocFad
+                            ? `<select class="form-select form-select-sm doc-persona-formato" data-doc-id="${doc.id}" onchange="actualizarAccionesDescargaPersona()"><option value="pdf" selected>Archivo</option></select>`
+                            : `<select class="form-select form-select-sm doc-persona-formato" data-doc-id="${doc.id}" onchange="actualizarAccionesDescargaPersona()">
+                                        <option value="pdf" selected>PDF</option>
+                                        <option value="jpg">JPG</option>
+                                        <option value="word">Word</option>
+                                    </select>`;
                         htmlTabla += `
                             <tr>
                                 <td class="text-center">
                                     <input type="checkbox" class="form-check-input doc-persona-check" value="${doc.id}" onchange="actualizarAccionesDescargaPersona()">
                                 </td>
                                 <td>
-                                    <select class="form-select form-select-sm doc-persona-formato" data-doc-id="${doc.id}" onchange="actualizarAccionesDescargaPersona()">
-                                        <option value="pdf" selected>PDF</option>
-                                        <option value="jpg">JPG</option>
-                                        <option value="word">Word</option>
-                                    </select>
+                                    ${selectorFormato}
                                 </td>
                                 <td>${obtenerNombreDocumento(doc.id_documento)}</td>
                                 <td>${contexto}</td>
@@ -5914,6 +5998,12 @@ class CapHum extends Controller
                     11: 'Comprobante de Domicilio',
                     12: 'Acta de Nacimiento',
                     27: 'Carta de compromiso del Gestor',
+                    28: 'Contrato firmado',
+                    29: 'Archivo .FAD',
+                    30: 'Validacion SAT',
+                    31: 'Llave vector',
+                    32: 'Prueba centavo',
+                    33: 'Semanas cotizadas IMSS (segundos patrones)',
                     13: 'Certificado de Estudios',
                     14: 'Referencias Laborales',
                     15: 'Documento baja',
@@ -5957,6 +6047,11 @@ class CapHum extends Controller
                 // Recorrer todas las opciones del select
                 Array.from(selectTipo.options).forEach(option => {
                     const valor = option.value;
+                    if (valor === 'Carta de compromiso del Gestor' && !personaCargarDocumentoEsGestor) {
+                        option.style.display = 'none';
+                        option.disabled = true;
+                        return;
+                    }
                     // Si es un documento único y ya está subido, ocultarlo
                     if (valor && !permiteMultiplesArchivos(valor) && documentosUnicosSubidos.has(valor)) {
                         option.style.display = 'none';
@@ -6079,6 +6174,12 @@ class CapHum extends Controller
                 'Comprobante de Domicilio': 11,
                 'Acta de Nacimiento': 12,
                 'Carta de compromiso del Gestor': 27,
+                'Contrato firmado': 28,
+                'Archivo .FAD': 29,
+                'Validacion SAT': 30,
+                'Llave vector': 31,
+                'Prueba centavo': 32,
+                'Semanas cotizadas IMSS (segundos patrones)': 33,
                 'Certificado de Estudios': 13,
                 'Referencias Laborales': 14,
                 'Documento baja': 15,
@@ -11792,8 +11893,61 @@ class CapHum extends Controller
 
     private function candidatoEsPuestoGestor(array $candidato): bool
     {
-        $puesto = $this->normalizarTipoDocumentoCandidatoMetricas((string) ($candidato['nombre_puesto'] ?? ''));
-        return preg_match('/\bGESTOR\b/', $puesto) === 1;
+        $puesto = $this->normalizarTipoDocumentoCandidatoMetricas($this->textoPuestoCandidatoGestor($candidato));
+        return preg_match('/\bGESTOR(?:ES|A|AS)?\b/', $puesto) === 1;
+    }
+
+    private function textoPuestoCandidatoGestor(array $candidato): string
+    {
+        $campos = [
+            'nombre_puesto',
+            'puesto',
+            'puesto_nombre',
+            'nombrePuesto',
+            'nombre_puesto_base',
+            'puesto_candidato',
+            'cargo',
+            'nombre_cargo',
+        ];
+        $partes = [];
+        foreach ($campos as $campo) {
+            if (!empty($candidato[$campo]) && is_scalar($candidato[$campo])) {
+                $partes[] = (string) $candidato[$campo];
+            }
+        }
+
+        if (!empty($candidato['puestos']) && is_array($candidato['puestos'])) {
+            foreach ($candidato['puestos'] as $puesto) {
+                if (is_array($puesto)) {
+                    foreach (['nombre_puesto', 'puesto', 'puesto_nombre', 'nombre'] as $campo) {
+                        if (!empty($puesto[$campo]) && is_scalar($puesto[$campo])) {
+                            $partes[] = (string) $puesto[$campo];
+                        }
+                    }
+                } elseif (is_scalar($puesto)) {
+                    $partes[] = (string) $puesto;
+                }
+            }
+        } elseif (!empty($candidato['puestos']) && is_scalar($candidato['puestos'])) {
+            $partes[] = (string) $candidato['puestos'];
+        }
+
+        if (empty($partes) && !empty($candidato['id_puesto'])) {
+            try {
+                $db = new \Core\Database();
+                $row = $db->queryOne(
+                    'SELECT nombre FROM __SPARTA_SECRET_REDACTED__.puesto WHERE id = :id LIMIT 1',
+                    ['id' => (int) $candidato['id_puesto']]
+                );
+                if (!empty($row['nombre'])) {
+                    $partes[] = (string) $row['nombre'];
+                }
+            } catch (\Throwable $e) {
+                error_log('CapHum::textoPuestoCandidatoGestor -> ' . $e->getMessage());
+            }
+        }
+
+        return trim(implode(' ', array_unique(array_filter(array_map('trim', $partes)))));
     }
 
     private function candidatoTieneCartaCompromisoGestor(int $idCandidato): bool
@@ -11912,6 +12066,26 @@ class CapHum extends Controller
         return rtrim($this->obtenerBaseUrlApp(), '/') . '/CapHum/descargarCartaCompromisoGestor';
     }
 
+    private function rutaCartaCompromisoGestorPdfLocal(): ?string
+    {
+        $base = defined('RAIZ') ? dirname(RAIZ) : dirname(__DIR__, 2);
+        $ruta = $base . '/public/assets/docs/carta_compromiso_gestor.pdf';
+        return is_file($ruta) ? realpath($ruta) : null;
+    }
+
+    private function adjuntosCartaCompromisoGestor(): array
+    {
+        $ruta = $this->rutaCartaCompromisoGestorPdfLocal();
+        if ($ruta === null) {
+            return [];
+        }
+        return [[
+            'path' => $ruta,
+            'name' => 'carta_compromiso_gestor.pdf',
+            'type' => 'application/pdf',
+        ]];
+    }
+
     private function urlSubirCartaCompromisoGestorPersona(int $idPersona): string
     {
         return rtrim($this->obtenerBaseUrlApp(), '/') . '/CapHum/subirCartaCompromisoGestorPersona/' . rawurlencode($this->generarTokenCartaCompromisoPersona($idPersona));
@@ -11958,7 +12132,7 @@ class CapHum extends Controller
   </td></tr></table>
 </body></html>';
 
-        return $this->enviarCorreo($correo, 'Carta de compromiso del Gestor pendiente', $cuerpo, $nombreCompleto, $rutaLogoInline);
+        return $this->enviarCorreo($correo, 'Carta de compromiso del Gestor pendiente', $cuerpo, $nombreCompleto, $rutaLogoInline, $this->adjuntosCartaCompromisoGestor());
     }
 
     private function generarTokenCartaCompromisoPersona(int $idPersona): string
@@ -14295,13 +14469,15 @@ class CapHum extends Controller
         $usuarioSpartaHtml = $usuarioSparta !== '' ? htmlspecialchars($usuarioSparta) : 'Pendiente por confirmar';
         $contrasenaSpartaHtml = $contrasenaSparta !== '' ? htmlspecialchars($contrasenaSparta) : 'Pendiente por confirmar';
         $bloqueCartaGestor = '';
-        if ($this->candidatoEsPuestoGestor($c)) {
+        $esCandidatoGestor = $this->candidatoEsPuestoGestor($c);
+        $adjuntosBienvenida = $esCandidatoGestor ? $this->adjuntosCartaCompromisoGestor() : [];
+        if ($esCandidatoGestor) {
             $tokenCartaRes = CandidatosDAO::reactivarTokenDocumentos($id_candidato);
             if (!empty($tokenCartaRes['success']) && !empty($tokenCartaRes['datos']['token'])) {
                 $urlCartaPdf = $this->urlCartaCompromisoGestorPdf();
                 $urlSubirCarta = rtrim($base, '/') . '/CapHum/subirCartaCompromisoGestor/' . rawurlencode((string) $tokenCartaRes['datos']['token']);
                 $bloqueCartaGestor = '<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin: 0 0 22px 0; border:1px solid #f6ad55; border-radius:8px; overflow:hidden; background:#fffaf0;">
-          <tr><td style="padding:14px 16px; color:#1a202c; font-size:15px; line-height:1.6;"><strong>Carta de compromiso del Gestor</strong><br>Descargalo, llenalo y firmalo. Cuando lo tengas listo, subelo en el siguiente enlace para integrarlo a tu expediente.</td></tr>
+          <tr><td style="padding:14px 16px; color:#1a202c; font-size:15px; line-height:1.6;"><strong>Carta de compromiso del Gestor</strong><br>Te adjuntamos el formato y tambien puedes descargarlo desde el enlace. Llenalo, firmalo y sube el PDF firmado para integrarlo a tu expediente.</td></tr>
           <tr><td style="padding:0 16px 16px 16px;"><a href="' . htmlspecialchars($urlCartaPdf) . '" style="display:inline-block; margin:0 10px 8px 0; padding: 10px 16px; background-color:#d99a32; color:#ffffff !important; text-decoration:none; border-radius: 8px; font-weight: 700; font-size: 14px;">Descargar carta</a><a href="' . htmlspecialchars($urlSubirCarta) . '" style="display:inline-block; margin:0 0 8px 0; padding: 10px 16px; background-color:#1e3a5f; color:#ffffff !important; text-decoration:none; border-radius: 8px; font-weight: 700; font-size: 14px;">Subir carta firmada</a></td></tr>
         </table>';
             } else {
@@ -14332,7 +14508,7 @@ class CapHum extends Controller
   </td></tr></table>
 </body></html>';
             try {
-                $correoBienvenidaEnviado = $this->enviarCorreo($destino, 'Bienvenido(a) a Maxikash', $cuerpoBienvenida, $nombreCompleto, $rutaLogoInline);
+                $correoBienvenidaEnviado = $this->enviarCorreo($destino, 'Bienvenido(a) a Maxikash', $cuerpoBienvenida, $nombreCompleto, $rutaLogoInline, $adjuntosBienvenida);
                 if (!$correoBienvenidaEnviado) {
                     $correoBienvenidaError = $this->enviarCorreoUltimoError ?: 'No se pudo enviar el correo de bienvenida.';
                 }
@@ -14696,6 +14872,26 @@ class CapHum extends Controller
         return false;
     }
 
+    private function permitirTarjetaNssParaRevisionManual($resultado)
+    {
+        if (!is_array($resultado)) {
+            return $resultado;
+        }
+        $motivo = strtolower(trim((string) ($resultado['motivo_rechazo'] ?? $resultado['motivo'] ?? $resultado['codigo'] ?? '')));
+        $mensaje = $this->normalizarTipoDocumentoCandidatoMetricas($resultado['mensaje'] ?? $resultado['recomendacion'] ?? '');
+        $esTarjetaNss = $motivo === 'tarjeta_nss_no_aceptada'
+            || (strpos($mensaje, 'TARJETA NSS') !== false && strpos($mensaje, 'NO SE ACEPTA') !== false);
+        if (!$esTarjetaNss) {
+            return $resultado;
+        }
+        $resultado['valido'] = true;
+        $resultado['revision_manual'] = true;
+        $resultado['rechazado'] = false;
+        $resultado['mensaje'] = 'NSS detectado. Capital Humano revisara el documento manualmente.';
+        $resultado['nota_backend'] = 'Tarjeta NSS aceptada temporalmente para revision manual; se conservan los datos leidos por la API.';
+        return $resultado;
+    }
+
     private function verificarComprobanteDomicilioApi($rutaPdf)
     {
         $configFile = defined('RAIZ') ? (RAIZ . '/config/config.ini') : (__DIR__ . '/../config/config.ini');
@@ -14771,7 +14967,7 @@ class CapHum extends Controller
         } elseif ($tipoDocumento === 7) {
             $resultado = $this->verificarConstanciaFiscalApi($rutaPdf);
         } elseif ($tipoDocumento === 8) {
-            $resultado = $this->verificarNssApi($rutaPdf);
+            $resultado = $this->permitirTarjetaNssParaRevisionManual($this->verificarNssApi($rutaPdf));
         } elseif ($tipoDocumento === 10) {
             $resultado = $this->verificarEstadoCuentaApi($rutaPdf);
         }
@@ -16076,7 +16272,7 @@ class CapHum extends Controller
                 continue;
             }
             if ($i === 8 && $ext !== 'pdf') {
-                $errores[] = 'NÚMERO DE SEGURIDAD SOCIAL: solo se acepta el PDF de vigencia de derechos del IMSS (descargado desde imss.gob.mx).';
+                $errores[] = 'NÚMERO DE SEGURIDAD SOCIAL: por ahora solo se acepta archivo PDF.';
                 continue;
             }
             if ($i === 4 && $ext !== 'pdf') {
@@ -16402,7 +16598,7 @@ class CapHum extends Controller
                             'pendiente_revision_backend' => true,
                             'notas' => ['NSS recibido; re-evaluando contra el expediente.'],
                         ]));
-                        $resNss = $this->verificarNssApi($pathAbs);
+                        $resNss = $this->permitirTarjetaNssParaRevisionManual($this->verificarNssApi($pathAbs));
                         if (is_array($resNss)) {
                             $resNssFinal = $this->docVerifDebeConservarAnterior($prevCalidadArr, $resNss) ? $prevCalidadArr : $resNss;
                             CandidatosDAO::updateVerificacionDocumento($idDoc, $prevFiscalJson, json_encode($resNssFinal));
@@ -16708,7 +16904,7 @@ class CapHum extends Controller
      * @param string|null $rutaLogoInline Ruta absoluta al logo para incrustar (cid:) — si existe se adjunta y se usa cid:logo__SPARTA_SECRET_REDACTED__ en el HTML
      * @return bool
      */
-    private function enviarCorreo($para, $asunto, $cuerpoHtml, $nombreDestinatario = '', $rutaLogoInline = null)
+    private function enviarCorreo($para, $asunto, $cuerpoHtml, $nombreDestinatario = '', $rutaLogoInline = null, array $adjuntos = [])
     {
         $repoRoot = defined('RAIZ') ? dirname(RAIZ) : dirname(__DIR__, 2);
         $autoload = $repoRoot . '/vendor/autoload.php';
@@ -16748,6 +16944,7 @@ class CapHum extends Controller
         $driver      = strtolower(trim($get('MAIL_DRIVER', 'mail_driver', 'smtp')));
         $fromEmail   = $mailFrom !== '' ? $mailFrom : $smtpUser;
         $fromName    = $mailFromName !== '' ? $mailFromName : 'Recursos Humanos';
+        $adjuntosValidos = $this->normalizarAdjuntosCorreo($adjuntos);
 
         // --- SendGrid: solo API key, sin SMTP ni puertos (recomendado en Windows/XAMPP) ---
         if ($driver === 'sendgrid') {
@@ -16762,14 +16959,26 @@ class CapHum extends Controller
                 'subject'          => $asunto,
                 'content'          => [['type' => 'text/html', 'value' => $cuerpoHtml]],
             ];
+            $attachmentsPayload = [];
             if ($rutaLogoInline !== null && is_file($rutaLogoInline)) {
-                $payload['attachments'] = [[
+                $attachmentsPayload[] = [
                     'content'      => base64_encode(file_get_contents($rutaLogoInline)),
                     'type'         => (strtolower(pathinfo($rutaLogoInline, PATHINFO_EXTENSION)) === 'svg') ? 'image/svg+xml' : 'image/png',
                     'filename'     => 'logo.png',
                     'disposition'  => 'inline',
                     'content_id'   => 'logo__SPARTA_SECRET_REDACTED__',
-                ]];
+                ];
+            }
+            foreach ($adjuntosValidos as $adjunto) {
+                $attachmentsPayload[] = [
+                    'content'     => base64_encode(file_get_contents($adjunto['path'])),
+                    'type'        => $adjunto['type'],
+                    'filename'    => $adjunto['name'],
+                    'disposition' => 'attachment',
+                ];
+            }
+            if (!empty($attachmentsPayload)) {
+                $payload['attachments'] = $attachmentsPayload;
             }
             $ch = curl_init('https://api.sendgrid.com/v3/mail/send');
             curl_setopt_array($ch, [
@@ -16878,6 +17087,9 @@ class CapHum extends Controller
             if ($rutaLogoInline !== null && is_file($rutaLogoInline)) {
                 $mail->addEmbeddedImage($rutaLogoInline, 'logo__SPARTA_SECRET_REDACTED__', 'logo.png');
             }
+            foreach ($adjuntosValidos as $adjunto) {
+                $mail->addAttachment($adjunto['path'], $adjunto['name']);
+            }
 
             $mail->isSMTP();
             $mail->Host       = $smtpHost;
@@ -16925,6 +17137,29 @@ class CapHum extends Controller
             error_log('CapHum::enviarCorreo: ' . $e->getMessage());
             return false;
         }
+    }
+
+    private function normalizarAdjuntosCorreo(array $adjuntos): array
+    {
+        $out = [];
+        foreach ($adjuntos as $adjunto) {
+            $ruta = is_array($adjunto) ? (string) ($adjunto['path'] ?? '') : (string) $adjunto;
+            if ($ruta === '' || !is_file($ruta)) {
+                continue;
+            }
+            $nombre = is_array($adjunto) && !empty($adjunto['name'])
+                ? (string) $adjunto['name']
+                : basename($ruta);
+            $tipo = is_array($adjunto) && !empty($adjunto['type'])
+                ? (string) $adjunto['type']
+                : (function_exists('mime_content_type') ? (mime_content_type($ruta) ?: 'application/octet-stream') : 'application/octet-stream');
+            $out[] = [
+                'path' => $ruta,
+                'name' => $nombre,
+                'type' => $tipo,
+            ];
+        }
+        return $out;
     }
 
     public function bajas()
@@ -17886,6 +18121,29 @@ class CapHum extends Controller
             // Array para almacenar archivos seleccionados (Gestión)
             let archivosSeleccionadosPersona = [];
             let archivosSubidosPersona = [];
+            let personaCargarDocumentoEsGestor = false;
+
+            function normalizarTextoDocumentoPersona(valor) {
+                return String(valor || '')
+                    .normalize('NFD')
+                    .replace(/[\u0300-\u036f]/g, '')
+                    .toUpperCase();
+            }
+
+            function esPuestoGestorDocumentoPersona(puestosTexto) {
+                return /\bGESTOR\b/.test(normalizarTextoDocumentoPersona(puestosTexto));
+            }
+
+            function obtenerPuestosTextoDesdeUsuariosData(idPersona) {
+                const persona = (window.usuariosData || []).find(item => String(item?.id || '') === String(idPersona || ''));
+                if (!persona) {
+                    return '';
+                }
+                if (Array.isArray(persona.puestos) && persona.puestos.length) {
+                    return persona.puestos.map(puesto => puesto?.nombre_puesto || '').filter(Boolean).join(' | ');
+                }
+                return persona.nombre_puesto || '';
+            }
 
             function idsDocumentosPersonaSeleccionados() {
                 return documentosPersonaSeleccionados().map(doc => doc.id);
@@ -18033,12 +18291,17 @@ class CapHum extends Controller
 
             // Función para abrir modal de cargar documento de persona
             function cargarDocumentoPersona(button) {
-                let idPersona, nombreCompleto;
+                let idPersona, nombreCompleto, puestosPersonaTexto = '';
                 const esIdDirecto = typeof button === 'number' || (typeof button === 'string' && button !== '' && !isNaN(Number(button)));
 
                 if (esIdDirecto) {
                     idPersona = String(button);
                     nombreCompleto = 'N/A';
+                    const btnReferencia = document.querySelector(`[data-id-persona="${idPersona}"]`);
+                    if (btnReferencia) {
+                        nombreCompleto = btnReferencia.getAttribute('data-nombre') || nombreCompleto;
+                        puestosPersonaTexto = btnReferencia.getAttribute('data-puesto') || '';
+                    }
                 } else {
                     let btnElement = button;
                     if (!button || typeof button.getAttribute !== 'function') {
@@ -18054,11 +18317,16 @@ class CapHum extends Controller
                     }
                     idPersona = btnElement.getAttribute('data-id-persona');
                     nombreCompleto = btnElement.getAttribute('data-nombre') || '';
+                    puestosPersonaTexto = btnElement.getAttribute('data-puesto') || '';
                     if (!idPersona) {
                         console.error('No se encontró el ID de persona en el botón');
                         return;
                     }
                 }
+                if (!puestosPersonaTexto) {
+                    puestosPersonaTexto = obtenerPuestosTextoDesdeUsuariosData(idPersona);
+                }
+                personaCargarDocumentoEsGestor = esPuestoGestorDocumentoPersona(puestosPersonaTexto);
 
                 // Guardar el ID de persona en un campo oculto del modal
                 document.getElementById('cargarDocPersona_idPersona').value = idPersona || '';
@@ -18100,6 +18368,7 @@ class CapHum extends Controller
 
                 selectTipoActualizado.addEventListener('change', function() {
                     const tipoDoc = this.value;
+                    inputFile.setAttribute('accept', documentoPermiteFad(tipoDoc) ? (documentoSoloFad(tipoDoc) ? '.fad' : '.pdf,.fad') : '.pdf');
                     if (tipoDoc && !permiteMultiplesArchivos(tipoDoc)) {
                         inputFile.setAttribute('multiple', 'false');
                         inputFile.removeAttribute('multiple');
@@ -18127,17 +18396,31 @@ class CapHum extends Controller
             // Tipos de documentos que solo permiten un archivo
             const documentosUnicos = [
                 'Acta de Nacimiento',
+                'Archivo .FAD',
                 'Carta de compromiso del Gestor',
                 'Certificado de Estudios',
                 'Comprobante de Domicilio',
+                'Contrato firmado',
                 'CURP',
                 'Identificación Oficial (INE)',
+                'Llave vector',
+                'Prueba centavo',
+                'Semanas cotizadas IMSS (segundos patrones)',
+                'Validacion SAT',
                 'RFC'
             ];
 
             // Función para verificar si un tipo de documento permite múltiples archivos
             function permiteMultiplesArchivos(tipoDocumento) {
                 return !documentosUnicos.includes(tipoDocumento);
+            }
+
+            function documentoPermiteFad(tipoDocumento) {
+                return ['Archivo .FAD', 'Contrato firmado', 'Llave vector'].includes(tipoDocumento);
+            }
+
+            function documentoSoloFad(tipoDocumento) {
+                return tipoDocumento === 'Archivo .FAD';
             }
 
             // Función para agregar archivo a la lista
@@ -18187,7 +18470,13 @@ class CapHum extends Controller
                     const archivosValidos = [];
 
                     Array.from(input.files).forEach(file => {
-                        if (file.type === 'application/pdf') {
+                        const nombreArchivo = String(file.name || '').toLowerCase();
+                        const permiteFad = documentoPermiteFad(tipoDocumento);
+                        const soloFad = documentoSoloFad(tipoDocumento);
+                        const esPdf = file.type === 'application/pdf' || nombreArchivo.endsWith('.pdf');
+                        const esFad = nombreArchivo.endsWith('.fad');
+                        const archivoPermitido = soloFad ? esFad : (esPdf || (permiteFad && esFad));
+                        if (archivoPermitido) {
                             // Si es documento único, solo permitir un archivo
                             if (esUnico && archivosSeleccionadosPersona.length >= 1) {
                                 Swal.fire({
@@ -18225,6 +18514,12 @@ class CapHum extends Controller
                     'Comprobante de Domicilio': 11,
                     'Acta de Nacimiento': 12,
                     'Carta de compromiso del Gestor': 27,
+                    'Contrato firmado': 28,
+                    'Archivo .FAD': 29,
+                    'Validacion SAT': 30,
+                    'Llave vector': 31,
+                    'Prueba centavo': 32,
+                    'Semanas cotizadas IMSS (segundos patrones)': 33,
                     'Certificado de Estudios': 13,
                     'Referencias Laborales': 14,
                     'Documento baja': 15,
@@ -18248,17 +18543,21 @@ class CapHum extends Controller
                         const archivoEscapado = (doc.archivo || '').replace(/'/g, "\\'");
 
                         var contexto = obtenerContextoDocumento(doc.id_documento);
+                        var esDocFad = Number(doc.id_documento) === 29 || String(doc.archivo || '').toLowerCase().endsWith('.fad');
+                        var selectorFormato = esDocFad
+                            ? `<select class="form-select form-select-sm doc-persona-formato" data-doc-id="${doc.id}" onchange="actualizarAccionesDescargaPersona()"><option value="pdf" selected>Archivo</option></select>`
+                            : `<select class="form-select form-select-sm doc-persona-formato" data-doc-id="${doc.id}" onchange="actualizarAccionesDescargaPersona()">
+                                        <option value="pdf" selected>PDF</option>
+                                        <option value="jpg">JPG</option>
+                                        <option value="word">Word</option>
+                                    </select>`;
                         htmlTabla += `
                             <tr>
                                 <td class="text-center">
                                     <input type="checkbox" class="form-check-input doc-persona-check" value="${doc.id}" onchange="actualizarAccionesDescargaPersona()">
                                 </td>
                                 <td>
-                                    <select class="form-select form-select-sm doc-persona-formato" data-doc-id="${doc.id}" onchange="actualizarAccionesDescargaPersona()">
-                                        <option value="pdf" selected>PDF</option>
-                                        <option value="jpg">JPG</option>
-                                        <option value="word">Word</option>
-                                    </select>
+                                    ${selectorFormato}
                                 </td>
                                 <td>${obtenerNombreDocumento(doc.id_documento)}</td>
                                 <td>${contexto}</td>
@@ -18354,6 +18653,12 @@ class CapHum extends Controller
                     11: 'Comprobante de Domicilio',
                     12: 'Acta de Nacimiento',
                     27: 'Carta de compromiso del Gestor',
+                    28: 'Contrato firmado',
+                    29: 'Archivo .FAD',
+                    30: 'Validacion SAT',
+                    31: 'Llave vector',
+                    32: 'Prueba centavo',
+                    33: 'Semanas cotizadas IMSS (segundos patrones)',
                     13: 'Certificado de Estudios',
                     14: 'Referencias Laborales',
                     15: 'Documento baja',
@@ -18397,6 +18702,11 @@ class CapHum extends Controller
                 // Recorrer todas las opciones del select
                 Array.from(selectTipo.options).forEach(option => {
                     const valor = option.value;
+                    if (valor === 'Carta de compromiso del Gestor' && !personaCargarDocumentoEsGestor) {
+                        option.style.display = 'none';
+                        option.disabled = true;
+                        return;
+                    }
                     // Si es un documento único y ya está subido, ocultarlo
                     if (valor && !permiteMultiplesArchivos(valor) && documentosUnicosSubidos.has(valor)) {
                         option.style.display = 'none';
@@ -18519,6 +18829,12 @@ class CapHum extends Controller
                 'Comprobante de Domicilio': 11,
                 'Acta de Nacimiento': 12,
                 'Carta de compromiso del Gestor': 27,
+                'Contrato firmado': 28,
+                'Archivo .FAD': 29,
+                'Validacion SAT': 30,
+                'Llave vector': 31,
+                'Prueba centavo': 32,
+                'Semanas cotizadas IMSS (segundos patrones)': 33,
                 'Certificado de Estudios': 13,
                 'Referencias Laborales': 14,
                 'Documento baja': 15,
@@ -18727,6 +19043,7 @@ class CapHum extends Controller
             return [
                 'id' => $p['id'] ?? '',
                 'numero_empleado' => $p['numero_empleado'] ?? '',
+                'codigo_contpac' => $p['codigo_contpac'] ?? '',
                 'nombre_jefe' => $p['nombre_jefe'] ?? '',
                 'id_vacante_jefe' => $p['id_vacante_jefe'] ?? null,
                 'nombre_vacante_jefe' => $p['nombre_vacante_jefe'] ?? '',
@@ -19126,6 +19443,55 @@ class CapHum extends Controller
         self::render('caphum_sincroniza_legacy');
     }
 
+    public function getConfiguracionSincronizaLegacy()
+    {
+        header('Content-Type: application/json; charset=utf-8');
+        if (!self::tieneModuloWeb(self::MODULO_SINCRONIZA_LEGACY)) {
+            self::respuestaJSON(['success' => false, 'mensaje' => 'No tienes permiso para configurar la sincronizacion Legacy.']);
+            return;
+        }
+        self::respuestaJSON(LegacyUserSync::getConfiguracionAlcance());
+    }
+
+    public function guardarConfiguracionSincronizaLegacy()
+    {
+        header('Content-Type: application/json; charset=utf-8');
+        if (!self::tieneModuloWeb(self::MODULO_SINCRONIZA_LEGACY)) {
+            self::respuestaJSON(['success' => false, 'mensaje' => 'No tienes permiso para configurar la sincronizacion Legacy.']);
+            return;
+        }
+        $input = json_decode(file_get_contents('php://input'), true);
+        if (!is_array($input)) {
+            $input = [];
+        }
+        self::respuestaJSON(LegacyUserSync::guardarConfiguracionAlcance($input, (int)($_SESSION['usuario_id'] ?? 0)));
+    }
+
+    public function getUsuariosSincronizaLegacy()
+    {
+        header('Content-Type: application/json; charset=utf-8');
+        if (!self::tieneModuloWeb(self::MODULO_SINCRONIZA_LEGACY)) {
+            self::respuestaJSON(['success' => false, 'mensaje' => 'No tienes permiso para consultar usuarios de sincronizacion Legacy.']);
+            return;
+        }
+        self::respuestaJSON(LegacyUserSync::listarUsuariosAlcanceConfigurado());
+    }
+
+    public function sincronizarLegacyUsuario()
+    {
+        header('Content-Type: application/json; charset=utf-8');
+        if (!self::tieneModuloWeb(self::MODULO_SINCRONIZA_LEGACY)) {
+            self::respuestaJSON(['success' => false, 'mensaje' => 'No tienes permiso para sincronizar usuarios con Legacy.']);
+            return;
+        }
+        $input = json_decode(file_get_contents('php://input'), true);
+        if (!is_array($input)) {
+            $input = [];
+        }
+        $idPersona = (int)($input['id_persona'] ?? 0);
+        self::respuestaJSON(LegacyUserSync::sincronizarPersonaManual($idPersona, (int)($_SESSION['usuario_id'] ?? 0)));
+    }
+
     public function obtenerDatosActualizacionInfoPersona()
     {
         header('Content-Type: application/json; charset=utf-8');
@@ -19320,7 +19686,126 @@ class CapHum extends Controller
             return;
         }
 
+        $registroCorreo = CapHumDAO::registrarCorreoCartaCompromisoGestorEnviado(
+            $idPersona,
+            $correo,
+            (int)($_SESSION['usuario_id'] ?? $_SESSION['persona_id'] ?? 0)
+        );
+        if (empty($registroCorreo['success'])) {
+            error_log('CapHum::enviarRecordatorioCartaCompromisoGestor registro seguimiento -> ' . ($registroCorreo['debug'] ?? $registroCorreo['mensaje'] ?? 'error'));
+        }
+
         self::respuestaJSON(['success' => true, 'mensaje' => 'Recordatorio enviado correctamente a ' . $correo . '.']);
+    }
+
+    public function getSeguimientoCartaCompromisoGestor()
+    {
+        if (!self::puedeValidarCartaCompromisoGestor()) {
+            self::respuestaJSON(['success' => false, 'mensaje' => 'No tienes permiso para consultar este modulo.', 'datos' => ['rows' => [], 'resumen' => []]]);
+            return;
+        }
+
+        $estado = trim((string)($_GET['estado'] ?? $_POST['estado'] ?? 'pendientes'));
+        $res = CapHumDAO::getSeguimientoCartaCompromisoGestor($estado);
+        if (!empty($res['success']) && !empty($res['datos']['rows']) && is_array($res['datos']['rows'])) {
+            foreach ($res['datos']['rows'] as &$row) {
+                $idPersona = (int)($row['id_persona'] ?? 0);
+                $row['url_subida'] = $idPersona > 0 ? $this->urlSubirCartaCompromisoGestorPersona($idPersona) : '';
+                $row['url_formato'] = $this->urlCartaCompromisoGestorPdf();
+            }
+            unset($row);
+        }
+        self::respuestaJSON($res);
+    }
+
+    public function descargarSeguimientoCartaCompromisoGestorExcel()
+    {
+        if (!self::puedeValidarCartaCompromisoGestor()) {
+            http_response_code(403);
+            echo 'No tienes permiso para descargar este reporte.';
+            return;
+        }
+
+        while (ob_get_level()) {
+            ob_end_clean();
+        }
+
+        try {
+            if (!class_exists('\PHPSpreadsheet') && defined('LIBRERIAS') && is_file(LIBRERIAS . '/PhpSpreadsheet/PhpSpreadsheet.php')) {
+                require_once LIBRERIAS . '/PhpSpreadsheet/PhpSpreadsheet.php';
+            }
+
+            $estado = trim((string)($_GET['estado'] ?? 'pendientes'));
+            $res = CapHumDAO::getSeguimientoCartaCompromisoGestor($estado);
+            if (empty($res['success'])) {
+                echo $res['mensaje'] ?? 'No se pudo generar el Excel.';
+                return;
+            }
+
+            $rows = $res['datos']['rows'] ?? [];
+            $data = [];
+            foreach ($rows as $row) {
+                $idPersona = (int)($row['id_persona'] ?? 0);
+                $data[] = [
+                    'numero_empleado' => $row['numero_empleado'] ?? '',
+                    'nombre_completo' => $row['nombre_completo'] ?? '',
+                    'correo' => $row['correo'] ?? '',
+                    'telefono' => $row['telefono'] ?? '',
+                    'puesto' => $row['puestos'] ?? '',
+                    'departamento' => $row['departamentos'] ?? '',
+                    'area' => $row['areas'] ?? '',
+                    'direccion' => $row['direcciones'] ?? '',
+                    'jefe' => $row['jefe'] ?? '',
+                    'estatus' => $row['estado_carta_label'] ?? '',
+                    'fecha_correo_enviado' => $row['fecha_correo_enviado'] ?? '',
+                    'correo_enviado_por' => $row['correo_enviado_por'] ?? '',
+                    'fecha_carta_subida' => $row['fecha_carta_subida'] ?? '',
+                    'archivo_carta' => $row['carta_archivo'] ?? '',
+                    'url_subida' => $idPersona > 0 ? $this->urlSubirCartaCompromisoGestorPersona($idPersona) : '',
+                ];
+            }
+
+            $columnas = [
+                \PHPSpreadsheet::ColumnaExcel('numero_empleado', 'NO. EMPLEADO'),
+                \PHPSpreadsheet::ColumnaExcel('nombre_completo', 'NOMBRE COMPLETO'),
+                \PHPSpreadsheet::ColumnaExcel('correo', 'CORREO'),
+                \PHPSpreadsheet::ColumnaExcel('telefono', 'TELEFONO'),
+                \PHPSpreadsheet::ColumnaExcel('puesto', 'PUESTO'),
+                \PHPSpreadsheet::ColumnaExcel('departamento', 'DEPARTAMENTO'),
+                \PHPSpreadsheet::ColumnaExcel('area', 'AREA'),
+                \PHPSpreadsheet::ColumnaExcel('direccion', 'DIRECCION'),
+                \PHPSpreadsheet::ColumnaExcel('jefe', 'JEFE'),
+                \PHPSpreadsheet::ColumnaExcel('estatus', 'ESTATUS CARTA'),
+                \PHPSpreadsheet::ColumnaExcel('fecha_correo_enviado', 'FECHA CORREO ENVIADO'),
+                \PHPSpreadsheet::ColumnaExcel('correo_enviado_por', 'CORREO ENVIADO POR'),
+                \PHPSpreadsheet::ColumnaExcel('fecha_carta_subida', 'FECHA CARTA SUBIDA'),
+                \PHPSpreadsheet::ColumnaExcel('archivo_carta', 'ARCHIVO CARTA'),
+                \PHPSpreadsheet::ColumnaExcel('url_subida', 'URL SUBIDA'),
+            ];
+
+            $labels = [
+                'pendiente_subir' => 'Pendientes_de_subir',
+                'recibida' => 'Cartas_recibidas',
+                'sin_correo_enviado' => 'Sin_correo_enviado',
+                'pendientes' => 'Pendientes',
+                'todos' => 'Todos',
+            ];
+            $filtro = $res['datos']['filtro'] ?? $estado;
+            $nombreArchivo = 'Seguimiento_Carta_Gestor_' . ($labels[$filtro] ?? 'Reporte') . '_' . date('Y-m-d');
+
+            \PHPSpreadsheet::DescargaExcel(
+                $nombreArchivo,
+                'Cartas',
+                'Seguimiento Carta compromiso Gestor',
+                $columnas,
+                $data
+            );
+            exit;
+        } catch (\Throwable $e) {
+            error_log('CapHum::descargarSeguimientoCartaCompromisoGestorExcel -> ' . $e->getMessage());
+            http_response_code(500);
+            echo 'No se pudo generar el Excel.';
+        }
     }
 
     public function getDetalles()
@@ -21055,10 +21540,26 @@ public function getEstadosMunicipiosMexico()
                 if (!$tmp || $err !== UPLOAD_ERR_OK) {
                     continue;
                 }
-                if (!SecureUpload::validateMime($tmp, SecureUpload::MIME_PDF)) {
+                $extensionCliente = strtolower(pathinfo((string) $nombreOrig, PATHINFO_EXTENSION));
+                $documentosPermitenFad = [28, 29, 31];
+                $documentosSoloFad = [29];
+                $permiteFad = in_array($id_documento, $documentosPermitenFad, true);
+                $soloFad = in_array($id_documento, $documentosSoloFad, true);
+                if ($extensionCliente === 'fad' && $permiteFad) {
+                    $mime = SecureUpload::getMimeType($tmp);
+                    $mimesFad = ['application/octet-stream', 'text/plain', 'application/xml', 'text/xml', 'application/x-empty'];
+                    if ($mime !== null && !in_array($mime, $mimesFad, true)) {
+                        continue;
+                    }
+                    $nombreFinal = SecureUpload::generateSafeFilename('fad');
+                } elseif ($extensionCliente === 'pdf' && !$soloFad) {
+                    if (!SecureUpload::validateMime($tmp, SecureUpload::MIME_PDF)) {
+                        continue;
+                    }
+                    $nombreFinal = SecureUpload::generateSafeFilename('pdf');
+                } else {
                     continue;
                 }
-                $nombreFinal = SecureUpload::generateSafeFilename('pdf');
                 $rutaFinal = $directorio . $nombreFinal;
                 if (move_uploaded_file($tmp, $rutaFinal)) {
                     $archivosGuardados[] = $nombreFinal;
@@ -21152,8 +21653,11 @@ public function getEstadosMunicipiosMexico()
             while (ob_get_level()) {
                 ob_end_clean();
             }
-            header('Content-Type: application/pdf');
-            header('Content-Disposition: inline; filename="' . $nombreArchivo . '"');
+            $extension = strtolower(pathinfo($nombreArchivo, PATHINFO_EXTENSION));
+            $contentType = $extension === 'fad' ? 'application/octet-stream' : 'application/pdf';
+            $disposition = $extension === 'fad' ? 'attachment' : 'inline';
+            header('Content-Type: ' . $contentType);
+            header('Content-Disposition: ' . $disposition . '; filename="' . $nombreArchivo . '"');
             header('Content-Length: ' . filesize($rutaArchivo));
             header('Cache-Control: private, max-age=0, must-revalidate');
             header('Pragma: public');
@@ -21456,7 +21960,8 @@ public function getEstadosMunicipiosMexico()
 
         if ($formato === 'pdf' && !$zip && count($archivos) === 1) {
             $archivo = $archivos[0];
-            $this->enviarArchivoDescarga($archivo['ruta'], $archivo['nombre'], 'application/pdf');
+            $extension = strtolower(pathinfo((string) ($archivo['nombre'] ?? ''), PATHINFO_EXTENSION));
+            $this->enviarArchivoDescarga($archivo['ruta'], $archivo['nombre'], $extension === 'fad' ? 'application/octet-stream' : 'application/pdf');
         }
 
         if ($formato === 'pdf' && !$zip && $merge && count($archivos) > 1) {

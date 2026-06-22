@@ -40,7 +40,7 @@ $documentos_ayuda = [
     5  => 'INE, residencia o pasaporte vigente. Sube un solo PDF con frente y reverso.',
     6  => 'No mayor a 3 meses: luz, agua, gas o predial. Debe ser digital.',
     7  => 'Constancia de situación fiscal no mayor a 2 meses, con régimen de sueldos y salarios.',
-    8  => 'Documento oficial digital del IMSS. Puedes obtenerlo en <a href="https://www.imss.gob.mx/tramites/imss02008" target="_blank" rel="noopener">imss.gob.mx</a>.',
+    8  => 'Documento de NSS en PDF. Por ahora se acepta constancia, vigencia o tarjeta para revision de Capital Humano.',
     9  => 'Hoja de retención FONACOT o INFONAVIT. Si no tienes adeudo, descarga la carta de no adeudo desde aquí, llénala, fírmala y súbela en este apartado.',
     10 => 'Solo bancos físicos: BBVA, Banorte, Santander, Banamex, entre otros. No se aceptan bancos digitales como Nu, Mercado Pago o Klar.',
 ];
@@ -134,6 +134,23 @@ $documentos_ayuda = [
             max-width: 480px;
             margin-left: auto;
             margin-right: auto;
+        }
+        .expediente-completo-analisis {
+            margin: 0 auto 1rem;
+            max-width: 620px;
+            padding: 1rem 1.15rem;
+            border: 1px solid #c6f6d5;
+            border-radius: 12px;
+            background: #f0fff4;
+            color: #22543d;
+            font-size: 0.96rem;
+            line-height: 1.55;
+            text-align: left;
+        }
+        .expediente-completo-analisis strong {
+            display: block;
+            margin-bottom: 0.35rem;
+            color: #1c4532;
         }
         .expediente-completo-agradecimiento {
             margin: 0;
@@ -623,6 +640,7 @@ $documentos_ayuda = [
                     <div class="expediente-completo-icon" aria-hidden="true"><i class="fa fa-check-circle"></i></div>
                     <h2 class="expediente-completo-title">Documentación completa</h2>
                     <p class="expediente-completo-texto">Ha subido correctamente todos los documentos requeridos. El equipo de <strong>Capital Humano</strong> revisará su expediente y se pondrá en contacto con usted a la brevedad.</p>
+                    <p class="expediente-completo-analisis"><strong>Resultado del análisis documental</strong>La información de los documentos recibidos es consistente entre sí, cumple con las reglas documentales establecidas y corresponde al candidato registrado.</p>
                     <p class="expediente-completo-agradecimiento">Gracias por su interés en formar parte de nuestro equipo.</p>
                 </div>
             <?php else: ?>
@@ -916,6 +934,9 @@ $documentos_ayuda = [
             var MAX_UPLOAD_TOTAL_BYTES = <?= (int) $maxUploadTotalBytes ?>;
             var SERVER_POST_MAX_BYTES = <?= (int) $postMaxBytes ?>;
             var SERVER_UPLOAD_MAX_BYTES = <?= (int) $uploadMaxBytes ?>;
+            window.MAX_UPLOAD_TOTAL_BYTES = MAX_UPLOAD_TOTAL_BYTES;
+            window.SERVER_POST_MAX_BYTES = SERVER_POST_MAX_BYTES;
+            window.SERVER_UPLOAD_MAX_BYTES = SERVER_UPLOAD_MAX_BYTES;
 
             var VERIFICACION_CURP_TIMEOUT_MS = 8000;
             var VERIFICACION_FISCAL_TIMEOUT_MS = 10000;
@@ -1731,7 +1752,7 @@ $documentos_ayuda = [
                     var file = this.files && this.files[0];
                     if (!file) return;
                     if (file.name.split('.').pop().toLowerCase() !== 'pdf') {
-                        showResultado(document.getElementById('mensajeResultado'), null, 'Solo se acepta constancia de NSS en PDF (descargada del IMSS).', true);
+                        showResultado(document.getElementById('mensajeResultado'), null, 'Solo se acepta NSS en PDF.', true);
                         inputNSS.value = '';
                         actualizarCheckmark(8, false);
                         return;
@@ -1753,10 +1774,15 @@ $documentos_ayuda = [
                     .then(function(res) {
                         var el = document.getElementById('nss-verificado');
                         if (res && res.rechazado === true) {
-                            showResultado(msg, verificandoDiv, res.mensaje || 'No se acepta tarjeta NSS. Sube constancia o vigencia de derechos del IMSS.', true);
-                            inputNSS.value = '';
-                            if (el) el.style.display = 'none';
-                            actualizarCheckmark(8, false);
+                            var motivoNss = String(res.motivo_rechazo || res.motivo || '').toLowerCase();
+                            if (motivoNss === 'tarjeta_nss_no_aceptada') {
+                                showResultado(msg, verificandoDiv, '<i class="fa fa-check-circle me-1"></i> NSS detectado. Capital Humano lo revisar\u00e1.', false);
+                                actualizarBadgeDocumento('nss-verificado', '<i class="fa fa-check-circle me-1"></i> NSS detectado');
+                                actualizarCheckmark(8, true);
+                                return;
+                            }
+                            showResultado(msg, verificandoDiv, res.mensaje || 'No se pudo validar el NSS. Capital Humano lo revisar\u00e1.', false);
+                            marcarDocumentoRecibido(8, 'nss-verificado');
                             return;
                         }
                         if (res.valido !== true) {
@@ -2530,18 +2556,18 @@ $documentos_ayuda = [
                 var inputPeso = document.getElementById('archivo_' + pesoIdx);
                 if (!inputPeso || !inputPeso.files || inputPeso.files.length === 0) continue;
                 totalBytesSeleccionados += Number(inputPeso.files[0].size || 0);
-                if (SERVER_UPLOAD_MAX_BYTES > 0 && Number(inputPeso.files[0].size || 0) > SERVER_UPLOAD_MAX_BYTES) {
+                if ((window.SERVER_UPLOAD_MAX_BYTES || 0) > 0 && Number(inputPeso.files[0].size || 0) > window.SERVER_UPLOAD_MAX_BYTES) {
                     archivoMayorLimite = inputPeso.files[0];
                 }
             }
             if (archivoMayorLimite) {
-                var textoArchivoGrande = 'El archivo "' + archivoMayorLimite.name + '" pesa ' + bytesToMb(archivoMayorLimite.size) + ' MB y el limite por archivo es de ' + bytesToMb(SERVER_UPLOAD_MAX_BYTES) + ' MB. Comprime el PDF e intenta de nuevo.';
+                var textoArchivoGrande = 'El archivo "' + archivoMayorLimite.name + '" pesa ' + bytesToMb(archivoMayorLimite.size) + ' MB y el limite por archivo es de ' + bytesToMb(window.SERVER_UPLOAD_MAX_BYTES || 0) + ' MB. Comprime el PDF e intenta de nuevo.';
                 mostrarAlertaSubida('error', 'Archivo demasiado pesado', textoArchivoGrande);
                 showResultado(msg, null, textoArchivoGrande, true);
                 return;
             }
-            if (MAX_UPLOAD_TOTAL_BYTES > 0 && totalBytesSeleccionados > MAX_UPLOAD_TOTAL_BYTES) {
-                var textoPeso = 'Los documentos seleccionados pesan ' + bytesToMb(totalBytesSeleccionados) + ' MB. El limite por envio es de ' + bytesToMb(MAX_UPLOAD_TOTAL_BYTES) + ' MB. Sube menos documentos por tanda o comprime los PDFs.';
+            if ((window.MAX_UPLOAD_TOTAL_BYTES || 0) > 0 && totalBytesSeleccionados > window.MAX_UPLOAD_TOTAL_BYTES) {
+                var textoPeso = 'Los documentos seleccionados pesan ' + bytesToMb(totalBytesSeleccionados) + ' MB. El limite por envio es de ' + bytesToMb(window.MAX_UPLOAD_TOTAL_BYTES || 0) + ' MB. Sube menos documentos por tanda o comprime los PDFs.';
                 mostrarAlertaSubida('error', 'Archivos demasiado pesados', textoPeso);
                 showResultado(msg, null, textoPeso, true);
                 return;
@@ -2639,6 +2665,7 @@ $documentos_ayuda = [
                                 '<div class="expediente-completo-icon" aria-hidden="true"><i class="fa fa-check-circle"></i></div>' +
                                 '<h2 class="expediente-completo-title">Documentación completa</h2>' +
                                 '<p class="expediente-completo-texto">Ha subido correctamente todos los documentos requeridos. El equipo de <strong>Capital Humano</strong> revisará su expediente y se pondrá en contacto con usted a la brevedad.</p>' +
+                                '<p class="expediente-completo-analisis"><strong>Resultado del análisis documental</strong>La información de los documentos recibidos es consistente entre sí, cumple con las reglas documentales establecidas y corresponde al candidato registrado.</p>' +
                                 '<p class="expediente-completo-agradecimiento">Gracias por su interés en formar parte de nuestro equipo.</p></div>';
                         }
                     }

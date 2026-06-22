@@ -867,16 +867,17 @@ class CapHumRrhh extends Model
 
             $db->beginTransaction();
             $db->CRUD("INSERT INTO __SPARTA_SECRET_REDACTED__.persona
-                (nombres, segundo_nombre, apellidop, apellidom, numero_empleado, correo, telefono_uno, telefono_dos,
+                (nombres, segundo_nombre, apellidop, apellidom, numero_empleado, codigo_contpac, correo, telefono_uno, telefono_dos,
                  estatus, user_name, password, fecha_ingreso, fecha_registro, id_pais, domicilio_calle_texto, codigo_postal, curp)
                 VALUES
-                (:nombres, :segundo_nombre, :apellidop, :apellidom, :numero_empleado, :correo, :telefono_uno, :telefono_dos,
+                (:nombres, :segundo_nombre, :apellidop, :apellidom, :numero_empleado, :codigo_contpac, :correo, :telefono_uno, :telefono_dos,
                  'Activo', :user_name, :password, :fecha_ingreso, NOW(), :id_pais, :domicilio_calle_texto, :codigo_postal, :curp)", [
                 'nombres' => $nombres,
                 'segundo_nombre' => self::texto($persona['segundo_nombre'] ?? '', 120),
                 'apellidop' => $apellidop,
                 'apellidom' => $apellidom,
                 'numero_empleado' => $numeroEmpleado,
+                'codigo_contpac' => self::texto($persona['codigo_contpac'] ?? '', 40),
                 'correo' => $correoPrincipal,
                 'telefono_uno' => $telefonoPrincipal,
                 'telefono_dos' => self::texto($persona['telefono_dos'] ?? '', 30),
@@ -1118,7 +1119,7 @@ class CapHumRrhh extends Model
             $db = new Database();
 
             $persona = $db->queryOne("
-                SELECT p.id, p.nombres, p.segundo_nombre, p.apellidop, p.apellidom, p.numero_empleado,
+                SELECT p.id, p.nombres, p.segundo_nombre, p.apellidop, p.apellidom, p.numero_empleado, p.codigo_contpac,
                        p.correo, p.telefono_uno, p.telefono_dos, p.user_name, p.password, p.fecha_ingreso, p.id_pais,
                        p.domicilio_calle_texto, p.codigo_postal, p.curp,
                        r.rfc, r.nss, r.entidad_federativa_rfc, r.anio, r.mes, r.dia,
@@ -1225,6 +1226,7 @@ class CapHumRrhh extends Model
                     'apellidop' => $persona['apellidop'] ?? '',
                     'apellidom' => $persona['apellidom'] ?? '',
                     'numero_empleado' => $persona['numero_empleado'] ?? '',
+                    'codigo_contpac' => $persona['codigo_contpac'] ?? '',
                     'correo' => $persona['correo'] ?? '',
                     'telefono_uno' => $persona['telefono_uno'] ?? '',
                     'telefono_dos' => $persona['telefono_dos'] ?? '',
@@ -1724,6 +1726,7 @@ class CapHumRrhh extends Model
                 'correo' => $correoPrincipal,
                 'telefono_uno' => $telefonoPrincipal,
                 'telefono_dos' => self::texto($persona['telefono_dos'] ?? '', 30),
+                'codigo_contpac' => self::texto($persona['codigo_contpac'] ?? '', 40),
                 'user_name' => $usuario,
                 'fecha_ingreso' => self::fecha($rrhh['fecha_ingreso'] ?? $persona['fecha_ingreso'] ?? ''),
                 'id_pais' => (int)$persona['id_pais'],
@@ -1742,7 +1745,7 @@ class CapHumRrhh extends Model
             $db->CRUD("UPDATE __SPARTA_SECRET_REDACTED__.persona
                 SET nombres = :nombres, segundo_nombre = :segundo_nombre, apellidop = :apellidop,
                     apellidom = :apellidom, correo = :correo, telefono_uno = :telefono_uno,
-                    telefono_dos = :telefono_dos, user_name = :user_name, fecha_ingreso = :fecha_ingreso,
+                    telefono_dos = :telefono_dos, codigo_contpac = :codigo_contpac, user_name = :user_name, fecha_ingreso = :fecha_ingreso,
                     id_pais = :id_pais, domicilio_calle_texto = :domicilio_calle_texto,
                     codigo_postal = :codigo_postal, curp = :curp {$passwordSql}
                 WHERE id = :id_persona", $params);

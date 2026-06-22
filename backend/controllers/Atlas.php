@@ -55,6 +55,18 @@ class Atlas extends Controller
         $this->render('atlas_creditos_operacion');
     }
 
+    public function riesgosOperativos()
+    {
+        $this->set('titulo', 'Riesgos Operativos');
+        $this->render('atlas_riesgos_operativos');
+    }
+
+    public function abanderamiento30()
+    {
+        $this->set('titulo', 'Abanderamiento 30+');
+        $this->render('atlas_abanderamiento_30');
+    }
+
     public function getPresupuestos()
     {
         $anio = (int)($_GET['anio'] ?? date('Y'));
@@ -276,6 +288,260 @@ class Atlas extends Controller
         }
     }
 
+    public function descargarTemplateDistribuidores()
+    {
+        while (ob_get_level()) {
+            ob_end_clean();
+        }
+
+        try {
+            $spreadsheet = new \PhpOffice\PhpSpreadsheet\Spreadsheet();
+            $sheet = $spreadsheet->getActiveSheet();
+            $sheet->setTitle('Distribuidores');
+
+            $headers = [
+                'ID',
+                'Nombre comercial',
+                'Razon social',
+                'RFC',
+                'Tipo persona',
+                'Tipo distribuidor',
+                'Estatus',
+                'Contacto principal',
+                'Telefono principal',
+                'Telefono alterno',
+                'Correo principal',
+                'Regimen fiscal',
+                'Banco deposito',
+                'Titular deposito',
+                'Cuenta deposito',
+                'CLABE deposito',
+                'Tipo motos',
+                'Canal venta',
+                'Presencia fisica',
+                'Horario atencion',
+                'Dias operacion',
+                'Requiere cita',
+                'Tiempo estadia',
+                'Observaciones',
+            ];
+            foreach ($headers as $idx => $label) {
+                $sheet->setCellValue($this->excelCell($idx + 1, 1), $label);
+            }
+
+            $rowNum = 2;
+            foreach (AtlasDAO::getDistribuidoresTemplate() as $row) {
+                $values = [
+                    $row['id'] ?? '',
+                    $row['nombre_comercial'] ?? $row['nombre'] ?? '',
+                    $row['razon_social'] ?? '',
+                    $row['rfc'] ?? '',
+                    $row['tipo_persona'] ?? '',
+                    $row['tipo_distribuidor'] ?? '',
+                    $row['estatus'] ?? '',
+                    $row['nombre_contacto'] ?? '',
+                    $row['telefono_contacto'] ?? '',
+                    $row['telefono_secundario'] ?? '',
+                    $row['email_contacto'] ?? '',
+                    $row['regimen_fiscal'] ?? '',
+                    $row['banco_deposito'] ?? '',
+                    $row['titular_deposito'] ?? '',
+                    $row['cuenta_deposito'] ?? '',
+                    $row['clabe_deposito'] ?? '',
+                    $row['tipo_motos'] ?? '',
+                    $row['canal_venta'] ?? '',
+                    (int)($row['presencia_fisica'] ?? 1) === 1 ? 'SI' : 'NO',
+                    $row['horario_atencion'] ?? '',
+                    $row['dias_operacion'] ?? '',
+                    (int)($row['requiere_cita'] ?? 0) === 1 ? 'SI' : 'NO',
+                    $row['tiempo_promedio_entrega'] ?? '',
+                    $row['observaciones'] ?? '',
+                ];
+                foreach ($values as $idx => $value) {
+                    $sheet->setCellValueExplicit($this->excelCell($idx + 1, $rowNum), (string)$value, \PhpOffice\PhpSpreadsheet\Cell\DataType::TYPE_STRING);
+                }
+                $rowNum++;
+            }
+
+            $lastRow = max(2, $rowNum - 1);
+            $lastCol = $this->excelCell(count($headers), 1);
+            $sheet->getStyle('A1:' . $lastCol)->getFont()->setBold(true)->getColor()->setRGB('FFFFFF');
+            $sheet->getStyle('A1:' . $lastCol)->getFill()->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)->getStartColor()->setRGB('26344E');
+            $sheet->getStyle('A1:' . $this->excelCell(count($headers), $lastRow))->getBorders()->getAllBorders()->setBorderStyle(\PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN)->getColor()->setRGB('D9DEE3');
+            foreach (range('A', 'X') as $col) {
+                $sheet->getColumnDimension($col)->setAutoSize(true);
+            }
+            $sheet->freezePane('A2');
+
+            $filename = 'template_distribuidores_atlas_' . date('Ymd_His') . '.xlsx';
+            $tmp = tempnam(sys_get_temp_dir(), 'atlas_distribuidores_');
+            if ($tmp === false) {
+                throw new \RuntimeException('No se pudo preparar el archivo temporal.');
+            }
+            (new \PhpOffice\PhpSpreadsheet\Writer\Xlsx($spreadsheet))->save($tmp);
+            $spreadsheet->disconnectWorksheets();
+
+            if (function_exists('session_write_close')) {
+                session_write_close();
+            }
+
+            header('Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+            header('Content-Disposition: attachment; filename="' . $filename . '"');
+            header('Content-Transfer-Encoding: binary');
+            header('Content-Length: ' . filesize($tmp));
+            header('Cache-Control: max-age=0');
+            readfile($tmp);
+            @unlink($tmp);
+            exit;
+        } catch (\Throwable $e) {
+            http_response_code(500);
+            echo 'No se pudo generar el template: ' . htmlspecialchars($e->getMessage(), ENT_QUOTES, 'UTF-8');
+            exit;
+        }
+    }
+
+    public function descargarPlantillaAccesosAtlas()
+    {
+        while (ob_get_level()) {
+            ob_end_clean();
+        }
+
+        try {
+            $spreadsheet = new \PhpOffice\PhpSpreadsheet\Spreadsheet();
+            $sheet = $spreadsheet->getActiveSheet();
+            $sheet->setTitle('Personal Atlas');
+
+            $headers = [
+                'ID acceso',
+                'Persona ID',
+                'Numero empleado',
+                'Nombre',
+                'Correo',
+                'Telefono',
+                'Puesto',
+                'Departamento',
+                'Area',
+                'Direccion',
+                'Pais',
+                'Jefe',
+                'Puede ver',
+                'Puede editar',
+                'Puede administrar',
+                'Acceso movil',
+                'Excluido operativo',
+                'Motivo exclusion',
+                'Fecha exclusion',
+                'Activo',
+                'Ultima sincronizacion',
+            ];
+            foreach ($headers as $idx => $label) {
+                $sheet->setCellValue($this->excelCell($idx + 1, 1), $label);
+            }
+
+            $rowNum = 2;
+            foreach (AtlasDAO::getAccesosAtlasTemplate() as $row) {
+                $values = [
+                    $row['id'] ?? '',
+                    $row['persona_id'] ?? '',
+                    $row['numero_empleado'] ?? '',
+                    $row['nombre'] ?? '',
+                    $row['correo'] ?? '',
+                    $row['telefono'] ?? '',
+                    $row['puesto'] ?? '',
+                    $row['departamento'] ?? '',
+                    $row['area'] ?? '',
+                    $row['direccion'] ?? '',
+                    $row['pais'] ?? '',
+                    $row['jefe_nombre'] ?? '',
+                    (int)($row['puede_ver'] ?? 0) === 1 ? 'SI' : 'NO',
+                    (int)($row['puede_editar'] ?? 0) === 1 ? 'SI' : 'NO',
+                    (int)($row['puede_administrar'] ?? 0) === 1 ? 'SI' : 'NO',
+                    (int)($row['acceso_movil'] ?? 0) === 1 ? 'SI' : 'NO',
+                    (int)($row['excluido_operativo'] ?? 0) === 1 ? 'SI' : 'NO',
+                    $row['excluido_motivo'] ?? '',
+                    $row['excluido_at_fmt'] ?? '',
+                    (int)($row['activo'] ?? 0) === 1 ? 'ACTIVO' : 'INACTIVO',
+                    $row['ultima_sincronizacion_fmt'] ?? '',
+                ];
+                foreach ($values as $idx => $value) {
+                    $sheet->setCellValueExplicit(
+                        $this->excelCell($idx + 1, $rowNum),
+                        (string)$value,
+                        \PhpOffice\PhpSpreadsheet\Cell\DataType::TYPE_STRING
+                    );
+                }
+                $rowNum++;
+            }
+
+            $lastRow = max(2, $rowNum - 1);
+            $lastCol = $this->excelCell(count($headers), 1);
+            $sheet->getStyle('A1:' . $lastCol)->getFont()->setBold(true)->getColor()->setRGB('FFFFFF');
+            $sheet->getStyle('A1:' . $lastCol)->getFill()->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)->getStartColor()->setRGB('26344E');
+            $sheet->getStyle('A1:' . $this->excelCell(count($headers), $lastRow))->getBorders()->getAllBorders()->setBorderStyle(\PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN)->getColor()->setRGB('D9DEE3');
+            foreach (range('A', 'U') as $col) {
+                $sheet->getColumnDimension($col)->setAutoSize(true);
+            }
+            $sheet->freezePane('A2');
+
+            $filename = 'plantilla_personal_accesos_atlas_' . date('Ymd_His') . '.xlsx';
+            $tmp = tempnam(sys_get_temp_dir(), 'atlas_accesos_');
+            if ($tmp === false) {
+                throw new \RuntimeException('No se pudo preparar el archivo temporal.');
+            }
+            (new \PhpOffice\PhpSpreadsheet\Writer\Xlsx($spreadsheet))->save($tmp);
+            $spreadsheet->disconnectWorksheets();
+
+            if (function_exists('session_write_close')) {
+                session_write_close();
+            }
+
+            header('Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+            header('Content-Disposition: attachment; filename="' . $filename . '"');
+            header('Content-Transfer-Encoding: binary');
+            header('Content-Length: ' . filesize($tmp));
+            header('Cache-Control: max-age=0');
+            readfile($tmp);
+            @unlink($tmp);
+            exit;
+        } catch (\Throwable $e) {
+            http_response_code(500);
+            echo 'No se pudo generar la plantilla de accesos Atlas: ' . htmlspecialchars($e->getMessage(), ENT_QUOTES, 'UTF-8');
+            exit;
+        }
+    }
+
+    public function importarDistribuidores()
+    {
+        $archivo = $_FILES['archivo'] ?? null;
+        if (!$archivo || (int)($archivo['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_OK) {
+            $this->json(['success' => false, 'mensaje' => 'Carga un archivo Excel valido.']);
+        }
+
+        try {
+            $filas = $this->leerDistribuidoresExcel((string)$archivo['tmp_name']);
+            $usuarioId = (int)($_SESSION['usuario_id'] ?? $_SESSION['persona_id'] ?? $_SESSION['id'] ?? 0);
+            $this->json(AtlasDAO::importarDistribuidoresLayout($filas, $usuarioId, (int)($_POST['desbloquear_existentes'] ?? 0) === 1));
+        } catch (\Throwable $e) {
+            $this->json(['success' => false, 'mensaje' => 'No se pudo leer el Excel de distribuidores.', 'error' => $e->getMessage()]);
+        }
+    }
+
+    public function importarPlantillaAccesosAtlas()
+    {
+        $archivo = $_FILES['archivo'] ?? null;
+        if (!$archivo || (int)($archivo['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_OK) {
+            $this->json(['success' => false, 'mensaje' => 'Carga la plantilla de personal en Excel.']);
+        }
+
+        try {
+            $filas = $this->leerAccesosAtlasExcel((string)$archivo['tmp_name']);
+            $usuarioId = (int)($_SESSION['usuario_id'] ?? $_SESSION['persona_id'] ?? $_SESSION['id'] ?? 0);
+            $this->json(AtlasDAO::importarAccesosAtlasLayout($filas, $usuarioId));
+        } catch (\Throwable $e) {
+            $this->json(['success' => false, 'mensaje' => 'No se pudo leer la plantilla de accesos Atlas.', 'error' => $e->getMessage()]);
+        }
+    }
+
     private function htmlResumenImportacionPresupuesto(array $resumen, int $anio, int $mes, string $archivoOriginal): string
     {
         $nombreMes = $this->nombreMesPresupuesto($mes);
@@ -416,6 +682,11 @@ class Atlas extends Controller
     public function getCatalogosComerciales()
     {
         $this->json(AtlasDAO::getCatalogosComerciales());
+    }
+
+    public function getRiesgosOperativos()
+    {
+        $this->json(AtlasDAO::getRiesgosOperativos());
     }
 
     public function getAccesosAtlas()
@@ -621,11 +892,6 @@ class Atlas extends Controller
         $this->json(AtlasDAO::getSucursalAsignadaDetalle((int)($_GET['fk_sucursal'] ?? 0)));
     }
 
-    public function sincronizarCreditosOfertaMexico()
-    {
-        $this->json(AtlasDAO::sincronizarCreditosOfertaMexico($this->payload()));
-    }
-
     public function getGestoresOperativos()
     {
         $this->json(AtlasDAO::getGestoresOperativos());
@@ -738,6 +1004,20 @@ class Atlas extends Controller
         $this->json(AtlasDAO::guardarDivision($this->payload()));
     }
 
+    public function eliminarDivision()
+    {
+        $payload = $this->payload();
+        $payload['_usuario_id'] = (int) ($_SESSION['usuario_id'] ?? $_SESSION['persona_id'] ?? $_SESSION['id'] ?? 0);
+        $this->json(AtlasDAO::eliminarDivision($payload));
+    }
+
+    public function fusionarDivisiones()
+    {
+        $payload = $this->payload();
+        $payload['_usuario_id'] = (int) ($_SESSION['usuario_id'] ?? $_SESSION['persona_id'] ?? $_SESSION['id'] ?? 0);
+        $this->json(AtlasDAO::fusionarDivisiones($payload));
+    }
+
     public function guardarAsignacionDivision()
     {
         $payload = $this->payload();
@@ -774,6 +1054,11 @@ class Atlas extends Controller
     public function subirConstanciaFiscalDistribuidor()
     {
         $this->json(AtlasDAO::subirConstanciaFiscalDistribuidor($_POST, $_FILES['archivo'] ?? []));
+    }
+
+    public function subirEstadoCuentaDistribuidor()
+    {
+        $this->json(AtlasDAO::subirEstadoCuentaDistribuidor($_POST, $_FILES['archivo'] ?? []));
     }
 
     public function guardarCatalogoDistribuidorOpcion()
@@ -962,7 +1247,6 @@ class Atlas extends Controller
         foreach ($headers as $col => $header) {
             $campo = match ($header) {
                 'pksucursal', 'fksucursal', 'fksucursalid' => 'fk_sucursal',
-                'diversificacion' => 'diversificacion',
                 'distribuidor' => 'distribuidor',
                 'sucursal' => 'sucursal',
                 'divisional' => 'divisional',
@@ -1004,6 +1288,178 @@ class Atlas extends Controller
         $spreadsheet->disconnectWorksheets();
         if (!$filas) {
             throw new \RuntimeException('El Excel no contiene filas de presupuesto.');
+        }
+        return $filas;
+    }
+
+    private function leerDistribuidoresExcel(string $ruta): array
+    {
+        $spreadsheet = \PhpOffice\PhpSpreadsheet\IOFactory::load($ruta);
+        $sheet = $spreadsheet->getActiveSheet();
+        $highestRow = $sheet->getHighestDataRow();
+        $highestColumn = $sheet->getHighestDataColumn();
+        $highestColumnIndex = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::columnIndexFromString($highestColumn);
+
+        $headerRow = 0;
+        $headers = [];
+        for ($row = 1; $row <= min(15, $highestRow); $row++) {
+            $tmp = [];
+            for ($col = 1; $col <= $highestColumnIndex; $col++) {
+                $tmp[$col] = $this->normalizarHeaderPresupuesto($sheet->getCell($this->excelCell($col, $row))->getValue());
+            }
+            if (in_array('nombrecomercial', $tmp, true) || in_array('rfc', $tmp, true)) {
+                $headerRow = $row;
+                $headers = $tmp;
+                break;
+            }
+        }
+
+        if ($headerRow === 0) {
+            throw new \RuntimeException('No se encontro encabezado de distribuidores.');
+        }
+
+        $map = [];
+        foreach ($headers as $col => $header) {
+            $campo = match ($header) {
+                'id' => 'id',
+                'nombrecomercial', 'distribuidor', 'nombre' => 'nombre_comercial',
+                'razonsocial' => 'razon_social',
+                'rfc' => 'rfc',
+                'tipopersona' => 'tipo_persona',
+                'tipodistribuidor' => 'tipo_distribuidor',
+                'estatus', 'estado' => 'estatus',
+                'contactoprincipal', 'nombrecontacto' => 'nombre_contacto',
+                'telefonoprincipal', 'telefonocontacto' => 'telefono_contacto',
+                'telefonoalterno', 'telefonosecundario' => 'telefono_secundario',
+                'correoprincipal', 'emailcontacto', 'correo' => 'email_contacto',
+                'regimenfiscal' => 'regimen_fiscal',
+                'bancodeposito', 'banco' => 'banco_deposito',
+                'titulardeposito', 'titularcuenta', 'titular' => 'titular_deposito',
+                'cuentadeposito', 'cuenta' => 'cuenta_deposito',
+                'clabedeposito', 'clabe' => 'clabe_deposito',
+                'tipomotos', 'tipodemotos' => 'tipo_motos',
+                'canalventa', 'canaldeventa' => 'canal_venta',
+                'presenciafisica' => 'presencia_fisica',
+                'horarioatencion' => 'horario_atencion',
+                'diasoperacion' => 'dias_operacion',
+                'requierecita' => 'requiere_cita',
+                'tiempoestadia', 'tiempopromedioentrega' => 'tiempo_promedio_entrega',
+                'observaciones' => 'observaciones',
+                default => null,
+            };
+            if ($campo !== null) {
+                $map[$col] = $campo;
+            }
+        }
+
+        if (!in_array('nombre_comercial', $map, true) && !in_array('rfc', $map, true)) {
+            throw new \RuntimeException('El Excel debe traer Nombre comercial o RFC.');
+        }
+
+        $filas = [];
+        for ($row = $headerRow + 1; $row <= $highestRow; $row++) {
+            $item = [];
+            foreach ($map as $col => $campo) {
+                $cell = $sheet->getCell($this->excelCell($col, $row));
+                $value = $cell->isFormula() ? $cell->getCalculatedValue() : $cell->getFormattedValue();
+                $item[$campo] = is_string($value) ? trim($value) : $value;
+            }
+            $nombre = trim((string)($item['nombre_comercial'] ?? ''));
+            $rfc = trim((string)($item['rfc'] ?? ''));
+            if ($nombre === '' && $rfc === '') {
+                continue;
+            }
+            $item['_excel_row'] = $row;
+            $filas[] = $item;
+        }
+
+        $spreadsheet->disconnectWorksheets();
+        if (!$filas) {
+            throw new \RuntimeException('El Excel no contiene filas de distribuidores.');
+        }
+        return $filas;
+    }
+
+    private function leerAccesosAtlasExcel(string $ruta): array
+    {
+        $spreadsheet = \PhpOffice\PhpSpreadsheet\IOFactory::load($ruta);
+        $sheet = $spreadsheet->getActiveSheet();
+        $highestRow = $sheet->getHighestDataRow();
+        $highestColumn = $sheet->getHighestDataColumn();
+        $highestColumnIndex = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::columnIndexFromString($highestColumn);
+
+        $headerRow = 0;
+        $headers = [];
+        for ($row = 1; $row <= min(15, $highestRow); $row++) {
+            $tmp = [];
+            for ($col = 1; $col <= $highestColumnIndex; $col++) {
+                $tmp[$col] = $this->normalizarHeaderPresupuesto($sheet->getCell($this->excelCell($col, $row))->getValue());
+            }
+            if (in_array('idacceso', $tmp, true) || in_array('numeroempleado', $tmp, true) || in_array('personaid', $tmp, true)) {
+                $headerRow = $row;
+                $headers = $tmp;
+                break;
+            }
+        }
+
+        if ($headerRow === 0) {
+            throw new \RuntimeException('No se encontro encabezado de plantilla de personal.');
+        }
+
+        $map = [];
+        foreach ($headers as $col => $header) {
+            $campo = match ($header) {
+                'idacceso', 'id' => 'id',
+                'personaid', 'idpersona' => 'persona_id',
+                'numeroempleado', 'numempleado', 'empleado' => 'numero_empleado',
+                'nombre' => 'nombre',
+                'correo', 'email' => 'correo',
+                'telefono', 'telefonocelular' => 'telefono',
+                'puesto' => 'puesto',
+                'departamento' => 'departamento',
+                'area' => 'area',
+                'direccion' => 'direccion',
+                'pais' => 'pais',
+                'jefe' => 'jefe_nombre',
+                'puedever', 'ver' => 'puede_ver',
+                'puedeeditar', 'editar' => 'puede_editar',
+                'puedeadministrar', 'administrar' => 'puede_administrar',
+                'accesomovil', 'movil' => 'acceso_movil',
+                'excluidooperativo', 'excluido' => 'excluido_operativo',
+                'motivoexclusion', 'motivo' => 'excluido_motivo',
+                'activo', 'estatus' => 'activo',
+                default => null,
+            };
+            if ($campo !== null) {
+                $map[$col] = $campo;
+            }
+        }
+
+        if (!in_array('id', $map, true) && !in_array('persona_id', $map, true) && !in_array('numero_empleado', $map, true)) {
+            throw new \RuntimeException('La plantilla debe traer ID acceso, Persona ID o Numero empleado.');
+        }
+
+        $filas = [];
+        for ($row = $headerRow + 1; $row <= $highestRow; $row++) {
+            $item = [];
+            foreach ($map as $col => $campo) {
+                $cell = $sheet->getCell($this->excelCell($col, $row));
+                $value = $cell->isFormula() ? $cell->getCalculatedValue() : $cell->getFormattedValue();
+                $item[$campo] = is_string($value) ? trim($value) : $value;
+            }
+            $id = trim((string)($item['id'] ?? ''));
+            $personaId = trim((string)($item['persona_id'] ?? ''));
+            $numero = trim((string)($item['numero_empleado'] ?? ''));
+            if ($id === '' && $personaId === '' && $numero === '') {
+                continue;
+            }
+            $item['_excel_row'] = $row;
+            $filas[] = $item;
+        }
+
+        $spreadsheet->disconnectWorksheets();
+        if (!$filas) {
+            throw new \RuntimeException('La plantilla no contiene filas para actualizar.');
         }
         return $filas;
     }
