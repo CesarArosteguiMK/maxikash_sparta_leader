@@ -3601,9 +3601,11 @@ class CapHum extends Model
             $perfiles = self::agregarModuloConveniosDescargarExcelSiFalta($perfiles, $idPersona, $db);
             require_once __DIR__ . '/../config/menu_modulos_sidebar.php';
             $perfiles = enriquecerPerfilesModulosConMenuSidebar($perfiles);
-            $puestos = $db->queryAll($query_puestos);
+            // La pestana "Acceso a Puestos" ya se alimenta de permisos_jerarquia.
+            // Evitamos mandar el catalogo legacy completo para que el modal abra mas rapido.
+            $puestos = [];
             $asignacionActual = $db->queryOne($query_asignacion_actual);
-            $permisosJerarquia = self::getPermisosJerarquicosPerfil($idPersona);
+            $permisosJerarquia = self::getPermisosJerarquicosPerfil($idPersona, $db);
 
             return self::resultado(true, 'Persona encontrada.', [
                 'persona' => $persona,
@@ -4040,7 +4042,7 @@ class CapHum extends Model
         }
     }
 
-    public static function getPermisosJerarquicosPerfil(int $idPersona): array
+    public static function getPermisosJerarquicosPerfil(int $idPersona, ?Database $db = null): array
     {
         $idPersona = (int) $idPersona;
         if ($idPersona <= 0) {
@@ -4048,7 +4050,7 @@ class CapHum extends Model
         }
 
         try {
-            $db = new Database();
+            $db = $db ?: new Database();
             $seleccion = self::obtenerSeleccionesJerarquicas($db, $idPersona);
 
             // Fallback de compatibilidad: si aún no existe selección jerárquica,

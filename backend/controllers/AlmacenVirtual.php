@@ -22,7 +22,7 @@ class AlmacenVirtual extends Controller
 
     public function inventario()
     {
-        self::set('titulo', 'Almacen Virtual');
+        self::set('titulo', 'Inventario - Motos Adjudicadas');
         self::set('av_modulo_id', AlmacenVirtualModel::moduloAlmacenVirtual());
         return self::render('almacen_virtual');
     }
@@ -38,7 +38,7 @@ class AlmacenVirtual extends Controller
         } catch (\Throwable $e) {
             echo json_encode([
                 'success' => false,
-                'message' => 'No se pudo cargar el resumen de Almacen Virtual.',
+                'message' => 'No se pudo cargar el resumen de inventario.',
                 'error' => $e->getMessage(),
             ], JSON_UNESCAPED_UNICODE);
         }

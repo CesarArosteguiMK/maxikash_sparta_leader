@@ -4,6 +4,7 @@ namespace Controllers;
 
 use Core\Controller;
 use Models\Adjudicacion as AdjudicacionDAO;
+use Models\AlmacenVirtual as InventarioMotosDAO;
 use Models\MotosAdjudicadas as MotosAdjudicadasDAO;
 
 class MotosAdjudicadas extends Controller
@@ -11,11 +12,21 @@ class MotosAdjudicadas extends Controller
     private const MODULO_REEMPLAZAR_EVIDENCIA_GESTOR = 79;
 
     private $model;
+    private $inventarioModel;
 
     public function __construct()
     {
         parent::__construct();
         $this->model = new MotosAdjudicadasDAO();
+    }
+
+    private function inventarioDao(): InventarioMotosDAO
+    {
+        if (!$this->inventarioModel instanceof InventarioMotosDAO) {
+            $this->inventarioModel = new InventarioMotosDAO();
+        }
+
+        return $this->inventarioModel;
     }
 
     private function tieneModuloSesion(int $moduloId): bool
@@ -158,6 +169,134 @@ class MotosAdjudicadas extends Controller
         $emp = defined('CONFIGURACION') && isset(CONFIGURACION['EMPRESA']) ? (string) CONFIGURACION['EMPRESA'] : '';
         self::set('titulo', 'Operaciones - Pipeline ' . $emp);
         return self::render('operaciones_pipeline');
+    }
+
+    /**
+     * GET /MotosAdjudicadas/inventario
+     */
+    public function inventario()
+    {
+        $emp = defined('CONFIGURACION') && isset(CONFIGURACION['EMPRESA']) ? (string) CONFIGURACION['EMPRESA'] : '';
+        self::set('titulo', 'Inventario - Motos Adjudicadas ' . $emp);
+        self::set('av_modulo_id', InventarioMotosDAO::moduloAlmacenVirtual());
+        return self::render('almacen_virtual');
+    }
+
+    public function inventarioResumen()
+    {
+        header('Content-Type: application/json; charset=utf-8');
+        try {
+            echo json_encode([
+                'success' => true,
+                'datos' => $this->inventarioDao()->obtenerResumen(),
+            ], JSON_UNESCAPED_UNICODE);
+        } catch (\Throwable $e) {
+            echo json_encode([
+                'success' => false,
+                'message' => 'No se pudo cargar el resumen de inventario.',
+                'error' => $e->getMessage(),
+            ], JSON_UNESCAPED_UNICODE);
+        }
+    }
+
+    public function inventarioCelulas()
+    {
+        header('Content-Type: application/json; charset=utf-8');
+        try {
+            $rows = [];
+            foreach ($this->inventarioDao()->obtenerCelulas() as $id => $nombre) {
+                $rows[] = ['id_celula' => (int) $id, 'nombre' => $nombre];
+            }
+            echo json_encode(['success' => true, 'datos' => $rows], JSON_UNESCAPED_UNICODE);
+        } catch (\Throwable $e) {
+            echo json_encode(['success' => false, 'message' => 'No se pudieron cargar las celulas.'], JSON_UNESCAPED_UNICODE);
+        }
+    }
+
+    public function inventarioUbicaciones()
+    {
+        header('Content-Type: application/json; charset=utf-8');
+        try {
+            echo json_encode([
+                'success' => true,
+                'datos' => $this->inventarioDao()->listarUbicacionesActivas(),
+            ], JSON_UNESCAPED_UNICODE);
+        } catch (\Throwable $e) {
+            echo json_encode(['success' => false, 'message' => 'No se pudieron cargar las ubicaciones.'], JSON_UNESCAPED_UNICODE);
+        }
+    }
+
+    public function inventarioUnidades()
+    {
+        header('Content-Type: application/json; charset=utf-8');
+        try {
+            $filtros = [
+                'q' => trim((string) ($_GET['q'] ?? '')),
+                'id_celula' => (int) ($_GET['id_celula'] ?? 0),
+                'estatus' => trim((string) ($_GET['estatus'] ?? '')),
+                'id_ubicacion' => (int) ($_GET['id_ubicacion'] ?? 0),
+                'page' => (int) ($_GET['page'] ?? 1),
+                'limit' => (int) ($_GET['limit'] ?? 8),
+            ];
+
+            echo json_encode($this->inventarioDao()->listarUnidades($filtros), JSON_UNESCAPED_UNICODE);
+        } catch (\Throwable $e) {
+            echo json_encode([
+                'success' => false,
+                'message' => 'No se pudieron cargar las unidades.',
+                'error' => $e->getMessage(),
+            ], JSON_UNESCAPED_UNICODE);
+        }
+    }
+
+    public function inventarioPendientesMotosAdjudicadas()
+    {
+        header('Content-Type: application/json; charset=utf-8');
+        try {
+            $filtros = [
+                'q' => trim((string) ($_GET['q'] ?? '')),
+                'limit' => (int) ($_GET['limit'] ?? 8),
+                'page' => (int) ($_GET['page'] ?? 1),
+            ];
+            echo json_encode($this->inventarioDao()->listarPendientesMotosAdjudicadas($filtros), JSON_UNESCAPED_UNICODE);
+        } catch (\Throwable $e) {
+            echo json_encode([
+                'success' => false,
+                'message' => 'No se pudieron cargar pendientes de Motos Adjudicadas.',
+                'error' => $e->getMessage(),
+            ], JSON_UNESCAPED_UNICODE);
+        }
+    }
+
+    public function inventarioCrearDesdeMotosAdjudicadas()
+    {
+        header('Content-Type: application/json; charset=utf-8');
+        $data = json_decode((string) file_get_contents('php://input'), true) ?: [];
+        if (!$data && !empty($_POST)) {
+            $data = $_POST;
+        }
+
+        $idOperacion = (int) ($data['id_operacion'] ?? 0);
+        if ($idOperacion <= 0) {
+            echo json_encode(['success' => false, 'message' => 'Indica un id_operacion valido.'], JSON_UNESCAPED_UNICODE);
+            return;
+        }
+
+        $idUsuario = (int) ($_SESSION['persona_id'] ?? $_SESSION['usuario_id'] ?? $_SESSION['id_usuario'] ?? $_SESSION['id'] ?? 0);
+        $nombreUsuario = trim((string) ($_SESSION['usuario_nombre'] ?? $_SESSION['nombre'] ?? $_SESSION['usuario'] ?? 'SISTEMA'));
+
+        try {
+            echo json_encode(
+                $this->inventarioDao()->crearDesdeMotosAdjudicadas($idOperacion, $idUsuario, $nombreUsuario),
+                JSON_UNESCAPED_UNICODE
+            );
+        } catch (\Throwable $e) {
+            echo json_encode([
+                'success' => false,
+                'message' => 'No se pudo crear la unidad desde Motos Adjudicadas.',
+                'error' => $e->getMessage(),
+            ], JSON_UNESCAPED_UNICODE);
+        }
     }
 
     /**

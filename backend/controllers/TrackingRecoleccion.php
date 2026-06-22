@@ -1138,6 +1138,27 @@ class TrackingRecoleccion extends Controller
     }
 
     /**
+     * POST /TrackingRecoleccion/actualizarRutaOperativa
+     * Body JSON: { id_ruta, nombre_ruta, estado?, municipio?, fecha_programada, fecha_finalizacion, hora_salida? }
+     *
+     * Actualiza solo encabezado/campos operativos de una ruta registrada.
+     * No reconstruye asigna_horas_tracking_detalle para conservar id_detalle,
+     * OTP, estados de recoleccion y progreso visible en Android.
+     */
+    public function actualizarRutaOperativa()
+    {
+        $idUsuario = (int) ($_SESSION['persona_id'] ?? $_SESSION['usuario_id'] ?? 0);
+        $data = $this->leerBodyTracking();
+
+        try {
+            $model = new TrackingModel();
+            self::respuestaJSON($model->actualizarRutaOperativa($data, $idUsuario));
+        } catch (\Throwable $e) {
+            self::respuestaJSON(self::respuesta(false, 'Error inesperado al actualizar la ruta operativa.', null, $e->getMessage()));
+        }
+    }
+
+    /**
      * POST /TrackingRecoleccion/agregarCreditoRuta
      * Body JSON: { id_ruta, id_credito }
      */
@@ -1303,7 +1324,150 @@ class TrackingRecoleccion extends Controller
         $data = $this->leerBodyTracking();
         try {
             $model = new TrackingModel();
-            self::respuestaJSON($model->actualizarCoordenadasRuta($data));
+            $idRuta = (int)($data['id_ruta'] ?? 0);
+            $creditos = is_array($data['creditos'] ?? null) ? $data['creditos'] : [];
+            if ($idRuta <= 0) {
+                self::respuestaJSON(['success' => false, 'message' => 'ID de ruta requerido.']);
+                return;
+            }
+            if (empty($creditos)) {
+                self::respuestaJSON(['success' => true, 'message' => 'Sin coordenadas por actualizar.', 'actualizados' => 0]);
+                return;
+            }
+
+            $estatusRuta = $model->obtenerEstatusRutaTracking($idRuta);
+            if ($estatusRuta === null) {
+                self::respuestaJSON(['success' => false, 'message' => 'Ruta no encontrada.']);
+                return;
+            }
+            $esOperativa = $estatusRuta !== null && $estatusRuta !== '' && $estatusRuta !== 'borrador';
+            $apiItems = [];
+            $localItems = [];
+            $telemetria = [];
+
+            foreach ($creditos as $item) {
+                $idDetalle = (int)($item['id_detalle'] ?? 0);
+                if ($idDetalle > 0 && $esOperativa) {
+                    $apiItems[] = $item;
+                } else {
+                    $localItems[] = $item;
+                    $telemetria[] = [
+                        'id_ruta' => $idRuta,
+                        'id_detalle' => $idDetalle,
+                        'id_credito' => (int)($item['id_credito'] ?? 0),
+                        'latitud' => $item['latitud'] ?? null,
+                        'longitud' => $item['longitud'] ?? null,
+                        'fallback_local' => true,
+                        'motivo_fallback' => $idDetalle > 0 ? 'ruta_borrador' : 'sin_id_detalle',
+                    ];
+                }
+            }
+
+            $apiActualizados = 0;
+            $apiErrores = [];
+
+            if (!empty($apiItems)) {
+                $cfg = $this->_trkChatConfig();
+                $token = $this->_trkChatObtenerJwt();
+                if ($cfg['base_url'] === '' || $cfg['api_key'] === '' || $token === '') {
+                    self::respuestaJSON([
+                        'success' => false,
+                        'message' => 'Tracking API no disponible. No se aplico fallback local para evitar desincronizar Android.',
+                        'actualizados' => 0,
+                        'debug_tracking_ubicacion' => $telemetria,
+                    ]);
+                    return;
+                }
+
+                foreach ($apiItems as $item) {
+                    $idDetalle = (int)($item['id_detalle'] ?? 0);
+                    $lat = isset($item['latitud']) && is_numeric($item['latitud']) ? (float)$item['latitud'] : null;
+                    $lng = isset($item['longitud']) && is_numeric($item['longitud']) ? (float)$item['longitud'] : null;
+                    if ($idDetalle <= 0 || $lat === null || $lng === null || $lat == 0.0 || $lng == 0.0) {
+                        continue;
+                    }
+
+                    $payload = [
+                        'latitud' => $lat,
+                        'longitud' => $lng,
+                        'direccion' => mb_substr(trim((string)($item['direccion'] ?? '')), 0, 500),
+                        'estado' => mb_strtoupper(trim((string)($item['estado'] ?? '')), 'UTF-8'),
+                        'municipio' => mb_strtoupper(trim((string)($item['municipio'] ?? '')), 'UTF-8'),
+                        'motivo' => mb_substr(trim((string)($item['motivo'] ?? 'Correccion manual de ubicacion desde Sparta Ledger')), 0, 300),
+                        'origen' => trim((string)($item['origen'] ?? 'sparta')) ?: 'sparta',
+                    ];
+                    $body = json_encode($payload, JSON_UNESCAPED_UNICODE);
+                    $path = "/api/tracking/rutas/{$idRuta}/puntos/{$idDetalle}/ubicacion";
+                    $url = $this->_trkTrackingBuildUrl($cfg['base_url'], $path);
+                    $resp = $this->_trkChatCurl($url, 'PATCH', $body ?: '{}', [
+                        'Content-Type: application/json',
+                        'X-API-Key: ' . $cfg['api_key'],
+                        'Authorization: Bearer ' . $token,
+                    ], 20);
+                    $respBody = (string)($resp['body'] ?? '');
+                    $respJson = json_decode($respBody, true);
+                    $httpCode = (int)($resp['http_code'] ?? 0);
+                    $ok = $httpCode >= 200 && $httpCode < 300 && (!is_array($respJson) || ($respJson['success'] ?? true) !== false);
+
+                    $log = [
+                        'id_ruta' => $idRuta,
+                        'id_detalle' => $idDetalle,
+                        'id_credito' => (int)($item['id_credito'] ?? 0),
+                        'latitud' => $lat,
+                        'longitud' => $lng,
+                        'status_http' => $httpCode,
+                        'response_body' => mb_substr($respBody, 0, 1000),
+                        'fallback_local' => false,
+                    ];
+                    $telemetria[] = $log;
+                    error_log('[Tracking ubicacion puntual] ' . json_encode($log, JSON_UNESCAPED_UNICODE));
+
+                    if ($ok) {
+                        $apiActualizados++;
+                    } else {
+                        $apiErrores[] = [
+                            'id_detalle' => $idDetalle,
+                            'status_http' => $httpCode,
+                            'mensaje' => is_array($respJson)
+                                ? ($respJson['mensaje'] ?? $respJson['message'] ?? $respJson['detail'] ?? 'Error de tracking API.')
+                                : (($resp['error'] ?? '') ?: 'Error de tracking API.'),
+                        ];
+                    }
+                }
+            }
+
+            if (!empty($apiErrores)) {
+                self::respuestaJSON([
+                    'success' => false,
+                    'message' => 'No se pudo actualizar la ubicacion puntual en Tracking API. No se aplico fallback local para evitar desincronizar Android.',
+                    'actualizados' => $apiActualizados,
+                    'api_actualizados' => $apiActualizados,
+                    'api_errores' => $apiErrores,
+                    'debug_tracking_ubicacion' => $telemetria,
+                ]);
+                return;
+            }
+
+            $localResult = ['success' => true, 'actualizados' => 0];
+            if (!empty($localItems)) {
+                $localResult = $model->actualizarCoordenadasRuta([
+                    'id_ruta' => $idRuta,
+                    'creditos' => $localItems,
+                ]);
+                if (empty($localResult['success'])) {
+                    self::respuestaJSON($localResult + ['debug_tracking_ubicacion' => $telemetria]);
+                    return;
+                }
+            }
+
+            self::respuestaJSON([
+                'success' => true,
+                'message' => 'Coordenadas actualizadas.',
+                'actualizados' => $apiActualizados + (int)($localResult['actualizados'] ?? 0),
+                'api_actualizados' => $apiActualizados,
+                'local_actualizados' => (int)($localResult['actualizados'] ?? 0),
+                'debug_tracking_ubicacion' => $telemetria,
+            ]);
         } catch (\Throwable $e) {
             self::respuestaJSON(self::respuesta(false, 'Error al actualizar coordenadas de ruta.', null, $e->getMessage()));
         }

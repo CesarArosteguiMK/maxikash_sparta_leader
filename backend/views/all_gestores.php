@@ -116,6 +116,23 @@
         margin-bottom: 0 !important;
     }
 
+    #modalEditPerfil #modulos-container td:first-child,
+    #modalEditPerfil #modulos-container small,
+    #modalEditPerfil .modal-perfil-modulos-agrupados .modal-perfil-modulo-fila td,
+    #modalEditPerfil .modal-perfil-modulos-agrupados .modal-perfil-modulo-fila span,
+    #modalEditPerfil .modal-perfil-modulos-agrupados .modal-perfil-modulo-fila small {
+        word-break: normal !important;
+        overflow-wrap: anywhere;
+    }
+
+    #modalEditPerfil .modal-perfil-modulos-agrupados .modal-perfil-modulo-fila td:first-child {
+        min-width: 0;
+    }
+
+    #modalEditPerfil .modal-perfil-modulos-agrupados .modal-perfil-modulo-fila td:last-child {
+        width: 132px;
+    }
+
     /* Permisos especiales (modal): dos columnas en escritorio */
     #modalEditPerfil .modal-perfil-permisos-outer {
         overflow-y: visible;
@@ -204,6 +221,131 @@
     }
     body.dark-mode #modalEditPerfil.modal .modal-perfil-gestor-dialog .modal-perfil-gestor-tabs {
         background: #252525 !important;
+    }
+
+    @media (max-width: 991.98px) {
+        #modalEditPerfil.modal .modal-perfil-gestor-dialog {
+            width: calc(100vw - 1.5rem);
+            max-width: calc(100vw - 1.5rem);
+            margin: 0.75rem auto;
+            max-height: calc(100vh - 1.5rem);
+        }
+
+        #modalEditPerfil.modal .modal-perfil-gestor-dialog .modal-content {
+            max-height: calc(100vh - 1.5rem);
+        }
+
+        #modalEditPerfil .modal-perfil-gestor-tabs {
+            display: flex !important;
+            flex-wrap: nowrap !important;
+            overflow-x: auto !important;
+            overflow-y: hidden !important;
+            gap: 0.25rem;
+            padding-left: 0.75rem !important;
+            padding-right: 0.75rem !important;
+            -webkit-overflow-scrolling: touch;
+            scrollbar-width: thin;
+        }
+
+        #modalEditPerfil .modal-perfil-gestor-tabs .nav-item {
+            flex: 0 0 auto;
+        }
+
+        #modalEditPerfil .modal-perfil-gestor-tabs .nav-link {
+            white-space: nowrap !important;
+            padding-left: 0.85rem !important;
+            padding-right: 0.85rem !important;
+        }
+
+        #modalEditPerfil .modal-perfil-gestor-tab-content {
+            padding: 1rem !important;
+        }
+
+        #modalEditPerfil .modal-perfil-modulos-agrupados .modal-perfil-modulo-grupo {
+            flex: 1 1 100% !important;
+            max-width: 100% !important;
+        }
+
+        #modalEditPerfil #tabModulos > .d-flex,
+        #modalEditPerfil #tabPermisosEspeciales > .d-flex {
+            align-items: flex-start !important;
+        }
+    }
+
+    @media (max-width: 767.98px) {
+        #modalEditPerfil .modal-header {
+            padding: 0.9rem 1rem !important;
+        }
+
+        #modalEditPerfil .modal-header .d-flex {
+            min-width: 0;
+        }
+
+        #modalEditPerfil .modal-title {
+            font-size: 1rem;
+            line-height: 1.25;
+        }
+
+        #modalEditPerfil #modalEditPerfil_subtitle {
+            line-height: 1.25;
+        }
+
+        #modalEditPerfil #tabPuestos .d-flex.gap-3.flex-wrap.flex-lg-nowrap {
+            flex-direction: column;
+        }
+
+        #modalEditPerfil #tabPuestos aside,
+        #modalEditPerfil #tabPuestos section {
+            width: 100% !important;
+            max-width: 100% !important;
+        }
+
+        #modalEditPerfil .modal-perfil-modulo-grupo-header {
+            align-items: flex-start !important;
+        }
+
+        #modalEditPerfil .modal-perfil-modulo-grupo-header .modal-perfil-modulo-master-wrap {
+            width: 100%;
+            justify-content: flex-end;
+        }
+
+        #modalEditPerfil .modal-perfil-modulos-agrupados .modal-perfil-modulo-fila td:first-child {
+            padding-left: 0.75rem !important;
+            padding-right: 0.5rem !important;
+        }
+
+        #modalEditPerfil .modal-perfil-modulos-agrupados .modal-perfil-modulo-fila td:last-child {
+            width: 118px !important;
+            padding-left: 0.35rem !important;
+            padding-right: 0.75rem !important;
+        }
+
+        #modalEditPerfil .modal-perfil-modulos-agrupados .modulo-icon-box {
+            width: 36px !important;
+            height: 36px !important;
+        }
+    }
+
+    @media (max-width: 575.98px) {
+        #modalEditPerfil .modal-perfil-modulos-agrupados .modal-perfil-modulo-fila,
+        #modalEditPerfil .modal-perfil-modulos-agrupados .modal-perfil-modulo-fila tbody,
+        #modalEditPerfil .modal-perfil-modulos-agrupados .modal-perfil-modulo-fila td {
+            display: block;
+            width: 100% !important;
+        }
+
+        #modalEditPerfil .modal-perfil-modulos-agrupados .modal-perfil-modulo-fila td:first-child {
+            padding: 0.75rem 0.75rem 0.4rem !important;
+        }
+
+        #modalEditPerfil .modal-perfil-modulos-agrupados .modal-perfil-modulo-fila td:last-child {
+            padding: 0 0.75rem 0.75rem !important;
+            text-align: left !important;
+        }
+
+        #modalEditPerfil .modal-perfil-modulos-agrupados .modal-perfil-modulo-fila td:last-child > .form-check {
+            justify-content: flex-start !important;
+        }
     }
 
     #offcanvasEditPerfil .tab-content:not(.doc-example-content) {
