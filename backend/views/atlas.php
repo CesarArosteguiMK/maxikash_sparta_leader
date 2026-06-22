@@ -1860,7 +1860,11 @@ $atlasPuedeAgregarSucursal = !empty($atlasPermisosSucursalVista['paso1']);
         return [
             { data: null, title: '', orderable: false, searchable: false, render: function () { return '<span class="atlas-drag-handle"><i class="fa-solid fa-grip-vertical"></i></span>'; }},
             { data: 'orden', title: 'Orden', render: function (data, renderType) { return renderType === 'display' ? '<span class="atlas-order-pill">' + esc(data || '-') + '</span>' : (parseInt(data, 10) || 999999); }},
-            { data: 'nombre', title: 'Clasificación', render: function (data, renderType, row) { return renderType === 'display' ? '<div class="atlas-classif" style="--atlas-class-color:' + esc(colorHexSeguro(row.color_hex)) + ';"><span class="atlas-classif-dot"></span><i class="' + esc(row.icon_font || 'fa-solid fa-tags') + '"></i><span>' + esc(data || 'Sin nombre') + '</span></div>' : (data || ''); }},
+            { data: 'nombre', title: 'Clasificación', render: function (data, renderType, row) {
+                if (renderType !== 'display') return [data || '', row.descripcion || ''].join(' ');
+                const descripcion = String(row.descripcion || '').trim();
+                return '<div class="atlas-classif-wrap"><div class="atlas-classif" style="--atlas-class-color:' + esc(colorHexSeguro(row.color_hex)) + ';"><span class="atlas-classif-dot"></span><i class="' + esc(row.icon_font || 'fa-solid fa-tags') + '"></i><span>' + esc(data || 'Sin nombre') + '</span></div>' + (descripcion ? '<small class="text-muted fw-semibold d-block mt-1">' + esc(descripcion) + '</small>' : '<small class="text-muted fw-semibold d-block mt-1">Sin descripción</small>') + '</div>';
+            }},
             { data: 'activo', title: 'Estatus', render: function (data, renderType, row) { return renderType === 'display' ? renderEstatus(row) : (Number(data || 0) === 1 ? 'Activa' : 'Inactiva'); }},
             { data: null, title: 'Acciones', orderable: false, searchable: false, className: 'text-center', render: function (data, renderType, row) { return renderType === 'display' ? renderEditar('clasificacion', row.id) : ''; }}
         ];
@@ -2363,7 +2367,7 @@ $atlasPuedeAgregarSucursal = !empty($atlasPermisosSucursalVista['paso1']);
         const colorActual = colorHexSeguro(row.color_hex || '#94A3B8');
         const idActual = row.id || '';
         const iconoActual = String(row.icon_font || iconoDisponibleClasificacion(idActual)).trim();
-        return '<div><label class="form-label atlas-required">Nombre</label><input type="text" class="form-control" name="nombre" required placeholder="Nombre de la clasificación" value="' + esc(row.nombre || '') + '"></div><div class="atlas-field-wide"><label class="form-label atlas-required">Icono</label><input type="hidden" name="icon_font" id="atlas-catalogo-icon-font" required value="' + esc(iconoActual) + '">' + renderGaleriaIconos(iconoActual, idActual) + '</div><div><label class="form-label atlas-required">Color</label><div class="atlas-color-input-wrap"><input type="color" name="color_hex" id="atlas-catalogo-color" required value="' + esc(colorActual) + '"><span class="atlas-muted" id="atlas-catalogo-color-label">' + esc(colorActual) + '</span></div></div><div><label class="form-label atlas-required">Estatus</label><select class="form-select js-atlas-select-buscador" name="activo" required><option value="1"' + (Number(row.activo ?? 1) === 1 ? ' selected' : '') + '>Activa</option><option value="0"' + (Number(row.activo ?? 1) === 0 ? ' selected' : '') + '>Inactiva</option></select></div>';
+        return '<div><label class="form-label atlas-required">Nombre</label><input type="text" class="form-control" name="nombre" required maxlength="60" placeholder="Nombre de la clasificación" value="' + esc(row.nombre || '') + '"></div><div class="atlas-field-wide"><label class="form-label atlas-required">Descripción</label><textarea class="form-control" name="descripcion" required maxlength="500" rows="3" placeholder="Resumen operativo para la app">' + esc(row.descripcion || '') + '</textarea><span class="atlas-cascade-help">Resumen breve para orientar al gestor en la app.</span></div><div class="atlas-field-wide"><label class="form-label atlas-required">Icono</label><input type="hidden" name="icon_font" id="atlas-catalogo-icon-font" required value="' + esc(iconoActual) + '">' + renderGaleriaIconos(iconoActual, idActual) + '</div><div><label class="form-label atlas-required">Color</label><div class="atlas-color-input-wrap"><input type="color" name="color_hex" id="atlas-catalogo-color" required value="' + esc(colorActual) + '"><span class="atlas-muted" id="atlas-catalogo-color-label">' + esc(colorActual) + '</span></div></div><div><label class="form-label atlas-required">Estatus</label><select class="form-select js-atlas-select-buscador" name="activo" required><option value="1"' + (Number(row.activo ?? 1) === 1 ? ' selected' : '') + '>Activa</option><option value="0"' + (Number(row.activo ?? 1) === 0 ? ' selected' : '') + '>Inactiva</option></select></div>';
     }
     function abrirCatalogo(tipo, row, opciones) {
         formCatalogo.reset();
@@ -2493,6 +2497,7 @@ $atlasPuedeAgregarSucursal = !empty($atlasPermisosSucursalVista['paso1']);
                 activo: activo,
                 icon_font: payload.icon_font || 'fa-solid fa-tags',
                 color_hex: colorHexSeguro(payload.color_hex || '#94A3B8'),
+                descripcion: payload.descripcion || '',
                 orden: siguienteOrden
             }]);
         }
@@ -3253,4 +3258,3 @@ $atlasPuedeAgregarSucursal = !empty($atlasPermisosSucursalVista['paso1']);
     cargarVistaInicialAtlas();
 })();
 </script>
-

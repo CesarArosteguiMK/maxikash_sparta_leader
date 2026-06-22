@@ -1072,7 +1072,7 @@ class Atlas extends Model
                         ORDER BY nombre ASC, id ASC
                     "),
                     'clasificaciones' => $db->queryAll("
-                        SELECT id, nombre, icon_font, color_hex, orden, activo, fecha_alta, fecha_actualizacion
+                        SELECT id, nombre, descripcion, icon_font, color_hex, orden, activo, fecha_alta, fecha_actualizacion
                         FROM atlas_catalogo_clasificaciones
                         ORDER BY COALESCE(orden, 999999), nombre ASC, id ASC
                     "),
@@ -2310,6 +2310,7 @@ class Atlas extends Model
         $id = self::intVal($input['id'] ?? 0);
         $datos = [
             'nombre' => self::strVal($input['nombre'] ?? ''),
+            'descripcion' => self::nullableStr($input['descripcion'] ?? null),
             'icon_font' => self::nullableStr($input['icon_font'] ?? null),
             'color_hex' => self::normalizarColor($input['color_hex'] ?? null),
             'activo' => self::activoVal($input['activo'] ?? 1),
@@ -2853,6 +2854,200 @@ class Atlas extends Model
         unset($row);
     }
 
+    private static function atlasBucketSql(string $etapaExpr = 'o.etapa'): string
+    {
+        return "
+            CASE
+                WHEN {$etapaExpr} IS NULL OR TRIM({$etapaExpr}) = '' THEN 'DATOS SIN ETAPA / DEPURAR'
+                WHEN UPPER(TRIM({$etapaExpr})) IN ('SOLICITUD','SOLCITUD','ENGANCHE DIFERIDO') THEN 'DETENIDO: ENGANCHE / PRIMER PAGO'
+                WHEN UPPER(TRIM({$etapaExpr})) IN ('POR FIRMAR','FIRMADO') THEN 'DETENIDO: FIRMA / REVISION FIRMA'
+                WHEN UPPER(TRIM({$etapaExpr})) IN ('FACTURA','PENDIENTE DE FACTURA') THEN 'DETENIDO: FACTURA'
+                WHEN UPPER(TRIM({$etapaExpr})) IN ('POR ENTREGAR') THEN 'DETENIDO: ENTREGA'
+                WHEN UPPER(TRIM({$etapaExpr})) IN ('ANALISIS','REVISION','VTT','PREVENCION DE FRAUDE') THEN 'DETENIDO: VALIDACION / RIESGO'
+                WHEN UPPER(TRIM({$etapaExpr})) IN ('POR DISPERSAR','DISPERSADO') THEN 'DETENIDO: DISPERSION'
+                WHEN UPPER(TRIM({$etapaExpr})) IN ('PENDIENTE DE REEMBOLSO','DEVOLUCION') THEN 'DETENIDO: REEMBOLSO / DEVOLUCION'
+                WHEN UPPER(TRIM({$etapaExpr})) IN ('CANCELADO','CANCELADA','ELIMINADO','ELIMINADA','ENTREGADA','ENTREGADO','S2CREDIT') THEN 'NO DETENIDO / TERMINAL O POST-OPERATIVO'
+                ELSE CONCAT('REVISAR ETAPA: ', UPPER(TRIM({$etapaExpr})))
+            END
+        ";
+    }
+
+    private static function atlasTipoBucketSql(string $etapaExpr = 'o.etapa'): string
+    {
+        return "
+            CASE
+                WHEN {$etapaExpr} IS NULL OR TRIM({$etapaExpr}) = '' THEN 'sin_etapa'
+                WHEN UPPER(TRIM({$etapaExpr})) IN ('SOLICITUD','SOLCITUD','ENGANCHE DIFERIDO','POR FIRMAR','FIRMADO','FACTURA','PENDIENTE DE FACTURA','POR ENTREGAR','ANALISIS','REVISION','VTT','PREVENCION DE FRAUDE','POR DISPERSAR','DISPERSADO','PENDIENTE DE REEMBOLSO','DEVOLUCION') THEN 'detenido'
+                WHEN UPPER(TRIM({$etapaExpr})) IN ('CANCELADO','CANCELADA','ELIMINADO','ELIMINADA','ENTREGADA','ENTREGADO','S2CREDIT') THEN 'terminal'
+                ELSE 'revisar_etapa'
+            END
+        ";
+    }
+
+    private static function metricasMaxiPorSucursales(array $fkSucursales, ?string $inicio = null, ?string $fin = null): array
+    {
+        $fkSucursales = array_values(array_unique(array_filter(array_map('intval', $fkSucursales), static fn($fk) => $fk > 0)));
+        if (!$fkSucursales) {
+            return [];
+        }
+
+        $metricas = [];
+        foreach ($fkSucursales as $fk) {
+            $metricas[$fk] = [
+                'total_pendientes' => 0,
+                'total_revisar_etapa' => 0,
+                'cash_detenido_total' => 0.0,
+                'cash_terminal_total' => 0.0,
+                'cash_avanzado_total' => 0.0,
+                'creditos_sin_etapa' => 0,
+                'cash_sin_etapa' => 0.0,
+                'bucket_resumen' => '',
+                'bucket_principal' => 'Sin pipeline operativo',
+                'creditos_vendidos' => 0,
+                'cash_vendido' => 0.0,
+            ];
+        }
+
+        try {
+            $maxi = new \core\DatabaseMaxiProd();
+            $bucketSql = self::atlasBucketSql('etapa');
+            $tipoSql = self::atlasTipoBucketSql('etapa');
+            foreach (array_chunk($fkSucursales, 800) as $chunkIndex => $chunk) {
+                $params = [];
+                $placeholders = [];
+                foreach ($chunk as $i => $fk) {
+                    $key = 'fk' . $chunkIndex . '_' . $i;
+                    $placeholders[] = ':' . $key;
+                    $params[$key] = $fk;
+                }
+                $fechaFiltro = '';
+                if ($inicio !== null && $fin !== null) {
+                    $fechaFiltro = ' AND o.fecha_hora >= :inicio AND o.fecha_hora < :fin';
+                    $params['inicio'] = $inicio;
+                    $params['fin'] = $fin;
+                }
+
+                $rows = $maxi->queryAll("
+                    SELECT
+                        q.fk_sucursal,
+                        q.bucket_actual,
+                        q.tipo_bucket_actual,
+                        COUNT(*) AS total,
+                        COALESCE(SUM(q.monto_financiar), 0) AS cash
+                    FROM (
+                        SELECT
+                            u.fk_sucursal,
+                            COALESCE(o.monto_financiar, 0) AS monto_financiar,
+                            {$bucketSql} AS bucket_actual,
+                            {$tipoSql} AS tipo_bucket_actual
+                        FROM oferta o
+                        INNER JOIN usuario u
+                                ON u.pk_usuario = o.fk_usuario_creacion
+                        WHERE o.estatus = 1
+                          AND u.fk_sucursal IN (" . implode(',', $placeholders) . ")
+                          {$fechaFiltro}
+                    ) q
+                    GROUP BY q.fk_sucursal, q.bucket_actual, q.tipo_bucket_actual
+                ", $params);
+
+                foreach ($rows as $row) {
+                    $fk = (int)($row['fk_sucursal'] ?? 0);
+                    if (!isset($metricas[$fk])) {
+                        continue;
+                    }
+                    $tipo = (string)($row['tipo_bucket_actual'] ?? '');
+                    $bucket = (string)($row['bucket_actual'] ?? 'Sin pipeline operativo');
+                    $total = (int)($row['total'] ?? 0);
+                    $cash = (float)($row['cash'] ?? 0);
+                    $metricas[$fk]['_buckets'][$bucket] = ($metricas[$fk]['_buckets'][$bucket] ?? 0) + $total;
+                    if ($tipo === 'detenido') {
+                        $metricas[$fk]['total_pendientes'] += $total;
+                        $metricas[$fk]['cash_detenido_total'] += $cash;
+                    } elseif ($tipo === 'terminal') {
+                        $metricas[$fk]['cash_terminal_total'] += $cash;
+                        $metricas[$fk]['cash_avanzado_total'] += $cash;
+                        $metricas[$fk]['creditos_vendidos'] += $total;
+                        $metricas[$fk]['cash_vendido'] += $cash;
+                    } elseif ($tipo === 'sin_etapa') {
+                        $metricas[$fk]['creditos_sin_etapa'] += $total;
+                        $metricas[$fk]['cash_sin_etapa'] += $cash;
+                    } elseif ($tipo === 'revisar_etapa') {
+                        $metricas[$fk]['total_revisar_etapa'] += $total;
+                    }
+                }
+            }
+
+            foreach ($metricas as &$metrica) {
+                $buckets = $metrica['_buckets'] ?? [];
+                if ($buckets) {
+                    arsort($buckets);
+                    $resumen = [];
+                    foreach ($buckets as $bucket => $total) {
+                        $resumen[] = $bucket . ': ' . $total;
+                    }
+                    $metrica['bucket_principal'] = (string)array_key_first($buckets);
+                    $metrica['bucket_resumen'] = implode(' | ', $resumen);
+                }
+                unset($metrica['_buckets']);
+            }
+            unset($metrica);
+        } catch (\Throwable $e) {
+            error_log('[Atlas][MaxiMetricas] ' . $e->getMessage());
+        }
+
+        return $metricas;
+    }
+
+    private static function creditosMaxiPorSucursal(int $fkSucursal, int $limit = 500): array
+    {
+        if ($fkSucursal <= 0) {
+            return [];
+        }
+
+        try {
+            $maxi = new \core\DatabaseMaxiProd();
+            $bucketSql = self::atlasBucketSql('o.etapa');
+            $tipoSql = self::atlasTipoBucketSql('o.etapa');
+            return $maxi->queryAll("
+                SELECT
+                    o.id_oferta AS credito_id,
+                    o.id_oferta AS id_solicitud,
+                    o.numero_credito,
+                    CONCAT_WS(' ', p.primer_nombre, p.segundo_nombre, p.apellido_paterno, p.apellido_materno) AS usuario,
+                    o.modelo_moto,
+                    o.marca_moto,
+                    o.precio_moto,
+                    o.enganche,
+                    o.fecha_primer_pago AS fecha_siguiente_seguimiento,
+                    DATE_FORMAT(o.fecha_primer_pago, '%d/%m/%Y') AS fecha_siguiente_seguimiento_fmt,
+                    o.id_oferta AS oferta_id,
+                    {$bucketSql} AS bucket_operativo,
+                    {$tipoSql} AS tipo_bucket,
+                    COALESCE(o.monto_financiar, 0) AS monto_financiar,
+                    'maxi.oferta.monto_financiar' AS fuente_monto
+                FROM oferta o
+                INNER JOIN usuario u
+                        ON u.pk_usuario = o.fk_usuario_creacion
+                LEFT JOIN persona p
+                       ON p.id_persona = o.fk_persona
+                WHERE o.estatus = 1
+                  AND u.fk_sucursal = :fk_sucursal
+                ORDER BY
+                    CASE
+                        WHEN {$tipoSql} = 'detenido' THEN 0
+                        WHEN {$tipoSql} = 'revisar_etapa' THEN 1
+                        ELSE 2
+                    END,
+                    COALESCE(o.monto_financiar, 0) DESC,
+                    o.id_oferta ASC
+                LIMIT " . max(1, min(1000, $limit)) . "
+            ", ['fk_sucursal' => $fkSucursal]);
+        } catch (\Throwable $e) {
+            error_log('[Atlas][MaxiCreditosSucursal] ' . $e->getMessage());
+            return [];
+        }
+    }
+
     public static function getSucursalesAsignadas(): array
     {
         try {
@@ -2879,75 +3074,20 @@ class Atlas extends Model
                     COALESCE(reg.nombre, 'Sin regional') AS regional_nombre,
                     COALESCE(gest.gestores_asignados, 'Sin gestor') AS gestores_asignados,
                     COALESCE(gest.total_gestores, 0) AS total_gestores,
-                    COALESCE(res.total_pendientes, 0) AS total_pendientes,
-                    COALESCE(res.total_revisar_etapa, 0) AS total_revisar_etapa,
-                    COALESCE(res.cash_detenido_total, 0) AS cash_detenido_total,
-                    COALESCE(res.cash_terminal_total, 0) AS cash_terminal_total,
-                    COALESCE(res.cash_avanzado_total, 0) AS cash_avanzado_total,
-                    COALESCE(res.creditos_sin_etapa, 0) AS creditos_sin_etapa,
-                    COALESCE(res.cash_sin_etapa, 0) AS cash_sin_etapa,
-                    COALESCE(res.bucket_principal_raw, 'Sin pipeline operativo') AS bucket_principal_raw,
-                    COALESCE(buckets.bucket_resumen, '') AS bucket_resumen,
+                    0 AS total_pendientes,
+                    0 AS total_revisar_etapa,
+                    0 AS cash_detenido_total,
+                    0 AS cash_terminal_total,
+                    0 AS cash_avanzado_total,
+                    0 AS creditos_sin_etapa,
+                    0 AS cash_sin_etapa,
+                    'Sin pipeline operativo' AS bucket_principal,
+                    '' AS bucket_resumen,
                     CASE WHEN pdet.id IS NULL THEN 0 ELSE 1 END AS tiene_presupuesto,
                     pdet.id AS presupuesto_detalle_id,
                     COALESCE(pdet.meta_creditos, 0) AS presupuesto_meta_creditos,
                     COALESCE(pdet.meta_cash, 0) AS presupuesto_meta_cash
                 FROM atlas_catalogo_sucursales s
-                LEFT JOIN (
-                    SELECT
-                        x.fk_sucursal,
-                        SUM(CASE WHEN x.tipo_bucket_actual = 'detenido' OR x.bucket_actual LIKE 'DETENIDO:%' THEN 1 ELSE 0 END) AS total_pendientes,
-                        SUM(CASE WHEN x.tipo_bucket_actual = 'revisar_etapa' OR x.bucket_actual LIKE 'REVISAR ETAPA:%' THEN 1 ELSE 0 END) AS total_revisar_etapa,
-                        SUM(CASE WHEN x.tipo_bucket_actual = 'detenido' OR x.bucket_actual LIKE 'DETENIDO:%' THEN COALESCE(x.monto_financiar, 0) ELSE 0 END) AS cash_detenido_total,
-                        SUM(CASE WHEN x.tipo_bucket_actual = 'terminal' OR x.bucket_actual = 'NO DETENIDO / TERMINAL O POST-OPERATIVO' THEN COALESCE(x.monto_financiar, 0) ELSE 0 END) AS cash_terminal_total,
-                        SUM(CASE WHEN x.tipo_bucket_actual = 'terminal' OR x.bucket_actual = 'NO DETENIDO / TERMINAL O POST-OPERATIVO' THEN COALESCE(x.monto_financiar, 0) ELSE 0 END) AS cash_avanzado_total,
-                        SUM(CASE WHEN x.tipo_bucket_actual = 'sin_etapa' OR x.bucket_actual = 'DATOS SIN ETAPA / DEPURAR' THEN 1 ELSE 0 END) AS creditos_sin_etapa,
-                        SUM(CASE WHEN x.tipo_bucket_actual = 'sin_etapa' OR x.bucket_actual = 'DATOS SIN ETAPA / DEPURAR' THEN COALESCE(x.monto_financiar, 0) ELSE 0 END) AS cash_sin_etapa,
-                        SUBSTRING_INDEX(
-                            GROUP_CONCAT(CONCAT(x.bucket_actual, '::', x.bucket_count) ORDER BY x.bucket_count DESC, x.bucket_actual ASC SEPARATOR '|'),
-                            '|',
-                            1
-                        ) AS bucket_principal_raw
-                    FROM (
-                        SELECT
-                            ac.fk_sucursal,
-                            COALESCE(NULLIF(snap.bucket_actual, ''), 'SIN SNAPSHOT') AS bucket_actual,
-                            COALESCE(NULLIF(snap.tipo_bucket_actual, ''), 'sin_snapshot') AS tipo_bucket_actual,
-                            SUM(COALESCE(snap.monto_financiar, c.cash_detenido, c.monto_credito, 0)) AS monto_financiar,
-                            COUNT(*) AS bucket_count
-                        FROM atlas_asigna_sucursal_credito ac
-                        INNER JOIN atlas_creditos c
-                                ON c.id = ac.credito_id
-                               AND c.activo = 1
-                        LEFT JOIN atlas_creditos_oferta_snapshot snap
-                               ON snap.credito_id = c.id
-                              AND snap.activo = 1
-                        WHERE ac.activo = 1
-                        GROUP BY ac.fk_sucursal, bucket_actual, tipo_bucket_actual
-                    ) x
-                    GROUP BY x.fk_sucursal
-                ) res ON res.fk_sucursal = s.fk_sucursal
-                LEFT JOIN (
-                    SELECT
-                        y.fk_sucursal,
-                        GROUP_CONCAT(CONCAT(y.bucket_actual, ': ', y.bucket_count) ORDER BY y.bucket_count DESC, y.bucket_actual ASC SEPARATOR ' | ') AS bucket_resumen
-                    FROM (
-                        SELECT
-                            ac.fk_sucursal,
-                            COALESCE(NULLIF(snap.bucket_actual, ''), 'SIN SNAPSHOT') AS bucket_actual,
-                            COUNT(*) AS bucket_count
-                        FROM atlas_asigna_sucursal_credito ac
-                        INNER JOIN atlas_creditos c
-                                ON c.id = ac.credito_id
-                               AND c.activo = 1
-                        LEFT JOIN atlas_creditos_oferta_snapshot snap
-                               ON snap.credito_id = c.id
-                              AND snap.activo = 1
-                        WHERE ac.activo = 1
-                        GROUP BY ac.fk_sucursal, bucket_actual
-                    ) y
-                    GROUP BY y.fk_sucursal
-                ) buckets ON buckets.fk_sucursal = s.fk_sucursal
                 LEFT JOIN atlas_asigna_telefono_sucursal tel
                        ON tel.fk_sucursal = s.fk_sucursal
                       AND tel.activo = 1
@@ -2976,17 +3116,26 @@ class Atlas extends Model
                     GROUP BY gs.fk_sucursal
                 ) gest ON gest.fk_sucursal = s.fk_sucursal
                 WHERE s.activo = 1
-                ORDER BY res.cash_detenido_total DESC, res.total_pendientes DESC, s.sucursal ASC
+                ORDER BY s.sucursal ASC
             ", ['presupuesto_id' => $presupuestoBaseId]);
 
+            $metricasMaxi = self::metricasMaxiPorSucursales(array_column($rows, 'fk_sucursal'));
             foreach ($rows as &$row) {
-                $raw = (string)($row['bucket_principal_raw'] ?? '');
-                if ($raw !== '' && str_contains($raw, '::')) {
-                    $row['bucket_principal'] = explode('::', $raw, 2)[0];
+                $fk = (int)($row['fk_sucursal'] ?? 0);
+                if (isset($metricasMaxi[$fk])) {
+                    foreach ($metricasMaxi[$fk] as $key => $value) {
+                        $row[$key] = $value;
+                    }
                 }
-                unset($row['bucket_principal_raw']);
             }
             unset($row);
+            usort($rows, static function ($a, $b) {
+                $cashCmp = (float)($b['cash_detenido_total'] ?? 0) <=> (float)($a['cash_detenido_total'] ?? 0);
+                if ($cashCmp !== 0) return $cashCmp;
+                $pendCmp = (int)($b['total_pendientes'] ?? 0) <=> (int)($a['total_pendientes'] ?? 0);
+                if ($pendCmp !== 0) return $pendCmp;
+                return strcmp((string)($a['sucursal'] ?? ''), (string)($b['sucursal'] ?? ''));
+            });
 
             return [
                 'success' => true,
@@ -3057,39 +3206,7 @@ class Atlas extends Model
                 ORDER BY gs.es_principal DESC, gestor_nombre ASC
             ", ['fk' => $fkSucursal]);
 
-            $creditos = $db->queryAll("
-                SELECT
-                    c.id AS credito_id,
-                    c.id_solicitud,
-                    c.usuario,
-                    c.fecha_siguiente_seguimiento,
-                    DATE_FORMAT(c.fecha_siguiente_seguimiento, '%d/%m/%Y %H:%i') AS fecha_siguiente_seguimiento_fmt,
-                    ac.credito_id AS vinculo_credito_id,
-                    ac.fk_sucursal AS vinculo_fk_sucursal,
-                    snap.oferta_id,
-                    COALESCE(NULLIF(snap.etapa_actual, ''), c.estatus_actual, 'Sin etapa') AS etapa_original,
-                    COALESCE(NULLIF(snap.bucket_actual, ''), c.estatus_actual, 'SIN SNAPSHOT') AS bucket_operativo,
-                    COALESCE(NULLIF(snap.tipo_bucket_actual, ''), 'sin_snapshot') AS tipo_bucket,
-                    COALESCE(snap.monto_financiar, c.cash_detenido, c.monto_credito, 0) AS monto_financiar,
-                    CASE WHEN snap.monto_financiar IS NOT NULL THEN 'oferta.monto_financiar' ELSE 'atlas_creditos' END AS fuente_monto
-                FROM atlas_asigna_sucursal_credito ac
-                INNER JOIN atlas_creditos c
-                        ON c.id = ac.credito_id
-                       AND c.activo = 1
-                LEFT JOIN atlas_creditos_oferta_snapshot snap
-                       ON snap.credito_id = c.id
-                      AND snap.activo = 1
-                WHERE ac.fk_sucursal = :fk
-                  AND ac.activo = 1
-                ORDER BY
-                    CASE
-                        WHEN snap.es_pendiente_operativo = 1 THEN 0
-                        WHEN snap.tipo_bucket_actual = 'revisar_etapa' THEN 1
-                        ELSE 2
-                    END,
-                    monto_financiar DESC,
-                    c.id_solicitud ASC
-            ", ['fk' => $fkSucursal]);
+            $creditos = self::creditosMaxiPorSucursal($fkSucursal);
 
             return [
                 'success' => true,
@@ -3134,7 +3251,6 @@ class Atlas extends Model
                 presupuesto_id BIGINT UNSIGNED NOT NULL,
                 fk_sucursal INT NOT NULL,
                 sucursal VARCHAR(180) NULL,
-                diversificacion VARCHAR(120) NULL,
                 distribuidor VARCHAR(180) NULL,
                 divisional VARCHAR(180) NULL,
                 regional VARCHAR(180) NULL,
@@ -3361,54 +3477,7 @@ class Atlas extends Model
                 }
             }
 
-            $snapshotExiste = $db->queryOne("SHOW TABLES LIKE 'atlas_creditos_oferta_snapshot'");
-            $fechaExpr = '';
-            if ($snapshotExiste) {
-                foreach (['fecha_salida_operativa', 'fecha_ultima_sync', 'updated_at', 'fecha_actualizacion'] as $columnaFecha) {
-                    $col = $db->queryOne("SHOW COLUMNS FROM atlas_creditos_oferta_snapshot LIKE :columna", ['columna' => $columnaFecha]);
-                    if ($col) {
-                        $fechaExpr = "snap.`$columnaFecha`";
-                        break;
-                    }
-                }
-            }
-
-            $rankingJoin = "
-                LEFT JOIN (
-                    SELECT NULL AS fk_sucursal, 0 AS creditos_vendidos, 0 AS cash_vendido
-                ) ventas ON 1 = 0
-            ";
             $params = ['id' => $id];
-            if ($snapshotExiste) {
-                $filtroFecha = '';
-                if ($fechaExpr !== '') {
-                    $filtroFecha = "AND $fechaExpr >= :inicio AND $fechaExpr < :fin";
-                    $params['inicio'] = $inicio->format('Y-m-d H:i:s');
-                    $params['fin'] = $fin->format('Y-m-d H:i:s');
-                }
-                $rankingJoin = "
-                    LEFT JOIN (
-                        SELECT
-                            ac.fk_sucursal,
-                            COUNT(DISTINCT c.id) AS creditos_vendidos,
-                            COALESCE(SUM(COALESCE(snap.monto_financiar, c.cash_detenido, c.monto_credito, 0)), 0) AS cash_vendido
-                        FROM atlas_asigna_sucursal_credito ac
-                        INNER JOIN atlas_creditos c
-                                ON c.id = ac.credito_id
-                               AND c.activo = 1
-                        INNER JOIN atlas_creditos_oferta_snapshot snap
-                                ON snap.credito_id = c.id
-                               AND snap.activo = 1
-                        WHERE ac.activo = 1
-                          AND (
-                              snap.tipo_bucket_actual = 'terminal'
-                              OR snap.bucket_actual = 'NO DETENIDO / TERMINAL O POST-OPERATIVO'
-                          )
-                          $filtroFecha
-                        GROUP BY ac.fk_sucursal
-                    ) ventas ON ventas.fk_sucursal = d.fk_sucursal
-                ";
-            }
 
             if ($orden === 'creditos') {
                 $orderSql = "creditos_vendidos DESC, d.meta_creditos DESC, cash_vendido DESC";
@@ -3426,18 +3495,28 @@ class Atlas extends Model
                     d.clasificacion,
                     d.meta_creditos,
                     d.meta_cash,
-                    COALESCE(ventas.creditos_vendidos, 0) AS creditos_vendidos,
-                    COALESCE(ventas.cash_vendido, 0) AS cash_vendido
+                    0 AS creditos_vendidos,
+                    0 AS cash_vendido
                 FROM atlas_presupuesto_sucursal_detalle d
-                $rankingJoin
                 WHERE d.presupuesto_id = :id
                   AND d.activo = 1
-                ORDER BY $orderSql
+                ORDER BY d.meta_cash DESC, d.sucursal ASC
             ", $params);
+
+            $metricasMaxi = self::metricasMaxiPorSucursales(
+                array_column($rows, 'fk_sucursal'),
+                $inicio->format('Y-m-d H:i:s'),
+                $fin->format('Y-m-d H:i:s')
+            );
 
             $totalVendido = 0.0;
             $totalCreditos = 0;
             foreach ($rows as &$row) {
+                $fk = (int)($row['fk_sucursal'] ?? 0);
+                if (isset($metricasMaxi[$fk])) {
+                    $row['creditos_vendidos'] = (int)($metricasMaxi[$fk]['creditos_vendidos'] ?? 0);
+                    $row['cash_vendido'] = (float)($metricasMaxi[$fk]['cash_vendido'] ?? 0);
+                }
                 $metaCash = (float)($row['meta_cash'] ?? 0);
                 $cashAvanzado = (float)($row['cash_vendido'] ?? 0);
                 $cashDetenido = max($metaCash - $cashAvanzado, 0);
@@ -3448,6 +3527,18 @@ class Atlas extends Model
                 $totalCreditos += (int)($row['creditos_vendidos'] ?? 0);
             }
             unset($row);
+            usort($rows, static function ($a, $b) use ($orden) {
+                if ($orden === 'creditos') {
+                    $cmp = (int)($b['creditos_vendidos'] ?? 0) <=> (int)($a['creditos_vendidos'] ?? 0);
+                    if ($cmp !== 0) return $cmp;
+                } elseif ($orden === 'avanzado') {
+                    $cmp = (float)($b['cash_avanzado'] ?? 0) <=> (float)($a['cash_avanzado'] ?? 0);
+                    if ($cmp !== 0) return $cmp;
+                }
+                $cmp = (float)($b['meta_cash'] ?? 0) <=> (float)($a['meta_cash'] ?? 0);
+                if ($cmp !== 0) return $cmp;
+                return strcmp((string)($a['sucursal'] ?? ''), (string)($b['sucursal'] ?? ''));
+            });
 
             return [
                 'success' => true,
@@ -3459,7 +3550,7 @@ class Atlas extends Model
                     'inicio' => $inicio->format('Y-m-d H:i:s'),
                     'fin' => $fin->format('Y-m-d H:i:s'),
                     'orden' => $orden,
-                    'fuente' => $snapshotExiste ? ($fechaExpr !== '' ? 'avance_local_fecha' : 'avance_local_sin_fecha') : 'presupuesto',
+                    'fuente' => 'Maxi en tiempo real',
                     'vendido_real_disponible' => $totalVendido > 0 || $totalCreditos > 0,
                     'ranking' => $rows,
                 ],
@@ -3576,7 +3667,6 @@ class Atlas extends Model
         self::asegurarColumna($db, 'atlas_ruta_sucursales', 'hora_llegada', "TIME NULL");
         self::asegurarColumna($db, 'atlas_ruta_sucursales', 'estancia_valor', "INT NULL");
         self::asegurarColumna($db, 'atlas_ruta_sucursales', 'estancia_unidad', "VARCHAR(20) NULL");
-        self::asegurarColumna($db, 'atlas_ruta_sucursales', 'hora_salida_sugerida', "TIME NULL");
     }
 
     private static function rutaSucursalTieneGestion(Database $db, int $rutaSucursalId): bool
@@ -3632,8 +3722,8 @@ class Atlas extends Model
                     p.anio AS presupuesto_anio,
                     COALESCE(suc.total_sucursales, 0) AS total_sucursales,
                     COALESCE(suc.sucursales_ruta, '') AS sucursales_ruta,
-                    COALESCE(cred.total_creditos, 0) AS total_creditos,
-                    COALESCE(cred.cash_detenido_operativo, 0) AS cash_detenido_operativo,
+                    0 AS total_creditos,
+                    0 AS cash_detenido_operativo,
                     COALESCE(meta.meta_creditos, 0) AS meta_creditos,
                     COALESCE(meta.meta_cash, 0) AS meta_cash
                 FROM atlas_rutas_gestores r
@@ -3645,16 +3735,6 @@ class Atlas extends Model
                     WHERE rs.activo = 1
                     GROUP BY rs.ruta_id
                 ) suc ON suc.ruta_id = r.id
-                LEFT JOIN (
-                    SELECT rs.ruta_id, COUNT(DISTINCT ac.credito_id) AS total_creditos, SUM(COALESCE(snap.monto_financiar, c.cash_detenido, c.monto_credito, 0)) AS cash_detenido_operativo
-                    FROM atlas_ruta_sucursales rs
-                    INNER JOIN atlas_asigna_sucursal_credito ac ON ac.fk_sucursal = rs.fk_sucursal AND ac.activo = 1
-                    INNER JOIN atlas_creditos c ON c.id = ac.credito_id AND c.activo = 1
-                    LEFT JOIN atlas_creditos_oferta_snapshot snap ON snap.credito_id = c.id AND snap.activo = 1
-                    WHERE rs.activo = 1
-                      AND (snap.es_pendiente_operativo = 1 OR snap.tipo_bucket_actual = 'detenido' OR snap.bucket_actual LIKE 'DETENIDO:%')
-                    GROUP BY rs.ruta_id
-                ) cred ON cred.ruta_id = r.id
                 LEFT JOIN (
                     SELECT rs.ruta_id,
                            SUM(COALESCE(pdet.meta_creditos, 0)) AS meta_creditos,
@@ -3671,6 +3751,32 @@ class Atlas extends Model
                 WHERE r.activo = 1
                 ORDER BY COALESCE(r.fecha_inicio, r.fecha_ruta) DESC, r.id DESC
             ");
+            $rutaSucursales = $db->queryAll("SELECT ruta_id, fk_sucursal FROM atlas_ruta_sucursales WHERE activo = 1");
+            $sucursalesPorRuta = [];
+            $fkMetricas = [];
+            foreach ($rutaSucursales as $rs) {
+                $rutaId = (int)($rs['ruta_id'] ?? 0);
+                $fk = (int)($rs['fk_sucursal'] ?? 0);
+                if ($rutaId > 0 && $fk > 0) {
+                    $sucursalesPorRuta[$rutaId][] = $fk;
+                    $fkMetricas[] = $fk;
+                }
+            }
+            $metricasMaxi = self::metricasMaxiPorSucursales($fkMetricas);
+            foreach ($rows as &$row) {
+                $rutaId = (int)($row['id'] ?? 0);
+                $totalCreditos = 0;
+                $cashDetenido = 0.0;
+                foreach (($sucursalesPorRuta[$rutaId] ?? []) as $fk) {
+                    $metrica = $metricasMaxi[$fk] ?? [];
+                    $totalCreditos += (int)($metrica['total_pendientes'] ?? 0);
+                    $cashDetenido += (float)($metrica['cash_detenido_total'] ?? 0);
+                }
+                $row['total_creditos'] = $totalCreditos;
+                $row['cash_detenido_operativo'] = $cashDetenido;
+            }
+            unset($row);
+
             return ['success' => true, 'datos' => $rows];
         } catch (\Throwable $e) {
             return ['success' => false, 'mensaje' => 'No se pudieron obtener rutas.', 'error' => $e->getMessage(), 'datos' => []];
@@ -3787,6 +3893,7 @@ class Atlas extends Model
     {
         try {
             $db = new Database();
+            self::asegurarColumna($db, 'atlas_catalogo_sucursales', 'estadia_sugerida', "VARCHAR(60) NULL");
             $gestores = $db->queryAll("
                 SELECT id, numero_empleado, TRIM(CONCAT_WS(' ', nombres, segundo_nombre, apellidop, apellidom)) AS nombre, correo
                 FROM persona
@@ -3801,6 +3908,7 @@ class Atlas extends Model
                     COALESCE(NULLIF(s.direccion_sucursal, ''), TRIM(CONCAT_WS(', ', NULLIF(s.calle, ''), NULLIF(s.numero_exterior, ''), NULLIF(s.colonia, ''), NULLIF(s.municipio, ''), NULLIF(s.estado, '')))) AS direccion,
                     s.latitud,
                     s.longitud,
+                    s.estadia_sugerida,
                     s.clasificacion_id,
                     COALESCE(s.divisional_persona_id, s.divisional_id) AS divisional_id,
                     s.division_id,
@@ -3839,414 +3947,6 @@ class Atlas extends Model
         }
     }
 
-    private static function atlasBucketOfertaMexico(?string $etapa): array
-    {
-        $etapaLimpia = strtoupper(trim((string)$etapa));
-        if ($etapaLimpia === '') {
-            return ['bucket' => 'DATOS SIN ETAPA / DEPURAR', 'tipo' => 'sin_etapa', 'pendiente' => 0, 'requiere' => 0, 'motivo' => 'OFERTA_SIN_ETAPA'];
-        }
-
-        $map = [
-            'DETENIDO: ENGANCHE / PRIMER PAGO' => ['SOLICITUD', 'SOLCITUD', 'ENGANCHE DIFERIDO'],
-            'DETENIDO: FIRMA / REVISION FIRMA' => ['POR FIRMAR', 'FIRMADO'],
-            'DETENIDO: FACTURA' => ['FACTURA', 'PENDIENTE DE FACTURA'],
-            'DETENIDO: ENTREGA' => ['POR ENTREGAR'],
-            'DETENIDO: VALIDACION / RIESGO' => ['ANALISIS', 'REVISION', 'VTT', 'PREVENCION DE FRAUDE'],
-            'DETENIDO: DISPERSION' => ['POR DISPERSAR', 'DISPERSADO'],
-            'DETENIDO: REEMBOLSO / DEVOLUCION' => ['PENDIENTE DE REEMBOLSO', 'DEVOLUCION'],
-        ];
-        foreach ($map as $bucket => $etapas) {
-            if (in_array($etapaLimpia, $etapas, true)) {
-                return ['bucket' => $bucket, 'tipo' => 'detenido', 'pendiente' => 1, 'requiere' => 1, 'motivo' => null];
-            }
-        }
-
-        $terminales = ['CANCELADO', 'CANCELADA', 'ELIMINADO', 'ELIMINADA', 'ENTREGADA', 'ENTREGADO', 'S2CREDIT'];
-        if (in_array($etapaLimpia, $terminales, true)) {
-            return ['bucket' => 'NO DETENIDO / TERMINAL O POST-OPERATIVO', 'tipo' => 'terminal', 'pendiente' => 0, 'requiere' => 0, 'motivo' => 'ETAPA_TERMINAL_' . preg_replace('/[^A-Z0-9]+/', '_', $etapaLimpia)];
-        }
-
-        return ['bucket' => 'REVISAR ETAPA: ' . $etapaLimpia, 'tipo' => 'revisar_etapa', 'pendiente' => 0, 'requiere' => 0, 'motivo' => 'ETAPA_NO_MAPEADA'];
-    }
-
-    private static function upsertDepuracionAtlas(Database $db, array $data, bool $dryRun): void
-    {
-        if ($dryRun) return;
-        $db->CRUD("
-            INSERT INTO atlas_bandeja_entrada_depuracion
-            (tipo, credito_id, id_solicitud, oferta_id, fk_sucursal_origen, sucursal_origen, etapa_origen, bucket_operativo, motivo, payload_json, estatus, fecha_detectado, activo, fecha_actualizacion)
-            VALUES
-            (:tipo, :credito_id, :id_solicitud, :oferta_id, :fk_sucursal_origen, :sucursal_origen, :etapa_origen, :bucket_operativo, :motivo, :payload_json, 'pendiente', NOW(), 1, NOW())
-            ON DUPLICATE KEY UPDATE
-                credito_id = VALUES(credito_id),
-                etapa_origen = VALUES(etapa_origen),
-                bucket_operativo = VALUES(bucket_operativo),
-                motivo = VALUES(motivo),
-                payload_json = VALUES(payload_json),
-                estatus = IF(estatus = 'resuelto', 'pendiente', estatus),
-                activo = 1,
-                fecha_actualizacion = NOW()
-        ", [
-            'tipo' => (string)($data['tipo'] ?? 'depuracion'),
-            'credito_id' => self::nullableInt($data['credito_id'] ?? null),
-            'id_solicitud' => (string)($data['id_solicitud'] ?? ''),
-            'oferta_id' => self::nullableInt($data['oferta_id'] ?? null),
-            'fk_sucursal_origen' => self::nullableInt($data['fk_sucursal_origen'] ?? null),
-            'sucursal_origen' => self::nullableStr($data['sucursal_origen'] ?? null),
-            'etapa_origen' => self::nullableStr($data['etapa_origen'] ?? null),
-            'bucket_operativo' => self::nullableStr($data['bucket_operativo'] ?? null),
-            'motivo' => (string)($data['motivo'] ?? 'DEPURACION'),
-            'payload_json' => json_encode($data['payload'] ?? [], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
-        ]);
-    }
-
-    public static function sincronizarCreditosOfertaMexico(array $input = []): array
-    {
-        $dryRun = (int)($input['dry_run'] ?? 1) === 1;
-        $limit = max(1, min(5000, (int)($input['limit'] ?? $input['lote'] ?? 500)));
-        $afterId = self::nullableInt($input['after_id'] ?? null);
-        $resetCursor = (int)($input['reset_cursor'] ?? 0) === 1;
-        $stats = [
-            'dry_run' => $dryRun,
-            'asignaciones_leidas' => 0,
-            'cruzadas_con_oferta' => 0,
-            'sin_llave_oferta' => 0,
-            'sin_oferta' => 0,
-            'ofertas_leidas_maxi' => 0,
-            'creditos_upsert' => 0,
-            'asignaciones_upsert' => 0,
-            'sin_sucursal_maxi' => 0,
-            'sucursal_no_mapeada' => 0,
-            'max_oferta_id_procesado' => 0,
-            'importadas_nuevas' => 0,
-            'cambios_etapa' => 0,
-            'cambios_monto' => 0,
-            'terminalizadas' => 0,
-            'reactivadas' => 0,
-            'pendientes_operativas' => 0,
-            'requieren_revision_etapa' => 0,
-            'sin_etapa_depurar' => 0,
-        ];
-
-        try {
-            $db = new Database();
-            $maxi = new \core\DatabaseMaxiProd();
-            $control = $db->queryOne("SELECT * FROM atlas_sync_oferta_mexico_control WHERE proceso = 'oferta_mexico' AND activo = 1 LIMIT 1");
-            if (!$control && !$dryRun) {
-                $db->CRUD("
-                    INSERT INTO atlas_sync_oferta_mexico_control (proceso, last_offer_id, last_run_at, activo, fecha_alta, fecha_actualizacion)
-                    VALUES ('oferta_mexico', 0, NOW(), 1, NOW(), NOW())
-                ");
-                $control = $db->queryOne("SELECT * FROM atlas_sync_oferta_mexico_control WHERE proceso = 'oferta_mexico' AND activo = 1 LIMIT 1");
-            }
-            $cursor = $resetCursor ? 0 : (int)($afterId ?? ($control['last_offer_id'] ?? 0));
-
-            try {
-                $ofertas = $maxi->queryAll("
-                    SELECT
-                        b.id_oferta,
-                        b.id_oferta AS id_solicitud,
-                        b.pk_sucursal,
-                        b.sucursal,
-                        b.distribuidor,
-                        b.etapa,
-                        b.monto_financiar
-                    FROM vw_ofertas_base b
-                    WHERE b.id_oferta > :cursor
-                      AND b.estatus = 1
-                    ORDER BY b.id_oferta ASC
-                    LIMIT {$limit}
-                ", ['cursor' => $cursor]);
-                $stats['fuente_maxi'] = 'vw_ofertas_base';
-            } catch (\Throwable $viewError) {
-                $ofertas = $maxi->queryAll("
-                    SELECT
-                        o.id_oferta,
-                        o.id_oferta AS id_solicitud,
-                        u.fk_sucursal AS pk_sucursal,
-                        s.nombre AS sucursal,
-                        d.nombre AS distribuidor,
-                        o.etapa,
-                        o.monto_financiar
-                    FROM oferta o
-                    LEFT JOIN usuario u ON u.pk_usuario = o.fk_usuario_creacion
-                    LEFT JOIN sucursal s ON s.pk_sucursal = u.fk_sucursal
-                    LEFT JOIN distribuidor d ON d.pk_distribuidor = s.fk_distribuidor
-                    WHERE o.id_oferta > :cursor
-                      AND o.estatus = 1
-                    ORDER BY o.id_oferta ASC
-                    LIMIT {$limit}
-                ", ['cursor' => $cursor]);
-                $stats['fuente_maxi'] = 'oferta_usuario_sucursal';
-                $stats['fallback_motivo'] = 'vw_ofertas_base_no_consultable';
-            }
-            $stats['ofertas_leidas_maxi'] = count($ofertas);
-            $stats['asignaciones_leidas'] = count($ofertas);
-            $stats['cruzadas_con_oferta'] = count($ofertas);
-            if (!$ofertas) {
-                return ['success' => true, 'mensaje' => 'No hay ofertas nuevas para sincronizar.', 'datos' => $stats];
-            }
-
-            $sucursales = $db->queryAll("SELECT fk_sucursal FROM atlas_catalogo_sucursales WHERE activo = 1");
-            $sucursalesMap = array_fill_keys(array_map(static fn($r) => (string)$r['fk_sucursal'], $sucursales), true);
-            $ids = array_map(static fn($r) => (string)$r['id_oferta'], $ofertas);
-            $existentes = [];
-            if ($ids) {
-                $placeholders = [];
-                $params = [];
-                foreach ($ids as $i => $idOferta) {
-                    $key = 'id' . $i;
-                    $placeholders[] = ':' . $key;
-                    $params[$key] = $idOferta;
-                }
-                $rowsExistentes = $db->queryAll("SELECT id, id_solicitud FROM atlas_creditos WHERE id_solicitud IN (" . implode(',', $placeholders) . ")", $params);
-                foreach ($rowsExistentes as $row) {
-                    $existentes[(string)$row['id_solicitud']] = (int)$row['id'];
-                }
-            }
-
-            $ultimoId = $cursor;
-            foreach ($ofertas as $oferta) {
-                $ofertaId = (int)$oferta['id_oferta'];
-                $ultimoId = max($ultimoId, $ofertaId);
-                $stats['max_oferta_id_procesado'] = $ultimoId;
-                $idSolicitud = (string)$ofertaId;
-                $fkSucursal = self::nullableInt($oferta['pk_sucursal'] ?? null);
-                $bucket = self::atlasBucketOfertaMexico($oferta['etapa'] ?? null);
-                $montoRaw = $oferta['monto_financiar'] ?? null;
-                $monto = ($montoRaw === null || $montoRaw === '') ? 0.0 : (float)$montoRaw;
-
-                if (!$fkSucursal) {
-                    $stats['sin_sucursal_maxi']++;
-                    self::upsertDepuracionAtlas($db, [
-                        'tipo' => 'sin_sucursal',
-                        'id_solicitud' => $idSolicitud,
-                        'oferta_id' => $ofertaId,
-                        'etapa_origen' => $oferta['etapa'] ?? null,
-                        'bucket_operativo' => $bucket['bucket'],
-                        'motivo' => 'SIN_SUCURSAL_MAXI',
-                        'payload' => $oferta,
-                    ], $dryRun);
-                    continue;
-                }
-                if (!isset($sucursalesMap[(string)$fkSucursal])) {
-                    $stats['sucursal_no_mapeada']++;
-                    if (!$dryRun) {
-                        $db->CRUD("
-                            INSERT INTO atlas_sucursales_pendientes
-                            (fuente, fk_sucursal_origen, sucursal_origen, distribuidor_origen, oferta_id, id_solicitud, motivo, estatus, payload_json, fecha_detectado, activo, fecha_actualizacion)
-                            VALUES
-                            ('maxi', :fk_sucursal, :sucursal, :distribuidor, :oferta_id, :id_solicitud, 'SUCURSAL_NO_EXISTE_EN_SPARTA', 'pendiente', :payload_json, NOW(), 1, NOW())
-                            ON DUPLICATE KEY UPDATE
-                                sucursal_origen = VALUES(sucursal_origen),
-                                distribuidor_origen = VALUES(distribuidor_origen),
-                                payload_json = VALUES(payload_json),
-                                activo = 1,
-                                fecha_actualizacion = NOW()
-                        ", [
-                            'fk_sucursal' => $fkSucursal,
-                            'sucursal' => self::nullableStr($oferta['sucursal'] ?? null),
-                            'distribuidor' => self::nullableStr($oferta['distribuidor'] ?? null),
-                            'oferta_id' => $ofertaId,
-                            'id_solicitud' => $idSolicitud,
-                            'payload_json' => json_encode($oferta, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
-                        ]);
-                    }
-                    self::upsertDepuracionAtlas($db, [
-                        'tipo' => 'sucursal_no_mapeada',
-                        'id_solicitud' => $idSolicitud,
-                        'oferta_id' => $ofertaId,
-                        'fk_sucursal_origen' => $fkSucursal,
-                        'sucursal_origen' => $oferta['sucursal'] ?? null,
-                        'etapa_origen' => $oferta['etapa'] ?? null,
-                        'bucket_operativo' => $bucket['bucket'],
-                        'motivo' => 'SUCURSAL_NO_EXISTE_EN_SPARTA',
-                        'payload' => $oferta,
-                    ], $dryRun);
-                    continue;
-                }
-
-                if ($bucket['tipo'] === 'sin_etapa') $stats['sin_etapa_depurar']++;
-                if ($bucket['tipo'] === 'revisar_etapa') $stats['requieren_revision_etapa']++;
-                if ($bucket['pendiente']) $stats['pendientes_operativas']++;
-
-                $creditoId = $existentes[$idSolicitud] ?? 0;
-                $snapshotPrevio = $creditoId ? $db->queryOne("SELECT * FROM atlas_creditos_oferta_snapshot WHERE credito_id = :id LIMIT 1", ['id' => $creditoId]) : null;
-                if (!$dryRun) {
-                    $db->CRUD("
-                        INSERT INTO atlas_creditos
-                        (id_solicitud, fk_sucursal, usuario, monto_credito, cash_detenido, estatus_actual, prioridad, dias_en_estatus, activo, fecha_alta, fecha_actualizacion)
-                        VALUES
-                        (:id_solicitud, :fk_sucursal, :usuario, :monto, :cash, :estatus, :prioridad, 0, 1, NOW(), NOW())
-                        ON DUPLICATE KEY UPDATE
-                            fk_sucursal = VALUES(fk_sucursal),
-                            monto_credito = VALUES(monto_credito),
-                            cash_detenido = VALUES(cash_detenido),
-                            estatus_actual = VALUES(estatus_actual),
-                            activo = 1,
-                            fecha_actualizacion = NOW()
-                    ", [
-                        'id_solicitud' => $idSolicitud,
-                        'fk_sucursal' => $fkSucursal,
-                        'usuario' => self::nullableStr($oferta['sucursal'] ?? null),
-                        'monto' => $monto,
-                        'cash' => $bucket['pendiente'] ? $monto : 0,
-                        'estatus' => $bucket['bucket'],
-                        'prioridad' => $bucket['tipo'] === 'detenido' ? 'media' : 'baja',
-                    ]);
-                    if (!$creditoId) {
-                        $creditoId = (int)$db->lastInsertId();
-                        if (!$creditoId) {
-                            $row = $db->queryOne("SELECT id FROM atlas_creditos WHERE id_solicitud = :id LIMIT 1", ['id' => $idSolicitud]);
-                            $creditoId = (int)($row['id'] ?? 0);
-                        }
-                    }
-                    $existentes[$idSolicitud] = $creditoId;
-                } elseif (!$creditoId) {
-                    $creditoId = -$ofertaId;
-                }
-                $stats['creditos_upsert']++;
-                if (!$snapshotPrevio) $stats['importadas_nuevas']++;
-
-                if (!$dryRun && $creditoId > 0) {
-                    $db->CRUD("
-                        INSERT INTO atlas_asigna_sucursal_credito
-                        (credito_id, id_solicitud, fk_sucursal, tipo_asignacion, es_principal, activo, fecha_alta, fecha_actualizacion)
-                        VALUES
-                        (:credito_id, :id_solicitud, :fk_sucursal, 'maxi_sync', 1, 1, NOW(), NOW())
-                        ON DUPLICATE KEY UPDATE
-                            fk_sucursal = VALUES(fk_sucursal),
-                            tipo_asignacion = VALUES(tipo_asignacion),
-                            es_principal = 1,
-                            activo = 1,
-                            fecha_actualizacion = NOW()
-                    ", ['credito_id' => $creditoId, 'id_solicitud' => $idSolicitud, 'fk_sucursal' => $fkSucursal]);
-                }
-                $stats['asignaciones_upsert']++;
-
-                $evento = !$snapshotPrevio ? 'importado' : null;
-                if ($snapshotPrevio) {
-                    if ((string)($snapshotPrevio['etapa_actual'] ?? '') !== (string)($oferta['etapa'] ?? '') || (string)($snapshotPrevio['bucket_actual'] ?? '') !== $bucket['bucket']) {
-                        $stats['cambios_etapa']++;
-                        $evento = $bucket['tipo'] === 'terminal' ? 'terminalizado' : 'cambio_etapa';
-                    }
-                    if ((float)($snapshotPrevio['monto_financiar'] ?? 0) !== (float)$monto) {
-                        $stats['cambios_monto']++;
-                        $evento = $evento ?: 'cambio_monto';
-                    }
-                    if (($snapshotPrevio['tipo_bucket_actual'] ?? '') !== 'terminal' && $bucket['tipo'] === 'terminal') {
-                        $stats['terminalizadas']++;
-                        $evento = 'terminalizado';
-                    }
-                    if (($snapshotPrevio['tipo_bucket_actual'] ?? '') === 'terminal' && $bucket['tipo'] === 'detenido') {
-                        $stats['reactivadas']++;
-                        $evento = 'reactivado';
-                    }
-                } elseif ($bucket['tipo'] === 'terminal') {
-                    $stats['terminalizadas']++;
-                }
-
-                if (!$dryRun && $creditoId > 0) {
-                    $db->CRUD("
-                        INSERT INTO atlas_creditos_oferta_snapshot
-                        (credito_id, id_solicitud, oferta_id, fk_sucursal, etapa_origen, etapa_actual, bucket_origen, bucket_actual, tipo_bucket_actual, monto_financiar, es_pendiente_operativo, requiere_gestion, fecha_primer_snapshot, fecha_ultima_sync, activo, motivo_salida_operativa, fecha_salida_operativa, motivo_bloqueo_operativo, estatus_revision_operativa)
-                        VALUES
-                        (:credito_id, :id_solicitud, :oferta_id, :fk_sucursal, :etapa, :etapa, :bucket, :bucket, :tipo_bucket, :monto, :pendiente, :requiere, NOW(), NOW(), 1, :motivo_salida, :fecha_salida, :motivo_bloqueo, :estatus_revision)
-                        ON DUPLICATE KEY UPDATE
-                            fk_sucursal = VALUES(fk_sucursal),
-                            etapa_actual = VALUES(etapa_actual),
-                            bucket_actual = VALUES(bucket_actual),
-                            tipo_bucket_actual = VALUES(tipo_bucket_actual),
-                            monto_financiar = VALUES(monto_financiar),
-                            es_pendiente_operativo = VALUES(es_pendiente_operativo),
-                            requiere_gestion = VALUES(requiere_gestion),
-                            fecha_ultima_sync = NOW(),
-                            activo = 1,
-                            motivo_salida_operativa = VALUES(motivo_salida_operativa),
-                            fecha_salida_operativa = IF(VALUES(motivo_salida_operativa) IS NOT NULL AND fecha_salida_operativa IS NULL, NOW(), fecha_salida_operativa),
-                            motivo_bloqueo_operativo = VALUES(motivo_bloqueo_operativo),
-                            estatus_revision_operativa = VALUES(estatus_revision_operativa)
-                    ", [
-                        'credito_id' => $creditoId,
-                        'id_solicitud' => $idSolicitud,
-                        'oferta_id' => $ofertaId,
-                        'fk_sucursal' => $fkSucursal,
-                        'etapa' => self::nullableStr($oferta['etapa'] ?? null),
-                        'bucket' => $bucket['bucket'],
-                        'tipo_bucket' => $bucket['tipo'],
-                        'monto' => $monto,
-                        'pendiente' => $bucket['pendiente'],
-                        'requiere' => $bucket['requiere'],
-                        'motivo_salida' => $bucket['tipo'] === 'terminal' ? $bucket['motivo'] : null,
-                        'fecha_salida' => $bucket['tipo'] === 'terminal' ? date('Y-m-d H:i:s') : null,
-                        'motivo_bloqueo' => in_array($bucket['tipo'], ['sin_etapa', 'revisar_etapa'], true) ? $bucket['motivo'] : null,
-                        'estatus_revision' => $bucket['tipo'] === 'detenido' ? 'operativo' : $bucket['tipo'],
-                    ]);
-                    if ($evento) {
-                        $db->CRUD("
-                            INSERT INTO atlas_credito_etapa_historial
-                            (credito_id, id_solicitud, oferta_id, fk_sucursal, etapa_anterior, etapa_nueva, bucket_anterior, bucket_nuevo, tipo_bucket_anterior, tipo_bucket_nuevo, monto_financiar, evento, fuente, fecha_lectura, fecha_alta, motivo)
-                            VALUES
-                            (:credito_id, :id_solicitud, :oferta_id, :fk_sucursal, :etapa_anterior, :etapa_nueva, :bucket_anterior, :bucket_nuevo, :tipo_anterior, :tipo_nuevo, :monto, :evento, 'oferta_mexico', NOW(), NOW(), :motivo)
-                        ", [
-                            'credito_id' => $creditoId,
-                            'id_solicitud' => $idSolicitud,
-                            'oferta_id' => $ofertaId,
-                            'fk_sucursal' => $fkSucursal,
-                            'etapa_anterior' => $snapshotPrevio['etapa_actual'] ?? null,
-                            'etapa_nueva' => self::nullableStr($oferta['etapa'] ?? null),
-                            'bucket_anterior' => $snapshotPrevio['bucket_actual'] ?? null,
-                            'bucket_nuevo' => $bucket['bucket'],
-                            'tipo_anterior' => $snapshotPrevio['tipo_bucket_actual'] ?? null,
-                            'tipo_nuevo' => $bucket['tipo'],
-                            'monto' => $monto,
-                            'evento' => $evento,
-                            'motivo' => $bucket['motivo'],
-                        ]);
-                    }
-                }
-
-                if (in_array($bucket['tipo'], ['sin_etapa', 'revisar_etapa'], true)) {
-                    self::upsertDepuracionAtlas($db, [
-                        'tipo' => $bucket['tipo'],
-                        'credito_id' => $creditoId > 0 ? $creditoId : null,
-                        'id_solicitud' => $idSolicitud,
-                        'oferta_id' => $ofertaId,
-                        'fk_sucursal_origen' => $fkSucursal,
-                        'sucursal_origen' => $oferta['sucursal'] ?? null,
-                        'etapa_origen' => $oferta['etapa'] ?? null,
-                        'bucket_operativo' => $bucket['bucket'],
-                        'motivo' => $bucket['motivo'],
-                        'payload' => $oferta,
-                    ], $dryRun);
-                }
-            }
-
-            if (!$dryRun) {
-                $db->CRUD("
-                    INSERT INTO atlas_sync_oferta_mexico_control (proceso, last_offer_id, last_run_at, last_success_at, last_stats_json, activo, fecha_alta, fecha_actualizacion)
-                    VALUES ('oferta_mexico', :last_offer_id, NOW(), NOW(), :stats, 1, NOW(), NOW())
-                    ON DUPLICATE KEY UPDATE
-                        last_offer_id = GREATEST(last_offer_id, VALUES(last_offer_id)),
-                        last_run_at = NOW(),
-                        last_success_at = NOW(),
-                        last_stats_json = VALUES(last_stats_json),
-                        activo = 1,
-                        fecha_actualizacion = NOW()
-                ", ['last_offer_id' => $ultimoId, 'stats' => json_encode($stats, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)]);
-            }
-
-            return ['success' => true, 'mensaje' => $dryRun ? 'Dry-run de oferta Mexico ejecutado.' : 'Sincronizacion de oferta Mexico ejecutada.', 'datos' => $stats];
-        } catch (\Throwable $e) {
-            return [
-                'success' => false,
-                'mensaje' => 'No se pudo sincronizar oferta Mexico.',
-                'datos' => $stats,
-                'error' => $e->getMessage(),
-            ];
-        }
-    }
-
     public static function getGestoresOperativos(): array
     {
         try {
@@ -4265,24 +3965,24 @@ class Atlas extends Model
             $sucursales = $db->queryAll("
                 SELECT gs.*, {$nombrePersonaSql} AS persona_nombre, s.sucursal,
                        COALESCE(NULLIF(s.direccion_sucursal, ''), TRIM(CONCAT_WS(', ', NULLIF(s.calle, ''), NULLIF(s.numero_exterior, ''), NULLIF(s.colonia, ''), NULLIF(s.municipio, ''), NULLIF(s.estado, '')))) AS direccion,
-                       COALESCE(pend.total_creditos_pendientes, 0) AS total_creditos_pendientes,
-                       COALESCE(pend.cash_detenido_operativo, 0) AS cash_detenido_operativo
+                       0 AS total_creditos_pendientes,
+                       0 AS cash_detenido_operativo
                 FROM atlas_gestor_sucursales gs
                 LEFT JOIN atlas_gestores_operativos go ON go.id = gs.gestor_id
                 LEFT JOIN persona p ON p.id = go.persona_id
                 LEFT JOIN atlas_catalogo_sucursales s ON s.fk_sucursal = gs.fk_sucursal
-                LEFT JOIN (
-                    SELECT ac.fk_sucursal, COUNT(*) AS total_creditos_pendientes, SUM(COALESCE(snap.monto_financiar, c.cash_detenido, c.monto_credito, 0)) AS cash_detenido_operativo
-                    FROM atlas_asigna_sucursal_credito ac
-                    INNER JOIN atlas_creditos c ON c.id = ac.credito_id AND c.activo = 1
-                    LEFT JOIN atlas_creditos_oferta_snapshot snap ON snap.credito_id = c.id AND snap.activo = 1
-                    WHERE ac.activo = 1
-                      AND (snap.es_pendiente_operativo = 1 OR snap.tipo_bucket_actual = 'detenido' OR snap.bucket_actual LIKE 'DETENIDO:%')
-                    GROUP BY ac.fk_sucursal
-                ) pend ON pend.fk_sucursal = gs.fk_sucursal
                 WHERE gs.activo = 1
                 ORDER BY persona_nombre, s.sucursal
             ");
+            $metricasMaxi = self::metricasMaxiPorSucursales(array_column($sucursales, 'fk_sucursal'));
+            foreach ($sucursales as &$sucursal) {
+                $fk = (int)($sucursal['fk_sucursal'] ?? 0);
+                if (isset($metricasMaxi[$fk])) {
+                    $sucursal['total_creditos_pendientes'] = (int)($metricasMaxi[$fk]['total_pendientes'] ?? 0);
+                    $sucursal['cash_detenido_operativo'] = (float)($metricasMaxi[$fk]['cash_detenido_total'] ?? 0);
+                }
+            }
+            unset($sucursal);
             return ['success' => true, 'datos' => ['gestores' => $gestores, 'sucursales' => $sucursales]];
         } catch (\Throwable $e) {
             return ['success' => false, 'mensaje' => 'No se pudieron obtener los gestores operativos.', 'error' => $e->getMessage(), 'datos' => ['gestores' => [], 'sucursales' => []]];
@@ -4623,7 +4323,6 @@ class Atlas extends Model
                     'hora_llegada' => $horaLlegada,
                     'estancia_valor' => max(1, $estanciaValor),
                     'estancia_unidad' => in_array($estanciaUnidad, ['minutos', 'horas'], true) ? $estanciaUnidad : 'minutos',
-                    'hora_salida_sugerida' => is_array($item) ? self::nullableHoraRuta($item['hora_salida_sugerida'] ?? null) : null,
                 ];
             }
             $fk = self::nullableInt($input['fk_sucursal'] ?? null);
@@ -4639,7 +4338,6 @@ class Atlas extends Model
                     'hora_llegada' => null,
                     'estancia_valor' => 45,
                     'estancia_unidad' => 'minutos',
-                    'hora_salida_sugerida' => null,
                 ];
             }
             if ($sucursalesRuta) {
@@ -4681,12 +4379,12 @@ class Atlas extends Model
                         INSERT INTO atlas_ruta_sucursales (
                             ruta_id, fk_sucursal, orden_visita, hora_programada, prioridad_visita,
                             criterio_prioridad_visita, fecha_inicio_visita, fecha_fin_visita,
-                            hora_llegada, estancia_valor, estancia_unidad, hora_salida_sugerida, activo
+                            hora_llegada, estancia_valor, estancia_unidad, activo
                         )
                         VALUES (
                             :ruta, :fk, :orden, :hora, :prioridad,
                             :criterio, :fecha_inicio, :fecha_fin,
-                            :hora_llegada, :estancia_valor, :estancia_unidad, :hora_salida, 1
+                            :hora_llegada, :estancia_valor, :estancia_unidad, 1
                         )
                     ", [
                         'ruta' => $id,
@@ -4700,7 +4398,6 @@ class Atlas extends Model
                         'hora_llegada' => $visita['hora_llegada'],
                         'estancia_valor' => $visita['estancia_valor'],
                         'estancia_unidad' => $visita['estancia_unidad'],
-                        'hora_salida' => $visita['hora_salida_sugerida'],
                     ]);
                 }
             }
@@ -4736,7 +4433,7 @@ class Atlas extends Model
                        COALESCE(tel.numero_telefono, '') AS numero_telefono,
                        COALESCE(pdet.meta_creditos, 0) AS meta_creditos,
                        COALESCE(pdet.meta_cash, 0) AS meta_cash,
-                       COALESCE(pend.total_creditos, 0) AS total_creditos,
+                       0 AS total_creditos,
                        COALESCE(gest.total_gestiones, 0) AS total_gestiones,
                        CASE WHEN COALESCE(gest.total_gestiones, 0) > 0 THEN 1 ELSE 0 END AS tiene_gestion
                 FROM atlas_ruta_sucursales rs
@@ -4751,15 +4448,6 @@ class Atlas extends Model
                       AND pdet.fk_sucursal = rs.fk_sucursal
                       AND pdet.activo = 1
                 LEFT JOIN (
-                    SELECT ac.fk_sucursal, COUNT(*) AS total_creditos
-                    FROM atlas_asigna_sucursal_credito ac
-                    INNER JOIN atlas_creditos c ON c.id = ac.credito_id AND c.activo = 1
-                    LEFT JOIN atlas_creditos_oferta_snapshot snap ON snap.credito_id = c.id AND snap.activo = 1
-                    WHERE ac.activo = 1
-                      AND (snap.es_pendiente_operativo = 1 OR snap.tipo_bucket_actual = 'detenido' OR snap.bucket_actual LIKE 'DETENIDO:%')
-                    GROUP BY ac.fk_sucursal
-                ) pend ON pend.fk_sucursal = rs.fk_sucursal
-                LEFT JOIN (
                     SELECT fk_sucursal, COUNT(*) AS total_gestiones
                     FROM atlas_gestiones_credito
                     WHERE DATE(fecha_gestion) BETWEEN :inicio AND :fin
@@ -4767,21 +4455,22 @@ class Atlas extends Model
                 ) gest ON gest.fk_sucursal = rs.fk_sucursal
                 WHERE rs.ruta_id = :id AND rs.activo = 1
                 ORDER BY rs.orden_visita ASC, rs.id ASC
-            ", ['id' => $id, 'inicio' => $rutaInicio, 'fin' => $rutaFin, 'presupuesto_id' => (int)($ruta['presupuesto_id'] ?? 0)]);
-            $creditos = $db->queryAll("
-                SELECT c.id AS credito_id, c.id_solicitud, ac.fk_sucursal, s.sucursal,
-                       snap.bucket_actual, snap.fecha_ultima_sync AS fecha_ultima_sync_fmt,
-                       COALESCE(snap.monto_financiar, c.cash_detenido, c.monto_credito, 0) AS monto_financiar
-                FROM atlas_ruta_sucursales rs
-                INNER JOIN atlas_asigna_sucursal_credito ac ON ac.fk_sucursal = rs.fk_sucursal AND ac.activo = 1
-                INNER JOIN atlas_creditos c ON c.id = ac.credito_id AND c.activo = 1
-                LEFT JOIN atlas_creditos_oferta_snapshot snap ON snap.credito_id = c.id AND snap.activo = 1
-                LEFT JOIN atlas_catalogo_sucursales s ON s.fk_sucursal = ac.fk_sucursal
-                WHERE rs.ruta_id = :id
-                  AND rs.activo = 1
-                  AND (snap.es_pendiente_operativo = 1 OR snap.tipo_bucket_actual = 'detenido' OR snap.bucket_actual LIKE 'DETENIDO:%')
-                ORDER BY rs.orden_visita ASC, monto_financiar DESC
-            ", ['id' => $id]);
+            ", ['id' => $id, 'inicio' => $rutaInicio, 'fin' => $rutaFin, 'presupuesto_id' => (int)($ruta['presupuesto_id'] ?? 0)]);            $metricasMaxi = self::metricasMaxiPorSucursales(array_column($sucursales, 'fk_sucursal'));
+            $creditos = [];
+            foreach ($sucursales as &$sucursalRuta) {
+                $fk = (int)($sucursalRuta['fk_sucursal'] ?? 0);
+                if (isset($metricasMaxi[$fk])) {
+                    $sucursalRuta['total_creditos'] = (int)($metricasMaxi[$fk]['total_pendientes'] ?? 0);
+                }
+                foreach (self::creditosMaxiPorSucursal($fk, 300) as $creditoMaxi) {
+                    if (($creditoMaxi['tipo_bucket'] ?? '') === 'detenido') {
+                        $creditoMaxi['fk_sucursal'] = $fk;
+                        $creditoMaxi['sucursal'] = $sucursalRuta['sucursal'] ?? '';
+                        $creditos[] = $creditoMaxi;
+                    }
+                }
+            }
+            unset($sucursalRuta);
             return ['success' => true, 'datos' => ['ruta' => $ruta, 'sucursales' => $sucursales, 'creditos' => $creditos]];
         } catch (\Throwable $e) {
             return ['success' => false, 'mensaje' => 'No se pudo cargar la ruta.', 'error' => $e->getMessage()];
@@ -4846,8 +4535,8 @@ class Atlas extends Model
                     COALESCE(pdet.meta_cash, 0) AS meta_cash,
                     COALESCE(pdet.promedio_creditos, 0) AS promedio_creditos,
                     COALESCE(pdet.observaciones, '') AS presupuesto_observaciones,
-                    COALESCE(pend.total_creditos, 0) AS total_creditos,
-                    COALESCE(pend.cash_detenido_operativo, 0) AS cash_detenido_operativo
+                    0 AS total_creditos,
+                    0 AS cash_detenido_operativo
                 FROM atlas_ruta_sucursales rs
                 LEFT JOIN atlas_catalogo_sucursales s ON s.fk_sucursal = rs.fk_sucursal
                 LEFT JOIN atlas_catalogo_distribuidores d ON d.id = s.distribuidor_id
@@ -4861,42 +4550,29 @@ class Atlas extends Model
                        ON pdet.presupuesto_id = :presupuesto_id
                       AND pdet.fk_sucursal = rs.fk_sucursal
                       AND pdet.activo = 1
-                LEFT JOIN (
-                    SELECT ac.fk_sucursal,
-                           COUNT(DISTINCT ac.credito_id) AS total_creditos,
-                           SUM(COALESCE(snap.monto_financiar, c.cash_detenido, c.monto_credito, 0)) AS cash_detenido_operativo
-                    FROM atlas_asigna_sucursal_credito ac
-                    INNER JOIN atlas_creditos c ON c.id = ac.credito_id AND c.activo = 1
-                    LEFT JOIN atlas_creditos_oferta_snapshot snap ON snap.credito_id = c.id AND snap.activo = 1
-                    WHERE ac.activo = 1
-                      AND (snap.es_pendiente_operativo = 1 OR snap.tipo_bucket_actual = 'detenido' OR snap.bucket_actual LIKE 'DETENIDO:%')
-                    GROUP BY ac.fk_sucursal
-                ) pend ON pend.fk_sucursal = rs.fk_sucursal
                 WHERE rs.ruta_id = :id
                   AND rs.activo = 1
                 ORDER BY rs.orden_visita ASC, rs.id ASC
             ", ['id' => $id, 'presupuesto_id' => (int)($ruta['presupuesto_id'] ?? 0)]);
-
-            $creditos = $db->queryAll("
-                SELECT
-                    c.id AS credito_id,
-                    c.id_solicitud,
-                    ac.fk_sucursal,
-                    s.sucursal,
-                    COALESCE(snap.bucket_actual, '') AS bucket_actual,
-                    COALESCE(snap.tipo_bucket_actual, '') AS tipo_bucket_actual,
-                    snap.fecha_ultima_sync AS fecha_ultima_sync,
-                    COALESCE(snap.monto_financiar, c.cash_detenido, c.monto_credito, 0) AS monto_financiar
-                FROM atlas_ruta_sucursales rs
-                INNER JOIN atlas_asigna_sucursal_credito ac ON ac.fk_sucursal = rs.fk_sucursal AND ac.activo = 1
-                INNER JOIN atlas_creditos c ON c.id = ac.credito_id AND c.activo = 1
-                LEFT JOIN atlas_creditos_oferta_snapshot snap ON snap.credito_id = c.id AND snap.activo = 1
-                LEFT JOIN atlas_catalogo_sucursales s ON s.fk_sucursal = ac.fk_sucursal
-                WHERE rs.ruta_id = :id
-                  AND rs.activo = 1
-                  AND (snap.es_pendiente_operativo = 1 OR snap.tipo_bucket_actual = 'detenido' OR snap.bucket_actual LIKE 'DETENIDO:%')
-                ORDER BY rs.orden_visita ASC, monto_financiar DESC
-            ", ['id' => $id]);
+            $metricasMaxi = self::metricasMaxiPorSucursales(array_column($sucursales, 'fk_sucursal'));
+            $creditos = [];
+            foreach ($sucursales as &$sucursalResumen) {
+                $fk = (int)($sucursalResumen['fk_sucursal'] ?? 0);
+                if (isset($metricasMaxi[$fk])) {
+                    $sucursalResumen['total_creditos'] = (int)($metricasMaxi[$fk]['total_pendientes'] ?? 0);
+                    $sucursalResumen['cash_detenido_operativo'] = (float)($metricasMaxi[$fk]['cash_detenido_total'] ?? 0);
+                }
+                foreach (self::creditosMaxiPorSucursal($fk, 300) as $creditoMaxi) {
+                    if (($creditoMaxi['tipo_bucket'] ?? '') === 'detenido') {
+                        $creditoMaxi['fk_sucursal'] = $fk;
+                        $creditoMaxi['sucursal'] = $sucursalResumen['sucursal'] ?? '';
+                        $creditoMaxi['bucket_actual'] = $creditoMaxi['bucket_operativo'] ?? '';
+                        $creditoMaxi['tipo_bucket_actual'] = $creditoMaxi['tipo_bucket'] ?? '';
+                        $creditos[] = $creditoMaxi;
+                    }
+                }
+            }
+            unset($sucursalResumen);
 
             $resumen = [
                 'total_sucursales' => count($sucursales),
@@ -5081,12 +4757,12 @@ class Atlas extends Model
                 INSERT INTO atlas_ruta_sucursales (
                     ruta_id, fk_sucursal, orden_visita, hora_programada, prioridad_visita,
                     criterio_prioridad_visita, fecha_inicio_visita, fecha_fin_visita,
-                    hora_llegada, estancia_valor, estancia_unidad, hora_salida_sugerida, activo
+                    hora_llegada, estancia_valor, estancia_unidad, activo
                 )
                 VALUES (
                     :ruta, :fk, :orden, :hora, :prioridad,
                     :criterio, :fecha_inicio, :fecha_fin,
-                    :hora_llegada, :estancia_valor, :estancia_unidad, :hora_salida, 1
+                    :hora_llegada, :estancia_valor, :estancia_unidad, 1
                 )
             ", [
                 'ruta' => $rutaId,
@@ -5100,7 +4776,6 @@ class Atlas extends Model
                 'hora_llegada' => self::nullableHoraRuta($input['hora_llegada'] ?? null),
                 'estancia_valor' => $estanciaValor,
                 'estancia_unidad' => $estanciaUnidad,
-                'hora_salida' => self::nullableHoraRuta($input['hora_salida_sugerida'] ?? null),
             ]);
             return ['success' => true, 'mensaje' => 'Sucursal agregada a la ruta.'];
         } catch (\Throwable $e) {
@@ -5329,7 +5004,6 @@ class Atlas extends Model
                     'presupuesto_id' => $presupuestoId,
                     'fk_sucursal' => (int)$fkSucursal,
                     'sucursal' => self::strVal($fila['sucursal'] ?? ''),
-                    'diversificacion' => self::strVal($fila['diversificacion'] ?? ''),
                     'distribuidor' => self::strVal($fila['distribuidor'] ?? ''),
                     'divisional' => self::strVal($fila['divisional'] ?? ''),
                     'regional' => self::strVal($fila['regional'] ?? ''),
@@ -5345,17 +5019,16 @@ class Atlas extends Model
 
                 $db->CRUD("
                     INSERT INTO atlas_presupuesto_sucursal_detalle (
-                        presupuesto_id, fk_sucursal, sucursal, diversificacion, distribuidor, divisional,
+                        presupuesto_id, fk_sucursal, sucursal, distribuidor, divisional,
                         regional, supervisor, asesor, estado, promedio_creditos, clasificacion,
                         meta_creditos, meta_cash, activo, updated_by
                     ) VALUES (
-                        :presupuesto_id, :fk_sucursal, :sucursal, :diversificacion, :distribuidor, :divisional,
+                        :presupuesto_id, :fk_sucursal, :sucursal, :distribuidor, :divisional,
                         :regional, :supervisor, :asesor, :estado, :promedio_creditos, :clasificacion,
                         :meta_creditos, :meta_cash, 1, :usuario
                     )
                     ON DUPLICATE KEY UPDATE
                         sucursal = VALUES(sucursal),
-                        diversificacion = VALUES(diversificacion),
                         distribuidor = VALUES(distribuidor),
                         divisional = VALUES(divisional),
                         regional = VALUES(regional),
@@ -5533,7 +5206,6 @@ class Atlas extends Model
             return $db->queryAll("
                 SELECT
                     s.fk_sucursal,
-                    '' AS diversificacion,
                     COALESCE(d.nombre, '') AS distribuidor,
                     COALESCE(s.sucursal, '') AS sucursal,
                     COALESCE(NULLIF(TRIM(CONCAT_WS(' ', pdvl.nombres, pdvl.segundo_nombre, pdvl.apellidop, pdvl.apellidom)), ''), dvl.nombre, '') AS divisional,

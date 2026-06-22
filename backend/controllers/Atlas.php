@@ -621,11 +621,6 @@ class Atlas extends Controller
         $this->json(AtlasDAO::getSucursalAsignadaDetalle((int)($_GET['fk_sucursal'] ?? 0)));
     }
 
-    public function sincronizarCreditosOfertaMexico()
-    {
-        $this->json(AtlasDAO::sincronizarCreditosOfertaMexico($this->payload()));
-    }
-
     public function getGestoresOperativos()
     {
         $this->json(AtlasDAO::getGestoresOperativos());
@@ -962,7 +957,6 @@ class Atlas extends Controller
         foreach ($headers as $col => $header) {
             $campo = match ($header) {
                 'pksucursal', 'fksucursal', 'fksucursalid' => 'fk_sucursal',
-                'diversificacion' => 'diversificacion',
                 'distribuidor' => 'distribuidor',
                 'sucursal' => 'sucursal',
                 'divisional' => 'divisional',
