@@ -454,7 +454,10 @@ $atlasPuedeAgregarSucursal = !empty($atlasPermisosSucursalVista['paso1']);
             </div>
                 </div>
                 <div class="tab-pane fade" id="atlas-subtab-divisiones-catalogo" role="tabpanel">
-            <div class="atlas-panel-head"><button type="button" class="btn btn-primary add-new btn-action-size" data-atlas-agregar="division"><i class="fa fa-plus icon-sm me-sm-1"></i><span>Agregar división</span></button></div>
+            <div class="atlas-panel-head d-flex justify-content-end gap-2 flex-wrap">
+                <button type="button" class="btn btn-info text-white btn-action-size" data-atlas-fusionar-divisiones><i class="fa-solid fa-code-merge icon-sm me-sm-1"></i><span>Fusionar sucursales</span></button>
+                <button type="button" class="btn btn-primary add-new btn-action-size" data-atlas-agregar="division"><i class="fa fa-plus icon-sm me-sm-1"></i><span>Agregar división</span></button>
+            </div>
             <div class="card-datatable table-responsive atlas-table-wrap atlas-loading" data-atlas-table-loader="divisiones" data-atlas-loading-label="Cargando divisiones...">
                 <table id="atlasTablaDivisiones" class="dt-responsive table border-top"><thead><tr><th>División</th><th>Estatus</th><th>Acciones</th></tr></thead><tbody></tbody></table>
             </div>
@@ -462,7 +465,11 @@ $atlasPuedeAgregarSucursal = !empty($atlasPermisosSucursalVista['paso1']);
             </div>
                 </div>
                 <div class="tab-pane fade" id="atlas-tab-distribuidores" role="tabpanel">
-            <div class="atlas-panel-head"><button type="button" class="btn btn-primary add-new btn-action-size" data-atlas-agregar="distribuidor"><i class="fa fa-plus icon-sm me-sm-1"></i><span>Agregar distribuidor</span></button></div>
+            <div class="atlas-panel-head d-flex justify-content-end gap-2 flex-wrap">
+                <button type="button" class="btn text-white btn-action-size" style="background-color:#0047bb;border-color:#0047bb;" id="atlas-btn-template-distribuidores"><i class="fa fa-download icon-sm me-sm-1"></i><span>Plantilla</span></button>
+                <button type="button" class="btn btn-info text-white btn-action-size" id="atlas-btn-importar-distribuidores"><i class="fa fa-file-excel icon-sm me-sm-1"></i><span>Cargar layout</span></button>
+                <button type="button" class="btn btn-primary add-new btn-action-size" data-atlas-agregar="distribuidor"><i class="fa fa-plus icon-sm me-sm-1"></i><span>Agregar distribuidor</span></button>
+            </div>
             <div class="card-datatable table-responsive atlas-table-wrap atlas-loading" data-atlas-table-loader="distribuidores" data-atlas-loading-label="Cargando distribuidores...">
                 <table id="atlasTablaDistribuidores" class="dt-responsive table border-top"><thead><tr><th>Distribuidor</th><th>Presencia</th><th>Estatus</th><th>Acciones</th></tr></thead><tbody></tbody></table>
             </div>
@@ -543,6 +550,26 @@ $atlasPuedeAgregarSucursal = !empty($atlasPermisosSucursalVista['paso1']);
             </div>
             <div class="modal-footer"><button type="button" class="btn btn-primary" id="atlas-direccion-confirmar" disabled><i class="fa-solid fa-location-dot"></i>Usar ubicación</button><button type="button" class="btn btn-label-danger" data-bs-dismiss="modal">Cancelar</button></div>
         </div>
+    </div>
+</div>
+
+<div class="modal fade" id="modalAtlasImportarDistribuidores" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-md modal-dialog-centered">
+        <form class="modal-content" id="formAtlasImportarDistribuidores">
+            <div class="modal-header">
+                <h5 class="modal-title fw-bold"><i class="fa-solid fa-file-excel me-2"></i>Cargar distribuidores</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <div class="modal-body">
+                <label class="form-label atlas-required">Layout Excel</label>
+                <input type="file" class="form-control" name="archivo" accept=".xlsx,.xls" required>
+                <span class="atlas-cascade-help">Descarga la plantilla para trabajar con los distribuidores activos actuales. Si el archivo trae un distribuidor bloqueado, el sistema te pedirá confirmar si deseas desbloquearlo.</span>
+            </div>
+            <div class="modal-footer">
+                <button type="submit" class="btn btn-primary"><i class="fa-solid fa-upload me-1"></i>Cargar</button>
+                <button type="button" class="btn btn-label-danger" data-bs-dismiss="modal">Cancelar</button>
+            </div>
+        </form>
     </div>
 </div>
 
@@ -677,6 +704,56 @@ $atlasPuedeAgregarSucursal = !empty($atlasPermisosSucursalVista['paso1']);
     </div>
 </div>
 
+<div class="modal fade" id="modalAtlasFusionDivisiones" tabindex="-1" aria-labelledby="modalAtlasFusionDivisionesLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable modal-fullscreen-sm-down">
+        <div class="modal-content">
+            <form id="formAtlasFusionDivisiones">
+                <div class="modal-header">
+                    <h5 class="modal-title fw-bold" id="modalAtlasFusionDivisionesLabel"><i class="fa-solid fa-code-merge me-2"></i>Fusionar sucursales</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="atlas-muted mb-3">Elige la división que se queda, las divisiones que se integran y el responsable final. Las sucursales y regionales se moverán automáticamente a la división final.</div>
+                    <div class="row g-3">
+                        <div class="col-12 col-md-6">
+                            <label class="form-label atlas-required">División que permanece</label>
+                            <select class="form-select js-atlas-select-buscador" id="atlas-fusion-division-destino" required>
+                                <option value="">Selecciona división</option>
+                            </select>
+                        </div>
+                        <div class="col-12 col-md-6">
+                            <label class="form-label atlas-required">Nuevo nombre</label>
+                            <input type="text" class="form-control" id="atlas-fusion-nuevo-nombre" maxlength="120" placeholder="Nombre final de la división" required>
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label atlas-required">Divisiones que se fusionan</label>
+                            <select class="form-select js-atlas-select-buscador" id="atlas-fusion-division-origenes" multiple required></select>
+                            <span class="atlas-cascade-help">Puedes elegir una o varias divisiones. No aparecerá la división que permanece.</span>
+                        </div>
+                        <div class="col-12 col-md-6">
+                            <label class="form-label">Responsable divisional final</label>
+                            <select class="form-select js-atlas-select-buscador" id="atlas-fusion-divisional">
+                                <option value="">Conservar responsable actual</option>
+                            </select>
+                        </div>
+                        <div class="col-12 col-md-6">
+                            <label class="form-label atlas-required">Motivo</label>
+                            <textarea class="form-control" id="atlas-fusion-motivo" rows="2" maxlength="220" placeholder="Motivo para bitácora" required></textarea>
+                        </div>
+                        <div class="col-12">
+                            <div class="border rounded p-3 bg-light" id="atlas-fusion-resumen">Selecciona las divisiones para ver el resumen de la fusión.</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer d-flex justify-content-end">
+                    <button type="submit" class="btn btn-primary"><i class="fa-solid fa-floppy-disk me-1"></i>Fusionar</button>
+                    <button type="button" class="btn btn-label-danger" data-bs-dismiss="modal">Cancelar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
 <div class="modal fade" id="modalAtlasSucursalesPendientes" tabindex="-1" aria-labelledby="modalAtlasSucursalesPendientesLabel" aria-hidden="true">
     <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable modal-fullscreen-sm-down">
         <div class="modal-content">
@@ -705,6 +782,8 @@ $atlasPuedeAgregarSucursal = !empty($atlasPermisosSucursalVista['paso1']);
     const formCatalogo = document.getElementById('formAtlasCatalogo');
     const modalSucursalEl = document.getElementById('modalAtlasSucursal');
     const modalCatalogoEl = document.getElementById('modalAtlasCatalogo');
+    const modalImportarDistribuidoresEl = document.getElementById('modalAtlasImportarDistribuidores');
+    const formImportarDistribuidores = document.getElementById('formAtlasImportarDistribuidores');
     const modalReglasClasificacionEl = document.getElementById('modalAtlasReglasClasificacion');
     const modalDireccionEl = document.getElementById('modalAtlasDireccion');
     const modalMapaEl = document.getElementById('modalAtlasMapa');
@@ -712,6 +791,8 @@ $atlasPuedeAgregarSucursal = !empty($atlasPermisosSucursalVista['paso1']);
     const modalCalidadEl = document.getElementById('modalAtlasCalidad');
     const modalErroresDivisionesEl = document.getElementById('modalAtlasErroresDivisiones');
     const modalActualizacionesDivisionalesEl = document.getElementById('modalAtlasActualizacionesDivisionales');
+    const modalFusionDivisionesEl = document.getElementById('modalAtlasFusionDivisiones');
+    const formFusionDivisiones = document.getElementById('formAtlasFusionDivisiones');
     const modalSucursalesPendientesEl = document.getElementById('modalAtlasSucursalesPendientes');
     const modalSucursalTitulo = document.getElementById('modalAtlasSucursalLabel');
     const modalCatalogoTitulo = document.getElementById('modalAtlasCatalogoLabel');
@@ -775,6 +856,7 @@ $atlasPuedeAgregarSucursal = !empty($atlasPermisosSucursalVista['paso1']);
     let atlasUbicacionMapa = null;
     let atlasUbicacionMarker = null;
     let atlasDistribuidorPresencias = [];
+    let atlasImportarDistribuidoresModal = null;
 
     function atlasNormalizarTexto(v) {
         const s = String(v == null ? '' : v);
@@ -1078,6 +1160,11 @@ $atlasPuedeAgregarSucursal = !empty($atlasPermisosSucursalVista['paso1']);
         if (!url) return '<span class="atlas-badge atlas-badge-warn"><i class="fa-solid fa-file-circle-exclamation"></i>Sin constancia</span>';
         return '<div class="atlas-field-row"><a class="atlas-badge atlas-badge-ok" href="' + esc(url) + '" target="_blank" rel="noopener"><i class="fa-solid fa-file-circle-check"></i>Constancia cargada</a><span class="atlas-muted">' + esc(row.constancia_fiscal_at_fmt || row.constancia_fiscal_nombre || '') + '</span></div>';
     }
+    function renderEstadoCuentaDistribuidor(row) {
+        const url = String(row && row.__SPARTA_SECRET_REDACTED___url || '').trim();
+        if (!url) return '<span class="atlas-badge atlas-badge-warn"><i class="fa-solid fa-file-circle-exclamation"></i>Sin estado de cuenta</span>';
+        return '<div class="atlas-field-row"><a class="atlas-badge atlas-badge-ok" href="' + esc(url) + '" target="_blank" rel="noopener"><i class="fa-solid fa-file-circle-check"></i>Estado de cuenta cargado</a><span class="atlas-muted">' + esc(row.__SPARTA_SECRET_REDACTED___at_fmt || row.__SPARTA_SECRET_REDACTED___nombre || '') + '</span></div>';
+    }
     function renderErrorDivision(row) {
         return Number(row && row.divisional_duplicado || 0) === 1
             || (row && row.divisional_id && !row.divisional_persona_id && String(row.tipo_asignacion || '') !== 'vacante')
@@ -1189,10 +1276,16 @@ $atlasPuedeAgregarSucursal = !empty($atlasPermisosSucursalVista['paso1']);
             divisionesSinUsoList.innerHTML = sinUso.length ? sinUso.map(row => {
                 const esVacante = String(row.tipo_asignacion || '') === 'vacante';
                 const meta = esVacante ? 'Vacante sin división activa' : [row.numero_empleado ? '#' + row.numero_empleado : '', row.puesto || '', row.area || row.direccion || ''].filter(Boolean).join(' · ');
+                const fechas = [
+                    row.fecha_alta_fmt ? 'Alta: ' + row.fecha_alta_fmt : '',
+                    row.fecha_baja_fmt ? 'Baja: ' + row.fecha_baja_fmt : '',
+                    row.motivo_baja ? 'Motivo baja: ' + row.motivo_baja : ''
+                ].filter(Boolean).join(' · ');
                 return '<div class="atlas-division-error-item">'
                     + '<div>'
                     + '<div class="atlas-division-error-title"><i class="fa-solid ' + (esVacante ? 'fa-user-clock text-warning' : 'fa-user-minus text-danger') + ' me-1"></i>' + esc(row.nombre_vacante || row.nombre || 'Sin nombre') + '</div>'
                     + '<div class="atlas-division-error-meta">' + esc(meta || 'Sin uso') + '</div>'
+                    + (fechas ? '<div class="atlas-division-error-meta">' + esc(fechas) + '</div>' : '')
                     + '</div>'
                     + '<button type="button" class="btn btn-sm btn-label-danger" data-atlas-desactivar-divisional="' + esc(row.id || '') + '"><i class="fa-solid fa-circle-minus me-1"></i>Sacar</button>'
                     + '</div>';
@@ -1271,8 +1364,11 @@ $atlasPuedeAgregarSucursal = !empty($atlasPermisosSucursalVista['paso1']);
         }), 180);
     }
     async function refrescarActualizacionesDivisionales() {
-        await cargarCatalogos({ silencioso: true });
-        const datos = await cargarActualizacionesDivisionalesData(true);
+        atlasActualizacionesDivisionalesCache = null;
+        const [datos] = await Promise.all([
+            cargarActualizacionesDivisionalesData(true),
+            cargarCatalogos({ silencioso: true })
+        ]);
         renderActualizacionesDivisionales(datos);
     }
     function divisionalesDisponiblesDivision(idActual) {
@@ -1287,6 +1383,105 @@ $atlasPuedeAgregarSucursal = !empty($atlasPermisosSucursalVista['paso1']);
             ? '<button type="button" class="btn btn-sm btn-warning text-white" data-atlas-reglas-clasificacion="' + esc(id || '') + '" title="Reglas de negocio" aria-label="Reglas de negocio"><i class="fa-solid fa-trophy"></i></button>'
             : '';
         return '<div class="atlas-action-buttons"><button type="button" class="btn btn-sm btn-primary" data-atlas-editar="' + esc(tipo) + '" data-id="' + esc(id || '') + '" title="Editar" aria-label="Editar"><i class="fa fa-edit"></i></button>' + extra + '</div>';
+    }
+    function renderEliminarDivision(row) {
+        return '<div class="atlas-action-buttons mt-1"><button type="button" class="btn btn-sm btn-label-danger" data-atlas-eliminar-division="' + esc(row && row.id || '') + '" data-nombre="' + esc(row && row.nombre || 'División') + '" title="Eliminar división" aria-label="Eliminar división"><i class="fa-solid fa-trash-can"></i></button></div>';
+    }
+    function opcionesDivisionesActivas() {
+        return (catalogos.divisiones || []).filter(row => String(row.activo ?? '1') === '1');
+    }
+    function llenarSelectFusion(select, rows, placeholder) {
+        if (!select) return;
+        select.innerHTML = placeholder ? '<option value="">' + esc(placeholder) + '</option>' : '';
+        rows.forEach(row => {
+            const opt = document.createElement('option');
+            opt.value = row.id || '';
+            opt.textContent = row.nombre || 'División';
+            select.appendChild(opt);
+        });
+        if (window.jQuery && window.jQuery.fn && window.jQuery.fn.select2) {
+            window.jQuery(select).trigger('change.select2');
+        }
+    }
+    function abrirFusionDivisiones() {
+        const divisiones = opcionesDivisionesActivas();
+        if (divisiones.length < 2) {
+            if (typeof Swal !== 'undefined') Swal.fire({ icon: 'info', title: 'No hay divisiones suficientes', text: 'Necesitas al menos dos divisiones activas para fusionar.' });
+            return;
+        }
+        if (formFusionDivisiones) formFusionDivisiones.reset();
+        const destino = document.getElementById('atlas-fusion-division-destino');
+        const origenes = document.getElementById('atlas-fusion-division-origenes');
+        const divisional = document.getElementById('atlas-fusion-divisional');
+        llenarSelectFusion(destino, divisiones, 'Selecciona división');
+        llenarSelectFusion(origenes, divisiones, '');
+        llenarSelectFusion(divisional, (catalogos.divisionales || []).filter(row => String(row.activo ?? '1') === '1'), 'Conservar responsable actual');
+        refrescarSelectBuscadores(modalFusionDivisionesEl);
+        actualizarOpcionesFusionDivisiones();
+        actualizarResumenFusionDivisiones();
+        mostrarModal(modalFusionDivisionesEl);
+    }
+    function actualizarOpcionesFusionDivisiones() {
+        const destino = document.getElementById('atlas-fusion-division-destino');
+        const origenes = document.getElementById('atlas-fusion-division-origenes');
+        const nombre = document.getElementById('atlas-fusion-nuevo-nombre');
+        if (!destino || !origenes) return;
+        const destinoId = String(destino.value || '');
+        const actuales = Array.from(origenes.selectedOptions).map(opt => String(opt.value || ''));
+        const divisiones = opcionesDivisionesActivas().filter(row => String(row.id || '') !== destinoId);
+        llenarSelectFusion(origenes, divisiones, '');
+        actuales.filter(id => id && id !== destinoId).forEach(id => {
+            const opt = Array.from(origenes.options).find(item => String(item.value || '') === id);
+            if (opt) opt.selected = true;
+        });
+        if (nombre && destinoId && !String(nombre.value || '').trim()) {
+            const row = (catalogos.divisiones || []).find(item => String(item.id || '') === destinoId);
+            nombre.value = row && row.nombre ? row.nombre : '';
+        }
+        if (window.jQuery && window.jQuery.fn && window.jQuery.fn.select2) {
+            window.jQuery(origenes).trigger('change.select2');
+        }
+    }
+    function actualizarResumenFusionDivisiones() {
+        const destinoId = String(document.getElementById('atlas-fusion-division-destino')?.value || '');
+        const origenIds = Array.from(document.getElementById('atlas-fusion-division-origenes')?.selectedOptions || []).map(opt => String(opt.value || '')).filter(Boolean);
+        const destino = (catalogos.divisiones || []).find(row => String(row.id || '') === destinoId);
+        const origenes = (catalogos.divisiones || []).filter(row => origenIds.includes(String(row.id || '')));
+        const resumen = document.getElementById('atlas-fusion-resumen');
+        if (!resumen) return;
+        if (!destinoId || origenes.length === 0) {
+            resumen.innerHTML = 'Selecciona las divisiones para ver el resumen de la fusión.';
+            return;
+        }
+        resumen.innerHTML = '<div class="fw-bold mb-1"><i class="fa-solid fa-code-merge me-1"></i>' + esc(origenes.length) + ' división(es) se integran a ' + esc(destino && destino.nombre || 'la división final') + '</div>' +
+            '<div class="small text-muted">Se reasignarán sucursales y regionales de: ' + esc(origenes.map(row => row.nombre || 'División').join(', ')) + '.</div>';
+    }
+    async function submitFusionDivisiones(ev) {
+        ev.preventDefault();
+        const destinoId = document.getElementById('atlas-fusion-division-destino')?.value || '';
+        const origenIds = Array.from(document.getElementById('atlas-fusion-division-origenes')?.selectedOptions || []).map(opt => opt.value).filter(Boolean);
+        const payload = {
+            division_destino_id: destinoId,
+            division_origen_ids: origenIds,
+            nuevo_nombre: document.getElementById('atlas-fusion-nuevo-nombre')?.value || '',
+            divisional_id: document.getElementById('atlas-fusion-divisional')?.value || '',
+            motivo: document.getElementById('atlas-fusion-motivo')?.value || ''
+        };
+        try {
+            const data = await guardarJson('/Atlas/fusionarDivisiones', payload);
+            cerrarModal(modalFusionDivisionesEl);
+            await cargarCatalogos({ silencioso: true });
+            const stats = data.datos || {};
+            if (typeof Swal !== 'undefined') {
+                Swal.fire({
+                    icon: 'success',
+                    title: 'Fusión lista',
+                    html: 'Se fusionaron <strong>' + esc(stats.divisiones_fusionadas || origenIds.length) + '</strong> división(es).<br>Sucursales reasignadas: <strong>' + esc(stats.sucursales_reasignadas || 0) + '</strong><br>Regionales reasignadas: <strong>' + esc(stats.regionales_reasignadas || 0) + '</strong>'
+                });
+            }
+        } catch (err) {
+            if (typeof Swal !== 'undefined') Swal.fire({ icon: 'error', title: 'No se pudo fusionar', text: err.message || 'Revisa las divisiones seleccionadas.' });
+        }
     }
     function findCatalogo(key, id) { const actual = String(id || ''); return actual ? (catalogos[key] || []).find(row => String(row.id || '') === actual) || null : null; }
     function guardarAtlasTabActivo(target) {
@@ -1605,6 +1800,102 @@ $atlasPuedeAgregarSucursal = !empty($atlasPermisosSucursalVista['paso1']);
         if (!data || !data.success) throw new Error((data && (data.mensaje || data.error)) || 'No se pudo cargar la constancia.');
         return data;
     }
+    async function subirEstadoCuentaDistribuidor(id) {
+        const input = formCatalogo ? formCatalogo.querySelector('input[name="__SPARTA_SECRET_REDACTED__"]') : null;
+        const file = input && input.files && input.files[0] ? input.files[0] : null;
+        if (!file) return null;
+        const fd = new FormData();
+        fd.append('id', String(id || ''));
+        fd.append('archivo', file, file.name);
+        const res = await fetch('/Atlas/subirEstadoCuentaDistribuidor', { method: 'POST', credentials: 'same-origin', body: fd, headers: { Accept: 'application/json' } });
+        const data = await res.json();
+        if (!data || !data.success) throw new Error((data && (data.mensaje || data.error)) || 'No se pudo cargar el estado de cuenta.');
+        return data;
+    }
+    async function descargarTemplateDistribuidores() {
+        const url = '/Atlas/descargarTemplateDistribuidores';
+        if (typeof Swal !== 'undefined') {
+            Swal.fire({
+                title: 'Procesando tu solicitud',
+                text: 'Estamos descargando la plantilla de distribuidores, espera un momento...',
+                allowOutsideClick: false,
+                allowEscapeKey: false,
+                didOpen: () => Swal.showLoading()
+            });
+        }
+        try {
+            const resp = await fetch(url, { credentials: 'same-origin' });
+            if (!resp.ok) throw new Error((await resp.text()).replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim() || 'No se pudo descargar la plantilla.');
+            const blob = await resp.blob();
+            const cd = resp.headers.get('Content-Disposition') || '';
+            const match = cd.match(/filename="?([^"]+)"?/i);
+            const filename = match ? match[1] : 'template_distribuidores_atlas.xlsx';
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = filename;
+            document.body.appendChild(a);
+            a.click();
+            setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
+            if (typeof Swal !== 'undefined') Swal.close();
+        } catch (err) {
+            if (typeof Swal !== 'undefined') Swal.fire({ icon: 'error', title: 'No se pudo descargar', text: err.message || 'Intenta de nuevo.' });
+        }
+    }
+    function abrirImportarDistribuidores() {
+        if (formImportarDistribuidores) formImportarDistribuidores.reset();
+        mostrarModal(modalImportarDistribuidoresEl);
+    }
+    function resumenImportacionDistribuidores(datos) {
+        const errores = Array.isArray(datos && datos.errores) ? datos.errores : [];
+        const detalleErrores = errores.length ? '<br><small>' + esc(errores.slice(0, 5).map(row => 'Fila ' + row.fila + ': ' + row.mensaje).join(' | ')) + '</small>' : '';
+        return 'Creados: ' + Number(datos && datos.creados || 0)
+            + ' · Actualizados: ' + Number(datos && datos.actualizados || 0)
+            + ' · Desbloqueados: ' + Number(datos && datos.desbloqueados || 0)
+            + ' · Errores: ' + errores.length
+            + detalleErrores;
+    }
+    async function enviarImportDistribuidores(desbloquear) {
+        const fd = new FormData(formImportarDistribuidores);
+        fd.append('desbloquear_existentes', desbloquear ? '1' : '0');
+        if (typeof Swal !== 'undefined') {
+            Swal.fire({
+                title: 'Subiendo layout',
+                text: 'Estamos validando distribuidores. No cierres esta ventana.',
+                imageUrl: '/assets/img/wait.svg',
+                allowOutsideClick: false,
+                allowEscapeKey: false,
+                showConfirmButton: false
+            });
+        }
+        const res = await fetch('/Atlas/importarDistribuidores', { method: 'POST', credentials: 'same-origin', body: fd, headers: { Accept: 'application/json' } });
+        return await res.json();
+    }
+    async function importarDistribuidoresSubmit(ev) {
+        ev.preventDefault();
+        if (!formImportarDistribuidores) return;
+        try {
+            let resp = await enviarImportDistribuidores(false);
+            if (resp && resp.requiere_confirmacion_desbloqueo) {
+                const bloqueados = ((resp.datos && resp.datos.bloqueados) || []).slice(0, 6).map(row => row.distribuidor + ' (' + row.estatus + ')').join('<br>');
+                const confirma = await Swal.fire({
+                    icon: 'warning',
+                    title: 'Distribuidores bloqueados',
+                    html: '<div class="text-start">Ya existen distribuidores bloqueados, pausados o inhabilitados en el layout:<br><br><strong>' + bloqueados + '</strong><br><br>¿Deseas desbloquearlos y actualizar su información?</div>',
+                    showCancelButton: true,
+                    confirmButtonText: 'Sí, desbloquear',
+                    cancelButtonText: 'Cancelar'
+                });
+                if (!confirma.isConfirmed) return;
+                resp = await enviarImportDistribuidores(true);
+            }
+            if (!resp || resp.success === false) throw new Error(resp && (resp.mensaje || resp.error) || 'No se pudo importar.');
+            cerrarModal(modalImportarDistribuidoresEl);
+            await cargarCatalogos();
+            if (typeof Swal !== 'undefined') Swal.fire({ icon: 'success', title: 'Layout procesado', html: resumenImportacionDistribuidores(resp.datos || {}) });
+        } catch (err) {
+            if (typeof Swal !== 'undefined') Swal.fire({ icon: 'error', title: 'No se pudo importar', text: err.message || 'Intenta de nuevo.' });
+        }
+    }
     function renderPasosSucursal(row) {
         const paso1 = Number(row && row.paso_datos_completos || 0) === 1;
         const paso2 = Number(row && row.paso_asignacion_completa || 0) === 1;
@@ -1685,7 +1976,8 @@ $atlasPuedeAgregarSucursal = !empty($atlasPermisosSucursalVista['paso1']);
             { data: 'sucursal', title: 'Sucursal', render: function (data, renderType, row) {
                 if (renderType !== 'display') return textoPlano(row, ['sucursal','fk_sucursal','distribuidor_nombre','direccion','numero_telefono','nombre_contacto']);
                 const direccionBtn = row.direccion ? '<button type="button" class="atlas-location-link mt-1" data-atlas-ubicacion="' + esc(row.id || '') + '"><i class="fa-solid fa-location-dot"></i><span>' + esc(row.direccion) + '</span></button>' : '<span class="atlas-muted">Sin dirección</span>';
-                return '<div class="atlas-field-row"><span class="atlas-field-value">' + esc(data || 'Sin nombre') + '</span><span class="atlas-muted">FK ' + esc(row.fk_sucursal || '-') + ' &middot; ' + esc(row.distribuidor_nombre || 'Sin distribuidor') + '</span></div>'
+                const nuevoIngreso = Number(row.es_nuevo_ingreso || 0) === 1 ? '<span class="atlas-badge atlas-badge-info ms-1" title="Fecha de registro: ' + esc(row.fecha_alta_fmt || '') + '"><i class="fa-solid fa-star"></i>Sucursal de nuevo ingreso</span>' : '';
+                return '<div class="atlas-field-row"><span class="atlas-field-value">' + esc(data || 'Sin nombre') + '</span>' + nuevoIngreso + '<span class="atlas-muted">FK ' + esc(row.fk_sucursal || '-') + ' &middot; ' + esc(row.distribuidor_nombre || 'Sin distribuidor') + '</span></div>'
                     + '<div class="atlas-field-row mt-1"><span class="atlas-field-label">Teléfono</span><span class="atlas-muted"><i class="fa-solid fa-phone me-1"></i>' + esc(row.numero_telefono || 'Sin teléfono') + (row.nombre_contacto ? ' &middot; ' + esc(row.nombre_contacto) : '') + '</span></div>'
                     + '<div class="atlas-field-row mt-1">' + direccionBtn + '</div>';
             }},
@@ -1831,7 +2123,7 @@ $atlasPuedeAgregarSucursal = !empty($atlasPermisosSucursalVista['paso1']);
         if (tipo === 'divisiones') return [
             { data: 'nombre', title: 'División', render: function (data, renderType, row) { return renderType === 'display' ? '<div class="atlas-classif" style="--atlas-class-color:' + esc(colorHexSeguro(row.color_hex || '#2563EB')) + ';"><span class="atlas-classif-dot"></span><i class="' + esc(row.icon_font || 'fa-solid fa-diagram-project') + '"></i><span>' + esc(data || 'Sin nombre') + '</span>' + renderErrorDivision(row) + '</div>' : [data || '', row.icon_font || '', row.color_hex || '', Number(row.divisional_duplicado || 0) ? 'Error' : ''].join(' '); }},
             { data: 'activo', title: 'Estatus', render: function (data, renderType, row) { return renderType === 'display' ? renderEstatus(row) : (Number(data || 0) === 1 ? 'Activa' : 'Inactiva'); }},
-            { data: null, title: 'Acciones', orderable: false, searchable: false, className: 'text-center', render: function (data, renderType, row) { return renderType === 'display' ? renderEditar('division', row.id) : ''; }}
+            { data: null, title: 'Acciones', orderable: false, searchable: false, className: 'text-center', render: function (data, renderType, row) { return renderType === 'display' ? renderEditar('division', row.id) + renderEliminarDivision(row) : ''; }}
         ];
         if (tipo === 'asigna_divisiones') return [
             { data: 'nombre', title: 'División', render: function (data, renderType, row) { return renderType === 'display' ? '<div class="atlas-classif" style="--atlas-class-color:' + esc(colorHexSeguro(row.color_hex || '#2563EB')) + ';"><span class="atlas-classif-dot"></span><i class="' + esc(row.icon_font || 'fa-solid fa-diagram-project') + '"></i><span>' + esc(data || 'Sin nombre') + '</span>' + renderErrorDivision(row) + '</div>' : [data || '', row.icon_font || '', row.color_hex || '', Number(row.divisional_duplicado || 0) ? 'Error' : ''].join(' '); }},
@@ -1860,7 +2152,11 @@ $atlasPuedeAgregarSucursal = !empty($atlasPermisosSucursalVista['paso1']);
         return [
             { data: null, title: '', orderable: false, searchable: false, render: function () { return '<span class="atlas-drag-handle"><i class="fa-solid fa-grip-vertical"></i></span>'; }},
             { data: 'orden', title: 'Orden', render: function (data, renderType) { return renderType === 'display' ? '<span class="atlas-order-pill">' + esc(data || '-') + '</span>' : (parseInt(data, 10) || 999999); }},
-            { data: 'nombre', title: 'Clasificación', render: function (data, renderType, row) { return renderType === 'display' ? '<div class="atlas-classif" style="--atlas-class-color:' + esc(colorHexSeguro(row.color_hex)) + ';"><span class="atlas-classif-dot"></span><i class="' + esc(row.icon_font || 'fa-solid fa-tags') + '"></i><span>' + esc(data || 'Sin nombre') + '</span></div>' : (data || ''); }},
+            { data: 'nombre', title: 'Clasificación', render: function (data, renderType, row) {
+                if (renderType !== 'display') return [data || '', row.descripcion || ''].join(' ');
+                const descripcion = String(row.descripcion || '').trim();
+                return '<div class="atlas-classif-wrap"><div class="atlas-classif" style="--atlas-class-color:' + esc(colorHexSeguro(row.color_hex)) + ';"><span class="atlas-classif-dot"></span><i class="' + esc(row.icon_font || 'fa-solid fa-tags') + '"></i><span>' + esc(data || 'Sin nombre') + '</span></div>' + (descripcion ? '<small class="text-muted fw-semibold d-block mt-1">' + esc(descripcion) + '</small>' : '<small class="text-muted fw-semibold d-block mt-1">Sin descripción</small>') + '</div>';
+            }},
             { data: 'activo', title: 'Estatus', render: function (data, renderType, row) { return renderType === 'display' ? renderEstatus(row) : (Number(data || 0) === 1 ? 'Activa' : 'Inactiva'); }},
             { data: null, title: 'Acciones', orderable: false, searchable: false, className: 'text-center', render: function (data, renderType, row) { return renderType === 'display' ? renderEditar('clasificacion', row.id) : ''; }}
         ];
@@ -2318,6 +2614,7 @@ $atlasPuedeAgregarSucursal = !empty($atlasPermisosSucursalVista['paso1']);
                 + '<h5 class="atlas-dist-step-title">Datos del distribuidor</h5>'
                 + '<ul class="nav nav-align-left nav-pills flex-column atlas-dist-step-nav" role="tablist">'
                 + '<li class="nav-item mb-1"><button class="nav-link active" type="button" data-bs-toggle="tab" data-bs-target="#atlas-dist-tab-principal"><i class="fa-solid fa-id-card"></i><span class="align-middle">Principal</span><span class="atlas-tab-required-mark" title="Tiene campos obligatorios"></span></button></li>'
+                + '<li class="nav-item mb-1"><button class="nav-link" type="button" data-bs-toggle="tab" data-bs-target="#atlas-dist-tab-deposito"><i class="fa-solid fa-building-columns"></i><span class="align-middle">Depósito</span></button></li>'
                 + '<li class="nav-item mb-1"><button class="nav-link" type="button" data-bs-toggle="tab" data-bs-target="#atlas-dist-tab-presencia"><i class="fa-solid fa-location-dot"></i><span class="align-middle">Presencia</span><span class="atlas-tab-required-mark" title="Tiene campos obligatorios"></span></button></li>'
                 + '<li class="nav-item mb-1"><button class="nav-link" type="button" data-bs-toggle="tab" data-bs-target="#atlas-dist-tab-fiscal"><i class="fa-solid fa-file-invoice"></i><span class="align-middle">Fiscal</span><span class="atlas-tab-required-mark" title="Tiene campos obligatorios"></span></button></li>'
                 + '<li class="nav-item mb-1"><button class="nav-link" type="button" data-bs-toggle="tab" data-bs-target="#atlas-dist-tab-comercial"><i class="fa-solid fa-handshake"></i><span class="align-middle">Comercial</span><span class="atlas-tab-required-mark" title="Tiene campos obligatorios"></span></button></li>'
@@ -2338,6 +2635,13 @@ $atlasPuedeAgregarSucursal = !empty($atlasPermisosSucursalVista['paso1']);
                 + '<div><label class="form-label">Teléfono alterno</label><input type="tel" class="form-control" name="telefono_secundario" inputmode="numeric" maxlength="10" pattern="[0-9]{10}" title="Teléfono a 10 dígitos" placeholder="10 dígitos" value="' + esc(row.telefono_secundario || '') + '"></div>'
                 + '<div><label class="form-label atlas-required">Correo principal</label><input type="email" class="form-control" name="email_contacto" required maxlength="180" title="Correo válido" placeholder="correo@dominio.com" value="' + esc(row.email_contacto || '') + '"></div>'
                 + '<div class="atlas-field-wide"><label class="form-label atlas-required">Icono</label><input type="hidden" name="icon_font" id="atlas-catalogo-icon-font" required value="' + esc(iconoDistribuidor) + '">' + renderGaleriaIconos(iconoDistribuidor, '', false) + '</div>'
+                + '</div></div>'
+                + '<div class="tab-pane fade" id="atlas-dist-tab-deposito"><div class="atlas-form-grid">'
+                + '<div><label class="form-label">Banco</label><input type="text" class="form-control" name="banco_deposito" maxlength="120" placeholder="Banco receptor" value="' + esc(row.banco_deposito || '') + '"></div>'
+                + '<div><label class="form-label">Titular de la cuenta</label><input type="text" class="form-control" name="titular_deposito" maxlength="180" placeholder="Titular de la cuenta" value="' + esc(row.titular_deposito || '') + '"></div>'
+                + '<div><label class="form-label">Cuenta</label><input type="text" class="form-control" name="cuenta_deposito" inputmode="numeric" maxlength="20" pattern="[0-9]{6,20}" title="Cuenta de 6 a 20 dígitos" placeholder="Cuenta bancaria" value="' + esc(row.cuenta_deposito || '') + '"></div>'
+                + '<div><label class="form-label">CLABE</label><input type="text" class="form-control" name="clabe_deposito" inputmode="numeric" maxlength="18" pattern="[0-9]{18}" title="CLABE a 18 dígitos" placeholder="18 dígitos" value="' + esc(row.clabe_deposito || '') + '"></div>'
+                + '<div class="atlas-field-wide"><label class="form-label">Estado de cuenta</label>' + (row.__SPARTA_SECRET_REDACTED___url ? '<div class="mb-2">' + renderEstadoCuentaDistribuidor(row) + '</div>' : '') + '<input type="file" class="form-control" name="__SPARTA_SECRET_REDACTED__" accept=".pdf,.jpg,.jpeg,.png"><span class="atlas-cascade-help">PDF, JPG o PNG. Máximo 10 MB.</span></div>'
                 + '</div></div>'
                 + '<div class="tab-pane fade" id="atlas-dist-tab-presencia"><div class="atlas-form-grid">'
                 + '<div><label class="form-label atlas-required">Presencia física</label><select class="form-select js-atlas-select-buscador" name="presencia_fisica" required><option value="1"' + (presencia ? ' selected' : '') + '>Sí tiene presencia física</option><option value="0"' + (!presencia ? ' selected' : '') + '>Sin presencia física</option></select></div>'
@@ -2363,7 +2667,7 @@ $atlasPuedeAgregarSucursal = !empty($atlasPermisosSucursalVista['paso1']);
         const colorActual = colorHexSeguro(row.color_hex || '#94A3B8');
         const idActual = row.id || '';
         const iconoActual = String(row.icon_font || iconoDisponibleClasificacion(idActual)).trim();
-        return '<div><label class="form-label atlas-required">Nombre</label><input type="text" class="form-control" name="nombre" required placeholder="Nombre de la clasificación" value="' + esc(row.nombre || '') + '"></div><div class="atlas-field-wide"><label class="form-label atlas-required">Icono</label><input type="hidden" name="icon_font" id="atlas-catalogo-icon-font" required value="' + esc(iconoActual) + '">' + renderGaleriaIconos(iconoActual, idActual) + '</div><div><label class="form-label atlas-required">Color</label><div class="atlas-color-input-wrap"><input type="color" name="color_hex" id="atlas-catalogo-color" required value="' + esc(colorActual) + '"><span class="atlas-muted" id="atlas-catalogo-color-label">' + esc(colorActual) + '</span></div></div><div><label class="form-label atlas-required">Estatus</label><select class="form-select js-atlas-select-buscador" name="activo" required><option value="1"' + (Number(row.activo ?? 1) === 1 ? ' selected' : '') + '>Activa</option><option value="0"' + (Number(row.activo ?? 1) === 0 ? ' selected' : '') + '>Inactiva</option></select></div>';
+        return '<div><label class="form-label atlas-required">Nombre</label><input type="text" class="form-control" name="nombre" required maxlength="60" placeholder="Nombre de la clasificación" value="' + esc(row.nombre || '') + '"></div><div class="atlas-field-wide"><label class="form-label atlas-required">Descripción</label><textarea class="form-control" name="descripcion" required maxlength="500" rows="3" placeholder="Resumen operativo para la app">' + esc(row.descripcion || '') + '</textarea><span class="atlas-cascade-help">Resumen breve para orientar al gestor en la app.</span></div><div class="atlas-field-wide"><label class="form-label atlas-required">Icono</label><input type="hidden" name="icon_font" id="atlas-catalogo-icon-font" required value="' + esc(iconoActual) + '">' + renderGaleriaIconos(iconoActual, idActual) + '</div><div><label class="form-label atlas-required">Color</label><div class="atlas-color-input-wrap"><input type="color" name="color_hex" id="atlas-catalogo-color" required value="' + esc(colorActual) + '"><span class="atlas-muted" id="atlas-catalogo-color-label">' + esc(colorActual) + '</span></div></div><div><label class="form-label atlas-required">Estatus</label><select class="form-select js-atlas-select-buscador" name="activo" required><option value="1"' + (Number(row.activo ?? 1) === 1 ? ' selected' : '') + '>Activa</option><option value="0"' + (Number(row.activo ?? 1) === 0 ? ' selected' : '') + '>Inactiva</option></select></div>';
     }
     function abrirCatalogo(tipo, row, opciones) {
         formCatalogo.reset();
@@ -2493,6 +2797,7 @@ $atlasPuedeAgregarSucursal = !empty($atlasPermisosSucursalVista['paso1']);
                 activo: activo,
                 icon_font: payload.icon_font || 'fa-solid fa-tags',
                 color_hex: colorHexSeguro(payload.color_hex || '#94A3B8'),
+                descripcion: payload.descripcion || '',
                 orden: siguienteOrden
             }]);
         }
@@ -2968,12 +3273,48 @@ $atlasPuedeAgregarSucursal = !empty($atlasPermisosSucursalVista['paso1']);
             }
             return;
         }
+        const fusionarDivisiones = ev.target.closest('[data-atlas-fusionar-divisiones]');
+        if (fusionarDivisiones) {
+            ev.preventDefault();
+            abrirFusionDivisiones();
+            return;
+        }
         const editar = ev.target.closest('[data-atlas-editar]');
         if (editar) {
             ev.preventDefault();
             const tipo = editar.getAttribute('data-atlas-editar'), id = editar.getAttribute('data-id');
             if (tipo === 'sucursal') abrirSucursal(sucursales.find(row => String(row.id || '') === String(id || '')) || null);
             else abrirCatalogo(tipo, buscarPorTipo(tipo, id));
+            return;
+        }
+        const eliminarDivision = ev.target.closest('[data-atlas-eliminar-division]');
+        if (eliminarDivision) {
+            ev.preventDefault();
+            const id = eliminarDivision.getAttribute('data-atlas-eliminar-division') || '';
+            const nombre = eliminarDivision.getAttribute('data-nombre') || 'la división';
+            let confirmar = { isConfirmed: true, value: 'Eliminación solicitada desde catálogo operativo' };
+            if (typeof Swal !== 'undefined') {
+                confirmar = await Swal.fire({
+                    icon: 'warning',
+                    title: 'Eliminar división',
+                    html: 'Se eliminará <strong>' + esc(nombre) + '</strong> solo si no tiene sucursales o regionales asignadas. La acción quedará en bitácora.',
+                    input: 'textarea',
+                    inputPlaceholder: 'Motivo para bitácora',
+                    inputValue: 'Eliminación solicitada desde catálogo operativo',
+                    showCancelButton: true,
+                    confirmButtonText: 'Eliminar',
+                    cancelButtonText: 'Cancelar',
+                    inputValidator: value => !String(value || '').trim() ? 'Captura el motivo para bitácora.' : undefined
+                });
+            }
+            if (!confirmar.isConfirmed) return;
+            try {
+                await guardarJson('/Atlas/eliminarDivision', { id: id, motivo: confirmar.value || 'Eliminación solicitada desde catálogo operativo' });
+                await cargarCatalogos({ silencioso: true });
+                if (typeof Swal !== 'undefined') Swal.fire({ icon: 'success', title: 'División eliminada', text: 'La eliminación quedó registrada en bitácora.' });
+            } catch (err) {
+                if (typeof Swal !== 'undefined') Swal.fire({ icon: 'error', title: 'No se puede eliminar', text: err.message || 'La división aún tiene asignaciones.' });
+            }
             return;
         }
         const ubicacion = ev.target.closest('[data-atlas-ubicacion]');
@@ -3046,16 +3387,26 @@ $atlasPuedeAgregarSucursal = !empty($atlasPermisosSucursalVista['paso1']);
                     icon: 'warning',
                     title: 'Sacar divisional',
                     text: 'Se desactiva del catálogo, no se borra información histórica.',
+                    input: 'textarea',
+                    inputPlaceholder: 'Motivo de baja',
                     showCancelButton: true,
                     confirmButtonText: 'Sacar',
-                    cancelButtonText: 'Cancelar'
+                    cancelButtonText: 'Cancelar',
+                    inputValidator: value => !String(value || '').trim() ? 'Captura el motivo de baja.' : undefined
                 });
             }
             if (!confirmar.isConfirmed) return;
+            const filaDivisional = desactivarDivisional.closest('.atlas-division-error-item');
+            const textoOriginal = desactivarDivisional.innerHTML;
+            desactivarDivisional.disabled = true;
+            desactivarDivisional.innerHTML = '<i class="fa-solid fa-spinner fa-spin me-1"></i>Sacando';
             try {
-                await guardarJson('/Atlas/desactivarDivisional', { id: id });
+                await guardarJson('/Atlas/desactivarDivisional', { id: id, motivo_baja: confirmar.value || '' });
+                if (filaDivisional) filaDivisional.remove();
                 await refrescarActualizacionesDivisionales();
             } catch (err) {
+                desactivarDivisional.disabled = false;
+                desactivarDivisional.innerHTML = textoOriginal;
                 if (typeof Swal !== 'undefined') Swal.fire({ icon: 'error', title: 'No se pudo sacar', text: err.message || 'Error' });
             }
             return;
@@ -3075,6 +3426,12 @@ $atlasPuedeAgregarSucursal = !empty($atlasPermisosSucursalVista['paso1']);
         }
         if (formCatalogo && ev.target.form === formCatalogo && (ev.target.name === 'telefono_contacto' || ev.target.name === 'telefono_secundario')) {
             ev.target.value = String(ev.target.value || '').replace(/\D+/g, '').slice(0, 10);
+        }
+        if (formCatalogo && ev.target.form === formCatalogo && ev.target.name === 'cuenta_deposito') {
+            ev.target.value = String(ev.target.value || '').replace(/\D+/g, '').slice(0, 20);
+        }
+        if (formCatalogo && ev.target.form === formCatalogo && ev.target.name === 'clabe_deposito') {
+            ev.target.value = String(ev.target.value || '').replace(/\D+/g, '').slice(0, 18);
         }
         if (formCatalogo && ev.target.form === formCatalogo && ev.target.matches('[data-atlas-tiempo-estadia-cantidad]')) {
             syncTiempoEstadiaDistribuidor();
@@ -3148,6 +3505,13 @@ $atlasPuedeAgregarSucursal = !empty($atlasPermisosSucursalVista['paso1']);
             catch (err) { if (typeof Swal !== 'undefined') Swal.fire({ icon: 'error', title: 'No se pudo guardar', text: err.message || 'Error' }); }
         });
     }
+    if (formFusionDivisiones) {
+        formFusionDivisiones.addEventListener('submit', submitFusionDivisiones);
+        const destinoFusion = document.getElementById('atlas-fusion-division-destino');
+        const origenesFusion = document.getElementById('atlas-fusion-division-origenes');
+        if (destinoFusion) destinoFusion.addEventListener('change', function () { actualizarOpcionesFusionDivisiones(); actualizarResumenFusionDivisiones(); });
+        if (origenesFusion) origenesFusion.addEventListener('change', actualizarResumenFusionDivisiones);
+    }
     if (modalDireccionEl) modalDireccionEl.addEventListener('shown.bs.modal', function () { inicializarModalDireccion().catch(err => { if (typeof Swal !== 'undefined') Swal.fire({ icon: 'warning', title: 'No se pudo abrir el mapa', text: err.message || 'Revisa la configuración de Google Maps.' }); }); });
     if (modalDireccionEl) modalDireccionEl.addEventListener('hidden.bs.modal', restaurarSucursalDesdeDireccion);
     if (btnConfirmarDireccion) btnConfirmarDireccion.addEventListener('click', confirmarDireccionGoogle);
@@ -3208,6 +3572,11 @@ $atlasPuedeAgregarSucursal = !empty($atlasPermisosSucursalVista['paso1']);
             restaurarSucursalDesdeQuickAdd(ctx);
         });
     }
+    const btnTemplateDistribuidores = document.getElementById('atlas-btn-template-distribuidores');
+    if (btnTemplateDistribuidores) btnTemplateDistribuidores.addEventListener('click', descargarTemplateDistribuidores);
+    const btnImportarDistribuidores = document.getElementById('atlas-btn-importar-distribuidores');
+    if (btnImportarDistribuidores) btnImportarDistribuidores.addEventListener('click', abrirImportarDistribuidores);
+    if (formImportarDistribuidores) formImportarDistribuidores.addEventListener('submit', importarDistribuidoresSubmit);
     if (formCatalogo) {
         formCatalogo.addEventListener('change', function (ev) {
             if (ev.target && ev.target.name === 'division_id') actualizarDivisionalesAsignacion();
@@ -3233,7 +3602,10 @@ $atlasPuedeAgregarSucursal = !empty($atlasPermisosSucursalVista['paso1']);
                 }
                 const ctx = atlasQuickAddContext;
                 const data = await guardarJson(urls[tipo], payload);
-                if (tipo === 'distribuidor') await subirConstanciaDistribuidor(data.id);
+                if (tipo === 'distribuidor') {
+                    await subirConstanciaDistribuidor(data.id);
+                    await subirEstadoCuentaDistribuidor(data.id);
+                }
                 if (atlasQuickAddContext) atlasQuickAddContext.guardado = true;
                 cerrarModal(modalCatalogoEl);
                 if (ctx && ctx.target) {
@@ -3253,4 +3625,3 @@ $atlasPuedeAgregarSucursal = !empty($atlasPermisosSucursalVista['paso1']);
     cargarVistaInicialAtlas();
 })();
 </script>
-

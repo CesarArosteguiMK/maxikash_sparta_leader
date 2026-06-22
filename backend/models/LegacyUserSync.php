@@ -11,6 +11,8 @@ class LegacyUserSync extends Model
     private const MODEL_TYPE = 'App\\Models\\User';
     private const ORIGEN_EDITAR_USUARIO = 'editar_usuario_rrhh';
     private const ORIGEN_BAJA_USUARIO = 'baja_usuario_spartan';
+    private const DIRECCION_COBRANZA_ID = 12;
+    private static ?array $alcanceConfigCache = null;
 
     public static function sincronizarDesdeEditarUsuario(int $idPersona, int $idSesion = 0): array
     {
@@ -628,6 +630,280 @@ class LegacyUserSync extends Model
         self::asegurarColumnasBitacora($db);
     }
 
+    private static function asegurarConfiguracionAlcance(Database $db): void
+    {
+        $db->CRUD("CREATE TABLE IF NOT EXISTS __SPARTA_SECRET_REDACTED__.legacy_user_sync_config (
+            clave VARCHAR(80) NOT NULL PRIMARY KEY,
+            valor VARCHAR(255) NULL,
+            actualizado_por INT NULL,
+            actualizado_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+
+        $db->CRUD("CREATE TABLE IF NOT EXISTS __SPARTA_SECRET_REDACTED__.legacy_user_sync_config_alcance (
+            id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+            tipo ENUM('puesto','departamento') NOT NULL,
+            referencia_id INT NOT NULL,
+            activo TINYINT(1) NOT NULL DEFAULT 1,
+            creado_por INT NULL,
+            actualizado_por INT NULL,
+            creado_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            actualizado_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            UNIQUE KEY uq_legacy_sync_alcance (tipo, referencia_id),
+            KEY idx_legacy_sync_alcance_tipo (tipo, activo)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+    }
+
+    public static function getConfiguracionAlcance(): array
+    {
+        try {
+            $db = new Database();
+            self::asegurarConfiguracionAlcance($db);
+            $puestos = $db->queryAll("
+                SELECT
+                    p.id,
+                    p.nombre,
+                    d.id AS departamento_id,
+                    d.nombre AS departamento
+                FROM __SPARTA_SECRET_REDACTED__.puesto p
+                INNER JOIN __SPARTA_SECRET_REDACTED__.departamento d ON d.id = p.departamento_id
+                LEFT JOIN __SPARTA_SECRET_REDACTED__.departamento_organizacional dorg
+                    ON dorg.id = d.id_departamento_organizacional
+                LEFT JOIN __SPARTA_SECRET_REDACTED__.asigna_direcciones ad
+                    ON ad.id_departamento_organizacional = d.id_departamento_organizacional
+                   AND COALESCE(ad.activo, 1) = 1
+                LEFT JOIN __SPARTA_SECRET_REDACTED__.direcciones_organizacion dir
+                    ON dir.id = ad.id_direccion
+                WHERE COALESCE(p.activo, 1) = 1
+                  AND COALESCE(d.activo, 1) = 1
+                  AND (
+                      dir.id = :direccion_cobranza
+                      OR LOWER(TRIM(COALESCE(dir.nombre, ''))) = 'cobranza'
+                      OR LOWER(TRIM(COALESCE(dorg.nombre, ''))) IN ('cobranza', 'cobranza corporativo')
+                  )
+                  AND NOT (
+                      LOWER(TRIM(COALESCE(p.nombre, ''))) LIKE '%mesa de control%'
+                      OR LOWER(TRIM(COALESCE(d.nombre, ''))) LIKE '%mesa de control%'
+                      OR LOWER(TRIM(COALESCE(dorg.nombre, ''))) LIKE '%mesa de control%'
+                      OR LOWER(TRIM(COALESCE(dir.nombre, ''))) LIKE '%mesa de control%'
+                      OR LOWER(TRIM(COALESCE(p.nombre, ''))) LIKE '%inteligencia de negocio%'
+                      OR LOWER(TRIM(COALESCE(d.nombre, ''))) LIKE '%inteligencia de negocio%'
+                      OR LOWER(TRIM(COALESCE(dorg.nombre, ''))) LIKE '%inteligencia de negocio%'
+                      OR LOWER(TRIM(COALESCE(dir.nombre, ''))) LIKE '%inteligencia de negocio%'
+                      OR LOWER(TRIM(COALESCE(p.nombre, ''))) LIKE '%despachos de cobranza%'
+                      OR LOWER(TRIM(COALESCE(d.nombre, ''))) LIKE '%despachos de cobranza%'
+                      OR LOWER(TRIM(COALESCE(dorg.nombre, ''))) LIKE '%despachos de cobranza%'
+                      OR LOWER(TRIM(COALESCE(dir.nombre, ''))) LIKE '%despachos de cobranza%'
+                      OR LOWER(TRIM(COALESCE(p.nombre, ''))) LIKE '%data%'
+                      OR LOWER(TRIM(COALESCE(d.nombre, ''))) LIKE '%data%'
+                      OR LOWER(TRIM(COALESCE(dorg.nombre, ''))) LIKE '%data%'
+                      OR LOWER(TRIM(COALESCE(dir.nombre, ''))) LIKE '%data%'
+                      OR LOWER(TRIM(COALESCE(p.nombre, ''))) LIKE '%sabuesos c4%'
+                      OR LOWER(TRIM(COALESCE(d.nombre, ''))) LIKE '%sabuesos c4%'
+                      OR LOWER(TRIM(COALESCE(dorg.nombre, ''))) LIKE '%sabuesos c4%'
+                      OR LOWER(TRIM(COALESCE(dir.nombre, ''))) LIKE '%sabuesos c4%'
+                      OR LOWER(TRIM(COALESCE(p.nombre, ''))) LIKE '%riesgos%'
+                      OR LOWER(TRIM(COALESCE(d.nombre, ''))) LIKE '%riesgos%'
+                      OR LOWER(TRIM(COALESCE(dorg.nombre, ''))) LIKE '%riesgos%'
+                      OR LOWER(TRIM(COALESCE(dir.nombre, ''))) LIKE '%riesgos%'
+                      OR LOWER(TRIM(COALESCE(p.nombre, ''))) LIKE '%proyectos%'
+                      OR LOWER(TRIM(COALESCE(d.nombre, ''))) LIKE '%proyectos%'
+                      OR LOWER(TRIM(COALESCE(dorg.nombre, ''))) LIKE '%proyectos%'
+                      OR LOWER(TRIM(COALESCE(dir.nombre, ''))) LIKE '%proyectos%'
+                      OR LOWER(TRIM(COALESCE(p.nombre, ''))) LIKE '%admin sistemas%'
+                      OR LOWER(TRIM(COALESCE(d.nombre, ''))) LIKE '%admin sistemas%'
+                      OR LOWER(TRIM(COALESCE(dorg.nombre, ''))) LIKE '%admin sistemas%'
+                      OR LOWER(TRIM(COALESCE(dir.nombre, ''))) LIKE '%admin sistemas%'
+                      OR LOWER(TRIM(COALESCE(p.nombre, ''))) LIKE '%auditoria cobranza%'
+                      OR LOWER(TRIM(COALESCE(d.nombre, ''))) LIKE '%auditoria cobranza%'
+                      OR LOWER(TRIM(COALESCE(dorg.nombre, ''))) LIKE '%auditoria cobranza%'
+                      OR LOWER(TRIM(COALESCE(dir.nombre, ''))) LIKE '%auditoria cobranza%'
+                      OR LOWER(TRIM(COALESCE(p.nombre, ''))) LIKE '%call center%'
+                      OR LOWER(TRIM(COALESCE(d.nombre, ''))) LIKE '%call center%'
+                      OR LOWER(TRIM(COALESCE(dorg.nombre, ''))) LIKE '%call center%'
+                      OR LOWER(TRIM(COALESCE(dir.nombre, ''))) LIKE '%call center%'
+                      OR LOWER(TRIM(COALESCE(p.nombre, ''))) LIKE '%cartera%'
+                      OR LOWER(TRIM(COALESCE(d.nombre, ''))) LIKE '%cartera%'
+                      OR LOWER(TRIM(COALESCE(dorg.nombre, ''))) LIKE '%cartera%'
+                      OR LOWER(TRIM(COALESCE(dir.nombre, ''))) LIKE '%cartera%'
+                      OR LOWER(TRIM(COALESCE(p.nombre, ''))) LIKE '%despachos%'
+                      OR LOWER(TRIM(COALESCE(d.nombre, ''))) LIKE '%despachos%'
+                      OR LOWER(TRIM(COALESCE(dorg.nombre, ''))) LIKE '%despachos%'
+                      OR LOWER(TRIM(COALESCE(dir.nombre, ''))) LIKE '%despachos%'
+                      OR LOWER(TRIM(COALESCE(p.nombre, ''))) LIKE '%mercantil%'
+                      OR LOWER(TRIM(COALESCE(d.nombre, ''))) LIKE '%mercantil%'
+                      OR LOWER(TRIM(COALESCE(dorg.nombre, ''))) LIKE '%mercantil%'
+                      OR LOWER(TRIM(COALESCE(dir.nombre, ''))) LIKE '%mercantil%'
+                      OR LOWER(TRIM(COALESCE(p.nombre, ''))) LIKE '%motos adjudicadas%'
+                      OR LOWER(TRIM(COALESCE(d.nombre, ''))) LIKE '%motos adjudicadas%'
+                      OR LOWER(TRIM(COALESCE(dorg.nombre, ''))) LIKE '%motos adjudicadas%'
+                      OR LOWER(TRIM(COALESCE(dir.nombre, ''))) LIKE '%motos adjudicadas%'
+                      OR LOWER(TRIM(COALESCE(p.nombre, ''))) LIKE '%riesgo%'
+                      OR LOWER(TRIM(COALESCE(d.nombre, ''))) LIKE '%riesgo%'
+                      OR LOWER(TRIM(COALESCE(dorg.nombre, ''))) LIKE '%riesgo%'
+                      OR LOWER(TRIM(COALESCE(dir.nombre, ''))) LIKE '%riesgo%'
+                  )
+                ORDER BY d.nombre ASC, p.nombre ASC
+            ", ['direccion_cobranza' => self::DIRECCION_COBRANZA_ID]);
+            $departamentos = $db->queryAll("
+                SELECT DISTINCT d.id, d.nombre
+                FROM __SPARTA_SECRET_REDACTED__.departamento d
+                LEFT JOIN __SPARTA_SECRET_REDACTED__.departamento_organizacional dorg
+                    ON dorg.id = d.id_departamento_organizacional
+                LEFT JOIN __SPARTA_SECRET_REDACTED__.asigna_direcciones ad
+                    ON ad.id_departamento_organizacional = d.id_departamento_organizacional
+                   AND COALESCE(ad.activo, 1) = 1
+                LEFT JOIN __SPARTA_SECRET_REDACTED__.direcciones_organizacion dir
+                    ON dir.id = ad.id_direccion
+                WHERE COALESCE(d.activo, 1) = 1
+                  AND (
+                      dir.id = :direccion_cobranza
+                      OR LOWER(TRIM(COALESCE(dir.nombre, ''))) = 'cobranza'
+                      OR LOWER(TRIM(COALESCE(dorg.nombre, ''))) IN ('cobranza', 'cobranza corporativo')
+                  )
+                ORDER BY nombre ASC
+            ", ['direccion_cobranza' => self::DIRECCION_COBRANZA_ID]);
+            $rows = $db->queryAll("
+                SELECT tipo, referencia_id, activo
+                FROM __SPARTA_SECRET_REDACTED__.legacy_user_sync_config_alcance
+                WHERE activo = 1
+            ");
+            $config = $db->queryOne("
+                SELECT valor
+                FROM __SPARTA_SECRET_REDACTED__.legacy_user_sync_config
+                WHERE clave = 'alcance_configurado'
+                LIMIT 1
+            ");
+            $seleccion = ['puestos' => [], 'departamentos' => []];
+            foreach ($rows as $row) {
+                $tipo = (string)($row['tipo'] ?? '');
+                $id = (int)($row['referencia_id'] ?? 0);
+                if ($tipo === 'puesto' && $id > 0) {
+                    $seleccion['puestos'][] = $id;
+                } elseif ($tipo === 'departamento' && $id > 0) {
+                    $seleccion['departamentos'][] = $id;
+                }
+            }
+            $idsPuestosPermitidos = array_map(static fn($row) => (int)($row['id'] ?? 0), $puestos);
+            $idsDepartamentosPermitidos = array_map(static fn($row) => (int)($row['id'] ?? 0), $departamentos);
+            $seleccion['puestos'] = array_values(array_intersect($seleccion['puestos'], $idsPuestosPermitidos));
+            $seleccion['departamentos'] = array_values(array_intersect($seleccion['departamentos'], $idsDepartamentosPermitidos));
+
+            return [
+                'success' => true,
+                'configurado' => (string)($config['valor'] ?? '') === '1',
+                'catalogos' => [
+                    'puestos' => $puestos,
+                    'departamentos' => $departamentos,
+                ],
+                'seleccion' => $seleccion,
+                'mensaje' => 'Configuracion cargada.',
+            ];
+        } catch (\Throwable $e) {
+            return ['success' => false, 'mensaje' => 'No se pudo cargar la configuracion Legacy.', 'error' => $e->getMessage()];
+        }
+    }
+
+    public static function guardarConfiguracionAlcance(array $input, int $idSesion = 0): array
+    {
+        $puestos = self::idsDesdeInput($input['puestos'] ?? []);
+        $departamentos = [];
+        $db = null;
+        try {
+            $db = new Database();
+            self::asegurarConfiguracionAlcance($db);
+            $permitidos = self::idsAlcanceCobranzaPermitidos($db);
+            $puestos = array_values(array_intersect($puestos, $permitidos['puestos']));
+            $departamentos = array_values(array_intersect($departamentos, $permitidos['departamentos']));
+            $db->beginTransaction();
+            $db->CRUD("
+                INSERT INTO __SPARTA_SECRET_REDACTED__.legacy_user_sync_config (clave, valor, actualizado_por)
+                VALUES ('alcance_configurado', '1', :usuario)
+                ON DUPLICATE KEY UPDATE valor = VALUES(valor), actualizado_por = VALUES(actualizado_por), actualizado_at = NOW()
+            ", ['usuario' => $idSesion > 0 ? $idSesion : null]);
+            $db->CRUD("UPDATE __SPARTA_SECRET_REDACTED__.legacy_user_sync_config_alcance SET activo = 0, actualizado_por = :usuario", [
+                'usuario' => $idSesion > 0 ? $idSesion : null,
+            ]);
+            foreach ($departamentos as $id) {
+                self::guardarItemAlcance($db, 'departamento', $id, $idSesion);
+            }
+            foreach ($puestos as $id) {
+                self::guardarItemAlcance($db, 'puesto', $id, $idSesion);
+            }
+            $db->commit();
+            self::$alcanceConfigCache = null;
+            return [
+                'success' => true,
+                'mensaje' => 'Configuracion de sincronizacion Legacy guardada.',
+                'seleccion' => [
+                    'puestos' => $puestos,
+                    'departamentos' => $departamentos,
+                ],
+            ];
+        } catch (\Throwable $e) {
+            if ($db && $db->inTransaction()) {
+                $db->rollback();
+            }
+            return ['success' => false, 'mensaje' => 'No se pudo guardar la configuracion Legacy.', 'error' => $e->getMessage()];
+        }
+    }
+
+    private static function guardarItemAlcance(Database $db, string $tipo, int $referenciaId, int $idSesion): void
+    {
+        if ($referenciaId <= 0) {
+            return;
+        }
+        $db->CRUD("
+            INSERT INTO __SPARTA_SECRET_REDACTED__.legacy_user_sync_config_alcance
+                (tipo, referencia_id, activo, creado_por, actualizado_por)
+            VALUES
+                (:tipo, :referencia_id, 1, :usuario, :usuario)
+            ON DUPLICATE KEY UPDATE activo = 1, actualizado_por = VALUES(actualizado_por), actualizado_at = NOW()
+        ", [
+            'tipo' => $tipo,
+            'referencia_id' => $referenciaId,
+            'usuario' => $idSesion > 0 ? $idSesion : null,
+        ]);
+    }
+
+    private static function idsAlcanceCobranzaPermitidos(Database $db): array
+    {
+        $puestos = $db->queryAll("
+            SELECT DISTINCT p.id
+            FROM __SPARTA_SECRET_REDACTED__.puesto p
+            INNER JOIN __SPARTA_SECRET_REDACTED__.departamento d ON d.id = p.departamento_id
+            LEFT JOIN __SPARTA_SECRET_REDACTED__.departamento_organizacional dorg
+                ON dorg.id = d.id_departamento_organizacional
+            LEFT JOIN __SPARTA_SECRET_REDACTED__.asigna_direcciones ad
+                ON ad.id_departamento_organizacional = d.id_departamento_organizacional
+               AND COALESCE(ad.activo, 1) = 1
+            LEFT JOIN __SPARTA_SECRET_REDACTED__.direcciones_organizacion dir
+                ON dir.id = ad.id_direccion
+            WHERE COALESCE(p.activo, 1) = 1
+              AND COALESCE(d.activo, 1) = 1
+              AND (
+                  dir.id = :direccion_cobranza
+                  OR LOWER(TRIM(COALESCE(dir.nombre, ''))) = 'cobranza'
+                  OR LOWER(TRIM(COALESCE(dorg.nombre, ''))) IN ('cobranza', 'cobranza corporativo')
+              )
+        ", ['direccion_cobranza' => self::DIRECCION_COBRANZA_ID]);
+
+        return [
+            'departamentos' => [],
+            'puestos' => array_values(array_unique(array_map(static fn($row) => (int)($row['id'] ?? 0), $puestos))),
+        ];
+    }
+
+    private static function idsDesdeInput($value): array
+    {
+        if (is_string($value)) {
+            $value = preg_split('/[\s,]+/', $value, -1, PREG_SPLIT_NO_EMPTY) ?: [];
+        }
+        if (!is_array($value)) {
+            return [];
+        }
+        return array_values(array_unique(array_filter(array_map('intval', $value), static fn($id) => $id > 0)));
+    }
+
     private static function asegurarColumnasBitacora(Database $db): void
     {
         $columnas = [
@@ -784,6 +1060,17 @@ class LegacyUserSync extends Model
 
     private static function estaEnAlcance(array $ctx): bool
     {
+        $config = self::configuracionAlcanceActual();
+        $textoAlcance = self::normalizarTexto(($ctx['puesto_nombre'] ?? '') . ' ' . ($ctx['departamento_nombre'] ?? ''));
+        if (self::textoAlcanceExcluido($textoAlcance)) {
+            return false;
+        }
+        if (!empty($config['configurado'])) {
+            // La configuracion operativa manda: altas, ediciones y bajas solo sincronizan si el puesto activo esta seleccionado.
+            $idPuesto = (int)($ctx['id_puesto'] ?? 0);
+            return $idPuesto > 0 && in_array($idPuesto, $config['puestos'], true);
+        }
+
         $puesto = self::normalizarTexto($ctx['puesto_nombre'] ?? '');
         $departamento = self::normalizarTexto($ctx['departamento_nombre'] ?? '');
         $texto = $puesto . ' ' . $departamento;
@@ -801,6 +1088,78 @@ class LegacyUserSync extends Model
             || preg_match('/\b22\s*[-_ ]\s*29\b/', $texto)
             || preg_match('/\b8\s*[-_ ]\s*30\b/', $texto)
         );
+    }
+
+    private static function textoAlcanceExcluido(string $texto): bool
+    {
+        foreach ([
+            'mesa de control',
+            'inteligencia de negocio',
+            'despachos de cobranza',
+            'data',
+            'sabuesos c4',
+            'riesgos',
+            'proyectos',
+            'admin sistemas',
+            'auditoria cobranza',
+            'call center',
+            'cartera',
+            'despachos',
+            'mercantil',
+            'motos adjudicadas',
+            'riesgo',
+        ] as $bloqueado) {
+            if (strpos($texto, $bloqueado) !== false) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static function configuracionAlcanceActual(): array
+    {
+        if (self::$alcanceConfigCache !== null) {
+            return self::$alcanceConfigCache;
+        }
+        try {
+            $db = new Database();
+            self::asegurarConfiguracionAlcance($db);
+            $config = $db->queryOne("
+                SELECT valor
+                FROM __SPARTA_SECRET_REDACTED__.legacy_user_sync_config
+                WHERE clave = 'alcance_configurado'
+                LIMIT 1
+            ");
+            $rows = $db->queryAll("
+                SELECT tipo, referencia_id
+                FROM __SPARTA_SECRET_REDACTED__.legacy_user_sync_config_alcance
+                WHERE activo = 1
+            ");
+            $out = [
+                'configurado' => (string)($config['valor'] ?? '') === '1',
+                'puestos' => [],
+                'departamentos' => [],
+            ];
+            foreach ($rows as $row) {
+                $id = (int)($row['referencia_id'] ?? 0);
+                if ($id <= 0) {
+                    continue;
+                }
+                if (($row['tipo'] ?? '') === 'puesto') {
+                    $out['puestos'][] = $id;
+                } elseif (($row['tipo'] ?? '') === 'departamento') {
+                    $out['departamentos'][] = $id;
+                }
+            }
+            self::$alcanceConfigCache = [
+                'configurado' => $out['configurado'],
+                'puestos' => array_values(array_unique($out['puestos'])),
+                'departamentos' => array_values(array_unique($out['departamentos'])),
+            ];
+        } catch (\Throwable $e) {
+            self::$alcanceConfigCache = ['configurado' => false, 'puestos' => [], 'departamentos' => []];
+        }
+        return self::$alcanceConfigCache;
     }
 
     private static function normalizarTexto(string $texto): string

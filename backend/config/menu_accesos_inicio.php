@@ -93,6 +93,8 @@ if (!function_exists('getRutasModulos')) {
         $rutas['caphum/obtenerdatosactualizacioninfopersona'] = [82];
         $rutas['caphum/obtenerdatosactualizacioninfopersonas'] = [82];
         $rutas['caphum/guardaractualizacioninfopersona'] = [82];
+        $rutas['caphum/getconfiguracionsincronizalegacy'] = [89];
+        $rutas['caphum/guardarconfiguracionsincronizalegacy'] = [89];
         $rutas['reporteria/getasignaciondireccionescredito'] = [84];
         $rutas['reporteria/postasignaciondireccion'] = [84];
         $rutas['reporteria/postasignaciondireccionesorden'] = [84];
@@ -103,7 +105,14 @@ if (!function_exists('getRutasModulos')) {
         $rutas['analitica/postasignaciondireccionessync'] = [84];
         $rutas['atlas/accesosatlas'] = [137];
         $rutas['atlas/creditosoperacion'] = [139];
+        $rutas['atlas/riesgosoperativos'] = [148];
+        $rutas['atlas/abanderamiento30'] = [149];
+        $rutas['atlas/getriesgosoperativos'] = [148];
+        $rutas['atlas/eliminardivision'] = [133];
+        $rutas['atlas/fusionardivisiones'] = [133];
         $rutas['atlas/getaccesosatlas'] = [137];
+        $rutas['atlas/descargarplantillaaccesosatlas'] = [137];
+        $rutas['atlas/importarplantillaaccesosatlas'] = [137];
         $rutas['atlas/sincronizaraccesosatlas'] = [137];
         $rutas['atlas/actualizarexclusionaccesosatlas'] = [137];
         $rutas['atlas/getaccesoatlasdetalle'] = [137];

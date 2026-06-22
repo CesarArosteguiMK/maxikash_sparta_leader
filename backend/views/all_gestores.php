@@ -651,6 +651,61 @@
       line-height: 1.18;
     }
 
+    .gestion-personal-employee-code {
+      display: inline-flex;
+      align-items: center;
+      gap: .4rem;
+      color: #475569;
+      font-size: .78rem;
+      font-weight: 700;
+      line-height: 1.15;
+      margin-bottom: .16rem;
+    }
+
+    .gestion-personal-employee-code .gestion-personal-code-value {
+      display: inline-flex;
+      align-items: center;
+      min-height: 1.25rem;
+      padding: .08rem .48rem;
+      border: 1px solid #bfdbfe;
+      border-radius: 999px;
+      background: #eff6ff;
+      color: #1d4ed8;
+      font-size: .76rem;
+      font-weight: 800;
+      letter-spacing: 0;
+    }
+
+    .gestion-personal-name-main {
+      color: #344054;
+      font-size: .92rem;
+      font-weight: 800;
+      line-height: 1.18;
+    }
+
+    .gestion-personal-external-id {
+      display: flex;
+      align-items: center;
+      gap: .32rem;
+      color: #64748b;
+      font-size: .76rem;
+      font-weight: 600;
+      line-height: 1.15;
+      margin-top: .18rem;
+    }
+
+    .gestion-personal-external-id strong {
+      color: #475569;
+      font-weight: 800;
+    }
+
+    .gestion-personal-username {
+      margin-top: .46rem;
+      color: #64748b;
+      font-size: .76rem;
+      font-weight: 700;
+    }
+
     #modalAgregarUsuarioRrhh .modal-dialog {
       max-width: min(1320px, calc(100vw - 1.75rem));
       margin: .875rem auto;
@@ -5189,6 +5244,7 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
                         <div class="col-md-3"><label class="form-label">CURP</label><input type="text" class="form-control text-uppercase" name="persona.curp" maxlength="18"></div>
                         <div class="col-md-3"><label class="form-label">RFC</label><input type="text" class="form-control text-uppercase" name="persona.rfc" maxlength="20"></div>
                         <div class="col-md-3"><label class="form-label">NSS</label><input type="text" class="form-control" name="persona.nss" maxlength="20"></div>
+                        <div class="col-md-3"><label class="form-label">No. empleado</label><input type="text" class="form-control" name="persona.codigo_contpac" maxlength="40" inputmode="numeric" autocomplete="off" placeholder="Codigo CONTPAC"></div>
                         <div class="col-md-3"><label class="form-label">Fecha de nacimiento</label><input type="text" class="form-control rrhh-date" name="persona.fecha_nacimiento" placeholder="YYYY-MM-DD" readonly></div>
                         <div class="col-md-3">
                           <label class="form-label">Sexo</label>
@@ -6585,15 +6641,21 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
                         <select class="form-select" id="cargarDocPersona_tipoDocumento">
                             <option value="">Seleccione un tipo de documento</option>
                             <option value="Acta de Nacimiento">Acta de Nacimiento</option>
+                            <option value="Archivo .FAD">Archivo .FAD</option>
                             <option value="Carta de compromiso del Gestor">Carta de compromiso del Gestor</option>
                             <option value="Certificado de Estudios">Certificado de Estudios</option>
                             <option value="Comprobante de Domicilio">Comprobante de Domicilio</option>
+                            <option value="Contrato firmado">Contrato firmado</option>
                             <option value="CURP">CURP</option>
                             <option value="Documento baja">Documento baja</option>
                             <option value="Documento reingreso">Documento reingreso</option>
                             <option value="Identificación Oficial (INE)">Identificación Oficial (INE)</option>
+                            <option value="Llave vector">Llave vector</option>
+                            <option value="Prueba centavo">Prueba centavo</option>
                             <option value="Referencias Laborales">Referencias Laborales</option>
                             <option value="RFC">RFC</option>
+                            <option value="Semanas cotizadas IMSS (segundos patrones)">Semanas cotizadas IMSS (segundos patrones)</option>
+                            <option value="Validacion SAT">Validacion SAT</option>
                         </select>
                     </div>
 
@@ -6605,7 +6667,7 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
                                 id="cargarDocPersona_archivo"
                                 class="form-control d-none"
                                 onchange="agregarArchivoListaPersona(this)"
-                                accept=".pdf"
+                                accept=".pdf,.fad"
                             />
                             <button
                                 type="button"
@@ -6616,7 +6678,7 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
                             </button>
                             <span id="cargarDocPersona_nombreArchivo" class="text-muted small">No se ha seleccionado ningún archivo</span>
                         </div>
-                        <small class="text-muted">Puedes subir múltiples archivos PDF.</small>
+                        <small class="text-muted">Puedes subir PDF. Para documentos generados por FAD también se permite archivo .FAD.</small>
                     </div>
 
                     <!-- Lista de archivos nuevos seleccionados (antes de subir) - ARRIBA DE LA TABLA -->
@@ -6813,6 +6875,11 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
                 <div class="mb-2">
                     <label class="form-label">Teléfono *</label>
                     <input type="text" id="edit_telefono" class="form-control phone-mask" oninput="this.value = this.value.replace(/[^0-9]/g, '')" onblur="validarTelefono('edit_telefono')" maxlength="10">
+                </div>
+
+                <div class="mb-2">
+                    <label class="form-label">Correo (opcional)</label>
+                    <input type="email" id="edit_correo" class="form-control" maxlength="160" placeholder="correo@dominio.com" autocomplete="off" oninput="this.value = this.value.trim().toLowerCase()">
                 </div>
 
                 <div class="mb-2" id="div_edit_estado" style="display:none;">
@@ -9912,6 +9979,9 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
       const tienePuestos = p.puestos && p.puestos.length > 1;
       const vistaMultiplesActiva = document.getElementById('FilterMultiplePuestos')?.value === 'multiples';
       const etiquetaExternoPersona = etiquetaExternoPorUsuario(p);
+      const puestosPersonaTexto = tienePuestos
+        ? p.puestos.map(puesto => puesto.nombre_puesto || '').filter(Boolean).join(' | ')
+        : (p.nombre_puesto || '');
 
       // Generar badges para múltiples puestos con JERARQUÍA VISUAL
       let puestosHTML = '';
@@ -10005,15 +10075,20 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
           <div class="gestion-personal-name-cell">
             ${avatarPersonaHtml(p, nombreCompleto)}
             <div class="gestion-personal-name-info">
-              <div class="fw-semibold text-muted">
-                 # ${p.numero_empleado}
+              <div class="gestion-personal-employee-code">
+                <span>No. empleado:</span>
+                <span class="gestion-personal-code-value">${escapeAttr(p.codigo_contpac || 'Sin codigo')}</span>
               </div>
-              <div class="fw-semibold text-uppercase">
-                  ${nombreCompleto}${etiquetaExternoPersona}
+              <div class="gestion-personal-name-main text-uppercase">
+                ${nombreCompleto}${etiquetaExternoPersona}
               </div>
-              <small class="text-muted d-flex align-items-center gap-1">
-                  <i class="fa fa-key"></i>
-                  ${p.usuario}
+              <div class="gestion-personal-external-id">
+                <span>External id:</span>
+                <strong>${escapeAttr(p.numero_empleado || 'Sin external id')}</strong>
+              </div>
+              <small class="gestion-personal-username d-flex align-items-center gap-1">
+                <i class="fa fa-key"></i>
+                ${p.usuario}
               </small>
               ${tienePuestos ? `<span class="badge bg-success badge-multipuesto-indicator mt-1"><i class="fa fa-layer-group me-1"></i>${p.puestos.length} Puestos Asignados</span>` : ''}
             </div>
@@ -10054,7 +10129,7 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
               </button>`
                 : ''
               }
-               ${puedeCargarDocumento ? `<button class="btn btn-sm btn-info" onclick="cargarDocumentoPersona(this)" data-id-persona="${p.id}" data-nombre="${nombreCompleto.replace(/"/g, '&quot;')}" title="Cargar documento">
+               ${puedeCargarDocumento ? `<button class="btn btn-sm btn-info" onclick="cargarDocumentoPersona(this)" data-id-persona="${p.id}" data-nombre="${nombreCompleto.replace(/"/g, '&quot;')}" data-puesto="${escapeAttr(puestosPersonaTexto)}" title="Cargar documento">
                    <i class="fa fa-file"></i>
                </button>` : ''}
               ${puedeActualizarInfo ? `<button class="btn btn-sm btn-success" onclick="abrirActualizacionInfoPersona(${p.id})" title="Actualizar informaci&oacute;n" aria-label="Actualizar informaci&oacute;n">
