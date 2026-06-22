@@ -11,7 +11,8 @@ class Atlas extends Model
     public const MODULO_ATLAS_SUCURSAL_PASO2 = 130;
     public const MODULO_ATLAS_RUTAS_COMBO_GESTOR_NIVELES = 138;
     public const MODULO_ATLAS_CREDITOS_OPERACION = 139;
-    private const MODULOS_ATLAS_IDS = [129, 130, 132, 133, 134, 135, 136, 137, 138, 139];
+    public const MODULO_ATLAS_RIESGOS_OPERATIVOS = 148;
+    private const MODULOS_ATLAS_IDS = [129, 130, 132, 133, 134, 135, 136, 137, 138, 139, 148];
 
     private static function asegurarPermisosSucursalesAtlas(Database $db): void
     {
@@ -58,6 +59,11 @@ class Atlas extends Model
                 'pestana' => 'Atlas',
                 'nombre' => 'Atlas Creditos en Operacion',
                 'descripcion' => 'Acceso al modulo de creditos de Maxi sincronizados para operacion Atlas.',
+            ],
+            self::MODULO_ATLAS_RIESGOS_OPERATIVOS => [
+                'pestana' => 'Atlas',
+                'nombre' => 'Atlas Riesgos Operativos',
+                'descripcion' => 'Detecta agencias o distribuidores detenidos en Sparta que aun registran venta en Maxi.',
             ],
             self::MODULO_ATLAS_RUTAS_COMBO_GESTOR_NIVELES => [
                 'pestana' => 'Permisos especiales',
@@ -273,6 +279,13 @@ class Atlas extends Model
         self::asegurarColumna($db, 'atlas_catalogo_distribuidores', 'constancia_fiscal_url', "TEXT NULL");
         self::asegurarColumna($db, 'atlas_catalogo_distribuidores', 'constancia_fiscal_nombre', "VARCHAR(220) NULL");
         self::asegurarColumna($db, 'atlas_catalogo_distribuidores', 'constancia_fiscal_at', "DATETIME NULL");
+        self::asegurarColumna($db, 'atlas_catalogo_distribuidores', 'banco_deposito', "VARCHAR(120) NULL");
+        self::asegurarColumna($db, 'atlas_catalogo_distribuidores', 'titular_deposito', "VARCHAR(180) NULL");
+        self::asegurarColumna($db, 'atlas_catalogo_distribuidores', 'cuenta_deposito', "VARCHAR(40) NULL");
+        self::asegurarColumna($db, 'atlas_catalogo_distribuidores', 'clabe_deposito', "VARCHAR(18) NULL");
+        self::asegurarColumna($db, 'atlas_catalogo_distribuidores', '__SPARTA_SECRET_REDACTED___url', "TEXT NULL");
+        self::asegurarColumna($db, 'atlas_catalogo_distribuidores', '__SPARTA_SECRET_REDACTED___nombre', "VARCHAR(220) NULL");
+        self::asegurarColumna($db, 'atlas_catalogo_distribuidores', '__SPARTA_SECRET_REDACTED___at', "DATETIME NULL");
         self::asegurarColumna($db, 'atlas_catalogo_distribuidores', 'tipo_motos', "VARCHAR(120) NULL");
         self::asegurarColumna($db, 'atlas_catalogo_distribuidores', 'canal_venta', "VARCHAR(120) NULL");
         self::asegurarColumna($db, 'atlas_catalogo_distribuidores', 'horario_atencion', "VARCHAR(180) NULL");
@@ -678,7 +691,7 @@ class Atlas extends Model
                     s.distribuidor_id,
                     d.nombre AS distribuidor_nombre,
                     s.sucursal,
-                    COALESCE(NULLIF(TRIM(s.direccion_sucursal), ''), dir.direccion, '') AS direccion,
+                    COALESCE(NULLIF(TRIM(s.direccion_sucursal), ''), '') AS direccion,
                     s.coordenadas,
                     s.latitud,
                     s.longitud,
@@ -716,6 +729,13 @@ class Atlas extends Model
                     s.numero_interior,
                     s.activo,
                     s.fecha_alta,
+                    DATE_FORMAT(s.fecha_alta, '%d/%m/%Y %H:%i') AS fecha_alta_fmt,
+                    CASE
+                        WHEN s.fecha_alta IS NOT NULL
+                         AND YEAR(s.fecha_alta) = YEAR(CURDATE())
+                         AND MONTH(s.fecha_alta) = MONTH(CURDATE())
+                        THEN 1 ELSE 0
+                    END AS es_nuevo_ingreso,
                     s.fecha_actualizacion,
                     tel.numero_telefono,
                     tel.nombre_contacto
@@ -749,10 +769,6 @@ class Atlas extends Model
                       AND ase.activo = 1
                 LEFT JOIN persona pase
                        ON pase.id = s.asesor_persona_id
-                LEFT JOIN atlas_asigna_direccion_sucursal dir
-                       ON dir.fk_sucursal = s.fk_sucursal
-                      AND dir.activo = 1
-                      AND dir.es_principal = 1
                 LEFT JOIN atlas_asigna_telefono_sucursal tel
                        ON tel.fk_sucursal = s.fk_sucursal
                       AND tel.activo = 1
@@ -1028,6 +1044,13 @@ class Atlas extends Model
                             constancia_fiscal_url,
                             constancia_fiscal_nombre,
                             DATE_FORMAT(constancia_fiscal_at, '%d/%m/%Y %H:%i') AS constancia_fiscal_at_fmt,
+                            banco_deposito,
+                            titular_deposito,
+                            cuenta_deposito,
+                            clabe_deposito,
+                            __SPARTA_SECRET_REDACTED___url,
+                            __SPARTA_SECRET_REDACTED___nombre,
+                            DATE_FORMAT(__SPARTA_SECRET_REDACTED___at, '%d/%m/%Y %H:%i') AS __SPARTA_SECRET_REDACTED___at_fmt,
                             icon_font,
                             activo,
                             fecha_alta,
@@ -1337,12 +1360,396 @@ class Atlas extends Model
             return ['success' => false, 'mensaje' => 'No se pudo preparar el catalogo de divisiones.', 'error' => $e->getMessage()];
         }
 
+        $nombre = self::normalizarNombreCatalogo($input['nombre'] ?? '');
+        $id = self::intVal($input['id'] ?? 0);
+        $activo = self::activoVal($input['activo'] ?? 1);
+        if ($nombre === '') {
+            return ['success' => false, 'mensaje' => 'Captura el nombre.'];
+        }
+        if ($activo === 1) {
+            $duplicada = self::divisionActivaDuplicada($db, $nombre, $id);
+            if ($duplicada) {
+                return [
+                    'success' => false,
+                    'mensaje' => 'No puedes guardar otra division activa con el nombre "' . $nombre . '". Ya existe como ' . ($duplicada['nombre'] ?? 'division activa') . '.',
+                ];
+            }
+        }
+
         return self::guardarSimple('atlas_catalogo_divisiones', [
-            'nombre' => self::strVal($input['nombre'] ?? ''),
+            'nombre' => $nombre,
             'icon_font' => self::strVal($input['icon_font'] ?? 'fa-solid fa-diagram-project'),
             'color_hex' => self::strVal($input['color_hex'] ?? '#2563EB'),
-            'activo' => self::activoVal($input['activo'] ?? 1),
-        ], self::intVal($input['id'] ?? 0), ['nombre'], 'divisiÃ³n');
+            'activo' => $activo,
+        ], $id, ['nombre'], 'division');
+    }
+
+    private static function divisionActivaDuplicada(Database $db, string $nombre, int $idActual = 0): ?array
+    {
+        return self::divisionActivaDuplicadaExcluyendo($db, $nombre, $idActual > 0 ? [$idActual] : []);
+    }
+
+    private static function divisionActivaDuplicadaExcluyendo(Database $db, string $nombre, array $idsExcluidos = []): ?array
+    {
+        $target = self::normalizarNombreCatalogoParaComparar($nombre);
+        $rows = $db->queryAll("
+            SELECT id, nombre
+            FROM atlas_catalogo_divisiones
+            WHERE activo = 1
+        ");
+        $idsExcluidos = array_values(array_unique(array_map('intval', $idsExcluidos)));
+        foreach ($rows as $row) {
+            if (in_array((int)($row['id'] ?? 0), $idsExcluidos, true)) {
+                continue;
+            }
+            if (self::normalizarNombreCatalogoParaComparar($row['nombre'] ?? '') === $target) {
+                return $row;
+            }
+        }
+        return null;
+    }
+
+    public static function fusionarDivisiones(array $input): array
+    {
+        $destinoId = self::intVal($input['division_destino_id'] ?? 0);
+        $origenesRaw = $input['division_origen_ids'] ?? [];
+        if (is_string($origenesRaw)) {
+            $origenesRaw = preg_split('/[\s,]+/', $origenesRaw, -1, PREG_SPLIT_NO_EMPTY) ?: [];
+        }
+        if (!is_array($origenesRaw)) {
+            $origenesRaw = [];
+        }
+        $origenIds = array_values(array_unique(array_filter(array_map('intval', $origenesRaw), static fn($id) => $id > 0 && $id !== $destinoId)));
+        $nuevoNombre = self::normalizarNombreCatalogo($input['nuevo_nombre'] ?? '');
+        $divisionalId = self::nullableInt($input['divisional_id'] ?? null);
+        $motivo = self::normalizarNombreCatalogo($input['motivo'] ?? '');
+
+        if ($destinoId <= 0) {
+            return ['success' => false, 'mensaje' => 'Selecciona la division que permanecera.'];
+        }
+        if (empty($origenIds)) {
+            return ['success' => false, 'mensaje' => 'Selecciona al menos una division para fusionar.'];
+        }
+        if ($motivo === '') {
+            return ['success' => false, 'mensaje' => 'Captura el motivo de la fusion.'];
+        }
+
+        $db = null;
+        try {
+            $db = new Database();
+            self::asegurarDivisionalesPersonaAtlas($db);
+
+            $destino = $db->queryOne("
+                SELECT id, nombre, icon_font, color_hex, divisional_id, activo
+                FROM atlas_catalogo_divisiones
+                WHERE id = :id
+                  AND activo = 1
+                LIMIT 1
+            ", ['id' => $destinoId]);
+            if (!$destino) {
+                return ['success' => false, 'mensaje' => 'La division que permanece no existe o esta inactiva.'];
+            }
+            if ($nuevoNombre === '') {
+                $nuevoNombre = self::normalizarNombreCatalogo($destino['nombre'] ?? '');
+            }
+
+            $origenes = self::obtenerDivisionesPorIds($db, $origenIds);
+            if (count($origenes) !== count($origenIds)) {
+                return ['success' => false, 'mensaje' => 'Una de las divisiones a fusionar ya no existe o esta inactiva.'];
+            }
+
+            $idsExcluidos = array_merge([$destinoId], $origenIds);
+            $duplicada = self::divisionActivaDuplicadaExcluyendo($db, $nuevoNombre, $idsExcluidos);
+            if ($duplicada) {
+                return [
+                    'success' => false,
+                    'mensaje' => 'No puedes fusionar con el nombre "' . $nuevoNombre . '". Ya existe como ' . ($duplicada['nombre'] ?? 'division activa') . '.',
+                ];
+            }
+
+            if ($divisionalId !== null) {
+                $divisional = $db->queryOne("
+                    SELECT id, nombre
+                    FROM atlas_catalogo_divisionales
+                    WHERE id = :id
+                      AND activo = 1
+                    LIMIT 1
+                ", ['id' => $divisionalId]);
+                if (!$divisional) {
+                    return ['success' => false, 'mensaje' => 'El divisional seleccionado no esta activo.'];
+                }
+                $ocupado = $db->queryAll("
+                    SELECT id, nombre
+                    FROM atlas_catalogo_divisiones
+                    WHERE activo = 1
+                      AND divisional_id = :divisional_id
+                ", ['divisional_id' => $divisionalId]);
+                foreach ($ocupado as $row) {
+                    if (!in_array((int)($row['id'] ?? 0), $idsExcluidos, true)) {
+                        return [
+                            'success' => false,
+                            'mensaje' => 'El divisional seleccionado ya esta asignado a ' . ($row['nombre'] ?? 'otra division') . '.',
+                        ];
+                    }
+                }
+            } else {
+                $divisionalId = self::nullableInt($destino['divisional_id'] ?? null);
+            }
+
+            $paramsIn = self::paramsIn('origen', $origenIds);
+            $sucursalesAfectadas = (int)($db->queryOne("
+                SELECT COUNT(*) AS total
+                FROM atlas_catalogo_sucursales
+                WHERE division_id IN ({$paramsIn['sql']})
+            ", $paramsIn['params'])['total'] ?? 0);
+            $regionalesAfectadas = (int)($db->queryOne("
+                SELECT COUNT(*) AS total
+                FROM atlas_catalogo_regionales
+                WHERE division_id IN ({$paramsIn['sql']})
+            ", $paramsIn['params'])['total'] ?? 0);
+
+            $payload = [
+                'destino_antes' => $destino,
+                'origenes' => array_values($origenes),
+                'nuevo_nombre' => $nuevoNombre,
+                'nuevo_divisional_id' => $divisionalId,
+                'sucursales_reasignadas' => $sucursalesAfectadas,
+                'regionales_reasignadas' => $regionalesAfectadas,
+            ];
+            $payloadJson = json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?: '{}';
+
+            $db->beginTransaction();
+            $db->CRUD("
+                UPDATE atlas_catalogo_sucursales
+                SET division_id = :destino_id
+                WHERE division_id IN ({$paramsIn['sql']})
+            ", array_merge(['destino_id' => $destinoId], $paramsIn['params']));
+            $db->CRUD("
+                UPDATE atlas_catalogo_regionales
+                SET division_id = :destino_id
+                WHERE division_id IN ({$paramsIn['sql']})
+            ", array_merge(['destino_id' => $destinoId], $paramsIn['params']));
+            $db->CRUD("
+                UPDATE atlas_catalogo_divisiones
+                SET nombre = :nombre,
+                    divisional_id = :divisional_id,
+                    fecha_actualizacion = NOW()
+                WHERE id = :id
+            ", [
+                'nombre' => $nuevoNombre,
+                'divisional_id' => $divisionalId,
+                'id' => $destinoId,
+            ]);
+            $db->CRUD("
+                INSERT INTO atlas_bitacora_catalogo_divisiones (
+                    division_id, nombre, icon_font, color_hex, divisional_id, activo,
+                    accion, motivo, payload_json, usuario_id
+                ) VALUES (
+                    :division_id, :nombre, :icon_font, :color_hex, :divisional_id, :activo,
+                    'merge_destino', :motivo, :payload_json, :usuario_id
+                )
+            ", [
+                'division_id' => (int)$destino['id'],
+                'nombre' => $nuevoNombre,
+                'icon_font' => self::nullableStr($destino['icon_font'] ?? null),
+                'color_hex' => self::nullableStr($destino['color_hex'] ?? null),
+                'divisional_id' => $divisionalId,
+                'activo' => self::activoVal($destino['activo'] ?? 1),
+                'motivo' => $motivo,
+                'payload_json' => $payloadJson,
+                'usuario_id' => self::nullableInt($input['_usuario_id'] ?? null),
+            ]);
+            foreach ($origenes as $origen) {
+                $db->CRUD("
+                    INSERT INTO atlas_bitacora_catalogo_divisiones (
+                        division_id, nombre, icon_font, color_hex, divisional_id, activo,
+                        accion, motivo, payload_json, usuario_id
+                    ) VALUES (
+                        :division_id, :nombre, :icon_font, :color_hex, :divisional_id, :activo,
+                        'merge_origen', :motivo, :payload_json, :usuario_id
+                    )
+                ", [
+                    'division_id' => (int)$origen['id'],
+                    'nombre' => (string)($origen['nombre'] ?? ''),
+                    'icon_font' => self::nullableStr($origen['icon_font'] ?? null),
+                    'color_hex' => self::nullableStr($origen['color_hex'] ?? null),
+                    'divisional_id' => self::nullableInt($origen['divisional_id'] ?? null),
+                    'activo' => self::activoVal($origen['activo'] ?? 1),
+                    'motivo' => $motivo,
+                    'payload_json' => $payloadJson,
+                    'usuario_id' => self::nullableInt($input['_usuario_id'] ?? null),
+                ]);
+            }
+            $db->CRUD("
+                DELETE FROM atlas_catalogo_divisiones
+                WHERE id IN ({$paramsIn['sql']})
+            ", $paramsIn['params']);
+            $db->commit();
+
+            return [
+                'success' => true,
+                'mensaje' => 'Divisiones fusionadas correctamente.',
+                'datos' => [
+                    'division_destino_id' => $destinoId,
+                    'division_destino' => $nuevoNombre,
+                    'divisiones_fusionadas' => count($origenIds),
+                    'sucursales_reasignadas' => $sucursalesAfectadas,
+                    'regionales_reasignadas' => $regionalesAfectadas,
+                ],
+            ];
+        } catch (\Throwable $e) {
+            if ($db && $db->inTransaction()) {
+                $db->rollback();
+            }
+            return ['success' => false, 'mensaje' => 'No se pudo fusionar divisiones.', 'error' => $e->getMessage()];
+        }
+    }
+
+    private static function obtenerDivisionesPorIds(Database $db, array $ids): array
+    {
+        if (empty($ids)) {
+            return [];
+        }
+        $paramsIn = self::paramsIn('id', $ids);
+        $rows = $db->queryAll("
+            SELECT id, nombre, icon_font, color_hex, divisional_id, activo
+            FROM atlas_catalogo_divisiones
+            WHERE activo = 1
+              AND id IN ({$paramsIn['sql']})
+        ", $paramsIn['params']);
+        $map = [];
+        foreach ($rows as $row) {
+            $map[(int)($row['id'] ?? 0)] = $row;
+        }
+        $ordenadas = [];
+        foreach ($ids as $id) {
+            if (isset($map[$id])) {
+                $ordenadas[] = $map[$id];
+            }
+        }
+        return $ordenadas;
+    }
+
+    private static function paramsIn(string $prefijo, array $ids): array
+    {
+        $params = [];
+        $placeholders = [];
+        foreach (array_values(array_unique(array_map('intval', $ids))) as $idx => $id) {
+            $key = $prefijo . $idx;
+            $placeholders[] = ':' . $key;
+            $params[$key] = $id;
+        }
+        return ['sql' => implode(',', $placeholders), 'params' => $params];
+    }
+
+    public static function eliminarDivision(array $input): array
+    {
+        $id = self::intVal($input['id'] ?? 0);
+        if ($id <= 0) {
+            return ['success' => false, 'mensaje' => 'Selecciona una division.'];
+        }
+
+        $db = null;
+        try {
+            $db = new Database();
+            self::asegurarDivisionalesPersonaAtlas($db);
+
+            $division = $db->queryOne("
+                SELECT id, nombre, icon_font, color_hex, divisional_id, activo
+                FROM atlas_catalogo_divisiones
+                WHERE id = :id
+                LIMIT 1
+            ", ['id' => $id]);
+            if (!$division) {
+                return ['success' => false, 'mensaje' => 'La division ya no existe.'];
+            }
+
+            $bloqueos = self::bloqueosEliminarDivision($db, $id);
+            if (!empty($bloqueos)) {
+                return [
+                    'success' => false,
+                    'mensaje' => 'No puedes quitar ' . ($division['nombre'] ?? 'esta division') . ' porque aun esta asignada a ' . implode('; ', $bloqueos) . '.',
+                    'bloqueos' => $bloqueos,
+                ];
+            }
+
+            $payload = json_encode($division, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+            $db->beginTransaction();
+            $db->CRUD("
+                INSERT INTO atlas_bitacora_catalogo_divisiones (
+                    division_id, nombre, icon_font, color_hex, divisional_id, activo,
+                    accion, motivo, payload_json, usuario_id
+                ) VALUES (
+                    :division_id, :nombre, :icon_font, :color_hex, :divisional_id, :activo,
+                    'delete', :motivo, :payload_json, :usuario_id
+                )
+            ", [
+                'division_id' => (int)$division['id'],
+                'nombre' => (string)($division['nombre'] ?? ''),
+                'icon_font' => self::nullableStr($division['icon_font'] ?? null),
+                'color_hex' => self::nullableStr($division['color_hex'] ?? null),
+                'divisional_id' => self::nullableInt($division['divisional_id'] ?? null),
+                'activo' => self::activoVal($division['activo'] ?? 0),
+                'motivo' => self::nullableStr($input['motivo'] ?? 'Eliminacion desde catalogo operativo'),
+                'payload_json' => $payload ?: '{}',
+                'usuario_id' => self::nullableInt($input['_usuario_id'] ?? null),
+            ]);
+            $db->CRUD("DELETE FROM atlas_catalogo_divisiones WHERE id = :id", ['id' => $id]);
+            $db->commit();
+
+            return ['success' => true, 'mensaje' => 'Division eliminada y registrada en bitacora.'];
+        } catch (\Throwable $e) {
+            if ($db && $db->inTransaction()) {
+                $db->rollback();
+            }
+            return ['success' => false, 'mensaje' => 'No se pudo eliminar la division.', 'error' => $e->getMessage()];
+        }
+    }
+
+    private static function bloqueosEliminarDivision(Database $db, int $divisionId): array
+    {
+        $bloqueos = [];
+        $sucursales = $db->queryAll("
+            SELECT fk_sucursal, sucursal
+            FROM atlas_catalogo_sucursales
+            WHERE division_id = :id
+              AND activo = 1
+            ORDER BY sucursal ASC
+            LIMIT 6
+        ", ['id' => $divisionId]);
+        if ($sucursales) {
+            $total = $db->queryOne("
+                SELECT COUNT(*) AS total
+                FROM atlas_catalogo_sucursales
+                WHERE division_id = :id
+                  AND activo = 1
+            ", ['id' => $divisionId]);
+            $lista = array_map(static fn($row) => 'FK ' . ($row['fk_sucursal'] ?? '-') . ' ' . ($row['sucursal'] ?? 'Sucursal'), $sucursales);
+            $extra = max(0, (int)($total['total'] ?? 0) - count($lista));
+            $bloqueos[] = (int)($total['total'] ?? 0) . ' sucursal(es): ' . implode(', ', $lista) . ($extra > 0 ? ' y ' . $extra . ' mas' : '');
+        }
+
+        $regionales = $db->queryAll("
+            SELECT nombre
+            FROM atlas_catalogo_regionales
+            WHERE division_id = :id
+              AND activo = 1
+            ORDER BY nombre ASC
+            LIMIT 6
+        ", ['id' => $divisionId]);
+        if ($regionales) {
+            $total = $db->queryOne("
+                SELECT COUNT(*) AS total
+                FROM atlas_catalogo_regionales
+                WHERE division_id = :id
+                  AND activo = 1
+            ", ['id' => $divisionId]);
+            $lista = array_map(static fn($row) => (string)($row['nombre'] ?? 'Regional'), $regionales);
+            $extra = max(0, (int)($total['total'] ?? 0) - count($lista));
+            $bloqueos[] = (int)($total['total'] ?? 0) . ' regional(es): ' . implode(', ', $lista) . ($extra > 0 ? ' y ' . $extra . ' mas' : '');
+        }
+
+        return $bloqueos;
     }
 
     private static function resolverPersonasAsignacionSucursal(Database $db, array &$datos, array $input = []): array
@@ -1583,6 +1990,9 @@ class Atlas extends Model
                     dvl.tipo_asignacion,
                     dvl.nombre_vacante,
                     dvl.persona_id,
+                    DATE_FORMAT(dvl.fecha_alta, '%d/%m/%Y %H:%i') AS fecha_alta_fmt,
+                    DATE_FORMAT(dvl.fecha_baja, '%d/%m/%Y %H:%i') AS fecha_baja_fmt,
+                    dvl.motivo_baja,
                     au.numero_empleado,
                     au.puesto,
                     au.area,
@@ -1595,7 +2005,7 @@ class Atlas extends Model
                        ON divs.divisional_id = dvl.id
                       AND divs.activo = 1
                 WHERE dvl.activo = 1
-                GROUP BY dvl.id, dvl.nombre, dvl.tipo_asignacion, dvl.nombre_vacante, dvl.persona_id, au.numero_empleado, au.puesto, au.area, au.direccion
+                GROUP BY dvl.id, dvl.nombre, dvl.tipo_asignacion, dvl.nombre_vacante, dvl.persona_id, dvl.fecha_alta, dvl.fecha_baja, dvl.motivo_baja, au.numero_empleado, au.puesto, au.area, au.direccion
                 HAVING total_divisiones = 0
                 ORDER BY dvl.tipo_asignacion ASC, dvl.nombre ASC
             ");
@@ -1682,6 +2092,9 @@ class Atlas extends Model
                     SET nombre = :nombre,
                         nombre_vacante = NULL,
                         activo = 1,
+                        fecha_alta = NOW(),
+                        fecha_baja = NULL,
+                        motivo_baja = NULL,
                         fecha_actualizacion = NOW()
                     WHERE id = :id
                 ", ['nombre' => $nombre, 'id' => (int)$inactivo['id']]);
@@ -1704,6 +2117,10 @@ class Atlas extends Model
         $id = self::nullableInt($input['id'] ?? null);
         if ($id === null) {
             return ['success' => false, 'mensaje' => 'Selecciona un divisional.'];
+        }
+        $motivo = self::strVal($input['motivo_baja'] ?? $input['motivo'] ?? '');
+        if ($motivo === '') {
+            return ['success' => false, 'mensaje' => 'Captura el motivo de baja.'];
         }
 
         try {
@@ -1733,9 +2150,11 @@ class Atlas extends Model
             $db->CRUD("
                 UPDATE atlas_catalogo_divisionales
                 SET activo = 0,
+                    fecha_baja = NOW(),
+                    motivo_baja = :motivo_baja,
                     fecha_actualizacion = NOW()
                 WHERE id = :id
-            ", ['id' => $id]);
+            ", ['id' => $id, 'motivo_baja' => $motivo]);
 
             return ['success' => true, 'mensaje' => 'Divisional sacado del catÃ¡logo.'];
         } catch (\Throwable $e) {
@@ -1858,6 +2277,10 @@ class Atlas extends Model
             $telefonoSecundario = preg_replace('/\D+/', '', self::strVal($input['telefono_secundario'] ?? ''));
             $emailContacto = strtolower(self::strVal($input['email_contacto'] ?? ''));
             $regimenFiscal = self::strVal($input['regimen_fiscal'] ?? '');
+            $bancoDeposito = self::nullableStr($input['banco_deposito'] ?? null);
+            $titularDeposito = self::nullableStr($input['titular_deposito'] ?? null);
+            $cuentaDeposito = preg_replace('/\D+/', '', self::strVal($input['cuenta_deposito'] ?? ''));
+            $clabeDeposito = preg_replace('/\D+/', '', self::strVal($input['clabe_deposito'] ?? ''));
             $tipoMotos = self::strVal($input['tipo_motos'] ?? '');
             $canalVenta = self::strVal($input['canal_venta'] ?? '');
             $tipoPersona = strtolower(self::strVal($input['tipo_persona'] ?? 'moral'));
@@ -1894,6 +2317,12 @@ class Atlas extends Model
             }
             if ($telefonoSecundario !== '' && !preg_match('/^[0-9]{10}$/', $telefonoSecundario)) {
                 return ['success' => false, 'mensaje' => 'El telefono alterno debe tener 10 digitos.'];
+            }
+            if ($cuentaDeposito !== '' && !preg_match('/^[0-9]{6,20}$/', $cuentaDeposito)) {
+                return ['success' => false, 'mensaje' => 'La cuenta de deposito debe tener entre 6 y 20 digitos.'];
+            }
+            if ($clabeDeposito !== '' && !preg_match('/^[0-9]{18}$/', $clabeDeposito)) {
+                return ['success' => false, 'mensaje' => 'La CLABE de deposito debe tener 18 digitos.'];
             }
             $errorTipoMotos = self::validarValoresCatalogoDistribuidor($db, 'atlas_catalogo_distribuidor_tipo_moto', $tipoMotos, 'tipo de motos');
             if ($errorTipoMotos !== null) {
@@ -1951,6 +2380,10 @@ class Atlas extends Model
                 'telefono_secundario' => $telefonoSecundario !== '' ? $telefonoSecundario : null,
                 'email_contacto' => $emailContacto,
                 'regimen_fiscal' => $regimenFiscal,
+                'banco_deposito' => $bancoDeposito,
+                'titular_deposito' => $titularDeposito,
+                'cuenta_deposito' => $cuentaDeposito !== '' ? $cuentaDeposito : null,
+                'clabe_deposito' => $clabeDeposito !== '' ? $clabeDeposito : null,
                 'tipo_motos' => $tipoMotos,
                 'canal_venta' => $canalVenta,
                 'horario_atencion' => self::nullableStr($input['horario_atencion'] ?? null),
@@ -1991,6 +2424,10 @@ class Atlas extends Model
                         telefono_secundario = :telefono_secundario,
                         email_contacto = :email_contacto,
                         regimen_fiscal = :regimen_fiscal,
+                        banco_deposito = :banco_deposito,
+                        titular_deposito = :titular_deposito,
+                        cuenta_deposito = :cuenta_deposito,
+                        clabe_deposito = :clabe_deposito,
                         tipo_motos = :tipo_motos,
                         canal_venta = :canal_venta,
                         horario_atencion = :horario_atencion,
@@ -2028,6 +2465,308 @@ class Atlas extends Model
             }
             return ['success' => false, 'mensaje' => 'No se pudo guardar el distribuidor.', 'error' => $e->getMessage()];
         }
+    }
+
+    public static function getDistribuidoresTemplate(): array
+    {
+        try {
+            $db = new Database();
+            self::asegurarDistribuidoresAtlas($db);
+            return $db->queryAll("
+                SELECT
+                    id,
+                    nombre,
+                    nombre_comercial,
+                    razon_social,
+                    rfc,
+                    tipo_persona,
+                    tipo_distribuidor,
+                    estatus,
+                    nombre_contacto,
+                    telefono_contacto,
+                    telefono_secundario,
+                    email_contacto,
+                    regimen_fiscal,
+                    banco_deposito,
+                    titular_deposito,
+                    cuenta_deposito,
+                    clabe_deposito,
+                    tipo_motos,
+                    canal_venta,
+                    presencia_fisica,
+                    horario_atencion,
+                    dias_operacion,
+                    requiere_cita,
+                    tiempo_promedio_entrega,
+                    observaciones
+                FROM atlas_catalogo_distribuidores
+                WHERE activo = 1
+                ORDER BY nombre ASC, id ASC
+            ");
+        } catch (\Throwable $e) {
+            return [];
+        }
+    }
+
+    public static function importarDistribuidoresLayout(array $filas, int $usuarioId = 0, bool $desbloquearExistentes = false): array
+    {
+        if (!$filas) {
+            return ['success' => false, 'mensaje' => 'El Excel no contiene distribuidores.'];
+        }
+
+        $db = null;
+        try {
+            $db = new Database();
+            self::asegurarDistribuidoresAtlas($db);
+
+            $bloqueados = [];
+            foreach ($filas as $fila) {
+                $existente = self::buscarDistribuidorLayout($db, $fila);
+                if ($existente && self::distribuidorDetieneOperacion($existente['estatus'] ?? null)) {
+                    $bloqueados[] = [
+                        'fila' => (int)($fila['_excel_row'] ?? 0),
+                        'id' => (int)$existente['id'],
+                        'distribuidor' => $existente['nombre'] ?? $existente['nombre_comercial'] ?? '',
+                        'estatus' => $existente['estatus'] ?? '',
+                    ];
+                }
+            }
+
+            if ($bloqueados && !$desbloquearExistentes) {
+                return [
+                    'success' => false,
+                    'requiere_confirmacion_desbloqueo' => true,
+                    'mensaje' => 'El layout trae distribuidores que ya existen y estan bloqueados, pausados o inhabilitados. Confirma si deseas desbloquearlos para actualizar la informacion.',
+                    'datos' => ['bloqueados' => $bloqueados],
+                ];
+            }
+
+            $db->beginTransaction();
+            $creados = 0;
+            $actualizados = 0;
+            $desbloqueados = 0;
+            $errores = [];
+
+            foreach ($filas as $fila) {
+                $existente = self::buscarDistribuidorLayout($db, $fila);
+                $datos = self::normalizarFilaDistribuidorLayout($fila, $existente, $usuarioId, $desbloquearExistentes);
+                $validacion = self::validarDatosDistribuidorLayout($datos);
+                if ($validacion !== null) {
+                    $errores[] = [
+                        'fila' => (int)($fila['_excel_row'] ?? 0),
+                        'distribuidor' => $datos['nombre_comercial'] ?? '',
+                        'mensaje' => $validacion,
+                    ];
+                    continue;
+                }
+
+                if ($existente) {
+                    $datos['id'] = (int)$existente['id'];
+                    $previo = [
+                        'estatus' => $existente['estatus'] ?? 'activo',
+                        'motivo_bloqueo' => $existente['motivo_bloqueo'] ?? null,
+                        'bloqueo_vigencia' => $existente['bloqueo_vigencia'] ?? null,
+                        'bloqueo_fin_at' => $existente['bloqueo_fin_at'] ?? null,
+                    ];
+                    if ($desbloquearExistentes && self::distribuidorDetieneOperacion($existente['estatus'] ?? null)) {
+                        $datos['estatus'] = 'activo';
+                        $datos['activo'] = 1;
+                        $datos['motivo_bloqueo'] = null;
+                        $datos['bloqueo_vigencia'] = null;
+                        $datos['bloqueo_fin_at'] = null;
+                        $desbloqueados++;
+                    }
+                    $db->CRUD("
+                        UPDATE atlas_catalogo_distribuidores
+                        SET nombre = :nombre,
+                            nombre_comercial = :nombre_comercial,
+                            razon_social = :razon_social,
+                            rfc = :rfc,
+                            tipo_persona = :tipo_persona,
+                            tipo_distribuidor = :tipo_distribuidor,
+                            estatus = :estatus,
+                            nombre_contacto = :nombre_contacto,
+                            telefono_contacto = :telefono_contacto,
+                            telefono_secundario = :telefono_secundario,
+                            email_contacto = :email_contacto,
+                            regimen_fiscal = :regimen_fiscal,
+                            banco_deposito = :banco_deposito,
+                            titular_deposito = :titular_deposito,
+                            cuenta_deposito = :cuenta_deposito,
+                            clabe_deposito = :clabe_deposito,
+                            tipo_motos = :tipo_motos,
+                            canal_venta = :canal_venta,
+                            presencia_fisica = :presencia_fisica,
+                            horario_atencion = :horario_atencion,
+                            dias_operacion = :dias_operacion,
+                            requiere_cita = :requiere_cita,
+                            tiempo_promedio_entrega = :tiempo_promedio_entrega,
+                            activo = :activo,
+                            observaciones = :observaciones,
+                            motivo_bloqueo = :motivo_bloqueo,
+                            bloqueo_vigencia = :bloqueo_vigencia,
+                            bloqueo_fin_at = :bloqueo_fin_at,
+                            updated_by = :updated_by
+                        WHERE id = :id
+                    ", $datos);
+                    self::registrarBitacoraDistribuidor($db, (int)$existente['id'], $previo, $datos);
+                    $actualizados++;
+                } else {
+                    $datos['created_by'] = $datos['updated_by'];
+                    $campos = array_keys($datos);
+                    $db->CRUD(
+                        "INSERT INTO atlas_catalogo_distribuidores (" . implode(', ', $campos) . ") VALUES (:" . implode(', :', $campos) . ")",
+                        $datos
+                    );
+                    $creados++;
+                }
+            }
+
+            $db->commit();
+            return [
+                'success' => true,
+                'mensaje' => 'Layout de distribuidores procesado.',
+                'datos' => [
+                    'filas_leidas' => count($filas),
+                    'creados' => $creados,
+                    'actualizados' => $actualizados,
+                    'desbloqueados' => $desbloqueados,
+                    'errores' => $errores,
+                ],
+            ];
+        } catch (\Throwable $e) {
+            if ($db && $db->inTransaction()) {
+                $db->rollback();
+            }
+            return ['success' => false, 'mensaje' => 'No se pudo importar el layout de distribuidores.', 'error' => $e->getMessage()];
+        }
+    }
+
+    private static function buscarDistribuidorLayout(Database $db, array $fila): ?array
+    {
+        $id = self::intVal($fila['id'] ?? 0);
+        if ($id > 0) {
+            $row = $db->queryOne("SELECT * FROM atlas_catalogo_distribuidores WHERE id = :id LIMIT 1", ['id' => $id]);
+            if ($row) {
+                return $row;
+            }
+        }
+        $rfc = strtoupper(preg_replace('/[^A-Z0-9Ñ&]/u', '', self::strVal($fila['rfc'] ?? '')));
+        if ($rfc !== '') {
+            $row = $db->queryOne("SELECT * FROM atlas_catalogo_distribuidores WHERE rfc = :rfc LIMIT 1", ['rfc' => $rfc]);
+            if ($row) {
+                return $row;
+            }
+        }
+        $nombre = self::strVal($fila['nombre_comercial'] ?? '');
+        if ($nombre !== '') {
+            $row = $db->queryOne("SELECT * FROM atlas_catalogo_distribuidores WHERE LOWER(nombre_comercial) = LOWER(:nombre) OR LOWER(nombre) = LOWER(:nombre) LIMIT 1", ['nombre' => $nombre]);
+            if ($row) {
+                return $row;
+            }
+        }
+        return null;
+    }
+
+    private static function normalizarFilaDistribuidorLayout(array $fila, ?array $existente, int $usuarioId, bool $desbloquear): array
+    {
+        $pick = static function (string $key, $default = null) use ($fila, $existente) {
+            $value = $fila[$key] ?? null;
+            if ($value === null || trim((string)$value) === '') {
+                return $existente[$key] ?? $default;
+            }
+            return $value;
+        };
+        $estatus = strtolower(self::strVal($pick('estatus', 'activo')));
+        if (!in_array($estatus, ['activo', 'inactivo', 'suspendido', 'bloqueado', 'pausado', 'inhabilitado'], true)) {
+            $estatus = 'activo';
+        }
+        if ($desbloquear && self::distribuidorDetieneOperacion($estatus)) {
+            $estatus = 'activo';
+        }
+        $tipoPersona = strtolower(self::strVal($pick('tipo_persona', 'moral')));
+        if (!in_array($tipoPersona, ['fisica', 'moral'], true)) {
+            $tipoPersona = str_contains($tipoPersona, 'fis') ? 'fisica' : 'moral';
+        }
+        $presencia = self::boolLayout($pick('presencia_fisica', $existente ? ($existente['presencia_fisica'] ?? 1) : 0));
+        $requiereCita = self::boolLayout($pick('requiere_cita', 0));
+        $nombre = self::strVal($pick('nombre_comercial', $pick('nombre', '')));
+        return [
+            'nombre' => $nombre,
+            'nombre_comercial' => $nombre,
+            'razon_social' => self::strVal($pick('razon_social', $nombre)),
+            'rfc' => strtoupper(preg_replace('/[^A-Z0-9Ñ&]/u', '', self::strVal($pick('rfc', '')))),
+            'tipo_persona' => $tipoPersona,
+            'tipo_distribuidor' => self::strVal($pick('tipo_distribuidor', '')),
+            'estatus' => $estatus,
+            'nombre_contacto' => self::strVal($pick('nombre_contacto', '')),
+            'telefono_contacto' => preg_replace('/\D+/', '', self::strVal($pick('telefono_contacto', ''))),
+            'telefono_secundario' => self::nullableStr(preg_replace('/\D+/', '', self::strVal($pick('telefono_secundario', '')))),
+            'email_contacto' => strtolower(self::strVal($pick('email_contacto', ''))),
+            'regimen_fiscal' => self::strVal($pick('regimen_fiscal', '')),
+            'banco_deposito' => self::nullableStr($pick('banco_deposito', null)),
+            'titular_deposito' => self::nullableStr($pick('titular_deposito', null)),
+            'cuenta_deposito' => self::nullableStr(preg_replace('/\D+/', '', self::strVal($pick('cuenta_deposito', '')))),
+            'clabe_deposito' => self::nullableStr(preg_replace('/\D+/', '', self::strVal($pick('clabe_deposito', '')))),
+            'tipo_motos' => self::strVal($pick('tipo_motos', '')),
+            'canal_venta' => self::strVal($pick('canal_venta', '')),
+            'presencia_fisica' => $presencia,
+            'horario_atencion' => self::nullableStr($pick('horario_atencion', null)),
+            'dias_operacion' => self::nullableStr($pick('dias_operacion', null)),
+            'requiere_cita' => $requiereCita,
+            'tiempo_promedio_entrega' => self::nullableStr($pick('tiempo_promedio_entrega', null)),
+            'activo' => $estatus === 'activo' ? 1 : 0,
+            'observaciones' => self::nullableStr($pick('observaciones', null)),
+            'motivo_bloqueo' => $estatus === 'activo' ? null : ($existente['motivo_bloqueo'] ?? null),
+            'bloqueo_vigencia' => $estatus === 'activo' ? null : ($existente['bloqueo_vigencia'] ?? 'indefinida'),
+            'bloqueo_fin_at' => $estatus === 'activo' ? null : ($existente['bloqueo_fin_at'] ?? null),
+            'updated_by' => $usuarioId ?: null,
+        ];
+    }
+
+    private static function boolLayout($value): int
+    {
+        $v = strtolower(trim((string)$value));
+        return in_array($v, ['1', 'si', 'sí', 's', 'yes', 'activo', 'true'], true) ? 1 : 0;
+    }
+
+    private static function validarDatosDistribuidorLayout(array $datos): ?string
+    {
+        foreach ([
+            'nombre_comercial' => 'nombre comercial',
+            'razon_social' => 'razon social',
+            'rfc' => 'RFC',
+            'tipo_distribuidor' => 'tipo distribuidor',
+            'nombre_contacto' => 'contacto principal',
+            'telefono_contacto' => 'telefono principal',
+            'email_contacto' => 'correo principal',
+            'regimen_fiscal' => 'regimen fiscal',
+            'tipo_motos' => 'tipo motos',
+            'canal_venta' => 'canal venta',
+        ] as $key => $label) {
+            if (trim((string)($datos[$key] ?? '')) === '') {
+                return 'Falta ' . $label . '.';
+            }
+        }
+        if (!filter_var($datos['email_contacto'], FILTER_VALIDATE_EMAIL)) {
+            return 'Correo principal invalido.';
+        }
+        if (!preg_match('/^[A-ZÑ&]{3,4}[0-9]{6}[A-Z0-9]{3}$/u', $datos['rfc'])) {
+            return 'RFC invalido.';
+        }
+        if (!preg_match('/^[0-9]{10}$/', $datos['telefono_contacto'])) {
+            return 'Telefono principal invalido.';
+        }
+        if (($datos['telefono_secundario'] ?? '') && !preg_match('/^[0-9]{10}$/', (string)$datos['telefono_secundario'])) {
+            return 'Telefono alterno invalido.';
+        }
+        if (($datos['cuenta_deposito'] ?? '') && !preg_match('/^[0-9]{6,20}$/', (string)$datos['cuenta_deposito'])) {
+            return 'Cuenta deposito invalida.';
+        }
+        if (($datos['clabe_deposito'] ?? '') && !preg_match('/^[0-9]{18}$/', (string)$datos['clabe_deposito'])) {
+            return 'CLABE deposito invalida.';
+        }
+        return null;
     }
 
     private static function guardarPresenciasDistribuidor(Database $db, int $distribuidorId, array $presencias, int $presenciaFisica): void
@@ -2305,6 +3044,90 @@ class Atlas extends Model
         }
     }
 
+    public static function subirEstadoCuentaDistribuidor(array $post, array $archivo): array
+    {
+        try {
+            $db = new Database();
+            self::asegurarDistribuidoresAtlas($db);
+
+            $id = self::intVal($post['id'] ?? 0);
+            if ($id <= 0) {
+                return ['success' => false, 'mensaje' => 'Guarda primero el distribuidor para cargar el estado de cuenta.'];
+            }
+
+            $dist = $db->queryOne("SELECT id FROM atlas_catalogo_distribuidores WHERE id = :id LIMIT 1", ['id' => $id]);
+            if (!$dist) {
+                return ['success' => false, 'mensaje' => 'No se encontro el distribuidor.'];
+            }
+
+            if (empty($archivo) || (int)($archivo['error'] ?? UPLOAD_ERR_NO_FILE) === UPLOAD_ERR_NO_FILE) {
+                return ['success' => true, 'mensaje' => 'Distribuidor guardado sin estado de cuenta nuevo.'];
+            }
+
+            $error = (int)($archivo['error'] ?? UPLOAD_ERR_OK);
+            if ($error !== UPLOAD_ERR_OK) {
+                return ['success' => false, 'mensaje' => 'No se pudo recibir el estado de cuenta.'];
+            }
+
+            $size = (int)($archivo['size'] ?? 0);
+            if ($size <= 0 || $size > 10 * 1024 * 1024) {
+                return ['success' => false, 'mensaje' => 'El estado de cuenta debe pesar maximo 10 MB.'];
+            }
+
+            $original = basename((string)($archivo['name'] ?? '__SPARTA_SECRET_REDACTED__'));
+            $ext = strtolower(pathinfo($original, PATHINFO_EXTENSION));
+            $permitidos = ['pdf', 'jpg', 'jpeg', 'png'];
+            if (!in_array($ext, $permitidos, true)) {
+                return ['success' => false, 'mensaje' => 'El estado de cuenta debe ser PDF, JPG o PNG.'];
+            }
+
+            $uploadsPath = dirname(__DIR__) . DIRECTORY_SEPARATOR . 'core' . DIRECTORY_SEPARATOR . 'UploadsPaths.php';
+            if (!function_exists('sparta_uploads_join') && is_file($uploadsPath)) {
+                require_once $uploadsPath;
+            }
+
+            $dir = function_exists('sparta_uploads_join')
+                ? \sparta_uploads_join('atlas', 'distribuidores')
+                : dirname(__DIR__, 2) . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'uploads' . DIRECTORY_SEPARATOR . 'atlas' . DIRECTORY_SEPARATOR . 'distribuidores';
+
+            if (!is_dir($dir) && !@mkdir($dir, 0775, true) && !is_dir($dir)) {
+                return ['success' => false, 'mensaje' => 'No se pudo crear la carpeta para estados de cuenta.'];
+            }
+
+            $nombreLimpio = preg_replace('/[^A-Za-z0-9._-]+/', '_', pathinfo($original, PATHINFO_FILENAME));
+            $nombreArchivo = '__SPARTA_SECRET_REDACTED___dist_' . $id . '_' . date('Ymd_His') . '_' . substr(sha1($original . microtime(true)), 0, 8) . '.' . $ext;
+            if ($nombreLimpio !== '') {
+                $nombreArchivo = '__SPARTA_SECRET_REDACTED___dist_' . $id . '_' . date('Ymd_His') . '_' . substr($nombreLimpio, 0, 40) . '.' . $ext;
+            }
+
+            $destino = rtrim($dir, DIRECTORY_SEPARATOR . '/\\') . DIRECTORY_SEPARATOR . $nombreArchivo;
+            if (!@move_uploaded_file((string)$archivo['tmp_name'], $destino)) {
+                return ['success' => false, 'mensaje' => 'No se pudo guardar el estado de cuenta.'];
+            }
+
+            $urlRelativa = '/uploads/atlas/distribuidores/' . $nombreArchivo;
+            $urlPublica = function_exists('sparta_url_publica_desde_repositorio')
+                ? \sparta_url_publica_desde_repositorio($urlRelativa)
+                : $urlRelativa;
+
+            $db->CRUD("
+                UPDATE atlas_catalogo_distribuidores
+                SET __SPARTA_SECRET_REDACTED___url = :url,
+                    __SPARTA_SECRET_REDACTED___nombre = :nombre,
+                    __SPARTA_SECRET_REDACTED___at = NOW()
+                WHERE id = :id
+            ", [
+                'url' => $urlPublica,
+                'nombre' => $original,
+                'id' => $id,
+            ]);
+
+            return ['success' => true, 'mensaje' => 'Estado de cuenta cargado.', 'url' => $urlPublica];
+        } catch (\Throwable $e) {
+            return ['success' => false, 'mensaje' => 'No se pudo cargar el estado de cuenta.', 'error' => $e->getMessage()];
+        }
+    }
+
     public static function guardarClasificacion(array $input): array
     {
         $id = self::intVal($input['id'] ?? 0);
@@ -2503,6 +3326,8 @@ class Atlas extends Model
         self::asegurarColumna($db, 'atlas_catalogo_divisionales', 'tipo_asignacion', "VARCHAR(30) NOT NULL DEFAULT 'persona' AFTER persona_id");
         self::asegurarColumna($db, 'atlas_catalogo_divisionales', 'nombre_vacante', "VARCHAR(160) NULL AFTER tipo_asignacion");
         self::asegurarColumna($db, 'atlas_catalogo_divisionales', 'vacante_personal_id', "INT NULL AFTER nombre_vacante");
+        self::asegurarColumna($db, 'atlas_catalogo_divisionales', 'fecha_baja', "DATETIME NULL AFTER fecha_actualizacion");
+        self::asegurarColumna($db, 'atlas_catalogo_divisionales', 'motivo_baja', "VARCHAR(250) NULL AFTER fecha_baja");
 
         $db->CRUD("
             UPDATE atlas_catalogo_divisionales
@@ -2531,6 +3356,26 @@ class Atlas extends Model
                 PRIMARY KEY (id),
                 KEY idx_atlas_bit_division (division_id),
                 KEY idx_atlas_bit_fecha (fecha_alta)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+        ");
+
+        $db->CRUD("
+            CREATE TABLE IF NOT EXISTS atlas_bitacora_catalogo_divisiones (
+                id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+                division_id BIGINT NOT NULL,
+                nombre VARCHAR(180) NOT NULL,
+                icon_font VARCHAR(120) NULL,
+                color_hex VARCHAR(20) NULL,
+                divisional_id BIGINT NULL,
+                activo TINYINT(1) NULL,
+                accion VARCHAR(80) NOT NULL DEFAULT 'delete',
+                motivo VARCHAR(220) NULL,
+                payload_json JSON NULL,
+                usuario_id INT NULL,
+                fecha_alta DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                PRIMARY KEY (id),
+                KEY idx_atlas_bit_cat_division (division_id),
+                KEY idx_atlas_bit_cat_fecha (fecha_alta)
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
         ");
 
@@ -3066,12 +3911,21 @@ class Atlas extends Model
                 SELECT
                     s.fk_sucursal,
                     s.sucursal,
+                    s.fecha_alta,
+                    DATE_FORMAT(s.fecha_alta, '%d/%m/%Y %H:%i') AS fecha_alta_fmt,
+                    CASE
+                        WHEN s.fecha_alta IS NOT NULL
+                         AND YEAR(s.fecha_alta) = YEAR(CURDATE())
+                         AND MONTH(s.fecha_alta) = MONTH(CURDATE())
+                        THEN 1 ELSE 0
+                    END AS es_nuevo_ingreso,
                     COALESCE(NULLIF(s.direccion_sucursal, ''), 'Sin direccion') AS direccion,
                     s.latitud,
                     s.longitud,
                     COALESCE(tel.numero_telefono, '') AS numero_telefono,
                     COALESCE(divi.nombre, 'Sin division') AS division_nombre,
                     COALESCE(reg.nombre, 'Sin regional') AS regional_nombre,
+                    COALESCE(cls.nombre, 'Sin clasificacion') AS clasificacion_nombre,
                     COALESCE(gest.gestores_asignados, 'Sin gestor') AS gestores_asignados,
                     COALESCE(gest.total_gestores, 0) AS total_gestores,
                     0 AS total_pendientes,
@@ -3094,6 +3948,7 @@ class Atlas extends Model
                       AND tel.es_principal = 1
                 LEFT JOIN atlas_catalogo_divisiones divi ON divi.id = s.division_id
                 LEFT JOIN atlas_catalogo_regionales reg ON reg.id = s.regional_id
+                LEFT JOIN atlas_catalogo_clasificaciones cls ON cls.id = s.clasificacion_id
                 LEFT JOIN atlas_presupuesto_sucursal_detalle pdet
                        ON pdet.fk_sucursal = s.fk_sucursal
                       AND pdet.presupuesto_id = :presupuesto_id
@@ -5017,6 +5872,26 @@ class Atlas extends Model
                     'usuario' => $usuarioId ?: null,
                 ];
 
+                $validacionDistribuidor = self::validarPresupuestoSucursalDistribuidorOperativo(
+                    $db,
+                    (int)$fkSucursal,
+                    (float)$datos['meta_creditos'],
+                    (float)$datos['meta_cash']
+                );
+                if (!($validacionDistribuidor['success'] ?? false)) {
+                    $db->rollback();
+                    return [
+                        'success' => false,
+                        'mensaje' => $validacionDistribuidor['mensaje'] ?? 'No se puede cargar presupuesto para sucursales con distribuidor detenido.',
+                        'datos' => [
+                            'fk_sucursal' => (int)$fkSucursal,
+                            'sucursal' => $datos['sucursal'],
+                            'distribuidor' => $validacionDistribuidor['distribuidor'] ?? null,
+                            'estatus_distribuidor' => $validacionDistribuidor['estatus'] ?? null,
+                        ],
+                    ];
+                }
+
                 $db->CRUD("
                     INSERT INTO atlas_presupuesto_sucursal_detalle (
                         presupuesto_id, fk_sucursal, sucursal, distribuidor, divisional,
@@ -5116,6 +5991,16 @@ class Atlas extends Model
 
             $metaCreditosNueva = self::decimalPresupuesto($payload['meta_creditos'] ?? 0);
             $metaCashNueva = self::decimalPresupuesto($payload['meta_cash'] ?? 0);
+            $validacionDistribuidor = self::validarPresupuestoSucursalDistribuidorOperativo(
+                $db,
+                (int)$row['fk_sucursal'],
+                $metaCreditosNueva,
+                $metaCashNueva
+            );
+            if (!($validacionDistribuidor['success'] ?? false)) {
+                return $validacionDistribuidor;
+            }
+
             $db->CRUD("
                 UPDATE atlas_presupuesto_sucursal_detalle
                 SET meta_creditos = :meta_creditos,
@@ -5195,6 +6080,55 @@ class Atlas extends Model
             }
             return ['success' => false, 'mensaje' => 'No se pudo borrar el presupuesto.', 'error' => $e->getMessage()];
         }
+    }
+
+    private static function distribuidorDetieneOperacion(?string $estatus): bool
+    {
+        return in_array(strtolower(trim((string)$estatus)), ['bloqueado', 'pausado', 'inhabilitado'], true);
+    }
+
+    private static function getDistribuidorSucursalPresupuesto(Database $db, int $fkSucursal): ?array
+    {
+        if ($fkSucursal <= 0) {
+            return null;
+        }
+
+        $row = $db->queryOne("
+            SELECT
+                d.id,
+                COALESCE(d.nombre, '') AS nombre,
+                COALESCE(d.estatus, 'activo') AS estatus,
+                d.bloqueo_vigencia,
+                DATE_FORMAT(d.bloqueo_fin_at, '%d/%m/%Y %H:%i') AS bloqueo_fin_at_fmt,
+                COALESCE(d.motivo_bloqueo, '') AS motivo_bloqueo
+            FROM atlas_catalogo_sucursales s
+            INNER JOIN atlas_catalogo_distribuidores d ON d.id = s.distribuidor_id
+            WHERE s.fk_sucursal = :fk_sucursal
+            LIMIT 1
+        ", ['fk_sucursal' => $fkSucursal]);
+
+        return $row ?: null;
+    }
+
+    private static function validarPresupuestoSucursalDistribuidorOperativo(Database $db, int $fkSucursal, float $metaCreditos, float $metaCash): array
+    {
+        $distribuidor = self::getDistribuidorSucursalPresupuesto($db, $fkSucursal);
+        if (!$distribuidor || !self::distribuidorDetieneOperacion($distribuidor['estatus'] ?? null)) {
+            return ['success' => true];
+        }
+
+        if (abs($metaCreditos) < 0.0001 && abs($metaCash) < 0.0001) {
+            return ['success' => true, 'distribuidor' => $distribuidor];
+        }
+
+        $nombre = self::strVal($distribuidor['nombre'] ?? 'El distribuidor');
+        $estatus = self::strVal($distribuidor['estatus'] ?? 'detenido');
+        return [
+            'success' => false,
+            'mensaje' => "$nombre esta $estatus. Mientras el distribuidor este pausado, bloqueado o inhabilitado, sus sucursales solo pueden quedar con presupuesto 0.",
+            'distribuidor' => $nombre,
+            'estatus' => $estatus,
+        ];
     }
 
     public static function getSucursalesTemplatePresupuesto(): array
@@ -5300,6 +6234,261 @@ class Atlas extends Model
         }
         $text = preg_replace('/[^0-9.\-]/', '', str_replace(',', '', (string)$value));
         return is_numeric($text) ? (float)$text : 0.0;
+    }
+
+    public static function getRiesgosOperativos(): array
+    {
+        try {
+            $db = new Database();
+            self::asegurarPermisosSucursalesAtlas($db);
+            self::asegurarDistribuidoresAtlas($db);
+            self::asegurarColumnasPasoSucursal($db);
+
+            $riesgosLocales = $db->queryAll("
+                SELECT
+                    d.id AS distribuidor_id,
+                    d.nombre AS distribuidor,
+                    COALESCE(d.estatus, CASE WHEN COALESCE(d.activo, 1) = 1 THEN 'activo' ELSE 'inactivo' END) AS estatus_distribuidor,
+                    d.activo AS distribuidor_activo,
+                    d.motivo_bloqueo,
+                    d.bloqueo_vigencia,
+                    DATE_FORMAT(d.bloqueo_fin_at, '%d/%m/%Y %H:%i') AS bloqueo_fin_at_fmt,
+                    DATE_FORMAT(d.fecha_baja, '%d/%m/%Y %H:%i') AS fecha_baja_fmt,
+                    s.id AS sucursal_id,
+                    s.fk_sucursal,
+                    s.sucursal,
+                    s.activo AS sucursal_activa,
+                    COALESCE(NULLIF(TRIM(s.direccion_sucursal), ''), TRIM(CONCAT_WS(', ', NULLIF(s.calle, ''), NULLIF(s.numero_exterior, ''), NULLIF(s.colonia, ''), NULLIF(s.municipio, ''), NULLIF(s.estado, '')))) AS direccion
+                FROM atlas_catalogo_distribuidores d
+                LEFT JOIN atlas_catalogo_sucursales s ON s.distribuidor_id = d.id
+                WHERE COALESCE(d.activo, 1) = 0
+                   OR LOWER(TRIM(COALESCE(d.estatus, ''))) IN ('inactivo', 'suspendido', 'bloqueado', 'pausado', 'inhabilitado')
+                   OR d.fecha_baja IS NOT NULL
+                ORDER BY d.nombre ASC, s.sucursal ASC
+            ");
+
+            $fks = [];
+            foreach ($riesgosLocales as $row) {
+                $fk = (int)($row['fk_sucursal'] ?? 0);
+                if ($fk > 0) {
+                    $fks[$fk] = $fk;
+                }
+            }
+
+            $maxi = [
+                'disponible' => true,
+                'mensaje' => 'Venta Maxi consultada correctamente.',
+                'por_sucursal' => [],
+            ];
+            if ($fks) {
+                try {
+                    $maxi['por_sucursal'] = self::getVentasMaxiPorSucursales(array_values($fks));
+                } catch (\Throwable $e) {
+                    $maxi['disponible'] = false;
+                    $maxi['mensaje'] = 'No se pudo consultar Maxi en este momento. Se muestra solo el riesgo local.';
+                }
+            }
+
+            $registros = [];
+            $distribuidores = [];
+            $sucursales = [];
+            $conVentaMaxi = 0;
+            $monto90 = 0.0;
+            foreach ($riesgosLocales as $row) {
+                $fk = (int)($row['fk_sucursal'] ?? 0);
+                $venta = $fk > 0 ? ($maxi['por_sucursal'][$fk] ?? []) : [];
+                $ventas30 = (int)($venta['ventas_30d'] ?? 0);
+                $ventas90 = (int)($venta['ventas_90d'] ?? 0);
+                $monto30 = (float)($venta['monto_30d'] ?? 0);
+                $montoSucursal90 = (float)($venta['monto_90d'] ?? 0);
+                $tieneVenta = $ventas90 > 0;
+                if ($tieneVenta) {
+                    $conVentaMaxi++;
+                    $monto90 += $montoSucursal90;
+                }
+                if (!empty($row['distribuidor_id'])) {
+                    $distribuidores[(int)$row['distribuidor_id']] = true;
+                }
+                if ($fk > 0) {
+                    $sucursales[$fk] = true;
+                }
+                $estatus = trim((string)($row['estatus_distribuidor'] ?? ''));
+                $motivo = trim((string)($row['motivo_bloqueo'] ?? ''));
+                $registros[] = [
+                    'distribuidor_id' => (int)($row['distribuidor_id'] ?? 0),
+                    'distribuidor' => $row['distribuidor'] ?? 'Sin distribuidor',
+                    'estatus_distribuidor' => $estatus !== '' ? $estatus : 'inactivo',
+                    'motivo_bloqueo' => $motivo !== '' ? $motivo : 'Sin motivo capturado',
+                    'bloqueo_vigencia' => $row['bloqueo_vigencia'] ?? '',
+                    'bloqueo_fin_at_fmt' => $row['bloqueo_fin_at_fmt'] ?? '',
+                    'fecha_baja_fmt' => $row['fecha_baja_fmt'] ?? '',
+                    'sucursal_id' => (int)($row['sucursal_id'] ?? 0),
+                    'fk_sucursal' => $fk,
+                    'sucursal' => $row['sucursal'] ?: 'Sin sucursal vinculada',
+                    'direccion' => $row['direccion'] ?: 'Sin direccion',
+                    'ventas_30d' => $ventas30,
+                    'ventas_90d' => $ventas90,
+                    'monto_30d' => $monto30,
+                    'monto_90d' => $montoSucursal90,
+                    'monto_30d_fmt' => '$' . number_format($monto30, 2),
+                    'monto_90d_fmt' => '$' . number_format($montoSucursal90, 2),
+                    'ultima_venta' => $venta['ultima_venta'] ?? '',
+                    'ultima_venta_fmt' => self::formatearFechaCorta($venta['ultima_venta'] ?? null),
+                    'nivel_riesgo' => $tieneVenta ? 'alto' : 'controlado',
+                    'tiene_venta_maxi' => $tieneVenta ? 1 : 0,
+                ];
+            }
+
+            return [
+                'success' => true,
+                'mensaje' => 'Riesgos operativos obtenidos.',
+                'datos' => $registros,
+                'totales' => [
+                    'distribuidores_detenidos' => count($distribuidores),
+                    'sucursales_detenidas' => count($sucursales),
+                    'sucursales_con_venta_maxi' => $conVentaMaxi,
+                    'monto_90d' => $monto90,
+                    'monto_90d_fmt' => '$' . number_format($monto90, 2),
+                    'maxi_disponible' => $maxi['disponible'] ? 1 : 0,
+                    'maxi_mensaje' => $maxi['mensaje'],
+                ],
+            ];
+        } catch (\Throwable $e) {
+            return [
+                'success' => false,
+                'mensaje' => 'No se pudieron obtener los riesgos operativos.',
+                'error' => $e->getMessage(),
+            ];
+        }
+    }
+
+    private static function getVentasMaxiPorSucursales(array $fks): array
+    {
+        $fks = array_values(array_unique(array_filter(array_map('intval', $fks), static fn($fk) => $fk > 0)));
+        if (!$fks) {
+            return [];
+        }
+        $pdo = self::maxiPdoSeguro();
+        $resultado = [];
+        foreach (array_chunk($fks, 120) as $chunk) {
+            $placeholders = [];
+            $params = [];
+            foreach ($chunk as $idx => $fk) {
+                $key = ':fk' . $idx;
+                $placeholders[] = $key;
+                $params[$key] = $fk;
+            }
+            $sql = "
+                SELECT
+                    u.fk_sucursal,
+                    COUNT(*) AS ventas_90d,
+                    COALESCE(SUM(o.monto_financiar), 0) AS monto_90d,
+                    SUM(CASE WHEN o.fecha_hora >= DATE_SUB(NOW(), INTERVAL 30 DAY) THEN 1 ELSE 0 END) AS ventas_30d,
+                    COALESCE(SUM(CASE WHEN o.fecha_hora >= DATE_SUB(NOW(), INTERVAL 30 DAY) THEN o.monto_financiar ELSE 0 END), 0) AS monto_30d,
+                    MAX(o.fecha_hora) AS ultima_venta
+                FROM oferta o
+                INNER JOIN usuario u ON u.pk_usuario = o.fk_usuario_creacion
+                WHERE o.estatus = 1
+                  AND u.fk_sucursal IN (" . implode(',', $placeholders) . ")
+                  AND o.fecha_hora >= DATE_SUB(NOW(), INTERVAL 90 DAY)
+                GROUP BY u.fk_sucursal
+            ";
+            $stmt = $pdo->prepare($sql);
+            foreach ($params as $key => $value) {
+                $stmt->bindValue($key, $value, \PDO::PARAM_INT);
+            }
+            $stmt->execute();
+            foreach ($stmt->fetchAll(\PDO::FETCH_ASSOC) as $row) {
+                $fk = (int)($row['fk_sucursal'] ?? 0);
+                if ($fk <= 0) {
+                    continue;
+                }
+                $resultado[$fk] = [
+                    'ventas_90d' => (int)($row['ventas_90d'] ?? 0),
+                    'monto_90d' => (float)($row['monto_90d'] ?? 0),
+                    'ventas_30d' => (int)($row['ventas_30d'] ?? 0),
+                    'monto_30d' => (float)($row['monto_30d'] ?? 0),
+                    'ultima_venta' => $row['ultima_venta'] ?? null,
+                ];
+            }
+        }
+        return $resultado;
+    }
+
+    private static function maxiPdoSeguro(): \PDO
+    {
+        $cfg = self::maxiConfigSeguro();
+        foreach (['host', 'database', 'user', 'password'] as $key) {
+            if (trim((string)($cfg[$key] ?? '')) === '') {
+                throw new \RuntimeException('Configuracion Maxi incompleta para lectura.');
+            }
+        }
+        $dsn = sprintf(
+            'mysql:host=%s;port=%s;dbname=%s;charset=utf8mb4',
+            $cfg['host'],
+            $cfg['port'] ?: '3306',
+            $cfg['database']
+        );
+        return new \PDO($dsn, $cfg['user'], $cfg['password'], [
+            \PDO::ATTR_PERSISTENT => false,
+            \PDO::ATTR_ERRMODE => \PDO::ERRMODE_EXCEPTION,
+            \PDO::ATTR_DEFAULT_FETCH_MODE => \PDO::FETCH_ASSOC,
+            \PDO::ATTR_TIMEOUT => 5,
+            \PDO::ATTR_EMULATE_PREPARES => false,
+        ]);
+    }
+
+    private static function maxiConfigSeguro(): array
+    {
+        $values = [];
+        $configPath = dirname(__DIR__) . DIRECTORY_SEPARATOR . 'config' . DIRECTORY_SEPARATOR . 'ConfigApi.php';
+        if (!function_exists('config_api_load_from_db') && is_file($configPath)) {
+            require_once $configPath;
+        }
+        if (function_exists('config_api_load_from_db')) {
+            $loaded = config_api_load_from_db();
+            if (is_array($loaded)) {
+                $values = $loaded;
+            }
+        }
+        $pick = static function (array $keys, ?string $default = null) use ($values): ?string {
+            foreach ($keys as $key) {
+                $value = getenv($key);
+                if ($value !== false && trim((string)$value) !== '') {
+                    return (string)$value;
+                }
+                if (isset($_ENV[$key]) && trim((string)$_ENV[$key]) !== '') {
+                    return (string)$_ENV[$key];
+                }
+                if (isset($_SERVER[$key]) && trim((string)$_SERVER[$key]) !== '') {
+                    return (string)$_SERVER[$key];
+                }
+                if (isset($values[$key]) && trim((string)$values[$key]) !== '') {
+                    return (string)$values[$key];
+                }
+            }
+            return $default;
+        };
+        return [
+            'host' => $pick(['DB_MAXI_HOST', 'MAXI_PROD_DB_HOST']),
+            'port' => $pick(['DB_MAXI_PORT', 'MAXI_PROD_DB_PORT'], '3306'),
+            'database' => $pick(['DB_MAXI_DATABASE', 'DB_MAXI_NAME', 'MAXI_PROD_DB_NAME']),
+            'user' => $pick(['DB_MAXI_USER', 'MAXI_PROD_DB_USER']),
+            'password' => $pick(['DB_MAXI_PASSWORD', 'DB_MAXI_PASS', 'MAXI_PROD_DB_PASSWORD']),
+        ];
+    }
+
+    private static function formatearFechaCorta($fecha): string
+    {
+        if (!$fecha) {
+            return '';
+        }
+        try {
+            $dt = new \DateTimeImmutable((string)$fecha);
+            return $dt->format('d/m/Y H:i');
+        } catch (\Throwable $e) {
+            return (string)$fecha;
+        }
     }
 
     private static function sincronizarTiposGestionDesdeGestiones(Database $db): void
@@ -5998,6 +7187,7 @@ class Atlas extends Model
                     au.puede_ver,
                     au.puede_editar,
                     au.puede_administrar,
+                    au.acceso_movil,
                     au.excluido_operativo,
                     au.excluido_motivo,
                     DATE_FORMAT(au.excluido_at, '%d/%m/%Y %H:%i') AS excluido_at_fmt,
@@ -6034,6 +7224,166 @@ class Atlas extends Model
         } catch (\Throwable $e) {
             return ['success' => false, 'mensaje' => 'No se pudo cargar el catalogo de accesos Atlas.', 'error' => $e->getMessage(), 'datos' => ['usuarios' => [], 'totales' => []]];
         }
+    }
+
+    public static function getAccesosAtlasTemplate(): array
+    {
+        $res = self::getAccesosAtlas();
+        if (!($res['success'] ?? false)) {
+            throw new \RuntimeException($res['mensaje'] ?? 'No se pudo cargar el catalogo de accesos Atlas.');
+        }
+        return $res['datos']['usuarios'] ?? [];
+    }
+
+    public static function importarAccesosAtlasLayout(array $filas, int $usuarioId = 0): array
+    {
+        try {
+            if (!$filas) {
+                return ['success' => false, 'mensaje' => 'La plantilla no contiene usuarios para actualizar.'];
+            }
+
+            $db = new Database();
+            self::asegurarAccesosAtlas($db);
+            $resumen = [
+                'leidos' => count($filas),
+                'actualizados' => 0,
+                'sin_cambios' => 0,
+                'no_encontrados' => 0,
+                'errores' => [],
+            ];
+
+            $editables = [
+                'correo',
+                'telefono',
+                'puesto',
+                'departamento',
+                'area',
+                'direccion',
+                'pais',
+                'jefe_nombre',
+                'puede_ver',
+                'puede_editar',
+                'puede_administrar',
+                'acceso_movil',
+                'excluido_operativo',
+                'excluido_motivo',
+                'activo',
+            ];
+
+            foreach ($filas as $fila) {
+                $rowNum = (int)($fila['_excel_row'] ?? 0);
+                $actual = self::buscarAccesoAtlasLayout($db, $fila);
+                if (!$actual) {
+                    $resumen['no_encontrados']++;
+                    $resumen['errores'][] = 'Fila ' . $rowNum . ': usuario no encontrado.';
+                    continue;
+                }
+
+                $set = [];
+                $params = ['id' => (int)$actual['id']];
+                foreach ($editables as $campo) {
+                    if (!array_key_exists($campo, $fila)) {
+                        continue;
+                    }
+                    $valor = self::normalizarValorAccesoLayout($campo, $fila[$campo]);
+                    if ($valor === '__SKIP__') {
+                        continue;
+                    }
+                    $actualValor = $actual[$campo] ?? null;
+                    if (in_array($campo, ['puede_ver', 'puede_editar', 'puede_administrar', 'acceso_movil', 'excluido_operativo', 'activo'], true)) {
+                        $actualValor = (int)$actualValor;
+                        $valor = (int)$valor;
+                    } else {
+                        $actualValor = trim((string)($actualValor ?? ''));
+                        $valor = trim((string)($valor ?? ''));
+                    }
+                    if ($actualValor === $valor) {
+                        continue;
+                    }
+                    $set[] = "$campo = :$campo";
+                    $params[$campo] = $valor;
+                }
+
+                if (!$set) {
+                    $resumen['sin_cambios']++;
+                    continue;
+                }
+
+                if (array_key_exists('excluido_operativo', $params)) {
+                    $set[] = 'excluido_at = CASE WHEN :excluido_operativo = 1 THEN COALESCE(excluido_at, NOW()) ELSE NULL END';
+                    $set[] = 'excluido_by = :excluido_by';
+                    $params['excluido_by'] = $usuarioId ?: null;
+                }
+                $set[] = 'ultima_sincronizacion = NOW()';
+
+                $db->CRUD("
+                    UPDATE atlas_acceso_usuarios
+                    SET " . implode(', ', $set) . "
+                    WHERE id = :id
+                      AND origen = 'comercial_mexico'
+                ", $params);
+                $resumen['actualizados']++;
+            }
+
+            return [
+                'success' => true,
+                'mensaje' => 'Plantilla de personal procesada.',
+                'datos' => $resumen,
+            ];
+        } catch (\Throwable $e) {
+            return ['success' => false, 'mensaje' => 'No se pudo actualizar el catalogo de Accesos Atlas.', 'error' => $e->getMessage()];
+        }
+    }
+
+    private static function buscarAccesoAtlasLayout(Database $db, array $fila): ?array
+    {
+        $id = self::intVal($fila['id'] ?? 0);
+        if ($id > 0) {
+            $row = $db->queryOne("SELECT * FROM atlas_acceso_usuarios WHERE id = :id AND origen = 'comercial_mexico' LIMIT 1", ['id' => $id]);
+            if ($row) {
+                return $row;
+            }
+        }
+
+        $personaId = self::intVal($fila['persona_id'] ?? 0);
+        if ($personaId > 0) {
+            $row = $db->queryOne("SELECT * FROM atlas_acceso_usuarios WHERE persona_id = :persona_id AND origen = 'comercial_mexico' LIMIT 1", ['persona_id' => $personaId]);
+            if ($row) {
+                return $row;
+            }
+        }
+
+        $numero = trim((string)($fila['numero_empleado'] ?? ''));
+        if ($numero !== '') {
+            return $db->queryOne("SELECT * FROM atlas_acceso_usuarios WHERE numero_empleado = :numero AND origen = 'comercial_mexico' LIMIT 1", ['numero' => $numero]) ?: null;
+        }
+
+        return null;
+    }
+
+    private static function normalizarValorAccesoLayout(string $campo, $valor)
+    {
+        if ($valor === null) {
+            return null;
+        }
+        $texto = trim((string)$valor);
+        if (in_array($campo, ['puede_ver', 'puede_editar', 'puede_administrar', 'acceso_movil', 'excluido_operativo'], true)) {
+            return self::boolLayout($texto);
+        }
+        if ($campo === 'activo') {
+            if ($texto === '') {
+                return '__SKIP__';
+            }
+            $norm = mb_strtolower($texto, 'UTF-8');
+            return in_array($norm, ['1', 'si', 'sí', 'activo', 'activa', 'true'], true) ? 1 : 0;
+        }
+        if ($campo === 'telefono') {
+            return preg_replace('/\D+/', '', $texto);
+        }
+        if ($campo === 'correo') {
+            return strtolower($texto);
+        }
+        return $texto === '' ? null : $texto;
     }
 
     public static function actualizarExclusionAccesosAtlas(array $input): array
@@ -6382,6 +7732,16 @@ class Atlas extends Model
     private static function strVal($v): string
     {
         return trim((string)($v ?? ''));
+    }
+
+    private static function normalizarNombreCatalogo($v): string
+    {
+        return trim(preg_replace('/\s+/u', ' ', (string)($v ?? '')));
+    }
+
+    private static function normalizarNombreCatalogoParaComparar($v): string
+    {
+        return mb_strtolower(self::normalizarNombreCatalogo($v), 'UTF-8');
     }
 
     private static function nullableStr($v): ?string

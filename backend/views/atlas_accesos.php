@@ -93,6 +93,12 @@
             <p class="atlas-access-subtitle">Catalogo base de usuarios de Comercial Mexico para administrar permisos de Atlas.</p>
         </div>
         <div class="atlas-access-actions">
+            <button class="btn btn-label-primary" type="button" data-atlas-access-template title="Descargar plantilla completa">
+                <i class="fa-solid fa-file-excel"></i><span>Plantilla completa</span>
+            </button>
+            <button class="btn btn-info text-white" type="button" data-atlas-access-import title="Cargar plantilla llena">
+                <i class="fa-solid fa-file-arrow-up"></i><span>Cargar plantilla</span>
+            </button>
             <button class="btn btn-label-secondary" type="button" data-atlas-access-refresh title="Actualizar">
                 <i class="fa-solid fa-rotate"></i><span>Actualizar</span>
             </button>
@@ -344,6 +350,35 @@
         </div>
     </div>
 
+    <div class="modal fade atlas-access-permission-modal" id="modalAtlasAccessImport" tabindex="-1" aria-labelledby="atlasAccessImportTitle" aria-hidden="true">
+        <div class="modal-dialog modal-md modal-dialog-centered">
+            <div class="modal-content">
+                <form id="formAtlasAccessImport" enctype="multipart/form-data">
+                    <div class="modal-header">
+                        <div class="d-flex align-items-center w-100">
+                            <div class="flex-grow-1">
+                                <h5 class="modal-title fw-bold mb-1" id="atlasAccessImportTitle"><i class="fa-solid fa-file-arrow-up me-2"></i>Cargar plantilla de personal</h5>
+                                <div class="text-white-50 small fw-semibold">Actualiza el catalogo usando el mismo Excel descargado.</div>
+                            </div>
+                            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                        </div>
+                    </div>
+                    <div class="modal-body p-4">
+                        <label class="form-label fw-bold">Archivo Excel</label>
+                        <input type="file" class="form-control" name="archivo" accept=".xlsx,.xls" required>
+                        <div class="text-muted small fw-semibold mt-2">
+                            Se actualizan usuarios existentes por ID acceso, Persona ID o Numero empleado. Si una fila no existe, se reporta para revision.
+                        </div>
+                    </div>
+                    <div class="modal-footer d-flex justify-content-end">
+                        <button type="submit" class="btn btn-primary"><i class="fa-solid fa-upload me-1"></i>Cargar</button>
+                        <button type="button" class="btn btn-label-danger" data-bs-dismiss="modal">Cancelar</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
     <script>
         const AtlasAccess = {
             usuarios: [],
@@ -354,6 +389,9 @@
             reabrirPermisosTrasReset: false,
 
             init() {
+                document.querySelector('[data-atlas-access-template]')?.addEventListener('click', () => this.descargarPlantilla());
+                document.querySelector('[data-atlas-access-import]')?.addEventListener('click', () => this.abrirImportarPlantilla());
+                document.getElementById('formAtlasAccessImport')?.addEventListener('submit', (ev) => this.importarPlantilla(ev));
                 document.querySelector('[data-atlas-access-refresh]')?.addEventListener('click', () => this.cargar());
                 document.querySelector('[data-atlas-access-sync]')?.addEventListener('click', () => this.sincronizar());
                 document.querySelector('[data-atlas-access-excluir]')?.addEventListener('click', () => this.actualizarExclusion(true));
@@ -442,6 +480,78 @@
             cerrarLoaderGlobal() {
                 if (typeof Swal !== 'undefined' && Swal && typeof Swal.close === 'function') {
                     Swal.close();
+                }
+            },
+
+            descargarPlantilla() {
+                if (typeof Swal !== 'undefined') {
+                    Swal.fire({
+                        title: 'Procesando su peticion',
+                        text: 'Estamos preparando la plantilla completa de personal...',
+                        allowOutsideClick: false,
+                        allowEscapeKey: false,
+                        didOpen: () => Swal.showLoading()
+                    });
+                    setTimeout(() => this.cerrarLoaderGlobal(), 1800);
+                }
+                window.location.href = '/Atlas/descargarPlantillaAccesosAtlas';
+            },
+
+            abrirImportarPlantilla() {
+                const form = document.getElementById('formAtlasAccessImport');
+                if (form) form.reset();
+                const modal = document.getElementById('modalAtlasAccessImport');
+                if (modal && window.bootstrap) bootstrap.Modal.getOrCreateInstance(modal).show();
+            },
+
+            async importarPlantilla(ev) {
+                ev.preventDefault();
+                const form = ev.currentTarget;
+                const data = new FormData(form);
+                if (!data.get('archivo')) {
+                    this.toast('Selecciona un archivo Excel.', 'warning');
+                    return;
+                }
+                if (typeof showWait === 'function') {
+                    showWait();
+                }
+                try {
+                    const res = await fetch('/Atlas/importarPlantillaAccesosAtlas', {
+                        method: 'POST',
+                        body: data
+                    });
+                    const json = await res.json();
+                    this.cerrarLoaderGlobal();
+                    if (!json.success) {
+                        this.toast(json.mensaje || 'No se pudo cargar la plantilla.', 'error');
+                        return;
+                    }
+                    const d = json.datos || {};
+                    const errores = Array.isArray(d.errores) && d.errores.length
+                        ? `<div class="text-start mt-2 small">${d.errores.slice(0, 8).map(e => `<div>${this.escape(e)}</div>`).join('')}</div>`
+                        : '';
+                    if (typeof Swal !== 'undefined') {
+                        Swal.fire({
+                            icon: 'success',
+                            title: 'Plantilla procesada',
+                            html: `
+                                <div class="fw-semibold">Leidos: ${d.leidos || 0}</div>
+                                <div class="fw-semibold">Actualizados: ${d.actualizados || 0}</div>
+                                <div class="fw-semibold">Sin cambios: ${d.sin_cambios || 0}</div>
+                                <div class="fw-semibold">No encontrados: ${d.no_encontrados || 0}</div>
+                                ${errores}
+                            `,
+                            confirmButtonText: 'OK'
+                        });
+                    } else {
+                        this.toast(json.mensaje || 'Plantilla procesada.', 'success');
+                    }
+                    const modal = document.getElementById('modalAtlasAccessImport');
+                    if (modal && window.bootstrap) bootstrap.Modal.getOrCreateInstance(modal).hide();
+                    await this.cargar(false);
+                } catch (err) {
+                    this.cerrarLoaderGlobal();
+                    this.toast('No se pudo cargar la plantilla.', 'error');
                 }
             },
 
@@ -1155,4 +1265,3 @@
         document.addEventListener('DOMContentLoaded', () => AtlasAccess.init());
     </script>
 </div>
-

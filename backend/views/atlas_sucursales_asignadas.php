@@ -33,6 +33,17 @@ $atlasSucAsigRootClass = $atlasSucAsigEmbedded ? 'atlas-suc-asig-page' : 'contai
         .atlas-suc-asig-pipeline-row { display:flex; align-items:center; justify-content:space-between; gap:.6rem; }
         .atlas-suc-asig-pipeline-label { color:#22303e; font-size:.76rem; font-weight:700; line-height:1.18; }
         .atlas-suc-asig-pipeline-row .atlas-suc-asig-badge { min-width:2.1rem; justify-content:center; padding:.18rem .5rem; }
+        .atlas-suc-pipeline-money { min-width:17rem; display:grid; gap:.42rem; margin-bottom:.55rem; padding-bottom:.55rem; border-bottom:1px solid #e5e7eb; }
+        .atlas-suc-pipeline-money-title { display:flex; align-items:center; justify-content:space-between; gap:.7rem; color:#173756; font-size:.76rem; font-weight:900; }
+        .atlas-suc-pipeline-money-title strong { font-size:.9rem; }
+        .atlas-suc-pipeline-money-row { display:grid; gap:.18rem; }
+        .atlas-suc-pipeline-money-head { display:flex; align-items:center; justify-content:space-between; gap:.75rem; color:#64748b; font-size:.68rem; font-weight:900; text-transform:uppercase; letter-spacing:.02em; }
+        .atlas-suc-pipeline-money-value { color:#22303e; font-size:.78rem; font-weight:900; white-space:nowrap; }
+        .atlas-suc-pipeline-bar { height:6px; border-radius:999px; background:#e5e7eb; overflow:hidden; }
+        .atlas-suc-pipeline-bar-fill { height:100%; border-radius:999px; min-width:0; }
+        .atlas-suc-pipeline-bar-fill--meta { background:linear-gradient(90deg,#173756,#2563eb); }
+        .atlas-suc-pipeline-bar-fill--detenido { background:linear-gradient(90deg,#d97706,#f59e0b); }
+        .atlas-suc-pipeline-bar-fill--avanzado { background:linear-gradient(90deg,#15803d,#22c55e); }
         .atlas-suc-asig-cash { min-width:11rem; }
         .atlas-suc-asig-cash-row { display:flex; align-items:flex-start; justify-content:space-between; gap:.75rem; padding:.18rem 0; }
         .atlas-suc-asig-cash-row + .atlas-suc-asig-cash-row { border-top:1px solid #e5e7eb; margin-top:.24rem; padding-top:.42rem; }
@@ -80,6 +91,15 @@ $atlasSucAsigRootClass = $atlasSucAsigEmbedded ? 'atlas-suc-asig-page' : 'contai
         .atlas-suc-kpi-warn span,
         .atlas-suc-kpi-warn strong { color:#92400e; }
         .atlas-suc-kpi-warn:hover { transform:translateY(-1px); box-shadow:0 .35rem .8rem rgba(146,64,14,.1); }
+        .atlas-suc-filter-panel { border:1px solid #e2e8f0; border-radius:.65rem; background:#fff; padding:.85rem; margin:.75rem 0 1rem; }
+        .atlas-suc-filter-title { color:#566a7f; font-size:.72rem; font-weight:900; text-transform:uppercase; letter-spacing:.02em; margin-bottom:.55rem; display:flex; align-items:center; gap:.4rem; }
+        .atlas-suc-filter-grid { display:grid; grid-template-columns:2fr repeat(4, minmax(9.5rem, 1fr)); gap:.65rem; align-items:end; }
+        .atlas-suc-filter-grid .form-label { color:#566a7f; font-size:.72rem; font-weight:800; margin-bottom:.22rem; }
+        .atlas-suc-filter-grid .form-control,
+        .atlas-suc-filter-grid .form-select { min-height:2.25rem; font-size:.82rem; }
+        .atlas-suc-filter-range { display:grid; grid-template-columns:1fr 1fr; gap:.35rem; }
+        .atlas-suc-filter-actions { display:flex; align-items:center; justify-content:space-between; gap:.75rem; flex-wrap:wrap; margin-top:.75rem; }
+        .atlas-suc-filter-count { color:#64748b; font-size:.78rem; font-weight:800; }
         .atlas-suc-budget-list { display:grid; gap:.55rem; }
         .atlas-suc-budget-item { border:1px solid #e5e7eb; border-radius:.65rem; background:#fff; padding:.72rem .82rem; display:grid; grid-template-columns:minmax(0,1fr) auto; gap:.75rem; align-items:center; }
         .atlas-suc-budget-title { color:#22303e; font-size:.88rem; font-weight:900; line-height:1.15; }
@@ -98,6 +118,10 @@ $atlasSucAsigRootClass = $atlasSucAsigEmbedded ? 'atlas-suc-asig-page' : 'contai
             .atlas-suc-map-meta { grid-template-columns:1fr; }
             .atlas-suc-map-frame { min-height:18rem; }
             .atlas-suc-kpis { grid-template-columns:1fr; }
+            .atlas-suc-filter-grid { grid-template-columns:1fr; }
+            .atlas-suc-filter-range { grid-template-columns:1fr; }
+            .atlas-suc-filter-actions { align-items:stretch; flex-direction:column; }
+            .atlas-suc-filter-actions .btn { width:100%; }
         }
     </style>
 
@@ -129,6 +153,100 @@ $atlasSucAsigRootClass = $atlasSucAsigEmbedded ? 'atlas-suc-asig-page' : 'contai
             </ul>
             <?php endif; ?>
             <div class="atlas-suc-kpis" id="atlasSucKpis" style="display:none;"></div>
+            <div class="atlas-suc-filter-panel" id="atlasSucFilterPanel">
+                <div class="atlas-suc-filter-title"><i class="fa-solid fa-filter"></i>Filtros de avance</div>
+                <div class="atlas-suc-filter-grid">
+                    <div>
+                        <label class="form-label">Buscar</label>
+                        <input type="search" class="form-control" data-atlas-suc-filter="q" placeholder="Sucursal, FK, dirección, gestor, división...">
+                    </div>
+                    <div>
+                        <label class="form-label">División</label>
+                        <select class="form-select" data-atlas-suc-filter="division"><option value="">Todas</option></select>
+                    </div>
+                    <div>
+                        <label class="form-label">Regional</label>
+                        <select class="form-select" data-atlas-suc-filter="regional"><option value="">Todas</option></select>
+                    </div>
+                    <div>
+                        <label class="form-label">Clasificación</label>
+                        <select class="form-select" data-atlas-suc-filter="clasificacion"><option value="">Todas</option></select>
+                    </div>
+                    <div>
+                        <label class="form-label">Presupuesto</label>
+                        <select class="form-select" data-atlas-suc-filter="presupuesto">
+                            <option value="">Todos</option>
+                            <option value="con">Con presupuesto</option>
+                            <option value="sin">Sin presupuesto</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="form-label">Gestor</label>
+                        <select class="form-select" data-atlas-suc-filter="gestor">
+                            <option value="">Todos</option>
+                            <option value="con">Con gestor</option>
+                            <option value="sin">Sin gestor</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="form-label">Pipeline</label>
+                        <select class="form-select" data-atlas-suc-filter="bucket"><option value="">Todos</option></select>
+                    </div>
+                    <div>
+                        <label class="form-label">Cash detenido</label>
+                        <div class="atlas-suc-filter-range">
+                            <input type="number" class="form-control" data-atlas-suc-filter="detenido_min" placeholder="Min">
+                            <input type="number" class="form-control" data-atlas-suc-filter="detenido_max" placeholder="Max">
+                        </div>
+                    </div>
+                    <div>
+                        <label class="form-label">Cash avanzado</label>
+                        <div class="atlas-suc-filter-range">
+                            <input type="number" class="form-control" data-atlas-suc-filter="avanzado_min" placeholder="Min">
+                            <input type="number" class="form-control" data-atlas-suc-filter="avanzado_max" placeholder="Max">
+                        </div>
+                    </div>
+                    <div>
+                        <label class="form-label">% avance</label>
+                        <div class="atlas-suc-filter-range">
+                            <input type="number" class="form-control" data-atlas-suc-filter="avance_min" placeholder="Min">
+                            <input type="number" class="form-control" data-atlas-suc-filter="avance_max" placeholder="Max">
+                        </div>
+                    </div>
+                    <div>
+                        <label class="form-label">Pendientes</label>
+                        <div class="atlas-suc-filter-range">
+                            <input type="number" class="form-control" data-atlas-suc-filter="pendientes_min" placeholder="Min">
+                            <input type="number" class="form-control" data-atlas-suc-filter="pendientes_max" placeholder="Max">
+                        </div>
+                    </div>
+                    <div>
+                        <label class="form-label">Ordenar por</label>
+                        <select class="form-select" data-atlas-suc-filter="orden">
+                            <option value="detenido_desc">Mayor cash detenido</option>
+                            <option value="detenido_asc">Menor cash detenido</option>
+                            <option value="avanzado_desc">Mayor cash avanzado</option>
+                            <option value="avanzado_asc">Menor cash avanzado</option>
+                            <option value="avance_desc">Mayor % avance</option>
+                            <option value="avance_asc">Menor % avance</option>
+                            <option value="pendientes_desc">Mayor pendientes</option>
+                            <option value="pendientes_asc">Menor pendientes</option>
+                            <option value="meta_cash_desc">Mayor meta cash</option>
+                            <option value="meta_cash_asc">Menor meta cash</option>
+                            <option value="sucursal_asc">Sucursal A-Z</option>
+                            <option value="sucursal_desc">Sucursal Z-A</option>
+                            <option value="fk_asc">FK menor a mayor</option>
+                            <option value="fk_desc">FK mayor a menor</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="atlas-suc-filter-actions">
+                    <div class="atlas-suc-filter-count" id="atlasSucFilterCount">Mostrando 0 sucursales.</div>
+                    <button type="button" class="btn btn-label-secondary btn-sm" data-atlas-suc-clear-filters>
+                        <i class="fa-solid fa-eraser me-1"></i>Limpiar filtros
+                    </button>
+                </div>
+            </div>
             <div class="card-datatable table-responsive">
                 <table class="dt-responsive table border-top" id="atlasSucursalesAsignadasTabla" data-atlas-suc-panel="asignadas">
                     <thead>
@@ -219,6 +337,24 @@ $atlasSucAsigRootClass = $atlasSucAsigEmbedded ? 'atlas-suc-asig-page' : 'contai
             modal: null,
             tab: 'asignadas',
             tablas: {},
+            filtros: {
+                q: '',
+                division: '',
+                regional: '',
+                clasificacion: '',
+                presupuesto: '',
+                gestor: '',
+                bucket: '',
+                detenido_min: '',
+                detenido_max: '',
+                avanzado_min: '',
+                avanzado_max: '',
+                avance_min: '',
+                avance_max: '',
+                pendientes_min: '',
+                pendientes_max: '',
+                orden: 'detenido_desc'
+            },
 
             init() {
                 this.bind();
@@ -245,6 +381,11 @@ $atlasSucAsigRootClass = $atlasSucAsigEmbedded ? 'atlas-suc-asig-page' : 'contai
                 document.getElementById('atlasSucKpis')?.addEventListener('click', ev => {
                     if (ev.target.closest('[data-atlas-suc-sin-presupuesto]')) this.verSinPresupuesto();
                 });
+                document.querySelectorAll('[data-atlas-suc-filter]').forEach(input => {
+                    input.addEventListener('input', () => this.cambiarFiltro(input));
+                    input.addEventListener('change', () => this.cambiarFiltro(input));
+                });
+                document.querySelector('[data-atlas-suc-clear-filters]')?.addEventListener('click', () => this.limpiarFiltros());
             },
 
             async cargar() {
@@ -257,6 +398,7 @@ $atlasSucAsigRootClass = $atlasSucAsigEmbedded ? 'atlas-suc-asig-page' : 'contai
                     } else {
                         this.datos = Array.isArray(res.datos) ? res.datos : [];
                         this.meta = res.meta || {};
+                        this.cargarOpcionesFiltros();
                     }
                     this.render();
                 } finally {
@@ -277,13 +419,14 @@ $atlasSucAsigRootClass = $atlasSucAsigEmbedded ? 'atlas-suc-asig-page' : 'contai
             },
 
             render() {
-                this.filtrados = this.datos.slice();
+                this.filtrados = this.aplicarFiltros(this.datos);
                 this.renderKpis();
+                this.renderFiltroConteo();
                 const body = document.getElementById('atlasSucursalesAsignadasBody');
                 if (!body) return;
                 this.destroyTable('asignadas');
                 if (!this.filtrados.length) {
-                    body.innerHTML = '<tr><td class="atlas-suc-asig-empty" colspan="5">No hay pendientes operativos con cruce válido a oferta para esos filtros.</td></tr>';
+                    body.innerHTML = '<tr><td class="atlas-suc-asig-empty" colspan="5">No hay sucursales que coincidan con esos filtros.</td></tr>';
                     this.renderTabs();
                     return;
                 }
@@ -304,6 +447,7 @@ $atlasSucAsigRootClass = $atlasSucAsigEmbedded ? 'atlas-suc-asig-page' : 'contai
                                     <span class="atlas-suc-asig-fk">FK ${this.escape(r.fk_sucursal)}</span>
                                 </span>
                                 <span class="atlas-suc-asig-main">${this.escape(r.sucursal || 'Sucursal sin nombre')}</span>
+                                ${Number(r.es_nuevo_ingreso || 0) === 1 ? '<span class="atlas-suc-asig-badge atlas-suc-asig-badge-info" title="Fecha de registro: ' + this.escape(r.fecha_alta_fmt || '') + '"><i class="fa-solid fa-star"></i>Sucursal de nuevo ingreso</span>' : ''}
                             </div>
                             <div class="atlas-suc-asig-sub">${this.escape(r.direccion || 'Sin dirección')}</div>
                             <div class="atlas-suc-asig-sub">${this.escape(r.numero_telefono || 'Sin teléfono')} · ${this.escape(r.division_nombre || 'Sin división')} / ${this.escape(r.regional_nombre || 'Sin regional')}</div>
@@ -313,7 +457,7 @@ $atlasSucAsigRootClass = $atlasSucAsigEmbedded ? 'atlas-suc-asig-page' : 'contai
                             <div class="atlas-suc-asig-sub">${Number(r.total_gestores || 0)} gestor(es)</div>
                         </td>
                         <td>
-                            ${this.pipelineBadges(r.bucket_resumen)}
+                            ${this.pipelineResumen(r)}
                         </td>
                         <td>
                             ${this.cashResumen(r)}
@@ -327,6 +471,171 @@ $atlasSucAsigRootClass = $atlasSucAsigEmbedded ? 'atlas-suc-asig-page' : 'contai
                 }).join('');
                 this.initTable('asignadas', '#atlasSucursalesAsignadasTabla');
                 this.renderTabs();
+            },
+
+            cambiarFiltro(input) {
+                const key = input.getAttribute('data-atlas-suc-filter');
+                if (!key) return;
+                this.filtros[key] = input.value || '';
+                this.render();
+            },
+
+            limpiarFiltros() {
+                Object.keys(this.filtros).forEach(key => {
+                    this.filtros[key] = key === 'orden' ? 'detenido_desc' : '';
+                });
+                document.querySelectorAll('[data-atlas-suc-filter]').forEach(input => {
+                    const key = input.getAttribute('data-atlas-suc-filter');
+                    input.value = this.filtros[key] || '';
+                });
+                this.render();
+            },
+
+            aplicarFiltros(rows) {
+                const f = this.filtros;
+                const q = this.norm(f.q);
+                const filtrados = rows.filter(row => {
+                    if (q) {
+                        const texto = [
+                            row.fk_sucursal,
+                            row.sucursal,
+                            row.direccion,
+                            row.numero_telefono,
+                            row.division_nombre,
+                            row.regional_nombre,
+                            row.clasificacion_nombre,
+                            row.gestores_asignados,
+                            row.bucket_resumen
+                        ].map(v => this.norm(v)).join(' ');
+                        if (!texto.includes(q)) return false;
+                    }
+                    if (f.division && this.norm(row.division_nombre) !== this.norm(f.division)) return false;
+                    if (f.regional && this.norm(row.regional_nombre) !== this.norm(f.regional)) return false;
+                    if (f.clasificacion && this.norm(row.clasificacion_nombre) !== this.norm(f.clasificacion)) return false;
+                    if (f.presupuesto === 'con' && Number(row.tiene_presupuesto || 0) !== 1) return false;
+                    if (f.presupuesto === 'sin' && Number(row.tiene_presupuesto || 0) === 1) return false;
+                    if (f.gestor === 'con' && Number(row.total_gestores || 0) <= 0) return false;
+                    if (f.gestor === 'sin' && Number(row.total_gestores || 0) > 0) return false;
+                    if (f.bucket && !this.tieneBucket(row, f.bucket)) return false;
+                    if (!this.enRango(this.cashDetenido(row), f.detenido_min, f.detenido_max)) return false;
+                    if (!this.enRango(this.cashAvanzado(row), f.avanzado_min, f.avanzado_max)) return false;
+                    if (!this.enRango(this.porcentajeAvance(row), f.avance_min, f.avance_max)) return false;
+                    if (!this.enRango(this.totalPendientes(row), f.pendientes_min, f.pendientes_max)) return false;
+                    return true;
+                });
+                return this.ordenarFilas(filtrados, f.orden || 'detenido_desc');
+            },
+
+            ordenarFilas(rows, orden) {
+                const get = row => {
+                    switch (orden) {
+                        case 'detenido_asc':
+                        case 'detenido_desc':
+                            return this.cashDetenido(row);
+                        case 'avanzado_asc':
+                        case 'avanzado_desc':
+                            return this.cashAvanzado(row);
+                        case 'avance_asc':
+                        case 'avance_desc':
+                            return this.porcentajeAvance(row);
+                        case 'pendientes_asc':
+                        case 'pendientes_desc':
+                            return this.totalPendientes(row);
+                        case 'meta_cash_asc':
+                        case 'meta_cash_desc':
+                            return Number(row.presupuesto_meta_cash || 0);
+                        case 'fk_asc':
+                        case 'fk_desc':
+                            return Number(row.fk_sucursal || 0);
+                        case 'sucursal_asc':
+                        case 'sucursal_desc':
+                            return this.norm(row.sucursal);
+                        default:
+                            return this.cashDetenido(row);
+                    }
+                };
+                const desc = String(orden || '').endsWith('_desc');
+                return rows.slice().sort((a, b) => {
+                    const av = get(a);
+                    const bv = get(b);
+                    let cmp = 0;
+                    if (typeof av === 'string' || typeof bv === 'string') cmp = String(av).localeCompare(String(bv), 'es');
+                    else cmp = Number(av || 0) - Number(bv || 0);
+                    if (desc) cmp *= -1;
+                    if (cmp !== 0) return cmp;
+                    return this.norm(a.sucursal).localeCompare(this.norm(b.sucursal), 'es');
+                });
+            },
+
+            cargarOpcionesFiltros() {
+                this.llenarSelectFiltro('division', this.valoresUnicos('division_nombre'));
+                this.llenarSelectFiltro('regional', this.valoresUnicos('regional_nombre'));
+                this.llenarSelectFiltro('clasificacion', this.valoresUnicos('clasificacion_nombre'));
+                this.llenarSelectFiltro('bucket', this.bucketsUnicos());
+            },
+
+            valoresUnicos(campo) {
+                return Array.from(new Set(this.datos.map(row => String(row[campo] || '').trim()).filter(Boolean)))
+                    .sort((a, b) => a.localeCompare(b, 'es'));
+            },
+
+            bucketsUnicos() {
+                const buckets = new Set();
+                this.datos.forEach(row => {
+                    String(row.bucket_resumen || '').split('|').map(x => x.trim()).filter(Boolean).forEach(raw => {
+                        const label = this.bucketLabel(raw);
+                        if (label) buckets.add(label);
+                    });
+                });
+                return Array.from(buckets).sort((a, b) => a.localeCompare(b, 'es'));
+            },
+
+            llenarSelectFiltro(key, values) {
+                const select = document.querySelector(`[data-atlas-suc-filter="${key}"]`);
+                if (!select) return;
+                const current = select.value;
+                const firstText = select.querySelector('option')?.textContent || 'Todos';
+                select.innerHTML = '<option value="">' + this.escape(firstText) + '</option>'
+                    + values.map(value => '<option value="' + this.escape(value) + '">' + this.escape(value) + '</option>').join('');
+                select.value = values.includes(current) ? current : '';
+                this.filtros[key] = select.value;
+            },
+
+            renderFiltroConteo() {
+                const el = document.getElementById('atlasSucFilterCount');
+                if (!el) return;
+                el.textContent = `Mostrando ${this.number(this.filtrados.length)} de ${this.number(this.datos.length)} sucursales.`;
+            },
+
+            cashDetenido(row) {
+                return Number(row.cash_detenido_total || 0);
+            },
+
+            cashAvanzado(row) {
+                return Number(row.cash_avanzado_total || row.cash_terminal_total || 0);
+            },
+
+            porcentajeAvance(row) {
+                const detenido = this.cashDetenido(row);
+                const avanzado = this.cashAvanzado(row);
+                const total = detenido + avanzado;
+                return total > 0 ? Math.round((avanzado / total) * 100) : 0;
+            },
+
+            totalPendientes(row) {
+                return Number(row.total_pendientes || 0) + Number(row.total_revisar_etapa || 0);
+            },
+
+            enRango(value, min, max) {
+                const n = Number(value || 0);
+                if (String(min || '').trim() !== '' && n < Number(min)) return false;
+                if (String(max || '').trim() !== '' && n > Number(max)) return false;
+                return true;
+            },
+
+            tieneBucket(row, bucket) {
+                const needle = this.norm(bucket);
+                return String(row.bucket_resumen || '').split('|').some(raw => this.norm(this.bucketLabel(raw)) === needle);
             },
 
             renderKpis() {
@@ -554,6 +863,33 @@ $atlasSucAsigRootClass = $atlasSucAsigEmbedded ? 'atlas-suc-asig-page' : 'contai
                 if (n.includes('no detenido') || n.includes('terminal')) return 'atlas-suc-asig-badge-info';
                 if (n.includes('sin etapa') || n.includes('depurar')) return 'atlas-suc-asig-badge-warn';
                 return 'atlas-suc-asig-badge-ok';
+            },
+
+            pipelineResumen(row) {
+                const presupuesto = Number(row.presupuesto_meta_cash || 0);
+                const detenido = this.cashDetenido(row);
+                const avanzado = this.cashAvanzado(row);
+                const base = presupuesto > 0 ? presupuesto : Math.max(detenido + avanzado, 1);
+                const pctAvance = presupuesto > 0 ? Math.min(100, Math.round((avanzado / presupuesto) * 100)) : this.porcentajeAvance(row);
+                const pctDetenido = Math.min(100, Math.round((detenido / base) * 100));
+                const pctAvanzado = Math.min(100, Math.round((avanzado / base) * 100));
+                const pctMeta = presupuesto > 0 ? 100 : 0;
+                const metaTexto = presupuesto > 0 ? this.money(presupuesto) : 'Sin presupuesto';
+                return '<div class="atlas-suc-pipeline-money">'
+                    + '<div class="atlas-suc-pipeline-money-title"><span>Avance contra presupuesto</span><strong>' + pctAvance + '%</strong></div>'
+                    + this.pipelineMoneyRow('Presupuesto', metaTexto, pctMeta, 'meta')
+                    + this.pipelineMoneyRow('Detenido', this.money(detenido), pctDetenido, 'detenido')
+                    + this.pipelineMoneyRow('Avanzado', this.money(avanzado), pctAvanzado, 'avanzado')
+                    + '</div>'
+                    + this.pipelineBadges(row.bucket_resumen);
+            },
+
+            pipelineMoneyRow(label, value, pct, type) {
+                const safePct = Math.max(0, Math.min(100, Number(pct || 0)));
+                return '<div class="atlas-suc-pipeline-money-row">'
+                    + '<div class="atlas-suc-pipeline-money-head"><span>' + this.escape(label) + '</span><span class="atlas-suc-pipeline-money-value">' + this.escape(value) + '</span></div>'
+                    + '<div class="atlas-suc-pipeline-bar" aria-hidden="true"><div class="atlas-suc-pipeline-bar-fill atlas-suc-pipeline-bar-fill--' + this.escape(type) + '" style="width:' + safePct + '%"></div></div>'
+                    + '</div>';
             },
 
             pipelineBadges(resumen) {

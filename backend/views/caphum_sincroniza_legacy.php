@@ -155,12 +155,86 @@
         flex-wrap: wrap;
         gap: .3rem;
     }
+    .legacy-sync-tabs {
+        border-bottom: 1px solid #dbe4ef;
+        margin-bottom: 1rem;
+        gap: .5rem;
+    }
+    .legacy-sync-tabs .nav-link {
+        border: 0;
+        border-radius: .65rem .65rem 0 0;
+        color: #566a7f;
+        font-weight: 800;
+        padding: .75rem 1rem;
+        transition: none;
+    }
+    .legacy-sync-tabs .nav-link:hover,
+    .legacy-sync-tabs .nav-link:focus,
+    .legacy-sync-tabs .nav-link:focus-visible {
+        color: #566a7f;
+        box-shadow: none;
+        outline: 0;
+    }
+    .legacy-sync-tabs .nav-link.active {
+        background: #26344e;
+        color: #fff;
+    }
+    .legacy-sync-tabs .nav-link.active:hover,
+    .legacy-sync-tabs .nav-link.active:focus,
+    .legacy-sync-tabs .nav-link.active:focus-visible {
+        color: #fff;
+    }
+    .legacy-sync-config-grid {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr);
+        gap: 1rem;
+    }
+    .legacy-sync-list {
+        border: 1px solid #e2e8f0;
+        border-radius: .75rem;
+        max-height: 460px;
+        overflow: auto;
+        background: #fff;
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        align-content: start;
+        gap: .25rem;
+        padding: .5rem;
+    }
+    .legacy-sync-check {
+        display: flex;
+        align-items: flex-start;
+        gap: .65rem;
+        padding: .75rem .9rem;
+        border-bottom: 1px solid #eef2f7;
+        border-radius: .65rem;
+        cursor: pointer;
+    }
+    .legacy-sync-check:last-child { border-bottom: 0; }
+    .legacy-sync-check strong {
+        display: block;
+        color: #26344e;
+        font-size: .86rem;
+        line-height: 1.2;
+    }
+    .legacy-sync-check small {
+        display: block;
+        color: #64748b;
+        font-weight: 700;
+        margin-top: .15rem;
+    }
+    .legacy-sync-search {
+        max-width: 320px;
+    }
     @media (max-width: 1199.98px) {
         .legacy-sync-summary { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+        .legacy-sync-config-grid { grid-template-columns: 1fr; }
+        .legacy-sync-list { grid-template-columns: repeat(2, minmax(0, 1fr)); }
     }
     @media (max-width: 767.98px) {
         .legacy-sync-header { align-items: flex-start; flex-direction: column; }
         .legacy-sync-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+        .legacy-sync-list { grid-template-columns: 1fr; }
     }
 </style>
 
@@ -178,6 +252,21 @@
         </span>
     </div>
 
+    <ul class="nav legacy-sync-tabs" role="tablist">
+        <li class="nav-item" role="presentation">
+            <button class="nav-link active" type="button" data-bs-toggle="tab" data-bs-target="#legacy-sync-tab-proceso" role="tab">
+                <i class="fa-solid fa-arrows-rotate me-1"></i>Sincronización
+            </button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" type="button" data-bs-toggle="tab" data-bs-target="#legacy-sync-tab-config" role="tab">
+                <i class="fa-solid fa-sliders me-1"></i>Configuración
+            </button>
+        </li>
+    </ul>
+
+    <div class="tab-content p-0">
+        <div class="tab-pane fade show active" id="legacy-sync-tab-proceso" role="tabpanel">
     <div class="legacy-sync-card">
         <h5 class="legacy-sync-title">
             <i class="fa-solid fa-database"></i> Reproceso masivo
@@ -218,6 +307,47 @@
             </table>
         </div>
     </div>
+        </div>
+
+        <div class="tab-pane fade" id="legacy-sync-tab-config" role="tabpanel">
+            <div class="legacy-sync-card">
+                <div class="d-flex align-items-start justify-content-between gap-3 flex-wrap mb-3">
+                    <div>
+                        <h5 class="legacy-sync-title">
+                            <i class="fa-solid fa-filter-circle-dollar"></i> Alcance de sincronización
+                        </h5>
+                        <p class="legacy-sync-note">
+                            Define qué puestos se sincronizan con Legacy.
+                            Al guardar esta configuración, deja de usarse la regla fija anterior.
+                        </p>
+                    </div>
+                    <span class="badge bg-label-info text-dark" id="legacy-sync-config-status">Cargando configuración</span>
+                </div>
+
+                <div class="d-flex justify-content-end mb-3">
+                    <input type="search" class="form-control legacy-sync-search" id="legacy-sync-config-search" placeholder="Buscar puesto...">
+                </div>
+
+                <div class="legacy-sync-config-grid">
+                    <div>
+                        <h6 class="fw-bold mb-2"><i class="fa-solid fa-id-card-clip me-1"></i>Puestos</h6>
+                        <div class="legacy-sync-list" id="legacy-sync-puestos-list">
+                            <div class="p-3 text-muted">Cargando puestos...</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="legacy-sync-actionbar">
+                    <div class="legacy-sync-note" id="legacy-sync-config-resumen">
+                        Selecciona al menos un puesto.
+                    </div>
+                    <button type="button" class="legacy-sync-btn" id="legacy-sync-config-save">
+                        <i class="fa-solid fa-floppy-disk"></i> Guardar configuración
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
 </div>
 
 <script>
@@ -228,7 +358,13 @@
     const result = document.getElementById('legacy-sync-result');
     const summary = document.getElementById('legacy-sync-summary');
     const tbody = document.getElementById('legacy-sync-tbody');
+    const configStatus = document.getElementById('legacy-sync-config-status');
+    const configSearch = document.getElementById('legacy-sync-config-search');
+    const configSave = document.getElementById('legacy-sync-config-save');
+    const configResumen = document.getElementById('legacy-sync-config-resumen');
+    const puestosList = document.getElementById('legacy-sync-puestos-list');
     const LEGACY_SYNC_UI_VERSION = 'legacy-sync-progress-v2';
+    let legacySyncConfig = { puestos: [], seleccion: { puestos: [] }, configurado: false };
 
     function esc(value) {
         return String(value == null ? '' : value)
@@ -298,6 +434,95 @@
                 '</td>' +
             '</tr>';
         }).join('');
+    }
+
+    function actualizarResumenConfig() {
+        const puestos = (legacySyncConfig.seleccion.puestos || []).length;
+        if (configResumen) {
+            configResumen.innerHTML = '<i class="fa-solid fa-circle-check me-1"></i>' +
+                esc(puestos) + ' puesto(s) seleccionados para sincronizar.';
+        }
+    }
+
+    function actualizarSeleccionConfig(id, checked) {
+        const set = new Set((legacySyncConfig.seleccion.puestos || []).map(String));
+        if (checked) set.add(String(id || ''));
+        else set.delete(String(id || ''));
+        legacySyncConfig.seleccion.puestos = Array.from(set).filter(Boolean);
+        actualizarResumenConfig();
+    }
+
+    function renderConfigListas() {
+        const filtro = String(configSearch && configSearch.value || '').trim().toLowerCase();
+        const puestosSel = new Set((legacySyncConfig.seleccion.puestos || []).map(String));
+        const puestos = (legacySyncConfig.puestos || []).filter(function (row) {
+            const texto = [row.nombre, row.departamento].join(' ').toLowerCase();
+            return !filtro || texto.indexOf(filtro) !== -1;
+        });
+
+        puestosList.innerHTML = puestos.length ? puestos.map(function (row) {
+            const id = String(row.id || '');
+            return '<label class="legacy-sync-check">' +
+                '<input class="form-check-input mt-1" type="checkbox" data-legacy-sync-puesto value="' + esc(id) + '"' + (puestosSel.has(id) ? ' checked' : '') + '>' +
+                '<span><strong>' + esc(row.nombre || 'Puesto') + '</strong><small>' + esc(row.departamento || 'Sin departamento') + '</small></span>' +
+            '</label>';
+        }).join('') : '<div class="p-3 text-muted">No hay puestos con ese filtro.</div>';
+
+        actualizarResumenConfig();
+    }
+
+    async function cargarConfiguracionLegacy() {
+        if (!puestosList) return;
+        try {
+            const resp = await fetch('/CapHum/getConfiguracionSincronizaLegacy', {
+                method: 'POST',
+                headers: { 'Accept': 'application/json' },
+                credentials: 'same-origin'
+            });
+            const data = await resp.json();
+            if (!data || !data.success) throw new Error((data && (data.mensaje || data.error)) || 'No se pudo cargar.');
+            legacySyncConfig = {
+                configurado: !!data.configurado,
+                puestos: data.catalogos && Array.isArray(data.catalogos.puestos) ? data.catalogos.puestos : [],
+                seleccion: { puestos: data.seleccion && Array.isArray(data.seleccion.puestos) ? data.seleccion.puestos : [] }
+            };
+            if (configStatus) {
+                configStatus.className = legacySyncConfig.configurado ? 'badge bg-label-success text-dark' : 'badge bg-label-warning text-dark';
+                configStatus.textContent = legacySyncConfig.configurado ? 'Configuración activa' : 'Usando regla anterior';
+            }
+            renderConfigListas();
+        } catch (err) {
+            if (configStatus) {
+                configStatus.className = 'badge bg-label-danger text-dark';
+                configStatus.textContent = 'No se pudo cargar';
+            }
+            puestosList.innerHTML = '<div class="p-3 text-danger">No se pudieron cargar puestos.</div>';
+        }
+    }
+
+    async function guardarConfiguracionLegacy() {
+        const payload = {
+            puestos: legacySyncConfig.seleccion.puestos || []
+        };
+        try {
+            const resp = await fetch('/CapHum/guardarConfiguracionSincronizaLegacy', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+                credentials: 'same-origin',
+                body: JSON.stringify(payload)
+            });
+            const data = await resp.json();
+            if (!data || !data.success) throw new Error((data && (data.mensaje || data.error)) || 'No se pudo guardar.');
+            legacySyncConfig.seleccion = data.seleccion || payload;
+            legacySyncConfig.configurado = true;
+            if (configStatus) {
+                configStatus.className = 'badge bg-label-success text-dark';
+                configStatus.textContent = 'Configuración activa';
+            }
+            if (typeof Swal !== 'undefined') Swal.fire({ icon: 'success', title: 'Configuración guardada', text: data.mensaje || 'El alcance de sincronización quedó actualizado.' });
+        } catch (err) {
+            if (typeof Swal !== 'undefined') Swal.fire({ icon: 'error', title: 'No se pudo guardar', text: err.message || 'Error' });
+        }
     }
 
     function progressHtml(actual, total, detalle) {
@@ -458,5 +683,17 @@
     if (btn) {
         btn.addEventListener('click', sincronizar);
     }
+    if (configSearch) {
+        configSearch.addEventListener('input', renderConfigListas);
+    }
+    if (configSave) {
+        configSave.addEventListener('click', guardarConfiguracionLegacy);
+    }
+    document.addEventListener('change', function (ev) {
+        if (ev.target && ev.target.matches('[data-legacy-sync-puesto]')) {
+            actualizarSeleccionConfig(ev.target.value, ev.target.checked);
+        }
+    });
+    cargarConfiguracionLegacy();
 })();
 </script>

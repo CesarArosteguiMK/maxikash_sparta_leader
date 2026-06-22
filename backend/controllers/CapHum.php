@@ -19146,6 +19146,30 @@ class CapHum extends Controller
         self::render('caphum_sincroniza_legacy');
     }
 
+    public function getConfiguracionSincronizaLegacy()
+    {
+        header('Content-Type: application/json; charset=utf-8');
+        if (!self::tieneModuloWeb(self::MODULO_SINCRONIZA_LEGACY)) {
+            self::respuestaJSON(['success' => false, 'mensaje' => 'No tienes permiso para configurar la sincronizacion Legacy.']);
+            return;
+        }
+        self::respuestaJSON(LegacyUserSync::getConfiguracionAlcance());
+    }
+
+    public function guardarConfiguracionSincronizaLegacy()
+    {
+        header('Content-Type: application/json; charset=utf-8');
+        if (!self::tieneModuloWeb(self::MODULO_SINCRONIZA_LEGACY)) {
+            self::respuestaJSON(['success' => false, 'mensaje' => 'No tienes permiso para configurar la sincronizacion Legacy.']);
+            return;
+        }
+        $input = json_decode(file_get_contents('php://input'), true);
+        if (!is_array($input)) {
+            $input = [];
+        }
+        self::respuestaJSON(LegacyUserSync::guardarConfiguracionAlcance($input, (int)($_SESSION['usuario_id'] ?? 0)));
+    }
+
     public function obtenerDatosActualizacionInfoPersona()
     {
         header('Content-Type: application/json; charset=utf-8');
