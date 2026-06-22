@@ -5738,7 +5738,7 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
                 </div>
                 <div class="small text-muted mb-1" id="rrhhImportDocsSeleccionResumen">No se han seleccionado archivos.</div>
                 <div class="small text-muted mb-3">
-                  Soporta lotes masivos de hasta 200 archivos o 256 MB por carga. El an&aacute;lisis conserva un lote temporal para importar sin volver a subir los documentos.
+                  Soporta lotes de hasta 1000 archivos o 850 MB por carga. El analisis conserva un lote temporal para importar sin volver a subir los documentos.
                 </div>
                 <div id="rrhhImportDocsResumen" class="d-flex flex-wrap gap-2 mb-3"></div>
                 <div class="table-responsive" style="max-height: 52vh;">
@@ -12914,8 +12914,8 @@ function precargarCascadaEdit(idPais, idEstado, idMunicipio, idColonia, idCalle,
   let rrhhImportDocsFiles = [];
   let rrhhImportDocsAnalisis = null;
   let rrhhImportPreviewUrl = '';
-  const RRHH_IMPORT_DOCS_MAX_FILES = 200;
-  const RRHH_IMPORT_DOCS_MAX_BYTES = 256 * 1024 * 1024;
+  const RRHH_IMPORT_DOCS_MAX_FILES = 1000;
+  const RRHH_IMPORT_DOCS_MAX_BYTES = 850 * 1024 * 1024;
   let abriendoCredencialRrhh = false;
   let volverDesdeCredencialRrhh = false;
   let orientacionCredencialRrhh = 'vertical';
@@ -13827,9 +13827,10 @@ function precargarCascadaEdit(idPais, idEstado, idMunicipio, idColonia, idCalle,
     const peso = rrhhImportDocsFiles.reduce((sum, file) => sum + (file.size || 0), 0);
     if (total > RRHH_IMPORT_DOCS_MAX_FILES || peso > RRHH_IMPORT_DOCS_MAX_BYTES) {
       const pesoMb = (peso / 1024 / 1024).toFixed(1);
+      const limiteMb = Math.floor(RRHH_IMPORT_DOCS_MAX_BYTES / 1024 / 1024);
       const mensaje = total > RRHH_IMPORT_DOCS_MAX_FILES
-        ? `Seleccionaste ${total} archivos. El l\u00edmite por carga es de ${RRHH_IMPORT_DOCS_MAX_FILES} archivos.`
-        : `Seleccionaste ${pesoMb} MB. El l\u00edmite por carga es de 256 MB.`;
+        ? `Seleccionaste ${total} archivos. El limite por carga es de ${RRHH_IMPORT_DOCS_MAX_FILES} archivos. Divide la carpeta en lotes mas pequenos.`
+        : `Seleccionaste ${pesoMb} MB. El limite por carga es de ${limiteMb} MB. Divide la carpeta en lotes mas pequenos.`;
       rrhhImportDocsFiles = [];
       if (inputRrhhImportArchivos) inputRrhhImportArchivos.value = '';
       if (inputRrhhImportCarpeta) inputRrhhImportCarpeta.value = '';
@@ -13960,11 +13961,16 @@ function precargarCascadaEdit(idPais, idEstado, idMunicipio, idColonia, idCalle,
   }
 
   async function rrhhImportDocsEnviar(endpoint, options = {}) {
-    const res = await fetch(endpoint, {
-      method: 'POST',
-      body: rrhhImportDocsFormData(options),
-      headers: { 'X-Requested-With': 'XMLHttpRequest' }
-    });
+    let res;
+    try {
+      res = await fetch(endpoint, {
+        method: 'POST',
+        body: rrhhImportDocsFormData(options),
+        headers: { 'X-Requested-With': 'XMLHttpRequest' }
+      });
+    } catch (err) {
+      throw new Error('No se pudo conectar con el servidor. Revisa que la seleccion no supere el limite de carga configurado: maximo 1000 archivos o 850 MB por intento.');
+    }
     const contentType = res.headers.get('content-type') || '';
     if (!contentType.includes('application/json')) {
       const texto = await res.text();

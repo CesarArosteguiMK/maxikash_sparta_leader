@@ -482,7 +482,7 @@ def _rechazo_identificacion_por_texto_equivocado(texto: str, paginas: int, modo:
             "El documento es una constancia CURP. En este campo solo se acepta identificacion oficial.",
         ),
         (
-            r"CONSTANCIA\s+DE\s+SITUACI[OÓ]N\s+FISCAL|SERVICIO\s+DE\s+ADMINISTRACI[OÓ]N\s+TRIBUTARIA|PORTAL\s+DEL\s+SAT|\bSAT\b",
+            r"CONSTANCIA\s+DE\s+SITUACI[OÓ]N\s+FISCAL|SERVICIO\s+DE\s+ADMINISTRACI[OÓ]N\s+TRIBUTARIA|PORTAL\s+DEL\s+SAT|C[ÉE]DULA\s+DE\s+IDENTIFICACI[OÓ]N\s+FISCAL",
             "constancia_fiscal_en_identificacion",
             "El documento es una constancia fiscal SAT. En este campo solo se acepta identificacion oficial.",
         ),
@@ -640,9 +640,21 @@ def _detectar_documento_equivocado_curp_pdf(pdf_bytes: bytes, inicio: float) -> 
 def _rechazo___SPARTA_SECRET_REDACTED___por_texto_equivocado(texto: str, inicio: float, modo: str) -> Optional[Dict[str, Any]]:
     """Rechaza documentos claramente equivocados antes del OCR pesado de estado de cuenta."""
     texto_upper = _normalizar_texto_precheck(texto)
+    compacto = re.sub(r"[^A-Z0-9]+", "", texto_upper)
+    tiene_senales_bancarias = bool(
+        re.search(r"ESTADO\s+DE\s+CUENTA|RESUMEN\s+DE\s+CUENTA|CUENTA\s+CLABE|CLABE\s+INTERBANCARIA", texto_upper)
+        or "ESTADODECUENTA" in compacto
+        or "RESUMENDECUENTA" in compacto
+        or "CLABEINTERBANCARIA" in compacto
+        or "CUENTACLABE" in compacto
+        or ("CLABE" in compacto and re.search(r"\d{18}", compacto))
+        or re.search(r"\b(BBVA|BANCOMER|BANORTE|SANTANDER|BANAMEX|CITIBANAMEX|HSBC|SCOTIABANK|BANCOPPEL|BANCO\s+AZTECA)\b", texto_upper)
+    )
+    if tiene_senales_bancarias:
+        return None
     reglas = [
         (
-            r"CONSTANCIA\s+DE\s+SITUACI[OÓ]N\s+FISCAL|SERVICIO\s+DE\s+ADMINISTRACI[OÓ]N\s+TRIBUTARIA|PORTAL\s+DEL\s+SAT|\bSAT\b",
+            r"CONSTANCIA\s+DE\s+SITUACI[OÓ]N\s+FISCAL|SERVICIO\s+DE\s+ADMINISTRACI[OÓ]N\s+TRIBUTARIA|PORTAL\s+DEL\s+SAT|C[ÉE]DULA\s+DE\s+IDENTIFICACI[OÓ]N\s+FISCAL",
             "constancia_fiscal_en___SPARTA_SECRET_REDACTED__",
             "El documento es una constancia fiscal SAT. En este campo solo se acepta estado de cuenta bancario.",
         ),
