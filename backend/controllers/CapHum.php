@@ -4967,8 +4967,8 @@ class CapHum extends Controller
                     panelClass = 'border-info bg-label-info';
                     iconClass = 'fa-circle-info text-info';
                 } else if (resultado === 'omitido') {
-                    estado = 'No aplica sincronizaci&oacute;n Legacy';
-                    estadoDetalle = 'El usuario no entra en alcance o no tiene un n&uacute;mero de empleado v&aacute;lido.';
+                    estado = 'Spartan actualizado; Legacy no aplica';
+                    estadoDetalle = 'No se sincroniz&oacute; con Legacy porque el puesto no est&aacute; seleccionado en Configuraci&oacute;n o el n&uacute;mero de empleado no es v&aacute;lido.';
                     badgeClass = 'bg-secondary';
                     panelClass = 'border-secondary bg-label-secondary';
                     iconClass = 'fa-circle-minus text-secondary';
@@ -19168,6 +19168,31 @@ class CapHum extends Controller
             $input = [];
         }
         self::respuestaJSON(LegacyUserSync::guardarConfiguracionAlcance($input, (int)($_SESSION['usuario_id'] ?? 0)));
+    }
+
+    public function getUsuariosSincronizaLegacy()
+    {
+        header('Content-Type: application/json; charset=utf-8');
+        if (!self::tieneModuloWeb(self::MODULO_SINCRONIZA_LEGACY)) {
+            self::respuestaJSON(['success' => false, 'mensaje' => 'No tienes permiso para consultar usuarios de sincronizacion Legacy.']);
+            return;
+        }
+        self::respuestaJSON(LegacyUserSync::listarUsuariosAlcanceConfigurado());
+    }
+
+    public function sincronizarLegacyUsuario()
+    {
+        header('Content-Type: application/json; charset=utf-8');
+        if (!self::tieneModuloWeb(self::MODULO_SINCRONIZA_LEGACY)) {
+            self::respuestaJSON(['success' => false, 'mensaje' => 'No tienes permiso para sincronizar usuarios con Legacy.']);
+            return;
+        }
+        $input = json_decode(file_get_contents('php://input'), true);
+        if (!is_array($input)) {
+            $input = [];
+        }
+        $idPersona = (int)($input['id_persona'] ?? 0);
+        self::respuestaJSON(LegacyUserSync::sincronizarPersonaManual($idPersona, (int)($_SESSION['usuario_id'] ?? 0)));
     }
 
     public function obtenerDatosActualizacionInfoPersona()

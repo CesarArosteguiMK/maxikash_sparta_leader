@@ -39,8 +39,8 @@ class LegacyUserSync extends Model
                     'departamento_nombre' => $ctx['departamento_nombre'] ?? '',
                     'id_usuario' => $idSesion,
                     'resultado' => 'omitido',
-                    'mensaje' => 'Usuario fuera de alcance para sincronización Legacy.',
-                    'detalle' => ['motivo' => 'No pertenece a segmentos Campo 1-7 / Campo 8-30 de Cobranza.'],
+                    'mensaje' => 'Usuario actualizado en Spartan; no aplica sincronización Legacy.',
+                    'detalle' => ['motivo' => 'El puesto activo no esta seleccionado en Configuracion de sincronizacion Legacy o el numero de empleado no es valido.'],
                 ]);
             }
 
@@ -787,6 +787,7 @@ class LegacyUserSync extends Model
             $idsDepartamentosPermitidos = array_map(static fn($row) => (int)($row['id'] ?? 0), $departamentos);
             $seleccion['puestos'] = array_values(array_intersect($seleccion['puestos'], $idsPuestosPermitidos));
             $seleccion['departamentos'] = array_values(array_intersect($seleccion['departamentos'], $idsDepartamentosPermitidos));
+            $departamentosSincronizacion = self::resumenDepartamentosSeleccionados($db, $seleccion['puestos'], $seleccion['departamentos']);
 
             return [
                 'success' => true,
@@ -796,6 +797,7 @@ class LegacyUserSync extends Model
                     'departamentos' => $departamentos,
                 ],
                 'seleccion' => $seleccion,
+                'departamentos_sincronizacion' => $departamentosSincronizacion,
                 'mensaje' => 'Configuracion cargada.',
             ];
         } catch (\Throwable $e) {
@@ -813,7 +815,7 @@ class LegacyUserSync extends Model
             self::asegurarConfiguracionAlcance($db);
             $permitidos = self::idsAlcanceCobranzaPermitidos($db);
             $puestos = array_values(array_intersect($puestos, $permitidos['puestos']));
-            $departamentos = array_values(array_intersect($departamentos, $permitidos['departamentos']));
+            $departamentos = self::departamentosDesdePuestosSeleccionados($db, $puestos);
             $db->beginTransaction();
             $db->CRUD("
                 INSERT INTO __SPARTA_SECRET_REDACTED__.legacy_user_sync_config (clave, valor, actualizado_por)
@@ -831,6 +833,7 @@ class LegacyUserSync extends Model
             }
             $db->commit();
             self::$alcanceConfigCache = null;
+            $departamentosSincronizacion = self::resumenDepartamentosSeleccionados($db, $puestos, $departamentos);
             return [
                 'success' => true,
                 'mensaje' => 'Configuracion de sincronizacion Legacy guardada.',
@@ -838,6 +841,7 @@ class LegacyUserSync extends Model
                     'puestos' => $puestos,
                     'departamentos' => $departamentos,
                 ],
+                'departamentos_sincronizacion' => $departamentosSincronizacion,
             ];
         } catch (\Throwable $e) {
             if ($db && $db->inTransaction()) {
@@ -845,6 +849,61 @@ class LegacyUserSync extends Model
             }
             return ['success' => false, 'mensaje' => 'No se pudo guardar la configuracion Legacy.', 'error' => $e->getMessage()];
         }
+    }
+
+    public static function listarUsuariosAlcanceConfigurado(): array
+    {
+        try {
+            $db = new Database();
+            self::asegurarConfiguracionAlcance($db);
+            $candidatos = self::obtenerCandidatosSincronizacion($db, 50000);
+            $usuarios = [];
+
+            foreach ($candidatos as $ctx) {
+                if (!self::estaEnAlcance($ctx)) {
+                    continue;
+                }
+                $usuarios[] = [
+                    'id_persona' => (int)($ctx['id_persona'] ?? 0),
+                    'external_id' => (string)($ctx['external_id'] ?? ''),
+                    'nombre' => (string)($ctx['nombre_completo'] ?? ''),
+                    'puesto' => (string)($ctx['puesto_nombre'] ?? ''),
+                    'departamento' => (string)($ctx['departamento_nombre'] ?? ''),
+                    'role_legacy' => (string)($ctx['role_legacy'] ?? ''),
+                    'correo' => (string)($ctx['correo'] ?? ''),
+                ];
+            }
+
+            usort($usuarios, static function ($a, $b) {
+                return strcasecmp((string)$a['nombre'], (string)$b['nombre']);
+            });
+
+            return [
+                'success' => true,
+                'usuarios' => $usuarios,
+                'total' => count($usuarios),
+                'mensaje' => 'Usuarios cargados.',
+            ];
+        } catch (\Throwable $e) {
+            return [
+                'success' => false,
+                'mensaje' => 'No se pudieron cargar usuarios para actualizacion individual.',
+                'error' => $e->getMessage(),
+            ];
+        }
+    }
+
+    public static function sincronizarPersonaManual(int $idPersona, int $idSesion = 0): array
+    {
+        if ($idPersona <= 0) {
+            return [
+                'success' => false,
+                'resultado' => 'error',
+                'mensaje' => 'Selecciona un usuario valido para sincronizar.',
+            ];
+        }
+
+        return self::sincronizarDesdeEditarUsuario($idPersona, $idSesion);
     }
 
     private static function guardarItemAlcance(Database $db, string $tipo, int $referenciaId, int $idSesion): void
@@ -863,6 +922,80 @@ class LegacyUserSync extends Model
             'referencia_id' => $referenciaId,
             'usuario' => $idSesion > 0 ? $idSesion : null,
         ]);
+    }
+
+    private static function departamentosDesdePuestosSeleccionados(Database $db, array $puestos): array
+    {
+        $puestos = array_values(array_unique(array_filter(array_map('intval', $puestos), static fn($id) => $id > 0)));
+        if (empty($puestos)) {
+            return [];
+        }
+        $params = [];
+        $placeholders = [];
+        foreach ($puestos as $idx => $idPuesto) {
+            $key = 'puesto_' . $idx;
+            $placeholders[] = ':' . $key;
+            $params[$key] = $idPuesto;
+        }
+        $rows = $db->queryAll("
+            SELECT d.id
+            FROM __SPARTA_SECRET_REDACTED__.puesto p
+            INNER JOIN __SPARTA_SECRET_REDACTED__.departamento d ON d.id = p.departamento_id
+            WHERE p.id IN (" . implode(',', $placeholders) . ")
+              AND COALESCE(p.activo, 1) = 1
+              AND COALESCE(d.activo, 1) = 1
+            GROUP BY d.id, d.nombre
+            ORDER BY d.nombre ASC
+        ", $params);
+        return array_values(array_unique(array_map(static fn($row) => (int)($row['id'] ?? 0), $rows)));
+    }
+
+    private static function resumenDepartamentosSeleccionados(Database $db, array $puestos, array $departamentos): array
+    {
+        $puestos = array_values(array_unique(array_filter(array_map('intval', $puestos), static fn($id) => $id > 0)));
+        $departamentos = array_values(array_unique(array_filter(array_map('intval', $departamentos), static fn($id) => $id > 0)));
+        if (empty($puestos) && empty($departamentos)) {
+            return [];
+        }
+
+        $params = [];
+        $where = [];
+        $puestosCase = 'NULL';
+        if (!empty($puestos)) {
+            $phPuestos = [];
+            foreach ($puestos as $idx => $idPuesto) {
+                $key = 'puesto_' . $idx;
+                $phPuestos[] = ':' . $key;
+                $params[$key] = $idPuesto;
+            }
+            $puestosCase = implode(',', $phPuestos);
+            $where[] = "p.id IN ($puestosCase)";
+        }
+        if (!empty($departamentos)) {
+            $phDepartamentos = [];
+            foreach ($departamentos as $idx => $idDepartamento) {
+                $key = 'departamento_' . $idx;
+                $phDepartamentos[] = ':' . $key;
+                $params[$key] = $idDepartamento;
+            }
+            $where[] = "d.id IN (" . implode(',', $phDepartamentos) . ")";
+        }
+
+        return $db->queryAll("
+            SELECT
+                d.id,
+                d.nombre,
+                COUNT(DISTINCT CASE WHEN p.id IN ($puestosCase) THEN p.id END) AS puestos_seleccionados,
+                COUNT(DISTINCT p.id) AS puestos_activos_departamento
+            FROM __SPARTA_SECRET_REDACTED__.departamento d
+            LEFT JOIN __SPARTA_SECRET_REDACTED__.puesto p
+                ON p.departamento_id = d.id
+               AND COALESCE(p.activo, 1) = 1
+            WHERE COALESCE(d.activo, 1) = 1
+              AND (" . implode(' OR ', $where) . ")
+            GROUP BY d.id, d.nombre
+            ORDER BY d.nombre ASC
+        ", $params);
     }
 
     private static function idsAlcanceCobranzaPermitidos(Database $db): array
@@ -1066,9 +1199,11 @@ class LegacyUserSync extends Model
             return false;
         }
         if (!empty($config['configurado'])) {
-            // La configuracion operativa manda: altas, ediciones y bajas solo sincronizan si el puesto activo esta seleccionado.
+            // La configuracion operativa manda: altas, ediciones y bajas sincronizan por puesto seleccionado o por su departamento derivado.
             $idPuesto = (int)($ctx['id_puesto'] ?? 0);
-            return $idPuesto > 0 && in_array($idPuesto, $config['puestos'], true);
+            $idDepartamento = (int)($ctx['id_departamento'] ?? 0);
+            return ($idPuesto > 0 && in_array($idPuesto, $config['puestos'], true))
+                || ($idDepartamento > 0 && in_array($idDepartamento, $config['departamentos'], true));
         }
 
         $puesto = self::normalizarTexto($ctx['puesto_nombre'] ?? '');
@@ -1087,6 +1222,7 @@ class LegacyUserSync extends Model
             || preg_match('/\b8\s*[-_ ]\s*21\b/', $texto)
             || preg_match('/\b22\s*[-_ ]\s*29\b/', $texto)
             || preg_match('/\b8\s*[-_ ]\s*30\b/', $texto)
+            || preg_match('/\b30\s*\+?\b/', $texto)
         );
     }
 
