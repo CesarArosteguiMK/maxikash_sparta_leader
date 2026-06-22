@@ -663,9 +663,17 @@ class LegacyUserSync extends Model
                     p.id,
                     p.nombre,
                     d.id AS departamento_id,
-                    d.nombre AS departamento
+                    d.nombre AS departamento,
+                    pl.id AS puesto_legacy_id,
+                    pl.clave AS legacy_clave,
+                    pl.nombre AS legacy_nombre
                 FROM __SPARTA_SECRET_REDACTED__.puesto p
                 INNER JOIN __SPARTA_SECRET_REDACTED__.departamento d ON d.id = p.departamento_id
+                INNER JOIN __SPARTA_SECRET_REDACTED__.equivalencias_legacy_puestos el
+                    ON el.id_puesto = p.id
+                INNER JOIN __SPARTA_SECRET_REDACTED__.puestos_legacy pl
+                    ON pl.id = el.id_puesto_legacy
+                   AND TRIM(COALESCE(pl.clave, '')) <> ''
                 LEFT JOIN __SPARTA_SECRET_REDACTED__.departamento_organizacional dorg
                     ON dorg.id = d.id_departamento_organizacional
                 LEFT JOIN __SPARTA_SECRET_REDACTED__.asigna_direcciones ad
@@ -1004,6 +1012,11 @@ class LegacyUserSync extends Model
             SELECT DISTINCT p.id
             FROM __SPARTA_SECRET_REDACTED__.puesto p
             INNER JOIN __SPARTA_SECRET_REDACTED__.departamento d ON d.id = p.departamento_id
+            INNER JOIN __SPARTA_SECRET_REDACTED__.equivalencias_legacy_puestos el
+                ON el.id_puesto = p.id
+            INNER JOIN __SPARTA_SECRET_REDACTED__.puestos_legacy pl
+                ON pl.id = el.id_puesto_legacy
+               AND TRIM(COALESCE(pl.clave, '')) <> ''
             LEFT JOIN __SPARTA_SECRET_REDACTED__.departamento_organizacional dorg
                 ON dorg.id = d.id_departamento_organizacional
             LEFT JOIN __SPARTA_SECRET_REDACTED__.asigna_direcciones ad

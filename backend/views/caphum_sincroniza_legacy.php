@@ -437,6 +437,10 @@
                             Define qué puestos se sincronizan con Legacy.
                             Al guardar esta configuración, deja de usarse la regla fija anterior.
                         </p>
+                        <p class="legacy-sync-note mt-2">
+                            Si un puesto no aparece en esta lista, primero revisa que tenga equivalencia configurada en
+                            <strong>Equivalencia puestos</strong>. Sin esa equivalencia, el sistema no puede enviarlo a Legacy.
+                        </p>
                     </div>
                     <span class="badge bg-label-info text-dark" id="legacy-sync-config-status">Cargando configuración</span>
                 </div>
@@ -666,9 +670,12 @@
 
         puestosList.innerHTML = puestos.length ? puestos.map(function (row) {
             const id = String(row.id || '');
+            const equivalencia = row.legacy_nombre || row.legacy_clave
+                ? 'Legacy: ' + (row.legacy_nombre || row.legacy_clave) + (row.legacy_clave ? ' · ' + row.legacy_clave : '')
+                : 'Sin equivalencia Legacy';
             return '<label class="legacy-sync-check">' +
                 '<input class="form-check-input mt-1" type="checkbox" data-legacy-sync-puesto value="' + esc(id) + '"' + (puestosSel.has(id) ? ' checked' : '') + '>' +
-                '<span><strong>' + esc(row.nombre || 'Puesto') + '</strong><small>' + esc(row.departamento || 'Sin departamento') + '</small></span>' +
+                '<span><strong>' + esc(row.nombre || 'Puesto') + '</strong><small>' + esc(row.departamento || 'Sin departamento') + '</small><small>' + esc(equivalencia) + '</small></span>' +
             '</label>';
         }).join('') : '<div class="p-3 text-muted">No hay puestos con ese filtro.</div>';
 
