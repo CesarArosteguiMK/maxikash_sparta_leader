@@ -127,6 +127,8 @@ if (!function_exists('getMenuSidebarModulosStructure')) {
                     ['label' => 'Catálogos Operativos', 'url' => '/Atlas/catalogos', 'modulos' => [133]],
                     ['label' => 'Catálogos Comerciales', 'url' => '/Atlas/catalogosComerciales', 'modulos' => [134]],
                     ['label' => 'Notificaciones App', 'url' => '/Atlas/notificacionesApp', 'modulos' => [136]],
+                    ['label' => 'Riesgos Operativos', 'url' => '/Atlas/riesgosOperativos', 'modulos' => [148]],
+                    ['label' => 'Abanderamiento 30+', 'url' => '/Atlas/abanderamiento30', 'modulos' => [149]],
                     ['label' => 'Accesos Atlas', 'url' => '/Atlas/accesosAtlas', 'modulos' => [137]],
                 ],
             ],

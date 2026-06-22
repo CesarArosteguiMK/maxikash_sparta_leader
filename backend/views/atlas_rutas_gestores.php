@@ -1029,6 +1029,7 @@
 
         visitaDesdeSucursal(sucursal) {
             const estancia = this.estanciaDefaultRuta();
+            const sugerida = this.estadiaSugerida(sucursal, estancia.activo ? estancia : null);
             return {
                 fk_sucursal: sucursal.fk_sucursal,
                 sucursal: sucursal.sucursal || 'Sucursal',
@@ -1040,8 +1041,9 @@
                 fecha_inicio_visita: this.value('atlasRutaFechaInicio'),
                 fecha_fin_visita: this.value('atlasRutaFechaInicio'),
                 hora_llegada: null,
-                estancia_valor: estancia.activo ? estancia.valor : 45,
-                estancia_unidad: estancia.activo ? estancia.unidad : 'minutos'
+                estancia_valor: sugerida.valor,
+                estancia_unidad: sugerida.unidad,
+                estadia_sugerida: sucursal.estadia_sugerida || null
             };
         },
 
@@ -1136,6 +1138,7 @@
             const sucursal = (this.catalogos.sucursales || []).find(s => String(s.fk_sucursal || '') === String(fk));
             if (!sucursal) return;
             const estancia = this.estanciaDefaultRuta();
+            const sugerida = this.estadiaSugerida(sucursal, estancia.activo ? estancia : null);
             this.rutaBuilderSucursales.push({
                 fk_sucursal: sucursal.fk_sucursal,
                 sucursal: sucursal.sucursal || 'Sucursal',
@@ -1147,8 +1150,9 @@
                 fecha_inicio_visita: this.value('atlasRutaFechaInicio'),
                 fecha_fin_visita: this.value('atlasRutaFechaInicio'),
                 hora_llegada: null,
-                estancia_valor: estancia.activo ? estancia.valor : 45,
-                estancia_unidad: estancia.activo ? estancia.unidad : 'minutos'
+                estancia_valor: sugerida.valor,
+                estancia_unidad: sugerida.unidad,
+                estadia_sugerida: sucursal.estadia_sugerida || null
             });
             this.renderSelectSucursales(this.value('atlasRutaGestor'));
             this.renderRutaBuilder();
@@ -1420,6 +1424,39 @@
                 this.toast('Si la estancia default es mayor a 5, la unidad debe ser minutos.', 'warning');
             }
             return { activo, valor, unidad };
+        },
+
+        estadiaSugerida(sucursal, fallback = null) {
+            const normalizada = this.normalizarEstadiaSugerida(sucursal?.estadia_sugerida);
+            if (normalizada) return normalizada;
+            if (fallback && Number(fallback.valor || 0) > 0) {
+                return {
+                    valor: Math.max(1, Number(fallback.valor || 45)),
+                    unidad: ['minutos', 'horas'].includes(fallback.unidad) ? fallback.unidad : 'minutos'
+                };
+            }
+            return { valor: 45, unidad: 'minutos' };
+        },
+
+        normalizarEstadiaSugerida(estadia) {
+            if (estadia == null || estadia === '') return null;
+            if (typeof estadia === 'number') {
+                return { valor: Math.max(1, Math.trunc(estadia)), unidad: 'minutos' };
+            }
+            if (typeof estadia === 'object') {
+                const valor = Number(estadia.valor ?? estadia.estancia_valor ?? estadia.minutos ?? estadia.duracion ?? 0);
+                let unidad = String(estadia.unidad ?? estadia.estancia_unidad ?? (estadia.horas ? 'horas' : 'minutos')).toLowerCase();
+                unidad = unidad.startsWith('hora') ? 'horas' : 'minutos';
+                if (Number.isFinite(valor) && valor > 0) return { valor: Math.trunc(valor), unidad };
+                return null;
+            }
+            const texto = String(estadia).trim().toLowerCase();
+            const match = texto.match(/(\d+(?:\.\d+)?)\s*(minuto|minutos|min|hora|horas|hr|hrs)?/);
+            if (!match) return null;
+            const valor = Math.max(1, Math.trunc(Number(match[1])));
+            const unidadRaw = match[2] || 'minutos';
+            const unidad = unidadRaw.startsWith('h') ? 'horas' : 'minutos';
+            return { valor, unidad };
         },
 
         aplicarEstanciaDefaultATodas() {
@@ -1765,22 +1802,6 @@
             return { ok: true };
         },
 
-        salidaSugeridaTexto(visita) {
-            if (!visita || !visita.hora_llegada) return 'Sin hora';
-            const minutos = this.estanciaEnMinutos(visita.estancia_valor, visita.estancia_unidad);
-            const parts = String(visita.hora_llegada || '').split(':').map(Number);
-            if (parts.length < 2 || Number.isNaN(parts[0]) || Number.isNaN(parts[1])) return 'Sin hora';
-            const salida = new Date(2000, 0, 1, parts[0], parts[1]);
-            salida.setMinutes(salida.getMinutes() + minutos);
-            const horario = this.normalizarHorarioOperativo(this.horarioOperativo);
-            if (salida.getDate() > 1 || (salida.getHours() * 60 + salida.getMinutes()) > horario.fin_minutos) {
-                return 'No factible';
-            }
-            const hh = String(salida.getHours()).padStart(2, '0');
-            const mm = String(salida.getMinutes()).padStart(2, '0');
-            return `${hh}:${mm}`;
-        },
-
         normalizarHora24(value) {
             const raw = String(value || '').trim().toLowerCase();
             if (!raw) return '09:00';
@@ -1997,20 +2018,24 @@
             this.rutaEditando = true;
             this.visitasColapsadas = {};
             this.verDetalle(id, false).then(() => {
-                this.rutaBuilderSucursales = (this.detalle && Array.isArray(this.detalle.sucursales) ? this.detalle.sucursales : []).map(s => ({
-                    fk_sucursal: s.fk_sucursal,
-                    sucursal: s.sucursal || 'Sucursal',
-                    latitud: s.latitud,
-                    longitud: s.longitud,
-                    direccion: s.direccion || 'Sin dirección',
-                    prioridad: s.prioridad_visita || s.prioridad || 'media',
-                    criterio_prioridad: s.criterio_prioridad_visita || s.criterio_prioridad || 'enganches',
-                    fecha_inicio_visita: s.fecha_inicio_visita || ruta.fecha_inicio || ruta.fecha_ruta || '',
-                    fecha_fin_visita: s.fecha_inicio_visita || ruta.fecha_inicio || ruta.fecha_ruta || '',
-                    hora_llegada: null,
-                    estancia_valor: s.estancia_valor || 45,
-                    estancia_unidad: s.estancia_unidad || 'minutos'
-                }));
+                this.rutaBuilderSucursales = (this.detalle && Array.isArray(this.detalle.sucursales) ? this.detalle.sucursales : []).map(s => {
+                    const sugerida = this.estadiaSugerida(s);
+                    return {
+                        fk_sucursal: s.fk_sucursal,
+                        sucursal: s.sucursal || 'Sucursal',
+                        latitud: s.latitud,
+                        longitud: s.longitud,
+                        direccion: s.direccion || 'Sin dirección',
+                        prioridad: s.prioridad_visita || s.prioridad || 'media',
+                        criterio_prioridad: s.criterio_prioridad_visita || s.criterio_prioridad || 'enganches',
+                        fecha_inicio_visita: s.fecha_inicio_visita || ruta.fecha_inicio || ruta.fecha_ruta || '',
+                        fecha_fin_visita: s.fecha_inicio_visita || ruta.fecha_inicio || ruta.fecha_ruta || '',
+                        hora_llegada: null,
+                        estancia_valor: s.estancia_valor || sugerida.valor,
+                        estancia_unidad: s.estancia_unidad || sugerida.unidad,
+                        estadia_sugerida: s.estadia_sugerida || null
+                    };
+                });
                 const todasSucursales = document.getElementById('atlasRutaTodasSucursales');
                 if (todasSucursales) todasSucursales.checked = false;
                 this.actualizarModoSucursalesRuta();
@@ -2163,8 +2188,7 @@
                     fecha_fin_visita: s.fecha_inicio_visita || this.value('atlasRutaFechaInicio'),
                     hora_llegada: null,
                     estancia_valor: s.estancia_valor || 45,
-                    estancia_unidad: s.estancia_unidad || 'minutos',
-                    hora_salida_sugerida: null
+                    estancia_unidad: s.estancia_unidad || 'minutos'
                 })),
                 tipo_ruta: this.value('atlasRutaTipo'),
                 prioridad: this.rutaBuilderSucursales[0]?.prioridad || 'media',
@@ -2696,5 +2720,3 @@
     document.addEventListener('DOMContentLoaded', () => AtlasRutas.init());
 })();
 </script>
-
-
