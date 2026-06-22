@@ -71,6 +71,55 @@
             padding: 0 !important;
             width: 42px;
         }
+        .docs-rrhh-avatar-fallback {
+            align-items: center;
+            background: linear-gradient(135deg, #24324d 0%, #0d6efd 100%);
+            border: 2px solid #fff;
+            border-radius: 50%;
+            box-shadow: 0 5px 16px rgba(30, 41, 59, 0.16);
+            color: #fff;
+            display: inline-flex;
+            flex: 0 0 auto;
+            font-size: 0.82rem;
+            font-weight: 700;
+            height: 46px;
+            justify-content: center;
+            letter-spacing: 0;
+            line-height: 1;
+            min-width: 46px;
+            width: 46px;
+        }
+        .docs-rrhh-employee-code {
+            align-items: center;
+            color: #475569;
+            display: flex;
+            flex-wrap: wrap;
+            font-size: 0.78rem;
+            font-weight: 800;
+            gap: 6px;
+            line-height: 1.2;
+            margin-bottom: 3px;
+        }
+        .docs-rrhh-code-value {
+            background: #eaf1ff;
+            border: 1px solid #bfdbfe;
+            border-radius: 999px;
+            color: #1d4ed8;
+            display: inline-flex;
+            font-weight: 900;
+            line-height: 1;
+            padding: 3px 8px;
+        }
+        .docs-rrhh-external-id {
+            color: #64748b;
+            font-size: 0.78rem;
+            font-weight: 800;
+            line-height: 1.25;
+            margin-top: 2px;
+        }
+        .docs-rrhh-external-id strong {
+            color: #334155;
+        }
         .docs-rrhh-trayectoria-list {
             position: relative;
             padding: 0.25rem 0 0.25rem 1.35rem;
@@ -879,6 +928,7 @@
         const filtro = els.filtro.value || '';
         return colaboradores.filter(col => {
             const texto = [
+                col.codigo_contpac,
                 col.numero_empleado,
                 col.nombre_completo,
                 col.correo,
@@ -969,6 +1019,8 @@
             els.body.innerHTML = pagina.map(col => {
                 const pct = Number(col.porcentaje_local || 0);
                 const faltantes = Number(col.total_faltantes || 0);
+                const codigoContpac = escapeHtml(col.codigo_contpac || 'Sin codigo');
+                const externalId = escapeHtml(col.numero_empleado || 'Sin external id');
                 const badge = faltantes > 0
                     ? `<span class="badge bg-warning text-dark">${faltantes} faltante(s)</span>`
                     : '<span class="badge bg-success">Completo</span>';
@@ -979,10 +1031,14 @@
                     <tr>
                         <td>
                             <div class="d-flex align-items-center gap-3">
-                                <span class="btn btn-primary btn-sm rounded-3 disabled">${escapeHtml(iniciales(col.nombre_completo))}</span>
+                                <span class="docs-rrhh-avatar-fallback">${escapeHtml(iniciales(col.nombre_completo))}</span>
                                 <div>
-                                    <div class="fw-semibold"># ${escapeHtml(col.numero_empleado || '')}</div>
+                                    <div class="docs-rrhh-employee-code">
+                                        <span>No. empleado:</span>
+                                        <span class="docs-rrhh-code-value">${codigoContpac}</span>
+                                    </div>
                                     <div class="fw-semibold text-uppercase">${escapeHtml(col.nombre_completo || 'Colaborador')}</div>
+                                    <div class="docs-rrhh-external-id">External id: <strong>${externalId}</strong></div>
                                     ${col.correo ? `<div class="text-muted small">${escapeHtml(col.correo)}</div>` : ''}
                                 </div>
                             </div>
@@ -1048,7 +1104,7 @@
         const col = colaboradores.find(item => Number(item.id_persona || 0) === Number(idPersona));
         if (!col) return;
 
-        els.modalSubtitulo.textContent = `# ${col.numero_empleado || ''} - ${col.nombre_completo || 'Colaborador'}`;
+        els.modalSubtitulo.textContent = `No. empleado: ${col.codigo_contpac || 'Sin codigo'} - ${col.nombre_completo || 'Colaborador'}${col.numero_empleado ? ` | External id: ${col.numero_empleado}` : ''}`;
         els.modalReq.textContent = Number(col.total_requeridos || 0);
         els.modalCar.textContent = Number(col.total_cargados || 0);
         els.modalFal.textContent = Number(col.total_faltantes || 0);
@@ -1183,7 +1239,7 @@
         const col = colaboradores.find(item => Number(item.id_persona || 0) === Number(idPersona));
         if (els.trayectoriaSubtitulo) {
             els.trayectoriaSubtitulo.textContent = col
-                ? `# ${col.numero_empleado || ''} - ${col.nombre_completo || 'Colaborador'}`
+                ? `No. empleado: ${col.codigo_contpac || 'Sin codigo'} - ${col.nombre_completo || 'Colaborador'}${col.numero_empleado ? ` | External id: ${col.numero_empleado}` : ''}`
                 : 'Colaborador';
         }
         if (els.trayectoriaBody) {

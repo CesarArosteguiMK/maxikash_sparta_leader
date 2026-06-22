@@ -504,12 +504,20 @@ html.dark-mode #statsJerarquia .bg-light{background-color:#334155!important;}
     <style>
     .navbar-dropdown .dropdown-menu .dropdown-item i.fa-fw { width: 1.25em; text-align: center; margin-inline-end: 0.5rem; }
     .navbar-dropdown .dropdown-item.user-dropdown-perfil i { color: #1A52A8 !important; }
+    .navbar-dropdown .dropdown-item.user-dropdown-documents i { color: #0ea5e9 !important; }
+    .navbar-dropdown .dropdown-item.user-dropdown-vacations i { color: #f59e0b !important; }
     .navbar-dropdown .dropdown-item.user-dropdown-logout i { color: #dc2626 !important; }
     .navbar-dropdown .dropdown-item.user-dropdown-dark i.dark-mode-icon { color: #7c3aed !important; }
+    .navbar-dropdown .dropdown-item.user-dropdown-documents:hover i { color: #0284c7 !important; }
+    .navbar-dropdown .dropdown-item.user-dropdown-vacations:hover i { color: #d97706 !important; }
     .navbar-dropdown .dropdown-item.user-dropdown-dark:hover i { color: #8b5cf6 !important; }
     body.dark-mode .navbar-dropdown .dropdown-item.user-dropdown-perfil i { color: #60a5fa !important; }
+    body.dark-mode .navbar-dropdown .dropdown-item.user-dropdown-documents i { color: #38bdf8 !important; }
+    body.dark-mode .navbar-dropdown .dropdown-item.user-dropdown-vacations i { color: #fbbf24 !important; }
     body.dark-mode .navbar-dropdown .dropdown-item.user-dropdown-logout i { color: #f87171 !important; }
     body.dark-mode .navbar-dropdown .dropdown-item.user-dropdown-dark i.dark-mode-icon { color: #c4b5fd !important; }
+    body.dark-mode .navbar-dropdown .dropdown-item.user-dropdown-documents:hover i { color: #7dd3fc !important; }
+    body.dark-mode .navbar-dropdown .dropdown-item.user-dropdown-vacations:hover i { color: #fde68a !important; }
     body.dark-mode .navbar-dropdown .dropdown-item.user-dropdown-dark:hover i { color: #a78bfa !important; }
     </style>
 
@@ -527,10 +535,14 @@ html.dark-mode #statsJerarquia .bg-light{background-color:#334155!important;}
     /* Badge: número de no leídas — rojo fuerte para que se note */
     .nav-notif-badge { position: absolute; top: -4px; right: -4px; min-width: 1.25rem; height: 1.25rem; padding: 0 5px; font-size: 0.7rem; font-weight: 700; line-height: 1.25rem; border-radius: 50%; background: #dc3545 !important; color: #fff !important; text-align: center; border: 2px solid var(--bs-body-bg, #fff); box-shadow: 0 0 0 1px rgba(220,53,69,0.5); }
     body.dark-mode .nav-notif-badge { border-color: rgba(30,41,59,0.95); }
-    .dropdown-menu-notif-glass { background: rgba(255, 255, 255, 0.88) !important; backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); border: 1px solid rgba(255, 255, 255, 0.5) !important; box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12), 0 0 0 1px rgba(255, 255, 255, 0.3) inset !important; min-width: 320px; max-width: 380px; max-height: 70vh; overflow: hidden; padding: 0 !important; display: none; flex-direction: column; }
+    .dropdown-menu-notif-glass { background: rgba(255, 255, 255, 0.88) !important; backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); border: 1px solid rgba(255, 255, 255, 0.5) !important; box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12), 0 0 0 1px rgba(255, 255, 255, 0.3) inset !important; min-width: 320px; max-width: min(380px, calc(100vw - 1.5rem)); max-height: min(70vh, 560px); overflow: hidden; padding: 0 !important; display: none; flex-direction: column; }
     .nav-notif-wrap.dropdown.show .dropdown-menu-notif-glass { display: flex !important; }
     .dropdown-menu-notif-glass .notif-header { flex-shrink: 0; padding: 0.75rem 1rem; border-bottom: 1px solid rgba(0,0,0,0.08); font-weight: 600; display: flex; align-items: center; justify-content: space-between; }
-    .dropdown-menu-notif-glass .notif-body { overflow-y: auto; flex: 1; }
+    .dropdown-menu-notif-glass .notif-body { display: block; max-height: calc(min(70vh, 560px) - 49px); min-height: 0; overflow-y: auto; overflow-x: hidden; overscroll-behavior: contain; scrollbar-width: thin; scrollbar-color: rgba(105,108,255,.55) transparent; }
+    .dropdown-menu-notif-glass .notif-body::-webkit-scrollbar { width: 8px; }
+    .dropdown-menu-notif-glass .notif-body::-webkit-scrollbar-track { background: transparent; }
+    .dropdown-menu-notif-glass .notif-body::-webkit-scrollbar-thumb { background: rgba(105,108,255,.45); border-radius: 999px; border: 2px solid transparent; background-clip: padding-box; }
+    .dropdown-menu-notif-glass .notif-body::-webkit-scrollbar-thumb:hover { background: rgba(105,108,255,.7); background-clip: padding-box; }
     .dropdown-menu-notif-glass .notif-body.notif-sin-lista { overflow: hidden; }
     .dropdown-menu-notif-glass .notif-item { padding: 0.65rem 1rem; border-bottom: 1px solid rgba(0,0,0,0.06); cursor: pointer; transition: background 0.15s ease; white-space: normal; }
     .dropdown-menu-notif-glass .notif-item:hover { background: rgba(105, 108, 255, 0.08); }

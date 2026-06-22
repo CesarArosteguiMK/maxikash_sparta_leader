@@ -7,6 +7,8 @@ use Core\Database;
 
 class EquivalenciasPuestos extends Model
 {
+    private const DIRECCION_COBRANZA_ID = 12;
+
     /**
      * Puestos del sistema legacy (columna izquierda).
      */
@@ -36,13 +38,22 @@ class EquivalenciasPuestos extends Model
         header('Content-Type: application/json; charset=utf-8');
         try {
             $db = new Database();
+            $idDireccionCobranza = self::DIRECCION_COBRANZA_ID;
             $r = $db->queryAll("
                 SELECT p.id, p.nombre, p.clave,
                        COALESCE(d.nombre, '') AS departamento_nombre
                 FROM puesto p
-                LEFT JOIN departamento d ON d.id = p.departamento_id
+                INNER JOIN departamento d ON d.id = p.departamento_id
+                INNER JOIN departamento_organizacional dorg ON dorg.id = d.id_departamento_organizacional
+                INNER JOIN asigna_direcciones ad
+                    ON ad.id_departamento_organizacional = d.id_departamento_organizacional
+                    AND COALESCE(ad.activo, 1) = 1
+                INNER JOIN direcciones_organizacion dir ON dir.id = ad.id_direccion
                 WHERE (p.activo IS NULL OR p.activo = 1)
-                    AND (p.departamento_id IS NULL OR p.departamento_id NOT IN (1, 2, 5, 9, 11, 21))
+                    AND COALESCE(d.activo, 1) = 1
+                    AND COALESCE(dorg.activo, 1) = 1
+                    AND COALESCE(dir.activo, 1) = 1
+                    AND dir.id = {$idDireccionCobranza}
                 ORDER BY d.nombre, p.nombre
             ");
             $datos = is_array($r) ? $r : [];
@@ -61,9 +72,17 @@ class EquivalenciasPuestos extends Model
         header('Content-Type: application/json; charset=utf-8');
         try {
             $db = new Database();
+            $idDireccionCobranza = self::DIRECCION_COBRANZA_ID;
             $r = $db->queryAll("
-                SELECT id_puesto, id_puesto_legacy
-                FROM equivalencias_legacy_puestos
+                SELECT elp.id_puesto, elp.id_puesto_legacy
+                FROM equivalencias_legacy_puestos elp
+                INNER JOIN puesto p ON p.id = elp.id_puesto
+                INNER JOIN departamento d ON d.id = p.departamento_id
+                INNER JOIN asigna_direcciones ad
+                    ON ad.id_departamento_organizacional = d.id_departamento_organizacional
+                    AND COALESCE(ad.activo, 1) = 1
+                INNER JOIN direcciones_organizacion dir ON dir.id = ad.id_direccion
+                WHERE dir.id = {$idDireccionCobranza}
             ");
             $datos = is_array($r) ? $r : [];
             echo json_encode(['success' => true, 'mensaje' => 'Equivalencias.', 'datos' => $datos]);
@@ -85,15 +104,35 @@ class EquivalenciasPuestos extends Model
         }
         try {
             $db = new Database();
+            $idDireccionCobranza = self::DIRECCION_COBRANZA_ID;
             $db->beginTransaction();
-            $db->queryOne("DELETE FROM equivalencias_legacy_puestos");
+            $db->queryOne("
+                DELETE elp
+                FROM equivalencias_legacy_puestos elp
+                INNER JOIN puesto p ON p.id = elp.id_puesto
+                INNER JOIN departamento d ON d.id = p.departamento_id
+                INNER JOIN asigna_direcciones ad
+                    ON ad.id_departamento_organizacional = d.id_departamento_organizacional
+                    AND COALESCE(ad.activo, 1) = 1
+                INNER JOIN direcciones_organizacion dir ON dir.id = ad.id_direccion
+                WHERE dir.id = {$idDireccionCobranza}
+            ");
             foreach ($pares as $p) {
                 $id_puesto = (int) ($p['id_puesto'] ?? 0);
                 $id_puesto_legacy = (int) ($p['id_puesto_legacy'] ?? 0);
                 if ($id_puesto > 0 && $id_puesto_legacy > 0) {
                     $db->queryOne("
                         INSERT INTO equivalencias_legacy_puestos (id_puesto, id_puesto_legacy)
-                        VALUES ($id_puesto, $id_puesto_legacy)
+                        SELECT p.id, $id_puesto_legacy
+                        FROM puesto p
+                        INNER JOIN departamento d ON d.id = p.departamento_id
+                        INNER JOIN asigna_direcciones ad
+                            ON ad.id_departamento_organizacional = d.id_departamento_organizacional
+                            AND COALESCE(ad.activo, 1) = 1
+                        INNER JOIN direcciones_organizacion dir ON dir.id = ad.id_direccion
+                        WHERE p.id = $id_puesto
+                            AND dir.id = {$idDireccionCobranza}
+                        LIMIT 1
                     ");
                 }
             }
