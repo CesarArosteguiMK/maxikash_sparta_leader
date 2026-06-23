@@ -6907,13 +6907,13 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
                         </div>
 
                         <div class="col-md-4">
-                            <label class="form-label"><strong>Fecha y hora inicio</strong></label>
-                            <input type="text" class="form-control flatpickr-datetime-ausencia" id="fechaInicio" placeholder="Seleccione fecha y hora" autocomplete="off" readonly>
+                            <label class="form-label"><strong>Fecha inicio</strong></label>
+                            <input type="text" class="form-control flatpickr-datetime-ausencia" id="fechaInicio" placeholder="Seleccione fecha inicio" autocomplete="off" readonly>
                         </div>
 
                         <div class="col-md-4">
-                            <label class="form-label"><strong>Fecha y hora fin</strong></label>
-                            <input type="text" class="form-control flatpickr-datetime-ausencia" id="fechaFin" placeholder="Seleccione fecha y hora" autocomplete="off" readonly>
+                            <label class="form-label"><strong>Fecha fin</strong></label>
+                            <input type="text" class="form-control flatpickr-datetime-ausencia" id="fechaFin" placeholder="Seleccione fecha fin" autocomplete="off" readonly>
                         </div>
 
                         <div class="col-md-12">
@@ -6960,13 +6960,6 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
                         </div>
                     </div>
 
-                    <div id="documentosAusenciaWrap" class="mt-3">
-                        <h6 class="mb-2"><strong>Documentos de ausencia</strong></h6>
-                        <div id="listaDocumentosAusencia" class="list-group small">
-                            <div class="list-group-item text-muted">Sin documentos de ausencia subidos.</div>
-                        </div>
-                    </div>
-
                     <hr>
 
                     <!-- ================== TABLA DE AUSENCIAS ================== -->
@@ -6987,11 +6980,18 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
                             <tbody id="tablaAusencias">
                             <tr>
                                 <td colspan="6" class="text-center text-muted">
-                                    Sin registros
+                                    Sin ausencias registradas.
                                 </td>
                             </tr>
                             </tbody>
                         </table>
+                    </div>
+
+                    <div id="documentosAusenciaWrap" class="mt-3">
+                        <h6 class="mb-2"><strong>Documentos del historial</strong></h6>
+                        <div id="listaDocumentosAusencia" class="list-group small">
+                            <div class="list-group-item text-muted">Sin documentos de ausencia subidos.</div>
+                        </div>
                     </div>
 
                 </div>
@@ -7001,6 +7001,31 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
                     <button class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
                 </div>
 
+            </div>
+        </div>
+    </div>
+
+    <div class="modal fade" id="modalDocumentoAusenciaPreview" tabindex="-1" aria-labelledby="modalDocumentoAusenciaPreviewLabel" aria-hidden="true">
+        <div class="modal-dialog modal-xl modal-dialog-centered">
+            <div class="modal-content shadow-lg border-0">
+                <div class="modal-header">
+                    <h5 class="modal-title d-flex align-items-center gap-2" id="modalDocumentoAusenciaPreviewLabel">
+                        <i class="fa fa-file-pdf text-danger"></i>
+                        <span id="modalDocumentoAusenciaPreviewTitulo">Documento de ausencia</span>
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                </div>
+                <div class="modal-body p-0 bg-light">
+                    <iframe
+                        id="modalDocumentoAusenciaPreviewFrame"
+                        title="Vista previa documento de ausencia"
+                        src="about:blank"
+                        style="display:block;width:100%;height:min(78vh,780px);border:0;background:#fff;"
+                    ></iframe>
+                </div>
+                <div class="modal-footer py-2">
+                    <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cerrar</button>
+                </div>
             </div>
         </div>
     </div>
@@ -13838,11 +13863,9 @@ function precargarCascadaEdit(idPais, idEstado, idMunicipio, idColonia, idCalle,
   function rrhhImportDocsFormData(options = {}) {
     const fd = new FormData();
     const batchId = String(rrhhImportDocsAnalisis?.batch_id || '').trim();
-    const includeFiles = options.includeFiles !== false && !batchId;
     if (batchId) {
       fd.append('batch_id', batchId);
-    }
-    if (includeFiles) {
+    } else if (rrhhImportDocsFiles.length) {
       rrhhImportDocsFiles.forEach(file => {
         fd.append('archivos[]', file, file.name);
         fd.append('rutas_relativas[]', file.webkitRelativePath || file.name);

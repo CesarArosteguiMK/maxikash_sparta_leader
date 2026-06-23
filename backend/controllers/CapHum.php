@@ -3884,9 +3884,8 @@ class CapHum extends Controller
                 if (!inpInicio || !inpFin || typeof flatpickr === "undefined") return;
                 if (inpInicio._flatpickr) return;
                 var opts = {
-                    enableTime: true,
-                    dateFormat: "Y-m-d H:i",
-                    time_24hr: true,
+                    enableTime: false,
+                    dateFormat: "Y-m-d",
                     allowInput: false,
                     clickOpens: true,
                     appendTo: document.body,
@@ -3906,6 +3905,16 @@ class CapHum extends Controller
                 };
                 flatpickr(inpInicio, opts);
                 flatpickr(inpFin, opts);
+            }
+
+            function fechasAusenciaCompletas() {
+                const fechaInicio = (document.getElementById("fechaInicio")?.value || '').trim();
+                const fechaFin = (document.getElementById("fechaFin")?.value || '').trim();
+                return Boolean(fechaInicio && fechaFin);
+            }
+
+            function formatearFechaAusencia(fecha) {
+                return String(fecha || '').substring(0, 10) || '-';
             }
 
             function cargarAusencias(idPersona) {
@@ -3933,21 +3942,23 @@ class CapHum extends Controller
                 const data = resp.datos;
 
                 if (!Array.isArray(data) || data.length === 0) {
+                    tbody.dataset.sinAusencias = '1';
                     tbody.innerHTML = `
                         <tr>
                             <td colspan="6" class="text-center text-muted">
-                                Sin registros
+                                Sin ausencias registradas.
                             </td>
                         </tr>`;
                     return;
                 }
 
+                delete tbody.dataset.sinAusencias;
                 data.forEach(a => {
                     tbody.innerHTML += `
                         <tr>
                             <td>${a.razon}</td>
-                            <td>${a.fecha_inicio}</td>
-                            <td>${a.fecha_fin}</td>
+                            <td>${formatearFechaAusencia(a.fecha_inicio)}</td>
+                            <td>${formatearFechaAusencia(a.fecha_fin)}</td>
                             <td>${a.descripcion ?? ''}</td>
                             <td>${a.activo == 1 ? 'Sí' : 'No'}</td>
                              <td class="text-center">
@@ -4068,6 +4079,12 @@ class CapHum extends Controller
                 const archivo = input?.files?.[0] || null;
                 if (!archivo) return;
 
+                if (!fechasAusenciaCompletas()) {
+                    Swal.fire('Fechas requeridas', 'Selecciona fecha inicio y fecha fin antes de cargar documentos.', 'warning');
+                    input.value = '';
+                    return;
+                }
+
                 const idPersona = input?.dataset?.idPersona || document.getElementById('edit_id_ausencia')?.value || '';
                 const tipoDocumento = input?.dataset?.tipoDocumento || tipoDocumentoDesdeRazonAusencia(razonAusenciaSeleccionadaTexto());
                 const idDocumento = Number(input?.dataset?.idDocumento || obtenerIdDocumentoPorNombre(tipoDocumento) || 0);
@@ -4104,7 +4121,47 @@ class CapHum extends Controller
                     Swal.fire('Sin archivo', 'Selecciona un PDF primero.', 'info');
                     return;
                 }
-                window.open(documentoAusenciaPreviewUrl, '_blank');
+                const nombre = documentoAusenciaSeleccionado?.archivo?.name || 'Documento de ausencia';
+                mostrarModalDocumentoAusencia(nombre, documentoAusenciaPreviewUrl);
+            }
+
+            function verDocumentoAusenciaSubido(nombreArchivo) {
+                if (!nombreArchivo) {
+                    Swal.fire('Sin archivo', 'No se encontro el archivo para mostrar.', 'info');
+                    return;
+                }
+                const url = '/caphum/verDocumentoPersona?archivo=' + encodeURIComponent(nombreArchivo);
+                mostrarModalDocumentoAusencia(nombreArchivo, url);
+            }
+
+            function mostrarModalDocumentoAusencia(titulo, url) {
+                const tituloPlano = String(titulo || 'Documento de ausencia');
+                const modalEl = document.getElementById('modalDocumentoAusenciaPreview');
+                const frame = document.getElementById('modalDocumentoAusenciaPreviewFrame');
+                const tituloEl = document.getElementById('modalDocumentoAusenciaPreviewTitulo');
+
+                if (!modalEl || !frame || !tituloEl || typeof bootstrap === 'undefined') {
+                    window.open(url, '_blank');
+                    return;
+                }
+
+                if (modalEl.parentNode !== document.body) {
+                    document.body.appendChild(modalEl);
+                }
+
+                tituloEl.textContent = tituloPlano;
+                frame.src = url || 'about:blank';
+                modalEl.style.setProperty('z-index', '100090', 'important');
+                bootstrap.Modal.getOrCreateInstance(modalEl, { backdrop: false }).show();
+
+                if (!modalEl.dataset.ausenciaPreviewBound) {
+                    modalEl.dataset.ausenciaPreviewBound = '1';
+                    modalEl.addEventListener('hidden.bs.modal', function () {
+                        const iframe = document.getElementById('modalDocumentoAusenciaPreviewFrame');
+                        if (iframe) iframe.src = 'about:blank';
+                        modalEl.style.removeProperty('z-index');
+                    });
+                }
             }
 
             function abrirCargaDocumentoAusencia() {
@@ -4120,6 +4177,10 @@ class CapHum extends Controller
                 const tipoDocumento = tipoDocumentoDesdeRazonAusencia(razonAusenciaSeleccionadaTexto());
                 if (!tipoDocumento) {
                     Swal.fire('Atencion', 'Selecciona una razon de ausencia para cargar su documento.', 'warning');
+                    return;
+                }
+                if (!fechasAusenciaCompletas()) {
+                    Swal.fire('Fechas requeridas', 'Selecciona fecha inicio y fecha fin antes de cargar documentos.', 'warning');
                     return;
                 }
 
@@ -4153,6 +4214,10 @@ class CapHum extends Controller
                 }
                 if (!idPersona || !idDocumento) {
                     Swal.fire('Error', 'No se pudo identificar la persona o el tipo de documento.', 'error');
+                    return;
+                }
+                if (!fechasAusenciaCompletas()) {
+                    Swal.fire('Fechas requeridas', 'Selecciona fecha inicio y fecha fin antes de subir el documento.', 'warning');
                     return;
                 }
 
@@ -4221,10 +4286,22 @@ class CapHum extends Controller
             function renderDocumentosAusenciaPersona(docs) {
                 const lista = document.getElementById('listaDocumentosAusencia');
                 if (!lista) return;
+                const actualizarMensajeHistorial = tieneDocumentos => {
+                    const tbody = document.getElementById('tablaAusencias');
+                    if (!tbody || tbody.dataset.sinAusencias !== '1') return;
+                    const celda = tbody.querySelector('td');
+                    if (!celda) return;
+                    celda.textContent = tieneDocumentos
+                        ? 'Pendiente de registrar ausencia.'
+                        : 'Sin ausencias registradas.';
+                };
+
                 if (!docs.length) {
+                    actualizarMensajeHistorial(false);
                     lista.innerHTML = '<div class="list-group-item text-muted">Sin documentos de ausencia subidos.</div>';
                     return;
                 }
+                actualizarMensajeHistorial(true);
 
                 const escaparHtml = valor => String(valor || '')
                     .replace(/&/g, '&amp;')
@@ -4235,23 +4312,31 @@ class CapHum extends Controller
                 const escaparAtributoJs = valor => String(valor || '')
                     .replace(/\\/g, '\\\\')
                     .replace(/'/g, "\\'");
+                const nombreCortoDocumentoAusencia = idDocumento => {
+                    const mapa = {
+                        34: 'incapacidad',
+                        35: 'permiso',
+                        36: 'falta'
+                    };
+                    return mapa[Number(idDocumento)] || 'ausencia';
+                };
 
                 lista.innerHTML = docs.map(doc => {
                     const id = Number(doc.id || 0);
                     const nombreDoc = escaparHtml(obtenerNombreDocumento(doc.id_documento));
+                    const nombreCorto = escaparHtml(nombreCortoDocumentoAusencia(doc.id_documento));
                     const archivo = String(doc.archivo || '');
                     const archivoAttr = escaparAtributoJs(archivo);
-                    const archivoHtml = escaparHtml(archivo);
                     const fecha = escaparHtml(doc.fecha_carga || 'N/A');
                     return `
                         <div class="list-group-item d-flex flex-wrap align-items-center justify-content-between gap-2">
                             <div>
                                 <div class="fw-semibold">${nombreDoc}</div>
-                                <div class="text-muted">${archivoHtml}</div>
-                                <div class="text-muted">Fecha: ${fecha}</div>
+                                <div class="text-muted"><i class="fa fa-file-pdf text-danger me-1"></i>PDF de ${nombreCorto}</div>
+                                <div class="text-muted">Cargado: ${fecha}</div>
                             </div>
                             <div class="d-flex gap-2">
-                                <button type="button" class="btn btn-sm btn-outline-primary" onclick="verArchivoSubidoPersona('${archivoAttr}')">
+                                <button type="button" class="btn btn-sm btn-outline-primary" onclick="verDocumentoAusenciaSubido('${archivoAttr}')">
                                     <i class="fa fa-eye me-1"></i>Ver
                                 </button>
                                 <button type="button" class="btn btn-sm btn-outline-danger" onclick="eliminarDocumentoAusenciaPersona(${id}, '${archivoAttr}')">
@@ -4266,7 +4351,7 @@ class CapHum extends Controller
             function eliminarDocumentoAusenciaPersona(idDocumento, nombreArchivo) {
                 Swal.fire({
                     title: 'Borrar documento',
-                    text: 'Se eliminara "' + nombreArchivo + '".',
+                    text: 'Se eliminara este documento de ausencia.',
                     icon: 'warning',
                     showCancelButton: true,
                     confirmButtonColor: '#d33',
@@ -4330,8 +4415,8 @@ class CapHum extends Controller
                     document.getElementById("razonAusencia").value = a.id_razon;
 
                     // ðŸ¹ Fechas formato Flatpickr (Y-m-d H:i)
-                    var fi = (a.fecha_inicio || '').toString().substring(0, 16);
-                    var ff = (a.fecha_fin || '').toString().substring(0, 16);
+                    var fi = (a.fecha_inicio || '').toString().substring(0, 10);
+                    var ff = (a.fecha_fin || '').toString().substring(0, 10);
                     document.getElementById("fechaInicio").value = fi;
                     document.getElementById("fechaFin").value = ff;
                     if (document.getElementById("fechaInicio")._flatpickr) document.getElementById("fechaInicio")._flatpickr.setDate(fi, false);
@@ -4387,6 +4472,15 @@ class CapHum extends Controller
                 const fechaInicio = document.getElementById("fechaInicio").value;
                 const fechaFin    = document.getElementById("fechaFin").value;
                 const descripcion = document.getElementById("descripcionAusencia").value;
+
+                if (!idRazon) {
+                    Swal.fire("Atencion", "Selecciona una razon de ausencia.", "warning");
+                    return;
+                }
+                if (!fechaInicio || !fechaFin) {
+                    Swal.fire("Fechas requeridas", "Selecciona fecha inicio y fecha fin.", "warning");
+                    return;
+                }
 
                 const payload = {
                     idPersona,

@@ -18,6 +18,13 @@ if (-not (Test-Path -LiteralPath $dataDir)) {
 }
 $outLog = Join-Path $dataDir 'agente-node-out.log'
 $errLog = Join-Path $dataDir 'agente-node-err.log'
+
+# Start-Process con redireccion de stdout/stderr puede fallar en algunos Windows
+# cuando existen variantes Path/PATH en el ambiente. Sin redireccion queda estable.
+Add-Content -LiteralPath $outLog -Value ("[" + (Get-Date -Format 'yyyy-MM-dd HH:mm:ss') + "] Iniciando agente Segundometro: " + $js)
 $arg = "`"$js`""
-Start-Process -FilePath $node -ArgumentList $arg -WorkingDirectory $dir -WindowStyle Hidden `
-    -RedirectStandardOutput $outLog -RedirectStandardError $errLog
+$proc = Start-Process -FilePath $node -ArgumentList $arg -WorkingDirectory $dir -WindowStyle Hidden -PassThru
+Start-Sleep -Seconds 2
+if ($proc.HasExited) {
+    throw "El agente Node termino al arrancar. Codigo de salida: $($proc.ExitCode)"
+}
