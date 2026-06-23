@@ -6923,10 +6923,48 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
 
                     </div>
 
-                    <div class="mt-3">
+                    <div class="mt-3 d-flex flex-wrap gap-2">
                         <button class="btn btn-primary"  id="btnGuardarAusencia" onclick="guardarAusencia()">
                             Registrar ausencia
                         </button>
+                        <button class="btn btn-outline-primary" type="button" onclick="abrirCargaDocumentoAusencia()">
+                            <i class="fa fa-folder-open me-1"></i>Cargar documentos
+                        </button>
+                        <input
+                            type="file"
+                            id="archivoDocumentoAusencia"
+                            class="d-none"
+                            accept=".pdf,application/pdf"
+                            onchange="prepararDocumentoAusenciaSeleccionado(this)"
+                        >
+                        <span id="estadoDocumentoAusencia" class="small text-muted align-self-center"></span>
+                    </div>
+
+                    <div id="previewDocumentoAusencia" class="mt-3 d-none border rounded p-3 bg-light">
+                        <div class="d-flex flex-wrap align-items-center justify-content-between gap-2">
+                            <div>
+                                <div class="fw-semibold" id="previewDocumentoAusenciaTipo">Documento de ausencia</div>
+                                <div class="small text-muted" id="previewDocumentoAusenciaNombre">Sin archivo seleccionado</div>
+                            </div>
+                            <div class="d-flex flex-wrap gap-2">
+                                <button type="button" class="btn btn-outline-primary btn-sm" onclick="verDocumentoAusenciaSeleccionado()">
+                                    <i class="fa fa-eye me-1"></i>Ver
+                                </button>
+                                <button type="button" class="btn btn-success btn-sm" onclick="subirDocumentoAusenciaSeleccionado()">
+                                    <i class="fa fa-upload me-1"></i>Subir
+                                </button>
+                                <button type="button" class="btn btn-outline-danger btn-sm" onclick="limpiarDocumentoAusenciaSeleccionado()">
+                                    <i class="fa fa-times me-1"></i>Quitar
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div id="documentosAusenciaWrap" class="mt-3">
+                        <h6 class="mb-2"><strong>Documentos de ausencia</strong></h6>
+                        <div id="listaDocumentosAusencia" class="list-group small">
+                            <div class="list-group-item text-muted">Sin documentos de ausencia subidos.</div>
+                        </div>
                     </div>
 
                     <hr>
@@ -6948,7 +6986,7 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
                             </thead>
                             <tbody id="tablaAusencias">
                             <tr>
-                                <td colspan="5" class="text-center text-muted">
+                                <td colspan="6" class="text-center text-muted">
                                     Sin registros
                                 </td>
                             </tr>
