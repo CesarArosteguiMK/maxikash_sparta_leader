@@ -491,6 +491,8 @@
     let importPreviewFitWidth = true;
     let importPreviewRenderId = 0;
     let importPreparandoArchivosDesde = 0;
+    const IMPORT_MAX_FILES_PER_REQUEST = 1000;
+    const IMPORT_MAX_BYTES_PER_REQUEST = 850 * 1024 * 1024;
 
     const els = {
         importar: document.getElementById('btnImportarDocsRrhh'),
@@ -711,11 +713,29 @@
         importRenderTabla([]);
         const total = importFiles.length;
         const peso = importFiles.reduce((sum, file) => sum + (file.size || 0), 0);
+        const pesoMb = peso / 1024 / 1024;
         els.importSeleccionResumen.textContent = total
-            ? `${total} archivo(s) seleccionado(s), ${(peso / 1024 / 1024).toFixed(1)} MB.`
+            ? `${total} archivo(s) seleccionado(s), ${pesoMb.toFixed(1)} MB.`
             : 'No se han seleccionado archivos.';
         els.importBtnImportar.disabled = true;
         if (total > 0) {
+            const excedeArchivos = total > IMPORT_MAX_FILES_PER_REQUEST;
+            const excedePeso = peso > IMPORT_MAX_BYTES_PER_REQUEST;
+            if (excedeArchivos || excedePeso) {
+                const limiteMb = Math.floor(IMPORT_MAX_BYTES_PER_REQUEST / 1024 / 1024);
+                const detalle = [
+                    excedeArchivos ? `seleccionaste ${total} archivo(s), el servidor acepta maximo ${IMPORT_MAX_FILES_PER_REQUEST} por carga` : '',
+                    excedePeso ? `seleccionaste ${pesoMb.toFixed(1)} MB, el servidor acepta maximo ${limiteMb} MB por carga` : ''
+                ].filter(Boolean).join('; ');
+                els.importSeleccionResumen.textContent = `Seleccion demasiado grande: ${detalle}. Divide la carpeta en lotes mas pequenos.`;
+                els.importTabla.innerHTML = `<tr><td colspan="6" class="text-center text-warning py-4">La seleccion supera el limite real del servidor. Divide el ZIP/carpeta en lotes de maximo ${IMPORT_MAX_FILES_PER_REQUEST} archivos o ${limiteMb} MB.</td></tr>`;
+                Swal.fire(
+                    'Seleccion demasiado grande',
+                    `No se envio al servidor para evitar el error "Failed to fetch". ${detalle}.`,
+                    'warning'
+                );
+                return;
+            }
             if (importSeleccionTieneZip()) {
                 importMostrarPreparandoArchivos();
             }
@@ -743,11 +763,16 @@
     }
 
     async function importEnviar(endpoint) {
-        const res = await fetch(endpoint, {
-            method: 'POST',
-            body: importFormData(),
-            headers: { 'X-Requested-With': 'XMLHttpRequest' }
-        });
+        let res;
+        try {
+            res = await fetch(endpoint, {
+                method: 'POST',
+                body: importFormData(),
+                headers: { 'X-Requested-With': 'XMLHttpRequest' }
+            });
+        } catch (err) {
+            throw new Error('No se pudo conectar con el servidor. Revisa que la seleccion no supere el limite de carga configurado: maximo 1000 archivos o 850 MB por intento.');
+        }
         const contentType = res.headers.get('content-type') || '';
         if (!contentType.includes('application/json')) {
             const texto = await res.text();

@@ -11,10 +11,13 @@ class RrhhDocumentImportService
     private const DOCUMENTO_CONSTANCIA_FISCAL = 22;
     private const BATCH_TTL_SECONDS = 86400;
     private const DOCUMENTOS_OMITIR = [
-        'contrata' => [
-            'etiqueta' => 'Contrata',
+        'contrato' => [
+            'etiqueta' => 'Contrato firmado',
             'patrones' => [
                 '/\bcontrat[a-z0-9]*\b/u',
+                '/\bcontratpo\b/u',
+                '/\bcontato\b/u',
+                '/\bcontra\s+to\b/u',
                 '/\bcontra\s+ta\b/u',
             ],
         ],
@@ -559,6 +562,9 @@ class RrhhDocumentImportService
             if (isset($genericos[$primero])) {
                 $rootIndex = 1;
             }
+            if ($rootIndex === 0 && count($segmentos) > 2 && $this->esCarpetaRaizLote($segmentos[0], $segmentos[1])) {
+                $rootIndex = 1;
+            }
         }
 
         $persona = $segmentos[$rootIndex] ?? pathinfo($zipNombre ?: $ruta, PATHINFO_FILENAME);
@@ -568,6 +574,25 @@ class RrhhDocumentImportService
         }
 
         return [$this->limpiarNombreCarpeta($persona), $contexto];
+    }
+
+    private function esCarpetaRaizLote(string $primerSegmento, string $segundoSegmento): bool
+    {
+        $primero = $this->normalizarTexto($primerSegmento);
+        $segundo = $this->normalizarTexto($segundoSegmento);
+        if ($primero === '' || $segundo === '') {
+            return false;
+        }
+        if (preg_match('/\.(pdf|zip)$/i', $segundoSegmento)) {
+            return false;
+        }
+
+        $meses = 'enero|febrero|marzo|abril|mayo|junio|julio|agosto|septiembre|setiembre|octubre|noviembre|diciembre';
+        if (preg_match('/\b(qna|quincena|nomina|lote|expediente|expedientes|documentos|documentacion|' . $meses . ')\b/u', $primero)) {
+            return true;
+        }
+
+        return (bool) preg_match('/^\d+\s+[a-z]+(?:\s+[a-z]+){1,}$/u', $segundo);
     }
 
     private function limpiarNombreCarpeta(string $nombre): string
@@ -638,19 +663,19 @@ class RrhhDocumentImportService
 
         if (preg_match('/\bvalidacion\s+sat\b|\bopinion\s+sat\b/', $n)) {
             return null;
-        } elseif (preg_match('/\bsolicitud\s+interna\b/', $n)) {
+        } elseif (preg_match('/\bsolicitud\s+interna\b|\bsolicitud\b/', $n)) {
             $id = 17;
-        } elseif (preg_match('/\bcv\b|\bcurriculum\b|\bsolicitud\s+de\s+trabajo\b/', $n)) {
+        } elseif (preg_match('/\bcv\b|\bcurriculum\b|\bcurriculo\b|\bsolicitud\s+de\s+trabajo\b/', $n)) {
             $id = 18;
         } elseif (preg_match('/\bcsf\b|\bconstancia\b.*\bfiscal\b|\bsituacion\s+fiscal\b/', $n)) {
             $id = 22;
         } elseif (preg_match('/\bnss\b|\binss\b|\bseguridad\s+social\b/', $n)) {
             $id = 23;
-        } elseif (preg_match('/\bfonacot\b|\binfonavit\b|\bretencion\b|\bno\s+credito\b|\bno\s+creditos\b|\bno\s+adeudo\b/', $n)) {
+        } elseif (preg_match('/\bfonacot\b|\binfonavit\b|\bretencion\b|\bno\s+credito\b|\bno\s+creditos\b|\bno\s+adeudo\b|\bno\s+adeudos\b|\bcarta\s+(?:de\s+)?no\s+creditos?\b/', $n)) {
             $id = 24;
-        } elseif (preg_match('/\bbbva\b|\bestado\s+de\s+cuenta\b|\bclabe\b|\bcuenta\s+bancaria\b|\bbanco\b/', $n)) {
+        } elseif (preg_match('/\bbbva\b|\bbanorte\b|\bsantander\b|\bbanamex\b|\bcitibanamex\b|\bazteca\b|\bbajio\b|\bbanregio\b|\bestado\s+de\s+cuenta\b|\bclabe\b|\bcuenta\s+bancaria\b|\bbanco\b/', $n)) {
             $id = 25;
-        } elseif (preg_match('/\bine\b|\bidentificacion\b|\bidentificacion\s+oficial\b/', $n)) {
+        } elseif (preg_match('/\bine\b|\bidentificacion\b|\bidentificacion\s+oficial\b|\bpasaporte\b|\bfm3\b/', $n)) {
             $id = 9;
         } elseif (preg_match('/\bcomprobante\b.*\bdomicilio\b|\bdomicilio\b/', $n)) {
             $id = 11;
@@ -662,7 +687,7 @@ class RrhhDocumentImportService
             $id = 14;
         } elseif (preg_match('/\breingreso\b/', $n)) {
             $id = 16;
-        } elseif (preg_match('/\bdocumento\s+baja\b/', $n)) {
+        } elseif (preg_match('/\bcomprobante\b.*\bdeposito\b.*\bfiniq(?:uito)?\b|\bdeposito\b.*\bfiniq(?:uito)?\b|\bdocumento\s+baja\b|\bfiniquito\b|\bfiniq\b|\brenuncia\b|\brescision\b|\bresicision\b/', $n)) {
             $id = 15;
         } elseif (preg_match('/\brfc\b/', $n)) {
             $id = 10;

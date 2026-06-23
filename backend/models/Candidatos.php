@@ -172,8 +172,8 @@ class Candidatos extends Model
                 c.apellidom,
                 c.email,
                 c.telefono,
-                c.id_div_nivel1,
-                c.id_div_nivel2,
+                COALESCE(c.id_div_nivel1, div2_padre.id, div3_estado.id) AS id_div_nivel1,
+                COALESCE(c.id_div_nivel2, div3_municipio.id) AS id_div_nivel2,
                 c.id_div_nivel3,
                 c.domicilio_calle_texto,
                 c.domicilio_num_exterior,
@@ -196,8 +196,8 @@ class Candidatos extends Model
                 c.fecha_registro,
                 c.fecha_actualizacion,
                 pais.nombre AS nombre_pais,
-                div1.nombre AS nombre_div_nivel1,
-                div2.nombre AS nombre_div_nivel2,
+                COALESCE(div1.nombre, div2_padre.nombre, div3_estado.nombre) AS nombre_div_nivel1,
+                COALESCE(div2.nombre, div3_municipio.nombre) AS nombre_div_nivel2,
                 div3.nombre AS nombre_div_nivel3,
                 p.nombre AS nombre_puesto,
                 d.nombre AS nombre_departamento,
@@ -209,6 +209,9 @@ class Candidatos extends Model
             LEFT JOIN divisiones_administrativas div1 ON div1.id = c.id_div_nivel1
             LEFT JOIN divisiones_administrativas div2 ON div2.id = c.id_div_nivel2
             LEFT JOIN divisiones_administrativas div3 ON div3.id = c.id_div_nivel3
+            LEFT JOIN divisiones_administrativas div2_padre ON div2_padre.id = div2.id_padre AND div2_padre.nivel = 1
+            LEFT JOIN divisiones_administrativas div3_municipio ON div3_municipio.id = div3.id_padre AND div3_municipio.nivel = 2
+            LEFT JOIN divisiones_administrativas div3_estado ON div3_estado.id = div3_municipio.id_padre AND div3_estado.nivel = 1
             LEFT JOIN puesto p ON p.id = c.id_puesto
             LEFT JOIN departamento d ON d.id = c.id_departamento
             LEFT JOIN departamento_organizacional dorg ON dorg.id = d.id_departamento_organizacional
@@ -281,8 +284,8 @@ class Candidatos extends Model
                 c.email,
                 c.telefono,
                 c.id_pais,
-                c.id_div_nivel1,
-                c.id_div_nivel2,
+                COALESCE(c.id_div_nivel1, div2_padre.id, div3_estado.id) AS id_div_nivel1,
+                COALESCE(c.id_div_nivel2, div3_municipio.id) AS id_div_nivel2,
                 c.id_div_nivel3,
                 c.domicilio_calle_texto,
                 c.domicilio_num_exterior,
@@ -307,6 +310,10 @@ class Candidatos extends Model
                 c.motivo_contratacion,
                 c.fecha_registro,
                 c.fecha_actualizacion,
+                pais.nombre AS nombre_pais,
+                COALESCE(div1.nombre, div2_padre.nombre, div3_estado.nombre) AS nombre_div_nivel1,
+                COALESCE(div2.nombre, div3_municipio.nombre) AS nombre_div_nivel2,
+                div3.nombre AS nombre_div_nivel3,
                 p.nombre AS nombre_puesto,
                 d.nombre AS nombre_departamento,
                 COALESCE(dir.id, 0) AS id_direccion,
@@ -314,6 +321,13 @@ class Candidatos extends Model
                 TRIM(CONCAT_WS(' ', jefe.nombres, jefe.segundo_nombre, jefe.apellidop, jefe.apellidom)) AS nombre_jefe,
                 jefe.correo AS correo_jefe
             FROM candidatos c
+            LEFT JOIN paises pais ON pais.id = c.id_pais
+            LEFT JOIN divisiones_administrativas div1 ON div1.id = c.id_div_nivel1
+            LEFT JOIN divisiones_administrativas div2 ON div2.id = c.id_div_nivel2
+            LEFT JOIN divisiones_administrativas div3 ON div3.id = c.id_div_nivel3
+            LEFT JOIN divisiones_administrativas div2_padre ON div2_padre.id = div2.id_padre AND div2_padre.nivel = 1
+            LEFT JOIN divisiones_administrativas div3_municipio ON div3_municipio.id = div3.id_padre AND div3_municipio.nivel = 2
+            LEFT JOIN divisiones_administrativas div3_estado ON div3_estado.id = div3_municipio.id_padre AND div3_estado.nivel = 1
             LEFT JOIN puesto p ON p.id = c.id_puesto
             LEFT JOIN departamento d ON d.id = c.id_departamento
             LEFT JOIN departamento_organizacional dorg ON dorg.id = d.id_departamento_organizacional
@@ -709,6 +723,52 @@ class Candidatos extends Model
             return self::resultado(false, 'Nombres y apellido paterno son obligatorios.', null);
         }
 
+        try {
+            $dbActual = new Database();
+            self::asegurarColumnasFlujoIngreso($dbActual);
+            $actual = $dbActual->queryOne(
+                "SELECT
+                    id_pais, id_div_nivel1, id_div_nivel2, id_div_nivel3,
+                    domicilio_calle_texto, domicilio_num_exterior, domicilio_num_interior, codigo_postal,
+                    id_puesto, id_departamento, id_posible_jefe, fecha_postulacion,
+                    id_legion, usuario, contrasena, notas
+                 FROM candidatos
+                 WHERE id = :id
+                 LIMIT 1",
+                ['id' => $id]
+            );
+            if (!$actual) {
+                return self::resultado(false, 'Candidato no encontrado.', null);
+            }
+        } catch (\Exception $e) {
+            return self::resultado(false, 'Error al actualizar candidato.', null, $e->getMessage());
+        }
+
+        $usarActualIntSiVacio = static function (string $campo) use ($data, $actual) {
+            if (array_key_exists($campo, $data)) {
+                $valor = trim((string) ($data[$campo] ?? ''));
+                if ($valor !== '') {
+                    return (int) $valor;
+                }
+            }
+            return !empty($actual[$campo]) ? (int) $actual[$campo] : null;
+        };
+
+        $usarActualTextoSiVacio = static function (string $campo, ?int $max = null) use ($data, $actual) {
+            if (array_key_exists($campo, $data)) {
+                $valor = trim((string) ($data[$campo] ?? ''));
+                if ($valor !== '') {
+                    return $max !== null ? substr($valor, 0, $max) : $valor;
+                }
+            }
+
+            $valorActual = trim((string) ($actual[$campo] ?? ''));
+            if ($valorActual === '') {
+                return null;
+            }
+            return $max !== null ? substr($valorActual, 0, $max) : $valorActual;
+        };
+
         $query = <<<SQL
             UPDATE candidatos SET
                 nombres = :nombres,
@@ -744,22 +804,26 @@ class Candidatos extends Model
             'apellidom' => trim($data['apellidom'] ?? '') ?: null,
             'email' => trim($data['email'] ?? '') ?: null,
             'telefono' => trim($data['telefono'] ?? '') ?: null,
-            'id_pais' => !empty($data['id_pais']) ? (int) $data['id_pais'] : null,
-            'id_div_nivel1' => !empty($data['id_div_nivel1']) ? (int) $data['id_div_nivel1'] : null,
-            'id_div_nivel2' => !empty($data['id_div_nivel2']) ? (int) $data['id_div_nivel2'] : null,
-            'id_div_nivel3' => !empty($data['id_div_nivel3']) ? (int) $data['id_div_nivel3'] : null,
-            'domicilio_calle_texto' => trim($data['domicilio_calle_texto'] ?? '') ?: null,
-            'domicilio_num_exterior' => trim($data['domicilio_num_exterior'] ?? '') ?: null,
-            'domicilio_num_interior' => trim($data['domicilio_num_interior'] ?? '') ?: null,
-            'codigo_postal' => substr(trim($data['codigo_postal'] ?? ''), 0, 12) ?: null,
-            'id_puesto' => !empty($data['id_puesto']) ? (int) $data['id_puesto'] : null,
-            'id_departamento' => !empty($data['id_departamento']) ? (int) $data['id_departamento'] : null,
-            'id_posible_jefe' => !empty($data['id_posible_jefe']) ? (int) $data['id_posible_jefe'] : null,
-            'fecha_postulacion' => !empty($data['fecha_postulacion']) ? $data['fecha_postulacion'] : null,
-            'id_legion' => !empty($data['id_legion']) ? (int) $data['id_legion'] : null,
-            'usuario' => isset($data['usuario']) ? (trim($data['usuario']) ?: null) : null,
-            'contrasena' => isset($data['contrasena']) ? (trim($data['contrasena']) ?: null) : null,
-            'notas' => trim($data['notas'] ?? '') ?: null,
+            'id_pais' => $usarActualIntSiVacio('id_pais'),
+            'id_div_nivel1' => $usarActualIntSiVacio('id_div_nivel1'),
+            'id_div_nivel2' => $usarActualIntSiVacio('id_div_nivel2'),
+            'id_div_nivel3' => $usarActualIntSiVacio('id_div_nivel3'),
+            'domicilio_calle_texto' => $usarActualTextoSiVacio('domicilio_calle_texto'),
+            'domicilio_num_exterior' => $usarActualTextoSiVacio('domicilio_num_exterior'),
+            'domicilio_num_interior' => $usarActualTextoSiVacio('domicilio_num_interior'),
+            'codigo_postal' => $usarActualTextoSiVacio('codigo_postal', 12),
+            'id_puesto' => $usarActualIntSiVacio('id_puesto'),
+            'id_departamento' => $usarActualIntSiVacio('id_departamento'),
+            'id_posible_jefe' => $usarActualIntSiVacio('id_posible_jefe'),
+            'fecha_postulacion' => $usarActualTextoSiVacio('fecha_postulacion'),
+            'id_legion' => array_key_exists('id_legion', $data)
+                ? (!empty($data['id_legion']) ? (int) $data['id_legion'] : null)
+                : (!empty($actual['id_legion']) ? (int) $actual['id_legion'] : null),
+            'usuario' => $usarActualTextoSiVacio('usuario'),
+            'contrasena' => $usarActualTextoSiVacio('contrasena'),
+            'notas' => array_key_exists('notas', $data)
+                ? (trim((string) ($data['notas'] ?? '')) ?: null)
+                : ($actual['notas'] ?? null),
             'fecha_actualizacion' => self::fechaHoraActualMexicoCiudad(),
         ];
 

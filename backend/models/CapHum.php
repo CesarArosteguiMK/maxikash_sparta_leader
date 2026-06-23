@@ -242,6 +242,9 @@ class CapHum extends Model
         ['id' => 31, 'clave' => 'LLAVE_VECTOR', 'nombre' => 'Llave vector'],
         ['id' => 32, 'clave' => 'PRUEBA_CENTAVO', 'nombre' => 'Prueba centavo'],
         ['id' => 33, 'clave' => 'SEMANAS_COTIZADAS_IMSS_SEGUNDOS_PATRONES', 'nombre' => 'Semanas cotizadas IMSS (segundos patrones)'],
+        ['id' => 34, 'clave' => 'DOCUMENTO_INCAPACIDAD', 'nombre' => 'Documento incapacidad'],
+        ['id' => 35, 'clave' => 'DOCUMENTO_PERMISO', 'nombre' => 'Documento permiso'],
+        ['id' => 36, 'clave' => 'DOCUMENTO_FALTA', 'nombre' => 'Documento falta'],
     ];
     private const DOCUMENTOS_EXCLUIDOS_RRHH = [19, 20, 21];
     private const DOCUMENTOS_ALIAS_RRHH = [
@@ -4367,6 +4370,8 @@ class CapHum extends Model
 
     public static function getRazonesAusencia()
     {
+        self::asegurarRazonAusenciaFalta();
+
         // Query base
         $query = <<<SQL
         SELECT
@@ -4396,6 +4401,40 @@ class CapHum extends Model
                 null,
                 $e->getMessage()
             );
+        }
+    }
+
+    private static function asegurarRazonAusenciaFalta(): void
+    {
+        try {
+            $db = new Database();
+            $existe = $db->queryOne("
+                SELECT id
+                FROM __SPARTA_SECRET_REDACTED__.razon_ausencia
+                WHERE clave = 'FALTA'
+                   OR UPPER(TRIM(nombre)) = 'FALTA'
+                LIMIT 1
+            ");
+
+            if ($existe && !empty($existe['id'])) {
+                $db->CRUD("
+                    UPDATE __SPARTA_SECRET_REDACTED__.razon_ausencia
+                    SET clave = 'FALTA',
+                        nombre = 'FALTA',
+                        activo = 1
+                    WHERE id = :id
+                ", ['id' => (int) $existe['id']]);
+                return;
+            }
+
+            $db->CRUD("
+                INSERT INTO __SPARTA_SECRET_REDACTED__.razon_ausencia
+                    (clave, nombre, descripcion, activo)
+                VALUES
+                    ('FALTA', 'FALTA', 'Ausencia por falta', 1)
+            ");
+        } catch (\Throwable $e) {
+            error_log('CapHum::asegurarRazonAusenciaFalta -> ' . $e->getMessage());
         }
     }
 

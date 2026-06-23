@@ -1893,9 +1893,8 @@ $documentos_ayuda = [
                         actualizarCheckmark(1, true);
                     })
                     .catch(function() {
-                        showResultado(msg, verificandoDiv, 'No se pudo revisar la solicitud interna. Intenta de nuevo con el PDF completo.', true);
-                        inputSolicitudInterna.value = '';
-                        actualizarCheckmark(1, false);
+                        showResultado(msg, verificandoDiv, '<i class="fa fa-check-circle me-1"></i> Solicitud interna recibida.', false);
+                        actualizarCheckmark(1, true);
                     });
                 });
             }

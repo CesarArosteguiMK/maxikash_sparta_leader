@@ -49,6 +49,7 @@ backend/logs/**
 backend/API/logs/**
 backend/storage/tmp_media/
 backend/storage/tmp_mpdf/
+backend/storage/tmp_rrhh_import/
 # Expedientes/documentos de candidatos (runtime; no subir PDFs ni archivos personales al repo)
 backend/storage/candidatos/**
 !backend/storage/candidatos/.gitkeep

@@ -3858,10 +3858,16 @@ class CapHum extends Controller
                     document.getElementById("fechaInicio").value = "";
                     document.getElementById("fechaFin").value = "";
                     document.getElementById("descripcionAusencia").value = "";
+                    const estadoDocumentoAusencia = document.getElementById("estadoDocumentoAusencia");
+                    const archivoDocumentoAusencia = document.getElementById("archivoDocumentoAusencia");
+                    if (estadoDocumentoAusencia) estadoDocumentoAusencia.textContent = "";
+                    if (archivoDocumentoAusencia) archivoDocumentoAusencia.value = "";
+                    limpiarDocumentoAusenciaSeleccionado();
 
                     // Cargar catálogo y tabla
                     cargarRazones();
                     cargarAusencias(persona.id);
+                    cargarDocumentosAusenciaPersona(persona.id);
 
                     // Mostrar modal correcto
                     $("#modalAuscencia").modal("show");
@@ -3929,7 +3935,7 @@ class CapHum extends Controller
                 if (!Array.isArray(data) || data.length === 0) {
                     tbody.innerHTML = `
                         <tr>
-                            <td colspan="5" class="text-center text-muted">
+                            <td colspan="6" class="text-center text-muted">
                                 Sin registros
                             </td>
                         </tr>`;
@@ -3990,6 +3996,311 @@ class CapHum extends Controller
                     });
             }
 
+            function normalizarTextoAusencia(valor) {
+                return String(valor || '')
+                    .normalize('NFD')
+                    .replace(/[\u0300-\u036f]/g, '')
+                    .toUpperCase()
+                    .trim();
+            }
+
+            function tipoDocumentoDesdeRazonAusencia(razon) {
+                const texto = normalizarTextoAusencia(razon);
+                if (texto.includes('INCAPACIDAD')) return 'Documento incapacidad';
+                if (texto.includes('PERMISO')) return 'Documento permiso';
+                if (texto.includes('FALTA')) return 'Documento falta';
+                return '';
+            }
+
+            function razonAusenciaSeleccionadaTexto() {
+                const select = document.getElementById('razonAusencia');
+                if (!select || select.selectedIndex < 0) return '';
+                return select.options[select.selectedIndex].textContent || '';
+            }
+
+            function preseleccionarDocumentoPersona(tipoDocumento) {
+                if (!tipoDocumento) return;
+
+                let intentos = 0;
+                const aplicar = function() {
+                    const select = document.getElementById('cargarDocPersona_tipoDocumento');
+                    if (!select) return;
+
+                    select.value = tipoDocumento;
+                    if (select.value === tipoDocumento) {
+                        select.dispatchEvent(new Event('change'));
+                        return;
+                    }
+
+                    intentos += 1;
+                    if (intentos < 10) {
+                        setTimeout(aplicar, 120);
+                    }
+                };
+
+                setTimeout(aplicar, 80);
+            }
+
+            let documentoAusenciaSeleccionado = null;
+            let documentoAusenciaPreviewUrl = '';
+
+            function idsDocumentosAusenciaGestion() {
+                return [34, 35, 36];
+            }
+
+            function limpiarDocumentoAusenciaSeleccionado() {
+                const input = document.getElementById('archivoDocumentoAusencia');
+                const preview = document.getElementById('previewDocumentoAusencia');
+                const nombre = document.getElementById('previewDocumentoAusenciaNombre');
+                const estado = document.getElementById('estadoDocumentoAusencia');
+                if (documentoAusenciaPreviewUrl) {
+                    URL.revokeObjectURL(documentoAusenciaPreviewUrl);
+                }
+                documentoAusenciaSeleccionado = null;
+                documentoAusenciaPreviewUrl = '';
+                if (input) input.value = '';
+                if (preview) preview.classList.add('d-none');
+                if (nombre) nombre.textContent = 'Sin archivo seleccionado';
+                if (estado) estado.textContent = '';
+            }
+
+            function prepararDocumentoAusenciaSeleccionado(input) {
+                const archivo = input?.files?.[0] || null;
+                if (!archivo) return;
+
+                const idPersona = input?.dataset?.idPersona || document.getElementById('edit_id_ausencia')?.value || '';
+                const tipoDocumento = input?.dataset?.tipoDocumento || tipoDocumentoDesdeRazonAusencia(razonAusenciaSeleccionadaTexto());
+                const idDocumento = Number(input?.dataset?.idDocumento || obtenerIdDocumentoPorNombre(tipoDocumento) || 0);
+                const nombreArchivo = String(archivo.name || '').toLowerCase();
+                const esPdf = archivo.type === 'application/pdf' || nombreArchivo.endsWith('.pdf');
+
+                if (!idPersona || !idDocumento) {
+                    Swal.fire('Error', 'No se pudo identificar la persona o el tipo de documento.', 'error');
+                    input.value = '';
+                    return;
+                }
+                if (!esPdf) {
+                    Swal.fire('Archivo no valido', 'Solo puedes subir archivos PDF para ausencias.', 'warning');
+                    input.value = '';
+                    return;
+                }
+
+                limpiarDocumentoAusenciaSeleccionado();
+                documentoAusenciaSeleccionado = { archivo, idPersona, tipoDocumento, idDocumento };
+                documentoAusenciaPreviewUrl = URL.createObjectURL(archivo);
+
+                const preview = document.getElementById('previewDocumentoAusencia');
+                const tipo = document.getElementById('previewDocumentoAusenciaTipo');
+                const nombre = document.getElementById('previewDocumentoAusenciaNombre');
+                const estado = document.getElementById('estadoDocumentoAusencia');
+                if (tipo) tipo.textContent = tipoDocumento;
+                if (nombre) nombre.textContent = archivo.name;
+                if (estado) estado.textContent = 'Archivo listo para subir.';
+                if (preview) preview.classList.remove('d-none');
+            }
+
+            function verDocumentoAusenciaSeleccionado() {
+                if (!documentoAusenciaPreviewUrl) {
+                    Swal.fire('Sin archivo', 'Selecciona un PDF primero.', 'info');
+                    return;
+                }
+                window.open(documentoAusenciaPreviewUrl, '_blank');
+            }
+
+            function abrirCargaDocumentoAusencia() {
+                const idPersona = document.getElementById('edit_id_ausencia')?.value || '';
+                if (!idPersona) {
+                    Swal.fire('Atencion', 'Selecciona primero una persona.', 'warning');
+                    return;
+                }
+
+                const gestor = (document.getElementById('gestor_ausencia')?.textContent || '')
+                    .replace(/^Gestor:\s*/i, '')
+                    .trim();
+                const tipoDocumento = tipoDocumentoDesdeRazonAusencia(razonAusenciaSeleccionadaTexto());
+                if (!tipoDocumento) {
+                    Swal.fire('Atencion', 'Selecciona una razon de ausencia para cargar su documento.', 'warning');
+                    return;
+                }
+
+                const input = document.getElementById('archivoDocumentoAusencia');
+                const estado = document.getElementById('estadoDocumentoAusencia');
+                if (!input) {
+                    Swal.fire('Error', 'No se encontro el selector de archivo de ausencia.', 'error');
+                    return;
+                }
+                input.value = '';
+                input.dataset.idPersona = idPersona;
+                input.dataset.tipoDocumento = tipoDocumento;
+                input.dataset.idDocumento = String(obtenerIdDocumentoPorNombre(tipoDocumento) || '');
+                if (estado) {
+                    estado.textContent = 'Selecciona el PDF para ' + tipoDocumento.toLowerCase() + '.';
+                }
+                input.click();
+            }
+
+            function subirDocumentoAusenciaSeleccionado() {
+                const seleccionado = documentoAusenciaSeleccionado;
+                const archivo = seleccionado?.archivo || null;
+                const idPersona = seleccionado?.idPersona || '';
+                const tipoDocumento = seleccionado?.tipoDocumento || '';
+                const idDocumento = Number(seleccionado?.idDocumento || 0);
+                const estado = document.getElementById('estadoDocumentoAusencia');
+
+                if (!archivo) {
+                    Swal.fire('Sin archivo', 'Selecciona un PDF primero.', 'info');
+                    return;
+                }
+                if (!idPersona || !idDocumento) {
+                    Swal.fire('Error', 'No se pudo identificar la persona o el tipo de documento.', 'error');
+                    return;
+                }
+
+                const formData = new FormData();
+                formData.append('id_persona', idPersona);
+                formData.append('id_documento', String(idDocumento));
+                formData.append('archivosPDF[]', archivo);
+
+                if (estado) {
+                    estado.textContent = 'Subiendo ' + archivo.name + '...';
+                }
+
+                fetch('/caphum/subirDocumentosPersona', {
+                    method: 'POST',
+                    body: formData
+                })
+                .then(res => res.json())
+                .then(resp => {
+                    if (!resp.success) {
+                        throw new Error(resp.mensaje || 'No se pudo subir el documento.');
+                    }
+                    if (estado) {
+                        estado.textContent = archivo.name + ' subido correctamente.';
+                    }
+                    Swal.fire({
+                        icon: 'success',
+                        title: 'Documento subido',
+                        text: tipoDocumento + ' cargado correctamente.',
+                        timer: 1800,
+                        showConfirmButton: false
+                    });
+                    limpiarDocumentoAusenciaSeleccionado();
+                    cargarDocumentosAusenciaPersona(idPersona);
+                    cargarAusencias(idPersona);
+                })
+                .catch(err => {
+                    console.error('ERROR subirDocumentoAusenciaSeleccionado:', err);
+                    if (estado) {
+                        estado.textContent = 'No se pudo subir el documento.';
+                    }
+                    Swal.fire('Error', err.message || 'No se pudo subir el documento.', 'error');
+                });
+            }
+
+            function cargarDocumentosAusenciaPersona(idPersona) {
+                const lista = document.getElementById('listaDocumentosAusencia');
+                if (!lista) return;
+                if (!idPersona) {
+                    lista.innerHTML = '<div class="list-group-item text-muted">Sin documentos de ausencia subidos.</div>';
+                    return;
+                }
+                lista.innerHTML = '<div class="list-group-item text-muted">Cargando documentos...</div>';
+                fetch('/caphum/getDocumentosPersona?id_persona=' + encodeURIComponent(idPersona))
+                    .then(res => res.json())
+                    .then(resp => {
+                        const docs = (resp.success && Array.isArray(resp.datos) ? resp.datos : [])
+                            .filter(doc => idsDocumentosAusenciaGestion().includes(Number(doc.id_documento)));
+                        renderDocumentosAusenciaPersona(docs);
+                    })
+                    .catch(err => {
+                        console.error('ERROR cargarDocumentosAusenciaPersona:', err);
+                        lista.innerHTML = '<div class="list-group-item text-danger">No se pudieron cargar los documentos.</div>';
+                    });
+            }
+
+            function renderDocumentosAusenciaPersona(docs) {
+                const lista = document.getElementById('listaDocumentosAusencia');
+                if (!lista) return;
+                if (!docs.length) {
+                    lista.innerHTML = '<div class="list-group-item text-muted">Sin documentos de ausencia subidos.</div>';
+                    return;
+                }
+
+                const escaparHtml = valor => String(valor || '')
+                    .replace(/&/g, '&amp;')
+                    .replace(/</g, '&lt;')
+                    .replace(/>/g, '&gt;')
+                    .replace(/"/g, '&quot;')
+                    .replace(/'/g, '&#039;');
+                const escaparAtributoJs = valor => String(valor || '')
+                    .replace(/\\/g, '\\\\')
+                    .replace(/'/g, "\\'");
+
+                lista.innerHTML = docs.map(doc => {
+                    const id = Number(doc.id || 0);
+                    const nombreDoc = escaparHtml(obtenerNombreDocumento(doc.id_documento));
+                    const archivo = String(doc.archivo || '');
+                    const archivoAttr = escaparAtributoJs(archivo);
+                    const archivoHtml = escaparHtml(archivo);
+                    const fecha = escaparHtml(doc.fecha_carga || 'N/A');
+                    return `
+                        <div class="list-group-item d-flex flex-wrap align-items-center justify-content-between gap-2">
+                            <div>
+                                <div class="fw-semibold">${nombreDoc}</div>
+                                <div class="text-muted">${archivoHtml}</div>
+                                <div class="text-muted">Fecha: ${fecha}</div>
+                            </div>
+                            <div class="d-flex gap-2">
+                                <button type="button" class="btn btn-sm btn-outline-primary" onclick="verArchivoSubidoPersona('${archivoAttr}')">
+                                    <i class="fa fa-eye me-1"></i>Ver
+                                </button>
+                                <button type="button" class="btn btn-sm btn-outline-danger" onclick="eliminarDocumentoAusenciaPersona(${id}, '${archivoAttr}')">
+                                    <i class="fa fa-trash me-1"></i>Borrar
+                                </button>
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+            }
+
+            function eliminarDocumentoAusenciaPersona(idDocumento, nombreArchivo) {
+                Swal.fire({
+                    title: 'Borrar documento',
+                    text: 'Se eliminara "' + nombreArchivo + '".',
+                    icon: 'warning',
+                    showCancelButton: true,
+                    confirmButtonColor: '#d33',
+                    cancelButtonColor: '#6c757d',
+                    confirmButtonText: 'Si, borrar',
+                    cancelButtonText: 'Cancelar'
+                }).then(result => {
+                    if (!result.isConfirmed) return;
+                    const formData = new FormData();
+                    formData.append('id_documento', idDocumento);
+                    fetch('/caphum/eliminarDocumentoPersona', {
+                        method: 'POST',
+                        body: formData
+                    })
+                    .then(res => res.json())
+                    .then(resp => {
+                        if (!resp.success) {
+                            throw new Error(resp.mensaje || 'No se pudo borrar el documento.');
+                        }
+                        const idPersona = document.getElementById('edit_id_ausencia')?.value || '';
+                        Swal.fire({
+                            icon: 'success',
+                            title: 'Documento borrado',
+                            timer: 1500,
+                            showConfirmButton: false
+                        });
+                        cargarDocumentosAusenciaPersona(idPersona);
+                    })
+                    .catch(err => {
+                        Swal.fire('Error', err.message || 'No se pudo borrar el documento.', 'error');
+                    });
+                });
+            }
+
            function editarAusencia(idAusencia) {
                 if (!idAusencia) {
                     Swal.fire("Error", "Id de ausencia inválido", "error");
@@ -4035,7 +4346,7 @@ class CapHum extends Controller
                     //cargarDocumentosAusencia(a.id);
 
                     // ðŸ¹ Mostrar modal
-                    $("#modalAusencia").modal("show");
+                    $("#modalAuscencia").modal("show");
                 })
                 .catch(err => {
                     console.error("ERROR editarAusencia:", err);
@@ -4051,6 +4362,11 @@ class CapHum extends Controller
                 if (elInicio) { elInicio.value = ''; if (elInicio._flatpickr) elInicio._flatpickr.clear(); }
                 if (elFin) { elFin.value = ''; if (elFin._flatpickr) elFin._flatpickr.clear(); }
                 document.getElementById("descripcionAusencia").value = '';
+                const estadoDocumentoAusencia = document.getElementById("estadoDocumentoAusencia");
+                const archivoDocumentoAusencia = document.getElementById("archivoDocumentoAusencia");
+                if (estadoDocumentoAusencia) estadoDocumentoAusencia.textContent = "";
+                if (archivoDocumentoAusencia) archivoDocumentoAusencia.value = "";
+                limpiarDocumentoAusenciaSeleccionado();
 
                 // Texto del botón
                 document.getElementById("btnGuardarAusencia").innerText = "Guardar ausencia";
@@ -4100,7 +4416,7 @@ class CapHum extends Controller
 
                     Swal.fire("Ã‰xito", resp.mensaje, "success");
 
-                    $("#modalAusencia").modal("hide");
+                    $("#modalAuscencia").modal("hide");
 
                     // Limpieza
                     document.getElementById("id_ausencia").value = '';
@@ -5583,12 +5899,19 @@ class CapHum extends Controller
             let archivosSeleccionadosPersona = [];
             let archivosSubidosPersona = [];
             let personaCargarDocumentoEsGestor = false;
+            let personaCargarDocumentoDesdeAusencia = false;
+            let personaCargarDocumentoTipoAusencia = '';
+            const documentosAusenciaPersona = ['Documento incapacidad', 'Documento permiso', 'Documento falta'];
 
             function normalizarTextoDocumentoPersona(valor) {
                 return String(valor || '')
                     .normalize('NFD')
                     .replace(/[\u0300-\u036f]/g, '')
                     .toUpperCase();
+            }
+
+            function esDocumentoAusenciaPersona(valor) {
+                return documentosAusenciaPersona.includes(String(valor || ''));
             }
 
             function esPuestoGestorDocumentoPersona(puestosTexto) {
@@ -5614,6 +5937,8 @@ class CapHum extends Controller
             // Función para abrir modal de cargar documento de persona
             function cargarDocumentoPersona(button) {
                 let idPersona, nombreCompleto, puestosPersonaTexto = '';
+                personaCargarDocumentoDesdeAusencia = false;
+                personaCargarDocumentoTipoAusencia = '';
                 const esIdDirecto = typeof button === 'number' || (typeof button === 'string' && button !== '' && !isNaN(Number(button)));
 
                 if (esIdDirecto) {
@@ -5640,6 +5965,8 @@ class CapHum extends Controller
                     idPersona = btnElement.getAttribute('data-id-persona');
                     nombreCompleto = btnElement.getAttribute('data-nombre') || '';
                     puestosPersonaTexto = btnElement.getAttribute('data-puesto') || '';
+                    personaCargarDocumentoDesdeAusencia = btnElement.getAttribute('data-contexto-documento') === 'ausencia';
+                    personaCargarDocumentoTipoAusencia = btnElement.getAttribute('data-documento-ausencia') || '';
                     if (!idPersona) {
                         console.error('No se encontró el ID de persona en el botón');
                         return;
@@ -5653,6 +5980,10 @@ class CapHum extends Controller
                 // Guardar el ID de persona en un campo oculto del modal
                 document.getElementById('cargarDocPersona_idPersona').value = idPersona || '';
                 document.getElementById('cargarDocPersona_nombrePersona').textContent = 'Persona: ' + (nombreCompleto || 'N/A');
+                const tituloModalDocumentoPersona = document.getElementById('modalCargarDocPersonaLabel');
+                if (tituloModalDocumentoPersona) {
+                    tituloModalDocumentoPersona.textContent = personaCargarDocumentoDesdeAusencia ? 'Cargar documento de ausencia' : 'Cargar Documento';
+                }
 
                 // Limpiar el select y el input de archivo
                 const selectTipo = document.getElementById('cargarDocPersona_tipoDocumento');
@@ -5667,6 +5998,7 @@ class CapHum extends Controller
                 // Primero resetear todas las opciones del select para que sean visibles
                 Array.from(selectTipo.options).forEach(option => {
                     option.style.display = 'block';
+                    option.hidden = false;
                     option.disabled = false;
                 });
 
@@ -5846,6 +6178,9 @@ class CapHum extends Controller
                     'Referencias Laborales': 14,
                     'Documento baja': 15,
                     'Documento Baja': 15,
+                    'Documento incapacidad': 34,
+                    'Documento permiso': 35,
+                    'Documento falta': 36,
                     'Documento reingreso': 16,
                     'Documento Reingreso': 16
                 };
@@ -6104,6 +6439,9 @@ class CapHum extends Controller
             function obtenerContextoDocumento(idDocumento) {
                 if (idDocumento == 15) return '<span class="badge bg-danger">Baja</span>';
                 if (idDocumento == 16) return '<span class="badge bg-success">Reingreso</span>';
+                if (idDocumento == 34) return '<span class="badge bg-info text-dark">Incapacidad</span>';
+                if (idDocumento == 35) return '<span class="badge bg-primary">Permiso</span>';
+                if (idDocumento == 36) return '<span class="badge bg-warning text-dark">Falta</span>';
                 return '<span class="badge bg-secondary">Gestión</span>';
             }
             function obtenerNombreDocumento(idDocumento) {
@@ -6129,7 +6467,10 @@ class CapHum extends Controller
                     22: 'Constancia de situacion fiscal (RFC)',
                     23: 'NSS',
                     24: 'Carta de no adeudo',
-                    25: 'Estado de cuenta'
+                    25: 'Estado de cuenta',
+                    34: 'Documento incapacidad',
+                    35: 'Documento permiso',
+                    36: 'Documento falta'
                 };
                 return mapeo[idDocumento] || 'Documento';
             }
@@ -6163,17 +6504,33 @@ class CapHum extends Controller
                 // Recorrer todas las opciones del select
                 Array.from(selectTipo.options).forEach(option => {
                     const valor = option.value;
+                    if (personaCargarDocumentoDesdeAusencia) {
+                        if (valor && valor !== personaCargarDocumentoTipoAusencia) {
+                            option.style.display = 'none';
+                            option.hidden = true;
+                            option.disabled = true;
+                            return;
+                        }
+                    } else if (esDocumentoAusenciaPersona(valor)) {
+                        option.style.display = 'none';
+                        option.hidden = true;
+                        option.disabled = true;
+                        return;
+                    }
                     if (valor === 'Carta de compromiso del Gestor' && !personaCargarDocumentoEsGestor) {
                         option.style.display = 'none';
+                        option.hidden = true;
                         option.disabled = true;
                         return;
                     }
                     // Si es un documento único y ya está subido, ocultarlo
                     if (valor && !permiteMultiplesArchivos(valor) && documentosUnicosSubidos.has(valor)) {
                         option.style.display = 'none';
+                        option.hidden = true;
                         option.disabled = true;
                     } else {
                         option.style.display = 'block';
+                        option.hidden = false;
                         option.disabled = false;
                     }
                 });
@@ -6299,6 +6656,9 @@ class CapHum extends Controller
                 'Certificado de Estudios': 13,
                 'Referencias Laborales': 14,
                 'Documento baja': 15,
+                'Documento incapacidad': 34,
+                'Documento permiso': 35,
+                'Documento falta': 36,
                 'Documento reingreso': 16
             };
 
@@ -6531,6 +6891,7 @@ class CapHum extends Controller
             var candidatoReenviarEmail = null;
             var candidatoDatosEnvio = null;
             var candidatoEdicionOriginal = {};
+            var candidatoPrecargandoDomicilio = false;
             var candidatosFiltrosLlenos = false;
             window.miUsuarioId = Number(window.miUsuarioId || 0);
 
@@ -7119,7 +7480,7 @@ class CapHum extends Controller
                 });
                 $el.prop("disabled", !!el.disabled);
                 if (prev) {
-                    $el.val(prev).trigger("change");
+                    $el.val(prev).trigger("change.select2");
                 }
             }
 
@@ -7140,11 +7501,19 @@ class CapHum extends Controller
 
             function valorOriginalCandidatoEdicion(campo) {
                 if (!candidatoEditId || !candidatoEdicionOriginal) return "";
-                return candidatoEdicionOriginal[campo] ? String(candidatoEdicionOriginal[campo]) : "";
+                if (!Object.prototype.hasOwnProperty.call(candidatoEdicionOriginal, campo)) return "";
+                var valor = candidatoEdicionOriginal[campo];
+                return valor === undefined || valor === null ? "" : String(valor);
             }
 
             function valorCandidatoConRespaldo(form, campo) {
                 var valor = form && form[campo] ? String(form[campo].value || "") : "";
+                if (valor) return valor;
+                return valorOriginalCandidatoEdicion(campo);
+            }
+
+            function valorTextoCandidatoConRespaldo(form, campo) {
+                var valor = form && form[campo] ? String(form[campo].value || "").trim() : "";
                 if (valor) return valor;
                 return valorOriginalCandidatoEdicion(campo);
             }
@@ -7477,6 +7846,7 @@ class CapHum extends Controller
             }
 
             function precargarCascadaDomicilioCandidato(c) {
+                candidatoPrecargandoDomicilio = true;
                 var idPais = c && c.id_pais ? String(c.id_pais) : "";
                 var idEstado = c && c.id_div_nivel1 ? String(c.id_div_nivel1) : "";
                 var idMunicipio = c && c.id_div_nivel2 ? String(c.id_div_nivel2) : "";
@@ -7484,33 +7854,37 @@ class CapHum extends Controller
                 setCodigoPostalCandidato(c && c.codigo_postal ? c.codigo_postal : "");
                 if (!idPais) {
                     resetCascadaDomicilioCandidato();
+                    candidatoPrecargandoDomicilio = false;
                     return;
                 }
                 var divEstado = document.getElementById("div_candidato_estado");
                 if (divEstado) divEstado.style.display = "";
                 cargarEstadosCandidato(idPais, function(tieneEstados) {
-                    if (!tieneEstados) return;
+                    if (!tieneEstados) { candidatoPrecargandoDomicilio = false; return; }
                     var estado = document.getElementById("candidato_id_div_nivel1");
-                    if (!estado) return;
+                    if (!estado) { candidatoPrecargandoDomicilio = false; return; }
                     if (idEstado) {
+                        asegurarOpcionSelectCandidato(estado, idEstado, (c && c.nombre_div_nivel1) || "Estado actual");
                         estado.value = idEstado;
                         refreshSelectBuscadorCandidato("candidato_id_div_nivel1");
                         var divMunicipio = document.getElementById("div_candidato_municipio");
                         if (divMunicipio) divMunicipio.style.display = "";
                         cargarMunicipiosCandidato(idEstado, function(tieneMunicipios) {
-                            if (!tieneMunicipios) return;
+                            if (!tieneMunicipios) { candidatoPrecargandoDomicilio = false; return; }
                             var municipio = document.getElementById("candidato_id_div_nivel2");
-                            if (!municipio) return;
+                            if (!municipio) { candidatoPrecargandoDomicilio = false; return; }
                             if (idMunicipio) {
+                                asegurarOpcionSelectCandidato(municipio, idMunicipio, (c && c.nombre_div_nivel2) || "Municipio actual");
                                 municipio.value = idMunicipio;
                                 refreshSelectBuscadorCandidato("candidato_id_div_nivel2");
                                 var divColonia = document.getElementById("div_candidato_colonia");
                                 if (divColonia) divColonia.style.display = "";
                                 cargarColoniasCandidato(idMunicipio, function(tieneColonias) {
-                                    if (!tieneColonias) return;
+                                    if (!tieneColonias) { candidatoPrecargandoDomicilio = false; return; }
                                     var colonia = document.getElementById("candidato_id_div_nivel3");
-                                    if (!colonia) return;
+                                    if (!colonia) { candidatoPrecargandoDomicilio = false; return; }
                                     if (idColonia) {
+                                        asegurarOpcionSelectCandidato(colonia, idColonia, (c && c.nombre_div_nivel3) || "Colonia actual");
                                         colonia.value = idColonia;
                                         refreshSelectBuscadorCandidato("candidato_id_div_nivel3");
                                         setCodigoPostalCandidato(c && c.codigo_postal ? c.codigo_postal : "");
@@ -7520,9 +7894,14 @@ class CapHum extends Controller
                                     var extInt = document.getElementById("div_candidato_num_extint");
                                     if (calle) calle.style.display = "";
                                     if (extInt) extInt.style.display = "";
+                                    candidatoPrecargandoDomicilio = false;
                                 });
+                            } else {
+                                candidatoPrecargandoDomicilio = false;
                             }
                         });
+                    } else {
+                        candidatoPrecargandoDomicilio = false;
                     }
                 });
             }
@@ -9891,9 +10270,20 @@ class CapHum extends Controller
             if (!res.success || !res.datos) { if (typeof Swal !== "undefined") Swal.fire({ icon: "error", title: "Error", text: "No se encontró el candidato." }); return; }
             var c = res.datos;
             candidatoEdicionOriginal = {
+                id_pais: c.id_pais || "",
+                id_div_nivel1: c.id_div_nivel1 || "",
+                id_div_nivel2: c.id_div_nivel2 || "",
+                id_div_nivel3: c.id_div_nivel3 || "",
+                domicilio_calle_texto: c.domicilio_calle_texto || "",
+                domicilio_num_exterior: c.domicilio_num_exterior || "",
+                domicilio_num_interior: c.domicilio_num_interior || "",
+                codigo_postal: c.codigo_postal || "",
                 id_departamento: c.id_departamento || "",
                 id_puesto: c.id_puesto || "",
-                id_posible_jefe: c.id_posible_jefe || ""
+                id_posible_jefe: c.id_posible_jefe || "",
+                fecha_postulacion: c.fecha_postulacion || "",
+                usuario: c.usuario || "",
+                contrasena: c.contrasena || ""
             };
             var form = document.getElementById("formAgregarCandidato");
             if (!form) return;
@@ -10040,21 +10430,21 @@ class CapHum extends Controller
             apellidom: (form.apellidom && form.apellidom.value.trim()) || "",
             email: (form.email && form.email.value.trim()) || "",
             telefono: (form.telefono && form.telefono.value.trim()) || "",
-            id_pais: (form.id_pais && form.id_pais.value) || null,
-            id_div_nivel1: (form.id_div_nivel1 && form.id_div_nivel1.value) || null,
-            id_div_nivel2: (form.id_div_nivel2 && form.id_div_nivel2.value) || null,
-            id_div_nivel3: (form.id_div_nivel3 && form.id_div_nivel3.value) || null,
-            domicilio_calle_texto: (form.domicilio_calle_texto && form.domicilio_calle_texto.value.trim()) || null,
-            domicilio_num_exterior: (form.domicilio_num_exterior && form.domicilio_num_exterior.value.trim()) || null,
-            domicilio_num_interior: (form.domicilio_num_interior && form.domicilio_num_interior.value.trim()) || null,
-            codigo_postal: (form.codigo_postal && form.codigo_postal.value.trim()) || null,
+            id_pais: valorCandidatoConRespaldo(form, "id_pais") || null,
+            id_div_nivel1: valorCandidatoConRespaldo(form, "id_div_nivel1") || null,
+            id_div_nivel2: valorCandidatoConRespaldo(form, "id_div_nivel2") || null,
+            id_div_nivel3: valorCandidatoConRespaldo(form, "id_div_nivel3") || null,
+            domicilio_calle_texto: valorTextoCandidatoConRespaldo(form, "domicilio_calle_texto") || null,
+            domicilio_num_exterior: valorTextoCandidatoConRespaldo(form, "domicilio_num_exterior") || null,
+            domicilio_num_interior: valorTextoCandidatoConRespaldo(form, "domicilio_num_interior") || null,
+            codigo_postal: valorTextoCandidatoConRespaldo(form, "codigo_postal") || null,
             id_departamento: valorCandidatoConRespaldo(form, "id_departamento") || null,
             id_puesto: valorCandidatoConRespaldo(form, "id_puesto") || null,
             id_posible_jefe: valorCandidatoConRespaldo(form, "id_posible_jefe") || null,
-            fecha_postulacion: (form.fecha_postulacion && form.fecha_postulacion.value) || null,
+            fecha_postulacion: valorCandidatoConRespaldo(form, "fecha_postulacion") || null,
             id_legion: document.getElementById("candidato_asignar_legion") && document.getElementById("candidato_asignar_legion").checked && document.getElementById("candidato_id_legion") && document.getElementById("candidato_id_legion").value ? document.getElementById("candidato_id_legion").value : null,
-            usuario: (form.usuario && form.usuario.value.trim()) || "",
-            contrasena: (form.contrasena && form.contrasena.value.trim()) || ""
+            usuario: valorTextoCandidatoConRespaldo(form, "usuario") || "",
+            contrasena: valorTextoCandidatoConRespaldo(form, "contrasena") || ""
         };
         }
 
@@ -10611,7 +11001,7 @@ class CapHum extends Controller
                 var pais = document.getElementById("candidato_id_pais");
                 var depto = document.getElementById("candidato_id_departamento");
                 var puesto = document.getElementById("candidato_id_puesto");
-                if (pais && pais.value && !document.getElementById("candidato_id_div_nivel1").value) {
+                if (!candidatoEditId && !candidatoPrecargandoDomicilio && pais && pais.value && !document.getElementById("candidato_id_div_nivel1").value) {
                     if (typeof window.jQuery !== "undefined") window.jQuery(pais).trigger("change");
                     else pais.dispatchEvent(new Event("change", { bubbles: true }));
                 }
@@ -10624,7 +11014,7 @@ class CapHum extends Controller
                 }
             });
             offcanvasEl.addEventListener("hidden.bs.offcanvas", function() {
-                var form = document.getElementById("formAgregarCandidato"); if (form) { form.reset(); candidatoEditId = null; candidatoEdicionOriginal = {}; }
+                var form = document.getElementById("formAgregarCandidato"); if (form) { form.reset(); candidatoEditId = null; candidatoEdicionOriginal = {}; candidatoPrecargandoDomicilio = false; }
                 var titulo = document.getElementById("offcanvasCandidatoTitulo"); if (titulo) titulo.textContent = "Nuevo Candidato";
                 var btnSubmit = document.getElementById("btnSubmitCandidato"); if (btnSubmit) { btnSubmit.innerHTML = "<i class=\"bx bx-save me-1\"></i> Guardar"; btnSubmit.className = "btn btn-primary me-2"; }
                 setRequiredOrganizacionCandidato(true);
@@ -18294,12 +18684,19 @@ class CapHum extends Controller
             let archivosSeleccionadosPersona = [];
             let archivosSubidosPersona = [];
             let personaCargarDocumentoEsGestor = false;
+            let personaCargarDocumentoDesdeAusencia = false;
+            let personaCargarDocumentoTipoAusencia = '';
+            const documentosAusenciaPersona = ['Documento incapacidad', 'Documento permiso', 'Documento falta'];
 
             function normalizarTextoDocumentoPersona(valor) {
                 return String(valor || '')
                     .normalize('NFD')
                     .replace(/[\u0300-\u036f]/g, '')
                     .toUpperCase();
+            }
+
+            function esDocumentoAusenciaPersona(valor) {
+                return documentosAusenciaPersona.includes(String(valor || ''));
             }
 
             function esPuestoGestorDocumentoPersona(puestosTexto) {
@@ -18464,6 +18861,8 @@ class CapHum extends Controller
             // Función para abrir modal de cargar documento de persona
             function cargarDocumentoPersona(button) {
                 let idPersona, nombreCompleto, puestosPersonaTexto = '';
+                personaCargarDocumentoDesdeAusencia = false;
+                personaCargarDocumentoTipoAusencia = '';
                 const esIdDirecto = typeof button === 'number' || (typeof button === 'string' && button !== '' && !isNaN(Number(button)));
 
                 if (esIdDirecto) {
@@ -18490,6 +18889,8 @@ class CapHum extends Controller
                     idPersona = btnElement.getAttribute('data-id-persona');
                     nombreCompleto = btnElement.getAttribute('data-nombre') || '';
                     puestosPersonaTexto = btnElement.getAttribute('data-puesto') || '';
+                    personaCargarDocumentoDesdeAusencia = btnElement.getAttribute('data-contexto-documento') === 'ausencia';
+                    personaCargarDocumentoTipoAusencia = btnElement.getAttribute('data-documento-ausencia') || '';
                     if (!idPersona) {
                         console.error('No se encontró el ID de persona en el botón');
                         return;
@@ -18503,6 +18904,10 @@ class CapHum extends Controller
                 // Guardar el ID de persona en un campo oculto del modal
                 document.getElementById('cargarDocPersona_idPersona').value = idPersona || '';
                 document.getElementById('cargarDocPersona_nombrePersona').textContent = 'Persona: ' + (nombreCompleto || 'N/A');
+                const tituloModalDocumentoPersona = document.getElementById('modalCargarDocPersonaLabel');
+                if (tituloModalDocumentoPersona) {
+                    tituloModalDocumentoPersona.textContent = personaCargarDocumentoDesdeAusencia ? 'Cargar documento de ausencia' : 'Cargar Documento';
+                }
 
                 // Limpiar el select y el input de archivo
                 const selectTipo = document.getElementById('cargarDocPersona_tipoDocumento');
@@ -18517,6 +18922,7 @@ class CapHum extends Controller
                 // Primero resetear todas las opciones del select para que sean visibles
                 Array.from(selectTipo.options).forEach(option => {
                     option.style.display = 'block';
+                    option.hidden = false;
                     option.disabled = false;
                 });
 
@@ -18696,6 +19102,9 @@ class CapHum extends Controller
                     'Referencias Laborales': 14,
                     'Documento baja': 15,
                     'Documento Baja': 15,
+                    'Documento incapacidad': 34,
+                    'Documento permiso': 35,
+                    'Documento falta': 36,
                     'Documento reingreso': 16,
                     'Documento Reingreso': 16
                 };
@@ -18815,6 +19224,9 @@ class CapHum extends Controller
             function obtenerContextoDocumento(idDocumento) {
                 if (idDocumento == 15) return '<span class="badge bg-danger">Baja</span>';
                 if (idDocumento == 16) return '<span class="badge bg-success">Reingreso</span>';
+                if (idDocumento == 34) return '<span class="badge bg-info text-dark">Incapacidad</span>';
+                if (idDocumento == 35) return '<span class="badge bg-primary">Permiso</span>';
+                if (idDocumento == 36) return '<span class="badge bg-warning text-dark">Falta</span>';
                 return '<span class="badge bg-secondary">Gestión</span>';
             }
             function obtenerNombreDocumento(idDocumento) {
@@ -18840,7 +19252,10 @@ class CapHum extends Controller
                     22: 'Constancia de situacion fiscal (RFC)',
                     23: 'NSS',
                     24: 'Carta de no adeudo',
-                    25: 'Estado de cuenta'
+                    25: 'Estado de cuenta',
+                    34: 'Documento incapacidad',
+                    35: 'Documento permiso',
+                    36: 'Documento falta'
                 };
                 return mapeo[idDocumento] || 'Documento';
             }
@@ -18874,17 +19289,33 @@ class CapHum extends Controller
                 // Recorrer todas las opciones del select
                 Array.from(selectTipo.options).forEach(option => {
                     const valor = option.value;
+                    if (personaCargarDocumentoDesdeAusencia) {
+                        if (valor && valor !== personaCargarDocumentoTipoAusencia) {
+                            option.style.display = 'none';
+                            option.hidden = true;
+                            option.disabled = true;
+                            return;
+                        }
+                    } else if (esDocumentoAusenciaPersona(valor)) {
+                        option.style.display = 'none';
+                        option.hidden = true;
+                        option.disabled = true;
+                        return;
+                    }
                     if (valor === 'Carta de compromiso del Gestor' && !personaCargarDocumentoEsGestor) {
                         option.style.display = 'none';
+                        option.hidden = true;
                         option.disabled = true;
                         return;
                     }
                     // Si es un documento único y ya está subido, ocultarlo
                     if (valor && !permiteMultiplesArchivos(valor) && documentosUnicosSubidos.has(valor)) {
                         option.style.display = 'none';
+                        option.hidden = true;
                         option.disabled = true;
                     } else {
                         option.style.display = 'block';
+                        option.hidden = false;
                         option.disabled = false;
                     }
                 });
@@ -19010,6 +19441,9 @@ class CapHum extends Controller
                 'Certificado de Estudios': 13,
                 'Referencias Laborales': 14,
                 'Documento baja': 15,
+                'Documento incapacidad': 34,
+                'Documento permiso': 35,
+                'Documento falta': 36,
                 'Documento reingreso': 16
             };
 
@@ -21668,16 +22102,19 @@ public function getEstadosMunicipiosMexico()
         try {
             CapHumDAO::asegurarDocumentoCartaCompromisoGestor();
 
-            if (!self::puedeAccionGestion(self::MODULO_GESTION_CARGAR_DOCUMENTO)) {
+            $id_persona = $_POST['id_persona'] ?? null;
+            $id_documento = isset($_POST['id_documento']) ? (int) $_POST['id_documento'] : 0;
+            $esDocumentoAusencia = in_array($id_documento, [34, 35, 36], true);
+            $puedeSubirDocumento = self::puedeAccionGestion(self::MODULO_GESTION_CARGAR_DOCUMENTO)
+                || ($esDocumentoAusencia && self::puedeAccionGestion(self::MODULO_GESTION_AUSENCIAS));
+
+            if (!$puedeSubirDocumento) {
                 self::respuestaJSON([
                     'success' => false,
                     'mensaje' => 'No tienes permiso para cargar documentos.'
                 ]);
                 return;
             }
-
-            $id_persona = $_POST['id_persona'] ?? null;
-            $id_documento = $_POST['id_documento'] ?? null;
 
             if (!$id_persona || !$id_documento) {
                 self::respuestaJSON([
