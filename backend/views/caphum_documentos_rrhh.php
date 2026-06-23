@@ -556,10 +556,15 @@
 
     function importFormData() {
         const fd = new FormData();
-        importFiles.forEach(file => {
-            fd.append('archivos[]', file, file.name);
-            fd.append('rutas_relativas[]', file.webkitRelativePath || file.name);
-        });
+        const batchId = String(importAnalisis?.batch_id || '').trim();
+        if (batchId) {
+            fd.append('batch_id', batchId);
+        } else {
+            importFiles.forEach(file => {
+                fd.append('archivos[]', file, file.name);
+                fd.append('rutas_relativas[]', file.webkitRelativePath || file.name);
+            });
+        }
         (importAnalisis?.items || []).forEach(item => {
             if (item.documento_manual && Number(item.id_documento || 0) > 0) {
                 fd.append(`documentos_manual[${Number(item.source_index || 0)}]`, Number(item.id_documento || 0));
