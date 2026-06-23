@@ -1081,6 +1081,54 @@ class TrackingRecoleccion extends Controller
     }
 
     /**
+     * POST /TrackingRecoleccion/trackingValidarOtp
+     * Body JSON: { id_detalle, codigo, origen? }
+     * Proxy: POST /api/tracking/detalles/{id_detalle}/otp/validar
+     */
+    public function trackingValidarOtp()
+    {
+        $raw  = (string)file_get_contents('php://input');
+        $data = json_decode($raw, true) ?: [];
+        $idDetalle = (int)($data['id_detalle'] ?? 0);
+        $codigo = preg_replace('/\D+/', '', (string)($data['codigo'] ?? ''));
+        if ($idDetalle <= 0) {
+            self::respuestaJSON(['success' => false, 'mensaje' => 'id_detalle requerido.']);
+            return;
+        }
+        if (!preg_match('/^\d{6}$/', $codigo)) {
+            self::respuestaJSON(['success' => false, 'mensaje' => 'Codigo OTP invalido.', 'codigo_http' => 422]);
+            return;
+        }
+
+        $cfg   = $this->_trkChatConfig();
+        $token = $this->_trkChatObtenerJwt();
+        if ($cfg['base_url'] === '' || $cfg['api_key'] === '' || $token === '') {
+            self::respuestaJSON(['success' => false, 'mensaje' => 'Tracking no disponible.']);
+            return;
+        }
+
+        $body = json_encode([
+            'id_detalle' => $idDetalle,
+            'codigo' => $codigo,
+            'origen' => trim((string)($data['origen'] ?? 'sparta_emergencia')) ?: 'sparta_emergencia',
+        ]);
+        $paths = [
+            "/api/tracking/detalles/{$idDetalle}/otp/validar",
+            "/api/tracking/detalles/{$idDetalle}/otp/confirmar",
+            "/api/tracking/detalles/{$idDetalle}/otp/validar-recoleccion",
+            "/api/tracking/otp/validar",
+            "/api/tracking/otp/confirmar",
+        ];
+        $resp = $this->_trkTrackingCurlFallback($cfg['base_url'], $paths, 'POST', $body, [
+            'Content-Type: application/json',
+            'X-API-Key: ' . $cfg['api_key'],
+            'Authorization: Bearer ' . $token,
+        ]);
+
+        $this->_trkChatRelayResponse($resp);
+    }
+
+    /**
      * GET /TrackingRecoleccion/obtenerTransportistasTracking?tipo=interno|externo&id_agencia=N
      */
     public function obtenerTransportistasTracking()

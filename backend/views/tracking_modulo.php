@@ -6454,11 +6454,11 @@ function _trkInicializarTablaCreditosDT() {
     $('#detalleRutaBody').on('click', '.btn-cambiar-cedis-destino', function () {
         _trkAbrirModalCambiarCedisDestino(Number($(this).data('id')));
     });
-    $('#detalleRutaBody').on('click', '.btn-generar-otp', function () {
-        _trkGenerarOtpDetalle(Number($(this).data('id')));
+    $('#detalleRutaBody').on('click', '.btn-validar-otp', function () {
+        _trkValidarOtpDetalle(Number($(this).data('id')));
     });
-    $('#trkTimeline').on('click', '.btn-generar-otp', function () {
-        _trkGenerarOtpDetalle(Number($(this).data('id')));
+    $('#trkTimeline').on('click', '.btn-validar-otp', function () {
+        _trkValidarOtpDetalle(Number($(this).data('id')));
     });
     $('#rutaCedisDestinoInfo, #trkMapTransportSummary').on('click', '.btn-cambiar-cedis-destino', function () {
         _trkAbrirModalCambiarCedisDestino(Number($(this).data('id')));
@@ -10231,15 +10231,36 @@ function _trkOtpExpiraInfo(expiraAt) {
     return { texto: `Expira en ${min} min`, alerta: min <= 5 };
 }
 
+function _trkOtpOrigenInfo(otp) {
+    const raw = String(
+        otp?.canal
+        || otp?.tipo
+        || otp?.origen
+        || otp?.source
+        || otp?.generado_por_actor
+        || otp?.generated_by_actor
+        || ''
+    ).toLowerCase();
+    if (raw.includes('mototrack') || raw.includes('android') || raw.includes('transportista')) {
+        return { label: 'OTP MotoTrack', meta: raw || 'mototrack' };
+    }
+    if (raw.includes('manual') || raw.includes('emergencia') || raw.includes('sparta') || raw.includes('__SPARTA_SECRET_REDACTED__')) {
+        return { label: 'OTP emergencia', meta: raw || 'manual' };
+    }
+    return { label: 'OTP vigente', meta: raw };
+}
+
 function _trkRenderOtpEstado(otp) {
-    if (!otp) return '<span class="text-muted small">Sin OTP de emergencia activo</span>';
+    if (!otp) return '<span class="text-muted small">Sin OTP activo reportado</span>';
     const exp = _trkOtpExpiraInfo(otp.expira_at);
+    const origen = _trkOtpOrigenInfo(otp);
     const intentosActuales = Number.isFinite(Number(otp.intentos)) ? Number(otp.intentos) : 0;
     const intentosMax = Number.isFinite(Number(otp.max_intentos)) ? Number(otp.max_intentos) : 3;
     const intentos = `${intentosActuales} / ${intentosMax}`;
     return `
         <div class="small ${exp.alerta ? 'text-danger fw-semibold' : 'text-muted'}">
-            <i class="fa-solid fa-key me-1"></i>Emergencia ${_trkChatEscapeHtml(otp.estatus || 'activo')}
+            <i class="fa-solid fa-key me-1"></i>${_trkChatEscapeHtml(origen.label)} ${_trkChatEscapeHtml(otp.estatus || 'activo')}
+            ${origen.meta ? `<span class="badge bg-label-secondary ms-1">${_trkChatEscapeHtml(origen.meta)}</span>` : ''}
             <span class="mx-1">|</span>${_trkChatEscapeHtml(exp.texto)}
             <span class="mx-1">|</span>Intentos ${_trkChatEscapeHtml(intentos)}
         </div>`;
@@ -10275,10 +10296,10 @@ function _trkOtpCellHtml(det) {
     return `
         <div class="d-flex flex-column gap-1">
             <div id="trkOtpEstado-${idDetalle}" class="trk-otp-status" data-otp-status-id="${idDetalle}">
-                <span class="spinner-border spinner-border-sm me-1"></span>Consultando OTP de emergencia...
+                <span class="spinner-border spinner-border-sm me-1"></span>Consultando OTP vigente...
             </div>
-            <button type="button" class="btn btn-sm btn-warning btn-generar-otp" data-id="${idDetalle}">
-                <i class="fa-solid fa-key me-1"></i>OTP emergencia
+            <button type="button" class="btn btn-sm btn-warning btn-validar-otp" data-id="${idDetalle}">
+                <i class="fa-solid fa-key me-1"></i>Validar OTP de MotoTrack
             </button>
         </div>`;
 }
@@ -10290,10 +10311,10 @@ function _trkOtpInlineHtml(det) {
     if (estatus === 'en_sitio') {
         return `<div class="trk-step-otp mt-2">
             <div class="small text-muted mb-1" data-otp-status-id="${idDetalle}">
-                <span class="spinner-border spinner-border-sm me-1"></span>Consultando OTP de emergencia...
+                <span class="spinner-border spinner-border-sm me-1"></span>Consultando OTP vigente...
             </div>
-            <button type="button" class="btn btn-sm btn-warning btn-generar-otp" data-id="${idDetalle}">
-                <i class="fa-solid fa-key me-1"></i>OTP emergencia
+            <button type="button" class="btn btn-sm btn-warning btn-validar-otp" data-id="${idDetalle}">
+                <i class="fa-solid fa-key me-1"></i>Validar OTP de MotoTrack
             </button>
         </div>`;
     }
@@ -10316,9 +10337,113 @@ async function _trkConsultarOtpActivo(idDetalle) {
 function _trkConsultarOtpsActivosDetalle(detalles) {
     (detalles || []).filter(_trkPuntoPermiteOtp).forEach(det => {
         _trkConsultarOtpActivo(det.id_detalle).catch(() => {
-            $(`#trkOtpEstado-${det.id_detalle}`).html('<span class="text-muted small">Sin OTP de emergencia activo</span>');
+            $(`#trkOtpEstado-${det.id_detalle}`).html('<span class="text-muted small">Sin OTP activo reportado</span>');
         });
     });
+}
+
+function _trkOtpValidacionMensajeError(r) {
+    const code = Number(r?.codigo_http || r?.status || r?.http_code || 0);
+    const raw = String(r?.mensaje || r?.message || r?.detail || r?.error || '').toLowerCase();
+    if (code === 400 || code === 422 || /incorrect|inval|codigo/.test(raw)) return 'Codigo incorrecto';
+    if (code === 401) return 'Sesion expirada. Recarga la pagina.';
+    if (code === 403) return 'No tienes permiso para validar este punto';
+    if (code === 404) return 'OTP o punto no encontrado';
+    if (code === 409) {
+        if (/recolect/.test(raw)) return 'Este punto ya fue recolectado';
+        if (/expir/.test(raw) || /vencid/.test(raw)) return 'OTP expirado, solicita uno nuevo al transportista';
+        return 'OTP expirado, usado o el punto no esta en sitio';
+    }
+    return r?.mensaje || r?.message || r?.detail || 'No se pudo validar el OTP.';
+}
+
+function _trkAplicarRespuestaOtpValidado(r, idDetalle) {
+    const data = r?.data || r?.datos || r || {};
+    const changes = data.changes || r?.changes || [];
+    if (Array.isArray(changes) && changes.length) {
+        _trkRTAplicarChanges(changes);
+        return;
+    }
+    const id = data.id_detalle || data.detalle_id || r?.id_detalle || idDetalle;
+    const nextId = data.next_id_detalle || data.siguiente_id_detalle || r?.next_id_detalle || r?.siguiente_id_detalle;
+    const cambios = [];
+    if (id) cambios.push({ id_detalle: id, estatus_recoleccion: 'recolectada' });
+    if (nextId) cambios.push({ id_detalle: nextId, estatus_recoleccion: 'en_camino' });
+    _trkRTAplicarChanges(cambios);
+}
+
+async function _trkValidarOtpDetalle(idDetalle) {
+    if (!idDetalle) return;
+    const res = await Swal.fire({
+        icon: 'question',
+        title: 'Validar OTP de recoleccion',
+        html: `<div class="text-start">
+            <p class="small text-muted mb-2">Ingresa el codigo mostrado por el transportista en MotoTrack.</p>
+            <input id="trkOtpCodigoInput" class="form-control form-control-lg text-center fw-bold"
+                inputmode="numeric" autocomplete="one-time-code" maxlength="6"
+                placeholder="000000" style="letter-spacing:.25em;">
+        </div>`,
+        showCancelButton: true,
+        confirmButtonText: 'Validar y recolectar',
+        cancelButtonText: 'Cancelar',
+        confirmButtonColor: '#0d9488',
+        focusConfirm: false,
+        didOpen: () => {
+            const input = document.getElementById('trkOtpCodigoInput');
+            input?.focus();
+            input?.addEventListener('input', () => {
+                input.value = String(input.value || '').replace(/\D+/g, '').slice(0, 6);
+            });
+        },
+        preConfirm: () => {
+            const codigo = String(document.getElementById('trkOtpCodigoInput')?.value || '').replace(/\D+/g, '');
+            if (!/^\d{6}$/.test(codigo)) {
+                Swal.showValidationMessage('Captura los 6 digitos del OTP.');
+                return false;
+            }
+            return codigo;
+        },
+    });
+    if (!res.isConfirmed) return;
+
+    Swal.fire({
+        title: 'Validando OTP...',
+        text: 'Confirmando recoleccion con el codigo de MotoTrack.',
+        allowOutsideClick: false,
+        allowEscapeKey: false,
+        showConfirmButton: false,
+        didOpen: () => Swal.showLoading(),
+    });
+    try {
+        const r = await trkFetch('/TrackingRecoleccion/trackingValidarOtp', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ id_detalle: idDetalle, codigo: res.value, origen: 'sparta_emergencia' }),
+        });
+        if (!r.success) {
+            Swal.fire({
+                icon: 'error',
+                title: 'No se pudo validar el OTP',
+                text: _trkOtpValidacionMensajeError(r),
+                confirmButtonText: 'Aceptar',
+            });
+            return;
+        }
+        _trkAplicarRespuestaOtpValidado(r, idDetalle);
+        Swal.fire({
+            icon: 'success',
+            title: 'Recoleccion autorizada con OTP de MotoTrack',
+            timer: 2200,
+            showConfirmButton: false,
+        });
+    } catch {
+        Swal.fire({
+            icon: 'error',
+            title: 'Error de conexion',
+            text: 'No se pudo validar el OTP en este momento.',
+            confirmButtonText: 'Aceptar',
+        });
+    }
 }
 
 async function _trkGenerarOtpDetalle(idDetalle) {
@@ -10343,11 +10468,11 @@ async function _trkGenerarOtpDetalle(idDetalle) {
             html: `<div class="text-start">
                 ${_trkRenderOtpEstado(otpActivo)}
                 <div class="alert alert-info py-2 px-3 mt-3 mb-0 small">
-                    El codigo activo solo se muestra al momento de generarlo. Si el gestor no lo tiene, genera uno nuevo.
+                    Si el OTP vigente viene de MotoTrack, conserva el flujo normal. Genera emergencia solo si el flujo normal no puede completarse.
                 </div>
             </div>`,
             showCancelButton: true,
-            confirmButtonText: 'Generar nuevo OTP',
+            confirmButtonText: 'Generar OTP emergencia',
             cancelButtonText: 'Cancelar',
             reverseButtons: true,
         });
@@ -10394,6 +10519,7 @@ async function _trkGenerarOtpDetalle(idDetalle) {
             id_detalle: idDetalle,
             success: !!r.success,
             estatus: otp.estatus || '',
+            canal: otp.canal || otp.tipo || otp.origen || '',
             expira_at: otp.expira_at || '',
             max_intentos: otp.max_intentos ?? null,
         });
@@ -10424,9 +10550,9 @@ function _trkDetalleActualizarRecoleccion(idDetalle, estatus) {
     const $otp = $(`.trk-det-otp[data-id="${idDetalle}"]`);
     if ($otp.length) {
         $otp.html(_trkOtpCellHtml({ id_detalle: idDetalle, estatus_recoleccion: estatus }));
-        if (String(estatus || '').toLowerCase() === 'en_sitio') {
+                if (String(estatus || '').toLowerCase() === 'en_sitio') {
             _trkConsultarOtpActivo(idDetalle).catch(() => {
-                $(`[data-otp-status-id="${idDetalle}"]`).html('<span class="text-muted small">Sin OTP de emergencia activo</span>');
+                $(`[data-otp-status-id="${idDetalle}"]`).html('<span class="text-muted small">Sin OTP activo reportado</span>');
             });
         }
     }
@@ -14159,7 +14285,7 @@ function _trkVerDetalleRuta(idRuta) {
                             <tr>
                                 <th>#</th><th>Credito</th><th>Cliente</th><th>Modelo</th>
                                 <th>VIN</th><th>Estado / Municipio</th>
-                                <th>Proceso</th><th>Recoleccion</th><th>Confirmacion</th><th>OTP emergencia</th>
+                                <th>Proceso</th><th>Recoleccion</th><th>Confirmacion</th><th>OTP MotoTrack</th>
                             </tr>
                         </thead>
                         <tbody>${rowsHtml || '<tr><td colspan="10" class="text-center text-muted">Sin creditos</td></tr>'}</tbody>
@@ -15166,9 +15292,9 @@ function _trkWarningGroupsHtml(groups) {
     if (!list.length) return '';
     return `<div class="trk-warning-groups">
         ${list.map(group => {
-            const title = group?.titulo || 'Advertencia de planeacion';
-            const msg = group?.mensaje || '';
-            const action = group?.accion || '';
+            const title = _trkWarningTextoOperativo(group?.titulo || 'Advertencia de planeacion') || 'Advertencia de planeacion';
+            const msg = _trkWarningTextoOperativo(group?.mensaje || '');
+            const action = _trkWarningTextoOperativo(group?.accion || '');
             return `<div class="trk-warning-group">
                 <div class="trk-warning-group-title">${_trkChatEscapeHtml(title)}</div>
                 ${msg ? `<div class="trk-warning-group-message">${_trkChatEscapeHtml(msg)}</div>` : ''}
@@ -15329,6 +15455,13 @@ function _trkWarningCreditoSinCoords(idDetalle) {
 function _trkWarningTextoOperativo(texto) {
     let txt = String(texto || '').trim();
     if (!txt) return '';
+
+    if (/asigna_horas_tracking_detalle/i.test(txt) || /columnas?\s+de\s+planeacion/i.test(txt)) {
+        return 'La planeacion se genero, pero el servicio no pudo guardar todos los tiempos estimados. Puedes continuar y volver a guardar cuando el servicio este actualizado.';
+    }
+    if (/(table|tabla|column|columna|sql|database|bd|schema|campo)\b/i.test(txt) && /planeacion|tracking|ruta/i.test(txt)) {
+        return 'La planeacion se genero con una advertencia tecnica del servicio. Puedes continuar y revisar el guardado de tiempos mas tarde.';
+    }
 
     const warningSinCoords = txt.match(/credito\s+id_detalle\s*=\s*(\d+)\s+sin\s+latitud\s+o\s+longitud;\s*no\s+se\s+calcularon\s+tiempos/i);
     if (warningSinCoords) {
@@ -16419,9 +16552,10 @@ function _trkIdDetallePlaneacion(c) {
 
 function _trkBuildPlaneacionAuditItems() {
     return _trkPlanCreditosCalculables()
-        .filter(c => _trkIdDetallePlaneacion(c) > 0)
+        .filter(c => _trkIdDetallePlaneacion(c) > 0 || Number(c?.id_credito || 0) > 0)
         .map(c => ({
-            id_detalle: _trkIdDetallePlaneacion(c),
+            id_detalle: _trkIdDetallePlaneacion(c) || null,
+            id_credito: Number(c.id_credito || 0) || null,
             fecha_recoleccion: _trkPlaneacionFechaCredito(c),
             orden_dia: Number(c.orden_dia || c.orden_ruta || 1),
             estatus_planeacion: c.estatus_planeacion || 'programado',
@@ -16499,8 +16633,7 @@ async function _trkGuardarPlaneacionRuta() {
     _trkPlanCascadeCurrent();
     let items = await _trkAsegurarPuntosAuditablesPlaneacion();
     if (!items.length) {
-        _trkMostrarSinPuntosAuditables();
-        return;
+        console.warn('[Tracking Recoleccion] Planeacion sin puntos auditables persistidos; se intentara guardar de todos modos.');
     }
     const motivoRes = await _trkSwalConFocoModalRuta({
         icon: 'question',
@@ -16584,8 +16717,7 @@ async function _trkGuardarPlaneacionRuta() {
         }
         items = _trkBuildPlaneacionAuditItems();
         if (!items.length) {
-            _trkMostrarSinPuntosAuditables();
-            return;
+            console.warn('[Tracking Recoleccion] Planeacion generada sin items auditables; se enviara sin bloquear al gestor.');
         }
         const r = await trkFetch('/TrackingRecoleccion/guardarPlaneacionRuta', {
             method: 'POST',
@@ -17211,8 +17343,8 @@ function _trkRTRenderizar(ruta) {
 
 // --- Aplicar cambios parciales (WS update) ---------------
 function _trkRTAplicarChanges(changes) {
-    if (!changes || !changes.length || !_trkRT.estado) return;
-    const creditos = _trkRT.estado.creditos || [];
+    if (!changes || !changes.length) return;
+    const creditos = _trkRT.estado?.creditos || [];
     changes.forEach(ch => {
         const c = creditos.find(x => x.id_detalle === ch.id_detalle);
         if (c && ch.estatus_recoleccion) c.estatus_recoleccion = ch.estatus_recoleccion;
@@ -17223,6 +17355,10 @@ function _trkRTAplicarChanges(changes) {
             _trkChatActualizarContextoDetalle(ch.id_detalle, { estatus_recoleccion: ch.estatus_recoleccion });
         }
     });
+    if (!_trkRT.estado) {
+        _trkRenderListaCreditos();
+        return;
+    }
     // Recalcular progreso
     const total       = creditos.length;
     const esTerminado = e => e === 'recolectada' || e === 'completado';
@@ -17641,7 +17777,7 @@ function _trkRTProcesarEvento(data) {
             }
             break;
         case 'update':
-            _trkRTAplicarChanges(data.changes || []);
+            _trkRTAplicarChanges(data.changes || data.data?.changes || []);
             break;
         case 'location.update':
             _trkRTActualizarUbicacion(data);
@@ -17671,12 +17807,11 @@ function _trkRTProcesarEvento(data) {
                     _trkRTAplicarChanges(payload.changes);
                 } else {
                     const idDetalle = payload.id_detalle || payload.detalle_id;
-                    _trkDetalleActualizarRecoleccion(idDetalle, 'recolectada');
                     const nextId = payload.next_id_detalle || payload.siguiente_id_detalle;
-                    if (nextId) _trkDetalleActualizarRecoleccion(nextId, 'en_camino');
-                    if (_trkRT.estado && idDetalle) {
-                        _trkRTAplicarChanges([{ id_detalle: idDetalle, estatus_recoleccion: 'recolectada' }]);
-                    }
+                    const cambiosOtp = [];
+                    if (idDetalle) cambiosOtp.push({ id_detalle: idDetalle, estatus_recoleccion: 'recolectada' });
+                    if (nextId) cambiosOtp.push({ id_detalle: nextId, estatus_recoleccion: 'en_camino' });
+                    _trkRTAplicarChanges(cambiosOtp);
                 }
             } else {
                 _trkRTCargarEstado();
