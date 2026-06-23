@@ -7005,6 +7005,31 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
         </div>
     </div>
 
+    <div class="modal fade" id="modalDocumentoAusenciaPreview" tabindex="-1" aria-labelledby="modalDocumentoAusenciaPreviewLabel" aria-hidden="true">
+        <div class="modal-dialog modal-xl modal-dialog-centered">
+            <div class="modal-content shadow-lg border-0">
+                <div class="modal-header">
+                    <h5 class="modal-title d-flex align-items-center gap-2" id="modalDocumentoAusenciaPreviewLabel">
+                        <i class="fa fa-file-pdf text-danger"></i>
+                        <span id="modalDocumentoAusenciaPreviewTitulo">Documento de ausencia</span>
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                </div>
+                <div class="modal-body p-0 bg-light">
+                    <iframe
+                        id="modalDocumentoAusenciaPreviewFrame"
+                        title="Vista previa documento de ausencia"
+                        src="about:blank"
+                        style="display:block;width:100%;height:min(78vh,780px);border:0;background:#fff;"
+                    ></iframe>
+                </div>
+                <div class="modal-footer py-2">
+                    <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cerrar</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- =======================
         OFFCANVAS - EDITAR
    ======================== -->

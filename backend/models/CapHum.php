@@ -3630,9 +3630,14 @@ class CapHum extends Model
 
     private static function modulosGestionablesAccesoCapitalHumano(): array
     {
+        $noGestionablesDesdeModal = [
+            self::MODULO_VALIDADOR_DOCUMENTAL_CANDIDATOS,
+            self::MODULO_VALIDAR_CARTA_COMPROMISO_GESTOR,
+        ];
+
         return array_values(array_filter(
             self::MODULOS_ACCESOS_CAPITAL_HUMANO_IDS,
-            static fn ($id) => (int) $id !== self::MODULO_VALIDADOR_DOCUMENTAL_CANDIDATOS
+            static fn ($id) => !in_array((int) $id, $noGestionablesDesdeModal, true)
         ));
     }
 

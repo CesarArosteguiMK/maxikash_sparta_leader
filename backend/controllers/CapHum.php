@@ -4104,7 +4104,47 @@ class CapHum extends Controller
                     Swal.fire('Sin archivo', 'Selecciona un PDF primero.', 'info');
                     return;
                 }
-                window.open(documentoAusenciaPreviewUrl, '_blank');
+                const nombre = documentoAusenciaSeleccionado?.archivo?.name || 'Documento de ausencia';
+                mostrarModalDocumentoAusencia(nombre, documentoAusenciaPreviewUrl);
+            }
+
+            function verDocumentoAusenciaSubido(nombreArchivo) {
+                if (!nombreArchivo) {
+                    Swal.fire('Sin archivo', 'No se encontro el archivo para mostrar.', 'info');
+                    return;
+                }
+                const url = '/caphum/verDocumentoPersona?archivo=' + encodeURIComponent(nombreArchivo);
+                mostrarModalDocumentoAusencia(nombreArchivo, url);
+            }
+
+            function mostrarModalDocumentoAusencia(titulo, url) {
+                const tituloPlano = String(titulo || 'Documento de ausencia');
+                const modalEl = document.getElementById('modalDocumentoAusenciaPreview');
+                const frame = document.getElementById('modalDocumentoAusenciaPreviewFrame');
+                const tituloEl = document.getElementById('modalDocumentoAusenciaPreviewTitulo');
+
+                if (!modalEl || !frame || !tituloEl || typeof bootstrap === 'undefined') {
+                    window.open(url, '_blank');
+                    return;
+                }
+
+                if (modalEl.parentNode !== document.body) {
+                    document.body.appendChild(modalEl);
+                }
+
+                tituloEl.textContent = tituloPlano;
+                frame.src = url || 'about:blank';
+                modalEl.style.setProperty('z-index', '100090', 'important');
+                bootstrap.Modal.getOrCreateInstance(modalEl, { backdrop: false }).show();
+
+                if (!modalEl.dataset.ausenciaPreviewBound) {
+                    modalEl.dataset.ausenciaPreviewBound = '1';
+                    modalEl.addEventListener('hidden.bs.modal', function () {
+                        const iframe = document.getElementById('modalDocumentoAusenciaPreviewFrame');
+                        if (iframe) iframe.src = 'about:blank';
+                        modalEl.style.removeProperty('z-index');
+                    });
+                }
             }
 
             function abrirCargaDocumentoAusencia() {
@@ -4251,7 +4291,7 @@ class CapHum extends Controller
                                 <div class="text-muted">Fecha: ${fecha}</div>
                             </div>
                             <div class="d-flex gap-2">
-                                <button type="button" class="btn btn-sm btn-outline-primary" onclick="verArchivoSubidoPersona('${archivoAttr}')">
+                                <button type="button" class="btn btn-sm btn-outline-primary" onclick="verDocumentoAusenciaSubido('${archivoAttr}')">
                                     <i class="fa fa-eye me-1"></i>Ver
                                 </button>
                                 <button type="button" class="btn btn-sm btn-outline-danger" onclick="eliminarDocumentoAusenciaPersona(${id}, '${archivoAttr}')">
