@@ -15015,6 +15015,89 @@ class CapHum extends Controller
         echo '</div></body></html>';
     }
 
+    private function normalizarClaveUsuarioCandidato(string $texto): string
+    {
+        $texto = trim($texto);
+        if ($texto === '') {
+            return '';
+        }
+        $ascii = @iconv('UTF-8', 'ASCII//TRANSLIT//IGNORE', $texto);
+        if (is_string($ascii) && $ascii !== '') {
+            $texto = $ascii;
+        }
+        $texto = strtoupper($texto);
+        return preg_replace('/[^A-Z0-9._-]/', '', $texto) ?: '';
+    }
+
+    private function generarUsuarioDisponibleCandidato(string $usuarioBase, int $idCandidato, array $candidato = []): string
+    {
+        $base = $this->normalizarClaveUsuarioCandidato($usuarioBase);
+        $nombre = $this->normalizarClaveUsuarioCandidato((string)($candidato['nombres'] ?? ''));
+        $segundoNombre = $this->normalizarClaveUsuarioCandidato((string)($candidato['segundo_nombre'] ?? ''));
+        $apellidoP = $this->normalizarClaveUsuarioCandidato((string)($candidato['apellidop'] ?? ''));
+        $apellidoM = $this->normalizarClaveUsuarioCandidato((string)($candidato['apellidom'] ?? ''));
+
+        $candidatos = [];
+        $agregar = static function (?string $usuario) use (&$candidatos): void {
+            $usuario = strtoupper(trim((string)$usuario));
+            $usuario = substr($usuario, 0, 50);
+            if ($usuario !== '' && !in_array($usuario, $candidatos, true)) {
+                $candidatos[] = $usuario;
+            }
+        };
+
+        $agregar($base);
+        if ($nombre !== '' && $apellidoP !== '') {
+            for ($i = 2; $i <= min(strlen($nombre), 8); $i++) {
+                $agregar(substr($nombre, 0, $i) . $apellidoP);
+            }
+            $agregar($nombre . $apellidoP);
+            if ($apellidoM !== '') {
+                $agregar(substr($nombre, 0, 1) . $apellidoP . substr($apellidoM, 0, 1));
+                $agregar(substr($nombre, 0, 2) . $apellidoP . substr($apellidoM, 0, 1));
+                $agregar(substr($nombre, 0, 1) . $apellidoP . $apellidoM);
+                $agregar($nombre . $apellidoP . substr($apellidoM, 0, 1));
+                $agregar($nombre . $apellidoP . $apellidoM);
+            }
+        }
+        if ($nombre !== '' && $segundoNombre !== '' && $apellidoP !== '') {
+            $agregar(substr($nombre, 0, 1) . substr($segundoNombre, 0, 1) . $apellidoP);
+            $agregar($nombre . substr($segundoNombre, 0, 1) . $apellidoP);
+        }
+        if (!$candidatos) {
+            $agregar('CAND' . max(1, $idCandidato));
+        }
+
+        try {
+            $db = new \Core\Database();
+            $existe = static function (string $usuario) use ($db): bool {
+                $row = $db->queryOne(
+                    'SELECT id FROM __SPARTA_SECRET_REDACTED__.persona WHERE user_name = :usuario LIMIT 1',
+                    ['usuario' => $usuario]
+                );
+                return !empty($row);
+            };
+
+            foreach ($candidatos as $usuario) {
+                if (!$existe($usuario)) {
+                    return $usuario;
+                }
+            }
+
+            $semilla = $candidatos[0] ?? ('CAND' . max(1, $idCandidato));
+            foreach (['X', 'MX', 'MK', 'RH', 'SP'] as $sufijo) {
+                $usuario = substr($semilla, 0, 50 - strlen($sufijo)) . $sufijo;
+                if (!$existe($usuario)) {
+                    return $usuario;
+                }
+            }
+        } catch (\Throwable $e) {
+            error_log('CapHum::generarUsuarioDisponibleCandidato -> ' . $e->getMessage());
+        }
+
+        return $candidatos[0] ?? ('CAND' . max(1, $idCandidato));
+    }
+
     /**
      * Logica comun: alta de candidato en Gestion (persona, documentos y correo bienvenida).
      * @return array { success, mensaje, id_persona?, id_candidato }
@@ -15061,13 +15144,35 @@ class CapHum extends Controller
             'fecha_ingreso' => $fechaIngreso,
             'id_pais'       => !empty($c['id_pais']) ? (int) $c['id_pais'] : 1,
         ];
+        $usuarioDisponible = $this->generarUsuarioDisponibleCandidato((string)($dataPersona['usuario'] ?? ''), $id_candidato, $c);
+        if ($usuarioDisponible !== '' && $usuarioDisponible !== (string)($dataPersona['usuario'] ?? '')) {
+            $dataPersona['usuario'] = $usuarioDisponible;
+            try {
+                $dbUsuarioCandidato = new \Core\Database();
+                $dbUsuarioCandidato->CRUD(
+                    'UPDATE candidatos SET usuario = :usuario, fecha_actualizacion = :fecha WHERE id = :id',
+                    [
+                        'usuario' => $usuarioDisponible,
+                        'fecha' => (new \DateTimeImmutable('now', new \DateTimeZone('America/Mexico_City')))->format('Y-m-d H:i:s'),
+                        'id' => $id_candidato,
+                    ]
+                );
+                $c['usuario'] = $usuarioDisponible;
+            } catch (\Throwable $e) {
+                error_log('CapHum::ejecutarAltaCandidatoEnGestion usuario disponible -> ' . $e->getMessage());
+            }
+        }
         if (!empty($c['id_legion'])) {
             $dataPersona['asignar_legion'] = true;
             $dataPersona['id_legion'] = (int) $c['id_legion'];
         }
         $resInsert = CapHumDAO::insertPersona($dataPersona);
         if (!$resInsert['success']) {
-            return ['success' => false, 'mensaje' => $resInsert['mensaje'] ?? 'Error al dar de alta en Gestión.'];
+            $mensaje = $this->interpretarErrorDBPersona((string)($resInsert['error'] ?? ''));
+            if ($mensaje === 'Error al procesar la solicitud.') {
+                $mensaje = $resInsert['mensaje'] ?? 'Error al dar de alta en Gestión.';
+            }
+            return ['success' => false, 'mensaje' => $mensaje];
         }
         $id_persona = isset($resInsert['datos']['id']) ? (int) $resInsert['datos']['id'] : 0;
         $numeroEmpleadoFinal = trim((string) ($resInsert['datos']['numero_empleado'] ?? $numero_empleado));

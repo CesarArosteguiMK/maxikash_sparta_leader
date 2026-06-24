@@ -4519,7 +4519,6 @@ class Atlas extends Model
         self::asegurarColumna($db, 'atlas_ruta_sucursales', 'criterio_prioridad_visita', "VARCHAR(40) NULL");
         self::asegurarColumna($db, 'atlas_ruta_sucursales', 'fecha_inicio_visita', "DATE NULL");
         self::asegurarColumna($db, 'atlas_ruta_sucursales', 'fecha_fin_visita', "DATE NULL");
-        self::asegurarColumna($db, 'atlas_ruta_sucursales', 'hora_llegada', "TIME NULL");
         self::asegurarColumna($db, 'atlas_ruta_sucursales', 'estancia_valor', "INT NULL");
         self::asegurarColumna($db, 'atlas_ruta_sucursales', 'estancia_unidad', "VARCHAR(20) NULL");
     }
@@ -5166,16 +5165,14 @@ class Atlas extends Model
                 if ($estanciaUnidad === 'horas' && $estanciaValor > 5) {
                     return ['success' => false, 'mensaje' => 'Si la estancia es mayor a 5, la unidad debe ser minutos.'];
                 }
-                $horaLlegada = is_array($item) ? self::nullableHoraRuta($item['hora_llegada'] ?? null) : null;
                 $sucursalesRuta[$fkItem] = [
                     'fk_sucursal' => $fkItem,
                     'orden_visita' => is_array($item) ? (self::nullableInt($item['orden_visita'] ?? null) ?: ($idx + 1)) : ($idx + 1),
-                    'hora_programada' => $horaLlegada ?: (is_array($item) ? self::nullableHoraRuta($item['hora_programada'] ?? null) : null),
+                    'hora_programada' => is_array($item) ? self::nullableHoraRuta($item['hora_programada'] ?? null) : null,
                     'prioridad_visita' => is_array($item) ? (self::nullableStr($item['prioridad'] ?? null) ?: 'media') : 'media',
                     'criterio_prioridad_visita' => is_array($item) ? (self::nullableStr($item['criterio_prioridad'] ?? null) ?: 'enganches') : 'enganches',
                     'fecha_inicio_visita' => $fechaInicioVisita,
                     'fecha_fin_visita' => $fechaFinVisita,
-                    'hora_llegada' => $horaLlegada,
                     'estancia_valor' => max(1, $estanciaValor),
                     'estancia_unidad' => in_array($estanciaUnidad, ['minutos', 'horas'], true) ? $estanciaUnidad : 'minutos',
                 ];
@@ -5190,7 +5187,6 @@ class Atlas extends Model
                     'criterio_prioridad_visita' => self::nullableStr($input['criterio_prioridad'] ?? null) ?: 'enganches',
                     'fecha_inicio_visita' => $rutaInicio,
                     'fecha_fin_visita' => $rutaInicio,
-                    'hora_llegada' => null,
                     'estancia_valor' => 45,
                     'estancia_unidad' => 'minutos',
                 ];
@@ -5234,12 +5230,12 @@ class Atlas extends Model
                         INSERT INTO atlas_ruta_sucursales (
                             ruta_id, fk_sucursal, orden_visita, hora_programada, prioridad_visita,
                             criterio_prioridad_visita, fecha_inicio_visita, fecha_fin_visita,
-                            hora_llegada, estancia_valor, estancia_unidad, activo
+                            estancia_valor, estancia_unidad, activo
                         )
                         VALUES (
                             :ruta, :fk, :orden, :hora, :prioridad,
                             :criterio, :fecha_inicio, :fecha_fin,
-                            :hora_llegada, :estancia_valor, :estancia_unidad, 1
+                            :estancia_valor, :estancia_unidad, 1
                         )
                     ", [
                         'ruta' => $id,
@@ -5250,7 +5246,6 @@ class Atlas extends Model
                         'criterio' => $visita['criterio_prioridad_visita'] ?: 'enganches',
                         'fecha_inicio' => $visita['fecha_inicio_visita'],
                         'fecha_fin' => $visita['fecha_fin_visita'],
-                        'hora_llegada' => $visita['hora_llegada'],
                         'estancia_valor' => $visita['estancia_valor'],
                         'estancia_unidad' => $visita['estancia_unidad'],
                     ]);
@@ -5612,12 +5607,12 @@ class Atlas extends Model
                 INSERT INTO atlas_ruta_sucursales (
                     ruta_id, fk_sucursal, orden_visita, hora_programada, prioridad_visita,
                     criterio_prioridad_visita, fecha_inicio_visita, fecha_fin_visita,
-                    hora_llegada, estancia_valor, estancia_unidad, activo
+                    estancia_valor, estancia_unidad, activo
                 )
                 VALUES (
                     :ruta, :fk, :orden, :hora, :prioridad,
                     :criterio, :fecha_inicio, :fecha_fin,
-                    :hora_llegada, :estancia_valor, :estancia_unidad, 1
+                    :estancia_valor, :estancia_unidad, 1
                 )
             ", [
                 'ruta' => $rutaId,
@@ -5628,7 +5623,6 @@ class Atlas extends Model
                 'criterio' => self::nullableStr($input['criterio_prioridad'] ?? null) ?: 'enganches',
                 'fecha_inicio' => $fechaInicioVisita,
                 'fecha_fin' => $fechaFinVisita,
-                'hora_llegada' => self::nullableHoraRuta($input['hora_llegada'] ?? null),
                 'estancia_valor' => $estanciaValor,
                 'estancia_unidad' => $estanciaUnidad,
             ]);
