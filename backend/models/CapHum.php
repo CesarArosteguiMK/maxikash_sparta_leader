@@ -16,10 +16,14 @@ class CapHum extends Model
     private const MODULO_VALIDADOR_DOCUMENTAL_RRHH_CANDIDATOS = 142;
     private const MODULO_GESTION_REGISTRAR_PERSONA = 143;
     public const MODULO_VALIDAR_CARTA_COMPROMISO_GESTOR = 144;
+    public const MODULO_VER_DOCUMENTOS_SENSIBLES_RRHH = 151;
     private const MODULOS_ACCESOS_CAPITAL_HUMANO_IDS = [
         4, 5, 13, 34, 38, 42, 44, 82, 83, 86, 87, 88, 91, 93,
         94, 95, 96, 97, 98, 99, 101, 104, 105,
-        140, 141, 142, 143, 144, 147,
+        140, 141, 142, 143, 144, 147, 151,
+        3008, 3009, 3010, 3011, 3012, 3013, 3014, 3015, 3016, 3017,
+        3018, 3022, 3023, 3024, 3025, 3027, 3028, 3029, 3030, 3031,
+        3032, 3033, 3034, 3035, 3036,
     ];
     private const MODULO_CONVENIOS_DESCARGAR_EXCEL = 92;
     private const MODULO_CONVENIOS_DESCARGAR_EXCEL_NOMBRE = 'Descargar Excel';
@@ -43,7 +47,7 @@ class CapHum extends Model
         $modulos = [
             [
                 'id' => self::MODULO_ACCESOS_CAPITAL_HUMANO,
-                'nombre' => 'Accesos Capital Humano',
+                'nombre' => 'Accesos',
                 'pestana' => 'Capital Humano',
                 'descripcion' => 'Acceso al modulo de administracion de permisos de Capital Humano.',
             ],
@@ -77,7 +81,50 @@ class CapHum extends Model
                 'pestana' => 'Capital Humano',
                 'descripcion' => 'Capital Humano > Validar Documento de Compromiso del Gestor',
             ],
+            [
+                'id' => self::MODULO_VER_DOCUMENTOS_SENSIBLES_RRHH,
+                'nombre' => 'Ver documentos sensibles RR.HH.',
+                'pestana' => 'Permisos especiales',
+                'descripcion' => 'Permite abrir y descargar contratos, bancos y archivos sensibles de expedientes RR.HH.',
+            ],
         ];
+
+        $documentosRrhh = [
+            8 => 'CURP',
+            9 => 'Identificacion Oficial (INE)',
+            10 => 'RFC',
+            11 => 'Comprobante de Domicilio',
+            12 => 'Acta de Nacimiento',
+            13 => 'Certificado de Estudios',
+            14 => 'Referencias Laborales',
+            15 => 'Documento baja',
+            16 => 'Documento reingreso',
+            17 => 'Solicitud interna',
+            18 => 'CV o Solicitud de Trabajo',
+            22 => 'Constancia de Situacion Fiscal',
+            23 => 'Numero de Seguridad Social',
+            24 => 'Hoja de Retencion FONACOT o INFONAVIT',
+            25 => 'Estado de Cuenta',
+            27 => 'Carta de compromiso del Gestor',
+            28 => 'Contrato firmado',
+            29 => 'Archivo .FAD',
+            30 => 'Validacion SAT',
+            31 => 'Llave vector',
+            32 => 'Prueba centavo',
+            33 => 'Semanas cotizadas IMSS (segundos patrones)',
+            34 => 'Documento incapacidad',
+            35 => 'Documento permiso',
+            36 => 'Documento falta',
+        ];
+
+        foreach ($documentosRrhh as $idDocumento => $nombreDocumento) {
+            $modulos[] = [
+                'id' => 3000 + (int) $idDocumento,
+                'nombre' => 'Documento RRHH: ' . $nombreDocumento,
+                'pestana' => 'Permisos especiales',
+                'descripcion' => 'Permite ver, subir, descargar y eliminar documentos RR.HH. de tipo ' . $nombreDocumento . '.',
+            ];
+        }
 
         foreach ($modulos as $datos) {
             $existe = $db->queryOne(
@@ -2481,6 +2528,7 @@ class CapHum extends Model
         try {
             $db = new Database();
             self::asegurarDocumentoOtros($db);
+            self::asegurarDocumentoCartaCompromisoGestor();
 
             // Obtener documentos activos desde la base de datos
             $documentos = $db->queryAll("
@@ -2683,8 +2731,10 @@ class CapHum extends Model
                     cdp.id,
                     cdp.archivo,
                     cdp.id_documento,
+                    d.nombre AS documento_nombre,
                     DATE_FORMAT(cdp.fecha_carga, '%Y-%m-%d %H:%i') AS fecha_carga
                 FROM __SPARTA_SECRET_REDACTED__.carga_documento_persona cdp
+                LEFT JOIN __SPARTA_SECRET_REDACTED__.documento d ON d.id = cdp.id_documento
                 WHERE cdp.id_persona = :id_persona
             ";
 
@@ -3403,6 +3453,309 @@ class CapHum extends Model
         }
     }
 
+    public static function getDocumentoPersonaPorArchivo(string $archivo)
+    {
+        try {
+            $archivo = basename(trim($archivo));
+            if ($archivo === '') {
+                return self::resultado(false, 'Archivo requerido.', null);
+            }
+
+            $db = new Database();
+            $documento = $db->queryOne("
+                SELECT
+                    cdp.id,
+                    cdp.id_persona,
+                    cdp.archivo,
+                    cdp.id_documento,
+                    TRIM(CONCAT_WS(' ', p.nombres, p.segundo_nombre, p.apellidop, p.apellidom)) AS nombre_completo,
+                    p.numero_empleado,
+                    DATE_FORMAT(cdp.fecha_carga, '%Y-%m-%d %H:%i') AS fecha_carga
+                FROM __SPARTA_SECRET_REDACTED__.carga_documento_persona cdp
+                LEFT JOIN __SPARTA_SECRET_REDACTED__.persona p ON p.id = cdp.id_persona
+                WHERE cdp.archivo = :archivo
+                ORDER BY cdp.id DESC
+                LIMIT 1
+            ", ['archivo' => $archivo]);
+
+            if (!$documento) {
+                return self::resultado(false, 'Documento no encontrado.', null);
+            }
+
+            return self::resultado(true, 'Documento encontrado.', $documento);
+        } catch (\Exception $e) {
+            return self::resultado(false, 'Error al buscar documento.', null, $e->getMessage());
+        }
+    }
+
+    public static function registrarAuditoriaDocumentoSensible(array $data): void
+    {
+        try {
+            $db = new Database();
+            self::asegurarAuditoriaDocumentosSensibles($db);
+            $db->CRUD("
+                INSERT INTO __SPARTA_SECRET_REDACTED__.auditoria_documentos_sensibles_rrhh
+                    (id_usuario, id_persona, id_documento_carga, id_documento, archivo, accion, resultado, ip, user_agent, fecha_hora, detalle)
+                VALUES
+                    (:id_usuario, :id_persona, :id_documento_carga, :id_documento, :archivo, :accion, :resultado, :ip, :user_agent, :fecha_hora, :detalle)
+            ", [
+                'id_usuario' => !empty($data['id_usuario']) ? (int) $data['id_usuario'] : null,
+                'id_persona' => !empty($data['id_persona']) ? (int) $data['id_persona'] : null,
+                'id_documento_carga' => !empty($data['id_documento_carga']) ? (int) $data['id_documento_carga'] : null,
+                'id_documento' => !empty($data['id_documento']) ? (int) $data['id_documento'] : null,
+                'archivo' => mb_substr((string) ($data['archivo'] ?? ''), 0, 255),
+                'accion' => mb_substr((string) ($data['accion'] ?? 'ver'), 0, 50),
+                'resultado' => mb_substr((string) ($data['resultado'] ?? 'desconocido'), 0, 30),
+                'ip' => mb_substr((string) ($data['ip'] ?? ''), 0, 64),
+                'user_agent' => mb_substr((string) ($data['user_agent'] ?? ''), 0, 255),
+                'fecha_hora' => (string) ($data['fecha_hora'] ?? date('Y-m-d H:i:s')),
+                'detalle' => mb_substr((string) ($data['detalle'] ?? ''), 0, 255),
+            ]);
+        } catch (\Throwable $e) {
+            error_log('CapHum::registrarAuditoriaDocumentoSensible -> ' . $e->getMessage());
+        }
+    }
+
+    private static function asegurarAuditoriaDocumentosSensibles(Database $db): void
+    {
+        $db->CRUD("
+            CREATE TABLE IF NOT EXISTS __SPARTA_SECRET_REDACTED__.auditoria_documentos_sensibles_rrhh (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                id_usuario INT NULL,
+                id_persona INT NULL,
+                id_documento_carga INT NULL,
+                id_documento INT NULL,
+                archivo VARCHAR(255) NULL,
+                accion VARCHAR(50) NOT NULL,
+                resultado VARCHAR(30) NOT NULL,
+                ip VARCHAR(64) NULL,
+                user_agent VARCHAR(255) NULL,
+                fecha_hora DATETIME NOT NULL,
+                detalle VARCHAR(255) NULL,
+                KEY idx_fecha_hora (fecha_hora),
+                KEY idx_usuario (id_usuario),
+                KEY idx_documento_carga (id_documento_carga)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+        ");
+    }
+
+    public static function getTotpDocumentoSensible(int $idPersona)
+    {
+        try {
+            if ($idPersona <= 0) {
+                return self::resultado(false, 'Usuario de sesion no valido.', null);
+            }
+
+            $db = new Database();
+            self::asegurarTotpDocumentosSensibles($db);
+            $registro = $db->queryOne("
+                SELECT id_persona, secret, confirmado, creado_en, actualizado_en, ultimo_uso_en
+                FROM __SPARTA_SECRET_REDACTED__.rrhh_documentos_sensibles_totp
+                WHERE id_persona = :id_persona
+                LIMIT 1
+            ", ['id_persona' => $idPersona]);
+
+            if ($registro && !empty($registro['secret'])) {
+                $secretPlano = self::descifrarSecretoTotp((string)$registro['secret']);
+                if ($secretPlano === '') {
+                    return self::resultado(false, 'No se pudo descifrar el segundo paso.', null);
+                }
+                if (!self::esSecretoTotpCifrado((string)$registro['secret'])) {
+                    $db->CRUD("
+                        UPDATE __SPARTA_SECRET_REDACTED__.rrhh_documentos_sensibles_totp
+                        SET secret = :secret,
+                            actualizado_en = NOW()
+                        WHERE id_persona = :id_persona
+                    ", [
+                        'secret' => self::cifrarSecretoTotp($secretPlano),
+                        'id_persona' => $idPersona,
+                    ]);
+                }
+                $registro['secret'] = $secretPlano;
+            }
+
+            return self::resultado(true, 'Configuracion TOTP consultada.', $registro ?: null);
+        } catch (\Exception $e) {
+            return self::resultado(false, 'Error al consultar configuracion TOTP.', null, $e->getMessage());
+        }
+    }
+
+    public static function guardarTotpDocumentoSensible(int $idPersona, string $secret, bool $confirmado = false)
+    {
+        try {
+            if ($idPersona <= 0 || trim($secret) === '') {
+                return self::resultado(false, 'Datos TOTP incompletos.', null);
+            }
+
+            $db = new Database();
+            self::asegurarTotpDocumentosSensibles($db);
+            $secretCifrado = self::cifrarSecretoTotp(trim($secret));
+            $db->CRUD("
+                INSERT INTO __SPARTA_SECRET_REDACTED__.rrhh_documentos_sensibles_totp
+                    (id_persona, secret, confirmado, creado_en, actualizado_en)
+                VALUES
+                    (:id_persona, :secret, :confirmado, NOW(), NOW())
+                ON DUPLICATE KEY UPDATE
+                    secret = VALUES(secret),
+                    confirmado = VALUES(confirmado),
+                    actualizado_en = NOW()
+            ", [
+                'id_persona' => $idPersona,
+                'secret' => $secretCifrado,
+                'confirmado' => $confirmado ? 1 : 0,
+            ]);
+
+            return self::resultado(true, 'Configuracion TOTP guardada.', null);
+        } catch (\Exception $e) {
+            return self::resultado(false, 'Error al guardar configuracion TOTP.', null, $e->getMessage());
+        }
+    }
+
+    public static function confirmarTotpDocumentoSensible(int $idPersona)
+    {
+        try {
+            if ($idPersona <= 0) {
+                return self::resultado(false, 'Usuario de sesion no valido.', null);
+            }
+
+            $db = new Database();
+            self::asegurarTotpDocumentosSensibles($db);
+            $db->CRUD("
+                UPDATE __SPARTA_SECRET_REDACTED__.rrhh_documentos_sensibles_totp
+                SET confirmado = 1,
+                    actualizado_en = NOW(),
+                    ultimo_uso_en = NOW()
+                WHERE id_persona = :id_persona
+            ", ['id_persona' => $idPersona]);
+
+            return self::resultado(true, 'Segundo paso confirmado.', null);
+        } catch (\Exception $e) {
+            return self::resultado(false, 'Error al confirmar segundo paso.', null, $e->getMessage());
+        }
+    }
+
+    public static function resetTotpDocumentoSensible(int $idPersona)
+    {
+        try {
+            if ($idPersona <= 0) {
+                return self::resultado(false, 'Usuario no valido.', null);
+            }
+
+            $db = new Database();
+            self::asegurarTotpDocumentosSensibles($db);
+            $db->CRUD("
+                DELETE FROM __SPARTA_SECRET_REDACTED__.rrhh_documentos_sensibles_totp
+                WHERE id_persona = :id_persona
+            ", ['id_persona' => $idPersona]);
+
+            return self::resultado(true, 'Segundo paso reiniciado. El usuario debera escanear un nuevo QR.', null);
+        } catch (\Exception $e) {
+            return self::resultado(false, 'Error al reiniciar segundo paso.', null, $e->getMessage());
+        }
+    }
+
+    private static function asegurarTotpDocumentosSensibles(Database $db): void
+    {
+        $db->CRUD("
+            CREATE TABLE IF NOT EXISTS __SPARTA_SECRET_REDACTED__.rrhh_documentos_sensibles_totp (
+                id_persona INT NOT NULL PRIMARY KEY,
+                secret VARCHAR(255) NOT NULL,
+                confirmado TINYINT(1) NOT NULL DEFAULT 0,
+                creado_en DATETIME NOT NULL,
+                actualizado_en DATETIME NOT NULL,
+                ultimo_uso_en DATETIME NULL,
+                KEY idx_confirmado (confirmado)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+        ");
+        try {
+            $db->CRUD("ALTER TABLE __SPARTA_SECRET_REDACTED__.rrhh_documentos_sensibles_totp MODIFY secret VARCHAR(255) NOT NULL");
+        } catch (\Throwable $e) {
+            error_log('CapHum::asegurarTotpDocumentosSensibles alter secret -> ' . $e->getMessage());
+        }
+    }
+
+    private static function esSecretoTotpCifrado(string $valor): bool
+    {
+        return strpos($valor, 'enc:v1:') === 0;
+    }
+
+    private static function claveMaestraDocumentosSensibles(): string
+    {
+        $env = trim((string)(getenv('RRHH_TOTP_ENCRYPTION_KEY') ?: ''));
+        if ($env !== '') {
+            $decoded = base64_decode($env, true);
+            if (is_string($decoded) && strlen($decoded) >= 32) {
+                return substr($decoded, 0, 32);
+            }
+            if (ctype_xdigit($env) && strlen($env) >= 64) {
+                return substr(hex2bin(substr($env, 0, 64)), 0, 32);
+            }
+            return substr(hash('sha256', $env, true), 0, 32);
+        }
+
+        $configDir = defined('RAIZ') ? (RAIZ . DIRECTORY_SEPARATOR . 'config') : (__DIR__ . DIRECTORY_SEPARATOR . '..' . DIRECTORY_SEPARATOR . 'config');
+        $keyFile = $configDir . DIRECTORY_SEPARATOR . 'rrhh_sensitive.key';
+        if (!is_dir($configDir)) {
+            @mkdir($configDir, 0770, true);
+        }
+        if (!is_file($keyFile)) {
+            @file_put_contents($keyFile, base64_encode(random_bytes(32)), LOCK_EX);
+            @chmod($keyFile, 0600);
+        }
+        $key = trim((string)@file_get_contents($keyFile));
+        $decoded = base64_decode($key, true);
+        if (!is_string($decoded) || strlen($decoded) < 32) {
+            $decoded = random_bytes(32);
+            @file_put_contents($keyFile, base64_encode($decoded), LOCK_EX);
+            @chmod($keyFile, 0600);
+        }
+        return substr($decoded, 0, 32);
+    }
+
+    private static function cifrarSecretoTotp(string $secret): string
+    {
+        if ($secret === '' || self::esSecretoTotpCifrado($secret)) {
+            return $secret;
+        }
+        $iv = random_bytes(12);
+        $tag = '';
+        $cipher = openssl_encrypt(
+            $secret,
+            'aes-256-gcm',
+            self::claveMaestraDocumentosSensibles(),
+            OPENSSL_RAW_DATA,
+            $iv,
+            $tag
+        );
+        if ($cipher === false) {
+            throw new \RuntimeException('No se pudo cifrar el segundo paso.');
+        }
+        return 'enc:v1:' . base64_encode($iv . $tag . $cipher);
+    }
+
+    private static function descifrarSecretoTotp(string $secret): string
+    {
+        if ($secret === '' || !self::esSecretoTotpCifrado($secret)) {
+            return $secret;
+        }
+        $payload = base64_decode(substr($secret, 7), true);
+        if (!is_string($payload) || strlen($payload) <= 28) {
+            return '';
+        }
+        $iv = substr($payload, 0, 12);
+        $tag = substr($payload, 12, 16);
+        $cipher = substr($payload, 28);
+        $plain = openssl_decrypt(
+            $cipher,
+            'aes-256-gcm',
+            self::claveMaestraDocumentosSensibles(),
+            OPENSSL_RAW_DATA,
+            $iv,
+            $tag
+        );
+        return is_string($plain) ? $plain : '';
+    }
+
     /**
      * Guardar documentos de una persona
      */
@@ -3648,6 +4001,9 @@ class CapHum extends Model
 
     private static function grupoModuloAccesoCapitalHumano(int $id, string $pestana, string $nombre): array
     {
+        if ($id === 151 || ($id >= 3000 && $id < 3100)) {
+            return ['grupo' => 'Control documental RR.HH.', 'icono' => 'fa-solid fa-folder-lock', 'orden' => 28];
+        }
         if ($id >= 107 && $id <= 127) {
             return ['grupo' => 'Edicion cobranza', 'icono' => 'fa-solid fa-pen-to-square', 'orden' => 30];
         }
@@ -5531,11 +5887,12 @@ class CapHum extends Model
         $segundo_nombre  = addslashes($data['segundo_nombre'] ?? '');
         $apellidop       = addslashes($data['apellidop']);
         $apellidom       = addslashes($data['apellidom']);
+        $preservarCorreoActual = !empty($data['_preservar_correo_actual']);
         $correoRaw       = trim((string)($data['correo'] ?? ''));
-        if ($correoRaw !== '' && !filter_var($correoRaw, FILTER_VALIDATE_EMAIL)) {
+        if (!$preservarCorreoActual && $correoRaw !== '' && !filter_var($correoRaw, FILTER_VALIDATE_EMAIL)) {
             return self::resultado(false, 'El correo electrÃ³nico no tiene un formato valido.');
         }
-        $correo_sql      = $correoRaw !== '' ? "'" . addslashes($correoRaw) . "'" : 'NULL';
+        $correo_sql      = $preservarCorreoActual ? 'correo' : ($correoRaw !== '' ? "'" . addslashes($correoRaw) . "'" : 'NULL');
         $telefono_uno    = addslashes($data['telefono_uno'] ?? $data['telefono'] ?? '');
         $jefeRaw         = trim((string)($data['jefe_id'] ?? ''));
         $preservarJefeActual = $jefeRaw === '';

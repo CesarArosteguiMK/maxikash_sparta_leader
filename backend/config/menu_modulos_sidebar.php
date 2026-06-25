@@ -26,7 +26,7 @@ if (!function_exists('getMenuSidebarModulosStructure')) {
                 'icono' => 'fa-solid fa-users',
                 'subItems' => [
                     ['label' => 'Gestión', 'url' => '/caphum/gestion', 'modulos' => [4, 94, 95, 96, 97, 98, 99]],
-                    ['label' => 'Accesos Capital Humano', 'url' => '/caphum/accesosCapitalHumano', 'modulos' => [140]],
+                    ['label' => 'Accesos', 'url' => '/caphum/accesosCapitalHumano', 'modulos' => [140]],
                     ['label' => 'Mis documentos', 'url' => '/caphum/documentosColaborador', 'modulos' => [141]],
                     ['label' => 'Validar Documento de Compromiso del Gestor', 'url' => '/caphum/cartaCompromisoGestores', 'modulos' => [144]],
                     ['label' => 'Vacaciones', 'url' => '/caphum/vacaciones', 'modulos' => [147]],

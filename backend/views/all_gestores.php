@@ -6782,22 +6782,37 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
                         <label for="cargarDocPersona_tipoDocumento" class="form-label"><strong>Tipo de Documento: </strong></label>
                         <select class="form-select" id="cargarDocPersona_tipoDocumento">
                             <option value="">Seleccione un tipo de documento</option>
-                            <option value="Acta de Nacimiento">Acta de Nacimiento</option>
-                            <option value="Archivo .FAD">Archivo .FAD</option>
-                            <option value="Carta de compromiso del Gestor">Carta de compromiso del Gestor</option>
-                            <option value="Certificado de Estudios">Certificado de Estudios</option>
-                            <option value="Comprobante de Domicilio">Comprobante de Domicilio</option>
-                            <option value="Contrato firmado">Contrato firmado</option>
-                            <option value="CURP">CURP</option>
-                            <option value="Documento baja">Documento baja</option>
-                            <option value="Documento reingreso">Documento reingreso</option>
-                            <option value="Identificación Oficial (INE)">Identificación Oficial (INE)</option>
-                            <option value="Llave vector">Llave vector</option>
-                            <option value="Prueba centavo">Prueba centavo</option>
-                            <option value="Referencias Laborales">Referencias Laborales</option>
-                            <option value="RFC">RFC</option>
-                            <option value="Semanas cotizadas IMSS (segundos patrones)">Semanas cotizadas IMSS (segundos patrones)</option>
-                            <option value="Validacion SAT">Validacion SAT</option>
+                            <?php
+                            $modulosSesionDocumentoRrhh = array_map('intval', (array) ($_SESSION['modulos'] ?? []));
+                            $tiposDocumentoRrhhSelect = [
+                                12 => 'Acta de Nacimiento',
+                                29 => 'Archivo .FAD',
+                                27 => 'Carta de compromiso del Gestor',
+                                13 => 'Certificado de Estudios',
+                                11 => 'Comprobante de Domicilio',
+                                28 => 'Contrato firmado',
+                                8 => 'CURP',
+                                15 => 'Documento baja',
+                                16 => 'Documento reingreso',
+                                25 => 'Estado de cuenta',
+                                24 => 'Hoja de retencion FONACOT o INFONAVIT',
+                                9 => 'Identificación Oficial (INE)',
+                                31 => 'Llave vector',
+                                32 => 'Prueba centavo',
+                                14 => 'Referencias Laborales',
+                                10 => 'RFC',
+                                33 => 'Semanas cotizadas IMSS (segundos patrones)',
+                                17 => 'Solicitud interna',
+                                18 => 'CV o solicitud de trabajo',
+                                30 => 'Validacion SAT',
+                            ];
+                            foreach ($tiposDocumentoRrhhSelect as $idDocumentoRrhh => $nombreDocumentoRrhh):
+                                if (!in_array(3000 + (int) $idDocumentoRrhh, $modulosSesionDocumentoRrhh, true)) {
+                                    continue;
+                                }
+                            ?>
+                                <option value="<?= htmlspecialchars($nombreDocumentoRrhh, ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars($nombreDocumentoRrhh, ENT_QUOTES, 'UTF-8') ?></option>
+                            <?php endforeach; ?>
                         </select>
                     </div>
 
@@ -6833,7 +6848,7 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
                     <div class="mt-4">
                         <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
                             <h6 class="mb-0"><strong>Archivos Subidos</strong></h6>
-                            <div class="d-flex flex-wrap gap-2">
+                            <div class="d-flex flex-wrap gap-2" id="accionesDocsPersona" style="display: none;">
                                 <button type="button" class="btn btn-outline-primary btn-sm" id="btnDescargarDocsPersona" onclick="abrirMenuDescargaDocumentosPersona()" disabled>
                                     <i class="fa fa-download me-1"></i>Descargar
                                 </button>
@@ -6843,7 +6858,7 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
                             <table class="table table-bordered table-striped">
                                 <thead class="table-dark">
                                     <tr>
-                                        <th style="width: 44px;" class="text-center">
+                                        <th style="width: 44px; display: none;" class="text-center col-seleccion-docs-persona">
                                             <input type="checkbox" class="form-check-input" id="checkTodosDocsPersona" onchange="toggleSeleccionDocumentosPersona(this.checked)">
                                         </th>
                                         <th style="width: 120px;">Formato</th>

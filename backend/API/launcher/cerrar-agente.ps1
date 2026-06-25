@@ -1,16 +1,16 @@
 # Detiene la API de verificacion documentos.
-# Cierra el proceso que escucha en el puerto 8000 y limpia uvicorns huerfanos
+# Cierra el proceso que escucha en el puerto 8001 y limpia uvicorns huerfanos
 # de esta misma carpeta para evitar que quede codigo viejo en memoria.
 param(
     [switch]$Silent
 )
 
 $ErrorActionPreference = 'SilentlyContinue'
-$port = 8000
+$port = 8001
 try {
     if ($env:SPARTA_API_PORT) { $port = [int]$env:SPARTA_API_PORT }
 } catch {
-    $port = 8000
+    $port = 8001
 }
 $here = Split-Path -Parent $MyInvocation.MyCommand.Path
 $apiDir = Resolve-Path (Join-Path $here '..') -ErrorAction SilentlyContinue

@@ -66,7 +66,7 @@ Write-Host '  Sparta Ledger - arranque de servicios' -ForegroundColor Yellow
 Write-Host '============================================' -ForegroundColor Yellow
 Write-Host "  Carpeta backend: $BackendRoot"
 if ($SinVentanas) {
-    Write-Host '  Modo: sin ventanas (agentes y API 8000 ocultos)' -ForegroundColor DarkGray
+    Write-Host '  Modo: sin ventanas (agentes y API 8001 ocultos)' -ForegroundColor DarkGray
 }
 Write-Host ''
 
@@ -181,7 +181,7 @@ if (-not $nodeExe) {
 
 Start-Sleep -Milliseconds 300
 
-# --- 5) API Python verificacion documentos (uvicorn puerto 8000) ---
+# --- 5) API Python verificacion documentos (uvicorn puerto 8001) ---
 # Usar el flujo 1-click (Iniciar-API-Verificacion.bat) en vez del arranque
 # oculto directo: el 1-click incluye bootstrap del Python portable, doctor
 # con auto-fix y reintento. Asi, si alguna dependencia o el _socket.pyd
@@ -190,10 +190,10 @@ $apiDir = Join-Path $BackendRoot 'API'
 $apiOneClick = Join-Path $apiDir 'launcher\Iniciar-API-Verificacion.bat'
 $apiOcultoPs1 = Join-Path $apiDir 'launcher\iniciar-agente-oculto.ps1'
 $apiOcultoVbs = Join-Path $apiDir 'launcher\iniciar-agente-oculto.vbs'
-if (Test-PortListening -Port 8000) {
-    Write-Host '[5/5] API verificación documentos (8000) ya está activa.' -ForegroundColor Gray
+if (Test-PortListening -Port 8001) {
+    Write-Host '[5/5] API verificación documentos (8001) ya está activa.' -ForegroundColor Gray
 } elseif (Test-Path -LiteralPath $apiOneClick) {
-    Write-Step '[5/5] API verificación documentos (1-click con bootstrap -> 8000)...'
+    Write-Step '[5/5] API verificación documentos (1-click con bootstrap -> 8001)...'
     # Si la maquina recien acaba de descargar Python portable, la primera
     # corrida puede instalar paquetes y tardar varios minutos. Por eso
     # ampliamos el timeout y -ademas- mostramos el progreso si hay consola.
@@ -205,29 +205,29 @@ if (Test-PortListening -Port 8000) {
         Start-Process -FilePath 'cmd.exe' -ArgumentList $apiArgs `
             -WorkingDirectory (Split-Path -Parent $apiOneClick) -WindowStyle Minimized
     }
-    if (Wait-PortListening -Port 8000 -TimeoutSec 90) {
-        Write-Host '      [OK] Puerto 8000 en LISTEN.' -ForegroundColor Green
+    if (Wait-PortListening -Port 8001 -TimeoutSec 90) {
+        Write-Host '      [OK] Puerto 8001 en LISTEN.' -ForegroundColor Green
     } else {
-        Write-Host '      [AVISO] No levanto en 8000 dentro de 90s. Si es la primera vez puede seguir instalando dependencias.' -ForegroundColor DarkYellow
+        Write-Host '      [AVISO] No levanto en 8001 dentro de 90s. Si es la primera vez puede seguir instalando dependencias.' -ForegroundColor DarkYellow
         Write-Host '             Logs: backend\API\logs\bootstrap-python-*.log y instalar-*.log' -ForegroundColor DarkYellow
     }
 } elseif (Test-Path -LiteralPath $apiOcultoPs1) {
-    Write-Step '[5/5] API verificación documentos (PS oculto -> 8000)...'
+    Write-Step '[5/5] API verificación documentos (PS oculto -> 8001)...'
     Start-Process -FilePath 'powershell.exe' -ArgumentList @(
         '-NoProfile', '-ExecutionPolicy', 'Bypass', '-WindowStyle', 'Hidden', '-File', $apiOcultoPs1
     ) -WorkingDirectory $apiDir -WindowStyle Hidden
-    if (Wait-PortListening -Port 8000 -TimeoutSec 35) {
-        Write-Host '      [OK] Puerto 8000 en LISTEN.' -ForegroundColor Green
+    if (Wait-PortListening -Port 8001 -TimeoutSec 35) {
+        Write-Host '      [OK] Puerto 8001 en LISTEN.' -ForegroundColor Green
     } else {
-        Write-Host '      [AVISO] No levantó en 8000 dentro de 35s.' -ForegroundColor DarkYellow
+        Write-Host '      [AVISO] No levantó en 8001 dentro de 35s.' -ForegroundColor DarkYellow
     }
 } elseif (Test-Path -LiteralPath $apiOcultoVbs) {
-    Write-Step '[5/5] API verificación documentos (solo .vbs -> 8000)...'
+    Write-Step '[5/5] API verificación documentos (solo .vbs -> 8001)...'
     Start-Process -FilePath 'wscript.exe' -ArgumentList @('//nologo', $apiOcultoVbs) -WorkingDirectory $apiDir -WindowStyle Hidden
-    if (Wait-PortListening -Port 8000 -TimeoutSec 35) {
-        Write-Host '      [OK] Puerto 8000 en LISTEN.' -ForegroundColor Green
+    if (Wait-PortListening -Port 8001 -TimeoutSec 35) {
+        Write-Host '      [OK] Puerto 8001 en LISTEN.' -ForegroundColor Green
     } else {
-        Write-Host '      [AVISO] No levantó en 8000 dentro de 35s.' -ForegroundColor DarkYellow
+        Write-Host '      [AVISO] No levantó en 8001 dentro de 35s.' -ForegroundColor DarkYellow
     }
 } else {
     Write-Host '[SKIP] No hay API\launcher\Iniciar-API-Verificacion.bat ni iniciar-agente-oculto.ps1/.vbs' -ForegroundColor DarkYellow
@@ -239,7 +239,7 @@ Write-Host '  3001  documentacion candidato (Node)'
 Write-Host '  3100  agente Segundometro (Node)'
 Write-Host '  3110  agente correos primeros pagos (Node)'
 Write-Host '  3120  agente Gastos cobranza (Node)'
-Write-Host '  8000  API verificacion documentos (Python global o venv + uvicorn; Docker opcional)'
+Write-Host '  8001  API verificacion documentos (Python global o venv + uvicorn; Docker opcional)'
 Write-Host ''
 Write-Host 'Para detener: backend\services\servicios-locales\cerrar-todos-los-servicios.bat'
 Write-Host ''

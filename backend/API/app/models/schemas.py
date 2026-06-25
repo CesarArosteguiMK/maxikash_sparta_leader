@@ -128,6 +128,8 @@ class ComprobanteResponse(BaseModel):
     alertas: List[str] = []
     recomendacion: str
     tiempo_proceso_ms: int
+    motor_ia: Optional[str] = None
+    modelo_ia: Optional[str] = None
 
 
 class CheckML(BaseModel):

@@ -7,7 +7,7 @@ title Sparta Ledger - Iniciar todos los servicios locales
 for %%I in ("%~dp0..\..") do set "BACKEND=%%~fI"
 
 echo.
-echo  Incluye API verificacion documentos (puerto 8000) + agentes Node (3001, 3100, 3110, 3120).
+echo  Incluye API verificacion documentos (puerto 8001) + agentes Node (3001, 3100, 3110, 3120).
 echo  Carpeta backend: %BACKEND%
 echo.
 

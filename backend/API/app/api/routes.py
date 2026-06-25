@@ -3,6 +3,7 @@
 Endpoints de la API REST.
 """
 import asyncio
+import json
 import re
 import time
 import unicodedata
@@ -29,6 +30,13 @@ from app.services.document_crosscheck import (
     es_documento_nss, es_tarjeta_nss, es_documento_curp, es_documento_constancia_fiscal, es_documento_acta_nacimiento,
     pdf_paginas_a_png_bytes,
 )
+from app.services.alibaba_document_ai import (
+    AlibabaDocumentAI,
+    quick_result_to_summary,
+    summary_is_usable,
+    normalize_text,
+    is_digital_bank,
+)
 from app.core.config import get_settings
 
 try:
@@ -46,6 +54,829 @@ api_key_header = APIKeyHeader(name=settings.api_key_header, auto_error=False)
 EXTENSIONES_PERMITIDAS = {"jpg", "jpeg", "png", "webp", "tiff"}
 EXTENSIONES_COMPROBANTE = {"jpg", "jpeg", "png", "webp", "tiff", "pdf"}
 MAX_SIZE_BYTES = settings.max_image_size_mb * 1024 * 1024
+
+
+def _doc_ai_alibaba_activo() -> bool:
+    return str(getattr(settings, "doc_ai_engine", "legacy") or "legacy").strip().lower() == "alibaba"
+
+
+def _crear_alibaba_ai() -> Optional[AlibabaDocumentAI]:
+    api_key = str(getattr(settings, "alibaba_api_key", "") or "").strip()
+    base_url = str(getattr(settings, "alibaba_base_url", "") or "").strip()
+    model = str(getattr(settings, "alibaba_model", "") or "").strip()
+    if not api_key or not base_url or not model:
+        return None
+    return AlibabaDocumentAI(
+        api_key=api_key,
+        base_url=base_url,
+        model=model,
+        fallback_models=str(getattr(settings, "alibaba_fallback_models", "") or ""),
+        retry_delays=str(getattr(settings, "alibaba_retry_delays", "0") or "0"),
+        timeout_seconds=int(getattr(settings, "doc_ai_quick_timeout_seconds", 35) or 35),
+        max_pages=int(getattr(settings, "doc_ai_quick_max_pages", 3) or 3),
+        dpi=int(getattr(settings, "doc_ai_quick_dpi", 150) or 150),
+    )
+
+
+def _crear_alibaba_ai_crosscheck() -> Optional[AlibabaDocumentAI]:
+    api_key = str(getattr(settings, "alibaba_api_key", "") or "").strip()
+    base_url = str(getattr(settings, "alibaba_base_url", "") or "").strip()
+    model = str(getattr(settings, "alibaba_crosscheck_model", "") or "").strip()
+    if not model:
+        model = str(getattr(settings, "alibaba_model", "") or "").strip()
+    if not api_key or not base_url or not model:
+        return None
+    fallback_models = str(getattr(settings, "alibaba_crosscheck_fallback_models", "") or "").strip()
+    return AlibabaDocumentAI(
+        api_key=api_key,
+        base_url=base_url,
+        model=model,
+        fallback_models=fallback_models,
+        retry_delays=str(getattr(settings, "alibaba_retry_delays", "0") or "0"),
+        timeout_seconds=int(getattr(settings, "doc_ai_crosscheck_timeout_seconds", 90) or 90),
+        max_pages=int(getattr(settings, "doc_ai_crosscheck_max_pages_per_document", 2) or 2),
+        dpi=int(getattr(settings, "doc_ai_crosscheck_dpi", 135) or 135),
+    )
+
+
+async def _validar_rapido_alibaba_o_none(file_bytes: bytes, filename: str, expected_doc_type: str) -> Optional[Dict[str, Any]]:
+    if not _doc_ai_alibaba_activo():
+        return None
+    ai = _crear_alibaba_ai()
+    if ai is None or not ai.enabled():
+        mensaje = "DOC_AI_ENGINE=alibaba esta activo, pero faltan ALIBABA_API_KEY, ALIBABA_BASE_URL o ALIBABA_MODEL."
+        if bool(getattr(settings, "doc_ai_legacy_fallback", True)):
+            logger.warning(mensaje + " Se usara motor legacy por fallback.")
+            return None
+        raise HTTPException(status_code=503, detail=mensaje)
+    timeout = int(getattr(settings, "doc_ai_quick_timeout_seconds", 35) or 35) + 5
+    try:
+        return await asyncio.wait_for(
+            asyncio.to_thread(ai.quick_verify, file_bytes, filename, expected_doc_type),
+            timeout=timeout,
+        )
+    except Exception as exc:
+        if bool(getattr(settings, "doc_ai_legacy_fallback", True)):
+            logger.exception(f"Alibaba document AI fallo para {expected_doc_type}; usando fallback legacy: {exc}")
+            return None
+        logger.exception(f"Alibaba document AI fallo para {expected_doc_type}: {exc}")
+        raise HTTPException(status_code=502, detail="No se pudo validar el documento con Alibaba. Intenta de nuevo.")
+
+
+def _ai_extraccion(res: Dict[str, Any]) -> Dict[str, Any]:
+    return res.get("extraction") or {}
+
+
+def _ai_campos(res: Dict[str, Any]) -> Dict[str, Any]:
+    return _ai_extraccion(res).get("campos") or {}
+
+
+def _ai_validacion(res: Dict[str, Any]) -> Dict[str, Any]:
+    return res.get("validation") or {}
+
+
+def _ai_errores(res: Dict[str, Any]) -> List[str]:
+    return list(_ai_validacion(res).get("errores") or [])
+
+
+def _ai_advertencias(res: Dict[str, Any]) -> List[str]:
+    return list(_ai_validacion(res).get("advertencias") or [])
+
+
+def _ai_mensaje(res: Dict[str, Any], fallback: str) -> str:
+    return str(_ai_validacion(res).get("mensaje_usuario") or fallback)
+
+
+def _ai_fecha_a_date(value: Optional[str]):
+    if not value:
+        return None
+    for fmt in ("%Y-%m-%d", "%d/%m/%Y", "%d-%m-%Y"):
+        try:
+            return datetime.strptime(str(value).strip(), fmt).date()
+        except ValueError:
+            pass
+    return None
+
+
+def _ai_meses_desde(value: Optional[str]) -> Optional[int]:
+    fecha = _ai_fecha_a_date(value)
+    if not fecha:
+        return None
+    hoy = datetime.now().date()
+    meses = (hoy.year - fecha.year) * 12 + (hoy.month - fecha.month)
+    if hoy.day < fecha.day:
+        meses -= 1
+    return max(0, meses)
+
+
+def _ai_metadata(res: Dict[str, Any]) -> Dict[str, Any]:
+    return {
+        "motor_ia": "alibaba",
+        "modelo_ia": res.get("model"),
+        "tiempo_ms": int(res.get("elapsed_ms") or 0),
+    }
+
+
+def _normalizar_dictamen_v2(value: Any) -> str:
+    text = str(value or "").strip().lower()
+    if text in {"aprobado", "requiere_revision", "rechazado"}:
+        return text
+    if "rechaz" in text or "no_coincide" in text:
+        return "rechazado"
+    if "revision" in text or "revisar" in text:
+        return "requiere_revision"
+    return "requiere_revision"
+
+
+def _respuesta_alibaba_expediente(res: Dict[str, Any], nombre_candidato_registro: Optional[str] = None) -> Dict[str, Any]:
+    analysis = res.get("analysis") or {}
+    docs = analysis.get("documentos") if isinstance(analysis.get("documentos"), dict) else {}
+    comps = analysis.get("comparaciones") if isinstance(analysis.get("comparaciones"), list) else []
+    coincidencias = analysis.get("coincidencias") if isinstance(analysis.get("coincidencias"), dict) else {}
+    alertas_raw = analysis.get("alertas") if isinstance(analysis.get("alertas"), list) else []
+    recomendaciones = analysis.get("recomendaciones") if isinstance(analysis.get("recomendaciones"), list) else []
+    dictamen = _normalizar_dictamen_v2(analysis.get("dictamen"))
+
+    for meta in analysis.get("documentos_enviados") or []:
+        if not isinstance(meta, dict):
+            continue
+        key = str(meta.get("key") or "").strip()
+        if not key:
+            continue
+        doc = docs.get(key)
+        if not isinstance(doc, dict):
+            doc = {}
+            docs[key] = doc
+        doc.setdefault("archivo", meta.get("filename"))
+        doc.setdefault("paginas_pdf", meta.get("pages_pdf"))
+        doc.setdefault("paginas_analizadas", meta.get("pages_rendered"))
+
+    for comp in comps:
+        if not isinstance(comp, dict):
+            continue
+        if comp.get("coincide") is False and _v2_comp_curp_compatible(comp):
+            comp["coincide"] = True
+            comp["severidad"] = "aviso"
+            comp["mensaje"] = (
+                "CURP base consistente entre documentos; la variacion detectada esta "
+                "en caracteres finales susceptibles a lectura OCR/IA."
+            )
+
+    evaluables = [c for c in comps if isinstance(c, dict) and isinstance(c.get("coincide"), bool)]
+    if evaluables:
+        checks_totales = len(evaluables)
+        checks_ok = sum(1 for c in evaluables if c.get("coincide") is True)
+        checks_fallas = max(0, checks_totales - checks_ok)
+    else:
+        checks_totales = int(coincidencias.get("total") or 0)
+        checks_ok = int(coincidencias.get("ok") or 0)
+        checks_fallas = int(coincidencias.get("fallas") or max(0, checks_totales - checks_ok))
+
+    alertas: List[str] = [str(a) for a in alertas_raw if str(a or "").strip()]
+    hay_curp_critico = any(
+        comp.get("coincide") is False
+        and _v2_is_curp_comparison(comp)
+        and str(comp.get("severidad") or "").lower() in {"critico", "critica", "alto"}
+        for comp in evaluables
+    )
+    if not hay_curp_critico:
+        alertas = [
+            alerta for alerta in alertas
+            if "CURP NO COINCIDE ENTRE DOCUMENTOS" not in normalize_text(alerta)
+        ]
+    for comp in evaluables:
+        if comp.get("coincide") is False and str(comp.get("severidad") or "").lower() in {"critico", "critica", "alto"}:
+            msg = str(comp.get("mensaje") or comp.get("etiqueta") or "Comparacion critica no coincide").strip()
+            if msg and msg not in alertas:
+                alertas.append(msg)
+
+    if not analysis.get("resumen_final"):
+        if dictamen == "aprobado" and checks_fallas == 0:
+            analysis["resumen_final"] = (
+                "La informacion recibida es consistente entre los documentos revisados, "
+                "cumple con las reglas documentales establecidas y corresponde al candidato registrado."
+            )
+        else:
+            analysis["resumen_final"] = (
+                "El expediente requiere revision documental antes del dictamen final. "
+                "Revise las alertas y comparaciones marcadas por el motor V2."
+            )
+
+    confianza = analysis.get("confianza")
+    try:
+        confianza_num = int(round(float(confianza)))
+    except Exception:
+        confianza_num = int(round((checks_ok / checks_totales) * 100)) if checks_totales else None
+
+    todo_coincide = bool(dictamen == "aprobado" and checks_totales > 0 and checks_ok == checks_totales and not alertas)
+    datos_ref = analysis.get("datos_referencia") if isinstance(analysis.get("datos_referencia"), dict) else {}
+
+    return {
+        "todo_coincide": todo_coincide,
+        "foto_rechazada": False,
+        "curp_definitivo": datos_ref.get("curp_principal"),
+        "curp_fuente": "motor_v2_alibaba",
+        "checks_ok": checks_ok,
+        "checks_totales": checks_totales,
+        "checks_fallas": checks_fallas,
+        "alertas": alertas,
+        "recomendaciones": recomendaciones,
+        "identificacion_frente_score": confianza_num,
+        "identificacion_reverso_score": confianza_num,
+        "comparaciones": {},
+        "comparaciones_v2": comps,
+        "documentos_analizados_v2": docs,
+        "datos_referencia_v2": datos_ref,
+        "coincidencias_v2": {"total": checks_totales, "ok": checks_ok, "fallas": checks_fallas},
+        "resumen_ia": str(analysis.get("resumen_final") or ""),
+        "dictamen_ia": dictamen,
+        "nombre_ocr": datos_ref.get("nombre_principal_documentos") or nombre_candidato_registro,
+        "anio_nacimiento": None,
+        "tipo_documento": "expediente_v2",
+        "documentos_procesados": {k: True for k in docs.keys()},
+        "datos_extraidos": {"motor_v2": analysis},
+        "tiempo_proceso_ms": int(res.get("elapsed_ms") or 0),
+        "tiempos_fase_ms": {"alibaba_crosscheck_ms": int(res.get("elapsed_ms") or 0)},
+        "modo_verificacion": "v2_alibaba_crosscheck",
+        "motor_ia": "alibaba",
+        "modelo_ia": res.get("model"),
+        "nombre_candidato_registro": nombre_candidato_registro,
+    }
+
+
+def _v2_first_value(data: Dict[str, Any], keys: List[str]) -> Optional[str]:
+    for key in keys:
+        value = data.get(key)
+        if isinstance(value, str) and value.strip():
+            return value.strip()
+        if value is not None and not isinstance(value, (dict, list)):
+            text = str(value).strip()
+            if text:
+                return text
+    return None
+
+
+def _v2_bool(value: Any) -> Optional[bool]:
+    if isinstance(value, bool):
+        return value
+    if value is None:
+        return None
+    text = str(value).strip().lower()
+    if text in {"1", "true", "si", "yes", "ok"}:
+        return True
+    if text in {"0", "false", "no"}:
+        return False
+    return None
+
+
+def _v2_clean_id(value: Optional[str]) -> Optional[str]:
+    clean = re.sub(r"[^A-Z0-9]", "", normalize_text(value or ""))
+    return clean or None
+
+
+def _v2_edit_distance_limited(a: str, b: str, limit: int = 2) -> int:
+    if abs(len(a) - len(b)) > limit:
+        return limit + 1
+    previous = list(range(len(b) + 1))
+    for i, ca in enumerate(a, 1):
+        current = [i]
+        row_min = current[0]
+        for j, cb in enumerate(b, 1):
+            cost = 0 if ca == cb else 1
+            value = min(previous[j] + 1, current[j - 1] + 1, previous[j - 1] + cost)
+            current.append(value)
+            row_min = min(row_min, value)
+        if row_min > limit:
+            return limit + 1
+        previous = current
+    return previous[-1]
+
+
+def _v2_curp_similarity(a: Optional[str], b: Optional[str]) -> tuple[bool, str, str]:
+    ca = _v2_clean_id(a)
+    cb = _v2_clean_id(b)
+    if not ca or not cb:
+        return False, "critico", "CURP sin dato suficiente para comparar."
+    if ca == cb:
+        return True, "ok", "CURP consistente entre documentos."
+    # En escaneos y lecturas visuales, Qwen suele confundir caracteres al final
+    # del CURP (G/O/C/L/R) o insertar un caracter extra. Si el nucleo de identidad
+    # coincide (iniciales, fecha, sexo y entidad), no lo marcamos como falla critica;
+    # se conserva la lectura original como observacion.
+    if 17 <= len(ca) <= 19 and 17 <= len(cb) <= 19 and ca[:13] == cb[:13]:
+        return True, "aviso", (
+            "CURP base consistente entre documentos; la variacion detectada esta "
+            "en caracteres finales susceptibles a lectura OCR/IA."
+        )
+    if (
+        17 <= len(ca) <= 19
+        and 17 <= len(cb) <= 19
+        and ca[:12] == cb[:12]
+        and _v2_edit_distance_limited(ca, cb, 2) <= 2
+    ):
+        return True, "aviso", (
+            "CURP base consistente entre documentos; la variacion detectada esta "
+            "en caracteres susceptibles a lectura OCR/IA."
+        )
+    if (
+        17 <= len(ca) <= 19
+        and 17 <= len(cb) <= 19
+        and ca[:11] == cb[:11]
+        and ca[-2:] == cb[-2:]
+        and _v2_edit_distance_limited(ca, cb, 3) <= 3
+    ):
+        return True, "aviso", (
+            "CURP base consistente entre documentos; la variacion detectada esta "
+            "en caracteres susceptibles a lectura OCR/IA."
+        )
+    if len(ca) == 18 and len(cb) == 18 and ca[:14] == cb[:14]:
+        return True, "aviso", (
+            "CURP base consistente entre documentos; la variacion detectada esta "
+            "en caracteres finales susceptibles a lectura OCR/IA."
+        )
+    return False, "critico", "CURP no coincide entre documentos."
+
+
+def _v2_is_curp_comparison(comp: Dict[str, Any]) -> bool:
+    categoria = normalize_text(str(comp.get("categoria") or ""))
+    etiqueta = normalize_text(str(comp.get("etiqueta") or ""))
+    return categoria == "CURP" or "CURP CONTRA" in etiqueta or "CURP ENTRE" in etiqueta
+
+
+def _v2_comp_curp_compatible(comp: Dict[str, Any]) -> bool:
+    if not _v2_is_curp_comparison(comp):
+        return False
+    ok, _, _ = _v2_curp_similarity(str(comp.get("valor_a") or ""), str(comp.get("valor_b") or ""))
+    return bool(ok)
+
+
+def _v2_choose_curp_principal(values: List[str]) -> Optional[str]:
+    cleaned_all = [_v2_clean_id(v) for v in values]
+    cleaned_all = [v for v in cleaned_all if v and 17 <= len(v) <= 19]
+    cleaned = [v for v in cleaned_all if len(v) == 18]
+    if not cleaned:
+        cleaned = cleaned_all
+    valid = [v for v in cleaned if validar_curp(v)[0]]
+    if valid:
+        counts: Dict[str, int] = {}
+        for value in valid:
+            counts[value] = counts.get(value, 0) + 1
+        return sorted(valid, key=lambda v: (-counts.get(v, 0), valid.index(v)))[0]
+    counts = {}
+    for value in cleaned:
+        counts[value] = counts.get(value, 0) + 1
+    return sorted(cleaned, key=lambda v: (-counts.get(v, 0), cleaned.index(v)))[0]
+
+
+def _v2_pdf_page_count(doc: Dict[str, Any], summary: Any = None) -> Optional[int]:
+    if isinstance(summary, dict):
+        for key in ("paginas_pdf", "paginas", "paginas_analizadas"):
+            try:
+                value = summary.get(key)
+                if value:
+                    return int(value)
+            except Exception:
+                pass
+        previo = summary.get("validacion_previa")
+        if isinstance(previo, dict):
+            for key in ("paginas_pdf", "paginas", "paginas_analizadas"):
+                try:
+                    value = previo.get(key)
+                    if value:
+                        return int(value)
+                except Exception:
+                    pass
+    file_bytes = doc.get("bytes") or b""
+    filename = str(doc.get("filename") or "")
+    if not file_bytes or not filename.lower().endswith(".pdf"):
+        return None
+    try:
+        pdf_doc = fitz.open(stream=file_bytes, filetype="pdf")
+        count = int(pdf_doc.page_count or 0)
+        pdf_doc.close()
+        return count or None
+    except Exception:
+        return None
+
+
+def _v2_names_match(a: Optional[str], b: Optional[str]) -> bool:
+    na = normalize_text(a or "")
+    nb = normalize_text(b or "")
+    if not na or not nb:
+        return False
+    if na == nb:
+        return True
+    stop = {"DE", "DEL", "LA", "LAS", "LOS", "Y"}
+    ta = {t for t in na.split() if len(t) > 1 and t not in stop}
+    tb = {t for t in nb.split() if len(t) > 1 and t not in stop}
+    if not ta or not tb:
+        return False
+    overlap = ta.intersection(tb)
+    return len(overlap) >= 2 and (len(overlap) / max(1, min(len(ta), len(tb)))) >= 0.80
+
+
+def _v2_months_value(data: Dict[str, Any]) -> Optional[int]:
+    for key in ("meses_antiguedad", "antiguedad_meses"):
+        try:
+            value = data.get(key)
+            if value is not None and str(value).strip() != "":
+                return int(value)
+        except Exception:
+            pass
+    return None
+
+
+def _resultado_v2_reglas_expediente(
+    documents: List[Dict[str, Any]],
+    nombre_candidato: Optional[str],
+    motivo: str = "rules",
+) -> Dict[str, Any]:
+    start = time.time()
+    nombre_registro = str(nombre_candidato or "").strip()
+    docs_out: Dict[str, Any] = {}
+    readable: Dict[str, Dict[str, Any]] = {}
+    comparaciones: List[Dict[str, Any]] = []
+    alertas: List[str] = []
+    recomendaciones: List[str] = []
+    curp_principal_v2: Optional[str] = None
+
+    def add_comp(categoria: str, etiqueta: str, doc_a: str, val_a: Any, doc_b: str, val_b: Any, coincide: bool, severidad: str, mensaje: str) -> None:
+        comparaciones.append({
+            "categoria": categoria,
+            "etiqueta": etiqueta,
+            "documento_a": doc_a,
+            "valor_a": val_a,
+            "documento_b": doc_b,
+            "valor_b": val_b,
+            "coincide": bool(coincide),
+            "severidad": severidad,
+            "mensaje": mensaje,
+        })
+
+    for doc in documents:
+        key = str(doc.get("key") or "").strip()
+        label = str(doc.get("label") or key).strip()
+        filename = str(doc.get("filename") or f"{key}.pdf").strip()
+        summary = doc.get("summary")
+        previo = summary.get("validacion_previa") if isinstance(summary, dict) and isinstance(summary.get("validacion_previa"), dict) else {}
+        page_count = _v2_pdf_page_count(doc, summary)
+
+        out = {
+            "estado": "no_leido",
+            "tipo_detectado": previo.get("tipo_documento_detectado") or previo.get("tipo_documento"),
+            "archivo": filename,
+            "paginas_pdf": page_count,
+            "nombre": None,
+            "curp": None,
+            "rfc": None,
+            "nss": None,
+            "fecha_nacimiento": _v2_first_value(previo, ["fecha_nacimiento"]),
+            "fecha_emision": _v2_first_value(previo, ["fecha_emision", "fecha_expedicion", "fecha_documento"]),
+            "domicilio": _v2_first_value(previo, ["domicilio", "direccion"]),
+            "banco": _v2_first_value(previo, ["banco_detectado", "banco"]),
+            "clabe": _v2_first_value(previo, ["clabe"]),
+            "numero_cuenta": _v2_first_value(previo, ["numero_cuenta", "cuenta"]),
+            "regimen_fiscal": _v2_first_value(previo, ["regimen_fiscal"]),
+            "mensaje": None,
+            "observaciones": [],
+        }
+
+        if not summary_is_usable(summary):
+            out["mensaje"] = "Sin lectura V2 previa suficiente para comparacion automatica."
+            docs_out[key] = out
+            alertas.append(f"{label}: falta lectura V2 previa suficiente para compararlo en el cruce final.")
+            continue
+
+        out["nombre"] = _v2_first_value(previo, ["nombre", "nombre_completo", "nombre_propietario", "nombre_titular", "titular_cuenta"])
+        out["curp"] = _v2_first_value(previo, ["curp", "curp_extraido", "curp_lectura_ia"])
+        out["rfc"] = _v2_first_value(previo, ["rfc"])
+        out["nss"] = _v2_first_value(previo, ["nss", "nss_extraido", "nss_lectura_ia"])
+        out["mensaje"] = _v2_first_value(previo, ["mensaje", "motivo_rechazo"])
+        out["observaciones"] = list(previo.get("alertas") or previo.get("notas") or previo.get("observaciones") or [])
+        out["estado"] = "coincide"
+
+        rechazado = _v2_bool(previo.get("rechazado"))
+        valido = _v2_bool(previo.get("valido"))
+        revision_manual = _v2_bool(previo.get("revision_manual"))
+        if rechazado is True:
+            out["estado"] = "no_coincide"
+            add_comp("Regla documental", f"{label} rechazado por lectura rapida", key, out["mensaje"], "Regla", "Documento valido", False, "critico", out["mensaje"] or f"{label} no cumple la regla documental.")
+        elif valido is False or revision_manual is True:
+            out["estado"] = "requiere_revision"
+            msg = out["mensaje"] or f"{label} requiere revision manual por lectura V2."
+            add_comp("Regla documental", f"{label} requiere revision", key, msg, "Regla", "Lectura automatica suficiente", False, "aviso", msg)
+
+        if nombre_registro and out["nombre"] and key != "comprobante_domicilio":
+            ok_name = _v2_names_match(nombre_registro, out["nombre"])
+            add_comp(
+                "Nombre",
+                f"Nombre registro vs {label}",
+                "Registro",
+                nombre_registro,
+                key,
+                out["nombre"],
+                ok_name,
+                "ok" if ok_name else "critico",
+                f"El nombre de {label} coincide con el candidato registrado." if ok_name else f"El nombre leido en {label} no coincide con el candidato registrado.",
+            )
+            if not ok_name:
+                out["estado"] = "no_coincide"
+
+        docs_out[key] = out
+        readable[key] = out
+
+    for key, max_months, label in (
+        ("curp", 2, "CURP no mayor a 2 meses"),
+        ("comprobante_domicilio", 3, "Comprobante de domicilio no mayor a 3 meses"),
+        ("constancia_fiscal", 2, "Constancia fiscal no mayor a 2 meses"),
+    ):
+        summary = next((d.get("summary") for d in documents if str(d.get("key") or "") == key), None)
+        previo = summary.get("validacion_previa") if isinstance(summary, dict) and isinstance(summary.get("validacion_previa"), dict) else {}
+        months = _v2_months_value(previo)
+        if months is None:
+            continue
+        ok = months <= max_months
+        add_comp("Regla documental", label, key, f"{months} meses", "Regla", f"maximo {max_months} meses", ok, "ok" if ok else "critico", label if ok else f"{label}: el documento tiene {months} meses de antiguedad.")
+        if not ok and key in docs_out:
+            docs_out[key]["estado"] = "no_coincide"
+
+    solicitud_pages = docs_out.get("solicitud_interna", {}).get("paginas_pdf")
+    if solicitud_pages is not None:
+        ok = int(solicitud_pages) >= 2
+        add_comp("Regla documental", "Solicitud interna minimo 2 hojas", "solicitud_interna", solicitud_pages, "Regla", "2 hojas", ok, "ok" if ok else "critico", "La solicitud interna cumple minimo 2 hojas." if ok else "La solicitud interna debe tener minimo 2 hojas.")
+
+    fiscal_pages = docs_out.get("constancia_fiscal", {}).get("paginas_pdf")
+    if fiscal_pages is not None:
+        ok = int(fiscal_pages) >= 2
+        add_comp("Regla documental", "Constancia fiscal con 2 hojas", "constancia_fiscal", fiscal_pages, "Regla", "2 hojas", ok, "ok" if ok else "critico", "La constancia fiscal incluye 2 hojas." if ok else "La constancia fiscal debe incluir sus 2 hojas completas.")
+
+    fiscal_summary = next((d.get("summary") for d in documents if str(d.get("key") or "") == "constancia_fiscal"), None)
+    fiscal_prev = fiscal_summary.get("validacion_previa") if isinstance(fiscal_summary, dict) and isinstance(fiscal_summary.get("validacion_previa"), dict) else {}
+    regimen_ok = _v2_bool(fiscal_prev.get("regimen_sueldos_salarios"))
+    if regimen_ok is not None:
+        add_comp("Regla documental", "Regimen de sueldos y salarios", "constancia_fiscal", fiscal_prev.get("regimen_fiscal") or fiscal_prev.get("regimenes_fiscales"), "Regla", "Sueldos y salarios", regimen_ok, "ok" if regimen_ok else "critico", "La constancia fiscal confirma regimen de sueldos y salarios." if regimen_ok else "La constancia fiscal no confirma el regimen de sueldos y salarios.")
+
+    banco = (docs_out.get("__SPARTA_SECRET_REDACTED__") or {}).get("banco")
+    if banco:
+        ok = not is_digital_bank(str(banco))
+        add_comp("Banco", "Banco fisico aceptado", "__SPARTA_SECRET_REDACTED__", banco, "Regla", "Banco fisico", ok, "ok" if ok else "critico", "El estado de cuenta corresponde a banco fisico." if ok else f"El banco detectado no es aceptado para carga: {banco}.")
+
+    for field, label in (("curp", "CURP"), ("rfc", "RFC"), ("nss", "NSS")):
+        values = [(k, _v2_clean_id(v.get(field))) for k, v in readable.items() if v.get(field)]
+        values = [(k, v) for k, v in values if v]
+        if len(values) < 2:
+            continue
+        if field == "curp":
+            curp_principal_v2 = _v2_choose_curp_principal([v for _, v in values])
+            if not curp_principal_v2:
+                continue
+            for other_key, other_value in values:
+                ok, severity, msg = _v2_curp_similarity(curp_principal_v2, other_value)
+                add_comp(
+                    label,
+                    f"{label} contra referencia documental",
+                    "CURP principal",
+                    curp_principal_v2,
+                    other_key,
+                    other_value,
+                    ok,
+                    severity,
+                    msg,
+                )
+                if ok:
+                    if other_value != curp_principal_v2 and other_key in docs_out:
+                        docs_out[other_key]["curp_lectura_ia"] = other_value
+                        docs_out[other_key]["curp"] = curp_principal_v2
+                        obs = docs_out[other_key].setdefault("observaciones", [])
+                        obs.append(f"CURP normalizada contra referencia documental; lectura IA: {other_value}.")
+                else:
+                    docs_out[other_key]["estado"] = "no_coincide"
+            continue
+        base_key, base_value = values[0]
+        for other_key, other_value in values[1:]:
+            ok = base_value == other_value
+            add_comp(label, f"{label} entre documentos", base_key, base_value, other_key, other_value, ok, "ok" if ok else "critico", f"{label} consistente entre documentos." if ok else f"{label} no coincide entre {base_key} y {other_key}.")
+            if not ok:
+                docs_out[base_key]["estado"] = "no_coincide"
+                docs_out[other_key]["estado"] = "no_coincide"
+
+    evaluables = [c for c in comparaciones if isinstance(c.get("coincide"), bool)]
+    total = len(evaluables)
+    ok_count = sum(1 for c in evaluables if c.get("coincide") is True)
+    fail_count = max(0, total - ok_count)
+    has_critical = any(c.get("coincide") is False and c.get("severidad") == "critico" for c in evaluables)
+    has_unread = any(d.get("estado") == "no_leido" for d in docs_out.values())
+    has_warning = bool(alertas) or any(c.get("coincide") is False and c.get("severidad") != "critico" for c in evaluables)
+
+    if has_critical:
+        dictamen = "rechazado"
+        resumen = "El expediente no puede aprobarse automaticamente: se detectaron diferencias criticas entre la informacion registrada y los documentos recibidos."
+    elif has_unread or has_warning:
+        dictamen = "requiere_revision"
+        resumen = "El expediente requiere revision documental: el Motor V2 no cuenta con lectura suficiente en todos los documentos o hay observaciones pendientes."
+    else:
+        dictamen = "aprobado"
+        resumen = "La informacion recibida es consistente entre los documentos revisados, cumple con las reglas documentales establecidas y corresponde al candidato registrado."
+
+    if motivo != "rules":
+        recomendaciones.append("Se uso dictamen local del Motor V2 porque el cruce profundo no respondio a tiempo.")
+
+    datos_ref = {
+        "nombre_registro": nombre_registro or None,
+        "nombre_principal_documentos": next((v.get("nombre") for v in readable.values() if v.get("nombre")), None),
+        "curp_principal": curp_principal_v2 or next((v.get("curp") for v in readable.values() if v.get("curp")), None),
+        "rfc_principal": next((v.get("rfc") for v in readable.values() if v.get("rfc")), None),
+        "nss_principal": next((v.get("nss") for v in readable.values() if v.get("nss")), None),
+    }
+
+    return {
+        "provider": "alibaba",
+        "model": "Motor V2",
+        "requested_model": "rules",
+        "fallback_used": motivo != "rules",
+        "usage": {},
+        "analysis": {
+            "dictamen": dictamen,
+            "confianza": int(round((ok_count / total) * 100)) if total else 0,
+            "resumen_final": resumen,
+            "datos_referencia": datos_ref,
+            "documentos": docs_out,
+            "comparaciones": comparaciones,
+            "coincidencias": {"total": total, "ok": ok_count, "fallas": fail_count},
+            "alertas": alertas,
+            "recomendaciones": recomendaciones,
+            "documentos_enviados": [],
+        },
+        "elapsed_ms": int((time.time() - start) * 1000),
+    }
+
+
+def _ai_es_doc(res: Dict[str, Any], expected: str) -> bool:
+    doc_type = str(_ai_extraccion(res).get("tipo_documento") or "")
+    aliases = {
+        "identificacion_oficial": {"identificacion_oficial", "ine", "residencia_permanente", "residencia_temporal", "pasaporte_mexicano", "pasaporte_extranjero"},
+        "cv": {"cv", "solicitud___SPARTA_SECRET_REDACTED__"},
+        "infonavit_fonacot": {"infonavit_fonacot", "carta_no_adeudo"},
+    }
+    return doc_type in aliases.get(expected, {expected})
+
+
+def _respuesta_alibaba_curp(res: Dict[str, Any]) -> Dict[str, Any]:
+    campos = _ai_campos(res)
+    errores = _ai_errores(res)
+    fecha = campos.get("fecha_emision") or campos.get("fecha_expedicion")
+    meses = _ai_meses_desde(fecha)
+    valido = _ai_es_doc(res, "curp") and not errores
+    curp_raw = campos.get("curp")
+    return {
+        # qwen3.5-flash puede confundir un caracter en CURP y aun parecer valida
+        # por formato. Para carga rapida no mostramos identificadores exactos
+        # si vienen solo de IA; se dejan como diagnostico interno.
+        "curp_extraido": None,
+        "curp_lectura_ia": curp_raw,
+        "valido": bool(valido),
+        "mensaje": _ai_mensaje(res, "CURP verificada." if valido else "No se pudo confirmar la CURP."),
+        "nombre": campos.get("nombre_completo"),
+        "es_reciente": None if meses is None else meses <= 2,
+        "meses_antiguedad": meses,
+        "fecha_emision": fecha,
+        "parece_curp": _ai_es_doc(res, "curp"),
+        "revision_manual": bool(_ai_advertencias(res)) and not errores,
+        "rechazado": bool(errores),
+        "motivo_rechazo": "alibaba_validacion_rapida" if errores else None,
+        **_ai_metadata(res),
+    }
+
+
+def _respuesta_alibaba_fiscal(res: Dict[str, Any]) -> Dict[str, Any]:
+    campos = _ai_campos(res)
+    errores = _ai_errores(res)
+    fecha = campos.get("fecha_emision") or campos.get("fecha_expedicion")
+    meses = _ai_meses_desde(fecha)
+    texto_regimen = " ".join([
+        str(campos.get("actividad_economica") or ""),
+        str(campos.get("regimen_fiscal") or ""),
+        " ".join(str(x) for x in (campos.get("regimenes_fiscales") or [])),
+    ]).upper()
+    regimen_ok = "SUELDOS" in texto_regimen and "SALARIOS" in texto_regimen
+    valido = _ai_es_doc(res, "constancia_fiscal") and not errores
+    return {
+        "valido": bool(valido),
+        "mensaje": _ai_mensaje(res, "Constancia fiscal verificada." if valido else "No se pudo confirmar la constancia fiscal."),
+        "nombre": campos.get("nombre_completo"),
+        "rfc": campos.get("rfc"),
+        "curp": campos.get("curp"),
+        "fecha_emision": fecha,
+        "meses_antiguedad": meses,
+        "vigencia_ok": None if meses is None else meses <= 2,
+        "actividad_asalariado": "ASALARIADO" in texto_regimen,
+        "regimen_sueldos_salarios": bool(regimen_ok),
+        "revision_manual": bool(_ai_advertencias(res)) and not errores,
+        "rechazado": bool(errores),
+        "motivo_rechazo": "alibaba_validacion_rapida" if errores else None,
+        **_ai_metadata(res),
+    }
+
+
+def _respuesta_alibaba_comprobante(res: Dict[str, Any]) -> ComprobanteResponse:
+    campos = _ai_campos(res)
+    errores = _ai_errores(res)
+    advertencias = _ai_advertencias(res)
+    fecha = (
+        campos.get("fecha_emision")
+        or campos.get("fecha_vencimiento")
+        or campos.get("periodo___SPARTA_SECRET_REDACTED___fin")
+        or campos.get("periodo___SPARTA_SECRET_REDACTED___inicio")
+    )
+    meses = _ai_meses_desde(fecha)
+    rechazado = bool(errores)
+    resultado = "RECHAZADO" if rechazado else ("REVISION_MANUAL" if advertencias else "APROBADO")
+    return ComprobanteResponse(
+        tipo_comprobante=str(_ai_extraccion(res).get("subtipo") or "COMPROBANTE_DOMICILIO"),
+        score_validacion=35 if rechazado else (70 if advertencias else 95),
+        resultado=resultado,
+        nombre_titular=campos.get("nombre_completo") or campos.get("titular_cuenta"),
+        direccion=campos.get("domicilio"),
+        fecha_documento=fecha,
+        es_reciente=None if meses is None else meses <= 3,
+        meses_antiguedad=meses,
+        empresa=campos.get("entidad_emisora"),
+        alertas=errores + advertencias,
+        recomendacion=_ai_mensaje(res, "Comprobante verificado." if not rechazado else "Comprobante rechazado."),
+        tiempo_proceso_ms=int(res.get("elapsed_ms") or 0),
+        motor_ia="alibaba",
+        modelo_ia=str(res.get("model") or ""),
+    )
+
+
+def _respuesta_alibaba___SPARTA_SECRET_REDACTED__(res: Dict[str, Any]) -> Dict[str, Any]:
+    campos = _ai_campos(res)
+    errores = _ai_errores(res)
+    advertencias = _ai_advertencias(res)
+    valido = _ai_es_doc(res, "__SPARTA_SECRET_REDACTED__") and not errores
+    return {
+        "valido": bool(valido),
+        "rechazado": bool(errores),
+        "revision_manual": bool(advertencias) and not errores,
+        "mensaje": _ai_mensaje(res, "Estado de cuenta verificado." if valido else "No se pudo confirmar el estado de cuenta."),
+        "banco_detectado": campos.get("banco"),
+        "nombre_propietario": campos.get("titular_cuenta") or campos.get("nombre_completo"),
+        "clabe": campos.get("clabe"),
+        "numero_cuenta": campos.get("numero_cuenta"),
+        "es_banco_fisico": bool(valido),
+        "tiene_datos_titular": bool(campos.get("titular_cuenta") or campos.get("nombre_completo")),
+        "alertas": errores + advertencias,
+        **_ai_metadata(res),
+    }
+
+
+def _respuesta_alibaba_nss(res: Dict[str, Any]) -> Dict[str, Any]:
+    campos = _ai_campos(res)
+    errores = _ai_errores(res)
+    nss_raw = campos.get("nss")
+    nss_ok = validar_nss(str(nss_raw))[0] if nss_raw else False
+    return {
+        "nss_extraido": nss_raw if nss_ok else None,
+        "nss_lectura_ia": nss_raw,
+        "valido": bool(_ai_es_doc(res, "nss") and not errores),
+        "mensaje": _ai_mensaje(res, "NSS detectado."),
+        "nombre": campos.get("nombre_completo"),
+        "curp": campos.get("curp"),
+        "revision_manual": bool(_ai_advertencias(res)) or bool(errores),
+        "rechazado": bool(errores and not _ai_es_doc(res, "nss")),
+        "motivo_rechazo": "alibaba_validacion_rapida" if errores else None,
+        **_ai_metadata(res),
+    }
+
+
+def _respuesta_alibaba_identificacion(res: Dict[str, Any]) -> Dict[str, Any]:
+    campos = _ai_campos(res)
+    extraccion = _ai_extraccion(res)
+    doc_type = str(extraccion.get("tipo_documento") or "")
+    fr = extraccion.get("frente_reverso") or {}
+    errores = _ai_errores(res)
+    advertencias = _ai_advertencias(res)
+    valido = _ai_es_doc(res, "identificacion_oficial") and not errores and not advertencias
+    indicadores = {
+        "mrz": bool(fr.get("reverso_detectado")),
+        "ine": doc_type in {"ine", "identificacion_oficial"},
+        "elector": doc_type in {"ine", "identificacion_oficial"},
+        "inm_residencia": doc_type in {"residencia_permanente", "residencia_temporal"},
+        "pasaporte": doc_type in {"pasaporte_mexicano", "pasaporte_extranjero"},
+        "curp": bool(campos.get("curp")),
+    }
+    return {
+        "valido": bool(valido),
+        "revision_manual": not bool(valido),
+        "rechazado": not bool(valido),
+        "mensaje": _ai_mensaje(res, "Identificacion oficial verificada." if valido else "No se pudo confirmar la identificacion oficial."),
+        "indicadores": indicadores,
+        "tipo_identificacion": doc_type if valido else None,
+        "nombre": campos.get("nombre_completo"),
+        "curp": campos.get("curp"),
+        "fecha_vencimiento": campos.get("fecha_vencimiento"),
+        **_ai_metadata(res),
+    }
 
 
 def _normalizar_texto_precheck(texto: str) -> str:
@@ -1072,6 +1903,10 @@ async def verificar_comprobante(
     logger.info(f"Verificando comprobante - archivo: {documento.filename} - tamaño: {len(file_bytes)/1024:.1f}KB")
 
     inicio = time.time()
+    resultado_alibaba = await _validar_rapido_alibaba_o_none(file_bytes, documento.filename or "comprobante.pdf", "comprobante_domicilio")
+    if resultado_alibaba is not None:
+        return _respuesta_alibaba_comprobante(resultado_alibaba)
+
     # No rechazar comprobantes por nombre de archivo: candidatos suelen reutilizar
     # nombres como "INE.pdf" o "documento.pdf". La decision debe salir del contenido.
     if extension == "pdf":
@@ -1186,6 +2021,9 @@ async def verificar_nss_documento(
     file_bytes = await documento.read()
     if len(file_bytes) == 0:
         raise HTTPException(status_code=400, detail="Documento vacío")
+    resultado_alibaba = await _validar_rapido_alibaba_o_none(file_bytes, documento.filename or "nss.pdf", "nss")
+    if resultado_alibaba is not None:
+        return _respuesta_alibaba_nss(resultado_alibaba)
     rechazo_nombre = _nombre_archivo_indica_otro_documento(
         documento.filename or "",
         "nss",
@@ -1339,6 +2177,9 @@ async def verificar_constancia_fiscal_documento(
     if len(file_bytes) == 0:
         raise HTTPException(status_code=400, detail="Documento vacío")
     inicio = time.time()
+    resultado_alibaba = await _validar_rapido_alibaba_o_none(file_bytes, documento.filename or "constancia_fiscal.pdf", "constancia_fiscal")
+    if resultado_alibaba is not None:
+        return _respuesta_alibaba_fiscal(resultado_alibaba)
     rechazo_nombre = _nombre_archivo_indica_otro_documento(
         documento.filename or "",
         "constancia_fiscal",
@@ -1524,6 +2365,9 @@ async def verificar___SPARTA_SECRET_REDACTED__(
     file_bytes = await documento.read()
     if len(file_bytes) == 0:
         raise HTTPException(status_code=400, detail="Documento vacío")
+    resultado_alibaba = await _validar_rapido_alibaba_o_none(file_bytes, documento.filename or "__SPARTA_SECRET_REDACTED__.pdf", "__SPARTA_SECRET_REDACTED__")
+    if resultado_alibaba is not None:
+        return _respuesta_alibaba___SPARTA_SECRET_REDACTED__(resultado_alibaba)
     try:
         rechazo = await asyncio.wait_for(
             asyncio.to_thread(_detectar_documento_equivocado___SPARTA_SECRET_REDACTED___pdf, file_bytes, inicio),
@@ -1642,6 +2486,9 @@ async def verificar_curp_documento(
             fecha_emision=None,
             tiempo_ms=int((time.time() - inicio) * 1000),
         )
+    resultado_alibaba = await _validar_rapido_alibaba_o_none(file_bytes, documento.filename or "curp.pdf", "curp")
+    if resultado_alibaba is not None:
+        return _respuesta_alibaba_curp(resultado_alibaba)
     datos_rapidos = _extraer_datos_curp_pdf_rapido(file_bytes)
     texto_inicial = datos_rapidos.get("texto") or ""
     if texto_inicial:
@@ -1861,6 +2708,9 @@ async def precheck_identificacion_pdf(
         }
 
     try:
+        resultado_alibaba = await _validar_rapido_alibaba_o_none(file_bytes, documento.filename or "identificacion.pdf", "identificacion_oficial")
+        if resultado_alibaba is not None:
+            return _respuesta_alibaba_identificacion(resultado_alibaba)
         rechazo_equivocado = await asyncio.wait_for(
             asyncio.to_thread(_detectar_documento_equivocado_identificacion_pdf, file_bytes, inicio),
             timeout=5,
@@ -2143,11 +2993,18 @@ async def validar_expediente(
     frente: Optional[UploadFile] = File(None, description="Imagen del frente (opcional si se envía identificacion_pdf)"),
     reverso: Optional[UploadFile] = File(None, description="Imagen del reverso (opcional si se envía identificacion_pdf)"),
     identificacion_pdf: Optional[UploadFile] = File(None, description="PDF de identificación oficial (frente y reverso en 1 o 2 páginas)"),
+    solicitud_interna: Optional[UploadFile] = File(None, description="PDF solicitud interna"),
+    cv_solicitud: Optional[UploadFile] = File(None, description="PDF CV o solicitud de trabajo"),
     documento_curp: Optional[UploadFile] = File(None, description="PDF constancia CURP"),
     documento_nss: Optional[UploadFile] = File(None, description="PDF constancia NSS"),
     constancia_fiscal: Optional[UploadFile] = File(None, description="PDF constancia de situación fiscal"),
     acta_nacimiento: Optional[UploadFile] = File(None, description="PDF acta de nacimiento"),
+    comprobante_domicilio: Optional[UploadFile] = File(None, description="PDF comprobante de domicilio"),
+    hoja_retencion: Optional[UploadFile] = File(None, description="PDF hoja de retencion FONACOT o INFONAVIT"),
+    __SPARTA_SECRET_REDACTED__: Optional[UploadFile] = File(None, description="PDF estado de cuenta"),
     nombre_candidato_registro: Optional[str] = Form(None, description="Nombre registrado del candidato en Sparta Ledger"),
+    lecturas_json: Optional[str] = Form(None, description="Lecturas IA rapidas ya guardadas por documento"),
+    lecturas_json_b64: Optional[str] = Form(None, description="Lecturas IA rapidas en base64 para evitar problemas de encoding multipart"),
     tipo_documento_query: Optional[TipoDocumento] = Query(
         None,
         alias="tipo_documento",
@@ -2167,7 +3024,8 @@ async def validar_expediente(
         else (tipo_documento_form if tipo_documento_form is not None else TipoDocumento.RESIDENCIA_TEMPORAL)
     )
 
-    # Resolver frente y reverso: desde PDF (páginas 1 y 2) o desde archivos separados
+    # Resolver frente y reverso solo si se usa el motor legacy. Motor V2 puede
+    # cruzar usando lecturas rapidas guardadas y evita renderizar de nuevo.
     frente_bytes: Optional[bytes] = None
     reverso_bytes: Optional[bytes] = None
     tiempos_fase: Dict[str, int] = {}
@@ -2176,13 +3034,171 @@ async def validar_expediente(
     if identificacion_pdf and identificacion_pdf.filename and identificacion_pdf.filename.lower().endswith(".pdf"):
         pdf_bytes = await identificacion_pdf.read()
         identificacion_pdf_bytes = pdf_bytes
-        if pdf_bytes and len(pdf_bytes) >= 100:
-            t_pdf = time.time()
-            imagenes = await asyncio.to_thread(pdf_paginas_a_png_bytes, pdf_bytes, 150, 2)
-            tiempos_fase["pdf_identificacion_a_imagenes_ms"] = int((time.time() - t_pdf) * 1000)
-            if imagenes:
-                frente_bytes = imagenes[0]
-                reverso_bytes = imagenes[1] if len(imagenes) > 1 else imagenes[0]
+
+    async def _leer_pdf(upload: Optional[UploadFile]) -> Optional[bytes]:
+        if upload and upload.filename and upload.filename.lower().endswith(".pdf"):
+            data = await upload.read()
+            return data if data else None
+        return None
+
+    solicitud_pdf_bytes = await _leer_pdf(solicitud_interna)
+    cv_pdf_bytes = await _leer_pdf(cv_solicitud)
+    curp_pdf_bytes = await _leer_pdf(documento_curp)
+    nss_pdf_bytes = await _leer_pdf(documento_nss)
+    fiscal_pdf_bytes = await _leer_pdf(constancia_fiscal)
+    acta_pdf_bytes = await _leer_pdf(acta_nacimiento)
+    domicilio_pdf_bytes = await _leer_pdf(comprobante_domicilio)
+    retencion_pdf_bytes = await _leer_pdf(hoja_retencion)
+    __SPARTA_SECRET_REDACTED___pdf_bytes = await _leer_pdf(__SPARTA_SECRET_REDACTED__)
+
+    lecturas_previas: Dict[str, Any] = {}
+    lecturas_payload = lecturas_json
+    if lecturas_json_b64:
+        try:
+            import base64
+            lecturas_payload = base64.b64decode(str(lecturas_json_b64), validate=False).decode("utf-8", errors="replace")
+        except Exception:
+            lecturas_payload = lecturas_json
+    if lecturas_payload:
+        parse_errors: List[str] = []
+        candidatos_payload = [str(lecturas_payload)]
+        try:
+            from urllib.parse import unquote_plus
+            decoded_url = unquote_plus(str(lecturas_payload))
+            if decoded_url and decoded_url not in candidatos_payload:
+                candidatos_payload.append(decoded_url)
+        except Exception:
+            pass
+        inicio_json = str(lecturas_payload).find("{")
+        fin_json = str(lecturas_payload).rfind("}")
+        if inicio_json >= 0 and fin_json > inicio_json:
+            recortado = str(lecturas_payload)[inicio_json:fin_json + 1]
+            if recortado not in candidatos_payload:
+                candidatos_payload.append(recortado)
+        for candidato_payload in candidatos_payload:
+            try:
+                parsed = json.loads(candidato_payload, strict=False)
+                if isinstance(parsed, str):
+                    parsed = json.loads(parsed, strict=False)
+                if isinstance(parsed, dict):
+                    lecturas_previas = parsed
+                    break
+            except Exception as exc:
+                parse_errors.append(str(exc))
+        if not lecturas_previas and parse_errors:
+            logger.warning(
+                "validar-expediente V2 no pudo leer lecturas_json: "
+                f"{parse_errors[-1]}"
+            )
+    logger.info(f"validar-expediente V2 lecturas_json_chars={len(lecturas_payload or '')} lecturas_keys={list(lecturas_previas.keys())}")
+
+    if _doc_ai_alibaba_activo():
+        ai = _crear_alibaba_ai_crosscheck()
+        if ai is None or not ai.enabled():
+            mensaje = "DOC_AI_ENGINE=alibaba esta activo, pero faltan credenciales/modelo para validacion cruzada."
+            raise HTTPException(status_code=503, detail=mensaje)
+        else:
+            docs_v2 = [
+                {"key": "solicitud_interna", "label": "Solicitud interna", "bytes": solicitud_pdf_bytes, "filename": getattr(solicitud_interna, "filename", None) or "solicitud_interna.pdf"},
+                {"key": "cv", "label": "CV o solicitud de trabajo", "bytes": cv_pdf_bytes, "filename": getattr(cv_solicitud, "filename", None) or "cv.pdf"},
+                {"key": "acta_nacimiento", "label": "Acta de nacimiento certificada", "bytes": acta_pdf_bytes, "filename": getattr(acta_nacimiento, "filename", None) or "acta_nacimiento.pdf"},
+                {"key": "curp", "label": "CURP", "bytes": curp_pdf_bytes, "filename": getattr(documento_curp, "filename", None) or "curp.pdf"},
+                {"key": "identificacion_oficial", "label": "Identificacion oficial", "bytes": identificacion_pdf_bytes, "filename": getattr(identificacion_pdf, "filename", None) or "identificacion_oficial.pdf"},
+                {"key": "comprobante_domicilio", "label": "Comprobante de domicilio", "bytes": domicilio_pdf_bytes, "filename": getattr(comprobante_domicilio, "filename", None) or "comprobante_domicilio.pdf"},
+                {"key": "constancia_fiscal", "label": "Constancia de situacion fiscal", "bytes": fiscal_pdf_bytes, "filename": getattr(constancia_fiscal, "filename", None) or "constancia_fiscal.pdf"},
+                {"key": "nss", "label": "Numero de seguridad social", "bytes": nss_pdf_bytes, "filename": getattr(documento_nss, "filename", None) or "nss.pdf"},
+                {"key": "hoja_retencion", "label": "Hoja de retencion FONACOT o INFONAVIT", "bytes": retencion_pdf_bytes, "filename": getattr(hoja_retencion, "filename", None) or "hoja_retencion.pdf"},
+                {"key": "__SPARTA_SECRET_REDACTED__", "label": "Estado de cuenta", "bytes": __SPARTA_SECRET_REDACTED___pdf_bytes, "filename": getattr(__SPARTA_SECRET_REDACTED__, "filename", None) or "__SPARTA_SECRET_REDACTED__.pdf"},
+            ]
+            for doc in docs_v2:
+                key = str(doc.get("key") or "")
+                summary = lecturas_previas.get(key)
+                if isinstance(summary, dict):
+                    doc["summary"] = summary
+            docs_v2 = [doc for doc in docs_v2 if doc.get("bytes")]
+            logger.info(f"validar-expediente V2 docs={len(docs_v2)} summaries={sum(1 for doc in docs_v2 if summary_is_usable(doc.get('summary')))}")
+
+            quick_expected = {
+                "solicitud_interna": "solicitud___SPARTA_SECRET_REDACTED__",
+                "cv": "cv",
+                "acta_nacimiento": "acta_nacimiento",
+                "curp": "curp",
+                "identificacion_oficial": "identificacion_oficial",
+                "comprobante_domicilio": "comprobante_domicilio",
+                "constancia_fiscal": "constancia_fiscal",
+                "nss": "nss",
+                "hoja_retencion": "carta_no_adeudo",
+                "__SPARTA_SECRET_REDACTED__": "__SPARTA_SECRET_REDACTED__",
+            }
+            missing_docs = [
+                doc for doc in docs_v2
+                if not summary_is_usable(doc.get("summary"))
+                and quick_expected.get(str(doc.get("key") or ""))
+            ]
+            if missing_docs:
+                quick_ai = _crear_alibaba_ai()
+                if quick_ai is not None and quick_ai.enabled():
+                    quick_ai.timeout_seconds = min(12, int(getattr(quick_ai, "timeout_seconds", 12) or 12))
+                    quick_ai.max_pages = min(2, int(getattr(quick_ai, "max_pages", 2) or 2))
+                    quick_ai.dpi = min(120, int(getattr(quick_ai, "dpi", 120) or 120))
+                    sem = asyncio.Semaphore(3)
+
+                    async def _prefill_summary(doc: Dict[str, Any]) -> None:
+                        key = str(doc.get("key") or "")
+                        expected = quick_expected.get(key)
+                        if not expected:
+                            return
+                        async with sem:
+                            try:
+                                result = await asyncio.wait_for(
+                                    asyncio.to_thread(
+                                        quick_ai.quick_verify,
+                                        doc.get("bytes") or b"",
+                                        str(doc.get("filename") or f"{key}.pdf"),
+                                        expected,
+                                    ),
+                                    timeout=16,
+                                )
+                                if isinstance(result, dict):
+                                    doc["summary"] = quick_result_to_summary(
+                                        key,
+                                        str(doc.get("label") or key),
+                                        str(doc.get("filename") or f"{key}.pdf"),
+                                        result,
+                                    )
+                            except Exception as exc:
+                                logger.warning(f"No se pudo preleer {key} para crosscheck V2: {exc}")
+
+                    await asyncio.gather(*(_prefill_summary(doc) for doc in missing_docs))
+                    logger.info(
+                        "validar-expediente V2 prefill summaries="
+                        f"{sum(1 for doc in docs_v2 if summary_is_usable(doc.get('summary')))}"
+                    )
+
+            crosscheck_mode = str(getattr(settings, "doc_ai_crosscheck_mode", "rules") or "rules").strip().lower()
+            if crosscheck_mode in {"rules", "local", "rapido", "fast"}:
+                resultado_reglas = _resultado_v2_reglas_expediente(docs_v2, nombre_candidato_registro)
+                return _respuesta_alibaba_expediente(resultado_reglas, nombre_candidato_registro)
+
+            timeout_v2 = int(getattr(settings, "doc_ai_crosscheck_timeout_seconds", 90) or 90) + 5
+            try:
+                resultado_alibaba = await asyncio.wait_for(
+                    asyncio.to_thread(ai.crosscheck_expediente, docs_v2, nombre_candidato_registro),
+                    timeout=timeout_v2,
+                )
+                return _respuesta_alibaba_expediente(resultado_alibaba, nombre_candidato_registro)
+            except Exception as exc:
+                logger.exception(f"Alibaba crosscheck fallo: {exc}")
+                resultado_reglas = _resultado_v2_reglas_expediente(docs_v2, nombre_candidato_registro, motivo="fallback_timeout")
+                return _respuesta_alibaba_expediente(resultado_reglas, nombre_candidato_registro)
+
+    if identificacion_pdf_bytes and len(identificacion_pdf_bytes) >= 100:
+        t_pdf = time.time()
+        imagenes = await asyncio.to_thread(pdf_paginas_a_png_bytes, identificacion_pdf_bytes, 150, 2)
+        tiempos_fase["pdf_identificacion_a_imagenes_ms"] = int((time.time() - t_pdf) * 1000)
+        if imagenes:
+            frente_bytes = imagenes[0]
+            reverso_bytes = imagenes[1] if len(imagenes) > 1 else imagenes[0]
 
     if not frente_bytes or not reverso_bytes:
         # Intentar desde frente/reverso por separado
@@ -2194,17 +3210,6 @@ async def validar_expediente(
                 status_code=400,
                 detail="Se requiere identificacion_pdf (PDF con frente y reverso) o bien frente y reverso como imágenes."
             )
-
-    async def _leer_pdf(upload: Optional[UploadFile]) -> Optional[bytes]:
-        if upload and upload.filename and upload.filename.lower().endswith(".pdf"):
-            data = await upload.read()
-            return data if data else None
-        return None
-
-    curp_pdf_bytes = await _leer_pdf(documento_curp)
-    nss_pdf_bytes = await _leer_pdf(documento_nss)
-    fiscal_pdf_bytes = await _leer_pdf(constancia_fiscal)
-    acta_pdf_bytes = await _leer_pdf(acta_nacimiento)
 
     try:
         inicio = time.time()

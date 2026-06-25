@@ -292,6 +292,24 @@ window.departamentosCandidatoBackend = <?= json_encode($departamentosCandidatoCa
     </div>
 </div>
 
+<!-- Modal Análisis cruzado del candidato -->
+<div class="modal fade" id="modalAnalisisCruzadoCandidato" tabindex="-1" aria-labelledby="modalAnalisisCruzadoCandidatoLabel" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-dialog-scrollable" style="max-width: 92%;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <div>
+                    <h5 class="modal-title mb-1" id="modalAnalisisCruzadoCandidatoLabel"><i class="fa fa-shield-alt me-2"></i>Análisis cruzado documental</h5>
+                    <p class="text-muted small mb-0" id="modalAnalisisCruzadoCandidatoNombre"></p>
+                </div>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <div class="modal-body">
+                <div id="modalAnalisisCruzadoCandidatoBody" class="small text-muted">No hay análisis disponible.</div>
+            </div>
+        </div>
+    </div>
+</div>
+
 <!-- Modal Visor de documento del candidato -->
 <div class="modal fade" id="modalVisorDocumentoCandidato" tabindex="-1" aria-labelledby="modalVisorDocumentoCandidatoLabel" aria-hidden="true">
     <div class="modal-dialog modal-xl modal-dialog-centered" style="max-width: 92vw;">
@@ -560,6 +578,13 @@ window.departamentosCandidatoBackend = <?= json_encode($departamentosCandidatoCa
                 <select name="id_posible_jefe" id="candidato_id_posible_jefe" class="form-select js-select-buscador" required>
                     <option value="">Seleccione departamento y puesto primero</option>
                 </select>
+            </div>
+            <div class="mb-2 d-none" id="wrap_candidato_jefe_divisional">
+                <label class="form-label">Jefe divisional <span class="text-danger">*</span></label>
+                <select name="id_jefe_divisional" id="candidato_id_jefe_divisional" class="form-select js-select-buscador">
+                    <option value="">Seleccione jefe divisional</option>
+                </select>
+                <small class="text-muted">Aplica solo para candidatos de Cobranza con puesto de gestor.</small>
             </div>
             <div class="mb-2">
                 <label class="form-label">Fecha de postulación <span class="text-danger">*</span></label>
@@ -1088,6 +1113,9 @@ body.dark-mode #modalCerrarProcesoCandidato.modal.show { z-index: 99999 !importa
 #modalCerrarProcesoCandidato .modal-dialog { position: relative; z-index: 1 !important; }
 /* Mantener Documentación por debajo del scrim de Cerrar cuando hay dos modales */
 #modalDocumentacionCandidato.modal.show { z-index: 1090 !important; }
+#modalAnalisisCruzadoCandidato.modal.show { z-index: 1120 !important; }
+#modalAnalisisCruzadoCandidato .modal-body { background: #f8fafc; }
+#modalAnalisisCruzadoCandidato .doc-v2-full { background: transparent; }
 #modalVisorDocumentoCandidato.modal.show { z-index: 1110 !important; }
 #modalVisorDocumentoCandidato .visor-doc-candidato-content {
     height: min(88vh, 900px);

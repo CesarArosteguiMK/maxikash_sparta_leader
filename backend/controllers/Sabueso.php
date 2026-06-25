@@ -4441,7 +4441,7 @@ class Sabueso extends Controller
         $apiUrl = isset($config['doc_verificacion']['api_url']) ? trim($config['doc_verificacion']['api_url']) : '';
         $apiKey = isset($config['doc_verificacion']['api_key']) ? trim($config['doc_verificacion']['api_key']) : 'sparta-__SPARTA_SECRET_REDACTED__-doc-verificacion-key';
         if ($apiUrl === '') {
-            $apiUrl = 'http://127.0.0.1:8000/api/v1/verificar';
+            $apiUrl = 'http://127.0.0.1:8001/api/v1/verificar';
         }
         $baseUrl = preg_replace('#/verificar\s*$#', '', $apiUrl);
         $endpoint = rtrim($baseUrl, '/') . '/fad/informacion-ingresos';

@@ -107,6 +107,28 @@ class Settings(BaseSettings):
     # CORS (permitir origen del frontend PHP / Sparta Ledger)
     cors_origins: str = "http://localhost:3000,http://localhost,http://localhost:8086,http://127.0.0.1,http://127.0.0.1:8086"
 
+    # Motor IA documental. Valores:
+    # - legacy: usa el motor OCR actual.
+    # - alibaba: usa Alibaba/Qwen para la validacion rapida.
+    doc_ai_engine: str = "legacy"
+    doc_ai_legacy_fallback: bool = True
+    doc_ai_quick_timeout_seconds: int = 35
+    doc_ai_quick_max_pages: int = 3
+    doc_ai_quick_dpi: int = 150
+    doc_ai_crosscheck_mode: str = "rules"
+    doc_ai_crosscheck_timeout_seconds: int = 90
+    doc_ai_crosscheck_max_pages_per_document: int = 2
+    doc_ai_crosscheck_dpi: int = 135
+
+    # Alibaba Model Studio (OpenAI compatible)
+    alibaba_api_key: str = ""
+    alibaba_base_url: str = ""
+    alibaba_model: str = "qwen3.5-flash"
+    alibaba_crosscheck_model: str = "qwen3.7-plus"
+    alibaba_crosscheck_fallback_models: str = ""
+    alibaba_fallback_models: str = ""
+    alibaba_retry_delays: str = "0,1"
+
     @property
     def allowed_extensions_list(self) -> List[str]:
         return [ext.strip() for ext in self.allowed_extensions.split(",")]
