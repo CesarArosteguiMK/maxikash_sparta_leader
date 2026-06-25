@@ -5,6 +5,8 @@
 backend/config/config.ini
 backend/config/secret.php
 backend/config/master_key.php
+backend/config/rrhh_sensitive.key
+backend/config/rrhh_documents.key
 scripts/.mega_reporte_mysql_password
 
 # ========== Llaves SSH (OpenSSH PEM / PuTTY .ppk) ==========
@@ -32,6 +34,7 @@ backend/BD/geo_ssl_*.pem
 
 # ========== Test y diagnóstico (no subir; pueden exponer rutas) ==========
 public/test_geo_ssl.php
+tmp/
 
 # ========== Subidas públicas (runtime; no versionar contenido) ==========
 public/uploads/**

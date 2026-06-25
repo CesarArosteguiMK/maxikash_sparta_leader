@@ -52,7 +52,7 @@ class Inicio extends Controller
         $this->set('mostrarDiagnosticoAdmin', $mostrarDiagnosticoAdmin);
         $mostrarBotonApiDocOneClick = (isset($_SESSION['usuario_id']) && (int)$_SESSION['usuario_id'] === 878);
         $this->set('mostrarBotonApiDocOneClick', $mostrarBotonApiDocOneClick);
-        // Botón "Servicios" para ver estado de los puertos locales (3001, 3100, 3110, 3120, 8000).
+        // Botón "Servicios" para ver estado de los puertos locales (3001, 3100, 3110, 3120, 8001).
         $mostrarBotonEstadoServicios = $mostrarBotonApiDocOneClick;
         $this->set('mostrarBotonEstadoServicios', $mostrarBotonEstadoServicios);
 
@@ -844,10 +844,10 @@ class Inicio extends Controller
             }
         }
         if ($apiUrl === '') {
-            $apiUrl = 'http://127.0.0.1:8000/api/v1/verificar';
+            $apiUrl = 'http://127.0.0.1:8001/api/v1/verificar';
         }
         $base = preg_replace('#/verificar\s*$#i', '', $apiUrl);
-        return rtrim($base ?: 'http://127.0.0.1:8000/api/v1', '/');
+        return rtrim($base ?: 'http://127.0.0.1:8001/api/v1', '/');
     }
 
     private function docVerificacionApiPort(?string $baseUrl = null): int
@@ -936,7 +936,7 @@ class Inicio extends Controller
 
         echo json_encode([
             'success' => true,
-            'message' => 'Parada solicitada: se liberó el panel; en el servidor se intenta cortar el batch/doctor/Python de esta API y el puerto 8000. Revise el log "' . $logName . '" (Lista → seleccionar ese archivo).',
+            'message' => 'Parada solicitada: se liberó el panel; en el servidor se intenta cortar el batch/doctor/Python de esta API y el puerto 8001. Revise el log "' . $logName . '" (Lista → seleccionar ese archivo).',
             'log_file' => $logName,
         ], JSON_UNESCAPED_UNICODE);
     }
@@ -1312,7 +1312,7 @@ class Inicio extends Controller
                 $http = $this->serviciosLocalesProbarHttp($s['url_check'], 1500);
             }
             $funcional = ($isListen && !empty($s['functional_check']))
-                ? $this->serviciosLocalesProbarFuncional($s, 8000)
+                ? $this->serviciosLocalesProbarFuncional($s, 8001)
                 : null;
             $funcionalOk = $funcional === null || !empty($funcional['ok']);
             if ($isListen && $http['ok'] && $funcionalOk) {
@@ -1404,7 +1404,7 @@ class Inicio extends Controller
         if ($action === 'iniciar') {
             $ok = $this->serviciosLocalesIniciar($srv);
             $post = $ok
-                ? $this->serviciosLocalesEsperarEstado($srv, 'up', $port === 8000 ? 30000 : 35000)
+                ? $this->serviciosLocalesEsperarEstado($srv, 'up', $port === 8001 ? 30000 : 35000)
                 : $this->serviciosLocalesEstadoActual($srv);
         } elseif ($action === 'parar') {
             $ok = $this->serviciosLocalesParar($srv);
@@ -1414,7 +1414,7 @@ class Inicio extends Controller
             usleep(800000);
             $ok = $this->serviciosLocalesIniciar($srv);
             $post = $ok
-                ? $this->serviciosLocalesEsperarEstado($srv, 'up', $port === 8000 ? 30000 : 35000)
+                ? $this->serviciosLocalesEsperarEstado($srv, 'up', $port === 8001 ? 30000 : 35000)
                 : $this->serviciosLocalesEstadoActual($srv);
         }
 
@@ -1641,7 +1641,7 @@ class Inicio extends Controller
             && in_array($gCode, [200, 204, 301, 302, 303, 307, 308, 400, 401, 403, 404, 405], true)
             && in_array($pCode, [400, 422], true);
         if ($patronSinFalloRed) {
-            $interpretacion[] = 'Buenas noticias: en estas pruebas no hay fallo de red ni de ruta. HTTP 405 en GET /validar-expediente (solo POST) y HTTP 400 sin PDF son respuestas esperadas de una API viva; PHP y la API en 127.0.0.1:8000 se entienden en milisegundos.';
+            $interpretacion[] = 'Buenas noticias: en estas pruebas no hay fallo de red ni de ruta. HTTP 405 en GET /validar-expediente (solo POST) y HTTP 400 sin PDF son respuestas esperadas de una API viva; PHP y la API en 127.0.0.1:8001 se entienden en milisegundos.';
         }
         if (!$healthOk) {
             $interpretacion[] = 'Health falló: la API no respondió 200 en /health (revisar URL base, firewall o que uvicorn esté arriba).';
@@ -1914,7 +1914,7 @@ class Inicio extends Controller
             if ($line === '') continue;
             if (stripos(PHP_OS, 'WIN') === 0) {
                 if (stripos($line, 'LISTENING') === false) continue;
-                // Windows Server: TCP 0.0.0.0:8000 0.0.0.0:0 LISTENING 12345
+                // Windows Server: TCP 0.0.0.0:8001 0.0.0.0:0 LISTENING 12345
                 $parts = preg_split('/\s+/', $line);
                 if (!is_array($parts) || count($parts) < 5) continue;
                 $stateIndex = null;
@@ -1933,7 +1933,7 @@ class Inicio extends Controller
                     if ($port > 0) $ports[$port] = (int)$pidRaw;
                 }
             } else {
-                // ss -tlnp: ej. "LISTEN 0 128 *:8000 *:* users:((\"python\",pid=1234,fd=4))"
+                // ss -tlnp: ej. "LISTEN 0 128 *:8001 *:* users:((\"python\",pid=1234,fd=4))"
                 if (preg_match('/:(\d+)\s/', $line, $m)) {
                     $ports[(int)$m[1]] = null;
                 }

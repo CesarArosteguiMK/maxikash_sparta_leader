@@ -9,19 +9,26 @@ class RrhhDocumentImportService
 {
     private const DOCUMENTO_RFC = 10;
     private const DOCUMENTO_CONSTANCIA_FISCAL = 22;
+    private const MODULO_DOCUMENTO_RRHH_BASE = 3000;
     private const BATCH_TTL_SECONDS = 86400;
-    private const DOCUMENTOS_OMITIR = [
-        'contrato' => [
-            'etiqueta' => 'Contrato firmado',
-            'patrones' => [
-                '/\bcontrat[a-z0-9]*\b/u',
-                '/\bcontratpo\b/u',
-                '/\bcontato\b/u',
-                '/\bcontra\s+to\b/u',
-                '/\bcontra\s+ta\b/u',
-            ],
-        ],
-    ];
+
+    private function puedeUsarTipoDocumentoRrhh(int $idDocumento): bool
+    {
+        if ($idDocumento <= 0) {
+            return false;
+        }
+
+        $controlados = [
+            8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 22, 23, 24, 25,
+            27, 28, 29, 30, 31, 32, 33, 34, 35, 36,
+        ];
+        if (!in_array($idDocumento, $controlados, true)) {
+            return true;
+        }
+
+        $modulos = array_map('intval', (array) ($_SESSION['modulos'] ?? []));
+        return in_array(self::MODULO_DOCUMENTO_RRHH_BASE + $idDocumento, $modulos, true);
+    }
 
     public function fuentesDesdeRequest(array $files, array $post): array
     {
@@ -204,33 +211,6 @@ class RrhhDocumentImportService
                 (string) ($fuente['zip_nombre'] ?? '')
             );
 
-            $omision = $this->detectarDocumentoOmitido($contextoDocumento, (string) ($fuente['nombre_original'] ?? ''));
-            if ($omision) {
-                $items[] = [
-                    'source_index' => $idx,
-                    'ruta' => (string) ($fuente['ruta_relativa'] ?? ''),
-                    'archivo' => (string) ($fuente['nombre_original'] ?? ''),
-                    'size' => (int) ($fuente['size'] ?? 0),
-                    'carpeta_persona' => $carpetaPersona,
-                    'id_persona' => null,
-                    'persona' => '',
-                    'numero_empleado' => '',
-                    'estatus_persona' => '',
-                    'persona_activa' => null,
-                    'fecha_baja' => '',
-                    'score_persona' => 0,
-                    'alternativas' => [],
-                    'id_documento' => null,
-                    'documento' => '',
-                    'documento_clave' => '',
-                    'documento_manual' => false,
-                    'documento_otros_automatico' => false,
-                    'estado' => 'omitido',
-                    'razon' => 'Documento omitido por regla: ' . $omision . '.',
-                ];
-                continue;
-            }
-
             $match = $this->buscarPersona($carpetaPersona, $personas);
             $doc = $this->clasificarDocumento($contextoDocumento, $catalogo);
             $documentoOtrosAutomatico = false;
@@ -260,6 +240,9 @@ class RrhhDocumentImportService
             } elseif (!$doc) {
                 $estado = 'documento_no_reconocido';
                 $razon = 'No se reconocio el tipo de documento.';
+            } elseif (!$this->puedeUsarTipoDocumentoRrhh((int) ($doc['id'] ?? 0))) {
+                $estado = 'documento_sin_permiso';
+                $razon = 'No tienes permiso para importar este tipo de documento.';
             }
 
             $mejor = $match['mejor'] ?? null;
@@ -531,7 +514,9 @@ class RrhhDocumentImportService
 
     private function catalogoParaRespuesta(array $catalogo): array
     {
-        $out = array_values($catalogo);
+        $out = array_values(array_filter($catalogo, function ($doc) {
+            return $this->puedeUsarTipoDocumentoRrhh((int) ($doc['id'] ?? 0));
+        }));
         usort($out, static fn($a, $b) => strcasecmp((string) ($a['nombre'] ?? ''), (string) ($b['nombre'] ?? '')));
         return $out;
     }
@@ -662,13 +647,17 @@ class RrhhDocumentImportService
         $id = null;
 
         if (preg_match('/\bvalidacion\s+sat\b|\bopinion\s+sat\b/', $n)) {
-            return null;
+            $id = 30;
+        } elseif (preg_match('/\bcontrato\s+firmado\b|\bcontrat[a-z0-9]*\b|\bcontratpo\b|\bcontato\b|\bcontra\s+to\b|\bcontra\s+ta\b/', $n)) {
+            $id = 28;
         } elseif (preg_match('/\bsolicitud\s+interna\b|\bsolicitud\b/', $n)) {
             $id = 17;
         } elseif (preg_match('/\bcv\b|\bcurriculum\b|\bcurriculo\b|\bsolicitud\s+de\s+trabajo\b/', $n)) {
             $id = 18;
         } elseif (preg_match('/\bcsf\b|\bconstancia\b.*\bfiscal\b|\bsituacion\s+fiscal\b/', $n)) {
             $id = 22;
+        } elseif (preg_match('/\bsemanas?\s+cotizadas?\b|\bconstancia\s+de\s+semanas\b|\bsemanas\s+del\s+asegurado\b|\bhistorial\s+laboral\b/', $n)) {
+            $id = 33;
         } elseif (preg_match('/\bnss\b|\binss\b|\bseguridad\s+social\b/', $n)) {
             $id = 23;
         } elseif (preg_match('/\bfonacot\b|\binfonavit\b|\bretencion\b|\bno\s+credito\b|\bno\s+creditos\b|\bno\s+adeudo\b|\bno\s+adeudos\b|\bcarta\s+(?:de\s+)?no\s+creditos?\b/', $n)) {
@@ -700,24 +689,6 @@ class RrhhDocumentImportService
         }
 
         return $catalogo[$id] ?? ['id' => $id, 'nombre' => 'Documento ' . $id, 'clave' => ''];
-    }
-
-    private function detectarDocumentoOmitido(string $contexto, string $nombreOriginal = ''): ?string
-    {
-        $n = $this->normalizarTexto(pathinfo($contexto, PATHINFO_FILENAME) . ' ' . $contexto . ' ' . $nombreOriginal);
-        if ($n === '') {
-            return null;
-        }
-
-        foreach (self::DOCUMENTOS_OMITIR as $config) {
-            foreach (($config['patrones'] ?? []) as $patron) {
-                if (preg_match($patron, $n)) {
-                    return (string) ($config['etiqueta'] ?? 'archivo');
-                }
-            }
-        }
-
-        return null;
     }
 
     private function marcarExistentesYDuplicados(array $items): array

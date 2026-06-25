@@ -139,14 +139,13 @@ class ReporteCampoService
                     GROUP BY ap.id_persona, pp.departamento_id
                 ) todos
                 LEFT JOIN (
-                    SELECT DISTINCT ap.id_persona, pp.departamento_id AS dept_id
+                    SELECT DISTINCT ap.id_persona
                     FROM asigna_puesto ap
                     INNER JOIN puesto pp ON pp.id = ap.id_puesto
                     INNER JOIN departamento d ON d.id = pp.departamento_id
                     WHERE ap.activo = 1
                       AND (d.nombre LIKE 'Campo 1-7%' OR d.nombre LIKE 'Campo 8-30%' OR d.nombre LIKE 'Campo 30+%')
                 ) activo_keys ON activo_keys.id_persona = todos.id_persona
-                              AND activo_keys.dept_id = todos.dept_id
                 WHERE activo_keys.id_persona IS NULL
             ) puesto_sel ON puesto_sel.id_persona = p.id
             INNER JOIN puesto pp ON pp.id = puesto_sel.id_puesto

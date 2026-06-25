@@ -1,6 +1,6 @@
 # API de verificación de documentos — requisitos (sin Docker)
 
-Uso diario recomendado: **Python local (global) + uvicorn** en el puerto **8000**. Docker sigue disponible como alternativa (`launcher\Iniciar-API-Verificacion-Docker.bat`).
+Uso diario recomendado: **Python local (global) + uvicorn** en el puerto **8001**. Docker sigue disponible como alternativa (`launcher\Iniciar-API-Verificacion-Docker.bat`).
 
 ## Qué instalar en Windows (manual)
 
@@ -39,11 +39,11 @@ Esto actualiza `pip` y ejecuta `pip install -r requirements.txt` en **global** p
 
 - **Sin ninguna ventana (recomendado si no quiere ver consola):** doble clic en `launcher\iniciar-agente-oculto.vbs` — llama a `launcher\iniciar-agente-oculto.ps1` (uvicorn oculto). Si algo falla, revise `logs\api_oculto_startup.log` o use el `.bat`.
 - Consola visible (mensajes y pausas en error): `launcher\iniciar-agente.bat`
-- Documentación interactiva: [http://127.0.0.1:8000/docs](http://127.0.0.1:8000/docs) (tras levantar el servicio)
+- Documentación interactiva: [http://127.0.0.1:8001/docs](http://127.0.0.1:8001/docs) (tras levantar el servicio)
 
 ## Detener
 
-- `launcher\cerrar-agente.bat` o `powershell -File .\launcher\cerrar-agente.ps1` (libera el puerto **8000**).
+- `launcher\cerrar-agente.bat` o `powershell -File .\launcher\cerrar-agente.ps1` (libera el puerto **8001**).
 
 ## Instalar todo (Node + esta API)
 

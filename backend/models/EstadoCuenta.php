@@ -138,8 +138,10 @@ class EstadoCuenta extends Model
             $qry = "
                 SELECT nombre_archivo
                 FROM oferta_documentos
-                WHERE tipo_documento IN ('FAD', 'FAD_DOC')
-                AND fk_oferta = :id
+                WHERE tipo_documento = 'FAD'
+                  AND fk_oferta = :id
+                  AND estatus = 1
+                ORDER BY fecha_documento DESC, pk_oferta_documentos DESC
                 LIMIT 1
             ";
         } else {
@@ -147,7 +149,9 @@ class EstadoCuenta extends Model
                 SELECT nombre_archivo
                 FROM oferta_documentos
                 WHERE tipo_documento = 'EVIDENCIA'
-                AND fk_oferta = :id
+                  AND fk_oferta = :id
+                  AND estatus = 1
+                ORDER BY fecha_documento DESC, pk_oferta_documentos DESC
                 LIMIT 1
             ";
         }
@@ -189,7 +193,10 @@ class EstadoCuenta extends Model
             $qry = "
                 SELECT nombre_archivo
                 FROM oferta_documentos
-                WHERE tipo_documento = :tipo AND fk_oferta = :id
+                WHERE tipo_documento = :tipo
+                  AND fk_oferta = :id
+                  AND estatus = 1
+                ORDER BY fecha_documento DESC, pk_oferta_documentos DESC
                 LIMIT 1
             ";
             $r = $db->queryAll($qry, ['tipo' => $tipoBD, 'id' => $idOferta]);

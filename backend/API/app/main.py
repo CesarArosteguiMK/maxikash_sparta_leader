@@ -100,7 +100,7 @@ async def startup():
     os.makedirs(temp_dir, exist_ok=True)
     os.makedirs("logs", exist_ok=True)
     logger.info(f"{settings.app_name} v{settings.app_version} iniciado")
-    logger.info(f"Docs: http://localhost:8000/docs")
+    logger.info(f"Docs: http://localhost:8001/docs")
 
 
 @app.on_event("shutdown")

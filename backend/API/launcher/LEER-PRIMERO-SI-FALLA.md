@@ -52,7 +52,7 @@ Esto:
 4. Hace un **smoke import** (`from app.main import app`). Esto reproduce el
    error real que hace que `uvicorn` muera silenciosamente en oculto.
 5. Revisa **Tesseract OCR**, **VC++ Redistributable** y **zbar DLL**.
-6. Comprueba **`.env`**, carpeta **`logs\`** y **puerto 8000**.
+6. Comprueba **`.env`**, carpeta **`logs\`** y **puerto 8001**.
 7. Te da un resumen con `[OK] / [WARN] / [ERR]` y **acciones recomendadas**.
 8. Guarda log completo en `backend\API\logs\doctor-YYYYMMDD-HHMMSS.log`.
 
@@ -84,7 +84,7 @@ importarse (uno por uno, con log).
 launcher\Diagnosticar-API.bat /KILL
 ```
 
-Mata cualquier proceso que esté ocupando el puerto 8000 antes de seguir.
+Mata cualquier proceso que esté ocupando el puerto 8001 antes de seguir.
 
 ---
 
@@ -120,7 +120,7 @@ A diferencia de la versión vieja, ahora estos:
 - Capturan stdout y stderr de uvicorn a:
   - `backend\API\logs\uvicorn-stdout.log`
   - `backend\API\logs\uvicorn-stderr.log`
-- Esperan hasta 20 s a que el puerto 8000 quede en LISTENING.
+- Esperan hasta 20 s a que el puerto 8001 quede en LISTENING.
 - Si no levanta, vuelcan las últimas líneas del error en
   `backend\API\logs\api_oculto_startup.log` y `iniciar-agente.bat`
   abre **automáticamente** el doctor.
@@ -198,7 +198,7 @@ Solución:
 Instala en `C:\Program Files\Tesseract-OCR\`. El doctor con `/FIX`
 agrega `TESSERACT_CMD` al `.env` automáticamente.
 
-### F. Puerto 8000 ocupado por un uvicorn viejo
+### F. Puerto 8001 ocupado por un uvicorn viejo
 
 Síntoma: `[Errno 10048] error while attempting to bind on address`.
 

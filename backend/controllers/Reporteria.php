@@ -735,6 +735,93 @@ class Reporteria extends Controller
         }
     }
 
+    public function descargarDiasAcumuladosReingresosExcel()
+    {
+        while (ob_get_level()) {
+            ob_end_clean();
+        }
+
+        try {
+            if (!isset($_SESSION['usuario_id']) && !isset($_SESSION['persona_id'])) {
+                header('Content-Type: text/html; charset=utf-8');
+                die('Sesion no valida. Por favor inicia sesion nuevamente.');
+            }
+
+            $anio = (int) ($_GET['anio'] ?? date('Y'));
+            $anioActual = (int) date('Y');
+            if ($anio < 2000 || $anio > $anioActual) {
+                header('Content-Type: text/html; charset=utf-8');
+                die('Ejercicio invalido.');
+            }
+
+            $resultado = \Models\CapHum::getDiasAcumuladosReingresos($anio);
+            if (empty($resultado['success'])) {
+                header('Content-Type: text/html; charset=utf-8');
+                die('Error al obtener datos: ' . ($resultado['mensaje'] ?? 'Error desconocido'));
+            }
+
+            $payload = $resultado['datos'] ?? [];
+            $rows = is_array($payload['rows'] ?? null) ? $payload['rows'] : [];
+            if (empty($rows)) {
+                header('Content-Type: text/html; charset=utf-8');
+                die('No hay plantilla con dias acumulados para el ejercicio seleccionado.');
+            }
+
+            $fechaCorte = (string) ($payload['fecha_corte'] ?? '');
+            $data = [];
+            foreach ($rows as $row) {
+                $data[] = [
+                    'numero_empleado' => $row['numero_empleado'] ?? '',
+                    'nombre_completo' => $row['nombre_completo'] ?? '',
+                    'departamento' => $row['departamento'] ?? 'N/A',
+                    'puesto' => $row['puesto'] ?? 'N/A',
+                    'estatus_actual' => $row['estatus_actual'] ?? '',
+                    'fecha_ingreso_inicial' => $row['fecha_ingreso_inicial'] ?? '',
+                    'tuvo_reingreso' => $row['tuvo_reingreso'] ?? 'No',
+                    'reingresos_historicos' => (int) ($row['reingresos_historicos'] ?? 0),
+                    'reingresos_ejercicio' => (int) ($row['reingresos_ejercicio'] ?? 0),
+                    'bajas_ejercicio' => (int) ($row['bajas_ejercicio'] ?? 0),
+                    'periodos_contabilizados' => (int) ($row['periodos_contabilizados'] ?? 0),
+                    'dias_acumulados' => (int) ($row['dias_acumulados'] ?? 0),
+                    'fecha_corte' => $fechaCorte,
+                    'detalle_periodos' => $row['detalle_periodos'] ?? '',
+                ];
+            }
+
+            $columnas = [
+                \PHPSpreadsheet::ColumnaExcel('numero_empleado', 'NUMERO DE EMPLEADO'),
+                \PHPSpreadsheet::ColumnaExcel('nombre_completo', 'NOMBRE COMPLETO'),
+                \PHPSpreadsheet::ColumnaExcel('departamento', 'DEPARTAMENTO'),
+                \PHPSpreadsheet::ColumnaExcel('puesto', 'PUESTO'),
+                \PHPSpreadsheet::ColumnaExcel('estatus_actual', 'ESTATUS ACTUAL'),
+                \PHPSpreadsheet::ColumnaExcel('fecha_ingreso_inicial', 'FECHA INGRESO INICIAL'),
+                \PHPSpreadsheet::ColumnaExcel('tuvo_reingreso', 'TUVO REINGRESO'),
+                \PHPSpreadsheet::ColumnaExcel('reingresos_historicos', 'REINGRESOS HISTORICOS'),
+                \PHPSpreadsheet::ColumnaExcel('reingresos_ejercicio', 'REINGRESOS EN EJERCICIO'),
+                \PHPSpreadsheet::ColumnaExcel('bajas_ejercicio', 'BAJAS EN EJERCICIO'),
+                \PHPSpreadsheet::ColumnaExcel('periodos_contabilizados', 'PERIODOS CONTABILIZADOS'),
+                \PHPSpreadsheet::ColumnaExcel('dias_acumulados', 'DIAS ACUMULADOS'),
+                \PHPSpreadsheet::ColumnaExcel('fecha_corte', 'FECHA CORTE'),
+                \PHPSpreadsheet::ColumnaExcel('detalle_periodos', 'DETALLE PERIODOS'),
+            ];
+
+            $nombreArchivo = 'Plantilla_Dias_Acumulados_' . $anio . '_' . date('Y-m-d_His');
+            \PHPSpreadsheet::DescargaExcel(
+                $nombreArchivo,
+                'Plantilla',
+                'Plantilla dias acumulados ' . $anio,
+                $columnas,
+                $data
+            );
+            exit;
+        } catch (\Throwable $e) {
+            error_log('Error en descargarDiasAcumuladosReingresosExcel: ' . $e->getMessage() . ' - ' . $e->getTraceAsString());
+            header('Content-Type: text/html; charset=utf-8');
+            echo 'Error al generar el archivo Excel: ' . htmlspecialchars($e->getMessage(), ENT_QUOTES, 'UTF-8');
+            exit;
+        }
+    }
+
     /**
      * Call Center: dictamen de llamadas.
      * URL canónica: /analitica/callcenter

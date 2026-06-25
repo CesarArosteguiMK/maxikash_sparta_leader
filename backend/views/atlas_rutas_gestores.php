@@ -1,4 +1,4 @@
-﻿<div class="container-xxl flex-grow-1 container-p-y atlas-rutas-page">
+<div class="container-xxl flex-grow-1 container-p-y atlas-rutas-page">
     <style>
         .atlas-rutas-page { color: #22303e; }
         .atlas-rutas-title { display:flex; align-items:center; gap:.65rem; color:#22303e; font-size:1.35rem; font-weight:800; margin:0; }

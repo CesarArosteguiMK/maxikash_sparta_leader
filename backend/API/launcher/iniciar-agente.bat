@@ -4,7 +4,7 @@ setlocal EnableDelayedExpansion
 
 rem =====================================================================
 rem  iniciar-agente.bat
-rem  Arranca uvicorn (puerto 8000) en SEGUNDO PLANO sin ventana.
+rem  Arranca uvicorn (puerto 8001) en SEGUNDO PLANO sin ventana.
 rem  - Si la API ya esta levantada, sale OK.
 rem  - Si hay un error, ofrece lanzar Diagnosticar-API.bat para que el
 rem    usuario vea exactamente que fallo (en vez de quedarse a oscuras).
@@ -13,7 +13,7 @@ rem =====================================================================
 for %%I in ("%~dp0..") do set "API_DIR=%%~fI"
 if "%API_DIR:~-1%"=="\" set "API_DIR=%API_DIR:~0,-1%"
 set "API_PORT=%SPARTA_API_PORT%"
-if "%API_PORT%"=="" set "API_PORT=8000"
+if "%API_PORT%"=="" set "API_PORT=8001"
 cd /d "%API_DIR%"
 
 if not exist "%API_DIR%\app\main.py" (

@@ -166,7 +166,7 @@ function getMenu(): string
             'icono'    => 'fa-solid fa-users',
             'subItems' => [
                 ['label' => 'Gestión de Personal',          'url' => '/caphum/gestion',                  'modulos' => [4]],
-                ['label' => 'Accesos Capital Humano',        'url' => '/caphum/accesosCapitalHumano',     'modulos' => [140]],
+                ['label' => 'Accesos',                      'url' => '/caphum/accesosCapitalHumano',     'modulos' => [140]],
                 ['label' => 'Carta compromiso Gestor',       'url' => '/caphum/cartaCompromisoGestores',  'modulos' => [144]],
                 ['label' => 'Panel vacaciones',             'url' => '/caphum/vacacionesAdmin',          'modulos' => [4]],
                 ['label' => 'Expedientes RR.HH.',           'url' => '/caphum/documentosRrhh',           'modulos' => [93]],

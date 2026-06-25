@@ -20,7 +20,7 @@ cd /d "%~dp0"
 for %%I in ("%~dp0..") do set "API_DIR=%%~fI"
 if "%API_DIR:~-1%"=="\" set "API_DIR=%API_DIR:~0,-1%"
 set "API_PORT=%SPARTA_API_PORT%"
-if "%API_PORT%"=="" set "API_PORT=8000"
+if "%API_PORT%"=="" set "API_PORT=8001"
 if not exist "%API_DIR%\logs" mkdir "%API_DIR%\logs" >nul 2>&1
 
 if /i "%~1"=="/CONSOLA" (
@@ -72,7 +72,7 @@ if "!API_READY!"=="1" (
         powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0cerrar-agente.ps1" -Silent
         if !errorlevel! NEQ 0 (
             echo [ERROR] No se pudo detener la API anterior. No se arranca encima para evitar codigo viejo en memoria.
-            echo         Use "Parar ejecucion" o cierre el proceso que ocupa el puerto 8000 y vuelva a intentar.
+            echo         Use "Parar ejecucion" o cierre el proceso que ocupa el puerto 8001 y vuelva a intentar.
             exit /b 1
         )
         call "%~dp0iniciar-agente.bat"
@@ -82,7 +82,7 @@ if "!API_READY!"=="1" (
     powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0cerrar-agente.ps1" -Silent
     if !errorlevel! NEQ 0 (
         echo [ERROR] No se pudo detener la API anterior. No se arranca encima para evitar codigo viejo en memoria.
-        echo         Use "Parar ejecucion" o cierre el proceso que ocupa el puerto 8000 y vuelva a intentar.
+        echo         Use "Parar ejecucion" o cierre el proceso que ocupa el puerto 8001 y vuelva a intentar.
         exit /b 1
     )
     call "%~dp0iniciar-agente.bat"
