@@ -1629,7 +1629,7 @@ class Inicio extends Controller
             'body_snip'  => is_string($pBody) ? substr(preg_replace('/\s+/', ' ', $pBody), 0, 320) : '',
         ];
 
-        $postMinimoOk = $pErrno === 0 && in_array($pCode, [400, 422], true);
+        $postMinimoOk = $pErrno === 0 && in_array($pCode, [200, 400, 422], true);
         $out['api_operativa_basica'] = $healthOk && $tcp['ok'] && $postMinimoOk;
         if (!$out['api_operativa_basica']) {
             $out['success'] = false;
@@ -1639,9 +1639,9 @@ class Inicio extends Controller
         $interpretacion = [];
         $patronSinFalloRed = $healthOk && $tcp['ok'] && $gErrno === 0 && $postMinimoOk
             && in_array($gCode, [200, 204, 301, 302, 303, 307, 308, 400, 401, 403, 404, 405], true)
-            && in_array($pCode, [400, 422], true);
+            && in_array($pCode, [200, 400, 422], true);
         if ($patronSinFalloRed) {
-            $interpretacion[] = 'Buenas noticias: en estas pruebas no hay fallo de red ni de ruta. HTTP 405 en GET /validar-expediente (solo POST) y HTTP 400 sin PDF son respuestas esperadas de una API viva; PHP y la API en 127.0.0.1:8001 se entienden en milisegundos.';
+            $interpretacion[] = 'Buenas noticias: en estas pruebas no hay fallo de red ni de ruta. GET /validar-expediente puede responder 405 y POST minimo puede responder 200, 400 o 422 segun el motor activo; PHP y la API en 127.0.0.1:8001 se entienden en milisegundos.';
         }
         if (!$healthOk) {
             $interpretacion[] = 'Health falló: la API no respondió 200 en /health (revisar URL base, firewall o que uvicorn esté arriba).';
@@ -2056,9 +2056,9 @@ class Inicio extends Controller
         $err = (string)@curl_error($ch);
         @curl_close($ch);
 
-        $ok = $errno === 0 && in_array($status, [400, 422], true);
+        $ok = $errno === 0 && in_array($status, [200, 400, 422], true);
         $message = $ok
-            ? 'validar-expediente responde y rechaza el payload vacio como se espera.'
+            ? 'validar-expediente responde correctamente al check minimo.'
             : ($err !== '' ? $err : 'Respuesta inesperada del check funcional.');
 
         return [

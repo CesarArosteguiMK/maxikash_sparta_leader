@@ -856,7 +856,8 @@ def _respuesta_alibaba_identificacion(res: Dict[str, Any]) -> Dict[str, Any]:
     fr = extraccion.get("frente_reverso") or {}
     errores = _ai_errores(res)
     advertencias = _ai_advertencias(res)
-    valido = _ai_es_doc(res, "identificacion_oficial") and not errores and not advertencias
+    es_identificacion = _ai_es_doc(res, "identificacion_oficial")
+    valido = es_identificacion and not errores
     indicadores = {
         "mrz": bool(fr.get("reverso_detectado")),
         "ine": doc_type in {"ine", "identificacion_oficial"},
@@ -867,8 +868,8 @@ def _respuesta_alibaba_identificacion(res: Dict[str, Any]) -> Dict[str, Any]:
     }
     return {
         "valido": bool(valido),
-        "revision_manual": not bool(valido),
-        "rechazado": not bool(valido),
+        "revision_manual": bool(advertencias) or (not bool(valido)),
+        "rechazado": bool(errores) or (not es_identificacion),
         "mensaje": _ai_mensaje(res, "Identificacion oficial verificada." if valido else "No se pudo confirmar la identificacion oficial."),
         "indicadores": indicadores,
         "tipo_identificacion": doc_type if valido else None,
@@ -2672,7 +2673,7 @@ async def verificar_curp_documento(
     summary="Precheck rápido de identificación oficial (PDF)",
     description="""
     Revisión rápida para la pantalla de subida de documentos.
-    Solo valida que el PDF parezca una identificación oficial (INE o residencia),
+    Solo valida que el PDF parezca una identificación oficial (INE, residencia o pasaporte),
     sin extraer datos finales ni ejecutar comparaciones profundas.
     """,
     tags=["Utilidades"]
@@ -2851,7 +2852,7 @@ async def precheck_identificacion_pdf(
     elif valido:
         mensaje = "El PDF parece corresponder a una identificación oficial."
     elif texto.strip():
-        mensaje = "El PDF no parece corresponder a una identificación oficial. Sube INE o residencia oficial."
+        mensaje = "El PDF no parece corresponder a una identificación oficial. Sube INE, residencia o pasaporte vigente."
     else:
         mensaje = "No se pudo leer suficiente texto del PDF. Sube una identificación oficial clara."
 

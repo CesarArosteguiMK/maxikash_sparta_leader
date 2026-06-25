@@ -127,7 +127,10 @@ Reglas de lectura:
 1. No inventes datos. Si un campo no se ve, usa null.
 2. Usa fechas en formato YYYY-MM-DD. Si solo ves mes y anio, usa YYYY-MM-01.
 3. Si detectas INE, pasaporte o residencia, clasifica el subtipo especifico.
-4. Si el documento tiene frente y reverso, indica si ambos aparecen.
+   Un pasaporte de cualquier pais es identificacion oficial valida; clasificalo
+   como pasaporte_extranjero cuando el pais/nacionalidad no sea Mexico.
+4. Si el documento tiene frente y reverso, indica si ambos aparecen. Para
+   pasaportes no exijas frente y reverso; basta la hoja de datos legible.
 5. Si la imagen esta borrosa, cortada o ilegible, baja la confianza.
 6. Para estado de cuenta, acepta caratulas, anexos o contratos bancarios como Libreton BBVA si muestran banco, titular y CLABE o cuenta.
 7. Para constancia_fiscal, extrae actividad_economica, regimen_fiscal y regimenes_fiscales si aparecen.
@@ -502,12 +505,16 @@ def parse_retry_delays(value: Optional[str]) -> List[int]:
         raw = raw.strip()
         if raw:
             delays.append(max(0, int(raw)))
-    return delays or [0]
+    if not delays:
+        return [0, 1]
+    if delays == [0]:
+        return [0, 1]
+    return delays
 
 
 def is_transient_error(exc: Exception) -> bool:
     text = str(exc).lower()
-    return any(token in text for token in ("429", "500", "502", "503", "504", "timeout", "timed out", "rate limit", "eof", "ssl"))
+    return any(token in text for token in ("429", "500", "502", "503", "504", "timeout", "timed out", "rate limit", "eof", "ssl", "empty response", "invalid json", "expecting value"))
 
 
 def summary_is_usable(summary: Any) -> bool:
@@ -666,7 +673,11 @@ def validate_quick_extracted(data: Dict[str, Any], expected_doc_type: Optional[s
     if confidence == "baja" or quality == "mala" or data.get("evidencia_insuficiente"):
         warnings.append("El documento se lee con baja claridad")
 
-    if expected_doc_type == "identificacion_oficial" and doc_type in compatible_document_types("identificacion_oficial"):
+    if (
+        expected_doc_type == "identificacion_oficial"
+        and doc_type in compatible_document_types("identificacion_oficial")
+        and doc_type not in {"pasaporte_mexicano", "pasaporte_extranjero"}
+    ):
         fr = data.get("frente_reverso") or {}
         if not fr.get("frente_detectado") or not fr.get("reverso_detectado"):
             warnings.append("No se detecto frente y reverso completos")
@@ -802,7 +813,13 @@ class AlibabaDocumentAI:
                     with urllib.request.urlopen(req, timeout=self.timeout_seconds) as response:
                         body = json.loads(response.read().decode("utf-8"))
                     text = ((body.get("choices") or [{}])[0].get("message") or {}).get("content") or ""
-                    return extract_json(text), body.get("usage") or {}, current_model, model_idx > 0
+                    if not str(text).strip():
+                        raise RuntimeError("Alibaba empty response content")
+                    try:
+                        parsed = extract_json(text)
+                    except Exception as exc:
+                        raise RuntimeError(f"Alibaba invalid JSON response: {exc}") from exc
+                    return parsed, body.get("usage") or {}, current_model, model_idx > 0
                 except urllib.error.HTTPError as exc:
                     try:
                         detail = exc.read().decode("utf-8", errors="replace")
