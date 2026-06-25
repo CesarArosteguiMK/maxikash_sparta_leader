@@ -34,6 +34,7 @@ backend/BD/geo_ssl_*.pem
 
 # ========== Test y diagnóstico (no subir; pueden exponer rutas) ==========
 public/test_geo_ssl.php
+tmp/
 
 # ========== Subidas públicas (runtime; no versionar contenido) ==========
 public/uploads/**
