@@ -17,10 +17,11 @@ class CapHum extends Model
     private const MODULO_GESTION_REGISTRAR_PERSONA = 143;
     public const MODULO_VALIDAR_CARTA_COMPROMISO_GESTOR = 144;
     public const MODULO_VER_DOCUMENTOS_SENSIBLES_RRHH = 151;
+    public const MODULO_RESET_TOTP_DOCUMENTOS_SENSIBLES_RRHH = 152;
     private const MODULOS_ACCESOS_CAPITAL_HUMANO_IDS = [
         4, 5, 13, 34, 38, 42, 44, 82, 83, 86, 87, 88, 91, 93,
         94, 95, 96, 97, 98, 99, 101, 104, 105,
-        140, 141, 142, 143, 144, 147, 151,
+        140, 141, 142, 143, 144, 147, 151, 152,
         3008, 3009, 3010, 3011, 3012, 3013, 3014, 3015, 3016, 3017,
         3018, 3022, 3023, 3024, 3025, 3027, 3028, 3029, 3030, 3031,
         3032, 3033, 3034, 3035, 3036,
@@ -86,6 +87,12 @@ class CapHum extends Model
                 'nombre' => 'Ver documentos sensibles RR.HH.',
                 'pestana' => 'Permisos especiales',
                 'descripcion' => 'Permite abrir y descargar contratos, bancos y archivos sensibles de expedientes RR.HH.',
+            ],
+            [
+                'id' => self::MODULO_RESET_TOTP_DOCUMENTOS_SENSIBLES_RRHH,
+                'nombre' => 'Reset Google Authenticator documentos RR.HH.',
+                'pestana' => 'Permisos especiales',
+                'descripcion' => 'Permite reiniciar el segundo paso de Google Authenticator para documentos sensibles RR.HH.',
             ],
         ];
 
@@ -2273,6 +2280,242 @@ class CapHum extends Model
         }
     }
 
+    public static function getDiasAcumuladosReingresos(int $anio): array
+    {
+        try {
+            $anioActual = (int) (new \DateTimeImmutable('now', new \DateTimeZone('America/Mexico_City')))->format('Y');
+            if ($anio < 2000 || $anio > $anioActual) {
+                return self::resultado(false, 'Ejercicio invalido.');
+            }
+
+            $tz = new \DateTimeZone('America/Mexico_City');
+            $inicioEjercicio = new \DateTimeImmutable($anio . '-01-01', $tz);
+            $finEjercicio = new \DateTimeImmutable($anio . '-12-31', $tz);
+            $hoy = new \DateTimeImmutable('today', $tz);
+            $fechaCorte = $anio === $anioActual && $hoy < $finEjercicio ? $hoy : $finEjercicio;
+            $finSql = $fechaCorte->format('Y-m-d');
+
+            $db = new Database();
+            $excluir = UsuarioFantasmaReporteria::sqlPredicadoExcluirPersona('p');
+
+            $personas = $db->queryAll("
+                SELECT
+                    p.id,
+                    p.numero_empleado,
+                    p.nombres,
+                    p.segundo_nombre,
+                    p.apellidop,
+                    p.apellidom,
+                    CONCAT_WS(' ', p.nombres, p.segundo_nombre, p.apellidop, p.apellidom) AS nombre_completo,
+                    p.estatus,
+                    p.fecha_ingreso,
+                    COALESCE(GROUP_CONCAT(DISTINCT pp.nombre ORDER BY pp.nombre SEPARATOR ', '), 'Sin puesto') AS nombre_puesto,
+                    COALESCE(GROUP_CONCAT(DISTINCT d.nombre ORDER BY d.nombre SEPARATOR ', '), 'Sin departamento') AS nombre_departamento
+                FROM __SPARTA_SECRET_REDACTED__.persona p
+                LEFT JOIN __SPARTA_SECRET_REDACTED__.asigna_puesto ap ON ap.id_persona = p.id AND COALESCE(ap.activo, 1) = 1
+                LEFT JOIN __SPARTA_SECRET_REDACTED__.puesto pp ON pp.id = ap.id_puesto
+                LEFT JOIN __SPARTA_SECRET_REDACTED__.departamento d ON d.id = pp.departamento_id
+                WHERE {$excluir}
+                  AND (
+                    (CAST(p.fecha_ingreso AS CHAR) <> '0000-00-00' AND CAST(p.fecha_ingreso AS CHAR) <= :fecha_corte)
+                    OR EXISTS (
+                        SELECT 1
+                        FROM __SPARTA_SECRET_REDACTED__.reingresos rpx
+                        WHERE rpx.id_persona = p.id
+                          AND DATE(rpx.fecha_reingreso) <= :fecha_corte
+                    )
+                  )
+                GROUP BY
+                    p.id,
+                    p.numero_empleado,
+                    p.nombres,
+                    p.segundo_nombre,
+                    p.apellidop,
+                    p.apellidom,
+                    p.estatus,
+                    p.fecha_ingreso
+                ORDER BY nombre_departamento ASC, nombre_puesto ASC, p.nombres ASC
+            ", ['fecha_corte' => $finSql]);
+
+            if (empty($personas)) {
+                return self::resultado(true, 'Sin plantilla para el ejercicio.', [
+                    'anio' => $anio,
+                    'fecha_corte' => $finSql,
+                    'rows' => [],
+                ]);
+            }
+
+            $ids = array_values(array_unique(array_map(static function ($row) {
+                return (int) ($row['id'] ?? 0);
+            }, $personas)));
+            $ids = array_values(array_filter($ids));
+            if (empty($ids)) {
+                return self::resultado(true, 'Sin plantilla para el ejercicio.', [
+                    'anio' => $anio,
+                    'fecha_corte' => $finSql,
+                    'rows' => [],
+                ]);
+            }
+
+            $idsSql = implode(',', array_map('intval', $ids));
+            $bajasRows = $db->queryAll("
+                SELECT id_persona, fecha_baja
+                FROM __SPARTA_SECRET_REDACTED__.baja_persona
+                WHERE id_persona IN ({$idsSql})
+                  AND DATE(fecha_baja) <= :fecha_corte
+                ORDER BY id_persona ASC, fecha_baja ASC, id ASC
+            ", ['fecha_corte' => $finSql]);
+            $reingresosRows = $db->queryAll("
+                SELECT id_persona, fecha_reingreso
+                FROM __SPARTA_SECRET_REDACTED__.reingresos
+                WHERE id_persona IN ({$idsSql})
+                  AND DATE(fecha_reingreso) <= :fecha_corte
+                ORDER BY id_persona ASC, fecha_reingreso ASC, id ASC
+            ", ['fecha_corte' => $finSql]);
+
+            $bajasPorPersona = [];
+            foreach ($bajasRows as $row) {
+                $idPersona = (int) ($row['id_persona'] ?? 0);
+                $fecha = self::fechaDiaRrhh($row['fecha_baja'] ?? '', $tz);
+                if ($idPersona > 0 && $fecha) {
+                    $bajasPorPersona[$idPersona][] = $fecha;
+                }
+            }
+
+            $reingresosPorPersona = [];
+            foreach ($reingresosRows as $row) {
+                $idPersona = (int) ($row['id_persona'] ?? 0);
+                $fecha = self::fechaDiaRrhh($row['fecha_reingreso'] ?? '', $tz);
+                if ($idPersona > 0 && $fecha) {
+                    $reingresosPorPersona[$idPersona][] = $fecha;
+                }
+            }
+
+            $rows = [];
+            foreach ($personas as $persona) {
+                $idPersona = (int) ($persona['id'] ?? 0);
+                $fechaIngreso = self::fechaDiaRrhh($persona['fecha_ingreso'] ?? '', $tz);
+                $reingresos = $reingresosPorPersona[$idPersona] ?? [];
+
+                $inicios = [];
+                if ($fechaIngreso && $fechaIngreso <= $fechaCorte) {
+                    $inicios[] = ['fecha' => $fechaIngreso, 'tipo' => 'Ingreso inicial'];
+                }
+                foreach ($reingresos as $fechaReingreso) {
+                    if ($fechaReingreso <= $fechaCorte) {
+                        $inicios[] = ['fecha' => $fechaReingreso, 'tipo' => 'Reingreso'];
+                    }
+                }
+                usort($inicios, static function ($a, $b) {
+                    return $a['fecha'] <=> $b['fecha'];
+                });
+
+                if (empty($inicios)) {
+                    continue;
+                }
+
+                $bajas = $bajasPorPersona[$idPersona] ?? [];
+                $periodos = [];
+                $diasAcumulados = 0;
+
+                foreach ($inicios as $idx => $inicio) {
+                    $fechaInicio = $inicio['fecha'];
+                    $siguienteInicio = $inicios[$idx + 1]['fecha'] ?? null;
+                    $fechaFin = $fechaCorte;
+                    $finTipo = 'Corte';
+
+                    foreach ($bajas as $fechaBaja) {
+                        if ($fechaBaja < $fechaInicio) {
+                            continue;
+                        }
+                        if ($siguienteInicio && $fechaBaja >= $siguienteInicio) {
+                            break;
+                        }
+                        $fechaFin = $fechaBaja;
+                        $finTipo = 'Baja';
+                        break;
+                    }
+                    if ($siguienteInicio) {
+                        $diaPrevioSiguiente = $siguienteInicio->modify('-1 day');
+                        if ($diaPrevioSiguiente < $fechaFin) {
+                            $fechaFin = $diaPrevioSiguiente;
+                            $finTipo = 'Previo a reingreso';
+                        }
+                    }
+
+                    $inicioSolapado = $fechaInicio < $inicioEjercicio ? $inicioEjercicio : $fechaInicio;
+                    $finSolapado = $fechaFin > $fechaCorte ? $fechaCorte : $fechaFin;
+
+                    if ($inicioSolapado > $finSolapado) {
+                        continue;
+                    }
+
+                    $dias = (int) $inicioSolapado->diff($finSolapado)->days + 1;
+                    $diasAcumulados += $dias;
+                    $periodos[] = [
+                        'tipo' => $inicio['tipo'],
+                        'inicio' => $inicioSolapado->format('Y-m-d'),
+                        'fin' => $finSolapado->format('Y-m-d'),
+                        'fin_tipo' => $finTipo,
+                        'dias' => $dias,
+                    ];
+                }
+
+                if ($diasAcumulados <= 0) {
+                    continue;
+                }
+
+                $reingresosEjercicio = array_values(array_filter($reingresos, static function ($fecha) use ($inicioEjercicio, $fechaCorte) {
+                    return $fecha >= $inicioEjercicio && $fecha <= $fechaCorte;
+                }));
+                $bajasEjercicio = array_values(array_filter($bajas, static function ($fecha) use ($inicioEjercicio, $fechaCorte) {
+                    return $fecha >= $inicioEjercicio && $fecha <= $fechaCorte;
+                }));
+
+                $detalle = array_map(static function ($periodo) {
+                    return $periodo['tipo'] . ': ' . $periodo['inicio'] . ' a ' . $periodo['fin'] . ' (' . $periodo['dias'] . ' dias)';
+                }, $periodos);
+
+                $rows[] = [
+                    'numero_empleado' => $persona['numero_empleado'] ?? '',
+                    'nombre_completo' => trim((string) ($persona['nombre_completo'] ?? '')),
+                    'departamento' => $persona['nombre_departamento'] ?? 'Sin departamento',
+                    'puesto' => $persona['nombre_puesto'] ?? 'Sin puesto',
+                    'estatus_actual' => $persona['estatus'] ?? '',
+                    'fecha_ingreso_inicial' => $fechaIngreso ? $fechaIngreso->format('Y-m-d') : '',
+                    'tuvo_reingreso' => count($reingresos) > 0 ? 'Si' : 'No',
+                    'reingresos_historicos' => count($reingresos),
+                    'reingresos_ejercicio' => count($reingresosEjercicio),
+                    'bajas_ejercicio' => count($bajasEjercicio),
+                    'dias_acumulados' => $diasAcumulados,
+                    'periodos_contabilizados' => count($periodos),
+                    'detalle_periodos' => implode(' | ', $detalle),
+                ];
+            }
+
+            return self::resultado(true, 'Dias acumulados calculados.', [
+                'anio' => $anio,
+                'fecha_corte' => $finSql,
+                'rows' => $rows,
+            ]);
+        } catch (\Exception $e) {
+            return self::resultado(false, 'Error al calcular dias acumulados.', null, $e->getMessage());
+        }
+    }
+
+    private static function fechaDiaRrhh($valor, \DateTimeZone $tz): ?\DateTimeImmutable
+    {
+        $valor = trim((string) $valor);
+        if ($valor === '' || $valor === '0000-00-00' || $valor === '0000-00-00 00:00:00') {
+            return null;
+        }
+        try {
+            return (new \DateTimeImmutable($valor, $tz))->setTime(0, 0, 0);
+        } catch (\Exception $e) {
+            return null;
+        }
+    }
+
     public static function getPersonaDetalle($idPersona)
     {
         try {
@@ -4001,7 +4244,7 @@ class CapHum extends Model
 
     private static function grupoModuloAccesoCapitalHumano(int $id, string $pestana, string $nombre): array
     {
-        if ($id === 151 || ($id >= 3000 && $id < 3100)) {
+        if (in_array($id, [151, 152], true) || ($id >= 3000 && $id < 3100)) {
             return ['grupo' => 'Control documental RR.HH.', 'icono' => 'fa-solid fa-folder-lock', 'orden' => 28];
         }
         if ($id >= 107 && $id <= 127) {

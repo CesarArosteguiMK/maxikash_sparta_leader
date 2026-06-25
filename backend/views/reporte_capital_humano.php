@@ -39,6 +39,40 @@ body.dark-mode .swal2-popup .btn-secondary:hover {
     background-color: #475569 !important;
     border-color: #475569 !important;
 }
+.rch-swal-reingresos .swal2-actions {
+    gap: 0.75rem;
+}
+.rch-swal-reingresos .rch-swal-btn {
+    min-width: 128px;
+    border-radius: 8px;
+    padding: 0.62rem 1.15rem;
+    font-weight: 700;
+    box-shadow: none !important;
+}
+.rch-swal-reingresos .rch-swal-confirm {
+    background-color: #263957 !important;
+    border-color: #263957 !important;
+    color: #fff !important;
+}
+.rch-swal-reingresos .rch-swal-confirm:hover {
+    background-color: #1f2f49 !important;
+    border-color: #1f2f49 !important;
+}
+.rch-swal-reingresos .rch-swal-cancel {
+    background-color: #fff !important;
+    border: 1px solid #cfd6e4 !important;
+    color: #566a7f !important;
+}
+.rch-swal-reingresos .rch-swal-cancel:hover {
+    background-color: #f5f7fb !important;
+    border-color: #b8c2d4 !important;
+    color: #2f3f56 !important;
+}
+body.dark-mode .rch-swal-reingresos .rch-swal-cancel {
+    background-color: transparent !important;
+    border-color: #64748b !important;
+    color: #dbe4f0 !important;
+}
 </style>
 
 <div id="rch-landing" class="rch-reportes-personal-page">
@@ -60,7 +94,7 @@ body.dark-mode .swal2-popup .btn-secondary:hover {
                      height="400"
                      alt="Reportes de Personal — ilustración">
             </div>
-            <div class="row gy-3 mb-3 gx-0">
+            <div class="row gy-3 mb-3 gx-3">
                 <div class="col-12 col-md-8 col-lg-4">
                     <div class="card shadow-none bg-label-primary h-100">
                         <div class="card-body d-flex justify-content-between flex-wrap-reverse">
@@ -75,6 +109,29 @@ body.dark-mode .swal2-popup .btn-secondary:hover {
                             </div>
                             <div class="w-100 app-academy-sm-40 d-flex justify-content-center justify-content-sm-end h-px-150 mb-4 mb-sm-0">
                                 <img class="img-fluid scaleX-n1-rtl" src="https://cdn-icons-png.freepik.com/512/11053/11053297.png" alt="Descarga reporte de personal">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-12 col-md-8 col-lg-4">
+                    <div class="card shadow-none bg-label-info h-100">
+                        <div class="card-body d-flex justify-content-between flex-wrap-reverse">
+                            <div class="mb-0 w-100 app-academy-sm-60 d-flex flex-column justify-content-between text-center text-sm-start">
+                                <div class="card-title">
+                                    <h5 class="text-primary mb-2">Dias acumulados de plantilla</h5>
+                                    <p class="text-body w-sm-80 app-academy-xl-100">Descarga la plantilla con dias trabajados por ejercicio</p>
+                                </div>
+                                <div class="d-flex flex-column flex-sm-row gap-2">
+                                    <select class="form-select" id="rchAnioDiasReingreso" aria-label="Ejercicio del reporte"></select>
+                                    <button type="button" class="btn btn-primary flex-shrink-0" onclick="descargarDiasAcumuladosReingresos()">
+                                        <i class="fas fa-file-excel me-2"></i>Descargar reporte
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="w-100 app-academy-sm-40 d-flex justify-content-center justify-content-sm-end h-px-150 mb-4 mb-sm-0">
+                                <div class="rch-report-icon d-flex align-items-center justify-content-center">
+                                    <i class="fas fa-calendar-days"></i>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -185,6 +242,18 @@ body.dark-mode .swal2-popup .btn-secondary:hover {
 }
 body.dark-mode .rch-hero-mascot-floating {
     filter: drop-shadow(0 12px 32px rgba(0, 0, 0, 0.35));
+}
+.rch-report-icon {
+    width: 132px;
+    height: 132px;
+    border-radius: 8px;
+    color: #0047bb;
+    background: rgba(0, 71, 187, 0.08);
+    font-size: 4.5rem;
+}
+body.dark-mode .rch-report-icon {
+    color: #8db7ff;
+    background: rgba(141, 183, 255, 0.12);
 }
 </style>
 </div><!-- /#rch-landing -->
@@ -649,10 +718,64 @@ function descargarExcelUsuarios() {
         }
     });
 }
+
+function inicializarAnioDiasReingreso() {
+    const select = document.getElementById('rchAnioDiasReingreso');
+    if (!select || select.dataset.ready === '1') return;
+    const anioActual = new Date().getFullYear();
+    const anioInicio = Math.max(2020, anioActual - 6);
+    for (let anio = anioActual; anio >= anioInicio; anio--) {
+        const opt = document.createElement('option');
+        opt.value = String(anio);
+        opt.textContent = String(anio);
+        select.appendChild(opt);
+    }
+    select.value = String(anioActual);
+    select.dataset.ready = '1';
+}
+
+function descargarDiasAcumuladosReingresos() {
+    const select = document.getElementById('rchAnioDiasReingreso');
+    const anio = select && select.value ? select.value : String(new Date().getFullYear());
+
+    Swal.fire({
+        html: `
+            <div style="text-align: center;">
+                <i class="fas fa-calendar-days" style="font-size: 4rem; color: #0047bb; margin-bottom: 1rem;"></i>
+                <h4 style="margin-top: 1rem; margin-bottom: 1rem; font-weight: 600;">Descargar dias acumulados</h4>
+                <p style="color: #697a8d; margin-bottom: 1.5rem; font-size: 0.95rem;">
+                    Se descargara la plantilla completa del ejercicio <strong>${anio}</strong>.
+                </p>
+                <div style="background: #f8f9fa; padding: 1rem; border-radius: 0.5rem; margin-bottom: 1.5rem; text-align: left;">
+                    <small style="color: #6c757d; display: flex; align-items: center; gap: 0.5rem;">
+                        <i class="fas fa-info-circle" style="color: #0d6efd;"></i>
+                        Cada persona lleva sus dias acumulados; si tuvo baja y reingreso, se suman sus periodos trabajados dentro del ejercicio.
+                    </small>
+                </div>
+                <p style="margin-top: 0.5rem; font-weight: 500;"><strong>Deseas continuar con la descarga?</strong></p>
+            </div>
+        `,
+        showCancelButton: true,
+        confirmButtonText: '<i class="fas fa-download me-2"></i>Descargar',
+        cancelButtonText: 'Cancelar',
+        reverseButtons: true,
+        customClass: {
+            popup: 'rch-swal-reingresos',
+            confirmButton: 'btn rch-swal-btn rch-swal-confirm',
+            cancelButton: 'btn rch-swal-btn rch-swal-cancel'
+        },
+        buttonsStyling: false
+    }).then((result) => {
+        if (result.isConfirmed) {
+            window.location.href = '/analitica/descargarDiasAcumuladosReingresosExcel?' + new URLSearchParams({ anio }).toString();
+        }
+    });
+}
 // ============================================
 // 7. INICIALIZAR TODO
 // ============================================
 document.addEventListener('DOMContentLoaded', function() {
+    inicializarAnioDiasReingreso();
     inicializarDataTableUsuarios();
     cargarUsuariosCapitalHumano();
     

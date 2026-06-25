@@ -36,6 +36,7 @@ class CapHum extends Controller
     private const MODULO_ACCESOS_CAPITAL_HUMANO = 140;
     private const MODULO_VALIDAR_CARTA_COMPROMISO_GESTOR = 144;
     private const MODULO_VER_DOCUMENTOS_SENSIBLES_RRHH = 151;
+    private const MODULO_RESET_TOTP_DOCUMENTOS_SENSIBLES_RRHH = 152;
     private const MODULO_DOCUMENTO_RRHH_BASE = 3000;
     private const DOCUMENTO_CARTA_COMPROMISO_GESTOR = 27;
     private const TIPO_CARTA_COMPROMISO_GESTOR = 'Carta de compromiso del Gestor';
@@ -100,6 +101,11 @@ class CapHum extends Controller
     private static function puedeVerDocumentosSensiblesRrhh(): bool
     {
         return self::tieneModuloWeb(self::MODULO_VER_DOCUMENTOS_SENSIBLES_RRHH);
+    }
+
+    private static function puedeResetearTotpDocumentosSensiblesRrhh(): bool
+    {
+        return self::tieneModuloWeb(self::MODULO_RESET_TOTP_DOCUMENTOS_SENSIBLES_RRHH);
     }
 
     private static function esDocumentoSensibleRrhh(int $idDocumento): bool
@@ -3808,7 +3814,7 @@ class CapHum extends Controller
                 const idsPermisosAtlas = new Set([129, 130]);
                 const perfilesNormalizados = (Array.isArray(perfiles) ? perfiles : []).map(mod => {
                     const idMod = Number(mod.modulo_id ?? mod.id ?? 0);
-                    if (idMod === 151 || (idMod >= 3000 && idMod < 3100)) {
+                    if (idMod === 151 || idMod === 152 || (idMod >= 3000 && idMod < 3100)) {
                         return Object.assign({}, mod, {
                             menu_grupo: 'Control documental RR.HH.',
                             menu_grupo_icono: 'fa-solid fa-folder-lock',
@@ -8691,9 +8697,9 @@ class CapHum extends Controller
                         opt.textContent = (jefe.nombre_completo || jefe.nombre || "").trim() || ("ID " + jefe.id);
                         if (jefe.nombre_puesto) opt.textContent += " - " + jefe.nombre_puesto;
                         if (!jefe.tiene_correo_institucional) {
-                            opt.textContent += " (sin correo institucional)";
+                            opt.textContent += " (sin correo configurado)";
                             opt.disabled = true;
-                            opt.title = "Agrega este jefe al catalogo institucional antes de seleccionarlo.";
+                            opt.title = "Agrega este jefe al CSV/alias antes de seleccionarlo.";
                         }
                         select.appendChild(opt);
                     });
@@ -8726,9 +8732,9 @@ class CapHum extends Controller
                 if (optSeleccionada && optSeleccionada.disabled) valor = "";
                 if (valor) return true;
                 if (typeof Swal !== "undefined") {
-                    Swal.fire({ icon: "warning", title: "Jefe divisional requerido", text: "Selecciona un jefe divisional con correo institucional en el catalogo." });
+                    Swal.fire({ icon: "warning", title: "Jefe divisional requerido", text: "Selecciona un jefe divisional con correo configurado en CSV/alias." });
                 } else {
-                    alert("Selecciona un jefe divisional con correo institucional en el catalogo.");
+                    alert("Selecciona un jefe divisional con correo configurado en CSV/alias.");
                 }
                 return false;
             }
@@ -12931,8 +12937,14 @@ class CapHum extends Controller
                  LEFT JOIN __SPARTA_SECRET_REDACTED__.asigna_direcciones ad ON ad.id_departamento_organizacional = d.id_departamento_organizacional AND COALESCE(ad.activo, 1) = 1
                  LEFT JOIN __SPARTA_SECRET_REDACTED__.direcciones_organizacion dir ON dir.id = ad.id_direccion
                  WHERE COALESCE(p.estatus, '') <> 'Baja'
-                   AND UPPER(pu.nombre) LIKE '%GERENTE DIVISIONAL%'
-                   AND UPPER(pu.nombre) NOT LIKE '%PRUEBA%'";
+                   AND (
+                        UPPER(pu.nombre) LIKE '%GERENTE DIVISIONAL%'
+                        OR (
+                            COALESCE(dir.id, 0) = " . self::DIRECCION_COBRANZA_ID . "
+                            AND UPPER(COALESCE(d.nombre, '')) LIKE '%CAMPO 30%'
+                            AND UPPER(TRIM(CONCAT_WS(' ', p.nombres, p.segundo_nombre, p.apellidop, p.apellidom))) LIKE '%ROBERTO%IVAN%GUTIERREZ%'
+                        )
+                   )";
         $orden = " ORDER BY nombre_completo ASC";
         $db = new \Core\Database();
         $rows = $db->queryAll($sqlBase . " AND COALESCE(dir.id, 0) = :id_direccion" . $orden, [
@@ -13055,7 +13067,7 @@ class CapHum extends Controller
         if (trim((string) ($jefe['correo'] ?? '')) === '') {
             return [
                 'success' => false,
-                'mensaje' => 'El jefe divisional seleccionado no tiene correo institucional en el catalogo. Agregalo al CSV antes de usarlo.',
+                'mensaje' => 'El jefe divisional seleccionado no tiene correo configurado en CSV/alias. Agregalo antes de usarlo.',
             ];
         }
         $data['id_jefe_divisional'] = $idJefeDivisional;
@@ -24966,8 +24978,14 @@ public function getEstadosMunicipiosMexico()
      */
     public function resetTotpDocumentoSensiblePersona()
     {
+        $idPersona = (int)($_POST['id_persona'] ?? $_POST['id'] ?? 0);
         try {
-            if (!self::puedeGestionarPermisosEspeciales()) {
+            if (!self::puedeResetearTotpDocumentosSensiblesRrhh()) {
+                $this->auditarDocumentoSensibleRrhh([
+                    'id_persona' => $idPersona,
+                    'id_documento' => 0,
+                    'archivo' => '',
+                ], 'reset_totp', 'denegado', 'Intento de reinicio de Google Authenticator sin permiso');
                 self::respuestaJSON([
                     'success' => false,
                     'mensaje' => 'No tienes permiso para reiniciar el segundo paso.'
@@ -24975,8 +24993,12 @@ public function getEstadosMunicipiosMexico()
                 return;
             }
 
-            $idPersona = (int)($_POST['id_persona'] ?? $_POST['id'] ?? 0);
             if ($idPersona <= 0) {
+                $this->auditarDocumentoSensibleRrhh([
+                    'id_persona' => 0,
+                    'id_documento' => 0,
+                    'archivo' => '',
+                ], 'reset_totp', 'fallido', 'Intento de reinicio de Google Authenticator sin usuario valido');
                 self::respuestaJSON([
                     'success' => false,
                     'mensaje' => 'Usuario requerido.'
@@ -24989,9 +25011,14 @@ public function getEstadosMunicipiosMexico()
                 'id_persona' => $idPersona,
                 'id_documento' => 0,
                 'archivo' => '',
-            ], 'reset_totp', ($resultado['success'] ?? false) ? 'autorizado' : 'fallido', 'Reinicio de Google Authenticator');
+            ], 'reset_totp', ($resultado['success'] ?? false) ? 'autorizado' : 'fallido', 'Reinicio de Google Authenticator para usuario #' . $idPersona);
             self::respuestaJSON($resultado);
         } catch (\Exception $e) {
+            $this->auditarDocumentoSensibleRrhh([
+                'id_persona' => $idPersona,
+                'id_documento' => 0,
+                'archivo' => '',
+            ], 'reset_totp', 'fallido', 'Error al reiniciar Google Authenticator: ' . $e->getMessage());
             self::respuestaJSON([
                 'success' => false,
                 'mensaje' => 'Error al reiniciar segundo paso: ' . $e->getMessage()

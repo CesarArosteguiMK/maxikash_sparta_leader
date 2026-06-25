@@ -128,6 +128,142 @@ class EstadoCuenta extends Controller
         return EstadoCuentaDAO::obtenerDocumentoPorTipo($idCredito, $tipoBD);
     }
 
+    private function documentosS3ProxyBases(): array
+    {
+        static $bases = null;
+        if ($bases !== null) {
+            return $bases;
+        }
+
+        $raw = [];
+        $envBase = getenv('SPARTA_DOCUMENTOS_S3_PROXY_URL');
+        if (is_string($envBase) && trim($envBase) !== '') {
+            $raw[] = trim($envBase);
+        }
+
+        $configFile = __DIR__ . '/../config/config.ini';
+        if (is_file($configFile)) {
+            $config = @parse_ini_file($configFile, true);
+            if (is_array($config)) {
+                $cfgBase = trim((string)($config['documentos_s3']['proxy_url'] ?? ''));
+                if ($cfgBase !== '') {
+                    $raw[] = $cfgBase;
+                }
+            }
+        }
+
+        $raw[] = 'http://98.90.194.116:8080/audit-app-0.0.1-SNAPSHOT_1/s3/downloadS3File';
+        $raw[] = 'http://98.90.194.116/audit-app-0.0.1-SNAPSHOT_1/s3/downloadS3File';
+
+        $bases = [];
+        foreach ($raw as $base) {
+            $base = trim((string)$base);
+            if ($base === '') {
+                continue;
+            }
+            $base = preg_replace('/\?.*$/', '', $base);
+            $base = rtrim($base);
+            if (!in_array($base, $bases, true)) {
+                $bases[] = $base;
+            }
+        }
+
+        return $bases;
+    }
+
+    private function documentosS3Url(string $base, string $fileName): string
+    {
+        return $base . '?fileName=' . urlencode($fileName);
+    }
+
+    private function documentosS3RespuestaPareceArchivo(string $fileName, $data): bool
+    {
+        if (!is_string($data) || $data === '') {
+            return false;
+        }
+
+        $sample = ltrim(substr($data, 0, 512));
+        if (preg_match('/^<(?:!doctype\s+html|html|head|body)\b/i', $sample)) {
+            return false;
+        }
+
+        $ext = strtolower(pathinfo($fileName, PATHINFO_EXTENSION));
+        if ($ext === 'pdf') {
+            return strncmp($data, '%PDF', 4) === 0;
+        }
+        if (in_array($ext, ['jpg', 'jpeg'], true)) {
+            return substr($data, 0, 2) === "\xFF\xD8";
+        }
+        if ($ext === 'png') {
+            return substr($data, 0, 8) === "\x89PNG\r\n\x1A\n";
+        }
+        if ($ext === 'gif') {
+            return strncmp($data, 'GIF87a', 6) === 0 || strncmp($data, 'GIF89a', 6) === 0;
+        }
+        if ($ext === 'webp') {
+            return substr($data, 0, 4) === 'RIFF' && substr($data, 8, 4) === 'WEBP';
+        }
+
+        return true;
+    }
+
+    private function documentosS3Existe(string $fileName): bool
+    {
+        $ultimoError = '';
+        foreach ($this->documentosS3ProxyBases() as $base) {
+            $s3Url = $this->documentosS3Url($base, $fileName);
+            $ch = curl_init($s3Url);
+            curl_setopt_array($ch, [
+                CURLOPT_RETURNTRANSFER => true,
+                CURLOPT_FOLLOWLOCATION => true,
+                CURLOPT_TIMEOUT => 12,
+                CURLOPT_RANGE => '0-1023',
+            ]);
+            $data = curl_exec($ch);
+            $code = (int)curl_getinfo($ch, CURLINFO_HTTP_CODE);
+            $err = curl_error($ch);
+            curl_close($ch);
+
+            if (in_array($code, [200, 206], true) && $this->documentosS3RespuestaPareceArchivo($fileName, $data)) {
+                return true;
+            }
+
+            $ultimoError = "base={$base}, HTTP={$code}" . ($err ? ", error={$err}" : '');
+        }
+
+        error_log("S3 no disponible para {$fileName}. {$ultimoError}");
+        return false;
+    }
+
+    private function documentosS3Descargar(string $fileName, int $timeout = 30): array
+    {
+        $ultimo = ['ok' => false, 'code' => 0, 'data' => false, 'error' => '', 'base' => ''];
+        foreach ($this->documentosS3ProxyBases() as $base) {
+            $s3Url = $this->documentosS3Url($base, $fileName);
+            $ch = curl_init($s3Url);
+            curl_setopt_array($ch, [
+                CURLOPT_RETURNTRANSFER => true,
+                CURLOPT_FOLLOWLOCATION => true,
+                CURLOPT_SSL_VERIFYHOST => 0,
+                CURLOPT_SSL_VERIFYPEER => 0,
+                CURLOPT_TIMEOUT => $timeout,
+                CURLOPT_HEADER => false,
+            ]);
+            $data = curl_exec($ch);
+            $code = (int)curl_getinfo($ch, CURLINFO_HTTP_CODE);
+            $err = curl_error($ch);
+            curl_close($ch);
+
+            if ($code === 200 && $this->documentosS3RespuestaPareceArchivo($fileName, $data)) {
+                return ['ok' => true, 'code' => $code, 'data' => $data, 'error' => '', 'base' => $base];
+            }
+
+            $ultimo = ['ok' => false, 'code' => $code, 'data' => false, 'error' => $err, 'base' => $base];
+        }
+
+        return $ultimo;
+    }
+
     // ---------------- PARSEAR CUOTAS ----------------
     private function parse_cuotas_field($value) {
         if ($value === null || $value === '') return [];
@@ -4869,20 +5005,9 @@ public function descargar()
         ];
         $nombreDoc = $nombresDoc[$tipo] ?? $tipo;
 
-        // Helper: comprobar si un archivo existe en S3 (HEAD)
+        // Helper: comprobar si un archivo existe y responde como archivo real desde el proxy S3.
         $existeEnS3 = function ($fileName) {
-            $s3Url = "http://98.90.194.116:8080/audit-app-0.0.1-SNAPSHOT_1/s3/downloadS3File?fileName=" . urlencode($fileName);
-            $ch = curl_init($s3Url);
-            curl_setopt_array($ch, [
-                CURLOPT_RETURNTRANSFER => true,
-                CURLOPT_NOBODY => true,
-                CURLOPT_FOLLOWLOCATION => true,
-                CURLOPT_TIMEOUT => 8,
-            ]);
-            curl_exec($ch);
-            $code = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
-            curl_close($ch);
-            return $code === 200;
+            return $this->documentosS3Existe((string)$fileName);
         };
 
         // ---------------- 3RA FORMA: SOLO PARA DOCUMENTOS EN oferta_documentos ----------------
@@ -5290,6 +5415,7 @@ public function descargar()
         // ---------------- FAD_DOC ----------------
         elseif ($tipo === 'FAD_DOC') {
             error_log("=== PROCESANDO FAD_DOC ===");
+            $fadDocRegistradoEnBD = false;
 
             $local = $buscarLocal($id, $tipo);
             if ($local) {
@@ -5316,6 +5442,7 @@ public function descargar()
             }
 
             if ($res['success'] && isset($res['datos']['nombre_archivo']) && !empty($res['datos']['nombre_archivo'])) {
+                $fadDocRegistradoEnBD = true;
                 $archivo = basename($res['datos']['nombre_archivo']);
                 $archivo = str_replace(['doc_cliente/', 'doc_cliente\\'], '', $archivo);
                 $archivo = basename($archivo);
@@ -5349,6 +5476,7 @@ public function descargar()
             $nombreBD = $consultarBDTerceraForma($id, 'FAD_DOC');
 
             if ($nombreBD) {
+                $fadDocRegistradoEnBD = true;
                 $fileNameBD = "FAD/" . $nombreBD;
                 if ($existeEnS3($fileNameBD)) {
                     error_log("FAD_DOC $id - RESULTADO: 3RA FORMA (BD + S3)");
@@ -5373,6 +5501,15 @@ public function descargar()
             }
 
             error_log("FAD_DOC $id - RESULTADO: 3 FORMAS FALLIDAS");
+            if ($fadDocRegistradoEnBD) {
+                $mensajeFalloFadDoc = "El documento FAD_DOC esta registrado, pero no se pudo conectar con el servidor de archivos.";
+                $this->registrarAuditoriaDocumento($id, $tipo, $nombreDoc, 0, $mensajeFalloFadDoc);
+                echo json_encode([
+                    'success' => false,
+                    'mensaje' => $mensajeFalloFadDoc
+                ]);
+                exit;
+            }
             $this->registrarAuditoriaDocumento($id, $tipo, $nombreDoc, 0, "Este ID de crédito no tiene {$nombreDoc} registrado en ninguna ubicación.");
             echo json_encode([
                 'success' => false,
@@ -6757,21 +6894,8 @@ public function descargar()
      */
     private function ineAuditoriaS3DownloadBinary(string $fileName): array
     {
-        $s3Url = 'http://98.90.194.116:8080/audit-app-0.0.1-SNAPSHOT_1/s3/downloadS3File?fileName=' . urlencode($fileName);
-        $ch = curl_init($s3Url);
-        curl_setopt_array($ch, [
-            CURLOPT_RETURNTRANSFER => true,
-            CURLOPT_FOLLOWLOCATION => true,
-            CURLOPT_SSL_VERIFYHOST => 0,
-            CURLOPT_SSL_VERIFYPEER => 0,
-            CURLOPT_TIMEOUT => 30,
-            CURLOPT_HEADER => false,
-        ]);
-        $data = curl_exec($ch);
-        $httpCode = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
-        curl_close($ch);
-
-        return [$httpCode, $data !== false ? $data : false];
+        $res = $this->documentosS3Descargar($fileName, 30);
+        return [(int)$res['code'], !empty($res['ok']) ? $res['data'] : false];
     }
 
     /** idCliente S2 para rutas estándar INE/{idCliente}_frente|reverso.{jpeg|jpg} */
@@ -6905,6 +7029,43 @@ public function descargar()
 
         // Decodificar el fileName si viene codificado
         $fileName = urldecode($fileName);
+
+        $res = $this->documentosS3Descargar($fileName, 30);
+        $data = $res['data'];
+        $httpCode = (int)$res['code'];
+        $error = (string)$res['error'];
+
+        if (empty($res['ok']) || $data === false) {
+            http_response_code(404);
+            echo "No se pudo recuperar el documento (Code: $httpCode" . ($error ? ", Error: $error" : "") . ")";
+            exit;
+        }
+
+        $ext = strtolower(pathinfo($fileName, PATHINFO_EXTENSION));
+        $contentType = 'application/octet-stream';
+        switch ($ext) {
+            case 'pdf': $contentType = 'application/pdf'; break;
+            case 'jpg':
+            case 'jpeg': $contentType = 'image/jpeg'; break;
+            case 'png': $contentType = 'image/png'; break;
+            case 'gif': $contentType = 'image/gif'; break;
+            case 'webp': $contentType = 'image/webp'; break;
+        }
+
+        if (ob_get_length()) {
+            ob_clean();
+        }
+
+        header("Content-Type: $contentType");
+        header("Content-Disposition: inline; filename=\"" . basename($fileName) . "\"");
+        header("Content-Length: " . strlen($data));
+        header("Cache-Control: public, max-age=3600");
+        header("Pragma: public");
+        header("Access-Control-Allow-Origin: *");
+        header("Access-Control-Allow-Methods: GET");
+
+        echo $data;
+        exit;
 
         $s3Url = "http://98.90.194.116:8080/audit-app-0.0.1-SNAPSHOT_1/s3/downloadS3File?fileName=" . urlencode($fileName);
 

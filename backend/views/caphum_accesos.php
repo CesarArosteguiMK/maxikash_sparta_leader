@@ -1,3 +1,6 @@
+<?php
+$puedeResetearTotpDocumentosSensiblesRrhh = in_array(152, array_map('intval', (array) ($_SESSION['modulos'] ?? [])), true);
+?>
 <div class="container-fluid py-4 ch-access-page">
     <style>
         .ch-access-page { color:#22303e; }
@@ -166,6 +169,7 @@
                                         </div>
                                     </div>
                                 </div>
+                                <?php if ($puedeResetearTotpDocumentosSensiblesRrhh): ?>
                                 <div class="mt-3 d-flex flex-wrap align-items-center justify-content-between gap-2 border-top pt-3">
                                     <div>
                                         <div class="fw-bold text-heading">Google Authenticator</div>
@@ -175,6 +179,7 @@
                                         <i class="fa-solid fa-rotate-left me-1"></i>Reiniciar autenticador
                                     </button>
                                 </div>
+                                <?php endif; ?>
                             </div>
                         </div>
                         <div class="tab-pane fade" id="chAccessTabModulos" role="tabpanel">
