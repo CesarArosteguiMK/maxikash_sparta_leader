@@ -605,7 +605,7 @@
             listo: ['bg-success', 'Listo'],
             importado: ['bg-primary', 'Importado'],
             persona_no_encontrada: ['bg-danger', 'Sin persona'],
-            persona_ambigua: ['bg-warning text-dark', 'Ambiguo'],
+            persona_ambigua: ['bg-warning text-dark', 'Persona ambigua'],
             documento_no_reconocido: ['bg-secondary', 'Sin tipo'],
             ya_existe: ['bg-info text-dark', 'Ya existe'],
             duplicado_lote: ['bg-warning text-dark', 'Duplicado'],

@@ -646,11 +646,11 @@ class RrhhDocumentImportService
         $n = $this->normalizarTexto(pathinfo($contexto, PATHINFO_FILENAME) . ' ' . $contexto);
         $id = null;
 
-        if (preg_match('/\bvalidacion\s+sat\b|\bopinion\s+sat\b/', $n)) {
+        if (preg_match('/\bvalidacion\s+sat\b|\bvalidacion\b|\bopinion\s+sat\b/', $n)) {
             $id = 30;
         } elseif (preg_match('/\bcontrato\s+firmado\b|\bcontrat[a-z0-9]*\b|\bcontratpo\b|\bcontato\b|\bcontra\s+to\b|\bcontra\s+ta\b/', $n)) {
             $id = 28;
-        } elseif (preg_match('/\bsolicitud\s+interna\b|\bsolicitud\b/', $n)) {
+        } elseif (preg_match('/\bsolicitud\s+interna\b|\bsolicitud\b|\bsoicitud\b|\bsolictud\b/', $n)) {
             $id = 17;
         } elseif (preg_match('/\bcv\b|\bcurriculum\b|\bcurriculo\b|\bsolicitud\s+de\s+trabajo\b/', $n)) {
             $id = 18;
@@ -660,15 +660,15 @@ class RrhhDocumentImportService
             $id = 33;
         } elseif (preg_match('/\bnss\b|\binss\b|\bseguridad\s+social\b/', $n)) {
             $id = 23;
-        } elseif (preg_match('/\bfonacot\b|\binfonavit\b|\bretencion\b|\bno\s+credito\b|\bno\s+creditos\b|\bno\s+adeudo\b|\bno\s+adeudos\b|\bcarta\s+(?:de\s+)?no\s+creditos?\b/', $n)) {
+        } elseif (preg_match('/\bfonacot\b|\binfonavit\b|\bretencion\b|\bno\s+credito\b|\bno\s+creditos\b|\bno\s+creditps\b|\bno\s+adeudo\b|\bno\s+adeudos\b|\bcarta\s+(?:de\s+)?no\s+credit(?:o|os|ps)\b/', $n)) {
             $id = 24;
-        } elseif (preg_match('/\bbbva\b|\bbanorte\b|\bsantander\b|\bbanamex\b|\bcitibanamex\b|\bazteca\b|\bbajio\b|\bbanregio\b|\bestado\s+de\s+cuenta\b|\bclabe\b|\bcuenta\s+bancaria\b|\bbanco\b/', $n)) {
+        } elseif (preg_match('/\bbbva\b|\bbanorte\b|\bsantander\b|\bbanamex\b|\bcitibanamex\b|\bazteca\b|\bbajio\b|\bbanregio\b|\bhsbc\b|\bestado\s+de\s+cuenta\b|\bclabe\b|\bcuenta\s+bancaria\b|\bbanco\b/', $n)) {
             $id = 25;
         } elseif (preg_match('/\bine\b|\bidentificacion\b|\bidentificacion\s+oficial\b|\bpasaporte\b|\bfm3\b/', $n)) {
             $id = 9;
-        } elseif (preg_match('/\bcomprobante\b.*\bdomicilio\b|\bdomicilio\b/', $n)) {
+        } elseif (preg_match('/\bcomprobante\b.*\bdomicilio\b|\bdomicilio\b|\bdomiicilio\b|\bdomicilo\b/', $n)) {
             $id = 11;
-        } elseif (preg_match('/\bacta\b.*\bnacimiento\b/', $n)) {
+        } elseif (preg_match('/\bacta\b.*\bnacimiento\b|\bacta\b.*\bnacimeinto\b|\bacta\b.*\bnacimento\b/', $n)) {
             $id = 12;
         } elseif (preg_match('/\bcertificado\b.*\bestudios\b|\bestudios\b/', $n)) {
             $id = 13;
@@ -676,7 +676,7 @@ class RrhhDocumentImportService
             $id = 14;
         } elseif (preg_match('/\breingreso\b/', $n)) {
             $id = 16;
-        } elseif (preg_match('/\bcomprobante\b.*\bdeposito\b.*\bfiniq(?:uito)?\b|\bdeposito\b.*\bfiniq(?:uito)?\b|\bdocumento\s+baja\b|\bfiniquito\b|\bfiniq\b|\brenuncia\b|\brescision\b|\bresicision\b/', $n)) {
+        } elseif (preg_match('/\bcomprobante\b.*\bdeposito\b.*\bfiniq(?:uito)?\b|\bcomprobante\b.*\bdeposito\b.*\bfinquito\b|\bcomprobante\b.*\bdeposito\b.*\bdefiniquito\b|\bdeposito\b.*\bfiniq(?:uito)?\b|\bdeposito\b.*\bfinquito\b|\bdeposito\b.*\bdefiniquito\b|\bdeposito\b.*\bconciliacion\b|\bdocumento\s+baja\b|\bfiniquito\b|\bfinquito\b|\bdefiniquito\b|\bfiniq\b|\brenuncia\b|\brescision\b|\bresicision\b|\bconciliacion\b|\bconvenio\b/', $n)) {
             $id = 15;
         } elseif (preg_match('/\brfc\b/', $n)) {
             $id = 10;
