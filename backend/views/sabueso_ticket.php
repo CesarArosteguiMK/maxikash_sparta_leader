@@ -177,15 +177,86 @@ $funcionesTicket = isset($funcionesTicket) && is_array($funcionesTicket) ? $func
     }
     #tablaTickets tbody tr.fila-dictamen-enviado:hover { background-color: rgba(13, 110, 253, 0.08) !important; }
     #tablaTickets tbody tr.fila-dictamen-no-visto:hover { background: linear-gradient(90deg, rgba(220, 53, 69, 0.18) 0%, rgba(220, 53, 69, 0.04%) 100%) !important; }
+    .historial-semanal-kpi {
+        border: 1px solid #e4e7ec;
+        border-radius: 8px;
+        padding: 0.85rem 1rem;
+        background: #fff;
+        min-height: 86px;
+    }
+    .historial-semanal-kpi small {
+        color: #667085;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: .02em;
+    }
+    .historial-semanal-kpi strong {
+        display: block;
+        font-size: 1.65rem;
+        color: #25364d;
+        line-height: 1.1;
+    }
+    .historial-semanal-week {
+        border: 1px solid #e4e7ec;
+        border-radius: 8px;
+        background: #fff;
+        overflow: hidden;
+        margin-bottom: 0.9rem;
+    }
+    .historial-semanal-week-header {
+        display: flex;
+        justify-content: space-between;
+        gap: 1rem;
+        align-items: center;
+        padding: 0.85rem 1rem;
+        background: #f8fafc;
+        border-bottom: 1px solid #edf0f5;
+    }
+    .historial-semanal-week-title {
+        font-weight: 700;
+        color: #25364d;
+    }
+    .historial-semanal-empty {
+        border: 1px dashed #cfd6e3;
+        border-radius: 8px;
+        padding: 2rem;
+        text-align: center;
+        color: #667085;
+        background: #fbfcfe;
+    }
+    .historial-semanal-table th {
+        font-size: 0.75rem;
+        text-transform: uppercase;
+        color: #475467;
+        white-space: nowrap;
+    }
+    .historial-semanal-table td {
+        vertical-align: middle;
+    }
+    .historial-semanal-desc {
+        max-width: 360px;
+        white-space: normal;
+        word-break: break-word;
+    }
 </style>
 <div class="card">
     <div class="card-header border-bottom d-flex flex-wrap justify-content-between align-items-center">
         <h5 class="card-title mb-0">
             <i class="fa-solid fa-ticket me-2"></i>Tickets
         </h5>
-        <button type="button" class="btn btn-primary" id="btnAbrirModalLevantarTicket" title="Crear nuevo ticket">
-            <i class="fa-solid fa-plus me-1"></i>Levantar ticket
-        </button>
+        <div class="d-flex flex-wrap gap-2">
+            <button type="button"
+                    class="btn btn-outline-primary"
+                    id="btnAbrirHistorialSemanalTickets"
+                    data-bs-toggle="modal"
+                    data-bs-target="#modalHistorialSemanalTickets"
+                    title="Ver tickets cerrados e ilocalizables por semana">
+                <i class="fa-solid fa-clock-rotate-left me-1"></i>Historial semanal
+            </button>
+            <button type="button" class="btn btn-primary" id="btnAbrirModalLevantarTicket" title="Crear nuevo ticket">
+                <i class="fa-solid fa-plus me-1"></i>Levantar ticket
+            </button>
+        </div>
     </div>
     <div class="card-body border-bottom d-flex flex-wrap align-items-center gap-2 py-3">
         <label for="buscar_id_credito" class="form-label mb-0 text-nowrap">ID de crédito</label>
@@ -673,6 +744,93 @@ $funcionesTicket = isset($funcionesTicket) && is_array($funcionesTicket) ? $func
             <div class="modal-footer border-top">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
                 <button type="button" class="btn btn-primary" id="btnEnviarTicketAclaracionCredito"><i class="fa-solid fa-paper-plane me-1"></i>Enviar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Historial semanal (Mis Tickets) -->
+<div class="modal fade" id="modalHistorialSemanalTickets" tabindex="-1" aria-labelledby="modalHistorialSemanalTicketsLabel" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-dialog-scrollable">
+        <div class="modal-content modal-content-glass">
+            <div class="modal-header border-bottom">
+                <div>
+                    <h5 class="modal-title mb-1" id="modalHistorialSemanalTicketsLabel">
+                        <i class="fa-solid fa-clock-rotate-left me-2"></i>Historial semanal
+                    </h5>
+                    <p class="text-muted mb-0 small">Tickets cerrados o eliminados e ilocalizables manuales organizados por semana.</p>
+                </div>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <div class="modal-body">
+                <div id="historialSemanalLoading" class="historial-semanal-empty">
+                    <i class="fa-solid fa-spinner fa-spin me-2"></i>Cargando historial...
+                </div>
+                <div id="historialSemanalContenido" style="display:none;">
+                    <div class="row g-3 mb-3">
+                        <div class="col-md-3 col-6">
+                            <div class="historial-semanal-kpi">
+                                <small>Tickets cerrados / eliminados</small>
+                                <strong id="historialKpiCerrados">0</strong>
+                                <span class="text-muted small" id="historialKpiCerradosSemanas">0 semanas</span>
+                            </div>
+                        </div>
+                        <div class="col-md-3 col-6">
+                            <div class="historial-semanal-kpi">
+                                <small>Ilocalizables manuales</small>
+                                <strong id="historialKpiIlocalizables">0</strong>
+                                <span class="text-muted small" id="historialKpiIlocalizablesSemanas">0 semanas</span>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="historial-semanal-kpi">
+                                <small>Lectura rápida</small>
+                                <div class="small text-muted mt-2">
+                                    Cerrados y eliminados por fecha de cierre. Ilocalizables manuales por la semana registrada en el histórico activo.
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="d-flex flex-wrap align-items-end gap-3 mb-3">
+                        <div style="min-width: min(340px, 100%);">
+                            <label for="historialSemanalSemanaSelect" class="form-label mb-1 small text-muted fw-semibold">Semana</label>
+                            <select class="form-select" id="historialSemanalSemanaSelect">
+                                <option value="">Todas las semanas</option>
+                            </select>
+                        </div>
+                        <div style="min-width: min(360px, 100%);">
+                            <label for="historialSemanalBuscar" class="form-label mb-1 small text-muted fw-semibold">Buscar:</label>
+                            <input type="search" class="form-control" id="historialSemanalBuscar" placeholder="Folio, credito, cliente, gestor o descripcion">
+                        </div>
+                        <div class="small text-muted" id="historialSemanalSemanaInfo">Seleccione una semana para filtrar el historial.</div>
+                    </div>
+                    <ul class="nav nav-tabs" id="historialSemanalTabs" role="tablist">
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link active" id="historial-cerrados-tab" data-bs-toggle="tab" data-bs-target="#historial-cerrados-pane" type="button" role="tab" aria-controls="historial-cerrados-pane" aria-selected="true">
+                                <i class="fa-solid fa-circle-check me-1"></i>Cerrados / eliminados
+                            </button>
+                        </li>
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link" id="historial-ilocalizables-tab" data-bs-toggle="tab" data-bs-target="#historial-ilocalizables-pane" type="button" role="tab" aria-controls="historial-ilocalizables-pane" aria-selected="false">
+                                <i class="fa-solid fa-location-crosshairs me-1"></i>Ilocalizables manuales
+                            </button>
+                        </li>
+                    </ul>
+                    <div class="tab-content pt-3" id="historialSemanalTabsContent">
+                        <div class="tab-pane fade show active" id="historial-cerrados-pane" role="tabpanel" aria-labelledby="historial-cerrados-tab">
+                            <div id="historialSemanalCerrados"></div>
+                        </div>
+                        <div class="tab-pane fade" id="historial-ilocalizables-pane" role="tabpanel" aria-labelledby="historial-ilocalizables-tab">
+                            <div id="historialSemanalIlocalizables"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer border-top">
+                <button type="button" class="btn btn-outline-primary" id="btnRefrescarHistorialSemanalTickets">
+                    <i class="fa-solid fa-rotate me-1"></i>Actualizar
+                </button>
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
             </div>
         </div>
     </div>

@@ -831,6 +831,29 @@ class Ticket extends Model
         }
         $categoriaGestion = $catRaw;
 
+        if ($categoriaGestion === 'sabueso') {
+            $validacionIlocalizable = self::getCreditoIlocalizableActivo($idCredito);
+            if (empty($validacionIlocalizable['success'])) {
+                return self::resultado(
+                    false,
+                    'No se pudo validar si el crédito está marcado como ilocalizable. Intente nuevamente antes de levantar el ticket.',
+                    null,
+                    (string)($validacionIlocalizable['error'] ?? $validacionIlocalizable['mensaje'] ?? '')
+                );
+            }
+            if (!empty($validacionIlocalizable['ilocalizable'])) {
+                return self::resultado(
+                    false,
+                    self::mensajeCreditoIlocalizable($idCredito, $validacionIlocalizable['datos'] ?? null),
+                    [
+                        'codigo' => 'credito_ilocalizable',
+                        'ilocalizable' => true,
+                        'historico' => $validacionIlocalizable['datos'] ?? null,
+                    ]
+                );
+            }
+        }
+
         $tipoCategoria = isset($datos['tipo_categoria']) ? trim((string)$datos['tipo_categoria']) : null;
         if ($tipoCategoria !== null && strlen($tipoCategoria) > 150) {
             $tipoCategoria = substr($tipoCategoria, 0, 150);
@@ -2251,6 +2274,121 @@ class Ticket extends Model
      * Historial de asignación por ticket (para modal rastreo: "Asignado a" por ticket, no por crédito).
      * Devuelve asignado_actual (nombre), estado, historial (persona, desde, hasta, duracion_humana).
      */
+    private static function agruparHistorialSemanalTickets(array $rows, string $fechaBaseKey, string $tipo): array
+    {
+        $semanas = [];
+        foreach ($rows as $row) {
+            $semanaInicio = trim((string)($row['semana_inicio'] ?? ''));
+            $semanaFin = trim((string)($row['semana_fin'] ?? ''));
+            if ($semanaInicio === '' || $semanaFin === '') {
+                $fechaBase = trim((string)($row[$fechaBaseKey] ?? ''));
+                [$semanaInicio, $semanaFin] = self::semanaHistoricoDesdeFecha($fechaBase);
+            }
+            $key = $semanaInicio;
+            if (!isset($semanas[$key])) {
+                $semanas[$key] = [
+                    'semana_inicio' => $semanaInicio,
+                    'semana_fin' => $semanaFin,
+                    'label' => self::formatearRangoSemanaUi($semanaInicio, $semanaFin),
+                    'total' => 0,
+                    'items' => [],
+                ];
+            }
+            $semanas[$key]['total']++;
+            $semanas[$key]['items'][] = $row;
+        }
+
+        krsort($semanas, SORT_STRING);
+        $out = array_values($semanas);
+        foreach ($out as &$semana) {
+            if ($tipo === 'cerrados') {
+                usort($semana['items'], static function ($a, $b) {
+                    return strcmp((string)($b['fecha_eliminacion'] ?? ''), (string)($a['fecha_eliminacion'] ?? ''));
+                });
+            } else {
+                usort($semana['items'], static function ($a, $b) {
+                    return strcmp((string)($b['actualizado_en'] ?? ''), (string)($a['actualizado_en'] ?? ''));
+                });
+            }
+        }
+        unset($semana);
+
+        return $out;
+    }
+
+    private static function formatearRangoSemanaUi(string $inicio, string $fin): string
+    {
+        try {
+            $tz = new \DateTimeZone('America/Mexico_City');
+            $ini = new \DateTimeImmutable($inicio . ' 00:00:00', $tz);
+            $finDt = new \DateTimeImmutable($fin . ' 00:00:00', $tz);
+            return $ini->format('d/m/Y') . ' al ' . $finDt->format('d/m/Y');
+        } catch (\Throwable $e) {
+            return $inicio . ' al ' . $fin;
+        }
+    }
+
+    public static function getHistorialSemanalMisTickets(int $idPersona): array
+    {
+        if ($idPersona < 1) {
+            return self::resultado(false, 'Sesión inválida.', null);
+        }
+
+        try {
+            $db = new Database();
+            self::asegurarHistoricoIlocalizablesSchema($db);
+
+            $cerrados = $db->queryAll(
+                "SELECT th.id_ticket, th.folio, th.id_credito, th.descripcion_inicial, th.fecha_creacion, th.fecha_vencimiento, " .
+                "th.fecha_eliminacion, th.tipo_ticket_nombre, th.estado_ticket_nombre, th.prioridad_nombre, th.creador_nombre, " .
+                "th.asignado_nombre, th.quien_elimino_nombre, th.tipo_accion, " .
+                "DATE_SUB(DATE(th.fecha_eliminacion), INTERVAL WEEKDAY(th.fecha_eliminacion) DAY) AS semana_inicio, " .
+                "DATE_ADD(DATE_SUB(DATE(th.fecha_eliminacion), INTERVAL WEEKDAY(th.fecha_eliminacion) DAY), INTERVAL 6 DAY) AS semana_fin " .
+                "FROM ticket_historico th " .
+                "WHERE th.tipo_accion IN ('cerrado', 'eliminado') " .
+                "ORDER BY th.fecha_eliminacion DESC LIMIT 5000"
+            );
+            $cerrados = is_array($cerrados) ? $cerrados : [];
+
+            $ilocalizables = $db->queryAll(
+                "SELECT h.id, h.id_ticket, h.id_credito, h.folio, h.semana_inicio, h.semana_fin, h.dictamen_envio, h.id_gestor, " .
+                "h.nombre_gestor, h.nombre_cliente, h.tipo_contacto, h.motivo, h.origen, h.dictamen_tipo_sabueso, h.resultado_ds, " .
+                "h.fue_todas_direcciones, h.direcciones_fue, h.pago_semana_si, h.pago_semana_count, h.pago_semana_consultado, " .
+                "h.ilocalizable_auto, h.ilocalizable_override, h.activo, h.detectado_en, h.actualizado_en, " .
+                "COALESCE(NULLIF(h.nombre_gestor, ''), TRIM(CONCAT(TRIM(IFNULL(p.nombres,'')), ' ', TRIM(IFNULL(p.apellidop,''))))) AS gestor_nombre_resuelto " .
+                "FROM __SPARTA_SECRET_REDACTED__.sabueso_ilocalizables_historico h " .
+                "LEFT JOIN ticket t ON t.id_ticket = h.id_ticket " .
+                "LEFT JOIN persona p ON p.id = COALESCE(h.id_gestor, t.id_persona_creador) " .
+                "WHERE h.activo = 1 AND LOWER(COALESCE(h.origen, '')) = 'manual' " .
+                "ORDER BY h.semana_inicio DESC, COALESCE(h.dictamen_envio, h.actualizado_en) DESC, h.id DESC LIMIT 5000"
+            );
+            $ilocalizables = is_array($ilocalizables) ? $ilocalizables : [];
+
+            $cerradosSemanas = self::agruparHistorialSemanalTickets($cerrados, 'fecha_eliminacion', 'cerrados');
+            $ilocalizablesSemanas = self::agruparHistorialSemanalTickets($ilocalizables, 'actualizado_en', 'ilocalizables');
+
+            return self::resultado(true, 'Historial semanal obtenido.', [
+                'resumen' => [
+                    'cerrados_total' => count($cerrados),
+                    'cerrados_semanas' => count($cerradosSemanas),
+                    'ilocalizables_total' => count($ilocalizables),
+                    'ilocalizables_semanas' => count($ilocalizablesSemanas),
+                ],
+                'cerrados' => [
+                    'total' => count($cerrados),
+                    'semanas' => $cerradosSemanas,
+                ],
+                'ilocalizables' => [
+                    'total' => count($ilocalizables),
+                    'semanas' => $ilocalizablesSemanas,
+                ],
+            ]);
+        } catch (\Throwable $e) {
+            error_log('getHistorialSemanalMisTickets error: ' . $e->getMessage());
+            return self::resultado(false, 'Error al consultar el historial semanal.', null, $e->getMessage());
+        }
+    }
+
     public static function getHistorialAsignacionPorTicket(int $idTicket): array
     {
         if ($idTicket < 1) {
@@ -2750,6 +2888,12 @@ class Ticket extends Model
                 self::guardarSnapshotDictamenSistema($tid, (int)$actual['id'], $now, $db);
             } catch (\Exception $snapErr) {
                 error_log('dictamen_sistema snapshot error: ' . $snapErr->getMessage());
+            }
+
+            try {
+                self::sincronizarHistoricoIlocalizableTicket($db, $tid);
+            } catch (\Throwable $histErr) {
+                error_log('historico ilocalizable sync error: ' . $histErr->getMessage());
             }
 
             return self::resultado(true, 'Dictamen enviado al gestor.');
@@ -3402,6 +3546,12 @@ public static function getNombresClienteParaReporte(array $idsCredito): array
                     "UPDATE dictamen_sistema SET gestiones_al_revisar = :ga, resultado = :res, detalle = :d, fecha_revision = :fr WHERE id = :id",
                     ['ga' => $totalAhoraIl, 'res' => 'dictamen_ilocalizable', 'd' => $detalleJson, 'fr' => $now, 'id' => (int)$ds['id']]
                 );
+
+                try {
+                    self::sincronizarHistoricoIlocalizableTicket($db, $tid);
+                } catch (\Throwable $histErr) {
+                    error_log('historico ilocalizable ds sync error: ' . $histErr->getMessage());
+                }
 
                 return self::resultado(true, 'Dictamen del sistema generado (ILOCALIZABLE: sin evaluación GPS/pago).', [
                     'resultado' => 'dictamen_ilocalizable',
@@ -4065,9 +4215,21 @@ public static function getNombresClienteParaReporte(array $idsCredito): array
                 UNIQUE KEY uq_sabueso_ilocalizable_ticket (id_ticket),
                 KEY idx_sabueso_iloc_credito (id_credito),
                 KEY idx_sabueso_iloc_semana (semana_inicio),
-                KEY idx_sabueso_iloc_activo (activo)
+                KEY idx_sabueso_iloc_activo (activo),
+                KEY idx_sabueso_iloc_activo_actualizado (activo, actualizado_en, id)
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
         ");
+        foreach ([
+            "ALTER TABLE __SPARTA_SECRET_REDACTED__.sabueso_ilocalizables_historico ADD INDEX idx_sabueso_iloc_activo_actualizado (activo, actualizado_en, id)",
+            "ALTER TABLE __SPARTA_SECRET_REDACTED__.sabueso_ilocalizables_historico ADD INDEX idx_sabueso_iloc_activo_origen (activo, origen)",
+            "ALTER TABLE __SPARTA_SECRET_REDACTED__.sabueso_ilocalizables_historico ADD INDEX idx_sabueso_iloc_credito_activo (id_credito, activo, actualizado_en)",
+        ] as $sqlIndex) {
+            try {
+                $db->CRUD($sqlIndex);
+            } catch (\Throwable $e) {
+                // El indice ya puede existir; no debe bloquear la consulta.
+            }
+        }
         $ok = true;
     }
 
@@ -4190,8 +4352,29 @@ public static function getNombresClienteParaReporte(array $idsCredito): array
         foreach ($filas as $fila) {
             if (!empty($fila['ilocalizable']) || !empty($fila['ilocalizable_override'])) {
                 self::guardarHistoricoIlocalizableDesdeFila($db, $fila, $semanaInicio, $semanaFin);
+            } else {
+                self::desactivarHistoricoIlocalizableTicket($db, (int)($fila['id_ticket'] ?? 0));
             }
         }
+    }
+
+    private static function desactivarHistoricoIlocalizableTicket(Database $db, int $idTicket): void
+    {
+        if ($idTicket < 1) {
+            return;
+        }
+        self::asegurarHistoricoIlocalizablesSchema($db);
+        $db->CRUD(
+            "UPDATE __SPARTA_SECRET_REDACTED__.sabueso_ilocalizables_historico
+             SET activo = 0, actualizado_en = :actualizado_en
+             WHERE id_ticket = :id_ticket
+               AND activo = 1
+               AND COALESCE(ilocalizable_override, 0) = 0",
+            [
+                'id_ticket' => $idTicket,
+                'actualizado_en' => self::ahoraCdmx(),
+            ]
+        );
     }
 
     private static function sincronizarHistoricoIlocalizablesDesdeArchivos(Database $db): void
@@ -4220,12 +4403,207 @@ public static function getNombresClienteParaReporte(array $idsCredito): array
         }
     }
 
+    private static function semanaHistoricoDesdeFecha(?string $fecha): array
+    {
+        $tz = new \DateTimeZone('America/Mexico_City');
+        try {
+            $dt = trim((string)$fecha) !== ''
+                ? new \DateTimeImmutable((string)$fecha, $tz)
+                : self::cdmxNowImmutable();
+        } catch (\Throwable $e) {
+            $dt = self::cdmxNowImmutable();
+        }
+        $dow = (int)$dt->format('N');
+        $lunes = $dt->modify('-' . ($dow - 1) . ' days')->setTime(0, 0, 0);
+        return [$lunes->format('Y-m-d'), $lunes->modify('+6 days')->format('Y-m-d')];
+    }
+
+    private static function sincronizarHistoricoIlocalizableTicket(Database $db, int $idTicket): void
+    {
+        if ($idTicket < 1) {
+            return;
+        }
+        self::asegurarHistoricoIlocalizablesSchema($db);
+        $row = $db->queryOne(
+            "SELECT t.id_ticket, t.folio, t.id_credito, t.id_persona_creador AS id_gestor, t.fecha_creacion, " .
+            "TRIM(CONCAT(TRIM(IFNULL(pg.nombres,'')), ' ', TRIM(IFNULL(pg.apellidop,'')))) AS nombre_gestor, " .
+            "d.fecha_actualizacion AS dictamen_envio, d.tipo AS dictamen_tipo_sabueso, " .
+            "ds.resultado AS resultado_ds, ds.detalle AS detalle_ds " .
+            "FROM ticket t " .
+            "LEFT JOIN persona pg ON pg.id = t.id_persona_creador " .
+            "LEFT JOIN ( " .
+            "  SELECT d1.id_ticket, d1.tipo, d1.fecha_actualizacion " .
+            "  FROM dictamen d1 " .
+            "  INNER JOIN (SELECT id_ticket, MAX(id) AS mid FROM dictamen WHERE estado = 'enviado_al_gestor' GROUP BY id_ticket) dm " .
+            "    ON d1.id_ticket = dm.id_ticket AND d1.id = dm.mid " .
+            "  WHERE d1.estado = 'enviado_al_gestor' " .
+            ") d ON d.id_ticket = t.id_ticket " .
+            "LEFT JOIN ( " .
+            "  SELECT ds1.id_ticket, ds1.resultado, ds1.detalle " .
+            "  FROM dictamen_sistema ds1 " .
+            "  INNER JOIN (SELECT id_ticket, MAX(id) AS mid FROM dictamen_sistema GROUP BY id_ticket) dsmx " .
+            "    ON ds1.id_ticket = dsmx.id_ticket AND ds1.id = dsmx.mid " .
+            ") ds ON ds.id_ticket = t.id_ticket " .
+            "WHERE t.id_ticket = :id_ticket LIMIT 1",
+            ['id_ticket' => $idTicket]
+        );
+        if (!is_array($row) || empty($row['id_ticket'])) {
+            return;
+        }
+
+        $tipoDictamen = (string)($row['dictamen_tipo_sabueso'] ?? '');
+        $resultadoDs = trim((string)($row['resultado_ds'] ?? ''));
+        $esIlocalizable = self::esTipoDictamenIlocalizable($tipoDictamen) || $resultadoDs === 'dictamen_ilocalizable';
+        if (!$esIlocalizable) {
+            self::desactivarHistoricoIlocalizableTicket($db, (int)$row['id_ticket']);
+            return;
+        }
+
+        $detalleDs = [];
+        $detalleRaw = trim((string)($row['detalle_ds'] ?? ''));
+        if ($detalleRaw !== '') {
+            $tmpDetalle = json_decode($detalleRaw, true);
+            if (is_array($tmpDetalle)) {
+                $detalleDs = $tmpDetalle;
+            }
+        }
+        $fueDirecciones = null;
+        if (array_key_exists('visito_todas_direcciones', $detalleDs)) {
+            $fueDirecciones = !empty($detalleDs['visito_todas_direcciones']);
+        } else {
+            $totDir = (int)($detalleDs['direcciones_dictamen_total'] ?? 0);
+            $visDir = (int)($detalleDs['direcciones_visitadas'] ?? 0);
+            if ($totDir > 0) {
+                $fueDirecciones = ($visDir === $totDir);
+            }
+        }
+
+        $idCredito = (int)($row['id_credito'] ?? 0);
+        $nombresCliente = $idCredito > 0 ? self::getNombresClienteParaReporte([$idCredito]) : [];
+        $nombreCliente = $idCredito > 0 ? (string)($nombresCliente[$idCredito] ?? '') : '';
+        [$semanaInicio, $semanaFin] = self::semanaHistoricoDesdeFecha((string)($row['dictamen_envio'] ?? $row['fecha_creacion'] ?? ''));
+
+        self::guardarHistoricoIlocalizableDesdeFila($db, [
+            'id_ticket' => (int)$row['id_ticket'],
+            'folio' => (string)($row['folio'] ?? ''),
+            'id_credito' => $idCredito > 0 ? $idCredito : null,
+            'nombre_cliente' => $nombreCliente,
+            'id_gestor' => !empty($row['id_gestor']) ? (int)$row['id_gestor'] : null,
+            'nombre_gestor' => (string)($row['nombre_gestor'] ?? ''),
+            'tipo_contacto' => '',
+            'dictamen_envio' => (string)($row['dictamen_envio'] ?? ''),
+            'dictamen_tipo_sabueso' => $tipoDictamen,
+            'resultado_ds' => $resultadoDs,
+            'fue_todas_direcciones' => $fueDirecciones,
+            'direcciones_fue' => '',
+            'pago_semana_si' => false,
+            'pago_semana_count' => 0,
+            'pago_semana_consultado' => false,
+            'ilocalizable' => true,
+            'ilocalizable_auto' => true,
+            'ilocalizable_override' => false,
+        ], $semanaInicio, $semanaFin);
+    }
+
+    private static function sincronizarHistoricoIlocalizablesPorCredito(Database $db, int $idCredito): void
+    {
+        if ($idCredito < 1) {
+            return;
+        }
+        $whereEliminacion = self::ticketColumnaExiste($db, 'fecha_eliminacion')
+            ? "AND fecha_eliminacion IS NULL "
+            : "";
+        $rows = $db->queryAll(
+            "SELECT id_ticket FROM ticket " .
+            "WHERE id_credito = :id_credito " .
+            $whereEliminacion .
+            "ORDER BY id_ticket DESC LIMIT 25",
+            ['id_credito' => $idCredito]
+        );
+        foreach (is_array($rows) ? $rows : [] as $row) {
+            self::sincronizarHistoricoIlocalizableTicket($db, (int)($row['id_ticket'] ?? 0));
+        }
+    }
+
+    private static function mensajeCreditoIlocalizable(int $idCredito, ?array $historico = null): string
+    {
+        $partes = [];
+        $partes[] = 'No se puede levantar el ticket. El crédito ' . $idCredito . ' está marcado como ILOCALIZABLE en el histórico Sabueso.';
+        if (is_array($historico)) {
+            $fecha = trim((string)($historico['dictamen_envio'] ?? $historico['actualizado_en'] ?? ''));
+            $motivo = trim((string)($historico['motivo'] ?? ''));
+            if ($fecha !== '') {
+                $partes[] = 'Última actualización: ' . $fecha . '.';
+            }
+            if ($motivo !== '') {
+                $partes[] = 'Motivo registrado: ' . str_replace('_', ' ', $motivo) . '.';
+            }
+        }
+        $partes[] = 'Si el estatus ya no aplica, solicite primero la revisión del histórico antes de registrar un nuevo ticket.';
+        return implode(' ', $partes);
+    }
+
+    private static function consultarCreditoIlocalizableActivo(Database $db, int $idCredito): ?array
+    {
+        $row = $db->queryOne(
+            "SELECT * FROM __SPARTA_SECRET_REDACTED__.sabueso_ilocalizables_historico " .
+            "WHERE id_credito = :id_credito AND activo = 1 " .
+            "ORDER BY COALESCE(dictamen_envio, actualizado_en) DESC, id DESC LIMIT 1",
+            ['id_credito' => $idCredito]
+        );
+        return is_array($row) ? $row : null;
+    }
+
+    public static function getCreditoIlocalizableActivo(int $idCredito): array
+    {
+        if ($idCredito < 1) {
+            return ['success' => true, 'ilocalizable' => false, 'datos' => null];
+        }
+        $db = new Database();
+        try {
+            $row = self::consultarCreditoIlocalizableActivo($db, $idCredito);
+            $esIlocalizable = is_array($row) && !empty($row);
+            return [
+                'success' => true,
+                'ilocalizable' => $esIlocalizable,
+                'datos' => is_array($row) ? $row : null,
+                'mensaje' => $esIlocalizable ? self::mensajeCreditoIlocalizable($idCredito, $row) : '',
+            ];
+        } catch (\Throwable $e) {
+            if (stripos($e->getMessage(), 'sabueso_ilocalizables_historico') !== false
+                || stripos($e->getMessage(), '1146') !== false
+                || stripos($e->getMessage(), "doesn't exist") !== false
+                || stripos($e->getMessage(), 'no existe') !== false) {
+                try {
+                    self::asegurarHistoricoIlocalizablesSchema($db);
+                    $row = self::consultarCreditoIlocalizableActivo($db, $idCredito);
+                    $esIlocalizable = is_array($row) && !empty($row);
+                    return [
+                        'success' => true,
+                        'ilocalizable' => $esIlocalizable,
+                        'datos' => is_array($row) ? $row : null,
+                        'mensaje' => $esIlocalizable ? self::mensajeCreditoIlocalizable($idCredito, $row) : '',
+                    ];
+                } catch (\Throwable $ensureError) {
+                    error_log('getCreditoIlocalizableActivo ensure error: ' . $ensureError->getMessage());
+                }
+            }
+            error_log('getCreditoIlocalizableActivo error: ' . $e->getMessage());
+            return [
+                'success' => false,
+                'ilocalizable' => false,
+                'datos' => null,
+                'mensaje' => 'No se pudo validar el histórico de ilocalizables.',
+                'error' => $e->getMessage(),
+            ];
+        }
+    }
+
     public static function getHistoricoIlocalizables(array $filtros = []): array
     {
         $db = new Database();
         try {
             self::asegurarHistoricoIlocalizablesSchema($db);
-            self::sincronizarHistoricoIlocalizablesDesdeArchivos($db);
             $where = ["activo = 1"];
             $params = [];
             $q = trim((string)($filtros['q'] ?? ''));
@@ -4238,33 +4616,58 @@ public static function getNombresClienteParaReporte(array $idsCredito): array
                 $where[] = "LOWER(COALESCE(origen, '')) = :origen";
                 $params['origen'] = strtolower($origen);
             }
-            $limit = (int)($filtros['limit'] ?? 500);
-            if ($limit < 1 || $limit > 2000) {
-                $limit = 500;
+            $page = (int)($filtros['page'] ?? 1);
+            if ($page < 1) {
+                $page = 1;
+            }
+            $perPage = (int)($filtros['per_page'] ?? ($filtros['limit'] ?? 50));
+            if ($perPage < 1 || $perPage > 200) {
+                $perPage = 50;
+            }
+            $offset = ($page - 1) * $perPage;
+            $whereSql = implode(' AND ', $where);
+            $totalRow = $db->queryOne(
+                "SELECT COUNT(*) AS total, COUNT(DISTINCT id_credito) AS total_creditos
+                 FROM __SPARTA_SECRET_REDACTED__.sabueso_ilocalizables_historico
+                 WHERE " . $whereSql,
+                $params
+            );
+            $total = (int)($totalRow['total'] ?? 0);
+            $totalCreditos = (int)($totalRow['total_creditos'] ?? 0);
+            $totalPages = max(1, (int)ceil($total / $perPage));
+            if ($page > $totalPages) {
+                $page = $totalPages;
+                $offset = ($page - 1) * $perPage;
             }
             $rows = $db->queryAll(
                 "SELECT * FROM __SPARTA_SECRET_REDACTED__.sabueso_ilocalizables_historico
-                 WHERE " . implode(' AND ', $where) . "
-                 ORDER BY COALESCE(dictamen_envio, actualizado_en) DESC, id DESC
-                 LIMIT " . $limit,
+                 WHERE " . $whereSql . "
+                 ORDER BY actualizado_en DESC, id DESC
+                 LIMIT " . $perPage . " OFFSET " . $offset,
                 $params
             );
-            $creditos = [];
-            foreach ($rows as $row) {
-                if (!empty($row['id_credito'])) {
-                    $creditos[(string)$row['id_credito']] = true;
-                }
-            }
             return [
                 'success' => true,
                 'mensaje' => 'OK',
                 'datos' => $rows,
-                'total' => count($rows),
-                'total_creditos' => count($creditos),
+                'total' => $total,
+                'total_creditos' => $totalCreditos,
+                'page' => $page,
+                'per_page' => $perPage,
+                'total_pages' => $totalPages,
             ];
         } catch (\Throwable $e) {
             error_log('getHistoricoIlocalizables error: ' . $e->getMessage());
-            return ['success' => false, 'mensaje' => $e->getMessage(), 'datos' => [], 'total' => 0, 'total_creditos' => 0];
+            return [
+                'success' => false,
+                'mensaje' => $e->getMessage(),
+                'datos' => [],
+                'total' => 0,
+                'total_creditos' => 0,
+                'page' => 1,
+                'per_page' => 50,
+                'total_pages' => 1,
+            ];
         }
     }
 

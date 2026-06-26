@@ -860,6 +860,10 @@ class CapHum extends Controller
                         const puestosPersonaTexto = tienePuestos
                             ? p.puestos.map(puesto => puesto.nombre_puesto || '').filter(Boolean).join(' | ')
                             : (p.nombre_puesto || '');
+                        const esExternoGestion = !String(p.codigo_contpac || '').trim() && !!String(p.numero_empleado || '').trim();
+                        const badgeExternoGestion = esExternoGestion
+                            ? '<span class="gestion-personal-external-badge" title="Usuario externo: no forma parte de la plantilla interna">Externo</span>'
+                            : '';
 
                         // Generar badges para múltiples puestos con departamentos
                         let puestosHTML = '';
@@ -913,6 +917,7 @@ class CapHum extends Controller
                                 <div class="gestion-personal-employee-code">
                                    <span>No. empleado:</span>
                                    <span class="gestion-personal-code-value">${escaparAttr(p.codigo_contpac || 'Sin codigo')}</span>
+                                   ${badgeExternoGestion}
                                 </div>
                                 <div class="gestion-personal-name-main text-uppercase">
                                     ${escaparAttr(nombreCompleto)}
@@ -9856,8 +9861,7 @@ class CapHum extends Controller
                     else if (confianzaNum >= 50) confianzaClase = "text-warning";
                     else confianzaClase = "text-danger";
                 }
-                var usuarioPuedeRevalidar = (typeof window.miUsuarioId !== "undefined" && parseInt(window.miUsuarioId, 10) === 1);
-                var btnHeaderRevalidar = usuarioPuedeRevalidar ? "<button type=\"button\" class=\"btn btn-xs btn-outline-primary py-0 px-1 btn-reintentar-verif-expediente\" data-reintentar-api=\"1\" title=\"Volver a validar expediente\"><i class=\"fa fa-sync-alt\"></i></button>" : "";
+                var btnHeaderRevalidar = "<button type=\"button\" class=\"btn btn-xs btn-outline-primary py-0 px-1 btn-reintentar-verif-expediente\" data-reintentar-api=\"1\" title=\"Volver a validar expediente\"><i class=\"fa fa-sync-alt\"></i></button>";
                 if (esVerificacionMotorV2(v)) {
                     var docs = docsV2(v);
                     var comps = compsV2(v);

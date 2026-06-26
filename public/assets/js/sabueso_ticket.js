@@ -570,6 +570,357 @@
         }
     });
 
+    var historialSemanalCargado = false;
+    var historialSemanalCargando = false;
+    var historialSemanalDatos = null;
+    var historialSemanalSemanaSeleccionada = '';
+    var historialSemanalBusqueda = '';
+    var historialSemanalBuscarTimer = null;
+
+    $(document).on('click', '#btnAbrirHistorialSemanalTickets', function() {
+        abrirHistorialSemanalTickets();
+    });
+
+    $(document).on('shown.bs.modal', '#modalHistorialSemanalTickets', function() {
+        cargarHistorialSemanalTickets(false);
+    });
+
+    $(document).on('click', '#btnRefrescarHistorialSemanalTickets', function() {
+        cargarHistorialSemanalTickets(true);
+    });
+
+    $(document).on('change', '#historialSemanalSemanaSelect', function() {
+        historialSemanalSemanaSeleccionada = ($(this).val() || '').toString();
+        renderHistorialSemanalTickets(historialSemanalDatos || {});
+    });
+
+    $(document).on('input', '#historialSemanalBuscar', function() {
+        historialSemanalBusqueda = ($(this).val() || '').toString().trim();
+        if (historialSemanalBuscarTimer) clearTimeout(historialSemanalBuscarTimer);
+        historialSemanalBuscarTimer = setTimeout(function() {
+            renderHistorialSemanalTickets(historialSemanalDatos || {});
+        }, 120);
+    });
+
+    function histEsc(s) {
+        if (s === null || s === undefined) return '';
+        return String(s)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#039;');
+    }
+
+    function histTxt(s, fallback) {
+        var t = (s === null || s === undefined) ? '' : String(s).trim();
+        return t !== '' ? t : (fallback || '\u2014');
+    }
+
+    function histFecha(s, conHora) {
+        var raw = histTxt(s, '');
+        if (!raw) return '\u2014';
+        var d = new Date(raw.replace(' ', 'T'));
+        if (isNaN(d.getTime())) return raw;
+        var opts = { day: '2-digit', month: '2-digit', year: 'numeric' };
+        if (conHora) {
+            opts.hour = '2-digit';
+            opts.minute = '2-digit';
+        }
+        return d.toLocaleString('es-MX', opts);
+    }
+
+    function histPlural(n, singular, plural) {
+        n = parseInt(n || 0, 10);
+        return n + ' ' + (n === 1 ? singular : plural);
+    }
+
+    function histHumanizar(s) {
+        return histTxt(s, '')
+            .replace(/_/g, ' ')
+            .replace(/\s+/g, ' ')
+            .trim()
+            .replace(/\b\w/g, function(c) { return c.toUpperCase(); }) || '\u2014';
+    }
+
+    function histBadge(texto, cls) {
+        return '<span class="badge rounded-pill ' + (cls || 'bg-label-secondary') + '">' + histEsc(texto || '\u2014') + '</span>';
+    }
+
+    function histNormalizar(s) {
+        return String(s === null || s === undefined ? '' : s)
+            .toLowerCase()
+            .normalize('NFD')
+            .replace(/[\u0300-\u036f]/g, '')
+            .trim();
+    }
+
+    function histTextoBusquedaItem(item, tipo) {
+        item = item || {};
+        var campos = tipo === 'ilocalizables'
+            ? [
+                item.id_credito, item.folio, item.nombre_cliente, item.nombre_gestor,
+                item.gestor_nombre_resuelto, item.tipo_contacto, item.motivo, item.origen,
+                item.dictamen_tipo_sabueso, item.resultado_ds, item.actualizado_en, item.detectado_en
+            ]
+            : [
+                item.id_ticket, item.folio, item.id_credito, item.descripcion_inicial,
+                item.tipo_ticket_nombre, item.estado_ticket_nombre, item.prioridad_nombre,
+                item.creador_nombre, item.asignado_nombre, item.quien_elimino_nombre,
+                item.tipo_accion, item.fecha_creacion, item.fecha_eliminacion
+            ];
+        return histNormalizar(campos.join(' '));
+    }
+
+    function histSemanaKey(semana) {
+        if (!semana) return '';
+        return (semana.semana_inicio || '') + '|' + (semana.semana_fin || '');
+    }
+
+    function histFiltrarSemanas(semanas, tipo) {
+        semanas = Array.isArray(semanas) ? semanas : [];
+        var termino = histNormalizar(historialSemanalBusqueda);
+        var filtradas = historialSemanalSemanaSeleccionada
+            ? semanas.filter(function(semana) {
+                return histSemanaKey(semana) === historialSemanalSemanaSeleccionada;
+            })
+            : semanas;
+        if (!termino) return filtradas;
+        return filtradas.map(function(semana) {
+            var items = (Array.isArray(semana.items) ? semana.items : []).filter(function(item) {
+                return histTextoBusquedaItem(item, tipo).indexOf(termino) !== -1;
+            });
+            return Object.assign({}, semana, {
+                total: items.length,
+                items: items
+            });
+        }).filter(function(semana) {
+            return semana.items.length > 0;
+        });
+    }
+
+    function histConstruirOpcionesSemana(cerradosSemanas, ilocalizablesSemanas) {
+        var mapa = {};
+        function agregar(origen, tipo) {
+            (Array.isArray(origen) ? origen : []).forEach(function(semana) {
+                var key = histSemanaKey(semana);
+                if (!key) return;
+                if (!mapa[key]) {
+                    mapa[key] = {
+                        key: key,
+                        inicio: semana.semana_inicio || '',
+                        fin: semana.semana_fin || '',
+                        label: semana.label || ((semana.semana_inicio || '') + ' al ' + (semana.semana_fin || '')),
+                        cerrados: 0,
+                        ilocalizables: 0
+                    };
+                }
+                if (tipo === 'cerrados') mapa[key].cerrados += parseInt(semana.total || (semana.items || []).length || 0, 10) || 0;
+                else mapa[key].ilocalizables += parseInt(semana.total || (semana.items || []).length || 0, 10) || 0;
+            });
+        }
+        agregar(cerradosSemanas, 'cerrados');
+        agregar(ilocalizablesSemanas, 'ilocalizables');
+        return Object.keys(mapa).map(function(k) { return mapa[k]; }).sort(function(a, b) {
+            return String(b.inicio).localeCompare(String(a.inicio));
+        });
+    }
+
+    function histActualizarSelectorSemana(cerradosSemanas, ilocalizablesSemanas) {
+        var opciones = histConstruirOpcionesSemana(cerradosSemanas, ilocalizablesSemanas);
+        var existeActual = !historialSemanalSemanaSeleccionada || opciones.some(function(o) { return o.key === historialSemanalSemanaSeleccionada; });
+        if (!existeActual) historialSemanalSemanaSeleccionada = '';
+        var html = '<option value="">Todas las semanas</option>';
+        opciones.forEach(function(o) {
+            var meta = [];
+            if (o.cerrados) meta.push(o.cerrados + ' cerr.');
+            if (o.ilocalizables) meta.push(o.ilocalizables + ' iloc.');
+            html += '<option value="' + histEsc(o.key) + '">' + histEsc(o.label) + (meta.length ? (' - ' + histEsc(meta.join(' / '))) : '') + '</option>';
+        });
+        var $sel = $('#historialSemanalSemanaSelect');
+        if ($sel.length) {
+            $sel.html(html).val(historialSemanalSemanaSeleccionada);
+        }
+        var info = opciones.length
+            ? (historialSemanalSemanaSeleccionada ? 'Mostrando solo la semana seleccionada.' : 'Mostrando todas las semanas. Puede elegir una semana especifica.')
+            : 'No hay semanas para mostrar.';
+        $('#historialSemanalSemanaInfo').text(info);
+    }
+
+    function histTotalItems(semanas) {
+        return (Array.isArray(semanas) ? semanas : []).reduce(function(total, semana) {
+            return total + (parseInt(semana.total || (semana.items || []).length || 0, 10) || 0);
+        }, 0);
+    }
+
+    function histActualizarInfoFiltros(cerradosFiltrados, ilocalizablesFiltrados) {
+        var partes = [];
+        if (historialSemanalSemanaSeleccionada) partes.push('semana seleccionada');
+        if (historialSemanalBusqueda) partes.push('busqueda "' + historialSemanalBusqueda + '"');
+        if (!partes.length) {
+            var datos = historialSemanalDatos || {};
+            var cerrados = (datos.cerrados && datos.cerrados.semanas) || [];
+            var ilocalizables = (datos.ilocalizables && datos.ilocalizables.semanas) || [];
+            histActualizarSelectorSemana(cerrados, ilocalizables);
+            return;
+        }
+        var totalCerrados = histTotalItems(cerradosFiltrados);
+        var totalIlocalizables = histTotalItems(ilocalizablesFiltrados);
+        $('#historialSemanalSemanaInfo').text(
+            'Filtro activo: ' + partes.join(' + ') + '. Resultados: ' +
+            totalCerrados + ' cerrado(s)/eliminado(s), ' + totalIlocalizables + ' ilocalizable(s).'
+        );
+    }
+
+    function renderHistorialSemanalEmpty(titulo, texto) {
+        return '<div class="historial-semanal-empty">' +
+            '<div class="fw-semibold mb-1">' + histEsc(titulo) + '</div>' +
+            '<div class="small">' + histEsc(texto) + '</div>' +
+            '</div>';
+    }
+
+    function renderHistorialSemanalCerrados(semanas) {
+        semanas = Array.isArray(semanas) ? semanas : [];
+        if (!semanas.length) {
+            return renderHistorialSemanalEmpty('Sin tickets cerrados o eliminados', 'Todavia no hay tickets cerrados o eliminados para mostrar en el historial semanal.');
+        }
+        return semanas.map(function(semana) {
+            var items = Array.isArray(semana.items) ? semana.items : [];
+            var rows = items.map(function(t) {
+                var folio = histTxt(t.folio, t.id_ticket ? ('TCK-' + t.id_ticket) : '\u2014');
+                var prioridad = histTxt(t.prioridad_nombre, 'Sin prioridad');
+                var prioridadCls = 'bg-label-secondary';
+                var prioridadLower = prioridad.toLowerCase();
+                if (prioridadLower.indexOf('alta') !== -1) prioridadCls = 'bg-danger text-white';
+                else if (prioridadLower.indexOf('media') !== -1 || prioridadLower.indexOf('medio') !== -1) prioridadCls = 'bg-warning text-dark';
+                return '<tr>' +
+                    '<td><div class="fw-semibold">' + histEsc(folio) + '</div><small class="text-muted">Ticket #' + histEsc(t.id_ticket || '\u2014') + '</small></td>' +
+                    '<td><div class="fw-semibold">#' + histEsc(histTxt(t.id_credito)) + '</div><small class="text-muted">' + histEsc(histTxt(t.tipo_ticket_nombre, 'Sin tipo')) + '</small></td>' +
+                    '<td>' + histBadge(prioridad, prioridadCls) + '</td>' +
+                    '<td><div>' + histEsc(histFecha(t.fecha_eliminacion, true)) + '</div><small class="text-muted">' + histEsc(histHumanizar(t.tipo_accion || 'cerrado')) + ' | Creado: ' + histEsc(histFecha(t.fecha_creacion, false)) + '</small></td>' +
+                    '<td><div class="fw-semibold">' + histEsc(histTxt(t.quien_elimino_nombre, 'Sin dato')) + '</div><small class="text-muted">Asignado: ' + histEsc(histTxt(t.asignado_nombre, 'Sin asignar')) + '</small></td>' +
+                    '<td class="historial-semanal-desc">' + histEsc(histTxt(t.descripcion_inicial, 'Sin descripcion')) + '</td>' +
+                    '</tr>';
+            }).join('');
+            return '<section class="historial-semanal-week">' +
+                '<div class="historial-semanal-week-header">' +
+                    '<div><div class="historial-semanal-week-title">' + histEsc(semana.label || 'Semana') + '</div><small class="text-muted">Del ' + histEsc(histFecha(semana.semana_inicio, false)) + ' al ' + histEsc(histFecha(semana.semana_fin, false)) + '</small></div>' +
+                    histBadge(histPlural(semana.total || items.length, 'ticket', 'tickets'), 'bg-label-primary') +
+                '</div>' +
+                '<div class="table-responsive">' +
+                    '<table class="table table-sm historial-semanal-table mb-0">' +
+                        '<thead><tr><th>Folio</th><th>Credito / tipo</th><th>Prioridad</th><th>Fecha / accion</th><th>Cerrado por</th><th>Descripcion</th></tr></thead>' +
+                        '<tbody>' + rows + '</tbody>' +
+                    '</table>' +
+                '</div>' +
+                '</section>';
+        }).join('');
+    }
+
+    function renderHistorialSemanalIlocalizables(semanas) {
+        semanas = Array.isArray(semanas) ? semanas : [];
+        if (!semanas.length) {
+            return renderHistorialSemanalEmpty('Sin ilocalizables manuales activos', 'No tienes creditos marcados manualmente como ilocalizables en el historico activo.');
+        }
+        return semanas.map(function(semana) {
+            var items = Array.isArray(semana.items) ? semana.items : [];
+            var rows = items.map(function(t) {
+                var pagoConsultado = parseInt(t.pago_semana_consultado || 0, 10) === 1;
+                var pagoSi = parseInt(t.pago_semana_si || 0, 10) === 1;
+                var pagoTexto = pagoConsultado ? (pagoSi ? 'Si' : 'No') : 'Sin consulta';
+                var pagoCls = pagoSi ? 'bg-success text-white' : (pagoConsultado ? 'bg-label-warning' : 'bg-label-secondary');
+                var origen = histTxt(t.origen, '').toLowerCase();
+                var origenBadge = origen === 'manual' ? histBadge('Manual', 'bg-warning text-dark') : histBadge('Automatico', 'bg-label-info');
+                return '<tr>' +
+                    '<td><div class="fw-semibold">#' + histEsc(histTxt(t.id_credito)) + '</div><small class="text-muted">' + histEsc(histTxt(t.folio, t.id_ticket ? ('TCK-' + t.id_ticket) : 'Sin ticket')) + '</small></td>' +
+                    '<td><div class="fw-semibold">' + histEsc(histTxt(t.nombre_cliente, 'Sin cliente')) + '</div><small class="text-muted">Gestor: ' + histEsc(histTxt(t.gestor_nombre_resuelto || t.nombre_gestor, 'Sin gestor')) + '</small></td>' +
+                    '<td><div>' + histEsc(histHumanizar(t.motivo)) + '</div><small class="text-muted">' + origenBadge + '</small></td>' +
+                    '<td><div>' + histEsc(histFecha(t.actualizado_en || t.detectado_en, true)) + '</div><small class="text-muted">Detectado: ' + histEsc(histFecha(t.detectado_en, false)) + '</small></td>' +
+                    '<td>' + histBadge(pagoTexto, pagoCls) + '<div class="small text-muted mt-1">Pagos: ' + histEsc(histTxt(t.pago_semana_count, '0')) + '</div></td>' +
+                    '<td><div>' + histEsc(histHumanizar(t.dictamen_tipo_sabueso || t.tipo_contacto)) + '</div><small class="text-muted">DS: ' + histEsc(histTxt(t.resultado_ds, 'Sin dato')) + '</small></td>' +
+                    '</tr>';
+            }).join('');
+            return '<section class="historial-semanal-week">' +
+                '<div class="historial-semanal-week-header">' +
+                    '<div><div class="historial-semanal-week-title">' + histEsc(semana.label || 'Semana') + '</div><small class="text-muted">Del ' + histEsc(histFecha(semana.semana_inicio, false)) + ' al ' + histEsc(histFecha(semana.semana_fin, false)) + '</small></div>' +
+                    histBadge(histPlural(semana.total || items.length, 'credito', 'creditos'), 'bg-label-danger') +
+                '</div>' +
+                '<div class="table-responsive">' +
+                    '<table class="table table-sm historial-semanal-table mb-0">' +
+                        '<thead><tr><th>Credito / ticket</th><th>Cliente / gestor</th><th>Motivo / origen</th><th>Actualizacion</th><th>Pago semana</th><th>Dictamen / DS</th></tr></thead>' +
+                        '<tbody>' + rows + '</tbody>' +
+                    '</table>' +
+                '</div>' +
+                '</section>';
+        }).join('');
+    }
+
+    function renderHistorialSemanalTickets(datos) {
+        datos = datos || {};
+        historialSemanalDatos = datos;
+        var resumen = datos.resumen || {};
+        var cerrados = datos.cerrados || {};
+        var ilocalizables = datos.ilocalizables || {};
+        var cerradosSemanas = cerrados.semanas || [];
+        var ilocalizablesSemanas = ilocalizables.semanas || [];
+        var cerradosFiltrados = histFiltrarSemanas(cerradosSemanas, 'cerrados');
+        var ilocalizablesFiltrados = histFiltrarSemanas(ilocalizablesSemanas, 'ilocalizables');
+        $('#historialKpiCerrados').text(resumen.cerrados_total || cerrados.total || 0);
+        $('#historialKpiCerradosSemanas').text(histPlural(resumen.cerrados_semanas || cerradosSemanas.length, 'semana', 'semanas'));
+        $('#historialKpiIlocalizables').text(resumen.ilocalizables_total || ilocalizables.total || 0);
+        $('#historialKpiIlocalizablesSemanas').text(histPlural(resumen.ilocalizables_semanas || ilocalizablesSemanas.length, 'semana', 'semanas'));
+        histActualizarSelectorSemana(cerradosSemanas, ilocalizablesSemanas);
+        histActualizarInfoFiltros(cerradosFiltrados, ilocalizablesFiltrados);
+        $('#historialSemanalCerrados').html(renderHistorialSemanalCerrados(cerradosFiltrados));
+        $('#historialSemanalIlocalizables').html(renderHistorialSemanalIlocalizables(ilocalizablesFiltrados));
+    }
+
+    function cargarHistorialSemanalTickets(force) {
+        if (historialSemanalCargado && force !== true) return;
+        if (historialSemanalCargando) return;
+        historialSemanalCargando = true;
+        $('#historialSemanalLoading').show().html('<i class="fa-solid fa-spinner fa-spin me-2"></i>Cargando historial...');
+        $('#historialSemanalContenido').hide();
+        http.request({
+            endpoint: "/sabueso/getHistorialSemanalMisTickets",
+            metodo: "POST",
+            data: JSON.stringify({}),
+            contentType: "application/json",
+            processData: false,
+            showLoader: false,
+            onSuccess: function(resp) {
+                historialSemanalCargando = false;
+                if (!resp || resp.success === false) {
+                    $('#historialSemanalLoading').show().html('<div class="fw-semibold mb-1">No se pudo cargar el historial</div><div class="small">' + histEsc((resp && resp.mensaje) || 'Intente actualizar nuevamente.') + '</div>');
+                    $('#historialSemanalContenido').hide();
+                    return;
+                }
+                renderHistorialSemanalTickets(resp.datos || {});
+                historialSemanalCargado = true;
+                $('#historialSemanalLoading').hide();
+                $('#historialSemanalContenido').show();
+            },
+            onError: function(err) {
+                historialSemanalCargando = false;
+                var msg = (typeof err === 'string' ? err : (err && err.mensaje)) || 'No se pudo consultar el historial semanal.';
+                $('#historialSemanalLoading').show().html('<div class="fw-semibold mb-1">No se pudo cargar el historial</div><div class="small">' + histEsc(msg) + '</div>');
+                $('#historialSemanalContenido').hide();
+            }
+        });
+    }
+
+    function abrirHistorialSemanalTickets() {
+        var el = document.getElementById('modalHistorialSemanalTickets');
+        if (el && typeof bootstrap !== 'undefined' && bootstrap.Modal) {
+            bootstrap.Modal.getOrCreateInstance(el).show();
+        } else if (typeof $ !== 'undefined' && $.fn.modal) {
+            $('#modalHistorialSemanalTickets').modal('show');
+        }
+        cargarHistorialSemanalTickets(false);
+    }
+    window.abrirHistorialSemanalTickets = abrirHistorialSemanalTickets;
+    window.cargarHistorialSemanalTickets = cargarHistorialSemanalTickets;
+
     function getTickets() {
         http.request({
             endpoint: "/sabueso/getTickets",
@@ -1090,6 +1441,36 @@
         });
     }
 
+    function mostrarErrorCrearTicket(resp, jqXHR) {
+        var datos = resp && typeof resp === 'object' ? (resp.datos || {}) : {};
+        var codigo = (datos.codigo || '').toString();
+        var mensaje = '';
+        if (resp && typeof resp === 'object') {
+            mensaje = resp.mensaje || resp.error || '';
+        } else if (typeof resp === 'string') {
+            mensaje = resp;
+            if (mensaje.trim().charAt(0) === '{') {
+                try {
+                    var parsed = JSON.parse(mensaje);
+                    datos = parsed.datos || datos;
+                    codigo = (datos.codigo || codigo || '').toString();
+                    mensaje = parsed.mensaje || parsed.error || mensaje;
+                } catch (e) {}
+            }
+        }
+        if (!mensaje && jqXHR && jqXHR.responseJSON) {
+            datos = jqXHR.responseJSON.datos || datos;
+            codigo = (datos.codigo || codigo || '').toString();
+            mensaje = jqXHR.responseJSON.mensaje || jqXHR.responseJSON.error || '';
+        }
+        var esIlocalizable = codigo === 'credito_ilocalizable' || (datos && datos.ilocalizable === true);
+        Swal.fire({
+            icon: esIlocalizable ? 'warning' : 'error',
+            title: esIlocalizable ? 'Credito ilocalizable' : 'Error',
+            text: mensaje || 'No se pudo crear el ticket. Verifique el ID de credito.'
+        });
+    }
+
     function enviarLevantarTicket() {
         // Prioridad siempre Alta y vencimiento +24h en backend; no se envían desde el formulario
         var payload = {
@@ -1134,7 +1515,7 @@
                         enviandoTicket = false;
                         if (typeof Swal !== 'undefined' && Swal.isVisible && Swal.isVisible()) Swal.close();
                         setButtonLevantarLoading(false);
-                        Swal.fire({ icon: 'error', title: 'Error', text: resp.mensaje || 'No se pudo crear el ticket. Verifique el ID de crédito.' });
+                        mostrarErrorCrearTicket(resp);
                         return;
                     }
                     enviandoTicket = false;
@@ -1150,11 +1531,11 @@
                         Swal.fire({ icon: 'success', title: 'Ticket creado', text: resp.mensaje || 'Folio: ' + (resp.datos && resp.datos.folio ? resp.datos.folio : '') });
                     }, 100);
                 },
-                onError: function(err) {
+                onError: function(err, jqXHR) {
                     enviandoTicket = false;
                     if (typeof Swal !== 'undefined' && Swal.isVisible && Swal.isVisible()) Swal.close();
                     setButtonLevantarLoading(false);
-                    Swal.fire({ icon: 'error', title: 'Error', text: (err && err.mensaje) || 'No se pudo crear el ticket.' });
+                    mostrarErrorCrearTicket(err, jqXHR);
                 }
             });
         }

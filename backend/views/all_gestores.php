@@ -841,6 +841,21 @@
       font-weight: 800;
     }
 
+    .gestion-personal-external-badge {
+      display: inline-flex;
+      align-items: center;
+      min-height: 1.25rem;
+      padding: .08rem .5rem;
+      border-radius: 999px;
+      background: #f1f5f9;
+      color: #334155;
+      border: 1px solid #cbd5e1;
+      font-size: .72rem;
+      font-weight: 800;
+      line-height: 1;
+      letter-spacing: 0;
+    }
+
     .gestion-personal-username {
       margin-top: .46rem;
       color: #64748b;
@@ -10164,8 +10179,12 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
     return normalizarDepartamentoEtiqueta(nombreDepartamento) === 'despachos cobranza';
   }
 
-  function etiquetaExternoPorUsuario(usuario) {
-    if (usuarioExentoEtiquetaExterno(usuario)) return '';
+  function esUsuarioExternoGestion(usuario) {
+    if (usuarioExentoEtiquetaExterno(usuario)) return false;
+
+    const codigoContpac = String(usuario?.codigo_contpac || '').trim();
+    const numeroEmpleado = String(usuario?.numero_empleado || '').trim();
+    if (!codigoContpac && numeroEmpleado) return true;
 
     const departamentos = [];
     if (usuario?.nombre_departamento) departamentos.push(usuario.nombre_departamento);
@@ -10175,8 +10194,12 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
       });
     }
 
-    return departamentos.some(esDepartamentoExterno)
-      ? '<span class="badge bg-dark text-white ms-2 align-middle" title="Departamento externo">Externo</span>'
+    return departamentos.some(esDepartamentoExterno);
+  }
+
+  function etiquetaExternoPorUsuario(usuario) {
+    return esUsuarioExternoGestion(usuario)
+      ? '<span class="gestion-personal-external-badge" title="Usuario externo: no forma parte de la plantilla interna">Externo</span>'
       : '';
   }
 
@@ -10298,9 +10321,10 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
               <div class="gestion-personal-employee-code">
                 <span>No. empleado:</span>
                 <span class="gestion-personal-code-value">${escapeAttr(p.codigo_contpac || 'Sin codigo')}</span>
+                ${etiquetaExternoPersona}
               </div>
               <div class="gestion-personal-name-main text-uppercase">
-                ${nombreCompleto}${etiquetaExternoPersona}
+                ${nombreCompleto}
               </div>
               <div class="gestion-personal-external-id">
                 <span>External id:</span>
