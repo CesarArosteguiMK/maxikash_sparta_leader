@@ -6441,6 +6441,15 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
                     </div>
                 </div>
 
+                <div class="mb-3 add-persona-only">
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" id="add_es_externo">
+                        <label class="form-check-label" for="add_es_externo">
+                            Externo
+                        </label>
+                    </div>
+                </div>
+
                 <div class="mb-2 add-persona-only" id="div_select_legion" style="display: none;">
                     <label class="form-label">Legión *</label>
                     <select id="add_id_legion" class="form-select js-select-buscador">
@@ -10222,6 +10231,10 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
       const tienePuestos = p.puestos && p.puestos.length > 1;
       const vistaMultiplesActiva = document.getElementById('FilterMultiplePuestos')?.value === 'multiples';
       const etiquetaExternoPersona = etiquetaExternoPorUsuario(p);
+      const codigoContpacPersona = String(p.codigo_contpac || '').trim();
+      const codigoContpacHTML = codigoContpacPersona
+        ? `<span class="gestion-personal-code-value">${escapeAttr(codigoContpacPersona)}</span>`
+        : (etiquetaExternoPersona ? '' : '<span class="gestion-personal-code-value">Sin codigo</span>');
       const puestosPersonaTexto = tienePuestos
         ? p.puestos.map(puesto => puesto.nombre_puesto || '').filter(Boolean).join(' | ')
         : (p.nombre_puesto || '');
@@ -10320,7 +10333,7 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
             <div class="gestion-personal-name-info">
               <div class="gestion-personal-employee-code">
                 <span>No. empleado:</span>
-                <span class="gestion-personal-code-value">${escapeAttr(p.codigo_contpac || 'Sin codigo')}</span>
+                ${codigoContpacHTML}
                 ${etiquetaExternoPersona}
               </div>
               <div class="gestion-personal-name-main text-uppercase">

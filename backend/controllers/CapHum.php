@@ -866,6 +866,11 @@ class CapHum extends Controller
                             : '';
 
                         // Generar badges para múltiples puestos con departamentos
+                        const codigoContpacPersona = String(p.codigo_contpac || '').trim();
+                        const codigoContpacHTML = codigoContpacPersona
+                            ? `<span class="gestion-personal-code-value">${escaparAttr(codigoContpacPersona)}</span>`
+                            : (badgeExternoGestion ? '' : '<span class="gestion-personal-code-value">Sin codigo</span>');
+
                         let puestosHTML = '';
                         if (tienePuestos) {
                             puestosHTML = '<div class="d-flex flex-column gap-2">';
@@ -916,7 +921,7 @@ class CapHum extends Controller
                                     <div class="gestion-personal-name-info">
                                 <div class="gestion-personal-employee-code">
                                    <span>No. empleado:</span>
-                                   <span class="gestion-personal-code-value">${escaparAttr(p.codigo_contpac || 'Sin codigo')}</span>
+                                   ${codigoContpacHTML}
                                    ${badgeExternoGestion}
                                 </div>
                                 <div class="gestion-personal-name-main text-uppercase">
@@ -5998,6 +6003,7 @@ class CapHum extends Controller
                 const vacante_existente_id = document.getElementById('add_vacante_existente_id')?.value || null;
                 const asignarLegion = document.getElementById('add_asignar_legion').checked;
                 const id_legion = document.getElementById('add_id_legion').value;
+                const esExterno = !!document.getElementById('add_es_externo')?.checked;
 
                 const usuario = document.getElementById('add_usuario').value.trim();
                 const contrasena = document.getElementById('add_contrasena').value.trim();
@@ -6127,6 +6133,7 @@ class CapHum extends Controller
                         vacante_existente_id: vacante_existente_id || null,
                         asignar_legion: asignarLegion,
                         id_legion: asignarLegion ? id_legion : null,
+                        es_externo: esExterno,
                         usuario,
                         contrasena
                     })
@@ -6184,6 +6191,8 @@ class CapHum extends Controller
                 if (addLegion) addLegion.value = '';
                 const addAsignarLegion = document.getElementById('add_asignar_legion');
                 if (addAsignarLegion) addAsignarLegion.checked = false;
+                const addEsExterno = document.getElementById('add_es_externo');
+                if (addEsExterno) addEsExterno.checked = false;
                 const divLegion = document.getElementById('div_select_legion');
                 if (divLegion) divLegion.style.display = 'none';
                 if (typeof resetCascadaAdd === 'function') {
@@ -24154,6 +24163,7 @@ public function getEstadosMunicipiosMexico()
         $data['fecha_ingreso'] = $data['fecha_ingreso'];
         $data['asignar_legion'] = isset($data['asignar_legion']) ? (bool)$data['asignar_legion'] : false;
         $data['id_legion'] = isset($data['id_legion']) && !empty($data['id_legion']) ? (int)$data['id_legion'] : null;
+        $data['es_externo'] = isset($data['es_externo']) ? (bool)$data['es_externo'] : false;
 
         // Validar que si asignar_legion es true, id_legion debe estar presente
         if ($data['asignar_legion'] && !$data['id_legion']) {

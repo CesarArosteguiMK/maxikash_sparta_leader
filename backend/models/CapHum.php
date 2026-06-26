@@ -5869,6 +5869,9 @@ class CapHum extends Model
                 $numero_raw = $numeroEmpleadoEntrada;
             }
             $numero_empleado = addslashes($numero_raw);
+            $esExterno = isset($data['es_externo']) && (bool)$data['es_externo'];
+            $codigoContpacRaw = $esExterno ? '' : trim((string)($data['codigo_contpac'] ?? $numero_raw));
+            $codigo_contpac_sql = $codigoContpacRaw !== '' ? "'" . addslashes($codigoContpacRaw) . "'" : 'NULL';
 
             if ($cp === '' && $id_div_nivel3 !== 'NULL') {
                 $crow = $db->queryOne(
@@ -5892,9 +5895,9 @@ class CapHum extends Model
 
             $db->queryOne("
             INSERT INTO __SPARTA_SECRET_REDACTED__.persona
-            (nombres, segundo_nombre, apellidop, apellidom, curp, numero_empleado, correo, telefono_uno, telefono_dos, estatus, user_name, password, fecha_ingreso, fecha_registro, id_pais, id_div_nivel1, id_div_nivel2, id_div_nivel3, domicilio_calle_texto, domicilio_num_exterior, domicilio_num_interior, codigo_postal)
+            (nombres, segundo_nombre, apellidop, apellidom, curp, numero_empleado, codigo_contpac, correo, telefono_uno, telefono_dos, estatus, user_name, password, fecha_ingreso, fecha_registro, id_pais, id_div_nivel1, id_div_nivel2, id_div_nivel3, domicilio_calle_texto, domicilio_num_exterior, domicilio_num_interior, codigo_postal)
             VALUES
-            ('$nombres', '$segundo_nombre', '$apellidop', '$apellidom', $curp_sql, '$numero_empleado', '$correo', '$telefono_uno', '$telefono_dos', '$estatus', '$user_name', '$password', $fecha_ingreso_sql, '$fechaRegistro', $id_pais, $id_div_nivel1, $id_div_nivel2, $id_div_nivel3, $dom_calle_sql, $dom_ext_sql, $dom_int_sql, $cp_sql)
+            ('$nombres', '$segundo_nombre', '$apellidop', '$apellidom', $curp_sql, '$numero_empleado', $codigo_contpac_sql, '$correo', '$telefono_uno', '$telefono_dos', '$estatus', '$user_name', '$password', $fecha_ingreso_sql, '$fechaRegistro', $id_pais, $id_div_nivel1, $id_div_nivel2, $id_div_nivel3, $dom_calle_sql, $dom_ext_sql, $dom_int_sql, $cp_sql)
         ");
 
 

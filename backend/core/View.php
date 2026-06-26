@@ -165,20 +165,24 @@ function getMenu(): string
         'Capital Humano' => [
             'icono'    => 'fa-solid fa-users',
             'subItems' => [
+                ['section' => 'General'],
                 ['label' => 'Gestión de Personal',          'url' => '/caphum/gestion',                  'modulos' => [4]],
-                ['label' => 'Accesos',                      'url' => '/caphum/accesosCapitalHumano',     'modulos' => [140]],
-                ['label' => 'Carta compromiso Gestor',       'url' => '/caphum/cartaCompromisoGestores',  'modulos' => [144]],
+                ['label' => 'Selección de Personal',       'url' => '/caphum/candidatos',               'modulos' => [42]],
+                ['label' => 'Control de Bajas',            'url' => '/caphum/bajas',                    'modulos' => [13]],
+                ['label' => 'Reportes de Personal',   'url' => '/analitica/reporteCapitalHumano', 'modulos' => [34]],
+                ['label' => 'Estadísticas',            'url' => '/caphum/estadisticas',               'modulos' => [38]],
+                ['section' => 'RR.HH.'],
                 ['label' => 'Panel vacaciones',             'url' => '/caphum/vacacionesAdmin',          'modulos' => [4]],
                 ['label' => 'Expedientes RR.HH.',           'url' => '/caphum/documentosRrhh',           'modulos' => [93]],
                 ['label' => 'Revisión RR.HH.',              'url' => '/caphum/actualizacionesInfo',      'modulos' => [83]],
+                ['label' => 'Curso de Inducción', 'url' => '/onboarding/index',                'modulos' => [44]],
+                ['section' => 'Cobranza'],
+                ['label' => 'Carta compromiso Gestor',       'url' => '/caphum/cartaCompromisoGestores',  'modulos' => [144]],
                 ['label' => 'Organigrama Cobranza',      'url' => '/caphum/organigrama',              'modulos' => [5]],
+                ['section' => 'Configuración'],
+                ['label' => 'Accesos',                      'url' => '/caphum/accesosCapitalHumano',     'modulos' => [140]],
                 ['label' => 'Organización',              'url' => '/caphum/estructuraOrganizacional', 'modulos' => [86]],
                 ['label' => 'Perfiles de puesto',        'url' => '/caphum/perfilesPuestos',         'modulos' => [91]],
-                ['label' => 'Control de Bajas',            'url' => '/caphum/bajas',                    'modulos' => [13]],
-                ['label' => 'Selección de Personal',       'url' => '/caphum/candidatos',               'modulos' => [42]],
-                ['label' => 'Curso de Inducción', 'url' => '/onboarding/index',                'modulos' => [44]],
-                ['label' => 'Reportes de Personal',   'url' => '/analitica/reporteCapitalHumano', 'modulos' => [34]],
-                ['label' => 'Estadísticas',            'url' => '/caphum/estadisticas',               'modulos' => [38]],
             ],
         ],
         'Convenios' => [
@@ -288,10 +292,26 @@ function getMenu(): string
 
     foreach ($menuItems as $key => $item) {
         $submenu = '';
+        $pendingSection = '';
 
         foreach ($item['subItems'] as $subItem) {
+            if (isset($subItem['section'])) {
+                $pendingSection = (string) $subItem['section'];
+                continue;
+            }
+
             if (!empty($subItem['modulos']) && !array_intersect($subItem['modulos'], $modulosUsuario)) {
                 continue;
+            }
+
+            if ($pendingSection !== '') {
+                $sectionLabel = htmlspecialchars($pendingSection, ENT_QUOTES, 'UTF-8');
+                $submenu .= <<<HTML
+                    <li class="menu-section-label">
+                        <span>$sectionLabel</span>
+                    </li>
+                HTML;
+                $pendingSection = '';
             }
 
             $activo = $menuItemIsActive((string) ($subItem['url'] ?? ''), $requestMenuPath) ? 'active' : '';
@@ -487,7 +507,24 @@ html.dark-mode #statsJerarquia .bg-light{background-color:#334155!important;}
         background-color: #d9a23a !important;
         border-color: #d9a23a !important;
     }
+    .layout-menu .menu-sub .menu-section-label {
+        list-style: none;
+        padding: .72rem 1.35rem .26rem 3.15rem;
+        margin: 0;
+        color: #9aa4b2;
+        font-size: .68rem;
+        font-weight: 800;
+        line-height: 1;
+        letter-spacing: .08em;
+        text-transform: uppercase;
+    }
+    .layout-menu .menu-sub .menu-section-label + .menu-item {
+        margin-top: .08rem;
+    }
     body.dark-mode .layout-menu .menu-inner > .menu-item .menu-link .menu-icon { color: rgba(255,255,255,.87) !important; }
+    body.dark-mode .layout-menu .menu-sub .menu-section-label {
+        color: rgba(255,255,255,.46);
+    }
     body.dark-mode .layout-menu .menu-sub .menu-item.active > .menu-link,
     body.dark-mode .layout-menu .menu-sub .menu-link.active {
         color: #facc6b !important;
