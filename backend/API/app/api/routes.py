@@ -211,8 +211,18 @@ def _respuesta_alibaba_expediente(res: Dict[str, Any], nombre_candidato_registro
         doc.setdefault("paginas_pdf", meta.get("pages_pdf"))
         doc.setdefault("paginas_analizadas", meta.get("pages_rendered"))
 
+    docs_estado_revisar: set[str] = set()
     for comp in comps:
         if not isinstance(comp, dict):
+            continue
+        if comp.get("coincide") is False and _v2_comp_uses_comprobante_rfc(comp):
+            comp["coincide"] = True
+            comp["severidad"] = "aviso"
+            comp["mensaje"] = (
+                "RFC del comprobante de domicilio omitido: en recibos de servicios "
+                "puede pertenecer al proveedor y no se usa para validar identidad."
+            )
+            docs_estado_revisar.update(_v2_comp_docs(comp))
             continue
         if comp.get("coincide") is False and _v2_comp_curp_compatible(comp):
             comp["coincide"] = True
@@ -221,6 +231,34 @@ def _respuesta_alibaba_expediente(res: Dict[str, Any], nombre_candidato_registro
                 "CURP base consistente entre documentos; la variacion detectada esta "
                 "en caracteres finales susceptibles a lectura OCR/IA."
             )
+            docs_estado_revisar.update(_v2_comp_docs(comp))
+            continue
+        if comp.get("coincide") is False and _v2_comp_rfc_compatible(comp):
+            comp["coincide"] = True
+            comp["severidad"] = "aviso"
+            comp["mensaje"] = (
+                "RFC base consistente entre documentos; la variacion detectada esta "
+                "en la homoclave final susceptible a lectura OCR/IA."
+            )
+            docs_estado_revisar.update(_v2_comp_docs(comp))
+
+    critical_docs = set()
+    for comp in comps:
+        if (
+            isinstance(comp, dict)
+            and comp.get("coincide") is False
+            and str(comp.get("severidad") or "").lower() in {"critico", "critica", "alto"}
+        ):
+            critical_docs.update(_v2_comp_docs(comp))
+    for doc_key in docs_estado_revisar:
+        if doc_key in {"registro", "regla", "curp_principal", "documento"} or doc_key in critical_docs:
+            continue
+        doc = docs.get(doc_key)
+        if isinstance(doc, dict) and str(doc.get("estado") or "").lower() == "no_coincide":
+            doc["estado"] = "coincide"
+            observaciones = doc.setdefault("observaciones", [])
+            if isinstance(observaciones, list):
+                observaciones.append("Estado ajustado por normalizacion del Motor V2; no hay falla critica vigente para este documento.")
 
     evaluables = [c for c in comps if isinstance(c, dict) and isinstance(c.get("coincide"), bool)]
     if evaluables:
@@ -239,10 +277,21 @@ def _respuesta_alibaba_expediente(res: Dict[str, Any], nombre_candidato_registro
         and str(comp.get("severidad") or "").lower() in {"critico", "critica", "alto"}
         for comp in evaluables
     )
+    hay_rfc_critico = any(
+        comp.get("coincide") is False
+        and _v2_is_rfc_comparison(comp)
+        and str(comp.get("severidad") or "").lower() in {"critico", "critica", "alto"}
+        for comp in evaluables
+    )
     if not hay_curp_critico:
         alertas = [
             alerta for alerta in alertas
             if "CURP NO COINCIDE ENTRE DOCUMENTOS" not in normalize_text(alerta)
+        ]
+    if not hay_rfc_critico:
+        alertas = [
+            alerta for alerta in alertas
+            if "RFC NO COINCIDE" not in normalize_text(alerta)
         ]
     for comp in evaluables:
         if comp.get("coincide") is False and str(comp.get("severidad") or "").lower() in {"critico", "critica", "alto"}:
@@ -410,6 +459,72 @@ def _v2_comp_curp_compatible(comp: Dict[str, Any]) -> bool:
     return bool(ok)
 
 
+def _v2_rfc_similarity(a: Optional[str], b: Optional[str]) -> tuple[bool, str, str]:
+    ca = _v2_clean_id(a)
+    cb = _v2_clean_id(b)
+    if not ca or not cb:
+        return False, "critico", "RFC sin dato suficiente para comparar."
+    if ca == cb:
+        return True, "ok", "RFC consistente entre documentos."
+    # El RFC de persona fisica se valida por la base de identidad:
+    # 4 letras + fecha de nacimiento. La homoclave final es la parte que mas
+    # se degrada en lecturas visuales y puede aparecer incompleta o con 1/I/O/0.
+    if 12 <= len(ca) <= 13 and 12 <= len(cb) <= 13 and ca[:10] == cb[:10]:
+        return True, "aviso", (
+            "RFC base consistente entre documentos; la variacion detectada esta "
+            "en la homoclave final susceptible a lectura OCR/IA."
+        )
+    if (
+        12 <= len(ca) <= 13
+        and 12 <= len(cb) <= 13
+        and ca[:10] == cb[:10]
+        and _v2_edit_distance_limited(ca, cb, 2) <= 2
+    ):
+        return True, "aviso", (
+            "RFC base consistente entre documentos; la variacion detectada esta "
+            "en caracteres susceptibles a lectura OCR/IA."
+        )
+    return False, "critico", "RFC no coincide entre documentos."
+
+
+def _v2_is_rfc_comparison(comp: Dict[str, Any]) -> bool:
+    categoria = normalize_text(str(comp.get("categoria") or ""))
+    etiqueta = normalize_text(str(comp.get("etiqueta") or ""))
+    return categoria == "RFC" or "RFC CONTRA" in etiqueta or "RFC ENTRE" in etiqueta
+
+
+def _v2_comp_docs(comp: Dict[str, Any]) -> set[str]:
+    docs: set[str] = set()
+    for key in ("documento_a", "documento_b"):
+        value = normalize_text(str(comp.get(key) or "")).lower()
+        value = value.replace(" ", "_")
+        if value:
+            docs.add(value)
+    return docs
+
+
+def _v2_comp_uses_comprobante_rfc(comp: Dict[str, Any]) -> bool:
+    return _v2_is_rfc_comparison(comp) and "comprobante_domicilio" in _v2_comp_docs(comp)
+
+
+def _v2_comp_rfc_compatible(comp: Dict[str, Any]) -> bool:
+    if not _v2_is_rfc_comparison(comp):
+        return False
+    ok, _, _ = _v2_rfc_similarity(str(comp.get("valor_a") or ""), str(comp.get("valor_b") or ""))
+    return bool(ok)
+
+
+def _v2_choose_rfc_principal(values: List[str]) -> Optional[str]:
+    cleaned = [_v2_clean_id(v) for v in values]
+    cleaned = [v for v in cleaned if v and 12 <= len(v) <= 13]
+    if not cleaned:
+        return None
+    counts: Dict[str, int] = {}
+    for value in cleaned:
+        counts[value] = counts.get(value, 0) + 1
+    return sorted(cleaned, key=lambda v: (-counts.get(v, 0), -len(v), cleaned.index(v)))[0]
+
+
 def _v2_choose_curp_principal(values: List[str]) -> Optional[str]:
     cleaned_all = [_v2_clean_id(v) for v in values]
     cleaned_all = [v for v in cleaned_all if v and 17 <= len(v) <= 19]
@@ -550,6 +665,8 @@ def _resultado_v2_reglas_expediente(
         out["nombre"] = _v2_first_value(previo, ["nombre", "nombre_completo", "nombre_propietario", "nombre_titular", "titular_cuenta"])
         out["curp"] = _v2_first_value(previo, ["curp", "curp_extraido", "curp_lectura_ia"])
         out["rfc"] = _v2_first_value(previo, ["rfc"])
+        if key == "comprobante_domicilio":
+            out["rfc"] = None
         out["nss"] = _v2_first_value(previo, ["nss", "nss_extraido", "nss_lectura_ia"])
         out["mensaje"] = _v2_first_value(previo, ["mensaje", "motivo_rechazo"])
         out["observaciones"] = list(previo.get("alertas") or previo.get("notas") or previo.get("observaciones") or [])
@@ -565,6 +682,57 @@ def _resultado_v2_reglas_expediente(
             out["estado"] = "requiere_revision"
             msg = out["mensaje"] or f"{label} requiere revision manual por lectura V2."
             add_comp("Regla documental", f"{label} requiere revision", key, msg, "Regla", "Lectura automatica suficiente", False, "aviso", msg)
+
+        expected_types_by_key = {
+            "solicitud_interna": {"solicitud_interna", "solicitud___SPARTA_SECRET_REDACTED__"},
+            "cv": {"cv"},
+            "acta_nacimiento": {"acta_nacimiento"},
+            "curp": {"curp"},
+            "identificacion_oficial": {
+                "identificacion_oficial",
+                "ine",
+                "residencia_permanente",
+                "residencia_temporal",
+                "pasaporte_mexicano",
+                "pasaporte_extranjero",
+            },
+            "comprobante_domicilio": {"comprobante_domicilio"},
+            "constancia_fiscal": {"constancia_fiscal"},
+            "nss": {"nss"},
+            "hoja_retencion": {"infonavit_fonacot", "carta_no_adeudo"},
+            "__SPARTA_SECRET_REDACTED__": {"__SPARTA_SECRET_REDACTED__"},
+        }
+        detected_type = str(out.get("tipo_detectado") or "").strip()
+        allowed_types = expected_types_by_key.get(key)
+        if detected_type and allowed_types and detected_type not in allowed_types and detected_type != "desconocido":
+            detected_label = user_document_name(detected_type)
+            expected_label = label
+            if key == "solicitud_interna" and detected_type == "cv":
+                msg_tipo = (
+                    "El archivo cargado en Solicitud interna parece ser CV o solicitud de trabajo. "
+                    "Debe subirse en la seccion CV o solicitud de trabajo, y en Solicitud interna "
+                    "debe cargarse el formato interno de MaxiKash."
+                )
+            else:
+                msg_tipo = (
+                    f"El archivo cargado en {expected_label} parece ser {detected_label}. "
+                    "Debe subirse en la seccion correcta antes de continuar."
+                )
+            out["estado"] = "no_coincide"
+            out["mensaje"] = msg_tipo
+            out.setdefault("observaciones", []).append(msg_tipo)
+            alertas.append(msg_tipo)
+            add_comp(
+                "Tipo de documento",
+                f"{label} en seccion correcta",
+                key,
+                detected_label,
+                "Campo esperado",
+                expected_label,
+                False,
+                "critico",
+                msg_tipo,
+            )
 
         if nombre_registro and out["nombre"] and key != "comprobante_domicilio":
             ok_name = _v2_names_match(nombre_registro, out["nombre"])
@@ -623,6 +791,8 @@ def _resultado_v2_reglas_expediente(
 
     for field, label in (("curp", "CURP"), ("rfc", "RFC"), ("nss", "NSS")):
         values = [(k, _v2_clean_id(v.get(field))) for k, v in readable.items() if v.get(field)]
+        if field == "rfc":
+            values = [(k, v) for k, v in values if k != "comprobante_domicilio"]
         values = [(k, v) for k, v in values if v]
         if len(values) < 2:
             continue
@@ -649,6 +819,32 @@ def _resultado_v2_reglas_expediente(
                         docs_out[other_key]["curp"] = curp_principal_v2
                         obs = docs_out[other_key].setdefault("observaciones", [])
                         obs.append(f"CURP normalizada contra referencia documental; lectura IA: {other_value}.")
+                else:
+                    docs_out[other_key]["estado"] = "no_coincide"
+            continue
+        if field == "rfc":
+            rfc_principal_v2 = _v2_choose_rfc_principal([v for _, v in values])
+            if not rfc_principal_v2:
+                continue
+            for other_key, other_value in values:
+                ok, severity, msg = _v2_rfc_similarity(rfc_principal_v2, other_value)
+                add_comp(
+                    label,
+                    f"{label} contra referencia documental",
+                    "RFC principal",
+                    rfc_principal_v2,
+                    other_key,
+                    other_value,
+                    ok,
+                    severity,
+                    msg,
+                )
+                if ok:
+                    if other_value != rfc_principal_v2 and other_key in docs_out:
+                        docs_out[other_key]["rfc_lectura_ia"] = other_value
+                        docs_out[other_key]["rfc"] = rfc_principal_v2
+                        obs = docs_out[other_key].setdefault("observaciones", [])
+                        obs.append(f"RFC normalizado contra referencia documental; lectura IA: {other_value}.")
                 else:
                     docs_out[other_key]["estado"] = "no_coincide"
             continue
@@ -685,7 +881,9 @@ def _resultado_v2_reglas_expediente(
         "nombre_registro": nombre_registro or None,
         "nombre_principal_documentos": next((v.get("nombre") for v in readable.values() if v.get("nombre")), None),
         "curp_principal": curp_principal_v2 or next((v.get("curp") for v in readable.values() if v.get("curp")), None),
-        "rfc_principal": next((v.get("rfc") for v in readable.values() if v.get("rfc")), None),
+        "rfc_principal": _v2_choose_rfc_principal([
+            v.get("rfc") for k, v in readable.items() if k != "comprobante_domicilio" and v.get("rfc")
+        ]) or next((v.get("rfc") for k, v in readable.items() if k != "comprobante_domicilio" and v.get("rfc")), None),
         "nss_principal": next((v.get("nss") for v in readable.values() if v.get("nss")), None),
     }
 
@@ -714,6 +912,8 @@ def _resultado_v2_reglas_expediente(
 def _ai_es_doc(res: Dict[str, Any], expected: str) -> bool:
     doc_type = str(_ai_extraccion(res).get("tipo_documento") or "")
     aliases = {
+        "solicitud_interna": {"solicitud_interna", "solicitud___SPARTA_SECRET_REDACTED__"},
+        "solicitud___SPARTA_SECRET_REDACTED__": {"solicitud_interna", "solicitud___SPARTA_SECRET_REDACTED__"},
         "identificacion_oficial": {"identificacion_oficial", "ine", "residencia_permanente", "residencia_temporal", "pasaporte_mexicano", "pasaporte_extranjero"},
         "cv": {"cv", "solicitud___SPARTA_SECRET_REDACTED__"},
         "infonavit_fonacot": {"infonavit_fonacot", "carta_no_adeudo"},

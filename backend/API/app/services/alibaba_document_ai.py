@@ -60,6 +60,8 @@ EXPECTED_LABELS = {
 }
 
 DOCUMENT_ALIASES = {
+    "solicitud_interna": {"solicitud_interna", "solicitud___SPARTA_SECRET_REDACTED__"},
+    "solicitud___SPARTA_SECRET_REDACTED__": {"solicitud_interna", "solicitud___SPARTA_SECRET_REDACTED__"},
     "identificacion_oficial": {
         "identificacion_oficial",
         "ine",
@@ -208,6 +210,18 @@ Objetivo:
 6. Si solo el nombre registrado esta disponible fuera de los documentos, no
    exijas que el sistema haya capturado CURP/RFC; compara CURP/RFC/NSS entre
    los documentos que si los muestren.
+7. No uses RFC del comprobante_domicilio para validar identidad ni para
+   compararlo contra RFC del candidato. En recibos de servicios como CFE,
+   agua, gas o telefono, el RFC visible puede pertenecer al proveedor.
+8. Para RFC de persona fisica, compara principalmente la base de identidad
+   (primeros 10 caracteres: iniciales + fecha). Si la base coincide y solo
+   cambia/falta la homoclave final por lectura OCR/IA, marcala como aviso,
+   no como diferencia critica.
+9. Distingue siempre entre:
+   - solicitud___SPARTA_SECRET_REDACTED__ o solicitud_interna: formato interno de MaxiKash.
+   - cv: CV personal o solicitud de trabajo general.
+   Si una solicitud de trabajo general esta cargada en solicitud_interna,
+   reportala como tipo incorrecto y recomienda moverla a CV o solicitud de trabajo.
 
 Devuelve SOLO JSON valido, sin markdown.
 
@@ -532,6 +546,9 @@ def quick_result_to_summary(key: str, label: str, filename: str, result: Dict[st
     fields = extraction.get("campos") if isinstance(extraction.get("campos"), dict) else {}
     validation = result.get("validation") if isinstance(result.get("validation"), dict) else {}
     observations = extraction.get("observaciones") if isinstance(extraction.get("observaciones"), list) else []
+    rfc_value = fields.get("rfc")
+    if key == "comprobante_domicilio":
+        rfc_value = None
     validation_payload = {
         "valido": validation.get("aprobado"),
         "rechazado": validation.get("aprobado") is False,
@@ -544,7 +561,7 @@ def quick_result_to_summary(key: str, label: str, filename: str, result: Dict[st
         "nombre": fields.get("nombre_completo"),
         "curp": fields.get("curp"),
         "curp_lectura_ia": fields.get("curp"),
-        "rfc": fields.get("rfc"),
+        "rfc": rfc_value,
         "nss_extraido": fields.get("nss"),
         "nss_lectura_ia": fields.get("nss"),
         "fecha_nacimiento": fields.get("fecha_nacimiento"),

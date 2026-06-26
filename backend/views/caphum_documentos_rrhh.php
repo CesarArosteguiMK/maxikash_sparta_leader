@@ -315,18 +315,18 @@
         <div class="modal-content">
             <div class="modal-header">
                 <div>
-                    <h5 class="modal-title mb-1">Importar documentos RR.HH.</h5>
+                    <h5 class="modal-title mb-1" id="docsRrhhImportTitulo">Importar documentos RR.HH.</h5>
                     <div class="text-muted small" id="docsRrhhImportSeleccionResumen">No se han seleccionado archivos.</div>
                 </div>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
             </div>
             <div class="modal-body">
-                <input type="file" class="d-none" id="docsRrhhImportInputArchivos" accept=".pdf,.zip,application/pdf,application/zip" multiple>
+                <input type="file" class="d-none" id="docsRrhhImportInputArchivos" accept=".pdf,.zip,.fad,application/pdf,application/zip,application/octet-stream" multiple>
                 <input type="file" class="d-none" id="docsRrhhImportInputCarpeta" webkitdirectory directory multiple>
 
                 <div class="d-flex flex-wrap gap-2 align-items-center mb-3">
                     <button type="button" class="btn btn-outline-primary" id="btnDocsRrhhImportArchivos">
-                        <i class="fa-solid fa-file-zipper me-1"></i>Elegir ZIP/PDF
+                        <i class="fa-solid fa-file-zipper me-1"></i>Elegir ZIP/PDF/FAD
                     </button>
                     <button type="button" class="btn btn-outline-primary" id="btnDocsRrhhImportCarpeta">
                         <i class="fa-solid fa-folder-open me-1"></i>Elegir carpeta
@@ -491,6 +491,7 @@
     let importPreviewFitWidth = true;
     let importPreviewRenderId = 0;
     let importPreparandoArchivosDesde = 0;
+    let importPersonaObjetivo = null;
     const IMPORT_MAX_FILES_PER_REQUEST = 1000;
     const IMPORT_MAX_BYTES_PER_REQUEST = 850 * 1024 * 1024;
 
@@ -519,6 +520,7 @@
         importModal: document.getElementById('docsRrhhImportModal'),
         importInputArchivos: document.getElementById('docsRrhhImportInputArchivos'),
         importInputCarpeta: document.getElementById('docsRrhhImportInputCarpeta'),
+        importTitulo: document.getElementById('docsRrhhImportTitulo'),
         importBtnArchivos: document.getElementById('btnDocsRrhhImportArchivos'),
         importBtnCarpeta: document.getElementById('btnDocsRrhhImportCarpeta'),
         importBtnImportar: document.getElementById('btnDocsRrhhImportImportar'),
@@ -557,6 +559,9 @@
     function importFormData() {
         const fd = new FormData();
         const batchId = String(importAnalisis?.batch_id || '').trim();
+        if (importPersonaObjetivo && Number(importPersonaObjetivo.id_persona || 0) > 0) {
+            fd.append('id_persona', Number(importPersonaObjetivo.id_persona || 0));
+        }
         if (batchId) {
             fd.append('batch_id', batchId);
         } else {
@@ -583,7 +588,7 @@
             ['Total', resumen.total || 0, 'bg-dark'],
             ['Listos', resumen.listo || 0, 'bg-success'],
             ['Importados', resumen.importado || 0, 'bg-primary'],
-            ['Ambiguos', resumen.persona_ambigua || 0, 'bg-warning text-dark'],
+            ['Revisar persona', resumen.persona_ambigua || 0, 'bg-warning text-dark'],
             ['Sin persona', resumen.persona_no_encontrada || 0, 'bg-danger'],
             ['Sin tipo', resumen.documento_no_reconocido || 0, 'bg-secondary'],
             ['Ya existe', resumen.ya_existe || 0, 'bg-info text-dark'],
@@ -605,7 +610,7 @@
             listo: ['bg-success', 'Listo'],
             importado: ['bg-primary', 'Importado'],
             persona_no_encontrada: ['bg-danger', 'Sin persona'],
-            persona_ambigua: ['bg-warning text-dark', 'Persona ambigua'],
+            persona_ambigua: ['bg-warning text-dark', 'Revisar persona'],
             documento_no_reconocido: ['bg-secondary', 'Sin tipo'],
             ya_existe: ['bg-info text-dark', 'Ya existe'],
             duplicado_lote: ['bg-warning text-dark', 'Duplicado'],
@@ -654,6 +659,15 @@
                 </select>
                 ${item.documento_manual ? '<div class="text-primary small mt-1">Seleccion manual</div>' : ''}
             `;
+            const extensionArchivo = String(item.extension || item.archivo || item.ruta || '').toLowerCase();
+            const esFad = extensionArchivo.endsWith('.fad') || extensionArchivo === 'fad';
+            const botonPreview = esFad
+                ? `<button type="button" class="btn btn-sm btn-outline-secondary" disabled title="Archivo .FAD sin vista previa PDF">
+                        <i class="fa-solid fa-file-shield"></i>
+                   </button>`
+                : `<button type="button" class="btn btn-sm btn-outline-primary" data-import-preview="${Number(item.source_index || 0)}" title="Abrir documento">
+                        <i class="fa-solid fa-eye"></i>
+                   </button>`;
             return `
                 <tr class="${separarPersona ? 'docs-rrhh-import-person-separator' : ''}">
                     <td>${importBadge(item.estado, item)}</td>
@@ -662,9 +676,7 @@
                     <td><span class="text-break">${escapeHtml(item.ruta || item.archivo || '')}</span></td>
                     <td>${escapeHtml(item.razon || '')}</td>
                     <td class="text-center">
-                        <button type="button" class="btn btn-sm btn-outline-primary" data-import-preview="${Number(item.source_index || 0)}" title="Abrir documento">
-                            <i class="fa-solid fa-eye"></i>
-                        </button>
+                        ${botonPreview}
                     </td>
                 </tr>
             `;
@@ -897,7 +909,10 @@
             if (mostrarPreparando && !importPreparandoArchivosDesde) {
                 importMostrarPreparandoArchivos();
             }
-            importAnalisis = await importEnviar('/caphum/analizarImportacionDocumentosRrhh');
+            const endpoint = importPersonaObjetivo
+                ? '/caphum/analizarImportacionDocumentosPersonaRrhh'
+                : '/caphum/analizarImportacionDocumentosRrhh';
+            importAnalisis = await importEnviar(endpoint);
             if (mostrarPreparando) {
                 await importCerrarPreparandoArchivos();
             }
@@ -939,7 +954,10 @@
                     Swal.showLoading();
                 }
             });
-            const resultado = await importEnviar('/caphum/importarDocumentosRrhh');
+            const endpoint = importPersonaObjetivo
+                ? '/caphum/importarDocumentosPersonaRrhh'
+                : '/caphum/importarDocumentosRrhh';
+            const resultado = await importEnviar(endpoint);
             importAnalisis = resultado;
             importRenderResumen(resultado.resumen);
             importRenderTabla(resultado.items || []);
@@ -1101,6 +1119,9 @@
                                 <button type="button" class="btn btn-sm btn-outline-warning docs-rrhh-action-btn" data-docs-trayectoria="${Number(col.id_persona || 0)}" title="Ver trayectoria laboral">
                                     <i class="fa-solid fa-route"></i>
                                 </button>
+                                <button type="button" class="btn btn-sm btn-success docs-rrhh-action-btn" data-docs-cargar-expediente="${Number(col.id_persona || 0)}" title="Cargar expediente de este colaborador">
+                                    <i class="fa-solid fa-cloud-arrow-up"></i>
+                                </button>
                             </div>
                         </td>
                     </tr>
@@ -1168,6 +1189,26 @@
             bootstrap.Modal.getOrCreateInstance(els.modal).show();
         } else if (window.jQuery) {
             window.jQuery(els.modal).modal('show');
+        }
+    }
+
+    function abrirImportacionPersona(idPersona) {
+        const col = colaboradores.find(item => Number(item.id_persona || 0) === Number(idPersona));
+        if (!col) return;
+        importPersonaObjetivo = {
+            id_persona: Number(col.id_persona || 0),
+            nombre: col.nombre_completo || 'Colaborador',
+            numero: col.codigo_contpac || col.numero_empleado || ''
+        };
+        importLimpiarSeleccion();
+        if (els.importTitulo) {
+            els.importTitulo.textContent = 'Cargar expediente de colaborador';
+        }
+        els.importSeleccionResumen.textContent = `Colaborador: ${importPersonaObjetivo.nombre}${importPersonaObjetivo.numero ? ' - No. ' + importPersonaObjetivo.numero : ''}. Selecciona ZIP/PDF/FAD o carpeta.`;
+        if (window.bootstrap && bootstrap.Modal) {
+            bootstrap.Modal.getOrCreateInstance(els.importModal).show();
+        } else if (window.jQuery) {
+            window.jQuery(els.importModal).modal('show');
         }
     }
 
@@ -1327,6 +1368,11 @@
     });
     els.actualizar.addEventListener('click', cargarResumen);
     els.importar.addEventListener('click', function () {
+        importPersonaObjetivo = null;
+        if (els.importTitulo) {
+            els.importTitulo.textContent = 'Importar documentos RR.HH.';
+        }
+        importLimpiarSeleccion();
         if (window.bootstrap && bootstrap.Modal) {
             bootstrap.Modal.getOrCreateInstance(els.importModal).show();
         } else if (window.jQuery) {
@@ -1397,6 +1443,11 @@
         const trayectoriaBtn = event.target.closest('[data-docs-trayectoria]');
         if (trayectoriaBtn) {
             abrirTrayectoria(trayectoriaBtn.getAttribute('data-docs-trayectoria'));
+            return;
+        }
+        const cargarBtn = event.target.closest('[data-docs-cargar-expediente]');
+        if (cargarBtn) {
+            abrirImportacionPersona(cargarBtn.getAttribute('data-docs-cargar-expediente'));
         }
     });
     document.addEventListener('DOMContentLoaded', cargarResumen);

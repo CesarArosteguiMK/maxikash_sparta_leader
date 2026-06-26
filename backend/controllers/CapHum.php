@@ -34,6 +34,7 @@ class CapHum extends Controller
     private const MODULO_VALIDADOR_DOCUMENTAL_RRHH_CANDIDATOS = 142;
     private const MODULO_GESTION_REGISTRAR_PERSONA = 143;
     private const MODULO_ACCESOS_CAPITAL_HUMANO = 140;
+    private const MODULO_MIS_DOCUMENTOS = 141;
     private const MODULO_VALIDAR_CARTA_COMPROMISO_GESTOR = 144;
     private const MODULO_VER_DOCUMENTOS_SENSIBLES_RRHH = 151;
     private const MODULO_RESET_TOTP_DOCUMENTOS_SENSIBLES_RRHH = 152;
@@ -7932,6 +7933,105 @@ class CapHum extends Controller
         }
     }
 
+    private static function personaDocumentosColaboradorSesion(): array
+    {
+        $idPersona = (int) ($_SESSION['persona_id'] ?? $_SESSION['usuario_id'] ?? 0);
+        if ($idPersona <= 0) {
+            throw new \RuntimeException('No se pudo identificar al colaborador de la sesion.');
+        }
+
+        $resumen = CapHumDAO::getResumenDocumentosColaborador($idPersona);
+        if (empty($resumen['success'])) {
+            throw new \RuntimeException($resumen['mensaje'] ?? 'No se pudo obtener el perfil del colaborador.');
+        }
+
+        $persona = $resumen['datos']['persona'] ?? [];
+        if (!is_array($persona) || empty($persona['id'])) {
+            throw new \RuntimeException('No se encontro el perfil del colaborador.');
+        }
+
+        return $persona;
+    }
+
+    private static function puedeUsarMisDocumentos(): bool
+    {
+        return self::tieneModuloWeb(self::MODULO_MIS_DOCUMENTOS) || self::tieneModuloWeb(4);
+    }
+
+    public function analizarMisDocumentos()
+    {
+        try {
+            if (!self::puedeUsarMisDocumentos()) {
+                self::respuestaJSON(['success' => false, 'mensaje' => 'No tienes permiso para cargar tus documentos.']);
+                return;
+            }
+
+            $persona = self::personaDocumentosColaboradorSesion();
+            $servicio = new RrhhDocumentImportService();
+            $batchId = trim((string) ($_POST['batch_id'] ?? ''));
+            $fuentes = $batchId !== '' ? $servicio->fuentesDesdeLoteTemporal($batchId) : [];
+            if (empty($fuentes)) {
+                $fuentes = $servicio->fuentesDesdeRequest($_FILES, $_POST);
+                if (!empty($fuentes)) {
+                    $lote = $servicio->crearLoteTemporal($fuentes);
+                    $batchId = (string) ($lote['batch_id'] ?? '');
+                    $fuentes = $lote['fuentes'] ?? $fuentes;
+                }
+            }
+            $documentosManual = $servicio->documentosManualDesdePost($_POST);
+            if (empty($fuentes)) {
+                self::respuestaJSON(['success' => false, 'mensaje' => 'Selecciona archivos PDF, FAD, ZIP o una carpeta con documentos.']);
+                return;
+            }
+
+            $resultado = $servicio->analizarParaPersona($fuentes, $persona, $documentosManual);
+            $resultado['batch_id'] = $batchId;
+            self::respuestaJSON([
+                'success' => true,
+                'mensaje' => 'Analisis completado.',
+                'datos' => $resultado
+            ]);
+        } catch (\Exception $e) {
+            self::respuestaJSON(['success' => false, 'mensaje' => 'Error al analizar tus documentos: ' . $e->getMessage()]);
+        }
+    }
+
+    public function importarMisDocumentos()
+    {
+        try {
+            if (!self::puedeUsarMisDocumentos()) {
+                self::respuestaJSON(['success' => false, 'mensaje' => 'No tienes permiso para cargar tus documentos.']);
+                return;
+            }
+
+            $persona = self::personaDocumentosColaboradorSesion();
+            $servicio = new RrhhDocumentImportService();
+            $batchId = trim((string) ($_POST['batch_id'] ?? ''));
+            $fuentes = $batchId !== '' ? $servicio->fuentesDesdeLoteTemporal($batchId) : [];
+            if (empty($fuentes)) {
+                $fuentes = $servicio->fuentesDesdeRequest($_FILES, $_POST);
+            }
+            $documentosManual = $servicio->documentosManualDesdePost($_POST);
+            if (empty($fuentes)) {
+                self::respuestaJSON(['success' => false, 'mensaje' => 'Selecciona archivos PDF, FAD, ZIP o una carpeta con documentos.']);
+                return;
+            }
+
+            $resultado = $servicio->importarParaPersona($fuentes, $persona, $documentosManual);
+            if ($batchId !== '') {
+                $servicio->eliminarLoteTemporal($batchId);
+            }
+            $resultado['batch_id'] = '';
+            self::respuestaJSON([
+                'success' => true,
+                'mensaje' => 'Carga finalizada. Documentos importados: ' . (int) ($resultado['importados'] ?? 0) . '.',
+                'datos' => $resultado
+            ]);
+        } catch (\Exception $e) {
+            self::respuestaJSON(['success' => false, 'mensaje' => 'Error al importar tus documentos: ' . $e->getMessage()]);
+        }
+    }
+
     public function documentosRrhh()
     {
         self::set("titulo", "Expedientes RR.HH.");
@@ -9870,7 +9970,7 @@ class CapHum extends Controller
                     else if (confianzaNum >= 50) confianzaClase = "text-warning";
                     else confianzaClase = "text-danger";
                 }
-                var btnHeaderRevalidar = "<button type=\"button\" class=\"btn btn-xs btn-outline-primary py-0 px-1 btn-reintentar-verif-expediente\" data-reintentar-api=\"1\" title=\"Volver a validar expediente\"><i class=\"fa fa-sync-alt\"></i></button>";
+                var btnHeaderRevalidar = "<button type=\"button\" class=\"btn btn-sm btn-outline-primary px-2 py-1 btn-reintentar-verif-expediente doc-v2-retry-btn\" data-reintentar-api=\"1\" title=\"Reevaluar con Motor V2\"><i class=\"fa fa-sync-alt me-1\"></i>Reevaluar</button>";
                 if (esVerificacionMotorV2(v)) {
                     var docs = docsV2(v);
                     var comps = compsV2(v);
@@ -9892,6 +9992,28 @@ class CapHum extends Controller
                         }
                     }
                     var docsCount = Object.keys(docs).length;
+                    if (docsCount === 0 && comps.length === 0) {
+                        var pendienteActivoV2 = verificacionEnProceso && !procesoVencido;
+                        var errApiV2 = (v.error_api != null && String(v.error_api).trim() !== "") ? String(v.error_api).trim() : "";
+                        var tituloV2 = pendienteActivoV2 ? "Verificacion en proceso" : "Motor V2 pendiente";
+                        var textoV2 = pendienteActivoV2
+                            ? "Motor V2 esta revisando el expediente. La documentacion se actualizara automaticamente cuando termine."
+                            : "El ultimo intento de Motor V2 no pudo completar el cruce documental. Los documentos siguen cargados; reevalue cuando el servicio este disponible.";
+                        var htmlPendV2 = "<div class=\"card border shadow-none h-100 doc-v2-card\"><div class=\"card-header py-2 bg-light d-flex align-items-center justify-content-between gap-2\"><strong><i class=\"fa fa-shield-alt me-1\"></i>Resultado de analisis documental</strong><span class=\"d-flex align-items-center gap-1\"><span class=\"badge bg-primary\">Motor V2</span>" + btnHeaderRevalidar + "</span></div><div class=\"card-body py-2 small overflow-auto\">";
+                        htmlPendV2 += "<div class=\"d-flex flex-wrap gap-2 align-items-center mb-2\"><span class=\"badge " + (pendienteActivoV2 ? "bg-info text-dark" : "bg-warning text-dark") + "\">" + tituloV2 + "</span><span class=\"badge bg-light text-dark border\">Sin lectura final</span></div>";
+                        htmlPendV2 += "<div class=\"alert " + (pendienteActivoV2 ? "alert-info" : "alert-warning") + " py-2 px-2 mb-2\" role=\"status\"><strong>Dictamen IA pendiente.</strong><br>" + escHtmlComparaciones(textoV2);
+                        htmlPendV2 += "</div>";
+                        if (errApiV2) {
+                            candidatosDocConsola("error", "Motor V2 pendiente - detalle tecnico", errApiV2);
+                            htmlPendV2 += "<details class=\"small mb-2\"><summary class=\"fw-semibold text-muted\">Detalle tecnico</summary><div class=\"border rounded p-2 mt-1 bg-light text-break\">" + escHtmlComparaciones(errApiV2) + "</div></details>";
+                        }
+                        if (!pendienteActivoV2) {
+                            htmlPendV2 += "<div class=\"d-grid gap-2\"><button type=\"button\" class=\"btn btn-primary py-2 btn-reintentar-verif-expediente\" id=\"btnReintentarVerifExpediente\" title=\"Volver a ejecutar Motor V2\"><i class=\"fa fa-sync-alt me-1\"></i>Reevaluar Motor V2</button></div>";
+                        }
+                        htmlPendV2 += "</div></div>";
+                        bloqueVerif.innerHTML = htmlPendV2;
+                        return;
+                    }
                     var dictamen = String(v.dictamen_ia || (todoCoincide ? "aprobado" : "requiere_revision")).toLowerCase();
                     var dictamenBadge = dictamen === "aprobado"
                         ? "<span class=\"badge bg-success\">Expediente consistente</span>"
@@ -9971,7 +10093,7 @@ class CapHum extends Controller
                     html += "<div class=\"alert alert-warning py-2 px-2 mb-2 small\" role=\"alert\"><strong>No hubo resultado útil de la verificación automática.</strong><br><span class=\"text-muted\">Intente \"Reintentar Motor V2\" más tarde.</span></div>";
                 }
                 if (errApi || respuestaVaciaApi) {
-                    html += "<div class=\"d-grid gap-2 mb-2\"><button type=\"button\" class=\"btn btn-sm btn-outline-primary btn-reintentar-verif-expediente\" id=\"btnReintentarVerifExpediente\" title=\"Volver a ejecutar Motor V2\"><i class=\"fa fa-sync-alt me-1\"></i>Reintentar Motor V2</button></div>";
+                    html += "<div class=\"d-grid gap-2 mb-2\"><button type=\"button\" class=\"btn btn-primary py-2 btn-reintentar-verif-expediente\" id=\"btnReintentarVerifExpediente\" title=\"Volver a ejecutar Motor V2\"><i class=\"fa fa-sync-alt me-1\"></i>Reevaluar Motor V2</button></div>";
                 }
                 html += "<div class=\"row g-2 mb-2 align-items-center\">";
                 html += "<div class=\"col-6\"><span class=\"text-muted d-block\">Confianza</span><strong class=\"fs-6 " + confianzaClase + "\">" + confianzaTexto + "</strong></div>";
@@ -10024,6 +10146,14 @@ class CapHum extends Controller
 
             function compsV2(v) {
                 return (v && Array.isArray(v.comparaciones_v2)) ? v.comparaciones_v2 : [];
+            }
+
+            function motorV2TieneLectura(v) {
+                return !!(v && esVerificacionMotorV2(v) && (Object.keys(docsV2(v)).length || compsV2(v).length));
+            }
+
+            function motorV2SinLecturaFinal(v) {
+                return !!(v && esVerificacionMotorV2(v) && !motorV2TieneLectura(v));
             }
 
             function etiquetaDocV2(k) {
@@ -10222,7 +10352,7 @@ class CapHum extends Controller
             /** Solo mostrar la tarjeta si la API guardó comparaciones reales (objeto con al menos una clave conocida). */
             function hayComparacionesEvaluables(v) {
                 if (!v || typeof v !== "object") return false;
-                if (esVerificacionMotorV2(v) && (compsV2(v).length || Object.keys(docsV2(v)).length)) return true;
+                if (motorV2TieneLectura(v)) return true;
                 var comp = v.comparaciones;
                 if (!comp || typeof comp !== "object") return false;
                 var conocidas = {
@@ -10536,6 +10666,9 @@ class CapHum extends Controller
                 }
                 if (enProceso) {
                     return "<span class=\"badge bg-primary ms-1\" data-bs-toggle=\"tooltip\" data-bs-title=\"Motor V2 esta procesando este expediente; este documento aun no tiene lectura final.\"><i class=\"fa fa-spinner fa-spin me-1\"></i>Analizando</span>";
+                }
+                if (motorV2SinLecturaFinal(v)) {
+                    return "";
                 }
                 if (v && esVerificacionMotorV2(v)) {
                     return "<span class=\"badge bg-secondary ms-1\" data-bs-toggle=\"tooltip\" data-bs-title=\"Este documento aun no tiene lectura suficiente del Motor V2.\"><i class=\"fa fa-clock me-1\"></i>Pendiente</span>";
@@ -15325,7 +15458,11 @@ class CapHum extends Controller
                 }
             }
             CandidatosDAO::finalizarJobVerificacionDocumental($idJob, (bool) $ok, $ok ? null : ($errorJob ?: 'La verificacion documental no pudo completarse.'));
-            return ['procesado' => true, 'ok' => (bool) $ok, 'id_job' => $idJob, 'id_candidato' => $idCandidato];
+            $respuestaJob = ['procesado' => true, 'ok' => (bool) $ok, 'id_job' => $idJob, 'id_candidato' => $idCandidato];
+            if (!$ok && $errorJob) {
+                $respuestaJob['error'] = $errorJob;
+            }
+            return $respuestaJob;
         } catch (\Throwable $e) {
             CandidatosDAO::finalizarJobVerificacionDocumental($idJob, false, $e->getMessage());
             return ['procesado' => true, 'ok' => false, 'id_job' => $idJob, 'id_candidato' => $idCandidato, 'error' => $e->getMessage()];
@@ -15501,7 +15638,15 @@ class CapHum extends Controller
         }
         $ejecutarAsync = !empty($_POST['async']) || !empty($_GET['async']);
         if ($ejecutarAsync && !$soloIdentificacion) {
-            $this->encolarVerificacionDocumentalCandidato($id_candidato, [], true, 'reintento_modal');
+            $resEncolado = $this->encolarVerificacionDocumentalCandidato($id_candidato, [], true, 'reintento_modal');
+            if (empty($resEncolado['success'])) {
+                echo json_encode(self::respuesta(false, 'No se pudo iniciar la reevaluacion del Motor V2. Revise el servicio e intente de nuevo.', [
+                    'verificacion_en_proceso' => false,
+                    'api_pendiente' => true,
+                    'error' => $resEncolado['error'] ?? $resEncolado['mensaje'] ?? 'No se pudo encolar la verificacion documental.',
+                ]));
+                return;
+            }
             echo json_encode(self::respuesta(true, 'Motor V2 iniciado en segundo plano. La documentacion se actualizara automaticamente.', [
                 'verificacion_en_proceso' => true,
             ]));
@@ -24717,7 +24862,7 @@ public function getEstadosMunicipiosMexico()
             }
             $documentosManual = $servicio->documentosManualDesdePost($_POST);
             if (empty($fuentes)) {
-                self::respuestaJSON(['success' => false, 'mensaje' => 'Selecciona archivos PDF, ZIP o una carpeta con documentos.']);
+                self::respuestaJSON(['success' => false, 'mensaje' => 'Selecciona archivos PDF, FAD, ZIP o una carpeta con documentos.']);
                 return;
             }
 
@@ -24749,7 +24894,7 @@ public function getEstadosMunicipiosMexico()
             }
             $documentosManual = $servicio->documentosManualDesdePost($_POST);
             if (empty($fuentes)) {
-                self::respuestaJSON(['success' => false, 'mensaje' => 'Selecciona archivos PDF, ZIP o una carpeta con documentos.']);
+                self::respuestaJSON(['success' => false, 'mensaje' => 'Selecciona archivos PDF, FAD, ZIP o una carpeta con documentos.']);
                 return;
             }
 
@@ -24771,6 +24916,95 @@ public function getEstadosMunicipiosMexico()
     /**
      * Obtener documentos de una persona (Gestión)
      */
+    private static function personaObjetivoImportacionRrhh(): array
+    {
+        $idPersona = (int) ($_POST['id_persona'] ?? $_POST['id_persona_objetivo'] ?? 0);
+        if ($idPersona <= 0) {
+            throw new \RuntimeException('Selecciona un colaborador para cargar su expediente.');
+        }
+
+        $resPersona = CapHumDAO::getPersonaParaImportacionDocumentos($idPersona);
+        if (empty($resPersona['success']) || empty($resPersona['datos'])) {
+            throw new \RuntimeException($resPersona['mensaje'] ?? 'No se encontro el colaborador seleccionado.');
+        }
+
+        return (array) $resPersona['datos'];
+    }
+
+    public function analizarImportacionDocumentosPersonaRrhh()
+    {
+        try {
+            if (!self::puedeImportarDocumentosRrhh()) {
+                self::respuestaJSON(['success' => false, 'mensaje' => 'No tienes permiso para importar documentos RR.HH.']);
+                return;
+            }
+
+            $persona = self::personaObjetivoImportacionRrhh();
+            $servicio = new RrhhDocumentImportService();
+            $batchId = trim((string) ($_POST['batch_id'] ?? ''));
+            $fuentes = $batchId !== '' ? $servicio->fuentesDesdeLoteTemporal($batchId) : [];
+            if (empty($fuentes)) {
+                $fuentes = $servicio->fuentesDesdeRequest($_FILES, $_POST);
+                if (!empty($fuentes)) {
+                    $lote = $servicio->crearLoteTemporal($fuentes);
+                    $batchId = (string) ($lote['batch_id'] ?? '');
+                    $fuentes = $lote['fuentes'] ?? $fuentes;
+                }
+            }
+            $documentosManual = $servicio->documentosManualDesdePost($_POST);
+            if (empty($fuentes)) {
+                self::respuestaJSON(['success' => false, 'mensaje' => 'Selecciona archivos PDF, FAD, ZIP o una carpeta con documentos.']);
+                return;
+            }
+
+            $resultado = $servicio->analizarParaPersona($fuentes, $persona, $documentosManual);
+            $resultado['batch_id'] = $batchId;
+            self::respuestaJSON([
+                'success' => true,
+                'mensaje' => 'Analisis completado.',
+                'datos' => $resultado
+            ]);
+        } catch (\Exception $e) {
+            self::respuestaJSON(['success' => false, 'mensaje' => 'Error al analizar expediente: ' . $e->getMessage()]);
+        }
+    }
+
+    public function importarDocumentosPersonaRrhh()
+    {
+        try {
+            if (!self::puedeImportarDocumentosRrhh()) {
+                self::respuestaJSON(['success' => false, 'mensaje' => 'No tienes permiso para importar documentos RR.HH.']);
+                return;
+            }
+
+            $persona = self::personaObjetivoImportacionRrhh();
+            $servicio = new RrhhDocumentImportService();
+            $batchId = trim((string) ($_POST['batch_id'] ?? ''));
+            $fuentes = $batchId !== '' ? $servicio->fuentesDesdeLoteTemporal($batchId) : [];
+            if (empty($fuentes)) {
+                $fuentes = $servicio->fuentesDesdeRequest($_FILES, $_POST);
+            }
+            $documentosManual = $servicio->documentosManualDesdePost($_POST);
+            if (empty($fuentes)) {
+                self::respuestaJSON(['success' => false, 'mensaje' => 'Selecciona archivos PDF, FAD, ZIP o una carpeta con documentos.']);
+                return;
+            }
+
+            $resultado = $servicio->importarParaPersona($fuentes, $persona, $documentosManual);
+            if ($batchId !== '') {
+                $servicio->eliminarLoteTemporal($batchId);
+            }
+            $resultado['batch_id'] = '';
+            self::respuestaJSON([
+                'success' => true,
+                'mensaje' => 'Importacion finalizada. Documentos importados: ' . (int) ($resultado['importados'] ?? 0) . '.',
+                'datos' => $resultado
+            ]);
+        } catch (\Exception $e) {
+            self::respuestaJSON(['success' => false, 'mensaje' => 'Error al importar expediente: ' . $e->getMessage()]);
+        }
+    }
+
     public function previsualizarImportacionDocumentosRrhh()
     {
         $tmpPath = null;
@@ -25595,7 +25829,9 @@ public function getEstadosMunicipiosMexico()
             $limpiar = [];
             foreach ($archivos as $archivo) {
                 $base = pathinfo($archivo['nombre'], PATHINFO_FILENAME) ?: 'documento';
-                if ($archivo['formato'] === 'pdf') {
+                if ($archivo['formato'] === 'raw') {
+                    $zipItems[] = ['ruta' => $archivo['ruta'], 'nombre' => $archivo['nombre']];
+                } elseif ($archivo['formato'] === 'pdf') {
                     $zipItems[] = ['ruta' => $archivo['ruta'], 'nombre' => $base . '.pdf'];
                 } elseif ($archivo['formato'] === 'jpg') {
                     $tmpDir = sys_get_temp_dir() . DIRECTORY_SEPARATOR . 'docs_persona_jpg_' . uniqid('', true);
@@ -25623,6 +25859,11 @@ public function getEstadosMunicipiosMexico()
             $archivo = $archivos[0];
             $extension = strtolower(pathinfo((string) ($archivo['nombre'] ?? ''), PATHINFO_EXTENSION));
             $this->enviarArchivoDescarga($archivo['ruta'], $archivo['nombre'], $extension === 'fad' ? 'application/octet-stream' : 'application/pdf', $limpiarBase);
+        }
+
+        if ($formato === 'raw' && !$zip && count($archivos) === 1) {
+            $archivo = $archivos[0];
+            $this->enviarArchivoDescarga($archivo['ruta'], $archivo['nombre'], 'application/octet-stream', $limpiarBase);
         }
 
         if ($formato === 'pdf' && !$zip && $merge && count($archivos) > 1) {
@@ -25778,11 +26019,14 @@ public function getEstadosMunicipiosMexico()
                     $ruta = $preparado['ruta'];
                     $limpiarTemporales = array_merge($limpiarTemporales, $preparado['limpiar']);
                 }
-                $formatoDoc = self::esDocumentoSensibleRrhh($idDocumento) ? 'pdf' : ($formatosPorId[$idCarga] ?? $formato);
+                $extensionDoc = strtolower(pathinfo($ruta, PATHINFO_EXTENSION) ?: 'pdf');
+                $formatoDoc = $extensionDoc === 'fad'
+                    ? 'raw'
+                    : (self::esDocumentoSensibleRrhh($idDocumento) ? 'pdf' : ($formatosPorId[$idCarga] ?? $formato));
                 $archivos[] = [
                     'id' => $idCarga,
                     'ruta' => $ruta,
-                    'nombre' => $this->nombreArchivoDocumentoPersona($idDocumento, $nombresUsados, pathinfo($ruta, PATHINFO_EXTENSION) ?: 'pdf'),
+                    'nombre' => $this->nombreArchivoDocumentoPersona($idDocumento, $nombresUsados, $extensionDoc),
                     'formato' => $formatoDoc,
                 ];
             }

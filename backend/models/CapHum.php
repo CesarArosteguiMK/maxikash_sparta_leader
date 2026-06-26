@@ -2851,6 +2851,50 @@ class CapHum extends Model
         }
     }
 
+    public static function getPersonaParaImportacionDocumentos($idPersona)
+    {
+        try {
+            $idPersona = (int) $idPersona;
+            if ($idPersona <= 0) {
+                return self::resultado(false, 'Persona invalida.', null);
+            }
+
+            $db = new Database();
+            $persona = $db->queryOne("
+                SELECT
+                    p.id,
+                    p.numero_empleado,
+                    p.codigo_contpac,
+                    p.nombres,
+                    p.segundo_nombre,
+                    p.apellidop,
+                    p.apellidom,
+                    p.curp,
+                    p.correo,
+                    COALESCE(p.estatus, '') AS estatus,
+                    DATE_FORMAT(bp.fecha_baja, '%Y-%m-%d') AS fecha_baja,
+                    TRIM(CONCAT_WS(' ', p.nombres, p.segundo_nombre, p.apellidop, p.apellidom)) AS nombre_completo
+                FROM __SPARTA_SECRET_REDACTED__.persona p
+                LEFT JOIN (
+                    SELECT id_persona, MAX(id) AS id_ultima_baja
+                    FROM __SPARTA_SECRET_REDACTED__.baja_persona
+                    GROUP BY id_persona
+                ) ub ON ub.id_persona = p.id
+                LEFT JOIN __SPARTA_SECRET_REDACTED__.baja_persona bp ON bp.id = ub.id_ultima_baja
+                WHERE p.id = :id_persona
+                LIMIT 1
+            ", ['id_persona' => $idPersona]);
+
+            if (!$persona) {
+                return self::resultado(false, 'Persona no encontrada.', null);
+            }
+
+            return self::resultado(true, 'Persona encontrada.', $persona);
+        } catch (\Exception $e) {
+            return self::resultado(false, 'Error al obtener persona para importacion.', null, $e->getMessage());
+        }
+    }
+
     public static function getCatalogoDocumentosImportacion()
     {
         try {
