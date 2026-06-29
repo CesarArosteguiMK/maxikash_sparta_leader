@@ -28,7 +28,16 @@ class Notificaciones extends Controller
             return (int)($n['id_persona'] ?? 0) === $idUsuario;
         }));
         foreach ($lista as &$n) {
+            $payload = [];
+            if (!empty($n['payload_json'])) {
+                $decoded = json_decode((string) $n['payload_json'], true);
+                if (is_array($decoded)) {
+                    $payload = $decoded;
+                }
+            }
+            $n['payload'] = $payload;
             unset($n['id_persona']);
+            unset($n['payload_json']);
         }
         unset($n);
         $totalNoLeidas = count(array_filter($lista, function ($n) {

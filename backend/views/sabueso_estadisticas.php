@@ -730,13 +730,23 @@
         background: var(--bs-body-bg, #fff);
         box-shadow: inset 0 -1px 0 var(--bs-border-color, #dee2e6);
     }
+    #modalHistoricoIlocalizable .estad-hist-iloc-footer {
+        border-top: 1px solid var(--bs-border-color, #dee2e6);
+        background: var(--bs-body-bg, #fff);
+        padding: 0.85rem 1rem;
+    }
+    #modalHistoricoIlocalizable .estad-hist-iloc-page-size {
+        width: 5.5rem;
+    }
     #modalHistoricoIlocalizable .estad-hist-id {
         font-size: 1rem;
         font-weight: 800;
         color: #0f5132;
     }
     [data-bs-theme="dark"] #modalHistoricoIlocalizable .estad-hist-iloc-toolbar,
-    .dark-style #modalHistoricoIlocalizable .estad-hist-iloc-toolbar {
+    .dark-style #modalHistoricoIlocalizable .estad-hist-iloc-toolbar,
+    [data-bs-theme="dark"] #modalHistoricoIlocalizable .estad-hist-iloc-footer,
+    .dark-style #modalHistoricoIlocalizable .estad-hist-iloc-footer {
         background: linear-gradient(180deg, #2d3344 0%, #232836 100%) !important;
         border-color: rgba(255, 255, 255, 0.12) !important;
     }
@@ -1321,6 +1331,15 @@ $seccionesEstadisticas = isset($seccionesEstadisticas) && is_array($seccionesEst
                         <div class="text-muted small" id="historicoIlocalizableResumen">Use el buscador para filtrar por ID credito, folio, cliente o gestor.</div>
                     </div>
                     <div class="d-flex flex-wrap align-items-center gap-2">
+                        <label class="d-flex align-items-center gap-2 small text-muted mb-0">
+                            Mostrar
+                            <select class="form-select form-select-sm estad-hist-iloc-page-size" id="selectHistoricoIlocalizablePageSize">
+                                <option value="25">25</option>
+                                <option value="50" selected>50</option>
+                                <option value="100">100</option>
+                                <option value="200">200</option>
+                            </select>
+                        </label>
                         <input type="search" class="form-control form-control-sm" id="inputHistoricoIlocalizableBuscar" placeholder="Buscar ID credito, folio, cliente o gestor" style="min-width: min(360px, 72vw);">
                         <button type="button" class="btn btn-sm btn-primary" id="btnHistoricoIlocalizableBuscar">
                             <i class="fa-solid fa-magnifying-glass me-1"></i>Buscar
@@ -1352,6 +1371,18 @@ $seccionesEstadisticas = isset($seccionesEstadisticas) && is_array($seccionesEst
                             </tr>
                         </tbody>
                     </table>
+                </div>
+                <div class="estad-hist-iloc-footer d-flex flex-wrap align-items-center justify-content-between gap-2">
+                    <div class="small text-muted" id="historicoIlocalizablePaginacionInfo">Sin datos cargados.</div>
+                    <div class="d-flex align-items-center gap-2">
+                        <button type="button" class="btn btn-sm btn-outline-secondary" id="btnHistoricoIlocalizablePrev" disabled>
+                            <i class="fa-solid fa-chevron-left"></i>
+                        </button>
+                        <span class="small fw-semibold" id="historicoIlocalizablePagina">Pagina 1 de 1</span>
+                        <button type="button" class="btn btn-sm btn-outline-secondary" id="btnHistoricoIlocalizableNext" disabled>
+                            <i class="fa-solid fa-chevron-right"></i>
+                        </button>
+                    </div>
                 </div>
             </div>
         </div>

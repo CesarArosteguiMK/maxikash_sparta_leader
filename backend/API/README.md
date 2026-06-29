@@ -9,10 +9,10 @@ usando análisis de imagen multicapa.
 
 En `backend/API/` conviven:
 
-- **Esta API (Python / FastAPI)** — verificación de documentos (p. ej. puerto **8000** según `.env`).
+- **Esta API (Python / FastAPI)** — verificación de documentos (p. ej. puerto **8001** según `.env`).
 - **`documentacion-candidato/`** — microservicio **Node.js** para listado rápido de documentación de candidatos (puerto **3001** por defecto). Ver su [README](documentacion-candidato/README.md).
-- **Arranque conjunto** — scripts en [`../services/servicios-locales/`](../services/servicios-locales/README.md) para iniciar/detener API Python local o Docker (8000), documentación candidato (3001), Segundómetro (3100) y agente de correos (3110).
-- **Scripts Windows (instalar / arrancar / detener la API en 8000)** — carpeta [`launcher/`](launcher/) (`.bat`, `.ps1`, `.vbs`). Pruebas OCR sueltas: [`scripts/dev/`](scripts/dev/).
+- **Arranque conjunto** — scripts en [`../services/servicios-locales/`](../services/servicios-locales/README.md) para iniciar/detener API Python local o Docker (8001), documentación candidato (3001), Segundómetro (3100) y agente de correos (3110).
+- **Scripts Windows (instalar / arrancar / detener la API en 8001)** — carpeta [`launcher/`](launcher/) (`.bat`, `.ps1`, `.vbs`). Pruebas OCR sueltas: [`scripts/dev/`](scripts/dev/).
 
 ```
 doc-verificacion/
@@ -93,13 +93,13 @@ launcher\iniciar-agente-oculto.vbs
 
 Sin ventanas: **`launcher\iniciar-agente-oculto.vbs`** (o `.\launcher\iniciar-agente-oculto.ps1` desde PowerShell oculto). Con consola para ver errores: **`launcher\iniciar-agente.bat`**.
 
-Equivalente en PowerShell: `.\launcher\instalar-api-consola.ps1` y luego el arranque oculto o `.\launcher\iniciar-agente.bat`. La API queda en **http://127.0.0.1:8000** (ajustable en `.env`). Documentación: **http://127.0.0.1:8000/docs**.
+Equivalente en PowerShell: `.\launcher\instalar-api-consola.ps1` y luego el arranque oculto o `.\launcher\iniciar-agente.bat`. La API queda en **http://127.0.0.1:8001** (ajustable en `.env`). Documentación: **http://127.0.0.1:8001/docs**.
 
 Para solo la línea de comandos tras tener el `venv`:
 
 ```bash
 # Desde backend/API (no es obligatorio PostgreSQL ni Redis para solo verificación)
-uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+uvicorn app.main:app --reload --host 0.0.0.0 --port 8001
 ```
 
 ### 4. Levantar con Docker (opcional, todo incluido en imagen)
@@ -116,9 +116,9 @@ cp .env.example .env
 # Construir y levantar (solo contenedor API)
 docker compose up -d --build
 
-# La API queda en http://localhost:8000
-# Docs: http://localhost:8000/docs
-# Health: http://localhost:8000/api/v1/health
+# La API queda en http://localhost:8001
+# Docs: http://localhost:8001/docs
+# Health: http://localhost:8001/api/v1/health
 ```
 
 Para solo construir la imagen y usarla en otro servidor:
@@ -129,7 +129,7 @@ docker compose build
 ```
 
 **Integración con Sparta Ledger (PHP):**
-En `backend/config/config.ini` añade la sección `[doc_verificacion]` con `api_url` (ej. `http://127.0.0.1:8000/api/v1/verificar`) y `api_key` (mismo valor que `MASTER_API_KEY` o el default `sparta-__SPARTA_SECRET_REDACTED__-doc-verificacion-key`). Al subir el documento "IDENTIFICACIÓN OFICIAL" (imagen), el controlador CapHum llamará a esta API; si el resultado es RECHAZADO, el documento no se guarda. Si la API no está disponible, se usa el fallback OCR local (Tesseract). Documentación de producto / notas internas en `public/assets/docs/` (Markdown servible vía `/assets/docs/…` si el servidor lo expone).
+En `backend/config/config.ini` añade la sección `[doc_verificacion]` con `api_url` (ej. `http://127.0.0.1:8001/api/v1/verificar`) y `api_key` (mismo valor que `MASTER_API_KEY` o el default `sparta-__SPARTA_SECRET_REDACTED__-doc-verificacion-key`). Al subir el documento "IDENTIFICACIÓN OFICIAL" (imagen), el controlador CapHum llamará a esta API; si el resultado es RECHAZADO, el documento no se guarda. Si la API no está disponible, se usa el fallback OCR local (Tesseract). Documentación de producto / notas internas en `public/assets/docs/` (Markdown servible vía `/assets/docs/…` si el servidor lo expone).
 
 ---
 
@@ -138,7 +138,7 @@ En `backend/config/config.ini` añade la sección `[doc_verificacion]` con `api_
 ### Verificar un documento
 
 ```bash
-curl -X POST http://localhost:8000/api/v1/verificar \
+curl -X POST http://localhost:8001/api/v1/verificar \
   -H "X-API-Key: TU_API_KEY" \
   -F "imagen=@/ruta/a/ine.jpg" \
   -F "tipo_documento=INE_NUEVA"
@@ -151,7 +151,7 @@ import httpx
 
 with open("ine.jpg", "rb") as f:
     response = httpx.post(
-        "http://localhost:8000/api/v1/verificar",
+        "http://localhost:8001/api/v1/verificar",
         headers={"X-API-Key": "tu_api_key"},
         files={"imagen": ("ine.jpg", f, "image/jpeg")},
         params={"tipo_documento": "INE_NUEVA"}
@@ -226,7 +226,7 @@ print(f"Recomendación: {resultado['recomendacion']}")
 
 **Cómo probar la extracción desde el documento:**
 
-1. Abre **http://localhost:8000/docs** (Swagger tiene "Try it out" para subir archivos).
+1. Abre **http://localhost:8001/docs** (Swagger tiene "Try it out" para subir archivos).
 2. Autoriza con la API Key: `sparta-__SPARTA_SECRET_REDACTED__-doc-verificacion-key`.
 3. Busca **POST /api/v1/verificar-nss-documento**.
 4. Clic en **"Try it out"**.
@@ -236,7 +236,7 @@ print(f"Recomendación: {resultado['recomendacion']}")
 Desde PowerShell (si tienes el PDF en disco):
 
 ```powershell
-$uri = "http://localhost:8000/api/v1/verificar-nss-documento"
+$uri = "http://localhost:8001/api/v1/verificar-nss-documento"
 $headers = @{ "X-API-Key" = "sparta-__SPARTA_SECRET_REDACTED__-doc-verificacion-key" }
 $form = @{ documento = Get-Item -Path "C:\ruta\a\tu\vigencia_derechos.pdf" }
 Invoke-RestMethod -Uri $uri -Method Post -Headers $headers -Form $form

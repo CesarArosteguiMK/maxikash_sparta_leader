@@ -116,6 +116,23 @@
         margin-bottom: 0 !important;
     }
 
+    #modalEditPerfil #modulos-container td:first-child,
+    #modalEditPerfil #modulos-container small,
+    #modalEditPerfil .modal-perfil-modulos-agrupados .modal-perfil-modulo-fila td,
+    #modalEditPerfil .modal-perfil-modulos-agrupados .modal-perfil-modulo-fila span,
+    #modalEditPerfil .modal-perfil-modulos-agrupados .modal-perfil-modulo-fila small {
+        word-break: normal !important;
+        overflow-wrap: anywhere;
+    }
+
+    #modalEditPerfil .modal-perfil-modulos-agrupados .modal-perfil-modulo-fila td:first-child {
+        min-width: 0;
+    }
+
+    #modalEditPerfil .modal-perfil-modulos-agrupados .modal-perfil-modulo-fila td:last-child {
+        width: 132px;
+    }
+
     /* Permisos especiales (modal): dos columnas en escritorio */
     #modalEditPerfil .modal-perfil-permisos-outer {
         overflow-y: visible;
@@ -204,6 +221,131 @@
     }
     body.dark-mode #modalEditPerfil.modal .modal-perfil-gestor-dialog .modal-perfil-gestor-tabs {
         background: #252525 !important;
+    }
+
+    @media (max-width: 991.98px) {
+        #modalEditPerfil.modal .modal-perfil-gestor-dialog {
+            width: calc(100vw - 1.5rem);
+            max-width: calc(100vw - 1.5rem);
+            margin: 0.75rem auto;
+            max-height: calc(100vh - 1.5rem);
+        }
+
+        #modalEditPerfil.modal .modal-perfil-gestor-dialog .modal-content {
+            max-height: calc(100vh - 1.5rem);
+        }
+
+        #modalEditPerfil .modal-perfil-gestor-tabs {
+            display: flex !important;
+            flex-wrap: nowrap !important;
+            overflow-x: auto !important;
+            overflow-y: hidden !important;
+            gap: 0.25rem;
+            padding-left: 0.75rem !important;
+            padding-right: 0.75rem !important;
+            -webkit-overflow-scrolling: touch;
+            scrollbar-width: thin;
+        }
+
+        #modalEditPerfil .modal-perfil-gestor-tabs .nav-item {
+            flex: 0 0 auto;
+        }
+
+        #modalEditPerfil .modal-perfil-gestor-tabs .nav-link {
+            white-space: nowrap !important;
+            padding-left: 0.85rem !important;
+            padding-right: 0.85rem !important;
+        }
+
+        #modalEditPerfil .modal-perfil-gestor-tab-content {
+            padding: 1rem !important;
+        }
+
+        #modalEditPerfil .modal-perfil-modulos-agrupados .modal-perfil-modulo-grupo {
+            flex: 1 1 100% !important;
+            max-width: 100% !important;
+        }
+
+        #modalEditPerfil #tabModulos > .d-flex,
+        #modalEditPerfil #tabPermisosEspeciales > .d-flex {
+            align-items: flex-start !important;
+        }
+    }
+
+    @media (max-width: 767.98px) {
+        #modalEditPerfil .modal-header {
+            padding: 0.9rem 1rem !important;
+        }
+
+        #modalEditPerfil .modal-header .d-flex {
+            min-width: 0;
+        }
+
+        #modalEditPerfil .modal-title {
+            font-size: 1rem;
+            line-height: 1.25;
+        }
+
+        #modalEditPerfil #modalEditPerfil_subtitle {
+            line-height: 1.25;
+        }
+
+        #modalEditPerfil #tabPuestos .d-flex.gap-3.flex-wrap.flex-lg-nowrap {
+            flex-direction: column;
+        }
+
+        #modalEditPerfil #tabPuestos aside,
+        #modalEditPerfil #tabPuestos section {
+            width: 100% !important;
+            max-width: 100% !important;
+        }
+
+        #modalEditPerfil .modal-perfil-modulo-grupo-header {
+            align-items: flex-start !important;
+        }
+
+        #modalEditPerfil .modal-perfil-modulo-grupo-header .modal-perfil-modulo-master-wrap {
+            width: 100%;
+            justify-content: flex-end;
+        }
+
+        #modalEditPerfil .modal-perfil-modulos-agrupados .modal-perfil-modulo-fila td:first-child {
+            padding-left: 0.75rem !important;
+            padding-right: 0.5rem !important;
+        }
+
+        #modalEditPerfil .modal-perfil-modulos-agrupados .modal-perfil-modulo-fila td:last-child {
+            width: 118px !important;
+            padding-left: 0.35rem !important;
+            padding-right: 0.75rem !important;
+        }
+
+        #modalEditPerfil .modal-perfil-modulos-agrupados .modulo-icon-box {
+            width: 36px !important;
+            height: 36px !important;
+        }
+    }
+
+    @media (max-width: 575.98px) {
+        #modalEditPerfil .modal-perfil-modulos-agrupados .modal-perfil-modulo-fila,
+        #modalEditPerfil .modal-perfil-modulos-agrupados .modal-perfil-modulo-fila tbody,
+        #modalEditPerfil .modal-perfil-modulos-agrupados .modal-perfil-modulo-fila td {
+            display: block;
+            width: 100% !important;
+        }
+
+        #modalEditPerfil .modal-perfil-modulos-agrupados .modal-perfil-modulo-fila td:first-child {
+            padding: 0.75rem 0.75rem 0.4rem !important;
+        }
+
+        #modalEditPerfil .modal-perfil-modulos-agrupados .modal-perfil-modulo-fila td:last-child {
+            padding: 0 0.75rem 0.75rem !important;
+            text-align: left !important;
+        }
+
+        #modalEditPerfil .modal-perfil-modulos-agrupados .modal-perfil-modulo-fila td:last-child > .form-check {
+            justify-content: flex-start !important;
+        }
     }
 
     #offcanvasEditPerfil .tab-content:not(.doc-example-content) {
@@ -697,6 +839,21 @@
     .gestion-personal-external-id strong {
       color: #475569;
       font-weight: 800;
+    }
+
+    .gestion-personal-external-badge {
+      display: inline-flex;
+      align-items: center;
+      min-height: 1.25rem;
+      padding: .08rem .5rem;
+      border-radius: 999px;
+      background: #f1f5f9;
+      color: #334155;
+      border: 1px solid #cbd5e1;
+      font-size: .72rem;
+      font-weight: 800;
+      line-height: 1;
+      letter-spacing: 0;
     }
 
     .gestion-personal-username {
@@ -3209,6 +3366,21 @@
         z-index: 100020 !important;
     }
 
+    #modalAuscencia .ausencia-empty-state {
+        border: 1px dashed #cfd6e4;
+        border-radius: 10px;
+        background: #f8fafc;
+        color: #64748b;
+        padding: 22px 16px;
+        text-align: center;
+    }
+
+    #modalAuscencia .ausencia-empty-state i {
+        color: #94a3b8;
+        font-size: 22px;
+        margin-bottom: 8px;
+    }
+
     /* Hacer más visible el círculo del día de hoy */
     .flatpickr-calendar .flatpickr-day.today {
         border-color: #696cff !important;
@@ -5596,7 +5768,7 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
                 </div>
                 <div class="small text-muted mb-1" id="rrhhImportDocsSeleccionResumen">No se han seleccionado archivos.</div>
                 <div class="small text-muted mb-3">
-                  Soporta lotes masivos de hasta 200 archivos o 256 MB por carga. El an&aacute;lisis conserva un lote temporal para importar sin volver a subir los documentos.
+                  Soporta lotes de hasta 1000 archivos o 850 MB por carga. El analisis conserva un lote temporal para importar sin volver a subir los documentos.
                 </div>
                 <div id="rrhhImportDocsResumen" class="d-flex flex-wrap gap-2 mb-3"></div>
                 <div class="table-responsive" style="max-height: 52vh;">
@@ -6284,6 +6456,15 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
                     </div>
                 </div>
 
+                <div class="mb-3 add-persona-only">
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" id="add_es_externo">
+                        <label class="form-check-label" for="add_es_externo">
+                            Externo
+                        </label>
+                    </div>
+                </div>
+
                 <div class="mb-2 add-persona-only" id="div_select_legion" style="display: none;">
                     <label class="form-label">Legión *</label>
                     <select id="add_id_legion" class="form-select js-select-buscador">
@@ -6640,22 +6821,37 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
                         <label for="cargarDocPersona_tipoDocumento" class="form-label"><strong>Tipo de Documento: </strong></label>
                         <select class="form-select" id="cargarDocPersona_tipoDocumento">
                             <option value="">Seleccione un tipo de documento</option>
-                            <option value="Acta de Nacimiento">Acta de Nacimiento</option>
-                            <option value="Archivo .FAD">Archivo .FAD</option>
-                            <option value="Carta de compromiso del Gestor">Carta de compromiso del Gestor</option>
-                            <option value="Certificado de Estudios">Certificado de Estudios</option>
-                            <option value="Comprobante de Domicilio">Comprobante de Domicilio</option>
-                            <option value="Contrato firmado">Contrato firmado</option>
-                            <option value="CURP">CURP</option>
-                            <option value="Documento baja">Documento baja</option>
-                            <option value="Documento reingreso">Documento reingreso</option>
-                            <option value="Identificación Oficial (INE)">Identificación Oficial (INE)</option>
-                            <option value="Llave vector">Llave vector</option>
-                            <option value="Prueba centavo">Prueba centavo</option>
-                            <option value="Referencias Laborales">Referencias Laborales</option>
-                            <option value="RFC">RFC</option>
-                            <option value="Semanas cotizadas IMSS (segundos patrones)">Semanas cotizadas IMSS (segundos patrones)</option>
-                            <option value="Validacion SAT">Validacion SAT</option>
+                            <?php
+                            $modulosSesionDocumentoRrhh = array_map('intval', (array) ($_SESSION['modulos'] ?? []));
+                            $tiposDocumentoRrhhSelect = [
+                                12 => 'Acta de Nacimiento',
+                                29 => 'Archivo .FAD',
+                                27 => 'Carta de compromiso del Gestor',
+                                13 => 'Certificado de Estudios',
+                                11 => 'Comprobante de Domicilio',
+                                28 => 'Contrato firmado',
+                                8 => 'CURP',
+                                15 => 'Documento baja',
+                                16 => 'Documento reingreso',
+                                25 => 'Estado de cuenta',
+                                24 => 'Hoja de retencion FONACOT o INFONAVIT',
+                                9 => 'Identificación Oficial (INE)',
+                                31 => 'Llave vector',
+                                32 => 'Prueba centavo',
+                                14 => 'Referencias Laborales',
+                                10 => 'RFC',
+                                33 => 'Semanas cotizadas IMSS (segundos patrones)',
+                                17 => 'Solicitud interna',
+                                18 => 'CV o solicitud de trabajo',
+                                30 => 'Validacion SAT',
+                            ];
+                            foreach ($tiposDocumentoRrhhSelect as $idDocumentoRrhh => $nombreDocumentoRrhh):
+                                if (!in_array(3000 + (int) $idDocumentoRrhh, $modulosSesionDocumentoRrhh, true)) {
+                                    continue;
+                                }
+                            ?>
+                                <option value="<?= htmlspecialchars($nombreDocumentoRrhh, ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars($nombreDocumentoRrhh, ENT_QUOTES, 'UTF-8') ?></option>
+                            <?php endforeach; ?>
                         </select>
                     </div>
 
@@ -6691,7 +6887,7 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
                     <div class="mt-4">
                         <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
                             <h6 class="mb-0"><strong>Archivos Subidos</strong></h6>
-                            <div class="d-flex flex-wrap gap-2">
+                            <div class="d-flex flex-wrap gap-2" id="accionesDocsPersona" style="display: none;">
                                 <button type="button" class="btn btn-outline-primary btn-sm" id="btnDescargarDocsPersona" onclick="abrirMenuDescargaDocumentosPersona()" disabled>
                                     <i class="fa fa-download me-1"></i>Descargar
                                 </button>
@@ -6701,7 +6897,7 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
                             <table class="table table-bordered table-striped">
                                 <thead class="table-dark">
                                     <tr>
-                                        <th style="width: 44px;" class="text-center">
+                                        <th style="width: 44px; display: none;" class="text-center col-seleccion-docs-persona">
                                             <input type="checkbox" class="form-check-input" id="checkTodosDocsPersona" onchange="toggleSeleccionDocumentosPersona(this.checked)">
                                         </th>
                                         <th style="width: 120px;">Formato</th>
@@ -6765,13 +6961,13 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
                         </div>
 
                         <div class="col-md-4">
-                            <label class="form-label"><strong>Fecha y hora inicio</strong></label>
-                            <input type="text" class="form-control flatpickr-datetime-ausencia" id="fechaInicio" placeholder="Seleccione fecha y hora" autocomplete="off" readonly>
+                            <label class="form-label"><strong>Fecha inicio</strong></label>
+                            <input type="text" class="form-control flatpickr-datetime-ausencia" id="fechaInicio" placeholder="Seleccione fecha inicio" autocomplete="off" readonly>
                         </div>
 
                         <div class="col-md-4">
-                            <label class="form-label"><strong>Fecha y hora fin</strong></label>
-                            <input type="text" class="form-control flatpickr-datetime-ausencia" id="fechaFin" placeholder="Seleccione fecha y hora" autocomplete="off" readonly>
+                            <label class="form-label"><strong>Fecha fin</strong></label>
+                            <input type="text" class="form-control flatpickr-datetime-ausencia" id="fechaFin" placeholder="Seleccione fecha fin" autocomplete="off" readonly>
                         </div>
 
                         <div class="col-md-12">
@@ -6781,37 +6977,68 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
 
                     </div>
 
-                    <div class="mt-3">
+                    <div class="mt-3 d-flex flex-wrap gap-2">
                         <button class="btn btn-primary"  id="btnGuardarAusencia" onclick="guardarAusencia()">
                             Registrar ausencia
                         </button>
+                        <button class="btn btn-outline-primary" type="button" onclick="abrirCargaDocumentoAusencia()">
+                            <i class="fa fa-paperclip me-1"></i>Adjuntar documento
+                        </button>
+                        <input
+                            type="file"
+                            id="archivoDocumentoAusencia"
+                            class="d-none"
+                            accept=".pdf,application/pdf"
+                            onchange="prepararDocumentoAusenciaSeleccionado(this)"
+                        >
+                        <span id="estadoDocumentoAusencia" class="small text-muted align-self-center"></span>
+                    </div>
+
+                    <div id="previewDocumentoAusencia" class="mt-3 d-none border rounded p-3 bg-light">
+                        <div class="d-flex flex-wrap align-items-center justify-content-between gap-2">
+                            <div>
+                                <div class="fw-semibold" id="previewDocumentoAusenciaTipo">Documento de ausencia</div>
+                                <div class="small text-muted" id="previewDocumentoAusenciaNombre">Sin archivo seleccionado</div>
+                            </div>
+                            <div class="d-flex flex-wrap gap-2">
+                                <button type="button" class="btn btn-outline-primary btn-sm" onclick="verDocumentoAusenciaSeleccionado()">
+                                    <i class="fa fa-eye me-1"></i>Ver
+                                </button>
+                                <button type="button" class="btn btn-outline-danger btn-sm" onclick="limpiarDocumentoAusenciaSeleccionado()">
+                                    <i class="fa fa-times me-1"></i>Quitar
+                                </button>
+                            </div>
+                        </div>
                     </div>
 
                     <hr>
 
-                    <!-- ================== TABLA DE AUSENCIAS ================== -->
                     <h6 class="mb-2"><strong>Historial de ausencias</strong></h6>
 
-                    <div class="table-responsive">
-                        <table class="table table-sm table-bordered table-striped">
-                            <thead class="table-dark">
-                            <tr>
-                                <th>Razón</th>
-                                <th>Inicio</th>
-                                <th>Fin</th>
-                                <th>Descripción</th>
-                                <th>Activo</th>
-                                <th>Acciones</th>
-                            </tr>
-                            </thead>
-                            <tbody id="tablaAusencias">
-                            <tr>
-                                <td colspan="5" class="text-center text-muted">
-                                    Sin registros
-                                </td>
-                            </tr>
-                            </tbody>
-                        </table>
+                    <div id="ausenciaHistorialEmpty" class="ausencia-empty-state">
+                        <i class="fa fa-calendar-check d-block"></i>
+                        <div class="fw-semibold">Sin ausencias registradas.</div>
+                        <div class="small">Cuando registres una ausencia con sus documentos adjuntos, aparecerá aquí.</div>
+                    </div>
+
+                    <div id="ausenciaHistorialContenido" class="d-none">
+                        <div class="table-responsive mb-3">
+                            <table class="table table-sm table-bordered table-striped">
+                                <thead class="table-light">
+                                <tr>
+                                    <th>Razón</th>
+                                    <th>Inicio</th>
+                                    <th>Fin</th>
+                                    <th>Descripción</th>
+                                    <th>Documento</th>
+                                    <th>Acciones</th>
+                                </tr>
+                                </thead>
+                                <tbody id="tablaAusencias"></tbody>
+                            </table>
+                        </div>
+
+                        <div id="listaDocumentosAusencia" class="list-group small"></div>
                     </div>
 
                 </div>
@@ -6821,6 +7048,31 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
                     <button class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
                 </div>
 
+            </div>
+        </div>
+    </div>
+
+    <div class="modal fade" id="modalDocumentoAusenciaPreview" tabindex="-1" aria-labelledby="modalDocumentoAusenciaPreviewLabel" aria-hidden="true">
+        <div class="modal-dialog modal-xl modal-dialog-centered">
+            <div class="modal-content shadow-lg border-0">
+                <div class="modal-header">
+                    <h5 class="modal-title d-flex align-items-center gap-2" id="modalDocumentoAusenciaPreviewLabel">
+                        <i class="fa fa-file-pdf text-danger"></i>
+                        <span id="modalDocumentoAusenciaPreviewTitulo">Documento de ausencia</span>
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                </div>
+                <div class="modal-body p-0 bg-light">
+                    <iframe
+                        id="modalDocumentoAusenciaPreviewFrame"
+                        title="Vista previa documento de ausencia"
+                        src="about:blank"
+                        style="display:block;width:100%;height:min(78vh,780px);border:0;background:#fff;"
+                    ></iframe>
+                </div>
+                <div class="modal-footer py-2">
+                    <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cerrar</button>
+                </div>
             </div>
         </div>
     </div>
@@ -9944,8 +10196,12 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
     return normalizarDepartamentoEtiqueta(nombreDepartamento) === 'despachos cobranza';
   }
 
-  function etiquetaExternoPorUsuario(usuario) {
-    if (usuarioExentoEtiquetaExterno(usuario)) return '';
+  function esUsuarioExternoGestion(usuario) {
+    if (usuarioExentoEtiquetaExterno(usuario)) return false;
+
+    const codigoContpac = String(usuario?.codigo_contpac || '').trim();
+    const numeroEmpleado = String(usuario?.numero_empleado || '').trim();
+    if (!codigoContpac && numeroEmpleado) return true;
 
     const departamentos = [];
     if (usuario?.nombre_departamento) departamentos.push(usuario.nombre_departamento);
@@ -9955,8 +10211,12 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
       });
     }
 
-    return departamentos.some(esDepartamentoExterno)
-      ? '<span class="badge bg-dark text-white ms-2 align-middle" title="Departamento externo">Externo</span>'
+    return departamentos.some(esDepartamentoExterno);
+  }
+
+  function etiquetaExternoPorUsuario(usuario) {
+    return esUsuarioExternoGestion(usuario)
+      ? '<span class="gestion-personal-external-badge" title="Usuario externo: no forma parte de la plantilla interna">Externo</span>'
       : '';
   }
 
@@ -9979,6 +10239,10 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
       const tienePuestos = p.puestos && p.puestos.length > 1;
       const vistaMultiplesActiva = document.getElementById('FilterMultiplePuestos')?.value === 'multiples';
       const etiquetaExternoPersona = etiquetaExternoPorUsuario(p);
+      const codigoContpacPersona = String(p.codigo_contpac || '').trim();
+      const codigoContpacHTML = codigoContpacPersona
+        ? `<span class="gestion-personal-code-value">${escapeAttr(codigoContpacPersona)}</span>`
+        : (etiquetaExternoPersona ? '' : '<span class="gestion-personal-code-value">Sin codigo</span>');
       const puestosPersonaTexto = tienePuestos
         ? p.puestos.map(puesto => puesto.nombre_puesto || '').filter(Boolean).join(' | ')
         : (p.nombre_puesto || '');
@@ -10077,10 +10341,11 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
             <div class="gestion-personal-name-info">
               <div class="gestion-personal-employee-code">
                 <span>No. empleado:</span>
-                <span class="gestion-personal-code-value">${escapeAttr(p.codigo_contpac || 'Sin codigo')}</span>
+                ${codigoContpacHTML}
+                ${etiquetaExternoPersona}
               </div>
               <div class="gestion-personal-name-main text-uppercase">
-                ${nombreCompleto}${etiquetaExternoPersona}
+                ${nombreCompleto}
               </div>
               <div class="gestion-personal-external-id">
                 <span>External id:</span>
@@ -12772,8 +13037,8 @@ function precargarCascadaEdit(idPais, idEstado, idMunicipio, idColonia, idCalle,
   let rrhhImportDocsFiles = [];
   let rrhhImportDocsAnalisis = null;
   let rrhhImportPreviewUrl = '';
-  const RRHH_IMPORT_DOCS_MAX_FILES = 200;
-  const RRHH_IMPORT_DOCS_MAX_BYTES = 256 * 1024 * 1024;
+  const RRHH_IMPORT_DOCS_MAX_FILES = 1000;
+  const RRHH_IMPORT_DOCS_MAX_BYTES = 850 * 1024 * 1024;
   let abriendoCredencialRrhh = false;
   let volverDesdeCredencialRrhh = false;
   let orientacionCredencialRrhh = 'vertical';
@@ -13658,11 +13923,9 @@ function precargarCascadaEdit(idPais, idEstado, idMunicipio, idColonia, idCalle,
   function rrhhImportDocsFormData(options = {}) {
     const fd = new FormData();
     const batchId = String(rrhhImportDocsAnalisis?.batch_id || '').trim();
-    const includeFiles = options.includeFiles !== false && !batchId;
     if (batchId) {
       fd.append('batch_id', batchId);
-    }
-    if (includeFiles) {
+    } else if (rrhhImportDocsFiles.length) {
       rrhhImportDocsFiles.forEach(file => {
         fd.append('archivos[]', file, file.name);
         fd.append('rutas_relativas[]', file.webkitRelativePath || file.name);
@@ -13685,9 +13948,10 @@ function precargarCascadaEdit(idPais, idEstado, idMunicipio, idColonia, idCalle,
     const peso = rrhhImportDocsFiles.reduce((sum, file) => sum + (file.size || 0), 0);
     if (total > RRHH_IMPORT_DOCS_MAX_FILES || peso > RRHH_IMPORT_DOCS_MAX_BYTES) {
       const pesoMb = (peso / 1024 / 1024).toFixed(1);
+      const limiteMb = Math.floor(RRHH_IMPORT_DOCS_MAX_BYTES / 1024 / 1024);
       const mensaje = total > RRHH_IMPORT_DOCS_MAX_FILES
-        ? `Seleccionaste ${total} archivos. El l\u00edmite por carga es de ${RRHH_IMPORT_DOCS_MAX_FILES} archivos.`
-        : `Seleccionaste ${pesoMb} MB. El l\u00edmite por carga es de 256 MB.`;
+        ? `Seleccionaste ${total} archivos. El limite por carga es de ${RRHH_IMPORT_DOCS_MAX_FILES} archivos. Divide la carpeta en lotes mas pequenos.`
+        : `Seleccionaste ${pesoMb} MB. El limite por carga es de ${limiteMb} MB. Divide la carpeta en lotes mas pequenos.`;
       rrhhImportDocsFiles = [];
       if (inputRrhhImportArchivos) inputRrhhImportArchivos.value = '';
       if (inputRrhhImportCarpeta) inputRrhhImportCarpeta.value = '';
@@ -13818,11 +14082,16 @@ function precargarCascadaEdit(idPais, idEstado, idMunicipio, idColonia, idCalle,
   }
 
   async function rrhhImportDocsEnviar(endpoint, options = {}) {
-    const res = await fetch(endpoint, {
-      method: 'POST',
-      body: rrhhImportDocsFormData(options),
-      headers: { 'X-Requested-With': 'XMLHttpRequest' }
-    });
+    let res;
+    try {
+      res = await fetch(endpoint, {
+        method: 'POST',
+        body: rrhhImportDocsFormData(options),
+        headers: { 'X-Requested-With': 'XMLHttpRequest' }
+      });
+    } catch (err) {
+      throw new Error('No se pudo conectar con el servidor. Revisa que la seleccion no supere el limite de carga configurado: maximo 1000 archivos o 850 MB por intento.');
+    }
     const contentType = res.headers.get('content-type') || '';
     if (!contentType.includes('application/json')) {
       const texto = await res.text();

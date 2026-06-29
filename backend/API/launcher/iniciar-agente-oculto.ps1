@@ -1,11 +1,11 @@
 # =====================================================================
 #  iniciar-agente-oculto.ps1
-#  Arranca uvicorn (puerto 8000) en segundo plano y SIN ventana, pero:
+#  Arranca uvicorn (puerto 8001) en segundo plano y SIN ventana, pero:
 #   - Hace smoke import previo (from app.main import app) para no
 #     enmascarar el error real cuando uvicorn no arranca.
 #   - Captura stdout y stderr de uvicorn a logs/uvicorn-stdout.log y
 #     logs/uvicorn-stderr.log (asi se ve el error de verdad si revienta).
-#   - Espera hasta 20s a que el puerto 8000 quede LISTENING.
+#   - Espera hasta 20s a que el puerto 8001 quede LISTENING.
 #   - Si no levanta, vuelca los ultimos errores en logs/api_oculto_startup.log
 #     y devuelve exit code != 0.
 # =====================================================================
@@ -23,11 +23,11 @@ $logsDir   = Join-Path $ApiDir 'logs'
 $startLog  = Join-Path $logsDir 'api_oculto_startup.log'
 $outLog    = Join-Path $logsDir 'uvicorn-stdout.log'
 $errLog    = Join-Path $logsDir 'uvicorn-stderr.log'
-$apiPort = 8000
+$apiPort = 8001
 try {
     if ($env:SPARTA_API_PORT) { $apiPort = [int]$env:SPARTA_API_PORT }
 } catch {
-    $apiPort = 8000
+    $apiPort = 8001
 }
 
 if (-not (Test-Path -LiteralPath $logsDir)) {
@@ -160,7 +160,7 @@ if (-not $pyExe) {
     exit 1
 }
 
-# ---- 3) Si ya hay algo escuchando en 8000, no relanzar ----
+# ---- 3) Si ya hay algo escuchando en 8001, no relanzar ----
 $alreadyListening = Test-ApiReady
 if ($alreadyListening) {
     Write-Start "OK: Puerto $apiPort ya esta en LISTEN; no se inicia de nuevo."
@@ -215,7 +215,7 @@ try {
     exit 1
 }
 
-# ---- 6) Esperar hasta 20s a que 8000 quede LISTENING ----
+# ---- 6) Esperar hasta 20s a que 8001 quede LISTENING ----
 $ok = $false
 for ($i = 0; $i -lt 90; $i++) {
     Start-Sleep -Milliseconds 500

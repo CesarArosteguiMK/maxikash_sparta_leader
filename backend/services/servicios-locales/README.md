@@ -1,6 +1,6 @@
 # Servicios locales (orquestador)
 
-Scripts para levantar o apagar **todos** los procesos auxiliares (Node + API Python en 8000, Docker opcional) desde una sola carpeta.
+Scripts para levantar o apagar **todos** los procesos auxiliares (Node + API Python en 8001, Docker opcional) desde una sola carpeta.
 
 **Ruta:** `backend/services/servicios-locales/`
 
@@ -20,7 +20,7 @@ Primera vez en una maquina: ejecute **`instalar-todos-deps-node.bat`** o cada `i
 | Archivo | Descripcion |
 |---------|-------------|
 | `iniciar-todos-los-servicios.bat` | Consola con resumen; agentes se abren **minimizados** en la barra (no ocultos del todo). |
-| `iniciar-todos-los-servicios.ps1` | Lógica (lo llama el `.bat`): arranca y valida puertos (3001, 3100, 3110, 3120, 8000), avisando si alguno no levantó en el tiempo esperado. |
+| `iniciar-todos-los-servicios.ps1` | Lógica (lo llama el `.bat`): arranca y valida puertos (3001, 3100, 3110, 3120, 8001), avisando si alguno no levantó en el tiempo esperado. |
 | `iniciar-todos-los-servicios-oculto.vbs` | **Sin ventanas:** ni la consola del orquestador ni las de agentes/API (usa `-SinVentanas` en el `.ps1`). Si algo falla, use el `.bat` para ver mensajes. |
 
 **Qué inicia** (rutas relativas a `backend/`):
@@ -29,7 +29,7 @@ Primera vez en una maquina: ejecute **`instalar-todos-deps-node.bat`** o cada `i
 2. **3100** - Agente `services/segundometro-agent/`
 3. **3110** - Agente `services/correos-primeros-pagos-agent/` (con el `.bat` minimizada en la barra; con el `.vbs` oculto **no** deberia verse)
 4. **3120** - Agente `services/gastos-cobranza-agent/` (reporte cobranza, worker EC, carga lista negra, descargo estatus 3)
-5. **8000** - API Python en `API/` mediante `Iniciar-API-Verificacion.bat` (flujo 1-click). Si el Python portable falta o esta incompleto (`_socket.pyd`), se descarga el embeddable oficial de python.org automaticamente; luego doctor + auto-fix instalan dependencias y arrancan uvicorn. Espera hasta 90s para considerar que levanto. Docker no es obligatorio.
+5. **8001** - API Python en `API/` mediante `Iniciar-API-Verificacion.bat` (flujo 1-click). Si el Python portable falta o esta incompleto (`_socket.pyd`), se descarga el embeddable oficial de python.org automaticamente; luego doctor + auto-fix instalan dependencias y arrancan uvicorn. Espera hasta 90s para considerar que levanto. Docker no es obligatorio.
 
 **Requisitos:** Node.js; dependencias npm de los agentes instaladas (la API Python se auto-instala vía bootstrap si es necesario, asumiendo salida a `python.org` y `bootstrap.pypa.io`); Tesseract OCR ya viene en `backend/API/tools/`.
 
@@ -37,12 +37,12 @@ Primera vez en una maquina: ejecute **`instalar-todos-deps-node.bat`** o cada `i
 
 | Archivo | Descripcion |
 |---------|-------------|
-| `cerrar-todos-los-servicios.bat` | Cierra 3001, 3100, 3110, 3120; libera el puerto 8000 ^(`API\launcher\cerrar-agente.ps1`^); y `docker compose down` en `API` si Docker esta activo. |
+| `cerrar-todos-los-servicios.bat` | Cierra 3001, 3100, 3110, 3120; libera el puerto 8001 ^(`API\launcher\cerrar-agente.ps1`^); y `docker compose down` en `API` si Docker esta activo. |
 | `cerrar-todos-los-servicios.ps1` | Logica. |
 | `cerrar-todos-los-servicios-oculto.vbs` | Sin ventana. |
 
 ## Notas
 
 - Los `.bat` resuelven la carpeta `backend` como **dos niveles arriba** de esta carpeta (`services\servicios-locales`).
-- Puertos: 3001 / 3100 / 3110 / 3120 / 8000 no se solapan entre si.
+- Puertos: 3001 / 3100 / 3110 / 3120 / 8001 no se solapan entre si.
 - Apache/XAMPP no forman parte de estos scripts.

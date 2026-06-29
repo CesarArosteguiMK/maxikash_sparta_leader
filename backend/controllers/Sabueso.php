@@ -68,7 +68,7 @@ class Sabueso extends Controller
         $columnsJson = $this->getColumnsConfig(false);
         $script = '<script>window.sabuesoTicketColumns=' . $columnsJson['columnsJs'] . ';</script>' . "\n"
             . '<script>window.categoriasDisponiblesPorPuesto=' . json_encode($categoriasDisponibles) . ';</script>' . "\n"
-            . '<script src="/assets/js/sabueso_ticket.js"></script>';
+            . '<script src="/assets/js/sabueso_ticket.js?v=historial-semanal-20260626"></script>';
 
         self::set('titulo', 'Ticket | Sabueso');
         self::set('script', $script);
@@ -1684,16 +1684,49 @@ class Sabueso extends Controller
             if (consultado) return '<span class="text-muted">No</span>';
             return '<span class="text-warning">Sin verificar</span>';
         }
-        function cargarHistoricoIlocalizable(q) {
+        var historicoIlocalizableEstado = { q: '', page: 1, perPage: 50, total: 0, totalPages: 1 };
+        function actualizarPaginacionHistoricoIlocalizable(r, filas) {
+            var total = parseInt((r && r.total) || 0, 10) || 0;
+            var page = parseInt((r && r.page) || historicoIlocalizableEstado.page || 1, 10) || 1;
+            var perPage = parseInt((r && r.per_page) || historicoIlocalizableEstado.perPage || 50, 10) || 50;
+            var totalPages = parseInt((r && r.total_pages) || 1, 10) || 1;
+            historicoIlocalizableEstado.page = page;
+            historicoIlocalizableEstado.perPage = perPage;
+            historicoIlocalizableEstado.total = total;
+            historicoIlocalizableEstado.totalPages = totalPages;
+            var info = document.getElementById('historicoIlocalizablePaginacionInfo');
+            var pag = document.getElementById('historicoIlocalizablePagina');
+            var prev = document.getElementById('btnHistoricoIlocalizablePrev');
+            var next = document.getElementById('btnHistoricoIlocalizableNext');
+            var count = Array.isArray(filas) ? filas.length : 0;
+            var desde = total > 0 ? ((page - 1) * perPage + 1) : 0;
+            var hasta = total > 0 ? Math.min(total, desde + count - 1) : 0;
+            if (info) info.textContent = total > 0 ? ('Mostrando ' + desde + ' a ' + hasta + ' de ' + total + ' registros.') : 'Sin registros para mostrar.';
+            if (pag) pag.textContent = 'Pagina ' + page + ' de ' + totalPages;
+            if (prev) prev.disabled = page <= 1;
+            if (next) next.disabled = page >= totalPages;
+        }
+        function cargarHistoricoIlocalizable(q, page) {
             var tbody = document.getElementById('tbodyHistoricoIlocalizable');
             var resumen = document.getElementById('historicoIlocalizableResumen');
             if (!tbody) return;
+            var sel = document.getElementById('selectHistoricoIlocalizablePageSize');
+            var perPage = sel ? (parseInt(sel.value, 10) || 50) : 50;
+            historicoIlocalizableEstado.q = (q || '').toString();
+            historicoIlocalizableEstado.page = parseInt(page || historicoIlocalizableEstado.page || 1, 10) || 1;
+            historicoIlocalizableEstado.perPage = perPage;
             tbody.innerHTML = '<tr><td colspan="10" class="text-center text-muted py-4"><i class="fa-solid fa-spinner fa-spin me-2"></i>Cargando historico...</td></tr>';
-            if (resumen) resumen.textContent = 'Consultando historico ilocalizable...';
+            if (resumen) resumen.textContent = 'Consultando pagina ' + historicoIlocalizableEstado.page + ' del historico ilocalizable...';
+            actualizarPaginacionHistoricoIlocalizable({
+                total: historicoIlocalizableEstado.total || 0,
+                page: historicoIlocalizableEstado.page,
+                per_page: perPage,
+                total_pages: historicoIlocalizableEstado.totalPages || 1
+            }, []);
             http.request({
                 endpoint: '/sabueso/getHistoricoIlocalizables',
                 metodo: 'POST',
-                data: JSON.stringify({ q: q || '', limit: 1000, origen: 'manual' }),
+                data: JSON.stringify({ q: historicoIlocalizableEstado.q, page: historicoIlocalizableEstado.page, per_page: perPage }),
                 contentType: 'application/json',
                 processData: false,
                 showLoader: false,
@@ -1705,8 +1738,9 @@ class Sabueso extends Controller
                         return;
                     }
                     if (!filas.length) {
-                        tbody.innerHTML = '<tr><td colspan="10" class="text-center text-muted py-4">No hay creditos ilocalizables manuales con ese filtro.</td></tr>';
+                        tbody.innerHTML = '<tr><td colspan="10" class="text-center text-muted py-4">No hay creditos ilocalizables con ese filtro.</td></tr>';
                         if (resumen) resumen.textContent = 'Sin resultados.';
+                        actualizarPaginacionHistoricoIlocalizable(r, filas);
                         return;
                     }
                     var html = '';
@@ -1729,16 +1763,18 @@ class Sabueso extends Controller
                             '</tr>';
                     });
                     tbody.innerHTML = html;
+                    actualizarPaginacionHistoricoIlocalizable(r, filas);
                     if (resumen) {
                         var total = r.total != null ? parseInt(r.total, 10) || filas.length : filas.length;
                         var totalCreditos = r.total_creditos != null ? parseInt(r.total_creditos, 10) || 0 : 0;
                         var extraCreditos = totalCreditos ? ' (' + totalCreditos + ' credito(s) unico(s))' : '';
-                        resumen.textContent = 'Mostrando ' + filas.length + ' de ' + total + ' registro(s)' + extraCreditos + (q ? ' filtrados.' : '.');
+                        resumen.textContent = 'Mostrando pagina ' + (r.page || historicoIlocalizableEstado.page) + ' de ' + (r.total_pages || historicoIlocalizableEstado.totalPages) + ': ' + filas.length + ' de ' + total + ' registro(s)' + extraCreditos + (historicoIlocalizableEstado.q ? ' filtrados.' : '.');
                     }
                 },
                 onError: function() {
                     tbody.innerHTML = '<tr><td colspan="10" class="text-center text-danger py-4"><i class="fa-solid fa-circle-xmark me-1"></i>No se pudo cargar el historico.</td></tr>';
                     if (resumen) resumen.textContent = 'No se pudo cargar el historico.';
+                    actualizarPaginacionHistoricoIlocalizable({ total: 0, page: 1, per_page: perPage, total_pages: 1 }, []);
                 }
             });
         }
@@ -1755,7 +1791,7 @@ class Sabueso extends Controller
             } else if (typeof $ !== 'undefined' && $(modalEl).modal) {
                 $(modalEl).modal('show');
             }
-            cargarHistoricoIlocalizable(q);
+            cargarHistoricoIlocalizable(q, 1);
         }
         function abrirReporteSemanalGlobal(semanaInicio) {
             window._reporteSemanalGlobalReqId = (window._reporteSemanalGlobalReqId || 0) + 1;
@@ -2752,18 +2788,32 @@ class Sabueso extends Controller
             });
             $(document).on('click', '#btnHistoricoIlocalizableBuscar', function() {
                 var input = document.getElementById('inputHistoricoIlocalizableBuscar');
-                cargarHistoricoIlocalizable(input ? input.value.trim() : '');
+                cargarHistoricoIlocalizable(input ? input.value.trim() : '', 1);
             });
             $(document).on('keydown', '#inputHistoricoIlocalizableBuscar', function(e) {
                 if (e.key === 'Enter') {
                     e.preventDefault();
-                    cargarHistoricoIlocalizable(this.value.trim());
+                    cargarHistoricoIlocalizable(this.value.trim(), 1);
                 }
             });
             $(document).on('click', '#btnHistoricoIlocalizableLimpiar', function() {
                 var input = document.getElementById('inputHistoricoIlocalizableBuscar');
                 if (input) input.value = '';
-                cargarHistoricoIlocalizable('');
+                cargarHistoricoIlocalizable('', 1);
+            });
+            $(document).on('change', '#selectHistoricoIlocalizablePageSize', function() {
+                var input = document.getElementById('inputHistoricoIlocalizableBuscar');
+                cargarHistoricoIlocalizable(input ? input.value.trim() : historicoIlocalizableEstado.q, 1);
+            });
+            $(document).on('click', '#btnHistoricoIlocalizablePrev', function() {
+                if (historicoIlocalizableEstado.page > 1) {
+                    cargarHistoricoIlocalizable(historicoIlocalizableEstado.q, historicoIlocalizableEstado.page - 1);
+                }
+            });
+            $(document).on('click', '#btnHistoricoIlocalizableNext', function() {
+                if (historicoIlocalizableEstado.page < historicoIlocalizableEstado.totalPages) {
+                    cargarHistoricoIlocalizable(historicoIlocalizableEstado.q, historicoIlocalizableEstado.page + 1);
+                }
             });
             var modalRepSemanal = document.getElementById('modalReporteSemanalGlobal');
             if (modalRepSemanal) {
@@ -3167,8 +3217,9 @@ class Sabueso extends Controller
         }
         $filtros = [
             'q' => trim((string)($body['q'] ?? $_POST['q'] ?? '')),
-            'limit' => (int)($body['limit'] ?? $_POST['limit'] ?? 500),
-            'origen' => 'manual',
+            'page' => (int)($body['page'] ?? $_POST['page'] ?? 1),
+            'per_page' => (int)($body['per_page'] ?? $_POST['per_page'] ?? ($body['limit'] ?? $_POST['limit'] ?? 50)),
+            'origen' => trim((string)($body['origen'] ?? $_POST['origen'] ?? 'manual')),
         ];
         $res = TicketDAO::getHistoricoIlocalizables($filtros);
         self::respuestaJSON($res);
@@ -3256,6 +3307,24 @@ class Sabueso extends Controller
             'success' => $resultado['success'] ?? false,
             'mensaje' => $resultado['mensaje'] ?? '',
             'datos'   => $datos
+        ]);
+    }
+
+    /**
+     * API: historial semanal general para el menu Mis Tickets.
+     */
+    public function getHistorialSemanalMisTickets()
+    {
+        $usuarioId = (int)($_SESSION['usuario_id'] ?? 0);
+        if ($usuarioId < 1) {
+            self::respuestaJSON(['success' => false, 'mensaje' => 'Sesión inválida.', 'datos' => null]);
+            return;
+        }
+        $resultado = TicketDAO::getHistorialSemanalMisTickets($usuarioId);
+        self::respuestaJSON([
+            'success' => $resultado['success'] ?? false,
+            'mensaje' => $resultado['mensaje'] ?? '',
+            'datos' => $resultado['datos'] ?? null,
         ]);
     }
 
@@ -3488,6 +3557,29 @@ class Sabueso extends Controller
         if ($idCredito < 1) {
             self::respuestaJSON(['success' => false, 'mensaje' => 'El ID de crédito es obligatorio.']);
             return;
+        }
+        if ($cat === '' || $cat === 'sabueso') {
+            $validacionIlocalizable = TicketDAO::getCreditoIlocalizableActivo($idCredito);
+            if (empty($validacionIlocalizable['success'])) {
+                self::respuestaJSON([
+                    'success' => false,
+                    'mensaje' => $validacionIlocalizable['mensaje'] ?? 'No se pudo validar si el credito esta marcado como ilocalizable. Intente nuevamente antes de levantar el ticket.',
+                    'datos' => ['codigo' => 'validacion_ilocalizable_no_disponible']
+                ]);
+                return;
+            }
+            if (!empty($validacionIlocalizable['ilocalizable'])) {
+                self::respuestaJSON([
+                    'success' => false,
+                    'mensaje' => $validacionIlocalizable['mensaje'] ?? ('El credito ' . $idCredito . ' esta marcado como ilocalizable.'),
+                    'datos' => [
+                        'codigo' => 'credito_ilocalizable',
+                        'ilocalizable' => true,
+                        'historico' => $validacionIlocalizable['datos'] ?? null,
+                    ],
+                ]);
+                return;
+            }
         }
         $dir = EmpresaDAO::getConsultaDireccionEstadoCuenta($idCredito);
         $ref = EmpresaDAO::getConsultaReferenciasEstadoCuenta($idCredito);
@@ -4441,7 +4533,7 @@ class Sabueso extends Controller
         $apiUrl = isset($config['doc_verificacion']['api_url']) ? trim($config['doc_verificacion']['api_url']) : '';
         $apiKey = isset($config['doc_verificacion']['api_key']) ? trim($config['doc_verificacion']['api_key']) : 'sparta-__SPARTA_SECRET_REDACTED__-doc-verificacion-key';
         if ($apiUrl === '') {
-            $apiUrl = 'http://127.0.0.1:8000/api/v1/verificar';
+            $apiUrl = 'http://127.0.0.1:8001/api/v1/verificar';
         }
         $baseUrl = preg_replace('#/verificar\s*$#', '', $apiUrl);
         $endpoint = rtrim($baseUrl, '/') . '/fad/informacion-ingresos';

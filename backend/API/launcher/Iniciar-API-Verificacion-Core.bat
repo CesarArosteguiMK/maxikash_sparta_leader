@@ -54,7 +54,7 @@ if errorlevel 1 (
 
 echo.
 echo  ============================================
-echo   API en ejecución en http://127.0.0.1:8000
+echo   API en ejecución en http://127.0.0.1:8001
 echo   Informacion de ingresos FAD, verificacion documentos
 echo  ============================================
 echo.

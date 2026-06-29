@@ -28,6 +28,7 @@ class Candidatos extends Model
     private static function asegurarColumnasFlujoIngreso(Database $db): void
     {
         $columnas = [
+            'id_jefe_divisional' => "INT NULL AFTER id_posible_jefe",
             'fecha_ingreso_programada' => "DATE NULL AFTER fecha_postulacion_enviada",
             'fecha_ingreso_notificada_en' => "DATETIME NULL AFTER fecha_ingreso_programada",
             'contrato_firmado_en' => "DATETIME NULL AFTER fecha_ingreso_notificada_en",
@@ -172,8 +173,8 @@ class Candidatos extends Model
                 c.apellidom,
                 c.email,
                 c.telefono,
-                c.id_div_nivel1,
-                c.id_div_nivel2,
+                COALESCE(c.id_div_nivel1, div2_padre.id, div3_estado.id) AS id_div_nivel1,
+                COALESCE(c.id_div_nivel2, div3_municipio.id) AS id_div_nivel2,
                 c.id_div_nivel3,
                 c.domicilio_calle_texto,
                 c.domicilio_num_exterior,
@@ -182,6 +183,7 @@ class Candidatos extends Model
                 c.id_puesto,
                 c.id_departamento,
                 c.id_posible_jefe,
+                c.id_jefe_divisional,
                 c.estatus,
                 c.notas,
                 c.estatus,
@@ -196,25 +198,31 @@ class Candidatos extends Model
                 c.fecha_registro,
                 c.fecha_actualizacion,
                 pais.nombre AS nombre_pais,
-                div1.nombre AS nombre_div_nivel1,
-                div2.nombre AS nombre_div_nivel2,
+                COALESCE(div1.nombre, div2_padre.nombre, div3_estado.nombre) AS nombre_div_nivel1,
+                COALESCE(div2.nombre, div3_municipio.nombre) AS nombre_div_nivel2,
                 div3.nombre AS nombre_div_nivel3,
                 p.nombre AS nombre_puesto,
                 d.nombre AS nombre_departamento,
                 COALESCE(dir.id, 0) AS id_direccion,
                 COALESCE(dir.nombre, '') AS nombre_direccion,
-                TRIM(CONCAT_WS(' ', jefe.nombres, jefe.segundo_nombre, jefe.apellidop, jefe.apellidom)) AS nombre_jefe
+                TRIM(CONCAT_WS(' ', jefe.nombres, jefe.segundo_nombre, jefe.apellidop, jefe.apellidom)) AS nombre_jefe,
+                TRIM(CONCAT_WS(' ', jefe_divisional.nombres, jefe_divisional.segundo_nombre, jefe_divisional.apellidop, jefe_divisional.apellidom)) AS nombre_jefe_divisional,
+                jefe_divisional.correo AS correo_jefe_divisional
             FROM candidatos c
             LEFT JOIN paises pais ON pais.id = c.id_pais
             LEFT JOIN divisiones_administrativas div1 ON div1.id = c.id_div_nivel1
             LEFT JOIN divisiones_administrativas div2 ON div2.id = c.id_div_nivel2
             LEFT JOIN divisiones_administrativas div3 ON div3.id = c.id_div_nivel3
+            LEFT JOIN divisiones_administrativas div2_padre ON div2_padre.id = div2.id_padre AND div2_padre.nivel = 1
+            LEFT JOIN divisiones_administrativas div3_municipio ON div3_municipio.id = div3.id_padre AND div3_municipio.nivel = 2
+            LEFT JOIN divisiones_administrativas div3_estado ON div3_estado.id = div3_municipio.id_padre AND div3_estado.nivel = 1
             LEFT JOIN puesto p ON p.id = c.id_puesto
             LEFT JOIN departamento d ON d.id = c.id_departamento
             LEFT JOIN departamento_organizacional dorg ON dorg.id = d.id_departamento_organizacional
             LEFT JOIN asigna_direcciones ad ON ad.id_departamento_organizacional = d.id_departamento_organizacional AND COALESCE(ad.activo, 1) = 1
             LEFT JOIN direcciones_organizacion dir ON dir.id = ad.id_direccion
             LEFT JOIN persona jefe ON jefe.id = c.id_posible_jefe
+            LEFT JOIN persona jefe_divisional ON jefe_divisional.id = c.id_jefe_divisional
             WHERE 1=1
         SQL;
         $params = [];
@@ -281,8 +289,8 @@ class Candidatos extends Model
                 c.email,
                 c.telefono,
                 c.id_pais,
-                c.id_div_nivel1,
-                c.id_div_nivel2,
+                COALESCE(c.id_div_nivel1, div2_padre.id, div3_estado.id) AS id_div_nivel1,
+                COALESCE(c.id_div_nivel2, div3_municipio.id) AS id_div_nivel2,
                 c.id_div_nivel3,
                 c.domicilio_calle_texto,
                 c.domicilio_num_exterior,
@@ -291,6 +299,7 @@ class Candidatos extends Model
                 c.id_puesto,
                 c.id_departamento,
                 c.id_posible_jefe,
+                c.id_jefe_divisional,
                 c.fecha_postulacion,
                 c.id_legion,
                 c.usuario,
@@ -307,19 +316,33 @@ class Candidatos extends Model
                 c.motivo_contratacion,
                 c.fecha_registro,
                 c.fecha_actualizacion,
+                pais.nombre AS nombre_pais,
+                COALESCE(div1.nombre, div2_padre.nombre, div3_estado.nombre) AS nombre_div_nivel1,
+                COALESCE(div2.nombre, div3_municipio.nombre) AS nombre_div_nivel2,
+                div3.nombre AS nombre_div_nivel3,
                 p.nombre AS nombre_puesto,
                 d.nombre AS nombre_departamento,
                 COALESCE(dir.id, 0) AS id_direccion,
                 COALESCE(dir.nombre, '') AS nombre_direccion,
                 TRIM(CONCAT_WS(' ', jefe.nombres, jefe.segundo_nombre, jefe.apellidop, jefe.apellidom)) AS nombre_jefe,
-                jefe.correo AS correo_jefe
+                jefe.correo AS correo_jefe,
+                TRIM(CONCAT_WS(' ', jefe_divisional.nombres, jefe_divisional.segundo_nombre, jefe_divisional.apellidop, jefe_divisional.apellidom)) AS nombre_jefe_divisional,
+                jefe_divisional.correo AS correo_jefe_divisional
             FROM candidatos c
+            LEFT JOIN paises pais ON pais.id = c.id_pais
+            LEFT JOIN divisiones_administrativas div1 ON div1.id = c.id_div_nivel1
+            LEFT JOIN divisiones_administrativas div2 ON div2.id = c.id_div_nivel2
+            LEFT JOIN divisiones_administrativas div3 ON div3.id = c.id_div_nivel3
+            LEFT JOIN divisiones_administrativas div2_padre ON div2_padre.id = div2.id_padre AND div2_padre.nivel = 1
+            LEFT JOIN divisiones_administrativas div3_municipio ON div3_municipio.id = div3.id_padre AND div3_municipio.nivel = 2
+            LEFT JOIN divisiones_administrativas div3_estado ON div3_estado.id = div3_municipio.id_padre AND div3_estado.nivel = 1
             LEFT JOIN puesto p ON p.id = c.id_puesto
             LEFT JOIN departamento d ON d.id = c.id_departamento
             LEFT JOIN departamento_organizacional dorg ON dorg.id = d.id_departamento_organizacional
             LEFT JOIN asigna_direcciones ad ON ad.id_departamento_organizacional = d.id_departamento_organizacional AND COALESCE(ad.activo, 1) = 1
             LEFT JOIN direcciones_organizacion dir ON dir.id = ad.id_direccion
             LEFT JOIN persona jefe ON jefe.id = c.id_posible_jefe
+            LEFT JOIN persona jefe_divisional ON jefe_divisional.id = c.id_jefe_divisional
             WHERE c.id = :id
         SQL;
         try {
@@ -634,13 +657,13 @@ class Candidatos extends Model
             INSERT INTO candidatos (
                 nombres, segundo_nombre, apellidop, apellidom,
                 email, telefono, id_pais, id_div_nivel1, id_div_nivel2, id_div_nivel3, domicilio_calle_texto, domicilio_num_exterior, domicilio_num_interior, codigo_postal,
-                id_puesto, id_departamento, id_posible_jefe,
+                id_puesto, id_departamento, id_posible_jefe, id_jefe_divisional,
                 fecha_postulacion, id_legion, usuario, contrasena,
                 postulacion_enviada, fecha_postulacion_enviada, estatus, notas, fecha_registro
             ) VALUES (
                 :nombres, :segundo_nombre, :apellidop, :apellidom,
                 :email, :telefono, :id_pais, :id_div_nivel1, :id_div_nivel2, :id_div_nivel3, :domicilio_calle_texto, :domicilio_num_exterior, :domicilio_num_interior, :codigo_postal,
-                :id_puesto, :id_departamento, :id_posible_jefe,
+                :id_puesto, :id_departamento, :id_posible_jefe, :id_jefe_divisional,
                 :fecha_postulacion, :id_legion, :usuario, :contrasena,
                 :postulacion_enviada, :fecha_postulacion_enviada, :estatus, :notas, :fecha_registro
             )
@@ -663,6 +686,7 @@ class Candidatos extends Model
             'id_puesto' => !empty($data['id_puesto']) ? (int) $data['id_puesto'] : null,
             'id_departamento' => !empty($data['id_departamento']) ? (int) $data['id_departamento'] : null,
             'id_posible_jefe' => !empty($data['id_posible_jefe']) ? (int) $data['id_posible_jefe'] : null,
+            'id_jefe_divisional' => !empty($data['id_jefe_divisional']) ? (int) $data['id_jefe_divisional'] : null,
             'fecha_postulacion' => !empty($data['fecha_postulacion']) ? $data['fecha_postulacion'] : null,
             'id_legion' => !empty($data['id_legion']) ? (int) $data['id_legion'] : null,
             'usuario' => trim($data['usuario'] ?? '') ?: null,
@@ -709,6 +733,52 @@ class Candidatos extends Model
             return self::resultado(false, 'Nombres y apellido paterno son obligatorios.', null);
         }
 
+        try {
+            $dbActual = new Database();
+            self::asegurarColumnasFlujoIngreso($dbActual);
+            $actual = $dbActual->queryOne(
+                "SELECT
+                    id_pais, id_div_nivel1, id_div_nivel2, id_div_nivel3,
+                    domicilio_calle_texto, domicilio_num_exterior, domicilio_num_interior, codigo_postal,
+                    id_puesto, id_departamento, id_posible_jefe, id_jefe_divisional, fecha_postulacion,
+                    id_legion, usuario, contrasena, notas
+                 FROM candidatos
+                 WHERE id = :id
+                 LIMIT 1",
+                ['id' => $id]
+            );
+            if (!$actual) {
+                return self::resultado(false, 'Candidato no encontrado.', null);
+            }
+        } catch (\Exception $e) {
+            return self::resultado(false, 'Error al actualizar candidato.', null, $e->getMessage());
+        }
+
+        $usarActualIntSiVacio = static function (string $campo) use ($data, $actual) {
+            if (array_key_exists($campo, $data)) {
+                $valor = trim((string) ($data[$campo] ?? ''));
+                if ($valor !== '') {
+                    return (int) $valor;
+                }
+            }
+            return !empty($actual[$campo]) ? (int) $actual[$campo] : null;
+        };
+
+        $usarActualTextoSiVacio = static function (string $campo, ?int $max = null) use ($data, $actual) {
+            if (array_key_exists($campo, $data)) {
+                $valor = trim((string) ($data[$campo] ?? ''));
+                if ($valor !== '') {
+                    return $max !== null ? substr($valor, 0, $max) : $valor;
+                }
+            }
+
+            $valorActual = trim((string) ($actual[$campo] ?? ''));
+            if ($valorActual === '') {
+                return null;
+            }
+            return $max !== null ? substr($valorActual, 0, $max) : $valorActual;
+        };
+
         $query = <<<SQL
             UPDATE candidatos SET
                 nombres = :nombres,
@@ -728,6 +798,7 @@ class Candidatos extends Model
                 id_puesto = :id_puesto,
                 id_departamento = :id_departamento,
                 id_posible_jefe = :id_posible_jefe,
+                id_jefe_divisional = :id_jefe_divisional,
                 fecha_postulacion = :fecha_postulacion,
                 id_legion = :id_legion,
                 usuario = :usuario,
@@ -744,22 +815,29 @@ class Candidatos extends Model
             'apellidom' => trim($data['apellidom'] ?? '') ?: null,
             'email' => trim($data['email'] ?? '') ?: null,
             'telefono' => trim($data['telefono'] ?? '') ?: null,
-            'id_pais' => !empty($data['id_pais']) ? (int) $data['id_pais'] : null,
-            'id_div_nivel1' => !empty($data['id_div_nivel1']) ? (int) $data['id_div_nivel1'] : null,
-            'id_div_nivel2' => !empty($data['id_div_nivel2']) ? (int) $data['id_div_nivel2'] : null,
-            'id_div_nivel3' => !empty($data['id_div_nivel3']) ? (int) $data['id_div_nivel3'] : null,
-            'domicilio_calle_texto' => trim($data['domicilio_calle_texto'] ?? '') ?: null,
-            'domicilio_num_exterior' => trim($data['domicilio_num_exterior'] ?? '') ?: null,
-            'domicilio_num_interior' => trim($data['domicilio_num_interior'] ?? '') ?: null,
-            'codigo_postal' => substr(trim($data['codigo_postal'] ?? ''), 0, 12) ?: null,
-            'id_puesto' => !empty($data['id_puesto']) ? (int) $data['id_puesto'] : null,
-            'id_departamento' => !empty($data['id_departamento']) ? (int) $data['id_departamento'] : null,
-            'id_posible_jefe' => !empty($data['id_posible_jefe']) ? (int) $data['id_posible_jefe'] : null,
-            'fecha_postulacion' => !empty($data['fecha_postulacion']) ? $data['fecha_postulacion'] : null,
-            'id_legion' => !empty($data['id_legion']) ? (int) $data['id_legion'] : null,
-            'usuario' => isset($data['usuario']) ? (trim($data['usuario']) ?: null) : null,
-            'contrasena' => isset($data['contrasena']) ? (trim($data['contrasena']) ?: null) : null,
-            'notas' => trim($data['notas'] ?? '') ?: null,
+            'id_pais' => $usarActualIntSiVacio('id_pais'),
+            'id_div_nivel1' => $usarActualIntSiVacio('id_div_nivel1'),
+            'id_div_nivel2' => $usarActualIntSiVacio('id_div_nivel2'),
+            'id_div_nivel3' => $usarActualIntSiVacio('id_div_nivel3'),
+            'domicilio_calle_texto' => $usarActualTextoSiVacio('domicilio_calle_texto'),
+            'domicilio_num_exterior' => $usarActualTextoSiVacio('domicilio_num_exterior'),
+            'domicilio_num_interior' => $usarActualTextoSiVacio('domicilio_num_interior'),
+            'codigo_postal' => $usarActualTextoSiVacio('codigo_postal', 12),
+            'id_puesto' => $usarActualIntSiVacio('id_puesto'),
+            'id_departamento' => $usarActualIntSiVacio('id_departamento'),
+            'id_posible_jefe' => $usarActualIntSiVacio('id_posible_jefe'),
+            'id_jefe_divisional' => array_key_exists('id_jefe_divisional', $data)
+                ? (!empty($data['id_jefe_divisional']) ? (int) $data['id_jefe_divisional'] : null)
+                : (!empty($actual['id_jefe_divisional']) ? (int) $actual['id_jefe_divisional'] : null),
+            'fecha_postulacion' => $usarActualTextoSiVacio('fecha_postulacion'),
+            'id_legion' => array_key_exists('id_legion', $data)
+                ? (!empty($data['id_legion']) ? (int) $data['id_legion'] : null)
+                : (!empty($actual['id_legion']) ? (int) $actual['id_legion'] : null),
+            'usuario' => $usarActualTextoSiVacio('usuario'),
+            'contrasena' => $usarActualTextoSiVacio('contrasena'),
+            'notas' => array_key_exists('notas', $data)
+                ? (trim((string) ($data['notas'] ?? '')) ?: null)
+                : ($actual['notas'] ?? null),
             'fecha_actualizacion' => self::fechaHoraActualMexicoCiudad(),
         ];
 
@@ -1615,6 +1693,9 @@ class Candidatos extends Model
             self::asegurarTablaJobsVerificacionDocumental($db);
             $ahora = self::fechaHoraActualMexicoCiudad();
 
+            $maxIntentosJob = $expedienteValor === 1 ? 1 : 3;
+            $prioridadJob = $expedienteValor === 1 ? 9 : 5;
+
             $existente = $db->queryOne(
                 "SELECT id, tipos_subidos_json, expediente_completo
                  FROM candidato_verificacion_documental_job
@@ -1649,6 +1730,8 @@ class Candidatos extends Model
                          tipos_subidos_json = :tipos,
                          expediente_completo = :expediente,
                          origen = :origen,
+                         prioridad = GREATEST(prioridad, :prioridad),
+                         max_intentos = :max_intentos,
                          next_run_at = :ahora,
                          last_error = NULL,
                          updated_at = :ahora
@@ -1658,6 +1741,8 @@ class Candidatos extends Model
                         'tipos' => json_encode(array_keys($tipos)),
                         'expediente' => $expedienteFinal,
                         'origen' => substr($origen, 0, 40),
+                        'prioridad' => $expedienteFinal === 1 ? 9 : $prioridadJob,
+                        'max_intentos' => $expedienteFinal === 1 ? 1 : $maxIntentosJob,
                         'ahora' => $ahora,
                     ]
                 );
@@ -1666,15 +1751,16 @@ class Candidatos extends Model
 
             $db->CRUD(
                 "INSERT INTO candidato_verificacion_documental_job
-                    (id_candidato, estado, prioridad, origen, tipos_subidos_json, expediente_completo, next_run_at, created_at, updated_at)
+                    (id_candidato, estado, prioridad, max_intentos, origen, tipos_subidos_json, expediente_completo, next_run_at, created_at, updated_at)
                  VALUES
-                    (:id, 'pendiente', :prioridad, :origen, :tipos, :expediente, :ahora, :ahora, :ahora)",
+                    (:id, 'pendiente', :prioridad, :max_intentos, :origen, :tipos, :expediente, :ahora, :ahora, :ahora)",
                 [
                     'id' => $id_candidato,
-                    'prioridad' => $expedienteCompleto ? 9 : 5,
+                    'prioridad' => $prioridadJob,
                     'origen' => substr($origen, 0, 40),
                     'tipos' => json_encode(array_keys($tipos)),
                     'expediente' => $expedienteValor,
+                    'max_intentos' => $maxIntentosJob,
                     'ahora' => $ahora,
                 ]
             );
@@ -1684,9 +1770,9 @@ class Candidatos extends Model
         }
     }
 
-    public static function tomarSiguienteJobVerificacionDocumental(int $staleMinutes = 20)
+    public static function tomarSiguienteJobVerificacionDocumental(int $staleMinutes = 3)
     {
-        $staleMinutes = max(5, min(120, $staleMinutes));
+        $staleMinutes = max(1, min(120, $staleMinutes));
         try {
             $db = new Database();
             self::asegurarTablaJobsVerificacionDocumental($db);
@@ -1719,7 +1805,8 @@ class Candidatos extends Model
                  SET estado = 'procesando',
                      intentos = intentos + 1,
                      locked_at = :ahora,
-                     started_at = COALESCE(started_at, :ahora),
+                     started_at = :ahora,
+                     finished_at = NULL,
                      last_error = NULL,
                      updated_at = :ahora
                  WHERE id = :id",

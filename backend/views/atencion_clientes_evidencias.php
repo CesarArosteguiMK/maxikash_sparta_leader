@@ -1,3 +1,11 @@
+<?php
+$aevPermisosBlacklist = $aev_permisos_blacklist ?? [
+    'cancelar' => false,
+    'blacklist' => false,
+    'ver' => false,
+    'liberar' => false,
+];
+?>
 <style>
 /* ══════════════════════════════════════════
    1.- EVIDENCIAS — estética alineada a Retenciones
@@ -1239,6 +1247,15 @@ body.dark-mode .aev-bitacora-item { border-color: #334155; }
                         <span class="badge bg-label-warning ms-1" id="ae-badge-correcciones" style="display:none;"></span>
                     </button>
                 </li>
+                <?php if (!empty($aevPermisosBlacklist['ver'])): ?>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link" id="ae-tab-blacklist-btn" type="button" role="tab"
+                            data-bs-toggle="tab" data-bs-target="#aeTabBlacklist">
+                        <i class="fa-solid fa-ban me-1"></i>Canceladas / BlackList
+                        <span class="badge bg-label-danger ms-1" id="ae-badge-blacklist" style="display:none;"></span>
+                    </button>
+                </li>
+                <?php endif; ?>
             </ul>
         </div>
 
@@ -1262,6 +1279,107 @@ body.dark-mode .aev-bitacora-item { border-color: #334155; }
                     <div class="spinner-border spinner-border-sm me-2"></div>Cargando...
                 </div>
                 <div id="ae-lista-correcciones"></div>
+            </div>
+
+            <?php if (!empty($aevPermisosBlacklist['ver'])): ?>
+            <div class="tab-pane fade" id="aeTabBlacklist" role="tabpanel">
+                <div id="ae-loader-blacklist" class="text-center py-5 text-muted" style="display:none;">
+                    <div class="spinner-border spinner-border-sm me-2"></div>Cargando...
+                </div>
+                <div id="ae-lista-blacklist"></div>
+            </div>
+            <?php endif; ?>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Cancelar / BlackList -->
+<div class="modal fade" id="modalAevCancelarOperacion" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title mb-0">
+                    <i class="fa-solid fa-ban me-2"></i>Cancelar operaci&oacute;n
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="aev-cancelar-id-operacion">
+                <div class="alert alert-warning mb-3">
+                    <div class="fw-bold" id="aev-cancelar-resumen">Operaci&oacute;n seleccionada</div>
+                    <div class="small">Se notifica que no se tiene Visto Bueno para adjudicar la Moto. Si hay dudas, el asesor debe contactar a su l&iacute;der.</div>
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label fw-bold">Acci&oacute;n</label>
+                    <div class="row g-2">
+                        <?php if (!empty($aevPermisosBlacklist['cancelar'])): ?>
+                        <div class="col-md-6">
+                            <label class="border rounded p-3 d-flex gap-2 align-items-start h-100">
+                                <input class="form-check-input mt-1" type="radio" name="aev_tipo_cancelacion" value="denegar_visto_bueno" checked>
+                                <span>
+                                    <span class="d-block fw-bold">Solo denegar Visto Bueno</span>
+                                    <small class="text-muted">Puede volver a gestionarse como Moto Adjudicada.</small>
+                                </span>
+                            </label>
+                        </div>
+                        <?php endif; ?>
+                        <?php if (!empty($aevPermisosBlacklist['blacklist'])): ?>
+                        <div class="col-md-6">
+                            <label class="border rounded p-3 d-flex gap-2 align-items-start h-100">
+                                <input class="form-check-input mt-1" type="radio" name="aev_tipo_cancelacion" value="blacklist" <?php echo empty($aevPermisosBlacklist['cancelar']) ? 'checked' : ''; ?>>
+                                <span>
+                                    <span class="d-block fw-bold">Agregar a BlackList</span>
+                                    <small class="text-muted">Legacy no podr&aacute; volver a gestionar el cr&eacute;dito hasta que se libere.</small>
+                                </span>
+                            </label>
+                        </div>
+                        <?php endif; ?>
+                    </div>
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label fw-bold">Motivo</label>
+                    <input type="text" class="form-control" id="aev-cancelar-motivo" maxlength="180"
+                           placeholder="Ej. No se tiene Visto Bueno por validaci&oacute;n de evidencias">
+                </div>
+                <div>
+                    <label class="form-label fw-bold">Comentario interno</label>
+                    <textarea class="form-control" id="aev-cancelar-comentario" rows="3"
+                              placeholder="Detalle para bit&aacute;cora y seguimiento interno"></textarea>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-primary" id="aev-btn-confirmar-cancelacion">
+                    <i class="fa-solid fa-floppy-disk me-1"></i>Guardar
+                </button>
+                <button type="button" class="btn btn-label-danger" data-bs-dismiss="modal">Cancelar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Liberar BlackList -->
+<div class="modal fade" id="modalAevLiberarBlacklist" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-md modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title mb-0">
+                    <i class="fa-solid fa-unlock-keyhole me-2"></i>Liberar BlackList
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="aev-liberar-blacklist-id">
+                <label class="form-label fw-bold">Motivo de liberaci&oacute;n</label>
+                <textarea class="form-control" id="aev-liberar-motivo" rows="3"
+                          placeholder="Explica por qu&eacute; se permite gestionar nuevamente"></textarea>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-warning" id="aev-btn-confirmar-liberar">
+                    <i class="fa-solid fa-unlock me-1"></i>Liberar
+                </button>
+                <button type="button" class="btn btn-label-danger" data-bs-dismiss="modal">Cancelar</button>
             </div>
         </div>
     </div>
@@ -1364,6 +1482,7 @@ $aevPuedeReemplazarEvidencia = in_array(79, array_map('intval', (array) ($_SESSI
     /** Ruta al directorio público, ej. /sparta___SPARTA_SECRET_REDACTED__/public (definida por el servidor, no adivinada) */
     var AEV_SERVER_PUBLIC_BASE = <?php echo json_encode($aevPublicPath, JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?>;
     const AEV_PUEDE_REEMPLAZAR_EVIDENCIA = <?php echo $aevPuedeReemplazarEvidencia ? 'true' : 'false'; ?>;
+    const AEV_BLACKLIST_PERMISOS = <?php echo json_encode($aevPermisosBlacklist, JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?>;
 
     function aevInferBaseDesdePathname() {
         const p = (window.location && window.location.pathname) || '';
@@ -1651,15 +1770,28 @@ $aevPuedeReemplazarEvidencia = in_array(79, array_map('intval', (array) ($_SESSI
             url:   '/AtencionClientes/obtenerCorreccionesEvidencias',
             vacio: 'No hay correcciones de evidencias en este momento.',
         },
+        <?php if (!empty($aevPermisosBlacklist['ver'])): ?>
+        blacklist: {
+            url:   '/AtencionClientes/obtenerBlacklistEvidencias',
+            vacio: 'No hay operaciones canceladas o en BlackList.',
+        },
+        <?php endif; ?>
     };
 
-    const AE_BADGE_TAB = { bandeja: 'ae-badge-bandeja', aprobados: 'ae-badge-aprobados', correcciones: 'ae-badge-correcciones' };
+    const AE_BADGE_TAB = {
+        bandeja: 'ae-badge-bandeja',
+        aprobados: 'ae-badge-aprobados',
+        correcciones: 'ae-badge-correcciones',
+        <?php if (!empty($aevPermisosBlacklist['ver'])): ?>
+        blacklist: 'ae-badge-blacklist',
+        <?php endif; ?>
+    };
 
     /** Tooltip en miniaturas (corto) */
     const AEV_TITLE_DICTAMEN_SLOT = 'Clic para abrir y dictaminar';
 
-    let _aeCargada = { bandeja: false, aprobados: false, correcciones: false };
-    let _aeDatos = { bandeja: [], aprobados: [], correcciones: [] };
+    let _aeCargada = { bandeja: false, aprobados: false, correcciones: false, blacklist: false };
+    let _aeDatos = { bandeja: [], aprobados: [], correcciones: [], blacklist: [] };
 
     /** Evita varios POST finalizar + recargas seguidas al guardar veredictos rápido */
     let _aeFinalizarDebounceTimer = null;
@@ -2758,9 +2890,11 @@ $aevPuedeReemplazarEvidencia = in_array(79, array_map('intval', (array) ($_SESSI
         const b0 = document.getElementById('ae-tab-bandeja-btn');
         const b1 = document.getElementById('ae-tab-aprobados-btn');
         const b2 = document.getElementById('ae-tab-correcciones-btn');
+        const b3 = document.getElementById('ae-tab-blacklist-btn');
         if (b0 && b0.classList.contains('active')) { aeCargarSeccion('bandeja', true); return; }
         if (b1 && b1.classList.contains('active')) { aeCargarSeccion('aprobados', true); return; }
         if (b2 && b2.classList.contains('active')) { aeCargarSeccion('correcciones', true); }
+        if (b3 && b3.classList.contains('active')) { aeCargarSeccion('blacklist', true); }
     }
 
     /**
@@ -2768,7 +2902,7 @@ $aevPuedeReemplazarEvidencia = in_array(79, array_map('intval', (array) ($_SESSI
      * Evita brincos automáticos de Bandeja a Aprobados.
      */
     function aePostEnviarEvidenciasValidadas() {
-        _aeCargada = { bandeja: false, aprobados: false, correcciones: false };
+        _aeCargada = { bandeja: false, aprobados: false, correcciones: false, blacklist: false };
         aeCargarConteosPestanas();
         aevRecargarPestanaEvidenciasActiva();
     }
@@ -2784,7 +2918,7 @@ $aevPuedeReemplazarEvidencia = in_array(79, array_map('intval', (array) ($_SESSI
             }
             return;
         }
-        _aeCargada = { bandeja: false, aprobados: false, correcciones: false };
+        _aeCargada = { bandeja: false, aprobados: false, correcciones: false, blacklist: false };
         aeCargarConteosPestanas();
         aevRecargarPestanaEvidenciasActiva();
     }
@@ -3211,6 +3345,48 @@ $aevPuedeReemplazarEvidencia = in_array(79, array_map('intval', (array) ($_SESSI
         const cliente = item.nombre_cliente ? aeEsc(item.nombre_cliente) : '<span class="ae-table-muted">Sin nombre</span>';
         const folio = item.folio ? aeEsc(item.folio) : '-';
         const esAprobados = String(key || '').toLowerCase() === 'aprobados';
+        const esBlacklist = String(key || '').toLowerCase() === 'blacklist';
+
+        if (esBlacklist) {
+            const estatusBl = item.blacklist_estatus ? aeEsc(item.blacklist_estatus) : 'Cancelada';
+            const motivoBl = item.blacklist_motivo ? aeEsc(item.blacklist_motivo) : '<span class="ae-table-muted">Sin motivo</span>';
+            const comentarioBl = item.blacklist_comentario ? '<span class="ae-table-analyst-date">' + aeEsc(item.blacklist_comentario) + '</span>' : '';
+            const fechaBl = item.fecha_bloqueo_fmt ? aeEsc(item.fecha_bloqueo_fmt) : '<span class="ae-table-muted">-</span>';
+            const usuarioBl = item.bloqueado_por_nombre ? aeEsc(item.bloqueado_por_nombre) : '<span class="ae-table-muted">Sistema</span>';
+            const puedeLiberar = !!(AEV_BLACKLIST_PERMISOS && AEV_BLACKLIST_PERMISOS.liberar) && String(item.blacklist_estatus || '') === 'BLACKLIST_MOTOS_ADJUDICADAS';
+            const accionLiberar = puedeLiberar ? `
+                <button type="button" class="btn btn-sm btn-warning" data-aev-no-row="1"
+                        onclick="event.stopPropagation(); aevAbrirLiberarBlacklist(${+item.blacklist_id})"
+                        title="Liberar BlackList" aria-label="Liberar BlackList">
+                    <i class="fa-solid fa-unlock"></i>
+                </button>` : '';
+
+            return `
+            <tr>
+                <td class="ae-table-main">
+                    <span class="ae-table-folio">${folio}</span>
+                    <span class="ae-table-credit"># ${aeEsc(String(item.id_credito))}</span>
+                    <span class="ae-table-main-client"><i class="fa-solid fa-user"></i>${cliente}</span>
+                </td>
+                <td class="ae-table-gestor">
+                    <span class="ae-table-gestor-name"><i class="fa-solid fa-user-tie"></i>${gestor}</span>
+                    <span class="ae-table-legacy-label"><i class="fa-solid fa-ban"></i>${estatusBl}</span>
+                    <span class="ae-table-legacy-date">${fechaBl}</span>
+                    <span class="ae-table-analyst">
+                        <span class="ae-table-analyst-label"><i class="fa-solid fa-user-shield"></i>REGISTRADO POR</span>
+                        <span class="ae-table-analyst-value">${usuarioBl}</span>
+                    </span>
+                </td>
+                <td class="ae-table-evidence">
+                    <span class="ae-evidence-pill ae-evidence-pill--neutral"><i class="fa-solid fa-circle-info"></i>${motivoBl}</span>
+                    ${comentarioBl}
+                </td>
+                <td class="ae-table-action">
+                    <div class="ae-action-buttons">${accionLiberar}</div>
+                </td>
+            </tr>`;
+        }
+
         const accionVer = esAprobados ? `
                     <button type="button" class="btn btn-sm btn-outline-secondary" data-aev-no-row="1"
                             title="Ver evidencias" aria-label="Ver evidencias"
@@ -3223,6 +3399,15 @@ $aevPuedeReemplazarEvidencia = in_array(79, array_map('intval', (array) ($_SESSI
                     title="Validar evidencias" aria-label="Validar evidencias">
                 <i class="fa fa-clipboard-check"></i>
             </button>`;
+        const puedeCancelar = !!(AEV_BLACKLIST_PERMISOS && (AEV_BLACKLIST_PERMISOS.cancelar || AEV_BLACKLIST_PERMISOS.blacklist))
+            && ['bandeja', 'correcciones'].indexOf(String(key || '').toLowerCase()) >= 0;
+        const clienteJs = encodeURIComponent(String(item.nombre_cliente || 'Sin nombre'));
+        const accionCancelar = puedeCancelar ? `
+            <button type="button" class="btn btn-sm btn-outline-danger" data-aev-no-row="1"
+                    onclick="event.stopPropagation(); aevAbrirCancelacion(${+item.id}, ${+item.id_credito}, decodeURIComponent('${clienteJs}'))"
+                    title="Cancelar operacion" aria-label="Cancelar operacion">
+                <i class="fa-solid fa-ban"></i>
+            </button>` : '';
 
         return `
         <tr>
@@ -3246,6 +3431,7 @@ $aevPuedeReemplazarEvidencia = in_array(79, array_map('intval', (array) ($_SESSI
                 <div class="ae-action-buttons">
                     ${accionVer}
                     ${accionValidar}
+                    ${accionCancelar}
                 </div>
             </td>
         </tr>`;
@@ -3320,6 +3506,136 @@ $aevPuedeReemplazarEvidencia = in_array(79, array_map('intval', (array) ($_SESSI
         const datos = Array.isArray(_aeDatos[key]) ? _aeDatos[key] : [];
         lista.innerHTML = aeRenderTabla(datos, key);
         aeInicializarDataTable(key);
+    }
+
+    window.aevAbrirCancelacion = function (idOperacion, idCredito, cliente) {
+        const id = parseInt(idOperacion, 10);
+        if (!id) return;
+        const idEl = document.getElementById('aev-cancelar-id-operacion');
+        const resumen = document.getElementById('aev-cancelar-resumen');
+        const motivo = document.getElementById('aev-cancelar-motivo');
+        const comentario = document.getElementById('aev-cancelar-comentario');
+        const radio = document.querySelector('input[name="aev_tipo_cancelacion"][value="denegar_visto_bueno"]');
+        if (idEl) idEl.value = String(id);
+        if (resumen) resumen.textContent = (cliente || 'Operacion') + ' / Credito #' + String(idCredito || '');
+        if (motivo) motivo.value = '';
+        if (comentario) comentario.value = '';
+        if (radio) radio.checked = true;
+        const mEl = document.getElementById('modalAevCancelarOperacion');
+        if (mEl && window.bootstrap) {
+            (new bootstrap.Modal(mEl)).show();
+        }
+    };
+
+    function aevConfirmarCancelacion() {
+        const idOperacion = parseInt((document.getElementById('aev-cancelar-id-operacion') || {}).value || '0', 10);
+        const tipoEl = document.querySelector('input[name="aev_tipo_cancelacion"]:checked');
+        const motivoEl = document.getElementById('aev-cancelar-motivo');
+        const comentarioEl = document.getElementById('aev-cancelar-comentario');
+        const tipo = tipoEl ? tipoEl.value : 'denegar_visto_bueno';
+        const motivo = motivoEl ? motivoEl.value.trim() : '';
+        const comentario = comentarioEl ? comentarioEl.value.trim() : '';
+
+        if (!idOperacion) return;
+        if (!motivo) {
+            if (typeof Swal !== 'undefined') Swal.fire({ icon: 'warning', title: 'Motivo requerido', text: 'Captura el motivo para continuar.' });
+            return;
+        }
+
+        const btn = document.getElementById('aev-btn-confirmar-cancelacion');
+        if (btn) btn.disabled = true;
+
+        fetch('/AtencionClientes/cancelarVistoBuenoEvidencias', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+            credentials: 'same-origin',
+            body: JSON.stringify({
+                id_operacion: idOperacion,
+                tipo_cancelacion: tipo,
+                motivo: motivo,
+                comentario: comentario,
+            })
+        })
+            .then(function (r) { return r.json(); })
+            .then(function (data) {
+                if (!data.success) throw new Error(data.message || 'No se pudo cancelar.');
+                const mEl = document.getElementById('modalAevCancelarOperacion');
+                if (mEl && window.bootstrap) {
+                    const inst = bootstrap.Modal.getInstance(mEl);
+                    if (inst) inst.hide();
+                }
+                _aeCargada = { bandeja: false, aprobados: false, correcciones: false, blacklist: false };
+                aeCargarConteosPestanas();
+                aevRecargarPestanaEvidenciasActiva();
+                if (AE_CONFIG.blacklist) aeCargarSeccion('blacklist', true);
+                if (typeof Swal !== 'undefined') {
+                    Swal.fire({ icon: 'success', title: 'Listo', text: data.message || 'Operacion actualizada.' });
+                }
+            })
+            .catch(function (err) {
+                if (typeof Swal !== 'undefined') {
+                    Swal.fire({ icon: 'error', title: 'No se pudo cancelar', text: err.message || 'Intenta de nuevo.' });
+                }
+            })
+            .finally(function () {
+                if (btn) btn.disabled = false;
+            });
+    }
+
+    window.aevAbrirLiberarBlacklist = function (blacklistId) {
+        const id = parseInt(blacklistId, 10);
+        if (!id) return;
+        const idEl = document.getElementById('aev-liberar-blacklist-id');
+        const motivo = document.getElementById('aev-liberar-motivo');
+        if (idEl) idEl.value = String(id);
+        if (motivo) motivo.value = '';
+        const mEl = document.getElementById('modalAevLiberarBlacklist');
+        if (mEl && window.bootstrap) {
+            (new bootstrap.Modal(mEl)).show();
+        }
+    };
+
+    function aevConfirmarLiberarBlacklist() {
+        const blacklistId = parseInt((document.getElementById('aev-liberar-blacklist-id') || {}).value || '0', 10);
+        const motivoEl = document.getElementById('aev-liberar-motivo');
+        const motivo = motivoEl ? motivoEl.value.trim() : '';
+        if (!blacklistId) return;
+        if (!motivo) {
+            if (typeof Swal !== 'undefined') Swal.fire({ icon: 'warning', title: 'Motivo requerido', text: 'Captura el motivo de liberacion.' });
+            return;
+        }
+
+        const btn = document.getElementById('aev-btn-confirmar-liberar');
+        if (btn) btn.disabled = true;
+        fetch('/AtencionClientes/liberarBlacklistEvidencias', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+            credentials: 'same-origin',
+            body: JSON.stringify({ blacklist_id: blacklistId, motivo: motivo })
+        })
+            .then(function (r) { return r.json(); })
+            .then(function (data) {
+                if (!data.success) throw new Error(data.message || 'No se pudo liberar.');
+                const mEl = document.getElementById('modalAevLiberarBlacklist');
+                if (mEl && window.bootstrap) {
+                    const inst = bootstrap.Modal.getInstance(mEl);
+                    if (inst) inst.hide();
+                }
+                _aeCargada.blacklist = false;
+                aeCargarConteosPestanas();
+                aeCargarSeccion('blacklist', true);
+                if (typeof Swal !== 'undefined') {
+                    Swal.fire({ icon: 'success', title: 'Liberado', text: data.message || 'Operacion liberada.' });
+                }
+            })
+            .catch(function (err) {
+                if (typeof Swal !== 'undefined') {
+                    Swal.fire({ icon: 'error', title: 'No se pudo liberar', text: err.message || 'Intenta de nuevo.' });
+                }
+            })
+            .finally(function () {
+                if (btn) btn.disabled = false;
+            });
     }
 
     window.aevValidarAbrir = function (idCredito, opciones) {
@@ -3399,6 +3715,7 @@ $aevPuedeReemplazarEvidencia = in_array(79, array_map('intval', (array) ($_SESSI
                 aeSetBadgeTab('bandeja', c.bandeja);
                 aeSetBadgeTab('aprobados', c.aprobados);
                 aeSetBadgeTab('correcciones', c.correcciones);
+                aeSetBadgeTab('blacklist', c.blacklist);
             })
             .catch(function () { /* silencioso: los badges se actualizan al entrar a cada pestaña */ });
     }
@@ -3509,6 +3826,21 @@ $aevPuedeReemplazarEvidencia = in_array(79, array_map('intval', (array) ($_SESSI
         document.getElementById('ae-tab-correcciones-btn').addEventListener('shown.bs.tab', function () {
             aeCargarSeccion('correcciones', false);
         });
+        const tabBlacklist = document.getElementById('ae-tab-blacklist-btn');
+        if (tabBlacklist) {
+            tabBlacklist.addEventListener('shown.bs.tab', function () {
+                aeCargarSeccion('blacklist', false);
+            });
+        }
+
+        const btnCancelar = document.getElementById('aev-btn-confirmar-cancelacion');
+        if (btnCancelar) {
+            btnCancelar.addEventListener('click', aevConfirmarCancelacion);
+        }
+        const btnLiberar = document.getElementById('aev-btn-confirmar-liberar');
+        if (btnLiberar) {
+            btnLiberar.addEventListener('click', aevConfirmarLiberarBlacklist);
+        }
 
         const aevBody = document.getElementById('aev-body');
         if (aevBody) {

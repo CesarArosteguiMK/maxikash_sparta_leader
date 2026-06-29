@@ -52,6 +52,13 @@ $rutasPublicasSinLogin = [
         'descargardocumentocandidato',
         'docverificacionproxy',
     ],
+    // Endpoints internos del agente local Segundometro. Cada metodo valida localhost
+    // o X-Agent-Key antes de ejecutar acciones; aqui solo evitamos que el login
+    // entregue HTML al agente en vez de JSON.
+    'segundometro' => [
+        'estadoreportesagente',
+        'truncarautomaticoagente',
+    ],
 ];
 $rutaPublicaSinLogin = isset($rutasPublicasSinLogin[$controladorRuta])
     && in_array($metodoRuta, $rutasPublicasSinLogin[$controladorRuta], true);

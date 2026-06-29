@@ -7,6 +7,8 @@ use Core\Model;
 
 class Notificacion extends Model
 {
+    private static $payloadJsonAsegurado = null;
+
     /**
      * Regla: ninguna parte del código debe forzar una notificación a "no leída" (leida=0).
      * Las nuevas se insertan con leida=0; al leerlas se actualiza a leida=1 y así se quedan.
@@ -45,7 +47,33 @@ class Notificacion extends Model
      * Para tipos Sabueso (con id_ticket): solo una notificación por (persona, tipo, ticket). No duplica.
      * Para otros (ej. candidato_expediente_completo sin id_ticket): puede repetirse si el evento se da de nuevo (ej. re-subida de documentos).
      */
-    public static function crear(int $idPersona, string $tipo, string $mensaje, ?int $idTicket = null): bool
+    private static function asegurarPayloadJson(Database $db): bool
+    {
+        if (self::$payloadJsonAsegurado !== null) {
+            return self::$payloadJsonAsegurado;
+        }
+        try {
+            $col = $db->queryOne(
+                "SELECT COLUMN_NAME
+                   FROM INFORMATION_SCHEMA.COLUMNS
+                  WHERE TABLE_SCHEMA = DATABASE()
+                    AND TABLE_NAME = 'notificacion'
+                    AND COLUMN_NAME = 'payload_json'
+                  LIMIT 1"
+            );
+            if (!$col) {
+                $db->CRUD("ALTER TABLE notificacion ADD COLUMN payload_json TEXT NULL AFTER id_ticket");
+            }
+            self::$payloadJsonAsegurado = true;
+            return true;
+        } catch (\Throwable $e) {
+            self::$payloadJsonAsegurado = false;
+            error_log('Notificacion::asegurarPayloadJson -> ' . $e->getMessage());
+            return false;
+        }
+    }
+
+    public static function crear(int $idPersona, string $tipo, string $mensaje, ?int $idTicket = null, array $payload = []): bool
     {
         if ($idPersona < 1 || $tipo === '' || $mensaje === '') {
             return false;
@@ -58,15 +86,30 @@ class Notificacion extends Model
         $mensaje = mb_substr($mensaje, 0, 500);
         try {
             $db = new Database();
-            $db->CRUD(
-                "INSERT INTO notificacion (id_persona, tipo, mensaje, id_ticket, leida) VALUES (:id_persona, :tipo, :mensaje, :id_ticket, 0)",
-                [
-                    'id_persona' => $idPersona,
-                    'tipo'       => $tipo,
-                    'mensaje'    => $mensaje,
-                    'id_ticket'  => $idTicket
-                ]
-            );
+            $tienePayload = self::asegurarPayloadJson($db);
+            $payloadJson = !empty($payload)
+                ? json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)
+                : null;
+            $params = [
+                'id_persona' => $idPersona,
+                'tipo'       => $tipo,
+                'mensaje'    => $mensaje,
+                'id_ticket'  => $idTicket,
+            ];
+            if ($tienePayload) {
+                $params['payload_json'] = $payloadJson;
+                $db->CRUD(
+                    "INSERT INTO notificacion (id_persona, tipo, mensaje, id_ticket, payload_json, leida)
+                     VALUES (:id_persona, :tipo, :mensaje, :id_ticket, :payload_json, 0)",
+                    $params
+                );
+            } else {
+                $db->CRUD(
+                    "INSERT INTO notificacion (id_persona, tipo, mensaje, id_ticket, leida)
+                     VALUES (:id_persona, :tipo, :mensaje, :id_ticket, 0)",
+                    $params
+                );
+            }
             return true;
         } catch (\Exception $e) {
             return false;
@@ -97,7 +140,7 @@ class Notificacion extends Model
      * Crea la misma notificación para varias personas (ej. equipo Sabueso).
      * Usa un solo INSERT con múltiples filas cuando hay id_ticket para no bloquear la respuesta.
      */
-    public static function crearParaPersonas(array $idPersonas, string $tipo, string $mensaje, ?int $idTicket = null): void
+    public static function crearParaPersonas(array $idPersonas, string $tipo, string $mensaje, ?int $idTicket = null, array $payload = []): void
     {
         $idPersonas = array_values(array_unique(array_map('intval', $idPersonas)));
         $idPersonas = array_filter($idPersonas, function ($id) {
@@ -109,6 +152,10 @@ class Notificacion extends Model
         $mensaje = mb_substr($mensaje, 0, 500);
         try {
             $db = new Database();
+            $tienePayload = self::asegurarPayloadJson($db);
+            $payloadJson = !empty($payload)
+                ? json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)
+                : null;
             if ($idTicket !== null && $idTicket > 0) {
                 $paramsExist = ['tipo' => $tipo, 'id_ticket' => $idTicket];
                 $placeholders = [];
@@ -130,16 +177,24 @@ class Notificacion extends Model
             }
             $values = [];
             $params = ['tipo' => $tipo, 'mensaje' => $mensaje, 'id_ticket' => $idTicket];
+            if ($tienePayload) {
+                $params['payload_json'] = $payloadJson;
+            }
             foreach ($idPersonas as $i => $id) {
                 $key = 'id_' . $i;
                 $params[$key] = $id;
-                $values[] = "(:$key, :tipo, :mensaje, :id_ticket, 0)";
+                $values[] = $tienePayload
+                    ? "(:$key, :tipo, :mensaje, :id_ticket, :payload_json, 0)"
+                    : "(:$key, :tipo, :mensaje, :id_ticket, 0)";
             }
-            $sql = "INSERT INTO notificacion (id_persona, tipo, mensaje, id_ticket, leida) VALUES " . implode(', ', $values);
+            $columns = $tienePayload
+                ? 'id_persona, tipo, mensaje, id_ticket, payload_json, leida'
+                : 'id_persona, tipo, mensaje, id_ticket, leida';
+            $sql = "INSERT INTO notificacion ($columns) VALUES " . implode(', ', $values);
             $db->CRUD($sql, $params);
         } catch (\Exception $e) {
             foreach ($idPersonas as $id) {
-                self::crear($id, $tipo, $mensaje, $idTicket);
+                self::crear($id, $tipo, $mensaje, $idTicket, $payload);
             }
         }
     }
@@ -156,8 +211,9 @@ class Notificacion extends Model
         self::purgarAntiguas(5);
         try {
             $db = new Database();
+            $payloadSelect = self::asegurarPayloadJson($db) ? 'payload_json' : 'NULL AS payload_json';
             $rows = $db->queryAll(
-                "SELECT id, tipo, mensaje, id_ticket, leida, fecha_creacion
+                "SELECT id, tipo, mensaje, id_ticket, $payloadSelect, leida, fecha_creacion
                  FROM notificacion
                  WHERE id_persona = :id_persona
                  ORDER BY leida ASC, fecha_creacion DESC
@@ -182,8 +238,9 @@ class Notificacion extends Model
         self::purgarAntiguas(5);
         try {
             $db = new Database();
+            $payloadSelect = self::asegurarPayloadJson($db) ? 'payload_json' : 'NULL AS payload_json';
             $rows = $db->queryAll(
-                "SELECT id, id_persona, tipo, mensaje, id_ticket, leida, fecha_creacion
+                "SELECT id, id_persona, tipo, mensaje, id_ticket, $payloadSelect, leida, fecha_creacion
                  FROM notificacion
                  WHERE id_persona = :id_persona
                  ORDER BY leida ASC, fecha_creacion DESC

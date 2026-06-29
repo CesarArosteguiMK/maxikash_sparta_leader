@@ -315,18 +315,18 @@
         <div class="modal-content">
             <div class="modal-header">
                 <div>
-                    <h5 class="modal-title mb-1">Importar documentos RR.HH.</h5>
+                    <h5 class="modal-title mb-1" id="docsRrhhImportTitulo">Importar documentos RR.HH.</h5>
                     <div class="text-muted small" id="docsRrhhImportSeleccionResumen">No se han seleccionado archivos.</div>
                 </div>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
             </div>
             <div class="modal-body">
-                <input type="file" class="d-none" id="docsRrhhImportInputArchivos" accept=".pdf,.zip,application/pdf,application/zip" multiple>
+                <input type="file" class="d-none" id="docsRrhhImportInputArchivos" accept=".pdf,.zip,.fad,application/pdf,application/zip,application/octet-stream" multiple>
                 <input type="file" class="d-none" id="docsRrhhImportInputCarpeta" webkitdirectory directory multiple>
 
                 <div class="d-flex flex-wrap gap-2 align-items-center mb-3">
                     <button type="button" class="btn btn-outline-primary" id="btnDocsRrhhImportArchivos">
-                        <i class="fa-solid fa-file-zipper me-1"></i>Elegir ZIP/PDF
+                        <i class="fa-solid fa-file-zipper me-1"></i>Elegir ZIP/PDF/FAD
                     </button>
                     <button type="button" class="btn btn-outline-primary" id="btnDocsRrhhImportCarpeta">
                         <i class="fa-solid fa-folder-open me-1"></i>Elegir carpeta
@@ -491,6 +491,9 @@
     let importPreviewFitWidth = true;
     let importPreviewRenderId = 0;
     let importPreparandoArchivosDesde = 0;
+    let importPersonaObjetivo = null;
+    const IMPORT_MAX_FILES_PER_REQUEST = 1000;
+    const IMPORT_MAX_BYTES_PER_REQUEST = 850 * 1024 * 1024;
 
     const els = {
         importar: document.getElementById('btnImportarDocsRrhh'),
@@ -517,6 +520,7 @@
         importModal: document.getElementById('docsRrhhImportModal'),
         importInputArchivos: document.getElementById('docsRrhhImportInputArchivos'),
         importInputCarpeta: document.getElementById('docsRrhhImportInputCarpeta'),
+        importTitulo: document.getElementById('docsRrhhImportTitulo'),
         importBtnArchivos: document.getElementById('btnDocsRrhhImportArchivos'),
         importBtnCarpeta: document.getElementById('btnDocsRrhhImportCarpeta'),
         importBtnImportar: document.getElementById('btnDocsRrhhImportImportar'),
@@ -552,12 +556,21 @@
         return (partes.slice(0, 2).map(p => p.charAt(0)).join('') || 'CH').toUpperCase();
     }
 
-    function importFormData() {
+    function importFormData(options = {}) {
         const fd = new FormData();
-        importFiles.forEach(file => {
-            fd.append('archivos[]', file, file.name);
-            fd.append('rutas_relativas[]', file.webkitRelativePath || file.name);
-        });
+        const batchId = String(importAnalisis?.batch_id || '').trim();
+        const usarBatch = options.usarBatch !== false;
+        if (importPersonaObjetivo && Number(importPersonaObjetivo.id_persona || 0) > 0) {
+            fd.append('id_persona', Number(importPersonaObjetivo.id_persona || 0));
+        }
+        if (batchId && usarBatch) {
+            fd.append('batch_id', batchId);
+        } else {
+            importFiles.forEach(file => {
+                fd.append('archivos[]', file, file.name);
+                fd.append('rutas_relativas[]', file.webkitRelativePath || file.name);
+            });
+        }
         (importAnalisis?.items || []).forEach(item => {
             if (item.documento_manual && Number(item.id_documento || 0) > 0) {
                 fd.append(`documentos_manual[${Number(item.source_index || 0)}]`, Number(item.id_documento || 0));
@@ -576,7 +589,7 @@
             ['Total', resumen.total || 0, 'bg-dark'],
             ['Listos', resumen.listo || 0, 'bg-success'],
             ['Importados', resumen.importado || 0, 'bg-primary'],
-            ['Ambiguos', resumen.persona_ambigua || 0, 'bg-warning text-dark'],
+            ['Revisar persona', resumen.persona_ambigua || 0, 'bg-warning text-dark'],
             ['Sin persona', resumen.persona_no_encontrada || 0, 'bg-danger'],
             ['Sin tipo', resumen.documento_no_reconocido || 0, 'bg-secondary'],
             ['Ya existe', resumen.ya_existe || 0, 'bg-info text-dark'],
@@ -598,7 +611,7 @@
             listo: ['bg-success', 'Listo'],
             importado: ['bg-primary', 'Importado'],
             persona_no_encontrada: ['bg-danger', 'Sin persona'],
-            persona_ambigua: ['bg-warning text-dark', 'Ambiguo'],
+            persona_ambigua: ['bg-warning text-dark', 'Revisar persona'],
             documento_no_reconocido: ['bg-secondary', 'Sin tipo'],
             ya_existe: ['bg-info text-dark', 'Ya existe'],
             duplicado_lote: ['bg-warning text-dark', 'Duplicado'],
@@ -647,6 +660,15 @@
                 </select>
                 ${item.documento_manual ? '<div class="text-primary small mt-1">Seleccion manual</div>' : ''}
             `;
+            const extensionArchivo = String(item.extension || item.archivo || item.ruta || '').toLowerCase();
+            const esFad = extensionArchivo.endsWith('.fad') || extensionArchivo === 'fad';
+            const botonPreview = esFad
+                ? `<button type="button" class="btn btn-sm btn-outline-secondary" disabled title="Archivo .FAD sin vista previa PDF">
+                        <i class="fa-solid fa-file-shield"></i>
+                   </button>`
+                : `<button type="button" class="btn btn-sm btn-outline-primary" data-import-preview="${Number(item.source_index || 0)}" title="Abrir documento">
+                        <i class="fa-solid fa-eye"></i>
+                   </button>`;
             return `
                 <tr class="${separarPersona ? 'docs-rrhh-import-person-separator' : ''}">
                     <td>${importBadge(item.estado, item)}</td>
@@ -655,9 +677,7 @@
                     <td><span class="text-break">${escapeHtml(item.ruta || item.archivo || '')}</span></td>
                     <td>${escapeHtml(item.razon || '')}</td>
                     <td class="text-center">
-                        <button type="button" class="btn btn-sm btn-outline-primary" data-import-preview="${Number(item.source_index || 0)}" title="Abrir documento">
-                            <i class="fa-solid fa-eye"></i>
-                        </button>
+                        ${botonPreview}
                     </td>
                 </tr>
             `;
@@ -711,11 +731,29 @@
         importRenderTabla([]);
         const total = importFiles.length;
         const peso = importFiles.reduce((sum, file) => sum + (file.size || 0), 0);
+        const pesoMb = peso / 1024 / 1024;
         els.importSeleccionResumen.textContent = total
-            ? `${total} archivo(s) seleccionado(s), ${(peso / 1024 / 1024).toFixed(1)} MB.`
+            ? `${total} archivo(s) seleccionado(s), ${pesoMb.toFixed(1)} MB.`
             : 'No se han seleccionado archivos.';
         els.importBtnImportar.disabled = true;
         if (total > 0) {
+            const excedeArchivos = total > IMPORT_MAX_FILES_PER_REQUEST;
+            const excedePeso = peso > IMPORT_MAX_BYTES_PER_REQUEST;
+            if (excedeArchivos || excedePeso) {
+                const limiteMb = Math.floor(IMPORT_MAX_BYTES_PER_REQUEST / 1024 / 1024);
+                const detalle = [
+                    excedeArchivos ? `seleccionaste ${total} archivo(s), el servidor acepta maximo ${IMPORT_MAX_FILES_PER_REQUEST} por carga` : '',
+                    excedePeso ? `seleccionaste ${pesoMb.toFixed(1)} MB, el servidor acepta maximo ${limiteMb} MB por carga` : ''
+                ].filter(Boolean).join('; ');
+                els.importSeleccionResumen.textContent = `Seleccion demasiado grande: ${detalle}. Divide la carpeta en lotes mas pequenos.`;
+                els.importTabla.innerHTML = `<tr><td colspan="6" class="text-center text-warning py-4">La seleccion supera el limite real del servidor. Divide el ZIP/carpeta en lotes de maximo ${IMPORT_MAX_FILES_PER_REQUEST} archivos o ${limiteMb} MB.</td></tr>`;
+                Swal.fire(
+                    'Seleccion demasiado grande',
+                    `No se envio al servidor para evitar el error "Failed to fetch". ${detalle}.`,
+                    'warning'
+                );
+                return;
+            }
             if (importSeleccionTieneZip()) {
                 importMostrarPreparandoArchivos();
             }
@@ -742,12 +780,17 @@
         }
     }
 
-    async function importEnviar(endpoint) {
-        const res = await fetch(endpoint, {
-            method: 'POST',
-            body: importFormData(),
-            headers: { 'X-Requested-With': 'XMLHttpRequest' }
-        });
+    async function importEnviar(endpoint, options = {}) {
+        let res;
+        try {
+            res = await fetch(endpoint, {
+                method: 'POST',
+                body: importFormData(options),
+                headers: { 'X-Requested-With': 'XMLHttpRequest' }
+            });
+        } catch (err) {
+            throw new Error('No se pudo conectar con el servidor. Revisa que la seleccion no supere el limite de carga configurado: maximo 1000 archivos o 850 MB por intento.');
+        }
         const contentType = res.headers.get('content-type') || '';
         if (!contentType.includes('application/json')) {
             const texto = await res.text();
@@ -755,7 +798,9 @@
         }
         const json = await res.json();
         if (!json.success) {
-            throw new Error(json.mensaje || 'La operacion no se completo.');
+            const error = new Error(json.mensaje || 'La operacion no se completo.');
+            error.codigo = json.codigo || json?.datos?.codigo || '';
+            throw error;
         }
         return json.datos || {};
     }
@@ -867,7 +912,10 @@
             if (mostrarPreparando && !importPreparandoArchivosDesde) {
                 importMostrarPreparandoArchivos();
             }
-            importAnalisis = await importEnviar('/caphum/analizarImportacionDocumentosRrhh');
+            const endpoint = importPersonaObjetivo
+                ? '/caphum/analizarImportacionDocumentosPersonaRrhh'
+                : '/caphum/analizarImportacionDocumentosRrhh';
+            importAnalisis = await importEnviar(endpoint);
             if (mostrarPreparando) {
                 await importCerrarPreparandoArchivos();
             }
@@ -909,7 +957,19 @@
                     Swal.showLoading();
                 }
             });
-            const resultado = await importEnviar('/caphum/importarDocumentosRrhh');
+            const endpoint = importPersonaObjetivo
+                ? '/caphum/importarDocumentosPersonaRrhh'
+                : '/caphum/importarDocumentosRrhh';
+            let resultado;
+            try {
+                resultado = await importEnviar(endpoint);
+            } catch (err) {
+                if (err.codigo !== 'lote_temporal_no_disponible' || !importFiles.length) {
+                    throw err;
+                }
+                importSetLoading(true, 'La preparacion temporal expiro. Reintentando con los archivos seleccionados...');
+                resultado = await importEnviar(endpoint, { usarBatch: false });
+            }
             importAnalisis = resultado;
             importRenderResumen(resultado.resumen);
             importRenderTabla(resultado.items || []);
@@ -1071,6 +1131,9 @@
                                 <button type="button" class="btn btn-sm btn-outline-warning docs-rrhh-action-btn" data-docs-trayectoria="${Number(col.id_persona || 0)}" title="Ver trayectoria laboral">
                                     <i class="fa-solid fa-route"></i>
                                 </button>
+                                <button type="button" class="btn btn-sm btn-success docs-rrhh-action-btn" data-docs-cargar-expediente="${Number(col.id_persona || 0)}" title="Cargar expediente de este colaborador">
+                                    <i class="fa-solid fa-cloud-arrow-up"></i>
+                                </button>
                             </div>
                         </td>
                     </tr>
@@ -1138,6 +1201,26 @@
             bootstrap.Modal.getOrCreateInstance(els.modal).show();
         } else if (window.jQuery) {
             window.jQuery(els.modal).modal('show');
+        }
+    }
+
+    function abrirImportacionPersona(idPersona) {
+        const col = colaboradores.find(item => Number(item.id_persona || 0) === Number(idPersona));
+        if (!col) return;
+        importPersonaObjetivo = {
+            id_persona: Number(col.id_persona || 0),
+            nombre: col.nombre_completo || 'Colaborador',
+            numero: col.codigo_contpac || col.numero_empleado || ''
+        };
+        importLimpiarSeleccion();
+        if (els.importTitulo) {
+            els.importTitulo.textContent = 'Cargar expediente de colaborador';
+        }
+        els.importSeleccionResumen.textContent = `Colaborador: ${importPersonaObjetivo.nombre}${importPersonaObjetivo.numero ? ' - No. ' + importPersonaObjetivo.numero : ''}. Selecciona ZIP/PDF/FAD o carpeta.`;
+        if (window.bootstrap && bootstrap.Modal) {
+            bootstrap.Modal.getOrCreateInstance(els.importModal).show();
+        } else if (window.jQuery) {
+            window.jQuery(els.importModal).modal('show');
         }
     }
 
@@ -1297,6 +1380,11 @@
     });
     els.actualizar.addEventListener('click', cargarResumen);
     els.importar.addEventListener('click', function () {
+        importPersonaObjetivo = null;
+        if (els.importTitulo) {
+            els.importTitulo.textContent = 'Importar documentos RR.HH.';
+        }
+        importLimpiarSeleccion();
         if (window.bootstrap && bootstrap.Modal) {
             bootstrap.Modal.getOrCreateInstance(els.importModal).show();
         } else if (window.jQuery) {
@@ -1367,6 +1455,11 @@
         const trayectoriaBtn = event.target.closest('[data-docs-trayectoria]');
         if (trayectoriaBtn) {
             abrirTrayectoria(trayectoriaBtn.getAttribute('data-docs-trayectoria'));
+            return;
+        }
+        const cargarBtn = event.target.closest('[data-docs-cargar-expediente]');
+        if (cargarBtn) {
+            abrirImportacionPersona(cargarBtn.getAttribute('data-docs-cargar-expediente'));
         }
     });
     document.addEventListener('DOMContentLoaded', cargarResumen);

@@ -16,10 +16,15 @@ class CapHum extends Model
     private const MODULO_VALIDADOR_DOCUMENTAL_RRHH_CANDIDATOS = 142;
     private const MODULO_GESTION_REGISTRAR_PERSONA = 143;
     public const MODULO_VALIDAR_CARTA_COMPROMISO_GESTOR = 144;
+    public const MODULO_VER_DOCUMENTOS_SENSIBLES_RRHH = 151;
+    public const MODULO_RESET_TOTP_DOCUMENTOS_SENSIBLES_RRHH = 152;
     private const MODULOS_ACCESOS_CAPITAL_HUMANO_IDS = [
         4, 5, 13, 34, 38, 42, 44, 82, 83, 86, 87, 88, 91, 93,
         94, 95, 96, 97, 98, 99, 101, 104, 105,
-        140, 141, 142, 143, 144, 147,
+        140, 141, 142, 143, 144, 147, 151, 152,
+        3008, 3009, 3010, 3011, 3012, 3013, 3014, 3015, 3016, 3017,
+        3018, 3022, 3023, 3024, 3025, 3027, 3028, 3029, 3030, 3031,
+        3032, 3033, 3034, 3035, 3036,
     ];
     private const MODULO_CONVENIOS_DESCARGAR_EXCEL = 92;
     private const MODULO_CONVENIOS_DESCARGAR_EXCEL_NOMBRE = 'Descargar Excel';
@@ -43,7 +48,7 @@ class CapHum extends Model
         $modulos = [
             [
                 'id' => self::MODULO_ACCESOS_CAPITAL_HUMANO,
-                'nombre' => 'Accesos Capital Humano',
+                'nombre' => 'Accesos',
                 'pestana' => 'Capital Humano',
                 'descripcion' => 'Acceso al modulo de administracion de permisos de Capital Humano.',
             ],
@@ -77,7 +82,56 @@ class CapHum extends Model
                 'pestana' => 'Capital Humano',
                 'descripcion' => 'Capital Humano > Validar Documento de Compromiso del Gestor',
             ],
+            [
+                'id' => self::MODULO_VER_DOCUMENTOS_SENSIBLES_RRHH,
+                'nombre' => 'Ver documentos sensibles RR.HH.',
+                'pestana' => 'Permisos especiales',
+                'descripcion' => 'Permite abrir y descargar contratos, bancos y archivos sensibles de expedientes RR.HH.',
+            ],
+            [
+                'id' => self::MODULO_RESET_TOTP_DOCUMENTOS_SENSIBLES_RRHH,
+                'nombre' => 'Reset Google Authenticator documentos RR.HH.',
+                'pestana' => 'Permisos especiales',
+                'descripcion' => 'Permite reiniciar el segundo paso de Google Authenticator para documentos sensibles RR.HH.',
+            ],
         ];
+
+        $documentosRrhh = [
+            8 => 'CURP',
+            9 => 'Identificacion Oficial (INE)',
+            10 => 'RFC',
+            11 => 'Comprobante de Domicilio',
+            12 => 'Acta de Nacimiento',
+            13 => 'Certificado de Estudios',
+            14 => 'Referencias Laborales',
+            15 => 'Documento baja',
+            16 => 'Documento reingreso',
+            17 => 'Solicitud interna',
+            18 => 'CV o Solicitud de Trabajo',
+            22 => 'Constancia de Situacion Fiscal',
+            23 => 'Numero de Seguridad Social',
+            24 => 'Hoja de Retencion FONACOT o INFONAVIT',
+            25 => 'Estado de Cuenta',
+            27 => 'Carta de compromiso del Gestor',
+            28 => 'Contrato firmado',
+            29 => 'Archivo .FAD',
+            30 => 'Validacion SAT',
+            31 => 'Llave vector',
+            32 => 'Prueba centavo',
+            33 => 'Semanas cotizadas IMSS (segundos patrones)',
+            34 => 'Documento incapacidad',
+            35 => 'Documento permiso',
+            36 => 'Documento falta',
+        ];
+
+        foreach ($documentosRrhh as $idDocumento => $nombreDocumento) {
+            $modulos[] = [
+                'id' => 3000 + (int) $idDocumento,
+                'nombre' => 'Documento RRHH: ' . $nombreDocumento,
+                'pestana' => 'Permisos especiales',
+                'descripcion' => 'Permite ver, subir, descargar y eliminar documentos RR.HH. de tipo ' . $nombreDocumento . '.',
+            ];
+        }
 
         foreach ($modulos as $datos) {
             $existe = $db->queryOne(
@@ -242,6 +296,9 @@ class CapHum extends Model
         ['id' => 31, 'clave' => 'LLAVE_VECTOR', 'nombre' => 'Llave vector'],
         ['id' => 32, 'clave' => 'PRUEBA_CENTAVO', 'nombre' => 'Prueba centavo'],
         ['id' => 33, 'clave' => 'SEMANAS_COTIZADAS_IMSS_SEGUNDOS_PATRONES', 'nombre' => 'Semanas cotizadas IMSS (segundos patrones)'],
+        ['id' => 34, 'clave' => 'DOCUMENTO_INCAPACIDAD', 'nombre' => 'Documento incapacidad'],
+        ['id' => 35, 'clave' => 'DOCUMENTO_PERMISO', 'nombre' => 'Documento permiso'],
+        ['id' => 36, 'clave' => 'DOCUMENTO_FALTA', 'nombre' => 'Documento falta'],
     ];
     private const DOCUMENTOS_EXCLUIDOS_RRHH = [19, 20, 21];
     private const DOCUMENTOS_ALIAS_RRHH = [
@@ -2175,7 +2232,24 @@ class CapHum extends Model
 
             aus_activa.razon_nombre  AS ausencia_razon,
             aus_activa.fecha_inicio  AS ausencia_fecha_inicio,
-            aus_activa.fecha_fin     AS ausencia_fecha_fin
+            aus_activa.fecha_fin     AS ausencia_fecha_fin,
+            vac_activa.id            AS vacaciones_id,
+            vac_activa.fecha_inicio  AS vacaciones_fecha_inicio,
+            vac_activa.fecha_fin     AS vacaciones_fecha_fin,
+            CASE
+                WHEN aus_activa.id_persona IS NOT NULL OR vac_activa.id IS NOT NULL THEN 1
+                ELSE 0
+            END AS bloqueo_baja_activo,
+            CASE
+                WHEN aus_activa.id_persona IS NOT NULL THEN aus_activa.razon_nombre
+                WHEN vac_activa.id IS NOT NULL THEN 'VACACIONES'
+                ELSE NULL
+            END AS bloqueo_baja_motivo,
+            CASE
+                WHEN aus_activa.id_persona IS NOT NULL THEN CONCAT('No se puede dar de baja: la persona tiene ', aus_activa.razon_nombre, ' vigente del ', DATE(aus_activa.fecha_inicio), ' al ', DATE(aus_activa.fecha_fin), '.')
+                WHEN vac_activa.id IS NOT NULL THEN CONCAT('No se puede dar de baja: la persona tiene VACACIONES vigentes del ', DATE(vac_activa.fecha_inicio), ' al ', DATE(vac_activa.fecha_fin), '.')
+                ELSE NULL
+            END AS bloqueo_baja_mensaje
 
         FROM persona p
 
@@ -2209,6 +2283,22 @@ class CapHum extends Model
             ) latest ON latest.id_persona = a.id_persona AND latest.max_id = a.id
         ) aus_activa ON aus_activa.id_persona = p.id
 
+        LEFT JOIN (
+            SELECT
+                s.id,
+                s.id_persona,
+                COALESCE(MIN(d.fecha), s.fecha_inicio) AS fecha_inicio,
+                COALESCE(MAX(d.fecha), s.fecha_fin) AS fecha_fin
+            FROM __SPARTA_SECRET_REDACTED__.vacaciones_solicitudes s
+            LEFT JOIN __SPARTA_SECRET_REDACTED__.vacaciones_solicitud_dias d ON d.id_solicitud = s.id
+            WHERE s.estatus IN ('aprobada', 'tomada')
+              AND (
+                  CURDATE() BETWEEN DATE(s.fecha_inicio) AND DATE(s.fecha_fin)
+                  OR d.fecha = CURDATE()
+              )
+            GROUP BY s.id, s.id_persona, s.fecha_inicio, s.fecha_fin
+        ) vac_activa ON vac_activa.id_persona = p.id
+
         WHERE {$whereSQL}
 
         ORDER BY d.nombre ASC, pp.nombre ASC, p.nombres ASC
@@ -2220,6 +2310,242 @@ class CapHum extends Model
             return self::resultado(true, 'Gestores encontrados.', $r);
         } catch (\Exception $e) {
             return self::resultado(false, 'Error al obtener gestores.', null, $e->getMessage());
+        }
+    }
+
+    public static function getDiasAcumuladosReingresos(int $anio): array
+    {
+        try {
+            $anioActual = (int) (new \DateTimeImmutable('now', new \DateTimeZone('America/Mexico_City')))->format('Y');
+            if ($anio < 2000 || $anio > $anioActual) {
+                return self::resultado(false, 'Ejercicio invalido.');
+            }
+
+            $tz = new \DateTimeZone('America/Mexico_City');
+            $inicioEjercicio = new \DateTimeImmutable($anio . '-01-01', $tz);
+            $finEjercicio = new \DateTimeImmutable($anio . '-12-31', $tz);
+            $hoy = new \DateTimeImmutable('today', $tz);
+            $fechaCorte = $anio === $anioActual && $hoy < $finEjercicio ? $hoy : $finEjercicio;
+            $finSql = $fechaCorte->format('Y-m-d');
+
+            $db = new Database();
+            $excluir = UsuarioFantasmaReporteria::sqlPredicadoExcluirPersona('p');
+
+            $personas = $db->queryAll("
+                SELECT
+                    p.id,
+                    p.numero_empleado,
+                    p.nombres,
+                    p.segundo_nombre,
+                    p.apellidop,
+                    p.apellidom,
+                    CONCAT_WS(' ', p.nombres, p.segundo_nombre, p.apellidop, p.apellidom) AS nombre_completo,
+                    p.estatus,
+                    p.fecha_ingreso,
+                    COALESCE(GROUP_CONCAT(DISTINCT pp.nombre ORDER BY pp.nombre SEPARATOR ', '), 'Sin puesto') AS nombre_puesto,
+                    COALESCE(GROUP_CONCAT(DISTINCT d.nombre ORDER BY d.nombre SEPARATOR ', '), 'Sin departamento') AS nombre_departamento
+                FROM __SPARTA_SECRET_REDACTED__.persona p
+                LEFT JOIN __SPARTA_SECRET_REDACTED__.asigna_puesto ap ON ap.id_persona = p.id AND COALESCE(ap.activo, 1) = 1
+                LEFT JOIN __SPARTA_SECRET_REDACTED__.puesto pp ON pp.id = ap.id_puesto
+                LEFT JOIN __SPARTA_SECRET_REDACTED__.departamento d ON d.id = pp.departamento_id
+                WHERE {$excluir}
+                  AND (
+                    (CAST(p.fecha_ingreso AS CHAR) <> '0000-00-00' AND CAST(p.fecha_ingreso AS CHAR) <= :fecha_corte)
+                    OR EXISTS (
+                        SELECT 1
+                        FROM __SPARTA_SECRET_REDACTED__.reingresos rpx
+                        WHERE rpx.id_persona = p.id
+                          AND DATE(rpx.fecha_reingreso) <= :fecha_corte
+                    )
+                  )
+                GROUP BY
+                    p.id,
+                    p.numero_empleado,
+                    p.nombres,
+                    p.segundo_nombre,
+                    p.apellidop,
+                    p.apellidom,
+                    p.estatus,
+                    p.fecha_ingreso
+                ORDER BY nombre_departamento ASC, nombre_puesto ASC, p.nombres ASC
+            ", ['fecha_corte' => $finSql]);
+
+            if (empty($personas)) {
+                return self::resultado(true, 'Sin plantilla para el ejercicio.', [
+                    'anio' => $anio,
+                    'fecha_corte' => $finSql,
+                    'rows' => [],
+                ]);
+            }
+
+            $ids = array_values(array_unique(array_map(static function ($row) {
+                return (int) ($row['id'] ?? 0);
+            }, $personas)));
+            $ids = array_values(array_filter($ids));
+            if (empty($ids)) {
+                return self::resultado(true, 'Sin plantilla para el ejercicio.', [
+                    'anio' => $anio,
+                    'fecha_corte' => $finSql,
+                    'rows' => [],
+                ]);
+            }
+
+            $idsSql = implode(',', array_map('intval', $ids));
+            $bajasRows = $db->queryAll("
+                SELECT id_persona, fecha_baja
+                FROM __SPARTA_SECRET_REDACTED__.baja_persona
+                WHERE id_persona IN ({$idsSql})
+                  AND DATE(fecha_baja) <= :fecha_corte
+                ORDER BY id_persona ASC, fecha_baja ASC, id ASC
+            ", ['fecha_corte' => $finSql]);
+            $reingresosRows = $db->queryAll("
+                SELECT id_persona, fecha_reingreso
+                FROM __SPARTA_SECRET_REDACTED__.reingresos
+                WHERE id_persona IN ({$idsSql})
+                  AND DATE(fecha_reingreso) <= :fecha_corte
+                ORDER BY id_persona ASC, fecha_reingreso ASC, id ASC
+            ", ['fecha_corte' => $finSql]);
+
+            $bajasPorPersona = [];
+            foreach ($bajasRows as $row) {
+                $idPersona = (int) ($row['id_persona'] ?? 0);
+                $fecha = self::fechaDiaRrhh($row['fecha_baja'] ?? '', $tz);
+                if ($idPersona > 0 && $fecha) {
+                    $bajasPorPersona[$idPersona][] = $fecha;
+                }
+            }
+
+            $reingresosPorPersona = [];
+            foreach ($reingresosRows as $row) {
+                $idPersona = (int) ($row['id_persona'] ?? 0);
+                $fecha = self::fechaDiaRrhh($row['fecha_reingreso'] ?? '', $tz);
+                if ($idPersona > 0 && $fecha) {
+                    $reingresosPorPersona[$idPersona][] = $fecha;
+                }
+            }
+
+            $rows = [];
+            foreach ($personas as $persona) {
+                $idPersona = (int) ($persona['id'] ?? 0);
+                $fechaIngreso = self::fechaDiaRrhh($persona['fecha_ingreso'] ?? '', $tz);
+                $reingresos = $reingresosPorPersona[$idPersona] ?? [];
+
+                $inicios = [];
+                if ($fechaIngreso && $fechaIngreso <= $fechaCorte) {
+                    $inicios[] = ['fecha' => $fechaIngreso, 'tipo' => 'Ingreso inicial'];
+                }
+                foreach ($reingresos as $fechaReingreso) {
+                    if ($fechaReingreso <= $fechaCorte) {
+                        $inicios[] = ['fecha' => $fechaReingreso, 'tipo' => 'Reingreso'];
+                    }
+                }
+                usort($inicios, static function ($a, $b) {
+                    return $a['fecha'] <=> $b['fecha'];
+                });
+
+                if (empty($inicios)) {
+                    continue;
+                }
+
+                $bajas = $bajasPorPersona[$idPersona] ?? [];
+                $periodos = [];
+                $diasAcumulados = 0;
+
+                foreach ($inicios as $idx => $inicio) {
+                    $fechaInicio = $inicio['fecha'];
+                    $siguienteInicio = $inicios[$idx + 1]['fecha'] ?? null;
+                    $fechaFin = $fechaCorte;
+                    $finTipo = 'Corte';
+
+                    foreach ($bajas as $fechaBaja) {
+                        if ($fechaBaja < $fechaInicio) {
+                            continue;
+                        }
+                        if ($siguienteInicio && $fechaBaja >= $siguienteInicio) {
+                            break;
+                        }
+                        $fechaFin = $fechaBaja;
+                        $finTipo = 'Baja';
+                        break;
+                    }
+                    if ($siguienteInicio) {
+                        $diaPrevioSiguiente = $siguienteInicio->modify('-1 day');
+                        if ($diaPrevioSiguiente < $fechaFin) {
+                            $fechaFin = $diaPrevioSiguiente;
+                            $finTipo = 'Previo a reingreso';
+                        }
+                    }
+
+                    $inicioSolapado = $fechaInicio < $inicioEjercicio ? $inicioEjercicio : $fechaInicio;
+                    $finSolapado = $fechaFin > $fechaCorte ? $fechaCorte : $fechaFin;
+
+                    if ($inicioSolapado > $finSolapado) {
+                        continue;
+                    }
+
+                    $dias = (int) $inicioSolapado->diff($finSolapado)->days + 1;
+                    $diasAcumulados += $dias;
+                    $periodos[] = [
+                        'tipo' => $inicio['tipo'],
+                        'inicio' => $inicioSolapado->format('Y-m-d'),
+                        'fin' => $finSolapado->format('Y-m-d'),
+                        'fin_tipo' => $finTipo,
+                        'dias' => $dias,
+                    ];
+                }
+
+                if ($diasAcumulados <= 0) {
+                    continue;
+                }
+
+                $reingresosEjercicio = array_values(array_filter($reingresos, static function ($fecha) use ($inicioEjercicio, $fechaCorte) {
+                    return $fecha >= $inicioEjercicio && $fecha <= $fechaCorte;
+                }));
+                $bajasEjercicio = array_values(array_filter($bajas, static function ($fecha) use ($inicioEjercicio, $fechaCorte) {
+                    return $fecha >= $inicioEjercicio && $fecha <= $fechaCorte;
+                }));
+
+                $detalle = array_map(static function ($periodo) {
+                    return $periodo['tipo'] . ': ' . $periodo['inicio'] . ' a ' . $periodo['fin'] . ' (' . $periodo['dias'] . ' dias)';
+                }, $periodos);
+
+                $rows[] = [
+                    'numero_empleado' => $persona['numero_empleado'] ?? '',
+                    'nombre_completo' => trim((string) ($persona['nombre_completo'] ?? '')),
+                    'departamento' => $persona['nombre_departamento'] ?? 'Sin departamento',
+                    'puesto' => $persona['nombre_puesto'] ?? 'Sin puesto',
+                    'estatus_actual' => $persona['estatus'] ?? '',
+                    'fecha_ingreso_inicial' => $fechaIngreso ? $fechaIngreso->format('Y-m-d') : '',
+                    'tuvo_reingreso' => count($reingresos) > 0 ? 'Si' : 'No',
+                    'reingresos_historicos' => count($reingresos),
+                    'reingresos_ejercicio' => count($reingresosEjercicio),
+                    'bajas_ejercicio' => count($bajasEjercicio),
+                    'dias_acumulados' => $diasAcumulados,
+                    'periodos_contabilizados' => count($periodos),
+                    'detalle_periodos' => implode(' | ', $detalle),
+                ];
+            }
+
+            return self::resultado(true, 'Dias acumulados calculados.', [
+                'anio' => $anio,
+                'fecha_corte' => $finSql,
+                'rows' => $rows,
+            ]);
+        } catch (\Exception $e) {
+            return self::resultado(false, 'Error al calcular dias acumulados.', null, $e->getMessage());
+        }
+    }
+
+    private static function fechaDiaRrhh($valor, \DateTimeZone $tz): ?\DateTimeImmutable
+    {
+        $valor = trim((string) $valor);
+        if ($valor === '' || $valor === '0000-00-00' || $valor === '0000-00-00 00:00:00') {
+            return null;
+        }
+        try {
+            return (new \DateTimeImmutable($valor, $tz))->setTime(0, 0, 0);
+        } catch (\Exception $e) {
+            return null;
         }
     }
 
@@ -2478,6 +2804,7 @@ class CapHum extends Model
         try {
             $db = new Database();
             self::asegurarDocumentoOtros($db);
+            self::asegurarDocumentoCartaCompromisoGestor();
 
             // Obtener documentos activos desde la base de datos
             $documentos = $db->queryAll("
@@ -2554,6 +2881,50 @@ class CapHum extends Model
             return self::resultado(true, 'Personas encontradas.', $personas ?? []);
         } catch (\Exception $e) {
             return self::resultado(false, 'Error al obtener personas para importación.', [], $e->getMessage());
+        }
+    }
+
+    public static function getPersonaParaImportacionDocumentos($idPersona)
+    {
+        try {
+            $idPersona = (int) $idPersona;
+            if ($idPersona <= 0) {
+                return self::resultado(false, 'Persona invalida.', null);
+            }
+
+            $db = new Database();
+            $persona = $db->queryOne("
+                SELECT
+                    p.id,
+                    p.numero_empleado,
+                    p.codigo_contpac,
+                    p.nombres,
+                    p.segundo_nombre,
+                    p.apellidop,
+                    p.apellidom,
+                    p.curp,
+                    p.correo,
+                    COALESCE(p.estatus, '') AS estatus,
+                    DATE_FORMAT(bp.fecha_baja, '%Y-%m-%d') AS fecha_baja,
+                    TRIM(CONCAT_WS(' ', p.nombres, p.segundo_nombre, p.apellidop, p.apellidom)) AS nombre_completo
+                FROM __SPARTA_SECRET_REDACTED__.persona p
+                LEFT JOIN (
+                    SELECT id_persona, MAX(id) AS id_ultima_baja
+                    FROM __SPARTA_SECRET_REDACTED__.baja_persona
+                    GROUP BY id_persona
+                ) ub ON ub.id_persona = p.id
+                LEFT JOIN __SPARTA_SECRET_REDACTED__.baja_persona bp ON bp.id = ub.id_ultima_baja
+                WHERE p.id = :id_persona
+                LIMIT 1
+            ", ['id_persona' => $idPersona]);
+
+            if (!$persona) {
+                return self::resultado(false, 'Persona no encontrada.', null);
+            }
+
+            return self::resultado(true, 'Persona encontrada.', $persona);
+        } catch (\Exception $e) {
+            return self::resultado(false, 'Error al obtener persona para importacion.', null, $e->getMessage());
         }
     }
 
@@ -2680,8 +3051,10 @@ class CapHum extends Model
                     cdp.id,
                     cdp.archivo,
                     cdp.id_documento,
+                    d.nombre AS documento_nombre,
                     DATE_FORMAT(cdp.fecha_carga, '%Y-%m-%d %H:%i') AS fecha_carga
                 FROM __SPARTA_SECRET_REDACTED__.carga_documento_persona cdp
+                LEFT JOIN __SPARTA_SECRET_REDACTED__.documento d ON d.id = cdp.id_documento
                 WHERE cdp.id_persona = :id_persona
             ";
 
@@ -3400,6 +3773,326 @@ class CapHum extends Model
         }
     }
 
+    public static function getDocumentoPersonaPorArchivo(string $archivo)
+    {
+        try {
+            $archivo = basename(trim($archivo));
+            if ($archivo === '') {
+                return self::resultado(false, 'Archivo requerido.', null);
+            }
+
+            $db = new Database();
+            $documento = $db->queryOne("
+                SELECT
+                    cdp.id,
+                    cdp.id_persona,
+                    cdp.archivo,
+                    cdp.id_documento,
+                    TRIM(CONCAT_WS(' ', p.nombres, p.segundo_nombre, p.apellidop, p.apellidom)) AS nombre_completo,
+                    p.numero_empleado,
+                    DATE_FORMAT(cdp.fecha_carga, '%Y-%m-%d %H:%i') AS fecha_carga
+                FROM __SPARTA_SECRET_REDACTED__.carga_documento_persona cdp
+                LEFT JOIN __SPARTA_SECRET_REDACTED__.persona p ON p.id = cdp.id_persona
+                WHERE cdp.archivo = :archivo
+                ORDER BY cdp.id DESC
+                LIMIT 1
+            ", ['archivo' => $archivo]);
+
+            if (!$documento) {
+                return self::resultado(false, 'Documento no encontrado.', null);
+            }
+
+            return self::resultado(true, 'Documento encontrado.', $documento);
+        } catch (\Exception $e) {
+            return self::resultado(false, 'Error al buscar documento.', null, $e->getMessage());
+        }
+    }
+
+    public static function registrarAuditoriaDocumentoSensible(array $data): void
+    {
+        try {
+            $db = new Database();
+            self::asegurarAuditoriaDocumentosSensibles($db);
+            $db->CRUD("
+                INSERT INTO __SPARTA_SECRET_REDACTED__.auditoria_documentos_sensibles_rrhh
+                    (id_usuario, usuario_nombre, id_persona, persona_nombre, id_documento_carga, id_documento, documento_nombre, archivo, accion, resultado, ip, user_agent, fecha_hora, detalle)
+                VALUES
+                    (:id_usuario, :usuario_nombre, :id_persona, :persona_nombre, :id_documento_carga, :id_documento, :documento_nombre, :archivo, :accion, :resultado, :ip, :user_agent, :fecha_hora, :detalle)
+            ", [
+                'id_usuario' => !empty($data['id_usuario']) ? (int) $data['id_usuario'] : null,
+                'usuario_nombre' => mb_substr((string) ($data['usuario_nombre'] ?? ''), 0, 191),
+                'id_persona' => !empty($data['id_persona']) ? (int) $data['id_persona'] : null,
+                'persona_nombre' => mb_substr((string) ($data['persona_nombre'] ?? ''), 0, 191),
+                'id_documento_carga' => !empty($data['id_documento_carga']) ? (int) $data['id_documento_carga'] : null,
+                'id_documento' => !empty($data['id_documento']) ? (int) $data['id_documento'] : null,
+                'documento_nombre' => mb_substr((string) ($data['documento_nombre'] ?? ''), 0, 191),
+                'archivo' => mb_substr((string) ($data['archivo'] ?? ''), 0, 255),
+                'accion' => mb_substr((string) ($data['accion'] ?? 'ver'), 0, 50),
+                'resultado' => mb_substr((string) ($data['resultado'] ?? 'desconocido'), 0, 30),
+                'ip' => mb_substr((string) ($data['ip'] ?? ''), 0, 64),
+                'user_agent' => mb_substr((string) ($data['user_agent'] ?? ''), 0, 255),
+                'fecha_hora' => (string) ($data['fecha_hora'] ?? date('Y-m-d H:i:s')),
+                'detalle' => mb_substr((string) ($data['detalle'] ?? ''), 0, 255),
+            ]);
+        } catch (\Throwable $e) {
+            error_log('CapHum::registrarAuditoriaDocumentoSensible -> ' . $e->getMessage());
+        }
+    }
+
+    private static function asegurarAuditoriaDocumentosSensibles(Database $db): void
+    {
+        $db->CRUD("
+            CREATE TABLE IF NOT EXISTS __SPARTA_SECRET_REDACTED__.auditoria_documentos_sensibles_rrhh (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                id_usuario INT NULL,
+                usuario_nombre VARCHAR(191) NULL,
+                id_persona INT NULL,
+                persona_nombre VARCHAR(191) NULL,
+                id_documento_carga INT NULL,
+                id_documento INT NULL,
+                documento_nombre VARCHAR(191) NULL,
+                archivo VARCHAR(255) NULL,
+                accion VARCHAR(50) NOT NULL,
+                resultado VARCHAR(30) NOT NULL,
+                ip VARCHAR(64) NULL,
+                user_agent VARCHAR(255) NULL,
+                fecha_hora DATETIME NOT NULL,
+                detalle VARCHAR(255) NULL,
+                KEY idx_fecha_hora (fecha_hora),
+                KEY idx_usuario (id_usuario),
+                KEY idx_documento_carga (id_documento_carga)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+        ");
+        foreach ([
+            'usuario_nombre' => 'VARCHAR(191) NULL AFTER id_usuario',
+            'persona_nombre' => 'VARCHAR(191) NULL AFTER id_persona',
+            'documento_nombre' => 'VARCHAR(191) NULL AFTER id_documento',
+        ] as $columna => $definicion) {
+            try {
+                $db->CRUD("ALTER TABLE __SPARTA_SECRET_REDACTED__.auditoria_documentos_sensibles_rrhh ADD COLUMN {$columna} {$definicion}");
+            } catch (\Throwable $e) {
+                // La columna ya existe o el motor no permite ALTER; la auditoria operativa no debe romperse.
+            }
+        }
+    }
+
+    public static function getTotpDocumentoSensible(int $idPersona)
+    {
+        try {
+            if ($idPersona <= 0) {
+                return self::resultado(false, 'Usuario de sesion no valido.', null);
+            }
+
+            $db = new Database();
+            self::asegurarTotpDocumentosSensibles($db);
+            $registro = $db->queryOne("
+                SELECT id_persona, secret, confirmado, creado_en, actualizado_en, ultimo_uso_en
+                FROM __SPARTA_SECRET_REDACTED__.rrhh_documentos_sensibles_totp
+                WHERE id_persona = :id_persona
+                LIMIT 1
+            ", ['id_persona' => $idPersona]);
+
+            if ($registro && !empty($registro['secret'])) {
+                $secretPlano = self::descifrarSecretoTotp((string)$registro['secret']);
+                if ($secretPlano === '') {
+                    return self::resultado(false, 'No se pudo descifrar el segundo paso.', null);
+                }
+                if (!self::esSecretoTotpCifrado((string)$registro['secret'])) {
+                    $db->CRUD("
+                        UPDATE __SPARTA_SECRET_REDACTED__.rrhh_documentos_sensibles_totp
+                        SET secret = :secret,
+                            actualizado_en = NOW()
+                        WHERE id_persona = :id_persona
+                    ", [
+                        'secret' => self::cifrarSecretoTotp($secretPlano),
+                        'id_persona' => $idPersona,
+                    ]);
+                }
+                $registro['secret'] = $secretPlano;
+            }
+
+            return self::resultado(true, 'Configuracion TOTP consultada.', $registro ?: null);
+        } catch (\Exception $e) {
+            return self::resultado(false, 'Error al consultar configuracion TOTP.', null, $e->getMessage());
+        }
+    }
+
+    public static function guardarTotpDocumentoSensible(int $idPersona, string $secret, bool $confirmado = false)
+    {
+        try {
+            if ($idPersona <= 0 || trim($secret) === '') {
+                return self::resultado(false, 'Datos TOTP incompletos.', null);
+            }
+
+            $db = new Database();
+            self::asegurarTotpDocumentosSensibles($db);
+            $secretCifrado = self::cifrarSecretoTotp(trim($secret));
+            $db->CRUD("
+                INSERT INTO __SPARTA_SECRET_REDACTED__.rrhh_documentos_sensibles_totp
+                    (id_persona, secret, confirmado, creado_en, actualizado_en)
+                VALUES
+                    (:id_persona, :secret, :confirmado, NOW(), NOW())
+                ON DUPLICATE KEY UPDATE
+                    secret = VALUES(secret),
+                    confirmado = VALUES(confirmado),
+                    actualizado_en = NOW()
+            ", [
+                'id_persona' => $idPersona,
+                'secret' => $secretCifrado,
+                'confirmado' => $confirmado ? 1 : 0,
+            ]);
+
+            return self::resultado(true, 'Configuracion TOTP guardada.', null);
+        } catch (\Exception $e) {
+            return self::resultado(false, 'Error al guardar configuracion TOTP.', null, $e->getMessage());
+        }
+    }
+
+    public static function confirmarTotpDocumentoSensible(int $idPersona)
+    {
+        try {
+            if ($idPersona <= 0) {
+                return self::resultado(false, 'Usuario de sesion no valido.', null);
+            }
+
+            $db = new Database();
+            self::asegurarTotpDocumentosSensibles($db);
+            $db->CRUD("
+                UPDATE __SPARTA_SECRET_REDACTED__.rrhh_documentos_sensibles_totp
+                SET confirmado = 1,
+                    actualizado_en = NOW(),
+                    ultimo_uso_en = NOW()
+                WHERE id_persona = :id_persona
+            ", ['id_persona' => $idPersona]);
+
+            return self::resultado(true, 'Segundo paso confirmado.', null);
+        } catch (\Exception $e) {
+            return self::resultado(false, 'Error al confirmar segundo paso.', null, $e->getMessage());
+        }
+    }
+
+    public static function resetTotpDocumentoSensible(int $idPersona)
+    {
+        try {
+            if ($idPersona <= 0) {
+                return self::resultado(false, 'Usuario no valido.', null);
+            }
+
+            $db = new Database();
+            self::asegurarTotpDocumentosSensibles($db);
+            $db->CRUD("
+                DELETE FROM __SPARTA_SECRET_REDACTED__.rrhh_documentos_sensibles_totp
+                WHERE id_persona = :id_persona
+            ", ['id_persona' => $idPersona]);
+
+            return self::resultado(true, 'Segundo paso reiniciado. El usuario debera escanear un nuevo QR.', null);
+        } catch (\Exception $e) {
+            return self::resultado(false, 'Error al reiniciar segundo paso.', null, $e->getMessage());
+        }
+    }
+
+    private static function asegurarTotpDocumentosSensibles(Database $db): void
+    {
+        $db->CRUD("
+            CREATE TABLE IF NOT EXISTS __SPARTA_SECRET_REDACTED__.rrhh_documentos_sensibles_totp (
+                id_persona INT NOT NULL PRIMARY KEY,
+                secret VARCHAR(255) NOT NULL,
+                confirmado TINYINT(1) NOT NULL DEFAULT 0,
+                creado_en DATETIME NOT NULL,
+                actualizado_en DATETIME NOT NULL,
+                ultimo_uso_en DATETIME NULL,
+                KEY idx_confirmado (confirmado)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+        ");
+        try {
+            $db->CRUD("ALTER TABLE __SPARTA_SECRET_REDACTED__.rrhh_documentos_sensibles_totp MODIFY secret VARCHAR(255) NOT NULL");
+        } catch (\Throwable $e) {
+            error_log('CapHum::asegurarTotpDocumentosSensibles alter secret -> ' . $e->getMessage());
+        }
+    }
+
+    private static function esSecretoTotpCifrado(string $valor): bool
+    {
+        return strpos($valor, 'enc:v1:') === 0;
+    }
+
+    private static function claveMaestraDocumentosSensibles(): string
+    {
+        $env = trim((string)(getenv('RRHH_TOTP_ENCRYPTION_KEY') ?: ''));
+        if ($env !== '') {
+            $decoded = base64_decode($env, true);
+            if (is_string($decoded) && strlen($decoded) >= 32) {
+                return substr($decoded, 0, 32);
+            }
+            if (ctype_xdigit($env) && strlen($env) >= 64) {
+                return substr(hex2bin(substr($env, 0, 64)), 0, 32);
+            }
+            return substr(hash('sha256', $env, true), 0, 32);
+        }
+
+        $configDir = defined('RAIZ') ? (RAIZ . DIRECTORY_SEPARATOR . 'config') : (__DIR__ . DIRECTORY_SEPARATOR . '..' . DIRECTORY_SEPARATOR . 'config');
+        $keyFile = $configDir . DIRECTORY_SEPARATOR . 'rrhh_sensitive.key';
+        if (!is_dir($configDir)) {
+            @mkdir($configDir, 0770, true);
+        }
+        if (!is_file($keyFile)) {
+            @file_put_contents($keyFile, base64_encode(random_bytes(32)), LOCK_EX);
+            @chmod($keyFile, 0600);
+        }
+        $key = trim((string)@file_get_contents($keyFile));
+        $decoded = base64_decode($key, true);
+        if (!is_string($decoded) || strlen($decoded) < 32) {
+            $decoded = random_bytes(32);
+            @file_put_contents($keyFile, base64_encode($decoded), LOCK_EX);
+            @chmod($keyFile, 0600);
+        }
+        return substr($decoded, 0, 32);
+    }
+
+    private static function cifrarSecretoTotp(string $secret): string
+    {
+        if ($secret === '' || self::esSecretoTotpCifrado($secret)) {
+            return $secret;
+        }
+        $iv = random_bytes(12);
+        $tag = '';
+        $cipher = openssl_encrypt(
+            $secret,
+            'aes-256-gcm',
+            self::claveMaestraDocumentosSensibles(),
+            OPENSSL_RAW_DATA,
+            $iv,
+            $tag
+        );
+        if ($cipher === false) {
+            throw new \RuntimeException('No se pudo cifrar el segundo paso.');
+        }
+        return 'enc:v1:' . base64_encode($iv . $tag . $cipher);
+    }
+
+    private static function descifrarSecretoTotp(string $secret): string
+    {
+        if ($secret === '' || !self::esSecretoTotpCifrado($secret)) {
+            return $secret;
+        }
+        $payload = base64_decode(substr($secret, 7), true);
+        if (!is_string($payload) || strlen($payload) <= 28) {
+            return '';
+        }
+        $iv = substr($payload, 0, 12);
+        $tag = substr($payload, 12, 16);
+        $cipher = substr($payload, 28);
+        $plain = openssl_decrypt(
+            $cipher,
+            'aes-256-gcm',
+            self::claveMaestraDocumentosSensibles(),
+            OPENSSL_RAW_DATA,
+            $iv,
+            $tag
+        );
+        return is_string($plain) ? $plain : '';
+    }
+
     /**
      * Guardar documentos de una persona
      */
@@ -3601,9 +4294,11 @@ class CapHum extends Model
             $perfiles = self::agregarModuloConveniosDescargarExcelSiFalta($perfiles, $idPersona, $db);
             require_once __DIR__ . '/../config/menu_modulos_sidebar.php';
             $perfiles = enriquecerPerfilesModulosConMenuSidebar($perfiles);
-            $puestos = $db->queryAll($query_puestos);
+            // La pestana "Acceso a Puestos" ya se alimenta de permisos_jerarquia.
+            // Evitamos mandar el catalogo legacy completo para que el modal abra mas rapido.
+            $puestos = [];
             $asignacionActual = $db->queryOne($query_asignacion_actual);
-            $permisosJerarquia = self::getPermisosJerarquicosPerfil($idPersona);
+            $permisosJerarquia = self::getPermisosJerarquicosPerfil($idPersona, $db);
 
             return self::resultado(true, 'Persona encontrada.', [
                 'persona' => $persona,
@@ -3625,9 +4320,14 @@ class CapHum extends Model
 
     private static function modulosGestionablesAccesoCapitalHumano(): array
     {
+        $noGestionablesDesdeModal = [
+            self::MODULO_VALIDADOR_DOCUMENTAL_CANDIDATOS,
+            self::MODULO_VALIDAR_CARTA_COMPROMISO_GESTOR,
+        ];
+
         return array_values(array_filter(
             self::MODULOS_ACCESOS_CAPITAL_HUMANO_IDS,
-            static fn ($id) => (int) $id !== self::MODULO_VALIDADOR_DOCUMENTAL_CANDIDATOS
+            static fn ($id) => !in_array((int) $id, $noGestionablesDesdeModal, true)
         ));
     }
 
@@ -3638,6 +4338,9 @@ class CapHum extends Model
 
     private static function grupoModuloAccesoCapitalHumano(int $id, string $pestana, string $nombre): array
     {
+        if (in_array($id, [151, 152], true) || ($id >= 3000 && $id < 3100)) {
+            return ['grupo' => 'Control documental RR.HH.', 'icono' => 'fa-solid fa-folder-lock', 'orden' => 28];
+        }
         if ($id >= 107 && $id <= 127) {
             return ['grupo' => 'Edicion cobranza', 'icono' => 'fa-solid fa-pen-to-square', 'orden' => 30];
         }
@@ -4040,7 +4743,7 @@ class CapHum extends Model
         }
     }
 
-    public static function getPermisosJerarquicosPerfil(int $idPersona): array
+    public static function getPermisosJerarquicosPerfil(int $idPersona, ?Database $db = null): array
     {
         $idPersona = (int) $idPersona;
         if ($idPersona <= 0) {
@@ -4048,7 +4751,7 @@ class CapHum extends Model
         }
 
         try {
-            $db = new Database();
+            $db = $db ?: new Database();
             $seleccion = self::obtenerSeleccionesJerarquicas($db, $idPersona);
 
             // Fallback de compatibilidad: si aún no existe selección jerárquica,
@@ -4365,6 +5068,8 @@ class CapHum extends Model
 
     public static function getRazonesAusencia()
     {
+        self::asegurarRazonAusenciaFalta();
+
         // Query base
         $query = <<<SQL
         SELECT
@@ -4394,6 +5099,40 @@ class CapHum extends Model
                 null,
                 $e->getMessage()
             );
+        }
+    }
+
+    private static function asegurarRazonAusenciaFalta(): void
+    {
+        try {
+            $db = new Database();
+            $existe = $db->queryOne("
+                SELECT id
+                FROM __SPARTA_SECRET_REDACTED__.razon_ausencia
+                WHERE clave = 'FALTA'
+                   OR UPPER(TRIM(nombre)) = 'FALTA'
+                LIMIT 1
+            ");
+
+            if ($existe && !empty($existe['id'])) {
+                $db->CRUD("
+                    UPDATE __SPARTA_SECRET_REDACTED__.razon_ausencia
+                    SET clave = 'FALTA',
+                        nombre = 'FALTA',
+                        activo = 1
+                    WHERE id = :id
+                ", ['id' => (int) $existe['id']]);
+                return;
+            }
+
+            $db->CRUD("
+                INSERT INTO __SPARTA_SECRET_REDACTED__.razon_ausencia
+                    (clave, nombre, descripcion, activo)
+                VALUES
+                    ('FALTA', 'FALTA', 'Ausencia por falta', 1)
+            ");
+        } catch (\Throwable $e) {
+            error_log('CapHum::asegurarRazonAusenciaFalta -> ' . $e->getMessage());
         }
     }
 
@@ -5224,6 +5963,9 @@ class CapHum extends Model
                 $numero_raw = $numeroEmpleadoEntrada;
             }
             $numero_empleado = addslashes($numero_raw);
+            $esExterno = isset($data['es_externo']) && (bool)$data['es_externo'];
+            $codigoContpacRaw = $esExterno ? '' : trim((string)($data['codigo_contpac'] ?? $numero_raw));
+            $codigo_contpac_sql = $codigoContpacRaw !== '' ? "'" . addslashes($codigoContpacRaw) . "'" : 'NULL';
 
             if ($cp === '' && $id_div_nivel3 !== 'NULL') {
                 $crow = $db->queryOne(
@@ -5247,9 +5989,9 @@ class CapHum extends Model
 
             $db->queryOne("
             INSERT INTO __SPARTA_SECRET_REDACTED__.persona
-            (nombres, segundo_nombre, apellidop, apellidom, curp, numero_empleado, correo, telefono_uno, telefono_dos, estatus, user_name, password, fecha_ingreso, fecha_registro, id_pais, id_div_nivel1, id_div_nivel2, id_div_nivel3, domicilio_calle_texto, domicilio_num_exterior, domicilio_num_interior, codigo_postal)
+            (nombres, segundo_nombre, apellidop, apellidom, curp, numero_empleado, codigo_contpac, correo, telefono_uno, telefono_dos, estatus, user_name, password, fecha_ingreso, fecha_registro, id_pais, id_div_nivel1, id_div_nivel2, id_div_nivel3, domicilio_calle_texto, domicilio_num_exterior, domicilio_num_interior, codigo_postal)
             VALUES
-            ('$nombres', '$segundo_nombre', '$apellidop', '$apellidom', $curp_sql, '$numero_empleado', '$correo', '$telefono_uno', '$telefono_dos', '$estatus', '$user_name', '$password', $fecha_ingreso_sql, '$fechaRegistro', $id_pais, $id_div_nivel1, $id_div_nivel2, $id_div_nivel3, $dom_calle_sql, $dom_ext_sql, $dom_int_sql, $cp_sql)
+            ('$nombres', '$segundo_nombre', '$apellidop', '$apellidom', $curp_sql, '$numero_empleado', $codigo_contpac_sql, '$correo', '$telefono_uno', '$telefono_dos', '$estatus', '$user_name', '$password', $fecha_ingreso_sql, '$fechaRegistro', $id_pais, $id_div_nivel1, $id_div_nivel2, $id_div_nivel3, $dom_calle_sql, $dom_ext_sql, $dom_int_sql, $cp_sql)
         ");
 
 
@@ -5485,11 +6227,12 @@ class CapHum extends Model
         $segundo_nombre  = addslashes($data['segundo_nombre'] ?? '');
         $apellidop       = addslashes($data['apellidop']);
         $apellidom       = addslashes($data['apellidom']);
+        $preservarCorreoActual = !empty($data['_preservar_correo_actual']);
         $correoRaw       = trim((string)($data['correo'] ?? ''));
-        if ($correoRaw !== '' && !filter_var($correoRaw, FILTER_VALIDATE_EMAIL)) {
+        if (!$preservarCorreoActual && $correoRaw !== '' && !filter_var($correoRaw, FILTER_VALIDATE_EMAIL)) {
             return self::resultado(false, 'El correo electrÃ³nico no tiene un formato valido.');
         }
-        $correo_sql      = $correoRaw !== '' ? "'" . addslashes($correoRaw) . "'" : 'NULL';
+        $correo_sql      = $preservarCorreoActual ? 'correo' : ($correoRaw !== '' ? "'" . addslashes($correoRaw) . "'" : 'NULL');
         $telefono_uno    = addslashes($data['telefono_uno'] ?? $data['telefono'] ?? '');
         $jefeRaw         = trim((string)($data['jefe_id'] ?? ''));
         $preservarJefeActual = $jefeRaw === '';
@@ -6068,6 +6811,74 @@ class CapHum extends Model
         return null;
     }
 
+    private static function obtenerBloqueoBajaActivo(Database $db, int $idPersona): ?array
+    {
+        if ($idPersona <= 0) {
+            return [
+                'motivo' => 'Persona invalida',
+                'mensaje' => 'No se puede validar la baja porque la persona no es valida.',
+            ];
+        }
+
+        $ausencia = $db->queryOne("
+            SELECT
+                ra.nombre AS motivo,
+                a.fecha_inicio,
+                a.fecha_fin
+            FROM __SPARTA_SECRET_REDACTED__.ausencia a
+            INNER JOIN __SPARTA_SECRET_REDACTED__.razon_ausencia ra ON ra.id = a.id_razon
+            WHERE a.id_persona = :id_persona
+              AND a.activo = 1
+              AND DATE(a.fecha_inicio) <= CURDATE()
+              AND DATE(a.fecha_fin) >= CURDATE()
+            ORDER BY a.fecha_fin DESC, a.id DESC
+            LIMIT 1
+        ", ['id_persona' => $idPersona]);
+
+        if ($ausencia) {
+            $motivo = trim((string)($ausencia['motivo'] ?? 'ausencia'));
+            return [
+                'motivo' => $motivo,
+                'fecha_inicio' => $ausencia['fecha_inicio'] ?? null,
+                'fecha_fin' => $ausencia['fecha_fin'] ?? null,
+                'mensaje' => 'No se puede dar de baja: la persona tiene ' . $motivo . ' vigente del '
+                    . date('d/m/Y', strtotime((string)$ausencia['fecha_inicio'])) . ' al '
+                    . date('d/m/Y', strtotime((string)$ausencia['fecha_fin'])) . '.',
+            ];
+        }
+
+        $vacaciones = $db->queryOne("
+            SELECT
+                s.id,
+                COALESCE(MIN(d.fecha), s.fecha_inicio) AS fecha_inicio,
+                COALESCE(MAX(d.fecha), s.fecha_fin) AS fecha_fin
+            FROM __SPARTA_SECRET_REDACTED__.vacaciones_solicitudes s
+            LEFT JOIN __SPARTA_SECRET_REDACTED__.vacaciones_solicitud_dias d ON d.id_solicitud = s.id
+            WHERE s.id_persona = :id_persona
+              AND s.estatus IN ('aprobada', 'tomada')
+              AND (
+                  CURDATE() BETWEEN DATE(s.fecha_inicio) AND DATE(s.fecha_fin)
+                  OR d.fecha = CURDATE()
+              )
+            GROUP BY s.id, s.fecha_inicio, s.fecha_fin
+            ORDER BY fecha_fin DESC, s.id DESC
+            LIMIT 1
+        ", ['id_persona' => $idPersona]);
+
+        if ($vacaciones) {
+            return [
+                'motivo' => 'VACACIONES',
+                'fecha_inicio' => $vacaciones['fecha_inicio'] ?? null,
+                'fecha_fin' => $vacaciones['fecha_fin'] ?? null,
+                'mensaje' => 'No se puede dar de baja: la persona tiene VACACIONES vigentes del '
+                    . date('d/m/Y', strtotime((string)$vacaciones['fecha_inicio'])) . ' al '
+                    . date('d/m/Y', strtotime((string)$vacaciones['fecha_fin'])) . '.',
+            ];
+        }
+
+        return null;
+    }
+
     public static function registrarBajaGestor($data)
     {
         try {
@@ -6095,6 +6906,11 @@ class CapHum extends Model
             ");
             if ($personaActual && $personaActual['estatus'] === 'Baja') {
                 return self::resultado(false, 'Esta persona ya se encuentra dada de baja en el sistema.');
+            }
+
+            $bloqueoBaja = self::obtenerBloqueoBajaActivo($db, (int)$id_persona);
+            if ($bloqueoBaja) {
+                return self::resultado(false, $bloqueoBaja['mensaje']);
             }
 
             $subordinadosActivos = $db->queryAll("

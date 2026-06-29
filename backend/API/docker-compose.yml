@@ -9,7 +9,7 @@ services:
       dockerfile: Dockerfile
     container_name: doc_verificacion_api
     ports:
-      - "8000:8000"
+      - "8001:8001"
     environment:
       TESSERACT_CMD: /usr/bin/tesseract
     env_file:

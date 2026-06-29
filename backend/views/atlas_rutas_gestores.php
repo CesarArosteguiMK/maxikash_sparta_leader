@@ -1,4 +1,4 @@
-﻿<div class="container-xxl flex-grow-1 container-p-y atlas-rutas-page">
+<div class="container-xxl flex-grow-1 container-p-y atlas-rutas-page">
     <style>
         .atlas-rutas-page { color: #22303e; }
         .atlas-rutas-title { display:flex; align-items:center; gap:.65rem; color:#22303e; font-size:1.35rem; font-weight:800; margin:0; }
@@ -1040,7 +1040,6 @@
                 criterio_prioridad: 'enganches',
                 fecha_inicio_visita: this.value('atlasRutaFechaInicio'),
                 fecha_fin_visita: this.value('atlasRutaFechaInicio'),
-                hora_llegada: null,
                 estancia_valor: sugerida.valor,
                 estancia_unidad: sugerida.unidad,
                 estadia_sugerida: sucursal.estadia_sugerida || null
@@ -1149,7 +1148,6 @@
                 criterio_prioridad: 'enganches',
                 fecha_inicio_visita: this.value('atlasRutaFechaInicio'),
                 fecha_fin_visita: this.value('atlasRutaFechaInicio'),
-                hora_llegada: null,
                 estancia_valor: sugerida.valor,
                 estancia_unidad: sugerida.unidad,
                 estadia_sugerida: sucursal.estadia_sugerida || null
@@ -2030,7 +2028,6 @@
                         criterio_prioridad: s.criterio_prioridad_visita || s.criterio_prioridad || 'enganches',
                         fecha_inicio_visita: s.fecha_inicio_visita || ruta.fecha_inicio || ruta.fecha_ruta || '',
                         fecha_fin_visita: s.fecha_inicio_visita || ruta.fecha_inicio || ruta.fecha_ruta || '',
-                        hora_llegada: null,
                         estancia_valor: s.estancia_valor || sugerida.valor,
                         estancia_unidad: s.estancia_unidad || sugerida.unidad,
                         estadia_sugerida: s.estadia_sugerida || null
@@ -2186,7 +2183,6 @@
                     criterio_prioridad: s.criterio_prioridad || 'enganches',
                     fecha_inicio_visita: s.fecha_inicio_visita || this.value('atlasRutaFechaInicio'),
                     fecha_fin_visita: s.fecha_inicio_visita || this.value('atlasRutaFechaInicio'),
-                    hora_llegada: null,
                     estancia_valor: s.estancia_valor || 45,
                     estancia_unidad: s.estancia_unidad || 'minutos'
                 })),

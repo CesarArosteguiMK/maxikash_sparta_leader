@@ -1,4 +1,4 @@
-' Arranca la API (puerto 8000) sin ventana CMD: solo PowerShell oculto + proceso Python.
+' Arranca la API (puerto 8001) sin ventana CMD: solo PowerShell oculto + proceso Python.
 ' Si falla (sin venv, etc.), revise logs\api_oculto_startup.log o ejecute iniciar-agente.bat a mano.
 
 Dim sh, fso, ps1

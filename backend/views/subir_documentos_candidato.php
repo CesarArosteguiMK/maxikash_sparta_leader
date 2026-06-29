@@ -408,6 +408,38 @@ $documentos_ayuda = [
         .doc-palomita.visible {
             display: inline-block;
         }
+        .doc-motor-firma {
+            display: none;
+            width: max-content;
+            max-width: 100%;
+            align-items: center;
+            gap: 0.35rem;
+            margin-top: 0.42rem;
+            padding: 0.18rem 0.5rem;
+            border-radius: 999px;
+            border: 1px solid #d7e6fb;
+            background: #f4f8ff;
+            color: #245fa8;
+            font-size: 0.68rem;
+            font-weight: 800;
+            letter-spacing: 0.02em;
+            text-transform: uppercase;
+        }
+        .doc-motor-firma.is-v2 {
+            border-color: #a7f3d0;
+            background: #ecfdf5;
+            color: #047857;
+        }
+        .doc-motor-firma.is-v1 {
+            border-color: #fed7aa;
+            background: #fff7ed;
+            color: #b45309;
+        }
+        .doc-motor-firma.is-manual {
+            border-color: #e2e8f0;
+            background: #f8fafc;
+            color: #64748b;
+        }
         /* Modal cámara */
         .modal-camara-overlay {
             display: none;
@@ -713,6 +745,7 @@ $documentos_ayuda = [
                             <span id="estado-verificado" class="doc-check-inline" style="display:none;color:#2e7d32;font-weight:600;"><i class="fa fa-check-circle me-1"></i> Estado de cuenta listo</span>
                             <?php endif; ?>
                         </div>
+                        <div id="doc-motor-<?= (int)$num ?>" class="doc-motor-firma" aria-live="polite"></div>
                         <?php endif; ?>
                     </div>
                     <?php endforeach; ?>
@@ -927,9 +960,9 @@ $documentos_ayuda = [
             var API_BASE = <?= json_encode($api_verificacion_base) ?>;
             var API_KEY = 'sparta-__SPARTA_SECRET_REDACTED__-doc-verificacion-key';
             var idVerificado = { front: false, back: false };
-            var VERIFICACION_TIMEOUT_MS = 12000;
-            var VERIFICACION_ESTADO_CUENTA_TIMEOUT_MS = 12000;
-            var VERIFICACION_IDENTIFICACION_TIMEOUT_MS = 15000;
+            var VERIFICACION_TIMEOUT_MS = 35000;
+            var VERIFICACION_ESTADO_CUENTA_TIMEOUT_MS = 35000;
+            var VERIFICACION_IDENTIFICACION_TIMEOUT_MS = 35000;
             var VERIFICACION_CALIDAD_TIMEOUT_MS = 10000;
             var MAX_UPLOAD_TOTAL_BYTES = <?= (int) $maxUploadTotalBytes ?>;
             var SERVER_POST_MAX_BYTES = <?= (int) $postMaxBytes ?>;
@@ -938,8 +971,8 @@ $documentos_ayuda = [
             window.SERVER_POST_MAX_BYTES = SERVER_POST_MAX_BYTES;
             window.SERVER_UPLOAD_MAX_BYTES = SERVER_UPLOAD_MAX_BYTES;
 
-            var VERIFICACION_CURP_TIMEOUT_MS = 8000;
-            var VERIFICACION_FISCAL_TIMEOUT_MS = 10000;
+            var VERIFICACION_CURP_TIMEOUT_MS = 35000;
+            var VERIFICACION_FISCAL_TIMEOUT_MS = 35000;
             var VALIDACION_PREVIA_REMOTA = true;
             var MOSTRAR_MODAL_REVISION_RAPIDA = true;
             var FLUJO_CAPTURA_DOCUMENTOS_ACTIVO = false;
@@ -1210,6 +1243,7 @@ $documentos_ayuda = [
                 var ids = { 4: 'curp-verificado', 5: 'id-verificado-frente', 6: 'comp-verificado', 7: 'fiscal-verificado', 8: 'nss-verificado', 10: 'estado-verificado' };
                 var el = ids[numCampo] ? document.getElementById(ids[numCampo]) : null;
                 if (el) el.style.display = 'none';
+                limpiarFirmaMotorDocumento(numCampo);
             }
 
             window.tipoSugeridoPorNombreArchivo = tipoSugeridoPorNombreArchivo;
@@ -1360,6 +1394,33 @@ $documentos_ayuda = [
                 el.style.color = '#2e7d32';
             }
 
+            function actualizarFirmaMotorDocumento(docNum, res, modoManual) {
+                var el = document.getElementById('doc-motor-' + docNum);
+                if (!el) return;
+                el.classList.remove('is-v2', 'is-v1', 'is-manual');
+                var texto = '';
+                if (res && String(res.motor_ia || '').toLowerCase() === 'alibaba') {
+                    texto = 'Motor V2';
+                    el.classList.add('is-v2');
+                } else if (modoManual === true) {
+                    texto = 'Revision manual';
+                    el.classList.add('is-manual');
+                } else {
+                    texto = 'Motor V1';
+                    el.classList.add('is-v1');
+                }
+                el.textContent = texto;
+                el.style.display = 'inline-flex';
+            }
+
+            function limpiarFirmaMotorDocumento(docNum) {
+                var el = document.getElementById('doc-motor-' + docNum);
+                if (!el) return;
+                el.textContent = '';
+                el.style.display = 'none';
+                el.classList.remove('is-v2', 'is-v1', 'is-manual');
+            }
+
             function etiquetaTipoComprobante(tipo) {
                 tipo = String(tipo || '').toUpperCase();
                 var mapa = {
@@ -1460,12 +1521,14 @@ $documentos_ayuda = [
                         showResultado(document.getElementById('mensajeResultado'), null, 'Este archivo parece corresponder a otro documento. Para Comprobante de domicilio sube el PDF o imagen del comprobante correcto.', true);
                         inputComprobante.value = '';
                         actualizarCheckmark(6, false);
+                        limpiarFirmaMotorDocumento(6);
                         return;
                     }
                     var msg = document.getElementById('mensajeResultado');
                     if (!VALIDACION_PREVIA_REMOTA) {
                         showResultado(msg, null, '<i class="fa fa-check-circle me-1"></i> Comprobante recibido. Capital Humano lo revisar\u00e1.', false);
                         marcarDocumentoRecibido(6, 'comp-verificado');
+                        actualizarFirmaMotorDocumento(6, null, true);
                         return;
                     }
                     var verificandoDiv = showVerificando(msg, 'Verificando comprobante...');
@@ -1483,6 +1546,7 @@ $documentos_ayuda = [
                             var elComp = document.getElementById('comp-verificado');
                             if (elComp) elComp.style.display = 'none';
                             actualizarCheckmark(6, false);
+                            limpiarFirmaMotorDocumento(6);
                         } else {
                             var tipoComp = etiquetaTipoComprobante(res.tipo_comprobante);
                             var datosComp = [];
@@ -1496,11 +1560,13 @@ $documentos_ayuda = [
                             showResultado(msg, verificandoDiv, textoComprobante, false);
                             actualizarBadgeDocumento('comp-verificado', '<i class="fa fa-check-circle me-1"></i> Comprobante detectado' + (tipoComp ? ': ' + tipoComp : ''));
                             actualizarCheckmark(6, true);
+                            actualizarFirmaMotorDocumento(6, res);
                         }
                     })
                     .catch(function(err) {
                         showResultado(msg, verificandoDiv, '<i class="fa fa-check-circle me-1"></i> Comprobante recibido.', false);
                         marcarDocumentoRecibido(6, 'comp-verificado');
+                        actualizarFirmaMotorDocumento(6, null, true);
                     });
                 });
             }
@@ -1514,6 +1580,7 @@ $documentos_ayuda = [
                         showResultado(document.getElementById('mensajeResultado'), null, 'Solo se acepta constancia de CURP en PDF (descargada del RENAPO). No uses constancia fiscal ni otros documentos.', true);
                         inputCURP.value = '';
                         actualizarCheckmark(4, false);
+                        limpiarFirmaMotorDocumento(4);
                         return;
                     }
                     if (!archivoCorrespondeCampoPorNombre(file, 4)) {
@@ -1537,6 +1604,7 @@ $documentos_ayuda = [
                             inputCURP.value = '';
                             if (el) el.style.display = 'none';
                             actualizarCheckmark(4, false);
+                            limpiarFirmaMotorDocumento(4);
                             return;
                         }
                         if (res.valido !== true) {
@@ -1544,6 +1612,7 @@ $documentos_ayuda = [
                             inputCURP.value = '';
                             if (el) el.style.display = 'none';
                             actualizarCheckmark(4, false);
+                            limpiarFirmaMotorDocumento(4);
                             return;
                         }
                         if (res.es_reciente === false && res.meses_antiguedad != null) {
@@ -1551,15 +1620,20 @@ $documentos_ayuda = [
                             inputCURP.value = '';
                             if (el) el.style.display = 'none';
                             actualizarCheckmark(4, false);
+                            limpiarFirmaMotorDocumento(4);
                             return;
                         }
                         var vigencia = res.es_reciente === true ? ' Vigente.' : (res.fecha_emision ? ' Emisión: ' + res.fecha_emision + '.' : '');
-                        showResultadoCritico(msg, '<i class="fa fa-check-circle me-1"></i> CURP verificado: ' + (res.curp_extraido || '') + '.' + vigencia, false);
+                        var textoCurpOk = res.curp_extraido
+                            ? 'CURP verificado: ' + normalizarTextoInterfaz(res.curp_extraido)
+                            : 'CURP verificado';
+                        showResultadoCritico(msg, '<i class="fa fa-check-circle me-1"></i> ' + textoCurpOk + '.' + vigencia, false);
                         if (el) {
                             el.innerHTML = '<i class="fa fa-check-circle me-1"></i> CURP detectada' + (res.curp_extraido ? ': ' + res.curp_extraido : '');
                             el.style.display = 'inline';
                         }
                         actualizarCheckmark(4, true);
+                        actualizarFirmaMotorDocumento(4, res);
                     })
                     .catch(function(err) {
                         terminarVerificacionCritica(verificandoDiv);
@@ -1568,6 +1642,7 @@ $documentos_ayuda = [
                         inputCURP.value = '';
                         if (el) el.style.display = 'none';
                         actualizarCheckmark(4, false);
+                        limpiarFirmaMotorDocumento(4);
                     });
                 });
             }
@@ -1582,6 +1657,7 @@ $documentos_ayuda = [
                         showResultado(document.getElementById('mensajeResultado'), null, 'Solo se acepta un archivo PDF para la identificación oficial (con frente y reverso).', true);
                         inputFrente.value = '';
                         actualizarCheckmark(5, false);
+                        limpiarFirmaMotorDocumento(5);
                         return;
                     }
                     var tipoDetectadoId = tipoSugeridoPorNombreArchivo(file.name);
@@ -1589,6 +1665,7 @@ $documentos_ayuda = [
                         showResultado(document.getElementById('mensajeResultado'), null, 'Este archivo parece corresponder a otro documento. Para Identificación oficial sube el PDF de INE/IFE o identificación válida con frente y reverso.', true);
                         inputFrente.value = '';
                         actualizarCheckmark(5, false);
+                        limpiarFirmaMotorDocumento(5);
                         return;
                     }
                     var msg = document.getElementById('mensajeResultado');
@@ -1603,6 +1680,7 @@ $documentos_ayuda = [
                             inputFrente.value = '';
                             if (el) el.style.display = 'none';
                             actualizarCheckmark(5, false);
+                            limpiarFirmaMotorDocumento(5);
                             return;
                         }
                         if (!res || res.valido !== true) {
@@ -1612,6 +1690,7 @@ $documentos_ayuda = [
                             inputFrente.value = '';
                             if (el) el.style.display = 'none';
                             actualizarCheckmark(5, false);
+                            limpiarFirmaMotorDocumento(5);
                             return;
                         }
                         idVerificado.front = true;
@@ -1623,6 +1702,7 @@ $documentos_ayuda = [
                             el.style.display = 'inline';
                         }
                         actualizarCheckmark(5, true);
+                        actualizarFirmaMotorDocumento(5, res);
                         showResultado(msg, null, '<i class="fa fa-check-circle me-1"></i> ' + etiquetaId + '.', false);
                     }).catch(function(err) {
                         terminarVerificacionCritica(verificandoDiv);
@@ -1633,6 +1713,7 @@ $documentos_ayuda = [
                         inputFrente.value = '';
                         if (el) el.style.display = 'none';
                         actualizarCheckmark(5, false);
+                        limpiarFirmaMotorDocumento(5);
                     });
                 });
             }
@@ -1688,12 +1769,14 @@ $documentos_ayuda = [
                         showResultado(document.getElementById('mensajeResultado'), null, 'Solo se acepta constancia de situación fiscal en PDF (descargada del SAT).', true);
                         inputFiscal.value = '';
                         actualizarCheckmark(7, false);
+                        limpiarFirmaMotorDocumento(7);
                         return;
                     }
                     var msg = document.getElementById('mensajeResultado');
                     if (!VALIDACION_PREVIA_REMOTA) {
                         showResultado(msg, null, '<i class="fa fa-check-circle me-1"></i> Constancia fiscal recibida. Capital Humano la revisar\u00e1.', false);
                         marcarDocumentoRecibido(7, 'fiscal-verificado');
+                        actualizarFirmaMotorDocumento(7, null, true);
                         return;
                     }
                     var verificandoDiv = showVerificando(msg, 'Verificando constancia fiscal...');
@@ -1718,6 +1801,7 @@ $documentos_ayuda = [
                             inputFiscal.value = '';
                             if (el) el.style.display = 'none';
                             actualizarCheckmark(7, false);
+                            limpiarFirmaMotorDocumento(7);
                             return;
                         }
                         if (res.valido !== true) {
@@ -1725,6 +1809,7 @@ $documentos_ayuda = [
                             inputFiscal.value = '';
                             if (el) el.style.display = 'none';
                             actualizarCheckmark(7, false);
+                            limpiarFirmaMotorDocumento(7);
                             return;
                         }
                         showResultado(msg, verificandoDiv, '<i class="fa fa-check-circle me-1"></i> Constancia de situación fiscal verificada.', false);
@@ -1735,6 +1820,7 @@ $documentos_ayuda = [
                         if (res.fecha_emision) datosFiscal.push('emision ' + normalizarTextoInterfaz(res.fecha_emision));
                         actualizarBadgeDocumento('fiscal-verificado', '<i class="fa fa-check-circle me-1"></i> RFC detectado' + (res.rfc ? ': ' + normalizarTextoInterfaz(res.rfc) : ''));
                         actualizarCheckmark(7, true);
+                        actualizarFirmaMotorDocumento(7, res);
                     })
                     .catch(function(err) {
                         var el = document.getElementById('fiscal-verificado');
@@ -1742,6 +1828,7 @@ $documentos_ayuda = [
                         inputFiscal.value = '';
                         if (el) el.style.display = 'none';
                         actualizarCheckmark(7, false);
+                        limpiarFirmaMotorDocumento(7);
                     });
                 });
             }
@@ -1755,6 +1842,7 @@ $documentos_ayuda = [
                         showResultado(document.getElementById('mensajeResultado'), null, 'Solo se acepta NSS en PDF.', true);
                         inputNSS.value = '';
                         actualizarCheckmark(8, false);
+                        limpiarFirmaMotorDocumento(8);
                         return;
                     }
                     var msg = document.getElementById('mensajeResultado');
@@ -1764,6 +1852,7 @@ $documentos_ayuda = [
                     if (!VALIDACION_PREVIA_REMOTA) {
                         showResultado(msg, null, '<i class="fa fa-check-circle me-1"></i> NSS recibido. Capital Humano lo revisar\u00e1.', false);
                         marcarDocumentoRecibido(8, 'nss-verificado');
+                        actualizarFirmaMotorDocumento(8, null, true);
                         return;
                     }
                     fetchWithTimeout(API_BASE + '/verificar-nss-documento', { method: 'POST', headers: { 'X-API-Key': API_KEY }, body: formData }, VERIFICACION_TIMEOUT_MS)
@@ -1779,16 +1868,19 @@ $documentos_ayuda = [
                                 showResultado(msg, verificandoDiv, '<i class="fa fa-check-circle me-1"></i> NSS detectado. Capital Humano lo revisar\u00e1.', false);
                                 actualizarBadgeDocumento('nss-verificado', '<i class="fa fa-check-circle me-1"></i> NSS detectado');
                                 actualizarCheckmark(8, true);
+                                actualizarFirmaMotorDocumento(8, res);
                                 return;
                             }
                             showResultado(msg, verificandoDiv, res.mensaje || 'No se pudo validar el NSS. Capital Humano lo revisar\u00e1.', false);
                             marcarDocumentoRecibido(8, 'nss-verificado');
+                            actualizarFirmaMotorDocumento(8, res);
                             return;
                         }
                         if (res.valido !== true) {
                             showResultado(msg, verificandoDiv, '<i class="fa fa-check-circle me-1"></i> NSS detectado.', false);
                             actualizarBadgeDocumento('nss-verificado', '<i class="fa fa-check-circle me-1"></i> NSS detectado');
                             actualizarCheckmark(8, true);
+                            actualizarFirmaMotorDocumento(8, res);
                             return;
                         }
                         var datosNss = [];
@@ -1798,10 +1890,12 @@ $documentos_ayuda = [
                         showResultado(msg, verificandoDiv, '<i class="fa fa-check-circle me-1"></i> NSS detectado' + (datosNss.length ? ': ' + datosNss.join(' - ') : '.') , false);
                         actualizarBadgeDocumento('nss-verificado', '<i class="fa fa-check-circle me-1"></i> NSS detectado' + (res.nss_extraido ? ': ' + normalizarTextoInterfaz(res.nss_extraido) : ''));
                         actualizarCheckmark(8, true);
+                        actualizarFirmaMotorDocumento(8, res);
                     })
                     .catch(function(err) {
                         showResultado(msg, verificandoDiv, '<i class="fa fa-check-circle me-1"></i> NSS recibido.', false);
                         marcarDocumentoRecibido(8, 'nss-verificado');
+                        actualizarFirmaMotorDocumento(8, null, true);
                     });
                 });
             }
@@ -1815,6 +1909,7 @@ $documentos_ayuda = [
                         showResultado(document.getElementById('mensajeResultado'), null, 'Solo se acepta estado de cuenta en PDF.', true);
                         inputEstadoCuenta.value = '';
                         actualizarCheckmark(10, false);
+                        limpiarFirmaMotorDocumento(10);
                         return;
                     }
                     var msg = document.getElementById('mensajeResultado');
@@ -1824,6 +1919,7 @@ $documentos_ayuda = [
                     if (!VALIDACION_PREVIA_REMOTA) {
                         showResultado(msg, null, '<i class="fa fa-check-circle me-1"></i> Estado de cuenta recibido. Capital Humano lo revisar\u00e1.', false);
                         actualizarCheckmark(10, true);
+                        actualizarFirmaMotorDocumento(10, null, true);
                         return;
                     }
                     fetchWithTimeout(API_BASE + '/verificar-estado-cuenta', { method: 'POST', headers: { 'X-API-Key': API_KEY }, body: formData }, VERIFICACION_ESTADO_CUENTA_TIMEOUT_MS)
@@ -1840,12 +1936,14 @@ $documentos_ayuda = [
                             showResultado(msg, verificandoDiv, res.mensaje || 'Estado de cuenta rechazado. Sube un estado de cuenta válido.', true);
                             inputEstadoCuenta.value = '';
                             actualizarCheckmark(10, false);
+                            limpiarFirmaMotorDocumento(10);
                             return;
                         }
                         if (!res || res.valido !== true) {
                             showResultado(msg, verificandoDiv, '<i class="fa fa-check-circle me-1"></i> Estado de cuenta recibido.', false);
                             actualizarBadgeDocumento('estado-verificado', '<i class="fa fa-check-circle me-1"></i> Estado de cuenta detectado');
                             actualizarCheckmark(10, true);
+                            actualizarFirmaMotorDocumento(10, res);
                             return;
                         }
                         var datosEstado = [];
@@ -1855,6 +1953,7 @@ $documentos_ayuda = [
                         showResultado(msg, verificandoDiv, '<i class="fa fa-check-circle me-1"></i> Banco físico detectado' + (datosEstado.length ? ': ' + datosEstado.join(' - ') : '') + '.', false);
                         actualizarBadgeDocumento('estado-verificado', '<i class="fa fa-check-circle me-1"></i> Banco físico detectado' + (res.banco_detectado ? ': ' + normalizarTextoInterfaz(res.banco_detectado) : ''));
                         actualizarCheckmark(10, true);
+                        actualizarFirmaMotorDocumento(10, res);
                     })
                     .catch(function(err) {
                         var texto = esErrorTimeoutOAbort(err)
@@ -1864,6 +1963,7 @@ $documentos_ayuda = [
                         showResultado(msg, verificandoDiv, '<i class="fa fa-check-circle me-1"></i> Estado de cuenta recibido.', false);
                         actualizarBadgeDocumento('estado-verificado', '<i class="fa fa-check-circle me-1"></i> Estado de cuenta detectado');
                         actualizarCheckmark(10, true);
+                        actualizarFirmaMotorDocumento(10, null, true);
                     });
                 });
             }
@@ -1893,9 +1993,8 @@ $documentos_ayuda = [
                         actualizarCheckmark(1, true);
                     })
                     .catch(function() {
-                        showResultado(msg, verificandoDiv, 'No se pudo revisar la solicitud interna. Intenta de nuevo con el PDF completo.', true);
-                        inputSolicitudInterna.value = '';
-                        actualizarCheckmark(1, false);
+                        showResultado(msg, verificandoDiv, '<i class="fa fa-check-circle me-1"></i> Solicitud interna recibida.', false);
+                        actualizarCheckmark(1, true);
                     });
                 });
             }

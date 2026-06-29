@@ -4199,7 +4199,6 @@ SQL;
                    AND c.deleted_at IS NULL
                    AND t.deleted_at IS NULL
                    AND c.start_date <= CURDATE()
-                   AND c.end_date >= CURDATE()
                    AND d.created_at >= c.start_date
                    AND d.updated_at >= DATE_SUB(NOW(), INTERVAL 14 DAY)
                    AND d.form_response IS NOT NULL
@@ -4532,7 +4531,10 @@ SQL;
             ['fecha' => $ahora, 'id' => $idOperacion]
         );
 
-        if (!$this->existeBitacoraEnvioEvidenciasAdjudicacion($idOperacion)) {
+        if (
+            $this->faltantesEvidenciaFisicaOperacion($idOperacion) === []
+            && !$this->existeBitacoraEnvioEvidenciasAdjudicacion($idOperacion)
+        ) {
             $this->registrarBitacora($idOperacion, self::ACCION_GESTOR_ENVIO_EVIDENCIAS_ADJUDICACION, $idUsuario, $nombreUsuario, $ahora);
         }
     }
@@ -4699,9 +4701,42 @@ SQL;
             ['fecha' => $ahora, 'id' => $idOperacion]
         );
 
-        if (!$this->existeBitacoraEnvioEvidenciasAdjudicacion($idOperacion)) {
+        if (
+            $this->faltantesEvidenciaFisicaOperacion($idOperacion) === []
+            && !$this->existeBitacoraEnvioEvidenciasAdjudicacion($idOperacion)
+        ) {
             $this->registrarBitacora($idOperacion, self::ACCION_GESTOR_ENVIO_EVIDENCIAS_ADJUDICACION, $idUsuario, $nombreUsuario, $ahora);
         }
+    }
+
+    private function faltantesEvidenciaFisicaOperacion(int $idOperacion): array
+    {
+        if ($idOperacion <= 0) {
+            return self::MADJ_SLOTS_EVIDENCIA_MEDIA;
+        }
+
+        $rows = $this->db->queryAll(
+            'SELECT slot, url FROM adj_evidencia WHERE id_operacion = :id',
+            ['id' => $idOperacion]
+        ) ?: [];
+
+        $slotsConArchivo = [];
+        foreach ($rows as $row) {
+            $slot = trim((string) ($row['slot'] ?? ''));
+            $url = trim((string) ($row['url'] ?? ''));
+            if ($slot !== '' && $url !== '') {
+                $slotsConArchivo[$slot] = true;
+            }
+        }
+
+        $faltantes = [];
+        foreach (self::MADJ_SLOTS_EVIDENCIA_MEDIA as $slot) {
+            if (empty($slotsConArchivo[$slot])) {
+                $faltantes[] = self::SLOT_LABELS[$slot] ?? $slot;
+            }
+        }
+
+        return $faltantes;
     }
 
     private function extraerDatosMotoDesdeDictumApp(array $campos): array
@@ -7106,7 +7141,7 @@ EOSQL;
             $apiUrl = isset($config['doc_verificacion']['api_url']) ? trim((string) $config['doc_verificacion']['api_url']) : '';
             $apiKey = isset($config['doc_verificacion']['api_key']) ? trim((string) $config['doc_verificacion']['api_key']) : 'sparta-__SPARTA_SECRET_REDACTED__-doc-verificacion-key';
             if ($apiUrl === '') {
-                $apiUrl = 'http://127.0.0.1:8000/api/v1/verificar';
+                $apiUrl = 'http://127.0.0.1:8001/api/v1/verificar';
             }
 
             $baseUrl = preg_replace('#/verificar\s*$#', '', $apiUrl);

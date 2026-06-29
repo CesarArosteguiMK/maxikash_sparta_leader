@@ -6,7 +6,7 @@ if "%API_DIR:~-1%"=="\" set "API_DIR=%API_DIR:~0,-1%"
 cd /d "%API_DIR%"
 
 echo.
-echo  Deteniendo API Verificación Documentos ^(puerto 8000 + Docker si aplica^)...
+echo  Deteniendo API Verificación Documentos ^(puerto 8001 + Docker si aplica^)...
 echo.
 
 powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0cerrar-agente.ps1" -Silent

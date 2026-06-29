@@ -15,6 +15,15 @@ class CapHumEstadisticas extends Model
 {
     private const MODULO_ONBOARDING_WEB = 44;
 
+    private static function sqlExcluirPersonaExterna(string $aliasPersona = 'p'): string
+    {
+        $alias = preg_replace('/[^A-Za-z0-9_]/', '', $aliasPersona) ?: 'p';
+        return " AND NOT (
+            TRIM(COALESCE({$alias}.codigo_contpac, '')) = ''
+            AND TRIM(COALESCE({$alias}.numero_empleado, '')) <> ''
+        )";
+    }
+
     /** @return array<string, mixed> */
     private static function rangoMesSemana(int $anio, int $mes, int $semana): array
     {
@@ -364,7 +373,14 @@ class CapHumEstadisticas extends Model
                 $sqlFiltroPersona .= '
                   )';
             }
-            $sqlExFantasma = UsuarioFantasmaReporteria::sqlExcluirPersona('p') . $sqlFiltroPersona;
+            $sqlExFantasma = UsuarioFantasmaReporteria::sqlExcluirPersona('p')
+                . self::sqlExcluirPersonaExterna('p')
+                . $sqlFiltroPersona;
+            foreach (['f_id_direccion', 'f_id_area', 'f_id_departamento', 'f_id_puesto'] as $paramFiltro) {
+                if (array_key_exists($paramFiltro, $paramsRango)) {
+                    $paramsAusSum[$paramFiltro] = $paramsRango[$paramFiltro];
+                }
+            }
 
             $sqlHeadcountBase = '
                 FROM ' . $tp . ' p
@@ -639,8 +655,10 @@ class CapHumEstadisticas extends Model
 
             $plantillaEmpleadosBajas90 = self::scalarInt(
                 $db,
-                'SELECT COUNT(*) AS c FROM ' . $tbp . ' bp
-                 WHERE DATE(bp.fecha_baja) BETWEEN DATE_SUB(:ff_90a, INTERVAL 89 DAY) AND :ff_90b',
+                'SELECT COUNT(*) AS c
+                 FROM ' . $tbp . ' bp
+                 INNER JOIN ' . $tp . ' p ON p.id = bp.id_persona
+                 WHERE DATE(bp.fecha_baja) BETWEEN DATE_SUB(:ff_90a, INTERVAL 89 DAY) AND :ff_90b' . $sqlExFantasma,
                 $paramsRango
             );
 
@@ -730,9 +748,10 @@ class CapHumEstadisticas extends Model
                         END
                     ), 0) AS c
                     FROM {$taus} a
+                    INNER JOIN {$tp} p ON p.id = a.id_persona
                     WHERE IFNULL(a.activo, 1) = 1
                       AND DATE(a.fecha_inicio) <= :ff_c
-                      AND DATE(IFNULL(a.fecha_fin, a.fecha_inicio)) >= :fi_c",
+                      AND DATE(IFNULL(a.fecha_fin, a.fecha_inicio)) >= :fi_c" . $sqlExFantasma,
                     $paramsAusSum
                 );
                 $ausEmpleados3mas = self::scalarInt(
@@ -740,9 +759,10 @@ class CapHumEstadisticas extends Model
                     "SELECT COUNT(*) AS c FROM (
                         SELECT a.id_persona
                         FROM {$taus} a
+                        INNER JOIN {$tp} p ON p.id = a.id_persona
                         WHERE IFNULL(a.activo, 1) = 1
                           AND DATE(a.fecha_inicio) <= :ff
-                          AND DATE(IFNULL(a.fecha_fin, a.fecha_inicio)) >= :fi
+                          AND DATE(IFNULL(a.fecha_fin, a.fecha_inicio)) >= :fi" . $sqlExFantasma . "
                         GROUP BY a.id_persona
                         HAVING COUNT(*) >= 3
                     ) t",
@@ -1090,7 +1110,7 @@ class CapHumEstadisticas extends Model
             $tad = self::tblBd('asigna_direcciones');
             $tbp = self::tblBd('baja_persona');
             $trg = self::tblBd('reingresos');
-            $sqlExFantasma = UsuarioFantasmaReporteria::sqlExcluirPersona('p');
+            $sqlExFantasma = UsuarioFantasmaReporteria::sqlExcluirPersona('p') . self::sqlExcluirPersonaExterna('p');
             $sqlFiltroEstructura = '';
             if ($idDireccion !== null) {
                 $sqlFiltroEstructura .= ' AND ad.id_direccion = :f_id_direccion';
