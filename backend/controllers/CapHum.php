@@ -18576,6 +18576,99 @@ class CapHum extends Controller
         return $post;
     }
 
+    private function compactarValorLecturaIaExpediente($valor, int $maxTexto = 700)
+    {
+        if ($valor === null || is_bool($valor) || is_int($valor) || is_float($valor)) {
+            return $valor;
+        }
+        if (is_string($valor)) {
+            $texto = trim(strip_tags($valor));
+            $texto = preg_replace('/\s+/', ' ', $texto) ?? $texto;
+            if (function_exists('mb_strlen') && function_exists('mb_substr')) {
+                return mb_strlen($texto) > $maxTexto ? mb_substr($texto, 0, $maxTexto) . '...' : $texto;
+            }
+            return strlen($texto) > $maxTexto ? substr($texto, 0, $maxTexto) . '...' : $texto;
+        }
+        if (!is_array($valor)) {
+            return null;
+        }
+
+        $salida = [];
+        $i = 0;
+        foreach ($valor as $k => $v) {
+            if ($i >= 12) {
+                break;
+            }
+            $compacto = $this->compactarValorLecturaIaExpediente($v, 350);
+            if ($compacto === null || $compacto === '' || $compacto === []) {
+                continue;
+            }
+            $salida[$k] = $compacto;
+            $i++;
+        }
+        return $salida;
+    }
+
+    private function compactarValidacionIaExpediente(array $validacion): array
+    {
+        $permitidas = [
+            'tipo_documento_detectado',
+            'tipo_documento',
+            'subtipo',
+            'valido',
+            'rechazado',
+            'revision_manual',
+            'nombre',
+            'nombre_completo',
+            'nombre_propietario',
+            'nombre_titular',
+            'titular_cuenta',
+            'curp',
+            'curp_extraido',
+            'curp_lectura_ia',
+            'rfc',
+            'nss',
+            'nss_extraido',
+            'nss_lectura_ia',
+            'fecha_nacimiento',
+            'fecha_emision',
+            'fecha_expedicion',
+            'fecha_documento',
+            'domicilio',
+            'direccion',
+            'banco_detectado',
+            'banco',
+            'clabe',
+            'numero_cuenta',
+            'cuenta',
+            'regimen_fiscal',
+            'regimenes_fiscales',
+            'regimen_sueldos_salarios',
+            'meses_antiguedad',
+            'antiguedad_meses',
+            'mensaje',
+            'motivo_rechazo',
+            'alertas',
+            'notas',
+            'observaciones',
+            'paginas',
+            'paginas_pdf',
+            'paginas_analizadas',
+        ];
+        $out = [];
+        foreach ($permitidas as $key) {
+            if (!array_key_exists($key, $validacion)) {
+                continue;
+            }
+            $compacto = $this->compactarValorLecturaIaExpediente($validacion[$key]);
+            if ($compacto === null || $compacto === '' || $compacto === []) {
+                continue;
+            }
+            $out[$key] = $compacto;
+        }
+        return $out;
+    }
+
     private function construirLecturasIaExpedienteJson(array $documentos): ?string
     {
         if (empty($documentos)) {
@@ -18619,6 +18712,10 @@ class CapHum extends Controller
             $motor = strtolower(trim((string) ($validacion['motor_ia'] ?? '')));
             $modelo = strtolower(trim((string) ($validacion['modelo_ia'] ?? '')));
             if ($motor !== 'alibaba' && strpos($modelo, 'qwen') === false) {
+                continue;
+            }
+            $validacion = $this->compactarValidacionIaExpediente($validacion);
+            if (empty($validacion)) {
                 continue;
             }
 
@@ -18811,8 +18908,14 @@ class CapHum extends Controller
             }
             $lecturasJson = $this->construirLecturasIaExpedienteJson($documentos);
             if ($lecturasJson !== null) {
-                $post['lecturas_json'] = $lecturasJson;
-                $post['lecturas_json_b64'] = base64_encode($lecturasJson);
+                // Evitar enviar JSON crudo en multipart: algunas lecturas traen
+                // HTML/observaciones largas y pueden romper el parser del body
+                // antes de que FastAPI entre al endpoint. El limite por parte de
+                // Starlette ronda 1 MB, asi que si el payload previo ya es grande
+                // lo omitimos y dejamos que Motor V2 relea los PDF.
+                if (strlen($lecturasJson) <= 650000) {
+                    $post['lecturas_json_b64'] = base64_encode($lecturasJson);
+                }
             }
             $diagArchivos = [];
             foreach ($post as $pk => $pv) {
@@ -18821,8 +18924,10 @@ class CapHum extends Controller
                     $diagArchivos[$pk] = (is_string($fn) && is_file($fn)) ? (int) filesize($fn) : 0;
                 }
             }
-            $lecturasDiag = isset($post['lecturas_json']) ? count(json_decode((string) $post['lecturas_json'], true) ?: []) : 0;
-            error_log('CapHum::validarExpedienteApi intento ' . ($attempt + 1) . '/' . $totalIntentos . ' tipo_documento=' . $tipoDocExp . ' lecturas_v2=' . $lecturasDiag . ' archivos_bytes=' . json_encode($diagArchivos));
+            $lecturasDiag = $lecturasJson !== null ? count(json_decode((string) $lecturasJson, true) ?: []) : 0;
+            $lecturasBytes = $lecturasJson !== null ? strlen($lecturasJson) : 0;
+            $lecturasEnviadas = isset($post['lecturas_json_b64']) ? 'b64' : 'omitidas';
+            error_log('CapHum::validarExpedienteApi intento ' . ($attempt + 1) . '/' . $totalIntentos . ' tipo_documento=' . $tipoDocExp . ' lecturas_v2=' . $lecturasDiag . ' lecturas_bytes=' . $lecturasBytes . ' lecturas_envio=' . $lecturasEnviadas . ' archivos_bytes=' . json_encode($diagArchivos));
 
             $ch = curl_init($urlExp);
             $curlOpts = [
