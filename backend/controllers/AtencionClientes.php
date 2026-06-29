@@ -14,6 +14,32 @@ class AtencionClientes extends Controller
         $this->model = new AtencionClientesModel();
     }
 
+    private function permisosEvidenciasBlacklist(): array
+    {
+        $this->model->asegurarPermisosBlacklist();
+        $modulos = array_map('intval', (array) ($_SESSION['modulos'] ?? []));
+        $usuarioId = (int) ($_SESSION['usuario_id'] ?? $_SESSION['persona_id'] ?? $_SESSION['id'] ?? 0);
+        $admin = $usuarioId === 1 || in_array(1, $modulos, true);
+
+        return [
+            'cancelar' => $admin || in_array(AtencionClientesModel::MODULO_MA_CANCELAR_VISTO_BUENO, $modulos, true),
+            'blacklist' => $admin || in_array(AtencionClientesModel::MODULO_MA_ENVIAR_BLACKLIST, $modulos, true),
+            'ver' => $admin || in_array(AtencionClientesModel::MODULO_MA_VER_BLACKLIST, $modulos, true),
+            'liberar' => $admin || in_array(AtencionClientesModel::MODULO_MA_LIBERAR_BLACKLIST, $modulos, true),
+        ];
+    }
+
+    private function nombreUsuarioSesion(): string
+    {
+        foreach (['nombre_usuario', 'nombre', 'usuario', 'email'] as $key) {
+            $valor = trim((string) ($_SESSION[$key] ?? ''));
+            if ($valor !== '') {
+                return $valor;
+            }
+        }
+        return 'SISTEMA';
+    }
+
     // =========================================================================
     // VISTA PRINCIPAL
     // =========================================================================
@@ -33,6 +59,7 @@ class AtencionClientes extends Controller
     {
         $emp = defined('CONFIGURACION') && isset(CONFIGURACION['EMPRESA']) ? (string) CONFIGURACION['EMPRESA'] : '';
         $this->set('titulo', '1.- Evidencias · Atención a clientes ' . $emp);
+        $this->set('aev_permisos_blacklist', $this->permisosEvidenciasBlacklist());
         $this->render('atencion_clientes_evidencias');
     }
 
@@ -145,6 +172,117 @@ class AtencionClientes extends Controller
     }
 
     /** GET /AtencionClientes/obtenerConteosRecuperacion — badges pestañas vista 3 */
+    public function obtenerBlacklistEvidencias(): void
+    {
+        header('Content-Type: application/json; charset=utf-8');
+        try {
+            $permisos = $this->permisosEvidenciasBlacklist();
+            if (empty($permisos['ver'])) {
+                http_response_code(403);
+                echo json_encode(['success' => false, 'message' => 'No tienes permiso para consultar BlackList.'], JSON_UNESCAPED_UNICODE);
+                return;
+            }
+            $datos = $this->model->obtenerEvidenciasBlacklist();
+            echo json_encode(['success' => true, 'datos' => $datos], JSON_UNESCAPED_UNICODE);
+        } catch (\Throwable $e) {
+            error_log('[AtencionClientes/obtenerBlacklistEvidencias] ' . $e->getMessage());
+            http_response_code(500);
+            echo json_encode(['success' => false, 'message' => 'Error al obtener BlackList.'], JSON_UNESCAPED_UNICODE);
+        }
+    }
+
+    public function cancelarVistoBuenoEvidencias(): void
+    {
+        header('Content-Type: application/json; charset=utf-8');
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            http_response_code(405);
+            echo json_encode(['success' => false, 'message' => 'Metodo no permitido.'], JSON_UNESCAPED_UNICODE);
+            return;
+        }
+
+        try {
+            $body = json_decode(file_get_contents('php://input'), true);
+            if (!is_array($body)) {
+                http_response_code(400);
+                echo json_encode(['success' => false, 'message' => 'Cuerpo de solicitud invalido.'], JSON_UNESCAPED_UNICODE);
+                return;
+            }
+
+            $tipo = trim((string) ($body['tipo_cancelacion'] ?? ''));
+            $permisos = $this->permisosEvidenciasBlacklist();
+            if ($tipo === 'blacklist' && empty($permisos['blacklist'])) {
+                http_response_code(403);
+                echo json_encode(['success' => false, 'message' => 'No tienes permiso para enviar a BlackList.'], JSON_UNESCAPED_UNICODE);
+                return;
+            }
+            if ($tipo !== 'blacklist' && empty($permisos['cancelar'])) {
+                http_response_code(403);
+                echo json_encode(['success' => false, 'message' => 'No tienes permiso para denegar Visto Bueno.'], JSON_UNESCAPED_UNICODE);
+                return;
+            }
+
+            $idUsuario = (int) ($_SESSION['usuario_id'] ?? $_SESSION['persona_id'] ?? $_SESSION['id'] ?? 0);
+            $resultado = $this->model->cancelarVistoBuenoOperacion(
+                (int) ($body['id_operacion'] ?? 0),
+                $tipo,
+                (string) ($body['motivo'] ?? ''),
+                (string) ($body['comentario'] ?? ''),
+                $idUsuario,
+                $this->nombreUsuarioSesion()
+            );
+            if (empty($resultado['success'])) {
+                http_response_code(422);
+            }
+            echo json_encode($resultado, JSON_UNESCAPED_UNICODE);
+        } catch (\Throwable $e) {
+            error_log('[AtencionClientes/cancelarVistoBuenoEvidencias] ' . $e->getMessage());
+            http_response_code(500);
+            echo json_encode(['success' => false, 'message' => 'No se pudo cancelar la operacion.'], JSON_UNESCAPED_UNICODE);
+        }
+    }
+
+    public function liberarBlacklistEvidencias(): void
+    {
+        header('Content-Type: application/json; charset=utf-8');
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            http_response_code(405);
+            echo json_encode(['success' => false, 'message' => 'Metodo no permitido.'], JSON_UNESCAPED_UNICODE);
+            return;
+        }
+
+        try {
+            $permisos = $this->permisosEvidenciasBlacklist();
+            if (empty($permisos['liberar'])) {
+                http_response_code(403);
+                echo json_encode(['success' => false, 'message' => 'No tienes permiso para liberar BlackList.'], JSON_UNESCAPED_UNICODE);
+                return;
+            }
+
+            $body = json_decode(file_get_contents('php://input'), true);
+            if (!is_array($body)) {
+                http_response_code(400);
+                echo json_encode(['success' => false, 'message' => 'Cuerpo de solicitud invalido.'], JSON_UNESCAPED_UNICODE);
+                return;
+            }
+
+            $idUsuario = (int) ($_SESSION['usuario_id'] ?? $_SESSION['persona_id'] ?? $_SESSION['id'] ?? 0);
+            $resultado = $this->model->liberarBlacklist(
+                (int) ($body['blacklist_id'] ?? 0),
+                (string) ($body['motivo'] ?? ''),
+                $idUsuario,
+                $this->nombreUsuarioSesion()
+            );
+            if (empty($resultado['success'])) {
+                http_response_code(422);
+            }
+            echo json_encode($resultado, JSON_UNESCAPED_UNICODE);
+        } catch (\Throwable $e) {
+            error_log('[AtencionClientes/liberarBlacklistEvidencias] ' . $e->getMessage());
+            http_response_code(500);
+            echo json_encode(['success' => false, 'message' => 'No se pudo liberar BlackList.'], JSON_UNESCAPED_UNICODE);
+        }
+    }
+
     public function obtenerConteosRecuperacion(): void
     {
         header('Content-Type: application/json; charset=utf-8');
