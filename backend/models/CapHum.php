@@ -2232,7 +2232,24 @@ class CapHum extends Model
 
             aus_activa.razon_nombre  AS ausencia_razon,
             aus_activa.fecha_inicio  AS ausencia_fecha_inicio,
-            aus_activa.fecha_fin     AS ausencia_fecha_fin
+            aus_activa.fecha_fin     AS ausencia_fecha_fin,
+            vac_activa.id            AS vacaciones_id,
+            vac_activa.fecha_inicio  AS vacaciones_fecha_inicio,
+            vac_activa.fecha_fin     AS vacaciones_fecha_fin,
+            CASE
+                WHEN aus_activa.id_persona IS NOT NULL OR vac_activa.id IS NOT NULL THEN 1
+                ELSE 0
+            END AS bloqueo_baja_activo,
+            CASE
+                WHEN aus_activa.id_persona IS NOT NULL THEN aus_activa.razon_nombre
+                WHEN vac_activa.id IS NOT NULL THEN 'VACACIONES'
+                ELSE NULL
+            END AS bloqueo_baja_motivo,
+            CASE
+                WHEN aus_activa.id_persona IS NOT NULL THEN CONCAT('No se puede dar de baja: la persona tiene ', aus_activa.razon_nombre, ' vigente del ', DATE(aus_activa.fecha_inicio), ' al ', DATE(aus_activa.fecha_fin), '.')
+                WHEN vac_activa.id IS NOT NULL THEN CONCAT('No se puede dar de baja: la persona tiene VACACIONES vigentes del ', DATE(vac_activa.fecha_inicio), ' al ', DATE(vac_activa.fecha_fin), '.')
+                ELSE NULL
+            END AS bloqueo_baja_mensaje
 
         FROM persona p
 
@@ -2265,6 +2282,22 @@ class CapHum extends Model
                 GROUP BY id_persona
             ) latest ON latest.id_persona = a.id_persona AND latest.max_id = a.id
         ) aus_activa ON aus_activa.id_persona = p.id
+
+        LEFT JOIN (
+            SELECT
+                s.id,
+                s.id_persona,
+                COALESCE(MIN(d.fecha), s.fecha_inicio) AS fecha_inicio,
+                COALESCE(MAX(d.fecha), s.fecha_fin) AS fecha_fin
+            FROM __SPARTA_SECRET_REDACTED__.vacaciones_solicitudes s
+            LEFT JOIN __SPARTA_SECRET_REDACTED__.vacaciones_solicitud_dias d ON d.id_solicitud = s.id
+            WHERE s.estatus IN ('aprobada', 'tomada')
+              AND (
+                  CURDATE() BETWEEN DATE(s.fecha_inicio) AND DATE(s.fecha_fin)
+                  OR d.fecha = CURDATE()
+              )
+            GROUP BY s.id, s.id_persona, s.fecha_inicio, s.fecha_fin
+        ) vac_activa ON vac_activa.id_persona = p.id
 
         WHERE {$whereSQL}
 
@@ -6761,6 +6794,74 @@ class CapHum extends Model
         return null;
     }
 
+    private static function obtenerBloqueoBajaActivo(Database $db, int $idPersona): ?array
+    {
+        if ($idPersona <= 0) {
+            return [
+                'motivo' => 'Persona invalida',
+                'mensaje' => 'No se puede validar la baja porque la persona no es valida.',
+            ];
+        }
+
+        $ausencia = $db->queryOne("
+            SELECT
+                ra.nombre AS motivo,
+                a.fecha_inicio,
+                a.fecha_fin
+            FROM __SPARTA_SECRET_REDACTED__.ausencia a
+            INNER JOIN __SPARTA_SECRET_REDACTED__.razon_ausencia ra ON ra.id = a.id_razon
+            WHERE a.id_persona = :id_persona
+              AND a.activo = 1
+              AND DATE(a.fecha_inicio) <= CURDATE()
+              AND DATE(a.fecha_fin) >= CURDATE()
+            ORDER BY a.fecha_fin DESC, a.id DESC
+            LIMIT 1
+        ", ['id_persona' => $idPersona]);
+
+        if ($ausencia) {
+            $motivo = trim((string)($ausencia['motivo'] ?? 'ausencia'));
+            return [
+                'motivo' => $motivo,
+                'fecha_inicio' => $ausencia['fecha_inicio'] ?? null,
+                'fecha_fin' => $ausencia['fecha_fin'] ?? null,
+                'mensaje' => 'No se puede dar de baja: la persona tiene ' . $motivo . ' vigente del '
+                    . date('d/m/Y', strtotime((string)$ausencia['fecha_inicio'])) . ' al '
+                    . date('d/m/Y', strtotime((string)$ausencia['fecha_fin'])) . '.',
+            ];
+        }
+
+        $vacaciones = $db->queryOne("
+            SELECT
+                s.id,
+                COALESCE(MIN(d.fecha), s.fecha_inicio) AS fecha_inicio,
+                COALESCE(MAX(d.fecha), s.fecha_fin) AS fecha_fin
+            FROM __SPARTA_SECRET_REDACTED__.vacaciones_solicitudes s
+            LEFT JOIN __SPARTA_SECRET_REDACTED__.vacaciones_solicitud_dias d ON d.id_solicitud = s.id
+            WHERE s.id_persona = :id_persona
+              AND s.estatus IN ('aprobada', 'tomada')
+              AND (
+                  CURDATE() BETWEEN DATE(s.fecha_inicio) AND DATE(s.fecha_fin)
+                  OR d.fecha = CURDATE()
+              )
+            GROUP BY s.id, s.fecha_inicio, s.fecha_fin
+            ORDER BY fecha_fin DESC, s.id DESC
+            LIMIT 1
+        ", ['id_persona' => $idPersona]);
+
+        if ($vacaciones) {
+            return [
+                'motivo' => 'VACACIONES',
+                'fecha_inicio' => $vacaciones['fecha_inicio'] ?? null,
+                'fecha_fin' => $vacaciones['fecha_fin'] ?? null,
+                'mensaje' => 'No se puede dar de baja: la persona tiene VACACIONES vigentes del '
+                    . date('d/m/Y', strtotime((string)$vacaciones['fecha_inicio'])) . ' al '
+                    . date('d/m/Y', strtotime((string)$vacaciones['fecha_fin'])) . '.',
+            ];
+        }
+
+        return null;
+    }
+
     public static function registrarBajaGestor($data)
     {
         try {
@@ -6788,6 +6889,11 @@ class CapHum extends Model
             ");
             if ($personaActual && $personaActual['estatus'] === 'Baja') {
                 return self::resultado(false, 'Esta persona ya se encuentra dada de baja en el sistema.');
+            }
+
+            $bloqueoBaja = self::obtenerBloqueoBajaActivo($db, (int)$id_persona);
+            if ($bloqueoBaja) {
+                return self::resultado(false, $bloqueoBaja['mensaje']);
             }
 
             $subordinadosActivos = $db->queryAll("

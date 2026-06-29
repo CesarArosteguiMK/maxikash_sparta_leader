@@ -3366,6 +3366,21 @@
         z-index: 100020 !important;
     }
 
+    #modalAuscencia .ausencia-empty-state {
+        border: 1px dashed #cfd6e4;
+        border-radius: 10px;
+        background: #f8fafc;
+        color: #64748b;
+        padding: 22px 16px;
+        text-align: center;
+    }
+
+    #modalAuscencia .ausencia-empty-state i {
+        color: #94a3b8;
+        font-size: 22px;
+        margin-bottom: 8px;
+    }
+
     /* Hacer más visible el círculo del día de hoy */
     .flatpickr-calendar .flatpickr-day.today {
         border-color: #696cff !important;
@@ -6967,7 +6982,7 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
                             Registrar ausencia
                         </button>
                         <button class="btn btn-outline-primary" type="button" onclick="abrirCargaDocumentoAusencia()">
-                            <i class="fa fa-folder-open me-1"></i>Cargar documentos
+                            <i class="fa fa-paperclip me-1"></i>Adjuntar documento
                         </button>
                         <input
                             type="file"
@@ -6989,9 +7004,6 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
                                 <button type="button" class="btn btn-outline-primary btn-sm" onclick="verDocumentoAusenciaSeleccionado()">
                                     <i class="fa fa-eye me-1"></i>Ver
                                 </button>
-                                <button type="button" class="btn btn-success btn-sm" onclick="subirDocumentoAusenciaSeleccionado()">
-                                    <i class="fa fa-upload me-1"></i>Subir
-                                </button>
                                 <button type="button" class="btn btn-outline-danger btn-sm" onclick="limpiarDocumentoAusenciaSeleccionado()">
                                     <i class="fa fa-times me-1"></i>Quitar
                                 </button>
@@ -7001,36 +7013,32 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
 
                     <hr>
 
-                    <!-- ================== TABLA DE AUSENCIAS ================== -->
                     <h6 class="mb-2"><strong>Historial de ausencias</strong></h6>
 
-                    <div class="table-responsive">
-                        <table class="table table-sm table-bordered table-striped">
-                            <thead class="table-dark">
-                            <tr>
-                                <th>Razón</th>
-                                <th>Inicio</th>
-                                <th>Fin</th>
-                                <th>Descripción</th>
-                                <th>Activo</th>
-                                <th>Acciones</th>
-                            </tr>
-                            </thead>
-                            <tbody id="tablaAusencias">
-                            <tr>
-                                <td colspan="6" class="text-center text-muted">
-                                    Sin ausencias registradas.
-                                </td>
-                            </tr>
-                            </tbody>
-                        </table>
+                    <div id="ausenciaHistorialEmpty" class="ausencia-empty-state">
+                        <i class="fa fa-calendar-check d-block"></i>
+                        <div class="fw-semibold">Sin ausencias registradas.</div>
+                        <div class="small">Cuando registres una ausencia con sus documentos adjuntos, aparecerá aquí.</div>
                     </div>
 
-                    <div id="documentosAusenciaWrap" class="mt-3">
-                        <h6 class="mb-2"><strong>Documentos del historial</strong></h6>
-                        <div id="listaDocumentosAusencia" class="list-group small">
-                            <div class="list-group-item text-muted">Sin documentos de ausencia subidos.</div>
+                    <div id="ausenciaHistorialContenido" class="d-none">
+                        <div class="table-responsive mb-3">
+                            <table class="table table-sm table-bordered table-striped">
+                                <thead class="table-light">
+                                <tr>
+                                    <th>Razón</th>
+                                    <th>Inicio</th>
+                                    <th>Fin</th>
+                                    <th>Descripción</th>
+                                    <th>Documento</th>
+                                    <th>Acciones</th>
+                                </tr>
+                                </thead>
+                                <tbody id="tablaAusencias"></tbody>
+                            </table>
                         </div>
+
+                        <div id="listaDocumentosAusencia" class="list-group small"></div>
                     </div>
 
                 </div>
