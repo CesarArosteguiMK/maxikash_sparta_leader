@@ -2409,6 +2409,31 @@ class CapHum extends Controller
                 143: 'fa-solid fa-user-plus',
                 145: 'fa-solid fa-rotate-right',
                 146: 'fa-solid fa-circle-check',
+                3008: 'fa-solid fa-id-card',
+                3009: 'fa-solid fa-address-card',
+                3010: 'fa-solid fa-file-invoice',
+                3011: 'fa-solid fa-house-user',
+                3012: 'fa-solid fa-certificate',
+                3013: 'fa-solid fa-graduation-cap',
+                3014: 'fa-solid fa-briefcase',
+                3015: 'fa-solid fa-user-slash',
+                3016: 'fa-solid fa-user-clock',
+                3017: 'fa-solid fa-file-signature',
+                3018: 'fa-solid fa-file-lines',
+                3022: 'fa-solid fa-receipt',
+                3023: 'fa-solid fa-hospital-user',
+                3024: 'fa-solid fa-hand-holding-dollar',
+                3025: 'fa-solid fa-building-columns',
+                3027: 'fa-solid fa-file-contract',
+                3028: 'fa-solid fa-signature',
+                3029: 'fa-solid fa-file-zipper',
+                3030: 'fa-solid fa-shield-halved',
+                3031: 'fa-solid fa-key',
+                3032: 'fa-solid fa-coins',
+                3033: 'fa-solid fa-calendar-week',
+                3034: 'fa-solid fa-notes-medical',
+                3035: 'fa-solid fa-file-circle-check',
+                3036: 'fa-solid fa-calendar-xmark',
                 3037: 'fa-solid fa-ban',
                 3038: 'fa-solid fa-list-check',
                 3039: 'fa-solid fa-eye',
@@ -3652,14 +3677,14 @@ class CapHum extends Controller
 
                     const section = document.createElement('section');
                     section.className = 'modal-perfil-modulo-grupo card mb-0 shadow-sm';
-                    section.style.border = '2px solid #000';
-                    section.style.borderRadius = '0.5rem';
+                    section.style.border = '1px solid #d8e0ea';
+                    section.style.borderRadius = '0.55rem';
                     section.style.overflow = 'hidden';
 
                     const header = document.createElement('div');
                     header.className = 'modal-perfil-modulo-grupo-header px-3 py-2 d-flex align-items-center flex-wrap gap-2 fw-semibold';
-                    header.style.background = 'rgba(26, 82, 168, 0.08)';
-                    header.style.borderBottom = '2px solid #000';
+                    header.style.background = '#eef3fa';
+                    header.style.borderBottom = '1px solid #d8e0ea';
 
                     const masterWrap = document.createElement('div');
                     masterWrap.className = 'd-flex align-items-center gap-2 ms-auto flex-shrink-0 modal-perfil-modulo-master-wrap';
@@ -3805,6 +3830,9 @@ class CapHum extends Controller
 
                         const syncChevron = (open) => {
                             header.setAttribute('aria-expanded', open ? 'true' : 'false');
+                            section.classList.toggle('is-collapsed', !open);
+                            section.classList.toggle('is-open', open);
+                            header.style.borderBottom = open ? '1px solid #d8e0ea' : '0';
                             const ch = header.querySelector('.modal-perfil-modulo-grupo-chevron');
                             if (ch) ch.style.transform = open ? 'rotate(0deg)' : 'rotate(-90deg)';
                         };
@@ -3843,7 +3871,12 @@ class CapHum extends Controller
                 const idsPermisosMotosAdjudicadas = new Set([3037, 3038, 3039, 3040]);
                 const perfilesNormalizados = (Array.isArray(perfiles) ? perfiles : []).map(mod => {
                     const idMod = Number(mod.modulo_id ?? mod.id ?? 0);
-                    if (idsPermisosMotosAdjudicadas.has(idMod)) {
+                    const nombreModulo = String(mod.modulo_nombre ?? mod.nombre ?? '').toLowerCase();
+                    const descripcionModulo = String(mod.descripcion ?? '').toLowerCase();
+                    const esPermisoMotos = idsPermisosMotosAdjudicadas.has(idMod)
+                        || nombreModulo.includes('motos adjudicadas')
+                        || descripcionModulo.includes('motos adjudicadas');
+                    if (esPermisoMotos) {
                         return Object.assign({}, mod, {
                             menu_grupo: 'Motos Adjudicadas',
                             menu_grupo_icono: 'fa-solid fa-motorcycle',
@@ -3854,7 +3887,7 @@ class CapHum extends Controller
                     if (idMod === 151 || idMod === 152 || (idMod >= 3000 && idMod < 3100)) {
                         return Object.assign({}, mod, {
                             menu_grupo: 'Control documental RR.HH.',
-                            menu_grupo_icono: 'fa-solid fa-folder-lock',
+                            menu_grupo_icono: 'fa fa-folder-open',
                             menu_grupo_orden: 14,
                             menu_item_orden: idMod
                         });
@@ -16693,6 +16726,14 @@ class CapHum extends Controller
             return;
         }
 
+        $validacionDestinatarios = $this->validarDestinatariosIngresoRequeridos($c);
+        if (empty($validacionDestinatarios['ok'])) {
+            echo json_encode(self::respuesta(false, $validacionDestinatarios['mensaje'] ?? 'Corrige los destinatarios de correo antes de continuar.', [
+                'fallos' => $validacionDestinatarios['fallos'] ?? [],
+            ]));
+            return;
+        }
+
         $configFile = defined('RAIZ') ? (RAIZ . '/config/config.ini') : (__DIR__ . '/../config/config.ini');
         $config = is_file($configFile) ? @parse_ini_file($configFile, true) : [];
         $mailSection = is_array($config['mail'] ?? null) ? $config['mail'] : [];
@@ -16937,7 +16978,7 @@ class CapHum extends Controller
                 (int) ($_SESSION['usuario_id'] ?? 0),
                 $fechaProgramadaGuardada
             );
-            echo json_encode(self::respuesta(true, 'Fecha de ingreso guardada, pero no se pudo enviar el correo. Revisa la configuracion de correo.', [
+            echo json_encode(self::respuesta(false, 'No se pudo enviar el correo al candidato. La fecha quedo guardada; revisa la configuracion de correo y vuelve a notificar antes de continuar.', [
                 'id_candidato' => $id_candidato,
                 'fecha_ingreso' => $fechaIngresoNormalizada,
                 'fecha_ingreso_notificada_en' => $fechaProgramadaGuardada,
@@ -17155,6 +17196,18 @@ class CapHum extends Controller
         $fechaIngreso = $this->normalizarFechaIngresoCandidato((string) ($fecha_ingreso ?: $fechaProgramada));
         if ($fechaIngreso === null) {
             return ['success' => false, 'mensaje' => 'Primero programa la fecha de ingreso y envía las notificaciones al candidato.'];
+        }
+        $destinoCandidato = trim((string) ($c['email'] ?? ''));
+        if ($destinoCandidato === '' || !filter_var($destinoCandidato, FILTER_VALIDATE_EMAIL)) {
+            return ['success' => false, 'mensaje' => 'Correo del candidato no valido. Corrigelo antes de pasar a plantilla.'];
+        }
+        $validacionDestinatarios = $this->validarDestinatariosIngresoRequeridos($c);
+        if (empty($validacionDestinatarios['ok'])) {
+            return [
+                'success' => false,
+                'mensaje' => $validacionDestinatarios['mensaje'] ?? 'Corrige los destinatarios de correo antes de pasar a plantilla.',
+                'fallos_notificacion' => $validacionDestinatarios['fallos'] ?? [],
+            ];
         }
         $dataPersona = [
             'nombres'       => $c['nombres'] ?? '',
@@ -17458,24 +17511,38 @@ class CapHum extends Controller
             ];
         }
         if ($direccionCobranza) {
+            $personasFijas = $this->obtenerPersonasActivasPorUsuario(['ESANCHEZ', 'SABUESOS', 'ORUIZ']);
+            $correoAlterno = static function (array $persona, string $correoPrincipal): array {
+                $correo = strtolower(trim((string) ($persona['correo'] ?? '')));
+                if ($correo === '' || !filter_var($correo, FILTER_VALIDATE_EMAIL) || strcasecmp($correo, $correoPrincipal) === 0) {
+                    return [];
+                }
+                return [$correo];
+            };
+            $personaErika = $personasFijas['ESANCHEZ'] ?? [];
+            $personaSabuesos = $personasFijas['SABUESOS'] ?? [];
+            $personaOwen = $personasFijas['ORUIZ'] ?? [];
             $destinatariosFijosCobranza = [
                 'erika.ortiz@__SPARTA_SECRET_REDACTED__.mx' => [
-                    'id' => (int) ($validos['erika.ortiz@__SPARTA_SECRET_REDACTED__.mx']['id'] ?? 0),
-                    'nombre' => $validos['erika.ortiz@__SPARTA_SECRET_REDACTED__.mx']['nombre'] ?? 'Erika Ortiz',
+                    'id' => (int) ($personaErika['id'] ?? $validos['erika.ortiz@__SPARTA_SECRET_REDACTED__.mx']['id'] ?? 0),
+                    'nombre' => $personaErika['nombre'] ?? $validos['erika.ortiz@__SPARTA_SECRET_REDACTED__.mx']['nombre'] ?? 'Erika Ortiz',
                     'correo' => 'erika.ortiz@__SPARTA_SECRET_REDACTED__.mx',
-                    'user_name' => $validos['erika.ortiz@__SPARTA_SECRET_REDACTED__.mx']['user_name'] ?? 'ERIKA.ORTIZ',
+                    'user_name' => $personaErika['user_name'] ?? $validos['erika.ortiz@__SPARTA_SECRET_REDACTED__.mx']['user_name'] ?? 'ERIKA.ORTIZ',
+                    'correos_extra' => $correoAlterno($personaErika, 'erika.ortiz@__SPARTA_SECRET_REDACTED__.mx'),
                 ],
                 'sabuesos@__SPARTA_SECRET_REDACTED__.mx' => [
-                    'id' => 0,
-                    'nombre' => 'Sabuesos',
+                    'id' => (int) ($personaSabuesos['id'] ?? 0),
+                    'nombre' => $personaSabuesos['nombre'] ?? 'Sabuesos',
                     'correo' => 'sabuesos@__SPARTA_SECRET_REDACTED__.mx',
-                    'user_name' => 'SABUESOS',
+                    'user_name' => $personaSabuesos['user_name'] ?? 'SABUESOS',
+                    'correos_extra' => $correoAlterno($personaSabuesos, 'sabuesos@__SPARTA_SECRET_REDACTED__.mx'),
                 ],
                 'owen.ruiz@__SPARTA_SECRET_REDACTED__.mx' => [
-                    'id' => 0,
-                    'nombre' => 'Owen Ruiz',
+                    'id' => (int) ($personaOwen['id'] ?? 0),
+                    'nombre' => $personaOwen['nombre'] ?? 'Owen Ruiz',
                     'correo' => 'owen.ruiz@__SPARTA_SECRET_REDACTED__.mx',
-                    'user_name' => 'OWEN.RUIZ',
+                    'user_name' => $personaOwen['user_name'] ?? 'OWEN.RUIZ',
+                    'correos_extra' => $correoAlterno($personaOwen, 'owen.ruiz@__SPARTA_SECRET_REDACTED__.mx'),
                 ],
             ];
             foreach ($destinatariosFijosCobranza as $correoFijo => $datosFijos) {
@@ -17490,6 +17557,56 @@ class CapHum extends Controller
         return array_values(!empty($institucionales) ? $institucionales : $validos);
     }
 
+    private function obtenerPersonasActivasPorUsuario(array $usuarios): array
+    {
+        $usuarios = array_values(array_unique(array_filter(array_map(static function ($usuario) {
+            return strtoupper(trim((string) $usuario));
+        }, $usuarios))));
+        if (empty($usuarios)) {
+            return [];
+        }
+
+        try {
+            $db = new \Core\Database();
+            $params = [];
+            $placeholders = [];
+            foreach ($usuarios as $i => $usuario) {
+                $key = 'usuario_' . $i;
+                $params[$key] = $usuario;
+                $placeholders[] = ':' . $key;
+            }
+            $rows = $db->queryAll(
+                "SELECT
+                    id,
+                    TRIM(CONCAT_WS(' ', nombres, segundo_nombre, apellidop, apellidom)) AS nombre,
+                    correo,
+                    user_name
+                 FROM __SPARTA_SECRET_REDACTED__.persona
+                 WHERE UPPER(user_name) IN (" . implode(',', $placeholders) . ")
+                   AND COALESCE(estatus, '') <> 'Baja'",
+                $params
+            );
+        } catch (\Throwable $e) {
+            error_log('CapHum::obtenerPersonasActivasPorUsuario -> ' . $e->getMessage());
+            return [];
+        }
+
+        $out = [];
+        foreach ($rows as $row) {
+            $usuario = strtoupper(trim((string) ($row['user_name'] ?? '')));
+            if ($usuario === '') {
+                continue;
+            }
+            $out[$usuario] = [
+                'id' => (int) ($row['id'] ?? 0),
+                'nombre' => trim((string) ($row['nombre'] ?? '')),
+                'correo' => trim((string) ($row['correo'] ?? '')),
+                'user_name' => $usuario,
+            ];
+        }
+        return $out;
+    }
+
     private function enviarCorreoRevisionDocumentalCandidatoIncorporado(
         array $candidato,
         string $nombreCompleto,
@@ -17499,15 +17616,40 @@ class CapHum extends Controller
         ?string $rutaLogoInline
     ): array {
         $destinatarios = $this->obtenerDestinatariosRevisionDocumental(self::candidatoEsDireccionCobranza($candidato));
-        $correos = array_values(array_map(static function ($row) {
-            return (string) ($row['correo'] ?? '');
-        }, $destinatarios));
+        $destinatariosEmail = [];
+        foreach ($destinatarios as $destinatario) {
+            $nombre = trim((string) ($destinatario['nombre'] ?? ''));
+            $correoPrincipal = strtolower(trim((string) ($destinatario['correo'] ?? '')));
+            if ($correoPrincipal !== '' && filter_var($correoPrincipal, FILTER_VALIDATE_EMAIL)) {
+                $destinatariosEmail[$correoPrincipal] = [
+                    'correo' => $correoPrincipal,
+                    'nombre' => $nombre,
+                    'fuente' => 'principal',
+                ];
+            }
+            foreach ((array) ($destinatario['correos_extra'] ?? []) as $correoExtra) {
+                $correoExtra = strtolower(trim((string) $correoExtra));
+                if ($correoExtra === '' || !filter_var($correoExtra, FILTER_VALIDATE_EMAIL)) {
+                    continue;
+                }
+                $destinatariosEmail[$correoExtra] = [
+                    'correo' => $correoExtra,
+                    'nombre' => $nombre,
+                    'fuente' => 'alterno_persona',
+                ];
+            }
+        }
+        $correos = array_keys($destinatariosEmail);
 
-        if (empty($destinatarios)) {
+        if (empty($destinatariosEmail)) {
             return [
                 'enviado' => false,
                 'error' => 'No hay destinatarios con correo valido para revision documental.',
                 'destinatarios' => [],
+                'destinatarios_envio' => [],
+                'enviados' => 0,
+                'total_destinatarios' => 0,
+                'fallidos' => [],
             ];
         }
 
@@ -17547,7 +17689,7 @@ class CapHum extends Controller
 
         $enviados = 0;
         $errores = [];
-        foreach ($destinatarios as $destinatario) {
+        foreach ($destinatariosEmail as $destinatario) {
             $correo = (string) ($destinatario['correo'] ?? '');
             $nombre = (string) ($destinatario['nombre'] ?? '');
             try {
@@ -17560,15 +17702,59 @@ class CapHum extends Controller
                 $errores[] = $correo . ': ' . $e->getMessage();
             }
         }
+        $notificacionesInternas = $this->notificarResponsablesRevisionDocumentalAltaPlantilla($candidato, $nombreCompleto, $destinatarios);
 
         return [
-            'enviado' => $enviados === count($destinatarios),
+            'enviado' => $enviados === count($destinatariosEmail),
             'error' => empty($errores) ? null : implode(' | ', $errores),
             'destinatarios' => $correos,
+            'destinatarios_envio' => $correos,
             'enviados' => $enviados,
-            'total_destinatarios' => count($destinatarios),
+            'total_destinatarios' => count($destinatariosEmail),
             'fallidos' => $errores,
+            'notificaciones_internas' => $notificacionesInternas,
         ];
+    }
+
+    private function notificarResponsablesRevisionDocumentalAltaPlantilla(array $candidato, string $nombreCompleto, array $destinatarios): array
+    {
+        $ids = [];
+        foreach ($destinatarios as $destinatario) {
+            $id = (int) ($destinatario['id'] ?? 0);
+            if ($id > 0) {
+                $ids[$id] = $id;
+            }
+        }
+        if (self::candidatoEsDireccionCobranza($candidato)) {
+            foreach ($this->obtenerPersonasActivasPorUsuario(['ESANCHEZ', 'SABUESOS', 'ORUIZ']) as $persona) {
+                $id = (int) ($persona['id'] ?? 0);
+                if ($id > 0) {
+                    $ids[$id] = $id;
+                }
+            }
+        }
+        $ids = array_values($ids);
+        if (empty($ids)) {
+            return ['ids' => [], 'total' => 0, 'creada' => false];
+        }
+
+        $idCandidato = (int) ($candidato['id'] ?? 0);
+        $mensaje = 'Candidato incorporado a plantilla: ' . $nombreCompleto;
+        $payload = [
+            'url' => '/caphum/candidatos?abrir_documentos=' . $idCandidato,
+            'id_candidato' => $idCandidato,
+            'accion' => 'abrir_documentos_candidato',
+            'nombre_candidato' => $nombreCompleto,
+            'tipo_aviso' => 'alta_plantilla',
+        ];
+
+        try {
+            Notificacion::crearParaPersonas($ids, 'candidato_incorporado_plantilla', $mensaje, null, $payload);
+            return ['ids' => $ids, 'total' => count($ids), 'creada' => true];
+        } catch (\Throwable $e) {
+            error_log('CapHum::notificarResponsablesRevisionDocumentalAltaPlantilla -> ' . $e->getMessage());
+            return ['ids' => $ids, 'total' => count($ids), 'creada' => false, 'error' => $e->getMessage()];
+        }
     }
 
     private function construirCorreoAltaNominaJefeDivisionalHtml(
@@ -18195,6 +18381,70 @@ class CapHum extends Controller
     private function candidatoEsGestorCobranzaIngreso(array $candidato): bool
     {
         return self::candidatoEsDireccionCobranza($candidato) && $this->candidatoEsPuestoGestor($candidato);
+    }
+
+    private function validarDestinatariosIngresoRequeridos(array $candidato): array
+    {
+        $fallos = [];
+        $idJefeDirecto = (int) ($candidato['id_posible_jefe'] ?? 0);
+        $nombreJefe = trim((string) ($candidato['nombre_jefe'] ?? ''));
+        $correoJefeActual = trim((string) ($candidato['correo_jefe'] ?? ''));
+        if ($idJefeDirecto > 0 || $nombreJefe !== '' || $correoJefeActual !== '') {
+            $nombreMostrar = $nombreJefe !== '' ? $nombreJefe : 'Jefe directo';
+            $correoJefeInfo = $this->resolverCorreoInstitucionalJefe($nombreMostrar, $correoJefeActual);
+            $correoJefe = strtolower(trim((string) ($correoJefeInfo['email'] ?? '')));
+            if ($correoJefe === '' || !filter_var($correoJefe, FILTER_VALIDATE_EMAIL)) {
+                $fallos[] = [
+                    'tipo' => 'Jefe directo',
+                    'nombre' => $nombreMostrar,
+                    'correo' => '',
+                    'motivo' => 'No se encontro correo institucional valido para el jefe directo.',
+                ];
+            }
+        }
+
+        if ($this->candidatoEsGestorCobranzaIngreso($candidato)) {
+            $jefesDivisionales = $this->obtenerJefesDivisionalesSeleccionadosParaIngreso($candidato);
+            if (empty($jefesDivisionales)) {
+                $fallos[] = [
+                    'tipo' => 'Jefe divisional',
+                    'nombre' => 'Jefe divisional',
+                    'correo' => '',
+                    'motivo' => 'Selecciona un jefe divisional con correo valido para este gestor de Cobranza.',
+                ];
+            } else {
+                foreach ($jefesDivisionales as $jefeDivisional) {
+                    $correo = strtolower(trim((string) ($jefeDivisional['correo'] ?? '')));
+                    $nombre = trim((string) ($jefeDivisional['nombre'] ?? 'Jefe divisional'));
+                    if ($correo === '' || !filter_var($correo, FILTER_VALIDATE_EMAIL)) {
+                        $fallos[] = [
+                            'tipo' => 'Jefe divisional',
+                            'nombre' => $nombre !== '' ? $nombre : 'Jefe divisional',
+                            'correo' => '',
+                            'motivo' => 'No se encontro correo institucional valido para el jefe divisional.',
+                        ];
+                    }
+                }
+            }
+        }
+
+        if (empty($fallos)) {
+            return ['ok' => true, 'mensaje' => '', 'fallos' => []];
+        }
+
+        $resumen = [];
+        foreach ($fallos as $fallo) {
+            $tipo = trim((string) ($fallo['tipo'] ?? 'Destinatario'));
+            $nombre = trim((string) ($fallo['nombre'] ?? ''));
+            $motivo = trim((string) ($fallo['motivo'] ?? 'No se encontro correo valido.'));
+            $resumen[] = trim($tipo . ' ' . $nombre) . ': ' . $motivo;
+        }
+
+        return [
+            'ok' => false,
+            'mensaje' => 'Antes de continuar corrige los destinatarios de correo obligatorios: ' . implode(' | ', $resumen),
+            'fallos' => $fallos,
+        ];
     }
 
     private function ccIngresoJefeDivisional(): array
