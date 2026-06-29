@@ -3,6 +3,7 @@
 Endpoints de la API REST.
 """
 import asyncio
+import base64
 import json
 import re
 import time
@@ -1970,6 +1971,42 @@ def validar_imagen(file: UploadFile) -> None:
         )
 
 
+class _BytesUploadFile:
+    """Adaptador minimo para reutilizar validar_expediente con payload JSON/base64."""
+
+    def __init__(self, filename: str, data: bytes):
+        self.filename = filename
+        self._data = data
+
+    async def read(self) -> bytes:
+        return self._data
+
+
+def _payload_upload_from_b64(payload: Dict[str, Any], key: str, default_filename: str) -> Optional[_BytesUploadFile]:
+    item = payload.get(key)
+    if not item:
+        return None
+
+    filename = default_filename
+    raw_b64: Any = item
+    if isinstance(item, dict):
+        raw_b64 = item.get("b64") or item.get("base64") or item.get("data")
+        filename = str(item.get("filename") or default_filename)
+    if raw_b64 is None:
+        return None
+
+    b64_text = str(raw_b64).strip()
+    if b64_text.lower().startswith("data:") and "," in b64_text:
+        b64_text = b64_text.split(",", 1)[1]
+    try:
+        data = base64.b64decode(b64_text, validate=False)
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail=f"{key}: base64 invalido ({exc})")
+    if not data:
+        return None
+    return _BytesUploadFile(filename, data)
+
+
 async def _ejecutar_pdf_timeout(nombre: str, func, *args, timeout: int = 8, fallback: Optional[Dict[str, Any]] = None):
     """Ejecuta extracción de PDF sin dejar que una OCR difícil bloquee el expediente."""
     try:
@@ -3644,6 +3681,44 @@ async def validar_expediente(
     except Exception as e:
         logger.exception(f"Error en validación de expediente: {e}")
         raise HTTPException(status_code=500, detail=f"Error en validación: {str(e)}")
+
+
+@router.post(
+    "/validar-expediente-json",
+    summary="Validacion cruzada de expediente completo por JSON/base64",
+    description="Ruta alternativa para evitar fallos del parser multipart con expedientes grandes.",
+    tags=["Verificacion"]
+)
+async def validar_expediente_json(
+    payload: Dict[str, Any] = Body(...),
+    api_key: str = Depends(verificar_api_key)
+):
+    tipo_raw = str(payload.get("tipo_documento") or "INE_NUEVA").strip()
+    try:
+        tipo_doc = TipoDocumento(tipo_raw)
+    except Exception:
+        tipo_doc = TipoDocumento.INE_NUEVA
+
+    return await validar_expediente(
+        frente=_payload_upload_from_b64(payload, "frente", "frente.jpg"),
+        reverso=_payload_upload_from_b64(payload, "reverso", "reverso.jpg"),
+        identificacion_pdf=_payload_upload_from_b64(payload, "identificacion_pdf", "identificacion_oficial.pdf"),
+        solicitud_interna=_payload_upload_from_b64(payload, "solicitud_interna", "solicitud_interna.pdf"),
+        cv_solicitud=_payload_upload_from_b64(payload, "cv_solicitud", "cv.pdf"),
+        documento_curp=_payload_upload_from_b64(payload, "documento_curp", "curp.pdf"),
+        documento_nss=_payload_upload_from_b64(payload, "documento_nss", "nss.pdf"),
+        constancia_fiscal=_payload_upload_from_b64(payload, "constancia_fiscal", "constancia_fiscal.pdf"),
+        acta_nacimiento=_payload_upload_from_b64(payload, "acta_nacimiento", "acta_nacimiento.pdf"),
+        comprobante_domicilio=_payload_upload_from_b64(payload, "comprobante_domicilio", "comprobante_domicilio.pdf"),
+        hoja_retencion=_payload_upload_from_b64(payload, "hoja_retencion", "hoja_retencion.pdf"),
+        __SPARTA_SECRET_REDACTED__=_payload_upload_from_b64(payload, "__SPARTA_SECRET_REDACTED__", "__SPARTA_SECRET_REDACTED__.pdf"),
+        nombre_candidato_registro=payload.get("nombre_candidato_registro"),
+        lecturas_json=None,
+        lecturas_json_b64=payload.get("lecturas_json_b64"),
+        tipo_documento_query=tipo_doc,
+        tipo_documento_form=None,
+        api_key=api_key,
+    )
 
 
 @router.get(

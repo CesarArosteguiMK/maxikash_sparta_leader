@@ -18576,6 +18576,158 @@ class CapHum extends Controller
         return $post;
     }
 
+    private function construirPayloadValidarExpedienteJson(array $rutas, $nombreCandidatoRegistro, string $tipoDocumentoIdentidad)
+    {
+        $payload = [
+            'tipo_documento' => $tipoDocumentoIdentidad,
+        ];
+        $nombreCandidatoRegistro = trim((string) $nombreCandidatoRegistro);
+        if ($nombreCandidatoRegistro !== '') {
+            $payload['nombre_candidato_registro'] = $nombreCandidatoRegistro;
+        }
+
+        $agregarArchivo = function (string $campo, string $ruta, string $mime) use (&$payload): bool {
+            if ($ruta === '' || !is_file($ruta)) {
+                return false;
+            }
+            $data = @file_get_contents($ruta);
+            if ($data === false || $data === '') {
+                return false;
+            }
+            $payload[$campo] = [
+                'filename' => basename($ruta),
+                'mime' => $mime,
+                'bytes' => strlen($data),
+                'b64' => base64_encode($data),
+            ];
+            return true;
+        };
+
+        if (!empty($rutas['identificacion_pdf']) && is_file($rutas['identificacion_pdf'])) {
+            if (!$agregarArchivo('identificacion_pdf', (string) $rutas['identificacion_pdf'], 'application/pdf')) {
+                return null;
+            }
+        } else {
+            $mimeImg = ['jpg' => 'image/jpeg', 'jpeg' => 'image/jpeg', 'png' => 'image/png', 'webp' => 'image/webp', 'tiff' => 'image/tiff'];
+            foreach (['frente', 'reverso'] as $key) {
+                if (empty($rutas[$key]) || !is_file($rutas[$key])) {
+                    return null;
+                }
+                $ext = strtolower(pathinfo($rutas[$key], PATHINFO_EXTENSION));
+                if (!$agregarArchivo($key, (string) $rutas[$key], $mimeImg[$ext] ?? 'application/octet-stream')) {
+                    return null;
+                }
+            }
+        }
+
+        $pdfKeys = [
+            'solicitud_interna' => 'solicitud_interna',
+            'cv_solicitud' => 'cv',
+            'acta_nacimiento' => 'acta_nacimiento',
+            'documento_curp' => 'curp',
+            'comprobante_domicilio' => 'comprobante_domicilio',
+            'constancia_fiscal' => 'constancia_fiscal',
+            'documento_nss' => 'nss',
+            'hoja_retencion' => 'hoja_retencion',
+            '__SPARTA_SECRET_REDACTED__' => '__SPARTA_SECRET_REDACTED__',
+        ];
+        foreach ($pdfKeys as $formKey => $pathKey) {
+            if (!empty($rutas[$pathKey]) && is_file($rutas[$pathKey])) {
+                if (!$agregarArchivo($formKey, (string) $rutas[$pathKey], 'application/pdf')) {
+                    return null;
+                }
+            }
+        }
+
+        return $payload;
+    }
+
+    private function validarExpedienteApiJson(string $baseUrl, string $apiKey, array $rutas, $nombreCandidatoRegistro, string $tipoDocExp, int $timeoutExp): array
+    {
+        $payload = $this->construirPayloadValidarExpedienteJson($rutas, $nombreCandidatoRegistro, $tipoDocExp);
+        if ($payload === null) {
+            return [
+                'ok' => false,
+                'http_code' => 0,
+                'curl_errno' => 0,
+                'error' => 'No se pudieron preparar los archivos del expediente para validar-expediente-json.',
+            ];
+        }
+
+        $diagArchivos = [];
+        foreach ($payload as $pk => $pv) {
+            if (is_array($pv) && isset($pv['bytes'])) {
+                $diagArchivos[$pk] = (int) $pv['bytes'];
+            }
+        }
+        error_log('CapHum::validarExpedienteApiJson envio_json_base64 tipo_documento=' . $tipoDocExp . ' archivos_bytes=' . json_encode($diagArchivos));
+
+        $bodyPayload = json_encode($payload, JSON_UNESCAPED_UNICODE);
+        if (!is_string($bodyPayload) || $bodyPayload === '') {
+            return [
+                'ok' => false,
+                'http_code' => 0,
+                'curl_errno' => 0,
+                'error' => 'No se pudo generar JSON para validar-expediente-json: ' . json_last_error_msg(),
+            ];
+        }
+
+        $url = rtrim($baseUrl, '/') . '/validar-expediente-json';
+        $ch = curl_init($url);
+        $timeoutJson = max($timeoutExp, 180);
+        if ($timeoutJson > 300) {
+            $timeoutJson = 300;
+        }
+        curl_setopt_array($ch, [
+            CURLOPT_POST => true,
+            CURLOPT_POSTFIELDS => $bodyPayload,
+            CURLOPT_HTTPHEADER => [
+                'X-API-Key: ' . $apiKey,
+                'Content-Type: application/json',
+                'Accept: application/json',
+                'Expect:',
+            ],
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_TIMEOUT => $timeoutJson,
+            CURLOPT_CONNECTTIMEOUT => 5,
+            CURLOPT_HTTP_VERSION => CURL_HTTP_VERSION_1_1,
+            CURLOPT_FORBID_REUSE => true,
+        ]);
+        $body = curl_exec($ch);
+        $httpCode = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        $curlErr = curl_error($ch);
+        $curlErrno = (int) curl_errno($ch);
+        curl_close($ch);
+
+        if ($curlErrno === 0 && $httpCode === 200 && $body !== false && $body !== '') {
+            $data = json_decode($body, true);
+            if (is_array($data) && !isset($data['error'])) {
+                return ['ok' => true, 'data' => $data, 'http_code' => $httpCode, 'curl_errno' => 0];
+            }
+            $detalle = is_array($data) && isset($data['error'])
+                ? (is_string($data['error']) ? $data['error'] : json_encode($data['error'], JSON_UNESCAPED_UNICODE))
+                : 'JSON de respuesta inesperado.';
+            return ['ok' => false, 'http_code' => $httpCode, 'curl_errno' => 0, 'error' => 'validar-expediente-json respondio 200 sin resultado valido: ' . $detalle];
+        }
+
+        if ($httpCode > 0) {
+            $detApi = $this->expedienteApiExtraerDetalleRespuesta(is_string($body) ? $body : null, $httpCode);
+            $detalle = 'HTTP ' . $httpCode . ' en validar-expediente-json. ' . $detApi;
+            if ($curlErr !== '') {
+                $detalle .= ' - cURL: ' . $curlErr;
+            }
+        } else {
+            $detalle = 'No se pudo conectar con validar-expediente-json: ' . ($curlErr !== '' ? $curlErr : 'Error de conexion codigo ' . $curlErrno . '.');
+        }
+
+        return [
+            'ok' => false,
+            'http_code' => $httpCode,
+            'curl_errno' => $curlErrno,
+            'error' => $detalle,
+        ];
+    }
+
     private function compactarValorLecturaIaExpediente($valor, int $maxTexto = 700)
     {
         if ($valor === null || is_bool($valor) || is_int($valor) || is_float($valor)) {
@@ -18896,9 +19048,19 @@ class CapHum extends Controller
         // validar-expediente responde al final del OCR/cross-check (no stream),
         // así que LOW_SPEED suele provocar falsos timeout aunque el proceso siga vivo.
         $usarLowSpeed = false;
-        $omitirLecturasPrevias = false;
+        $omitirLecturasPrevias = true;
 
         $lastPayloadError = ['error' => 'No se obtuvo respuesta válida de la API.'];
+        $jsonPrimario = $this->validarExpedienteApiJson($baseUrl, $apiKey, $rutas, $nombreCandidatoRegistro, $tipoDocExp, $timeoutExp);
+        if (!empty($jsonPrimario['ok']) && isset($jsonPrimario['data']) && is_array($jsonPrimario['data'])) {
+            return $jsonPrimario['data'];
+        }
+        $jsonPrimarioError = trim((string) ($jsonPrimario['error'] ?? 'validar-expediente-json no devolvio resultado valido.'));
+        error_log('CapHum::validarExpedienteApiJson no completo; se probara multipart de compatibilidad. detalle=' . $jsonPrimarioError);
+        if (in_array((int) ($jsonPrimario['http_code'] ?? 0), [401, 403], true)) {
+            return ['error' => $jsonPrimarioError . ' Revise api_key en backend/config/config.ini.'];
+        }
+        $lastPayloadError = ['error' => $jsonPrimarioError . ' Se intentara multipart de compatibilidad.'];
         for ($attempt = 0; $attempt < $totalIntentos; $attempt++) {
             if ($attempt > 0) {
                 sleep(min(5, 2 * $attempt + 1));
