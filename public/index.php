@@ -40,6 +40,7 @@ session_start();
 $urlSolicitada = isset($_GET['url']) ? explode('/', filter_var(rtrim($_GET['url'], '/'), FILTER_SANITIZE_URL)) : [''];
 $controladorRuta = strtolower((string) ($urlSolicitada[0] ?? ''));
 $metodoRuta = strtolower((string) ($urlSolicitada[1] ?? METODO_DEFECTO));
+$rutaLogin = $controladorRuta === strtolower(LOGIN);
 $rutasPublicasSinLogin = [
     'caphum' => [
         'subirdocumentoscandidato',
@@ -67,7 +68,7 @@ $rutaPublicaSinLogin = isset($rutasPublicasSinLogin[$controladorRuta])
     && in_array($metodoRuta, $rutasPublicasSinLogin[$controladorRuta], true);
 
 // Verifica si la sesión de usuario está activa y si el navegador es compatible
-if (!isset($_SESSION['login']) && !$rutaPublicaSinLogin) {
+if (!isset($_SESSION['login']) && !$rutaPublicaSinLogin && !$rutaLogin) {
     require_once LIBRERIAS . '/BrowserDetection/BrowserDetection.php';
     if (!validaNavegador()) {
         echo getErrorNavegador();
@@ -162,7 +163,9 @@ function recursoNoDisponible()
 function validaNavegador()
 {
     $navegadores = [
+        'Brave' => 120,
         'Chrome' => 120,
+        'Chromium' => 120,
         'Edge' => 120,
         'Firefox' => 130,
         // 'Safari' => 140,
@@ -172,7 +175,9 @@ function validaNavegador()
     $b = new \foroco\BrowserDetection();
     $navegador = $b->getBrowser($_SERVER['HTTP_USER_AGENT']);
 
-    if (!$navegadores[$navegador['browser_name']] || $navegador['browser_version'] < $navegadores[$navegador['browser_name']]) return false;
+    $nombre = $navegador['browser_name'] ?? '';
+    $version = (float) ($navegador['browser_version'] ?? 0);
+    if (!isset($navegadores[$nombre]) || $version < $navegadores[$nombre]) return false;
     return true;
 }
 
