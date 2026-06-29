@@ -8,6 +8,7 @@ use DateInterval;
 use DateTimeImmutable;
 use DateTimeZone;
 use Exception;
+use Services\FactorIntegracionService;
 
 class Vacaciones extends Model
 {
@@ -1016,7 +1017,8 @@ class Vacaciones extends Model
             'periodo_inicio' => $inicio->format('Y-m-d'),
             'periodo_fin' => $fin->format('Y-m-d'),
             'proximo_aniversario' => $siguiente->format('Y-m-d'),
-            'dias_otorgados' => self::diasPorAntiguedad($anios),
+            'dias_otorgados' => FactorIntegracionService::diasVacacionesPorAniversario($anios),
+            'factor_integracion' => FactorIntegracionService::calcularFactor($anios),
         ]);
     }
 
@@ -1024,22 +1026,6 @@ class Vacaciones extends Model
     {
         $anios = (int) $inicio->diff($fecha)->y;
         return max(0, $anios);
-    }
-
-    private static function diasPorAntiguedad(int $anios): int
-    {
-        if ($anios <= 0) return 0;
-        if ($anios === 1) return 12;
-        if ($anios === 2) return 14;
-        if ($anios === 3) return 16;
-        if ($anios === 4) return 18;
-        if ($anios === 5) return 20;
-        if ($anios <= 10) return 22;
-        if ($anios <= 15) return 24;
-        if ($anios <= 20) return 26;
-        if ($anios <= 25) return 28;
-        if ($anios <= 30) return 30;
-        return 32;
     }
 
     private static function totalesPeriodo(Database $db, int $idPersona, string $periodoInicio, string $periodoFin): array

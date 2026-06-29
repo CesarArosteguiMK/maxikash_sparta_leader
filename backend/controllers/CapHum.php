@@ -328,11 +328,17 @@ class CapHum extends Controller
 
     private function auditarDocumentoSensibleRrhh(array $doc, string $accion, string $resultado, string $detalle = ''): void
     {
+        $idDocumento = (int)($doc['id_documento'] ?? 0);
+        $catalogoDocumentos = self::documentosRrhhConPermisoEspecial();
+        $usuarioNombre = trim((string)($_SESSION['usuario_nombre'] ?? $_SESSION['nombre_usuario'] ?? $_SESSION['usuario'] ?? ''));
         CapHumDAO::registrarAuditoriaDocumentoSensible([
             'id_usuario' => (int)($_SESSION['usuario_id'] ?? $_SESSION['id_usuario'] ?? $_SESSION['id'] ?? 0),
+            'usuario_nombre' => $usuarioNombre,
             'id_persona' => (int)($doc['id_persona'] ?? 0),
+            'persona_nombre' => (string)($doc['nombre_completo'] ?? ''),
             'id_documento_carga' => (int)($doc['id'] ?? 0),
-            'id_documento' => (int)($doc['id_documento'] ?? 0),
+            'id_documento' => $idDocumento,
+            'documento_nombre' => (string)($doc['documento_nombre'] ?? ($catalogoDocumentos[$idDocumento] ?? '')),
             'archivo' => (string)($doc['archivo'] ?? ''),
             'accion' => $accion,
             'resultado' => $resultado,
@@ -959,6 +965,9 @@ class CapHum extends Controller
                                 const puedeCargarDocumento = !!window.puedeCargarDocumentoGestion;
                                 const puedeRegistrarAusencia = !!window.puedeRegistrarAusenciaGestion;
                                 const puedeDarBaja = !!window.puedeDarBajaGestion;
+                                const bajaBloqueada = Number(p.bloqueo_baja_activo || 0) === 1;
+                                const mensajeBloqueoBaja = p.bloqueo_baja_mensaje || 'No se puede dar de baja porque la persona tiene una ausencia o vacaciones vigentes.';
+                                const mensajeBloqueoBajaJs = JSON.stringify(mensajeBloqueoBaja).replace(/</g, '\\u003C');
                                 return `
                                 <div class="d-flex flex-column align-items-start gap-1" style="min-width: fit-content;">
                                     <div class="d-flex flex-wrap gap-1">
@@ -984,9 +993,13 @@ class CapHum extends Controller
                                     ${puedeRegistrarAusencia ? `<button class="btn btn-sm btn-warning" onclick="registra_ausencia(${p.id})" title="Ausencias">
                                         <i class="fa fa-person-circle-minus"></i>
                                     </button>` : ''}
-                                    ${puedeDarBaja ? `<button class="btn btn-sm btn-danger" onclick="baja_gestor(${p.id})" title="Dar de baja">
-                                        <i class="fa fa-user-slash"></i>
-                                    </button>` : ''}
+                                    ${puedeDarBaja ? (bajaBloqueada
+                                        ? `<button class="btn btn-sm btn-secondary" onclick='mostrarBloqueoBaja(${mensajeBloqueoBajaJs})' title="${escaparAttr(mensajeBloqueoBaja)}">
+                                            <i class="fa fa-lock"></i>
+                                        </button>`
+                                        : `<button class="btn btn-sm btn-danger" onclick="baja_gestor(${p.id})" title="Dar de baja">
+                                            <i class="fa fa-user-slash"></i>
+                                        </button>`) : ''}
                                     ${puedePermisos ? `<button class="btn btn-sm" style="background-color: #D2D755; color: white;" onclick="edit_perfil(${p.id})" title="${tienePuestos ? 'Permisos (Gestionar m&uacute;ltiples puestos)' : 'Permisos'}">
                                         <i class="fa fa-lock" style="color: #007bff;"></i>
                                     </button>` : ''}
@@ -4191,6 +4204,14 @@ class CapHum extends Controller
                 }
             });
 
+            function mostrarBloqueoBaja(mensaje) {
+                Swal.fire({
+                    icon: 'warning',
+                    title: 'Baja bloqueada',
+                    text: mensaje || 'No se puede dar de baja porque la persona tiene una ausencia o vacaciones vigentes.'
+                });
+            }
+
             function baja_gestor(id) {
                     if (!id) {
                         Swal.fire("Error", "ID inválido", "error");
@@ -4346,6 +4367,19 @@ class CapHum extends Controller
                 return String(fecha || '').substring(0, 10) || '-';
             }
 
+            function actualizarEstadoHistorialAusencia(tieneContenido) {
+                const empty = document.getElementById('ausenciaHistorialEmpty');
+                const contenido = document.getElementById('ausenciaHistorialContenido');
+                const tablaWrap = contenido ? contenido.querySelector('.table-responsive') : null;
+                const tbody = document.getElementById('tablaAusencias');
+                const tieneAusencias = tbody && tbody.dataset.sinAusencias !== '1' && tbody.children.length > 0;
+                const mostrarContenido = Boolean(tieneContenido || tieneAusencias);
+
+                if (empty) empty.classList.toggle('d-none', mostrarContenido);
+                if (contenido) contenido.classList.toggle('d-none', !mostrarContenido);
+                if (tablaWrap) tablaWrap.classList.toggle('d-none', !tieneAusencias);
+            }
+
             function cargarAusencias(idPersona) {
             fetch('/CapHum/getAusenciasPersona', {
                 method: 'POST',
@@ -4365,41 +4399,9 @@ class CapHum extends Controller
                     return;
                 }
 
-                const tbody = document.getElementById("tablaAusencias");
-                tbody.innerHTML = "";
-
                 const data = resp.datos;
-
-                if (!Array.isArray(data) || data.length === 0) {
-                    tbody.dataset.sinAusencias = '1';
-                    tbody.innerHTML = `
-                        <tr>
-                            <td colspan="6" class="text-center text-muted">
-                                Sin ausencias registradas.
-                            </td>
-                        </tr>`;
-                    return;
-                }
-
-                delete tbody.dataset.sinAusencias;
-                data.forEach(a => {
-                    tbody.innerHTML += `
-                        <tr>
-                            <td>${a.razon}</td>
-                            <td>${formatearFechaAusencia(a.fecha_inicio)}</td>
-                            <td>${formatearFechaAusencia(a.fecha_fin)}</td>
-                            <td>${a.descripcion ?? ''}</td>
-                            <td>${a.activo == 1 ? 'Sí' : 'No'}</td>
-                             <td class="text-center">
-                                <button class="btn btn-sm btn-warning"
-                                    onclick="editarAusencia(${a.id})"
-                                    title="Editar / Documentos">
-                                    <i class="fa fa-edit"></i>
-                                </button>
-                            </td>
-                        </tr>
-                    `;
-                });
+                ausenciasPersonaActuales = Array.isArray(data) ? data : [];
+                renderHistorialAusencias();
             })
             .catch(err => {
                 console.error("ERROR cargarAusencias:", err);
@@ -4483,9 +4485,69 @@ class CapHum extends Controller
 
             let documentoAusenciaSeleccionado = null;
             let documentoAusenciaPreviewUrl = '';
+            let ausenciasPersonaActuales = [];
+            let documentosAusenciaActuales = [];
 
             function idsDocumentosAusenciaGestion() {
                 return [34, 35, 36];
+            }
+
+            function escaparHtmlAusencia(valor) {
+                return String(valor || '')
+                    .replace(/&/g, '&amp;')
+                    .replace(/</g, '&lt;')
+                    .replace(/>/g, '&gt;')
+                    .replace(/"/g, '&quot;')
+                    .replace(/'/g, '&#039;');
+            }
+
+            function escaparAtributoJsAusencia(valor) {
+                return String(valor || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+            }
+
+            function documentoParaAusencia(ausencia) {
+                const idDocumentoEsperado = Number(obtenerIdDocumentoPorNombre(tipoDocumentoDesdeRazonAusencia(ausencia?.razon || '')) || 0);
+                if (!idDocumentoEsperado) return null;
+                return documentosAusenciaActuales.find(doc => Number(doc.id_documento || 0) === idDocumentoEsperado) || null;
+            }
+
+            function renderHistorialAusencias() {
+                const tbody = document.getElementById("tablaAusencias");
+                if (!tbody) return;
+                tbody.innerHTML = '';
+
+                if (!Array.isArray(ausenciasPersonaActuales) || ausenciasPersonaActuales.length === 0) {
+                    tbody.dataset.sinAusencias = '1';
+                    actualizarEstadoHistorialAusencia(false);
+                    return;
+                }
+
+                delete tbody.dataset.sinAusencias;
+                tbody.innerHTML = ausenciasPersonaActuales.map(a => {
+                    const doc = documentoParaAusencia(a);
+                    const archivo = doc ? String(doc.archivo || '') : '';
+                    const archivoAttr = escaparAtributoJsAusencia(archivo);
+                    const documentoHtml = doc
+                        ? `<button type="button" class="btn btn-sm btn-outline-primary" onclick="verDocumentoAusenciaSubido('${archivoAttr}')"><i class="fa fa-eye me-1"></i>Ver documento</button>`
+                        : '<span class="badge bg-warning text-dark">Documento pendiente</span>';
+                    return `
+                        <tr>
+                            <td>${escaparHtmlAusencia(a.razon)}</td>
+                            <td>${escaparHtmlAusencia(formatearFechaAusencia(a.fecha_inicio))}</td>
+                            <td>${escaparHtmlAusencia(formatearFechaAusencia(a.fecha_fin))}</td>
+                            <td>${escaparHtmlAusencia(a.descripcion || '')}</td>
+                            <td>${documentoHtml}</td>
+                            <td class="text-center">
+                                <button class="btn btn-sm btn-warning"
+                                    onclick="editarAusencia(${Number(a.id || 0)})"
+                                    title="Editar ausencia">
+                                    <i class="fa fa-edit"></i>
+                                </button>
+                            </td>
+                        </tr>
+                    `;
+                }).join('');
+                actualizarEstadoHistorialAusencia(true);
             }
 
             function limpiarDocumentoAusenciaSeleccionado() {
@@ -4691,14 +4753,43 @@ class CapHum extends Controller
                 });
             }
 
+            function subirDocumentoAusenciaPromise() {
+                const seleccionado = documentoAusenciaSeleccionado;
+                const archivo = seleccionado?.archivo || null;
+                const idPersona = seleccionado?.idPersona || '';
+                const idDocumento = Number(seleccionado?.idDocumento || 0);
+
+                if (!archivo || !idPersona || !idDocumento) {
+                    return Promise.reject(new Error('Adjunta el documento de la ausencia antes de registrar.'));
+                }
+
+                const formData = new FormData();
+                formData.append('id_persona', idPersona);
+                formData.append('id_documento', String(idDocumento));
+                formData.append('archivosPDF[]', archivo);
+
+                return fetch('/caphum/subirDocumentosPersona', {
+                    method: 'POST',
+                    body: formData
+                })
+                .then(res => res.json())
+                .then(resp => {
+                    if (!resp.success) {
+                        throw new Error(resp.mensaje || 'No se pudo subir el documento.');
+                    }
+                    return resp;
+                });
+            }
+
             function cargarDocumentosAusenciaPersona(idPersona) {
                 const lista = document.getElementById('listaDocumentosAusencia');
                 if (!lista) return;
                 if (!idPersona) {
-                    lista.innerHTML = '<div class="list-group-item text-muted">Sin documentos de ausencia subidos.</div>';
+                    lista.innerHTML = '';
+                    actualizarEstadoHistorialAusencia(false);
                     return;
                 }
-                lista.innerHTML = '<div class="list-group-item text-muted">Cargando documentos...</div>';
+                lista.innerHTML = '';
                 fetch('/caphum/getDocumentosPersona?id_persona=' + encodeURIComponent(idPersona))
                     .then(res => res.json())
                     .then(resp => {
@@ -4715,66 +4806,9 @@ class CapHum extends Controller
             function renderDocumentosAusenciaPersona(docs) {
                 const lista = document.getElementById('listaDocumentosAusencia');
                 if (!lista) return;
-                const actualizarMensajeHistorial = tieneDocumentos => {
-                    const tbody = document.getElementById('tablaAusencias');
-                    if (!tbody || tbody.dataset.sinAusencias !== '1') return;
-                    const celda = tbody.querySelector('td');
-                    if (!celda) return;
-                    celda.textContent = tieneDocumentos
-                        ? 'Pendiente de registrar ausencia.'
-                        : 'Sin ausencias registradas.';
-                };
-
-                if (!docs.length) {
-                    actualizarMensajeHistorial(false);
-                    lista.innerHTML = '<div class="list-group-item text-muted">Sin documentos de ausencia subidos.</div>';
-                    return;
-                }
-                actualizarMensajeHistorial(true);
-
-                const escaparHtml = valor => String(valor || '')
-                    .replace(/&/g, '&amp;')
-                    .replace(/</g, '&lt;')
-                    .replace(/>/g, '&gt;')
-                    .replace(/"/g, '&quot;')
-                    .replace(/'/g, '&#039;');
-                const escaparAtributoJs = valor => String(valor || '')
-                    .replace(/\\/g, '\\\\')
-                    .replace(/'/g, "\\'");
-                const nombreCortoDocumentoAusencia = idDocumento => {
-                    const mapa = {
-                        34: 'incapacidad',
-                        35: 'permiso',
-                        36: 'falta'
-                    };
-                    return mapa[Number(idDocumento)] || 'ausencia';
-                };
-
-                lista.innerHTML = docs.map(doc => {
-                    const id = Number(doc.id || 0);
-                    const nombreDoc = escaparHtml(doc.documento_nombre || obtenerNombreDocumento(doc.id_documento));
-                    const nombreCorto = escaparHtml(nombreCortoDocumentoAusencia(doc.id_documento));
-                    const archivo = String(doc.archivo || '');
-                    const archivoAttr = escaparAtributoJs(archivo);
-                    const fecha = escaparHtml(doc.fecha_carga || 'N/A');
-                    return `
-                        <div class="list-group-item d-flex flex-wrap align-items-center justify-content-between gap-2">
-                            <div>
-                                <div class="fw-semibold">${nombreDoc}</div>
-                                <div class="text-muted"><i class="fa fa-file-pdf text-danger me-1"></i>PDF de ${nombreCorto}</div>
-                                <div class="text-muted">Cargado: ${fecha}</div>
-                            </div>
-                            <div class="d-flex gap-2">
-                                <button type="button" class="btn btn-sm btn-outline-primary" onclick="verDocumentoAusenciaSubido('${archivoAttr}')">
-                                    <i class="fa fa-eye me-1"></i>Ver
-                                </button>
-                                <button type="button" class="btn btn-sm btn-outline-danger" onclick="eliminarDocumentoAusenciaPersona(${id}, '${archivoAttr}')">
-                                    <i class="fa fa-trash me-1"></i>Borrar
-                                </button>
-                            </div>
-                        </div>
-                    `;
-                }).join('');
+                documentosAusenciaActuales = Array.isArray(docs) ? docs : [];
+                lista.innerHTML = '';
+                renderHistorialAusencias();
             }
 
             function eliminarDocumentoAusenciaPersona(idDocumento, nombreArchivo) {
@@ -4910,6 +4944,10 @@ class CapHum extends Controller
                     Swal.fire("Fechas requeridas", "Selecciona fecha inicio y fecha fin.", "warning");
                     return;
                 }
+                if (!idAusencia && !documentoAusenciaSeleccionado) {
+                    Swal.fire("Documento requerido", "Adjunta el PDF de la ausencia antes de registrar.", "warning");
+                    return;
+                }
 
                 const payload = {
                     idPersona,
@@ -4920,21 +4958,33 @@ class CapHum extends Controller
                     idAusencia
                 };
 
+                const btnGuardar = document.getElementById("btnGuardarAusencia");
+                const estado = document.getElementById('estadoDocumentoAusencia');
+                if (btnGuardar) {
+                    btnGuardar.disabled = true;
+                    btnGuardar.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Guardando...';
+                }
+                if (estado) {
+                    estado.textContent = idAusencia ? 'Guardando ausencia...' : 'Subiendo documento y guardando ausencia...';
+                }
 
-                fetch('/CapHum/guardarAusencia', {
+                const subirDocumento = documentoAusenciaSeleccionado
+                    ? subirDocumentoAusenciaPromise()
+                    : Promise.resolve(null);
+
+                subirDocumento.then(() => fetch('/CapHum/guardarAusencia', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
                         'Accept': 'application/json'
                     },
                     body: JSON.stringify(payload)
-                })
+                }))
                 .then(res => res.json())
                 .then(resp => {
 
                     if (!resp.success) {
-                        Swal.fire("Error", resp.mensaje, "error");
-                        return;
+                        throw new Error(resp.mensaje || "No se pudo guardar la ausencia");
                     }
 
                     Swal.fire("Ã‰xito", resp.mensaje, "success");
@@ -4947,12 +4997,23 @@ class CapHum extends Controller
 
                     //  LIMPIEZA CENTRALIZADA
                     limpiarFormularioAusencia();
+                    limpiarDocumentoAusenciaSeleccionado();
                     // Refrescar tabla
                     cargarAusencias(idPersona);
+                    cargarDocumentosAusenciaPersona(idPersona);
                 })
                 .catch(err => {
                     console.error("ERROR guardarAusencia:", err);
-                    Swal.fire("Error", "No se pudo guardar la ausencia", "error");
+                    Swal.fire("Error", err.message || "No se pudo guardar la ausencia", "error");
+                })
+                .finally(() => {
+                    if (btnGuardar) {
+                        btnGuardar.disabled = false;
+                        btnGuardar.innerText = idAusencia ? "Actualizar ausencia" : "Registrar ausencia";
+                    }
+                    if (estado) {
+                        estado.textContent = '';
+                    }
                 });
             }
 
@@ -7980,6 +8041,14 @@ class CapHum extends Controller
             }
             $documentosManual = $servicio->documentosManualDesdePost($_POST);
             if (empty($fuentes)) {
+                if ($batchId !== '') {
+                    self::respuestaJSON([
+                        'success' => false,
+                        'codigo' => 'lote_temporal_no_disponible',
+                        'mensaje' => 'La preparacion temporal de la carga ya no esta disponible. El sistema reintentara con los archivos seleccionados; si vuelve a fallar, selecciona la carpeta otra vez.'
+                    ]);
+                    return;
+                }
                 self::respuestaJSON(['success' => false, 'mensaje' => 'Selecciona archivos PDF, FAD, ZIP o una carpeta con documentos.']);
                 return;
             }
@@ -8013,6 +8082,14 @@ class CapHum extends Controller
             }
             $documentosManual = $servicio->documentosManualDesdePost($_POST);
             if (empty($fuentes)) {
+                if ($batchId !== '') {
+                    self::respuestaJSON([
+                        'success' => false,
+                        'codigo' => 'lote_temporal_no_disponible',
+                        'mensaje' => 'La preparacion temporal de la carga ya no esta disponible. El sistema reintentara con los archivos seleccionados; si vuelve a fallar, selecciona la carpeta otra vez.'
+                    ]);
+                    return;
+                }
                 self::respuestaJSON(['success' => false, 'mensaje' => 'Selecciona archivos PDF, FAD, ZIP o una carpeta con documentos.']);
                 return;
             }
@@ -24862,6 +24939,14 @@ public function getEstadosMunicipiosMexico()
             }
             $documentosManual = $servicio->documentosManualDesdePost($_POST);
             if (empty($fuentes)) {
+                if ($batchId !== '') {
+                    self::respuestaJSON([
+                        'success' => false,
+                        'codigo' => 'lote_temporal_no_disponible',
+                        'mensaje' => 'La preparacion temporal de la carga ya no esta disponible. Selecciona la carpeta nuevamente para volver a analizar.'
+                    ]);
+                    return;
+                }
                 self::respuestaJSON(['success' => false, 'mensaje' => 'Selecciona archivos PDF, FAD, ZIP o una carpeta con documentos.']);
                 return;
             }
@@ -24894,6 +24979,14 @@ public function getEstadosMunicipiosMexico()
             }
             $documentosManual = $servicio->documentosManualDesdePost($_POST);
             if (empty($fuentes)) {
+                if ($batchId !== '') {
+                    self::respuestaJSON([
+                        'success' => false,
+                        'codigo' => 'lote_temporal_no_disponible',
+                        'mensaje' => 'La preparacion temporal de la carga ya no esta disponible. El sistema reintentara con los archivos seleccionados; si vuelve a fallar, selecciona la carpeta otra vez.'
+                    ]);
+                    return;
+                }
                 self::respuestaJSON(['success' => false, 'mensaje' => 'Selecciona archivos PDF, FAD, ZIP o una carpeta con documentos.']);
                 return;
             }
@@ -24953,6 +25046,14 @@ public function getEstadosMunicipiosMexico()
             }
             $documentosManual = $servicio->documentosManualDesdePost($_POST);
             if (empty($fuentes)) {
+                if ($batchId !== '') {
+                    self::respuestaJSON([
+                        'success' => false,
+                        'codigo' => 'lote_temporal_no_disponible',
+                        'mensaje' => 'La preparacion temporal de la carga ya no esta disponible. Selecciona la carpeta nuevamente para volver a analizar.'
+                    ]);
+                    return;
+                }
                 self::respuestaJSON(['success' => false, 'mensaje' => 'Selecciona archivos PDF, FAD, ZIP o una carpeta con documentos.']);
                 return;
             }
@@ -24986,6 +25087,14 @@ public function getEstadosMunicipiosMexico()
             }
             $documentosManual = $servicio->documentosManualDesdePost($_POST);
             if (empty($fuentes)) {
+                if ($batchId !== '') {
+                    self::respuestaJSON([
+                        'success' => false,
+                        'codigo' => 'lote_temporal_no_disponible',
+                        'mensaje' => 'La preparacion temporal de la carga ya no esta disponible. El sistema reintentara con los archivos seleccionados; si vuelve a fallar, selecciona la carpeta otra vez.'
+                    ]);
+                    return;
+                }
                 self::respuestaJSON(['success' => false, 'mensaje' => 'Selecciona archivos PDF, FAD, ZIP o una carpeta con documentos.']);
                 return;
             }
@@ -25161,6 +25270,11 @@ public function getEstadosMunicipiosMexico()
                         ]);
                         return;
                     }
+                    $this->auditarDocumentoSensibleRrhh([
+                        'id_persona' => $idUsuarioSesion,
+                        'id_documento' => 0,
+                        'archivo' => '',
+                    ], 'totp_setup', 'pendiente', 'Google Authenticator generado; pendiente de confirmacion para usuario #' . $idUsuarioSesion);
                     $configTotp = ['secret' => $secret, 'confirmado' => 0];
                 }
 
@@ -25191,7 +25305,18 @@ public function getEstadosMunicipiosMexico()
                 }
 
                 if (!$confirmado) {
-                    CapHumDAO::confirmarTotpDocumentoSensible($idUsuarioSesion);
+                    $confirmacionTotp = CapHumDAO::confirmarTotpDocumentoSensible($idUsuarioSesion);
+                    $this->auditarDocumentoSensibleRrhh([
+                        'id_persona' => $idUsuarioSesion,
+                        'id_documento' => 0,
+                        'archivo' => '',
+                    ], 'totp_confirmar', ($confirmacionTotp['success'] ?? false) ? 'autorizado' : 'fallido', 'Google Authenticator confirmado para usuario #' . $idUsuarioSesion);
+                } else {
+                    $this->auditarDocumentoSensibleRrhh([
+                        'id_persona' => $idUsuarioSesion,
+                        'id_documento' => 0,
+                        'archivo' => '',
+                    ], 'totp_estado', 'registrado', 'Google Authenticator ya registrado para usuario #' . $idUsuarioSesion);
                 }
                 self::marcarTotpSesion();
                 $this->auditarDocumentoSensibleRrhh($doc, 'totp', 'autorizado');
