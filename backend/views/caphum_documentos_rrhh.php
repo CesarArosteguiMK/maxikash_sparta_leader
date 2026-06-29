@@ -492,8 +492,9 @@
     let importPreviewRenderId = 0;
     let importPreparandoArchivosDesde = 0;
     let importPersonaObjetivo = null;
-    const IMPORT_MAX_FILES_PER_REQUEST = 1000;
-    const IMPORT_MAX_BYTES_PER_REQUEST = 850 * 1024 * 1024;
+    const IMPORT_MAX_FILES_PER_REQUEST = 80;
+    const IMPORT_MAX_BYTES_PER_REQUEST = 60 * 1024 * 1024;
+    const IMPORT_MAX_ZIP_BYTES_PER_REQUEST = 60 * 1024 * 1024;
 
     const els = {
         importar: document.getElementById('btnImportarDocsRrhh'),
@@ -560,23 +561,112 @@
         const fd = new FormData();
         const batchId = String(importAnalisis?.batch_id || '').trim();
         const usarBatch = options.usarBatch !== false;
+        const files = Array.isArray(options.files) ? options.files : importFiles;
+        const sourceOffset = Number(options.sourceOffset || 0);
+        const manualesGlobales = options.manualesGlobales || null;
         if (importPersonaObjetivo && Number(importPersonaObjetivo.id_persona || 0) > 0) {
             fd.append('id_persona', Number(importPersonaObjetivo.id_persona || 0));
         }
         if (batchId && usarBatch) {
             fd.append('batch_id', batchId);
         } else {
-            importFiles.forEach(file => {
+            files.forEach(file => {
                 fd.append('archivos[]', file, file.name);
                 fd.append('rutas_relativas[]', file.webkitRelativePath || file.name);
             });
         }
+        if (manualesGlobales instanceof Map) {
+            files.forEach((file, localIndex) => {
+                const globalIndex = Number(file.__rrhhGlobalIndex ?? (sourceOffset + localIndex));
+                const idDocumento = Number(manualesGlobales.get(globalIndex) || 0);
+                if (idDocumento > 0) {
+                    fd.append(`documentos_manual[${localIndex}]`, idDocumento);
+                }
+            });
+        } else {
+            (importAnalisis?.items || []).forEach(item => {
+                if (item.documento_manual && Number(item.id_documento || 0) > 0) {
+                    const localIndex = Math.max(0, Number(item.source_index || 0) - sourceOffset);
+                    fd.append(`documentos_manual[${localIndex}]`, Number(item.id_documento || 0));
+                }
+            });
+        }
+        return fd;
+    }
+
+    function importResumenVacio() {
+        return {
+            total: 0,
+            listo: 0,
+            importado: 0,
+            persona_no_encontrada: 0,
+            persona_ambigua: 0,
+            persona_no_coincide: 0,
+            documento_no_reconocido: 0,
+            ya_existe: 0,
+            duplicado_lote: 0,
+            omitido: 0,
+            error: 0,
+            documento_sin_permiso: 0
+        };
+    }
+
+    function importSumarResumen(destino, fuente) {
+        const out = destino || importResumenVacio();
+        Object.keys(importResumenVacio()).forEach(key => {
+            out[key] = Number(out[key] || 0) + Number(fuente?.[key] || 0);
+        });
+        return out;
+    }
+
+    function importNormalizarItemsBatch(items, sourceOffset) {
+        return Array.from(items || []).map(item => ({
+            ...item,
+            source_index: Number(item.source_index || 0) + Number(sourceOffset || 0)
+        }));
+    }
+
+    function importManualesGlobales() {
+        const manuales = new Map();
         (importAnalisis?.items || []).forEach(item => {
-            if (item.documento_manual && Number(item.id_documento || 0) > 0) {
-                fd.append(`documentos_manual[${Number(item.source_index || 0)}]`, Number(item.id_documento || 0));
+            const sourceIndex = Number(item.source_index || 0);
+            const idDocumento = Number(item.id_documento || 0);
+            if (item.documento_manual && idDocumento > 0) {
+                manuales.set(sourceIndex, idDocumento);
             }
         });
-        return fd;
+        return manuales;
+    }
+
+    function importCrearBatches(files) {
+        const batches = [];
+        let actual = [];
+        let bytes = 0;
+        Array.from(files || []).forEach((file, index) => {
+            file.__rrhhGlobalIndex = index;
+            const size = Number(file.size || 0);
+            const debeCerrar = actual.length > 0
+                && (actual.length >= IMPORT_MAX_FILES_PER_REQUEST || (bytes + size) > IMPORT_MAX_BYTES_PER_REQUEST);
+            if (debeCerrar) {
+                batches.push({ files: actual, sourceOffset: Number(actual[0].__rrhhGlobalIndex || 0), bytes });
+                actual = [];
+                bytes = 0;
+            }
+            actual.push(file);
+            bytes += size;
+        });
+        if (actual.length) {
+            batches.push({ files: actual, sourceOffset: Number(actual[0].__rrhhGlobalIndex || 0), bytes });
+        }
+        return batches;
+    }
+
+    function importTieneZipGrande(files) {
+        return Array.from(files || []).some(file => importEsZip(file) && Number(file.size || 0) > IMPORT_MAX_ZIP_BYTES_PER_REQUEST);
+    }
+
+    function importPrimerArchivoGrande(files) {
+        return Array.from(files || []).find(file => !importEsZip(file) && Number(file.size || 0) > IMPORT_MAX_BYTES_PER_REQUEST) || null;
     }
 
     function importRenderResumen(resumen) {
@@ -737,22 +827,27 @@
             : 'No se han seleccionado archivos.';
         els.importBtnImportar.disabled = true;
         if (total > 0) {
-            const excedeArchivos = total > IMPORT_MAX_FILES_PER_REQUEST;
-            const excedePeso = peso > IMPORT_MAX_BYTES_PER_REQUEST;
-            if (excedeArchivos || excedePeso) {
-                const limiteMb = Math.floor(IMPORT_MAX_BYTES_PER_REQUEST / 1024 / 1024);
-                const detalle = [
-                    excedeArchivos ? `seleccionaste ${total} archivo(s), el servidor acepta maximo ${IMPORT_MAX_FILES_PER_REQUEST} por carga` : '',
-                    excedePeso ? `seleccionaste ${pesoMb.toFixed(1)} MB, el servidor acepta maximo ${limiteMb} MB por carga` : ''
-                ].filter(Boolean).join('; ');
-                els.importSeleccionResumen.textContent = `Seleccion demasiado grande: ${detalle}. Divide la carpeta en lotes mas pequenos.`;
-                els.importTabla.innerHTML = `<tr><td colspan="6" class="text-center text-warning py-4">La seleccion supera el limite real del servidor. Divide el ZIP/carpeta en lotes de maximo ${IMPORT_MAX_FILES_PER_REQUEST} archivos o ${limiteMb} MB.</td></tr>`;
+            const limiteMb = Math.floor(IMPORT_MAX_BYTES_PER_REQUEST / 1024 / 1024);
+            if (importTieneZipGrande(importFiles)) {
+                els.importSeleccionResumen.textContent = `ZIP demasiado grande para produccion. Descomprimelo y usa Elegir carpeta; se enviara en lotes de ${limiteMb} MB.`;
+                els.importTabla.innerHTML = `<tr><td colspan="6" class="text-center text-warning py-4">El servidor rechaza ZIP grandes antes de que el sistema pueda analizarlos. Descomprime el ZIP y selecciona la carpeta.</td></tr>`;
                 Swal.fire(
-                    'Seleccion demasiado grande',
-                    `No se envio al servidor para evitar el error "Failed to fetch". ${detalle}.`,
+                    'ZIP demasiado grande',
+                    `Sin acceso al servidor no se puede aumentar el limite PHP de subida. Descomprime el ZIP y usa "Elegir carpeta"; el sistema lo analizara por lotes de hasta ${limiteMb} MB.`,
                     'warning'
                 );
                 return;
+            }
+            const archivoGrande = importPrimerArchivoGrande(importFiles);
+            if (archivoGrande) {
+                els.importSeleccionResumen.textContent = `El archivo ${archivoGrande.name} pesa mas de ${limiteMb} MB.`;
+                els.importTabla.innerHTML = `<tr><td colspan="6" class="text-center text-warning py-4">Ese archivo supera el limite por solicitud de produccion. Comprimelo o dividelo antes de subirlo.</td></tr>`;
+                Swal.fire('Archivo demasiado grande', `El archivo "${archivoGrande.name}" supera ${limiteMb} MB.`, 'warning');
+                return;
+            }
+            const batches = importCrearBatches(importFiles);
+            if (batches.length > 1) {
+                els.importSeleccionResumen.textContent = `${total} archivo(s), ${pesoMb.toFixed(1)} MB. Se analizaran en ${batches.length} lotes seguros para produccion.`;
             }
             if (importSeleccionTieneZip()) {
                 importMostrarPreparandoArchivos();
@@ -789,7 +884,7 @@
                 headers: { 'X-Requested-With': 'XMLHttpRequest' }
             });
         } catch (err) {
-            throw new Error('No se pudo conectar con el servidor. Revisa que la seleccion no supere el limite de carga configurado: maximo 1000 archivos o 850 MB por intento.');
+            throw new Error('No se pudo conectar con el servidor. En produccion los documentos se envian por lotes; si elegiste un ZIP grande, descomprimelo y usa "Elegir carpeta".');
         }
         const contentType = res.headers.get('content-type') || '';
         if (!contentType.includes('application/json')) {
@@ -883,8 +978,16 @@
                 window.jQuery(els.importPreviewModal).modal('show');
             }
 
-            const fd = importFormData();
-            fd.append('source_index', Number(sourceIndex || 0));
+            const batchId = String(importAnalisis?.batch_id || '').trim();
+            const globalIndex = Number(sourceIndex || 0);
+            const file = importFiles[globalIndex] || null;
+            if (!batchId && !file) {
+                throw new Error('No se encontro el archivo seleccionado en la carga actual.');
+            }
+            const fd = batchId
+                ? importFormData()
+                : importFormData({ files: file ? [file] : [], sourceOffset: globalIndex, usarBatch: false });
+            fd.append('source_index', batchId ? globalIndex : 0);
             const res = await fetch('/caphum/previsualizarImportacionDocumentosRrhh', {
                 method: 'POST',
                 body: fd,
@@ -908,21 +1011,47 @@
         if (!importFiles.length) return;
         const mostrarPreparando = importSeleccionTieneZip();
         try {
-            importSetLoading(true, 'Analizando documentos...');
+            const batches = importCrearBatches(importFiles);
+            importSetLoading(true, batches.length > 1 ? `Analizando lote 1 de ${batches.length}...` : 'Analizando documentos...');
             if (mostrarPreparando && !importPreparandoArchivosDesde) {
                 importMostrarPreparandoArchivos();
             }
             const endpoint = importPersonaObjetivo
                 ? '/caphum/analizarImportacionDocumentosPersonaRrhh'
                 : '/caphum/analizarImportacionDocumentosRrhh';
-            importAnalisis = await importEnviar(endpoint);
+            const combinado = {
+                items: [],
+                resumen: importResumenVacio(),
+                catalogo: [],
+                batch_id: ''
+            };
+            for (let i = 0; i < batches.length; i++) {
+                const batch = batches[i];
+                if (batches.length > 1) {
+                    importSetLoading(true, `Analizando lote ${i + 1} de ${batches.length} (${batch.files.length} archivo(s))...`);
+                }
+                const parcial = await importEnviar(endpoint, {
+                    files: batch.files,
+                    sourceOffset: batch.sourceOffset,
+                    usarBatch: false
+                });
+                if (!combinado.catalogo.length && Array.isArray(parcial.catalogo)) {
+                    combinado.catalogo = parcial.catalogo;
+                }
+                if (batches.length === 1 && parcial.batch_id) {
+                    combinado.batch_id = parcial.batch_id;
+                }
+                combinado.items.push(...importNormalizarItemsBatch(parcial.items || [], batch.sourceOffset));
+                importSumarResumen(combinado.resumen, parcial.resumen || {});
+            }
+            importAnalisis = combinado;
             if (mostrarPreparando) {
                 await importCerrarPreparandoArchivos();
             }
             importRenderResumen(importAnalisis.resumen);
             importRenderTabla(importAnalisis.items || []);
             const listos = importAnalisis?.resumen?.listo || 0;
-            els.importSeleccionResumen.textContent = `Analisis listo. ${listos} documento(s) pueden importarse.`;
+            els.importSeleccionResumen.textContent = `Analisis listo. ${listos} documento(s) pueden importarse${batches.length > 1 ? ` en ${batches.length} lotes` : ''}.`;
             els.importBtnImportar.disabled = listos <= 0;
         } catch (err) {
             importPreparandoArchivosDesde = 0;
@@ -946,10 +1075,12 @@
         if (!confirm.isConfirmed) return;
 
         try {
-            importSetLoading(true, 'Importando documentos...');
+            const batches = importCrearBatches(importFiles);
+            const manualesGlobales = importManualesGlobales();
+            importSetLoading(true, batches.length > 1 ? `Importando lote 1 de ${batches.length}...` : 'Importando documentos...');
             Swal.fire({
                 title: 'Subiendo documentos',
-                text: 'Se estan subiendo los documentos. Por favor espere.',
+                text: batches.length > 1 ? `Se estan subiendo ${batches.length} lotes seguros. Por favor espere.` : 'Se estan subiendo los documentos. Por favor espere.',
                 allowOutsideClick: false,
                 allowEscapeKey: false,
                 showConfirmButton: false,
@@ -961,14 +1092,41 @@
                 ? '/caphum/importarDocumentosPersonaRrhh'
                 : '/caphum/importarDocumentosRrhh';
             let resultado;
-            try {
-                resultado = await importEnviar(endpoint);
-            } catch (err) {
-                if (err.codigo !== 'lote_temporal_no_disponible' || !importFiles.length) {
-                    throw err;
+            if (batches.length === 1 && String(importAnalisis?.batch_id || '').trim()) {
+                try {
+                    resultado = await importEnviar(endpoint);
+                } catch (err) {
+                    if (err.codigo !== 'lote_temporal_no_disponible' || !importFiles.length) {
+                        throw err;
+                    }
+                    importSetLoading(true, 'La preparacion temporal expiro. Reintentando con los archivos seleccionados...');
+                    resultado = await importEnviar(endpoint, { usarBatch: false });
                 }
-                importSetLoading(true, 'La preparacion temporal expiro. Reintentando con los archivos seleccionados...');
-                resultado = await importEnviar(endpoint, { usarBatch: false });
+            } else {
+                resultado = {
+                    items: [],
+                    resumen: importResumenVacio(),
+                    importados: 0,
+                    batch_id: ''
+                };
+                for (let i = 0; i < batches.length; i++) {
+                    const batch = batches[i];
+                    if (batches.length > 1) {
+                        importSetLoading(true, `Importando lote ${i + 1} de ${batches.length} (${batch.files.length} archivo(s))...`);
+                        if (Swal.isVisible() && Swal.getHtmlContainer()) {
+                            Swal.getHtmlContainer().textContent = `Lote ${i + 1} de ${batches.length}.`;
+                        }
+                    }
+                    const parcial = await importEnviar(endpoint, {
+                        files: batch.files,
+                        sourceOffset: batch.sourceOffset,
+                        usarBatch: false,
+                        manualesGlobales
+                    });
+                    resultado.items.push(...importNormalizarItemsBatch(parcial.items || [], batch.sourceOffset));
+                    importSumarResumen(resultado.resumen, parcial.resumen || {});
+                    resultado.importados += Number(parcial.importados || 0);
+                }
             }
             importAnalisis = resultado;
             importRenderResumen(resultado.resumen);
