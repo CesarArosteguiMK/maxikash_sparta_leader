@@ -3349,8 +3349,12 @@ $aevPuedeReemplazarEvidencia = in_array(79, array_map('intval', (array) ($_SESSI
 
         if (esBlacklist) {
             const estatusBl = item.blacklist_estatus ? aeEsc(item.blacklist_estatus) : 'Cancelada';
-            const motivoBl = item.blacklist_motivo ? aeEsc(item.blacklist_motivo) : '<span class="ae-table-muted">Sin motivo</span>';
-            const comentarioBl = item.blacklist_comentario ? '<span class="ae-table-analyst-date">' + aeEsc(item.blacklist_comentario) + '</span>' : '';
+            const motivoRaw = String(item.blacklist_motivo || 'Sin motivo');
+            const comentarioRaw = String(item.blacklist_comentario || '');
+            const motivoCorto = motivoRaw.length > 34 ? motivoRaw.slice(0, 34) + '...' : motivoRaw;
+            const comentarioCorto = comentarioRaw.length > 72 ? comentarioRaw.slice(0, 72) + '...' : comentarioRaw;
+            const motivoBl = '<span class="ae-evidence-pill ae-evidence-pill--neutral" title="' + aeEsc(motivoRaw) + '"><i class="fa-solid fa-circle-info"></i>' + aeEsc(motivoCorto) + '</span>';
+            const comentarioBl = comentarioRaw ? '<span class="ae-table-analyst-date" title="' + aeEsc(comentarioRaw) + '">' + aeEsc(comentarioCorto) + '</span>' : '';
             const fechaBl = item.fecha_bloqueo_fmt ? aeEsc(item.fecha_bloqueo_fmt) : '<span class="ae-table-muted">-</span>';
             const usuarioBl = item.bloqueado_por_nombre ? aeEsc(item.bloqueado_por_nombre) : '<span class="ae-table-muted">Sistema</span>';
             const puedeLiberar = !!(AEV_BLACKLIST_PERMISOS && AEV_BLACKLIST_PERMISOS.liberar) && String(item.blacklist_estatus || '') === 'BLACKLIST_MOTOS_ADJUDICADAS';
@@ -3360,6 +3364,7 @@ $aevPuedeReemplazarEvidencia = in_array(79, array_map('intval', (array) ($_SESSI
                         title="Liberar BlackList" aria-label="Liberar BlackList">
                     <i class="fa-solid fa-unlock"></i>
                 </button>` : '';
+            const accionesBlacklist = accionLiberar || '<span class="ae-table-muted">Sin acciones</span>';
 
             return `
             <tr>
@@ -3378,11 +3383,11 @@ $aevPuedeReemplazarEvidencia = in_array(79, array_map('intval', (array) ($_SESSI
                     </span>
                 </td>
                 <td class="ae-table-evidence">
-                    <span class="ae-evidence-pill ae-evidence-pill--neutral"><i class="fa-solid fa-circle-info"></i>${motivoBl}</span>
+                    ${motivoBl}
                     ${comentarioBl}
                 </td>
                 <td class="ae-table-action">
-                    <div class="ae-action-buttons">${accionLiberar}</div>
+                    <div class="ae-action-buttons">${accionesBlacklist}</div>
                 </td>
             </tr>`;
         }
