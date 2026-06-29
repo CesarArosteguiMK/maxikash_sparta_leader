@@ -3815,14 +3815,17 @@ class CapHum extends Model
             self::asegurarAuditoriaDocumentosSensibles($db);
             $db->CRUD("
                 INSERT INTO __SPARTA_SECRET_REDACTED__.auditoria_documentos_sensibles_rrhh
-                    (id_usuario, id_persona, id_documento_carga, id_documento, archivo, accion, resultado, ip, user_agent, fecha_hora, detalle)
+                    (id_usuario, usuario_nombre, id_persona, persona_nombre, id_documento_carga, id_documento, documento_nombre, archivo, accion, resultado, ip, user_agent, fecha_hora, detalle)
                 VALUES
-                    (:id_usuario, :id_persona, :id_documento_carga, :id_documento, :archivo, :accion, :resultado, :ip, :user_agent, :fecha_hora, :detalle)
+                    (:id_usuario, :usuario_nombre, :id_persona, :persona_nombre, :id_documento_carga, :id_documento, :documento_nombre, :archivo, :accion, :resultado, :ip, :user_agent, :fecha_hora, :detalle)
             ", [
                 'id_usuario' => !empty($data['id_usuario']) ? (int) $data['id_usuario'] : null,
+                'usuario_nombre' => mb_substr((string) ($data['usuario_nombre'] ?? ''), 0, 191),
                 'id_persona' => !empty($data['id_persona']) ? (int) $data['id_persona'] : null,
+                'persona_nombre' => mb_substr((string) ($data['persona_nombre'] ?? ''), 0, 191),
                 'id_documento_carga' => !empty($data['id_documento_carga']) ? (int) $data['id_documento_carga'] : null,
                 'id_documento' => !empty($data['id_documento']) ? (int) $data['id_documento'] : null,
+                'documento_nombre' => mb_substr((string) ($data['documento_nombre'] ?? ''), 0, 191),
                 'archivo' => mb_substr((string) ($data['archivo'] ?? ''), 0, 255),
                 'accion' => mb_substr((string) ($data['accion'] ?? 'ver'), 0, 50),
                 'resultado' => mb_substr((string) ($data['resultado'] ?? 'desconocido'), 0, 30),
@@ -3842,9 +3845,12 @@ class CapHum extends Model
             CREATE TABLE IF NOT EXISTS __SPARTA_SECRET_REDACTED__.auditoria_documentos_sensibles_rrhh (
                 id INT AUTO_INCREMENT PRIMARY KEY,
                 id_usuario INT NULL,
+                usuario_nombre VARCHAR(191) NULL,
                 id_persona INT NULL,
+                persona_nombre VARCHAR(191) NULL,
                 id_documento_carga INT NULL,
                 id_documento INT NULL,
+                documento_nombre VARCHAR(191) NULL,
                 archivo VARCHAR(255) NULL,
                 accion VARCHAR(50) NOT NULL,
                 resultado VARCHAR(30) NOT NULL,
@@ -3857,6 +3863,17 @@ class CapHum extends Model
                 KEY idx_documento_carga (id_documento_carga)
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
         ");
+        foreach ([
+            'usuario_nombre' => 'VARCHAR(191) NULL AFTER id_usuario',
+            'persona_nombre' => 'VARCHAR(191) NULL AFTER id_persona',
+            'documento_nombre' => 'VARCHAR(191) NULL AFTER id_documento',
+        ] as $columna => $definicion) {
+            try {
+                $db->CRUD("ALTER TABLE __SPARTA_SECRET_REDACTED__.auditoria_documentos_sensibles_rrhh ADD COLUMN {$columna} {$definicion}");
+            } catch (\Throwable $e) {
+                // La columna ya existe o el motor no permite ALTER; la auditoria operativa no debe romperse.
+            }
+        }
     }
 
     public static function getTotpDocumentoSensible(int $idPersona)

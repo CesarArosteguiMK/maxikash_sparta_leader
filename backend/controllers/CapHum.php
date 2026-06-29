@@ -328,11 +328,17 @@ class CapHum extends Controller
 
     private function auditarDocumentoSensibleRrhh(array $doc, string $accion, string $resultado, string $detalle = ''): void
     {
+        $idDocumento = (int)($doc['id_documento'] ?? 0);
+        $catalogoDocumentos = self::documentosRrhhConPermisoEspecial();
+        $usuarioNombre = trim((string)($_SESSION['usuario_nombre'] ?? $_SESSION['nombre_usuario'] ?? $_SESSION['usuario'] ?? ''));
         CapHumDAO::registrarAuditoriaDocumentoSensible([
             'id_usuario' => (int)($_SESSION['usuario_id'] ?? $_SESSION['id_usuario'] ?? $_SESSION['id'] ?? 0),
+            'usuario_nombre' => $usuarioNombre,
             'id_persona' => (int)($doc['id_persona'] ?? 0),
+            'persona_nombre' => (string)($doc['nombre_completo'] ?? ''),
             'id_documento_carga' => (int)($doc['id'] ?? 0),
-            'id_documento' => (int)($doc['id_documento'] ?? 0),
+            'id_documento' => $idDocumento,
+            'documento_nombre' => (string)($doc['documento_nombre'] ?? ($catalogoDocumentos[$idDocumento] ?? '')),
             'archivo' => (string)($doc['archivo'] ?? ''),
             'accion' => $accion,
             'resultado' => $resultado,
@@ -8035,6 +8041,14 @@ class CapHum extends Controller
             }
             $documentosManual = $servicio->documentosManualDesdePost($_POST);
             if (empty($fuentes)) {
+                if ($batchId !== '') {
+                    self::respuestaJSON([
+                        'success' => false,
+                        'codigo' => 'lote_temporal_no_disponible',
+                        'mensaje' => 'La preparacion temporal de la carga ya no esta disponible. El sistema reintentara con los archivos seleccionados; si vuelve a fallar, selecciona la carpeta otra vez.'
+                    ]);
+                    return;
+                }
                 self::respuestaJSON(['success' => false, 'mensaje' => 'Selecciona archivos PDF, FAD, ZIP o una carpeta con documentos.']);
                 return;
             }
@@ -8068,6 +8082,14 @@ class CapHum extends Controller
             }
             $documentosManual = $servicio->documentosManualDesdePost($_POST);
             if (empty($fuentes)) {
+                if ($batchId !== '') {
+                    self::respuestaJSON([
+                        'success' => false,
+                        'codigo' => 'lote_temporal_no_disponible',
+                        'mensaje' => 'La preparacion temporal de la carga ya no esta disponible. El sistema reintentara con los archivos seleccionados; si vuelve a fallar, selecciona la carpeta otra vez.'
+                    ]);
+                    return;
+                }
                 self::respuestaJSON(['success' => false, 'mensaje' => 'Selecciona archivos PDF, FAD, ZIP o una carpeta con documentos.']);
                 return;
             }
@@ -24917,6 +24939,14 @@ public function getEstadosMunicipiosMexico()
             }
             $documentosManual = $servicio->documentosManualDesdePost($_POST);
             if (empty($fuentes)) {
+                if ($batchId !== '') {
+                    self::respuestaJSON([
+                        'success' => false,
+                        'codigo' => 'lote_temporal_no_disponible',
+                        'mensaje' => 'La preparacion temporal de la carga ya no esta disponible. Selecciona la carpeta nuevamente para volver a analizar.'
+                    ]);
+                    return;
+                }
                 self::respuestaJSON(['success' => false, 'mensaje' => 'Selecciona archivos PDF, FAD, ZIP o una carpeta con documentos.']);
                 return;
             }
@@ -24949,6 +24979,14 @@ public function getEstadosMunicipiosMexico()
             }
             $documentosManual = $servicio->documentosManualDesdePost($_POST);
             if (empty($fuentes)) {
+                if ($batchId !== '') {
+                    self::respuestaJSON([
+                        'success' => false,
+                        'codigo' => 'lote_temporal_no_disponible',
+                        'mensaje' => 'La preparacion temporal de la carga ya no esta disponible. El sistema reintentara con los archivos seleccionados; si vuelve a fallar, selecciona la carpeta otra vez.'
+                    ]);
+                    return;
+                }
                 self::respuestaJSON(['success' => false, 'mensaje' => 'Selecciona archivos PDF, FAD, ZIP o una carpeta con documentos.']);
                 return;
             }
@@ -25008,6 +25046,14 @@ public function getEstadosMunicipiosMexico()
             }
             $documentosManual = $servicio->documentosManualDesdePost($_POST);
             if (empty($fuentes)) {
+                if ($batchId !== '') {
+                    self::respuestaJSON([
+                        'success' => false,
+                        'codigo' => 'lote_temporal_no_disponible',
+                        'mensaje' => 'La preparacion temporal de la carga ya no esta disponible. Selecciona la carpeta nuevamente para volver a analizar.'
+                    ]);
+                    return;
+                }
                 self::respuestaJSON(['success' => false, 'mensaje' => 'Selecciona archivos PDF, FAD, ZIP o una carpeta con documentos.']);
                 return;
             }
@@ -25041,6 +25087,14 @@ public function getEstadosMunicipiosMexico()
             }
             $documentosManual = $servicio->documentosManualDesdePost($_POST);
             if (empty($fuentes)) {
+                if ($batchId !== '') {
+                    self::respuestaJSON([
+                        'success' => false,
+                        'codigo' => 'lote_temporal_no_disponible',
+                        'mensaje' => 'La preparacion temporal de la carga ya no esta disponible. El sistema reintentara con los archivos seleccionados; si vuelve a fallar, selecciona la carpeta otra vez.'
+                    ]);
+                    return;
+                }
                 self::respuestaJSON(['success' => false, 'mensaje' => 'Selecciona archivos PDF, FAD, ZIP o una carpeta con documentos.']);
                 return;
             }
@@ -25216,6 +25270,11 @@ public function getEstadosMunicipiosMexico()
                         ]);
                         return;
                     }
+                    $this->auditarDocumentoSensibleRrhh([
+                        'id_persona' => $idUsuarioSesion,
+                        'id_documento' => 0,
+                        'archivo' => '',
+                    ], 'totp_setup', 'pendiente', 'Google Authenticator generado; pendiente de confirmacion para usuario #' . $idUsuarioSesion);
                     $configTotp = ['secret' => $secret, 'confirmado' => 0];
                 }
 
@@ -25246,7 +25305,18 @@ public function getEstadosMunicipiosMexico()
                 }
 
                 if (!$confirmado) {
-                    CapHumDAO::confirmarTotpDocumentoSensible($idUsuarioSesion);
+                    $confirmacionTotp = CapHumDAO::confirmarTotpDocumentoSensible($idUsuarioSesion);
+                    $this->auditarDocumentoSensibleRrhh([
+                        'id_persona' => $idUsuarioSesion,
+                        'id_documento' => 0,
+                        'archivo' => '',
+                    ], 'totp_confirmar', ($confirmacionTotp['success'] ?? false) ? 'autorizado' : 'fallido', 'Google Authenticator confirmado para usuario #' . $idUsuarioSesion);
+                } else {
+                    $this->auditarDocumentoSensibleRrhh([
+                        'id_persona' => $idUsuarioSesion,
+                        'id_documento' => 0,
+                        'archivo' => '',
+                    ], 'totp_estado', 'registrado', 'Google Authenticator ya registrado para usuario #' . $idUsuarioSesion);
                 }
                 self::marcarTotpSesion();
                 $this->auditarDocumentoSensibleRrhh($doc, 'totp', 'autorizado');

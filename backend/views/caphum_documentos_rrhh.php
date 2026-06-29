@@ -556,13 +556,14 @@
         return (partes.slice(0, 2).map(p => p.charAt(0)).join('') || 'CH').toUpperCase();
     }
 
-    function importFormData() {
+    function importFormData(options = {}) {
         const fd = new FormData();
         const batchId = String(importAnalisis?.batch_id || '').trim();
+        const usarBatch = options.usarBatch !== false;
         if (importPersonaObjetivo && Number(importPersonaObjetivo.id_persona || 0) > 0) {
             fd.append('id_persona', Number(importPersonaObjetivo.id_persona || 0));
         }
-        if (batchId) {
+        if (batchId && usarBatch) {
             fd.append('batch_id', batchId);
         } else {
             importFiles.forEach(file => {
@@ -779,12 +780,12 @@
         }
     }
 
-    async function importEnviar(endpoint) {
+    async function importEnviar(endpoint, options = {}) {
         let res;
         try {
             res = await fetch(endpoint, {
                 method: 'POST',
-                body: importFormData(),
+                body: importFormData(options),
                 headers: { 'X-Requested-With': 'XMLHttpRequest' }
             });
         } catch (err) {
@@ -797,7 +798,9 @@
         }
         const json = await res.json();
         if (!json.success) {
-            throw new Error(json.mensaje || 'La operacion no se completo.');
+            const error = new Error(json.mensaje || 'La operacion no se completo.');
+            error.codigo = json.codigo || json?.datos?.codigo || '';
+            throw error;
         }
         return json.datos || {};
     }
@@ -957,7 +960,16 @@
             const endpoint = importPersonaObjetivo
                 ? '/caphum/importarDocumentosPersonaRrhh'
                 : '/caphum/importarDocumentosRrhh';
-            const resultado = await importEnviar(endpoint);
+            let resultado;
+            try {
+                resultado = await importEnviar(endpoint);
+            } catch (err) {
+                if (err.codigo !== 'lote_temporal_no_disponible' || !importFiles.length) {
+                    throw err;
+                }
+                importSetLoading(true, 'La preparacion temporal expiro. Reintentando con los archivos seleccionados...');
+                resultado = await importEnviar(endpoint, { usarBatch: false });
+            }
             importAnalisis = resultado;
             importRenderResumen(resultado.resumen);
             importRenderTabla(resultado.items || []);
