@@ -2409,6 +2409,10 @@ class CapHum extends Controller
                 143: 'fa-solid fa-user-plus',
                 145: 'fa-solid fa-rotate-right',
                 146: 'fa-solid fa-circle-check',
+                3037: 'fa-solid fa-ban',
+                3038: 'fa-solid fa-list-check',
+                3039: 'fa-solid fa-eye',
+                3040: 'fa-solid fa-unlock',
             };
 
             /** Mapa base de íconos (pestaña Módulos del sistema y filas agrupadas de permisos especiales). */
@@ -3836,8 +3840,17 @@ class CapHum extends Controller
                 const iconosMap = Object.assign({}, iconosModulosSistemaPerfil, iconosPermisosEspeciales);
                 const idsPermisoEdicionCobranza = new Set(Array.from({ length: 21 }, (_, i) => 107 + i));
                 const idsPermisosAtlas = new Set([129, 130]);
+                const idsPermisosMotosAdjudicadas = new Set([3037, 3038, 3039, 3040]);
                 const perfilesNormalizados = (Array.isArray(perfiles) ? perfiles : []).map(mod => {
                     const idMod = Number(mod.modulo_id ?? mod.id ?? 0);
+                    if (idsPermisosMotosAdjudicadas.has(idMod)) {
+                        return Object.assign({}, mod, {
+                            menu_grupo: 'Motos Adjudicadas',
+                            menu_grupo_icono: 'fa-solid fa-motorcycle',
+                            menu_grupo_orden: 11,
+                            menu_item_orden: idMod
+                        });
+                    }
                     if (idMod === 151 || idMod === 152 || (idMod >= 3000 && idMod < 3100)) {
                         return Object.assign({}, mod, {
                             menu_grupo: 'Control documental RR.HH.',

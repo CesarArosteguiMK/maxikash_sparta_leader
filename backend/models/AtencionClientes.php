@@ -28,10 +28,10 @@ use Core\DatabaseLegacy;
  */
 class AtencionClientes
 {
-    public const MODULO_MA_CANCELAR_VISTO_BUENO = 150;
-    public const MODULO_MA_ENVIAR_BLACKLIST = 151;
-    public const MODULO_MA_VER_BLACKLIST = 152;
-    public const MODULO_MA_LIBERAR_BLACKLIST = 153;
+    public const MODULO_MA_CANCELAR_VISTO_BUENO = 3037;
+    public const MODULO_MA_ENVIAR_BLACKLIST = 3038;
+    public const MODULO_MA_VER_BLACKLIST = 3039;
+    public const MODULO_MA_LIBERAR_BLACKLIST = 3040;
 
     private $db;
     private $adjEvidenciaAtnColumnas = null;
@@ -1381,8 +1381,9 @@ SQL;
         if (!$row) {
             return ['success' => false, 'message' => 'El registro ya no esta activo.'];
         }
-        if ((string) ($row['estatus'] ?? '') !== 'BLACKLIST_MOTOS_ADJUDICADAS') {
-            return ['success' => false, 'message' => 'Solo se puede liberar una operacion en BlackList.'];
+        $estatusActual = (string) ($row['estatus'] ?? '');
+        if (!in_array($estatusActual, ['BLACKLIST_MOTOS_ADJUDICADAS', 'VISTO_BUENO_DENEGADO'], true)) {
+            return ['success' => false, 'message' => 'Solo se puede reactivar una operacion cancelada o en BlackList.'];
         }
 
         $fecha = $this->fechaHoraCdmx();
@@ -1399,7 +1400,7 @@ SQL;
                     motivo_liberacion = :motivo_liberacion
               WHERE id = :id',
             [
-                'estatus' => 'LIBERADO',
+                'estatus' => $estatusActual === 'BLACKLIST_MOTOS_ADJUDICADAS' ? 'LIBERADO' : 'CANCELACION_REVOCADA',
                 'liberado_por' => $idUsuario ?: null,
                 'liberado_por_nombre' => $nombreUsuario,
                 'fecha_liberacion' => $fecha,
@@ -1409,10 +1410,18 @@ SQL;
         );
 
         if ($idOperacion > 0) {
-            $this->registrarBitacora($idOperacion, 'BlackList liberada: ' . $motivo, $idUsuario, $nombreUsuario, $fecha);
+            $accionBitacora = $estatusActual === 'BLACKLIST_MOTOS_ADJUDICADAS'
+                ? 'BlackList liberada: '
+                : 'Cancelacion de visto bueno revocada: ';
+            $this->registrarBitacora($idOperacion, $accionBitacora . $motivo, $idUsuario, $nombreUsuario, $fecha);
         }
 
-        return ['success' => true, 'message' => 'Operacion liberada de BlackList.'];
+        return [
+            'success' => true,
+            'message' => $estatusActual === 'BLACKLIST_MOTOS_ADJUDICADAS'
+                ? 'Operacion liberada de BlackList.'
+                : 'Operacion reactivada para gestion.',
+        ];
     }
 
     /**
