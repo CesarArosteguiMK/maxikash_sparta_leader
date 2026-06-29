@@ -755,6 +755,43 @@ body.dark-mode #aeTabContent .dataTables_length select { background: #111827; bo
 #modalAevValidarEvidencias .modal-dialog.modal-xl {
     max-width: min(72rem, 98vw);
 }
+.aev-modal-standard .modal-header {
+    background: #fff !important;
+    color: #0f172a !important;
+    padding: .85rem 1.15rem;
+    border: none !important;
+    border-bottom: 1px solid #e2e8f0 !important;
+}
+.aev-modal-standard .modal-title {
+    display: inline-flex;
+    align-items: center;
+    gap: .45rem;
+    font-weight: 800;
+    line-height: 1.25;
+    color: #111827;
+}
+.aev-modal-standard .modal-title i {
+    font-size: 1rem;
+}
+.aev-modal-standard .modal-body {
+    padding: 1.25rem;
+}
+.aev-modal-standard .modal-footer {
+    background: #f8fafc;
+    border-top: 1px solid #e2e8f0;
+    padding: .75rem 1.15rem;
+    justify-content: flex-end;
+    gap: .75rem;
+}
+.aev-modal-standard .modal-footer .btn {
+    min-width: 8.5rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: .35rem;
+    font-weight: 700;
+}
+.aev-modal-standard .btn-close { filter: none; }
 .aev-modal-title-wrap {
     min-width: 0;
 }
@@ -1294,11 +1331,11 @@ body.dark-mode .aev-bitacora-item { border-color: #334155; }
 </div>
 
 <!-- Modal Cancelar / BlackList -->
-<div class="modal fade" id="modalAevCancelarOperacion" tabindex="-1" aria-hidden="true">
+<div class="modal fade aev-modal-standard" id="modalAevCancelarOperacion" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-lg modal-dialog-centered">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title mb-0">
+                <h5 class="modal-title mb-0 fw-bold">
                     <i class="fa-solid fa-ban me-2"></i>Cancelar operaci&oacute;n
                 </h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
@@ -1359,27 +1396,47 @@ body.dark-mode .aev-bitacora-item { border-color: #334155; }
     </div>
 </div>
 
-<!-- Modal Liberar BlackList -->
-<div class="modal fade" id="modalAevLiberarBlacklist" tabindex="-1" aria-hidden="true">
+<!-- Modal Reactivar cancelacion / BlackList -->
+<div class="modal fade aev-modal-standard" id="modalAevLiberarBlacklist" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-md modal-dialog-centered">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title mb-0">
-                    <i class="fa-solid fa-unlock-keyhole me-2"></i>Liberar BlackList
+                <h5 class="modal-title mb-0 fw-bold">
+                    <i class="fa-solid fa-rotate-left me-2"></i>Reactivar gestion
                 </h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
             </div>
             <div class="modal-body">
                 <input type="hidden" id="aev-liberar-blacklist-id">
-                <label class="form-label fw-bold">Motivo de liberaci&oacute;n</label>
+                <label class="form-label fw-bold">Motivo de reactivaci&oacute;n</label>
                 <textarea class="form-control" id="aev-liberar-motivo" rows="3"
                           placeholder="Explica por qu&eacute; se permite gestionar nuevamente"></textarea>
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-warning" id="aev-btn-confirmar-liberar">
-                    <i class="fa-solid fa-unlock me-1"></i>Liberar
+                    <i class="fa-solid fa-rotate-left me-1"></i>Reactivar
                 </button>
                 <button type="button" class="btn btn-label-danger" data-bs-dismiss="modal">Cancelar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Detalle Cancelada / BlackList -->
+<div class="modal fade aev-modal-standard" id="modalAevDetalleCancelada" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title mb-0 fw-bold">
+                    <i class="fa-solid fa-circle-info me-2"></i>Detalle de cancelaci&oacute;n
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <div class="modal-body" id="aev-detalle-cancelada-body">
+                <div class="text-muted">Selecciona un registro.</div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-label-danger" data-bs-dismiss="modal">Cerrar</button>
             </div>
         </div>
     </div>
@@ -3349,22 +3406,25 @@ $aevPuedeReemplazarEvidencia = in_array(79, array_map('intval', (array) ($_SESSI
 
         if (esBlacklist) {
             const estatusBl = item.blacklist_estatus ? aeEsc(item.blacklist_estatus) : 'Cancelada';
-            const motivoRaw = String(item.blacklist_motivo || 'Sin motivo');
-            const comentarioRaw = String(item.blacklist_comentario || '');
-            const motivoCorto = motivoRaw.length > 34 ? motivoRaw.slice(0, 34) + '...' : motivoRaw;
-            const comentarioCorto = comentarioRaw.length > 72 ? comentarioRaw.slice(0, 72) + '...' : comentarioRaw;
-            const motivoBl = '<span class="ae-evidence-pill ae-evidence-pill--neutral" title="' + aeEsc(motivoRaw) + '"><i class="fa-solid fa-circle-info"></i>' + aeEsc(motivoCorto) + '</span>';
-            const comentarioBl = comentarioRaw ? '<span class="ae-table-analyst-date" title="' + aeEsc(comentarioRaw) + '">' + aeEsc(comentarioCorto) + '</span>' : '';
             const fechaBl = item.fecha_bloqueo_fmt ? aeEsc(item.fecha_bloqueo_fmt) : '<span class="ae-table-muted">-</span>';
             const usuarioBl = item.bloqueado_por_nombre ? aeEsc(item.bloqueado_por_nombre) : '<span class="ae-table-muted">Sistema</span>';
-            const puedeLiberar = !!(AEV_BLACKLIST_PERMISOS && AEV_BLACKLIST_PERMISOS.liberar) && String(item.blacklist_estatus || '') === 'BLACKLIST_MOTOS_ADJUDICADAS';
-            const accionLiberar = puedeLiberar ? `
+            const idxBlacklist = _aeDatos.blacklist.indexOf(item);
+            const accionVerDetalle = `
+                <button type="button" class="btn btn-sm btn-outline-secondary" data-aev-no-row="1"
+                        onclick="event.stopPropagation(); aevAbrirDetalleCancelada(${idxBlacklist})"
+                        title="Ver detalle" aria-label="Ver detalle">
+                    <i class="fa-solid fa-eye"></i>
+                </button>`;
+            const estatusActivo = String(item.blacklist_estatus || '');
+            const puedeReactivar = !!(AEV_BLACKLIST_PERMISOS && AEV_BLACKLIST_PERMISOS.liberar)
+                && ['BLACKLIST_MOTOS_ADJUDICADAS', 'VISTO_BUENO_DENEGADO'].includes(estatusActivo);
+            const accionLiberar = puedeReactivar ? `
                 <button type="button" class="btn btn-sm btn-warning" data-aev-no-row="1"
                         onclick="event.stopPropagation(); aevAbrirLiberarBlacklist(${+item.blacklist_id})"
-                        title="Liberar BlackList" aria-label="Liberar BlackList">
-                    <i class="fa-solid fa-unlock"></i>
+                        title="Reactivar gestion" aria-label="Reactivar gestion">
+                    <i class="fa-solid fa-rotate-left"></i>
                 </button>` : '';
-            const accionesBlacklist = accionLiberar || '<span class="ae-table-muted">Sin acciones</span>';
+            const accionesBlacklist = accionVerDetalle + accionLiberar;
 
             return `
             <tr>
@@ -3381,10 +3441,6 @@ $aevPuedeReemplazarEvidencia = in_array(79, array_map('intval', (array) ($_SESSI
                         <span class="ae-table-analyst-label"><i class="fa-solid fa-user-shield"></i>REGISTRADO POR</span>
                         <span class="ae-table-analyst-value">${usuarioBl}</span>
                     </span>
-                </td>
-                <td class="ae-table-evidence">
-                    ${motivoBl}
-                    ${comentarioBl}
                 </td>
                 <td class="ae-table-action">
                     <div class="ae-action-buttons">${accionesBlacklist}</div>
@@ -3445,6 +3501,7 @@ $aevPuedeReemplazarEvidencia = in_array(79, array_map('intval', (array) ($_SESSI
     function aeRenderTabla(datos, key) {
         const tableId = 'ae-tabla-' + key;
         const filas = datos.map(function (item) { return aeRenderFilaTabla(item, key); }).join('');
+        const esBlacklist = String(key || '').toLowerCase() === 'blacklist';
         return `
         <div class="card-datatable ae-table-wrap">
             <table id="${aeEsc(tableId)}" class="dt-responsive table border-top ae-table ae-table-${aeEsc(key)}">
@@ -3452,7 +3509,7 @@ $aevPuedeReemplazarEvidencia = in_array(79, array_map('intval', (array) ($_SESSI
                     <tr>
                         <th>Operacion</th>
                         <th>Gestor</th>
-                        <th>Evidencias</th>
+                        ${esBlacklist ? '' : '<th>Evidencias</th>'}
                         <th class="ae-table-action">Acciones</th>
                     </tr>
                 </thead>
@@ -3527,6 +3584,59 @@ $aevPuedeReemplazarEvidencia = in_array(79, array_map('intval', (array) ($_SESSI
         if (comentario) comentario.value = '';
         if (radio) radio.checked = true;
         const mEl = document.getElementById('modalAevCancelarOperacion');
+        if (mEl && window.bootstrap) {
+            (new bootstrap.Modal(mEl)).show();
+        }
+    };
+
+    window.aevAbrirDetalleCancelada = function (index) {
+        const idx = parseInt(index, 10);
+        const row = Array.isArray(_aeDatos.blacklist) ? _aeDatos.blacklist[idx] : null;
+        if (!row) return;
+
+        const body = document.getElementById('aev-detalle-cancelada-body');
+        const estatus = row.blacklist_estatus || 'Cancelada';
+        const motivo = row.blacklist_motivo || 'Sin motivo registrado';
+        const comentario = row.blacklist_comentario || 'Sin comentario interno';
+        const usuario = row.bloqueado_por_nombre || 'Sistema';
+        const fecha = row.fecha_bloqueo_fmt || '-';
+        const cliente = row.nombre_cliente || 'Sin nombre';
+        const credito = row.id_credito || '-';
+        const folio = row.folio || '-';
+
+        if (body) {
+            body.innerHTML = `
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <div class="border rounded p-3 h-100">
+                            <div class="text-muted small fw-semibold mb-1">Operaci&oacute;n</div>
+                            <div class="fw-bold">${aeEsc(cliente)}</div>
+                            <div class="small text-muted">Folio ${aeEsc(String(folio))} / Cr&eacute;dito #${aeEsc(String(credito))}</div>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="border rounded p-3 h-100">
+                            <div class="text-muted small fw-semibold mb-1">Registro</div>
+                            <div class="fw-bold">${aeEsc(estatus)}</div>
+                            <div class="small text-muted">${aeEsc(fecha)} / ${aeEsc(usuario)}</div>
+                        </div>
+                    </div>
+                    <div class="col-12">
+                        <div class="border rounded p-3">
+                            <div class="text-muted small fw-semibold mb-1">Motivo</div>
+                            <div class="fw-bold">${aeEsc(motivo)}</div>
+                        </div>
+                    </div>
+                    <div class="col-12">
+                        <div class="border rounded p-3">
+                            <div class="text-muted small fw-semibold mb-1">Comentario interno</div>
+                            <div>${aeEsc(comentario)}</div>
+                        </div>
+                    </div>
+                </div>`;
+        }
+
+        const mEl = document.getElementById('modalAevDetalleCancelada');
         if (mEl && window.bootstrap) {
             (new bootstrap.Modal(mEl)).show();
         }
@@ -3614,7 +3724,7 @@ $aevPuedeReemplazarEvidencia = in_array(79, array_map('intval', (array) ($_SESSI
         const motivo = motivoEl ? motivoEl.value.trim() : '';
         if (!blacklistId) return;
         if (!motivo) {
-            if (typeof Swal !== 'undefined') Swal.fire({ icon: 'warning', title: 'Motivo requerido', text: 'Captura el motivo de liberacion.' });
+            if (typeof Swal !== 'undefined') Swal.fire({ icon: 'warning', title: 'Motivo requerido', text: 'Captura el motivo de reactivacion.' });
             return;
         }
 
@@ -3628,7 +3738,7 @@ $aevPuedeReemplazarEvidencia = in_array(79, array_map('intval', (array) ($_SESSI
         })
             .then(function (r) { return r.json(); })
             .then(function (data) {
-                if (!data.success) throw new Error(data.message || 'No se pudo liberar.');
+                if (!data.success) throw new Error(data.message || 'No se pudo reactivar.');
                 const mEl = document.getElementById('modalAevLiberarBlacklist');
                 if (mEl && window.bootstrap) {
                     const inst = bootstrap.Modal.getInstance(mEl);
@@ -3638,12 +3748,12 @@ $aevPuedeReemplazarEvidencia = in_array(79, array_map('intval', (array) ($_SESSI
                 aeCargarConteosPestanas();
                 aeCargarSeccion('blacklist', true);
                 if (typeof Swal !== 'undefined') {
-                    Swal.fire({ icon: 'success', title: 'Liberado', text: data.message || 'Operacion liberada.' });
+                    Swal.fire({ icon: 'success', title: 'Reactivado', text: data.message || 'Operacion reactivada.' });
                 }
             })
             .catch(function (err) {
                 if (typeof Swal !== 'undefined') {
-                    Swal.fire({ icon: 'error', title: 'No se pudo liberar', text: err.message || 'Intenta de nuevo.' });
+                    Swal.fire({ icon: 'error', title: 'No se pudo reactivar', text: err.message || 'Intenta de nuevo.' });
                 }
             })
             .finally(function () {

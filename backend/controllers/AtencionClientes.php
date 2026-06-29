@@ -435,7 +435,7 @@ class AtencionClientes extends Controller
             $permisos = $this->permisosEvidenciasBlacklist();
             if (empty($permisos['liberar'])) {
                 http_response_code(403);
-                echo json_encode(['success' => false, 'message' => 'No tienes permiso para liberar BlackList.'], JSON_UNESCAPED_UNICODE);
+                echo json_encode(['success' => false, 'message' => 'No tienes permiso para reactivar operaciones canceladas o en BlackList.'], JSON_UNESCAPED_UNICODE);
                 return;
             }
 
