@@ -3569,7 +3569,15 @@ $aevPuedeReemplazarEvidencia = in_array(79, array_map('intval', (array) ($_SESSI
                 aevRecargarPestanaEvidenciasActiva();
                 if (AE_CONFIG.blacklist) aeCargarSeccion('blacklist', true);
                 if (typeof Swal !== 'undefined') {
-                    Swal.fire({ icon: 'success', title: 'Listo', text: data.message || 'Operacion actualizada.' });
+                    const pushOk = data.push_success === true;
+                    const pushMsg = data.push_message ? String(data.push_message) : '';
+                    Swal.fire({
+                        icon: pushOk ? 'success' : 'warning',
+                        title: pushOk ? 'Listo' : 'Operacion cancelada',
+                        text: pushOk
+                            ? (data.message || 'Operacion actualizada.')
+                            : ((data.message || 'Operacion actualizada.') + (pushMsg ? ' ' + pushMsg : ' No se confirmo la notificacion push.')),
+                    });
                 }
             })
             .catch(function (err) {

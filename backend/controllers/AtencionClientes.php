@@ -390,17 +390,26 @@ class AtencionClientes extends Controller
                 $this->nombreUsuarioSesion()
             );
             if (!empty($resultado['success'])) {
-                $push = $this->notificarCancelacionEvidenciasLegacy(
-                    (int) ($body['id_operacion'] ?? 0),
-                    $tipo,
-                    (string) ($body['motivo'] ?? ''),
-                    (string) ($body['comentario'] ?? '')
-                );
-                $resultado['push_success'] = (bool) ($push['success'] ?? false);
-                $resultado['push_message'] = (string) ($push['message'] ?? '');
-                $resultado['push_http_code'] = $push['http_code'] ?? null;
-                $resultado['push_destinatario'] = $push['destinatario'] ?? null;
-                $resultado['push_destinatarios_probados'] = $push['destinatarios_probados'] ?? [];
+                try {
+                    $push = $this->notificarCancelacionEvidenciasLegacy(
+                        (int) ($body['id_operacion'] ?? 0),
+                        $tipo,
+                        (string) ($body['motivo'] ?? ''),
+                        (string) ($body['comentario'] ?? '')
+                    );
+                    $resultado['push_success'] = (bool) ($push['success'] ?? false);
+                    $resultado['push_message'] = (string) ($push['message'] ?? '');
+                    $resultado['push_http_code'] = $push['http_code'] ?? null;
+                    $resultado['push_destinatario'] = $push['destinatario'] ?? null;
+                    $resultado['push_destinatarios_probados'] = $push['destinatarios_probados'] ?? [];
+                } catch (\Throwable $pushError) {
+                    error_log('[AtencionClientes/cancelarVistoBuenoEvidencias/push] ' . $pushError->getMessage());
+                    $resultado['push_success'] = false;
+                    $resultado['push_message'] = 'La operacion se cancelo, pero no se pudo enviar la notificacion push.';
+                    $resultado['push_http_code'] = 0;
+                    $resultado['push_destinatario'] = null;
+                    $resultado['push_destinatarios_probados'] = [];
+                }
             }
             if (empty($resultado['success'])) {
                 http_response_code(422);
