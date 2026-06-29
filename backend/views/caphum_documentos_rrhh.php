@@ -492,9 +492,9 @@
     let importPreviewRenderId = 0;
     let importPreparandoArchivosDesde = 0;
     let importPersonaObjetivo = null;
-    const IMPORT_MAX_FILES_PER_REQUEST = 80;
-    const IMPORT_MAX_BYTES_PER_REQUEST = 60 * 1024 * 1024;
-    const IMPORT_MAX_ZIP_BYTES_PER_REQUEST = 60 * 1024 * 1024;
+    const IMPORT_MAX_FILES_PER_REQUEST = 10;
+    const IMPORT_MAX_BYTES_PER_REQUEST = 30 * 1024 * 1024;
+    const IMPORT_MAX_ZIP_BYTES_PER_REQUEST = 30 * 1024 * 1024;
 
     const els = {
         importar: document.getElementById('btnImportarDocsRrhh'),
@@ -833,7 +833,7 @@
                 els.importTabla.innerHTML = `<tr><td colspan="6" class="text-center text-warning py-4">El servidor rechaza ZIP grandes antes de que el sistema pueda analizarlos. Descomprime el ZIP y selecciona la carpeta.</td></tr>`;
                 Swal.fire(
                     'ZIP demasiado grande',
-                    `Sin acceso al servidor no se puede aumentar el limite PHP de subida. Descomprime el ZIP y usa "Elegir carpeta"; el sistema lo analizara por lotes de hasta ${limiteMb} MB.`,
+                    `Este ZIP supera el tamano permitido para una sola carga. Descomprime el archivo y usa "Elegir carpeta"; el sistema lo analizara por lotes automaticamente.`,
                     'warning'
                 );
                 return;

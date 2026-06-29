@@ -4342,7 +4342,7 @@ class CapHum extends Model
             return ['grupo' => 'Motos Adjudicadas', 'icono' => 'fa-solid fa-motorcycle', 'orden' => 18];
         }
         if (in_array($id, [151, 152], true) || ($id >= 3000 && $id < 3100)) {
-            return ['grupo' => 'Control documental RR.HH.', 'icono' => 'fa-solid fa-folder-lock', 'orden' => 28];
+            return ['grupo' => 'Control documental RR.HH.', 'icono' => 'fa fa-folder-open', 'orden' => 28];
         }
         if ($id >= 107 && $id <= 127) {
             return ['grupo' => 'Edicion cobranza', 'icono' => 'fa-solid fa-pen-to-square', 'orden' => 30];
@@ -4363,12 +4363,27 @@ class CapHum extends Model
         return ['grupo' => 'Modulos Capital Humano', 'icono' => 'fa-solid fa-users', 'orden' => 10];
     }
 
+    private static function filtroUsuariosAccesosCapitalHumanoSql(): string
+    {
+        $direccion = "LOWER(CONVERT(COALESCE(NULLIF(TRIM(pdr.direccion_organizacional), ''), dir.nombre, '') USING utf8mb4)) COLLATE utf8mb4_general_ci";
+        $area = "LOWER(CONVERT(COALESCE(NULLIF(TRIM(pdr.area_texto), ''), dorg.nombre, '') USING utf8mb4)) COLLATE utf8mb4_general_ci";
+        $departamento = "LOWER(CONVERT(COALESCE(NULLIF(TRIM(pdr.departamento_texto), ''), dep.nombre, '') USING utf8mb4)) COLLATE utf8mb4_general_ci";
+
+        return "
+                  AND $direccion LIKE '%administracion%finanzas%'
+                  AND $area LIKE '%recursos%humanos%'
+                  AND $departamento NOT LIKE '%servicios%generales%'
+                  AND $departamento NOT LIKE '%mantenimiento%'
+        ";
+    }
+
     public static function getAccesosCapitalHumano(): array
     {
         try {
             $db = new Database();
             self::asegurarModuloAccesosCapitalHumanoDb($db);
             $idsSql = self::idsGestionablesAccesosCapitalHumanoSql();
+            $filtroAlcance = self::filtroUsuariosAccesosCapitalHumanoSql();
 
             $usuarios = $db->queryAll("
                 SELECT
@@ -4423,6 +4438,7 @@ class CapHum extends Model
                     GROUP BY usuario_id
                 ) am ON am.usuario_id = p.id
                 WHERE COALESCE(p.estatus, '') <> 'Baja'
+                $filtroAlcance
                 ORDER BY CASE WHEN p.estatus = 'Activo' THEN 0 ELSE 1 END, nombre ASC
             ");
 
@@ -4471,6 +4487,7 @@ class CapHum extends Model
             $db = new Database();
             self::asegurarModuloAccesosCapitalHumanoDb($db);
             $idsSql = self::idsGestionablesAccesosCapitalHumanoSql();
+            $filtroAlcance = self::filtroUsuariosAccesosCapitalHumanoSql();
 
             $usuario = $db->queryOne("
                 SELECT
@@ -4488,8 +4505,13 @@ class CapHum extends Model
                 LEFT JOIN asigna_puesto ap ON ap.id_persona = p.id AND COALESCE(ap.activo, 1) = 1
                 LEFT JOIN puesto pu ON pu.id = COALESCE(pdr.id_puesto, ap.id_puesto)
                 LEFT JOIN departamento dep ON dep.id = COALESCE(pdr.id_departamento, pu.departamento_id)
+                LEFT JOIN departamento_organizacional dorg ON dorg.id = COALESCE(pdr.id_area, dep.id_departamento_organizacional)
+                LEFT JOIN asigna_direcciones ad ON ad.id_departamento_organizacional = COALESCE(pdr.id_area, dep.id_departamento_organizacional)
+                   AND COALESCE(ad.activo, 1) = 1
+                LEFT JOIN direcciones_organizacion dir ON dir.id = ad.id_direccion
                 WHERE p.id = :id
                   AND COALESCE(p.estatus, '') <> 'Baja'
+                  $filtroAlcance
                 LIMIT 1
             ", ['id' => $idPersona]);
             if (!$usuario) {

@@ -3301,6 +3301,10 @@ JS;
                 $referenciasApi = $idCreditoApi > 0 ? EmpresasDAO::getConsultaReferenciasEstadoCuenta($idCreditoApi) : ['success' => true, 'datos' => []];
                 $direccionesApi = $idCreditoApi > 0 ? EmpresasDAO::getConsultaDireccionEstadoCuenta($idCreditoApi) : ['success' => true, 'datos' => []];
                 $notasApi = $idCreditoApi > 0 ? EmpresasDAO::getNotasNum($idCreditoApi) : ['success' => true, 'datos' => [['num' => 0]]];
+                $gastosPendientesApi = $idCreditoApi > 0 ? EstadoCuentaDAO::getGastosCobranza($idCreditoApi) : ['success' => true, 'mensaje' => 'Gastos Cobranza', 'datos' => []];
+                $historialGastosApi = $idCreditoApi > 0 ? EstadoCuentaDAO::getHistorialGastosCobranza($idCreditoApi) : ['success' => true, 'mensaje' => 'Historial Gastos Cobranza', 'datos' => []];
+                $catalogoMotivosCondonacionApi = EstadoCuentaDAO::getCatalogoMotivosCondonacion();
+                $gastosBloqueadosGestionExternaApi = $idCreditoApi > 0 ? EstadoCuentaDAO::gastosCobranzaBloqueadosPorGestionExterna($idCreditoApi) : false;
 
                 $clienteApi = is_array($cliente) ? $cliente : [];
                 $rfcPantalla = trim((string)($referenciasApi['datos'][0]['rfc'] ?? ''));
@@ -3320,6 +3324,52 @@ JS;
                 };
                 $formatCurrencyApi = function ($value) {
                     return '$' . number_format((float)$value, 2, '.', ',');
+                };
+                $enriquecerGastoPendienteApi = function ($row) use ($formatCurrencyApi) {
+                    if (!is_array($row)) {
+                        return $row;
+                    }
+                    $row['display'] = [
+                        'semana' => (string)($row['semana'] ?? ''),
+                        'periodo' => (string)($row['periodo'] ?? ''),
+                        'parcialidad' => (string)($row['parcialidad'] ?? ''),
+                        'cuota_semanal' => $formatCurrencyApi($row['cuota'] ?? 0),
+                        'monto' => $formatCurrencyApi($row['monto'] ?? 0),
+                        'monto_original' => $formatCurrencyApi($row['monto_original'] ?? 0),
+                        'monto_parcial_pagado' => $formatCurrencyApi($row['monto_parcial_pagado'] ?? 0),
+                        'condonacion_parcial_monto' => $formatCurrencyApi($row['condonacion_parcial_monto'] ?? 0),
+                        'estatus_pago_texto' => ((int)($row['estatus_pago'] ?? 0) === 1) ? 'Pago parcial' : 'Pendiente',
+                    ];
+                    return $row;
+                };
+                $enriquecerGastoHistorialApi = function ($row) use ($formatCurrencyApi) {
+                    if (!is_array($row)) {
+                        return $row;
+                    }
+                    $estatus = (int)($row['estatus'] ?? 0);
+                    $condonado = (int)($row['condonado'] ?? 0);
+                    if ($condonado === 1) {
+                        $estatusTexto = 'Condonado';
+                    } elseif ($estatus === 2) {
+                        $estatusTexto = 'Pagado';
+                    } elseif ($estatus === 1) {
+                        $estatusTexto = 'Pago parcial';
+                    } else {
+                        $estatusTexto = 'Registrado';
+                    }
+                    $row['display'] = [
+                        'semana' => (string)($row['semana'] ?? ''),
+                        'periodo' => (string)($row['periodo'] ?? ''),
+                        'monto_original' => $formatCurrencyApi($row['monto_original'] ?? 0),
+                        'monto_condonado' => $formatCurrencyApi($row['monto_condonado'] ?? 0),
+                        'monto_parcial_pagado' => $formatCurrencyApi($row['monto_parcial_pagado'] ?? 0),
+                        'parcialidad' => (string)($row['parcialidad'] ?? ''),
+                        'motivo' => (string)($row['motivo_resumen'] ?? ''),
+                        'fecha_condonacion' => (string)($row['fecha_condonacion'] ?? ''),
+                        'fecha_pago' => (string)($row['fecha_pago'] ?? ''),
+                        'estatus' => $estatusTexto,
+                    ];
+                    return $row;
                 };
                 $normalizarTextoApi = function ($value) {
                     if (!is_string($value)) {
@@ -3361,6 +3411,60 @@ JS;
                     }
                     return $normalizarTextoApi($value);
                 };
+
+                $gastosPendientesDatosApi = is_array($gastosPendientesApi['datos'] ?? null) ? array_map($enriquecerGastoPendienteApi, $gastosPendientesApi['datos']) : [];
+                $historialGastosDatosApi = is_array($historialGastosApi['datos'] ?? null) ? array_map($enriquecerGastoHistorialApi, $historialGastosApi['datos']) : [];
+                $totalGastosPendientesApi = 0.0;
+                foreach ($gastosPendientesDatosApi as $gastoPendienteApi) {
+                    $totalGastosPendientesApi += (float)($gastoPendienteApi['monto'] ?? 0);
+                }
+                $totalHistorialCondonadoApi = 0.0;
+                $totalHistorialPagadoApi = 0.0;
+                foreach ($historialGastosDatosApi as $gastoHistorialApi) {
+                    $totalHistorialCondonadoApi += (float)($gastoHistorialApi['monto_condonado'] ?? 0);
+                    $totalHistorialPagadoApi += (float)($gastoHistorialApi['monto_parcial_pagado'] ?? 0);
+                }
+                $gastosCobranzaApi = [
+                    'success' => !empty($gastosPendientesApi['success']) && !empty($historialGastosApi['success']),
+                    'bloqueadoPorGestionExterna' => $gastosBloqueadosGestionExternaApi,
+                    'puedeCondonar' => !$gastosBloqueadosGestionExternaApi && count($gastosPendientesDatosApi) > 0,
+                    'pendientes' => [
+                        'success' => !empty($gastosPendientesApi['success']),
+                        'mensaje' => $gastosPendientesApi['mensaje'] ?? '',
+                        'datos' => $gastosPendientesDatosApi,
+                        'total' => round($totalGastosPendientesApi, 2),
+                        'totalDisplay' => $formatCurrencyApi($totalGastosPendientesApi),
+                        'count' => count($gastosPendientesDatosApi),
+                        'empty' => count($gastosPendientesDatosApi) === 0,
+                        'emptyMessage' => 'No hay Gastos Cobranza',
+                    ],
+                    'historial' => [
+                        'success' => !empty($historialGastosApi['success']),
+                        'mensaje' => $historialGastosApi['mensaje'] ?? '',
+                        'datos' => $historialGastosDatosApi,
+                        'totalCondonado' => round($totalHistorialCondonadoApi, 2),
+                        'totalCondonadoDisplay' => $formatCurrencyApi($totalHistorialCondonadoApi),
+                        'totalPagado' => round($totalHistorialPagadoApi, 2),
+                        'totalPagadoDisplay' => $formatCurrencyApi($totalHistorialPagadoApi),
+                        'count' => count($historialGastosDatosApi),
+                        'empty' => count($historialGastosDatosApi) === 0,
+                        'emptyMessage' => 'No hay gastos registrados en el historial.',
+                    ],
+                    'catalogoMotivosCondonacion' => $catalogoMotivosCondonacionApi,
+                    'modal' => [
+                        'titulo' => 'Resumen Gastos Cobranza',
+                        'tabs' => [
+                            ['key' => 'pendientes', 'label' => 'Gastos Pendientes', 'active' => true],
+                            ['key' => 'historial', 'label' => 'Historial', 'active' => false],
+                        ],
+                        'columnsPendientes' => ['SEMANA', 'PERIODO', 'PARCIALIDAD', 'CUOTA SEMANAL', 'MONTO'],
+                        'columnsHistorial' => ['SEMANA', 'PERIODO', 'MONTO', 'CONDONADO/PAGADO', 'MOTIVO', 'FECHA'],
+                        'acciones' => [
+                            'cancelar' => 'Cancelar',
+                            'condonar' => 'Condonar',
+                        ],
+                    ],
+                ];
 
                 $fechaUltimoPagoCompletoApi = null;
                 foreach (is_array($tabla) ? $tabla : [] as $filaFechaApi) {
@@ -3561,6 +3665,7 @@ JS;
                     'saldoFavorEstadoCuenta' => $saldoFavorEstadoCuenta ?? 0,
                 ];
 
+                $respuestaS2Api = $resultado['respuestaS2'] ?? null;
                 EstadoCuentaTimingLog::finish('json_ok');
                 header('Content-Type: application/json; charset=utf-8');
                 $payloadApi = [
@@ -3572,6 +3677,7 @@ JS;
                     'credito' => $creditoApi,
                     'saldos' => $saldosApi,
                     'tabla' => $tablaApi,
+                    'gastosCobranza' => $gastosCobranzaApi,
                     'complementos' => [
                         'referencias' => $referenciasApi,
                         'direcciones' => $direccionesApi,
@@ -3584,7 +3690,9 @@ JS;
                     'hayNotasCargos' => $hayNotasCargos ?? false,
                     'resultadoCruce' => $resultadoCruce ?? null,
                 ];
-                echo json_encode($normalizarPayloadApi($payloadApi), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+                $payloadApiNormalizado = $normalizarPayloadApi($payloadApi);
+                $payloadApiNormalizado['respuestaS2'] = $respuestaS2Api;
+                echo json_encode($payloadApiNormalizado, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
                 return;
             }
 
@@ -3747,6 +3855,7 @@ JS;
                 'status' => 0,
                 'error'  => 'Error al conectar con servidor: ' . $msg,
                 'data'   => null,
+                'respuestaS2' => null,
             ];
         }
 
@@ -3757,6 +3866,7 @@ JS;
                 'status' => $httpCode,
                 'error'  => 'Respuesta no válida del servidor (JSON inválido)',
                 'data'   => null,
+                'respuestaS2' => null,
             ];
         }
 
@@ -3766,6 +3876,7 @@ JS;
                 'status' => $httpCode,
                 'error'  => $json['mensaje'][0] ?? 'No hay conexión con S2',
                 'data'   => $json,
+                'respuestaS2' => $json,
             ];
         }
 
@@ -3775,6 +3886,7 @@ JS;
                 'status' => $httpCode,
                 'error'  => 'No se encontraron datos en la API',
                 'data'   => $json,
+                'respuestaS2' => $json,
             ];
         }
 
@@ -3783,6 +3895,7 @@ JS;
             'status' => 200,
             'error'  => null,
             'data'   => $json['estadoCuenta'],
+            'respuestaS2' => $json,
         ];
     }
 
@@ -3795,6 +3908,7 @@ JS;
                 'status' => 0,
                 'error'  => 'No se pudo inicializar la conexión con S2',
                 'data'   => null,
+                'respuestaS2' => null,
             ];
         }
         $response = curl_exec($ch);

@@ -2409,6 +2409,31 @@ class CapHum extends Controller
                 143: 'fa-solid fa-user-plus',
                 145: 'fa-solid fa-rotate-right',
                 146: 'fa-solid fa-circle-check',
+                3008: 'fa-solid fa-id-card',
+                3009: 'fa-solid fa-address-card',
+                3010: 'fa-solid fa-file-invoice',
+                3011: 'fa-solid fa-house-user',
+                3012: 'fa-solid fa-certificate',
+                3013: 'fa-solid fa-graduation-cap',
+                3014: 'fa-solid fa-briefcase',
+                3015: 'fa-solid fa-user-slash',
+                3016: 'fa-solid fa-user-clock',
+                3017: 'fa-solid fa-file-signature',
+                3018: 'fa-solid fa-file-lines',
+                3022: 'fa-solid fa-receipt',
+                3023: 'fa-solid fa-hospital-user',
+                3024: 'fa-solid fa-hand-holding-dollar',
+                3025: 'fa-solid fa-building-columns',
+                3027: 'fa-solid fa-file-contract',
+                3028: 'fa-solid fa-signature',
+                3029: 'fa-solid fa-file-zipper',
+                3030: 'fa-solid fa-shield-halved',
+                3031: 'fa-solid fa-key',
+                3032: 'fa-solid fa-coins',
+                3033: 'fa-solid fa-calendar-week',
+                3034: 'fa-solid fa-notes-medical',
+                3035: 'fa-solid fa-file-circle-check',
+                3036: 'fa-solid fa-calendar-xmark',
                 3037: 'fa-solid fa-ban',
                 3038: 'fa-solid fa-list-check',
                 3039: 'fa-solid fa-eye',
@@ -3652,14 +3677,14 @@ class CapHum extends Controller
 
                     const section = document.createElement('section');
                     section.className = 'modal-perfil-modulo-grupo card mb-0 shadow-sm';
-                    section.style.border = '2px solid #000';
-                    section.style.borderRadius = '0.5rem';
+                    section.style.border = '1px solid #d8e0ea';
+                    section.style.borderRadius = '0.55rem';
                     section.style.overflow = 'hidden';
 
                     const header = document.createElement('div');
                     header.className = 'modal-perfil-modulo-grupo-header px-3 py-2 d-flex align-items-center flex-wrap gap-2 fw-semibold';
-                    header.style.background = 'rgba(26, 82, 168, 0.08)';
-                    header.style.borderBottom = '2px solid #000';
+                    header.style.background = '#eef3fa';
+                    header.style.borderBottom = '1px solid #d8e0ea';
 
                     const masterWrap = document.createElement('div');
                     masterWrap.className = 'd-flex align-items-center gap-2 ms-auto flex-shrink-0 modal-perfil-modulo-master-wrap';
@@ -3805,6 +3830,9 @@ class CapHum extends Controller
 
                         const syncChevron = (open) => {
                             header.setAttribute('aria-expanded', open ? 'true' : 'false');
+                            section.classList.toggle('is-collapsed', !open);
+                            section.classList.toggle('is-open', open);
+                            header.style.borderBottom = open ? '1px solid #d8e0ea' : '0';
                             const ch = header.querySelector('.modal-perfil-modulo-grupo-chevron');
                             if (ch) ch.style.transform = open ? 'rotate(0deg)' : 'rotate(-90deg)';
                         };
@@ -3843,7 +3871,12 @@ class CapHum extends Controller
                 const idsPermisosMotosAdjudicadas = new Set([3037, 3038, 3039, 3040]);
                 const perfilesNormalizados = (Array.isArray(perfiles) ? perfiles : []).map(mod => {
                     const idMod = Number(mod.modulo_id ?? mod.id ?? 0);
-                    if (idsPermisosMotosAdjudicadas.has(idMod)) {
+                    const nombreModulo = String(mod.modulo_nombre ?? mod.nombre ?? '').toLowerCase();
+                    const descripcionModulo = String(mod.descripcion ?? '').toLowerCase();
+                    const esPermisoMotos = idsPermisosMotosAdjudicadas.has(idMod)
+                        || nombreModulo.includes('motos adjudicadas')
+                        || descripcionModulo.includes('motos adjudicadas');
+                    if (esPermisoMotos) {
                         return Object.assign({}, mod, {
                             menu_grupo: 'Motos Adjudicadas',
                             menu_grupo_icono: 'fa-solid fa-motorcycle',
@@ -3854,7 +3887,7 @@ class CapHum extends Controller
                     if (idMod === 151 || idMod === 152 || (idMod >= 3000 && idMod < 3100)) {
                         return Object.assign({}, mod, {
                             menu_grupo: 'Control documental RR.HH.',
-                            menu_grupo_icono: 'fa-solid fa-folder-lock',
+                            menu_grupo_icono: 'fa fa-folder-open',
                             menu_grupo_orden: 14,
                             menu_item_orden: idMod
                         });

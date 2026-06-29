@@ -32,7 +32,7 @@ final class BajasMaxiReadFilter implements IReadFilter
 
 function usage(): void
 {
-    fwrite(STDERR, "Uso: php scripts/importar_bajas_maxi_26.php <archivo.xlsx> [--apply]\n");
+    fwrite(STDERR, "Uso: php scripts/importar_bajas_maxi_26.php <archivo.xlsx> [--apply] [--from-row=N] [--to-row=N] [--no-issues] [--list-new]\n");
     fwrite(STDERR, "Por defecto corre en dry-run y no escribe en la base.\n");
 }
 
@@ -71,6 +71,22 @@ function clean(mixed $value, int $max = 255): string
     $key = keyn($text);
     if ($key === '' || in_array($key, ['N A', 'NA', 'S N', 'SN', 'NO APLICA', 'NULL', 'NONE'], true)) {
         return '';
+    }
+    return mb_substr($text, 0, $max);
+}
+
+function phone_value(mixed $value, int $max = 20): string
+{
+    $text = clean($value, 80);
+    if ($text === '') {
+        return '';
+    }
+    if (preg_match('/\d[\d\s\-\(\)]{6,}\d/u', $text, $m)) {
+        $digits = preg_replace('/\D+/', '', $m[0]) ?? '';
+        if (strlen($digits) > 10) {
+            $digits = substr($digits, 0, 10);
+        }
+        return mb_substr($digits !== '' ? $digits : trim($m[0]), 0, $max);
     }
     return mb_substr($text, 0, $max);
 }
@@ -154,7 +170,7 @@ function header_map(Worksheet $ws, int $row): array
     $max = Coordinate::columnIndexFromString($ws->getHighestColumn());
     for ($col = 1; $col <= $max; $col++) {
         $key = keyn($ws->getCell(Coordinate::stringFromColumnIndex($col) . $row)->getValue());
-        if ($key !== '') {
+        if ($key !== '' && !isset($map[$key])) {
             $map[$key] = $col;
         }
     }
@@ -180,12 +196,14 @@ function cval(Worksheet $ws, int $row, int $col): mixed
 function record_from_sheet(Worksheet $ws, array $header, int $row, int $idPais): array
 {
     $nombres = clean(val($ws, $header, $row, 'NOMBRE (S)'), 120);
-    $apellidop = clean(val($ws, $header, $row, 'A. PATERNO'), 120);
-    $apellidom = clean(val($ws, $header, $row, 'A. MATERNO'), 120);
+    $apellidop = clean(val($ws, $header, $row, ['A. PATERNO', 'APELLIDO PATERNO']), 120);
+    $apellidom = clean(val($ws, $header, $row, ['A. MATERNO', 'APELLIDO MATERNO']), 120);
     $nombreCompleto = clean(val($ws, $header, $row, 'NOMBRE/APELLIDOS'), 260);
     if ($nombreCompleto === '') {
         $nombreCompleto = trim($nombres . ' ' . $apellidop . ' ' . $apellidom);
     }
+    $nombreGuardado = trim($nombres . ' ' . $apellidop . ' ' . $apellidom);
+    $nombreApellidosGuardado = trim($apellidop . ' ' . $apellidom . ' ' . $nombres);
 
     $sexoRaw = val($ws, $header, $row, 'SEXO');
     $sexoKey = keyn($sexoRaw);
@@ -196,14 +214,16 @@ function record_from_sheet(Worksheet $ws, array $header, int $row, int $idPais):
     $fechaBaja = fecha(val($ws, $header, $row, 'FECHA DE BAJA'));
     $motivo = clean(val($ws, $header, $row, 'MOTIVO DE BAJA RH'), 500);
     $statusNomina = clean(val($ws, $header, $row, 'STATUS NOMINA'), 250);
-    $status = clean(val($ws, $header, $row, 'STATUS'), 250);
-    $ultimoDia = clean(val($ws, $header, $row, 'ULTIMO DIA LABORADO'), 250);
+    $status = clean(val($ws, $header, $row, ['STATUS', 'STATUS RH']), 250);
+    $ultimoDia = clean(val($ws, $header, $row, ['ULTIMO DIA LABORADO', 'ULTIMO DIA LABORADO O DESCUENTOS']), 250);
 
     return [
-        'sheet' => 'BAJAS MAXI 26',
+        'sheet' => $ws->getTitle(),
         'row' => $row,
         'id_pais' => $idPais,
         'nombre_completo' => $nombreCompleto,
+        'nombre_guardado' => $nombreGuardado,
+        'nombre_apellidos_guardado' => $nombreApellidosGuardado,
         'nombres' => $nombres,
         'segundo_nombre' => '',
         'apellidop' => $apellidop,
@@ -215,7 +235,7 @@ function record_from_sheet(Worksheet $ws, array $header, int $row, int $idPais):
         'departamento' => org_text(val($ws, $header, $row, 'DEPARTAMENTO')),
         'area' => org_text(val($ws, $header, $row, 'AREA')),
         'direccion' => org_text(val($ws, $header, $row, ['DIRECCION ORGANIZACIONAL', 'DIRECCION'])),
-        'ubicacion_laboral' => clean(val($ws, $header, $row, 'UBICACION LABORAL'), 180),
+        'ubicacion_laboral' => clean(val($ws, $header, $row, ['UBICACION LABORAL', 'UBICACION']), 180),
         'municipio_laboral' => clean(val($ws, $header, $row, 'MUNICIPIO'), 180),
         'jefe_directo_texto' => clean(val($ws, $header, $row, 'JEFE DIRECTO'), 220),
         'sueldo_neto' => decimal(val($ws, $header, $row, 'SUELDO NETO')),
@@ -226,7 +246,7 @@ function record_from_sheet(Worksheet $ws, array $header, int $row, int $idPais):
         'curp' => strtoupper(clean(val($ws, $header, $row, 'CURP'), 18)),
         'nss' => clean(val($ws, $header, $row, ['NSS', 'IGSS']), 20),
         'rfc' => strtoupper(clean(val($ws, $header, $row, ['RFC', 'RTU']), 20)),
-        'entidad_federativa_rfc' => clean(val($ws, $header, $row, 'ENTIDAD FEDERATIVA / RFC'), 120),
+        'entidad_federativa_rfc' => clean(val($ws, $header, $row, ['ENTIDAD FEDERATIVA / RFC', 'ENTIDAD FEDERATIVA']), 120),
         'codigo_postal' => clean(val($ws, $header, $row, 'CP'), 12),
         'fecha_nacimiento' => fecha(val($ws, $header, $row, 'FECHA DE NACIMIENTO')),
         'sexo' => match ($sexoKey) {
@@ -234,11 +254,11 @@ function record_from_sheet(Worksheet $ws, array $header, int $row, int $idPais):
             'M', 'MASCULINO' => 'Masculino',
             default => '',
         },
-        'telefono' => clean(cval($ws, $row, 30), 30),
+        'telefono' => phone_value(val($ws, $header, $row, 'NO. TELEFONICO')),
         'correo' => clean(val($ws, $header, $row, 'CORREO ELECTRONICO'), 160),
-        'domicilio' => clean(val($ws, $header, $row, 'DOMICILIO PARTICULAR'), 500),
+        'domicilio' => clean(val($ws, $header, $row, ['DOMICILIO PARTICULAR', 'DOMICILIO']), 500),
         'registro_patronal' => clean(val($ws, $header, $row, 'REGISTRO PATRONAL'), 120),
-        'codigo_contpaq' => clean(val($ws, $header, $row, 'CODIGO CONTPAC'), 80),
+        'codigo_contpaq' => clean(val($ws, $header, $row, ['CODIGO CONTPAC', 'CODIGO CONTA', 'No. EMPLEADO']), 80),
         'carta_no_credito' => clean(val($ws, $header, $row, 'CARTA DE "NO CREDITO"'), 120),
         'credito_infonavit_fonacot' => clean(val($ws, $header, $row, 'CREDITO INFONAVIT/ FONACOT'), 80),
         'no_credito' => clean(val($ws, $header, $row, 'NO. DE CREDITO'), 80),
@@ -247,11 +267,14 @@ function record_from_sheet(Worksheet $ws, array $header, int $row, int $idPais):
         'id_banco' => clean(val($ws, $header, $row, 'BANCO'), 20),
         'nombre_banco' => clean(val($ws, $header, $row, 'NOMBRE DE BANCO'), 120),
         'numero_cuenta' => clean(val($ws, $header, $row, 'NO. CUENTA'), 40),
-        'clabe' => clean(val($ws, $header, $row, 'CLABE INTERBANCARIA'), 30),
-        'contacto1' => clean(cval($ws, $row, 42), 220),
-        'parentesco1' => clean(cval($ws, $row, 43), 80),
-        'telefono_contacto1' => clean(cval($ws, $row, 44), 30),
-        'observaciones' => clean(val($ws, $header, $row, 'OBSERVACIONES'), 5000),
+        'clabe' => clean(val($ws, $header, $row, ['CLABE INTERBANCARIA', 'CLABEINTERBANCARIA']), 30),
+        'contacto1' => clean(val($ws, $header, $row, 'CONTACTO DE EMERGENCIA 1') ?: cval($ws, $row, 42), 220),
+        'parentesco1' => clean(cval($ws, $row, isset($header[keyn('CONTACTO DE EMERGENCIA 1')]) ? $header[keyn('CONTACTO DE EMERGENCIA 1')] + 1 : 43), 80),
+        'telefono_contacto1' => phone_value(cval($ws, $row, isset($header[keyn('CONTACTO DE EMERGENCIA 1')]) ? $header[keyn('CONTACTO DE EMERGENCIA 1')] + 2 : 44)),
+        'observaciones' => clean(trim(implode(' | ', array_filter([
+            clean(val($ws, $header, $row, 'OBSERVACIONES'), 3000),
+            clean(val($ws, $header, $row, 'OBSERVACIONES RH'), 3000),
+        ]))), 5000),
         'fecha_baja' => $fechaBaja,
         'motivo_baja' => $motivo !== '' ? $motivo : 'Baja importada',
         'descripcion_baja' => trim(implode(' | ', array_filter([
@@ -310,6 +333,11 @@ function add_index(array &$indexes, string $type, string $key, array $person): v
     if ($key === '' || str_ends_with($key, '|')) {
         return;
     }
+    foreach ($indexes[$type][$key] ?? [] as $existing) {
+        if ((int)($existing['id'] ?? 0) === (int)($person['id'] ?? 0)) {
+            return;
+        }
+    }
     $indexes[$type][$key][] = $person;
 }
 
@@ -329,6 +357,7 @@ function load_people_indexes(Database $db): array
         SELECT p.id, COALESCE(p.id_pais, 1) AS id_pais, p.curp, p.rfc AS persona_rfc, p.correo,
                p.numero_empleado, p.codigo_contpac, p.user_name, p.estatus,
                CONCAT_WS(' ', p.nombres, p.segundo_nombre, p.apellidop, p.apellidom) AS nombre_completo,
+               CONCAT_WS(' ', p.apellidop, p.apellidom, p.nombres, p.segundo_nombre) AS nombre_apellidos,
                rr.codigo_contpaq, rr.rfc, rr.nss
         FROM __SPARTA_SECRET_REDACTED__.persona p
         LEFT JOIN __SPARTA_SECRET_REDACTED__.persona_datos_rrhh rr ON rr.id_persona = p.id
@@ -343,12 +372,48 @@ function load_people_indexes(Database $db): array
         add_index($indexes, 'codigo_contpaq', $pais . '|' . employee_key($row['codigo_contpaq'] ?: ($row['codigo_contpac'] ?? '')), $row);
         add_index($indexes, 'numero_empleado', $pais . '|' . employee_key($row['numero_empleado'] ?? ''), $row);
         add_index($indexes, 'nombre', $pais . '|' . keyn($row['nombre_completo'] ?? ''), $row);
+        add_index($indexes, 'nombre', $pais . '|' . keyn($row['nombre_apellidos'] ?? ''), $row);
         $user = clean($row['user_name'] ?? '', 80);
         if ($user !== '') {
             $indexes['usernames'][$user] = true;
         }
     }
     return $indexes;
+}
+
+function index_imported_person(array &$indexes, int $idPersona, array $r): void
+{
+    if ($idPersona <= 0) {
+        return;
+    }
+
+    $pais = (int)($r['id_pais'] ?? 1);
+    $person = [
+        'id' => $idPersona,
+        'id_pais' => $pais,
+        'curp' => $r['curp'] ?? '',
+        'persona_rfc' => $r['rfc'] ?? '',
+        'rfc' => $r['rfc'] ?? '',
+        'nss' => $r['nss'] ?? '',
+        'correo' => $r['correo'] ?? '',
+        'numero_empleado' => $r['codigo_contpaq'] ?? '',
+        'codigo_contpac' => $r['codigo_contpaq'] ?? '',
+        'codigo_contpaq' => $r['codigo_contpaq'] ?? '',
+        'nombre_completo' => $r['nombre_completo'] ?? '',
+        'user_name' => '',
+        'estatus' => 'Baja',
+    ];
+
+    add_index($indexes, 'curp', keyn($person['curp']), $person);
+    add_index($indexes, 'rfc', keyn($person['rfc']), $person);
+    add_index($indexes, 'nss', keyn($person['nss']), $person);
+    add_index($indexes, 'correo', strtolower(clean($person['correo'], 160)), $person);
+    add_index($indexes, 'codigo_contpaq', $pais . '|' . employee_key($person['codigo_contpaq']), $person);
+    add_index($indexes, 'numero_empleado', $pais . '|' . employee_key($person['numero_empleado']), $person);
+    add_index($indexes, 'nombre', $pais . '|' . keyn($person['nombre_completo']), $person);
+    add_index($indexes, 'nombre', $pais . '|' . keyn($r['nombre_guardado'] ?? ''), $person);
+    add_index($indexes, 'nombre', $pais . '|' . keyn($r['nombre_apellidos_guardado'] ?? ''), $person);
+    add_index($indexes, 'nombre', $pais . '|' . keyn(trim(($r['apellidop'] ?? '') . ' ' . ($r['apellidom'] ?? '') . ' ' . ($r['nombres'] ?? '') . ' ' . ($r['segundo_nombre'] ?? ''))), $person);
 }
 
 function find_person(array $indexes, array $r): array
@@ -361,6 +426,8 @@ function find_person(array $indexes, array $r): array
         ['codigo_contpaq', (int)$r['id_pais'] . '|' . employee_key($r['codigo_contpaq']), 'codigo CONTPAC'],
         ['numero_empleado', (int)$r['id_pais'] . '|' . employee_key($r['codigo_contpaq']), 'numero empleado'],
         ['nombre', (int)$r['id_pais'] . '|' . keyn($r['nombre_completo']), 'nombre'],
+        ['nombre', (int)$r['id_pais'] . '|' . keyn($r['nombre_guardado'] ?? ''), 'nombre'],
+        ['nombre', (int)$r['id_pais'] . '|' . keyn($r['nombre_apellidos_guardado'] ?? ''), 'nombre'],
     ];
     foreach ($checks as [$type, $key, $reason]) {
         if ($key === '' || str_ends_with($key, '|')) {
@@ -647,9 +714,21 @@ function ensure_position_and_baja(Database $db, int $idPersona, array $r, array 
 
 $path = '';
 $apply = false;
+$fromRowArg = 0;
+$toRowArg = 0;
+$showIssues = true;
+$listNew = false;
 foreach (array_slice($_SERVER['argv'] ?? [], 1) as $arg) {
     if ($arg === '--apply') {
         $apply = true;
+    } elseif ($arg === '--no-issues') {
+        $showIssues = false;
+    } elseif ($arg === '--list-new') {
+        $listNew = true;
+    } elseif (str_starts_with($arg, '--from-row=')) {
+        $fromRowArg = max(0, (int) substr($arg, strlen('--from-row=')));
+    } elseif (str_starts_with($arg, '--to-row=')) {
+        $toRowArg = max(0, (int) substr($arg, strlen('--to-row=')));
     } elseif ($path === '') {
         $path = $arg;
     }
@@ -695,18 +774,29 @@ if (method_exists($reader, 'setReadEmptyCells')) {
     $reader->setReadEmptyCells(false);
 }
 $reader->setReadFilter(new BajasMaxiReadFilter());
-$reader->setLoadSheetsOnly(['BAJAS MAXI 26']);
+$sheetName = 'BAJAS MAXI 26';
+$headerRow = 11;
+$startRow = 12;
+$availableSheets = $reader->listWorksheetNames($path);
+if (in_array('BAJAS 25', $availableSheets, true)) {
+    $sheetName = 'BAJAS 25';
+    $headerRow = 5;
+    $startRow = 6;
+}
+$reader->setLoadSheetsOnly([$sheetName]);
 $book = $reader->load($path);
-$ws = $book->getSheetByName('BAJAS MAXI 26');
+$ws = $book->getSheetByName($sheetName);
 if (!$ws) {
-    fwrite(STDERR, "No se encontro la hoja BAJAS MAXI 26.\n");
+    fwrite(STDERR, "No se encontro la hoja {$sheetName}.\n");
     exit(1);
 }
 
-$header = header_map($ws, 11);
+$header = header_map($ws, $headerRow);
 $records = [];
 $catalogCache = [];
-for ($row = 12; $row <= $ws->getHighestDataRow(); $row++) {
+$fromRow = $fromRowArg > 0 ? max($startRow, $fromRowArg) : $startRow;
+$toRow = $toRowArg > 0 ? min($ws->getHighestDataRow(), $toRowArg) : $ws->getHighestDataRow();
+for ($row = $fromRow; $row <= $toRow; $row++) {
     $r = record_from_sheet($ws, $header, $row, $idMexico);
     if ($r['nombre_completo'] === '' && $r['codigo_contpaq'] === '' && $r['curp'] === '' && $r['rfc'] === '') {
         $stats['omitidas_vacias']++;
@@ -735,11 +825,14 @@ for ($row = 12; $row <= $ws->getHighestDataRow(); $row++) {
         }
         continue;
     }
-    if ($person) {
-        $stats['existentes_actualizar']++;
-    } else {
-        $stats['nuevas_insertar']++;
-    }
+        if ($person) {
+            $stats['existentes_actualizar']++;
+        } else {
+            $stats['nuevas_insertar']++;
+            if ($listNew && count($issues) < 100) {
+                $issues[] = "Nueva fila {$row}: {$r['nombre_completo']} | codigo={$r['codigo_contpaq']} | curp={$r['curp']} | rfc={$r['rfc']} | correo={$r['correo']}";
+            }
+        }
 
     $catalogKey = implode('|', [$r['id_pais'], keyn($r['direccion']), keyn($r['area']), keyn($r['departamento']), keyn($r['puesto'])]);
     if (!isset($catalogCache[$catalogKey])) {
@@ -793,6 +886,9 @@ foreach ($records as [$r, $person, $catalog]) {
 
             if ($apply) {
                 $db->commit();
+                if (!$person && $idPersona > 0) {
+                    index_imported_person($people, $idPersona, $r);
+                }
             }
             foreach ($delta as $key => $value) {
                 $stats[$key] += $value;
@@ -800,7 +896,11 @@ foreach ($records as [$r, $person, $catalog]) {
             break;
         } catch (Throwable $e) {
             if ($apply && $db->inTransaction()) {
-                $db->rollback();
+                try {
+                    $db->rollback();
+                } catch (Throwable $rollbackError) {
+                    fwrite(STDERR, "No se pudo revertir transaccion activa: " . $rollbackError->getMessage() . PHP_EOL);
+                }
             }
             $message = $e->getMessage();
             $isDeadlock = str_contains($message, '1213') || stripos($message, 'Deadlock') !== false || str_contains($message, '40001');
@@ -816,7 +916,7 @@ foreach ($records as [$r, $person, $catalog]) {
 
 echo 'Modo: ' . ($apply ? 'APPLY' : 'DRY-RUN') . PHP_EOL;
 echo json_encode($stats, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE) . PHP_EOL;
-if ($issues) {
+if ($issues && $showIssues) {
     echo "Observaciones:\n";
     foreach ($issues as $issue) {
         echo '- ' . $issue . PHP_EOL;

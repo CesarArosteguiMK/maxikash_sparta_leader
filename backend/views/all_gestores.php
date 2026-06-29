@@ -36,6 +36,22 @@
     .modal-perfil-modulos-agrupados .modal-perfil-modulo-grupo {
         background: #fff;
     }
+    #modalEditPerfil .modal-perfil-modulos-agrupados .modal-perfil-modulo-grupo {
+        border-color: #d8e0ea !important;
+        box-shadow: 0 6px 16px rgba(15, 23, 42, 0.08) !important;
+        transition: box-shadow .18s ease, border-color .18s ease, transform .18s ease;
+    }
+    #modalEditPerfil .modal-perfil-modulos-agrupados .modal-perfil-modulo-grupo.is-collapsed {
+        border-color: #cfd8e3 !important;
+        box-shadow: 0 4px 10px rgba(15, 23, 42, 0.08) !important;
+    }
+    #modalEditPerfil .modal-perfil-modulos-agrupados .modal-perfil-modulo-grupo.is-collapsed .modal-perfil-modulo-grupo-header {
+        border-bottom: 0 !important;
+        border-radius: .55rem;
+    }
+    #modalEditPerfil .modal-perfil-modulos-agrupados .modal-perfil-modulo-grupo.is-open .modal-perfil-modulo-grupo-header {
+        border-radius: .55rem .55rem 0 0;
+    }
     body.dark-mode .modal-perfil-modulos-agrupados .modal-perfil-modulo-grupo {
         background: rgba(30, 41, 59, 0.95) !important;
         border-color: #e2e8f0 !important;
@@ -106,7 +122,7 @@
         display: flex;
         flex-wrap: wrap;
         gap: 1rem;
-        align-items: stretch;
+        align-items: flex-start;
     }
     /* Exactamente 2 bloques por fila (gap 1rem entre columnas) */
     #modalEditPerfil .modal-perfil-modulos-agrupados .modal-perfil-modulo-grupo {
@@ -5750,11 +5766,11 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
               </div>
               <div class="modal-body">
-                <input type="file" class="d-none" id="rrhhImportDocsInputArchivos" accept=".pdf,.zip,application/pdf,application/zip" multiple>
+                <input type="file" class="d-none" id="rrhhImportDocsInputArchivos" accept=".pdf,.fad,.zip,application/pdf,application/zip" multiple>
                 <input type="file" class="d-none" id="rrhhImportDocsInputCarpeta" webkitdirectory directory multiple>
                 <div class="d-flex flex-wrap gap-2 align-items-center mb-3">
                   <button type="button" class="btn btn-outline-primary" id="btnRrhhImportSeleccionarArchivos">
-                    <i class="fa fa-file-archive me-1"></i>Elegir ZIP/PDF
+                    <i class="fa fa-file-archive me-1"></i>Elegir ZIP/PDF/FAD
                   </button>
                   <button type="button" class="btn btn-outline-primary" id="btnRrhhImportSeleccionarCarpeta">
                     <i class="fa fa-folder-open me-1"></i>Elegir carpeta
@@ -5768,7 +5784,7 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
                 </div>
                 <div class="small text-muted mb-1" id="rrhhImportDocsSeleccionResumen">No se han seleccionado archivos.</div>
                 <div class="small text-muted mb-3">
-                  Soporta lotes de hasta 1000 archivos o 850 MB por carga. El analisis conserva un lote temporal para importar sin volver a subir los documentos.
+                  La carpeta se procesa automaticamente por tandas para evitar rechazos del servidor. Si eliges un ZIP muy grande, descomprimelo y usa Elegir carpeta.
                 </div>
                 <div id="rrhhImportDocsResumen" class="d-flex flex-wrap gap-2 mb-3"></div>
                 <div class="table-responsive" style="max-height: 52vh;">
@@ -13037,8 +13053,9 @@ function precargarCascadaEdit(idPais, idEstado, idMunicipio, idColonia, idCalle,
   let rrhhImportDocsFiles = [];
   let rrhhImportDocsAnalisis = null;
   let rrhhImportPreviewUrl = '';
-  const RRHH_IMPORT_DOCS_MAX_FILES = 1000;
-  const RRHH_IMPORT_DOCS_MAX_BYTES = 850 * 1024 * 1024;
+  const RRHH_IMPORT_DOCS_MAX_FILES = 10;
+  const RRHH_IMPORT_DOCS_MAX_BYTES = 30 * 1024 * 1024;
+  const RRHH_IMPORT_DOCS_MAX_ZIP_BYTES = 30 * 1024 * 1024;
   let abriendoCredencialRrhh = false;
   let volverDesdeCredencialRrhh = false;
   let orientacionCredencialRrhh = 'vertical';
@@ -13923,20 +13940,119 @@ function precargarCascadaEdit(idPais, idEstado, idMunicipio, idColonia, idCalle,
   function rrhhImportDocsFormData(options = {}) {
     const fd = new FormData();
     const batchId = String(rrhhImportDocsAnalisis?.batch_id || '').trim();
-    if (batchId) {
+    const usarBatch = options.usarBatch !== false;
+    const files = Array.isArray(options.files) ? options.files : rrhhImportDocsFiles;
+    const sourceOffset = Number(options.sourceOffset || 0);
+    const manualesGlobales = options.manualesGlobales || null;
+    if (batchId && usarBatch) {
       fd.append('batch_id', batchId);
-    } else if (rrhhImportDocsFiles.length) {
-      rrhhImportDocsFiles.forEach(file => {
+    } else if (files.length) {
+      files.forEach(file => {
         fd.append('archivos[]', file, file.name);
         fd.append('rutas_relativas[]', file.webkitRelativePath || file.name);
       });
     }
+    if (manualesGlobales instanceof Map) {
+      files.forEach((file, localIndex) => {
+        const globalIndex = Number(file.__rrhhGlobalIndex ?? (sourceOffset + localIndex));
+        const idDocumento = Number(manualesGlobales.get(globalIndex) || 0);
+        if (idDocumento > 0) {
+          fd.append(`documentos_manual[${localIndex}]`, idDocumento);
+        }
+      });
+    } else {
+      (rrhhImportDocsAnalisis?.items || []).forEach(item => {
+        if (item.documento_manual && Number(item.id_documento || 0) > 0) {
+          const localIndex = Math.max(0, Number(item.source_index || 0) - sourceOffset);
+          fd.append(`documentos_manual[${localIndex}]`, Number(item.id_documento || 0));
+        }
+      });
+    }
+    return fd;
+  }
+
+  function rrhhImportDocsResumenVacio() {
+    return {
+      total: 0,
+      listo: 0,
+      importado: 0,
+      persona_no_encontrada: 0,
+      persona_ambigua: 0,
+      persona_no_coincide: 0,
+      documento_no_reconocido: 0,
+      ya_existe: 0,
+      duplicado_lote: 0,
+      omitido: 0,
+      error: 0,
+      documento_sin_permiso: 0
+    };
+  }
+
+  function rrhhImportDocsSumarResumen(destino, fuente) {
+    const out = destino || rrhhImportDocsResumenVacio();
+    Object.keys(rrhhImportDocsResumenVacio()).forEach(key => {
+      out[key] = Number(out[key] || 0) + Number(fuente?.[key] || 0);
+    });
+    return out;
+  }
+
+  function rrhhImportDocsNormalizarItemsBatch(items, sourceOffset) {
+    return Array.from(items || []).map(item => ({
+      ...item,
+      source_index: Number(item.source_index || 0) + Number(sourceOffset || 0)
+    }));
+  }
+
+  function rrhhImportDocsManualesGlobales() {
+    const manuales = new Map();
     (rrhhImportDocsAnalisis?.items || []).forEach(item => {
-      if (item.documento_manual && Number(item.id_documento || 0) > 0) {
-        fd.append(`documentos_manual[${Number(item.source_index || 0)}]`, Number(item.id_documento || 0));
+      const sourceIndex = Number(item.source_index || 0);
+      const idDocumento = Number(item.id_documento || 0);
+      if (item.documento_manual && idDocumento > 0) {
+        manuales.set(sourceIndex, idDocumento);
       }
     });
-    return fd;
+    return manuales;
+  }
+
+  function rrhhImportDocsEsZip(file) {
+    const texto = [
+      file?.name || '',
+      file?.webkitRelativePath || '',
+      file?.type || ''
+    ].join(' ');
+    return /\.zip\b/i.test(texto) || /zip/i.test(String(file?.type || ''));
+  }
+
+  function rrhhImportDocsCrearBatches(files) {
+    const batches = [];
+    let actual = [];
+    let bytes = 0;
+    Array.from(files || []).forEach((file, index) => {
+      file.__rrhhGlobalIndex = index;
+      const size = Number(file.size || 0);
+      const cerrar = actual.length > 0
+        && (actual.length >= RRHH_IMPORT_DOCS_MAX_FILES || (bytes + size) > RRHH_IMPORT_DOCS_MAX_BYTES);
+      if (cerrar) {
+        batches.push({ files: actual, sourceOffset: Number(actual[0].__rrhhGlobalIndex || 0), bytes });
+        actual = [];
+        bytes = 0;
+      }
+      actual.push(file);
+      bytes += size;
+    });
+    if (actual.length) {
+      batches.push({ files: actual, sourceOffset: Number(actual[0].__rrhhGlobalIndex || 0), bytes });
+    }
+    return batches;
+  }
+
+  function rrhhImportDocsTieneZipGrande(files) {
+    return Array.from(files || []).some(file => rrhhImportDocsEsZip(file) && Number(file.size || 0) > RRHH_IMPORT_DOCS_MAX_ZIP_BYTES);
+  }
+
+  function rrhhImportDocsPrimerArchivoGrande(files) {
+    return Array.from(files || []).find(file => !rrhhImportDocsEsZip(file) && Number(file.size || 0) > RRHH_IMPORT_DOCS_MAX_BYTES) || null;
   }
 
   function rrhhImportDocsSetFiles(fileList) {
@@ -13946,25 +14062,33 @@ function precargarCascadaEdit(idPais, idEstado, idMunicipio, idColonia, idCalle,
     rrhhImportDocsRenderTabla([]);
     const total = rrhhImportDocsFiles.length;
     const peso = rrhhImportDocsFiles.reduce((sum, file) => sum + (file.size || 0), 0);
-    if (total > RRHH_IMPORT_DOCS_MAX_FILES || peso > RRHH_IMPORT_DOCS_MAX_BYTES) {
-      const pesoMb = (peso / 1024 / 1024).toFixed(1);
-      const limiteMb = Math.floor(RRHH_IMPORT_DOCS_MAX_BYTES / 1024 / 1024);
-      const mensaje = total > RRHH_IMPORT_DOCS_MAX_FILES
-        ? `Seleccionaste ${total} archivos. El limite por carga es de ${RRHH_IMPORT_DOCS_MAX_FILES} archivos. Divide la carpeta en lotes mas pequenos.`
-        : `Seleccionaste ${pesoMb} MB. El limite por carga es de ${limiteMb} MB. Divide la carpeta en lotes mas pequenos.`;
-      rrhhImportDocsFiles = [];
-      if (inputRrhhImportArchivos) inputRrhhImportArchivos.value = '';
-      if (inputRrhhImportCarpeta) inputRrhhImportCarpeta.value = '';
+    const pesoMb = (peso / 1024 / 1024).toFixed(1);
+    const limiteMb = Math.floor(RRHH_IMPORT_DOCS_MAX_BYTES / 1024 / 1024);
+    if (rrhhImportDocsTieneZipGrande(rrhhImportDocsFiles)) {
       if (rrhhImportDocsSeleccionResumen) {
-        rrhhImportDocsSeleccionResumen.textContent = 'No se han seleccionado archivos.';
+        rrhhImportDocsSeleccionResumen.textContent = 'El ZIP supera el tamano permitido para una sola carga. Descomprime el archivo y usa Elegir carpeta.';
       }
       if (btnRrhhImportImportar) btnRrhhImportImportar.disabled = true;
-      Swal.fire('Carga masiva', mensaje, 'warning');
+      Swal.fire(
+        'ZIP demasiado grande',
+        'Este ZIP supera el tamano permitido para una sola carga. Descomprime el archivo y usa "Elegir carpeta"; el sistema lo analizara por lotes automaticamente.',
+        'warning'
+      );
+      return;
+    }
+    const archivoGrande = rrhhImportDocsPrimerArchivoGrande(rrhhImportDocsFiles);
+    if (archivoGrande) {
+      if (rrhhImportDocsSeleccionResumen) {
+        rrhhImportDocsSeleccionResumen.textContent = `El archivo ${archivoGrande.name} pesa mas de ${limiteMb} MB.`;
+      }
+      if (btnRrhhImportImportar) btnRrhhImportImportar.disabled = true;
+      Swal.fire('Archivo demasiado grande', `El archivo "${archivoGrande.name}" supera ${limiteMb} MB.`, 'warning');
       return;
     }
     if (rrhhImportDocsSeleccionResumen) {
+      const batches = rrhhImportDocsCrearBatches(rrhhImportDocsFiles);
       rrhhImportDocsSeleccionResumen.textContent = total
-        ? `${total} archivo(s) seleccionado(s), ${(peso / 1024 / 1024).toFixed(1)} MB.`
+        ? `${total} archivo(s) seleccionado(s), ${pesoMb} MB${batches.length > 1 ? `. Se procesaran en ${batches.length} lotes.` : '.'}`
         : 'No se han seleccionado archivos.';
     }
     if (btnRrhhImportImportar) btnRrhhImportImportar.disabled = true;
@@ -14090,7 +14214,7 @@ function precargarCascadaEdit(idPais, idEstado, idMunicipio, idColonia, idCalle,
         headers: { 'X-Requested-With': 'XMLHttpRequest' }
       });
     } catch (err) {
-      throw new Error('No se pudo conectar con el servidor. Revisa que la seleccion no supere el limite de carga configurado: maximo 1000 archivos o 850 MB por intento.');
+      throw new Error('No se pudo conectar con el servidor. La carga se procesa por lotes; vuelve a seleccionar la carpeta si el navegador libero los archivos.');
     }
     const contentType = res.headers.get('content-type') || '';
     if (!contentType.includes('application/json')) {
@@ -14099,15 +14223,25 @@ function precargarCascadaEdit(idPais, idEstado, idMunicipio, idColonia, idCalle,
     }
     const json = await res.json();
     if (!json.success) {
-      throw new Error(json.mensaje || 'La operación no se completó.');
+      const error = new Error(json.mensaje || 'La operacion no se completo.');
+      error.codigo = json.codigo || json?.datos?.codigo || '';
+      throw error;
     }
     return json.datos || {};
   }
 
   async function rrhhImportDocsAbrirDocumento(sourceIndex) {
     try {
-      const fd = rrhhImportDocsFormData({ includeFiles: false });
-      fd.append('source_index', Number(sourceIndex || 0));
+      const batchId = String(rrhhImportDocsAnalisis?.batch_id || '').trim();
+      const globalIndex = Number(sourceIndex || 0);
+      const file = rrhhImportDocsFiles[globalIndex] || null;
+      if (!batchId && !file) {
+        throw new Error('No se encontro el archivo seleccionado en la carga actual.');
+      }
+      const fd = batchId
+        ? rrhhImportDocsFormData()
+        : rrhhImportDocsFormData({ files: file ? [file] : [], sourceOffset: globalIndex, usarBatch: false });
+      fd.append('source_index', batchId ? globalIndex : 0);
       const res = await fetch('/caphum/previsualizarImportacionDocumentosRrhh', {
         method: 'POST',
         body: fd,
@@ -14142,13 +14276,39 @@ function precargarCascadaEdit(idPais, idEstado, idMunicipio, idColonia, idCalle,
   async function rrhhImportDocsAnalizar() {
     if (!rrhhImportDocsFiles.length) return;
     try {
-      rrhhImportDocsSetLoading(true, 'Analizando documentos...');
-      rrhhImportDocsAnalisis = await rrhhImportDocsEnviar('/caphum/analizarImportacionDocumentosRrhh');
+      const batches = rrhhImportDocsCrearBatches(rrhhImportDocsFiles);
+      rrhhImportDocsSetLoading(true, batches.length > 1 ? `Analizando lote 1 de ${batches.length}...` : 'Analizando documentos...');
+      const combinado = {
+        items: [],
+        resumen: rrhhImportDocsResumenVacio(),
+        catalogo: [],
+        batch_id: ''
+      };
+      for (let i = 0; i < batches.length; i++) {
+        const batch = batches[i];
+        if (batches.length > 1) {
+          rrhhImportDocsSetLoading(true, `Analizando lote ${i + 1} de ${batches.length} (${batch.files.length} archivo(s))...`);
+        }
+        const parcial = await rrhhImportDocsEnviar('/caphum/analizarImportacionDocumentosRrhh', {
+          files: batch.files,
+          sourceOffset: batch.sourceOffset,
+          usarBatch: false
+        });
+        if (!combinado.catalogo.length && Array.isArray(parcial.catalogo)) {
+          combinado.catalogo = parcial.catalogo;
+        }
+        if (batches.length === 1 && parcial.batch_id) {
+          combinado.batch_id = parcial.batch_id;
+        }
+        combinado.items.push(...rrhhImportDocsNormalizarItemsBatch(parcial.items || [], batch.sourceOffset));
+        rrhhImportDocsSumarResumen(combinado.resumen, parcial.resumen || {});
+      }
+      rrhhImportDocsAnalisis = combinado;
       rrhhImportDocsRenderResumen(rrhhImportDocsAnalisis.resumen);
       rrhhImportDocsRenderTabla(rrhhImportDocsAnalisis.items || []);
       const listos = rrhhImportDocsAnalisis?.resumen?.listo || 0;
       if (rrhhImportDocsSeleccionResumen) {
-        rrhhImportDocsSeleccionResumen.textContent = `Análisis listo. ${listos} documento(s) pueden importarse.`;
+        rrhhImportDocsSeleccionResumen.textContent = `Analisis listo. ${listos} documento(s) pueden importarse${batches.length > 1 ? ` en ${batches.length} lotes` : ''}.`;
       }
       if (btnRrhhImportImportar) btnRrhhImportImportar.disabled = listos <= 0;
     } catch (error) {
@@ -14172,8 +14332,44 @@ function precargarCascadaEdit(idPais, idEstado, idMunicipio, idColonia, idCalle,
     if (!confirm.isConfirmed) return;
 
     try {
-      rrhhImportDocsSetLoading(true, 'Importando documentos...');
-      rrhhImportDocsAnalisis = await rrhhImportDocsEnviar('/caphum/importarDocumentosRrhh', { includeFiles: false });
+      const batches = rrhhImportDocsCrearBatches(rrhhImportDocsFiles);
+      const manualesGlobales = rrhhImportDocsManualesGlobales();
+      rrhhImportDocsSetLoading(true, batches.length > 1 ? `Importando lote 1 de ${batches.length}...` : 'Importando documentos...');
+      let resultado;
+      if (batches.length === 1 && String(rrhhImportDocsAnalisis?.batch_id || '').trim()) {
+        try {
+          resultado = await rrhhImportDocsEnviar('/caphum/importarDocumentosRrhh');
+        } catch (error) {
+          if (error.codigo !== 'lote_temporal_no_disponible' || !rrhhImportDocsFiles.length) {
+            throw error;
+          }
+          rrhhImportDocsSetLoading(true, 'Reintentando con los archivos seleccionados...');
+          resultado = await rrhhImportDocsEnviar('/caphum/importarDocumentosRrhh', { usarBatch: false });
+        }
+      } else {
+        resultado = {
+          items: [],
+          resumen: rrhhImportDocsResumenVacio(),
+          importados: 0,
+          batch_id: ''
+        };
+        for (let i = 0; i < batches.length; i++) {
+          const batch = batches[i];
+          if (batches.length > 1) {
+            rrhhImportDocsSetLoading(true, `Importando lote ${i + 1} de ${batches.length} (${batch.files.length} archivo(s))...`);
+          }
+          const parcial = await rrhhImportDocsEnviar('/caphum/importarDocumentosRrhh', {
+            files: batch.files,
+            sourceOffset: batch.sourceOffset,
+            usarBatch: false,
+            manualesGlobales
+          });
+          resultado.items.push(...rrhhImportDocsNormalizarItemsBatch(parcial.items || [], batch.sourceOffset));
+          rrhhImportDocsSumarResumen(resultado.resumen, parcial.resumen || {});
+          resultado.importados += Number(parcial.importados || 0);
+        }
+      }
+      rrhhImportDocsAnalisis = resultado;
       rrhhImportDocsRenderResumen(rrhhImportDocsAnalisis.resumen);
       rrhhImportDocsRenderTabla(rrhhImportDocsAnalisis.items || []);
       if (rrhhImportDocsSeleccionResumen) {
