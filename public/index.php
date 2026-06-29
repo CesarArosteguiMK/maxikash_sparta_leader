@@ -59,6 +59,9 @@ $rutasPublicasSinLogin = [
         'estadoreportesagente',
         'truncarautomaticoagente',
     ],
+    'estadocuenta' => [
+        'consultaapi',
+    ],
 ];
 $rutaPublicaSinLogin = isset($rutasPublicasSinLogin[$controladorRuta])
     && in_array($metodoRuta, $rutasPublicasSinLogin[$controladorRuta], true);

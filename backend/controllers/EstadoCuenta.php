@@ -1964,6 +1964,49 @@ class EstadoCuenta extends Controller
         self::render('__SPARTA_SECRET_REDACTED___consulta');
     }
 
+    public function ConsultaApi()
+    {
+        header('Content-Type: application/json; charset=utf-8');
+
+        $remote = $_SERVER['REMOTE_ADDR'] ?? '';
+        $isLocal = in_array($remote, ['127.0.0.1', '::1', 'localhost'], true) || strpos((string)$remote, '127.') === 0;
+        $expectedKey = getenv('SPARTA_ESTADO_CUENTA_API_KEY') ?: 'sparta-estado-cuenta-local';
+        $headerKey = $_SERVER['HTTP_X_ESTADO_CUENTA_KEY'] ?? '';
+        if (!$isLocal && !hash_equals((string)$expectedKey, (string)$headerKey)) {
+            http_response_code(401);
+            echo json_encode(['success' => false, 'mensaje' => 'No autorizado'], JSON_UNESCAPED_UNICODE);
+            return;
+        }
+
+        $raw = file_get_contents('php://input');
+        $input = is_string($raw) && trim($raw) !== '' ? json_decode($raw, true) : [];
+        if (!is_array($input)) {
+            $input = [];
+        }
+
+        $idCredito = (int)($input['idCredito'] ?? $_POST['idCredito'] ?? $_GET['idCredito'] ?? 0);
+        if ($idCredito <= 0) {
+            http_response_code(400);
+            echo json_encode(['success' => false, 'mensaje' => 'idCredito requerido'], JSON_UNESCAPED_UNICODE);
+            return;
+        }
+
+        $_SESSION['login'] = true;
+        $_SESSION['usuario'] = $_SESSION['usuario'] ?? 'api___SPARTA_SECRET_REDACTED__';
+        $_SESSION['usuario_id'] = $_SESSION['usuario_id'] ?? 1;
+        $_SESSION['modulos'] = $_SESSION['modulos'] ?? [21, 23, 29, 30, 35, 36, 37];
+
+        $_SERVER['REQUEST_METHOD'] = 'POST';
+        $_POST['idCredito'] = $idCredito;
+        $_POST['modoBusqueda'] = 'id';
+        $_POST['___SPARTA_SECRET_REDACTED___api_json'] = '1';
+        if (!empty($input['fechaCorte'])) {
+            $_POST['fechaCorte'] = (string)$input['fechaCorte'];
+        }
+
+        $this->Consulta();
+    }
+
     public function Consulta()
     {
         $idUsuario = (int) ($_SESSION['usuario_id'] ?? 0);
@@ -3199,6 +3242,12 @@ JS;
                 $resultado['data']['idCredito'] === '' ||
                 empty($resultado['data']['idCredito'])
             ) {
+                if (!empty($_POST['___SPARTA_SECRET_REDACTED___api_json'])) {
+                    header('Content-Type: application/json; charset=utf-8');
+                    http_response_code(404);
+                    echo json_encode(['success' => false, 'mensaje' => 'S2 no devolvio idCredito usable'], JSON_UNESCAPED_UNICODE);
+                    return;
+                }
                 $this->renderConsultaAlertaSinIdCreditoS2($script, $tienePermisoFechaCorte);
                 return;
             }
@@ -3246,6 +3295,64 @@ JS;
             self::set("script", $this->appendRastreoSabuesoScriptSiAplica($scriptConPermiso, $tienePermisoRastreoNeverPaid));
             self::set("tabla", $tabla);
             self::set('catalogoMotivosCondonacion', EstadoCuentaDAO::getCatalogoMotivosCondonacion());
+
+            if (!empty($_POST['___SPARTA_SECRET_REDACTED___api_json'])) {
+                $tablaApi = array_map(function ($fila) {
+                    if (is_array($fila) && array_key_exists('raw_cargo', $fila)) {
+                        unset($fila['raw_cargo']);
+                    }
+                    return $fila;
+                }, is_array($tabla) ? $tabla : []);
+
+                $creditoApi = [
+                    'idCredito' => $estadoCuenta['idCredito'] ?? null,
+                    'cuota' => $estadoCuenta['cuota'] ?? null,
+                    'montoOtorgado' => $estadoCuenta['montoOtorgado'] ?? null,
+                    'periodicidad' => $estadoCuenta['periodicidad'] ?? null,
+                    'fechaInicio' => $estadoCuenta['fechaInicio'] ?? null,
+                    'primerVencimiento' => $estadoCuenta['primerVencimiento'] ?? null,
+                    'ultimoVencimiento' => $estadoCuenta['ultimoVencimiento'] ?? null,
+                    'referenciaSTP' => $estadoCuenta['referenciaSTP'] ?? null,
+                    'statusCredito' => $estadoCuenta['statusCredito'] ?? null,
+                    'fechaLiquidacion' => $estadoCuenta['fechaLiquidacion'] ?? null,
+                    'motivo' => $estadoCuenta['motivo'] ?? null,
+                ];
+
+                $saldosApi = [
+                    'saldoTotalPendienteGastoCobranza' => $otrosDatos['saldoTotalPendienteGastoCobranza'] ?? 0,
+                    'saldoTotalVencido' => $otrosDatos['saldoTotalVencido'] ?? 0,
+                    'cuotasContratadas' => $otrosDatos['cuotasContratadas'] ?? 0,
+                    'cuotasPagadas' => $otrosDatos['cuotasPagadas'] ?? 0,
+                    'cuotasFaltantes' => $otrosDatos['cuotasFaltantes'] ?? 0,
+                    'saldoVigenteCapital' => $otrosDatos['saldoVigenteCapital'] ?? 0,
+                    'saldoParaLiquidarV2' => $otrosDatos['saldoParaLiquidarV2'] ?? 0,
+                    'diasMoraMaximo' => $otrosDatos['diasMoraMaximo'] ?? 0,
+                    'diasMora' => $otrosDatos['diasMora'] ?? 0,
+                    'saldoTotalPagadoDesdeTabla' => $saldoTotalPagadoDesdeTabla ?? 0,
+                    'saldoFavorEstadoCuenta' => $saldoFavorEstadoCuenta ?? 0,
+                ];
+
+                EstadoCuentaTimingLog::finish('json_ok');
+                header('Content-Type: application/json; charset=utf-8');
+                echo json_encode([
+                    'success' => true,
+                    'message' => 'OK',
+                    'id_credito' => (int)($estadoCuenta['idCredito'] ?? $idConsultado ?? 0),
+                    'fecha_corte' => $fechaHoy,
+                    'cliente' => $cliente,
+                    'credito' => $creditoApi,
+                    'saldos' => $saldosApi,
+                    'tabla' => $tablaApi,
+                    'notasCargoPorFecha' => $notasCargoPorFecha ?? [],
+                    'gastoCobranzaPorFecha' => $gastoCobranzaPorFecha ?? [],
+                    'esReembolsoPorFecha' => $esReembolsoPorFecha ?? [],
+                    'tipoDisplayCargoPorFecha' => $tipoDisplayCargoPorFecha ?? [],
+                    'hayNotasCargos' => $hayNotasCargos ?? false,
+                    'resultadoCruce' => $resultadoCruce ?? null,
+                ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+                return;
+            }
+
             EstadoCuentaTimingLog::finish('render_ok');
             return self::render("__SPARTA_SECRET_REDACTED___request");
 

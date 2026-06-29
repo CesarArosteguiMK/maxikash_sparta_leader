@@ -14,6 +14,7 @@ class RrhhDocumentImportService
     private const DOCUMENTO_LLAVE_VECTOR = 31;
     private const MODULO_DOCUMENTO_RRHH_BASE = 3000;
     private const BATCH_TTL_SECONDS = 86400;
+    private const MAX_BATCH_CACHE_BYTES = 209715200;
     private const DOCUMENTO_SENSIBLE_MAGIC = "SPARTA_RRHH_DOC_V1\n";
 
     private function puedeUsarTipoDocumentoRrhh(int $idDocumento): bool
@@ -105,57 +106,70 @@ class RrhhDocumentImportService
     public function crearLoteTemporal(array $fuentes): array
     {
         $this->limpiarLotesTemporales();
+        $bytesLote = $this->bytesParaCacheTemporal($fuentes);
+        if ($bytesLote <= 0 || $bytesLote > self::MAX_BATCH_CACHE_BYTES) {
+            throw new \RuntimeException('Lote temporal omitido por tamano: ' . $bytesLote . ' bytes.');
+        }
+
         $batchId = bin2hex(random_bytes(16));
         $dir = $this->directorioLote($batchId);
         SecureUpload::ensureDir($dir);
 
         $zipCopies = [];
         $fuentesPersistentes = [];
-        foreach ($fuentes as $idx => $fuente) {
-            $persistente = $fuente;
-            $tipo = (string) ($fuente['tipo'] ?? '');
+        try {
+            foreach ($fuentes as $idx => $fuente) {
+                $persistente = $fuente;
+                $tipo = (string) ($fuente['tipo'] ?? '');
 
-            if ($tipo === 'upload') {
-                $src = (string) ($fuente['tmp'] ?? '');
-                if ($src === '' || !is_file($src)) {
-                    continue;
-                }
-                $dest = $dir . DIRECTORY_SEPARATOR . 'src_' . $idx . '.' . $this->extensionFuente($fuente);
-                if (!@copy($src, $dest)) {
-                    continue;
-                }
-                $persistente['tmp'] = $dest;
-                $persistente['cached'] = true;
-            } elseif ($tipo === 'zip' || $tipo === 'zip_nested') {
-                $zipTmp = (string) ($fuente['zip_tmp'] ?? '');
-                if ($zipTmp === '' || !is_file($zipTmp)) {
-                    continue;
-                }
-                if (!isset($zipCopies[$zipTmp])) {
-                    $dest = $dir . DIRECTORY_SEPARATOR . 'zip_' . count($zipCopies) . '.zip';
-                    if (!@copy($zipTmp, $dest)) {
-                        continue;
+                if ($tipo === 'upload') {
+                    $src = (string) ($fuente['tmp'] ?? '');
+                    if ($src === '' || !is_file($src)) {
+                        throw new \RuntimeException('Archivo temporal no disponible para cache.');
                     }
-                    $zipCopies[$zipTmp] = $dest;
+                    $dest = $dir . DIRECTORY_SEPARATOR . 'src_' . $idx . '.' . $this->extensionFuente($fuente);
+                    if (!@copy($src, $dest)) {
+                        throw new \RuntimeException('No se pudo copiar archivo temporal para cache.');
+                    }
+                    $persistente['tmp'] = $dest;
+                    $persistente['cached'] = true;
+                } elseif ($tipo === 'zip' || $tipo === 'zip_nested') {
+                    $zipTmp = (string) ($fuente['zip_tmp'] ?? '');
+                    if ($zipTmp === '' || !is_file($zipTmp)) {
+                        throw new \RuntimeException('ZIP temporal no disponible para cache.');
+                    }
+                    if (!isset($zipCopies[$zipTmp])) {
+                        $dest = $dir . DIRECTORY_SEPARATOR . 'zip_' . count($zipCopies) . '.zip';
+                        if (!@copy($zipTmp, $dest)) {
+                            throw new \RuntimeException('No se pudo copiar ZIP temporal para cache.');
+                        }
+                        $zipCopies[$zipTmp] = $dest;
+                    }
+                    $persistente['zip_tmp'] = $zipCopies[$zipTmp];
+                    $persistente['cached'] = true;
+                } else {
+                    throw new \RuntimeException('Fuente temporal no soportada para cache.');
                 }
-                $persistente['zip_tmp'] = $zipCopies[$zipTmp];
-                $persistente['cached'] = true;
+
+                $fuentesPersistentes[] = $persistente;
             }
 
-            $fuentesPersistentes[] = $persistente;
-        }
+            if (empty($fuentesPersistentes)) {
+                throw new \RuntimeException('No se pudo preparar el lote temporal de documentos.');
+            }
 
-        if (empty($fuentesPersistentes)) {
+            $manifest = [
+                'batch_id' => $batchId,
+                'created_at' => time(),
+                'fuentes' => $fuentesPersistentes,
+            ];
+            if (file_put_contents($dir . DIRECTORY_SEPARATOR . 'manifest.json', json_encode($manifest, JSON_UNESCAPED_UNICODE)) === false) {
+                throw new \RuntimeException('No se pudo guardar el manifiesto temporal de documentos.');
+            }
+        } catch (\Throwable $e) {
             $this->eliminarDirectorio($dir);
-            throw new \RuntimeException('No se pudo preparar el lote temporal de documentos.');
+            throw $e;
         }
-
-        $manifest = [
-            'batch_id' => $batchId,
-            'created_at' => time(),
-            'fuentes' => $fuentesPersistentes,
-        ];
-        file_put_contents($dir . DIRECTORY_SEPARATOR . 'manifest.json', json_encode($manifest, JSON_UNESCAPED_UNICODE));
 
         return [
             'batch_id' => $batchId,
@@ -1392,6 +1406,39 @@ class RrhhDocumentImportService
         $base = sparta_project_root() . DIRECTORY_SEPARATOR . 'backend' . DIRECTORY_SEPARATOR . 'storage' . DIRECTORY_SEPARATOR . 'tmp_rrhh_import';
         SecureUpload::ensureDir($base);
         return $base;
+    }
+
+    private function bytesParaCacheTemporal(array $fuentes): int
+    {
+        $paths = [];
+        $total = 0;
+
+        foreach ($fuentes as $fuente) {
+            $tipo = (string) ($fuente['tipo'] ?? '');
+            $path = '';
+            if ($tipo === 'upload') {
+                $path = (string) ($fuente['tmp'] ?? '');
+            } elseif ($tipo === 'zip' || $tipo === 'zip_nested') {
+                $path = (string) ($fuente['zip_tmp'] ?? '');
+            }
+
+            if ($path === '') {
+                continue;
+            }
+
+            $key = realpath($path) ?: $path;
+            if (isset($paths[$key])) {
+                continue;
+            }
+            $paths[$key] = true;
+
+            $bytes = is_file($path) ? (int) @filesize($path) : (int) ($fuente['size'] ?? 0);
+            if ($bytes > 0) {
+                $total += $bytes;
+            }
+        }
+
+        return $total;
     }
 
     private function directorioLote(string $batchId): string

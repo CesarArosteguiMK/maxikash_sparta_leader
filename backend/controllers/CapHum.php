@@ -8034,9 +8034,14 @@ class CapHum extends Controller
             if (empty($fuentes)) {
                 $fuentes = $servicio->fuentesDesdeRequest($_FILES, $_POST);
                 if (!empty($fuentes)) {
-                    $lote = $servicio->crearLoteTemporal($fuentes);
-                    $batchId = (string) ($lote['batch_id'] ?? '');
-                    $fuentes = $lote['fuentes'] ?? $fuentes;
+                    try {
+                        $lote = $servicio->crearLoteTemporal($fuentes);
+                        $batchId = (string) ($lote['batch_id'] ?? '');
+                        $fuentes = $lote['fuentes'] ?? $fuentes;
+                    } catch (\Throwable $e) {
+                        error_log('CapHum::analizarMisDocumentos lote temporal omitido -> ' . $e->getMessage());
+                        $batchId = '';
+                    }
                 }
             }
             $documentosManual = $servicio->documentosManualDesdePost($_POST);
@@ -8192,7 +8197,7 @@ class CapHum extends Controller
                         }
                         return;
                     }
-                    cargarDocumentosModal(idCandidato, { fromPoll: true });
+                    cargarDocumentosModal(idCandidato, { fromPoll: true, forceRefresh: true });
                 }, 2000);
             }
 
@@ -11495,14 +11500,14 @@ class CapHum extends Controller
                         } else {
                             setDocModalApiTraceUsuario("No se pudo completar la verificación. Puede intentar \"Reintentar Motor V2\" más tarde.", "warn");
                         }
-                        cargarDocumentosModal(idC);
+                        cargarDocumentosModal(idC, { forceRefresh: true });
                     })
                     .catch(function(err) {
                         clearTimeout(tid);
                         candidatosDocConsola("error", "verificarExpedienteCandidato - error (catch)", { id_candidato: idC, name: err && err.name, message: err && err.message, stack: err && err.stack });
                         registrarTrazaDocModalTecnico("verificarExpedienteCandidato - catch (técnico)", { id_candidato: idC, name: err && err.name, message: err && err.message, stack: err && err.stack, timeout_ms: toMs });
                         setDocModalApiTraceUsuario((err && err.name === "AbortError") ? "Tiempo de espera agotado. Use \"Reintentar Motor V2\" más tarde." : "Error de conexión o del servidor.", "err");
-                        cargarDocumentosModal(idC);
+                        cargarDocumentosModal(idC, { forceRefresh: true });
                     })
                     .finally(function() {
                         clearTimeout(tid);
@@ -14026,6 +14031,18 @@ class CapHum extends Controller
         return trim(preg_replace('/\s+/', ' ', $s));
     }
 
+    private function nombreCompletoCandidatoRegistro(array $candidato): string
+    {
+        return trim(implode(' ', array_filter([
+            $candidato['nombres'] ?? '',
+            $candidato['segundo_nombre'] ?? '',
+            $candidato['apellidop'] ?? '',
+            $candidato['apellidom'] ?? '',
+        ], static function ($parte) {
+            return trim((string) $parte) !== '';
+        })));
+    }
+
     private function docVerifNombresCoinciden($a, $b): bool
     {
         $pa = array_filter(explode(' ', $this->docVerifNormalizarNombre($a)), function ($p) { return strlen($p) > 2; });
@@ -15258,8 +15275,13 @@ class CapHum extends Controller
         $cacheDir = defined('RAIZ') ? (RAIZ . '/storage/cache') : (__DIR__ . '/../storage/cache');
         $cacheKey = 'doc_candidato_v6_' . $id_candidato;
         $ttl = 45;
+        $cacheControl = strtolower((string) ($_SERVER['HTTP_CACHE_CONTROL'] ?? ''));
+        $skipCache = isset($_GET['_'])
+            || !empty($_GET['force_refresh'])
+            || strpos($cacheControl, 'no-cache') !== false
+            || strpos($cacheControl, 'no-store') !== false;
 
-        if (function_exists('apcu_fetch')) {
+        if (!$skipCache && function_exists('apcu_fetch')) {
             $cached = @\apcu_fetch($cacheKey);
             if ($cached !== false && is_array($cached) && isset($cached['ts']) && (time() - $cached['ts']) <= $ttl && isset($cached['json'])) {
                 if (!$this->docListCacheTienePendienteTecnico((string) $cached['json'])) {
@@ -15270,7 +15292,7 @@ class CapHum extends Controller
                 }
                 @\apcu_delete($cacheKey);
             }
-        } else {
+        } elseif (!$skipCache) {
             $cacheFile = $cacheDir . '/' . $cacheKey . '.json';
             if (is_file($cacheFile) && (time() - filemtime($cacheFile)) <= $ttl) {
                 $raw = @file_get_contents($cacheFile);
@@ -15348,7 +15370,7 @@ class CapHum extends Controller
         if (!empty($payload['metricas']['expediente_completo']) && ($verificacion === null || $this->docVerifExpedientePendienteTecnico($verificacion))) {
             $candidatoRes = CandidatosDAO::getById($id_candidato);
             $candidato = ($candidatoRes['success'] ?? false) && !empty($candidatoRes['datos']) ? $candidatoRes['datos'] : [];
-            $nombreCandidatoRegistro = trim(($candidato['nombres'] ?? '') . ' ' . ($candidato['apellidop'] ?? '') . ' ' . ($candidato['apellidom'] ?? ''));
+            $nombreCandidatoRegistro = $this->nombreCompletoCandidatoRegistro($candidato);
             $payloadCache = $this->expedientePayloadDesdeCacheDocumentos($documentos, $nombreCandidatoRegistro, $this->docVerificacionIniSoloIdentificacion());
             // El dictamen final debe salir del Motor V2 con los PDFs completos; no usar cache parcial de lecturas rapidas.
             if (false && is_array($payloadCache) && (int) ($payloadCache['checks_totales'] ?? 0) > 0) {
@@ -15386,11 +15408,11 @@ class CapHum extends Controller
 
         $json = json_encode(self::respuesta(true, 'OK', $payload));
 
-        header('X-Doc-List-Cache: miss');
+        header('X-Doc-List-Cache: ' . ($skipCache ? 'bypass' : 'miss'));
 
-        if (function_exists('apcu_store')) {
+        if (!$skipCache && function_exists('apcu_store')) {
             @\apcu_store($cacheKey, ['ts' => time(), 'json' => $json], $ttl);
-        } else {
+        } elseif (!$skipCache) {
             if (!is_dir($cacheDir)) {
                 @mkdir($cacheDir, 0755, true);
             }
@@ -15526,7 +15548,7 @@ class CapHum extends Controller
         }
 
         try {
-            $ok = $this->ejecutarVerificacionBackground($idCandidato, $tipos, $expedienteCompleto);
+            $ok = $this->ejecutarVerificacionBackground($idCandidato, $tipos, $expedienteCompleto, $idJob);
             $errorJob = null;
             if (!$ok) {
                 $verificacion = CandidatosDAO::getVerificacionExpediente($idCandidato);
@@ -15780,7 +15802,7 @@ class CapHum extends Controller
         }
         $candidatoRes = CandidatosDAO::getById($id_candidato);
         $candidato = ($candidatoRes['success'] && !empty($candidatoRes['datos'])) ? $candidatoRes['datos'] : [];
-        $nombreCandidatoRegistro = trim(($candidato['nombres'] ?? '') . ' ' . ($candidato['apellidop'] ?? '') . ' ' . ($candidato['apellidom'] ?? ''));
+        $nombreCandidatoRegistro = $this->nombreCompletoCandidatoRegistro($candidato);
         $docsCache = CandidatosDAO::getDocumentosYVerificacion($id_candidato);
         $payloadCache = $this->expedientePayloadDesdeCacheDocumentos($docsCache['documentos'] ?? [], $nombreCandidatoRegistro, $soloIdentificacion);
         // Reintentar desde el modal debe ejecutar Motor V2, no reutilizar comparaciones cacheadas del motor anterior.
@@ -19709,7 +19731,15 @@ class CapHum extends Controller
         return $map[$t] ?? 0;
     }
 
-    private function ejecutarVerificacionBackground($id_candidato, array $tiposSubidos = [], ?bool $expedienteCompleto = null)
+    private function docVerificacionOmitirResultadoPorJobMasNuevo(int $idCandidato, ?int $idJobActual): bool
+    {
+        if ($idJobActual === null || $idJobActual <= 0) {
+            return false;
+        }
+        return CandidatosDAO::existeJobVerificacionDocumentalMasNuevo($idCandidato, $idJobActual);
+    }
+
+    private function ejecutarVerificacionBackground($id_candidato, array $tiposSubidos = [], ?bool $expedienteCompleto = null, ?int $idJobActual = null)
     {
         try {
             if (function_exists('set_time_limit')) {
@@ -19853,7 +19883,7 @@ class CapHum extends Controller
             }
             $candidatoRes = CandidatosDAO::getById($id_candidato);
             $candidato = ($candidatoRes['success'] && !empty($candidatoRes['datos'])) ? $candidatoRes['datos'] : [];
-            $nombreCandidatoRegistro = trim(($candidato['nombres'] ?? '') . ' ' . ($candidato['apellidop'] ?? '') . ' ' . ($candidato['apellidom'] ?? ''));
+            $nombreCandidatoRegistro = $this->nombreCompletoCandidatoRegistro($candidato);
             $docsCache = CandidatosDAO::getDocumentosYVerificacion($id_candidato);
             $payloadCache = $this->expedientePayloadDesdeCacheDocumentos($docsCache['documentos'] ?? [], $nombreCandidatoRegistro, $soloIdentificacion);
             // Background completo: forzar cruce V2 contra los 10 PDFs.
@@ -19865,6 +19895,10 @@ class CapHum extends Controller
             $resultadoApi = $this->validarExpedienteApi($rutasParaValidar, $nombreCandidatoRegistro, $docsCache['documentos'] ?? []);
             if (is_array($resultadoApi) && !isset($resultadoApi['error'])) {
                 $payload = $this->expedientePayloadDesdeApi($resultadoApi, $soloIdentificacion);
+                if ($this->docVerificacionOmitirResultadoPorJobMasNuevo((int) $id_candidato, $idJobActual)) {
+                    error_log('CapHum::verificacionBackground: resultado omitido por job mas nuevo para candidato ' . $id_candidato . ' job ' . (int) $idJobActual);
+                    return true;
+                }
                 CandidatosDAO::updateVerificacionExpediente($id_candidato, json_encode($payload));
                 error_log('CapHum::verificacionBackground: OK para candidato ' . $id_candidato);
                 return true;
@@ -19873,6 +19907,10 @@ class CapHum extends Controller
                 $alertasErr = ['El Motor V2 no pudo completar el cruce documental. No se marca como revision manual; use reintentar cuando el servicio este disponible.'];
                 if ($soloIdentificacion) {
                     array_unshift($alertasErr, 'Modo "solo identificación" (config.ini): el fallo puede no reproducirse con expediente completo.');
+                }
+                if ($this->docVerificacionOmitirResultadoPorJobMasNuevo((int) $id_candidato, $idJobActual)) {
+                    error_log('CapHum::verificacionBackground: error omitido por job mas nuevo para candidato ' . $id_candidato . ' job ' . (int) $idJobActual . ': ' . $err);
+                    return true;
                 }
                 CandidatosDAO::updateVerificacionExpediente($id_candidato, json_encode([
                     'verificacion_en_proceso' => false,
@@ -24932,9 +24970,14 @@ public function getEstadosMunicipiosMexico()
             if (empty($fuentes)) {
                 $fuentes = $servicio->fuentesDesdeRequest($_FILES, $_POST);
                 if (!empty($fuentes)) {
-                    $lote = $servicio->crearLoteTemporal($fuentes);
-                    $batchId = (string) ($lote['batch_id'] ?? '');
-                    $fuentes = $lote['fuentes'] ?? $fuentes;
+                    try {
+                        $lote = $servicio->crearLoteTemporal($fuentes);
+                        $batchId = (string) ($lote['batch_id'] ?? '');
+                        $fuentes = $lote['fuentes'] ?? $fuentes;
+                    } catch (\Throwable $e) {
+                        error_log('CapHum::analizarImportacionDocumentosRrhh lote temporal omitido -> ' . $e->getMessage());
+                        $batchId = '';
+                    }
                 }
             }
             $documentosManual = $servicio->documentosManualDesdePost($_POST);
@@ -25039,9 +25082,14 @@ public function getEstadosMunicipiosMexico()
             if (empty($fuentes)) {
                 $fuentes = $servicio->fuentesDesdeRequest($_FILES, $_POST);
                 if (!empty($fuentes)) {
-                    $lote = $servicio->crearLoteTemporal($fuentes);
-                    $batchId = (string) ($lote['batch_id'] ?? '');
-                    $fuentes = $lote['fuentes'] ?? $fuentes;
+                    try {
+                        $lote = $servicio->crearLoteTemporal($fuentes);
+                        $batchId = (string) ($lote['batch_id'] ?? '');
+                        $fuentes = $lote['fuentes'] ?? $fuentes;
+                    } catch (\Throwable $e) {
+                        error_log('CapHum::analizarImportacionDocumentosPersonaRrhh lote temporal omitido -> ' . $e->getMessage());
+                        $batchId = '';
+                    }
                 }
             }
             $documentosManual = $servicio->documentosManualDesdePost($_POST);

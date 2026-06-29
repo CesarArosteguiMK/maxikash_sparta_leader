@@ -22,6 +22,9 @@ from zoneinfo import ZoneInfo
 import fitz
 from PIL import Image
 
+from app.utils.curp_validator import validar_curp
+from app.utils.nss_validator import validar_nss
+
 
 CDMX_TZ = ZoneInfo("America/Mexico_City")
 
@@ -140,6 +143,11 @@ Reglas de lectura:
 9. La "Constancia de la Clave Unica de Registro de Poblacion" de RENAPO/gob.mx es tipo curp, no constancia_fiscal.
 10. Para CURP, fecha_emision debe ser la fecha visible de expedicion/emision del documento; no inventes fechas futuras.
 11. Para comprobante_domicilio, busca fechas como periodo facturado, periodo de consumo, fecha limite de pago, fecha de corte o emision. En recibos CFE, si no hay fecha_emision usa fecha limite de pago como fecha_vencimiento.
+12. Para solicitud___SPARTA_SECRET_REDACTED__, no confundas campos: "Clave Unica de Registro de Poblacion" es CURP, "Registro Federal de Contribuyentes" es RFC y "Numero de seguridad social" es NSS.
+13. Para nss, extrae solo un numero de 11 digitos asociado a IMSS/NSS. No uses folio de solicitud, cadena original, numero de serie ni codigo QR como NSS.
+14. Para carta_no_adeudo, el nombre_completo debe ser el nombre de la persona que declara/no adeuda. Si solo aparece en la linea manuscrita de "Nombre completo y firma", leelo con mucho cuidado; si no estas seguro, usa null y explica la duda.
+15. Para carta_no_adeudo, no uses "A quien corresponda", nombre de empresa, empleador, beneficiario, entidad emisora o texto de la firma como nombre_completo.
+16. CURP debe tener 18 caracteres alfanumericos y NSS debe tener 11 digitos. Si dudas entre letras/numeros, no inventes.
 
 Estructura exacta:
 {
@@ -217,7 +225,12 @@ Objetivo:
    (primeros 10 caracteres: iniciales + fecha). Si la base coincide y solo
    cambia/falta la homoclave final por lectura OCR/IA, marcala como aviso,
    no como diferencia critica.
-9. Distingue siempre entre:
+9. Para CURP y NSS, compara solo valores completos y validos: CURP de 18
+   caracteres con formato oficial y NSS de 11 digitos. Si una lectura no es
+   valida o es dudosa, no la uses como diferencia; reporta que falta lectura
+   confiable. Si dos valores validos de CURP o NSS difieren, marcala como
+   diferencia critica.
+10. Distingue siempre entre:
    - solicitud___SPARTA_SECRET_REDACTED__ o solicitud_interna: formato interno de MaxiKash.
    - cv: CV personal o solicitud de trabajo general.
    Si una solicitud de trabajo general esta cargada en solicitud_interna,
@@ -640,6 +653,7 @@ def compact_summary_for_prompt(summary: Dict[str, Any]) -> Dict[str, Any]:
                 "nombre_titular",
                 "alertas",
                 "notas",
+                "observaciones",
                 "indicadores",
                 "paginas",
                 "paginas_pdf",
@@ -649,20 +663,106 @@ def compact_summary_for_prompt(summary: Dict[str, Any]) -> Dict[str, Any]:
     return compact
 
 
-def quick_prompt_for(expected_doc_type: Optional[str]) -> str:
+def quick_prompt_for(expected_doc_type: Optional[str], nombre_candidato: Optional[str] = None) -> str:
     if not expected_doc_type:
         return QUICK_PROMPT
+    nombre = str(nombre_candidato or "").strip()
+    nombre_hint = ""
+    if nombre:
+        nombre_hint = (
+            "\n\nNombre registrado del candidato para contraste visual: "
+            + nombre
+            + ". Usalo solo como referencia para leer campos manuscritos; no lo copies "
+            "si la imagen no lo sostiene."
+        )
+    extra = ""
+    if expected_doc_type == "solicitud___SPARTA_SECRET_REDACTED__":
+        extra = (
+            "\n\nInstruccion especial para solicitud interna: revisa los campos manuscritos "
+            "del formulario. Extrae nombre_completo desde el encabezado/datos personales, "
+            "CURP desde 'Clave Unica de Registro de Poblacion', RFC desde 'Registro Federal "
+            "de Contribuyentes' y NSS desde 'Numero de seguridad social'. Si el nombre "
+            "manuscrito coincide visualmente con el nombre registrado, devuelve el nombre "
+            "normalizado como aparece en el registro."
+        )
+    elif expected_doc_type == "nss":
+        extra = (
+            "\n\nInstruccion especial para NSS: valida visualmente que el numero venga junto "
+            "al texto IMSS/NSS/Numero de Seguridad Social. Ignora folios largos, cadena "
+            "original, sellos y numeros de serie."
+        )
+    elif expected_doc_type == "carta_no_adeudo":
+        extra = (
+            "\n\nInstruccion especial para carta de no adeudo: el documento puede traer el "
+            "nombre solo manuscrito sobre 'Nombre completo y firma'. Lee esa linea con zoom "
+            "mental y no cambies letras por parecido visual si no estas seguro. Si el nombre "
+            "manuscrito coincide visualmente con el nombre registrado, devuelve el nombre "
+            "normalizado como aparece en el registro. Si no es claro, deja nombre_completo "
+            "en null y agrega observacion."
+        )
     return (
         QUICK_PROMPT
         + "\n\nCampo que el usuario esta cargando: "
         + EXPECTED_LABELS.get(expected_doc_type, expected_doc_type)
         + ". Identifica el documento real; si no corresponde al campo, no lo fuerces."
+        + nombre_hint
+        + extra
     )
+
+
+def _normalizar_curp_extraida(value: Any) -> Optional[str]:
+    raw = re.sub(r"[^A-Za-z0-9]+", "", str(value or "")).upper()
+    if not raw:
+        return None
+    candidates: List[str] = []
+    if len(raw) == 18:
+        candidates.append(raw)
+    candidates.extend(m.group(0) for m in re.finditer(r"[A-Z]{4}[A-Z0-9]{14}", raw))
+    for cand in candidates:
+        if len(cand) == 18 and validar_curp(cand)[0]:
+            return cand
+    return None
+
+
+def _normalizar_nss_extraido(value: Any) -> Optional[str]:
+    digits = re.sub(r"\D+", "", str(value or ""))
+    if len(digits) != 11:
+        return None
+    return digits if validar_nss(digits)[0] else None
+
+
+def _limpiar_identificadores_extraidos(data: Dict[str, Any]) -> None:
+    fields = data.get("campos")
+    if not isinstance(fields, dict):
+        return
+    observations = data.setdefault("observaciones", [])
+    if not isinstance(observations, list):
+        observations = []
+        data["observaciones"] = observations
+
+    raw_curp = fields.get("curp")
+    if raw_curp:
+        curp = _normalizar_curp_extraida(raw_curp)
+        if curp:
+            fields["curp"] = curp
+        else:
+            fields["curp"] = None
+            observations.append(f"CURP descartada por lectura no valida: {raw_curp}.")
+
+    raw_nss = fields.get("nss")
+    if raw_nss:
+        nss = _normalizar_nss_extraido(raw_nss)
+        if nss:
+            fields["nss"] = nss
+        else:
+            fields["nss"] = None
+            observations.append(f"NSS descartado por lectura no valida: {raw_nss}.")
 
 
 def validate_quick_extracted(data: Dict[str, Any], expected_doc_type: Optional[str]) -> Dict[str, Any]:
     errors: List[str] = []
     warnings: List[str] = []
+    _limpiar_identificadores_extraidos(data)
     doc_type = data.get("tipo_documento") or "desconocido"
     fields = data.get("campos") or {}
     confidence = data.get("confianza_lectura") or "baja"
@@ -852,10 +952,10 @@ class AlibabaDocumentAI:
     def _call(self, pages: List[RenderedPage], prompt_text: str) -> tuple[Dict[str, Any], Dict[str, Any], str, bool]:
         return self._call_content(build_openai_content(pages, prompt_text), max_tokens=1600)
 
-    def quick_verify(self, file_bytes: bytes, filename: str, expected_doc_type: str) -> Dict[str, Any]:
+    def quick_verify(self, file_bytes: bytes, filename: str, expected_doc_type: str, nombre_candidato: Optional[str] = None) -> Dict[str, Any]:
         start = time.time()
         pages, page_count = render_input(file_bytes, filename, self.max_pages, self.dpi)
-        prompt = quick_prompt_for(expected_doc_type)
+        prompt = quick_prompt_for(expected_doc_type, nombre_candidato)
         extracted, usage, actual_model, fallback_used = self._call(pages, prompt)
         extracted["paginas_analizadas"] = extracted.get("paginas_analizadas") or len(pages)
         extracted["paginas_pdf"] = page_count
