@@ -124,7 +124,10 @@ body.dark-mode .trk-section-desc {
 }
 
 /* -- Administracion de transportistas -- */
-.trk-admin-shell { display: grid; gap: 1rem; }
+.trk-admin-shell {
+    display: grid;
+    gap: 1rem;
+}
 .trk-admin-kpis {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(145px, 1fr));
@@ -139,7 +142,26 @@ body.dark-mode .trk-section-desc {
     border-radius: .75rem;
     box-shadow: 0 .12rem .55rem rgba(15,23,42,.04);
 }
-.trk-admin-kpi { padding: .85rem; }
+.trk-admin-kpi {
+    padding: .85rem;
+    display: grid;
+    grid-template-columns: 2.25rem minmax(0, 1fr);
+    gap: .65rem;
+    align-items: center;
+}
+.trk-admin-kpi i {
+    width: 2.25rem;
+    height: 2.25rem;
+    border-radius: .7rem;
+    display: inline-grid;
+    place-items: center;
+    background: #eff6ff;
+    color: #1d4ed8;
+}
+.trk-admin-kpi[data-tone="success"] i { background: #dcfce7; color: #15803d; }
+.trk-admin-kpi[data-tone="info"] i { background: #e0f2fe; color: #0369a1; }
+.trk-admin-kpi[data-tone="warning"] i { background: #fef3c7; color: #b45309; }
+.trk-admin-kpi[data-tone="danger"] i { background: #fee2e2; color: #b91c1c; }
 .trk-admin-kpi span,
 .trk-admin-metric span {
     display: block;
@@ -151,13 +173,12 @@ body.dark-mode .trk-section-desc {
 .trk-admin-kpi strong {
     display: block;
     color: #25364f;
-    font-size: 1.45rem;
+    font-size: 1.35rem;
     line-height: 1.1;
-    margin-top: .25rem;
 }
 .trk-admin-toolbar {
     display: grid;
-    grid-template-columns: minmax(220px, 1fr) 180px 170px auto auto auto;
+    grid-template-columns: minmax(260px, 1fr) 180px 170px auto auto auto;
     gap: .65rem;
     align-items: end;
     padding: .9rem;
@@ -184,6 +205,342 @@ body.dark-mode .trk-section-desc {
     grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
     gap: .85rem;
 }
+.trk-admin-grid.is-panel {
+    grid-template-columns: minmax(285px, 360px) minmax(0, 1fr);
+    align-items: stretch;
+}
+.trk-admin-roster,
+.trk-admin-detail {
+    background: #fff;
+    border: 1px solid #e2e8f0;
+    border-radius: .75rem;
+    box-shadow: 0 .12rem .55rem rgba(15,23,42,.04);
+    min-width: 0;
+}
+.trk-admin-roster {
+    padding: .7rem;
+    display: flex;
+    flex-direction: column;
+    gap: .45rem;
+    max-height: 72vh;
+    overflow-y: auto;
+}
+.trk-admin-roster-title {
+    color: #64748b;
+    font-size: .68rem;
+    font-weight: 900;
+    text-transform: uppercase;
+    padding: .2rem .35rem .4rem;
+}
+.trk-admin-roster-item {
+    width: 100%;
+    border: 1px solid transparent;
+    background: transparent;
+    border-radius: .65rem;
+    padding: .55rem .6rem;
+    text-align: left;
+    display: grid;
+    grid-template-columns: 2rem minmax(0, 1fr) auto;
+    gap: .55rem;
+    align-items: center;
+    color: inherit;
+}
+.trk-admin-roster-item:hover,
+.trk-admin-roster-item.active {
+    background: #f8fafc;
+    border-color: #dbeafe;
+}
+.trk-admin-roster-avatar {
+    width: 2rem;
+    height: 2rem;
+    border-radius: 999px;
+    display: inline-grid;
+    place-items: center;
+    background: #e0f2fe;
+    color: #0369a1;
+}
+.trk-admin-roster-name {
+    color: #25364f;
+    font-size: .78rem;
+    font-weight: 900;
+    line-height: 1.15;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.trk-admin-roster-sub {
+    color: #64748b;
+    font-size: .68rem;
+    line-height: 1.15;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.trk-admin-detail { overflow: hidden; }
+.trk-admin-detail-hero {
+    padding: 1.05rem 1.2rem;
+    min-height: 245px;
+    display: grid;
+    grid-template-columns: minmax(220px, .75fr) minmax(310px, 1.15fr) minmax(220px, .72fr);
+    gap: 1rem;
+    align-items: stretch;
+    background: linear-gradient(110deg, #fff 0%, #fff 44%, #f1f5f9 44%, #f8fafc 100%);
+    border-bottom: 1px solid #e2e8f0;
+}
+.trk-admin-detail-modal-dialog {
+    width: 96vw;
+    max-width: 96vw;
+    margin: 1rem auto;
+}
+.trk-admin-detail-modal-dialog .modal-content {
+    min-height: calc(100vh - 2rem);
+}
+.trk-admin-detail-modal-dialog.modal-dialog-scrollable .modal-body {
+    max-height: calc(100vh - 6rem);
+}
+.trk-admin-detail-overview {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 1rem;
+    min-height: 0;
+    background: #fff;
+    border-bottom: 0;
+}
+.trk-admin-driver-strip {
+    display: grid;
+    grid-template-columns: minmax(320px, 1fr) minmax(210px, .38fr) minmax(250px, .45fr);
+    gap: .75rem;
+    align-items: stretch;
+    border: 1px solid #dbe3ef;
+    border-radius: .75rem;
+    background: #fff;
+    padding: .85rem;
+}
+.trk-admin-driver-identity {
+    display: grid;
+    align-content: center;
+    gap: .35rem;
+    min-width: 0;
+}
+.trk-admin-driver-counters {
+    display: flex;
+    flex-wrap: wrap;
+    gap: .4rem;
+    margin-top: .15rem;
+}
+.trk-admin-driver-counters span {
+    border-radius: 999px;
+    background: #eff6ff;
+    color: #1d4ed8;
+    font-size: .68rem;
+    font-weight: 900;
+    padding: .2rem .5rem;
+}
+.trk-admin-unit-band {
+    display: grid;
+    grid-template-columns: minmax(185px, .45fr) minmax(310px, .75fr) minmax(460px, 1.3fr);
+    gap: 1rem;
+    align-items: center;
+    border: 1px solid #dbe3ef;
+    border-radius: .75rem;
+    background:
+        linear-gradient(90deg, rgba(255,255,255,.98), rgba(248,250,252,.86)),
+        radial-gradient(circle at 72% 42%, rgba(148,163,184,.16), transparent 34%);
+    padding: 1.1rem 1.25rem;
+}
+.trk-admin-unit-band .trk-admin-capacity-card {
+    min-height: 190px;
+}
+.trk-admin-unit-specs {
+    margin-top: 0;
+    align-self: center;
+}
+.trk-admin-unit-band .trk-admin-detail-vehicle {
+    min-height: 230px;
+}
+.trk-admin-unit-band .trk-admin-vehicle-img {
+    max-height: 310px;
+}
+.trk-admin-driver-block,
+.trk-admin-vehicle-card,
+.trk-admin-capacity-card {
+    min-width: 0;
+}
+.trk-admin-detail-name {
+    color: #25364f;
+    font-size: 1.1rem;
+    font-weight: 950;
+    line-height: 1.15;
+}
+.trk-admin-detail-unit,
+.trk-admin-vehicle-specs {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: .6rem;
+    margin-top: .85rem;
+}
+.trk-admin-contact-layout {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+.trk-admin-info-box {
+    border: 1px solid #e2e8f0;
+    border-radius: .65rem;
+    background: rgba(248,250,252,.88);
+    padding: .62rem .68rem;
+    min-width: 0;
+}
+.trk-admin-info-box span {
+    display: block;
+    color: #64748b;
+    font-size: .66rem;
+    font-weight: 900;
+    text-transform: uppercase;
+    letter-spacing: .01em;
+}
+.trk-admin-info-box strong {
+    display: block;
+    color: #25364f;
+    font-size: .9rem;
+    font-weight: 950;
+    line-height: 1.15;
+    overflow-wrap: anywhere;
+}
+.trk-admin-info-box small {
+    display: block;
+    color: #64748b;
+    font-size: .72rem;
+    line-height: 1.2;
+    overflow-wrap: anywhere;
+    margin-top: .15rem;
+}
+.trk-admin-vehicle-card {
+    position: relative;
+    overflow: hidden;
+    border-radius: .85rem;
+    border: 1px solid #dbeafe;
+    background:
+        radial-gradient(circle at 68% 22%, rgba(37,99,235,.12), transparent 26%),
+        linear-gradient(135deg, #f8fbff, #eef6ff);
+    padding: 1rem;
+    display: grid;
+    grid-template-rows: auto minmax(92px, 1fr) auto;
+    gap: .65rem;
+}
+.trk-admin-vehicle-label {
+    color: #64748b;
+    font-size: .68rem;
+    font-weight: 900;
+    text-transform: uppercase;
+}
+.trk-admin-vehicle-name {
+    color: #172554;
+    font-size: 1rem;
+    font-weight: 950;
+    line-height: 1.15;
+}
+.trk-admin-detail-vehicle {
+    min-height: 110px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #94a3b8;
+}
+.trk-admin-vehicle-img {
+    display: block;
+    width: 100%;
+    max-height: 190px;
+    object-fit: contain;
+    filter: drop-shadow(0 14px 24px rgba(15,23,42,.14));
+}
+.trk-admin-detail-modal .modal-body {
+    background: #f8fafc;
+}
+.trk-admin-detail.is-modal {
+    border: 0;
+    box-shadow: none;
+    background: transparent;
+}
+.trk-admin-detail.is-modal .trk-admin-detail-hero {
+    border: 1px solid #e2e8f0;
+    border-radius: .8rem;
+    min-height: 0;
+    margin-bottom: 1rem;
+}
+.trk-admin-detail.is-modal .trk-admin-detail-body {
+    border: 1px solid #e2e8f0;
+    border-radius: .8rem;
+    background: #fff;
+}
+.trk-admin-detail.is-modal .trk-admin-vehicle-card {
+    background:
+        linear-gradient(90deg, rgba(255,255,255,.95), rgba(248,250,252,.8)),
+        radial-gradient(circle at 65% 38%, rgba(148,163,184,.18), transparent 38%);
+}
+.trk-admin-detail.is-modal .trk-admin-detail-vehicle {
+    min-height: 230px;
+}
+.trk-admin-detail.is-modal .trk-admin-vehicle-img {
+    max-height: 310px;
+}
+.trk-admin-capacity-card {
+    border-radius: .85rem;
+    border: 1px solid #e2e8f0;
+    background: rgba(255,255,255,.72);
+    padding: .95rem;
+    display: grid;
+    align-content: space-between;
+    gap: .75rem;
+}
+.trk-admin-capacity-main {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: .75rem;
+    align-items: center;
+}
+.trk-admin-capacity-main strong {
+    color: #25364f;
+    font-size: 1.45rem;
+    line-height: 1;
+}
+.trk-admin-capacity-main span {
+    color: #64748b;
+    font-size: .68rem;
+    font-weight: 900;
+    text-transform: uppercase;
+}
+.trk-admin-detail-body {
+    display: grid;
+    grid-template-columns: minmax(0, 1.2fr) minmax(280px, .8fr);
+    gap: 1rem;
+    padding: 1rem 1.25rem 1.25rem;
+}
+.trk-admin-panel-section {
+    min-width: 0;
+}
+.trk-admin-panel-title {
+    color: #25364f;
+    font-size: .82rem;
+    font-weight: 950;
+    margin-bottom: .6rem;
+}
+.trk-admin-stat-table {
+    display: grid;
+    gap: .35rem;
+}
+.trk-admin-stat-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: .75rem;
+    align-items: center;
+    border-bottom: 1px solid #e2e8f0;
+    padding: .35rem 0;
+    font-size: .74rem;
+}
+.trk-admin-stat-row span:first-child {
+    color: #64748b;
+    font-weight: 800;
+}
+.trk-admin-stat-row strong { color: #25364f; }
 .trk-admin-grid.is-list {
     grid-template-columns: 1fr;
 }
@@ -267,6 +624,11 @@ body.dark-mode .trk-section-desc {
     background: #f8fafc;
     font-size: .74rem;
 }
+.trk-admin-route:hover {
+    border-style: solid;
+    border-color: #bfdbfe;
+    background: #f1f5f9;
+}
 .trk-admin-route-title {
     color: #25364f;
     font-weight: 900;
@@ -316,24 +678,87 @@ body.dark-mode .trk-admin-kpi,
 body.dark-mode .trk-admin-toolbar,
 body.dark-mode .trk-admin-card,
 body.dark-mode .trk-admin-empty,
-body.dark-mode .trk-admin-table-wrap {
+body.dark-mode .trk-admin-table-wrap,
+body.dark-mode .trk-admin-roster,
+body.dark-mode .trk-admin-detail,
+body.dark-mode .trk-admin-capacity-card,
+body.dark-mode .trk-admin-vehicle-card,
+body.dark-mode .trk-admin-info-box,
+body.dark-mode .trk-admin-detail.is-modal .trk-admin-detail-body {
     background: #172121;
     border-color: #2d4444;
+}
+body.dark-mode .trk-admin-detail-modal .modal-body {
+    background: #101818;
+}
+body.dark-mode .trk-admin-kpi i {
+    background: #101818;
 }
 body.dark-mode .trk-admin-kpi strong,
 body.dark-mode .trk-admin-name,
 body.dark-mode .trk-admin-metric strong,
-body.dark-mode .trk-admin-route-title { color: #e2e8f0; }
+body.dark-mode .trk-admin-info-box strong,
+body.dark-mode .trk-admin-route-title,
+body.dark-mode .trk-admin-roster-name,
+body.dark-mode .trk-admin-detail-name,
+body.dark-mode .trk-admin-vehicle-name,
+body.dark-mode .trk-admin-capacity-main strong,
+body.dark-mode .trk-admin-panel-title,
+body.dark-mode .trk-admin-stat-row strong { color: #e2e8f0; }
 body.dark-mode .trk-admin-sub,
 body.dark-mode .trk-admin-kpi span,
 body.dark-mode .trk-admin-metric span,
+body.dark-mode .trk-admin-info-box span,
+body.dark-mode .trk-admin-info-box small,
 body.dark-mode .trk-admin-live,
-body.dark-mode .trk-admin-route-meta { color: #94a3b8; }
+body.dark-mode .trk-admin-route-meta,
+body.dark-mode .trk-admin-roster-title,
+body.dark-mode .trk-admin-roster-sub,
+body.dark-mode .trk-admin-vehicle-label,
+body.dark-mode .trk-admin-capacity-main span,
+body.dark-mode .trk-admin-stat-row span:first-child { color: #94a3b8; }
 body.dark-mode .trk-admin-metric,
 body.dark-mode .trk-admin-route {
     background: #101818;
     border-color: #2d4444;
 }
+body.dark-mode .trk-admin-roster-item:hover,
+body.dark-mode .trk-admin-roster-item.active {
+    background: #101818;
+    border-color: #2d4444;
+}
+body.dark-mode .trk-admin-detail-hero {
+    background: linear-gradient(110deg, #172121 0%, #172121 50%, #101818 50%, #162121 100%);
+    border-color: #2d4444;
+}
+body.dark-mode .trk-admin-detail.is-modal .trk-admin-detail-hero {
+    border-color: #2d4444;
+}
+body.dark-mode .trk-admin-detail.is-modal .trk-admin-vehicle-card {
+    background:
+        linear-gradient(90deg, rgba(23,33,33,.96), rgba(16,24,24,.88)),
+        radial-gradient(circle at 65% 38%, rgba(148,163,184,.10), transparent 38%);
+}
+body.dark-mode .trk-admin-detail-overview,
+body.dark-mode .trk-admin-driver-strip,
+body.dark-mode .trk-admin-unit-band {
+    background: #172121;
+    border-color: #2d4444;
+}
+body.dark-mode .trk-admin-unit-band {
+    background:
+        linear-gradient(90deg, rgba(23,33,33,.98), rgba(16,24,24,.88)),
+        radial-gradient(circle at 72% 42%, rgba(148,163,184,.10), transparent 34%);
+}
+body.dark-mode .trk-admin-driver-counters span {
+    background: #102231;
+    color: #93c5fd;
+}
+body.dark-mode .trk-admin-route:hover {
+    background: #132020;
+    border-color: #355555;
+}
+body.dark-mode .trk-admin-stat-row { border-color: #2d4444; }
 body.dark-mode .trk-admin-table thead th,
 body.dark-mode .trk-admin-table td {
     border-color: #2d4444;
@@ -363,11 +788,18 @@ body.dark-mode .trk-driver-mini { color: #94a3b8; }
 
 @media (max-width: 991.98px) {
     .trk-admin-toolbar { grid-template-columns: 1fr 1fr; }
+    .trk-admin-grid.is-panel,
+    .trk-admin-detail-body,
+    .trk-admin-detail-hero,
+    .trk-admin-driver-strip,
+    .trk-admin-unit-band { grid-template-columns: 1fr; }
+    .trk-admin-contact-layout { grid-template-columns: 1fr; }
     .trk-admin-grid.is-list .trk-admin-card { grid-template-columns: 1fr; }
 }
 @media (max-width: 575.98px) {
     .trk-admin-toolbar,
-    .trk-admin-metrics { grid-template-columns: 1fr; }
+    .trk-admin-metrics,
+    .trk-admin-detail-unit { grid-template-columns: 1fr; }
     .trk-admin-grid { grid-template-columns: 1fr; }
 }
 
@@ -494,8 +926,9 @@ body.dark-mode .track-filters { background: #1e2d2c; }
     display: grid;
     grid-template-columns: minmax(0, 1fr);
     gap: .85rem;
-    max-width: 820px;
-    margin: 0 auto;
+    width: 100%;
+    max-width: none;
+    margin: 0;
 }
 .trk-rutas-board-grid .trk-rutas-grid {
     grid-template-columns: repeat(3, minmax(260px, 1fr));
@@ -509,8 +942,9 @@ body.dark-mode .track-filters { background: #1e2d2c; }
     overflow: hidden;
 }
 .trk-rutas-pagination {
-    max-width: 820px;
-    margin: .85rem auto 0;
+    width: 100%;
+    max-width: none;
+    margin: .85rem 0 0;
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -832,8 +1266,7 @@ body.dark-mode .trk-borrador-muted {
     white-space: nowrap;
 }
 .trk-catalog-shell {
-    display: flex;
-    flex-direction: column;
+    display: grid;
     gap: 1rem;
 }
 .trk-catalog-hero {
@@ -861,14 +1294,27 @@ body.dark-mode .trk-borrador-muted {
     flex-wrap: wrap;
 }
 .trk-catalog-toolbar {
-    justify-content: space-between;
-    padding: .75rem;
-    border: 1px solid #e2e8f0;
-    border-radius: .65rem;
-    background: #fff;
+    display: grid;
+    grid-template-columns: minmax(260px, 1fr) auto auto auto auto auto;
+    align-items: end;
+}
+.trk-catalog-toolbar .btn {
+    white-space: nowrap;
+}
+.trk-catalog-toolbar .trk-catalog-view {
+    min-width: 2.35rem;
+    height: 2rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0;
+}
+.trk-catalog-toolbar .trk-catalog-view i {
+    font-size: .875rem;
+    margin-right: 0 !important;
 }
 .trk-catalog-search {
-    max-width: 480px;
+    min-width: 0;
 }
 .trk-catalog-list {
     display: grid;
@@ -878,9 +1324,9 @@ body.dark-mode .trk-borrador-muted {
 .trk-catalog-card,
 .trk-catalog-group {
     border: 1px solid #e2e8f0;
-    border-radius: .65rem;
+    border-radius: .75rem;
     background: #fff;
-    box-shadow: 0 .25rem .75rem rgba(15, 23, 42, .04);
+    box-shadow: 0 .12rem .55rem rgba(15, 23, 42, .04);
 }
 .trk-catalog-card {
     padding: .85rem;
@@ -890,9 +1336,9 @@ body.dark-mode .trk-borrador-muted {
 }
 .trk-catalog-card-title {
     color: #24304f;
-    font-size: .92rem;
-    font-weight: 800;
-    line-height: 1.15;
+    font-size: .95rem;
+    font-weight: 900;
+    line-height: 1.18;
     text-transform: uppercase;
     word-break: break-word;
 }
@@ -929,7 +1375,7 @@ body.dark-mode .trk-borrador-muted {
 }
 .trk-catalog-group-title {
     color: #24304f;
-    font-size: 1.05rem;
+    font-size: 1.16rem;
     font-weight: 900;
     line-height: 1.1;
     text-transform: uppercase;
@@ -952,7 +1398,6 @@ body.dark-mode .trk-catalog-hero {
     background: #172121;
     border-color: #2d4444;
 }
-body.dark-mode .trk-catalog-toolbar,
 body.dark-mode .trk-catalog-card,
 body.dark-mode .trk-catalog-group,
 body.dark-mode .trk-catalog-empty {
@@ -974,7 +1419,7 @@ body.dark-mode .trk-catalog-card-sub {
     .trk-catalog-hero,
     .trk-catalog-toolbar {
         align-items: stretch;
-        flex-direction: column;
+        grid-template-columns: 1fr;
     }
     .trk-catalog-actions .btn,
     .trk-catalog-search {
@@ -2345,6 +2790,41 @@ body.dark-mode .trk-moto-model-pill {
     padding: .45rem .5rem;
     min-width: 0;
 }
+.trk-route-day-start {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    align-items: start;
+    gap: .5rem;
+    border: 1px solid #bfdbfe;
+    background: #eff6ff;
+    border-radius: .5rem;
+    padding: .5rem .6rem;
+    min-width: 0;
+}
+.trk-route-day-start-icon {
+    width: 1.55rem;
+    height: 1.55rem;
+    display: inline-grid;
+    place-items: center;
+    border-radius: 999px;
+    background: #1d4ed8;
+    color: #fff;
+    font-size: .72rem;
+    box-shadow: 0 6px 14px rgba(29, 78, 216, .2);
+}
+.trk-route-day-start-label {
+    color: #1d4ed8;
+    font-size: .62rem;
+    font-weight: 900;
+    text-transform: uppercase;
+    letter-spacing: .02em;
+}
+.trk-route-day-start-title {
+    color: #25364f;
+    font-size: .76rem;
+    font-weight: 900;
+    line-height: 1.15;
+}
 .trk-route-day-item.is-overflow {
     border-color: #f59e0b;
     background: #fff7ed;
@@ -2439,6 +2919,16 @@ body.dark-mode .trk-route-day-card,
 body.dark-mode .trk-route-day-item {
     background: #172121;
     border-color: #2d4444;
+}
+body.dark-mode .trk-route-day-start {
+    background: #102231;
+    border-color: #1e3a5f;
+}
+body.dark-mode .trk-route-day-start-title {
+    color: #e2e8f0;
+}
+body.dark-mode .trk-route-day-start-label {
+    color: #93c5fd;
 }
 body.dark-mode .trk-route-day-item.is-overflow {
     background: #2b2414;
@@ -4495,50 +4985,31 @@ $trackingIsPlaneacion = $trackingShowMainTabs
         <!-- Tab: CEDIS y transportistas -->
         <div class="tab-pane fade<?= $trackingInitialSection === 'catalogos' ? ' show active' : ''; ?>" id="tabCatalogosTracking">
             <div class="trk-catalog-shell">
-                <div class="trk-catalog-hero">
-                    <div>
-                        <div class="trk-catalog-eyebrow">Directorio operativo</div>
-                        <h5 class="mb-1">CEDIS y transportistas</h5>
-                        <div class="text-muted small">Administra centros de destino y operadores para asignacion de rutas.</div>
-                    </div>
-                    <div class="trk-catalog-actions">
-                        <button type="button" class="btn btn-primary btn-sm fw-semibold" id="btnNuevoCedisTracking">
-                            <i class="fa-solid fa-plus me-1"></i>Registrar CEDIS <i class="fa-solid fa-warehouse ms-1"></i>
-                        </button>
-                        <button type="button" class="btn btn-primary btn-sm fw-semibold" id="btnNuevoTransportistaTracking">
-                            <i class="fa-solid fa-plus me-1"></i>Registrar Transportista <i class="fa-solid fa-id-card-clip ms-1"></i>
-                        </button>
-                        <button type="button" class="btn btn-primary btn-sm fw-semibold" id="btnNuevaUnidadTracking">
-                            <i class="fa-solid fa-plus me-1"></i>Registrar Unidad <i class="fa-solid fa-truck ms-1"></i>
-                        </button>
-                    </div>
+                <div class="trk-admin-kpis">
+                    <div class="trk-admin-kpi" data-tone="info"><i class="fa-solid fa-warehouse"></i><div><span>CEDIS activos</span><strong id="statAgenciasTracking">0</strong></div></div>
+                    <div class="trk-admin-kpi" data-tone="success"><i class="fa-solid fa-user-check"></i><div><span>Transportistas internos</span><strong id="statTransportistasInternos">0</strong></div></div>
+                    <div class="trk-admin-kpi" data-tone="warning"><i class="fa-solid fa-user-tie"></i><div><span>Transportistas externos</span><strong id="statTransportistasExternos">0</strong></div></div>
+                    <div class="trk-admin-kpi" data-tone="info"><i class="fa-solid fa-address-book"></i><div><span>Directorio total</span><strong id="statCatalogoTotal">0</strong></div></div>
                 </div>
 
-                <div class="trk-catalog-grid">
-                    <div class="trk-catalog-stat">
-                        <div class="stat-label">CEDIS activos</div>
-                        <div class="stat-value" id="statAgenciasTracking">0</div>
+                <div class="trk-admin-toolbar trk-catalog-toolbar">
+                    <div class="trk-catalog-search">
+                        <label class="form-label mb-1 small fw-semibold">Buscar en directorio</label>
+                        <input type="search" class="form-control form-control-sm" id="trkCatalogoBuscar"
+                               placeholder="CEDIS, transportista, empresa, estado..." autocomplete="off">
                     </div>
-                    <div class="trk-catalog-stat">
-                        <div class="stat-label">Transportistas internos</div>
-                        <div class="stat-value" id="statTransportistasInternos">0</div>
-                    </div>
-                    <div class="trk-catalog-stat">
-                        <div class="stat-label">Transportistas externos</div>
-                        <div class="stat-value" id="statTransportistasExternos">0</div>
-                    </div>
-                    <div class="trk-catalog-stat">
-                        <div class="stat-label">Directorio total</div>
-                        <div class="stat-value" id="statCatalogoTotal">0</div>
-                    </div>
-                </div>
-
-                <div class="trk-catalog-toolbar">
-                    <div class="input-group input-group-sm trk-catalog-search">
-                        <span class="input-group-text"><i class="fa-solid fa-search"></i></span>
-                        <input type="search" class="form-control" id="trkCatalogoBuscar"
-                               placeholder="Buscar CEDIS, transportista, empresa, estado..." autocomplete="off">
-                    </div>
+                    <button type="button" class="btn btn-sm btn-primary" id="trkCatalogoActualizar">
+                        <i class="fa-solid fa-rotate me-1"></i>Actualizar
+                    </button>
+                    <button type="button" class="btn btn-sm btn-label-info" id="btnNuevoCedisTracking">
+                        <i class="fa-solid fa-plus me-1"></i>Registrar CEDIS <i class="fa-solid fa-warehouse ms-1"></i>
+                    </button>
+                    <button type="button" class="btn btn-sm btn-label-info" id="btnNuevoTransportistaTracking">
+                        <i class="fa-solid fa-plus me-1"></i>Registrar Transportista <i class="fa-solid fa-id-card-clip ms-1"></i>
+                    </button>
+                    <button type="button" class="btn btn-sm btn-label-info" id="btnNuevaUnidadTracking">
+                        <i class="fa-solid fa-plus me-1"></i>Registrar Unidad <i class="fa-solid fa-truck ms-1"></i>
+                    </button>
                     <div class="btn-group" role="group" aria-label="Vista catálogos">
                         <button type="button" class="btn btn-sm <?= $trackingCatalogoDefaultView === 'directorio' ? 'btn-label-primary active' : 'btn-label-secondary'; ?> trk-catalog-view" data-view="directorio">
                             <i class="fa-solid fa-table-cells-large me-1"></i>Directorio
@@ -4554,9 +5025,9 @@ $trackingIsPlaneacion = $trackingShowMainTabs
 
                 <div id="trkCatalogoDirectorio" class="trk-catalog-list<?= $trackingCatalogoDefaultView !== 'directorio' ? ' d-none' : ''; ?>"></div>
                 <div id="trkCatalogoAgrupado" class="trk-catalog-grouped<?= $trackingCatalogoDefaultView !== 'agrupado' ? ' d-none' : ''; ?>"></div>
-                <div id="trkCatalogoTabla" class="trk-catalog-table<?= $trackingCatalogoDefaultView !== 'tabla' ? ' d-none' : ''; ?>">
+                <div id="trkCatalogoTabla" class="trk-catalog-table trk-admin-table-wrap<?= $trackingCatalogoDefaultView !== 'tabla' ? ' d-none' : ''; ?>">
                     <div class="table-responsive">
-                        <table id="tablaAgenciasTracking" class="table table-hover mb-0 w-100 trk-operacion-table" style="font-size:.82rem;">
+                        <table id="tablaAgenciasTracking" class="table table-hover mb-0 w-100 trk-operacion-table trk-admin-table" style="font-size:.82rem;">
                             <thead>
                                 <tr>
                                     <th>CEDIS</th>
@@ -4570,7 +5041,7 @@ $trackingIsPlaneacion = $trackingShowMainTabs
                         </table>
                     </div>
                     <div class="table-responsive mt-3">
-                        <table id="tablaTransportistasTracking" class="table table-hover mb-0 w-100 trk-operacion-table" style="font-size:.82rem;">
+                        <table id="tablaTransportistasTracking" class="table table-hover mb-0 w-100 trk-operacion-table trk-admin-table" style="font-size:.82rem;">
                             <thead>
                                 <tr>
                                     <th>Transportista</th>
@@ -4591,12 +5062,12 @@ $trackingIsPlaneacion = $trackingShowMainTabs
         <div class="tab-pane fade<?= $trackingInitialSection === 'operacion' ? ' show active' : ''; ?>" id="tabOperacionTransportistas">
             <div class="trk-admin-shell">
                 <div class="trk-admin-kpis">
-                    <div class="trk-admin-kpi"><span>Activos</span><strong id="trkOpKpiActivos">0</strong></div>
-                    <div class="trk-admin-kpi"><span>Disponibles</span><strong id="trkOpKpiDisponibles">0</strong></div>
-                    <div class="trk-admin-kpi"><span>En ruta</span><strong id="trkOpKpiRuta">0</strong></div>
-                    <div class="trk-admin-kpi"><span>Programados</span><strong id="trkOpKpiProgramados">0</strong></div>
-                    <div class="trk-admin-kpi"><span>Advertencia</span><strong id="trkOpKpiAdvertencia">0</strong></div>
-                    <div class="trk-admin-kpi"><span>Saturados</span><strong id="trkOpKpiSaturados">0</strong></div>
+                    <div class="trk-admin-kpi" data-tone="info"><i class="fa-solid fa-id-card"></i><div><span>Activos</span><strong id="trkOpKpiActivos">0</strong></div></div>
+                    <div class="trk-admin-kpi" data-tone="success"><i class="fa-solid fa-circle-check"></i><div><span>Disponibles</span><strong id="trkOpKpiDisponibles">0</strong></div></div>
+                    <div class="trk-admin-kpi" data-tone="info"><i class="fa-solid fa-route"></i><div><span>En ruta</span><strong id="trkOpKpiRuta">0</strong></div></div>
+                    <div class="trk-admin-kpi" data-tone="warning"><i class="fa-solid fa-calendar-day"></i><div><span>Programados</span><strong id="trkOpKpiProgramados">0</strong></div></div>
+                    <div class="trk-admin-kpi" data-tone="warning"><i class="fa-solid fa-triangle-exclamation"></i><div><span>Advertencia</span><strong id="trkOpKpiAdvertencia">0</strong></div></div>
+                    <div class="trk-admin-kpi" data-tone="danger"><i class="fa-solid fa-boxes-stacked"></i><div><span>Saturados</span><strong id="trkOpKpiSaturados">0</strong></div></div>
                 </div>
 
                 <div class="trk-admin-toolbar">
@@ -4656,7 +5127,7 @@ $trackingIsPlaneacion = $trackingShowMainTabs
                                     <th>Operacion</th>
                                     <th>Capacidad</th>
                                     <th>Rutas</th>
-                                    <th>CEDIS / ubicación</th>
+                                    <th>CEDIS / ubicacion</th>
                                     <th>Alertas</th>
                                 </tr>
                             </thead>
@@ -4936,6 +5407,23 @@ $trackingIsPlaneacion = $trackingShowMainTabs
 </div>
 
 <!-- ==========================================================
+     Modal  -  Detalle completo de transportista
+========================================================== -->
+<div class="modal fade" id="modalOperacionTransportistaDetalle" tabindex="-1" aria-labelledby="modalOperacionTransportistaDetalleLabel">
+    <div class="modal-dialog modal-dialog-scrollable trk-admin-detail-modal-dialog">
+        <div class="modal-content trk-admin-detail-modal">
+            <div class="modal-header py-2">
+                <h6 class="modal-title mb-0" id="modalOperacionTransportistaDetalleLabel">
+                    <i class="fa-solid fa-truck-fast me-2" style="color:var(--track-color);"></i>Datos completos del transportista
+                </h6>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <div class="modal-body" id="trkOpDetalleModalBody"></div>
+        </div>
+    </div>
+</div>
+
+<!-- ==========================================================
      Modal  -  Registrar / editar ruta
 ========================================================== -->
 <div class="modal fade" id="modalRegistrarRuta" tabindex="-1" aria-labelledby="modalRegistrarRutaLabel"
@@ -5192,10 +5680,10 @@ $trackingIsPlaneacion = $trackingShowMainTabs
                         </div>
                         <div>
                             <label for="trkPlanMinParada">Min por parada</label>
-                            <input type="number" class="form-control form-control-sm" id="trkPlanMinParada"
-                                   min="5" max="240" step="5" value="45">
+                            <input type="text" class="form-control form-control-sm" id="trkPlanMinParada"
+                                   inputmode="numeric" pattern="[0-9]*" maxlength="2" value="45">
                         </div>
-                        <div>
+                        <div id="trkPlanTrasladoEstadosWrap">
                             <label for="trkPlanDiasTrasladoEstado">Traslado entre estados</label>
                             <input type="number" class="form-control form-control-sm" id="trkPlanDiasTrasladoEstado"
                                    min="0" max="2" step="1" value="1">
@@ -5646,6 +6134,8 @@ window._trackingPuedeCancelarRutas = <?= !empty($tracking_puede_cancelar_rutas) 
 ======================================================= */
 'use strict';
 
+const TRK_UNIDAD_ASSET_BASE = '/assets/img/tracking/';
+
 // --- Estado local ---------------------------------------
 const _trk = {
     creditosDisponibles:  [],   // todos los creditos disponibles del servidor
@@ -5659,6 +6149,7 @@ const _trk = {
     operacionFiltroTipo:   '',
     operacionBusqueda:     '',
     operacionVista:        'grid',
+    operacionSeleccionado: '',
     operacionLiveLoaded:   {},
     operacionLiveInfo:     {},
     rutasRegistradas:     [],
@@ -6112,6 +6603,15 @@ document.addEventListener('DOMContentLoaded', function () {
     document.getElementById('trkOpVistaGrid')?.addEventListener('click', () => _trkSetOperacionVista('grid'));
     document.getElementById('trkOpVistaTabla')?.addEventListener('click', () => _trkSetOperacionVista('tabla'));
     document.getElementById('trkOpActualizar')?.addEventListener('click', () => _trkCargarSeccion('operacion', { force: true }));
+    document.getElementById('trkOpGrid')?.addEventListener('click', ev => {
+        const btn = ev.target.closest('[data-op-driver]');
+        if (!btn) return;
+        _trk.operacionSeleccionado = String(btn.dataset.opDriver || '');
+        _trkRenderOperacionTransportistas();
+    });
+    $('#tabOperacionTransportistas').on('click', '.btn-ver-operacion-transportista', function () {
+        _trkAbrirModalOperacionTransportista($(this).data('id'));
+    });
     document.getElementById('btnToggleChatMap')?.addEventListener('click', () => _trkToggleChatMapPanel());
     document.getElementById('trkSectionGrid')?.addEventListener('click', ev => {
         const btn = ev.target.closest('.trk-section-card');
@@ -6454,11 +6954,11 @@ function _trkInicializarTablaCreditosDT() {
     $('#detalleRutaBody').on('click', '.btn-cambiar-cedis-destino', function () {
         _trkAbrirModalCambiarCedisDestino(Number($(this).data('id')));
     });
-    $('#detalleRutaBody').on('click', '.btn-generar-otp', function () {
-        _trkGenerarOtpDetalle(Number($(this).data('id')));
+    $('#detalleRutaBody').on('click', '.btn-validar-otp', function () {
+        _trkValidarOtpDetalle(Number($(this).data('id')));
     });
-    $('#trkTimeline').on('click', '.btn-generar-otp', function () {
-        _trkGenerarOtpDetalle(Number($(this).data('id')));
+    $('#trkTimeline').on('click', '.btn-validar-otp', function () {
+        _trkValidarOtpDetalle(Number($(this).data('id')));
     });
     $('#rutaCedisDestinoInfo, #trkMapTransportSummary').on('click', '.btn-cambiar-cedis-destino', function () {
         _trkAbrirModalCambiarCedisDestino(Number($(this).data('id')));
@@ -6596,7 +7096,23 @@ function _trkCargarCreditosSiHaceFalta(silent = false) {
 
 function _trkRutaCancelable(estatus) {
     if (!window._trackingPuedeCancelarRutas) return false;
-    return !['borrador', 'cancelada'].includes(String(estatus || ''));
+    const status = String(estatus || '')
+        .toLowerCase()
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '');
+    return ![
+        'borrador',
+        'cancelada',
+        'cancelado',
+        'concluida',
+        'concluido',
+        'completada',
+        'completado',
+        'finalizada',
+        'finalizado',
+        'terminada',
+        'terminado',
+    ].includes(status);
 }
 
 function _trkRutaDebeConsultarEstadoLive(estatus) {
@@ -8098,6 +8614,7 @@ function _trkInicializarCatalogosTrackingUI() {
         _trk.catalogoBusqueda = this.value || '';
         _trkRenderCatalogosTracking();
     });
+    $('#trkCatalogoActualizar').on('click', () => _trkCargarSeccion('catalogos', { force: true }));
     $('#tabCatalogosTracking').on('click', '.trk-catalog-view', function () {
         _trk.catalogoVista = this.dataset.view || 'directorio';
         _trkRenderCatalogosTracking();
@@ -8209,7 +8726,7 @@ function _trkCatalogoAccionesTransportista(t) {
 function _trkCatalogoCedisCard(a, compacto = false) {
     const ubicacion = [a.estado, a.municipio, a.codigo_postal ? `CP ${a.codigo_postal}` : ''].filter(Boolean).join(' / ') || 'Sin ubicación';
     const contacto = [a.telefono, a.email].filter(Boolean).join(' - ') || 'Sin contacto';
-    return `<article class="trk-catalog-card">
+    return `<article class="trk-catalog-card trk-admin-card">
         <div class="d-flex align-items-start justify-content-between gap-2">
             <div>
                 <span class="badge bg-primary mb-1"><i class="fa-solid fa-warehouse me-1"></i>CEDIS</span>
@@ -8229,7 +8746,7 @@ function _trkCatalogoCedisCard(a, compacto = false) {
 function _trkCatalogoTransportistaCard(t) {
     const cedis = t.nombre_agencia || t.empresa_origen || 'Sin CEDIS';
     const contacto = [t.telefono, t.email].filter(Boolean).join(' - ') || 'Sin contacto';
-    return `<article class="trk-catalog-card">
+    return `<article class="trk-catalog-card trk-admin-card">
         <div class="d-flex align-items-start justify-content-between gap-2">
             <div>
                 ${_trkTipoTransportistaBadge(t.tipo_transportista)}
@@ -9046,6 +9563,7 @@ function _trkAplicarOperacionVista() {
     $('#trkOpGridWrap').toggleClass('d-none', esTabla);
     $('#trkOpTablaWrap').toggleClass('d-none', !esTabla);
     $('#trkOpGrid').toggleClass('is-list', vista === 'lista');
+    $('#trkOpGrid').removeClass('is-panel');
 
     const botones = {
         lista: document.getElementById('trkOpVistaLista'),
@@ -9137,6 +9655,181 @@ function _trkRenderOperacionTransportistas() {
     $('#trkOpGrid').html(filtrados.map(_trkOperacionTransportistaCard).join(''));
 }
 
+function _trkOperacionTransportistaPanel(filtrados) {
+    if (!_trk.operacionSeleccionado || !filtrados.some(t => String(t.id_transportista || '') === String(_trk.operacionSeleccionado))) {
+        _trk.operacionSeleccionado = String(filtrados[0]?.id_transportista || '');
+    }
+    const seleccionado = filtrados.find(t => String(t.id_transportista || '') === String(_trk.operacionSeleccionado)) || filtrados[0];
+    const roster = filtrados.map(t => _trkOperacionRosterItem(t, seleccionado?.id_transportista)).join('');
+    return `<aside class="trk-admin-roster">
+            <div class="trk-admin-roster-title">Transportistas (${filtrados.length})</div>
+            ${roster}
+        </aside>
+        ${_trkOperacionDetallePanel(seleccionado)}`;
+}
+
+function _trkOperacionRosterItem(t, selectedId) {
+    const id = String(t.id_transportista || '');
+    const active = id && String(selectedId || '') === id;
+    const status = String(t.estatus_operativo || 'disponible');
+    const unidad = _trkOperacionUnidadTexto(t);
+    const cap = Number(t.capacidad_total || 0);
+    const disponible = cap > 0 ? `${t.capacidad_disponible ?? 0} disp.` : 'Sin cap.';
+    const rutasTxt = `${t.rutas_activas || 0} activas / ${t.rutas_programadas || 0} prog.`;
+    return `<button type="button" class="trk-admin-roster-item${active ? ' active' : ''}" data-op-driver="${_trkChatEscapeHtml(id)}">
+        <span class="trk-admin-roster-avatar"><i class="fa-solid fa-truck"></i></span>
+        <span style="min-width:0;">
+            <span class="trk-admin-roster-name">${_trkChatEscapeHtml(t.nombre_transportista || 'Sin nombre')}</span>
+            <span class="trk-admin-roster-sub">${_trkChatEscapeHtml(unidad)}</span>
+            <span class="trk-admin-roster-sub">${_trkChatEscapeHtml(rutasTxt)} - ${_trkChatEscapeHtml(disponible)}</span>
+        </span>
+        <span class="trk-admin-status ${_trkChatEscapeHtml(status)}">${_trkChatEscapeHtml(_trkOperacionStatusLabel(status))}</span>
+    </button>`;
+}
+
+function _trkOperacionUnidadImagen(t) {
+    const raw = _trkNormTxt([
+        t?.unidad?.tipo_unidad,
+        t?.tipo_unidad,
+        t?.unidad?.marca,
+        t?.unidad?.modelo,
+    ].filter(Boolean).join(' '));
+    if (raw.includes('torton')) return `${TRK_UNIDAD_ASSET_BASE}unidad_torton.png`;
+    if (raw.includes('rabon')) return `${TRK_UNIDAD_ASSET_BASE}unidad_rabon.png`;
+    if (raw.includes('grua')) return `${TRK_UNIDAD_ASSET_BASE}unidad_grua.png`;
+    return `${TRK_UNIDAD_ASSET_BASE}unidad_camioneta.png`;
+}
+
+function _trkOperacionInfoBox(label, main, sub = '') {
+    return `<div class="trk-admin-info-box">
+        <span>${_trkChatEscapeHtml(label)}</span>
+        <strong>${_trkChatEscapeHtml(main || '-')}</strong>
+        ${sub ? `<small>${_trkChatEscapeHtml(sub)}</small>` : ''}
+    </div>`;
+}
+
+function _trkAbrirModalOperacionTransportista(idTransportista) {
+    const id = String(idTransportista || '');
+    const t = (_trk.operacionTransportistas || []).find(x => String(x.id_transportista || '') === id);
+    if (!t) {
+        Swal.fire({
+            icon: 'info',
+            title: 'Transportista no encontrado',
+            text: 'No se encontro el transportista dentro de la lectura operativa actual.',
+            confirmButtonText: 'Aceptar',
+            customClass: { confirmButton: 'btn btn-primary' },
+            buttonsStyling: false,
+        });
+        return;
+    }
+    $('#trkOpDetalleModalBody').html(_trkOperacionDetallePanel(t, { modal: true }));
+    const modalEl = document.getElementById('modalOperacionTransportistaDetalle');
+    if (!modalEl) return;
+    bootstrap.Modal.getOrCreateInstance(modalEl).show();
+}
+
+function _trkOperacionDetallePanel(t, opts = {}) {
+    if (!t) {
+        return '<section class="trk-admin-detail"><div class="trk-admin-empty">Selecciona un transportista para revisar su operacion.</div></section>';
+    }
+    const status = String(t.estatus_operativo || 'disponible');
+    const cap = Number(t.capacidad_total || 0);
+    const proyectada = Number(t.capacidad_proyectada || 0);
+    const usada = Number(t.capacidad_usada || 0);
+    const pct = cap > 0 ? Math.min(100, Math.round((proyectada / cap) * 100)) : 0;
+    const barClass = cap > 0 && proyectada >= cap ? 'danger' : (cap > 0 && pct >= 80 ? 'warn' : '');
+    const cedisBase = [t.cedis_base?.nombre, t.cedis_base?.municipio, t.cedis_base?.estado].filter(Boolean).join(' / ') || t.empresa_origen || 'Sin CEDIS base';
+    const unidad = t.unidad || {};
+    const unidadNombre = _trkOperacionUnidadTexto(t);
+    const disponibleTxt = cap > 0 ? `${t.capacidad_disponible ?? 0}` : '-';
+    const rutas = (t.rutas || []).slice(0, 5).map(_trkOperacionRutaMini).join('');
+    const alertas = _trkOperacionAlertasHtml(t);
+    const tipoBadge = _trkTipoTransportistaBadge(t.tipo_transportista);
+    const telefono = t.telefono || 'Sin telefono';
+    const email = t.email || 'Sin email';
+    const contacto = [t.telefono, t.email].filter(Boolean).join(' / ') || 'Sin contacto registrado';
+    const empresa = t.empresa_origen || 'Sin empresa';
+    const unidadTipo = unidad.tipo_unidad || t.tipo_unidad || 'Sin tipo';
+    const unidadModelo = [unidad.marca, unidad.modelo, unidad.anio].filter(Boolean).join(' ') || unidadNombre;
+    const placa = unidad.placa || 'Sin placa';
+    const identificador = unidad.numero_economico || unidad.numero_serie || 'Sin identificador';
+    const capacidadTxt = cap > 0 ? `${proyectada} / ${cap}` : 'Sin configurar';
+    const recomendacion = t.recomendacion || 'Evaluar';
+    const unidadImg = _trkOperacionUnidadImagen(t);
+    const modalClass = opts.modal ? ' is-modal' : '';
+    return `<section class="trk-admin-detail${modalClass}">
+        <div class="trk-admin-detail-hero trk-admin-detail-overview">
+            <div class="trk-admin-driver-strip">
+                <div class="trk-admin-driver-identity">
+                    <div class="d-flex align-items-center gap-2 flex-wrap">
+                        ${tipoBadge}
+                        <span class="trk-admin-status ${_trkChatEscapeHtml(status)}">${_trkChatEscapeHtml(_trkOperacionStatusLabel(status))}</span>
+                    </div>
+                    <div class="trk-admin-detail-name">${_trkChatEscapeHtml(t.nombre_transportista || 'Sin nombre')}</div>
+                    <div class="trk-admin-sub">${_trkChatEscapeHtml(cedisBase)}</div>
+                    <div class="trk-admin-driver-counters">
+                        <span>Rutas activas ${_trkChatEscapeHtml(t.rutas_activas || 0)}</span>
+                        <span>Programadas ${_trkChatEscapeHtml(t.rutas_programadas || 0)}</span>
+                    </div>
+                </div>
+                ${_trkOperacionInfoBox('Contacto', telefono, email)}
+                ${_trkOperacionInfoBox('Empresa', empresa)}
+            </div>
+            <div class="trk-admin-unit-band">
+                <div class="trk-admin-capacity-card">
+                    <div class="trk-admin-capacity-main">
+                        <div>
+                            <span>Capacidad proyectada</span>
+                            <strong>${_trkChatEscapeHtml(capacidadTxt)}</strong>
+                        </div>
+                        <span class="trk-admin-status ${_trkChatEscapeHtml(status)}">${_trkChatEscapeHtml(_trkOperacionStatusLabel(status))}</span>
+                    </div>
+                    <div>
+                        <div class="d-flex justify-content-between small fw-semibold mb-1">
+                            <span>Uso estimado</span><span>${_trkChatEscapeHtml(cap > 0 ? `${pct}%` : 'Sin configurar')}</span>
+                        </div>
+                        <div class="trk-admin-progress"><div class="trk-admin-progress-bar ${barClass}" style="width:${pct}%;"></div></div>
+                    </div>
+                    <div class="trk-admin-stat-table">
+                        <div class="trk-admin-stat-row"><span>Motos recolectadas</span><strong>${_trkChatEscapeHtml(usada)}</strong></div>
+                        <div class="trk-admin-stat-row"><span>Disponibles</span><strong>${_trkChatEscapeHtml(disponibleTxt)}</strong></div>
+                        <div class="trk-admin-stat-row"><span>Recomendacion</span><strong>${_trkChatEscapeHtml(recomendacion)}</strong></div>
+                    </div>
+                </div>
+                <div class="trk-admin-vehicle-specs trk-admin-unit-specs">
+                    <div class="trk-admin-metric"><span>Tipo</span><strong>${_trkChatEscapeHtml(unidadTipo)}</strong></div>
+                    <div class="trk-admin-metric"><span>Placa</span><strong>${_trkChatEscapeHtml(placa)}</strong></div>
+                    <div class="trk-admin-metric"><span>Identificador</span><strong>${_trkChatEscapeHtml(identificador)}</strong></div>
+                    <div class="trk-admin-metric"><span>Disponible</span><strong>${_trkChatEscapeHtml(disponibleTxt)}</strong></div>
+                </div>
+                <div class="trk-admin-detail-vehicle">
+                    <img src="${_trkChatEscapeHtml(unidadImg)}" alt="${_trkChatEscapeHtml(unidadTipo)}" class="trk-admin-vehicle-img" loading="lazy">
+                </div>
+            </div>
+        </div>
+        <div class="trk-admin-detail-body">
+            <div class="trk-admin-panel-section">
+                <div class="trk-admin-panel-title">Rutas operativas</div>
+                <div class="trk-admin-route-list">${rutas || '<div class="trk-admin-route text-muted">Sin rutas activas o programadas.</div>'}</div>
+            </div>
+            <div class="trk-admin-panel-section">
+                <div class="trk-admin-panel-title">Lectura operativa</div>
+                <div class="trk-admin-stat-table">
+                    <div class="trk-admin-stat-row"><span>Unidad asignada</span><strong>${_trkChatEscapeHtml(unidadNombre)}</strong></div>
+                    <div class="trk-admin-stat-row"><span>CEDIS base</span><strong>${_trkChatEscapeHtml(cedisBase)}</strong></div>
+                    <div class="trk-admin-stat-row"><span>Contacto</span><strong>${_trkChatEscapeHtml(contacto)}</strong></div>
+                    <div class="trk-admin-stat-row"><span>Recomendacion</span><strong>${_trkChatEscapeHtml(recomendacion)}</strong></div>
+                </div>
+                <div class="mt-3">${alertas}</div>
+                <div class="trk-admin-live mt-3" data-id-transportista-live="${_trkChatEscapeHtml(t.id_transportista || '')}">${_trkOperacionLiveHtml(t)}</div>
+                <button type="button" class="btn btn-sm btn-label-info mt-3 btn-editar-unidad" data-id="${_trkChatEscapeHtml(t.id_transportista || '')}">
+                    <i class="fa-solid fa-truck me-1"></i>${Number(unidad?.id_capacidad || 0) > 0 ? 'Editar unidad' : '+ Registrar Unidad'}
+                </button>
+            </div>
+        </div>
+    </section>`;
+}
+
 function _trkOperacionTransportistaCard(t) {
     const status = String(t.estatus_operativo || 'disponible');
     const cap = Number(t.capacidad_total || 0);
@@ -9174,9 +9867,14 @@ function _trkOperacionTransportistaCard(t) {
         </div>
         <div class="d-flex align-items-start justify-content-between gap-2">
             <div class="small text-muted"><i class="fa-solid fa-truck me-1"></i>${_trkChatEscapeHtml(unidad)}</div>
-            <button type="button" class="btn btn-xs btn-label-info btn-editar-unidad" data-id="${_trkChatEscapeHtml(t.id_transportista || '')}">
-                <i class="fa-solid fa-truck me-1"></i>${_trkChatEscapeHtml(unidadBtnTxt)}
-            </button>
+            <div class="d-flex flex-wrap justify-content-end gap-1">
+                <button type="button" class="btn btn-xs btn-primary btn-ver-operacion-transportista" data-id="${_trkChatEscapeHtml(t.id_transportista || '')}">
+                    <i class="fa-solid fa-eye me-1"></i>Ver datos completos
+                </button>
+                <button type="button" class="btn btn-xs btn-label-info btn-editar-unidad" data-id="${_trkChatEscapeHtml(t.id_transportista || '')}">
+                    <i class="fa-solid fa-truck me-1"></i>${_trkChatEscapeHtml(unidadBtnTxt)}
+                </button>
+            </div>
         </div>
         <div class="small fw-semibold text-muted">Recomendacion: ${_trkChatEscapeHtml(t.recomendacion || 'Evaluar')}</div>
         <div class="trk-admin-live" data-id-transportista-live="${_trkChatEscapeHtml(t.id_transportista || '')}">${_trkOperacionLiveHtml(t)}</div>
@@ -9248,9 +9946,14 @@ function _trkOperacionTransportistaFila(t) {
             <div class="trk-admin-progress"><div class="trk-admin-progress-bar ${barClass}" style="width:${pct}%;"></div></div>
             <div class="small text-muted mt-1">${cap > 0 ? `${_trkChatEscapeHtml(t.capacidad_disponible ?? 0)} disponibles` : 'Configurar capacidad'}</div>
             <div class="small text-muted mt-1">${_trkChatEscapeHtml(unidadTxt)}</div>
-            <button type="button" class="btn btn-xs btn-label-info btn-editar-unidad mt-1" data-id="${_trkChatEscapeHtml(t.id_transportista || '')}">
-                <i class="fa-solid fa-truck me-1"></i>${_trkChatEscapeHtml(unidadBtnTxt)}
-            </button>
+            <div class="d-flex flex-wrap gap-1 mt-1">
+                <button type="button" class="btn btn-xs btn-primary btn-ver-operacion-transportista" data-id="${_trkChatEscapeHtml(t.id_transportista || '')}">
+                    <i class="fa-solid fa-eye me-1"></i>Ver datos completos
+                </button>
+                <button type="button" class="btn btn-xs btn-label-info btn-editar-unidad" data-id="${_trkChatEscapeHtml(t.id_transportista || '')}">
+                    <i class="fa-solid fa-truck me-1"></i>${_trkChatEscapeHtml(unidadBtnTxt)}
+                </button>
+            </div>
         </td>
         <td>
             <div class="fw-semibold">${_trkChatEscapeHtml(rutasTxt)}</div>
@@ -9567,17 +10270,36 @@ const _TRK_ESTADO_ALIAS = {
 const _TRK_MUNICIPIO_ESTADO_HINTS = {
     'ALVARO OBREGON': 'CIUDAD DE MEXICO',
     AZCAPOTZALCO: 'CIUDAD DE MEXICO',
+    'BENITO JUAREZ': 'CIUDAD DE MEXICO',
     COYOACAN: 'CIUDAD DE MEXICO',
     CUAJIMALPA: 'CIUDAD DE MEXICO',
+    'CUAJIMALPA DE MORELOS': 'CIUDAD DE MEXICO',
     'GUSTAVO A MADERO': 'CIUDAD DE MEXICO',
     GAM: 'CIUDAD DE MEXICO',
     IZTAPALAPA: 'CIUDAD DE MEXICO',
     IZTACALCO: 'CIUDAD DE MEXICO',
     TLAHUAC: 'CIUDAD DE MEXICO',
+    TLALPAN: 'CIUDAD DE MEXICO',
+    XOCHIMILCO: 'CIUDAD DE MEXICO',
+    'VENUSTIANO CARRANZA': 'CIUDAD DE MEXICO',
+    'LA MAGDALENA CONTRERAS': 'CIUDAD DE MEXICO',
+    'MAGDALENA CONTRERAS': 'CIUDAD DE MEXICO',
+    'MILPA ALTA': 'CIUDAD DE MEXICO',
     CUAUHTEMOC: 'CIUDAD DE MEXICO',
     'MIGUEL HIDALGO': 'CIUDAD DE MEXICO',
+    'AREA RURAL': 'CIUDAD DE MEXICO',
+    CLAVERIA: 'CIUDAD DE MEXICO',
+    'COOPERATIVA PALO ALTO': 'CIUDAD DE MEXICO',
+    'LOMAS DE CHAPULTEPEC': 'CIUDAD DE MEXICO',
+    'LOMAS DE CHAPULTEPEC III SECCION': 'CIUDAD DE MEXICO',
+    'LOMAS DE CHAPULTEPEC V SECCION': 'CIUDAD DE MEXICO',
+    'LOMAS DE TARANGO': 'CIUDAD DE MEXICO',
+    'POPULAR EMILIANO ZAPATA': 'CIUDAD DE MEXICO',
+    'SAN JUAN DE ARAGON II SECCION': 'CIUDAD DE MEXICO',
+    TLALPEXCO: 'CIUDAD DE MEXICO',
+    CITLALLI: 'CIUDAD DE MEXICO',
+    '3 DE MAYO': 'CIUDAD DE MEXICO',
     'LOS REYES LA PAZ': 'ESTADO DE MEXICO',
-    'LOS REYES': 'ESTADO DE MEXICO',
     'LA PAZ': 'ESTADO DE MEXICO',
     OCUILAN: 'ESTADO DE MEXICO',
     'SAN MATEO ATENCO': 'ESTADO DE MEXICO',
@@ -10231,15 +10953,36 @@ function _trkOtpExpiraInfo(expiraAt) {
     return { texto: `Expira en ${min} min`, alerta: min <= 5 };
 }
 
+function _trkOtpOrigenInfo(otp) {
+    const raw = String(
+        otp?.canal
+        || otp?.tipo
+        || otp?.origen
+        || otp?.source
+        || otp?.generado_por_actor
+        || otp?.generated_by_actor
+        || ''
+    ).toLowerCase();
+    if (raw.includes('mototrack') || raw.includes('android') || raw.includes('transportista') || raw.includes('manual') || raw.includes('normal')) {
+        return { label: 'OTP MotoTrack', meta: raw || 'mototrack' };
+    }
+    if (raw.includes('emergencia') || raw.includes('sparta') || raw.includes('__SPARTA_SECRET_REDACTED__')) {
+        return { label: 'OTP emergencia', meta: raw || 'emergencia' };
+    }
+    return { label: 'OTP vigente', meta: raw };
+}
+
 function _trkRenderOtpEstado(otp) {
-    if (!otp) return '<span class="text-muted small">Sin OTP de emergencia activo</span>';
+    if (!otp) return '<span class="text-muted small">Sin OTP activo reportado</span>';
     const exp = _trkOtpExpiraInfo(otp.expira_at);
+    const origen = _trkOtpOrigenInfo(otp);
     const intentosActuales = Number.isFinite(Number(otp.intentos)) ? Number(otp.intentos) : 0;
     const intentosMax = Number.isFinite(Number(otp.max_intentos)) ? Number(otp.max_intentos) : 3;
     const intentos = `${intentosActuales} / ${intentosMax}`;
     return `
         <div class="small ${exp.alerta ? 'text-danger fw-semibold' : 'text-muted'}">
-            <i class="fa-solid fa-key me-1"></i>Emergencia ${_trkChatEscapeHtml(otp.estatus || 'activo')}
+            <i class="fa-solid fa-key me-1"></i>${_trkChatEscapeHtml(origen.label)} ${_trkChatEscapeHtml(otp.estatus || 'activo')}
+            ${origen.meta ? `<span class="badge bg-label-secondary ms-1">${_trkChatEscapeHtml(origen.meta)}</span>` : ''}
             <span class="mx-1">|</span>${_trkChatEscapeHtml(exp.texto)}
             <span class="mx-1">|</span>Intentos ${_trkChatEscapeHtml(intentos)}
         </div>`;
@@ -10252,6 +10995,13 @@ function _trkOtpEstaActivo(otp) {
     if (!otp.expira_at) return true;
     const fecha = new Date(String(otp.expira_at).replace(' ', 'T'));
     return Number.isNaN(fecha.getTime()) || fecha.getTime() > Date.now();
+}
+
+function _trkOtpEsEmergenciaParaSparta(otp) {
+    if (!otp) return false;
+    const tipo = String(otp.tipo || '').toLowerCase();
+    const raw = String(`${otp.canal || ''} ${otp.origen || ''} ${otp.source || ''}`).toLowerCase();
+    return tipo === 'emergencia' || raw.includes('emergencia') || raw.includes('sparta') || raw.includes('__SPARTA_SECRET_REDACTED__');
 }
 
 function _trkActualizarOtpEstadoDom(idDetalle, otp) {
@@ -10275,10 +11025,10 @@ function _trkOtpCellHtml(det) {
     return `
         <div class="d-flex flex-column gap-1">
             <div id="trkOtpEstado-${idDetalle}" class="trk-otp-status" data-otp-status-id="${idDetalle}">
-                <span class="spinner-border spinner-border-sm me-1"></span>Consultando OTP de emergencia...
+                <span class="spinner-border spinner-border-sm me-1"></span>Consultando OTP vigente...
             </div>
-            <button type="button" class="btn btn-sm btn-warning btn-generar-otp" data-id="${idDetalle}">
-                <i class="fa-solid fa-key me-1"></i>OTP emergencia
+            <button type="button" class="btn btn-sm btn-warning btn-validar-otp" data-id="${idDetalle}">
+                <i class="fa-solid fa-key me-1"></i>Validar OTP de MotoTrack
             </button>
         </div>`;
 }
@@ -10290,10 +11040,10 @@ function _trkOtpInlineHtml(det) {
     if (estatus === 'en_sitio') {
         return `<div class="trk-step-otp mt-2">
             <div class="small text-muted mb-1" data-otp-status-id="${idDetalle}">
-                <span class="spinner-border spinner-border-sm me-1"></span>Consultando OTP de emergencia...
+                <span class="spinner-border spinner-border-sm me-1"></span>Consultando OTP vigente...
             </div>
-            <button type="button" class="btn btn-sm btn-warning btn-generar-otp" data-id="${idDetalle}">
-                <i class="fa-solid fa-key me-1"></i>OTP emergencia
+            <button type="button" class="btn btn-sm btn-warning btn-validar-otp" data-id="${idDetalle}">
+                <i class="fa-solid fa-key me-1"></i>Validar OTP de MotoTrack
             </button>
         </div>`;
     }
@@ -10316,9 +11066,134 @@ async function _trkConsultarOtpActivo(idDetalle) {
 function _trkConsultarOtpsActivosDetalle(detalles) {
     (detalles || []).filter(_trkPuntoPermiteOtp).forEach(det => {
         _trkConsultarOtpActivo(det.id_detalle).catch(() => {
-            $(`#trkOtpEstado-${det.id_detalle}`).html('<span class="text-muted small">Sin OTP de emergencia activo</span>');
+            $(`#trkOtpEstado-${det.id_detalle}`).html('<span class="text-muted small">Sin OTP activo reportado</span>');
         });
     });
+}
+
+function _trkOtpValidacionMensajeError(r) {
+    const code = Number(r?.codigo_http || r?.status || r?.http_code || 0);
+    const detalle = r?.mensaje?.mensaje || r?.mensaje?.message || r?.detail?.mensaje || r?.detail?.message || r?.mensaje || r?.message || r?.detail || r?.error || '';
+    const raw = String(detalle).toLowerCase();
+    if (code === 400 || code === 422 || /incorrect|inval|codigo/.test(raw)) return 'Codigo incorrecto';
+    if (code === 401) return 'Sesion expirada. Recarga la pagina.';
+    if (code === 403) {
+        if (/validar este codigo|validar este codigo|tipo de otp/.test(raw)) {
+            return 'Este OTP no puede validarse desde Sparta. Solicita al transportista generar un OTP nuevo desde MotoTrack y captura ese codigo.';
+        }
+        return 'No tienes permiso para validar este punto';
+    }
+    if (code === 404) return 'OTP o punto no encontrado';
+    if (code === 409) {
+        if (/recolect/.test(raw)) return 'Este punto ya fue recolectado';
+        if (/expir/.test(raw) || /vencid/.test(raw)) return 'OTP expirado, solicita uno nuevo al transportista';
+        return 'OTP expirado, usado o el punto no esta en sitio';
+    }
+    return typeof detalle === 'string' && detalle ? detalle : 'No se pudo validar el OTP.';
+}
+
+function _trkAplicarRespuestaOtpValidado(r, idDetalle) {
+    const data = r?.data || r?.datos || r || {};
+    const changes = data.changes || r?.changes || [];
+    if (Array.isArray(changes) && changes.length) {
+        _trkRTAplicarChanges(changes);
+        return;
+    }
+    const id = data.id_detalle || data.detalle_id || r?.id_detalle || idDetalle;
+    const nextId = data.next_id_detalle || data.siguiente_id_detalle || r?.next_id_detalle || r?.siguiente_id_detalle;
+    const cambios = [];
+    if (id) cambios.push({ id_detalle: id, estatus_recoleccion: 'recolectada' });
+    if (nextId) cambios.push({ id_detalle: nextId, estatus_recoleccion: 'en_camino' });
+    _trkRTAplicarChanges(cambios);
+}
+
+async function _trkValidarOtpDetalle(idDetalle) {
+    if (!idDetalle) return;
+    let otpActivo = null;
+    try {
+        otpActivo = await _trkConsultarOtpActivo(idDetalle);
+    } catch (_) {
+        otpActivo = null;
+    }
+    if (_trkOtpEstaActivo(otpActivo) && _trkOtpEsEmergenciaParaSparta(otpActivo)) {
+        Swal.fire({
+            icon: 'warning',
+            title: 'OTP no valido para Sparta',
+            text: 'Este OTP fue generado como emergencia. Solicita al transportista generar un OTP nuevo desde MotoTrack y captura ese codigo.',
+            confirmButtonText: 'Entendido',
+        });
+        return;
+    }
+    const res = await _trkSwalConFocoModalRuta({
+        icon: 'question',
+        title: 'Validar OTP de recoleccion',
+        html: `<div class="text-start">
+            <p class="small text-muted mb-2">Ingresa el codigo mostrado por el transportista en MotoTrack.</p>
+            <input id="trkOtpCodigoInput" class="form-control form-control-lg text-center fw-bold"
+                type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="6"
+                placeholder="000000" style="letter-spacing:.25em;">
+        </div>`,
+        showCancelButton: true,
+        confirmButtonText: 'Validar y recolectar',
+        cancelButtonText: 'Cancelar',
+        confirmButtonColor: '#0d9488',
+        focusConfirm: false,
+        didOpen: () => {
+            const input = document.getElementById('trkOtpCodigoInput');
+            setTimeout(() => input?.focus(), 40);
+            input?.addEventListener('input', () => {
+                input.value = String(input.value || '').replace(/\D+/g, '').slice(0, 6);
+            });
+        },
+        preConfirm: () => {
+            const codigo = String(document.getElementById('trkOtpCodigoInput')?.value || '').replace(/\D+/g, '');
+            if (!/^\d{6}$/.test(codigo)) {
+                Swal.showValidationMessage('Captura los 6 digitos del OTP.');
+                return false;
+            }
+            return codigo;
+        },
+    });
+    if (!res.isConfirmed) return;
+
+    Swal.fire({
+        title: 'Validando OTP...',
+        text: 'Confirmando recoleccion con el codigo de MotoTrack.',
+        allowOutsideClick: false,
+        allowEscapeKey: false,
+        showConfirmButton: false,
+        didOpen: () => Swal.showLoading(),
+    });
+    try {
+        const r = await trkFetch('/TrackingRecoleccion/trackingValidarOtp', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ id_detalle: idDetalle, codigo: res.value, origen: 'sparta_emergencia' }),
+        });
+        if (!r.success) {
+            Swal.fire({
+                icon: 'error',
+                title: 'No se pudo validar el OTP',
+                text: _trkOtpValidacionMensajeError(r),
+                confirmButtonText: 'Aceptar',
+            });
+            return;
+        }
+        _trkAplicarRespuestaOtpValidado(r, idDetalle);
+        Swal.fire({
+            icon: 'success',
+            title: 'Recoleccion autorizada con OTP de MotoTrack',
+            timer: 2200,
+            showConfirmButton: false,
+        });
+    } catch {
+        Swal.fire({
+            icon: 'error',
+            title: 'Error de conexion',
+            text: 'No se pudo validar el OTP en este momento.',
+            confirmButtonText: 'Aceptar',
+        });
+    }
 }
 
 async function _trkGenerarOtpDetalle(idDetalle) {
@@ -10343,11 +11218,11 @@ async function _trkGenerarOtpDetalle(idDetalle) {
             html: `<div class="text-start">
                 ${_trkRenderOtpEstado(otpActivo)}
                 <div class="alert alert-info py-2 px-3 mt-3 mb-0 small">
-                    El codigo activo solo se muestra al momento de generarlo. Si el gestor no lo tiene, genera uno nuevo.
+                    Si el OTP vigente viene de MotoTrack, conserva el flujo normal. Genera emergencia solo si el flujo normal no puede completarse.
                 </div>
             </div>`,
             showCancelButton: true,
-            confirmButtonText: 'Generar nuevo OTP',
+            confirmButtonText: 'Generar OTP emergencia',
             cancelButtonText: 'Cancelar',
             reverseButtons: true,
         });
@@ -10394,6 +11269,7 @@ async function _trkGenerarOtpDetalle(idDetalle) {
             id_detalle: idDetalle,
             success: !!r.success,
             estatus: otp.estatus || '',
+            canal: otp.canal || otp.tipo || otp.origen || '',
             expira_at: otp.expira_at || '',
             max_intentos: otp.max_intentos ?? null,
         });
@@ -10424,9 +11300,9 @@ function _trkDetalleActualizarRecoleccion(idDetalle, estatus) {
     const $otp = $(`.trk-det-otp[data-id="${idDetalle}"]`);
     if ($otp.length) {
         $otp.html(_trkOtpCellHtml({ id_detalle: idDetalle, estatus_recoleccion: estatus }));
-        if (String(estatus || '').toLowerCase() === 'en_sitio') {
+                if (String(estatus || '').toLowerCase() === 'en_sitio') {
             _trkConsultarOtpActivo(idDetalle).catch(() => {
-                $(`[data-otp-status-id="${idDetalle}"]`).html('<span class="text-muted small">Sin OTP de emergencia activo</span>');
+                $(`[data-otp-status-id="${idDetalle}"]`).html('<span class="text-muted small">Sin OTP activo reportado</span>');
             });
         }
     }
@@ -10615,6 +11491,14 @@ function _trkInicializarModal() {
     });
     $('#trkPlanDistribuir').on('click', _trkGenerarPlaneacionCompleta);
     $('#trkPlanGuardar').on('click', _trkGuardarPlaneacionRuta);
+    $('#trkPlanMinParada')
+        .on('input', function () { _trkSanitizarPlanMinParadaInput(this, false); })
+        .on('blur', function () { _trkSanitizarPlanMinParadaInput(this, true); });
+    $('#trkPlanDiasTrasladoEstado').on('input change', function () {
+        const cfg = _trkPlanConfig();
+        _trk.planeacionTrasladoEstados = cfg.trasladoEstados;
+        _trkRenderPlaneacionDias();
+    });
     $('#trkRouteDayList').on('click', '.btn-trk-plan-editar-hora', function () {
         const idCredito = Number($(this).data('credito') || 0);
         const credito = (_trk.creditosEnRuta || []).find(c =>
@@ -10797,6 +11681,7 @@ function _trkResetModal() {
     $('#trkPlanFinJornada').val('19:00');
     $('#trkPlanMinParada').val('45');
     $('#trkPlanDiasTrasladoEstado').val(Math.min(TRK_PLAN_MAX_GAP_DAYS, Number(_trk.planeacionTrasladoEstados || 1)));
+    _trkSyncTrasladoEstadosControl();
     _trkRefrescarSelectTransportistas();
     // Reset filtros de creditos
     $('#crdFiltroEstado').val('').trigger('change.select2');
@@ -13324,7 +14209,7 @@ async function _trkGuardarRuta(modo, opts = {}) {
                 </div>`,
                 showCancelButton: true,
                 confirmButtonText: 'Continuar de todos modos',
-                cancelButtonText: 'Cambiar transportista',
+                cancelButtonText: 'Cancelar',
                 confirmButtonColor: '#0d9488',
             });
             if (!continuarAsignacion.isConfirmed) return;
@@ -14159,7 +15044,7 @@ function _trkVerDetalleRuta(idRuta) {
                             <tr>
                                 <th>#</th><th>Credito</th><th>Cliente</th><th>Modelo</th>
                                 <th>VIN</th><th>Estado / Municipio</th>
-                                <th>Proceso</th><th>Recoleccion</th><th>Confirmacion</th><th>OTP emergencia</th>
+                                <th>Proceso</th><th>Recoleccion</th><th>Confirmacion</th><th>OTP MotoTrack</th>
                             </tr>
                         </thead>
                         <tbody>${rowsHtml || '<tr><td colspan="10" class="text-center text-muted">Sin creditos</td></tr>'}</tbody>
@@ -14324,7 +15209,7 @@ function _trkCargarRutaEnModal(idRuta, soloLectura) {
 
             // Creditos (cargar directamente en array)
             _trk.creditosEnRuta = (d.detalle || []).map((det, i) => ({
-                id_detalle:                  det.id_detalle || det.detalle_id || det.id_ruta_detalle || det.id_asigna_detalle || null,
+                id_detalle:                  det.id_detalle || det.detalle_id || det.id_ruta_detalle || det.id_detalle_ruta || det.id_asigna_detalle || det.id_asigna_hora_detalle || det.id_asigna_horas_tracking_detalle || det.id_tracking_detalle || det.id_punto || ((det.id && String(det.id) !== String(det.id_credito)) ? det.id : null) || null,
                 id_credito:                  det.id_credito,
                 nombre_cliente:              det.nombre_cliente || '',
                 moto_marca:                  '',
@@ -14554,6 +15439,7 @@ function _trkRenderPlaneadorPanel() {
     const $groups = $('#trkPlannerGroups');
     if (!$summary.length || !$groups.length) return;
     const creditos = _trk.creditosEnRuta || [];
+    _trkSyncTrasladoEstadosControl();
     const estados = new Set(creditos.map(c => _trkNormTxt(_trkEstadoMayus(c.estado, c.municipio) || 'SIN ESTADO')));
     const municipios = new Set(creditos.map(c => {
         const estado = _trkEstadoMayus(c.estado, c.municipio) || 'SIN ESTADO';
@@ -14636,10 +15522,89 @@ function _trkPlanMinutesLabel(minutes) {
     return _trkFormatHora(_trkMinutesToHora(Number(minutes || 0)));
 }
 
+function _trkPlanDurationLabel(minutes) {
+    const n = Number(minutes);
+    if (!Number.isFinite(n) || n < 0) return 'Sin calculo real';
+    const total = Math.max(0, Math.round(n));
+    const h = Math.floor(total / 60);
+    const m = total % 60;
+    return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+}
+
+function _trkPlanCedisInicioHtml(firstItem) {
+    const cedis = _trkCedisDestinoSeleccionado();
+    const nombreCedis = cedis?.nombre_agencia || cedis?.clave_agencia || 'CEDIS destino no asignado';
+    const salidaCedis = _trkFormatHora(_trkHoraToPayload());
+    const travelPending = !!firstItem?._plan_travel_pending;
+    const trayecto = travelPending ? 'Sin calculo real' : _trkPlanDurationLabel(firstItem?.travel_from_prev_minutes);
+    return `<div class="trk-route-day-start">
+        <span class="trk-route-day-start-icon"><i class="fa-solid fa-warehouse"></i></span>
+        <div style="min-width:0;">
+            <div class="trk-route-day-start-label">Comienzo de ruta</div>
+            <div class="trk-route-day-start-title">CEDIS ${_trkChatEscapeHtml(nombreCedis)}</div>
+            <div class="trk-route-day-timebar">
+                <span class="trk-route-day-timechip">
+                    <i class="fa-solid fa-right-from-bracket"></i>Salida de CEDIS: ${_trkChatEscapeHtml(salidaCedis)}
+                </span>
+                <span class="trk-route-day-timechip${travelPending ? ' is-warning' : ''}">
+                    <i class="fa-solid fa-route"></i>Tiempo de trayecto al primer punto: ${_trkChatEscapeHtml(trayecto)}
+                </span>
+            </div>
+        </div>
+    </div>`;
+}
+
 function _trkPlanClamp(value, min, max, fallback) {
     const n = Number(value);
     if (!Number.isFinite(n)) return fallback;
     return Math.max(min, Math.min(max, Math.round(n)));
+}
+
+function _trkSanitizarPlanMinParadaInput(input, force = false) {
+    if (!input) return 45;
+    let raw = String(input.value || '').replace(/[^\d]/g, '').slice(0, 2);
+    if (raw !== input.value) input.value = raw;
+    if (!raw && !force) return null;
+    let n = Number(raw || 45);
+    if (!Number.isFinite(n)) n = 45;
+    n = Math.max(1, Math.min(59, Math.round(n)));
+    if (force || String(n) !== raw) input.value = String(n);
+    return n;
+}
+
+function _trkPlanEstadosUnicos(source = null) {
+    const lista = Array.isArray(source) ? source : _trkPlanCreditosCalculables(_trk.creditosEnRuta || []);
+    const estados = new Set();
+    lista.forEach(c => {
+        const estado = _trkEstadoMayus(c?.estado, c?.municipio) || '';
+        const norm = _trkNormTxt(estado);
+        if (!norm || norm.startsWith('SIN ESTADO')) return;
+        if (!_TRK_ESTADOS_OFICIALES.includes(norm)) return;
+        estados.add(norm);
+    });
+    return estados;
+}
+
+function _trkPlanRequiereTrasladoEstados(source = null) {
+    return _trkPlanEstadosUnicos(source).size >= 2;
+}
+
+function _trkSyncTrasladoEstadosControl(source = null) {
+    const base = Array.isArray(source) ? source : _trkPlanCreditosCalculables(_trk.creditosEnRuta || []);
+    const requiere = _trkPlanRequiereTrasladoEstados(base);
+    const $wrap = $('#trkPlanTrasladoEstadosWrap');
+    const $input = $('#trkPlanDiasTrasladoEstado');
+    if (!$wrap.length || !$input.length) return requiere;
+    $wrap.toggleClass('d-none', !requiere);
+    $wrap.css('display', requiere ? '' : 'none');
+    $input.prop('disabled', !requiere);
+    if (!requiere) {
+        $input.val('0');
+        _trk.planeacionTrasladoEstados = 0;
+    } else if (!$input.val()) {
+        $input.val(Math.min(TRK_PLAN_MAX_GAP_DAYS, Number(_trk.planeacionTrasladoEstados || 1)));
+    }
+    return requiere;
 }
 
 function _trkPlanHasNumber(value) {
@@ -14654,11 +15619,15 @@ function _trkPlanConfig() {
     let inicio = _trkPlanTimeToMinutes($('#trkPlanInicioJornada').val(), 600);
     let fin = _trkPlanTimeToMinutes($('#trkPlanFinJornada').val(), 1140);
     if (fin <= inicio) fin = inicio + 60;
+    const requiereTrasladoEstados = _trkSyncTrasladoEstadosControl();
+    const operacion = _trkSanitizarPlanMinParadaInput(document.getElementById('trkPlanMinParada'), true) || 45;
     return {
         inicio,
         fin,
-        operacion: _trkPlanClamp($('#trkPlanMinParada').val(), 5, 240, 45),
-        trasladoEstados: _trkPlanClamp($('#trkPlanDiasTrasladoEstado').val(), 0, TRK_PLAN_MAX_GAP_DAYS, 1),
+        operacion,
+        trasladoEstados: requiereTrasladoEstados
+            ? _trkPlanClamp($('#trkPlanDiasTrasladoEstado').val(), 0, TRK_PLAN_MAX_GAP_DAYS, 1)
+            : 0,
     };
 }
 
@@ -14789,7 +15758,7 @@ function _trkPlanApplyCascade(days, config) {
                 && _trkPlanHasNumber(c.arrival_minutes)
                 && _trkPlanHasNumber(c.departure_minutes);
             const opBase = hasPinnedTime
-                ? _trkPlanClamp(c.operation_minutes, 5, 240, config.operacion)
+                ? _trkPlanClamp(c.operation_minutes, 1, 59, config.operacion)
                 : config.operacion;
             let llegada;
             let salida;
@@ -14813,7 +15782,7 @@ function _trkPlanApplyCascade(days, config) {
             c.arrival_minutes = llegada;
             c.departure_minutes = salida;
             c.travel_from_prev_minutes = travel;
-            c.operation_minutes = Math.max(5, salida - llegada);
+            c.operation_minutes = Math.max(1, salida - llegada);
             c.estatus_planeacion = c.estatus_planeacion || 'programado';
             c._plan_warning = salida > config.fin;
             keep.push(c);
@@ -15088,7 +16057,7 @@ function _trkPlanWarningGroupRemanentes() {
         tipo: 'ubicacion',
         titulo: 'Faltan ubicaciones para calcular la ruta',
         mensaje: `${remanentes.length} credito${remanentes.length === 1 ? '' : 's'} quedan como remanente${remanentes.length === 1 ? '' : 's'} porque no tienen coordenadas confirmadas.`,
-        accion: 'Confirma el pin manualmente o completa la direccion para incluirlos en el siguiente calculo.',
+        accion: 'Realiza el ajuste desde Planeacion auditada por dia usando el puntero del credito. Despues vuelve a generar el plan.',
         total: remanentes.length,
         creditos: remanentes.map(c => ({
             id_detalle: c.id_detalle,
@@ -15105,7 +16074,7 @@ function _trkWarningGroupsActuales() {
     return remanentes ? list.concat([remanentes]) : list;
 }
 
-function _trkWarningCreditoItemHtml(item) {
+function _trkWarningCreditoItemHtml(item, opts = {}) {
     const idCredito = item?.id_credito || item?.credito || '';
     const orden = item?.orden_ruta || item?.orden || '';
     const idDetalle = item?.id_detalle || '';
@@ -15115,41 +16084,35 @@ function _trkWarningCreditoItemHtml(item) {
     const tooltip = idDetalle ? ` title="ID detalle tecnico: ${_trkChatEscapeHtml(idDetalle)}"` : '';
     const resuelto = Boolean(cred && _trkCreditoTieneCoordenadasValidas(cred));
     const itemClass = resuelto ? ' trk-warning-credit-item-ok' : '';
-    const idDetalleAttr = _trkChatEscapeHtml(idDetalle || cred?.id_detalle || '');
-    const idCreditoAttr = _trkChatEscapeHtml(creditoLabel || cred?.id_credito || '');
-    const ordenAttr = _trkChatEscapeHtml(ordenLabel || '');
+    const dataAttrs = `data-id-detalle="${_trkChatEscapeHtml(idDetalle)}" data-id-credito="${_trkChatEscapeHtml(creditoLabel)}" data-orden-ruta="${_trkChatEscapeHtml(ordenLabel)}"`;
+    let actionHtml = '';
+    if (resuelto) {
+        actionHtml = '<div class="trk-warning-credit-actions"><span class="trk-warning-credit-ok" title="Ubicacion confirmada"><i class="fa-solid fa-check"></i></span></div>';
+    } else if (opts.showActions) {
+        actionHtml = `<div class="trk-warning-credit-actions">
+            <button type="button" class="btn btn-sm btn-outline-secondary trk-warning-pin-btn" ${dataAttrs} title="Asignar ubicacion">
+                <i class="fa-solid fa-map-pin"></i>
+            </button>
+            <button type="button" class="btn btn-sm btn-outline-danger trk-warning-delete-btn" ${dataAttrs} title="Descartar credito de la ruta">
+                <i class="fa-solid fa-trash-can"></i>
+            </button>
+        </div>`;
+    }
     return `<div class="trk-warning-credit-item${itemClass}"${tooltip}>
         <div class="trk-warning-credit-main">
             <strong>#${_trkChatEscapeHtml(creditoLabel)}</strong>
             <small>${ordenLabel ? `Orden ${_trkChatEscapeHtml(ordenLabel)}` : 'Orden no disponible'}</small>
         </div>
-        <div class="trk-warning-credit-actions">
-            ${resuelto ? '<span class="trk-warning-credit-ok" title="Ubicacion confirmada"><i class="fa-solid fa-check"></i></span>' : ''}
-            <button type="button"
-                    class="btn btn-sm btn-outline-primary trk-warning-pin-btn"
-                    data-id-detalle="${idDetalleAttr}"
-                    data-id-credito="${idCreditoAttr}"
-                    data-orden-ruta="${ordenAttr}"
-                    title="${resuelto ? 'Ajustar ubicacion del credito' : 'Confirmar pin de este credito'}">
-                <i class="fa-solid fa-map-pin"></i>
-            </button>
-            <button type="button"
-                    class="btn btn-sm btn-outline-danger trk-warning-delete-btn"
-                    data-id-detalle="${idDetalleAttr}"
-                    data-id-credito="${idCreditoAttr}"
-                    data-orden-ruta="${ordenAttr}"
-                    title="Eliminar credito de la ruta">
-                <i class="fa-solid fa-trash-can"></i>
-            </button>
-        </div>
+        ${actionHtml}
     </div>`;
 }
 
-function _trkWarningGroupCreditosHtml(group) {
+function _trkWarningGroupCreditosHtml(group, opts = {}) {
     const creditos = Array.isArray(group?.creditos) ? group.creditos : [];
     if (!creditos.length) return '';
-    const first = creditos.slice(0, 5).map(_trkWarningCreditoItemHtml).join('');
-    const rest = creditos.slice(5).map(_trkWarningCreditoItemHtml).join('');
+    const first = creditos.slice(0, 5).map(item => _trkWarningCreditoItemHtml(item, opts)).join('');
+    const restItems = creditos.slice(5);
+    const rest = restItems.map(item => _trkWarningCreditoItemHtml(item, opts)).join('');
     const codigo = String(group?.codigo || '').toLowerCase();
     const label = codigo === 'creditos_sin_ubicacion'
         ? 'Creditos con ubicacion pendiente:'
@@ -15157,22 +16120,24 @@ function _trkWarningGroupCreditosHtml(group) {
     return `<div class="mt-2">
         <div class="fw-semibold mb-1">${_trkChatEscapeHtml(label)}</div>
         <div class="trk-warning-credit-list">${first}</div>
-        ${rest ? `<details><summary>Ver todos (${creditos.length})</summary><div class="trk-warning-credit-list mt-2">${rest}</div></details>` : ''}
+        ${rest ? `<details><summary>Ver todos (${restItems.length})</summary><div class="trk-warning-credit-list mt-2">${rest}</div></details>` : ''}
     </div>`;
 }
 
-function _trkWarningGroupsHtml(groups) {
+function _trkWarningGroupsHtml(groups, opts = {}) {
     const list = _trkWarningGroups(groups);
     if (!list.length) return '';
     return `<div class="trk-warning-groups">
         ${list.map(group => {
-            const title = group?.titulo || 'Advertencia de planeacion';
-            const msg = group?.mensaje || '';
-            const action = group?.accion || '';
+            const title = _trkWarningTextoOperativo(group?.titulo || 'Advertencia de planeacion') || 'Advertencia de planeacion';
+            const msg = _trkWarningTextoOperativo(group?.mensaje || '');
+            const action = _trkWarningGroupEsUbicacion(group)
+                ? 'Ajusta estas ubicaciones desde Planeacion auditada por dia usando el puntero del credito. Cuando termines, vuelve a generar el plan.'
+                : _trkWarningTextoOperativo(group?.accion || '');
             return `<div class="trk-warning-group">
                 <div class="trk-warning-group-title">${_trkChatEscapeHtml(title)}</div>
                 ${msg ? `<div class="trk-warning-group-message">${_trkChatEscapeHtml(msg)}</div>` : ''}
-                ${_trkWarningGroupCreditosHtml(group)}
+                ${_trkWarningGroupCreditosHtml(group, opts)}
                 ${action ? `<div class="trk-warning-group-action"><i class="fa-solid fa-circle-info me-1"></i>${_trkChatEscapeHtml(action)}</div>` : ''}
             </div>`;
         }).join('')}
@@ -15187,7 +16152,7 @@ function _trkBuscarCreditoWarning(idDetalle, idCredito, ordenRuta = '') {
 
     return (detalle ? _trkCreditoPorDetalle(detalle) : null)
         || (credito ? lista.find(c => String(c.id_credito || '') === credito) : null)
-        || (detalle ? lista.find(c => String(c.id_detalle || '') === detalle) : null)
+        || (detalle ? lista.find(c => _trkDetalleIdsCredito(c).includes(detalle)) : null)
         || (Number.isFinite(orden) && orden > 0 ? lista.find(c => Number(c.orden_ruta || 0) === orden) : null)
         || null;
 }
@@ -15305,10 +16270,26 @@ function _trkWarningCedisNombre(id) {
     return cedis?.nombre_agencia ? `CEDIS ${cedis.nombre_agencia}` : 'CEDIS destino';
 }
 
+function _trkDetalleIdsCredito(cred) {
+    return [
+        cred?.id_detalle,
+        cred?.detalle_id,
+        cred?.id_ruta_detalle,
+        cred?.id_detalle_ruta,
+        cred?.id_asigna_detalle,
+        cred?.id_asigna_hora_detalle,
+        cred?.id_asigna_horas_tracking_detalle,
+        cred?.id_tracking_detalle,
+        cred?.id_punto,
+    ]
+        .filter(v => v !== null && v !== undefined && String(v).trim() !== '')
+        .map(v => String(v).trim());
+}
+
 function _trkCreditoPorDetalle(idDetalle) {
     const id = String(idDetalle || '').trim();
     if (!id) return null;
-    return (_trk.creditosEnRuta || []).find(c => String(c.id_detalle || '') === id) || null;
+    return (_trk.creditosEnRuta || []).find(c => _trkDetalleIdsCredito(c).includes(id)) || null;
 }
 
 function _trkWarningCreditoSinCoords(idDetalle) {
@@ -15326,9 +16307,29 @@ function _trkWarningCreditoSinCoords(idDetalle) {
     return `${label}: sin coordenadas ni direccion suficiente para buscar en Google Maps. Captura o confirma el pin manualmente.`;
 }
 
+function _trkWarningCreditoLabel(id) {
+    const raw = String(id || '').replace(/^#/, '').trim();
+    if (!raw) return 'credito';
+
+    const lista = _trk.creditosEnRuta || [];
+    const cred = _trkCreditoPorDetalle(raw)
+        || lista.find(c => String(c.id_credito || '') === raw)
+        || null;
+    const idCredito = cred?.id_credito || raw;
+
+    return `credito #${idCredito}`;
+}
+
 function _trkWarningTextoOperativo(texto) {
     let txt = String(texto || '').trim();
     if (!txt) return '';
+
+    if (/asigna_horas_tracking_detalle/i.test(txt) || /columnas?\s+de\s+planeacion/i.test(txt)) {
+        return 'La planeacion se genero, pero el servicio no pudo guardar todos los tiempos estimados. Puedes continuar y volver a guardar cuando el servicio este actualizado.';
+    }
+    if (/(table|tabla|column|columna|sql|database|bd|schema|campo)\b/i.test(txt) && /planeacion|tracking|ruta/i.test(txt)) {
+        return 'La planeacion se genero con una advertencia tecnica del servicio. Puedes continuar y revisar el guardado de tiempos mas tarde.';
+    }
 
     const warningSinCoords = txt.match(/credito\s+id_detalle\s*=\s*(\d+)\s+sin\s+latitud\s+o\s+longitud;\s*no\s+se\s+calcularon\s+tiempos/i);
     if (warningSinCoords) {
@@ -15340,7 +16341,7 @@ function _trkWarningTextoOperativo(texto) {
     txt = txt.replace(/\bfin_jornada\b/gi, 'fin de jornada');
     txt = txt.replace(/\bday_index\s*=\s*(\d+)\b/gi, (_, n) => `Dia ${Number(n) + 1}`);
     txt = txt.replace(/\bcedis\s+(\d+)\b/gi, (_, id) => _trkWarningCedisNombre(id));
-    txt = txt.replace(/\bcredito\s+(\d+)\b/gi, 'credito #$1');
+    txt = txt.replace(/\bcredito\s+#?(\d+)\b/gi, (_, id) => _trkWarningCreditoLabel(id));
 
     txt = txt.replace(
         /La planeacion rebasa la jornada inicial y llega hasta Dia\s+(\d+)/i,
@@ -15840,6 +16841,7 @@ async function _trkCalcularMetricasMapaPlaneacion() {
 }
 
 async function _trkAplicarFallbackPlaneacion(motivo = '', opts = {}) {
+    _trkSyncTrasladoEstadosControl();
     const config = _trkPlanConfig();
     const creditos = _trkPlanCreditosCalculables();
     _trk.planeacionTrasladoEstados = config.trasladoEstados;
@@ -15900,6 +16902,7 @@ async function _trkAplicarFallbackPlaneacion(motivo = '', opts = {}) {
     const days = _trkPlanNormalizarFechasPolitica(_trkPlanApplyCascade(_trkPlanSeedDays(creditos, config), config));
     _trkPlanApplyDaysToRoute(days);
     _trkRenderListaCreditos();
+    _trkSyncTrasladoEstadosControl();
     _trkRenderizarMapa();
     _trkMarcarCambio();
 
@@ -15950,7 +16953,7 @@ function _trkRenderPlaneacionRealInfo() {
         return;
     }
     const warningHtml = warningGroups.length
-        ? _trkWarningGroupsHtml(warningGroups)
+        ? _trkWarningGroupsHtml(warningGroups, { showActions: true })
         : _trkWarningsListaHtml(warnings);
     const kpis = resumen ? `
         <div class="trk-real-kpis">
@@ -16116,6 +17119,7 @@ function _trkRenderPlaneacionEventos() {
 function _trkRenderPlaneacionDias() {
     const $list = $('#trkRouteDayList');
     if (!$list.length) return;
+    _trkSyncTrasladoEstadosControl();
     const totalRuta = (_trk.creditosEnRuta || []).length;
     const creditos = _trkPlanCreditosCalculables();
     const remanentes = _trkPlanCreditosRemanentes();
@@ -16147,6 +17151,7 @@ function _trkRenderPlaneacionDias() {
         const hasWarning = items.some(c => c._plan_warning || Number(c.departure_minutes || 0) > config.fin);
         const totalTraslado = items.reduce((acc, c) => acc + Number(c.travel_from_prev_minutes || 0), 0);
         const totalOperacion = items.reduce((acc, c) => acc + Number(c.operation_minutes || config.operacion), 0);
+        const inicioRutaHtml = dayIndex === 0 && items.length ? _trkPlanCedisInicioHtml(items[0]) : '';
         const itemsHtml = items.map((c, i) => {
             const estado = _trkPlanEstado(c);
             const municipio = _trkPlanMunicipio(c);
@@ -16221,7 +17226,7 @@ function _trkRenderPlaneacionDias() {
                 </div>
                 <span class="badge ${hasWarning ? 'bg-warning text-dark' : 'bg-label-success'}">${_trkChatEscapeHtml(_trkFechaCorta(day.date))}</span>
             </div>
-            <div class="trk-route-day-items">${itemsHtml}</div>
+            <div class="trk-route-day-items">${inicioRutaHtml}${itemsHtml}</div>
         </div>`;
     }).join(''));
     _trkRenderPlaneacionRealInfo();
@@ -16280,6 +17285,7 @@ async function _trkGenerarPlaneacionCompleta() {
         Swal.fire({ icon: 'info', title: 'Sin creditos', text: 'Agrega creditos antes de generar el plan.', confirmButtonText: 'Aceptar' });
         return null;
     }
+    _trkSyncTrasladoEstadosControl();
     _trk.planeacionCreditosListosMensaje = false;
 
     Swal.fire({
@@ -16292,6 +17298,7 @@ async function _trkGenerarPlaneacionCompleta() {
 
     try {
         _trkPrepararAcomodadoPlaneacion({ resetTravel: true, render: false });
+        _trkSyncTrasladoEstadosControl();
 
         const sincronizado = await _trkSincronizarBorradorParaCalculoReal();
         if (!sincronizado || !Number(_trk.idRutaEditando || 0)) {
@@ -16313,6 +17320,7 @@ async function _trkGenerarPlaneacionCompleta() {
         }
         _trkPlanCascadeCurrent();
         _trkRenderListaCreditos();
+        _trkSyncTrasladoEstadosControl();
         _trkRenderizarMapa();
         _trkMarcarCambio();
 
@@ -16419,9 +17427,10 @@ function _trkIdDetallePlaneacion(c) {
 
 function _trkBuildPlaneacionAuditItems() {
     return _trkPlanCreditosCalculables()
-        .filter(c => _trkIdDetallePlaneacion(c) > 0)
+        .filter(c => _trkIdDetallePlaneacion(c) > 0 || Number(c?.id_credito || 0) > 0)
         .map(c => ({
-            id_detalle: _trkIdDetallePlaneacion(c),
+            id_detalle: _trkIdDetallePlaneacion(c) || null,
+            id_credito: Number(c.id_credito || 0) || null,
             fecha_recoleccion: _trkPlaneacionFechaCredito(c),
             orden_dia: Number(c.orden_dia || c.orden_ruta || 1),
             estatus_planeacion: c.estatus_planeacion || 'programado',
@@ -16499,8 +17508,7 @@ async function _trkGuardarPlaneacionRuta() {
     _trkPlanCascadeCurrent();
     let items = await _trkAsegurarPuntosAuditablesPlaneacion();
     if (!items.length) {
-        _trkMostrarSinPuntosAuditables();
-        return;
+        console.warn('[Tracking Recoleccion] Planeacion sin puntos auditables persistidos; se intentara guardar de todos modos.');
     }
     const motivoRes = await _trkSwalConFocoModalRuta({
         icon: 'question',
@@ -16584,8 +17592,7 @@ async function _trkGuardarPlaneacionRuta() {
         }
         items = _trkBuildPlaneacionAuditItems();
         if (!items.length) {
-            _trkMostrarSinPuntosAuditables();
-            return;
+            console.warn('[Tracking Recoleccion] Planeacion generada sin items auditables; se enviara sin bloquear al gestor.');
         }
         const r = await trkFetch('/TrackingRecoleccion/guardarPlaneacionRuta', {
             method: 'POST',
@@ -17211,8 +18218,8 @@ function _trkRTRenderizar(ruta) {
 
 // --- Aplicar cambios parciales (WS update) ---------------
 function _trkRTAplicarChanges(changes) {
-    if (!changes || !changes.length || !_trkRT.estado) return;
-    const creditos = _trkRT.estado.creditos || [];
+    if (!changes || !changes.length) return;
+    const creditos = _trkRT.estado?.creditos || [];
     changes.forEach(ch => {
         const c = creditos.find(x => x.id_detalle === ch.id_detalle);
         if (c && ch.estatus_recoleccion) c.estatus_recoleccion = ch.estatus_recoleccion;
@@ -17223,6 +18230,10 @@ function _trkRTAplicarChanges(changes) {
             _trkChatActualizarContextoDetalle(ch.id_detalle, { estatus_recoleccion: ch.estatus_recoleccion });
         }
     });
+    if (!_trkRT.estado) {
+        _trkRenderListaCreditos();
+        return;
+    }
     // Recalcular progreso
     const total       = creditos.length;
     const esTerminado = e => e === 'recolectada' || e === 'completado';
@@ -17641,7 +18652,7 @@ function _trkRTProcesarEvento(data) {
             }
             break;
         case 'update':
-            _trkRTAplicarChanges(data.changes || []);
+            _trkRTAplicarChanges(data.changes || data.data?.changes || []);
             break;
         case 'location.update':
             _trkRTActualizarUbicacion(data);
@@ -17671,12 +18682,11 @@ function _trkRTProcesarEvento(data) {
                     _trkRTAplicarChanges(payload.changes);
                 } else {
                     const idDetalle = payload.id_detalle || payload.detalle_id;
-                    _trkDetalleActualizarRecoleccion(idDetalle, 'recolectada');
                     const nextId = payload.next_id_detalle || payload.siguiente_id_detalle;
-                    if (nextId) _trkDetalleActualizarRecoleccion(nextId, 'en_camino');
-                    if (_trkRT.estado && idDetalle) {
-                        _trkRTAplicarChanges([{ id_detalle: idDetalle, estatus_recoleccion: 'recolectada' }]);
-                    }
+                    const cambiosOtp = [];
+                    if (idDetalle) cambiosOtp.push({ id_detalle: idDetalle, estatus_recoleccion: 'recolectada' });
+                    if (nextId) cambiosOtp.push({ id_detalle: nextId, estatus_recoleccion: 'en_camino' });
+                    _trkRTAplicarChanges(cambiosOtp);
                 }
             } else {
                 _trkRTCargarEstado();

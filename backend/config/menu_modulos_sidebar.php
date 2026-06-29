@@ -95,6 +95,7 @@ if (!function_exists('getMenuSidebarModulosStructure')) {
                     ['label' => 'Inventario', 'url' => '/MotosAdjudicadas/inventario', 'modulos' => [139]],
                     ['label' => 'Monitoreo', 'url' => '/MotosAdjudicadas/monitoreoAdjudicaciones', 'modulos' => [76]],
                     ['label' => 'Consulta REPUVE', 'url' => '/MotosAdjudicadas/repuveConsulta', 'modulos' => [78]],
+                    ['label' => 'OTP DE EMERGENCIA', 'url' => '/MotosAdjudicadas/otpEmergenciaLegacy', 'modulos' => [150]],
                     ['label' => '1.- Evidencias', 'url' => '/AtencionClientes/evidencias', 'modulos' => [70]],
                     ['label' => '2.- Recuperación', 'url' => '/AtencionClientes/recuperacion', 'modulos' => [71]],
                     ['label' => '3.-Cartera', 'url' => '/AtencionClientes/cierreDocumentacion', 'modulos' => [72]],
@@ -297,6 +298,7 @@ if (!function_exists('mapPermisoEspecialToMenuMeta')) {
             // Convenios — Crear convenio
             32 => [46, 110],
             92 => [51, 405],
+            151 => [51, 460],
             // Capital Humano — Gestión
             43 => [4, 110],
             82 => [4, 115],

@@ -740,6 +740,7 @@ class Candidatos extends Model
                 "SELECT
                     id_pais, id_div_nivel1, id_div_nivel2, id_div_nivel3,
                     domicilio_calle_texto, domicilio_num_exterior, domicilio_num_interior, codigo_postal,
+                    nombres, segundo_nombre, apellidop, apellidom,
                     id_puesto, id_departamento, id_posible_jefe, id_jefe_divisional, fecha_postulacion,
                     id_legion, usuario, contrasena, notas
                  FROM candidatos
@@ -846,6 +847,28 @@ class Candidatos extends Model
             self::asegurarColumnasFlujoIngreso($db);
             self::completarCodigoPostalDesdeColonia($db, $params);
             $db->CRUD($query, $params);
+            $nombreAnterior = trim(implode(' ', array_filter([
+                $actual['nombres'] ?? '',
+                $actual['segundo_nombre'] ?? '',
+                $actual['apellidop'] ?? '',
+                $actual['apellidom'] ?? '',
+            ])));
+            $nombreNuevo = trim(implode(' ', array_filter([
+                $params['nombres'] ?? '',
+                $params['segundo_nombre'] ?? '',
+                $params['apellidop'] ?? '',
+                $params['apellidom'] ?? '',
+            ])));
+            $normalizarNombre = static function ($valor) {
+                $valor = mb_strtoupper(trim((string) $valor), 'UTF-8');
+                $valor = preg_replace('/\s+/', ' ', $valor);
+                return $valor ?? '';
+            };
+            if ($normalizarNombre($nombreAnterior) !== $normalizarNombre($nombreNuevo)) {
+                self::updateVerificacionExpediente($id, null);
+            } else {
+                self::invalidateDocumentacionCache($id);
+            }
             return self::resultado(true, 'Candidato actualizado correctamente.', ['id' => $id]);
         } catch (\Exception $e) {
             return self::resultado(false, 'Error al actualizar candidato.', null, $e->getMessage());
@@ -1700,7 +1723,7 @@ class Candidatos extends Model
                 "SELECT id, tipos_subidos_json, expediente_completo
                  FROM candidato_verificacion_documental_job
                  WHERE id_candidato = :id
-                   AND estado IN ('pendiente', 'procesando')
+                   AND estado = 'pendiente'
                  ORDER BY id DESC
                  LIMIT 1",
                 ['id' => $id_candidato]
@@ -1767,6 +1790,31 @@ class Candidatos extends Model
             return self::resultado(true, 'Verificacion documental encolada.', ['id_job' => $db->lastInsertId()]);
         } catch (\Exception $e) {
             return self::resultado(false, 'No se pudo encolar la verificacion documental.', null, $e->getMessage());
+        }
+    }
+
+    public static function existeJobVerificacionDocumentalMasNuevo($id_candidato, $id_job): bool
+    {
+        $id_candidato = (int) $id_candidato;
+        $id_job = (int) $id_job;
+        if ($id_candidato <= 0 || $id_job <= 0) {
+            return false;
+        }
+        try {
+            $db = new Database();
+            self::asegurarTablaJobsVerificacionDocumental($db);
+            $row = $db->queryOne(
+                "SELECT id
+                 FROM candidato_verificacion_documental_job
+                 WHERE id_candidato = :id
+                   AND id > :job
+                 ORDER BY id DESC
+                 LIMIT 1",
+                ['id' => $id_candidato, 'job' => $id_job]
+            );
+            return !empty($row);
+        } catch (\Exception $e) {
+            return false;
         }
     }
 
@@ -2088,14 +2136,18 @@ class Candidatos extends Model
             return;
         }
         $cacheDir = defined('RAIZ') ? (RAIZ . '/storage/cache') : (__DIR__ . '/../storage/cache');
-        foreach (['doc_candidato_', 'doc_candidato_v2_', 'doc_candidato_v3_', 'doc_candidato_v4_', 'doc_candidato_v5_'] as $prefix) {
+        $prefixes = ['doc_candidato_'];
+        for ($v = 2; $v <= 12; $v++) {
+            $prefixes[] = 'doc_candidato_v' . $v . '_';
+        }
+        foreach ($prefixes as $prefix) {
             $file = $cacheDir . '/' . $prefix . $id_candidato . '.json';
             if (is_file($file)) {
                 @unlink($file);
             }
         }
         if (function_exists('apcu_delete')) {
-            foreach (['doc_candidato_', 'doc_candidato_v2_', 'doc_candidato_v3_', 'doc_candidato_v4_', 'doc_candidato_v5_'] as $prefix) {
+            foreach ($prefixes as $prefix) {
                 @apcu_delete($prefix . $id_candidato);
             }
         }

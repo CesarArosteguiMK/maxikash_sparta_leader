@@ -99,7 +99,7 @@ def _crear_alibaba_ai_crosscheck() -> Optional[AlibabaDocumentAI]:
     )
 
 
-async def _validar_rapido_alibaba_o_none(file_bytes: bytes, filename: str, expected_doc_type: str) -> Optional[Dict[str, Any]]:
+async def _validar_rapido_alibaba_o_none(file_bytes: bytes, filename: str, expected_doc_type: str, nombre_candidato: Optional[str] = None) -> Optional[Dict[str, Any]]:
     if not _doc_ai_alibaba_activo():
         return None
     ai = _crear_alibaba_ai()
@@ -112,7 +112,7 @@ async def _validar_rapido_alibaba_o_none(file_bytes: bytes, filename: str, expec
     timeout = int(getattr(settings, "doc_ai_quick_timeout_seconds", 35) or 35) + 5
     try:
         return await asyncio.wait_for(
-            asyncio.to_thread(ai.quick_verify, file_bytes, filename, expected_doc_type),
+            asyncio.to_thread(ai.quick_verify, file_bytes, filename, expected_doc_type, nombre_candidato),
             timeout=timeout,
         )
     except Exception as exc:
@@ -383,6 +383,33 @@ def _v2_clean_id(value: Optional[str]) -> Optional[str]:
     return clean or None
 
 
+def _v2_clean_curp(value: Optional[str]) -> Optional[str]:
+    raw = str(value or "")
+    clean = _v2_clean_id(raw)
+    if not clean:
+        return None
+    candidates: List[str] = []
+    if len(clean) == 18:
+        candidates.append(clean)
+    candidates.extend(m.group(0) for m in re.finditer(r"[A-Z]{4}[A-Z0-9]{14}", clean))
+    for candidate in candidates:
+        if len(candidate) == 18 and validar_curp(candidate)[0]:
+            return candidate
+    return None
+
+
+def _v2_clean_nss(value: Optional[str]) -> Optional[str]:
+    raw = str(value or "")
+    candidates = re.findall(r"\d{11}", raw)
+    compact = re.sub(r"\D+", "", raw)
+    if len(compact) == 11:
+        candidates.insert(0, compact)
+    for candidate in candidates:
+        if validar_nss(candidate)[0]:
+            return candidate
+    return None
+
+
 def _v2_edit_distance_limited(a: str, b: str, limit: int = 2) -> int:
     if abs(len(a) - len(b)) > limit:
         return limit + 1
@@ -402,47 +429,12 @@ def _v2_edit_distance_limited(a: str, b: str, limit: int = 2) -> int:
 
 
 def _v2_curp_similarity(a: Optional[str], b: Optional[str]) -> tuple[bool, str, str]:
-    ca = _v2_clean_id(a)
-    cb = _v2_clean_id(b)
+    ca = _v2_clean_curp(a)
+    cb = _v2_clean_curp(b)
     if not ca or not cb:
         return False, "critico", "CURP sin dato suficiente para comparar."
     if ca == cb:
         return True, "ok", "CURP consistente entre documentos."
-    # En escaneos y lecturas visuales, Qwen suele confundir caracteres al final
-    # del CURP (G/O/C/L/R) o insertar un caracter extra. Si el nucleo de identidad
-    # coincide (iniciales, fecha, sexo y entidad), no lo marcamos como falla critica;
-    # se conserva la lectura original como observacion.
-    if 17 <= len(ca) <= 19 and 17 <= len(cb) <= 19 and ca[:13] == cb[:13]:
-        return True, "aviso", (
-            "CURP base consistente entre documentos; la variacion detectada esta "
-            "en caracteres finales susceptibles a lectura OCR/IA."
-        )
-    if (
-        17 <= len(ca) <= 19
-        and 17 <= len(cb) <= 19
-        and ca[:12] == cb[:12]
-        and _v2_edit_distance_limited(ca, cb, 2) <= 2
-    ):
-        return True, "aviso", (
-            "CURP base consistente entre documentos; la variacion detectada esta "
-            "en caracteres susceptibles a lectura OCR/IA."
-        )
-    if (
-        17 <= len(ca) <= 19
-        and 17 <= len(cb) <= 19
-        and ca[:11] == cb[:11]
-        and ca[-2:] == cb[-2:]
-        and _v2_edit_distance_limited(ca, cb, 3) <= 3
-    ):
-        return True, "aviso", (
-            "CURP base consistente entre documentos; la variacion detectada esta "
-            "en caracteres susceptibles a lectura OCR/IA."
-        )
-    if len(ca) == 18 and len(cb) == 18 and ca[:14] == cb[:14]:
-        return True, "aviso", (
-            "CURP base consistente entre documentos; la variacion detectada esta "
-            "en caracteres finales susceptibles a lectura OCR/IA."
-        )
     return False, "critico", "CURP no coincide entre documentos."
 
 
@@ -526,21 +518,14 @@ def _v2_choose_rfc_principal(values: List[str]) -> Optional[str]:
 
 
 def _v2_choose_curp_principal(values: List[str]) -> Optional[str]:
-    cleaned_all = [_v2_clean_id(v) for v in values]
-    cleaned_all = [v for v in cleaned_all if v and 17 <= len(v) <= 19]
-    cleaned = [v for v in cleaned_all if len(v) == 18]
-    if not cleaned:
-        cleaned = cleaned_all
-    valid = [v for v in cleaned if validar_curp(v)[0]]
-    if valid:
-        counts: Dict[str, int] = {}
-        for value in valid:
-            counts[value] = counts.get(value, 0) + 1
-        return sorted(valid, key=lambda v: (-counts.get(v, 0), valid.index(v)))[0]
-    counts = {}
-    for value in cleaned:
+    valid = [_v2_clean_curp(v) for v in values]
+    valid = [v for v in valid if v]
+    if not valid:
+        return None
+    counts: Dict[str, int] = {}
+    for value in valid:
         counts[value] = counts.get(value, 0) + 1
-    return sorted(cleaned, key=lambda v: (-counts.get(v, 0), cleaned.index(v)))[0]
+    return sorted(valid, key=lambda v: (-counts.get(v, 0), valid.index(v)))[0]
 
 
 def _v2_pdf_page_count(doc: Dict[str, Any], summary: Any = None) -> Optional[int]:
@@ -587,7 +572,33 @@ def _v2_names_match(a: Optional[str], b: Optional[str]) -> bool:
     if not ta or not tb:
         return False
     overlap = ta.intersection(tb)
-    return len(overlap) >= 2 and (len(overlap) / max(1, min(len(ta), len(tb)))) >= 0.80
+    if len(overlap) >= 2 and (len(overlap) / max(1, min(len(ta), len(tb)))) >= 0.80:
+        return True
+
+    tokens_a = [t for t in na.split() if len(t) > 1 and t not in stop]
+    tokens_b = [t for t in nb.split() if len(t) > 1 and t not in stop]
+    used_b = set()
+    fuzzy_matches = 0
+    for token_a in tokens_a:
+        best_idx = None
+        best_dist = 99
+        for idx, token_b in enumerate(tokens_b):
+            if idx in used_b:
+                continue
+            if token_a[0] != token_b[0] or min(len(token_a), len(token_b)) < 4:
+                continue
+            limit = 1 if min(len(token_a), len(token_b)) < 8 else 2
+            dist = _v2_edit_distance_limited(token_a, token_b, limit)
+            if dist <= limit and dist < best_dist:
+                best_idx = idx
+                best_dist = dist
+        if best_idx is not None:
+            used_b.add(best_idx)
+            fuzzy_matches += 1
+
+    comparable_tokens = max(1, min(len(tokens_a), len(tokens_b)))
+    required_matches = comparable_tokens if comparable_tokens <= 2 else int((comparable_tokens * 0.80) + 0.999)
+    return fuzzy_matches >= required_matches
 
 
 def _v2_months_value(data: Dict[str, Any]) -> Optional[int]:
@@ -670,6 +681,22 @@ def _resultado_v2_reglas_expediente(
         out["nss"] = _v2_first_value(previo, ["nss", "nss_extraido", "nss_lectura_ia"])
         out["mensaje"] = _v2_first_value(previo, ["mensaje", "motivo_rechazo"])
         out["observaciones"] = list(previo.get("alertas") or previo.get("notas") or previo.get("observaciones") or [])
+        raw_curp = out["curp"]
+        if raw_curp:
+            curp_limpia = _v2_clean_curp(raw_curp)
+            if curp_limpia:
+                out["curp"] = curp_limpia
+            else:
+                out["curp"] = None
+                out["observaciones"].append(f"CURP descartada por lectura no valida: {raw_curp}.")
+        raw_nss = out["nss"]
+        if raw_nss:
+            nss_limpio = _v2_clean_nss(raw_nss)
+            if nss_limpio:
+                out["nss"] = nss_limpio
+            else:
+                out["nss"] = None
+                out["observaciones"].append(f"NSS descartado por lectura no valida: {raw_nss}.")
         out["estado"] = "coincide"
 
         rechazado = _v2_bool(previo.get("rechazado"))
@@ -790,7 +817,12 @@ def _resultado_v2_reglas_expediente(
         add_comp("Banco", "Banco fisico aceptado", "__SPARTA_SECRET_REDACTED__", banco, "Regla", "Banco fisico", ok, "ok" if ok else "critico", "El estado de cuenta corresponde a banco fisico." if ok else f"El banco detectado no es aceptado para carga: {banco}.")
 
     for field, label in (("curp", "CURP"), ("rfc", "RFC"), ("nss", "NSS")):
-        values = [(k, _v2_clean_id(v.get(field))) for k, v in readable.items() if v.get(field)]
+        if field == "curp":
+            values = [(k, _v2_clean_curp(v.get(field))) for k, v in readable.items() if v.get(field)]
+        elif field == "nss":
+            values = [(k, _v2_clean_nss(v.get(field))) for k, v in readable.items() if v.get(field)]
+        else:
+            values = [(k, _v2_clean_id(v.get(field))) for k, v in readable.items() if v.get(field)]
         if field == "rfc":
             values = [(k, v) for k, v in values if k != "comprobante_domicilio"]
         values = [(k, v) for k, v in values if v]
@@ -880,11 +912,11 @@ def _resultado_v2_reglas_expediente(
     datos_ref = {
         "nombre_registro": nombre_registro or None,
         "nombre_principal_documentos": next((v.get("nombre") for v in readable.values() if v.get("nombre")), None),
-        "curp_principal": curp_principal_v2 or next((v.get("curp") for v in readable.values() if v.get("curp")), None),
+        "curp_principal": curp_principal_v2 or next((_v2_clean_curp(v.get("curp")) for v in readable.values() if _v2_clean_curp(v.get("curp"))), None),
         "rfc_principal": _v2_choose_rfc_principal([
             v.get("rfc") for k, v in readable.items() if k != "comprobante_domicilio" and v.get("rfc")
         ]) or next((v.get("rfc") for k, v in readable.items() if k != "comprobante_domicilio" and v.get("rfc")), None),
-        "nss_principal": next((v.get("nss") for v in readable.values() if v.get("nss")), None),
+        "nss_principal": next((_v2_clean_nss(v.get("nss")) for v in readable.values() if _v2_clean_nss(v.get("nss"))), None),
     }
 
     return {
@@ -3331,17 +3363,25 @@ async def validar_expediente(
                 "hoja_retencion": "carta_no_adeudo",
                 "__SPARTA_SECRET_REDACTED__": "__SPARTA_SECRET_REDACTED__",
             }
-            missing_docs = [
+            # Estos documentos concentran campos manuscritos o lecturas donde
+            # una lectura vieja puede bloquear la reevaluacion aunque el PDF ya
+            # este corregido. En cada reevaluacion V2 los releemos con el nombre
+            # registrado como referencia visual.
+            force_quick_refresh = {"hoja_retencion", "solicitud_interna", "identificacion_oficial"}
+            docs_needing_quick = [
                 doc for doc in docs_v2
-                if not summary_is_usable(doc.get("summary"))
+                if (
+                    str(doc.get("key") or "") in force_quick_refresh
+                    or not summary_is_usable(doc.get("summary"))
+                )
                 and quick_expected.get(str(doc.get("key") or ""))
             ]
-            if missing_docs:
+            if docs_needing_quick:
                 quick_ai = _crear_alibaba_ai()
                 if quick_ai is not None and quick_ai.enabled():
-                    quick_ai.timeout_seconds = min(12, int(getattr(quick_ai, "timeout_seconds", 12) or 12))
+                    quick_ai.timeout_seconds = max(18, min(24, int(getattr(quick_ai, "timeout_seconds", 18) or 18)))
                     quick_ai.max_pages = min(2, int(getattr(quick_ai, "max_pages", 2) or 2))
-                    quick_ai.dpi = min(120, int(getattr(quick_ai, "dpi", 120) or 120))
+                    quick_ai.dpi = max(170, min(210, int(getattr(quick_ai, "dpi", 170) or 170)))
                     sem = asyncio.Semaphore(3)
 
                     async def _prefill_summary(doc: Dict[str, Any]) -> None:
@@ -3357,8 +3397,9 @@ async def validar_expediente(
                                         doc.get("bytes") or b"",
                                         str(doc.get("filename") or f"{key}.pdf"),
                                         expected,
+                                        nombre_candidato_registro,
                                     ),
-                                    timeout=16,
+                                    timeout=int(getattr(quick_ai, "timeout_seconds", 18) or 18) + 5,
                                 )
                                 if isinstance(result, dict):
                                     doc["summary"] = quick_result_to_summary(
@@ -3370,7 +3411,7 @@ async def validar_expediente(
                             except Exception as exc:
                                 logger.warning(f"No se pudo preleer {key} para crosscheck V2: {exc}")
 
-                    await asyncio.gather(*(_prefill_summary(doc) for doc in missing_docs))
+                    await asyncio.gather(*(_prefill_summary(doc) for doc in docs_needing_quick))
                     logger.info(
                         "validar-expediente V2 prefill summaries="
                         f"{sum(1 for doc in docs_v2 if summary_is_usable(doc.get('summary')))}"

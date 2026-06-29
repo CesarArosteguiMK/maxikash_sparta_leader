@@ -2,6 +2,7 @@
 namespace Models;
 
 use Core\Database;
+use Core\DatabaseLegacy;
 
 /**
  * Modelo para el módulo de Atención a Clientes (adjudicaciones).
@@ -1412,6 +1413,148 @@ SQL;
         }
 
         return ['success' => true, 'message' => 'Operacion liberada de BlackList.'];
+    }
+
+    /**
+     * Prepara la notificacion push al gestor Legacy cuando Evidencias cancela el visto bueno.
+     *
+     * @return array{success:bool,message?:string,payload?:array<string,mixed>,destinatarios?:array<int,array<string,mixed>>}
+     */
+    public function prepararPayloadCancelacionEvidenciasLegacy(
+        int $idOperacion,
+        string $tipoCancelacion,
+        string $motivo,
+        string $comentario = ''
+    ): array {
+        if ($idOperacion <= 0) {
+            return ['success' => false, 'message' => 'ID de operacion no valido.'];
+        }
+
+        $op = $this->db->queryOne(
+            'SELECT id, id_credito, folio, nombre_cliente
+             FROM adj_operacion
+             WHERE id = :id
+             LIMIT 1',
+            ['id' => $idOperacion]
+        );
+        if (!$op) {
+            return ['success' => false, 'message' => 'No se encontro la operacion para notificar.'];
+        }
+
+        $idCredito = (int) ($op['id_credito'] ?? 0);
+        if ($idCredito <= 0) {
+            return ['success' => false, 'message' => 'La operacion no tiene credito asociado.'];
+        }
+
+        $destinatarios = $this->obtenerDestinatariosLegacyPorCredito($idCredito);
+        $principal = $destinatarios[0] ?? [];
+        if ($destinatarios === [] || trim((string) ($principal['external_id'] ?? '')) === '' || (int) ($principal['user_id_legacy'] ?? 0) <= 0) {
+            return ['success' => false, 'message' => 'No se pudo identificar al usuario Legacy que debe recibir la notificacion.'];
+        }
+
+        $esBlacklist = trim($tipoCancelacion) === 'blacklist';
+        return [
+            'success' => true,
+            'payload' => [
+                'id_operacion' => $idOperacion,
+                'id_credito' => $idCredito,
+                'folio' => (string) ($op['folio'] ?? ''),
+                'nombre_cliente' => (string) ($op['nombre_cliente'] ?? ''),
+                'user_id_legacy' => (string) ((int) ($principal['user_id_legacy'] ?? 0)),
+                'external_id' => (string) ($principal['external_id'] ?? ''),
+                'tipo_cancelacion' => $esBlacklist ? 'blacklist' : 'denegar_visto_bueno',
+                'estatus' => $esBlacklist ? 'BLACKLIST_MOTOS_ADJUDICADAS' : 'VISTO_BUENO_DENEGADO',
+                'motivo' => mb_substr(trim($motivo), 0, 500),
+                'comentario' => mb_substr(trim($comentario), 0, 500),
+            ],
+            'destinatarios' => $destinatarios,
+        ];
+    }
+
+    /**
+     * Devuelve posibles destinatarios de push para un credito, empezando por la asignacion activa.
+     *
+     * @return array<int,array{user_id_legacy:int,external_id:string,nombre:string,origen:string}>
+     */
+    private function obtenerDestinatariosLegacyPorCredito(int $idCredito): array
+    {
+        if ($idCredito <= 0) {
+            return [];
+        }
+
+        $rows = $this->db->queryAll(
+            'SELECT per.id AS id_persona,
+                    TRIM(COALESCE(per.numero_empleado, \'\')) AS external_id,
+                    TRIM(CONCAT_WS(\' \', per.nombres, per.segundo_nombre, per.apellidop, per.apellidom)) AS nombre,
+                    aca.estatus,
+                    aca.id
+             FROM asigna_creditos_adjudicacion aca
+             INNER JOIN personal_adjudicacion pa ON pa.id = aca.id_personal_adj
+             INNER JOIN persona per ON per.id = pa.id_persona
+             WHERE aca.id_credito = :id_credito
+             ORDER BY (aca.estatus = \'1\') DESC, aca.id DESC
+             LIMIT 8',
+            ['id_credito' => $idCredito]
+        ) ?: [];
+
+        $externals = [];
+        foreach ($rows as $row) {
+            $externalId = trim((string) ($row['external_id'] ?? ''));
+            if ($externalId !== '') {
+                $externals[$externalId] = true;
+            }
+        }
+        if ($externals === []) {
+            return [];
+        }
+
+        $legacyPorExternal = [];
+        try {
+            $legacyDb = new DatabaseLegacy();
+            $ph = [];
+            $params = [];
+            foreach (array_keys($externals) as $idx => $externalId) {
+                $key = 'ext' . $idx;
+                $ph[] = ':' . $key;
+                $params[$key] = $externalId;
+            }
+            $legacyRows = $legacyDb->queryAll(
+                'SELECT id, TRIM(COALESCE(external_id, \'\')) AS external_id
+                 FROM users
+                 WHERE TRIM(COALESCE(external_id, \'\')) IN (' . implode(',', $ph) . ')
+                   AND deleted_at IS NULL
+                 ORDER BY id DESC',
+                $params
+            ) ?: [];
+            foreach ($legacyRows as $legacyRow) {
+                $externalId = trim((string) ($legacyRow['external_id'] ?? ''));
+                $id = (int) ($legacyRow['id'] ?? 0);
+                if ($externalId !== '' && $id > 0 && !isset($legacyPorExternal[$externalId])) {
+                    $legacyPorExternal[$externalId] = $id;
+                }
+            }
+        } catch (\Throwable $e) {
+            return [];
+        }
+
+        $out = [];
+        $vistos = [];
+        foreach ($rows as $row) {
+            $externalId = trim((string) ($row['external_id'] ?? ''));
+            $legacyUserId = (int) ($legacyPorExternal[$externalId] ?? 0);
+            if ($externalId === '' || $legacyUserId <= 0 || isset($vistos[$externalId])) {
+                continue;
+            }
+            $vistos[$externalId] = true;
+            $out[] = [
+                'user_id_legacy' => $legacyUserId,
+                'external_id' => $externalId,
+                'nombre' => trim((string) ($row['nombre'] ?? '')),
+                'origen' => ((string) ($row['estatus'] ?? '') === '1') ? 'asignacion_activa' : 'asignacion_anterior',
+            ];
+        }
+
+        return $out;
     }
 
     /**
