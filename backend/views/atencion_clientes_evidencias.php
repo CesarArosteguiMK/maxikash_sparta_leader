@@ -3401,10 +3401,10 @@ $aevPuedeReemplazarEvidencia = in_array(79, array_map('intval', (array) ($_SESSI
             </button>`;
         const puedeCancelar = !!(AEV_BLACKLIST_PERMISOS && (AEV_BLACKLIST_PERMISOS.cancelar || AEV_BLACKLIST_PERMISOS.blacklist))
             && ['bandeja', 'correcciones'].indexOf(String(key || '').toLowerCase()) >= 0;
-        const clienteJs = JSON.stringify(String(item.nombre_cliente || 'Sin nombre'));
+        const clienteJs = encodeURIComponent(String(item.nombre_cliente || 'Sin nombre'));
         const accionCancelar = puedeCancelar ? `
             <button type="button" class="btn btn-sm btn-outline-danger" data-aev-no-row="1"
-                    onclick="event.stopPropagation(); aevAbrirCancelacion(${+item.id}, ${+item.id_credito}, ${clienteJs})"
+                    onclick="event.stopPropagation(); aevAbrirCancelacion(${+item.id}, ${+item.id_credito}, decodeURIComponent('${clienteJs}'))"
                     title="Cancelar operacion" aria-label="Cancelar operacion">
                 <i class="fa-solid fa-ban"></i>
             </button>` : '';
