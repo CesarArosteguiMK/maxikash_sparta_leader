@@ -436,6 +436,11 @@ def _v2_curp_similarity(a: Optional[str], b: Optional[str]) -> tuple[bool, str, 
         return False, "critico", "CURP sin dato suficiente para comparar."
     if ca == cb:
         return True, "ok", "CURP consistente entre documentos."
+    if ca[:13] == cb[:13] and _v2_edit_distance_limited(ca, cb, 1) <= 1:
+        return True, "aviso", (
+            "CURP corregida por consenso documental; la variacion detectada es "
+            "de un caracter en la zona final susceptible a lectura OCR/IA."
+        )
     return False, "critico", "CURP no coincide entre documentos."
 
 
