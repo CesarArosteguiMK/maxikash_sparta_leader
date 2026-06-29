@@ -40,6 +40,165 @@ class AtencionClientes extends Controller
         return 'SISTEMA';
     }
 
+    private function pushLegacyConfig(): array
+    {
+        $cfg = function_exists('config_api_load_from_db') ? config_api_load_from_db() : [];
+        $leerValor = static function (array $keys) use ($cfg): string {
+            foreach ($keys as $key) {
+                $valor = trim((string) ($cfg[$key] ?? ''));
+                if ($valor !== '') {
+                    return $valor;
+                }
+                $env = getenv($key);
+                if ($env !== false && trim((string) $env) !== '') {
+                    return trim((string) $env);
+                }
+            }
+            return '';
+        };
+
+        $baseUrl = $leerValor(['MOTOS_ADJUDICADAS_PUSH_BASE_URL']);
+        if ($baseUrl === '') {
+            $baseUrl = 'https://motosadjudicadas-601258367060.us-central1.run.app';
+        }
+        $apiKey = $leerValor(['MOTOS_ADJUDICADAS_API_KEY', 'MOTOS_ADJUDICADAS_TOKEN']);
+
+        return [
+            'base_url' => rtrim($baseUrl, '/'),
+            'api_key' => $apiKey,
+        ];
+    }
+
+    private function pushLegacyCurl(string $url, array $payload): array
+    {
+        if (!function_exists('curl_init')) {
+            return ['http_code' => 0, 'body' => '', 'error' => 'cURL no esta disponible en este servidor.'];
+        }
+
+        $cfg = $this->pushLegacyConfig();
+        $ch = curl_init($url);
+        curl_setopt_array($ch, [
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_POST => true,
+            CURLOPT_POSTFIELDS => json_encode($payload, JSON_UNESCAPED_SLASHES),
+            CURLOPT_TIMEOUT => 25,
+            CURLOPT_HTTPHEADER => [
+                'Content-Type: application/json; charset=utf-8',
+                'Accept: application/json',
+                'X-API-Key: ' . $cfg['api_key'],
+            ],
+            CURLOPT_SSL_VERIFYPEER => true,
+        ]);
+
+        $raw = curl_exec($ch);
+        $err = curl_error($ch);
+        $httpCode = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        curl_close($ch);
+
+        return [
+            'http_code' => $httpCode,
+            'body' => $raw === false ? '' : (string) $raw,
+            'error' => $err ?: '',
+        ];
+    }
+
+    private function notificarCancelacionEvidenciasLegacy(int $idOperacion, string $tipoCancelacion, string $motivo, string $comentario): array
+    {
+        $cfg = $this->pushLegacyConfig();
+        if ($cfg['base_url'] === '' || $cfg['api_key'] === '') {
+            return ['success' => false, 'message' => 'Servicio de notificaciones no configurado.'];
+        }
+
+        $prep = $this->model->prepararPayloadCancelacionEvidenciasLegacy($idOperacion, $tipoCancelacion, $motivo, $comentario);
+        if (empty($prep['success'])) {
+            return ['success' => false, 'message' => (string) ($prep['message'] ?? 'No se pudo preparar la notificacion.')];
+        }
+
+        $payloadBase = is_array($prep['payload'] ?? null) ? $prep['payload'] : [];
+        $destinatarios = is_array($prep['destinatarios'] ?? null) ? $prep['destinatarios'] : [];
+        if ($destinatarios === [] && $payloadBase !== []) {
+            $destinatarios[] = [
+                'user_id_legacy' => (int) ($payloadBase['user_id_legacy'] ?? 0),
+                'external_id' => (string) ($payloadBase['external_id'] ?? ''),
+                'nombre' => '',
+                'origen' => 'payload',
+            ];
+        }
+
+        $esBlacklist = $tipoCancelacion === 'blacklist';
+        $pushBasePayload = [
+            'titulo' => $esBlacklist ? 'Moto adjudicada bloqueada' : 'Visto Bueno denegado',
+            'mensaje' => 'No se tiene Visto Bueno para adjudicar la Moto. Si tienes cualquier duda, contacta a tu lider.',
+            'evento' => $esBlacklist ? 'moto_adjudicada_blacklist' : 'visto_bueno_denegado',
+            'data' => [
+                'type' => $esBlacklist ? 'moto_adjudicada_blacklist' : 'visto_bueno_denegado',
+                'screen' => 'MotoDetalle',
+                'tab' => 'Recoleccion',
+                'id_operacion' => (int) ($payloadBase['id_operacion'] ?? $idOperacion),
+                'id_credito' => (int) ($payloadBase['id_credito'] ?? 0),
+                'estatus' => (string) ($payloadBase['estatus'] ?? ''),
+                'motivo' => (string) ($payloadBase['motivo'] ?? $motivo),
+            ],
+        ];
+
+        $url = $cfg['base_url'] . '/api/push-notifications/legacy/send';
+        $resp = ['http_code' => 0, 'body' => '', 'error' => 'No se intento enviar la notificacion.'];
+        $decoded = null;
+        $destinatarioUsado = null;
+        $erroresDestinatarios = [];
+        foreach ($destinatarios as $destinatario) {
+            $userIdLegacy = (int) ($destinatario['user_id_legacy'] ?? 0);
+            $externalId = trim((string) ($destinatario['external_id'] ?? ''));
+            if ($userIdLegacy <= 0 || $externalId === '') {
+                continue;
+            }
+
+            $pushPayload = array_merge($pushBasePayload, [
+                'user_id_legacy' => (string) $userIdLegacy,
+                'external_id' => $externalId,
+            ]);
+            $resp = $this->pushLegacyCurl($url, $pushPayload);
+            $decoded = json_decode($resp['body'], true);
+            $message = is_array($decoded)
+                ? (string) ($decoded['message'] ?? $decoded['mensaje'] ?? $decoded['detail'] ?? '')
+                : (string) ($resp['error'] ?? '');
+            if ($resp['http_code'] >= 200 && $resp['http_code'] < 300) {
+                $destinatarioUsado = $destinatario;
+                break;
+            }
+
+            $erroresDestinatarios[] = [
+                'external_id' => $externalId,
+                'user_id_legacy' => $userIdLegacy,
+                'nombre' => (string) ($destinatario['nombre'] ?? ''),
+                'origen' => (string) ($destinatario['origen'] ?? ''),
+                'http_code' => $resp['http_code'],
+                'message' => $message,
+            ];
+
+            $sinDispositivo = stripos($message, 'No hay tokens activos') !== false
+                || stripos($message, 'tokens activos') !== false
+                || stripos($message, 'destinatario') !== false;
+            if (!$sinDispositivo) {
+                break;
+            }
+        }
+
+        $ok = $resp['http_code'] >= 200 && $resp['http_code'] < 300;
+        return [
+            'success' => $ok,
+            'http_code' => $resp['http_code'],
+            'message' => $ok
+                ? 'Notificacion enviada al gestor.'
+                : (is_array($decoded)
+                    ? (string) ($decoded['message'] ?? $decoded['mensaje'] ?? $decoded['detail'] ?? 'No se pudo enviar la notificacion.')
+                    : ($resp['error'] ?: 'No se pudo enviar la notificacion.')),
+            'destinatario' => $destinatarioUsado,
+            'destinatarios_probados' => $erroresDestinatarios,
+            'api_response' => is_array($decoded) ? $decoded : $resp['body'],
+        ];
+    }
+
     // =========================================================================
     // VISTA PRINCIPAL
     // =========================================================================
@@ -230,6 +389,19 @@ class AtencionClientes extends Controller
                 $idUsuario,
                 $this->nombreUsuarioSesion()
             );
+            if (!empty($resultado['success'])) {
+                $push = $this->notificarCancelacionEvidenciasLegacy(
+                    (int) ($body['id_operacion'] ?? 0),
+                    $tipo,
+                    (string) ($body['motivo'] ?? ''),
+                    (string) ($body['comentario'] ?? '')
+                );
+                $resultado['push_success'] = (bool) ($push['success'] ?? false);
+                $resultado['push_message'] = (string) ($push['message'] ?? '');
+                $resultado['push_http_code'] = $push['http_code'] ?? null;
+                $resultado['push_destinatario'] = $push['destinatario'] ?? null;
+                $resultado['push_destinatarios_probados'] = $push['destinatarios_probados'] ?? [];
+            }
             if (empty($resultado['success'])) {
                 http_response_code(422);
             }
