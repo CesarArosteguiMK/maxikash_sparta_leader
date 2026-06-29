@@ -18896,6 +18896,7 @@ class CapHum extends Controller
         // validar-expediente responde al final del OCR/cross-check (no stream),
         // así que LOW_SPEED suele provocar falsos timeout aunque el proceso siga vivo.
         $usarLowSpeed = false;
+        $omitirLecturasPrevias = false;
 
         $lastPayloadError = ['error' => 'No se obtuvo respuesta válida de la API.'];
         for ($attempt = 0; $attempt < $totalIntentos; $attempt++) {
@@ -18907,7 +18908,7 @@ class CapHum extends Controller
                 return null;
             }
             $lecturasJson = $this->construirLecturasIaExpedienteJson($documentos);
-            if ($lecturasJson !== null) {
+            if (!$omitirLecturasPrevias && $lecturasJson !== null) {
                 // Evitar enviar JSON crudo en multipart: algunas lecturas traen
                 // HTML/observaciones largas y pueden romper el parser del body
                 // antes de que FastAPI entre al endpoint. El limite por parte de
@@ -18954,6 +18955,23 @@ class CapHum extends Controller
             $curlErrno = (int) curl_errno($ch);
             $bytesDown = (int) curl_getinfo($ch, CURLINFO_SIZE_DOWNLOAD);
             curl_close($ch);
+
+            if ($httpCode === 400 && !$omitirLecturasPrevias && isset($post['lecturas_json_b64'])) {
+                $detParseApi = $this->expedienteApiExtraerDetalleRespuesta(is_string($body) ? $body : null, $httpCode);
+                $bodyTxt = is_string($body) ? strtolower($body) : '';
+                $detTxt = strtolower((string) $detParseApi);
+                if (
+                    strpos($bodyTxt, 'error parsing the body') !== false
+                    || strpos($detTxt, 'error parsing the body') !== false
+                    || strpos($bodyTxt, 'parsing the body') !== false
+                    || strpos($detTxt, 'parsing the body') !== false
+                ) {
+                    $omitirLecturasPrevias = true;
+                    $totalIntentos = max($totalIntentos, $attempt + 2);
+                    error_log('CapHum::validarExpedienteApi HTTP 400 parsing body; reintentando sin lecturas_json_b64 para forzar relectura de PDFs.');
+                    continue;
+                }
+            }
 
             if (in_array($httpCode, [400, 401, 403, 404, 422], true)) {
                 $detApi = $this->expedienteApiExtraerDetalleRespuesta(is_string($body) ? $body : null, $httpCode);
