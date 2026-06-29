@@ -1759,6 +1759,7 @@ var _estatusS2 = null;
 var _estatusConvenio = null;
 var _permSolicitarReactivacion = <?= !empty($permisoSolicitarReactivacionOferta) ? 'true' : 'false' ?>;
 var _permReactivarOfertas = <?= !empty($permisoReactivarOfertas) ? 'true' : 'false' ?>;
+var _permCancelamientoDirecto = <?= !empty($permisoCancelamientoDirecto) ? 'true' : 'false' ?>;
 
 // ── Helpers de badge para el banner ──
 function _renderS2Badge(s2) {
@@ -4286,6 +4287,77 @@ window.guardarConvenio = function () {
 // ══════════════════════════════════════════════════════
 window.cancelarConvenio = function () {
     if (!window._idConvenioActivo) return;
+
+    if (_permCancelamientoDirecto) {
+        Swal.fire({
+            title: 'Cancelar convenio',
+            html:
+                '<p class="text-muted mb-2" style="font-size:.88rem;">Este permiso cancela el convenio de forma inmediata. ' +
+                'Captura el motivo para dejar evidencia en el historial.</p>' +
+                '<textarea id="swal-motivo-cancelamiento" class="form-control" rows="3" maxlength="200" ' +
+                'placeholder="Motivo de cancelamiento (max. 200 caracteres)..."></textarea>' +
+                '<div class="text-end mt-1"><small class="text-muted"><span id="swal-motivo-count">0</span>/200</small></div>',
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonText: '<i class="fa-solid fa-ban me-1"></i>Si, cancelar ahora',
+            cancelButtonText: 'No, volver',
+            confirmButtonColor: '#dc2626',
+            didOpen: function () {
+                var ta = document.getElementById('swal-motivo-cancelamiento');
+                var cnt = document.getElementById('swal-motivo-count');
+                if (ta && cnt) {
+                    ta.addEventListener('input', function () { cnt.textContent = ta.value.length; });
+                    ta.focus();
+                }
+            },
+            preConfirm: function () {
+                var motivo = (document.getElementById('swal-motivo-cancelamiento').value || '').trim();
+                if (!motivo) {
+                    Swal.showValidationMessage('El motivo de cancelamiento es obligatorio.');
+                    return false;
+                }
+                return motivo;
+            }
+        }).then(function (result) {
+            if (!result.isConfirmed) return;
+
+            Swal.fire({
+                title: 'Cancelando convenio...',
+                allowOutsideClick: false,
+                didOpen: function () { Swal.showLoading(); }
+            });
+
+            http.request({
+                endpoint: '/convenios/cancelarConvenio',
+                metodo: 'POST',
+                data: { id_convenio: window._idConvenioActivo, motivo: result.value },
+                onSuccess: function (resp) {
+                    if (!resp.success) {
+                        Swal.fire({ icon: 'error', title: 'Error', text: resp.mensaje || 'No se pudo cancelar el convenio.', confirmButtonColor: '#764ba2' });
+                        return;
+                    }
+                    Swal.fire({
+                        icon: 'success',
+                        title: 'Convenio cancelado',
+                        text: resp.mensaje || 'El convenio fue cancelado correctamente.',
+                        confirmButtonColor: '#764ba2',
+                        timer: 1800,
+                        showConfirmButton: false
+                    }).then(function () {
+                        if (_credito && _credito.Id_credito) {
+                            seleccionarCredito(_credito.Id_credito);
+                        } else {
+                            location.reload();
+                        }
+                    });
+                },
+                onError: function () {
+                    Swal.fire({ icon: 'error', title: 'Error de conexion', text: 'No se pudo cancelar el convenio. Intenta de nuevo.', confirmButtonColor: '#764ba2' });
+                }
+            });
+        });
+        return;
+    }
 
     // ── NUEVO FLUJO: solicitar motivo y enviar petición de cancelamiento ──
     Swal.fire({

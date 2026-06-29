@@ -199,6 +199,7 @@ function getMenu(): string
                 ['label' => 'Inventario',             'url' => '/MotosAdjudicadas/inventario',              'modulos' => [139]],
                 ['label' => 'Monitoreo', 'url' => '/MotosAdjudicadas/monitoreoAdjudicaciones', 'modulos' => [76]],
                 ['label' => 'Consulta REPUVE',         'url' => '/MotosAdjudicadas/repuveConsulta',         'modulos' => [78]],
+                ['label' => 'OTP DE EMERGENCIA',       'url' => '/MotosAdjudicadas/otpEmergenciaLegacy',    'modulos' => [150]],
                 ['label' => '1.- Evidencias',     'url' => '/AtencionClientes/evidencias',             'modulos' => [70]],
                 ['label' => '2.- Recuperación',   'url' => '/AtencionClientes/recuperacion',           'modulos' => [71]],
                 ['label' => '3.-Cartera', 'url' => '/AtencionClientes/cierreDocumentacion', 'modulos' => [72]],

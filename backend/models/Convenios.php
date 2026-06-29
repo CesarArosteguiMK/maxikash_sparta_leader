@@ -1800,10 +1800,11 @@ private static function _cerrarConvenioPorLiquidacionS2($db, array &$convenio, a
 // CANCELAR CONVENIO
 // ─────────────────────────────────────────────
 
-public static function cancelarConvenio($id_convenio, $usuario)
+public static function cancelarConvenio($id_convenio, $usuario, $motivo = null)
 {
     try {
         $db = new Database();
+        $motivoLimpio = mb_substr(trim(strip_tags((string) $motivo)), 0, 200);
 
         // 1. Verificar que exista y esté activo
         $convenio = $db->queryOne(
@@ -1846,6 +1847,7 @@ public static function cancelarConvenio($id_convenio, $usuario)
                 fecha_cancelacion        = :fecha_cancelacion,
                 numero_semana_cancelacion = :semana,
                 usuario_cancela          = :usuario,
+                motivo_cancelamiento     = COALESCE(NULLIF(:motivo_cancelamiento, ''), motivo_cancelamiento),
                 usuario_modifica         = :usuario_modifica,
                 fecha_modifica           = NOW()
              WHERE id = :id",
@@ -1853,6 +1855,7 @@ public static function cancelarConvenio($id_convenio, $usuario)
                 'fecha_cancelacion' => $fechaCancelacion,
                 'semana'            => $semanaCancelacion,
                 'usuario'           => $usuario,
+                'motivo_cancelamiento' => $motivoLimpio,
                 'usuario_modifica'  => $usuario,
                 'id'                => (int) $id_convenio,
             ]
@@ -1868,7 +1871,7 @@ public static function cancelarConvenio($id_convenio, $usuario)
                 estatus_pago = 'cancelado'
              WHERE id_convenio_cliente = :id
                AND numero_semana >= :semana
-               AND estatus_pago = 'pendiente'",
+               AND estatus_pago IN ('pendiente', 'vencido')",
             [
                 'id'     => (int) $id_convenio,
                 'semana' => $semanaCancelacion,
