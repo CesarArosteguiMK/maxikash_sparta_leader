@@ -346,6 +346,16 @@ class MotosAdjudicadas extends Controller
         return self::render('motos_adjudicadas_monitoreo');
     }
 
+    /**
+     * GET /MotosAdjudicadas/otpEmergenciaLegacy
+     */
+    public function otpEmergenciaLegacy()
+    {
+        $emp = defined('CONFIGURACION') && isset(CONFIGURACION['EMPRESA']) ? (string) CONFIGURACION['EMPRESA'] : '';
+        self::set('titulo', 'OTP DE EMERGENCIA - Motos Adjudicadas ' . $emp);
+        return self::render('motos_adjudicadas_otp_emergencia');
+    }
+
     private function pushLegacyConfig(): array
     {
         $cfg = function_exists('config_api_load_from_db') ? config_api_load_from_db() : [];
@@ -411,6 +421,347 @@ class MotosAdjudicadas extends Controller
             'body' => $raw === false ? '' : (string) $raw,
             'error' => $err ?: null,
         ];
+    }
+
+    private function legacyApiUrl(array $cfg, string $path): string
+    {
+        $base = rtrim((string) ($cfg['base_url'] ?? ''), '/');
+        $path = '/' . ltrim($path, '/');
+
+        if (substr(strtolower($base), -4) === '/api' && substr($path, 0, 5) === '/api/') {
+            $path = substr($path, 4);
+        }
+
+        return $base . $path;
+    }
+
+    private function legacyApiRequest(string $method, string $path, ?array $payload = null): array
+    {
+        $cfg = $this->pushLegacyConfig();
+        if (($cfg['base_url'] ?? '') === '' || ($cfg['api_key'] ?? '') === '') {
+            return [
+                'http_code' => 0,
+                'body' => '',
+                'decoded' => null,
+                'error' => 'Servicio Legacy no configurado. Configure MOTOS_ADJUDICADAS_API_KEY o MOTOS_ADJUDICADAS_TOKEN.',
+            ];
+        }
+        if (!function_exists('curl_init')) {
+            return [
+                'http_code' => 0,
+                'body' => '',
+                'decoded' => null,
+                'error' => 'cURL no esta disponible en este servidor.',
+            ];
+        }
+
+        $method = strtoupper($method);
+        $headers = [
+            'Accept: application/json',
+            'X-API-Key: ' . $cfg['api_key'],
+        ];
+
+        $ch = curl_init($this->legacyApiUrl($cfg, $path));
+        $opts = [
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_CUSTOMREQUEST => $method,
+            CURLOPT_TIMEOUT => 25,
+            CURLOPT_HTTPHEADER => $headers,
+            CURLOPT_SSL_VERIFYPEER => true,
+        ];
+
+        if ($payload !== null) {
+            $headers[] = 'Content-Type: application/json; charset=utf-8';
+            $opts[CURLOPT_HTTPHEADER] = $headers;
+            $opts[CURLOPT_POSTFIELDS] = json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+        }
+
+        curl_setopt_array($ch, $opts);
+        $raw = curl_exec($ch);
+        $err = curl_error($ch);
+        $httpCode = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        curl_close($ch);
+
+        $body = $raw === false ? '' : (string) $raw;
+        $decoded = json_decode($body, true);
+
+        return [
+            'http_code' => $httpCode,
+            'body' => $body,
+            'decoded' => is_array($decoded) ? $decoded : null,
+            'error' => $err ?: null,
+        ];
+    }
+
+    private function buscarValorRecursivo($data, array $keys): string
+    {
+        if (!is_array($data)) {
+            return '';
+        }
+
+        foreach ($keys as $key) {
+            if (array_key_exists($key, $data) && trim((string) $data[$key]) !== '') {
+                return trim((string) $data[$key]);
+            }
+        }
+
+        foreach ($data as $value) {
+            if (is_array($value)) {
+                $found = $this->buscarValorRecursivo($value, $keys);
+                if ($found !== '') {
+                    return $found;
+                }
+            }
+        }
+
+        return '';
+    }
+
+    private function extraerCodigoEntregaLegacy(array $data): string
+    {
+        $codigo = $this->buscarValorRecursivo($data, ['codigo_entrega', 'codigoEntrega', 'codigo_acceso_legacy']);
+        return preg_match('/^\d{6}$/', $codigo) ? $codigo : '';
+    }
+
+    private function estatusOperacionLegacy(array $data): string
+    {
+        return $this->buscarValorRecursivo($data, ['estatus_operativo', 'estatus', 'status', 'estado']);
+    }
+
+    private function mensajeBloqueoCodigoLegacy(array $data): string
+    {
+        $estatusRaw = $this->estatusOperacionLegacy($data);
+        $estatus = function_exists('mb_strtolower') ? mb_strtolower($estatusRaw, 'UTF-8') : strtolower($estatusRaw);
+        $estatus = str_replace(['á', 'é', 'í', 'ó', 'ú'], ['a', 'e', 'i', 'o', 'u'], $estatus);
+
+        if ($estatus === '') {
+            return '';
+        }
+        if (strpos($estatus, 'entreg') !== false || strpos($estatus, 'finaliz') !== false || strpos($estatus, 'concluid') !== false || strpos($estatus, 'complet') !== false) {
+            return 'La operacion ya fue entregada o finalizada; no permite generar codigo Legacy.';
+        }
+        if (strpos($estatus, 'cancel') !== false) {
+            return 'La operacion esta cancelada; no permite generar codigo Legacy.';
+        }
+
+        return '';
+    }
+
+    private function consultarDetalleLegacyOperacion(int $idOperacion): array
+    {
+        $resp = $this->legacyApiRequest('GET', '/api/adjudicatd-motocycle/in-progress/' . rawurlencode((string) $idOperacion));
+        $decoded = $resp['decoded'];
+        $ok = $resp['http_code'] >= 200 && $resp['http_code'] < 300 && is_array($decoded);
+
+        if (!$ok) {
+            $mensaje = is_array($decoded)
+                ? (string) ($decoded['message'] ?? $decoded['mensaje'] ?? $decoded['detail'] ?? '')
+                : '';
+
+            return [
+                'success' => false,
+                'message' => $mensaje !== '' ? $mensaje : ($resp['error'] ?: 'No se pudo consultar la operacion Legacy.'),
+                'http_code' => $resp['http_code'],
+                'detalle' => $decoded,
+            ];
+        }
+
+        return [
+            'success' => true,
+            'message' => 'Operacion consultada correctamente.',
+            'http_code' => $resp['http_code'],
+            'detalle' => $decoded,
+            'codigo_entrega' => $this->extraerCodigoEntregaLegacy($decoded),
+            'estatus' => $this->estatusOperacionLegacy($decoded),
+            'bloqueo' => $this->mensajeBloqueoCodigoLegacy($decoded),
+        ];
+    }
+
+    private function persistirCodigoEntregaLegacy(int $idOperacion, string $codigo, bool $regenerar): array
+    {
+        $idUsuario = (int) ($_SESSION['persona_id'] ?? $_SESSION['usuario_id'] ?? $_SESSION['id_usuario'] ?? $_SESSION['id'] ?? 0);
+        $nombreUsuario = trim((string) ($_SESSION['usuario_nombre'] ?? $_SESSION['nombre'] ?? $_SESSION['usuario'] ?? 'SPARTA'));
+        $payload = [
+            'id_operacion' => $idOperacion,
+            'codigo_entrega' => $codigo,
+            'regenerar' => $regenerar,
+            'origen' => 'sparta_otp_emergencia',
+            'id_usuario_sparta' => $idUsuario,
+            'nombre_usuario_sparta' => $nombreUsuario,
+        ];
+
+        $candidatos = [
+            ['POST', '/api/moto-entrega-proceso-legacy/' . rawurlencode((string) $idOperacion) . '/codigo-entrega/generar'],
+            ['PATCH', '/api/moto-entrega-proceso-legacy/' . rawurlencode((string) $idOperacion) . '/codigo-entrega'],
+            ['POST', '/api/adjudicatd-motocycle/in-progress/' . rawurlencode((string) $idOperacion) . '/codigo-entrega'],
+            ['PATCH', '/api/adjudicatd-motocycle/in-progress/' . rawurlencode((string) $idOperacion) . '/codigo-entrega'],
+            ['POST', '/api/moto-entrega-proceso-legacy/' . rawurlencode((string) $idOperacion) . '/otp-emergencia'],
+        ];
+
+        $ultimo = null;
+        foreach ($candidatos as [$method, $path]) {
+            $resp = $this->legacyApiRequest($method, $path, $payload);
+            $ultimo = $resp;
+            $decoded = $resp['decoded'];
+            if ($resp['http_code'] === 404 || $resp['http_code'] === 405) {
+                continue;
+            }
+
+            if ($resp['http_code'] >= 200 && $resp['http_code'] < 300) {
+                return [
+                    'success' => true,
+                    'message' => 'Codigo Legacy generado correctamente.',
+                    'codigo_entrega' => $this->extraerCodigoEntregaLegacy(is_array($decoded) ? $decoded : []) ?: $codigo,
+                    'http_code' => $resp['http_code'],
+                    'backend' => $decoded,
+                ];
+            }
+
+            $mensaje = is_array($decoded)
+                ? (string) ($decoded['message'] ?? $decoded['mensaje'] ?? $decoded['detail'] ?? '')
+                : '';
+
+            return [
+                'success' => false,
+                'message' => $mensaje !== '' ? $mensaje : ($resp['error'] ?: 'No se pudo guardar el codigo Legacy.'),
+                'http_code' => $resp['http_code'],
+                'backend' => $decoded,
+            ];
+        }
+
+        try {
+            $local = $this->model->guardarCodigoEntregaLegacyLocal($idOperacion, $codigo, $idUsuario, $nombreUsuario);
+            if (!empty($local['success'])) {
+                $local['message'] = 'Codigo Legacy generado correctamente.';
+                $local['backend_endpoint_missing'] = true;
+                return $local;
+            }
+            if (!empty($local['message'])) {
+                return [
+                    'success' => false,
+                    'message' => (string) $local['message'],
+                    'fallback_local' => $local,
+                    'http_code' => (int) ($ultimo['http_code'] ?? 0),
+                    'backend' => $ultimo['decoded'] ?? null,
+                ];
+            }
+        } catch (\Throwable $e) {
+            // Se conserva el error operativo del servicio; el fallback local no debe romper el flujo.
+        }
+
+        return [
+            'success' => false,
+            'message' => 'No se pudo guardar el codigo Legacy. Intenta de nuevo o valida que la base permita guardar el codigo de acceso.',
+            'http_code' => (int) ($ultimo['http_code'] ?? 0),
+            'backend' => $ultimo['decoded'] ?? null,
+        ];
+    }
+
+    private function resolverOperacionOtpLegacy(array $input): array
+    {
+        $idCredito = (int) ($input['id_credito'] ?? $input['idCredito'] ?? $input['credito'] ?? 0);
+        if ($idCredito > 0) {
+            $res = $this->model->obtenerOperacionOtpLegacyPorCredito($idCredito);
+            if (empty($res['success']) || empty($res['operacion']['id_operacion'])) {
+                return [
+                    'success' => false,
+                    'message' => $res['message'] ?? 'No se encontro una operacion para este credito.',
+                ];
+            }
+
+            return [
+                'success' => true,
+                'id_operacion' => (int) $res['operacion']['id_operacion'],
+                'id_credito' => (int) $res['operacion']['id_credito'],
+                'operacion' => $res['operacion'],
+                'origen_busqueda' => 'id_credito',
+            ];
+        }
+
+        $idOperacion = (int) ($input['id_operacion'] ?? $input['idOperacion'] ?? 0);
+        if ($idOperacion > 0) {
+            $detalleLocal = $this->model->obtenerDetalle($idOperacion);
+            return [
+                'success' => true,
+                'id_operacion' => $idOperacion,
+                'id_credito' => (int) ($detalleLocal['id_credito'] ?? 0),
+                'operacion' => [
+                    'id_operacion' => $idOperacion,
+                    'folio' => (string) ($detalleLocal['folio'] ?? ''),
+                    'id_credito' => (int) ($detalleLocal['id_credito'] ?? 0),
+                    'nombre_cliente' => trim((string) ($detalleLocal['nombre_cliente'] ?? '')),
+                    'estatus' => (string) ($detalleLocal['estatus'] ?? ''),
+                    'moto' => trim((string) (($detalleLocal['moto_marca'] ?? '') . ' ' . ($detalleLocal['moto_modelo'] ?? ''))),
+                ],
+                'origen_busqueda' => 'id_operacion',
+            ];
+        }
+
+        return ['success' => false, 'message' => 'Indica un ID de credito valido.'];
+    }
+
+    public function consultarCodigoAccesoLegacy()
+    {
+        header('Content-Type: application/json; charset=utf-8');
+        $resuelta = $this->resolverOperacionOtpLegacy($_GET);
+        if (empty($resuelta['success'])) {
+            echo json_encode(['success' => false, 'message' => $resuelta['message'] ?? 'Indica un ID de credito valido.'], JSON_UNESCAPED_UNICODE);
+            return;
+        }
+
+        $detalle = $this->consultarDetalleLegacyOperacion((int) $resuelta['id_operacion']);
+        $detalle['id_credito'] = (int) ($resuelta['id_credito'] ?? 0);
+        $detalle['operacion'] = $resuelta['operacion'] ?? [];
+        echo json_encode($detalle, JSON_UNESCAPED_UNICODE);
+    }
+
+    public function generarCodigoAccesoLegacy()
+    {
+        header('Content-Type: application/json; charset=utf-8');
+        $body = json_decode((string) file_get_contents('php://input'), true) ?: [];
+        if (!$body && !empty($_POST)) {
+            $body = $_POST;
+        }
+
+        $resuelta = $this->resolverOperacionOtpLegacy($body);
+        $regenerar = filter_var($body['regenerar'] ?? false, FILTER_VALIDATE_BOOLEAN);
+        if (empty($resuelta['success'])) {
+            echo json_encode(['success' => false, 'message' => $resuelta['message'] ?? 'Indica un ID de credito valido.'], JSON_UNESCAPED_UNICODE);
+            return;
+        }
+
+        $idOperacion = (int) $resuelta['id_operacion'];
+        $detalle = $this->consultarDetalleLegacyOperacion($idOperacion);
+        if (!empty($detalle['success'])) {
+            if (!empty($detalle['bloqueo'])) {
+                echo json_encode(['success' => false, 'message' => $detalle['bloqueo'], 'detalle' => $detalle, 'operacion' => $resuelta['operacion'] ?? []], JSON_UNESCAPED_UNICODE);
+                return;
+            }
+
+            $codigoActivo = (string) ($detalle['codigo_entrega'] ?? '');
+            if ($codigoActivo !== '' && !$regenerar) {
+                echo json_encode([
+                    'success' => true,
+                    'message' => 'Ya existe un codigo Legacy activo.',
+                    'codigo_entrega' => $codigoActivo,
+                    'codigo_activo' => true,
+                    'requiere_confirmacion_regenerar' => true,
+                    'detalle' => $detalle,
+                    'id_credito' => (int) ($resuelta['id_credito'] ?? 0),
+                    'operacion' => $resuelta['operacion'] ?? [],
+                ], JSON_UNESCAPED_UNICODE);
+                return;
+            }
+        } elseif ((int) ($detalle['http_code'] ?? 0) === 404) {
+            echo json_encode(['success' => false, 'message' => 'Operacion Legacy no encontrada.', 'detalle' => $detalle, 'operacion' => $resuelta['operacion'] ?? []], JSON_UNESCAPED_UNICODE);
+            return;
+        }
+
+        $codigo = str_pad((string) random_int(0, 999999), 6, '0', STR_PAD_LEFT);
+        $persistido = $this->persistirCodigoEntregaLegacy($idOperacion, $codigo, $regenerar);
+        $persistido['id_credito'] = (int) ($resuelta['id_credito'] ?? 0);
+        $persistido['operacion'] = $resuelta['operacion'] ?? [];
+        echo json_encode($persistido, JSON_UNESCAPED_UNICODE);
     }
 
     private function normalizarListaIds($valor): array

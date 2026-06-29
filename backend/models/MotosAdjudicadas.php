@@ -154,6 +154,41 @@ class MotosAdjudicadas extends Model
         }
     }
 
+    private function asegurarColumnasCodigoEntregaLegacy(): void
+    {
+        $faltantes = [
+            'codigo_entrega' => 'VARCHAR(6) NULL',
+            'codigo_entrega_estatus' => "VARCHAR(20) NULL DEFAULT 'activo'",
+            'codigo_entrega_usado_at' => 'DATETIME NULL',
+            'codigo_entrega_origen' => 'VARCHAR(80) NULL',
+            'codigo_entrega_generado_at' => 'DATETIME NULL',
+            'codigo_entrega_generado_por' => 'INT NULL',
+        ];
+
+        $alterado = false;
+        foreach ($faltantes as $columna => $definicion) {
+            if ($this->adjOperacionTieneColumna($columna)) {
+                continue;
+            }
+
+            try {
+                $this->db->CRUD(
+                    'ALTER TABLE adj_operacion ADD COLUMN `' . str_replace('`', '``', $columna) . '` ' . $definicion
+                );
+                $alterado = true;
+            } catch (\Throwable $e) {
+                self::$adjOperacionColumnas = null;
+                if (!$this->adjOperacionTieneColumna($columna)) {
+                    throw $e;
+                }
+            }
+        }
+
+        if ($alterado) {
+            self::$adjOperacionColumnas = null;
+        }
+    }
+
     private function adjOperacionSelectColumnaONull(string $columna, string $prefijo = ''): string
     {
         $alias = str_replace('`', '', $columna);
@@ -168,6 +203,83 @@ class MotosAdjudicadas extends Model
      * true si en adj_evidencia existen val_atn y comentario_atn (migración aplicada).
      * Prueba con SELECT directo: information_schema a veces no est? permitido para el usuario MySQL.
      */
+    public function guardarCodigoEntregaLegacyLocal(int $idOperacion, string $codigo, int $idUsuario, string $nombreUsuario): array
+    {
+        if ($idOperacion <= 0 || !preg_match('/^\d{6}$/', $codigo)) {
+            return ['success' => false, 'message' => 'Datos invalidos para guardar codigo Legacy.'];
+        }
+        try {
+            $this->asegurarColumnasCodigoEntregaLegacy();
+        } catch (\Throwable $e) {
+            return [
+                'success' => false,
+                'message' => 'No se pudo preparar el almacenamiento local del codigo Legacy.',
+                'migration_required' => true,
+            ];
+        }
+
+        if (!$this->adjOperacionTieneColumna('codigo_entrega')) {
+            return [
+                'success' => false,
+                'message' => 'No existe el campo local para guardar el codigo Legacy.',
+                'column_missing' => true,
+            ];
+        }
+
+        $op = $this->db->queryOne('SELECT id, estatus FROM adj_operacion WHERE id = :id LIMIT 1', ['id' => $idOperacion]);
+        if (!$op) {
+            return ['success' => false, 'message' => 'Operacion no encontrada.'];
+        }
+
+        $estatus = strtolower(trim((string) ($op['estatus'] ?? '')));
+        if (strpos($estatus, 'entreg') !== false || strpos($estatus, 'finaliz') !== false || strpos($estatus, 'concluid') !== false || strpos($estatus, 'complet') !== false) {
+            return ['success' => false, 'message' => 'La operacion ya fue entregada o finalizada; no permite generar codigo Legacy.'];
+        }
+        if (strpos($estatus, 'cancel') !== false) {
+            return ['success' => false, 'message' => 'La operacion esta cancelada; no permite generar codigo Legacy.'];
+        }
+
+        $sets = ['codigo_entrega = :codigo'];
+        $params = ['codigo' => $codigo, 'id' => $idOperacion];
+
+        $columnasOpcionales = [
+            'codigo_entrega_estatus' => ['sql' => "codigo_entrega_estatus = 'activo'"],
+            'codigo_entrega_usado_at' => ['sql' => 'codigo_entrega_usado_at = NULL'],
+            'codigo_entrega_origen' => ['sql' => 'codigo_entrega_origen = :origen', 'params' => ['origen' => 'sparta_otp_emergencia']],
+            'codigo_entrega_generado_at' => ['sql' => 'codigo_entrega_generado_at = NOW()'],
+            'codigo_entrega_generado_por' => ['sql' => 'codigo_entrega_generado_por = :generado_por', 'params' => ['generado_por' => $idUsuario]],
+            'fecha_actualizacion' => ['sql' => 'fecha_actualizacion = NOW()'],
+        ];
+
+        foreach ($columnasOpcionales as $columna => $def) {
+            if (!$this->adjOperacionTieneColumna($columna)) {
+                continue;
+            }
+            $sets[] = $def['sql'];
+            foreach (($def['params'] ?? []) as $key => $value) {
+                $params[$key] = $value;
+            }
+        }
+
+        $this->db->CRUD(
+            'UPDATE adj_operacion SET ' . implode(', ', $sets) . ' WHERE id = :id',
+            $params
+        );
+        $this->registrarBitacora(
+            $idOperacion,
+            'GENERO CODIGO DE ACCESO LEGACY DESDE OTP DE EMERGENCIA',
+            $idUsuario,
+            $nombreUsuario
+        );
+
+        return [
+            'success' => true,
+            'message' => 'Codigo Legacy guardado en adj_operacion.codigo_entrega.',
+            'codigo_entrega' => $codigo,
+            'local_store' => true,
+        ];
+    }
+
     private function adjEvidenciaTieneColumnasAtn(): bool
     {
         if (self::$adjEvidenciaAtnColumnas !== null) {
@@ -7224,6 +7336,43 @@ EOSQL;
         }
 
         return ['success' => true];
+    }
+
+    public function obtenerOperacionOtpLegacyPorCredito(int $idCredito): array
+    {
+        if ($idCredito <= 0) {
+            return ['success' => false, 'message' => 'ID de credito invalido.'];
+        }
+
+        $op = $this->db->queryOne(
+            "SELECT id, folio, id_credito, nombre_cliente, estatus,
+                    moto_marca, moto_modelo,
+                    DATE_FORMAT(fecha_alta, '%d/%m/%Y %H:%i') AS fecha_alta_fmt,
+                    DATE_FORMAT(fecha_actualizacion, '%d/%m/%Y %H:%i') AS fecha_actualizacion_fmt
+             FROM adj_operacion
+             WHERE id_credito = :id_credito
+             ORDER BY id DESC
+             LIMIT 1",
+            ['id_credito' => $idCredito]
+        );
+
+        if (!$op || (int) ($op['id'] ?? 0) <= 0) {
+            return ['success' => false, 'message' => 'No se encontro una operacion para este credito.'];
+        }
+
+        return [
+            'success' => true,
+            'operacion' => [
+                'id_operacion' => (int) $op['id'],
+                'folio' => (string) ($op['folio'] ?? ''),
+                'id_credito' => (int) ($op['id_credito'] ?? 0),
+                'nombre_cliente' => trim((string) ($op['nombre_cliente'] ?? '')),
+                'estatus' => (string) ($op['estatus'] ?? ''),
+                'moto' => trim((string) (($op['moto_marca'] ?? '') . ' ' . ($op['moto_modelo'] ?? ''))),
+                'fecha_alta_fmt' => (string) ($op['fecha_alta_fmt'] ?? ''),
+                'fecha_actualizacion_fmt' => (string) ($op['fecha_actualizacion_fmt'] ?? ''),
+            ],
+        ];
     }
 
     /**

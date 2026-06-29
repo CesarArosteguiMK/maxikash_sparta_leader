@@ -2,6 +2,7 @@
 $motosAdminModulos = array_map('intval', (array) ($_SESSION['modulos'] ?? []));
 $puedeAdminCobranza = in_array(62, $motosAdminModulos, true);
 $puedeDictaminarCreditos = in_array(80, $motosAdminModulos, true);
+$puedeOtpEmergencia = in_array(150, $motosAdminModulos, true);
 ?>
 <div id="motos-admin-landing" class="cc-call-center-page motos-admin-root">
 <div class="card">
@@ -94,7 +95,39 @@ $puedeDictaminarCreditos = in_array(80, $motosAdminModulos, true);
                         </div>
                     </div>
                     <?php endif; ?>
-                    <?php if (!$puedeAdminCobranza && !$puedeDictaminarCreditos): ?>
+                    <?php if ($puedeOtpEmergencia): ?>
+                    <div class="col-12 col-lg-4">
+                        <div class="card shadow-none bg-label-warning h-100">
+                            <div class="card-body d-flex justify-content-between flex-wrap-reverse">
+                                <div class="mb-0 w-100 app-academy-sm-60 d-flex flex-column justify-content-between text-center text-sm-start">
+                                    <div class="card-title">
+                                        <h5 class="text-warning mb-2">OTP DE EMERGENCIA</h5>
+                                        <p class="text-body w-sm-80 app-academy-xl-100">Genera el c&oacute;digo de acceso Legacy que MaxikashApp lee como codigo_entrega para casos de contingencia operativa.</p>
+                                    </div>
+                                    <div class="mb-0 mt-3">
+                                        <a href="/MotosAdjudicadas/otpEmergenciaLegacy" class="btn btn-warning w-100">
+                                            <i class="fa-solid fa-key me-1"></i>Generar c&oacute;digo Legacy
+                                        </a>
+                                    </div>
+                                </div>
+                                <div class="w-100 app-academy-sm-40 d-flex justify-content-center justify-content-sm-end align-items-start align-self-start h-px-150 mb-4 mb-sm-0 flex-shrink-0 motos-admin-icon-slot">
+                                    <span class="scaleX-n1-rtl motos-admin-icon-frame" aria-hidden="true">
+                                        <svg class="motos-admin-icon-svg" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
+                                            <circle cx="24" cy="30" r="10"/>
+                                            <path d="M34 30h18"/>
+                                            <path d="M46 30v8"/>
+                                            <path d="M52 30v6"/>
+                                            <path d="M21 30h6"/>
+                                            <path d="M16 18l8-8 8 8"/>
+                                            <path d="M24 10v10"/>
+                                        </svg>
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <?php endif; ?>
+                    <?php if (!$puedeAdminCobranza && !$puedeDictaminarCreditos && !$puedeOtpEmergencia): ?>
                     <div class="col-12">
                         <div class="alert alert-warning mb-0">
                             No tienes permisos activos para las herramientas administrativas de Motos Adjudicadas.

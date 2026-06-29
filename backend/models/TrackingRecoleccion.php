@@ -483,8 +483,8 @@ class TrackingRecoleccion extends Model
         $items = is_array($data['items'] ?? null) ? $data['items'] : [];
         $motivo = trim((string) ($data['motivo'] ?? 'Distribucion automatica de paradas por dia.'));
         $motivoValidado = $this->validarMotivoPlaneacion($motivo, 300);
-        if ($idRuta <= 0 || empty($items)) {
-            return ['success' => false, 'message' => 'Ruta e items de planeacion son requeridos.'];
+        if ($idRuta <= 0) {
+            return ['success' => false, 'message' => 'Ruta requerida.'];
         }
         if (!$motivoValidado['ok']) {
             return ['success' => false, 'message' => $motivoValidado['message']];
@@ -493,11 +493,26 @@ class TrackingRecoleccion extends Model
         try {
             $this->db->beginTransaction();
             $total = 0;
+            $omitidos = 0;
             foreach ($items as $item) {
                 $idDetalle = (int) ($item['id_detalle'] ?? 0);
+                $idCredito = (int) ($item['id_credito'] ?? 0);
                 $fecha = trim((string) ($item['fecha_recoleccion'] ?? ''));
                 $ordenDia = max(1, (int) ($item['orden_dia'] ?? 1));
+                if ($idDetalle <= 0 && $idCredito > 0) {
+                    $rowDetalle = $this->db->queryOne(
+                        "SELECT id_detalle
+                         FROM asigna_horas_tracking_detalle
+                         WHERE id_ruta = :id_ruta
+                           AND id_credito = :id_credito
+                         ORDER BY orden_ruta ASC, id_detalle ASC
+                         LIMIT 1",
+                        ['id_ruta' => $idRuta, 'id_credito' => $idCredito]
+                    );
+                    $idDetalle = (int) ($rowDetalle['id_detalle'] ?? 0);
+                }
                 if ($idDetalle <= 0 || !preg_match('/^\d{4}-\d{2}-\d{2}$/', $fecha)) {
+                    $omitidos++;
                     continue;
                 }
                 $estatus = (string) ($item['estatus_planeacion'] ?? 'programado');
@@ -518,13 +533,19 @@ class TrackingRecoleccion extends Model
                 'distribucion_automatica',
                 'guardar_planeacion_ruta',
                 null,
-                ['total_puntos' => $total],
+                ['total_puntos' => $total, 'items_recibidos' => count($items), 'items_omitidos' => $omitidos],
                 $motivo,
                 'sparta',
                 $idUsuario
             );
             $this->db->commit();
-            return ['success' => true, 'message' => 'Planeacion guardada.', 'total' => $total];
+            return [
+                'success' => true,
+                'message' => $total > 0 ? 'Planeacion guardada.' : 'Planeacion registrada sin puntos auditables.',
+                'total' => $total,
+                'items_recibidos' => count($items),
+                'items_omitidos' => $omitidos,
+            ];
         } catch (\Throwable $e) {
             $this->db->rollback();
             return ['success' => false, 'message' => 'Error al guardar planeacion: ' . $e->getMessage()];

@@ -2,6 +2,7 @@
 namespace Models;
 
 use Core\Database;
+use Core\DatabaseLegacy;
 
 /**
  * Modelo para el módulo de Atención a Clientes (adjudicaciones).
@@ -27,6 +28,11 @@ use Core\Database;
  */
 class AtencionClientes
 {
+    public const MODULO_MA_CANCELAR_VISTO_BUENO = 150;
+    public const MODULO_MA_ENVIAR_BLACKLIST = 151;
+    public const MODULO_MA_VER_BLACKLIST = 152;
+    public const MODULO_MA_LIBERAR_BLACKLIST = 153;
+
     private $db;
     private $adjEvidenciaAtnColumnas = null;
 
@@ -35,10 +41,139 @@ class AtencionClientes
         $this->db = new Database();
     }
 
+    public function asegurarPermisosBlacklist(): void
+    {
+        $permisos = [
+            self::MODULO_MA_CANCELAR_VISTO_BUENO => [
+                'nombre' => 'Motos Adjudicadas - Cancelar Visto Bueno',
+                'descripcion' => 'Permite denegar el visto bueno de una operacion de Motos Adjudicadas desde Evidencias.',
+            ],
+            self::MODULO_MA_ENVIAR_BLACKLIST => [
+                'nombre' => 'Motos Adjudicadas - Enviar a BlackList',
+                'descripcion' => 'Permite bloquear una operacion para que Legacy no la vuelva a gestionar como Moto Adjudicada.',
+            ],
+            self::MODULO_MA_VER_BLACKLIST => [
+                'nombre' => 'Motos Adjudicadas - Ver BlackList',
+                'descripcion' => 'Permite consultar operaciones bloqueadas o con visto bueno denegado.',
+            ],
+            self::MODULO_MA_LIBERAR_BLACKLIST => [
+                'nombre' => 'Motos Adjudicadas - Liberar BlackList',
+                'descripcion' => 'Permite liberar una operacion de BlackList para que pueda gestionarse nuevamente.',
+            ],
+        ];
+
+        try {
+            foreach ($permisos as $id => $permiso) {
+                $existe = $this->db->queryOne('SELECT id FROM modulos_web WHERE id = :id LIMIT 1', ['id' => $id]);
+                if ($existe) {
+                    $this->db->CRUD(
+                        'UPDATE modulos_web
+                            SET nombre = :nombre, pestana = :pestana, descripcion = :descripcion, activo = 1
+                          WHERE id = :id',
+                        [
+                            'id' => $id,
+                            'nombre' => $permiso['nombre'],
+                            'pestana' => 'Permisos especiales',
+                            'descripcion' => $permiso['descripcion'],
+                        ]
+                    );
+                    continue;
+                }
+                $this->db->CRUD(
+                    'INSERT INTO modulos_web (id, nombre, pestana, descripcion, activo)
+                     VALUES (:id, :nombre, :pestana, :descripcion, 1)',
+                    [
+                        'id' => $id,
+                        'nombre' => $permiso['nombre'],
+                        'pestana' => 'Permisos especiales',
+                        'descripcion' => $permiso['descripcion'],
+                    ]
+                );
+            }
+        } catch (\Throwable $e) {
+            // La vista no debe romperse si el usuario de BD no puede tocar modulos_web.
+        }
+    }
+
     private function fechaHoraCdmx(): string
     {
         $dt = new \DateTime('now', new \DateTimeZone('America/Mexico_City'));
         return $dt->format('Y-m-d H:i:s');
+    }
+
+    private function asegurarTablaBlacklist(): void
+    {
+        $this->db->CRUD(
+            "CREATE TABLE IF NOT EXISTS adj_operacion_blacklist (
+                id BIGINT NOT NULL AUTO_INCREMENT,
+                id_operacion INT NULL,
+                id_credito BIGINT NOT NULL,
+                estatus VARCHAR(60) NOT NULL,
+                tipo_movimiento VARCHAR(60) NOT NULL,
+                motivo VARCHAR(180) NOT NULL,
+                comentario TEXT NULL,
+                area_responsable VARCHAR(80) NOT NULL DEFAULT 'Evidencias',
+                bloqueado_por INT NULL,
+                bloqueado_por_nombre VARCHAR(180) NULL,
+                fecha_bloqueo DATETIME NOT NULL,
+                liberado_por INT NULL,
+                liberado_por_nombre VARCHAR(180) NULL,
+                fecha_liberacion DATETIME NULL,
+                motivo_liberacion VARCHAR(250) NULL,
+                activo TINYINT(1) NOT NULL DEFAULT 1,
+                created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                PRIMARY KEY (id),
+                KEY idx_adj_blacklist_credito_activo (id_credito, activo),
+                KEY idx_adj_blacklist_operacion (id_operacion),
+                KEY idx_adj_blacklist_estatus (estatus),
+                KEY idx_adj_blacklist_fecha (fecha_bloqueo)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4"
+        );
+    }
+
+    private function registrarBitacora(int $idOperacion, string $accion, int $idUsuario, string $nombreUsuario, ?string $fecha = null): void
+    {
+        if ($idOperacion <= 0) {
+            return;
+        }
+        $fecha = $fecha ?? $this->fechaHoraCdmx();
+        $nom = trim($nombreUsuario !== '' ? $nombreUsuario : 'SISTEMA');
+        $acc = trim($accion);
+        if (function_exists('mb_strtoupper')) {
+            $nom = mb_strtoupper($nom, 'UTF-8');
+            $acc = mb_strtoupper($acc, 'UTF-8');
+        } else {
+            $nom = strtoupper($nom);
+            $acc = strtoupper($acc);
+        }
+        $this->db->CRUD(
+            'INSERT INTO adj_bitacora (id_operacion, id_usuario, nombre_usuario, accion, fecha_alta)
+             VALUES (:id_op, :id_usr, :nombre, :accion, :fecha)',
+            [
+                'id_op' => $idOperacion,
+                'id_usr' => $idUsuario,
+                'nombre' => $nom,
+                'accion' => $acc,
+                'fecha' => $fecha,
+            ]
+        );
+    }
+
+    private function registrarHistorialEstatus(int $idOperacion, string $estatusAnterior, string $estatusNuevo, int $idUsuario, string $fecha): void
+    {
+        $this->db->CRUD(
+            'INSERT INTO adj_historial_estatus
+                (id_operacion, estatus_anterior, estatus_nuevo, id_usuario, fecha)
+             VALUES (:id_op, :anterior, :nuevo, :id_usr, :fecha)',
+            [
+                'id_op' => $idOperacion,
+                'anterior' => $estatusAnterior,
+                'nuevo' => $estatusNuevo,
+                'id_usr' => $idUsuario ?: null,
+                'fecha' => $fecha,
+            ]
+        );
     }
 
     private function sqlAhoraCdmxLiteral(): string
@@ -601,6 +736,12 @@ SQL;
               )
           )
       )
+      AND NOT EXISTS (
+          SELECT 1
+          FROM adj_operacion_blacklist bl
+          WHERE bl.id_operacion = o.id
+            AND bl.activo = 1
+      )
 )
 SQL;
     }
@@ -687,7 +828,7 @@ SQL;
     /**
      * Lista operaciones por estatus de pipeline (shape uniforme para evidencias y recuperación).
      */
-    private function listarOperacionesAdjPorEstatus(string $estatus): array
+    private function listarOperacionesAdjPorEstatus(string $estatus, bool $excluirCanceladasEvidencias = false): array
     {
         $joinAsig = $this->sqlJoinUnaAsignacionActivaPorCredito();
         $evidenciasCount = $this->sqlConteoEvidenciasFisicas('o');
@@ -696,6 +837,14 @@ SQL;
         $ultimoAnalistaEvidencias = $this->sqlUltimoAnalistaEvidencias('o');
         $tiempoEnBandeja = $this->sqlTiempoEnCorrecciones('o');
         $formulario = $this->sqlSelectFormularioEvidencias('o');
+        $filtroCanceladas = $excluirCanceladasEvidencias
+            ? " AND NOT EXISTS (
+                    SELECT 1
+                    FROM adj_operacion_blacklist bl
+                    WHERE bl.id_operacion = o.id
+                      AND bl.activo = 1
+                )"
+            : '';
         $sql = <<<SQL
         SELECT
             o.id,
@@ -724,6 +873,7 @@ SQL;
         FROM adj_operacion o
         {$joinAsig}
         WHERE o.estatus = :estatus
+        {$filtroCanceladas}
         ORDER BY o.fecha_alta DESC
         SQL;
 
@@ -737,6 +887,8 @@ SQL;
      */
     public function obtenerRecibidos(bool $sincronizarDictums = false): array
     {
+        $this->asegurarTablaBlacklist();
+
         if ($sincronizarDictums) {
             $ma = new MotosAdjudicadas();
             $ma->sincronizarDictumsAppPendientes(true, true);
@@ -1008,7 +1160,50 @@ SQL;
      */
     public function obtenerEvidenciasCorrecciones(): array
     {
-        return $this->listarOperacionesAdjPorEstatus('Revisión Recuperaciones');
+        $this->asegurarTablaBlacklist();
+        return $this->listarOperacionesAdjPorEstatus('Revisión Recuperaciones', true);
+    }
+
+    public function obtenerEvidenciasBlacklist(): array
+    {
+        $this->asegurarTablaBlacklist();
+        $joinAsig = $this->sqlJoinUnaAsignacionActivaPorCredito();
+        $sql = <<<SQL
+        SELECT
+            bl.id AS blacklist_id,
+            bl.id_operacion AS id,
+            bl.id_credito,
+            bl.estatus AS blacklist_estatus,
+            bl.tipo_movimiento,
+            bl.motivo AS blacklist_motivo,
+            bl.comentario AS blacklist_comentario,
+            bl.area_responsable,
+            bl.bloqueado_por_nombre,
+            DATE_FORMAT(bl.fecha_bloqueo, '%d/%m/%Y %H:%i') AS fecha_bloqueo_fmt,
+            bl.fecha_bloqueo,
+            o.folio,
+            o.nombre_cliente,
+            o.telefono_contacto,
+            o.estatus,
+            o.saldo_capital,
+            o.adeudo_total,
+            DATEDIFF(NOW(), COALESCE(o.fecha_alta, bl.fecha_bloqueo)) AS dias_en_pipeline,
+            TRIM(CONCAT_WS(' ',
+                per.nombres,
+                per.segundo_nombre,
+                per.apellidop,
+                per.apellidom
+            )) AS gestor_nombre,
+            DATE_FORMAT(o.fecha_alta, '%d/%m/%Y %H:%i') AS fecha_dictamen_legacy,
+            DATE_FORMAT(aca.fecha_alta, '%d/%m/%Y') AS fecha_asignacion
+        FROM adj_operacion_blacklist bl
+        LEFT JOIN adj_operacion o ON o.id = bl.id_operacion
+        {$joinAsig}
+        WHERE bl.activo = 1
+        ORDER BY bl.fecha_bloqueo DESC, bl.id DESC
+        SQL;
+
+        return $this->db->queryAll($sql) ?: [];
     }
 
     /**
@@ -1018,6 +1213,8 @@ SQL;
      */
     public function obtenerConteosPestanasEvidencias(): array
     {
+        $this->asegurarTablaBlacklist();
+
         $sql = <<<SQL
         SELECT
             (
@@ -1034,7 +1231,18 @@ SQL;
                 SELECT COUNT(*)
                 FROM adj_operacion o
                 WHERE o.estatus = :estatus_correcciones
-            ) AS correcciones
+                  AND NOT EXISTS (
+                      SELECT 1
+                      FROM adj_operacion_blacklist bl
+                      WHERE bl.id_operacion = o.id
+                        AND bl.activo = 1
+                  )
+            ) AS correcciones,
+            (
+                SELECT COUNT(*)
+                FROM adj_operacion_blacklist bl
+                WHERE bl.activo = 1
+            ) AS blacklist
         SQL;
 
         $row = $this->db->queryOne($sql, [
@@ -1046,7 +1254,307 @@ SQL;
             'bandeja'      => (int) ($row['bandeja'] ?? 0),
             'aprobados'    => (int) ($row['aprobados'] ?? 0),
             'correcciones' => (int) ($row['correcciones'] ?? 0),
+            'blacklist'    => (int) ($row['blacklist'] ?? 0),
         ];
+    }
+
+    public function cancelarVistoBuenoOperacion(
+        int $idOperacion,
+        string $tipoCancelacion,
+        string $motivo,
+        string $comentario,
+        int $idUsuario,
+        string $nombreUsuario
+    ): array {
+        $this->asegurarTablaBlacklist();
+
+        $tipoCancelacion = trim($tipoCancelacion);
+        $motivo = trim($motivo);
+        $comentario = trim($comentario);
+
+        if ($idOperacion <= 0) {
+            return ['success' => false, 'message' => 'Operacion invalida.'];
+        }
+        if (!in_array($tipoCancelacion, ['denegar_visto_bueno', 'blacklist'], true)) {
+            return ['success' => false, 'message' => 'Tipo de cancelacion invalido.'];
+        }
+        if ($motivo === '') {
+            return ['success' => false, 'message' => 'Captura el motivo de cancelacion.'];
+        }
+
+        $op = $this->db->queryOne(
+            'SELECT id, id_credito, folio, nombre_cliente, estatus FROM adj_operacion WHERE id = :id LIMIT 1',
+            ['id' => $idOperacion]
+        );
+        if (!$op) {
+            return ['success' => false, 'message' => 'No se encontro la operacion.'];
+        }
+
+        $idCredito = (int) ($op['id_credito'] ?? 0);
+        if ($idCredito <= 0) {
+            return ['success' => false, 'message' => 'La operacion no tiene credito valido.'];
+        }
+
+        $existente = $this->db->queryOne(
+            'SELECT id
+             FROM adj_operacion_blacklist
+             WHERE id_operacion = :id_operacion
+               AND activo = 1
+             ORDER BY id DESC
+             LIMIT 1',
+            ['id_operacion' => $idOperacion]
+        );
+        if ($existente) {
+            return ['success' => false, 'message' => 'Esta operacion ya fue cancelada o enviada a BlackList.'];
+        }
+
+        $estatusNuevo = $tipoCancelacion === 'blacklist' ? 'BlackList' : 'Visto Bueno Denegado';
+        $estatusBlacklist = $tipoCancelacion === 'blacklist' ? 'BLACKLIST_MOTOS_ADJUDICADAS' : 'VISTO_BUENO_DENEGADO';
+        $accion = $tipoCancelacion === 'blacklist'
+            ? 'BlackList Motos Adjudicadas: ' . $motivo
+            : 'Visto Bueno Denegado: ' . $motivo;
+        $fecha = $this->fechaHoraCdmx();
+        $nombreUsuario = trim($nombreUsuario) !== '' ? trim($nombreUsuario) : 'SISTEMA';
+
+        $this->db->CRUD(
+            'INSERT INTO adj_operacion_blacklist
+                (id_operacion, id_credito, estatus, tipo_movimiento, motivo, comentario, area_responsable,
+                 bloqueado_por, bloqueado_por_nombre, fecha_bloqueo, activo)
+             VALUES
+                (:id_operacion, :id_credito, :estatus, :tipo_movimiento, :motivo, :comentario, :area,
+                 :bloqueado_por, :bloqueado_por_nombre, :fecha_bloqueo, 1)',
+            [
+                'id_operacion' => $idOperacion,
+                'id_credito' => $idCredito,
+                'estatus' => $estatusBlacklist,
+                'tipo_movimiento' => $tipoCancelacion,
+                'motivo' => $motivo,
+                'comentario' => $comentario !== '' ? $comentario : null,
+                'area' => 'Evidencias',
+                'bloqueado_por' => $idUsuario ?: null,
+                'bloqueado_por_nombre' => $nombreUsuario,
+                'fecha_bloqueo' => $fecha,
+            ]
+        );
+
+        $estatusAnterior = (string) ($op['estatus'] ?? '');
+        $this->db->CRUD(
+            'UPDATE adj_operacion
+                SET estatus = :estatus
+              WHERE id = :id',
+            ['estatus' => $estatusNuevo, 'id' => $idOperacion]
+        );
+
+        $this->registrarHistorialEstatus($idOperacion, $estatusAnterior, $estatusNuevo, $idUsuario, $fecha);
+        $this->registrarBitacora($idOperacion, $accion, $idUsuario, $nombreUsuario, $fecha);
+
+        return [
+            'success' => true,
+            'message' => $tipoCancelacion === 'blacklist'
+                ? 'Operacion enviada a BlackList.'
+                : 'Visto Bueno denegado correctamente.',
+            'mensaje_asesor' => 'No se tiene Visto Bueno para adjudicar la Moto. Si tienes cualquier duda, contacta a tu lider.',
+            'estatus' => $estatusBlacklist,
+        ];
+    }
+
+    public function liberarBlacklist(int $blacklistId, string $motivo, int $idUsuario, string $nombreUsuario): array
+    {
+        $this->asegurarTablaBlacklist();
+        $motivo = trim($motivo);
+
+        if ($blacklistId <= 0) {
+            return ['success' => false, 'message' => 'Registro invalido.'];
+        }
+        if ($motivo === '') {
+            return ['success' => false, 'message' => 'Captura el motivo de liberacion.'];
+        }
+
+        $row = $this->db->queryOne(
+            'SELECT id, id_operacion, id_credito, estatus
+             FROM adj_operacion_blacklist
+             WHERE id = :id
+               AND activo = 1
+             LIMIT 1',
+            ['id' => $blacklistId]
+        );
+        if (!$row) {
+            return ['success' => false, 'message' => 'El registro ya no esta activo.'];
+        }
+        if ((string) ($row['estatus'] ?? '') !== 'BLACKLIST_MOTOS_ADJUDICADAS') {
+            return ['success' => false, 'message' => 'Solo se puede liberar una operacion en BlackList.'];
+        }
+
+        $fecha = $this->fechaHoraCdmx();
+        $nombreUsuario = trim($nombreUsuario) !== '' ? trim($nombreUsuario) : 'SISTEMA';
+        $idOperacion = (int) ($row['id_operacion'] ?? 0);
+
+        $this->db->CRUD(
+            'UPDATE adj_operacion_blacklist
+                SET activo = 0,
+                    estatus = :estatus,
+                    liberado_por = :liberado_por,
+                    liberado_por_nombre = :liberado_por_nombre,
+                    fecha_liberacion = :fecha_liberacion,
+                    motivo_liberacion = :motivo_liberacion
+              WHERE id = :id',
+            [
+                'estatus' => 'LIBERADO',
+                'liberado_por' => $idUsuario ?: null,
+                'liberado_por_nombre' => $nombreUsuario,
+                'fecha_liberacion' => $fecha,
+                'motivo_liberacion' => $motivo,
+                'id' => $blacklistId,
+            ]
+        );
+
+        if ($idOperacion > 0) {
+            $this->registrarBitacora($idOperacion, 'BlackList liberada: ' . $motivo, $idUsuario, $nombreUsuario, $fecha);
+        }
+
+        return ['success' => true, 'message' => 'Operacion liberada de BlackList.'];
+    }
+
+    /**
+     * Prepara la notificacion push al gestor Legacy cuando Evidencias cancela el visto bueno.
+     *
+     * @return array{success:bool,message?:string,payload?:array<string,mixed>,destinatarios?:array<int,array<string,mixed>>}
+     */
+    public function prepararPayloadCancelacionEvidenciasLegacy(
+        int $idOperacion,
+        string $tipoCancelacion,
+        string $motivo,
+        string $comentario = ''
+    ): array {
+        if ($idOperacion <= 0) {
+            return ['success' => false, 'message' => 'ID de operacion no valido.'];
+        }
+
+        $op = $this->db->queryOne(
+            'SELECT id, id_credito, folio, nombre_cliente
+             FROM adj_operacion
+             WHERE id = :id
+             LIMIT 1',
+            ['id' => $idOperacion]
+        );
+        if (!$op) {
+            return ['success' => false, 'message' => 'No se encontro la operacion para notificar.'];
+        }
+
+        $idCredito = (int) ($op['id_credito'] ?? 0);
+        if ($idCredito <= 0) {
+            return ['success' => false, 'message' => 'La operacion no tiene credito asociado.'];
+        }
+
+        $destinatarios = $this->obtenerDestinatariosLegacyPorCredito($idCredito);
+        $principal = $destinatarios[0] ?? [];
+        if ($destinatarios === [] || trim((string) ($principal['external_id'] ?? '')) === '' || (int) ($principal['user_id_legacy'] ?? 0) <= 0) {
+            return ['success' => false, 'message' => 'No se pudo identificar al usuario Legacy que debe recibir la notificacion.'];
+        }
+
+        $esBlacklist = trim($tipoCancelacion) === 'blacklist';
+        return [
+            'success' => true,
+            'payload' => [
+                'id_operacion' => $idOperacion,
+                'id_credito' => $idCredito,
+                'folio' => (string) ($op['folio'] ?? ''),
+                'nombre_cliente' => (string) ($op['nombre_cliente'] ?? ''),
+                'user_id_legacy' => (string) ((int) ($principal['user_id_legacy'] ?? 0)),
+                'external_id' => (string) ($principal['external_id'] ?? ''),
+                'tipo_cancelacion' => $esBlacklist ? 'blacklist' : 'denegar_visto_bueno',
+                'estatus' => $esBlacklist ? 'BLACKLIST_MOTOS_ADJUDICADAS' : 'VISTO_BUENO_DENEGADO',
+                'motivo' => mb_substr(trim($motivo), 0, 500),
+                'comentario' => mb_substr(trim($comentario), 0, 500),
+            ],
+            'destinatarios' => $destinatarios,
+        ];
+    }
+
+    /**
+     * Devuelve posibles destinatarios de push para un credito, empezando por la asignacion activa.
+     *
+     * @return array<int,array{user_id_legacy:int,external_id:string,nombre:string,origen:string}>
+     */
+    private function obtenerDestinatariosLegacyPorCredito(int $idCredito): array
+    {
+        if ($idCredito <= 0) {
+            return [];
+        }
+
+        $rows = $this->db->queryAll(
+            'SELECT per.id AS id_persona,
+                    TRIM(COALESCE(per.numero_empleado, \'\')) AS external_id,
+                    TRIM(CONCAT_WS(\' \', per.nombres, per.segundo_nombre, per.apellidop, per.apellidom)) AS nombre,
+                    aca.estatus,
+                    aca.id
+             FROM asigna_creditos_adjudicacion aca
+             INNER JOIN personal_adjudicacion pa ON pa.id = aca.id_personal_adj
+             INNER JOIN persona per ON per.id = pa.id_persona
+             WHERE aca.id_credito = :id_credito
+             ORDER BY (aca.estatus = \'1\') DESC, aca.id DESC
+             LIMIT 8',
+            ['id_credito' => $idCredito]
+        ) ?: [];
+
+        $externals = [];
+        foreach ($rows as $row) {
+            $externalId = trim((string) ($row['external_id'] ?? ''));
+            if ($externalId !== '') {
+                $externals[$externalId] = true;
+            }
+        }
+        if ($externals === []) {
+            return [];
+        }
+
+        $legacyPorExternal = [];
+        try {
+            $legacyDb = new DatabaseLegacy();
+            $ph = [];
+            $params = [];
+            foreach (array_keys($externals) as $idx => $externalId) {
+                $key = 'ext' . $idx;
+                $ph[] = ':' . $key;
+                $params[$key] = $externalId;
+            }
+            $legacyRows = $legacyDb->queryAll(
+                'SELECT id, TRIM(COALESCE(external_id, \'\')) AS external_id
+                 FROM users
+                 WHERE TRIM(COALESCE(external_id, \'\')) IN (' . implode(',', $ph) . ')
+                   AND deleted_at IS NULL
+                 ORDER BY id DESC',
+                $params
+            ) ?: [];
+            foreach ($legacyRows as $legacyRow) {
+                $externalId = trim((string) ($legacyRow['external_id'] ?? ''));
+                $id = (int) ($legacyRow['id'] ?? 0);
+                if ($externalId !== '' && $id > 0 && !isset($legacyPorExternal[$externalId])) {
+                    $legacyPorExternal[$externalId] = $id;
+                }
+            }
+        } catch (\Throwable $e) {
+            return [];
+        }
+
+        $out = [];
+        $vistos = [];
+        foreach ($rows as $row) {
+            $externalId = trim((string) ($row['external_id'] ?? ''));
+            $legacyUserId = (int) ($legacyPorExternal[$externalId] ?? 0);
+            if ($externalId === '' || $legacyUserId <= 0 || isset($vistos[$externalId])) {
+                continue;
+            }
+            $vistos[$externalId] = true;
+            $out[] = [
+                'user_id_legacy' => $legacyUserId,
+                'external_id' => $externalId,
+                'nombre' => trim((string) ($row['nombre'] ?? '')),
+                'origen' => ((string) ($row['estatus'] ?? '') === '1') ? 'asignacion_activa' : 'asignacion_anterior',
+            ];
+        }
+
+        return $out;
     }
 
     /**

@@ -11,6 +11,7 @@ class Convenios extends Controller
     private const MODULO_REGISTRAR_CONVENIO_EXISTENTE = 32;
     private const MODULO_SOLICITAR_REACTIVACION_OFERTA = 145;
     private const MODULO_REACTIVAR_OFERTA = 146;
+    private const MODULO_CANCELAMIENTO_DIRECTO = 151;
 
     /** Módulos de célula (mismos que CierreCredito): 58 = Despachos (1), 57 = Call Center (2) */
     private const MOD_CELULA_DESPACHOS   = 58;
@@ -61,6 +62,11 @@ class Convenios extends Controller
         return $this->usuarioTieneModulo(self::MODULO_REACTIVAR_OFERTA);
     }
 
+    private function usuarioTienePermisoCancelamientoDirecto(): bool
+    {
+        return $this->usuarioTieneModulo(self::MODULO_CANCELAMIENTO_DIRECTO);
+    }
+
     private function normalizarProductosReactivacion(): array
     {
         $ids = [];
@@ -94,6 +100,7 @@ class Convenios extends Controller
         $this->set('permisoRegistrarConvenioExistente', $this->usuarioTienePermisoRegistrarConvenioExistente());
         $this->set('permisoSolicitarReactivacionOferta', $this->usuarioTienePermisoSolicitarReactivacion());
         $this->set('permisoReactivarOfertas', $this->usuarioTienePermisoReactivarOferta());
+        $this->set('permisoCancelamientoDirecto', $this->usuarioTienePermisoCancelamientoDirecto());
         $emp = defined('CONFIGURACION') && isset(CONFIGURACION['EMPRESA']) ? (string) CONFIGURACION['EMPRESA'] : '';
         $this->set('titulo', 'Crear convenio ' . $emp);
         $this->render('convenios_consulta');
@@ -259,15 +266,26 @@ class Convenios extends Controller
 
     public function cancelarConvenio()
     {
+        if (!$this->usuarioTienePermisoCancelamientoDirecto()) {
+            self::respuestaJSON(self::respuesta(false, 'No tienes permiso para cancelar convenios directamente.'));
+            return;
+        }
+
         $idConvenio = isset($_POST['id_convenio']) ? (int) $_POST['id_convenio'] : 0;
+        $motivo     = mb_substr(trim(strip_tags($_POST['motivo'] ?? '')), 0, 200);
 
         if ($idConvenio <= 0) {
             self::respuestaJSON(self::respuesta(false, 'ID de convenio inválido.'));
         }
 
+        if ($motivo === '') {
+            self::respuestaJSON(self::respuesta(false, 'El motivo de cancelamiento es obligatorio.'));
+            return;
+        }
+
         $usuario = $_SESSION['usuario_nombre'] ?? $_SESSION['usuario'] ?? 'sistema';
 
-        $r = ConveniosDAO::cancelarConvenio($idConvenio, $usuario);
+        $r = ConveniosDAO::cancelarConvenio($idConvenio, $usuario, $motivo);
         self::respuestaJSON($r);
     }
 
