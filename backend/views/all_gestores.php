@@ -1195,6 +1195,36 @@
       margin: -.25rem 0 .85rem;
     }
 
+    #modalAgregarUsuarioRrhh .rrhh-salary-card {
+      border: 1px solid #dbe4f0;
+      background: #f8fbff;
+      border-radius: 8px;
+      padding: .95rem;
+    }
+
+    #modalAgregarUsuarioRrhh .rrhh-salary-status {
+      display: inline-flex;
+      align-items: center;
+      gap: .35rem;
+      border-radius: 999px;
+      padding: .2rem .55rem;
+      font-size: .75rem;
+      font-weight: 700;
+      background: #fff3cd;
+      color: #9a6700;
+      white-space: nowrap;
+    }
+
+    #modalAgregarUsuarioRrhh .rrhh-salary-status.is-unlocked {
+      background: #dcfce7;
+      color: #166534;
+    }
+
+    #modalAgregarUsuarioRrhh .rrhh-salary-status.is-denied {
+      background: #fee2e2;
+      color: #991b1b;
+    }
+
     #modalAgregarUsuarioRrhh .rrhh-repeat-row {
       border: 1px solid #edf1f6;
       border-radius: 8px;
@@ -5524,6 +5554,32 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
                         </div>
                         <div class="col-md-4"><label class="form-label">Ubicación laboral</label><input type="text" class="form-control" name="rrhh.ubicacion_laboral"></div>
                         <div class="col-md-4"><label class="form-label">Municipio</label><input type="text" class="form-control" name="rrhh.municipio_laboral"></div>
+                        <div class="col-12">
+                          <div class="rrhh-salary-card" id="rrhhSalarioSensibleCard">
+                            <div class="d-flex align-items-center justify-content-between gap-2 flex-wrap mb-2">
+                              <div class="rrhh-section-title mb-0"><i class="fa fa-shield-halved me-1"></i>Salario</div>
+                              <span class="rrhh-salary-status" id="rrhhSalarioSensibleStatus"><i class="fa fa-lock"></i>Protegido</span>
+                            </div>
+                            <div class="row g-2 align-items-end">
+                              <div class="col-md-5">
+                                <label class="form-label">Salario mensual</label>
+                                <div class="input-group">
+                                  <span class="input-group-text">$</span>
+                                  <input type="password" class="form-control" id="rrhh_salario_sensible" inputmode="decimal" autocomplete="off" placeholder="Protegido" disabled>
+                                  <span class="input-group-text">MXN</span>
+                                </div>
+                              </div>
+                              <div class="col-md-7 d-flex gap-2 flex-wrap">
+                                <button type="button" class="btn btn-outline-primary" id="btnRrhhDesbloquearSalario">
+                                  <i class="fa fa-key me-1"></i>Desbloquear
+                                </button>
+                                <button type="button" class="btn btn-primary" id="btnRrhhGuardarSalario" disabled>
+                                  <i class="fa fa-save me-1"></i>Guardar salario
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -12988,6 +13044,10 @@ function precargarCascadaEdit(idPais, idEstado, idMunicipio, idColonia, idCalle,
   const subtituloModalRrhh = document.getElementById('rrhhWizardSubtitle');
   const inputEditIdRrhh = document.getElementById('rrhh_edit_id_persona');
   const btnGuardarRrhh = document.getElementById('btnGuardarUsuarioRrhh');
+  const inputSalarioSensibleRrhh = document.getElementById('rrhh_salario_sensible');
+  const btnDesbloquearSalarioRrhh = document.getElementById('btnRrhhDesbloquearSalario');
+  const btnGuardarSalarioRrhh = document.getElementById('btnRrhhGuardarSalario');
+  const estadoSalarioSensibleRrhh = document.getElementById('rrhhSalarioSensibleStatus');
   const btnGenerarExpedienteRrhh = document.getElementById('btnGenerarExpedienteRrhh');
   const btnGenerarCredencialRrhh = document.getElementById('btnGenerarCredencialRrhh');
   const modalExpedienteRrhh = document.getElementById('modalExpedienteRrhh');
@@ -13137,6 +13197,7 @@ function precargarCascadaEdit(idPais, idEstado, idMunicipio, idColonia, idCalle,
     const esEdicion = modo === 'editar';
     form.dataset.mode = esEdicion ? 'editar' : 'crear';
     if (inputEditIdRrhh) inputEditIdRrhh.value = esEdicion ? String(idPersona || '') : '';
+    resetSalarioSensibleRrhh(esEdicion);
     if (tituloModalRrhh) {
       tituloModalRrhh.textContent = esEdicion ? 'Editar usuario RR.HH.' : 'Agregar usuario RR.HH.';
     }
@@ -13155,6 +13216,173 @@ function precargarCascadaEdit(idPais, idEstado, idMunicipio, idColonia, idCalle,
     });
     actualizarRrhhWizard();
   }
+
+  function setEstadoSalarioSensibleRrhh(texto, modo = 'locked') {
+    if (!estadoSalarioSensibleRrhh) return;
+    estadoSalarioSensibleRrhh.classList.toggle('is-unlocked', modo === 'unlocked');
+    estadoSalarioSensibleRrhh.classList.toggle('is-denied', modo === 'denied');
+    const icon = modo === 'unlocked' ? 'fa-unlock' : (modo === 'denied' ? 'fa-ban' : 'fa-lock');
+    estadoSalarioSensibleRrhh.innerHTML = `<i class="fa ${icon}"></i>${escapeRrhhHtml(texto)}`;
+  }
+
+  function resetSalarioSensibleRrhh(esEdicion = false) {
+    if (inputSalarioSensibleRrhh) {
+      inputSalarioSensibleRrhh.value = '';
+      inputSalarioSensibleRrhh.type = 'password';
+      inputSalarioSensibleRrhh.disabled = true;
+      inputSalarioSensibleRrhh.placeholder = esEdicion ? 'Protegido' : 'Disponible al editar';
+    }
+    if (btnDesbloquearSalarioRrhh) btnDesbloquearSalarioRrhh.disabled = !esEdicion;
+    if (btnGuardarSalarioRrhh) btnGuardarSalarioRrhh.disabled = true;
+    setEstadoSalarioSensibleRrhh(esEdicion ? 'Protegido' : 'Solo al editar', 'locked');
+  }
+
+  function idPersonaRrhhActual() {
+    return Number(inputEditIdRrhh?.value || 0);
+  }
+
+  function cargarLibreriaQrRrhhLocal() {
+    if (window.QRCode && typeof window.QRCode.toCanvas === 'function') {
+      return Promise.resolve();
+    }
+    return new Promise((resolve, reject) => {
+      const existente = document.querySelector('script[data-rrhh-qrcode="1"]');
+      if (existente) {
+        existente.addEventListener('load', resolve, { once: true });
+        existente.addEventListener('error', reject, { once: true });
+        return;
+      }
+      const script = document.createElement('script');
+      script.src = '/assets/vendor/libs/qrcode/qrcode.js';
+      script.async = true;
+      script.dataset.rrhhQrcode = '1';
+      script.onload = resolve;
+      script.onerror = reject;
+      document.head.appendChild(script);
+    });
+  }
+
+  async function pedirTotpSalarioSensibleRrhh(datosTotp) {
+    const setup = !!datosTotp?.setup;
+    const secret = datosTotp?.secret || '';
+    const otpauthUrl = datosTotp?.otpauth_url || '';
+    const cuenta = datosTotp?.cuenta || '';
+    const html = setup
+      ? `<div class="text-start">
+          <p class="mb-2">Escanea este QR en Google Authenticator y captura el codigo generado.</p>
+          <div class="d-flex justify-content-center my-2"><canvas id="rrhh-salario-totp-qr" width="210" height="210"></canvas></div>
+          <div class="small text-muted">Cuenta: ${escapeRrhhHtml(cuenta)}${secret ? '<br>Clave: <code>' + escapeRrhhHtml(secret) + '</code>' : ''}</div>
+          <div class="small text-danger d-none mt-2" id="rrhh-salario-totp-qr-error">No se pudo pintar el QR. Usa la clave manual.</div>
+        </div>`
+      : '<div class="text-start"><p class="mb-0">Escribe el codigo de 6 digitos de Google Authenticator para desbloquear salario.</p></div>';
+
+    const result = await Swal.fire({
+      title: 'Segundo paso requerido',
+      html,
+      input: 'text',
+      inputPlaceholder: 'Codigo de 6 digitos',
+      inputAttributes: { maxlength: 6, inputmode: 'numeric', autocomplete: 'one-time-code' },
+      showCancelButton: true,
+      confirmButtonText: 'Verificar',
+      cancelButtonText: 'Cancelar',
+      didOpen: async () => {
+        setTimeout(() => Swal.getInput()?.focus?.(), 80);
+        if (setup && otpauthUrl) {
+          try {
+            await cargarLibreriaQrRrhhLocal();
+            const canvas = document.getElementById('rrhh-salario-totp-qr');
+            if (canvas && window.QRCode && typeof window.QRCode.toCanvas === 'function') {
+              await window.QRCode.toCanvas(canvas, otpauthUrl, { width: 210, margin: 2, errorCorrectionLevel: 'M' });
+            }
+          } catch (error) {
+            document.getElementById('rrhh-salario-totp-qr-error')?.classList.remove('d-none');
+          }
+        }
+      },
+      preConfirm: value => {
+        const codigo = String(value || '').replace(/\D+/g, '');
+        if (codigo.length !== 6) {
+          Swal.showValidationMessage('Captura los 6 digitos de Google Authenticator.');
+          return false;
+        }
+        return codigo;
+      }
+    });
+    return result.isConfirmed ? result.value : '';
+  }
+
+  async function postSalarioSensibleRrhh(endpoint, payload, datosTotp = null) {
+    const body = Object.assign({}, payload);
+    if (datosTotp && datosTotp.codigo) body.totp_code = datosTotp.codigo;
+    const response = await fetch(endpoint, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+      body: JSON.stringify(body)
+    });
+    const data = await response.json();
+    if (data.success && data.datos && data.datos.requiere_totp) {
+      const codigo = await pedirTotpSalarioSensibleRrhh(data.datos);
+      if (!codigo) return null;
+      return postSalarioSensibleRrhh(endpoint, payload, { codigo });
+    }
+    return data;
+  }
+
+  async function desbloquearSalarioSensibleRrhh() {
+    const idPersona = idPersonaRrhhActual();
+    if (!idPersona) {
+      Swal.fire('Salario protegido', 'Primero guarda el usuario y vuelve a editarlo para capturar salario.', 'info');
+      return;
+    }
+    if (btnDesbloquearSalarioRrhh) btnDesbloquearSalarioRrhh.disabled = true;
+    try {
+      const data = await postSalarioSensibleRrhh('/CapHum/leerSalarioPersonaRrhh', { id_persona: idPersona });
+      if (!data) return;
+      if (!data.success) {
+        setEstadoSalarioSensibleRrhh('Sin permiso', 'denied');
+        throw new Error(data.mensaje || 'No se pudo desbloquear el salario.');
+      }
+      if (inputSalarioSensibleRrhh) {
+        inputSalarioSensibleRrhh.type = 'text';
+        inputSalarioSensibleRrhh.disabled = false;
+        inputSalarioSensibleRrhh.value = data.datos?.salario || '';
+        inputSalarioSensibleRrhh.placeholder = '0.00';
+        inputSalarioSensibleRrhh.focus();
+      }
+      if (btnGuardarSalarioRrhh) btnGuardarSalarioRrhh.disabled = false;
+      setEstadoSalarioSensibleRrhh('Desbloqueado', 'unlocked');
+    } catch (error) {
+      Swal.fire('Salario protegido', error.message || 'No se pudo desbloquear el salario.', 'error');
+    } finally {
+      if (btnDesbloquearSalarioRrhh) btnDesbloquearSalarioRrhh.disabled = false;
+    }
+  }
+
+  async function guardarSalarioSensibleRrhh() {
+    const idPersona = idPersonaRrhhActual();
+    if (!idPersona || !inputSalarioSensibleRrhh || inputSalarioSensibleRrhh.disabled) return;
+    if (btnGuardarSalarioRrhh) btnGuardarSalarioRrhh.disabled = true;
+    try {
+      const data = await postSalarioSensibleRrhh('/CapHum/guardarSalarioPersonaRrhh', {
+        id_persona: idPersona,
+        salario: inputSalarioSensibleRrhh.value || ''
+      });
+      if (!data) return;
+      if (!data.success) throw new Error(data.mensaje || 'No se pudo guardar el salario.');
+      inputSalarioSensibleRrhh.value = data.datos?.salario || '';
+      setEstadoSalarioSensibleRrhh('Guardado', 'unlocked');
+      Swal.fire('Guardado', 'Salario protegido actualizado correctamente.', 'success');
+    } catch (error) {
+      Swal.fire('Error', error.message || 'No se pudo guardar el salario.', 'error');
+    } finally {
+      if (btnGuardarSalarioRrhh && inputSalarioSensibleRrhh && !inputSalarioSensibleRrhh.disabled) {
+        btnGuardarSalarioRrhh.disabled = false;
+      }
+    }
+  }
+
+  btnDesbloquearSalarioRrhh?.addEventListener('click', desbloquearSalarioSensibleRrhh);
+  btnGuardarSalarioRrhh?.addEventListener('click', guardarSalarioSensibleRrhh);
 
   function escapeRrhhAttr(value) {
     return String(value ?? '')

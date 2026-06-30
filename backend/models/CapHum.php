@@ -18,10 +18,11 @@ class CapHum extends Model
     public const MODULO_VALIDAR_CARTA_COMPROMISO_GESTOR = 144;
     public const MODULO_VER_DOCUMENTOS_SENSIBLES_RRHH = 151;
     public const MODULO_RESET_TOTP_DOCUMENTOS_SENSIBLES_RRHH = 152;
+    public const MODULO_VER_SALARIO_SENSIBLE_RRHH = 153;
     private const MODULOS_ACCESOS_CAPITAL_HUMANO_IDS = [
         4, 5, 13, 34, 38, 42, 44, 82, 83, 86, 87, 88, 91, 93,
         94, 95, 96, 97, 98, 99, 101, 104, 105,
-        140, 141, 142, 143, 144, 147, 151, 152,
+        140, 141, 142, 143, 144, 147, 151, 152, 153,
         3008, 3009, 3010, 3011, 3012, 3013, 3014, 3015, 3016, 3017,
         3018, 3022, 3023, 3024, 3025, 3027, 3028, 3029, 3030, 3031,
         3032, 3033, 3034, 3035, 3036,
@@ -93,6 +94,12 @@ class CapHum extends Model
                 'nombre' => 'Reset Google Authenticator documentos RR.HH.',
                 'pestana' => 'Permisos especiales',
                 'descripcion' => 'Permite reiniciar el segundo paso de Google Authenticator para documentos sensibles RR.HH.',
+            ],
+            [
+                'id' => self::MODULO_VER_SALARIO_SENSIBLE_RRHH,
+                'nombre' => 'Ver salario sensible RR.HH.',
+                'pestana' => 'Permisos especiales',
+                'descripcion' => 'Permite ver y actualizar salario RR.HH. protegido con Google Authenticator y cifrado.',
             ],
         ];
 
@@ -3991,6 +3998,179 @@ class CapHum extends Model
         }
     }
 
+    public static function getSalarioSensiblePersona(int $idPersona)
+    {
+        try {
+            if ($idPersona <= 0) {
+                return self::resultado(false, 'Persona no valida.', null);
+            }
+
+            $db = new Database();
+            self::asegurarSalariosSensiblesRrhh($db);
+            $registro = $db->queryOne("
+                SELECT id_persona, salario_cifrado, moneda, creado_en, actualizado_en, id_usuario_actualizacion
+                FROM __SPARTA_SECRET_REDACTED__.rrhh_salarios_sensibles
+                WHERE id_persona = :id_persona
+                LIMIT 1
+            ", ['id_persona' => $idPersona]);
+
+            if (!$registro) {
+                return self::resultado(true, 'Salario sensible consultado.', [
+                    'tiene_salario' => false,
+                    'salario' => '',
+                    'moneda' => 'MXN',
+                    'actualizado_en' => null,
+                ]);
+            }
+
+            $salarioPlano = self::descifrarValorSensibleRrhh((string)($registro['salario_cifrado'] ?? ''));
+            if ($salarioPlano === '') {
+                return self::resultado(false, 'No se pudo descifrar el salario sensible.', null);
+            }
+
+            return self::resultado(true, 'Salario sensible consultado.', [
+                'tiene_salario' => true,
+                'salario' => $salarioPlano,
+                'moneda' => $registro['moneda'] ?: 'MXN',
+                'actualizado_en' => $registro['actualizado_en'] ?? null,
+                'id_usuario_actualizacion' => $registro['id_usuario_actualizacion'] ?? null,
+            ]);
+        } catch (\Exception $e) {
+            return self::resultado(false, 'Error al consultar salario sensible.', null, $e->getMessage());
+        }
+    }
+
+    public static function guardarSalarioSensiblePersona(int $idPersona, $salario, int $idUsuario)
+    {
+        try {
+            if ($idPersona <= 0) {
+                return self::resultado(false, 'Persona no valida.', null);
+            }
+
+            $salarioNormalizado = self::normalizarSalarioSensible($salario);
+            if ($salarioNormalizado === false) {
+                return self::resultado(false, 'Captura un salario valido.', null);
+            }
+
+            $db = new Database();
+            self::asegurarSalariosSensiblesRrhh($db);
+
+            if ($salarioNormalizado === null) {
+                $db->CRUD("
+                    DELETE FROM __SPARTA_SECRET_REDACTED__.rrhh_salarios_sensibles
+                    WHERE id_persona = :id_persona
+                ", ['id_persona' => $idPersona]);
+                return self::resultado(true, 'Salario sensible eliminado.', [
+                    'tiene_salario' => false,
+                    'salario' => '',
+                    'moneda' => 'MXN',
+                ]);
+            }
+
+            $db->CRUD("
+                INSERT INTO __SPARTA_SECRET_REDACTED__.rrhh_salarios_sensibles
+                    (id_persona, salario_cifrado, moneda, creado_en, actualizado_en, id_usuario_actualizacion)
+                VALUES
+                    (:id_persona, :salario_cifrado, 'MXN', NOW(), NOW(), :id_usuario)
+                ON DUPLICATE KEY UPDATE
+                    salario_cifrado = VALUES(salario_cifrado),
+                    moneda = VALUES(moneda),
+                    actualizado_en = NOW(),
+                    id_usuario_actualizacion = VALUES(id_usuario_actualizacion)
+            ", [
+                'id_persona' => $idPersona,
+                'salario_cifrado' => self::cifrarValorSensibleRrhh($salarioNormalizado),
+                'id_usuario' => $idUsuario > 0 ? $idUsuario : null,
+            ]);
+
+            return self::resultado(true, 'Salario sensible guardado.', [
+                'tiene_salario' => true,
+                'salario' => $salarioNormalizado,
+                'moneda' => 'MXN',
+            ]);
+        } catch (\Exception $e) {
+            return self::resultado(false, 'Error al guardar salario sensible.', null, $e->getMessage());
+        }
+    }
+
+    public static function registrarAuditoriaSalarioSensibleRrhh(array $datos): void
+    {
+        try {
+            $db = new Database();
+            self::asegurarSalariosSensiblesRrhh($db);
+            $db->CRUD("
+                INSERT INTO __SPARTA_SECRET_REDACTED__.auditoria_salarios_sensibles_rrhh
+                    (id_usuario, usuario_nombre, id_persona, persona_nombre, accion, resultado, ip, user_agent, detalle, fecha_hora)
+                VALUES
+                    (:id_usuario, :usuario_nombre, :id_persona, :persona_nombre, :accion, :resultado, :ip, :user_agent, :detalle, :fecha_hora)
+            ", [
+                'id_usuario' => (int)($datos['id_usuario'] ?? 0),
+                'usuario_nombre' => (string)($datos['usuario_nombre'] ?? ''),
+                'id_persona' => (int)($datos['id_persona'] ?? 0),
+                'persona_nombre' => (string)($datos['persona_nombre'] ?? ''),
+                'accion' => (string)($datos['accion'] ?? ''),
+                'resultado' => (string)($datos['resultado'] ?? ''),
+                'ip' => (string)($datos['ip'] ?? ''),
+                'user_agent' => (string)($datos['user_agent'] ?? ''),
+                'detalle' => (string)($datos['detalle'] ?? ''),
+                'fecha_hora' => (string)($datos['fecha_hora'] ?? date('Y-m-d H:i:s')),
+            ]);
+        } catch (\Throwable $e) {
+            error_log('CapHum::registrarAuditoriaSalarioSensibleRrhh -> ' . $e->getMessage());
+        }
+    }
+
+    private static function asegurarSalariosSensiblesRrhh(Database $db): void
+    {
+        $db->CRUD("
+            CREATE TABLE IF NOT EXISTS __SPARTA_SECRET_REDACTED__.rrhh_salarios_sensibles (
+                id_persona INT NOT NULL PRIMARY KEY,
+                salario_cifrado TEXT NOT NULL,
+                moneda VARCHAR(8) NOT NULL DEFAULT 'MXN',
+                creado_en DATETIME NOT NULL,
+                actualizado_en DATETIME NOT NULL,
+                id_usuario_actualizacion INT NULL,
+                KEY idx_usuario_actualizacion (id_usuario_actualizacion),
+                KEY idx_actualizado_en (actualizado_en)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+        ");
+        $db->CRUD("
+            CREATE TABLE IF NOT EXISTS __SPARTA_SECRET_REDACTED__.auditoria_salarios_sensibles_rrhh (
+                id BIGINT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+                fecha_hora DATETIME NOT NULL,
+                id_usuario INT NULL,
+                usuario_nombre VARCHAR(191) NULL,
+                id_persona INT NULL,
+                persona_nombre VARCHAR(191) NULL,
+                accion VARCHAR(40) NOT NULL,
+                resultado VARCHAR(40) NOT NULL,
+                ip VARCHAR(80) NULL,
+                user_agent VARCHAR(255) NULL,
+                detalle TEXT NULL,
+                KEY idx_fecha_hora (fecha_hora),
+                KEY idx_usuario (id_usuario),
+                KEY idx_persona (id_persona)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+        ");
+    }
+
+    private static function normalizarSalarioSensible($salario)
+    {
+        $valor = trim((string)($salario ?? ''));
+        if ($valor === '') {
+            return null;
+        }
+        $valor = str_replace(['$', ' ', ','], '', $valor);
+        if (!is_numeric($valor)) {
+            return false;
+        }
+        $numero = (float)$valor;
+        if ($numero < 0 || $numero > 999999999.99) {
+            return false;
+        }
+        return number_format($numero, 2, '.', '');
+    }
+
     private static function asegurarTotpDocumentosSensibles(Database $db): void
     {
         $db->CRUD("
@@ -4054,10 +4234,18 @@ class CapHum extends Model
         if ($secret === '' || self::esSecretoTotpCifrado($secret)) {
             return $secret;
         }
+        return self::cifrarValorSensibleRrhh($secret);
+    }
+
+    private static function cifrarValorSensibleRrhh(string $valor): string
+    {
+        if ($valor === '' || self::esSecretoTotpCifrado($valor)) {
+            return $valor;
+        }
         $iv = random_bytes(12);
         $tag = '';
         $cipher = openssl_encrypt(
-            $secret,
+            $valor,
             'aes-256-gcm',
             self::claveMaestraDocumentosSensibles(),
             OPENSSL_RAW_DATA,
@@ -4065,12 +4253,17 @@ class CapHum extends Model
             $tag
         );
         if ($cipher === false) {
-            throw new \RuntimeException('No se pudo cifrar el segundo paso.');
+            throw new \RuntimeException('No se pudo cifrar el valor sensible.');
         }
         return 'enc:v1:' . base64_encode($iv . $tag . $cipher);
     }
 
     private static function descifrarSecretoTotp(string $secret): string
+    {
+        return self::descifrarValorSensibleRrhh($secret);
+    }
+
+    private static function descifrarValorSensibleRrhh(string $secret): string
     {
         if ($secret === '' || !self::esSecretoTotpCifrado($secret)) {
             return $secret;

@@ -38,6 +38,7 @@ class CapHum extends Controller
     private const MODULO_VALIDAR_CARTA_COMPROMISO_GESTOR = 144;
     private const MODULO_VER_DOCUMENTOS_SENSIBLES_RRHH = 151;
     private const MODULO_RESET_TOTP_DOCUMENTOS_SENSIBLES_RRHH = 152;
+    private const MODULO_VER_SALARIO_SENSIBLE_RRHH = 153;
     private const MODULO_DOCUMENTO_RRHH_BASE = 3000;
     private const DOCUMENTO_CARTA_COMPROMISO_GESTOR = 27;
     private const TIPO_CARTA_COMPROMISO_GESTOR = 'Carta de compromiso del Gestor';
@@ -107,6 +108,11 @@ class CapHum extends Controller
     private static function puedeResetearTotpDocumentosSensiblesRrhh(): bool
     {
         return self::tieneModuloWeb(self::MODULO_RESET_TOTP_DOCUMENTOS_SENSIBLES_RRHH);
+    }
+
+    private static function puedeGestionarSalarioSensibleRrhh(): bool
+    {
+        return self::tieneModuloWeb(self::MODULO_VER_SALARIO_SENSIBLE_RRHH);
     }
 
     private static function esDocumentoSensibleRrhh(int $idDocumento): bool
@@ -346,6 +352,90 @@ class CapHum extends Controller
         ]);
     }
 
+    private function auditarSalarioSensibleRrhh(int $idPersona, string $accion, string $resultado, string $detalle = ''): void
+    {
+        $usuarioNombre = trim((string)($_SESSION['usuario_nombre'] ?? $_SESSION['nombre_usuario'] ?? $_SESSION['usuario'] ?? ''));
+        CapHumDAO::registrarAuditoriaSalarioSensibleRrhh([
+            'id_usuario' => self::usuarioSesionId(),
+            'usuario_nombre' => $usuarioNombre,
+            'id_persona' => $idPersona,
+            'persona_nombre' => '',
+            'accion' => $accion,
+            'resultado' => $resultado,
+            'ip' => self::obtenerIpCliente(),
+            'user_agent' => (string)($_SERVER['HTTP_USER_AGENT'] ?? ''),
+            'fecha_hora' => self::ahoraMexicoCiudad()->format('Y-m-d H:i:s'),
+            'detalle' => $detalle,
+        ]);
+    }
+
+    private function autorizarSalarioSensibleRrhh(int $idPersona, string $accion, string $codigoTotp = ''): array
+    {
+        if (!self::tieneModuloWeb(self::MODULO_EDITAR_USUARIO_RRHH) || !self::puedeGestionarSalarioSensibleRrhh()) {
+            $this->auditarSalarioSensibleRrhh($idPersona, $accion, 'denegado', 'Sin permiso especial de salario');
+            return ['success' => false, 'mensaje' => 'No tienes permiso para usar salario sensible RR.HH.'];
+        }
+
+        $idUsuarioSesion = self::usuarioSesionId();
+        if ($idUsuarioSesion <= 0) {
+            return ['success' => false, 'mensaje' => 'Sesion no valida.'];
+        }
+
+        $codigoTotp = preg_replace('/\D+/', '', $codigoTotp);
+        if (self::totpSalarioSesionVigente() && $codigoTotp === '') {
+            return ['success' => true];
+        }
+
+        $totp = CapHumDAO::getTotpDocumentoSensible($idUsuarioSesion);
+        if (!($totp['success'] ?? false)) {
+            return [
+                'success' => false,
+                'mensaje' => $totp['mensaje'] ?? 'No se pudo consultar el segundo paso.'
+            ];
+        }
+
+        $configTotp = $totp['datos'] ?? null;
+        if (empty($configTotp['secret'])) {
+            $secret = self::generarSecretoTotp();
+            $guardado = CapHumDAO::guardarTotpDocumentoSensible($idUsuarioSesion, $secret, false);
+            if (!($guardado['success'] ?? false)) {
+                return [
+                    'success' => false,
+                    'mensaje' => $guardado['mensaje'] ?? 'No se pudo crear el segundo paso.'
+                ];
+            }
+            $configTotp = ['secret' => $secret, 'confirmado' => 0];
+            $this->auditarSalarioSensibleRrhh($idPersona, 'totp_setup', 'pendiente', 'Google Authenticator generado para salario');
+        }
+
+        $secret = (string)($configTotp['secret'] ?? '');
+        $confirmado = (int)($configTotp['confirmado'] ?? 0) === 1;
+        if ($codigoTotp === '') {
+            return [
+                'success' => true,
+                'datos' => [
+                    'requiere_totp' => true,
+                    'setup' => !$confirmado,
+                    'secret' => !$confirmado ? $secret : null,
+                    'otpauth_url' => !$confirmado ? self::otpauthUrlDocumentosSensibles($secret) : null,
+                    'cuenta' => self::cuentaTotpDocumentosSensibles(),
+                ],
+            ];
+        }
+
+        if (!self::verificarCodigoTotp($secret, $codigoTotp)) {
+            $this->auditarSalarioSensibleRrhh($idPersona, 'totp', 'denegado', 'Codigo TOTP invalido');
+            return ['success' => false, 'mensaje' => 'El codigo de Google Authenticator no es correcto.'];
+        }
+
+        if (!$confirmado) {
+            CapHumDAO::confirmarTotpDocumentoSensible($idUsuarioSesion);
+        }
+        self::marcarTotpSalarioSesion();
+        $this->auditarSalarioSensibleRrhh($idPersona, 'totp', 'autorizado', $accion);
+        return ['success' => true];
+    }
+
     private function crearTokenDocumentoSensibleSesion(int $idDocumentoCarga, string $accion = 'ver'): string
     {
         if (session_status() !== PHP_SESSION_ACTIVE) {
@@ -393,6 +483,16 @@ class CapHum extends Controller
     private static function marcarTotpSesion(): void
     {
         $_SESSION['rrhh_documentos_sensibles_totp_until'] = time() + 600;
+    }
+
+    private static function totpSalarioSesionVigente(): bool
+    {
+        return (int)($_SESSION['rrhh_salario_sensible_totp_until'] ?? 0) >= time();
+    }
+
+    private static function marcarTotpSalarioSesion(): void
+    {
+        $_SESSION['rrhh_salario_sensible_totp_until'] = time() + 300;
     }
 
     private static function generarSecretoTotp(): string
@@ -23142,6 +23242,7 @@ class CapHum extends Controller
         self::set("puedeActualizarInfo", in_array(self::MODULO_ACTUALIZAR_DATOS_RRHH, $modulos));
         self::set("puedeAgregarUsuarioRrhh", in_array(self::MODULO_AGREGAR_USUARIO_RRHH, $modulos));
         self::set("puedeEditarUsuarioRrhh", in_array(self::MODULO_EDITAR_USUARIO_RRHH, $modulos));
+        self::set("puedeVerSalarioSensibleRrhh", self::puedeGestionarSalarioSensibleRrhh());
         self::set("miUsuarioId", (int) ($_SESSION['usuario_id'] ?? 0));
         self::render("all_gestores");
     }
@@ -23524,6 +23625,70 @@ class CapHum extends Controller
         }
 
         $resultado = CapHumRrhh::actualizarUsuario($input, $idSesion);
+        self::respuestaJSON($resultado);
+    }
+
+    public function leerSalarioPersonaRrhh()
+    {
+        header('Content-Type: application/json; charset=utf-8');
+
+        $input = json_decode(file_get_contents('php://input'), true);
+        if (!is_array($input)) {
+            $input = $_POST;
+        }
+
+        $idPersona = (int)($input['id_persona'] ?? 0);
+        if ($idPersona <= 0) {
+            self::respuestaJSON(['success' => false, 'mensaje' => 'ID de persona requerido.']);
+            return;
+        }
+
+        $autorizacion = $this->autorizarSalarioSensibleRrhh(
+            $idPersona,
+            'leer',
+            (string)($input['totp_code'] ?? '')
+        );
+        if (empty($autorizacion['success']) || !empty($autorizacion['datos']['requiere_totp'])) {
+            self::respuestaJSON($autorizacion);
+            return;
+        }
+
+        $resultado = CapHumDAO::getSalarioSensiblePersona($idPersona);
+        $this->auditarSalarioSensibleRrhh($idPersona, 'leer', !empty($resultado['success']) ? 'autorizado' : 'fallido');
+        self::respuestaJSON($resultado);
+    }
+
+    public function guardarSalarioPersonaRrhh()
+    {
+        header('Content-Type: application/json; charset=utf-8');
+
+        $input = json_decode(file_get_contents('php://input'), true);
+        if (!is_array($input)) {
+            $input = $_POST;
+        }
+
+        $idPersona = (int)($input['id_persona'] ?? 0);
+        if ($idPersona <= 0) {
+            self::respuestaJSON(['success' => false, 'mensaje' => 'ID de persona requerido.']);
+            return;
+        }
+
+        $autorizacion = $this->autorizarSalarioSensibleRrhh(
+            $idPersona,
+            'guardar',
+            (string)($input['totp_code'] ?? '')
+        );
+        if (empty($autorizacion['success']) || !empty($autorizacion['datos']['requiere_totp'])) {
+            self::respuestaJSON($autorizacion);
+            return;
+        }
+
+        $resultado = CapHumDAO::guardarSalarioSensiblePersona(
+            $idPersona,
+            $input['salario'] ?? '',
+            self::usuarioSesionId()
+        );
+        $this->auditarSalarioSensibleRrhh($idPersona, 'guardar', !empty($resultado['success']) ? 'autorizado' : 'fallido');
         self::respuestaJSON($resultado);
     }
 
