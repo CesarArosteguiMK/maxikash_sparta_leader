@@ -417,8 +417,8 @@ class CapHum extends Controller
                     'requiere_totp' => true,
                     'setup' => !$confirmado,
                     'secret' => !$confirmado ? $secret : null,
-                    'otpauth_url' => !$confirmado ? self::otpauthUrlDocumentosSensibles($secret) : null,
-                    'cuenta' => self::cuentaTotpDocumentosSensibles(),
+                    'otpauth_url' => !$confirmado ? self::otpauthUrlSalarioSensible($secret) : null,
+                    'cuenta' => self::cuentaTotpSalarioSensible(),
                 ],
             ];
         }
@@ -578,6 +578,24 @@ class CapHum extends Controller
     {
         $issuer = 'MaxiKash RRHH';
         $cuenta = self::cuentaTotpDocumentosSensibles();
+        return 'otpauth://totp/' . rawurlencode($issuer . ':' . $cuenta)
+            . '?secret=' . rawurlencode($secret)
+            . '&issuer=' . rawurlencode($issuer)
+            . '&digits=6&period=30';
+    }
+
+    private static function cuentaTotpSalarioSensible(): string
+    {
+        $usuario = strtolower(self::cuentaTotpDocumentosSensibles());
+        $usuario = preg_replace('/[^a-z0-9_\\-]+/', '-', $usuario);
+        $usuario = trim((string)$usuario, '-_');
+        return ($usuario !== '' ? $usuario : 'usuario') . '-salarios';
+    }
+
+    private static function otpauthUrlSalarioSensible(string $secret): string
+    {
+        $issuer = 'MaxiKash RRHH';
+        $cuenta = self::cuentaTotpSalarioSensible();
         return 'otpauth://totp/' . rawurlencode($issuer . ':' . $cuenta)
             . '?secret=' . rawurlencode($secret)
             . '&issuer=' . rawurlencode($issuer)
