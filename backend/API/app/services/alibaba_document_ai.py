@@ -129,25 +129,31 @@ Tipos permitidos:
 - desconocido
 
 Reglas de lectura:
-1. No inventes datos. Si un campo no se ve, usa null.
-2. Usa fechas en formato YYYY-MM-DD. Si solo ves mes y anio, usa YYYY-MM-01.
-3. Si detectas INE, pasaporte o residencia, clasifica el subtipo especifico.
+1. Haz lectura visual en dos pasadas: primero identifica el tipo y secciones del
+   documento; despues lee campos rotulados y valida longitudes/formato.
+2. No inventes datos. Si un campo no se ve, usa null.
+3. No marques el documento como correcto solo porque la imagen sea clara. Si falta
+   un dato requerido para la regla documental, reportalo en observaciones o marca
+   evidencia_insuficiente=true.
+4. Usa fechas en formato YYYY-MM-DD. Si solo ves mes y anio, usa YYYY-MM-01.
+5. Si detectas INE, pasaporte o residencia, clasifica el subtipo especifico.
    Un pasaporte de cualquier pais es identificacion oficial valida; clasificalo
    como pasaporte_extranjero cuando el pais/nacionalidad no sea Mexico.
-4. Si el documento tiene frente y reverso, indica si ambos aparecen. Para
+6. Si el documento tiene frente y reverso, indica si ambos aparecen. Para
    pasaportes no exijas frente y reverso; basta la hoja de datos legible.
-5. Si la imagen esta borrosa, cortada o ilegible, baja la confianza.
-6. Para estado de cuenta, acepta caratulas, anexos o contratos bancarios como Libreton BBVA si muestran banco, titular y CLABE o cuenta.
-7. Para constancia_fiscal, extrae actividad_economica, regimen_fiscal y regimenes_fiscales si aparecen.
-8. Para constancia_fiscal, fecha_emision debe ser la fecha del bloque "Lugar y Fecha de Emision"; no uses fecha de inicio de operaciones ni fecha de inicio de regimen.
-9. La "Constancia de la Clave Unica de Registro de Poblacion" de RENAPO/gob.mx es tipo curp, no constancia_fiscal.
-10. Para CURP, fecha_emision debe ser la fecha visible de expedicion/emision del documento; no inventes fechas futuras.
-11. Para comprobante_domicilio, busca fechas como periodo facturado, periodo de consumo, fecha limite de pago, fecha de corte o emision. En recibos CFE, si no hay fecha_emision usa fecha limite de pago como fecha_vencimiento.
-12. Para solicitud___SPARTA_SECRET_REDACTED__, no confundas campos: "Clave Unica de Registro de Poblacion" es CURP, "Registro Federal de Contribuyentes" es RFC y "Numero de seguridad social" es NSS.
-13. Para nss, extrae solo un numero de 11 digitos asociado a IMSS/NSS. No uses folio de solicitud, cadena original, numero de serie ni codigo QR como NSS.
-14. Para carta_no_adeudo, el nombre_completo debe ser el nombre de la persona que declara/no adeuda. Si solo aparece en la linea manuscrita de "Nombre completo y firma", leelo con mucho cuidado; si no estas seguro, usa null y explica la duda.
-15. Para carta_no_adeudo, no uses "A quien corresponda", nombre de empresa, empleador, beneficiario, entidad emisora o texto de la firma como nombre_completo.
-16. CURP debe tener 18 caracteres alfanumericos y NSS debe tener 11 digitos. Si dudas entre letras/numeros, no inventes.
+7. Si la imagen esta borrosa, cortada o ilegible, baja la confianza.
+8. Para estado de cuenta, acepta caratulas, anexos o contratos bancarios como Libreton BBVA si muestran banco, titular y CLABE o cuenta.
+9. Para constancia_fiscal, extrae actividad_economica, regimen_fiscal y regimenes_fiscales si aparecen.
+10. Para constancia_fiscal, fecha_emision debe ser la fecha del bloque "Lugar y Fecha de Emision"; no uses fecha de inicio de operaciones ni fecha de inicio de regimen.
+11. La "Constancia de la Clave Unica de Registro de Poblacion" de RENAPO/gob.mx es tipo curp, no constancia_fiscal.
+12. Para CURP, fecha_emision debe ser la fecha visible de expedicion/emision del documento; no inventes fechas futuras.
+13. Para comprobante_domicilio, busca fechas como periodo facturado, periodo de consumo, fecha limite de pago, fecha de corte o emision. En recibos CFE, si no hay fecha_emision usa fecha limite de pago como fecha_vencimiento.
+14. Para solicitud___SPARTA_SECRET_REDACTED__, no confundas campos: "Clave Unica de Registro de Poblacion" es CURP, "Registro Federal de Contribuyentes" es RFC y "Numero de seguridad social" es NSS.
+15. Para nss, extrae solo un numero de 11 digitos asociado a IMSS/NSS. No uses folio de solicitud, cadena original, numero de serie ni codigo QR como NSS.
+16. CURP debe tener 18 caracteres alfanumericos, RFC 12 o 13 caracteres y NSS 11 digitos. Si dudas entre letras/numeros como O/0, I/1, G/6 o R/P, usa el valor con mayor evidencia visual; si la duda afecta el valor final, usa null y explicalo.
+17. Para carta_no_adeudo, el nombre_completo debe ser el nombre de la persona que declara/no adeuda. Si solo aparece en la linea manuscrita de "Nombre completo y firma", leelo con mucho cuidado; si no estas seguro, usa null y explica la duda.
+18. Para carta_no_adeudo, no uses "A quien corresponda", nombre de empresa, empleador, beneficiario, entidad emisora o texto de la firma como nombre_completo.
+19. Para carta_no_adeudo, confirma si el formato fue llenado y firmado. firma_detectada=true solo si hay trazo manuscrito o firma digital visible. Una linea impresa vacia, una raya sin nombre o el texto "Nombre completo y firma" no cuentan como firma. Si la linea esta vacia, si solo aparece la plantilla sin nombre, o si no hay firma/trazo manuscrito, marca nombre_y_firma_lleno=false, firma_detectada=false y evidencia_insuficiente=true.
 
 Estructura exacta:
 {
@@ -183,7 +189,9 @@ Estructura exacta:
     "entidad_emisora": null,
     "actividad_economica": null,
     "regimen_fiscal": null,
-    "regimenes_fiscales": []
+    "regimenes_fiscales": [],
+    "firma_detectada": null,
+    "nombre_y_firma_lleno": null
   },
   "observaciones": [],
   "evidencia_insuficiente": false
@@ -213,6 +221,9 @@ Objetivo:
    - Estado de cuenta: debe ser banco fisico; se aceptan caratulas/libreton
      BBVA si muestran titular y CLABE o cuenta. No aceptar bancos digitales
      como Nu, Mercado Pago o Klar.
+   - Hoja de retencion FONACOT/INFONAVIT o carta de no adeudo: si es carta
+     de no adeudo, debe estar llenada con nombre del candidato y firma/trazo
+     manuscrito. Una plantilla en blanco no cumple aunque sea legible.
 5. Si solo el comprobante de domicilio esta a nombre de otra persona, no lo
    marques como error de identidad; compara domicilio y deja observacion.
 6. Si solo el nombre registrado esta disponible fuera de los documentos, no
@@ -432,6 +443,35 @@ def _field_text(fields: Dict[str, Any], *keys: str) -> str:
     return " ".join(parts)
 
 
+def _bool_from_field(value: Any) -> Optional[bool]:
+    if isinstance(value, bool):
+        return value
+    if value is None:
+        return None
+    text = normalize_text(str(value)).strip()
+    if text in {"1", "TRUE", "SI", "S", "YES", "Y", "OK", "PRESENTE", "DETECTADO", "LLENO"}:
+        return True
+    if text in {"0", "FALSE", "NO", "N", "AUSENTE", "NO DETECTADO", "VACIO", "VACIA", "SIN FIRMA", "SIN NOMBRE"}:
+        return False
+    return None
+
+
+def _blank_like_name(value: Any) -> bool:
+    text = normalize_text(str(value or ""))
+    if not text:
+        return True
+    placeholders = {
+        "NOMBRE COMPLETO",
+        "NOMBRE COMPLETO Y FIRMA",
+        "FIRMA",
+        "A QUIEN CORRESPONDA",
+        "ATENTAMENTE",
+    }
+    if text in placeholders:
+        return True
+    return text.startswith("NOMBRE COMPLETO") or text.startswith("FIRMA")
+
+
 def _has_sueldos_salarios(fields: Dict[str, Any]) -> bool:
     text = normalize_text(_field_text(fields, "regimen_fiscal", "regimenes_fiscales", "actividad_economica"))
     compact = re.sub(r"[^A-Z0-9]+", "", text)
@@ -589,6 +629,9 @@ def quick_result_to_summary(key: str, label: str, filename: str, result: Dict[st
         "actividad_economica": fields.get("actividad_economica"),
         "regimen_fiscal": fields.get("regimen_fiscal"),
         "regimenes_fiscales": fields.get("regimenes_fiscales"),
+        "firma_detectada": fields.get("firma_detectada"),
+        "nombre_y_firma_lleno": fields.get("nombre_y_firma_lleno"),
+        "evidencia_insuficiente": extraction.get("evidencia_insuficiente"),
         "paginas_pdf": extraction.get("paginas_pdf") or extraction.get("paginas_analizadas"),
         "alertas": (validation.get("errores") or []) + (validation.get("advertencias") or []),
         "observaciones": observations,
@@ -647,6 +690,9 @@ def compact_summary_for_prompt(summary: Dict[str, Any]) -> Dict[str, Any]:
                 "es_reciente",
                 "actividad_asalariado",
                 "regimen_sueldos_salarios",
+                "firma_detectada",
+                "nombre_y_firma_lleno",
+                "evidencia_insuficiente",
                 "tipo_identificacion",
                 "fecha_documento",
                 "direccion",
@@ -698,7 +744,9 @@ def quick_prompt_for(expected_doc_type: Optional[str], nombre_candidato: Optiona
             "mental y no cambies letras por parecido visual si no estas seguro. Si el nombre "
             "manuscrito coincide visualmente con el nombre registrado, devuelve el nombre "
             "normalizado como aparece en el registro. Si no es claro, deja nombre_completo "
-            "en null y agrega observacion."
+            "en null y agrega observacion. El formato en blanco NO es valido: si no hay "
+            "nombre escrito en la linea final o no hay firma/trazo manuscrito, devuelve "
+            "nombre_y_firma_lleno=false, firma_detectada=false y evidencia_insuficiente=true."
         )
     return (
         QUICK_PROMPT
@@ -859,6 +907,22 @@ def validate_quick_extracted(data: Dict[str, Any], expected_doc_type: Optional[s
 
     if doc_type == "nss" and not fields.get("nss"):
         errors.append("No se pudo leer el NSS")
+
+    if doc_type in {"carta_no_adeudo", "infonavit_fonacot"}:
+        declarant = fields.get("nombre_completo")
+        firma_detectada = _bool_from_field(fields.get("firma_detectada"))
+        nombre_y_firma_lleno = _bool_from_field(fields.get("nombre_y_firma_lleno"))
+        evidencia_insuficiente = _bool_from_field(data.get("evidencia_insuficiente"))
+        if _blank_like_name(declarant):
+            errors.append("La carta de no adeudo no tiene el nombre completo del candidato")
+        if evidencia_insuficiente is True:
+            errors.append("La carta de no adeudo no tiene evidencia suficiente de nombre y firma")
+        if nombre_y_firma_lleno is False:
+            errors.append("La linea de nombre completo y firma no esta llenada")
+        if firma_detectada is False:
+            errors.append("La carta de no adeudo no esta firmada")
+        if firma_detectada is None and nombre_y_firma_lleno is None:
+            warnings.append("No se pudo confirmar automaticamente la firma de la carta")
 
     if errors:
         message = "No se puede cargar este documento: " + "; ".join(errors) + "."

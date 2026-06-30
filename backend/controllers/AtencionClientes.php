@@ -22,10 +22,10 @@ class AtencionClientes extends Controller
         $admin = $usuarioId === 1 || in_array(1, $modulos, true);
 
         return [
-            'cancelar' => $admin || in_array(AtencionClientesModel::MODULO_MA_CANCELAR_VISTO_BUENO, $modulos, true),
-            'blacklist' => $admin || in_array(AtencionClientesModel::MODULO_MA_ENVIAR_BLACKLIST, $modulos, true),
-            'ver' => $admin || in_array(AtencionClientesModel::MODULO_MA_VER_BLACKLIST, $modulos, true),
-            'liberar' => $admin || in_array(AtencionClientesModel::MODULO_MA_LIBERAR_BLACKLIST, $modulos, true),
+            'cancelar' => $admin || in_array(AtencionClientesModel::MODULO_MA_CANCELAR_VISTO_BUENO, $modulos, true) || in_array(3037, $modulos, true),
+            'blacklist' => $admin || in_array(AtencionClientesModel::MODULO_MA_ENVIAR_BLACKLIST, $modulos, true) || in_array(3038, $modulos, true),
+            'ver' => $admin || in_array(AtencionClientesModel::MODULO_MA_VER_BLACKLIST, $modulos, true) || in_array(3039, $modulos, true),
+            'liberar' => $admin || in_array(AtencionClientesModel::MODULO_MA_LIBERAR_BLACKLIST, $modulos, true) || in_array(3040, $modulos, true),
         ];
     }
 

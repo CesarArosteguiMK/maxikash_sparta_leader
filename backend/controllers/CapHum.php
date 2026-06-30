@@ -38,10 +38,42 @@ class CapHum extends Controller
     private const MODULO_VALIDAR_CARTA_COMPROMISO_GESTOR = 144;
     private const MODULO_VER_DOCUMENTOS_SENSIBLES_RRHH = 151;
     private const MODULO_RESET_TOTP_DOCUMENTOS_SENSIBLES_RRHH = 152;
-    private const MODULO_DOCUMENTO_RRHH_BASE = 3000;
+    private const MODULO_VER_SALARIO_SENSIBLE_RRHH = 153;
+    private const MODULO_AUDITORIA_RRHH = 154;
+    private const MODULOS_DOCUMENTO_RRHH = [
+        8 => 155,
+        9 => 156,
+        10 => 157,
+        11 => 158,
+        12 => 159,
+        13 => 160,
+        14 => 161,
+        15 => 162,
+        16 => 163,
+        17 => 164,
+        18 => 165,
+        22 => 166,
+        23 => 167,
+        24 => 168,
+        25 => 169,
+        27 => 170,
+        28 => 171,
+        29 => 172,
+        30 => 173,
+        31 => 174,
+        32 => 175,
+        33 => 176,
+        34 => 177,
+        35 => 178,
+        36 => 179,
+        37 => 184,
+        38 => 185,
+    ];
     private const DOCUMENTO_CARTA_COMPROMISO_GESTOR = 27;
     private const TIPO_CARTA_COMPROMISO_GESTOR = 'Carta de compromiso del Gestor';
-    private const DOCUMENTOS_SENSIBLES_RRHH = [28, 29];
+    private const DOCUMENTOS_SENSIBLES_RRHH = [28, 29, 31, 37, 38];
+    private const DOCUMENTOS_SOLO_BAJA_RRHH = [37, 38];
+    private const DOCUMENTOS_SIN_DUPLICADO_RRHH = [30];
     private const DOCUMENTO_SENSIBLE_MAGIC = "SPARTA_RRHH_DOC_V1\n";
     private const DIRECCION_COBRANZA_ID = 12;
     private const MODULOS_EDICION_COBRANZA = [
@@ -85,7 +117,7 @@ class CapHum extends Controller
             return;
         }
         self::$modulosSesionRefrescados = true;
-        $idPersona = (int) ($_SESSION['usuario_id'] ?? 0);
+        $idPersona = self::usuarioSesionId();
         if ($idPersona <= 0) {
             return;
         }
@@ -109,9 +141,67 @@ class CapHum extends Controller
         return self::tieneModuloWeb(self::MODULO_RESET_TOTP_DOCUMENTOS_SENSIBLES_RRHH);
     }
 
+    private static function puedeGestionarSalarioSensibleRrhh(): bool
+    {
+        return self::tieneModuloWeb(self::MODULO_VER_SALARIO_SENSIBLE_RRHH);
+    }
+
+    private static function puedeConsultarAuditoriaRrhh(): bool
+    {
+        return self::tieneModuloWeb(self::MODULO_AUDITORIA_RRHH);
+    }
+
     private static function esDocumentoSensibleRrhh(int $idDocumento): bool
     {
         return in_array($idDocumento, self::DOCUMENTOS_SENSIBLES_RRHH, true);
+    }
+
+    private static function esDocumentoSoloBajaRrhh(int $idDocumento): bool
+    {
+        return in_array($idDocumento, self::DOCUMENTOS_SOLO_BAJA_RRHH, true);
+    }
+
+    private static function personaRrhhEstaDeBaja(int $idPersona): bool
+    {
+        static $cache = [];
+        if ($idPersona <= 0) {
+            return false;
+        }
+        if (array_key_exists($idPersona, $cache)) {
+            return $cache[$idPersona];
+        }
+
+        try {
+            $db = new \Core\Database();
+            $persona = $db->queryOne("
+                SELECT COALESCE(estatus, '') AS estatus
+                FROM __SPARTA_SECRET_REDACTED__.persona
+                WHERE id = :id
+                LIMIT 1
+            ", ['id' => $idPersona]);
+            $estatus = trim((string)($persona['estatus'] ?? ''));
+            $cache[$idPersona] = strcasecmp($estatus, 'Baja') === 0;
+        } catch (\Throwable $e) {
+            error_log('CapHum::personaRrhhEstaDeBaja -> ' . $e->getMessage());
+            $cache[$idPersona] = false;
+        }
+
+        return $cache[$idPersona];
+    }
+
+    private static function documentoPermitidoParaPersonaRrhh(int $idDocumento, int $idPersona): bool
+    {
+        return !self::esDocumentoSoloBajaRrhh($idDocumento) || self::personaRrhhEstaDeBaja($idPersona);
+    }
+
+    private static function esDocumentoSinDuplicadoRrhh(int $idDocumento): bool
+    {
+        return in_array($idDocumento, self::DOCUMENTOS_SIN_DUPLICADO_RRHH, true);
+    }
+
+    private static function mensajeDocumentoSoloBajaRrhh(): string
+    {
+        return 'Finiquito y Comprobante de pago finiquito solo se pueden usar en expedientes de usuarios en Baja.';
     }
 
     private static function documentosRrhhConPermisoEspecial(): array
@@ -142,12 +232,14 @@ class CapHum extends Controller
             34 => 'Documento incapacidad',
             35 => 'Documento permiso',
             36 => 'Documento falta',
+            37 => 'Finiquito',
+            38 => 'Comprobante de pago finiquito',
         ];
     }
 
     private static function moduloTipoDocumentoRrhh(int $idDocumento): int
     {
-        return self::MODULO_DOCUMENTO_RRHH_BASE + $idDocumento;
+        return self::MODULOS_DOCUMENTO_RRHH[$idDocumento] ?? 0;
     }
 
     private static function esTipoDocumentoRrhhControlado(int $idDocumento): bool
@@ -160,15 +252,25 @@ class CapHum extends Controller
         if (!self::esTipoDocumentoRrhhControlado($idDocumento)) {
             return true;
         }
-        return self::tieneModuloWeb(self::moduloTipoDocumentoRrhh($idDocumento));
+        if (self::usuarioSesionId() === 1) {
+            return true;
+        }
+        if ($idDocumento === self::DOCUMENTO_CARTA_COMPROMISO_GESTOR
+            && self::tieneModuloWeb(self::MODULO_VALIDAR_CARTA_COMPROMISO_GESTOR)) {
+            return true;
+        }
+        $idModulo = self::moduloTipoDocumentoRrhh($idDocumento);
+        return ($idModulo > 0 && self::tieneModuloWeb($idModulo))
+            || self::tieneModuloWeb(3000 + $idDocumento);
     }
 
     private static function puedeListarDocumentoPersonaRrhh(int $idDocumento): bool
     {
-        if (!self::puedeUsarTipoDocumentoRrhh($idDocumento)) {
-            return false;
+        if (self::puedeUsarTipoDocumentoRrhh($idDocumento)) {
+            return true;
         }
-        return !self::esDocumentoSensibleRrhh($idDocumento) || self::puedeVerDocumentosSensiblesRrhh();
+        return self::esDocumentoSensibleRrhh($idDocumento)
+            && self::puedeVerDocumentosSensiblesRrhh();
     }
 
     private static function obtenerLlaveArchivoSensible(): string
@@ -296,7 +398,7 @@ class CapHum extends Controller
         $idDocumento = (int)($doc['id_documento'] ?? 0);
         $esSensible = self::esDocumentoSensibleRrhh($idDocumento);
         $puedeTipoDocumento = self::puedeUsarTipoDocumentoRrhh($idDocumento);
-        $puedeVer = $puedeTipoDocumento && (!$esSensible || self::puedeVerDocumentosSensiblesRrhh());
+        $puedeVerSensible = !$esSensible || self::puedeVerDocumentosSensiblesRrhh();
         $doc['sensible'] = $esSensible;
         $doc['requiere_token'] = $esSensible;
         if (empty($doc['documento_nombre'])) {
@@ -306,10 +408,10 @@ class CapHum extends Controller
         $doc['permiso_tipo_documento'] = self::esTipoDocumentoRrhhControlado($idDocumento)
             ? self::moduloTipoDocumentoRrhh($idDocumento)
             : null;
-        $doc['puede_ver_sensible'] = $puedeVer;
+        $doc['puede_ver_sensible'] = $puedeVerSensible;
         if (!$puedeTipoDocumento) {
             $doc['archivo'] = 'Documento sin permiso';
-        } elseif ($esSensible && !$puedeVer) {
+        } elseif ($esSensible && !$puedeVerSensible) {
             $doc['archivo'] = 'Documento protegido';
         }
         return $doc;
@@ -347,6 +449,90 @@ class CapHum extends Controller
             'fecha_hora' => self::ahoraMexicoCiudad()->format('Y-m-d H:i:s'),
             'detalle' => $detalle,
         ]);
+    }
+
+    private function auditarSalarioSensibleRrhh(int $idPersona, string $accion, string $resultado, string $detalle = ''): void
+    {
+        $usuarioNombre = trim((string)($_SESSION['usuario_nombre'] ?? $_SESSION['nombre_usuario'] ?? $_SESSION['usuario'] ?? ''));
+        CapHumDAO::registrarAuditoriaSalarioSensibleRrhh([
+            'id_usuario' => self::usuarioSesionId(),
+            'usuario_nombre' => $usuarioNombre,
+            'id_persona' => $idPersona,
+            'persona_nombre' => '',
+            'accion' => $accion,
+            'resultado' => $resultado,
+            'ip' => self::obtenerIpCliente(),
+            'user_agent' => (string)($_SERVER['HTTP_USER_AGENT'] ?? ''),
+            'fecha_hora' => self::ahoraMexicoCiudad()->format('Y-m-d H:i:s'),
+            'detalle' => $detalle,
+        ]);
+    }
+
+    private function autorizarSalarioSensibleRrhh(int $idPersona, string $accion, string $codigoTotp = ''): array
+    {
+        if (!self::tieneModuloWeb(self::MODULO_EDITAR_USUARIO_RRHH) || !self::puedeGestionarSalarioSensibleRrhh()) {
+            $this->auditarSalarioSensibleRrhh($idPersona, $accion, 'denegado', 'Sin permiso especial de salario');
+            return ['success' => false, 'mensaje' => 'No tienes permiso para usar salario sensible RR.HH.'];
+        }
+
+        $idUsuarioSesion = self::usuarioSesionId();
+        if ($idUsuarioSesion <= 0) {
+            return ['success' => false, 'mensaje' => 'Sesion no valida.'];
+        }
+
+        $codigoTotp = preg_replace('/\D+/', '', $codigoTotp);
+        if (self::totpSalarioSesionVigente() && $codigoTotp === '') {
+            return ['success' => true];
+        }
+
+        $totp = CapHumDAO::getTotpDocumentoSensible($idUsuarioSesion);
+        if (!($totp['success'] ?? false)) {
+            return [
+                'success' => false,
+                'mensaje' => $totp['mensaje'] ?? 'No se pudo consultar el segundo paso.'
+            ];
+        }
+
+        $configTotp = $totp['datos'] ?? null;
+        if (empty($configTotp['secret'])) {
+            $secret = self::generarSecretoTotp();
+            $guardado = CapHumDAO::guardarTotpDocumentoSensible($idUsuarioSesion, $secret, false);
+            if (!($guardado['success'] ?? false)) {
+                return [
+                    'success' => false,
+                    'mensaje' => $guardado['mensaje'] ?? 'No se pudo crear el segundo paso.'
+                ];
+            }
+            $configTotp = ['secret' => $secret, 'confirmado' => 0];
+            $this->auditarSalarioSensibleRrhh($idPersona, 'totp_setup', 'pendiente', 'Google Authenticator generado para salario');
+        }
+
+        $secret = (string)($configTotp['secret'] ?? '');
+        $confirmado = (int)($configTotp['confirmado'] ?? 0) === 1;
+        if ($codigoTotp === '') {
+            return [
+                'success' => true,
+                'datos' => [
+                    'requiere_totp' => true,
+                    'setup' => !$confirmado,
+                    'secret' => !$confirmado ? $secret : null,
+                    'otpauth_url' => !$confirmado ? self::otpauthUrlSalarioSensible($secret) : null,
+                    'cuenta' => self::cuentaTotpSalarioSensible(),
+                ],
+            ];
+        }
+
+        if (!self::verificarCodigoTotp($secret, $codigoTotp)) {
+            $this->auditarSalarioSensibleRrhh($idPersona, 'totp', 'denegado', 'Codigo TOTP invalido');
+            return ['success' => false, 'mensaje' => 'El codigo de Google Authenticator no es correcto.'];
+        }
+
+        if (!$confirmado) {
+            CapHumDAO::confirmarTotpDocumentoSensible($idUsuarioSesion);
+        }
+        self::marcarTotpSalarioSesion();
+        $this->auditarSalarioSensibleRrhh($idPersona, 'totp', 'autorizado', $accion);
+        return ['success' => true];
     }
 
     private function crearTokenDocumentoSensibleSesion(int $idDocumentoCarga, string $accion = 'ver'): string
@@ -396,6 +582,16 @@ class CapHum extends Controller
     private static function marcarTotpSesion(): void
     {
         $_SESSION['rrhh_documentos_sensibles_totp_until'] = time() + 600;
+    }
+
+    private static function totpSalarioSesionVigente(): bool
+    {
+        return (int)($_SESSION['rrhh_salario_sensible_totp_until'] ?? 0) >= time();
+    }
+
+    private static function marcarTotpSalarioSesion(): void
+    {
+        $_SESSION['rrhh_salario_sensible_totp_until'] = time() + 300;
     }
 
     private static function generarSecretoTotp(): string
@@ -481,6 +677,24 @@ class CapHum extends Controller
     {
         $issuer = 'MaxiKash RRHH';
         $cuenta = self::cuentaTotpDocumentosSensibles();
+        return 'otpauth://totp/' . rawurlencode($issuer . ':' . $cuenta)
+            . '?secret=' . rawurlencode($secret)
+            . '&issuer=' . rawurlencode($issuer)
+            . '&digits=6&period=30';
+    }
+
+    private static function cuentaTotpSalarioSensible(): string
+    {
+        $usuario = strtolower(self::cuentaTotpDocumentosSensibles());
+        $usuario = preg_replace('/[^a-z0-9_\\-]+/', '-', $usuario);
+        $usuario = trim((string)$usuario, '-_');
+        return ($usuario !== '' ? $usuario : 'usuario') . '-salarios';
+    }
+
+    private static function otpauthUrlSalarioSensible(string $secret): string
+    {
+        $issuer = 'MaxiKash RRHH';
+        $cuenta = self::cuentaTotpSalarioSensible();
         return 'otpauth://totp/' . rawurlencode($issuer . ':' . $cuenta)
             . '?secret=' . rawurlencode($secret)
             . '&issuer=' . rawurlencode($issuer)
@@ -984,7 +1198,7 @@ class CapHum extends Controller
                                     </button>`
                                         : ''
                                     }
-                                    ${puedeCargarDocumento ? `<button class="btn btn-sm btn-info" onclick="cargarDocumentoPersona(this)" data-id-persona="${p.id}" data-nombre="${nombreCompleto.replace(/"/g, '&quot;')}" data-puesto="${escaparAttr(puestosPersonaTexto)}" title="Cargar documento">
+                                    ${puedeCargarDocumento ? `<button class="btn btn-sm btn-info" onclick="cargarDocumentoPersona(this)" data-id-persona="${p.id}" data-nombre="${nombreCompleto.replace(/"/g, '&quot;')}" data-puesto="${escaparAttr(puestosPersonaTexto)}" data-estatus="${escaparAttr(p.estatus || '')}" title="Cargar documento">
                                         <i class="fa fa-file"></i>
                                     </button>` : ''}
                                     ${puedeActualizarInfo ? `<button class="btn btn-sm btn-success" onclick="abrirActualizacionInfoPersona(${p.id})" title="Actualizar informaci&oacute;n" aria-label="Actualizar informaci&oacute;n">
@@ -2409,35 +2623,31 @@ class CapHum extends Controller
                 143: 'fa-solid fa-user-plus',
                 145: 'fa-solid fa-rotate-right',
                 146: 'fa-solid fa-circle-check',
-                3008: 'fa-solid fa-id-card',
-                3009: 'fa-solid fa-address-card',
-                3010: 'fa-solid fa-file-invoice',
-                3011: 'fa-solid fa-house-user',
-                3012: 'fa-solid fa-certificate',
-                3013: 'fa-solid fa-graduation-cap',
-                3014: 'fa-solid fa-briefcase',
-                3015: 'fa-solid fa-user-slash',
-                3016: 'fa-solid fa-user-clock',
-                3017: 'fa-solid fa-file-signature',
-                3018: 'fa-solid fa-file-lines',
-                3022: 'fa-solid fa-receipt',
-                3023: 'fa-solid fa-hospital-user',
-                3024: 'fa-solid fa-hand-holding-dollar',
-                3025: 'fa-solid fa-building-columns',
-                3027: 'fa-solid fa-file-contract',
-                3028: 'fa-solid fa-signature',
-                3029: 'fa-solid fa-file-zipper',
-                3030: 'fa-solid fa-shield-halved',
-                3031: 'fa-solid fa-key',
-                3032: 'fa-solid fa-coins',
-                3033: 'fa-solid fa-calendar-week',
-                3034: 'fa-solid fa-notes-medical',
-                3035: 'fa-solid fa-file-circle-check',
-                3036: 'fa-solid fa-calendar-xmark',
-                3037: 'fa-solid fa-ban',
-                3038: 'fa-solid fa-list-check',
-                3039: 'fa-solid fa-eye',
-                3040: 'fa-solid fa-unlock',
+                155: 'fa-solid fa-id-card',
+                156: 'fa-solid fa-address-card',
+                157: 'fa-solid fa-file-invoice',
+                158: 'fa-solid fa-house-user',
+                159: 'fa-solid fa-certificate',
+                160: 'fa-solid fa-graduation-cap',
+                161: 'fa-solid fa-briefcase',
+                162: 'fa-solid fa-user-slash',
+                163: 'fa-solid fa-user-clock',
+                164: 'fa-solid fa-file-signature',
+                165: 'fa-solid fa-file-lines',
+                166: 'fa-solid fa-receipt',
+                167: 'fa-solid fa-hospital-user',
+                168: 'fa-solid fa-hand-holding-dollar',
+                169: 'fa-solid fa-building-columns',
+                170: 'fa-solid fa-file-contract',
+                171: 'fa-solid fa-signature',
+                172: 'fa-solid fa-file-zipper',
+                173: 'fa-solid fa-shield-halved',
+                174: 'fa-solid fa-key',
+                175: 'fa-solid fa-coins',
+                176: 'fa-solid fa-calendar-week',
+                177: 'fa-solid fa-notes-medical',
+                178: 'fa-solid fa-file-circle-check',
+                179: 'fa-solid fa-calendar-xmark',
             };
 
             /** Mapa base de íconos (pestaña Módulos del sistema y filas agrupadas de permisos especiales). */
@@ -3868,23 +4078,17 @@ class CapHum extends Controller
                 const iconosMap = Object.assign({}, iconosModulosSistemaPerfil, iconosPermisosEspeciales);
                 const idsPermisoEdicionCobranza = new Set(Array.from({ length: 21 }, (_, i) => 107 + i));
                 const idsPermisosAtlas = new Set([129, 130]);
-                const idsPermisosMotosAdjudicadas = new Set([3037, 3038, 3039, 3040]);
-                const perfilesNormalizados = (Array.isArray(perfiles) ? perfiles : []).map(mod => {
+                const idsPermisosMotosAdjudicadas = new Set([180, 181, 182, 183]);
+                const perfilesNormalizados = (Array.isArray(perfiles) ? perfiles : []).filter(mod => {
                     const idMod = Number(mod.modulo_id ?? mod.id ?? 0);
                     const nombreModulo = String(mod.modulo_nombre ?? mod.nombre ?? '').toLowerCase();
                     const descripcionModulo = String(mod.descripcion ?? '').toLowerCase();
-                    const esPermisoMotos = idsPermisosMotosAdjudicadas.has(idMod)
-                        || nombreModulo.includes('motos adjudicadas')
-                        || descripcionModulo.includes('motos adjudicadas');
-                    if (esPermisoMotos) {
-                        return Object.assign({}, mod, {
-                            menu_grupo: 'Motos Adjudicadas',
-                            menu_grupo_icono: 'fa-solid fa-motorcycle',
-                            menu_grupo_orden: 11,
-                            menu_item_orden: idMod
-                        });
-                    }
-                    if (idMod === 151 || idMod === 152 || (idMod >= 3000 && idMod < 3100)) {
+                    return !idsPermisosMotosAdjudicadas.has(idMod)
+                        && !nombreModulo.includes('motos adjudicadas')
+                        && !descripcionModulo.includes('motos adjudicadas');
+                }).map(mod => {
+                    const idMod = Number(mod.modulo_id ?? mod.id ?? 0);
+                    if (idMod === 151 || idMod === 152 || (idMod >= 155 && idMod <= 179)) {
                         return Object.assign({}, mod, {
                             menu_grupo: 'Control documental RR.HH.',
                             menu_grupo_icono: 'fa fa-folder-open',
@@ -6535,9 +6739,11 @@ class CapHum extends Controller
             let archivosSeleccionadosPersona = [];
             let archivosSubidosPersona = [];
             let personaCargarDocumentoEsGestor = false;
+            let personaCargarDocumentoEsBaja = false;
             let personaCargarDocumentoDesdeAusencia = false;
             let personaCargarDocumentoTipoAusencia = '';
             const documentosAusenciaPersona = ['Documento incapacidad', 'Documento permiso', 'Documento falta'];
+            const documentosSoloBajaPersona = ['Finiquito', 'Comprobante de pago finiquito'];
 
             function normalizarTextoDocumentoPersona(valor) {
                 return String(valor || '')
@@ -6548,6 +6754,14 @@ class CapHum extends Controller
 
             function esDocumentoAusenciaPersona(valor) {
                 return documentosAusenciaPersona.includes(String(valor || ''));
+            }
+
+            function esDocumentoSoloBajaPersona(valor) {
+                return documentosSoloBajaPersona.includes(String(valor || ''));
+            }
+
+            function esEstatusBajaPersona(valor) {
+                return normalizarTextoDocumentoPersona(valor).trim() === 'BAJA';
             }
 
             function esPuestoGestorDocumentoPersona(puestosTexto) {
@@ -6565,6 +6779,11 @@ class CapHum extends Controller
                 return persona.nombre_puesto || '';
             }
 
+            function obtenerEstatusDesdeUsuariosData(idPersona) {
+                const persona = (window.usuariosData || []).find(item => String(item?.id || '') === String(idPersona || ''));
+                return persona ? (persona.estatus || persona.status || '') : '';
+            }
+
             // Alias para el botón "Ver archivo" de la tabla (recibe id de persona)
             function verArchivo(idPersona) {
                 cargarDocumentoPersona(idPersona);
@@ -6572,7 +6791,8 @@ class CapHum extends Controller
 
             // Función para abrir modal de cargar documento de persona
             function cargarDocumentoPersona(button) {
-                let idPersona, nombreCompleto, puestosPersonaTexto = '';
+                let idPersona, nombreCompleto, puestosPersonaTexto = '', estatusPersonaTexto = '';
+                personaCargarDocumentoEsBaja = false;
                 personaCargarDocumentoDesdeAusencia = false;
                 personaCargarDocumentoTipoAusencia = '';
                 const esIdDirecto = typeof button === 'number' || (typeof button === 'string' && button !== '' && !isNaN(Number(button)));
@@ -6584,6 +6804,7 @@ class CapHum extends Controller
                     if (btnReferencia) {
                         nombreCompleto = btnReferencia.getAttribute('data-nombre') || nombreCompleto;
                         puestosPersonaTexto = btnReferencia.getAttribute('data-puesto') || '';
+                        estatusPersonaTexto = btnReferencia.getAttribute('data-estatus') || '';
                     }
                 } else {
                     let btnElement = button;
@@ -6601,6 +6822,7 @@ class CapHum extends Controller
                     idPersona = btnElement.getAttribute('data-id-persona');
                     nombreCompleto = btnElement.getAttribute('data-nombre') || '';
                     puestosPersonaTexto = btnElement.getAttribute('data-puesto') || '';
+                    estatusPersonaTexto = btnElement.getAttribute('data-estatus') || '';
                     personaCargarDocumentoDesdeAusencia = btnElement.getAttribute('data-contexto-documento') === 'ausencia';
                     personaCargarDocumentoTipoAusencia = btnElement.getAttribute('data-documento-ausencia') || '';
                     if (!idPersona) {
@@ -6611,7 +6833,11 @@ class CapHum extends Controller
                 if (!puestosPersonaTexto) {
                     puestosPersonaTexto = obtenerPuestosTextoDesdeUsuariosData(idPersona);
                 }
+                if (!estatusPersonaTexto) {
+                    estatusPersonaTexto = obtenerEstatusDesdeUsuariosData(idPersona);
+                }
                 personaCargarDocumentoEsGestor = esPuestoGestorDocumentoPersona(puestosPersonaTexto);
+                personaCargarDocumentoEsBaja = esEstatusBajaPersona(estatusPersonaTexto);
 
                 // Guardar el ID de persona en un campo oculto del modal
                 document.getElementById('cargarDocPersona_idPersona').value = idPersona || '';
@@ -6727,6 +6953,16 @@ class CapHum extends Controller
                     return;
                 }
 
+                if (esDocumentoSoloBajaPersona(tipoDocumento) && !personaCargarDocumentoEsBaja) {
+                    Swal.fire({
+                        icon: 'warning',
+                        title: 'Documento solo para bajas',
+                        text: 'Finiquito y Comprobante de pago finiquito solo se pueden cargar en usuarios en Baja.'
+                    });
+                    input.value = '';
+                    return;
+                }
+
                 // Verificar si ya existe un documento de este tipo subido
                 const esUnico = !permiteMultiplesArchivos(tipoDocumento);
                 if (esUnico) {
@@ -6821,6 +7057,8 @@ class CapHum extends Controller
                     'Documento incapacidad': 34,
                     'Documento permiso': 35,
                     'Documento falta': 36,
+                    'Finiquito': 37,
+                    'Comprobante de pago finiquito': 38,
                     'Documento reingreso': 16,
                     'Documento Reingreso': 16
                 };
@@ -7182,7 +7420,7 @@ class CapHum extends Controller
                 const tablaArchivos = document.getElementById('cargarDocPersona_tablaArchivos');
 
                 // Renderizar tabla de archivos subidos
-                const archivosSubidosVisibles = archivosSubidosPersona.filter(doc => doc.puede_tipo_documento !== false && doc.puede_ver_sensible !== false);
+                const archivosSubidosVisibles = archivosSubidosPersona.filter(doc => doc.puede_tipo_documento !== false);
                 if (archivosSubidosVisibles.length > 0) {
                     let htmlTabla = '';
                     archivosSubidosVisibles.forEach(doc => {
@@ -7309,6 +7547,7 @@ class CapHum extends Controller
                 if (idDocumento == 34) return '<span class="badge bg-info text-dark">Incapacidad</span>';
                 if (idDocumento == 35) return '<span class="badge bg-primary">Permiso</span>';
                 if (idDocumento == 36) return '<span class="badge bg-warning text-dark">Falta</span>';
+                if ([28, 29, 31, 37, 38].includes(Number(idDocumento))) return '<span class="badge bg-dark">Sensible</span>';
                 return '<span class="badge bg-secondary">Gestión</span>';
             }
             function obtenerNombreDocumento(idDocumento, nombreCatalogo) {
@@ -7338,7 +7577,9 @@ class CapHum extends Controller
                     25: 'Estado de cuenta',
                     34: 'Documento incapacidad',
                     35: 'Documento permiso',
-                    36: 'Documento falta'
+                    36: 'Documento falta',
+                    37: 'Finiquito',
+                    38: 'Comprobante de pago finiquito'
                 };
                 return mapeo[idDocumento] || 'Documento';
             }
@@ -7364,6 +7605,9 @@ class CapHum extends Controller
 
                 // Verificar si el valor actual del select es un documento único ya subido
                 const valorActual = selectTipo.value;
+                if (valorActual && esDocumentoSoloBajaPersona(valorActual) && !personaCargarDocumentoEsBaja) {
+                    selectTipo.value = '';
+                }
                 if (valorActual && !permiteMultiplesArchivos(valorActual) && documentosUnicosSubidos.has(valorActual)) {
                     // Si el documento seleccionado es único y ya está subido, limpiar el select
                     selectTipo.value = '';
@@ -7386,6 +7630,12 @@ class CapHum extends Controller
                         return;
                     }
                     if (valor === 'Carta de compromiso del Gestor' && !personaCargarDocumentoEsGestor) {
+                        option.style.display = 'none';
+                        option.hidden = true;
+                        option.disabled = true;
+                        return;
+                    }
+                    if (esDocumentoSoloBajaPersona(valor) && !personaCargarDocumentoEsBaja) {
                         option.style.display = 'none';
                         option.hidden = true;
                         option.disabled = true;
@@ -7833,6 +8083,8 @@ class CapHum extends Controller
                 'Documento incapacidad': 34,
                 'Documento permiso': 35,
                 'Documento falta': 36,
+                'Finiquito': 37,
+                'Comprobante de pago finiquito': 38,
                 'Documento reingreso': 16
             };
 
@@ -7969,6 +8221,7 @@ class CapHum extends Controller
         HTML;
         // Easter egg "300" solo en Capital Humano â†’ Gestión (Ctrl+Shift+3)
         $script .= "\n" . '<script src="/assets/js/gestiones-300-easter.js"></script>';
+        self::refrescarModulosSesionUnaVez();
         $modulos = $_SESSION['modulos'] ?? [];
         $puedeDescargarPlantillaGestion = in_array(self::MODULO_GESTION_PLANTILLA, $modulos);
         $puedeAgregarUsuarioGestion = in_array(self::MODULO_GESTION_AGREGAR_USUARIO, $modulos);
@@ -8111,7 +8364,7 @@ class CapHum extends Controller
                 'mensaje' => 'Analisis completado.',
                 'datos' => $resultado
             ]);
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
             self::respuestaJSON(['success' => false, 'mensaje' => 'Error al analizar tus documentos: ' . $e->getMessage()]);
         }
     }
@@ -10062,12 +10315,12 @@ class CapHum extends Controller
             function renderVerificacionApiCard(bloqueVerif, v) {
                 if (!bloqueVerif || !v) return;
                 bloqueVerif.classList.remove("d-none");
-                function verificacionProcesoVencida(valorFecha) {
-                    if (!valorFecha) return false;
+            function verificacionProcesoVencida(valorFecha) {
+                    if (!valorFecha) return true;
                     var raw = String(valorFecha).trim();
-                    if (!raw) return false;
+                    if (!raw) return true;
                     var parsed = Date.parse(raw.replace(" ", "T"));
-                    if (!Number.isFinite(parsed)) return false;
+                    if (!Number.isFinite(parsed)) return true;
                     return (Date.now() - parsed) > 90000;
                 }
                 var scoreFrente = v.identificacion_frente_score != null ? Number(v.identificacion_frente_score) : null;
@@ -10282,6 +10535,15 @@ class CapHum extends Controller
 
             function motorV2SinLecturaFinal(v) {
                 return !!(v && esVerificacionMotorV2(v) && !motorV2TieneLectura(v));
+            }
+
+            function motorV2ProcesoVencido(v) {
+                if (!v || v.verificacion_en_proceso !== true) return false;
+                var raw = String(v.iniciado_en || v.started_at || v.fecha_inicio || "").trim();
+                if (!raw) return true;
+                var parsed = Date.parse(raw.replace(" ", "T"));
+                if (!Number.isFinite(parsed)) return true;
+                return (Date.now() - parsed) > 90000;
             }
 
             function etiquetaDocV2(k) {
@@ -10757,8 +11019,8 @@ class CapHum extends Controller
                 return "";
             }
 
-            function docTieneLecturaMotorV2(d) {
-                if (!d || typeof d !== "object") return false;
+            function lecturaRapidaMotorV2Documento(d) {
+                if (!d || typeof d !== "object") return null;
                 var candidatos = [d.verificacion_calidad, d.verificacion_fiscal];
                 for (var i = 0; i < candidatos.length; i++) {
                     var x = candidatos[i];
@@ -10767,13 +11029,26 @@ class CapHum extends Controller
                     var modelo = String(x.modelo_ia || "").toLowerCase();
                     if (motor !== "alibaba" && modelo.indexOf("qwen") === -1) continue;
                     if (x.timeout || x.error_api || x.api_pendiente || x.pendiente_revision_backend) continue;
-                    return true;
+                    return x;
                 }
-                return false;
+                return null;
+            }
+
+            function estadoLecturaRapidaMotorV2(x) {
+                if (!x || typeof x !== "object") return "";
+                if (x.rechazado === true || x.valido === false || x.ok === false || x.aceptado === false) return "bad";
+                var alertas = Array.isArray(x.alertas) ? x.alertas.filter(function(a) { return !esNotaCalidadIgnorable(a); }) : [];
+                var notas = Array.isArray(x.notas) ? x.notas.filter(function(a) { return !esNotaCalidadIgnorable(a); }) : [];
+                if (x.revision_manual === true || x.requiere_revision_humana === true || alertas.length || notas.length) return "warn";
+                return "ok";
+            }
+
+            function docTieneLecturaMotorV2(d) {
+                return !!lecturaRapidaMotorV2Documento(d);
             }
 
             function badgeEstadoAnalisisMotorV2(tipoDoc, d, v) {
-                var enProceso = !!(v && typeof v === "object" && v.verificacion_en_proceso === true);
+                var enProceso = !!(v && typeof v === "object" && v.verificacion_en_proceso === true && !motorV2ProcesoVencido(v));
                 var kV2 = tipoDoc ? docKeyV2PorTipo(tipoDoc) : "";
                 var docV2 = kV2 && esVerificacionMotorV2(v) ? docsV2(v)[kV2] : null;
                 if (docV2) {
@@ -10789,7 +11064,15 @@ class CapHum extends Controller
                     }
                     return "<span class=\"badge bg-info text-dark ms-1\" data-bs-toggle=\"tooltip\" data-bs-title=\"Motor V2 recibio lectura de este documento.\"><i class=\"fa fa-check me-1\"></i>Listo</span>";
                 }
-                if (docTieneLecturaMotorV2(d)) {
+                var lecturaRapida = lecturaRapidaMotorV2Documento(d);
+                if (lecturaRapida) {
+                    var estRapida = estadoLecturaRapidaMotorV2(lecturaRapida);
+                    if (estRapida === "bad") {
+                        return "<span class=\"badge bg-danger ms-1\" data-bs-toggle=\"tooltip\" data-bs-title=\"Lectura rapida del Motor V2 encontro una regla incumplida.\"><i class=\"fa fa-exclamation-circle me-1\"></i>Revisar</span>";
+                    }
+                    if (estRapida === "warn") {
+                        return "<span class=\"badge bg-warning text-dark ms-1\" data-bs-toggle=\"tooltip\" data-bs-title=\"Lectura rapida del Motor V2 guardada con observaciones.\"><i class=\"fa fa-exclamation-triangle me-1\"></i>Revisar</span>";
+                    }
                     return "<span class=\"badge bg-info text-dark ms-1\" data-bs-toggle=\"tooltip\" data-bs-title=\"Lectura rapida del Motor V2 guardada; falta el cruce final si el expediente sigue en proceso.\"><i class=\"fa fa-check me-1\"></i>Listo</span>";
                 }
                 if (enProceso) {
@@ -15226,7 +15509,7 @@ class CapHum extends Controller
             return false;
         }
         if (!empty($verificacion['verificacion_en_proceso'])) {
-            return true;
+            return false;
         }
         $checks = isset($verificacion['checks_totales']) ? (int) $verificacion['checks_totales'] : null;
         return $checks === 0
@@ -15431,24 +15714,31 @@ class CapHum extends Controller
                 CandidatosDAO::updateVerificacionExpediente($id_candidato, json_encode($payloadCache));
             } else {
                 $resCola = $this->encolarVerificacionDocumentalCandidato($id_candidato, [], true, $verificacion === null ? 'modal_auto_sin_dictamen' : 'modal_auto_reintento');
-                $payloadEnProceso = [
-                    'verificacion_en_proceso' => true,
-                    'todo_coincide' => null,
-                    'foto_rechazada' => false,
-                    'checks_ok' => 0,
-                    'checks_totales' => 0,
-                    'alertas' => ['Validacion documental en proceso. El expediente ya esta completo y se esta ejecutando el cruce automatico.'],
-                    'identificacion_frente_score' => null,
-                    'identificacion_reverso_score' => null,
-                    'comparaciones' => null,
-                    'modo_verificacion' => 'cola_background',
-                    'api_pendiente' => false,
-                    'error_api' => null,
-                    'job_id' => (int) ($resCola['datos']['id_job'] ?? 0),
-                    'iniciado_en' => self::ahoraMexicoCiudad()->format('Y-m-d H:i:s'),
-                ];
-                $verificacion = $payloadEnProceso;
-                $payload['verificacion_expediente'] = $payloadEnProceso;
+                if (empty($resCola['success'])) {
+                    $errorCola = (string) ($resCola['error'] ?? $resCola['mensaje'] ?? 'No se pudo encolar la verificacion documental.');
+                    $this->guardarVerificacionExpedienteErrorMotorV2((int) $id_candidato, $errorCola, ['No se pudo iniciar el cruce automatico del Motor V2.']);
+                    $verificacion = CandidatosDAO::getVerificacionExpediente($id_candidato);
+                    $payload['verificacion_expediente'] = is_array($verificacion) ? $verificacion : null;
+                } else {
+                    $payloadEnProceso = [
+                        'verificacion_en_proceso' => true,
+                        'todo_coincide' => null,
+                        'foto_rechazada' => false,
+                        'checks_ok' => 0,
+                        'checks_totales' => 0,
+                        'alertas' => ['Validacion documental en proceso. El expediente ya esta completo y se esta ejecutando el cruce automatico.'],
+                        'identificacion_frente_score' => null,
+                        'identificacion_reverso_score' => null,
+                        'comparaciones' => null,
+                        'modo_verificacion' => 'cola_background',
+                        'api_pendiente' => false,
+                        'error_api' => null,
+                        'job_id' => (int) ($resCola['datos']['id_job'] ?? 0),
+                        'iniciado_en' => self::ahoraMexicoCiudad()->format('Y-m-d H:i:s'),
+                    ];
+                    $verificacion = $payloadEnProceso;
+                    $payload['verificacion_expediente'] = $payloadEnProceso;
+                }
             }
         }
 
@@ -15609,6 +15899,7 @@ class CapHum extends Controller
             }
             return $respuestaJob;
         } catch (\Throwable $e) {
+            $this->guardarVerificacionExpedienteErrorMotorV2($idCandidato, $e->getMessage(), ['Excepcion local al procesar el job de Motor V2.']);
             CandidatosDAO::finalizarJobVerificacionDocumental($idJob, false, $e->getMessage());
             return ['procesado' => true, 'ok' => false, 'id_job' => $idJob, 'id_candidato' => $idCandidato, 'error' => $e->getMessage()];
         }
@@ -18905,16 +19196,34 @@ class CapHum extends Controller
         return $payload;
     }
 
-    private function validarExpedienteApiJson(string $baseUrl, string $apiKey, array $rutas, $nombreCandidatoRegistro, string $tipoDocExp, int $timeoutExp): array
+    private function validarExpedienteApiJson(string $baseUrl, string $apiKey, array $rutas, $nombreCandidatoRegistro, string $tipoDocExp, int $timeoutExp, array $documentos = []): array
     {
-        $payload = $this->construirPayloadValidarExpedienteJson($rutas, $nombreCandidatoRegistro, $tipoDocExp);
-        if ($payload === null) {
-            return [
-                'ok' => false,
-                'http_code' => 0,
-                'curl_errno' => 0,
-                'error' => 'No se pudieron preparar los archivos del expediente para validar-expediente-json.',
+        $lecturasJson = $this->construirLecturasIaExpedienteJson($documentos);
+        $lecturasDecoded = $lecturasJson !== null ? (json_decode((string) $lecturasJson, true) ?: []) : [];
+        $lecturasDiag = is_array($lecturasDecoded) ? count($lecturasDecoded) : 0;
+        $payloadLigero = $lecturasJson !== null && $lecturasDiag >= 10;
+
+        if ($payloadLigero) {
+            $payload = [
+                'tipo_documento' => $tipoDocExp,
             ];
+            $nombreCandidatoRegistro = trim((string) $nombreCandidatoRegistro);
+            if ($nombreCandidatoRegistro !== '') {
+                $payload['nombre_candidato_registro'] = $nombreCandidatoRegistro;
+            }
+        } else {
+            $payload = $this->construirPayloadValidarExpedienteJson($rutas, $nombreCandidatoRegistro, $tipoDocExp);
+            if ($payload === null) {
+                return [
+                    'ok' => false,
+                    'http_code' => 0,
+                    'curl_errno' => 0,
+                    'error' => 'No se pudieron preparar los archivos del expediente para validar-expediente-json.',
+                ];
+            }
+        }
+        if ($lecturasJson !== null && strlen($lecturasJson) <= 650000) {
+            $payload['lecturas_json_b64'] = base64_encode($lecturasJson);
         }
 
         $diagArchivos = [];
@@ -18923,7 +19232,9 @@ class CapHum extends Controller
                 $diagArchivos[$pk] = (int) $pv['bytes'];
             }
         }
-        error_log('CapHum::validarExpedienteApiJson envio_json_base64 tipo_documento=' . $tipoDocExp . ' archivos_bytes=' . json_encode($diagArchivos));
+        $lecturasBytes = $lecturasJson !== null ? strlen($lecturasJson) : 0;
+        $lecturasEnviadas = isset($payload['lecturas_json_b64']) ? 'b64' : 'omitidas';
+        error_log('CapHum::validarExpedienteApiJson envio_json_base64 tipo_documento=' . $tipoDocExp . ' lecturas_v2=' . $lecturasDiag . ' lecturas_bytes=' . $lecturasBytes . ' lecturas_envio=' . $lecturasEnviadas . ' payload_ligero=' . ($payloadLigero ? '1' : '0') . ' archivos_bytes=' . json_encode($diagArchivos));
 
         $bodyPayload = json_encode($payload, JSON_UNESCAPED_UNICODE);
         if (!is_string($bodyPayload) || $bodyPayload === '') {
@@ -19059,6 +19370,8 @@ class CapHum extends Controller
             'regimen_fiscal',
             'regimenes_fiscales',
             'regimen_sueldos_salarios',
+            'firma_detectada',
+            'nombre_y_firma_lleno',
             'meses_antiguedad',
             'antiguedad_meses',
             'mensaje',
@@ -19311,10 +19624,10 @@ class CapHum extends Controller
         // validar-expediente responde al final del OCR/cross-check (no stream),
         // así que LOW_SPEED suele provocar falsos timeout aunque el proceso siga vivo.
         $usarLowSpeed = false;
-        $omitirLecturasPrevias = true;
+        $omitirLecturasPrevias = false;
 
         $lastPayloadError = ['error' => 'No se obtuvo respuesta válida de la API.'];
-        $jsonPrimario = $this->validarExpedienteApiJson($baseUrl, $apiKey, $rutas, $nombreCandidatoRegistro, $tipoDocExp, $timeoutExp);
+        $jsonPrimario = $this->validarExpedienteApiJson($baseUrl, $apiKey, $rutas, $nombreCandidatoRegistro, $tipoDocExp, $timeoutExp, $documentos);
         if (!empty($jsonPrimario['ok']) && isset($jsonPrimario['data']) && is_array($jsonPrimario['data'])) {
             return $jsonPrimario['data'];
         }
@@ -20287,6 +20600,35 @@ class CapHum extends Controller
         return CandidatosDAO::existeJobVerificacionDocumentalMasNuevo($idCandidato, $idJobActual);
     }
 
+    private function guardarVerificacionExpedienteErrorMotorV2(int $idCandidato, string $error, array $alertasExtra = []): void
+    {
+        $alertas = array_values(array_filter(array_merge(
+            ['El Motor V2 no pudo completar el cruce documental. Los documentos siguen cargados; reintente cuando el servicio este disponible.'],
+            $alertasExtra
+        ), function ($v) {
+            return trim((string) $v) !== '';
+        }));
+        CandidatosDAO::updateVerificacionExpediente($idCandidato, json_encode([
+            'verificacion_en_proceso' => false,
+            'todo_coincide' => null,
+            'foto_rechazada' => false,
+            'curp_definitivo' => null,
+            'checks_ok' => 0,
+            'checks_totales' => 0,
+            'alertas' => $alertas,
+            'identificacion_frente_score' => null,
+            'identificacion_reverso_score' => null,
+            'comparaciones' => null,
+            'nombre_ocr' => null,
+            'anio_nacimiento' => null,
+            'tipo_documento' => null,
+            'modo_verificacion' => 'completo',
+            'api_pendiente' => true,
+            'error_api' => $error,
+            'motor_ia' => 'alibaba',
+        ]));
+    }
+
     private function ejecutarVerificacionBackground($id_candidato, array $tiposSubidos = [], ?bool $expedienteCompleto = null, ?int $idJobActual = null)
     {
         try {
@@ -20298,6 +20640,7 @@ class CapHum extends Controller
             $resDocs = CandidatosDAO::getDocumentosCandidato($id_candidato);
             if (!$resDocs['success'] || empty($resDocs['datos'])) {
                 error_log('CapHum::verificacionBackground: sin documentos para candidato ' . $id_candidato);
+                $this->guardarVerificacionExpedienteErrorMotorV2((int) $id_candidato, 'Sin documentos disponibles para ejecutar Motor V2.');
                 return false;
             }
             $tiposSubidosSet = array_fill_keys(array_map('intval', $tiposSubidos), true);
@@ -20422,6 +20765,7 @@ class CapHum extends Controller
             }
             if (!$rutasParaValidar['identificacion_pdf']) {
                 error_log('CapHum::verificacionBackground: falta identificación oficial (PDF) para candidato ' . $id_candidato);
+                $this->guardarVerificacionExpedienteErrorMotorV2((int) $id_candidato, 'Falta identificacion oficial PDF para ejecutar Motor V2.');
                 return false;
             }
             $soloIdentificacion = $this->docVerificacionIniSoloIdentificacion();
@@ -20460,29 +20804,13 @@ class CapHum extends Controller
                     error_log('CapHum::verificacionBackground: error omitido por job mas nuevo para candidato ' . $id_candidato . ' job ' . (int) $idJobActual . ': ' . $err);
                     return true;
                 }
-                CandidatosDAO::updateVerificacionExpediente($id_candidato, json_encode([
-                    'verificacion_en_proceso' => false,
-                    'todo_coincide' => null,
-                    'foto_rechazada' => false,
-                    'curp_definitivo' => null,
-                    'checks_ok' => 0,
-                    'checks_totales' => 0,
-                    'alertas' => $alertasErr,
-                    'identificacion_frente_score' => null,
-                    'identificacion_reverso_score' => null,
-                    'comparaciones' => null,
-                    'nombre_ocr' => null,
-                    'anio_nacimiento' => null,
-                    'tipo_documento' => null,
-                    'modo_verificacion' => $soloIdentificacion ? 'solo_identificacion' : 'completo',
-                    'api_pendiente' => true,
-                    'error_api' => $err,
-                    'motor_ia' => 'alibaba',
-                ]));
+                $this->guardarVerificacionExpedienteErrorMotorV2((int) $id_candidato, (string) $err, $alertasErr);
                 error_log('CapHum::verificacionBackground: error API para candidato ' . $id_candidato . ': ' . $err);
             }
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
+            $this->guardarVerificacionExpedienteErrorMotorV2((int) $id_candidato, $e->getMessage(), ['Excepcion local al ejecutar Motor V2.']);
             error_log('CapHum::verificacionBackground: excepción candidato ' . $id_candidato . ': ' . $e->getMessage());
+            return false;
         }
     }
 
@@ -21206,7 +21534,9 @@ class CapHum extends Controller
                                         <i class="fa fa-user-check"></i>
                                     </button>
                                     <button class="btn btn-sm btn-info" onclick="cargarDocumentoBaja(this)"
+                                        data-id-persona="${p.id ?? ''}"
                                         data-registro-baja="${p.registro_baja ?? ''}"
+                                        data-estatus="Baja"
                                         data-nombre="${nombreCompleto.replace(/"/g, '&quot;')}"
                                         title="Cargar documento" aria-label="Cargar documento">
                                         <i class="fa fa-file"></i>
@@ -21928,9 +22258,11 @@ class CapHum extends Controller
             let archivosSeleccionadosPersona = [];
             let archivosSubidosPersona = [];
             let personaCargarDocumentoEsGestor = false;
+            let personaCargarDocumentoEsBaja = false;
             let personaCargarDocumentoDesdeAusencia = false;
             let personaCargarDocumentoTipoAusencia = '';
             const documentosAusenciaPersona = ['Documento incapacidad', 'Documento permiso', 'Documento falta'];
+            const documentosSoloBajaPersona = ['Finiquito', 'Comprobante de pago finiquito'];
 
             function normalizarTextoDocumentoPersona(valor) {
                 return String(valor || '')
@@ -21941,6 +22273,14 @@ class CapHum extends Controller
 
             function esDocumentoAusenciaPersona(valor) {
                 return documentosAusenciaPersona.includes(String(valor || ''));
+            }
+
+            function esDocumentoSoloBajaPersona(valor) {
+                return documentosSoloBajaPersona.includes(String(valor || ''));
+            }
+
+            function esEstatusBajaPersona(valor) {
+                return normalizarTextoDocumentoPersona(valor).trim() === 'BAJA';
             }
 
             function esPuestoGestorDocumentoPersona(puestosTexto) {
@@ -21956,6 +22296,11 @@ class CapHum extends Controller
                     return persona.puestos.map(puesto => puesto?.nombre_puesto || '').filter(Boolean).join(' | ');
                 }
                 return persona.nombre_puesto || '';
+            }
+
+            function obtenerEstatusDesdeUsuariosData(idPersona) {
+                const persona = (window.usuariosData || []).find(item => String(item?.id || '') === String(idPersona || ''));
+                return persona ? (persona.estatus || persona.status || '') : '';
             }
 
             function idsDocumentosPersonaSeleccionados() {
@@ -22185,7 +22530,8 @@ class CapHum extends Controller
 
             // Función para abrir modal de cargar documento de persona
             function cargarDocumentoPersona(button) {
-                let idPersona, nombreCompleto, puestosPersonaTexto = '';
+                let idPersona, nombreCompleto, puestosPersonaTexto = '', estatusPersonaTexto = '';
+                personaCargarDocumentoEsBaja = false;
                 personaCargarDocumentoDesdeAusencia = false;
                 personaCargarDocumentoTipoAusencia = '';
                 const esIdDirecto = typeof button === 'number' || (typeof button === 'string' && button !== '' && !isNaN(Number(button)));
@@ -22197,6 +22543,7 @@ class CapHum extends Controller
                     if (btnReferencia) {
                         nombreCompleto = btnReferencia.getAttribute('data-nombre') || nombreCompleto;
                         puestosPersonaTexto = btnReferencia.getAttribute('data-puesto') || '';
+                        estatusPersonaTexto = btnReferencia.getAttribute('data-estatus') || '';
                     }
                 } else {
                     let btnElement = button;
@@ -22214,6 +22561,7 @@ class CapHum extends Controller
                     idPersona = btnElement.getAttribute('data-id-persona');
                     nombreCompleto = btnElement.getAttribute('data-nombre') || '';
                     puestosPersonaTexto = btnElement.getAttribute('data-puesto') || '';
+                    estatusPersonaTexto = btnElement.getAttribute('data-estatus') || '';
                     personaCargarDocumentoDesdeAusencia = btnElement.getAttribute('data-contexto-documento') === 'ausencia';
                     personaCargarDocumentoTipoAusencia = btnElement.getAttribute('data-documento-ausencia') || '';
                     if (!idPersona) {
@@ -22224,7 +22572,11 @@ class CapHum extends Controller
                 if (!puestosPersonaTexto) {
                     puestosPersonaTexto = obtenerPuestosTextoDesdeUsuariosData(idPersona);
                 }
+                if (!estatusPersonaTexto) {
+                    estatusPersonaTexto = obtenerEstatusDesdeUsuariosData(idPersona);
+                }
                 personaCargarDocumentoEsGestor = esPuestoGestorDocumentoPersona(puestosPersonaTexto);
+                personaCargarDocumentoEsBaja = esEstatusBajaPersona(estatusPersonaTexto);
 
                 // Guardar el ID de persona en un campo oculto del modal
                 document.getElementById('cargarDocPersona_idPersona').value = idPersona || '';
@@ -22434,6 +22786,8 @@ class CapHum extends Controller
                     'Documento incapacidad': 34,
                     'Documento permiso': 35,
                     'Documento falta': 36,
+                    'Finiquito': 37,
+                    'Comprobante de pago finiquito': 38,
                     'Documento reingreso': 16,
                     'Documento Reingreso': 16
                 };
@@ -22446,7 +22800,7 @@ class CapHum extends Controller
                 const tablaArchivos = document.getElementById('cargarDocPersona_tablaArchivos');
 
                 // Renderizar tabla de archivos subidos
-                const archivosSubidosVisibles = archivosSubidosPersona.filter(doc => doc.puede_tipo_documento !== false && doc.puede_ver_sensible !== false);
+                const archivosSubidosVisibles = archivosSubidosPersona.filter(doc => doc.puede_tipo_documento !== false);
                 if (archivosSubidosVisibles.length > 0) {
                     let htmlTabla = '';
                     archivosSubidosVisibles.forEach(doc => {
@@ -22573,6 +22927,7 @@ class CapHum extends Controller
                 if (idDocumento == 34) return '<span class="badge bg-info text-dark">Incapacidad</span>';
                 if (idDocumento == 35) return '<span class="badge bg-primary">Permiso</span>';
                 if (idDocumento == 36) return '<span class="badge bg-warning text-dark">Falta</span>';
+                if ([28, 29, 31, 37, 38].includes(Number(idDocumento))) return '<span class="badge bg-dark">Sensible</span>';
                 return '<span class="badge bg-secondary">Gestión</span>';
             }
             function obtenerNombreDocumento(idDocumento, nombreCatalogo) {
@@ -22602,7 +22957,9 @@ class CapHum extends Controller
                     25: 'Estado de cuenta',
                     34: 'Documento incapacidad',
                     35: 'Documento permiso',
-                    36: 'Documento falta'
+                    36: 'Documento falta',
+                    37: 'Finiquito',
+                    38: 'Comprobante de pago finiquito'
                 };
                 return mapeo[idDocumento] || 'Documento';
             }
@@ -22628,6 +22985,9 @@ class CapHum extends Controller
 
                 // Verificar si el valor actual del select es un documento único ya subido
                 const valorActual = selectTipo.value;
+                if (valorActual && esDocumentoSoloBajaPersona(valorActual) && !personaCargarDocumentoEsBaja) {
+                    selectTipo.value = '';
+                }
                 if (valorActual && !permiteMultiplesArchivos(valorActual) && documentosUnicosSubidos.has(valorActual)) {
                     // Si el documento seleccionado es único y ya está subido, limpiar el select
                     selectTipo.value = '';
@@ -22650,6 +23010,12 @@ class CapHum extends Controller
                         return;
                     }
                     if (valor === 'Carta de compromiso del Gestor' && !personaCargarDocumentoEsGestor) {
+                        option.style.display = 'none';
+                        option.hidden = true;
+                        option.disabled = true;
+                        return;
+                    }
+                    if (esDocumentoSoloBajaPersona(valor) && !personaCargarDocumentoEsBaja) {
                         option.style.display = 'none';
                         option.hidden = true;
                         option.disabled = true;
@@ -22994,6 +23360,8 @@ class CapHum extends Controller
                 'Documento incapacidad': 34,
                 'Documento permiso': 35,
                 'Documento falta': 36,
+                'Finiquito': 37,
+                'Comprobante de pago finiquito': 38,
                 'Documento reingreso': 16
             };
 
@@ -23134,6 +23502,7 @@ class CapHum extends Controller
         $bajasEaster .= '<script src="/assets/js/bajas-easter.js"></script>';
         $scriptGestion .= "\n" . $bajasEaster;
 
+        self::refrescarModulosSesionUnaVez();
         $modulos = $_SESSION['modulos'] ?? [];
         self::set("titulo", "Control de Bajas");
         self::set("script", $scriptGestion);
@@ -23155,6 +23524,7 @@ class CapHum extends Controller
         self::set("puedeActualizarInfo", in_array(self::MODULO_ACTUALIZAR_DATOS_RRHH, $modulos));
         self::set("puedeAgregarUsuarioRrhh", in_array(self::MODULO_AGREGAR_USUARIO_RRHH, $modulos));
         self::set("puedeEditarUsuarioRrhh", in_array(self::MODULO_EDITAR_USUARIO_RRHH, $modulos));
+        self::set("puedeVerSalarioSensibleRrhh", self::puedeGestionarSalarioSensibleRrhh());
         self::set("miUsuarioId", (int) ($_SESSION['usuario_id'] ?? 0));
         self::render("all_gestores");
     }
@@ -23540,6 +23910,70 @@ class CapHum extends Controller
         self::respuestaJSON($resultado);
     }
 
+    public function leerSalarioPersonaRrhh()
+    {
+        header('Content-Type: application/json; charset=utf-8');
+
+        $input = json_decode(file_get_contents('php://input'), true);
+        if (!is_array($input)) {
+            $input = $_POST;
+        }
+
+        $idPersona = (int)($input['id_persona'] ?? 0);
+        if ($idPersona <= 0) {
+            self::respuestaJSON(['success' => false, 'mensaje' => 'ID de persona requerido.']);
+            return;
+        }
+
+        $autorizacion = $this->autorizarSalarioSensibleRrhh(
+            $idPersona,
+            'leer',
+            (string)($input['totp_code'] ?? '')
+        );
+        if (empty($autorizacion['success']) || !empty($autorizacion['datos']['requiere_totp'])) {
+            self::respuestaJSON($autorizacion);
+            return;
+        }
+
+        $resultado = CapHumDAO::getSalarioSensiblePersona($idPersona);
+        $this->auditarSalarioSensibleRrhh($idPersona, 'leer', !empty($resultado['success']) ? 'autorizado' : 'fallido');
+        self::respuestaJSON($resultado);
+    }
+
+    public function guardarSalarioPersonaRrhh()
+    {
+        header('Content-Type: application/json; charset=utf-8');
+
+        $input = json_decode(file_get_contents('php://input'), true);
+        if (!is_array($input)) {
+            $input = $_POST;
+        }
+
+        $idPersona = (int)($input['id_persona'] ?? 0);
+        if ($idPersona <= 0) {
+            self::respuestaJSON(['success' => false, 'mensaje' => 'ID de persona requerido.']);
+            return;
+        }
+
+        $autorizacion = $this->autorizarSalarioSensibleRrhh(
+            $idPersona,
+            'guardar',
+            (string)($input['totp_code'] ?? '')
+        );
+        if (empty($autorizacion['success']) || !empty($autorizacion['datos']['requiere_totp'])) {
+            self::respuestaJSON($autorizacion);
+            return;
+        }
+
+        $resultado = CapHumDAO::guardarSalarioSensiblePersona(
+            $idPersona,
+            $input['salario'] ?? '',
+            self::usuarioSesionId()
+        );
+        $this->auditarSalarioSensibleRrhh($idPersona, 'guardar', !empty($resultado['success']) ? 'autorizado' : 'fallido');
+        self::respuestaJSON($resultado);
+    }
+
     public function getTrayectoriaPuestoPersona()
     {
         header('Content-Type: application/json; charset=utf-8');
@@ -23755,6 +24189,38 @@ class CapHum extends Controller
         }
 
         self::respuestaJSON(CapHumDAO::getAccesoCapitalHumanoDetalle((int) ($_GET['id_persona'] ?? 0)));
+    }
+
+    public function getAuditoriaSalariosRrhh()
+    {
+        if (!self::puedeGestionarAccesosCapitalHumano()) {
+            self::respuestaJSON(['success' => false, 'mensaje' => 'No tienes permiso para consultar auditoria de salarios.']);
+            return;
+        }
+
+        self::respuestaJSON(CapHumDAO::getAuditoriaSalariosSensiblesRrhh());
+    }
+
+    public function auditoria()
+    {
+        if (!self::puedeConsultarAuditoriaRrhh()) {
+            header('Location: /' . VISTA_DEFECTO);
+            return;
+        }
+
+        CapHumDAO::asegurarModuloAccesosCapitalHumano();
+        self::set('titulo', 'Auditoria RR.HH. | ' . CONFIGURACION['EMPRESA']);
+        self::render('caphum_auditoria');
+    }
+
+    public function getAuditoriaRrhh()
+    {
+        if (!self::puedeConsultarAuditoriaRrhh()) {
+            self::respuestaJSON(['success' => false, 'mensaje' => 'No tienes permiso para consultar auditoria RR.HH.']);
+            return;
+        }
+
+        self::respuestaJSON(CapHumDAO::getAuditoriaRrhhSensible());
     }
 
     public function guardarPermisosAccesoCapitalHumano()
@@ -25769,8 +26235,11 @@ public function getEstadosMunicipiosMexico()
 
             $resultado = CapHumDAO::getDocumentosPersona($id_persona);
             if (($resultado['success'] ?? false) && is_array($resultado['datos'] ?? null)) {
-                $resultado['datos'] = array_values(array_filter($resultado['datos'], static function ($doc) {
-                    return self::puedeListarDocumentoPersonaRrhh((int)($doc['id_documento'] ?? 0));
+                $idPersonaFiltro = (int)$id_persona;
+                $resultado['datos'] = array_values(array_filter($resultado['datos'], static function ($doc) use ($idPersonaFiltro) {
+                    $idDocumento = (int)($doc['id_documento'] ?? 0);
+                    return self::puedeListarDocumentoPersonaRrhh($idDocumento)
+                        && self::documentoPermitidoParaPersonaRrhh($idDocumento, $idPersonaFiltro);
                 }));
                 $resultado['datos'] = array_map([self::class, 'decorarDocumentoPersona'], $resultado['datos']);
             }
@@ -25810,6 +26279,14 @@ public function getEstadosMunicipiosMexico()
             }
 
             $idDocumento = (int)($doc['id_documento'] ?? 0);
+            if (!self::documentoPermitidoParaPersonaRrhh($idDocumento, (int)($doc['id_persona'] ?? 0))) {
+                $this->auditarDocumentoSensibleRrhh($doc, 'generar_token', 'denegado', self::mensajeDocumentoSoloBajaRrhh());
+                self::respuestaJSON([
+                    'success' => false,
+                    'mensaje' => self::mensajeDocumentoSoloBajaRrhh()
+                ]);
+                return;
+            }
             if (!self::puedeUsarTipoDocumentoRrhh($idDocumento)) {
                 self::respuestaJSON([
                     'success' => false,
@@ -26032,12 +26509,30 @@ public function getEstadosMunicipiosMexico()
             }
 
             $id_documento = (int) $id_documento;
+            if (!self::documentoPermitidoParaPersonaRrhh($id_documento, (int)$id_persona)) {
+                self::respuestaJSON([
+                    'success' => false,
+                    'mensaje' => self::mensajeDocumentoSoloBajaRrhh()
+                ]);
+                return;
+            }
             if (!self::puedeUsarTipoDocumentoRrhh($id_documento)) {
                 self::respuestaJSON([
                     'success' => false,
                     'mensaje' => 'No tienes permiso para cargar este tipo de documento.'
                 ]);
                 return;
+            }
+
+            if (self::esDocumentoSinDuplicadoRrhh($id_documento)) {
+                $existentes = CapHumDAO::getDocumentosPersona($id_persona, $id_documento);
+                if (($existentes['success'] ?? false) && !empty($existentes['datos'])) {
+                    self::respuestaJSON([
+                        'success' => false,
+                        'mensaje' => 'Esta persona ya tiene cargado este tipo de documento. Elimina o revisa el existente antes de subir otro.'
+                    ]);
+                    return;
+                }
             }
 
             $esSensibleRrhh = self::esDocumentoSensibleRrhh($id_documento);
@@ -26132,6 +26627,14 @@ public function getEstadosMunicipiosMexico()
             $resultadoDoc = CapHumDAO::getDocumentosPersonaPorIds([(int)$id_documento]);
             $documentos = ($resultadoDoc['success'] ?? false) ? ($resultadoDoc['datos'] ?? []) : [];
             $doc = $documentos[0] ?? null;
+            if ($doc && !self::documentoPermitidoParaPersonaRrhh((int)($doc['id_documento'] ?? 0), (int)($doc['id_persona'] ?? 0))) {
+                $this->auditarDocumentoSensibleRrhh($doc, 'eliminar', 'denegado', self::mensajeDocumentoSoloBajaRrhh());
+                self::respuestaJSON([
+                    'success' => false,
+                    'mensaje' => self::mensajeDocumentoSoloBajaRrhh()
+                ]);
+                return;
+            }
             if ($doc && !self::puedeUsarTipoDocumentoRrhh((int)($doc['id_documento'] ?? 0))) {
                 self::respuestaJSON([
                     'success' => false,
@@ -26215,6 +26718,12 @@ public function getEstadosMunicipiosMexico()
             }
 
             $idDocumento = (int)($doc['id_documento'] ?? 0);
+            if (!self::documentoPermitidoParaPersonaRrhh($idDocumento, (int)($doc['id_persona'] ?? 0))) {
+                $this->auditarDocumentoSensibleRrhh($doc, 'ver', 'denegado', self::mensajeDocumentoSoloBajaRrhh());
+                http_response_code(403);
+                echo self::mensajeDocumentoSoloBajaRrhh();
+                exit;
+            }
             if (!self::puedeUsarTipoDocumentoRrhh($idDocumento)) {
                 http_response_code(403);
                 echo 'No tienes permiso para ver este tipo de documento.';
@@ -26354,6 +26863,8 @@ public function getEstadosMunicipiosMexico()
             34 => 'Documento_incapacidad',
             35 => 'Documento_permiso',
             36 => 'Documento_falta',
+            37 => 'Finiquito',
+            38 => 'Comprobante_de_pago_finiquito',
         ];
 
         return $nombres[$idDocumento] ?? 'Documento';
@@ -26704,6 +27215,12 @@ public function getEstadosMunicipiosMexico()
                 $idCarga = (int)($doc['id'] ?? 0);
                 $idDocumento = (int)($doc['id_documento'] ?? 0);
                 $idPersona = (int)($doc['id_persona'] ?? 0);
+                if (!self::documentoPermitidoParaPersonaRrhh($idDocumento, $idPersona)) {
+                    $this->auditarDocumentoSensibleRrhh($doc, 'descargar', 'denegado', self::mensajeDocumentoSoloBajaRrhh());
+                    http_response_code(403);
+                    echo self::mensajeDocumentoSoloBajaRrhh();
+                    exit;
+                }
                 if (!self::puedeUsarTipoDocumentoRrhh($idDocumento)) {
                     http_response_code(403);
                     echo 'No tienes permiso para descargar este tipo de documento.';

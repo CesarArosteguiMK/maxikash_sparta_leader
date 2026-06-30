@@ -18,13 +18,44 @@ class CapHum extends Model
     public const MODULO_VALIDAR_CARTA_COMPROMISO_GESTOR = 144;
     public const MODULO_VER_DOCUMENTOS_SENSIBLES_RRHH = 151;
     public const MODULO_RESET_TOTP_DOCUMENTOS_SENSIBLES_RRHH = 152;
+    public const MODULO_VER_SALARIO_SENSIBLE_RRHH = 153;
+    public const MODULO_AUDITORIA_RRHH = 154;
+    private const MODULOS_DOCUMENTO_RRHH = [
+        8 => 155,
+        9 => 156,
+        10 => 157,
+        11 => 158,
+        12 => 159,
+        13 => 160,
+        14 => 161,
+        15 => 162,
+        16 => 163,
+        17 => 164,
+        18 => 165,
+        22 => 166,
+        23 => 167,
+        24 => 168,
+        25 => 169,
+        27 => 170,
+        28 => 171,
+        29 => 172,
+        30 => 173,
+        31 => 174,
+        32 => 175,
+        33 => 176,
+        34 => 177,
+        35 => 178,
+        36 => 179,
+        37 => 184,
+        38 => 185,
+    ];
     private const MODULOS_ACCESOS_CAPITAL_HUMANO_IDS = [
         4, 5, 13, 34, 38, 42, 44, 82, 83, 86, 87, 88, 91, 93,
         94, 95, 96, 97, 98, 99, 101, 104, 105,
-        140, 141, 142, 143, 144, 147, 151, 152,
-        3008, 3009, 3010, 3011, 3012, 3013, 3014, 3015, 3016, 3017,
-        3018, 3022, 3023, 3024, 3025, 3027, 3028, 3029, 3030, 3031,
-        3032, 3033, 3034, 3035, 3036, 3037, 3038, 3039, 3040,
+        140, 141, 142, 143, 144, 147, 151, 152, 153, 154,
+        155, 156, 157, 158, 159, 160, 161, 162, 163, 164,
+        165, 166, 167, 168, 169, 170, 171, 172, 173, 174,
+        175, 176, 177, 178, 179, 184, 185,
     ];
     private const MODULO_CONVENIOS_DESCARGAR_EXCEL = 92;
     private const MODULO_CONVENIOS_DESCARGAR_EXCEL_NOMBRE = 'Descargar Excel';
@@ -94,6 +125,18 @@ class CapHum extends Model
                 'pestana' => 'Permisos especiales',
                 'descripcion' => 'Permite reiniciar el segundo paso de Google Authenticator para documentos sensibles RR.HH.',
             ],
+            [
+                'id' => self::MODULO_VER_SALARIO_SENSIBLE_RRHH,
+                'nombre' => 'Ver salario sensible RR.HH.',
+                'pestana' => 'Permisos especiales',
+                'descripcion' => 'Permite ver y actualizar salario RR.HH. protegido con Google Authenticator y cifrado.',
+            ],
+            [
+                'id' => self::MODULO_AUDITORIA_RRHH,
+                'nombre' => 'Auditoria',
+                'pestana' => 'Capital Humano',
+                'descripcion' => 'Capital Humano > Auditoria',
+            ],
         ];
 
         $documentosRrhh = [
@@ -122,23 +165,75 @@ class CapHum extends Model
             34 => 'Documento incapacidad',
             35 => 'Documento permiso',
             36 => 'Documento falta',
+            37 => 'Finiquito',
+            38 => 'Comprobante de pago finiquito',
         ];
 
         foreach ($documentosRrhh as $idDocumento => $nombreDocumento) {
+            $idModulo = self::MODULOS_DOCUMENTO_RRHH[(int) $idDocumento] ?? 0;
+            if ($idModulo <= 0) {
+                continue;
+            }
             $modulos[] = [
-                'id' => 3000 + (int) $idDocumento,
+                'id' => $idModulo,
                 'nombre' => 'Documento RRHH: ' . $nombreDocumento,
                 'pestana' => 'Permisos especiales',
                 'descripcion' => 'Permite ver, subir, descargar y eliminar documentos RR.HH. de tipo ' . $nombreDocumento . '.',
             ];
         }
 
+        foreach (self::MODULOS_DOCUMENTO_RRHH as $idDocumento => $idModuloNuevo) {
+            self::renumerarModuloWebId($db, 3000 + (int) $idDocumento, (int) $idModuloNuevo);
+        }
+        foreach ([3037 => 180, 3038 => 181, 3039 => 182, 3040 => 183] as $idViejo => $idModuloNuevo) {
+            self::renumerarModuloWebId($db, (int) $idViejo, (int) $idModuloNuevo);
+        }
+
         foreach ($modulos as $datos) {
-            $existe = $db->queryOne(
-                'SELECT id FROM modulos_web WHERE id = :id LIMIT 1',
-                ['id' => $datos['id']]
+            self::asegurarModuloWeb($db, $datos);
+        }
+    }
+
+    /**
+     * Inserta/actualiza el modulo y resuelve duplicados por nombre sin romper el id esperado.
+     */
+    private static function asegurarModuloWeb(Database $db, array $datos): void
+    {
+        $id = (int)($datos['id'] ?? 0);
+        $nombre = trim((string)($datos['nombre'] ?? ''));
+        if ($id <= 0 || $nombre === '') {
+            return;
+        }
+
+        $existentePorId = $db->queryOne(
+            'SELECT id FROM modulos_web WHERE id = :id LIMIT 1',
+            ['id' => $id]
+        );
+        if ($existentePorId) {
+            $db->CRUD(
+                'UPDATE modulos_web
+                    SET nombre = :nombre,
+                        pestana = :pestana,
+                        descripcion = :descripcion,
+                        activo = 1
+                  WHERE id = :id',
+                $datos
             );
-            if ($existe) {
+            return;
+        }
+
+        $existentePorNombre = $db->queryOne(
+            'SELECT id FROM modulos_web WHERE nombre = :nombre LIMIT 1',
+            ['nombre' => $nombre]
+        );
+        $idExistente = (int)($existentePorNombre['id'] ?? 0);
+        if ($idExistente > 0 && $idExistente !== $id) {
+            self::renumerarModuloWebId($db, $idExistente, $id);
+            $existentePorId = $db->queryOne(
+                'SELECT id FROM modulos_web WHERE id = :id LIMIT 1',
+                ['id' => $id]
+            );
+            if ($existentePorId) {
                 $db->CRUD(
                     'UPDATE modulos_web
                         SET nombre = :nombre,
@@ -148,13 +243,84 @@ class CapHum extends Model
                       WHERE id = :id',
                     $datos
                 );
-                continue;
+                return;
             }
-            $db->CRUD(
-                'INSERT INTO modulos_web (id, nombre, pestana, descripcion, activo)
-                 VALUES (:id, :nombre, :pestana, :descripcion, 1)',
-                $datos
+        }
+
+        $db->CRUD(
+            'INSERT INTO modulos_web (id, nombre, pestana, descripcion, activo)
+             VALUES (:id, :nombre, :pestana, :descripcion, 1)',
+            $datos
+        );
+    }
+
+    private static function renumerarModuloWebId(Database $db, int $idViejo, int $idNuevo): void
+    {
+        if ($idViejo <= 0 || $idNuevo <= 0 || $idViejo === $idNuevo) {
+            return;
+        }
+
+        try {
+            $moduloViejo = $db->queryOne(
+                'SELECT nombre, pestana, descripcion, activo FROM modulos_web WHERE id = :id LIMIT 1',
+                ['id' => $idViejo]
             );
+            if (!$moduloViejo) {
+                return;
+            }
+
+            $datosNuevo = [
+                'id' => $idNuevo,
+                'nombre' => (string)($moduloViejo['nombre'] ?? ''),
+                'pestana' => (string)($moduloViejo['pestana'] ?? ''),
+                'descripcion' => (string)($moduloViejo['descripcion'] ?? ''),
+                'activo' => (int)($moduloViejo['activo'] ?? 1),
+            ];
+
+            $moduloNuevo = $db->queryOne(
+                'SELECT id FROM modulos_web WHERE id = :id LIMIT 1',
+                ['id' => $idNuevo]
+            );
+            if ($moduloNuevo) {
+                $db->CRUD(
+                    'UPDATE modulos_web
+                        SET nombre = :nombre,
+                            pestana = :pestana,
+                            descripcion = :descripcion,
+                            activo = :activo
+                      WHERE id = :id',
+                    $datosNuevo
+                );
+            } else {
+                $nombreTemporal = '__renumerando_' . $idViejo . '_' . $idNuevo . '_' . bin2hex(random_bytes(4));
+                $db->CRUD(
+                    'UPDATE modulos_web SET nombre = :nombre_temporal WHERE id = :id_viejo',
+                    ['nombre_temporal' => $nombreTemporal, 'id_viejo' => $idViejo]
+                );
+                $db->CRUD(
+                    'INSERT INTO modulos_web (id, nombre, pestana, descripcion, activo)
+                     VALUES (:id, :nombre, :pestana, :descripcion, :activo)',
+                    $datosNuevo
+                );
+            }
+
+            $db->CRUD(
+                'INSERT INTO asigna_modulo_web (usuario_id, modulo_web_id)
+                 SELECT DISTINCT viejo.usuario_id, :id_nuevo
+                 FROM asigna_modulo_web viejo
+                 WHERE viejo.modulo_web_id = :id_viejo
+                   AND NOT EXISTS (
+                       SELECT 1
+                       FROM asigna_modulo_web nuevo
+                       WHERE nuevo.usuario_id = viejo.usuario_id
+                         AND nuevo.modulo_web_id = :id_nuevo_exists
+                   )',
+                ['id_nuevo' => $idNuevo, 'id_viejo' => $idViejo, 'id_nuevo_exists' => $idNuevo]
+            );
+            $db->CRUD('DELETE FROM asigna_modulo_web WHERE modulo_web_id = :id', ['id' => $idViejo]);
+            $db->CRUD('DELETE FROM modulos_web WHERE id = :id', ['id' => $idViejo]);
+        } catch (\Throwable $e) {
+            error_log('CapHum::renumerarModuloWebId ' . $idViejo . ' -> ' . $idNuevo . ' :: ' . $e->getMessage());
         }
     }
 
@@ -299,6 +465,8 @@ class CapHum extends Model
         ['id' => 34, 'clave' => 'DOCUMENTO_INCAPACIDAD', 'nombre' => 'Documento incapacidad'],
         ['id' => 35, 'clave' => 'DOCUMENTO_PERMISO', 'nombre' => 'Documento permiso'],
         ['id' => 36, 'clave' => 'DOCUMENTO_FALTA', 'nombre' => 'Documento falta'],
+        ['id' => 37, 'clave' => 'FINIQUITO', 'nombre' => 'Finiquito'],
+        ['id' => 38, 'clave' => 'COMPROBANTE_PAGO_FINIQUITO', 'nombre' => 'Comprobante de pago finiquito'],
     ];
     private const DOCUMENTOS_EXCLUIDOS_RRHH = [19, 20, 21];
     private const DOCUMENTOS_ALIAS_RRHH = [
@@ -3895,7 +4063,11 @@ class CapHum extends Model
             if ($registro && !empty($registro['secret'])) {
                 $secretPlano = self::descifrarSecretoTotp((string)$registro['secret']);
                 if ($secretPlano === '') {
-                    return self::resultado(false, 'No se pudo descifrar el segundo paso.', null);
+                    $db->CRUD("
+                        DELETE FROM __SPARTA_SECRET_REDACTED__.rrhh_documentos_sensibles_totp
+                        WHERE id_persona = :id_persona
+                    ", ['id_persona' => $idPersona]);
+                    return self::resultado(true, 'Segundo paso reiniciado por clave ilegible.', null);
                 }
                 if (!self::esSecretoTotpCifrado((string)$registro['secret'])) {
                     $db->CRUD("
@@ -3991,6 +4163,556 @@ class CapHum extends Model
         }
     }
 
+    public static function getSalarioSensiblePersona(int $idPersona)
+    {
+        try {
+            if ($idPersona <= 0) {
+                return self::resultado(false, 'Persona no valida.', null);
+            }
+
+            $db = new Database();
+            self::asegurarSalariosSensiblesRrhh($db);
+            $registro = $db->queryOne("
+                SELECT id_persona, salario_cifrado, moneda, creado_en, actualizado_en, id_usuario_actualizacion
+                FROM __SPARTA_SECRET_REDACTED__.rrhh_salarios_sensibles
+                WHERE id_persona = :id_persona
+                LIMIT 1
+            ", ['id_persona' => $idPersona]);
+
+            if (!$registro) {
+                return self::resultado(true, 'Salario sensible consultado.', [
+                    'tiene_salario' => false,
+                    'salario' => '',
+                    'moneda' => 'MXN',
+                    'actualizado_en' => null,
+                ]);
+            }
+
+            $salarioPlano = self::descifrarValorSensibleRrhh((string)($registro['salario_cifrado'] ?? ''));
+            if ($salarioPlano === '') {
+                return self::resultado(false, 'No se pudo descifrar el salario sensible.', null);
+            }
+
+            return self::resultado(true, 'Salario sensible consultado.', [
+                'tiene_salario' => true,
+                'salario' => $salarioPlano,
+                'moneda' => $registro['moneda'] ?: 'MXN',
+                'actualizado_en' => $registro['actualizado_en'] ?? null,
+                'id_usuario_actualizacion' => $registro['id_usuario_actualizacion'] ?? null,
+            ]);
+        } catch (\Exception $e) {
+            return self::resultado(false, 'Error al consultar salario sensible.', null, $e->getMessage());
+        }
+    }
+
+    public static function personaTieneSalarioSensible(int $idPersona): bool
+    {
+        try {
+            if ($idPersona <= 0) {
+                return false;
+            }
+            $db = new Database();
+            self::asegurarSalariosSensiblesRrhh($db);
+            $row = $db->queryOne("
+                SELECT 1 AS ok
+                FROM __SPARTA_SECRET_REDACTED__.rrhh_salarios_sensibles
+                WHERE id_persona = :id_persona
+                LIMIT 1
+            ", ['id_persona' => $idPersona]);
+            return !empty($row);
+        } catch (\Throwable $e) {
+            return false;
+        }
+    }
+
+    public static function guardarSalarioSensiblePersona(int $idPersona, $salario, int $idUsuario)
+    {
+        try {
+            if ($idPersona <= 0) {
+                return self::resultado(false, 'Persona no valida.', null);
+            }
+
+            $salarioNormalizado = self::normalizarSalarioSensible($salario);
+            if ($salarioNormalizado === false) {
+                return self::resultado(false, 'Captura un salario valido.', null);
+            }
+
+            $db = new Database();
+            self::asegurarSalariosSensiblesRrhh($db);
+
+            if ($salarioNormalizado === null) {
+                $db->CRUD("
+                    DELETE FROM __SPARTA_SECRET_REDACTED__.rrhh_salarios_sensibles
+                    WHERE id_persona = :id_persona
+                ", ['id_persona' => $idPersona]);
+                return self::resultado(true, 'Salario sensible eliminado.', [
+                    'tiene_salario' => false,
+                    'salario' => '',
+                    'moneda' => 'MXN',
+                ]);
+            }
+
+            $db->CRUD("
+                INSERT INTO __SPARTA_SECRET_REDACTED__.rrhh_salarios_sensibles
+                    (id_persona, salario_cifrado, moneda, creado_en, actualizado_en, id_usuario_actualizacion)
+                VALUES
+                    (:id_persona, :salario_cifrado, 'MXN', NOW(), NOW(), :id_usuario)
+                ON DUPLICATE KEY UPDATE
+                    salario_cifrado = VALUES(salario_cifrado),
+                    moneda = VALUES(moneda),
+                    actualizado_en = NOW(),
+                    id_usuario_actualizacion = VALUES(id_usuario_actualizacion)
+            ", [
+                'id_persona' => $idPersona,
+                'salario_cifrado' => self::cifrarValorSensibleRrhh($salarioNormalizado),
+                'id_usuario' => $idUsuario > 0 ? $idUsuario : null,
+            ]);
+
+            return self::resultado(true, 'Salario sensible guardado.', [
+                'tiene_salario' => true,
+                'salario' => $salarioNormalizado,
+                'moneda' => 'MXN',
+            ]);
+        } catch (\Exception $e) {
+            return self::resultado(false, 'Error al guardar salario sensible.', null, $e->getMessage());
+        }
+    }
+
+    public static function registrarAuditoriaSalarioSensibleRrhh(array $datos): void
+    {
+        try {
+            $db = new Database();
+            self::asegurarSalariosSensiblesRrhh($db);
+            $db->CRUD("
+                INSERT INTO __SPARTA_SECRET_REDACTED__.auditoria_salarios_sensibles_rrhh
+                    (id_usuario, usuario_nombre, id_persona, persona_nombre, accion, resultado, ip, user_agent, detalle, fecha_hora)
+                VALUES
+                    (:id_usuario, :usuario_nombre, :id_persona, :persona_nombre, :accion, :resultado, :ip, :user_agent, :detalle, :fecha_hora)
+            ", [
+                'id_usuario' => (int)($datos['id_usuario'] ?? 0),
+                'usuario_nombre' => (string)($datos['usuario_nombre'] ?? ''),
+                'id_persona' => (int)($datos['id_persona'] ?? 0),
+                'persona_nombre' => (string)($datos['persona_nombre'] ?? ''),
+                'accion' => (string)($datos['accion'] ?? ''),
+                'resultado' => (string)($datos['resultado'] ?? ''),
+                'ip' => (string)($datos['ip'] ?? ''),
+                'user_agent' => (string)($datos['user_agent'] ?? ''),
+                'detalle' => (string)($datos['detalle'] ?? ''),
+                'fecha_hora' => (string)($datos['fecha_hora'] ?? date('Y-m-d H:i:s')),
+            ]);
+        } catch (\Throwable $e) {
+            error_log('CapHum::registrarAuditoriaSalarioSensibleRrhh -> ' . $e->getMessage());
+        }
+    }
+
+    public static function getAuditoriaSalariosSensiblesRrhh(): array
+    {
+        try {
+            $db = new Database();
+            self::asegurarModuloAccesosCapitalHumanoDb($db);
+            self::asegurarSalariosSensiblesRrhh($db);
+
+            $usuariosConPermiso = $db->queryAll("
+                SELECT
+                    p.id AS persona_id,
+                    p.numero_empleado,
+                    TRIM(CONCAT_WS(' ',
+                        NULLIF(TRIM(p.nombres), ''),
+                        NULLIF(TRIM(p.segundo_nombre), ''),
+                        NULLIF(TRIM(p.apellidop), ''),
+                        NULLIF(TRIM(p.apellidom), '')
+                    )) AS nombre,
+                    p.user_name,
+                    p.correo,
+                    p.estatus,
+                    COALESCE(NULLIF(TRIM(pdr.puesto_texto), ''), pu.nombre, '') AS puesto,
+                    COALESCE(NULLIF(TRIM(pdr.departamento_texto), ''), dep.nombre, '') AS departamento
+                FROM asigna_modulo_web am
+                INNER JOIN persona p ON p.id = am.usuario_id
+                LEFT JOIN persona_datos_rrhh pdr ON pdr.id_persona = p.id
+                LEFT JOIN asigna_puesto ap ON ap.id_persona = p.id AND COALESCE(ap.activo, 1) = 1
+                LEFT JOIN puesto pu ON pu.id = COALESCE(pdr.id_puesto, ap.id_puesto)
+                LEFT JOIN departamento dep ON dep.id = COALESCE(pdr.id_departamento, pu.departamento_id)
+                WHERE am.modulo_web_id = :modulo
+                  AND COALESCE(p.estatus, '') <> 'Baja'
+                ORDER BY nombre ASC
+            ", ['modulo' => self::MODULO_VER_SALARIO_SENSIBLE_RRHH]) ?: [];
+
+            $eventos = $db->queryAll("
+                SELECT
+                    a.id,
+                    a.fecha_hora,
+                    a.id_usuario,
+                    COALESCE(NULLIF(TRIM(a.usuario_nombre), ''), TRIM(CONCAT_WS(' ', u.nombres, u.segundo_nombre, u.apellidop, u.apellidom)), CONCAT('Usuario #', COALESCE(a.id_usuario, ''))) AS usuario_nombre,
+                    a.id_persona,
+                    COALESCE(NULLIF(TRIM(a.persona_nombre), ''), TRIM(CONCAT_WS(' ', p.nombres, p.segundo_nombre, p.apellidop, p.apellidom)), CONCAT('Persona #', COALESCE(a.id_persona, ''))) AS persona_nombre,
+                    a.accion,
+                    a.resultado,
+                    a.ip,
+                    a.detalle
+                FROM __SPARTA_SECRET_REDACTED__.auditoria_salarios_sensibles_rrhh a
+                LEFT JOIN persona u ON u.id = a.id_usuario
+                LEFT JOIN persona p ON p.id = a.id_persona
+                ORDER BY a.fecha_hora DESC, a.id DESC
+                LIMIT 200
+            ") ?: [];
+
+            $totalesEventos = [
+                'lecturas' => 0,
+                'guardados' => 0,
+                'denegados' => 0,
+                'totp_denegado' => 0,
+                'eventos' => count($eventos),
+            ];
+            foreach ($eventos as $evento) {
+                $accion = strtolower((string)($evento['accion'] ?? ''));
+                $resultado = strtolower((string)($evento['resultado'] ?? ''));
+                if ($accion === 'leer' && $resultado === 'autorizado') {
+                    $totalesEventos['lecturas']++;
+                }
+                if ($accion === 'guardar' && $resultado === 'autorizado') {
+                    $totalesEventos['guardados']++;
+                }
+                if ($resultado === 'denegado') {
+                    $totalesEventos['denegados']++;
+                    if ($accion === 'totp') {
+                        $totalesEventos['totp_denegado']++;
+                    }
+                }
+            }
+
+            return self::resultado(true, 'Auditoria de salarios cargada.', [
+                'usuarios_con_permiso' => $usuariosConPermiso,
+                'eventos' => $eventos,
+                'totales' => [
+                    'usuarios_con_permiso' => count($usuariosConPermiso),
+                    'lecturas' => $totalesEventos['lecturas'],
+                    'guardados' => $totalesEventos['guardados'],
+                    'denegados' => $totalesEventos['denegados'],
+                    'totp_denegado' => $totalesEventos['totp_denegado'],
+                    'eventos' => $totalesEventos['eventos'],
+                ],
+            ]);
+        } catch (\Throwable $e) {
+            return self::resultado(false, 'No se pudo cargar la auditoria de salarios.', [
+                'usuarios_con_permiso' => [],
+                'eventos' => [],
+                'totales' => [
+                    'usuarios_con_permiso' => 0,
+                    'lecturas' => 0,
+                    'guardados' => 0,
+                    'denegados' => 0,
+                    'totp_denegado' => 0,
+                    'eventos' => 0,
+                ],
+            ], $e->getMessage());
+        }
+    }
+
+    public static function getAuditoriaRrhhSensible(): array
+    {
+        try {
+            $db = new Database();
+            self::asegurarModuloAccesosCapitalHumanoDb($db);
+            self::asegurarTotpDocumentosSensibles($db);
+            self::asegurarAuditoriaDocumentosSensibles($db);
+            self::asegurarSalariosSensiblesRrhh($db);
+
+            $usuariosPorModulo = static function (int $modulo) use ($db): array {
+                return $db->queryAll("
+                    SELECT
+                        p.id AS persona_id,
+                        p.numero_empleado,
+                        TRIM(CONCAT_WS(' ',
+                            NULLIF(TRIM(p.nombres), ''),
+                            NULLIF(TRIM(p.segundo_nombre), ''),
+                            NULLIF(TRIM(p.apellidop), ''),
+                            NULLIF(TRIM(p.apellidom), '')
+                        )) AS nombre,
+                        p.user_name,
+                        p.correo,
+                        p.estatus,
+                        COALESCE(NULLIF(TRIM(pdr.puesto_texto), ''), pu.nombre, '') AS puesto,
+                        COALESCE(NULLIF(TRIM(pdr.departamento_texto), ''), dep.nombre, '') AS departamento
+                    FROM asigna_modulo_web am
+                    INNER JOIN persona p ON p.id = am.usuario_id
+                    LEFT JOIN persona_datos_rrhh pdr ON pdr.id_persona = p.id
+                    LEFT JOIN asigna_puesto ap ON ap.id_persona = p.id AND COALESCE(ap.activo, 1) = 1
+                    LEFT JOIN puesto pu ON pu.id = COALESCE(pdr.id_puesto, ap.id_puesto)
+                    LEFT JOIN departamento dep ON dep.id = COALESCE(pdr.id_departamento, pu.departamento_id)
+                    WHERE am.modulo_web_id = :modulo
+                      AND COALESCE(p.estatus, '') <> 'Baja'
+                    ORDER BY nombre ASC
+                ", ['modulo' => $modulo]) ?: [];
+            };
+
+            $autenticadores = $db->queryAll("
+                SELECT
+                    t.id_persona AS persona_id,
+                    TRIM(CONCAT_WS(' ',
+                        NULLIF(TRIM(p.nombres), ''),
+                        NULLIF(TRIM(p.segundo_nombre), ''),
+                        NULLIF(TRIM(p.apellidop), ''),
+                        NULLIF(TRIM(p.apellidom), '')
+                    )) AS nombre,
+                    p.user_name,
+                    p.correo,
+                    p.numero_empleado,
+                    t.confirmado,
+                    DATE_FORMAT(t.creado_en, '%Y-%m-%d %H:%i:%s') AS creado_en,
+                    DATE_FORMAT(t.actualizado_en, '%Y-%m-%d %H:%i:%s') AS actualizado_en,
+                    DATE_FORMAT(t.ultimo_uso_en, '%Y-%m-%d %H:%i:%s') AS ultimo_uso_en
+                FROM __SPARTA_SECRET_REDACTED__.rrhh_documentos_sensibles_totp t
+                LEFT JOIN persona p ON p.id = t.id_persona
+                ORDER BY t.confirmado DESC, t.ultimo_uso_en DESC, nombre ASC
+            ") ?: [];
+
+            $eventosDocumentos = $db->queryAll("
+                SELECT
+                    'documentos' AS tipo,
+                    a.id,
+                    DATE_FORMAT(a.fecha_hora, '%Y-%m-%d %H:%i:%s') AS fecha_hora,
+                    a.id_usuario,
+                    COALESCE(NULLIF(TRIM(a.usuario_nombre), ''), TRIM(CONCAT_WS(' ', u.nombres, u.segundo_nombre, u.apellidop, u.apellidom)), CONCAT('Usuario #', COALESCE(a.id_usuario, ''))) AS usuario_nombre,
+                    a.id_persona,
+                    COALESCE(NULLIF(TRIM(a.persona_nombre), ''), TRIM(CONCAT_WS(' ', p.nombres, p.segundo_nombre, p.apellidop, p.apellidom)), CONCAT('Persona #', COALESCE(a.id_persona, ''))) AS persona_nombre,
+                    a.id_documento_carga,
+                    a.id_documento,
+                    COALESCE(
+                        NULLIF(TRIM(a.documento_nombre), ''),
+                        NULLIF(TRIM(d.nombre), ''),
+                        CASE a.id_documento
+                            WHEN 8 THEN 'CURP'
+                            WHEN 9 THEN 'Identificacion Oficial (INE)'
+                            WHEN 10 THEN 'RFC'
+                            WHEN 11 THEN 'Comprobante de Domicilio'
+                            WHEN 12 THEN 'Acta de Nacimiento'
+                            WHEN 13 THEN 'Certificado de Estudios'
+                            WHEN 14 THEN 'Referencias Laborales'
+                            WHEN 15 THEN 'Documento baja'
+                            WHEN 16 THEN 'Documento reingreso'
+                            WHEN 17 THEN 'Solicitud interna'
+                            WHEN 18 THEN 'CV o Solicitud de Trabajo'
+                            WHEN 22 THEN 'Constancia de Situacion Fiscal'
+                            WHEN 23 THEN 'Numero de Seguridad Social'
+                            WHEN 24 THEN 'Hoja de Retencion FONACOT o INFONAVIT'
+                            WHEN 25 THEN 'Estado de Cuenta'
+                            WHEN 27 THEN 'Carta de compromiso del Gestor'
+                            WHEN 28 THEN 'Contrato firmado'
+                            WHEN 29 THEN 'Archivo .FAD'
+                            WHEN 30 THEN 'Validacion SAT'
+                            WHEN 31 THEN 'Llave vector'
+                            WHEN 32 THEN 'Prueba centavo'
+                            WHEN 33 THEN 'Semanas cotizadas IMSS (segundos patrones)'
+                            WHEN 34 THEN 'Documento incapacidad'
+                            WHEN 35 THEN 'Documento permiso'
+                            WHEN 36 THEN 'Documento falta'
+                            WHEN 37 THEN 'Finiquito'
+                            WHEN 38 THEN 'Comprobante de pago finiquito'
+                            ELSE 'Documento RR.HH.'
+                        END
+                    ) AS documento_nombre,
+                    COALESCE(
+                        NULLIF(TRIM(a.documento_nombre), ''),
+                        NULLIF(TRIM(d.nombre), ''),
+                        CASE a.id_documento
+                            WHEN 8 THEN 'CURP'
+                            WHEN 9 THEN 'Identificacion Oficial (INE)'
+                            WHEN 10 THEN 'RFC'
+                            WHEN 11 THEN 'Comprobante de Domicilio'
+                            WHEN 12 THEN 'Acta de Nacimiento'
+                            WHEN 13 THEN 'Certificado de Estudios'
+                            WHEN 14 THEN 'Referencias Laborales'
+                            WHEN 15 THEN 'Documento baja'
+                            WHEN 16 THEN 'Documento reingreso'
+                            WHEN 17 THEN 'Solicitud interna'
+                            WHEN 18 THEN 'CV o Solicitud de Trabajo'
+                            WHEN 22 THEN 'Constancia de Situacion Fiscal'
+                            WHEN 23 THEN 'Numero de Seguridad Social'
+                            WHEN 24 THEN 'Hoja de Retencion FONACOT o INFONAVIT'
+                            WHEN 25 THEN 'Estado de Cuenta'
+                            WHEN 27 THEN 'Carta de compromiso del Gestor'
+                            WHEN 28 THEN 'Contrato firmado'
+                            WHEN 29 THEN 'Archivo .FAD'
+                            WHEN 30 THEN 'Validacion SAT'
+                            WHEN 31 THEN 'Llave vector'
+                            WHEN 32 THEN 'Prueba centavo'
+                            WHEN 33 THEN 'Semanas cotizadas IMSS (segundos patrones)'
+                            WHEN 34 THEN 'Documento incapacidad'
+                            WHEN 35 THEN 'Documento permiso'
+                            WHEN 36 THEN 'Documento falta'
+                            WHEN 37 THEN 'Finiquito'
+                            WHEN 38 THEN 'Comprobante de pago finiquito'
+                            ELSE 'Documento RR.HH.'
+                        END
+                    ) AS recurso,
+                    a.archivo,
+                    a.accion,
+                    a.resultado,
+                    a.ip,
+                    a.detalle
+                FROM __SPARTA_SECRET_REDACTED__.auditoria_documentos_sensibles_rrhh a
+                LEFT JOIN persona u ON u.id = a.id_usuario
+                LEFT JOIN persona p ON p.id = a.id_persona
+                LEFT JOIN __SPARTA_SECRET_REDACTED__.documento d ON d.id = a.id_documento
+                ORDER BY a.fecha_hora DESC, a.id DESC
+                LIMIT 300
+            ") ?: [];
+
+            $eventosSalarios = $db->queryAll("
+                SELECT
+                    'salarios' AS tipo,
+                    a.id,
+                    DATE_FORMAT(a.fecha_hora, '%Y-%m-%d %H:%i:%s') AS fecha_hora,
+                    a.id_usuario,
+                    COALESCE(NULLIF(TRIM(a.usuario_nombre), ''), TRIM(CONCAT_WS(' ', u.nombres, u.segundo_nombre, u.apellidop, u.apellidom)), CONCAT('Usuario #', a.id_usuario)) AS usuario_nombre,
+                    a.id_persona,
+                    COALESCE(NULLIF(TRIM(a.persona_nombre), ''), TRIM(CONCAT_WS(' ', p.nombres, p.segundo_nombre, p.apellidop, p.apellidom)), CONCAT('Persona #', a.id_persona)) AS persona_nombre,
+                    NULL AS id_documento_carga,
+                    NULL AS id_documento,
+                    'Salario protegido' AS documento_nombre,
+                    'Salario protegido' AS recurso,
+                    '' AS archivo,
+                    a.accion,
+                    a.resultado,
+                    a.ip,
+                    a.detalle
+                FROM __SPARTA_SECRET_REDACTED__.auditoria_salarios_sensibles_rrhh a
+                LEFT JOIN persona u ON u.id = a.id_usuario
+                LEFT JOIN persona p ON p.id = a.id_persona
+                ORDER BY a.fecha_hora DESC, a.id DESC
+                LIMIT 300
+            ") ?: [];
+
+            $eventos = array_merge($eventosDocumentos, $eventosSalarios);
+            usort($eventos, static function ($a, $b) {
+                $fechaA = strtotime((string)($a['fecha_hora'] ?? '')) ?: 0;
+                $fechaB = strtotime((string)($b['fecha_hora'] ?? '')) ?: 0;
+                if ($fechaA === $fechaB) {
+                    return (int)($b['id'] ?? 0) <=> (int)($a['id'] ?? 0);
+                }
+                return $fechaB <=> $fechaA;
+            });
+            $eventos = array_slice($eventos, 0, 300);
+
+            $conteoDocumentos = $db->queryOne("
+                SELECT
+                    COUNT(*) AS eventos,
+                    SUM(CASE WHEN LOWER(resultado) = 'denegado' THEN 1 ELSE 0 END) AS denegados
+                FROM __SPARTA_SECRET_REDACTED__.auditoria_documentos_sensibles_rrhh
+            ") ?: [];
+            $conteoSalarios = $db->queryOne("
+                SELECT
+                    COUNT(*) AS eventos,
+                    SUM(CASE WHEN LOWER(resultado) = 'denegado' THEN 1 ELSE 0 END) AS denegados
+                FROM __SPARTA_SECRET_REDACTED__.auditoria_salarios_sensibles_rrhh
+            ") ?: [];
+
+            $totpConfirmados = 0;
+            foreach ($autenticadores as $auth) {
+                if ((int)($auth['confirmado'] ?? 0) === 1) {
+                    $totpConfirmados++;
+                }
+            }
+
+            $usuariosDocumentos = $usuariosPorModulo(self::MODULO_VER_DOCUMENTOS_SENSIBLES_RRHH);
+            $usuariosSalarios = $usuariosPorModulo(self::MODULO_VER_SALARIO_SENSIBLE_RRHH);
+            $usuariosResetTotp = $usuariosPorModulo(self::MODULO_RESET_TOTP_DOCUMENTOS_SENSIBLES_RRHH);
+            $usuariosAuditoria = $usuariosPorModulo(self::MODULO_AUDITORIA_RRHH);
+
+            return self::resultado(true, 'Auditoria RR.HH. cargada.', [
+                'usuarios_con_permiso' => [
+                    'documentos_sensibles' => $usuariosDocumentos,
+                    'salarios' => $usuariosSalarios,
+                    'reset_totp' => $usuariosResetTotp,
+                    'auditoria' => $usuariosAuditoria,
+                ],
+                'autenticadores' => $autenticadores,
+                'eventos' => $eventos,
+                'eventos_documentos' => $eventosDocumentos,
+                'eventos_salarios' => $eventosSalarios,
+                'totales' => [
+                    'usuarios_documentos' => count($usuariosDocumentos),
+                    'usuarios_salarios' => count($usuariosSalarios),
+                    'usuarios_reset_totp' => count($usuariosResetTotp),
+                    'usuarios_auditoria' => count($usuariosAuditoria),
+                    'totp_configurados' => count($autenticadores),
+                    'totp_confirmados' => $totpConfirmados,
+                    'eventos_documentos' => (int)($conteoDocumentos['eventos'] ?? 0),
+                    'eventos_salarios' => (int)($conteoSalarios['eventos'] ?? 0),
+                    'denegados_documentos' => (int)($conteoDocumentos['denegados'] ?? 0),
+                    'denegados_salarios' => (int)($conteoSalarios['denegados'] ?? 0),
+                    'eventos_recientes' => count($eventos),
+                ],
+            ]);
+        } catch (\Throwable $e) {
+            return self::resultado(false, 'No se pudo cargar la auditoria RR.HH.', [
+                'usuarios_con_permiso' => [
+                    'documentos_sensibles' => [],
+                    'salarios' => [],
+                    'reset_totp' => [],
+                    'auditoria' => [],
+                ],
+                'autenticadores' => [],
+                'eventos' => [],
+                'eventos_documentos' => [],
+                'eventos_salarios' => [],
+                'totales' => [],
+            ], $e->getMessage());
+        }
+    }
+
+    private static function asegurarSalariosSensiblesRrhh(Database $db): void
+    {
+        $db->CRUD("
+            CREATE TABLE IF NOT EXISTS __SPARTA_SECRET_REDACTED__.rrhh_salarios_sensibles (
+                id_persona INT NOT NULL PRIMARY KEY,
+                salario_cifrado TEXT NOT NULL,
+                moneda VARCHAR(8) NOT NULL DEFAULT 'MXN',
+                creado_en DATETIME NOT NULL,
+                actualizado_en DATETIME NOT NULL,
+                id_usuario_actualizacion INT NULL,
+                KEY idx_usuario_actualizacion (id_usuario_actualizacion),
+                KEY idx_actualizado_en (actualizado_en)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+        ");
+        $db->CRUD("
+            CREATE TABLE IF NOT EXISTS __SPARTA_SECRET_REDACTED__.auditoria_salarios_sensibles_rrhh (
+                id BIGINT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+                fecha_hora DATETIME NOT NULL,
+                id_usuario INT NULL,
+                usuario_nombre VARCHAR(191) NULL,
+                id_persona INT NULL,
+                persona_nombre VARCHAR(191) NULL,
+                accion VARCHAR(40) NOT NULL,
+                resultado VARCHAR(40) NOT NULL,
+                ip VARCHAR(80) NULL,
+                user_agent VARCHAR(255) NULL,
+                detalle TEXT NULL,
+                KEY idx_fecha_hora (fecha_hora),
+                KEY idx_usuario (id_usuario),
+                KEY idx_persona (id_persona)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+        ");
+    }
+
+    private static function normalizarSalarioSensible($salario)
+    {
+        $valor = trim((string)($salario ?? ''));
+        if ($valor === '') {
+            return null;
+        }
+        $valor = str_replace(['$', ' ', ','], '', $valor);
+        if (!is_numeric($valor)) {
+            return false;
+        }
+        $numero = (float)$valor;
+        if ($numero < 0 || $numero > 999999999.99) {
+            return false;
+        }
+        return number_format($numero, 2, '.', '');
+    }
+
     private static function asegurarTotpDocumentosSensibles(Database $db): void
     {
         $db->CRUD("
@@ -4054,10 +4776,18 @@ class CapHum extends Model
         if ($secret === '' || self::esSecretoTotpCifrado($secret)) {
             return $secret;
         }
+        return self::cifrarValorSensibleRrhh($secret);
+    }
+
+    private static function cifrarValorSensibleRrhh(string $valor): string
+    {
+        if ($valor === '' || self::esSecretoTotpCifrado($valor)) {
+            return $valor;
+        }
         $iv = random_bytes(12);
         $tag = '';
         $cipher = openssl_encrypt(
-            $secret,
+            $valor,
             'aes-256-gcm',
             self::claveMaestraDocumentosSensibles(),
             OPENSSL_RAW_DATA,
@@ -4065,12 +4795,17 @@ class CapHum extends Model
             $tag
         );
         if ($cipher === false) {
-            throw new \RuntimeException('No se pudo cifrar el segundo paso.');
+            throw new \RuntimeException('No se pudo cifrar el valor sensible.');
         }
         return 'enc:v1:' . base64_encode($iv . $tag . $cipher);
     }
 
     private static function descifrarSecretoTotp(string $secret): string
+    {
+        return self::descifrarValorSensibleRrhh($secret);
+    }
+
+    private static function descifrarValorSensibleRrhh(string $secret): string
     {
         if ($secret === '' || !self::esSecretoTotpCifrado($secret)) {
             return $secret;
@@ -4338,10 +5073,7 @@ class CapHum extends Model
 
     private static function grupoModuloAccesoCapitalHumano(int $id, string $pestana, string $nombre): array
     {
-        if (in_array($id, [3037, 3038, 3039, 3040], true)) {
-            return ['grupo' => 'Motos Adjudicadas', 'icono' => 'fa-solid fa-motorcycle', 'orden' => 18];
-        }
-        if (in_array($id, [151, 152], true) || ($id >= 3000 && $id < 3100)) {
+        if (in_array($id, [151, 152], true) || in_array($id, self::MODULOS_DOCUMENTO_RRHH, true)) {
             return ['grupo' => 'Control documental RR.HH.', 'icono' => 'fa fa-folder-open', 'orden' => 28];
         }
         if ($id >= 107 && $id <= 127) {

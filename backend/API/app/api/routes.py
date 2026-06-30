@@ -320,6 +320,15 @@ def _respuesta_alibaba_expediente(res: Dict[str, Any], nombre_candidato_registro
 
     todo_coincide = bool(dictamen == "aprobado" and checks_totales > 0 and checks_ok == checks_totales and not alertas)
     datos_ref = analysis.get("datos_referencia") if isinstance(analysis.get("datos_referencia"), dict) else {}
+    tiempos_fase = res.get("tiempos_fase_ms") if isinstance(res.get("tiempos_fase_ms"), dict) else None
+    if tiempos_fase:
+        tiempos_fase = {
+            str(k): int(v)
+            for k, v in tiempos_fase.items()
+            if isinstance(v, (int, float)) or (isinstance(v, str) and v.strip().isdigit())
+        }
+    if not tiempos_fase:
+        tiempos_fase = {"alibaba_crosscheck_ms": int(res.get("elapsed_ms") or 0)}
 
     return {
         "todo_coincide": todo_coincide,
@@ -346,7 +355,7 @@ def _respuesta_alibaba_expediente(res: Dict[str, Any], nombre_candidato_registro
         "documentos_procesados": {k: True for k in docs.keys()},
         "datos_extraidos": {"motor_v2": analysis},
         "tiempo_proceso_ms": int(res.get("elapsed_ms") or 0),
-        "tiempos_fase_ms": {"alibaba_crosscheck_ms": int(res.get("elapsed_ms") or 0)},
+        "tiempos_fase_ms": tiempos_fase,
         "modo_verificacion": "v2_alibaba_crosscheck",
         "motor_ia": "alibaba",
         "modelo_ia": res.get("model"),
@@ -669,6 +678,9 @@ def _resultado_v2_reglas_expediente(
             "clabe": _v2_first_value(previo, ["clabe"]),
             "numero_cuenta": _v2_first_value(previo, ["numero_cuenta", "cuenta"]),
             "regimen_fiscal": _v2_first_value(previo, ["regimen_fiscal"]),
+            "firma_detectada": _v2_bool(previo.get("firma_detectada")),
+            "nombre_y_firma_lleno": _v2_bool(previo.get("nombre_y_firma_lleno")),
+            "evidencia_insuficiente": _v2_bool(previo.get("evidencia_insuficiente")),
             "mensaje": None,
             "observaciones": [],
         }
@@ -766,6 +778,36 @@ def _resultado_v2_reglas_expediente(
                 "critico",
                 msg_tipo,
             )
+
+        if key == "hoja_retencion":
+            firma_detectada = out.get("firma_detectada")
+            nombre_y_firma_lleno = out.get("nombre_y_firma_lleno")
+            evidencia_insuficiente = out.get("evidencia_insuficiente")
+            problemas_carta: List[str] = []
+            if not out.get("nombre"):
+                problemas_carta.append("no se leyo nombre del declarante")
+            if evidencia_insuficiente is True:
+                problemas_carta.append("no hay evidencia suficiente de nombre y firma")
+            if nombre_y_firma_lleno is False:
+                problemas_carta.append("la linea de nombre completo y firma esta vacia o incompleta")
+            if firma_detectada is False:
+                problemas_carta.append("no se detecto firma")
+            if problemas_carta:
+                msg_carta = "La carta de no adeudo no esta completa: " + "; ".join(problemas_carta) + "."
+                out["estado"] = "no_coincide"
+                out["mensaje"] = msg_carta
+                out.setdefault("observaciones", []).append(msg_carta)
+                add_comp(
+                    "Regla documental",
+                    "Carta no adeudo llenada y firmada",
+                    key,
+                    "; ".join(problemas_carta),
+                    "Regla",
+                    "Nombre del candidato y firma visibles",
+                    False,
+                    "critico",
+                    msg_carta,
+                )
 
         if nombre_registro and out["nombre"] and key != "comprobante_domicilio":
             ok_name = _v2_names_match(nombre_registro, out["nombre"])
@@ -3390,7 +3432,13 @@ async def validar_expediente(
                 summary = lecturas_previas.get(key)
                 if isinstance(summary, dict):
                     doc["summary"] = summary
-            docs_v2 = [doc for doc in docs_v2 if doc.get("bytes")]
+                    archivo = summary.get("archivo") or summary.get("filename")
+                    if archivo:
+                        doc["filename"] = str(archivo)
+            docs_v2 = [
+                doc for doc in docs_v2
+                if doc.get("bytes") or summary_is_usable(doc.get("summary"))
+            ]
             logger.info(f"validar-expediente V2 docs={len(docs_v2)} summaries={sum(1 for doc in docs_v2 if summary_is_usable(doc.get('summary')))}")
 
             quick_expected = {
@@ -3405,26 +3453,31 @@ async def validar_expediente(
                 "hoja_retencion": "carta_no_adeudo",
                 "__SPARTA_SECRET_REDACTED__": "__SPARTA_SECRET_REDACTED__",
             }
-            # Estos documentos concentran campos manuscritos o lecturas donde
-            # una lectura vieja puede bloquear la reevaluacion aunque el PDF ya
-            # este corregido. En cada reevaluacion V2 los releemos con el nombre
-            # registrado como referencia visual.
-            force_quick_refresh = {"hoja_retencion", "solicitud_interna", "identificacion_oficial"}
+            # En el flujo real la carga rapida ya deja una lectura V2 guardada
+            # por documento. La validacion cruzada debe comparar esas lecturas,
+            # no volver a mandar los 10 PDF a IA: eso puede pasar el timeout de
+            # PHP en expedientes pesados. Solo rescatamos documentos sin lectura
+            # util, normalmente expedientes viejos o migrados.
+            force_quick_refresh = set()
             docs_needing_quick = [
                 doc for doc in docs_v2
                 if (
                     str(doc.get("key") or "") in force_quick_refresh
                     or not summary_is_usable(doc.get("summary"))
                 )
+                and doc.get("bytes")
                 and quick_expected.get(str(doc.get("key") or ""))
             ]
+            prefill_ms = 0
+            prefill_count = len(docs_needing_quick)
             if docs_needing_quick:
+                t_prefill = time.time()
                 quick_ai = _crear_alibaba_ai()
                 if quick_ai is not None and quick_ai.enabled():
-                    quick_ai.timeout_seconds = max(18, min(24, int(getattr(quick_ai, "timeout_seconds", 18) or 18)))
+                    quick_ai.timeout_seconds = max(10, min(15, int(getattr(quick_ai, "timeout_seconds", 12) or 12)))
                     quick_ai.max_pages = min(2, int(getattr(quick_ai, "max_pages", 2) or 2))
-                    quick_ai.dpi = max(170, min(210, int(getattr(quick_ai, "dpi", 170) or 170)))
-                    sem = asyncio.Semaphore(3)
+                    quick_ai.dpi = max(130, min(150, int(getattr(quick_ai, "dpi", 140) or 140)))
+                    sem = asyncio.Semaphore(5)
 
                     async def _prefill_summary(doc: Dict[str, Any]) -> None:
                         key = str(doc.get("key") or "")
@@ -3441,7 +3494,7 @@ async def validar_expediente(
                                         expected,
                                         nombre_candidato_registro,
                                     ),
-                                    timeout=int(getattr(quick_ai, "timeout_seconds", 18) or 18) + 5,
+                                    timeout=int(getattr(quick_ai, "timeout_seconds", 12) or 12) + 4,
                                 )
                                 if isinstance(result, dict):
                                     doc["summary"] = quick_result_to_summary(
@@ -3454,14 +3507,21 @@ async def validar_expediente(
                                 logger.warning(f"No se pudo preleer {key} para crosscheck V2: {exc}")
 
                     await asyncio.gather(*(_prefill_summary(doc) for doc in docs_needing_quick))
+                    prefill_ms = int((time.time() - t_prefill) * 1000)
                     logger.info(
                         "validar-expediente V2 prefill summaries="
-                        f"{sum(1 for doc in docs_v2 if summary_is_usable(doc.get('summary')))}"
+                        f"{sum(1 for doc in docs_v2 if summary_is_usable(doc.get('summary')))} "
+                        f"needed={prefill_count} ms={prefill_ms}"
                     )
 
             crosscheck_mode = str(getattr(settings, "doc_ai_crosscheck_mode", "rules") or "rules").strip().lower()
             if crosscheck_mode in {"rules", "local", "rapido", "fast"}:
                 resultado_reglas = _resultado_v2_reglas_expediente(docs_v2, nombre_candidato_registro)
+                resultado_reglas["tiempos_fase_ms"] = {
+                    "prefill_lecturas_rapidas_ms": prefill_ms,
+                    "cruce_reglas_ms": int(resultado_reglas.get("elapsed_ms") or 0),
+                    "total_endpoint_ms": prefill_ms + int(resultado_reglas.get("elapsed_ms") or 0),
+                }
                 return _respuesta_alibaba_expediente(resultado_reglas, nombre_candidato_registro)
 
             timeout_v2 = int(getattr(settings, "doc_ai_crosscheck_timeout_seconds", 90) or 90) + 5

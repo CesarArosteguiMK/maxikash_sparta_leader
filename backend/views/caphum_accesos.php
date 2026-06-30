@@ -32,6 +32,14 @@ $puedeResetearTotpDocumentosSensiblesRrhh = in_array(152, array_map('intval', (a
         .ch-access-module-row:hover { background:#f8fafc; border-left-color:#1a52a8; }
         .ch-access-module-icon { width:40px; height:40px; border-radius:10px; background:rgba(26,82,168,.12); border:1px solid rgba(26,82,168,.25); display:flex; align-items:center; justify-content:center; flex-shrink:0; }
         .ch-access-module-icon i { color:#1a52a8; font-size:1rem; }
+        .ch-salary-audit-grid { display:grid; grid-template-columns:repeat(5, minmax(0, 1fr)); gap:.65rem; margin-bottom:1rem; }
+        .ch-salary-audit-kpi { border:1px solid #e2e8f0; border-radius:.6rem; background:#f8fafc; padding:.75rem; }
+        .ch-salary-audit-kpi span { display:block; color:#64748b; font-size:.7rem; font-weight:900; text-transform:uppercase; }
+        .ch-salary-audit-kpi strong { display:block; color:#22303e; font-size:1.35rem; font-weight:900; margin-top:.15rem; }
+        .ch-salary-audit-badge { display:inline-flex; align-items:center; justify-content:center; border-radius:999px; padding:.2rem .55rem; font-size:.72rem; font-weight:800; }
+        .ch-salary-audit-badge.ok { background:#dcfce7; color:#166534; }
+        .ch-salary-audit-badge.warn { background:#fff3cd; color:#9a6700; }
+        .ch-salary-audit-badge.danger { background:#fee2e2; color:#991b1b; }
         .ch-access-modal .modal-content { border:0; box-shadow:0 10px 40px rgba(0,0,0,.12); overflow:hidden; }
         .ch-access-modal .modal-header { background:#fff; border-bottom:1px solid #e2e8f0; }
         .ch-access-modal .modal-content { height:82vh; max-height:82vh; display:flex; flex-direction:column; }
@@ -54,6 +62,7 @@ $puedeResetearTotpDocumentosSensiblesRrhh = in_array(152, array_map('intval', (a
             .ch-access-module-group { flex:1 1 100%; max-width:100%; }
             .ch-access-module-columns { grid-template-columns:1fr; }
             .ch-access-module-columns .table + .table { border-left:0; border-top:1px solid #e9ecef; }
+            .ch-salary-audit-grid { grid-template-columns:1fr 1fr; }
         }
     </style>
 
@@ -63,6 +72,9 @@ $puedeResetearTotpDocumentosSensiblesRrhh = in_array(152, array_map('intval', (a
             <p class="ch-access-subtitle">Usuarios y permisos exclusivos del modulo Capital Humano.</p>
         </div>
         <div class="ch-access-actions">
+            <button class="btn btn-label-primary" type="button" data-ch-access-salary-audit title="Auditoria salarios">
+                <i class="fa-solid fa-user-lock"></i><span>Auditoría salarios</span>
+            </button>
             <button class="btn btn-label-secondary" type="button" data-ch-access-refresh title="Actualizar">
                 <i class="fa-solid fa-rotate"></i><span>Actualizar</span>
             </button>
@@ -231,6 +243,57 @@ $puedeResetearTotpDocumentosSensiblesRrhh = in_array(152, array_map('intval', (a
                         <i class="fa-solid fa-floppy-disk me-1"></i>Guardar
                     </button>
                     <button type="button" class="btn btn-label-danger" data-bs-dismiss="modal">Cancelar</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal fade" id="modalChSalaryAudit" tabindex="-1" aria-labelledby="chSalaryAuditTitle" aria-hidden="true">
+        <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
+            <div class="modal-content border-0 shadow-lg">
+                <div class="modal-header">
+                    <div>
+                        <h5 class="modal-title fw-bold mb-1" id="chSalaryAuditTitle"><i class="fa-solid fa-user-lock me-2"></i>Auditoría de salarios</h5>
+                        <div class="text-muted small fw-semibold">Permisos, consultas, guardados e intentos rechazados.</div>
+                    </div>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="ch-salary-audit-grid" id="chSalaryAuditKpis">
+                        <div class="ch-salary-audit-kpi"><span>Con permiso</span><strong>0</strong></div>
+                        <div class="ch-salary-audit-kpi"><span>Lecturas</span><strong>0</strong></div>
+                        <div class="ch-salary-audit-kpi"><span>Guardados</span><strong>0</strong></div>
+                        <div class="ch-salary-audit-kpi"><span>Denegados</span><strong>0</strong></div>
+                        <div class="ch-salary-audit-kpi"><span>Eventos</span><strong>0</strong></div>
+                    </div>
+                    <div class="row g-3">
+                        <div class="col-lg-5">
+                            <div class="card h-100">
+                                <div class="card-header fw-bold"><i class="fa-solid fa-key me-1"></i>Usuarios con permiso de salario</div>
+                                <div class="table-responsive">
+                                    <table class="table table-sm mb-0">
+                                        <thead><tr><th>Usuario</th><th>Puesto</th><th>Estatus</th></tr></thead>
+                                        <tbody id="chSalaryAuditUsuarios"><tr><td colspan="3" class="text-center text-muted py-3">Sin cargar</td></tr></tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-lg-7">
+                            <div class="card h-100">
+                                <div class="card-header fw-bold"><i class="fa-solid fa-clock-rotate-left me-1"></i>Bitácora reciente</div>
+                                <div class="table-responsive">
+                                    <table class="table table-sm mb-0">
+                                        <thead><tr><th>Fecha</th><th>Usuario</th><th>Acción</th><th>Resultado</th><th>Empleado</th></tr></thead>
+                                        <tbody id="chSalaryAuditEventos"><tr><td colspan="5" class="text-center text-muted py-3">Sin cargar</td></tr></tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-primary" data-ch-access-salary-audit-refresh><i class="fa-solid fa-rotate me-1"></i>Actualizar</button>
+                    <button type="button" class="btn btn-label-secondary" data-bs-dismiss="modal">Cerrar</button>
                 </div>
             </div>
         </div>
@@ -584,6 +647,77 @@ $puedeResetearTotpDocumentosSensiblesRrhh = in_array(152, array_map('intval', (a
                     this.toast('No se pudo reiniciar Google Authenticator.', 'error');
                 }
             },
+            async abrirAuditoriaSalarios() {
+                this.mostrarModal(document.getElementById('modalChSalaryAudit'));
+                await this.cargarAuditoriaSalarios();
+            },
+            async cargarAuditoriaSalarios() {
+                this.renderAuditoriaSalariosLoading();
+                try {
+                    const res = await this.getJson('/caphum/getAuditoriaSalariosRrhh');
+                    if (!res.success) {
+                        this.toast(res.mensaje || 'No se pudo cargar auditoria de salarios.', 'error');
+                        this.renderAuditoriaSalarios({ usuarios_con_permiso: [], eventos: [], totales: {} });
+                        return;
+                    }
+                    this.renderAuditoriaSalarios(res.datos || {});
+                } catch (e) {
+                    this.toast('No se pudo cargar auditoria de salarios.', 'error');
+                    this.renderAuditoriaSalarios({ usuarios_con_permiso: [], eventos: [], totales: {} });
+                }
+            },
+            renderAuditoriaSalariosLoading() {
+                const usuarios = document.getElementById('chSalaryAuditUsuarios');
+                const eventos = document.getElementById('chSalaryAuditEventos');
+                if (usuarios) usuarios.innerHTML = '<tr><td colspan="3" class="text-center text-muted py-3">Cargando usuarios...</td></tr>';
+                if (eventos) eventos.innerHTML = '<tr><td colspan="5" class="text-center text-muted py-3">Cargando bitacora...</td></tr>';
+            },
+            renderAuditoriaSalarios(datos) {
+                const totales = datos.totales || {};
+                const kpis = Array.from(document.querySelectorAll('#chSalaryAuditKpis strong'));
+                [
+                    totales.usuarios_con_permiso,
+                    totales.lecturas,
+                    totales.guardados,
+                    totales.denegados,
+                    totales.eventos
+                ].forEach((value, index) => {
+                    if (kpis[index]) kpis[index].textContent = Number(value || 0);
+                });
+
+                const usuarios = Array.isArray(datos.usuarios_con_permiso) ? datos.usuarios_con_permiso : [];
+                const tbodyUsuarios = document.getElementById('chSalaryAuditUsuarios');
+                if (tbodyUsuarios) {
+                    tbodyUsuarios.innerHTML = usuarios.length ? usuarios.map(u => `
+                        <tr>
+                            <td>
+                                <div class="fw-semibold">${this.escape(u.nombre || 'Sin nombre')}</div>
+                                <div class="small text-muted">${this.escape(u.user_name || u.correo || '')}</div>
+                            </td>
+                            <td>${this.escape(u.puesto || u.departamento || 'Sin puesto')}</td>
+                            <td><span class="ch-salary-audit-badge ${this.norm(u.estatus) === 'activo' ? 'ok' : 'warn'}">${this.escape(u.estatus || 'Sin estatus')}</span></td>
+                        </tr>
+                    `).join('') : '<tr><td colspan="3" class="text-center text-muted py-3">Nadie tiene permiso de salario.</td></tr>';
+                }
+
+                const eventos = Array.isArray(datos.eventos) ? datos.eventos : [];
+                const tbodyEventos = document.getElementById('chSalaryAuditEventos');
+                if (tbodyEventos) {
+                    tbodyEventos.innerHTML = eventos.length ? eventos.map(e => {
+                        const resultado = this.norm(e.resultado || '');
+                        const clase = resultado === 'autorizado' ? 'ok' : (resultado === 'denegado' || resultado === 'fallido' ? 'danger' : 'warn');
+                        return `
+                            <tr>
+                                <td class="text-nowrap">${this.escape(e.fecha_hora || '')}</td>
+                                <td>${this.escape(e.usuario_nombre || ('Usuario #' + (e.id_usuario || '')))}</td>
+                                <td>${this.escape(e.accion || '')}</td>
+                                <td><span class="ch-salary-audit-badge ${clase}">${this.escape(e.resultado || '')}</span></td>
+                                <td>${this.escape(e.persona_nombre || ('Persona #' + (e.id_persona || '')))}</td>
+                            </tr>
+                        `;
+                    }).join('') : '<tr><td colspan="5" class="text-center text-muted py-3">Aun no hay eventos de salario.</td></tr>';
+                }
+            },
             initTable() {
                 if (!window.jQuery || !jQuery.fn || !jQuery.fn.DataTable) return;
                 if (typeof window.configuraTabla === 'function') {
@@ -678,6 +812,16 @@ $puedeResetearTotpDocumentosSensiblesRrhh = in_array(152, array_map('intval', (a
                     const refresh = ev.target.closest('[data-ch-access-refresh]');
                     if (refresh) {
                         this.cargar();
+                        return;
+                    }
+                    const salaryAudit = ev.target.closest('[data-ch-access-salary-audit]');
+                    if (salaryAudit) {
+                        this.abrirAuditoriaSalarios();
+                        return;
+                    }
+                    const salaryAuditRefresh = ev.target.closest('[data-ch-access-salary-audit-refresh]');
+                    if (salaryAuditRefresh) {
+                        this.cargarAuditoriaSalarios();
                         return;
                     }
                     const save = ev.target.closest('[data-ch-access-save]');
