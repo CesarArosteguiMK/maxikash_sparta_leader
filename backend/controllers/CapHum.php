@@ -2434,10 +2434,6 @@ class CapHum extends Controller
                 3034: 'fa-solid fa-notes-medical',
                 3035: 'fa-solid fa-file-circle-check',
                 3036: 'fa-solid fa-calendar-xmark',
-                3037: 'fa-solid fa-ban',
-                3038: 'fa-solid fa-list-check',
-                3039: 'fa-solid fa-eye',
-                3040: 'fa-solid fa-unlock',
             };
 
             /** Mapa base de íconos (pestaña Módulos del sistema y filas agrupadas de permisos especiales). */
@@ -3869,21 +3865,15 @@ class CapHum extends Controller
                 const idsPermisoEdicionCobranza = new Set(Array.from({ length: 21 }, (_, i) => 107 + i));
                 const idsPermisosAtlas = new Set([129, 130]);
                 const idsPermisosMotosAdjudicadas = new Set([3037, 3038, 3039, 3040]);
-                const perfilesNormalizados = (Array.isArray(perfiles) ? perfiles : []).map(mod => {
+                const perfilesNormalizados = (Array.isArray(perfiles) ? perfiles : []).filter(mod => {
                     const idMod = Number(mod.modulo_id ?? mod.id ?? 0);
                     const nombreModulo = String(mod.modulo_nombre ?? mod.nombre ?? '').toLowerCase();
                     const descripcionModulo = String(mod.descripcion ?? '').toLowerCase();
-                    const esPermisoMotos = idsPermisosMotosAdjudicadas.has(idMod)
-                        || nombreModulo.includes('motos adjudicadas')
-                        || descripcionModulo.includes('motos adjudicadas');
-                    if (esPermisoMotos) {
-                        return Object.assign({}, mod, {
-                            menu_grupo: 'Motos Adjudicadas',
-                            menu_grupo_icono: 'fa-solid fa-motorcycle',
-                            menu_grupo_orden: 11,
-                            menu_item_orden: idMod
-                        });
-                    }
+                    return !idsPermisosMotosAdjudicadas.has(idMod)
+                        && !nombreModulo.includes('motos adjudicadas')
+                        && !descripcionModulo.includes('motos adjudicadas');
+                }).map(mod => {
+                    const idMod = Number(mod.modulo_id ?? mod.id ?? 0);
                     if (idMod === 151 || idMod === 152 || (idMod >= 3000 && idMod < 3100)) {
                         return Object.assign({}, mod, {
                             menu_grupo: 'Control documental RR.HH.',

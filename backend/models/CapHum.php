@@ -24,7 +24,7 @@ class CapHum extends Model
         140, 141, 142, 143, 144, 147, 151, 152,
         3008, 3009, 3010, 3011, 3012, 3013, 3014, 3015, 3016, 3017,
         3018, 3022, 3023, 3024, 3025, 3027, 3028, 3029, 3030, 3031,
-        3032, 3033, 3034, 3035, 3036, 3037, 3038, 3039, 3040,
+        3032, 3033, 3034, 3035, 3036,
     ];
     private const MODULO_CONVENIOS_DESCARGAR_EXCEL = 92;
     private const MODULO_CONVENIOS_DESCARGAR_EXCEL_NOMBRE = 'Descargar Excel';
@@ -4338,9 +4338,6 @@ class CapHum extends Model
 
     private static function grupoModuloAccesoCapitalHumano(int $id, string $pestana, string $nombre): array
     {
-        if (in_array($id, [3037, 3038, 3039, 3040], true)) {
-            return ['grupo' => 'Motos Adjudicadas', 'icono' => 'fa-solid fa-motorcycle', 'orden' => 18];
-        }
         if (in_array($id, [151, 152], true) || ($id >= 3000 && $id < 3100)) {
             return ['grupo' => 'Control documental RR.HH.', 'icono' => 'fa fa-folder-open', 'orden' => 28];
         }
