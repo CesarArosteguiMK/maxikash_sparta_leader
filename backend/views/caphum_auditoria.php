@@ -26,11 +26,25 @@
         .ch-audit-user { min-width:210px; }
         .ch-audit-user strong { display:block; color:#22303e; font-size:.88rem; font-weight:900; }
         .ch-audit-user small { color:#64748b; display:block; font-weight:700; margin-top:.15rem; }
+        .ch-audit-document { min-width:220px; }
+        .ch-audit-document strong { display:block; color:#22303e; font-size:.86rem; font-weight:900; }
+        .ch-audit-document small { color:#64748b; display:block; font-weight:700; margin-top:.16rem; word-break:break-word; }
+        .ch-audit-doc-note { border-radius:999px; display:inline-flex; align-items:center; gap:.3rem; font-size:.68rem; font-weight:900; padding:.18rem .5rem; margin-top:.3rem; }
+        .ch-audit-doc-note.protected { background:#eef2ff; color:#3730a3; }
+        .ch-audit-doc-note.regular { background:#ecfeff; color:#155e75; }
+        .ch-audit-doc-note.salary { background:#fff7ed; color:#9a3412; }
         .ch-audit-badge { border-radius:999px; display:inline-flex; align-items:center; justify-content:center; font-size:.72rem; font-weight:900; padding:.22rem .55rem; white-space:nowrap; }
         .ch-audit-badge.ok { background:#dcfce7; color:#166534; }
         .ch-audit-badge.warn { background:#fff7ed; color:#9a3412; }
         .ch-audit-badge.danger { background:#fee2e2; color:#991b1b; }
         .ch-audit-badge.neutral { background:#e2e8f0; color:#334155; }
+        .ch-audit-action { border-radius:999px; display:inline-flex; align-items:center; gap:.35rem; font-size:.72rem; font-weight:900; padding:.28rem .58rem; white-space:nowrap; }
+        .ch-audit-action.view { background:#e0f2fe; color:#075985; }
+        .ch-audit-action.download { background:#dcfce7; color:#166534; }
+        .ch-audit-action.delete { background:#fee2e2; color:#991b1b; }
+        .ch-audit-action.upload { background:#ede9fe; color:#5b21b6; }
+        .ch-audit-action.auth { background:#fef3c7; color:#92400e; }
+        .ch-audit-action.neutral { background:#e2e8f0; color:#334155; }
         .ch-audit-filters { display:grid; grid-template-columns:170px 170px minmax(180px, 1fr); gap:.65rem; align-items:center; }
         .ch-audit-empty { color:#64748b; font-weight:700; padding:1.2rem; text-align:center; }
         .ch-audit-scroll { max-height:420px; overflow:auto; }
@@ -139,14 +153,15 @@
                         <th>Fecha</th>
                         <th>Tipo</th>
                         <th>Usuario</th>
-                        <th>Persona / recurso</th>
+                        <th>Persona</th>
+                        <th>Documento</th>
                         <th>Accion</th>
                         <th>Resultado</th>
                         <th>Detalle</th>
                     </tr>
                 </thead>
                 <tbody id="chAuditEventsBody">
-                    <tr><td colspan="7" class="ch-audit-empty">Cargando bitacora...</td></tr>
+                    <tr><td colspan="8" class="ch-audit-empty">Cargando bitacora...</td></tr>
                 </tbody>
             </table>
         </div>
@@ -179,6 +194,52 @@
         if (value === 'autorizado' || value === 'ok') return badge(resultado || 'autorizado', 'ok');
         if (value === 'denegado') return badge(resultado, 'danger');
         return badge(resultado || 'desconocido', 'neutral');
+    };
+    const actionMeta = (accion, tipo) => {
+        const value = String(accion || '').toLowerCase();
+        const map = {
+            ver: ['Visualizo', 'view', 'fa-eye'],
+            descargar: ['Descargo', 'download', 'fa-download'],
+            eliminar: ['Elimino', 'delete', 'fa-trash'],
+            subir: ['Subio', 'upload', 'fa-upload'],
+            importar: ['Importo', 'upload', 'fa-file-import'],
+            guardar: ['Guardo', 'upload', 'fa-floppy-disk'],
+            leer: ['Consulto', 'view', 'fa-eye'],
+            totp: ['Valido TOTP', 'auth', 'fa-key'],
+            totp_setup: ['Configuro TOTP', 'auth', 'fa-qrcode'],
+            totp_confirmar: ['Confirmo TOTP', 'auth', 'fa-check-double'],
+            totp_estado: ['Reviso TOTP', 'auth', 'fa-mobile-screen-button'],
+            reset_totp: ['Reinicio TOTP', 'auth', 'fa-rotate-left'],
+            generar_token: [tipo === 'documentos' ? 'Autorizo acceso' : 'Autorizo', 'auth', 'fa-shield-halved'],
+        };
+        return map[value] || [accion || 'Evento', 'neutral', 'fa-circle-info'];
+    };
+    const actionBadge = (accion, tipo) => {
+        const [label, css, icon] = actionMeta(accion, tipo);
+        return `<span class="ch-audit-action ${css}"><i class="fa-solid ${icon}"></i>${escapeHtml(label)}</span>`;
+    };
+    const documentCell = (row) => {
+        if (row.tipo === 'salarios') {
+            return `
+                <td class="ch-audit-document">
+                    <strong>Salario protegido</strong>
+                    <small><span class="ch-audit-doc-note salary"><i class="fa-solid fa-lock"></i>Campo cifrado</span></small>
+                </td>
+            `;
+        }
+        const documento = String(row.documento_nombre || row.recurso || '').trim();
+        const idDocumento = String(row.id_documento || '').trim();
+        const archivo = String(row.archivo || '').trim();
+        const protegido = ['28', '29', '31', '37', '38'].includes(idDocumento) || archivo.toLowerCase().endsWith('.fad');
+        const nota = protegido
+            ? '<span class="ch-audit-doc-note protected"><i class="fa-solid fa-lock"></i>Documento protegido</span>'
+            : '<span class="ch-audit-doc-note regular"><i class="fa-solid fa-file-lines"></i>Registro documental</span>';
+        return `
+            <td class="ch-audit-document">
+                <strong>${textOrDash(documento)}</strong>
+                <small>${nota}</small>
+            </td>
+        `;
     };
 
     function setLoading(isLoading) {
@@ -254,6 +315,9 @@
             const hayBusqueda = !q || [
                 row.usuario_nombre,
                 row.persona_nombre,
+                row.documento_nombre,
+                row.id_documento,
+                row.id_documento_carga,
                 row.recurso,
                 row.archivo,
                 row.accion,
@@ -264,7 +328,7 @@
             return tipoOk && resultadoOk && hayBusqueda;
         });
         if (!rows.length) {
-            tbody.innerHTML = '<tr><td colspan="7" class="ch-audit-empty">No hay eventos con esos filtros.</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="8" class="ch-audit-empty">No hay eventos con esos filtros.</td></tr>';
             return;
         }
         tbody.innerHTML = rows.map((row) => `
@@ -277,9 +341,10 @@
                 </td>
                 <td class="ch-audit-user">
                     <strong>${textOrDash(row.persona_nombre)}</strong>
-                    <small>${textOrDash(row.recurso)}${row.archivo ? ` &middot; ${textOrDash(row.archivo)}` : ''}</small>
+                    <small>ID ${textOrDash(row.id_persona)}</small>
                 </td>
-                <td>${textOrDash(row.accion)}</td>
+                ${documentCell(row)}
+                <td>${actionBadge(row.accion, row.tipo)}</td>
                 <td>${resultBadge(row.resultado)}</td>
                 <td>${textOrDash(row.detalle)}</td>
             </tr>
@@ -307,7 +372,7 @@
             state.data = payload.datos || {};
             renderAll();
         } catch (error) {
-            $('#chAuditEventsBody').innerHTML = `<tr><td colspan="7" class="ch-audit-empty">${escapeHtml(error.message || 'Error al cargar auditoria.')}</td></tr>`;
+            $('#chAuditEventsBody').innerHTML = `<tr><td colspan="8" class="ch-audit-empty">${escapeHtml(error.message || 'Error al cargar auditoria.')}</td></tr>`;
             $('#chAuditPermissionsBody').innerHTML = '<tr><td colspan="4" class="ch-audit-empty">No se pudo cargar permisos.</td></tr>';
             $('#chAuditTotpBody').innerHTML = '<tr><td colspan="3" class="ch-audit-empty">No se pudo cargar autenticadores.</td></tr>';
         } finally {

@@ -73,35 +73,73 @@ class AtencionClientes
             }
 
             foreach ($permisos as $id => $permiso) {
-                $existe = $this->db->queryOne('SELECT id FROM modulos_web WHERE id = :id LIMIT 1', ['id' => $id]);
-                if ($existe) {
-                    $this->db->CRUD(
-                        'UPDATE modulos_web
-                            SET nombre = :nombre, pestana = :pestana, descripcion = :descripcion, activo = 1
-                          WHERE id = :id',
-                        [
-                            'id' => $id,
-                            'nombre' => $permiso['nombre'],
-                            'pestana' => 'Permisos especiales',
-                            'descripcion' => $permiso['descripcion'],
-                        ]
-                    );
-                    continue;
-                }
-                $this->db->CRUD(
-                    'INSERT INTO modulos_web (id, nombre, pestana, descripcion, activo)
-                     VALUES (:id, :nombre, :pestana, :descripcion, 1)',
-                    [
-                        'id' => $id,
-                        'nombre' => $permiso['nombre'],
-                        'pestana' => 'Permisos especiales',
-                        'descripcion' => $permiso['descripcion'],
-                    ]
-                );
+                $this->asegurarModuloWeb([
+                    'id' => $id,
+                    'nombre' => $permiso['nombre'],
+                    'pestana' => 'Permisos especiales',
+                    'descripcion' => $permiso['descripcion'],
+                ]);
             }
         } catch (\Throwable $e) {
             // La vista no debe romperse si el usuario de BD no puede tocar modulos_web.
         }
+    }
+
+    private function asegurarModuloWeb(array $datos): void
+    {
+        $id = (int)($datos['id'] ?? 0);
+        $nombre = trim((string)($datos['nombre'] ?? ''));
+        if ($id <= 0 || $nombre === '') {
+            return;
+        }
+
+        $existentePorId = $this->db->queryOne(
+            'SELECT id FROM modulos_web WHERE id = :id LIMIT 1',
+            ['id' => $id]
+        );
+        if ($existentePorId) {
+            $this->db->CRUD(
+                'UPDATE modulos_web
+                    SET nombre = :nombre,
+                        pestana = :pestana,
+                        descripcion = :descripcion,
+                        activo = 1
+                  WHERE id = :id',
+                $datos
+            );
+            return;
+        }
+
+        $existentePorNombre = $this->db->queryOne(
+            'SELECT id FROM modulos_web WHERE nombre = :nombre LIMIT 1',
+            ['nombre' => $nombre]
+        );
+        $idExistente = (int)($existentePorNombre['id'] ?? 0);
+        if ($idExistente > 0 && $idExistente !== $id) {
+            $this->renumerarModuloWebId($idExistente, $id);
+            $existentePorId = $this->db->queryOne(
+                'SELECT id FROM modulos_web WHERE id = :id LIMIT 1',
+                ['id' => $id]
+            );
+            if ($existentePorId) {
+                $this->db->CRUD(
+                    'UPDATE modulos_web
+                        SET nombre = :nombre,
+                            pestana = :pestana,
+                            descripcion = :descripcion,
+                            activo = 1
+                      WHERE id = :id',
+                    $datos
+                );
+                return;
+            }
+        }
+
+        $this->db->CRUD(
+            'INSERT INTO modulos_web (id, nombre, pestana, descripcion, activo)
+             VALUES (:id, :nombre, :pestana, :descripcion, 1)',
+            $datos
+        );
     }
 
     private function renumerarModuloWebId(int $idViejo, int $idNuevo): void
@@ -119,18 +157,38 @@ class AtencionClientes
                 return;
             }
 
-            $existeNuevo = $this->db->queryOne('SELECT id FROM modulos_web WHERE id = :id LIMIT 1', ['id' => $idNuevo]);
-            if (!$existeNuevo) {
+            $datosNuevo = [
+                'id' => $idNuevo,
+                'nombre' => (string)($moduloViejo['nombre'] ?? ''),
+                'pestana' => (string)($moduloViejo['pestana'] ?? ''),
+                'descripcion' => (string)($moduloViejo['descripcion'] ?? ''),
+                'activo' => (int)($moduloViejo['activo'] ?? 1),
+            ];
+
+            $moduloNuevo = $this->db->queryOne(
+                'SELECT id FROM modulos_web WHERE id = :id LIMIT 1',
+                ['id' => $idNuevo]
+            );
+            if ($moduloNuevo) {
+                $this->db->CRUD(
+                    'UPDATE modulos_web
+                        SET nombre = :nombre,
+                            pestana = :pestana,
+                            descripcion = :descripcion,
+                            activo = :activo
+                      WHERE id = :id',
+                    $datosNuevo
+                );
+            } else {
+                $nombreTemporal = '__renumerando_' . $idViejo . '_' . $idNuevo . '_' . bin2hex(random_bytes(4));
+                $this->db->CRUD(
+                    'UPDATE modulos_web SET nombre = :nombre_temporal WHERE id = :id_viejo',
+                    ['nombre_temporal' => $nombreTemporal, 'id_viejo' => $idViejo]
+                );
                 $this->db->CRUD(
                     'INSERT INTO modulos_web (id, nombre, pestana, descripcion, activo)
                      VALUES (:id, :nombre, :pestana, :descripcion, :activo)',
-                    [
-                        'id' => $idNuevo,
-                        'nombre' => (string)($moduloViejo['nombre'] ?? ''),
-                        'pestana' => (string)($moduloViejo['pestana'] ?? ''),
-                        'descripcion' => (string)($moduloViejo['descripcion'] ?? ''),
-                        'activo' => (int)($moduloViejo['activo'] ?? 1),
-                    ]
+                    $datosNuevo
                 );
             }
 

@@ -46,6 +46,8 @@ class CapHum extends Model
         34 => 177,
         35 => 178,
         36 => 179,
+        37 => 184,
+        38 => 185,
     ];
     private const MODULOS_ACCESOS_CAPITAL_HUMANO_IDS = [
         4, 5, 13, 34, 38, 42, 44, 82, 83, 86, 87, 88, 91, 93,
@@ -53,7 +55,7 @@ class CapHum extends Model
         140, 141, 142, 143, 144, 147, 151, 152, 153, 154,
         155, 156, 157, 158, 159, 160, 161, 162, 163, 164,
         165, 166, 167, 168, 169, 170, 171, 172, 173, 174,
-        175, 176, 177, 178, 179,
+        175, 176, 177, 178, 179, 184, 185,
     ];
     private const MODULO_CONVENIOS_DESCARGAR_EXCEL = 92;
     private const MODULO_CONVENIOS_DESCARGAR_EXCEL_NOMBRE = 'Descargar Excel';
@@ -163,6 +165,8 @@ class CapHum extends Model
             34 => 'Documento incapacidad',
             35 => 'Documento permiso',
             36 => 'Documento falta',
+            37 => 'Finiquito',
+            38 => 'Comprobante de pago finiquito',
         ];
 
         foreach ($documentosRrhh as $idDocumento => $nombreDocumento) {
@@ -186,11 +190,50 @@ class CapHum extends Model
         }
 
         foreach ($modulos as $datos) {
-            $existe = $db->queryOne(
-                'SELECT id FROM modulos_web WHERE id = :id LIMIT 1',
-                ['id' => $datos['id']]
+            self::asegurarModuloWeb($db, $datos);
+        }
+    }
+
+    /**
+     * Inserta/actualiza el modulo y resuelve duplicados por nombre sin romper el id esperado.
+     */
+    private static function asegurarModuloWeb(Database $db, array $datos): void
+    {
+        $id = (int)($datos['id'] ?? 0);
+        $nombre = trim((string)($datos['nombre'] ?? ''));
+        if ($id <= 0 || $nombre === '') {
+            return;
+        }
+
+        $existentePorId = $db->queryOne(
+            'SELECT id FROM modulos_web WHERE id = :id LIMIT 1',
+            ['id' => $id]
+        );
+        if ($existentePorId) {
+            $db->CRUD(
+                'UPDATE modulos_web
+                    SET nombre = :nombre,
+                        pestana = :pestana,
+                        descripcion = :descripcion,
+                        activo = 1
+                  WHERE id = :id',
+                $datos
             );
-            if ($existe) {
+            return;
+        }
+
+        $existentePorNombre = $db->queryOne(
+            'SELECT id FROM modulos_web WHERE nombre = :nombre LIMIT 1',
+            ['nombre' => $nombre]
+        );
+        $idExistente = (int)($existentePorNombre['id'] ?? 0);
+        if ($idExistente > 0 && $idExistente !== $id) {
+            self::renumerarModuloWebId($db, $idExistente, $id);
+            $existentePorId = $db->queryOne(
+                'SELECT id FROM modulos_web WHERE id = :id LIMIT 1',
+                ['id' => $id]
+            );
+            if ($existentePorId) {
                 $db->CRUD(
                     'UPDATE modulos_web
                         SET nombre = :nombre,
@@ -200,14 +243,15 @@ class CapHum extends Model
                       WHERE id = :id',
                     $datos
                 );
-                continue;
+                return;
             }
-            $db->CRUD(
-                'INSERT INTO modulos_web (id, nombre, pestana, descripcion, activo)
-                 VALUES (:id, :nombre, :pestana, :descripcion, 1)',
-                $datos
-            );
         }
+
+        $db->CRUD(
+            'INSERT INTO modulos_web (id, nombre, pestana, descripcion, activo)
+             VALUES (:id, :nombre, :pestana, :descripcion, 1)',
+            $datos
+        );
     }
 
     private static function renumerarModuloWebId(Database $db, int $idViejo, int $idNuevo): void
@@ -225,18 +269,38 @@ class CapHum extends Model
                 return;
             }
 
-            $existeNuevo = $db->queryOne('SELECT id FROM modulos_web WHERE id = :id LIMIT 1', ['id' => $idNuevo]);
-            if (!$existeNuevo) {
+            $datosNuevo = [
+                'id' => $idNuevo,
+                'nombre' => (string)($moduloViejo['nombre'] ?? ''),
+                'pestana' => (string)($moduloViejo['pestana'] ?? ''),
+                'descripcion' => (string)($moduloViejo['descripcion'] ?? ''),
+                'activo' => (int)($moduloViejo['activo'] ?? 1),
+            ];
+
+            $moduloNuevo = $db->queryOne(
+                'SELECT id FROM modulos_web WHERE id = :id LIMIT 1',
+                ['id' => $idNuevo]
+            );
+            if ($moduloNuevo) {
+                $db->CRUD(
+                    'UPDATE modulos_web
+                        SET nombre = :nombre,
+                            pestana = :pestana,
+                            descripcion = :descripcion,
+                            activo = :activo
+                      WHERE id = :id',
+                    $datosNuevo
+                );
+            } else {
+                $nombreTemporal = '__renumerando_' . $idViejo . '_' . $idNuevo . '_' . bin2hex(random_bytes(4));
+                $db->CRUD(
+                    'UPDATE modulos_web SET nombre = :nombre_temporal WHERE id = :id_viejo',
+                    ['nombre_temporal' => $nombreTemporal, 'id_viejo' => $idViejo]
+                );
                 $db->CRUD(
                     'INSERT INTO modulos_web (id, nombre, pestana, descripcion, activo)
                      VALUES (:id, :nombre, :pestana, :descripcion, :activo)',
-                    [
-                        'id' => $idNuevo,
-                        'nombre' => (string)($moduloViejo['nombre'] ?? ''),
-                        'pestana' => (string)($moduloViejo['pestana'] ?? ''),
-                        'descripcion' => (string)($moduloViejo['descripcion'] ?? ''),
-                        'activo' => (int)($moduloViejo['activo'] ?? 1),
-                    ]
+                    $datosNuevo
                 );
             }
 
@@ -401,6 +465,8 @@ class CapHum extends Model
         ['id' => 34, 'clave' => 'DOCUMENTO_INCAPACIDAD', 'nombre' => 'Documento incapacidad'],
         ['id' => 35, 'clave' => 'DOCUMENTO_PERMISO', 'nombre' => 'Documento permiso'],
         ['id' => 36, 'clave' => 'DOCUMENTO_FALTA', 'nombre' => 'Documento falta'],
+        ['id' => 37, 'clave' => 'FINIQUITO', 'nombre' => 'Finiquito'],
+        ['id' => 38, 'clave' => 'COMPROBANTE_PAGO_FINIQUITO', 'nombre' => 'Comprobante de pago finiquito'],
     ];
     private const DOCUMENTOS_EXCLUIDOS_RRHH = [19, 20, 21];
     private const DOCUMENTOS_ALIAS_RRHH = [
@@ -4410,7 +4476,76 @@ class CapHum extends Model
                     COALESCE(NULLIF(TRIM(a.usuario_nombre), ''), TRIM(CONCAT_WS(' ', u.nombres, u.segundo_nombre, u.apellidop, u.apellidom)), CONCAT('Usuario #', COALESCE(a.id_usuario, ''))) AS usuario_nombre,
                     a.id_persona,
                     COALESCE(NULLIF(TRIM(a.persona_nombre), ''), TRIM(CONCAT_WS(' ', p.nombres, p.segundo_nombre, p.apellidop, p.apellidom)), CONCAT('Persona #', COALESCE(a.id_persona, ''))) AS persona_nombre,
-                    COALESCE(NULLIF(TRIM(a.documento_nombre), ''), CONCAT('Documento #', a.id_documento)) AS recurso,
+                    a.id_documento_carga,
+                    a.id_documento,
+                    COALESCE(
+                        NULLIF(TRIM(a.documento_nombre), ''),
+                        NULLIF(TRIM(d.nombre), ''),
+                        CASE a.id_documento
+                            WHEN 8 THEN 'CURP'
+                            WHEN 9 THEN 'Identificacion Oficial (INE)'
+                            WHEN 10 THEN 'RFC'
+                            WHEN 11 THEN 'Comprobante de Domicilio'
+                            WHEN 12 THEN 'Acta de Nacimiento'
+                            WHEN 13 THEN 'Certificado de Estudios'
+                            WHEN 14 THEN 'Referencias Laborales'
+                            WHEN 15 THEN 'Documento baja'
+                            WHEN 16 THEN 'Documento reingreso'
+                            WHEN 17 THEN 'Solicitud interna'
+                            WHEN 18 THEN 'CV o Solicitud de Trabajo'
+                            WHEN 22 THEN 'Constancia de Situacion Fiscal'
+                            WHEN 23 THEN 'Numero de Seguridad Social'
+                            WHEN 24 THEN 'Hoja de Retencion FONACOT o INFONAVIT'
+                            WHEN 25 THEN 'Estado de Cuenta'
+                            WHEN 27 THEN 'Carta de compromiso del Gestor'
+                            WHEN 28 THEN 'Contrato firmado'
+                            WHEN 29 THEN 'Archivo .FAD'
+                            WHEN 30 THEN 'Validacion SAT'
+                            WHEN 31 THEN 'Llave vector'
+                            WHEN 32 THEN 'Prueba centavo'
+                            WHEN 33 THEN 'Semanas cotizadas IMSS (segundos patrones)'
+                            WHEN 34 THEN 'Documento incapacidad'
+                            WHEN 35 THEN 'Documento permiso'
+                            WHEN 36 THEN 'Documento falta'
+                            WHEN 37 THEN 'Finiquito'
+                            WHEN 38 THEN 'Comprobante de pago finiquito'
+                            ELSE 'Documento RR.HH.'
+                        END
+                    ) AS documento_nombre,
+                    COALESCE(
+                        NULLIF(TRIM(a.documento_nombre), ''),
+                        NULLIF(TRIM(d.nombre), ''),
+                        CASE a.id_documento
+                            WHEN 8 THEN 'CURP'
+                            WHEN 9 THEN 'Identificacion Oficial (INE)'
+                            WHEN 10 THEN 'RFC'
+                            WHEN 11 THEN 'Comprobante de Domicilio'
+                            WHEN 12 THEN 'Acta de Nacimiento'
+                            WHEN 13 THEN 'Certificado de Estudios'
+                            WHEN 14 THEN 'Referencias Laborales'
+                            WHEN 15 THEN 'Documento baja'
+                            WHEN 16 THEN 'Documento reingreso'
+                            WHEN 17 THEN 'Solicitud interna'
+                            WHEN 18 THEN 'CV o Solicitud de Trabajo'
+                            WHEN 22 THEN 'Constancia de Situacion Fiscal'
+                            WHEN 23 THEN 'Numero de Seguridad Social'
+                            WHEN 24 THEN 'Hoja de Retencion FONACOT o INFONAVIT'
+                            WHEN 25 THEN 'Estado de Cuenta'
+                            WHEN 27 THEN 'Carta de compromiso del Gestor'
+                            WHEN 28 THEN 'Contrato firmado'
+                            WHEN 29 THEN 'Archivo .FAD'
+                            WHEN 30 THEN 'Validacion SAT'
+                            WHEN 31 THEN 'Llave vector'
+                            WHEN 32 THEN 'Prueba centavo'
+                            WHEN 33 THEN 'Semanas cotizadas IMSS (segundos patrones)'
+                            WHEN 34 THEN 'Documento incapacidad'
+                            WHEN 35 THEN 'Documento permiso'
+                            WHEN 36 THEN 'Documento falta'
+                            WHEN 37 THEN 'Finiquito'
+                            WHEN 38 THEN 'Comprobante de pago finiquito'
+                            ELSE 'Documento RR.HH.'
+                        END
+                    ) AS recurso,
                     a.archivo,
                     a.accion,
                     a.resultado,
@@ -4419,6 +4554,7 @@ class CapHum extends Model
                 FROM __SPARTA_SECRET_REDACTED__.auditoria_documentos_sensibles_rrhh a
                 LEFT JOIN persona u ON u.id = a.id_usuario
                 LEFT JOIN persona p ON p.id = a.id_persona
+                LEFT JOIN __SPARTA_SECRET_REDACTED__.documento d ON d.id = a.id_documento
                 ORDER BY a.fecha_hora DESC, a.id DESC
                 LIMIT 300
             ") ?: [];
@@ -4432,6 +4568,9 @@ class CapHum extends Model
                     COALESCE(NULLIF(TRIM(a.usuario_nombre), ''), TRIM(CONCAT_WS(' ', u.nombres, u.segundo_nombre, u.apellidop, u.apellidom)), CONCAT('Usuario #', a.id_usuario)) AS usuario_nombre,
                     a.id_persona,
                     COALESCE(NULLIF(TRIM(a.persona_nombre), ''), TRIM(CONCAT_WS(' ', p.nombres, p.segundo_nombre, p.apellidop, p.apellidom)), CONCAT('Persona #', a.id_persona)) AS persona_nombre,
+                    NULL AS id_documento_carga,
+                    NULL AS id_documento,
+                    'Salario protegido' AS documento_nombre,
                     'Salario protegido' AS recurso,
                     '' AS archivo,
                     a.accion,

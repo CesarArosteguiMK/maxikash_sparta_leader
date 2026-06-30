@@ -6895,6 +6895,36 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
                             <option value="">Seleccione un tipo de documento</option>
                             <?php
                             $modulosSesionDocumentoRrhh = array_map('intval', (array) ($_SESSION['modulos'] ?? []));
+                            $usuarioSesionDocumentoRrhh = (int) ($_SESSION['usuario_id'] ?? $_SESSION['persona_id'] ?? $_SESSION['id_usuario'] ?? $_SESSION['id'] ?? 0);
+                            $modulosDocumentoRrhhSelect = [
+                                8 => 155,
+                                9 => 156,
+                                10 => 157,
+                                11 => 158,
+                                12 => 159,
+                                13 => 160,
+                                14 => 161,
+                                15 => 162,
+                                16 => 163,
+                                17 => 164,
+                                18 => 165,
+                                22 => 166,
+                                23 => 167,
+                                24 => 168,
+                                25 => 169,
+                                27 => 170,
+                                28 => 171,
+                                29 => 172,
+                                30 => 173,
+                                31 => 174,
+                                32 => 175,
+                                33 => 176,
+                                34 => 177,
+                                35 => 178,
+                                36 => 179,
+                                37 => 184,
+                                38 => 185,
+                            ];
                             $tiposDocumentoRrhhSelect = [
                                 12 => 'Acta de Nacimiento',
                                 29 => 'Archivo .FAD',
@@ -6916,9 +6946,22 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
                                 17 => 'Solicitud interna',
                                 18 => 'CV o solicitud de trabajo',
                                 30 => 'Validacion SAT',
+                                22 => 'Constancia de Situacion Fiscal',
+                                23 => 'Numero de Seguridad Social',
+                                34 => 'Documento incapacidad',
+                                35 => 'Documento permiso',
+                                36 => 'Documento falta',
+                                37 => 'Finiquito',
+                                38 => 'Comprobante de pago finiquito',
                             ];
                             foreach ($tiposDocumentoRrhhSelect as $idDocumentoRrhh => $nombreDocumentoRrhh):
-                                if (!in_array(3000 + (int) $idDocumentoRrhh, $modulosSesionDocumentoRrhh, true)) {
+                                $idDocumentoRrhh = (int) $idDocumentoRrhh;
+                                $idModuloNuevoDocumentoRrhh = (int) ($modulosDocumentoRrhhSelect[$idDocumentoRrhh] ?? 0);
+                                $tienePermisoDocumentoRrhh = $usuarioSesionDocumentoRrhh === 1
+                                    || ($idModuloNuevoDocumentoRrhh > 0 && in_array($idModuloNuevoDocumentoRrhh, $modulosSesionDocumentoRrhh, true))
+                                    || in_array(3000 + $idDocumentoRrhh, $modulosSesionDocumentoRrhh, true)
+                                    || ($idDocumentoRrhh === 27 && in_array(144, $modulosSesionDocumentoRrhh, true));
+                                if (!$tienePermisoDocumentoRrhh) {
                                     continue;
                                 }
                             ?>
