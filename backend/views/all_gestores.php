@@ -13225,16 +13225,20 @@ function precargarCascadaEdit(idPais, idEstado, idMunicipio, idColonia, idCalle,
     estadoSalarioSensibleRrhh.innerHTML = `<i class="fa ${icon}"></i>${escapeRrhhHtml(texto)}`;
   }
 
-  function resetSalarioSensibleRrhh(esEdicion = false) {
+  function resetSalarioSensibleRrhh(esEdicion = false, tieneSalario = false) {
     if (inputSalarioSensibleRrhh) {
-      inputSalarioSensibleRrhh.value = '';
+      inputSalarioSensibleRrhh.value = esEdicion && tieneSalario ? '********' : '';
       inputSalarioSensibleRrhh.type = 'password';
       inputSalarioSensibleRrhh.disabled = true;
       inputSalarioSensibleRrhh.placeholder = esEdicion ? 'Protegido' : 'Disponible al editar';
     }
     if (btnDesbloquearSalarioRrhh) btnDesbloquearSalarioRrhh.disabled = !esEdicion;
     if (btnGuardarSalarioRrhh) btnGuardarSalarioRrhh.disabled = true;
-    setEstadoSalarioSensibleRrhh(esEdicion ? 'Protegido' : 'Solo al editar', 'locked');
+    setEstadoSalarioSensibleRrhh(esEdicion ? (tieneSalario ? 'Guardado' : 'Sin capturar') : 'Solo al editar', 'locked');
+  }
+
+  function aplicarEstadoSalarioSensibleRrhh(meta = {}) {
+    resetSalarioSensibleRrhh(form.dataset.mode === 'editar', !!meta.tiene_salario);
   }
 
   function idPersonaRrhhActual() {
@@ -13369,8 +13373,12 @@ function precargarCascadaEdit(idPais, idEstado, idMunicipio, idColonia, idCalle,
       });
       if (!data) return;
       if (!data.success) throw new Error(data.mensaje || 'No se pudo guardar el salario.');
-      inputSalarioSensibleRrhh.value = data.datos?.salario || '';
-      setEstadoSalarioSensibleRrhh('Guardado', 'unlocked');
+      if (data.datos && data.datos.tiene_salario === false) {
+        resetSalarioSensibleRrhh(true, false);
+      } else {
+        inputSalarioSensibleRrhh.value = data.datos?.salario || '';
+        setEstadoSalarioSensibleRrhh('Guardado', 'unlocked');
+      }
       Swal.fire('Guardado', 'Salario protegido actualizado correctamente.', 'success');
     } catch (error) {
       Swal.fire('Error', error.message || 'No se pudo guardar el salario.', 'error');
@@ -14092,6 +14100,7 @@ function precargarCascadaEdit(idPais, idEstado, idMunicipio, idColonia, idCalle,
     Object.entries(data?.rrhh || {}).forEach(([key, value]) => setFormValueByName(`rrhh.${key}`, value));
     Object.entries(data?.nomina || {}).forEach(([key, value]) => setFormValueByName(`nomina.${key}`, value));
     setFormValueByName('observaciones', data?.observaciones || '');
+    aplicarEstadoSalarioSensibleRrhh(data?.salario_sensible || {});
 
     initRrhhDatepickers();
     await precargarSelectsLaboralesRrhh(data || {});

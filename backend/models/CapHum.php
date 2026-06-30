@@ -3902,7 +3902,11 @@ class CapHum extends Model
             if ($registro && !empty($registro['secret'])) {
                 $secretPlano = self::descifrarSecretoTotp((string)$registro['secret']);
                 if ($secretPlano === '') {
-                    return self::resultado(false, 'No se pudo descifrar el segundo paso.', null);
+                    $db->CRUD("
+                        DELETE FROM __SPARTA_SECRET_REDACTED__.rrhh_documentos_sensibles_totp
+                        WHERE id_persona = :id_persona
+                    ", ['id_persona' => $idPersona]);
+                    return self::resultado(true, 'Segundo paso reiniciado por clave ilegible.', null);
                 }
                 if (!self::esSecretoTotpCifrado((string)$registro['secret'])) {
                     $db->CRUD("
@@ -4037,6 +4041,26 @@ class CapHum extends Model
             ]);
         } catch (\Exception $e) {
             return self::resultado(false, 'Error al consultar salario sensible.', null, $e->getMessage());
+        }
+    }
+
+    public static function personaTieneSalarioSensible(int $idPersona): bool
+    {
+        try {
+            if ($idPersona <= 0) {
+                return false;
+            }
+            $db = new Database();
+            self::asegurarSalariosSensiblesRrhh($db);
+            $row = $db->queryOne("
+                SELECT 1 AS ok
+                FROM __SPARTA_SECRET_REDACTED__.rrhh_salarios_sensibles
+                WHERE id_persona = :id_persona
+                LIMIT 1
+            ", ['id_persona' => $idPersona]);
+            return !empty($row);
+        } catch (\Throwable $e) {
+            return false;
         }
     }
 
