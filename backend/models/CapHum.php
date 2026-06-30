@@ -4120,6 +4120,110 @@ class CapHum extends Model
         }
     }
 
+    public static function getAuditoriaSalariosSensiblesRrhh(): array
+    {
+        try {
+            $db = new Database();
+            self::asegurarModuloAccesosCapitalHumanoDb($db);
+            self::asegurarSalariosSensiblesRrhh($db);
+
+            $usuariosConPermiso = $db->queryAll("
+                SELECT
+                    p.id AS persona_id,
+                    p.numero_empleado,
+                    TRIM(CONCAT_WS(' ',
+                        NULLIF(TRIM(p.nombres), ''),
+                        NULLIF(TRIM(p.segundo_nombre), ''),
+                        NULLIF(TRIM(p.apellidop), ''),
+                        NULLIF(TRIM(p.apellidom), '')
+                    )) AS nombre,
+                    p.user_name,
+                    p.correo,
+                    p.estatus,
+                    COALESCE(NULLIF(TRIM(pdr.puesto_texto), ''), pu.nombre, '') AS puesto,
+                    COALESCE(NULLIF(TRIM(pdr.departamento_texto), ''), dep.nombre, '') AS departamento
+                FROM asigna_modulo_web am
+                INNER JOIN persona p ON p.id = am.usuario_id
+                LEFT JOIN persona_datos_rrhh pdr ON pdr.id_persona = p.id
+                LEFT JOIN asigna_puesto ap ON ap.id_persona = p.id AND COALESCE(ap.activo, 1) = 1
+                LEFT JOIN puesto pu ON pu.id = COALESCE(pdr.id_puesto, ap.id_puesto)
+                LEFT JOIN departamento dep ON dep.id = COALESCE(pdr.id_departamento, pu.departamento_id)
+                WHERE am.modulo_web_id = :modulo
+                  AND COALESCE(p.estatus, '') <> 'Baja'
+                ORDER BY nombre ASC
+            ", ['modulo' => self::MODULO_VER_SALARIO_SENSIBLE_RRHH]) ?: [];
+
+            $eventos = $db->queryAll("
+                SELECT
+                    a.id,
+                    a.fecha_hora,
+                    a.id_usuario,
+                    COALESCE(NULLIF(TRIM(a.usuario_nombre), ''), TRIM(CONCAT_WS(' ', u.nombres, u.segundo_nombre, u.apellidop, u.apellidom)), CONCAT('Usuario #', a.id_usuario)) AS usuario_nombre,
+                    a.id_persona,
+                    COALESCE(NULLIF(TRIM(a.persona_nombre), ''), TRIM(CONCAT_WS(' ', p.nombres, p.segundo_nombre, p.apellidop, p.apellidom)), CONCAT('Persona #', a.id_persona)) AS persona_nombre,
+                    a.accion,
+                    a.resultado,
+                    a.ip,
+                    a.detalle
+                FROM __SPARTA_SECRET_REDACTED__.auditoria_salarios_sensibles_rrhh a
+                LEFT JOIN persona u ON u.id = a.id_usuario
+                LEFT JOIN persona p ON p.id = a.id_persona
+                ORDER BY a.fecha_hora DESC, a.id DESC
+                LIMIT 200
+            ") ?: [];
+
+            $totalesEventos = [
+                'lecturas' => 0,
+                'guardados' => 0,
+                'denegados' => 0,
+                'totp_denegado' => 0,
+                'eventos' => count($eventos),
+            ];
+            foreach ($eventos as $evento) {
+                $accion = strtolower((string)($evento['accion'] ?? ''));
+                $resultado = strtolower((string)($evento['resultado'] ?? ''));
+                if ($accion === 'leer' && $resultado === 'autorizado') {
+                    $totalesEventos['lecturas']++;
+                }
+                if ($accion === 'guardar' && $resultado === 'autorizado') {
+                    $totalesEventos['guardados']++;
+                }
+                if ($resultado === 'denegado') {
+                    $totalesEventos['denegados']++;
+                    if ($accion === 'totp') {
+                        $totalesEventos['totp_denegado']++;
+                    }
+                }
+            }
+
+            return self::resultado(true, 'Auditoria de salarios cargada.', [
+                'usuarios_con_permiso' => $usuariosConPermiso,
+                'eventos' => $eventos,
+                'totales' => [
+                    'usuarios_con_permiso' => count($usuariosConPermiso),
+                    'lecturas' => $totalesEventos['lecturas'],
+                    'guardados' => $totalesEventos['guardados'],
+                    'denegados' => $totalesEventos['denegados'],
+                    'totp_denegado' => $totalesEventos['totp_denegado'],
+                    'eventos' => $totalesEventos['eventos'],
+                ],
+            ]);
+        } catch (\Throwable $e) {
+            return self::resultado(false, 'No se pudo cargar la auditoria de salarios.', [
+                'usuarios_con_permiso' => [],
+                'eventos' => [],
+                'totales' => [
+                    'usuarios_con_permiso' => 0,
+                    'lecturas' => 0,
+                    'guardados' => 0,
+                    'denegados' => 0,
+                    'totp_denegado' => 0,
+                    'eventos' => 0,
+                ],
+            ], $e->getMessage());
+        }
+    }
+
     private static function asegurarSalariosSensiblesRrhh(Database $db): void
     {
         $db->CRUD("

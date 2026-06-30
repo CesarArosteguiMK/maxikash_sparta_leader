@@ -23909,6 +23909,16 @@ class CapHum extends Controller
         self::respuestaJSON(CapHumDAO::getAccesoCapitalHumanoDetalle((int) ($_GET['id_persona'] ?? 0)));
     }
 
+    public function getAuditoriaSalariosRrhh()
+    {
+        if (!self::puedeGestionarAccesosCapitalHumano()) {
+            self::respuestaJSON(['success' => false, 'mensaje' => 'No tienes permiso para consultar auditoria de salarios.']);
+            return;
+        }
+
+        self::respuestaJSON(CapHumDAO::getAuditoriaSalariosSensiblesRrhh());
+    }
+
     public function guardarPermisosAccesoCapitalHumano()
     {
         if (!self::puedeGestionarAccesosCapitalHumano()) {
