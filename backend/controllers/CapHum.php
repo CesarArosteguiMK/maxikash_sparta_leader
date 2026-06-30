@@ -39,6 +39,7 @@ class CapHum extends Controller
     private const MODULO_VER_DOCUMENTOS_SENSIBLES_RRHH = 151;
     private const MODULO_RESET_TOTP_DOCUMENTOS_SENSIBLES_RRHH = 152;
     private const MODULO_VER_SALARIO_SENSIBLE_RRHH = 153;
+    private const MODULO_AUDITORIA_RRHH = 154;
     private const MODULO_DOCUMENTO_RRHH_BASE = 3000;
     private const DOCUMENTO_CARTA_COMPROMISO_GESTOR = 27;
     private const TIPO_CARTA_COMPROMISO_GESTOR = 'Carta de compromiso del Gestor';
@@ -113,6 +114,11 @@ class CapHum extends Controller
     private static function puedeGestionarSalarioSensibleRrhh(): bool
     {
         return self::tieneModuloWeb(self::MODULO_VER_SALARIO_SENSIBLE_RRHH);
+    }
+
+    private static function puedeConsultarAuditoriaRrhh(): bool
+    {
+        return self::tieneModuloWeb(self::MODULO_AUDITORIA_RRHH);
     }
 
     private static function esDocumentoSensibleRrhh(int $idDocumento): bool
@@ -23935,6 +23941,28 @@ class CapHum extends Controller
         }
 
         self::respuestaJSON(CapHumDAO::getAuditoriaSalariosSensiblesRrhh());
+    }
+
+    public function auditoria()
+    {
+        if (!self::puedeConsultarAuditoriaRrhh()) {
+            header('Location: /' . VISTA_DEFECTO);
+            return;
+        }
+
+        CapHumDAO::asegurarModuloAccesosCapitalHumano();
+        self::set('titulo', 'Auditoria RR.HH. | ' . CONFIGURACION['EMPRESA']);
+        self::render('caphum_auditoria');
+    }
+
+    public function getAuditoriaRrhh()
+    {
+        if (!self::puedeConsultarAuditoriaRrhh()) {
+            self::respuestaJSON(['success' => false, 'mensaje' => 'No tienes permiso para consultar auditoria RR.HH.']);
+            return;
+        }
+
+        self::respuestaJSON(CapHumDAO::getAuditoriaRrhhSensible());
     }
 
     public function guardarPermisosAccesoCapitalHumano()

@@ -19,10 +19,11 @@ class CapHum extends Model
     public const MODULO_VER_DOCUMENTOS_SENSIBLES_RRHH = 151;
     public const MODULO_RESET_TOTP_DOCUMENTOS_SENSIBLES_RRHH = 152;
     public const MODULO_VER_SALARIO_SENSIBLE_RRHH = 153;
+    public const MODULO_AUDITORIA_RRHH = 154;
     private const MODULOS_ACCESOS_CAPITAL_HUMANO_IDS = [
         4, 5, 13, 34, 38, 42, 44, 82, 83, 86, 87, 88, 91, 93,
         94, 95, 96, 97, 98, 99, 101, 104, 105,
-        140, 141, 142, 143, 144, 147, 151, 152, 153,
+        140, 141, 142, 143, 144, 147, 151, 152, 153, 154,
         3008, 3009, 3010, 3011, 3012, 3013, 3014, 3015, 3016, 3017,
         3018, 3022, 3023, 3024, 3025, 3027, 3028, 3029, 3030, 3031,
         3032, 3033, 3034, 3035, 3036,
@@ -100,6 +101,12 @@ class CapHum extends Model
                 'nombre' => 'Ver salario sensible RR.HH.',
                 'pestana' => 'Permisos especiales',
                 'descripcion' => 'Permite ver y actualizar salario RR.HH. protegido con Google Authenticator y cifrado.',
+            ],
+            [
+                'id' => self::MODULO_AUDITORIA_RRHH,
+                'nombre' => 'Auditoria',
+                'pestana' => 'Capital Humano',
+                'descripcion' => 'Capital Humano > Auditoria',
             ],
         ];
 
@@ -4182,9 +4189,9 @@ class CapHum extends Model
                     a.id,
                     a.fecha_hora,
                     a.id_usuario,
-                    COALESCE(NULLIF(TRIM(a.usuario_nombre), ''), TRIM(CONCAT_WS(' ', u.nombres, u.segundo_nombre, u.apellidop, u.apellidom)), CONCAT('Usuario #', a.id_usuario)) AS usuario_nombre,
+                    COALESCE(NULLIF(TRIM(a.usuario_nombre), ''), TRIM(CONCAT_WS(' ', u.nombres, u.segundo_nombre, u.apellidop, u.apellidom)), CONCAT('Usuario #', COALESCE(a.id_usuario, ''))) AS usuario_nombre,
                     a.id_persona,
-                    COALESCE(NULLIF(TRIM(a.persona_nombre), ''), TRIM(CONCAT_WS(' ', p.nombres, p.segundo_nombre, p.apellidop, p.apellidom)), CONCAT('Persona #', a.id_persona)) AS persona_nombre,
+                    COALESCE(NULLIF(TRIM(a.persona_nombre), ''), TRIM(CONCAT_WS(' ', p.nombres, p.segundo_nombre, p.apellidop, p.apellidom)), CONCAT('Persona #', COALESCE(a.id_persona, ''))) AS persona_nombre,
                     a.accion,
                     a.resultado,
                     a.ip,
@@ -4244,6 +4251,186 @@ class CapHum extends Model
                     'totp_denegado' => 0,
                     'eventos' => 0,
                 ],
+            ], $e->getMessage());
+        }
+    }
+
+    public static function getAuditoriaRrhhSensible(): array
+    {
+        try {
+            $db = new Database();
+            self::asegurarModuloAccesosCapitalHumanoDb($db);
+            self::asegurarTotpDocumentosSensibles($db);
+            self::asegurarAuditoriaDocumentosSensibles($db);
+            self::asegurarSalariosSensiblesRrhh($db);
+
+            $usuariosPorModulo = static function (int $modulo) use ($db): array {
+                return $db->queryAll("
+                    SELECT
+                        p.id AS persona_id,
+                        p.numero_empleado,
+                        TRIM(CONCAT_WS(' ',
+                            NULLIF(TRIM(p.nombres), ''),
+                            NULLIF(TRIM(p.segundo_nombre), ''),
+                            NULLIF(TRIM(p.apellidop), ''),
+                            NULLIF(TRIM(p.apellidom), '')
+                        )) AS nombre,
+                        p.user_name,
+                        p.correo,
+                        p.estatus,
+                        COALESCE(NULLIF(TRIM(pdr.puesto_texto), ''), pu.nombre, '') AS puesto,
+                        COALESCE(NULLIF(TRIM(pdr.departamento_texto), ''), dep.nombre, '') AS departamento
+                    FROM asigna_modulo_web am
+                    INNER JOIN persona p ON p.id = am.usuario_id
+                    LEFT JOIN persona_datos_rrhh pdr ON pdr.id_persona = p.id
+                    LEFT JOIN asigna_puesto ap ON ap.id_persona = p.id AND COALESCE(ap.activo, 1) = 1
+                    LEFT JOIN puesto pu ON pu.id = COALESCE(pdr.id_puesto, ap.id_puesto)
+                    LEFT JOIN departamento dep ON dep.id = COALESCE(pdr.id_departamento, pu.departamento_id)
+                    WHERE am.modulo_web_id = :modulo
+                      AND COALESCE(p.estatus, '') <> 'Baja'
+                    ORDER BY nombre ASC
+                ", ['modulo' => $modulo]) ?: [];
+            };
+
+            $autenticadores = $db->queryAll("
+                SELECT
+                    t.id_persona AS persona_id,
+                    TRIM(CONCAT_WS(' ',
+                        NULLIF(TRIM(p.nombres), ''),
+                        NULLIF(TRIM(p.segundo_nombre), ''),
+                        NULLIF(TRIM(p.apellidop), ''),
+                        NULLIF(TRIM(p.apellidom), '')
+                    )) AS nombre,
+                    p.user_name,
+                    p.correo,
+                    p.numero_empleado,
+                    t.confirmado,
+                    DATE_FORMAT(t.creado_en, '%Y-%m-%d %H:%i:%s') AS creado_en,
+                    DATE_FORMAT(t.actualizado_en, '%Y-%m-%d %H:%i:%s') AS actualizado_en,
+                    DATE_FORMAT(t.ultimo_uso_en, '%Y-%m-%d %H:%i:%s') AS ultimo_uso_en
+                FROM __SPARTA_SECRET_REDACTED__.rrhh_documentos_sensibles_totp t
+                LEFT JOIN persona p ON p.id = t.id_persona
+                ORDER BY t.confirmado DESC, t.ultimo_uso_en DESC, nombre ASC
+            ") ?: [];
+
+            $eventosDocumentos = $db->queryAll("
+                SELECT
+                    'documentos' AS tipo,
+                    a.id,
+                    DATE_FORMAT(a.fecha_hora, '%Y-%m-%d %H:%i:%s') AS fecha_hora,
+                    a.id_usuario,
+                    COALESCE(NULLIF(TRIM(a.usuario_nombre), ''), TRIM(CONCAT_WS(' ', u.nombres, u.segundo_nombre, u.apellidop, u.apellidom)), CONCAT('Usuario #', COALESCE(a.id_usuario, ''))) AS usuario_nombre,
+                    a.id_persona,
+                    COALESCE(NULLIF(TRIM(a.persona_nombre), ''), TRIM(CONCAT_WS(' ', p.nombres, p.segundo_nombre, p.apellidop, p.apellidom)), CONCAT('Persona #', COALESCE(a.id_persona, ''))) AS persona_nombre,
+                    COALESCE(NULLIF(TRIM(a.documento_nombre), ''), CONCAT('Documento #', a.id_documento)) AS recurso,
+                    a.archivo,
+                    a.accion,
+                    a.resultado,
+                    a.ip,
+                    a.detalle
+                FROM __SPARTA_SECRET_REDACTED__.auditoria_documentos_sensibles_rrhh a
+                LEFT JOIN persona u ON u.id = a.id_usuario
+                LEFT JOIN persona p ON p.id = a.id_persona
+                ORDER BY a.fecha_hora DESC, a.id DESC
+                LIMIT 300
+            ") ?: [];
+
+            $eventosSalarios = $db->queryAll("
+                SELECT
+                    'salarios' AS tipo,
+                    a.id,
+                    DATE_FORMAT(a.fecha_hora, '%Y-%m-%d %H:%i:%s') AS fecha_hora,
+                    a.id_usuario,
+                    COALESCE(NULLIF(TRIM(a.usuario_nombre), ''), TRIM(CONCAT_WS(' ', u.nombres, u.segundo_nombre, u.apellidop, u.apellidom)), CONCAT('Usuario #', a.id_usuario)) AS usuario_nombre,
+                    a.id_persona,
+                    COALESCE(NULLIF(TRIM(a.persona_nombre), ''), TRIM(CONCAT_WS(' ', p.nombres, p.segundo_nombre, p.apellidop, p.apellidom)), CONCAT('Persona #', a.id_persona)) AS persona_nombre,
+                    'Salario protegido' AS recurso,
+                    '' AS archivo,
+                    a.accion,
+                    a.resultado,
+                    a.ip,
+                    a.detalle
+                FROM __SPARTA_SECRET_REDACTED__.auditoria_salarios_sensibles_rrhh a
+                LEFT JOIN persona u ON u.id = a.id_usuario
+                LEFT JOIN persona p ON p.id = a.id_persona
+                ORDER BY a.fecha_hora DESC, a.id DESC
+                LIMIT 300
+            ") ?: [];
+
+            $eventos = array_merge($eventosDocumentos, $eventosSalarios);
+            usort($eventos, static function ($a, $b) {
+                $fechaA = strtotime((string)($a['fecha_hora'] ?? '')) ?: 0;
+                $fechaB = strtotime((string)($b['fecha_hora'] ?? '')) ?: 0;
+                if ($fechaA === $fechaB) {
+                    return (int)($b['id'] ?? 0) <=> (int)($a['id'] ?? 0);
+                }
+                return $fechaB <=> $fechaA;
+            });
+            $eventos = array_slice($eventos, 0, 300);
+
+            $conteoDocumentos = $db->queryOne("
+                SELECT
+                    COUNT(*) AS eventos,
+                    SUM(CASE WHEN LOWER(resultado) = 'denegado' THEN 1 ELSE 0 END) AS denegados
+                FROM __SPARTA_SECRET_REDACTED__.auditoria_documentos_sensibles_rrhh
+            ") ?: [];
+            $conteoSalarios = $db->queryOne("
+                SELECT
+                    COUNT(*) AS eventos,
+                    SUM(CASE WHEN LOWER(resultado) = 'denegado' THEN 1 ELSE 0 END) AS denegados
+                FROM __SPARTA_SECRET_REDACTED__.auditoria_salarios_sensibles_rrhh
+            ") ?: [];
+
+            $totpConfirmados = 0;
+            foreach ($autenticadores as $auth) {
+                if ((int)($auth['confirmado'] ?? 0) === 1) {
+                    $totpConfirmados++;
+                }
+            }
+
+            $usuariosDocumentos = $usuariosPorModulo(self::MODULO_VER_DOCUMENTOS_SENSIBLES_RRHH);
+            $usuariosSalarios = $usuariosPorModulo(self::MODULO_VER_SALARIO_SENSIBLE_RRHH);
+            $usuariosResetTotp = $usuariosPorModulo(self::MODULO_RESET_TOTP_DOCUMENTOS_SENSIBLES_RRHH);
+            $usuariosAuditoria = $usuariosPorModulo(self::MODULO_AUDITORIA_RRHH);
+
+            return self::resultado(true, 'Auditoria RR.HH. cargada.', [
+                'usuarios_con_permiso' => [
+                    'documentos_sensibles' => $usuariosDocumentos,
+                    'salarios' => $usuariosSalarios,
+                    'reset_totp' => $usuariosResetTotp,
+                    'auditoria' => $usuariosAuditoria,
+                ],
+                'autenticadores' => $autenticadores,
+                'eventos' => $eventos,
+                'eventos_documentos' => $eventosDocumentos,
+                'eventos_salarios' => $eventosSalarios,
+                'totales' => [
+                    'usuarios_documentos' => count($usuariosDocumentos),
+                    'usuarios_salarios' => count($usuariosSalarios),
+                    'usuarios_reset_totp' => count($usuariosResetTotp),
+                    'usuarios_auditoria' => count($usuariosAuditoria),
+                    'totp_configurados' => count($autenticadores),
+                    'totp_confirmados' => $totpConfirmados,
+                    'eventos_documentos' => (int)($conteoDocumentos['eventos'] ?? 0),
+                    'eventos_salarios' => (int)($conteoSalarios['eventos'] ?? 0),
+                    'denegados_documentos' => (int)($conteoDocumentos['denegados'] ?? 0),
+                    'denegados_salarios' => (int)($conteoSalarios['denegados'] ?? 0),
+                    'eventos_recientes' => count($eventos),
+                ],
+            ]);
+        } catch (\Throwable $e) {
+            return self::resultado(false, 'No se pudo cargar la auditoria RR.HH.', [
+                'usuarios_con_permiso' => [
+                    'documentos_sensibles' => [],
+                    'salarios' => [],
+                    'reset_totp' => [],
+                    'auditoria' => [],
+                ],
+                'autenticadores' => [],
+                'eventos' => [],
+                'eventos_documentos' => [],
+                'eventos_salarios' => [],
+                'totales' => [],
             ], $e->getMessage());
         }
     }

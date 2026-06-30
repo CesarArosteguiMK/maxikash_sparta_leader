@@ -176,6 +176,7 @@ function getMenu(): string
                 ['label' => 'Panel vacaciones',             'url' => '/caphum/vacacionesAdmin',          'modulos' => [4]],
                 ['label' => 'Expedientes RR.HH.',           'url' => '/caphum/documentosRrhh',           'modulos' => [93]],
                 ['label' => 'Revisión RR.HH.',              'url' => '/caphum/actualizacionesInfo',      'modulos' => [83]],
+                ['label' => 'Auditoria',                    'url' => '/caphum/auditoria',                'modulos' => [154]],
                 ['section' => 'Cobranza'],
                 ['label' => 'Carta compromiso Gestor',       'url' => '/caphum/cartaCompromisoGestores',  'modulos' => [144]],
                 ['label' => 'Organigrama Cobranza',      'url' => '/caphum/organigrama',              'modulos' => [5]],
