@@ -12,7 +12,33 @@ class RrhhDocumentImportService
     private const DOCUMENTO_CONTRATO_FIRMADO = 28;
     private const DOCUMENTO_ARCHIVO_FAD = 29;
     private const DOCUMENTO_LLAVE_VECTOR = 31;
-    private const MODULO_DOCUMENTO_RRHH_BASE = 3000;
+    private const MODULOS_DOCUMENTO_RRHH = [
+        8 => 155,
+        9 => 156,
+        10 => 157,
+        11 => 158,
+        12 => 159,
+        13 => 160,
+        14 => 161,
+        15 => 162,
+        16 => 163,
+        17 => 164,
+        18 => 165,
+        22 => 166,
+        23 => 167,
+        24 => 168,
+        25 => 169,
+        27 => 170,
+        28 => 171,
+        29 => 172,
+        30 => 173,
+        31 => 174,
+        32 => 175,
+        33 => 176,
+        34 => 177,
+        35 => 178,
+        36 => 179,
+    ];
     private const BATCH_TTL_SECONDS = 86400;
     private const MAX_BATCH_CACHE_BYTES = 209715200;
     private const DOCUMENTO_SENSIBLE_MAGIC = "SPARTA_RRHH_DOC_V1\n";
@@ -32,7 +58,8 @@ class RrhhDocumentImportService
         }
 
         $modulos = array_map('intval', (array) ($_SESSION['modulos'] ?? []));
-        return in_array(self::MODULO_DOCUMENTO_RRHH_BASE + $idDocumento, $modulos, true);
+        return in_array(self::MODULOS_DOCUMENTO_RRHH[$idDocumento] ?? 0, $modulos, true)
+            || in_array(3000 + $idDocumento, $modulos, true);
     }
 
     public function fuentesDesdeRequest(array $files, array $post): array

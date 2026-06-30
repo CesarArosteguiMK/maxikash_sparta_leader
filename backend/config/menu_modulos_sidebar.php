@@ -314,10 +314,10 @@ if (!function_exists('mapPermisoEspecialToMenuMeta')) {
             // Motos Adjudicadas - 1.- Evidencias
             79 => [70, 710],
             100 => [62, 640],
-            3037 => [70, 720],
-            3038 => [70, 730],
-            3039 => [70, 740],
-            3040 => [70, 750],
+            180 => [70, 720],
+            181 => [70, 730],
+            182 => [70, 740],
+            183 => [70, 750],
             // Cierre de crédito (ancla 51 vía nombre): tarjeta «Convenios»
         ];
         if (isset($anclas[$mid])) {

@@ -40,7 +40,33 @@ class CapHum extends Controller
     private const MODULO_RESET_TOTP_DOCUMENTOS_SENSIBLES_RRHH = 152;
     private const MODULO_VER_SALARIO_SENSIBLE_RRHH = 153;
     private const MODULO_AUDITORIA_RRHH = 154;
-    private const MODULO_DOCUMENTO_RRHH_BASE = 3000;
+    private const MODULOS_DOCUMENTO_RRHH = [
+        8 => 155,
+        9 => 156,
+        10 => 157,
+        11 => 158,
+        12 => 159,
+        13 => 160,
+        14 => 161,
+        15 => 162,
+        16 => 163,
+        17 => 164,
+        18 => 165,
+        22 => 166,
+        23 => 167,
+        24 => 168,
+        25 => 169,
+        27 => 170,
+        28 => 171,
+        29 => 172,
+        30 => 173,
+        31 => 174,
+        32 => 175,
+        33 => 176,
+        34 => 177,
+        35 => 178,
+        36 => 179,
+    ];
     private const DOCUMENTO_CARTA_COMPROMISO_GESTOR = 27;
     private const TIPO_CARTA_COMPROMISO_GESTOR = 'Carta de compromiso del Gestor';
     private const DOCUMENTOS_SENSIBLES_RRHH = [28, 29];
@@ -159,7 +185,7 @@ class CapHum extends Controller
 
     private static function moduloTipoDocumentoRrhh(int $idDocumento): int
     {
-        return self::MODULO_DOCUMENTO_RRHH_BASE + $idDocumento;
+        return self::MODULOS_DOCUMENTO_RRHH[$idDocumento] ?? 0;
     }
 
     private static function esTipoDocumentoRrhhControlado(int $idDocumento): bool
@@ -172,7 +198,9 @@ class CapHum extends Controller
         if (!self::esTipoDocumentoRrhhControlado($idDocumento)) {
             return true;
         }
-        return self::tieneModuloWeb(self::moduloTipoDocumentoRrhh($idDocumento));
+        $idModulo = self::moduloTipoDocumentoRrhh($idDocumento);
+        return ($idModulo > 0 && self::tieneModuloWeb($idModulo))
+            || self::tieneModuloWeb(3000 + $idDocumento);
     }
 
     private static function puedeListarDocumentoPersonaRrhh(int $idDocumento): bool
@@ -2530,31 +2558,31 @@ class CapHum extends Controller
                 143: 'fa-solid fa-user-plus',
                 145: 'fa-solid fa-rotate-right',
                 146: 'fa-solid fa-circle-check',
-                3008: 'fa-solid fa-id-card',
-                3009: 'fa-solid fa-address-card',
-                3010: 'fa-solid fa-file-invoice',
-                3011: 'fa-solid fa-house-user',
-                3012: 'fa-solid fa-certificate',
-                3013: 'fa-solid fa-graduation-cap',
-                3014: 'fa-solid fa-briefcase',
-                3015: 'fa-solid fa-user-slash',
-                3016: 'fa-solid fa-user-clock',
-                3017: 'fa-solid fa-file-signature',
-                3018: 'fa-solid fa-file-lines',
-                3022: 'fa-solid fa-receipt',
-                3023: 'fa-solid fa-hospital-user',
-                3024: 'fa-solid fa-hand-holding-dollar',
-                3025: 'fa-solid fa-building-columns',
-                3027: 'fa-solid fa-file-contract',
-                3028: 'fa-solid fa-signature',
-                3029: 'fa-solid fa-file-zipper',
-                3030: 'fa-solid fa-shield-halved',
-                3031: 'fa-solid fa-key',
-                3032: 'fa-solid fa-coins',
-                3033: 'fa-solid fa-calendar-week',
-                3034: 'fa-solid fa-notes-medical',
-                3035: 'fa-solid fa-file-circle-check',
-                3036: 'fa-solid fa-calendar-xmark',
+                155: 'fa-solid fa-id-card',
+                156: 'fa-solid fa-address-card',
+                157: 'fa-solid fa-file-invoice',
+                158: 'fa-solid fa-house-user',
+                159: 'fa-solid fa-certificate',
+                160: 'fa-solid fa-graduation-cap',
+                161: 'fa-solid fa-briefcase',
+                162: 'fa-solid fa-user-slash',
+                163: 'fa-solid fa-user-clock',
+                164: 'fa-solid fa-file-signature',
+                165: 'fa-solid fa-file-lines',
+                166: 'fa-solid fa-receipt',
+                167: 'fa-solid fa-hospital-user',
+                168: 'fa-solid fa-hand-holding-dollar',
+                169: 'fa-solid fa-building-columns',
+                170: 'fa-solid fa-file-contract',
+                171: 'fa-solid fa-signature',
+                172: 'fa-solid fa-file-zipper',
+                173: 'fa-solid fa-shield-halved',
+                174: 'fa-solid fa-key',
+                175: 'fa-solid fa-coins',
+                176: 'fa-solid fa-calendar-week',
+                177: 'fa-solid fa-notes-medical',
+                178: 'fa-solid fa-file-circle-check',
+                179: 'fa-solid fa-calendar-xmark',
             };
 
             /** Mapa base de íconos (pestaña Módulos del sistema y filas agrupadas de permisos especiales). */
@@ -3985,7 +4013,7 @@ class CapHum extends Controller
                 const iconosMap = Object.assign({}, iconosModulosSistemaPerfil, iconosPermisosEspeciales);
                 const idsPermisoEdicionCobranza = new Set(Array.from({ length: 21 }, (_, i) => 107 + i));
                 const idsPermisosAtlas = new Set([129, 130]);
-                const idsPermisosMotosAdjudicadas = new Set([3037, 3038, 3039, 3040]);
+                const idsPermisosMotosAdjudicadas = new Set([180, 181, 182, 183]);
                 const perfilesNormalizados = (Array.isArray(perfiles) ? perfiles : []).filter(mod => {
                     const idMod = Number(mod.modulo_id ?? mod.id ?? 0);
                     const nombreModulo = String(mod.modulo_nombre ?? mod.nombre ?? '').toLowerCase();
@@ -3995,7 +4023,7 @@ class CapHum extends Controller
                         && !descripcionModulo.includes('motos adjudicadas');
                 }).map(mod => {
                     const idMod = Number(mod.modulo_id ?? mod.id ?? 0);
-                    if (idMod === 151 || idMod === 152 || (idMod >= 3000 && idMod < 3100)) {
+                    if (idMod === 151 || idMod === 152 || (idMod >= 155 && idMod <= 179)) {
                         return Object.assign({}, mod, {
                             menu_grupo: 'Control documental RR.HH.',
                             menu_grupo_icono: 'fa fa-folder-open',

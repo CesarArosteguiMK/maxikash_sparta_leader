@@ -20,13 +20,40 @@ class CapHum extends Model
     public const MODULO_RESET_TOTP_DOCUMENTOS_SENSIBLES_RRHH = 152;
     public const MODULO_VER_SALARIO_SENSIBLE_RRHH = 153;
     public const MODULO_AUDITORIA_RRHH = 154;
+    private const MODULOS_DOCUMENTO_RRHH = [
+        8 => 155,
+        9 => 156,
+        10 => 157,
+        11 => 158,
+        12 => 159,
+        13 => 160,
+        14 => 161,
+        15 => 162,
+        16 => 163,
+        17 => 164,
+        18 => 165,
+        22 => 166,
+        23 => 167,
+        24 => 168,
+        25 => 169,
+        27 => 170,
+        28 => 171,
+        29 => 172,
+        30 => 173,
+        31 => 174,
+        32 => 175,
+        33 => 176,
+        34 => 177,
+        35 => 178,
+        36 => 179,
+    ];
     private const MODULOS_ACCESOS_CAPITAL_HUMANO_IDS = [
         4, 5, 13, 34, 38, 42, 44, 82, 83, 86, 87, 88, 91, 93,
         94, 95, 96, 97, 98, 99, 101, 104, 105,
         140, 141, 142, 143, 144, 147, 151, 152, 153, 154,
-        3008, 3009, 3010, 3011, 3012, 3013, 3014, 3015, 3016, 3017,
-        3018, 3022, 3023, 3024, 3025, 3027, 3028, 3029, 3030, 3031,
-        3032, 3033, 3034, 3035, 3036,
+        155, 156, 157, 158, 159, 160, 161, 162, 163, 164,
+        165, 166, 167, 168, 169, 170, 171, 172, 173, 174,
+        175, 176, 177, 178, 179,
     ];
     private const MODULO_CONVENIOS_DESCARGAR_EXCEL = 92;
     private const MODULO_CONVENIOS_DESCARGAR_EXCEL_NOMBRE = 'Descargar Excel';
@@ -139,12 +166,23 @@ class CapHum extends Model
         ];
 
         foreach ($documentosRrhh as $idDocumento => $nombreDocumento) {
+            $idModulo = self::MODULOS_DOCUMENTO_RRHH[(int) $idDocumento] ?? 0;
+            if ($idModulo <= 0) {
+                continue;
+            }
             $modulos[] = [
-                'id' => 3000 + (int) $idDocumento,
+                'id' => $idModulo,
                 'nombre' => 'Documento RRHH: ' . $nombreDocumento,
                 'pestana' => 'Permisos especiales',
                 'descripcion' => 'Permite ver, subir, descargar y eliminar documentos RR.HH. de tipo ' . $nombreDocumento . '.',
             ];
+        }
+
+        foreach (self::MODULOS_DOCUMENTO_RRHH as $idDocumento => $idModuloNuevo) {
+            self::renumerarModuloWebId($db, 3000 + (int) $idDocumento, (int) $idModuloNuevo);
+        }
+        foreach ([3037 => 180, 3038 => 181, 3039 => 182, 3040 => 183] as $idViejo => $idModuloNuevo) {
+            self::renumerarModuloWebId($db, (int) $idViejo, (int) $idModuloNuevo);
         }
 
         foreach ($modulos as $datos) {
@@ -169,6 +207,56 @@ class CapHum extends Model
                  VALUES (:id, :nombre, :pestana, :descripcion, 1)',
                 $datos
             );
+        }
+    }
+
+    private static function renumerarModuloWebId(Database $db, int $idViejo, int $idNuevo): void
+    {
+        if ($idViejo <= 0 || $idNuevo <= 0 || $idViejo === $idNuevo) {
+            return;
+        }
+
+        try {
+            $moduloViejo = $db->queryOne(
+                'SELECT nombre, pestana, descripcion, activo FROM modulos_web WHERE id = :id LIMIT 1',
+                ['id' => $idViejo]
+            );
+            if (!$moduloViejo) {
+                return;
+            }
+
+            $existeNuevo = $db->queryOne('SELECT id FROM modulos_web WHERE id = :id LIMIT 1', ['id' => $idNuevo]);
+            if (!$existeNuevo) {
+                $db->CRUD(
+                    'INSERT INTO modulos_web (id, nombre, pestana, descripcion, activo)
+                     VALUES (:id, :nombre, :pestana, :descripcion, :activo)',
+                    [
+                        'id' => $idNuevo,
+                        'nombre' => (string)($moduloViejo['nombre'] ?? ''),
+                        'pestana' => (string)($moduloViejo['pestana'] ?? ''),
+                        'descripcion' => (string)($moduloViejo['descripcion'] ?? ''),
+                        'activo' => (int)($moduloViejo['activo'] ?? 1),
+                    ]
+                );
+            }
+
+            $db->CRUD(
+                'INSERT INTO asigna_modulo_web (usuario_id, modulo_web_id)
+                 SELECT DISTINCT viejo.usuario_id, :id_nuevo
+                 FROM asigna_modulo_web viejo
+                 WHERE viejo.modulo_web_id = :id_viejo
+                   AND NOT EXISTS (
+                       SELECT 1
+                       FROM asigna_modulo_web nuevo
+                       WHERE nuevo.usuario_id = viejo.usuario_id
+                         AND nuevo.modulo_web_id = :id_nuevo_exists
+                   )',
+                ['id_nuevo' => $idNuevo, 'id_viejo' => $idViejo, 'id_nuevo_exists' => $idNuevo]
+            );
+            $db->CRUD('DELETE FROM asigna_modulo_web WHERE modulo_web_id = :id', ['id' => $idViejo]);
+            $db->CRUD('DELETE FROM modulos_web WHERE id = :id', ['id' => $idViejo]);
+        } catch (\Throwable $e) {
+            error_log('CapHum::renumerarModuloWebId ' . $idViejo . ' -> ' . $idNuevo . ' :: ' . $e->getMessage());
         }
     }
 
@@ -4846,7 +4934,7 @@ class CapHum extends Model
 
     private static function grupoModuloAccesoCapitalHumano(int $id, string $pestana, string $nombre): array
     {
-        if (in_array($id, [151, 152], true) || ($id >= 3000 && $id < 3100)) {
+        if (in_array($id, [151, 152], true) || in_array($id, self::MODULOS_DOCUMENTO_RRHH, true)) {
             return ['grupo' => 'Control documental RR.HH.', 'icono' => 'fa fa-folder-open', 'orden' => 28];
         }
         if ($id >= 107 && $id <= 127) {

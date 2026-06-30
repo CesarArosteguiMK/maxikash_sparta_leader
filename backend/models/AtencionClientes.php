@@ -28,10 +28,10 @@ use Core\DatabaseLegacy;
  */
 class AtencionClientes
 {
-    public const MODULO_MA_CANCELAR_VISTO_BUENO = 3037;
-    public const MODULO_MA_ENVIAR_BLACKLIST = 3038;
-    public const MODULO_MA_VER_BLACKLIST = 3039;
-    public const MODULO_MA_LIBERAR_BLACKLIST = 3040;
+    public const MODULO_MA_CANCELAR_VISTO_BUENO = 180;
+    public const MODULO_MA_ENVIAR_BLACKLIST = 181;
+    public const MODULO_MA_VER_BLACKLIST = 182;
+    public const MODULO_MA_LIBERAR_BLACKLIST = 183;
 
     private $db;
     private $adjEvidenciaAtnColumnas = null;
@@ -63,6 +63,15 @@ class AtencionClientes
         ];
 
         try {
+            foreach ([
+                3037 => self::MODULO_MA_CANCELAR_VISTO_BUENO,
+                3038 => self::MODULO_MA_ENVIAR_BLACKLIST,
+                3039 => self::MODULO_MA_VER_BLACKLIST,
+                3040 => self::MODULO_MA_LIBERAR_BLACKLIST,
+            ] as $idViejo => $idNuevo) {
+                $this->renumerarModuloWebId((int)$idViejo, (int)$idNuevo);
+            }
+
             foreach ($permisos as $id => $permiso) {
                 $existe = $this->db->queryOne('SELECT id FROM modulos_web WHERE id = :id LIMIT 1', ['id' => $id]);
                 if ($existe) {
@@ -92,6 +101,56 @@ class AtencionClientes
             }
         } catch (\Throwable $e) {
             // La vista no debe romperse si el usuario de BD no puede tocar modulos_web.
+        }
+    }
+
+    private function renumerarModuloWebId(int $idViejo, int $idNuevo): void
+    {
+        if ($idViejo <= 0 || $idNuevo <= 0 || $idViejo === $idNuevo) {
+            return;
+        }
+
+        try {
+            $moduloViejo = $this->db->queryOne(
+                'SELECT nombre, pestana, descripcion, activo FROM modulos_web WHERE id = :id LIMIT 1',
+                ['id' => $idViejo]
+            );
+            if (!$moduloViejo) {
+                return;
+            }
+
+            $existeNuevo = $this->db->queryOne('SELECT id FROM modulos_web WHERE id = :id LIMIT 1', ['id' => $idNuevo]);
+            if (!$existeNuevo) {
+                $this->db->CRUD(
+                    'INSERT INTO modulos_web (id, nombre, pestana, descripcion, activo)
+                     VALUES (:id, :nombre, :pestana, :descripcion, :activo)',
+                    [
+                        'id' => $idNuevo,
+                        'nombre' => (string)($moduloViejo['nombre'] ?? ''),
+                        'pestana' => (string)($moduloViejo['pestana'] ?? ''),
+                        'descripcion' => (string)($moduloViejo['descripcion'] ?? ''),
+                        'activo' => (int)($moduloViejo['activo'] ?? 1),
+                    ]
+                );
+            }
+
+            $this->db->CRUD(
+                'INSERT INTO asigna_modulo_web (usuario_id, modulo_web_id)
+                 SELECT DISTINCT viejo.usuario_id, :id_nuevo
+                 FROM asigna_modulo_web viejo
+                 WHERE viejo.modulo_web_id = :id_viejo
+                   AND NOT EXISTS (
+                       SELECT 1
+                       FROM asigna_modulo_web nuevo
+                       WHERE nuevo.usuario_id = viejo.usuario_id
+                         AND nuevo.modulo_web_id = :id_nuevo_exists
+                   )',
+                ['id_nuevo' => $idNuevo, 'id_viejo' => $idViejo, 'id_nuevo_exists' => $idNuevo]
+            );
+            $this->db->CRUD('DELETE FROM asigna_modulo_web WHERE modulo_web_id = :id', ['id' => $idViejo]);
+            $this->db->CRUD('DELETE FROM modulos_web WHERE id = :id', ['id' => $idViejo]);
+        } catch (\Throwable $e) {
+            error_log('AtencionClientes::renumerarModuloWebId ' . $idViejo . ' -> ' . $idNuevo . ' :: ' . $e->getMessage());
         }
     }
 
