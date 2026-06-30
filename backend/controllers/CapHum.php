@@ -165,10 +165,7 @@ class CapHum extends Controller
 
     private static function puedeListarDocumentoPersonaRrhh(int $idDocumento): bool
     {
-        if (!self::puedeUsarTipoDocumentoRrhh($idDocumento)) {
-            return false;
-        }
-        return !self::esDocumentoSensibleRrhh($idDocumento) || self::puedeVerDocumentosSensiblesRrhh();
+        return self::puedeUsarTipoDocumentoRrhh($idDocumento);
     }
 
     private static function obtenerLlaveArchivoSensible(): string
@@ -296,7 +293,7 @@ class CapHum extends Controller
         $idDocumento = (int)($doc['id_documento'] ?? 0);
         $esSensible = self::esDocumentoSensibleRrhh($idDocumento);
         $puedeTipoDocumento = self::puedeUsarTipoDocumentoRrhh($idDocumento);
-        $puedeVer = $puedeTipoDocumento && (!$esSensible || self::puedeVerDocumentosSensiblesRrhh());
+        $puedeVerSensible = !$esSensible || self::puedeVerDocumentosSensiblesRrhh();
         $doc['sensible'] = $esSensible;
         $doc['requiere_token'] = $esSensible;
         if (empty($doc['documento_nombre'])) {
@@ -306,10 +303,10 @@ class CapHum extends Controller
         $doc['permiso_tipo_documento'] = self::esTipoDocumentoRrhhControlado($idDocumento)
             ? self::moduloTipoDocumentoRrhh($idDocumento)
             : null;
-        $doc['puede_ver_sensible'] = $puedeVer;
+        $doc['puede_ver_sensible'] = $puedeVerSensible;
         if (!$puedeTipoDocumento) {
             $doc['archivo'] = 'Documento sin permiso';
-        } elseif ($esSensible && !$puedeVer) {
+        } elseif ($esSensible && !$puedeVerSensible) {
             $doc['archivo'] = 'Documento protegido';
         }
         return $doc;
@@ -7172,7 +7169,7 @@ class CapHum extends Controller
                 const tablaArchivos = document.getElementById('cargarDocPersona_tablaArchivos');
 
                 // Renderizar tabla de archivos subidos
-                const archivosSubidosVisibles = archivosSubidosPersona.filter(doc => doc.puede_tipo_documento !== false && doc.puede_ver_sensible !== false);
+                const archivosSubidosVisibles = archivosSubidosPersona.filter(doc => doc.puede_tipo_documento !== false);
                 if (archivosSubidosVisibles.length > 0) {
                     let htmlTabla = '';
                     archivosSubidosVisibles.forEach(doc => {
@@ -22436,7 +22433,7 @@ class CapHum extends Controller
                 const tablaArchivos = document.getElementById('cargarDocPersona_tablaArchivos');
 
                 // Renderizar tabla de archivos subidos
-                const archivosSubidosVisibles = archivosSubidosPersona.filter(doc => doc.puede_tipo_documento !== false && doc.puede_ver_sensible !== false);
+                const archivosSubidosVisibles = archivosSubidosPersona.filter(doc => doc.puede_tipo_documento !== false);
                 if (archivosSubidosVisibles.length > 0) {
                     let htmlTabla = '';
                     archivosSubidosVisibles.forEach(doc => {
