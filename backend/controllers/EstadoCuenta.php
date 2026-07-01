@@ -3297,12 +3297,343 @@ JS;
             self::set('catalogoMotivosCondonacion', EstadoCuentaDAO::getCatalogoMotivosCondonacion());
 
             if (!empty($_POST['___SPARTA_SECRET_REDACTED___api_json'])) {
-                $tablaApi = array_map(function ($fila) {
-                    if (is_array($fila) && array_key_exists('raw_cargo', $fila)) {
-                        unset($fila['raw_cargo']);
+                $idCreditoApi = (int)($estadoCuenta['idCredito'] ?? $idConsultado ?? 0);
+                $referenciasApi = $idCreditoApi > 0 ? EmpresasDAO::getConsultaReferenciasEstadoCuenta($idCreditoApi) : ['success' => true, 'datos' => []];
+                $direccionesApi = $idCreditoApi > 0 ? EmpresasDAO::getConsultaDireccionEstadoCuenta($idCreditoApi) : ['success' => true, 'datos' => []];
+                $notasApi = $idCreditoApi > 0 ? EmpresasDAO::getNotasNum($idCreditoApi) : ['success' => true, 'datos' => [['num' => 0]]];
+                $gastosPendientesApi = $idCreditoApi > 0 ? EstadoCuentaDAO::getGastosCobranza($idCreditoApi) : ['success' => true, 'mensaje' => 'Gastos Cobranza', 'datos' => []];
+                $historialGastosApi = $idCreditoApi > 0 ? EstadoCuentaDAO::getHistorialGastosCobranza($idCreditoApi) : ['success' => true, 'mensaje' => 'Historial Gastos Cobranza', 'datos' => []];
+                $catalogoMotivosCondonacionApi = EstadoCuentaDAO::getCatalogoMotivosCondonacion();
+                $gastosBloqueadosGestionExternaApi = $idCreditoApi > 0 ? EstadoCuentaDAO::gastosCobranzaBloqueadosPorGestionExterna($idCreditoApi) : false;
+
+                $clienteApi = is_array($cliente) ? $cliente : [];
+                $rfcPantalla = trim((string)($referenciasApi['datos'][0]['rfc'] ?? ''));
+                if ($rfcPantalla !== '') {
+                    $clienteApi['rfc'] = $rfcPantalla;
+                    $clienteApi['rfcFuente'] = 'referencias___SPARTA_SECRET_REDACTED__';
+                } else {
+                    $clienteApi['rfcFuente'] = 'datos_cliente_s2';
+                }
+
+                $formatDateApi = function ($value) {
+                    if ($value === null || $value === '') {
+                        return null;
                     }
-                    return $fila;
-                }, is_array($tabla) ? $tabla : []);
+                    $ts = strtotime((string)$value);
+                    return $ts ? date('d/m/Y', $ts) : (string)$value;
+                };
+                $formatCurrencyApi = function ($value) {
+                    return '$' . number_format((float)$value, 2, '.', ',');
+                };
+                $enriquecerGastoPendienteApi = function ($row) use ($formatCurrencyApi) {
+                    if (!is_array($row)) {
+                        return $row;
+                    }
+                    $row['display'] = [
+                        'semana' => (string)($row['semana'] ?? ''),
+                        'periodo' => (string)($row['periodo'] ?? ''),
+                        'parcialidad' => (string)($row['parcialidad'] ?? ''),
+                        'cuota_semanal' => $formatCurrencyApi($row['cuota'] ?? 0),
+                        'monto' => $formatCurrencyApi($row['monto'] ?? 0),
+                        'monto_original' => $formatCurrencyApi($row['monto_original'] ?? 0),
+                        'monto_parcial_pagado' => $formatCurrencyApi($row['monto_parcial_pagado'] ?? 0),
+                        'condonacion_parcial_monto' => $formatCurrencyApi($row['condonacion_parcial_monto'] ?? 0),
+                        'estatus_pago_texto' => ((int)($row['estatus_pago'] ?? 0) === 1) ? 'Pago parcial' : 'Pendiente',
+                    ];
+                    return $row;
+                };
+                $enriquecerGastoHistorialApi = function ($row) use ($formatCurrencyApi) {
+                    if (!is_array($row)) {
+                        return $row;
+                    }
+                    $estatus = (int)($row['estatus'] ?? 0);
+                    $condonado = (int)($row['condonado'] ?? 0);
+                    if ($condonado === 1) {
+                        $estatusTexto = 'Condonado';
+                    } elseif ($estatus === 2) {
+                        $estatusTexto = 'Pagado';
+                    } elseif ($estatus === 1) {
+                        $estatusTexto = 'Pago parcial';
+                    } else {
+                        $estatusTexto = 'Registrado';
+                    }
+                    $row['display'] = [
+                        'semana' => (string)($row['semana'] ?? ''),
+                        'periodo' => (string)($row['periodo'] ?? ''),
+                        'monto_original' => $formatCurrencyApi($row['monto_original'] ?? 0),
+                        'monto_condonado' => $formatCurrencyApi($row['monto_condonado'] ?? 0),
+                        'monto_parcial_pagado' => $formatCurrencyApi($row['monto_parcial_pagado'] ?? 0),
+                        'parcialidad' => (string)($row['parcialidad'] ?? ''),
+                        'motivo' => (string)($row['motivo_resumen'] ?? ''),
+                        'fecha_condonacion' => (string)($row['fecha_condonacion'] ?? ''),
+                        'fecha_pago' => (string)($row['fecha_pago'] ?? ''),
+                        'estatus' => $estatusTexto,
+                    ];
+                    return $row;
+                };
+                $normalizarTextoApi = function ($value) {
+                    if (!is_string($value)) {
+                        return $value;
+                    }
+                    return strtr($value, [
+                        'DirecciÃ³n' => 'Dirección',
+                        'direcciÃ³n' => 'dirección',
+                        'CrÃ©dito' => 'Crédito',
+                        'crÃ©dito' => 'crédito',
+                        'NÃºmero' => 'Número',
+                        'nÃºmero' => 'número',
+                        'InformaciÃ³n' => 'Información',
+                        'informaciÃ³n' => 'información',
+                        'Ãšltimo' => 'Último',
+                        'Ãºltimo' => 'último',
+                        'Ã¡' => 'á',
+                        'Ã©' => 'é',
+                        'Ã­' => 'í',
+                        'Ã³' => 'ó',
+                        'Ãº' => 'ú',
+                        'Ã' => 'Á',
+                        'Ã‰' => 'É',
+                        'Ã' => 'Í',
+                        'Ã“' => 'Ó',
+                        'Ãš' => 'Ú',
+                        'Ã±' => 'ñ',
+                        'Ã‘' => 'Ñ',
+                        'â€”' => '-',
+                        'numero de notas encontrado.' => 'número de notas encontrado.',
+                    ]);
+                };
+                $normalizarPayloadApi = function ($value) use (&$normalizarPayloadApi, $normalizarTextoApi) {
+                    if (is_array($value)) {
+                        foreach ($value as $k => $v) {
+                            $value[$k] = $normalizarPayloadApi($v);
+                        }
+                        return $value;
+                    }
+                    return $normalizarTextoApi($value);
+                };
+
+                $gastosPendientesDatosApi = is_array($gastosPendientesApi['datos'] ?? null) ? array_map($enriquecerGastoPendienteApi, $gastosPendientesApi['datos']) : [];
+                $historialGastosDatosApi = is_array($historialGastosApi['datos'] ?? null) ? array_map($enriquecerGastoHistorialApi, $historialGastosApi['datos']) : [];
+                $totalGastosPendientesApi = 0.0;
+                foreach ($gastosPendientesDatosApi as $gastoPendienteApi) {
+                    $totalGastosPendientesApi += (float)($gastoPendienteApi['monto'] ?? 0);
+                }
+                $totalHistorialCondonadoApi = 0.0;
+                $totalHistorialPagadoApi = 0.0;
+                foreach ($historialGastosDatosApi as $gastoHistorialApi) {
+                    $totalHistorialCondonadoApi += (float)($gastoHistorialApi['monto_condonado'] ?? 0);
+                    $totalHistorialPagadoApi += (float)($gastoHistorialApi['monto_parcial_pagado'] ?? 0);
+                }
+                $gastosCobranzaApi = [
+                    'success' => !empty($gastosPendientesApi['success']) && !empty($historialGastosApi['success']),
+                    'bloqueadoPorGestionExterna' => $gastosBloqueadosGestionExternaApi,
+                    'puedeCondonar' => !$gastosBloqueadosGestionExternaApi && count($gastosPendientesDatosApi) > 0,
+                    'pendientes' => [
+                        'success' => !empty($gastosPendientesApi['success']),
+                        'mensaje' => $gastosPendientesApi['mensaje'] ?? '',
+                        'datos' => $gastosPendientesDatosApi,
+                        'total' => round($totalGastosPendientesApi, 2),
+                        'totalDisplay' => $formatCurrencyApi($totalGastosPendientesApi),
+                        'count' => count($gastosPendientesDatosApi),
+                        'empty' => count($gastosPendientesDatosApi) === 0,
+                        'emptyMessage' => 'No hay Gastos Cobranza',
+                    ],
+                    'historial' => [
+                        'success' => !empty($historialGastosApi['success']),
+                        'mensaje' => $historialGastosApi['mensaje'] ?? '',
+                        'datos' => $historialGastosDatosApi,
+                        'totalCondonado' => round($totalHistorialCondonadoApi, 2),
+                        'totalCondonadoDisplay' => $formatCurrencyApi($totalHistorialCondonadoApi),
+                        'totalPagado' => round($totalHistorialPagadoApi, 2),
+                        'totalPagadoDisplay' => $formatCurrencyApi($totalHistorialPagadoApi),
+                        'count' => count($historialGastosDatosApi),
+                        'empty' => count($historialGastosDatosApi) === 0,
+                        'emptyMessage' => 'No hay gastos registrados en el historial.',
+                    ],
+                    'catalogoMotivosCondonacion' => $catalogoMotivosCondonacionApi,
+                    'modal' => [
+                        'titulo' => 'Resumen Gastos Cobranza',
+                        'tabs' => [
+                            ['key' => 'pendientes', 'label' => 'Gastos Pendientes', 'active' => true],
+                            ['key' => 'historial', 'label' => 'Historial', 'active' => false],
+                        ],
+                        'columnsPendientes' => ['SEMANA', 'PERIODO', 'PARCIALIDAD', 'CUOTA SEMANAL', 'MONTO'],
+                        'columnsHistorial' => ['SEMANA', 'PERIODO', 'MONTO', 'CONDONADO/PAGADO', 'MOTIVO', 'FECHA'],
+                        'acciones' => [
+                            'cancelar' => 'Cancelar',
+                            'condonar' => 'Condonar',
+                        ],
+                    ],
+                ];
+
+                $fechaUltimoPagoCompletoApi = null;
+                foreach (is_array($tabla) ? $tabla : [] as $filaFechaApi) {
+                    $pendienteFilaApi = (float)($filaFechaApi['pendiente'] ?? 0);
+                    $aplicadosFilaApi = is_array($filaFechaApi['aplicados'] ?? null) ? $filaFechaApi['aplicados'] : [];
+                    if ($pendienteFilaApi > 0 || empty($aplicadosFilaApi)) {
+                        continue;
+                    }
+                    $lastPagoDateApi = null;
+                    foreach ($aplicadosFilaApi as $apFechaApi) {
+                        if (!empty($apFechaApi['no_cuenta_para_total_cuota'])) {
+                            continue;
+                        }
+                        if (!empty($apFechaApi['fechaRegistro'])) {
+                            $tsPagoApi = strtotime((string)$apFechaApi['fechaRegistro']);
+                            if ($tsPagoApi && (!$lastPagoDateApi || $tsPagoApi > strtotime($lastPagoDateApi))) {
+                                $lastPagoDateApi = (string)$apFechaApi['fechaRegistro'];
+                            }
+                        }
+                    }
+                    if ($lastPagoDateApi && (!$fechaUltimoPagoCompletoApi || strtotime($lastPagoDateApi) > strtotime($fechaUltimoPagoCompletoApi))) {
+                        $fechaUltimoPagoCompletoApi = $lastPagoDateApi;
+                    }
+                }
+
+                $statusCreditoApi = trim((string)($estadoCuenta['statusCredito'] ?? ''));
+                $creditoSaldadoApi = (mb_strtoupper($statusCreditoApi, 'UTF-8') === 'SALDADO');
+                $totalCuotasRegularesApi = 0;
+                foreach (is_array($tabla) ? $tabla : [] as $filaConteoApi) {
+                    if (($filaConteoApi['tipo'] ?? '') !== 'anticipo') {
+                        $totalCuotasRegularesApi++;
+                    }
+                }
+
+                $tablaApi = [];
+                $idxCuotaApi = 0;
+                foreach (is_array($tabla) ? $tabla : [] as $fila) {
+                    if (!is_array($fila)) {
+                        continue;
+                    }
+
+                    $rawCargoApi = is_array($fila['raw_cargo'] ?? null) ? $fila['raw_cargo'] : [];
+                    $tipoFilaApi = (string)($fila['tipo'] ?? '');
+                    if ($tipoFilaApi !== 'anticipo') {
+                        $idxCuotaApi++;
+                    }
+                    $esUltimaCuotaApi = ($tipoFilaApi !== 'anticipo' && $idxCuotaApi === $totalCuotasRegularesApi);
+                    $fechaFilaApi = $fila['fecha'] ?? null;
+                    $montoCargoApi = (float)($fila['monto_cargo'] ?? 0);
+                    $totalPagadoApi = (float)($fila['total_pagado'] ?? 0);
+                    $pendienteApi = (float)($fila['pendiente'] ?? 0);
+                    $aplicadosApi = is_array($fila['aplicados'] ?? null) ? $fila['aplicados'] : [];
+
+                    $lastPagoDateApi = null;
+                    $lastPagoDateRealApi = null;
+                    $tieneContracargoApi = false;
+                    $lineasPagoApi = [];
+                    foreach ($aplicadosApi as $pagoApi) {
+                        if (!is_array($pagoApi)) {
+                            continue;
+                        }
+                        $tipoPagoApi = (string)($pagoApi['tipo'] ?? '');
+                        if ($tipoPagoApi === 'contracargo') {
+                            $tieneContracargoApi = true;
+                        }
+                        if (empty($pagoApi['no_cuenta_para_total_cuota']) && !empty($pagoApi['fechaRegistro'])) {
+                            $tsPagoApi = strtotime((string)$pagoApi['fechaRegistro']);
+                            if ($tsPagoApi && (!$lastPagoDateApi || $tsPagoApi > strtotime($lastPagoDateApi))) {
+                                $lastPagoDateApi = (string)$pagoApi['fechaRegistro'];
+                            }
+                            if ($tipoPagoApi !== 'contracargo' && empty($pagoApi['cc_invalido']) && (!$lastPagoDateRealApi || $tsPagoApi > strtotime($lastPagoDateRealApi))) {
+                                $lastPagoDateRealApi = (string)$pagoApi['fechaRegistro'];
+                            }
+                        }
+
+                        $fechaPagoApi = $pagoApi['fechaRegistro'] ?? ($pagoApi['fechaPago'] ?? null);
+                        if ($tipoPagoApi === 'contracargo') {
+                            $conceptoDisplayApi = (string)($pagoApi['concepto_display'] ?? 'contracargo');
+                            $etiquetaApi = $conceptoDisplayApi === 'reembolso' ? 'Reembolso' : ($conceptoDisplayApi === 'nccc' ? 'Nota de cargo crédito' : 'Contracargo');
+                            $lineasPagoApi[] = $etiquetaApi . ': -' . $formatCurrencyApi($pagoApi['montoPago'] ?? 0) . ($fechaPagoApi ? ' - ' . $formatDateApi($fechaPagoApi) : '');
+                        } elseif ($tipoPagoApi === 'extemporaneos_resumen') {
+                            $nExtApi = max(1, (int)($pagoApi['cantidad'] ?? 1));
+                            $lineasPagoApi[] = $nExtApi . ' depósito' . ($nExtApi !== 1 ? 's' : '') . ' extemporáneo' . ($nExtApi !== 1 ? 's' : '') . ' - ' . $formatCurrencyApi($pagoApi['montoPago'] ?? 0);
+                        } elseif ($tipoPagoApi === 'extemporaneo_deposito') {
+                            $lineasPagoApi[] = 'Dep. ext.: ' . $formatCurrencyApi($pagoApi['montoPago'] ?? 0) . ' - Aplicado: $0.00' . ($fechaPagoApi ? ' - ' . $formatDateApi($fechaPagoApi) : '');
+                        } elseif ($tipoPagoApi === 'nota_credito') {
+                            $lineasPagoApi[] = 'Nota crédito: ' . $formatCurrencyApi($pagoApi['montoPago'] ?? 0) . ' - Aplicado: ' . $formatCurrencyApi($pagoApi['aplicado'] ?? 0) . ($fechaPagoApi ? ' - ' . $formatDateApi($fechaPagoApi) : '');
+                        } else {
+                            $esSobranteApi = !empty($pagoApi['es_sobrante']);
+                            $esGcApi = !empty($pagoApi['gasto_cobranza']);
+                            $etiquetaApi = $esGcApi ? 'Gasto de Cobranza' : ($esSobranteApi ? 'Sobrante' : 'Pago');
+                            $etiquetaAplicadoApi = $esSobranteApi ? 'Aplicado Sobrante' : 'Aplicado';
+                            $lineasPagoApi[] = $etiquetaApi . ': ' . $formatCurrencyApi($pagoApi['montoPago'] ?? 0) . ' - ' . $etiquetaAplicadoApi . ': ' . $formatCurrencyApi($pagoApi['aplicado'] ?? 0) . ($fechaPagoApi ? ' - ' . $formatDateApi($fechaPagoApi) : '');
+                        }
+                    }
+
+                    $fechaVencApi = $fechaFilaApi ? strtotime((string)$fechaFilaApi) : false;
+                    $diasMoraApi = 0;
+                    if ($fechaVencApi) {
+                        if ($pendienteApi > 0) {
+                            $diasMoraApi = max(0, (int)floor((time() - $fechaVencApi) / 86400));
+                        } elseif ($tieneContracargoApi && $lastPagoDateRealApi) {
+                            $diasMoraApi = max(0, (int)floor((strtotime($lastPagoDateRealApi) - $fechaVencApi) / 86400));
+                        } elseif (isset($rawCargoApi['diasMora']) && $rawCargoApi['diasMora'] !== null) {
+                            $diasMoraApi = (int)$rawCargoApi['diasMora'];
+                        } elseif ($lastPagoDateApi) {
+                            $diasMoraApi = max(0, (int)floor((strtotime($lastPagoDateApi) - $fechaVencApi) / 86400));
+                        }
+                    }
+
+                    $filaRegistroApiExt = false;
+                    if ($totalPagadoApi <= 0.009 && $pendienteApi > 0.009 && !empty($aplicadosApi)) {
+                        $tieneLineaExtApi = false;
+                        $tieneAplicacionCapitalApi = false;
+                        foreach ($aplicadosApi as $apExtApi) {
+                            $tExtApi = (string)($apExtApi['tipo'] ?? '');
+                            if ($tExtApi === 'extemporaneo_deposito' || $tExtApi === 'extemporaneos_resumen') {
+                                $tieneLineaExtApi = true;
+                            }
+                            if ($tExtApi !== 'contracargo' && empty($apExtApi['cc_invalido']) && empty($apExtApi['no_cuenta_para_total_cuota']) && (float)($apExtApi['aplicado'] ?? 0) > 0.009) {
+                                $tieneAplicacionCapitalApi = true;
+                                break;
+                            }
+                        }
+                        $filaRegistroApiExt = $tieneLineaExtApi && !$tieneAplicacionCapitalApi;
+                    }
+
+                    if ($creditoSaldadoApi && $esUltimaCuotaApi) {
+                        $estatusApi = 'credito_saldado';
+                        $estatusDisplayApi = 'Crédito saldado';
+                    } elseif ($pendienteApi <= 0) {
+                        $estatusApi = 'pago_completo';
+                        $estatusDisplayApi = $diasMoraApi > 0 ? 'Pago completo - ' . $diasMoraApi . ' día' . ($diasMoraApi > 1 ? 's' : '') . ' de mora' : 'Pago completo';
+                    } elseif ($filaRegistroApiExt) {
+                        $estatusApi = 'registro_api_extemporaneo';
+                        $estatusDisplayApi = 'Registro API: ext.';
+                    } elseif ($totalPagadoApi > 0) {
+                        $estatusApi = 'pago_parcial';
+                        $estatusDisplayApi = 'Pago parcial - ' . $diasMoraApi . ' día' . ($diasMoraApi > 1 ? 's' : '') . ' de mora';
+                    } else {
+                        $estatusApi = 'sin_pago';
+                        $estatusDisplayApi = 'Sin pago - ' . $diasMoraApi . ' día' . ($diasMoraApi > 1 ? 's' : '') . ' de mora';
+                    }
+
+                    unset($fila['raw_cargo']);
+                    $fila['display'] = [
+                        'fecha' => $formatDateApi($fechaFilaApi),
+                        'monto_cargo' => $formatCurrencyApi($montoCargoApi),
+                        'pagos_cliente' => $lineasPagoApi,
+                        'aplicado' => $formatCurrencyApi($totalPagadoApi),
+                        'estatus' => $estatusApi,
+                        'estatus_texto' => $estatusDisplayApi,
+                        'dias_mora' => $diasMoraApi,
+                        'texto_mora' => $diasMoraApi > 0 ? $diasMoraApi . ' día' . ($diasMoraApi > 1 ? 's' : '') . ' de mora' : '',
+                        'es_ultima_cuota' => $esUltimaCuotaApi,
+                        'credito_saldado_pago_total' => ($creditoSaldadoApi && $esUltimaCuotaApi && !empty($aplicadosApi)),
+                        'saldo_favor' => ($creditoSaldadoApi && $esUltimaCuotaApi) ? round((float)($saldoFavorEstadoCuenta ?? 0), 2) : 0,
+                        'saldo_favor_display' => ($creditoSaldadoApi && $esUltimaCuotaApi) ? $formatCurrencyApi($saldoFavorEstadoCuenta ?? 0) : null,
+                    ];
+
+                    if ($creditoSaldadoApi && $esUltimaCuotaApi && !empty($aplicadosApi)) {
+                        $fila['display']['notas_finales'] = [
+                            'Crédito saldado - Pago total',
+                            'Saldo a favor: ' . $formatCurrencyApi($saldoFavorEstadoCuenta ?? 0),
+                        ];
+                    }
+
+                    $tablaApi[] = $fila;
+                }
 
                 $creditoApi = [
                     'idCredito' => $estadoCuenta['idCredito'] ?? null,
@@ -3315,6 +3646,8 @@ JS;
                     'referenciaSTP' => $estadoCuenta['referenciaSTP'] ?? null,
                     'statusCredito' => $estadoCuenta['statusCredito'] ?? null,
                     'fechaLiquidacion' => $estadoCuenta['fechaLiquidacion'] ?? null,
+                    'ultimoPago' => $fechaUltimoPagoCompletoApi,
+                    'ultimoPagoDisplay' => $formatDateApi($fechaUltimoPagoCompletoApi),
                     'motivo' => $estadoCuenta['motivo'] ?? null,
                 ];
 
@@ -3332,24 +3665,34 @@ JS;
                     'saldoFavorEstadoCuenta' => $saldoFavorEstadoCuenta ?? 0,
                 ];
 
+                $respuestaS2Api = $resultado['respuestaS2'] ?? null;
                 EstadoCuentaTimingLog::finish('json_ok');
                 header('Content-Type: application/json; charset=utf-8');
-                echo json_encode([
+                $payloadApi = [
                     'success' => true,
                     'message' => 'OK',
-                    'id_credito' => (int)($estadoCuenta['idCredito'] ?? $idConsultado ?? 0),
+                    'id_credito' => $idCreditoApi,
                     'fecha_corte' => $fechaHoy,
-                    'cliente' => $cliente,
+                    'cliente' => $clienteApi,
                     'credito' => $creditoApi,
                     'saldos' => $saldosApi,
                     'tabla' => $tablaApi,
+                    'gastosCobranza' => $gastosCobranzaApi,
+                    'complementos' => [
+                        'referencias' => $referenciasApi,
+                        'direcciones' => $direccionesApi,
+                        'notas' => $notasApi,
+                    ],
                     'notasCargoPorFecha' => $notasCargoPorFecha ?? [],
                     'gastoCobranzaPorFecha' => $gastoCobranzaPorFecha ?? [],
                     'esReembolsoPorFecha' => $esReembolsoPorFecha ?? [],
                     'tipoDisplayCargoPorFecha' => $tipoDisplayCargoPorFecha ?? [],
                     'hayNotasCargos' => $hayNotasCargos ?? false,
                     'resultadoCruce' => $resultadoCruce ?? null,
-                ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+                ];
+                $payloadApiNormalizado = $normalizarPayloadApi($payloadApi);
+                $payloadApiNormalizado['respuestaS2'] = $respuestaS2Api;
+                echo json_encode($payloadApiNormalizado, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
                 return;
             }
 
@@ -3512,6 +3855,7 @@ JS;
                 'status' => 0,
                 'error'  => 'Error al conectar con servidor: ' . $msg,
                 'data'   => null,
+                'respuestaS2' => null,
             ];
         }
 
@@ -3522,6 +3866,7 @@ JS;
                 'status' => $httpCode,
                 'error'  => 'Respuesta no válida del servidor (JSON inválido)',
                 'data'   => null,
+                'respuestaS2' => null,
             ];
         }
 
@@ -3531,6 +3876,7 @@ JS;
                 'status' => $httpCode,
                 'error'  => $json['mensaje'][0] ?? 'No hay conexión con S2',
                 'data'   => $json,
+                'respuestaS2' => $json,
             ];
         }
 
@@ -3540,6 +3886,7 @@ JS;
                 'status' => $httpCode,
                 'error'  => 'No se encontraron datos en la API',
                 'data'   => $json,
+                'respuestaS2' => $json,
             ];
         }
 
@@ -3548,6 +3895,7 @@ JS;
             'status' => 200,
             'error'  => null,
             'data'   => $json['estadoCuenta'],
+            'respuestaS2' => $json,
         ];
     }
 
@@ -3560,6 +3908,7 @@ JS;
                 'status' => 0,
                 'error'  => 'No se pudo inicializar la conexión con S2',
                 'data'   => null,
+                'respuestaS2' => null,
             ];
         }
         $response = curl_exec($ch);

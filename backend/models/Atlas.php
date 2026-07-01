@@ -7226,7 +7226,43 @@ class Atlas extends Model
         if (!($res['success'] ?? false)) {
             throw new \RuntimeException($res['mensaje'] ?? 'No se pudo cargar el catalogo de accesos Atlas.');
         }
-        return $res['datos']['usuarios'] ?? [];
+        $usuarios = $res['datos']['usuarios'] ?? [];
+        if (!$usuarios) {
+            return [];
+        }
+
+        $db = new Database();
+        $ids = array_values(array_unique(array_filter(array_map(static function ($usuario) {
+            return (int)($usuario['persona_id'] ?? 0);
+        }, $usuarios))));
+        if (!$ids) {
+            return $usuarios;
+        }
+
+        $placeholders = [];
+        $params = [];
+        foreach ($ids as $idx => $id) {
+            $key = 'id' . $idx;
+            $placeholders[] = ':' . $key;
+            $params[$key] = $id;
+        }
+        $credenciales = $db->queryAll("
+            SELECT id, user_name, password
+            FROM persona
+            WHERE id IN (" . implode(',', $placeholders) . ")
+        ", $params);
+        $porPersona = [];
+        foreach ($credenciales as $credencial) {
+            $porPersona[(int)$credencial['id']] = $credencial;
+        }
+        foreach ($usuarios as &$usuario) {
+            $personaId = (int)($usuario['persona_id'] ?? 0);
+            $usuario['user_name'] = $porPersona[$personaId]['user_name'] ?? '';
+            $usuario['password'] = $porPersona[$personaId]['password'] ?? '';
+        }
+        unset($usuario);
+
+        return $usuarios;
     }
 
     public static function importarAccesosAtlasLayout(array $filas, int $usuarioId = 0): array

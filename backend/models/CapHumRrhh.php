@@ -1251,6 +1251,9 @@ class CapHumRrhh extends Model
                 'cuentas_bancarias' => $db->queryAll("SELECT id_banco, nombre_banco, numero_cuenta, clabe, estatus FROM __SPARTA_SECRET_REDACTED__.persona_cuenta_bancaria WHERE id_persona = :id_persona ORDER BY id ASC", ['id_persona' => $idPersona]),
                 'contactos_emergencia' => $db->queryAll("SELECT nombre_contacto, parentesco, numero, estatus FROM __SPARTA_SECRET_REDACTED__.contacto_persona_emergencia WHERE id_persona = :id_persona ORDER BY id ASC", ['id_persona' => $idPersona]),
                 'beneficiarios' => $db->queryAll("SELECT nombre_beneficiario, parentesco, numero, porcentaje, estatus FROM __SPARTA_SECRET_REDACTED__.persona_beneficiario_fallecimiento WHERE id_persona = :id_persona ORDER BY id ASC", ['id_persona' => $idPersona]),
+                'salario_sensible' => [
+                    'tiene_salario' => CapHum::personaTieneSalarioSensible($idPersona),
+                ],
                 'observaciones' => $observacion['observacion'] ?? ($rrhh['observaciones'] ?? ''),
             ];
 

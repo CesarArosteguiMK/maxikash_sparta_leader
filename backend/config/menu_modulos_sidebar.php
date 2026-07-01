@@ -33,6 +33,7 @@ if (!function_exists('getMenuSidebarModulosStructure')) {
                     ['label' => 'Panel vacaciones', 'url' => '/caphum/vacacionesAdmin', 'modulos' => [4]],
                     ['label' => 'Expedientes RR.HH.', 'url' => '/caphum/documentosRrhh', 'modulos' => [93]],
                     ['label' => 'Revisión RR.HH.', 'url' => '/caphum/actualizacionesInfo', 'modulos' => [83]],
+                    ['label' => 'Auditoria', 'url' => '/caphum/auditoria', 'modulos' => [154]],
                     ['label' => 'Organigrama Cobranza', 'url' => '/caphum/organigrama', 'modulos' => [5]],
                     ['label' => 'Organización', 'url' => '/caphum/estructuraOrganizacional', 'modulos' => [86]],
                     ['label' => 'Perfiles de puesto', 'url' => '/caphum/perfilesPuestos', 'modulos' => [91]],
@@ -320,6 +321,10 @@ if (!function_exists('mapPermisoEspecialToMenuMeta')) {
             // Motos Adjudicadas - 1.- Evidencias
             79 => [70, 710],
             100 => [62, 640],
+            180 => [70, 720],
+            181 => [70, 730],
+            182 => [70, 740],
+            183 => [70, 750],
             // Cierre de crédito (ancla 51 vía nombre): tarjeta «Convenios»
         ];
         if (isset($anclas[$mid])) {

@@ -36,6 +36,22 @@
     .modal-perfil-modulos-agrupados .modal-perfil-modulo-grupo {
         background: #fff;
     }
+    #modalEditPerfil .modal-perfil-modulos-agrupados .modal-perfil-modulo-grupo {
+        border-color: #d8e0ea !important;
+        box-shadow: 0 6px 16px rgba(15, 23, 42, 0.08) !important;
+        transition: box-shadow .18s ease, border-color .18s ease, transform .18s ease;
+    }
+    #modalEditPerfil .modal-perfil-modulos-agrupados .modal-perfil-modulo-grupo.is-collapsed {
+        border-color: #cfd8e3 !important;
+        box-shadow: 0 4px 10px rgba(15, 23, 42, 0.08) !important;
+    }
+    #modalEditPerfil .modal-perfil-modulos-agrupados .modal-perfil-modulo-grupo.is-collapsed .modal-perfil-modulo-grupo-header {
+        border-bottom: 0 !important;
+        border-radius: .55rem;
+    }
+    #modalEditPerfil .modal-perfil-modulos-agrupados .modal-perfil-modulo-grupo.is-open .modal-perfil-modulo-grupo-header {
+        border-radius: .55rem .55rem 0 0;
+    }
     body.dark-mode .modal-perfil-modulos-agrupados .modal-perfil-modulo-grupo {
         background: rgba(30, 41, 59, 0.95) !important;
         border-color: #e2e8f0 !important;
@@ -106,7 +122,7 @@
         display: flex;
         flex-wrap: wrap;
         gap: 1rem;
-        align-items: stretch;
+        align-items: flex-start;
     }
     /* Exactamente 2 bloques por fila (gap 1rem entre columnas) */
     #modalEditPerfil .modal-perfil-modulos-agrupados .modal-perfil-modulo-grupo {
@@ -1177,6 +1193,36 @@
       font-size: .82rem;
       font-weight: 600;
       margin: -.25rem 0 .85rem;
+    }
+
+    #modalAgregarUsuarioRrhh .rrhh-salary-card {
+      border: 1px solid #dbe4f0;
+      background: #f8fbff;
+      border-radius: 8px;
+      padding: .95rem;
+    }
+
+    #modalAgregarUsuarioRrhh .rrhh-salary-status {
+      display: inline-flex;
+      align-items: center;
+      gap: .35rem;
+      border-radius: 999px;
+      padding: .2rem .55rem;
+      font-size: .75rem;
+      font-weight: 700;
+      background: #fff3cd;
+      color: #9a6700;
+      white-space: nowrap;
+    }
+
+    #modalAgregarUsuarioRrhh .rrhh-salary-status.is-unlocked {
+      background: #dcfce7;
+      color: #166534;
+    }
+
+    #modalAgregarUsuarioRrhh .rrhh-salary-status.is-denied {
+      background: #fee2e2;
+      color: #991b1b;
     }
 
     #modalAgregarUsuarioRrhh .rrhh-repeat-row {
@@ -5508,6 +5554,32 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
                         </div>
                         <div class="col-md-4"><label class="form-label">Ubicación laboral</label><input type="text" class="form-control" name="rrhh.ubicacion_laboral"></div>
                         <div class="col-md-4"><label class="form-label">Municipio</label><input type="text" class="form-control" name="rrhh.municipio_laboral"></div>
+                        <div class="col-12">
+                          <div class="rrhh-salary-card" id="rrhhSalarioSensibleCard">
+                            <div class="d-flex align-items-center justify-content-between gap-2 flex-wrap mb-2">
+                              <div class="rrhh-section-title mb-0"><i class="fa fa-shield-halved me-1"></i>Salario</div>
+                              <span class="rrhh-salary-status" id="rrhhSalarioSensibleStatus"><i class="fa fa-lock"></i>Protegido</span>
+                            </div>
+                            <div class="row g-2 align-items-end">
+                              <div class="col-md-5">
+                                <label class="form-label">Salario mensual</label>
+                                <div class="input-group">
+                                  <span class="input-group-text">$</span>
+                                  <input type="password" class="form-control" id="rrhh_salario_sensible" inputmode="decimal" autocomplete="off" placeholder="Protegido" disabled>
+                                  <span class="input-group-text">MXN</span>
+                                </div>
+                              </div>
+                              <div class="col-md-7 d-flex gap-2 flex-wrap">
+                                <button type="button" class="btn btn-outline-primary" id="btnRrhhDesbloquearSalario">
+                                  <i class="fa fa-key me-1"></i>Desbloquear
+                                </button>
+                                <button type="button" class="btn btn-primary" id="btnRrhhGuardarSalario" disabled>
+                                  <i class="fa fa-save me-1"></i>Guardar salario
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -5750,11 +5822,11 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
               </div>
               <div class="modal-body">
-                <input type="file" class="d-none" id="rrhhImportDocsInputArchivos" accept=".pdf,.zip,application/pdf,application/zip" multiple>
+                <input type="file" class="d-none" id="rrhhImportDocsInputArchivos" accept=".pdf,.fad,.zip,application/pdf,application/zip" multiple>
                 <input type="file" class="d-none" id="rrhhImportDocsInputCarpeta" webkitdirectory directory multiple>
                 <div class="d-flex flex-wrap gap-2 align-items-center mb-3">
                   <button type="button" class="btn btn-outline-primary" id="btnRrhhImportSeleccionarArchivos">
-                    <i class="fa fa-file-archive me-1"></i>Elegir ZIP/PDF
+                    <i class="fa fa-file-archive me-1"></i>Elegir ZIP/PDF/FAD
                   </button>
                   <button type="button" class="btn btn-outline-primary" id="btnRrhhImportSeleccionarCarpeta">
                     <i class="fa fa-folder-open me-1"></i>Elegir carpeta
@@ -5768,7 +5840,7 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
                 </div>
                 <div class="small text-muted mb-1" id="rrhhImportDocsSeleccionResumen">No se han seleccionado archivos.</div>
                 <div class="small text-muted mb-3">
-                  Soporta lotes de hasta 1000 archivos o 850 MB por carga. El analisis conserva un lote temporal para importar sin volver a subir los documentos.
+                  La carpeta se procesa automaticamente por tandas para evitar rechazos del servidor. Si eliges un ZIP muy grande, descomprimelo y usa Elegir carpeta.
                 </div>
                 <div id="rrhhImportDocsResumen" class="d-flex flex-wrap gap-2 mb-3"></div>
                 <div class="table-responsive" style="max-height: 52vh;">
@@ -6823,6 +6895,36 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
                             <option value="">Seleccione un tipo de documento</option>
                             <?php
                             $modulosSesionDocumentoRrhh = array_map('intval', (array) ($_SESSION['modulos'] ?? []));
+                            $usuarioSesionDocumentoRrhh = (int) ($_SESSION['usuario_id'] ?? $_SESSION['persona_id'] ?? $_SESSION['id_usuario'] ?? $_SESSION['id'] ?? 0);
+                            $modulosDocumentoRrhhSelect = [
+                                8 => 155,
+                                9 => 156,
+                                10 => 157,
+                                11 => 158,
+                                12 => 159,
+                                13 => 160,
+                                14 => 161,
+                                15 => 162,
+                                16 => 163,
+                                17 => 164,
+                                18 => 165,
+                                22 => 166,
+                                23 => 167,
+                                24 => 168,
+                                25 => 169,
+                                27 => 170,
+                                28 => 171,
+                                29 => 172,
+                                30 => 173,
+                                31 => 174,
+                                32 => 175,
+                                33 => 176,
+                                34 => 177,
+                                35 => 178,
+                                36 => 179,
+                                37 => 184,
+                                38 => 185,
+                            ];
                             $tiposDocumentoRrhhSelect = [
                                 12 => 'Acta de Nacimiento',
                                 29 => 'Archivo .FAD',
@@ -6844,9 +6946,22 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
                                 17 => 'Solicitud interna',
                                 18 => 'CV o solicitud de trabajo',
                                 30 => 'Validacion SAT',
+                                22 => 'Constancia de Situacion Fiscal',
+                                23 => 'Numero de Seguridad Social',
+                                34 => 'Documento incapacidad',
+                                35 => 'Documento permiso',
+                                36 => 'Documento falta',
+                                37 => 'Finiquito',
+                                38 => 'Comprobante de pago finiquito',
                             ];
                             foreach ($tiposDocumentoRrhhSelect as $idDocumentoRrhh => $nombreDocumentoRrhh):
-                                if (!in_array(3000 + (int) $idDocumentoRrhh, $modulosSesionDocumentoRrhh, true)) {
+                                $idDocumentoRrhh = (int) $idDocumentoRrhh;
+                                $idModuloNuevoDocumentoRrhh = (int) ($modulosDocumentoRrhhSelect[$idDocumentoRrhh] ?? 0);
+                                $tienePermisoDocumentoRrhh = $usuarioSesionDocumentoRrhh === 1
+                                    || ($idModuloNuevoDocumentoRrhh > 0 && in_array($idModuloNuevoDocumentoRrhh, $modulosSesionDocumentoRrhh, true))
+                                    || in_array(3000 + $idDocumentoRrhh, $modulosSesionDocumentoRrhh, true)
+                                    || ($idDocumentoRrhh === 27 && in_array(144, $modulosSesionDocumentoRrhh, true));
+                                if (!$tienePermisoDocumentoRrhh) {
                                     continue;
                                 }
                             ?>
@@ -12972,6 +13087,10 @@ function precargarCascadaEdit(idPais, idEstado, idMunicipio, idColonia, idCalle,
   const subtituloModalRrhh = document.getElementById('rrhhWizardSubtitle');
   const inputEditIdRrhh = document.getElementById('rrhh_edit_id_persona');
   const btnGuardarRrhh = document.getElementById('btnGuardarUsuarioRrhh');
+  const inputSalarioSensibleRrhh = document.getElementById('rrhh_salario_sensible');
+  const btnDesbloquearSalarioRrhh = document.getElementById('btnRrhhDesbloquearSalario');
+  const btnGuardarSalarioRrhh = document.getElementById('btnRrhhGuardarSalario');
+  const estadoSalarioSensibleRrhh = document.getElementById('rrhhSalarioSensibleStatus');
   const btnGenerarExpedienteRrhh = document.getElementById('btnGenerarExpedienteRrhh');
   const btnGenerarCredencialRrhh = document.getElementById('btnGenerarCredencialRrhh');
   const modalExpedienteRrhh = document.getElementById('modalExpedienteRrhh');
@@ -13037,8 +13156,9 @@ function precargarCascadaEdit(idPais, idEstado, idMunicipio, idColonia, idCalle,
   let rrhhImportDocsFiles = [];
   let rrhhImportDocsAnalisis = null;
   let rrhhImportPreviewUrl = '';
-  const RRHH_IMPORT_DOCS_MAX_FILES = 1000;
-  const RRHH_IMPORT_DOCS_MAX_BYTES = 850 * 1024 * 1024;
+  const RRHH_IMPORT_DOCS_MAX_FILES = 10;
+  const RRHH_IMPORT_DOCS_MAX_BYTES = 30 * 1024 * 1024;
+  const RRHH_IMPORT_DOCS_MAX_ZIP_BYTES = 30 * 1024 * 1024;
   let abriendoCredencialRrhh = false;
   let volverDesdeCredencialRrhh = false;
   let orientacionCredencialRrhh = 'vertical';
@@ -13120,6 +13240,7 @@ function precargarCascadaEdit(idPais, idEstado, idMunicipio, idColonia, idCalle,
     const esEdicion = modo === 'editar';
     form.dataset.mode = esEdicion ? 'editar' : 'crear';
     if (inputEditIdRrhh) inputEditIdRrhh.value = esEdicion ? String(idPersona || '') : '';
+    resetSalarioSensibleRrhh(esEdicion);
     if (tituloModalRrhh) {
       tituloModalRrhh.textContent = esEdicion ? 'Editar usuario RR.HH.' : 'Agregar usuario RR.HH.';
     }
@@ -13138,6 +13259,181 @@ function precargarCascadaEdit(idPais, idEstado, idMunicipio, idColonia, idCalle,
     });
     actualizarRrhhWizard();
   }
+
+  function setEstadoSalarioSensibleRrhh(texto, modo = 'locked') {
+    if (!estadoSalarioSensibleRrhh) return;
+    estadoSalarioSensibleRrhh.classList.toggle('is-unlocked', modo === 'unlocked');
+    estadoSalarioSensibleRrhh.classList.toggle('is-denied', modo === 'denied');
+    const icon = modo === 'unlocked' ? 'fa-unlock' : (modo === 'denied' ? 'fa-ban' : 'fa-lock');
+    estadoSalarioSensibleRrhh.innerHTML = `<i class="fa ${icon}"></i>${escapeRrhhHtml(texto)}`;
+  }
+
+  function resetSalarioSensibleRrhh(esEdicion = false, tieneSalario = false) {
+    if (inputSalarioSensibleRrhh) {
+      inputSalarioSensibleRrhh.value = esEdicion && tieneSalario ? '********' : '';
+      inputSalarioSensibleRrhh.type = 'password';
+      inputSalarioSensibleRrhh.disabled = true;
+      inputSalarioSensibleRrhh.placeholder = esEdicion ? 'Protegido' : 'Disponible al editar';
+    }
+    if (btnDesbloquearSalarioRrhh) btnDesbloquearSalarioRrhh.disabled = !esEdicion;
+    if (btnGuardarSalarioRrhh) btnGuardarSalarioRrhh.disabled = true;
+    setEstadoSalarioSensibleRrhh(esEdicion ? (tieneSalario ? 'Guardado' : 'Sin capturar') : 'Solo al editar', 'locked');
+  }
+
+  function aplicarEstadoSalarioSensibleRrhh(meta = {}) {
+    resetSalarioSensibleRrhh(form.dataset.mode === 'editar', !!meta.tiene_salario);
+  }
+
+  function idPersonaRrhhActual() {
+    return Number(inputEditIdRrhh?.value || 0);
+  }
+
+  function cargarLibreriaQrRrhhLocal() {
+    if (window.QRCode && typeof window.QRCode.toCanvas === 'function') {
+      return Promise.resolve();
+    }
+    return new Promise((resolve, reject) => {
+      const existente = document.querySelector('script[data-rrhh-qrcode="1"]');
+      if (existente) {
+        existente.addEventListener('load', resolve, { once: true });
+        existente.addEventListener('error', reject, { once: true });
+        return;
+      }
+      const script = document.createElement('script');
+      script.src = '/assets/vendor/libs/qrcode/qrcode.js';
+      script.async = true;
+      script.dataset.rrhhQrcode = '1';
+      script.onload = resolve;
+      script.onerror = reject;
+      document.head.appendChild(script);
+    });
+  }
+
+  async function pedirTotpSalarioSensibleRrhh(datosTotp) {
+    const setup = !!datosTotp?.setup;
+    const secret = datosTotp?.secret || '';
+    const otpauthUrl = datosTotp?.otpauth_url || '';
+    const cuenta = datosTotp?.cuenta || '';
+    const html = setup
+      ? `<div class="text-start">
+          <p class="mb-2">Escanea este QR en Google Authenticator y captura el codigo generado.</p>
+          <div class="d-flex justify-content-center my-2"><canvas id="rrhh-salario-totp-qr" width="210" height="210"></canvas></div>
+          <div class="small text-muted">Cuenta: ${escapeRrhhHtml(cuenta)}${secret ? '<br>Clave: <code>' + escapeRrhhHtml(secret) + '</code>' : ''}</div>
+          <div class="small text-danger d-none mt-2" id="rrhh-salario-totp-qr-error">No se pudo pintar el QR. Usa la clave manual.</div>
+        </div>`
+      : '<div class="text-start"><p class="mb-0">Escribe el codigo de 6 digitos de Google Authenticator para desbloquear salario.</p></div>';
+
+    const result = await Swal.fire({
+      title: 'Segundo paso requerido',
+      html,
+      input: 'text',
+      inputPlaceholder: 'Codigo de 6 digitos',
+      inputAttributes: { maxlength: 6, inputmode: 'numeric', autocomplete: 'one-time-code' },
+      showCancelButton: true,
+      confirmButtonText: 'Verificar',
+      cancelButtonText: 'Cancelar',
+      didOpen: async () => {
+        setTimeout(() => Swal.getInput()?.focus?.(), 80);
+        if (setup && otpauthUrl) {
+          try {
+            await cargarLibreriaQrRrhhLocal();
+            const canvas = document.getElementById('rrhh-salario-totp-qr');
+            if (canvas && window.QRCode && typeof window.QRCode.toCanvas === 'function') {
+              await window.QRCode.toCanvas(canvas, otpauthUrl, { width: 210, margin: 2, errorCorrectionLevel: 'M' });
+            }
+          } catch (error) {
+            document.getElementById('rrhh-salario-totp-qr-error')?.classList.remove('d-none');
+          }
+        }
+      },
+      preConfirm: value => {
+        const codigo = String(value || '').replace(/\D+/g, '');
+        if (codigo.length !== 6) {
+          Swal.showValidationMessage('Captura los 6 digitos de Google Authenticator.');
+          return false;
+        }
+        return codigo;
+      }
+    });
+    return result.isConfirmed ? result.value : '';
+  }
+
+  async function postSalarioSensibleRrhh(endpoint, payload, datosTotp = null) {
+    const body = Object.assign({}, payload);
+    if (datosTotp && datosTotp.codigo) body.totp_code = datosTotp.codigo;
+    const response = await fetch(endpoint, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+      body: JSON.stringify(body)
+    });
+    const data = await response.json();
+    if (data.success && data.datos && data.datos.requiere_totp) {
+      const codigo = await pedirTotpSalarioSensibleRrhh(data.datos);
+      if (!codigo) return null;
+      return postSalarioSensibleRrhh(endpoint, payload, { codigo });
+    }
+    return data;
+  }
+
+  async function desbloquearSalarioSensibleRrhh() {
+    const idPersona = idPersonaRrhhActual();
+    if (!idPersona) {
+      Swal.fire('Salario protegido', 'Primero guarda el usuario y vuelve a editarlo para capturar salario.', 'info');
+      return;
+    }
+    if (btnDesbloquearSalarioRrhh) btnDesbloquearSalarioRrhh.disabled = true;
+    try {
+      const data = await postSalarioSensibleRrhh('/CapHum/leerSalarioPersonaRrhh', { id_persona: idPersona });
+      if (!data) return;
+      if (!data.success) {
+        setEstadoSalarioSensibleRrhh('Sin permiso', 'denied');
+        throw new Error(data.mensaje || 'No se pudo desbloquear el salario.');
+      }
+      if (inputSalarioSensibleRrhh) {
+        inputSalarioSensibleRrhh.type = 'text';
+        inputSalarioSensibleRrhh.disabled = false;
+        inputSalarioSensibleRrhh.value = data.datos?.salario || '';
+        inputSalarioSensibleRrhh.placeholder = '0.00';
+        inputSalarioSensibleRrhh.focus();
+      }
+      if (btnGuardarSalarioRrhh) btnGuardarSalarioRrhh.disabled = false;
+      setEstadoSalarioSensibleRrhh('Desbloqueado', 'unlocked');
+    } catch (error) {
+      Swal.fire('Salario protegido', error.message || 'No se pudo desbloquear el salario.', 'error');
+    } finally {
+      if (btnDesbloquearSalarioRrhh) btnDesbloquearSalarioRrhh.disabled = false;
+    }
+  }
+
+  async function guardarSalarioSensibleRrhh() {
+    const idPersona = idPersonaRrhhActual();
+    if (!idPersona || !inputSalarioSensibleRrhh || inputSalarioSensibleRrhh.disabled) return;
+    if (btnGuardarSalarioRrhh) btnGuardarSalarioRrhh.disabled = true;
+    try {
+      const data = await postSalarioSensibleRrhh('/CapHum/guardarSalarioPersonaRrhh', {
+        id_persona: idPersona,
+        salario: inputSalarioSensibleRrhh.value || ''
+      });
+      if (!data) return;
+      if (!data.success) throw new Error(data.mensaje || 'No se pudo guardar el salario.');
+      if (data.datos && data.datos.tiene_salario === false) {
+        resetSalarioSensibleRrhh(true, false);
+      } else {
+        inputSalarioSensibleRrhh.value = data.datos?.salario || '';
+        setEstadoSalarioSensibleRrhh('Guardado', 'unlocked');
+      }
+      Swal.fire('Guardado', 'Salario protegido actualizado correctamente.', 'success');
+    } catch (error) {
+      Swal.fire('Error', error.message || 'No se pudo guardar el salario.', 'error');
+    } finally {
+      if (btnGuardarSalarioRrhh && inputSalarioSensibleRrhh && !inputSalarioSensibleRrhh.disabled) {
+        btnGuardarSalarioRrhh.disabled = false;
+      }
+    }
+  }
+
+  btnDesbloquearSalarioRrhh?.addEventListener('click', desbloquearSalarioSensibleRrhh);
+  btnGuardarSalarioRrhh?.addEventListener('click', guardarSalarioSensibleRrhh);
 
   function escapeRrhhAttr(value) {
     return String(value ?? '')
@@ -13504,8 +13800,9 @@ function precargarCascadaEdit(idPais, idEstado, idMunicipio, idColonia, idCalle,
     });
 
     const btnSiguiente = document.getElementById('btnRrhhWizardNext');
-    if (btnSiguiente) btnSiguiente.classList.toggle('d-none', activo >= total - 1);
-    if (btnGuardarRrhh) btnGuardarRrhh.classList.toggle('d-none', activo < total - 1);
+    const esEdicion = form.dataset.mode === 'editar';
+    if (btnSiguiente) btnSiguiente.classList.toggle('d-none', esEdicion || activo >= total - 1);
+    if (btnGuardarRrhh) btnGuardarRrhh.classList.toggle('d-none', !esEdicion && activo < total - 1);
     actualizarResumenLaboralRrhh();
     actualizarBeneficiariosStatusRrhh();
   }
@@ -13847,6 +14144,7 @@ function precargarCascadaEdit(idPais, idEstado, idMunicipio, idColonia, idCalle,
     Object.entries(data?.rrhh || {}).forEach(([key, value]) => setFormValueByName(`rrhh.${key}`, value));
     Object.entries(data?.nomina || {}).forEach(([key, value]) => setFormValueByName(`nomina.${key}`, value));
     setFormValueByName('observaciones', data?.observaciones || '');
+    aplicarEstadoSalarioSensibleRrhh(data?.salario_sensible || {});
 
     initRrhhDatepickers();
     await precargarSelectsLaboralesRrhh(data || {});
@@ -13923,20 +14221,119 @@ function precargarCascadaEdit(idPais, idEstado, idMunicipio, idColonia, idCalle,
   function rrhhImportDocsFormData(options = {}) {
     const fd = new FormData();
     const batchId = String(rrhhImportDocsAnalisis?.batch_id || '').trim();
-    if (batchId) {
+    const usarBatch = options.usarBatch !== false;
+    const files = Array.isArray(options.files) ? options.files : rrhhImportDocsFiles;
+    const sourceOffset = Number(options.sourceOffset || 0);
+    const manualesGlobales = options.manualesGlobales || null;
+    if (batchId && usarBatch) {
       fd.append('batch_id', batchId);
-    } else if (rrhhImportDocsFiles.length) {
-      rrhhImportDocsFiles.forEach(file => {
+    } else if (files.length) {
+      files.forEach(file => {
         fd.append('archivos[]', file, file.name);
         fd.append('rutas_relativas[]', file.webkitRelativePath || file.name);
       });
     }
+    if (manualesGlobales instanceof Map) {
+      files.forEach((file, localIndex) => {
+        const globalIndex = Number(file.__rrhhGlobalIndex ?? (sourceOffset + localIndex));
+        const idDocumento = Number(manualesGlobales.get(globalIndex) || 0);
+        if (idDocumento > 0) {
+          fd.append(`documentos_manual[${localIndex}]`, idDocumento);
+        }
+      });
+    } else {
+      (rrhhImportDocsAnalisis?.items || []).forEach(item => {
+        if (item.documento_manual && Number(item.id_documento || 0) > 0) {
+          const localIndex = Math.max(0, Number(item.source_index || 0) - sourceOffset);
+          fd.append(`documentos_manual[${localIndex}]`, Number(item.id_documento || 0));
+        }
+      });
+    }
+    return fd;
+  }
+
+  function rrhhImportDocsResumenVacio() {
+    return {
+      total: 0,
+      listo: 0,
+      importado: 0,
+      persona_no_encontrada: 0,
+      persona_ambigua: 0,
+      persona_no_coincide: 0,
+      documento_no_reconocido: 0,
+      ya_existe: 0,
+      duplicado_lote: 0,
+      omitido: 0,
+      error: 0,
+      documento_sin_permiso: 0
+    };
+  }
+
+  function rrhhImportDocsSumarResumen(destino, fuente) {
+    const out = destino || rrhhImportDocsResumenVacio();
+    Object.keys(rrhhImportDocsResumenVacio()).forEach(key => {
+      out[key] = Number(out[key] || 0) + Number(fuente?.[key] || 0);
+    });
+    return out;
+  }
+
+  function rrhhImportDocsNormalizarItemsBatch(items, sourceOffset) {
+    return Array.from(items || []).map(item => ({
+      ...item,
+      source_index: Number(item.source_index || 0) + Number(sourceOffset || 0)
+    }));
+  }
+
+  function rrhhImportDocsManualesGlobales() {
+    const manuales = new Map();
     (rrhhImportDocsAnalisis?.items || []).forEach(item => {
-      if (item.documento_manual && Number(item.id_documento || 0) > 0) {
-        fd.append(`documentos_manual[${Number(item.source_index || 0)}]`, Number(item.id_documento || 0));
+      const sourceIndex = Number(item.source_index || 0);
+      const idDocumento = Number(item.id_documento || 0);
+      if (item.documento_manual && idDocumento > 0) {
+        manuales.set(sourceIndex, idDocumento);
       }
     });
-    return fd;
+    return manuales;
+  }
+
+  function rrhhImportDocsEsZip(file) {
+    const texto = [
+      file?.name || '',
+      file?.webkitRelativePath || '',
+      file?.type || ''
+    ].join(' ');
+    return /\.zip\b/i.test(texto) || /zip/i.test(String(file?.type || ''));
+  }
+
+  function rrhhImportDocsCrearBatches(files) {
+    const batches = [];
+    let actual = [];
+    let bytes = 0;
+    Array.from(files || []).forEach((file, index) => {
+      file.__rrhhGlobalIndex = index;
+      const size = Number(file.size || 0);
+      const cerrar = actual.length > 0
+        && (actual.length >= RRHH_IMPORT_DOCS_MAX_FILES || (bytes + size) > RRHH_IMPORT_DOCS_MAX_BYTES);
+      if (cerrar) {
+        batches.push({ files: actual, sourceOffset: Number(actual[0].__rrhhGlobalIndex || 0), bytes });
+        actual = [];
+        bytes = 0;
+      }
+      actual.push(file);
+      bytes += size;
+    });
+    if (actual.length) {
+      batches.push({ files: actual, sourceOffset: Number(actual[0].__rrhhGlobalIndex || 0), bytes });
+    }
+    return batches;
+  }
+
+  function rrhhImportDocsTieneZipGrande(files) {
+    return Array.from(files || []).some(file => rrhhImportDocsEsZip(file) && Number(file.size || 0) > RRHH_IMPORT_DOCS_MAX_ZIP_BYTES);
+  }
+
+  function rrhhImportDocsPrimerArchivoGrande(files) {
+    return Array.from(files || []).find(file => !rrhhImportDocsEsZip(file) && Number(file.size || 0) > RRHH_IMPORT_DOCS_MAX_BYTES) || null;
   }
 
   function rrhhImportDocsSetFiles(fileList) {
@@ -13946,25 +14343,33 @@ function precargarCascadaEdit(idPais, idEstado, idMunicipio, idColonia, idCalle,
     rrhhImportDocsRenderTabla([]);
     const total = rrhhImportDocsFiles.length;
     const peso = rrhhImportDocsFiles.reduce((sum, file) => sum + (file.size || 0), 0);
-    if (total > RRHH_IMPORT_DOCS_MAX_FILES || peso > RRHH_IMPORT_DOCS_MAX_BYTES) {
-      const pesoMb = (peso / 1024 / 1024).toFixed(1);
-      const limiteMb = Math.floor(RRHH_IMPORT_DOCS_MAX_BYTES / 1024 / 1024);
-      const mensaje = total > RRHH_IMPORT_DOCS_MAX_FILES
-        ? `Seleccionaste ${total} archivos. El limite por carga es de ${RRHH_IMPORT_DOCS_MAX_FILES} archivos. Divide la carpeta en lotes mas pequenos.`
-        : `Seleccionaste ${pesoMb} MB. El limite por carga es de ${limiteMb} MB. Divide la carpeta en lotes mas pequenos.`;
-      rrhhImportDocsFiles = [];
-      if (inputRrhhImportArchivos) inputRrhhImportArchivos.value = '';
-      if (inputRrhhImportCarpeta) inputRrhhImportCarpeta.value = '';
+    const pesoMb = (peso / 1024 / 1024).toFixed(1);
+    const limiteMb = Math.floor(RRHH_IMPORT_DOCS_MAX_BYTES / 1024 / 1024);
+    if (rrhhImportDocsTieneZipGrande(rrhhImportDocsFiles)) {
       if (rrhhImportDocsSeleccionResumen) {
-        rrhhImportDocsSeleccionResumen.textContent = 'No se han seleccionado archivos.';
+        rrhhImportDocsSeleccionResumen.textContent = 'El ZIP supera el tamano permitido para una sola carga. Descomprime el archivo y usa Elegir carpeta.';
       }
       if (btnRrhhImportImportar) btnRrhhImportImportar.disabled = true;
-      Swal.fire('Carga masiva', mensaje, 'warning');
+      Swal.fire(
+        'ZIP demasiado grande',
+        'Este ZIP supera el tamano permitido para una sola carga. Descomprime el archivo y usa "Elegir carpeta"; el sistema lo analizara por lotes automaticamente.',
+        'warning'
+      );
+      return;
+    }
+    const archivoGrande = rrhhImportDocsPrimerArchivoGrande(rrhhImportDocsFiles);
+    if (archivoGrande) {
+      if (rrhhImportDocsSeleccionResumen) {
+        rrhhImportDocsSeleccionResumen.textContent = `El archivo ${archivoGrande.name} pesa mas de ${limiteMb} MB.`;
+      }
+      if (btnRrhhImportImportar) btnRrhhImportImportar.disabled = true;
+      Swal.fire('Archivo demasiado grande', `El archivo "${archivoGrande.name}" supera ${limiteMb} MB.`, 'warning');
       return;
     }
     if (rrhhImportDocsSeleccionResumen) {
+      const batches = rrhhImportDocsCrearBatches(rrhhImportDocsFiles);
       rrhhImportDocsSeleccionResumen.textContent = total
-        ? `${total} archivo(s) seleccionado(s), ${(peso / 1024 / 1024).toFixed(1)} MB.`
+        ? `${total} archivo(s) seleccionado(s), ${pesoMb} MB${batches.length > 1 ? `. Se procesaran en ${batches.length} lotes.` : '.'}`
         : 'No se han seleccionado archivos.';
     }
     if (btnRrhhImportImportar) btnRrhhImportImportar.disabled = true;
@@ -14090,7 +14495,7 @@ function precargarCascadaEdit(idPais, idEstado, idMunicipio, idColonia, idCalle,
         headers: { 'X-Requested-With': 'XMLHttpRequest' }
       });
     } catch (err) {
-      throw new Error('No se pudo conectar con el servidor. Revisa que la seleccion no supere el limite de carga configurado: maximo 1000 archivos o 850 MB por intento.');
+      throw new Error('No se pudo conectar con el servidor. La carga se procesa por lotes; vuelve a seleccionar la carpeta si el navegador libero los archivos.');
     }
     const contentType = res.headers.get('content-type') || '';
     if (!contentType.includes('application/json')) {
@@ -14099,15 +14504,25 @@ function precargarCascadaEdit(idPais, idEstado, idMunicipio, idColonia, idCalle,
     }
     const json = await res.json();
     if (!json.success) {
-      throw new Error(json.mensaje || 'La operación no se completó.');
+      const error = new Error(json.mensaje || 'La operacion no se completo.');
+      error.codigo = json.codigo || json?.datos?.codigo || '';
+      throw error;
     }
     return json.datos || {};
   }
 
   async function rrhhImportDocsAbrirDocumento(sourceIndex) {
     try {
-      const fd = rrhhImportDocsFormData({ includeFiles: false });
-      fd.append('source_index', Number(sourceIndex || 0));
+      const batchId = String(rrhhImportDocsAnalisis?.batch_id || '').trim();
+      const globalIndex = Number(sourceIndex || 0);
+      const file = rrhhImportDocsFiles[globalIndex] || null;
+      if (!batchId && !file) {
+        throw new Error('No se encontro el archivo seleccionado en la carga actual.');
+      }
+      const fd = batchId
+        ? rrhhImportDocsFormData()
+        : rrhhImportDocsFormData({ files: file ? [file] : [], sourceOffset: globalIndex, usarBatch: false });
+      fd.append('source_index', batchId ? globalIndex : 0);
       const res = await fetch('/caphum/previsualizarImportacionDocumentosRrhh', {
         method: 'POST',
         body: fd,
@@ -14142,13 +14557,39 @@ function precargarCascadaEdit(idPais, idEstado, idMunicipio, idColonia, idCalle,
   async function rrhhImportDocsAnalizar() {
     if (!rrhhImportDocsFiles.length) return;
     try {
-      rrhhImportDocsSetLoading(true, 'Analizando documentos...');
-      rrhhImportDocsAnalisis = await rrhhImportDocsEnviar('/caphum/analizarImportacionDocumentosRrhh');
+      const batches = rrhhImportDocsCrearBatches(rrhhImportDocsFiles);
+      rrhhImportDocsSetLoading(true, batches.length > 1 ? `Analizando lote 1 de ${batches.length}...` : 'Analizando documentos...');
+      const combinado = {
+        items: [],
+        resumen: rrhhImportDocsResumenVacio(),
+        catalogo: [],
+        batch_id: ''
+      };
+      for (let i = 0; i < batches.length; i++) {
+        const batch = batches[i];
+        if (batches.length > 1) {
+          rrhhImportDocsSetLoading(true, `Analizando lote ${i + 1} de ${batches.length} (${batch.files.length} archivo(s))...`);
+        }
+        const parcial = await rrhhImportDocsEnviar('/caphum/analizarImportacionDocumentosRrhh', {
+          files: batch.files,
+          sourceOffset: batch.sourceOffset,
+          usarBatch: false
+        });
+        if (!combinado.catalogo.length && Array.isArray(parcial.catalogo)) {
+          combinado.catalogo = parcial.catalogo;
+        }
+        if (batches.length === 1 && parcial.batch_id) {
+          combinado.batch_id = parcial.batch_id;
+        }
+        combinado.items.push(...rrhhImportDocsNormalizarItemsBatch(parcial.items || [], batch.sourceOffset));
+        rrhhImportDocsSumarResumen(combinado.resumen, parcial.resumen || {});
+      }
+      rrhhImportDocsAnalisis = combinado;
       rrhhImportDocsRenderResumen(rrhhImportDocsAnalisis.resumen);
       rrhhImportDocsRenderTabla(rrhhImportDocsAnalisis.items || []);
       const listos = rrhhImportDocsAnalisis?.resumen?.listo || 0;
       if (rrhhImportDocsSeleccionResumen) {
-        rrhhImportDocsSeleccionResumen.textContent = `Análisis listo. ${listos} documento(s) pueden importarse.`;
+        rrhhImportDocsSeleccionResumen.textContent = `Analisis listo. ${listos} documento(s) pueden importarse${batches.length > 1 ? ` en ${batches.length} lotes` : ''}.`;
       }
       if (btnRrhhImportImportar) btnRrhhImportImportar.disabled = listos <= 0;
     } catch (error) {
@@ -14172,8 +14613,44 @@ function precargarCascadaEdit(idPais, idEstado, idMunicipio, idColonia, idCalle,
     if (!confirm.isConfirmed) return;
 
     try {
-      rrhhImportDocsSetLoading(true, 'Importando documentos...');
-      rrhhImportDocsAnalisis = await rrhhImportDocsEnviar('/caphum/importarDocumentosRrhh', { includeFiles: false });
+      const batches = rrhhImportDocsCrearBatches(rrhhImportDocsFiles);
+      const manualesGlobales = rrhhImportDocsManualesGlobales();
+      rrhhImportDocsSetLoading(true, batches.length > 1 ? `Importando lote 1 de ${batches.length}...` : 'Importando documentos...');
+      let resultado;
+      if (batches.length === 1 && String(rrhhImportDocsAnalisis?.batch_id || '').trim()) {
+        try {
+          resultado = await rrhhImportDocsEnviar('/caphum/importarDocumentosRrhh');
+        } catch (error) {
+          if (error.codigo !== 'lote_temporal_no_disponible' || !rrhhImportDocsFiles.length) {
+            throw error;
+          }
+          rrhhImportDocsSetLoading(true, 'Reintentando con los archivos seleccionados...');
+          resultado = await rrhhImportDocsEnviar('/caphum/importarDocumentosRrhh', { usarBatch: false });
+        }
+      } else {
+        resultado = {
+          items: [],
+          resumen: rrhhImportDocsResumenVacio(),
+          importados: 0,
+          batch_id: ''
+        };
+        for (let i = 0; i < batches.length; i++) {
+          const batch = batches[i];
+          if (batches.length > 1) {
+            rrhhImportDocsSetLoading(true, `Importando lote ${i + 1} de ${batches.length} (${batch.files.length} archivo(s))...`);
+          }
+          const parcial = await rrhhImportDocsEnviar('/caphum/importarDocumentosRrhh', {
+            files: batch.files,
+            sourceOffset: batch.sourceOffset,
+            usarBatch: false,
+            manualesGlobales
+          });
+          resultado.items.push(...rrhhImportDocsNormalizarItemsBatch(parcial.items || [], batch.sourceOffset));
+          rrhhImportDocsSumarResumen(resultado.resumen, parcial.resumen || {});
+          resultado.importados += Number(parcial.importados || 0);
+        }
+      }
+      rrhhImportDocsAnalisis = resultado;
       rrhhImportDocsRenderResumen(rrhhImportDocsAnalisis.resumen);
       rrhhImportDocsRenderTabla(rrhhImportDocsAnalisis.items || []);
       if (rrhhImportDocsSeleccionResumen) {

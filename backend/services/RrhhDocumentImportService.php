@@ -12,7 +12,35 @@ class RrhhDocumentImportService
     private const DOCUMENTO_CONTRATO_FIRMADO = 28;
     private const DOCUMENTO_ARCHIVO_FAD = 29;
     private const DOCUMENTO_LLAVE_VECTOR = 31;
-    private const MODULO_DOCUMENTO_RRHH_BASE = 3000;
+    private const MODULOS_DOCUMENTO_RRHH = [
+        8 => 155,
+        9 => 156,
+        10 => 157,
+        11 => 158,
+        12 => 159,
+        13 => 160,
+        14 => 161,
+        15 => 162,
+        16 => 163,
+        17 => 164,
+        18 => 165,
+        22 => 166,
+        23 => 167,
+        24 => 168,
+        25 => 169,
+        27 => 170,
+        28 => 171,
+        29 => 172,
+        30 => 173,
+        31 => 174,
+        32 => 175,
+        33 => 176,
+        34 => 177,
+        35 => 178,
+        36 => 179,
+        37 => 184,
+        38 => 185,
+    ];
     private const BATCH_TTL_SECONDS = 86400;
     private const MAX_BATCH_CACHE_BYTES = 209715200;
     private const DOCUMENTO_SENSIBLE_MAGIC = "SPARTA_RRHH_DOC_V1\n";
@@ -25,14 +53,23 @@ class RrhhDocumentImportService
 
         $controlados = [
             8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 22, 23, 24, 25,
-            27, 28, 29, 30, 31, 32, 33, 34, 35, 36,
+            27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38,
         ];
         if (!in_array($idDocumento, $controlados, true)) {
             return true;
         }
 
         $modulos = array_map('intval', (array) ($_SESSION['modulos'] ?? []));
-        return in_array(self::MODULO_DOCUMENTO_RRHH_BASE + $idDocumento, $modulos, true);
+        $idUsuario = (int) ($_SESSION['usuario_id'] ?? $_SESSION['persona_id'] ?? $_SESSION['id_usuario'] ?? $_SESSION['id'] ?? 0);
+        if ($idUsuario === 1) {
+            return true;
+        }
+        if ($idDocumento === 27 && in_array(144, $modulos, true)) {
+            return true;
+        }
+
+        return in_array(self::MODULOS_DOCUMENTO_RRHH[$idDocumento] ?? 0, $modulos, true)
+            || in_array(3000 + $idDocumento, $modulos, true);
     }
 
     public function fuentesDesdeRequest(array $files, array $post): array
@@ -238,17 +275,12 @@ class RrhhDocumentImportService
             if ($idManual > 0 && isset($catalogo[$idManual])) {
                 $doc = $catalogo[$idManual];
                 $documentoManual = true;
-            } elseif (!$doc && ($otros = $this->documentoOtros($catalogo))) {
-                $doc = $otros;
-                $documentoOtrosAutomatico = true;
             }
 
             $estado = 'listo';
             $razon = 'Listo para importar.';
             if ($documentoManual) {
                 $razon = 'Tipo seleccionado manualmente.';
-            } elseif ($documentoOtrosAutomatico) {
-                $razon = 'Tipo no reconocido; se guardara como Otros.';
             }
             if (empty($match['encontrada'])) {
                 $estado = 'persona_no_encontrada';
@@ -388,17 +420,12 @@ class RrhhDocumentImportService
             if ($idManual > 0 && isset($catalogo[$idManual])) {
                 $doc = $catalogo[$idManual];
                 $documentoManual = true;
-            } elseif (!$doc && ($otros = $this->documentoOtros($catalogo))) {
-                $doc = $otros;
-                $documentoOtrosAutomatico = true;
             }
 
             $estado = 'listo';
             $razon = 'Listo para importar a tu expediente.';
             if ($documentoManual) {
                 $razon = 'Tipo seleccionado manualmente.';
-            } elseif ($documentoOtrosAutomatico) {
-                $razon = 'Tipo no reconocido; se guardara como Otros.';
             }
             if ($tieneCarpetaPersona && empty($match['segura'])) {
                 $estado = 'persona_no_coincide';
@@ -703,6 +730,8 @@ class RrhhDocumentImportService
             34 => 'Documento incapacidad',
             35 => 'Documento permiso',
             36 => 'Documento falta',
+            37 => 'Finiquito',
+            38 => 'Comprobante de pago finiquito',
         ];
         foreach ($fallback as $id => $nombre) {
             if (!isset($byId[$id])) {
@@ -1255,7 +1284,13 @@ class RrhhDocumentImportService
 
     private function esDocumentoSensibleRrhh(int $idDocumento): bool
     {
-        return in_array($idDocumento, [self::DOCUMENTO_CONTRATO_FIRMADO, self::DOCUMENTO_ARCHIVO_FAD], true);
+        return in_array($idDocumento, [
+            self::DOCUMENTO_CONTRATO_FIRMADO,
+            self::DOCUMENTO_ARCHIVO_FAD,
+            self::DOCUMENTO_LLAVE_VECTOR,
+            37,
+            38,
+        ], true);
     }
 
     private function obtenerIpCliente(): string

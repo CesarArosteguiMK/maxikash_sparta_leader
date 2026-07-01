@@ -22,10 +22,10 @@ class AtencionClientes extends Controller
         $admin = $usuarioId === 1 || in_array(1, $modulos, true);
 
         return [
-            'cancelar' => $admin || in_array(AtencionClientesModel::MODULO_MA_CANCELAR_VISTO_BUENO, $modulos, true),
-            'blacklist' => $admin || in_array(AtencionClientesModel::MODULO_MA_ENVIAR_BLACKLIST, $modulos, true),
-            'ver' => $admin || in_array(AtencionClientesModel::MODULO_MA_VER_BLACKLIST, $modulos, true),
-            'liberar' => $admin || in_array(AtencionClientesModel::MODULO_MA_LIBERAR_BLACKLIST, $modulos, true),
+            'cancelar' => $admin || in_array(AtencionClientesModel::MODULO_MA_CANCELAR_VISTO_BUENO, $modulos, true) || in_array(3037, $modulos, true),
+            'blacklist' => $admin || in_array(AtencionClientesModel::MODULO_MA_ENVIAR_BLACKLIST, $modulos, true) || in_array(3038, $modulos, true),
+            'ver' => $admin || in_array(AtencionClientesModel::MODULO_MA_VER_BLACKLIST, $modulos, true) || in_array(3039, $modulos, true),
+            'liberar' => $admin || in_array(AtencionClientesModel::MODULO_MA_LIBERAR_BLACKLIST, $modulos, true) || in_array(3040, $modulos, true),
         ];
     }
 
@@ -390,17 +390,26 @@ class AtencionClientes extends Controller
                 $this->nombreUsuarioSesion()
             );
             if (!empty($resultado['success'])) {
-                $push = $this->notificarCancelacionEvidenciasLegacy(
-                    (int) ($body['id_operacion'] ?? 0),
-                    $tipo,
-                    (string) ($body['motivo'] ?? ''),
-                    (string) ($body['comentario'] ?? '')
-                );
-                $resultado['push_success'] = (bool) ($push['success'] ?? false);
-                $resultado['push_message'] = (string) ($push['message'] ?? '');
-                $resultado['push_http_code'] = $push['http_code'] ?? null;
-                $resultado['push_destinatario'] = $push['destinatario'] ?? null;
-                $resultado['push_destinatarios_probados'] = $push['destinatarios_probados'] ?? [];
+                try {
+                    $push = $this->notificarCancelacionEvidenciasLegacy(
+                        (int) ($body['id_operacion'] ?? 0),
+                        $tipo,
+                        (string) ($body['motivo'] ?? ''),
+                        (string) ($body['comentario'] ?? '')
+                    );
+                    $resultado['push_success'] = (bool) ($push['success'] ?? false);
+                    $resultado['push_message'] = (string) ($push['message'] ?? '');
+                    $resultado['push_http_code'] = $push['http_code'] ?? null;
+                    $resultado['push_destinatario'] = $push['destinatario'] ?? null;
+                    $resultado['push_destinatarios_probados'] = $push['destinatarios_probados'] ?? [];
+                } catch (\Throwable $pushError) {
+                    error_log('[AtencionClientes/cancelarVistoBuenoEvidencias/push] ' . $pushError->getMessage());
+                    $resultado['push_success'] = false;
+                    $resultado['push_message'] = 'La operacion se cancelo, pero no se pudo enviar la notificacion push.';
+                    $resultado['push_http_code'] = 0;
+                    $resultado['push_destinatario'] = null;
+                    $resultado['push_destinatarios_probados'] = [];
+                }
             }
             if (empty($resultado['success'])) {
                 http_response_code(422);
@@ -426,7 +435,7 @@ class AtencionClientes extends Controller
             $permisos = $this->permisosEvidenciasBlacklist();
             if (empty($permisos['liberar'])) {
                 http_response_code(403);
-                echo json_encode(['success' => false, 'message' => 'No tienes permiso para liberar BlackList.'], JSON_UNESCAPED_UNICODE);
+                echo json_encode(['success' => false, 'message' => 'No tienes permiso para reactivar operaciones canceladas o en BlackList.'], JSON_UNESCAPED_UNICODE);
                 return;
             }
 

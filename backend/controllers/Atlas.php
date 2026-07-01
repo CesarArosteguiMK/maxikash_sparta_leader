@@ -415,6 +415,8 @@ class Atlas extends Controller
                 'ID acceso',
                 'Persona ID',
                 'Numero empleado',
+                'Usuario',
+                'Contrasena',
                 'Nombre',
                 'Correo',
                 'Telefono',
@@ -444,6 +446,8 @@ class Atlas extends Controller
                     $row['id'] ?? '',
                     $row['persona_id'] ?? '',
                     $row['numero_empleado'] ?? '',
+                    $row['user_name'] ?? '',
+                    $row['password'] ?? '',
                     $row['nombre'] ?? '',
                     $row['correo'] ?? '',
                     $row['telefono'] ?? '',
@@ -478,8 +482,8 @@ class Atlas extends Controller
             $sheet->getStyle('A1:' . $lastCol)->getFont()->setBold(true)->getColor()->setRGB('FFFFFF');
             $sheet->getStyle('A1:' . $lastCol)->getFill()->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)->getStartColor()->setRGB('26344E');
             $sheet->getStyle('A1:' . $this->excelCell(count($headers), $lastRow))->getBorders()->getAllBorders()->setBorderStyle(\PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN)->getColor()->setRGB('D9DEE3');
-            foreach (range('A', 'U') as $col) {
-                $sheet->getColumnDimension($col)->setAutoSize(true);
+            for ($col = 1; $col <= count($headers); $col++) {
+                $sheet->getColumnDimension(\PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($col))->setAutoSize(true);
             }
             $sheet->freezePane('A2');
 
