@@ -48,6 +48,8 @@ public/uploads/**
 *.log
 **/*.log
 /*.log
+logs/**
+!logs/.gitkeep
 backend/logs/**
 backend/API/logs/**
 backend/storage/tmp_media/
@@ -71,6 +73,7 @@ backend/API/venv/
 backend/API/.venv/
 backend/API/.paddlex_cache/
 backend/API/.paddlex_cache_runtime/
+backend/API/.paddle_home/
 backend/API/tools/PythonPortable/
 backend/API/tools/pythonportable/
 backend/API/tools/PythonPortable/**
