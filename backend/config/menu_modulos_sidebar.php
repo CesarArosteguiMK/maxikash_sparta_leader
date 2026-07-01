@@ -88,7 +88,7 @@ if (!function_exists('getMenuSidebarModulosStructure')) {
                     ['label' => 'Crear Convenio', 'url' => '/convenios/consulta', 'modulos' => [46]],
                     ['label' => 'Cierre de Crédito', 'url' => '/CierreCredito/consulta', 'modulos' => [51]],
                     ['section' => 'Reporteria'],
-                    ['label' => 'Reporteria', 'url' => '/convenios/reporteria', 'modulos' => [56]],
+                    ['label' => 'Reporteria', 'url' => '/convenios/reporteria', 'modulos' => [186]],
                     ['label' => 'Estadísticas', 'url' => '/convenios/estadisticas', 'modulos' => [56]],
                 ],
             ],

@@ -308,10 +308,6 @@
                     </div>
                 </div>
             </div>
-            <div class="col-12 col-md-2">
-                <label class="form-label fw-bold">Buscar</label>
-                <input type="text" class="form-control" name="q" placeholder="Cliente, credito, convenio">
-            </div>
             <div class="col-6 col-md-1">
                 <label class="form-label fw-bold">Limite</label>
                 <select class="form-select" name="limit">
@@ -321,6 +317,10 @@
                     <option value="1000">1000</option>
                     <option value="3000">3000</option>
                 </select>
+            </div>
+            <div class="col-12 col-md-11">
+                <label class="form-label fw-bold">Buscar</label>
+                <input type="text" class="form-control" name="q" placeholder="Cliente, credito, convenio">
             </div>
         </div>
     </form>
