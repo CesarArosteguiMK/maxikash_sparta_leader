@@ -356,6 +356,309 @@ class MotosAdjudicadas extends Controller
         return self::render('motos_adjudicadas_otp_emergencia');
     }
 
+    /**
+     * GET /MotosAdjudicadas/dashboard
+     */
+    public function dashboard()
+    {
+        $emp = defined('CONFIGURACION') && isset(CONFIGURACION['EMPRESA']) ? (string) CONFIGURACION['EMPRESA'] : '';
+        self::set('titulo', 'Dashboard - Motos Adjudicadas ' . $emp);
+        return self::render('motos_adjudicadas_dashboard');
+    }
+
+    /**
+     * GET /MotosAdjudicadas/reporteria
+     */
+    public function reporteria()
+    {
+        $emp = defined('CONFIGURACION') && isset(CONFIGURACION['EMPRESA']) ? (string) CONFIGURACION['EMPRESA'] : '';
+        self::set('titulo', 'Reporteria - Motos Adjudicadas ' . $emp);
+        return self::render('motos_adjudicadas_reporteria');
+    }
+
+    /**
+     * GET /MotosAdjudicadas/reporteSeguimiento
+     */
+    public function reporteSeguimiento()
+    {
+        $emp = defined('CONFIGURACION') && isset(CONFIGURACION['EMPRESA']) ? (string) CONFIGURACION['EMPRESA'] : '';
+        self::set('titulo', 'Reporte de seguimiento - Motos Adjudicadas ' . $emp);
+        return self::render('motos_adjudicadas_reporte_seguimiento');
+    }
+
+    /**
+     * GET /MotosAdjudicadas/timelineCredito
+     */
+    public function timelineCredito()
+    {
+        $emp = defined('CONFIGURACION') && isset(CONFIGURACION['EMPRESA']) ? (string) CONFIGURACION['EMPRESA'] : '';
+        self::set('titulo', 'Timeline por credito - Motos Adjudicadas ' . $emp);
+        return self::render('motos_adjudicadas_timeline_credito');
+    }
+
+    /**
+     * GET /MotosAdjudicadas/dashboardDatos
+     */
+    public function dashboardDatos()
+    {
+        header('Content-Type: application/json; charset=utf-8');
+        try {
+            echo json_encode([
+                'success' => true,
+                'datos' => $this->model->obtenerDashboardMotosAdjudicadas($_GET),
+            ], JSON_UNESCAPED_UNICODE);
+        } catch (\Throwable $e) {
+            echo json_encode([
+                'success' => false,
+                'message' => 'No se pudo cargar el dashboard de motos adjudicadas.',
+                'error' => $e->getMessage(),
+            ], JSON_UNESCAPED_UNICODE);
+        }
+    }
+
+    /**
+     * GET /MotosAdjudicadas/reporteSeguimientoDatos
+     */
+    public function reporteSeguimientoDatos()
+    {
+        header('Content-Type: application/json; charset=utf-8');
+        try {
+            echo json_encode([
+                'success' => true,
+                'datos' => $this->model->obtenerReporteSeguimientoMotosAdjudicadas($_GET),
+            ], JSON_UNESCAPED_UNICODE);
+        } catch (\Throwable $e) {
+            echo json_encode([
+                'success' => false,
+                'message' => 'No se pudo cargar el reporte de seguimiento.',
+                'error' => $e->getMessage(),
+            ], JSON_UNESCAPED_UNICODE);
+        }
+    }
+
+    /**
+     * GET /MotosAdjudicadas/timelineCreditoDatos?id_credito=N
+     */
+    public function timelineCreditoDatos()
+    {
+        header('Content-Type: application/json; charset=utf-8');
+        $idCredito = (int) ($_GET['id_credito'] ?? $_POST['id_credito'] ?? 0);
+
+        try {
+            echo json_encode(
+                $this->model->obtenerTimelineCreditoMotosAdjudicadas($idCredito),
+                JSON_UNESCAPED_UNICODE
+            );
+        } catch (\Throwable $e) {
+            echo json_encode([
+                'success' => false,
+                'message' => 'No se pudo cargar el timeline del credito.',
+                'error' => $e->getMessage(),
+            ], JSON_UNESCAPED_UNICODE);
+        }
+    }
+
+    /**
+     * GET /MotosAdjudicadas/timelineCreditoPdf?id_credito=N
+     */
+    public function timelineCreditoPdf()
+    {
+        $idCredito = (int) ($_GET['id_credito'] ?? 0);
+        if ($idCredito <= 0) {
+            http_response_code(400);
+            echo 'Indica un credito valido.';
+            return;
+        }
+
+        try {
+            $datos = $this->model->obtenerTimelineCreditoMotosAdjudicadas($idCredito);
+            if (empty($datos['success'])) {
+                http_response_code(404);
+                echo (string) ($datos['message'] ?? 'No se encontro informacion para este credito.');
+                return;
+            }
+
+            if (!class_exists('\\Mpdf\\Mpdf')) {
+                http_response_code(500);
+                echo 'El generador PDF no esta disponible.';
+                return;
+            }
+
+            $tmpDir = defined('RAIZ') ? (RAIZ . '/storage/tmp_mpdf') : sys_get_temp_dir();
+            if (!is_dir($tmpDir)) {
+                @mkdir($tmpDir, 0775, true);
+            }
+
+            $mpdf = new \Mpdf\Mpdf([
+                'format' => 'A4',
+                'orientation' => 'P',
+                'tempDir' => $tmpDir,
+                'margin_left' => 10,
+                'margin_right' => 10,
+                'margin_top' => 10,
+                'margin_bottom' => 12,
+            ]);
+            $mpdf->SetTitle('Timeline credito ' . $idCredito);
+            $mpdf->WriteHTML($this->madjTimelinePdfHtml($datos));
+            $filename = 'TimelineCredito_' . $idCredito . '_' . date('Ymd_His') . '.pdf';
+            $mpdf->Output($filename, \Mpdf\Output\Destination::DOWNLOAD);
+        } catch (\Throwable $e) {
+            http_response_code(500);
+            echo 'No se pudo generar el PDF: ' . $e->getMessage();
+        }
+    }
+
+    private function madjPdfEsc($value): string
+    {
+        return htmlspecialchars((string) ($value ?? ''), ENT_QUOTES, 'UTF-8');
+    }
+
+    private function madjTimelinePdfHtml(array $datos): string
+    {
+        $credito = is_array($datos['credito'] ?? null) ? $datos['credito'] : [];
+        $unidad = is_array($credito['unidad'] ?? null) ? $credito['unidad'] : [];
+        $ubicacion = is_array($credito['ubicacion'] ?? null) ? $credito['ubicacion'] : [];
+        $contacto = is_array($credito['contacto'] ?? null) ? $credito['contacto'] : [];
+        $finanzas = is_array($credito['finanzas'] ?? null) ? $credito['finanzas'] : [];
+        $etapas = is_array($datos['etapas'] ?? null) ? $datos['etapas'] : [];
+        $eventos = is_array($datos['eventos'] ?? null) ? $datos['eventos'] : [];
+        $resumen = is_array($datos['resumen'] ?? null) ? $datos['resumen'] : [];
+
+        $etapasHtml = '';
+        foreach ($etapas as $etapa) {
+            $estado = strtolower((string) ($etapa['estado'] ?? 'pendiente'));
+            $badge = $estado === 'completado' ? 'ok' : ($estado === 'en_proceso' ? 'run' : 'wait');
+            $etapasHtml .= '<tr>'
+                . '<td><strong>' . $this->madjPdfEsc($etapa['titulo'] ?? '') . '</strong><br><span>' . $this->madjPdfEsc($etapa['descripcion'] ?? '') . '</span></td>'
+                . '<td><span class="badge ' . $badge . '">' . $this->madjPdfEsc(str_replace('_', ' ', $estado)) . '</span></td>'
+                . '<td>' . $this->madjPdfEsc($etapa['fecha_fmt'] ?? '') . '</td>'
+                . '</tr>';
+        }
+
+        $eventosHtml = '';
+        foreach ($eventos as $ev) {
+            $evidenciaUrl = trim((string) ($ev['evidencia_url'] ?? ''));
+            $evidenciaTitulo = trim((string) ($ev['evidencia_titulo'] ?? ''));
+            $evidenciaHtml = '';
+            if ($evidenciaUrl !== '') {
+                $evidenciaHtml = '<br><a class="link" href="' . $this->madjPdfEsc($evidenciaUrl) . '">' . $this->madjPdfEsc($evidenciaTitulo !== '' ? $evidenciaTitulo : 'Abrir evidencia') . '</a>';
+            }
+            $eventosHtml .= '<tr>'
+                . '<td>' . $this->madjPdfEsc($ev['fecha_fmt'] ?? '') . '</td>'
+                . '<td><strong>' . $this->madjPdfEsc($ev['titulo'] ?? '') . '</strong><br><span>' . $this->madjPdfEsc($ev['descripcion'] ?? '') . '</span>' . $evidenciaHtml . '</td>'
+                . '<td>' . $this->madjPdfEsc($ev['origen_label'] ?? $ev['origen'] ?? '') . '</td>'
+                . '</tr>';
+        }
+
+        if ($eventosHtml === '') {
+            $eventosHtml = '<tr><td colspan="3" class="muted">Sin eventos registrados.</td></tr>';
+        }
+
+        $unidadTxt = trim(implode(' ', array_filter([
+            (string) ($unidad['marca'] ?? ''),
+            (string) ($unidad['modelo'] ?? ''),
+            (string) ($unidad['anio'] ?? ''),
+        ])));
+        if ($unidadTxt === '') {
+            $unidadTxt = 'Sin unidad registrada';
+        }
+
+        $fichaMotoHtml = '<table class="grid">
+                <tr>
+                    <td><div class="label">Marca</div><div class="value">' . $this->madjPdfEsc($unidad['marca'] ?? 'No disponible') . '</div></td>
+                    <td><div class="label">Modelo</div><div class="value">' . $this->madjPdfEsc($unidad['modelo'] ?? 'No disponible') . '</div></td>
+                    <td><div class="label">Anio</div><div class="value">' . $this->madjPdfEsc($unidad['anio'] ?? 'No disponible') . '</div></td>
+                    <td><div class="label">Color</div><div class="value">' . $this->madjPdfEsc($unidad['color'] ?? 'No disponible') . '</div></td>
+                </tr>
+                <tr>
+                    <td colspan="2"><div class="label">VIN / Serie</div><div class="value">' . $this->madjPdfEsc($unidad['vin'] ?? 'No disponible') . '</div></td>
+                    <td><div class="label">Motor</div><div class="value">' . $this->madjPdfEsc($unidad['motor'] ?? 'No disponible') . '</div></td>
+                    <td><div class="label">Placas</div><div class="value">' . $this->madjPdfEsc($unidad['placas'] ?? 'No disponible') . '</div></td>
+                </tr>
+                <tr>
+                    <td><div class="label">Factura marca</div><div>' . $this->madjPdfEsc($unidad['factura_marca'] ?? 'No disponible') . '</div></td>
+                    <td><div class="label">Factura modelo</div><div>' . $this->madjPdfEsc($unidad['factura_modelo'] ?? 'No disponible') . '</div></td>
+                    <td><div class="label">Factura serie</div><div>' . $this->madjPdfEsc($unidad['factura_serie'] ?? 'No disponible') . '</div></td>
+                    <td><div class="label">Factura motor</div><div>' . $this->madjPdfEsc($unidad['factura_motor'] ?? 'No disponible') . '</div></td>
+                </tr>
+                <tr>
+                    <td><div class="label">Responsable entrega</div><div>' . $this->madjPdfEsc($contacto['responsable_entrega'] ?? 'No disponible') . '</div></td>
+                    <td><div class="label">Telefono contacto</div><div>' . $this->madjPdfEsc($contacto['telefono_contacto'] ?? 'No disponible') . '</div></td>
+                    <td><div class="label">Dias mora</div><div>' . $this->madjPdfEsc($finanzas['dias_mora'] ?? 'No disponible') . '</div></td>
+                    <td><div class="label">Adeudo total</div><div>' . $this->madjPdfEsc($finanzas['adeudo_total'] ?? 'No disponible') . '</div></td>
+                </tr>
+                <tr>
+                    <td colspan="2"><div class="label">Direccion recoleccion</div><div>' . $this->madjPdfEsc($ubicacion['direccion_recoleccion'] ?? $ubicacion['direccion'] ?? 'No disponible') . '</div></td>
+                    <td><div class="label">Lugar resguardo</div><div>' . $this->madjPdfEsc(trim(($ubicacion['lugar_resguardo'] ?? '') . ' / ' . ($ubicacion['lugar_otro'] ?? ''), ' /') ?: 'No disponible') . '</div></td>
+                    <td><div class="label">Responsable resguardo</div><div>' . $this->madjPdfEsc($ubicacion['responsable_resguardo'] ?? 'No disponible') . '</div></td>
+                </tr>
+                <tr>
+                    <td><div class="label">Telefono resguardo</div><div>' . $this->madjPdfEsc($ubicacion['telefono_resguardo'] ?? 'No disponible') . '</div></td>
+                    <td><div class="label">Saldo capital</div><div>' . $this->madjPdfEsc($finanzas['saldo_capital'] ?? 'No disponible') . '</div></td>
+                    <td><div class="label">Alta operacion</div><div>' . $this->madjPdfEsc($credito['fecha_alta_fmt'] ?? 'No disponible') . '</div></td>
+                    <td><div class="label">Ultima actualizacion</div><div>' . $this->madjPdfEsc($credito['fecha_actualizacion_fmt'] ?? 'No disponible') . '</div></td>
+                </tr>
+            </table>';
+
+        return '<!doctype html><html><head><meta charset="UTF-8"><style>
+            body{font-family:Arial,sans-serif;color:#1f2937;font-size:11px}
+            .hero{background:#24334f;color:#fff;padding:18px;border-radius:10px;margin-bottom:14px}
+            .hero h1{font-size:22px;margin:0 0 6px}
+            .hero p{margin:0;color:#dbeafe}
+            .grid{width:100%;border-collapse:collapse;margin-bottom:12px}
+            .grid td{border:1px solid #d8e2ef;padding:8px;vertical-align:top}
+            .label{font-size:9px;color:#64748b;text-transform:uppercase;font-weight:bold}
+            .value{font-size:13px;font-weight:bold;color:#0f172a}
+            table.data{width:100%;border-collapse:collapse;margin-top:8px}
+            table.data th{background:#eef6ff;text-align:left;color:#334155;font-size:10px;padding:8px;border:1px solid #d8e2ef}
+            table.data td{padding:8px;border:1px solid #d8e2ef;vertical-align:top}
+            table.data span{color:#64748b}
+            a.link{color:#0f766e;font-weight:bold;text-decoration:none}
+            .badge{display:inline-block;border-radius:999px;padding:4px 8px;font-weight:bold;font-size:9px}
+            .ok{background:#dcfce7;color:#166534}.run{background:#dbeafe;color:#1d4ed8}.wait{background:#f1f5f9;color:#475569}
+            .section{font-size:15px;color:#0f172a;margin:16px 0 6px;font-weight:bold}
+            .muted{color:#64748b}
+        </style></head><body>
+            <div class="hero">
+                <h1>Timeline por credito</h1>
+                <p>Expediente operativo consolidado de Motos Adjudicadas</p>
+            </div>
+
+            <table class="grid">
+                <tr>
+                    <td width="33%"><div class="label">Credito</div><div class="value">#' . $this->madjPdfEsc($credito['id_credito'] ?? '') . '</div></td>
+                    <td width="33%"><div class="label">Operacion</div><div class="value">' . $this->madjPdfEsc($credito['folio'] ?? '') . '</div></td>
+                    <td width="34%"><div class="label">Estatus</div><div class="value">' . $this->madjPdfEsc($credito['estatus'] ?? '') . '</div></td>
+                </tr>
+                <tr>
+                    <td colspan="2"><div class="label">Cliente</div><div class="value">' . $this->madjPdfEsc($credito['nombre_cliente'] ?? '') . '</div></td>
+                    <td><div class="label">Unidad</div><div class="value">' . $this->madjPdfEsc($unidadTxt) . '</div></td>
+                </tr>
+                <tr>
+                    <td colspan="3"><div class="label">Ubicacion</div><div>' . $this->madjPdfEsc(trim(($ubicacion['estado'] ?? '') . ' / ' . ($ubicacion['municipio'] ?? '') . ' / ' . ($ubicacion['direccion'] ?? ''), ' /')) . '</div></td>
+                </tr>
+            </table>
+
+            <div class="section">Ficha de motocicleta</div>
+            ' . $fichaMotoHtml . '
+
+            <div class="section">Resumen</div>
+            <table class="grid">
+                <tr>
+                    <td><div class="label">Eventos</div><div class="value">' . $this->madjPdfEsc($resumen['total_eventos'] ?? 0) . '</div></td>
+                    <td><div class="label">Evidencias</div><div class="value">' . $this->madjPdfEsc($resumen['total_evidencias'] ?? 0) . '</div></td>
+                    <td><div class="label">Rutas</div><div class="value">' . $this->madjPdfEsc($resumen['total_rutas'] ?? 0) . '</div></td>
+                </tr>
+            </table>
+
+            <div class="section">Etapas del proceso</div>
+            <table class="data"><thead><tr><th>Etapa</th><th>Estatus</th><th>Fecha</th></tr></thead><tbody>' . $etapasHtml . '</tbody></table>
+
+            <div class="section">Eventos del credito</div>
+            <table class="data"><thead><tr><th width="22%">Fecha</th><th>Evento</th><th width="24%">Origen</th></tr></thead><tbody>' . $eventosHtml . '</tbody></table>
+        </body></html>';
+    }
+
     private function pushLegacyConfig(): array
     {
         $cfg = function_exists('config_api_load_from_db') ? config_api_load_from_db() : [];
@@ -2335,11 +2638,31 @@ class MotosAdjudicadas extends Controller
             }
 
             if ($resp['http_code'] < 200 || $resp['http_code'] >= 300) {
+                $pushMessage = is_array($decoded)
+                    ? (string) ($decoded['message'] ?? $decoded['mensaje'] ?? $decoded['detail'] ?? 'Los rechazos se guardaron, pero no se pudo enviar la notificacion.')
+                    : ($resp['error'] ?: 'Los rechazos se guardaron, pero no se pudo enviar la notificacion.');
+                $sinTokensActivos = stripos($pushMessage, 'No hay tokens activos') !== false
+                    || stripos($pushMessage, 'tokens activos') !== false
+                    || stripos($pushMessage, 'destinatario') !== false;
+
+                if ($sinTokensActivos) {
+                    echo json_encode([
+                        'success' => true,
+                        'message' => 'Rechazos guardados. El destinatario no tiene notificaciones activas en MaxikashApp.',
+                        'http_code' => $resp['http_code'],
+                        'push_notificado' => false,
+                        'push_warning' => true,
+                        'push_message' => $pushMessage,
+                        'api_response' => $decoded ?: $resp['body'],
+                        'rechazos' => $rechazos,
+                        'destinatarios_probados' => $erroresDestinatarios,
+                    ], JSON_UNESCAPED_UNICODE);
+                    return;
+                }
+
                 echo json_encode([
                     'success' => false,
-                    'message' => is_array($decoded)
-                        ? (string) ($decoded['message'] ?? $decoded['mensaje'] ?? $decoded['detail'] ?? 'Los rechazos se guardaron, pero no se pudo enviar la notificacion.')
-                        : ($resp['error'] ?: 'Los rechazos se guardaron, pero no se pudo enviar la notificacion.'),
+                    'message' => $pushMessage,
                     'http_code' => $resp['http_code'],
                     'api_response' => $decoded ?: $resp['body'],
                     'rechazos' => $rechazos,
@@ -2348,12 +2671,20 @@ class MotosAdjudicadas extends Controller
                 return;
             }
 
+            $pushTotalTokens = is_array($decoded) ? (int) ($decoded['total_tokens'] ?? 0) : 0;
+            $pushNotificado = $pushTotalTokens > 0;
+
             echo json_encode(array_merge([
                 'success' => true,
-                'message' => 'Evidencias rechazadas correctamente.',
+                'message' => $pushNotificado
+                    ? 'Evidencias rechazadas correctamente.'
+                    : 'Rechazos guardados. La novedad quedo en MaxikashApp, pero el destinatario no tiene push activo.',
                 'http_code' => $resp['http_code'],
                 'rechazos' => $rechazos,
                 'destinatario' => $destinatarioUsado,
+                'push_notificado' => $pushNotificado,
+                'push_warning' => !$pushNotificado,
+                'push_message' => is_array($decoded) ? (string) ($decoded['mensaje'] ?? $decoded['message'] ?? '') : '',
                 'push_total_enviados' => is_array($decoded) ? ($decoded['push_total_enviados'] ?? $decoded['total_enviados'] ?? null) : null,
                 'push_total_fallidos' => is_array($decoded) ? ($decoded['push_total_fallidos'] ?? $decoded['total_fallidos'] ?? null) : null,
             ], is_array($decoded) ? $decoded : []), JSON_UNESCAPED_UNICODE);

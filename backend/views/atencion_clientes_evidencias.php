@@ -2901,6 +2901,24 @@ $aevPuedeReemplazarEvidencia = in_array(79, array_map('intval', (array) ($_SESSI
      * Tras «Enviar evidencias validadas»: refresca datos sin cambiar la pestaña activa.
      * Evita brincos automáticos de Bandeja a Aprobados.
      */
+    function aevMostrarAvisoPushNoActivo(data) {
+        if (!data || data.push_notificado !== false || typeof Swal === 'undefined') return;
+        const probados = Array.isArray(data.destinatarios_probados) ? data.destinatarios_probados : [];
+        const primero = probados[0] || {};
+        const nombre = String(primero.nombre || '').trim();
+        const external = String(primero.external_id || '').trim();
+        const destino = nombre || external || 'destinatario asignado';
+        Swal.fire({
+            icon: 'warning',
+            title: 'Rechazos guardados',
+            html: '<div style="text-align:left;line-height:1.45;">'
+                + '<p>Los rechazos quedaron registrados, pero no se pudo enviar push a <b>' + aeEsc(destino) + '</b>.</p>'
+                + '<p>Debe iniciar sesion en MaxikashApp y tener notificaciones activas para recibir avisos.</p>'
+                + '</div>',
+            confirmButtonText: 'Entendido'
+        });
+    }
+
     function aePostEnviarEvidenciasValidadas() {
         _aeCargada = { bandeja: false, aprobados: false, correcciones: false, blacklist: false };
         aeCargarConteosPestanas();
@@ -2951,6 +2969,7 @@ $aevPuedeReemplazarEvidencia = in_array(79, array_map('intval', (array) ($_SESSI
                     }
                     return null;
                 }
+                aevMostrarAvisoPushNoActivo(data);
                 return fetch('/MotosAdjudicadas/finalizarCierreValidacionEvidenciaAtn', {
                     method:  'POST',
                     headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },

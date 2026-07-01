@@ -7,7 +7,7 @@ declare(strict_types=1);
 
 if (!function_exists('getMenuSidebarModulosStructure')) {
     /**
-     * @return array<string, array{icono: string, subItems: list<array{label: string, url: string, modulos: list<int>}>}>
+     * @return array<string, array{icono: string, subItems: list<array{label?: string, url?: string, modulos?: list<int>, section?: string}>}>
      */
     function getMenuSidebarModulosStructure(): array
     {
@@ -90,19 +90,25 @@ if (!function_exists('getMenuSidebarModulosStructure')) {
             'Motos Adjudicadas' => [
                 'icono' => 'fa-solid fa-motorcycle',
                 'subItems' => [
+                    ['section' => 'General'],
                     ['label' => 'Administracion', 'url' => '/Adjudicacion/administracion', 'modulos' => [62, 80]],
                     ['label' => 'Operaciones', 'url' => '/MotosAdjudicadas/pipeline', 'modulos' => [63]],
                     ['label' => 'Inventario', 'url' => '/MotosAdjudicadas/inventario', 'modulos' => [139]],
                     ['label' => 'Monitoreo', 'url' => '/MotosAdjudicadas/monitoreoAdjudicaciones', 'modulos' => [76]],
                     ['label' => 'Consulta REPUVE', 'url' => '/MotosAdjudicadas/repuveConsulta', 'modulos' => [78]],
                     ['label' => 'OTP DE EMERGENCIA', 'url' => '/MotosAdjudicadas/otpEmergenciaLegacy', 'modulos' => [150]],
+                    ['section' => 'Flujo operativo'],
                     ['label' => '1.- Evidencias', 'url' => '/AtencionClientes/evidencias', 'modulos' => [70]],
                     ['label' => '2.- Recuperación', 'url' => '/AtencionClientes/recuperacion', 'modulos' => [71]],
-                    ['label' => '3.-Cartera', 'url' => '/AtencionClientes/cierreDocumentacion', 'modulos' => [72]],
+                    ['label' => '3.- Cartera', 'url' => '/AtencionClientes/cierreDocumentacion', 'modulos' => [72]],
                     ['label' => '4.- Recepción', 'url' => '/AtencionClientes/recepcion', 'modulos' => [73]],
                     ['label' => 'Retenciones', 'url' => '/AtencionClientes/consulta', 'modulos' => [69]],
+                    ['section' => 'Tracking'],
                     ['label' => 'Tracking Recolección', 'url' => '/TrackingRecoleccion/rutas', 'modulos' => [74]],
+                    ['label' => 'Dashboard', 'url' => '/MotosAdjudicadas/dashboard', 'modulos' => [74]],
                     ['label' => 'Administracion de transportistas', 'url' => '/TrackingRecoleccion/administracionTransportistas', 'modulos' => [74]],
+                    ['section' => 'Reportería'],
+                    ['label' => 'Reportería', 'url' => '/MotosAdjudicadas/reporteria', 'modulos' => [74]],
                 ],
             ],
             'Direcciones' => [
