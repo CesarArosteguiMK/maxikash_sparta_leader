@@ -10,6 +10,7 @@
 
 const path = require('path');
 const fs = require('fs');
+const os = require('os');
 try { require('dotenv').config({ path: path.join(__dirname, '.env') }); } catch (_) {}
 
 const express = require('express');
@@ -1304,7 +1305,9 @@ function appendPruebaLog(line) {
   try {
     const dir = path.join(__dirname, 'data');
     if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-    fs.appendFileSync(path.join(dir, 'prueba-log.txt'), new Date().toISOString() + ' ' + line + '\n', 'utf8');
+    const tmpDir = path.join(os.tmpdir(), 'sparta___SPARTA_SECRET_REDACTED___segundometro_agent');
+    if (!fs.existsSync(tmpDir)) fs.mkdirSync(tmpDir, { recursive: true });
+    fs.appendFileSync(path.join(tmpDir, 'prueba-log.txt'), new Date().toISOString() + ' ' + line + '\n', 'utf8');
   } catch (_) {}
 }
 

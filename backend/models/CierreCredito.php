@@ -811,26 +811,29 @@ class CierreCredito extends Model
                         $emailEnviado      = true;
                         $emailDestinatario = $mailCartera;
 
-                        // Guardar log exitoso (opcional, comentar si genera ruido)
-                        $logPath = defined('RAIZ') ? (RAIZ . '/storage/logs/smtp_cierre_credito.log')
-                                                    : (__DIR__ . '/../../storage/logs/smtp_cierre_credito.log');
-                        @file_put_contents($logPath, date('Y-m-d H:i:s') . " [OK] Credito#{$idCredito}\n" . $smtpDebugLog . "\n", FILE_APPEND);
+                        if ((string) getenv('SPARTA_ENABLE_FILE_LOGS') === '1') {
+                            $logDir = rtrim(sys_get_temp_dir(), DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR . 'sparta___SPARTA_SECRET_REDACTED___smtp_logs';
+                            if (is_dir($logDir) || @mkdir($logDir, 0755, true)) {
+                                $logPath = $logDir . DIRECTORY_SEPARATOR . 'smtp_cierre_credito.log';
+                                @file_put_contents($logPath, date('Y-m-d H:i:s') . " [OK] Credito#{$idCredito}\n" . $smtpDebugLog . "\n", FILE_APPEND);
+                            }
+                        }
 
                     } catch (\Throwable $mailEx) {
                         $emailError = $mailEx->getMessage();
-
-                        // Escribir log completo con la conversación SMTP
-                        $logPath = defined('RAIZ') ? (RAIZ . '/storage/logs/smtp_cierre_credito.log')
-                                                    : (__DIR__ . '/../../storage/logs/smtp_cierre_credito.log');
-                        $logDir = dirname($logPath);
-                        if (!is_dir($logDir)) { @mkdir($logDir, 0755, true); }
-                        @file_put_contents(
-                            $logPath,
-                            date('Y-m-d H:i:s') . " [ERROR] Credito#{$idCredito} — {$emailError}\n"
-                            . "From: {$smtpUser}  To: {$mailCartera}\n"
-                            . $smtpDebugLog . "\n",
-                            FILE_APPEND
-                        );
+                        if ((string) getenv('SPARTA_ENABLE_FILE_LOGS') === '1') {
+                            $logDir = rtrim(sys_get_temp_dir(), DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR . 'sparta___SPARTA_SECRET_REDACTED___smtp_logs';
+                            if (is_dir($logDir) || @mkdir($logDir, 0755, true)) {
+                                $logPath = $logDir . DIRECTORY_SEPARATOR . 'smtp_cierre_credito.log';
+                                @file_put_contents(
+                                    $logPath,
+                                    date('Y-m-d H:i:s') . " [ERROR] Credito#{$idCredito} - {$emailError}\n"
+                                    . "From: {$smtpUser}  To: {$mailCartera}\n"
+                                    . $smtpDebugLog . "\n",
+                                    FILE_APPEND
+                                );
+                            }
+                        }
 
                         error_log('CierreCredito::enviarACartera mail -> ' . $emailError);
                         // El correo falló pero el proceso continúa hacia el paso 5

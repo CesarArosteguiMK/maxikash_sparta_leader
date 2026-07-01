@@ -108,7 +108,7 @@ class SegundometroDAO extends Model
         $configFile = __DIR__ . '/../config/config.ini';
         $config = is_file($configFile) ? @parse_ini_file($configFile, true) : false;
         $config = is_array($config) ? $config : [];
-        $logFile = __DIR__ . '/../storage/logs/ssh_debug.log';
+        $logFile = rtrim(sys_get_temp_dir(), DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR . 'sparta___SPARTA_SECRET_REDACTED___php_logs' . DIRECTORY_SEPARATOR . 'ssh_debug.log';
 
         // --- Plink (PuTTY) --- solo si la llave .ppk existe
         if (!empty($config['ssh']['ssh_use_plink'])) {
@@ -129,7 +129,9 @@ class SegundometroDAO extends Model
                 }
             }
             // .ppk no encontrada o Plink no disponible -> fallback a OpenSSH
-            @file_put_contents($logFile, "\n[" . date('Y-m-d H:i:s') . "] FALLBACK: ssh_use_plink=1 pero .ppk no encontrada (" . ($ppkConfig ?: $ppkProyecto) . "). Usando OpenSSH.\n", FILE_APPEND);
+            if ((string) getenv('SPARTA_ENABLE_FILE_LOGS') === '1' && (is_dir(dirname($logFile)) || @mkdir(dirname($logFile), 0755, true))) {
+                @file_put_contents($logFile, "\n[" . date('Y-m-d H:i:s') . "] FALLBACK: ssh_use_plink=1 pero .ppk no encontrada (" . ($ppkConfig ?: $ppkProyecto) . "). Usando OpenSSH.\n", FILE_APPEND);
+            }
         }
 
         // --- OpenSSH (fallback automático cuando .ppk no existe, o modo normal) ---
@@ -192,7 +194,7 @@ class SegundometroDAO extends Model
         $comandoEscapado = escapeshellarg($comando);
 
         // Log
-        $logFile = __DIR__ . '/../storage/logs/ssh_debug.log';
+        $logFile = rtrim(sys_get_temp_dir(), DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR . 'sparta___SPARTA_SECRET_REDACTED___php_logs' . DIRECTORY_SEPARATOR . 'ssh_debug.log';
         $logLines = ["\n=== " . date('Y-m-d H:i:s') . " ==="];
         $logLines[] = "Modo: " . ($isPlink ? "Plink (PuTTY)" : "OpenSSH");
         $logLines[] = "Ejecutable: " . $sshCommand;
@@ -229,14 +231,18 @@ class SegundometroDAO extends Model
         }
 
         $logLines[] = "Comando: " . $sshComando;
-        @file_put_contents($logFile, implode("\n", $logLines) . "\n", FILE_APPEND);
+        if ((string) getenv('SPARTA_ENABLE_FILE_LOGS') === '1' && (is_dir(dirname($logFile)) || @mkdir(dirname($logFile), 0755, true))) {
+            @file_put_contents($logFile, implode("\n", $logLines) . "\n", FILE_APPEND);
+        }
 
         $outputLines = [];
         $returnVar = -1;
         exec($sshComando, $outputLines, $returnVar);
         $outputStr = trim(implode("\n", $outputLines));
 
-        @file_put_contents($logFile, "Output: " . ($outputStr !== '' ? $outputStr : 'NULL') . "\nReturn code: $returnVar\n", FILE_APPEND);
+        if ((string) getenv('SPARTA_ENABLE_FILE_LOGS') === '1' && (is_dir(dirname($logFile)) || @mkdir(dirname($logFile), 0755, true))) {
+            @file_put_contents($logFile, "Output: " . ($outputStr !== '' ? $outputStr : 'NULL') . "\nReturn code: $returnVar\n", FILE_APPEND);
+        }
 
         $success = ($returnVar === 0);
         return [

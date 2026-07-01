@@ -11,11 +11,12 @@ rem =====================================================================
 
 for %%I in ("%~dp0..") do set "API_DIR=%%~fI"
 if "%API_DIR:~-1%"=="\" set "API_DIR=%API_DIR:~0,-1%"
-if not exist "%API_DIR%\logs" mkdir "%API_DIR%\logs" >nul 2>&1
+set "LOG_DIR=%TEMP%\sparta___SPARTA_SECRET_REDACTED___api_logs"
+if not exist "%LOG_DIR%" mkdir "%LOG_DIR%" >nul 2>&1
 
 set "SPARTA_API_NO_PAUSE=1"
-set "STDOUT_LOG=%API_DIR%\logs\uvicorn-stdout.log"
-set "STDERR_LOG=%API_DIR%\logs\uvicorn-stderr.log"
+set "STDOUT_LOG=%LOG_DIR%\uvicorn-stdout.log"
+set "STDERR_LOG=%LOG_DIR%\uvicorn-stderr.log"
 set "PADDLE_HOME=%API_DIR%\.paddle_home"
 set "USERPROFILE=%PADDLE_HOME%"
 set "HOME=%PADDLE_HOME%"

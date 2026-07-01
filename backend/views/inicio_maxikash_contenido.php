@@ -865,7 +865,7 @@ body.dark-mode .api1click-tbtn--danger { color: #fecaca; }
         <span class="api1click-title">API documentación · flujo oficial 1‑click</span>
         <span class="api1click-badge" id="api1clickBadge">Listo</span>
       </div>
-      <p class="api1click-help"><strong>Canal oficial (usuario 878):</strong> diagnóstico, instalación si hace falta y arranque de la API desde aquí — sin ejecutar BAT a mano en el servidor ni depender del PATH. Python/Tesseract dentro de la carpeta de la API los deja soporte/despliegue una vez; el día a día es este botón. Logs (<code>backend/API/logs</code>): Lista → Ver → Copiar o Descargar.</p>
+      <p class="api1click-help"><strong>Canal oficial (usuario 878):</strong> diagnóstico, instalación si hace falta y arranque de la API desde aquí — sin ejecutar BAT a mano en el servidor ni depender del PATH. Python/Tesseract dentro de la carpeta de la API los deja soporte/despliegue una vez; el día a día es este botón. Logs temporales del sistema: Lista → Ver → Copiar o Descargar.</p>
       <div class="api1doc-diag">
         <div class="api1doc-diag-row">
           <button type="button" class="api1click-tbtn" id="btnDocVerDiag878" title="Pruebas desde PHP: health, TCP, GET/POST cortos a validar-expediente (sin PDF). Puede tardar hasta ~45 s.">Diagnóstico expediente API</button>
@@ -874,7 +874,7 @@ body.dark-mode .api1click-tbtn--danger { color: #fecaca; }
         <pre class="api1doc-diag-body" id="api1docDiagOutput" role="status" aria-live="polite">Pulse «Diagnóstico expediente API» para ver el resultado JSON (puede tardar ~30–45 s en el peor caso).</pre>
       </div>
       <div class="api1click-toolbar">
-        <select id="api1clickLogSelect" title="Archivos .log en backend/API/logs" aria-label="Seleccionar log">
+        <select id="api1clickLogSelect" title="Archivos .log temporales de la API" aria-label="Seleccionar log">
           <option value="">— Lista de logs (pulsa «Lista» o espera al auto-actualizar) —</option>
         </select>
         <button type="button" class="api1click-tbtn" id="api1clickBtnRefreshList" title="Actualizar lista de logs">Lista</button>
@@ -884,7 +884,7 @@ body.dark-mode .api1click-tbtn--danger { color: #fecaca; }
         </label>
         <button type="button" class="api1click-tbtn" id="api1clickBtnCopy" title="Copiar texto visible al portapapeles">Copiar</button>
         <button type="button" class="api1click-tbtn" id="api1clickBtnDownload" title="Descargar .log">Descargar</button>
-        <button type="button" class="api1click-tbtn api1click-tbtn--danger" id="api1clickBtnClearLogs" title="Borrar todos los .log acumulados en backend/API/logs">Borrar logs</button>
+        <button type="button" class="api1click-tbtn api1click-tbtn--danger" id="api1clickBtnClearLogs" title="Borrar todos los .log temporales acumulados de la API">Borrar logs</button>
         <button type="button" class="api1click-tbtn" id="api1clickBtnOlvidar" title="Solo quita el bloqueo en la web; no mata procesos en el servidor">Desbloquear panel</button>
         <button type="button" class="api1click-tbtn api1click-tbtn--danger" id="api1clickBtnParar" title="Corta en el servidor esta ejecución (batch/doctor/pip/python de esta API + puerto 8001)">Parar ejecución</button>
       </div>
@@ -1405,7 +1405,7 @@ body.dark-mode .api1click-tbtn--danger { color: #fecaca; }
         if (files.length === 0) {
           var o0 = document.createElement('option');
           o0.value = '';
-          o0.textContent = '(sin archivos .log en backend/API/logs)';
+          o0.textContent = '(sin archivos .log temporales)';
           selApi1Logs.appendChild(o0);
           return;
         }
@@ -1498,7 +1498,7 @@ body.dark-mode .api1click-tbtn--danger { color: #fecaca; }
     window.location.href = '/inicio/apidoclogdescargar?archivo=' + encodeURIComponent(selApi1Logs.value);
   }
   function api1ClearLogs() {
-    if (!confirm('¿Borrar todos los logs acumulados de backend/API/logs? Esto no detiene la API; solo limpia archivos .log.')) return;
+    if (!confirm('¿Borrar todos los logs temporales acumulados de la API? Esto no detiene la API; solo limpia archivos .log.')) return;
     if (btnApi1ClearLogs) btnApi1ClearLogs.disabled = true;
     if (outApi1) outApi1.textContent = 'Borrando logs...';
     fetch('/inicio/apidocloglimpiar', { method: 'POST', credentials: 'same-origin', headers: api1AjaxHeaders() })

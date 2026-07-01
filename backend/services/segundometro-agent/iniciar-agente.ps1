@@ -11,8 +11,8 @@ if (-not (Test-Path -LiteralPath $js)) {
     Write-Error "No existe server.js en $dir"
     exit 1
 }
-# Salida a log (evita que STDOUT/STDERR sin consumidor cuelguen el proceso en algunos entornos Windows).
-$dataDir = Join-Path $dir 'data'
+# Salida temporal fuera del proyecto: no dejar logs de runtime dentro del repo.
+$dataDir = Join-Path ([System.IO.Path]::GetTempPath()) 'sparta___SPARTA_SECRET_REDACTED___segundometro_agent'
 if (-not (Test-Path -LiteralPath $dataDir)) {
     New-Item -ItemType Directory -Path $dataDir -Force | Out-Null
 }

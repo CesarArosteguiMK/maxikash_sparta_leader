@@ -41,7 +41,7 @@ class RrhhDocumentImportService
         37 => 184,
         38 => 185,
     ];
-    private const BATCH_TTL_SECONDS = 86400;
+    private const BATCH_TTL_SECONDS = 3600;
     private const MAX_BATCH_CACHE_BYTES = 209715200;
     private const DOCUMENTO_SENSIBLE_MAGIC = "SPARTA_RRHH_DOC_V1\n";
 
@@ -247,6 +247,11 @@ class RrhhDocumentImportService
             return;
         }
         $this->eliminarDirectorio($this->directorioLote($batchId));
+    }
+
+    public function limpiarLotesTemporalesExpirados(): void
+    {
+        $this->limpiarLotesTemporales();
     }
 
     public function analizar(array $fuentes, array $documentosManual = []): array

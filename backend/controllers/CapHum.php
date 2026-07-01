@@ -8390,11 +8390,13 @@ class CapHum extends Controller
 
             $persona = self::personaDocumentosColaboradorSesion();
             $servicio = new RrhhDocumentImportService();
+            $servicio->limpiarLotesTemporalesExpirados();
+            $usarCacheLote = (string) ($_POST['cache_lote'] ?? '1') !== '0';
             $batchId = trim((string) ($_POST['batch_id'] ?? ''));
             $fuentes = $batchId !== '' ? $servicio->fuentesDesdeLoteTemporal($batchId) : [];
             if (empty($fuentes)) {
                 $fuentes = $servicio->fuentesDesdeRequest($_FILES, $_POST);
-                if (!empty($fuentes)) {
+                if (!empty($fuentes) && $usarCacheLote) {
                     try {
                         $lote = $servicio->crearLoteTemporal($fuentes);
                         $batchId = (string) ($lote['batch_id'] ?? '');
@@ -8441,6 +8443,7 @@ class CapHum extends Controller
 
             $persona = self::personaDocumentosColaboradorSesion();
             $servicio = new RrhhDocumentImportService();
+            $servicio->limpiarLotesTemporalesExpirados();
             $batchId = trim((string) ($_POST['batch_id'] ?? ''));
             $fuentes = $batchId !== '' ? $servicio->fuentesDesdeLoteTemporal($batchId) : [];
             if (empty($fuentes)) {
@@ -15934,13 +15937,7 @@ class CapHum extends Controller
             return;
         }
         $php = $this->phpCliBinarioVerificacionDocumental();
-        $logDir = defined('RAIZ') ? (RAIZ . DIRECTORY_SEPARATOR . 'logs') : (__DIR__ . DIRECTORY_SEPARATOR . '..' . DIRECTORY_SEPARATOR . 'logs');
-        if (!is_dir($logDir)) {
-            @mkdir($logDir, 0775, true);
-        }
-        $logSuffix = self::ahoraMexicoCiudad()->format('Ymd-His') . '-' . getmypid() . '-' . substr(str_replace('.', '', uniqid('', true)), -6);
-        $outLog = $logDir . DIRECTORY_SEPARATOR . 'verificacion_documental_worker-' . $logSuffix . '.log';
-        $errLog = $logDir . DIRECTORY_SEPARATOR . 'verificacion_documental_worker-' . $logSuffix . '.err.log';
+        $nullDevice = stripos(PHP_OS_FAMILY, 'Windows') !== false ? 'NUL' : '/dev/null';
         $cmdQuote = function ($value) {
             return '"' . str_replace('"', '""', (string) $value) . '"';
         };
@@ -15952,14 +15949,14 @@ class CapHum extends Controller
                 $cmd = 'cmd /C start "" /B '
                     . $cmdQuote($php) . ' '
                     . $cmdQuote($script) . ' --max 5'
-                    . ' >> ' . $cmdQuote($outLog)
-                    . ' 2>> ' . $cmdQuote($errLog);
+                    . ' > ' . $cmdQuote($nullDevice)
+                    . ' 2> ' . $cmdQuote($nullDevice);
                 $h = @popen($cmd, 'r');
                 if (is_resource($h)) {
                     @pclose($h);
                 }
             } else {
-                $cmd = escapeshellarg($php) . ' ' . escapeshellarg($script) . ' --max 5 >> ' . escapeshellarg($outLog) . ' 2>> ' . escapeshellarg($errLog) . ' &';
+                $cmd = escapeshellarg($php) . ' ' . escapeshellarg($script) . ' --max 5 > /dev/null 2>&1 &';
                 @exec($cmd);
             }
         } catch (\Throwable $e) {
@@ -26310,11 +26307,13 @@ public function getEstadosMunicipiosMexico()
             }
 
             $servicio = new RrhhDocumentImportService();
+            $servicio->limpiarLotesTemporalesExpirados();
+            $usarCacheLote = (string) ($_POST['cache_lote'] ?? '1') !== '0';
             $batchId = trim((string) ($_POST['batch_id'] ?? ''));
             $fuentes = $batchId !== '' ? $servicio->fuentesDesdeLoteTemporal($batchId) : [];
             if (empty($fuentes)) {
                 $fuentes = $servicio->fuentesDesdeRequest($_FILES, $_POST);
-                if (!empty($fuentes)) {
+                if (!empty($fuentes) && $usarCacheLote) {
                     try {
                         $lote = $servicio->crearLoteTemporal($fuentes);
                         $batchId = (string) ($lote['batch_id'] ?? '');
@@ -26360,6 +26359,7 @@ public function getEstadosMunicipiosMexico()
             }
 
             $servicio = new RrhhDocumentImportService();
+            $servicio->limpiarLotesTemporalesExpirados();
             $batchId = trim((string) ($_POST['batch_id'] ?? ''));
             $fuentes = $batchId !== '' ? $servicio->fuentesDesdeLoteTemporal($batchId) : [];
             if (empty($fuentes)) {
@@ -26422,11 +26422,13 @@ public function getEstadosMunicipiosMexico()
 
             $persona = self::personaObjetivoImportacionRrhh();
             $servicio = new RrhhDocumentImportService();
+            $servicio->limpiarLotesTemporalesExpirados();
+            $usarCacheLote = (string) ($_POST['cache_lote'] ?? '1') !== '0';
             $batchId = trim((string) ($_POST['batch_id'] ?? ''));
             $fuentes = $batchId !== '' ? $servicio->fuentesDesdeLoteTemporal($batchId) : [];
             if (empty($fuentes)) {
                 $fuentes = $servicio->fuentesDesdeRequest($_FILES, $_POST);
-                if (!empty($fuentes)) {
+                if (!empty($fuentes) && $usarCacheLote) {
                     try {
                         $lote = $servicio->crearLoteTemporal($fuentes);
                         $batchId = (string) ($lote['batch_id'] ?? '');
@@ -26473,6 +26475,7 @@ public function getEstadosMunicipiosMexico()
 
             $persona = self::personaObjetivoImportacionRrhh();
             $servicio = new RrhhDocumentImportService();
+            $servicio->limpiarLotesTemporalesExpirados();
             $batchId = trim((string) ($_POST['batch_id'] ?? ''));
             $fuentes = $batchId !== '' ? $servicio->fuentesDesdeLoteTemporal($batchId) : [];
             if (empty($fuentes)) {

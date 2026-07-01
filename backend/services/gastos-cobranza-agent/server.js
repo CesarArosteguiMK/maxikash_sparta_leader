@@ -125,7 +125,7 @@ function demoPermitidoSinScript() {
   return String(process.env.GASTOS_COBRANZA_DEMO || '0').trim() === '1';
 }
 
-const LOG_DIR = path.join(__dirname, 'logs');
+const LOG_DIR = path.join(os.tmpdir(), 'sparta___SPARTA_SECRET_REDACTED___gastos_cobranza_agent_logs');
 const LOG_FILE = path.join(LOG_DIR, 'agente-gastos-cobranza.log');
 /** Estado escribible por Node (auto-run, dedupe correo, etc.); fuera de `logs/` por permisos en Windows/XAMPP. */
 const AGENT_DATA_DIR = path.join(__dirname, 'data');

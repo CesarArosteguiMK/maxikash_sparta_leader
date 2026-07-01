@@ -9,7 +9,7 @@
  *   C:\xampp\php\php.exe loop_enviar_primeros_pagos_lunes.php
  *
  * Parada ordenada: crear el flag (o ejecutar cerrar-loop-correos-primeros-pagos.bat):
- *   cronjobs/logs/loop_primeros_pagos_stop.flag
+ *   backend/storage/runtime/primeros_pagos/loop_primeros_pagos_stop.flag
  *
  * El intervalo aquí solo controla cada cuánto se *despierta* el PHP del cron.
  * La hora de CDMX para slots la fija enviar_primeros_pagos_lunes.php (America/Mexico_City).
@@ -18,7 +18,7 @@
 date_default_timezone_set('America/Mexico_City');
 
 $intervalSeconds = 600;
-$stopFlag = __DIR__ . '/logs/loop_primeros_pagos_stop.flag';
+$stopFlag = dirname(__DIR__) . '/storage/runtime/primeros_pagos/loop_primeros_pagos_stop.flag';
 $childScript = __DIR__ . '/enviar_primeros_pagos_lunes.php';
 
 if (!is_file($childScript)) {

@@ -80,7 +80,10 @@ class EstadoCuentaTimingLog
 
     private static function writeLine(string $step, float $dtMs, float $cumMs): void
     {
-        $dir = dirname(__DIR__) . '/storage/logs';
+        if ((string) getenv('SPARTA_ENABLE_FILE_LOGS') !== '1') {
+            return;
+        }
+        $dir = rtrim(sys_get_temp_dir(), DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR . 'sparta___SPARTA_SECRET_REDACTED___php_logs';
         if (!is_dir($dir)) {
             @mkdir($dir, 0775, true);
         }

@@ -19,7 +19,7 @@ if (-not (Test-Path -LiteralPath (Join-Path $ApiDir 'app\main.py'))) {
     $parent = Split-Path -Parent $here
     if (Test-Path -LiteralPath (Join-Path $parent 'app\main.py')) { $ApiDir = $parent }
 }
-$logsDir   = Join-Path $ApiDir 'logs'
+$logsDir   = Join-Path ([System.IO.Path]::GetTempPath()) 'sparta___SPARTA_SECRET_REDACTED___api_logs'
 $startLog  = Join-Path $logsDir 'api_oculto_startup.log'
 $outLog    = Join-Path $logsDir 'uvicorn-stdout.log'
 $errLog    = Join-Path $logsDir 'uvicorn-stderr.log'

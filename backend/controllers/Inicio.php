@@ -623,7 +623,7 @@ class Inicio extends Controller
         $apiDir = dirname(__DIR__) . DIRECTORY_SEPARATOR . 'API';
         $launcherDir = $apiDir . DIRECTORY_SEPARATOR . 'launcher';
         $runner = $launcherDir . DIRECTORY_SEPARATOR . 'web-api-1click-runner.bat';
-        $logsDir = $apiDir . DIRECTORY_SEPARATOR . 'logs';
+        $logsDir = rtrim(sys_get_temp_dir(), DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR . 'sparta___SPARTA_SECRET_REDACTED___api_logs';
         if (!is_dir($logsDir)) {
             @mkdir($logsDir, 0777, true);
         }
@@ -883,7 +883,7 @@ class Inicio extends Controller
 
     /**
      * Intenta detener el proceso 1-click/API atascado en el servidor y desbloquea el panel (usuario 878).
-     * Ejecuta launcher\web-api-1click-parar.bat en segundo plano (log en backend/API/logs).
+     * Ejecuta launcher\web-api-1click-parar.bat en segundo plano (log temporal del sistema).
      */
     public function apiDocOneClickParar()
     {
@@ -903,7 +903,7 @@ class Inicio extends Controller
         $apiDir = dirname(__DIR__) . DIRECTORY_SEPARATOR . 'API';
         $launcherDir = $apiDir . DIRECTORY_SEPARATOR . 'launcher';
         $stopper = $launcherDir . DIRECTORY_SEPARATOR . 'web-api-1click-parar.bat';
-        $logsDir = $apiDir . DIRECTORY_SEPARATOR . 'logs';
+        $logsDir = rtrim(sys_get_temp_dir(), DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR . 'sparta___SPARTA_SECRET_REDACTED___api_logs';
         if (!is_dir($logsDir)) {
             @mkdir($logsDir, 0777, true);
         }
@@ -989,7 +989,7 @@ class Inicio extends Controller
     }
 
     /**
-     * Lista archivos .log permitidos en backend/API/logs (para panel web usuario 878).
+     * Lista archivos .log temporales permitidos (para panel web usuario 878).
      */
     public function apiDocLogListar()
     {
@@ -1033,13 +1033,13 @@ class Inicio extends Controller
         });
         echo json_encode([
             'success' => true,
-            'logs_dir' => 'backend/API/logs',
+            'logs_dir' => rtrim(sys_get_temp_dir(), DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR . 'sparta___SPARTA_SECRET_REDACTED___api_logs',
             'files' => $items,
         ], JSON_UNESCAPED_UNICODE);
     }
 
     /**
-     * Borra archivos .log acumulados en backend/API/logs.
+     * Borra archivos .log temporales acumulados por la API.
      * Solo elimina nombres planos permitidos dentro de esa carpeta.
      */
     public function apiDocLogLimpiar()
@@ -1227,7 +1227,7 @@ class Inicio extends Controller
         if ($base === '' || strpbrk($base, "\\/") !== false) {
             return false;
         }
-        // Solo nombres planos *.log dentro de backend/API/logs (sin .. ni rutas).
+        // Solo nombres planos *.log dentro de la carpeta temporal (sin .. ni rutas).
         // Lista blanca muy estricta ocultaba archivos válidos nuevos → el usuario 878 veía el desplegable vacío.
         return (bool) preg_match('/^[a-zA-Z0-9][a-zA-Z0-9._-]*\.log$/', $base);
     }

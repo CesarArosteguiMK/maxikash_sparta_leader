@@ -40,7 +40,7 @@ if (-not $pyExe) {
     exit 1
 }
 
-$logs = Join-Path $ApiDir 'logs'
+$logs = Join-Path ([System.IO.Path]::GetTempPath()) 'sparta___SPARTA_SECRET_REDACTED___api_logs'
 if (-not (Test-Path -LiteralPath $logs)) { New-Item -ItemType Directory -Path $logs | Out-Null }
 $envEx = Join-Path $ApiDir '.env.example'
 $envFi = Join-Path $ApiDir '.env'

@@ -41,8 +41,8 @@ call :ApiReady 5
 if !errorlevel! NEQ 0 goto :failed
 
 echo API verificacion documentos iniciada: http://127.0.0.1:!API_PORT!  ^(docs: /docs^)
-echo Log de arranque: %API_DIR%\logs\api_oculto_startup.log
-echo Log de uvicorn : %API_DIR%\logs\uvicorn-stderr.log
+echo Log de arranque: %TEMP%\sparta___SPARTA_SECRET_REDACTED___api_logs\api_oculto_startup.log
+echo Log de uvicorn : %TEMP%\sparta___SPARTA_SECRET_REDACTED___api_logs\uvicorn-stderr.log
 echo Para detener   : launcher\cerrar-agente.bat
 ping 127.0.0.1 -n 2 >nul
 exit /b 0
@@ -53,9 +53,9 @@ echo ============================================================
 echo  [ERROR] No se pudo arrancar la API (codigo %RC%).
 echo ============================================================
 echo  Log de arranque:
-echo    %API_DIR%\logs\api_oculto_startup.log
+echo    %TEMP%\sparta___SPARTA_SECRET_REDACTED___api_logs\api_oculto_startup.log
 echo  Log de uvicorn (stderr):
-echo    %API_DIR%\logs\uvicorn-stderr.log
+echo    %TEMP%\sparta___SPARTA_SECRET_REDACTED___api_logs\uvicorn-stderr.log
 echo.
 echo  Voy a abrir el DOCTOR para diagnostico detallado...
 echo  (Si no quiere, cierre esta ventana ahora.)

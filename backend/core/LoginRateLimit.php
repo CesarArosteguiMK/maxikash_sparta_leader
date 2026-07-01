@@ -115,7 +115,10 @@ class LoginRateLimit
 
     private static function logFailure(): void
     {
-        $logDir = defined('RAIZ') ? RAIZ . '/storage/logs' : dirname(__DIR__) . '/storage/logs';
+        if ((string) getenv('SPARTA_ENABLE_FILE_LOGS') !== '1') {
+            return;
+        }
+        $logDir = rtrim(sys_get_temp_dir(), DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR . 'sparta___SPARTA_SECRET_REDACTED___php_logs';
         if (!is_dir($logDir)) {
             @mkdir($logDir, 0755, true);
         }
