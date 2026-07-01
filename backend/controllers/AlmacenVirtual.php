@@ -17,12 +17,14 @@ class AlmacenVirtual extends Controller
 
     public function index()
     {
-        return $this->inventario();
+        self::set('titulo', 'Almacen Virtual - Motos Adjudicadas');
+        self::set('av_modulo_id', AlmacenVirtualModel::moduloAlmacenVirtual());
+        return self::render('almacen_virtual_menu');
     }
 
     public function inventario()
     {
-        self::set('titulo', 'Inventario - Motos Adjudicadas');
+        self::set('titulo', 'Inventario - Almacen Virtual');
         self::set('av_modulo_id', AlmacenVirtualModel::moduloAlmacenVirtual());
         return self::render('almacen_virtual');
     }
@@ -113,44 +115,34 @@ class AlmacenVirtual extends Controller
         }
     }
 
-    public function crearDesdeMotosAdjudicadas()
+    public function sincronizarRecolectadas()
     {
         header('Content-Type: application/json; charset=utf-8');
-        $data = $this->payloadJson();
-        $idOperacion = (int) ($data['id_operacion'] ?? 0);
-        if ($idOperacion <= 0) {
-            echo json_encode(['success' => false, 'message' => 'Indica un id_operacion valido.'], JSON_UNESCAPED_UNICODE);
-            return;
-        }
-
         $idUsuario = (int) ($_SESSION['persona_id'] ?? $_SESSION['usuario_id'] ?? $_SESSION['id_usuario'] ?? $_SESSION['id'] ?? 0);
         $nombreUsuario = trim((string) ($_SESSION['usuario_nombre'] ?? $_SESSION['nombre'] ?? $_SESSION['usuario'] ?? 'SISTEMA'));
+        $limit = (int) ($_GET['limit'] ?? $_POST['limit'] ?? 200);
 
         try {
             echo json_encode(
-                $this->model->crearDesdeMotosAdjudicadas($idOperacion, $idUsuario, $nombreUsuario),
+                $this->model->sincronizarRecolectadasMotosAdjudicadas($idUsuario, $nombreUsuario, $limit),
                 JSON_UNESCAPED_UNICODE
             );
         } catch (\Throwable $e) {
             echo json_encode([
                 'success' => false,
-                'message' => 'No se pudo crear la unidad desde Motos Adjudicadas.',
+                'message' => 'No se pudo sincronizar motos recolectadas.',
                 'error' => $e->getMessage(),
             ], JSON_UNESCAPED_UNICODE);
         }
     }
 
-    private function payloadJson(): array
+    public function crearDesdeMotosAdjudicadas()
     {
-        $raw = file_get_contents('php://input');
-        $data = [];
-        if ($raw !== '' && $raw !== false) {
-            $data = json_decode($raw, true) ?: [];
-        }
-        if (empty($data)) {
-            $data = $_POST;
-        }
-
-        return is_array($data) ? $data : [];
+        header('Content-Type: application/json; charset=utf-8');
+        echo json_encode([
+            'success' => false,
+            'message' => 'El alta manual por id_operacion esta deshabilitada. El inventario se alimenta automaticamente desde recolecciones confirmadas en Tracking.',
+        ], JSON_UNESCAPED_UNICODE);
     }
+
 }

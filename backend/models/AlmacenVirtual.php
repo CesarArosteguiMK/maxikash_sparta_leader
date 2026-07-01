@@ -10,6 +10,8 @@ class AlmacenVirtual extends Model
     private const MODULO_ALMACEN_VIRTUAL = 139;
     private const CELULA_MOTOS_ADJUDICADAS = 1;
     private const CELULA_FURIAMOTOS = 2;
+    private const TRACKING_ESTATUS_RECOLECTADA = ['recolectada', 'recolectado', 'completado', 'completada'];
+    private const TRACKING_RUTAS_NO_INVENTARIO = ['borrador', 'cancelada'];
 
     private Database $db;
     private static ?array $adjOperacionColumnas = null;
@@ -95,6 +97,7 @@ class AlmacenVirtual extends Model
 
         $page = max(1, (int) ($filtros['page'] ?? 1));
         $limit = max(1, min(100, (int) ($filtros['limit'] ?? 8)));
+        $trackingDisponible = $this->trackingRecoleccionDisponible();
 
         $where = ['u.deleted_at IS NULL'];
         $params = [];
@@ -143,6 +146,43 @@ class AlmacenVirtual extends Model
         $pages = max(1, (int) ceil($total / $limit));
         $page = min($page, $pages);
         $offset = ($page - 1) * $limit;
+        $trackingSelect = <<<SQL
+            NULL AS tracking_id_detalle,
+            NULL AS tracking_estatus_recoleccion,
+            NULL AS tracking_id_ruta,
+            NULL AS tracking_nombre_ruta,
+            NULL AS tracking_estatus_ruta,
+            NULL AS tracking_cedis_destino_nombre,
+            NULL AS tracking_fecha_finalizacion_fmt,
+        SQL;
+        $trackingJoin = '';
+        if ($trackingDisponible) {
+            $estatusRecolectada = $this->trackingRecolectadaSqlIn();
+            $rutasNoInventario = $this->trackingRutasNoInventarioSqlIn();
+            $trackingSelect = <<<SQL
+            trk_det.id_detalle AS tracking_id_detalle,
+            trk_det.estatus_recoleccion AS tracking_estatus_recoleccion,
+            trk_ruta.id_ruta AS tracking_id_ruta,
+            trk_ruta.nombre_ruta AS tracking_nombre_ruta,
+            trk_ruta.estatus_ruta AS tracking_estatus_ruta,
+            cedis_dest.nombre_agencia AS tracking_cedis_destino_nombre,
+            DATE_FORMAT(trk_ruta.fecha_finalizacion, '%d/%m/%Y') AS tracking_fecha_finalizacion_fmt,
+            SQL;
+            $trackingJoin = <<<SQL
+        LEFT JOIN (
+            SELECT atd_idx.id_credito, MAX(atd_idx.id_detalle) AS id_detalle
+            FROM asigna_horas_tracking_detalle atd_idx
+            INNER JOIN asigna_horas_tracking atr_idx ON atr_idx.id_ruta = atd_idx.id_ruta
+            WHERE atd_idx.id_credito IS NOT NULL
+              AND LOWER(TRIM(COALESCE(atd_idx.estatus_recoleccion, ''))) IN ({$estatusRecolectada})
+              AND LOWER(TRIM(COALESCE(atr_idx.estatus_ruta, ''))) NOT IN ({$rutasNoInventario})
+            GROUP BY atd_idx.id_credito
+        ) trk_idx ON trk_idx.id_credito = u.id_credito
+        LEFT JOIN asigna_horas_tracking_detalle trk_det ON trk_det.id_detalle = trk_idx.id_detalle
+        LEFT JOIN asigna_horas_tracking trk_ruta ON trk_ruta.id_ruta = trk_det.id_ruta
+        LEFT JOIN agencias_tracking cedis_dest ON cedis_dest.id_agencia = trk_ruta.id_cedis_destino
+        SQL;
+        }
 
         $sql = <<<SQL
         SELECT
@@ -166,11 +206,13 @@ class AlmacenVirtual extends Model
             u.id_ubicacion_actual,
             ub.nombre_ubicacion,
             ub.tipo_ubicacion,
+            {$trackingSelect}
             DATE_FORMAT(u.fecha_ingreso_virtual, '%d/%m/%Y %H:%i') AS fecha_ingreso_virtual_fmt,
             DATE_FORMAT(u.fecha_alta, '%d/%m/%Y %H:%i') AS fecha_alta_fmt,
             DATE_FORMAT(u.fecha_actualizacion, '%d/%m/%Y %H:%i') AS fecha_actualizacion_fmt
         FROM av_unidades u
         LEFT JOIN av_ubicaciones ub ON ub.id_ubicacion = u.id_ubicacion_actual
+        {$trackingJoin}
         {$whereSql}
         ORDER BY u.fecha_alta DESC, u.id_unidad DESC
         LIMIT {$limit} OFFSET {$offset}
@@ -208,6 +250,71 @@ class AlmacenVirtual extends Model
         ) ?: [];
     }
 
+    public function sincronizarRecolectadasMotosAdjudicadas(int $idUsuario = 0, string $nombreUsuario = '', int $limit = 200): array
+    {
+        if (!$this->tablasBaseDisponibles()) {
+            return ['success' => false, 'message' => 'Faltan tablas base de Inventario. Ejecuta la migracion inicial av_*.'];
+        }
+        if (!$this->trackingRecoleccionDisponible()) {
+            return [
+                'success' => false,
+                'message' => 'Faltan tablas de Tracking Recoleccion para detectar motos recolectadas.',
+                'creadas' => 0,
+                'existentes' => 0,
+                'errores' => [],
+            ];
+        }
+
+        $limit = max(1, min(500, $limit));
+        $pendientes = $this->listarPendientesMotosAdjudicadas(['limit' => $limit, 'page' => 1]);
+        if (empty($pendientes['success'])) {
+            return [
+                'success' => false,
+                'message' => $pendientes['message'] ?? 'No se pudieron consultar recolectadas pendientes.',
+                'creadas' => 0,
+                'existentes' => 0,
+                'errores' => [],
+            ];
+        }
+
+        $creadas = 0;
+        $existentes = 0;
+        $errores = [];
+        foreach (($pendientes['rows'] ?? []) as $row) {
+            $idOperacion = (int) ($row['id_operacion'] ?? 0);
+            if ($idOperacion <= 0) {
+                continue;
+            }
+
+            $res = $this->crearDesdeMotosAdjudicadas($idOperacion, $idUsuario, $nombreUsuario);
+            if (!empty($res['success'])) {
+                if (!empty($res['ya_existe'])) {
+                    $existentes++;
+                } else {
+                    $creadas++;
+                }
+                continue;
+            }
+
+            $errores[] = [
+                'id_operacion' => $idOperacion,
+                'message' => $res['message'] ?? 'No se pudo sincronizar.',
+            ];
+        }
+
+        return [
+            'success' => empty($errores),
+            'message' => empty($errores)
+                ? 'Sincronizacion de recolectadas completada.'
+                : 'Sincronizacion parcial de recolectadas.',
+            'creadas' => $creadas,
+            'existentes' => $existentes,
+            'errores' => $errores,
+            'procesadas' => $creadas + $existentes + count($errores),
+            'pendientes_restantes' => max(0, (int) ($pendientes['total'] ?? 0) - $limit),
+        ];
+    }
+
     public function listarPendientesMotosAdjudicadas(array $filtros = []): array
     {
         if (!$this->tablaExiste('adj_operacion')) {
@@ -216,10 +323,22 @@ class AlmacenVirtual extends Model
         if (!$this->tablaExiste('av_unidades')) {
             return ['success' => false, 'message' => 'No existe la tabla av_unidades.', 'rows' => [], 'total' => 0];
         }
+        if (!$this->trackingRecoleccionDisponible()) {
+            return [
+                'success' => false,
+                'message' => 'Faltan tablas de Tracking Recoleccion para filtrar motos recolectadas.',
+                'rows' => [],
+                'total' => 0,
+                'limit' => 8,
+                'page' => 1,
+                'pages' => 1,
+            ];
+        }
 
         $limit = max(1, min(100, (int) ($filtros['limit'] ?? 8)));
         $page = max(1, (int) ($filtros['page'] ?? 1));
         $q = trim((string) ($filtros['q'] ?? ''));
+        $trackingJoin = $this->joinTrackingRecolectadasSql('ao');
 
         $selectCols = [
             $this->adjOperacionSelectColumnaONull('moto_marca', 'ao'),
@@ -244,24 +363,14 @@ class AlmacenVirtual extends Model
         ];
         $params = [];
 
-        $stage = [
-            "ao.estatus IN ('Cierre Documentado', 'Retenciones')",
-            "ao.estatus LIKE 'Recepci%'",
-        ];
-        if ($this->adjOperacionTieneColumna('fecha_llegada_almacen')) {
-            $stage[] = 'ao.fecha_llegada_almacen IS NOT NULL';
-        }
-        if ($this->adjOperacionTieneColumna('recepcion_confirmada_at')) {
-            $stage[] = 'ao.recepcion_confirmada_at IS NOT NULL';
-        }
-        $where[] = '(' . implode(' OR ', $stage) . ')';
-
         if ($q !== '') {
             $where[] = "(
                 CAST(ao.id AS CHAR) LIKE :q
                 OR CAST(ao.id_credito AS CHAR) LIKE :q
                 OR ao.nombre_cliente LIKE :q
                 OR ao.folio LIKE :q
+                OR trk_ruta.nombre_ruta LIKE :q
+                OR cedis_dest.nombre_agencia LIKE :q
             )";
             $params['q'] = '%' . $q . '%';
         }
@@ -270,6 +379,7 @@ class AlmacenVirtual extends Model
         $totalRow = $this->db->queryOne(
             "SELECT COUNT(*) AS total
              FROM adj_operacion ao
+             {$trackingJoin}
              LEFT JOIN av_unidades av
                ON av.id_celula = :celula_total
               AND av.id_origen = ao.id
@@ -291,14 +401,24 @@ class AlmacenVirtual extends Model
                 ao.estatus,
                 DATE_FORMAT(ao.fecha_alta, '%d/%m/%Y %H:%i') AS fecha_alta_fmt,
                 DATE_FORMAT(ao.fecha_actualizacion, '%d/%m/%Y %H:%i') AS fecha_actualizacion_fmt,
+                trk_det.id_detalle AS tracking_id_detalle,
+                trk_det.estatus_recoleccion AS tracking_estatus_recoleccion,
+                trk_ruta.id_ruta AS tracking_id_ruta,
+                trk_ruta.nombre_ruta AS tracking_nombre_ruta,
+                trk_ruta.estatus_ruta AS tracking_estatus_ruta,
+                trk_ruta.id_cedis_destino AS tracking_id_cedis_destino,
+                DATE_FORMAT(trk_ruta.fecha_programada, '%d/%m/%Y') AS tracking_fecha_programada_fmt,
+                DATE_FORMAT(trk_ruta.fecha_finalizacion, '%d/%m/%Y') AS tracking_fecha_finalizacion_fmt,
+                cedis_dest.nombre_agencia AS tracking_cedis_destino_nombre,
                 " . implode(",\n                ", $selectCols) . "
              FROM adj_operacion ao
+             {$trackingJoin}
              LEFT JOIN av_unidades av
                ON av.id_celula = :celula_rows
               AND av.id_origen = ao.id
               AND av.deleted_at IS NULL
              {$whereSql}
-             ORDER BY ao.fecha_actualizacion DESC, ao.id DESC
+             ORDER BY trk_det.id_detalle DESC, ao.fecha_actualizacion DESC, ao.id DESC
              LIMIT {$limit} OFFSET {$offset}",
             ['celula_rows' => self::CELULA_MOTOS_ADJUDICADAS] + $params
         ) ?: [];
@@ -345,6 +465,13 @@ class AlmacenVirtual extends Model
         $op = $this->obtenerOperacionMotosAdjudicadas($idOperacion);
         if (!$op) {
             return ['success' => false, 'message' => 'No se encontro la operacion de Motos Adjudicadas.'];
+        }
+        $trackingRecolectado = $this->obtenerTrackingRecolectadoPorCredito((int) ($op['id_credito'] ?? 0));
+        if (!$trackingRecolectado) {
+            return [
+                'success' => false,
+                'message' => 'La operacion aun no tiene una recoleccion confirmada en Tracking. Solo se migran motos recolectadas.',
+            ];
         }
 
         $ahora = $this->fechaHoraCdmx();
@@ -393,7 +520,7 @@ class AlmacenVirtual extends Model
                 $estatusInicial,
                 null,
                 $idUbicacion,
-                'Creada desde Motos Adjudicadas.',
+                'Creada desde Motos Adjudicadas con recoleccion confirmada en Tracking.',
                 $idUsuario,
                 $nombreUsuario,
                 $ahora
@@ -409,6 +536,7 @@ class AlmacenVirtual extends Model
                     'estatus_origen' => $op['estatus'] ?? null,
                     'recepcion_confirmada_at' => $op['recepcion_confirmada_at'] ?? null,
                     'fecha_llegada_almacen' => $op['fecha_llegada_almacen'] ?? null,
+                    'tracking_recoleccion' => $trackingRecolectado,
                 ],
                 $idUsuario,
                 $nombreUsuario,
@@ -512,6 +640,88 @@ class AlmacenVirtual extends Model
         $row['nombre_celula'] = $celulas[$idCelula] ?? ('Celula ' . $idCelula);
 
         return $row;
+    }
+
+    private function trackingRecoleccionDisponible(): bool
+    {
+        return $this->tablaExiste('asigna_horas_tracking')
+            && $this->tablaExiste('asigna_horas_tracking_detalle')
+            && $this->tablaExiste('agencias_tracking');
+    }
+
+    private function sqlInConstantes(array $valores): string
+    {
+        return implode(', ', array_map(
+            static fn($valor) => "'" . str_replace("'", "''", strtolower((string) $valor)) . "'",
+            $valores
+        ));
+    }
+
+    private function trackingRecolectadaSqlIn(): string
+    {
+        return $this->sqlInConstantes(self::TRACKING_ESTATUS_RECOLECTADA);
+    }
+
+    private function trackingRutasNoInventarioSqlIn(): string
+    {
+        return $this->sqlInConstantes(self::TRACKING_RUTAS_NO_INVENTARIO);
+    }
+
+    private function joinTrackingRecolectadasSql(string $aliasOperacion): string
+    {
+        $aliasOperacion = preg_replace('/[^A-Za-z0-9_]/', '', $aliasOperacion) ?: 'ao';
+        $estatusRecolectada = $this->trackingRecolectadaSqlIn();
+        $rutasNoInventario = $this->trackingRutasNoInventarioSqlIn();
+
+        return <<<SQL
+        INNER JOIN (
+            SELECT atd_idx.id_credito, MAX(atd_idx.id_detalle) AS id_detalle
+            FROM asigna_horas_tracking_detalle atd_idx
+            INNER JOIN asigna_horas_tracking atr_idx ON atr_idx.id_ruta = atd_idx.id_ruta
+            WHERE atd_idx.id_credito IS NOT NULL
+              AND LOWER(TRIM(COALESCE(atd_idx.estatus_recoleccion, ''))) IN ({$estatusRecolectada})
+              AND LOWER(TRIM(COALESCE(atr_idx.estatus_ruta, ''))) NOT IN ({$rutasNoInventario})
+            GROUP BY atd_idx.id_credito
+        ) trk_idx ON trk_idx.id_credito = {$aliasOperacion}.id_credito
+        INNER JOIN asigna_horas_tracking_detalle trk_det ON trk_det.id_detalle = trk_idx.id_detalle
+        INNER JOIN asigna_horas_tracking trk_ruta ON trk_ruta.id_ruta = trk_det.id_ruta
+        LEFT JOIN agencias_tracking cedis_dest ON cedis_dest.id_agencia = trk_ruta.id_cedis_destino
+        SQL;
+    }
+
+    private function obtenerTrackingRecolectadoPorCredito(int $idCredito): ?array
+    {
+        if ($idCredito <= 0 || !$this->trackingRecoleccionDisponible()) {
+            return null;
+        }
+
+        $estatusRecolectada = $this->trackingRecolectadaSqlIn();
+        $rutasNoInventario = $this->trackingRutasNoInventarioSqlIn();
+        $row = $this->db->queryOne(
+            "SELECT
+                atd.id_detalle,
+                atd.id_credito,
+                atd.estatus_recoleccion,
+                atr.id_ruta,
+                atr.nombre_ruta,
+                atr.estatus_ruta,
+                atr.id_cedis_destino,
+                cedis.nombre_agencia AS cedis_destino_nombre,
+                atr.fecha_programada,
+                atr.fecha_finalizacion,
+                atr.fecha_actualizacion
+             FROM asigna_horas_tracking_detalle atd
+             INNER JOIN asigna_horas_tracking atr ON atr.id_ruta = atd.id_ruta
+             LEFT JOIN agencias_tracking cedis ON cedis.id_agencia = atr.id_cedis_destino
+             WHERE atd.id_credito = :id_credito
+               AND LOWER(TRIM(COALESCE(atd.estatus_recoleccion, ''))) IN ({$estatusRecolectada})
+               AND LOWER(TRIM(COALESCE(atr.estatus_ruta, ''))) NOT IN ({$rutasNoInventario})
+             ORDER BY atd.id_detalle DESC
+             LIMIT 1",
+            ['id_credito' => $idCredito]
+        );
+
+        return $row ?: null;
     }
 
     private function obtenerOperacionMotosAdjudicadas(int $idOperacion): ?array
@@ -781,9 +991,9 @@ class AlmacenVirtual extends Model
         try {
             $datos = [
                 'id' => self::MODULO_ALMACEN_VIRTUAL,
-                'nombre' => 'Inventario',
+                'nombre' => 'Almacen Virtual',
                 'pestana' => 'Motos Adjudicadas',
-                'descripcion' => 'Motos Adjudicadas > Inventario',
+                'descripcion' => 'Motos Adjudicadas > Almacen Virtual',
             ];
 
             $existe = $this->db->queryOne(

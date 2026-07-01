@@ -5,11 +5,11 @@ $nombreUsuario = isset($_SESSION['usuario_nombre'])
 
 $reportes = [
     [
-        'titulo' => 'Seguimiento de motos adjudicadas',
-        'texto' => 'Consulta operaciones, ubicacion, unidad, estatus y alertas de calidad de datos para seguimiento operativo.',
-        'url' => '/MotosAdjudicadas/reporteSeguimiento',
-        'btn' => 'Abrir reporte',
-        'icon' => 'fa-table-list',
+        'titulo' => 'Historico por etapas',
+        'texto' => 'Vista tipo pipeline con todos los creditos que han entrado a motos adjudicadas, agrupados por etapa operativa.',
+        'url' => '/MotosAdjudicadas/reporteHistoricoFlujo',
+        'btn' => 'Abrir historico',
+        'icon' => 'fa-diagram-project',
     ],
     [
         'titulo' => 'Timeline por credito',
