@@ -9191,10 +9191,10 @@ class CapHum extends Controller
                         opt.value = jefe.id;
                         opt.textContent = (jefe.nombre_completo || jefe.nombre || "").trim() || ("ID " + jefe.id);
                         if (jefe.nombre_puesto) opt.textContent += " - " + jefe.nombre_puesto;
-                        if (!jefe.tiene_correo_institucional) {
+                        if (!jefe.tiene_correo) {
                             opt.textContent += " (sin correo configurado)";
                             opt.disabled = true;
-                            opt.title = "Agrega este jefe al CSV/alias antes de seleccionarlo.";
+                            opt.title = "Captura un correo valido en el perfil del jefe divisional.";
                         }
                         select.appendChild(opt);
                     });
@@ -9227,9 +9227,9 @@ class CapHum extends Controller
                 if (optSeleccionada && optSeleccionada.disabled) valor = "";
                 if (valor) return true;
                 if (typeof Swal !== "undefined") {
-                    Swal.fire({ icon: "warning", title: "Jefe divisional requerido", text: "Selecciona un jefe divisional con correo configurado en CSV/alias." });
+                    Swal.fire({ icon: "warning", title: "Jefe divisional requerido", text: "Selecciona un jefe divisional con correo configurado." });
                 } else {
-                    alert("Selecciona un jefe divisional con correo configurado en CSV/alias.");
+                    alert("Selecciona un jefe divisional con correo configurado.");
                 }
                 return false;
             }
@@ -13521,16 +13521,17 @@ class CapHum extends Controller
             $vistos[$id] = true;
             $correoInfo = $this->resolverCorreoInstitucionalJefe(
                 trim((string) ($row['nombre_completo'] ?? '')),
-                '',
-                false
+                trim((string) ($row['correo'] ?? '')),
+                true
             );
-            $correoInstitucional = strtolower(trim((string) ($correoInfo['email'] ?? '')));
+            $correoJefe = strtolower(trim((string) ($correoInfo['email'] ?? '')));
             $salida[] = [
                 'id' => $id,
                 'nombre_completo' => trim((string) ($row['nombre_completo'] ?? '')),
-                'correo' => $correoInstitucional,
+                'correo' => $correoJefe,
                 'correo_fuente' => (string) ($correoInfo['fuente'] ?? 'no_encontrado'),
-                'tiene_correo_institucional' => $correoInstitucional !== '',
+                'tiene_correo' => $correoJefe !== '',
+                'tiene_correo_institucional' => $correoJefe !== '',
                 'nombre_puesto' => trim((string) ($row['nombre_puesto'] ?? '')),
             ];
         }
@@ -13624,7 +13625,7 @@ class CapHum extends Controller
         if (trim((string) ($jefe['correo'] ?? '')) === '') {
             return [
                 'success' => false,
-                'mensaje' => 'El jefe divisional seleccionado no tiene correo configurado en CSV/alias. Agregalo antes de usarlo.',
+                'mensaje' => 'El jefe divisional seleccionado no tiene correo configurado. Agregalo en su perfil antes de usarlo.',
             ];
         }
         $data['id_jefe_divisional'] = $idJefeDivisional;
@@ -15509,7 +15510,17 @@ class CapHum extends Controller
             return false;
         }
         if (!empty($verificacion['verificacion_en_proceso'])) {
+            $inicioRaw = trim((string) ($verificacion['iniciado_en'] ?? $verificacion['started_at'] ?? $verificacion['fecha_inicio'] ?? ''));
+            if ($inicioRaw !== '') {
+                $inicioTs = @strtotime($inicioRaw);
+                if ($inicioTs !== false && (time() - $inicioTs) > 180) {
+                    return true;
+                }
+            }
             return false;
+        }
+        if (!empty($verificacion['api_pendiente'])) {
+            return true;
         }
         $checks = isset($verificacion['checks_totales']) ? (int) $verificacion['checks_totales'] : null;
         return $checks === 0
@@ -15525,6 +15536,10 @@ class CapHum extends Controller
             return false;
         }
         $verificacion = $dec['datos']['verificacion_expediente'] ?? null;
+        $metricas = $dec['datos']['metricas'] ?? [];
+        if (!empty($metricas['expediente_completo']) && ($verificacion === null || $this->docVerifExpedientePendienteTecnico($verificacion))) {
+            return true;
+        }
         return $this->docVerifExpedientePendienteTecnico($verificacion);
     }
 
@@ -18712,7 +18727,7 @@ class CapHum extends Controller
                             'tipo' => 'Jefe divisional',
                             'nombre' => $nombre !== '' ? $nombre : 'Jefe divisional',
                             'correo' => '',
-                            'motivo' => 'No se encontro correo institucional valido para el jefe divisional.',
+                            'motivo' => 'No se encontro correo valido para el jefe divisional.',
                         ];
                     }
                 }
@@ -18802,7 +18817,7 @@ class CapHum extends Controller
             return null;
         }
         $nombre = trim((string) ($row['nombre'] ?? ''));
-        $correoInfo = $this->resolverCorreoInstitucionalJefe($nombre, '', false);
+        $correoInfo = $this->resolverCorreoInstitucionalJefe($nombre, trim((string) ($row['correo'] ?? '')), true);
         return [
             'id' => (int) ($row['id'] ?? 0),
             'nombre' => $nombre !== '' ? $nombre : 'Jefe divisional',

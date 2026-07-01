@@ -154,6 +154,10 @@ Reglas de lectura:
 17. Para carta_no_adeudo, el nombre_completo debe ser el nombre de la persona que declara/no adeuda. Si solo aparece en la linea manuscrita de "Nombre completo y firma", leelo con mucho cuidado; si no estas seguro, usa null y explica la duda.
 18. Para carta_no_adeudo, no uses "A quien corresponda", nombre de empresa, empleador, beneficiario, entidad emisora o texto de la firma como nombre_completo.
 19. Para carta_no_adeudo, confirma si el formato fue llenado y firmado. firma_detectada=true solo si hay trazo manuscrito o firma digital visible. Una linea impresa vacia, una raya sin nombre o el texto "Nombre completo y firma" no cuentan como firma. Si la linea esta vacia, si solo aparece la plantilla sin nombre, o si no hay firma/trazo manuscrito, marca nombre_y_firma_lleno=false, firma_detectada=false y evidencia_insuficiente=true.
+20. Para infonavit_fonacot, acepta documentos reales de retencion, reporte mensual,
+    aviso, estado de cuenta o descuento FONACOT/INFONAVIT cuando muestren credito,
+    descuento, saldo, periodo o numero de credito. En esos casos NO exijas firma:
+    la firma solo aplica cuando el documento real sea una carta_no_adeudo.
 
 Estructura exacta:
 {
@@ -224,6 +228,10 @@ Objetivo:
    - Hoja de retencion FONACOT/INFONAVIT o carta de no adeudo: si es carta
      de no adeudo, debe estar llenada con nombre del candidato y firma/trazo
      manuscrito. Una plantilla en blanco no cumple aunque sea legible.
+     Si es hoja, reporte, aviso, estado o retencion real FONACOT/INFONAVIT
+     con credito, adeudo, descuento, saldo, periodo o numero de credito,
+     NO exijas firma ni nombre escrito a mano; ese documento cumple como
+     retencion y no debe evaluarse como carta de no adeudo.
 5. Si solo el comprobante de domicilio esta a nombre de otra persona, no lo
    marques como error de identidad; compara domicilio y deja observacion.
 6. Si solo el nombre registrado esta disponible fuera de los documentos, no
@@ -737,6 +745,17 @@ def quick_prompt_for(expected_doc_type: Optional[str], nombre_candidato: Optiona
             "al texto IMSS/NSS/Numero de Seguridad Social. Ignora folios largos, cadena "
             "original, sellos y numeros de serie."
         )
+    elif expected_doc_type == "infonavit_fonacot":
+        extra = (
+            "\n\nInstruccion especial para retencion FONACOT o INFONAVIT: este campo acepta "
+            "dos familias validas de documento. 1) Hoja, aviso, reporte mensual, estado de "
+            "cuenta o retencion real FONACOT/INFONAVIT cuando hay adeudo, credito, saldo, "
+            "descuento, numero de credito o periodo. En ese caso clasifica como "
+            "infonavit_fonacot y no exijas nombre escrito a mano ni firma. 2) Carta de no "
+            "adeudo cuando la persona declara que no tiene credito; solo en este segundo "
+            "caso clasifica como carta_no_adeudo y valida que este llenada con nombre y "
+            "firma/trazo manuscrito."
+        )
     elif expected_doc_type == "carta_no_adeudo":
         extra = (
             "\n\nInstruccion especial para carta de no adeudo: el documento puede traer el "
@@ -908,7 +927,7 @@ def validate_quick_extracted(data: Dict[str, Any], expected_doc_type: Optional[s
     if doc_type == "nss" and not fields.get("nss"):
         errors.append("No se pudo leer el NSS")
 
-    if doc_type in {"carta_no_adeudo", "infonavit_fonacot"}:
+    if doc_type == "carta_no_adeudo":
         declarant = fields.get("nombre_completo")
         firma_detectada = _bool_from_field(fields.get("firma_detectada"))
         nombre_y_firma_lleno = _bool_from_field(fields.get("nombre_y_firma_lleno"))

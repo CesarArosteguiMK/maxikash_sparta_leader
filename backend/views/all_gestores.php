@@ -13800,8 +13800,9 @@ function precargarCascadaEdit(idPais, idEstado, idMunicipio, idColonia, idCalle,
     });
 
     const btnSiguiente = document.getElementById('btnRrhhWizardNext');
-    if (btnSiguiente) btnSiguiente.classList.toggle('d-none', activo >= total - 1);
-    if (btnGuardarRrhh) btnGuardarRrhh.classList.toggle('d-none', activo < total - 1);
+    const esEdicion = form.dataset.mode === 'editar';
+    if (btnSiguiente) btnSiguiente.classList.toggle('d-none', esEdicion || activo >= total - 1);
+    if (btnGuardarRrhh) btnGuardarRrhh.classList.toggle('d-none', !esEdicion && activo < total - 1);
     actualizarResumenLaboralRrhh();
     actualizarBeneficiariosStatusRrhh();
   }
