@@ -21,7 +21,8 @@ for %%I in ("%~dp0..") do set "API_DIR=%%~fI"
 if "%API_DIR:~-1%"=="\" set "API_DIR=%API_DIR:~0,-1%"
 set "API_PORT=%SPARTA_API_PORT%"
 if "%API_PORT%"=="" set "API_PORT=8001"
-if not exist "%API_DIR%\logs" mkdir "%API_DIR%\logs" >nul 2>&1
+set "LOG_DIR=%TEMP%\sparta___SPARTA_SECRET_REDACTED___api_logs"
+if not exist "%LOG_DIR%" mkdir "%LOG_DIR%" >nul 2>&1
 
 if /i "%~1"=="/CONSOLA" (
     start "API Verificacion Documentos (Consola)" cmd /k "cd /d ""%~dp0"" && call ""%~dp0iniciar-agente-foreground.bat"""
@@ -64,7 +65,7 @@ if "!API_READY!"=="1" (
         set "DOC_READY_FIX_RC=!ERRORLEVEL!"
         if "!DOC_READY_FIX_RC!"=="1" (
             echo [ERROR] No se pudieron instalar todas las dependencias criticas.
-            echo         Revise: %API_DIR%\logs\doctor-pip-*.log
+            echo         Revise: %LOG_DIR%\doctor-pip-*.log
             ping 127.0.0.1 -n 8 >nul
             exit /b 1
         )
@@ -101,7 +102,7 @@ if exist "%PORTABLE_PY%" (
         set "BS_RC=!ERRORLEVEL!"
         if not "!BS_RC!"=="0" (
             echo [ERROR] Bootstrap del Python portable fallo ^(codigo !BS_RC!^).
-            echo         Vea: %API_DIR%\logs\bootstrap-python-*.log
+            echo         Vea: %LOG_DIR%\bootstrap-python-*.log
         )
     )
 ) else (
@@ -127,7 +128,7 @@ if exist "%~dp0bootstrap-zbar-local.ps1" (
         echo [0/4] zbar local ^(QR/PDF417^): preparando DLLs en API\tools\zbar\bin...
         echo       Timeout defensivo: 180 segundos. Si la red del servidor no responde, el panel no quedara colgado.
         set "ZBAR_BOOTSTRAP=%~dp0bootstrap-zbar-local.ps1"
-        powershell -NoProfile -ExecutionPolicy Bypass -Command "$p=Start-Process -FilePath 'powershell.exe' -ArgumentList @('-NoProfile','-ExecutionPolicy','Bypass','-File',$env:ZBAR_BOOTSTRAP) -NoNewWindow -PassThru; if (-not $p.WaitForExit(180000)) { try { $p.Kill() } catch {}; Write-Host '[zbar] TIMEOUT: bootstrap supero 180 segundos.'; exit 124 }; exit $p.ExitCode" >>"%API_DIR%\logs\bootstrap-zbar.log" 2>&1
+        powershell -NoProfile -ExecutionPolicy Bypass -Command "$p=Start-Process -FilePath 'powershell.exe' -ArgumentList @('-NoProfile','-ExecutionPolicy','Bypass','-File',$env:ZBAR_BOOTSTRAP) -NoNewWindow -PassThru; if (-not $p.WaitForExit(180000)) { try { $p.Kill() } catch {}; Write-Host '[zbar] TIMEOUT: bootstrap supero 180 segundos.'; exit 124 }; exit $p.ExitCode" >>"%LOG_DIR%\bootstrap-zbar.log" 2>&1
         if errorlevel 1 (
             set "ZBAR_OK=0"
             if exist "!ZBAR_PY!" if exist "%~dp0_zbar_smoke.py" (
@@ -139,7 +140,7 @@ if exist "%~dp0bootstrap-zbar-local.ps1" (
             if "!ZBAR_OK!"=="1" (
                 echo       [OK] zbar local ya funciona ^(DLLs dentro de API^).
             ) else (
-                echo       [AVISO] zbar no quedo listo o se agoto el tiempo. Ver: %API_DIR%\logs\bootstrap-zbar.log
+                echo       [AVISO] zbar no quedo listo o se agoto el tiempo. Ver: %LOG_DIR%\bootstrap-zbar.log
                 echo       Continuando: la API puede levantar; solo QR/PDF417 podria fallar hasta reparar zbar.
             )
         )
@@ -212,9 +213,9 @@ echo ============================================================
 echo   [ERROR] No se pudo levantar la API automaticamente
 echo ============================================================
 echo   Revisa estos logs:
-echo   - %API_DIR%\logs\api_oculto_startup.log
-echo   - %API_DIR%\logs\uvicorn-stderr.log
-echo   - %API_DIR%\logs\doctor-*.log   ^(el mas reciente^)
+echo   - %LOG_DIR%\api_oculto_startup.log
+echo   - %LOG_DIR%\uvicorn-stderr.log
+echo   - %LOG_DIR%\doctor-*.log   ^(el mas reciente^)
 echo.
 echo   Siguiente paso recomendado ^(1 clic^):
 echo   - Ejecuta: %~dp0Iniciar-API-Verificacion.bat /CONSOLA

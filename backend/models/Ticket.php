@@ -2816,8 +2816,8 @@ class Ticket extends Model
             return self::resultado(true, 'Borrador guardado.', ['id_dictamen' => (int)($lastId['id'] ?? 0)]);
         } catch (\Exception $e) {
             $msg = $e->getMessage();
-            $logDir = __DIR__ . '/../storage/logs';
-            if (is_dir($logDir)) {
+            $logDir = rtrim(sys_get_temp_dir(), DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR . 'sparta___SPARTA_SECRET_REDACTED___php_logs';
+            if ((string) getenv('SPARTA_ENABLE_FILE_LOGS') === '1' && (is_dir($logDir) || @mkdir($logDir, 0755, true))) {
                 @file_put_contents($logDir . '/dictamen_error.log', '[' . date('Y-m-d H:i:s') . '] ' . $msg . "\n", FILE_APPEND | LOCK_EX);
             }
             $mensajeUsuario = 'Error al guardar borrador.';

@@ -13,7 +13,7 @@ if (-not $ApiDir) {
     $ApiDir = Split-Path -Parent $here
 }
 
-$logsDir = Join-Path $ApiDir 'logs'
+$logsDir = Join-Path ([System.IO.Path]::GetTempPath()) 'sparta___SPARTA_SECRET_REDACTED___api_logs'
 $runtimeDir = Join-Path $ApiDir 'runtime'
 $logPath = Join-Path $logsDir 'api-supervisor.log'
 $restartFlag = Join-Path $runtimeDir 'api-restart-request.flag'

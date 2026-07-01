@@ -29,13 +29,14 @@ if /i "%~2"=="/VENV"   set "MODE=VENV"
 if /i "%~1"=="/GLOBAL" set "MODE=GLOBAL"
 if /i "%~2"=="/GLOBAL" set "MODE=GLOBAL"
 
-if not exist "%API_DIR%\logs" mkdir "%API_DIR%\logs" >nul 2>&1
+set "LOG_DIR=%TEMP%\sparta___SPARTA_SECRET_REDACTED___api_logs"
+if not exist "%LOG_DIR%" mkdir "%LOG_DIR%" >nul 2>&1
 
 rem Timestamp YYYYMMDD-HHMMSS sin depender de locale
 for /f "tokens=2 delims==" %%I in ('wmic os get localdatetime /value 2^>nul') do set "LDT=%%I"
 if "%LDT%"=="" set "LDT=%date:~-4%%date:~3,2%%date:~0,2%-%time:~0,2%%time:~3,2%%time:~6,2%"
 set "STAMP=%LDT:~0,8%-%LDT:~8,6%"
-set "INST_LOG=%API_DIR%\logs\instalar-%STAMP%.log"
+set "INST_LOG=%LOG_DIR%\instalar-%STAMP%.log"
 
 if "%SILENT%"=="0" (
     echo.

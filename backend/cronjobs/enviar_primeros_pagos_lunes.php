@@ -104,7 +104,7 @@ $horariosPermitidos = [
 $ahora = date('H:i');
 
 // Evitar envíos duplicados en la misma ventana HH:MM (por reintentos o múltiples tareas)
-$stateDir = __DIR__ . '/logs';
+$stateDir = __DIR__ . '/../storage/runtime/primeros_pagos';
 if (!is_dir($stateDir)) {
     @mkdir($stateDir, 0755, true);
 }

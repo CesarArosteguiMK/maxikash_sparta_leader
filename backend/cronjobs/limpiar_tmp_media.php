@@ -23,8 +23,8 @@ date_default_timezone_set('America/Mexico_City');
 
 $baseDir = __DIR__ . '/../storage/tmp_media';
 $maxEdadSegundos = 3600; // 1 hora
-$logDir = __DIR__ . '/../storage/logs';
-$logFile = $logDir . '/limpiar_tmp_media.log';
+$logDir = rtrim(sys_get_temp_dir(), DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR . 'sparta___SPARTA_SECRET_REDACTED___cron_logs';
+$logFile = $logDir . DIRECTORY_SEPARATOR . 'limpiar_tmp_media.log';
 
 if (!is_dir($baseDir)) {
     exit(0);
@@ -81,7 +81,7 @@ foreach ($entries as $nombre) {
 }
 
 if ($borrados > 0 || $errores > 0) {
-    if (is_dir($logDir)) {
+    if ((string) getenv('SPARTA_ENABLE_FILE_LOGS') === '1' && (is_dir($logDir) || @mkdir($logDir, 0755, true))) {
         $line = date('Y-m-d H:i:s') . " | carpetas revisadas, archivos borrados: $borrados, errores: $errores\n";
         @file_put_contents($logFile, $line, FILE_APPEND | LOCK_EX);
     }

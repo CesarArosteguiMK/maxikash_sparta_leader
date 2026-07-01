@@ -38,7 +38,7 @@ if "%RC%"=="0" (
     echo o el boton "API" desde la web Sparta Ledger.
 ) else (
     echo [ERROR] El bootstrap fallo con codigo %RC%.
-    echo         Revise: backend\API\logs\bootstrap-python-*.log
+    echo         Revise: %TEMP%\sparta___SPARTA_SECRET_REDACTED___api_logs\bootstrap-python-*.log
 )
 echo.
 pause

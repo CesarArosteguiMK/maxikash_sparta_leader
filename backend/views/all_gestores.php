@@ -14408,9 +14408,11 @@ function precargarCascadaEdit(idPais, idEstado, idMunicipio, idColonia, idCalle,
     const fd = new FormData();
     const batchId = String(rrhhImportDocsAnalisis?.batch_id || '').trim();
     const usarBatch = options.usarBatch !== false;
+    const cacheLote = options.cacheLote !== false;
     const files = Array.isArray(options.files) ? options.files : rrhhImportDocsFiles;
     const sourceOffset = Number(options.sourceOffset || 0);
     const manualesGlobales = options.manualesGlobales || null;
+    fd.append('cache_lote', cacheLote ? '1' : '0');
     if (batchId && usarBatch) {
       fd.append('batch_id', batchId);
     } else if (files.length) {
@@ -14678,7 +14680,8 @@ function precargarCascadaEdit(idPais, idEstado, idMunicipio, idColonia, idCalle,
       res = await fetch(endpoint, {
         method: 'POST',
         body: rrhhImportDocsFormData(options),
-        headers: { 'X-Requested-With': 'XMLHttpRequest' }
+        headers: { 'X-Requested-With': 'XMLHttpRequest' },
+        cache: 'no-store'
       });
     } catch (err) {
       throw new Error('No se pudo conectar con el servidor. La carga se procesa por lotes; vuelve a seleccionar la carpeta si el navegador libero los archivos.');
@@ -14759,7 +14762,8 @@ function precargarCascadaEdit(idPais, idEstado, idMunicipio, idColonia, idCalle,
         const parcial = await rrhhImportDocsEnviar('/caphum/analizarImportacionDocumentosRrhh', {
           files: batch.files,
           sourceOffset: batch.sourceOffset,
-          usarBatch: false
+          usarBatch: false,
+          cacheLote: false
         });
         if (!combinado.catalogo.length && Array.isArray(parcial.catalogo)) {
           combinado.catalogo = parcial.catalogo;

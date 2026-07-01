@@ -4788,7 +4788,10 @@ class Reporteria extends Controller
                 return strcmp($h, $ahora) <= 0;
             }));
 
-            $estadoFile = RAIZ . '/cronjobs/logs/primeros_pagos_estado.json';
+            $estadoFile = RAIZ . '/storage/runtime/primeros_pagos/primeros_pagos_estado.json';
+            if (!is_file($estadoFile) && is_file(RAIZ . '/cronjobs/logs/primeros_pagos_estado.json')) {
+                $estadoFile = RAIZ . '/cronjobs/logs/primeros_pagos_estado.json';
+            }
             if (!is_file($estadoFile)) {
                 self::respuestaJSON(self::respuesta(true, 'Sin estado aún', array_merge($baseMeta, [
                     'estado' => 'pendiente',

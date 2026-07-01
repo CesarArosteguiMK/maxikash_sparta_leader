@@ -42,7 +42,7 @@ if (-not (Test-Path -LiteralPath (Join-Path $ApiDir 'app\main.py'))) {
     $parent = Split-Path -Parent $here
     if (Test-Path -LiteralPath (Join-Path $parent 'app\main.py')) { $ApiDir = $parent }
 }
-$LogsDir = Join-Path $ApiDir 'logs'
+$LogsDir = Join-Path ([System.IO.Path]::GetTempPath()) 'sparta___SPARTA_SECRET_REDACTED___api_logs'
 if (-not (Test-Path -LiteralPath $LogsDir)) {
     try { New-Item -ItemType Directory -Path $LogsDir -Force | Out-Null } catch {}
 }

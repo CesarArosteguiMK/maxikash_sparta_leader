@@ -209,7 +209,7 @@ if (Test-PortListening -Port 8001) {
         Write-Host '      [OK] Puerto 8001 en LISTEN.' -ForegroundColor Green
     } else {
         Write-Host '      [AVISO] No levanto en 8001 dentro de 90s. Si es la primera vez puede seguir instalando dependencias.' -ForegroundColor DarkYellow
-        Write-Host '             Logs: backend\API\logs\bootstrap-python-*.log y instalar-*.log' -ForegroundColor DarkYellow
+        Write-Host '             Logs: %TEMP%\sparta___SPARTA_SECRET_REDACTED___api_logs\bootstrap-python-*.log y instalar-*.log' -ForegroundColor DarkYellow
     }
 } elseif (Test-Path -LiteralPath $apiOcultoPs1) {
     Write-Step '[5/5] API verificación documentos (PS oculto -> 8001)...'
