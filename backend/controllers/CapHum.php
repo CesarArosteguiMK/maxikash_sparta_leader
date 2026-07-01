@@ -23971,7 +23971,7 @@ class CapHum extends Controller
                 'entidad_id' => $idPersonaAudit,
                 'entidad_nombre' => $despues['nombre_completo'] ?? $antes['nombre_completo'] ?? ('Persona #' . $idPersonaAudit),
                 'accion' => 'editar_usuario_rrhh',
-                'resumen' => empty($cambios) ? 'Se guardo el usuario RR.HH. sin cambios detectables.' : 'Se edito informacion del usuario RR.HH.',
+                'resumen' => CapHumDAO::resumenAuditoriaUsuarioDesdeCambios($cambios, 'usuario RR.HH.'),
                 'cambios' => $cambios,
             ]);
         }
@@ -25191,6 +25191,31 @@ public function getEstadosMunicipiosMexico()
         // 4) Si no hay jefe real configurado, no inventar uno.
         self::respuestaJSON(['success' => true, 'mensaje' => 'Sin jefes disponibles.', 'datos' => []]);
     }
+
+    private static function filtrarCambiosAuditoriaGestionPersona(array $cambios, bool $domicilioEditado, bool $jefeEditado): array
+    {
+        if (!$domicilioEditado) {
+            foreach ([
+                'id_pais',
+                'id_div_nivel1',
+                'id_div_nivel2',
+                'id_div_nivel3',
+                'domicilio_calle_texto',
+                'domicilio_num_exterior',
+                'domicilio_num_interior',
+                'codigo_postal',
+            ] as $campo) {
+                unset($cambios[$campo]);
+            }
+        }
+
+        if (!$jefeEditado) {
+            unset($cambios['jefe']);
+        }
+
+        return $cambios;
+    }
+
     public function updateGestorF()
     {
         session_start(); //  IMPORTANTE
@@ -25230,7 +25255,11 @@ public function getEstadosMunicipiosMexico()
         $calleTe = trim((string) ($input['domicilio_calle_texto'] ?? ''));
         $cpe = trim((string) ($input['codigo_postal'] ?? ''));
         $numExte = trim((string) ($input['domicilio_num_exterior'] ?? ''));
-        $capturaDome = ($n3e !== '' || $n4e !== '' || $calleTe !== '' || $cpe !== '');
+        $numInte = trim((string) ($input['domicilio_num_interior'] ?? ''));
+        $capturaDome = ($n3e !== '' || $n4e !== '' || $calleTe !== '' || $cpe !== '' || $numExte !== '' || $numInte !== '');
+        if (!$capturaDome) {
+            $input['_preservar_domicilio_actual'] = true;
+        }
         $validarDomicilioObligatorio = $puedeEditarCompleto || !empty($input['_domicilio_editado_parcial']);
         if ($validarDomicilioObligatorio && $capturaDome && $numExte === '') {
             echo json_encode([
@@ -25261,13 +25290,18 @@ public function getEstadosMunicipiosMexico()
             if ($idPersonaAudit > 0) {
                 $despuesAudit = CapHumDAO::snapshotPersonaAuditoria($idPersonaAudit);
                 $cambiosAudit = CapHumDAO::diffAuditoria($antesAudit, $despuesAudit);
+                $cambiosAudit = self::filtrarCambiosAuditoriaGestionPersona(
+                    $cambiosAudit,
+                    $capturaDome,
+                    trim((string)($input['jefe_id'] ?? '')) !== ''
+                );
                 CapHumDAO::registrarAuditoriaInternaRrhh([
                     'modulo' => 'Gestion de Personal',
                     'entidad_tipo' => 'persona',
                     'entidad_id' => $idPersonaAudit,
                     'entidad_nombre' => $despuesAudit['nombre_completo'] ?? $antesAudit['nombre_completo'] ?? ('Persona #' . $idPersonaAudit),
                     'accion' => $puedeEditarCompleto ? 'editar_usuario' : 'editar_usuario_parcial',
-                    'resumen' => empty($cambiosAudit) ? 'Se guardo el usuario sin cambios detectables.' : 'Se edito informacion del usuario.',
+                    'resumen' => CapHumDAO::resumenAuditoriaUsuarioDesdeCambios($cambiosAudit),
                     'cambios' => $cambiosAudit,
                     'detalle' => [
                         'legacy_sync' => $legacySync['resultado'] ?? $legacySync['success'] ?? null,

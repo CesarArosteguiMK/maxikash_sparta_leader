@@ -59,11 +59,21 @@
         .ch-ia-kpi span { color:#64748b; display:block; font-size:.7rem; font-weight:900; letter-spacing:.025em; text-transform:uppercase; }
         .ch-ia-kpi strong { color:#22303e; display:block; font-size:1.55rem; font-weight:900; line-height:1.1; margin-top:.25rem; }
         .ch-ia-filters { display:grid; grid-template-columns:170px 190px minmax(220px, 1fr); gap:.65rem; align-items:center; min-width:min(100%, 680px); }
-        .ch-ia-changes { min-width:260px; max-width:430px; }
-        .ch-ia-change-list { display:flex; flex-direction:column; gap:.32rem; }
-        .ch-ia-change { border:1px solid #e2e8f0; border-radius:.45rem; background:#f8fafc; padding:.42rem .55rem; }
-        .ch-ia-change strong { color:#334155; display:block; font-size:.76rem; font-weight:900; margin-bottom:.12rem; }
-        .ch-ia-change span { color:#64748b; display:block; font-size:.76rem; font-weight:700; word-break:break-word; }
+        .ch-ia-table th { font-size:.68rem; font-weight:700; }
+        .ch-ia-table td { font-size:.8rem; line-height:1.32; padding:.62rem .7rem; }
+        .ch-ia-table .ch-audit-user { min-width:180px; }
+        .ch-ia-table .ch-audit-user strong { font-size:.78rem; font-weight:600; line-height:1.24; color:#334155; }
+        .ch-ia-table .ch-audit-user small { font-size:.72rem; font-weight:500; color:#718096; }
+        .ch-ia-table .ch-audit-action { font-size:.67rem; font-weight:600; padding:.18rem .48rem; }
+        .ch-ia-date { color:#334155; font-weight:500; white-space:nowrap; }
+        .ch-ia-module, .ch-ia-summary { color:#334155; font-weight:500; min-width:150px; }
+        .ch-ia-changes { min-width:280px; max-width:440px; }
+        .ch-ia-change-list { display:flex; flex-direction:column; gap:.22rem; }
+        .ch-ia-change { border:0; border-left:2px solid #dbe4ef; border-radius:0; background:transparent; padding:.16rem 0 .18rem .5rem; }
+        .ch-ia-change strong { color:#334155; display:inline; font-size:.76rem; font-weight:700; margin:0 .25rem 0 0; }
+        .ch-ia-change span { color:#64748b; display:inline; font-size:.74rem; font-weight:500; word-break:break-word; }
+        .ch-ia-change span + span::before { content:" | "; color:#cbd5e1; margin:0 .2rem; }
+        .ch-ia-more { color:#718096; font-size:.74rem; font-weight:600; display:block; padding-left:.5rem; }
         @media (max-width: 1199.98px) {
             .ch-audit-kpis { grid-template-columns:repeat(2, minmax(0, 1fr)); }
             .ch-ia-kpis { grid-template-columns:repeat(2, minmax(0, 1fr)); }
@@ -221,7 +231,7 @@
                 </div>
             </div>
             <div class="ch-audit-activity-scroll">
-                <table class="ch-audit-table">
+                <table class="ch-audit-table ch-ia-table">
                     <thead>
                         <tr>
                             <th>Fecha</th>
@@ -440,6 +450,14 @@
         const text = String(value);
         return text.length > 120 ? text.slice(0, 117) + '...' : text;
     };
+    const prettyName = (value) => {
+        const text = String(value ?? '').trim();
+        if (!text) return '-';
+        if (/[a-záéíóúñü]/.test(text)) return text;
+        return text.toLocaleLowerCase('es-MX').replace(/(^|[\s.'-])([a-záéíóúñü])/g, (match, sep, char) => (
+            sep + char.toLocaleUpperCase('es-MX')
+        ));
+    };
     const internalTipoBadge = (tipo) => {
         const value = String(tipo || 'general').toLowerCase();
         const labels = { persona: 'Persona', candidato: 'Candidato', permisos: 'Permisos', general: 'General' };
@@ -462,7 +480,7 @@
                 <span>Despues: ${textOrDash(shortValue(c.despues))}</span>
             </div>`;
         }).join('');
-        const more = keys.length > 4 ? `<span class="ch-audit-empty d-block p-0 text-start">+${keys.length - 4} cambio(s) mas.</span>` : '';
+        const more = keys.length > 4 ? `<span class="ch-ia-more">+${keys.length - 4} cambio(s) mas.</span>` : '';
         return `<div class="ch-ia-change-list">${visible}${more}</div>`;
     };
     const renderInternalRows = () => {
@@ -475,19 +493,19 @@
         }
         tbody.innerHTML = rows.map((row) => `
             <tr>
-                <td>${textOrDash(row.fecha_hora)}</td>
+                <td class="ch-ia-date">${textOrDash(row.fecha_hora)}</td>
                 <td class="ch-audit-user">
-                    <strong>${textOrDash(row.usuario_nombre || ('Usuario #' + (row.id_usuario || '')))}</strong>
+                    <strong>${textOrDash(prettyName(row.usuario_nombre || ('Usuario #' + (row.id_usuario || ''))))}</strong>
                     <small>ID ${textOrDash(row.id_usuario)}${row.ip ? ` &middot; ${textOrDash(row.ip)}` : ''}</small>
                 </td>
-                <td>${textOrDash(row.modulo)}</td>
+                <td class="ch-ia-module">${textOrDash(row.modulo)}</td>
                 <td class="ch-audit-user">
                     ${internalTipoBadge(row.entidad_tipo)}
-                    <strong>${textOrDash(row.entidad_nombre || ('#' + (row.entidad_id || '')))}</strong>
+                    <strong>${textOrDash(prettyName(row.entidad_nombre || ('#' + (row.entidad_id || ''))))}</strong>
                     <small>ID ${textOrDash(row.entidad_id)}</small>
                 </td>
                 <td>${actionBadge(row.accion || 'evento', 'documentos')}</td>
-                <td>${textOrDash(row.resumen)}</td>
+                <td class="ch-ia-summary">${textOrDash(row.resumen)}</td>
                 <td class="ch-ia-changes">${renderInternalCambios(row)}</td>
             </tr>
         `).join('');

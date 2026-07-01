@@ -5037,6 +5037,90 @@ class CapHum extends Model
         }
     }
 
+    private static function limpiarCambiosAuditoriaInternaParaMostrar(array $evento, array $cambios): array
+    {
+        $accion = (string)($evento['accion'] ?? '');
+        if (!in_array($accion, ['editar_usuario', 'editar_usuario_parcial', 'editar_usuario_rrhh'], true)) {
+            return $cambios;
+        }
+
+        $camposDomicilio = [
+            'id_pais',
+            'id_div_nivel1',
+            'id_div_nivel2',
+            'id_div_nivel3',
+            'domicilio_calle_texto',
+            'domicilio_num_exterior',
+            'domicilio_num_interior',
+            'codigo_postal',
+        ];
+
+        foreach ($camposDomicilio as $campo) {
+            $despues = trim((string)($cambios[$campo]['despues'] ?? ''));
+            if ($despues === '' || $despues === '-') {
+                unset($cambios[$campo]);
+            }
+        }
+
+        $jefeDespues = trim((string)($cambios['jefe']['despues'] ?? ''));
+        if ($jefeDespues === '' || $jefeDespues === '-') {
+            unset($cambios['jefe']);
+        }
+
+        return $cambios;
+    }
+
+    public static function resumenAuditoriaUsuarioDesdeCambios(array $cambios, string $sujeto = 'usuario'): string
+    {
+        if (empty($cambios)) {
+            return 'Se guardo el ' . $sujeto . ' sin cambios detectables.';
+        }
+
+        $campos = [
+            'numero_empleado' => ['texto' => 'el numero de empleado', 'lista' => 'numero de empleado'],
+            'codigo_contpac' => ['texto' => 'el codigo ContPAQ', 'lista' => 'codigo ContPAQ'],
+            'nombres' => ['texto' => 'el nombre', 'lista' => 'nombre'],
+            'segundo_nombre' => ['texto' => 'el segundo nombre', 'lista' => 'segundo nombre'],
+            'apellidop' => ['texto' => 'el apellido paterno', 'lista' => 'apellido paterno'],
+            'apellidom' => ['texto' => 'el apellido materno', 'lista' => 'apellido materno'],
+            'curp' => ['texto' => 'la CURP', 'lista' => 'CURP'],
+            'correo' => ['texto' => 'el correo', 'lista' => 'correo'],
+            'telefono_uno' => ['texto' => 'el telefono', 'lista' => 'telefono'],
+            'telefono_dos' => ['texto' => 'el telefono secundario', 'lista' => 'telefono secundario'],
+            'user_name' => ['texto' => 'el usuario de acceso', 'lista' => 'usuario de acceso'],
+            'estatus' => ['texto' => 'el estatus', 'lista' => 'estatus'],
+            'fecha_ingreso' => ['texto' => 'la fecha de ingreso', 'lista' => 'fecha de ingreso'],
+            'id_pais' => ['texto' => 'el pais', 'lista' => 'pais'],
+            'id_div_nivel1' => ['texto' => 'la sede', 'lista' => 'sede'],
+            'id_div_nivel2' => ['texto' => 'el estado o municipio', 'lista' => 'estado o municipio'],
+            'id_div_nivel3' => ['texto' => 'la colonia', 'lista' => 'colonia'],
+            'domicilio_calle_texto' => ['texto' => 'el domicilio', 'lista' => 'domicilio'],
+            'domicilio_num_exterior' => ['texto' => 'el numero exterior', 'lista' => 'numero exterior'],
+            'domicilio_num_interior' => ['texto' => 'el numero interior', 'lista' => 'numero interior'],
+            'codigo_postal' => ['texto' => 'el codigo postal', 'lista' => 'codigo postal'],
+            'puestos' => ['texto' => 'el puesto', 'lista' => 'puesto'],
+            'departamentos' => ['texto' => 'el departamento', 'lista' => 'departamento'],
+            'jefe' => ['texto' => 'el jefe', 'lista' => 'jefe'],
+        ];
+
+        $labels = [];
+        $textoUnico = null;
+        foreach (array_keys($cambios) as $campo) {
+            $info = $campos[(string)$campo] ?? null;
+            $labels[] = $info['lista'] ?? str_replace('_', ' ', (string)$campo);
+            if ($textoUnico === null) {
+                $textoUnico = $info['texto'] ?? ('el campo ' . str_replace('_', ' ', (string)$campo));
+            }
+        }
+        $labels = array_values(array_unique($labels));
+
+        if (count($labels) === 1) {
+            return 'Se edito ' . $textoUnico . ' del ' . $sujeto . '.';
+        }
+
+        return 'Se editaron estos campos del ' . $sujeto . ': ' . implode(', ', $labels) . '.';
+    }
+
     public static function getAuditoriaInternaRrhh(array $filtros = []): array
     {
         try {
@@ -5087,6 +5171,11 @@ class CapHum extends Model
             foreach ($eventos as &$evento) {
                 $evento['cambios'] = json_decode((string)($evento['cambios_json'] ?? ''), true) ?: [];
                 $evento['detalle'] = json_decode((string)($evento['detalle_json'] ?? ''), true) ?: [];
+                $evento['cambios'] = self::limpiarCambiosAuditoriaInternaParaMostrar($evento, $evento['cambios']);
+                if (in_array((string)($evento['accion'] ?? ''), ['editar_usuario', 'editar_usuario_parcial', 'editar_usuario_rrhh'], true)) {
+                    $sujeto = (string)($evento['accion'] ?? '') === 'editar_usuario_rrhh' ? 'usuario RR.HH.' : 'usuario';
+                    $evento['resumen'] = self::resumenAuditoriaUsuarioDesdeCambios($evento['cambios'], $sujeto);
+                }
                 unset($evento['cambios_json'], $evento['detalle_json']);
             }
             unset($evento);
@@ -7519,6 +7608,7 @@ class CapHum extends Model
         $dom_ext_sql = $dom_ext !== '' ? "'" . addslashes($dom_ext) . "'" : 'NULL';
         $dom_int_sql = $dom_int !== '' ? "'" . addslashes($dom_int) . "'" : 'NULL';
         $cp_sql = $cp !== '' ? "'" . addslashes($cp) . "'" : 'NULL';
+        $preservarDomicilioActual = !empty($data['_preservar_domicilio_actual']);
         $transaccionActiva = false;
 
         try {
@@ -7528,10 +7618,38 @@ class CapHum extends Model
             self::asegurarTablaTrayectoriaPuesto($db);
 
             $actualNumero = $db->queryOne(
-                "SELECT numero_empleado FROM __SPARTA_SECRET_REDACTED__.persona WHERE id = :id LIMIT 1",
+                "SELECT
+                    numero_empleado,
+                    id_pais,
+                    id_div_nivel1,
+                    id_div_nivel2,
+                    id_div_nivel3,
+                    domicilio_calle_texto,
+                    domicilio_num_exterior,
+                    domicilio_num_interior,
+                    codigo_postal
+                FROM __SPARTA_SECRET_REDACTED__.persona
+                WHERE id = :id
+                LIMIT 1",
                 ['id' => $id_persona]
             );
             $numeroEmpleadoActual = trim((string)($actualNumero['numero_empleado'] ?? ''));
+
+            if ($preservarDomicilioActual) {
+                $id_pais = (int)($actualNumero['id_pais'] ?? $id_pais);
+                if ($id_pais <= 0) {
+                    $id_pais = 1;
+                }
+                $id_div_nivel1 = self::sqlIdDivisionAdministrativaFk($actualNumero['id_div_nivel1'] ?? null);
+                $id_div_nivel2 = self::sqlIdDivisionAdministrativaFk($actualNumero['id_div_nivel2'] ?? null);
+                $id_div_nivel3 = self::sqlIdDivisionAdministrativaFk($actualNumero['id_div_nivel3'] ?? null);
+                $domExtActual = trim((string)($actualNumero['domicilio_num_exterior'] ?? ''));
+                $domIntActual = trim((string)($actualNumero['domicilio_num_interior'] ?? ''));
+                $cp = trim((string)($actualNumero['codigo_postal'] ?? ''));
+                $dom_ext_sql = $domExtActual !== '' ? "'" . addslashes($domExtActual) . "'" : 'NULL';
+                $dom_int_sql = $domIntActual !== '' ? "'" . addslashes($domIntActual) . "'" : 'NULL';
+                $cp_sql = $cp !== '' ? "'" . addslashes($cp) . "'" : 'NULL';
+            }
 
             if ($numero_empleado === '') {
                 $numero_empleado = $numeroEmpleadoActual;
@@ -7710,7 +7828,9 @@ class CapHum extends Model
                 }
             }
 
-            $dom_calle = self::domicilioCalleTextoParaGuardar($db, $data);
+            $dom_calle = $preservarDomicilioActual
+                ? trim((string)($actualNumero['domicilio_calle_texto'] ?? ''))
+                : self::domicilioCalleTextoParaGuardar($db, $data);
             $dom_calle_sql = $dom_calle !== '' ? "'" . addslashes($dom_calle) . "'" : 'NULL';
 
             // 1️⃣ UPDATE PERSONA
