@@ -13644,7 +13644,18 @@ class CapHum extends Controller
         }
         $resultado = CandidatosDAO::insert($data);
         if ($resultado['success'] && !empty($resultado['datos']['id'])) {
-            CandidatosDAO::getOrCreateTokenDocumentos($resultado['datos']['id']);
+            $idNuevo = (int) $resultado['datos']['id'];
+            CandidatosDAO::getOrCreateTokenDocumentos($idNuevo);
+            $snapshot = CapHumDAO::snapshotCandidatoAuditoria($idNuevo);
+            CapHumDAO::registrarAuditoriaInternaRrhh([
+                'modulo' => 'Seleccion de Personal',
+                'entidad_tipo' => 'candidato',
+                'entidad_id' => $idNuevo,
+                'entidad_nombre' => $snapshot['nombre_completo'] ?? trim(($data['nombres'] ?? '') . ' ' . ($data['apellidop'] ?? '')),
+                'accion' => 'crear_candidato',
+                'resumen' => 'Se registro un candidato en Seleccion de Personal.',
+                'detalle' => $snapshot ?: $data,
+            ]);
         }
         echo json_encode($resultado);
         exit;
@@ -13746,7 +13757,21 @@ class CapHum extends Controller
             echo json_encode(self::respuesta(false, $validacionJefeDivisional['mensaje'] ?? 'Selecciona el jefe divisional.', null));
             exit;
         }
+        $antes = CapHumDAO::snapshotCandidatoAuditoria($id);
         $resultado = CandidatosDAO::update($id, $data);
+        if (!empty($resultado['success'])) {
+            $despues = CapHumDAO::snapshotCandidatoAuditoria($id);
+            $cambios = CapHumDAO::diffAuditoria($antes, $despues);
+            CapHumDAO::registrarAuditoriaInternaRrhh([
+                'modulo' => 'Seleccion de Personal',
+                'entidad_tipo' => 'candidato',
+                'entidad_id' => $id,
+                'entidad_nombre' => $despues['nombre_completo'] ?? $antes['nombre_completo'] ?? ('Candidato #' . $id),
+                'accion' => 'editar_candidato',
+                'resumen' => empty($cambios) ? 'Se guardo el candidato sin cambios detectables.' : 'Se edito informacion del candidato.',
+                'cambios' => $cambios,
+            ]);
+        }
         echo json_encode($resultado);
         exit;
     }
@@ -23881,6 +23906,19 @@ class CapHum extends Controller
         }
 
         $resultado = CapHumRrhh::registrarUsuario($input, $idSesion);
+        if (!empty($resultado['success'])) {
+            $idPersonaNueva = (int)($resultado['datos']['id_persona'] ?? $resultado['datos']['id'] ?? 0);
+            $snapshot = $idPersonaNueva > 0 ? CapHumDAO::snapshotPersonaAuditoria($idPersonaNueva) : [];
+            CapHumDAO::registrarAuditoriaInternaRrhh([
+                'modulo' => 'Gestion de Personal',
+                'entidad_tipo' => 'persona',
+                'entidad_id' => $idPersonaNueva > 0 ? $idPersonaNueva : null,
+                'entidad_nombre' => $snapshot['nombre_completo'] ?? trim(($input['persona']['nombres'] ?? '') . ' ' . ($input['persona']['apellidop'] ?? '')),
+                'accion' => 'crear_usuario_rrhh',
+                'resumen' => 'Se registro un usuario desde el alta RR.HH.',
+                'detalle' => $snapshot ?: $input,
+            ]);
+        }
         self::respuestaJSON($resultado);
     }
 
@@ -23921,7 +23959,22 @@ class CapHum extends Controller
             return;
         }
 
+        $idPersonaAudit = (int)($input['id_persona'] ?? 0);
+        $antes = $idPersonaAudit > 0 ? CapHumDAO::snapshotPersonaAuditoria($idPersonaAudit) : [];
         $resultado = CapHumRrhh::actualizarUsuario($input, $idSesion);
+        if (!empty($resultado['success']) && $idPersonaAudit > 0) {
+            $despues = CapHumDAO::snapshotPersonaAuditoria($idPersonaAudit);
+            $cambios = CapHumDAO::diffAuditoria($antes, $despues);
+            CapHumDAO::registrarAuditoriaInternaRrhh([
+                'modulo' => 'Gestion de Personal',
+                'entidad_tipo' => 'persona',
+                'entidad_id' => $idPersonaAudit,
+                'entidad_nombre' => $despues['nombre_completo'] ?? $antes['nombre_completo'] ?? ('Persona #' . $idPersonaAudit),
+                'accion' => 'editar_usuario_rrhh',
+                'resumen' => empty($cambios) ? 'Se guardo el usuario RR.HH. sin cambios detectables.' : 'Se edito informacion del usuario RR.HH.',
+                'cambios' => $cambios,
+            ]);
+        }
         self::respuestaJSON($resultado);
     }
 
@@ -24346,6 +24399,16 @@ class CapHum extends Controller
         self::respuestaJSON(CapHumDAO::getAuditoriaRrhhSensible());
     }
 
+    public function getAuditoriaInternaRrhh()
+    {
+        if (!self::puedeConsultarAuditoriaRrhh()) {
+            self::respuestaJSON(['success' => false, 'mensaje' => 'No tienes permiso para consultar auditoria interna RR.HH.']);
+            return;
+        }
+
+        self::respuestaJSON(CapHumDAO::getAuditoriaInternaRrhh($_GET));
+    }
+
     public function guardarPermisosAccesoCapitalHumano()
     {
         if (!self::puedeGestionarAccesosCapitalHumano()) {
@@ -24354,7 +24417,26 @@ class CapHum extends Controller
         }
 
         $payload = json_decode(file_get_contents('php://input'), true) ?: [];
+        $idPersonaPermisos = (int)($payload['id_persona'] ?? 0);
+        $permisosAntes = $idPersonaPermisos > 0 ? CapHumDAO::snapshotModulosAccesoCapitalHumano($idPersonaPermisos) : [];
+        $personaAntes = $idPersonaPermisos > 0 ? CapHumDAO::snapshotPersonaAuditoria($idPersonaPermisos) : [];
         $res = CapHumDAO::guardarPermisosAccesoCapitalHumano($payload);
+        if (!empty($res['success']) && $idPersonaPermisos > 0) {
+            $permisosDespues = CapHumDAO::snapshotModulosAccesoCapitalHumano($idPersonaPermisos);
+            CapHumDAO::registrarAuditoriaInternaRrhh([
+                'modulo' => 'Accesos Capital Humano',
+                'entidad_tipo' => 'permisos',
+                'entidad_id' => $idPersonaPermisos,
+                'entidad_nombre' => $personaAntes['nombre_completo'] ?? ('Persona #' . $idPersonaPermisos),
+                'accion' => 'guardar_permisos_ch',
+                'resumen' => 'Se actualizaron permisos de Capital Humano.',
+                'cambios' => CapHumDAO::diffAuditoria($permisosAntes, $permisosDespues),
+                'detalle' => [
+                    'antes' => $permisosAntes,
+                    'despues' => $permisosDespues,
+                ],
+            ]);
+        }
         if (!empty($res['success']) && (int)($payload['id_persona'] ?? 0) === (int)($_SESSION['usuario_id'] ?? 0)) {
             $_SESSION['modulos'] = array_values(
                 array_map('intval', (array) LoginDao::getModulosUsuario((int) ($_SESSION['usuario_id'] ?? 0)))
@@ -25158,6 +25240,8 @@ public function getEstadosMunicipiosMexico()
             exit;
         }
 
+        $idPersonaAudit = (int)($input['id'] ?? 0);
+        $antesAudit = $idPersonaAudit > 0 ? CapHumDAO::snapshotPersonaAuditoria($idPersonaAudit) : [];
         $resultado = CapHumDAO::UpdatePersona($input);
         if (!empty($resultado['success'])) {
             $idPersonaSync = (int)($input['id'] ?? 0);
@@ -25173,6 +25257,24 @@ public function getEstadosMunicipiosMexico()
             $datos['legacy_sync'] = $legacySync;
             $resultado['datos'] = $datos;
             $resultado['legacy_sync'] = $legacySync;
+
+            if ($idPersonaAudit > 0) {
+                $despuesAudit = CapHumDAO::snapshotPersonaAuditoria($idPersonaAudit);
+                $cambiosAudit = CapHumDAO::diffAuditoria($antesAudit, $despuesAudit);
+                CapHumDAO::registrarAuditoriaInternaRrhh([
+                    'modulo' => 'Gestion de Personal',
+                    'entidad_tipo' => 'persona',
+                    'entidad_id' => $idPersonaAudit,
+                    'entidad_nombre' => $despuesAudit['nombre_completo'] ?? $antesAudit['nombre_completo'] ?? ('Persona #' . $idPersonaAudit),
+                    'accion' => $puedeEditarCompleto ? 'editar_usuario' : 'editar_usuario_parcial',
+                    'resumen' => empty($cambiosAudit) ? 'Se guardo el usuario sin cambios detectables.' : 'Se edito informacion del usuario.',
+                    'cambios' => $cambiosAudit,
+                    'detalle' => [
+                        'legacy_sync' => $legacySync['resultado'] ?? $legacySync['success'] ?? null,
+                        'edicion_parcial' => !$puedeEditarCompleto,
+                    ],
+                ]);
+            }
         }
 
         echo json_encode($resultado);

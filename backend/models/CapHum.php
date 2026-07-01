@@ -4762,6 +4762,372 @@ class CapHum extends Model
         }
     }
 
+    private static function asegurarAuditoriaInternaRrhh(Database $db): void
+    {
+        $db->CRUD("
+            CREATE TABLE IF NOT EXISTS __SPARTA_SECRET_REDACTED__.caphum_auditoria_interna (
+                id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+                fecha_hora DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                id_usuario INT NULL,
+                usuario_nombre VARCHAR(220) NULL,
+                ip VARCHAR(64) NULL,
+                modulo VARCHAR(80) NOT NULL DEFAULT 'Capital Humano',
+                entidad_tipo VARCHAR(80) NOT NULL,
+                entidad_id INT NULL,
+                entidad_nombre VARCHAR(255) NULL,
+                accion VARCHAR(80) NOT NULL,
+                resumen VARCHAR(500) NULL,
+                cambios_json LONGTEXT NULL,
+                detalle_json LONGTEXT NULL,
+                KEY idx_caphum_audit_fecha (fecha_hora),
+                KEY idx_caphum_audit_usuario (id_usuario),
+                KEY idx_caphum_audit_entidad (entidad_tipo, entidad_id),
+                KEY idx_caphum_audit_accion (accion),
+                KEY idx_caphum_audit_modulo (modulo)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+        ");
+    }
+
+    private static function auditoriaTexto($value, int $max = 500): ?string
+    {
+        $text = trim((string)($value ?? ''));
+        if ($text === '') {
+            return null;
+        }
+        return function_exists('mb_substr') ? mb_substr($text, 0, $max) : substr($text, 0, $max);
+    }
+
+    private static function auditoriaSanitizar($value)
+    {
+        if (is_array($value)) {
+            $out = [];
+            foreach ($value as $k => $v) {
+                $key = (string)$k;
+                if (preg_match('/pass|password|contrasena|contraseña|secret|token|totp|salario/i', $key)) {
+                    $out[$key] = '[PROTEGIDO]';
+                    continue;
+                }
+                $out[$key] = self::auditoriaSanitizar($v);
+            }
+            return $out;
+        }
+
+        if (is_bool($value) || is_int($value) || is_float($value) || $value === null) {
+            return $value;
+        }
+
+        $text = trim((string)$value);
+        if ($text === '') {
+            return '';
+        }
+        return function_exists('mb_substr') ? mb_substr($text, 0, 800) : substr($text, 0, 800);
+    }
+
+    public static function diffAuditoria(array $antes, array $despues): array
+    {
+        $campos = array_values(array_unique(array_merge(array_keys($antes), array_keys($despues))));
+        $ignorar = ['password', 'contrasena', 'contraseña', 'updated_at', 'fecha_actualizacion'];
+        $cambios = [];
+        foreach ($campos as $campo) {
+            if (in_array((string)$campo, $ignorar, true)) {
+                continue;
+            }
+            $a = $antes[$campo] ?? null;
+            $d = $despues[$campo] ?? null;
+            $aNorm = is_scalar($a) || $a === null ? trim((string)$a) : json_encode($a, JSON_UNESCAPED_UNICODE);
+            $dNorm = is_scalar($d) || $d === null ? trim((string)$d) : json_encode($d, JSON_UNESCAPED_UNICODE);
+            if ($aNorm !== $dNorm) {
+                $cambios[(string)$campo] = [
+                    'antes' => self::auditoriaSanitizar($a),
+                    'despues' => self::auditoriaSanitizar($d),
+                ];
+            }
+        }
+        return $cambios;
+    }
+
+    public static function snapshotPersonaAuditoria(int $idPersona): array
+    {
+        if ($idPersona <= 0) {
+            return [];
+        }
+        try {
+            $db = new Database();
+            $row = $db->queryOne("
+                SELECT
+                    p.id,
+                    p.numero_empleado,
+                    p.codigo_contpac,
+                    p.nombres,
+                    p.segundo_nombre,
+                    p.apellidop,
+                    p.apellidom,
+                    TRIM(CONCAT_WS(' ',
+                        NULLIF(TRIM(p.nombres), ''),
+                        NULLIF(TRIM(p.segundo_nombre), ''),
+                        NULLIF(TRIM(p.apellidop), ''),
+                        NULLIF(TRIM(p.apellidom), '')
+                    )) AS nombre_completo,
+                    p.curp,
+                    p.correo,
+                    p.telefono_uno,
+                    p.telefono_dos,
+                    p.user_name,
+                    p.estatus,
+                    p.fecha_ingreso,
+                    p.id_pais,
+                    p.id_div_nivel1,
+                    p.id_div_nivel2,
+                    p.id_div_nivel3,
+                    p.domicilio_calle_texto,
+                    p.domicilio_num_exterior,
+                    p.domicilio_num_interior,
+                    p.codigo_postal,
+                    GROUP_CONCAT(DISTINCT pu.nombre ORDER BY pu.nombre SEPARATOR ', ') AS puestos,
+                    GROUP_CONCAT(DISTINCT dep.nombre ORDER BY dep.nombre SEPARATOR ', ') AS departamentos,
+                    COALESCE(
+                        TRIM(CONCAT_WS(' ', j.nombres, j.segundo_nombre, j.apellidop, j.apellidom)),
+                        NULLIF(TRIM(v.nombre_vacante), '')
+                    ) AS jefe
+                FROM __SPARTA_SECRET_REDACTED__.persona p
+                LEFT JOIN __SPARTA_SECRET_REDACTED__.asigna_puesto ap ON ap.id_persona = p.id AND COALESCE(ap.activo, 1) = 1
+                LEFT JOIN __SPARTA_SECRET_REDACTED__.puesto pu ON pu.id = ap.id_puesto
+                LEFT JOIN __SPARTA_SECRET_REDACTED__.departamento dep ON dep.id = pu.departamento_id
+                LEFT JOIN (
+                    SELECT aj1.id_persona, aj1.id_jefe, aj1.id_vacante_jefe
+                    FROM __SPARTA_SECRET_REDACTED__.asigna_jefe aj1
+                    INNER JOIN (
+                        SELECT id_persona, MAX(id) AS max_id
+                        FROM __SPARTA_SECRET_REDACTED__.asigna_jefe
+                        GROUP BY id_persona
+                    ) ult ON ult.id_persona = aj1.id_persona AND ult.max_id = aj1.id
+                ) aj ON aj.id_persona = p.id
+                LEFT JOIN __SPARTA_SECRET_REDACTED__.persona j ON j.id = aj.id_jefe
+                LEFT JOIN __SPARTA_SECRET_REDACTED__.vacantes_personal v ON v.id = aj.id_vacante_jefe
+                WHERE p.id = :id
+                GROUP BY p.id
+                LIMIT 1
+            ", ['id' => $idPersona]);
+            return is_array($row) ? $row : [];
+        } catch (\Throwable $e) {
+            error_log('CapHum::snapshotPersonaAuditoria -> ' . $e->getMessage());
+            return [];
+        }
+    }
+
+    public static function snapshotCandidatoAuditoria(int $idCandidato): array
+    {
+        if ($idCandidato <= 0) {
+            return [];
+        }
+        try {
+            $db = new Database();
+            $row = $db->queryOne("
+                SELECT
+                    c.id,
+                    c.nombres,
+                    c.segundo_nombre,
+                    c.apellidop,
+                    c.apellidom,
+                    TRIM(CONCAT_WS(' ',
+                        NULLIF(TRIM(c.nombres), ''),
+                        NULLIF(TRIM(c.segundo_nombre), ''),
+                        NULLIF(TRIM(c.apellidop), ''),
+                        NULLIF(TRIM(c.apellidom), '')
+                    )) AS nombre_completo,
+                    c.email,
+                    c.telefono,
+                    c.id_puesto,
+                    pu.nombre AS puesto,
+                    c.id_departamento,
+                    dep.nombre AS departamento,
+                    c.id_posible_jefe,
+                    TRIM(CONCAT_WS(' ', jefe.nombres, jefe.segundo_nombre, jefe.apellidop, jefe.apellidom)) AS posible_jefe,
+                    c.id_jefe_divisional,
+                    TRIM(CONCAT_WS(' ', divi.nombres, divi.segundo_nombre, divi.apellidop, divi.apellidom)) AS jefe_divisional,
+                    c.estatus,
+                    c.fecha_postulacion,
+                    c.fecha_ingreso_programada,
+                    c.postulacion_enviada,
+                    c.notas
+                FROM __SPARTA_SECRET_REDACTED__.candidatos c
+                LEFT JOIN __SPARTA_SECRET_REDACTED__.puesto pu ON pu.id = c.id_puesto
+                LEFT JOIN __SPARTA_SECRET_REDACTED__.departamento dep ON dep.id = c.id_departamento
+                LEFT JOIN __SPARTA_SECRET_REDACTED__.persona jefe ON jefe.id = c.id_posible_jefe
+                LEFT JOIN __SPARTA_SECRET_REDACTED__.persona divi ON divi.id = c.id_jefe_divisional
+                WHERE c.id = :id
+                LIMIT 1
+            ", ['id' => $idCandidato]);
+            return is_array($row) ? $row : [];
+        } catch (\Throwable $e) {
+            error_log('CapHum::snapshotCandidatoAuditoria -> ' . $e->getMessage());
+            return [];
+        }
+    }
+
+    public static function snapshotModulosAccesoCapitalHumano(int $idPersona): array
+    {
+        if ($idPersona <= 0) {
+            return [];
+        }
+        try {
+            $db = new Database();
+            self::asegurarModuloAccesosCapitalHumanoDb($db);
+            $idsSql = self::idsGestionablesAccesosCapitalHumanoSql();
+            $rows = $db->queryAll("
+                SELECT mw.id, mw.nombre, mw.pestana
+                FROM __SPARTA_SECRET_REDACTED__.asigna_modulo_web am
+                INNER JOIN __SPARTA_SECRET_REDACTED__.modulos_web mw ON mw.id = am.modulo_web_id
+                WHERE am.usuario_id = :id
+                  AND am.modulo_web_id IN ($idsSql)
+                ORDER BY mw.id ASC
+            ", ['id' => $idPersona]) ?: [];
+            return [
+                'ids' => array_map('intval', array_column($rows, 'id')),
+                'nombres' => array_values(array_map(static function ($r) {
+                    return trim((string)($r['nombre'] ?? ''));
+                }, $rows)),
+            ];
+        } catch (\Throwable $e) {
+            error_log('CapHum::snapshotModulosAccesoCapitalHumano -> ' . $e->getMessage());
+            return [];
+        }
+    }
+
+    public static function registrarAuditoriaInternaRrhh(array $data): void
+    {
+        try {
+            $db = new Database();
+            self::asegurarAuditoriaInternaRrhh($db);
+
+            $idUsuario = (int)($data['id_usuario'] ?? ($_SESSION['usuario_id'] ?? $_SESSION['id_usuario'] ?? 0));
+            $usuarioNombre = self::auditoriaTexto($data['usuario_nombre'] ?? ($_SESSION['usuario_nombre'] ?? $_SESSION['usuario'] ?? ''), 220);
+            if ($usuarioNombre === null && $idUsuario > 0) {
+                $u = $db->queryOne("
+                    SELECT TRIM(CONCAT_WS(' ', nombres, segundo_nombre, apellidop, apellidom)) AS nombre
+                    FROM __SPARTA_SECRET_REDACTED__.persona
+                    WHERE id = :id
+                    LIMIT 1
+                ", ['id' => $idUsuario]);
+                $usuarioNombre = self::auditoriaTexto($u['nombre'] ?? '', 220);
+            }
+
+            $cambios = self::auditoriaSanitizar($data['cambios'] ?? []);
+            $detalle = self::auditoriaSanitizar($data['detalle'] ?? []);
+            $db->CRUD("
+                INSERT INTO __SPARTA_SECRET_REDACTED__.caphum_auditoria_interna
+                    (fecha_hora, id_usuario, usuario_nombre, ip, modulo, entidad_tipo, entidad_id, entidad_nombre, accion, resumen, cambios_json, detalle_json)
+                VALUES
+                    (NOW(), :id_usuario, :usuario_nombre, :ip, :modulo, :entidad_tipo, :entidad_id, :entidad_nombre, :accion, :resumen, :cambios_json, :detalle_json)
+            ", [
+                'id_usuario' => $idUsuario > 0 ? $idUsuario : null,
+                'usuario_nombre' => $usuarioNombre,
+                'ip' => self::auditoriaTexto($data['ip'] ?? ($_SERVER['REMOTE_ADDR'] ?? ''), 64),
+                'modulo' => self::auditoriaTexto($data['modulo'] ?? 'Capital Humano', 80) ?: 'Capital Humano',
+                'entidad_tipo' => self::auditoriaTexto($data['entidad_tipo'] ?? 'general', 80) ?: 'general',
+                'entidad_id' => isset($data['entidad_id']) ? (int)$data['entidad_id'] : null,
+                'entidad_nombre' => self::auditoriaTexto($data['entidad_nombre'] ?? '', 255),
+                'accion' => self::auditoriaTexto($data['accion'] ?? 'evento', 80) ?: 'evento',
+                'resumen' => self::auditoriaTexto($data['resumen'] ?? '', 500),
+                'cambios_json' => !empty($cambios) ? json_encode($cambios, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) : null,
+                'detalle_json' => !empty($detalle) ? json_encode($detalle, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) : null,
+            ]);
+        } catch (\Throwable $e) {
+            error_log('CapHum::registrarAuditoriaInternaRrhh -> ' . $e->getMessage());
+        }
+    }
+
+    public static function getAuditoriaInternaRrhh(array $filtros = []): array
+    {
+        try {
+            $db = new Database();
+            self::asegurarAuditoriaInternaRrhh($db);
+
+            $where = [];
+            $params = [];
+            $tipo = trim((string)($filtros['tipo'] ?? ''));
+            $accion = trim((string)($filtros['accion'] ?? ''));
+            $q = trim((string)($filtros['q'] ?? ''));
+
+            if ($tipo !== '' && $tipo !== 'todos') {
+                $where[] = 'entidad_tipo = :tipo';
+                $params['tipo'] = $tipo;
+            }
+            if ($accion !== '' && $accion !== 'todos') {
+                $where[] = 'accion = :accion';
+                $params['accion'] = $accion;
+            }
+            if ($q !== '') {
+                $where[] = "(usuario_nombre LIKE :q OR entidad_nombre LIKE :q OR resumen LIKE :q OR accion LIKE :q OR modulo LIKE :q)";
+                $params['q'] = '%' . $q . '%';
+            }
+
+            $whereSql = $where ? ('WHERE ' . implode(' AND ', $where)) : '';
+            $eventos = $db->queryAll("
+                SELECT
+                    id,
+                    DATE_FORMAT(fecha_hora, '%Y-%m-%d %H:%i:%s') AS fecha_hora,
+                    id_usuario,
+                    usuario_nombre,
+                    ip,
+                    modulo,
+                    entidad_tipo,
+                    entidad_id,
+                    entidad_nombre,
+                    accion,
+                    resumen,
+                    cambios_json,
+                    detalle_json
+                FROM __SPARTA_SECRET_REDACTED__.caphum_auditoria_interna
+                $whereSql
+                ORDER BY fecha_hora DESC, id DESC
+                LIMIT 600
+            ", $params) ?: [];
+
+            foreach ($eventos as &$evento) {
+                $evento['cambios'] = json_decode((string)($evento['cambios_json'] ?? ''), true) ?: [];
+                $evento['detalle'] = json_decode((string)($evento['detalle_json'] ?? ''), true) ?: [];
+                unset($evento['cambios_json'], $evento['detalle_json']);
+            }
+            unset($evento);
+
+            $totales = $db->queryOne("
+                SELECT
+                    COUNT(*) AS total,
+                    SUM(CASE WHEN entidad_tipo = 'persona' THEN 1 ELSE 0 END) AS personas,
+                    SUM(CASE WHEN entidad_tipo = 'candidato' THEN 1 ELSE 0 END) AS candidatos,
+                    SUM(CASE WHEN entidad_tipo = 'permisos' THEN 1 ELSE 0 END) AS permisos,
+                    SUM(CASE WHEN fecha_hora >= DATE_SUB(NOW(), INTERVAL 24 HOUR) THEN 1 ELSE 0 END) AS ultimas_24h
+                FROM __SPARTA_SECRET_REDACTED__.caphum_auditoria_interna
+            ") ?: [];
+
+            $acciones = $db->queryAll("
+                SELECT accion, COUNT(*) AS total
+                FROM __SPARTA_SECRET_REDACTED__.caphum_auditoria_interna
+                GROUP BY accion
+                ORDER BY total DESC, accion ASC
+            ") ?: [];
+
+            return self::resultado(true, 'Auditoria interna cargada.', [
+                'eventos' => $eventos,
+                'totales' => [
+                    'total' => (int)($totales['total'] ?? 0),
+                    'personas' => (int)($totales['personas'] ?? 0),
+                    'candidatos' => (int)($totales['candidatos'] ?? 0),
+                    'permisos' => (int)($totales['permisos'] ?? 0),
+                    'ultimas_24h' => (int)($totales['ultimas_24h'] ?? 0),
+                ],
+                'acciones' => $acciones,
+            ]);
+        } catch (\Throwable $e) {
+            return self::resultado(false, 'No se pudo cargar la auditoria interna.', [
+                'eventos' => [],
+                'totales' => [],
+                'acciones' => [],
+            ], $e->getMessage());
+        }
+    }
+
     private static function asegurarSalariosSensiblesRrhh(Database $db): void
     {
         $db->CRUD("
@@ -6972,6 +7338,19 @@ class CapHum extends Model
                         'id_vacante' => $vacante_existente_id,
                     ]);
                 }
+            }
+
+            if (!empty($id_persona)) {
+                self::registrarAuditoriaInternaRrhh([
+                    'id_usuario' => isset($data['usuario_edita']) ? (int)$data['usuario_edita'] : (int)($_SESSION['usuario_id'] ?? 0),
+                    'modulo' => 'Gestion de Personal',
+                    'entidad_tipo' => 'persona',
+                    'entidad_id' => (int)$id_persona,
+                    'entidad_nombre' => trim(($data['nombres'] ?? '') . ' ' . ($data['apellidop'] ?? '') . ' ' . ($data['apellidom'] ?? '')),
+                    'accion' => 'crear_usuario',
+                    'resumen' => 'Se registro una persona desde Gestion de Personal.',
+                    'detalle' => self::snapshotPersonaAuditoria((int)$id_persona),
+                ]);
             }
 
             return self::resultado(true, 'Persona insertada correctamente.', $result);
