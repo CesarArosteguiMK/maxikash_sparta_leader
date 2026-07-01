@@ -468,6 +468,42 @@ class CapHum extends Controller
         ]);
     }
 
+    private function notificarRegistroTotpSubdirectorRrhh(string $ambito): void
+    {
+        $idUsuario = self::usuarioSesionId();
+        if ($idUsuario <= 0) {
+            return;
+        }
+
+        $destinatarios = CapHumDAO::getSubdirectoresRecursosHumanos();
+        if (empty($destinatarios)) {
+            return;
+        }
+
+        $usuarioNombre = trim((string)($_SESSION['usuario_nombre'] ?? $_SESSION['nombre_usuario'] ?? $_SESSION['usuario'] ?? ''));
+        if ($usuarioNombre === '') {
+            $usuarioNombre = 'Usuario #' . $idUsuario;
+        }
+
+        $ambito = strtolower(trim($ambito));
+        $ambitoTexto = $ambito === 'salario'
+            ? 'salario sensible de RR.HH.'
+            : 'documentos sensibles de RR.HH.';
+
+        $mensaje = sprintf(
+            'El usuario %s completó el registro de Google Authenticator para acceder a %s.',
+            $usuarioNombre,
+            $ambitoTexto
+        );
+
+        Notificacion::crearParaPersonas($destinatarios, 'rrhh_totp_registro_confirmado', $mensaje, null, [
+            'modulo' => 'capital_humano',
+            'accion' => 'totp_confirmado',
+            'ambito' => $ambito === 'salario' ? 'salario' : 'documentos',
+            'id_usuario' => $idUsuario,
+        ]);
+    }
+
     private function autorizarSalarioSensibleRrhh(int $idPersona, string $accion, string $codigoTotp = ''): array
     {
         if (!self::tieneModuloWeb(self::MODULO_EDITAR_USUARIO_RRHH) || !self::puedeGestionarSalarioSensibleRrhh()) {
@@ -528,7 +564,10 @@ class CapHum extends Controller
         }
 
         if (!$confirmado) {
-            CapHumDAO::confirmarTotpDocumentoSensible($idUsuarioSesion);
+            $confirmacionTotp = CapHumDAO::confirmarTotpDocumentoSensible($idUsuarioSesion);
+            if (($confirmacionTotp['success'] ?? false)) {
+                $this->notificarRegistroTotpSubdirectorRrhh('salario');
+            }
         }
         self::marcarTotpSalarioSesion();
         $this->auditarSalarioSensibleRrhh($idPersona, 'totp', 'autorizado', $accion);
@@ -2580,7 +2619,7 @@ class CapHum extends Controller
                 94: 'fa-solid fa-file-arrow-down',
                 95: 'fa-solid fa-user-plus',
                 96: 'fa-solid fa-user-pen',
-                97: 'fa-solid fa-folder-arrow-up',
+                97: 'fa fa-upload',
                 98: 'fa-solid fa-calendar-minus',
                 99: 'fa-solid fa-user-slash',
                 60: 'fa-solid fa-chart-column',
@@ -2621,6 +2660,8 @@ class CapHum extends Controller
                 138: 'fa-solid fa-layer-group',
                 142: 'fa-solid fa-file-shield',
                 143: 'fa-solid fa-user-plus',
+                152: 'fa-solid fa-mobile-screen-button',
+                153: 'fa-solid fa-money-bill-wave',
                 145: 'fa-solid fa-rotate-right',
                 146: 'fa-solid fa-circle-check',
                 155: 'fa-solid fa-id-card',
@@ -2648,6 +2689,8 @@ class CapHum extends Controller
                 177: 'fa-solid fa-notes-medical',
                 178: 'fa-solid fa-file-circle-check',
                 179: 'fa-solid fa-calendar-xmark',
+                184: 'fa-solid fa-file-invoice-dollar',
+                185: 'fa-solid fa-receipt',
             };
 
             /** Mapa base de íconos (pestaña Módulos del sistema y filas agrupadas de permisos especiales). */
@@ -4088,7 +4131,15 @@ class CapHum extends Controller
                         && !descripcionModulo.includes('motos adjudicadas');
                 }).map(mod => {
                     const idMod = Number(mod.modulo_id ?? mod.id ?? 0);
-                    if (idMod === 151 || idMod === 152 || (idMod >= 155 && idMod <= 179)) {
+                    if (idMod === 152 || idMod === 153) {
+                        return Object.assign({}, mod, {
+                            menu_grupo: 'Capital Humano',
+                            menu_grupo_icono: 'fa-solid fa-users',
+                            menu_grupo_orden: 11,
+                            menu_item_orden: idMod
+                        });
+                    }
+                    if (idMod === 151 || (idMod >= 155 && idMod <= 179) || idMod === 184 || idMod === 185) {
                         return Object.assign({}, mod, {
                             menu_grupo: 'Control documental RR.HH.',
                             menu_grupo_icono: 'fa fa-folder-open',
@@ -8237,6 +8288,7 @@ class CapHum extends Controller
         $puedeActualizarInfo = in_array(self::MODULO_ACTUALIZAR_DATOS_RRHH, $modulos);
         $puedeAgregarUsuarioRrhh = in_array(self::MODULO_AGREGAR_USUARIO_RRHH, $modulos);
         $puedeEditarUsuarioRrhh = in_array(self::MODULO_EDITAR_USUARIO_RRHH, $modulos);
+        $puedeVerSalarioSensibleRrhh = self::puedeGestionarSalarioSensibleRrhh();
         $departamento = self::getDepartamentosGestionPersonal();
         $catalogoCompletoDeptos = CapHumDAO::getTodosDepartamentosGestion();
 
@@ -8260,6 +8312,7 @@ class CapHum extends Controller
         self::set("puedeActualizarInfo", $puedeActualizarInfo);
         self::set("puedeAgregarUsuarioRrhh", $puedeAgregarUsuarioRrhh);
         self::set("puedeEditarUsuarioRrhh", $puedeEditarUsuarioRrhh);
+        self::set("puedeVerSalarioSensibleRrhh", $puedeVerSalarioSensibleRrhh);
         self::render("all_gestores");
     }
 
@@ -23940,6 +23993,16 @@ class CapHum extends Controller
 
         $idPersona = (int) ($input['id_persona'] ?? 0);
         $resultado = CapHumRrhh::obtenerUsuario($idPersona, $idSesion);
+        if (!empty($resultado['success']) && isset($resultado['datos']) && is_array($resultado['datos'])) {
+            $resultado['datos']['permisos'] = array_merge(
+                (array)($resultado['datos']['permisos'] ?? []),
+                ['puede_gestionar_salario_sensible' => self::puedeGestionarSalarioSensibleRrhh()]
+            );
+            $resultado['datos']['salario_sensible'] = array_merge(
+                (array)($resultado['datos']['salario_sensible'] ?? []),
+                ['puede_gestionar' => self::puedeGestionarSalarioSensibleRrhh()]
+            );
+        }
         self::respuestaJSON($resultado);
     }
 
@@ -26638,6 +26701,9 @@ public function getEstadosMunicipiosMexico()
 
                 if (!$confirmado) {
                     $confirmacionTotp = CapHumDAO::confirmarTotpDocumentoSensible($idUsuarioSesion);
+                    if (($confirmacionTotp['success'] ?? false)) {
+                        $this->notificarRegistroTotpSubdirectorRrhh('documentos');
+                    }
                     $this->auditarDocumentoSensibleRrhh([
                         'id_persona' => $idUsuarioSesion,
                         'id_documento' => 0,

@@ -4163,6 +4163,42 @@ class CapHum extends Model
         }
     }
 
+    public static function getSubdirectoresRecursosHumanos(): array
+    {
+        try {
+            $db = new Database();
+            $rows = $db->queryAll("
+                SELECT DISTINCT
+                    p.id,
+                    TRIM(CONCAT_WS(' ', p.nombres, p.segundo_nombre, p.apellidop, p.apellidom)) AS nombre_completo
+                FROM __SPARTA_SECRET_REDACTED__.persona p
+                LEFT JOIN __SPARTA_SECRET_REDACTED__.persona_datos_rrhh pdr ON pdr.id_persona = p.id
+                LEFT JOIN __SPARTA_SECRET_REDACTED__.asigna_puesto ap ON ap.id_persona = p.id AND ap.activo = 1
+                LEFT JOIN __SPARTA_SECRET_REDACTED__.puesto pu ON pu.id = COALESCE(pdr.id_puesto, ap.id_puesto)
+                LEFT JOIN __SPARTA_SECRET_REDACTED__.departamento dep ON dep.id = COALESCE(pdr.id_departamento, pu.departamento_id)
+                LEFT JOIN __SPARTA_SECRET_REDACTED__.departamento_organizacional dorg ON dorg.id = COALESCE(pdr.id_area, dep.id_departamento_organizacional)
+                WHERE p.id > 0
+                  AND UPPER(COALESCE(NULLIF(TRIM(p.estatus), ''), 'ACTIVO')) NOT IN ('BAJA', 'INACTIVO')
+                  AND (
+                        LOWER(COALESCE(pdr.puesto_texto, '')) LIKE '%subdirector%'
+                        OR LOWER(COALESCE(pu.nombre, '')) LIKE '%subdirector%'
+                  )
+                  AND (
+                        LOWER(COALESCE(pdr.area_texto, '')) LIKE '%recursos%humanos%'
+                        OR LOWER(COALESCE(pdr.departamento_texto, '')) LIKE '%recursos%humanos%'
+                        OR LOWER(COALESCE(dep.nombre, '')) LIKE '%recursos%humanos%'
+                        OR LOWER(COALESCE(dorg.nombre, '')) LIKE '%recursos%humanos%'
+                  )
+                ORDER BY nombre_completo ASC
+            ");
+
+            return array_values(array_unique(array_map('intval', array_column($rows ?: [], 'id'))));
+        } catch (\Throwable $e) {
+            error_log('CapHum::getSubdirectoresRecursosHumanos -> ' . $e->getMessage());
+            return [];
+        }
+    }
+
     public static function getSalarioSensiblePersona(int $idPersona)
     {
         try {
@@ -5628,8 +5664,11 @@ class CapHum extends Model
 
     private static function grupoModuloAccesoCapitalHumano(int $id, string $pestana, string $nombre): array
     {
-        if (in_array($id, [151, 152], true) || in_array($id, self::MODULOS_DOCUMENTO_RRHH, true)) {
+        if ($id === self::MODULO_VER_DOCUMENTOS_SENSIBLES_RRHH || in_array($id, self::MODULOS_DOCUMENTO_RRHH, true)) {
             return ['grupo' => 'Control documental RR.HH.', 'icono' => 'fa fa-folder-open', 'orden' => 28];
+        }
+        if (in_array($id, [self::MODULO_RESET_TOTP_DOCUMENTOS_SENSIBLES_RRHH, self::MODULO_VER_SALARIO_SENSIBLE_RRHH], true)) {
+            return ['grupo' => 'Modulos Capital Humano', 'icono' => 'fa-solid fa-users', 'orden' => 10];
         }
         if ($id >= 107 && $id <= 127) {
             return ['grupo' => 'Edicion cobranza', 'icono' => 'fa-solid fa-pen-to-square', 'orden' => 30];
