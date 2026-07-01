@@ -4120,7 +4120,8 @@ class CapHum extends Controller
                 const container = document.getElementById('modal-edit-perfil-permisos-especiales-form') || document.getElementById('permisos-especiales-form');
                 const iconosMap = Object.assign({}, iconosModulosSistemaPerfil, iconosPermisosEspeciales);
                 const idsPermisoEdicionCobranza = new Set(Array.from({ length: 21 }, (_, i) => 107 + i));
-                const idsPermisosAtlas = new Set([129, 130]);
+                const idsPermisosAtlas = new Set([129, 130, 138]);
+                const idsPermisosConvenios = new Set([128, 145, 146]);
                 const idsPermisosMotosAdjudicadas = new Set([180, 181, 182, 183]);
                 const perfilesNormalizados = (Array.isArray(perfiles) ? perfiles : []).filter(mod => {
                     const idMod = Number(mod.modulo_id ?? mod.id ?? 0);
@@ -4144,6 +4145,14 @@ class CapHum extends Controller
                             menu_grupo: 'Control documental RR.HH.',
                             menu_grupo_icono: 'fa fa-folder-open',
                             menu_grupo_orden: 14,
+                            menu_item_orden: idMod
+                        });
+                    }
+                    if (idsPermisosConvenios.has(idMod)) {
+                        return Object.assign({}, mod, {
+                            menu_grupo: 'Convenios',
+                            menu_grupo_icono: 'fa-solid fa-building-columns',
+                            menu_grupo_orden: 9,
                             menu_item_orden: idMod
                         });
                     }
