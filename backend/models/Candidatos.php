@@ -1716,7 +1716,7 @@ class Candidatos extends Model
             self::asegurarTablaJobsVerificacionDocumental($db);
             $ahora = self::fechaHoraActualMexicoCiudad();
 
-            $maxIntentosJob = $expedienteValor === 1 ? 1 : 3;
+            $maxIntentosJob = $expedienteValor === 1 ? 2 : 3;
             $prioridadJob = $expedienteValor === 1 ? 9 : 5;
 
             $existente = $db->queryOne(
@@ -1765,7 +1765,7 @@ class Candidatos extends Model
                         'expediente' => $expedienteFinal,
                         'origen' => substr($origen, 0, 40),
                         'prioridad' => $expedienteFinal === 1 ? 9 : $prioridadJob,
-                        'max_intentos' => $expedienteFinal === 1 ? 1 : $maxIntentosJob,
+                        'max_intentos' => $expedienteFinal === 1 ? 2 : $maxIntentosJob,
                         'ahora' => $ahora,
                     ]
                 );
@@ -1897,7 +1897,7 @@ class Candidatos extends Model
                 );
                 return;
             }
-            $siguienteIntento = self::ahoraMexicoCiudadImmutable()->modify('+5 minutes')->format('Y-m-d H:i:s');
+            $siguienteIntento = $ahora;
             $db->CRUD(
                 "UPDATE candidato_verificacion_documental_job
                  SET estado = CASE WHEN intentos >= max_intentos THEN 'error' ELSE 'pendiente' END,

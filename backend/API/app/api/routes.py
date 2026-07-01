@@ -686,9 +686,10 @@ def _resultado_v2_reglas_expediente(
         }
 
         if not summary_is_usable(summary):
-            out["mensaje"] = "Sin lectura V2 previa suficiente para comparacion automatica."
+            out["estado"] = "requiere_revision"
+            out["mensaje"] = "Lectura V2 pendiente; el documento no se marcara como falla documental hasta completar la lectura automatica."
             docs_out[key] = out
-            alertas.append(f"{label}: falta lectura V2 previa suficiente para compararlo en el cruce final.")
+            alertas.append(f"{label}: lectura V2 pendiente para completar el cruce final.")
             continue
 
         out["nombre"] = _v2_first_value(previo, ["nombre", "nombre_completo", "nombre_propietario", "nombre_titular", "titular_cuenta"])
@@ -779,7 +780,7 @@ def _resultado_v2_reglas_expediente(
                 msg_tipo,
             )
 
-        if key == "hoja_retencion":
+        if key == "hoja_retencion" and detected_type == "carta_no_adeudo":
             firma_detectada = out.get("firma_detectada")
             nombre_y_firma_lleno = out.get("nombre_y_firma_lleno")
             evidencia_insuficiente = out.get("evidencia_insuficiente")
@@ -3450,7 +3451,7 @@ async def validar_expediente(
                 "comprobante_domicilio": "comprobante_domicilio",
                 "constancia_fiscal": "constancia_fiscal",
                 "nss": "nss",
-                "hoja_retencion": "carta_no_adeudo",
+                "hoja_retencion": "infonavit_fonacot",
                 "__SPARTA_SECRET_REDACTED__": "__SPARTA_SECRET_REDACTED__",
             }
             # En el flujo real la carga rapida ya deja una lectura V2 guardada

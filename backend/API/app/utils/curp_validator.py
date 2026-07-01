@@ -37,7 +37,7 @@ PALABRAS_INCONVENIENTES = [
 ]
 
 PATRON_CURP = re.compile(
-    r'^[A-Z]{1}[AEIOU]{1}[A-Z]{2}'       # Pos 1-4: letras nombre
+    r'^[A-Z]{1}[AEIOUX]{1}[A-Z]{2}'      # Pos 1-4: letras nombre; X se usa como comodin oficial
     r'\d{2}'                                # Pos 5-6: año
     r'(0[1-9]|1[0-2])'                     # Pos 7-8: mes
     r'(0[1-9]|[12]\d|3[01])'               # Pos 9-10: día
