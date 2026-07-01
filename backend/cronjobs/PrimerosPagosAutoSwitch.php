@@ -4,12 +4,17 @@
  * Interruptor persistente en el servidor para el envío automático
  * de "Primeros pagos — Lunes de cierre".
  *
- * El archivo vive en cronjobs/logs/ (no va a git). Si no existe,
+ * El archivo vive en storage/runtime/primeros_pagos/ (no va a git). Si no existe,
  * el envío automático queda DESACTIVADO hasta que alguien lo active en el menú.
  */
 class PrimerosPagosAutoSwitch
 {
     public static function path(): string
+    {
+        return dirname(__DIR__) . '/storage/runtime/primeros_pagos/primeros_pagos_auto_switch.json';
+    }
+
+    private static function legacyPath(): string
     {
         return __DIR__ . '/logs/primeros_pagos_auto_switch.json';
     }
@@ -20,6 +25,14 @@ class PrimerosPagosAutoSwitch
     public static function getState(): array
     {
         $path = self::path();
+        if (!is_file($path) && is_file(self::legacyPath())) {
+            $legacy = self::legacyPath();
+            $dir = dirname($path);
+            if (!is_dir($dir)) {
+                @mkdir($dir, 0755, true);
+            }
+            @copy($legacy, $path);
+        }
         if (!is_file($path)) {
             return ['enabled' => false, 'updated_at' => null];
         }

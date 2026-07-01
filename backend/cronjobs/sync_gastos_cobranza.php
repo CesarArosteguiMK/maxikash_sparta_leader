@@ -203,7 +203,7 @@ const MAX_CREDITOS  = 0;        // 0 = sin límite
 // ============================================================
 // LOGGER
 // ============================================================
-$logDir  = __DIR__ . '/logs';
+$logDir  = rtrim(sys_get_temp_dir(), DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR . 'sparta___SPARTA_SECRET_REDACTED___cron_logs';
 $logFile = $logDir . '/sync_gastos_cobranza_' . date('Y-m-d')
          . (DRY_RUN    ? '_DRYRUN'    : '')
          . (TEST_TABLE ? '_TESTTABLE' : '')
@@ -213,7 +213,7 @@ function log_cron(string $nivel, string $msg, array $ctx = []): void
 {
     global $logFile, $logDir;
 
-    if (!is_dir($logDir)) {
+    if ((string) getenv('SPARTA_ENABLE_FILE_LOGS') === '1' && !is_dir($logDir)) {
         mkdir($logDir, 0755, true);
     }
 
@@ -223,7 +223,9 @@ function log_cron(string $nivel, string $msg, array $ctx = []): void
     $extra   = $ctx ? ' | ' . json_encode($ctx, JSON_UNESCAPED_UNICODE) : '';
     $line    = "[{$ts}]{$dryTag}{$tstTag} [{$nivel}] {$msg}{$extra}" . PHP_EOL;
 
-    file_put_contents($logFile, $line, FILE_APPEND | LOCK_EX);
+    if ((string) getenv('SPARTA_ENABLE_FILE_LOGS') === '1') {
+        file_put_contents($logFile, $line, FILE_APPEND | LOCK_EX);
+    }
     echo $line;
 }
 

@@ -298,8 +298,7 @@ class Notificacion extends Model
             $db = new Database();
             $db->CRUD(
                 "DELETE FROM notificacion
-                 WHERE fecha_creacion < DATE_SUB(NOW(), INTERVAL :dias DAY)
-                   AND tipo <> 'recuperate_pronto_sandra'",
+                 WHERE fecha_creacion < DATE_SUB(NOW(), INTERVAL :dias DAY)",
                 ['dias' => $dias]
             );
             $_SESSION[$key] = $now;
@@ -413,137 +412,6 @@ class Notificacion extends Model
         return $out;
     }
 
-    private static function asegurarTablaEventosEspeciales(Database $db): void
-    {
-        static $asegurada = false;
-        if ($asegurada) {
-            return;
-        }
-
-        $db->CRUD(
-            "CREATE TABLE IF NOT EXISTS notificacion_evento_especial (
-                id INT NOT NULL AUTO_INCREMENT,
-                id_notificacion INT NOT NULL,
-                id_persona INT NOT NULL,
-                tipo VARCHAR(120) NOT NULL,
-                evento VARCHAR(60) NOT NULL,
-                fecha_evento DATETIME NOT NULL,
-                user_agent VARCHAR(255) NULL,
-                ip VARCHAR(45) NULL,
-                PRIMARY KEY (id),
-                UNIQUE KEY uq_notificacion_evento (id_notificacion, evento),
-                KEY idx_persona_tipo_evento (id_persona, tipo, evento, fecha_evento)
-            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4"
-        );
-        try {
-            $db->CRUD("ALTER TABLE notificacion_evento_especial MODIFY COLUMN fecha_evento DATETIME NOT NULL");
-        } catch (\Exception $e) {
-            // Si la columna ya esta en el formato correcto o no se puede alterar aqui, no rompemos el flujo.
-        }
-        $asegurada = true;
-    }
-
-    private static function ahoraCdmx(): string
-    {
-        return (new \DateTimeImmutable('now', new \DateTimeZone('America/Mexico_City')))->format('Y-m-d H:i:s');
-    }
-
-    public static function registrarVistaEspecial(int $idNotificacion, int $idPersona, string $tipo, string $userAgent = '', string $ip = ''): bool
-    {
-        if ($idNotificacion < 1 || $idPersona < 1 || $tipo === '') {
-            return false;
-        }
-
-        try {
-            $db = new Database();
-            self::asegurarTablaEventosEspeciales($db);
-
-            $row = $db->queryOne(
-                "SELECT id
-                 FROM notificacion
-                 WHERE id = :id
-                   AND id_persona = :id_persona
-                   AND tipo = :tipo
-                 LIMIT 1",
-                ['id' => $idNotificacion, 'id_persona' => $idPersona, 'tipo' => $tipo]
-            );
-            if (!$row) {
-                return false;
-            }
-
-            $db->beginTransaction();
-            try {
-                $db->CRUD(
-                    "INSERT IGNORE INTO notificacion_evento_especial
-                        (id_notificacion, id_persona, tipo, evento, fecha_evento, user_agent, ip)
-                     VALUES
-                        (:id_notificacion, :id_persona, :tipo, 'visto_modal', :fecha_evento, :user_agent, :ip)",
-                    [
-                        'id_notificacion' => $idNotificacion,
-                        'id_persona' => $idPersona,
-                        'tipo' => $tipo,
-                        'fecha_evento' => self::ahoraCdmx(),
-                        'user_agent' => mb_substr($userAgent, 0, 255),
-                        'ip' => mb_substr($ip, 0, 45),
-                    ]
-                );
-                $db->CRUD(
-                    "UPDATE notificacion SET leida = 1 WHERE id = :id AND id_persona = :id_persona AND tipo = :tipo",
-                    ['id' => $idNotificacion, 'id_persona' => $idPersona, 'tipo' => $tipo]
-                );
-                $db->commit();
-                return true;
-            } catch (\Exception $e) {
-                $db->rollback();
-                return false;
-            }
-        } catch (\Exception $e) {
-            return false;
-        }
-    }
-
-    public static function estadoEventoEspecial(int $idPersona, string $tipo): array
-    {
-        if ($idPersona < 1 || $tipo === '') {
-            return ['existe' => false, 'visto' => false];
-        }
-
-        try {
-            $db = new Database();
-            self::asegurarTablaEventosEspeciales($db);
-            $row = $db->queryOne(
-                "SELECT n.id,
-                        n.leida,
-                        n.fecha_creacion,
-                        e.fecha_evento AS fecha_visto
-                 FROM notificacion n
-                 LEFT JOIN notificacion_evento_especial e
-                   ON e.id_notificacion = n.id
-                  AND e.evento = 'visto_modal'
-                 WHERE n.id_persona = :id_persona
-                   AND n.tipo = :tipo
-                 ORDER BY n.id DESC
-                 LIMIT 1",
-                ['id_persona' => $idPersona, 'tipo' => $tipo]
-            );
-            if (!$row) {
-                return ['existe' => false, 'visto' => false];
-            }
-
-            return [
-                'existe' => true,
-                'id_notificacion' => (int)($row['id'] ?? 0),
-                'leida' => (int)($row['leida'] ?? 0),
-                'fecha_envio' => $row['fecha_creacion'] ?? null,
-                'fecha_visto' => $row['fecha_visto'] ?? null,
-                'zona_horaria' => 'America/Mexico_City',
-                'visto' => !empty($row['fecha_visto']),
-            ];
-        } catch (\Exception $e) {
-            return ['existe' => false, 'visto' => false, 'error' => $e->getMessage()];
-        }
-    }
-
     public static function marcarLeida(int $idNotificacion, int $idPersona): bool
     {
         if ($idNotificacion < 1 || $idPersona < 1) {
@@ -555,8 +423,7 @@ class Notificacion extends Model
                 "UPDATE notificacion
                  SET leida = 1
                  WHERE id = :id
-                   AND id_persona = :id_persona
-                   AND tipo <> 'recuperate_pronto_sandra'",
+                   AND id_persona = :id_persona",
                 ['id' => $idNotificacion, 'id_persona' => $idPersona]
             );
             return true;
@@ -578,8 +445,7 @@ class Notificacion extends Model
             $db->CRUD(
                 "UPDATE notificacion
                  SET leida = 1
-                 WHERE id_persona = :id_persona
-                   AND tipo <> 'recuperate_pronto_sandra'",
+                 WHERE id_persona = :id_persona",
                 ['id_persona' => $idPersona]
             );
             return true;

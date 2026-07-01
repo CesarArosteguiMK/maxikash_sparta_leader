@@ -102,12 +102,14 @@ class CronLogger
         $this->startTime = microtime(true);
         $this->webhookEnabled = !$noWebhook && !empty($webhookUrl);
 
-        // Configurar archivo de log
-        $logDir = dirname(__DIR__) . '/cronjobs/logs';
-        if (!is_dir($logDir)) {
-            mkdir($logDir, 0755, true);
+        $this->logFile = null;
+        if ((string) getenv('SPARTA_ENABLE_FILE_LOGS') === '1') {
+            $logDir = rtrim(sys_get_temp_dir(), DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR . 'sparta___SPARTA_SECRET_REDACTED___cron_logs';
+            if (!is_dir($logDir)) {
+                mkdir($logDir, 0755, true);
+            }
+            $this->logFile = $logDir . DIRECTORY_SEPARATOR . 'morosidad_' . date('Y-m-d') . '.log';
         }
-        $this->logFile = $logDir . '/morosidad_' . date('Y-m-d') . '.log';
     }
 
     public function log($mensaje, $nivel = 'INFO')
@@ -118,8 +120,9 @@ class CronLogger
         // Escribir a consola siempre
         echo $linea . "\n";
 
-        // Escribir a archivo de log
-        file_put_contents($this->logFile, $linea . "\n", FILE_APPEND);
+        if ($this->logFile) {
+            file_put_contents($this->logFile, $linea . "\n", FILE_APPEND);
+        }
 
         // Acumular para webhook (solo mensajes importantes)
         if ($this->webhookEnabled && in_array($nivel, ['SUCCESS', 'WARNING', 'ERROR'])) {

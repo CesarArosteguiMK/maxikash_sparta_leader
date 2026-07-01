@@ -91,7 +91,7 @@ if "!DOC_RC!"=="1" (
     set "DOC_FIX_RC=!ERRORLEVEL!"
     if "!DOC_FIX_RC!"=="1" (
         echo [CHECK][ERROR] No se pudieron reparar todas las dependencias criticas.
-        echo [CHECK][ERROR] Revise el ultimo doctor-*.log en backend\API\logs.
+        echo [CHECK][ERROR] Revise el ultimo doctor-*.log en %TEMP%\sparta___SPARTA_SECRET_REDACTED___api_logs.
         exit /b 1
     )
     echo [CHECK] Reparacion terminada con codigo !DOC_FIX_RC!. Continuando.

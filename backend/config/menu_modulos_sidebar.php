@@ -56,6 +56,7 @@ if (!function_exists('getMenuSidebarModulosStructure')) {
                     ['label' => 'Analítica sabueso', 'url' => '/sabueso/estadisticas', 'modulos' => [47]],
                     ['label' => 'Comparativas', 'url' => '/analitica/comparativas', 'modulos' => [60, 81]],
                     ['label' => 'Avance Bucket', 'url' => '/analitica/avanceBucket', 'modulos' => [77]],
+                    ['label' => 'Asignación', 'url' => '/analitica/asignacion', 'modulos' => [61]],
                 ],
             ],
             'Tickets' => [
@@ -99,6 +100,7 @@ if (!function_exists('getMenuSidebarModulosStructure')) {
                     ['label' => 'Administracion', 'url' => '/Adjudicacion/administracion', 'modulos' => [62, 80]],
                     ['label' => 'Operaciones', 'url' => '/MotosAdjudicadas/pipeline', 'modulos' => [63]],
                     ['label' => 'Almacen Virtual', 'url' => '/MotosAdjudicadas/almacenVirtual', 'modulos' => [139]],
+                    ['label' => 'Inventario', 'url' => '/AlmacenVirtual/consulta', 'modulos' => [103]],
                     ['label' => 'Monitoreo', 'url' => '/MotosAdjudicadas/monitoreoAdjudicaciones', 'modulos' => [76]],
                     ['label' => 'Consulta REPUVE', 'url' => '/MotosAdjudicadas/repuveConsulta', 'modulos' => [78]],
                     ['label' => 'OTP DE EMERGENCIA', 'url' => '/MotosAdjudicadas/otpEmergenciaLegacy', 'modulos' => [150]],
@@ -137,6 +139,7 @@ if (!function_exists('getMenuSidebarModulosStructure')) {
                     ['label' => 'Catálogos Operativos', 'url' => '/Atlas/catalogos', 'modulos' => [133]],
                     ['label' => 'Catálogos Comerciales', 'url' => '/Atlas/catalogosComerciales', 'modulos' => [134]],
                     ['label' => 'Notificaciones App', 'url' => '/Atlas/notificacionesApp', 'modulos' => [136]],
+                    ['label' => 'Catálogo de sucursales', 'url' => '/Atlas/catalogoSucursales', 'modulos' => [102]],
                     ['label' => 'Riesgos Operativos', 'url' => '/Atlas/riesgosOperativos', 'modulos' => [148]],
                     ['label' => 'Abanderamiento 30+', 'url' => '/Atlas/abanderamiento30', 'modulos' => [149]],
                     ['label' => 'Accesos Atlas', 'url' => '/Atlas/accesosAtlas', 'modulos' => [137]],

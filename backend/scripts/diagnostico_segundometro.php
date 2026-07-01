@@ -9,13 +9,13 @@
  *   - Desde navegador: http://tu-servidor/ruta/backend/scripts/diagnostico_segundometro.php
  *   - Desde CLI: php diagnostico_segundometro.php
  * 
- * El reporte se guarda en: backend/storage/logs/diagnostico_segundometro_[timestamp].txt
+ * El reporte se guarda fuera del proyecto, en la carpeta temporal del sistema.
  */
 
 // Configuración
 date_default_timezone_set('America/Mexico_City');
 $RAIZ = dirname(__DIR__);
-$LOG_DIR = $RAIZ . '/storage/logs';
+$LOG_DIR = rtrim(sys_get_temp_dir(), DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR . 'sparta___SPARTA_SECRET_REDACTED___diagnosticos';
 $timestamp = date('Y-m-d_H-i-s');
 $archivoReporte = $LOG_DIR . '/diagnostico_segundometro_' . $timestamp . '.txt';
 

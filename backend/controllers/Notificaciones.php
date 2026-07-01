@@ -7,10 +7,6 @@ use Models\Notificacion;
 
 class Notificaciones extends Controller
 {
-    private const SANDRA_RECUPERATE_SENDER_ID = 878;
-    private const SANDRA_RECUPERATE_TARGET_ID = 797;
-    private const SANDRA_RECUPERATE_TYPE = 'recuperate_pronto_sandra';
-
     /**
      * GET/POST: lista notificaciones del usuario actual y cuenta de no leídas.
      * Solo se devuelven notificaciones donde id_persona = usuario en sesión (usuario_id, coherente con creación).
@@ -83,71 +79,6 @@ class Notificaciones extends Controller
         }
         $ok = Notificacion::marcarTodasLeidas($idUsuario);
         self::respuestaJSON(['success' => $ok, 'mensaje' => $ok ? 'OK' : 'No se pudo actualizar.']);
-    }
-
-    /**
-     * Accion personal y acotada: solo el usuario 878 puede enviar este mensaje,
-     * y solo se inserta para el usuario 797.
-     */
-    public function enviarRecuperateSandra()
-    {
-        $idUsuario = (int)($_SESSION['usuario_id'] ?? 0);
-        if ($idUsuario !== self::SANDRA_RECUPERATE_SENDER_ID) {
-            self::respuestaJSON(['success' => false, 'mensaje' => 'No autorizado.']);
-            return;
-        }
-
-        $ok = Notificacion::crear(
-            self::SANDRA_RECUPERATE_TARGET_ID,
-            self::SANDRA_RECUPERATE_TYPE,
-            "Recuperate pronto\nTe quiero mucho!!!!!!!!!!"
-        );
-
-        self::respuestaJSON([
-            'success' => $ok,
-            'mensaje' => $ok ? 'Mensaje enviado para Sandra.' : 'No se pudo enviar el mensaje.'
-        ]);
-    }
-
-    public function registrarVistaRecuperateSandra()
-    {
-        $idUsuario = (int)($_SESSION['usuario_id'] ?? 0);
-        if ($idUsuario !== self::SANDRA_RECUPERATE_TARGET_ID) {
-            self::respuestaJSON(['success' => false, 'mensaje' => 'No autorizado.']);
-            return;
-        }
-
-        $raw = file_get_contents('php://input');
-        $datos = json_decode($raw ?: '{}', true) ?: [];
-        $idNotif = (int)($datos['id_notificacion'] ?? 0);
-        if ($idNotif < 1) {
-            self::respuestaJSON(['success' => false, 'mensaje' => 'ID de notificacion requerido.']);
-            return;
-        }
-
-        $ok = Notificacion::registrarVistaEspecial(
-            $idNotif,
-            self::SANDRA_RECUPERATE_TARGET_ID,
-            self::SANDRA_RECUPERATE_TYPE,
-            (string)($_SERVER['HTTP_USER_AGENT'] ?? ''),
-            (string)($_SERVER['REMOTE_ADDR'] ?? '')
-        );
-
-        self::respuestaJSON(['success' => $ok, 'mensaje' => $ok ? 'Vista registrada.' : 'No se pudo registrar la vista.']);
-    }
-
-    public function estadoRecuperateSandra()
-    {
-        $idUsuario = (int)($_SESSION['usuario_id'] ?? 0);
-        if ($idUsuario !== self::SANDRA_RECUPERATE_SENDER_ID) {
-            self::respuestaJSON(['success' => false, 'mensaje' => 'No autorizado.']);
-            return;
-        }
-
-        self::respuestaJSON([
-            'success' => true,
-            'estado' => Notificacion::estadoEventoEspecial(self::SANDRA_RECUPERATE_TARGET_ID, self::SANDRA_RECUPERATE_TYPE),
-        ]);
     }
 
     /**

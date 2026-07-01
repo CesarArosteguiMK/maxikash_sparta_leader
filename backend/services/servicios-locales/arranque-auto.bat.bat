@@ -1,5 +1,7 @@
 @echo off
-set LOG=C:\xampp\htdocs\sparta___SPARTA_SECRET_REDACTED__\backend\services\servicios-locales\arranque-auto.log
+set LOG_DIR=%TEMP%\sparta___SPARTA_SECRET_REDACTED___servicios_locales_logs
+if not exist "%LOG_DIR%" mkdir "%LOG_DIR%" >nul 2>&1
+set LOG=%LOG_DIR%\arranque-auto.log
 set BASEDIR=C:\xampp\htdocs\sparta___SPARTA_SECRET_REDACTED__\backend\services\servicios-locales
 
 :: Archivo temporal único para esta ejecución

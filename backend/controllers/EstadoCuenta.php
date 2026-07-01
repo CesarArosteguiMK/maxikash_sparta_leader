@@ -353,9 +353,12 @@ class EstadoCuenta extends Controller
     }
 
     private function logEstadoCuentaEngineModo(int $idCredito, bool $usarV2, bool $shadow): void {
+        if ((string) getenv('SPARTA_ENABLE_FILE_LOGS') !== '1') {
+            return;
+        }
         $baseDir = dirname(__DIR__);
         // Mismo árbol que LoginRateLimit, timing, etc.; carpeta en .gitignore (no subir .log).
-        $logDir = $baseDir . DIRECTORY_SEPARATOR . 'storage' . DIRECTORY_SEPARATOR . 'logs';
+        $logDir = rtrim(sys_get_temp_dir(), DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR . 'sparta___SPARTA_SECRET_REDACTED_____SPARTA_SECRET_REDACTED___logs';
         if (!is_dir($logDir)) {
             @mkdir($logDir, 0777, true);
         }

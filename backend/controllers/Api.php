@@ -5,7 +5,7 @@
  * GET /api/analytics/spatial/{idCredito}?force=true
  * GET /api/analytics/payments/{idCredito}
  * GET /api/analytics/compliance/{idCredito}?gestorId=xyz
- * Cache 24h; ?force=true bypass. Audit en location_audit.log (tipo analytics).
+ * Cache 24h; ?force=true bypass. Audit opcional con SPARTA_ENABLE_FILE_LOGS=1 en carpeta temporal.
  */
 
 namespace Controllers;
@@ -35,7 +35,6 @@ class Api extends Controller
 {
     private const CACHE_TTL = 86400; // 24h
     private const CACHE_DIR = __DIR__ . '/../storage/cache';
-    private const AUDIT_LOG = __DIR__ . '/../storage/logs/location_audit.log';
 
     /**
      * GET /api/analytics/{type}/{idCredito}
@@ -347,7 +346,11 @@ class Api extends Controller
 
     private function auditLog(string $endpoint, int $idCredito, array $params, bool $cacheHit, $summary): void
     {
-        $dir = dirname(self::AUDIT_LOG);
+        if ((string) getenv('SPARTA_ENABLE_FILE_LOGS') !== '1') {
+            return;
+        }
+        $logPath = rtrim(sys_get_temp_dir(), DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR . 'sparta___SPARTA_SECRET_REDACTED___php_logs' . DIRECTORY_SEPARATOR . 'location_audit.log';
+        $dir = dirname($logPath);
         if (!is_dir($dir)) {
             @mkdir($dir, 0755, true);
         }
@@ -375,7 +378,7 @@ class Api extends Controller
             'timestamp' => date('c'),
             'summary' => $summaryShort,
         ], JSON_UNESCAPED_UNICODE) . "\n";
-        @file_put_contents(self::AUDIT_LOG, $line, FILE_APPEND | LOCK_EX);
+        @file_put_contents($logPath, $line, FILE_APPEND | LOCK_EX);
     }
 
     /**
