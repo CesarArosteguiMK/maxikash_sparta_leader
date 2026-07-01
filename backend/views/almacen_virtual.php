@@ -53,46 +53,11 @@
         border-radius: .5rem;
         padding: .85rem;
     }
-    .av-import {
-        border: 1px solid #bae6fd;
-        background: #f0f9ff;
-        border-radius: .5rem;
-        padding: .85rem;
-    }
-    .av-import-title {
-        color: #0f172a;
-        font-size: .86rem;
-        font-weight: 800;
-        margin-bottom: .15rem;
-    }
-    .av-import-sub {
+    .av-sync-status {
         color: #64748b;
-        font-size: .76rem;
-    }
-    .av-pending {
-        border: 1px solid #e2e8f0;
-        background: #fff;
-        border-radius: .5rem;
-        overflow: hidden;
-    }
-    .av-pending-head {
-        display: flex;
-        align-items: flex-end;
-        justify-content: space-between;
-        gap: .75rem;
-        flex-wrap: wrap;
-        padding: .85rem;
-        border-bottom: 1px solid #e2e8f0;
-        background: #f8fafc;
-    }
-    .av-pending-title {
-        color: #0f172a;
-        font-weight: 800;
-        margin-bottom: .15rem;
-    }
-    .av-pending-sub {
-        color: #64748b;
-        font-size: .76rem;
+        font-size: .74rem;
+        margin-top: .25rem;
+        min-height: 1rem;
     }
     .av-table-wrap {
         border: 1px solid #e2e8f0;
@@ -167,6 +132,10 @@
     .av-status-en_recepcion { background: #dbeafe; color: #1d4ed8; }
     .av-status-pendiente_revision { background: #f3e8ff; color: #7e22ce; }
     .av-status-en_revision { background: #e0f2fe; color: #0369a1; }
+    .av-status-recolectada { background: #dcfce7; color: #15803d; }
+    .av-status-recolectado { background: #dcfce7; color: #15803d; }
+    .av-status-completado { background: #dcfce7; color: #15803d; }
+    .av-status-completada { background: #dcfce7; color: #15803d; }
     .av-status-reparada { background: #dcfce7; color: #166534; }
     .av-status-fuera_presupuesto { background: #fee2e2; color: #991b1b; }
     .av-status-irreparable { background: #e5e7eb; color: #374151; }
@@ -215,6 +184,7 @@
             <div>
                 <h4 class="mb-1">Inventario</h4>
                 <div class="text-muted small">Inventario operativo de Motos Adjudicadas por celula, ubicacion y estatus.</div>
+                <div class="av-sync-status" id="av-sync-status"></div>
             </div>
         </div>
         <button type="button" class="btn btn-outline-secondary btn-sm" id="av-btn-refresh">
@@ -238,94 +208,6 @@
         <div class="av-kpi">
             <div class="av-kpi-label">Estatus activos</div>
             <div class="av-kpi-value" id="av-kpi-estatus">0</div>
-        </div>
-    </section>
-
-    <section class="av-import">
-        <div class="row g-2 align-items-end">
-            <div class="col-12 col-lg-5">
-                <div class="av-import-title">
-                    <i class="fa-solid fa-motorcycle me-1"></i>Importar desde Motos Adjudicadas
-                </div>
-                <div class="av-import-sub">Crea la unidad fisica en inventario usando el expediente origen.</div>
-            </div>
-            <div class="col-12 col-sm-7 col-lg-4">
-                <label class="form-label small fw-bold" for="av-import-id-operacion">ID operacion</label>
-                <input type="number" min="1" step="1" class="form-control form-control-sm" id="av-import-id-operacion" placeholder="Ej. 123">
-            </div>
-            <div class="col-12 col-sm-5 col-lg-3 d-grid">
-                <button type="button" class="btn btn-info btn-sm" id="av-btn-import-madj">
-                    <i class="fa-solid fa-file-import me-1"></i>Crear unidad
-                </button>
-            </div>
-        </div>
-    </section>
-
-    <section class="av-pending">
-        <div class="av-pending-head">
-            <div>
-                <div class="av-pending-title">
-                    <i class="fa-solid fa-list-check me-1 text-primary"></i>Pendientes de Motos Adjudicadas
-                </div>
-                <div class="av-pending-sub">Operaciones listas para crear unidad fisica en inventario.</div>
-            </div>
-            <div class="d-flex align-items-end gap-2 flex-wrap">
-                <div>
-                    <label class="form-label small fw-bold" for="av-pending-q">Buscar pendiente</label>
-                    <input type="text" class="form-control form-control-sm" id="av-pending-q" placeholder="Operacion, credito, cliente">
-                </div>
-                <button type="button" class="btn btn-outline-secondary btn-sm" id="av-btn-pending-refresh">
-                    <i class="fa-solid fa-rotate-right me-1"></i>Actualizar
-                </button>
-            </div>
-        </div>
-        <div class="av-datatable-controls row mx-0 align-items-center">
-            <div class="col-sm-12 col-md-6">
-                <div class="dataTables_length">
-                    <label>
-                        Mostrar
-                        <select id="av-pending-limit" class="form-select form-select-sm">
-                            <option value="8" selected>8</option>
-                            <option value="16">16</option>
-                            <option value="32">32</option>
-                            <option value="64">64</option>
-                        </select>
-                        registros
-                    </label>
-                </div>
-            </div>
-        </div>
-        <div class="card-datatable table-responsive">
-            <table class="dt-responsive table border-top av-table">
-                <thead>
-                    <tr>
-                        <th>Operacion</th>
-                        <th>Cliente</th>
-                        <th>Unidad origen</th>
-                        <th>Estatus origen</th>
-                        <th>Sugerido</th>
-                        <th class="text-end">Accion</th>
-                    </tr>
-                </thead>
-                <tbody id="av-pendientes-body">
-                    <tr>
-                        <td colspan="6" class="av-empty">
-                            <i class="fa-solid fa-spinner fa-spin"></i>
-                            Cargando pendientes...
-                        </td>
-                    </tr>
-                </tbody>
-            </table>
-        </div>
-        <div class="av-datatable-footer row mx-0 align-items-center">
-            <div class="col-sm-12 col-md-5">
-                <div class="dataTables_info" id="av-pending-pager-info">Mostrando 0 a 0 de 0 pendientes</div>
-            </div>
-            <div class="col-sm-12 col-md-7">
-                <div class="dataTables_paginate paging_simple_numbers">
-                    <ul class="pagination" id="av-pending-pagination"></ul>
-                </div>
-            </div>
         </div>
     </section>
 
@@ -397,6 +279,7 @@
                         <th>Unidad</th>
                         <th>Celula</th>
                         <th>Identificacion</th>
+                        <th>Recoleccion</th>
                         <th>Ubicacion</th>
                         <th>Estatus</th>
                         <th>Ingreso</th>
@@ -404,7 +287,7 @@
                 </thead>
                 <tbody id="av-unidades-body">
                     <tr>
-                        <td colspan="6" class="av-empty">
+                        <td colspan="7" class="av-empty">
                             <i class="fa-solid fa-spinner fa-spin"></i>
                             Cargando unidades...
                         </td>
@@ -433,11 +316,6 @@
         pages: 1,
         total: 0,
         timer: null,
-        pendingTimer: null,
-        pendingPage: 1,
-        pendingLimit: 8,
-        pendingPages: 1,
-        pendingTotal: 0,
     };
 
     const $ = (id) => document.getElementById(id);
@@ -465,6 +343,10 @@
             en_recepcion: 'En recepcion',
             pendiente_revision: 'Pendiente revision',
             en_revision: 'En revision',
+            recolectada: 'Recolectada',
+            recolectado: 'Recolectada',
+            completado: 'Recolectada',
+            completada: 'Recolectada',
             reparada: 'Reparada',
             fuera_presupuesto: 'Fuera de presupuesto',
             irreparable: 'Irreparable',
@@ -476,7 +358,7 @@
 
     function statusHtml(value) {
         const key = String(value || 'default').replace(/[^a-z0-9_]/gi, '_');
-        const safeClass = ['pendiente_recepcion','en_recepcion','pendiente_revision','en_revision','reparada','fuera_presupuesto','irreparable','lista_venta','en_traspaso'].includes(key)
+        const safeClass = ['pendiente_recepcion','en_recepcion','pendiente_revision','en_revision','recolectada','recolectado','completado','completada','reparada','fuera_presupuesto','irreparable','lista_venta','en_traspaso'].includes(key)
             ? 'av-status-' + key
             : 'av-status-default';
         return '<span class="av-status ' + safeClass + '"><i class="fa-solid fa-circle"></i>' + esc(statusLabel(value)) + '</span>';
@@ -596,7 +478,7 @@
         const body = $('av-unidades-body');
         if (!body) return;
         if (!rows || rows.length === 0) {
-            body.innerHTML = '<tr><td colspan="6" class="av-empty"><i class="fa-solid fa-clipboard-list"></i>Sin unidades para los filtros seleccionados.</td></tr>';
+            body.innerHTML = '<tr><td colspan="7" class="av-empty"><i class="fa-solid fa-clipboard-list"></i>Sin unidades para los filtros seleccionados.</td></tr>';
             return;
         }
 
@@ -607,6 +489,10 @@
                 row.no_motor ? 'Motor ' + row.no_motor : '',
                 row.placas ? 'Placa ' + row.placas : '',
             ].filter(Boolean).join(' | ');
+            const ruta = row.tracking_id_ruta ? ('Ruta #' + row.tracking_id_ruta) : '';
+            const cedis = row.tracking_cedis_destino_nombre || '';
+            const fechaRecoleccion = row.tracking_fecha_finalizacion_fmt || '';
+            const trackingMeta = [ruta, cedis, fechaRecoleccion].filter(Boolean).join(' | ');
             return `
                 <tr>
                     <td>
@@ -617,6 +503,10 @@
                     <td>
                         <div>${esc(ids || 'Sin identificadores')}</div>
                         ${row.id_credito ? `<div class="av-unit-sub">Credito historico: ${esc(row.id_credito)}</div>` : ''}
+                    </td>
+                    <td>
+                        <div>${row.tracking_estatus_recoleccion ? statusHtml(row.tracking_estatus_recoleccion) : '<span class="text-muted small">Sin tracking</span>'}</div>
+                        <div class="av-unit-sub">${esc(trackingMeta || row.tracking_nombre_ruta || '')}</div>
                     </td>
                     <td>
                         <div>${esc(row.nombre_ubicacion || 'Sin ubicacion')}</div>
@@ -632,13 +522,13 @@
     async function cargarUnidades() {
         const body = $('av-unidades-body');
         if (body) {
-            body.innerHTML = '<tr><td colspan="6" class="av-empty"><i class="fa-solid fa-spinner fa-spin"></i>Cargando unidades...</td></tr>';
+            body.innerHTML = '<tr><td colspan="7" class="av-empty"><i class="fa-solid fa-spinner fa-spin"></i>Cargando unidades...</td></tr>';
         }
         const res = await fetch('/MotosAdjudicadas/inventarioUnidades?' + params().toString(), { headers: { Accept: 'application/json' } });
         const json = await res.json();
         if (!json.success) {
             if (body) {
-                body.innerHTML = '<tr><td colspan="6" class="av-empty"><i class="fa-solid fa-triangle-exclamation"></i>' + esc(json.message || 'No se pudieron cargar las unidades.') + '</td></tr>';
+                body.innerHTML = '<tr><td colspan="7" class="av-empty"><i class="fa-solid fa-triangle-exclamation"></i>' + esc(json.message || 'No se pudieron cargar las unidades.') + '</td></tr>';
             }
             return;
         }
@@ -658,136 +548,37 @@
         renderPagination('av-pagination', state.page, state.pages);
     }
 
-    function renderPendientes(rows) {
-        const body = $('av-pendientes-body');
-        if (!body) return;
-        if (!rows || rows.length === 0) {
-            body.innerHTML = '<tr><td colspan="6" class="av-empty"><i class="fa-solid fa-circle-check"></i>No hay operaciones pendientes por importar.</td></tr>';
-            return;
-        }
-
-        body.innerHTML = rows.map((row) => {
-            const moto = [row.marca_unidad, row.modelo_unidad, row.moto_anio].filter(Boolean).join(' ');
-            const ids = [
-                row.vin ? 'VIN ' + row.vin : '',
-                row.no_motor ? 'Motor ' + row.no_motor : '',
-                row.placas_unidad ? 'Placa ' + row.placas_unidad : '',
-            ].filter(Boolean).join(' | ');
-            return `
-                <tr>
-                    <td>
-                        <div class="av-unit-main">#${esc(row.id_operacion)}</div>
-                        ${row.id_credito ? `<div class="av-unit-sub">Credito hist.: ${esc(row.id_credito)}</div>` : ''}
-                    </td>
-                    <td>
-                        <div>${esc(row.nombre_cliente || 'Sin cliente')}</div>
-                        <div class="av-unit-sub">${esc(row.fecha_actualizacion_fmt || '')}</div>
-                    </td>
-                    <td>
-                        <div>${esc(moto || 'Sin datos de moto')}</div>
-                        <div class="av-unit-sub">${esc(ids || 'Sin identificadores')}</div>
-                    </td>
-                    <td>${esc(row.estatus || '')}</td>
-                    <td>${statusHtml(row.estatus_inventario_sugerido)}</td>
-                    <td class="text-end">
-                        <button type="button" class="btn btn-primary btn-sm av-pending-create" data-id-operacion="${esc(row.id_operacion)}">
-                            <i class="fa-solid fa-file-import me-1"></i>Crear
-                        </button>
-                    </td>
-                </tr>
-            `;
-        }).join('');
-    }
-
-    function actualizarPagerPendientes() {
-        const info = $('av-pending-pager-info');
-        if (info) {
-            info.textContent = rangeInfo(state.pendingTotal, state.pendingPage, state.pendingLimit, 'pendientes');
-        }
-        renderPagination('av-pending-pagination', state.pendingPage, state.pendingPages);
-    }
-
-    async function cargarPendientesMotosAdjudicadas(resetPage = false) {
-        if (resetPage) state.pendingPage = 1;
-        const body = $('av-pendientes-body');
-        if (body) {
-            body.innerHTML = '<tr><td colspan="6" class="av-empty"><i class="fa-solid fa-spinner fa-spin"></i>Cargando pendientes...</td></tr>';
-        }
-        const p = new URLSearchParams({
-            limit: String(state.pendingLimit),
-            page: String(state.pendingPage),
-        });
-        const q = $('av-pending-q')?.value.trim() || '';
-        if (q) p.set('q', q);
+    async function sincronizarRecolectadasInventario(silent = true) {
+        const status = $('av-sync-status');
+        if (status) status.textContent = 'Sincronizando recolectadas de Tracking...';
         try {
-            const res = await fetch('/MotosAdjudicadas/inventarioPendientesMotosAdjudicadas?' + p.toString(), { headers: { Accept: 'application/json' } });
-            const json = await res.json();
-            if (!json.success) {
-                if (body) {
-                    body.innerHTML = '<tr><td colspan="6" class="av-empty"><i class="fa-solid fa-triangle-exclamation"></i>' + esc(json.message || 'No se pudieron cargar pendientes.') + '</td></tr>';
-                }
-                return;
-            }
-            state.pendingTotal = Number(json.total || 0);
-            state.pendingPages = Number(json.pages || 1);
-            state.pendingPage = Number(json.page || 1);
-            state.pendingLimit = Number(json.limit || state.pendingLimit);
-            renderPendientes(json.rows || []);
-            actualizarPagerPendientes();
-        } catch (err) {
-            if (body) {
-                body.innerHTML = '<tr><td colspan="6" class="av-empty"><i class="fa-solid fa-triangle-exclamation"></i>' + esc(err.message || 'Error al cargar pendientes.') + '</td></tr>';
-            }
-        }
-    }
-
-    async function importarDesdeMotosAdjudicadas(idOperacionArg) {
-        const input = $('av-import-id-operacion');
-        const btn = $('av-btn-import-madj');
-        const idOperacion = Number(idOperacionArg || input?.value || 0);
-        if (!idOperacion || idOperacion <= 0) {
-            notify('warning', 'ID requerido', 'Indica un id_operacion valido.');
-            input?.focus();
-            return;
-        }
-
-        const originalHtml = btn ? btn.innerHTML : '';
-        if (btn) {
-            btn.disabled = true;
-            btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin me-1"></i>Creando...';
-        }
-
-        try {
-            const res = await fetch('/MotosAdjudicadas/inventarioCrearDesdeMotosAdjudicadas', {
+            const res = await fetch('/MotosAdjudicadas/inventarioSincronizarRecolectadas?limit=250', {
                 method: 'POST',
-                headers: {
-                    'Accept': 'application/json',
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({ id_operacion: idOperacion }),
+                headers: { Accept: 'application/json' },
             });
             const json = await res.json();
-            if (!json.success) {
-                notify('error', 'No se pudo crear', json.message || 'Intenta nuevamente.');
-                return;
+            if (!json.success && !Number(json.creadas || 0)) {
+                if (status) status.textContent = json.message || 'No se pudo sincronizar recolectadas automaticamente.';
+                if (!silent) notify('warning', 'Sin sincronizacion', json.message || 'No se pudo sincronizar recolectadas.');
+                return json;
             }
-
-            input.value = '';
-            reloadAll(true);
-            cargarPendientesMotosAdjudicadas();
-            const folio = json.unidad && json.unidad.folio_unidad ? json.unidad.folio_unidad : '';
-            notify(
-                json.ya_existe ? 'info' : 'success',
-                json.ya_existe ? 'Unidad ya existente' : 'Unidad creada',
-                folio ? ('Folio: ' + folio) : (json.message || 'Operacion completada.')
-            );
+            const creadas = Number(json.creadas || 0);
+            const errores = Array.isArray(json.errores) ? json.errores.length : 0;
+            if (status) {
+                status.textContent = creadas > 0
+                    ? `${creadas} unidad(es) recolectada(s) migrada(s) al inventario.`
+                    : 'Sin recolectadas nuevas por migrar.';
+            }
+            if (!silent && creadas > 0) {
+                notify('success', 'Sincronizacion lista', `${creadas} unidad(es) migrada(s) desde Tracking.`);
+            } else if (!silent && errores > 0) {
+                notify('warning', 'Sincronizacion parcial', json.message || 'Algunas unidades no pudieron sincronizarse.');
+            }
+            return json;
         } catch (err) {
-            notify('error', 'Error de red', err.message || 'No se pudo contactar al servidor.');
-        } finally {
-            if (btn) {
-                btn.disabled = false;
-                btn.innerHTML = originalHtml;
-            }
+            if (status) status.textContent = 'No se pudo sincronizar recolectadas automaticamente.';
+            if (!silent) notify('error', 'Error de sincronizacion', err.message || 'No se pudo contactar al servidor.');
+            return null;
         }
     }
 
@@ -797,45 +588,16 @@
         cargarUnidades().catch((err) => {
             const body = $('av-unidades-body');
             if (body) {
-                body.innerHTML = '<tr><td colspan="6" class="av-empty"><i class="fa-solid fa-triangle-exclamation"></i>' + esc(err.message || 'Error inesperado.') + '</td></tr>';
+                body.innerHTML = '<tr><td colspan="7" class="av-empty"><i class="fa-solid fa-triangle-exclamation"></i>' + esc(err.message || 'Error inesperado.') + '</td></tr>';
             }
         });
     }
 
     function init() {
-        $('av-btn-refresh')?.addEventListener('click', () => reloadAll(false));
+        $('av-btn-refresh')?.addEventListener('click', () => {
+            sincronizarRecolectadasInventario(false).finally(() => reloadAll(false));
+        });
         $('av-btn-filtrar')?.addEventListener('click', () => reloadAll(true));
-        $('av-btn-pending-refresh')?.addEventListener('click', () => cargarPendientesMotosAdjudicadas());
-        $('av-pending-q')?.addEventListener('input', () => {
-            window.clearTimeout(state.pendingTimer);
-            state.pendingTimer = window.setTimeout(() => cargarPendientesMotosAdjudicadas(true), 350);
-        });
-        $('av-pendientes-body')?.addEventListener('click', (ev) => {
-            const btn = ev.target.closest('.av-pending-create');
-            if (!btn) return;
-            importarDesdeMotosAdjudicadas(btn.dataset.idOperacion);
-        });
-        $('av-pending-limit')?.addEventListener('change', () => {
-            state.pendingLimit = Number($('av-pending-limit')?.value || 8) || 8;
-            cargarPendientesMotosAdjudicadas(true);
-        });
-        $('av-pending-pagination')?.addEventListener('click', (ev) => {
-            const link = ev.target.closest('[data-page]');
-            if (!link) return;
-            ev.preventDefault();
-            const nextPage = Number(link.dataset.page || 1);
-            if (nextPage && nextPage !== state.pendingPage) {
-                state.pendingPage = nextPage;
-                cargarPendientesMotosAdjudicadas();
-            }
-        });
-        $('av-btn-import-madj')?.addEventListener('click', importarDesdeMotosAdjudicadas);
-        $('av-import-id-operacion')?.addEventListener('keydown', (ev) => {
-            if (ev.key === 'Enter') {
-                ev.preventDefault();
-                importarDesdeMotosAdjudicadas();
-            }
-        });
         $('av-limit')?.addEventListener('change', () => {
             state.limit = Number($('av-limit')?.value || 8) || 8;
             reloadAll(true);
@@ -861,8 +623,9 @@
         cargarCatalogos()
             .catch(() => {})
             .finally(() => {
-                reloadAll(true);
-                cargarPendientesMotosAdjudicadas();
+                sincronizarRecolectadasInventario(true).finally(() => {
+                    reloadAll(true);
+                });
             });
     }
 

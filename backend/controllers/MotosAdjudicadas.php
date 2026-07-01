@@ -172,12 +172,23 @@ class MotosAdjudicadas extends Controller
     }
 
     /**
+     * GET /MotosAdjudicadas/almacenVirtual
+     */
+    public function almacenVirtual()
+    {
+        $emp = defined('CONFIGURACION') && isset(CONFIGURACION['EMPRESA']) ? (string) CONFIGURACION['EMPRESA'] : '';
+        self::set('titulo', 'Almacen Virtual - Motos Adjudicadas ' . $emp);
+        self::set('av_modulo_id', InventarioMotosDAO::moduloAlmacenVirtual());
+        return self::render('almacen_virtual_menu');
+    }
+
+    /**
      * GET /MotosAdjudicadas/inventario
      */
     public function inventario()
     {
         $emp = defined('CONFIGURACION') && isset(CONFIGURACION['EMPRESA']) ? (string) CONFIGURACION['EMPRESA'] : '';
-        self::set('titulo', 'Inventario - Motos Adjudicadas ' . $emp);
+        self::set('titulo', 'Inventario - Almacen Virtual ' . $emp);
         self::set('av_modulo_id', InventarioMotosDAO::moduloAlmacenVirtual());
         return self::render('almacen_virtual');
     }
@@ -268,35 +279,34 @@ class MotosAdjudicadas extends Controller
         }
     }
 
-    public function inventarioCrearDesdeMotosAdjudicadas()
+    public function inventarioSincronizarRecolectadas()
     {
         header('Content-Type: application/json; charset=utf-8');
-        $data = json_decode((string) file_get_contents('php://input'), true) ?: [];
-        if (!$data && !empty($_POST)) {
-            $data = $_POST;
-        }
-
-        $idOperacion = (int) ($data['id_operacion'] ?? 0);
-        if ($idOperacion <= 0) {
-            echo json_encode(['success' => false, 'message' => 'Indica un id_operacion valido.'], JSON_UNESCAPED_UNICODE);
-            return;
-        }
-
         $idUsuario = (int) ($_SESSION['persona_id'] ?? $_SESSION['usuario_id'] ?? $_SESSION['id_usuario'] ?? $_SESSION['id'] ?? 0);
         $nombreUsuario = trim((string) ($_SESSION['usuario_nombre'] ?? $_SESSION['nombre'] ?? $_SESSION['usuario'] ?? 'SISTEMA'));
+        $limit = (int) ($_GET['limit'] ?? $_POST['limit'] ?? 200);
 
         try {
             echo json_encode(
-                $this->inventarioDao()->crearDesdeMotosAdjudicadas($idOperacion, $idUsuario, $nombreUsuario),
+                $this->inventarioDao()->sincronizarRecolectadasMotosAdjudicadas($idUsuario, $nombreUsuario, $limit),
                 JSON_UNESCAPED_UNICODE
             );
         } catch (\Throwable $e) {
             echo json_encode([
                 'success' => false,
-                'message' => 'No se pudo crear la unidad desde Motos Adjudicadas.',
+                'message' => 'No se pudo sincronizar motos recolectadas.',
                 'error' => $e->getMessage(),
             ], JSON_UNESCAPED_UNICODE);
         }
+    }
+
+    public function inventarioCrearDesdeMotosAdjudicadas()
+    {
+        header('Content-Type: application/json; charset=utf-8');
+        echo json_encode([
+            'success' => false,
+            'message' => 'El alta manual por id_operacion esta deshabilitada. El inventario se alimenta automaticamente desde recolecciones confirmadas en Tracking.',
+        ], JSON_UNESCAPED_UNICODE);
     }
 
     /**
@@ -387,6 +397,16 @@ class MotosAdjudicadas extends Controller
     }
 
     /**
+     * GET /MotosAdjudicadas/reporteHistoricoFlujo
+     */
+    public function reporteHistoricoFlujo()
+    {
+        $emp = defined('CONFIGURACION') && isset(CONFIGURACION['EMPRESA']) ? (string) CONFIGURACION['EMPRESA'] : '';
+        self::set('titulo', 'Historico por etapas - Motos Adjudicadas ' . $emp);
+        return self::render('motos_adjudicadas_reporte_historico_flujo');
+    }
+
+    /**
      * GET /MotosAdjudicadas/timelineCredito
      */
     public function timelineCredito()
@@ -434,6 +454,333 @@ class MotosAdjudicadas extends Controller
                 'error' => $e->getMessage(),
             ], JSON_UNESCAPED_UNICODE);
         }
+    }
+
+    /**
+     * GET /MotosAdjudicadas/reporteHistoricoFlujoDatos
+     */
+    public function reporteHistoricoFlujoDatos()
+    {
+        header('Content-Type: application/json; charset=utf-8');
+        try {
+            echo json_encode([
+                'success' => true,
+                'datos' => $this->model->obtenerReporteHistoricoFlujoMotosAdjudicadas($_GET),
+            ], JSON_UNESCAPED_UNICODE);
+        } catch (\Throwable $e) {
+            echo json_encode([
+                'success' => false,
+                'message' => 'No se pudo cargar el historico por etapas.',
+                'error' => $e->getMessage(),
+            ], JSON_UNESCAPED_UNICODE);
+        }
+    }
+
+    /**
+     * GET /MotosAdjudicadas/reporteHistoricoFlujoExcel
+     */
+    public function reporteHistoricoFlujoExcel()
+    {
+        try {
+            if (!class_exists('\\PhpOffice\\PhpSpreadsheet\\Spreadsheet')) {
+                http_response_code(500);
+                echo 'El generador Excel no esta disponible.';
+                return;
+            }
+
+            $datos = $this->model->obtenerReporteHistoricoFlujoMotosAdjudicadas($_GET);
+            $rows = $this->madjHistoricoFlujoRowsExport($datos);
+
+            $spreadsheet = new \PhpOffice\PhpSpreadsheet\Spreadsheet();
+            $sheet = $spreadsheet->getActiveSheet();
+            $sheet->setTitle('Historico etapas');
+
+            $headers = [
+                'Etapa',
+                'Operacion',
+                'Credito',
+                'Cliente',
+                'Estatus',
+                'Estado',
+                'Municipio',
+                'Unidad',
+                'VIN',
+                'Gestor',
+                'Fecha de etapa',
+                'Ultima actualizacion',
+            ];
+
+            $lastCol = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex(count($headers));
+            $borde = [
+                'borders' => [
+                    'allBorders' => [
+                        'borderStyle' => \PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN,
+                        'color' => ['rgb' => 'D9DEE3'],
+                    ],
+                ],
+            ];
+
+            $sheet->mergeCells("A1:{$lastCol}1");
+            $sheet->setCellValue('A1', 'Historico por etapas - Motos Adjudicadas');
+            $sheet->getStyle('A1')->applyFromArray([
+                'font' => ['bold' => true, 'size' => 15, 'color' => ['rgb' => 'FFFFFF']],
+                'fill' => ['fillType' => \PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID, 'startColor' => ['rgb' => '24334F']],
+                'alignment' => [
+                    'horizontal' => \PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER,
+                    'vertical' => \PhpOffice\PhpSpreadsheet\Style\Alignment::VERTICAL_CENTER,
+                ],
+            ] + $borde);
+            $sheet->getRowDimension(1)->setRowHeight(30);
+
+            $sheet->mergeCells("A2:{$lastCol}2");
+            $sheet->setCellValue('A2', 'Generado: ' . date('d/m/Y H:i') . ' - America/Mexico_City');
+            $sheet->getStyle('A2')->applyFromArray([
+                'font' => ['size' => 10, 'color' => ['rgb' => '697A8D']],
+                'fill' => ['fillType' => \PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID, 'startColor' => ['rgb' => 'F8F9FC']],
+                'alignment' => [
+                    'horizontal' => \PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER,
+                    'vertical' => \PhpOffice\PhpSpreadsheet\Style\Alignment::VERTICAL_CENTER,
+                ],
+            ] + $borde);
+
+            foreach ($headers as $idx => $header) {
+                $col = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($idx + 1);
+                $sheet->setCellValue($col . '4', $header);
+            }
+            $sheet->getStyle("A4:{$lastCol}4")->applyFromArray([
+                'font' => ['bold' => true, 'size' => 10, 'color' => ['rgb' => '24334F']],
+                'fill' => ['fillType' => \PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID, 'startColor' => ['rgb' => 'EAF3FF']],
+                'alignment' => [
+                    'horizontal' => \PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER,
+                    'vertical' => \PhpOffice\PhpSpreadsheet\Style\Alignment::VERTICAL_CENTER,
+                    'wrapText' => true,
+                ],
+            ] + $borde);
+            $sheet->getRowDimension(4)->setRowHeight(24);
+
+            $fila = 5;
+            foreach ($rows as $row) {
+                $values = [
+                    $row['etapa'],
+                    $row['operacion'],
+                    $row['credito'],
+                    $row['cliente'],
+                    $row['estatus'],
+                    $row['estado'],
+                    $row['municipio'],
+                    $row['unidad'],
+                    $row['vin'],
+                    $row['gestor'],
+                    $row['fecha_etapa'],
+                    $row['fecha_actualizacion'],
+                ];
+
+                foreach ($values as $idx => $value) {
+                    $col = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($idx + 1);
+                    $sheet->setCellValueExplicit(
+                        $col . $fila,
+                        $this->madjTextoReporte($value),
+                        \PhpOffice\PhpSpreadsheet\Cell\DataType::TYPE_STRING
+                    );
+                }
+
+                $fill = ($fila % 2 === 0) ? 'FFFFFF' : 'FBFCFE';
+                $sheet->getStyle("A{$fila}:{$lastCol}{$fila}")->applyFromArray([
+                    'font' => ['size' => 10, 'color' => ['rgb' => '434A54']],
+                    'fill' => ['fillType' => \PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID, 'startColor' => ['rgb' => $fill]],
+                    'alignment' => [
+                        'vertical' => \PhpOffice\PhpSpreadsheet\Style\Alignment::VERTICAL_CENTER,
+                        'wrapText' => true,
+                    ],
+                ] + $borde);
+                $sheet->getRowDimension($fila)->setRowHeight(28);
+                $fila++;
+            }
+
+            if ($rows === []) {
+                $sheet->mergeCells("A5:{$lastCol}5");
+                $sheet->setCellValue('A5', 'Sin registros para mostrar con los filtros actuales.');
+                $sheet->getStyle("A5:{$lastCol}5")->applyFromArray([
+                    'font' => ['italic' => true, 'color' => ['rgb' => '697A8D']],
+                    'alignment' => ['horizontal' => \PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER],
+                ] + $borde);
+                $fila = 6;
+            }
+
+            $widths = [24, 18, 14, 34, 18, 22, 24, 30, 24, 32, 20, 20];
+            foreach ($widths as $idx => $width) {
+                $col = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($idx + 1);
+                $sheet->getColumnDimension($col)->setWidth($width);
+            }
+
+            $sheet->freezePane('A5');
+            $sheet->setAutoFilter("A4:{$lastCol}" . max(4, $fila - 1));
+            $sheet->setSelectedCells('A1');
+
+            $filename = 'HistoricoEtapas_MotosAdjudicadas_' . date('Ymd_His') . '.xlsx';
+            header('Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+            header('Content-Disposition: attachment; filename="' . $filename . '"');
+            header('Cache-Control: max-age=0');
+            (new \PhpOffice\PhpSpreadsheet\Writer\Xlsx($spreadsheet))->save('php://output');
+            exit;
+        } catch (\Throwable $e) {
+            http_response_code(500);
+            header('Content-Type: text/plain; charset=utf-8');
+            echo 'No se pudo generar el Excel: ' . $e->getMessage();
+        }
+    }
+
+    /**
+     * GET /MotosAdjudicadas/reporteHistoricoFlujoPdf
+     */
+    public function reporteHistoricoFlujoPdf()
+    {
+        try {
+            if (!class_exists('\\Mpdf\\Mpdf')) {
+                http_response_code(500);
+                echo 'El generador PDF no esta disponible.';
+                return;
+            }
+
+            $datos = $this->model->obtenerReporteHistoricoFlujoMotosAdjudicadas($_GET);
+            $tmpDir = defined('RAIZ') ? (RAIZ . '/storage/tmp_mpdf') : sys_get_temp_dir();
+            if (!is_dir($tmpDir)) {
+                @mkdir($tmpDir, 0775, true);
+            }
+
+            $mpdf = new \Mpdf\Mpdf([
+                'format' => 'A4-L',
+                'orientation' => 'L',
+                'tempDir' => $tmpDir,
+                'margin_left' => 8,
+                'margin_right' => 8,
+                'margin_top' => 8,
+                'margin_bottom' => 10,
+            ]);
+            $mpdf->SetTitle('Historico por etapas - Motos Adjudicadas');
+            $mpdf->WriteHTML($this->madjHistoricoFlujoPdfHtml($datos));
+            $filename = 'HistoricoEtapas_MotosAdjudicadas_' . date('Ymd_His') . '.pdf';
+            $mpdf->Output($filename, \Mpdf\Output\Destination::DOWNLOAD);
+        } catch (\Throwable $e) {
+            http_response_code(500);
+            echo 'No se pudo generar el PDF: ' . $e->getMessage();
+        }
+    }
+
+    private function madjTextoReporte($value): string
+    {
+        $txt = html_entity_decode((string) ($value ?? ''), ENT_QUOTES, 'UTF-8');
+        $txt = strtr($txt, [
+            'Ã¡' => 'a', 'Ã©' => 'e', 'Ã­' => 'i', 'Ã³' => 'o', 'Ãº' => 'u', 'Ã¼' => 'u', 'Ã±' => 'n',
+            'Ã' => 'A', 'Ã‰' => 'E', 'Ã' => 'I', 'Ã“' => 'O', 'Ãš' => 'U', 'Ãœ' => 'U', 'Ã‘' => 'N',
+            'Â·' => '-', 'â€”' => '-', 'â€“' => '-', 'â€¦' => '...', 'Â' => '',
+            'á' => 'a', 'é' => 'e', 'í' => 'i', 'ó' => 'o', 'ú' => 'u', 'ü' => 'u', 'ñ' => 'n',
+            'Á' => 'A', 'É' => 'E', 'Í' => 'I', 'Ó' => 'O', 'Ú' => 'U', 'Ü' => 'U', 'Ñ' => 'N',
+        ]);
+        $txt = preg_replace('/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]+/u', '', $txt) ?? $txt;
+        $txt = preg_replace('/\s+/u', ' ', $txt) ?? $txt;
+        return trim($txt);
+    }
+
+    private function madjHistoricoFlujoRowsExport(array $datos): array
+    {
+        $rows = [];
+        foreach ((array) ($datos['etapas'] ?? []) as $etapa) {
+            $tituloEtapa = $this->madjTextoReporte($etapa['titulo'] ?? 'Sin etapa');
+            foreach ((array) ($etapa['creditos'] ?? []) as $row) {
+                $rows[] = [
+                    'etapa' => $tituloEtapa,
+                    'operacion' => $this->madjTextoReporte($row['folio'] ?? ('ADJ-' . (string) ($row['id_operacion'] ?? ''))),
+                    'credito' => (string) ($row['id_credito'] ?? ''),
+                    'cliente' => $this->madjTextoReporte($row['nombre_cliente'] ?? ''),
+                    'estatus' => $this->madjTextoReporte($row['estatus'] ?? ''),
+                    'estado' => $this->madjTextoReporte($row['estado'] ?? ''),
+                    'municipio' => $this->madjTextoReporte($row['municipio'] ?? ''),
+                    'unidad' => $this->madjTextoReporte($row['unidad'] ?? ''),
+                    'vin' => $this->madjTextoReporte($row['vin'] ?? ''),
+                    'gestor' => $this->madjTextoReporte($row['gestor_nombre'] ?? ''),
+                    'fecha_etapa' => $this->madjTextoReporte($row['fecha_etapa_fmt'] ?? ''),
+                    'fecha_actualizacion' => $this->madjFmtFechaReporte($row['fecha_actualizacion'] ?? null),
+                ];
+            }
+        }
+
+        return $rows;
+    }
+
+    private function madjFmtFechaReporte($fecha): string
+    {
+        $fecha = trim((string) ($fecha ?? ''));
+        if ($fecha === '') {
+            return 'Sin fecha';
+        }
+        $ts = strtotime($fecha);
+        return $ts !== false ? date('d/m/Y H:i', $ts) : $this->madjTextoReporte($fecha);
+    }
+
+    private function madjHistoricoFlujoPdfHtml(array $datos): string
+    {
+        $resumen = is_array($datos['resumen'] ?? null) ? $datos['resumen'] : [];
+        $etapas = is_array($datos['etapas'] ?? null) ? $datos['etapas'] : [];
+
+        $etapasHtml = '';
+        foreach ($etapas as $etapa) {
+            $titulo = $this->madjTextoReporte($etapa['titulo'] ?? 'Sin etapa');
+            $total = (int) ($etapa['total'] ?? 0);
+            $items = '';
+            foreach ((array) ($etapa['creditos'] ?? []) as $idx => $row) {
+                if ($idx >= 120) {
+                    $items .= '<tr><td colspan="5" class="muted">Se muestran los primeros 120 registros de esta etapa en PDF. Descarga el XLSX para ver el detalle completo.</td></tr>';
+                    break;
+                }
+                $items .= '<tr>'
+                    . '<td>' . $this->madjPdfEsc($row['folio'] ?? '') . '</td>'
+                    . '<td>#' . $this->madjPdfEsc($row['id_credito'] ?? '') . '<br><span>' . $this->madjPdfEsc($row['nombre_cliente'] ?? '') . '</span></td>'
+                    . '<td>' . $this->madjPdfEsc($row['estatus'] ?? '') . '</td>'
+                    . '<td>' . $this->madjPdfEsc(trim(($row['estado'] ?? '') . ' / ' . ($row['municipio'] ?? ''), ' /')) . '</td>'
+                    . '<td>' . $this->madjPdfEsc($row['fecha_etapa_fmt'] ?? '') . '</td>'
+                    . '</tr>';
+            }
+            if ($items === '') {
+                $items = '<tr><td colspan="5" class="muted">Sin creditos en esta etapa.</td></tr>';
+            }
+
+            $etapasHtml .= '<div class="stage-title">' . $this->madjPdfEsc($titulo) . ' <span>(' . number_format($total) . ')</span></div>'
+                . '<table class="data"><thead><tr><th>Operacion</th><th>Credito / Cliente</th><th>Estatus</th><th>Ubicacion</th><th>Fecha etapa</th></tr></thead><tbody>'
+                . $items
+                . '</tbody></table>';
+        }
+
+        return '<!doctype html><html><head><meta charset="UTF-8"><style>
+            body{font-family:Arial,sans-serif;color:#1f2937;font-size:9.5px}
+            .hero{background:#24334f;color:#fff;padding:16px;border-radius:8px;margin-bottom:10px}
+            .hero h1{font-size:19px;margin:0 0 4px}
+            .hero p{margin:0;color:#dbeafe}
+            .summary{width:100%;border-collapse:collapse;margin-bottom:10px}
+            .summary td{border:1px solid #d8e2ef;padding:8px}
+            .label{font-size:8px;color:#64748b;text-transform:uppercase;font-weight:bold}
+            .value{font-size:14px;font-weight:bold;color:#0f172a}
+            .stage-title{font-size:13px;font-weight:bold;color:#0f172a;margin:12px 0 5px}
+            .stage-title span{color:#0f9d92}
+            table.data{width:100%;border-collapse:collapse;page-break-inside:auto}
+            table.data th{background:#eaf3ff;color:#24334f;font-size:8.5px;text-align:left;padding:6px;border:1px solid #d8e2ef}
+            table.data td{padding:6px;border:1px solid #d8e2ef;vertical-align:top}
+            table.data span{color:#64748b}
+            .muted{color:#64748b}
+        </style></head><body>
+            <div class="hero">
+                <h1>Historico por etapas - Motos Adjudicadas</h1>
+                <p>Reporte generado el ' . date('d/m/Y H:i') . ' - America/Mexico_City</p>
+            </div>
+            <table class="summary">
+                <tr>
+                    <td><div class="label">Total historico</div><div class="value">' . number_format((int) ($resumen['total'] ?? 0)) . '</div></td>
+                    <td><div class="label">Etapas</div><div class="value">' . number_format(count($etapas)) . '</div></td>
+                    <td><div class="label">Tracking</div><div class="value">' . (!empty($resumen['tracking_disponible']) ? 'Disponible' : 'Pendiente') . '</div></td>
+                </tr>
+            </table>'
+            . $etapasHtml .
+        '</body></html>';
     }
 
     /**
@@ -510,7 +857,7 @@ class MotosAdjudicadas extends Controller
 
     private function madjPdfEsc($value): string
     {
-        return htmlspecialchars((string) ($value ?? ''), ENT_QUOTES, 'UTF-8');
+        return htmlspecialchars($this->madjTextoReporte($value), ENT_QUOTES, 'UTF-8');
     }
 
     private function madjTimelinePdfHtml(array $datos): string

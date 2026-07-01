@@ -8201,6 +8201,288 @@ EOSQL;
         ];
     }
 
+    private function madjHistoricoFlujoEtapas(): array
+    {
+        return [
+            'asignacion_gestor' => [
+                'key' => 'asignacion_gestor',
+                'titulo' => 'Asignacion de credito al gestor',
+                'descripcion' => 'Creditos que entraron a motos adjudicadas y aun no avanzan a evidencias.',
+                'icon' => 'fa-user-check',
+            ],
+            'evidencias' => [
+                'key' => 'evidencias',
+                'titulo' => 'Evidencias',
+                'descripcion' => 'Creditos con captura fotografica o documental registrada.',
+                'icon' => 'fa-camera',
+            ],
+            'recuperacion' => [
+                'key' => 'recuperacion',
+                'titulo' => 'Recuperacion',
+                'descripcion' => 'Creditos con movimientos de recuperacion o validacion operativa.',
+                'icon' => 'fa-motorcycle',
+            ],
+            'envio_cartera' => [
+                'key' => 'envio_cartera',
+                'titulo' => 'Envio a cartera',
+                'descripcion' => 'Creditos enviados a gestion de cartera o cierre documental.',
+                'icon' => 'fa-folder-open',
+            ],
+            'tracking_recoleccion' => [
+                'key' => 'tracking_recoleccion',
+                'titulo' => 'Tracking de recoleccion',
+                'descripcion' => 'Creditos agregados a rutas de recoleccion.',
+                'icon' => 'fa-route',
+            ],
+            'recepcion' => [
+                'key' => 'recepcion',
+                'titulo' => 'Recepcion',
+                'descripcion' => 'Creditos con llegada o recepcion confirmada en almacen/CEDIS.',
+                'icon' => 'fa-warehouse',
+            ],
+        ];
+    }
+
+    private function madjHistoricoFlujoQuery(string $where, string $estadoSql, bool $incluirTracking): string
+    {
+        $trackingSelect = $incluirTracking
+            ? ",
+                (SELECT COUNT(*)
+                 FROM asigna_horas_tracking_detalle atd
+                 WHERE atd.id_credito = o.id_credito) AS tracking_total,
+                (SELECT MIN(COALESCE(atd.fecha_agregado, atr.fecha_creacion))
+                 FROM asigna_horas_tracking_detalle atd
+                 INNER JOIN asigna_horas_tracking atr ON atr.id_ruta = atd.id_ruta
+                 WHERE atd.id_credito = o.id_credito) AS fecha_tracking,
+                (SELECT atr.nombre_ruta
+                 FROM asigna_horas_tracking_detalle atd
+                 INNER JOIN asigna_horas_tracking atr ON atr.id_ruta = atd.id_ruta
+                 WHERE atd.id_credito = o.id_credito
+                 ORDER BY COALESCE(atd.fecha_agregado, atr.fecha_creacion) DESC, atd.id_detalle DESC
+                 LIMIT 1) AS ruta_tracking,
+                (SELECT atr.estatus_ruta
+                 FROM asigna_horas_tracking_detalle atd
+                 INNER JOIN asigna_horas_tracking atr ON atr.id_ruta = atd.id_ruta
+                 WHERE atd.id_credito = o.id_credito
+                 ORDER BY COALESCE(atd.fecha_agregado, atr.fecha_creacion) DESC, atd.id_detalle DESC
+                 LIMIT 1) AS estatus_tracking"
+            : ",
+                0 AS tracking_total,
+                NULL AS fecha_tracking,
+                NULL AS ruta_tracking,
+                NULL AS estatus_tracking";
+
+        return "SELECT
+                o.id,
+                o.folio,
+                o.id_credito,
+                o.nombre_cliente,
+                COALESCE(NULLIF(TRIM(o.estatus), ''), 'Sin estatus') AS estatus,
+                {$estadoSql} AS estado_normalizado,
+                COALESCE(NULLIF(TRIM(o.log_ciudad), ''), 'SIN MUNICIPIO') AS municipio,
+                COALESCE(NULLIF(TRIM(o.log_direccion), ''), 'Sin direccion') AS direccion,
+                TRIM(CONCAT_WS(' ', COALESCE(o.moto_marca, o.marca), COALESCE(o.moto_modelo, o.modelo))) AS unidad,
+                COALESCE(o.moto_no_serie, o.serie, '') AS vin,
+                COALESCE(o.moto_placas, '') AS placas,
+                o.fecha_alta,
+                o.fecha_actualizacion,
+                o.fecha_llegada_almacen,
+                o.recepcion_confirmada_at,
+                (SELECT COUNT(*)
+                 FROM asigna_creditos_adjudicacion aca
+                 WHERE aca.id_credito = o.id_credito) AS asignaciones_total,
+                (SELECT MIN(aca.fecha_alta)
+                 FROM asigna_creditos_adjudicacion aca
+                 WHERE aca.id_credito = o.id_credito) AS fecha_asignacion,
+                (SELECT TRIM(CONCAT_WS(' ', per.nombres, per.segundo_nombre, per.apellidop, per.apellidom))
+                 FROM asigna_creditos_adjudicacion aca
+                 INNER JOIN personal_adjudicacion pa ON pa.id = aca.id_personal_adj
+                 INNER JOIN persona per ON per.id = pa.id_persona
+                 WHERE aca.id_credito = o.id_credito
+                 ORDER BY (aca.estatus = '1') DESC, aca.id DESC
+                 LIMIT 1) AS gestor_nombre,
+                (SELECT COUNT(*)
+                 FROM adj_evidencia ev
+                 WHERE ev.id_operacion = o.id) AS evidencias_total,
+                (SELECT MIN(ev.fecha_alta)
+                 FROM adj_evidencia ev
+                 WHERE ev.id_operacion = o.id) AS fecha_evidencia,
+                (SELECT COUNT(*)
+                 FROM adj_historial_estatus h
+                 WHERE h.id_operacion = o.id
+                   AND (
+                       LOWER(COALESCE(h.estatus_nuevo, '')) LIKE '%recuper%'
+                       OR LOWER(COALESCE(h.estatus_nuevo, '')) LIKE '%recibido%'
+                       OR LOWER(COALESCE(h.estatus_nuevo, '')) LIKE '%transito%'
+                       OR LOWER(COALESCE(h.estatus_nuevo, '')) LIKE '%tránsito%'
+                   )) AS recuperacion_total,
+                (SELECT MIN(h.fecha)
+                 FROM adj_historial_estatus h
+                 WHERE h.id_operacion = o.id
+                   AND (
+                       LOWER(COALESCE(h.estatus_nuevo, '')) LIKE '%recuper%'
+                       OR LOWER(COALESCE(h.estatus_nuevo, '')) LIKE '%recibido%'
+                       OR LOWER(COALESCE(h.estatus_nuevo, '')) LIKE '%transito%'
+                       OR LOWER(COALESCE(h.estatus_nuevo, '')) LIKE '%tránsito%'
+                   )) AS fecha_recuperacion,
+                (SELECT COUNT(*)
+                 FROM adj_historial_estatus h
+                 WHERE h.id_operacion = o.id
+                   AND (
+                       LOWER(COALESCE(h.estatus_nuevo, '')) LIKE '%cartera%'
+                       OR LOWER(COALESCE(h.estatus_nuevo, '')) LIKE '%document%'
+                       OR LOWER(COALESCE(h.estatus_nuevo, '')) LIKE '%cierre%'
+                   )) AS cartera_total,
+                (SELECT MIN(h.fecha)
+                 FROM adj_historial_estatus h
+                 WHERE h.id_operacion = o.id
+                   AND (
+                       LOWER(COALESCE(h.estatus_nuevo, '')) LIKE '%cartera%'
+                       OR LOWER(COALESCE(h.estatus_nuevo, '')) LIKE '%document%'
+                       OR LOWER(COALESCE(h.estatus_nuevo, '')) LIKE '%cierre%'
+                   )) AS fecha_cartera
+                {$trackingSelect}
+             FROM adj_operacion o
+             WHERE {$where}
+             ORDER BY COALESCE(o.fecha_actualizacion, o.fecha_alta) DESC, o.id DESC";
+    }
+
+    private function madjHistoricoFlujoClasificar(array $row): array
+    {
+        $fechaRecepcion = $row['recepcion_confirmada_at'] ?? $row['fecha_llegada_almacen'] ?? null;
+        $estatus = strtolower(trim((string) ($row['estatus'] ?? '')));
+
+        if (!empty($fechaRecepcion) || strpos($estatus, 'recepci') !== false || strpos($estatus, 'conclu') !== false) {
+            return ['key' => 'recepcion', 'fecha' => $fechaRecepcion ?: ($row['fecha_actualizacion'] ?? $row['fecha_alta'] ?? null)];
+        }
+        if ((int) ($row['tracking_total'] ?? 0) > 0) {
+            return ['key' => 'tracking_recoleccion', 'fecha' => $row['fecha_tracking'] ?? $row['fecha_actualizacion'] ?? null];
+        }
+        if ((int) ($row['cartera_total'] ?? 0) > 0) {
+            return ['key' => 'envio_cartera', 'fecha' => $row['fecha_cartera'] ?? $row['fecha_actualizacion'] ?? null];
+        }
+        if ((int) ($row['recuperacion_total'] ?? 0) > 0 || strpos($estatus, 'recuper') !== false || strpos($estatus, 'transito') !== false) {
+            return ['key' => 'recuperacion', 'fecha' => $row['fecha_recuperacion'] ?? $row['fecha_actualizacion'] ?? null];
+        }
+        if ((int) ($row['evidencias_total'] ?? 0) > 0) {
+            return ['key' => 'evidencias', 'fecha' => $row['fecha_evidencia'] ?? $row['fecha_actualizacion'] ?? null];
+        }
+
+        return ['key' => 'asignacion_gestor', 'fecha' => $row['fecha_asignacion'] ?? $row['fecha_alta'] ?? null];
+    }
+
+    public function obtenerReporteHistoricoFlujoMotosAdjudicadas(array $filtros = []): array
+    {
+        $params = [];
+        $where = $this->madjWhereFechaAlta($filtros, $params);
+        $estadoSql = $this->madjEstadoNormalizadoSql('o');
+
+        $estado = trim((string) ($filtros['estado'] ?? ''));
+        if ($estado !== '') {
+            $where .= " AND {$estadoSql} = :estado";
+            $params['estado'] = strtoupper($estado);
+        }
+
+        $etapaFiltro = trim((string) ($filtros['etapa'] ?? ''));
+        $q = trim((string) ($filtros['q'] ?? ''));
+        if ($q !== '') {
+            $where .= " AND (
+                CAST(o.id_credito AS CHAR) LIKE :q
+                OR CAST(o.id AS CHAR) LIKE :q
+                OR o.folio LIKE :q
+                OR o.nombre_cliente LIKE :q
+                OR COALESCE(o.moto_no_serie, o.serie, '') LIKE :q
+                OR COALESCE(o.moto_modelo, o.modelo, '') LIKE :q
+                OR COALESCE(o.moto_marca, o.marca, '') LIKE :q
+            )";
+            $params['q'] = '%' . $q . '%';
+        }
+
+        $limit = (int) ($filtros['limit'] ?? 800);
+        $limit = max(100, min(3000, $limit));
+
+        $sql = $this->madjHistoricoFlujoQuery($where, $estadoSql, true) . " LIMIT {$limit}";
+        try {
+            $rows = $this->db->queryAll($sql, $params) ?: [];
+            $trackingDisponible = true;
+        } catch (\Throwable $e) {
+            $sql = $this->madjHistoricoFlujoQuery($where, $estadoSql, false) . " LIMIT {$limit}";
+            $rows = $this->db->queryAll($sql, $params) ?: [];
+            $trackingDisponible = false;
+        }
+
+        $etapasMeta = $this->madjHistoricoFlujoEtapas();
+        $columnas = [];
+        foreach ($etapasMeta as $key => $meta) {
+            $columnas[$key] = array_merge($meta, [
+                'total' => 0,
+                'creditos' => [],
+            ]);
+        }
+
+        $estadosConteo = [];
+        $totalFiltrado = 0;
+        foreach ($rows as $row) {
+            $clasificacion = $this->madjHistoricoFlujoClasificar($row);
+            $key = $clasificacion['key'];
+            if ($etapaFiltro !== '' && $etapaFiltro !== $key) {
+                continue;
+            }
+
+            $totalFiltrado++;
+            $estadoLabel = (string) ($row['estado_normalizado'] ?? 'SIN ESTADO');
+            $estadosConteo[$estadoLabel] = ($estadosConteo[$estadoLabel] ?? 0) + 1;
+            $fechaEtapa = $clasificacion['fecha'] ?? null;
+
+            $columnas[$key]['total']++;
+            $columnas[$key]['creditos'][] = [
+                'id_operacion' => (int) ($row['id'] ?? 0),
+                'folio' => $row['folio'] ?? '',
+                'id_credito' => (int) ($row['id_credito'] ?? 0),
+                'nombre_cliente' => $row['nombre_cliente'] ?? '',
+                'estatus' => $row['estatus'] ?? '',
+                'estado' => $row['estado_normalizado'] ?? '',
+                'municipio' => $row['municipio'] ?? '',
+                'direccion' => $row['direccion'] ?? '',
+                'unidad' => trim((string) ($row['unidad'] ?? '')) ?: 'Sin unidad',
+                'vin' => $row['vin'] ?? '',
+                'gestor_nombre' => $row['gestor_nombre'] ?? '',
+                'fecha_alta' => $row['fecha_alta'] ?? null,
+                'fecha_actualizacion' => $row['fecha_actualizacion'] ?? null,
+                'fecha_etapa' => $fechaEtapa,
+                'fecha_etapa_fmt' => $this->madjFmtFecha($fechaEtapa),
+                'evidencias_total' => (int) ($row['evidencias_total'] ?? 0),
+                'tracking_total' => (int) ($row['tracking_total'] ?? 0),
+                'ruta_tracking' => $row['ruta_tracking'] ?? '',
+                'estatus_tracking' => $row['estatus_tracking'] ?? '',
+                'etapa_key' => $key,
+                'etapa_titulo' => $etapasMeta[$key]['titulo'] ?? $key,
+            ];
+        }
+
+        $estadoRows = [];
+        foreach ($estadosConteo as $label => $total) {
+            $estadoRows[] = ['label' => $label, 'total' => $total];
+        }
+        usort($estadoRows, static function (array $a, array $b): int {
+            return ((int) ($b['total'] ?? 0)) <=> ((int) ($a['total'] ?? 0)) ?: strcmp((string) ($a['label'] ?? ''), (string) ($b['label'] ?? ''));
+        });
+
+        return [
+            'resumen' => [
+                'total' => $totalFiltrado,
+                'limit' => $limit,
+                'tracking_disponible' => $trackingDisponible,
+            ],
+            'etapas' => array_values($columnas),
+            'catalogos' => [
+                'etapas' => array_values($etapasMeta),
+                'estados' => $estadoRows,
+            ],
+            'actualizado_at' => date('Y-m-d H:i:s'),
+        ];
+    }
+
     private function madjFechaEvento(?string $fecha): ?int
     {
         $fecha = trim((string) $fecha);

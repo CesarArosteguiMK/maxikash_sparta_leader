@@ -127,6 +127,10 @@ function getMenu(): string
                 '/validaciones/gestor',
                 '/validaciones/territorial',
             ],
+            '/motosadjudicadas/almacenvirtual' => [
+                '/motosadjudicadas/almacenvirtual',
+                '/motosadjudicadas/inventario',
+            ],
         ];
         foreach ($sameSection as $canonical => $paths) {
             if ($menuPath !== $canonical) {
@@ -189,10 +193,14 @@ function getMenu(): string
         'Convenios' => [
             'icono'    => 'fa-solid fa-building-columns',
             'subItems' => [
+                ['section' => 'Gestion'],
                 ['label' => 'Asignación de Créditos', 'url' => '/Despachos/AsignacionCreditosDespacho', 'modulos' => [20]],
                 ['label' => 'Mi Cartera',              'url' => '/Despachos/MiGestion',                  'modulos' => [45]],
+                ['section' => 'Operacion de convenios'],
                 ['label' => 'Crear Convenio',          'url' => '/convenios/consulta',                   'modulos' => [46]],
                 ['label' => 'Cierre de Crédito',       'url' => '/CierreCredito/consulta',               'modulos' => [51]],
+                ['section' => 'Reporteria'],
+                ['label' => 'Reporteria',              'url' => '/convenios/reporteria',                  'modulos' => [56]],
                 ['label' => 'Estadísticas',            'url' => '/convenios/estadisticas',               'modulos' => [56]],
             ],
         ],
@@ -202,7 +210,7 @@ function getMenu(): string
                 ['section' => 'General'],
                 ['label' => 'Administracion', 'url' => '/Adjudicacion/administracion',          'modulos' => [62, 80]],
                 ['label' => 'Operaciones',            'url' => '/MotosAdjudicadas/pipeline',                'modulos' => [63]],
-                ['label' => 'Inventario',             'url' => '/MotosAdjudicadas/inventario',              'modulos' => [139]],
+                ['label' => 'Almacen Virtual',        'url' => '/MotosAdjudicadas/almacenVirtual',          'modulos' => [139]],
                 ['label' => 'Monitoreo', 'url' => '/MotosAdjudicadas/monitoreoAdjudicaciones', 'modulos' => [76]],
                 ['label' => 'Consulta REPUVE',         'url' => '/MotosAdjudicadas/repuveConsulta',         'modulos' => [78]],
                 ['label' => 'OTP DE EMERGENCIA',       'url' => '/MotosAdjudicadas/otpEmergenciaLegacy',    'modulos' => [150]],

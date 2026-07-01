@@ -4249,4 +4249,504 @@ public static function registrarConvenioGlobo($datos)
             return self::resultado(false, 'Error al obtener penetración de cartera.', [], $e->getMessage());
         }
     }
+
+    // ---------------------------------------------------------------------
+    // REPORTERIA CONVENIOS
+    // ---------------------------------------------------------------------
+
+    public static function obtenerReporteHistoricoConvenios(array $filtros = []): array
+    {
+        try {
+            $db = new Database();
+
+            $params = [];
+            $where = ['1 = 1'];
+
+            $fechaInicio = self::_cvNormYmd(isset($filtros['fecha_inicio']) ? (string) $filtros['fecha_inicio'] : null);
+            $fechaFin = self::_cvNormYmd(isset($filtros['fecha_fin']) ? (string) $filtros['fecha_fin'] : null);
+            if ($fechaInicio !== null) {
+                $where[] = 'COALESCE(cc.fecha_acuerdo, DATE(cc.fecha_alta)) >= :fecha_inicio';
+                $params['fecha_inicio'] = $fechaInicio;
+            }
+            if ($fechaFin !== null) {
+                $where[] = 'COALESCE(cc.fecha_acuerdo, DATE(cc.fecha_alta)) <= :fecha_fin';
+                $params['fecha_fin'] = $fechaFin;
+            }
+
+            $estatus = isset($filtros['estatus']) ? strtolower(trim((string) $filtros['estatus'])) : '';
+            if ($estatus !== '' && in_array($estatus, ['activo', 'completado', 'cancelado'], true)) {
+                $where[] = 'LOWER(cc.estatus) = :estatus';
+                $params['estatus'] = $estatus;
+            }
+
+            $idProducto = isset($filtros['id_producto_convenio']) ? (int) $filtros['id_producto_convenio'] : 0;
+            if ($idProducto > 0) {
+                $where[] = 'cc.id_producto_convenio = :id_producto_convenio';
+                $params['id_producto_convenio'] = $idProducto;
+            }
+
+            $celula = strtolower(trim((string) ($filtros['celula'] ?? '')));
+            if (in_array($celula, ['1', 'despachos', 'despacho'], true)) {
+                $where[] = 'cc.id_celula = 1';
+                $celula = 'despachos';
+            } elseif (in_array($celula, ['2', 'callcenter', 'call_center', 'call center'], true)) {
+                $where[] = 'cc.id_celula = 2';
+                $celula = 'callcenter';
+            } elseif (in_array($celula, ['3', 'campo'], true)) {
+                $where[] = '(cc.id_celula = 3 OR cc.id_celula IS NULL OR cc.id_celula NOT IN (1, 2))';
+                $celula = 'campo';
+            } else {
+                $celula = '';
+            }
+
+            $q = isset($filtros['q']) ? trim((string) $filtros['q']) : '';
+            if ($q !== '') {
+                $where[] = "(cc.nombre_cliente LIKE :q
+                    OR CAST(cc.id AS CHAR) LIKE :q
+                    OR CAST(cc.id_credito AS CHAR) LIKE :q
+                    OR pc.nombre LIKE :q
+                    OR cc.usuario_alta LIKE :q)";
+                $params['q'] = '%' . $q . '%';
+            }
+
+            $whereCatalogoGestores = $where;
+            $paramsCatalogoGestores = $params;
+
+            $gestor = isset($filtros['gestor']) ? trim((string) $filtros['gestor']) : '';
+            if ($gestor !== '') {
+                $where[] = 'cc.usuario_alta = :gestor';
+                $params['gestor'] = $gestor;
+            }
+
+            $limitRaw = isset($filtros['limit']) ? strtolower(trim((string) $filtros['limit'])) : '0';
+            $sinLimite = in_array($limitRaw, ['', '0', 'all', 'todos'], true);
+            $limit = $sinLimite ? 0 : (int) $limitRaw;
+            if ($limit > 0 && $limit < 50) {
+                $limit = 50;
+            }
+            if ($limit > 3000) {
+                $limit = 3000;
+            }
+
+            $colsReactivacion = [];
+            foreach ([
+                'es_reactivado',
+                'id_convenio_origen',
+                'id_peticion_reactivacion',
+                'reactivacion_numero',
+                'motivo_reactivacion',
+                'usuario_reactiva',
+                'fecha_reactivacion',
+            ] as $col) {
+                if (self::_tablaTieneColumna($db, 'convenio_cliente', $col)) {
+                    $colsReactivacion[] = 'cc.' . $col;
+                }
+            }
+            $selectReactivacion = $colsReactivacion ? ', ' . implode(', ', $colsReactivacion) : '';
+
+            $whereSql = implode("\n                 AND ", $where);
+            $limitSql = $limit > 0 ? "\n                 LIMIT {$limit}" : '';
+            $sql = "SELECT
+                    cc.id AS id_convenio,
+                    cc.id_credito,
+                    cc.nombre_cliente,
+                    COALESCE(cc.fecha_acuerdo, DATE(cc.fecha_alta)) AS fecha_convenio,
+                    cc.fecha_alta,
+                    cc.fecha_modifica,
+                    cc.fecha_acuerdo,
+                    cc.fecha_primer_pago,
+                    cc.fecha_ultimo_pago,
+                    cc.fecha_cancelacion,
+                    cc.adeudo_total_original AS monto_original,
+                    COALESCE(pc.nombre, 'Sin oferta') AS oferta_seleccionada,
+                    cc.id_producto_convenio,
+                    cc.porcentaje_descuento,
+                    cc.descuento_monto,
+                    cc.monto_adicional,
+                    cc.total_a_pagar AS monto_convenio,
+                    cc.pago_semanal,
+                    cc.numero_semanas,
+                    cc.estatus,
+                    cc.usuario_alta,
+                    cc.usuario_modifica,
+                    cc.usuario_cancela,
+                    cc.motivo_cancelamiento,
+                    cc.solicitud_cancelamiento_fecha,
+                    cc.base_calculo,
+                    cc.tipo_calendario,
+                    cc.id_celula,
+                    CASE cc.id_celula
+                        WHEN 1 THEN 'Despachos'
+                        WHEN 2 THEN 'Call Center'
+                        WHEN 3 THEN 'Campo'
+                        ELSE COALESCE(CAST(cc.id_celula AS CHAR), 'Sin celula')
+                    END AS celula,
+                    COALESCE(am.total_cuotas, 0) AS total_cuotas,
+                    COALESCE(am.cuotas_pagadas, 0) AS cuotas_pagadas,
+                    COALESCE(am.cuotas_parciales, 0) AS cuotas_parciales,
+                    COALESCE(am.cuotas_vencidas, 0) AS cuotas_vencidas,
+                    COALESCE(am.total_pagado, 0) AS total_pagado,
+                    GREATEST(cc.total_a_pagar - COALESCE(am.total_pagado, 0), 0) AS saldo_reportado
+                    {$selectReactivacion}
+                 FROM convenio_cliente cc
+                 LEFT JOIN producto_convenio pc ON pc.id = cc.id_producto_convenio
+                 LEFT JOIN (
+                    SELECT
+                        id_convenio_cliente,
+                        COUNT(*) AS total_cuotas,
+                        SUM(CASE WHEN LOWER(estatus_pago) = 'pagado' THEN 1 ELSE 0 END) AS cuotas_pagadas,
+                        SUM(CASE WHEN LOWER(estatus_pago) = 'parcial' THEN 1 ELSE 0 END) AS cuotas_parciales,
+                        SUM(CASE WHEN LOWER(estatus_pago) = 'vencido' THEN 1 ELSE 0 END) AS cuotas_vencidas,
+                        SUM(
+                            CASE
+                                WHEN monto_pagado REGEXP '^-?[0-9]+(\\.[0-9]+)?$'
+                                THEN CAST(monto_pagado AS DECIMAL(14,2))
+                                ELSE 0
+                            END + COALESCE(monto_secundario, 0)
+                        ) AS total_pagado
+                    FROM convenio_cliente_amortizacion
+                    GROUP BY id_convenio_cliente
+                 ) am ON am.id_convenio_cliente = cc.id
+                 WHERE {$whereSql}
+                 ORDER BY COALESCE(cc.fecha_acuerdo, DATE(cc.fecha_alta)) DESC, cc.id DESC{$limitSql}";
+
+            $rows = $db->queryAll($sql, $params ?: null) ?: [];
+
+            $resumen = [
+                'total_convenios' => count($rows),
+                'monto_original' => 0.0,
+                'monto_convenio' => 0.0,
+                'descuento_total' => 0.0,
+                'total_pagado' => 0.0,
+                'saldo_reportado' => 0.0,
+                'activos' => 0,
+                'completados' => 0,
+                'cancelados' => 0,
+            ];
+
+            foreach ($rows as $row) {
+                $resumen['monto_original'] += (float) ($row['monto_original'] ?? 0);
+                $resumen['monto_convenio'] += (float) ($row['monto_convenio'] ?? 0);
+                $resumen['descuento_total'] += (float) ($row['descuento_monto'] ?? 0);
+                $resumen['total_pagado'] += (float) ($row['total_pagado'] ?? 0);
+                $resumen['saldo_reportado'] += (float) ($row['saldo_reportado'] ?? 0);
+                $estatusRow = strtolower((string) ($row['estatus'] ?? ''));
+                if ($estatusRow === 'activo') {
+                    $resumen['activos']++;
+                } elseif ($estatusRow === 'completado') {
+                    $resumen['completados']++;
+                } elseif ($estatusRow === 'cancelado') {
+                    $resumen['cancelados']++;
+                }
+            }
+
+            $productos = $db->queryAll(
+                "SELECT id, nombre
+                 FROM producto_convenio
+                 ORDER BY nombre ASC",
+                []
+            ) ?: [];
+
+            $whereGestoresSql = implode("\n                 AND ", $whereCatalogoGestores);
+            $gestores = $db->queryAll(
+                "SELECT
+                    cc.usuario_alta AS usuario,
+                    CASE cc.id_celula
+                        WHEN 1 THEN 'Despachos'
+                        WHEN 2 THEN 'Call Center'
+                        WHEN 3 THEN 'Campo'
+                        ELSE COALESCE(CAST(cc.id_celula AS CHAR), 'Sin celula')
+                    END AS celula,
+                    COUNT(*) AS total
+                 FROM convenio_cliente cc
+                 LEFT JOIN producto_convenio pc ON pc.id = cc.id_producto_convenio
+                 WHERE {$whereGestoresSql}
+                   AND COALESCE(TRIM(cc.usuario_alta), '') <> ''
+                 GROUP BY cc.usuario_alta, cc.id_celula
+                 ORDER BY cc.usuario_alta ASC",
+                $paramsCatalogoGestores ?: null
+            ) ?: [];
+
+            return self::resultado(true, 'Reporte historico de convenios.', [
+                'rows' => $rows,
+                'resumen' => $resumen,
+                'catalogos' => [
+                    'productos' => $productos,
+                    'gestores' => $gestores,
+                ],
+                'filtros' => [
+                    'fecha_inicio' => $fechaInicio,
+                    'fecha_fin' => $fechaFin,
+                    'estatus' => $estatus,
+                    'id_producto_convenio' => $idProducto,
+                    'celula' => $celula,
+                    'gestor' => $gestor,
+                    'q' => $q,
+                    'limit' => $limit > 0 ? $limit : 'todos',
+                ],
+                'actualizado_at' => date('Y-m-d H:i:s'),
+            ]);
+        } catch (\Exception $e) {
+            return self::resultado(false, 'Error al obtener el reporte historico de convenios.', [], $e->getMessage());
+        }
+    }
+
+    public static function obtenerReporteIndividualConvenio(int $idConvenio = 0, int $idCredito = 0): array
+    {
+        try {
+            $db = new Database();
+            if ($idConvenio <= 0 && $idCredito <= 0) {
+                return self::resultado(false, 'Indique un ID de convenio o ID de credito.');
+            }
+
+            $colsReactivacion = [];
+            foreach ([
+                'es_reactivado',
+                'id_convenio_origen',
+                'id_peticion_reactivacion',
+                'reactivacion_numero',
+                'motivo_reactivacion',
+                'usuario_reactiva',
+                'fecha_reactivacion',
+            ] as $col) {
+                if (self::_tablaTieneColumna($db, 'convenio_cliente', $col)) {
+                    $colsReactivacion[] = 'cc.' . $col;
+                }
+            }
+            $selectReactivacion = $colsReactivacion ? ', ' . implode(', ', $colsReactivacion) : '';
+
+            $where = $idConvenio > 0 ? 'cc.id = :id' : 'cc.id_credito = :id_credito';
+            $params = $idConvenio > 0 ? ['id' => $idConvenio] : ['id_credito' => $idCredito];
+
+            $convenio = $db->queryOne(
+                "SELECT
+                    cc.*,
+                    cc.id AS id_convenio,
+                    COALESCE(pc.nombre, 'Sin oferta') AS oferta_seleccionada,
+                    CASE cc.id_celula
+                        WHEN 1 THEN 'Despachos'
+                        WHEN 2 THEN 'Call Center'
+                        WHEN 3 THEN 'Campo'
+                        ELSE COALESCE(CAST(cc.id_celula AS CHAR), 'Sin celula')
+                    END AS celula
+                    {$selectReactivacion}
+                 FROM convenio_cliente cc
+                 LEFT JOIN producto_convenio pc ON pc.id = cc.id_producto_convenio
+                 WHERE {$where}
+                 ORDER BY cc.id DESC
+                 LIMIT 1",
+                $params
+            );
+
+            if (!$convenio) {
+                return self::resultado(false, 'Convenio no encontrado.');
+            }
+
+            $idConvenioReal = (int) $convenio['id_convenio'];
+            $idCreditoReal = (int) $convenio['id_credito'];
+
+            $amortizacion = $db->queryAll(
+                "SELECT *
+                 FROM convenio_cliente_amortizacion
+                 WHERE id_convenio_cliente = :id
+                 ORDER BY numero_semana ASC",
+                ['id' => $idConvenioReal]
+            ) ?: [];
+
+            $seguimiento = [];
+            if (self::_tablaExiste($db, 'cierre_credito_seguimiento')) {
+                $seguimiento = $db->queryAll(
+                    "SELECT *
+                     FROM cierre_credito_seguimiento
+                     WHERE id_credito = :id_credito
+                     ORDER BY COALESCE(fecha_actualizacion, fecha_alta) ASC, id ASC",
+                    ['id_credito' => $idCreditoReal]
+                ) ?: [];
+            }
+
+            $reactivaciones = [];
+            if (self::_tablaExiste($db, 'convenio_reactivacion_peticion')) {
+                $whereReactivacion = ['id_credito = :id_credito'];
+                $paramsReactivacion = ['id_credito' => $idCreditoReal];
+                if (self::_tablaTieneColumna($db, 'convenio_reactivacion_peticion', 'id_convenio_origen')) {
+                    $whereReactivacion[] = 'id_convenio_origen = :id_convenio';
+                    $paramsReactivacion['id_convenio'] = $idConvenioReal;
+                }
+
+                $reactivaciones = $db->queryAll(
+                    "SELECT *
+                     FROM convenio_reactivacion_peticion
+                     WHERE (" . implode(' OR ', $whereReactivacion) . ")
+                     ORDER BY COALESCE(fecha_resolucion, fecha_solicitud) ASC, id ASC",
+                    $paramsReactivacion
+                ) ?: [];
+            }
+
+            $bitacora = [];
+            $addEvento = static function (?string $fecha, string $tipo, string $titulo, string $detalle = '', string $usuario = '', array $meta = []) use (&$bitacora): void {
+                $fecha = $fecha !== null ? trim($fecha) : '';
+                if ($fecha === '' || $fecha === '0000-00-00' || $fecha === '0000-00-00 00:00:00') {
+                    return;
+                }
+                $sort = strlen($fecha) === 10 ? $fecha . ' 00:00:00' : $fecha;
+                $bitacora[] = [
+                    'fecha' => $fecha,
+                    'fecha_sort' => $sort,
+                    'tipo' => $tipo,
+                    'titulo' => $titulo,
+                    'detalle' => $detalle,
+                    'usuario' => $usuario,
+                    'meta' => $meta,
+                ];
+            };
+
+            $addEvento(
+                $convenio['fecha_alta'] ?? null,
+                'convenio',
+                'Convenio creado',
+                'Oferta: ' . (string) ($convenio['oferta_seleccionada'] ?? 'Sin oferta'),
+                (string) ($convenio['usuario_alta'] ?? '')
+            );
+
+            if (!empty($convenio['fecha_acuerdo'])) {
+                $addEvento(
+                    $convenio['fecha_acuerdo'],
+                    'convenio',
+                    'Fecha de convenio',
+                    'Monto del convenio: $' . number_format((float) ($convenio['total_a_pagar'] ?? 0), 2),
+                    (string) ($convenio['usuario_alta'] ?? '')
+                );
+            }
+
+            if (!empty($convenio['fecha_reactivacion']) || (isset($convenio['es_reactivado']) && (int) $convenio['es_reactivado'] === 1)) {
+                $addEvento(
+                    $convenio['fecha_reactivacion'] ?? ($convenio['fecha_alta'] ?? null),
+                    'reactivacion',
+                    'Oferta reactivada',
+                    (string) ($convenio['motivo_reactivacion'] ?? 'Reactivacion de oferta'),
+                    (string) ($convenio['usuario_reactiva'] ?? $convenio['usuario_alta'] ?? '')
+                );
+            }
+
+            if (!empty($convenio['solicitud_cancelamiento_fecha'])) {
+                $addEvento(
+                    $convenio['solicitud_cancelamiento_fecha'],
+                    'cancelamiento',
+                    'Solicitud de cancelamiento',
+                    (string) ($convenio['motivo_cancelamiento'] ?? ''),
+                    (string) ($convenio['usuario_modifica'] ?? '')
+                );
+            }
+
+            if (!empty($convenio['fecha_cancelacion'])) {
+                $addEvento(
+                    $convenio['fecha_cancelacion'],
+                    'cancelamiento',
+                    'Convenio cancelado',
+                    (string) ($convenio['motivo_cancelamiento'] ?? ''),
+                    (string) ($convenio['usuario_cancela'] ?? '')
+                );
+            }
+
+            if (strtolower((string) ($convenio['estatus'] ?? '')) === 'completado') {
+                $addEvento(
+                    $convenio['fecha_modifica'] ?? $convenio['fecha_ultimo_pago'] ?? null,
+                    'convenio',
+                    'Convenio liquidado',
+                    'El convenio fue liquidado.',
+                    (string) ($convenio['usuario_modifica'] ?? '')
+                );
+            }
+
+            foreach ($amortizacion as $am) {
+                $montoPrimario = 0.0;
+                $montoRaw = trim((string) ($am['monto_pagado'] ?? ''));
+                if ($montoRaw !== '' && is_numeric($montoRaw)) {
+                    $montoPrimario = (float) $montoRaw;
+                }
+                $monto = $montoPrimario + (float) ($am['monto_secundario'] ?? 0);
+                $estatusPago = strtolower((string) ($am['estatus_pago'] ?? ''));
+                if ($monto > 0 || in_array($estatusPago, ['pagado', 'parcial', 'pendiente_conciliar'], true)) {
+                    $addEvento(
+                        $am['fecha_pago_real'] ?? $am['fecha_pago'] ?? null,
+                        'pago',
+                        'Pago semana ' . (string) ($am['numero_semana'] ?? ''),
+                        ucfirst($estatusPago ?: 'sin estatus') . ' - $' . number_format($monto > 0 ? $monto : (float) ($am['pago_semanal'] ?? 0), 2),
+                        '',
+                        [
+                            'id_amortizacion' => $am['id'] ?? null,
+                            'comprobante_path' => $am['comprobante_path'] ?? '',
+                        ]
+                    );
+                }
+            }
+
+            foreach ($seguimiento as $seg) {
+                $addEvento(
+                    $seg['fecha_alta'] ?? null,
+                    'cierre_credito',
+                    'Alta en cierre de credito',
+                    'Estatus: ' . (string) ($seg['estatus'] ?? ''),
+                    (string) ($seg['usuario_alta'] ?? '')
+                );
+                if (!empty($seg['fecha_actualizacion']) && ($seg['fecha_actualizacion'] !== ($seg['fecha_alta'] ?? null))) {
+                    $detalle = 'Estatus: ' . (string) ($seg['estatus'] ?? '');
+                    if (!empty($seg['comentario_descarte'])) {
+                        $detalle .= ' - ' . (string) $seg['comentario_descarte'];
+                    }
+                    $addEvento(
+                        $seg['fecha_actualizacion'],
+                        'cierre_credito',
+                        'Actualizacion cierre de credito',
+                        $detalle,
+                        (string) ($seg['usuario_actualizacion'] ?? '')
+                    );
+                }
+            }
+
+            foreach ($reactivaciones as $rx) {
+                $addEvento(
+                    $rx['fecha_solicitud'] ?? null,
+                    'reactivacion',
+                    'Solicitud de reactivacion',
+                    (string) ($rx['motivo_solicitud'] ?? $rx['comentario_solicitud'] ?? ''),
+                    (string) ($rx['usuario_solicita'] ?? '')
+                );
+                if (!empty($rx['fecha_resolucion'])) {
+                    $detalle = (string) ($rx['estatus'] ?? '');
+                    $comentario = (string) ($rx['comentario_resolucion'] ?? '');
+                    if ($comentario !== '') {
+                        $detalle .= ' - ' . $comentario;
+                    }
+                    $addEvento(
+                        $rx['fecha_resolucion'],
+                        'reactivacion',
+                        'Resolucion de reactivacion',
+                        $detalle,
+                        (string) ($rx['usuario_resuelve'] ?? '')
+                    );
+                }
+            }
+
+            usort($bitacora, static function (array $a, array $b): int {
+                return strcmp((string) ($a['fecha_sort'] ?? ''), (string) ($b['fecha_sort'] ?? ''));
+            });
+
+            foreach ($bitacora as &$evento) {
+                unset($evento['fecha_sort']);
+            }
+            unset($evento);
+
+            return self::resultado(true, 'Reporte individual de convenio.', [
+                'convenio' => $convenio,
+                'amortizacion' => $amortizacion,
+                'seguimiento_cierre' => $seguimiento,
+                'reactivaciones' => $reactivaciones,
+                'bitacora' => $bitacora,
+                'actualizado_at' => date('Y-m-d H:i:s'),
+            ]);
+        } catch (\Exception $e) {
+            return self::resultado(false, 'Error al obtener el reporte individual de convenio.', [], $e->getMessage());
+        }
+    }
 }

@@ -890,6 +890,145 @@ class Convenios extends Controller
     // VISTA: Estadística Convenios
     // ─────────────────────────────────────────────
 
+    public function reporteria()
+    {
+        $emp = defined('CONFIGURACION') && isset(CONFIGURACION['EMPRESA']) ? (string) CONFIGURACION['EMPRESA'] : '';
+        self::set('titulo', 'Reporteria Convenios ' . $emp);
+        self::render('convenios_reporteria');
+    }
+
+    public function reporteHistorico()
+    {
+        $emp = defined('CONFIGURACION') && isset(CONFIGURACION['EMPRESA']) ? (string) CONFIGURACION['EMPRESA'] : '';
+        self::set('titulo', 'Historico de convenios ' . $emp);
+        self::render('convenios_reporte_historico');
+    }
+
+    public function reporteIndividual()
+    {
+        $emp = defined('CONFIGURACION') && isset(CONFIGURACION['EMPRESA']) ? (string) CONFIGURACION['EMPRESA'] : '';
+        self::set('titulo', 'Reporte individual de convenio ' . $emp);
+        self::render('convenios_reporte_individual');
+    }
+
+    public function reporteHistoricoDatos()
+    {
+        $r = ConveniosDAO::obtenerReporteHistoricoConvenios($_GET);
+        self::respuestaJSON($r);
+    }
+
+    public function reporteHistoricoExcel()
+    {
+        while (ob_get_level()) { ob_end_clean(); }
+
+        try {
+            $r = ConveniosDAO::obtenerReporteHistoricoConvenios($_GET);
+            if (empty($r['success'])) {
+                http_response_code(500);
+                die($r['mensaje'] ?? 'Error al obtener el reporte historico de convenios.');
+            }
+
+            require_once LIBRERIAS . '/PhpSpreadsheet/PhpSpreadsheet.php';
+
+            $fechaCorta = static function ($valor): string {
+                $valor = trim((string) ($valor ?? ''));
+                return $valor === '' ? '' : substr($valor, 0, 10);
+            };
+            $porcentaje = static function ($valor): string {
+                if ($valor === null || $valor === '') {
+                    return '';
+                }
+                $txt = rtrim(rtrim(number_format((float) $valor, 2, '.', ''), '0'), '.');
+                return $txt . '%';
+            };
+            $siNo = static function ($valor): string {
+                return ((int) ($valor ?? 0)) === 1 ? 'Si' : 'No';
+            };
+            $estatusReporte = static function ($valor): string {
+                $valor = trim((string) ($valor ?? ''));
+                return strtolower($valor) === 'completado' ? 'Liquidado' : $valor;
+            };
+
+            $rows = $r['datos']['rows'] ?? [];
+            $datos = array_map(static function (array $row) use ($fechaCorta, $porcentaje, $siNo, $estatusReporte): array {
+                return [
+                    'fecha_convenio'       => $fechaCorta($row['fecha_convenio'] ?? ''),
+                    'id_convenio'          => $row['id_convenio'] ?? '',
+                    'id_credito'           => $row['id_credito'] ?? '',
+                    'nombre_cliente'       => $row['nombre_cliente'] ?? '',
+                    'celula'               => $row['celula'] ?? '',
+                    'monto_original'       => $row['monto_original'] ?? 0,
+                    'oferta_seleccionada'  => $row['oferta_seleccionada'] ?? '',
+                    'porcentaje_descuento' => $porcentaje($row['porcentaje_descuento'] ?? null),
+                    'descuento_monto'      => $row['descuento_monto'] ?? 0,
+                    'monto_adicional'      => $row['monto_adicional'] ?? 0,
+                    'monto_convenio'       => $row['monto_convenio'] ?? 0,
+                    'total_pagado'         => $row['total_pagado'] ?? 0,
+                    'saldo_reportado'      => $row['saldo_reportado'] ?? 0,
+                    'estatus'              => $estatusReporte($row['estatus'] ?? ''),
+                    'numero_semanas'       => $row['numero_semanas'] ?? '',
+                    'pago_semanal'         => $row['pago_semanal'] ?? 0,
+                    'cuotas_pagadas'       => $row['cuotas_pagadas'] ?? 0,
+                    'cuotas_parciales'     => $row['cuotas_parciales'] ?? 0,
+                    'cuotas_vencidas'      => $row['cuotas_vencidas'] ?? 0,
+                    'reactivado'           => $siNo($row['es_reactivado'] ?? 0),
+                    'usuario_alta'         => $row['usuario_alta'] ?? '',
+                    'fecha_alta'           => $row['fecha_alta'] ?? '',
+                    'fecha_cancelacion'    => $fechaCorta($row['fecha_cancelacion'] ?? ''),
+                    'motivo_cancelamiento' => $row['motivo_cancelamiento'] ?? '',
+                ];
+            }, is_array($rows) ? $rows : []);
+
+            $columnas = [
+                \PHPSpreadsheet::ColumnaExcel('fecha_convenio', 'FECHA CONVENIO', ['estilo' => \PHPSpreadsheet::GetEstilosExcel('texto_centrado')]),
+                \PHPSpreadsheet::ColumnaExcel('id_convenio', 'ID CONVENIO', ['estilo' => \PHPSpreadsheet::GetEstilosExcel('texto_centrado')]),
+                \PHPSpreadsheet::ColumnaExcel('id_credito', 'ID CREDITO', ['estilo' => \PHPSpreadsheet::GetEstilosExcel('texto_centrado')]),
+                \PHPSpreadsheet::ColumnaExcel('nombre_cliente', 'CLIENTE', ['estilo' => \PHPSpreadsheet::GetEstilosExcel('texto_izquierda')]),
+                \PHPSpreadsheet::ColumnaExcel('celula', 'CELULA', ['estilo' => \PHPSpreadsheet::GetEstilosExcel('texto_centrado')]),
+                \PHPSpreadsheet::ColumnaExcel('monto_original', 'MONTO ORIGINAL', ['estilo' => \PHPSpreadsheet::GetEstilosExcel('moneda'), 'total' => true]),
+                \PHPSpreadsheet::ColumnaExcel('oferta_seleccionada', 'OFERTA SELECCIONADA', ['estilo' => \PHPSpreadsheet::GetEstilosExcel('texto_izquierda')]),
+                \PHPSpreadsheet::ColumnaExcel('porcentaje_descuento', 'DESCUENTO %', ['estilo' => \PHPSpreadsheet::GetEstilosExcel('texto_centrado')]),
+                \PHPSpreadsheet::ColumnaExcel('descuento_monto', 'DESCUENTO APLICADO', ['estilo' => \PHPSpreadsheet::GetEstilosExcel('moneda'), 'total' => true]),
+                \PHPSpreadsheet::ColumnaExcel('monto_adicional', 'MONTO ADICIONAL', ['estilo' => \PHPSpreadsheet::GetEstilosExcel('moneda'), 'total' => true]),
+                \PHPSpreadsheet::ColumnaExcel('monto_convenio', 'MONTO CONVENIO', ['estilo' => \PHPSpreadsheet::GetEstilosExcel('moneda'), 'total' => true]),
+                \PHPSpreadsheet::ColumnaExcel('total_pagado', 'TOTAL PAGADO', ['estilo' => \PHPSpreadsheet::GetEstilosExcel('moneda'), 'total' => true]),
+                \PHPSpreadsheet::ColumnaExcel('saldo_reportado', 'RESTANTE', ['estilo' => \PHPSpreadsheet::GetEstilosExcel('moneda'), 'total' => true]),
+                \PHPSpreadsheet::ColumnaExcel('estatus', 'ESTATUS', ['estilo' => \PHPSpreadsheet::GetEstilosExcel('texto_centrado')]),
+                \PHPSpreadsheet::ColumnaExcel('numero_semanas', 'SEMANAS', ['estilo' => \PHPSpreadsheet::GetEstilosExcel('centrado')]),
+                \PHPSpreadsheet::ColumnaExcel('pago_semanal', 'PAGO SEMANAL', ['estilo' => \PHPSpreadsheet::GetEstilosExcel('moneda')]),
+                \PHPSpreadsheet::ColumnaExcel('cuotas_pagadas', 'CUOTAS PAGADAS', ['estilo' => \PHPSpreadsheet::GetEstilosExcel('centrado')]),
+                \PHPSpreadsheet::ColumnaExcel('cuotas_parciales', 'CUOTAS PARCIALES', ['estilo' => \PHPSpreadsheet::GetEstilosExcel('centrado')]),
+                \PHPSpreadsheet::ColumnaExcel('cuotas_vencidas', 'CUOTAS VENCIDAS', ['estilo' => \PHPSpreadsheet::GetEstilosExcel('centrado')]),
+                \PHPSpreadsheet::ColumnaExcel('reactivado', 'REACTIVADO', ['estilo' => \PHPSpreadsheet::GetEstilosExcel('texto_centrado')]),
+                \PHPSpreadsheet::ColumnaExcel('usuario_alta', 'USUARIO ALTA', ['estilo' => \PHPSpreadsheet::GetEstilosExcel('texto_izquierda')]),
+                \PHPSpreadsheet::ColumnaExcel('fecha_alta', 'FECHA ALTA', ['estilo' => \PHPSpreadsheet::GetEstilosExcel('texto_centrado')]),
+                \PHPSpreadsheet::ColumnaExcel('fecha_cancelacion', 'FECHA CANCELACION', ['estilo' => \PHPSpreadsheet::GetEstilosExcel('texto_centrado')]),
+                \PHPSpreadsheet::ColumnaExcel('motivo_cancelamiento', 'MOTIVO CANCELAMIENTO', ['estilo' => \PHPSpreadsheet::GetEstilosExcel('texto_izquierda')]),
+            ];
+
+            \PHPSpreadsheet::DescargaExcel(
+                'Historico_Convenios_' . date('Ymd_His'),
+                'Historico',
+                'Reporte Historico de Convenios',
+                $columnas,
+                $datos
+            );
+            exit;
+        } catch (\Throwable $e) {
+            error_log('Convenios::reporteHistoricoExcel -> ' . $e->getMessage());
+            http_response_code(500);
+            die('Error al generar el reporte historico de convenios.');
+        }
+    }
+
+    public function reporteIndividualDatos()
+    {
+        $idConvenio = isset($_GET['id_convenio']) ? (int) $_GET['id_convenio'] : 0;
+        $idCredito = isset($_GET['id_credito']) ? (int) $_GET['id_credito'] : 0;
+        $r = ConveniosDAO::obtenerReporteIndividualConvenio($idConvenio, $idCredito);
+        self::respuestaJSON($r);
+    }
+
     public function estadisticas()
     {
         [$fechaIniDef, $fechaFinDef] = ConveniosDAO::cvRangoLunesHoyEstadisticas();
