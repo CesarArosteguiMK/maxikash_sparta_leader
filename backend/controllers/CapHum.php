@@ -468,6 +468,42 @@ class CapHum extends Controller
         ]);
     }
 
+    private function notificarRegistroTotpSubdirectorRrhh(string $ambito): void
+    {
+        $idUsuario = self::usuarioSesionId();
+        if ($idUsuario <= 0) {
+            return;
+        }
+
+        $destinatarios = CapHumDAO::getSubdirectoresRecursosHumanos();
+        if (empty($destinatarios)) {
+            return;
+        }
+
+        $usuarioNombre = trim((string)($_SESSION['usuario_nombre'] ?? $_SESSION['nombre_usuario'] ?? $_SESSION['usuario'] ?? ''));
+        if ($usuarioNombre === '') {
+            $usuarioNombre = 'Usuario #' . $idUsuario;
+        }
+
+        $ambito = strtolower(trim($ambito));
+        $ambitoTexto = $ambito === 'salario'
+            ? 'salario sensible de RR.HH.'
+            : 'documentos sensibles de RR.HH.';
+
+        $mensaje = sprintf(
+            'El usuario %s completó el registro de Google Authenticator para acceder a %s.',
+            $usuarioNombre,
+            $ambitoTexto
+        );
+
+        Notificacion::crearParaPersonas($destinatarios, 'rrhh_totp_registro_confirmado', $mensaje, null, [
+            'modulo' => 'capital_humano',
+            'accion' => 'totp_confirmado',
+            'ambito' => $ambito === 'salario' ? 'salario' : 'documentos',
+            'id_usuario' => $idUsuario,
+        ]);
+    }
+
     private function autorizarSalarioSensibleRrhh(int $idPersona, string $accion, string $codigoTotp = ''): array
     {
         if (!self::tieneModuloWeb(self::MODULO_EDITAR_USUARIO_RRHH) || !self::puedeGestionarSalarioSensibleRrhh()) {
@@ -528,7 +564,10 @@ class CapHum extends Controller
         }
 
         if (!$confirmado) {
-            CapHumDAO::confirmarTotpDocumentoSensible($idUsuarioSesion);
+            $confirmacionTotp = CapHumDAO::confirmarTotpDocumentoSensible($idUsuarioSesion);
+            if (($confirmacionTotp['success'] ?? false)) {
+                $this->notificarRegistroTotpSubdirectorRrhh('salario');
+            }
         }
         self::marcarTotpSalarioSesion();
         $this->auditarSalarioSensibleRrhh($idPersona, 'totp', 'autorizado', $accion);
@@ -2580,7 +2619,7 @@ class CapHum extends Controller
                 94: 'fa-solid fa-file-arrow-down',
                 95: 'fa-solid fa-user-plus',
                 96: 'fa-solid fa-user-pen',
-                97: 'fa-solid fa-folder-arrow-up',
+                97: 'fa fa-upload',
                 98: 'fa-solid fa-calendar-minus',
                 99: 'fa-solid fa-user-slash',
                 60: 'fa-solid fa-chart-column',
@@ -2621,6 +2660,8 @@ class CapHum extends Controller
                 138: 'fa-solid fa-layer-group',
                 142: 'fa-solid fa-file-shield',
                 143: 'fa-solid fa-user-plus',
+                152: 'fa-solid fa-mobile-screen-button',
+                153: 'fa-solid fa-money-bill-wave',
                 145: 'fa-solid fa-rotate-right',
                 146: 'fa-solid fa-circle-check',
                 155: 'fa-solid fa-id-card',
@@ -2648,6 +2689,8 @@ class CapHum extends Controller
                 177: 'fa-solid fa-notes-medical',
                 178: 'fa-solid fa-file-circle-check',
                 179: 'fa-solid fa-calendar-xmark',
+                184: 'fa-solid fa-file-invoice-dollar',
+                185: 'fa-solid fa-receipt',
             };
 
             /** Mapa base de íconos (pestaña Módulos del sistema y filas agrupadas de permisos especiales). */
@@ -4077,7 +4120,8 @@ class CapHum extends Controller
                 const container = document.getElementById('modal-edit-perfil-permisos-especiales-form') || document.getElementById('permisos-especiales-form');
                 const iconosMap = Object.assign({}, iconosModulosSistemaPerfil, iconosPermisosEspeciales);
                 const idsPermisoEdicionCobranza = new Set(Array.from({ length: 21 }, (_, i) => 107 + i));
-                const idsPermisosAtlas = new Set([129, 130]);
+                const idsPermisosAtlas = new Set([129, 130, 138]);
+                const idsPermisosConvenios = new Set([128, 145, 146]);
                 const idsPermisosMotosAdjudicadas = new Set([180, 181, 182, 183]);
                 const perfilesNormalizados = (Array.isArray(perfiles) ? perfiles : []).filter(mod => {
                     const idMod = Number(mod.modulo_id ?? mod.id ?? 0);
@@ -4088,11 +4132,27 @@ class CapHum extends Controller
                         && !descripcionModulo.includes('motos adjudicadas');
                 }).map(mod => {
                     const idMod = Number(mod.modulo_id ?? mod.id ?? 0);
-                    if (idMod === 151 || idMod === 152 || (idMod >= 155 && idMod <= 179)) {
+                    if (idMod === 152 || idMod === 153) {
+                        return Object.assign({}, mod, {
+                            menu_grupo: 'Capital Humano',
+                            menu_grupo_icono: 'fa-solid fa-users',
+                            menu_grupo_orden: 11,
+                            menu_item_orden: idMod
+                        });
+                    }
+                    if (idMod === 151 || (idMod >= 155 && idMod <= 179) || idMod === 184 || idMod === 185) {
                         return Object.assign({}, mod, {
                             menu_grupo: 'Control documental RR.HH.',
                             menu_grupo_icono: 'fa fa-folder-open',
                             menu_grupo_orden: 14,
+                            menu_item_orden: idMod
+                        });
+                    }
+                    if (idsPermisosConvenios.has(idMod)) {
+                        return Object.assign({}, mod, {
+                            menu_grupo: 'Convenios',
+                            menu_grupo_icono: 'fa-solid fa-building-columns',
+                            menu_grupo_orden: 9,
                             menu_item_orden: idMod
                         });
                     }
@@ -8237,6 +8297,7 @@ class CapHum extends Controller
         $puedeActualizarInfo = in_array(self::MODULO_ACTUALIZAR_DATOS_RRHH, $modulos);
         $puedeAgregarUsuarioRrhh = in_array(self::MODULO_AGREGAR_USUARIO_RRHH, $modulos);
         $puedeEditarUsuarioRrhh = in_array(self::MODULO_EDITAR_USUARIO_RRHH, $modulos);
+        $puedeVerSalarioSensibleRrhh = self::puedeGestionarSalarioSensibleRrhh();
         $departamento = self::getDepartamentosGestionPersonal();
         $catalogoCompletoDeptos = CapHumDAO::getTodosDepartamentosGestion();
 
@@ -8260,6 +8321,7 @@ class CapHum extends Controller
         self::set("puedeActualizarInfo", $puedeActualizarInfo);
         self::set("puedeAgregarUsuarioRrhh", $puedeAgregarUsuarioRrhh);
         self::set("puedeEditarUsuarioRrhh", $puedeEditarUsuarioRrhh);
+        self::set("puedeVerSalarioSensibleRrhh", $puedeVerSalarioSensibleRrhh);
         self::render("all_gestores");
     }
 
@@ -13644,7 +13706,18 @@ class CapHum extends Controller
         }
         $resultado = CandidatosDAO::insert($data);
         if ($resultado['success'] && !empty($resultado['datos']['id'])) {
-            CandidatosDAO::getOrCreateTokenDocumentos($resultado['datos']['id']);
+            $idNuevo = (int) $resultado['datos']['id'];
+            CandidatosDAO::getOrCreateTokenDocumentos($idNuevo);
+            $snapshot = CapHumDAO::snapshotCandidatoAuditoria($idNuevo);
+            CapHumDAO::registrarAuditoriaInternaRrhh([
+                'modulo' => 'Seleccion de Personal',
+                'entidad_tipo' => 'candidato',
+                'entidad_id' => $idNuevo,
+                'entidad_nombre' => $snapshot['nombre_completo'] ?? trim(($data['nombres'] ?? '') . ' ' . ($data['apellidop'] ?? '')),
+                'accion' => 'crear_candidato',
+                'resumen' => 'Se registro un candidato en Seleccion de Personal.',
+                'detalle' => $snapshot ?: $data,
+            ]);
         }
         echo json_encode($resultado);
         exit;
@@ -13746,7 +13819,21 @@ class CapHum extends Controller
             echo json_encode(self::respuesta(false, $validacionJefeDivisional['mensaje'] ?? 'Selecciona el jefe divisional.', null));
             exit;
         }
+        $antes = CapHumDAO::snapshotCandidatoAuditoria($id);
         $resultado = CandidatosDAO::update($id, $data);
+        if (!empty($resultado['success'])) {
+            $despues = CapHumDAO::snapshotCandidatoAuditoria($id);
+            $cambios = CapHumDAO::diffAuditoria($antes, $despues);
+            CapHumDAO::registrarAuditoriaInternaRrhh([
+                'modulo' => 'Seleccion de Personal',
+                'entidad_tipo' => 'candidato',
+                'entidad_id' => $id,
+                'entidad_nombre' => $despues['nombre_completo'] ?? $antes['nombre_completo'] ?? ('Candidato #' . $id),
+                'accion' => 'editar_candidato',
+                'resumen' => empty($cambios) ? 'Se guardo el candidato sin cambios detectables.' : 'Se edito informacion del candidato.',
+                'cambios' => $cambios,
+            ]);
+        }
         echo json_encode($resultado);
         exit;
     }
@@ -23881,6 +23968,19 @@ class CapHum extends Controller
         }
 
         $resultado = CapHumRrhh::registrarUsuario($input, $idSesion);
+        if (!empty($resultado['success'])) {
+            $idPersonaNueva = (int)($resultado['datos']['id_persona'] ?? $resultado['datos']['id'] ?? 0);
+            $snapshot = $idPersonaNueva > 0 ? CapHumDAO::snapshotPersonaAuditoria($idPersonaNueva) : [];
+            CapHumDAO::registrarAuditoriaInternaRrhh([
+                'modulo' => 'Gestion de Personal',
+                'entidad_tipo' => 'persona',
+                'entidad_id' => $idPersonaNueva > 0 ? $idPersonaNueva : null,
+                'entidad_nombre' => $snapshot['nombre_completo'] ?? trim(($input['persona']['nombres'] ?? '') . ' ' . ($input['persona']['apellidop'] ?? '')),
+                'accion' => 'crear_usuario_rrhh',
+                'resumen' => 'Se registro un usuario desde el alta RR.HH.',
+                'detalle' => $snapshot ?: $input,
+            ]);
+        }
         self::respuestaJSON($resultado);
     }
 
@@ -23902,6 +24002,16 @@ class CapHum extends Controller
 
         $idPersona = (int) ($input['id_persona'] ?? 0);
         $resultado = CapHumRrhh::obtenerUsuario($idPersona, $idSesion);
+        if (!empty($resultado['success']) && isset($resultado['datos']) && is_array($resultado['datos'])) {
+            $resultado['datos']['permisos'] = array_merge(
+                (array)($resultado['datos']['permisos'] ?? []),
+                ['puede_gestionar_salario_sensible' => self::puedeGestionarSalarioSensibleRrhh()]
+            );
+            $resultado['datos']['salario_sensible'] = array_merge(
+                (array)($resultado['datos']['salario_sensible'] ?? []),
+                ['puede_gestionar' => self::puedeGestionarSalarioSensibleRrhh()]
+            );
+        }
         self::respuestaJSON($resultado);
     }
 
@@ -23921,7 +24031,22 @@ class CapHum extends Controller
             return;
         }
 
+        $idPersonaAudit = (int)($input['id_persona'] ?? 0);
+        $antes = $idPersonaAudit > 0 ? CapHumDAO::snapshotPersonaAuditoria($idPersonaAudit) : [];
         $resultado = CapHumRrhh::actualizarUsuario($input, $idSesion);
+        if (!empty($resultado['success']) && $idPersonaAudit > 0) {
+            $despues = CapHumDAO::snapshotPersonaAuditoria($idPersonaAudit);
+            $cambios = CapHumDAO::diffAuditoria($antes, $despues);
+            CapHumDAO::registrarAuditoriaInternaRrhh([
+                'modulo' => 'Gestion de Personal',
+                'entidad_tipo' => 'persona',
+                'entidad_id' => $idPersonaAudit,
+                'entidad_nombre' => $despues['nombre_completo'] ?? $antes['nombre_completo'] ?? ('Persona #' . $idPersonaAudit),
+                'accion' => 'editar_usuario_rrhh',
+                'resumen' => CapHumDAO::resumenAuditoriaUsuarioDesdeCambios($cambios, 'usuario RR.HH.'),
+                'cambios' => $cambios,
+            ]);
+        }
         self::respuestaJSON($resultado);
     }
 
@@ -23987,6 +24112,114 @@ class CapHum extends Controller
         );
         $this->auditarSalarioSensibleRrhh($idPersona, 'guardar', !empty($resultado['success']) ? 'autorizado' : 'fallido');
         self::respuestaJSON($resultado);
+    }
+
+    public function importarSueldosRrhhExcel()
+    {
+        header('Content-Type: application/json; charset=utf-8');
+
+        if (!self::tieneModuloWeb(self::MODULO_EDITAR_USUARIO_RRHH) || !self::puedeGestionarSalarioSensibleRrhh()) {
+            self::respuestaJSON(['success' => false, 'mensaje' => 'No tienes permiso para importar sueldos RR.HH.']);
+            return;
+        }
+
+        $archivo = $_FILES['archivo'] ?? null;
+        if (empty($archivo) || !empty($archivo['error'])) {
+            self::respuestaJSON(['success' => false, 'mensaje' => 'Selecciona un archivo Excel o CSV valido.']);
+            return;
+        }
+
+        $nombre = (string)($archivo['name'] ?? '');
+        $tmp = (string)($archivo['tmp_name'] ?? '');
+        $extension = strtolower(pathinfo($nombre, PATHINFO_EXTENSION));
+        if (!is_uploaded_file($tmp) || !in_array($extension, ['xlsx', 'xls', 'csv'], true)) {
+            self::respuestaJSON(['success' => false, 'mensaje' => 'El archivo debe ser .xlsx, .xls o .csv.']);
+            return;
+        }
+
+        try {
+            $filas = $this->leerFilasSueldosRrhh($tmp, $extension);
+            if (empty($filas)) {
+                self::respuestaJSON(['success' => false, 'mensaje' => 'No se encontraron filas con CURP y sueldo para importar.']);
+                return;
+            }
+
+            $resultado = CapHumDAO::importarSalariosSensiblesPorCurp($filas, self::usuarioSesionId());
+            self::respuestaJSON($resultado);
+        } catch (\Throwable $e) {
+            self::respuestaJSON(['success' => false, 'mensaje' => 'No se pudo leer el archivo de sueldos.', 'error' => $e->getMessage()]);
+        }
+    }
+
+    private function leerFilasSueldosRrhh(string $ruta, string $extension): array
+    {
+        $matriz = [];
+        if ($extension === 'csv') {
+            $handle = fopen($ruta, 'r');
+            if (!$handle) {
+                return [];
+            }
+            while (($row = fgetcsv($handle, 0, ',')) !== false) {
+                $matriz[] = $row;
+            }
+            fclose($handle);
+        } else {
+            if (!class_exists('\PhpOffice\PhpSpreadsheet\IOFactory')) {
+                $autoload = dirname(__DIR__, 2) . '/vendor/autoload.php';
+                if (is_file($autoload)) {
+                    require_once $autoload;
+                }
+            }
+            if (!class_exists('\PhpOffice\PhpSpreadsheet\IOFactory')) {
+                throw new \RuntimeException('PhpSpreadsheet no esta disponible.');
+            }
+            $spreadsheet = \PhpOffice\PhpSpreadsheet\IOFactory::load($ruta);
+            $matriz = $spreadsheet->getActiveSheet()->toArray(null, true, true, false);
+        }
+
+        if (count($matriz) < 2) {
+            return [];
+        }
+
+        $normalizarHeader = static function ($valor): string {
+            $texto = strtolower(trim((string)$valor));
+            $texto = strtr($texto, [
+                'á' => 'a', 'é' => 'e', 'í' => 'i', 'ó' => 'o', 'ú' => 'u', 'ñ' => 'n',
+                'Á' => 'a', 'É' => 'e', 'Í' => 'i', 'Ó' => 'o', 'Ú' => 'u', 'Ñ' => 'n',
+            ]);
+            return preg_replace('/[^a-z0-9]+/', '_', $texto);
+        };
+
+        $headers = array_map($normalizarHeader, array_shift($matriz));
+        $idxCurp = array_search('curp', $headers, true);
+        $candidatosSueldo = ['sueldo', 'salario', 'salario_mensual', 'sueldo_mensual', 'salario_sensible', 'sueldo_bruto'];
+        $idxSueldo = false;
+        foreach ($candidatosSueldo as $header) {
+            $idxSueldo = array_search($header, $headers, true);
+            if ($idxSueldo !== false) {
+                break;
+            }
+        }
+
+        if ($idxCurp === false || $idxSueldo === false) {
+            throw new \RuntimeException('El archivo debe tener encabezados CURP y SUELDO/SALARIO.');
+        }
+
+        $filas = [];
+        foreach ($matriz as $offset => $row) {
+            $curp = trim((string)($row[$idxCurp] ?? ''));
+            $salario = trim((string)($row[$idxSueldo] ?? ''));
+            if ($curp === '' && $salario === '') {
+                continue;
+            }
+            $filas[] = [
+                'fila' => $offset + 2,
+                'curp' => $curp,
+                'salario' => $salario,
+            ];
+        }
+
+        return $filas;
     }
 
     public function getTrayectoriaPuestoPersona()
@@ -24238,6 +24471,16 @@ class CapHum extends Controller
         self::respuestaJSON(CapHumDAO::getAuditoriaRrhhSensible());
     }
 
+    public function getAuditoriaInternaRrhh()
+    {
+        if (!self::puedeConsultarAuditoriaRrhh()) {
+            self::respuestaJSON(['success' => false, 'mensaje' => 'No tienes permiso para consultar auditoria interna RR.HH.']);
+            return;
+        }
+
+        self::respuestaJSON(CapHumDAO::getAuditoriaInternaRrhh($_GET));
+    }
+
     public function guardarPermisosAccesoCapitalHumano()
     {
         if (!self::puedeGestionarAccesosCapitalHumano()) {
@@ -24246,7 +24489,26 @@ class CapHum extends Controller
         }
 
         $payload = json_decode(file_get_contents('php://input'), true) ?: [];
+        $idPersonaPermisos = (int)($payload['id_persona'] ?? 0);
+        $permisosAntes = $idPersonaPermisos > 0 ? CapHumDAO::snapshotModulosAccesoCapitalHumano($idPersonaPermisos) : [];
+        $personaAntes = $idPersonaPermisos > 0 ? CapHumDAO::snapshotPersonaAuditoria($idPersonaPermisos) : [];
         $res = CapHumDAO::guardarPermisosAccesoCapitalHumano($payload);
+        if (!empty($res['success']) && $idPersonaPermisos > 0) {
+            $permisosDespues = CapHumDAO::snapshotModulosAccesoCapitalHumano($idPersonaPermisos);
+            CapHumDAO::registrarAuditoriaInternaRrhh([
+                'modulo' => 'Accesos Capital Humano',
+                'entidad_tipo' => 'permisos',
+                'entidad_id' => $idPersonaPermisos,
+                'entidad_nombre' => $personaAntes['nombre_completo'] ?? ('Persona #' . $idPersonaPermisos),
+                'accion' => 'guardar_permisos_ch',
+                'resumen' => 'Se actualizaron permisos de Capital Humano.',
+                'cambios' => CapHumDAO::diffAuditoria($permisosAntes, $permisosDespues),
+                'detalle' => [
+                    'antes' => $permisosAntes,
+                    'despues' => $permisosDespues,
+                ],
+            ]);
+        }
         if (!empty($res['success']) && (int)($payload['id_persona'] ?? 0) === (int)($_SESSION['usuario_id'] ?? 0)) {
             $_SESSION['modulos'] = array_values(
                 array_map('intval', (array) LoginDao::getModulosUsuario((int) ($_SESSION['usuario_id'] ?? 0)))
@@ -25001,6 +25263,31 @@ public function getEstadosMunicipiosMexico()
         // 4) Si no hay jefe real configurado, no inventar uno.
         self::respuestaJSON(['success' => true, 'mensaje' => 'Sin jefes disponibles.', 'datos' => []]);
     }
+
+    private static function filtrarCambiosAuditoriaGestionPersona(array $cambios, bool $domicilioEditado, bool $jefeEditado): array
+    {
+        if (!$domicilioEditado) {
+            foreach ([
+                'id_pais',
+                'id_div_nivel1',
+                'id_div_nivel2',
+                'id_div_nivel3',
+                'domicilio_calle_texto',
+                'domicilio_num_exterior',
+                'domicilio_num_interior',
+                'codigo_postal',
+            ] as $campo) {
+                unset($cambios[$campo]);
+            }
+        }
+
+        if (!$jefeEditado) {
+            unset($cambios['jefe']);
+        }
+
+        return $cambios;
+    }
+
     public function updateGestorF()
     {
         session_start(); //  IMPORTANTE
@@ -25040,7 +25327,11 @@ public function getEstadosMunicipiosMexico()
         $calleTe = trim((string) ($input['domicilio_calle_texto'] ?? ''));
         $cpe = trim((string) ($input['codigo_postal'] ?? ''));
         $numExte = trim((string) ($input['domicilio_num_exterior'] ?? ''));
-        $capturaDome = ($n3e !== '' || $n4e !== '' || $calleTe !== '' || $cpe !== '');
+        $numInte = trim((string) ($input['domicilio_num_interior'] ?? ''));
+        $capturaDome = ($n3e !== '' || $n4e !== '' || $calleTe !== '' || $cpe !== '' || $numExte !== '' || $numInte !== '');
+        if (!$capturaDome) {
+            $input['_preservar_domicilio_actual'] = true;
+        }
         $validarDomicilioObligatorio = $puedeEditarCompleto || !empty($input['_domicilio_editado_parcial']);
         if ($validarDomicilioObligatorio && $capturaDome && $numExte === '') {
             echo json_encode([
@@ -25050,6 +25341,8 @@ public function getEstadosMunicipiosMexico()
             exit;
         }
 
+        $idPersonaAudit = (int)($input['id'] ?? 0);
+        $antesAudit = $idPersonaAudit > 0 ? CapHumDAO::snapshotPersonaAuditoria($idPersonaAudit) : [];
         $resultado = CapHumDAO::UpdatePersona($input);
         if (!empty($resultado['success'])) {
             $idPersonaSync = (int)($input['id'] ?? 0);
@@ -25065,6 +25358,29 @@ public function getEstadosMunicipiosMexico()
             $datos['legacy_sync'] = $legacySync;
             $resultado['datos'] = $datos;
             $resultado['legacy_sync'] = $legacySync;
+
+            if ($idPersonaAudit > 0) {
+                $despuesAudit = CapHumDAO::snapshotPersonaAuditoria($idPersonaAudit);
+                $cambiosAudit = CapHumDAO::diffAuditoria($antesAudit, $despuesAudit);
+                $cambiosAudit = self::filtrarCambiosAuditoriaGestionPersona(
+                    $cambiosAudit,
+                    $capturaDome,
+                    trim((string)($input['jefe_id'] ?? '')) !== ''
+                );
+                CapHumDAO::registrarAuditoriaInternaRrhh([
+                    'modulo' => 'Gestion de Personal',
+                    'entidad_tipo' => 'persona',
+                    'entidad_id' => $idPersonaAudit,
+                    'entidad_nombre' => $despuesAudit['nombre_completo'] ?? $antesAudit['nombre_completo'] ?? ('Persona #' . $idPersonaAudit),
+                    'accion' => $puedeEditarCompleto ? 'editar_usuario' : 'editar_usuario_parcial',
+                    'resumen' => CapHumDAO::resumenAuditoriaUsuarioDesdeCambios($cambiosAudit),
+                    'cambios' => $cambiosAudit,
+                    'detalle' => [
+                        'legacy_sync' => $legacySync['resultado'] ?? $legacySync['success'] ?? null,
+                        'edicion_parcial' => !$puedeEditarCompleto,
+                    ],
+                ]);
+            }
         }
 
         echo json_encode($resultado);
@@ -26394,6 +26710,9 @@ public function getEstadosMunicipiosMexico()
 
                 if (!$confirmado) {
                     $confirmacionTotp = CapHumDAO::confirmarTotpDocumentoSensible($idUsuarioSesion);
+                    if (($confirmacionTotp['success'] ?? false)) {
+                        $this->notificarRegistroTotpSubdirectorRrhh('documentos');
+                    }
                     $this->auditarDocumentoSensibleRrhh([
                         'id_persona' => $idUsuarioSesion,
                         'id_documento' => 0,

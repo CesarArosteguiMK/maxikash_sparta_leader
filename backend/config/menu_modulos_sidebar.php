@@ -7,7 +7,7 @@ declare(strict_types=1);
 
 if (!function_exists('getMenuSidebarModulosStructure')) {
     /**
-     * @return array<string, array{icono: string, subItems: list<array{label: string, url: string, modulos: list<int>}>}>
+     * @return array<string, array{icono: string, subItems: list<array{label?: string, url?: string, modulos?: list<int>, section?: string}>}>
      */
     function getMenuSidebarModulosStructure(): array
     {
@@ -56,6 +56,7 @@ if (!function_exists('getMenuSidebarModulosStructure')) {
                     ['label' => 'Analítica sabueso', 'url' => '/sabueso/estadisticas', 'modulos' => [47]],
                     ['label' => 'Comparativas', 'url' => '/analitica/comparativas', 'modulos' => [60, 81]],
                     ['label' => 'Avance Bucket', 'url' => '/analitica/avanceBucket', 'modulos' => [77]],
+                    ['label' => 'Asignación', 'url' => '/analitica/asignacion', 'modulos' => [61]],
                 ],
             ],
             'Tickets' => [
@@ -81,29 +82,40 @@ if (!function_exists('getMenuSidebarModulosStructure')) {
             'Convenios' => [
                 'icono' => 'fa-solid fa-building-columns',
                 'subItems' => [
+                    ['section' => 'Gestion'],
                     ['label' => 'Asignación de Créditos', 'url' => '/Despachos/AsignacionCreditosDespacho', 'modulos' => [20]],
                     ['label' => 'Mi Cartera', 'url' => '/Despachos/MiGestion', 'modulos' => [45]],
+                    ['section' => 'Operacion de convenios'],
                     ['label' => 'Crear Convenio', 'url' => '/convenios/consulta', 'modulos' => [46]],
                     ['label' => 'Cierre de Crédito', 'url' => '/CierreCredito/consulta', 'modulos' => [51]],
+                    ['section' => 'Reporteria'],
+                    ['label' => 'Reporteria', 'url' => '/convenios/reporteria', 'modulos' => [56]],
                     ['label' => 'Estadísticas', 'url' => '/convenios/estadisticas', 'modulos' => [56]],
                 ],
             ],
             'Motos Adjudicadas' => [
                 'icono' => 'fa-solid fa-motorcycle',
                 'subItems' => [
+                    ['section' => 'General'],
                     ['label' => 'Administracion', 'url' => '/Adjudicacion/administracion', 'modulos' => [62, 80]],
                     ['label' => 'Operaciones', 'url' => '/MotosAdjudicadas/pipeline', 'modulos' => [63]],
-                    ['label' => 'Inventario', 'url' => '/MotosAdjudicadas/inventario', 'modulos' => [139]],
+                    ['label' => 'Almacen Virtual', 'url' => '/MotosAdjudicadas/almacenVirtual', 'modulos' => [139]],
+                    ['label' => 'Inventario', 'url' => '/AlmacenVirtual/consulta', 'modulos' => [103]],
                     ['label' => 'Monitoreo', 'url' => '/MotosAdjudicadas/monitoreoAdjudicaciones', 'modulos' => [76]],
                     ['label' => 'Consulta REPUVE', 'url' => '/MotosAdjudicadas/repuveConsulta', 'modulos' => [78]],
                     ['label' => 'OTP DE EMERGENCIA', 'url' => '/MotosAdjudicadas/otpEmergenciaLegacy', 'modulos' => [150]],
+                    ['section' => 'Flujo operativo'],
                     ['label' => '1.- Evidencias', 'url' => '/AtencionClientes/evidencias', 'modulos' => [70]],
                     ['label' => '2.- Recuperación', 'url' => '/AtencionClientes/recuperacion', 'modulos' => [71]],
-                    ['label' => '3.-Cartera', 'url' => '/AtencionClientes/cierreDocumentacion', 'modulos' => [72]],
+                    ['label' => '3.- Cartera', 'url' => '/AtencionClientes/cierreDocumentacion', 'modulos' => [72]],
                     ['label' => '4.- Recepción', 'url' => '/AtencionClientes/recepcion', 'modulos' => [73]],
                     ['label' => 'Retenciones', 'url' => '/AtencionClientes/consulta', 'modulos' => [69]],
+                    ['section' => 'Tracking'],
                     ['label' => 'Tracking Recolección', 'url' => '/TrackingRecoleccion/rutas', 'modulos' => [74]],
+                    ['label' => 'Dashboard', 'url' => '/MotosAdjudicadas/dashboard', 'modulos' => [74]],
                     ['label' => 'Administracion de transportistas', 'url' => '/TrackingRecoleccion/administracionTransportistas', 'modulos' => [74]],
+                    ['section' => 'Reportería'],
+                    ['label' => 'Reportería', 'url' => '/MotosAdjudicadas/reporteria', 'modulos' => [74]],
                 ],
             ],
             'Direcciones' => [
@@ -127,6 +139,7 @@ if (!function_exists('getMenuSidebarModulosStructure')) {
                     ['label' => 'Catálogos Operativos', 'url' => '/Atlas/catalogos', 'modulos' => [133]],
                     ['label' => 'Catálogos Comerciales', 'url' => '/Atlas/catalogosComerciales', 'modulos' => [134]],
                     ['label' => 'Notificaciones App', 'url' => '/Atlas/notificacionesApp', 'modulos' => [136]],
+                    ['label' => 'Catálogo de sucursales', 'url' => '/Atlas/catalogoSucursales', 'modulos' => [102]],
                     ['label' => 'Riesgos Operativos', 'url' => '/Atlas/riesgosOperativos', 'modulos' => [148]],
                     ['label' => 'Abanderamiento 30+', 'url' => '/Atlas/abanderamiento30', 'modulos' => [149]],
                     ['label' => 'Accesos Atlas', 'url' => '/Atlas/accesosAtlas', 'modulos' => [137]],

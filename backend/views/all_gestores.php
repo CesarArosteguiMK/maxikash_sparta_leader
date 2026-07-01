@@ -1202,6 +1202,60 @@
       padding: .95rem;
     }
 
+    #modalAgregarUsuarioRrhh .rrhh-salary-row {
+      display: flex;
+      align-items: flex-start;
+      gap: .75rem;
+      flex-wrap: wrap;
+    }
+
+    #modalAgregarUsuarioRrhh .rrhh-salary-field {
+      flex: 0 1 350px;
+      max-width: 100%;
+    }
+
+    #modalAgregarUsuarioRrhh .rrhh-salary-field .input-group {
+      box-shadow: 0 4px 10px rgba(15, 23, 42, .08);
+      border-radius: .55rem;
+    }
+
+    #modalAgregarUsuarioRrhh .rrhh-salary-field .input-group-text {
+      font-weight: 700;
+      color: #334155;
+      background: #fff;
+    }
+
+    #modalAgregarUsuarioRrhh #rrhh_salario_sensible {
+      font-weight: 700;
+      color: #1f2937;
+    }
+
+    #modalAgregarUsuarioRrhh #rrhh_salario_sensible_letras {
+      color: #64748b;
+      font-size: .82rem;
+      font-weight: 600;
+      margin-top: .35rem;
+    }
+
+    #modalAgregarUsuarioRrhh .rrhh-salary-actions {
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      gap: .55rem;
+      flex-wrap: wrap;
+      flex: 1 1 100%;
+      padding-top: .45rem;
+    }
+
+    #modalAgregarUsuarioRrhh .rrhh-salary-actions .btn {
+      min-height: 2.42rem;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: .35rem;
+      margin: 0;
+    }
+
     #modalAgregarUsuarioRrhh .rrhh-salary-status {
       display: inline-flex;
       align-items: center;
@@ -5056,6 +5110,7 @@ window.permisosEdicionCobranzaGestion = <?= json_encode(($permisosEdicionCobranz
 window.puedeActualizarInfo = <?= json_encode(!empty($puedeActualizarInfo ?? false)) ?>;
 window.puedeAgregarUsuarioRrhh = <?= json_encode(!empty($puedeAgregarUsuarioRrhh ?? false)) ?>;
 window.puedeEditarUsuarioRrhh = <?= json_encode(!empty($puedeEditarUsuarioRrhh ?? false)) ?>;
+window.puedeVerSalarioSensibleRrhh = <?= json_encode(!empty($puedeVerSalarioSensibleRrhh ?? false)) ?>;
 window.todosDepartamentosBackend = <?= json_encode(($departamento['datos'] ?? [])) ?>;
 window.catalogoCompletoDeptosBackend = <?= json_encode(($catalogoCompletoDeptos['datos'] ?? [])) ?>;
 <?php
@@ -5560,16 +5615,17 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
                               <div class="rrhh-section-title mb-0"><i class="fa fa-shield-halved me-1"></i>Salario</div>
                               <span class="rrhh-salary-status" id="rrhhSalarioSensibleStatus"><i class="fa fa-lock"></i>Protegido</span>
                             </div>
-                            <div class="row g-2 align-items-end">
-                              <div class="col-md-5">
+                            <div class="rrhh-salary-row">
+                              <div class="rrhh-salary-field">
                                 <label class="form-label">Salario mensual</label>
                                 <div class="input-group">
                                   <span class="input-group-text">$</span>
                                   <input type="password" class="form-control" id="rrhh_salario_sensible" inputmode="decimal" autocomplete="off" placeholder="Protegido" disabled>
                                   <span class="input-group-text">MXN</span>
                                 </div>
+                                <div class="form-text" id="rrhh_salario_sensible_letras">Desbloquea el salario para capturarlo.</div>
                               </div>
-                              <div class="col-md-7 d-flex gap-2 flex-wrap">
+                              <div class="rrhh-salary-actions">
                                 <button type="button" class="btn btn-outline-primary" id="btnRrhhDesbloquearSalario">
                                   <i class="fa fa-key me-1"></i>Desbloquear
                                 </button>
@@ -13087,7 +13143,9 @@ function precargarCascadaEdit(idPais, idEstado, idMunicipio, idColonia, idCalle,
   const subtituloModalRrhh = document.getElementById('rrhhWizardSubtitle');
   const inputEditIdRrhh = document.getElementById('rrhh_edit_id_persona');
   const btnGuardarRrhh = document.getElementById('btnGuardarUsuarioRrhh');
+  const cardSalarioSensibleRrhh = document.getElementById('rrhhSalarioSensibleCard');
   const inputSalarioSensibleRrhh = document.getElementById('rrhh_salario_sensible');
+  const textoSalarioSensibleRrhh = document.getElementById('rrhh_salario_sensible_letras');
   const btnDesbloquearSalarioRrhh = document.getElementById('btnRrhhDesbloquearSalario');
   const btnGuardarSalarioRrhh = document.getElementById('btnRrhhGuardarSalario');
   const estadoSalarioSensibleRrhh = document.getElementById('rrhhSalarioSensibleStatus');
@@ -13241,6 +13299,7 @@ function precargarCascadaEdit(idPais, idEstado, idMunicipio, idColonia, idCalle,
     form.dataset.mode = esEdicion ? 'editar' : 'crear';
     if (inputEditIdRrhh) inputEditIdRrhh.value = esEdicion ? String(idPersona || '') : '';
     resetSalarioSensibleRrhh(esEdicion);
+    aplicarVisibilidadSalarioSensibleRrhh(!!window.puedeVerSalarioSensibleRrhh);
     if (tituloModalRrhh) {
       tituloModalRrhh.textContent = esEdicion ? 'Editar usuario RR.HH.' : 'Agregar usuario RR.HH.';
     }
@@ -13268,6 +13327,103 @@ function precargarCascadaEdit(idPais, idEstado, idMunicipio, idColonia, idCalle,
     estadoSalarioSensibleRrhh.innerHTML = `<i class="fa ${icon}"></i>${escapeRrhhHtml(texto)}`;
   }
 
+  function aplicarVisibilidadSalarioSensibleRrhh(puedeGestionar) {
+    const visible = !!puedeGestionar;
+    window.puedeVerSalarioSensibleRrhh = visible;
+    const wrapper = cardSalarioSensibleRrhh?.closest('.col-12') || cardSalarioSensibleRrhh;
+    if (wrapper) {
+      wrapper.classList.toggle('d-none', !visible);
+      wrapper.setAttribute('aria-hidden', visible ? 'false' : 'true');
+    }
+    if (!visible) {
+      if (inputSalarioSensibleRrhh) {
+        inputSalarioSensibleRrhh.value = '';
+        inputSalarioSensibleRrhh.type = 'password';
+        inputSalarioSensibleRrhh.disabled = true;
+      }
+      if (btnDesbloquearSalarioRrhh) btnDesbloquearSalarioRrhh.disabled = true;
+      if (btnGuardarSalarioRrhh) btnGuardarSalarioRrhh.disabled = true;
+    }
+  }
+
+  function limpiarSalarioRrhh(value) {
+    const text = String(value ?? '').replace(/[^\d.]/g, '');
+    const parts = text.split('.');
+    const entero = (parts.shift() || '').replace(/^0+(?=\d)/, '');
+    const decimal = parts.join('').replace(/\D/g, '').slice(0, 2);
+    return decimal ? `${entero || '0'}.${decimal}` : entero;
+  }
+
+  function formatearSalarioRrhh(value) {
+    const limpio = limpiarSalarioRrhh(value);
+    if (!limpio) return '';
+    const [enteroRaw, decimalRaw = ''] = limpio.split('.');
+    const entero = Number(enteroRaw || 0).toLocaleString('es-MX');
+    return decimalRaw ? `${entero}.${decimalRaw}` : entero;
+  }
+
+  function numeroEnteroALetrasRrhh(numero) {
+    const unidades = ['', 'uno', 'dos', 'tres', 'cuatro', 'cinco', 'seis', 'siete', 'ocho', 'nueve'];
+    const especiales = ['diez', 'once', 'doce', 'trece', 'catorce', 'quince', 'dieciseis', 'diecisiete', 'dieciocho', 'diecinueve'];
+    const decenas = ['', '', 'veinte', 'treinta', 'cuarenta', 'cincuenta', 'sesenta', 'setenta', 'ochenta', 'noventa'];
+    const centenas = ['', 'ciento', 'doscientos', 'trescientos', 'cuatrocientos', 'quinientos', 'seiscientos', 'setecientos', 'ochocientos', 'novecientos'];
+
+    const menorMil = (n) => {
+      if (n === 0) return '';
+      if (n === 100) return 'cien';
+      if (n < 10) return unidades[n];
+      if (n < 20) return especiales[n - 10];
+      if (n === 20) return 'veinte';
+      if (n < 30) return 'veinti' + unidades[n - 20];
+      if (n < 100) {
+        const d = Math.floor(n / 10);
+        const u = n % 10;
+        return decenas[d] + (u ? ' y ' + unidades[u] : '');
+      }
+      const c = Math.floor(n / 100);
+      const r = n % 100;
+      return centenas[c] + (r ? ' ' + menorMil(r) : '');
+    };
+
+    const n = Math.max(0, Math.floor(Number(numero) || 0));
+    if (n === 0) return 'cero';
+    if (n < 1000) return menorMil(n);
+    if (n < 1000000) {
+      const miles = Math.floor(n / 1000);
+      const resto = n % 1000;
+      const textoMiles = miles === 1 ? 'mil' : `${menorMil(miles)} mil`;
+      return textoMiles + (resto ? ' ' + menorMil(resto) : '');
+    }
+    const millones = Math.floor(n / 1000000);
+    const resto = n % 1000000;
+    const textoMillones = millones === 1 ? 'un millon' : `${numeroEnteroALetrasRrhh(millones)} millones`;
+    return textoMillones + (resto ? ' ' + numeroEnteroALetrasRrhh(resto) : '');
+  }
+
+  function capitalizarPrimeraRrhh(texto) {
+    const limpio = String(texto || '').trim();
+    return limpio ? limpio.charAt(0).toUpperCase() + limpio.slice(1) : '';
+  }
+
+  function salarioALetrasRrhh(numero) {
+    const n = Math.max(0, Math.floor(Number(numero) || 0));
+    if (n <= 0) return '';
+    return `${capitalizarPrimeraRrhh(numeroEnteroALetrasRrhh(n))} pesos`;
+  }
+
+  function actualizarSalarioLetrasRrhh() {
+    if (!textoSalarioSensibleRrhh || !inputSalarioSensibleRrhh) return;
+    if (inputSalarioSensibleRrhh.disabled || inputSalarioSensibleRrhh.type === 'password') {
+      textoSalarioSensibleRrhh.textContent = 'Desbloquea el salario para capturarlo.';
+      return;
+    }
+    const valor = limpiarSalarioRrhh(inputSalarioSensibleRrhh.value);
+    const numero = Math.floor(Number(valor || 0));
+    textoSalarioSensibleRrhh.textContent = numero > 0
+      ? salarioALetrasRrhh(numero)
+      : 'Captura el salario mensual en numeros.';
+  }
+
   function resetSalarioSensibleRrhh(esEdicion = false, tieneSalario = false) {
     if (inputSalarioSensibleRrhh) {
       inputSalarioSensibleRrhh.value = esEdicion && tieneSalario ? '********' : '';
@@ -13275,12 +13431,18 @@ function precargarCascadaEdit(idPais, idEstado, idMunicipio, idColonia, idCalle,
       inputSalarioSensibleRrhh.disabled = true;
       inputSalarioSensibleRrhh.placeholder = esEdicion ? 'Protegido' : 'Disponible al editar';
     }
+    actualizarSalarioLetrasRrhh();
     if (btnDesbloquearSalarioRrhh) btnDesbloquearSalarioRrhh.disabled = !esEdicion;
     if (btnGuardarSalarioRrhh) btnGuardarSalarioRrhh.disabled = true;
     setEstadoSalarioSensibleRrhh(esEdicion ? (tieneSalario ? 'Guardado' : 'Sin capturar') : 'Solo al editar', 'locked');
   }
 
   function aplicarEstadoSalarioSensibleRrhh(meta = {}) {
+    const puedeGestionar = Object.prototype.hasOwnProperty.call(meta, 'puede_gestionar')
+      ? !!meta.puede_gestionar
+      : !!window.puedeVerSalarioSensibleRrhh;
+    aplicarVisibilidadSalarioSensibleRrhh(puedeGestionar);
+    if (!puedeGestionar) return;
     resetSalarioSensibleRrhh(form.dataset.mode === 'editar', !!meta.tiene_salario);
   }
 
@@ -13333,12 +13495,27 @@ function precargarCascadaEdit(idPais, idEstado, idMunicipio, idColonia, idCalle,
       confirmButtonText: 'Verificar',
       cancelButtonText: 'Cancelar',
       didOpen: async () => {
-        setTimeout(() => Swal.getInput()?.focus?.(), 80);
+        document.querySelectorAll('.modal.show').forEach(modal => {
+          const instancia = window.bootstrap && bootstrap.Modal ? bootstrap.Modal.getInstance(modal) : null;
+          if (instancia && instancia._focustrap && typeof instancia._focustrap.deactivate === 'function') {
+            instancia._focustrap.deactivate();
+          }
+        });
+        setTimeout(() => {
+          const input = Swal.getInput ? Swal.getInput() : document.querySelector('.swal2-input');
+          if (input) {
+            input.disabled = false;
+            input.readOnly = false;
+            input.focus();
+            input.select?.();
+          }
+        }, 80);
         if (setup && otpauthUrl) {
           try {
             await cargarLibreriaQrRrhhLocal();
             const canvas = document.getElementById('rrhh-salario-totp-qr');
             if (canvas && window.QRCode && typeof window.QRCode.toCanvas === 'function') {
+              canvas.style.pointerEvents = 'none';
               await window.QRCode.toCanvas(canvas, otpauthUrl, { width: 210, margin: 2, errorCorrectionLevel: 'M' });
             }
           } catch (error) {
@@ -13392,8 +13569,9 @@ function precargarCascadaEdit(idPais, idEstado, idMunicipio, idColonia, idCalle,
       if (inputSalarioSensibleRrhh) {
         inputSalarioSensibleRrhh.type = 'text';
         inputSalarioSensibleRrhh.disabled = false;
-        inputSalarioSensibleRrhh.value = data.datos?.salario || '';
+        inputSalarioSensibleRrhh.value = formatearSalarioRrhh(data.datos?.salario || '');
         inputSalarioSensibleRrhh.placeholder = '0.00';
+        actualizarSalarioLetrasRrhh();
         inputSalarioSensibleRrhh.focus();
       }
       if (btnGuardarSalarioRrhh) btnGuardarSalarioRrhh.disabled = false;
@@ -13412,14 +13590,15 @@ function precargarCascadaEdit(idPais, idEstado, idMunicipio, idColonia, idCalle,
     try {
       const data = await postSalarioSensibleRrhh('/CapHum/guardarSalarioPersonaRrhh', {
         id_persona: idPersona,
-        salario: inputSalarioSensibleRrhh.value || ''
+        salario: limpiarSalarioRrhh(inputSalarioSensibleRrhh.value || '')
       });
       if (!data) return;
       if (!data.success) throw new Error(data.mensaje || 'No se pudo guardar el salario.');
       if (data.datos && data.datos.tiene_salario === false) {
         resetSalarioSensibleRrhh(true, false);
       } else {
-        inputSalarioSensibleRrhh.value = data.datos?.salario || '';
+        inputSalarioSensibleRrhh.value = formatearSalarioRrhh(data.datos?.salario || '');
+        actualizarSalarioLetrasRrhh();
         setEstadoSalarioSensibleRrhh('Guardado', 'unlocked');
       }
       Swal.fire('Guardado', 'Salario protegido actualizado correctamente.', 'success');
@@ -13434,6 +13613,13 @@ function precargarCascadaEdit(idPais, idEstado, idMunicipio, idColonia, idCalle,
 
   btnDesbloquearSalarioRrhh?.addEventListener('click', desbloquearSalarioSensibleRrhh);
   btnGuardarSalarioRrhh?.addEventListener('click', guardarSalarioSensibleRrhh);
+  inputSalarioSensibleRrhh?.addEventListener('input', () => {
+    const formateado = formatearSalarioRrhh(inputSalarioSensibleRrhh.value);
+    if (inputSalarioSensibleRrhh.value !== formateado) {
+      inputSalarioSensibleRrhh.value = formateado;
+    }
+    actualizarSalarioLetrasRrhh();
+  });
 
   function escapeRrhhAttr(value) {
     return String(value ?? '')

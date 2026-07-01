@@ -7933,4 +7933,998 @@ EOSQL;
             'regresado_de_correcciones' => $regresado,
         ];
     }
+
+    private function madjFechaFiltro(?string $fecha): ?string
+    {
+        $fecha = trim((string) $fecha);
+        if ($fecha === '' || !preg_match('/^\d{4}-\d{2}-\d{2}$/', $fecha)) {
+            return null;
+        }
+
+        return $fecha;
+    }
+
+    private function madjEstadoNormalizadoSql(string $alias = 'o'): string
+    {
+        $campo = $alias . '.log_estado';
+        return "CASE
+            WHEN TRIM(COALESCE({$campo}, '')) = '' THEN 'SIN ESTADO'
+            WHEN UPPER(TRIM({$campo})) IN ('CDMX', 'CMDX', 'CIUDAD DE MEXICO', 'CIUDAD DE MÉXICO') THEN 'CIUDAD DE MEXICO'
+            WHEN UPPER(TRIM({$campo})) IN ('MEXICO', 'MÉXICO', 'EDO DE MEX', 'EDO DE MEXICO', 'ESTADO DE MÉXICO') THEN 'ESTADO DE MEXICO'
+            ELSE UPPER(TRIM({$campo}))
+        END";
+    }
+
+    private function madjUbicacionIncompletaSql(string $alias = 'o'): string
+    {
+        $dir = "UPPER(TRIM(COALESCE({$alias}.log_direccion, '')))";
+        $ciu = "UPPER(TRIM(COALESCE({$alias}.log_ciudad, '')))";
+        $edo = "UPPER(TRIM(COALESCE({$alias}.log_estado, '')))";
+
+        return "({$dir} IN ('', 'NA', 'N/A', 'SIN DIRECCION', 'SIN DIRECCIÓN')
+            OR {$ciu} IN ('', 'NA', 'N/A')
+            OR {$edo} IN ('', 'NA', 'N/A'))";
+    }
+
+    private function madjWhereFechaAlta(array $filtros, array &$params): string
+    {
+        $where = '1=1';
+        $desde = $this->madjFechaFiltro($filtros['desde'] ?? null);
+        $hasta = $this->madjFechaFiltro($filtros['hasta'] ?? null);
+
+        if ($desde !== null) {
+            $where .= ' AND DATE(o.fecha_alta) >= :desde';
+            $params['desde'] = $desde;
+        }
+        if ($hasta !== null) {
+            $where .= ' AND DATE(o.fecha_alta) <= :hasta';
+            $params['hasta'] = $hasta;
+        }
+
+        return $where;
+    }
+
+    public function obtenerDashboardMotosAdjudicadas(array $filtros = []): array
+    {
+        $params = [];
+        $where = $this->madjWhereFechaAlta($filtros, $params);
+        $ubicacionIncompleta = $this->madjUbicacionIncompletaSql('o');
+
+        $resumen = $this->db->queryOne(
+            "SELECT
+                COUNT(*) AS total,
+                SUM(CASE WHEN LOWER(TRIM(COALESCE(o.estatus, ''))) = 'en_transito' THEN 1 ELSE 0 END) AS en_transito,
+                SUM(CASE WHEN LOWER(TRIM(COALESCE(o.estatus, ''))) IN ('recepcion', 'recepción') THEN 1 ELSE 0 END) AS recepcion,
+                SUM(CASE WHEN LOWER(TRIM(COALESCE(o.estatus, ''))) IN ('procesando ia', 'procesando_ia') THEN 1 ELSE 0 END) AS procesando_ia,
+                SUM(CASE WHEN {$ubicacionIncompleta} THEN 1 ELSE 0 END) AS ubicacion_incompleta,
+                SUM(CASE WHEN o.fecha_llegada_almacen IS NOT NULL THEN 1 ELSE 0 END) AS llegada_almacen,
+                SUM(CASE WHEN COALESCE(o.es_validado_ia, 0) = 1 THEN 1 ELSE 0 END) AS validadas_ia,
+                SUM(CASE WHEN COALESCE(o.es_validado_factura, 0) = 1 THEN 1 ELSE 0 END) AS validadas_factura,
+                SUM(CASE WHEN DATE(o.fecha_alta) = CURDATE() THEN 1 ELSE 0 END) AS altas_hoy,
+                SUM(CASE WHEN o.fecha_actualizacion >= DATE_SUB(NOW(), INTERVAL 7 DAY) THEN 1 ELSE 0 END) AS actualizadas_7d,
+                AVG(NULLIF(o.dias_mora, 0)) AS promedio_dias_mora,
+                SUM(COALESCE(o.saldo_capital, 0)) AS saldo_capital,
+                SUM(COALESCE(o.adeudo_total, 0)) AS adeudo_total
+             FROM adj_operacion o
+             WHERE {$where}",
+            $params
+        ) ?: [];
+
+        $porEstatus = $this->db->queryAll(
+            "SELECT COALESCE(NULLIF(TRIM(o.estatus), ''), 'Sin estatus') AS label, COUNT(*) AS total
+             FROM adj_operacion o
+             WHERE {$where}
+             GROUP BY label
+             ORDER BY total DESC, label ASC
+             LIMIT 12",
+            $params
+        ) ?: [];
+
+        $estadoSql = $this->madjEstadoNormalizadoSql('o');
+        $porEstado = $this->db->queryAll(
+            "SELECT {$estadoSql} AS label, COUNT(*) AS total
+             FROM adj_operacion o
+             WHERE {$where}
+             GROUP BY label
+             ORDER BY total DESC, label ASC
+             LIMIT 10",
+            $params
+        ) ?: [];
+
+        $porDia = $this->db->queryAll(
+            "SELECT DATE(o.fecha_alta) AS label, COUNT(*) AS total
+             FROM adj_operacion o
+             WHERE {$where}
+               AND o.fecha_alta >= DATE_SUB(CURDATE(), INTERVAL 13 DAY)
+             GROUP BY DATE(o.fecha_alta)
+             ORDER BY label ASC",
+            $params
+        ) ?: [];
+
+        $alertas = $this->db->queryAll(
+            "SELECT alerta, total
+             FROM (
+                SELECT 'Ubicacion incompleta' AS alerta, SUM(CASE WHEN {$ubicacionIncompleta} THEN 1 ELSE 0 END) AS total
+                FROM adj_operacion o WHERE {$where}
+                UNION ALL
+                SELECT 'Datos de unidad incompletos' AS alerta,
+                       SUM(CASE WHEN TRIM(COALESCE(o.moto_marca, o.marca, '')) = '' OR TRIM(COALESCE(o.moto_modelo, o.modelo, '')) = '' THEN 1 ELSE 0 END) AS total
+                FROM adj_operacion o WHERE {$where}
+                UNION ALL
+                SELECT 'Sin llegada a almacen' AS alerta,
+                       SUM(CASE WHEN o.fecha_llegada_almacen IS NULL THEN 1 ELSE 0 END) AS total
+                FROM adj_operacion o WHERE {$where}
+             ) x
+             WHERE total > 0
+             ORDER BY total DESC",
+            $params
+        ) ?: [];
+
+        $tracking = [
+            'rutas_total' => 0,
+            'rutas_activas' => 0,
+            'creditos_en_ruta' => 0,
+        ];
+        try {
+            $row = $this->db->queryOne(
+                "SELECT
+                    COUNT(DISTINCT atr.id_ruta) AS rutas_total,
+                    COUNT(DISTINCT CASE WHEN LOWER(COALESCE(atr.estatus_ruta, '')) IN ('en_proceso', 'en proceso', 'enviada', 'operativa') THEN atr.id_ruta END) AS rutas_activas,
+                    COUNT(atd.id_detalle) AS creditos_en_ruta
+                 FROM asigna_horas_tracking atr
+                 LEFT JOIN asigna_horas_tracking_detalle atd ON atd.id_ruta = atr.id_ruta"
+            );
+            if ($row) {
+                $tracking = [
+                    'rutas_total' => (int) ($row['rutas_total'] ?? 0),
+                    'rutas_activas' => (int) ($row['rutas_activas'] ?? 0),
+                    'creditos_en_ruta' => (int) ($row['creditos_en_ruta'] ?? 0),
+                ];
+            }
+        } catch (\Throwable $e) {
+            // El dashboard no debe romper si tracking aun no tiene sus tablas listas.
+        }
+
+        return [
+            'resumen' => [
+                'total' => (int) ($resumen['total'] ?? 0),
+                'en_transito' => (int) ($resumen['en_transito'] ?? 0),
+                'recepcion' => (int) ($resumen['recepcion'] ?? 0),
+                'procesando_ia' => (int) ($resumen['procesando_ia'] ?? 0),
+                'ubicacion_incompleta' => (int) ($resumen['ubicacion_incompleta'] ?? 0),
+                'llegada_almacen' => (int) ($resumen['llegada_almacen'] ?? 0),
+                'validadas_ia' => (int) ($resumen['validadas_ia'] ?? 0),
+                'validadas_factura' => (int) ($resumen['validadas_factura'] ?? 0),
+                'altas_hoy' => (int) ($resumen['altas_hoy'] ?? 0),
+                'actualizadas_7d' => (int) ($resumen['actualizadas_7d'] ?? 0),
+                'promedio_dias_mora' => round((float) ($resumen['promedio_dias_mora'] ?? 0), 1),
+                'saldo_capital' => (float) ($resumen['saldo_capital'] ?? 0),
+                'adeudo_total' => (float) ($resumen['adeudo_total'] ?? 0),
+            ],
+            'por_estatus' => $porEstatus,
+            'por_estado' => $porEstado,
+            'por_dia' => $porDia,
+            'alertas' => $alertas,
+            'tracking' => $tracking,
+            'actualizado_at' => date('Y-m-d H:i:s'),
+        ];
+    }
+
+    public function obtenerReporteSeguimientoMotosAdjudicadas(array $filtros = []): array
+    {
+        $params = [];
+        $where = $this->madjWhereFechaAlta($filtros, $params);
+        $estadoSql = $this->madjEstadoNormalizadoSql('o');
+        $ubicacionIncompleta = $this->madjUbicacionIncompletaSql('o');
+
+        $estatus = trim((string) ($filtros['estatus'] ?? ''));
+        if ($estatus !== '') {
+            $where .= ' AND LOWER(TRIM(COALESCE(o.estatus, \'\'))) = LOWER(:estatus)';
+            $params['estatus'] = $estatus;
+        }
+
+        $estado = trim((string) ($filtros['estado'] ?? ''));
+        if ($estado !== '') {
+            $where .= " AND {$estadoSql} = :estado";
+            $params['estado'] = strtoupper($estado);
+        }
+
+        $q = trim((string) ($filtros['q'] ?? ''));
+        if ($q !== '') {
+            $where .= " AND (
+                CAST(o.id_credito AS CHAR) LIKE :q
+                OR CAST(o.id AS CHAR) LIKE :q
+                OR o.folio LIKE :q
+                OR o.nombre_cliente LIKE :q
+                OR COALESCE(o.moto_no_serie, o.serie, '') LIKE :q
+                OR COALESCE(o.moto_modelo, o.modelo, '') LIKE :q
+            )";
+            $params['q'] = '%' . $q . '%';
+        }
+
+        $limit = (int) ($filtros['limit'] ?? 200);
+        $limit = max(25, min(1000, $limit));
+
+        $rows = $this->db->queryAll(
+            "SELECT
+                o.id,
+                o.folio,
+                o.id_credito,
+                o.nombre_cliente,
+                COALESCE(NULLIF(TRIM(o.estatus), ''), 'Sin estatus') AS estatus,
+                {$estadoSql} AS estado_normalizado,
+                COALESCE(NULLIF(TRIM(o.log_ciudad), ''), 'SIN MUNICIPIO') AS municipio,
+                COALESCE(NULLIF(TRIM(o.log_direccion), ''), 'Sin direccion') AS direccion,
+                TRIM(CONCAT_WS(' ', COALESCE(o.moto_marca, o.marca), COALESCE(o.moto_modelo, o.modelo))) AS unidad,
+                COALESCE(o.moto_anio, NULL) AS anio,
+                COALESCE(o.moto_color, '') AS color,
+                COALESCE(o.moto_no_serie, o.serie, '') AS vin,
+                COALESCE(o.moto_placas, '') AS placas,
+                o.fecha_alta,
+                o.fecha_actualizacion,
+                o.fecha_llegada_almacen,
+                o.dias_mora,
+                o.saldo_capital,
+                o.adeudo_total,
+                CASE WHEN {$ubicacionIncompleta} THEN 1 ELSE 0 END AS ubicacion_incompleta,
+                CASE WHEN TRIM(COALESCE(o.moto_marca, o.marca, '')) = '' OR TRIM(COALESCE(o.moto_modelo, o.modelo, '')) = '' THEN 1 ELSE 0 END AS unidad_incompleta
+             FROM adj_operacion o
+             WHERE {$where}
+             ORDER BY COALESCE(o.fecha_actualizacion, o.fecha_alta) DESC, o.id DESC
+             LIMIT {$limit}",
+            $params
+        ) ?: [];
+
+        $estatusRows = $this->db->queryAll(
+            "SELECT COALESCE(NULLIF(TRIM(o.estatus), ''), 'Sin estatus') AS label, COUNT(*) AS total
+             FROM adj_operacion o
+             GROUP BY label
+             ORDER BY total DESC, label ASC"
+        ) ?: [];
+
+        $estadoRows = $this->db->queryAll(
+            "SELECT {$estadoSql} AS label, COUNT(*) AS total
+             FROM adj_operacion o
+             GROUP BY label
+             ORDER BY total DESC, label ASC"
+        ) ?: [];
+
+        return [
+            'rows' => $rows,
+            'catalogos' => [
+                'estatus' => $estatusRows,
+                'estados' => $estadoRows,
+            ],
+            'total' => count($rows),
+            'limit' => $limit,
+            'actualizado_at' => date('Y-m-d H:i:s'),
+        ];
+    }
+
+    private function madjHistoricoFlujoEtapas(): array
+    {
+        return [
+            'asignacion_gestor' => [
+                'key' => 'asignacion_gestor',
+                'titulo' => 'Asignacion de credito al gestor',
+                'descripcion' => 'Creditos que entraron a motos adjudicadas y aun no avanzan a evidencias.',
+                'icon' => 'fa-user-check',
+            ],
+            'evidencias' => [
+                'key' => 'evidencias',
+                'titulo' => 'Evidencias',
+                'descripcion' => 'Creditos con captura fotografica o documental registrada.',
+                'icon' => 'fa-camera',
+            ],
+            'recuperacion' => [
+                'key' => 'recuperacion',
+                'titulo' => 'Recuperacion',
+                'descripcion' => 'Creditos con movimientos de recuperacion o validacion operativa.',
+                'icon' => 'fa-motorcycle',
+            ],
+            'envio_cartera' => [
+                'key' => 'envio_cartera',
+                'titulo' => 'Envio a cartera',
+                'descripcion' => 'Creditos enviados a gestion de cartera o cierre documental.',
+                'icon' => 'fa-folder-open',
+            ],
+            'tracking_recoleccion' => [
+                'key' => 'tracking_recoleccion',
+                'titulo' => 'Tracking de recoleccion',
+                'descripcion' => 'Creditos agregados a rutas de recoleccion.',
+                'icon' => 'fa-route',
+            ],
+            'recepcion' => [
+                'key' => 'recepcion',
+                'titulo' => 'Recepcion',
+                'descripcion' => 'Creditos con llegada o recepcion confirmada en almacen/CEDIS.',
+                'icon' => 'fa-warehouse',
+            ],
+        ];
+    }
+
+    private function madjHistoricoFlujoQuery(string $where, string $estadoSql, bool $incluirTracking): string
+    {
+        $trackingSelect = $incluirTracking
+            ? ",
+                (SELECT COUNT(*)
+                 FROM asigna_horas_tracking_detalle atd
+                 WHERE atd.id_credito = o.id_credito) AS tracking_total,
+                (SELECT MIN(COALESCE(atd.fecha_agregado, atr.fecha_creacion))
+                 FROM asigna_horas_tracking_detalle atd
+                 INNER JOIN asigna_horas_tracking atr ON atr.id_ruta = atd.id_ruta
+                 WHERE atd.id_credito = o.id_credito) AS fecha_tracking,
+                (SELECT atr.nombre_ruta
+                 FROM asigna_horas_tracking_detalle atd
+                 INNER JOIN asigna_horas_tracking atr ON atr.id_ruta = atd.id_ruta
+                 WHERE atd.id_credito = o.id_credito
+                 ORDER BY COALESCE(atd.fecha_agregado, atr.fecha_creacion) DESC, atd.id_detalle DESC
+                 LIMIT 1) AS ruta_tracking,
+                (SELECT atr.estatus_ruta
+                 FROM asigna_horas_tracking_detalle atd
+                 INNER JOIN asigna_horas_tracking atr ON atr.id_ruta = atd.id_ruta
+                 WHERE atd.id_credito = o.id_credito
+                 ORDER BY COALESCE(atd.fecha_agregado, atr.fecha_creacion) DESC, atd.id_detalle DESC
+                 LIMIT 1) AS estatus_tracking"
+            : ",
+                0 AS tracking_total,
+                NULL AS fecha_tracking,
+                NULL AS ruta_tracking,
+                NULL AS estatus_tracking";
+
+        return "SELECT
+                o.id,
+                o.folio,
+                o.id_credito,
+                o.nombre_cliente,
+                COALESCE(NULLIF(TRIM(o.estatus), ''), 'Sin estatus') AS estatus,
+                {$estadoSql} AS estado_normalizado,
+                COALESCE(NULLIF(TRIM(o.log_ciudad), ''), 'SIN MUNICIPIO') AS municipio,
+                COALESCE(NULLIF(TRIM(o.log_direccion), ''), 'Sin direccion') AS direccion,
+                TRIM(CONCAT_WS(' ', COALESCE(o.moto_marca, o.marca), COALESCE(o.moto_modelo, o.modelo))) AS unidad,
+                COALESCE(o.moto_no_serie, o.serie, '') AS vin,
+                COALESCE(o.moto_placas, '') AS placas,
+                o.fecha_alta,
+                o.fecha_actualizacion,
+                o.fecha_llegada_almacen,
+                o.recepcion_confirmada_at,
+                (SELECT COUNT(*)
+                 FROM asigna_creditos_adjudicacion aca
+                 WHERE aca.id_credito = o.id_credito) AS asignaciones_total,
+                (SELECT MIN(aca.fecha_alta)
+                 FROM asigna_creditos_adjudicacion aca
+                 WHERE aca.id_credito = o.id_credito) AS fecha_asignacion,
+                (SELECT TRIM(CONCAT_WS(' ', per.nombres, per.segundo_nombre, per.apellidop, per.apellidom))
+                 FROM asigna_creditos_adjudicacion aca
+                 INNER JOIN personal_adjudicacion pa ON pa.id = aca.id_personal_adj
+                 INNER JOIN persona per ON per.id = pa.id_persona
+                 WHERE aca.id_credito = o.id_credito
+                 ORDER BY (aca.estatus = '1') DESC, aca.id DESC
+                 LIMIT 1) AS gestor_nombre,
+                (SELECT COUNT(*)
+                 FROM adj_evidencia ev
+                 WHERE ev.id_operacion = o.id) AS evidencias_total,
+                (SELECT MIN(ev.fecha_alta)
+                 FROM adj_evidencia ev
+                 WHERE ev.id_operacion = o.id) AS fecha_evidencia,
+                (SELECT COUNT(*)
+                 FROM adj_historial_estatus h
+                 WHERE h.id_operacion = o.id
+                   AND (
+                       LOWER(COALESCE(h.estatus_nuevo, '')) LIKE '%recuper%'
+                       OR LOWER(COALESCE(h.estatus_nuevo, '')) LIKE '%recibido%'
+                       OR LOWER(COALESCE(h.estatus_nuevo, '')) LIKE '%transito%'
+                       OR LOWER(COALESCE(h.estatus_nuevo, '')) LIKE '%tránsito%'
+                   )) AS recuperacion_total,
+                (SELECT MIN(h.fecha)
+                 FROM adj_historial_estatus h
+                 WHERE h.id_operacion = o.id
+                   AND (
+                       LOWER(COALESCE(h.estatus_nuevo, '')) LIKE '%recuper%'
+                       OR LOWER(COALESCE(h.estatus_nuevo, '')) LIKE '%recibido%'
+                       OR LOWER(COALESCE(h.estatus_nuevo, '')) LIKE '%transito%'
+                       OR LOWER(COALESCE(h.estatus_nuevo, '')) LIKE '%tránsito%'
+                   )) AS fecha_recuperacion,
+                (SELECT COUNT(*)
+                 FROM adj_historial_estatus h
+                 WHERE h.id_operacion = o.id
+                   AND (
+                       LOWER(COALESCE(h.estatus_nuevo, '')) LIKE '%cartera%'
+                       OR LOWER(COALESCE(h.estatus_nuevo, '')) LIKE '%document%'
+                       OR LOWER(COALESCE(h.estatus_nuevo, '')) LIKE '%cierre%'
+                   )) AS cartera_total,
+                (SELECT MIN(h.fecha)
+                 FROM adj_historial_estatus h
+                 WHERE h.id_operacion = o.id
+                   AND (
+                       LOWER(COALESCE(h.estatus_nuevo, '')) LIKE '%cartera%'
+                       OR LOWER(COALESCE(h.estatus_nuevo, '')) LIKE '%document%'
+                       OR LOWER(COALESCE(h.estatus_nuevo, '')) LIKE '%cierre%'
+                   )) AS fecha_cartera
+                {$trackingSelect}
+             FROM adj_operacion o
+             WHERE {$where}
+             ORDER BY COALESCE(o.fecha_actualizacion, o.fecha_alta) DESC, o.id DESC";
+    }
+
+    private function madjHistoricoFlujoClasificar(array $row): array
+    {
+        $fechaRecepcion = $row['recepcion_confirmada_at'] ?? $row['fecha_llegada_almacen'] ?? null;
+        $estatus = strtolower(trim((string) ($row['estatus'] ?? '')));
+
+        if (!empty($fechaRecepcion) || strpos($estatus, 'recepci') !== false || strpos($estatus, 'conclu') !== false) {
+            return ['key' => 'recepcion', 'fecha' => $fechaRecepcion ?: ($row['fecha_actualizacion'] ?? $row['fecha_alta'] ?? null)];
+        }
+        if ((int) ($row['tracking_total'] ?? 0) > 0) {
+            return ['key' => 'tracking_recoleccion', 'fecha' => $row['fecha_tracking'] ?? $row['fecha_actualizacion'] ?? null];
+        }
+        if ((int) ($row['cartera_total'] ?? 0) > 0) {
+            return ['key' => 'envio_cartera', 'fecha' => $row['fecha_cartera'] ?? $row['fecha_actualizacion'] ?? null];
+        }
+        if ((int) ($row['recuperacion_total'] ?? 0) > 0 || strpos($estatus, 'recuper') !== false || strpos($estatus, 'transito') !== false) {
+            return ['key' => 'recuperacion', 'fecha' => $row['fecha_recuperacion'] ?? $row['fecha_actualizacion'] ?? null];
+        }
+        if ((int) ($row['evidencias_total'] ?? 0) > 0) {
+            return ['key' => 'evidencias', 'fecha' => $row['fecha_evidencia'] ?? $row['fecha_actualizacion'] ?? null];
+        }
+
+        return ['key' => 'asignacion_gestor', 'fecha' => $row['fecha_asignacion'] ?? $row['fecha_alta'] ?? null];
+    }
+
+    public function obtenerReporteHistoricoFlujoMotosAdjudicadas(array $filtros = []): array
+    {
+        $params = [];
+        $where = $this->madjWhereFechaAlta($filtros, $params);
+        $estadoSql = $this->madjEstadoNormalizadoSql('o');
+
+        $estado = trim((string) ($filtros['estado'] ?? ''));
+        if ($estado !== '') {
+            $where .= " AND {$estadoSql} = :estado";
+            $params['estado'] = strtoupper($estado);
+        }
+
+        $etapaFiltro = trim((string) ($filtros['etapa'] ?? ''));
+        $q = trim((string) ($filtros['q'] ?? ''));
+        if ($q !== '') {
+            $where .= " AND (
+                CAST(o.id_credito AS CHAR) LIKE :q
+                OR CAST(o.id AS CHAR) LIKE :q
+                OR o.folio LIKE :q
+                OR o.nombre_cliente LIKE :q
+                OR COALESCE(o.moto_no_serie, o.serie, '') LIKE :q
+                OR COALESCE(o.moto_modelo, o.modelo, '') LIKE :q
+                OR COALESCE(o.moto_marca, o.marca, '') LIKE :q
+            )";
+            $params['q'] = '%' . $q . '%';
+        }
+
+        $limit = (int) ($filtros['limit'] ?? 800);
+        $limit = max(100, min(3000, $limit));
+
+        $sql = $this->madjHistoricoFlujoQuery($where, $estadoSql, true) . " LIMIT {$limit}";
+        try {
+            $rows = $this->db->queryAll($sql, $params) ?: [];
+            $trackingDisponible = true;
+        } catch (\Throwable $e) {
+            $sql = $this->madjHistoricoFlujoQuery($where, $estadoSql, false) . " LIMIT {$limit}";
+            $rows = $this->db->queryAll($sql, $params) ?: [];
+            $trackingDisponible = false;
+        }
+
+        $etapasMeta = $this->madjHistoricoFlujoEtapas();
+        $columnas = [];
+        foreach ($etapasMeta as $key => $meta) {
+            $columnas[$key] = array_merge($meta, [
+                'total' => 0,
+                'creditos' => [],
+            ]);
+        }
+
+        $estadosConteo = [];
+        $totalFiltrado = 0;
+        foreach ($rows as $row) {
+            $clasificacion = $this->madjHistoricoFlujoClasificar($row);
+            $key = $clasificacion['key'];
+            if ($etapaFiltro !== '' && $etapaFiltro !== $key) {
+                continue;
+            }
+
+            $totalFiltrado++;
+            $estadoLabel = (string) ($row['estado_normalizado'] ?? 'SIN ESTADO');
+            $estadosConteo[$estadoLabel] = ($estadosConteo[$estadoLabel] ?? 0) + 1;
+            $fechaEtapa = $clasificacion['fecha'] ?? null;
+
+            $columnas[$key]['total']++;
+            $columnas[$key]['creditos'][] = [
+                'id_operacion' => (int) ($row['id'] ?? 0),
+                'folio' => $row['folio'] ?? '',
+                'id_credito' => (int) ($row['id_credito'] ?? 0),
+                'nombre_cliente' => $row['nombre_cliente'] ?? '',
+                'estatus' => $row['estatus'] ?? '',
+                'estado' => $row['estado_normalizado'] ?? '',
+                'municipio' => $row['municipio'] ?? '',
+                'direccion' => $row['direccion'] ?? '',
+                'unidad' => trim((string) ($row['unidad'] ?? '')) ?: 'Sin unidad',
+                'vin' => $row['vin'] ?? '',
+                'gestor_nombre' => $row['gestor_nombre'] ?? '',
+                'fecha_alta' => $row['fecha_alta'] ?? null,
+                'fecha_actualizacion' => $row['fecha_actualizacion'] ?? null,
+                'fecha_etapa' => $fechaEtapa,
+                'fecha_etapa_fmt' => $this->madjFmtFecha($fechaEtapa),
+                'evidencias_total' => (int) ($row['evidencias_total'] ?? 0),
+                'tracking_total' => (int) ($row['tracking_total'] ?? 0),
+                'ruta_tracking' => $row['ruta_tracking'] ?? '',
+                'estatus_tracking' => $row['estatus_tracking'] ?? '',
+                'etapa_key' => $key,
+                'etapa_titulo' => $etapasMeta[$key]['titulo'] ?? $key,
+            ];
+        }
+
+        $estadoRows = [];
+        foreach ($estadosConteo as $label => $total) {
+            $estadoRows[] = ['label' => $label, 'total' => $total];
+        }
+        usort($estadoRows, static function (array $a, array $b): int {
+            return ((int) ($b['total'] ?? 0)) <=> ((int) ($a['total'] ?? 0)) ?: strcmp((string) ($a['label'] ?? ''), (string) ($b['label'] ?? ''));
+        });
+
+        return [
+            'resumen' => [
+                'total' => $totalFiltrado,
+                'limit' => $limit,
+                'tracking_disponible' => $trackingDisponible,
+            ],
+            'etapas' => array_values($columnas),
+            'catalogos' => [
+                'etapas' => array_values($etapasMeta),
+                'estados' => $estadoRows,
+            ],
+            'actualizado_at' => date('Y-m-d H:i:s'),
+        ];
+    }
+
+    private function madjFechaEvento(?string $fecha): ?int
+    {
+        $fecha = trim((string) $fecha);
+        if ($fecha === '') {
+            return null;
+        }
+        $ts = strtotime($fecha);
+        return $ts !== false ? $ts : null;
+    }
+
+    private function madjFmtFecha(?string $fecha): string
+    {
+        $ts = $this->madjFechaEvento($fecha);
+        return $ts ? date('d/m/Y H:i', $ts) : 'Sin fecha';
+    }
+
+    private function madjTimelineEstado(bool $done, bool $active = false): string
+    {
+        if ($done) {
+            return 'completado';
+        }
+        return $active ? 'en_proceso' : 'pendiente';
+    }
+
+    private function madjTimelineOrigenLabel(string $origen): string
+    {
+        $origen = trim($origen);
+        $labels = [
+            'adj_operacion' => 'Operaciones',
+            'asigna_creditos_adjudicacion' => 'Administracion',
+            'adj_evidencia' => '1.- Evidencias',
+            'adj_historial_estatus' => 'Flujo operativo',
+            'asigna_horas_tracking_detalle' => 'Tracking Recoleccion',
+            'adj_bitacora' => 'Bitacora operativa',
+        ];
+
+        return $labels[$origen] ?? ($origen !== '' ? $origen : 'Sparta');
+    }
+
+    private function madjTimelineEvidenciaTitulo(string $slotLabel, int $idCredito): string
+    {
+        $txt = trim($slotLabel);
+        $txt = preg_replace('/^(foto|video|documento|doc)\s+(de\s+)?/iu', '', $txt) ?: $txt;
+        $txt = strtr($txt, [
+            'á' => 'a', 'é' => 'e', 'í' => 'i', 'ó' => 'o', 'ú' => 'u', 'ü' => 'u', 'ñ' => 'n',
+            'Á' => 'A', 'É' => 'E', 'Í' => 'I', 'Ó' => 'O', 'Ú' => 'U', 'Ü' => 'U', 'Ñ' => 'N',
+        ]);
+        $txt = strtoupper($txt);
+        $txt = preg_replace('/[^A-Z0-9]+/', '_', $txt) ?: 'EVIDENCIA';
+        $txt = trim($txt, '_');
+        if ($txt === '') {
+            $txt = 'EVIDENCIA';
+        }
+
+        return $txt . '_' . $idCredito;
+    }
+
+    private function madjTimelineEvento(string $etapa, string $titulo, string $descripcion, ?string $fecha, string $origen, array $extra = []): array
+    {
+        return array_merge([
+            'etapa' => $etapa,
+            'titulo' => $titulo,
+            'descripcion' => $descripcion,
+            'fecha' => $fecha,
+            'fecha_fmt' => $this->madjFmtFecha($fecha),
+            'timestamp' => $this->madjFechaEvento($fecha) ?? 0,
+            'origen' => $origen,
+            'origen_label' => $this->madjTimelineOrigenLabel($origen),
+        ], $extra);
+    }
+
+    public function obtenerTimelineCreditoMotosAdjudicadas(int $idCredito): array
+    {
+        if ($idCredito <= 0) {
+            return ['success' => false, 'message' => 'Indica un credito valido.'];
+        }
+
+        $op = $this->db->queryOne(
+            "SELECT
+                o.id,
+                o.folio,
+                o.id_credito,
+                o.nombre_cliente,
+                o.estatus,
+                o.area_actual,
+                o.id_usuario_alta,
+                o.responsable_entrega,
+                o.telefono_contacto,
+                o.direccion_recoleccion,
+                o.log_estado,
+                o.log_ciudad,
+                o.log_direccion,
+                o.log_lugar_resguardo,
+                o.log_lugar_otro,
+                o.log_responsable,
+                o.log_telefono,
+                o.fecha_alta,
+                o.fecha_actualizacion,
+                o.fecha_llegada_almacen,
+                o.recepcion_ubicacion,
+                o.recepcion_observaciones,
+                o.recepcion_confirmada_at,
+                o.marca AS factura_marca,
+                o.modelo AS factura_modelo,
+                o.serie AS factura_serie,
+                o.num_motor AS factura_motor,
+                COALESCE(o.moto_marca, o.marca, '') AS marca,
+                COALESCE(o.moto_modelo, o.modelo, '') AS modelo,
+                COALESCE(o.moto_anio, '') AS anio,
+                COALESCE(o.moto_color, '') AS color,
+                COALESCE(o.moto_no_serie, o.serie, '') AS vin,
+                COALESCE(o.moto_no_motor, o.num_motor, '') AS motor,
+                COALESCE(o.moto_placas, '') AS placas,
+                o.dias_mora,
+                o.saldo_capital,
+                o.adeudo_total
+             FROM adj_operacion o
+             WHERE o.id_credito = :id_credito
+             ORDER BY o.id DESC
+             LIMIT 1",
+            ['id_credito' => $idCredito]
+        );
+
+        if (!$op) {
+            return ['success' => false, 'message' => 'No se encontro una operacion para este credito.'];
+        }
+
+        $idOperacion = (int) ($op['id'] ?? 0);
+        $eventos = [];
+        $asignaciones = [];
+        $evidencias = [];
+        $historial = [];
+        $bitacora = [];
+        $tracking = [];
+
+        try {
+            $asignaciones = $this->db->queryAll(
+                "SELECT
+                    aca.id,
+                    aca.estatus,
+                    aca.fecha_alta,
+                    TRIM(CONCAT_WS(' ', per.nombres, per.segundo_nombre, per.apellidop, per.apellidom)) AS gestor_nombre,
+                    per.id AS id_persona,
+                    per.numero_empleado
+                 FROM asigna_creditos_adjudicacion aca
+                 INNER JOIN personal_adjudicacion pa ON pa.id = aca.id_personal_adj
+                 INNER JOIN persona per ON per.id = pa.id_persona
+                 WHERE aca.id_credito = :id_credito
+                 ORDER BY (aca.estatus = '1') DESC, aca.id DESC",
+                ['id_credito' => $idCredito]
+            ) ?: [];
+        } catch (\Throwable $e) {
+            $asignaciones = [];
+        }
+
+        try {
+            $evidencias = $this->db->queryAll(
+                "SELECT id, slot, estatus, fecha_alta, url,
+                        CASE WHEN TRIM(COALESCE(url, '')) <> '' THEN 1 ELSE 0 END AS tiene_archivo
+                 FROM adj_evidencia
+                 WHERE id_operacion = :id
+                 ORDER BY fecha_alta ASC, id ASC",
+                ['id' => $idOperacion]
+            ) ?: [];
+        } catch (\Throwable $e) {
+            $evidencias = [];
+        }
+
+        try {
+            $historial = $this->db->queryAll(
+                "SELECT id, estatus_anterior, estatus_nuevo, id_usuario, fecha
+                 FROM adj_historial_estatus
+                 WHERE id_operacion = :id
+                 ORDER BY fecha ASC, id ASC",
+                ['id' => $idOperacion]
+            ) ?: [];
+        } catch (\Throwable $e) {
+            $historial = [];
+        }
+
+        try {
+            $bitacora = $this->db->queryAll(
+                "SELECT id, nombre_usuario, accion, fecha_alta
+                 FROM adj_bitacora
+                 WHERE id_operacion = :id
+                 ORDER BY fecha_alta ASC, id ASC
+                 LIMIT 200",
+                ['id' => $idOperacion]
+            ) ?: [];
+        } catch (\Throwable $e) {
+            $bitacora = [];
+        }
+
+        try {
+            $tracking = $this->db->queryAll(
+                "SELECT
+                    atr.id_ruta,
+                    atr.nombre_ruta,
+                    atr.estatus_ruta,
+                    atr.fecha_programada,
+                    atr.fecha_finalizacion,
+                    atr.fecha_creacion,
+                    atr.fecha_actualizacion,
+                    atr.act_hora_1,
+                    atd.id_detalle,
+                    atd.orden_ruta,
+                    atd.estatus_recoleccion,
+                    atd.estatus_confirmacion_gestor,
+                    atd.fecha_agregado,
+                    atd.estado,
+                    atd.municipio,
+                    atd.direccion,
+                    tt.nombre_transportista,
+                    tt.tipo_transportista,
+                    cedis.nombre_agencia AS cedis_destino
+                 FROM asigna_horas_tracking_detalle atd
+                 INNER JOIN asigna_horas_tracking atr ON atr.id_ruta = atd.id_ruta
+                 LEFT JOIN transportistas_tracking tt ON tt.id_transportista = atr.id_transportista
+                 LEFT JOIN agencias_tracking cedis ON cedis.id_agencia = atr.id_cedis_destino
+                 WHERE atd.id_credito = :id_credito
+                 ORDER BY atr.fecha_creacion ASC, atd.orden_ruta ASC, atd.id_detalle ASC",
+                ['id_credito' => $idCredito]
+            ) ?: [];
+        } catch (\Throwable $e) {
+            $tracking = [];
+        }
+
+        $eventos[] = $this->madjTimelineEvento(
+            'alta_operacion',
+            'Operacion creada en Motos Adjudicadas',
+            'Se registro la operacion adjudicada en Sparta.',
+            $op['fecha_alta'] ?? null,
+            'adj_operacion'
+        );
+
+        foreach ($asignaciones as $asig) {
+            $gestor = trim((string) ($asig['gestor_nombre'] ?? ''));
+            $eventos[] = $this->madjTimelineEvento(
+                'asignacion_gestor',
+                'Credito asignado al gestor',
+                $gestor !== '' ? ('Gestor: ' . $gestor) : 'Asignacion registrada.',
+                $asig['fecha_alta'] ?? null,
+                'asigna_creditos_adjudicacion',
+                ['gestor_nombre' => $gestor, 'estatus_asignacion' => $asig['estatus'] ?? null]
+            );
+        }
+
+        foreach ($evidencias as $ev) {
+            $slot = trim((string) ($ev['slot'] ?? ''));
+            $slotLabel = self::SLOT_LABELS[$slot] ?? ($slot !== '' ? $slot : 'Evidencia');
+            $url = trim((string) ($ev['url'] ?? ''));
+            $linkTitulo = $url !== '' ? $this->madjTimelineEvidenciaTitulo($slotLabel, $idCredito) : '';
+            $eventos[] = $this->madjTimelineEvento(
+                'evidencias',
+                'Evidencia capturada',
+                $slotLabel . ' - ' . ((int) ($ev['tiene_archivo'] ?? 0) === 1 ? 'con archivo' : 'sin archivo'),
+                $ev['fecha_alta'] ?? null,
+                'adj_evidencia',
+                [
+                    'slot' => $slot,
+                    'slot_label' => $slotLabel,
+                    'estatus_evidencia' => $ev['estatus'] ?? null,
+                    'evidencia_url' => $url,
+                    'evidencia_titulo' => $linkTitulo,
+                ]
+            );
+        }
+
+        foreach ($historial as $h) {
+            $nuevo = trim((string) ($h['estatus_nuevo'] ?? ''));
+            $anterior = trim((string) ($h['estatus_anterior'] ?? ''));
+            $eventos[] = $this->madjTimelineEvento(
+                'flujo_operativo',
+                'Cambio de estatus',
+                ($anterior !== '' ? $anterior . ' -> ' : '') . ($nuevo !== '' ? $nuevo : 'Sin estatus'),
+                $h['fecha'] ?? null,
+                'adj_historial_estatus',
+                ['estatus_anterior' => $anterior, 'estatus_nuevo' => $nuevo]
+            );
+        }
+
+        foreach ($tracking as $trk) {
+            $eventos[] = $this->madjTimelineEvento(
+                'tracking_recoleccion',
+                'Credito agregado a ruta de recoleccion',
+                '#' . (int) ($trk['id_ruta'] ?? 0) . ' - ' . trim((string) ($trk['nombre_ruta'] ?? 'Ruta sin nombre')),
+                $trk['fecha_agregado'] ?? $trk['fecha_creacion'] ?? null,
+                'asigna_horas_tracking_detalle',
+                [
+                    'id_ruta' => (int) ($trk['id_ruta'] ?? 0),
+                    'id_detalle' => (int) ($trk['id_detalle'] ?? 0),
+                    'estatus_ruta' => $trk['estatus_ruta'] ?? null,
+                    'estatus_recoleccion' => $trk['estatus_recoleccion'] ?? null,
+                    'transportista' => $trk['nombre_transportista'] ?? null,
+                    'cedis_destino' => $trk['cedis_destino'] ?? null,
+                ]
+            );
+        }
+
+        foreach ($bitacora as $b) {
+            $accion = $this->normalizarAdjBitacoraAccionDisplay((string) ($b['accion'] ?? ''));
+            $eventos[] = $this->madjTimelineEvento(
+                'bitacora',
+                'Bitacora operativa',
+                $accion,
+                $b['fecha_alta'] ?? null,
+                'adj_bitacora',
+                ['usuario' => $b['nombre_usuario'] ?? null]
+            );
+        }
+
+        $fechaRecepcion = $op['recepcion_confirmada_at'] ?? $op['fecha_llegada_almacen'] ?? null;
+        if (!empty($fechaRecepcion)) {
+            $eventos[] = $this->madjTimelineEvento(
+                'recepcion',
+                'Recepcion en almacen o CEDIS',
+                trim((string) ($op['recepcion_ubicacion'] ?? '')) ?: 'Recepcion registrada.',
+                $fechaRecepcion,
+                'adj_operacion'
+            );
+        }
+
+        usort($eventos, static function (array $a, array $b): int {
+            return ((int) ($a['timestamp'] ?? 0)) <=> ((int) ($b['timestamp'] ?? 0));
+        });
+
+        $estatusActual = strtolower(trim((string) ($op['estatus'] ?? '')));
+        $hayEvidencias = count($evidencias) > 0;
+        $hayTracking = count($tracking) > 0;
+        $hayRecepcion = !empty($fechaRecepcion);
+        $hayRecuperacion = false;
+        $hayCartera = false;
+        foreach ($historial as $h) {
+            $txt = strtolower(trim((string) ($h['estatus_nuevo'] ?? '')));
+            if (strpos($txt, 'recuper') !== false || strpos($txt, 'recibido') !== false || strpos($txt, 'transito') !== false) {
+                $hayRecuperacion = true;
+            }
+            if (strpos($txt, 'cartera') !== false || strpos($txt, 'document') !== false || strpos($txt, 'cierre') !== false) {
+                $hayCartera = true;
+            }
+        }
+
+        $etapas = [
+            [
+                'key' => 'asignacion_gestor',
+                'titulo' => 'Asignacion de credito al gestor',
+                'descripcion' => 'Primer responsable operativo del credito.',
+                'estado' => $this->madjTimelineEstado($asignaciones !== [], $asignaciones === []),
+                'fecha_fmt' => $asignaciones !== [] ? $this->madjFmtFecha($asignaciones[0]['fecha_alta'] ?? null) : 'Pendiente',
+            ],
+            [
+                'key' => 'evidencias',
+                'titulo' => 'Evidencias',
+                'descripcion' => 'Captura fotografica y documental por parte del gestor.',
+                'estado' => $this->madjTimelineEstado($hayEvidencias, !$hayEvidencias && $asignaciones !== []),
+                'fecha_fmt' => $hayEvidencias ? $this->madjFmtFecha($evidencias[0]['fecha_alta'] ?? null) : 'Pendiente',
+                'total' => count($evidencias),
+            ],
+            [
+                'key' => 'recuperacion',
+                'titulo' => 'Recuperacion',
+                'descripcion' => 'Ida por el vehiculo y validacion operativa en domicilio.',
+                'estado' => $this->madjTimelineEstado($hayRecuperacion, !$hayRecuperacion && $hayEvidencias),
+                'fecha_fmt' => $hayRecuperacion ? 'Con movimientos registrados' : 'Pendiente',
+            ],
+            [
+                'key' => 'envio_cartera',
+                'titulo' => 'Envio a cartera',
+                'descripcion' => 'Gestion de cartera y cierre documental.',
+                'estado' => $this->madjTimelineEstado($hayCartera, !$hayCartera && $hayRecuperacion),
+                'fecha_fmt' => $hayCartera ? 'Con movimientos registrados' : 'Pendiente',
+            ],
+            [
+                'key' => 'tracking_recoleccion',
+                'titulo' => 'Tracking de recoleccion',
+                'descripcion' => 'Ruta, transportista, CEDIS y recorrido de recoleccion.',
+                'estado' => $this->madjTimelineEstado($hayTracking, !$hayTracking && ($hayCartera || strpos($estatusActual, 'recepci') !== false || $estatusActual === 'en_transito')),
+                'fecha_fmt' => $hayTracking ? $this->madjFmtFecha($tracking[0]['fecha_agregado'] ?? $tracking[0]['fecha_creacion'] ?? null) : 'Pendiente',
+                'total' => count($tracking),
+            ],
+            [
+                'key' => 'recepcion',
+                'titulo' => 'Recepcion',
+                'descripcion' => 'Confirmacion de llegada al almacen o CEDIS.',
+                'estado' => $this->madjTimelineEstado($hayRecepcion, !$hayRecepcion && $hayTracking),
+                'fecha_fmt' => $hayRecepcion ? $this->madjFmtFecha($fechaRecepcion) : 'Pendiente',
+            ],
+        ];
+
+        return [
+            'success' => true,
+            'credito' => [
+                'id_operacion' => $idOperacion,
+                'folio' => $op['folio'] ?? '',
+                'id_credito' => (int) ($op['id_credito'] ?? 0),
+                'nombre_cliente' => $op['nombre_cliente'] ?? '',
+                'estatus' => $op['estatus'] ?? '',
+                'area_actual' => $op['area_actual'] ?? '',
+                'ubicacion' => [
+                    'estado' => $op['log_estado'] ?? '',
+                    'municipio' => $op['log_ciudad'] ?? '',
+                    'direccion' => $op['log_direccion'] ?? '',
+                    'direccion_recoleccion' => $op['direccion_recoleccion'] ?? '',
+                    'lugar_resguardo' => $op['log_lugar_resguardo'] ?? '',
+                    'lugar_otro' => $op['log_lugar_otro'] ?? '',
+                    'responsable_resguardo' => $op['log_responsable'] ?? '',
+                    'telefono_resguardo' => $op['log_telefono'] ?? '',
+                ],
+                'unidad' => [
+                    'marca' => $op['marca'] ?? '',
+                    'modelo' => $op['modelo'] ?? '',
+                    'anio' => $op['anio'] ?? '',
+                    'color' => $op['color'] ?? '',
+                    'vin' => $op['vin'] ?? '',
+                    'motor' => $op['motor'] ?? '',
+                    'placas' => $op['placas'] ?? '',
+                    'factura_marca' => $op['factura_marca'] ?? '',
+                    'factura_modelo' => $op['factura_modelo'] ?? '',
+                    'factura_serie' => $op['factura_serie'] ?? '',
+                    'factura_motor' => $op['factura_motor'] ?? '',
+                ],
+                'contacto' => [
+                    'responsable_entrega' => $op['responsable_entrega'] ?? '',
+                    'telefono_contacto' => $op['telefono_contacto'] ?? '',
+                ],
+                'finanzas' => [
+                    'dias_mora' => $op['dias_mora'] ?? null,
+                    'saldo_capital' => $op['saldo_capital'] ?? null,
+                    'adeudo_total' => $op['adeudo_total'] ?? null,
+                ],
+                'fecha_alta_fmt' => $this->madjFmtFecha($op['fecha_alta'] ?? null),
+                'fecha_actualizacion_fmt' => $this->madjFmtFecha($op['fecha_actualizacion'] ?? null),
+            ],
+            'etapas' => $etapas,
+            'eventos' => array_values($eventos),
+            'resumen' => [
+                'total_eventos' => count($eventos),
+                'total_evidencias' => count($evidencias),
+                'total_rutas' => count($tracking),
+                'total_asignaciones' => count($asignaciones),
+            ],
+            'actualizado_at' => date('Y-m-d H:i:s'),
+        ];
+    }
 }
