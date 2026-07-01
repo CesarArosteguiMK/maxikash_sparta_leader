@@ -151,3 +151,8 @@ backend/storage/candidatos/
 backend/API/pip/ 
 backend/API/pip/
 backend/API/pip/
+
+
+# Paddle / PaddleX
+backend/API/.paddle_home/
+backend/API/.paddlex_cache_runtime/
