@@ -201,6 +201,9 @@
             </div>
         </div>
         <div class="d-flex flex-wrap gap-2">
+            <button type="button" class="btn btn-outline-success" id="btnImportarSueldosRrhh">
+                <i class="fa-solid fa-file-excel me-1"></i>Importar sueldos
+            </button>
             <button type="button" class="btn btn-success" id="btnImportarDocsRrhh">
                 <i class="fa-solid fa-file-import me-1"></i>Importar documentos
             </button>
@@ -305,6 +308,42 @@
                 <nav aria-label="Paginacion expedientes RR.HH.">
                     <ul class="pagination docs-rrhh-pagination gap-2 mb-0" id="docsRrhhPaginacion"></ul>
                 </nav>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="docsRrhhSueldosModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <div>
+                    <h5 class="modal-title mb-1">
+                        <i class="fa-solid fa-file-excel me-2"></i>Importar sueldos
+                    </h5>
+                    <div class="text-muted small">El archivo debe incluir columnas CURP y SUELDO o SALARIO.</div>
+                </div>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <div class="modal-body">
+                <input type="file" class="d-none" id="docsRrhhSueldosInput" accept=".xlsx,.xls,.csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel,text/csv">
+                <div class="border rounded-3 p-3 bg-light mb-3">
+                    <div class="fw-semibold mb-1">Formato esperado</div>
+                    <div class="small text-muted">Encabezados aceptados: <strong>CURP</strong> y <strong>SUELDO</strong>, <strong>SUELDO BRUTO</strong>, <strong>SALARIO</strong>, <strong>SALARIO MENSUAL</strong> o <strong>SUELDO MENSUAL</strong>.</div>
+                </div>
+                <div class="d-flex flex-wrap gap-2 align-items-center mb-3">
+                    <button type="button" class="btn btn-outline-primary" id="btnDocsRrhhSueldosElegir">
+                        <i class="fa-solid fa-folder-open me-1"></i>Elegir Excel
+                    </button>
+                    <button type="button" class="btn btn-success" id="btnDocsRrhhSueldosSubir" disabled>
+                        <i class="fa-solid fa-cloud-arrow-up me-1"></i>Cargar sueldos
+                    </button>
+                </div>
+                <div class="small text-muted mb-2" id="docsRrhhSueldosArchivo">No se ha seleccionado archivo.</div>
+                <div id="docsRrhhSueldosResultado"></div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cerrar</button>
             </div>
         </div>
     </div>
@@ -492,11 +531,13 @@
     let importPreviewRenderId = 0;
     let importPreparandoArchivosDesde = 0;
     let importPersonaObjetivo = null;
+    let sueldosArchivo = null;
     const IMPORT_MAX_FILES_PER_REQUEST = 10;
     const IMPORT_MAX_BYTES_PER_REQUEST = 30 * 1024 * 1024;
     const IMPORT_MAX_ZIP_BYTES_PER_REQUEST = 30 * 1024 * 1024;
 
     const els = {
+        importarSueldos: document.getElementById('btnImportarSueldosRrhh'),
         importar: document.getElementById('btnImportarDocsRrhh'),
         actualizar: document.getElementById('btnActualizarDocsRrhh'),
         badge: document.getElementById('docsRrhhBadgeGlobal'),
@@ -540,7 +581,13 @@
         trayectoriaModal: document.getElementById('docsRrhhTrayectoriaModal'),
         trayectoriaSubtitulo: document.getElementById('docsRrhhTrayectoriaSubtitulo'),
         trayectoriaTotal: document.getElementById('docsRrhhTrayectoriaTotal'),
-        trayectoriaBody: document.getElementById('docsRrhhTrayectoriaBody')
+        trayectoriaBody: document.getElementById('docsRrhhTrayectoriaBody'),
+        sueldosModal: document.getElementById('docsRrhhSueldosModal'),
+        sueldosInput: document.getElementById('docsRrhhSueldosInput'),
+        sueldosBtnElegir: document.getElementById('btnDocsRrhhSueldosElegir'),
+        sueldosBtnSubir: document.getElementById('btnDocsRrhhSueldosSubir'),
+        sueldosArchivo: document.getElementById('docsRrhhSueldosArchivo'),
+        sueldosResultado: document.getElementById('docsRrhhSueldosResultado')
     };
 
     function escapeHtml(value) {
@@ -555,6 +602,79 @@
     function iniciales(nombre) {
         const partes = String(nombre || 'CH').trim().split(/\s+/).filter(Boolean);
         return (partes.slice(0, 2).map(p => p.charAt(0)).join('') || 'CH').toUpperCase();
+    }
+
+    function abrirImportarSueldos() {
+        sueldosArchivo = null;
+        if (els.sueldosInput) els.sueldosInput.value = '';
+        if (els.sueldosArchivo) els.sueldosArchivo.textContent = 'No se ha seleccionado archivo.';
+        if (els.sueldosResultado) els.sueldosResultado.innerHTML = '';
+        if (els.sueldosBtnSubir) els.sueldosBtnSubir.disabled = true;
+        bootstrap.Modal.getOrCreateInstance(els.sueldosModal).show();
+    }
+
+    function renderResultadoSueldos(datos) {
+        if (!els.sueldosResultado) return;
+        const errores = Array.isArray(datos?.errores) ? datos.errores : [];
+        const erroresHtml = errores.length
+            ? `<div class="mt-3">
+                <div class="fw-semibold mb-2">Filas omitidas</div>
+                <div class="table-responsive" style="max-height: 240px;">
+                  <table class="table table-sm align-middle mb-0">
+                    <thead><tr><th>Fila</th><th>CURP</th><th>Motivo</th></tr></thead>
+                    <tbody>${errores.slice(0, 50).map(e => `
+                      <tr>
+                        <td>${escapeHtml(e.fila || '')}</td>
+                        <td>${escapeHtml(e.curp || '')}</td>
+                        <td>${escapeHtml(e.motivo || '')}</td>
+                      </tr>`).join('')}</tbody>
+                  </table>
+                </div>
+                ${errores.length > 50 ? `<div class="small text-muted mt-2">Se muestran 50 de ${escapeHtml(errores.length)} filas omitidas.</div>` : ''}
+              </div>`
+            : '';
+
+        els.sueldosResultado.innerHTML = `
+            <div class="row g-2">
+              <div class="col-4"><div class="border rounded-3 p-2"><div class="small text-muted">Filas</div><div class="h5 mb-0">${escapeHtml(datos?.total || 0)}</div></div></div>
+              <div class="col-4"><div class="border rounded-3 p-2"><div class="small text-muted">Actualizados</div><div class="h5 text-success mb-0">${escapeHtml(datos?.actualizados || 0)}</div></div></div>
+              <div class="col-4"><div class="border rounded-3 p-2"><div class="small text-muted">Omitidos</div><div class="h5 text-warning mb-0">${escapeHtml(datos?.omitidos || 0)}</div></div></div>
+            </div>
+            ${erroresHtml}
+        `;
+    }
+
+    async function subirSueldosExcel() {
+        if (!sueldosArchivo) {
+            Swal.fire('Importar sueldos', 'Selecciona un archivo Excel o CSV.', 'warning');
+            return;
+        }
+        const fd = new FormData();
+        fd.append('archivo', sueldosArchivo, sueldosArchivo.name);
+        const htmlOriginal = els.sueldosBtnSubir?.innerHTML || '';
+        if (els.sueldosBtnSubir) {
+            els.sueldosBtnSubir.disabled = true;
+            els.sueldosBtnSubir.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Cargando...';
+        }
+        try {
+            const res = await fetch('/CapHum/importarSueldosRrhhExcel', {
+                method: 'POST',
+                body: fd
+            });
+            const data = await res.json();
+            if (!data.success) {
+                throw new Error(data.mensaje || data.error || 'No se pudo importar el archivo.');
+            }
+            renderResultadoSueldos(data.datos || {});
+            Swal.fire('Sueldos importados', data.mensaje || 'Carga finalizada.', 'success');
+        } catch (error) {
+            Swal.fire('Importar sueldos', error.message || 'No se pudo importar el archivo.', 'error');
+        } finally {
+            if (els.sueldosBtnSubir) {
+                els.sueldosBtnSubir.disabled = !sueldosArchivo;
+                els.sueldosBtnSubir.innerHTML = htmlOriginal;
+            }
+        }
     }
 
     function importFormData(options = {}) {
@@ -1604,6 +1724,21 @@
         if (!btn) return;
         importAbrirDocumento(btn.getAttribute('data-import-preview'));
     });
+    els.importarSueldos?.addEventListener('click', abrirImportarSueldos);
+    els.sueldosBtnElegir?.addEventListener('click', function () {
+        els.sueldosInput?.click();
+    });
+    els.sueldosInput?.addEventListener('change', function () {
+        sueldosArchivo = this.files && this.files.length ? this.files[0] : null;
+        if (els.sueldosArchivo) {
+            els.sueldosArchivo.textContent = sueldosArchivo
+                ? `${sueldosArchivo.name} (${Math.ceil((sueldosArchivo.size || 0) / 1024)} KB)`
+                : 'No se ha seleccionado archivo.';
+        }
+        if (els.sueldosResultado) els.sueldosResultado.innerHTML = '';
+        if (els.sueldosBtnSubir) els.sueldosBtnSubir.disabled = !sueldosArchivo;
+    });
+    els.sueldosBtnSubir?.addEventListener('click', subirSueldosExcel);
     els.body.addEventListener('click', function (event) {
         const detalleBtn = event.target.closest('[data-docs-detalle]');
         if (detalleBtn) {

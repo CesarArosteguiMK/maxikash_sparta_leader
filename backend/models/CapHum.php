@@ -4278,6 +4278,106 @@ class CapHum extends Model
         }
     }
 
+    public static function importarSalariosSensiblesPorCurp(array $filas, int $idUsuario): array
+    {
+        try {
+            $db = new Database();
+            self::asegurarSalariosSensiblesRrhh($db);
+
+            $resumen = [
+                'total' => 0,
+                'actualizados' => 0,
+                'omitidos' => 0,
+                'errores' => [],
+            ];
+
+            $db->beginTransaction();
+            foreach ($filas as $fila) {
+                $numeroFila = (int)($fila['fila'] ?? 0);
+                $curp = strtoupper(preg_replace('/\s+/', '', (string)($fila['curp'] ?? '')));
+                $salario = $fila['salario'] ?? null;
+                $resumen['total']++;
+
+                if ($curp === '') {
+                    $resumen['omitidos']++;
+                    $resumen['errores'][] = ['fila' => $numeroFila, 'curp' => '', 'motivo' => 'CURP vacia.'];
+                    continue;
+                }
+
+                $salarioNormalizado = self::normalizarSalarioSensible($salario);
+                if ($salarioNormalizado === false || $salarioNormalizado === null) {
+                    $resumen['omitidos']++;
+                    $resumen['errores'][] = ['fila' => $numeroFila, 'curp' => $curp, 'motivo' => 'Sueldo invalido o vacio.'];
+                    continue;
+                }
+
+                $personas = $db->queryAll("
+                    SELECT id,
+                           TRIM(CONCAT_WS(' ', nombres, segundo_nombre, apellidop, apellidom)) AS nombre
+                    FROM __SPARTA_SECRET_REDACTED__.persona
+                    WHERE UPPER(TRIM(curp)) = :curp
+                ", ['curp' => $curp]);
+
+                if (count($personas) === 0) {
+                    $resumen['omitidos']++;
+                    $resumen['errores'][] = ['fila' => $numeroFila, 'curp' => $curp, 'motivo' => 'No se encontro colaborador con esa CURP.'];
+                    continue;
+                }
+
+                if (count($personas) > 1) {
+                    $resumen['omitidos']++;
+                    $resumen['errores'][] = ['fila' => $numeroFila, 'curp' => $curp, 'motivo' => 'CURP repetida en mas de un colaborador.'];
+                    continue;
+                }
+
+                $idPersona = (int)$personas[0]['id'];
+                $db->CRUD("
+                    INSERT INTO __SPARTA_SECRET_REDACTED__.rrhh_salarios_sensibles
+                        (id_persona, salario_cifrado, moneda, creado_en, actualizado_en, id_usuario_actualizacion)
+                    VALUES
+                        (:id_persona, :salario_cifrado, 'MXN', NOW(), NOW(), :id_usuario)
+                    ON DUPLICATE KEY UPDATE
+                        salario_cifrado = VALUES(salario_cifrado),
+                        moneda = VALUES(moneda),
+                        actualizado_en = NOW(),
+                        id_usuario_actualizacion = VALUES(id_usuario_actualizacion)
+                ", [
+                    'id_persona' => $idPersona,
+                    'salario_cifrado' => self::cifrarValorSensibleRrhh($salarioNormalizado),
+                    'id_usuario' => $idUsuario > 0 ? $idUsuario : null,
+                ]);
+
+                $db->CRUD("
+                    INSERT INTO __SPARTA_SECRET_REDACTED__.auditoria_salarios_sensibles_rrhh
+                        (id_usuario, usuario_nombre, id_persona, persona_nombre, accion, resultado, ip, user_agent, detalle, fecha_hora)
+                    VALUES
+                        (:id_usuario, :usuario_nombre, :id_persona, :persona_nombre, :accion, :resultado, :ip, :user_agent, :detalle, :fecha_hora)
+                ", [
+                    'id_usuario' => $idUsuario,
+                    'usuario_nombre' => '',
+                    'id_persona' => $idPersona,
+                    'persona_nombre' => (string)($personas[0]['nombre'] ?? ''),
+                    'accion' => 'importar_excel',
+                    'resultado' => 'autorizado',
+                    'ip' => $_SERVER['REMOTE_ADDR'] ?? '',
+                    'user_agent' => substr((string)($_SERVER['HTTP_USER_AGENT'] ?? ''), 0, 255),
+                    'detalle' => 'Salario actualizado por carga masiva de Excel.',
+                    'fecha_hora' => date('Y-m-d H:i:s'),
+                ]);
+
+                $resumen['actualizados']++;
+            }
+
+            $db->commit();
+            return self::resultado(true, 'Carga de sueldos finalizada.', $resumen);
+        } catch (\Throwable $e) {
+            if (isset($db) && $db instanceof Database && $db->inTransaction()) {
+                $db->rollback();
+            }
+            return self::resultado(false, 'No se pudo importar el Excel de sueldos.', null, $e->getMessage());
+        }
+    }
+
     public static function registrarAuditoriaSalarioSensibleRrhh(array $datos): void
     {
         try {
@@ -7048,15 +7148,18 @@ class CapHum extends Model
             self::asegurarTablaVacantesPersonal($db);
             self::asegurarTablaTrayectoriaPuesto($db);
 
+            $actualNumero = $db->queryOne(
+                "SELECT numero_empleado FROM __SPARTA_SECRET_REDACTED__.persona WHERE id = :id LIMIT 1",
+                ['id' => $id_persona]
+            );
+            $numeroEmpleadoActual = trim((string)($actualNumero['numero_empleado'] ?? ''));
+
             if ($numero_empleado === '') {
-                $actualNumero = $db->queryOne(
-                    "SELECT numero_empleado FROM __SPARTA_SECRET_REDACTED__.persona WHERE id = :id LIMIT 1",
-                    ['id' => $id_persona]
-                );
-                $numero_empleado = trim((string)($actualNumero['numero_empleado'] ?? ''));
+                $numero_empleado = $numeroEmpleadoActual;
             }
 
-            if ($numero_empleado !== '') {
+            $numeroEmpleadoCambio = $numero_empleado !== $numeroEmpleadoActual;
+            if ($numeroEmpleadoCambio && $numero_empleado !== '') {
                 $duplicadoNumero = $db->queryOne(
                     "SELECT id FROM __SPARTA_SECRET_REDACTED__.persona WHERE numero_empleado = :numero_empleado AND id <> :id LIMIT 1",
                     ['numero_empleado' => $numero_empleado, 'id' => $id_persona]

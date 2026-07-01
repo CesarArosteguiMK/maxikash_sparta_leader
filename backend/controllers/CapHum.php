@@ -23989,6 +23989,114 @@ class CapHum extends Controller
         self::respuestaJSON($resultado);
     }
 
+    public function importarSueldosRrhhExcel()
+    {
+        header('Content-Type: application/json; charset=utf-8');
+
+        if (!self::tieneModuloWeb(self::MODULO_EDITAR_USUARIO_RRHH) || !self::puedeGestionarSalarioSensibleRrhh()) {
+            self::respuestaJSON(['success' => false, 'mensaje' => 'No tienes permiso para importar sueldos RR.HH.']);
+            return;
+        }
+
+        $archivo = $_FILES['archivo'] ?? null;
+        if (empty($archivo) || !empty($archivo['error'])) {
+            self::respuestaJSON(['success' => false, 'mensaje' => 'Selecciona un archivo Excel o CSV valido.']);
+            return;
+        }
+
+        $nombre = (string)($archivo['name'] ?? '');
+        $tmp = (string)($archivo['tmp_name'] ?? '');
+        $extension = strtolower(pathinfo($nombre, PATHINFO_EXTENSION));
+        if (!is_uploaded_file($tmp) || !in_array($extension, ['xlsx', 'xls', 'csv'], true)) {
+            self::respuestaJSON(['success' => false, 'mensaje' => 'El archivo debe ser .xlsx, .xls o .csv.']);
+            return;
+        }
+
+        try {
+            $filas = $this->leerFilasSueldosRrhh($tmp, $extension);
+            if (empty($filas)) {
+                self::respuestaJSON(['success' => false, 'mensaje' => 'No se encontraron filas con CURP y sueldo para importar.']);
+                return;
+            }
+
+            $resultado = CapHumDAO::importarSalariosSensiblesPorCurp($filas, self::usuarioSesionId());
+            self::respuestaJSON($resultado);
+        } catch (\Throwable $e) {
+            self::respuestaJSON(['success' => false, 'mensaje' => 'No se pudo leer el archivo de sueldos.', 'error' => $e->getMessage()]);
+        }
+    }
+
+    private function leerFilasSueldosRrhh(string $ruta, string $extension): array
+    {
+        $matriz = [];
+        if ($extension === 'csv') {
+            $handle = fopen($ruta, 'r');
+            if (!$handle) {
+                return [];
+            }
+            while (($row = fgetcsv($handle, 0, ',')) !== false) {
+                $matriz[] = $row;
+            }
+            fclose($handle);
+        } else {
+            if (!class_exists('\PhpOffice\PhpSpreadsheet\IOFactory')) {
+                $autoload = dirname(__DIR__, 2) . '/vendor/autoload.php';
+                if (is_file($autoload)) {
+                    require_once $autoload;
+                }
+            }
+            if (!class_exists('\PhpOffice\PhpSpreadsheet\IOFactory')) {
+                throw new \RuntimeException('PhpSpreadsheet no esta disponible.');
+            }
+            $spreadsheet = \PhpOffice\PhpSpreadsheet\IOFactory::load($ruta);
+            $matriz = $spreadsheet->getActiveSheet()->toArray(null, true, true, false);
+        }
+
+        if (count($matriz) < 2) {
+            return [];
+        }
+
+        $normalizarHeader = static function ($valor): string {
+            $texto = strtolower(trim((string)$valor));
+            $texto = strtr($texto, [
+                'á' => 'a', 'é' => 'e', 'í' => 'i', 'ó' => 'o', 'ú' => 'u', 'ñ' => 'n',
+                'Á' => 'a', 'É' => 'e', 'Í' => 'i', 'Ó' => 'o', 'Ú' => 'u', 'Ñ' => 'n',
+            ]);
+            return preg_replace('/[^a-z0-9]+/', '_', $texto);
+        };
+
+        $headers = array_map($normalizarHeader, array_shift($matriz));
+        $idxCurp = array_search('curp', $headers, true);
+        $candidatosSueldo = ['sueldo', 'salario', 'salario_mensual', 'sueldo_mensual', 'salario_sensible', 'sueldo_bruto'];
+        $idxSueldo = false;
+        foreach ($candidatosSueldo as $header) {
+            $idxSueldo = array_search($header, $headers, true);
+            if ($idxSueldo !== false) {
+                break;
+            }
+        }
+
+        if ($idxCurp === false || $idxSueldo === false) {
+            throw new \RuntimeException('El archivo debe tener encabezados CURP y SUELDO/SALARIO.');
+        }
+
+        $filas = [];
+        foreach ($matriz as $offset => $row) {
+            $curp = trim((string)($row[$idxCurp] ?? ''));
+            $salario = trim((string)($row[$idxSueldo] ?? ''));
+            if ($curp === '' && $salario === '') {
+                continue;
+            }
+            $filas[] = [
+                'fila' => $offset + 2,
+                'curp' => $curp,
+                'salario' => $salario,
+            ];
+        }
+
+        return $filas;
+    }
+
     public function getTrayectoriaPuestoPersona()
     {
         header('Content-Type: application/json; charset=utf-8');
