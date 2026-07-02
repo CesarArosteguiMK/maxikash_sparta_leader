@@ -148,10 +148,58 @@ class Adjudicacion extends Model
     }
 
     /**
-     * Crea adj_operacion en etapa Evidencias (en_transito) o solo actualiza fecha si ya existe.
-     * No fuerza estatus hacia atrás: el flujo inicia en Mis adjudicaciones / evidencias, no en Retenciones.
+     * Determina si la ultima operacion debe quedarse como historica y dar paso a una nueva.
      */
-    private function asegurarOperacionTrasAsignacionCredito(int $idCredito, int $idUsuario, string $fecha): void
+    private function estatusOperacionRequiereNuevaOperacion(?string $estatus): bool
+    {
+        $normalizado = strtolower(trim(preg_replace('/\s+/', ' ', (string) $estatus)));
+
+        return in_array($normalizado, [
+            'blacklist',
+            'visto bueno denegado',
+            'cancelado',
+            'cancelada',
+            'concluido',
+            'concluida',
+            'completado',
+            'completada',
+            'finalizado',
+            'finalizada',
+        ], true);
+    }
+
+    private function operacionTieneBloqueoActivo(int $idOperacion): bool
+    {
+        if ($idOperacion <= 0) {
+            return false;
+        }
+
+        try {
+            $row = $this->db->queryOne(
+                "SELECT id
+                 FROM adj_operacion_blacklist
+                 WHERE id_operacion = :id_operacion
+                   AND activo = 1
+                 LIMIT 1",
+                ['id_operacion' => $idOperacion]
+            );
+
+            return !empty($row);
+        } catch (\Throwable $e) {
+            return false;
+        }
+    }
+
+    /**
+     * Crea adj_operacion en etapa Evidencias (en_transito) o actualiza fecha si existe una operacion viva.
+     * Si la ultima operacion quedo cancelada/denegada/bloqueada, la reasignacion crea folio nuevo.
+     */
+    private function asegurarOperacionTrasAsignacionCredito(
+        int $idCredito,
+        int $idUsuario,
+        string $fecha,
+        bool $crearNuevaSiOperacionCerrada = true
+    ): void
     {
         $op = $this->db->queryOne(
             "SELECT id, estatus FROM adj_operacion WHERE id_credito = :id ORDER BY id DESC LIMIT 1",
@@ -159,12 +207,21 @@ class Adjudicacion extends Model
         );
 
         if ($op) {
-            $this->db->CRUD(
-                'UPDATE adj_operacion SET fecha_actualizacion = :fecha WHERE id = :id',
-                ['fecha' => $fecha, 'id' => (int) $op['id']]
-            );
+            $idOperacion = (int) $op['id'];
+            $debeCrearNueva = $crearNuevaSiOperacionCerrada
+                && (
+                    $this->estatusOperacionRequiereNuevaOperacion((string) ($op['estatus'] ?? ''))
+                    || $this->operacionTieneBloqueoActivo($idOperacion)
+                );
 
-            return;
+            if (!$debeCrearNueva) {
+                $this->db->CRUD(
+                    'UPDATE adj_operacion SET fecha_actualizacion = :fecha WHERE id = :id',
+                    ['fecha' => $fecha, 'id' => $idOperacion]
+                );
+
+                return;
+            }
         }
 
         $nombreCliente = "Crédito #{$idCredito}";
@@ -347,7 +404,7 @@ class Adjudicacion extends Model
         if ($activa) {
             // Ya está asignado (quizás al mismo responsable u otro)
             if ((int) $activa['id_personal_adj'] === $idPersonalAdj) {
-                $this->asegurarOperacionTrasAsignacionCredito($idCredito, $usuarioAlta, $fechaAlta);
+                $this->asegurarOperacionTrasAsignacionCredito($idCredito, $usuarioAlta, $fechaAlta, false);
                 return ['success' => false, 'message' => 'Este crédito ya está asignado a este responsable.'];
             }
             return ['success' => false, 'message' => 'Este crédito ya está asignado a otro responsable. Libérelo primero.'];
