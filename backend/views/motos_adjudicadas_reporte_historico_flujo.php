@@ -140,6 +140,250 @@
     body.dark-mode .madj-flow-metric .value {
         color: #e5edf7;
     }
+    .madj-flow-timeline-btn {
+        white-space: nowrap;
+    }
+    .madj-flow-timeline-modal .modal-content,
+    .madj-flow-timeline-modal .modal-body {
+        background: #f5f7fb;
+    }
+    .madj-flow-timeline-modal .modal-header {
+        background: #fff;
+        border-bottom: 1px solid var(--bs-border-color);
+    }
+    .madj-tl-shell {
+        color: #1f2937;
+    }
+    .madj-tl-panel {
+        border: 1px solid var(--bs-border-color);
+        border-radius: .85rem;
+        background: var(--bs-body-bg);
+        box-shadow: 0 .45rem 1.2rem rgba(15, 23, 42, .05);
+    }
+    .madj-tl-metric {
+        min-height: 92px;
+        border: 1px solid var(--bs-border-color);
+        border-radius: .7rem;
+        background: rgba(248, 250, 252, .72);
+        padding: .85rem;
+    }
+    .madj-tl-metric .label {
+        color: #64748b;
+        font-size: .7rem;
+        font-weight: 800;
+        letter-spacing: .02em;
+        text-transform: uppercase;
+    }
+    .madj-tl-metric .value {
+        color: #0f172a;
+        font-size: 1rem;
+        font-weight: 800;
+        line-height: 1.2;
+    }
+    .madj-tl-stage-grid {
+        display: grid;
+        grid-template-columns: repeat(6, minmax(150px, 1fr));
+        gap: .75rem;
+    }
+    .madj-tl-stage {
+        position: relative;
+        border: 1px solid var(--bs-border-color);
+        border-radius: .75rem;
+        padding: .9rem;
+        background: rgba(248, 250, 252, .82);
+        min-height: 150px;
+    }
+    .madj-tl-stage::before {
+        content: "";
+        position: absolute;
+        inset: 0 auto 0 0;
+        width: 4px;
+        border-radius: .75rem 0 0 .75rem;
+        background: #cbd5e1;
+    }
+    .madj-tl-stage.is-completado::before { background: #22c55e; }
+    .madj-tl-stage.is-en_proceso::before { background: #0f9d92; }
+    .madj-tl-stage-icon {
+        width: 34px;
+        height: 34px;
+        border-radius: 999px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        background: #e2e8f0;
+        color: #475569;
+        margin-bottom: .55rem;
+    }
+    .madj-tl-stage.is-completado .madj-tl-stage-icon {
+        background: #dcfce7;
+        color: #166534;
+    }
+    .madj-tl-stage.is-en_proceso .madj-tl-stage-icon {
+        background: #ccfbf1;
+        color: #0f766e;
+    }
+    .madj-tl-stage h6 {
+        color: #0f172a;
+        font-weight: 800;
+        margin-bottom: .35rem;
+    }
+    .madj-tl-stage p {
+        color: #64748b;
+        font-size: .75rem;
+        margin-bottom: .6rem;
+    }
+    .madj-tl-badge {
+        border-radius: 999px;
+        display: inline-flex;
+        align-items: center;
+        gap: .3rem;
+        font-size: .68rem;
+        font-weight: 800;
+        padding: .25rem .5rem;
+    }
+    .madj-tl-badge.ok { background: #dcfce7; color: #166534; }
+    .madj-tl-badge.run { background: #dbeafe; color: #1d4ed8; }
+    .madj-tl-badge.wait { background: #f1f5f9; color: #475569; }
+    .madj-tl-event-list {
+        position: relative;
+        padding-left: 1.2rem;
+    }
+    .madj-tl-event-list::before {
+        content: "";
+        position: absolute;
+        left: .42rem;
+        top: .2rem;
+        bottom: .2rem;
+        width: 2px;
+        background: #dbe3ef;
+    }
+    .madj-tl-event {
+        position: relative;
+        border: 1px solid var(--bs-border-color);
+        border-radius: .75rem;
+        padding: .8rem .9rem;
+        margin-bottom: .7rem;
+        background: var(--bs-body-bg);
+    }
+    .madj-tl-event::before {
+        content: "";
+        position: absolute;
+        left: -1.07rem;
+        top: 1rem;
+        width: .65rem;
+        height: .65rem;
+        border-radius: 999px;
+        background: #0f9d92;
+        box-shadow: 0 0 0 4px rgba(15, 157, 146, .12);
+    }
+    .madj-tl-event h6 {
+        font-size: .95rem;
+        font-weight: 800;
+        margin: 0;
+        color: #0f172a;
+    }
+    .madj-tl-event .desc {
+        color: #475569;
+        margin-top: .25rem;
+    }
+    .madj-tl-link {
+        display: inline-flex;
+        align-items: center;
+        gap: .35rem;
+        margin-top: .45rem;
+        border-radius: 999px;
+        padding: .28rem .55rem;
+        background: rgba(15, 157, 146, .1);
+        color: #0f766e;
+        font-size: .72rem;
+        font-weight: 800;
+        text-decoration: none;
+    }
+    .madj-tl-link:hover {
+        color: #0f766e;
+        background: rgba(15, 157, 146, .18);
+    }
+    .madj-tl-source {
+        color: #64748b;
+        background: #f1f5f9;
+        border-radius: 999px;
+        font-size: .68rem;
+        font-weight: 800;
+        padding: .22rem .5rem;
+    }
+    .madj-tl-detail-grid {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(160px, 1fr));
+        gap: .7rem;
+    }
+    .madj-tl-detail-item {
+        border: 1px solid var(--bs-border-color);
+        border-radius: .65rem;
+        padding: .75rem;
+        background: rgba(248, 250, 252, .62);
+        min-height: 72px;
+    }
+    .madj-tl-detail-item .label {
+        color: #64748b;
+        font-size: .66rem;
+        font-weight: 800;
+        letter-spacing: .02em;
+        text-transform: uppercase;
+        margin-bottom: .2rem;
+    }
+    .madj-tl-detail-item .value {
+        color: #0f172a;
+        font-size: .86rem;
+        font-weight: 800;
+        overflow-wrap: anywhere;
+    }
+    .madj-tl-empty {
+        min-height: 220px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        color: #64748b;
+        text-align: center;
+    }
+    .madj-tl-empty i {
+        font-size: 2.5rem;
+        color: #cbd5e1;
+        margin-bottom: .8rem;
+    }
+    .dark-style .madj-tl-metric,
+    .dark-style .madj-tl-stage {
+        background: rgba(30, 41, 59, .62);
+    }
+    .dark-style .madj-tl-metric .value,
+    .dark-style .madj-tl-stage h6,
+    .dark-style .madj-tl-event h6 {
+        color: #e5e7eb;
+    }
+    .dark-style .madj-tl-event {
+        background: rgba(15, 23, 42, .72);
+    }
+    .dark-style .madj-tl-detail-item {
+        background: rgba(30, 41, 59, .62);
+    }
+    .dark-style .madj-tl-detail-item .value {
+        color: #e5e7eb;
+    }
+    .dark-style .madj-tl-source {
+        background: rgba(148, 163, 184, .16);
+        color: #cbd5e1;
+    }
+    @media (max-width: 1400px) {
+        .madj-tl-stage-grid {
+            grid-template-columns: repeat(3, minmax(150px, 1fr));
+        }
+    }
+    @media (max-width: 768px) {
+        .madj-tl-stage-grid,
+        .madj-tl-detail-grid {
+            grid-template-columns: 1fr;
+        }
+    }
 </style>
 
 <div class="container-fluid py-3 madj-flow-page" id="madjFlowApp">
@@ -228,10 +472,97 @@
     </div>
 </div>
 
+<div class="modal fade madj-flow-timeline-modal" id="madjFlowTimelineModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-fullscreen">
+        <div class="modal-content">
+            <div class="modal-header">
+                <div>
+                    <h5 class="modal-title mb-0 fw-bold" style="color:#24334f;">
+                        <i class="fa-solid fa-timeline me-2"></i>Timeline por credito
+                    </h5>
+                    <div class="text-muted small">Asignacion, evidencias, recuperacion, cartera, tracking y recepcion.</div>
+                </div>
+                <div class="d-flex align-items-center gap-2">
+                    <a href="#" class="btn btn-sm btn-outline-primary disabled" id="madjFlowTlPdf" aria-disabled="true" target="_blank" rel="noopener">
+                        <i class="fa-solid fa-file-pdf me-1"></i>PDF
+                    </a>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" data-dismiss="modal" aria-label="Cerrar"></button>
+                </div>
+            </div>
+            <div class="modal-body">
+                <div class="container-fluid py-3 madj-tl-shell">
+                    <div id="madjFlowTlLoader" class="madj-tl-panel p-4 d-none">
+                        <div class="d-flex align-items-center gap-2 text-muted">
+                            <span class="spinner-border spinner-border-sm"></span>
+                            <span>Consultando timeline del credito...</span>
+                        </div>
+                    </div>
+
+                    <div id="madjFlowTlError" class="alert alert-danger d-none"></div>
+
+                    <div id="madjFlowTlContent" class="d-none">
+                        <div class="row g-3 mb-3" id="madjFlowTlResumen"></div>
+
+                        <div class="madj-tl-panel p-3 mb-3">
+                            <div class="d-flex align-items-center justify-content-between gap-2 mb-3">
+                                <div>
+                                    <h5 class="fw-bold mb-0"><i class="fa-solid fa-motorcycle me-1 text-primary"></i>Ficha de motocicleta</h5>
+                                    <div class="text-muted small">Datos tomados de la operacion adjudicada y validacion de unidad.</div>
+                                </div>
+                            </div>
+                            <div class="madj-tl-detail-grid" id="madjFlowTlFichaMoto"></div>
+                        </div>
+
+                        <div class="madj-tl-panel p-3 mb-3">
+                            <div class="d-flex align-items-center justify-content-between gap-2 mb-3">
+                                <div>
+                                    <h5 class="fw-bold mb-0"><i class="fa-solid fa-diagram-project me-1 text-primary"></i>Flujo operativo</h5>
+                                    <div class="text-muted small">Etapas principales del proceso de adjudicacion.</div>
+                                </div>
+                                <span class="badge bg-label-primary" id="madjFlowTlEtapasCount">0 etapas</span>
+                            </div>
+                            <div class="madj-tl-stage-grid" id="madjFlowTlEtapas"></div>
+                        </div>
+
+                        <div class="madj-tl-panel p-3">
+                            <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
+                                <div>
+                                    <h5 class="fw-bold mb-0"><i class="fa-solid fa-clock-rotate-left me-1 text-primary"></i>Eventos del credito</h5>
+                                    <div class="text-muted small">Movimientos registrados por fecha.</div>
+                                </div>
+                                <span class="badge bg-label-secondary" id="madjFlowTlEventosCount">0 eventos</span>
+                            </div>
+                            <div class="madj-tl-event-list" id="madjFlowTlEventos"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
 <script>
 (function () {
     const state = { etapas: [], rows: [], catalogsLoaded: false };
     const fmt = new Intl.NumberFormat('es-MX');
+    const money = new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' });
+    const timelineModalEl = document.getElementById('madjFlowTimelineModal');
+    const timelineModal = window.bootstrap?.Modal && timelineModalEl
+        ? (window.bootstrap.Modal.getOrCreateInstance
+            ? window.bootstrap.Modal.getOrCreateInstance(timelineModalEl)
+            : new window.bootstrap.Modal(timelineModalEl))
+        : null;
+    const tlPdf = document.getElementById('madjFlowTlPdf');
+    const tlLoader = document.getElementById('madjFlowTlLoader');
+    const tlError = document.getElementById('madjFlowTlError');
+    const tlContent = document.getElementById('madjFlowTlContent');
+    const tlResumen = document.getElementById('madjFlowTlResumen');
+    const tlFichaMoto = document.getElementById('madjFlowTlFichaMoto');
+    const tlEtapas = document.getElementById('madjFlowTlEtapas');
+    const tlEventos = document.getElementById('madjFlowTlEventos');
+    const tlEtapasCount = document.getElementById('madjFlowTlEtapasCount');
+    const tlEventosCount = document.getElementById('madjFlowTlEventosCount');
+    let timelineRequestSeq = 0;
 
     function esc(value) {
         return cleanText(value).replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]));
@@ -289,6 +620,259 @@
         `).join('');
     }
 
+    function mostrarTimelineModal() {
+        if (!timelineModalEl) return;
+        if (timelineModal) {
+            timelineModal.show();
+            return;
+        }
+        if (window.jQuery && typeof window.jQuery(timelineModalEl).modal === 'function') {
+            window.jQuery(timelineModalEl).modal('show');
+            return;
+        }
+        timelineModalEl.classList.add('show');
+        timelineModalEl.style.display = 'block';
+        timelineModalEl.removeAttribute('aria-hidden');
+        timelineModalEl.setAttribute('aria-modal', 'true');
+        document.body.classList.add('modal-open');
+    }
+
+    function cerrarTimelineModalManual() {
+        if (!timelineModalEl || timelineModal) return;
+        if (window.jQuery && typeof window.jQuery(timelineModalEl).modal === 'function') return;
+        timelineModalEl.classList.remove('show');
+        timelineModalEl.style.display = 'none';
+        timelineModalEl.setAttribute('aria-hidden', 'true');
+        timelineModalEl.removeAttribute('aria-modal');
+        document.body.classList.remove('modal-open');
+    }
+
+    function setTimelinePdf(idCredito) {
+        const id = Number(idCredito || 0);
+        if (!tlPdf) return;
+        if (id > 0) {
+            tlPdf.classList.remove('disabled');
+            tlPdf.setAttribute('aria-disabled', 'false');
+            tlPdf.href = '/MotosAdjudicadas/timelineCreditoPdf?id_credito=' + encodeURIComponent(id);
+        } else {
+            tlPdf.classList.add('disabled');
+            tlPdf.setAttribute('aria-disabled', 'true');
+            tlPdf.href = '#';
+        }
+    }
+
+    function showTimelineLoading(isLoading) {
+        tlLoader.classList.toggle('d-none', !isLoading);
+        if (isLoading) {
+            tlError.classList.add('d-none');
+            tlContent.classList.add('d-none');
+            setTimelinePdf(0);
+        }
+    }
+
+    function showTimelineError(message) {
+        tlContent.classList.add('d-none');
+        tlError.textContent = message || 'No se pudo cargar el timeline.';
+        tlError.classList.remove('d-none');
+    }
+
+    function stageIcon(key) {
+        const icons = {
+            asignacion_gestor: 'fa-user-check',
+            evidencias: 'fa-camera',
+            recuperacion: 'fa-motorcycle',
+            envio_cartera: 'fa-folder-open',
+            tracking_recoleccion: 'fa-route',
+            recepcion: 'fa-warehouse',
+        };
+        return icons[key] || 'fa-circle-dot';
+    }
+
+    function badgeClass(estado) {
+        if (estado === 'completado') return 'ok';
+        if (estado === 'en_proceso') return 'run';
+        return 'wait';
+    }
+
+    function badgeText(estado) {
+        if (estado === 'completado') return 'Completado';
+        if (estado === 'en_proceso') return 'En proceso';
+        return 'Pendiente';
+    }
+
+    function hrefEvidencia(url) {
+        const raw = String(url || '').trim();
+        if (!raw) return '';
+        if (/^https?:\/\//i.test(raw) || raw.startsWith('/')) return raw;
+        return '/' + raw.replace(/^\/+/, '');
+    }
+
+    function detailItem(label, value) {
+        const clean = value !== null && value !== undefined && String(value).trim() !== '' ? String(value) : 'No disponible';
+        return `
+            <div class="madj-tl-detail-item">
+                <div class="label">${esc(label)}</div>
+                <div class="value">${esc(clean)}</div>
+            </div>
+        `;
+    }
+
+    function renderTimelineResumen(data) {
+        const c = data.credito || {};
+        const u = c.unidad || {};
+        const ubi = c.ubicacion || {};
+        const f = c.finanzas || {};
+        const unidad = [u.marca, u.modelo, u.anio].filter(Boolean).join(' ') || 'Sin unidad registrada';
+        const ubicacion = [ubi.estado, ubi.municipio].filter(Boolean).join(' / ') || 'Sin ubicacion';
+        const saldo = f.saldo_capital !== null && f.saldo_capital !== undefined && f.saldo_capital !== ''
+            ? money.format(Number(f.saldo_capital || 0))
+            : 'Sin saldo';
+
+        tlResumen.innerHTML = `
+            <div class="col-12 col-md-6 col-xl-3">
+                <div class="madj-tl-metric">
+                    <div class="label">Credito / Operacion</div>
+                    <div class="value">#${esc(c.id_credito || '')}</div>
+                    <div class="text-muted small">${esc(c.folio || 'Sin folio')}</div>
+                </div>
+            </div>
+            <div class="col-12 col-md-6 col-xl-3">
+                <div class="madj-tl-metric">
+                    <div class="label">Cliente</div>
+                    <div class="value">${esc(c.nombre_cliente || 'Sin cliente')}</div>
+                    <div class="text-muted small">${esc(c.estatus || 'Sin estatus')}</div>
+                </div>
+            </div>
+            <div class="col-12 col-md-6 col-xl-3">
+                <div class="madj-tl-metric">
+                    <div class="label">Ubicacion</div>
+                    <div class="value">${esc(ubicacion)}</div>
+                    <div class="text-muted small text-truncate">${esc(ubi.direccion || 'Sin direccion')}</div>
+                </div>
+            </div>
+            <div class="col-12 col-md-6 col-xl-3">
+                <div class="madj-tl-metric">
+                    <div class="label">Unidad / Saldo</div>
+                    <div class="value">${esc(unidad)}</div>
+                    <div class="text-muted small">${esc(saldo)}</div>
+                </div>
+            </div>
+        `;
+    }
+
+    function renderTimelineFichaMoto(data) {
+        const c = data.credito || {};
+        const u = c.unidad || {};
+        const ubi = c.ubicacion || {};
+        const f = c.finanzas || {};
+        const contacto = c.contacto || {};
+
+        tlFichaMoto.innerHTML = [
+            detailItem('Marca', u.marca),
+            detailItem('Modelo', u.modelo),
+            detailItem('Anio', u.anio),
+            detailItem('Color', u.color),
+            detailItem('VIN / Serie', u.vin),
+            detailItem('Motor', u.motor),
+            detailItem('Placas', u.placas),
+            detailItem('Factura marca', u.factura_marca),
+            detailItem('Factura modelo', u.factura_modelo),
+            detailItem('Factura serie', u.factura_serie),
+            detailItem('Factura motor', u.factura_motor),
+            detailItem('Responsable entrega', contacto.responsable_entrega),
+            detailItem('Telefono contacto', contacto.telefono_contacto),
+            detailItem('Direccion recoleccion', ubi.direccion_recoleccion || ubi.direccion),
+            detailItem('Lugar resguardo', [ubi.lugar_resguardo, ubi.lugar_otro].filter(Boolean).join(' / ')),
+            detailItem('Responsable resguardo', ubi.responsable_resguardo),
+            detailItem('Telefono resguardo', ubi.telefono_resguardo),
+            detailItem('Dias mora', f.dias_mora),
+            detailItem('Saldo capital', f.saldo_capital !== null && f.saldo_capital !== undefined && f.saldo_capital !== '' ? money.format(Number(f.saldo_capital || 0)) : ''),
+            detailItem('Adeudo total', f.adeudo_total !== null && f.adeudo_total !== undefined && f.adeudo_total !== '' ? money.format(Number(f.adeudo_total || 0)) : ''),
+        ].join('');
+    }
+
+    function renderTimelineEtapas(items) {
+        const list = Array.isArray(items) ? items : [];
+        tlEtapasCount.textContent = list.length + ' etapas';
+        tlEtapas.innerHTML = list.map(function (item) {
+            const estado = item.estado || 'pendiente';
+            const cls = badgeClass(estado);
+            return `
+                <article class="madj-tl-stage is-${esc(estado)}">
+                    <span class="madj-tl-stage-icon"><i class="fa-solid ${stageIcon(item.key)}"></i></span>
+                    <h6>${esc(item.titulo || '')}</h6>
+                    <p>${esc(item.descripcion || '')}</p>
+                    <div class="d-flex flex-column gap-1">
+                        <span class="madj-tl-badge ${cls}"><i class="fa-solid fa-circle-check"></i>${badgeText(estado)}</span>
+                        <span class="text-muted small">${esc(item.fecha_fmt || '')}</span>
+                    </div>
+                </article>
+            `;
+        }).join('');
+    }
+
+    function renderTimelineEventos(items) {
+        const list = Array.isArray(items) ? items : [];
+        tlEventosCount.textContent = list.length + ' eventos';
+        if (list.length === 0) {
+            tlEventos.innerHTML = '<div class="text-muted py-3">Sin eventos registrados.</div>';
+            return;
+        }
+        tlEventos.innerHTML = list.map(function (ev) {
+            const evidenciaHref = hrefEvidencia(ev.evidencia_url);
+            const evidenciaLink = evidenciaHref
+                ? `<div><a class="madj-tl-link" href="${esc(evidenciaHref)}" target="_blank" rel="noopener"><i class="fa-solid fa-link"></i>${esc(ev.evidencia_titulo || 'Abrir evidencia')}</a></div>`
+                : '';
+            return `
+                <article class="madj-tl-event">
+                    <div class="d-flex flex-wrap align-items-start justify-content-between gap-2">
+                        <div>
+                            <h6>${esc(ev.titulo || '')}</h6>
+                            <div class="desc">${esc(ev.descripcion || '')}</div>
+                            ${evidenciaLink}
+                        </div>
+                        <span class="madj-tl-source">${esc(ev.origen_label || ev.origen || '')}</span>
+                    </div>
+                    <div class="text-muted small mt-2"><i class="fa-regular fa-clock me-1"></i>${esc(ev.fecha_fmt || 'Sin fecha')}</div>
+                </article>
+            `;
+        }).join('');
+    }
+
+    function renderTimeline(data) {
+        renderTimelineResumen(data);
+        renderTimelineFichaMoto(data);
+        renderTimelineEtapas(data.etapas || []);
+        renderTimelineEventos(data.eventos || []);
+        tlError.classList.add('d-none');
+        tlContent.classList.remove('d-none');
+    }
+
+    async function abrirTimelineCredito(idCredito) {
+        const id = Number(String(idCredito || '').replace(/\D+/g, ''));
+        if (!id) return;
+        mostrarTimelineModal();
+        const seq = ++timelineRequestSeq;
+        showTimelineLoading(true);
+        try {
+            const resp = await fetch('/MotosAdjudicadas/timelineCreditoDatos?id_credito=' + encodeURIComponent(id), {
+                headers: { 'Accept': 'application/json' },
+            });
+            const data = await resp.json();
+            if (!data.success) {
+                throw new Error(data.message || 'No se pudo cargar el timeline.');
+            }
+            if (seq !== timelineRequestSeq) return;
+            renderTimeline(data);
+            setTimelinePdf(id);
+        } catch (err) {
+            if (seq !== timelineRequestSeq) return;
+            showTimelineError(err.message || 'No se pudo cargar el timeline.');
+        } finally {
+            if (seq === timelineRequestSeq) showTimelineLoading(false);
+        }
+    }
+
     function renderBoard(data) {
         const board = document.getElementById('madjFlowBoard');
         const etapas = data.etapas || [];
@@ -304,9 +888,9 @@
                 <article class="madj-flow-item">
                     <div class="d-flex align-items-start justify-content-between gap-2 mb-2">
                         <span class="madj-flow-folio">${esc(row.folio || ('ADJ-' + row.id_operacion))}</span>
-                        <a class="btn btn-sm btn-icon btn-outline-primary" href="/MotosAdjudicadas/timelineCredito?id_credito=${encodeURIComponent(row.id_credito)}" title="Ver timeline">
-                            <i class="fa-solid fa-timeline"></i>
-                        </a>
+                        <button type="button" class="btn btn-sm btn-outline-primary madj-flow-timeline-btn" data-id-credito="${esc(row.id_credito)}" title="Ver Timeline">
+                            <i class="fa-solid fa-timeline me-1"></i>Ver Timeline
+                        </button>
                     </div>
                     <div class="madj-flow-title">#${esc(row.id_credito)} - ${esc(row.nombre_cliente)}</div>
                     <div class="madj-flow-muted mt-1"><i class="fa-solid fa-location-dot me-1"></i>${esc(row.estado || 'SIN ESTADO')} / ${esc(row.municipio || 'SIN MUNICIPIO')}</div>
@@ -385,6 +969,19 @@
     document.getElementById('madjFlowLimit').addEventListener('change', () => cargar().catch(mostrarError));
     document.getElementById('madjFlowXlsx').addEventListener('click', () => descargar('/MotosAdjudicadas/reporteHistoricoFlujoExcel'));
     document.getElementById('madjFlowPdf').addEventListener('click', () => descargar('/MotosAdjudicadas/reporteHistoricoFlujoPdf'));
+    document.getElementById('madjFlowBoard').addEventListener('click', ev => {
+        const btn = ev.target.closest('.madj-flow-timeline-btn');
+        if (!btn) return;
+        abrirTimelineCredito(btn.dataset.idCredito || '');
+    });
+    timelineModalEl?.querySelectorAll('[data-bs-dismiss="modal"], [data-dismiss="modal"]').forEach(btn => {
+        btn.addEventListener('click', cerrarTimelineModalManual);
+    });
+    tlPdf?.addEventListener('click', ev => {
+        if (tlPdf.classList.contains('disabled')) {
+            ev.preventDefault();
+        }
+    });
     document.getElementById('madjFlowLimpiar').addEventListener('click', () => {
         ['Desde', 'Hasta', 'Etapa', 'Estado', 'Q'].forEach(key => {
             const el = document.getElementById('madjFlow' + key);

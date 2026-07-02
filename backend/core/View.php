@@ -221,7 +221,7 @@ function getMenu(): string
                 ['label' => 'Tracking Recolección', 'url' => '/TrackingRecoleccion',          'modulos' => [74]],
                 ['label' => 'Dashboard', 'url' => '/MotosAdjudicadas/dashboard', 'modulos' => [74]],
                 ['section' => 'Reportería'],
-                ['label' => 'Reportería', 'url' => '/MotosAdjudicadas/reporteria', 'modulos' => [74]],
+                ['label' => 'Reportería', 'url' => '/MotosAdjudicadas/reporteria', 'modulos' => [187]],
             ],
         ],
         'Direcciones' => [
@@ -288,7 +288,7 @@ function getMenu(): string
                 ['label' => 'Equivalencia puestos',   'url' => '/equivalencias/consulta',      'modulos' => [17]],
                 ['label' => 'Sincroniza Legacy',       'url' => '/caphum/sincronizaLegacy',     'modulos' => [89]],
                 ['label' => 'Asignación por puestos', 'url' => '/configticketpuesto/consulta', 'modulos' => [26]],
-                ['label' => 'Config Motos Adj',        'url' => '/ConfigMotosAdj/consulta',     'modulos' => [85]],
+                ['label' => 'Parametros Motos',        'url' => '/ConfigMotosAdj/consulta',     'modulos' => [85]],
             ],
         ],
         'Servicios' => [

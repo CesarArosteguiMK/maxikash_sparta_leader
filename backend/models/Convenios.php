@@ -1806,38 +1806,36 @@ public static function cancelarConvenio($id_convenio, $usuario, $motivo = null)
         $db = new Database();
         $motivoLimpio = mb_substr(trim(strip_tags((string) $motivo)), 0, 200);
 
-        // 1. Verificar que exista y esté activo
+        // 1. Verificar que exista y no este cancelado.
         $convenio = $db->queryOne(
             "SELECT id, id_credito
              FROM convenio_cliente
-             WHERE id = :id AND estatus = 'activo'
+             WHERE id = :id AND estatus != 'cancelado'
              LIMIT 1",
             ['id' => (int) $id_convenio]
         );
 
         if (!$convenio) {
-            return self::resultado(false, 'El convenio no existe o no está activo.');
+            return self::resultado(false, 'El convenio no existe o ya está cancelado.');
         }
 
-        // 2. Primera semana pendiente = semana de cancelación
-        //    Si no hay pendientes, usar la primera vencida (convenio 100% vencido)
-        $primerPendiente = $db->queryOne(
-            "SELECT numero_semana
+        // 2. Semana de referencia para auditoria. No bloquea por estatus de filas.
+        $semanaRef = $db->queryOne(
+            "SELECT
+                COALESCE(
+                    MIN(CASE
+                        WHEN estatus_pago NOT IN ('pagado', 'cancelado') THEN numero_semana
+                        ELSE NULL
+                    END),
+                    MAX(numero_semana),
+                    1
+                ) AS numero_semana
              FROM convenio_cliente_amortizacion
-             WHERE id_convenio_cliente = :id
-               AND estatus_pago IN ('pendiente', 'vencido')
-             ORDER BY
-               CASE estatus_pago WHEN 'pendiente' THEN 0 ELSE 1 END ASC,
-               numero_semana ASC
-             LIMIT 1",
+             WHERE id_convenio_cliente = :id",
             ['id' => (int) $id_convenio]
         );
 
-        if (!$primerPendiente) {
-            return self::resultado(false, 'Este convenio no tiene semanas cancelables.');
-        }
-
-        $semanaCancelacion = (int) $primerPendiente['numero_semana'];
+        $semanaCancelacion = max(1, (int) ($semanaRef['numero_semana'] ?? 1));
         $fechaCancelacion  = date('Y-m-d');
 
         // 3. Actualizar convenio_cliente
@@ -1865,16 +1863,14 @@ public static function cancelarConvenio($id_convenio, $usuario, $motivo = null)
             return self::resultado(false, 'No se pudo actualizar el convenio.');
         }
 
-        // 4. Marcar semanas pendientes desde la cancelación como 'cancelado'
+        // 4. Marcar como canceladas las semanas no pagadas.
         $db->CRUD(
             "UPDATE convenio_cliente_amortizacion SET
                 estatus_pago = 'cancelado'
              WHERE id_convenio_cliente = :id
-               AND numero_semana >= :semana
-               AND estatus_pago IN ('pendiente', 'vencido')",
+               AND estatus_pago NOT IN ('pagado', 'cancelado')",
             [
-                'id'     => (int) $id_convenio,
-                'semana' => $semanaCancelacion,
+                'id' => (int) $id_convenio,
             ]
         );
 

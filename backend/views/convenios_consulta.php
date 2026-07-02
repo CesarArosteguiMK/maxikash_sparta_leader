@@ -3027,10 +3027,11 @@ function congelarModulo(convenio) {
     document.getElementById('btnPdf').className = 'btn btn-primary';
     document.getElementById('btnPdf').style.display = 'inline-block';
 
-    // Botón cancelar: oculto si completado o si ya tiene solicitud pendiente
+    // Boton cancelar: completados solo con permiso directo; activos respetan solicitud pendiente.
     var btnCancelar = document.getElementById('btnCancelar');
     var tieneSolicitud = convenio.solicitud_cancelamiento_fecha && convenio.estatus === 'activo';
-    if (convenio.estatus === 'completado') {
+    var puedeMostrarCancelar = convenio.estatus !== 'completado' || _permCancelamientoDirecto;
+    if (!puedeMostrarCancelar) {
         btnCancelar.style.display = 'none';
     } else if (tieneSolicitud) {
         btnCancelar.style.display = 'none';
