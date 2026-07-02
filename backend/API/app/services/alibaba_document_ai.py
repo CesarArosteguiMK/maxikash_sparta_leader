@@ -20,7 +20,7 @@ from typing import Any, Dict, List, Optional, Set
 from zoneinfo import ZoneInfo
 
 import fitz
-from PIL import Image
+from PIL import Image, ImageFilter, ImageOps
 
 from app.utils.curp_validator import validar_curp
 from app.utils.nss_validator import validar_nss
@@ -158,6 +158,21 @@ Reglas de lectura:
     aviso, estado de cuenta o descuento FONACOT/INFONAVIT cuando muestren credito,
     descuento, saldo, periodo o numero de credito. En esos casos NO exijas firma:
     la firma solo aplica cuando el documento real sea una carta_no_adeudo.
+21. Para CURP escaneada de RENAPO, enfocate visualmente en la zona superior:
+    "Clave:" contiene la CURP y "Nombre" contiene el nombre completo. La clave
+    suele estar en letras grandes debajo de "Clave". No uses codigos de barras,
+    QR, folios ni textos legales como CURP.
+22. En CURP, si dudas entre O/0 o I/1 en las ultimas posiciones, devuelve el
+    valor solo si mantiene formato oficial de 18 caracteres. Si la duda queda
+    sin resolver, pon curp=null y explica la duda; no inventes el valor.
+23. Para solicitud___SPARTA_SECRET_REDACTED__ escaneada o manuscrita, reconoce el formato por el
+    titulo "SOLICITUD DE EMPLEO MAXIKASH", el logo MaxiKash y las secciones
+    "DATOS PERSONALES", "DOCUMENTACION", "CONTACTOS DE EMERGENCIA" o similares.
+    Clasificala como solicitud___SPARTA_SECRET_REDACTED__ aunque algunos campos manuscritos no se
+    puedan leer completos.
+24. En solicitud___SPARTA_SECRET_REDACTED__, la CURP puede estar escrita en cuadros separados bajo
+    "Clave Unica del Registro de Poblacion". Lee los caracteres de izquierda a
+    derecha y reconstruye 18 caracteres solo si hay suficiente evidencia visual.
 
 Estructura exacta:
 {
@@ -254,6 +269,16 @@ Objetivo:
    - cv: CV personal o solicitud de trabajo general.
    Si una solicitud de trabajo general esta cargada en solicitud_interna,
    reportala como tipo incorrecto y recomienda moverla a CV o solicitud de trabajo.
+11. Si recibes una lectura previa marcada como motor_v1, pdf_text u OCR local,
+    usala como respaldo confiable cuando el documento visual coincide con el
+    tipo esperado. No vuelvas a dejar "lectura pendiente" para ese documento
+    si la lectura previa ya contiene tipo_detectado valido o CURP valida.
+12. Para CURP escaneada RENAPO, usa la clave grande debajo de "Clave:" y el
+    nombre debajo de "Nombre". Ignora codigos de barras, QR y folios.
+13. Para solicitud interna MaxiKash manuscrita, el objetivo minimo es confirmar
+    que sea el formato interno y que tenga las paginas requeridas. Si la letra
+    manuscrita impide leer CURP o RFC, no la rechaces por eso si esos datos ya
+    fueron confirmados en otros documentos.
 
 Devuelve SOLO JSON valido, sin markdown.
 
@@ -520,6 +545,70 @@ def _jpeg_bytes_from_image(img: Image.Image, max_side: int = 1800) -> bytes:
     return out.getvalue()
 
 
+def _enhance_document_crop(img: Image.Image) -> Image.Image:
+    """Improve contrast for visual AI without turning the whole flow into OCR."""
+    gray = ImageOps.grayscale(img.convert("RGB"))
+    gray = ImageOps.autocontrast(gray)
+    gray = gray.filter(ImageFilter.SHARPEN)
+    return Image.merge("RGB", (gray, gray, gray))
+
+
+def _safe_crop_ratio(img: Image.Image, box: tuple[float, float, float, float]) -> Optional[Image.Image]:
+    w, h = img.size
+    left = max(0, min(w - 1, int(w * box[0])))
+    top = max(0, min(h - 1, int(h * box[1])))
+    right = max(left + 1, min(w, int(w * box[2])))
+    bottom = max(top + 1, min(h, int(h * box[3])))
+    if right - left < 220 or bottom - top < 160:
+        return None
+    return img.crop((left, top, right, bottom))
+
+
+def render_identificacion_assistida(file_bytes: bytes, filename: str, dpi: int) -> List[RenderedPage]:
+    """Create a few rotated/cropped views for INE-style IDs.
+
+    Some INE scans arrive sideways. The regular render is still sent, but these
+    assisted views give the visual model a clean look at the name/CURP block.
+    """
+    ext = (filename.rsplit(".", 1)[-1] if "." in filename else "").lower()
+    images: List[Image.Image] = []
+    render_dpi = max(180, min(240, int(dpi or 180) + 40))
+    try:
+        if ext == "pdf":
+            doc = fitz.open(stream=file_bytes, filetype="pdf")
+            if doc.page_count < 1:
+                doc.close()
+                return []
+            matrix = fitz.Matrix(render_dpi / 72, render_dpi / 72)
+            pix = doc[0].get_pixmap(matrix=matrix, alpha=False)
+            images.append(Image.frombytes("RGB", [pix.width, pix.height], pix.samples))
+            doc.close()
+        else:
+            with Image.open(io.BytesIO(file_bytes)) as img:
+                images.append(img.convert("RGB"))
+    except Exception:
+        return []
+
+    if not images:
+        return []
+
+    source = images[0]
+    variants: List[RenderedPage] = []
+    for rotation in (90, -90):
+        rotated = source.rotate(rotation, expand=True)
+        enhanced = _enhance_document_crop(rotated)
+        variants.append(RenderedPage(_jpeg_bytes_from_image(enhanced, max_side=1800)))
+
+        # INE data normally lives around the left/central band once upright.
+        for box in ((0.03, 0.12, 0.73, 0.90), (0.14, 0.26, 0.67, 0.72)):
+            crop = _safe_crop_ratio(rotated, box)
+            if crop is not None:
+                variants.append(RenderedPage(_jpeg_bytes_from_image(_enhance_document_crop(crop), max_side=1600)))
+                break
+
+    return variants[:4]
+
+
 def render_input(file_bytes: bytes, filename: str, max_pages: int, dpi: int) -> tuple[List[RenderedPage], int]:
     ext = (filename.rsplit(".", 1)[-1] if "." in filename else "").lower()
     if ext == "pdf":
@@ -599,7 +688,7 @@ def summary_is_usable(summary: Any) -> bool:
         str(summary.get(key) or "")
         for key in ("motor_ia", "modelo_ia", "fuente_lectura", "source")
     ).lower()
-    return "alibaba" in marker or "motor_v2" in marker
+    return "alibaba" in marker or "motor_v2" in marker or "motor_v1" in marker or "pdf_text" in marker
 
 
 def quick_result_to_summary(key: str, label: str, filename: str, result: Dict[str, Any]) -> Dict[str, Any]:
@@ -766,6 +855,16 @@ def quick_prompt_for(expected_doc_type: Optional[str], nombre_candidato: Optiona
             "en null y agrega observacion. El formato en blanco NO es valido: si no hay "
             "nombre escrito en la linea final o no hay firma/trazo manuscrito, devuelve "
             "nombre_y_firma_lleno=false, firma_detectada=false y evidencia_insuficiente=true."
+        )
+    elif expected_doc_type == "identificacion_oficial":
+        extra = (
+            "\n\nInstruccion especial para identificacion oficial/INE: puedes recibir la pagina "
+            "original y tambien vistas asistidas rotadas o recortadas del mismo documento. "
+            "Usa esas vistas para leer el bloque NOMBRE y la linea CURP. En INE, el bloque "
+            "NOMBRE suele traer apellido paterno, apellido materno y nombres en lineas "
+            "separadas; devuelve nombre_completo normalizado en orden natural si se lee con "
+            "claridad. No tomes texto del holograma, QR, reverso, clave de elector ni folios "
+            "como CURP. Si una letra/digito no es claro, deja ese campo en null y explicalo."
         )
     return (
         QUICK_PROMPT
@@ -1038,6 +1137,8 @@ class AlibabaDocumentAI:
     def quick_verify(self, file_bytes: bytes, filename: str, expected_doc_type: str, nombre_candidato: Optional[str] = None) -> Dict[str, Any]:
         start = time.time()
         pages, page_count = render_input(file_bytes, filename, self.max_pages, self.dpi)
+        if expected_doc_type == "identificacion_oficial":
+            pages = pages + render_identificacion_assistida(file_bytes, filename, self.dpi)
         prompt = quick_prompt_for(expected_doc_type, nombre_candidato)
         extracted, usage, actual_model, fallback_used = self._call(pages, prompt)
         extracted["paginas_analizadas"] = extracted.get("paginas_analizadas") or len(pages)
