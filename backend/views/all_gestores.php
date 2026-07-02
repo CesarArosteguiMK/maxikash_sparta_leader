@@ -3252,6 +3252,10 @@
         size: letter landscape;
         margin: 10mm;
       }
+      @page rrhhCredentialPage {
+        size: 54mm 85.6mm;
+        margin: 0;
+      }
       body.print-rrhh-credencial *,
       body.print-rrhh-expediente * {
         visibility: hidden !important;
@@ -3309,6 +3313,7 @@
         padding: 0 !important;
       }
       .rrhh-credential-toolbar,
+      body.print-rrhh-credencial .rrhh-credential-notice,
       #modalCredencialRrhh .text-muted.mb-2,
       .rrhh-expediente-toolbar {
         display: none !important;
@@ -3345,6 +3350,75 @@
       }
       body.print-rrhh-credencial #modalCredencialRrhh .rrhh-id-card:not(.is-horizontal) .rrhh-id-card-inner {
         height: 85.6mm !important;
+      }
+      body.print-rrhh-credencial {
+        width: 54mm !important;
+        min-width: 54mm !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        overflow: visible !important;
+        background: #fff !important;
+      }
+      body.print-rrhh-credencial #modalCredencialRrhh {
+        width: 54mm !important;
+        min-width: 54mm !important;
+        height: auto !important;
+        overflow: visible !important;
+        page: rrhhCredentialPage;
+      }
+      body.print-rrhh-credencial #modalCredencialRrhh .modal-dialog,
+      body.print-rrhh-credencial #modalCredencialRrhh .modal-content,
+      body.print-rrhh-credencial #modalCredencialRrhh .modal-body,
+      body.print-rrhh-credencial #modalCredencialRrhh .rrhh-credential-stage,
+      body.print-rrhh-credencial #modalCredencialRrhh .rrhh-credential-stage .row {
+        width: 54mm !important;
+        max-width: 54mm !important;
+        min-width: 54mm !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        border: 0 !important;
+        border-radius: 0 !important;
+        background: #fff !important;
+        box-shadow: none !important;
+        overflow: visible !important;
+      }
+      body.print-rrhh-credencial #modalCredencialRrhh .rrhh-credential-stage .row {
+        display: block !important;
+        gap: 0 !important;
+      }
+      body.print-rrhh-credencial #modalCredencialRrhh .rrhh-credential-stage .row > [class*="col-"] {
+        display: block !important;
+        width: 54mm !important;
+        max-width: 54mm !important;
+        height: 85.6mm !important;
+        min-height: 85.6mm !important;
+        padding: 0 !important;
+        margin: 0 !important;
+        overflow: hidden !important;
+        page: rrhhCredentialPage;
+        break-after: page;
+        page-break-after: always;
+      }
+      body.print-rrhh-credencial #modalCredencialRrhh .rrhh-credential-stage .row > [class*="col-"]:last-child {
+        break-after: auto;
+        page-break-after: auto;
+      }
+      body.print-rrhh-credencial #modalCredencialRrhh .rrhh-id-card,
+      body.print-rrhh-credencial #modalCredencialRrhh .rrhh-id-card:not(.is-horizontal) {
+        width: 340px !important;
+        min-width: 340px !important;
+        height: 542px !important;
+        min-height: 542px !important;
+        margin: 0 !important;
+        border-radius: 0 !important;
+        transform: scale(.598);
+        transform-origin: top left;
+        break-inside: avoid;
+        page-break-inside: avoid;
+      }
+      body.print-rrhh-credencial #modalCredencialRrhh .rrhh-id-card-inner,
+      body.print-rrhh-credencial #modalCredencialRrhh .rrhh-id-card:not(.is-horizontal) .rrhh-id-card-inner {
+        height: 542px !important;
       }
       #modalExpedienteRrhh .modal-body {
         padding: 0 !important;
@@ -7152,7 +7226,7 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
                         <button class="btn btn-primary"  id="btnGuardarAusencia" onclick="guardarAusencia()">
                             Registrar ausencia
                         </button>
-                        <button class="btn btn-outline-primary" type="button" onclick="abrirCargaDocumentoAusencia()">
+                        <button class="btn btn-outline-primary" type="button" id="btnAdjuntarDocumentoAusencia" onclick="abrirCargaDocumentoAusencia()">
                             <i class="fa fa-paperclip me-1"></i>Adjuntar documento
                         </button>
                         <input
