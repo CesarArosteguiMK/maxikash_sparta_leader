@@ -52,6 +52,7 @@ logs/**
 !logs/.gitkeep
 backend/logs/**
 backend/API/logs/**
+backend/API/storage/doc_ai_quick_cache/**
 backend/storage/tmp_media/
 backend/storage/tmp_mpdf/
 backend/storage/tmp_rrhh_import/

@@ -1255,7 +1255,8 @@ class CapHum extends Controller
                         const codigoContpacPersona = String(p.codigo_contpac || '').trim();
                         const codigoContpacHTML = codigoContpacPersona
                             ? `<span class="gestion-personal-code-value">${escaparAttr(codigoContpacPersona)}</span>`
-                            : (badgeExternoGestion ? '' : '<span class="gestion-personal-code-value">Sin codigo</span>');
+                            : '<span class="gestion-personal-code-value">Sin id</span>';
+                        const externalIdGestion = String(p.numero_empleado || '').trim();
 
                         let puestosHTML = '';
                         if (tienePuestos) {
@@ -1315,7 +1316,7 @@ class CapHum extends Controller
                                 </div>
                                 <div class="gestion-personal-external-id">
                                     <span>External id:</span>
-                                    <strong>${escaparAttr(p.numero_empleado || 'Sin external id')}</strong>
+                                    <strong>${escaparAttr(externalIdGestion || 'Sin id')}</strong>
                                 </div>
                                 <small class="gestion-personal-username d-flex align-items-center gap-1">
                                     <i class="fa fa-key"></i>
@@ -1442,20 +1443,65 @@ class CapHum extends Controller
                         // Mapear datos con el nuevo formato de columnas
                         const datos = resp.datos.map(p => {
                             const nombreCompleto = [p.nombres, p.segundo_nombre, p.apellidop, p.apellidom].filter(x => x).join(' ');
+                            const escaparAttr = value => String(value || '')
+                                .replace(/&/g, '&amp;')
+                                .replace(/"/g, '&quot;')
+                                .replace(/</g, '&lt;')
+                                .replace(/>/g, '&gt;');
+                            const iniciales = String(nombreCompleto || 'US')
+                                .trim()
+                                .split(/\s+/)
+                                .filter(Boolean)
+                                .slice(0, 2)
+                                .map(parte => parte.charAt(0))
+                                .join('')
+                                .toUpperCase() || 'US';
+                            const fotoPerfil = String(p.foto_perfil || '').trim();
+                            const fotoEsc = escaparAttr(fotoPerfil);
+                            const nombreEsc = escaparAttr(nombreCompleto || 'Usuario');
+                            const avatarContenido = fotoPerfil
+                                ? `<img class="gestion-personal-avatar" src="${fotoEsc}" alt="Foto de ${nombreEsc}" loading="lazy" decoding="async" onerror="this.style.display='none';this.nextElementSibling.style.display='inline-flex';">
+                                   <span class="gestion-personal-avatar-fallback" style="display:none;">${iniciales}</span>`
+                                : `<span class="gestion-personal-avatar-fallback">${iniciales}</span>`;
+                            const avatarHTML = `
+                                <button type="button"
+                                        class="gestion-avatar-btn"
+                                        data-gestion-foto="${fotoEsc}"
+                                        data-gestion-nombre="${nombreEsc}"
+                                        data-gestion-iniciales="${escaparAttr(iniciales)}"
+                                        title="Ver foto de ${nombreEsc}"
+                                        aria-label="Ver foto de ${nombreEsc}"
+                                        onclick="if (typeof abrirVisorFotoGestion === 'function') abrirVisorFotoGestion(this, event);">
+                                    ${avatarContenido}
+                                </button>
+                            `.trim();
+                            const codigoContpac = String(p.codigo_contpac || '').trim();
+                            const noEmpleadoHTML = codigoContpac
+                                ? `<span class="gestion-personal-code-value">${escaparAttr(codigoContpac)}</span>`
+                                : '<span class="gestion-personal-code-value">Sin id</span>';
+                            const externalId = String(p.external_id || '').trim();
 
                             return {
                                 nombres: `
-                                    <div class="fw-semibold d-flex align-items-center gap-2">
-                                        <i class="fa fa-hashtag" style="font-size: 0.85em; color: #333;"></i>
-                                        <span>${p.external_id ?? ''}</span>
-                                    </div>
-                                    <div class="fw-semibold d-flex align-items-center gap-2 mt-2">
-                                        <i class="fa fa-user" style="font-size: 0.85em; color: #333;"></i>
-                                        <span>${nombreCompleto}</span>
-                                    </div>
-                                    <div class="text-muted small d-flex align-items-center gap-2 mt-1">
-                                        <i class="fa fa-id-card" style="font-size: 0.85em; color: #666;"></i>
-                                        <span># ${p.numero_empleado ?? ''}</span>
+                                    <div class="gestion-personal-name-cell">
+                                        ${avatarHTML}
+                                        <div class="gestion-personal-name-info">
+                                            <div class="gestion-personal-employee-code">
+                                                <span>No. empleado:</span>
+                                                ${noEmpleadoHTML}
+                                            </div>
+                                            <div class="gestion-personal-name-main text-uppercase">
+                                                ${nombreEsc}
+                                            </div>
+                                            <div class="gestion-personal-external-id">
+                                                <span>External id:</span>
+                                                <strong>${escaparAttr(externalId || 'Sin id')}</strong>
+                                            </div>
+                                            <small class="gestion-personal-username d-flex align-items-center gap-1">
+                                                <i class="fa fa-key"></i>
+                                                ${escaparAttr(p.user_name || 'Sin usuario')}
+                                            </small>
+                                        </div>
                                     </div>
                                 `.trim(),
                                 puesto: `
@@ -10572,11 +10618,11 @@ class CapHum extends Controller
                 if (procesoVencido) {
                     verificacionEnProceso = false;
                     v.api_pendiente = true;
-                    v.error_api = v.error_api || "El Motor V2 tardó más de lo esperado. El expediente quedó pendiente para reintento.";
+                    v.error_api = v.error_api || "El analisis documental tardo mas de lo esperado. El expediente quedo pendiente para reintento.";
                 }
                 var alertas = Array.isArray(v.alertas) && v.alertas.length ? v.alertas.filter(function(a) { return !esAvisoCurpOcrResuelto(a) && !esNotaCalidadIgnorable(a) && !alertaCurpResueltaMotorV2(a, v); }) : [];
                 if (procesoVencido) {
-                    alertas.unshift("El cruce automático superó el tiempo esperado. Reintente Motor V2; no se marcará como revisión manual por este motivo.");
+                    alertas.unshift("El cruce automatico supero el tiempo esperado. Reintente el analisis documental; no se marcara como revision manual por este motivo.");
                 }
                 var confianzaNum = null;
                 if (scoreFrente != null && scoreReverso != null) { confianzaNum = Math.round((scoreFrente + scoreReverso) / 2); }
@@ -10615,16 +10661,16 @@ class CapHum extends Controller
                     if (docsCount === 0 && comps.length === 0) {
                         var pendienteActivoV2 = verificacionEnProceso && !procesoVencido;
                         var errApiV2 = (v.error_api != null && String(v.error_api).trim() !== "") ? String(v.error_api).trim() : "";
-                        var tituloV2 = pendienteActivoV2 ? "Verificacion en proceso" : "Motor V2 pendiente";
+                        var tituloV2 = pendienteActivoV2 ? "Verificacion en proceso" : "Analisis pendiente";
                         var textoV2 = pendienteActivoV2
-                            ? "Motor V2 esta revisando el expediente. La documentacion se actualizara automaticamente cuando termine."
-                            : "El ultimo intento de Motor V2 no pudo completar el cruce documental. Los documentos siguen cargados; reevalue cuando el servicio este disponible.";
-                        var htmlPendV2 = "<div class=\"card border shadow-none h-100 doc-v2-card\"><div class=\"card-header py-2 bg-light d-flex align-items-center justify-content-between gap-2\"><strong><i class=\"fa fa-shield-alt me-1\"></i>Resultado de analisis documental</strong><span class=\"d-flex align-items-center gap-1\"><span class=\"badge bg-primary\">Motor V2</span>" + btnHeaderRevalidar + "</span></div><div class=\"card-body py-2 small overflow-auto\">";
+                            ? "La IA documental esta revisando el expediente. La documentacion se actualizara automaticamente cuando termine."
+                            : "El ultimo intento de analisis documental no pudo completar el cruce. Los documentos siguen cargados; reevalue cuando el servicio este disponible.";
+                        var htmlPendV2 = "<div class=\"card border shadow-none h-100 doc-v2-card\"><div class=\"card-header py-2 bg-light d-flex align-items-center justify-content-between gap-2\"><strong><i class=\"fa fa-shield-alt me-1\"></i>Resultado de analisis documental</strong><span class=\"d-flex align-items-center gap-1\"><span class=\"badge bg-primary\">IA documental</span>" + btnHeaderRevalidar + "</span></div><div class=\"card-body py-2 small overflow-auto\">";
                         htmlPendV2 += "<div class=\"d-flex flex-wrap gap-2 align-items-center mb-2\"><span class=\"badge " + (pendienteActivoV2 ? "bg-info text-dark" : "bg-warning text-dark") + "\">" + tituloV2 + "</span><span class=\"badge bg-light text-dark border\">Sin lectura final</span></div>";
                         htmlPendV2 += "<div class=\"alert " + (pendienteActivoV2 ? "alert-info" : "alert-warning") + " py-2 px-2 mb-2\" role=\"status\"><strong>Dictamen IA pendiente.</strong><br>" + escHtmlComparaciones(textoV2);
                         htmlPendV2 += "</div>";
                         if (errApiV2) {
-                            candidatosDocConsola("error", "Motor V2 pendiente - detalle tecnico", errApiV2);
+                            candidatosDocConsola("error", "Analisis documental pendiente - detalle tecnico", errApiV2);
                             htmlPendV2 += "<details class=\"small mb-2\"><summary class=\"fw-semibold text-muted\">Detalle tecnico</summary><div class=\"border rounded p-2 mt-1 bg-light text-break\">" + escHtmlComparaciones(errApiV2) + "</div></details>";
                         }
                         if (!pendienteActivoV2) {
@@ -10642,9 +10688,9 @@ class CapHum extends Controller
                     if (!resumen) {
                         resumen = todoCoincide
                             ? "La informacion recibida es consistente entre los documentos revisados, cumple con las reglas documentales establecidas y corresponde al candidato registrado."
-                            : "El expediente requiere revision documental antes del dictamen final. Revise las alertas y comparaciones marcadas por el motor V2.";
+                            : "El expediente requiere revision documental antes del dictamen final. Revise las alertas y comparaciones marcadas por la IA documental.";
                     }
-                    var htmlV2 = "<div class=\"card border shadow-none h-100 doc-v2-card\"><div class=\"card-header py-2 bg-light d-flex align-items-center justify-content-between gap-2\"><strong><i class=\"fa fa-shield-alt me-1\"></i>Resultado de analisis documental</strong><span class=\"d-flex align-items-center gap-1\"><span class=\"badge bg-primary\">Motor V2</span>" + btnHeaderRevalidar + "</span></div><div class=\"card-body py-2 small overflow-auto\">";
+                    var htmlV2 = "<div class=\"card border shadow-none h-100 doc-v2-card\"><div class=\"card-header py-2 bg-light d-flex align-items-center justify-content-between gap-2\"><strong><i class=\"fa fa-shield-alt me-1\"></i>Resultado de analisis documental</strong><span class=\"d-flex align-items-center gap-1\"><span class=\"badge bg-primary\">IA documental</span>" + btnHeaderRevalidar + "</span></div><div class=\"card-body py-2 small overflow-auto\">";
                     htmlV2 += "<div class=\"d-flex flex-wrap gap-2 align-items-center mb-2\">" + dictamenBadge + "<span class=\"badge bg-light text-dark border\">" + docsCount + " documentos leidos</span>";
                     if (checksOk != null && checksTotales != null && checksTotales > 0) htmlV2 += "<span class=\"badge bg-light text-dark border\">" + checksOk + "/" + checksTotales + " checks</span>";
                     if (typeof avisosV2 !== "undefined" && avisosV2 > 0) htmlV2 += "<span class=\"badge bg-warning text-dark\">" + avisosV2 + " avisos</span>";
@@ -10664,7 +10710,7 @@ class CapHum extends Controller
                         (Array.isArray(v.recomendaciones) ? v.recomendaciones : []).slice(0, 3).forEach(function(a) { htmlV2 += "<li class=\"text-muted\">" + escHtmlComparaciones(a) + "</li>"; });
                         htmlV2 += "</ul></div>";
                     } else if (comps.length) {
-                        htmlV2 += "<div class=\"text-success mt-2 pt-2 border-top\"><i class=\"fa fa-check-circle me-1\"></i>Sin alertas criticas detectadas por el motor V2.</div>";
+                        htmlV2 += "<div class=\"text-success mt-2 pt-2 border-top\"><i class=\"fa fa-check-circle me-1\"></i>Sin alertas criticas detectadas.</div>";
                     }
                     htmlV2 += "</div></div>";
                     bloqueVerif.innerHTML = htmlV2;
@@ -10696,7 +10742,7 @@ class CapHum extends Controller
                     respuestaVaciaApi = false;
                 }
                 if (verificacionEnProceso) {
-                    html += "<div class=\"alert alert-info py-2 px-2 mb-2 small\" role=\"status\"><strong>Verificaci&oacute;n en proceso.</strong><br><span class=\"text-muted\">No hay dictamen autom&aacute;tico todav&iacute;a. Si tarda demasiado, podr&aacute;s reintentar Motor V2.</span></div>";
+                    html += "<div class=\"alert alert-info py-2 px-2 mb-2 small\" role=\"status\"><strong>Verificaci&oacute;n en proceso.</strong><br><span class=\"text-muted\">No hay dictamen autom&aacute;tico todav&iacute;a. Si tarda demasiado, podr&aacute;s reintentar el analisis documental.</span></div>";
                     errApi = "";
                     respuestaVaciaApi = false;
                 /*
@@ -10707,7 +10753,7 @@ class CapHum extends Controller
                     html += "";
                 */
                 } else if (errApi) {
-                    html += "<div class=\"alert alert-warning py-2 px-2 mb-2 small\" role=\"alert\"><strong>Motor V2 pendiente.</strong><br><span class=\"text-muted\">" + escHtmlComparaciones(errApi) + "</span></div>";
+                    html += "<div class=\"alert alert-warning py-2 px-2 mb-2 small\" role=\"alert\"><strong>Analisis pendiente.</strong><br><span class=\"text-muted\">" + escHtmlComparaciones(errApi) + "</span></div>";
                 } else if (respuestaVaciaApi) {
                     candidatosDocConsola("warn", "verificación API - respuesta vacía / sin datos útiles (objeto)", v);
                     html += "<div class=\"alert alert-warning py-2 px-2 mb-2 small\" role=\"alert\"><strong>No hubo resultado util de la verificacion automatica.</strong><br><span class=\"text-muted\">Intente reevaluar el expediente mas tarde.</span></div>";
@@ -10752,8 +10798,28 @@ class CapHum extends Controller
             }
 
             function escHtmlComparaciones(s) {
-                var t = normalizarTextoDocModalGlobal(s);
+                var t = textoUsuarioAnalisisDocumental(normalizarTextoDocModalGlobal(s));
                 return t.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+            }
+
+            function textoUsuarioAnalisisDocumental(s) {
+                var t = normalizarTextoDocModalGlobal(s);
+                var k = claveDocModalGlobal(t);
+                if (!t) return "";
+                if (k.indexOf("LECTURA V2 PENDIENTE") !== -1 || k.indexOf("LECTURA AUTOMATICA PENDIENTE") !== -1) {
+                    return t.replace(/lectura V2 pendiente/ig, "lectura automatica pendiente")
+                        .replace(/Motor V2/ig, "analisis documental");
+                }
+                if (k.indexOf("MOTOR V2 NO CUENTA CON LECTURA SUFICIENTE") !== -1) {
+                    return "El expediente requiere revision documental: falta lectura suficiente en uno o mas documentos.";
+                }
+                if (k.indexOf("MOTOR V2 DETECTO CONTENIDO TIPO") !== -1 && k.indexOf("MOTOR V1 ENCONTRO ACTA") !== -1) {
+                    return "Documento mezclado detectado: se encontro el acta dentro del PDF.";
+                }
+                if (k.indexOf("RESPUESTA ORIGINAL MOTOR V2") !== -1) {
+                    return "La primera lectura automatica no fue suficiente; se uso una lectura de respaldo.";
+                }
+                return t.replace(/Motor V2/ig, "analisis documental").replace(/Motor V1/ig, "lectura de respaldo");
             }
 
             function esVerificacionMotorV2(v) {
@@ -11089,7 +11155,7 @@ class CapHum extends Controller
 
                     var resumen = String(v.resumen_ia || "");
                     var htmlV2 = "<div class=\"card border shadow-none doc-v2-full\"><div class=\"card-body py-2 small\">";
-                    htmlV2 += "<div class=\"d-flex flex-wrap justify-content-between align-items-center gap-2 mb-2\"><div><span class=\"fw-semibold small\">Analisis cruzado del expediente</span><div class=\"text-muted\">Motor V2 reviso identidad, vigencia, reglas documentales y consistencia entre archivos.</div></div><span><span class=\"badge bg-success me-1\">" + ok + "/" + total + " coinciden</span>" + (fallas ? "<span class=\"badge bg-danger me-1\">" + fallas + " fallas</span>" : "") + (avisos ? "<span class=\"badge bg-warning text-dark\">" + avisos + " avisos</span>" : "") + "</span></div>";
+                    htmlV2 += "<div class=\"d-flex flex-wrap justify-content-between align-items-center gap-2 mb-2\"><div><span class=\"fw-semibold small\">Analisis cruzado del expediente</span><div class=\"text-muted\">La IA documental reviso identidad, vigencia, reglas documentales y consistencia entre archivos.</div></div><span><span class=\"badge bg-success me-1\">" + ok + "/" + total + " coinciden</span>" + (fallas ? "<span class=\"badge bg-danger me-1\">" + fallas + " fallas</span>" : "") + (avisos ? "<span class=\"badge bg-warning text-dark\">" + avisos + " avisos</span>" : "") + "</span></div>";
                     if (avisos) {
                         htmlV2 += "<div class=\"alert alert-warning py-2 px-2 mb-2\"><strong>Avisos:</strong> se muestran en amarillo. No bloquean por si solos; indican lecturas aceptadas con observacion, por ejemplo variaciones menores de CURP por OCR/IA.</div>";
                     }
@@ -11241,10 +11307,10 @@ class CapHum extends Controller
                     var docV2 = kV2 ? docsV2(v)[kV2] : null;
                     if (!docV2) return "";
                     var est = estadoDocV2(docV2);
-                    if (est === "ok") return "<span class=\"badge " + claseBadgeEstadoDocV2(kV2, est) + " ms-1\" title=\"" + (kV2 === "comprobante_domicilio" ? "Motor V2: comprobante revisado; el titular puede ser distinto al candidato." : "Motor V2: coincide con el expediente") + "\">" + etiquetaEstadoDocV2(kV2, est) + "</span>";
-                    if (est === "bad") return "<span class=\"badge bg-danger ms-1\" title=\"Motor V2: no coincide\">No coincide</span>";
-                    if (est === "warn") return "<span class=\"badge bg-warning text-dark ms-1\" title=\"Motor V2: requiere revision\">Revisar</span>";
-                    return "<span class=\"badge bg-primary ms-1\" title=\"Motor V2\">Motor V2</span>";
+                    if (est === "ok") return "<span class=\"badge " + claseBadgeEstadoDocV2(kV2, est) + " ms-1\" title=\"" + (kV2 === "comprobante_domicilio" ? "IA documental: comprobante revisado; el titular puede ser distinto al candidato." : "IA documental: coincide con el expediente") + "\">" + etiquetaEstadoDocV2(kV2, est) + "</span>";
+                    if (est === "bad") return "<span class=\"badge bg-danger ms-1\" title=\"IA documental: no coincide\">No coincide</span>";
+                    if (est === "warn") return "<span class=\"badge bg-warning text-dark ms-1\" title=\"IA documental: requiere revision\">Revisar</span>";
+                    return "<span class=\"badge bg-primary ms-1\" title=\"IA documental\">IA documental</span>";
                 }
                 var t = claveDocModalGlobal(tipoDoc);
                 if (t.indexOf("REVERSO") !== -1) { var r = v.identificacion_reverso_score; if (r == null) return ""; return "<span class=\"badge bg-primary ms-1\" title=\"Veracidad con el candidato\">" + r + "%</span>"; }
@@ -11293,35 +11359,35 @@ class CapHum extends Controller
                 if (docV2) {
                     var est = estadoDocV2(docV2);
                     if (est === "ok") {
-                        return "<span class=\"badge bg-info text-dark ms-1\" data-bs-toggle=\"tooltip\" data-bs-title=\"Motor V2 ya analizo este documento.\"><i class=\"fa fa-check me-1\"></i>Listo</span>";
+                        return "<span class=\"badge bg-info text-dark ms-1\" data-bs-toggle=\"tooltip\" data-bs-title=\"IA documental ya analizo este documento.\"><i class=\"fa fa-check me-1\"></i>Listo</span>";
                     }
                     if (est === "bad") {
-                        return "<span class=\"badge bg-danger ms-1\" data-bs-toggle=\"tooltip\" data-bs-title=\"Motor V2 encontro diferencias en este documento.\"><i class=\"fa fa-exclamation-circle me-1\"></i>Revisar</span>";
+                        return "<span class=\"badge bg-danger ms-1\" data-bs-toggle=\"tooltip\" data-bs-title=\"IA documental encontro diferencias en este documento.\"><i class=\"fa fa-exclamation-circle me-1\"></i>Revisar</span>";
                     }
                     if (est === "warn") {
-                        return "<span class=\"badge bg-warning text-dark ms-1\" data-bs-toggle=\"tooltip\" data-bs-title=\"Motor V2 no pudo confirmar completamente este documento.\"><i class=\"fa fa-exclamation-triangle me-1\"></i>Revisar</span>";
+                        return "<span class=\"badge bg-warning text-dark ms-1\" data-bs-toggle=\"tooltip\" data-bs-title=\"IA documental no pudo confirmar completamente este documento.\"><i class=\"fa fa-exclamation-triangle me-1\"></i>Revisar</span>";
                     }
-                    return "<span class=\"badge bg-info text-dark ms-1\" data-bs-toggle=\"tooltip\" data-bs-title=\"Motor V2 recibio lectura de este documento.\"><i class=\"fa fa-check me-1\"></i>Listo</span>";
+                    return "<span class=\"badge bg-info text-dark ms-1\" data-bs-toggle=\"tooltip\" data-bs-title=\"IA documental recibio lectura de este documento.\"><i class=\"fa fa-check me-1\"></i>Listo</span>";
                 }
                 var lecturaRapida = lecturaRapidaMotorV2Documento(d);
                 if (lecturaRapida) {
                     var estRapida = estadoLecturaRapidaMotorV2(lecturaRapida);
                     if (estRapida === "bad") {
-                        return "<span class=\"badge bg-danger ms-1\" data-bs-toggle=\"tooltip\" data-bs-title=\"Lectura rapida del Motor V2 encontro una regla incumplida.\"><i class=\"fa fa-exclamation-circle me-1\"></i>Revisar</span>";
+                        return "<span class=\"badge bg-danger ms-1\" data-bs-toggle=\"tooltip\" data-bs-title=\"La lectura automatica encontro una regla incumplida.\"><i class=\"fa fa-exclamation-circle me-1\"></i>Revisar</span>";
                     }
                     if (estRapida === "warn") {
-                        return "<span class=\"badge bg-warning text-dark ms-1\" data-bs-toggle=\"tooltip\" data-bs-title=\"Lectura rapida del Motor V2 guardada con observaciones.\"><i class=\"fa fa-exclamation-triangle me-1\"></i>Revisar</span>";
+                        return "<span class=\"badge bg-warning text-dark ms-1\" data-bs-toggle=\"tooltip\" data-bs-title=\"Lectura automatica guardada con observaciones.\"><i class=\"fa fa-exclamation-triangle me-1\"></i>Revisar</span>";
                     }
-                    return "<span class=\"badge bg-info text-dark ms-1\" data-bs-toggle=\"tooltip\" data-bs-title=\"Lectura rapida del Motor V2 guardada; falta el cruce final si el expediente sigue en proceso.\"><i class=\"fa fa-check me-1\"></i>Listo</span>";
+                    return "<span class=\"badge bg-info text-dark ms-1\" data-bs-toggle=\"tooltip\" data-bs-title=\"Lectura automatica guardada; falta el cruce final si el expediente sigue en proceso.\"><i class=\"fa fa-check me-1\"></i>Listo</span>";
                 }
                 if (enProceso) {
-                    return "<span class=\"badge bg-primary ms-1\" data-bs-toggle=\"tooltip\" data-bs-title=\"Motor V2 esta procesando este expediente; este documento aun no tiene lectura final.\"><i class=\"fa fa-spinner fa-spin me-1\"></i>Analizando</span>";
+                    return "<span class=\"badge bg-primary ms-1\" data-bs-toggle=\"tooltip\" data-bs-title=\"IA documental esta procesando este expediente; este documento aun no tiene lectura final.\"><i class=\"fa fa-spinner fa-spin me-1\"></i>Analizando</span>";
                 }
                 if (motorV2SinLecturaFinal(v)) {
                     return "";
                 }
                 if (v && esVerificacionMotorV2(v)) {
-                    return "<span class=\"badge bg-secondary ms-1\" data-bs-toggle=\"tooltip\" data-bs-title=\"Este documento aun no tiene lectura suficiente del Motor V2.\"><i class=\"fa fa-clock me-1\"></i>Pendiente</span>";
+                    return "<span class=\"badge bg-secondary ms-1\" data-bs-toggle=\"tooltip\" data-bs-title=\"Este documento aun no tiene lectura suficiente.\"><i class=\"fa fa-clock me-1\"></i>Pendiente</span>";
                 }
                 return "";
             }
@@ -12041,7 +12107,7 @@ class CapHum extends Controller
                 var t0 = (typeof performance !== "undefined" && performance.now) ? performance.now() : Date.now();
                 candidatosDocConsola("info", "verificarExpedienteCandidato - inicio POST", { id_candidato: idC, url: "/caphum/verificarExpedienteCandidato", timeout_ms: toMs, solo_identificacion: !!soloIdentificacion });
                 registrarTrazaDocModalTecnico("verificarExpedienteCandidato - POST (detalle)", { id_candidato: idC, url: "/caphum/verificarExpedienteCandidato", timeout_ms: toMs, solo_identificacion: !!soloIdentificacion });
-                setDocModalApiTraceUsuario("Reevaluacion iniciada: Motor V2 revisara la identificacion y Motor V1 rescatara datos de PDFs con texto, como CURP. La documentacion se actualizara automaticamente.", "wait");
+                setDocModalApiTraceUsuario("Reevaluacion iniciada: la IA documental revisara el expediente y usara lectura de respaldo cuando sea necesario. La documentacion se actualizara automaticamente.", "wait");
                 fetch("/caphum/verificarExpedienteCandidato", { method: "POST", body: fd, headers: { "X-Requested-With": "XMLHttpRequest" }, signal: ctrl.signal })
                     .then(function(r) {
                         clearTimeout(tid);
@@ -12178,7 +12244,7 @@ class CapHum extends Controller
                         } else if (verifPrev) {
                             clearDocModalApiTrace();
                         } else if (res.datos && res.datos.metricas && res.datos.metricas.expediente_completo) {
-                            setDocModalApiTraceUsuario("Expediente completo. Motor V2 está revisando en segundo plano y la vista se actualizará al terminar.", "neutral");
+                            setDocModalApiTraceUsuario("Expediente completo. La IA documental esta revisando en segundo plano y la vista se actualizara al terminar.", "neutral");
                         } else {
                             clearDocModalApiTrace();
                         }
@@ -12233,7 +12299,7 @@ class CapHum extends Controller
                         renderVerificacionApiCard(bloqueVerif, verif);
                         renderComparacionesDocFullWidth(bloqueComp, verif);
                     } else if (metricas && metricas.expediente_completo) {
-                        if (bloqueVerif) { bloqueVerif.classList.remove("d-none"); bloqueVerif.innerHTML = "<div class=\"alert alert-info small mb-0\"><i class=\"fa fa-hourglass-half me-1\"></i>Motor V2 está revisando el expediente. La vista se actualizará automáticamente al terminar.</div>"; }
+                        if (bloqueVerif) { bloqueVerif.classList.remove("d-none"); bloqueVerif.innerHTML = "<div class=\"alert alert-info small mb-0\"><i class=\"fa fa-hourglass-half me-1\"></i>La IA documental esta revisando el expediente. La vista se actualizara automaticamente al terminar.</div>"; }
                         if (bloqueComp) { bloqueComp.classList.add("d-none"); bloqueComp.innerHTML = ""; }
                     } else {
                         if (bloqueVerif) { bloqueVerif.classList.add("d-none"); bloqueVerif.innerHTML = ""; }
@@ -15429,11 +15495,13 @@ class CapHum extends Controller
             'verificar-calidad',
             'precheck-identificacion-pdf',
             'verificar-calidad-identificacion-pdf',
+            'verificar-solicitud-interna-documento',
             'verificar-comprobante',
             'verificar-curp-documento',
             'verificar-constancia-fiscal-documento',
             'verificar-nss-documento',
             'verificar-estado-cuenta',
+            'verificar-acta-documento',
             'validar-paginas-pdf',
         ];
         if (!in_array($endpoint, $permitidos, true)) {
@@ -15489,6 +15557,8 @@ class CapHum extends Controller
             $timeout = 40;
         } elseif ($endpoint === 'verificar-curp-documento' || $endpoint === 'verificar-constancia-fiscal-documento') {
             $timeout = 40;
+        } elseif ($endpoint === 'verificar-solicitud-interna-documento' || $endpoint === 'verificar-acta-documento') {
+            $timeout = 30;
         } elseif ($endpoint === 'validar-paginas-pdf') {
             $timeout = 8;
         }
@@ -15995,7 +16065,7 @@ class CapHum extends Controller
                 $resCola = $this->encolarVerificacionDocumentalCandidato($id_candidato, [], true, $verificacion === null ? 'modal_auto_sin_dictamen' : 'modal_auto_reintento');
                 if (empty($resCola['success'])) {
                     $errorCola = (string) ($resCola['error'] ?? $resCola['mensaje'] ?? 'No se pudo encolar la verificacion documental.');
-                    $this->guardarVerificacionExpedienteErrorMotorV2((int) $id_candidato, $errorCola, ['No se pudo iniciar el cruce automatico del Motor V2.']);
+                    $this->guardarVerificacionExpedienteErrorMotorV2((int) $id_candidato, $errorCola, ['No se pudo iniciar el cruce automatico documental.']);
                     $verificacion = CandidatosDAO::getVerificacionExpediente($id_candidato);
                     $payload['verificacion_expediente'] = is_array($verificacion) ? $verificacion : null;
                 } else {
@@ -16172,7 +16242,7 @@ class CapHum extends Controller
             }
             return $respuestaJob;
         } catch (\Throwable $e) {
-            $this->guardarVerificacionExpedienteErrorMotorV2($idCandidato, $e->getMessage(), ['Excepcion local al procesar el job de Motor V2.']);
+            $this->guardarVerificacionExpedienteErrorMotorV2($idCandidato, $e->getMessage(), ['No se pudo procesar el analisis documental.']);
             CandidatosDAO::finalizarJobVerificacionDocumental($idJob, false, $e->getMessage());
             return ['procesado' => true, 'ok' => false, 'id_job' => $idJob, 'id_candidato' => $idCandidato, 'error' => $e->getMessage()];
         }
@@ -16349,14 +16419,14 @@ class CapHum extends Controller
         if ($ejecutarAsync && !$soloIdentificacion) {
             $resEncolado = $this->encolarVerificacionDocumentalCandidato($id_candidato, [], true, 'reintento_modal');
             if (empty($resEncolado['success'])) {
-                echo json_encode(self::respuesta(false, 'No se pudo iniciar la reevaluacion del Motor V2. Revise el servicio e intente de nuevo.', [
+                echo json_encode(self::respuesta(false, 'No se pudo iniciar la reevaluacion documental. Revise el servicio e intente de nuevo.', [
                     'verificacion_en_proceso' => false,
                     'api_pendiente' => true,
                     'error' => $resEncolado['error'] ?? $resEncolado['mensaje'] ?? 'No se pudo encolar la verificacion documental.',
                 ]));
                 return;
             }
-            echo json_encode(self::respuesta(true, 'Motor V2 iniciado en segundo plano. La documentacion se actualizara automaticamente.', [
+            echo json_encode(self::respuesta(true, 'Analisis documental iniciado en segundo plano. La documentacion se actualizara automaticamente.', [
                 'verificacion_en_proceso' => true,
             ]));
             return;
@@ -16449,7 +16519,7 @@ class CapHum extends Controller
                 'error_api' => $resultadoApi['error'],
             ];
             CandidatosDAO::updateVerificacionExpediente($id_candidato, json_encode($payloadError));
-            $mensajeUsuario = 'La verificacion automatica no pudo completarse por un fallo tecnico. Reintente Motor V2 cuando el servicio este disponible.';
+            $mensajeUsuario = 'La verificacion automatica no pudo completarse por un fallo tecnico. Reintente el analisis documental cuando el servicio este disponible.';
             echo json_encode(self::respuesta(true, $mensajeUsuario, ['verificacion_expediente' => $payloadError]));
             return;
         }
@@ -18641,6 +18711,10 @@ class CapHum extends Controller
             || strpos($mensaje, 'API NO RESPOND') !== false
             || strpos($mensaje, 'NO DEVOLVIO JSON') !== false
             || strpos($mensaje, 'TIMEOUT') !== false
+            || strpos($mensaje, 'TIMED OUT') !== false
+            || strpos($mensaje, 'OPERATION TIMED') !== false
+            || strpos($mensaje, '0 BYTES RECEIVED') !== false
+            || strpos($mensaje, 'SIN RECIBIR DATOS') !== false
             || strpos($mensaje, 'TARDO') !== false
             || strpos($mensaje, 'CONECTAR') !== false
             || strpos($mensaje, 'NO SE PUDO REVISAR') !== false
@@ -18745,6 +18819,10 @@ class CapHum extends Controller
                     ],
                 ];
             }
+            $resultadoSolicitud = $this->verificarSolicitudInternaApi($rutaPdf);
+            if (is_array($resultadoSolicitud)) {
+                return ['aceptar' => true, 'mensaje' => null, 'verificacion' => $resultadoSolicitud];
+            }
         }
 
         $resultado = null;
@@ -18764,6 +18842,11 @@ class CapHum extends Controller
             $resultado = $this->verificarEstadoCuentaApi($rutaPdf);
         }
 
+        return $this->resolverResultadoPrecheckContenidoDocumentoCandidato($tipoDocumento, $resultado);
+    }
+
+    private function resolverResultadoPrecheckContenidoDocumentoCandidato(int $tipoDocumento, $resultado): array
+    {
         if ($this->esRechazoFirmeVerificacionDocumentoCandidato($resultado)) {
             $mensaje = trim((string) ($resultado['mensaje'] ?? $resultado['recomendacion'] ?? 'El archivo no corresponde al documento solicitado.'));
             return ['aceptar' => false, 'mensaje' => $mensaje, 'verificacion' => $resultado];
@@ -18808,6 +18891,396 @@ class CapHum extends Controller
             ];
         }
         return ['aceptar' => true, 'mensaje' => null, 'verificacion' => is_array($resultado) ? $resultado : null];
+    }
+
+    private function tiposPrecheckContenidoCargaCandidato(): array
+    {
+        return [1, 3, 4, 5, 6, 7, 8, 10];
+    }
+
+    private function concurrenciaPrecheckCargaCandidato(): int
+    {
+        $valor = 2;
+        $configFile = defined('RAIZ') ? (RAIZ . '/config/config.ini') : (__DIR__ . '/../config/config.ini');
+        if (is_file($configFile)) {
+            $config = @parse_ini_file($configFile, true);
+            $valor = (int) ($config['doc_verificacion']['carga_documentos_concurrencia_precheck'] ?? $valor);
+        }
+        return max(1, min(4, $valor));
+    }
+
+    private function configApiDocVerificacionBasica()
+    {
+        $configFile = defined('RAIZ') ? (RAIZ . '/config/config.ini') : (__DIR__ . '/../config/config.ini');
+        if (!is_file($configFile)) {
+            return null;
+        }
+        $config = @parse_ini_file($configFile, true);
+        $apiUrl = trim((string) ($config['doc_verificacion']['api_url'] ?? ''));
+        $apiKey = trim((string) ($config['doc_verificacion']['api_key'] ?? ''));
+        if ($apiUrl === '' || $apiKey === '') {
+            return null;
+        }
+        $baseUrl = $this->normalizarBaseUrlDocVerificacion($apiUrl);
+        if ($baseUrl === '') {
+            return null;
+        }
+        return ['base_url' => $baseUrl, 'api_key' => $apiKey];
+    }
+
+    private function tareasPrecheckContenidoDocumentoCandidato(int $tipoDocumento, string $rutaPdf, string $nombreArchivo = ''): array
+    {
+        if (!is_file($rutaPdf)) {
+            return [];
+        }
+        $filename = basename($nombreArchivo !== '' ? $nombreArchivo : $rutaPdf);
+        $base = [
+            'tipo_documento' => $tipoDocumento,
+            'ruta' => $rutaPdf,
+            'filename' => $filename !== '' ? $filename : 'documento.pdf',
+            'mime' => 'application/pdf',
+            'extra_fields' => [],
+            'timeout' => 12,
+            'connect_timeout' => 3,
+        ];
+
+        if ($tipoDocumento === 1) {
+            return [
+                array_merge($base, [
+                    'key' => '1:paginas',
+                    'paso' => 'paginas',
+                    'endpoint' => '/validar-paginas-pdf',
+                    'timeout' => 8,
+                    'extra_fields' => [
+                        'minimo_paginas' => '2',
+                        'nombre_documento' => 'La solicitud interna',
+                    ],
+                ]),
+                array_merge($base, [
+                    'key' => '1:contenido',
+                    'paso' => 'contenido',
+                    'endpoint' => '/verificar-solicitud-interna-documento',
+                    'timeout' => 30,
+                    'http_version_1_1' => true,
+                    'forbid_reuse' => true,
+                ]),
+            ];
+        }
+
+        $endpointPorTipo = [
+            3 => ['/verificar-acta-documento', 30],
+            4 => ['/verificar-curp-documento', 12],
+            5 => ['/precheck-identificacion-pdf', 10],
+            6 => ['/verificar-comprobante', 6],
+            7 => ['/verificar-constancia-fiscal-documento', 12],
+            8 => ['/verificar-nss-documento', 8],
+            10 => ['/verificar-estado-cuenta', 12],
+        ];
+        if (empty($endpointPorTipo[$tipoDocumento])) {
+            return [];
+        }
+
+        [$endpoint, $timeout] = $endpointPorTipo[$tipoDocumento];
+        return [
+            array_merge($base, [
+                'key' => $tipoDocumento . ':contenido',
+                'paso' => 'contenido',
+                'endpoint' => $endpoint,
+                'timeout' => $timeout,
+                'http_version_1_1' => in_array($tipoDocumento, [3], true),
+                'forbid_reuse' => in_array($tipoDocumento, [3], true),
+            ]),
+        ];
+    }
+
+    private function crearCurlPrecheckContenidoDocumentoCandidato(array $cfg, array $task)
+    {
+        if (empty($task['ruta']) || !is_file($task['ruta'])) {
+            return false;
+        }
+        $url = rtrim((string) $cfg['base_url'], '/') . '/' . ltrim((string) $task['endpoint'], '/');
+        $fields = [
+            'documento' => new \CURLFile(
+                (string) $task['ruta'],
+                (string) ($task['mime'] ?? 'application/pdf'),
+                (string) ($task['filename'] ?? 'documento.pdf')
+            ),
+        ];
+        foreach (($task['extra_fields'] ?? []) as $k => $v) {
+            $fields[$k] = (string) $v;
+        }
+
+        $ch = curl_init($url);
+        if (!$ch) {
+            return false;
+        }
+        curl_setopt_array($ch, [
+            CURLOPT_POST => true,
+            CURLOPT_POSTFIELDS => $fields,
+            CURLOPT_HTTPHEADER => [
+                'X-API-Key: ' . $cfg['api_key'],
+                'Expect:',
+            ],
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_TIMEOUT => (int) ($task['timeout'] ?? 12),
+            CURLOPT_CONNECTTIMEOUT => (int) ($task['connect_timeout'] ?? 3),
+            CURLOPT_PRIVATE => (string) $task['key'],
+        ]);
+        if (!empty($task['http_version_1_1'])) {
+            curl_setopt($ch, CURLOPT_HTTP_VERSION, CURL_HTTP_VERSION_1_1);
+        }
+        if (!empty($task['forbid_reuse'])) {
+            curl_setopt($ch, CURLOPT_FORBID_REUSE, true);
+        }
+        return $ch;
+    }
+
+    private function ejecutarPrecheckContenidoCurlMultiCandidato(array $tasks, array $cfg, int $concurrencia): array
+    {
+        if (empty($tasks) || !function_exists('curl_multi_init')) {
+            return [];
+        }
+        $mh = curl_multi_init();
+        if (!$mh) {
+            return [];
+        }
+
+        $tasks = array_values($tasks);
+        $total = count($tasks);
+        $next = 0;
+        $active = [];
+        $results = [];
+        $concurrencia = max(1, min(4, $concurrencia));
+
+        while ($next < $total || !empty($active)) {
+            while ($next < $total && count($active) < $concurrencia) {
+                $task = $tasks[$next++];
+                $key = (string) ($task['key'] ?? ('task_' . $next));
+                if ($concurrencia > 1) {
+                    $baseTimeout = (int) ($task['timeout'] ?? 12);
+                    $task['timeout'] = min(60, max($baseTimeout, $baseTimeout + (($concurrencia - 1) * 30)));
+                }
+                $ch = $this->crearCurlPrecheckContenidoDocumentoCandidato($cfg, $task);
+                if (!$ch) {
+                    $results[$key] = [
+                        'task' => $task,
+                        'ok' => false,
+                        'http_code' => 0,
+                        'curl_error' => 'No se pudo preparar la llamada de revision.',
+                        'curl_errno' => 0,
+                        'body' => false,
+                        'data' => null,
+                        'duration_ms' => 0,
+                    ];
+                    continue;
+                }
+                $active[$key] = ['task' => $task, 'handle' => $ch, 'inicio' => microtime(true)];
+                curl_multi_add_handle($mh, $ch);
+            }
+
+            do {
+                $status = curl_multi_exec($mh, $running);
+            } while ($status === CURLM_CALL_MULTI_PERFORM);
+
+            while ($info = curl_multi_info_read($mh)) {
+                $ch = $info['handle'];
+                $key = (string) curl_getinfo($ch, CURLINFO_PRIVATE);
+                $meta = $active[$key] ?? ['task' => ['key' => $key], 'inicio' => microtime(true)];
+                $body = curl_multi_getcontent($ch);
+                $httpCode = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
+                $curlErr = curl_error($ch);
+                $curlErrno = curl_errno($ch);
+                $data = null;
+                $jsonError = false;
+                if ($body !== false && $body !== '' && $httpCode === 200) {
+                    $decoded = json_decode((string) $body, true);
+                    if (is_array($decoded)) {
+                        $data = $decoded;
+                    } else {
+                        $jsonError = true;
+                    }
+                }
+                $results[$key] = [
+                    'task' => $meta['task'],
+                    'ok' => ($body !== false && $httpCode === 200 && is_array($data)),
+                    'http_code' => $httpCode,
+                    'curl_error' => $curlErr,
+                    'curl_errno' => $curlErrno,
+                    'body' => $body,
+                    'data' => $data,
+                    'json_error' => $jsonError,
+                    'duration_ms' => (int) round((microtime(true) - (float) $meta['inicio']) * 1000),
+                ];
+                curl_multi_remove_handle($mh, $ch);
+                curl_close($ch);
+                unset($active[$key]);
+            }
+
+            if (!empty($active)) {
+                $selected = curl_multi_select($mh, 0.2);
+                if ($selected === -1) {
+                    usleep(100000);
+                }
+            }
+        }
+
+        curl_multi_close($mh);
+        return $results;
+    }
+
+    private function datosOkPrecheckContenidoCandidato($raw)
+    {
+        if (!is_array($raw) || empty($raw['ok']) || !is_array($raw['data'] ?? null)) {
+            return null;
+        }
+        $data = $raw['data'];
+        $data['_precheck_carga'] = [
+            'paralelo' => true,
+            'tiempo_ms' => (int) ($raw['duration_ms'] ?? 0),
+        ];
+        return $data;
+    }
+
+    private function respuestaContenidoDesdePrecheckCurlCandidato(array $task, $raw)
+    {
+        $ok = $this->datosOkPrecheckContenidoCandidato($raw);
+        if (is_array($ok)) {
+            return $ok;
+        }
+
+        $tipoDocumento = (int) ($task['tipo_documento'] ?? 0);
+        $httpCode = is_array($raw) ? (int) ($raw['http_code'] ?? 0) : 0;
+        $curlErr = is_array($raw) ? trim((string) ($raw['curl_error'] ?? '')) : '';
+        $curlErrno = is_array($raw) ? (int) ($raw['curl_errno'] ?? 0) : 0;
+        $jsonError = is_array($raw) && !empty($raw['json_error']);
+        $timeout = $curlErrno === 28 || stripos($curlErr, 'timed out') !== false || stripos($curlErr, 'timeout') !== false;
+        $mensajeBase = $jsonError
+            ? 'La API no devolvio JSON valido.'
+            : ($curlErr !== '' ? $curlErr : 'La API no respondio correctamente (HTTP ' . $httpCode . ').');
+
+        if ($tipoDocumento === 5) {
+            $mensajeBase = $timeout
+                ? 'La revision rapida de la identificacion tardo mas de lo esperado.'
+                : ($curlErr !== '' ? $curlErr : 'No se pudo revisar rapidamente la identificacion (HTTP ' . $httpCode . ').');
+            $fallback = ['valido' => false, 'mensaje' => $mensajeBase];
+        } elseif ($tipoDocumento === 3) {
+            $fallback = ['valido' => false, 'mensaje' => $mensajeBase];
+        } elseif ($tipoDocumento === 4) {
+            $fallback = ['valido' => false, 'revision_manual' => true, 'mensaje' => $timeout ? 'La validacion de CURP tardo mas de lo esperado.' : $mensajeBase];
+        } elseif ($tipoDocumento === 6) {
+            $fallback = ['valido' => false, 'revision_manual' => true, 'mensaje' => $mensajeBase];
+        } elseif ($tipoDocumento === 7) {
+            $fallback = ['valido' => false, 'revision_manual' => true, 'mensaje' => $timeout ? 'La validacion de la constancia fiscal tardo mas de lo esperado.' : $mensajeBase];
+        } elseif ($tipoDocumento === 8) {
+            $fallback = ['valido' => false, 'revision_manual' => true, 'mensaje' => $timeout ? 'La validacion de NSS tardo mas de lo esperado.' : $mensajeBase];
+        } elseif ($tipoDocumento === 10) {
+            $fallback = ['valido' => false, 'revision_manual' => true, 'mensaje' => $timeout ? 'La validacion de estado de cuenta tardo mas de lo esperado.' : $mensajeBase];
+        } else {
+            $fallback = ['valido' => false, 'revision_manual' => true, 'mensaje' => $mensajeBase];
+        }
+
+        $fallback['_precheck_carga'] = [
+            'paralelo' => true,
+            'tiempo_ms' => is_array($raw) ? (int) ($raw['duration_ms'] ?? 0) : 0,
+            'fallback' => true,
+        ];
+        return $fallback;
+    }
+
+    private function resolverPrecheckParaleloContenidoCandidato(int $tipoDocumento, array $item, array $rawResults)
+    {
+        if ($tipoDocumento === 1) {
+            $rawPaginas = $rawResults['1:paginas'] ?? null;
+            $resultadoPaginas = $this->datosOkPrecheckContenidoCandidato($rawPaginas);
+            $paginasSolicitud = is_array($resultadoPaginas)
+                ? (int) ($resultadoPaginas['paginas'] ?? 0)
+                : $this->contarPaginasPdfCandidato((string) ($item['tmp_name'] ?? ''));
+
+            if (is_array($resultadoPaginas) && ($resultadoPaginas['valido'] ?? null) === false) {
+                return [
+                    'aceptar' => false,
+                    'mensaje' => trim((string) ($resultadoPaginas['mensaje'] ?? 'La solicitud interna debe tener mas de 1 hoja. Sube el PDF completo.')),
+                    'verificacion' => $resultadoPaginas,
+                ];
+            }
+            if ($paginasSolicitud > 0 && $paginasSolicitud < 2) {
+                return [
+                    'aceptar' => false,
+                    'mensaje' => 'La solicitud interna debe tener mas de 1 hoja. Sube el PDF completo.',
+                    'verificacion' => [
+                        'valido' => false,
+                        'rechazado' => true,
+                        'motivo_rechazo' => 'solicitud_interna_incompleta',
+                        'paginas' => $paginasSolicitud,
+                    ],
+                ];
+            }
+            if (!array_key_exists('1:contenido', $rawResults)) {
+                return null;
+            }
+
+            $task = ['tipo_documento' => 1];
+            $resultadoSolicitud = $this->respuestaContenidoDesdePrecheckCurlCandidato($task, $rawResults['1:contenido'] ?? null);
+            return ['aceptar' => true, 'mensaje' => null, 'verificacion' => is_array($resultadoSolicitud) ? $resultadoSolicitud : null];
+        }
+
+        $key = $tipoDocumento . ':contenido';
+        if (!array_key_exists($key, $rawResults)) {
+            return null;
+        }
+        $task = is_array($rawResults[$key] ?? null) ? ($rawResults[$key]['task'] ?? ['tipo_documento' => $tipoDocumento]) : ['tipo_documento' => $tipoDocumento];
+        $resultado = $this->respuestaContenidoDesdePrecheckCurlCandidato($task, $rawResults[$key] ?? null);
+        if ($tipoDocumento === 8) {
+            $resultado = $this->permitirTarjetaNssParaRevisionManual($resultado);
+        }
+        return $this->resolverResultadoPrecheckContenidoDocumentoCandidato($tipoDocumento, $resultado);
+    }
+
+    private function prevalidarContenidoDocumentosCandidatoEnParalelo(array $items): array
+    {
+        if (empty($items)) {
+            return [];
+        }
+        $cfg = $this->configApiDocVerificacionBasica();
+        if (!is_array($cfg)) {
+            return [];
+        }
+
+        $tasks = [];
+        $tiposConTareas = [];
+        foreach ($items as $tipoDocumento => $item) {
+            $tipoDocumento = (int) $tipoDocumento;
+            if (!in_array($tipoDocumento, $this->tiposPrecheckContenidoCargaCandidato(), true)) {
+                continue;
+            }
+            $tmpName = (string) ($item['tmp_name'] ?? '');
+            $nombreOriginal = (string) ($item['nombre_original'] ?? '');
+            foreach ($this->tareasPrecheckContenidoDocumentoCandidato($tipoDocumento, $tmpName, $nombreOriginal) as $task) {
+                $tasks[] = $task;
+                $tiposConTareas[$tipoDocumento] = true;
+            }
+        }
+        if (empty($tasks)) {
+            return [];
+        }
+
+        $rawResults = $this->ejecutarPrecheckContenidoCurlMultiCandidato(
+            $tasks,
+            $cfg,
+            $this->concurrenciaPrecheckCargaCandidato()
+        );
+        if (empty($rawResults)) {
+            return [];
+        }
+
+        $prechecks = [];
+        foreach (array_keys($tiposConTareas) as $tipoDocumento) {
+            $resuelto = $this->resolverPrecheckParaleloContenidoCandidato((int) $tipoDocumento, $items[$tipoDocumento] ?? [], $rawResults);
+            if (is_array($resuelto)) {
+                $prechecks[(int) $tipoDocumento] = $resuelto;
+            }
+        }
+        return $prechecks;
     }
 
     private function validarPaginasPdfApi(string $rutaPdf, int $minimoPaginas, string $nombreDocumento)
@@ -19611,6 +20084,14 @@ class CapHum extends Controller
     private function compactarValidacionIaExpediente(array $validacion): array
     {
         $permitidas = [
+            'motor_ia',
+            'modelo_ia',
+            'fuente_lectura',
+            'modo_validacion',
+            'cache_ia',
+            'documento_mixto',
+            'motor_v2_tipo_detectado',
+            'motor_v2_mensaje',
             'tipo_documento_detectado',
             'tipo_documento',
             'subtipo',
@@ -19645,6 +20126,27 @@ class CapHum extends Controller
             'regimen_sueldos_salarios',
             'firma_detectada',
             'nombre_y_firma_lleno',
+            'apellido_paterno',
+            'apellido_materno',
+            'nombres',
+            'edad',
+            'sexo',
+            'estado_civil',
+            'telefono',
+            'correo_electronico',
+            'codigo_postal',
+            'municipio',
+            'estado',
+            'lugar_nacimiento',
+            'puesto_solicitado',
+            'expectativa_economica',
+            'estado_salud',
+            'enfermedad_cronica',
+            'medicamento_controlado',
+            'tipo_sangre',
+            'contactos_emergencia',
+            'beneficiarios',
+            'escolaridad',
             'meses_antiguedad',
             'antiguedad_meses',
             'mensaje',
@@ -19712,7 +20214,17 @@ class CapHum extends Controller
 
             $motor = strtolower(trim((string) ($validacion['motor_ia'] ?? '')));
             $modelo = strtolower(trim((string) ($validacion['modelo_ia'] ?? '')));
-            if ($motor !== 'alibaba' && strpos($modelo, 'qwen') === false) {
+            $fuente = strtolower(trim((string) ($validacion['fuente_lectura'] ?? '')));
+            $esLecturaIa = (
+                $motor === 'alibaba'
+                || $motor === 'motor_v1'
+                || strpos($modelo, 'qwen') !== false
+                || strpos($modelo, 'motor v2') !== false
+                || strpos($modelo, 'pdf_text') !== false
+                || strpos($fuente, 'motor_v1') !== false
+                || strpos($fuente, 'motor_v2') !== false
+            );
+            if (!$esLecturaIa) {
                 continue;
             }
             $validacion = $this->compactarValidacionIaExpediente($validacion);
@@ -19733,7 +20245,7 @@ class CapHum extends Controller
                 'paginas_pdf' => $paginas > 0 ? $paginas : null,
                 'motor_ia' => $validacion['motor_ia'] ?? 'alibaba',
                 'modelo_ia' => $validacion['modelo_ia'] ?? null,
-                'fuente_lectura' => 'motor_v2_rapido',
+                'fuente_lectura' => $validacion['fuente_lectura'] ?? 'motor_v2_rapido',
                 'validacion_previa' => $validacion,
             ];
         }
@@ -20242,7 +20754,7 @@ class CapHum extends Controller
                 'Expect:',
             ],
             CURLOPT_RETURNTRANSFER => true,
-            CURLOPT_TIMEOUT => 8,
+            CURLOPT_TIMEOUT => 30,
             CURLOPT_CONNECTTIMEOUT => 3,
             CURLOPT_HTTP_VERSION => CURL_HTTP_VERSION_1_1,
             CURLOPT_FORBID_REUSE => true,
@@ -20256,6 +20768,57 @@ class CapHum extends Controller
         }
         $data = json_decode($body, true);
         return is_array($data) ? $data : ['valido' => false, 'mensaje' => 'La API no devolvió JSON válido.'];
+    }
+
+    /**
+     * Llama a la API de solicitud interna para obtener lectura OCR estructurada.
+     */
+    private function verificarSolicitudInternaApi($rutaPdf)
+    {
+        $configFile = defined('RAIZ') ? (RAIZ . '/config/config.ini') : (__DIR__ . '/../config/config.ini');
+        if (!is_file($configFile)) {
+            return null;
+        }
+        $config = @parse_ini_file($configFile, true);
+        $apiUrl = trim($config['doc_verificacion']['api_url'] ?? '');
+        $apiKey = trim($config['doc_verificacion']['api_key'] ?? '');
+        if ($apiUrl === '' || $apiKey === '') {
+            return null;
+        }
+        $baseUrl = preg_replace('#/verificar\s*$#', '', $apiUrl);
+        $url = rtrim($baseUrl, '/') . '/verificar-solicitud-interna-documento';
+        $cfile = new \CURLFile($rutaPdf, 'application/pdf', basename($rutaPdf));
+        $ch = curl_init($url);
+        curl_setopt_array($ch, [
+            CURLOPT_POST => true,
+            CURLOPT_POSTFIELDS => ['documento' => $cfile],
+            CURLOPT_HTTPHEADER => [
+                'X-API-Key: ' . $apiKey,
+                'Expect:',
+            ],
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_TIMEOUT => 30,
+            CURLOPT_CONNECTTIMEOUT => 3,
+            CURLOPT_HTTP_VERSION => CURL_HTTP_VERSION_1_1,
+            CURLOPT_FORBID_REUSE => true,
+        ]);
+        $body = curl_exec($ch);
+        $httpCode = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        $curlErr = curl_error($ch);
+        curl_close($ch);
+        if ($body === false || $httpCode !== 200) {
+            return [
+                'valido' => false,
+                'revision_manual' => true,
+                'mensaje' => $curlErr ?: 'La API no respondio correctamente (HTTP ' . $httpCode . ').',
+            ];
+        }
+        $data = json_decode($body, true);
+        return is_array($data) ? $data : [
+            'valido' => false,
+            'revision_manual' => true,
+            'mensaje' => 'La API no devolvio JSON valido.',
+        ];
     }
 
     /**
@@ -20556,6 +21119,7 @@ class CapHum extends Controller
 
         // Envío parcial: solo exigir que venga al menos un archivo nuevo (el candidato puede subir el resto después)
         $tieneAlgunoNuevo = false;
+        $archivosParaGuardar = [];
         for ($i = 1; $i <= 10; $i++) {
             if (!empty($yaSubidos[$i])) {
                 continue;
@@ -20618,9 +21182,29 @@ class CapHum extends Controller
                 $errores[] = ($tiposDocumento[$i] ?? $key) . ': el archivo no parece ser un PDF válido.';
                 continue;
             }
+            $archivosParaGuardar[$i] = [
+                'file_key' => $fileKey,
+                'nombre_original' => $nombreOriginal,
+                'ext' => $ext,
+                'tmp_name' => $_FILES[$fileKey]['tmp_name'] ?? '',
+            ];
+        }
+
+        $prechecksContenido = $this->prevalidarContenidoDocumentosCandidatoEnParalelo($archivosParaGuardar);
+
+        foreach ($archivosParaGuardar as $i => $archivoSubida) {
+            $i = (int) $i;
+            $fileKey = (string) ($archivoSubida['file_key'] ?? ('archivo_' . $i));
+            if (!isset($_FILES[$fileKey]) || $_FILES[$fileKey]['error'] !== UPLOAD_ERR_OK || $_FILES[$fileKey]['size'] <= 0) {
+                continue;
+            }
+            $nombreOriginal = (string) ($archivoSubida['nombre_original'] ?? basename($_FILES[$fileKey]['name'] ?? ''));
+            $ext = (string) ($archivoSubida['ext'] ?? strtolower(pathinfo($nombreOriginal, PATHINFO_EXTENSION)));
+            $tmpName = (string) ($archivoSubida['tmp_name'] ?? ($_FILES[$fileKey]['tmp_name'] ?? ''));
+            $key = 'archivo_' . $i;
             $verificacionPreviaContenido = null;
-            if (in_array($i, [3, 4, 5, 6, 7, 8, 10], true)) {
-                $precheckContenido = $this->verificarContenidoDocumentoCandidatoAntesDeGuardar($i, $_FILES[$fileKey]['tmp_name']);
+            if (in_array($i, [1, 3, 4, 5, 6, 7, 8, 10], true)) {
+                $precheckContenido = $prechecksContenido[$i] ?? $this->verificarContenidoDocumentoCandidatoAntesDeGuardar($i, $tmpName);
                 $verificacionPreviaContenido = $precheckContenido['verificacion'] ?? null;
                 if (empty($precheckContenido['aceptar'])) {
                     $errores[] = ($tiposDocumento[$i] ?? $key) . ': ' . ($precheckContenido['mensaje'] ?? 'El archivo no corresponde al documento solicitado.');
@@ -20630,7 +21214,7 @@ class CapHum extends Controller
             $slug = $slugPorTipo[$i] ?? ('doc_' . $i);
             $nombreArchivo = $slug . '.' . $ext;
             $rutaDestino = $dirExpediente . '/' . $nombreArchivo;
-            if (!move_uploaded_file($_FILES[$fileKey]['tmp_name'], $rutaDestino)) {
+            if (!move_uploaded_file($tmpName, $rutaDestino)) {
                 $errores[] = $tiposDocumento[$i] ?? $key;
                 continue;
             }
@@ -20876,7 +21460,7 @@ class CapHum extends Controller
     private function guardarVerificacionExpedienteErrorMotorV2(int $idCandidato, string $error, array $alertasExtra = []): void
     {
         $alertas = array_values(array_filter(array_merge(
-            ['El Motor V2 no pudo completar el cruce documental. Los documentos siguen cargados; reintente cuando el servicio este disponible.'],
+            ['El analisis documental no pudo completar el cruce. Los documentos siguen cargados; reintente cuando el servicio este disponible.'],
             $alertasExtra
         ), function ($v) {
             return trim((string) $v) !== '';
@@ -20913,7 +21497,7 @@ class CapHum extends Controller
             $resDocs = CandidatosDAO::getDocumentosCandidato($id_candidato);
             if (!$resDocs['success'] || empty($resDocs['datos'])) {
                 error_log('CapHum::verificacionBackground: sin documentos para candidato ' . $id_candidato);
-                $this->guardarVerificacionExpedienteErrorMotorV2((int) $id_candidato, 'Sin documentos disponibles para ejecutar Motor V2.');
+                $this->guardarVerificacionExpedienteErrorMotorV2((int) $id_candidato, 'Sin documentos disponibles para ejecutar el analisis documental.');
                 return false;
             }
             $tiposSubidosSet = array_fill_keys(array_map('intval', $tiposSubidos), true);
@@ -21038,7 +21622,7 @@ class CapHum extends Controller
             }
             if (!$rutasParaValidar['identificacion_pdf']) {
                 error_log('CapHum::verificacionBackground: falta identificación oficial (PDF) para candidato ' . $id_candidato);
-                $this->guardarVerificacionExpedienteErrorMotorV2((int) $id_candidato, 'Falta identificacion oficial PDF para ejecutar Motor V2.');
+                $this->guardarVerificacionExpedienteErrorMotorV2((int) $id_candidato, 'Falta identificacion oficial PDF para ejecutar el analisis documental.');
                 return false;
             }
             $soloIdentificacion = $this->docVerificacionIniSoloIdentificacion();
@@ -21069,7 +21653,7 @@ class CapHum extends Controller
                 return true;
             } else {
                 $err = is_array($resultadoApi) ? ($resultadoApi['error'] ?? 'desconocido') : 'null';
-                $alertasErr = ['El Motor V2 no pudo completar el cruce documental. No se marca como revision manual; use reintentar cuando el servicio este disponible.'];
+            $alertasErr = ['El analisis documental no pudo completar el cruce. No se marca como revision manual; use reintentar cuando el servicio este disponible.'];
                 if ($soloIdentificacion) {
                     array_unshift($alertasErr, 'Modo "solo identificación" (config.ini): el fallo puede no reproducirse con expediente completo.');
                 }
@@ -21081,7 +21665,7 @@ class CapHum extends Controller
                 error_log('CapHum::verificacionBackground: error API para candidato ' . $id_candidato . ': ' . $err);
             }
         } catch (\Throwable $e) {
-            $this->guardarVerificacionExpedienteErrorMotorV2((int) $id_candidato, $e->getMessage(), ['Excepcion local al ejecutar Motor V2.']);
+            $this->guardarVerificacionExpedienteErrorMotorV2((int) $id_candidato, $e->getMessage(), ['No se pudo ejecutar el analisis documental.']);
             error_log('CapHum::verificacionBackground: excepción candidato ' . $id_candidato . ': ' . $e->getMessage());
             return false;
         }
@@ -21750,20 +22334,65 @@ class CapHum extends Controller
                     // Mapear datos con el nuevo formato de columnas
                     const datos = resp.datos.map(p => {
                         const nombreCompleto = [p.nombres, p.segundo_nombre, p.apellidop, p.apellidom].filter(x => x).join(' ');
+                        const escaparAttr = value => String(value || '')
+                            .replace(/&/g, '&amp;')
+                            .replace(/"/g, '&quot;')
+                            .replace(/</g, '&lt;')
+                            .replace(/>/g, '&gt;');
+                        const iniciales = String(nombreCompleto || 'US')
+                            .trim()
+                            .split(/\s+/)
+                            .filter(Boolean)
+                            .slice(0, 2)
+                            .map(parte => parte.charAt(0))
+                            .join('')
+                            .toUpperCase() || 'US';
+                        const fotoPerfil = String(p.foto_perfil || '').trim();
+                        const fotoEsc = escaparAttr(fotoPerfil);
+                        const nombreEsc = escaparAttr(nombreCompleto || 'Usuario');
+                        const avatarContenido = fotoPerfil
+                            ? `<img class="gestion-personal-avatar" src="${fotoEsc}" alt="Foto de ${nombreEsc}" loading="lazy" decoding="async" onerror="this.style.display='none';this.nextElementSibling.style.display='inline-flex';">
+                               <span class="gestion-personal-avatar-fallback" style="display:none;">${iniciales}</span>`
+                            : `<span class="gestion-personal-avatar-fallback">${iniciales}</span>`;
+                        const avatarHTML = `
+                            <button type="button"
+                                    class="gestion-avatar-btn"
+                                    data-gestion-foto="${fotoEsc}"
+                                    data-gestion-nombre="${nombreEsc}"
+                                    data-gestion-iniciales="${escaparAttr(iniciales)}"
+                                    title="Ver foto de ${nombreEsc}"
+                                    aria-label="Ver foto de ${nombreEsc}"
+                                    onclick="if (typeof abrirVisorFotoGestion === 'function') abrirVisorFotoGestion(this, event);">
+                                ${avatarContenido}
+                            </button>
+                        `.trim();
+                        const codigoContpac = String(p.codigo_contpac || '').trim();
+                        const noEmpleadoHTML = codigoContpac
+                            ? `<span class="gestion-personal-code-value">${escaparAttr(codigoContpac)}</span>`
+                            : '<span class="gestion-personal-code-value">Sin id</span>';
+                        const externalId = String(p.external_id || '').trim();
 
                         return {
                             nombres: `
-                                <div class="fw-semibold d-flex align-items-center gap-2">
-                                    <i class="fa fa-hashtag" style="font-size: 0.85em; color: #333;"></i>
-                                    <span>${p.external_id ?? ''}</span>
-                                </div>
-                                <div class="fw-semibold d-flex align-items-center gap-2 mt-2">
-                                    <i class="fa fa-user" style="font-size: 0.85em; color: #333;"></i>
-                                    <span>${nombreCompleto}</span>
-                                </div>
-                                <div class="text-muted small d-flex align-items-center gap-2 mt-1">
-                                    <i class="fa fa-id-card" style="font-size: 0.85em; color: #666;"></i>
-                                    <span># ${p.numero_empleado ?? ''}</span>
+                                <div class="gestion-personal-name-cell">
+                                    ${avatarHTML}
+                                    <div class="gestion-personal-name-info">
+                                        <div class="gestion-personal-employee-code">
+                                            <span>No. empleado:</span>
+                                            ${noEmpleadoHTML}
+                                        </div>
+                                        <div class="gestion-personal-name-main text-uppercase">
+                                            ${nombreEsc}
+                                        </div>
+                                        <div class="gestion-personal-external-id">
+                                            <span>External id:</span>
+                                            <strong>${escaparAttr(externalId || 'Sin id')}</strong>
+                                        </div>
+                                        <small class="gestion-personal-username d-flex align-items-center gap-1">
+                                            <i class="fa fa-key"></i>
+                                            ${escaparAttr(p.user_name || 'Sin usuario')}
+                                        </small>
+                                    </div>
                                 </div>
                             `.trim(),
                             puesto: `
@@ -21803,10 +22432,10 @@ class CapHum extends Controller
                             usuario: p.user_name ?? 'N/A',
                             acciones: `
                                 <div class="d-flex gap-2 flex-wrap align-items-center justify-content-start">
-                                    <button class="btn btn-sm btn-success" onclick="abrirModalReingreso(${p.id}, '${(nombreCompleto || '').replace(/'/g, "\\'")}')" title="Reactivar (registrar reingreso)" aria-label="Reactivar">
+                                    <button class="btn btn-sm btn-success control-bajas-action-btn" onclick="abrirModalReingreso(${p.id}, '${(nombreCompleto || '').replace(/'/g, "\\'")}')" title="Reactivar (registrar reingreso)" aria-label="Reactivar">
                                         <i class="fa fa-user-check"></i>
                                     </button>
-                                    <button class="btn btn-sm btn-info" onclick="cargarDocumentoBaja(this)"
+                                    <button class="btn btn-sm btn-info control-bajas-action-btn" onclick="cargarDocumentoBaja(this)"
                                         data-id-persona="${p.id ?? ''}"
                                         data-registro-baja="${p.registro_baja ?? ''}"
                                         data-estatus="Baja"
@@ -23942,7 +24571,9 @@ class CapHum extends Controller
                         'apellidop' => $p['apellidop'] ?? '',
                         'apellidom' => $p['apellidom'] ?? '',
                         'numero_empleado' => $p['numero_empleado'] ?? '',
+                        'codigo_contpac' => $p['codigo_contpac'] ?? '',
                         'external_id' => $p['external_id'] ?? '',
+                        'foto_perfil' => $p['foto_perfil'] ?? '',
                         'departamento' => $p['departamento'] ?? '',
                         'nombre_puesto' => $p['nombre_puesto'] ?? '',
                         'fecha_baja' => $p['fecha_baja'] ?? '',
@@ -24012,7 +24643,12 @@ class CapHum extends Controller
             // Preparar datos para Excel
             $data = [];
             foreach ($bajas as $baja) {
-                $nombreCompleto = trim(($baja['nombres'] ?? '') . ' ' . ($baja['apellidop'] ?? '') . ' ' . ($baja['apellidom'] ?? ''));
+                $nombreCompleto = trim(implode(' ', array_filter([
+                    $baja['nombres'] ?? '',
+                    $baja['segundo_nombre'] ?? '',
+                    $baja['apellidop'] ?? '',
+                    $baja['apellidom'] ?? '',
+                ], static fn($valor) => trim((string) $valor) !== '')));
                 $fechaBaja = $baja['fecha_baja'] ?? '';
                 if ($fechaBaja) {
                     try {
@@ -25292,6 +25928,25 @@ public function getEstadosMunicipiosMexico()
         $idJefe = $input['id_jefe'] ?? '';
 
         self::respuestaJSON(CapHumDAO::actualizarJefePersonaOrganigrama($idPersona, $idJefe));
+    }
+
+    public function resolverBajaOrganigrama()
+    {
+        $input = json_decode(file_get_contents("php://input"), true) ?: [];
+
+        if (!self::tieneAccesoTotalGestionPersonal()) {
+            self::respuestaJSON([
+                'success' => false,
+                'mensaje' => 'No tiene permiso para resolver bajas en organigrama.'
+            ]);
+            return;
+        }
+
+        $idPersona = (int)($input['id_persona'] ?? 0);
+        $modoReasignacion = (string)($input['modo_reasignacion'] ?? 'sin_subordinados');
+        $sustitutoId = $input['sustituto_id'] ?? null;
+
+        self::respuestaJSON(CapHumDAO::resolverBajaOrganigrama($idPersona, $modoReasignacion, $sustitutoId));
     }
 
     public function getRazonesAusencia()

@@ -1023,21 +1023,55 @@ $documentos_ayuda = [
                     .trim();
             }
 
+            var VERIFICACION_UI_CONCURRENCIA = 2;
+            var revisionRapidaActivas = 0;
+            var revisionRapidaCola = [];
+
+            function drenarRevisionRapidaCola() {
+                while (revisionRapidaActivas < VERIFICACION_UI_CONCURRENCIA && revisionRapidaCola.length > 0) {
+                    (function(job) {
+                        function liberarRevisionRapida() {
+                            revisionRapidaActivas = Math.max(0, revisionRapidaActivas - 1);
+                            drenarRevisionRapidaCola();
+                        }
+                        revisionRapidaActivas++;
+                        Promise.resolve()
+                            .then(job.trabajo)
+                            .then(function(res) {
+                                job.resolve(res);
+                                liberarRevisionRapida();
+                            }, function(err) {
+                                job.reject(err);
+                                liberarRevisionRapida();
+                            });
+                    })(revisionRapidaCola.shift());
+                }
+            }
+
+            function encolarRevisionRapida(trabajo) {
+                return new Promise(function(resolve, reject) {
+                    revisionRapidaCola.push({ trabajo: trabajo, resolve: resolve, reject: reject });
+                    drenarRevisionRapidaCola();
+                });
+            }
+
             function fetchWithTimeout(url, options, timeoutMs) {
-                timeoutMs = timeoutMs || VERIFICACION_TIMEOUT_MS;
-                var ctrl = new AbortController();
-                var timeoutErr = null;
-                var id = setTimeout(function() {
-                    timeoutErr = crearErrorTimeout(timeoutMs);
-                    try { ctrl.abort(timeoutErr); } catch (e) { ctrl.abort(); }
-                }, timeoutMs);
-                var opts = Object.assign({}, options, { signal: ctrl.signal });
-                return fetch(url, opts).then(function(r) {
-                    clearTimeout(id);
-                    return r;
-                }, function(err) {
-                    clearTimeout(id);
-                    throw timeoutErr || err;
+                return encolarRevisionRapida(function() {
+                    timeoutMs = timeoutMs || VERIFICACION_TIMEOUT_MS;
+                    var ctrl = new AbortController();
+                    var timeoutErr = null;
+                    var id = setTimeout(function() {
+                        timeoutErr = crearErrorTimeout(timeoutMs);
+                        try { ctrl.abort(timeoutErr); } catch (e) { ctrl.abort(); }
+                    }, timeoutMs);
+                    var opts = Object.assign({}, options, { signal: ctrl.signal });
+                    return fetch(url, opts).then(function(r) {
+                        clearTimeout(id);
+                        return r;
+                    }, function(err) {
+                        clearTimeout(id);
+                        throw timeoutErr || err;
+                    });
                 });
             }
 
@@ -1054,6 +1088,13 @@ $documentos_ayuda = [
                     .then(resolve)
                     .catch(function(err) {
                         if (esErrorTimeoutOAbort(err)) {
+                            var timeout = new Error('La revision rapida tardo demasiado.');
+                            timeout.name = 'TimeoutError';
+                            timeout.esTimeout = true;
+                            reject(timeout);
+                            return;
+                        }
+                        if (false && esErrorTimeoutOAbort(err)) {
                             reject(new Error('Verificación tardó demasiado. Revisa tu conexión o que la API esté encendida e intenta de nuevo.'));
                         } else {
                             reject(err);
@@ -1115,7 +1156,7 @@ $documentos_ayuda = [
                 return new Promise(function(resolve, reject) {
                     var formData = new FormData();
                     formData.append('documento', file, file.name || 'identificacion.pdf');
-                    fetchWithTimeout(API_BASE + '/precheck-identificacion-pdf', { method: 'POST', headers: { 'X-API-Key': API_KEY }, body: formData }, 15000)
+                    fetchWithTimeout(API_BASE + '/precheck-identificacion-pdf', { method: 'POST', headers: { 'X-API-Key': API_KEY }, body: formData }, VERIFICACION_IDENTIFICACION_TIMEOUT_MS)
                     .then(function(r) {
                         if (!r.ok) {
                             return r.json().catch(function() { return {}; }).then(function(body) {
@@ -1127,6 +1168,13 @@ $documentos_ayuda = [
                     .then(resolve)
                     .catch(function(err) {
                         if (esErrorTimeoutOAbort(err)) {
+                            var timeout = new Error('La revision rapida tardo demasiado.');
+                            timeout.name = 'TimeoutError';
+                            timeout.esTimeout = true;
+                            reject(timeout);
+                            return;
+                        }
+                        if (false && esErrorTimeoutOAbort(err)) {
                             reject(new Error('La revisión rápida tardó demasiado. Intenta con un PDF más claro o ligero.'));
                         } else {
                             reject(err);
@@ -1141,7 +1189,7 @@ $documentos_ayuda = [
                     formData.append('documento', file, file.name || 'documento.pdf');
                     formData.append('minimo_paginas', String(minimoPaginas || 1));
                     formData.append('nombre_documento', nombreDocumento || 'El documento');
-                    fetchWithTimeout(API_BASE + '/validar-paginas-pdf', { method: 'POST', headers: { 'X-API-Key': API_KEY }, body: formData }, 8000)
+                    fetchWithTimeout(API_BASE + '/validar-paginas-pdf', { method: 'POST', headers: { 'X-API-Key': API_KEY }, body: formData }, 12000)
                     .then(function(r) {
                         if (!r.ok) {
                             return r.json().catch(function() { return {}; }).then(function(body) {
@@ -1400,13 +1448,13 @@ $documentos_ayuda = [
                 el.classList.remove('is-v2', 'is-v1', 'is-manual');
                 var texto = '';
                 if (res && String(res.motor_ia || '').toLowerCase() === 'alibaba') {
-                    texto = 'Motor V2';
+                    texto = 'IA documental';
                     el.classList.add('is-v2');
                 } else if (modoManual === true) {
                     texto = 'Revision manual';
                     el.classList.add('is-manual');
                 } else {
-                    texto = 'Motor V1';
+                    texto = 'Lectura de respaldo';
                     el.classList.add('is-v1');
                 }
                 el.textContent = texto;
@@ -1638,11 +1686,13 @@ $documentos_ayuda = [
                     .catch(function(err) {
                         terminarVerificacionCritica(verificandoDiv);
                         var el = document.getElementById('curp-verificado');
-                        showResultadoCritico(msg, 'No se pudo confirmar que este PDF sea una constancia CURP. Intenta de nuevo o sube un PDF claro del RENAPO.', true);
-                        inputCURP.value = '';
-                        if (el) el.style.display = 'none';
-                        actualizarCheckmark(4, false);
-                        limpiarFirmaMotorDocumento(4);
+                        showResultadoCritico(msg, '<i class="fa fa-check-circle me-1"></i> CURP recibido. Capital Humano lo revisara.', false);
+                        if (el) {
+                            el.innerHTML = '<i class="fa fa-check-circle me-1"></i> CURP recibido';
+                            el.style.display = 'inline';
+                        }
+                        actualizarCheckmark(4, true);
+                        actualizarFirmaMotorDocumento(4, null, true);
                     });
                 });
             }
@@ -1707,6 +1757,16 @@ $documentos_ayuda = [
                     }).catch(function(err) {
                         terminarVerificacionCritica(verificandoDiv);
                         var el = document.getElementById('id-verificado-frente');
+                        idVerificado.front = true;
+                        idVerificado.back = true;
+                        showResultado(msg, null, '<i class="fa fa-check-circle me-1"></i> Identificacion recibida. Capital Humano la revisara.', false);
+                        if (el) {
+                            el.innerHTML = '<i class="fa fa-check-circle me-1"></i> Identificacion recibida';
+                            el.style.display = 'inline';
+                        }
+                        actualizarCheckmark(5, true);
+                        actualizarFirmaMotorDocumento(5, null, true);
+                        return;
                         idVerificado.front = false;
                         idVerificado.back = false;
                         showResultado(msg, null, 'No se pudo confirmar que este PDF sea identificación oficial. Intenta de nuevo o sube un PDF claro.', true);
@@ -1824,11 +1884,13 @@ $documentos_ayuda = [
                     })
                     .catch(function(err) {
                         var el = document.getElementById('fiscal-verificado');
-                        showResultado(msg, verificandoDiv, 'No se pudo confirmar la constancia fiscal. Intenta de nuevo o sube una constancia completa y reciente del SAT.', true);
-                        inputFiscal.value = '';
-                        if (el) el.style.display = 'none';
-                        actualizarCheckmark(7, false);
-                        limpiarFirmaMotorDocumento(7);
+                        showResultado(msg, verificandoDiv, '<i class="fa fa-check-circle me-1"></i> Constancia fiscal recibida. Capital Humano la revisara.', false);
+                        if (el) {
+                            el.innerHTML = '<i class="fa fa-check-circle me-1"></i> Constancia fiscal recibida';
+                            el.style.display = 'inline';
+                        }
+                        actualizarCheckmark(7, true);
+                        actualizarFirmaMotorDocumento(7, null, true);
                     });
                 });
             }
@@ -2704,7 +2766,7 @@ $documentos_ayuda = [
             btn.disabled = true;
             btn.textContent = 'Procesando...';
             msg.innerHTML = '';
-            mostrarAlertaSubida('loading', 'Guardando documentación', 'Estamos guardando tus documentos.');
+            mostrarAlertaSubida('loading', 'Revisando documentación', 'Estamos revisando tus documentos y guardando los archivos recibidos.');
             var formData = new FormData(form);
             var ctrl = new AbortController();
             var uploadTimeoutErr = null;
