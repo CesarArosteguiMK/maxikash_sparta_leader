@@ -4749,6 +4749,7 @@ class CapHum extends Controller
                     if (estadoDocumentoAusencia) estadoDocumentoAusencia.textContent = "";
                     if (archivoDocumentoAusencia) archivoDocumentoAusencia.value = "";
                     limpiarDocumentoAusenciaSeleccionado();
+                    actualizarEstadoDocumentoAusenciaPorRazon();
 
                     // Cargar catálogo y tabla
                     cargarRazones();
@@ -4862,12 +4863,17 @@ class CapHum extends Controller
 
                         const select = document.getElementById('razonAusencia');
                         select.innerHTML = '<option value="">-- Selecciona --</option>';
+                        if (!select.dataset.ausenciaChangeBound) {
+                            select.dataset.ausenciaChangeBound = '1';
+                            select.addEventListener('change', actualizarEstadoDocumentoAusenciaPorRazon);
+                        }
 
                         resp.datos.forEach(r => {
                             select.innerHTML += `
                                 <option value="${r.id}">${r.nombre}</option>
                             `;
                         });
+                        actualizarEstadoDocumentoAusenciaPorRazon();
                     })
                     .catch(err => {
                         console.error("ERROR cargarRazones:", err);
@@ -4890,10 +4896,40 @@ class CapHum extends Controller
                 return '';
             }
 
+            function esRazonVacacionesAusencia(razon) {
+                return normalizarTextoAusencia(razon).includes('VACACIONES');
+            }
+
+            function ausenciaSeleccionadaRequiereDocumento() {
+                const razon = razonAusenciaSeleccionadaTexto();
+                return Boolean(razon && !esRazonVacacionesAusencia(razon));
+            }
+
             function razonAusenciaSeleccionadaTexto() {
                 const select = document.getElementById('razonAusencia');
                 if (!select || select.selectedIndex < 0) return '';
                 return select.options[select.selectedIndex].textContent || '';
+            }
+
+            function actualizarEstadoDocumentoAusenciaPorRazon() {
+                const razon = razonAusenciaSeleccionadaTexto();
+                const esVacaciones = esRazonVacacionesAusencia(razon);
+                const btnAdjuntar = document.getElementById('btnAdjuntarDocumentoAusencia');
+                const estado = document.getElementById('estadoDocumentoAusencia');
+
+                if (btnAdjuntar) {
+                    btnAdjuntar.classList.toggle('d-none', esVacaciones);
+                    btnAdjuntar.disabled = esVacaciones;
+                }
+
+                if (esVacaciones) {
+                    limpiarDocumentoAusenciaSeleccionado();
+                    if (estado) {
+                        estado.textContent = 'Vacaciones solo requiere fecha inicio y fecha fin.';
+                    }
+                } else if (estado && !documentoAusenciaSeleccionado) {
+                    estado.textContent = '';
+                }
             }
 
             function preseleccionarDocumentoPersona(tipoDocumento) {
@@ -4963,9 +4999,12 @@ class CapHum extends Controller
                     const doc = documentoParaAusencia(a);
                     const archivo = doc ? String(doc.archivo || '') : '';
                     const archivoAttr = escaparAtributoJsAusencia(archivo);
-                    const documentoHtml = doc
+                    const esVacaciones = esRazonVacacionesAusencia(a.razon || '');
+                    const documentoHtml = esVacaciones
+                        ? '<span class="badge bg-info text-dark">No requiere documento</span>'
+                        : (doc
                         ? `<button type="button" class="btn btn-sm btn-outline-primary" onclick="verDocumentoAusenciaSubido('${archivoAttr}')"><i class="fa fa-eye me-1"></i>Ver documento</button>`
-                        : '<span class="badge bg-warning text-dark">Documento pendiente</span>';
+                        : '<span class="badge bg-warning text-dark">Documento pendiente</span>');
                     return `
                         <tr>
                             <td>${escaparHtmlAusencia(a.razon)}</td>
@@ -5101,6 +5140,10 @@ class CapHum extends Controller
                 const gestor = (document.getElementById('gestor_ausencia')?.textContent || '')
                     .replace(/^Gestor:\s*/i, '')
                     .trim();
+                if (esRazonVacacionesAusencia(razonAusenciaSeleccionadaTexto())) {
+                    Swal.fire('Documento no requerido', 'Las vacaciones solo necesitan fecha inicio y fecha fin.', 'info');
+                    return;
+                }
                 const tipoDocumento = tipoDocumentoDesdeRazonAusencia(razonAusenciaSeleccionadaTexto());
                 if (!tipoDocumento) {
                     Swal.fire('Atencion', 'Selecciona una razon de ausencia para cargar su documento.', 'warning');
@@ -5312,6 +5355,7 @@ class CapHum extends Controller
                     // ðŸ¹ Modo edición
                     document.getElementById("id_ausencia").value = a.id;
                     document.getElementById("razonAusencia").value = a.id_razon;
+                    actualizarEstadoDocumentoAusenciaPorRazon();
 
                     // ðŸ¹ Fechas formato Flatpickr (Y-m-d H:i)
                     var fi = (a.fecha_inicio || '').toString().substring(0, 10);
@@ -5354,6 +5398,7 @@ class CapHum extends Controller
 
                 // Texto del botón
                 document.getElementById("btnGuardarAusencia").innerText = "Guardar ausencia";
+                actualizarEstadoDocumentoAusenciaPorRazon();
 
                 // Texto del gestor (opcional)
                 const gestor = document.getElementById("gestor");
@@ -5380,7 +5425,8 @@ class CapHum extends Controller
                     Swal.fire("Fechas requeridas", "Selecciona fecha inicio y fecha fin.", "warning");
                     return;
                 }
-                if (!idAusencia && !documentoAusenciaSeleccionado) {
+                const requiereDocumento = ausenciaSeleccionadaRequiereDocumento();
+                if (!idAusencia && requiereDocumento && !documentoAusenciaSeleccionado) {
                     Swal.fire("Documento requerido", "Adjunta el PDF de la ausencia antes de registrar.", "warning");
                     return;
                 }
@@ -5401,7 +5447,9 @@ class CapHum extends Controller
                     btnGuardar.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Guardando...';
                 }
                 if (estado) {
-                    estado.textContent = idAusencia ? 'Guardando ausencia...' : 'Subiendo documento y guardando ausencia...';
+                    estado.textContent = documentoAusenciaSeleccionado
+                        ? 'Subiendo documento y guardando ausencia...'
+                        : 'Guardando ausencia...';
                 }
 
                 const subirDocumento = documentoAusenciaSeleccionado
@@ -25691,7 +25739,7 @@ public function getEstadosMunicipiosMexico()
             $ausencias = $metaOrg['datos']['ausencias'] ?? [];
             foreach ($rows as &$rowOrg) {
                 $rid = isset($rowOrg['id']) && is_numeric($rowOrg['id']) ? (int)$rowOrg['id'] : 0;
-                if ($rid > 0 && isset($ausencias[$rid])) {
+                if ($rid > 0 && isset($ausencias[$rid]) && empty($rowOrg['tipo_estado'])) {
                     $rowOrg['tipo_estado'] = 'ausencia';
                     $rowOrg['estado_label'] = $ausencias[$rid]['razon_nombre'] ?? 'Ausencia';
                 }
@@ -25781,19 +25829,47 @@ public function getEstadosMunicipiosMexico()
     }
     private $idsYaAgregados = [];
 
+    private function nodoOrganigramaEsVisible($nodo): bool
+    {
+        if (!is_array($nodo)) {
+            return false;
+        }
+
+        $estatus = strtoupper(trim((string)($nodo['estatus'] ?? '')));
+        if ($estatus !== 'BAJA') {
+            return true;
+        }
+
+        foreach (($nodo['subordinados'] ?? []) as $subordinado) {
+            if ($this->nodoOrganigramaEsVisible($subordinado)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     private function recorrerArbol($nodo, &$rows, $jefeId = null) {
         $id = (string)($nodo["id"] ?? '');
         if ($id === '') return;
+        if (!$this->nodoOrganigramaEsVisible($nodo)) return;
         /* Evitar duplicados por id (misma persona no debe aparecer dos veces en el organigrama) */
         if (isset($this->idsYaAgregados[$id])) return;
         $this->idsYaAgregados[$id] = true;
 
-        $rows[] = [
+        $estatus = trim((string)($nodo['estatus'] ?? ''));
+        $row = [
             "id"     => $id,
             "nombre" => $nodo["nombre"] ?? '',
             "puesto" => $nodo["nombre_puesto"] ?? '',
+            "estatus" => $estatus,
             "jefe"   => $jefeId
         ];
+        if (strcasecmp($estatus, 'Baja') === 0) {
+            $row['tipo_estado'] = 'baja';
+            $row['estado_label'] = 'Baja';
+        }
+        $rows[] = $row;
 
         if (!empty($nodo["subordinados"])) {
             foreach ($nodo["subordinados"] as $sub) {

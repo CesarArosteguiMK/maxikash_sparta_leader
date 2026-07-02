@@ -6833,6 +6833,32 @@ class CapHum extends Model
         $orderPuestoRaiz = $id_departamento > 0 ? " ORDER BY pp.nivel DESC" : '';
         $exJP = UsuarioFantasmaReporteria::sqlPredicadoExcluirPersona('p');
         $exJP2 = UsuarioFantasmaReporteria::sqlPredicadoExcluirPersona('p2');
+        $subqueryJefeActual = "
+            SELECT id_persona, id_jefe, id_vacante_jefe
+            FROM (
+                SELECT
+                    a.id_persona,
+                    a.id_jefe,
+                    a.id_vacante_jefe,
+                    ROW_NUMBER() OVER (
+                        PARTITION BY a.id_persona
+                        ORDER BY
+                            CASE
+                                WHEN (a.fecha_inicio IS NULL OR a.fecha_inicio <= CURDATE())
+                                 AND (a.fecha_fin IS NULL OR a.fecha_fin >= CURDATE())
+                                THEN 1 ELSE 0
+                            END DESC,
+                            CASE
+                                WHEN a.fecha_inicio IS NULL OR a.fecha_inicio <= CURDATE()
+                                THEN 1 ELSE 0
+                            END DESC,
+                            COALESCE(a.fecha_inicio, '1000-01-01') DESC,
+                            a.id DESC
+                    ) AS rn
+                FROM asigna_jefe a
+            ) jefe_actual
+            WHERE rn = 1
+        ";
 
         $query = <<<SQL
                WITH RECURSIVE Jerarquia AS (
@@ -6843,6 +6869,7 @@ class CapHum extends Model
                     p.nombres,
                     p.segundo_nombre,
                     p.apellidop,
+                    p.estatus,
                     ap.id_puesto,
                     pp.nombre AS nombre_puesto,
                     aj.id_jefe,
@@ -6850,9 +6877,8 @@ class CapHum extends Model
                 FROM persona p
                 JOIN ($subqueryPuesto) ap ON p.id = ap.id_persona
                 JOIN puesto pp ON pp.id = ap.id_puesto
-                JOIN (SELECT id_persona, MIN(id_jefe) AS id_jefe FROM asigna_jefe GROUP BY id_persona) aj ON p.id = aj.id_persona
-                WHERE p.estatus != 'Baja'
-                  AND {$exJP}
+                JOIN ($subqueryJefeActual) aj ON p.id = aj.id_persona
+                WHERE {$exJP}
                   AND aj.id_jefe = $id_persona
                   $filtroDepto
 
@@ -6864,6 +6890,7 @@ class CapHum extends Model
                     p2.nombres,
                     p2.segundo_nombre,
                     p2.apellidop,
+                    p2.estatus,
                     ap2.id_puesto,
                     pp2.nombre AS nombre_puesto,
                     aj2.id_jefe,
@@ -6871,10 +6898,9 @@ class CapHum extends Model
                 FROM persona p2
                 JOIN ($subqueryPuesto) ap2 ON p2.id = ap2.id_persona
                 JOIN puesto pp2 ON pp2.id = ap2.id_puesto
-                JOIN (SELECT id_persona, MIN(id_jefe) AS id_jefe FROM asigna_jefe GROUP BY id_persona) aj2 ON p2.id = aj2.id_persona
+                JOIN ($subqueryJefeActual) aj2 ON p2.id = aj2.id_persona
                 JOIN Jerarquia j ON aj2.id_jefe = j.id
-                WHERE p2.estatus != 'Baja'
-                  AND {$exJP2}
+                WHERE {$exJP2}
                   AND j.nivel < 4
                   $filtroDepto2
             )
@@ -6900,6 +6926,7 @@ class CapHum extends Model
                         JSON_OBJECT(
                             'id', j1.id,
                             'nombre', CONCAT_WS(' ', j1.nombres, j1.segundo_nombre, j1.apellidop),
+                            'estatus', j1.estatus,
                             'id_puesto', j1.id_puesto,
                             'nombre_puesto', j1.nombre_puesto,
                             'nivel', j1.nivel,
@@ -6909,6 +6936,7 @@ class CapHum extends Model
                                     JSON_OBJECT(
                                         'id', j2.id,
                                         'nombre', CONCAT_WS(' ', j2.nombres, j2.segundo_nombre, j2.apellidop),
+                                        'estatus', j2.estatus,
                                         'id_puesto', j2.id_puesto,
                                         'nombre_puesto', j2.nombre_puesto,
                                         'nivel', j2.nivel,
@@ -6918,6 +6946,7 @@ class CapHum extends Model
                                                 JSON_OBJECT(
                                                     'id', j3.id,
                                                     'nombre', CONCAT_WS(' ', j3.nombres, j3.segundo_nombre, j3.apellidop),
+                                                    'estatus', j3.estatus,
                                                     'id_puesto', j3.id_puesto,
                                                     'nombre_puesto', j3.nombre_puesto,
                                                     'nivel', j3.nivel,
@@ -6927,6 +6956,7 @@ class CapHum extends Model
                                                             JSON_OBJECT(
                                                                 'id', j4.id,
                                                                 'nombre', CONCAT_WS(' ', j4.nombres, j4.segundo_nombre, j4.apellidop),
+                                                                'estatus', j4.estatus,
                                                                 'id_puesto', j4.id_puesto,
                                                                 'nombre_puesto', j4.nombre_puesto,
                                                                 'nivel', j4.nivel
@@ -7396,7 +7426,7 @@ class CapHum extends Model
                     INSERT INTO __SPARTA_SECRET_REDACTED__.asigna_jefe
                         (id, id_persona, id_jefe, id_vacante_jefe, fecha_inicio, fecha_fin)
                     VALUES
-                        (DEFAULT, $id_persona, NULL, $id_vacante_jefe, NOW(), NOW())
+                        (DEFAULT, $id_persona, NULL, $id_vacante_jefe, CURDATE(), NULL)
                 ");
                 } else {
                     $idJefeSql = $id_jefe !== null ? (int)$id_jefe : 'NULL';
@@ -7404,7 +7434,7 @@ class CapHum extends Model
                     INSERT INTO __SPARTA_SECRET_REDACTED__.asigna_jefe
                         (id, id_persona, id_jefe, fecha_inicio, fecha_fin)
                     VALUES
-                        (DEFAULT, $id_persona, $idJefeSql, NOW(), NOW())
+                        (DEFAULT, $id_persona, $idJefeSql, CURDATE(), NULL)
                 ");
                 }
 
@@ -7926,13 +7956,13 @@ class CapHum extends Model
                 } else {
                     if ($id_vacante_jefe > 0) {
                         $db->queryOne("
-                    INSERT INTO asigna_jefe (id_persona, id_jefe, id_vacante_jefe)
-                    VALUES ($id_persona, NULL, $id_vacante_jefe)
+                    INSERT INTO asigna_jefe (id_persona, id_jefe, id_vacante_jefe, fecha_inicio, fecha_fin)
+                    VALUES ($id_persona, NULL, $id_vacante_jefe, CURDATE(), NULL)
                 ");
                     } else {
                         $db->queryOne("
-                    INSERT INTO asigna_jefe (id_persona, id_jefe, id_vacante_jefe)
-                    VALUES ($id_persona, $idJefeSql, NULL)
+                    INSERT INTO asigna_jefe (id_persona, id_jefe, id_vacante_jefe, fecha_inicio, fecha_fin)
+                    VALUES ($id_persona, $idJefeSql, NULL, CURDATE(), NULL)
                 ");
                     }
                 }

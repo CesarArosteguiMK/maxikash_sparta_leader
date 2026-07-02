@@ -2329,6 +2329,9 @@
                 } else if (tipoEstado === 'ausencia') {
                     wrapperClass += ' org-estado-ausencia text-dark';
                     badgeHtml = '<div class="badge bg-white text-danger rounded-1 mt-1">' + (estadoLabel || 'Ausencia') + '</div>';
+                } else if (tipoEstado === 'baja') {
+                    wrapperClass += ' org-estado-baja text-dark';
+                    badgeHtml = '<div class="badge text-bg-secondary rounded-1 mt-1">Baja</div>';
                 }
                 data.addRow([
                     {
@@ -2347,11 +2350,12 @@
             const chart = new google.visualization.OrgChart(container);
 
             function aplicarColorEstadoNodos() {
-                container.querySelectorAll('.org-estado-vacante, .org-estado-ausencia').forEach(function (el) {
+                container.querySelectorAll('.org-estado-vacante, .org-estado-ausencia, .org-estado-baja').forEach(function (el) {
                     var node = el.closest('.google-visualization-orgchart-node');
                     if (!node) return;
                     var esVacante = el.classList.contains('org-estado-vacante');
                     var esAusencia = el.classList.contains('org-estado-ausencia');
+                    var esBaja = el.classList.contains('org-estado-baja');
                     node.dataset.orgId = el.dataset.orgId || '';
                     node.dataset.orgEstado = el.dataset.orgEstado || '';
                     node.style.cursor = 'pointer';
@@ -2369,6 +2373,9 @@
                     } else if (esAusencia) {
                         node.classList.add('bg-label-danger', 'border', 'border-danger-subtle', 'text-dark');
                         node.style.setProperty('background-color', 'color-mix(in sRGB, var(--bs-paper-bg) var(--bs-bg-label-tint-amount), var(--bs-danger))', 'important');
+                    } else if (esBaja) {
+                        node.classList.add('bg-secondary-subtle', 'border', 'border-secondary-subtle', 'text-dark');
+                        node.style.setProperty('background-color', 'var(--bs-secondary-bg-subtle)', 'important');
                     }
                 });
             }
