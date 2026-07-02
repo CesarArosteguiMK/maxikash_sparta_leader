@@ -9,8 +9,20 @@ class ConfigMotosAdj extends Controller
 {
     public function consulta()
     {
-        self::set('titulo', 'Config Motos Adj');
+        self::set('titulo', 'Parametros Motos');
         self::render('config_motos_adj');
+    }
+
+    public function rutas()
+    {
+        self::set('titulo', 'Parametros Motos - Fechas de rutas');
+        self::render('config_motos_adj_rutas');
+    }
+
+    public function fad()
+    {
+        self::set('titulo', 'Parametros Motos - FAD');
+        self::render('config_motos_adj_fad');
     }
 
     public function obtener()

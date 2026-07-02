@@ -232,6 +232,121 @@
         color: #64748b;
         background: #f8fafc;
     }
+    .cvh-detail-modal .modal-content,
+    .cvh-detail-modal .modal-body {
+        background: #f5f7fb;
+    }
+    .cvh-detail-modal .modal-header {
+        background: #fff;
+        border-bottom: 1px solid #e2e8f0;
+    }
+    .cvi-shell { color: #334155; }
+    .cvi-panel,
+    .cvi-kpi {
+        background: #fff;
+        border: 1px solid #e2e8f0;
+        border-radius: .55rem;
+        box-shadow: 0 .35rem 1rem rgba(15, 23, 42, .04);
+    }
+    .cvi-title { color: #5b3ea6; font-weight: 800; letter-spacing: 0; }
+    .cvi-kpi small { color: #64748b; font-weight: 800; text-transform: uppercase; font-size: .68rem; }
+    .cvi-kpi strong { color: #172033; font-size: 1.15rem; }
+    .cvi-pill {
+        display: inline-flex;
+        align-items: center;
+        gap: .25rem;
+        border-radius: 999px;
+        padding: .24rem .55rem;
+        font-size: .72rem;
+        font-weight: 800;
+    }
+    .cvi-pill.activo { color: #0369a1; background: #e0f2fe; }
+    .cvi-pill.completado,
+    .cvi-pill.pagado { color: #15803d; background: #dcfce7; }
+    .cvi-pill.cancelado,
+    .cvi-pill.vencido { color: #b91c1c; background: #fee2e2; }
+    .cvi-pill.parcial,
+    .cvi-pill.pendiente { color: #9a5b00; background: #fef3c7; }
+    .cvi-pill.pendiente_conciliar { color: #5b3ea6; background: #f4efff; }
+    .cvi-pill.neutral { color: #475569; background: #e2e8f0; }
+    .cvi-pill.reactivado { color: #8a4f00; background: #fff4cf; border: 1px solid #fedf89; }
+    .cvi-info-grid {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: .75rem;
+    }
+    .cvi-info {
+        border: 1px solid #edf2f7;
+        border-radius: .45rem;
+        padding: .75rem;
+        min-height: 76px;
+        background: #fbfdff;
+    }
+    .cvi-info span { display: block; color: #64748b; font-size: .72rem; font-weight: 800; text-transform: uppercase; }
+    .cvi-info strong { display: block; color: #1f2937; margin-top: .15rem; overflow-wrap: anywhere; }
+    .cvi-table {
+        width: 100%;
+        border-collapse: collapse;
+        min-width: 880px;
+    }
+    .cvi-table th {
+        color: #3151c7;
+        font-size: .72rem;
+        text-transform: uppercase;
+        background: #f8fafc;
+        border-bottom: 1px solid #e2e8f0;
+        padding: .7rem .75rem;
+        white-space: nowrap;
+    }
+    .cvi-table td {
+        border-bottom: 1px solid #edf2f7;
+        padding: .7rem .75rem;
+        vertical-align: middle;
+        font-size: .86rem;
+    }
+    .cvi-timeline {
+        position: relative;
+        padding-left: 1.25rem;
+    }
+    .cvi-timeline::before {
+        content: "";
+        position: absolute;
+        left: .35rem;
+        top: .25rem;
+        bottom: .25rem;
+        width: 2px;
+        background: #e2e8f0;
+    }
+    .cvi-event {
+        position: relative;
+        padding: 0 0 1rem 1rem;
+    }
+    .cvi-event::before {
+        content: "";
+        position: absolute;
+        left: -.02rem;
+        top: .35rem;
+        width: .7rem;
+        height: .7rem;
+        border-radius: 50%;
+        background: #5b72e8;
+        border: 2px solid #fff;
+        box-shadow: 0 0 0 2px #dbe4ff;
+    }
+    .cvi-event h6 { margin: 0; font-weight: 800; color: #1f2937; }
+    .cvi-event p { margin: .15rem 0 0; color: #64748b; }
+    .cvi-empty {
+        border: 1px dashed #cbd5e1;
+        border-radius: .55rem;
+        color: #64748b;
+        background: #f8fafc;
+    }
+    @media (max-width: 992px) {
+        .cvi-info-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    }
+    @media (max-width: 576px) {
+        .cvi-info-grid { grid-template-columns: 1fr; }
+    }
 </style>
 
 <div class="container-fluid py-3 cvh-shell">
@@ -391,6 +506,93 @@
     </div>
 </div>
 
+<div class="modal fade cvh-detail-modal" id="cvhDetalleModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-fullscreen">
+        <div class="modal-content">
+            <div class="modal-header">
+                <div>
+                    <h5 class="modal-title cvi-title mb-0">
+                        <i class="fa-solid fa-timeline me-2"></i>Reporte individual de convenio
+                    </h5>
+                    <div class="text-muted small">Ficha completa, amortizacion y bitacora del convenio seleccionado.</div>
+                </div>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" data-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <div class="modal-body">
+                <div class="container-fluid py-3 cvi-shell">
+                    <div id="cviModalLoading" class="cvi-empty p-4 text-center d-none">
+                        <i class="fa-solid fa-circle-notch fa-spin me-1"></i>Cargando convenio...
+                    </div>
+
+                    <div id="cviModalMessage" class="cvi-empty p-4 text-center d-none"></div>
+
+                    <div id="cviModalContent" class="d-none">
+                        <div class="cvi-panel p-3 mb-3">
+                            <div class="d-flex flex-wrap align-items-start justify-content-between gap-2 mb-3">
+                                <div>
+                                    <h5 id="cviModalCliente" class="fw-bold mb-1">--</h5>
+                                    <div class="text-muted">
+                                        <span id="cviModalOferta">--</span>
+                                        <span id="cviModalReactivado"></span>
+                                    </div>
+                                </div>
+                                <div class="text-end">
+                                    <div id="cviModalStatus"></div>
+                                    <a id="cviModalPdf" class="btn btn-sm btn-outline-secondary mt-2 d-none" target="_blank" rel="noopener">
+                                        <i class="fa-solid fa-file-pdf me-1"></i>PDF
+                                    </a>
+                                </div>
+                            </div>
+
+                            <div class="row g-2 mb-3">
+                                <div class="col-6 col-xl-2"><div class="cvi-kpi p-3"><small>Monto original</small><br><strong id="cviModalOriginal">$0.00</strong></div></div>
+                                <div class="col-6 col-xl-2"><div class="cvi-kpi p-3"><small>Descuento</small><br><strong id="cviModalDescuento">$0.00</strong></div></div>
+                                <div class="col-6 col-xl-2"><div class="cvi-kpi p-3"><small>Convenio</small><br><strong id="cviModalConvenio">$0.00</strong></div></div>
+                                <div class="col-6 col-xl-2"><div class="cvi-kpi p-3"><small>Pagado</small><br><strong id="cviModalPagado">$0.00</strong></div></div>
+                                <div class="col-6 col-xl-2"><div class="cvi-kpi p-3"><small>Restante</small><br><strong id="cviModalSaldo">$0.00</strong></div></div>
+                                <div class="col-6 col-xl-2"><div class="cvi-kpi p-3"><small>Semanas</small><br><strong id="cviModalSemanas">0</strong></div></div>
+                            </div>
+
+                            <div id="cviModalInfoGrid" class="cvi-info-grid"></div>
+                        </div>
+
+                        <div class="row g-3">
+                            <div class="col-12 col-xl-7">
+                                <div class="cvi-panel p-0 overflow-hidden">
+                                    <div class="p-3 border-bottom">
+                                        <h6 class="fw-bold mb-0"><i class="fa-solid fa-table me-1 text-primary"></i>Amortizacion</h6>
+                                    </div>
+                                    <div class="table-responsive">
+                                        <table class="cvi-table">
+                                            <thead>
+                                                <tr>
+                                                    <th>#</th>
+                                                    <th>Fecha pago</th>
+                                                    <th>Pago semanal</th>
+                                                    <th>Pago realizado</th>
+                                                    <th>Estatus</th>
+                                                    <th>Comprobante</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody id="cviModalAmortizacion"></tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-12 col-xl-5">
+                                <div class="cvi-panel p-3 h-100">
+                                    <h6 class="fw-bold mb-3"><i class="fa-solid fa-clock-rotate-left me-1 text-primary"></i>Bitacora</h6>
+                                    <div id="cviModalBitacora" class="cvi-timeline"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
 <script>
 (function () {
     const form = document.getElementById('cvhFilters');
@@ -412,6 +614,15 @@
     const gestorSearch = document.getElementById('cvhGestorSearch');
     const gestorOptions = document.getElementById('cvhGestorOptions');
     const exportBtn = document.getElementById('cvhExportExcel');
+    const detalleModalEl = document.getElementById('cvhDetalleModal');
+    const detalleModal = window.bootstrap?.Modal && detalleModalEl
+        ? (window.bootstrap.Modal.getOrCreateInstance
+            ? window.bootstrap.Modal.getOrCreateInstance(detalleModalEl)
+            : new window.bootstrap.Modal(detalleModalEl))
+        : null;
+    const detalleLoading = document.getElementById('cviModalLoading');
+    const detalleMessage = document.getElementById('cviModalMessage');
+    const detalleContent = document.getElementById('cviModalContent');
     let currentRows = [];
     let catalogoCargado = false;
     let productosCatalogo = [];
@@ -424,6 +635,7 @@
     ];
     let loadTimer = null;
     let requestSeq = 0;
+    let detalleRequestSeq = 0;
 
     const money = (value) => new Intl.NumberFormat('es-MX', {
         style: 'currency',
@@ -444,6 +656,12 @@
         .replaceAll('>', '&gt;')
         .replaceAll('"', '&quot;')
         .replaceAll("'", '&#039;');
+
+    const numericMoney = (value) => {
+        const raw = String(value ?? '').trim();
+        if (raw === '' || Number.isNaN(Number(raw))) return 0;
+        return Number(raw);
+    };
 
     function statusBadge(value) {
         const v = String(value || '').toLowerCase();
@@ -619,6 +837,204 @@
         setSegment('chartPagadoValue', 'chartPagadoBar', pagado);
     }
 
+    function detalleStatusBadge(value) {
+        const v = String(value || '').toLowerCase();
+        const labels = {
+            activo: 'Activo',
+            completado: 'Liquidado',
+            cancelado: 'Cancelado',
+            pagado: 'Pagado',
+            parcial: 'Parcial',
+            vencido: 'Vencido',
+            pendiente: 'Pendiente',
+            pendiente_conciliar: 'Pendiente conciliar'
+        };
+        const label = labels[v] || (v ? v.charAt(0).toUpperCase() + v.slice(1) : 'Sin estatus');
+        const known = ['activo', 'completado', 'cancelado', 'pagado', 'parcial', 'vencido', 'pendiente', 'pendiente_conciliar'];
+        const cls = known.includes(v) ? v : 'neutral';
+        return `<span class="cvi-pill ${cls}">${esc(label)}</span>`;
+    }
+
+    function detallePagoTotal(row) {
+        return numericMoney(row.monto_pagado) + Number(row.monto_secundario || 0);
+    }
+
+    function detalleSet(id, value) {
+        const node = document.getElementById(id);
+        if (node) node.textContent = value;
+    }
+
+    function detalleHtml(id, html) {
+        const node = document.getElementById(id);
+        if (node) node.innerHTML = html;
+    }
+
+    function renderDetalleInfo(convenio) {
+        const items = [
+            ['ID convenio', convenio.id_convenio],
+            ['ID credito', convenio.id_credito],
+            ['Fecha convenio', fmtDate(convenio.fecha_acuerdo || convenio.fecha_alta)],
+            ['Primer pago', fmtDate(convenio.fecha_primer_pago)],
+            ['Ultimo pago', fmtDate(convenio.fecha_ultimo_pago)],
+            ['Celula', convenio.celula],
+            ['Usuario alta', convenio.usuario_alta],
+            ['Calendario', convenio.tipo_calendario || convenio.frecuencia],
+            ['Base calculo', convenio.base_calculo || '--'],
+            ['Monto adicional', money(convenio.monto_adicional)],
+            ['Pago semanal', money(convenio.pago_semanal)],
+            ['Cancelamiento', convenio.fecha_cancelacion ? fmtDate(convenio.fecha_cancelacion) : 'Sin cancelacion'],
+        ];
+        detalleHtml('cviModalInfoGrid', items.map(([label, value]) => {
+            return `<div class="cvi-info"><span>${esc(label)}</span><strong>${esc(value ?? '--')}</strong></div>`;
+        }).join(''));
+    }
+
+    function renderDetalleAmortizacion(rows) {
+        if (!rows.length) {
+            detalleHtml('cviModalAmortizacion', '<tr><td colspan="6" class="text-center text-muted py-4">Sin tabla de amortizacion registrada.</td></tr>');
+            return;
+        }
+        detalleHtml('cviModalAmortizacion', rows.map((row) => {
+            const comprobante = row.comprobante_path
+                ? `<a class="btn btn-sm btn-outline-primary" href="${esc(row.comprobante_path)}" target="_blank" rel="noopener"><i class="fa-solid fa-paperclip"></i></a>`
+                : '<span class="text-muted">--</span>';
+            return `<tr>
+                <td class="fw-bold">${esc(row.numero_semana)}</td>
+                <td>
+                    <div>${fmtDate(row.fecha_pago)}</div>
+                    <div class="text-muted small">${row.fecha_pago_real ? 'Real: ' + fmtDate(row.fecha_pago_real) : ''}</div>
+                </td>
+                <td>${money(row.pago_semanal)}</td>
+                <td class="fw-bold">${money(detallePagoTotal(row))}</td>
+                <td>${detalleStatusBadge(row.estatus_pago)}</td>
+                <td>${comprobante}</td>
+            </tr>`;
+        }).join(''));
+    }
+
+    function renderDetalleBitacora(rows) {
+        if (!rows.length) {
+            detalleHtml('cviModalBitacora', '<div class="text-muted">Sin eventos registrados.</div>');
+            return;
+        }
+        detalleHtml('cviModalBitacora', rows.map((event) => {
+            const hora = String(event.fecha || '').length > 10 ? ` ${esc(String(event.fecha).slice(11, 16))}` : '';
+            const usuario = event.usuario ? `<div class="small text-muted">Usuario: ${esc(event.usuario)}</div>` : '';
+            return `<div class="cvi-event">
+                <div class="small text-muted mb-1">${fmtDate(event.fecha)}${hora}</div>
+                <h6>${esc(event.titulo)}</h6>
+                <p>${esc(event.detalle || '')}</p>
+                ${usuario}
+            </div>`;
+        }).join(''));
+    }
+
+    function renderDetalleReporte(datos) {
+        const convenio = datos.convenio || {};
+        const amortizacion = datos.amortizacion || [];
+        const pagado = amortizacion.reduce((sum, row) => sum + detallePagoTotal(row), 0);
+        const totalConvenio = Number(convenio.total_a_pagar || 0);
+        const saldo = Math.max(totalConvenio - pagado, 0);
+
+        detalleSet('cviModalCliente', convenio.nombre_cliente || 'Sin nombre');
+        detalleSet('cviModalOferta', convenio.oferta_seleccionada || 'Sin oferta');
+        detalleHtml('cviModalStatus', detalleStatusBadge(convenio.estatus));
+        detalleHtml('cviModalReactivado', Number(convenio.es_reactivado || 0) === 1
+            ? '<span class="cvi-pill reactivado ms-2"><i class="fa-solid fa-rotate"></i>Reactivado</span>'
+            : '');
+
+        const pdf = document.getElementById('cviModalPdf');
+        if (pdf) {
+            if (convenio.pdf_adjunto) {
+                pdf.href = convenio.pdf_adjunto;
+                pdf.classList.remove('d-none');
+            } else {
+                pdf.classList.add('d-none');
+                pdf.removeAttribute('href');
+            }
+        }
+
+        detalleSet('cviModalOriginal', money(convenio.adeudo_total_original || convenio.monto_original));
+        detalleSet('cviModalDescuento', `${money(convenio.descuento_monto)} (${Number(convenio.porcentaje_descuento || 0).toFixed(2)}%)`);
+        detalleSet('cviModalConvenio', money(totalConvenio));
+        detalleSet('cviModalPagado', money(pagado));
+        detalleSet('cviModalSaldo', money(saldo));
+        detalleSet('cviModalSemanas', convenio.numero_semanas || amortizacion.length || 0);
+
+        renderDetalleInfo(convenio);
+        renderDetalleAmortizacion(amortizacion);
+        renderDetalleBitacora(datos.bitacora || []);
+
+        detalleMessage.classList.add('d-none');
+        detalleContent.classList.remove('d-none');
+    }
+
+    function setDetalleLoading(isLoading) {
+        detalleLoading.classList.toggle('d-none', !isLoading);
+        if (isLoading) {
+            detalleMessage.classList.add('d-none');
+            detalleContent.classList.add('d-none');
+        }
+    }
+
+    function showDetalleError(message) {
+        detalleContent.classList.add('d-none');
+        detalleMessage.classList.remove('d-none');
+        detalleMessage.innerHTML = `<i class="fa-solid fa-triangle-exclamation me-1"></i>${esc(message)}`;
+    }
+
+    function mostrarDetalleModal() {
+        if (!detalleModalEl) return;
+        if (detalleModal) {
+            detalleModal.show();
+            return;
+        }
+        if (window.jQuery && typeof window.jQuery(detalleModalEl).modal === 'function') {
+            window.jQuery(detalleModalEl).modal('show');
+            return;
+        }
+        detalleModalEl.classList.add('show');
+        detalleModalEl.style.display = 'block';
+        detalleModalEl.removeAttribute('aria-hidden');
+        detalleModalEl.setAttribute('aria-modal', 'true');
+        document.body.classList.add('modal-open');
+    }
+
+    function cerrarDetalleModalManual() {
+        if (!detalleModalEl || detalleModal) return;
+        if (window.jQuery && typeof window.jQuery(detalleModalEl).modal === 'function') return;
+        detalleModalEl.classList.remove('show');
+        detalleModalEl.style.display = 'none';
+        detalleModalEl.setAttribute('aria-hidden', 'true');
+        detalleModalEl.removeAttribute('aria-modal');
+        document.body.classList.remove('modal-open');
+    }
+
+    async function abrirDetalleConvenio(idConvenio) {
+        const id = Number(idConvenio || 0);
+        if (!id) return;
+        mostrarDetalleModal();
+        const seq = ++detalleRequestSeq;
+        setDetalleLoading(true);
+        try {
+            const params = new URLSearchParams({ id_convenio: String(id) });
+            const response = await fetch(`/convenios/reporteIndividualDatos?${params.toString()}`, {
+                headers: { 'Accept': 'application/json' }
+            });
+            const payload = await response.json();
+            if (!payload.success) {
+                throw new Error(payload.mensaje || 'No se pudo cargar el reporte individual.');
+            }
+            if (seq !== detalleRequestSeq) return;
+            renderDetalleReporte(payload.datos || {});
+        } catch (err) {
+            if (seq !== detalleRequestSeq) return;
+            showDetalleError(err.message || 'No se pudo cargar el reporte individual.');
+        } finally {
+            if (seq === detalleRequestSeq) setDetalleLoading(false);
+        }
+    }
+
     function renderRows(rows) {
         currentRows = rows || [];
         empty.classList.toggle('d-none', currentRows.length > 0);
@@ -670,9 +1086,9 @@
                 </td>
                 <td>${statusBadge(row.estatus)}</td>
                 <td>
-                    <a class="btn btn-sm btn-outline-primary" href="/convenios/reporteIndividual?id_convenio=${encodeURIComponent(row.id_convenio)}">
+                    <button type="button" class="btn btn-sm btn-outline-primary cvh-ver-detalle" data-id-convenio="${esc(row.id_convenio)}">
                         <i class="fa-solid fa-eye me-1"></i>Ver
-                    </a>
+                    </button>
                 </td>
             </tr>`;
         }).join('');
@@ -721,6 +1137,14 @@
         scheduleLoad(event.target && event.target.name === 'q' ? 350 : 150);
     });
     form.addEventListener('change', () => scheduleLoad(0));
+    tbody.addEventListener('click', (event) => {
+        const button = event.target.closest('.cvh-ver-detalle');
+        if (!button) return;
+        abrirDetalleConvenio(button.dataset.idConvenio || '');
+    });
+    detalleModalEl?.querySelectorAll('[data-bs-dismiss="modal"], [data-dismiss="modal"]').forEach((button) => {
+        button.addEventListener('click', cerrarDetalleModalManual);
+    });
     productoButton.addEventListener('click', () => openDropdown(productoDropdown, productoSearch, renderProductoOptions));
     celulaButton.addEventListener('click', () => openDropdown(celulaDropdown, celulaSearch, renderCelulaOptions));
     gestorButton.addEventListener('click', () => openDropdown(gestorDropdown, gestorSearch, renderGestorOptions));
