@@ -574,6 +574,151 @@ def _v2_pdf_page_count(doc: Dict[str, Any], summary: Any = None) -> Optional[int
         return None
 
 
+def _v2_structured_summary_from_pdf(doc: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+    key = str(doc.get("key") or "").strip()
+    label = str(doc.get("label") or key or "Documento").strip()
+    filename = str(doc.get("filename") or f"{key}.pdf").strip()
+    file_bytes = doc.get("bytes") or b""
+    if not key or not file_bytes:
+        return None
+
+    try:
+        if key == "curp":
+            data = _extraer_datos_curp_pdf_rapido(file_bytes)
+            curp = _v2_clean_curp((data or {}).get("curp"))
+            if not curp:
+                return None
+            validation = {
+                "valido": True,
+                "rechazado": False,
+                "revision_manual": False,
+                "mensaje": "CURP leida por Motor V1/OCR local.",
+                "tipo_documento_detectado": "curp",
+                "nombre": (data or {}).get("nombre"),
+                "curp": curp,
+                "curp_extraido": curp,
+                "fecha_emision": (data or {}).get("fecha_emision"),
+                "es_reciente": (data or {}).get("es_reciente"),
+                "meses_antiguedad": (data or {}).get("meses_antiguedad"),
+            }
+        elif key == "solicitud_interna":
+            data = _extraer_solicitud_interna_pdf_rapido(file_bytes)
+            if (data or {}).get("tipo_documento_detectado") not in {"solicitud_interna", "solicitud___SPARTA_SECRET_REDACTED__"}:
+                return None
+            validation = {
+                "valido": True,
+                "rechazado": False,
+                "revision_manual": False,
+                "mensaje": (data or {}).get("mensaje") or "Solicitud interna identificada por Motor V1/OCR local.",
+                "tipo_documento_detectado": "solicitud___SPARTA_SECRET_REDACTED__",
+                "nombre": (data or {}).get("nombre"),
+                "curp": _v2_clean_curp((data or {}).get("curp")),
+            }
+        elif key == "identificacion_oficial":
+            data = _extraer_identificacion_oficial_pdf_rapido(file_bytes)
+            if (data or {}).get("tipo_documento_detectado") not in {"ine", "identificacion_oficial"}:
+                return None
+            validation = {
+                "valido": True,
+                "rechazado": False,
+                "revision_manual": False,
+                "mensaje": (data or {}).get("mensaje") or "Identificacion oficial identificada por OCR local.",
+                "tipo_documento_detectado": (data or {}).get("tipo_documento_detectado") or "ine",
+                "nombre": (data or {}).get("nombre"),
+                "curp": _v2_clean_curp((data or {}).get("curp")),
+                "clave_elector": (data or {}).get("clave_elector"),
+                "domicilio": (data or {}).get("domicilio"),
+            }
+        elif key == "nss":
+            data = extraer_datos_nss_pdf(file_bytes)
+            nss = _v2_clean_nss((data or {}).get("nss"))
+            if not nss:
+                return None
+            validation = {
+                "valido": True,
+                "rechazado": False,
+                "revision_manual": False,
+                "mensaje": "NSS leido por Motor V1 desde texto del PDF.",
+                "tipo_documento_detectado": "nss",
+                "nombre": (data or {}).get("nombre"),
+                "curp": _v2_clean_curp((data or {}).get("curp")),
+                "nss": nss,
+                "nss_extraido": nss,
+            }
+        elif key == "constancia_fiscal":
+            data = extraer_datos_constancia_fiscal(file_bytes)
+            rfc = _v2_clean_id((data or {}).get("rfc"))
+            curp = _v2_clean_curp((data or {}).get("curp"))
+            if not rfc and not curp:
+                return None
+            validation = {
+                "valido": True,
+                "rechazado": False,
+                "revision_manual": False,
+                "mensaje": "Constancia fiscal leida por Motor V1 desde texto del PDF.",
+                "tipo_documento_detectado": "constancia_fiscal",
+                "nombre": (data or {}).get("nombre"),
+                "rfc": rfc,
+                "curp": curp,
+                "fecha_emision": (data or {}).get("fecha_emision"),
+                "regimen_fiscal": (data or {}).get("regimen_fiscal"),
+                "regimen_sueldos_salarios": (data or {}).get("regimen_sueldos_salarios"),
+                "meses_antiguedad": (data or {}).get("meses_antiguedad"),
+            }
+        elif key == "acta_nacimiento":
+            data = extraer_datos_acta_nacimiento(file_bytes, modo_rapido=True)
+            nombre = (data or {}).get("nombre")
+            if not nombre:
+                return None
+            validation = {
+                "valido": True,
+                "rechazado": False,
+                "revision_manual": False,
+                "mensaje": "Acta leida por Motor V1 desde texto del PDF.",
+                "tipo_documento_detectado": "acta_nacimiento",
+                "nombre": nombre,
+                "fecha_nacimiento": (data or {}).get("fecha_nacimiento"),
+            }
+        else:
+            return None
+    except Exception as exc:
+        logger.warning(f"No se pudo preleer {key} con Motor V1: {exc}")
+        return None
+
+    validation = {k: v for k, v in validation.items() if v not in (None, "", [])}
+    return {
+        "key": key,
+        "tipo_documento": label,
+        "archivo": filename,
+        "paginas_pdf": _v2_pdf_page_count(doc),
+        "motor_ia": "motor_v1",
+        "modelo_ia": "pdf_text_ocr",
+        "fuente_lectura": "motor_v1_pdf_text_ocr",
+        "validacion_previa": validation,
+    }
+
+
+def _v2_summary_needs_pdf_text_rescue(doc: Dict[str, Any]) -> bool:
+    key = str(doc.get("key") or "").strip()
+    summary = doc.get("summary")
+    previo = summary.get("validacion_previa") if isinstance(summary, dict) and isinstance(summary.get("validacion_previa"), dict) else {}
+    if key == "solicitud_interna":
+        detected = str(previo.get("tipo_documento_detectado") or previo.get("tipo_documento") or "").strip()
+        return detected not in {"solicitud_interna", "solicitud___SPARTA_SECRET_REDACTED__"}
+    if key == "identificacion_oficial":
+        detected = str(previo.get("tipo_documento_detectado") or previo.get("tipo_documento") or "").strip()
+        return detected not in {"identificacion_oficial", "ine", "residencia_permanente", "residencia_temporal", "pasaporte_mexicano", "pasaporte_extranjero"}
+    if key == "curp":
+        return not _v2_clean_curp(_v2_first_value(previo, ["curp", "curp_extraido", "curp_lectura_ia"]))
+    if key == "nss":
+        return not _v2_clean_nss(_v2_first_value(previo, ["nss", "nss_extraido", "nss_lectura_ia"]))
+    if key == "constancia_fiscal":
+        return not (_v2_clean_id(_v2_first_value(previo, ["rfc"])) or _v2_clean_curp(_v2_first_value(previo, ["curp"])))
+    if key == "acta_nacimiento":
+        return not _v2_first_value(previo, ["nombre", "nombre_completo"])
+    return False
+
+
 def _v2_names_match(a: Optional[str], b: Optional[str]) -> bool:
     na = normalize_text(a or "")
     nb = normalize_text(b or "")
@@ -1490,6 +1635,130 @@ def _parsear_fecha_curp_rapida(texto: str) -> Optional[datetime]:
         return None
 
 
+def _curp_precheck_variants(candidate: str) -> List[str]:
+    base = re.sub(r"[^A-Z0-9]", "", _normalizar_ascii_precheck(candidate))
+    if len(base) != 18:
+        return []
+    variants = [base]
+    confusion_digit = {"O": "0", "Q": "0", "I": "1", "L": "1", "S": "5", "B": "8", "Z": "2"}
+    for pos in (16, 17):
+        char = base[pos]
+        if char in confusion_digit:
+            variants.append(base[:pos] + confusion_digit[char] + base[pos + 1:])
+    if base[16] in confusion_digit and base[17] in confusion_digit:
+        variants.append(base[:16] + confusion_digit[base[16]] + confusion_digit[base[17]])
+    seen = set()
+    out = []
+    for value in variants:
+        if value not in seen:
+            seen.add(value)
+            out.append(value)
+    return out
+
+
+def _curp_precheck_check_digit_ok(curp: str) -> bool:
+    curp = re.sub(r"[^A-Z0-9Ñ]", "", _normalizar_ascii_precheck(curp))
+    if len(curp) != 18 or not curp[-1].isdigit():
+        return False
+    expected = _curp_precheck_expected_digit(curp)
+    return bool(expected is not None and curp[-1] == expected)
+
+
+def _curp_precheck_expected_digit(curp: str) -> Optional[str]:
+    curp = re.sub(r"[^A-Z0-9Ñ]", "", _normalizar_ascii_precheck(curp))
+    if len(curp) != 18:
+        return None
+    values = {c: i for i, c in enumerate("0__SPARTA_PASSWORD_REDACTED__ABCDEFGHIJKLMNÑOPQRSTUVWXYZ")}
+    try:
+        total = 0
+        for idx, char in enumerate(curp[:17]):
+            total += values[char] * (18 - idx)
+        return str((10 - (total % 10)) % 10)
+    except Exception:
+        return None
+
+
+def _buscar_curp_precheck(texto: str) -> Optional[str]:
+    texto_norm = _normalizar_ascii_precheck(texto)
+    candidates = []
+    candidates.extend(m.group(0) for m in re.finditer(r"[A-Z]{4}\d{6}[HM][A-Z]{5}[A-Z0-9][A-Z0-9]", texto_norm))
+    compacto = re.sub(r"[^A-Z0-9]", "", texto_norm)
+    candidates.extend(compacto[i:i + 18] for i in range(0, max(0, len(compacto) - 17)))
+    valid_candidates = []
+    for candidate in candidates:
+        for variant in _curp_precheck_variants(candidate):
+            expected_digit = _curp_precheck_expected_digit(variant)
+            if expected_digit is not None:
+                fixed_variant = variant[:17] + expected_digit
+                if validar_curp(fixed_variant)[0] and _curp_precheck_check_digit_ok(fixed_variant):
+                    return fixed_variant
+            if validar_curp(variant)[0]:
+                if _curp_precheck_check_digit_ok(variant):
+                    return variant
+                valid_candidates.append(variant)
+    if valid_candidates:
+        return valid_candidates[0]
+    return None
+
+
+def _ocr_pdf_region_texto_precheck(
+    pdf_bytes: bytes,
+    *,
+    max_paginas: int = 1,
+    dpi: int = 220,
+    crop: Optional[tuple[float, float, float, float]] = None,
+    psm_values: Optional[List[int]] = None,
+    timeout_seconds: int = 12,
+) -> str:
+    if not PYMUPDF_AVAILABLE or not pdf_bytes:
+        return ""
+    try:
+        from io import BytesIO
+        from PIL import Image, ImageOps, ImageFilter
+        import pytesseract
+
+        pytesseract.pytesseract.tesseract_cmd = settings.tesseract_cmd
+        psm_values = psm_values or [4, 11]
+        doc = fitz.open(stream=pdf_bytes, filetype="pdf")
+        partes = []
+        for i, page in enumerate(doc):
+            if i >= max_paginas:
+                break
+            clip_rect = None
+            if crop:
+                x0, y0, x1, y1 = crop
+                rect = page.rect
+                clip_rect = fitz.Rect(
+                    rect.x0 + rect.width * x0,
+                    rect.y0 + rect.height * y0,
+                    rect.x0 + rect.width * x1,
+                    rect.y0 + rect.height * y1,
+                )
+            pix = page.get_pixmap(dpi=dpi, clip=clip_rect)
+            img = Image.open(BytesIO(pix.tobytes("png"))).convert("L")
+            img = ImageOps.autocontrast(img).filter(ImageFilter.SHARPEN)
+            texto_pagina = ""
+            for psm in psm_values:
+                try:
+                    texto_pagina = pytesseract.image_to_string(
+                        img,
+                        lang="spa+eng",
+                        config=f"--oem 3 --psm {psm}",
+                        timeout=timeout_seconds,
+                    )
+                except RuntimeError:
+                    texto_pagina = ""
+                if texto_pagina.strip():
+                    break
+            if texto_pagina.strip():
+                partes.append(texto_pagina)
+        doc.close()
+        return "\n".join(partes)
+    except Exception as e:
+        logger.debug(f"ocr_pdf_region_texto_precheck fallo: {e}")
+        return ""
+
+
 def _extraer_datos_curp_pdf_rapido(pdf_bytes: bytes) -> Dict[str, Any]:
     """Ruta barata para constancia CURP: texto embebido o Tesseract ligero, sin Paddle."""
     resultado = {
@@ -1507,25 +1776,15 @@ def _extraer_datos_curp_pdf_rapido(pdf_bytes: bytes) -> Dict[str, Any]:
     modo = info.get("modo") or "texto_pdf_embebido"
 
     if not texto.strip() and PYMUPDF_AVAILABLE:
-        try:
-            from io import BytesIO
-            from PIL import Image
-            import pytesseract
-
-            pytesseract.pytesseract.tesseract_cmd = settings.tesseract_cmd
-            doc = fitz.open(stream=pdf_bytes, filetype="pdf")
-            partes = []
-            for i, page in enumerate(doc):
-                if i >= 2:
-                    break
-                pix = page.get_pixmap(dpi=140)
-                img = Image.open(BytesIO(pix.tobytes("png"))).convert("L")
-                partes.append(pytesseract.image_to_string(img, lang="spa+eng", config="--oem 3 --psm 6"))
-            doc.close()
-            texto = "\n".join(partes)
-            modo = "ocr_tesseract_curp_140dpi"
-        except Exception as e:
-            logger.debug(f"extraer_datos_curp_pdf_rapido OCR fallo: {e}")
+        texto = _ocr_pdf_region_texto_precheck(
+            pdf_bytes,
+            max_paginas=1,
+            dpi=220,
+            crop=(0, 0, 1, 0.45),
+            psm_values=[4, 11],
+            timeout_seconds=12,
+        )
+        modo = "ocr_tesseract_curp_region_220dpi"
 
     texto_norm = _normalizar_ascii_precheck(texto)
     resultado["texto"] = texto_norm
@@ -1536,17 +1795,7 @@ def _extraer_datos_curp_pdf_rapido(pdf_bytes: bytes) -> Dict[str, Any]:
         or ("RENAPO" in texto_norm and ("CURP" in texto_norm or "CONSTANCIA" in texto_norm))
     )
 
-    curp_regex = r"\b[A-Z]{4}\d{6}[HM][A-Z]{5}[A-Z0-9]\d\b"
-    m_curp = re.search(curp_regex, texto_norm)
-    if m_curp and validar_curp(m_curp.group(0))[0]:
-        resultado["curp"] = m_curp.group(0)
-    else:
-        compacto = re.sub(r"[^A-Z0-9]", "", texto_norm)
-        for i in range(0, max(0, len(compacto) - 17)):
-            cand = compacto[i:i + 18]
-            if validar_curp(cand)[0]:
-                resultado["curp"] = cand
-                break
+    resultado["curp"] = _buscar_curp_precheck(texto_norm)
 
     if resultado["curp"]:
         curp_pos = texto_norm.find(resultado["curp"])
@@ -1572,6 +1821,177 @@ def _extraer_datos_curp_pdf_rapido(pdf_bytes: bytes) -> Dict[str, Any]:
         meses = (datetime.now() - fecha).days / 30.44
         resultado["meses_antiguedad"] = round(meses, 1)
         resultado["es_reciente"] = meses <= 3.0
+    return resultado
+
+
+def _extraer_solicitud_interna_pdf_rapido(pdf_bytes: bytes) -> Dict[str, Any]:
+    resultado = {
+        "tipo_documento_detectado": None,
+        "valido": None,
+        "revision_manual": None,
+        "mensaje": None,
+        "nombre": None,
+        "curp": None,
+        "texto": "",
+        "modo": "sin_texto",
+    }
+    info = _texto_pdf_embebido_rapido(pdf_bytes, max_paginas=2)
+    texto = info.get("texto") or ""
+    modo = info.get("modo") or "texto_pdf_embebido"
+    if not texto.strip():
+        texto = _ocr_pdf_region_texto_precheck(
+            pdf_bytes,
+            max_paginas=1,
+            dpi=180,
+            crop=(0, 0, 1, 1),
+            psm_values=[4],
+            timeout_seconds=15,
+        )
+        modo = "ocr_tesseract_solicitud_p1_180dpi"
+
+    texto_norm = _normalizar_ascii_precheck(texto)
+    resultado["texto"] = texto_norm
+    resultado["modo"] = modo
+    parece_solicitud = (
+        "SOLICITUD DE EMPLEO MAXIKASH" in texto_norm
+        or ("SOLICITUD" in texto_norm and "MAXIKASH" in texto_norm and "DATOS PERSONALES" in texto_norm)
+    )
+    if not parece_solicitud:
+        return resultado
+
+    resultado["tipo_documento_detectado"] = "solicitud___SPARTA_SECRET_REDACTED__"
+    resultado["valido"] = True
+    resultado["revision_manual"] = False
+    resultado["mensaje"] = "Solicitud interna identificada por OCR local."
+    resultado["curp"] = _buscar_curp_precheck(texto_norm)
+
+    m_nombre = re.search(
+        r"APELLIDO\s+PATERNO\s+APELLIDO\s+MATERNO\s+NOMBRE\\(S\\).*?\n([A-Z][A-Z\s]{2,80})",
+        texto_norm,
+        re.DOTALL,
+    )
+    if m_nombre:
+        nombre = re.sub(r"[^A-Z\s]", " ", m_nombre.group(1))
+        nombre = re.sub(r"\s+", " ", nombre).strip()
+        if 3 <= len(nombre.split()) <= 8:
+            resultado["nombre"] = nombre
+    return resultado
+
+
+def _extraer_identificacion_oficial_pdf_rapido(pdf_bytes: bytes) -> Dict[str, Any]:
+    resultado = {
+        "tipo_documento_detectado": None,
+        "valido": None,
+        "revision_manual": None,
+        "mensaje": None,
+        "nombre": None,
+        "curp": None,
+        "clave_elector": None,
+        "domicilio": None,
+        "texto": "",
+        "modo": "sin_texto",
+    }
+    info = _texto_pdf_embebido_rapido(pdf_bytes, max_paginas=2)
+    textos = [info.get("texto") or ""]
+    modo = info.get("modo") or "texto_pdf_embebido"
+    if not "".join(textos).strip() and PYMUPDF_AVAILABLE:
+        try:
+            from io import BytesIO
+            from PIL import Image, ImageOps, ImageFilter
+            import pytesseract
+
+            pytesseract.pytesseract.tesseract_cmd = settings.tesseract_cmd
+            doc = fitz.open(stream=pdf_bytes, filetype="pdf")
+            for page_index, page in enumerate(doc):
+                if page_index >= 1:
+                    break
+                pix = page.get_pixmap(dpi=210)
+                base_img = Image.open(BytesIO(pix.tobytes("png"))).convert("L")
+                for rotation in (90, -90, 0, 180):
+                    img = ImageOps.autocontrast(base_img.rotate(rotation, expand=True)).filter(ImageFilter.SHARPEN)
+                    w, h = img.size
+                    crops = [
+                        img,
+                        img.crop((int(w * 0.25), int(h * 0.18), int(w * 0.85), int(h * 0.92))),
+                        img.crop((int(w * 0.28), int(h * 0.55), int(w * 0.85), int(h * 0.84))),
+                    ]
+                    for crop in crops:
+                        try:
+                            texto = pytesseract.image_to_string(
+                                crop,
+                                lang="spa+eng",
+                                config="--oem 3 --psm 11",
+                                timeout=8,
+                            )
+                        except RuntimeError:
+                            texto = ""
+                        if texto.strip():
+                            textos.append(texto)
+                    combinado = _normalizar_ascii_precheck("\n".join(textos))
+                    if "CREDENCIAL PARA VOTAR" in combinado or "INSTITUTO NACIONAL ELECTORAL" in combinado:
+                        break
+            doc.close()
+            modo = "ocr_tesseract_identificacion_rotaciones"
+        except Exception as e:
+            logger.debug(f"extraer_identificacion_oficial_pdf_rapido OCR fallo: {e}")
+
+    texto_raw = "\n".join(textos)
+    texto_norm = _normalizar_ascii_precheck(texto_raw)
+    resultado["texto"] = texto_norm
+    resultado["modo"] = modo
+    parece_ine = "CREDENCIAL PARA VOTAR" in texto_norm or "INSTITUTO NACIONAL ELECTORAL" in texto_norm
+    if not parece_ine:
+        return resultado
+
+    resultado["tipo_documento_detectado"] = "ine"
+    resultado["valido"] = True
+    resultado["revision_manual"] = False
+    resultado["mensaje"] = "INE identificada por OCR local."
+    resultado["curp"] = _buscar_curp_precheck(texto_norm)
+
+    m_clave = re.search(r"CLAVE\s+DE\s+ELECTOR\s+([A-Z0-9]{12,22})", texto_norm)
+    if m_clave:
+        resultado["clave_elector"] = m_clave.group(1)
+
+    m_domicilio = re.search(r"DOMICILIO\s+(.+?)(?:CLAVE\s+DE\s+ELECTOR|CURP|FECHA\s+DE\s+NACIMIENTO|SECCION|VIGENCIA|$)", texto_norm)
+    if m_domicilio:
+        domicilio = re.sub(r"\s+", " ", m_domicilio.group(1)).strip()
+        if 8 <= len(domicilio) <= 160:
+            resultado["domicilio"] = domicilio
+
+    lineas = [_normalizar_ascii_precheck(ln) for ln in texto_raw.split("\n") if _normalizar_ascii_precheck(ln)]
+    candidatos_nombre: List[str] = []
+    capturando = False
+    stop_tokens = {
+        "DOMICILIO", "CLAVE", "CURP", "FECHA", "SECCION", "VIGENCIA", "SEXO",
+        "MEXICO", "INSTITUTO", "CREDENCIAL", "PARA", "VOTAR",
+    }
+    for linea in lineas:
+        if "NOMBRE" in linea:
+            capturando = True
+            continue
+        if capturando and any(token in linea for token in ("DOMICILIO", "CLAVE DE ELECTOR", "CURP", "FECHA DE NACIMIENTO", "SEXO")):
+            break
+        if capturando:
+            limpio = re.sub(r"[^A-Z\s]", " ", linea)
+            limpio = re.sub(r"\s+", " ", limpio).strip()
+            if limpio and not any(tok == limpio for tok in stop_tokens) and 1 <= len(limpio.split()) <= 4:
+                candidatos_nombre.append(limpio)
+    if not candidatos_nombre:
+        for linea in lineas:
+            limpio = re.sub(r"[^A-Z\s]", " ", linea)
+            limpio = re.sub(r"\s+", " ", limpio).strip()
+            if not limpio or any(tok in limpio.split() for tok in stop_tokens):
+                continue
+            if 1 <= len(limpio.split()) <= 4 and 3 <= len(limpio) <= 40:
+                candidatos_nombre.append(limpio)
+            if len(candidatos_nombre) >= 3:
+                break
+    if candidatos_nombre:
+        nombre = re.sub(r"\s+", " ", " ".join(candidatos_nombre[:4])).strip()
+        partes_nombre = nombre.split()
+        if len(partes_nombre) >= 3 and all(len(parte) >= 2 for parte in partes_nombre):
+            resultado["nombre"] = nombre
     return resultado
 
 
@@ -3440,7 +3860,26 @@ async def validar_expediente(
                 doc for doc in docs_v2
                 if doc.get("bytes") or summary_is_usable(doc.get("summary"))
             ]
-            logger.info(f"validar-expediente V2 docs={len(docs_v2)} summaries={sum(1 for doc in docs_v2 if summary_is_usable(doc.get('summary')))}")
+
+            pdf_text_prefill_count = 0
+            for doc in docs_v2:
+                key_doc = str(doc.get("key") or "")
+                if key_doc not in {"solicitud_interna", "curp", "identificacion_oficial", "nss", "constancia_fiscal", "acta_nacimiento"}:
+                    continue
+                if not doc.get("bytes"):
+                    continue
+                if summary_is_usable(doc.get("summary")) and not _v2_summary_needs_pdf_text_rescue(doc):
+                    continue
+                summary_v1 = _v2_structured_summary_from_pdf(doc)
+                if summary_v1:
+                    doc["summary"] = summary_v1
+                    pdf_text_prefill_count += 1
+
+            logger.info(
+                "validar-expediente V2 docs="
+                f"{len(docs_v2)} summaries={sum(1 for doc in docs_v2 if summary_is_usable(doc.get('summary')))} "
+                f"pdf_text_prefill={pdf_text_prefill_count}"
+            )
 
             quick_expected = {
                 "solicitud_interna": "solicitud___SPARTA_SECRET_REDACTED__",
@@ -3519,6 +3958,7 @@ async def validar_expediente(
             if crosscheck_mode in {"rules", "local", "rapido", "fast"}:
                 resultado_reglas = _resultado_v2_reglas_expediente(docs_v2, nombre_candidato_registro)
                 resultado_reglas["tiempos_fase_ms"] = {
+                    "prefill_pdf_text_motor_v1_count": pdf_text_prefill_count,
                     "prefill_lecturas_rapidas_ms": prefill_ms,
                     "cruce_reglas_ms": int(resultado_reglas.get("elapsed_ms") or 0),
                     "total_endpoint_ms": prefill_ms + int(resultado_reglas.get("elapsed_ms") or 0),

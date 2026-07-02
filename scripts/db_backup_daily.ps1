@@ -22,7 +22,6 @@ function Write-Log {
     param([string]$Message)
     $line = "{0} {1}" -f (Get-Date -Format "yyyy-MM-dd HH:mm:ss"), $Message
     Write-Host $line
-    Add-Content -LiteralPath $script:LogFile -Value $line -Encoding UTF8
 }
 
 if (-not (Test-Path -LiteralPath $MysqlDump)) {
@@ -31,10 +30,7 @@ if (-not (Test-Path -LiteralPath $MysqlDump)) {
 
 $dateStamp = Get-Date -Format "yyyyMMdd_HHmmss"
 $runDir = Join-Path $BackupRoot $dateStamp
-$logDir = Join-Path $BackupRoot "logs"
-New-Item -ItemType Directory -Force -Path $runDir, $logDir | Out-Null
-
-$script:LogFile = Join-Path $logDir ("backup_{0}.log" -f $dateStamp)
+New-Item -ItemType Directory -Force -Path $runDir | Out-Null
 
 $hostName = Read-EnvOrDefault -Names @("DB_BACKUP_HOST", "DB_HOST", "DB_SERVIDOR") -Default "__SPARTA_HOST_REDACTED__"
 $port = Read-EnvOrDefault -Names @("DB_BACKUP_PORT", "DB_PUERTO") -Default "3306"
@@ -43,6 +39,7 @@ $password = Read-EnvOrDefault -Names @("DB_BACKUP_PASSWORD", "DB_PASSWORD", "DB_
 $databases = $Databases | Where-Object { -not [string]::IsNullOrWhiteSpace($_) }
 
 $defaultsFile = Join-Path $env:TEMP ("sparta_mysqldump_{0}.cnf" -f ([Guid]::NewGuid().ToString("N")))
+$errFile = $null
 
 try {
     @"
@@ -58,7 +55,7 @@ default-character-set=utf8mb4
 
     foreach ($database in $databases) {
         $outFile = Join-Path $runDir ("{0}_{1}.sql" -f $database, $dateStamp)
-        $errFile = Join-Path $runDir ("{0}_{1}.err.log" -f $database, $dateStamp)
+        $errFile = Join-Path $env:TEMP ("sparta_mysqldump_{0}_{1}.err" -f $database, ([Guid]::NewGuid().ToString("N")))
         Write-Log "Respaldando base: $database"
 
         & $MysqlDump `
@@ -85,6 +82,9 @@ default-character-set=utf8mb4
         if ((Test-Path -LiteralPath $errFile) -and ((Get-Item -LiteralPath $errFile).Length -gt 0)) {
             $warnings = (Get-Content -LiteralPath $errFile -Tail 20 -ErrorAction SilentlyContinue) -join " | "
             Write-Log "AVISO ${database}: mysqldump continuo con advertencias. $warnings"
+        }
+        if (Test-Path -LiteralPath $errFile) {
+            Remove-Item -LiteralPath $errFile -Force
         }
 
         $sizeMb = [Math]::Round((Get-Item -LiteralPath $outFile).Length / 1MB, 2)
@@ -116,10 +116,6 @@ default-character-set=utf8mb4
             Remove-Item -LiteralPath $_.FullName -Force
         }
 
-    Get-ChildItem -LiteralPath $logDir -Filter "backup_*.log" -File |
-        Where-Object { $_.LastWriteTime -lt $limitDate } |
-        Remove-Item -Force
-
     Write-Log "Respaldo finalizado correctamente."
     exit 0
 } catch {
@@ -128,5 +124,8 @@ default-character-set=utf8mb4
 } finally {
     if (Test-Path -LiteralPath $defaultsFile) {
         Remove-Item -LiteralPath $defaultsFile -Force
+    }
+    if ($errFile -and (Test-Path -LiteralPath $errFile)) {
+        Remove-Item -LiteralPath $errFile -Force
     }
 }
