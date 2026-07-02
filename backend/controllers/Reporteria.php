@@ -1788,9 +1788,88 @@ class Reporteria extends Controller
 
         try {
             // Obtener filtros de GET
-            $filtroDepartamento = $_GET['departamento'] ?? '';
-            $filtroPuesto = $_GET['puesto'] ?? '';
-            $filtroEstatus = $_GET['estatus'] ?? '';
+            $modulosSesion = array_map('intval', (array)($_SESSION['modulos'] ?? []));
+            if (!in_array(94, $modulosSesion, true)) {
+                http_response_code(403);
+                die('No tienes permiso para descargar la plantilla de gestores.');
+            }
+            $tokenPlantilla = (string)($_REQUEST['plantilla_token'] ?? '');
+            $tokensPlantilla = $_SESSION['rrhh_plantilla_gestores_tokens'] ?? [];
+            if (!is_array($tokensPlantilla)) {
+                $tokensPlantilla = [];
+            }
+            foreach ($tokensPlantilla as $token => $expira) {
+                if ((int)$expira < time()) {
+                    unset($tokensPlantilla[$token]);
+                }
+            }
+            $tokenValido = $tokenPlantilla !== ''
+                && isset($tokensPlantilla[$tokenPlantilla])
+                && (int)$tokensPlantilla[$tokenPlantilla] >= time();
+            if (!$tokenValido) {
+                http_response_code(403);
+                die('Confirma la descarga con Google Authenticator antes de generar la plantilla.');
+            }
+            unset($tokensPlantilla[$tokenPlantilla]);
+            $_SESSION['rrhh_plantilla_gestores_tokens'] = $tokensPlantilla;
+
+            $filtroDepartamento = $_REQUEST['departamento'] ?? '';
+            $filtroPuesto = $_REQUEST['puesto'] ?? '';
+            $filtroEstatus = $_REQUEST['estatus'] ?? '';
+            $columnasSolicitadas = $_REQUEST['columnas'] ?? [];
+            if (!is_array($columnasSolicitadas)) {
+                $columnasSolicitadas = [];
+            }
+            $columnasSolicitadas = array_values(array_unique(array_filter(array_map(static function ($valor) {
+                return preg_replace('/[^a-z0-9_]+/i', '', (string)$valor);
+            }, $columnasSolicitadas))));
+
+            $columnasDisponibles = [
+                'numero_empleado' => 'NO. EMPLEADO',
+                'codigo_contpac' => 'CODIGO CONTPAQ',
+                'nombre_completo' => 'NOMBRE COMPLETO',
+                'nombres' => 'NOMBRES',
+                'segundo_nombre' => 'SEGUNDO NOMBRE',
+                'apellidop' => 'APELLIDO PATERNO',
+                'apellidom' => 'APELLIDO MATERNO',
+                'usuario' => 'USUARIO',
+                'correo' => 'CORREO',
+                'telefonos' => 'TELEFONOS',
+                'curp' => 'CURP',
+                'rfc' => 'RFC',
+                'nss' => 'NSS',
+                'fecha_nacimiento' => 'FECHA NACIMIENTO',
+                'sexo' => 'SEXO',
+                'fecha_ingreso' => 'FECHA INGRESO',
+                'fecha_registro' => 'FECHA REGISTRO',
+                'registro_patronal' => 'REGISTRO PATRONAL',
+                'codigo_contpaq_rrhh' => 'CODIGO CONTPAQ RRHH',
+                'fecha_contpaq' => 'FECHA CONTPAQ',
+                'fecha_imss_alta' => 'FECHA IMSS ALTA',
+                'direccion_organizacional' => 'DIRECCION',
+                'area_texto' => 'AREA',
+                'nombre_departamento' => 'DEPARTAMENTO',
+                'nombre_puesto' => 'PUESTO',
+                'nombre_jefe' => 'JEFE INMEDIATO',
+                'ubicacion_laboral' => 'UBICACION LABORAL',
+                'municipio_laboral' => 'MUNICIPIO LABORAL',
+                'domicilio' => 'DOMICILIO',
+                'codigo_postal' => 'CODIGO POSTAL',
+                'nombre_pais' => 'PAIS',
+                'estatus' => 'ESTATUS',
+                'salario_sensible' => 'SALARIO SENSIBLE',
+            ];
+            $columnasSeleccionadas = array_values(array_filter($columnasSolicitadas, static function ($columna) use ($columnasDisponibles) {
+                return array_key_exists($columna, $columnasDisponibles);
+            }));
+            if (empty($columnasSeleccionadas)) {
+                $columnasSeleccionadas = ['numero_empleado', 'nombre_completo', 'nombre_departamento', 'nombre_puesto', 'nombre_jefe', 'estatus'];
+            }
+            $incluyeSalario = in_array('salario_sensible', $columnasSeleccionadas, true);
+            if ($incluyeSalario && !in_array(153, $modulosSesion, true)) {
+                http_response_code(403);
+                die('No tienes permiso especial para exportar salario sensible.');
+            }
 
             // Obtener datos usando el mismo método que getUsuarios
             $tieneDepartamento = in_array(10, $_SESSION['modulos'] ?? []);
@@ -1816,36 +1895,155 @@ class Reporteria extends Controller
                 die("No se encontraron datos con los filtros aplicados.");
             }
 
-            // Columnas usando SOLO los campos disponibles en el modelo actual
-            $columnas = [
-                \PHPSpreadsheet::ColumnaExcel('numero_empleado', 'NO. EMPLEADO'),
-                \PHPSpreadsheet::ColumnaExcel('nombres', 'NOMBRES'),
-                \PHPSpreadsheet::ColumnaExcel('segundo_nombre', 'SEGUNDO NOMBRE'),
-                \PHPSpreadsheet::ColumnaExcel('apellidop', 'APELLIDO PATERNO'),
-                \PHPSpreadsheet::ColumnaExcel('apellidom', 'APELLIDO MATERNO'),
-                \PHPSpreadsheet::ColumnaExcel('usuario', 'USUARIO'),
-                \PHPSpreadsheet::ColumnaExcel('nombre_departamento', 'DEPARTAMENTO'),
-                \PHPSpreadsheet::ColumnaExcel('nombre_puesto', 'PUESTO'),
-                \PHPSpreadsheet::ColumnaExcel('nombre_jefe', 'JEFE INMEDIATO'),
-                \PHPSpreadsheet::ColumnaExcel('estatus', 'ESTATUS'),
-            ];
+            $columnas = [];
+            foreach ($columnasSeleccionadas as $columna) {
+                $columnas[] = \PHPSpreadsheet::ColumnaExcel($columna, $columnasDisponibles[$columna]);
+            }
+
+            $idsPersonas = array_values(array_unique(array_filter(array_map(static function ($gestor) {
+                return (int)($gestor['id'] ?? 0);
+            }, $datosFiltrados))));
+            $extrasPorPersona = [];
+            if (!empty($idsPersonas)) {
+                $db = new \Core\Database();
+                \Models\CapHumRrhh::asegurarTablas($db);
+                $paramsIds = [];
+                $placeholders = [];
+                foreach ($idsPersonas as $idx => $idPersona) {
+                    $key = 'id' . $idx;
+                    $placeholders[] = ':' . $key;
+                    $paramsIds[$key] = $idPersona;
+                }
+                $extras = $db->queryAll("
+                    SELECT
+                        p.id,
+                        COALESCE(p.correo, '') AS correo,
+                        COALESCE(p.telefono_uno, '') AS telefono_uno,
+                        COALESCE(p.telefono_dos, '') AS telefono_dos,
+                        COALESCE(p.domicilio_calle_texto, '') AS domicilio_persona,
+                        COALESCE(p.codigo_postal, '') AS codigo_postal_persona,
+                        COALESCE(p.curp, '') AS curp_persona,
+                        COALESCE(r.rfc, '') AS rfc,
+                        COALESCE(r.nss, '') AS nss,
+                        COALESCE(r.fecha_nacimiento, '') AS fecha_nacimiento,
+                        COALESCE(r.sexo, '') AS sexo,
+                        COALESCE(r.registro_patronal, '') AS registro_patronal,
+                        COALESCE(r.codigo_contpaq, '') AS codigo_contpaq_rrhh,
+                        COALESCE(r.fecha_contpaq, '') AS fecha_contpaq,
+                        COALESCE(r.fecha_imss_alta, '') AS fecha_imss_alta,
+                        COALESCE(r.direccion_organizacional, '') AS direccion_organizacional,
+                        COALESCE(r.area_texto, '') AS area_texto,
+                        COALESCE(r.ubicacion_laboral, '') AS ubicacion_laboral,
+                        COALESCE(r.municipio_laboral, '') AS municipio_laboral,
+                        COALESCE(r.jefe_directo_texto, '') AS jefe_directo_texto,
+                        COALESCE(tel.telefonos, '') AS telefonos_extra,
+                        COALESCE(dom.domicilio, '') AS domicilio_extra,
+                        COALESCE(dom.codigo_postal, '') AS codigo_postal_extra
+                    FROM __SPARTA_SECRET_REDACTED__.persona p
+                    LEFT JOIN __SPARTA_SECRET_REDACTED__.persona_datos_rrhh r ON r.id_persona = p.id
+                    LEFT JOIN (
+                        SELECT id_persona, GROUP_CONCAT(numero ORDER BY id ASC SEPARATOR ', ') AS telefonos
+                        FROM __SPARTA_SECRET_REDACTED__.telefonos_persona
+                        WHERE estatus = 'Activo'
+                        GROUP BY id_persona
+                    ) tel ON tel.id_persona = p.id
+                    LEFT JOIN (
+                        SELECT id_persona,
+                               SUBSTRING_INDEX(GROUP_CONCAT(domicilio_texto ORDER BY id ASC SEPARATOR '||'), '||', 1) AS domicilio,
+                               SUBSTRING_INDEX(GROUP_CONCAT(codigo_postal ORDER BY id ASC SEPARATOR '||'), '||', 1) AS codigo_postal
+                        FROM __SPARTA_SECRET_REDACTED__.domicilio_persona
+                        WHERE estatus = 'Activo'
+                        GROUP BY id_persona
+                    ) dom ON dom.id_persona = p.id
+                    WHERE p.id IN (" . implode(',', $placeholders) . ")
+                ", $paramsIds);
+                foreach ($extras as $extra) {
+                    $extrasPorPersona[(int)($extra['id'] ?? 0)] = $extra;
+                }
+            }
 
             // Preparar datos formateados
             $datosFormateados = [];
             foreach ($datosFiltrados as $gestor) {
-                $datosFormateados[] = [
+                $idPersona = (int)($gestor['id'] ?? 0);
+                $extra = $extrasPorPersona[$idPersona] ?? [];
+                $nombreCompleto = trim(implode(' ', array_filter([
+                    $gestor['nombres'] ?? '',
+                    $gestor['segundo_nombre'] ?? '',
+                    $gestor['apellidop'] ?? '',
+                    $gestor['apellidom'] ?? '',
+                ], static fn($valor) => trim((string)$valor) !== '')));
+                $telefonos = trim((string)($extra['telefonos_extra'] ?? ''));
+                if ($telefonos === '') {
+                    $telefonos = trim(implode(', ', array_filter([
+                        $extra['telefono_uno'] ?? '',
+                        $extra['telefono_dos'] ?? '',
+                    ], static fn($valor) => trim((string)$valor) !== '')));
+                }
+                $domicilio = trim((string)($extra['domicilio_extra'] ?? '')) ?: trim((string)($extra['domicilio_persona'] ?? ''));
+                $codigoPostal = trim((string)($extra['codigo_postal_extra'] ?? '')) ?: trim((string)($extra['codigo_postal_persona'] ?? ''));
+                $salario = '';
+                if ($incluyeSalario && $idPersona > 0) {
+                    $resSalario = \Models\CapHum::getSalarioSensiblePersona($idPersona);
+                    if (!empty($resSalario['success']) && !empty($resSalario['datos']['tiene_salario'])) {
+                        $salario = $resSalario['datos']['salario'] ?? '';
+                    }
+                }
+
+                $filaCompleta = [
                     'numero_empleado' => $gestor['numero_empleado'] ?? '',
+                    'codigo_contpac' => $gestor['codigo_contpac'] ?? '',
+                    'nombre_completo' => $nombreCompleto,
                     'nombres' => $gestor['nombres'] ?? '',
                     'segundo_nombre' => $gestor['segundo_nombre'] ?? '',
                     'apellidop' => $gestor['apellidop'] ?? '',
                     'apellidom' => $gestor['apellidom'] ?? '',
                     'usuario' => $gestor['usuario'] ?? '',
+                    'correo' => $extra['correo'] ?? '',
+                    'telefonos' => $telefonos,
+                    'curp' => $extra['curp_persona'] ?? '',
+                    'rfc' => $extra['rfc'] ?? '',
+                    'nss' => $extra['nss'] ?? '',
+                    'fecha_nacimiento' => $extra['fecha_nacimiento'] ?? '',
+                    'sexo' => $extra['sexo'] ?? '',
+                    'fecha_ingreso' => $gestor['fecha_ingreso'] ?? '',
+                    'fecha_registro' => $gestor['fecha_registro'] ?? '',
+                    'registro_patronal' => $extra['registro_patronal'] ?? '',
+                    'codigo_contpaq_rrhh' => $extra['codigo_contpaq_rrhh'] ?? '',
+                    'fecha_contpaq' => $extra['fecha_contpaq'] ?? '',
+                    'fecha_imss_alta' => $extra['fecha_imss_alta'] ?? '',
+                    'direccion_organizacional' => $extra['direccion_organizacional'] ?? '',
+                    'area_texto' => $extra['area_texto'] ?? '',
                     'nombre_departamento' => $gestor['nombre_departamento'] ?? '',
                     'nombre_puesto' => $gestor['nombre_puesto'] ?? '',
-                    'nombre_jefe' => $gestor['nombre_jefe'] ?? '',
+                    'nombre_jefe' => ($extra['jefe_directo_texto'] ?? '') ?: ($gestor['nombre_jefe'] ?? ''),
+                    'ubicacion_laboral' => $extra['ubicacion_laboral'] ?? '',
+                    'municipio_laboral' => $extra['municipio_laboral'] ?? '',
+                    'domicilio' => $domicilio,
+                    'codigo_postal' => $codigoPostal,
+                    'nombre_pais' => $gestor['nombre_pais'] ?? '',
                     'estatus' => $gestor['estatus'] ?? '',
+                    'salario_sensible' => $salario,
                 ];
+                $filaSeleccionada = [];
+                foreach ($columnasSeleccionadas as $columna) {
+                    $filaSeleccionada[$columna] = $filaCompleta[$columna] ?? '';
+                }
+                $datosFormateados[] = $filaSeleccionada;
             }
+
+            \Models\CapHum::registrarAuditoriaSalarioSensibleRrhh([
+                'id_usuario' => (int)($_SESSION['usuario_id'] ?? 0),
+                'usuario_nombre' => (string)($_SESSION['usuario_nombre'] ?? $_SESSION['nombre_usuario'] ?? $_SESSION['usuario'] ?? ''),
+                'id_persona' => 0,
+                'persona_nombre' => 'Plantilla de gestores',
+                'accion' => 'descargar_plantilla',
+                'resultado' => 'autorizado',
+                'ip' => (string)($_SERVER['REMOTE_ADDR'] ?? ''),
+                'user_agent' => (string)($_SERVER['HTTP_USER_AGENT'] ?? ''),
+                'detalle' => 'Columnas: ' . implode(', ', $columnasSeleccionadas),
+                'fecha_hora' => date('Y-m-d H:i:s'),
+            ]);
 
             // Nombre del archivo con timestamp y filtros aplicados
             $fechaActual = date('Y-m-d_His');

@@ -486,9 +486,13 @@ class CapHum extends Controller
         }
 
         $ambito = strtolower(trim($ambito));
-        $ambitoTexto = $ambito === 'salario'
-            ? 'salario sensible de RR.HH.'
-            : 'documentos sensibles de RR.HH.';
+        if ($ambito === 'salario') {
+            $ambitoTexto = 'salario sensible de RR.HH.';
+        } elseif ($ambito === 'plantilla') {
+            $ambitoTexto = 'descarga de plantilla de gestores RR.HH.';
+        } else {
+            $ambitoTexto = 'documentos sensibles de RR.HH.';
+        }
 
         $mensaje = sprintf(
             'El usuario %s completó el registro de Google Authenticator para acceder a %s.',
@@ -499,7 +503,7 @@ class CapHum extends Controller
         Notificacion::crearParaPersonas($destinatarios, 'rrhh_totp_registro_confirmado', $mensaje, null, [
             'modulo' => 'capital_humano',
             'accion' => 'totp_confirmado',
-            'ambito' => $ambito === 'salario' ? 'salario' : 'documentos',
+            'ambito' => in_array($ambito, ['salario', 'plantilla'], true) ? $ambito : 'documentos',
             'id_usuario' => $idUsuario,
         ]);
     }
@@ -574,6 +578,97 @@ class CapHum extends Controller
         return ['success' => true];
     }
 
+    private function auditarPlantillaGestoresRrhh(string $accion, string $resultado, string $detalle = ''): void
+    {
+        $usuarioNombre = trim((string)($_SESSION['usuario_nombre'] ?? $_SESSION['nombre_usuario'] ?? $_SESSION['usuario'] ?? ''));
+        CapHumDAO::registrarAuditoriaSalarioSensibleRrhh([
+            'id_usuario' => self::usuarioSesionId(),
+            'usuario_nombre' => $usuarioNombre,
+            'id_persona' => 0,
+            'persona_nombre' => 'Plantilla de gestores',
+            'accion' => $accion,
+            'resultado' => $resultado,
+            'ip' => self::obtenerIpCliente(),
+            'user_agent' => (string)($_SERVER['HTTP_USER_AGENT'] ?? ''),
+            'fecha_hora' => self::ahoraMexicoCiudad()->format('Y-m-d H:i:s'),
+            'detalle' => $detalle,
+        ]);
+    }
+
+    private function autorizarPlantillaGestoresRrhh(array $columnas, string $codigoTotp = ''): array
+    {
+        if (!self::tieneModuloWeb(self::MODULO_GESTION_PLANTILLA)) {
+            $this->auditarPlantillaGestoresRrhh('descargar_plantilla', 'denegado', 'Sin permiso de plantilla');
+            return ['success' => false, 'mensaje' => 'No tienes permiso para descargar la plantilla de gestores.'];
+        }
+
+        $incluyeSalario = in_array('salario_sensible', $columnas, true);
+        if ($incluyeSalario && !self::puedeGestionarSalarioSensibleRrhh()) {
+            $this->auditarPlantillaGestoresRrhh('descargar_plantilla', 'denegado', 'Intento de exportar salario sin permiso especial');
+            return ['success' => false, 'mensaje' => 'No tienes permiso especial para exportar salario sensible.'];
+        }
+
+        $idUsuarioSesion = self::usuarioSesionId();
+        if ($idUsuarioSesion <= 0) {
+            return ['success' => false, 'mensaje' => 'Sesion no valida.'];
+        }
+
+        $codigoTotp = preg_replace('/\D+/', '', $codigoTotp);
+
+        $totp = CapHumDAO::getTotpDocumentoSensible($idUsuarioSesion);
+        if (!($totp['success'] ?? false)) {
+            return [
+                'success' => false,
+                'mensaje' => $totp['mensaje'] ?? 'No se pudo consultar el segundo paso.'
+            ];
+        }
+
+        $configTotp = $totp['datos'] ?? null;
+        if (empty($configTotp['secret'])) {
+            $secret = self::generarSecretoTotp();
+            $guardado = CapHumDAO::guardarTotpDocumentoSensible($idUsuarioSesion, $secret, false);
+            if (!($guardado['success'] ?? false)) {
+                return [
+                    'success' => false,
+                    'mensaje' => $guardado['mensaje'] ?? 'No se pudo crear el segundo paso.'
+                ];
+            }
+            $configTotp = ['secret' => $secret, 'confirmado' => 0];
+            $this->auditarPlantillaGestoresRrhh('totp_setup', 'pendiente', 'Google Authenticator generado para plantilla de gestores');
+        }
+
+        $secret = (string)($configTotp['secret'] ?? '');
+        $confirmado = (int)($configTotp['confirmado'] ?? 0) === 1;
+        if ($codigoTotp === '') {
+            return [
+                'success' => true,
+                'datos' => [
+                    'requiere_totp' => true,
+                    'setup' => !$confirmado,
+                    'secret' => !$confirmado ? $secret : null,
+                    'otpauth_url' => !$confirmado ? self::otpauthUrlPlantillaGestores($secret) : null,
+                    'cuenta' => self::cuentaTotpPlantillaGestores(),
+                ],
+            ];
+        }
+
+        if (!self::verificarCodigoTotp($secret, $codigoTotp)) {
+            $this->auditarPlantillaGestoresRrhh('totp', 'denegado', 'Codigo TOTP invalido');
+            return ['success' => false, 'mensaje' => 'El codigo de Google Authenticator no es correcto.'];
+        }
+
+        if (!$confirmado) {
+            $confirmacionTotp = CapHumDAO::confirmarTotpDocumentoSensible($idUsuarioSesion);
+            if (($confirmacionTotp['success'] ?? false)) {
+                $this->notificarRegistroTotpSubdirectorRrhh('plantilla');
+            }
+        }
+
+        $tokenDescarga = self::crearTokenPlantillaGestoresSesion();
+        $this->auditarPlantillaGestoresRrhh('totp', 'autorizado', 'Columnas: ' . implode(', ', $columnas));
+        return ['success' => true, 'datos' => ['download_token' => $tokenDescarga]];
+    }
+
     private function crearTokenDocumentoSensibleSesion(int $idDocumentoCarga, string $accion = 'ver'): string
     {
         if (session_status() !== PHP_SESSION_ACTIVE) {
@@ -631,6 +726,19 @@ class CapHum extends Controller
     private static function marcarTotpSalarioSesion(): void
     {
         $_SESSION['rrhh_salario_sensible_totp_until'] = time() + 300;
+    }
+
+    private static function crearTokenPlantillaGestoresSesion(): string
+    {
+        if (session_status() !== PHP_SESSION_ACTIVE) {
+            session_start();
+        }
+        $token = bin2hex(random_bytes(24));
+        if (empty($_SESSION['rrhh_plantilla_gestores_tokens']) || !is_array($_SESSION['rrhh_plantilla_gestores_tokens'])) {
+            $_SESSION['rrhh_plantilla_gestores_tokens'] = [];
+        }
+        $_SESSION['rrhh_plantilla_gestores_tokens'][$token] = time() + 120;
+        return $token;
     }
 
     private static function generarSecretoTotp(): string
@@ -734,6 +842,24 @@ class CapHum extends Controller
     {
         $issuer = 'MaxiKash RRHH';
         $cuenta = self::cuentaTotpSalarioSensible();
+        return 'otpauth://totp/' . rawurlencode($issuer . ':' . $cuenta)
+            . '?secret=' . rawurlencode($secret)
+            . '&issuer=' . rawurlencode($issuer)
+            . '&digits=6&period=30';
+    }
+
+    private static function cuentaTotpPlantillaGestores(): string
+    {
+        $usuario = strtolower(self::cuentaTotpDocumentosSensibles());
+        $usuario = preg_replace('/[^a-z0-9_\\-]+/', '-', $usuario);
+        $usuario = trim((string)$usuario, '-_');
+        return ($usuario !== '' ? $usuario : 'usuario') . '-plantilla';
+    }
+
+    private static function otpauthUrlPlantillaGestores(string $secret): string
+    {
+        $issuer = 'MaxiKash RRHH';
+        $cuenta = self::cuentaTotpPlantillaGestores();
         return 'otpauth://totp/' . rawurlencode($issuer . ':' . $cuenta)
             . '?secret=' . rawurlencode($secret)
             . '&issuer=' . rawurlencode($issuer)
@@ -4623,6 +4749,7 @@ class CapHum extends Controller
                     if (estadoDocumentoAusencia) estadoDocumentoAusencia.textContent = "";
                     if (archivoDocumentoAusencia) archivoDocumentoAusencia.value = "";
                     limpiarDocumentoAusenciaSeleccionado();
+                    actualizarEstadoDocumentoAusenciaPorRazon();
 
                     // Cargar catálogo y tabla
                     cargarRazones();
@@ -4736,12 +4863,17 @@ class CapHum extends Controller
 
                         const select = document.getElementById('razonAusencia');
                         select.innerHTML = '<option value="">-- Selecciona --</option>';
+                        if (!select.dataset.ausenciaChangeBound) {
+                            select.dataset.ausenciaChangeBound = '1';
+                            select.addEventListener('change', actualizarEstadoDocumentoAusenciaPorRazon);
+                        }
 
                         resp.datos.forEach(r => {
                             select.innerHTML += `
                                 <option value="${r.id}">${r.nombre}</option>
                             `;
                         });
+                        actualizarEstadoDocumentoAusenciaPorRazon();
                     })
                     .catch(err => {
                         console.error("ERROR cargarRazones:", err);
@@ -4764,10 +4896,40 @@ class CapHum extends Controller
                 return '';
             }
 
+            function esRazonVacacionesAusencia(razon) {
+                return normalizarTextoAusencia(razon).includes('VACACIONES');
+            }
+
+            function ausenciaSeleccionadaRequiereDocumento() {
+                const razon = razonAusenciaSeleccionadaTexto();
+                return Boolean(razon && !esRazonVacacionesAusencia(razon));
+            }
+
             function razonAusenciaSeleccionadaTexto() {
                 const select = document.getElementById('razonAusencia');
                 if (!select || select.selectedIndex < 0) return '';
                 return select.options[select.selectedIndex].textContent || '';
+            }
+
+            function actualizarEstadoDocumentoAusenciaPorRazon() {
+                const razon = razonAusenciaSeleccionadaTexto();
+                const esVacaciones = esRazonVacacionesAusencia(razon);
+                const btnAdjuntar = document.getElementById('btnAdjuntarDocumentoAusencia');
+                const estado = document.getElementById('estadoDocumentoAusencia');
+
+                if (btnAdjuntar) {
+                    btnAdjuntar.classList.toggle('d-none', esVacaciones);
+                    btnAdjuntar.disabled = esVacaciones;
+                }
+
+                if (esVacaciones) {
+                    limpiarDocumentoAusenciaSeleccionado();
+                    if (estado) {
+                        estado.textContent = 'Vacaciones solo requiere fecha inicio y fecha fin.';
+                    }
+                } else if (estado && !documentoAusenciaSeleccionado) {
+                    estado.textContent = '';
+                }
             }
 
             function preseleccionarDocumentoPersona(tipoDocumento) {
@@ -4837,9 +4999,12 @@ class CapHum extends Controller
                     const doc = documentoParaAusencia(a);
                     const archivo = doc ? String(doc.archivo || '') : '';
                     const archivoAttr = escaparAtributoJsAusencia(archivo);
-                    const documentoHtml = doc
+                    const esVacaciones = esRazonVacacionesAusencia(a.razon || '');
+                    const documentoHtml = esVacaciones
+                        ? '<span class="badge bg-info text-dark">No requiere documento</span>'
+                        : (doc
                         ? `<button type="button" class="btn btn-sm btn-outline-primary" onclick="verDocumentoAusenciaSubido('${archivoAttr}')"><i class="fa fa-eye me-1"></i>Ver documento</button>`
-                        : '<span class="badge bg-warning text-dark">Documento pendiente</span>';
+                        : '<span class="badge bg-warning text-dark">Documento pendiente</span>');
                     return `
                         <tr>
                             <td>${escaparHtmlAusencia(a.razon)}</td>
@@ -4975,6 +5140,10 @@ class CapHum extends Controller
                 const gestor = (document.getElementById('gestor_ausencia')?.textContent || '')
                     .replace(/^Gestor:\s*/i, '')
                     .trim();
+                if (esRazonVacacionesAusencia(razonAusenciaSeleccionadaTexto())) {
+                    Swal.fire('Documento no requerido', 'Las vacaciones solo necesitan fecha inicio y fecha fin.', 'info');
+                    return;
+                }
                 const tipoDocumento = tipoDocumentoDesdeRazonAusencia(razonAusenciaSeleccionadaTexto());
                 if (!tipoDocumento) {
                     Swal.fire('Atencion', 'Selecciona una razon de ausencia para cargar su documento.', 'warning');
@@ -5186,6 +5355,7 @@ class CapHum extends Controller
                     // ðŸ¹ Modo edición
                     document.getElementById("id_ausencia").value = a.id;
                     document.getElementById("razonAusencia").value = a.id_razon;
+                    actualizarEstadoDocumentoAusenciaPorRazon();
 
                     // ðŸ¹ Fechas formato Flatpickr (Y-m-d H:i)
                     var fi = (a.fecha_inicio || '').toString().substring(0, 10);
@@ -5228,6 +5398,7 @@ class CapHum extends Controller
 
                 // Texto del botón
                 document.getElementById("btnGuardarAusencia").innerText = "Guardar ausencia";
+                actualizarEstadoDocumentoAusenciaPorRazon();
 
                 // Texto del gestor (opcional)
                 const gestor = document.getElementById("gestor");
@@ -5254,7 +5425,8 @@ class CapHum extends Controller
                     Swal.fire("Fechas requeridas", "Selecciona fecha inicio y fecha fin.", "warning");
                     return;
                 }
-                if (!idAusencia && !documentoAusenciaSeleccionado) {
+                const requiereDocumento = ausenciaSeleccionadaRequiereDocumento();
+                if (!idAusencia && requiereDocumento && !documentoAusenciaSeleccionado) {
                     Swal.fire("Documento requerido", "Adjunta el PDF de la ausencia antes de registrar.", "warning");
                     return;
                 }
@@ -5275,7 +5447,9 @@ class CapHum extends Controller
                     btnGuardar.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Guardando...';
                 }
                 if (estado) {
-                    estado.textContent = idAusencia ? 'Guardando ausencia...' : 'Subiendo documento y guardando ausencia...';
+                    estado.textContent = documentoAusenciaSeleccionado
+                        ? 'Subiendo documento y guardando ausencia...'
+                        : 'Guardando ausencia...';
                 }
 
                 const subirDocumento = documentoAusenciaSeleccionado
@@ -10416,7 +10590,7 @@ class CapHum extends Controller
                     else if (confianzaNum >= 50) confianzaClase = "text-warning";
                     else confianzaClase = "text-danger";
                 }
-                var btnHeaderRevalidar = "<button type=\"button\" class=\"btn btn-sm btn-outline-primary px-2 py-1 btn-reintentar-verif-expediente doc-v2-retry-btn\" data-reintentar-api=\"1\" title=\"Reevaluar con Motor V2\"><i class=\"fa fa-sync-alt me-1\"></i>Reevaluar</button>";
+                var btnHeaderRevalidar = "<button type=\"button\" class=\"btn btn-sm btn-outline-primary px-2 py-1 btn-reintentar-verif-expediente doc-v2-retry-btn\" data-reintentar-api=\"1\" title=\"Reevaluar expediente\"><i class=\"fa fa-sync-alt me-1\"></i>Reevaluar</button>";
                 if (esVerificacionMotorV2(v)) {
                     var docs = docsV2(v);
                     var comps = compsV2(v);
@@ -10454,7 +10628,7 @@ class CapHum extends Controller
                             htmlPendV2 += "<details class=\"small mb-2\"><summary class=\"fw-semibold text-muted\">Detalle tecnico</summary><div class=\"border rounded p-2 mt-1 bg-light text-break\">" + escHtmlComparaciones(errApiV2) + "</div></details>";
                         }
                         if (!pendienteActivoV2) {
-                            htmlPendV2 += "<div class=\"d-grid gap-2\"><button type=\"button\" class=\"btn btn-primary py-2 btn-reintentar-verif-expediente\" id=\"btnReintentarVerifExpediente\" title=\"Volver a ejecutar Motor V2\"><i class=\"fa fa-sync-alt me-1\"></i>Reevaluar Motor V2</button></div>";
+                            htmlPendV2 += "<div class=\"d-grid gap-2\"><button type=\"button\" class=\"btn btn-primary py-2 btn-reintentar-verif-expediente\" id=\"btnReintentarVerifExpediente\" title=\"Reevaluar expediente\"><i class=\"fa fa-sync-alt me-1\"></i>Reevaluar expediente</button></div>";
                         }
                         htmlPendV2 += "</div></div>";
                         bloqueVerif.innerHTML = htmlPendV2;
@@ -10536,10 +10710,10 @@ class CapHum extends Controller
                     html += "<div class=\"alert alert-warning py-2 px-2 mb-2 small\" role=\"alert\"><strong>Motor V2 pendiente.</strong><br><span class=\"text-muted\">" + escHtmlComparaciones(errApi) + "</span></div>";
                 } else if (respuestaVaciaApi) {
                     candidatosDocConsola("warn", "verificación API - respuesta vacía / sin datos útiles (objeto)", v);
-                    html += "<div class=\"alert alert-warning py-2 px-2 mb-2 small\" role=\"alert\"><strong>No hubo resultado útil de la verificación automática.</strong><br><span class=\"text-muted\">Intente \"Reintentar Motor V2\" más tarde.</span></div>";
+                    html += "<div class=\"alert alert-warning py-2 px-2 mb-2 small\" role=\"alert\"><strong>No hubo resultado util de la verificacion automatica.</strong><br><span class=\"text-muted\">Intente reevaluar el expediente mas tarde.</span></div>";
                 }
                 if (errApi || respuestaVaciaApi) {
-                    html += "<div class=\"d-grid gap-2 mb-2\"><button type=\"button\" class=\"btn btn-primary py-2 btn-reintentar-verif-expediente\" id=\"btnReintentarVerifExpediente\" title=\"Volver a ejecutar Motor V2\"><i class=\"fa fa-sync-alt me-1\"></i>Reevaluar Motor V2</button></div>";
+                    html += "<div class=\"d-grid gap-2 mb-2\"><button type=\"button\" class=\"btn btn-primary py-2 btn-reintentar-verif-expediente\" id=\"btnReintentarVerifExpediente\" title=\"Reevaluar expediente\"><i class=\"fa fa-sync-alt me-1\"></i>Reevaluar expediente</button></div>";
                 }
                 html += "<div class=\"row g-2 mb-2 align-items-center\">";
                 html += "<div class=\"col-6\"><span class=\"text-muted d-block\">Confianza</span><strong class=\"fs-6 " + confianzaClase + "\">" + confianzaTexto + "</strong></div>";
@@ -11854,7 +12028,7 @@ class CapHum extends Controller
             function ejecutarVerificacionExpedienteCandidatoPost(idC, soloIdentificacion, btn) {
                 if (!idC) return;
                 var prevHtml = btn ? btn.innerHTML : "";
-                if (btn) { btn.disabled = true; btn.innerHTML = "<i class=\"fa fa-spinner fa-spin\"></i>"; }
+                if (btn) { btn.disabled = true; btn.innerHTML = "<i class=\"fa fa-spinner fa-spin me-1\"></i>Reevaluando"; }
                 var fd = new FormData();
                 fd.append("id_candidato", String(idC));
                 fd.append("async", "1");
@@ -11867,7 +12041,7 @@ class CapHum extends Controller
                 var t0 = (typeof performance !== "undefined" && performance.now) ? performance.now() : Date.now();
                 candidatosDocConsola("info", "verificarExpedienteCandidato - inicio POST", { id_candidato: idC, url: "/caphum/verificarExpedienteCandidato", timeout_ms: toMs, solo_identificacion: !!soloIdentificacion });
                 registrarTrazaDocModalTecnico("verificarExpedienteCandidato - POST (detalle)", { id_candidato: idC, url: "/caphum/verificarExpedienteCandidato", timeout_ms: toMs, solo_identificacion: !!soloIdentificacion });
-                setDocModalApiTraceUsuario("Motor V2 inició la revisión en segundo plano. La documentación se actualizará automáticamente.", "wait");
+                setDocModalApiTraceUsuario("Reevaluacion iniciada: Motor V2 revisara la identificacion y Motor V1 rescatara datos de PDFs con texto, como CURP. La documentacion se actualizara automaticamente.", "wait");
                 fetch("/caphum/verificarExpedienteCandidato", { method: "POST", body: fd, headers: { "X-Requested-With": "XMLHttpRequest" }, signal: ctrl.signal })
                     .then(function(r) {
                         clearTimeout(tid);
@@ -11892,7 +12066,7 @@ class CapHum extends Controller
                         if (res && res.success) {
                             clearDocModalApiTrace();
                         } else {
-                            setDocModalApiTraceUsuario("No se pudo completar la verificación. Puede intentar \"Reintentar Motor V2\" más tarde.", "warn");
+                            setDocModalApiTraceUsuario("No se pudo completar la verificacion documental. Puede reintentar la reevaluacion mas tarde.", "warn");
                         }
                         cargarDocumentosModal(idC, { forceRefresh: true });
                     })
@@ -11900,7 +12074,7 @@ class CapHum extends Controller
                         clearTimeout(tid);
                         candidatosDocConsola("error", "verificarExpedienteCandidato - error (catch)", { id_candidato: idC, name: err && err.name, message: err && err.message, stack: err && err.stack });
                         registrarTrazaDocModalTecnico("verificarExpedienteCandidato - catch (técnico)", { id_candidato: idC, name: err && err.name, message: err && err.message, stack: err && err.stack, timeout_ms: toMs });
-                        setDocModalApiTraceUsuario((err && err.name === "AbortError") ? "Tiempo de espera agotado. Use \"Reintentar Motor V2\" más tarde." : "Error de conexión o del servidor.", "err");
+                        setDocModalApiTraceUsuario((err && err.name === "AbortError") ? "Tiempo de espera agotado. Puede reintentar la reevaluacion mas tarde." : "Error de conexion o del servidor.", "err");
                         cargarDocumentosModal(idC, { forceRefresh: true });
                     })
                     .finally(function() {
@@ -24111,6 +24285,35 @@ class CapHum extends Controller
         self::respuestaJSON($resultado);
     }
 
+    public function autorizarDescargaPlantillaGestoresRrhh()
+    {
+        header('Content-Type: application/json; charset=utf-8');
+
+        $input = json_decode(file_get_contents('php://input'), true);
+        if (!is_array($input)) {
+            $input = $_POST;
+        }
+
+        $columnas = $input['columnas'] ?? [];
+        if (!is_array($columnas)) {
+            $columnas = [];
+        }
+        $columnas = array_values(array_unique(array_filter(array_map(static function ($valor) {
+            return preg_replace('/[^a-z0-9_]+/i', '', (string)$valor);
+        }, $columnas))));
+
+        if (empty($columnas)) {
+            self::respuestaJSON(['success' => false, 'mensaje' => 'Selecciona al menos una columna para la plantilla.']);
+            return;
+        }
+
+        $autorizacion = $this->autorizarPlantillaGestoresRrhh(
+            $columnas,
+            (string)($input['totp_code'] ?? '')
+        );
+        self::respuestaJSON($autorizacion);
+    }
+
     public function importarSueldosRrhhExcel()
     {
         header('Content-Type: application/json; charset=utf-8');
@@ -25536,7 +25739,7 @@ public function getEstadosMunicipiosMexico()
             $ausencias = $metaOrg['datos']['ausencias'] ?? [];
             foreach ($rows as &$rowOrg) {
                 $rid = isset($rowOrg['id']) && is_numeric($rowOrg['id']) ? (int)$rowOrg['id'] : 0;
-                if ($rid > 0 && isset($ausencias[$rid])) {
+                if ($rid > 0 && isset($ausencias[$rid]) && empty($rowOrg['tipo_estado'])) {
                     $rowOrg['tipo_estado'] = 'ausencia';
                     $rowOrg['estado_label'] = $ausencias[$rid]['razon_nombre'] ?? 'Ausencia';
                 }
@@ -25626,19 +25829,47 @@ public function getEstadosMunicipiosMexico()
     }
     private $idsYaAgregados = [];
 
+    private function nodoOrganigramaEsVisible($nodo): bool
+    {
+        if (!is_array($nodo)) {
+            return false;
+        }
+
+        $estatus = strtoupper(trim((string)($nodo['estatus'] ?? '')));
+        if ($estatus !== 'BAJA') {
+            return true;
+        }
+
+        foreach (($nodo['subordinados'] ?? []) as $subordinado) {
+            if ($this->nodoOrganigramaEsVisible($subordinado)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     private function recorrerArbol($nodo, &$rows, $jefeId = null) {
         $id = (string)($nodo["id"] ?? '');
         if ($id === '') return;
+        if (!$this->nodoOrganigramaEsVisible($nodo)) return;
         /* Evitar duplicados por id (misma persona no debe aparecer dos veces en el organigrama) */
         if (isset($this->idsYaAgregados[$id])) return;
         $this->idsYaAgregados[$id] = true;
 
-        $rows[] = [
+        $estatus = trim((string)($nodo['estatus'] ?? ''));
+        $row = [
             "id"     => $id,
             "nombre" => $nodo["nombre"] ?? '',
             "puesto" => $nodo["nombre_puesto"] ?? '',
+            "estatus" => $estatus,
             "jefe"   => $jefeId
         ];
+        if (strcasecmp($estatus, 'Baja') === 0) {
+            $row['tipo_estado'] = 'baja';
+            $row['estado_label'] = 'Baja';
+        }
+        $rows[] = $row;
 
         if (!empty($nodo["subordinados"])) {
             foreach ($nodo["subordinados"] as $sub) {

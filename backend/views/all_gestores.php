@@ -3252,6 +3252,10 @@
         size: letter landscape;
         margin: 10mm;
       }
+      @page rrhhCredentialPage {
+        size: 54mm 85.6mm;
+        margin: 0;
+      }
       body.print-rrhh-credencial *,
       body.print-rrhh-expediente * {
         visibility: hidden !important;
@@ -3309,6 +3313,7 @@
         padding: 0 !important;
       }
       .rrhh-credential-toolbar,
+      body.print-rrhh-credencial .rrhh-credential-notice,
       #modalCredencialRrhh .text-muted.mb-2,
       .rrhh-expediente-toolbar {
         display: none !important;
@@ -3345,6 +3350,75 @@
       }
       body.print-rrhh-credencial #modalCredencialRrhh .rrhh-id-card:not(.is-horizontal) .rrhh-id-card-inner {
         height: 85.6mm !important;
+      }
+      body.print-rrhh-credencial {
+        width: 54mm !important;
+        min-width: 54mm !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        overflow: visible !important;
+        background: #fff !important;
+      }
+      body.print-rrhh-credencial #modalCredencialRrhh {
+        width: 54mm !important;
+        min-width: 54mm !important;
+        height: auto !important;
+        overflow: visible !important;
+        page: rrhhCredentialPage;
+      }
+      body.print-rrhh-credencial #modalCredencialRrhh .modal-dialog,
+      body.print-rrhh-credencial #modalCredencialRrhh .modal-content,
+      body.print-rrhh-credencial #modalCredencialRrhh .modal-body,
+      body.print-rrhh-credencial #modalCredencialRrhh .rrhh-credential-stage,
+      body.print-rrhh-credencial #modalCredencialRrhh .rrhh-credential-stage .row {
+        width: 54mm !important;
+        max-width: 54mm !important;
+        min-width: 54mm !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        border: 0 !important;
+        border-radius: 0 !important;
+        background: #fff !important;
+        box-shadow: none !important;
+        overflow: visible !important;
+      }
+      body.print-rrhh-credencial #modalCredencialRrhh .rrhh-credential-stage .row {
+        display: block !important;
+        gap: 0 !important;
+      }
+      body.print-rrhh-credencial #modalCredencialRrhh .rrhh-credential-stage .row > [class*="col-"] {
+        display: block !important;
+        width: 54mm !important;
+        max-width: 54mm !important;
+        height: 85.6mm !important;
+        min-height: 85.6mm !important;
+        padding: 0 !important;
+        margin: 0 !important;
+        overflow: hidden !important;
+        page: rrhhCredentialPage;
+        break-after: page;
+        page-break-after: always;
+      }
+      body.print-rrhh-credencial #modalCredencialRrhh .rrhh-credential-stage .row > [class*="col-"]:last-child {
+        break-after: auto;
+        page-break-after: auto;
+      }
+      body.print-rrhh-credencial #modalCredencialRrhh .rrhh-id-card,
+      body.print-rrhh-credencial #modalCredencialRrhh .rrhh-id-card:not(.is-horizontal) {
+        width: 340px !important;
+        min-width: 340px !important;
+        height: 542px !important;
+        min-height: 542px !important;
+        margin: 0 !important;
+        border-radius: 0 !important;
+        transform: scale(.598);
+        transform-origin: top left;
+        break-inside: avoid;
+        page-break-inside: avoid;
+      }
+      body.print-rrhh-credencial #modalCredencialRrhh .rrhh-id-card-inner,
+      body.print-rrhh-credencial #modalCredencialRrhh .rrhh-id-card:not(.is-horizontal) .rrhh-id-card-inner {
+        height: 542px !important;
       }
       #modalExpedienteRrhh .modal-body {
         padding: 0 !important;
@@ -7152,7 +7226,7 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
                         <button class="btn btn-primary"  id="btnGuardarAusencia" onclick="guardarAusencia()">
                             Registrar ausencia
                         </button>
-                        <button class="btn btn-outline-primary" type="button" onclick="abrirCargaDocumentoAusencia()">
+                        <button class="btn btn-outline-primary" type="button" id="btnAdjuntarDocumentoAusencia" onclick="abrirCargaDocumentoAusencia()">
                             <i class="fa fa-paperclip me-1"></i>Adjuntar documento
                         </button>
                         <input
@@ -8338,6 +8412,598 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
       tooltip.style.top = Math.max(padding, top) + 'px';
       tooltip.style.visibility = '';
     });
+  }
+
+  function escapePlantillaGestoresHtml(value) {
+    return String(value ?? '').replace(/[&<>"']/g, function (char) {
+      return ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' })[char] || char;
+    });
+  }
+
+  function cargarLibreriaQrPlantillaGestores() {
+    if (window.QRCode && (typeof window.QRCode.toCanvas === 'function' || typeof window.QRCode.toDataURL === 'function')) {
+      return Promise.resolve();
+    }
+    const cargarScript = src => new Promise((resolve, reject) => {
+      const existente = document.querySelector(`script[data-plantilla-qrcode="${src}"]`);
+      if (existente) {
+        existente.addEventListener('load', resolve, { once: true });
+        existente.addEventListener('error', reject, { once: true });
+        return;
+      }
+      const script = document.createElement('script');
+      script.src = src;
+      script.async = true;
+      script.dataset.plantillaQrcode = src;
+      script.onload = resolve;
+      script.onerror = reject;
+      document.head.appendChild(script);
+    });
+    return cargarScript('/assets/vendor/libs/qrcode/qrcode.js')
+      .catch(() => cargarScript('/public/assets/vendor/libs/qrcode/qrcode.js'));
+  }
+
+  function inyectarEstilosPlantillaGestoresRrhh() {
+    if (document.getElementById('plantilla-gestores-modal-styles')) return;
+    const style = document.createElement('style');
+    style.id = 'plantilla-gestores-modal-styles';
+    style.textContent = `
+      #modalPlantillaGestoresRrhh .modal-content {
+        border: 0;
+        border-radius: 10px;
+        box-shadow: 0 18px 55px rgba(15, 23, 42, .22);
+      }
+      #modalPlantillaGestoresRrhh .modal-dialog {
+        max-width: min(720px, calc(100vw - 1rem));
+      }
+      #modalPlantillaGestoresRrhh .modal-header {
+        border-bottom: 1px solid #e5e7eb;
+        padding: .9rem 1.25rem;
+      }
+      #modalPlantillaGestoresRrhh .modal-body {
+        background: #fff;
+        padding: .9rem 1.25rem;
+      }
+      #modalPlantillaGestoresRrhh .modal-footer {
+        border-top: 1px solid #e5e7eb;
+        background: #fff;
+        padding: .9rem 1.25rem;
+      }
+      #modalPlantillaGestoresRrhh .plantilla-card {
+        background: #fff;
+        border: 1px solid #e5e7eb;
+        border-radius: 11px;
+        overflow: hidden;
+        box-shadow: none;
+      }
+      #modalPlantillaGestoresRrhh .plantilla-resumen {
+        border: 1px solid #e5e7eb;
+        border-radius: 8px;
+        background: #fafafa;
+        color: #475569;
+        padding: .56rem .75rem;
+        font-size: .86rem;
+      }
+      #modalPlantillaGestoresRrhh .plantilla-toolbar {
+        background: #fff;
+        padding: .15rem 0 .55rem;
+      }
+      #modalPlantillaGestoresRrhh .plantilla-grid {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: .95rem;
+        align-items: start;
+      }
+      #modalPlantillaGestoresRrhh .plantilla-columna {
+        display: contents;
+      }
+      #modalPlantillaGestoresRrhh .plantilla-card-header {
+        min-height: 44px;
+        padding: .72rem 1rem .58rem;
+        background: #fff;
+        border-bottom: 0;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: .75rem;
+      }
+      #modalPlantillaGestoresRrhh .plantilla-card-title {
+        display: flex;
+        align-items: center;
+        gap: .55rem;
+        color: #111827;
+        font-weight: 800;
+        font-size: .94rem;
+      }
+      #modalPlantillaGestoresRrhh .plantilla-card-title i {
+        color: #142641;
+        font-size: .9rem;
+        width: 16px;
+        text-align: center;
+      }
+      #modalPlantillaGestoresRrhh .plantilla-grupo-contador {
+        color: #8b8b8b;
+        font-weight: 700;
+        margin-left: .2rem;
+      }
+      #modalPlantillaGestoresRrhh .plantilla-toggle-grupo {
+        border: 0;
+        background: transparent;
+        color: #079669;
+        font-size: .76rem;
+        font-weight: 700;
+        padding: .15rem .25rem;
+        white-space: nowrap;
+      }
+      #modalPlantillaGestoresRrhh .plantilla-card-body {
+        padding: .1rem 1rem 1rem;
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        column-gap: 1.2rem;
+        row-gap: .72rem;
+      }
+      #modalPlantillaGestoresRrhh .plantilla-item {
+        display: grid;
+        grid-template-columns: 18px minmax(0, 1fr);
+        align-items: start;
+        gap: .5rem;
+        min-height: 34px;
+        padding: 0;
+        border: 1px solid transparent;
+        border-radius: 0;
+        background: #fff;
+        margin: 0;
+        transition: background-color .12s ease, border-color .12s ease;
+      }
+      #modalPlantillaGestoresRrhh .plantilla-item:hover {
+        background: transparent;
+        border-color: transparent;
+      }
+      #modalPlantillaGestoresRrhh .plantilla-item:last-child {
+        border-bottom: 0;
+      }
+      #modalPlantillaGestoresRrhh .plantilla-item-icon {
+        display: none;
+      }
+      #modalPlantillaGestoresRrhh .plantilla-item-title {
+        color: #1f2937;
+        font-weight: 800;
+        line-height: 1.08;
+        font-size: .83rem;
+        display: block;
+      }
+      #modalPlantillaGestoresRrhh .plantilla-item-sub {
+        color: #7a7a7a;
+        font-size: .72rem;
+        line-height: 1.08;
+        margin-top: .08rem;
+        display: block;
+      }
+      #modalPlantillaGestoresRrhh .plantilla-columna-check,
+      #modalPlantillaGestoresRrhh #plantilla-marcar-todas {
+        appearance: none;
+        -webkit-appearance: none;
+        width: 16px;
+        height: 16px;
+        border: 2px solid #aeb7c5;
+        border-radius: 4px;
+        background: #fff;
+        display: inline-grid;
+        place-content: center;
+        cursor: pointer;
+        margin: 1px 0 0;
+      }
+      #modalPlantillaGestoresRrhh .plantilla-columna-check:checked,
+      #modalPlantillaGestoresRrhh #plantilla-marcar-todas:checked {
+        background-color: #0d6efd;
+        border-color: #0d6efd;
+        box-shadow: none;
+        background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 16 16' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M3.5 8.2L6.6 11.2L12.8 4.8' stroke='white' stroke-width='2.1' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+        background-repeat: no-repeat;
+        background-position: center;
+        background-size: 13px 13px;
+      }
+      #modalPlantillaGestoresRrhh .plantilla-columna-check:disabled {
+        cursor: not-allowed;
+        opacity: .45;
+      }
+      #modalPlantillaGestoresRrhh .plantilla-item.is-disabled {
+        opacity: .68;
+        background: transparent;
+      }
+      #modalPlantillaGestoresRrhh .plantilla-protegido {
+        display: inline-flex;
+        align-items: center;
+        border-radius: 999px;
+        background: #fff4dc;
+        color: #b7791f;
+        font-weight: 800;
+        font-size: .65rem;
+        padding: .04rem .34rem;
+        margin-left: .25rem;
+        vertical-align: 1px;
+      }
+      #modalPlantillaGestoresRrhh .badge.bg-label-primary {
+        background: #142641 !important;
+        color: #fff !important;
+        border: 1px solid #142641;
+        border-radius: 999px;
+        padding: .48rem .82rem;
+        font-weight: 800;
+      }
+      @media (max-width: 991px) {
+        #modalPlantillaGestoresRrhh .plantilla-card-body {
+          grid-template-columns: 1fr;
+        }
+      }
+    `;
+    document.head.appendChild(style);
+  }
+
+  const columnasPlantillaGestoresRrhh = [
+    { key: 'numero_empleado', label: 'No. empleado', grupo: 'Identidad', icon: 'fa-id-card', desc: 'Numero interno.', checked: true },
+    { key: 'codigo_contpac', label: 'Codigo CONTPAQ', grupo: 'Identidad', icon: 'fa-barcode', desc: 'Codigo operativo.' },
+    { key: 'nombre_completo', label: 'Nombre completo', grupo: 'Identidad', icon: 'fa-user', desc: 'Nombre en una columna.', checked: true },
+    { key: 'nombres', label: 'Nombre(s)', grupo: 'Identidad', icon: 'fa-user', desc: 'Primer nombre.' },
+    { key: 'segundo_nombre', label: 'Segundo nombre', grupo: 'Identidad', icon: 'fa-user-tag', desc: 'Segundo nombre.' },
+    { key: 'apellidop', label: 'Apellido paterno', grupo: 'Identidad', icon: 'fa-user-tag', desc: 'Paterno.' },
+    { key: 'apellidom', label: 'Apellido materno', grupo: 'Identidad', icon: 'fa-user-tag', desc: 'Materno.' },
+    { key: 'usuario', label: 'Usuario', grupo: 'Identidad', icon: 'fa-user-circle', desc: 'Acceso.' },
+    { key: 'correo', label: 'Correo', grupo: 'Contacto', icon: 'fa-envelope', desc: 'Correo principal.' },
+    { key: 'telefonos', label: 'Telefonos', grupo: 'Contacto', icon: 'fa-phone', desc: 'Telefonos activos.' },
+    { key: 'domicilio', label: 'Domicilio', grupo: 'Contacto', icon: 'fa-home', desc: 'Domicilio principal.' },
+    { key: 'codigo_postal', label: 'Codigo postal', grupo: 'Contacto', icon: 'fa-map-marker-alt', desc: 'Codigo postal.' },
+    { key: 'curp', label: 'CURP', grupo: 'Documentos', icon: 'fa-id-card', desc: 'Clave poblacional.' },
+    { key: 'rfc', label: 'RFC', grupo: 'Documentos', icon: 'fa-file-invoice', desc: 'Registro fiscal.' },
+    { key: 'nss', label: 'NSS', grupo: 'Documentos', icon: 'fa-shield-alt', desc: 'Seguro social.' },
+    { key: 'fecha_nacimiento', label: 'Fecha nacimiento', grupo: 'Documentos', icon: 'fa-calendar', desc: 'Nacimiento.' },
+    { key: 'sexo', label: 'Sexo', grupo: 'Documentos', icon: 'fa-venus-mars', desc: 'Sexo registrado.' },
+    { key: 'fecha_ingreso', label: 'Fecha ingreso', grupo: 'Laboral', icon: 'fa-calendar-check', desc: 'Ingreso.' },
+    { key: 'fecha_registro', label: 'Fecha registro', grupo: 'Laboral', icon: 'fa-calendar-plus', desc: 'Alta sistema.' },
+    { key: 'registro_patronal', label: 'Registro patronal', grupo: 'Laboral', icon: 'fa-briefcase', desc: 'Registro asignado.' },
+    { key: 'codigo_contpaq_rrhh', label: 'Codigo CONTPAQ RRHH', grupo: 'Laboral', icon: 'fa-barcode', desc: 'Codigo laboral.' },
+    { key: 'fecha_contpaq', label: 'Fecha CONTPAQ', grupo: 'Laboral', icon: 'fa-calendar-day', desc: 'Fecha CONTPAQ.' },
+    { key: 'fecha_imss_alta', label: 'Fecha IMSS alta', grupo: 'Laboral', icon: 'fa-calendar-check', desc: 'Alta IMSS.' },
+    { key: 'direccion_organizacional', label: 'Direccion', grupo: 'Asignacion', icon: 'fa-sitemap', desc: 'Direccion org.' },
+    { key: 'area_texto', label: 'Area', grupo: 'Asignacion', icon: 'fa-layer-group', desc: 'Area asignada.' },
+    { key: 'nombre_departamento', label: 'Departamento', grupo: 'Asignacion', icon: 'fa-building', desc: 'Departamento.', checked: true },
+    { key: 'nombre_puesto', label: 'Puesto', grupo: 'Asignacion', icon: 'fa-briefcase', desc: 'Puesto actual.', checked: true },
+    { key: 'nombre_jefe', label: 'Jefe inmediato', grupo: 'Asignacion', icon: 'fa-user-tie', desc: 'Jefe directo.', checked: true },
+    { key: 'ubicacion_laboral', label: 'Ubicacion laboral', grupo: 'Asignacion', icon: 'fa-map', desc: 'Ubicacion.' },
+    { key: 'municipio_laboral', label: 'Municipio laboral', grupo: 'Asignacion', icon: 'fa-map-signs', desc: 'Municipio.' },
+    { key: 'nombre_pais', label: 'Pais', grupo: 'Asignacion', icon: 'fa-flag', desc: 'Pais.' },
+    { key: 'estatus', label: 'Estatus', grupo: 'Asignacion', icon: 'fa-check-circle', desc: 'Estatus actual.', checked: true },
+    { key: 'salario_sensible', label: 'Salario sensible', grupo: 'Sensible', icon: 'fa-lock', desc: 'Protegido.', sensible: true }
+  ];
+
+  function renderColumnasPlantillaGestoresRrhh() {
+    const grupos = {};
+    columnasPlantillaGestoresRrhh.forEach(col => {
+      if (!grupos[col.grupo]) grupos[col.grupo] = [];
+      grupos[col.grupo].push(col);
+    });
+    const ordenGrupos = ['Identidad', 'Contacto', 'Documentos', 'Laboral', 'Asignacion', 'Sensible'];
+    const renderGrupo = grupo => !grupos[grupo] ? '' : `
+      <div class="plantilla-card">
+        <div class="plantilla-card-header">
+          <div class="plantilla-card-title">
+            <i class="fa ${grupo === 'Sensible' ? 'fa-lock' : grupo === 'Asignacion' ? 'fa-sitemap' : grupo === 'Laboral' ? 'fa-briefcase' : grupo === 'Contacto' ? 'fa-envelope' : grupo === 'Documentos' ? 'fa-file-alt' : 'fa-user'}"></i>
+            <span>${escapePlantillaGestoresHtml(grupo)} <span class="plantilla-grupo-contador" data-grupo="${escapePlantillaGestoresHtml(grupo)}">(0/${grupos[grupo].filter(col => !(col.sensible && !window.puedeVerSalarioSensibleRrhh)).length})</span></span>
+          </div>
+          <button type="button" class="plantilla-toggle-grupo" data-grupo="${escapePlantillaGestoresHtml(grupo)}">Marcar todo</button>
+        </div>
+        <div class="plantilla-card-body">
+          ${grupos[grupo].map(col => {
+            const disabled = col.sensible && !window.puedeVerSalarioSensibleRrhh;
+            const title = disabled ? 'Requiere permiso especial de salario.' : '';
+            return `
+              <label class="plantilla-item ${disabled ? 'is-disabled' : ''}" title="${escapePlantillaGestoresHtml(title)}">
+                <input type="checkbox" class="plantilla-columna-check" data-grupo="${escapePlantillaGestoresHtml(grupo)}" value="${escapePlantillaGestoresHtml(col.key)}" ${col.checked && !disabled ? 'checked' : ''} ${disabled ? 'disabled' : ''}>
+                <span>
+                  <span class="plantilla-item-title">${escapePlantillaGestoresHtml(col.label)}${col.sensible ? '<span class="plantilla-protegido">Protegido</span>' : ''}</span>
+                  <span class="plantilla-item-sub">${escapePlantillaGestoresHtml(col.desc || 'Columna disponible para la plantilla.')}</span>
+                </span>
+              </label>
+            `;
+          }).join('')}
+        </div>
+      </div>
+    `;
+    return ordenGrupos.map(renderGrupo).join('');
+  }
+
+  async function pedirColumnasPlantillaGestoresRrhh(mensajeFiltros) {
+    return new Promise(resolve => {
+      inyectarEstilosPlantillaGestoresRrhh();
+      const existente = document.getElementById('modalPlantillaGestoresRrhh');
+      if (existente) existente.remove();
+
+      const modal = document.createElement('div');
+      modal.className = 'modal fade';
+      modal.id = 'modalPlantillaGestoresRrhh';
+      modal.tabIndex = -1;
+      modal.setAttribute('aria-hidden', 'true');
+      modal.innerHTML = `
+        <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
+          <div class="modal-content">
+            <div class="modal-header align-items-start">
+              <div class="d-flex align-items-center gap-3">
+                <span style="width:40px;height:40px;border-radius:10px;background:#142641;color:#fff;display:inline-flex;align-items:center;justify-content:center;font-size:1.05rem;border:1px solid #142641;">
+                  <i class="fa fa-file-excel"></i>
+                </span>
+                <div>
+                  <h5 class="modal-title fw-bold mb-0" style="color:#1f2937;">Descargar plantilla de gestores</h5>
+                  <div class="text-muted small">Elige las columnas que tendra el Excel.</div>
+                </div>
+              </div>
+              <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <div class="modal-body">
+              <div class="plantilla-resumen mb-2">
+                ${mensajeFiltros}
+              </div>
+              <div class="plantilla-toolbar d-flex flex-wrap align-items-center justify-content-between gap-2 mb-2">
+                <label class="d-flex align-items-center gap-2 fw-bold mb-0" style="color:#26334d;">
+                  <input type="checkbox" id="plantilla-marcar-todas" class="form-check-input m-0">
+                  Marcar todos
+                </label>
+                <span class="badge bg-label-primary" id="plantilla-columnas-contador">0 columnas</span>
+              </div>
+              <div id="plantilla-columnas-error" class="alert alert-danger py-2 px-3 d-none mb-3">
+                Selecciona al menos una columna.
+              </div>
+              <div class="plantilla-grid">
+                ${renderColumnasPlantillaGestoresRrhh()}
+              </div>
+            </div>
+            <div class="modal-footer d-flex justify-content-between align-items-center">
+              <div class="text-muted small" id="plantilla-columnas-total-pie">0 de 0 columnas seleccionadas</div>
+              <div class="d-flex align-items-center gap-2">
+              <button type="button" class="btn btn-label-secondary px-4" data-bs-dismiss="modal">Cancelar</button>
+              <button type="button" class="btn btn-success px-4" id="btnConfirmarPlantillaGestores">
+                <i class="fa fa-download me-2"></i>Si, descargar
+              </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      `;
+      document.body.appendChild(modal);
+
+      const instancia = window.bootstrap && bootstrap.Modal
+        ? new bootstrap.Modal(modal, { backdrop: 'static', keyboard: true })
+        : null;
+      let resuelto = false;
+      const marcarTodas = modal.querySelector('#plantilla-marcar-todas');
+      const checks = Array.from(modal.querySelectorAll('.plantilla-columna-check:not(:disabled)'));
+      const error = modal.querySelector('#plantilla-columnas-error');
+      const contador = modal.querySelector('#plantilla-columnas-contador');
+      const contadorPie = modal.querySelector('#plantilla-columnas-total-pie');
+      const btnConfirmar = modal.querySelector('#btnConfirmarPlantillaGestores');
+      const togglesGrupo = Array.from(modal.querySelectorAll('.plantilla-toggle-grupo'));
+      const syncMaster = () => {
+        const total = checks.length;
+        const seleccionadas = checks.filter(ch => ch.checked).length;
+        if (marcarTodas) {
+          marcarTodas.checked = total > 0 && seleccionadas === total;
+          marcarTodas.indeterminate = seleccionadas > 0 && seleccionadas < total;
+        }
+        if (contador) contador.textContent = `${seleccionadas} columna${seleccionadas === 1 ? '' : 's'}`;
+        if (contadorPie) contadorPie.textContent = `${seleccionadas} de ${total} columna${total === 1 ? '' : 's'} seleccionada${seleccionadas === 1 ? '' : 's'}`;
+        togglesGrupo.forEach(btn => {
+          const grupo = btn.dataset.grupo || '';
+          const checksGrupo = checks.filter(ch => (ch.dataset.grupo || '') === grupo);
+          const seleccionadasGrupo = checksGrupo.filter(ch => ch.checked).length;
+          const totalGrupo = checksGrupo.length;
+          const contadorGrupo = Array.from(modal.querySelectorAll('.plantilla-grupo-contador')).find(el => (el.dataset.grupo || '') === grupo);
+          if (contadorGrupo) contadorGrupo.textContent = `(${seleccionadasGrupo}/${totalGrupo})`;
+          btn.textContent = totalGrupo > 0 && seleccionadasGrupo === totalGrupo ? 'Desmarcar todo' : 'Marcar todo';
+        });
+        if (error && seleccionadas > 0) error.classList.add('d-none');
+      };
+
+      if (marcarTodas) {
+        marcarTodas.addEventListener('change', () => {
+          checks.forEach(ch => { ch.checked = marcarTodas.checked; });
+          syncMaster();
+        });
+      }
+      checks.forEach(ch => ch.addEventListener('change', syncMaster));
+      togglesGrupo.forEach(btn => {
+        btn.addEventListener('click', () => {
+          const grupo = btn.dataset.grupo || '';
+          const checksGrupo = checks.filter(ch => (ch.dataset.grupo || '') === grupo);
+          const todosMarcados = checksGrupo.length > 0 && checksGrupo.every(ch => ch.checked);
+          checksGrupo.forEach(ch => { ch.checked = !todosMarcados; });
+          syncMaster();
+        });
+      });
+      if (btnConfirmar) {
+        btnConfirmar.addEventListener('click', () => {
+          const seleccionadas = checks.filter(ch => ch.checked).map(ch => ch.value);
+          if (!seleccionadas.length) {
+            if (error) error.classList.remove('d-none');
+            return;
+          }
+          resuelto = true;
+          resolve(seleccionadas);
+          if (instancia) instancia.hide();
+          else modal.remove();
+        });
+      }
+      modal.addEventListener('hidden.bs.modal', () => {
+        modal.remove();
+        if (!resuelto) resolve(null);
+      }, { once: true });
+      syncMaster();
+
+      if (instancia) instancia.show();
+      else {
+        modal.classList.add('show');
+        modal.style.display = 'block';
+      }
+    });
+  }
+
+  async function pedirTotpPlantillaGestoresRrhh(datosTotp) {
+    const setup = !!datosTotp?.setup;
+    const secret = datosTotp?.secret || '';
+    const otpauthUrl = datosTotp?.otpauth_url || '';
+    const cuenta = datosTotp?.cuenta || '';
+    const html = setup
+      ? `<div class="text-start">
+          <p class="mb-2">Escanea este QR en Google Authenticator y captura el codigo generado.</p>
+          <div class="d-flex justify-content-center my-2" id="rrhh-plantilla-totp-qr-wrap"><canvas id="rrhh-plantilla-totp-qr" width="210" height="210"></canvas></div>
+          <div class="small text-muted">Cuenta: ${escapePlantillaGestoresHtml(cuenta)}${secret ? '<br>Clave: <code>' + escapePlantillaGestoresHtml(secret) + '</code>' : ''}</div>
+          <div class="small text-danger d-none mt-2" id="rrhh-plantilla-totp-qr-error">No se pudo pintar el QR. Usa la clave manual.</div>
+        </div>`
+      : '<div class="text-start"><p class="mb-0">Escribe el codigo de 6 digitos de Google Authenticator para descargar la plantilla.</p></div>';
+
+    const result = await Swal.fire({
+      title: 'Segundo paso requerido',
+      html,
+      input: 'text',
+      inputPlaceholder: 'Codigo de 6 digitos',
+      inputAttributes: { maxlength: 6, inputmode: 'numeric', autocomplete: 'one-time-code' },
+      showCancelButton: true,
+      confirmButtonText: 'Verificar',
+      cancelButtonText: 'Cancelar',
+      didOpen: async () => {
+        setTimeout(() => {
+          const input = Swal.getInput ? Swal.getInput() : document.querySelector('.swal2-input');
+          if (input) {
+            input.disabled = false;
+            input.readOnly = false;
+            input.focus();
+            input.select?.();
+          }
+        }, 80);
+        if (setup && otpauthUrl) {
+          try {
+            await cargarLibreriaQrPlantillaGestores();
+            const canvas = document.getElementById('rrhh-plantilla-totp-qr');
+            if (canvas && window.QRCode && typeof window.QRCode.toCanvas === 'function') {
+              canvas.style.pointerEvents = 'none';
+              await window.QRCode.toCanvas(canvas, otpauthUrl, { width: 210, margin: 2, errorCorrectionLevel: 'M' });
+            } else if (window.QRCode && typeof window.QRCode.toDataURL === 'function') {
+              const dataUrl = await window.QRCode.toDataURL(otpauthUrl, { width: 210, margin: 2, errorCorrectionLevel: 'M' });
+              const wrap = document.getElementById('rrhh-plantilla-totp-qr-wrap');
+              if (wrap) {
+                wrap.innerHTML = `<img src="${dataUrl}" width="210" height="210" alt="QR Google Authenticator">`;
+              }
+            } else {
+              throw new Error('QRCode no expone toCanvas ni toDataURL.');
+            }
+          } catch (error) {
+            console.warn('No se pudo pintar QR de plantilla gestores:', error);
+            document.getElementById('rrhh-plantilla-totp-qr-error')?.classList.remove('d-none');
+          }
+        }
+      },
+      preConfirm: value => {
+        const codigo = String(value || '').replace(/\D+/g, '');
+        if (codigo.length !== 6) {
+          Swal.showValidationMessage('Captura los 6 digitos de Google Authenticator.');
+          return false;
+        }
+        return codigo;
+      }
+    });
+    return result.isConfirmed ? result.value : '';
+  }
+
+  async function postPlantillaGestoresRrhh(endpoint, payload, datosTotp = null) {
+    const body = Object.assign({}, payload);
+    if (datosTotp && datosTotp.codigo) body.totp_code = datosTotp.codigo;
+    const response = await fetch(endpoint, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+      body: JSON.stringify(body)
+    });
+    const data = await response.json();
+    if (data.success && data.datos && data.datos.requiere_totp) {
+      const codigo = await pedirTotpPlantillaGestoresRrhh(data.datos);
+      if (!codigo) return null;
+      return postPlantillaGestoresRrhh(endpoint, payload, { codigo });
+    }
+    return data;
+  }
+
+  async function descargarPlantillaGestores() {
+    const direccion = document.getElementById('UserDireccion')?.value || '';
+    const area = document.getElementById('UserArea')?.value || '';
+    const departamento = document.getElementById('UserRole')?.value || '';
+    const puesto = document.getElementById('UserPlan')?.value || '';
+    const estatus = document.getElementById('FilterTransaction')?.value || '';
+    let detallesFiltros = [];
+    if (direccion) detallesFiltros.push(`Direccion: <strong>${escapePlantillaGestoresHtml(direccion)}</strong>`);
+    if (area) detallesFiltros.push(`Area: <strong>${escapePlantillaGestoresHtml(area)}</strong>`);
+    if (departamento) detallesFiltros.push(`Departamento: <strong>${escapePlantillaGestoresHtml(departamento)}</strong>`);
+    if (puesto) detallesFiltros.push(`Puesto: <strong>${escapePlantillaGestoresHtml(puesto)}</strong>`);
+    if (estatus) detallesFiltros.push(`Estatus: <strong>${escapePlantillaGestoresHtml(estatus)}</strong>`);
+    const mensajeFiltros = detallesFiltros.length
+      ? 'Se descargara un archivo Excel filtrado por:<br>' + detallesFiltros.join('<br>')
+      : 'Se descargara un archivo Excel con <strong>TODOS los gestores</strong> del sistema.';
+
+    const columnas = await pedirColumnasPlantillaGestoresRrhh(mensajeFiltros);
+    if (!columnas) return;
+
+    try {
+      const auth = await postPlantillaGestoresRrhh('/CapHum/autorizarDescargaPlantillaGestoresRrhh', { columnas });
+      if (!auth) return;
+      if (!auth.success) {
+        Swal.fire({ icon: 'error', title: 'No se pudo autorizar', text: auth.mensaje || 'Revisa tus permisos.' });
+        return;
+      }
+      const downloadToken = auth.datos && auth.datos.download_token ? String(auth.datos.download_token) : '';
+      if (!downloadToken) {
+        Swal.fire({ icon: 'error', title: 'No se pudo autorizar', text: 'No se genero el token seguro de descarga.' });
+        return;
+      }
+
+      Swal.fire({
+        title: 'Generando archivo Excel...',
+        html: '<p style="margin-top: 1rem;">Por favor espera...</p>',
+        allowOutsideClick: false,
+        showConfirmButton: false,
+        didOpen: () => Swal.showLoading()
+      });
+
+      const form = document.createElement('form');
+      form.method = 'POST';
+      form.action = '/Reporteria/descargarPlantillaGestores';
+      form.style.display = 'none';
+
+      const agregarInput = (name, value) => {
+        const input = document.createElement('input');
+        input.type = 'hidden';
+        input.name = name;
+        input.value = value;
+        form.appendChild(input);
+      };
+      if (departamento) agregarInput('departamento', departamento);
+      if (puesto) agregarInput('puesto', puesto);
+      if (estatus) agregarInput('estatus', estatus);
+      agregarInput('plantilla_token', downloadToken);
+      columnas.forEach(columna => agregarInput('columnas[]', columna));
+
+      document.body.appendChild(form);
+      form.submit();
+
+      setTimeout(() => {
+        Swal.close();
+        Swal.fire({
+          icon: 'success',
+          title: 'Descarga iniciada',
+          text: 'El archivo se esta descargando.',
+          timer: 3000,
+          showConfirmButton: false
+        });
+        form.remove();
+      }, 3000);
+    } catch (error) {
+      Swal.fire({ icon: 'error', title: 'Error', text: 'No se pudo iniciar la descarga.' });
+    }
   }
 
   function ocultarTooltip() {
@@ -11703,7 +12369,7 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
    * FUNCIÃ“N DESCARGAR PLANTILLA GESTORES
    * ==========================================
    */
-  function descargarPlantillaGestores() {
+  function descargarPlantillaGestoresAnterior() {
     // Obtener filtros activos
     const direccion = document.getElementById('UserDireccion')?.value || '';
     const area = document.getElementById('UserArea')?.value || '';

@@ -1,0 +1,2 @@
+﻿candidate_name,dictamen,confianza,elapsed_ms,status_code,selected_doc_count,payload_bytes,alertas_count,comparaciones_count,group_id,error
+ROJAS ROJAS LUIS ANGEL,,,1493943,0,10,9693445,0,0,fs::34. ROJAS ROJAS LUIS ANGEL,"timeout: HTTPConnectionPool(host='127.0.0.1', port=8001): Read timed out. (read timeout=320)"

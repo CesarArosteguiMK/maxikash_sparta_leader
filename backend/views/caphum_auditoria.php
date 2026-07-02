@@ -1,3 +1,6 @@
+<?php
+$puedeResetearTotpDocumentosSensiblesRrhh = in_array(152, array_map('intval', (array) ($_SESSION['modulos'] ?? [])), true);
+?>
 <div class="container-fluid py-4 ch-audit-page">
     <style>
         .ch-audit-page { color:#22303e; }
@@ -155,10 +158,13 @@
                             <th>Usuario</th>
                             <th>Estado</th>
                             <th>Ultimo uso</th>
+                            <?php if ($puedeResetearTotpDocumentosSensiblesRrhh): ?>
+                            <th>Acciones</th>
+                            <?php endif; ?>
                         </tr>
                     </thead>
                     <tbody id="chAuditTotpBody">
-                        <tr><td colspan="3" class="ch-audit-empty">Cargando autenticadores...</td></tr>
+                        <tr><td colspan="<?php echo $puedeResetearTotpDocumentosSensiblesRrhh ? 4 : 3; ?>" class="ch-audit-empty">Cargando autenticadores...</td></tr>
                     </tbody>
                 </table>
             </div>
@@ -259,6 +265,7 @@
         permisoActivo: 'documentos_sensibles',
         filtros: { tipo: 'todos', resultado: 'todos', q: '' },
     };
+    const puedeResetearTotp = <?php echo $puedeResetearTotpDocumentosSensiblesRrhh ? 'true' : 'false'; ?>;
 
     const $ = (selector) => document.querySelector(selector);
     const escapeHtml = (value) => String(value ?? '').replace(/[&<>"']/g, (char) => ({
@@ -303,6 +310,15 @@
         return `<span class="ch-audit-action ${css}"><i class="fa-solid ${icon}"></i>${escapeHtml(label)}</span>`;
     };
     const documentCell = (row) => {
+        const accion = String(row.accion || '').toLowerCase();
+        if (['reset_totp', 'totp', 'totp_setup', 'totp_confirmar', 'totp_estado'].includes(accion)) {
+            return `
+                <td class="ch-audit-document">
+                    <strong>Google Authenticator</strong>
+                    <small><span class="ch-audit-doc-note protected"><i class="fa-solid fa-mobile-screen-button"></i>Segundo paso</span></small>
+                </td>
+            `;
+        }
         if (row.tipo === 'salarios') {
             return `
                 <td class="ch-audit-document">
@@ -369,12 +385,21 @@
     function renderTotp() {
         const tbody = $('#chAuditTotpBody');
         const rows = state.data?.autenticadores || [];
+        const colspan = puedeResetearTotp ? 4 : 3;
         if (!rows.length) {
-            tbody.innerHTML = '<tr><td colspan="3" class="ch-audit-empty">Nadie ha configurado Google Authenticator.</td></tr>';
+            tbody.innerHTML = `<tr><td colspan="${colspan}" class="ch-audit-empty">Nadie ha configurado Google Authenticator.</td></tr>`;
             return;
         }
         tbody.innerHTML = rows.map((row) => {
             const confirmado = Number(row.confirmado || 0) === 1;
+            const idPersona = Number(row.persona_id || row.id_persona || 0);
+            const acciones = puedeResetearTotp
+                ? `<td>
+                    <button type="button" class="btn btn-sm btn-outline-danger fw-bold" data-ch-audit-reset-totp="${idPersona}" data-ch-audit-reset-name="${escapeHtml(row.nombre || '')}" title="Reiniciar Google Authenticator">
+                        <i class="fa-solid fa-rotate-left me-1"></i>Reiniciar
+                    </button>
+                </td>`
+                : '';
             return `
                 <tr>
                     <td class="ch-audit-user">
@@ -383,6 +408,7 @@
                     </td>
                     <td>${badge(confirmado ? 'Confirmado' : 'Pendiente', confirmado ? 'ok' : 'warn')}</td>
                     <td>${textOrDash(row.ultimo_uso_en || row.actualizado_en)}</td>
+                    ${acciones}
                 </tr>
             `;
         }).join('');
@@ -581,12 +607,61 @@
         }
     }
 
+    async function resetTotpDesdeAuditoria(idPersona, nombre) {
+        idPersona = Number(idPersona || 0);
+        if (!idPersona || !puedeResetearTotp) return;
+        const label = String(nombre || '').trim() || `usuario #${idPersona}`;
+        if (typeof Swal !== 'undefined') {
+            const ok = await Swal.fire({
+                icon: 'warning',
+                title: 'Reiniciar Google Authenticator',
+                text: `Se reiniciara el segundo paso de ${label}. El usuario tendra que escanear un nuevo QR en su proximo acceso.`,
+                showCancelButton: true,
+                confirmButtonText: 'Reiniciar',
+                cancelButtonText: 'Cancelar'
+            });
+            if (!ok.isConfirmed) return;
+        } else if (!confirm(`Reiniciar Google Authenticator de ${label}?`)) {
+            return;
+        }
+
+        const body = new URLSearchParams();
+        body.append('id_persona', String(idPersona));
+        try {
+            const response = await fetch('/caphum/resetTotpDocumentoSensiblePersona', {
+                method: 'POST',
+                credentials: 'same-origin',
+                headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+                body
+            });
+            const payload = await response.json();
+            if (!payload.success) {
+                throw new Error(payload.mensaje || 'No se pudo reiniciar Google Authenticator.');
+            }
+            if (typeof Swal !== 'undefined') {
+                await Swal.fire('Autenticador reiniciado', payload.mensaje || 'El segundo paso fue reiniciado correctamente.', 'success');
+            }
+            await loadAudit();
+        } catch (error) {
+            if (typeof Swal !== 'undefined') {
+                Swal.fire('Google Authenticator', error.message || 'No se pudo reiniciar Google Authenticator.', 'error');
+            } else {
+                alert(error.message || 'No se pudo reiniciar Google Authenticator.');
+            }
+        }
+    }
+
     $('#chAuditRefresh')?.addEventListener('click', () => {
         if (document.body.dataset.chAuditMode === 'interna') {
             loadInternalAudit();
         } else {
             loadAudit();
         }
+    });
+    $('#chAuditTotpBody')?.addEventListener('click', (event) => {
+        const btn = event.target.closest('[data-ch-audit-reset-totp]');
+        if (!btn) return;
+        resetTotpDesdeAuditoria(btn.getAttribute('data-ch-audit-reset-totp'), btn.getAttribute('data-ch-audit-reset-name'));
     });
     document.querySelectorAll('[data-audit-mode]').forEach((btn) => {
         btn.addEventListener('click', () => {

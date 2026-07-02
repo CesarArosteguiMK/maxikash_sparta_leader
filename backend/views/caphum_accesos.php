@@ -1,6 +1,3 @@
-<?php
-$puedeResetearTotpDocumentosSensiblesRrhh = in_array(152, array_map('intval', (array) ($_SESSION['modulos'] ?? [])), true);
-?>
 <div class="container-fluid py-4 ch-access-page">
     <style>
         .ch-access-page { color:#22303e; }
@@ -181,17 +178,6 @@ $puedeResetearTotpDocumentosSensiblesRrhh = in_array(152, array_map('intval', (a
                                         </div>
                                     </div>
                                 </div>
-                                <?php if ($puedeResetearTotpDocumentosSensiblesRrhh): ?>
-                                <div class="mt-3 d-flex flex-wrap align-items-center justify-content-between gap-2 border-top pt-3">
-                                    <div>
-                                        <div class="fw-bold text-heading">Google Authenticator</div>
-                                        <small class="text-muted">Reinicia el segundo paso para documentos sensibles de este usuario.</small>
-                                    </div>
-                                    <button type="button" class="btn btn-outline-danger" data-ch-access-reset-totp>
-                                        <i class="fa-solid fa-rotate-left me-1"></i>Reiniciar autenticador
-                                    </button>
-                                </div>
-                                <?php endif; ?>
                             </div>
                         </div>
                         <div class="tab-pane fade" id="chAccessTabModulos" role="tabpanel">
@@ -615,38 +601,6 @@ $puedeResetearTotpDocumentosSensiblesRrhh = in_array(152, array_map('intval', (a
                     this.toast('No se pudieron guardar permisos.', 'error');
                 }
             },
-            async resetTotp() {
-                const id = Number(document.getElementById('chAccessPersonaId')?.value || 0);
-                if (!id) return;
-                if (typeof Swal !== 'undefined') {
-                    const ok = await Swal.fire({
-                        icon: 'warning',
-                        title: 'Reiniciar Google Authenticator',
-                        text: 'El usuario tendra que escanear un nuevo QR la proxima vez que abra un documento sensible.',
-                        showCancelButton: true,
-                        confirmButtonText: 'Reiniciar',
-                        cancelButtonText: 'Cancelar'
-                    });
-                    if (!ok.isConfirmed) return;
-                } else if (!confirm('Reiniciar Google Authenticator de este usuario?')) {
-                    return;
-                }
-
-                const body = new URLSearchParams();
-                body.append('id_persona', String(id));
-                try {
-                    const res = await fetch('/caphum/resetTotpDocumentoSensiblePersona', {
-                        method: 'POST',
-                        credentials: 'same-origin',
-                        headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
-                        body
-                    });
-                    const json = await res.json();
-                    this.toast(json.mensaje || (json.success ? 'Autenticador reiniciado.' : 'No se pudo reiniciar.'), json.success ? 'success' : 'warning');
-                } catch (e) {
-                    this.toast('No se pudo reiniciar Google Authenticator.', 'error');
-                }
-            },
             async abrirAuditoriaSalarios() {
                 this.mostrarModal(document.getElementById('modalChSalaryAudit'));
                 await this.cargarAuditoriaSalarios();
@@ -832,11 +786,6 @@ $puedeResetearTotpDocumentosSensiblesRrhh = in_array(152, array_map('intval', (a
                     const togglePassword = ev.target.closest('[data-ch-access-toggle-password]');
                     if (togglePassword) {
                         this.togglePassword();
-                        return;
-                    }
-                    const resetTotp = ev.target.closest('[data-ch-access-reset-totp]');
-                    if (resetTotp) {
-                        this.resetTotp();
                         return;
                     }
                     const toggleAll = ev.target.closest('[data-ch-access-toggle-all]');
