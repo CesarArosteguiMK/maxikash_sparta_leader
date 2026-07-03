@@ -3569,6 +3569,13 @@ class Sabueso extends Controller
                 return;
             }
             if (!empty($validacionIlocalizable['ilocalizable'])) {
+                TicketDAO::registrarIntentoTicketIlocalizable(
+                    $idCredito,
+                    $idPersona,
+                    $datos,
+                    $validacionIlocalizable['datos'] ?? null,
+                    $validacionIlocalizable['mensaje'] ?? ('El credito ' . $idCredito . ' esta marcado como ilocalizable.')
+                );
                 self::respuestaJSON([
                     'success' => false,
                     'mensaje' => $validacionIlocalizable['mensaje'] ?? ('El credito ' . $idCredito . ' esta marcado como ilocalizable.'),

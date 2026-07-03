@@ -25,18 +25,7 @@ class ReporteCampoService
         $personasJerarquia = $this->cargarPersonasJerarquia($db);
         $jefes = $this->cargarJefes($db);
         $legacy = $this->cargarPuestosLegacy($db);
-
-        $deptMap = [];
-        foreach ($personas as $persona) {
-            $personaId = (int)($persona['persona_id'] ?? 0);
-            $deptId = (int)($persona['dept_id'] ?? 0);
-            if ($personaId > 0 && $deptId > 0) {
-                if (!isset($deptMap[$personaId])) {
-                    $deptMap[$personaId] = [];
-                }
-                $deptMap[$personaId][$deptId] = true;
-            }
-        }
+        $deptMap = $this->cargarDepartamentosCampoPorPersona($db);
 
         $rows = [];
         foreach ($personas as $persona) {
@@ -49,6 +38,7 @@ class ReporteCampoService
                 'external_id' => (string)($persona['numero_empleado'] ?? ''),
                 'nombre_completo' => $this->armarNombre($persona),
                 'estatus' => $this->calcularEstatus($personaId, (string)($persona['estatus'] ?? ''), $ausencias),
+                'fecha_baja' => (string)($persona['fecha_baja'] ?? ''),
                 'es_gestor' => strtolower(trim($puestoLegacy)) === 'gestor' ? 'Si' : 'No',
                 'puesto_legacy' => $puestoLegacy,
                 'puesto_actual' => (string)($persona['puesto_nombre'] ?? ''),
@@ -88,6 +78,7 @@ class ReporteCampoService
                    p.apellidop,
                    p.apellidom,
                    p.estatus,
+                   bp.fecha_baja,
                    puesto_sel.id_puesto,
                    pp.nombre AS puesto_nombre,
                    pp.departamento_id AS dept_id,
@@ -150,9 +141,18 @@ class ReporteCampoService
             ) puesto_sel ON puesto_sel.id_persona = p.id
             INNER JOIN puesto pp ON pp.id = puesto_sel.id_puesto
             INNER JOIN departamento d ON d.id = pp.departamento_id
+            LEFT JOIN (
+                SELECT bp1.id_persona, bp1.fecha_baja
+                FROM baja_persona bp1
+                INNER JOIN (
+                    SELECT id_persona, MAX(id) AS max_id
+                    FROM baja_persona
+                    GROUP BY id_persona
+                ) ult_bp ON ult_bp.id_persona = bp1.id_persona AND ult_bp.max_id = bp1.id
+            ) bp ON bp.id_persona = p.id
             LEFT JOIN equivalencias_legacy_puestos el ON el.id_puesto = pp.id
             LEFT JOIN puestos_legacy pl ON pl.id = el.id_puesto_legacy
-            WHERE p.estatus = 'Activo'
+            WHERE p.estatus IN ('Activo', 'Baja')
               AND UPPER(TRIM(COALESCE(p.user_name, ''))) <> 'REPORTERIA'
               AND (d.nombre LIKE 'Campo 1-7%' OR d.nombre LIKE 'Campo 8-30%' OR d.nombre LIKE 'Campo 30+%')
             "
@@ -195,13 +195,69 @@ class ReporteCampoService
             "
             SELECT id, nombres, segundo_nombre, apellidop, apellidom, estatus
             FROM persona
-            WHERE estatus <> 'Baja'
+            WHERE UPPER(TRIM(COALESCE(user_name, ''))) <> 'REPORTERIA'
             "
         );
 
         $map = [];
         foreach ($rows as $row) {
             $map[(int)$row['id']] = $row;
+        }
+        return $map;
+    }
+
+    /**
+     * Mapa de departamentos de campo por persona para resolver jefes aunque el jefe
+     * este de baja pero conserve subordinados visibles, igual que el organigrama.
+     *
+     * @return array<int, array<int, bool>>
+     */
+    private function cargarDepartamentosCampoPorPersona(Database $db): array
+    {
+        $rows = $db->queryAll(
+            "
+            SELECT activo.id_persona, activo.dept_id
+            FROM (
+                SELECT DISTINCT ap.id_persona, pp.departamento_id AS dept_id
+                FROM asigna_puesto ap
+                INNER JOIN puesto pp ON pp.id = ap.id_puesto
+                INNER JOIN departamento d ON d.id = pp.departamento_id
+                WHERE ap.activo = 1
+                  AND (d.nombre LIKE 'Campo 1-7%' OR d.nombre LIKE 'Campo 8-30%' OR d.nombre LIKE 'Campo 30+%')
+            ) activo
+
+            UNION
+
+            SELECT historico.id_persona, historico.dept_id
+            FROM (
+                SELECT DISTINCT ap.id_persona, pp.departamento_id AS dept_id
+                FROM asigna_puesto ap
+                INNER JOIN puesto pp ON pp.id = ap.id_puesto
+                INNER JOIN departamento d ON d.id = pp.departamento_id
+                WHERE d.nombre LIKE 'Campo 1-7%' OR d.nombre LIKE 'Campo 8-30%' OR d.nombre LIKE 'Campo 30+%'
+            ) historico
+            LEFT JOIN (
+                SELECT DISTINCT ap.id_persona
+                FROM asigna_puesto ap
+                INNER JOIN puesto pp ON pp.id = ap.id_puesto
+                INNER JOIN departamento d ON d.id = pp.departamento_id
+                WHERE ap.activo = 1
+                  AND (d.nombre LIKE 'Campo 1-7%' OR d.nombre LIKE 'Campo 8-30%' OR d.nombre LIKE 'Campo 30+%')
+            ) activo_keys ON activo_keys.id_persona = historico.id_persona
+            WHERE activo_keys.id_persona IS NULL
+            "
+        );
+
+        $map = [];
+        foreach ($rows as $row) {
+            $personaId = (int)($row['id_persona'] ?? 0);
+            $deptId = (int)($row['dept_id'] ?? 0);
+            if ($personaId > 0 && $deptId > 0) {
+                if (!isset($map[$personaId])) {
+                    $map[$personaId] = [];
+                }
+                $map[$personaId][$deptId] = true;
+            }
         }
         return $map;
     }
@@ -216,13 +272,30 @@ class ReporteCampoService
             SELECT aj.id_persona,
                    aj.id_jefe,
                    v.id_jefe AS id_jefe_vacante
-            FROM asigna_jefe aj
-            INNER JOIN (
-                SELECT id_persona, MAX(id) AS max_id
-                FROM asigna_jefe
-                GROUP BY id_persona
-            ) ult ON ult.id_persona = aj.id_persona AND ult.max_id = aj.id
+            FROM (
+                SELECT
+                    a.id_persona,
+                    a.id_jefe,
+                    a.id_vacante_jefe,
+                    ROW_NUMBER() OVER (
+                        PARTITION BY a.id_persona
+                        ORDER BY
+                            CASE
+                                WHEN (a.fecha_inicio IS NULL OR a.fecha_inicio <= CURDATE())
+                                 AND (a.fecha_fin IS NULL OR a.fecha_fin >= CURDATE())
+                                THEN 1 ELSE 0
+                            END DESC,
+                            CASE
+                                WHEN a.fecha_inicio IS NULL OR a.fecha_inicio <= CURDATE()
+                                THEN 1 ELSE 0
+                            END DESC,
+                            COALESCE(a.fecha_inicio, '1000-01-01') DESC,
+                            a.id DESC
+                    ) AS rn
+                FROM asigna_jefe a
+            ) aj
             LEFT JOIN vacantes_personal v ON v.id = aj.id_vacante_jefe
+            WHERE aj.rn = 1
             "
         );
 
@@ -401,6 +474,7 @@ class ReporteCampoService
             'external_id' => 'external_id',
             'nombre_completo' => 'nombre_completo',
             'estatus' => 'estatus',
+            'fecha_baja' => 'fecha_baja',
             'es_gestor' => 'es_gestor',
             'puesto_legacy' => 'puesto_legacy',
             'puesto_actual' => 'puesto_actual',
@@ -424,6 +498,7 @@ class ReporteCampoService
             $sheet->setCellValue(Coordinate::stringFromColumnIndex($col) . '1', $label);
             $col++;
         }
+        $lastCol = Coordinate::stringFromColumnIndex(count($headers));
 
         $rowNum = 2;
         foreach ($rows as $row) {
@@ -432,10 +507,15 @@ class ReporteCampoService
                 $sheet->setCellValue(Coordinate::stringFromColumnIndex($col) . $rowNum, (string)($row[$key] ?? ''));
                 $col++;
             }
+            if (strtolower(trim((string)($row['estatus'] ?? ''))) === 'baja') {
+                $sheet->getStyle("A{$rowNum}:{$lastCol}{$rowNum}")->applyFromArray([
+                    'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => 'FCE4E4']],
+                    'font' => ['color' => ['rgb' => '7F1D1D']],
+                ]);
+            }
             $rowNum++;
         }
 
-        $lastCol = $sheet->getHighestColumn();
         $lastRow = max(1, $rowNum - 1);
         $sheet->getStyle("A1:{$lastCol}1")->applyFromArray([
             'font' => ['bold' => true, 'color' => ['rgb' => 'FFFFFF']],

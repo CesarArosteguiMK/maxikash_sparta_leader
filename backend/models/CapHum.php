@@ -1962,6 +1962,194 @@ class CapHum extends Model
         }
     }
 
+    public static function resolverBajaOrganigrama($idPersona, $modoReasignacion = 'sin_subordinados', $sustitutoId = null)
+    {
+        try {
+            $db = new Database();
+            self::asegurarTablaVacantesPersonal($db);
+            self::asegurarAsignaJefeSoportaVacante($db);
+
+            $idPersona = (int)$idPersona;
+            $modoReasignacion = in_array($modoReasignacion, ['vacante', 'sustituto', 'sin_subordinados'], true)
+                ? $modoReasignacion
+                : 'sin_subordinados';
+            $sustitutoId = !empty($sustitutoId) ? (int)$sustitutoId : null;
+
+            if ($idPersona <= 0) {
+                return self::resultado(false, 'Seleccione la persona en baja.');
+            }
+
+            $persona = $db->queryOne("
+                SELECT id, estatus
+                FROM __SPARTA_SECRET_REDACTED__.persona
+                WHERE id = :id_persona
+                LIMIT 1
+            ", ['id_persona' => $idPersona]);
+
+            if (!$persona) {
+                return self::resultado(false, 'La persona seleccionada no existe.');
+            }
+            if (strcasecmp(trim((string)($persona['estatus'] ?? '')), 'Baja') !== 0) {
+                return self::resultado(false, 'Esta accion solo aplica para personas que ya estan en baja.');
+            }
+
+            $subordinados = $db->queryAll("
+                SELECT aj.id_persona
+                FROM __SPARTA_SECRET_REDACTED__.asigna_jefe aj
+                INNER JOIN __SPARTA_SECRET_REDACTED__.persona p ON p.id = aj.id_persona
+                WHERE aj.id_jefe = :id_persona
+                  AND COALESCE(p.estatus, '') != 'Baja'
+            ", ['id_persona' => $idPersona]);
+
+            if (!empty($subordinados) && $modoReasignacion === 'sin_subordinados') {
+                $modoReasignacion = 'vacante';
+            }
+
+            if (!empty($subordinados) && $modoReasignacion === 'sustituto') {
+                if (!$sustitutoId || $sustitutoId === $idPersona) {
+                    return self::resultado(false, 'Seleccione un jefe destino valido.');
+                }
+
+                $sustituto = $db->queryOne("
+                    SELECT id
+                    FROM __SPARTA_SECRET_REDACTED__.persona
+                    WHERE id = :id_sustituto
+                      AND COALESCE(estatus, '') != 'Baja'
+                    LIMIT 1
+                ", ['id_sustituto' => $sustitutoId]);
+
+                if (!$sustituto) {
+                    return self::resultado(false, 'El jefe destino no esta activo o no existe.');
+                }
+            }
+
+            $vacanteDestinoId = null;
+            $idJefeVacante = null;
+            $puestoVacante = null;
+            if (!empty($subordinados) && $modoReasignacion === 'vacante') {
+                $puestoVacante = $db->queryOne("
+                    SELECT ap.id_puesto, pp.departamento_id
+                    FROM __SPARTA_SECRET_REDACTED__.asigna_puesto ap
+                    INNER JOIN __SPARTA_SECRET_REDACTED__.puesto pp ON pp.id = ap.id_puesto
+                    WHERE ap.id_persona = :id_persona
+                      AND COALESCE(ap.activo, 1) = 1
+                    ORDER BY pp.nivel DESC, ap.id ASC
+                    LIMIT 1
+                ", ['id_persona' => $idPersona]);
+
+                if (empty($puestoVacante['id_puesto']) || empty($puestoVacante['departamento_id'])) {
+                    $puestoVacante = $db->queryOne("
+                        SELECT ap.id_puesto, pp.departamento_id
+                        FROM __SPARTA_SECRET_REDACTED__.asigna_puesto ap
+                        INNER JOIN __SPARTA_SECRET_REDACTED__.puesto pp ON pp.id = ap.id_puesto
+                        WHERE ap.id_persona = :id_persona
+                        ORDER BY COALESCE(ap.activo, 0) DESC, pp.nivel DESC, ap.id DESC
+                        LIMIT 1
+                    ", ['id_persona' => $idPersona]);
+                }
+
+                if (empty($puestoVacante['id_puesto']) || empty($puestoVacante['departamento_id'])) {
+                    return self::resultado(false, 'No se pudo crear la vacante porque la persona no tiene puesto asignado.');
+                }
+
+                $jefeVacante = $db->queryOne("
+                    SELECT id_jefe
+                    FROM __SPARTA_SECRET_REDACTED__.asigna_jefe
+                    WHERE id_persona = :id_persona
+                    ORDER BY id DESC
+                    LIMIT 1
+                ", ['id_persona' => $idPersona]);
+                $idJefeVacante = !empty($jefeVacante['id_jefe']) ? (int)$jefeVacante['id_jefe'] : null;
+
+                $vacanteActiva = $db->queryOne("
+                    SELECT id
+                    FROM __SPARTA_SECRET_REDACTED__.vacantes_personal
+                    WHERE id_puesto = :id_puesto
+                      AND id_departamento = :id_departamento
+                      AND UPPER(TRIM(COALESCE(estatus, ''))) = 'ACTIVA'
+                    ORDER BY id ASC
+                    LIMIT 1
+                ", [
+                    'id_puesto' => (int)$puestoVacante['id_puesto'],
+                    'id_departamento' => (int)$puestoVacante['departamento_id'],
+                ]);
+
+                if (!empty($vacanteActiva['id'])) {
+                    $vacanteDestinoId = (int)$vacanteActiva['id'];
+                }
+            }
+
+            $db->beginTransaction();
+
+            if (!empty($subordinados)) {
+                if ($modoReasignacion === 'sustituto') {
+                    $db->CRUD("
+                        UPDATE __SPARTA_SECRET_REDACTED__.asigna_jefe
+                        SET id_jefe = :id_sustituto,
+                            id_vacante_jefe = NULL
+                        WHERE id_jefe = :id_persona
+                    ", [
+                        'id_sustituto' => $sustitutoId,
+                        'id_persona' => $idPersona,
+                    ]);
+                } else {
+                    if (!$vacanteDestinoId) {
+                        $db->CRUD("
+                            INSERT INTO __SPARTA_SECRET_REDACTED__.vacantes_personal
+                                (id_departamento, id_puesto, id_jefe, id_persona_baja, origen, estatus, creado_por)
+                            VALUES
+                                (:id_departamento, :id_puesto, :id_jefe, :id_persona_baja, 'organigrama_baja', 'Activa', :creado_por)
+                        ", [
+                            'id_departamento' => (int)$puestoVacante['departamento_id'],
+                            'id_puesto' => (int)$puestoVacante['id_puesto'],
+                            'id_jefe' => $idJefeVacante,
+                            'id_persona_baja' => $idPersona,
+                            'creado_por' => (int)($_SESSION['usuario_id'] ?? 0),
+                        ]);
+                        $vacanteDestinoId = (int)$db->lastInsertId();
+                    }
+
+                    $db->CRUD("
+                        UPDATE __SPARTA_SECRET_REDACTED__.asigna_jefe
+                        SET id_jefe = NULL,
+                            id_vacante_jefe = :id_vacante_jefe
+                        WHERE id_jefe = :id_persona
+                    ", [
+                        'id_vacante_jefe' => $vacanteDestinoId,
+                        'id_persona' => $idPersona,
+                    ]);
+                }
+            }
+
+            $db->CRUD("
+                UPDATE __SPARTA_SECRET_REDACTED__.asigna_puesto
+                SET activo = 0
+                WHERE id_persona = :id_persona
+                  AND COALESCE(activo, 1) = 1
+            ", ['id_persona' => $idPersona]);
+
+            $db->CRUD("
+                DELETE FROM __SPARTA_SECRET_REDACTED__.asigna_jefe
+                WHERE id_persona = :id_persona
+            ", ['id_persona' => $idPersona]);
+
+            $db->commit();
+
+            return self::resultado(true, 'Baja resuelta correctamente en el organigrama.', [
+                'id_persona' => $idPersona,
+                'subordinados_movidos' => count($subordinados),
+                'modo_reasignacion' => $modoReasignacion,
+                'id_vacante_jefe' => $vacanteDestinoId,
+                'id_sustituto' => $modoReasignacion === 'sustituto' ? $sustitutoId : null,
+            ]);
+        } catch (\Exception $e) {
+            if (isset($db)) {
+                try { $db->rollback(); } catch (\Exception $rollbackError) {}
+            }
+            return self::resultado(false, 'Error al resolver la baja en organigrama.', null, $e->getMessage());
+        }
+    }
+
     public static function getMetaOrganigrama($idsPersonas, $idDepartamento = 0)
     {
         try {
@@ -8831,9 +9019,12 @@ class CapHum extends Model
             p.id,
             p.id AS numero_empleado,
             p.nombres,
+            p.segundo_nombre,
             p.apellidop,
             p.apellidom,
+            p.codigo_contpac,
             p.numero_empleado AS external_id,
+            pf.foto AS foto_perfil,
             d.nombre AS departamento,
             pu.nombre AS nombre_puesto,
             bp.fecha_baja,
@@ -8848,9 +9039,16 @@ class CapHum extends Model
             FROM __SPARTA_SECRET_REDACTED__.baja_persona
             GROUP BY id_persona
         ) ult ON bp.id_persona = ult.id_persona AND bp.id = ult.id_ultima_baja
-        LEFT JOIN __SPARTA_SECRET_REDACTED__.asigna_puesto ap ON p.id = ap.id_persona
+        LEFT JOIN __SPARTA_SECRET_REDACTED__.asigna_puesto ap ON ap.id = (
+            SELECT ap2.id
+            FROM __SPARTA_SECRET_REDACTED__.asigna_puesto ap2
+            WHERE ap2.id_persona = p.id
+            ORDER BY COALESCE(ap2.fecha_asignacion, '0000-00-00 00:00:00') DESC, ap2.id DESC
+            LIMIT 1
+        )
         LEFT JOIN __SPARTA_SECRET_REDACTED__.puesto pu ON ap.id_puesto = pu.id
         LEFT JOIN __SPARTA_SECRET_REDACTED__.departamento d ON pu.departamento_id = d.id
+        LEFT JOIN __SPARTA_SECRET_REDACTED__.perfil pf ON pf.id_persona = p.id
         WHERE p.estatus = 'Baja'
         {$exB}
         SQL;
@@ -8897,9 +9095,12 @@ class CapHum extends Model
             p.id,
             p.id AS numero_empleado,
             p.nombres,
+            p.segundo_nombre,
             p.apellidop,
             p.apellidom,
+            p.codigo_contpac,
             p.numero_empleado AS external_id,
+            pf.foto AS foto_perfil,
             d.nombre AS departamento,
             pu.nombre AS nombre_puesto,
             bp.fecha_baja,
@@ -8914,9 +9115,16 @@ class CapHum extends Model
             FROM __SPARTA_SECRET_REDACTED__.baja_persona
             GROUP BY id_persona
         ) ult ON bp.id_persona = ult.id_persona AND bp.id = ult.id_ultima_baja
-        LEFT JOIN __SPARTA_SECRET_REDACTED__.asigna_puesto ap ON p.id = ap.id_persona
+        LEFT JOIN __SPARTA_SECRET_REDACTED__.asigna_puesto ap ON ap.id = (
+            SELECT ap2.id
+            FROM __SPARTA_SECRET_REDACTED__.asigna_puesto ap2
+            WHERE ap2.id_persona = p.id
+            ORDER BY COALESCE(ap2.fecha_asignacion, '0000-00-00 00:00:00') DESC, ap2.id DESC
+            LIMIT 1
+        )
         LEFT JOIN __SPARTA_SECRET_REDACTED__.puesto pu ON ap.id_puesto = pu.id
         LEFT JOIN __SPARTA_SECRET_REDACTED__.departamento d ON pu.departamento_id = d.id
+        LEFT JOIN __SPARTA_SECRET_REDACTED__.perfil pf ON pf.id_persona = p.id
         WHERE p.estatus = 'Baja'
         {$exB}
         SQL;

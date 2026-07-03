@@ -115,6 +115,9 @@ class Settings(BaseSettings):
     doc_ai_quick_timeout_seconds: int = 35
     doc_ai_quick_max_pages: int = 3
     doc_ai_quick_dpi: int = 150
+    doc_ai_quick_cache_enabled: bool = True
+    doc_ai_quick_cache_dir: str = ""
+    doc_ai_quick_cache_ttl_seconds: int = 2592000
     doc_ai_crosscheck_mode: str = "rules"
     doc_ai_crosscheck_timeout_seconds: int = 90
     doc_ai_crosscheck_max_pages_per_document: int = 2

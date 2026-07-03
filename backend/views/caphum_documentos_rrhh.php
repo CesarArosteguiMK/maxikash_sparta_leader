@@ -1357,8 +1357,8 @@
             els.body.innerHTML = pagina.map(col => {
                 const pct = Number(col.porcentaje_local || 0);
                 const faltantes = Number(col.total_faltantes || 0);
-                const codigoContpac = escapeHtml(col.codigo_contpac || 'Sin codigo');
-                const externalId = escapeHtml(col.numero_empleado || 'Sin external id');
+                const codigoContpac = escapeHtml(String(col.codigo_contpac || '').trim() || 'Sin id');
+                const externalId = escapeHtml(String(col.numero_empleado || '').trim() || 'Sin id');
                 const badge = faltantes > 0
                     ? `<span class="badge bg-warning text-dark">${faltantes} faltante(s)</span>`
                     : '<span class="badge bg-success">Completo</span>';
@@ -1445,7 +1445,7 @@
         const col = colaboradores.find(item => Number(item.id_persona || 0) === Number(idPersona));
         if (!col) return;
 
-        els.modalSubtitulo.textContent = `No. empleado: ${col.codigo_contpac || 'Sin codigo'} - ${col.nombre_completo || 'Colaborador'}${col.numero_empleado ? ` | External id: ${col.numero_empleado}` : ''}`;
+        els.modalSubtitulo.textContent = `No. empleado: ${String(col.codigo_contpac || '').trim() || 'Sin id'} - ${col.nombre_completo || 'Colaborador'} | External id: ${String(col.numero_empleado || '').trim() || 'Sin id'}`;
         els.modalReq.textContent = Number(col.total_requeridos || 0);
         els.modalCar.textContent = Number(col.total_cargados || 0);
         els.modalFal.textContent = Number(col.total_faltantes || 0);
@@ -1600,7 +1600,7 @@
         const col = colaboradores.find(item => Number(item.id_persona || 0) === Number(idPersona));
         if (els.trayectoriaSubtitulo) {
             els.trayectoriaSubtitulo.textContent = col
-                ? `No. empleado: ${col.codigo_contpac || 'Sin codigo'} - ${col.nombre_completo || 'Colaborador'}${col.numero_empleado ? ` | External id: ${col.numero_empleado}` : ''}`
+                ? `No. empleado: ${String(col.codigo_contpac || '').trim() || 'Sin id'} - ${col.nombre_completo || 'Colaborador'} | External id: ${String(col.numero_empleado || '').trim() || 'Sin id'}`
                 : 'Colaborador';
         }
         if (els.trayectoriaBody) {

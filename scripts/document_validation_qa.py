@@ -85,6 +85,17 @@ SUMMARY_KEY_BY_DOC_TYPE = {
     "__SPARTA_SECRET_REDACTED__": "__SPARTA_SECRET_REDACTED__",
 }
 
+CANDIDATE_DOC_TYPES = set(SUMMARY_KEY_BY_DOC_TYPE)
+OUT_OF_SCOPE_DOC_TYPES = {"contrato_fad", "factura_moto"}
+
+
+def is_candidate_scope_item(item: "PdfItem") -> bool:
+    if item.doc_type in OUT_OF_SCOPE_DOC_TYPES:
+        return False
+    if item.doc_type == "unknown" and "auxiliar" in str(item.classifier_reason or "").lower():
+        return False
+    return True
+
 
 @dataclass
 class PdfItem:
@@ -353,12 +364,18 @@ def quick_config(doc_type: str) -> Tuple[str, str, int, Optional[Dict[str, str]]
     if doc_type == "factura_moto":
         return "factura/datos-moto", "documento", 45, None
     if doc_type == "solicitud_interna":
-        return "validar-paginas-pdf", "documento", 25, {"minimo_paginas": "2", "nombre_documento": "La solicitud interna"}
+        return "verificar-solicitud-interna-documento", "documento", 70, None
     if doc_type == "cv":
         return "validar-paginas-pdf", "documento", 25, {"minimo_paginas": "1", "nombre_documento": "El CV"}
     if doc_type == "hoja_retencion":
         return "validar-paginas-pdf", "documento", 25, {"minimo_paginas": "1", "nombre_documento": "La hoja de retencion"}
     return "validar-paginas-pdf", "documento", 25, {"minimo_paginas": "1", "nombre_documento": "El documento"}
+
+
+def split_candidate_scope(items: List[PdfItem]) -> Tuple[List[PdfItem], List[PdfItem]]:
+    in_scope = [item for item in items if is_candidate_scope_item(item)]
+    out_scope = [item for item in items if not is_candidate_scope_item(item)]
+    return in_scope, out_scope
 
 
 def quick_outcome(doc_type: str, status_code: int, body: Dict[str, Any], error: Optional[str]) -> Tuple[str, str]:
@@ -510,7 +527,8 @@ def compact_response(body: Dict[str, Any]) -> Dict[str, Any]:
         "fecha_documento", "meses_antiguedad", "vigencia_ok", "es_reciente",
         "regimen_sueldos_salarios", "actividad_asalariado", "banco_detectado", "clabe",
         "numero_cuenta", "paginas", "minimo_paginas", "modo", "modo_validacion",
-        "motor_ia", "modelo_ia", "tiempo_ms", "tiempo_proceso_ms", "indicadores",
+        "motor_ia", "modelo_ia", "cache_ia", "documento_mixto", "motor_v2_tipo_detectado",
+        "tiempo_ms", "tiempo_proceso_ms", "indicadores",
         "tipo_identificacion", "alertas", "notas", "encontrado", "empresa",
         "empleado", "ingreso_mensual_neto", "vin", "no_motor", "color",
     ]
@@ -796,10 +814,20 @@ def stats_ms(values: Iterable[Optional[int]]) -> Dict[str, Optional[float]]:
     }
 
 
-def summarize(items: List[PdfItem], skipped: Dict[str, int], quick: List[Dict[str, Any]], cross: List[Dict[str, Any]]) -> Dict[str, Any]:
+def summarize(
+    items: List[PdfItem],
+    skipped: Dict[str, int],
+    quick: List[Dict[str, Any]],
+    cross: List[Dict[str, Any]],
+    out_of_scope: Optional[List[PdfItem]] = None,
+) -> Dict[str, Any]:
+    out_of_scope = out_of_scope or []
     by_type: Dict[str, int] = {}
     for item in items:
         by_type[item.doc_type] = by_type.get(item.doc_type, 0) + 1
+    out_scope_by_type: Dict[str, int] = {}
+    for item in out_of_scope:
+        out_scope_by_type[item.doc_type] = out_scope_by_type.get(item.doc_type, 0) + 1
     quick_by_type: Dict[str, Dict[str, Any]] = {}
     for doc_type in sorted(by_type):
         values = [r["elapsed_ms"] for r in quick if r["item"]["doc_type"] == doc_type]
@@ -815,7 +843,11 @@ def summarize(items: List[PdfItem], skipped: Dict[str, int], quick: List[Dict[st
     duplicate_hashes = len(items) - len({i.sha256 for i in items if i.sha256})
     return {
         "generated_at": datetime.now().isoformat(timespec="seconds"),
+        "scope": "documentos_candidato_10",
+        "total_pdfs_discovered": len(items) + len(out_of_scope),
         "total_pdfs": len(items),
+        "out_of_scope_pdfs": len(out_of_scope),
+        "out_of_scope_by_type": out_scope_by_type,
         "skipped_non_pdf": skipped,
         "pdfs_by_type": by_type,
         "duplicate_pdf_hash_count": duplicate_hashes,
@@ -833,7 +865,15 @@ def summarize(items: List[PdfItem], skipped: Dict[str, int], quick: List[Dict[st
     }
 
 
-def write_outputs(out_dir: Path, items: List[PdfItem], skipped: Dict[str, int], quick: List[Dict[str, Any]], cross: List[Dict[str, Any]], summary: Dict[str, Any]) -> Dict[str, str]:
+def write_outputs(
+    out_dir: Path,
+    items: List[PdfItem],
+    skipped: Dict[str, int],
+    quick: List[Dict[str, Any]],
+    cross: List[Dict[str, Any]],
+    summary: Dict[str, Any],
+    out_of_scope: Optional[List[PdfItem]] = None,
+) -> Dict[str, str]:
     out_dir.mkdir(parents=True, exist_ok=True)
     paths = {
         "json": str(out_dir / "document_validation_qa_results.json"),
@@ -844,6 +884,7 @@ def write_outputs(out_dir: Path, items: List[PdfItem], skipped: Dict[str, int], 
     full = {
         "summary": summary,
         "items": [asdict(i) for i in items],
+        "out_of_scope_items": [asdict(i) for i in (out_of_scope or [])],
         "skipped_non_pdf": skipped,
         "quick_results": quick,
         "cross_results": cross,
@@ -956,7 +997,8 @@ def main(argv: Optional[List[str]] = None) -> int:
     parser.add_argument("--out-dir", default="")
     parser.add_argument("--quick-limit", type=int, default=0)
     parser.add_argument("--cross-limit", type=int, default=0)
-    parser.add_argument("--quick-workers", type=int, default=1)
+    parser.add_argument("--quick-workers", type=int, default=4)
+    parser.add_argument("--include-out-of-scope", action="store_true")
     parser.add_argument("--skip-cross", action="store_true")
     parser.add_argument("--cross-without-files", action="store_true")
     parser.add_argument("--no-text-classify", action="store_true")
@@ -974,9 +1016,18 @@ def main(argv: Optional[List[str]] = None) -> int:
     health = requests.get(f"{args.api_base.rstrip('/')}/health", headers={"X-API-Key": args.api_key}, timeout=10)
     print(f"[inicio] health={health.status_code} {health.text[:120]}", flush=True)
 
-    items, skipped = discover(root)
-    print(f"[inventario] PDFs={len(items)} skipped={skipped}", flush=True)
-    enrich_items(items, classify_with_text=not args.no_text_classify, sample_text_unknown_only=True)
+    discovered_items, skipped = discover(root)
+    print(f"[inventario] PDFs={len(discovered_items)} skipped={skipped}", flush=True)
+    enrich_items(discovered_items, classify_with_text=not args.no_text_classify, sample_text_unknown_only=True)
+    if args.include_out_of_scope:
+        items = discovered_items
+        out_of_scope: List[PdfItem] = []
+    else:
+        items, out_of_scope = split_candidate_scope(discovered_items)
+        out_counts: Dict[str, int] = {}
+        for item in out_of_scope:
+            out_counts[item.doc_type] = out_counts.get(item.doc_type, 0) + 1
+        print(f"[inventario] en_alcance={len(items)} fuera_alcance={len(out_of_scope)} {out_counts}", flush=True)
     quick_checkpoint = out_dir / "quick_results.jsonl"
     cross_checkpoint = out_dir / "cross_results.jsonl"
     quick = run_quick(
@@ -998,8 +1049,8 @@ def main(argv: Optional[List[str]] = None) -> int:
             limit=args.cross_limit or None,
             checkpoint_path=cross_checkpoint,
         )
-    summary = summarize(items, skipped, quick, cross)
-    paths = write_outputs(out_dir, items, skipped, quick, cross, summary)
+    summary = summarize(items, skipped, quick, cross, out_of_scope)
+    paths = write_outputs(out_dir, items, skipped, quick, cross, summary, out_of_scope)
     print("[salida] " + json.dumps(paths, ensure_ascii=False), flush=True)
     print("[resumen] " + json.dumps(summary, ensure_ascii=False), flush=True)
     return 0

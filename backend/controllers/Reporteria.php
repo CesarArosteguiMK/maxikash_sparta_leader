@@ -450,7 +450,12 @@ class Reporteria extends Controller
 
             $data = [];
             foreach ($bajas as $baja) {
-                $nombreCompleto = trim(($baja['nombres'] ?? '') . ' ' . ($baja['apellidop'] ?? '') . ' ' . ($baja['apellidom'] ?? ''));
+                $nombreCompleto = trim(implode(' ', array_filter([
+                    $baja['nombres'] ?? '',
+                    $baja['segundo_nombre'] ?? '',
+                    $baja['apellidop'] ?? '',
+                    $baja['apellidom'] ?? '',
+                ], static fn($valor) => trim((string) $valor) !== '')));
                 $fechaBaja = $baja['fecha_baja'] ?? '';
                 if ($fechaBaja) {
                     try {
