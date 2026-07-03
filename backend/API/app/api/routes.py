@@ -746,6 +746,13 @@ def _v2_choose_curp_principal(values: List[str]) -> Optional[str]:
 
 
 def _v2_pdf_page_count(doc: Dict[str, Any], summary: Any = None) -> Optional[int]:
+    for key in ("paginas_pdf", "paginas", "paginas_analizadas"):
+        try:
+            value = doc.get(key)
+            if value:
+                return int(value)
+        except Exception:
+            pass
     if isinstance(summary, dict):
         for key in ("paginas_pdf", "paginas", "paginas_analizadas"):
             try:
@@ -1063,9 +1070,9 @@ def _resultado_v2_reglas_expediente(
 
         if not summary_is_usable(summary):
             out["estado"] = "requiere_revision"
-            out["mensaje"] = "Lectura automatica pendiente; el documento no se marcara como falla documental hasta completar la revision."
+            out["mensaje"] = "No se pudo obtener lectura automatica de este documento en el ultimo intento."
             docs_out[key] = out
-            alertas.append(f"{label}: lectura automatica pendiente para completar el cruce final.")
+            alertas.append(f"{label}: no se pudo leer automaticamente en el ultimo intento.")
             continue
 
         out["nombre"] = _v2_first_value(previo, ["nombre", "nombre_completo", "nombre_propietario", "nombre_titular", "titular_cuenta"])
@@ -1599,6 +1606,43 @@ def _respuesta_alibaba_solicitud_interna(res: Dict[str, Any]) -> Dict[str, Any]:
         "observaciones": _ai_extraccion(res).get("observaciones") or [],
         "campos_ia": extra,
         **extra,
+        **_ai_metadata(res),
+    }
+
+
+def _respuesta_alibaba_documento_generico(res: Dict[str, Any], expected_doc_type: str) -> Dict[str, Any]:
+    campos = _ai_campos(res)
+    extraccion = _ai_extraccion(res)
+    errores = _ai_errores(res)
+    advertencias = _ai_advertencias(res)
+    es_doc = _ai_es_doc(res, expected_doc_type)
+    valido = bool(es_doc and not errores)
+    return {
+        "valido": valido,
+        "rechazado": bool(errores) or not es_doc,
+        "revision_manual": bool(advertencias) and not errores,
+        "mensaje": _ai_mensaje(res, "Documento verificado." if valido else "No se pudo confirmar el documento."),
+        "tipo_documento_detectado": str(extraccion.get("tipo_documento") or ""),
+        "subtipo": extraccion.get("subtipo"),
+        "nombre": campos.get("nombre_completo") or campos.get("titular_cuenta"),
+        "curp": campos.get("curp"),
+        "rfc": campos.get("rfc"),
+        "nss": campos.get("nss"),
+        "fecha_nacimiento": campos.get("fecha_nacimiento"),
+        "fecha_emision": campos.get("fecha_emision") or campos.get("fecha_expedicion"),
+        "banco_detectado": campos.get("banco"),
+        "nombre_propietario": campos.get("titular_cuenta") or campos.get("nombre_completo"),
+        "clabe": campos.get("clabe"),
+        "numero_cuenta": campos.get("numero_cuenta"),
+        "firma_detectada": campos.get("firma_detectada"),
+        "nombre_y_firma_lleno": campos.get("nombre_y_firma_lleno"),
+        "evidencia_insuficiente": extraccion.get("evidencia_insuficiente"),
+        "paginas": extraccion.get("paginas_pdf") or extraccion.get("paginas_analizadas"),
+        "paginas_pdf": extraccion.get("paginas_pdf") or extraccion.get("paginas_analizadas"),
+        "confianza_lectura": extraccion.get("confianza_lectura"),
+        "calidad_imagen": extraccion.get("calidad_imagen"),
+        "alertas": errores + advertencias,
+        "observaciones": extraccion.get("observaciones") or [],
         **_ai_metadata(res),
     }
 
@@ -3274,6 +3318,60 @@ async def verificar_solicitud_interna_documento(
 
 
 @router.post(
+    "/verificar-documento-rapido-ia",
+    summary="Lectura IA rapida de documento de candidato",
+    description="Endpoint ligero para documentos del expediente que no tienen validador dedicado, como CV o carta FONACOT/INFONAVIT.",
+    tags=["Utilidades"]
+)
+async def verificar_documento_rapido_ia(
+    documento: UploadFile = File(..., description="PDF del documento"),
+    tipo_esperado: str = Form(..., description="Tipo esperado: cv, infonavit_fonacot, carta_no_adeudo, etc."),
+    nombre_candidato: Optional[str] = Form(None, description="Nombre del candidato para ayudar a la lectura"),
+    api_key: str = Depends(verificar_api_key)
+):
+    if not documento.filename or not documento.filename.lower().endswith(".pdf"):
+        raise HTTPException(status_code=400, detail="Se requiere un archivo PDF")
+    file_bytes = await documento.read()
+    if len(file_bytes) == 0:
+        raise HTTPException(status_code=400, detail="Documento vacio")
+
+    expected = str(tipo_esperado or "").strip()
+    if expected not in {
+        "cv",
+        "infonavit_fonacot",
+        "carta_no_adeudo",
+        "solicitud___SPARTA_SECRET_REDACTED__",
+        "solicitud_interna",
+    }:
+        raise HTTPException(status_code=400, detail="tipo_esperado no soportado para lectura rapida")
+
+    inicio = time.time()
+    resultado_alibaba = await _validar_rapido_alibaba_o_none(
+        file_bytes,
+        documento.filename or "documento.pdf",
+        expected,
+        nombre_candidato,
+    )
+    if resultado_alibaba is not None:
+        respuesta = _respuesta_alibaba_documento_generico(resultado_alibaba, expected)
+        respuesta["tiempo_ms"] = int((time.time() - inicio) * 1000)
+        return respuesta
+
+    paginas = _v2_pdf_page_count({"bytes": file_bytes, "filename": documento.filename}) or 0
+    return {
+        "valido": True,
+        "rechazado": False,
+        "revision_manual": True,
+        "mensaje": "Documento recibido; la lectura IA rapida no estuvo disponible. Revisar manualmente.",
+        "tipo_documento_detectado": expected,
+        "paginas": paginas,
+        "paginas_pdf": paginas,
+        "modo_validacion": "lectura_rapida_no_disponible",
+        "tiempo_ms": int((time.time() - inicio) * 1000),
+    }
+
+
+@router.post(
     "/verificar-acta-documento",
     summary="Verificar que el PDF sea un acta de nacimiento",
     description="Sube un PDF de acta de nacimiento certificada. Verifica que contenga nombre y/o fecha de nacimiento propios del acta. Rechaza constancias de NSS u otros documentos.",
@@ -4218,6 +4316,8 @@ async def validar_expediente(
     nombre_candidato_registro: Optional[str] = Form(None, description="Nombre registrado del candidato en Sparta Ledger"),
     lecturas_json: Optional[str] = Form(None, description="Lecturas IA rapidas ya guardadas por documento"),
     lecturas_json_b64: Optional[str] = Form(None, description="Lecturas IA rapidas en base64 para evitar problemas de encoding multipart"),
+    solo_lecturas_guardadas: bool = Form(False, description="Cruzar solo con lecturas rapidas guardadas; no rescatar PDFs durante el dictamen final"),
+    documentos_esperados: Optional[Any] = Form(None, description="Metadatos de documentos esperados en el expediente"),
     tipo_documento_query: Optional[TipoDocumento] = Query(
         None,
         alias="tipo_documento",
@@ -4303,7 +4403,31 @@ async def validar_expediente(
                 "validar-expediente V2 no pudo leer lecturas_json: "
                 f"{parse_errors[-1]}"
             )
-    logger.info(f"validar-expediente V2 lecturas_json_chars={len(lecturas_payload or '')} lecturas_keys={list(lecturas_previas.keys())}")
+    documentos_esperados_map: Dict[str, Dict[str, Any]] = {}
+    if documentos_esperados:
+        esperado_raw = documentos_esperados
+        if isinstance(esperado_raw, str):
+            try:
+                esperado_raw = json.loads(esperado_raw)
+            except Exception:
+                esperado_raw = None
+        if isinstance(esperado_raw, dict):
+            esperado_iter = esperado_raw.values()
+        elif isinstance(esperado_raw, list):
+            esperado_iter = esperado_raw
+        else:
+            esperado_iter = []
+        for item in esperado_iter:
+            if not isinstance(item, dict):
+                continue
+            key = str(item.get("key") or "").strip()
+            if key:
+                documentos_esperados_map[key] = item
+    logger.info(
+        "validar-expediente V2 lecturas_json_chars="
+        f"{len(lecturas_payload or '')} lecturas_keys={list(lecturas_previas.keys())} "
+        f"solo_lecturas={bool(solo_lecturas_guardadas)} esperados={list(documentos_esperados_map.keys())}"
+    )
 
     if _doc_ai_alibaba_activo():
         ai = _crear_alibaba_ai_crosscheck()
@@ -4325,30 +4449,46 @@ async def validar_expediente(
             ]
             for doc in docs_v2:
                 key = str(doc.get("key") or "")
+                esperado = documentos_esperados_map.get(key)
+                if isinstance(esperado, dict):
+                    archivo_esperado = esperado.get("archivo") or esperado.get("filename")
+                    if archivo_esperado:
+                        doc["filename"] = str(archivo_esperado)
+                    paginas_esperadas = esperado.get("paginas_pdf") or esperado.get("paginas")
+                    if paginas_esperadas:
+                        doc["paginas_pdf"] = paginas_esperadas
                 summary = lecturas_previas.get(key)
                 if isinstance(summary, dict):
                     doc["summary"] = summary
                     archivo = summary.get("archivo") or summary.get("filename")
                     if archivo:
                         doc["filename"] = str(archivo)
-            docs_v2 = [
-                doc for doc in docs_v2
-                if doc.get("bytes") or summary_is_usable(doc.get("summary"))
-            ]
+            if solo_lecturas_guardadas:
+                expected_keys = set(documentos_esperados_map.keys()) or {str(doc.get("key") or "") for doc in docs_v2}
+                docs_v2 = [
+                    doc for doc in docs_v2
+                    if str(doc.get("key") or "") in expected_keys or summary_is_usable(doc.get("summary"))
+                ]
+            else:
+                docs_v2 = [
+                    doc for doc in docs_v2
+                    if doc.get("bytes") or summary_is_usable(doc.get("summary"))
+                ]
 
             pdf_text_prefill_count = 0
-            for doc in docs_v2:
-                key_doc = str(doc.get("key") or "")
-                if key_doc not in {"solicitud_interna", "curp", "identificacion_oficial", "nss", "constancia_fiscal", "acta_nacimiento"}:
-                    continue
-                if not doc.get("bytes"):
-                    continue
-                if summary_is_usable(doc.get("summary")) and not _v2_summary_needs_pdf_text_rescue(doc):
-                    continue
-                summary_v1 = _v2_structured_summary_from_pdf(doc)
-                if summary_v1:
-                    doc["summary"] = summary_v1
-                    pdf_text_prefill_count += 1
+            if not solo_lecturas_guardadas:
+                for doc in docs_v2:
+                    key_doc = str(doc.get("key") or "")
+                    if key_doc not in {"solicitud_interna", "curp", "identificacion_oficial", "nss", "constancia_fiscal", "acta_nacimiento"}:
+                        continue
+                    if not doc.get("bytes"):
+                        continue
+                    if summary_is_usable(doc.get("summary")) and not _v2_summary_needs_pdf_text_rescue(doc):
+                        continue
+                    summary_v1 = _v2_structured_summary_from_pdf(doc)
+                    if summary_v1:
+                        doc["summary"] = summary_v1
+                        pdf_text_prefill_count += 1
 
             logger.info(
                 "validar-expediente V2 docs="
@@ -4374,7 +4514,7 @@ async def validar_expediente(
             # PHP en expedientes pesados. Solo rescatamos documentos sin lectura
             # util, normalmente expedientes viejos o migrados.
             force_quick_refresh = set()
-            docs_needing_quick = [
+            docs_needing_quick = [] if solo_lecturas_guardadas else [
                 doc for doc in docs_v2
                 if (
                     str(doc.get("key") or "") in force_quick_refresh
@@ -4696,6 +4836,8 @@ async def validar_expediente_json(
         nombre_candidato_registro=payload.get("nombre_candidato_registro"),
         lecturas_json=None,
         lecturas_json_b64=payload.get("lecturas_json_b64"),
+        solo_lecturas_guardadas=bool(payload.get("solo_lecturas_guardadas")),
+        documentos_esperados=payload.get("documentos_esperados"),
         tipo_documento_query=tipo_doc,
         tipo_documento_form=None,
         api_key=api_key,
