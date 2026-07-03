@@ -42,6 +42,8 @@ class Reporteria extends Controller
     /** Usuario que puede ejecutar copia + purga histórico primeros pagos desde la UI (solo este id). */
     private const USUARIO_PIPELINE_HISTO_PRIMEROS_DESDE_SEGUNDOMETRO = 878;
     private const PP_DESTINATARIOS_FILE = RAIZ . '/storage/config/primeros_pagos_destinatarios.json';
+    private const MODULO_REPORTE_CAMPO_SIN_BAJAS = 189;
+    private const MODULO_REPORTE_CAMPO_CON_BAJAS = 190;
 
     /** @return list<int> */
     private function modulosSesionInt(): array
@@ -237,20 +239,36 @@ class Reporteria extends Controller
 
     public function reporteCampo()
     {
+        $modulos = $this->modulosSesionInt();
         self::set("titulo", "Reporte de Campo");
+        self::set("puede_reporte_campo_sin_bajas", in_array(self::MODULO_REPORTE_CAMPO_SIN_BAJAS, $modulos, true));
+        self::set("puede_reporte_campo_con_bajas", in_array(self::MODULO_REPORTE_CAMPO_CON_BAJAS, $modulos, true));
         self::render("reporte_campo");
     }
 
-    public function descargarReporteCampoExcel()
+    public function descargarReporteCampoExcel($tipo = null)
     {
         while (ob_get_level()) {
             ob_end_clean();
         }
 
         try {
-            $reporte = (new ReporteCampoService())->generarExcel();
+            $tipo = strtolower(trim((string)($tipo ?? 'con-bajas')));
+            $incluirBajas = $tipo !== 'sin-bajas';
+            $permisoRequerido = $incluirBajas
+                ? self::MODULO_REPORTE_CAMPO_CON_BAJAS
+                : self::MODULO_REPORTE_CAMPO_SIN_BAJAS;
+
+            if (!in_array($permisoRequerido, $this->modulosSesionInt(), true)) {
+                http_response_code(403);
+                echo 'No tienes permiso para descargar este reporte.';
+                exit;
+            }
+
+            $reporte = (new ReporteCampoService())->generarExcel($incluirBajas);
             $spreadsheet = $reporte['spreadsheet'];
-            $filename = 'reporte_campo_' . date('Ymd_His') . '.xlsx';
+            $sufijo = $incluirBajas ? 'con_bajas' : 'sin_bajas';
+            $filename = 'organigrama_cobranza_campo_' . $sufijo . '_' . date('Ymd_His') . '.xlsx';
 
             header('Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
             header('Content-Disposition: attachment; filename="' . $filename . '"');
