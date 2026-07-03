@@ -127,6 +127,9 @@ function getMenu(): string
             '/motosadjudicadas/almacenvirtual' => [
                 '/motosadjudicadas/almacenvirtual',
                 '/motosadjudicadas/inventario',
+                '/motosadjudicadas/evidenciascodigo',
+                '/motosadjudicadas/recepcionalmacen',
+                '/motosadjudicadas/revisionmecanica',
             ],
         ];
         foreach ($sameSection as $canonical => $paths) {
