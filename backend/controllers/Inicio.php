@@ -1760,6 +1760,13 @@ class Inicio extends Controller
         if ($bat === '' || !is_file($bat)) {
             return false;
         }
+        $port = (int)($srv['port'] ?? 0);
+        if ($port > 0) {
+            $actual = $this->serviciosLocalesEstadoActual($srv, 800);
+            if (!empty($actual['listening'])) {
+                return true;
+            }
+        }
         $env = is_array($srv['env'] ?? null) ? $srv['env'] : [];
         if ($env) {
             $runCmdPath = rtrim(sys_get_temp_dir(), DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR
