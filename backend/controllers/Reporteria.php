@@ -1527,15 +1527,24 @@ class Reporteria extends Controller
         self::set('titulo', 'Avance Bucket');
         $payload = null;
         $error = null;
+        $vista = isset($_GET['vista']) ? (string) $_GET['vista'] : '';
+        $mostrarAvance = in_array($vista, ['avance', 'historico'], true);
 
-        try {
-            $corte = isset($_GET['corte']) ? (string) $_GET['corte'] : null;
-            $payload = AvanceBucket::calcular($corte);
-        } catch (\InvalidArgumentException $e) {
-            $error = $e->getMessage();
-        } catch (\Throwable $e) {
-            error_log('Reporteria::avanceBucket -> ' . $e->getMessage());
-            $error = 'No se pudieron cargar los datos de Avance Bucket.';
+        if ($mostrarAvance) {
+            try {
+                $corte = isset($_GET['corte']) ? (string) $_GET['corte'] : null;
+                if ($vista === 'historico') {
+                    $semana = isset($_GET['semana']) ? (string) $_GET['semana'] : null;
+                    $payload = AvanceBucket::calcularHistorico($semana, $corte);
+                } else {
+                    $payload = AvanceBucket::calcular($corte);
+                }
+            } catch (\InvalidArgumentException $e) {
+                $error = $e->getMessage();
+            } catch (\Throwable $e) {
+                error_log('Reporteria::avanceBucket -> ' . $e->getMessage());
+                $error = 'No se pudieron cargar los datos de Avance Bucket.';
+            }
         }
 
         $initialJson = json_encode($payload, JSON_UNESCAPED_UNICODE);
@@ -1562,6 +1571,22 @@ class Reporteria extends Controller
             error_log('Reporteria::getAvanceBucketJson -> ' . $e->getMessage());
             http_response_code(500);
             self::respuestaJSON(['success' => false, 'mensaje' => 'Error al consultar la base de datos.']);
+        }
+    }
+
+    public function getAvanceBucketHistoricoJson()
+    {
+        try {
+            $semana = isset($_GET['semana']) ? (string) $_GET['semana'] : null;
+            $corte = isset($_GET['corte']) ? (string) $_GET['corte'] : null;
+            self::respuestaJSON(AvanceBucket::calcularHistorico($semana, $corte));
+        } catch (\InvalidArgumentException $e) {
+            http_response_code(400);
+            self::respuestaJSON(['success' => false, 'mensaje' => $e->getMessage()]);
+        } catch (\Throwable $e) {
+            error_log('Reporteria::getAvanceBucketHistoricoJson -> ' . $e->getMessage());
+            http_response_code(500);
+            self::respuestaJSON(['success' => false, 'mensaje' => 'Error al consultar la base de datos historica.']);
         }
     }
 

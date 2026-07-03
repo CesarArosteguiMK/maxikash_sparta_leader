@@ -3,9 +3,91 @@
 /** @var ?string $avance_bucket_error */
 /** @var string $avance_bucket_initial_json */
 $avanceError = isset($avance_bucket_error) ? (string) $avance_bucket_error : '';
+$nombreUsuario = isset($_SESSION['usuario_nombre'])
+    ? htmlspecialchars(strtoupper((string) $_SESSION['usuario_nombre']), ENT_QUOTES, 'UTF-8')
+    : 'USUARIO';
+$mostrarAvanceBucket = isset($_GET['vista']) && (string) $_GET['vista'] === 'avance';
 ?>
-<div class="avance-bucket container-fluid py-3 px-2 px-md-3">
-    <div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-3">
+<div class="avance-bucket <?= $mostrarAvanceBucket ? 'container-fluid py-3 px-2 px-md-3' : 'ab-landing-root'; ?>">
+    <?php if (!$mostrarAvanceBucket): ?>
+    <section class="ab-landing-card mb-4">
+        <div class="card">
+            <div class="card">
+                <div class="card">
+                    <div class="row g-0 align-items-center overflow-visible ab-hero-row ab-hero-row--con-mascota ab-hero-block">
+                        <div class="col-12 col-md-8 ab-hero-text">
+                            <div class="card-body">
+                                <h5 class="card-title text-primary mb-3">
+                                    HOLA, <?= $nombreUsuario; ?>
+                                    <i class="fa-solid fa-chart-simple ms-2 text-primary" aria-hidden="true"></i>
+                                </h5>
+                                <p class="mb-6 mb-md-0">
+                                    Aqui consultas el <strong>Avance Bucket</strong>: una matriz que cruza el
+                                    <strong>Bucket de inicio</strong> contra el <strong>cierre ajustado</strong> para identificar
+                                    cuantos creditos avanzan, se mantienen o retroceden por corte. Usa el selector para elegir
+                                    el horario y revisar la lectura operativa del dia.
+                                </p>
+                            </div>
+                        </div>
+
+                        <div class="col-12 col-md-4 d-flex flex-column justify-content-end align-items-center align-items-md-end ab-hero-mascot-col">
+                            <img src="/assets/img/illustrations/comparativas-mascota.png"
+                                 class="ab-hero-mascot-floating img-fluid"
+                                 width="400"
+                                 height="400"
+                                 alt="Analitica Maxikash">
+                        </div>
+
+                        <div class="row gy-6 mb-6 gx-0 justify-content-start">
+                            <div class="col-12 col-lg-4">
+                                <div class="card shadow-none bg-label-primary h-100">
+                                    <div class="card-body d-flex justify-content-between flex-wrap-reverse">
+                                        <div class="mb-0 w-100 app-academy-sm-60 d-flex flex-column justify-content-between text-center text-sm-start">
+                                            <div class="card-title">
+                                                <h5 class="text-primary mb-2">Avance Bucket</h5>
+                                                <p class="text-body w-sm-80 app-academy-xl-100">Entra al tablero de avance por bucket con resumen, matriz de creditos y matriz porcentual por corte.</p>
+                                            </div>
+                                            <div class="mb-0 mt-3">
+                                                <a href="/analitica/avanceBucket?vista=avance" class="btn btn-primary w-100">
+                                                    <i class="fa-solid fa-table-cells-large me-1" aria-hidden="true"></i>Ver tablero de avance
+                                                </a>
+                                            </div>
+                                        </div>
+                                        <div class="w-100 app-academy-sm-40 d-flex justify-content-center justify-content-sm-end h-px-150 mb-4 mb-sm-0 ab-option-icon ab-option-icon-dark">
+                                            <i class="fa-solid fa-layer-group" aria-hidden="true"></i>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-12 col-lg-4">
+                                <div class="card shadow-none bg-label-info h-100">
+                                    <div class="card-body d-flex justify-content-between flex-wrap-reverse">
+                                        <div class="mb-0 w-100 app-academy-sm-60 d-flex flex-column justify-content-between text-center text-sm-start">
+                                            <div class="card-title">
+                                                <h5 class="text-info mb-2">Comparativo Semana Actual vs Semana Pasada</h5>
+                                                <p class="text-body w-sm-80 app-academy-xl-100">Revisa creditos y saldo capital por bucket con corte dinamico, comparando semana actual contra historico.</p>
+                                            </div>
+                                            <div class="mb-0 mt-3">
+                                                <a href="/analitica/comparativoCierreSemanal" class="btn btn-info w-100">
+                                                    <i class="fa-solid fa-chart-column me-1" aria-hidden="true"></i>Ver comparativo
+                                                </a>
+                                            </div>
+                                        </div>
+                                        <div class="w-100 app-academy-sm-40 d-flex justify-content-center justify-content-sm-end h-px-150 mb-4 mb-sm-0 ab-option-icon ab-option-icon-cyan">
+                                            <i class="fa-solid fa-arrow-trend-up" aria-hidden="true"></i>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+    <?php else: ?>
+
+    <div class="ab-report-toolbar d-flex flex-wrap align-items-center justify-content-between gap-3 mb-3">
         <h4 class="mb-0 text-primary d-flex align-items-center flex-wrap">
             <i class="fa-solid fa-chart-line me-2" aria-hidden="true"></i>
             <span>Avance Bucket</span>
@@ -22,7 +104,7 @@ $avanceError = isset($avance_bucket_error) ? (string) $avance_bucket_error : '';
             <button type="button" id="ab-refresh" class="btn btn-primary btn-sm">
                 <i class="fa-solid fa-rotate me-1"></i>Actualizar
             </button>
-            <a href="/analitica/comparativas" class="btn btn-outline-secondary btn-sm">
+            <a href="/analitica/avanceBucket" class="btn btn-outline-secondary btn-sm">
                 <i class="fa fa-arrow-left me-1"></i>Volver
             </a>
         </div>
@@ -65,9 +147,78 @@ $avanceError = isset($avance_bucket_error) ? (string) $avance_bucket_error : '';
             </section>
         </div>
     </div>
+    <?php endif; ?>
 </div>
 
 <style>
+.ab-landing-card {
+    overflow: visible;
+}
+.ab-option-icon {
+    font-size: 6rem;
+}
+.ab-option-icon-dark {
+    color: #2b3b59;
+}
+.ab-option-icon-cyan {
+    color: #12bedb;
+}
+.ab-hero-block {
+    position: relative;
+    z-index: 0;
+    overflow: visible;
+    --ab-mascot-max-w: 280px;
+    --ab-mascot-max-h: min(300px, 44vh);
+    --ab-mascot-translate-x: -6rem;
+    --ab-mascot-translate-y: 3rem;
+}
+.ab-hero-text .card-body {
+    padding-bottom: 1.25rem !important;
+    padding-top: 2rem !important;
+}
+.ab-hero-mascot-col {
+    padding-top: 1rem;
+    padding-bottom: 2rem;
+}
+.ab-hero-mascot-floating {
+    display: block;
+    object-fit: contain;
+    object-position: bottom center;
+    filter: drop-shadow(0 10px 28px rgba(26, 82, 168, .12));
+}
+@media (min-width: 768px) {
+    .ab-hero-row.ab-hero-row--con-mascota {
+        align-items: stretch;
+        min-height: 23rem;
+        padding-bottom: 5rem;
+    }
+    .ab-hero-text {
+        position: relative;
+        z-index: 2;
+    }
+    .ab-hero-text .card-body {
+        padding-top: 2rem !important;
+        padding-bottom: 1.5rem !important;
+        padding-right: .5rem;
+    }
+    .ab-hero-mascot-col {
+        position: relative;
+        min-height: 0;
+        padding: 0;
+        align-self: stretch;
+    }
+    .ab-hero-mascot-floating {
+        position: relative;
+        z-index: 1;
+        width: auto;
+        height: auto;
+        max-width: var(--ab-mascot-max-w, 280px);
+        max-height: var(--ab-mascot-max-h, 300px);
+        margin: 0 0 0 auto;
+        object-position: bottom right;
+        transform: translate(var(--ab-mascot-translate-x, -6rem), var(--ab-mascot-translate-y, 3rem));
+    }
+}
 .ab-card-main {
     border-radius: 8px;
 }
@@ -190,6 +341,9 @@ $avanceError = isset($avance_bucket_error) ? (string) $avance_bucket_error : '';
     background: rgba(234, 84, 85, .08);
 }
 @media (max-width: 991.98px) {
+    .ab-option-icon {
+        font-size: 3.5rem;
+    }
     .ab-content {
         grid-template-columns: 1fr;
     }
@@ -209,7 +363,30 @@ $avanceError = isset($avance_bucket_error) ? (string) $avance_bucket_error : '';
         padding-left: .35rem !important;
         padding-right: .35rem !important;
     }
-    .avance-bucket > .d-flex:first-child {
+    .ab-hero-row.ab-hero-row--con-mascota {
+        min-height: 15rem;
+    }
+    .ab-hero-text .card-body {
+        text-align: center;
+        padding-top: 2rem !important;
+        padding-bottom: 1rem !important;
+        padding-left: 1rem !important;
+        padding-right: 1rem !important;
+    }
+    .ab-hero-mascot-col {
+        align-items: center !important;
+        padding-top: 0;
+    }
+    .ab-hero-mascot-floating {
+        margin: 0 auto;
+        max-width: min(58vw, 200px);
+        max-height: min(32vh, 200px);
+        width: auto;
+        height: auto;
+        object-position: bottom center;
+        transform: translateY(var(--ab-mascot-translate-y, 3rem));
+    }
+    .avance-bucket .ab-report-toolbar {
         align-items: stretch !important;
     }
     .avance-bucket h4 {
@@ -222,7 +399,7 @@ $avanceError = isset($avance_bucket_error) ? (string) $avance_bucket_error : '';
         margin-top: .35rem;
         width: max-content;
     }
-    .avance-bucket > .d-flex:first-child > .d-flex {
+    .avance-bucket .ab-report-toolbar > .d-flex {
         width: 100%;
         display: grid !important;
         grid-template-columns: 1fr 1fr;
