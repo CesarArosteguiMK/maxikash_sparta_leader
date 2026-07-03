@@ -135,7 +135,10 @@ if "!ERRORLEVEL!"=="0" (
 
 echo [TASK][ERROR] El supervisor no consumio la solicitud o la API no confirmo health.
 echo [TASK][ERROR] Revise logs\api-supervisor.log, logs\api_oculto_startup.log y logs\uvicorn-stderr.log.
-exit /b 1
+echo [TASK][WARN] Usando arranque directo temporal para no dejar el boton colgado.
+del /f /q "!RESTART_FLAG!" >nul 2>nul
+call :DirectFallback
+exit /b !ERRORLEVEL!
 
 :WakeSupervisorTask
 echo [TASK] Despertando tarea programada: %TASK_NAME%

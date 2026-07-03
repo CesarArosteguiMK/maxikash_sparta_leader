@@ -59,6 +59,50 @@ final class AvanceBucket
     }
 
     /**
+     * Calcula la misma matriz de Avance Bucket, pero usando snapshots historicos.
+     *
+     * @return array<string,mixed>
+     */
+    public static function calcularHistorico(?string $semana = null, ?string $corte = null): array
+    {
+        $db = new DatabaseSegundometro();
+        $semanas = self::ultimasSemanasHistoricas($db, 6);
+        if ($semanas === []) {
+            return [
+                'success' => false,
+                'mensaje' => 'No hay semanas historicas disponibles en tbl_segundometro_histo.',
+                'semanas' => [],
+            ];
+        }
+
+        $semanaNormalizada = self::normalizarSemanaHistorica($semana, $semanas);
+        $corteNormalizado = self::normalizarCorte($corte);
+        $bucketInicioSql = self::bucketSql('Bucket_Morosidad_Real');
+        $bucketCierreSql = self::bucketCierreAjustadoDaxHistoricoSql();
+
+        $rows = $db->queryAll("
+            SELECT bucket_inicio, bucket_cierre, COUNT(*) AS creditos
+            FROM (
+                SELECT {$bucketInicioSql} AS bucket_inicio,
+                       {$bucketCierreSql} AS bucket_cierre
+                FROM tbl_segundometro_histo
+                WHERE SEMANA = :semana
+            ) x
+            WHERE bucket_inicio IS NOT NULL
+              AND bucket_cierre IS NOT NULL
+            GROUP BY bucket_inicio, bucket_cierre
+        ", ['semana' => $semanaNormalizada]);
+
+        $payload = self::formatear($rows, $corteNormalizado, self::diaCorteNombre());
+        $payload['modo'] = 'historico';
+        $payload['semana'] = $semanaNormalizada;
+        $payload['semanas'] = $semanas;
+        $payload['origen'] = 'tbl_segundometro_histo';
+
+        return $payload;
+    }
+
+    /**
      * @param list<array<string,mixed>> $rows
      * @return array<string,mixed>
      */
@@ -95,6 +139,7 @@ final class AvanceBucket
 
         return [
             'success' => true,
+            'modo' => 'actual',
             'corte' => $corte,
             'corte_opciones' => self::CORTES,
             'dia_corte' => $diaCorte,
@@ -228,6 +273,29 @@ final class AvanceBucket
         ";
     }
 
+    private static function bucketCierreAjustadoDaxHistoricoSql(): string
+    {
+        $bucketReal = self::bucketSql('Bucket_Morosidad_Real');
+        $cierreBase = self::bucketSql("COALESCE(NULLIF(TRIM(CAST(Bucket_ajustado_ghost AS CHAR)), ''), Cierre_Actual)");
+        $cierreActual = "
+            CASE
+                WHEN Variable_8 IS NOT NULL AND TRIM(CAST(Variable_8 AS CHAR)) <> '' THEN 'a) Current'
+                WHEN Ghost IS NOT NULL AND TRIM(CAST(Ghost AS CHAR)) <> '' AND TRIM(CAST(Ghost AS CHAR)) <> '-' THEN 'a) Current'
+                ELSE ({$cierreBase})
+            END
+        ";
+        $ordenReal = self::ordenBucketCaseSql($bucketReal);
+        $ordenCierre = self::ordenBucketCaseSql($cierreActual);
+
+        return "
+            CASE
+                WHEN ({$ordenReal}) IS NULL OR ({$ordenCierre}) IS NULL THEN NULL
+                WHEN ({$ordenReal}) <= 5 AND ({$ordenCierre}) > ({$ordenReal}) THEN ({$bucketReal})
+                ELSE ({$cierreActual})
+            END
+        ";
+    }
+
     private static function bucketDesdeDiasMoraSql(string $columnaDiasMora): string
     {
         $columnasPermitidas = self::columnasDiasMoraPermitidas();
@@ -255,7 +323,11 @@ final class AvanceBucket
 
     private static function bucketSql(string $columna): string
     {
-        if (!in_array($columna, ['Bucket_Morosidad_Real', 'Cierre_Actual'], true)) {
+        if (!in_array($columna, [
+            'Bucket_Morosidad_Real',
+            'Cierre_Actual',
+            "COALESCE(NULLIF(TRIM(CAST(Bucket_ajustado_ghost AS CHAR)), ''), Cierre_Actual)",
+        ], true)) {
             throw new \InvalidArgumentException('Columna no permitida.');
         }
 
@@ -269,6 +341,7 @@ final class AvanceBucket
                 WHEN 'f) 31 a 60 dias' THEN 'f) 31 a 60 dias'
                 WHEN 'g) 61 a 90 dias' THEN 'g) 61 a 90 dias'
                 WHEN 'h) 91 a 120 dias' THEN 'h) 91 a 120 dias'
+                WHEN 'i) 120+ dias' THEN 'i) 121+ dias'
                 WHEN 'i) 121+ dias' THEN 'i) 121+ dias'
                 ELSE NULL
             END
@@ -348,6 +421,54 @@ final class AvanceBucket
         $hoy = new \DateTimeImmutable('today', new \DateTimeZone('America/Mexico_City'));
 
         return $nombres[(int) $hoy->format('N')];
+    }
+
+    /**
+     * @return list<string>
+     */
+    private static function ultimasSemanasHistoricas(DatabaseSegundometro $db, int $limite): array
+    {
+        $limite = max(1, min(12, $limite));
+        $rows = $db->queryAll("
+            SELECT DISTINCT SEMANA
+            FROM tbl_segundometro_histo
+            WHERE SEMANA IS NOT NULL
+              AND LENGTH(TRIM(CAST(SEMANA AS CHAR))) > 0
+            ORDER BY
+                CAST(SUBSTRING_INDEX(TRIM(CAST(SEMANA AS CHAR)), '-', -1) AS UNSIGNED) DESC,
+                CAST(SUBSTRING_INDEX(SUBSTRING_INDEX(TRIM(CAST(SEMANA AS CHAR)), ' ', -1), '-', 1) AS UNSIGNED) DESC
+            LIMIT {$limite}
+        ");
+
+        $out = [];
+        foreach ($rows as $row) {
+            $semana = trim((string) ($row['SEMANA'] ?? ''));
+            if ($semana !== '' && !in_array($semana, $out, true)) {
+                $out[] = $semana;
+                if (count($out) >= $limite) {
+                    break;
+                }
+            }
+        }
+
+        return $out;
+    }
+
+    /**
+     * @param list<string> $semanas
+     */
+    private static function normalizarSemanaHistorica(?string $semana, array $semanas): string
+    {
+        $valor = trim((string) ($semana ?? ''));
+        if ($valor === '') {
+            return $semanas[0];
+        }
+
+        if (!in_array($valor, $semanas, true)) {
+            throw new \InvalidArgumentException('Semana historica no permitida.');
+        }
+
+        return $valor;
     }
 
     private static function normalizarCorte(?string $corte): string

@@ -42,6 +42,8 @@ class Reporteria extends Controller
     /** Usuario que puede ejecutar copia + purga histórico primeros pagos desde la UI (solo este id). */
     private const USUARIO_PIPELINE_HISTO_PRIMEROS_DESDE_SEGUNDOMETRO = 878;
     private const PP_DESTINATARIOS_FILE = RAIZ . '/storage/config/primeros_pagos_destinatarios.json';
+    private const MODULO_REPORTE_CAMPO_SIN_BAJAS = 189;
+    private const MODULO_REPORTE_CAMPO_CON_BAJAS = 190;
 
     /** @return list<int> */
     private function modulosSesionInt(): array
@@ -237,20 +239,36 @@ class Reporteria extends Controller
 
     public function reporteCampo()
     {
+        $modulos = $this->modulosSesionInt();
         self::set("titulo", "Reporte de Campo");
+        self::set("puede_reporte_campo_sin_bajas", in_array(self::MODULO_REPORTE_CAMPO_SIN_BAJAS, $modulos, true));
+        self::set("puede_reporte_campo_con_bajas", in_array(self::MODULO_REPORTE_CAMPO_CON_BAJAS, $modulos, true));
         self::render("reporte_campo");
     }
 
-    public function descargarReporteCampoExcel()
+    public function descargarReporteCampoExcel($tipo = null)
     {
         while (ob_get_level()) {
             ob_end_clean();
         }
 
         try {
-            $reporte = (new ReporteCampoService())->generarExcel();
+            $tipo = strtolower(trim((string)($tipo ?? 'con-bajas')));
+            $incluirBajas = $tipo !== 'sin-bajas';
+            $permisoRequerido = $incluirBajas
+                ? self::MODULO_REPORTE_CAMPO_CON_BAJAS
+                : self::MODULO_REPORTE_CAMPO_SIN_BAJAS;
+
+            if (!in_array($permisoRequerido, $this->modulosSesionInt(), true)) {
+                http_response_code(403);
+                echo 'No tienes permiso para descargar este reporte.';
+                exit;
+            }
+
+            $reporte = (new ReporteCampoService())->generarExcel($incluirBajas);
             $spreadsheet = $reporte['spreadsheet'];
-            $filename = 'reporte_campo_' . date('Ymd_His') . '.xlsx';
+            $sufijo = $incluirBajas ? 'con_bajas' : 'sin_bajas';
+            $filename = 'organigrama_cobranza_campo_' . $sufijo . '_' . date('Ymd_His') . '.xlsx';
 
             header('Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
             header('Content-Disposition: attachment; filename="' . $filename . '"');
@@ -1522,20 +1540,34 @@ class Reporteria extends Controller
      * Avance Bucket: matriz Bucket_Morosidad_Real vs Cierre_Ajustado2.
      * URL canonica: /analitica/avanceBucket
      */
-    public function avanceBucket()
+    public function avanceBucket($vistaRuta = null)
     {
         self::set('titulo', 'Avance Bucket');
         $payload = null;
         $error = null;
+        $vista = strtolower(trim((string) ($vistaRuta ?? ($_GET['vista'] ?? ''))));
+        $mostrarAvance = in_array($vista, ['avance', 'historico'], true);
 
-        try {
-            $corte = isset($_GET['corte']) ? (string) $_GET['corte'] : null;
-            $payload = AvanceBucket::calcular($corte);
-        } catch (\InvalidArgumentException $e) {
-            $error = $e->getMessage();
-        } catch (\Throwable $e) {
-            error_log('Reporteria::avanceBucket -> ' . $e->getMessage());
-            $error = 'No se pudieron cargar los datos de Avance Bucket.';
+        if ($vistaRuta === null && isset($_GET['vista']) && $mostrarAvance) {
+            header('Location: /analitica/avanceBucket/' . $vista, true, 302);
+            exit;
+        }
+
+        if ($mostrarAvance) {
+            try {
+                $corte = isset($_GET['corte']) ? (string) $_GET['corte'] : null;
+                if ($vista === 'historico') {
+                    $semana = isset($_GET['semana']) ? (string) $_GET['semana'] : null;
+                    $payload = AvanceBucket::calcularHistorico($semana, $corte);
+                } else {
+                    $payload = AvanceBucket::calcular($corte);
+                }
+            } catch (\InvalidArgumentException $e) {
+                $error = $e->getMessage();
+            } catch (\Throwable $e) {
+                error_log('Reporteria::avanceBucket -> ' . $e->getMessage());
+                $error = 'No se pudieron cargar los datos de Avance Bucket.';
+            }
         }
 
         $initialJson = json_encode($payload, JSON_UNESCAPED_UNICODE);
@@ -1546,6 +1578,7 @@ class Reporteria extends Controller
         self::set('avance_bucket_payload', $payload);
         self::set('avance_bucket_error', $error);
         self::set('avance_bucket_initial_json', $initialJson);
+        self::set('avance_bucket_vista', $vista);
         self::set('script', '');
         self::render('avance_bucket');
     }
@@ -1562,6 +1595,22 @@ class Reporteria extends Controller
             error_log('Reporteria::getAvanceBucketJson -> ' . $e->getMessage());
             http_response_code(500);
             self::respuestaJSON(['success' => false, 'mensaje' => 'Error al consultar la base de datos.']);
+        }
+    }
+
+    public function getAvanceBucketHistoricoJson()
+    {
+        try {
+            $semana = isset($_GET['semana']) ? (string) $_GET['semana'] : null;
+            $corte = isset($_GET['corte']) ? (string) $_GET['corte'] : null;
+            self::respuestaJSON(AvanceBucket::calcularHistorico($semana, $corte));
+        } catch (\InvalidArgumentException $e) {
+            http_response_code(400);
+            self::respuestaJSON(['success' => false, 'mensaje' => $e->getMessage()]);
+        } catch (\Throwable $e) {
+            error_log('Reporteria::getAvanceBucketHistoricoJson -> ' . $e->getMessage());
+            http_response_code(500);
+            self::respuestaJSON(['success' => false, 'mensaje' => 'Error al consultar la base de datos historica.']);
         }
     }
 

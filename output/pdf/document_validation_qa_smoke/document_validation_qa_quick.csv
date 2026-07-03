@@ -1,6 +1,0 @@
-﻿doc_type,outcome,elapsed_ms,api_reported_ms,endpoint,status_code,pages,size,filename,display_path,message
-__SPARTA_SECRET_REDACTED__,rechazado,13558,13530,verificar-estado-cuenta,200,6,112609,2026-5.pdf,C:\Users\amigo_j9s4pcx\Downloads\Pruebas\2026-5.pdf,"No se puede cargar este documento: Banco digital no aceptado: Klar Technologies, S.A. de C.V., S.F.P.."
-acta_nacimiento,revision,67,,verificar-acta-documento,200,1,1072311,ACTA NACIMIENTO.pdf,C:\Users\amigo_j9s4pcx\Downloads\Pruebas\34. ROJAS ROJAS LUIS ANGEL\ACTA NACIMIENTO.pdf,No se pudo confirmar automáticamente el acta de nacimiento. Revisar manualmente.
-__SPARTA_SECRET_REDACTED__,aceptado,14137,14124,verificar-estado-cuenta,200,9,647062,BBVA.pdf,C:\Users\amigo_j9s4pcx\Downloads\Pruebas\34. ROJAS ROJAS LUIS ANGEL\BBVA.pdf,estado de cuenta listo.
-hoja_retencion,aceptado,20,,validar-paginas-pdf,200,1,391576,CARTA NO CREDITOS.pdf,C:\Users\amigo_j9s4pcx\Downloads\Pruebas\34. ROJAS ROJAS LUIS ANGEL\CARTA NO CREDITOS.pdf,La hoja de retencion tiene 1 hoja(s).
-contrato_fad,revision,27,,fad/informacion-ingresos,200,,1938253,CONTRATO FIRMADO 7842.pdf,C:\Users\amigo_j9s4pcx\Downloads\Pruebas\34. ROJAS ROJAS LUIS ANGEL\CONTRATO FIRMADO 7842.pdf,sin seccion ingresos

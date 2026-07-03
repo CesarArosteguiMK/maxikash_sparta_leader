@@ -35,6 +35,12 @@ backend/BD/geo_ssl_*.pem
 # ========== Test y diagnóstico (no subir; pueden exponer rutas) ==========
 public/test_geo_ssl.php
 tmp/
+%TEMP%/
+output/
+tmp_atlas_audits/
+tmp_*.php
+scripts/tmp_*.php
+scripts/tmp_*_out/
 
 # ========== Subidas públicas (runtime; no versionar contenido) ==========
 public/uploads/**
@@ -160,3 +166,8 @@ backend/storage/candidatos/
 backend/API/pip/ 
 backend/API/pip/
 backend/API/pip/
+
+
+# Paddle / PaddleX
+backend/API/.paddle_home/
+backend/API/.paddlex_cache_runtime/

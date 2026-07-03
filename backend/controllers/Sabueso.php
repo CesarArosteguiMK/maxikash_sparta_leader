@@ -4344,6 +4344,15 @@ class Sabueso extends Controller
         $raw = file_get_contents('php://input');
         $datos = json_decode($raw, true) ?: [];
         $idTicket = (int)($datos['id_ticket'] ?? 0);
+        if ($idTicket < 0) {
+            $idPersona = (int)($_SESSION['persona_id'] ?? $_SESSION['usuario_id'] ?? 0);
+            $resultado = TicketDAO::cambiarEstadoIntentoTicketIlocalizable(abs($idTicket), 'eliminado', $idPersona > 0 ? $idPersona : null);
+            self::respuestaJSON([
+                'success' => $resultado['success'] ?? false,
+                'mensaje' => $resultado['mensaje'] ?? ''
+            ]);
+            return;
+        }
         if ($idTicket < 1) {
             self::respuestaJSON(['success' => false, 'mensaje' => 'ID de ticket inválido.']);
             return;
@@ -4368,6 +4377,15 @@ class Sabueso extends Controller
         $raw = file_get_contents('php://input');
         $datos = json_decode($raw, true) ?: [];
         $idTicket = (int)($datos['id_ticket'] ?? 0);
+        if ($idTicket < 0) {
+            $idPersona = (int)($_SESSION['persona_id'] ?? $_SESSION['usuario_id'] ?? 0);
+            $resultado = TicketDAO::cambiarEstadoIntentoTicketIlocalizable(abs($idTicket), 'cerrado', $idPersona > 0 ? $idPersona : null);
+            self::respuestaJSON([
+                'success' => $resultado['success'] ?? false,
+                'mensaje' => $resultado['mensaje'] ?? ''
+            ]);
+            return;
+        }
         if ($idTicket < 1) {
             self::respuestaJSON(['success' => false, 'mensaje' => 'ID de ticket inválido.']);
             return;

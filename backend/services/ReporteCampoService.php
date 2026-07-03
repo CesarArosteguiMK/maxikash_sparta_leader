@@ -16,7 +16,7 @@ class ReporteCampoService
     /**
      * @return array{spreadsheet: Spreadsheet, total: int}
      */
-    public function generarExcel(): array
+    public function generarExcel(bool $incluirBajas = true): array
     {
         $db = new Database();
 
@@ -33,11 +33,16 @@ class ReporteCampoService
             $deptId = (int)($persona['dept_id'] ?? 0);
             $jerarquia = $this->resolverJerarquia($personaId, $deptId, $personasJerarquia, $jefes, $legacy, $ausencias, $deptMap);
             $puestoLegacy = (string)($legacy[$personaId] ?? ($persona['puesto_legacy'] ?? ''));
+            $estatusCalculado = $this->calcularEstatus($personaId, (string)($persona['estatus'] ?? ''), $ausencias);
+
+            if (!$incluirBajas && $estatusCalculado === 'baja') {
+                continue;
+            }
 
             $rows[] = [
                 'external_id' => (string)($persona['numero_empleado'] ?? ''),
                 'nombre_completo' => $this->armarNombre($persona),
-                'estatus' => $this->calcularEstatus($personaId, (string)($persona['estatus'] ?? ''), $ausencias),
+                'estatus' => $estatusCalculado,
                 'fecha_baja' => (string)($persona['fecha_baja'] ?? ''),
                 'es_gestor' => strtolower(trim($puestoLegacy)) === 'gestor' ? 'Si' : 'No',
                 'puesto_legacy' => $puestoLegacy,

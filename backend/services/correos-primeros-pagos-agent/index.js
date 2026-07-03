@@ -89,7 +89,10 @@ if (!fs.existsSync(phpScript)) {
 }
 
 const pidFile = path.join(__dirname, 'correos_agent.pid');
-fs.writeFileSync(pidFile, String(process.pid), 'utf8');
+
+function writePid() {
+  fs.writeFileSync(pidFile, String(process.pid), 'utf8');
+}
 
 function cleanupPid() {
   try {
@@ -190,9 +193,16 @@ if (HTTP_PORT > 0) {
     res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
     res.end(body);
   });
+  server.on('error', (err) => {
+    console.error('[correos-agent] HTTP error:', err.message);
+    cleanupPid();
+    process.exit(1);
+  });
   server.listen(HTTP_PORT, '127.0.0.1', () => {
+    writePid();
     console.log('[correos-agent] Estado HTTP: http://127.0.0.1:' + HTTP_PORT + '/');
   });
 } else {
+  writePid();
   console.log('[correos-agent] HTTP desactivado (HTTP_PORT=0)');
 }
