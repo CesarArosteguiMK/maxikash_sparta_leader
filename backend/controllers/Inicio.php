@@ -1401,6 +1401,7 @@ class Inicio extends Controller
         $port = (int)$srv['port'];
 
         $ok = false;
+        $restartStopFailed = false;
         if ($action === 'iniciar') {
             $ok = $this->serviciosLocalesIniciar($srv);
             $post = $ok
@@ -1411,24 +1412,39 @@ class Inicio extends Controller
             $post = $this->serviciosLocalesEsperarEstado($srv, 'down', 10000);
         } else { // reiniciar
             $this->serviciosLocalesParar($srv);
-            usleep(800000);
-            $ok = $this->serviciosLocalesIniciar($srv);
-            $post = $ok
-                ? $this->serviciosLocalesEsperarEstado($srv, 'up', $port === 8001 ? 30000 : 35000)
-                : $this->serviciosLocalesEstadoActual($srv);
+            $preStart = $this->serviciosLocalesEsperarEstado($srv, 'down', 10000);
+            if (!empty($preStart['listening'])) {
+                $ok = false;
+                $restartStopFailed = true;
+                $post = $preStart;
+            } else {
+                usleep(800000);
+                $ok = $this->serviciosLocalesIniciar($srv);
+                $post = $ok
+                    ? $this->serviciosLocalesEsperarEstado($srv, 'up', $port === 8001 ? 30000 : 35000)
+                    : $this->serviciosLocalesEstadoActual($srv);
+            }
         }
 
         $post = $post ?? $this->serviciosLocalesEstadoActual($srv);
         $isListen = (bool)($post['listening'] ?? false);
         $estado = (string)($post['estado'] ?? 'down');
         $st = $post['http_status'] ?? null;
+        $accionOk = (bool)$ok;
+        if ($action === 'parar') {
+            $accionOk = $accionOk && !$isListen;
+        } elseif ($action === 'iniciar' || $action === 'reiniciar') {
+            $accionOk = $accionOk && $estado === 'up';
+        }
         $stStr = $st === null || $st === '' ? '—' : (string) $st;
         $hintPost = 'Tras la orden: puerto ' . $port . ' ' . ($isListen ? 'en escucha' : 'sin proceso en escucha')
             . '. HTTP ' . ($estado === 'up' ? 'OK (' . $stStr . ')' : 'sin respuesta esperada (' . $stStr . ').');
 
         echo json_encode([
-            'success' => (bool) $ok,
-            'message' => ucfirst($action) . ' enviado para ' . $srv['name'] . '.',
+            'success' => $accionOk,
+            'message' => $restartStopFailed
+                ? 'No se pudo detener ' . $srv['name'] . ' para reiniciarlo.'
+                : ucfirst($action) . ' ' . ($accionOk ? 'completado' : 'no confirmado') . ' para ' . $srv['name'] . '.',
             'hint_post' => $hintPost,
             'service' => $serviceId,
             'action'  => $action,
@@ -1745,10 +1761,11 @@ class Inicio extends Controller
                 'url_browser' => null,
                 'browser_note' => 'Docs externos dependen de firewall. Verde exige health y POST minimo a validar-expediente desde PHP.',
                 'hint' => 'Si está caída: backend/API/launcher/web-api-1click-runner.bat',
-                'start_bat' => $backendRoot . DIRECTORY_SEPARATOR . 'API' . DIRECTORY_SEPARATOR . 'launcher' . DIRECTORY_SEPARATOR . 'web-api-1click-runner.bat',
+                'start_bat' => $backendRoot . DIRECTORY_SEPARATOR . 'API' . DIRECTORY_SEPARATOR . 'launcher' . DIRECTORY_SEPARATOR . 'iniciar-agente-foreground.bat',
                 'stop_ps1'  => $backendRoot . DIRECTORY_SEPARATOR . 'API' . DIRECTORY_SEPARATOR . 'launcher' . DIRECTORY_SEPARATOR . 'cerrar-agente.ps1',
                 'env' => [
                     'SPARTA_API_PORT' => (string)$docApiPort,
+                    'SPARTA_API_NO_PAUSE' => '1',
                 ],
             ],
         ];
@@ -1760,27 +1777,90 @@ class Inicio extends Controller
         if ($bat === '' || !is_file($bat)) {
             return false;
         }
-        $env = is_array($srv['env'] ?? null) ? $srv['env'] : [];
-        if ($env) {
-            $runCmdPath = rtrim(sys_get_temp_dir(), DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR
-                . 'sparta-servicio-' . preg_replace('/[^a-z0-9_-]+/i', '-', (string)($srv['id'] ?? 'local')) . '-' . date('Ymd-His') . '.cmd';
-            $runCmd = "@echo off\r\n";
-            foreach ($env as $key => $value) {
-                $key = preg_replace('/[^A-Z0-9_]+/i', '', (string)$key);
-                if ($key === '') {
-                    continue;
-                }
-                $runCmd .= 'set "' . $key . '=' . str_replace('"', '', (string)$value) . '"' . "\r\n";
+        $port = (int)($srv['port'] ?? 0);
+        if ($port > 0) {
+            $actual = $this->serviciosLocalesEstadoActual($srv, 800);
+            if (!empty($actual['listening'])) {
+                return true;
             }
-            $runCmd .= 'cd /d "' . str_replace('"', '""', dirname($bat)) . '"' . "\r\n";
-            $runCmd .= 'call "' . str_replace('"', '""', $bat) . '"' . "\r\n";
-            @file_put_contents($runCmdPath, $runCmd);
-            $cmd = 'start "" /b cmd /c ""' . str_replace('"', '""', $runCmdPath) . '""';
-        } else {
-            $cmd = 'start "" /b cmd /c ""' . str_replace('"', '""', $bat) . '""';
         }
-        @pclose(@popen($cmd, 'r'));
+        $env = is_array($srv['env'] ?? null) ? $srv['env'] : [];
+        $runCmdPath = $this->serviciosLocalesCrearCmdArranque($srv, $bat, $env);
+        if ($runCmdPath === null) {
+            return false;
+        }
+
+        return $this->serviciosLocalesLanzarCmdOculto($runCmdPath, dirname($bat));
+    }
+
+    private function serviciosLocalesCrearCmdArranque(array $srv, string $bat, array $env): ?string
+    {
+        $id = preg_replace('/[^a-z0-9_-]+/i', '-', (string)($srv['id'] ?? 'local'));
+        $runCmdPath = rtrim(sys_get_temp_dir(), DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR
+            . 'sparta-servicio-' . $id . '-' . date('Ymd-His') . '-' . getmypid() . '.cmd';
+
+        $runCmd = "@echo off\r\nsetlocal\r\n";
+        foreach ($env as $key => $value) {
+            $key = preg_replace('/[^A-Z0-9_]+/i', '', (string)$key);
+            if ($key === '') {
+                continue;
+            }
+            $runCmd .= 'set "' . $key . '=' . str_replace('"', '', (string)$value) . '"' . "\r\n";
+        }
+        $runCmd .= 'cd /d "' . str_replace('"', '""', dirname($bat)) . '"' . "\r\n";
+        $runCmd .= 'call "' . str_replace('"', '""', $bat) . '" >NUL 2>NUL' . "\r\n";
+        $runCmd .= "endlocal\r\n";
+        $runCmd .= 'del "%~f0" >NUL 2>NUL' . "\r\n";
+
+        return @file_put_contents($runCmdPath, $runCmd) === false ? null : $runCmdPath;
+    }
+
+    private function serviciosLocalesLanzarCmdOculto(string $cmdPath, string $workdir): bool
+    {
+        $systemRoot = rtrim((string)getenv('SystemRoot'), '\\/');
+        $psExe = $systemRoot !== ''
+            ? $systemRoot . DIRECTORY_SEPARATOR . 'System32' . DIRECTORY_SEPARATOR . 'WindowsPowerShell' . DIRECTORY_SEPARATOR . 'v1.0' . DIRECTORY_SEPARATOR . 'powershell.exe'
+            : 'powershell.exe';
+        if ($psExe !== 'powershell.exe' && !is_file($psExe)) {
+            $psExe = 'powershell.exe';
+        }
+
+        $psPath = rtrim(sys_get_temp_dir(), DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR
+            . 'sparta-servicio-launch-' . date('Ymd-His') . '-' . getmypid() . '.ps1';
+        $ps = "\$ErrorActionPreference = 'Stop'\r\n";
+        $ps .= '$argsList = @('
+            . $this->serviciosLocalesPsQuote('/d') . ', '
+            . $this->serviciosLocalesPsQuote('/c') . ', '
+            . $this->serviciosLocalesPsQuote($cmdPath) . ")\r\n";
+        $ps .= 'Start-Process -FilePath ' . $this->serviciosLocalesPsQuote('cmd.exe')
+            . ' -ArgumentList $argsList -WorkingDirectory ' . $this->serviciosLocalesPsQuote($workdir)
+            . " -WindowStyle Hidden\r\n";
+
+        if (@file_put_contents($psPath, $ps) === false) {
+            return false;
+        }
+
+        $cmd = '"' . str_replace('"', '""', $psExe) . '" -NoProfile -ExecutionPolicy Bypass -File "'
+            . str_replace('"', '""', $psPath) . '"';
+        $desc = [
+            0 => ['file', 'NUL', 'r'],
+            1 => ['file', 'NUL', 'a'],
+            2 => ['file', 'NUL', 'a'],
+        ];
+        $proc = @proc_open($cmd, $desc, $pipes, $workdir);
+        if (!is_resource($proc)) {
+            @unlink($psPath);
+            return false;
+        }
+        @proc_close($proc);
+        @unlink($psPath);
+
         return true;
+    }
+
+    private function serviciosLocalesPsQuote(string $value): string
+    {
+        return "'" . str_replace("'", "''", $value) . "'";
     }
 
     private function serviciosLocalesEstadoActual(array $srv, int $httpTimeoutMs = 1400): array

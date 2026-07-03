@@ -1795,12 +1795,17 @@ body.dark-mode .api1click-tbtn--danger { color: #fecaca; }
         var estado = data && data.estado;
         var arriba = estado === 'up';
         var semi = estado === 'listen_no_http' || estado === 'degraded';
+        var detenidoOk = ok && action === 'parar' && !arriba && !semi;
         var line = m + hint;
-        if (arriba) {
+        if (arriba || detenidoOk) {
           srvSetActionFoot('✓ ' + line, 'estado-srv-foot-action--ok');
         } else if (semi) {
           srvSetActionFoot('⚠ ' + line + ' El proceso escucha en el puerto pero la URL de comprobación no respondió como se espera.', 'estado-srv-foot-action--wait');
         } else if (!ok) {
+          if (estado === 'up' && (action === 'parar' || action === 'reiniciar')) {
+            srvSetActionFoot('⚠ ' + line + ' El servicio sigue activo; puede requerir permisos del servidor para detenerlo.', 'estado-srv-foot-action--err');
+            return;
+          }
           srvSetActionFoot('⚠ ' + line + ' Si acaba de arrancar, pulse Refrescar o espere el auto-actualizado (cada 5 s).', 'estado-srv-foot-action--err');
         } else {
           srvSetActionFoot('ℹ ' + line, 'estado-srv-foot-action--wait');

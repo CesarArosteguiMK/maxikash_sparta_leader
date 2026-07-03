@@ -8736,6 +8736,7 @@ class CapHum extends Controller
             var docModalPollTimer = null;
             var docModalFetchInFlight = false;
             var docModalPendingRefresh = null;
+            var docSueldoDraftByCandidato = {};
             window.SPARTA_DOC_DEBUG = window.SPARTA_DOC_DEBUG === true;
 
             function clearDocModalPoll() {
@@ -8764,7 +8765,8 @@ class CapHum extends Controller
                     return;
                 }
                 clearDocModalPoll();
-                if (!metricas || metricas.expediente_completo !== true || (verif && verif.verificacion_en_proceso !== true)) {
+                var procesoActivo = !!(verif && verif.verificacion_en_proceso === true && !motorV2ProcesoVencido(verif));
+                if (!metricas || metricas.expediente_completo !== true || (verif && !procesoActivo)) {
                     return;
                 }
                 var intentos = 0;
@@ -10457,6 +10459,32 @@ class CapHum extends Controller
                 return v;
             }
 
+            function docSueldoDraftKey(idCandidato) {
+                return String(parseInt(idCandidato, 10) || 0);
+            }
+
+            function leerSueldosDomCrudos() {
+                var brutoEl = document.getElementById("docSueldoBruto");
+                var netoEl = document.getElementById("docSueldoNeto");
+                var motivoEl = document.getElementById("docMotivoContratacion");
+                return {
+                    bruto: brutoEl ? String(brutoEl.value || "") : "",
+                    neto: netoEl ? String(netoEl.value || "") : "",
+                    motivo_contratacion: motivoEl ? String(motivoEl.value || "") : ""
+                };
+            }
+
+            function guardarDraftSueldoModal(idCandidato) {
+                var key = docSueldoDraftKey(idCandidato);
+                if (!key || key === "0") return;
+                docSueldoDraftByCandidato[key] = leerSueldosDomCrudos();
+            }
+
+            function limpiarDraftSueldoModal(idCandidato) {
+                var key = docSueldoDraftKey(idCandidato);
+                if (key && docSueldoDraftByCandidato[key]) delete docSueldoDraftByCandidato[key];
+            }
+
             function renderSueldoCandidatoCard(bloqueSueldo, sueldo, idCandidato) {
                 if (!bloqueSueldo) return;
                 var permisos = window.candidatosPermisos || {};
@@ -10469,9 +10497,20 @@ class CapHum extends Controller
                 var estatus = candidato && candidato.estatus ? String(candidato.estatus) : "";
                 var puedeDocumentalCandidato = !!(candidato && candidato.puede_validar_documental);
                 var editable = puedeDocumentalCandidato && estatus !== "Pendiente de validacion final" && estatus !== "Ingreso programado";
-                var bruto = docSueldoValor(sueldo && (sueldo.bruto || sueldo.sueldo_bruto));
-                var neto = docSueldoValor(sueldo && (sueldo.neto || sueldo.sueldo_neto));
-                var motivo = sueldo && sueldo.motivo_contratacion ? String(sueldo.motivo_contratacion) : "";
+                var draftKey = docSueldoDraftKey(idCandidato);
+                var draft = docSueldoDraftByCandidato[draftKey] || null;
+                var active = document.activeElement;
+                var editandoSueldo = !!(bloqueSueldo && active && bloqueSueldo.contains(active));
+                if (editandoSueldo && bloqueSueldo.querySelector(".doc-sueldo-card")) {
+                    guardarDraftSueldoModal(idCandidato);
+                    return;
+                }
+                if (!draft && editandoSueldo) {
+                    draft = leerSueldosDomCrudos();
+                }
+                var bruto = draft ? String(draft.bruto || "") : docSueldoValor(sueldo && (sueldo.bruto || sueldo.sueldo_bruto));
+                var neto = draft ? String(draft.neto || "") : docSueldoValor(sueldo && (sueldo.neto || sueldo.sueldo_neto));
+                var motivo = draft ? String(draft.motivo_contratacion || "") : (sueldo && sueldo.motivo_contratacion ? String(sueldo.motivo_contratacion) : "");
                 var disabled = editable ? "" : " disabled";
                 bloqueSueldo.classList.remove("d-none");
                 bloqueSueldo.innerHTML =
@@ -10526,6 +10565,7 @@ class CapHum extends Controller
             function guardarSueldoCandidatoDocumentacion(idCandidato, btn) {
                 var valores = validarSueldosModal(true);
                 if (!valores || !idCandidato) return Promise.resolve(false);
+                guardarDraftSueldoModal(idCandidato);
                 var prevHtml = btn ? btn.innerHTML : "";
                 if (btn) { btn.disabled = true; btn.innerHTML = "<i class=\"fa fa-spinner fa-spin me-1\"></i>Guardando"; }
                 return fetch("/caphum/guardarSueldoCandidatoDocumentacion", {
@@ -10537,6 +10577,7 @@ class CapHum extends Controller
                         if (typeof Swal !== "undefined") Swal.fire({ icon: "error", title: "No se pudo guardar", text: res.mensaje || "Revise el sueldo capturado." });
                         return false;
                     }
+                    limpiarDraftSueldoModal(idCandidato);
                     if (typeof Swal !== "undefined") Swal.fire({ icon: "success", title: "Guardado", text: res.mensaje || "Sueldo guardado.", timer: 1600, showConfirmButton: false });
                     return true;
                 }).catch(function() {
@@ -12286,7 +12327,7 @@ class CapHum extends Controller
                         metricas: metricas
                     });
 
-                    if (verif && verif.verificacion_en_proceso !== true) {
+                    if (verif && (verif.verificacion_en_proceso !== true || motorV2ProcesoVencido(verif))) {
                         clearDocModalPoll();
                     }
 
@@ -13050,6 +13091,9 @@ class CapHum extends Controller
         if (modalDocPollEl) modalDocPollEl.addEventListener("hidden.bs.modal", function() {
             clearDocModalPoll();
             disposeDocModalTooltips();
+            if (modalDocPollEl.dataset && modalDocPollEl.dataset.idCandidato) {
+                limpiarDraftSueldoModal(modalDocPollEl.dataset.idCandidato);
+            }
             var modalAnalisis = document.getElementById("modalAnalisisCruzadoCandidato");
             if (modalAnalisis && window.bootstrap && window.bootstrap.Modal) {
                 var instAnalisis = window.bootstrap.Modal.getInstance(modalAnalisis);
@@ -13152,6 +13196,13 @@ class CapHum extends Controller
                 var idFirma = btn.getAttribute("data-id");
                 if (idFirma) confirmarFirmaContratoCandidato(parseInt(idFirma, 10));
             }
+        });
+        document.addEventListener("input", function(e) {
+            var campoSueldo = e.target.closest("#docSueldoBruto, #docSueldoNeto, #docMotivoContratacion");
+            if (!campoSueldo) return;
+            var modal = document.getElementById("modalDocumentacionCandidato");
+            var idCandidato = modal && modal.dataset ? modal.dataset.idCandidato : "";
+            if (idCandidato) guardarDraftSueldoModal(idCandidato);
         });
         function enviarCandidatoAValidacionFinal(idCandidato, btn) {
             if (!idCandidato || idCandidato <= 0) return;
@@ -15838,6 +15889,22 @@ class CapHum extends Controller
             && $this->docVerifResultadoTecnico($nuevo);
     }
 
+    private function docVerifProcesoEnCursoVencido($verificacion, int $segundos = 180): bool
+    {
+        if (!is_array($verificacion)) {
+            return false;
+        }
+        if (empty($verificacion['verificacion_en_proceso'])) {
+            return false;
+        }
+        $inicioRaw = trim((string) ($verificacion['iniciado_en'] ?? $verificacion['started_at'] ?? $verificacion['fecha_inicio'] ?? ''));
+        if ($inicioRaw === '') {
+            return true;
+        }
+        $inicioTs = @strtotime($inicioRaw);
+        return $inicioTs === false || (time() - $inicioTs) > max(30, $segundos);
+    }
+
     private function docVerifExpedientePendienteTecnico($verificacion): bool
     {
         if (!is_array($verificacion)) {
@@ -15847,14 +15914,7 @@ class CapHum extends Controller
             return false;
         }
         if (!empty($verificacion['verificacion_en_proceso'])) {
-            $inicioRaw = trim((string) ($verificacion['iniciado_en'] ?? $verificacion['started_at'] ?? $verificacion['fecha_inicio'] ?? ''));
-            if ($inicioRaw !== '') {
-                $inicioTs = @strtotime($inicioRaw);
-                if ($inicioTs !== false && (time() - $inicioTs) > 180) {
-                    return true;
-                }
-            }
-            return false;
+            return $this->docVerifProcesoEnCursoVencido($verificacion, 180);
         }
         if (!empty($verificacion['api_pendiente'])) {
             return true;
@@ -15866,6 +15926,27 @@ class CapHum extends Controller
             && trim((string) ($verificacion['error_api'] ?? '')) === '';
     }
 
+    private function docVerifDebeAutoEncolarExpediente($verificacion): bool
+    {
+        if (!is_array($verificacion)) {
+            return true;
+        }
+        if (($verificacion['modo_verificacion'] ?? null) === 'archivos_no_disponibles') {
+            return false;
+        }
+        if (!empty($verificacion['verificacion_en_proceso'])) {
+            return false;
+        }
+        if (!empty($verificacion['api_pendiente']) || trim((string) ($verificacion['error_api'] ?? '')) !== '') {
+            return false;
+        }
+        $checks = isset($verificacion['checks_totales']) ? (int) $verificacion['checks_totales'] : null;
+        return $checks === 0
+            && empty($verificacion['comparaciones'])
+            && empty($verificacion['comparaciones_v2'])
+            && empty($verificacion['documentos_analizados_v2']);
+    }
+
     private function docListCacheTienePendienteTecnico(string $json): bool
     {
         $dec = json_decode($json, true);
@@ -15874,6 +15955,12 @@ class CapHum extends Controller
         }
         $verificacion = $dec['datos']['verificacion_expediente'] ?? null;
         $metricas = $dec['datos']['metricas'] ?? [];
+        if (is_array($verificacion)
+            && empty($verificacion['verificacion_en_proceso'])
+            && !empty($verificacion['api_pendiente'])
+            && trim((string) ($verificacion['error_api'] ?? '')) !== '') {
+            return false;
+        }
         if (!empty($metricas['expediente_completo']) && ($verificacion === null || $this->docVerifExpedientePendienteTecnico($verificacion))) {
             return true;
         }
@@ -16048,7 +16135,19 @@ class CapHum extends Controller
         $payload['metricas']['validados'] = (int) ($conteoValidados['validados'] ?? 0);
         $payload['metricas'] = $this->calcularMetricasDocumentosCandidato($documentos, $id_candidato);
 
-        if (!empty($payload['metricas']['expediente_completo']) && ($verificacion === null || $this->docVerifExpedientePendienteTecnico($verificacion))) {
+        if (!empty($payload['metricas']['expediente_completo']) && $this->docVerifProcesoEnCursoVencido($verificacion, 180)) {
+            $this->guardarVerificacionExpedienteErrorMotorV2(
+                (int) $id_candidato,
+                'El analisis documental tardo mas de lo esperado. Los documentos siguen cargados; pulse Reevaluar para intentarlo de nuevo.',
+                ['No se marco revision manual por este motivo.']
+            );
+            $verificacion = CandidatosDAO::getVerificacionExpediente($id_candidato);
+            if (is_array($verificacion)) {
+                $payload['verificacion_expediente'] = $verificacion;
+            }
+        }
+
+        if (!empty($payload['metricas']['expediente_completo']) && $this->docVerifDebeAutoEncolarExpediente($verificacion)) {
             $candidatoRes = CandidatosDAO::getById($id_candidato);
             $candidato = ($candidatoRes['success'] ?? false) && !empty($candidatoRes['datos']) ? $candidatoRes['datos'] : [];
             $nombreCandidatoRegistro = $this->nombreCompletoCandidatoRegistro($candidato);
@@ -16117,6 +16216,12 @@ class CapHum extends Controller
      */
     private function encolarVerificacionDocumentalCandidato($id_candidato, array $tiposSubidos = [], ?bool $expedienteCompleto = null, string $origen = 'upload'): array
     {
+        if (in_array($origen, ['reintento_modal', 'modal_auto_reintento'], true)) {
+            CandidatosDAO::cancelarJobsVerificacionDocumentalActivos(
+                (int) $id_candidato,
+                'Reevaluacion documental solicitada; se cancela trabajo anterior.'
+            );
+        }
         $res = CandidatosDAO::encolarVerificacionDocumental((int) $id_candidato, $tiposSubidos, $expedienteCompleto, $origen);
         if (!empty($res['success']) && $expedienteCompleto === true) {
             $payloadEnProceso = [
@@ -16138,7 +16243,14 @@ class CapHum extends Controller
             CandidatosDAO::updateVerificacionExpediente((int) $id_candidato, json_encode($payloadEnProceso));
         }
         if (!empty($res['success'])) {
-            $this->lanzarWorkerVerificacionDocumental();
+            $workerLanzado = $this->lanzarWorkerVerificacionDocumental();
+            if (!isset($res['datos']) || !is_array($res['datos'])) {
+                $res['datos'] = [];
+            }
+            $res['datos']['worker_lanzado'] = $workerLanzado;
+            if (!$workerLanzado) {
+                error_log('CapHum::encolarVerificacionDocumental: job encolado pero no se pudo lanzar worker.');
+            }
         } else {
             error_log('CapHum::encolarVerificacionDocumental: ' . ($res['error'] ?? $res['mensaje'] ?? 'error desconocido'));
         }
@@ -16175,13 +16287,13 @@ class CapHum extends Controller
         return 'php';
     }
 
-    private function lanzarWorkerVerificacionDocumental(): void
+    private function lanzarWorkerVerificacionDocumental(): bool
     {
         $projectRoot = defined('RAIZ') ? dirname(RAIZ) : dirname(__DIR__, 2);
         $script = $projectRoot . DIRECTORY_SEPARATOR . 'scripts' . DIRECTORY_SEPARATOR . 'procesar_verificacion_documental.php';
         if (!is_file($script)) {
             error_log('CapHum::lanzarWorkerVerificacionDocumental: no existe script ' . $script);
-            return;
+            return false;
         }
         $php = $this->phpCliBinarioVerificacionDocumental();
         $nullDevice = stripos(PHP_OS_FAMILY, 'Windows') !== false ? 'NUL' : '/dev/null';
@@ -16190,25 +16302,81 @@ class CapHum extends Controller
         };
         try {
             if (stripos(PHP_OS_FAMILY, 'Windows') !== false) {
-                // En Windows "start" es un builtin de cmd; escapeshellarg produce comillas
-                // incompatibles en algunos entornos PHP/IIS/Apache. Se arma cmd /C con
-                // comillas dobles para que el worker realmente quede desacoplado.
-                $cmd = 'cmd /C start "" /B '
-                    . $cmdQuote($php) . ' '
-                    . $cmdQuote($script) . ' --max 5'
-                    . ' > ' . $cmdQuote($nullDevice)
-                    . ' 2> ' . $cmdQuote($nullDevice);
-                $h = @popen($cmd, 'r');
-                if (is_resource($h)) {
-                    @pclose($h);
+                $runCmdPath = rtrim(sys_get_temp_dir(), DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR
+                    . 'sparta-doc-worker-' . date('Ymd-His') . '-' . getmypid() . '.cmd';
+                $runCmd = "@echo off\r\n";
+                $runCmd .= 'cd /d ' . $cmdQuote($projectRoot) . "\r\n";
+                $runCmd .= $cmdQuote($php) . ' ' . $cmdQuote($script) . ' --max 5 > ' . $cmdQuote($nullDevice) . ' 2> ' . $cmdQuote($nullDevice) . "\r\n";
+                $runCmd .= 'del "%~f0" >NUL 2>NUL' . "\r\n";
+                if (@file_put_contents($runCmdPath, $runCmd) === false) {
+                    error_log('CapHum::lanzarWorkerVerificacionDocumental: no se pudo crear cmd temporal.');
+                    return false;
                 }
+                return $this->lanzarCmdOcultoVerificacionDocumental($runCmdPath, $projectRoot);
             } else {
                 $cmd = escapeshellarg($php) . ' ' . escapeshellarg($script) . ' --max 5 > /dev/null 2>&1 &';
-                @exec($cmd);
+                $salida = [];
+                $codigo = 0;
+                @exec($cmd, $salida, $codigo);
+                if ($codigo !== 0) {
+                    error_log('CapHum::lanzarWorkerVerificacionDocumental: exec termino con codigo ' . $codigo);
+                    return false;
+                }
+                return true;
             }
         } catch (\Throwable $e) {
             error_log('CapHum::lanzarWorkerVerificacionDocumental: ' . $e->getMessage());
+            return false;
         }
+        return false;
+    }
+
+    private function lanzarCmdOcultoVerificacionDocumental(string $cmdPath, string $workdir): bool
+    {
+        $systemRoot = rtrim((string) getenv('SystemRoot'), '\\/');
+        $psExe = $systemRoot !== ''
+            ? $systemRoot . DIRECTORY_SEPARATOR . 'System32' . DIRECTORY_SEPARATOR . 'WindowsPowerShell' . DIRECTORY_SEPARATOR . 'v1.0' . DIRECTORY_SEPARATOR . 'powershell.exe'
+            : 'powershell.exe';
+        if ($psExe !== 'powershell.exe' && !is_file($psExe)) {
+            $psExe = 'powershell.exe';
+        }
+
+        $psPath = rtrim(sys_get_temp_dir(), DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR
+            . 'sparta-doc-worker-launch-' . date('Ymd-His') . '-' . getmypid() . '.ps1';
+        $ps = "\$ErrorActionPreference = 'Stop'\r\n";
+        $ps .= '$argsList = @('
+            . $this->psQuoteVerificacionDocumental('/d') . ', '
+            . $this->psQuoteVerificacionDocumental('/c') . ', '
+            . $this->psQuoteVerificacionDocumental($cmdPath) . ")\r\n";
+        $ps .= 'Start-Process -FilePath ' . $this->psQuoteVerificacionDocumental('cmd.exe')
+            . ' -ArgumentList $argsList -WorkingDirectory ' . $this->psQuoteVerificacionDocumental($workdir)
+            . " -WindowStyle Hidden\r\n";
+
+        if (@file_put_contents($psPath, $ps) === false) {
+            return false;
+        }
+
+        $cmd = '"' . str_replace('"', '""', $psExe) . '" -NoProfile -ExecutionPolicy Bypass -File "'
+            . str_replace('"', '""', $psPath) . '"';
+        $desc = [
+            0 => ['file', 'NUL', 'r'],
+            1 => ['file', 'NUL', 'a'],
+            2 => ['file', 'NUL', 'a'],
+        ];
+        $proc = @proc_open($cmd, $desc, $pipes, $workdir);
+        if (!is_resource($proc)) {
+            @unlink($psPath);
+            return false;
+        }
+        @proc_close($proc);
+        @unlink($psPath);
+
+        return true;
+    }
+
+    private function psQuoteVerificacionDocumental(string $value): string
+    {
+        return "'" . str_replace("'", "''", $value) . "'";
     }
 
     public function procesarSiguienteVerificacionDocumentalJob(): array
@@ -16431,6 +16599,8 @@ class CapHum extends Controller
             }
             echo json_encode(self::respuesta(true, 'Analisis documental iniciado en segundo plano. La documentacion se actualizara automaticamente.', [
                 'verificacion_en_proceso' => true,
+                'job_id' => (int) ($resEncolado['datos']['id_job'] ?? 0),
+                'worker_lanzado' => !empty($resEncolado['datos']['worker_lanzado']),
             ]));
             return;
 
@@ -19998,9 +20168,9 @@ class CapHum extends Controller
 
         $url = rtrim($baseUrl, '/') . '/validar-expediente-json';
         $ch = curl_init($url);
-        $timeoutJson = max($timeoutExp, 180);
-        if ($timeoutJson > 300) {
-            $timeoutJson = 300;
+        $timeoutJson = max($timeoutExp, 45);
+        if ($timeoutJson > 120) {
+            $timeoutJson = 120;
         }
         curl_setopt_array($ch, [
             CURLOPT_POST => true,
@@ -20424,6 +20594,12 @@ class CapHum extends Controller
         error_log('CapHum::validarExpedienteApiJson no completo; se probara multipart de compatibilidad. detalle=' . $jsonPrimarioError);
         if (in_array((int) ($jsonPrimario['http_code'] ?? 0), [401, 403], true)) {
             return ['error' => $jsonPrimarioError . ' Revise api_key en backend/config/config.ini.'];
+        }
+        $jsonPrimarioTimeout = (int) ($jsonPrimario['curl_errno'] ?? 0) === 28
+            || stripos($jsonPrimarioError, 'timed out') !== false
+            || stripos($jsonPrimarioError, 'timeout') !== false;
+        if ($jsonPrimarioTimeout) {
+            return ['error' => $jsonPrimarioError . ' No se intento multipart de compatibilidad para evitar duplicar una validacion lenta.'];
         }
         $lastPayloadError = ['error' => $jsonPrimarioError . ' Se intentara multipart de compatibilidad.'];
         for ($attempt = 0; $attempt < $totalIntentos; $attempt++) {

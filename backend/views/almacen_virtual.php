@@ -128,8 +128,11 @@
         font-weight: 800;
         white-space: nowrap;
     }
+    .av-status-pendiente_evidencias { background: #fef3c7; color: #92400e; }
+    .av-status-incidencia_evidencias { background: #fee2e2; color: #991b1b; }
     .av-status-pendiente_recepcion { background: #fef3c7; color: #92400e; }
     .av-status-en_recepcion { background: #dbeafe; color: #1d4ed8; }
+    .av-status-incidencia_recepcion { background: #fee2e2; color: #991b1b; }
     .av-status-pendiente_revision { background: #f3e8ff; color: #7e22ce; }
     .av-status-en_revision { background: #e0f2fe; color: #0369a1; }
     .av-status-recolectada { background: #dcfce7; color: #15803d; }
@@ -230,8 +233,11 @@
                 <label class="form-label small fw-bold" for="av-estatus">Estatus</label>
                 <select class="form-select form-select-sm" id="av-estatus">
                     <option value="">Todos</option>
+                    <option value="pendiente_evidencias">Pendiente evidencias</option>
+                    <option value="incidencia_evidencias">Incidencia evidencias</option>
                     <option value="pendiente_recepcion">Pendiente recepcion</option>
                     <option value="en_recepcion">En recepcion</option>
+                    <option value="incidencia_recepcion">Incidencia recepcion</option>
                     <option value="pendiente_revision">Pendiente revision</option>
                     <option value="en_revision">En revision</option>
                     <option value="reparada">Reparada</option>
@@ -283,11 +289,12 @@
                         <th>Ubicacion</th>
                         <th>Estatus</th>
                         <th>Ingreso</th>
+                        <th>Accion</th>
                     </tr>
                 </thead>
                 <tbody id="av-unidades-body">
                     <tr>
-                        <td colspan="7" class="av-empty">
+                        <td colspan="8" class="av-empty">
                             <i class="fa-solid fa-spinner fa-spin"></i>
                             Cargando unidades...
                         </td>
@@ -308,6 +315,20 @@
     </section>
 </div>
 
+<div class="modal fade" id="av-modal-ficha" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Ficha tecnica</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <div class="modal-body" id="av-ficha-body">
+                <div class="av-empty"><i class="fa-solid fa-spinner fa-spin"></i>Cargando ficha...</div>
+            </div>
+        </div>
+    </div>
+</div>
+
 <script>
 (function () {
     const state = {
@@ -316,6 +337,7 @@
         pages: 1,
         total: 0,
         timer: null,
+        rows: new Map(),
     };
 
     const $ = (id) => document.getElementById(id);
@@ -339,8 +361,11 @@
 
     function statusLabel(value) {
         const map = {
+            pendiente_evidencias: 'Pendiente evidencias',
+            incidencia_evidencias: 'Incidencia evidencias',
             pendiente_recepcion: 'Pendiente recepcion',
             en_recepcion: 'En recepcion',
+            incidencia_recepcion: 'Incidencia recepcion',
             pendiente_revision: 'Pendiente revision',
             en_revision: 'En revision',
             recolectada: 'Recolectada',
@@ -358,7 +383,7 @@
 
     function statusHtml(value) {
         const key = String(value || 'default').replace(/[^a-z0-9_]/gi, '_');
-        const safeClass = ['pendiente_recepcion','en_recepcion','pendiente_revision','en_revision','recolectada','recolectado','completado','completada','reparada','fuera_presupuesto','irreparable','lista_venta','en_traspaso'].includes(key)
+        const safeClass = ['pendiente_evidencias','incidencia_evidencias','pendiente_recepcion','en_recepcion','incidencia_recepcion','pendiente_revision','en_revision','recolectada','recolectado','completado','completada','reparada','fuera_presupuesto','irreparable','lista_venta','en_traspaso'].includes(key)
             ? 'av-status-' + key
             : 'av-status-default';
         return '<span class="av-status ' + safeClass + '"><i class="fa-solid fa-circle"></i>' + esc(statusLabel(value)) + '</span>';
@@ -477,12 +502,14 @@
     function renderRows(rows) {
         const body = $('av-unidades-body');
         if (!body) return;
+        state.rows.clear();
         if (!rows || rows.length === 0) {
-            body.innerHTML = '<tr><td colspan="7" class="av-empty"><i class="fa-solid fa-clipboard-list"></i>Sin unidades para los filtros seleccionados.</td></tr>';
+            body.innerHTML = '<tr><td colspan="8" class="av-empty"><i class="fa-solid fa-clipboard-list"></i>Sin unidades para los filtros seleccionados.</td></tr>';
             return;
         }
 
         body.innerHTML = rows.map((row) => {
+            state.rows.set(String(row.id_unidad), row);
             const moto = [row.marca, row.modelo, row.anio].filter(Boolean).join(' ');
             const ids = [
                 row.vin ? 'VIN ' + row.vin : '',
@@ -514,6 +541,11 @@
                     </td>
                     <td>${statusHtml(row.estatus_inventario)}</td>
                     <td>${esc(row.fecha_ingreso_virtual_fmt || row.fecha_alta_fmt || '')}</td>
+                    <td>
+                        <button type="button" class="btn btn-label-primary btn-sm" data-action="ficha" data-id="${esc(row.id_unidad)}">
+                            <i class="fa-solid fa-file-lines me-1"></i>Ficha
+                        </button>
+                    </td>
                 </tr>
             `;
         }).join('');
@@ -522,13 +554,13 @@
     async function cargarUnidades() {
         const body = $('av-unidades-body');
         if (body) {
-            body.innerHTML = '<tr><td colspan="7" class="av-empty"><i class="fa-solid fa-spinner fa-spin"></i>Cargando unidades...</td></tr>';
+            body.innerHTML = '<tr><td colspan="8" class="av-empty"><i class="fa-solid fa-spinner fa-spin"></i>Cargando unidades...</td></tr>';
         }
         const res = await fetch('/MotosAdjudicadas/inventarioUnidades?' + params().toString(), { headers: { Accept: 'application/json' } });
         const json = await res.json();
         if (!json.success) {
             if (body) {
-                body.innerHTML = '<tr><td colspan="7" class="av-empty"><i class="fa-solid fa-triangle-exclamation"></i>' + esc(json.message || 'No se pudieron cargar las unidades.') + '</td></tr>';
+                body.innerHTML = '<tr><td colspan="8" class="av-empty"><i class="fa-solid fa-triangle-exclamation"></i>' + esc(json.message || 'No se pudieron cargar las unidades.') + '</td></tr>';
             }
             return;
         }
@@ -588,9 +620,66 @@
         cargarUnidades().catch((err) => {
             const body = $('av-unidades-body');
             if (body) {
-                body.innerHTML = '<tr><td colspan="7" class="av-empty"><i class="fa-solid fa-triangle-exclamation"></i>' + esc(err.message || 'Error inesperado.') + '</td></tr>';
+                body.innerHTML = '<tr><td colspan="8" class="av-empty"><i class="fa-solid fa-triangle-exclamation"></i>' + esc(err.message || 'Error inesperado.') + '</td></tr>';
             }
         });
+    }
+
+    async function abrirFicha(idUnidad) {
+        const body = $('av-ficha-body');
+        if (body) {
+            body.innerHTML = '<div class="av-empty"><i class="fa-solid fa-spinner fa-spin"></i>Cargando ficha...</div>';
+        }
+        const modalEl = $('av-modal-ficha');
+        if (window.bootstrap && window.bootstrap.Modal && modalEl) {
+            window.bootstrap.Modal.getOrCreateInstance(modalEl).show();
+        }
+        try {
+            const res = await fetch('/MotosAdjudicadas/inventarioFichaUnidad?id_unidad=' + encodeURIComponent(String(idUnidad)), { headers: { Accept: 'application/json' } });
+            const json = await res.json();
+            if (!json.success) {
+                if (body) body.innerHTML = '<div class="av-empty"><i class="fa-solid fa-triangle-exclamation"></i>' + esc(json.message || 'No se pudo cargar la ficha.') + '</div>';
+                return;
+            }
+            const u = json.unidad || {};
+            const moto = [u.marca, u.modelo, u.anio].filter(Boolean).join(' ');
+            const evidencias = json.evidencias || [];
+            const movimientos = json.movimientos || [];
+            const codigos = json.codigos || [];
+            if (body) {
+                body.innerHTML = `
+                    <div class="row g-3">
+                        <div class="col-12 col-md-6">
+                            <div class="av-unit-main">${esc(u.folio_unidad || ('Unidad #' + u.id_unidad))}</div>
+                            <div class="text-muted small">${esc(moto || 'Sin datos de moto')}</div>
+                            <div class="mt-2">${statusHtml(u.estatus_inventario)}</div>
+                        </div>
+                        <div class="col-12 col-md-6">
+                            <div class="small"><strong>Celula:</strong> ${esc(u.nombre_celula || '')}</div>
+                            <div class="small"><strong>Credito historico:</strong> ${esc(u.id_credito || 'N/A')}</div>
+                            <div class="small"><strong>Ubicacion:</strong> ${esc(u.nombre_ubicacion || 'Sin ubicacion')}</div>
+                        </div>
+                        <div class="col-12">
+                            <div class="small"><strong>VIN:</strong> ${esc(u.vin || 'N/A')} &nbsp; <strong>Motor:</strong> ${esc(u.no_motor || 'N/A')} &nbsp; <strong>Placas:</strong> ${esc(u.placas || 'N/A')}</div>
+                        </div>
+                        <div class="col-12 col-lg-4">
+                            <div class="fw-bold small mb-2">Evidencias</div>
+                            ${evidencias.length ? evidencias.map(ev => `<div class="av-unit-sub">${esc(ev.titulo_slot || ev.slot)} - ${esc(ev.estatus || '')} ${ev.url_publica ? `<a href="${esc(ev.url_publica)}" target="_blank" rel="noopener">ver</a>` : ''}</div>`).join('') : '<div class="text-muted small">Sin evidencias.</div>'}
+                        </div>
+                        <div class="col-12 col-lg-4">
+                            <div class="fw-bold small mb-2">Codigos</div>
+                            ${codigos.length ? codigos.map(c => `<div class="av-unit-sub">${esc(c.codigo)} - ${esc(c.estatus || '')}</div>`).join('') : '<div class="text-muted small">Sin codigos.</div>'}
+                        </div>
+                        <div class="col-12 col-lg-4">
+                            <div class="fw-bold small mb-2">Movimientos</div>
+                            ${movimientos.length ? movimientos.map(m => `<div class="av-unit-sub">${esc(m.fecha_movimiento_fmt || '')} - ${esc(m.tipo_movimiento || '')}</div>`).join('') : '<div class="text-muted small">Sin movimientos.</div>'}
+                        </div>
+                    </div>
+                `;
+            }
+        } catch (err) {
+            if (body) body.innerHTML = '<div class="av-empty"><i class="fa-solid fa-triangle-exclamation"></i>' + esc(err.message || 'Error inesperado.') + '</div>';
+        }
     }
 
     function init() {
@@ -611,6 +700,11 @@
                 state.page = nextPage;
                 cargarUnidades();
             }
+        });
+        $('av-unidades-body')?.addEventListener('click', (ev) => {
+            const btn = ev.target.closest('[data-action="ficha"]');
+            if (!btn) return;
+            abrirFicha(btn.dataset.id);
         });
         $('av-q')?.addEventListener('input', () => {
             window.clearTimeout(state.timer);

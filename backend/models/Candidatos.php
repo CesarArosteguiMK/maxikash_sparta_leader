@@ -1818,6 +1818,36 @@ class Candidatos extends Model
         }
     }
 
+    public static function cancelarJobsVerificacionDocumentalActivos($id_candidato, string $motivo = 'Reintento solicitado'): int
+    {
+        $id_candidato = (int) $id_candidato;
+        if ($id_candidato <= 0) {
+            return 0;
+        }
+        try {
+            $db = new Database();
+            self::asegurarTablaJobsVerificacionDocumental($db);
+            $ahora = self::fechaHoraActualMexicoCiudad();
+            return (int) $db->CRUD(
+                "UPDATE candidato_verificacion_documental_job
+                 SET estado = 'cancelado',
+                     finished_at = :ahora,
+                     locked_at = NULL,
+                     last_error = :motivo,
+                     updated_at = :ahora
+                 WHERE id_candidato = :id
+                   AND estado IN ('pendiente', 'procesando')",
+                [
+                    'id' => $id_candidato,
+                    'motivo' => substr($motivo, 0, 2000),
+                    'ahora' => $ahora,
+                ]
+            );
+        } catch (\Exception $e) {
+            return 0;
+        }
+    }
+
     public static function tomarSiguienteJobVerificacionDocumental(int $staleMinutes = 3)
     {
         $staleMinutes = max(1, min(120, $staleMinutes));

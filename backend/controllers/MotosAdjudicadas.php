@@ -29,6 +29,151 @@ class MotosAdjudicadas extends Controller
         return $this->inventarioModel;
     }
 
+    private function slotsEvidenciasAlmacenVirtual(): array
+    {
+        return [
+            'foto_frontal' => 'ev_foto_frontal',
+            'foto_lateral_derecha' => 'ev_foto_lateral_derecha',
+            'foto_trasera' => 'ev_foto_trasera',
+            'foto_lateral_izquierda' => 'ev_foto_lateral_izquierda',
+            'foto_vin' => 'ev_foto_vin',
+        ];
+    }
+
+    private function slotsEvidenciasRevisionMecanica(): array
+    {
+        return [
+            'revision_mecanica' => 'rev_ev_mecanica',
+            'revision_electrica' => 'rev_ev_electrica',
+            'revision_estetica' => 'rev_ev_estetica',
+        ];
+    }
+
+    private function guardarArchivosEvidenciasAlmacenVirtual(int $idUnidad): array
+    {
+        $archivos = [];
+        if ($idUnidad <= 0) {
+            return ['success' => false, 'message' => 'Unidad invalida.'];
+        }
+
+        if (!function_exists('sparta_uploads_join')) {
+            require_once dirname(__DIR__) . '/core/UploadsPaths.php';
+        }
+
+        $dir = sparta_uploads_join('almacen_virtual', (string) $idUnidad, 'evidencias');
+        if (!is_dir($dir) && !@mkdir($dir, 0775, true) && !is_dir($dir)) {
+            return ['success' => false, 'message' => 'No se pudo crear la carpeta de evidencias.'];
+        }
+
+        $permitidas = ['jpg', 'jpeg', 'png', 'webp', 'heic', 'heif'];
+        $maxBytes = 15 * 1024 * 1024;
+        foreach ($this->slotsEvidenciasAlmacenVirtual() as $slot => $campo) {
+            $file = $_FILES[$campo] ?? null;
+            if (!$file || !isset($file['error']) || (int) $file['error'] === UPLOAD_ERR_NO_FILE) {
+                continue;
+            }
+            if ((int) $file['error'] !== UPLOAD_ERR_OK) {
+                return ['success' => false, 'message' => 'No se pudo recibir el archivo de ' . $slot . '.'];
+            }
+            $size = (int) ($file['size'] ?? 0);
+            if ($size <= 0 || $size > $maxBytes) {
+                return ['success' => false, 'message' => 'El archivo de ' . $slot . ' excede el tamano permitido.'];
+            }
+            $tmp = (string) ($file['tmp_name'] ?? '');
+            if ($tmp === '' || !is_uploaded_file($tmp)) {
+                return ['success' => false, 'message' => 'Archivo temporal invalido para ' . $slot . '.'];
+            }
+
+            $ext = strtolower((string) pathinfo((string) ($file['name'] ?? ''), PATHINFO_EXTENSION));
+            $ext = preg_replace('/[^a-z0-9]/', '', $ext);
+            if ($ext === 'jpeg') {
+                $ext = 'jpg';
+            }
+            if (!in_array($ext, $permitidas, true)) {
+                return ['success' => false, 'message' => 'Formato no permitido para ' . $slot . '.'];
+            }
+
+            $mime = function_exists('mime_content_type') ? (string) @mime_content_type($tmp) : null;
+            $filename = $slot . '_' . date('Ymd_His') . '_' . bin2hex(random_bytes(4)) . '.' . $ext;
+            $destino = rtrim($dir, DIRECTORY_SEPARATOR . '/\\') . DIRECTORY_SEPARATOR . $filename;
+            if (!@move_uploaded_file($tmp, $destino)) {
+                return ['success' => false, 'message' => 'No se pudo guardar el archivo de ' . $slot . '.'];
+            }
+
+            $archivos[$slot] = [
+                'url' => '/uploads/almacen_virtual/' . $idUnidad . '/evidencias/' . $filename,
+                'mime_type' => $mime ?: null,
+                'tamano_bytes' => $size,
+                'tipo_evidencia' => 'foto',
+            ];
+        }
+
+        return ['success' => true, 'archivos' => $archivos];
+    }
+
+    private function guardarArchivosRevisionMecanica(int $idUnidad): array
+    {
+        $archivos = [];
+        if ($idUnidad <= 0) {
+            return ['success' => false, 'message' => 'Unidad invalida.'];
+        }
+
+        if (!function_exists('sparta_uploads_join')) {
+            require_once dirname(__DIR__) . '/core/UploadsPaths.php';
+        }
+
+        $dir = sparta_uploads_join('almacen_virtual', (string) $idUnidad, 'revision_mecanica');
+        if (!is_dir($dir) && !@mkdir($dir, 0775, true) && !is_dir($dir)) {
+            return ['success' => false, 'message' => 'No se pudo crear la carpeta de revision mecanica.'];
+        }
+
+        $permitidas = ['jpg', 'jpeg', 'png', 'webp', 'heic', 'heif', 'mp4', 'mov', 'webm'];
+        $videoExt = ['mp4', 'mov', 'webm'];
+        $maxBytes = 80 * 1024 * 1024;
+        foreach ($this->slotsEvidenciasRevisionMecanica() as $slot => $campo) {
+            $file = $_FILES[$campo] ?? null;
+            if (!$file || !isset($file['error']) || (int) $file['error'] === UPLOAD_ERR_NO_FILE) {
+                continue;
+            }
+            if ((int) $file['error'] !== UPLOAD_ERR_OK) {
+                return ['success' => false, 'message' => 'No se pudo recibir el archivo de ' . $slot . '.'];
+            }
+            $size = (int) ($file['size'] ?? 0);
+            if ($size <= 0 || $size > $maxBytes) {
+                return ['success' => false, 'message' => 'El archivo de ' . $slot . ' excede el tamano permitido.'];
+            }
+            $tmp = (string) ($file['tmp_name'] ?? '');
+            if ($tmp === '' || !is_uploaded_file($tmp)) {
+                return ['success' => false, 'message' => 'Archivo temporal invalido para ' . $slot . '.'];
+            }
+
+            $ext = strtolower((string) pathinfo((string) ($file['name'] ?? ''), PATHINFO_EXTENSION));
+            $ext = preg_replace('/[^a-z0-9]/', '', $ext);
+            if ($ext === 'jpeg') {
+                $ext = 'jpg';
+            }
+            if (!in_array($ext, $permitidas, true)) {
+                return ['success' => false, 'message' => 'Formato no permitido para ' . $slot . '.'];
+            }
+
+            $mime = function_exists('mime_content_type') ? (string) @mime_content_type($tmp) : null;
+            $filename = $slot . '_' . date('Ymd_His') . '_' . bin2hex(random_bytes(4)) . '.' . $ext;
+            $destino = rtrim($dir, DIRECTORY_SEPARATOR . '/\\') . DIRECTORY_SEPARATOR . $filename;
+            if (!@move_uploaded_file($tmp, $destino)) {
+                return ['success' => false, 'message' => 'No se pudo guardar el archivo de ' . $slot . '.'];
+            }
+
+            $archivos[$slot] = [
+                'url' => '/uploads/almacen_virtual/' . $idUnidad . '/revision_mecanica/' . $filename,
+                'mime_type' => $mime ?: null,
+                'tamano_bytes' => $size,
+                'tipo_evidencia' => in_array($ext, $videoExt, true) ? 'video' : 'foto',
+            ];
+        }
+
+        return ['success' => true, 'archivos' => $archivos];
+    }
+
     private function tieneModuloSesion(int $moduloId): bool
     {
         $mods = array_map('intval', (array) ($_SESSION['modulos'] ?? []));
@@ -193,6 +338,40 @@ class MotosAdjudicadas extends Controller
         return self::render('almacen_virtual');
     }
 
+    /**
+     * GET /MotosAdjudicadas/evidenciasCodigo
+     */
+    public function evidenciasCodigo()
+    {
+        $emp = defined('CONFIGURACION') && isset(CONFIGURACION['EMPRESA']) ? (string) CONFIGURACION['EMPRESA'] : '';
+        self::set('titulo', 'Evidencias y Codigo - Almacen Virtual ' . $emp);
+        self::set('av_modulo_id', InventarioMotosDAO::moduloAlmacenVirtual());
+        return self::render('almacen_virtual_evidencias');
+    }
+
+    /**
+     * GET /MotosAdjudicadas/recepcionAlmacen
+     */
+    public function recepcionAlmacen()
+    {
+        $emp = defined('CONFIGURACION') && isset(CONFIGURACION['EMPRESA']) ? (string) CONFIGURACION['EMPRESA'] : '';
+        self::set('titulo', 'Recepcion de Almacen - Almacen Virtual ' . $emp);
+        self::set('av_modulo_id', InventarioMotosDAO::moduloAlmacenVirtual());
+        return self::render('almacen_virtual_recepcion');
+    }
+
+    /**
+     * GET /MotosAdjudicadas/revisionMecanica
+     */
+    public function revisionMecanica()
+    {
+        $emp = defined('CONFIGURACION') && isset(CONFIGURACION['EMPRESA']) ? (string) CONFIGURACION['EMPRESA'] : '';
+        self::set('titulo', 'Revision Mecanica - Almacen Virtual ' . $emp);
+        self::set('av_modulo_id', InventarioMotosDAO::moduloAlmacenVirtual());
+        self::set('av_revision_checklist', $this->inventarioDao()->obtenerChecklistRevisionMecanica());
+        return self::render('almacen_virtual_revision_mecanica');
+    }
+
     public function inventarioResumen()
     {
         header('Content-Type: application/json; charset=utf-8');
@@ -307,6 +486,306 @@ class MotosAdjudicadas extends Controller
             'success' => false,
             'message' => 'El alta manual por id_operacion esta deshabilitada. El inventario se alimenta automaticamente desde recolecciones confirmadas en Tracking.',
         ], JSON_UNESCAPED_UNICODE);
+    }
+
+    public function inventarioFichaUnidad()
+    {
+        header('Content-Type: application/json; charset=utf-8');
+        try {
+            $idUnidad = (int) ($_GET['id_unidad'] ?? 0);
+            echo json_encode($this->inventarioDao()->obtenerFichaUnidad($idUnidad), JSON_UNESCAPED_UNICODE);
+        } catch (\Throwable $e) {
+            echo json_encode([
+                'success' => false,
+                'message' => 'No se pudo cargar la ficha de la unidad.',
+                'error' => $e->getMessage(),
+            ], JSON_UNESCAPED_UNICODE);
+        }
+    }
+
+    public function evidenciasCodigoResumen()
+    {
+        header('Content-Type: application/json; charset=utf-8');
+        try {
+            echo json_encode([
+                'success' => true,
+                'datos' => $this->inventarioDao()->obtenerResumenEvidencias(),
+            ], JSON_UNESCAPED_UNICODE);
+        } catch (\Throwable $e) {
+            echo json_encode([
+                'success' => false,
+                'message' => 'No se pudo cargar el resumen de evidencias.',
+                'error' => $e->getMessage(),
+            ], JSON_UNESCAPED_UNICODE);
+        }
+    }
+
+    public function evidenciasCodigoUnidades()
+    {
+        header('Content-Type: application/json; charset=utf-8');
+        try {
+            $filtros = [
+                'q' => trim((string) ($_GET['q'] ?? '')),
+                'id_celula' => (int) ($_GET['id_celula'] ?? 0),
+                'estatus' => trim((string) ($_GET['estatus'] ?? 'abiertas')),
+                'page' => (int) ($_GET['page'] ?? 1),
+                'limit' => (int) ($_GET['limit'] ?? 8),
+            ];
+
+            echo json_encode($this->inventarioDao()->listarEvidenciasUnidades($filtros), JSON_UNESCAPED_UNICODE);
+        } catch (\Throwable $e) {
+            echo json_encode([
+                'success' => false,
+                'message' => 'No se pudieron cargar unidades para evidencias.',
+                'error' => $e->getMessage(),
+            ], JSON_UNESCAPED_UNICODE);
+        }
+    }
+
+    public function evidenciasCodigoGenerar()
+    {
+        header('Content-Type: application/json; charset=utf-8');
+        $idUsuario = (int) ($_SESSION['persona_id'] ?? $_SESSION['usuario_id'] ?? $_SESSION['id_usuario'] ?? $_SESSION['id'] ?? 0);
+        $nombreUsuario = trim((string) ($_SESSION['usuario_nombre'] ?? $_SESSION['nombre'] ?? $_SESSION['usuario'] ?? 'SISTEMA'));
+        $idUnidad = (int) ($_POST['id_unidad'] ?? $_GET['id_unidad'] ?? 0);
+
+        try {
+            echo json_encode(
+                $this->inventarioDao()->generarCodigoVerificacionUnidad($idUnidad, $idUsuario, $nombreUsuario),
+                JSON_UNESCAPED_UNICODE
+            );
+        } catch (\Throwable $e) {
+            echo json_encode([
+                'success' => false,
+                'message' => 'No se pudo generar el codigo.',
+                'error' => $e->getMessage(),
+            ], JSON_UNESCAPED_UNICODE);
+        }
+    }
+
+    public function evidenciasCodigoValidar()
+    {
+        header('Content-Type: application/json; charset=utf-8');
+        $idUsuario = (int) ($_SESSION['persona_id'] ?? $_SESSION['usuario_id'] ?? $_SESSION['id_usuario'] ?? $_SESSION['id'] ?? 0);
+        $nombreUsuario = trim((string) ($_SESSION['usuario_nombre'] ?? $_SESSION['nombre'] ?? $_SESSION['usuario'] ?? 'SISTEMA'));
+        $idUnidad = (int) ($_POST['id_unidad'] ?? 0);
+        $datos = [
+            'vin' => trim((string) ($_POST['vin'] ?? '')),
+            'codigo_verificacion' => trim((string) ($_POST['codigo_verificacion'] ?? '')),
+            'observaciones' => trim((string) ($_POST['observaciones'] ?? '')),
+        ];
+
+        try {
+            $codigoOk = $this->inventarioDao()->codigoVerificacionPendienteValido($idUnidad, $datos['codigo_verificacion']);
+            if (empty($codigoOk['success'])) {
+                echo json_encode($codigoOk, JSON_UNESCAPED_UNICODE);
+                return;
+            }
+
+            $archivos = $this->guardarArchivosEvidenciasAlmacenVirtual($idUnidad);
+            if (empty($archivos['success'])) {
+                echo json_encode($archivos, JSON_UNESCAPED_UNICODE);
+                return;
+            }
+
+            echo json_encode(
+                $this->inventarioDao()->validarEvidenciasCodigoUnidad(
+                    $idUnidad,
+                    $datos,
+                    $archivos['archivos'] ?? [],
+                    $idUsuario,
+                    $nombreUsuario
+                ),
+                JSON_UNESCAPED_UNICODE
+            );
+        } catch (\Throwable $e) {
+            echo json_encode([
+                'success' => false,
+                'message' => 'No se pudo validar evidencias y codigo.',
+                'error' => $e->getMessage(),
+            ], JSON_UNESCAPED_UNICODE);
+        }
+    }
+
+    public function recepcionAlmacenResumen()
+    {
+        header('Content-Type: application/json; charset=utf-8');
+        try {
+            echo json_encode([
+                'success' => true,
+                'datos' => $this->inventarioDao()->obtenerResumenRecepcion(),
+            ], JSON_UNESCAPED_UNICODE);
+        } catch (\Throwable $e) {
+            echo json_encode([
+                'success' => false,
+                'message' => 'No se pudo cargar el resumen de recepcion.',
+                'error' => $e->getMessage(),
+            ], JSON_UNESCAPED_UNICODE);
+        }
+    }
+
+    public function recepcionAlmacenUnidades()
+    {
+        header('Content-Type: application/json; charset=utf-8');
+        try {
+            $filtros = [
+                'q' => trim((string) ($_GET['q'] ?? '')),
+                'id_celula' => (int) ($_GET['id_celula'] ?? 0),
+                'estatus' => trim((string) ($_GET['estatus'] ?? 'abiertas')),
+                'id_ubicacion' => (int) ($_GET['id_ubicacion'] ?? 0),
+                'page' => (int) ($_GET['page'] ?? 1),
+                'limit' => (int) ($_GET['limit'] ?? 8),
+            ];
+
+            echo json_encode($this->inventarioDao()->listarRecepcionUnidades($filtros), JSON_UNESCAPED_UNICODE);
+        } catch (\Throwable $e) {
+            echo json_encode([
+                'success' => false,
+                'message' => 'No se pudieron cargar unidades para recepcion.',
+                'error' => $e->getMessage(),
+            ], JSON_UNESCAPED_UNICODE);
+        }
+    }
+
+    public function recepcionAlmacenConfirmar()
+    {
+        header('Content-Type: application/json; charset=utf-8');
+        $idUsuario = (int) ($_SESSION['persona_id'] ?? $_SESSION['usuario_id'] ?? $_SESSION['id_usuario'] ?? $_SESSION['id'] ?? 0);
+        $nombreUsuario = trim((string) ($_SESSION['usuario_nombre'] ?? $_SESSION['nombre'] ?? $_SESSION['usuario'] ?? 'SISTEMA'));
+        $idUnidad = (int) ($_POST['id_unidad'] ?? 0);
+        $datos = [
+            'id_ubicacion' => (int) ($_POST['id_ubicacion'] ?? 0),
+            'vin' => trim((string) ($_POST['vin'] ?? '')),
+            'no_motor' => trim((string) ($_POST['no_motor'] ?? '')),
+            'placas' => trim((string) ($_POST['placas'] ?? '')),
+            'kilometraje' => trim((string) ($_POST['kilometraje'] ?? '')),
+            'observaciones' => trim((string) ($_POST['observaciones'] ?? '')),
+            'vin_coincide' => $_POST['vin_coincide'] ?? null,
+            'evidencia_4_angulos' => $_POST['evidencia_4_angulos'] ?? null,
+            'evidencia_vin' => $_POST['evidencia_vin'] ?? null,
+            'documentos_completos' => $_POST['documentos_completos'] ?? null,
+            'arranque_motor' => $_POST['arranque_motor'] ?? null,
+            'sin_danos_mayores' => $_POST['sin_danos_mayores'] ?? null,
+        ];
+
+        try {
+            echo json_encode(
+                $this->inventarioDao()->confirmarRecepcionAlmacen($idUnidad, $datos, $idUsuario, $nombreUsuario),
+                JSON_UNESCAPED_UNICODE
+            );
+        } catch (\Throwable $e) {
+            echo json_encode([
+                'success' => false,
+                'message' => 'No se pudo confirmar la recepcion de almacen.',
+                'error' => $e->getMessage(),
+            ], JSON_UNESCAPED_UNICODE);
+        }
+    }
+
+    public function revisionMecanicaResumen()
+    {
+        header('Content-Type: application/json; charset=utf-8');
+        try {
+            echo json_encode([
+                'success' => true,
+                'datos' => $this->inventarioDao()->obtenerResumenRevisionMecanica(),
+            ], JSON_UNESCAPED_UNICODE);
+        } catch (\Throwable $e) {
+            echo json_encode([
+                'success' => false,
+                'message' => 'No se pudo cargar el resumen de revision mecanica.',
+                'error' => $e->getMessage(),
+            ], JSON_UNESCAPED_UNICODE);
+        }
+    }
+
+    public function revisionMecanicaUnidades()
+    {
+        header('Content-Type: application/json; charset=utf-8');
+        try {
+            $filtros = [
+                'q' => trim((string) ($_GET['q'] ?? '')),
+                'id_celula' => (int) ($_GET['id_celula'] ?? 0),
+                'estatus' => trim((string) ($_GET['estatus'] ?? 'abiertas')),
+                'id_ubicacion' => (int) ($_GET['id_ubicacion'] ?? 0),
+                'page' => (int) ($_GET['page'] ?? 1),
+                'limit' => (int) ($_GET['limit'] ?? 8),
+            ];
+
+            echo json_encode($this->inventarioDao()->listarRevisionMecanicaUnidades($filtros), JSON_UNESCAPED_UNICODE);
+        } catch (\Throwable $e) {
+            echo json_encode([
+                'success' => false,
+                'message' => 'No se pudieron cargar unidades para revision mecanica.',
+                'error' => $e->getMessage(),
+            ], JSON_UNESCAPED_UNICODE);
+        }
+    }
+
+    public function revisionMecanicaIniciar()
+    {
+        header('Content-Type: application/json; charset=utf-8');
+        $idUsuario = (int) ($_SESSION['persona_id'] ?? $_SESSION['usuario_id'] ?? $_SESSION['id_usuario'] ?? $_SESSION['id'] ?? 0);
+        $nombreUsuario = trim((string) ($_SESSION['usuario_nombre'] ?? $_SESSION['nombre'] ?? $_SESSION['usuario'] ?? 'SISTEMA'));
+        $idUnidad = (int) ($_POST['id_unidad'] ?? $_GET['id_unidad'] ?? 0);
+
+        try {
+            echo json_encode(
+                $this->inventarioDao()->iniciarRevisionMecanica($idUnidad, $idUsuario, $nombreUsuario),
+                JSON_UNESCAPED_UNICODE
+            );
+        } catch (\Throwable $e) {
+            echo json_encode([
+                'success' => false,
+                'message' => 'No se pudo iniciar la revision mecanica.',
+                'error' => $e->getMessage(),
+            ], JSON_UNESCAPED_UNICODE);
+        }
+    }
+
+    public function revisionMecanicaFinalizar()
+    {
+        header('Content-Type: application/json; charset=utf-8');
+        $idUsuario = (int) ($_SESSION['persona_id'] ?? $_SESSION['usuario_id'] ?? $_SESSION['id_usuario'] ?? $_SESSION['id'] ?? 0);
+        $nombreUsuario = trim((string) ($_SESSION['usuario_nombre'] ?? $_SESSION['nombre'] ?? $_SESSION['usuario'] ?? 'SISTEMA'));
+        $idUnidad = (int) ($_POST['id_unidad'] ?? 0);
+        $datos = [
+            'diagnostico_general' => trim((string) ($_POST['diagnostico_general'] ?? '')),
+            'comentario_mecanica' => trim((string) ($_POST['comentario_mecanica'] ?? '')),
+            'comentario_electrica' => trim((string) ($_POST['comentario_electrica'] ?? '')),
+            'comentario_estetica' => trim((string) ($_POST['comentario_estetica'] ?? '')),
+            'otros_mecanica' => trim((string) ($_POST['otros_mecanica'] ?? '')),
+            'otros_electrica' => trim((string) ($_POST['otros_electrica'] ?? '')),
+            'otros_estetica' => trim((string) ($_POST['otros_estetica'] ?? '')),
+            'dictamen' => trim((string) ($_POST['dictamen'] ?? '')),
+            'items' => $_POST['items'] ?? [],
+            'tipo_servicio' => $_POST['tipo_servicio'] ?? [],
+        ];
+
+        try {
+            $archivos = $this->guardarArchivosRevisionMecanica($idUnidad);
+            if (empty($archivos['success'])) {
+                echo json_encode($archivos, JSON_UNESCAPED_UNICODE);
+                return;
+            }
+
+            echo json_encode(
+                $this->inventarioDao()->finalizarRevisionMecanica(
+                    $idUnidad,
+                    $datos,
+                    $archivos['archivos'] ?? [],
+                    $idUsuario,
+                    $nombreUsuario
+                ),
+                JSON_UNESCAPED_UNICODE
+            );
+        } catch (\Throwable $e) {
+            echo json_encode([
+                'success' => false,
+                'message' => 'No se pudo finalizar la revision mecanica.',
+                'error' => $e->getMessage(),
+            ], JSON_UNESCAPED_UNICODE);
+        }
     }
 
     /**
