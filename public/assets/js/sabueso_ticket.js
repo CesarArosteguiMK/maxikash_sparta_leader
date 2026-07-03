@@ -661,7 +661,9 @@
             ? [
                 item.id_credito, item.folio, item.nombre_cliente, item.nombre_gestor,
                 item.gestor_nombre_resuelto, item.tipo_contacto, item.motivo, item.origen,
-                item.dictamen_tipo_sabueso, item.resultado_ds, item.actualizado_en, item.detectado_en
+                item.dictamen_tipo_sabueso, item.resultado_ds, item.actualizado_en, item.detectado_en,
+                item.tipo_registro, item.descripcion_inicial, item.mensaje, item.tipo_ticket_nombre,
+                item.origen_ticket_nombre, item.nombre_creador
             ]
             : [
                 item.id_ticket, item.folio, item.id_credito, item.descripcion_inicial,
@@ -820,24 +822,34 @@
     function renderHistorialSemanalIlocalizables(semanas) {
         semanas = Array.isArray(semanas) ? semanas : [];
         if (!semanas.length) {
-            return renderHistorialSemanalEmpty('Sin ilocalizables manuales activos', 'No tienes creditos marcados manualmente como ilocalizables en el historico activo.');
+            return renderHistorialSemanalEmpty('Sin ilocalizables ni intentos bloqueados', 'Todavia no hay creditos ilocalizables ni intentos de ticket bloqueados para mostrar.');
         }
         return semanas.map(function(semana) {
             var items = Array.isArray(semana.items) ? semana.items : [];
             var rows = items.map(function(t) {
+                var esIntento = (t.tipo_registro || '') === 'intento_bloqueado';
                 var pagoConsultado = parseInt(t.pago_semana_consultado || 0, 10) === 1;
                 var pagoSi = parseInt(t.pago_semana_si || 0, 10) === 1;
                 var pagoTexto = pagoConsultado ? (pagoSi ? 'Si' : 'No') : 'Sin consulta';
                 var pagoCls = pagoSi ? 'bg-success text-white' : (pagoConsultado ? 'bg-label-warning' : 'bg-label-secondary');
                 var origen = histTxt(t.origen, '').toLowerCase();
-                var origenBadge = origen === 'manual' ? histBadge('Manual', 'bg-warning text-dark') : histBadge('Automatico', 'bg-label-info');
+                var origenBadge = esIntento
+                    ? histBadge('Intento bloqueado', 'bg-danger text-white')
+                    : (origen === 'manual' ? histBadge('Manual', 'bg-warning text-dark') : histBadge('Automatico', 'bg-label-info'));
+                var gestor = histTxt(t.gestor_nombre_resuelto || t.nombre_gestor || t.nombre_creador, 'Sin gestor');
+                var cliente = esIntento ? 'Ticket no creado' : histTxt(t.nombre_cliente, 'Sin cliente');
+                var motivo = esIntento ? 'Crédito ilocalizable' : histHumanizar(t.motivo);
+                var detalle = esIntento
+                    ? histTxt(t.descripcion_inicial || t.mensaje, 'Intento de levantar ticket bloqueado por ilocalizable.')
+                    : ('DS: ' + histTxt(t.resultado_ds, 'Sin dato'));
+                var intentoTxt = esIntento ? ('Intentos: ' + histTxt(t.intentos, '1')) : ('Pagos: ' + histTxt(t.pago_semana_count, '0'));
                 return '<tr>' +
                     '<td><div class="fw-semibold">#' + histEsc(histTxt(t.id_credito)) + '</div><small class="text-muted">' + histEsc(histTxt(t.folio, t.id_ticket ? ('TCK-' + t.id_ticket) : 'Sin ticket')) + '</small></td>' +
-                    '<td><div class="fw-semibold">' + histEsc(histTxt(t.nombre_cliente, 'Sin cliente')) + '</div><small class="text-muted">Gestor: ' + histEsc(histTxt(t.gestor_nombre_resuelto || t.nombre_gestor, 'Sin gestor')) + '</small></td>' +
-                    '<td><div>' + histEsc(histHumanizar(t.motivo)) + '</div><small class="text-muted">' + origenBadge + '</small></td>' +
+                    '<td><div class="fw-semibold">' + histEsc(cliente) + '</div><small class="text-muted">Gestor: ' + histEsc(gestor) + '</small></td>' +
+                    '<td><div>' + histEsc(motivo) + '</div><small class="text-muted">' + origenBadge + '</small></td>' +
                     '<td><div>' + histEsc(histFecha(t.actualizado_en || t.detectado_en, true)) + '</div><small class="text-muted">Detectado: ' + histEsc(histFecha(t.detectado_en, false)) + '</small></td>' +
-                    '<td>' + histBadge(pagoTexto, pagoCls) + '<div class="small text-muted mt-1">Pagos: ' + histEsc(histTxt(t.pago_semana_count, '0')) + '</div></td>' +
-                    '<td><div>' + histEsc(histHumanizar(t.dictamen_tipo_sabueso || t.tipo_contacto)) + '</div><small class="text-muted">DS: ' + histEsc(histTxt(t.resultado_ds, 'Sin dato')) + '</small></td>' +
+                    '<td>' + (esIntento ? histBadge('Bloqueado', 'bg-danger text-white') : histBadge(pagoTexto, pagoCls)) + '<div class="small text-muted mt-1">' + histEsc(intentoTxt) + '</div></td>' +
+                    '<td><div>' + histEsc(histHumanizar(t.dictamen_tipo_sabueso || t.tipo_contacto || t.tipo_ticket_nombre)) + '</div><small class="text-muted">' + histEsc(detalle) + '</small></td>' +
                     '</tr>';
             }).join('');
             return '<section class="historial-semanal-week">' +

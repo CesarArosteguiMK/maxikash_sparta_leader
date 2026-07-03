@@ -43,7 +43,7 @@ body.dark-mode .pf-mkx .pf-file-hint{color:#94a3b8;}
 .pf-crop-modal .pf-crop-container{height:420px;background:#111;}
 .pf-crop-modal .pf-crop-container img{max-width:100%;display:block;}
 .pf-crop-modal .pf-crop-actions{margin-top:16px;display:flex;gap:10px;justify-content:flex-end;}
-.pf-crop-modal .cropper-view-box,.pf-crop-modal .cropper-face{border-radius:50%;}
+.pf-crop-modal .cropper-view-box,.pf-crop-modal .cropper-face{border-radius:8px;}
 .pf-crop-modal .cropper-drag-box{background:transparent;}
 .pf-crop-modal .cropper-modal{opacity:0.5;}
 .pf-lightbox{position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:10000;display:flex;align-items:center;justify-content:center;padding:24px;cursor:pointer;}
@@ -180,22 +180,6 @@ body.dark-mode .pf-mkx .pf-readonly.form-control{border-bottom-color:rgba(255,25
   var cropper = null;
   var originalFoto = previewFoto ? previewFoto.src : '';
 
-  function toCircleCanvas(sourceCanvas) {
-    var size = Math.min(sourceCanvas.width, sourceCanvas.height);
-    var circle = document.createElement('canvas');
-    circle.width = size;
-    circle.height = size;
-    var ctx = circle.getContext('2d');
-    ctx.beginPath();
-    ctx.arc(size/2, size/2, size/2, 0, Math.PI*2);
-    ctx.closePath();
-    ctx.clip();
-    var dx = (sourceCanvas.width - size) / 2;
-    var dy = (sourceCanvas.height - size) / 2;
-    ctx.drawImage(sourceCanvas, dx, dy, size, size, 0, 0, size, size);
-    return circle;
-  }
-
   if (inputFoto && previewFoto && cropModal && cropImage) {
     if (btnSelectFoto) {
       btnSelectFoto.addEventListener('click', function(){
@@ -234,7 +218,7 @@ body.dark-mode .pf-mkx .pf-readonly.form-control{border-bottom-color:rgba(255,25
         cropImage.onload = function(){
           cropImage.onload = null;
           cropper = new Cropper(cropImage, {
-            aspectRatio: 1,
+            aspectRatio: NaN,
             viewMode: 1,
             dragMode: 'move',
             autoCropArea: 0.85,
@@ -262,9 +246,8 @@ body.dark-mode .pf-mkx .pf-readonly.form-control{border-bottom-color:rgba(255,25
 
     cropApply.addEventListener('click', function(){
       if (!cropper) return;
-      var canvas = cropper.getCroppedCanvas({ width: 400, height: 400, imageSmoothingEnabled: true, fillColor: '#fff' });
-      var circleCanvas = toCircleCanvas(canvas);
-      fotoBase64.value = circleCanvas.toDataURL('image/png');
+      var canvas = cropper.getCroppedCanvas({ maxWidth: 1200, maxHeight: 1200, imageSmoothingEnabled: true, fillColor: '#fff' });
+      fotoBase64.value = canvas.toDataURL('image/png');
       previewFoto.src = fotoBase64.value;
       inputFoto.value = '';
       cropModal.style.display = 'none';

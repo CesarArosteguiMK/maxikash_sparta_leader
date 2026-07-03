@@ -633,6 +633,23 @@
       gap: 0.375rem;
     }
 
+    #historialUsuarios .control-bajas-action-btn {
+      width: 38px;
+      min-width: 38px;
+      height: 28px;
+      padding: 0;
+      border-radius: 999px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      line-height: 1;
+    }
+
+    #historialUsuarios .control-bajas-action-btn i {
+      font-size: 0.86rem;
+      line-height: 1;
+    }
+
     .gestion-personal-name-cell {
       display: flex;
       align-items: flex-start;
@@ -760,6 +777,11 @@
       height: auto;
       object-fit: contain;
       display: block;
+      border-radius: 0 !important;
+      clip-path: none !important;
+      mask-image: none !important;
+      -webkit-mask-image: none !important;
+      box-shadow: none !important;
     }
 
     .gestion-foto-fallback {
@@ -11079,7 +11101,8 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
       const codigoContpacPersona = String(p.codigo_contpac || '').trim();
       const codigoContpacHTML = codigoContpacPersona
         ? `<span class="gestion-personal-code-value">${escapeAttr(codigoContpacPersona)}</span>`
-        : (etiquetaExternoPersona ? '' : '<span class="gestion-personal-code-value">Sin codigo</span>');
+        : '<span class="gestion-personal-code-value">Sin id</span>';
+      const externalIdPersona = String(p.numero_empleado || '').trim();
       const puestosPersonaTexto = tienePuestos
         ? p.puestos.map(puesto => puesto.nombre_puesto || '').filter(Boolean).join(' | ')
         : (p.nombre_puesto || '');
@@ -11186,7 +11209,7 @@ window.paisesActivosBackend = <?= json_encode(($paisesActivos ?? [])) ?>;
               </div>
               <div class="gestion-personal-external-id">
                 <span>External id:</span>
-                <strong>${escapeAttr(p.numero_empleado || 'Sin external id')}</strong>
+                <strong>${escapeAttr(externalIdPersona || 'Sin id')}</strong>
               </div>
               <small class="gestion-personal-username d-flex align-items-center gap-1">
                 <i class="fa fa-key"></i>

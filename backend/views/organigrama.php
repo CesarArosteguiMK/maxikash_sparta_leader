@@ -628,6 +628,60 @@
     </div>
 </div>
 
+<div class="modal fade" id="modalResolverBajaOrganigrama" tabindex="-1" aria-labelledby="modalResolverBajaOrganigramaLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="modalResolverBajaOrganigramaLabel">
+                    <i class="fa fa-user-slash me-2"></i>Resolver baja en organigrama
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="org_baja_id_persona">
+                <div class="alert alert-warning bg-warning-subtle border border-warning-subtle text-warning-emphasis small mb-3">
+                    <div class="fw-semibold" id="org_baja_resumen">Persona en baja</div>
+                    <div>Esta persona ya esta dada de baja. Para quitarla del organigrama, mueve sus subordinados y libera su puesto activo.</div>
+                </div>
+                <div class="d-flex align-items-center justify-content-between gap-2 rounded border bg-body px-3 py-2 mb-3">
+                    <span class="text-muted small">Subordinados activos ligados a esta baja</span>
+                    <span class="badge bg-label-primary text-primary rounded-pill" id="org_baja_subordinados_count">0</span>
+                </div>
+                <div id="org_baja_modo_wrap" class="mb-3">
+                    <div class="form-check mb-2">
+                        <input class="form-check-input" type="radio" name="org_baja_modo" id="org_baja_modo_vacante" value="vacante" checked>
+                        <label class="form-check-label" for="org_baja_modo_vacante">
+                            Mover subordinados a la vacante de este puesto
+                        </label>
+                        <div class="form-text">Si no existe una vacante activa para ese puesto, se creara automaticamente.</div>
+                    </div>
+                    <div class="form-check mb-2">
+                        <input class="form-check-input" type="radio" name="org_baja_modo" id="org_baja_modo_sustituto" value="sustituto">
+                        <label class="form-check-label" for="org_baja_modo_sustituto">
+                            Mover subordinados a otra persona
+                        </label>
+                    </div>
+                </div>
+                <div id="org_baja_sustituto_wrap" class="d-none">
+                    <label class="form-label">Jefe destino *</label>
+                    <select id="org_baja_sustituto_id" class="form-select">
+                        <option value="">Seleccione un jefe destino</option>
+                    </select>
+                </div>
+                <div id="org_baja_sin_subordinados" class="alert alert-info bg-info-subtle border border-info-subtle text-info-emphasis small d-none mb-0">
+                    No tiene subordinados activos. Al confirmar solo se liberara su puesto activo para que ya no aparezca en el organigrama.
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-label-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-primary" onclick="resolverBajaOrganigrama()">
+                    <i class="fa fa-check me-1"></i>Resolver baja
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <script>
     window.puedeEditarTodosOrganigrama = <?= json_encode(!empty($puedeEditarTodos ?? false)) ?>;
@@ -1823,6 +1877,179 @@
         window.guardarJefeVacanteOrganigrama = guardarJefeVacanteOrganigrama;
         window.eliminarVacanteOrganigrama = eliminarVacanteOrganigrama;
 
+        document.querySelectorAll('input[name="org_baja_modo"]').forEach(function (radio) {
+            radio.addEventListener('change', function () {
+                var wrap = document.getElementById('org_baja_sustituto_wrap');
+                if (wrap) wrap.classList.toggle('d-none', this.value !== 'sustituto');
+            });
+        });
+
+        function llenarSustitutosBajaOrganigrama(personas, idPersonaBaja) {
+            var select = document.getElementById('org_baja_sustituto_id');
+            if (!select) return;
+            select.innerHTML = '<option value="">Seleccione un jefe destino</option>';
+            (Array.isArray(personas) ? personas : []).forEach(function (p) {
+                if (!p || p.id == null || String(p.id) === String(idPersonaBaja)) return;
+                var opt = document.createElement('option');
+                opt.value = p.id;
+                opt.textContent = (p.nombre_completo || ('ID ' + p.id)) + (p.nombre_puesto ? ' - ' + p.nombre_puesto : '');
+                select.appendChild(opt);
+            });
+        }
+
+        function abrirModalResolverBajaOrganigrama(rawId) {
+            if (!window.puedeEditarTodosOrganigrama) {
+                Swal.fire('Sin permiso', 'No tienes permiso para resolver bajas en organigrama.', 'warning');
+                return;
+            }
+
+            var idPersona = parseInt(rawId, 10);
+            if (!idPersona) {
+                Swal.fire('Atencion', 'No se encontro la persona seleccionada.', 'warning');
+                return;
+            }
+            var filaOrganigrama = (organigramaRows || []).find(function (r) {
+                return r && String(r.id) === String(idPersona);
+            }) || {};
+
+            var inputPersona = document.getElementById('org_baja_id_persona');
+            var resumen = document.getElementById('org_baja_resumen');
+            var count = document.getElementById('org_baja_subordinados_count');
+            var modoWrap = document.getElementById('org_baja_modo_wrap');
+            var sinSubs = document.getElementById('org_baja_sin_subordinados');
+            var radioVacante = document.getElementById('org_baja_modo_vacante');
+            var sustitutoWrap = document.getElementById('org_baja_sustituto_wrap');
+            var selectSustituto = document.getElementById('org_baja_sustituto_id');
+
+            if (inputPersona) inputPersona.value = idPersona;
+            if (resumen) resumen.textContent = 'Cargando persona...';
+            if (count) count.textContent = '0';
+            if (radioVacante) radioVacante.checked = true;
+            if (modoWrap) modoWrap.classList.remove('d-none');
+            if (sinSubs) sinSubs.classList.add('d-none');
+            if (sustitutoWrap) sustitutoWrap.classList.add('d-none');
+            if (selectSustituto) {
+                selectSustituto.disabled = true;
+                selectSustituto.innerHTML = '<option value="">Cargando personas...</option>';
+            }
+
+            bootstrap.Modal.getOrCreateInstance(document.getElementById('modalResolverBajaOrganigrama')).show();
+
+            Promise.all([
+                fetch('/CapHum/getDetalles', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ idPersona: idPersona })
+                }).then(function (res) { return res.json(); }),
+                fetch('/CapHum/getDatosReasignacionBaja', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+                    body: JSON.stringify({ idPersona: idPersona })
+                }).then(function (res) { return res.json(); })
+            ])
+                .then(function (respuestas) {
+                    var detalle = respuestas[0] || {};
+                    var reasignacion = respuestas[1] || {};
+                    var persona = detalle.datos || {};
+                    var nombre = [
+                        persona.nombres || '',
+                        persona.segundo_nombre || '',
+                        persona.apellidop || '',
+                        persona.apellidom || ''
+                    ].join(' ').replace(/\s+/g, ' ').trim();
+                    if (resumen) {
+                        resumen.textContent = (persona.numero_empleado ? '# ' + persona.numero_empleado + ' - ' : '') + (nombre || filaOrganigrama.nombre || 'Persona en baja');
+                    }
+
+                    var datos = reasignacion.datos || {};
+                    var subordinados = Array.isArray(datos.subordinados) ? datos.subordinados : [];
+                    if (count) count.textContent = String(subordinados.length);
+                    llenarSustitutosBajaOrganigrama(datos.personas || [], idPersona);
+                    if (selectSustituto) selectSustituto.disabled = false;
+
+                    var tieneSubordinados = subordinados.length > 0;
+                    if (modoWrap) modoWrap.classList.toggle('d-none', !tieneSubordinados);
+                    if (sinSubs) sinSubs.classList.toggle('d-none', tieneSubordinados);
+                })
+                .catch(function (err) {
+                    console.error('abrirModalResolverBajaOrganigrama:', err);
+                    Swal.fire('Error', 'No se pudo cargar la informacion de la baja.', 'error');
+                    bootstrap.Modal.getOrCreateInstance(document.getElementById('modalResolverBajaOrganigrama')).hide();
+                });
+        }
+
+        function resolverBajaOrganigrama() {
+            var idPersona = document.getElementById('org_baja_id_persona')?.value || '';
+            var modoRadio = document.querySelector('input[name="org_baja_modo"]:checked');
+            var count = parseInt(document.getElementById('org_baja_subordinados_count')?.textContent || '0', 10);
+            var modo = count > 0 && modoRadio ? modoRadio.value : 'sin_subordinados';
+            var sustitutoId = document.getElementById('org_baja_sustituto_id')?.value || '';
+            var btn = document.querySelector('#modalResolverBajaOrganigrama .btn.btn-primary');
+
+            if (!idPersona) {
+                Swal.fire('Falta informacion', 'No se encontro la persona en baja.', 'warning');
+                return;
+            }
+            if (modo === 'sustituto' && !sustitutoId) {
+                Swal.fire('Falta informacion', 'Selecciona el jefe destino.', 'warning');
+                return;
+            }
+
+            Swal.fire({
+                title: 'Resolver baja en organigrama',
+                text: 'Se moveran sus subordinados y se liberara el puesto activo de la persona en baja.',
+                icon: 'question',
+                showCancelButton: true,
+                confirmButtonText: 'Si, resolver',
+                cancelButtonText: 'Cancelar'
+            }).then(function (result) {
+                if (!result.isConfirmed) return;
+                if (btn) {
+                    btn.disabled = true;
+                    btn.dataset.originalText = btn.innerHTML;
+                    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>Resolviendo...';
+                }
+
+                fetch('/CapHum/resolverBajaOrganigrama', {
+                    method: 'POST',
+                    credentials: 'same-origin',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json',
+                        'X-Requested-With': 'XMLHttpRequest',
+                        'Front-Request': 'true'
+                    },
+                    body: JSON.stringify({
+                        id_persona: idPersona,
+                        modo_reasignacion: modo,
+                        sustituto_id: sustitutoId
+                    })
+                })
+                    .then(function (res) { return manejarRespuestaJsonOrganigrama(res, 'No se pudo resolver la baja.'); })
+                    .then(function (data) {
+                        if (!data.success) {
+                            Swal.fire('Error', data.mensaje || 'No se pudo resolver la baja.', 'error');
+                            return;
+                        }
+                        bootstrap.Modal.getOrCreateInstance(document.getElementById('modalResolverBajaOrganigrama')).hide();
+                        Swal.fire('Listo', data.mensaje || 'Baja resuelta en organigrama.', 'success');
+                        refrescarOrganigramaActual();
+                    })
+                    .catch(function (err) {
+                        console.error('resolverBajaOrganigrama:', err);
+                        Swal.fire('Error', err && err.message ? err.message : 'No se pudo resolver la baja.', 'error');
+                    })
+                    .finally(function () {
+                        if (btn) {
+                            btn.disabled = false;
+                            btn.innerHTML = btn.dataset.originalText || '<i class="fa fa-check me-1"></i>Resolver baja';
+                        }
+                    });
+            });
+        }
+
+        window.resolverBajaOrganigrama = resolverBajaOrganigrama;
+
         function abrirModalPersonaJefeOrganigrama(rawId) {
             if (!window.puedeEditarTodosOrganigrama) {
                 Swal.fire('Sin permiso', 'No tienes permiso para modificar jefes.', 'warning');
@@ -2395,6 +2622,9 @@
                 if (fila && fila.tipo_estado === 'vacante') {
                     chart.setSelection([]);
                     abrirModalVacanteOrganigrama(idSeleccionado);
+                } else if (fila && fila.tipo_estado === 'baja') {
+                    chart.setSelection([]);
+                    abrirModalResolverBajaOrganigrama(idSeleccionado);
                 } else if (fila) {
                     chart.setSelection([]);
                     abrirModalPersonaJefeOrganigrama(idSeleccionado);
@@ -2416,6 +2646,8 @@
                 event.stopPropagation();
                 if (node.dataset.orgEstado === 'vacante') {
                     abrirModalVacanteOrganigrama(node.dataset.orgId);
+                } else if (node.dataset.orgEstado === 'baja') {
+                    abrirModalResolverBajaOrganigrama(node.dataset.orgId);
                 } else {
                     abrirModalPersonaJefeOrganigrama(node.dataset.orgId);
                 }

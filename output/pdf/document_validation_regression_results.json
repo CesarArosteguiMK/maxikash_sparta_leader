@@ -1,0 +1,69 @@
+{
+  "generated_at": "2026-07-02 17:13:58",
+  "counts": {
+    "passed": 8,
+    "failed": 0,
+    "skipped": 0
+  },
+  "results": [
+    {
+      "name": "solicitud_manuscrita_buena",
+      "status": "passed",
+      "failures": [],
+      "elapsed_ms": 34,
+      "status_code": 200,
+      "message": "solicitud interna listo."
+    },
+    {
+      "name": "acta_escaneada_buena",
+      "status": "passed",
+      "failures": [],
+      "elapsed_ms": 19,
+      "status_code": 200,
+      "message": "acta de nacimiento listo."
+    },
+    {
+      "name": "pdf_mixto_serrano_rescate",
+      "status": "passed",
+      "failures": [],
+      "elapsed_ms": 6351,
+      "status_code": 200,
+      "message": "Acta de nacimiento verificada."
+    },
+    {
+      "name": "nss_invalido_10_digitos",
+      "status": "passed",
+      "failures": [],
+      "elapsed_ms": 14,
+      "status_code": 200,
+      "message": "No se puede cargar este documento: No se pudo leer el NSS."
+    },
+    {
+      "name": "acta_nombre_distinto_diaz",
+      "status": "passed",
+      "failures": [],
+      "elapsed_ms": 27,
+      "quick_ms": 12,
+      "dictamen": "rechazado"
+    },
+    {
+      "name": "gomez_solicitud_dudosa_requiere_revision",
+      "status": "passed",
+      "failures": [],
+      "elapsed_ms": 19,
+      "dictamen": "requiere_revision"
+    },
+    {
+      "name": "gomez_nombre_registro_falso_rechaza",
+      "status": "passed",
+      "failures": [],
+      "elapsed_ms": 11,
+      "dictamen": "rechazado"
+    },
+    {
+      "name": "proveedor_v2_caido_guard",
+      "status": "passed",
+      "failures": []
+    }
+  ]
+}
