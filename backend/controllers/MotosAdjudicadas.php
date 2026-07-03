@@ -174,10 +174,114 @@ class MotosAdjudicadas extends Controller
         return ['success' => true, 'archivos' => $archivos];
     }
 
+    private function guardarArchivoTraspaso(int $idUnidad, string $momento): array
+    {
+        if ($idUnidad <= 0) {
+            return ['success' => false, 'message' => 'Unidad invalida.'];
+        }
+
+        $config = [
+            'origen' => [
+                'campo' => 'tras_origen_foto',
+                'slot' => 'foto_origen_transportista',
+                'label' => 'evidencia de origen',
+            ],
+            'destino' => [
+                'campo' => 'tras_destino_foto',
+                'slot' => 'foto_destino_vobo',
+                'label' => 'evidencia de destino',
+            ],
+        ][$momento] ?? null;
+        if (!$config) {
+            return ['success' => false, 'message' => 'Momento de traspaso invalido.'];
+        }
+
+        $file = $_FILES[$config['campo']] ?? null;
+        if (!$file || !isset($file['error']) || (int) $file['error'] === UPLOAD_ERR_NO_FILE) {
+            return ['success' => true, 'archivos' => []];
+        }
+        if ((int) $file['error'] !== UPLOAD_ERR_OK) {
+            return ['success' => false, 'message' => 'No se pudo recibir la ' . $config['label'] . '.'];
+        }
+
+        $size = (int) ($file['size'] ?? 0);
+        $maxBytes = 15 * 1024 * 1024;
+        if ($size <= 0 || $size > $maxBytes) {
+            return ['success' => false, 'message' => 'La ' . $config['label'] . ' excede el tamano permitido.'];
+        }
+
+        $tmp = (string) ($file['tmp_name'] ?? '');
+        if ($tmp === '' || !is_uploaded_file($tmp)) {
+            return ['success' => false, 'message' => 'Archivo temporal invalido para traspaso.'];
+        }
+
+        $ext = strtolower((string) pathinfo((string) ($file['name'] ?? ''), PATHINFO_EXTENSION));
+        $ext = preg_replace('/[^a-z0-9]/', '', $ext);
+        if ($ext === 'jpeg') {
+            $ext = 'jpg';
+        }
+        if (!in_array($ext, ['jpg', 'png', 'webp', 'heic', 'heif'], true)) {
+            return ['success' => false, 'message' => 'Formato no permitido para la ' . $config['label'] . '.'];
+        }
+
+        if (!function_exists('sparta_uploads_join')) {
+            require_once dirname(__DIR__) . '/core/UploadsPaths.php';
+        }
+
+        $dir = sparta_uploads_join('almacen_virtual', (string) $idUnidad, 'traspasos');
+        if (!is_dir($dir) && !@mkdir($dir, 0775, true) && !is_dir($dir)) {
+            return ['success' => false, 'message' => 'No se pudo crear la carpeta de traspasos.'];
+        }
+
+        $mime = function_exists('mime_content_type') ? (string) @mime_content_type($tmp) : null;
+        $filename = $config['slot'] . '_' . date('Ymd_His') . '_' . bin2hex(random_bytes(4)) . '.' . $ext;
+        $destino = rtrim($dir, DIRECTORY_SEPARATOR . '/\\') . DIRECTORY_SEPARATOR . $filename;
+        if (!@move_uploaded_file($tmp, $destino)) {
+            return ['success' => false, 'message' => 'No se pudo guardar la ' . $config['label'] . '.'];
+        }
+
+        return [
+            'success' => true,
+            'archivos' => [
+                $config['slot'] => [
+                    'url' => '/uploads/almacen_virtual/' . $idUnidad . '/traspasos/' . $filename,
+                    'mime_type' => $mime ?: null,
+                    'tamano_bytes' => $size,
+                    'tipo_evidencia' => 'foto',
+                ],
+            ],
+        ];
+    }
+
     private function tieneModuloSesion(int $moduloId): bool
     {
         $mods = array_map('intval', (array) ($_SESSION['modulos'] ?? []));
         return in_array($moduloId, $mods, true);
+    }
+
+    private function usuarioPuedeOverrideKanban(): bool
+    {
+        $mods = array_map('intval', (array) ($_SESSION['modulos'] ?? []));
+        if (in_array(1, $mods, true) || in_array(4, $mods, true)) {
+            return true;
+        }
+
+        $textoRol = strtolower(trim(implode(' ', array_filter([
+            (string) ($_SESSION['rol'] ?? ''),
+            (string) ($_SESSION['usuario_rol'] ?? ''),
+            (string) ($_SESSION['perfil'] ?? ''),
+            (string) ($_SESSION['puesto'] ?? ''),
+            (string) ($_SESSION['puesto_nombre'] ?? ''),
+            (string) ($_SESSION['nombre_puesto'] ?? ''),
+        ]))));
+
+        foreach (['supervisor', 'gerente', 'coordinador', 'admin'] as $token) {
+            if ($textoRol !== '' && str_contains($textoRol, $token)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private function etiquetaEvidenciaPorSlot(string $slot): string
@@ -370,6 +474,40 @@ class MotosAdjudicadas extends Controller
         self::set('av_modulo_id', InventarioMotosDAO::moduloAlmacenVirtual());
         self::set('av_revision_checklist', $this->inventarioDao()->obtenerChecklistRevisionMecanica());
         return self::render('almacen_virtual_revision_mecanica');
+    }
+
+    /**
+     * GET /MotosAdjudicadas/kanbanOperativo
+     */
+    public function kanbanOperativo()
+    {
+        $emp = defined('CONFIGURACION') && isset(CONFIGURACION['EMPRESA']) ? (string) CONFIGURACION['EMPRESA'] : '';
+        self::set('titulo', 'Kanban Operativo - Almacen Virtual ' . $emp);
+        self::set('av_modulo_id', InventarioMotosDAO::moduloAlmacenVirtual());
+        self::set('av_kanban_puede_override', $this->usuarioPuedeOverrideKanban());
+        return self::render('almacen_virtual_kanban');
+    }
+
+    /**
+     * GET /MotosAdjudicadas/pisoVenta
+     */
+    public function pisoVenta()
+    {
+        $emp = defined('CONFIGURACION') && isset(CONFIGURACION['EMPRESA']) ? (string) CONFIGURACION['EMPRESA'] : '';
+        self::set('titulo', 'Piso de Venta - Almacen Virtual ' . $emp);
+        self::set('av_modulo_id', InventarioMotosDAO::moduloAlmacenVirtual());
+        return self::render('almacen_virtual_piso_venta');
+    }
+
+    /**
+     * GET /MotosAdjudicadas/traspasos
+     */
+    public function traspasos()
+    {
+        $emp = defined('CONFIGURACION') && isset(CONFIGURACION['EMPRESA']) ? (string) CONFIGURACION['EMPRESA'] : '';
+        self::set('titulo', 'Traspasos - Almacen Virtual ' . $emp);
+        self::set('av_modulo_id', InventarioMotosDAO::moduloAlmacenVirtual());
+        return self::render('almacen_virtual_traspasos');
     }
 
     public function inventarioResumen()
@@ -783,6 +921,317 @@ class MotosAdjudicadas extends Controller
             echo json_encode([
                 'success' => false,
                 'message' => 'No se pudo finalizar la revision mecanica.',
+                'error' => $e->getMessage(),
+            ], JSON_UNESCAPED_UNICODE);
+        }
+    }
+
+    public function kanbanOperativoCatalogos()
+    {
+        header('Content-Type: application/json; charset=utf-8');
+        try {
+            $datos = $this->inventarioDao()->obtenerCatalogosKanbanOperativo();
+            $datos['puede_override'] = $this->usuarioPuedeOverrideKanban();
+            echo json_encode([
+                'success' => true,
+                'datos' => $datos,
+            ], JSON_UNESCAPED_UNICODE);
+        } catch (\Throwable $e) {
+            echo json_encode([
+                'success' => false,
+                'message' => 'No se pudieron cargar catalogos del Kanban.',
+                'error' => $e->getMessage(),
+            ], JSON_UNESCAPED_UNICODE);
+        }
+    }
+
+    public function kanbanOperativoResumen()
+    {
+        header('Content-Type: application/json; charset=utf-8');
+        try {
+            $filtros = [
+                'q' => trim((string) ($_GET['q'] ?? '')),
+                'id_celula' => (int) ($_GET['id_celula'] ?? 0),
+                'id_ubicacion' => (int) ($_GET['id_ubicacion'] ?? 0),
+                'tipo_unidad' => trim((string) ($_GET['tipo_unidad'] ?? '')),
+            ];
+            echo json_encode([
+                'success' => true,
+                'datos' => $this->inventarioDao()->obtenerResumenKanbanOperativo($filtros),
+            ], JSON_UNESCAPED_UNICODE);
+        } catch (\Throwable $e) {
+            echo json_encode([
+                'success' => false,
+                'message' => 'No se pudo cargar el resumen del Kanban.',
+                'error' => $e->getMessage(),
+            ], JSON_UNESCAPED_UNICODE);
+        }
+    }
+
+    public function kanbanOperativoTarjetas()
+    {
+        header('Content-Type: application/json; charset=utf-8');
+        try {
+            $filtros = [
+                'q' => trim((string) ($_GET['q'] ?? '')),
+                'id_celula' => (int) ($_GET['id_celula'] ?? 0),
+                'id_ubicacion' => (int) ($_GET['id_ubicacion'] ?? 0),
+                'tipo_unidad' => trim((string) ($_GET['tipo_unidad'] ?? '')),
+                'limit_por_columna' => (int) ($_GET['limit_por_columna'] ?? 40),
+            ];
+            echo json_encode($this->inventarioDao()->listarKanbanOperativo($filtros), JSON_UNESCAPED_UNICODE);
+        } catch (\Throwable $e) {
+            echo json_encode([
+                'success' => false,
+                'message' => 'No se pudieron cargar tarjetas del Kanban.',
+                'error' => $e->getMessage(),
+            ], JSON_UNESCAPED_UNICODE);
+        }
+    }
+
+    public function kanbanOperativoEnviarPisoVenta()
+    {
+        header('Content-Type: application/json; charset=utf-8');
+        $idUsuario = (int) ($_SESSION['persona_id'] ?? $_SESSION['usuario_id'] ?? $_SESSION['id_usuario'] ?? $_SESSION['id'] ?? 0);
+        $nombreUsuario = trim((string) ($_SESSION['usuario_nombre'] ?? $_SESSION['nombre'] ?? $_SESSION['usuario'] ?? 'SISTEMA'));
+        $idUnidad = (int) ($_POST['id_unidad'] ?? 0);
+        $datos = [
+            'destino_venta' => trim((string) ($_POST['destino_venta'] ?? '')),
+            'observaciones' => trim((string) ($_POST['observaciones'] ?? '')),
+        ];
+
+        try {
+            echo json_encode(
+                $this->inventarioDao()->enviarUnidadPisoVenta($idUnidad, $datos, $idUsuario, $nombreUsuario),
+                JSON_UNESCAPED_UNICODE
+            );
+        } catch (\Throwable $e) {
+            echo json_encode([
+                'success' => false,
+                'message' => 'No se pudo enviar la unidad a piso de venta.',
+                'error' => $e->getMessage(),
+            ], JSON_UNESCAPED_UNICODE);
+        }
+    }
+
+    public function kanbanOperativoOverrideSupervisor()
+    {
+        header('Content-Type: application/json; charset=utf-8');
+        $idUsuario = (int) ($_SESSION['persona_id'] ?? $_SESSION['usuario_id'] ?? $_SESSION['id_usuario'] ?? $_SESSION['id'] ?? 0);
+        $nombreUsuario = trim((string) ($_SESSION['usuario_nombre'] ?? $_SESSION['nombre'] ?? $_SESSION['usuario'] ?? 'SISTEMA'));
+        $idUnidad = (int) ($_POST['id_unidad'] ?? 0);
+        $estatusNuevo = trim((string) ($_POST['estatus_nuevo'] ?? ''));
+        $justificacion = trim((string) ($_POST['justificacion'] ?? ''));
+        $puedeOverride = $this->usuarioPuedeOverrideKanban();
+
+        if (!$puedeOverride) {
+            echo json_encode([
+                'success' => false,
+                'message' => 'No tienes permiso para hacer override de supervisor.',
+            ], JSON_UNESCAPED_UNICODE);
+            return;
+        }
+
+        try {
+            echo json_encode(
+                $this->inventarioDao()->cambiarEstatusUnidad(
+                    $idUnidad,
+                    $estatusNuevo,
+                    'override_supervisor',
+                    $idUsuario,
+                    $justificacion,
+                    ['modulo' => 'kanban_operativo'],
+                    $nombreUsuario,
+                    true
+                ),
+                JSON_UNESCAPED_UNICODE
+            );
+        } catch (\Throwable $e) {
+            echo json_encode([
+                'success' => false,
+                'message' => 'No se pudo aplicar el override de supervisor.',
+                'error' => $e->getMessage(),
+            ], JSON_UNESCAPED_UNICODE);
+        }
+    }
+
+    public function pisoVentaResumen()
+    {
+        header('Content-Type: application/json; charset=utf-8');
+        try {
+            echo json_encode([
+                'success' => true,
+                'datos' => $this->inventarioDao()->obtenerResumenPisoVenta(),
+            ], JSON_UNESCAPED_UNICODE);
+        } catch (\Throwable $e) {
+            echo json_encode([
+                'success' => false,
+                'message' => 'No se pudo cargar el resumen de piso de venta.',
+                'error' => $e->getMessage(),
+            ], JSON_UNESCAPED_UNICODE);
+        }
+    }
+
+    public function pisoVentaUnidades()
+    {
+        header('Content-Type: application/json; charset=utf-8');
+        try {
+            $filtros = [
+                'q' => trim((string) ($_GET['q'] ?? '')),
+                'id_celula' => (int) ($_GET['id_celula'] ?? 0),
+                'id_ubicacion' => (int) ($_GET['id_ubicacion'] ?? 0),
+                'cliente_destino' => trim((string) ($_GET['cliente_destino'] ?? '')),
+                'page' => (int) ($_GET['page'] ?? 1),
+                'limit' => (int) ($_GET['limit'] ?? 8),
+            ];
+
+            echo json_encode($this->inventarioDao()->listarPisoVentaUnidades($filtros), JSON_UNESCAPED_UNICODE);
+        } catch (\Throwable $e) {
+            echo json_encode([
+                'success' => false,
+                'message' => 'No se pudieron cargar unidades en piso de venta.',
+                'error' => $e->getMessage(),
+            ], JSON_UNESCAPED_UNICODE);
+        }
+    }
+
+    public function traspasosResumen()
+    {
+        header('Content-Type: application/json; charset=utf-8');
+        try {
+            echo json_encode([
+                'success' => true,
+                'datos' => $this->inventarioDao()->obtenerResumenTraspasos(),
+            ], JSON_UNESCAPED_UNICODE);
+        } catch (\Throwable $e) {
+            echo json_encode([
+                'success' => false,
+                'message' => 'No se pudo cargar el resumen de traspasos.',
+                'error' => $e->getMessage(),
+            ], JSON_UNESCAPED_UNICODE);
+        }
+    }
+
+    public function traspasosUnidadesDisponibles()
+    {
+        header('Content-Type: application/json; charset=utf-8');
+        try {
+            $filtros = [
+                'q' => trim((string) ($_GET['q'] ?? '')),
+                'id_celula' => (int) ($_GET['id_celula'] ?? 0),
+                'id_ubicacion' => (int) ($_GET['id_ubicacion'] ?? 0),
+                'cliente_destino' => trim((string) ($_GET['cliente_destino'] ?? '')),
+                'page' => (int) ($_GET['page'] ?? 1),
+                'limit' => (int) ($_GET['limit'] ?? 8),
+            ];
+
+            echo json_encode($this->inventarioDao()->listarUnidadesDisponiblesTraspaso($filtros), JSON_UNESCAPED_UNICODE);
+        } catch (\Throwable $e) {
+            echo json_encode([
+                'success' => false,
+                'message' => 'No se pudieron cargar unidades disponibles para traspaso.',
+                'error' => $e->getMessage(),
+            ], JSON_UNESCAPED_UNICODE);
+        }
+    }
+
+    public function traspasosOrdenes()
+    {
+        header('Content-Type: application/json; charset=utf-8');
+        try {
+            $filtros = [
+                'q' => trim((string) ($_GET['q'] ?? '')),
+                'id_celula' => (int) ($_GET['id_celula'] ?? 0),
+                'id_ubicacion_origen' => (int) ($_GET['id_ubicacion_origen'] ?? 0),
+                'id_ubicacion_destino' => (int) ($_GET['id_ubicacion_destino'] ?? 0),
+                'estatus_traspaso' => trim((string) ($_GET['estatus_traspaso'] ?? '')),
+                'page' => (int) ($_GET['page'] ?? 1),
+                'limit' => (int) ($_GET['limit'] ?? 8),
+            ];
+
+            echo json_encode($this->inventarioDao()->listarTraspasos($filtros), JSON_UNESCAPED_UNICODE);
+        } catch (\Throwable $e) {
+            echo json_encode([
+                'success' => false,
+                'message' => 'No se pudieron cargar ordenes de traspaso.',
+                'error' => $e->getMessage(),
+            ], JSON_UNESCAPED_UNICODE);
+        }
+    }
+
+    public function traspasosCrearOrden()
+    {
+        header('Content-Type: application/json; charset=utf-8');
+        $idUsuario = (int) ($_SESSION['persona_id'] ?? $_SESSION['usuario_id'] ?? $_SESSION['id_usuario'] ?? $_SESSION['id'] ?? 0);
+        $nombreUsuario = trim((string) ($_SESSION['usuario_nombre'] ?? $_SESSION['nombre'] ?? $_SESSION['usuario'] ?? 'SISTEMA'));
+        $idUnidad = (int) ($_POST['id_unidad'] ?? 0);
+        $datos = [
+            'id_ubicacion_destino' => (int) ($_POST['id_ubicacion_destino'] ?? 0),
+            'tipo_transportista' => trim((string) ($_POST['tipo_transportista'] ?? '')),
+            'transportista_nombre' => trim((string) ($_POST['transportista_nombre'] ?? '')),
+            'transportista_contacto' => trim((string) ($_POST['transportista_contacto'] ?? '')),
+            'fecha_salida_estimada' => trim((string) ($_POST['fecha_salida_estimada'] ?? '')),
+            'observaciones_origen' => trim((string) ($_POST['observaciones_origen'] ?? '')),
+        ];
+
+        try {
+            $archivos = $this->guardarArchivoTraspaso($idUnidad, 'origen');
+            if (empty($archivos['success'])) {
+                echo json_encode($archivos, JSON_UNESCAPED_UNICODE);
+                return;
+            }
+
+            echo json_encode(
+                $this->inventarioDao()->crearOrdenTraspaso(
+                    $idUnidad,
+                    $datos,
+                    $archivos['archivos'] ?? [],
+                    $idUsuario,
+                    $nombreUsuario
+                ),
+                JSON_UNESCAPED_UNICODE
+            );
+        } catch (\Throwable $e) {
+            echo json_encode([
+                'success' => false,
+                'message' => 'No se pudo crear la orden de traspaso.',
+                'error' => $e->getMessage(),
+            ], JSON_UNESCAPED_UNICODE);
+        }
+    }
+
+    public function traspasosConfirmarRecepcion()
+    {
+        header('Content-Type: application/json; charset=utf-8');
+        $idUsuario = (int) ($_SESSION['persona_id'] ?? $_SESSION['usuario_id'] ?? $_SESSION['id_usuario'] ?? $_SESSION['id'] ?? 0);
+        $nombreUsuario = trim((string) ($_SESSION['usuario_nombre'] ?? $_SESSION['nombre'] ?? $_SESSION['usuario'] ?? 'SISTEMA'));
+        $idTraspaso = (int) ($_POST['id_traspaso'] ?? 0);
+        $idUnidad = (int) ($_POST['id_unidad'] ?? 0);
+        $datos = [
+            'observaciones_destino' => trim((string) ($_POST['observaciones_destino'] ?? '')),
+        ];
+
+        try {
+            $archivos = $this->guardarArchivoTraspaso($idUnidad, 'destino');
+            if (empty($archivos['success'])) {
+                echo json_encode($archivos, JSON_UNESCAPED_UNICODE);
+                return;
+            }
+
+            echo json_encode(
+                $this->inventarioDao()->confirmarRecepcionTraspaso(
+                    $idTraspaso,
+                    $datos,
+                    $archivos['archivos'] ?? [],
+                    $idUsuario,
+                    $nombreUsuario
+                ),
+                JSON_UNESCAPED_UNICODE
+            );
+        } catch (\Throwable $e) {
+            echo json_encode([
+                'success' => false,
+                'message' => 'No se pudo confirmar la recepcion del traspaso.',
                 'error' => $e->getMessage(),
             ], JSON_UNESCAPED_UNICODE);
         }

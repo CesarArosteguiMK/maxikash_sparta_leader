@@ -835,11 +835,14 @@ SQL;
 (
       {$existeEvidencia}
       AND {$existeFormulario}
-      AND EXISTS (
-          SELECT 1
-          FROM adj_bitacora b_env
-          WHERE b_env.id_operacion = o.id
-            AND {$condEnvio}
+      AND (
+          EXISTS (
+              SELECT 1
+              FROM adj_bitacora b_env
+              WHERE b_env.id_operacion = o.id
+                AND {$condEnvio}
+          )
+          OR o.estatus = 'Recibido'
       )
       AND (
           o.estatus IN ('Recibido', 'en_transito')

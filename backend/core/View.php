@@ -130,6 +130,9 @@ function getMenu(): string
                 '/motosadjudicadas/evidenciascodigo',
                 '/motosadjudicadas/recepcionalmacen',
                 '/motosadjudicadas/revisionmecanica',
+                '/motosadjudicadas/kanbanoperativo',
+                '/motosadjudicadas/pisoventa',
+                '/motosadjudicadas/traspasos',
             ],
         ];
         foreach ($sameSection as $canonical => $paths) {

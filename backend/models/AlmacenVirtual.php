@@ -21,6 +21,14 @@ class AlmacenVirtual extends Model
     private const ESTATUS_REPARADA = 'reparada';
     private const ESTATUS_FUERA_PRESUPUESTO = 'fuera_presupuesto';
     private const ESTATUS_IRREPARABLE = 'irreparable';
+    private const ESTATUS_LISTA_VENTA = 'lista_venta';
+    private const ESTATUS_EN_TRASPASO = 'en_traspaso';
+    private const ORIGEN_OVERRIDE_SUPERVISOR = 'override_supervisor';
+    private const EVENTO_ASIGNACION_MECANICO = 'asignacion_mecanico';
+    private const EVENTO_CIERRE_REVISION = 'cierre_revision_mecanica';
+    private const EVENTO_ENVIO_PISO_VENTA = 'envio_piso_venta';
+    private const EVENTO_ORDEN_TRASPASO = 'orden_traspaso';
+    private const EVENTO_CIERRE_TRASPASO = 'cierre_traspaso';
     private const ETAPA_EVIDENCIAS_INGRESO = 'evidencias_ingreso';
     private const ETAPA_REVISION_MECANICA = 'revision_mecanica';
     private const SLOTS_EVIDENCIAS_INGRESO = [
@@ -886,6 +894,41 @@ class AlmacenVirtual extends Model
              LIMIT 10",
             ['id' => $idUnidad]
         ) ?: [];
+        $bitacora = $this->db->queryAll(
+            "SELECT
+                id_bitacora,
+                modulo,
+                accion,
+                detalle,
+                payload_json,
+                nombre_usuario,
+                DATE_FORMAT(fecha_alta, '%d/%m/%Y %H:%i') AS fecha_alta_fmt
+             FROM av_bitacora
+             WHERE id_unidad = :id
+             ORDER BY fecha_alta DESC, id_bitacora DESC
+             LIMIT 100",
+            ['id' => $idUnidad]
+        ) ?: [];
+        $transicionesKanban = [];
+        if ($this->tablaExiste('av_kanban_transiciones')) {
+            $transicionesKanban = $this->db->queryAll(
+                "SELECT
+                    id_transicion,
+                    estatus_anterior,
+                    estatus_nuevo,
+                    origen_evento,
+                    evento_negocio,
+                    justificacion,
+                    payload_json,
+                    nombre_usuario,
+                    DATE_FORMAT(fecha_hora, '%d/%m/%Y %H:%i') AS fecha_hora_fmt
+                 FROM av_kanban_transiciones
+                 WHERE id_unidad = :id
+                 ORDER BY fecha_hora DESC, id_transicion DESC
+                 LIMIT 100",
+                ['id' => $idUnidad]
+            ) ?: [];
+        }
 
         return [
             'success' => true,
@@ -893,6 +936,8 @@ class AlmacenVirtual extends Model
             'evidencias' => array_values($evidencias),
             'movimientos' => $movimientos,
             'codigos' => $codigos,
+            'bitacora' => $bitacora,
+            'kanban_transiciones' => $transicionesKanban,
         ];
     }
 
@@ -1632,33 +1677,23 @@ class AlmacenVirtual extends Model
             $revision = $this->obtenerRevisionActiva($idUnidad);
             $idMovimientoInicio = null;
             if ($estatusActual === self::ESTATUS_PENDIENTE_REVISION) {
-                $this->db->CRUD(
-                    "UPDATE av_unidades
-                     SET estatus_inventario = :estatus,
-                         actualizado_por = :actualizado_por,
-                         fecha_actualizacion = :fecha
-                     WHERE id_unidad = :id
-                       AND deleted_at IS NULL",
-                    [
-                        'estatus' => self::ESTATUS_EN_REVISION,
-                        'actualizado_por' => $idUsuario > 0 ? $idUsuario : null,
-                        'fecha' => $ahora,
-                        'id' => $idUnidad,
-                    ]
-                );
-
-                $idMovimientoInicio = $this->registrarMovimiento(
-                    $idUnidad,
-                    'revision_mecanica_inicio',
-                    self::ESTATUS_PENDIENTE_REVISION,
+                $cambio = $this->aplicarCambioEstatusUnidad(
+                    $unidad,
                     self::ESTATUS_EN_REVISION,
-                    $this->intONull($unidad['id_ubicacion_actual'] ?? null),
-                    $this->intONull($unidad['id_ubicacion_actual'] ?? null),
-                    'Revision mecanica iniciada.',
+                    self::EVENTO_ASIGNACION_MECANICO,
                     $idUsuario,
+                    null,
+                    ['modulo' => 'revision_mecanica'],
                     $nombreUsuario,
+                    false,
                     $ahora
                 );
+                if (empty($cambio['success'])) {
+                    $this->db->rollback();
+                    return $cambio;
+                }
+                $idMovimientoInicio = (int) ($cambio['id_movimiento'] ?? 0);
+                $unidad['estatus_inventario'] = self::ESTATUS_EN_REVISION;
             }
 
             $registroNuevo = false;
@@ -1787,34 +1822,24 @@ class AlmacenVirtual extends Model
             $estatusCierreAnterior = $estatusActual;
 
             if ($estatusActual === self::ESTATUS_PENDIENTE_REVISION) {
-                $this->db->CRUD(
-                    "UPDATE av_unidades
-                     SET estatus_inventario = :estatus,
-                         actualizado_por = :actualizado_por,
-                         fecha_actualizacion = :fecha
-                     WHERE id_unidad = :id
-                       AND deleted_at IS NULL",
-                    [
-                        'estatus' => self::ESTATUS_EN_REVISION,
-                        'actualizado_por' => $idUsuario > 0 ? $idUsuario : null,
-                        'fecha' => $ahora,
-                        'id' => $idUnidad,
-                    ]
-                );
-
-                $idMovimientoInicio = $this->registrarMovimiento(
-                    $idUnidad,
-                    'revision_mecanica_inicio',
-                    self::ESTATUS_PENDIENTE_REVISION,
+                $cambioInicio = $this->aplicarCambioEstatusUnidad(
+                    $unidad,
                     self::ESTATUS_EN_REVISION,
-                    $idUbicacionActual,
-                    $idUbicacionActual,
-                    'Revision mecanica iniciada.',
+                    self::EVENTO_ASIGNACION_MECANICO,
                     $idUsuario,
+                    null,
+                    ['modulo' => 'revision_mecanica', 'cierre_inmediato' => true],
                     $nombreUsuario,
+                    false,
                     $ahora
                 );
+                if (empty($cambioInicio['success'])) {
+                    $this->db->rollback();
+                    return $cambioInicio;
+                }
+                $idMovimientoInicio = (int) ($cambioInicio['id_movimiento'] ?? 0);
                 $estatusCierreAnterior = self::ESTATUS_EN_REVISION;
+                $unidad['estatus_inventario'] = self::ESTATUS_EN_REVISION;
             }
 
             if (!$revision) {
@@ -1882,34 +1907,40 @@ class AlmacenVirtual extends Model
                 );
             }
 
-            $this->db->CRUD(
-                "UPDATE av_unidades
-                 SET estatus_inventario = :estatus,
-                     actualizado_por = :actualizado_por,
-                     fecha_actualizacion = :fecha
-                 WHERE id_unidad = :id
-                   AND deleted_at IS NULL",
-                [
-                    'estatus' => $dictamen,
-                    'actualizado_por' => $idUsuario > 0 ? $idUsuario : null,
-                    'fecha' => $ahora,
-                    'id' => $idUnidad,
-                ]
-            );
-
-            $comentarioMovimiento = 'Revision mecanica finalizada: ' . $this->etiquetaDictamenRevision($dictamen) . '.';
-            $idMovimientoCierre = $this->registrarMovimiento(
-                $idUnidad,
-                'revision_mecanica',
-                $estatusCierreAnterior,
+            $contextoCierre = [
+                'id_revision' => $idRevision,
+                'diagnostico_general' => $diagnostico,
+                'items' => $itemsRevision,
+                'otros' => [
+                    'mecanica' => $otrosMecanica,
+                    'electrica' => $otrosElectrica,
+                    'estetica' => $otrosEstetica,
+                ],
+                'comentarios' => [
+                    'mecanica' => $comentarioMecanica,
+                    'electrica' => $comentarioElectrica,
+                    'estetica' => $comentarioEstetica,
+                ],
+                'evidencias' => array_keys($evidencias),
+            ];
+            $unidadCierre = $unidad;
+            $unidadCierre['estatus_inventario'] = $estatusCierreAnterior;
+            $cambioCierre = $this->aplicarCambioEstatusUnidad(
+                $unidadCierre,
                 $dictamen,
-                $idUbicacionActual,
-                $idUbicacionActual,
-                $comentarioMovimiento,
+                self::EVENTO_CIERRE_REVISION,
                 $idUsuario,
+                in_array($dictamen, [self::ESTATUS_FUERA_PRESUPUESTO, self::ESTATUS_IRREPARABLE], true) ? $diagnostico : null,
+                $contextoCierre,
                 $nombreUsuario,
+                false,
                 $ahora
             );
+            if (empty($cambioCierre['success'])) {
+                $this->db->rollback();
+                return $cambioCierre;
+            }
+            $idMovimientoCierre = (int) ($cambioCierre['id_movimiento'] ?? 0);
 
             $this->db->CRUD(
                 "UPDATE av_revisiones_mecanicas
@@ -1944,34 +1975,6 @@ class AlmacenVirtual extends Model
                 ]
             );
 
-            $payload = [
-                'id_revision' => $idRevision,
-                'dictamen' => $dictamen,
-                'diagnostico_general' => $diagnostico,
-                'items' => $itemsRevision,
-                'otros' => [
-                    'mecanica' => $otrosMecanica,
-                    'electrica' => $otrosElectrica,
-                    'estetica' => $otrosEstetica,
-                ],
-                'comentarios' => [
-                    'mecanica' => $comentarioMecanica,
-                    'electrica' => $comentarioElectrica,
-                    'estetica' => $comentarioEstetica,
-                ],
-                'evidencias' => array_keys($evidencias),
-            ];
-            $this->registrarBitacora(
-                $idUnidad,
-                'Revision Mecanica',
-                'REVISION FINALIZADA',
-                $comentarioMovimiento,
-                $payload,
-                $idUsuario,
-                $nombreUsuario,
-                $ahora
-            );
-
             $this->db->commit();
         } catch (\Throwable $e) {
             if ($this->db->inTransaction()) {
@@ -1991,6 +1994,1014 @@ class AlmacenVirtual extends Model
             'dictamen' => $dictamen,
             'unidad' => $this->obtenerUnidadPorId($idUnidad),
         ];
+    }
+
+    public function cambiarEstatusUnidad(
+        int $unidadId,
+        string $estatusNuevo,
+        string $origenEvento,
+        int $usuarioId,
+        ?string $justificacion = null,
+        array $contexto = [],
+        string $nombreUsuario = '',
+        bool $overrideSupervisorAutorizado = false
+    ): array {
+        if ($unidadId <= 0) {
+            return ['success' => false, 'message' => 'Unidad invalida.'];
+        }
+        if (!$this->tablasBaseDisponibles()) {
+            return ['success' => false, 'message' => 'Faltan tablas base de Inventario. Ejecuta la migracion inicial av_*.'];
+        }
+        if (!$this->tablaExiste('av_kanban_transiciones')) {
+            return ['success' => false, 'message' => 'Falta la tabla av_kanban_transiciones. Ejecuta la migracion de Kanban.'];
+        }
+
+        $unidad = $this->obtenerUnidadPorId($unidadId);
+        if (!$unidad) {
+            return ['success' => false, 'message' => 'No se encontro la unidad en inventario.'];
+        }
+
+        $ahora = $this->fechaHoraCdmx();
+        try {
+            $this->db->beginTransaction();
+            $resultado = $this->aplicarCambioEstatusUnidad(
+                $unidad,
+                $estatusNuevo,
+                $origenEvento,
+                $usuarioId,
+                $justificacion,
+                $contexto,
+                $nombreUsuario,
+                $overrideSupervisorAutorizado,
+                $ahora
+            );
+            if (empty($resultado['success'])) {
+                $this->db->rollback();
+                return $resultado;
+            }
+            $this->db->commit();
+        } catch (\Throwable $e) {
+            if ($this->db->inTransaction()) {
+                $this->db->rollback();
+            }
+
+            return [
+                'success' => false,
+                'message' => 'No se pudo cambiar el estatus de la unidad.',
+                'error' => $e->getMessage(),
+            ];
+        }
+
+        return $resultado + [
+            'unidad' => $this->obtenerUnidadPorId($unidadId),
+        ];
+    }
+
+    public function obtenerColumnasKanbanOperativo(): array
+    {
+        return array_values($this->columnasKanbanOperativo());
+    }
+
+    public function obtenerCatalogosKanbanOperativo(): array
+    {
+        return [
+            'columnas' => $this->obtenerColumnasKanbanOperativo(),
+            'tipos_unidad' => $this->obtenerTiposUnidadKanban(),
+        ];
+    }
+
+    public function obtenerResumenKanbanOperativo(array $filtros = []): array
+    {
+        if (!$this->tablasBaseDisponibles()) {
+            return [
+                'tablas_disponibles' => false,
+                'total' => 0,
+                'por_estatus' => [],
+            ];
+        }
+
+        $params = [];
+        $where = $this->whereKanbanOperativo($filtros, $params);
+        $estatusSql = $this->sqlInConstantes(array_keys($this->columnasKanbanOperativo()));
+        $where[] = "u.estatus_inventario IN ({$estatusSql})";
+        $whereSql = 'WHERE ' . implode(' AND ', $where);
+
+        $rows = $this->db->queryAll(
+            "SELECT u.estatus_inventario, COUNT(*) AS total
+             FROM av_unidades u
+             LEFT JOIN av_ubicaciones ub ON ub.id_ubicacion = u.id_ubicacion_actual
+             {$whereSql}
+             GROUP BY u.estatus_inventario",
+            $params
+        ) ?: [];
+
+        $porEstatus = [];
+        $total = 0;
+        foreach ($this->columnasKanbanOperativo() as $estatus => $columna) {
+            $porEstatus[$estatus] = $columna + ['total' => 0];
+        }
+        foreach ($rows as $row) {
+            $estatus = (string) ($row['estatus_inventario'] ?? '');
+            $conteo = (int) ($row['total'] ?? 0);
+            if (isset($porEstatus[$estatus])) {
+                $porEstatus[$estatus]['total'] = $conteo;
+                $total += $conteo;
+            }
+        }
+
+        return [
+            'tablas_disponibles' => true,
+            'total' => $total,
+            'por_estatus' => array_values($porEstatus),
+        ];
+    }
+
+    public function listarKanbanOperativo(array $filtros = []): array
+    {
+        if (!$this->tablasBaseDisponibles()) {
+            return [
+                'success' => false,
+                'message' => 'Faltan tablas base de Inventario. Ejecuta la migracion inicial av_*.',
+                'columnas' => [],
+                'total' => 0,
+            ];
+        }
+
+        $limitPorColumna = max(5, min(100, (int) ($filtros['limit_por_columna'] ?? 40)));
+        $resumen = $this->obtenerResumenKanbanOperativo($filtros);
+        $totales = [];
+        foreach (($resumen['por_estatus'] ?? []) as $row) {
+            $totales[(string) ($row['estatus'] ?? '')] = (int) ($row['total'] ?? 0);
+        }
+
+        $columnas = [];
+        foreach ($this->columnasKanbanOperativo() as $estatus => $columna) {
+            $params = ['estatus' => $estatus, 'foto_etapa' => self::ETAPA_EVIDENCIAS_INGRESO];
+            $where = $this->whereKanbanOperativo($filtros, $params);
+            $where[] = 'u.estatus_inventario = :estatus';
+            $whereSql = 'WHERE ' . implode(' AND ', $where);
+
+            $rows = $this->db->queryAll(
+                "SELECT
+                    u.id_unidad,
+                    u.folio_unidad,
+                    u.id_celula,
+                    u.id_origen,
+                    u.id_credito,
+                    u.vin,
+                    u.no_motor,
+                    u.placas,
+                    u.marca,
+                    u.modelo,
+                    u.anio,
+                    u.color,
+                    u.kilometraje,
+                    u.tipo_unidad,
+                    u.categoria,
+                    u.estatus_inventario,
+                    u.id_ubicacion_actual,
+                    ub.nombre_ubicacion,
+                    ub.tipo_ubicacion,
+                    foto.url AS foto_url,
+                    DATEDIFF(CURDATE(), DATE(COALESCE(u.fecha_ingreso_virtual, u.fecha_alta))) AS dias_almacen,
+                    DATE_FORMAT(u.fecha_ingreso_virtual, '%d/%m/%Y %H:%i') AS fecha_ingreso_virtual_fmt,
+                    DATE_FORMAT(u.fecha_actualizacion, '%d/%m/%Y %H:%i') AS fecha_actualizacion_fmt
+                 FROM av_unidades u
+                 LEFT JOIN av_ubicaciones ub ON ub.id_ubicacion = u.id_ubicacion_actual
+                 LEFT JOIN (
+                    SELECT e.*
+                    FROM av_evidencias e
+                    INNER JOIN (
+                        SELECT id_unidad, MAX(id_evidencia) AS id_evidencia
+                        FROM av_evidencias
+                        WHERE etapa = :foto_etapa
+                          AND slot = 'foto_frontal'
+                          AND estatus NOT IN ('reemplazado', 'eliminado')
+                        GROUP BY id_unidad
+                    ) ult_foto ON ult_foto.id_evidencia = e.id_evidencia
+                 ) foto ON foto.id_unidad = u.id_unidad
+                 {$whereSql}
+                 ORDER BY COALESCE(u.fecha_actualizacion, u.fecha_alta) DESC, u.id_unidad DESC
+                 LIMIT {$limitPorColumna}",
+                $params
+            ) ?: [];
+
+            $celulas = $this->obtenerCelulas();
+            foreach ($rows as &$row) {
+                $idCelula = (int) ($row['id_celula'] ?? 0);
+                $row['nombre_celula'] = $celulas[$idCelula] ?? ('Celula ' . $idCelula);
+                $row['foto_url_publica'] = $this->urlPublicaEvidencia((string) ($row['foto_url'] ?? ''));
+                $row['dias_almacen'] = max(0, (int) ($row['dias_almacen'] ?? 0));
+                $row['sla'] = $this->alertaSlaKanban((string) ($row['estatus_inventario'] ?? ''), (int) $row['dias_almacen']);
+            }
+            unset($row);
+
+            $columnas[] = $columna + [
+                'total' => $totales[$estatus] ?? count($rows),
+                'rows' => $rows,
+                'limit' => $limitPorColumna,
+                'truncada' => (($totales[$estatus] ?? 0) > count($rows)),
+            ];
+        }
+
+        return [
+            'success' => true,
+            'columnas' => $columnas,
+            'total' => (int) ($resumen['total'] ?? 0),
+            'limit_por_columna' => $limitPorColumna,
+        ];
+    }
+
+    public function enviarUnidadPisoVenta(int $idUnidad, array $datos, int $idUsuario = 0, string $nombreUsuario = ''): array
+    {
+        if (!$this->tablasBaseDisponibles()) {
+            return ['success' => false, 'message' => 'Faltan tablas base de Inventario.'];
+        }
+        if (!$this->tablaExiste('av_piso_venta_envios')) {
+            return ['success' => false, 'message' => 'Falta la tabla av_piso_venta_envios. Ejecuta el CREATE TABLE de Piso de Venta en DBeaver.'];
+        }
+
+        $destinoVenta = $this->normalizarTexto((string) ($datos['destino_venta'] ?? ''), 120);
+        $clientesVenta = ['Pension a Max', 'Amigo Efectivo'];
+        if ($destinoVenta === null || !in_array($destinoVenta, $clientesVenta, true)) {
+            return ['success' => false, 'message' => 'Selecciona un cliente valido: Pension a Max o Amigo Efectivo.'];
+        }
+        $observaciones = $this->normalizarTexto((string) ($datos['observaciones'] ?? ''), 1000);
+
+        $unidad = $this->obtenerUnidadPorId($idUnidad);
+        if (!$unidad) {
+            return ['success' => false, 'message' => 'Unidad no encontrada.'];
+        }
+
+        $fecha = $this->fechaHoraCdmx();
+        $contexto = [
+            'destino_venta' => $destinoVenta,
+            'observaciones' => $observaciones,
+        ];
+
+        try {
+            $this->db->beginTransaction();
+            $resultado = $this->aplicarCambioEstatusUnidad(
+                $unidad,
+                self::ESTATUS_LISTA_VENTA,
+                self::EVENTO_ENVIO_PISO_VENTA,
+                $idUsuario,
+                null,
+                $contexto,
+                $nombreUsuario,
+                false,
+                $fecha
+            );
+            if (empty($resultado['success'])) {
+                $this->db->rollback();
+                return $resultado;
+            }
+
+            $idEnvio = $this->registrarPisoVentaEstructurado(
+                (int) $unidad['id_unidad'],
+                (int) ($resultado['id_transicion'] ?? 0),
+                $destinoVenta,
+                $observaciones,
+                $idUsuario,
+                $nombreUsuario,
+                $fecha
+            );
+
+            $this->db->commit();
+
+            return $resultado + [
+                'message' => 'Unidad enviada a piso de venta para ' . $destinoVenta . '.',
+                'id_envio_piso_venta' => $idEnvio,
+                'cliente_destino' => $destinoVenta,
+            ];
+        } catch (\Throwable $e) {
+            if ($this->db->inTransaction()) {
+                $this->db->rollback();
+            }
+
+            return [
+                'success' => false,
+                'message' => 'No se pudo enviar la unidad a piso de venta.',
+                'error' => $e->getMessage(),
+            ];
+        }
+    }
+
+    public function obtenerResumenPisoVenta(): array
+    {
+        if (!$this->tablasBaseDisponibles()) {
+            return [
+                'tablas_disponibles' => false,
+                'total' => 0,
+                'pension_max' => 0,
+                'amigo_efectivo' => 0,
+                'sin_cliente' => 0,
+            ];
+        }
+
+        $pisoDisponible = $this->tablaExiste('av_piso_venta_envios');
+        $total = $this->db->queryOne(
+            "SELECT COUNT(*) AS total
+             FROM av_unidades
+             WHERE deleted_at IS NULL
+               AND estatus_inventario = :estatus",
+            ['estatus' => self::ESTATUS_LISTA_VENTA]
+        ) ?: [];
+
+        $resumen = [
+            'tablas_disponibles' => $pisoDisponible,
+            'total' => (int) ($total['total'] ?? 0),
+            'pension_max' => 0,
+            'amigo_efectivo' => 0,
+            'sin_cliente' => 0,
+        ];
+
+        if (!$pisoDisponible) {
+            $resumen['sin_cliente'] = $resumen['total'];
+            return $resumen;
+        }
+
+        $rows = $this->db->queryAll(
+            "SELECT COALESCE(pv.cliente_destino, 'SIN_CLIENTE') AS cliente_destino, COUNT(*) AS total
+             FROM av_unidades u
+             LEFT JOIN (
+                SELECT p1.*
+                FROM av_piso_venta_envios p1
+                INNER JOIN (
+                    SELECT id_unidad, MAX(id_envio) AS id_envio
+                    FROM av_piso_venta_envios
+                    WHERE estatus_envio <> 'cancelada'
+                    GROUP BY id_unidad
+                ) ult ON ult.id_envio = p1.id_envio
+             ) pv ON pv.id_unidad = u.id_unidad
+             WHERE u.deleted_at IS NULL
+               AND u.estatus_inventario = :estatus
+             GROUP BY COALESCE(pv.cliente_destino, 'SIN_CLIENTE')",
+            ['estatus' => self::ESTATUS_LISTA_VENTA]
+        ) ?: [];
+
+        foreach ($rows as $row) {
+            $cliente = (string) ($row['cliente_destino'] ?? '');
+            $cantidad = (int) ($row['total'] ?? 0);
+            if ($cliente === 'Pension a Max') {
+                $resumen['pension_max'] = $cantidad;
+            } elseif ($cliente === 'Amigo Efectivo') {
+                $resumen['amigo_efectivo'] = $cantidad;
+            } else {
+                $resumen['sin_cliente'] += $cantidad;
+            }
+        }
+
+        return $resumen;
+    }
+
+    public function listarPisoVentaUnidades(array $filtros = []): array
+    {
+        if (!$this->tablasBaseDisponibles()) {
+            return [
+                'success' => false,
+                'message' => 'Faltan tablas base de Inventario.',
+                'rows' => [],
+                'total' => 0,
+                'limit' => 8,
+                'page' => 1,
+                'pages' => 1,
+            ];
+        }
+
+        $page = max(1, (int) ($filtros['page'] ?? 1));
+        $limit = max(1, min(100, (int) ($filtros['limit'] ?? 8)));
+        $pisoDisponible = $this->tablaExiste('av_piso_venta_envios');
+
+        $where = [
+            'u.deleted_at IS NULL',
+            'u.estatus_inventario = :estatus',
+        ];
+        $params = ['estatus' => self::ESTATUS_LISTA_VENTA];
+
+        $q = trim((string) ($filtros['q'] ?? ''));
+        if ($q !== '') {
+            $where[] = "(
+                u.folio_unidad LIKE :q
+                OR u.vin LIKE :q
+                OR u.no_motor LIKE :q
+                OR u.placas LIKE :q
+                OR u.marca LIKE :q
+                OR u.modelo LIKE :q
+                OR u.color LIKE :q
+                OR CAST(u.id_unidad AS CHAR) LIKE :q
+                OR CAST(u.id_credito AS CHAR) LIKE :q
+            )";
+            $params['q'] = '%' . $q . '%';
+        }
+
+        $idCelula = (int) ($filtros['id_celula'] ?? 0);
+        if ($idCelula > 0) {
+            $where[] = 'u.id_celula = :id_celula';
+            $params['id_celula'] = $idCelula;
+        }
+
+        $idUbicacion = (int) ($filtros['id_ubicacion'] ?? 0);
+        if ($idUbicacion > 0) {
+            $where[] = 'u.id_ubicacion_actual = :id_ubicacion';
+            $params['id_ubicacion'] = $idUbicacion;
+        }
+
+        $cliente = trim((string) ($filtros['cliente_destino'] ?? ''));
+        if ($cliente !== '' && $pisoDisponible) {
+            $where[] = 'pv.cliente_destino = :cliente_destino';
+            $params['cliente_destino'] = $cliente;
+        }
+
+        $pisoSelect = "NULL AS id_envio_piso_venta,
+            NULL AS cliente_destino,
+            NULL AS estatus_envio,
+            NULL AS fecha_envio_fmt";
+        $pisoJoin = '';
+        if ($pisoDisponible) {
+            $pisoSelect = "pv.id_envio AS id_envio_piso_venta,
+            pv.cliente_destino,
+            pv.estatus_envio,
+            DATE_FORMAT(pv.fecha_envio, '%d/%m/%Y %H:%i') AS fecha_envio_fmt";
+            $pisoJoin = "LEFT JOIN (
+                SELECT p1.*
+                FROM av_piso_venta_envios p1
+                INNER JOIN (
+                    SELECT id_unidad, MAX(id_envio) AS id_envio
+                    FROM av_piso_venta_envios
+                    WHERE estatus_envio <> 'cancelada'
+                    GROUP BY id_unidad
+                ) ult ON ult.id_envio = p1.id_envio
+             ) pv ON pv.id_unidad = u.id_unidad";
+        }
+        $orderFecha = $pisoDisponible
+            ? 'COALESCE(pv.fecha_envio, u.fecha_actualizacion, u.fecha_alta)'
+            : 'COALESCE(u.fecha_actualizacion, u.fecha_alta)';
+
+        $whereSql = 'WHERE ' . implode(' AND ', $where);
+        $totalRow = $this->db->queryOne(
+            "SELECT COUNT(*) AS total
+             FROM av_unidades u
+             {$pisoJoin}
+             {$whereSql}",
+            $params
+        ) ?: [];
+        $total = (int) ($totalRow['total'] ?? 0);
+        $pages = max(1, (int) ceil($total / $limit));
+        $page = min($page, $pages);
+        $offset = ($page - 1) * $limit;
+
+        $rows = $this->db->queryAll(
+            "SELECT
+                u.id_unidad,
+                u.folio_unidad,
+                u.id_celula,
+                u.id_origen,
+                u.id_credito,
+                u.vin,
+                u.no_motor,
+                u.placas,
+                u.marca,
+                u.modelo,
+                u.anio,
+                u.color,
+                u.kilometraje,
+                u.tipo_unidad,
+                u.estatus_inventario,
+                u.id_ubicacion_actual,
+                ub.nombre_ubicacion,
+                ub.tipo_ubicacion,
+                foto.url AS foto_url,
+                DATEDIFF(CURDATE(), DATE(COALESCE(u.fecha_ingreso_virtual, u.fecha_alta))) AS dias_almacen,
+                DATE_FORMAT(u.fecha_ingreso_virtual, '%d/%m/%Y %H:%i') AS fecha_ingreso_virtual_fmt,
+                DATE_FORMAT(u.fecha_actualizacion, '%d/%m/%Y %H:%i') AS fecha_actualizacion_fmt,
+                {$pisoSelect}
+             FROM av_unidades u
+             LEFT JOIN av_ubicaciones ub ON ub.id_ubicacion = u.id_ubicacion_actual
+             {$pisoJoin}
+             LEFT JOIN (
+                SELECT e.*
+                FROM av_evidencias e
+                INNER JOIN (
+                    SELECT id_unidad, MAX(id_evidencia) AS id_evidencia
+                    FROM av_evidencias
+                    WHERE estatus NOT IN ('reemplazado', 'eliminado')
+                    GROUP BY id_unidad
+                ) ult_foto ON ult_foto.id_evidencia = e.id_evidencia
+             ) foto ON foto.id_unidad = u.id_unidad
+             {$whereSql}
+             ORDER BY {$orderFecha} DESC, u.id_unidad DESC
+             LIMIT {$limit} OFFSET {$offset}",
+            $params
+        ) ?: [];
+
+        $celulas = $this->obtenerCelulas();
+        foreach ($rows as &$row) {
+            $id = (int) ($row['id_celula'] ?? 0);
+            $row['nombre_celula'] = $celulas[$id] ?? ('Celula ' . $id);
+            $row['foto_url_publica'] = $this->urlPublicaEvidencia((string) ($row['foto_url'] ?? ''));
+            $row['dias_almacen'] = max(0, (int) ($row['dias_almacen'] ?? 0));
+            $row['sla'] = $this->alertaSlaKanban(self::ESTATUS_LISTA_VENTA, (int) $row['dias_almacen']);
+        }
+        unset($row);
+
+        return [
+            'success' => true,
+            'tablas_disponibles' => $pisoDisponible,
+            'rows' => $rows,
+            'total' => $total,
+            'limit' => $limit,
+            'page' => $page,
+            'pages' => $pages,
+        ];
+    }
+
+    public function obtenerResumenTraspasos(): array
+    {
+        if (!$this->tablasBaseDisponibles()) {
+            return [
+                'tablas_disponibles' => false,
+                'disponibles' => 0,
+                'creadas' => 0,
+                'en_transito' => 0,
+                'recibidas' => 0,
+                'total_ordenes' => 0,
+            ];
+        }
+
+        $disponibles = $this->db->queryOne(
+            "SELECT COUNT(*) AS total
+             FROM av_unidades
+             WHERE deleted_at IS NULL
+               AND estatus_inventario = :estatus",
+            ['estatus' => self::ESTATUS_LISTA_VENTA]
+        ) ?: [];
+
+        $resumen = [
+            'tablas_disponibles' => $this->tablaExiste('av_traspasos'),
+            'disponibles' => (int) ($disponibles['total'] ?? 0),
+            'creadas' => 0,
+            'en_transito' => 0,
+            'recibidas' => 0,
+            'total_ordenes' => 0,
+        ];
+
+        if (!$resumen['tablas_disponibles']) {
+            return $resumen;
+        }
+
+        $row = $this->db->queryOne(
+            "SELECT
+                COUNT(*) AS total_ordenes,
+                SUM(estatus_traspaso = 'creada') AS creadas,
+                SUM(estatus_traspaso = 'en_transito') AS en_transito,
+                SUM(estatus_traspaso = 'recibida') AS recibidas
+             FROM av_traspasos"
+        ) ?: [];
+
+        $resumen['total_ordenes'] = (int) ($row['total_ordenes'] ?? 0);
+        $resumen['creadas'] = (int) ($row['creadas'] ?? 0);
+        $resumen['en_transito'] = (int) ($row['en_transito'] ?? 0);
+        $resumen['recibidas'] = (int) ($row['recibidas'] ?? 0);
+
+        return $resumen;
+    }
+
+    public function listarUnidadesDisponiblesTraspaso(array $filtros = []): array
+    {
+        return $this->listarPisoVentaUnidades($filtros);
+    }
+
+    public function listarTraspasos(array $filtros = []): array
+    {
+        if (!$this->tablasBaseDisponibles() || !$this->tablaExiste('av_traspasos')) {
+            return [
+                'success' => false,
+                'message' => 'Faltan tablas de Traspasos. Ejecuta el CREATE TABLE de av_traspasos en DBeaver.',
+                'rows' => [],
+                'total' => 0,
+                'limit' => 8,
+                'page' => 1,
+                'pages' => 1,
+            ];
+        }
+
+        $page = max(1, (int) ($filtros['page'] ?? 1));
+        $limit = max(1, min(100, (int) ($filtros['limit'] ?? 8)));
+        $where = ['u.deleted_at IS NULL'];
+        $params = [];
+
+        $q = trim((string) ($filtros['q'] ?? ''));
+        if ($q !== '') {
+            $where[] = "(
+                t.folio_traspaso LIKE :q
+                OR t.transportista_nombre LIKE :q
+                OR u.folio_unidad LIKE :q
+                OR u.vin LIKE :q
+                OR u.no_motor LIKE :q
+                OR u.placas LIKE :q
+                OR u.marca LIKE :q
+                OR u.modelo LIKE :q
+                OR CAST(u.id_unidad AS CHAR) LIKE :q
+                OR CAST(u.id_credito AS CHAR) LIKE :q
+            )";
+            $params['q'] = '%' . $q . '%';
+        }
+
+        $estatus = trim((string) ($filtros['estatus_traspaso'] ?? ''));
+        if ($estatus !== '') {
+            $where[] = 't.estatus_traspaso = :estatus_traspaso';
+            $params['estatus_traspaso'] = $estatus;
+        }
+
+        $idCelula = (int) ($filtros['id_celula'] ?? 0);
+        if ($idCelula > 0) {
+            $where[] = 'u.id_celula = :id_celula';
+            $params['id_celula'] = $idCelula;
+        }
+
+        $idOrigen = (int) ($filtros['id_ubicacion_origen'] ?? 0);
+        if ($idOrigen > 0) {
+            $where[] = 't.id_ubicacion_origen = :id_ubicacion_origen';
+            $params['id_ubicacion_origen'] = $idOrigen;
+        }
+
+        $idDestino = (int) ($filtros['id_ubicacion_destino'] ?? 0);
+        if ($idDestino > 0) {
+            $where[] = 't.id_ubicacion_destino = :id_ubicacion_destino';
+            $params['id_ubicacion_destino'] = $idDestino;
+        }
+
+        $whereSql = 'WHERE ' . implode(' AND ', $where);
+        $totalRow = $this->db->queryOne(
+            "SELECT COUNT(*) AS total
+             FROM av_traspasos t
+             INNER JOIN av_unidades u ON u.id_unidad = t.id_unidad
+             {$whereSql}",
+            $params
+        ) ?: [];
+        $total = (int) ($totalRow['total'] ?? 0);
+        $pages = max(1, (int) ceil($total / $limit));
+        $page = min($page, $pages);
+        $offset = ($page - 1) * $limit;
+
+        $rows = $this->db->queryAll(
+            "SELECT
+                t.*,
+                DATE_FORMAT(t.fecha_salida_estimada, '%d/%m/%Y %H:%i') AS fecha_salida_estimada_fmt,
+                DATE_FORMAT(t.fecha_recoleccion_origen, '%d/%m/%Y %H:%i') AS fecha_recoleccion_origen_fmt,
+                DATE_FORMAT(t.fecha_recepcion_destino, '%d/%m/%Y %H:%i') AS fecha_recepcion_destino_fmt,
+                DATE_FORMAT(t.fecha_creacion, '%d/%m/%Y %H:%i') AS fecha_creacion_fmt,
+                u.folio_unidad,
+                u.id_celula,
+                u.id_credito,
+                u.vin,
+                u.no_motor,
+                u.placas,
+                u.marca,
+                u.modelo,
+                u.anio,
+                u.color,
+                u.estatus_inventario,
+                origen.nombre_ubicacion AS ubicacion_origen_nombre,
+                destino.nombre_ubicacion AS ubicacion_destino_nombre,
+                foto.url AS foto_url
+             FROM av_traspasos t
+             INNER JOIN av_unidades u ON u.id_unidad = t.id_unidad
+             LEFT JOIN av_ubicaciones origen ON origen.id_ubicacion = t.id_ubicacion_origen
+             LEFT JOIN av_ubicaciones destino ON destino.id_ubicacion = t.id_ubicacion_destino
+             LEFT JOIN (
+                SELECT e.*
+                FROM av_evidencias e
+                INNER JOIN (
+                    SELECT id_unidad, MAX(id_evidencia) AS id_evidencia
+                    FROM av_evidencias
+                    WHERE estatus NOT IN ('reemplazado', 'eliminado')
+                    GROUP BY id_unidad
+                ) ult_foto ON ult_foto.id_evidencia = e.id_evidencia
+             ) foto ON foto.id_unidad = u.id_unidad
+             {$whereSql}
+             ORDER BY t.fecha_creacion DESC, t.id_traspaso DESC
+             LIMIT {$limit} OFFSET {$offset}",
+            $params
+        ) ?: [];
+
+        $celulas = $this->obtenerCelulas();
+        foreach ($rows as &$row) {
+            $id = (int) ($row['id_celula'] ?? 0);
+            $row['nombre_celula'] = $celulas[$id] ?? ('Celula ' . $id);
+            $row['foto_url_publica'] = $this->urlPublicaEvidencia((string) ($row['foto_url'] ?? ''));
+        }
+        unset($row);
+
+        return [
+            'success' => true,
+            'rows' => $rows,
+            'total' => $total,
+            'limit' => $limit,
+            'page' => $page,
+            'pages' => $pages,
+        ];
+    }
+
+    public function crearOrdenTraspaso(int $idUnidad, array $datos, array $evidencias, int $idUsuario = 0, string $nombreUsuario = ''): array
+    {
+        if (!$this->tablasBaseDisponibles() || !$this->tablaExiste('av_traspasos')) {
+            return ['success' => false, 'message' => 'Faltan tablas de Traspasos. Ejecuta el CREATE TABLE de av_traspasos en DBeaver.'];
+        }
+        if (empty($evidencias)) {
+            return ['success' => false, 'message' => 'Agrega evidencia fotografica de origen antes de crear el traspaso.'];
+        }
+
+        $unidad = $this->obtenerUnidadPorId($idUnidad);
+        if (!$unidad) {
+            return ['success' => false, 'message' => 'Unidad no encontrada.'];
+        }
+
+        $idOrigen = $this->intONull($unidad['id_ubicacion_actual'] ?? null);
+        $idDestino = (int) ($datos['id_ubicacion_destino'] ?? 0);
+        $destino = $this->obtenerUbicacionPorId($idDestino);
+        if (!$idOrigen) {
+            return ['success' => false, 'message' => 'La unidad no tiene ubicacion origen asignada.'];
+        }
+        if (!$destino) {
+            return ['success' => false, 'message' => 'Selecciona una agencia destino valida.'];
+        }
+        if ($idOrigen === $idDestino) {
+            return ['success' => false, 'message' => 'La agencia destino debe ser diferente a la ubicacion actual.'];
+        }
+
+        $tipoTransportista = strtolower(trim((string) ($datos['tipo_transportista'] ?? '')));
+        if (!in_array($tipoTransportista, ['interno', 'externo'], true)) {
+            return ['success' => false, 'message' => 'Selecciona tipo de transportista interno o externo.'];
+        }
+
+        $transportistaNombre = $this->normalizarTexto((string) ($datos['transportista_nombre'] ?? ''), 150);
+        if ($transportistaNombre === null) {
+            return ['success' => false, 'message' => 'Captura el nombre del transportista.'];
+        }
+
+        $fechaSalida = $this->normalizarFechaHoraInput((string) ($datos['fecha_salida_estimada'] ?? ''));
+        if ($fechaSalida === null) {
+            return ['success' => false, 'message' => 'Captura fecha y hora estimada de salida.'];
+        }
+
+        $transportistaContacto = $this->normalizarTexto((string) ($datos['transportista_contacto'] ?? ''), 80);
+        $observacionesOrigen = $this->normalizarTexto((string) ($datos['observaciones_origen'] ?? ''), 1200);
+        $fecha = $this->fechaHoraCdmx();
+
+        try {
+            $this->db->beginTransaction();
+            $folio = $this->generarFolioTraspaso($fecha);
+            $contexto = [
+                'folio_traspaso' => $folio,
+                'id_ubicacion_origen' => $idOrigen,
+                'id_ubicacion_destino' => $idDestino,
+                'tipo_transportista' => $tipoTransportista,
+                'transportista_nombre' => $transportistaNombre,
+                'fecha_salida_estimada' => $fechaSalida,
+            ];
+
+            $cambio = $this->aplicarCambioEstatusUnidad(
+                $unidad,
+                self::ESTATUS_EN_TRASPASO,
+                self::EVENTO_ORDEN_TRASPASO,
+                $idUsuario,
+                null,
+                $contexto,
+                $nombreUsuario,
+                false,
+                $fecha
+            );
+            if (empty($cambio['success'])) {
+                $this->db->rollback();
+                return $cambio;
+            }
+
+            $this->db->CRUD(
+                "INSERT INTO av_traspasos (
+                    folio_traspaso,
+                    id_unidad,
+                    id_ubicacion_origen,
+                    id_ubicacion_destino,
+                    id_transicion_salida,
+                    tipo_transportista,
+                    transportista_nombre,
+                    transportista_contacto,
+                    fecha_salida_estimada,
+                    fecha_recoleccion_origen,
+                    estatus_traspaso,
+                    observaciones_origen,
+                    id_usuario_creacion,
+                    nombre_usuario_creacion,
+                    fecha_creacion
+                 ) VALUES (
+                    :folio_traspaso,
+                    :id_unidad,
+                    :id_ubicacion_origen,
+                    :id_ubicacion_destino,
+                    :id_transicion_salida,
+                    :tipo_transportista,
+                    :transportista_nombre,
+                    :transportista_contacto,
+                    :fecha_salida_estimada,
+                    :fecha_recoleccion_origen,
+                    'en_transito',
+                    :observaciones_origen,
+                    :id_usuario_creacion,
+                    :nombre_usuario_creacion,
+                    :fecha_creacion
+                 )",
+                [
+                    'folio_traspaso' => $folio,
+                    'id_unidad' => (int) $unidad['id_unidad'],
+                    'id_ubicacion_origen' => $idOrigen,
+                    'id_ubicacion_destino' => $idDestino,
+                    'id_transicion_salida' => (int) ($cambio['id_transicion'] ?? 0),
+                    'tipo_transportista' => $tipoTransportista,
+                    'transportista_nombre' => $transportistaNombre,
+                    'transportista_contacto' => $transportistaContacto,
+                    'fecha_salida_estimada' => $fechaSalida,
+                    'fecha_recoleccion_origen' => $fecha,
+                    'observaciones_origen' => $observacionesOrigen,
+                    'id_usuario_creacion' => $idUsuario > 0 ? $idUsuario : null,
+                    'nombre_usuario_creacion' => $nombreUsuario !== '' ? $nombreUsuario : null,
+                    'fecha_creacion' => $fecha,
+                ]
+            );
+            $idTraspaso = $this->db->lastInsertId();
+
+            $this->registrarEvidenciasTraspaso((int) $unidad['id_unidad'], 'traspaso_origen', $evidencias, $idUsuario, $nombreUsuario, $fecha);
+            $this->registrarBitacora(
+                (int) $unidad['id_unidad'],
+                'Traspasos',
+                'ORDEN CREADA',
+                'Orden de traspaso ' . $folio . ' creada y unidad en transito.',
+                $contexto + ['id_traspaso' => $idTraspaso],
+                $idUsuario,
+                $nombreUsuario,
+                $fecha
+            );
+
+            $this->db->commit();
+
+            return [
+                'success' => true,
+                'message' => 'Orden de traspaso creada correctamente.',
+                'id_traspaso' => $idTraspaso,
+                'folio_traspaso' => $folio,
+                'id_transicion' => (int) ($cambio['id_transicion'] ?? 0),
+            ];
+        } catch (\Throwable $e) {
+            if ($this->db->inTransaction()) {
+                $this->db->rollback();
+            }
+
+            return [
+                'success' => false,
+                'message' => 'No se pudo crear la orden de traspaso.',
+                'error' => $e->getMessage(),
+            ];
+        }
+    }
+
+    public function confirmarRecepcionTraspaso(int $idTraspaso, array $datos, array $evidencias, int $idUsuario = 0, string $nombreUsuario = ''): array
+    {
+        if (!$this->tablasBaseDisponibles() || !$this->tablaExiste('av_traspasos')) {
+            return ['success' => false, 'message' => 'Faltan tablas de Traspasos.'];
+        }
+        if (empty($evidencias)) {
+            return ['success' => false, 'message' => 'Agrega evidencia fotografica de destino para cerrar el traspaso.'];
+        }
+
+        $traspaso = $this->obtenerTraspasoPorId($idTraspaso);
+        if (!$traspaso) {
+            return ['success' => false, 'message' => 'Orden de traspaso no encontrada.'];
+        }
+        if (!in_array((string) ($traspaso['estatus_traspaso'] ?? ''), ['creada', 'en_transito'], true)) {
+            return ['success' => false, 'message' => 'La orden ya fue cerrada o cancelada.'];
+        }
+
+        $unidad = $this->obtenerUnidadPorId((int) ($traspaso['id_unidad'] ?? 0));
+        if (!$unidad) {
+            return ['success' => false, 'message' => 'Unidad no encontrada.'];
+        }
+
+        $observacionesDestino = $this->normalizarTexto((string) ($datos['observaciones_destino'] ?? ''), 1200);
+        $fecha = $this->fechaHoraCdmx();
+        $idOrigen = $this->intONull($traspaso['id_ubicacion_origen'] ?? null);
+        $idDestino = $this->intONull($traspaso['id_ubicacion_destino'] ?? null);
+        if (!$idDestino) {
+            return ['success' => false, 'message' => 'La orden de traspaso no tiene destino valido.'];
+        }
+
+        try {
+            $this->db->beginTransaction();
+            $contexto = [
+                'id_traspaso' => $idTraspaso,
+                'folio_traspaso' => (string) ($traspaso['folio_traspaso'] ?? ''),
+                'id_ubicacion_origen' => $idOrigen,
+                'id_ubicacion_destino' => $idDestino,
+            ];
+            $cambio = $this->aplicarCambioEstatusUnidad(
+                $unidad,
+                self::ESTATUS_LISTA_VENTA,
+                self::EVENTO_CIERRE_TRASPASO,
+                $idUsuario,
+                null,
+                $contexto,
+                $nombreUsuario,
+                false,
+                $fecha
+            );
+            if (empty($cambio['success'])) {
+                $this->db->rollback();
+                return $cambio;
+            }
+
+            $this->db->CRUD(
+                "UPDATE av_unidades
+                 SET id_ubicacion_actual = :id_ubicacion_actual,
+                     actualizado_por = :actualizado_por,
+                     fecha_actualizacion = :fecha
+                 WHERE id_unidad = :id_unidad
+                   AND deleted_at IS NULL",
+                [
+                    'id_ubicacion_actual' => $idDestino,
+                    'actualizado_por' => $idUsuario > 0 ? $idUsuario : null,
+                    'fecha' => $fecha,
+                    'id_unidad' => (int) $unidad['id_unidad'],
+                ]
+            );
+
+            $idMovimientoUbicacion = $this->registrarMovimiento(
+                (int) $unidad['id_unidad'],
+                'traspaso_recepcion_destino',
+                self::ESTATUS_EN_TRASPASO,
+                self::ESTATUS_LISTA_VENTA,
+                $idOrigen,
+                $idDestino,
+                'Recepcion y VoBo destino de traspaso ' . (string) ($traspaso['folio_traspaso'] ?? '') . '.',
+                $idUsuario,
+                $nombreUsuario,
+                $fecha
+            );
+
+            $this->db->CRUD(
+                "UPDATE av_traspasos
+                 SET estatus_traspaso = 'recibida',
+                     fecha_recepcion_destino = :fecha_recepcion_destino,
+                     observaciones_destino = :observaciones_destino,
+                     id_usuario_recepcion = :id_usuario_recepcion,
+                     nombre_usuario_recepcion = :nombre_usuario_recepcion,
+                     id_transicion_recepcion = :id_transicion_recepcion
+                 WHERE id_traspaso = :id_traspaso",
+                [
+                    'fecha_recepcion_destino' => $fecha,
+                    'observaciones_destino' => $observacionesDestino,
+                    'id_usuario_recepcion' => $idUsuario > 0 ? $idUsuario : null,
+                    'nombre_usuario_recepcion' => $nombreUsuario !== '' ? $nombreUsuario : null,
+                    'id_transicion_recepcion' => (int) ($cambio['id_transicion'] ?? 0),
+                    'id_traspaso' => $idTraspaso,
+                ]
+            );
+
+            $this->registrarEvidenciasTraspaso((int) $unidad['id_unidad'], 'traspaso_destino', $evidencias, $idUsuario, $nombreUsuario, $fecha);
+            $this->registrarBitacora(
+                (int) $unidad['id_unidad'],
+                'Traspasos',
+                'VOBO DESTINO',
+                'Traspaso ' . (string) ($traspaso['folio_traspaso'] ?? '') . ' recibido en destino.',
+                $contexto + [
+                    'observaciones_destino' => $observacionesDestino,
+                    'id_movimiento_ubicacion' => $idMovimientoUbicacion,
+                    'id_transicion' => (int) ($cambio['id_transicion'] ?? 0),
+                ],
+                $idUsuario,
+                $nombreUsuario,
+                $fecha
+            );
+
+            $this->db->commit();
+
+            return [
+                'success' => true,
+                'message' => 'Traspaso recibido y unidad lista para venta en destino.',
+                'id_traspaso' => $idTraspaso,
+                'id_unidad' => (int) $unidad['id_unidad'],
+                'id_transicion' => (int) ($cambio['id_transicion'] ?? 0),
+            ];
+        } catch (\Throwable $e) {
+            if ($this->db->inTransaction()) {
+                $this->db->rollback();
+            }
+
+            return [
+                'success' => false,
+                'message' => 'No se pudo confirmar la recepcion del traspaso.',
+                'error' => $e->getMessage(),
+            ];
+        }
     }
 
     public function sincronizarRecolectadasMotosAdjudicadas(int $idUsuario = 0, string $nombreUsuario = '', int $limit = 200): array
@@ -3066,6 +4077,559 @@ class AlmacenVirtual extends Model
         }
 
         return true;
+    }
+
+    private function registrarPisoVentaEstructurado(
+        int $idUnidad,
+        int $idTransicion,
+        string $clienteDestino,
+        ?string $observaciones,
+        int $idUsuario,
+        string $nombreUsuario,
+        string $fecha
+    ): int {
+        $this->db->CRUD(
+            "INSERT INTO av_piso_venta_envios (
+                id_unidad,
+                id_transicion,
+                cliente_destino,
+                estatus_envio,
+                observaciones,
+                id_usuario,
+                nombre_usuario,
+                fecha_envio
+             ) VALUES (
+                :id_unidad,
+                :id_transicion,
+                :cliente_destino,
+                'lista',
+                :observaciones,
+                :id_usuario,
+                :nombre_usuario,
+                :fecha_envio
+             )",
+            [
+                'id_unidad' => $idUnidad,
+                'id_transicion' => $idTransicion > 0 ? $idTransicion : null,
+                'cliente_destino' => $clienteDestino,
+                'observaciones' => $observaciones,
+                'id_usuario' => $idUsuario > 0 ? $idUsuario : null,
+                'nombre_usuario' => $nombreUsuario !== '' ? $nombreUsuario : null,
+                'fecha_envio' => $fecha,
+            ]
+        );
+
+        return $this->db->lastInsertId();
+    }
+
+    private function generarFolioTraspaso(string $fecha): string
+    {
+        $prefijo = 'AVT-' . date('Ymd', strtotime($fecha)) . '-';
+        $row = $this->db->queryOne(
+            "SELECT folio_traspaso
+             FROM av_traspasos
+             WHERE folio_traspaso LIKE :prefijo
+             ORDER BY folio_traspaso DESC
+             LIMIT 1",
+            ['prefijo' => $prefijo . '%']
+        );
+        $ultimo = 0;
+        if ($row && !empty($row['folio_traspaso'])) {
+            $partes = explode('-', (string) $row['folio_traspaso']);
+            $ultimo = (int) end($partes);
+        }
+
+        return $prefijo . str_pad((string) ($ultimo + 1), 4, '0', STR_PAD_LEFT);
+    }
+
+    private function obtenerTraspasoPorId(int $idTraspaso): ?array
+    {
+        if ($idTraspaso <= 0 || !$this->tablaExiste('av_traspasos')) {
+            return null;
+        }
+
+        $row = $this->db->queryOne(
+            "SELECT
+                t.*,
+                u.folio_unidad,
+                u.estatus_inventario,
+                u.id_ubicacion_actual
+             FROM av_traspasos t
+             INNER JOIN av_unidades u ON u.id_unidad = t.id_unidad
+             WHERE t.id_traspaso = :id
+               AND u.deleted_at IS NULL
+             LIMIT 1",
+            ['id' => $idTraspaso]
+        );
+
+        return $row ?: null;
+    }
+
+    private function registrarEvidenciasTraspaso(
+        int $idUnidad,
+        string $etapa,
+        array $evidencias,
+        int $idUsuario,
+        string $nombreUsuario,
+        string $fecha
+    ): void {
+        $titulos = [
+            'traspaso_origen' => 'Evidencia origen transportista',
+            'traspaso_destino' => 'Evidencia destino VoBo',
+        ];
+        foreach ($evidencias as $slot => $info) {
+            if (!is_array($info)) {
+                continue;
+            }
+            $this->registrarEvidenciaUnidadEtapa(
+                $idUnidad,
+                $etapa,
+                (string) $slot,
+                $titulos[$etapa] ?? 'Evidencia traspaso',
+                $info,
+                'validado',
+                $idUsuario,
+                $nombreUsuario,
+                $fecha
+            );
+        }
+    }
+
+    private function normalizarFechaHoraInput(string $valor): ?string
+    {
+        $valor = trim(str_replace('T', ' ', $valor));
+        if ($valor === '') {
+            return null;
+        }
+        if (preg_match('/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}$/', $valor)) {
+            $valor .= ':00';
+        }
+
+        try {
+            $dt = new \DateTime($valor, new \DateTimeZone('America/Mexico_City'));
+            return $dt->format('Y-m-d H:i:s');
+        } catch (\Throwable $e) {
+            return null;
+        }
+    }
+
+    private function maquinaEstadosKanban(): array
+    {
+        return [
+            self::ESTATUS_PENDIENTE_REVISION => [
+                self::ESTATUS_EN_REVISION => [self::EVENTO_ASIGNACION_MECANICO],
+            ],
+            self::ESTATUS_EN_REVISION => [
+                self::ESTATUS_REPARADA => [self::EVENTO_CIERRE_REVISION],
+                self::ESTATUS_FUERA_PRESUPUESTO => [self::EVENTO_CIERRE_REVISION],
+                self::ESTATUS_IRREPARABLE => [self::EVENTO_CIERRE_REVISION],
+            ],
+            self::ESTATUS_REPARADA => [
+                self::ESTATUS_LISTA_VENTA => [self::EVENTO_ENVIO_PISO_VENTA],
+            ],
+            self::ESTATUS_LISTA_VENTA => [
+                self::ESTATUS_EN_TRASPASO => [self::EVENTO_ORDEN_TRASPASO],
+            ],
+            self::ESTATUS_EN_TRASPASO => [
+                self::ESTATUS_LISTA_VENTA => [self::EVENTO_CIERRE_TRASPASO],
+            ],
+        ];
+    }
+
+    private function aplicarCambioEstatusUnidad(
+        array $unidad,
+        string $estatusNuevo,
+        string $origenEvento,
+        int $usuarioId,
+        ?string $justificacion,
+        array $contexto,
+        string $nombreUsuario,
+        bool $overrideSupervisorAutorizado,
+        string $fecha
+    ): array {
+        if (!$this->tablaExiste('av_kanban_transiciones')) {
+            return ['success' => false, 'message' => 'Falta la tabla av_kanban_transiciones. Ejecuta la migracion de Kanban.'];
+        }
+
+        $idUnidad = (int) ($unidad['id_unidad'] ?? 0);
+        $estatusAnterior = (string) ($unidad['estatus_inventario'] ?? '');
+        $estatusNuevo = strtolower(trim($estatusNuevo));
+        $origenEvento = strtolower(trim($origenEvento));
+        $justificacion = $this->normalizarTexto((string) ($justificacion ?? ''), 2000);
+        $validacion = $this->validarTransicionKanban(
+            $estatusAnterior,
+            $estatusNuevo,
+            $origenEvento,
+            $justificacion,
+            $overrideSupervisorAutorizado
+        );
+        if (empty($validacion['success'])) {
+            return $validacion;
+        }
+
+        $esOverride = $origenEvento === self::ORIGEN_OVERRIDE_SUPERVISOR;
+        $origenRegistro = $esOverride ? self::ORIGEN_OVERRIDE_SUPERVISOR : 'evento_negocio';
+        $comentario = $this->comentarioTransicionKanban($estatusAnterior, $estatusNuevo, $origenEvento, $justificacion);
+
+        $this->db->CRUD(
+            "UPDATE av_unidades
+             SET estatus_inventario = :estatus_nuevo,
+                 actualizado_por = :actualizado_por,
+                 fecha_actualizacion = :fecha
+             WHERE id_unidad = :id
+               AND deleted_at IS NULL",
+            [
+                'estatus_nuevo' => $estatusNuevo,
+                'actualizado_por' => $usuarioId > 0 ? $usuarioId : null,
+                'fecha' => $fecha,
+                'id' => $idUnidad,
+            ]
+        );
+
+        $idMovimiento = $this->registrarMovimiento(
+            $idUnidad,
+            $esOverride ? 'kanban_override_supervisor' : $origenEvento,
+            $estatusAnterior,
+            $estatusNuevo,
+            $this->intONull($unidad['id_ubicacion_actual'] ?? null),
+            $this->intONull($unidad['id_ubicacion_actual'] ?? null),
+            $comentario,
+            $usuarioId,
+            $nombreUsuario,
+            $fecha
+        );
+
+        $payload = [
+            'origen_evento' => $origenRegistro,
+            'evento_negocio' => $esOverride ? null : $origenEvento,
+            'estatus_anterior' => $estatusAnterior,
+            'estatus_nuevo' => $estatusNuevo,
+            'justificacion' => $justificacion,
+            'contexto' => $contexto,
+        ];
+        $this->registrarBitacora(
+            $idUnidad,
+            'Kanban Operativo',
+            $esOverride ? 'OVERRIDE SUPERVISOR' : 'CAMBIO ESTATUS',
+            $comentario,
+            $payload + ['id_movimiento' => $idMovimiento],
+            $usuarioId,
+            $nombreUsuario,
+            $fecha
+        );
+
+        $idTransicion = $this->registrarTransicionKanban(
+            $idUnidad,
+            $estatusAnterior,
+            $estatusNuevo,
+            $origenRegistro,
+            $esOverride ? null : $origenEvento,
+            $justificacion,
+            $payload,
+            $idMovimiento,
+            $usuarioId,
+            $nombreUsuario,
+            $fecha
+        );
+
+        if ($esOverride) {
+            $this->registrarNotificacionKanbanOverride($idTransicion, $idUnidad, $estatusAnterior, $estatusNuevo, $justificacion, $fecha);
+        }
+
+        return [
+            'success' => true,
+            'message' => 'Estatus actualizado correctamente.',
+            'estatus_anterior' => $estatusAnterior,
+            'estatus_nuevo' => $estatusNuevo,
+            'id_movimiento' => $idMovimiento,
+            'id_transicion' => $idTransicion,
+        ];
+    }
+
+    private function validarTransicionKanban(
+        string $estatusAnterior,
+        string $estatusNuevo,
+        string $origenEvento,
+        ?string $justificacion,
+        bool $overrideSupervisorAutorizado
+    ): array {
+        $estatusValidos = array_keys($this->columnasKanbanOperativo());
+        if (!in_array($estatusNuevo, $estatusValidos, true)) {
+            return ['success' => false, 'message' => 'Estatus destino no permitido para Kanban.'];
+        }
+        if ($estatusAnterior === $estatusNuevo) {
+            return ['success' => false, 'message' => 'La unidad ya se encuentra en ese estatus.'];
+        }
+
+        if (in_array($estatusNuevo, [self::ESTATUS_FUERA_PRESUPUESTO, self::ESTATUS_IRREPARABLE], true)) {
+            if ($justificacion === null || mb_strlen($justificacion) < 20) {
+                return ['success' => false, 'message' => 'Fuera de presupuesto e Irreparable requieren justificacion minima de 20 caracteres.'];
+            }
+        }
+
+        if ($origenEvento === self::ORIGEN_OVERRIDE_SUPERVISOR) {
+            if (!$overrideSupervisorAutorizado) {
+                return ['success' => false, 'message' => 'No tienes permiso para hacer override de supervisor.'];
+            }
+            if ($justificacion === null || trim($justificacion) === '') {
+                return ['success' => false, 'message' => 'El override de supervisor requiere justificacion.'];
+            }
+
+            return ['success' => true];
+        }
+
+        $maquina = $this->maquinaEstadosKanban();
+        $eventosPermitidos = $maquina[$estatusAnterior][$estatusNuevo] ?? [];
+        if (!in_array($origenEvento, $eventosPermitidos, true)) {
+            return [
+                'success' => false,
+                'message' => 'Transicion no permitida por la maquina de estados del Kanban.',
+            ];
+        }
+
+        return ['success' => true];
+    }
+
+    private function comentarioTransicionKanban(string $estatusAnterior, string $estatusNuevo, string $origenEvento, ?string $justificacion): string
+    {
+        $labels = array_column($this->columnasKanbanOperativo(), 'titulo', 'estatus');
+        $comentario = 'Cambio Kanban: ' . ($labels[$estatusAnterior] ?? $estatusAnterior)
+            . ' -> ' . ($labels[$estatusNuevo] ?? $estatusNuevo)
+            . ' por ' . str_replace('_', ' ', $origenEvento) . '.';
+        if ($justificacion) {
+            $comentario .= ' Justificacion: ' . $justificacion;
+        }
+
+        return $comentario;
+    }
+
+    private function registrarTransicionKanban(
+        int $idUnidad,
+        string $estatusAnterior,
+        string $estatusNuevo,
+        string $origenEvento,
+        ?string $eventoNegocio,
+        ?string $justificacion,
+        array $payload,
+        int $idMovimiento,
+        int $idUsuario,
+        string $nombreUsuario,
+        string $fecha
+    ): int {
+        $this->db->CRUD(
+            "INSERT INTO av_kanban_transiciones (
+                id_unidad,
+                estatus_anterior,
+                estatus_nuevo,
+                origen_evento,
+                evento_negocio,
+                justificacion,
+                payload_json,
+                id_movimiento,
+                usuario_id,
+                nombre_usuario,
+                fecha_hora
+             ) VALUES (
+                :id_unidad,
+                :estatus_anterior,
+                :estatus_nuevo,
+                :origen_evento,
+                :evento_negocio,
+                :justificacion,
+                :payload_json,
+                :id_movimiento,
+                :usuario_id,
+                :nombre_usuario,
+                :fecha_hora
+             )",
+            [
+                'id_unidad' => $idUnidad,
+                'estatus_anterior' => $estatusAnterior,
+                'estatus_nuevo' => $estatusNuevo,
+                'origen_evento' => $origenEvento,
+                'evento_negocio' => $eventoNegocio,
+                'justificacion' => $justificacion,
+                'payload_json' => json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
+                'id_movimiento' => $idMovimiento > 0 ? $idMovimiento : null,
+                'usuario_id' => $idUsuario > 0 ? $idUsuario : null,
+                'nombre_usuario' => $nombreUsuario !== '' ? $nombreUsuario : null,
+                'fecha_hora' => $fecha,
+            ]
+        );
+
+        return $this->db->lastInsertId();
+    }
+
+    private function registrarNotificacionKanbanOverride(
+        int $idTransicion,
+        int $idUnidad,
+        string $estatusAnterior,
+        string $estatusNuevo,
+        ?string $justificacion,
+        string $fecha
+    ): void {
+        if ($idTransicion <= 0 || !$this->tablaExiste('av_kanban_notificaciones')) {
+            return;
+        }
+
+        $labels = array_column($this->columnasKanbanOperativo(), 'titulo', 'estatus');
+        $mensaje = 'Override de supervisor en unidad #' . $idUnidad . ': '
+            . ($labels[$estatusAnterior] ?? $estatusAnterior)
+            . ' -> ' . ($labels[$estatusNuevo] ?? $estatusNuevo) . '.';
+        if ($justificacion) {
+            $mensaje .= ' Justificacion: ' . $justificacion;
+        }
+
+        $this->db->CRUD(
+            "INSERT INTO av_kanban_notificaciones (
+                id_transicion,
+                id_unidad,
+                area_responsable,
+                mensaje,
+                estatus,
+                fecha_creacion
+             ) VALUES (
+                :id_transicion,
+                :id_unidad,
+                'Almacen',
+                :mensaje,
+                'pendiente',
+                :fecha_creacion
+             )",
+            [
+                'id_transicion' => $idTransicion,
+                'id_unidad' => $idUnidad,
+                'mensaje' => $mensaje,
+                'fecha_creacion' => $fecha,
+            ]
+        );
+    }
+
+    private function columnasKanbanOperativo(): array
+    {
+        return [
+            self::ESTATUS_PENDIENTE_REVISION => [
+                'estatus' => self::ESTATUS_PENDIENTE_REVISION,
+                'titulo' => 'Pendiente revision',
+                'color' => 'purple',
+                'icono' => 'fa-clock',
+            ],
+            self::ESTATUS_EN_REVISION => [
+                'estatus' => self::ESTATUS_EN_REVISION,
+                'titulo' => 'En revision',
+                'color' => 'blue',
+                'icono' => 'fa-screwdriver-wrench',
+            ],
+            self::ESTATUS_REPARADA => [
+                'estatus' => self::ESTATUS_REPARADA,
+                'titulo' => 'Reparada',
+                'color' => 'green',
+                'icono' => 'fa-circle-check',
+            ],
+            self::ESTATUS_FUERA_PRESUPUESTO => [
+                'estatus' => self::ESTATUS_FUERA_PRESUPUESTO,
+                'titulo' => 'Fuera presupuesto',
+                'color' => 'red',
+                'icono' => 'fa-file-invoice-dollar',
+            ],
+            self::ESTATUS_IRREPARABLE => [
+                'estatus' => self::ESTATUS_IRREPARABLE,
+                'titulo' => 'Irreparable',
+                'color' => 'gray',
+                'icono' => 'fa-ban',
+            ],
+            self::ESTATUS_LISTA_VENTA => [
+                'estatus' => self::ESTATUS_LISTA_VENTA,
+                'titulo' => 'Lista para venta',
+                'color' => 'teal',
+                'icono' => 'fa-store',
+            ],
+            self::ESTATUS_EN_TRASPASO => [
+                'estatus' => self::ESTATUS_EN_TRASPASO,
+                'titulo' => 'En traspaso',
+                'color' => 'orange',
+                'icono' => 'fa-right-left',
+            ],
+        ];
+    }
+
+    private function whereKanbanOperativo(array $filtros, array &$params): array
+    {
+        $where = ['u.deleted_at IS NULL'];
+
+        $q = trim((string) ($filtros['q'] ?? ''));
+        if ($q !== '') {
+            $where[] = "(
+                u.folio_unidad LIKE :q
+                OR u.vin LIKE :q
+                OR u.no_motor LIKE :q
+                OR u.placas LIKE :q
+                OR u.marca LIKE :q
+                OR u.modelo LIKE :q
+                OR u.color LIKE :q
+                OR CAST(u.id_unidad AS CHAR) LIKE :q
+                OR CAST(u.id_origen AS CHAR) LIKE :q
+                OR CAST(u.id_credito AS CHAR) LIKE :q
+            )";
+            $params['q'] = '%' . $q . '%';
+        }
+
+        $idCelula = (int) ($filtros['id_celula'] ?? 0);
+        if ($idCelula > 0) {
+            $where[] = 'u.id_celula = :id_celula';
+            $params['id_celula'] = $idCelula;
+        }
+
+        $idUbicacion = (int) ($filtros['id_ubicacion'] ?? 0);
+        if ($idUbicacion > 0) {
+            $where[] = 'u.id_ubicacion_actual = :id_ubicacion';
+            $params['id_ubicacion'] = $idUbicacion;
+        }
+
+        $tipoUnidad = trim((string) ($filtros['tipo_unidad'] ?? ''));
+        if ($tipoUnidad !== '') {
+            $where[] = 'u.tipo_unidad = :tipo_unidad';
+            $params['tipo_unidad'] = mb_substr($tipoUnidad, 0, 50);
+        }
+
+        return $where;
+    }
+
+    private function obtenerTiposUnidadKanban(): array
+    {
+        if (!$this->tablaExiste('av_unidades')) {
+            return [];
+        }
+
+        $estatusSql = $this->sqlInConstantes(array_keys($this->columnasKanbanOperativo()));
+        $rows = $this->db->queryAll(
+            "SELECT DISTINCT tipo_unidad
+             FROM av_unidades
+             WHERE deleted_at IS NULL
+               AND estatus_inventario IN ({$estatusSql})
+               AND tipo_unidad IS NOT NULL
+               AND TRIM(tipo_unidad) <> ''
+             ORDER BY tipo_unidad ASC"
+        ) ?: [];
+
+        return array_values(array_map(
+            static fn($row) => (string) ($row['tipo_unidad'] ?? ''),
+            $rows
+        ));
+    }
+
+    private function alertaSlaKanban(string $estatus, int $diasAlmacen): array
+    {
+        $umbralAtencion = in_array($estatus, [self::ESTATUS_PENDIENTE_REVISION, self::ESTATUS_EN_REVISION], true) ? 2 : 7;
+        $umbralVencido = in_array($estatus, [self::ESTATUS_PENDIENTE_REVISION, self::ESTATUS_EN_REVISION], true) ? 4 : 15;
+        if ($diasAlmacen >= $umbralVencido) {
+            return ['nivel' => 'vencido', 'label' => 'SLA vencido'];
+        }
+        if ($diasAlmacen >= $umbralAtencion) {
+            return ['nivel' => 'atencion', 'label' => 'SLA atencion'];
+        }
+
+        return ['nivel' => 'normal', 'label' => 'SLA normal'];
     }
 
     private function obtenerRevisionActiva(int $idUnidad): ?array

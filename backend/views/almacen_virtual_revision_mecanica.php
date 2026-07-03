@@ -247,6 +247,9 @@ $checklistRevision = is_array($av_revision_checklist ?? null) ? $av_revision_che
             <a href="/MotosAdjudicadas/recepcionAlmacen" class="btn btn-label-success btn-sm">
                 <i class="fa-solid fa-clipboard-check me-1"></i>Recepcion
             </a>
+            <a href="/MotosAdjudicadas/kanbanOperativo" class="btn btn-label-secondary btn-sm">
+                <i class="fa-solid fa-table-columns me-1"></i>Kanban
+            </a>
             <button type="button" class="btn btn-outline-secondary btn-sm" id="avm-btn-refresh">
                 <i class="fa-solid fa-rotate-right me-1"></i>Actualizar
             </button>
