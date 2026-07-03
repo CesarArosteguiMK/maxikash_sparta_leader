@@ -18999,6 +18999,18 @@ class CapHum extends Controller
             }
         }
 
+        if (in_array($tipoDocumento, [2, 9], true)) {
+            $prechecks = $this->prevalidarContenidoDocumentosCandidatoEnParalelo([
+                $tipoDocumento => [
+                    'tmp_name' => $rutaPdf,
+                    'nombre_original' => basename($rutaPdf),
+                ],
+            ]);
+            if (isset($prechecks[$tipoDocumento]) && is_array($prechecks[$tipoDocumento])) {
+                return $prechecks[$tipoDocumento];
+            }
+        }
+
         $resultado = null;
         if ($tipoDocumento === 3) {
             $resultado = $this->verificarActaApi($rutaPdf);
@@ -19069,7 +19081,7 @@ class CapHum extends Controller
 
     private function tiposPrecheckContenidoCargaCandidato(): array
     {
-        return [1, 3, 4, 5, 6, 7, 8, 10];
+        return [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
     }
 
     private function concurrenciaPrecheckCargaCandidato(): int
@@ -19137,6 +19149,22 @@ class CapHum extends Controller
                     'timeout' => 30,
                     'http_version_1_1' => true,
                     'forbid_reuse' => true,
+                ]),
+            ];
+        }
+
+        if ($tipoDocumento === 2 || $tipoDocumento === 9) {
+            return [
+                array_merge($base, [
+                    'key' => $tipoDocumento . ':contenido',
+                    'paso' => 'contenido',
+                    'endpoint' => '/verificar-documento-rapido-ia',
+                    'timeout' => 25,
+                    'http_version_1_1' => true,
+                    'forbid_reuse' => true,
+                    'extra_fields' => [
+                        'tipo_esperado' => $tipoDocumento === 2 ? 'cv' : 'infonavit_fonacot',
+                    ],
                 ]),
             ];
         }
@@ -20122,10 +20150,12 @@ class CapHum extends Controller
         $lecturasDecoded = $lecturasJson !== null ? (json_decode((string) $lecturasJson, true) ?: []) : [];
         $lecturasDiag = is_array($lecturasDecoded) ? count($lecturasDecoded) : 0;
         $payloadLigero = $lecturasJson !== null && $lecturasDiag >= 10;
+        $documentosEsperados = $this->construirDocumentosEsperadosExpedienteJson($documentos);
 
         if ($payloadLigero) {
             $payload = [
                 'tipo_documento' => $tipoDocExp,
+                'solo_lecturas_guardadas' => true,
             ];
             $nombreCandidatoRegistro = trim((string) $nombreCandidatoRegistro);
             if ($nombreCandidatoRegistro !== '') {
@@ -20145,6 +20175,9 @@ class CapHum extends Controller
         if ($lecturasJson !== null && strlen($lecturasJson) <= 650000) {
             $payload['lecturas_json_b64'] = base64_encode($lecturasJson);
         }
+        if (!empty($documentosEsperados)) {
+            $payload['documentos_esperados'] = $documentosEsperados;
+        }
 
         $diagArchivos = [];
         foreach ($payload as $pk => $pv) {
@@ -20154,7 +20187,7 @@ class CapHum extends Controller
         }
         $lecturasBytes = $lecturasJson !== null ? strlen($lecturasJson) : 0;
         $lecturasEnviadas = isset($payload['lecturas_json_b64']) ? 'b64' : 'omitidas';
-        error_log('CapHum::validarExpedienteApiJson envio_json_base64 tipo_documento=' . $tipoDocExp . ' lecturas_v2=' . $lecturasDiag . ' lecturas_bytes=' . $lecturasBytes . ' lecturas_envio=' . $lecturasEnviadas . ' payload_ligero=' . ($payloadLigero ? '1' : '0') . ' archivos_bytes=' . json_encode($diagArchivos));
+        error_log('CapHum::validarExpedienteApiJson envio_json_base64 tipo_documento=' . $tipoDocExp . ' lecturas_v2=' . $lecturasDiag . ' lecturas_bytes=' . $lecturasBytes . ' lecturas_envio=' . $lecturasEnviadas . ' payload_ligero=' . ($payloadLigero ? '1' : '0') . ' esperados=' . count($documentosEsperados) . ' archivos_bytes=' . json_encode($diagArchivos));
 
         $bodyPayload = json_encode($payload, JSON_UNESCAPED_UNICODE);
         if (!is_string($bodyPayload) || $bodyPayload === '') {
@@ -20346,6 +20379,66 @@ class CapHum extends Controller
         return $out;
     }
 
+    private function docVerifEsLecturaIaExpediente(?array $validacion): bool
+    {
+        if (!$validacion) {
+            return false;
+        }
+        if (!empty($validacion['subida_manual_rrhh']) || !empty($validacion['pendiente_revision_manual'])) {
+            return false;
+        }
+        $motor = strtolower(trim((string) ($validacion['motor_ia'] ?? '')));
+        $modelo = strtolower(trim((string) ($validacion['modelo_ia'] ?? '')));
+        $fuente = strtolower(trim((string) ($validacion['fuente_lectura'] ?? '')));
+        return $motor === 'alibaba'
+            || $motor === 'motor_v1'
+            || strpos($modelo, 'qwen') !== false
+            || strpos($modelo, 'motor v2') !== false
+            || strpos($modelo, 'pdf_text') !== false
+            || strpos($fuente, 'motor_v1') !== false
+            || strpos($fuente, 'motor_v2') !== false
+            || $this->docVerifTieneDatosUtiles($validacion);
+    }
+
+    private function construirDocumentosEsperadosExpedienteJson(array $documentos): array
+    {
+        if (empty($documentos)) {
+            return [];
+        }
+        $map = [
+            1 => 'solicitud_interna',
+            2 => 'cv',
+            3 => 'acta_nacimiento',
+            4 => 'curp',
+            5 => 'identificacion_oficial',
+            6 => 'comprobante_domicilio',
+            7 => 'constancia_fiscal',
+            8 => 'nss',
+            9 => 'hoja_retencion',
+            10 => '__SPARTA_SECRET_REDACTED__',
+        ];
+        $esperados = [];
+        foreach ($documentos as $d) {
+            $numTipo = $this->numeroTipoDocumentoCandidatoMetricas((string) ($d['tipo_documento'] ?? ''));
+            $key = $map[$numTipo] ?? null;
+            if (!$key) {
+                continue;
+            }
+            $rutaAbs = null;
+            if (!empty($d['ruta_archivo'])) {
+                $rutaAbs = $this->resolverRutaStorageCandidato((string) $d['ruta_archivo']);
+            }
+            $paginas = $rutaAbs ? $this->contarPaginasPdfCandidato($rutaAbs) : 0;
+            $esperados[$key] = [
+                'key' => $key,
+                'tipo_documento' => (string) ($d['tipo_documento'] ?? ''),
+                'archivo' => (string) ($d['nombre_archivo'] ?? ''),
+                'paginas_pdf' => $paginas > 0 ? $paginas : null,
+            ];
+        }
+        return $esperados;
+    }
+
     private function construirLecturasIaExpedienteJson(array $documentos): ?string
     {
         if (empty($documentos)) {
@@ -20386,20 +20479,13 @@ class CapHum extends Controller
                 continue;
             }
 
-            $motor = strtolower(trim((string) ($validacion['motor_ia'] ?? '')));
-            $modelo = strtolower(trim((string) ($validacion['modelo_ia'] ?? '')));
-            $fuente = strtolower(trim((string) ($validacion['fuente_lectura'] ?? '')));
-            $esLecturaIa = (
-                $motor === 'alibaba'
-                || $motor === 'motor_v1'
-                || strpos($modelo, 'qwen') !== false
-                || strpos($modelo, 'motor v2') !== false
-                || strpos($modelo, 'pdf_text') !== false
-                || strpos($fuente, 'motor_v1') !== false
-                || strpos($fuente, 'motor_v2') !== false
-            );
-            if (!$esLecturaIa) {
+            if (!$this->docVerifEsLecturaIaExpediente($validacion)) {
                 continue;
+            }
+            if (empty($validacion['motor_ia']) && $this->docVerifTieneDatosUtiles($validacion)) {
+                $validacion['motor_ia'] = 'motor_v1';
+                $validacion['modelo_ia'] = $validacion['modelo_ia'] ?? 'precheck_legacy';
+                $validacion['fuente_lectura'] = $validacion['fuente_lectura'] ?? 'precheck_legacy';
             }
             $validacion = $this->compactarValidacionIaExpediente($validacion);
             if (empty($validacion)) {
@@ -21383,7 +21469,7 @@ class CapHum extends Controller
             $tmpName = (string) ($archivoSubida['tmp_name'] ?? ($_FILES[$fileKey]['tmp_name'] ?? ''));
             $key = 'archivo_' . $i;
             $verificacionPreviaContenido = null;
-            if (in_array($i, [1, 3, 4, 5, 6, 7, 8, 10], true)) {
+            if (in_array($i, $this->tiposPrecheckContenidoCargaCandidato(), true)) {
                 $precheckContenido = $prechecksContenido[$i] ?? $this->verificarContenidoDocumentoCandidatoAntesDeGuardar($i, $tmpName);
                 $verificacionPreviaContenido = $precheckContenido['verificacion'] ?? null;
                 if (empty($precheckContenido['aceptar'])) {
@@ -21409,7 +21495,7 @@ class CapHum extends Controller
                 } else {
                     $verificacionCalidadJson = json_encode($verificacionPreviaContenido);
                 }
-            } elseif (in_array($i, [4, 5, 6, 7, 8, 10], true)) {
+            } elseif (in_array($i, [2, 4, 5, 6, 7, 8, 9, 10], true)) {
                 $verificacionCalidadJson = json_encode([
                     'pendiente_revision_backend' => true,
                     'notas' => ['Documento guardado.'],
@@ -21698,8 +21784,29 @@ class CapHum extends Controller
                 if ($tipoNum > 0) {
                     $tiposPresentes[$tipoNum] = true;
                 }
-                $esReciente = $tipoNum > 0 && $revalidarDocumentosIndividuales && isset($tiposSubidosSet[$tipoNum]);
-                if (in_array($tipo, ['IDENTIFICACIÓN OFICIAL', 'IDENTIFICACION OFICIAL', 'IDENTIFICACIÃ“N OFICIAL'], true)) {
+                $validacionLecturaActual = $tipoNum === 7 ? $prevFiscalArr : $prevCalidadArr;
+                $debeCompletarLecturaRapida = $tipoNum > 0
+                    && in_array($tipoNum, $this->tiposPrecheckContenidoCargaCandidato(), true)
+                    && !$this->docVerifEsLecturaIaExpediente($validacionLecturaActual);
+                $esReciente = $tipoNum > 0
+                    && (
+                        ($revalidarDocumentosIndividuales && isset($tiposSubidosSet[$tipoNum]))
+                        || $debeCompletarLecturaRapida
+                    );
+                if (in_array($tipoNum, [1, 2, 6, 9], true)) {
+                    if ($idDoc > 0 && $esReciente) {
+                        CandidatosDAO::updateVerificacionDocumento($idDoc, $prevFiscalJson, json_encode([
+                            'pendiente_revision_backend' => true,
+                            'notas' => ['Documento recibido; completando lectura rapida para el cruce documental.'],
+                        ]));
+                        $precheckDoc = $this->verificarContenidoDocumentoCandidatoAntesDeGuardar($tipoNum, $pathAbs);
+                        $resDoc = is_array($precheckDoc) ? ($precheckDoc['verificacion'] ?? null) : null;
+                        if (is_array($resDoc)) {
+                            $resDocFinal = $this->docVerifDebeConservarAnterior($prevCalidadArr, $resDoc) ? $prevCalidadArr : $resDoc;
+                            CandidatosDAO::updateVerificacionDocumento($idDoc, $prevFiscalJson, json_encode($resDocFinal));
+                        }
+                    }
+                } elseif (in_array($tipo, ['IDENTIFICACIÓN OFICIAL', 'IDENTIFICACION OFICIAL', 'IDENTIFICACIÃ“N OFICIAL'], true)) {
                     $rutasParaValidar['identificacion_pdf'] = $pathAbs;
                     if ($idDoc > 0 && $esReciente) {
                         CandidatosDAO::updateVerificacionDocumento($idDoc, $prevFiscalJson, json_encode([
