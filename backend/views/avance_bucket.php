@@ -103,10 +103,12 @@ $esHistoricoAvanceBucket = $vistaAvanceBucket === 'historico';
                 <select id="ab-semana" class="form-select form-select-sm"></select>
             </label>
             <?php endif; ?>
+            <?php if (!$esHistoricoAvanceBucket): ?>
             <label class="ab-corte-control mb-0">
                 <span>Corte</span>
                 <select id="ab-corte" class="form-select form-select-sm"></select>
             </label>
+            <?php endif; ?>
             <span id="ab-status" class="badge <?= is_array($avance_bucket_payload ?? null) ? 'bg-label-success' : 'bg-label-danger'; ?>">
                 <?= is_array($avance_bucket_payload ?? null) ? 'Servicio: activo' : 'Servicio: no disponible'; ?>
             </span>
@@ -613,7 +615,7 @@ $esHistoricoAvanceBucket = $vistaAvanceBucket === 'historico';
         const corteBadge = el('ab-corte-badge');
         if (corteBadge) {
             const corteLabel = (data.dia_corte ? data.dia_corte + ' ' : '') + (data.corte || '');
-            corteBadge.textContent = isHistorico && data.semana ? data.semana + ' | ' + corteLabel : corteLabel;
+            corteBadge.textContent = isHistorico && data.semana ? data.semana : corteLabel;
         }
         renderResumen('ab-resumen-inicio', data.resumen_inicio, data.total, 'count');
         renderResumen('ab-resumen-inicio-pct', data.resumen_inicio, data.total, 'pct');
@@ -628,7 +630,7 @@ $esHistoricoAvanceBucket = $vistaAvanceBucket === 'historico';
         showLoading();
         try {
             const params = new URLSearchParams();
-            if (selectedCorte()) params.set('corte', selectedCorte());
+            if (!isHistorico && selectedCorte()) params.set('corte', selectedCorte());
             if (isHistorico && selectedSemana()) params.set('semana', selectedSemana());
             const suffix = params.toString() ? '?' + params.toString() : '';
             const res = await fetch(endpoint + suffix, { headers: { 'Accept': 'application/json' } });

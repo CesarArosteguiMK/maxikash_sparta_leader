@@ -77,9 +77,8 @@ final class AvanceBucket
 
         $semanaNormalizada = self::normalizarSemanaHistorica($semana, $semanas);
         $corteNormalizado = self::normalizarCorte($corte);
-        $columnaCorte = self::columnaDiasMoraCorte($corteNormalizado);
         $bucketInicioSql = self::bucketSql('Bucket_Morosidad_Real');
-        $bucketCierreSql = self::bucketCierreAjustadoSql($columnaCorte);
+        $bucketCierreSql = self::bucketCierreAjustadoDaxHistoricoSql();
 
         $rows = $db->queryAll("
             SELECT bucket_inicio, bucket_cierre, COUNT(*) AS creditos
@@ -274,6 +273,29 @@ final class AvanceBucket
         ";
     }
 
+    private static function bucketCierreAjustadoDaxHistoricoSql(): string
+    {
+        $bucketReal = self::bucketSql('Bucket_Morosidad_Real');
+        $cierreBase = self::bucketSql("COALESCE(NULLIF(TRIM(CAST(Bucket_ajustado_ghost AS CHAR)), ''), Cierre_Actual)");
+        $cierreActual = "
+            CASE
+                WHEN Variable_8 IS NOT NULL AND TRIM(CAST(Variable_8 AS CHAR)) <> '' THEN 'a) Current'
+                WHEN Ghost IS NOT NULL AND TRIM(CAST(Ghost AS CHAR)) <> '' AND TRIM(CAST(Ghost AS CHAR)) <> '-' THEN 'a) Current'
+                ELSE ({$cierreBase})
+            END
+        ";
+        $ordenReal = self::ordenBucketCaseSql($bucketReal);
+        $ordenCierre = self::ordenBucketCaseSql($cierreActual);
+
+        return "
+            CASE
+                WHEN ({$ordenReal}) IS NULL OR ({$ordenCierre}) IS NULL THEN NULL
+                WHEN ({$ordenReal}) <= 5 AND ({$ordenCierre}) > ({$ordenReal}) THEN ({$bucketReal})
+                ELSE ({$cierreActual})
+            END
+        ";
+    }
+
     private static function bucketDesdeDiasMoraSql(string $columnaDiasMora): string
     {
         $columnasPermitidas = self::columnasDiasMoraPermitidas();
@@ -301,7 +323,11 @@ final class AvanceBucket
 
     private static function bucketSql(string $columna): string
     {
-        if (!in_array($columna, ['Bucket_Morosidad_Real', 'Cierre_Actual'], true)) {
+        if (!in_array($columna, [
+            'Bucket_Morosidad_Real',
+            'Cierre_Actual',
+            "COALESCE(NULLIF(TRIM(CAST(Bucket_ajustado_ghost AS CHAR)), ''), Cierre_Actual)",
+        ], true)) {
             throw new \InvalidArgumentException('Columna no permitida.');
         }
 
@@ -315,6 +341,7 @@ final class AvanceBucket
                 WHEN 'f) 31 a 60 dias' THEN 'f) 31 a 60 dias'
                 WHEN 'g) 61 a 90 dias' THEN 'g) 61 a 90 dias'
                 WHEN 'h) 91 a 120 dias' THEN 'h) 91 a 120 dias'
+                WHEN 'i) 120+ dias' THEN 'i) 121+ dias'
                 WHEN 'i) 121+ dias' THEN 'i) 121+ dias'
                 ELSE NULL
             END
