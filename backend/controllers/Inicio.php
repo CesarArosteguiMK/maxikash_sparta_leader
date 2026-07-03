@@ -1761,11 +1761,11 @@ class Inicio extends Controller
                 'url_browser' => null,
                 'browser_note' => 'Docs externos dependen de firewall. Verde exige health y POST minimo a validar-expediente desde PHP.',
                 'hint' => 'Si está caída: backend/API/launcher/web-api-1click-runner.bat',
-                'start_bat' => $backendRoot . DIRECTORY_SEPARATOR . 'API' . DIRECTORY_SEPARATOR . 'launcher' . DIRECTORY_SEPARATOR . 'web-api-1click-runner.bat',
+                'start_bat' => $backendRoot . DIRECTORY_SEPARATOR . 'API' . DIRECTORY_SEPARATOR . 'launcher' . DIRECTORY_SEPARATOR . 'iniciar-agente-foreground.bat',
                 'stop_ps1'  => $backendRoot . DIRECTORY_SEPARATOR . 'API' . DIRECTORY_SEPARATOR . 'launcher' . DIRECTORY_SEPARATOR . 'cerrar-agente.ps1',
                 'env' => [
                     'SPARTA_API_PORT' => (string)$docApiPort,
-                    'SPARTA_API_DIRECT_START' => '1',
+                    'SPARTA_API_NO_PAUSE' => '1',
                 ],
             ],
         ];
