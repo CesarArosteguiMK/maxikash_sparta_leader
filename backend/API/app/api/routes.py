@@ -4,11 +4,13 @@ Endpoints de la API REST.
 """
 import asyncio
 import base64
+import hashlib
 import json
 import re
 import time
 import unicodedata
 from datetime import datetime
+from pathlib import Path
 from fastapi import APIRouter, UploadFile, File, HTTPException, Depends, Query, Body, Form
 from fastapi.security.api_key import APIKeyHeader
 from typing import Optional, List, Dict, Any
@@ -100,6 +102,71 @@ def _crear_alibaba_ai_crosscheck() -> Optional[AlibabaDocumentAI]:
     )
 
 
+def _doc_ai_quick_cache_dir() -> Path:
+    configured = str(getattr(settings, "doc_ai_quick_cache_dir", "") or "").strip()
+    if configured:
+        return Path(configured)
+    return Path(__file__).resolve().parents[2] / "storage" / "doc_ai_quick_cache"
+
+
+def _doc_ai_quick_cache_key(
+    file_bytes: bytes,
+    expected_doc_type: str,
+    model: str,
+    nombre_candidato: Optional[str],
+) -> str:
+    payload = {
+        "version": 2,
+        "sha256": hashlib.sha256(file_bytes).hexdigest(),
+        "expected_doc_type": str(expected_doc_type or "").strip(),
+        "model": str(model or "").strip(),
+        "max_pages": int(getattr(settings, "doc_ai_quick_max_pages", 3) or 3),
+        "dpi": int(getattr(settings, "doc_ai_quick_dpi", 150) or 150),
+        "nombre_candidato": normalize_text(nombre_candidato or ""),
+    }
+    raw = json.dumps(payload, sort_keys=True, ensure_ascii=False, separators=(",", ":")).encode("utf-8")
+    return hashlib.sha256(raw).hexdigest()
+
+
+def _doc_ai_quick_cache_read(cache_key: str) -> Optional[Dict[str, Any]]:
+    if not bool(getattr(settings, "doc_ai_quick_cache_enabled", True)):
+        return None
+    path = _doc_ai_quick_cache_dir() / f"{cache_key}.json"
+    if not path.is_file():
+        return None
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+        created_at = float(payload.get("created_at") or 0)
+        ttl = int(getattr(settings, "doc_ai_quick_cache_ttl_seconds", 2592000) or 2592000)
+        if ttl > 0 and created_at and (time.time() - created_at) > ttl:
+            return None
+        result = payload.get("result")
+        if isinstance(result, dict):
+            result = dict(result)
+            result["_cache_hit"] = True
+            result["_cache_key"] = cache_key
+            return result
+    except Exception as exc:
+        logger.warning(f"No se pudo leer cache IA rapida {cache_key}: {exc}")
+    return None
+
+
+def _doc_ai_quick_cache_write(cache_key: str, result: Dict[str, Any]) -> None:
+    if not bool(getattr(settings, "doc_ai_quick_cache_enabled", True)):
+        return
+    try:
+        cache_dir = _doc_ai_quick_cache_dir()
+        cache_dir.mkdir(parents=True, exist_ok=True)
+        clean = {k: v for k, v in result.items() if not str(k).startswith("_cache_")}
+        payload = {"created_at": time.time(), "result": clean}
+        path = cache_dir / f"{cache_key}.json"
+        tmp = cache_dir / f"{cache_key}.tmp"
+        tmp.write_text(json.dumps(payload, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
+        tmp.replace(path)
+    except Exception as exc:
+        logger.warning(f"No se pudo escribir cache IA rapida {cache_key}: {exc}")
+
+
 async def _validar_rapido_alibaba_o_none(file_bytes: bytes, filename: str, expected_doc_type: str, nombre_candidato: Optional[str] = None) -> Optional[Dict[str, Any]]:
     if not _doc_ai_alibaba_activo():
         return None
@@ -110,18 +177,22 @@ async def _validar_rapido_alibaba_o_none(file_bytes: bytes, filename: str, expec
             logger.warning(mensaje + " Se usara motor legacy por fallback.")
             return None
         raise HTTPException(status_code=503, detail=mensaje)
+    cache_key = _doc_ai_quick_cache_key(file_bytes, expected_doc_type, str(getattr(ai, "model", "") or ""), nombre_candidato)
+    cached = _doc_ai_quick_cache_read(cache_key)
+    if cached is not None:
+        return cached
     timeout = int(getattr(settings, "doc_ai_quick_timeout_seconds", 35) or 35) + 5
     try:
-        return await asyncio.wait_for(
+        result = await asyncio.wait_for(
             asyncio.to_thread(ai.quick_verify, file_bytes, filename, expected_doc_type, nombre_candidato),
             timeout=timeout,
         )
+        if isinstance(result, dict):
+            _doc_ai_quick_cache_write(cache_key, result)
+        return result
     except Exception as exc:
-        if bool(getattr(settings, "doc_ai_legacy_fallback", True)):
-            logger.exception(f"Alibaba document AI fallo para {expected_doc_type}; usando fallback legacy: {exc}")
-            return None
-        logger.exception(f"Alibaba document AI fallo para {expected_doc_type}: {exc}")
-        raise HTTPException(status_code=502, detail="No se pudo validar el documento con Alibaba. Intenta de nuevo.")
+        logger.exception(f"Alibaba document AI fallo para {expected_doc_type}; usando fallback V1/local: {exc}")
+        return None
 
 
 def _ai_extraccion(res: Dict[str, Any]) -> Dict[str, Any]:
@@ -171,11 +242,14 @@ def _ai_meses_desde(value: Optional[str]) -> Optional[int]:
 
 
 def _ai_metadata(res: Dict[str, Any]) -> Dict[str, Any]:
-    return {
+    out = {
         "motor_ia": "alibaba",
         "modelo_ia": res.get("model"),
         "tiempo_ms": int(res.get("elapsed_ms") or 0),
     }
+    if res.get("_cache_hit") is True:
+        out["cache_ia"] = True
+    return out
 
 
 def _normalizar_dictamen_v2(value: Any) -> str:
@@ -197,6 +271,8 @@ def _respuesta_alibaba_expediente(res: Dict[str, Any], nombre_candidato_registro
     alertas_raw = analysis.get("alertas") if isinstance(analysis.get("alertas"), list) else []
     recomendaciones = analysis.get("recomendaciones") if isinstance(analysis.get("recomendaciones"), list) else []
     dictamen = _normalizar_dictamen_v2(analysis.get("dictamen"))
+    datos_ref = analysis.get("datos_referencia") if isinstance(analysis.get("datos_referencia"), dict) else {}
+    alertas: List[str] = [str(a) for a in alertas_raw if str(a or "").strip()]
 
     for meta in analysis.get("documentos_enviados") or []:
         if not isinstance(meta, dict):
@@ -243,6 +319,14 @@ def _respuesta_alibaba_expediente(res: Dict[str, Any], nombre_candidato_registro
             )
             docs_estado_revisar.update(_v2_comp_docs(comp))
 
+    _v2_downgrade_solicitud_consensus(
+        comps,
+        docs,
+        nombre_candidato_registro,
+        datos_ref.get("curp_principal"),
+        alertas,
+    )
+
     critical_docs = set()
     for comp in comps:
         if (
@@ -259,7 +343,7 @@ def _respuesta_alibaba_expediente(res: Dict[str, Any], nombre_candidato_registro
             doc["estado"] = "coincide"
             observaciones = doc.setdefault("observaciones", [])
             if isinstance(observaciones, list):
-                observaciones.append("Estado ajustado por normalizacion del Motor V2; no hay falla critica vigente para este documento.")
+                observaciones.append("Estado ajustado por normalizacion de la lectura automatica; no hay falla critica vigente para este documento.")
 
     evaluables = [c for c in comps if isinstance(c, dict) and isinstance(c.get("coincide"), bool)]
     if evaluables:
@@ -271,7 +355,6 @@ def _respuesta_alibaba_expediente(res: Dict[str, Any], nombre_candidato_registro
         checks_ok = int(coincidencias.get("ok") or 0)
         checks_fallas = int(coincidencias.get("fallas") or max(0, checks_totales - checks_ok))
 
-    alertas: List[str] = [str(a) for a in alertas_raw if str(a or "").strip()]
     hay_curp_critico = any(
         comp.get("coincide") is False
         and _v2_is_curp_comparison(comp)
@@ -300,6 +383,15 @@ def _respuesta_alibaba_expediente(res: Dict[str, Any], nombre_candidato_registro
             if msg and msg not in alertas:
                 alertas.append(msg)
 
+    hay_critico_final = any(
+        comp.get("coincide") is False
+        and str(comp.get("severidad") or "").lower() in {"critico", "critica", "alto"}
+        for comp in evaluables
+    )
+    hay_falla_final = any(comp.get("coincide") is False for comp in evaluables)
+    if dictamen == "rechazado" and not hay_critico_final:
+        dictamen = "requiere_revision" if hay_falla_final or alertas else "aprobado"
+
     if not analysis.get("resumen_final"):
         if dictamen == "aprobado" and checks_fallas == 0:
             analysis["resumen_final"] = (
@@ -309,7 +401,7 @@ def _respuesta_alibaba_expediente(res: Dict[str, Any], nombre_candidato_registro
         else:
             analysis["resumen_final"] = (
                 "El expediente requiere revision documental antes del dictamen final. "
-                "Revise las alertas y comparaciones marcadas por el motor V2."
+                "Revise las alertas y comparaciones marcadas por la IA documental."
             )
 
     confianza = analysis.get("confianza")
@@ -319,7 +411,6 @@ def _respuesta_alibaba_expediente(res: Dict[str, Any], nombre_candidato_registro
         confianza_num = int(round((checks_ok / checks_totales) * 100)) if checks_totales else None
 
     todo_coincide = bool(dictamen == "aprobado" and checks_totales > 0 and checks_ok == checks_totales and not alertas)
-    datos_ref = analysis.get("datos_referencia") if isinstance(analysis.get("datos_referencia"), dict) else {}
     tiempos_fase = res.get("tiempos_fase_ms") if isinstance(res.get("tiempos_fase_ms"), dict) else None
     if tiempos_fase:
         tiempos_fase = {
@@ -521,11 +612,122 @@ def _v2_comp_rfc_compatible(comp: Dict[str, Any]) -> bool:
     return bool(ok)
 
 
-def _v2_choose_rfc_principal(values: List[str]) -> Optional[str]:
+def _v2_rfc_matches_curp_base(rfc: Optional[str], curp: Optional[str]) -> bool:
+    clean_rfc = _v2_clean_id(rfc)
+    clean_curp = _v2_clean_curp(curp)
+    return bool(clean_rfc and clean_curp and len(clean_rfc) >= 10 and clean_rfc[:10] == clean_curp[:10])
+
+
+def _v2_is_name_comparison(comp: Dict[str, Any]) -> bool:
+    categoria = normalize_text(str(comp.get("categoria") or ""))
+    etiqueta = normalize_text(str(comp.get("etiqueta") or ""))
+    return categoria == "NOMBRE" or "NOMBRE" in etiqueta
+
+
+def _v2_add_alerta_once(alertas: List[str], msg: str) -> None:
+    clean = str(msg or "").strip()
+    if clean and clean not in alertas:
+        alertas.append(clean)
+
+
+def _v2_downgrade_solicitud_consensus(
+    comps: List[Dict[str, Any]],
+    docs: Dict[str, Any],
+    nombre_registro: Optional[str],
+    curp_principal: Optional[str],
+    alertas: List[str],
+) -> None:
+    official_name_keys = {
+        "cv",
+        "acta_nacimiento",
+        "curp",
+        "identificacion_oficial",
+        "constancia_fiscal",
+        "nss",
+        "hoja_retencion",
+        "__SPARTA_SECRET_REDACTED__",
+    }
+    matching_name_docs = 0
+    readable_name_docs = 0
+    for key in official_name_keys:
+        doc = docs.get(key)
+        if not isinstance(doc, dict):
+            continue
+        nombre_doc = doc.get("nombre")
+        if not nombre_doc:
+            continue
+        readable_name_docs += 1
+        if _v2_names_match(nombre_registro, nombre_doc):
+            matching_name_docs += 1
+
+    name_consensus = matching_name_docs >= 4 or (readable_name_docs >= 3 and matching_name_docs == readable_name_docs)
+    official_rfc_matches_curp = any(
+        _v2_rfc_matches_curp_base(doc.get("rfc"), curp_principal)
+        for key, doc in docs.items()
+        if key not in {"solicitud_interna", "comprobante_domicilio"} and isinstance(doc, dict)
+    )
+
+    downgraded_docs: set[str] = set()
+    for comp in comps:
+        if not isinstance(comp, dict):
+            continue
+        if comp.get("coincide") is not False:
+            continue
+        if str(comp.get("severidad") or "").lower() not in {"critico", "critica", "alto"}:
+            continue
+        comp_docs = _v2_comp_docs(comp)
+        if "solicitud_interna" not in comp_docs:
+            continue
+        if _v2_is_name_comparison(comp) and name_consensus:
+            comp["severidad"] = "aviso"
+            comp["mensaje"] = (
+                "La solicitud interna requiere revision: la lectura automatica del nombre difiere, "
+                "pero los documentos oficiales coinciden con el candidato registrado."
+            )
+            downgraded_docs.add("solicitud_interna")
+            _v2_add_alerta_once(alertas, comp["mensaje"])
+            continue
+        if _v2_is_rfc_comparison(comp) and official_rfc_matches_curp:
+            comp["severidad"] = "aviso"
+            comp["mensaje"] = (
+                "La solicitud interna requiere revision: el RFC leido no coincide con la constancia fiscal/CURP, "
+                "pero la identidad se sostiene con los documentos oficiales."
+            )
+            downgraded_docs.add("solicitud_interna")
+            _v2_add_alerta_once(alertas, comp["mensaje"])
+
+    critical_docs_after: set[str] = set()
+    for comp in comps:
+        if (
+            isinstance(comp, dict)
+            and comp.get("coincide") is False
+            and str(comp.get("severidad") or "").lower() in {"critico", "critica", "alto"}
+        ):
+            critical_docs_after.update(_v2_comp_docs(comp))
+
+    for doc_key in downgraded_docs:
+        if doc_key in critical_docs_after:
+            continue
+        doc = docs.get(doc_key)
+        if isinstance(doc, dict):
+            doc["estado"] = "requiere_revision"
+            observaciones = doc.setdefault("observaciones", [])
+            if isinstance(observaciones, list):
+                observaciones.append("La discrepancia se mando a revision por consenso de los demas documentos.")
+
+
+def _v2_choose_rfc_principal(values: List[str], curp_principal: Optional[str] = None) -> Optional[str]:
     cleaned = [_v2_clean_id(v) for v in values]
     cleaned = [v for v in cleaned if v and 12 <= len(v) <= 13]
     if not cleaned:
         return None
+    if curp_principal:
+        matches_curp = [v for v in cleaned if _v2_rfc_matches_curp_base(v, curp_principal)]
+        if matches_curp:
+            counts_curp: Dict[str, int] = {}
+            for value in matches_curp:
+                counts_curp[value] = counts_curp.get(value, 0) + 1
+            return sorted(matches_curp, key=lambda v: (-counts_curp.get(v, 0), -len(v), cleaned.index(v)))[0]
     counts: Dict[str, int] = {}
     for value in cleaned:
         counts[value] = counts.get(value, 0) + 1
@@ -572,6 +774,35 @@ def _v2_pdf_page_count(doc: Dict[str, Any], summary: Any = None) -> Optional[int
         return count or None
     except Exception:
         return None
+
+
+def _v2_clean_acta_nombre(value: Optional[str]) -> Optional[str]:
+    text = _normalizar_ascii_precheck(value or "")
+    if not text:
+        return None
+    text = re.sub(
+        r"\b(GENERO|MASCULINO|FEMENINO|FECHA|REGISTRADO|REGISTRADA|FUE PRESENTADO|FUE PRESENTADA)\b.*$",
+        "",
+        text,
+    )
+    text = re.sub(r"[^A-Z\s]", " ", text)
+    text = re.sub(r"\s+", " ", text).strip()
+    return text or None
+
+
+def _v2_acta_fecha_confiable(data: Optional[Dict[str, Any]]) -> Optional[str]:
+    if not isinstance(data, dict):
+        return None
+    fecha = data.get("fecha_nacimiento")
+    if not fecha:
+        return None
+    try:
+        confianza = int(float(data.get("confianza_fecha") or 0))
+    except Exception:
+        confianza = 0
+    if confianza and confianza < 50:
+        return None
+    return str(fecha)
 
 
 def _v2_structured_summary_from_pdf(doc: Dict[str, Any]) -> Optional[Dict[str, Any]]:
@@ -667,7 +898,7 @@ def _v2_structured_summary_from_pdf(doc: Dict[str, Any]) -> Optional[Dict[str, A
             }
         elif key == "acta_nacimiento":
             data = extraer_datos_acta_nacimiento(file_bytes, modo_rapido=True)
-            nombre = (data or {}).get("nombre")
+            nombre = _v2_clean_acta_nombre((data or {}).get("nombre"))
             if not nombre:
                 return None
             validation = {
@@ -677,7 +908,7 @@ def _v2_structured_summary_from_pdf(doc: Dict[str, Any]) -> Optional[Dict[str, A
                 "mensaje": "Acta leida por Motor V1 desde texto del PDF.",
                 "tipo_documento_detectado": "acta_nacimiento",
                 "nombre": nombre,
-                "fecha_nacimiento": (data or {}).get("fecha_nacimiento"),
+                "fecha_nacimiento": _v2_acta_fecha_confiable(data),
             }
         else:
             return None
@@ -832,9 +1063,9 @@ def _resultado_v2_reglas_expediente(
 
         if not summary_is_usable(summary):
             out["estado"] = "requiere_revision"
-            out["mensaje"] = "Lectura V2 pendiente; el documento no se marcara como falla documental hasta completar la lectura automatica."
+            out["mensaje"] = "Lectura automatica pendiente; el documento no se marcara como falla documental hasta completar la revision."
             docs_out[key] = out
-            alertas.append(f"{label}: lectura V2 pendiente para completar el cruce final.")
+            alertas.append(f"{label}: lectura automatica pendiente para completar el cruce final.")
             continue
 
         out["nombre"] = _v2_first_value(previo, ["nombre", "nombre_completo", "nombre_propietario", "nombre_titular", "titular_cuenta"])
@@ -871,7 +1102,7 @@ def _resultado_v2_reglas_expediente(
             add_comp("Regla documental", f"{label} rechazado por lectura rapida", key, out["mensaje"], "Regla", "Documento valido", False, "critico", out["mensaje"] or f"{label} no cumple la regla documental.")
         elif valido is False or revision_manual is True:
             out["estado"] = "requiere_revision"
-            msg = out["mensaje"] or f"{label} requiere revision manual por lectura V2."
+            msg = out["mensaje"] or f"{label} requiere revision manual por lectura automatica."
             add_comp("Regla documental", f"{label} requiere revision", key, msg, "Regla", "Lectura automatica suficiente", False, "aviso", msg)
 
         expected_types_by_key = {
@@ -1049,7 +1280,7 @@ def _resultado_v2_reglas_expediente(
                     docs_out[other_key]["estado"] = "no_coincide"
             continue
         if field == "rfc":
-            rfc_principal_v2 = _v2_choose_rfc_principal([v for _, v in values])
+            rfc_principal_v2 = _v2_choose_rfc_principal([v for _, v in values], curp_principal_v2)
             if not rfc_principal_v2:
                 continue
             for other_key, other_value in values:
@@ -1082,6 +1313,14 @@ def _resultado_v2_reglas_expediente(
                 docs_out[base_key]["estado"] = "no_coincide"
                 docs_out[other_key]["estado"] = "no_coincide"
 
+    _v2_downgrade_solicitud_consensus(
+        comparaciones,
+        docs_out,
+        nombre_registro,
+        curp_principal_v2,
+        alertas,
+    )
+
     evaluables = [c for c in comparaciones if isinstance(c.get("coincide"), bool)]
     total = len(evaluables)
     ok_count = sum(1 for c in evaluables if c.get("coincide") is True)
@@ -1095,13 +1334,13 @@ def _resultado_v2_reglas_expediente(
         resumen = "El expediente no puede aprobarse automaticamente: se detectaron diferencias criticas entre la informacion registrada y los documentos recibidos."
     elif has_unread or has_warning:
         dictamen = "requiere_revision"
-        resumen = "El expediente requiere revision documental: el Motor V2 no cuenta con lectura suficiente en todos los documentos o hay observaciones pendientes."
+        resumen = "El expediente requiere revision documental: falta lectura suficiente en uno o mas documentos o hay observaciones pendientes."
     else:
         dictamen = "aprobado"
         resumen = "La informacion recibida es consistente entre los documentos revisados, cumple con las reglas documentales establecidas y corresponde al candidato registrado."
 
     if motivo != "rules":
-        recomendaciones.append("Se uso dictamen local del Motor V2 porque el cruce profundo no respondio a tiempo.")
+        recomendaciones.append("El analisis profundo tardo mas de lo esperado; se uso una revision local para no detener el expediente.")
 
     datos_ref = {
         "nombre_registro": nombre_registro or None,
@@ -1109,7 +1348,7 @@ def _resultado_v2_reglas_expediente(
         "curp_principal": curp_principal_v2 or next((_v2_clean_curp(v.get("curp")) for v in readable.values() if _v2_clean_curp(v.get("curp"))), None),
         "rfc_principal": _v2_choose_rfc_principal([
             v.get("rfc") for k, v in readable.items() if k != "comprobante_domicilio" and v.get("rfc")
-        ]) or next((v.get("rfc") for k, v in readable.items() if k != "comprobante_domicilio" and v.get("rfc")), None),
+        ], curp_principal_v2) or next((v.get("rfc") for k, v in readable.items() if k != "comprobante_domicilio" and v.get("rfc")), None),
         "nss_principal": next((_v2_clean_nss(v.get("nss")) for v in readable.values() if _v2_clean_nss(v.get("nss"))), None),
     }
 
@@ -1303,6 +1542,131 @@ def _respuesta_alibaba_identificacion(res: Dict[str, Any]) -> Dict[str, Any]:
         "curp": campos.get("curp"),
         "fecha_vencimiento": campos.get("fecha_vencimiento"),
         **_ai_metadata(res),
+    }
+
+
+def _ai_solicitud_extra(campos: Dict[str, Any]) -> Dict[str, Any]:
+    keys = [
+        "apellido_paterno",
+        "apellido_materno",
+        "nombres",
+        "edad",
+        "sexo",
+        "estado_civil",
+        "telefono",
+        "correo_electronico",
+        "domicilio",
+        "codigo_postal",
+        "municipio",
+        "estado",
+        "lugar_nacimiento",
+        "puesto_solicitado",
+        "expectativa_economica",
+        "estado_salud",
+        "enfermedad_cronica",
+        "medicamento_controlado",
+        "tipo_sangre",
+        "contactos_emergencia",
+        "beneficiarios",
+        "escolaridad",
+    ]
+    return {key: campos.get(key) for key in keys if campos.get(key) not in (None, "", [])}
+
+
+def _respuesta_alibaba_solicitud_interna(res: Dict[str, Any]) -> Dict[str, Any]:
+    campos = _ai_campos(res)
+    errores = _ai_errores(res)
+    advertencias = _ai_advertencias(res)
+    es_solicitud = _ai_es_doc(res, "solicitud___SPARTA_SECRET_REDACTED__")
+    valido = bool(es_solicitud and not errores)
+    extra = _ai_solicitud_extra(campos)
+    return {
+        "valido": valido,
+        "rechazado": bool(errores) or not es_solicitud,
+        "revision_manual": bool(advertencias) and not errores,
+        "mensaje": _ai_mensaje(res, "Solicitud interna MaxiKash verificada." if valido else "No se pudo confirmar la solicitud interna."),
+        "tipo_documento_detectado": str(_ai_extraccion(res).get("tipo_documento") or ""),
+        "nombre": campos.get("nombre_completo"),
+        "curp": campos.get("curp"),
+        "rfc": campos.get("rfc"),
+        "nss": campos.get("nss"),
+        "fecha_nacimiento": campos.get("fecha_nacimiento"),
+        "paginas": _ai_extraccion(res).get("paginas_pdf") or _ai_extraccion(res).get("paginas_analizadas"),
+        "paginas_pdf": _ai_extraccion(res).get("paginas_pdf") or _ai_extraccion(res).get("paginas_analizadas"),
+        "confianza_lectura": _ai_extraccion(res).get("confianza_lectura"),
+        "calidad_imagen": _ai_extraccion(res).get("calidad_imagen"),
+        "alertas": errores + advertencias,
+        "observaciones": _ai_extraccion(res).get("observaciones") or [],
+        "campos_ia": extra,
+        **extra,
+        **_ai_metadata(res),
+    }
+
+
+def _respuesta_alibaba_acta(res: Dict[str, Any]) -> Dict[str, Any]:
+    campos = _ai_campos(res)
+    errores = _ai_errores(res)
+    advertencias = _ai_advertencias(res)
+    es_acta = _ai_es_doc(res, "acta_nacimiento")
+    valido = bool(es_acta and not errores)
+    return {
+        "valido": valido,
+        "rechazado": bool(errores) or not es_acta,
+        "revision_manual": bool(advertencias) and not errores,
+        "mensaje": _ai_mensaje(res, "Acta de nacimiento verificada." if valido else "No se pudo confirmar el acta de nacimiento."),
+        "nombre": _v2_clean_acta_nombre(campos.get("nombre_completo")),
+        "fecha_nacimiento": campos.get("fecha_nacimiento"),
+        "parece_acta": es_acta,
+        "tipo_documento_detectado": str(_ai_extraccion(res).get("tipo_documento") or ""),
+        "paginas": _ai_extraccion(res).get("paginas_pdf") or _ai_extraccion(res).get("paginas_analizadas"),
+        "paginas_pdf": _ai_extraccion(res).get("paginas_pdf") or _ai_extraccion(res).get("paginas_analizadas"),
+        "confianza_lectura": _ai_extraccion(res).get("confianza_lectura"),
+        "calidad_imagen": _ai_extraccion(res).get("calidad_imagen"),
+        "alertas": errores + advertencias,
+        "observaciones": _ai_extraccion(res).get("observaciones") or [],
+        **_ai_metadata(res),
+    }
+
+
+def _respuesta_acta_rescate_v1(
+    datos_acta: Dict[str, Any],
+    inicio: float,
+    resultado_alibaba: Optional[Dict[str, Any]] = None,
+    paginas_pdf: Optional[int] = None,
+) -> Dict[str, Any]:
+    tipo_v2 = ""
+    mensaje_v2 = ""
+    if resultado_alibaba:
+        tipo_v2 = str(_ai_extraccion(resultado_alibaba).get("tipo_documento") or "")
+        mensaje_v2 = _ai_mensaje(resultado_alibaba, "")
+    observaciones: List[str] = []
+    if tipo_v2 and tipo_v2 != "acta_nacimiento":
+        observaciones.append("Documento mezclado detectado: se encontro el acta dentro del PDF.")
+    if mensaje_v2:
+        observaciones.append("La primera lectura automatica no fue suficiente; se uso una lectura de respaldo.")
+    return {
+        "valido": True,
+        "rechazado": False,
+        "revision_manual": False,
+        "mensaje": "Acta de nacimiento verificada.",
+        "nombre": _v2_clean_acta_nombre(datos_acta.get("nombre")),
+        "fecha_nacimiento": _v2_acta_fecha_confiable(datos_acta),
+        "parece_acta": True,
+        "tipo_documento_detectado": "acta_nacimiento",
+        "paginas": paginas_pdf or datos_acta.get("paginas_pdf") or datos_acta.get("paginas"),
+        "paginas_pdf": paginas_pdf or datos_acta.get("paginas_pdf") or datos_acta.get("paginas"),
+        "modo_validacion": "rescate_v1_ocr_local",
+        "motor_ia": "motor_v1",
+        "modelo_ia": "pdf_text_ocr",
+        "fuente_lectura": "motor_v1_rescate_acta",
+        "documento_mixto": bool(tipo_v2 and tipo_v2 != "acta_nacimiento"),
+        "motor_v2_tipo_detectado": tipo_v2 or None,
+        "motor_v2_mensaje": mensaje_v2 or None,
+        "confianza_nombre": datos_acta.get("confianza_nombre"),
+        "confianza_fecha": datos_acta.get("confianza_fecha"),
+        "alertas": [],
+        "observaciones": observaciones,
+        "tiempo_ms": int((time.time() - inicio) * 1000),
     }
 
 
@@ -2839,6 +3203,77 @@ async def verificar_nss_documento(
 
 
 @router.post(
+    "/verificar-solicitud-interna-documento",
+    summary="Verificar que el PDF sea solicitud interna MaxiKash",
+    description="Sube un PDF de solicitud interna. Valida minimo 2 paginas y genera una lectura estructurada local para el cruce final.",
+    tags=["Utilidades"]
+)
+async def verificar_solicitud_interna_documento(
+    documento: UploadFile = File(..., description="PDF de solicitud interna MaxiKash"),
+    api_key: str = Depends(verificar_api_key)
+):
+    if not documento.filename or not documento.filename.lower().endswith(".pdf"):
+        raise HTTPException(status_code=400, detail="Se requiere un archivo PDF de solicitud interna")
+    file_bytes = await documento.read()
+    if len(file_bytes) == 0:
+        raise HTTPException(status_code=400, detail="Documento vacio")
+    inicio = time.time()
+    paginas = _v2_pdf_page_count({"bytes": file_bytes, "filename": documento.filename}) or 0
+    if paginas > 0 and paginas < 2:
+        return {
+            "valido": False,
+            "rechazado": True,
+            "revision_manual": False,
+            "motivo_rechazo": "solicitud_interna_incompleta",
+            "mensaje": "La solicitud interna debe tener al menos 2 hojas. Vuelve a subir el PDF completo.",
+            "paginas": paginas,
+            "paginas_pdf": paginas,
+            "tipo_documento_detectado": "solicitud_interna",
+            "tiempo_ms": int((time.time() - inicio) * 1000),
+        }
+
+    resultado_alibaba = await _validar_rapido_alibaba_o_none(
+        file_bytes,
+        documento.filename or "solicitud_interna.pdf",
+        "solicitud___SPARTA_SECRET_REDACTED__",
+    )
+    if resultado_alibaba is not None:
+        return _respuesta_alibaba_solicitud_interna(resultado_alibaba)
+
+    data = _extraer_solicitud_interna_pdf_rapido(file_bytes)
+    detected = (data or {}).get("tipo_documento_detectado")
+    if detected in {"solicitud_interna", "solicitud___SPARTA_SECRET_REDACTED__"}:
+        return {
+            "valido": True,
+            "rechazado": False,
+            "revision_manual": False,
+            "mensaje": (data or {}).get("mensaje") or "Solicitud interna identificada por OCR local.",
+            "tipo_documento_detectado": detected,
+            "nombre": (data or {}).get("nombre"),
+            "curp": (data or {}).get("curp"),
+            "paginas": paginas,
+            "paginas_pdf": paginas,
+            "motor_ia": "motor_v1",
+            "modelo_ia": "pdf_text_ocr",
+            "fuente_lectura": "motor_v1_pdf_text_ocr",
+            "modo_validacion": (data or {}).get("modo") or "ocr_local",
+            "tiempo_ms": int((time.time() - inicio) * 1000),
+        }
+
+    return {
+        "valido": True,
+        "rechazado": False,
+        "revision_manual": True,
+        "mensaje": "La solicitud interna cumple paginas, pero no se pudo confirmar automaticamente el formato MaxiKash. Revisar manualmente.",
+        "tipo_documento_detectado": detected,
+        "paginas": paginas,
+        "paginas_pdf": paginas,
+        "modo_validacion": (data or {}).get("modo") or "revision_manual_rapida",
+        "tiempo_ms": int((time.time() - inicio) * 1000),
+    }
+
+
+@router.post(
     "/verificar-acta-documento",
     summary="Verificar que el PDF sea un acta de nacimiento",
     description="Sube un PDF de acta de nacimiento certificada. Verifica que contenga nombre y/o fecha de nacimiento propios del acta. Rechaza constancias de NSS u otros documentos.",
@@ -2874,6 +3309,21 @@ async def verificar_acta_documento(
             tiempo_ms=int((time.time() - inicio) * 1000),
         )
 
+    resultado_alibaba = await _validar_rapido_alibaba_o_none(
+        file_bytes,
+        documento.filename or "acta_nacimiento.pdf",
+        "acta_nacimiento",
+    )
+    if resultado_alibaba is not None:
+        respuesta_alibaba = _respuesta_alibaba_acta(resultado_alibaba)
+        if not respuesta_alibaba.get("valido"):
+            datos_rescate = await asyncio.to_thread(extraer_datos_acta_nacimiento, file_bytes, True)
+            nombre_rescate = _v2_clean_acta_nombre((datos_rescate or {}).get("nombre")) if isinstance(datos_rescate, dict) else None
+            if isinstance(datos_rescate, dict) and datos_rescate.get("parece_acta") and nombre_rescate:
+                paginas_pdf = _v2_pdf_page_count({"bytes": file_bytes, "filename": documento.filename})
+                return _respuesta_acta_rescate_v1(datos_rescate, inicio, resultado_alibaba, paginas_pdf)
+        return respuesta_alibaba
+
     parece_acta = bool(
         "ACTA DE NACIMIENTO" in texto_norm
         or "CERTIFICADO DE NACIMIENTO" in texto_norm
@@ -2881,15 +3331,40 @@ async def verificar_acta_documento(
         or (("ACTA" in texto_norm or "REGISTRO CIVIL" in texto_norm) and "NACIMIENTO" in texto_norm)
     )
     if parece_acta:
-        tiempo_ms = int((time.time() - inicio) * 1000)
+        datos_acta = await asyncio.to_thread(extraer_datos_acta_nacimiento, file_bytes, True)
         return {
             "valido": True,
+            "rechazado": False,
+            "revision_manual": False,
             "mensaje": "Acta de nacimiento verificada.",
-            "nombre": None,
-            "fecha_nacimiento": None,
+            "nombre": _v2_clean_acta_nombre((datos_acta or {}).get("nombre")),
+            "fecha_nacimiento": _v2_acta_fecha_confiable(datos_acta),
             "parece_acta": True,
+            "tipo_documento_detectado": "acta_nacimiento",
             "modo_validacion": "texto_pdf_rapido",
-            "tiempo_ms": tiempo_ms,
+            "motor_ia": "motor_v1",
+            "modelo_ia": "pdf_text_ocr",
+            "fuente_lectura": "motor_v1_pdf_text_ocr",
+            "tiempo_ms": int((time.time() - inicio) * 1000),
+        }
+    datos_acta = await asyncio.to_thread(extraer_datos_acta_nacimiento, file_bytes, True)
+    if isinstance(datos_acta, dict) and datos_acta.get("parece_acta"):
+        return {
+            "valido": True,
+            "rechazado": False,
+            "revision_manual": False,
+            "mensaje": "Acta de nacimiento verificada por OCR local.",
+            "nombre": _v2_clean_acta_nombre(datos_acta.get("nombre")),
+            "fecha_nacimiento": _v2_acta_fecha_confiable(datos_acta),
+            "parece_acta": True,
+            "tipo_documento_detectado": "acta_nacimiento",
+            "modo_validacion": "ocr_local_multi_pasada",
+            "motor_ia": "motor_v1",
+            "modelo_ia": "pdf_text_ocr",
+            "fuente_lectura": "motor_v1_pdf_text_ocr",
+            "confianza_nombre": datos_acta.get("confianza_nombre"),
+            "confianza_fecha": datos_acta.get("confianza_fecha"),
+            "tiempo_ms": int((time.time() - inicio) * 1000),
         }
     return {
         "valido": False,

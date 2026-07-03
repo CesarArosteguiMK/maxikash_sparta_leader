@@ -1,0 +1,216 @@
+{
+    "generated_at": "2026-07-03 01:09:56",
+    "case": "gomez",
+    "base_url": "http:\/\/127.0.0.1\/sparta___SPARTA_SECRET_REDACTED__\/public",
+    "cleanup": true,
+    "mismatch": false,
+    "id_candidato_prueba": 94,
+    "candidate_profile": {
+        "nombres": "SILVIA",
+        "apellidop": "GOMEZ",
+        "apellidom": "VEJAR",
+        "email_prefix": "codex.upload.gomez.20260703010956"
+    },
+    "token_tail": "35d4cdac",
+    "url": "http:\/\/127.0.0.1\/sparta___SPARTA_SECRET_REDACTED__\/public\/CapHum\/subirDocumentosCandidato\/574804d37ca20a87a4ebe7f4b1770bf137fc5e888047704e896286da35d4cdac",
+    "post": {
+        "http_code": 200,
+        "curl_error": null,
+        "elapsed_ms": 8131,
+        "json": {
+            "success": true,
+            "mensaje": "Se subieron 10 documento(s) correctamente.",
+            "datos": {
+                "guardados": 10,
+                "documentos_subidos": {
+                    "10": {
+                        "nombre_archivo": "BBVA.pdf"
+                    },
+                    "7": {
+                        "nombre_archivo": "CSF.pdf"
+                    },
+                    "8": {
+                        "nombre_archivo": "NSS.pdf"
+                    },
+                    "9": {
+                        "nombre_archivo": "CARTA NO CREDITOS.pdf"
+                    },
+                    "5": {
+                        "nombre_archivo": "INE.pdf"
+                    },
+                    "6": {
+                        "nombre_archivo": "DOMICILIO.pdf"
+                    },
+                    "3": {
+                        "nombre_archivo": "ACTA NACIMIENTO.pdf"
+                    },
+                    "4": {
+                        "nombre_archivo": "CURP.pdf"
+                    },
+                    "1": {
+                        "nombre_archivo": "SOLICITUD.pdf"
+                    },
+                    "2": {
+                        "nombre_archivo": "CV.pdf"
+                    }
+                },
+                "expediente_completo": true
+            }
+        },
+        "body_head": "{\"success\":true,\"mensaje\":\"Se subieron 10 documento(s) correctamente.\",\"datos\":{\"guardados\":10,\"documentos_subidos\":{\"10\":{\"nombre_archivo\":\"BBVA.pdf\"},\"7\":{\"nombre_archivo\":\"CSF.pdf\"},\"8\":{\"nombre_archivo\":\"NSS.pdf\"},\"9\":{\"nombre_archivo\":\"CARTA NO CREDITOS.pdf\"},\"5\":{\"nombre_archivo\":\"INE.pdf\"},\"6\":{\"nombre_archivo\":\"DOMICILIO.pdf\"},\"3\":{\"nombre_archivo\":\"ACTA NACIMIENTO.pdf\"},\"4\":{\"nombre_archivo\":\"CURP.pdf\"},\"1\":{\"nombre_archivo\":\"SOLICITUD.pdf\"},\"2\":{\"nombre_archivo\":\"CV.pdf\"}},\"expediente_"
+    },
+    "state_after_post": {
+        "docs_count": 10,
+        "docs": [
+            {
+                "tipo_documento": "SOLICITUD INTERNA",
+                "nombre_archivo": "SOLICITUD.pdf",
+                "ruta_archivo": "candidatos\/94\/expediente\/solicitud_interna.pdf",
+                "tiene_verificacion": true
+            },
+            {
+                "tipo_documento": "CV O SOLICITUD DE TRABAJO",
+                "nombre_archivo": "CV.pdf",
+                "ruta_archivo": "candidatos\/94\/expediente\/cv.pdf",
+                "tiene_verificacion": false
+            },
+            {
+                "tipo_documento": "ACTA DE NACIMIENTO Certificada",
+                "nombre_archivo": "ACTA NACIMIENTO.pdf",
+                "ruta_archivo": "candidatos\/94\/expediente\/acta_nacimiento.pdf",
+                "tiene_verificacion": true
+            },
+            {
+                "tipo_documento": "CURP",
+                "nombre_archivo": "CURP.pdf",
+                "ruta_archivo": "candidatos\/94\/expediente\/curp.pdf",
+                "tiene_verificacion": true
+            },
+            {
+                "tipo_documento": "IDENTIFICACIÓN OFICIAL",
+                "nombre_archivo": "INE.pdf",
+                "ruta_archivo": "candidatos\/94\/expediente\/identificacion_frente.pdf",
+                "tiene_verificacion": true
+            },
+            {
+                "tipo_documento": "COMPROBANTE DE DOMICILIO",
+                "nombre_archivo": "DOMICILIO.pdf",
+                "ruta_archivo": "candidatos\/94\/expediente\/comprobante_domicilio.pdf",
+                "tiene_verificacion": true
+            },
+            {
+                "tipo_documento": "CONSTANCIA DE SITUACION FISCAL",
+                "nombre_archivo": "CSF.pdf",
+                "ruta_archivo": "candidatos\/94\/expediente\/constancia_fiscal.pdf",
+                "tiene_verificacion": true
+            },
+            {
+                "tipo_documento": "NÚMERO DE SEGURIDAD SOCIAL",
+                "nombre_archivo": "NSS.pdf",
+                "ruta_archivo": "candidatos\/94\/expediente\/nss.pdf",
+                "tiene_verificacion": true
+            },
+            {
+                "tipo_documento": "HOJA DE RETENCION FONACOT O INFONAVIT",
+                "nombre_archivo": "CARTA NO CREDITOS.pdf",
+                "ruta_archivo": "candidatos\/94\/expediente\/hoja_retencion.pdf",
+                "tiene_verificacion": false
+            },
+            {
+                "tipo_documento": "ESTADO DE CUENTA",
+                "nombre_archivo": "BBVA.pdf",
+                "ruta_archivo": "candidatos\/94\/expediente\/__SPARTA_SECRET_REDACTED__.pdf",
+                "tiene_verificacion": true
+            }
+        ],
+        "jobs": [
+            {
+                "id": 413,
+                "estado": "pendiente",
+                "intentos": 0,
+                "expediente_completo": 1,
+                "last_error": null
+            }
+        ],
+        "ultima_verificacion": "{\"verificacion_en_proceso\":true,\"todo_coincide\":null,\"foto_rechazada\":false,\"checks_ok\":0,\"checks_totales\":0,\"alertas\":[\"Verificacion automatica en cola local. Capital Humano puede continuar y la vista se actualizara al terminar.\"],\"identificacion_frente_score\":null,\"identificacion_reverso_score\":null,\"comparaciones\":null,\"modo_verificacion\":\"cola_background\",\"api_pendiente\":false,\"error_api\":null,\"job_id\":413,\"iniciado_en\":\"2026-07-02 17:10:04\"}"
+    },
+    "state_after_wait": {
+        "docs_count": 10,
+        "docs": [
+            {
+                "tipo_documento": "SOLICITUD INTERNA",
+                "nombre_archivo": "SOLICITUD.pdf",
+                "ruta_archivo": "candidatos\/94\/expediente\/solicitud_interna.pdf",
+                "tiene_verificacion": true
+            },
+            {
+                "tipo_documento": "CV O SOLICITUD DE TRABAJO",
+                "nombre_archivo": "CV.pdf",
+                "ruta_archivo": "candidatos\/94\/expediente\/cv.pdf",
+                "tiene_verificacion": false
+            },
+            {
+                "tipo_documento": "ACTA DE NACIMIENTO Certificada",
+                "nombre_archivo": "ACTA NACIMIENTO.pdf",
+                "ruta_archivo": "candidatos\/94\/expediente\/acta_nacimiento.pdf",
+                "tiene_verificacion": true
+            },
+            {
+                "tipo_documento": "CURP",
+                "nombre_archivo": "CURP.pdf",
+                "ruta_archivo": "candidatos\/94\/expediente\/curp.pdf",
+                "tiene_verificacion": true
+            },
+            {
+                "tipo_documento": "IDENTIFICACIÓN OFICIAL",
+                "nombre_archivo": "INE.pdf",
+                "ruta_archivo": "candidatos\/94\/expediente\/identificacion_frente.pdf",
+                "tiene_verificacion": true
+            },
+            {
+                "tipo_documento": "COMPROBANTE DE DOMICILIO",
+                "nombre_archivo": "DOMICILIO.pdf",
+                "ruta_archivo": "candidatos\/94\/expediente\/comprobante_domicilio.pdf",
+                "tiene_verificacion": true
+            },
+            {
+                "tipo_documento": "CONSTANCIA DE SITUACION FISCAL",
+                "nombre_archivo": "CSF.pdf",
+                "ruta_archivo": "candidatos\/94\/expediente\/constancia_fiscal.pdf",
+                "tiene_verificacion": true
+            },
+            {
+                "tipo_documento": "NÚMERO DE SEGURIDAD SOCIAL",
+                "nombre_archivo": "NSS.pdf",
+                "ruta_archivo": "candidatos\/94\/expediente\/nss.pdf",
+                "tiene_verificacion": true
+            },
+            {
+                "tipo_documento": "HOJA DE RETENCION FONACOT O INFONAVIT",
+                "nombre_archivo": "CARTA NO CREDITOS.pdf",
+                "ruta_archivo": "candidatos\/94\/expediente\/hoja_retencion.pdf",
+                "tiene_verificacion": false
+            },
+            {
+                "tipo_documento": "ESTADO DE CUENTA",
+                "nombre_archivo": "BBVA.pdf",
+                "ruta_archivo": "candidatos\/94\/expediente\/__SPARTA_SECRET_REDACTED__.pdf",
+                "tiene_verificacion": true
+            }
+        ],
+        "jobs": [
+            {
+                "id": 413,
+                "estado": "terminado",
+                "intentos": 1,
+                "expediente_completo": 1,
+                "last_error": null
+            }
+        ],
+        "ultima_verificacion": "{\"todo_coincide\":false,\"foto_rechazada\":false,\"curp_definitivo\":\"GOVS710120MBCMJL04\",\"checks_ok\":21,\"checks_totales\":23,\"alertas\":[\"La solicitud interna requiere revision: la lectura automatica del nombre difiere, pero los documentos oficiales coinciden con el candidato registrado.\",\"La solicitud interna requiere revision: el RFC leido no coincide con la constancia fiscal\\\/CURP, pero la identidad se sostiene con los documentos oficiales.\"],\"identificacion_frente_score\":91,\"identificacion_reverso_score\":91,\"comparaciones\":[],\"nombre_ocr\":\"Silvia Gomez Velez\",\"anio_nacimiento\":null,\"tipo_documento\":\"expediente_v2\",\"tiempo_proceso_ms\":2,\"tiempos_fase_ms\":{\"prefill_pdf_text_motor_v1_count\":1,\"prefill_lecturas_rapidas_ms\":15387,\"cruce_reglas_ms\":2,\"total_endpoint_ms\":15389},\"modo_verificacion\":\"v2_alibaba_crosscheck\",\"motor_ia\":\"alibaba\",\"modelo_ia\":\"Motor V2\",\"resumen_ia\":\"El expediente requiere revision documental: falta lectura suficiente en uno o mas documentos o hay observaciones pendientes.\",\"dictamen_ia\":\"requiere_revision\",\"comparaciones_v2\":[{\"categoria\":\"Nombre\",\"etiqueta\":\"Nombre registro vs Solicitud interna\",\"documento_a\":\"Registro\",\"valor_a\":\"SILVIA GOMEZ VEJAR\",\"documento_b\":\"solicitud_interna\",\"valor_b\":\"Silvia Gomez Velez\",\"coincide\":false,\"severidad\":\"aviso\",\"mensaje\":\"La solicitud interna requiere revision: la lectura automatica del nombre difiere, pero los documentos oficiales coinciden con el candidato registrado.\"},{\"categoria\":\"Nombre\",\"etiqueta\":\"Nombre registro vs CV o solicitud de trabajo\",\"documento_a\":\"Registro\",\"valor_a\":\"SILVIA GOMEZ VEJAR\",\"documento_b\":\"cv\",\"valor_b\":\"SILVIA G\\u00d3MEZ VEJAR\",\"coincide\":true,\"severidad\":\"ok\",\"mensaje\":\"El nombre de CV o solicitud de trabajo coincide con el candidato registrado.\"},{\"categoria\":\"Nombre\",\"etiqueta\":\"Nombre registro vs Acta de nacimiento certificada\",\"documento_a\":\"Registro\",\"valor_a\":\"SILVIA GOMEZ VEJAR\",\"documento_b\":\"acta_nacimiento\",\"valor_b\":\"SILVIA GOMEZ VEJAR\",\"coincide\":true,\"severidad\":\"ok\",\"mensaje\":\"El nombre de Acta de nacimiento certificada coincide con el candidato registrado.\"},{\"categoria\":\"Nombre\",\"etiqueta\":\"Nombre registro vs CURP\",\"documento_a\":\"Registro\",\"valor_a\":\"SILVIA GOMEZ VEJAR\",\"documento_b\":\"curp\",\"valor_b\":\"SILVIA GOMEZ VEJAR\",\"coincide\":true,\"severidad\":\"ok\",\"mensaje\":\"El nombre de CURP coincide con el candidato registrado.\"},{\"categoria\":\"Nombre\",\"etiqueta\":\"Nombre registro vs Identificacion oficial\",\"documento_a\":\"Registro\",\"valor_a\":\"SILVIA GOMEZ VEJAR\",\"documento_b\":\"identificacion_oficial\",\"valor_b\":\"GOMEZ VEJAR SILVIA\",\"coincide\":true,\"severidad\":\"ok\",\"mensaje\":\"El nombre de Identificacion oficial coincide con el candidato registrado.\"},{\"categoria\":\"Nombre\",\"etiqueta\":\"Nombre registro vs Constancia de situacion fiscal\",\"documento_a\":\"Registro\",\"valor_a\":\"SILVIA GOMEZ VEJAR\",\"documento_b\":\"constancia_fiscal\",\"valor_b\":\"SILVIA GOMEZ VEJAR\",\"coincide\":true,\"severidad\":\"ok\",\"mensaje\":\"El nombre de Constancia de situacion fiscal coincide con el candidato registrado.\"},{\"categoria\":\"Nombre\",\"etiqueta\":\"Nombre registro vs Numero de seguridad social\",\"documento_a\":\"Registro\",\"valor_a\":\"SILVIA GOMEZ VEJAR\",\"documento_b\":\"nss\",\"valor_b\":\"GOMEZ VEJAR SILVIA\",\"coincide\":true,\"severidad\":\"ok\",\"mensaje\":\"El nombre de Numero de seguridad social coincide con el candidato registrado.\"},{\"categoria\":\"Nombre\",\"etiqueta\":\"Nombre registro vs Hoja de retencion FONACOT o INFONAVIT\",\"documento_a\":\"Registro\",\"valor_a\":\"SILVIA GOMEZ VEJAR\",\"documento_b\":\"hoja_retencion\",\"valor_b\":\"Silvia Gomez Vejar\",\"coincide\":true,\"severidad\":\"ok\",\"mensaje\":\"El nombre de Hoja de retencion FONACOT o INFONAVIT coincide con el candidato registrado.\"},{\"categoria\":\"Nombre\",\"etiqueta\":\"Nombre registro vs Estado de cuenta\",\"documento_a\":\"Registro\",\"valor_a\":\"SILVIA GOMEZ VEJAR\",\"documento_b\":\"__SPARTA_SECRET_REDACTED__\",\"valor_b\":\"SILVIA GOMEZ VEJAR\",\"coincide\":true,\"severidad\":\"ok\",\"mensaje\":\"El nombre de Estado de cuenta coincide con el candidato registrado.\"},{\"categoria\":\"Regla documental\",\"etiqueta\":\"CURP no mayor a 2 meses\",\"documento_a\":\"curp\",\"valor_a\":\"1 meses\",\"documento_b\":\"Regla\",\"valor_b\":\"maximo 2 meses\",\"coincide\":true,\"severidad\":\"ok\",\"mensaje\":\"CURP no mayor a 2 meses\"},{\"categoria\":\"Regla documental\",\"etiqueta\":\"Comprobante de domicilio no mayor a 3 meses\",\"documento_a\":\"comprobante_domicilio\",\"valor_a\":\"1 meses\",\"documento_b\":\"Regla\",\"valor_b\":\"maximo 3 meses\",\"coincide\":true,\"severidad\":\"ok\",\"mensaje\":\"Comprobante de domicilio no mayor a 3 meses\"},{\"categoria\":\"Regla documental\",\"etiqueta\":\"Constancia fiscal no mayor a 2 meses\",\"documento_a\":\"constancia_fiscal\",\"valor_a\":\"1 meses\",\"documento_b\":\"Regla\",\"valor_b\":\"maximo 2 meses\",\"coincide\":true,\"severidad\":\"ok\",\"mensaje\":\"Constancia fiscal no mayor a 2 meses\"},{\"categoria\":\"Regla documental\",\"etiqueta\":\"Solicitud interna minimo 2 hojas\",\"documento_a\":\"solicitud_interna\",\"valor_a\":2,\"documento_b\":\"Regla\",\"valor_b\":\"2 hojas\",\"coincide\":true,\"severidad\":\"ok\",\"mensaje\":\"La solicitud interna cumple minimo 2 hojas.\"},{\"categoria\":\"Regla documental\",\"etiqueta\":\"Constancia fiscal con 2 hojas\",\"documento_a\":\"constancia_fiscal\",\"valor_a\":3,\"documento_b\":\"Regla\",\"valor_b\":\"2 hojas\",\"coincide\":true,\"severidad\":\"ok\",\"mensaje\":\"La constancia fiscal incluye 2 hojas.\"},{\"categoria\":\"Regla documental\",\"etiqueta\":\"Regimen de sueldos y salarios\",\"documento_a\":\"constancia_fiscal\",\"valor_a\":null,\"documento_b\":\"Regla\",\"valor_b\":\"Sueldos y salarios\",\"coincide\":true,\"severidad\":\"ok\",\"mensaje\":\"La constancia fiscal confirma regimen de sueldos y salarios.\"},{\"categoria\":\"Banco\",\"etiqueta\":\"Banco fisico aceptado\",\"documento_a\":\"__SPARTA_SECRET_REDACTED__\",\"valor_a\":\"BBVA\",\"documento_b\":\"Regla\",\"valor_b\":\"Banco fisico\",\"coincide\":true,\"severidad\":\"ok\",\"mensaje\":\"El estado de cuenta corresponde a banco fisico.\"},{\"categoria\":\"CURP\",\"etiqueta\":\"CURP contra referencia documental\",\"documento_a\":\"CURP principal\",\"valor_a\":\"GOVS710120MBCMJL04\",\"documento_b\":\"curp\",\"valor_b\":\"GOVS710120MBCMJL04\",\"coincide\":true,\"severidad\":\"ok\",\"mensaje\":\"CURP consistente entre documentos.\"},{\"categoria\":\"CURP\",\"etiqueta\":\"CURP contra referencia documental\",\"documento_a\":\"CURP principal\",\"valor_a\":\"GOVS710120MBCMJL04\",\"documento_b\":\"identificacion_oficial\",\"valor_b\":\"GOVS710120MBCMJL04\",\"coincide\":true,\"severidad\":\"ok\",\"mensaje\":\"CURP consistente entre documentos.\"},{\"categoria\":\"CURP\",\"etiqueta\":\"CURP contra referencia documental\",\"documento_a\":\"CURP principal\",\"valor_a\":\"GOVS710120MBCMJL04\",\"documento_b\":\"constancia_fiscal\",\"valor_b\":\"GOVS710120MBCMJL04\",\"coincide\":true,\"severidad\":\"ok\",\"mensaje\":\"CURP consistente entre documentos.\"},{\"categoria\":\"CURP\",\"etiqueta\":\"CURP contra referencia documental\",\"documento_a\":\"CURP principal\",\"valor_a\":\"GOVS710120MBCMJL04\",\"documento_b\":\"nss\",\"valor_b\":\"GOVS710120MBCMJL04\",\"coincide\":true,\"severidad\":\"ok\",\"mensaje\":\"CURP consistente entre documentos.\"},{\"categoria\":\"RFC\",\"etiqueta\":\"RFC contra referencia documental\",\"documento_a\":\"RFC principal\",\"valor_a\":\"GOVS7101204N3\",\"documento_b\":\"solicitud_interna\",\"valor_b\":\"GOVS711012YN3\",\"coincide\":false,\"severidad\":\"aviso\",\"mensaje\":\"La solicitud interna requiere revision: el RFC leido no coincide con la constancia fiscal\\\/CURP, pero la identidad se sostiene con los documentos oficiales.\"},{\"categoria\":\"RFC\",\"etiqueta\":\"RFC contra referencia documental\",\"documento_a\":\"RFC principal\",\"valor_a\":\"GOVS7101204N3\",\"documento_b\":\"constancia_fiscal\",\"valor_b\":\"GOVS7101204N3\",\"coincide\":true,\"severidad\":\"ok\",\"mensaje\":\"RFC consistente entre documentos.\"},{\"categoria\":\"NSS\",\"etiqueta\":\"NSS entre documentos\",\"documento_a\":\"solicitud_interna\",\"valor_a\":\"54877166709\",\"documento_b\":\"nss\",\"valor_b\":\"54877166709\",\"coincide\":true,\"severidad\":\"ok\",\"mensaje\":\"NSS consistente entre documentos.\"}],\"documentos_analizados_v2\":{\"solicitud_interna\":{\"estado\":\"requiere_revision\",\"tipo_detectado\":\"solicitud___SPARTA_SECRET_REDACTED__\",\"archivo\":\"SOLICITUD.pdf\",\"paginas_pdf\":2,\"nombre\":\"Silvia Gomez Velez\",\"curp\":null,\"rfc\":\"GOVS711012YN3\",\"nss\":\"54877166709\",\"fecha_nacimiento\":\"1971-10-20\",\"fecha_emision\":null,\"domicilio\":\"Joseph Hayden #1487 Prados Guadalupe\",\"banco\":null,\"clabe\":null,\"numero_cuenta\":null,\"regimen_fiscal\":null,\"firma_detectada\":null,\"nombre_y_firma_lleno\":null,\"evidencia_insuficiente\":null,\"mensaje\":\"solicitud interna listo.\",\"observaciones\":[\"Documento identificado como Solicitud de Empleo MaxiKash (Solicitud Interna).\",\"Fecha de emision del documento: 03-06-2020.\",\"CURP extraida de la seccion 'Clave Unica del Registro de Poblacion'.\",\"RFC extraido de la seccion 'Registro Federal de Contribuyentes'.\",\"NSS extraido de la seccion 'Numero de seguridad social'.\",\"Nombre completo normalizado a partir de los campos Apellido Paterno, Materno y Nombre(s).\",\"Se detecta firma manuscrita al final de la segunda pagina.\",\"La fecha de nacimiento escrita es '20 OCT 1971', convertida a formato YYYY-MM-DD.\",\"CURP descartada por lectura no valida: GOVS711012OMMJL04.\",\"La discrepancia se mando a revision por consenso de los demas documentos.\"]},\"cv\":{\"estado\":\"coincide\",\"tipo_detectado\":\"cv\",\"archivo\":\"cv.pdf\",\"paginas_pdf\":1,\"nombre\":\"SILVIA G\\u00d3MEZ VEJAR\",\"curp\":null,\"rfc\":null,\"nss\":null,\"fecha_nacimiento\":null,\"fecha_emision\":null,\"domicilio\":\"GUADALAJARA, JAL.\",\"banco\":null,\"clabe\":null,\"numero_cuenta\":null,\"regimen_fiscal\":null,\"firma_detectada\":false,\"nombre_y_firma_lleno\":false,\"evidencia_insuficiente\":false,\"mensaje\":\"CV listo.\",\"observaciones\":[\"Documento identificado como CV (Curriculum Vitae).\",\"No se detect\\u00f3 firma en el documento.\",\"La informaci\\u00f3n de escolaridad se extrajo de la secci\\u00f3n 'ESTUDIOS' y 'CURSOS'.\",\"El domicilio aparece como 'GUADALAJARA, JAL.' sin c\\u00f3digo postal expl\\u00edcito.\"]},\"acta_nacimiento\":{\"estado\":\"coincide\",\"tipo_detectado\":\"acta_nacimiento\",\"archivo\":\"ACTA NACIMIENTO.pdf\",\"paginas_pdf\":1,\"nombre\":\"SILVIA GOMEZ VEJAR\",\"curp\":null,\"rfc\":null,\"nss\":null,\"fecha_nacimiento\":\"1971-01-20\",\"fecha_emision\":null,\"domicilio\":null,\"banco\":null,\"clabe\":null,\"numero_cuenta\":null,\"regimen_fiscal\":null,\"firma_detectada\":null,\"nombre_y_firma_lleno\":null,\"evidencia_insuficiente\":null,\"mensaje\":\"acta de nacimiento listo.\",\"observaciones\":[\"Documento clasificado como acta de nacimiento.\",\"Fecha de expedici\\u00f3n\\\/emisi\\u00f3n detectada en secci\\u00f3n de certificaci\\u00f3n: '04 d\\u00edas del mes de junio de 2026'.\",\"CURP extra\\u00edda de la zona superior derecha bajo 'Clave \\u00danica de Registro de Poblaci\\u00f3n'.\",\"Nombre completo reconstruido a partir de Nombre(s), Primer Apellido y Segundo Apellido.\"]},\"curp\":{\"estado\":\"coincide\",\"tipo_detectado\":null,\"archivo\":\"CURP.pdf\",\"paginas_pdf\":1,\"nombre\":\"SILVIA GOMEZ VEJAR\",\"curp\":\"GOVS710120MBCMJL04\",\"rfc\":null,\"nss\":null,\"fecha_nacimiento\":null,\"fecha_emision\":\"2026-06-02\",\"domicilio\":null,\"banco\":null,\"clabe\":null,\"numero_cuenta\":null,\"regimen_fiscal\":null,\"firma_detectada\":null,\"nombre_y_firma_lleno\":null,\"evidencia_insuficiente\":null,\"mensaje\":\"CURP listo.\",\"observaciones\":[]},\"identificacion_oficial\":{\"estado\":\"coincide\",\"tipo_detectado\":\"ine\",\"archivo\":\"identificacion_frente.pdf\",\"paginas_pdf\":2,\"nombre\":\"GOMEZ VEJAR SILVIA\",\"curp\":\"GOVS710120MBCMJL04\",\"rfc\":null,\"nss\":null,\"fecha_nacimiento\":null,\"fecha_emision\":null,\"domicilio\":\"FA COL PRADOS GUADALUPE 45090 ZAP , ON AER DE ELECTOR MVASL 01 2002600 ANO DE REGISTRO GOVS710120MBCMJLO4 1991 05 K\",\"banco\":null,\"clabe\":null,\"numero_cuenta\":null,\"regimen_fiscal\":null,\"firma_detectada\":null,\"nombre_y_firma_lleno\":null,\"evidencia_insuficiente\":null,\"mensaje\":\"INE identificada por OCR local.\",\"observaciones\":[]},\"comprobante_domicilio\":{\"estado\":\"coincide\",\"tipo_detectado\":null,\"archivo\":\"DOMICILIO.pdf\",\"paginas_pdf\":2,\"nombre\":\"GOMEZ VEJAR IRMA YOLANDA\",\"curp\":null,\"rfc\":null,\"nss\":null,\"fecha_nacimiento\":null,\"fecha_emision\":\"2026-05-24\",\"domicilio\":\"JOSEPH HAYDEN 4787 DOMENICO SCARLATTI Y GEORGE HEANDEL PRADOS GUADALUPE P.45030 ZAPOTAN,JAL.\",\"banco\":null,\"clabe\":null,\"numero_cuenta\":null,\"regimen_fiscal\":null,\"firma_detectada\":null,\"nombre_y_firma_lleno\":null,\"evidencia_insuficiente\":null,\"mensaje\":null,\"observaciones\":[]},\"constancia_fiscal\":{\"estado\":\"coincide\",\"tipo_detectado\":null,\"archivo\":\"CSF.pdf\",\"paginas_pdf\":3,\"nombre\":\"SILVIA GOMEZ VEJAR\",\"curp\":\"GOVS710120MBCMJL04\",\"rfc\":\"GOVS7101204N3\",\"nss\":null,\"fecha_nacimiento\":null,\"fecha_emision\":\"2026-06-02\",\"domicilio\":null,\"banco\":null,\"clabe\":null,\"numero_cuenta\":null,\"regimen_fiscal\":null,\"firma_detectada\":null,\"nombre_y_firma_lleno\":null,\"evidencia_insuficiente\":null,\"mensaje\":\"constancia fiscal listo.\",\"observaciones\":[]},\"nss\":{\"estado\":\"coincide\",\"tipo_detectado\":null,\"archivo\":\"NSS.pdf\",\"paginas_pdf\":5,\"nombre\":\"GOMEZ VEJAR SILVIA\",\"curp\":\"GOVS710120MBCMJL04\",\"rfc\":null,\"nss\":\"54877166709\",\"fecha_nacimiento\":null,\"fecha_emision\":null,\"domicilio\":null,\"banco\":null,\"clabe\":null,\"numero_cuenta\":null,\"regimen_fiscal\":null,\"firma_detectada\":null,\"nombre_y_firma_lleno\":null,\"evidencia_insuficiente\":null,\"mensaje\":\"NSS listo.\",\"observaciones\":[]},\"hoja_retencion\":{\"estado\":\"coincide\",\"tipo_detectado\":\"carta_no_adeudo\",\"archivo\":\"hoja_retencion.pdf\",\"paginas_pdf\":1,\"nombre\":\"Silvia Gomez Vejar\",\"curp\":null,\"rfc\":null,\"nss\":null,\"fecha_nacimiento\":null,\"fecha_emision\":\"2026-06-04\",\"domicilio\":null,\"banco\":null,\"clabe\":null,\"numero_cuenta\":null,\"regimen_fiscal\":null,\"firma_detectada\":true,\"nombre_y_firma_lleno\":true,\"evidencia_insuficiente\":false,\"mensaje\":\"carta de no adeudo listo.\",\"observaciones\":[\"Fecha de emisi\\u00f3n futura (junio 2026).\",\"Documento clasificado como carta_no_adeudo por declaraci\\u00f3n expl\\u00edcita de no contar con cr\\u00e9ditos.\",\"Entidad emisora identificada en el texto: Amigo Efectivo S.A de C.V.\"]},\"__SPARTA_SECRET_REDACTED__\":{\"estado\":\"coincide\",\"tipo_detectado\":null,\"archivo\":\"BBVA.pdf\",\"paginas_pdf\":1,\"nombre\":\"SILVIA GOMEZ VEJAR\",\"curp\":null,\"rfc\":null,\"nss\":null,\"fecha_nacimiento\":null,\"fecha_emision\":null,\"domicilio\":null,\"banco\":\"BBVA\",\"clabe\":\"012090015068295439\",\"numero_cuenta\":\"1506829543\",\"regimen_fiscal\":null,\"firma_detectada\":null,\"nombre_y_firma_lleno\":null,\"evidencia_insuficiente\":null,\"mensaje\":\"estado de cuenta listo.\",\"observaciones\":[]}},\"datos_referencia_v2\":{\"nombre_registro\":\"SILVIA GOMEZ VEJAR\",\"nombre_principal_documentos\":\"Silvia Gomez Velez\",\"curp_principal\":\"GOVS710120MBCMJL04\",\"rfc_principal\":\"GOVS7101204N3\",\"nss_principal\":\"54877166709\"},\"coincidencias_v2\":{\"total\":23,\"ok\":21,\"fallas\":2},\"recomendaciones\":[],\"nombre_candidato_registro\":\"SILVIA GOMEZ VEJAR\"}"
+    },
+    "state_after_cleanup": {
+        "candidate_exists": false,
+        "docs_count": 0
+    }
+}

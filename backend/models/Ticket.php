@@ -842,6 +842,13 @@ class Ticket extends Model
                 );
             }
             if (!empty($validacionIlocalizable['ilocalizable'])) {
+                self::registrarIntentoTicketIlocalizable(
+                    $idCredito,
+                    (int)$idPersonaCreador,
+                    $datos,
+                    $validacionIlocalizable['datos'] ?? null,
+                    self::mensajeCreditoIlocalizable($idCredito, $validacionIlocalizable['datos'] ?? null)
+                );
                 return self::resultado(
                     false,
                     self::mensajeCreditoIlocalizable($idCredito, $validacionIlocalizable['datos'] ?? null),
@@ -2316,6 +2323,156 @@ class Ticket extends Model
         return $out;
     }
 
+    private static function asegurarIntentosTicketIlocalizableSchema(Database $db): void
+    {
+        static $ok = false;
+        if ($ok) {
+            return;
+        }
+        $db->CRUD("
+            CREATE TABLE IF NOT EXISTS __SPARTA_SECRET_REDACTED__.sabueso_ticket_ilocalizable_intentos (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                id_credito INT NOT NULL,
+                id_persona_creador INT NULL,
+                nombre_creador VARCHAR(255) NULL,
+                categoria_gestion VARCHAR(40) NULL,
+                id_tipo_ticket INT NULL,
+                tipo_ticket_nombre VARCHAR(150) NULL,
+                id_origen_ticket INT NULL,
+                origen_ticket_nombre VARCHAR(150) NULL,
+                descripcion_inicial TEXT NULL,
+                mensaje TEXT NULL,
+                historico_id INT NULL,
+                historico_origen VARCHAR(40) NULL,
+                historico_motivo VARCHAR(80) NULL,
+                semana_inicio DATE NOT NULL,
+                semana_fin DATE NOT NULL,
+                intentos INT NOT NULL DEFAULT 1,
+                creado_en DATETIME NOT NULL,
+                actualizado_en DATETIME NOT NULL,
+                KEY idx_sab_ticket_iloc_credito (id_credito),
+                KEY idx_sab_ticket_iloc_semana (semana_inicio, semana_fin),
+                KEY idx_sab_ticket_iloc_actualizado (actualizado_en, id),
+                KEY idx_sab_ticket_iloc_persona (id_persona_creador, actualizado_en)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+        ");
+        foreach ([
+            "ALTER TABLE __SPARTA_SECRET_REDACTED__.sabueso_ticket_ilocalizable_intentos ADD INDEX idx_sab_ticket_iloc_semana (semana_inicio, semana_fin)",
+            "ALTER TABLE __SPARTA_SECRET_REDACTED__.sabueso_ticket_ilocalizable_intentos ADD INDEX idx_sab_ticket_iloc_actualizado (actualizado_en, id)",
+            "ALTER TABLE __SPARTA_SECRET_REDACTED__.sabueso_ticket_ilocalizable_intentos ADD INDEX idx_sab_ticket_iloc_persona (id_persona_creador, actualizado_en)",
+        ] as $sqlIndex) {
+            try {
+                $db->CRUD($sqlIndex);
+            } catch (\Throwable $e) {
+                // El indice ya puede existir.
+            }
+        }
+        $ok = true;
+    }
+
+    public static function registrarIntentoTicketIlocalizable(int $idCredito, int $idPersonaCreador, array $datos = [], ?array $historico = null, string $mensaje = ''): void
+    {
+        if ($idCredito < 1) {
+            return;
+        }
+        try {
+            $db = new Database();
+            self::asegurarIntentosTicketIlocalizableSchema($db);
+            $now = self::ahoraCdmx();
+            [$semanaInicio, $semanaFin] = self::semanaHistoricoDesdeFecha($now);
+            $descripcion = trim((string)($datos['descripcion_inicial'] ?? ''));
+            if ($descripcion !== '' && function_exists('mb_substr')) {
+                $descripcion = mb_substr($descripcion, 0, 1200, 'UTF-8');
+            } elseif (strlen($descripcion) > 1200) {
+                $descripcion = substr($descripcion, 0, 1200);
+            }
+            $persona = $idPersonaCreador > 0 ? $db->queryOne(
+                "SELECT TRIM(CONCAT(TRIM(IFNULL(nombres,'')), ' ', TRIM(IFNULL(segundo_nombre,'')), ' ', TRIM(IFNULL(apellidop,'')), ' ', TRIM(IFNULL(apellidom,'')))) AS nombre FROM persona WHERE id = :id LIMIT 1",
+                ['id' => $idPersonaCreador]
+            ) : null;
+            $tipo = !empty($datos['id_tipo_ticket']) ? $db->queryOne(
+                "SELECT nombre FROM tipo_ticket WHERE id_tipo_ticket = :id LIMIT 1",
+                ['id' => (int)$datos['id_tipo_ticket']]
+            ) : null;
+            $origen = !empty($datos['id_origen_ticket']) ? $db->queryOne(
+                "SELECT nombre FROM origen_ticket WHERE id_origen_ticket = :id LIMIT 1",
+                ['id' => (int)$datos['id_origen_ticket']]
+            ) : null;
+            $reciente = $db->queryOne(
+                "SELECT id FROM __SPARTA_SECRET_REDACTED__.sabueso_ticket_ilocalizable_intentos " .
+                "WHERE id_credito = :id_credito " .
+                "AND COALESCE(id_persona_creador, 0) = :id_persona " .
+                "AND creado_en >= DATE_SUB(:now, INTERVAL 3 MINUTE) " .
+                "ORDER BY id DESC LIMIT 1",
+                [
+                    'id_credito' => $idCredito,
+                    'id_persona' => max(0, $idPersonaCreador),
+                    'now' => $now,
+                ]
+            );
+            $params = [
+                'id_credito' => $idCredito,
+                'id_persona_creador' => $idPersonaCreador > 0 ? $idPersonaCreador : null,
+                'nombre_creador' => trim((string)($persona['nombre'] ?? '')) ?: null,
+                'categoria_gestion' => trim((string)($datos['categoria_gestion'] ?? 'sabueso')) ?: 'sabueso',
+                'id_tipo_ticket' => !empty($datos['id_tipo_ticket']) ? (int)$datos['id_tipo_ticket'] : null,
+                'tipo_ticket_nombre' => trim((string)($tipo['nombre'] ?? '')) ?: null,
+                'id_origen_ticket' => !empty($datos['id_origen_ticket']) ? (int)$datos['id_origen_ticket'] : null,
+                'origen_ticket_nombre' => trim((string)($origen['nombre'] ?? '')) ?: null,
+                'descripcion_inicial' => $descripcion !== '' ? $descripcion : null,
+                'mensaje' => $mensaje !== '' ? $mensaje : self::mensajeCreditoIlocalizable($idCredito, $historico),
+                'historico_id' => is_array($historico) && !empty($historico['id']) ? (int)$historico['id'] : null,
+                'historico_origen' => is_array($historico) ? (trim((string)($historico['origen'] ?? '')) ?: null) : null,
+                'historico_motivo' => is_array($historico) ? (trim((string)($historico['motivo'] ?? '')) ?: null) : null,
+                'semana_inicio' => $semanaInicio,
+                'semana_fin' => $semanaFin,
+                'now' => $now,
+                'creado_en' => $now,
+                'actualizado_en' => $now,
+            ];
+            if (!empty($reciente['id'])) {
+                $params['id'] = (int)$reciente['id'];
+                $db->CRUD(
+                    "UPDATE __SPARTA_SECRET_REDACTED__.sabueso_ticket_ilocalizable_intentos " .
+                    "SET intentos = intentos + 1, actualizado_en = :now, descripcion_inicial = :descripcion_inicial, mensaje = :mensaje, " .
+                    "id_tipo_ticket = :id_tipo_ticket, tipo_ticket_nombre = :tipo_ticket_nombre, id_origen_ticket = :id_origen_ticket, origen_ticket_nombre = :origen_ticket_nombre, " .
+                    "historico_id = :historico_id, historico_origen = :historico_origen, historico_motivo = :historico_motivo " .
+                    "WHERE id = :id",
+                    [
+                        'now' => $params['now'],
+                        'descripcion_inicial' => $params['descripcion_inicial'],
+                        'mensaje' => $params['mensaje'],
+                        'id_tipo_ticket' => $params['id_tipo_ticket'],
+                        'tipo_ticket_nombre' => $params['tipo_ticket_nombre'],
+                        'id_origen_ticket' => $params['id_origen_ticket'],
+                        'origen_ticket_nombre' => $params['origen_ticket_nombre'],
+                        'historico_id' => $params['historico_id'],
+                        'historico_origen' => $params['historico_origen'],
+                        'historico_motivo' => $params['historico_motivo'],
+                        'id' => $params['id'],
+                    ]
+                );
+                return;
+            }
+            $insertParams = $params;
+            unset($insertParams['now']);
+            $db->CRUD(
+                "INSERT INTO __SPARTA_SECRET_REDACTED__.sabueso_ticket_ilocalizable_intentos (" .
+                "id_credito, id_persona_creador, nombre_creador, categoria_gestion, id_tipo_ticket, tipo_ticket_nombre, " .
+                "id_origen_ticket, origen_ticket_nombre, descripcion_inicial, mensaje, historico_id, historico_origen, historico_motivo, " .
+                "semana_inicio, semana_fin, intentos, creado_en, actualizado_en" .
+                ") VALUES (" .
+                ":id_credito, :id_persona_creador, :nombre_creador, :categoria_gestion, :id_tipo_ticket, :tipo_ticket_nombre, " .
+                ":id_origen_ticket, :origen_ticket_nombre, :descripcion_inicial, :mensaje, :historico_id, :historico_origen, :historico_motivo, " .
+                ":semana_inicio, :semana_fin, 1, :creado_en, :actualizado_en" .
+                ")",
+                $insertParams
+            );
+        } catch (\Throwable $e) {
+            error_log('registrar intento ticket ilocalizable error: ' . $e->getMessage());
+        }
+    }
+
     private static function formatearRangoSemanaUi(string $inicio, string $fin): string
     {
         try {
@@ -2337,6 +2494,7 @@ class Ticket extends Model
         try {
             $db = new Database();
             self::asegurarHistoricoIlocalizablesSchema($db);
+            self::asegurarIntentosTicketIlocalizableSchema($db);
 
             $cerrados = $db->queryAll(
                 "SELECT th.id_ticket, th.folio, th.id_credito, th.descripcion_inicial, th.fecha_creacion, th.fecha_vencimiento, " .
@@ -2363,6 +2521,26 @@ class Ticket extends Model
                 "ORDER BY h.semana_inicio DESC, COALESCE(h.dictamen_envio, h.actualizado_en) DESC, h.id DESC LIMIT 5000"
             );
             $ilocalizables = is_array($ilocalizables) ? $ilocalizables : [];
+
+            $intentosIlocalizables = $db->queryAll(
+                "SELECT i.id, NULL AS id_ticket, i.id_credito, NULL AS folio, i.semana_inicio, i.semana_fin, " .
+                "i.actualizado_en AS dictamen_envio, i.id_persona_creador AS id_gestor, i.nombre_creador AS nombre_gestor, " .
+                "NULL AS nombre_cliente, i.tipo_ticket_nombre AS tipo_contacto, " .
+                "'intento_ticket_bloqueado' AS motivo, 'intento_ticket' AS origen, " .
+                "i.origen_ticket_nombre AS dictamen_tipo_sabueso, 'ticket_bloqueado_ilocalizable' AS resultado_ds, " .
+                "NULL AS fue_todas_direcciones, NULL AS direcciones_fue, 0 AS pago_semana_si, 0 AS pago_semana_count, 0 AS pago_semana_consultado, " .
+                "1 AS ilocalizable_auto, 0 AS ilocalizable_override, 1 AS activo, i.creado_en AS detectado_en, i.actualizado_en, " .
+                "i.nombre_creador AS gestor_nombre_resuelto, i.descripcion_inicial, i.mensaje, i.intentos, i.historico_id, i.historico_origen, i.historico_motivo, " .
+                "'intento_bloqueado' AS tipo_registro " .
+                "FROM __SPARTA_SECRET_REDACTED__.sabueso_ticket_ilocalizable_intentos i " .
+                "ORDER BY i.semana_inicio DESC, i.actualizado_en DESC, i.id DESC LIMIT 5000"
+            );
+            $intentosIlocalizables = is_array($intentosIlocalizables) ? $intentosIlocalizables : [];
+            foreach ($ilocalizables as &$ilocRow) {
+                $ilocRow['tipo_registro'] = 'historico_manual';
+            }
+            unset($ilocRow);
+            $ilocalizables = array_merge($ilocalizables, $intentosIlocalizables);
 
             $cerradosSemanas = self::agruparHistorialSemanalTickets($cerrados, 'fecha_eliminacion', 'cerrados');
             $ilocalizablesSemanas = self::agruparHistorialSemanalTickets($ilocalizables, 'actualizado_en', 'ilocalizables');

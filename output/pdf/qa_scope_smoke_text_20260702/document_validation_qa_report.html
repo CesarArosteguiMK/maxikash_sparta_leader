@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<title>Reporte QA Validacion Documental</title>
+<style>
+body { font-family: Arial, sans-serif; margin: 28px; color: #1f2933; }
+h1, h2 { color: #102a43; }
+table { border-collapse: collapse; width: 100%; margin: 12px 0 24px; font-size: 12px; }
+th, td { border: 1px solid #cbd5e1; padding: 6px 8px; vertical-align: top; }
+th { background: #eef2f7; text-align: left; }
+.grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+.metric { border: 1px solid #cbd5e1; padding: 10px; }
+.metric b { display: block; font-size: 20px; margin-top: 4px; }
+code { font-size: 11px; }
+</style>
+</head>
+<body>
+<h1>Reporte QA Validacion Documental</h1>
+<p>Generado: 2026-07-02T15:24:51</p>
+<div class="grid">
+  <div class="metric">PDFs revisados<b>0</b></div>
+  <div class="metric">Revision rapida<b>0</b></div>
+  <div class="metric">Cruces expediente<b>0</b></div>
+  <div class="metric">Errores cruce<b>0</b></div>
+</div>
+<h2>Resumen</h2>
+<pre>{
+  "generated_at": "2026-07-02T15:24:51",
+  "scope": "documentos_candidato_10",
+  "total_pdfs_discovered": 2,
+  "total_pdfs": 0,
+  "out_of_scope_pdfs": 2,
+  "out_of_scope_by_type": {
+    "unknown": 2
+  },
+  "skipped_non_pdf": {
+    ".png": 3
+  },
+  "pdfs_by_type": {},
+  "duplicate_pdf_hash_count": 0,
+  "quick_total": 0,
+  "quick_timing_ms": {
+    "count": 0,
+    "avg": null,
+    "median": null,
+    "p95": null,
+    "min": null,
+    "max": null
+  },
+  "quick_by_type": {},
+  "quick_outcomes": {},
+  "cross_total": 0,
+  "cross_timing_ms": {
+    "count": 0,
+    "avg": null,
+    "median": null,
+    "p95": null,
+    "min": null,
+    "max": null
+  },
+  "cross_dictamen": {},
+  "cross_errors": 0
+}</pre>
+<h2>Tiempos por tipo - revision rapida</h2>
+<table><thead><tr><th>Tipo</th><th>N</th><th>Prom ms</th><th>Mediana</th><th>P95</th><th>Max</th><th>Outcomes</th></tr></thead><tbody></tbody></table>
+<h2>Mas lentos - revision rapida</h2>
+<table><thead><tr><th>Tipo</th><th>ms</th><th>Resultado</th><th>Archivo</th><th>Mensaje</th></tr></thead><tbody></tbody></table>
+<h2>Mas lentos - validacion cruzada</h2>
+<table><thead><tr><th>Candidato/grupo</th><th>Dictamen</th><th>Confianza</th><th>ms</th><th>Docs</th><th>Error</th></tr></thead><tbody></tbody></table>
+</body></html>

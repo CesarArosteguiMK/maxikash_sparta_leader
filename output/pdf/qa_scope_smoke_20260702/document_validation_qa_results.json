@@ -1,0 +1,79 @@
+{
+  "summary": {
+    "generated_at": "2026-07-02T15:24:38",
+    "scope": "documentos_candidato_10",
+    "total_pdfs_discovered": 2,
+    "total_pdfs": 0,
+    "out_of_scope_pdfs": 2,
+    "out_of_scope_by_type": {
+      "unknown": 2
+    },
+    "skipped_non_pdf": {
+      ".png": 3
+    },
+    "pdfs_by_type": {},
+    "duplicate_pdf_hash_count": 0,
+    "quick_total": 0,
+    "quick_timing_ms": {
+      "count": 0,
+      "avg": null,
+      "median": null,
+      "p95": null,
+      "min": null,
+      "max": null
+    },
+    "quick_by_type": {},
+    "quick_outcomes": {},
+    "cross_total": 0,
+    "cross_timing_ms": {
+      "count": 0,
+      "avg": null,
+      "median": null,
+      "p95": null,
+      "min": null,
+      "max": null
+    },
+    "cross_dictamen": {},
+    "cross_errors": 0
+  },
+  "items": [],
+  "out_of_scope_items": [
+    {
+      "id": "fs::DIAZ_CARRENO_MARIA_DE_LOURDES_ACTA.pdf",
+      "source_kind": "file",
+      "display_path": "tmp\\pdfs\\recheck_cases\\DIAZ_CARRENO_MARIA_DE_LOURDES_ACTA.pdf",
+      "filename": "DIAZ_CARRENO_MARIA_DE_LOURDES_ACTA.pdf",
+      "size": 879076,
+      "group_id": null,
+      "candidate_name": null,
+      "zip_path": null,
+      "zip_inner": null,
+      "file_path": "tmp\\pdfs\\recheck_cases\\DIAZ_CARRENO_MARIA_DE_LOURDES_ACTA.pdf",
+      "doc_type": "unknown",
+      "classifier_reason": "sin coincidencia clara",
+      "pages": 1,
+      "sha256": "b00df4ffb53f76a45ee1eb521c66b9c1d793d5562557ca9743ad7e45f0e46dfb"
+    },
+    {
+      "id": "fs::SERRANO_MIRANDA_JOSE_LUIS_ACTA.pdf",
+      "source_kind": "file",
+      "display_path": "tmp\\pdfs\\recheck_cases\\SERRANO_MIRANDA_JOSE_LUIS_ACTA.pdf",
+      "filename": "SERRANO_MIRANDA_JOSE_LUIS_ACTA.pdf",
+      "size": 1537640,
+      "group_id": null,
+      "candidate_name": null,
+      "zip_path": null,
+      "zip_inner": null,
+      "file_path": "tmp\\pdfs\\recheck_cases\\SERRANO_MIRANDA_JOSE_LUIS_ACTA.pdf",
+      "doc_type": "unknown",
+      "classifier_reason": "sin coincidencia clara",
+      "pages": 2,
+      "sha256": "99e15d2b0b743156f0f34e4833d506cf0e1cf9bb12d507823787c6b72debc313"
+    }
+  ],
+  "skipped_non_pdf": {
+    ".png": 3
+  },
+  "quick_results": [],
+  "cross_results": []
+}

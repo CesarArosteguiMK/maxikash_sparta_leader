@@ -758,7 +758,7 @@ $funcionesTicket = isset($funcionesTicket) && is_array($funcionesTicket) ? $func
                     <h5 class="modal-title mb-1" id="modalHistorialSemanalTicketsLabel">
                         <i class="fa-solid fa-clock-rotate-left me-2"></i>Historial semanal
                     </h5>
-                    <p class="text-muted mb-0 small">Tickets cerrados o eliminados e ilocalizables manuales organizados por semana.</p>
+                    <p class="text-muted mb-0 small">Tickets cerrados o eliminados e ilocalizables / intentos bloqueados organizados por semana.</p>
                 </div>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
             </div>
@@ -777,7 +777,7 @@ $funcionesTicket = isset($funcionesTicket) && is_array($funcionesTicket) ? $func
                         </div>
                         <div class="col-md-3 col-6">
                             <div class="historial-semanal-kpi">
-                                <small>Ilocalizables manuales</small>
+                                <small>Ilocalizables / intentos bloqueados</small>
                                 <strong id="historialKpiIlocalizables">0</strong>
                                 <span class="text-muted small" id="historialKpiIlocalizablesSemanas">0 semanas</span>
                             </div>
@@ -786,7 +786,7 @@ $funcionesTicket = isset($funcionesTicket) && is_array($funcionesTicket) ? $func
                             <div class="historial-semanal-kpi">
                                 <small>Lectura rápida</small>
                                 <div class="small text-muted mt-2">
-                                    Cerrados y eliminados por fecha de cierre. Ilocalizables manuales por la semana registrada en el histórico activo.
+                                    Cerrados y eliminados por fecha de cierre. Ilocalizables manuales e intentos bloqueados por la semana registrada.
                                 </div>
                             </div>
                         </div>
@@ -812,7 +812,7 @@ $funcionesTicket = isset($funcionesTicket) && is_array($funcionesTicket) ? $func
                         </li>
                         <li class="nav-item" role="presentation">
                             <button class="nav-link" id="historial-ilocalizables-tab" data-bs-toggle="tab" data-bs-target="#historial-ilocalizables-pane" type="button" role="tab" aria-controls="historial-ilocalizables-pane" aria-selected="false">
-                                <i class="fa-solid fa-location-crosshairs me-1"></i>Ilocalizables manuales
+                                <i class="fa-solid fa-location-crosshairs me-1"></i>Ilocalizables / intentos
                             </button>
                         </li>
                     </ul>

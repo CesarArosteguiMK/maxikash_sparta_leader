@@ -1,0 +1,80 @@
+{
+  "generated_at": "2026-07-02T14:15:21",
+  "source_results": "output\\pdf\\document_validation_qa_full_20260702_111350\\document_validation_qa_results.json",
+  "previous_revision_total": 144,
+  "recheck": {
+    "total": 144,
+    "outcomes": {
+      "revision": 78,
+      "aceptado": 65,
+      "rechazado": 1
+    },
+    "by_type": {
+      "acta_nacimiento": {
+        "count": 66,
+        "outcomes": {
+          "aceptado": 65,
+          "rechazado": 1
+        },
+        "timing_ms": {
+          "count": 66,
+          "avg": 15687.47,
+          "median": 15559.0,
+          "p95": 18177,
+          "min": 12924,
+          "max": 22017
+        },
+        "messages": [
+          [
+            "acta de nacimiento listo.",
+            65
+          ],
+          [
+            "No se puede cargar este documento: Este archivo parece solicitud interna, pero se esperaba acta de nacimiento.",
+            1
+          ]
+        ]
+      },
+      "contrato_fad": {
+        "count": 77,
+        "outcomes": {
+          "revision": 77
+        },
+        "timing_ms": {
+          "count": 77,
+          "avg": 74.99,
+          "median": 44,
+          "p95": 184,
+          "min": 19,
+          "max": 940
+        },
+        "messages": [
+          [
+            "sin seccion ingresos",
+            77
+          ]
+        ]
+      },
+      "nss": {
+        "count": 1,
+        "outcomes": {
+          "revision": 1
+        },
+        "timing_ms": {
+          "count": 1,
+          "avg": 13118,
+          "median": 13118,
+          "p95": 13118,
+          "min": 13118,
+          "max": 13118
+        },
+        "messages": [
+          [
+            "No se puede cargar este documento: No se pudo leer el NSS.",
+            1
+          ]
+        ]
+      }
+    }
+  }
+}
