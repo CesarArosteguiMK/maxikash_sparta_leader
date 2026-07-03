@@ -403,20 +403,24 @@ final class AvanceBucket
     {
         $limite = max(1, min(12, $limite));
         $rows = $db->queryAll("
-            SELECT SEMANA, MAX(fecha_hora_insert) AS ultima_fecha
+            SELECT DISTINCT SEMANA
             FROM tbl_segundometro_histo
             WHERE SEMANA IS NOT NULL
-              AND TRIM(CAST(SEMANA AS CHAR)) <> ''
-            GROUP BY SEMANA
-            ORDER BY ultima_fecha DESC
+              AND LENGTH(TRIM(CAST(SEMANA AS CHAR))) > 0
+            ORDER BY
+                CAST(SUBSTRING_INDEX(TRIM(CAST(SEMANA AS CHAR)), '-', -1) AS UNSIGNED) DESC,
+                CAST(SUBSTRING_INDEX(SUBSTRING_INDEX(TRIM(CAST(SEMANA AS CHAR)), ' ', -1), '-', 1) AS UNSIGNED) DESC
             LIMIT {$limite}
         ");
 
         $out = [];
         foreach ($rows as $row) {
             $semana = trim((string) ($row['SEMANA'] ?? ''));
-            if ($semana !== '') {
+            if ($semana !== '' && !in_array($semana, $out, true)) {
                 $out[] = $semana;
+                if (count($out) >= $limite) {
+                    break;
+                }
             }
         }
 

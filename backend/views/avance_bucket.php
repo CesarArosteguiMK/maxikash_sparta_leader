@@ -2,11 +2,14 @@
 /** @var ?array $avance_bucket_payload */
 /** @var ?string $avance_bucket_error */
 /** @var string $avance_bucket_initial_json */
+/** @var string $avance_bucket_vista */
 $avanceError = isset($avance_bucket_error) ? (string) $avance_bucket_error : '';
 $nombreUsuario = isset($_SESSION['usuario_nombre'])
     ? htmlspecialchars(strtoupper((string) $_SESSION['usuario_nombre']), ENT_QUOTES, 'UTF-8')
     : 'USUARIO';
-$mostrarAvanceBucket = isset($_GET['vista']) && (string) $_GET['vista'] === 'avance';
+$vistaAvanceBucket = isset($avance_bucket_vista) ? (string) $avance_bucket_vista : '';
+$mostrarAvanceBucket = in_array($vistaAvanceBucket, ['avance', 'historico'], true);
+$esHistoricoAvanceBucket = $vistaAvanceBucket === 'historico';
 ?>
 <div class="avance-bucket <?= $mostrarAvanceBucket ? 'container-fluid py-3 px-2 px-md-3' : 'ab-landing-root'; ?>">
     <?php if (!$mostrarAvanceBucket): ?>
@@ -48,7 +51,7 @@ $mostrarAvanceBucket = isset($_GET['vista']) && (string) $_GET['vista'] === 'ava
                                                 <p class="text-body w-sm-80 app-academy-xl-100">Entra al tablero de avance por bucket con resumen, matriz de creditos y matriz porcentual por corte.</p>
                                             </div>
                                             <div class="mb-0 mt-3">
-                                                <a href="/analitica/avanceBucket?vista=avance" class="btn btn-primary w-100">
+                                                <a href="/analitica/avanceBucket/avance" class="btn btn-primary w-100">
                                                     <i class="fa-solid fa-table-cells-large me-1" aria-hidden="true"></i>Ver tablero de avance
                                                 </a>
                                             </div>
@@ -60,16 +63,16 @@ $mostrarAvanceBucket = isset($_GET['vista']) && (string) $_GET['vista'] === 'ava
                                 </div>
                             </div>
                             <div class="col-12 col-lg-4">
-                                <div class="card shadow-none bg-label-info h-100">
+                                <div class="card shadow-none bg-label-primary h-100">
                                     <div class="card-body d-flex justify-content-between flex-wrap-reverse">
                                         <div class="mb-0 w-100 app-academy-sm-60 d-flex flex-column justify-content-between text-center text-sm-start">
                                             <div class="card-title">
-                                                <h5 class="text-info mb-2">Comparativo Semana Actual vs Semana Pasada</h5>
-                                                <p class="text-body w-sm-80 app-academy-xl-100">Revisa creditos y saldo capital por bucket con corte dinamico, comparando semana actual contra historico.</p>
+                                                <h5 class="text-primary mb-2">Historico Avance Bucket</h5>
+                                                <p class="text-body w-sm-80 app-academy-xl-100">Revisa el avance por bucket con la misma logica del tablero actual, usando las ultimas 6 semanas del historico.</p>
                                             </div>
                                             <div class="mb-0 mt-3">
-                                                <a href="/analitica/comparativoCierreSemanal" class="btn btn-info w-100">
-                                                    <i class="fa-solid fa-chart-column me-1" aria-hidden="true"></i>Ver comparativo
+                                                <a href="/analitica/avanceBucket/historico" class="btn btn-primary w-100">
+                                                    <i class="fa-solid fa-chart-column me-1" aria-hidden="true"></i>Ver historico
                                                 </a>
                                             </div>
                                         </div>
@@ -90,10 +93,16 @@ $mostrarAvanceBucket = isset($_GET['vista']) && (string) $_GET['vista'] === 'ava
     <div class="ab-report-toolbar d-flex flex-wrap align-items-center justify-content-between gap-3 mb-3">
         <h4 class="mb-0 text-primary d-flex align-items-center flex-wrap">
             <i class="fa-solid fa-chart-line me-2" aria-hidden="true"></i>
-            <span>Avance Bucket</span>
+            <span><?= $esHistoricoAvanceBucket ? 'Historico Avance Bucket' : 'Avance Bucket'; ?></span>
             <span id="ab-corte-badge" class="badge rounded-pill bg-label-primary ms-2">-</span>
         </h4>
         <div class="d-flex flex-wrap align-items-center gap-2">
+            <?php if ($esHistoricoAvanceBucket): ?>
+            <label class="ab-corte-control mb-0">
+                <span>Semana</span>
+                <select id="ab-semana" class="form-select form-select-sm"></select>
+            </label>
+            <?php endif; ?>
             <label class="ab-corte-control mb-0">
                 <span>Corte</span>
                 <select id="ab-corte" class="form-select form-select-sm"></select>
@@ -467,7 +476,8 @@ $mostrarAvanceBucket = isset($_GET['vista']) && (string) $_GET['vista'] === 'ava
 <script>
 (function () {
     const initialData = <?= $avance_bucket_initial_json ?? 'null'; ?>;
-    const endpoint = '/analitica/getAvanceBucketJson';
+    const isHistorico = <?= $esHistoricoAvanceBucket ? 'true' : 'false'; ?>;
+    const endpoint = isHistorico ? '/analitica/getAvanceBucketHistoricoJson' : '/analitica/getAvanceBucketJson';
     const fmtInt = new Intl.NumberFormat('es-MX', { maximumFractionDigits: 0 });
     const fmtPct = new Intl.NumberFormat('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
@@ -485,6 +495,10 @@ $mostrarAvanceBucket = isset($_GET['vista']) && (string) $_GET['vista'] === 'ava
         const select = el('ab-corte');
         return select && select.value ? select.value : '';
     }
+    function selectedSemana() {
+        const select = el('ab-semana');
+        return select && select.value ? select.value : '';
+    }
     function syncCorteOptions(data) {
         const select = el('ab-corte');
         if (!select || !data) return;
@@ -496,6 +510,18 @@ $mostrarAvanceBucket = isset($_GET['vista']) && (string) $_GET['vista'] === 'ava
             select.innerHTML = options.map(corte => '<option value="' + escapeHtml(corte) + '">' + escapeHtml(corte) + '</option>').join('');
         }
         select.value = current;
+    }
+    function syncSemanaOptions(data) {
+        if (!isHistorico) return;
+        const select = el('ab-semana');
+        if (!select || !data) return;
+        const semanas = Array.isArray(data.semanas) ? data.semanas : [];
+        const current = data.semana || select.value || '';
+        select.innerHTML = semanas.map(semana => '<option value="' + escapeHtml(semana) + '">' + escapeHtml(semana) + '</option>').join('');
+        if (current) {
+            select.value = current;
+        }
+        select.disabled = semanas.length === 0;
     }
     function showError(message) {
         const box = el('ab-alert');
@@ -513,7 +539,7 @@ $mostrarAvanceBucket = isset($_GET['vista']) && (string) $_GET['vista'] === 'ava
         if (typeof Swal === 'undefined') return;
         Swal.fire({
             title: 'Cargando datos',
-            text: 'Consultando Avance Bucket...',
+            text: isHistorico ? 'Consultando historico de Avance Bucket...' : 'Consultando Avance Bucket...',
             allowOutsideClick: false,
             allowEscapeKey: false,
             showConfirmButton: false,
@@ -582,10 +608,12 @@ $mostrarAvanceBucket = isset($_GET['vista']) && (string) $_GET['vista'] === 'ava
         }
         hideError();
         syncCorteOptions(data);
+        syncSemanaOptions(data);
         setStatus(true);
         const corteBadge = el('ab-corte-badge');
         if (corteBadge) {
-            corteBadge.textContent = (data.dia_corte ? data.dia_corte + ' ' : '') + (data.corte || '');
+            const corteLabel = (data.dia_corte ? data.dia_corte + ' ' : '') + (data.corte || '');
+            corteBadge.textContent = isHistorico && data.semana ? data.semana + ' | ' + corteLabel : corteLabel;
         }
         renderResumen('ab-resumen-inicio', data.resumen_inicio, data.total, 'count');
         renderResumen('ab-resumen-inicio-pct', data.resumen_inicio, data.total, 'pct');
@@ -599,7 +627,10 @@ $mostrarAvanceBucket = isset($_GET['vista']) && (string) $_GET['vista'] === 'ava
         if (select) select.disabled = true;
         showLoading();
         try {
-            const suffix = selectedCorte() ? '?corte=' + encodeURIComponent(selectedCorte()) : '';
+            const params = new URLSearchParams();
+            if (selectedCorte()) params.set('corte', selectedCorte());
+            if (isHistorico && selectedSemana()) params.set('semana', selectedSemana());
+            const suffix = params.toString() ? '?' + params.toString() : '';
             const res = await fetch(endpoint + suffix, { headers: { 'Accept': 'application/json' } });
             const data = await res.json();
             render(data);
@@ -614,6 +645,7 @@ $mostrarAvanceBucket = isset($_GET['vista']) && (string) $_GET['vista'] === 'ava
     }
     el('ab-refresh')?.addEventListener('click', refresh);
     el('ab-corte')?.addEventListener('change', refresh);
+    el('ab-semana')?.addEventListener('change', refresh);
     render(initialData);
 })();
 </script>

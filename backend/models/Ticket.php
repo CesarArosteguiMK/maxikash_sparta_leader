@@ -585,6 +585,15 @@ class Ticket extends Model
                     }
                 }
                 unset($row);
+                if (!$soloDelUsuario) {
+                    $intentosIlocalizablesPanel = self::getIntentosTicketIlocalizablePanel($db, $filtros);
+                    if (!empty($intentosIlocalizablesPanel)) {
+                        $datos = array_merge($datos, $intentosIlocalizablesPanel);
+                        usort($datos, function ($a, $b) {
+                            return strcmp((string)($b['fecha_creacion'] ?? ''), (string)($a['fecha_creacion'] ?? ''));
+                        });
+                    }
+                }
                 return self::resultado(true, 'Tickets encontrados.', $datos);
             } catch (\Exception $e) {
                 $lastException = $e;
@@ -2348,23 +2357,41 @@ class Ticket extends Model
                 semana_inicio DATE NOT NULL,
                 semana_fin DATE NOT NULL,
                 intentos INT NOT NULL DEFAULT 1,
+                estado_intento VARCHAR(20) NOT NULL DEFAULT 'abierto',
+                fecha_cierre DATETIME NULL,
+                id_persona_cierre INT NULL,
+                nombre_persona_cierre VARCHAR(255) NULL,
+                fecha_eliminacion DATETIME NULL,
+                id_persona_elimino INT NULL,
+                nombre_persona_elimino VARCHAR(255) NULL,
                 creado_en DATETIME NOT NULL,
                 actualizado_en DATETIME NOT NULL,
                 KEY idx_sab_ticket_iloc_credito (id_credito),
                 KEY idx_sab_ticket_iloc_semana (semana_inicio, semana_fin),
                 KEY idx_sab_ticket_iloc_actualizado (actualizado_en, id),
-                KEY idx_sab_ticket_iloc_persona (id_persona_creador, actualizado_en)
+                KEY idx_sab_ticket_iloc_persona (id_persona_creador, actualizado_en),
+                KEY idx_sab_ticket_iloc_estado_actualizado (estado_intento, actualizado_en, id),
+                KEY idx_sab_ticket_iloc_eliminacion (fecha_eliminacion)
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
         ");
         foreach ([
+            "ALTER TABLE __SPARTA_SECRET_REDACTED__.sabueso_ticket_ilocalizable_intentos ADD COLUMN estado_intento VARCHAR(20) NOT NULL DEFAULT 'abierto' AFTER intentos",
+            "ALTER TABLE __SPARTA_SECRET_REDACTED__.sabueso_ticket_ilocalizable_intentos ADD COLUMN fecha_cierre DATETIME NULL AFTER estado_intento",
+            "ALTER TABLE __SPARTA_SECRET_REDACTED__.sabueso_ticket_ilocalizable_intentos ADD COLUMN id_persona_cierre INT NULL AFTER fecha_cierre",
+            "ALTER TABLE __SPARTA_SECRET_REDACTED__.sabueso_ticket_ilocalizable_intentos ADD COLUMN nombre_persona_cierre VARCHAR(255) NULL AFTER id_persona_cierre",
+            "ALTER TABLE __SPARTA_SECRET_REDACTED__.sabueso_ticket_ilocalizable_intentos ADD COLUMN fecha_eliminacion DATETIME NULL AFTER nombre_persona_cierre",
+            "ALTER TABLE __SPARTA_SECRET_REDACTED__.sabueso_ticket_ilocalizable_intentos ADD COLUMN id_persona_elimino INT NULL AFTER fecha_eliminacion",
+            "ALTER TABLE __SPARTA_SECRET_REDACTED__.sabueso_ticket_ilocalizable_intentos ADD COLUMN nombre_persona_elimino VARCHAR(255) NULL AFTER id_persona_elimino",
             "ALTER TABLE __SPARTA_SECRET_REDACTED__.sabueso_ticket_ilocalizable_intentos ADD INDEX idx_sab_ticket_iloc_semana (semana_inicio, semana_fin)",
             "ALTER TABLE __SPARTA_SECRET_REDACTED__.sabueso_ticket_ilocalizable_intentos ADD INDEX idx_sab_ticket_iloc_actualizado (actualizado_en, id)",
             "ALTER TABLE __SPARTA_SECRET_REDACTED__.sabueso_ticket_ilocalizable_intentos ADD INDEX idx_sab_ticket_iloc_persona (id_persona_creador, actualizado_en)",
-        ] as $sqlIndex) {
+            "ALTER TABLE __SPARTA_SECRET_REDACTED__.sabueso_ticket_ilocalizable_intentos ADD INDEX idx_sab_ticket_iloc_estado_actualizado (estado_intento, actualizado_en, id)",
+            "ALTER TABLE __SPARTA_SECRET_REDACTED__.sabueso_ticket_ilocalizable_intentos ADD INDEX idx_sab_ticket_iloc_eliminacion (fecha_eliminacion)",
+        ] as $sqlSchema) {
             try {
-                $db->CRUD($sqlIndex);
+                $db->CRUD($sqlSchema);
             } catch (\Throwable $e) {
-                // El indice ya puede existir.
+                // La columna o el indice ya puede existir.
             }
         }
         $ok = true;
@@ -2436,7 +2463,9 @@ class Ticket extends Model
                     "UPDATE __SPARTA_SECRET_REDACTED__.sabueso_ticket_ilocalizable_intentos " .
                     "SET intentos = intentos + 1, actualizado_en = :now, descripcion_inicial = :descripcion_inicial, mensaje = :mensaje, " .
                     "id_tipo_ticket = :id_tipo_ticket, tipo_ticket_nombre = :tipo_ticket_nombre, id_origen_ticket = :id_origen_ticket, origen_ticket_nombre = :origen_ticket_nombre, " .
-                    "historico_id = :historico_id, historico_origen = :historico_origen, historico_motivo = :historico_motivo " .
+                    "historico_id = :historico_id, historico_origen = :historico_origen, historico_motivo = :historico_motivo, " .
+                    "estado_intento = 'abierto', fecha_cierre = NULL, id_persona_cierre = NULL, nombre_persona_cierre = NULL, " .
+                    "fecha_eliminacion = NULL, id_persona_elimino = NULL, nombre_persona_elimino = NULL " .
                     "WHERE id = :id",
                     [
                         'now' => $params['now'],
@@ -2460,16 +2489,153 @@ class Ticket extends Model
                 "INSERT INTO __SPARTA_SECRET_REDACTED__.sabueso_ticket_ilocalizable_intentos (" .
                 "id_credito, id_persona_creador, nombre_creador, categoria_gestion, id_tipo_ticket, tipo_ticket_nombre, " .
                 "id_origen_ticket, origen_ticket_nombre, descripcion_inicial, mensaje, historico_id, historico_origen, historico_motivo, " .
-                "semana_inicio, semana_fin, intentos, creado_en, actualizado_en" .
+                "semana_inicio, semana_fin, intentos, estado_intento, creado_en, actualizado_en" .
                 ") VALUES (" .
                 ":id_credito, :id_persona_creador, :nombre_creador, :categoria_gestion, :id_tipo_ticket, :tipo_ticket_nombre, " .
                 ":id_origen_ticket, :origen_ticket_nombre, :descripcion_inicial, :mensaje, :historico_id, :historico_origen, :historico_motivo, " .
-                ":semana_inicio, :semana_fin, 1, :creado_en, :actualizado_en" .
+                ":semana_inicio, :semana_fin, 1, 'abierto', :creado_en, :actualizado_en" .
                 ")",
                 $insertParams
             );
         } catch (\Throwable $e) {
             error_log('registrar intento ticket ilocalizable error: ' . $e->getMessage());
+        }
+    }
+
+    private static function filtrosPermitenIntentosIlocalizables(array $filtros, Database $db): bool
+    {
+        $categoria = isset($filtros['categoria_gestion'])
+            ? strtolower(preg_replace('/[^a-z0-9_]/', '', str_replace([' ', '-'], '_', trim((string)$filtros['categoria_gestion']))))
+            : '';
+        if ($categoria !== '' && $categoria !== 'sabueso') {
+            return false;
+        }
+
+        $idAsignado = isset($filtros['asignado']) ? (int)$filtros['asignado'] : 0;
+        if ($idAsignado > 0) {
+            return false;
+        }
+        if (isset($filtros['asignado_ids']) && is_array($filtros['asignado_ids']) && $idAsignado !== -1) {
+            return false;
+        }
+
+        $dictamenEnviado = isset($filtros['dictamen_enviado']) ? trim((string)$filtros['dictamen_enviado']) : '';
+        if ($dictamenEnviado === 'si') {
+            return false;
+        }
+        $dictamenVisto = isset($filtros['dictamen_visto']) ? trim((string)$filtros['dictamen_visto']) : '';
+        if ($dictamenVisto === 'si' || $dictamenVisto === 'no') {
+            return false;
+        }
+        $dsEstado = isset($filtros['ds_estado']) ? trim((string)$filtros['ds_estado']) : '';
+        if ($dsEstado !== '' && $dsEstado !== 'sin_ds') {
+            return false;
+        }
+
+        $prioridadId = isset($filtros['prioridad_id']) ? (int)$filtros['prioridad_id'] : 0;
+        if ($prioridadId > 0) {
+            try {
+                $prioridad = $db->queryOne(
+                    "SELECT nombre FROM prioridad_ticket WHERE id_prioridad = :id LIMIT 1",
+                    ['id' => $prioridadId]
+                );
+                $nombre = strtolower(trim((string)($prioridad['nombre'] ?? '')));
+                if ($nombre !== 'sin prioridad') {
+                    return false;
+                }
+            } catch (\Throwable $e) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    private static function getIntentosTicketIlocalizablePanel(Database $db, array $filtros = []): array
+    {
+        if (!self::filtrosPermitenIntentosIlocalizables($filtros, $db)) {
+            return [];
+        }
+
+        try {
+            self::asegurarIntentosTicketIlocalizableSchema($db);
+            $rows = $db->queryAll(
+                "SELECT " .
+                "(-1 * i.id) AS id_ticket, i.id AS id_intento_ilocalizable, 'Sin folio' AS folio, NULL AS id_credito, NULL AS id_estado_ticket, " .
+                "COALESCE(NULLIF(TRIM(i.descripcion_inicial), ''), i.mensaje) AS descripcion_inicial, " .
+                "i.actualizado_en AS fecha_creacion, NULL AS fecha_vencimiento, 'sabueso' AS categoria_gestion, " .
+                "NULL AS tipo_categoria, CONCAT('#', i.id_credito) AS asunto, NULL AS prioridad_categoria, NULL AS contacto_telefono, NULL AS contacto_email, " .
+                "NULL AS nota, NULL AS url_direccion, " .
+                "'Intento ilocalizable' AS tipo_ticket_nombre, 'Alerta enviada' AS estado_ticket_nombre, 'Sin Prioridad' AS prioridad_nombre, " .
+                "COALESCE(NULLIF(TRIM(i.origen_ticket_nombre), ''), 'Sistema') AS origen_nombre, " .
+                "COALESCE(NULLIF(TRIM(i.nombre_creador), ''), '—') AS creador_nombre, " .
+                "NULL AS id_persona_asignada, '' AS asignado_nombre, '' AS asignado_por_nombre, " .
+                "NULL AS dictamen_estado, NULL AS dictamen_fecha_visto, NULL AS dictamen_fecha_envio, " .
+                "NULL AS ds_resultado, NULL AS ds_detalle, '<span class=\"text-muted\">—</span>' AS ds_resultado_html, " .
+                "0 AS prorroga_otorgada, 0 AS prorroga_activa, NULL AS prorroga_fecha_limite, '' AS extension_countdown_tipo, '' AS prorroga_html, " .
+                "'intento_ilocalizable' AS tipo_registro, i.mensaje AS mensaje_intento_ilocalizable, i.intentos AS intentos_ilocalizable, " .
+                "i.creado_en AS intento_creado_en, i.actualizado_en AS intento_actualizado_en " .
+                "FROM __SPARTA_SECRET_REDACTED__.sabueso_ticket_ilocalizable_intentos i " .
+                "WHERE COALESCE(i.estado_intento, 'abierto') = 'abierto' AND i.fecha_eliminacion IS NULL " .
+                "ORDER BY i.actualizado_en DESC, i.id DESC LIMIT 1000"
+            );
+            return is_array($rows) ? $rows : [];
+        } catch (\Throwable $e) {
+            error_log('get intentos ticket ilocalizable panel error: ' . $e->getMessage());
+            return [];
+        }
+    }
+
+    public static function cambiarEstadoIntentoTicketIlocalizable(int $idIntento, string $accion, ?int $idPersona): array
+    {
+        if ($idIntento < 1) {
+            return self::resultado(false, 'ID de intento invalido.', null);
+        }
+        $accion = strtolower(trim($accion));
+        if (!in_array($accion, ['cerrado', 'eliminado'], true)) {
+            return self::resultado(false, 'Accion invalida.', null);
+        }
+
+        try {
+            $db = new Database();
+            self::asegurarIntentosTicketIlocalizableSchema($db);
+            $now = self::ahoraCdmx();
+            $persona = $idPersona && $idPersona > 0 ? $db->queryOne(
+                "SELECT TRIM(CONCAT(TRIM(IFNULL(nombres,'')), ' ', TRIM(IFNULL(segundo_nombre,'')), ' ', TRIM(IFNULL(apellidop,'')), ' ', TRIM(IFNULL(apellidom,'')))) AS nombre FROM persona WHERE id = :id LIMIT 1",
+                ['id' => $idPersona]
+            ) : null;
+            $nombrePersona = trim((string)($persona['nombre'] ?? '')) ?: null;
+
+            if ($accion === 'cerrado') {
+                $afectados = $db->CRUD(
+                    "UPDATE __SPARTA_SECRET_REDACTED__.sabueso_ticket_ilocalizable_intentos " .
+                    "SET estado_intento = 'cerrado', fecha_cierre = :now, id_persona_cierre = :id_persona, nombre_persona_cierre = :nombre, actualizado_en = :now " .
+                    "WHERE id = :id AND fecha_eliminacion IS NULL",
+                    [
+                        'now' => $now,
+                        'id_persona' => $idPersona && $idPersona > 0 ? $idPersona : null,
+                        'nombre' => $nombrePersona,
+                        'id' => $idIntento,
+                    ]
+                );
+                return self::resultado($afectados > 0, $afectados > 0 ? 'Registro cerrado.' : 'No se encontro el registro.', null);
+            }
+
+            $afectados = $db->CRUD(
+                "UPDATE __SPARTA_SECRET_REDACTED__.sabueso_ticket_ilocalizable_intentos " .
+                "SET estado_intento = 'eliminado', fecha_eliminacion = :now, id_persona_elimino = :id_persona, nombre_persona_elimino = :nombre, actualizado_en = :now " .
+                "WHERE id = :id AND fecha_eliminacion IS NULL",
+                [
+                    'now' => $now,
+                    'id_persona' => $idPersona && $idPersona > 0 ? $idPersona : null,
+                    'nombre' => $nombrePersona,
+                    'id' => $idIntento,
+                ]
+            );
+            return self::resultado($afectados > 0, $afectados > 0 ? 'Registro eliminado.' : 'No se encontro el registro.', null);
+        } catch (\Throwable $e) {
+            error_log('cambiar estado intento ticket ilocalizable error: ' . $e->getMessage());
+            return self::resultado(false, 'No se pudo actualizar el registro.', null, $e->getMessage());
         }
     }
 

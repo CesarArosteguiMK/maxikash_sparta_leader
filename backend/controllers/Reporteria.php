@@ -1522,13 +1522,18 @@ class Reporteria extends Controller
      * Avance Bucket: matriz Bucket_Morosidad_Real vs Cierre_Ajustado2.
      * URL canonica: /analitica/avanceBucket
      */
-    public function avanceBucket()
+    public function avanceBucket($vistaRuta = null)
     {
         self::set('titulo', 'Avance Bucket');
         $payload = null;
         $error = null;
-        $vista = isset($_GET['vista']) ? (string) $_GET['vista'] : '';
+        $vista = strtolower(trim((string) ($vistaRuta ?? ($_GET['vista'] ?? ''))));
         $mostrarAvance = in_array($vista, ['avance', 'historico'], true);
+
+        if ($vistaRuta === null && isset($_GET['vista']) && $mostrarAvance) {
+            header('Location: /analitica/avanceBucket/' . $vista, true, 302);
+            exit;
+        }
 
         if ($mostrarAvance) {
             try {
@@ -1555,6 +1560,7 @@ class Reporteria extends Controller
         self::set('avance_bucket_payload', $payload);
         self::set('avance_bucket_error', $error);
         self::set('avance_bucket_initial_json', $initialJson);
+        self::set('avance_bucket_vista', $vista);
         self::set('script', '');
         self::render('avance_bucket');
     }
