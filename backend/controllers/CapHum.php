@@ -8764,7 +8764,8 @@ class CapHum extends Controller
                     return;
                 }
                 clearDocModalPoll();
-                if (!metricas || metricas.expediente_completo !== true || (verif && verif.verificacion_en_proceso !== true)) {
+                var procesoActivo = !!(verif && verif.verificacion_en_proceso === true && !motorV2ProcesoVencido(verif));
+                if (!metricas || metricas.expediente_completo !== true || (verif && !procesoActivo)) {
                     return;
                 }
                 var intentos = 0;
@@ -12286,7 +12287,7 @@ class CapHum extends Controller
                         metricas: metricas
                     });
 
-                    if (verif && verif.verificacion_en_proceso !== true) {
+                    if (verif && (verif.verificacion_en_proceso !== true || motorV2ProcesoVencido(verif))) {
                         clearDocModalPoll();
                     }
 
@@ -15838,6 +15839,22 @@ class CapHum extends Controller
             && $this->docVerifResultadoTecnico($nuevo);
     }
 
+    private function docVerifProcesoEnCursoVencido($verificacion, int $segundos = 180): bool
+    {
+        if (!is_array($verificacion)) {
+            return false;
+        }
+        if (empty($verificacion['verificacion_en_proceso'])) {
+            return false;
+        }
+        $inicioRaw = trim((string) ($verificacion['iniciado_en'] ?? $verificacion['started_at'] ?? $verificacion['fecha_inicio'] ?? ''));
+        if ($inicioRaw === '') {
+            return true;
+        }
+        $inicioTs = @strtotime($inicioRaw);
+        return $inicioTs === false || (time() - $inicioTs) > max(30, $segundos);
+    }
+
     private function docVerifExpedientePendienteTecnico($verificacion): bool
     {
         if (!is_array($verificacion)) {
@@ -15847,14 +15864,7 @@ class CapHum extends Controller
             return false;
         }
         if (!empty($verificacion['verificacion_en_proceso'])) {
-            $inicioRaw = trim((string) ($verificacion['iniciado_en'] ?? $verificacion['started_at'] ?? $verificacion['fecha_inicio'] ?? ''));
-            if ($inicioRaw !== '') {
-                $inicioTs = @strtotime($inicioRaw);
-                if ($inicioTs !== false && (time() - $inicioTs) > 180) {
-                    return true;
-                }
-            }
-            return false;
+            return $this->docVerifProcesoEnCursoVencido($verificacion, 180);
         }
         if (!empty($verificacion['api_pendiente'])) {
             return true;
@@ -15866,6 +15876,27 @@ class CapHum extends Controller
             && trim((string) ($verificacion['error_api'] ?? '')) === '';
     }
 
+    private function docVerifDebeAutoEncolarExpediente($verificacion): bool
+    {
+        if (!is_array($verificacion)) {
+            return true;
+        }
+        if (($verificacion['modo_verificacion'] ?? null) === 'archivos_no_disponibles') {
+            return false;
+        }
+        if (!empty($verificacion['verificacion_en_proceso'])) {
+            return false;
+        }
+        if (!empty($verificacion['api_pendiente']) || trim((string) ($verificacion['error_api'] ?? '')) !== '') {
+            return false;
+        }
+        $checks = isset($verificacion['checks_totales']) ? (int) $verificacion['checks_totales'] : null;
+        return $checks === 0
+            && empty($verificacion['comparaciones'])
+            && empty($verificacion['comparaciones_v2'])
+            && empty($verificacion['documentos_analizados_v2']);
+    }
+
     private function docListCacheTienePendienteTecnico(string $json): bool
     {
         $dec = json_decode($json, true);
@@ -15874,6 +15905,12 @@ class CapHum extends Controller
         }
         $verificacion = $dec['datos']['verificacion_expediente'] ?? null;
         $metricas = $dec['datos']['metricas'] ?? [];
+        if (is_array($verificacion)
+            && empty($verificacion['verificacion_en_proceso'])
+            && !empty($verificacion['api_pendiente'])
+            && trim((string) ($verificacion['error_api'] ?? '')) !== '') {
+            return false;
+        }
         if (!empty($metricas['expediente_completo']) && ($verificacion === null || $this->docVerifExpedientePendienteTecnico($verificacion))) {
             return true;
         }
@@ -16048,7 +16085,19 @@ class CapHum extends Controller
         $payload['metricas']['validados'] = (int) ($conteoValidados['validados'] ?? 0);
         $payload['metricas'] = $this->calcularMetricasDocumentosCandidato($documentos, $id_candidato);
 
-        if (!empty($payload['metricas']['expediente_completo']) && ($verificacion === null || $this->docVerifExpedientePendienteTecnico($verificacion))) {
+        if (!empty($payload['metricas']['expediente_completo']) && $this->docVerifProcesoEnCursoVencido($verificacion, 180)) {
+            $this->guardarVerificacionExpedienteErrorMotorV2(
+                (int) $id_candidato,
+                'El analisis documental tardo mas de lo esperado. Los documentos siguen cargados; pulse Reevaluar para intentarlo de nuevo.',
+                ['No se marco revision manual por este motivo.']
+            );
+            $verificacion = CandidatosDAO::getVerificacionExpediente($id_candidato);
+            if (is_array($verificacion)) {
+                $payload['verificacion_expediente'] = $verificacion;
+            }
+        }
+
+        if (!empty($payload['metricas']['expediente_completo']) && $this->docVerifDebeAutoEncolarExpediente($verificacion)) {
             $candidatoRes = CandidatosDAO::getById($id_candidato);
             $candidato = ($candidatoRes['success'] ?? false) && !empty($candidatoRes['datos']) ? $candidatoRes['datos'] : [];
             $nombreCandidatoRegistro = $this->nombreCompletoCandidatoRegistro($candidato);
@@ -16117,6 +16166,12 @@ class CapHum extends Controller
      */
     private function encolarVerificacionDocumentalCandidato($id_candidato, array $tiposSubidos = [], ?bool $expedienteCompleto = null, string $origen = 'upload'): array
     {
+        if (in_array($origen, ['reintento_modal', 'modal_auto_reintento'], true)) {
+            CandidatosDAO::cancelarJobsVerificacionDocumentalActivos(
+                (int) $id_candidato,
+                'Reevaluacion documental solicitada; se cancela trabajo anterior.'
+            );
+        }
         $res = CandidatosDAO::encolarVerificacionDocumental((int) $id_candidato, $tiposSubidos, $expedienteCompleto, $origen);
         if (!empty($res['success']) && $expedienteCompleto === true) {
             $payloadEnProceso = [
@@ -16138,7 +16193,14 @@ class CapHum extends Controller
             CandidatosDAO::updateVerificacionExpediente((int) $id_candidato, json_encode($payloadEnProceso));
         }
         if (!empty($res['success'])) {
-            $this->lanzarWorkerVerificacionDocumental();
+            $workerLanzado = $this->lanzarWorkerVerificacionDocumental();
+            if (!isset($res['datos']) || !is_array($res['datos'])) {
+                $res['datos'] = [];
+            }
+            $res['datos']['worker_lanzado'] = $workerLanzado;
+            if (!$workerLanzado) {
+                error_log('CapHum::encolarVerificacionDocumental: job encolado pero no se pudo lanzar worker.');
+            }
         } else {
             error_log('CapHum::encolarVerificacionDocumental: ' . ($res['error'] ?? $res['mensaje'] ?? 'error desconocido'));
         }
@@ -16175,13 +16237,13 @@ class CapHum extends Controller
         return 'php';
     }
 
-    private function lanzarWorkerVerificacionDocumental(): void
+    private function lanzarWorkerVerificacionDocumental(): bool
     {
         $projectRoot = defined('RAIZ') ? dirname(RAIZ) : dirname(__DIR__, 2);
         $script = $projectRoot . DIRECTORY_SEPARATOR . 'scripts' . DIRECTORY_SEPARATOR . 'procesar_verificacion_documental.php';
         if (!is_file($script)) {
             error_log('CapHum::lanzarWorkerVerificacionDocumental: no existe script ' . $script);
-            return;
+            return false;
         }
         $php = $this->phpCliBinarioVerificacionDocumental();
         $nullDevice = stripos(PHP_OS_FAMILY, 'Windows') !== false ? 'NUL' : '/dev/null';
@@ -16201,14 +16263,26 @@ class CapHum extends Controller
                 $h = @popen($cmd, 'r');
                 if (is_resource($h)) {
                     @pclose($h);
+                    return true;
                 }
+                error_log('CapHum::lanzarWorkerVerificacionDocumental: popen no devolvio recurso.');
+                return false;
             } else {
                 $cmd = escapeshellarg($php) . ' ' . escapeshellarg($script) . ' --max 5 > /dev/null 2>&1 &';
-                @exec($cmd);
+                $salida = [];
+                $codigo = 0;
+                @exec($cmd, $salida, $codigo);
+                if ($codigo !== 0) {
+                    error_log('CapHum::lanzarWorkerVerificacionDocumental: exec termino con codigo ' . $codigo);
+                    return false;
+                }
+                return true;
             }
         } catch (\Throwable $e) {
             error_log('CapHum::lanzarWorkerVerificacionDocumental: ' . $e->getMessage());
+            return false;
         }
+        return false;
     }
 
     public function procesarSiguienteVerificacionDocumentalJob(): array
@@ -16431,6 +16505,8 @@ class CapHum extends Controller
             }
             echo json_encode(self::respuesta(true, 'Analisis documental iniciado en segundo plano. La documentacion se actualizara automaticamente.', [
                 'verificacion_en_proceso' => true,
+                'job_id' => (int) ($resEncolado['datos']['id_job'] ?? 0),
+                'worker_lanzado' => !empty($resEncolado['datos']['worker_lanzado']),
             ]));
             return;
 

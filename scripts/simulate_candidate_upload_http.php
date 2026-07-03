@@ -38,6 +38,18 @@ function sim_candidate_files(string $case): array
 {
     $base = 'C:/Users/amigo_j9s4pcx/Downloads/Pruebas';
     $cases = [
+        'rojas' => [
+            1 => $base . '/34. ROJAS ROJAS LUIS ANGEL/SOLICITUD.pdf',
+            2 => $base . '/34. ROJAS ROJAS LUIS ANGEL/CV.pdf',
+            3 => $base . '/34. ROJAS ROJAS LUIS ANGEL/ACTA NACIMIENTO.pdf',
+            4 => $base . '/34. ROJAS ROJAS LUIS ANGEL/CURP.pdf',
+            5 => $base . '/34. ROJAS ROJAS LUIS ANGEL/INE.pdf',
+            6 => $base . '/34. ROJAS ROJAS LUIS ANGEL/DOMICILIO.pdf',
+            7 => $base . '/34. ROJAS ROJAS LUIS ANGEL/CSF.pdf',
+            8 => $base . '/34. ROJAS ROJAS LUIS ANGEL/NSS.pdf',
+            9 => $base . '/34. ROJAS ROJAS LUIS ANGEL/CARTA NO CREDITOS.pdf',
+            10 => $base . '/34. ROJAS ROJAS LUIS ANGEL/BBVA.pdf',
+        ],
         'gomez' => [
             1 => $base . '/35. GOMEZ VEJAR SILVIA/SOLICITUD.pdf',
             2 => $base . '/35. GOMEZ VEJAR SILVIA/CV.pdf',
@@ -49,6 +61,30 @@ function sim_candidate_files(string $case): array
             8 => $base . '/35. GOMEZ VEJAR SILVIA/NSS.pdf',
             9 => $base . '/35. GOMEZ VEJAR SILVIA/CARTA NO CREDITOS.pdf',
             10 => $base . '/35. GOMEZ VEJAR SILVIA/BBVA.pdf',
+        ],
+        'corona' => [
+            1 => $base . '/37. CORONA CRUZ MIGUEL ANGEL/SOLICITUD.pdf',
+            2 => $base . '/37. CORONA CRUZ MIGUEL ANGEL/CV.pdf',
+            3 => $base . '/37. CORONA CRUZ MIGUEL ANGEL/ACTA NACIMIENTO.pdf',
+            4 => $base . '/37. CORONA CRUZ MIGUEL ANGEL/CURP.pdf',
+            5 => $base . '/37. CORONA CRUZ MIGUEL ANGEL/INE.pdf',
+            6 => $base . '/37. CORONA CRUZ MIGUEL ANGEL/DOMICILIO.pdf',
+            7 => $base . '/37. CORONA CRUZ MIGUEL ANGEL/CSF.pdf',
+            8 => $base . '/37. CORONA CRUZ MIGUEL ANGEL/NSS.pdf',
+            9 => $base . '/37. CORONA CRUZ MIGUEL ANGEL/CARTA NO CREDITOS.pdf',
+            10 => $base . '/37. CORONA CRUZ MIGUEL ANGEL/BBVA.pdf',
+        ],
+        'teran' => [
+            1 => $base . '/38. TERAN GARCIA MARGARITA/SOLICITUD.pdf',
+            2 => $base . '/38. TERAN GARCIA MARGARITA/CV.pdf',
+            3 => $base . '/38. TERAN GARCIA MARGARITA/ACTA NACIMIENTO.pdf',
+            4 => $base . '/38. TERAN GARCIA MARGARITA/CURP.pdf',
+            5 => $base . '/38. TERAN GARCIA MARGARITA/INE.pdf',
+            6 => $base . '/38. TERAN GARCIA MARGARITA/DOMICILIO.pdf',
+            7 => $base . '/38. TERAN GARCIA MARGARITA/CSF.pdf',
+            8 => $base . '/38. TERAN GARCIA MARGARITA/NSS.pdf',
+            9 => $base . '/38. TERAN GARCIA MARGARITA/CARTA NO CREDITOS.pdf',
+            10 => $base . '/38. TERAN GARCIA MARGARITA/BBVA.pdf',
         ],
         'prueba' => [
             1 => $base . '/prueba candidato/Solicitud_Maxikash_JIMENEZ.pdf',
@@ -79,11 +115,29 @@ function sim_candidate_profile(string $case, bool $mismatch): array
     }
 
     $profiles = [
+        'rojas' => [
+            'nombres' => 'LUIS ANGEL',
+            'apellidop' => 'ROJAS',
+            'apellidom' => 'ROJAS',
+            'email_prefix' => 'codex.upload.rojas.' . date('YmdHis'),
+        ],
         'gomez' => [
             'nombres' => 'SILVIA',
             'apellidop' => 'GOMEZ',
             'apellidom' => 'VEJAR',
             'email_prefix' => 'codex.upload.gomez.' . date('YmdHis'),
+        ],
+        'corona' => [
+            'nombres' => 'MIGUEL ANGEL',
+            'apellidop' => 'CORONA',
+            'apellidom' => 'CRUZ',
+            'email_prefix' => 'codex.upload.corona.' . date('YmdHis'),
+        ],
+        'teran' => [
+            'nombres' => 'MARGARITA',
+            'apellidop' => 'TERAN',
+            'apellidom' => 'GARCIA',
+            'email_prefix' => 'codex.upload.teran.' . date('YmdHis'),
         ],
         'prueba' => [
             'nombres' => 'JESUS ANGEL',
