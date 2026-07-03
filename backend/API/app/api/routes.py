@@ -1070,9 +1070,9 @@ def _resultado_v2_reglas_expediente(
 
         if not summary_is_usable(summary):
             out["estado"] = "requiere_revision"
-            out["mensaje"] = "Lectura automatica pendiente; el documento no se marcara como falla documental hasta completar la revision."
+            out["mensaje"] = "No se pudo obtener lectura automatica de este documento en el ultimo intento."
             docs_out[key] = out
-            alertas.append(f"{label}: lectura automatica pendiente para completar el cruce final.")
+            alertas.append(f"{label}: no se pudo leer automaticamente en el ultimo intento.")
             continue
 
         out["nombre"] = _v2_first_value(previo, ["nombre", "nombre_completo", "nombre_propietario", "nombre_titular", "titular_cuenta"])
