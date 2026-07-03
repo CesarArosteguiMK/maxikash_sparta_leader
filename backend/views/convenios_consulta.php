@@ -1092,7 +1092,7 @@ body.dark-mode .manual-faq-modal .manual-pill { background: rgba(167,139,250,.16
                                 <div class="manual-rule">
                                     <i class="fa-solid fa-calendar-day me-1"></i>
                                     <strong>Mora mínima</strong>
-                                    <span>El crédito debe estar en bucket de 22 días o más. Si está current, 1 a 7, 8 a 14 o 15 a 21 días, no es candidato normal para convenio.</span>
+                                    <span>El crédito debe estar en bucket de 8 días o más. Si está current o 1 a 7 días, no es candidato normal para convenio.</span>
                                 </div>
                             </div>
                             <div class="col-md-6">
@@ -1197,7 +1197,7 @@ body.dark-mode .manual-faq-modal .manual-pill { background: rgba(167,139,250,.16
                         <div class="manual-pane-title">Preguntas frecuentes</div>
                         <div class="manual-step">
                             <span class="manual-step-num"><i class="fa-solid fa-question"></i></span>
-                            <div><strong>¿Por qué no veo ofertas?</strong><br><span class="text-muted">Puede estar en un bucket menor a 22 días, no cumplir avance mínimo, tener el producto bloqueado por incumplimiento o no existir en la fuente de consulta.</span></div>
+                            <div><strong>¿Por qué no veo ofertas?</strong><br><span class="text-muted">Puede estar en un bucket menor a 8 días, no cumplir avance mínimo, tener el producto bloqueado por incumplimiento o no existir en la fuente de consulta.</span></div>
                         </div>
                         <div class="manual-step">
                             <span class="manual-step-num"><i class="fa-solid fa-question"></i></span>
@@ -4721,7 +4721,7 @@ function _bucketMinimoDiasConvenio(bucket) {
 }
 
 function _creditoCumpleBucketConvenio(credito) {
-    return _bucketMinimoDiasConvenio(credito && credito.Bucket_Morosidad_Real) >= 22;
+    return _bucketMinimoDiasConvenio(credito && credito.Bucket_Morosidad_Real) >= 8;
 }
 
 function _migBloquearPorBucket(credito, info) {
@@ -4757,7 +4757,7 @@ function _migBloquearPorBucket(credito, info) {
             '<div>' +
             '<strong>No cumple condicion para convenio</strong><br>' +
             '<span>' + ((credito && credito.Nombre_cliente) || 'Cliente') + ' &mdash; Credito #' + ((credito && credito.Id_credito) || '') + '</span><br>' +
-            '<small class="d-block mt-1"><strong>Condición:</strong> solo créditos en bucket 22 días o más pueden registrar un convenio existente.</small>' +
+            '<small class="d-block mt-1"><strong>Condición:</strong> solo créditos en bucket 8 días o más pueden registrar un convenio existente.</small>' +
             '<small class="d-block text-muted">Bucket actual: <strong>' + bucket + '</strong>; no cumple porque ' + motivo + ', por debajo del minimo requerido.</small>' +
             '</div>' +
             '</div>';
@@ -6600,7 +6600,7 @@ window.migGuardar = function () {
     if (_migBloqueadoPorBucket || !_creditoCumpleBucketConvenio(_migCredito)) {
         Swal.fire(
             'No cumple condicion',
-            'Solo créditos en bucket 22 días o más pueden registrar un convenio existente.',
+            'Solo créditos en bucket 8 días o más pueden registrar un convenio existente.',
             'warning'
         );
         return;

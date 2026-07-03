@@ -8,8 +8,8 @@ use Core\DatabaseSegundometro;
 
 class Convenios extends Model
 {
-    // Buckets elegibles para cualquier oferta (mora > 22 días)
-    private static $BUCKETS_ELEGIBLES = ['e) 22 a 30 dias', 'f) 31 a 60 dias', 'g) 61 a 90 dias', 'h) 91 a 120 dias', 'i) 121+ dias'];
+    // Buckets elegibles para cualquier oferta (mora 8+ dias)
+    private static $BUCKETS_ELEGIBLES = ['c) 8 a 14 dias', 'd) 15 a 21 dias', 'e) 22 a 30 dias', 'f) 31 a 60 dias', 'g) 61 a 90 dias', 'h) 91 a 120 dias', 'i) 121+ dias'];
 
     // ─────────────────────────────────────────────
     // BÚSQUEDA DE CRÉDITO
