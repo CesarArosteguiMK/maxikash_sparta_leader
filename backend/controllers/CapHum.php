@@ -13198,9 +13198,12 @@ class CapHum extends Controller
             var input = document.getElementById("fechaIngresoCandidato");
             if (!input || typeof flatpickr === "undefined") return;
             if (input._flatpickr) return;
+            var fechaMinimaIngreso = new Date();
+            fechaMinimaIngreso.setHours(0, 0, 0, 0);
+            fechaMinimaIngreso.setDate(fechaMinimaIngreso.getDate() - 5);
             flatpickr(input, {
                 dateFormat: "Y-m-d",
-                minDate: "today",
+                minDate: fechaMinimaIngreso,
                 allowInput: false,
                 clickOpens: true,
                 static: true,
@@ -17332,9 +17335,10 @@ class CapHum extends Controller
             return;
         }
         $hoy = new \DateTime('today', new \DateTimeZone('America/Mexico_City'));
+        $fechaMinimaIngreso = (clone $hoy)->modify('-5 days');
         $fechaDt = \DateTime::createFromFormat('Y-m-d', $fechaIngresoNormalizada, new \DateTimeZone('America/Mexico_City'));
-        if ($fechaDt < $hoy) {
-            echo json_encode(self::respuesta(false, 'La fecha de ingreso no puede ser anterior a hoy.'));
+        if ($fechaDt < $fechaMinimaIngreso) {
+            echo json_encode(self::respuesta(false, 'La fecha de ingreso solo puede ser hasta 5 dÃ­as anterior a hoy.'));
             return;
         }
         $candidatoRes = CandidatosDAO::getById($id_candidato);
