@@ -329,7 +329,7 @@ class AtencionClientes
                     'id_op' => $idOperacion,
                     'anterior' => $estatusAnterior,
                     'nuevo' => $estatusNuevo,
-                    'id_usr' => $idUsuario ?: null,
+                    'id_usr' => $idUsuario > 0 ? $idUsuario : 0,
                     'fecha' => $fecha,
                 ]
             );
@@ -1501,7 +1501,6 @@ SQL;
             return ['success' => false, 'message' => 'Esta operacion ya fue cancelada o enviada a BlackList.'];
         }
 
-        $estatusNuevo = $tipoCancelacion === 'blacklist' ? 'BlackList' : 'Visto Bueno Denegado';
         $estatusBlacklist = $tipoCancelacion === 'blacklist' ? 'BLACKLIST_MOTOS_ADJUDICADAS' : 'VISTO_BUENO_DENEGADO';
         $accion = $tipoCancelacion === 'blacklist'
             ? 'BlackList Motos Adjudicadas: ' . $motivo
@@ -1529,16 +1528,11 @@ SQL;
                 'fecha_bloqueo' => $fecha,
             ]
         );
+        $blacklistId = (int) $this->db->lastInsertId();
+        $this->marcarProcesoLegacyRechazado($idOperacion, $idCredito, $blacklistId, $motivo, $fecha);
 
         $estatusAnterior = (string) ($op['estatus'] ?? '');
-        $this->db->CRUD(
-            'UPDATE adj_operacion
-                SET estatus = :estatus
-              WHERE id = :id',
-            ['estatus' => $estatusNuevo, 'id' => $idOperacion]
-        );
-
-        $this->registrarHistorialEstatus($idOperacion, $estatusAnterior, $estatusNuevo, $idUsuario, $fecha);
+        $this->registrarHistorialEstatus($idOperacion, $estatusAnterior, $estatusBlacklist, $idUsuario, $fecha);
         $this->registrarBitacora($idOperacion, $accion, $idUsuario, $nombreUsuario, $fecha);
 
         return [
@@ -1549,6 +1543,41 @@ SQL;
             'mensaje_asesor' => 'No se tiene Visto Bueno para adjudicar la Moto. Si tienes cualquier duda, contacta a tu lider.',
             'estatus' => $estatusBlacklist,
         ];
+    }
+
+    private function marcarProcesoLegacyRechazado(int $idOperacion, int $idCredito, int $blacklistId, string $motivo, string $fecha): void
+    {
+        if ($idOperacion <= 0) {
+            return;
+        }
+        $motivo = trim($motivo);
+        if (function_exists('mb_substr')) {
+            $motivo = mb_substr($motivo, 0, 255, 'UTF-8');
+        } else {
+            $motivo = substr($motivo, 0, 255);
+        }
+
+        $this->db->CRUD(
+            'INSERT INTO moto_entrega_proceso_legacy
+                (id_operacion, id_adj_operacion_blacklist, id_credito, rechazada, rechazada_at, motivo_rechazo, updated_at)
+             VALUES
+                (:id_operacion, :blacklist_id, :id_credito, 1, :rechazada_at, :motivo_rechazo, :updated_at)
+             ON DUPLICATE KEY UPDATE
+                id_adj_operacion_blacklist = VALUES(id_adj_operacion_blacklist),
+                id_credito = VALUES(id_credito),
+                rechazada = 1,
+                rechazada_at = VALUES(rechazada_at),
+                motivo_rechazo = VALUES(motivo_rechazo),
+                updated_at = VALUES(updated_at)',
+            [
+                'id_operacion' => $idOperacion,
+                'blacklist_id' => $blacklistId > 0 ? $blacklistId : null,
+                'id_credito' => $idCredito > 0 ? (string) $idCredito : null,
+                'rechazada_at' => $fecha,
+                'motivo_rechazo' => $motivo !== '' ? $motivo : null,
+                'updated_at' => $fecha,
+            ]
+        );
     }
 
     public function liberarBlacklist(int $blacklistId, string $motivo, int $idUsuario, string $nombreUsuario): array
